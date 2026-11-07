@@ -5,6 +5,10 @@
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
+mod admission;
+pub mod field_path;
+pub use admission::{admit_design_identities_and_ranges, validate_design_geometry};
+
 #[expect(
     missing_docs,
     reason = "undocumented before 2.1-Q217; document when this file is next touched"
@@ -481,141 +485,6 @@ impl GeoPoint {
             && self.lat.is_finite()
             && (-WEB_MERCATOR_MAX_LATITUDE_DEG..=WEB_MERCATOR_MAX_LATITUDE_DEG).contains(&self.lat)
     }
-}
-
-/// Check every persisted position of an admitted Design. Serde accepts any
-/// finite `f64`; the WGS84 and Web Mercator ranges are enforced here so native
-/// admission matches the generated Web schema.
-pub fn validate_design_geometry(file: &CanopiFile) -> Result<(), String> {
-    let check = |point: &GeoPoint, path: String| {
-        if point.is_valid() {
-            Ok(())
-        } else {
-            Err(format!(
-                "{path}: expected lon in [-180, 180] and a Web Mercator latitude"
-            ))
-        }
-    };
-    for (index, plant) in file.plants.iter().enumerate() {
-        check(&plant.position, format!("$.plants[{index}].position"))?;
-    }
-    for (index, zone) in file.zones.iter().enumerate() {
-        for (point_index, point) in zone.points.iter().enumerate() {
-            check(point, format!("$.zones[{index}].points[{point_index}]"))?;
-        }
-        if !zone.rotation.is_finite() {
-            return Err(format!(
-                "$.zones[{index}].rotation: expected a finite number"
-            ));
-        }
-    }
-    for (index, annotation) in file.annotations.iter().enumerate() {
-        check(
-            &annotation.position,
-            format!("$.annotations[{index}].position"),
-        )?;
-    }
-    for (index, guide) in file.measurement_guides.iter().enumerate() {
-        check(&guide.start, format!("$.measurement_guides[{index}].start"))?;
-        check(&guide.end, format!("$.measurement_guides[{index}].end"))?;
-    }
-    Ok(())
-}
-
-/// Identities and ranges of an admitted Design, checked after version
-/// admission. Plants, zones, annotations, measurement guides and groups need
-/// unique, non-empty ids because targets, groups and saved views refer to
-/// them; Canopi never invents a missing one. Opacities, scales and font sizes must be
-/// finite and in range, and the LiDAR section must be the schema this build
-/// writes, with named entries and any custom colour range a finite rising pair.
-pub fn admit_design_identities_and_ranges(file: &CanopiFile) -> Result<(), String> {
-    check_unique_ids("plants", file.plants.iter().map(|plant| plant.id.as_str()))?;
-    for (index, plant) in file.plants.iter().enumerate() {
-        if plant
-            .scale
-            .is_some_and(|scale| !(scale.is_finite() && scale > 0.0))
-        {
-            return Err(format!(
-                "$.plants[{index}].scale: expected a finite number above 0"
-            ));
-        }
-        if plant.rotation.is_some_and(|rotation| !rotation.is_finite()) {
-            return Err(format!(
-                "$.plants[{index}].rotation: expected a finite number"
-            ));
-        }
-    }
-    check_unique_ids(
-        "measurement_guides",
-        file.measurement_guides
-            .iter()
-            .map(|guide| guide.id.as_str()),
-    )?;
-    check_unique_ids("zones", file.zones.iter().map(|zone| zone.id.as_str()))?;
-    check_unique_ids(
-        "annotations",
-        file.annotations
-            .iter()
-            .map(|annotation| annotation.id.as_str()),
-    )?;
-    check_unique_ids("groups", file.groups.iter().map(|group| group.id.as_str()))?;
-    for (index, annotation) in file.annotations.iter().enumerate() {
-        if !(annotation.font_size.is_finite() && annotation.font_size > 0.0) {
-            return Err(format!(
-                "$.annotations[{index}].font_size: expected a finite number above 0"
-            ));
-        }
-        if annotation
-            .rotation
-            .is_some_and(|rotation| !rotation.is_finite())
-        {
-            return Err(format!(
-                "$.annotations[{index}].rotation: expected a finite number"
-            ));
-        }
-    }
-    for (index, layer) in file.layers.iter().enumerate() {
-        if !(layer.opacity.is_finite() && (0.0..=1.0).contains(&layer.opacity)) {
-            return Err(format!(
-                "$.layers[{index}].opacity: expected a number in [0, 1]"
-            ));
-        }
-    }
-    if let Some(lidar) = &file.lidar {
-        for (index, entry) in lidar.entries.iter().enumerate() {
-            if !(entry.opacity.is_finite() && (0.0..=1.0).contains(&entry.opacity)) {
-                return Err(format!(
-                    "$.lidar.entries[{index}].opacity: expected a number in [0, 1]"
-                ));
-            }
-            if entry.name.trim().is_empty() {
-                return Err(format!(
-                    "$.lidar.entries[{index}].name: expected a non-empty name"
-                ));
-            }
-            if let Some(crate::lidar::LidarColourRange::Custom { min, max }) = entry.range
-                && !(min.is_finite() && max.is_finite() && min < max)
-            {
-                return Err(format!(
-                    "$.lidar.entries[{index}].range: expected finite min and max with min below max"
-                ));
-            }
-        }
-    }
-    Ok(())
-}
-
-fn check_unique_ids<'a>(key: &str, ids: impl Iterator<Item = &'a str>) -> Result<(), String> {
-    let mut seen = std::collections::HashSet::new();
-    for (index, id) in ids.enumerate() {
-        if id.is_empty() {
-            return Err(format!("$.{key}[{index}].id: expected a non-empty id"));
-        }
-        if !seen.insert(id) {
-            return Err(format!("$.{key}[{index}].id: duplicate id {id:?}"));
-        }
-    }
-    Ok(())
 }
 
 #[cfg_attr(feature = "design-schema", derive(schemars::JsonSchema))]

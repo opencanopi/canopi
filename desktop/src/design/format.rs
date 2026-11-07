@@ -273,7 +273,8 @@ fn admit_current_design_value(
         .and_then(|()| validate_views_and_stories(&file.views, &file.stories))
         .and_then(|()| validate_map_view(file.map_view.as_ref()))
         .map_err(|error| {
-            CanopiDesignIngestionError::new(CanopiDesignIngestionErrorKind::InvalidDocument, error)
+            let kind = CanopiDesignIngestionErrorKind::InvalidDocument;
+            CanopiDesignIngestionError::new(kind, error.to_string())
         })?;
     Ok(file)
 }
@@ -431,8 +432,7 @@ mod tests {
             };
             assert_eq!(error.kind.as_str(), expected_kind, "{id}");
             // serde reports a shape error at the root without its path; the
-            // corpus names that as `native_error_path` (canopi-cyqd shares
-            // the validators in 2.1).
+            // corpus names that as `native_error_path` until canopi-cyqd.
             let expected_path = case
                 .get("native_error_path")
                 .or_else(|| case.get("error_path"))
@@ -1170,9 +1170,9 @@ mod tests {
     #[test]
     fn an_invalid_map_view_is_refused_at_its_path() {
         for (field, invalid, path) in [
-            ("zoom", serde_json::json!(27.5), "$.map_view: "),
-            ("bearing", serde_json::json!(361.0), "$.map_view: "),
-            ("lat", serde_json::json!(86.0), "$.map_view: "),
+            ("zoom", serde_json::json!(27.5), "$.map_view.zoom: "),
+            ("bearing", serde_json::json!(361.0), "$.map_view.bearing: "),
+            ("lat", serde_json::json!(86.0), "$.map_view.lat: "),
             ("ground_size_m", serde_json::Value::Null, "$: "),
             (
                 "ground_size_m",

@@ -1420,8 +1420,7 @@
         "updated_at": "2026-09-25T00:00:00.000Z"
       },
       "error_kind": "invalid_document",
-      "error_path": "$.plants[0].position.lon",
-      "native_error_path": "$.plants[0].position"
+      "error_path": "$.plants[0].position.lon"
     },
     {
       "id": "reject-latitude-outside-web-mercator",
@@ -1450,8 +1449,7 @@
         "updated_at": "2026-09-25T00:00:00.000Z"
       },
       "error_kind": "invalid_document",
-      "error_path": "$.plants[0].position.lat",
-      "native_error_path": "$.plants[0].position"
+      "error_path": "$.plants[0].position.lat"
     },
     {
       "id": "reject-zone-point-outside-web-mercator",
@@ -1482,8 +1480,7 @@
         "updated_at": "2026-09-25T00:00:00.000Z"
       },
       "error_kind": "invalid_document",
-      "error_path": "$.zones[0].points[0].lat",
-      "native_error_path": "$.zones[0].points[0]"
+      "error_path": "$.zones[0].points[0].lat"
     },
     {
       "id": "reject-zone-named-by-its-identity",
@@ -1628,8 +1625,7 @@
         ]
       },
       "error_kind": "invalid_document",
-      "error_path": "$.measurement_guides[0].end.lon",
-      "native_error_path": "$.measurement_guides[0].end"
+      "error_path": "$.measurement_guides[0].end.lon"
     },
     {
       "id": "reject-view-camera-outside-web-mercator",
@@ -1769,8 +1765,7 @@
         "updated_at": "2026-09-25T00:00:00.000Z"
       },
       "error_kind": "invalid_document",
-      "error_path": "$.views[0].camera.lat",
-      "native_error_path": "$.views[0].camera"
+      "error_path": "$.views[0].camera.lat"
     },
     {
       "id": "reject-view-zoom-above-map-maximum",
@@ -1910,8 +1905,7 @@
         "updated_at": "2026-09-25T00:00:00.000Z"
       },
       "error_kind": "invalid_document",
-      "error_path": "$.views[0].camera.zoom",
-      "native_error_path": "$.views[0].camera"
+      "error_path": "$.views[0].camera.zoom"
     },
     {
       "id": "reject-view-ground-size-zero-width",
@@ -2285,8 +2279,7 @@
         "updated_at": "2026-09-25T00:00:00.000Z"
       },
       "error_kind": "invalid_document",
-      "error_path": "$.map_view.zoom",
-      "native_error_path": "$.map_view"
+      "error_path": "$.map_view.zoom"
     },
     {
       "id": "reject-map-view-ground-size-zero-width",
@@ -4310,8 +4303,7 @@
         ]
       },
       "error_kind": "invalid_document",
-      "error_path": "$.views[0].camera.bearing",
-      "native_error_path": "$.views[0].camera"
+      "error_path": "$.views[0].camera.bearing"
     },
     {
       "id": "reject-view-ground-size-above-1e8-metres",
