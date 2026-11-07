@@ -74,6 +74,13 @@ function useDesktopUpdates(ports: DesktopUpdatePorts): { readonly controller: Up
   return { controller, launchCheck };
 }
 
+/** The Desktop root boundary's Reload: the exit flush first, as a window close runs it, then the reload on proceed. */
+export function reloadAfterExitFlush(): void {
+  void flushBeforeExit("close").then((answer) => {
+    if (answer === "proceed") location.reload();
+  });
+}
+
 export function App({ updates: ports }: { readonly updates: DesktopUpdatePorts }) {
   const updates = useDesktopUpdates(ports);
   useEffect(raiseLaunchNotices, []);

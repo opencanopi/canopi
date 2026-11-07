@@ -333,6 +333,21 @@ describe('the New version: Reload notice in the shell row (2.1-Q83, Q187, M179)'
     return container.querySelector<HTMLElement>('[data-web-shell-notice]')
   }
 
+  /** Each ResizeObserver with what it watches, fired by hand. */
+  function stubResizeObservers(): { callback: () => void, targets: Element[] }[] {
+    const observers: { callback: () => void, targets: Element[] }[] = []
+    vi.stubGlobal('ResizeObserver', class {
+      private readonly entry: { callback: () => void, targets: Element[] }
+      constructor(callback: () => void) {
+        this.entry = { callback, targets: [] }
+        observers.push(this.entry)
+      }
+      observe(target: Element) { this.entry.targets.push(target) }
+      disconnect() { this.entry.targets.length = 0 }
+    })
+    return observers
+  }
+
   it('shows title, message, Reload and Dismiss politely, and Saving… while it saves', async () => {
     const onReload = vi.fn()
     const onDismiss = vi.fn()
@@ -403,16 +418,7 @@ describe('the New version: Reload notice in the shell row (2.1-Q83, Q187, M179)'
 
   it('C2-3: the title bar growing moves the Reload notice in place, keeping its focus and its live region', async () => {
     // Each observer with what it watches: a moved row resizes nothing, so only the title bar's observer fires.
-    const observers: { callback: () => void, targets: Element[] }[] = []
-    vi.stubGlobal('ResizeObserver', class {
-      private readonly entry: { callback: () => void, targets: Element[] }
-      constructor(callback: () => void) {
-        this.entry = { callback, targets: [] }
-        observers.push(this.entry)
-      }
-      observe(target: Element) { this.entry.targets.push(target) }
-      disconnect() { this.entry.targets.length = 0 }
-    })
+    const observers = stubResizeObservers()
     try {
       const Live = () => <Shell release={{ reloading: false, onReload: () => undefined, onDismiss: () => undefined }} />
       await act(async () => { render(<Live />, container) })
@@ -494,16 +500,7 @@ describe('the New version: Reload notice in the shell row (2.1-Q83, Q187, M179)'
   })
 
   it('[canopi-f47t.52.36] the one notice row in the Web shell sits below the title bar like the shell\'s other notices, clear of the phone sheet', async () => {
-    const observers: { callback: () => void, targets: Element[] }[] = []
-    vi.stubGlobal('ResizeObserver', class {
-      private readonly entry: { callback: () => void, targets: Element[] }
-      constructor(callback: () => void) {
-        this.entry = { callback, targets: [] }
-        observers.push(this.entry)
-      }
-      observe(target: Element) { this.entry.targets.push(target) }
-      disconnect() { this.entry.targets.length = 0 }
-    })
+    const observers = stubResizeObservers()
     try {
       await act(async () => { render(<Shell release={null} />, container) })
       const bar = container.querySelector<HTMLElement>('[data-workspace-title-bar]')!
