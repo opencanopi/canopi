@@ -6,9 +6,9 @@
  * it recovers (2.1-Q294), and none after the app lifetime that installed the hooks is disposed.
  */
 import { signal } from '@preact/signals'
-import type { Failure, FailureCode, FrontendDiagnosticLevel } from '../generated/contracts'
+import type { FailureCode, FrontendDiagnosticLevel } from '../generated/contracts'
 import type { LocaleKey } from '../generated/locale-keys'
-import { IpcFailure } from './ipc-failure'
+import { failureOf } from './ipc-failure'
 import { failureMessage, type FailureCapabilities } from './messages'
 import { appendEntry, entryForSettlement, type RingEntry } from './ring'
 import { redact } from './redact'
@@ -79,7 +79,7 @@ function record(subject: unknown, options: ReportOptions): void {
 }
 
 function newEntry(subject: unknown, options: ReportOptions): RingEntry {
-  const failure = subject instanceof IpcFailure ? subject.failure : isFailure(subject) ? subject : null
+  const failure = failureOf(subject)
   const base = { level: options.level ?? 'error', timestamp_ms: Date.now(), surfaced: false }
   if (failure) {
     return { ...base, origin: 'native', source: failure.op, code: failure.code, operation: failure.operation, detail: failure.detail }
@@ -140,13 +140,6 @@ function redactedValue(value: unknown): unknown {
     return redacted
   }
   return safeRedact(textOf(value))
-}
-
-function isFailure(value: unknown): value is Failure {
-  if (typeof value !== 'object' || value === null) return false
-  const record = value as Partial<Record<keyof Failure, unknown>>
-  return typeof record.op === 'string' && typeof record.user_may_retry === 'boolean'
-    && typeof record.code === 'object' && record.code !== null && typeof (record.code as { kind?: unknown }).kind === 'string'
 }
 
 function textOf(subject: unknown): string {

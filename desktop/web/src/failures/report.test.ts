@@ -1,31 +1,14 @@
 // @vitest-environment jsdom
 // The one sink (contracts §2, §13; design check F15, 1b probe): one ring entry per settlement however many times it is
 // reported, window hooks that survive a second bootstrap (HMR) with one entry per error, and a sink that never throws.
-import { invoke } from '@tauri-apps/api/core'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { RedactedText } from '../generated/contracts'
+import { invokeCommand } from '../ipc/transport'
 import { IpcFailure } from './ipc-failure'
-import { redact } from './redact'
 import { failureNoticesForTests, installFailureHooks, reportFailure, resetFailureNoticesForTests } from './report'
 import { resetFrontendDiagnosticsForTests, ringEntries } from './ring'
 
 type TauriWindow = Window & { __TAURI_INTERNALS__?: { invoke: (command: string) => Promise<unknown> } }
-
-// What ipc/transport.ts (1b-c2) does with a rejection that is not a Failure (2.1-M409): record it as `internal` with
-// the command's op, its text redacted, and throw the settlement whose `.message` keeps the native text.
-async function invokeLikeTheTransport(command: string, op: string): Promise<unknown> {
-  try {
-    return await invoke(command)
-  } catch (rejection) {
-    const text = String(rejection)
-    const failure = new IpcFailure(
-      { code: { kind: 'internal' }, user_may_retry: false, op, operation: null, detail: redact(text) as RedactedText },
-      text,
-    )
-    reportFailure(failure, { shown: 'none' })
-    throw failure
-  }
-}
 
 function raiseUnhandledRejection(reason: unknown): void {
   window.dispatchEvent(Object.assign(new Event('unhandledrejection'), { reason }))
@@ -50,7 +33,8 @@ describe('failure sink: one entry per settlement', () => {
     ;(window as TauriWindow).__TAURI_INTERNALS__ = { invoke: vi.fn(() => Promise.reject(native)) }
     dispose = installFailureHooks({ storage: 'disk' }, window)
 
-    const settled = await invokeLikeTheTransport('lidar_list_library', 'library.list').catch((error: unknown) => error)
+    // Through the real transport and Tauri core, only the webview's internals stubbed.
+    const settled = await invokeCommand('lidar_list_library').catch((error: unknown) => error)
 
     expect(settled).toBeInstanceOf(IpcFailure)
     expect((settled as IpcFailure).message).toBe(native)
@@ -59,7 +43,7 @@ describe('failure sink: one entry per settlement', () => {
 
     const entries = ringEntries()
     expect(entries).toHaveLength(1)
-    expect(entries[0]).toMatchObject({ origin: 'native', source: 'library.list', code: { kind: 'internal' }, surfaced: true })
+    expect(entries[0]).toMatchObject({ origin: 'native', source: 'ipc.lidar_list_library', code: { kind: 'internal' }, surfaced: true })
     expect(JSON.stringify(entries)).not.toContain('/home/ana')
     expect(failureNoticesForTests().notices).toHaveLength(1)
   })
