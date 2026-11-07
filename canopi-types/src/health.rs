@@ -1,8 +1,91 @@
 //! Startup health of the app's subsystems (local data, plant database, LiDAR
 //! library), as the frontend shows and problem reports carry it.
 
+use crate::failure::FailureCode;
 use serde::{Deserialize, Serialize};
 use specta::Type;
+
+/// The stores whose open status the app reports (contracts §11, 2.1-M429):
+/// a closed set, each later id landing with its producer (`web_user_data`
+/// with 2e and N2, `web_library` with N5).
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, Type,
+)]
+#[serde(rename_all = "snake_case")]
+pub enum StoreId {
+    /// The plant catalog.
+    PlantCatalog,
+    /// The Desktop user database.
+    UserDb,
+    /// The settings record, on both editions.
+    Settings,
+    /// The Data library catalogue.
+    LibraryCatalogue,
+    /// Web Drafts.
+    WebDrafts,
+    /// Web species lists (favourites, recently viewed).
+    WebSpeciesLists,
+}
+
+/// How a store opened (contracts §11 open lifecycle). Phase 1's 1a adds the
+/// producers; `newer_read_only` is the reader release's state.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum StoreOpenStatus {
+    /// Not opened yet.
+    Opening,
+    /// A migration is running.
+    Migrating,
+    /// Open and current.
+    Ready,
+    /// An older or damaged store was rebuilt: `items` listed again, `generated`
+    /// of them under a generated name.
+    Recovered {
+        /// Entries listed again.
+        items: u32,
+        /// Entries given a generated name.
+        generated: u32,
+    },
+    /// Written by a newer Canopi whose form this one reads: shown, never written.
+    NewerReadOnly,
+    /// Written by a newer Canopi and left untouched.
+    RefusedNewer,
+    /// A damaged store was renamed aside and a fresh one started; `file` is the
+    /// new file name only, never a path.
+    SetAsideDamaged {
+        /// The set-aside file's name.
+        file: String,
+    },
+    /// The store could not be opened; `code` says why.
+    Unavailable {
+        /// Why, as a catalogue code.
+        code: FailureCode,
+    },
+}
+
+/// A one-time notice about a store, cleared on dismiss (contracts §11).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
+pub enum StoreNotice {
+    /// The user database from before Canopi 2.0 was renamed and Canopi started
+    /// fresh (ADR 0021).
+    #[serde(rename = "moved_aside_pre_2_0")]
+    MovedAsidePre20,
+    /// Settings fields with bad values were reset.
+    #[serde(rename = "fields_reset")]
+    FieldsReset,
+    /// A write to the store failed.
+    #[serde(rename = "write_failed")]
+    WriteFailed,
+}
+
+/// One store's entry in `SubsystemHealth`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
+pub struct StoreHealth {
+    /// How the store opened.
+    pub status: StoreOpenStatus,
+    /// A one-time notice to show, if any.
+    pub notice: Option<StoreNotice>,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 #[expect(
@@ -71,6 +154,48 @@ pub enum LidarLibraryStatus {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn a_store_status_tags_its_kind_and_carries_its_catalogue_code() {
+        let entry = StoreHealth {
+            status: StoreOpenStatus::Unavailable {
+                code: FailureCode::PlantDbUnavailable {
+                    cause: crate::failure::PlantCatalogCause::Missing,
+                },
+            },
+            notice: None,
+        };
+        assert_eq!(
+            serde_json::to_value(&entry).unwrap(),
+            json!({
+                "status": {
+                    "kind": "unavailable",
+                    "code": { "kind": "plant_db_unavailable", "cause": "missing" }
+                },
+                "notice": null
+            })
+        );
+        let set_aside = StoreHealth {
+            status: StoreOpenStatus::SetAsideDamaged {
+                file: "user.db.corrupt-1".to_owned(),
+            },
+            notice: Some(StoreNotice::MovedAsidePre20),
+        };
+        let value = serde_json::to_value(&set_aside).unwrap();
+        assert_eq!(
+            value["status"],
+            json!({ "kind": "set_aside_damaged", "file": "user.db.corrupt-1" })
+        );
+        assert_eq!(value["notice"], json!("moved_aside_pre_2_0"));
+        assert_eq!(
+            serde_json::from_value::<StoreHealth>(value).unwrap(),
+            set_aside
+        );
+        assert_eq!(
+            serde_json::to_value(StoreId::LibraryCatalogue).unwrap(),
+            json!("library_catalogue")
+        );
+    }
 
     #[test]
     fn health_serialises_every_lidar_library_state() {

@@ -610,6 +610,36 @@
     ]
   },
   {
+    "name": "Failure",
+    "fields": [
+      {
+        "name": "code",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "user_may_retry",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "op",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "operation",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "detail",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
     "name": "FilterOptions",
     "fields": [
       {
@@ -1714,6 +1744,31 @@
       },
       {
         "name": "preview",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "ReportSection",
+    "fields": [
+      {
+        "name": "id",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "file",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "consent",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "privacy",
         "flatten": false,
         "skip": false
       }
@@ -3104,6 +3159,21 @@
       },
       {
         "name": "use_description",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "StoreHealth",
+    "fields": [
+      {
+        "name": "status",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "notice",
         "flatten": false,
         "skip": false
       }

@@ -488,9 +488,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "canopi-redact"
+version = "2.1.0-beta.1"
+dependencies = [
+ "proptest",
+ "serde",
+ "serde_json",
+ "specta",
+]
+
+[[package]]
 name = "canopi-types"
 version = "2.1.0-beta.1"
 dependencies = [
+ "canopi-redact",
  "schemars 1.2.1",
  "serde",
  "serde_json",

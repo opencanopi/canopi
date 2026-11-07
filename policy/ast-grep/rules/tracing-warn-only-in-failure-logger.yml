@@ -33,6 +33,8 @@ ignores:
   - "desktop/src/services/species_catalog_read/test_support.rs"
   - "canopi-types/src/design/tests.rs"
   - "canopi-types/src/views/tests.rs"
+  - "canopi-redact/src/tests.rs"
+  - "canopi-redact/src/table_generated.rs"
   - "bindings-gen/src/plan_support.rs"
   - "desktop/src/logging.rs"
   - "policy/fixtures/rules/*/desktop/src/logging.rs"

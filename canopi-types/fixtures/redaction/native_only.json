@@ -1,0 +1,82 @@
+{
+  "$comment": "The redaction corpus, native-only cases (contracts §13 Redaction; ADR 0025): every case's input redacted equals its expected text. Rust only, through Redactor::with_roots(roots): the named folders this machine knows (home, app_data, log, report) become their tokens, and a path outside them stays <path>.",
+  "version": 1,
+  "cases": [
+    {
+      "id": "named-home",
+      "shape": "named-folder",
+      "input": "Opening /home/ana/designs/plan.canopi failed",
+      "expected": "Opening <home-dir> failed",
+      "roots": {
+        "home": "/home/ana"
+      }
+    },
+    {
+      "id": "named-home-windows",
+      "shape": "named-folder",
+      "input": "Opening C:\\Users\\ana\\plan.canopi failed",
+      "expected": "Opening <home-dir> failed",
+      "roots": {
+        "home": "C:\\Users\\ana"
+      }
+    },
+    {
+      "id": "named-app-data",
+      "shape": "named-folder",
+      "input": "Writing /home/ana/.local/share/canopi/user.db failed",
+      "expected": "Writing <app-data-dir> failed",
+      "roots": {
+        "home": "/home/ana",
+        "app_data": "/home/ana/.local/share/canopi"
+      }
+    },
+    {
+      "id": "named-log-dir",
+      "shape": "named-folder",
+      "input": "Log file /home/ana/.local/share/canopi/logs/canopi.log rotated",
+      "expected": "Log file <log-dir> rotated",
+      "roots": {
+        "home": "/home/ana",
+        "app_data": "/home/ana/.local/share/canopi",
+        "log": "/home/ana/.local/share/canopi/logs"
+      }
+    },
+    {
+      "id": "named-report-root",
+      "shape": "named-folder",
+      "input": "Report written to /home/ana/Desktop/canopi-report",
+      "expected": "Report written to <report-root>",
+      "roots": {
+        "home": "/home/ana",
+        "report": "/home/ana/Desktop"
+      }
+    },
+    {
+      "id": "design-on-second-disk",
+      "shape": "os-root",
+      "input": "Opening D:\\Plans\\plan.canopi failed",
+      "expected": "Opening <path> failed",
+      "roots": {
+        "home": "C:\\Users\\ana"
+      }
+    },
+    {
+      "id": "design-on-share",
+      "shape": "unc",
+      "input": "Opening \\\\nas\\shared\\plan.canopi failed",
+      "expected": "Opening <path> failed",
+      "roots": {
+        "home": "C:\\Users\\ana"
+      }
+    },
+    {
+      "id": "home-inside-text-and-credential",
+      "shape": "named-folder",
+      "input": "GET file:///home/ana/x.tif?session=abc",
+      "expected": "GET <home-dir>",
+      "roots": {
+        "home": "/home/ana"
+      }
+    }
+  ]
+}

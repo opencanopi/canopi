@@ -73,39 +73,7 @@ pub enum UpdateBundle {
     App,
 }
 
-/// Why a network request failed (contracts §2 `network.kind`).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
-#[serde(rename_all = "snake_case")]
-pub enum NetworkFailureKind {
-    /// No answer in time, or no progress for the stall timeout.
-    Timeout,
-    /// The host could not be reached.
-    Offline,
-    /// The server answered with an error status.
-    Status,
-    /// A redirect or a payload URL left the allowed hosts.
-    HostNotAllowed,
-    /// The payload is larger than its cap.
-    TooLarge,
-}
-
-/// Why a file operation failed (contracts §2 `io.kind`).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
-#[serde(rename_all = "snake_case")]
-pub enum IoFailureKind {
-    /// Nothing at the path.
-    NotFound,
-    /// The system refused access.
-    PermissionDenied,
-    /// The location is read-only.
-    ReadOnly,
-    /// The disk is full.
-    NoSpace,
-    /// The content is larger than allowed.
-    TooLarge,
-    /// Any other file error.
-    Other,
-}
+pub use crate::failure::{IoFailureKind, NetworkFailureKind};
 
 /// The executor lane a busy update operation waited on.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]

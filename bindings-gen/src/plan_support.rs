@@ -6,8 +6,9 @@ use crate::locale_keys::EN_JSON;
 use crate::{
     ANALYSIS_REGISTRY_RUST, ANALYSIS_REGISTRY_TS, CONTRACTS_TS, DESIGN_FORMAT_TS, GenerationMode,
     KNOWN_KEYS_TS, LOCALE_KEYS_TS, NEW_DESIGN_DEFAULTS_RUST, NEW_DESIGN_DEFAULTS_TS,
-    PLANT_FILTER_RUST, PLANT_FILTER_TS, SETTINGS_TS, SPECIES_SEARCH_NORMALIZATION_TS,
-    WEB_CATALOG_DECLARATION, WEB_CATALOG_MODULE, execute_generation,
+    PLANT_FILTER_RUST, PLANT_FILTER_TS, REDACTION_RUST, REDACTION_TS, SETTINGS_TS,
+    SPECIES_SEARCH_NORMALIZATION_TS, WEB_CATALOG_DECLARATION, WEB_CATALOG_MODULE,
+    execute_generation,
 };
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -49,7 +50,7 @@ impl Drop for TempRoot {
 }
 
 /// Every destination one generation publishes, relative to the destination root.
-pub(crate) const DESTINATIONS: [&str; 14] = [
+pub(crate) const DESTINATIONS: [&str; 16] = [
     CONTRACTS_TS,
     KNOWN_KEYS_TS,
     DESIGN_FORMAT_TS,
@@ -62,6 +63,8 @@ pub(crate) const DESTINATIONS: [&str; 14] = [
     ANALYSIS_REGISTRY_TS,
     ANALYSIS_REGISTRY_RUST,
     LOCALE_KEYS_TS,
+    REDACTION_TS,
+    REDACTION_RUST,
     WEB_CATALOG_MODULE,
     WEB_CATALOG_DECLARATION,
 ];

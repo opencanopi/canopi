@@ -284,6 +284,74 @@ export type DynamicFilterOptions = {
 	range: [number, number] | null,
 };
 
+/**
+ *  A failed settlement as it crosses the seam: what the interface maps to a
+ *  message (`code`), whether the screen may offer Retry, the dotted operation
+ *  that failed, the user action or system work it belongs to, and redacted
+ *  English for logs and reports, never shown.
+ */
+export type Failure = {
+	// The code the interface maps to a message.
+	code: FailureCode,
+	// Whether the screen may offer Retry.
+	user_may_retry: boolean,
+	// The dotted operation (`library.delete_item`), a constant beside its command.
+	op: string,
+	/**
+	 *  The user action or system work this settlement belongs to; minted by
+	 *  Rust system work in Phase 1 and required from 2a (2.1-M411).
+	 */
+	operation: OperationId | null,
+	// Redacted English for logs and reports.
+	detail: RedactedText | null,
+};
+
+/**
+ *  The catalogue's codes produced at Phase 1's close, plus the map codes
+ *  WEB-06's observers report (contracts §2, 2.1-M418).
+ */
+export type FailureCode =
+// The lane was full.
+{ kind: "busy";
+// The lane that was full.
+lane: Lane } |
+// The work was cancelled; settled silently.
+{ kind: "cancelled" } |
+// The executor is shutting down or closed.
+{ kind: "unavailable" } |
+// The work panicked.
+{ kind: "panicked" } |
+// The work's task could not be joined.
+{ kind: "join_failed" } |
+// A file dialog is already open in this window.
+{ kind: "dialog_already_open" } |
+// The plant catalog could not be read.
+{ kind: "plant_db_unavailable";
+// Why.
+cause: PlantCatalogCause } |
+// The Data library is read-only for the session.
+{ kind: "library_read_only";
+// Why.
+reason: LibraryReadOnlyReason } |
+// A file operation failed.
+{ kind: "io";
+// Why it failed.
+io: IoFailureKind } |
+// A request failed.
+{ kind: "network";
+// Why it failed.
+network: NetworkFailureKind } |
+// The request is malformed.
+{ kind: "invalid" } |
+// A fault in Canopi itself.
+{ kind: "internal" } |
+// The map style failed to load; silent until 2d's map status (2.1-Q300).
+{ kind: "style_failed" } |
+// A map tile source failed; silent until 2d's map status (2.1-Q300).
+{ kind: "tile_source_failed";
+// The map layer whose source failed.
+layer: string };
+
 export type FilterOp = "Equals" | "In" | "Gte" | "Lte" | "Between" | "IsTrue";
 
 export type FilterOptions = {
@@ -316,6 +384,18 @@ export type FrontendDiagnosticEntry = {
 	timestamp_ms: number,
 };
 
+/**
+ *  The level of a frontend diagnostics ring entry (contracts §13 Failure
+ *  report). Phase 1's 1a-c6 types `FrontendDiagnosticEntry::level` with it.
+ */
+export type FrontendDiagnosticLevel =
+// Lost work or a failed action.
+"error" |
+// A degraded or repaired state.
+"warning" |
+// A record kept for the report only.
+"info";
+
 export type GeoPoint = {
 	lon: number,
 	lat: number,
@@ -341,6 +421,19 @@ export type IoFailureKind =
 "too_large" |
 // Any other file error.
 "other";
+
+// The executor lanes, by their target names (2.1-M420).
+export type Lane =
+// The plant catalog.
+"catalog" |
+// The user database: favourites, stamps, settings, recent files.
+"user_data" |
+// The Data library (today's raster lane).
+"library" |
+// User files: Designs, Drafts, exports.
+"local" |
+// HTTP.
+"network";
 
 // A geographic camera position: WGS84 centre and MapLibre zoom.
 export type LastView = {
@@ -431,6 +524,13 @@ export type LibraryItemSummary = {
  *  produce them.
  */
 export type LibraryItemType = { kind: "Raster"; quantity: RasterQuantity };
+
+// Why the Data library is read-only for the session.
+export type LibraryReadOnlyReason =
+// The catalogue was written by a newer Canopi and is left untouched.
+"refused_newer" |
+// The catalogue could be neither opened nor rebuilt.
+"unavailable";
 
 export type LibrarySnapshot = {
 	items: LibraryItemSummary[],
@@ -757,6 +857,14 @@ export type ObjectGroup = {
 
 export type ObjectGroupMember = { kind: "plant"; id: string } | { kind: "zone"; id: string } | { kind: "annotation"; id: string };
 
+/**
+ *  The user action or system work a settlement belongs to: `u-` or `s-`
+ *  (user or system origin) before a uuid v4, opaque and never logged raw
+ *  (2.1-M420). A branded string in TypeScript. Phase 1's 1a adds the system
+ *  mint and the parse that refuses anything else as `invalid`.
+ */
+export type OperationId = string & { readonly __brand: "OperationId" };
+
 export type PaginatedResult<T> = {
 	items: T[],
 	next_cursor: string | null,
@@ -804,6 +912,13 @@ export type PlacedPlant = {
 	planted_date: string | null,
 	quantity: number | null,
 };
+
+// Why the plant catalog is unavailable (Phase 1's causes, 2.1-M429).
+export type PlantCatalogCause =
+// No catalog file was found.
+"missing" |
+// The file was found but could not be opened or admitted.
+"open_failed";
 
 export type PlantDbStatus = "available" | "missing" | "corrupt";
 
@@ -932,6 +1047,63 @@ export type RecentDesignUnreadableReason =
 "damaged" |
 // The file exists but could not be read (permissions, a folder, an I/O error).
 "unknown";
+
+/**
+ *  Text a redactor has passed: logs, failure details and report inputs take
+ *  only this type. Its field is private and its one constructor is
+ *  [`Redactor::redact`]; it serialises as a plain string and is a branded
+ *  string in TypeScript (2.1-M424).
+ */
+export type RedactedText = string & { readonly __brand: "RedactedText" };
+
+// When a section is included.
+export type ReportConsent =
+// Always: the section holds no user content beyond redacted text.
+"always" |
+// Only when the user ticks the current Design's checkbox.
+"current_design";
+
+/**
+ *  One row of `REPORT_SECTIONS`: its id, its entry in the zip, its consent and
+ *  the privacy line the dialog lists (2.1-Q280).
+ */
+export type ReportSection = {
+	// The section's id.
+	id: ReportSectionId,
+	// Its entry's name in the zip.
+	file: string,
+	// When it is included.
+	consent: ReportConsent,
+	// What it holds, in one English line.
+	privacy: string,
+};
+
+// A section's id.
+export type ReportSectionId =
+// The build: app version, platform, webview or browser.
+"build" |
+// Each store's open status at report time, with causes.
+"health" |
+// Queue depths, wait times and the oldest running op.
+"queues" |
+// The last 50 native error settlements.
+"native_settlements" |
+// The frontend ring: rejected invokes and window errors.
+"frontend_ring" |
+// Data library job counts and recent failures.
+"jobs" |
+// Data library disk use and janitor state.
+"library_disk" |
+// The end of the app log.
+"log_tail" |
+// The settings summary (a hand list until 2e).
+"settings_summary" |
+// What the user wrote in the dialog.
+"description" |
+// The failure the report was opened from: its code and operation.
+"originating_failure" |
+// The current Design, by consent only.
+"design";
 
 export type RichTextBlock = { kind: "paragraph"; spans: RichTextSpan[] } | { kind: "bullets"; items: RichTextListItem[] };
 
@@ -1328,6 +1500,81 @@ export type StaleReason =
 // A different engine build is installed.
 { reason: "ToolUpdated"; from: string; to: string };
 
+// One store's entry in `SubsystemHealth`.
+export type StoreHealth = {
+	// How the store opened.
+	status: StoreOpenStatus,
+	// A one-time notice to show, if any.
+	notice: StoreNotice | null,
+};
+
+/**
+ *  The stores whose open status the app reports (contracts §11, 2.1-M429):
+ *  a closed set, each later id landing with its producer (`web_user_data`
+ *  with 2e and N2, `web_library` with N5).
+ */
+export type StoreId =
+// The plant catalog.
+"plant_catalog" |
+// The Desktop user database.
+"user_db" |
+// The settings record, on both editions.
+"settings" |
+// The Data library catalogue.
+"library_catalogue" |
+// Web Drafts.
+"web_drafts" |
+// Web species lists (favourites, recently viewed).
+"web_species_lists";
+
+// A one-time notice about a store, cleared on dismiss (contracts §11).
+export type StoreNotice =
+/**
+ *  The user database from before Canopi 2.0 was renamed and Canopi started
+ *  fresh (ADR 0021).
+ */
+"moved_aside_pre_2_0" |
+// Settings fields with bad values were reset.
+"fields_reset" |
+// A write to the store failed.
+"write_failed";
+
+/**
+ *  How a store opened (contracts §11 open lifecycle). Phase 1's 1a adds the
+ *  producers; `newer_read_only` is the reader release's state.
+ */
+export type StoreOpenStatus =
+// Not opened yet.
+{ kind: "opening" } |
+// A migration is running.
+{ kind: "migrating" } |
+// Open and current.
+{ kind: "ready" } |
+/**
+ *  An older or damaged store was rebuilt: `items` listed again, `generated`
+ *  of them under a generated name.
+ */
+{ kind: "recovered";
+// Entries listed again.
+items: number;
+// Entries given a generated name.
+generated: number } |
+// Written by a newer Canopi whose form this one reads: shown, never written.
+{ kind: "newer_read_only" } |
+// Written by a newer Canopi and left untouched.
+{ kind: "refused_newer" } |
+/**
+ *  A damaged store was renamed aside and a fresh one started; `file` is the
+ *  new file name only, never a path.
+ */
+{ kind: "set_aside_damaged";
+// The set-aside file's name.
+file: string } |
+// The store could not be opened; `code` says why.
+{ kind: "unavailable";
+// Why, as a catalogue code.
+code: FailureCode };
+
 export type Story = {
 	id: string,
 	name: string,
@@ -1537,6 +1784,81 @@ export type Zone = {
 	fill_color: string | null,
 	notes: string | null,
 };
+
+export const REPORT_SECTIONS: readonly ReportSection[] = [
+  {
+    "id": "originating_failure",
+    "file": "failure.json",
+    "consent": "always",
+    "privacy": "The failure you reported from, by its code and operation."
+  },
+  {
+    "id": "description",
+    "file": "description.txt",
+    "consent": "always",
+    "privacy": "What you wrote above."
+  },
+  {
+    "id": "build",
+    "file": "build.json",
+    "consent": "always",
+    "privacy": "Canopi's version, your operating system and its web view or browser."
+  },
+  {
+    "id": "health",
+    "file": "health.json",
+    "consent": "always",
+    "privacy": "How each data store opened, without file paths."
+  },
+  {
+    "id": "queues",
+    "file": "queues.json",
+    "consent": "always",
+    "privacy": "Waiting and running background work, by count and time."
+  },
+  {
+    "id": "native_settlements",
+    "file": "native-failures.json",
+    "consent": "always",
+    "privacy": "The last 50 failed background operations, with paths and keys removed."
+  },
+  {
+    "id": "frontend_ring",
+    "file": "app-failures.json",
+    "consent": "always",
+    "privacy": "Recent errors in the app window, with paths and keys removed."
+  },
+  {
+    "id": "jobs",
+    "file": "jobs.json",
+    "consent": "always",
+    "privacy": "Data library job counts and recent job failures, without item names."
+  },
+  {
+    "id": "library_disk",
+    "file": "library.json",
+    "consent": "always",
+    "privacy": "Data library disk use and clean-up state, without item names."
+  },
+  {
+    "id": "log_tail",
+    "file": "log-tail.txt",
+    "consent": "always",
+    "privacy": "The end of Canopi's log, with paths and keys removed."
+  },
+  {
+    "id": "settings_summary",
+    "file": "settings.json",
+    "consent": "always",
+    "privacy": "Your language, theme and display settings; never your Maps key."
+  },
+  {
+    "id": "design",
+    "file": "design.canopi",
+    "consent": "current_design",
+    "privacy": "The current Design, only if you tick it: its objects, map coordinates, notes, timeline and budget."
+  }
+]
 
 export const LIDAR_SAMPLE_MAX_TARGETS = 8
 export const LIDAR_SAMPLE_MAX_POINTS = 4096

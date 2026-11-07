@@ -8,6 +8,7 @@ mod new_design_defaults;
 mod plan_support;
 mod plant_filter;
 mod publication;
+mod redaction;
 mod settings;
 mod species_search_normalization;
 mod type_manifest;
@@ -30,6 +31,8 @@ const NEW_DESIGN_DEFAULTS_TS: &str = "desktop/web/src/generated/new-design-defau
 const NEW_DESIGN_DEFAULTS_RUST: &str = "desktop/src/design/new_design_defaults.rs";
 const PLANT_FILTER_TS: &str = "desktop/web/src/generated/plant-filter-fields.ts";
 const PLANT_FILTER_RUST: &str = "desktop/src/db/plant_filter_fields.rs";
+const REDACTION_TS: &str = "desktop/web/src/generated/redaction.ts";
+const REDACTION_RUST: &str = "canopi-redact/src/table_generated.rs";
 const TYPE_MANIFEST_JSON: &str = "desktop/web/src/generated/type-manifest.json";
 const SPECIES_SEARCH_NORMALIZATION_TS: &str =
     "desktop/web/src/generated/species-search-normalization.ts";
@@ -134,6 +137,9 @@ fn compile_native_plan(
             &source_root.join("canopi-types/analysis-registry.json"),
         )?;
     let analysis_registry_rust = format_rust_source(&analysis_registry_rust, source_root)?;
+    let (redaction_ts, redaction_rust) =
+        redaction::render_redaction_table(&source_root.join(redaction::REDACTION_JSON))?;
+    let redaction_rust = format_rust_source(&redaction_rust, source_root)?;
     let mut plan = GenerationPlan::new(destination_root);
     plan.add(
         destination_root.join(CONTRACTS_TS),
@@ -177,6 +183,8 @@ fn compile_native_plan(
         destination_root.join(ANALYSIS_REGISTRY_RUST),
         analysis_registry_rust,
     )?;
+    plan.add(destination_root.join(REDACTION_TS), redaction_ts)?;
+    plan.add(destination_root.join(REDACTION_RUST), redaction_rust)?;
     plan.add(
         destination_root.join(LOCALE_KEYS_TS),
         locale_keys::render_locale_keys(&source_root.join(locale_keys::EN_JSON))?,
