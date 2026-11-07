@@ -177,24 +177,9 @@ describe('CSS module policy facts', () => {
     `)
 
     expect(declarations.map(({ rule, property, value, line }) => ({ rule, property, value, line }))).toEqual([
-      {
-        rule: '.item:hover',
-        property: 'padding',
-        value: 'var(--space-2)\n          calc(var(--space-1) + 1px)',
-        line: 4,
-      },
-      {
-        rule: '.item:hover',
-        property: 'background-image',
-        value: 'url("data:image/svg+xml;utf8,<svg>{}</svg>")',
-        line: 7,
-      },
-      {
-        rule: '.item',
-        property: 'transition',
-        value: 'none',
-        line: 11,
-      },
+      { rule: '.item:hover', property: 'padding', value: 'var(--space-2)\n          calc(var(--space-1) + 1px)', line: 4 },
+      { rule: '.item:hover', property: 'background-image', value: 'url("data:image/svg+xml;utf8,<svg>{}</svg>")', line: 7 },
+      { rule: '.item', property: 'transition', value: 'none', line: 11 },
     ])
   })
 
@@ -413,6 +398,21 @@ describe('CSS module policy facts', () => {
       '[Stylesheets size no length in rem] src/fixture.css:9 @supports: (width: 1rem)',
       '[Stylesheets size no length in rem] src/fixture.css:10 @container: panel (min-width: 30rem)',
     ])
+  })
+
+  // Under reduced motion global.css sets transition timing on every element, whose transition-property is `all` by
+  // default: a non-zero time turns every style change into a transition, MapLibre's resized canvas included, which then
+  // lays out at its old size over its new backing store for a frame, and the shared scene layer refuses to draw (the map
+  // is lost). Reduced motion means instant: zero, not short (canopi-f47t.52.228.40 moved it here).
+  it('gives every element no transition time, so a resized map canvas takes its new size in the same frame', () => {
+    const zero = (value: string) => value.replace(/!important/i, '').split(',').every((time) => /^-?0+(\.0+)?(s|ms)?$/i.test(time.trim()))
+    const timings = (source: string) => parseCssDeclarations('src/styles/global.css', source)
+      .filter(({ atRules, property }) => atRules.some((at) => at.includes('prefers-reduced-motion: reduce'))
+        && /^transition-(?:duration|delay)$/.test(property))
+      .map(({ property, value }) => (zero(value) ? property : `${property}: ${value}`)).sort()
+    expect(timings(readFileSync('src/styles/global.css', 'utf8'))).toEqual(['transition-delay', 'transition-duration'])
+    expect(timings('@media (prefers-reduced-motion: reduce) { * { transition-duration: .01ms !important } }'))
+      .toEqual(['transition-duration: .01ms !important'])
   })
 
   it('canopi-6spu: no stylesheet, CSS Module or global sheet, sizes a length in rem', () => {

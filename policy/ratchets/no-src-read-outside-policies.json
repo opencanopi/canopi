@@ -45,10 +45,6 @@
       "count": 1,
       "bead": "canopi-f47t.52.228.39"
     },
-    "desktop/web/src/__tests__/reduced-motion-transitions.test.ts": {
-      "count": 1,
-      "bead": "canopi-f47t.52.228.40"
-    },
     "desktop/web/src/__tests__/saved-view-thumbnails.test.ts": {
       "count": 2,
       "bead": "canopi-f47t.52.228.39"
