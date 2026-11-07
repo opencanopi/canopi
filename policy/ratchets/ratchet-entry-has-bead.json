@@ -43,7 +43,7 @@
     "python-lines": { "count": 1 },
     "raw-pointer-listener-only-in-reviewed-owners": { "count": 14 },
     "rust-missing-docs": { "count": 9 },
-    "rust-scc": { "count": 40 },
+    "rust-scc": { "count": 38 },
     "rust-test-has-assertion": { "count": 8 },
     "rust-too-many-arguments": { "count": 7 },
     "rust-too-many-lines": { "count": 29 },

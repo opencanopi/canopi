@@ -27,7 +27,7 @@ pub enum UserDbInitError {
     },
     /// It could not be moved aside; `reason` tells a damaged file from a pre-2.0 one.
     SetAside {
-        reason: super::SetAsideReason,
+        reason: super::set_aside_reason::SetAsideReason,
         source: std::io::Error,
     },
     ConfigureForeignKeys(rusqlite::Error),
