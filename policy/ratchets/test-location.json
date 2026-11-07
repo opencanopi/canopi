@@ -12,7 +12,6 @@
     "desktop/web/src/__tests__/action-menu.test.tsx": {},
     "desktop/web/src/__tests__/app-navigation.test.ts": {},
     "desktop/web/src/__tests__/appearance-popover.test.tsx": {},
-    "desktop/web/src/__tests__/browser-app-data.test.ts": {},
     "desktop/web/src/__tests__/browser-canvas-runtime.test.ts": {},
     "desktop/web/src/__tests__/budget-helpers.test.ts": {},
     "desktop/web/src/__tests__/canvas-interaction-e2e.pointer.test.ts": {},
