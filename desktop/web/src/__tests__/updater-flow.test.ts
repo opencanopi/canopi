@@ -4,7 +4,7 @@ import {
 } from './support/fake-update-host'
 import { checkForUpdate as checkForUpdateOverIpc } from '../ipc/update'
 import type { SaveProblemRequest } from '../app/document-session/save-problem'
-import { updateFailureMessage, type UpdateFailureMessage } from '../app/updates/state'
+import { updateFailureMessage, type UpdateFailureMessage } from '../failures/messages'
 import { t } from '../i18n'
 import type { UpdaterFailure, UpdateOffer, UpdateOp, UpdateOs } from '../generated/contracts'
 

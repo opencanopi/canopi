@@ -1,7 +1,8 @@
 import { computed, signal, type ReadonlySignal } from '@preact/signals'
 import type { UpdateDownload, UpdaterFailure, UpdateOffer, UpdateOp, UpdateOs, UpdateProgress } from '../../generated/contracts'
 import { failureOf, isCancelledFailure } from '../../failures/ipc-failure'
-import { canTransition, offersRetry, updateFailureMessage, type UpdateFailureMessage, type UpdateState } from './state'
+import { updateFailureMessage, type UpdateFailureMessage } from '../../failures/messages'
+import { canTransition, offersRetry, type UpdateState } from './state'
 
 /**
  * The host's update commands as the controller uses them; the Desktop root passes ipc/update.ts, so this module
