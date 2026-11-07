@@ -980,6 +980,12 @@ pub struct LoadedDesign {
 pub struct DesignLoadFailure {
     pub kind: DesignLoadFailureKind,
     pub message: String,
+    /// The refused field when the file parsed and the Design was refused (`$.version` for a
+    /// version this build does not open), for the failure ring and Problem Reports
+    /// only: the refusal the user reads never names it (2.1-Q286, canopi-cyqd).
+    #[serde(default, skip_deserializing, skip_serializing_if = "Option::is_none")]
+    #[specta(optional)]
+    pub field_path: Option<field_path::FieldPath>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]

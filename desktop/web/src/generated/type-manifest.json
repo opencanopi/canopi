@@ -421,6 +421,11 @@
         "name": "message",
         "flatten": false,
         "skip": false
+      },
+      {
+        "name": "field_path",
+        "flatten": false,
+        "skip": false
       }
     ]
   },

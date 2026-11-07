@@ -79,6 +79,11 @@ pub(crate) enum DesignLoadError {
 
 impl DesignLoadError {
     pub(crate) fn failure(&self) -> DesignLoadFailure {
+        // The refused field, when the file parsed as JSON and the Design was refused.
+        let field_path = match self {
+            Self::Ingestion { source } => Some(source.refusal.field_path.clone()),
+            _ => None,
+        };
         let kind = match self {
             Self::Read { source } if source.kind() == std::io::ErrorKind::NotFound => {
                 DesignLoadFailureKind::Missing
@@ -95,6 +100,7 @@ impl DesignLoadError {
         DesignLoadFailure {
             kind,
             message: self.to_string(),
+            field_path,
         }
     }
 }
@@ -990,9 +996,11 @@ mod tests {
 
         let garbage = dir.join("garbage.canopi");
         std::fs::write(&garbage, "not json").unwrap();
+        let failure = load_from_file(&garbage).unwrap_err().failure();
+        assert_eq!(failure.kind, DesignLoadFailureKind::InvalidJson);
         assert_eq!(
-            load_from_file(&garbage).unwrap_err().failure().kind,
-            DesignLoadFailureKind::InvalidJson
+            failure.field_path, None,
+            "only a refused Design names a field"
         );
 
         let invalid = dir.join("invalid.canopi");
@@ -1021,6 +1029,21 @@ mod tests {
             load_from_file(&folder).unwrap_err().failure().kind,
             DesignLoadFailureKind::Unreadable
         );
+    }
+
+    /// canopi-cyqd: a refused Design's failure carries the refused field, typed.
+    #[test]
+    fn canopi_cyqd_a_refused_design_failure_carries_its_field_path() {
+        let dir = unique_dir("field-path");
+        let refused = dir.join("refused.canopi");
+        let mut value = serde_json::to_value(create_default()).expect("serialize");
+        value["map_view"] = map_view_value();
+        value["map_view"]["zoom"] = serde_json::json!(27.5);
+        std::fs::write(&refused, value.to_string()).expect("write");
+        let failure = load_from_file(&refused).unwrap_err().failure();
+        assert_eq!(failure.kind, DesignLoadFailureKind::InvalidDocument);
+        let path = failure.field_path.map(|path| path.to_string());
+        assert_eq!(path.as_deref(), Some("$.map_view.zoom"));
     }
 
     fn with_views_and_stories() -> CanopiFile {
