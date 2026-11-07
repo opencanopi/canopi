@@ -81,3 +81,24 @@ impl Drop for SampleWorkGuard {
         }
     }
 }
+
+/// A one-shot hook run once an import job has copied a source into one
+/// library, before it reads it, on whichever thread runs the job.
+type StagedHook = Box<dyn FnOnce(&LidarLibrary) + Send>;
+static SOURCE_STAGED: std::sync::Mutex<Vec<(std::path::PathBuf, StagedHook)>> =
+    std::sync::Mutex::new(Vec::new());
+pub(super) fn on_source_staged(library: &LidarLibrary, hook: StagedHook) {
+    let root = library.inner.paths.root().to_path_buf();
+    SOURCE_STAGED.lock().unwrap().push((root, hook));
+}
+pub(super) fn after_source_staged(library: &LidarLibrary) {
+    let root = library.inner.paths.root();
+    let hook = {
+        let mut hooks = SOURCE_STAGED.lock().unwrap();
+        let at = hooks.iter().position(|(owner, _)| owner == root);
+        at.map(|at| hooks.swap_remove(at).1)
+    };
+    if let Some(hook) = hook {
+        hook(library);
+    }
+}
