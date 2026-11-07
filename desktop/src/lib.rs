@@ -22,7 +22,7 @@ mod native_operation;
 mod services;
 #[cfg(test)]
 mod test_scratch;
-use canopi_types::health::{LocalDataStatus, SubsystemHealth};
+use canopi_types::health::{StoreHealth, StoreId, StoreNotice, StoreOpenStatus, SubsystemHealth};
 use rusqlite::{Connection, OpenFlags};
 use tauri::Manager;
 
@@ -163,7 +163,7 @@ pub fn run() {
             std::fs::create_dir_all(&data_dir)?;
             app.manage(design::drafts::DesignDrafts::new(&data_dir));
             app.manage(services::recent_design_previews::RecentDesignPreviews::default());
-            let (user_db, local_data_status) = match open_user_data(&data_dir) {
+            let (user_db, user_db_notice) = match open_user_data(&data_dir) {
                 Ok(opened) => opened,
                 Err(error) => {
                     // A user database this Canopi cannot own (written by a newer
@@ -241,11 +241,12 @@ pub fn run() {
             app.manage(plant_db);
             app.manage(services::plant_browser::SpeciesSearchCancellation::default());
 
-            app.manage(AppHealth(SubsystemHealth {
-                plant_db: plant_db_status,
-                lidar_library: lidar_library_status,
-                local_data: local_data_status,
-            }));
+            let entry = |status, notice| StoreHealth { status, notice };
+            app.manage(AppHealth(SubsystemHealth(std::collections::BTreeMap::from([
+                (StoreId::PlantCatalog, entry(plant_db_status.store_status(), None)),
+                (StoreId::UserDb, entry(StoreOpenStatus::Ready, user_db_notice)),
+                (StoreId::LibraryCatalogue, entry(lidar_library_status, None)),
+            ]))));
 
             Ok(())
         })
@@ -302,19 +303,15 @@ fn open_link_in_system(url: &tauri::Url) -> bool {
 /// Open the user database in `data_dir`.
 ///
 /// Canopi 2.0 breaks stored data (ADR 0021): a user database from before 2.0
-/// is renamed, since 2.0 needs its path, and the returned status tells the
+/// is renamed, since 2.0 needs its path, and the returned notice tells the
 /// user once. Drafts in an earlier format and the retired 1.x autosave store
 /// stay where they are, unread, and are not reported (U59).
 fn open_user_data(
     data_dir: &std::path::Path,
-) -> Result<(db::UserDb, LocalDataStatus), db::UserDbInitError> {
+) -> Result<(db::UserDb, Option<StoreNotice>), db::UserDbInitError> {
     let (user_db, opened) = db::UserDb::open(data_dir.join("user.db"))?;
-    let status = if opened == db::UserDbOpened::MovedAside {
-        LocalDataStatus::MovedAside
-    } else {
-        LocalDataStatus::Current
-    };
-    Ok((user_db, status))
+    let notice = (opened == db::UserDbOpened::MovedAside).then_some(StoreNotice::MovedAsidePre20);
+    Ok((user_db, notice))
 }
 
 /// The message for a startup failure the user can act on, or `None` when the
@@ -418,7 +415,7 @@ mod tests {
         let (user_db, status) = super::open_user_data(&data_dir).expect("a fresh folder opens");
         drop(user_db);
 
-        assert_eq!(status, super::LocalDataStatus::Current);
+        assert_eq!(status, None);
     }
 
     /// Canopi 2.0 breaks stored data (ADR 0021): a user database from before
@@ -437,11 +434,11 @@ mod tests {
 
         let (user_db, status) = super::open_user_data(&data_dir).expect("earlier data opens");
         drop(user_db);
-        assert_eq!(status, super::LocalDataStatus::MovedAside);
+        assert_eq!(status, Some(super::StoreNotice::MovedAsidePre20));
 
         let (user_db, again) = super::open_user_data(&data_dir).expect("current data opens");
         drop(user_db);
-        assert_eq!(again, super::LocalDataStatus::Current, "told once");
+        assert_eq!(again, None, "told once");
     }
 
     /// Drafts in an earlier format and the retired 1.x autosave store stay
@@ -467,7 +464,7 @@ mod tests {
         for start in ["first", "second"] {
             let (user_db, status) = super::open_user_data(&data_dir).expect("the folder opens");
             drop(user_db);
-            assert_eq!(status, super::LocalDataStatus::Current, "{start} start");
+            assert_eq!(status, None, "{start} start");
             assert_eq!(
                 std::fs::read_to_string(drafts.join("old.canopi")).unwrap(),
                 older

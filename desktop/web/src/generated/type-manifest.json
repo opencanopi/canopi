@@ -3245,26 +3245,6 @@
     ]
   },
   {
-    "name": "SubsystemHealth",
-    "fields": [
-      {
-        "name": "plant_db",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "lidar_library",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "local_data",
-        "flatten": false,
-        "skip": false
-      }
-    ]
-  },
-  {
     "name": "TimelineAction",
     "fields": [
       {

@@ -46,8 +46,6 @@ pub(crate) fn contract_types() -> TypeCollection {
         .register::<canopi_types::failure::OperationId>()
         .register::<canopi_types::failure::PlantCatalogCause>()
         .register::<canopi_types::failure::RedactedText>()
-        .register::<canopi_types::health::LidarLibraryStatus>()
-        .register::<canopi_types::health::LocalDataStatus>()
         .register::<canopi_types::health::PlantDbStatus>()
         .register::<canopi_types::health::StoreHealth>()
         .register::<canopi_types::health::StoreId>()

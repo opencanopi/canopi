@@ -723,23 +723,6 @@ export type LidarLayerSource = {
 	value_range: [number, number],
 };
 
-/**
- *  How the LiDAR Data library opened at startup. Everything but `Ready` is
- *  shown to the user; `RefusedNewer` and `Unavailable` also make the library
- *  empty and read-only for the session.
- */
-export type LidarLibraryStatus = { kind: "ready" } |
-/**
- *  An older or corrupt catalogue was set aside and rebuilt from the
- *  originals: `items` listed again from their metadata, `generated` of
- *  them under a generated name because no metadata described them.
- */
-{ kind: "recovered"; items: number; generated: number } |
-// The catalogue was written by a newer Canopi and is left untouched.
-{ kind: "refused_newer" } |
-// The catalogue could be neither opened nor rebuilt.
-{ kind: "unavailable" };
-
 export type LidarPresentationEntry = {
 	kind: LibraryItemRole,
 	id: string,
@@ -806,25 +789,6 @@ export type LoadedDesign = {
 	file: CanopiFile,
 	fingerprint: string,
 };
-
-/**
- *  What startup did with the local data of an earlier Canopi (ADR 0021).
- *  `MovedAside` is shown to the user once: the next start finds only
- *  current data and reports `Current`.
- */
-export type LocalDataStatus =
-/**
- *  No user database from before Canopi 2.0 was found. Drafts in an
- *  earlier format and the retired 1.x autosave store stay in place,
- *  unread, and are not reported.
- */
-{ kind: "current" } |
-/**
- *  The user database from before Canopi 2.0 (favourites, saved stamps,
- *  settings, recent files) was renamed, never deleted, and Canopi started
- *  fresh.
- */
-{ kind: "moved_aside" };
 
 export type Locale = "en" | "fr" | "es" | "pt" | "it" | "zh" | "de" | "ja" | "ko" | "nl" | "ru";
 
@@ -920,7 +884,20 @@ export type PlantCatalogCause =
 // The file was found but could not be opened or admitted.
 "open_failed";
 
-export type PlantDbStatus = "available" | "missing" | "corrupt";
+/**
+ *  The plant catalog's state as the native plant DB handle reports it. It is
+ *  not on the health wire: `SubsystemHealth[plant_catalog]` carries it as
+ *  `ready` or `unavailable{plant_db_unavailable{cause}}`. It stays for the
+ *  plant DB's own refusal text and the frontend's plant-DB message until
+ *  those move onto the catalogue (2.1-M41).
+ */
+export type PlantDbStatus =
+// The catalog is open.
+"available" |
+// No catalog file was found.
+"missing" |
+// The file was found but could not be opened or admitted.
+"corrupt";
 
 export type PlantLabels = "none" | "codes" | "names";
 
@@ -1594,11 +1571,12 @@ export type StoryStep = {
 	images?: StoryImage[],
 };
 
-export type SubsystemHealth = {
-	plant_db: PlantDbStatus,
-	lidar_library: LidarLibraryStatus,
-	local_data: LocalDataStatus,
-};
+/**
+ *  Each store's open status, keyed by its id (contracts §11, 2.1-M417): the
+ *  one health vocabulary the frontend shows and problem reports carry. A store
+ *  the host does not open has no entry.
+ */
+export type SubsystemHealth = Partial<{ [key in StoreId]: StoreHealth }>;
 
 export type Theme = "light" | "dark";
 

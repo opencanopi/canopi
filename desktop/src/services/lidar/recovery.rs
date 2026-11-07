@@ -12,7 +12,7 @@
 use super::catalogue::{self, new_id, now_iso};
 use super::paths::LidarPaths;
 use super::source_meta::{self, AnalysisMeta, SourceMeta};
-use canopi_types::health::LidarLibraryStatus;
+use canopi_types::health::StoreOpenStatus;
 use rusqlite::Connection;
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::path::{Path, PathBuf};
@@ -91,17 +91,17 @@ pub enum LibraryOpenStatus {
 impl LibraryOpenStatus {
     /// The state as the frontend sees it in `SubsystemHealth`: no paths or
     /// reasons, only what the user can act on.
-    pub fn health(&self) -> LidarLibraryStatus {
+    pub fn health(&self) -> StoreOpenStatus {
         match self {
-            Self::Ready => LidarLibraryStatus::Ready,
+            Self::Ready => StoreOpenStatus::Ready,
             Self::Recovered {
                 items, generated, ..
-            } => LidarLibraryStatus::Recovered {
+            } => StoreOpenStatus::Recovered {
                 items: u32::try_from(*items).unwrap_or(u32::MAX),
                 generated: u32::try_from(*generated).unwrap_or(u32::MAX),
             },
-            Self::RefusedNewer { .. } => LidarLibraryStatus::RefusedNewer,
-            Self::Unavailable { .. } => LidarLibraryStatus::Unavailable,
+            Self::RefusedNewer { .. } => StoreOpenStatus::RefusedNewer,
+            Self::Unavailable { .. } => StoreOpenStatus::LIBRARY_UNAVAILABLE,
         }
     }
 
@@ -520,26 +520,26 @@ mod tests {
         };
         assert_eq!(
             recovered.health(),
-            LidarLibraryStatus::Recovered {
+            StoreOpenStatus::Recovered {
                 items: 4,
                 generated: 2
             }
         );
-        assert_eq!(LibraryOpenStatus::Ready.health(), LidarLibraryStatus::Ready);
+        assert_eq!(LibraryOpenStatus::Ready.health(), StoreOpenStatus::Ready);
         assert_eq!(
             LibraryOpenStatus::RefusedNewer {
                 found: 9,
                 supported: 3
             }
             .health(),
-            LidarLibraryStatus::RefusedNewer
+            StoreOpenStatus::RefusedNewer
         );
         assert_eq!(
             LibraryOpenStatus::Unavailable {
                 reason: "/private/path unreadable".into()
             }
             .health(),
-            LidarLibraryStatus::Unavailable
+            StoreOpenStatus::LIBRARY_UNAVAILABLE
         );
         let json = serde_json::to_string(&recovered.health()).unwrap();
         assert!(

@@ -11,7 +11,6 @@
   "entries": {
     "canopi-types/src/analysis_registry.rs: clippy:missing_docs": { "count": 12 },
     "canopi-types/src/design.rs: clippy:missing_docs": { "count": 43 },
-    "canopi-types/src/health.rs: clippy:missing_docs": { "count": 3 },
     "canopi-types/src/library.rs: clippy:missing_docs": { "count": 21 },
     "canopi-types/src/lidar.rs: clippy:missing_docs": { "count": 21 },
     "canopi-types/src/location.rs: clippy:missing_docs": { "count": 1 },

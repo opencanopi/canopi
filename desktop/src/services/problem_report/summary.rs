@@ -1,4 +1,5 @@
-use canopi_types::health::SubsystemHealth;
+use canopi_types::failure::{FailureCode, PlantCatalogCause};
+use canopi_types::health::{StoreId, StoreOpenStatus, SubsystemHealth};
 use canopi_types::settings::Settings;
 use canopi_types::support::ProblemReportRequest;
 
@@ -106,27 +107,37 @@ fn theme_label(settings: &Settings) -> &'static str {
 
 /// The Data library's open state, without counts, paths or reasons.
 fn lidar_library_label(health: &SubsystemHealth) -> &'static str {
-    match health.lidar_library {
-        canopi_types::health::LidarLibraryStatus::Ready => "ready",
-        canopi_types::health::LidarLibraryStatus::Recovered { .. } => "recovered",
-        canopi_types::health::LidarLibraryStatus::RefusedNewer => "refused (newer version)",
-        canopi_types::health::LidarLibraryStatus::Unavailable => "unavailable",
+    match health
+        .0
+        .get(&StoreId::LibraryCatalogue)
+        .map(|entry| &entry.status)
+    {
+        Some(StoreOpenStatus::Ready) => "ready",
+        Some(StoreOpenStatus::Recovered { .. }) => "recovered",
+        Some(StoreOpenStatus::RefusedNewer) => "refused (newer version)",
+        _ => "unavailable",
     }
 }
 
 fn plant_db_label(health: &SubsystemHealth) -> &'static str {
-    match health.plant_db {
-        canopi_types::health::PlantDbStatus::Available => "available",
-        canopi_types::health::PlantDbStatus::Missing => "missing",
-        canopi_types::health::PlantDbStatus::Corrupt => "corrupt",
+    match health
+        .0
+        .get(&StoreId::PlantCatalog)
+        .map(|entry| &entry.status)
+    {
+        Some(StoreOpenStatus::Ready) => "available",
+        Some(StoreOpenStatus::Unavailable {
+            code:
+                FailureCode::PlantDbUnavailable {
+                    cause: PlantCatalogCause::Missing,
+                },
+        }) => "missing",
+        _ => "corrupt",
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use canopi_types::health::{
-        LidarLibraryStatus, LocalDataStatus, PlantDbStatus, SubsystemHealth,
-    };
     use canopi_types::support::{ProblemReportRequest, ProblemReportSensitiveAttachments};
 
     use super::super::ProblemReportContext;
@@ -144,11 +155,7 @@ mod tests {
             webview_version: webview_version.map(str::to_owned),
             settings: None,
             settings_error: None,
-            health: SubsystemHealth {
-                plant_db: PlantDbStatus::Available,
-                lidar_library: LidarLibraryStatus::Ready,
-                local_data: LocalDataStatus::Current,
-            },
+            health: crate::services::health::all_ready(),
         };
         let request = ProblemReportRequest {
             description: String::new(),

@@ -122,7 +122,6 @@ fn create_unique_report_folder(root: &Path, folder_name: &str) -> Result<PathBuf
 mod tests {
     use crate::services::folder_reveal::recording::{RecordingRevealer, Shown};
     use crate::test_scratch::TestScratch;
-    use canopi_types::health::{LidarLibraryStatus, PlantDbStatus, SubsystemHealth};
     use canopi_types::settings::Settings;
     use canopi_types::support::{
         FrontendDiagnosticEntry, ProblemReportRequest, ProblemReportSensitiveAttachments,
@@ -180,11 +179,7 @@ mod tests {
                     ..Settings::default()
                 }),
                 settings_error: None,
-                health: SubsystemHealth {
-                    plant_db: PlantDbStatus::Available,
-                    lidar_library: LidarLibraryStatus::Ready,
-                    local_data: canopi_types::health::LocalDataStatus::Current,
-                },
+                health: crate::services::health::all_ready(),
             },
         )
         .unwrap();
@@ -256,11 +251,7 @@ mod tests {
                 webview_version: None,
                 settings: Some(Settings::default()),
                 settings_error: None,
-                health: SubsystemHealth {
-                    plant_db: PlantDbStatus::Available,
-                    lidar_library: LidarLibraryStatus::Ready,
-                    local_data: canopi_types::health::LocalDataStatus::Current,
-                },
+                health: crate::services::health::all_ready(),
             },
         )
         .unwrap();
@@ -298,11 +289,7 @@ mod tests {
             webview_version: None,
             settings: Some(Settings::default()),
             settings_error: None,
-            health: SubsystemHealth {
-                plant_db: PlantDbStatus::Available,
-                lidar_library: LidarLibraryStatus::Ready,
-                local_data: canopi_types::health::LocalDataStatus::Current,
-            },
+            health: crate::services::health::all_ready(),
         }
     }
 

@@ -122,10 +122,7 @@ mod tests {
         },
         services::problem_report::ProblemReportContext,
     };
-    use canopi_types::{
-        health::{LidarLibraryStatus, PlantDbStatus, SubsystemHealth},
-        support::{ProblemReportRequest, ProblemReportSensitiveAttachments},
-    };
+    use canopi_types::support::{ProblemReportRequest, ProblemReportSensitiveAttachments};
     use std::{sync::mpsc, time::Duration};
 
     const WAIT_TIMEOUT: Duration = Duration::from_secs(2);
@@ -191,11 +188,7 @@ mod tests {
                     webview_version: None,
                     settings: None,
                     settings_error: None,
-                    health: SubsystemHealth {
-                        plant_db: PlantDbStatus::Available,
-                        lidar_library: LidarLibraryStatus::Ready,
-                        local_data: canopi_types::health::LocalDataStatus::Current,
-                    },
+                    health: crate::services::health::all_ready(),
                 },
             )
             .await
