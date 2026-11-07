@@ -145,9 +145,8 @@ pub(crate) fn contract_types() -> TypeCollection {
         .register::<canopi_types::species::SpeciesSearchRequest>()
         .register::<canopi_types::species::SpeciesUse>()
         .register::<canopi_types::update::UpdateDownload>()
-        .register::<canopi_types::update::UpdateFailure>()
-        .register::<canopi_types::update::UpdateFailureCode>()
         .register::<canopi_types::update::UpdateOffer>()
+        .register::<canopi_types::update::UpdateOp>()
         .register::<canopi_types::update::UpdateProgress>()
 }
 
@@ -203,6 +202,16 @@ pub(crate) fn render_typescript_contracts() -> Result<String, Box<dyn std::error
         "\nexport type FailureRow = {{ readonly source: FailureSource; readonly user_may_retry: boolean; readonly silent: boolean; readonly level: FailureLogLevel }}\n\nexport const FAILURE_CATALOGUE: {{ readonly [K in FailureCode[\"kind\"]]: FailureRow }} = {}\n",
         serde_json::to_string_pretty(&rows)?
     ));
+    // The updater's narrowing (contracts §2 updater row): the kinds an update command settles
+    // with and its op, so the updater's message map stays exhaustive over what it can receive.
+    let kinds: Vec<String> = canopi_types::update::UPDATER_FAILURE_KINDS
+        .iter()
+        .map(|kind| format!("\"{kind}\""))
+        .collect();
+    normalized.push_str(&format!(
+        "\nexport type UpdaterFailureKind = {}\n\nexport type UpdaterFailure = Omit<Failure, \"code\" | \"op\"> & {{ code: Extract<FailureCode, {{ kind: UpdaterFailureKind }}>; op: UpdateOp }}\n",
+        kinds.join(" | ")
+    ));
     // The sampler's caps: Rust refuses a request beyond either, so the
     // frontend batches by the same numbers.
     normalized.push_str(&format!(
@@ -254,6 +263,32 @@ mod tests {
         assert_eq!(
             table.as_object().map(serde_json::Map::len),
             Some(canopi_types::failure::FailureCode::ROWS.len())
+        );
+    }
+
+    /// The updater's message map is a mapped type over `UpdaterFailure["code"]["kind"]`
+    /// (app/updates/state.ts), so the narrowing carries exactly the kinds Rust says the updater
+    /// settles with: one Rust adds there fails the typecheck until the map has its rule.
+    #[test]
+    fn the_updater_failure_narrows_to_the_kinds_the_updater_settles_with() {
+        let rendered = super::render_typescript_contracts().expect("contracts render");
+        let kinds = rendered
+            .split("export type UpdaterFailureKind =")
+            .nth(1)
+            .and_then(|rest| rest.split('\n').next())
+            .expect("UpdaterFailureKind is exported");
+        let listed: Vec<&str> = kinds
+            .split('|')
+            .map(|kind| kind.trim().trim_end_matches(';').trim_matches('"'))
+            .collect();
+        assert_eq!(listed, canopi_types::update::UPDATER_FAILURE_KINDS);
+        assert!(rendered.contains(
+            "export type UpdaterFailure = Omit<Failure, \"code\" | \"op\"> & { code: Extract<FailureCode, { kind: UpdaterFailureKind }>; op: UpdateOp }\n"
+        ));
+        assert!(!rendered.contains("UpdateLane"), "UpdateLane is deleted");
+        assert!(
+            !rendered.contains("export type UpdateFailure"),
+            "UpdateFailure is deleted"
         );
     }
 

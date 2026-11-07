@@ -2,7 +2,10 @@
 
 use std::sync::{Arc, Mutex};
 
-use canopi_types::update::{NetworkFailureKind, UpdateFailure, UpdateOp, UpdateProgress};
+use canopi_types::{
+    failure::{Failure, NetworkFailureKind},
+    update::{UpdateOp, UpdateProgress},
+};
 use tauri_plugin_updater::Update;
 use tokio::sync::watch;
 
@@ -19,7 +22,7 @@ pub(super) async fn transfer(
     size_cap: u64,
     sinks: &Mutex<Vec<ProgressSink>>,
     cancelled: impl std::future::Future,
-) -> Result<Vec<u8>, UpdateFailure> {
+) -> Result<Vec<u8>, Failure> {
     let op = UpdateOp::Download;
     let (over_cap, mut watching) = watch::channel(false);
     let mut received: u64 = 0;
@@ -63,7 +66,10 @@ pub(super) async fn transfer(
 
 #[cfg(test)]
 mod tests {
-    use canopi_types::update::{NetworkFailureKind, UpdateDownload, UpdateFailure};
+    use canopi_types::{
+        failure::{Failure, NetworkFailureKind},
+        update::UpdateDownload,
+    };
 
     use crate::host::updater::{
         Limits, UpdaterHost,
@@ -73,11 +79,7 @@ mod tests {
 
     /// Downloads `offer`'s payload, served by `route`, under a size cap of `size_cap` bytes; a
     /// failed download stages nothing.
-    fn download(
-        offer: &Offer,
-        route: Route,
-        size_cap: u64,
-    ) -> Result<UpdateDownload, UpdateFailure> {
+    fn download(offer: &Offer, route: Route, size_cap: u64) -> Result<UpdateDownload, Failure> {
         offer.server.route("/payload", route);
         let app = mock_app(&offer.key.public_key());
         let executor = NativeOperationExecutor::production();

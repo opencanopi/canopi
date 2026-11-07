@@ -11,6 +11,8 @@ pub use canopi_redact::RedactedText;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
+use crate::update::{UpdateArch, UpdateBundle, UpdateOs};
+
 /// A failed settlement as it crosses the seam: what the interface maps to a
 /// message (`code`), whether the screen may offer Retry, the dotted operation
 /// that failed, the user action or system work it belongs to, and redacted
@@ -81,6 +83,31 @@ pub enum FailureCode {
         /// The map layer whose source failed.
         layer: String,
     },
+    /// The update payload's signature failed, or a validly signed payload is not the
+    /// announced newer version (2.1-M64).
+    UpdateSignatureRefused,
+    /// A newer release has no entry for this installer; About shows the download link.
+    UpdateNoChannelEntry {
+        /// The operating system part of the key (`linux`, `windows`, `darwin`).
+        os: UpdateOs,
+        /// The architecture part of the key (`x86_64`, `aarch64`).
+        arch: UpdateArch,
+        /// The installer part of the key.
+        bundle: UpdateBundle,
+    },
+    /// No `pkexec` to ask for the administrator password (2.1-Q232).
+    UpdateAdminPromptUnavailable,
+    /// The password prompt was closed (pkexec exit 126).
+    UpdateAdminPromptDismissed,
+    /// The system refused the request (pkexec exit 127).
+    UpdateAdminPromptRefused,
+    /// Canopi's own location cannot be written.
+    UpdateLocationNotWritable,
+    /// The installer reported an error.
+    UpdateInstallFailed {
+        /// The installer that failed.
+        bundle: UpdateBundle,
+    },
 }
 
 /// The part of Canopi that produces a code (contracts §2's Source column).
@@ -95,6 +122,8 @@ pub enum FailureSource {
     NativeService,
     /// The map and its sources.
     Map,
+    /// The Desktop updater (contracts §2 updater row, 2.1-M210).
+    Updater,
 }
 
 /// The level a settlement with a code is logged at (ADR 0025 Logs).
@@ -182,6 +211,22 @@ catalogue! {
     StyleFailed => "style_failed", Map, retry: true, silent: true, Warn;
     TileSourceFailed { layer: "satellite".to_owned() } => "tile_source_failed",
         Map, retry: true, silent: true, Warn;
+    UpdateSignatureRefused => "update_signature_refused", Updater, retry: false, silent: false, Warn;
+    UpdateNoChannelEntry {
+        os: UpdateOs::Linux,
+        arch: UpdateArch::X86_64,
+        bundle: UpdateBundle::Appimage,
+    } => "update_no_channel_entry", Updater, retry: false, silent: false, Info;
+    UpdateAdminPromptUnavailable => "update_admin_prompt_unavailable",
+        Updater, retry: false, silent: false, Info;
+    UpdateAdminPromptDismissed => "update_admin_prompt_dismissed",
+        Updater, retry: true, silent: false, Info;
+    UpdateAdminPromptRefused => "update_admin_prompt_refused",
+        Updater, retry: false, silent: false, Info;
+    UpdateLocationNotWritable => "update_location_not_writable",
+        Updater, retry: false, silent: false, Warn;
+    UpdateInstallFailed { bundle: UpdateBundle::Deb } => "update_install_failed",
+        Updater, retry: true, silent: false, Warn;
 }
 
 impl Failure {
@@ -213,6 +258,12 @@ impl Failure {
             ..self
         }
     }
+
+    /// The same failure, with `english` for logs and reports after the generic redactor:
+    /// a fixed line naming what failed, never the text a library's own error holds.
+    pub fn with_english(self, english: &str) -> Self {
+        self.with_detail(canopi_redact::Redactor::generic().redact(english))
+    }
 }
 
 /// The dotted op of each typed command, beside which its failures are named (2.1-M420):
@@ -222,9 +273,21 @@ pub mod ops {
     pub const DIALOG_PICK_OPEN: &str = "dialog.pick_open";
     /// `pick_save`: the host's Save dialog.
     pub const DIALOG_PICK_SAVE: &str = "dialog.pick_save";
+    /// `update_check`: reading the update channel file.
+    pub const UPDATER_CHECK: &str = "updater.check";
+    /// `update_download`: fetching and verifying the update payload.
+    pub const UPDATER_DOWNLOAD: &str = "updater.download";
+    /// `update_install`: installing the verified payload.
+    pub const UPDATER_INSTALL: &str = "updater.install";
 
     /// Every op constant.
-    pub const ALL: &[&str] = &[DIALOG_PICK_OPEN, DIALOG_PICK_SAVE];
+    pub const ALL: &[&str] = &[
+        DIALOG_PICK_OPEN,
+        DIALOG_PICK_SAVE,
+        UPDATER_CHECK,
+        UPDATER_DOWNLOAD,
+        UPDATER_INSTALL,
+    ];
 }
 
 /// The executor lanes, by their target names (2.1-M420).

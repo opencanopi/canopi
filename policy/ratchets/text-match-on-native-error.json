@@ -15,10 +15,6 @@
     "text-match-on-native-error"
   ],
   "entries": {
-    "desktop/src/host/updater/failure.rs": {
-      "count": 1,
-      "bead": "canopi-f47t.52.35"
-    },
     "desktop/web/src/app/budget/export.ts": {
       "count": 1,
       "bead": "canopi-f47t.52.172"

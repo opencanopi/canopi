@@ -17,7 +17,7 @@
     "bindings-gen/src/plant_filter.rs": { "count": 1356 },
     "bindings-gen/src/publication.rs": { "count": 1742 },
     "canopi-types/src/design.rs": { "count": 1141 },
-    "canopi-types/src/failure.rs": { "count": 637, "bead": "canopi-f47t.52.35" },
+    "canopi-types/src/failure.rs": { "count": 700, "bead": "canopi-f47t.52.35" },
     "desktop/src/db/query_builder.rs": { "count": 1123 },
     "desktop/src/db/query_builder/builder.rs": { "count": 935 },
     "desktop/src/db/species_search_normalization.rs": { "count": 615 },

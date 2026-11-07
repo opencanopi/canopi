@@ -6,7 +6,8 @@
 //! running download (its progress reaches every caller), unless that run is cancelled. Each run has
 //! one cancel signal its leader and followers share; `update_cancel` reaches a run only through the
 //! id of an op in it. Until N0's `OpSpec`, check and download each run in one
-//! `NativeOperationExecutor::run(Network, ..)`, `block_on` of the plugin's future raced against the
+//! `NativeOperationExecutor::run_typed(Network, ..)` under its op (an executor settlement is its
+//! own catalogue code), `block_on` of the plugin's future raced against the
 //! cancel signal, so a cancel drops the transfer and stages nothing (the payload stays in memory);
 //! the install's verify, temp write, `pkexec` and replace run on the Local class (2.1-M207, M241).
 //!
@@ -30,9 +31,9 @@ use std::{
     time::Duration,
 };
 
-use canopi_types::update::{
-    NetworkFailureKind, UpdateDownload, UpdateFailure, UpdateFailureCode, UpdateLane, UpdateOffer,
-    UpdateOp,
+use canopi_types::{
+    failure::{Failure, FailureCode, NetworkFailureKind},
+    update::{UpdateDownload, UpdateOffer, UpdateOp},
 };
 use tauri::{AppHandle, Manager as _, Runtime};
 use tauri_plugin_updater::{Update, UpdaterExt as _};
@@ -74,8 +75,8 @@ impl Limits {
     };
 }
 
-type CheckSettlement = Result<Option<UpdateOffer>, UpdateFailure>;
-type DownloadSettlement = Result<UpdateDownload, UpdateFailure>;
+type CheckSettlement = Result<Option<UpdateOffer>, Failure>;
+type DownloadSettlement = Result<UpdateDownload, Failure>;
 
 /// Every caller's progress sink of the running download.
 type Sinks = Arc<Mutex<Vec<ProgressSink>>>;
@@ -140,17 +141,17 @@ impl Drop for Accepted<'_> {
 async fn follow<T: Clone>(
     mut receiver: watch::Receiver<Option<T>>,
     op: UpdateOp,
-) -> Result<T, UpdateFailure> {
+) -> Result<T, Failure> {
     match receiver.wait_for(Option::is_some).await {
         Ok(settled) => settled.clone().ok_or_else(|| interrupted(op)),
         Err(_) => Err(interrupted(op)),
     }
 }
 
-fn interrupted(op: UpdateOp) -> UpdateFailure {
+fn interrupted(op: UpdateOp) -> Failure {
     failure::failure(
         op,
-        UpdateFailureCode::Internal,
+        FailureCode::Internal,
         "the running update operation stopped",
     )
 }
@@ -245,7 +246,7 @@ impl UpdaterHost {
         operation: &str,
         op: UpdateOp,
         turn: impl FnOnce(&mut Ops) -> (T, CancelSignal),
-    ) -> Result<(Accepted<'_>, T, watch::Receiver<bool>), UpdateFailure> {
+    ) -> Result<(Accepted<'_>, T, watch::Receiver<bool>), Failure> {
         let mut cancels = self.cancels();
         if let Some(index) = cancels.early.iter().position(|named| named == operation) {
             cancels.early.remove(index);
@@ -275,7 +276,7 @@ impl UpdaterHost {
         installation: Installation,
         endpoint: tauri::Url,
         op: UpdateOp,
-    ) -> Result<tauri_plugin_updater::Updater, UpdateFailure> {
+    ) -> Result<tauri_plugin_updater::Updater, Failure> {
         let mut allowed_hosts = self.endpoints.allowed_hosts();
         allowed_hosts.extend(self.local_host.clone());
         let client = crate::http::UpdaterClient {
@@ -339,7 +340,7 @@ impl UpdaterHost {
         app: &AppHandle<R>,
         executor: &NativeOperationExecutor,
         mut cancelled: watch::Receiver<bool>,
-    ) -> Result<(Option<Update>, Option<UpdateOffer>), UpdateFailure> {
+    ) -> Result<(Option<Update>, Option<UpdateOffer>), Failure> {
         let (Some(installation), Some(channel)) = (self.installation, self.channel) else {
             return Ok((None, None));
         };
@@ -352,18 +353,17 @@ impl UpdaterHost {
         };
         let updater = self.plugin_updater(app, installation, endpoint, UpdateOp::Check)?;
         let update = executor
-            .run(NativeOperationClass::Network, "updater.check", move || {
-                Ok(tauri::async_runtime::block_on(async move {
+            .run_typed(NativeOperationClass::Network, UpdateOp::Check.op(), move || {
+                tauri::async_runtime::block_on(async move {
                     tokio::select! {
                         checked = updater.check() => checked
                             .map_err(|error| failure::from_plugin(UpdateOp::Check, installation, &error)),
                         _ = cancelled.wait_for(|cancelled| *cancelled) =>
                             Err(failure::cancelled(UpdateOp::Check)),
                     }
-                }))
+                })
             })
-            .await
-            .map_err(|message| failure::executor(UpdateOp::Check, UpdateLane::Network, &message))??;
+            .await?;
         let Some(update) = update else {
             return Ok((None, None));
         };
@@ -428,18 +428,18 @@ impl UpdaterHost {
         else {
             return Err(failure::failure(
                 op,
-                UpdateFailureCode::Invalid,
+                FailureCode::Invalid,
                 "no update was offered",
             ));
         };
-        // Filesystem work (a stat per `PATH` folder, an access check), so a Local operation.
+        // Filesystem work (a stat per `PATH` folder, an access check), so a Local operation, part
+        // of the download: a full Local lane settles the download busy.
         let context = self.install_context(app, None);
         let replaceable = executor
-            .run(NativeOperationClass::Local, "updater.probe", move || {
+            .run_typed::<_, Failure, _>(NativeOperationClass::Local, op.op(), move || {
                 Ok(install::can_replace_itself(installation.bundle, &context))
             })
-            .await
-            .map_err(|message| failure::executor(op, UpdateLane::Local, &message))?;
+            .await?;
         if !replaceable {
             return Ok(UpdateDownload::LinkOnly {
                 url: self.endpoints.download_page().to_owned(),
@@ -459,21 +459,16 @@ impl UpdaterHost {
         let size_cap = self.limits.size_cap;
         let staged_update = update.clone();
         let bytes = executor
-            .run(
-                NativeOperationClass::Network,
-                "updater.download",
-                move || {
-                    Ok(tauri::async_runtime::block_on(transfer::transfer(
-                        &update,
-                        installation,
-                        size_cap,
-                        &sinks,
-                        cancelled.wait_for(|cancelled| *cancelled),
-                    )))
-                },
-            )
-            .await
-            .map_err(|message| failure::executor(op, UpdateLane::Network, &message))??;
+            .run_typed(NativeOperationClass::Network, op.op(), move || {
+                tauri::async_runtime::block_on(transfer::transfer(
+                    &update,
+                    installation,
+                    size_cap,
+                    &sinks,
+                    cancelled.wait_for(|cancelled| *cancelled),
+                ))
+            })
+            .await?;
         self.ops().staged = Some(Staged {
             update: staged_update,
             bytes: Arc::new(bytes),
@@ -515,13 +510,13 @@ impl UpdaterHost {
         app: &AppHandle<R>,
         executor: &NativeOperationExecutor,
         design_path: Option<PathBuf>,
-    ) -> Result<(), UpdateFailure> {
+    ) -> Result<(), Failure> {
         let op = UpdateOp::Install;
         let (Some(installation), Some(staged)) = (self.installation, self.ops().staged.take())
         else {
             return Err(failure::failure(
                 op,
-                UpdateFailureCode::Invalid,
+                FailureCode::Invalid,
                 "no verified update",
             ));
         };
@@ -532,20 +527,15 @@ impl UpdaterHost {
         let inner = executor.clone();
         let handle = app.clone();
         executor
-            .run(
+            .run_typed(
                 NativeOperationClass::Local,
-                "updater.install",
-                move || match install::install(installation, &context, &update, &bytes, &inner) {
-                    Ok(install::Installed::Exit(drain)) => {
-                        launch::exit_into_installer(&handle, drain)
-                    }
-                    Ok(install::Installed::InPlace) => Ok(Ok(())),
-                    Err(failure) => Ok(Err(failure)),
+                op.op(),
+                move || match install::install(installation, &context, &update, &bytes, &inner)? {
+                    install::Installed::Exit(drain) => launch::exit_into_installer(&handle, drain),
+                    install::Installed::InPlace => Ok(()),
                 },
             )
             .await
-            .map_err(|message| failure::executor(op, UpdateLane::Local, &message))
-            .and_then(|installed| installed)
     }
 
     /// Whether this launch follows a Windows update that did not install: read once, the marker
@@ -554,17 +544,16 @@ impl UpdaterHost {
         &self,
         app: &AppHandle<R>,
         executor: &NativeOperationExecutor,
-    ) -> Result<bool, UpdateFailure> {
+    ) -> Result<bool, Failure> {
         let marker = self.install_context(app, None).marker;
         let running = app.package_info().version.clone();
         executor
-            .run(
+            .run_typed(
                 NativeOperationClass::Local,
-                "updater.launch_notice",
+                UpdateOp::Install.op(),
                 move || Ok(marker.is_some_and(|marker| install::take_marker(&marker, &running))),
             )
             .await
-            .map_err(|message| failure::executor(UpdateOp::Install, UpdateLane::Local, &message))
     }
 }
 

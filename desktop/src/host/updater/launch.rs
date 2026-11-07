@@ -8,7 +8,10 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use canopi_types::update::{UpdateFailure, UpdateFailureCode, UpdateLane, UpdateOp};
+use canopi_types::{
+    failure::{Failure, FailureCode},
+    update::UpdateOp,
+};
 use tauri::{AppHandle, Manager as _, Runtime};
 
 use super::failure;
@@ -20,10 +23,10 @@ use crate::{
     services::settings,
 };
 
-fn row_failure(_: String) -> UpdateFailure {
+fn row_failure(_: String) -> Failure {
     failure::failure(
         UpdateOp::Check,
-        UpdateFailureCode::Internal,
+        FailureCode::Internal,
         "the launch check setting could not be read or written",
     )
 }
@@ -32,15 +35,14 @@ fn row_failure(_: String) -> UpdateFailure {
 pub async fn launch_check_get(
     executor: &NativeOperationExecutor,
     user_db: UserDb,
-) -> Result<bool, UpdateFailure> {
+) -> Result<bool, Failure> {
     executor
-        .run(
+        .run_typed(
             NativeOperationClass::UserData,
-            "updater.launch_check_get",
-            move || Ok(settings::updater_check_at_launch(&user_db).map_err(row_failure)),
+            UpdateOp::Check.op(),
+            move || settings::updater_check_at_launch(&user_db).map_err(row_failure),
         )
         .await
-        .map_err(|message| failure::executor(UpdateOp::Check, UpdateLane::Local, &message))?
 }
 
 /// Stores whether Canopi checks for an update at launch.
@@ -48,15 +50,14 @@ pub async fn launch_check_set(
     executor: &NativeOperationExecutor,
     user_db: UserDb,
     on: bool,
-) -> Result<(), UpdateFailure> {
+) -> Result<(), Failure> {
     executor
-        .run(
+        .run_typed(
             NativeOperationClass::UserData,
-            "updater.launch_check_set",
-            move || Ok(settings::set_updater_check_at_launch(&user_db, on).map_err(row_failure)),
+            UpdateOp::Check.op(),
+            move || settings::set_updater_check_at_launch(&user_db, on).map_err(row_failure),
         )
         .await
-        .map_err(|message| failure::executor(UpdateOp::Check, UpdateLane::Local, &message))?
 }
 
 /// The relaunch's arguments, on Linux and Windows alike: the binary, then the Design path alone

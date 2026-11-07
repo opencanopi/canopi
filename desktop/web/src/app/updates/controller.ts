@@ -1,10 +1,10 @@
 import { computed, signal, type ReadonlySignal } from '@preact/signals'
-import type { UpdateDownload, UpdateFailure, UpdateOffer, UpdateOp, UpdateOs, UpdateProgress } from '../../generated/contracts'
+import type { UpdateDownload, UpdaterFailure, UpdateOffer, UpdateOp, UpdateOs, UpdateProgress } from '../../generated/contracts'
 import { canTransition, offersRetry, updateFailureMessage, type UpdateFailureMessage, type UpdateState } from './state'
 
 /**
  * The host's update commands as the controller uses them; the Desktop root passes ipc/update.ts, so this module
- * imports no ipc/ module. Each rejects with an `UpdateFailure` (contracts §2). Progress arrives only through
+ * imports no ipc/ module. Each rejects with an `UpdaterFailure` (contracts §2). Progress arrives only through
  * `downloadUpdate`'s callback, update_download's Channel (2.1-M208).
  */
 export interface UpdaterPort {
@@ -68,10 +68,13 @@ export interface UpdateController {
   restart(): Promise<void>
 }
 
-/** A rejection that is not a typed failure is a fault in Canopi itself, settled `internal`. */
-function asFailure(error: unknown, op: UpdateOp): UpdateFailure {
-  if (typeof error === 'object' && error !== null && 'code' in error && 'op' in error) return error as UpdateFailure
-  return { code: { kind: 'internal' }, user_may_retry: false, op, detail: String(error) }
+/**
+ * A rejection that is not a typed failure is a fault in Canopi itself, settled `internal`. Its text is not redacted
+ * here, so it is not kept as the detail: 1b's transport records such a rejection redacted (contracts §13, 2.1-M409).
+ */
+function asFailure(error: unknown, op: UpdateOp): UpdaterFailure {
+  if (typeof error === 'object' && error !== null && 'code' in error && 'op' in error) return error as UpdaterFailure
+  return { code: { kind: 'internal' }, user_may_retry: false, op, operation: null, detail: null }
 }
 
 /**

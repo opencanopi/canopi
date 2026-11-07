@@ -1,0 +1,7 @@
+{
+  "code": { "kind": "update_install_failed", "bundle": "deb" },
+  "user_may_retry": true,
+  "op": "fixtures.example",
+  "operation": null,
+  "detail": null
+}

@@ -29,18 +29,18 @@ import { closeSettingsDialog, openSettingsDialog } from '../app/shell/dialogs'
 import { createUpdateController, type UpdateController, type UpdaterPort } from '../app/updates/controller'
 import { AboutCanopiDialog, AboutUpdates, UpdateAvailableNotice } from '../components/shared/AboutCanopiDialog'
 import { LaunchCheckSwitch, SettingsDialog } from '../components/shared/SettingsDialog'
-import type { UpdateDownload, UpdateFailure, UpdateOffer, UpdateOs, UpdateProgress } from '../generated/contracts'
+import type { UpdateDownload, UpdaterFailure, UpdateOffer, UpdateOs, UpdateProgress } from '../generated/contracts'
 import { WebApp } from '../web/WebApp'
 import { unmount } from './support/unmount'
 
 const OFFER: UpdateOffer = { version: '2.1.0', date: '2026-11-02', notes_url: 'https://github.com/opencanopi/canopi/releases/tag/v2.1.0' }
 const DOWNLOAD_PAGE = 'https://projectcanopi.com'
-const OFFLINE: UpdateFailure = { code: { kind: 'network', network: 'offline' }, user_may_retry: true, op: 'updater.check', detail: 'offline' }
-const NO_ENTRY: UpdateFailure = { code: { kind: 'update_no_channel_entry', os: 'linux', arch: 'x86_64', bundle: 'appimage' }, user_may_retry: false, op: 'updater.check', detail: 'no entry' }
-const CANCELLED: UpdateFailure = { code: { kind: 'cancelled' }, user_may_retry: false, op: 'updater.download', detail: 'cancelled by the user' }
-const DOWNLOAD_FAILED: UpdateFailure = { code: { kind: 'network', network: 'timeout' }, user_may_retry: true, op: 'updater.download', detail: 'timed out' }
-const NOT_VERIFIED: UpdateFailure = { code: { kind: 'update_signature_refused' }, user_may_retry: false, op: 'updater.download', detail: 'signature refused' }
-const PROMPT_CLOSED: UpdateFailure = { code: { kind: 'update_admin_prompt_dismissed' }, user_may_retry: true, op: 'updater.install', detail: 'pkexec exit 126' }
+const OFFLINE: UpdaterFailure = { code: { kind: 'network', network: 'offline' }, user_may_retry: true, op: 'updater.check', operation: null, detail: null }
+const NO_ENTRY: UpdaterFailure = { code: { kind: 'update_no_channel_entry', os: 'linux', arch: 'x86_64', bundle: 'appimage' }, user_may_retry: false, op: 'updater.check', operation: null, detail: null }
+const CANCELLED: UpdaterFailure = { code: { kind: 'cancelled' }, user_may_retry: false, op: 'updater.download', operation: null, detail: null }
+const DOWNLOAD_FAILED: UpdaterFailure = { code: { kind: 'network', network: 'timeout' }, user_may_retry: true, op: 'updater.download', operation: null, detail: null }
+const NOT_VERIFIED: UpdaterFailure = { code: { kind: 'update_signature_refused' }, user_may_retry: false, op: 'updater.download', operation: null, detail: null }
+const PROMPT_CLOSED: UpdaterFailure = { code: { kind: 'update_admin_prompt_dismissed' }, user_may_retry: true, op: 'updater.install', operation: null, detail: null }
 
 /** One pending host reply the test settles by hand. */
 interface Pending<T> {
@@ -354,7 +354,7 @@ describe('About › Updates', () => {
 
   // 2.1-Q252: Windows shows Linux's two download reasons; Retry, offered when the failure allows it, downloads again.
   it('on Windows a failed or unverifiable download shows Update not installed with its reason, and Retry downloads again', async () => {
-    const failedWith = async (failure: UpdateFailure) => {
+    const failedWith = async (failure: UpdaterFailure) => {
       const fake = fakePort()
       await showAbout(controllerFor(fake.port, 'windows'))
       await press(action())

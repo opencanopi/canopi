@@ -8,9 +8,9 @@
 #![cfg(test)]
 
 use base64::Engine as _;
-use canopi_types::update::{
-    NetworkFailureKind, UpdateArch, UpdateBundle, UpdateFailure, UpdateFailureCode, UpdateOs,
-    UpdateProgress,
+use canopi_types::{
+    failure::{Failure, FailureCode, NetworkFailureKind},
+    update::{UPDATER_FAILURE_KINDS, UpdateArch, UpdateBundle, UpdateOp, UpdateOs, UpdateProgress},
 };
 use ed25519_dalek::{Signer as _, SigningKey};
 use std::{
@@ -339,14 +339,29 @@ pub fn sink() -> (ProgressSink, Arc<Mutex<Vec<UpdateProgress>>>) {
     (sink, heard)
 }
 
-/// The failure code of a settlement that must fail.
-pub fn code(settled: Result<impl std::fmt::Debug, UpdateFailure>) -> UpdateFailureCode {
-    settled.unwrap_err().code
+/// The failure code of a settlement that must fail: one of the kinds the generated
+/// `UpdaterFailure` narrows to, for an updater op, so every settlement a test drives holds the
+/// frontend's narrowing to what the updater really sends.
+pub fn code(settled: Result<impl std::fmt::Debug, Failure>) -> FailureCode {
+    let failure = settled.unwrap_err();
+    assert!(
+        UPDATER_FAILURE_KINDS.contains(&failure.code.row().kind),
+        "{:?} is outside UpdaterFailure",
+        failure.code
+    );
+    assert!(
+        [UpdateOp::Check, UpdateOp::Download, UpdateOp::Install]
+            .iter()
+            .any(|op| op.op() == failure.op),
+        "{} is no updater op",
+        failure.op
+    );
+    failure.code
 }
 
 /// A network failure code.
-pub fn network(kind: NetworkFailureKind) -> UpdateFailureCode {
-    UpdateFailureCode::Network { network: kind }
+pub fn network(kind: NetworkFailureKind) -> FailureCode {
+    FailureCode::Network { network: kind }
 }
 
 /// A fresh folder for one test.
