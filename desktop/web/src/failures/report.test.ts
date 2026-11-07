@@ -147,17 +147,16 @@ describe('failure sink: failure states', () => {
     expect(failureNoticesForTests().notices).toHaveLength(2)
   })
 
-  it('[canopi-f47t.52.36] the same failure after its notice was dismissed queues a new notice, its count starting again', () => {
+  it('[canopi-f47t.52.36] the same failure after its notice was dismissed queues no new notice and keeps counting, since it never recovered (2.1-Q294)', () => {
     reportFailure(new Error('save failed'), { shown: 'notice', source: 'design.save' })
     reportFailure(new Error('save failed again'), { shown: 'notice', source: 'design.save' })
     const [first] = failureNoticesForTests().notices
     dismissNotice(first!.id)
-    expect(failureNoticesForTests().notices).toHaveLength(0)
     reportFailure(new Error('save failed later'), { shown: 'notice', source: 'design.save' })
     const { notices, repeats } = failureNoticesForTests()
-    expect(notices).toHaveLength(1)
-    expect(notices[0]!.id).not.toBe(first!.id)
-    expect([...repeats.values()]).toEqual([1])
+    expect(notices).toHaveLength(0)
+    expect([...repeats.values()]).toEqual([3])
+    // The user was told of this failure by its first notice.
     expect(ringEntries().at(-1)).toMatchObject({ surfaced: true })
   })
 
