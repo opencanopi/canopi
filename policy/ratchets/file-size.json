@@ -20,7 +20,7 @@
     "desktop/src/db/query_builder.rs": { "count": 1123 },
     "desktop/src/db/query_builder/builder.rs": { "count": 935 },
     "desktop/src/db/species_search_normalization.rs": { "count": 615 },
-    "desktop/src/db/user_db.rs": { "count": 991 },
+    "desktop/src/db/user_db.rs": { "count": 984 },
     "desktop/src/design/format.rs": { "count": 1395 },
     "desktop/src/design/mod.rs": { "count": 619 },
     "desktop/src/lib.rs": { "count": 667 },

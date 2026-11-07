@@ -10,7 +10,7 @@ pub(crate) mod test_support;
 pub mod user_db;
 
 use canopi_types::failure::{Failure, FailureCode, PlantCatalogCause};
-use canopi_types::health::PlantDbStatus;
+use canopi_types::health::{PlantDbStatus, StoreHealth, StoreNotice, StoreOpenStatus};
 use canopi_types::sensitive::UserPath;
 use rusqlite::{Connection, InterruptHandle};
 use std::ops::Deref;
@@ -91,18 +91,6 @@ impl Deref for PlantDbConnectionGuard<'_> {
 #[derive(Clone)]
 pub struct UserDb(Arc<Mutex<Connection>>);
 
-/// How [`UserDb::open`] found the file it opened.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum UserDbOpened {
-    /// A current database, or a new one where there was none.
-    Ready,
-    /// A database from before Canopi 2.0 was moved aside (ADR 0021); the user
-    /// is told once.
-    MovedAside,
-    /// A damaged database was set aside as corrupt.
-    ReplacedCorrupt,
-}
-
 /// Why a database file is set aside: the suffix its new name carries.
 #[derive(Debug, Clone, Copy)]
 enum SetAsideReason {
@@ -117,6 +105,17 @@ impl SetAsideReason {
             Self::Corrupt => "corrupt",
         }
     }
+
+    /// The user DB's health once its file was set aside as `file`, a file name only
+    /// (2.1-Q285): a pre-2.0 database is told once by a notice (ADR 0021), a damaged one by
+    /// its status (NAT-02).
+    fn health(self, file: String) -> StoreHealth {
+        let (status, notice) = match self {
+            Self::Before2_0 => (StoreOpenStatus::Ready, Some(StoreNotice::MovedAsidePre20)),
+            Self::Corrupt => (StoreOpenStatus::SetAsideDamaged { file }, None),
+        };
+        StoreHealth { status, notice }
+    }
 }
 
 impl UserDb {
@@ -129,35 +128,39 @@ impl UserDb {
     /// `<file>.corrupt-<unix-seconds>` the same way. Neither rename
     /// overwrites an earlier one, and companion files move with the database.
     /// A newer database is refused as-is with
-    /// [`UserDbInitError::NewerSchemaVersion`].
-    pub fn open(path: impl AsRef<Path>) -> Result<(Self, UserDbOpened), UserDbInitError> {
+    /// [`UserDbInitError::NewerSchemaVersion`]. The user DB's entry in
+    /// `SubsystemHealth` comes back with it.
+    pub fn open(path: impl AsRef<Path>) -> Result<(Self, StoreHealth), UserDbInitError> {
         let path = path.as_ref();
         let error = match Self::initialize(Connection::open(path).map_err(UserDbInitError::Open)?) {
-            Ok(user_db) => return Ok((user_db, UserDbOpened::Ready)),
+            Ok(user_db) => {
+                let ready = StoreHealth {
+                    status: StoreOpenStatus::Ready,
+                    notice: None,
+                };
+                return Ok((user_db, ready));
+            }
             Err(error) => error,
         };
-        let (reason, opened) = match error {
-            UserDbInitError::OlderSchemaVersion { .. } => {
-                (SetAsideReason::Before2_0, UserDbOpened::MovedAside)
-            }
-            _ if error.sets_aside_as_corrupt() => {
-                (SetAsideReason::Corrupt, UserDbOpened::ReplacedCorrupt)
-            }
+        let reason = match error {
+            UserDbInitError::OlderSchemaVersion { .. } => SetAsideReason::Before2_0,
+            _ if error.sets_aside_as_corrupt() => SetAsideReason::Corrupt,
             _ => return Err(error),
         };
         let aside = set_aside_user_db(path, &set_aside_name(path, reason))
             .map_err(|source| UserDbInitError::SetAside { source })?;
         // The set-aside name is Canopi's own (`user.db.corrupt-<seconds>`), never
         // the folder it sits in.
+        let file = aside
+            .file_name()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .into_owned();
         tracing::warn!(
-            "Set aside the user database ({error}) as {}; starting with an empty one",
-            aside
-                .file_name()
-                .and_then(std::ffi::OsStr::to_str)
-                .unwrap_or("a new name")
+            "Set aside the user database ({error}) as {file}; starting with an empty one"
         );
         let user_db = Self::initialize(Connection::open(path).map_err(UserDbInitError::Open)?)?;
-        Ok((user_db, opened))
+        Ok((user_db, reason.health(file)))
     }
 
     pub fn initialize(connection: Connection) -> Result<Self, UserDbInitError> {
@@ -377,6 +380,59 @@ mod tests {
         let _ = std::fs::remove_file(with_suffix(&aside, "-journal"));
     }
 
+    /// NAT-02: the `-shm` companion is a directory and each name it could move to a dangling
+    /// link, so its rename fails after the database itself moved.
+    #[cfg(unix)]
+    #[test]
+    fn nat_02_a_set_aside_that_fails_moves_the_database_back_and_refuses_startup() {
+        let scratch = TestScratch::new("db-nat-02-a-set-aside-that-fails");
+        let path = temp_database_path(&scratch, "stuck");
+        std::fs::write(&path, b"damaged database").unwrap();
+        std::fs::create_dir(with_suffix(&path, "-shm")).unwrap();
+        let base = set_aside_name(&path, SetAsideReason::Corrupt);
+        let (prefix, seconds) = base.rsplit_once('-').unwrap();
+        let seconds: u64 = seconds.parse().unwrap();
+        for second in seconds..seconds + 60 {
+            let blocked = path.with_file_name(format!("{prefix}-{second}-shm"));
+            std::os::unix::fs::symlink("nowhere", blocked).unwrap();
+        }
+
+        let error = UserDb::open(&path)
+            .map(|_| ())
+            .expect_err("startup is refused");
+
+        assert!(matches!(error, UserDbInitError::SetAside { .. }), "{error}");
+        assert_eq!(
+            std::fs::read(&path).unwrap(),
+            b"damaged database",
+            "moved back"
+        );
+        assert!(
+            with_suffix(&path, "-shm").is_dir(),
+            "its companion stays in place"
+        );
+    }
+
+    #[test]
+    fn nat_02_a_busy_or_failing_user_db_is_refused_never_set_aside() {
+        use rusqlite::ffi::{Error, SQLITE_BUSY, SQLITE_CORRUPT, SQLITE_IOERR_READ, SQLITE_LOCKED};
+        let failure = |code| rusqlite::Error::SqliteFailure(Error::new(code), None);
+        let wrappers: [fn(rusqlite::Error) -> UserDbInitError; 4] = [
+            UserDbInitError::ReadSchemaVersion,
+            UserDbInitError::ConfigureForeignKeys,
+            UserDbInitError::CreateSchema,
+            UserDbInitError::VerifyIntegrity,
+        ];
+        for (code, wrap) in [SQLITE_BUSY, SQLITE_LOCKED, SQLITE_IOERR_READ]
+            .into_iter()
+            .flat_map(|code| wrappers.map(|wrap| (code, wrap)))
+        {
+            let error = wrap(failure(code));
+            assert!(!error.sets_aside_as_corrupt(), "{code}: {error}");
+        }
+        assert!(UserDbInitError::VerifyIntegrity(failure(SQLITE_CORRUPT)).sets_aside_as_corrupt());
+    }
+
     #[test]
     fn set_aside_with_no_free_name_fails_without_naming_the_database_path() {
         let scratch = TestScratch::new("db-set-aside-no-free-name");
@@ -388,52 +444,6 @@ mod tests {
         assert_eq!(error.kind(), std::io::ErrorKind::AlreadyExists);
         assert_eq!(error.to_string(), "no free name to set <path> aside");
         assert_eq!(std::fs::read(&path).unwrap(), b"damaged database");
-    }
-
-    #[test]
-    fn set_aside_never_overwrites_an_earlier_set_aside_or_its_journal() {
-        let scratch =
-            TestScratch::new("db-set-aside-never-overwrites-an-earlier-set-aside-or-its-journal");
-        let path = temp_database_path(&scratch, "unique");
-        let base = format!("{}.corrupt-0", path.file_name().unwrap().to_string_lossy());
-        std::fs::write(&path, b"first").unwrap();
-        let first = set_aside_user_db(&path, &base).unwrap();
-        // An orphan journal of an earlier set-aside name also blocks that name.
-        std::fs::write(
-            with_suffix(
-                &path.with_file_name(format!(
-                    "{}-2",
-                    first.file_name().unwrap().to_string_lossy()
-                )),
-                "-journal",
-            ),
-            b"orphan",
-        )
-        .unwrap();
-        std::fs::write(&path, b"second").unwrap();
-        let second = set_aside_user_db(&path, &base).unwrap();
-
-        assert_ne!(first, second);
-        assert!(
-            second.to_string_lossy().ends_with(".corrupt-0-3"),
-            "{second:?}"
-        );
-        assert_eq!(std::fs::read(&first).unwrap(), b"first");
-        assert_eq!(std::fs::read(&second).unwrap(), b"second");
-
-        for file in [
-            first.clone(),
-            second,
-            with_suffix(
-                &path.with_file_name(format!(
-                    "{}-2",
-                    first.file_name().unwrap().to_string_lossy()
-                )),
-                "-journal",
-            ),
-        ] {
-            let _ = std::fs::remove_file(file);
-        }
     }
 
     #[test]

@@ -24,7 +24,7 @@ mod services;
 #[cfg(test)]
 mod test_scratch;
 use canopi_types::failure::{Failure, FailureCode, IoFailureKind, PlantCatalogCause};
-use canopi_types::health::{StoreHealth, StoreId, StoreNotice, StoreOpenStatus, SubsystemHealth};
+use canopi_types::health::{StoreHealth, StoreId, SubsystemHealth};
 use canopi_types::sensitive::UserPath;
 use rusqlite::{Connection, OpenFlags};
 use tauri::Manager;
@@ -168,7 +168,7 @@ pub fn run() {
             std::fs::create_dir_all(&data_dir)?;
             app.manage(design::drafts::DesignDrafts::new(&data_dir));
             app.manage(services::recent_design_previews::RecentDesignPreviews::default());
-            let (user_db, user_db_notice) = match open_user_data(&data_dir) {
+            let (user_db, user_db_health) = match open_user_data(&data_dir) {
                 Ok(opened) => opened,
                 Err(error) => {
                     // A user database this Canopi cannot own or set aside is refused, never
@@ -259,7 +259,7 @@ pub fn run() {
             let entry = |status, notice| StoreHealth { status, notice };
             app.manage(AppHealth(SubsystemHealth(std::collections::BTreeMap::from([
                 (StoreId::PlantCatalog, entry(plant_db_status.store_status(), None)),
-                (StoreId::UserDb, entry(StoreOpenStatus::Ready, user_db_notice)),
+                (StoreId::UserDb, user_db_health),
                 (StoreId::LibraryCatalogue, entry(lidar_library_status, None)),
             ]))));
 
@@ -319,18 +319,17 @@ fn open_link_in_system(url: &tauri::Url) -> bool {
     tauri_plugin_opener::open_url(url.as_str(), None::<&str>).is_ok()
 }
 
-/// Open the user database in `data_dir`.
+/// Open the user database in `data_dir`, with its entry in `SubsystemHealth`.
 ///
-/// Canopi 2.0 breaks stored data (ADR 0021): a user database from before 2.0
-/// is renamed, since 2.0 needs its path, and the returned notice tells the
-/// user once. Drafts in an earlier format and the retired 1.x autosave store
-/// stay where they are, unread, and are not reported (U59).
+/// A user database from before 2.0 is renamed, since 2.0 needs its path, and a
+/// notice tells the user once (ADR 0021); a damaged one is set aside and its
+/// status names the set-aside file on that start only (NAT-02). Drafts in an
+/// earlier format and the retired 1.x autosave store stay where they are,
+/// unread, and are not reported (U59).
 fn open_user_data(
     data_dir: &std::path::Path,
-) -> Result<(db::UserDb, Option<StoreNotice>), db::UserDbInitError> {
-    let (user_db, opened) = db::UserDb::open(data_dir.join("user.db"))?;
-    let notice = (opened == db::UserDbOpened::MovedAside).then_some(StoreNotice::MovedAsidePre20);
-    Ok((user_db, notice))
+) -> Result<(db::UserDb, StoreHealth), db::UserDbInitError> {
+    db::UserDb::open(data_dir.join("user.db"))
 }
 
 /// The message for a startup failure the user can act on, or `None` when the
@@ -366,6 +365,7 @@ fn refuse_startup(app: &tauri::App, message: String) {
 
 #[cfg(test)]
 mod tests {
+    use canopi_types::health::{StoreNotice, StoreOpenStatus};
     /// 2.1-M82: the NSIS installer's Restart Manager close reaches Canopi only as
     /// `RunEvent::Exit`; the handler holds the exit until a Design, Draft or settings write
     /// already running has landed.
@@ -431,10 +431,10 @@ mod tests {
     fn a_fresh_data_folder_opens_as_current() {
         let data_dir = super::test_scratch::TestScratch::new("startup-fresh");
 
-        let (user_db, status) = super::open_user_data(&data_dir).expect("a fresh folder opens");
+        let (user_db, health) = super::open_user_data(&data_dir).expect("a fresh folder opens");
         drop(user_db);
 
-        assert_eq!(status, None);
+        assert!(health.status == StoreOpenStatus::Ready && health.notice.is_none());
     }
 
     /// Canopi 2.0 breaks stored data (ADR 0021): a user database from before
@@ -451,13 +451,14 @@ mod tests {
             .unwrap();
         drop(connection);
 
-        let (user_db, status) = super::open_user_data(&data_dir).expect("earlier data opens");
+        let (user_db, health) = super::open_user_data(&data_dir).expect("earlier data opens");
         drop(user_db);
-        assert_eq!(status, Some(super::StoreNotice::MovedAsidePre20));
+        assert_eq!(health.status, StoreOpenStatus::Ready);
+        assert_eq!(health.notice, Some(StoreNotice::MovedAsidePre20));
 
         let (user_db, again) = super::open_user_data(&data_dir).expect("current data opens");
         drop(user_db);
-        assert_eq!(again, None, "told once");
+        assert_eq!(again.notice, None, "told once");
     }
 
     /// Drafts in an earlier format and the retired 1.x autosave store stay
@@ -481,9 +482,9 @@ mod tests {
         std::fs::write(autosave.join("recovery.canopi"), "unsaved work").unwrap();
 
         for start in ["first", "second"] {
-            let (user_db, status) = super::open_user_data(&data_dir).expect("the folder opens");
+            let (user_db, health) = super::open_user_data(&data_dir).expect("the folder opens");
             drop(user_db);
-            assert_eq!(status, None, "{start} start");
+            assert_eq!(health.notice, None, "{start} start");
             assert_eq!(
                 std::fs::read_to_string(drafts.join("old.canopi")).unwrap(),
                 older
