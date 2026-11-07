@@ -38,7 +38,6 @@
     "desktop/web/src/__tests__/dropdown.test.tsx": {},
     "desktop/web/src/__tests__/duckdb-wasm-instantiation.test.ts": {},
     "desktop/web/src/__tests__/e2e-fixtures-admitted.test.ts": {},
-    "desktop/web/src/__tests__/export-ipc.test.ts": {},
     "desktop/web/src/__tests__/extract-extra.test.ts": {},
     "desktop/web/src/__tests__/favorite-species-presentation.test.ts": {},
     "desktop/web/src/__tests__/format-count.test.ts": {},

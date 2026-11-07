@@ -2,6 +2,7 @@
 
 import { effect, signal } from "@preact/signals";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { pickCancelled } from "../ipc/dialogs";
 import {
   editDesignSessionForTest,
   markDesignSessionDirtyForTest,
@@ -664,7 +665,7 @@ describe("document session sequences", () => {
     markDesignSessionDirtyForTest(store);
     const pending = deferred<void>();
     mocks.saveDesignDraft.mockReturnValueOnce(pending.promise);
-    mocks.selectDesignSavePath.mockRejectedValueOnce("Dialog cancelled");
+    mocks.selectDesignSavePath.mockRejectedValueOnce(pickCancelled("dialog.pick_save"));
 
     const flushing = machine.continuousSave.flush();
     await flushMicrotasks();
@@ -680,6 +681,17 @@ describe("document session sequences", () => {
     expect(mocks.saveDesignDraft).toHaveBeenCalledTimes(1);
     expect(store.isDesignDirty()).toBe(false);
     expect(machine.continuousSave.status.peek()).toBe("draft");
+  });
+
+  it("canopi-f47t.52.172: a Save As dialog failure whose text says cancelled is a failure, not a cancel", async () => {
+    resetMachine({ path: null });
+    const session = makeSession();
+    await machine.startAttachedDesignSession(session);
+    const failure = new Error("The save dialog was cancelled by the system: no display");
+    mocks.selectDesignSavePath.mockRejectedValueOnce(failure);
+
+    await expect(machine.saveAsCurrentDesign({ session })).rejects.toBe(failure);
+    expect(mocks.saveDesign).not.toHaveBeenCalled();
   });
 });
 

@@ -3,6 +3,7 @@
 import { render } from 'preact'
 import { act } from 'preact/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { pickCancelled } from '../ipc/dialogs'
 
 const mocks = vi.hoisted(() => ({
   exportBudgetCsv: vi.fn(),
@@ -135,7 +136,7 @@ describe('BudgetPanel export', () => {
   })
 
   it('ignores dialog-cancelled export failures', async () => {
-    mocks.exportBudgetCsv.mockRejectedValueOnce(new Error('Dialog cancelled'))
+    mocks.exportBudgetCsv.mockRejectedValueOnce(pickCancelled('dialog.pick_save'))
 
     await act(async () => {
       render(<BudgetPanel />, container)

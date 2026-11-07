@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { pickCancelled } from '../ipc/dialogs'
 import {
   createDefaultScenePersistedState,
   type SceneDesignObjectTarget,
@@ -957,7 +958,17 @@ describe('Saved Object Stamp Workbench', () => {
     })
 
     await expect(workbench.importStampFile()).resolves.toEqual({ status: 'refused', messageKey: 'start.cantRead' })
-    failure = new Error('Dialog cancelled')
+    failure = pickCancelled('dialog.pick_open')
     await expect(workbench.importStampFile()).resolves.toEqual({ status: 'cancelled' })
+  })
+
+  it('canopi-f47t.52.172: a stamp file failure whose text says cancelled is refused with its message, not taken for a cancel', async () => {
+    const workbench = createSavedObjectStampWorkbench({
+      getSavedObjectStamps: async () => [],
+      importSavedObjectStampFile: async () => { throw new Error('Dialog cancelled') },
+      getCanvasQuerySurface: () => null,
+    })
+
+    await expect(workbench.importStampFile()).resolves.toEqual({ status: 'refused', messageKey: 'start.cantRead' })
   })
 })

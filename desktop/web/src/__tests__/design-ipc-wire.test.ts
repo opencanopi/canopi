@@ -13,6 +13,7 @@ import {
 } from '../ipc/design'
 import { exportSavedObjectStampFile } from '../app/saved-object-stamps/workbench'
 import type { CanopiFile } from '../types/design'
+import { isCancelledFailure } from '../failures/ipc-failure'
 
 const invoke = vi.hoisted(() => vi.fn(async (
   _command: string,
@@ -38,7 +39,7 @@ describe('the Design dialogs go through the host (canopi-f47t.52.228.14, 2.1-M81
   it('a cancelled Open loads nothing', async () => {
     invoke.mockResolvedValueOnce({ kind: 'cancelled' })
 
-    await expect(openDesignDialog()).rejects.toThrow('Dialog cancelled')
+    await expect(openDesignDialog()).rejects.toSatisfy(isCancelledFailure)
     expect(invoke).toHaveBeenCalledTimes(1)
   })
 
@@ -58,7 +59,7 @@ describe('the Design dialogs go through the host (canopi-f47t.52.228.14, 2.1-M81
   it('a cancelled Save throws the cancel the save flow expects', async () => {
     invoke.mockResolvedValueOnce({ kind: 'cancelled' })
 
-    await expect(selectDesignSavePath({ currentPath: null, suggestedName: '' })).rejects.toThrow('Dialog cancelled')
+    await expect(selectDesignSavePath({ currentPath: null, suggestedName: '' })).rejects.toSatisfy(isCancelledFailure)
     expect(invoke).toHaveBeenCalledWith('pick_save', { kind: 'design-save', stem: 'Untitled' })
   })
 })

@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Failure } from '../generated/contracts'
+import { isCancelledFailure } from '../failures/ipc-failure'
 import { pickOpen, pickSave } from './dialogs'
 
 const invoke = vi.hoisted(() => vi.fn(async (_command: string, _args?: unknown): Promise<unknown> => null))
@@ -86,7 +87,7 @@ describe('a typed dialog rejection reaching a 2.0 caller (canopi-f47t.52.35)', (
     const { openDesignDialog } = await import('./design')
     invoke.mockRejectedValueOnce(alreadyOpen('dialog.pick_open'))
 
-    await expect(openDesignDialog()).rejects.toThrow('Dialog cancelled')
+    await expect(openDesignDialog()).rejects.toSatisfy(isCancelledFailure)
     expect(invoke).toHaveBeenCalledTimes(1)
   })
 

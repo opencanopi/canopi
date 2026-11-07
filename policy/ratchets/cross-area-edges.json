@@ -67,6 +67,9 @@
     "app/budget -> canvas": {
       "count": 1
     },
+    "app/budget -> failures": {
+      "count": 1
+    },
     "app/budget -> i18n": {
       "count": 1
     },
@@ -589,6 +592,9 @@
       "count": 1
     },
     "app/saved-object-stamps -> canvas": {
+      "count": 1
+    },
+    "app/saved-object-stamps -> failures": {
       "count": 1
     },
     "app/saved-object-stamps -> generated": {

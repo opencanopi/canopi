@@ -15,7 +15,7 @@ import {
   prepareDesignWriteDestination,
   type PreparedDesignWriteDestination,
 } from '../app/document-session/write-admission'
-import { pickOpen, pickSave } from './dialogs'
+import { pickCancelled, pickOpen, pickSave } from './dialogs'
 
 // ---------------------------------------------------------------------------
 // File dialogs: the host shows them (`./dialogs`, `desktop/src/host/dialogs.rs`)
@@ -40,7 +40,7 @@ export async function selectDesignSavePath({
   // Windows paths separate folders with backslashes.
   const currentName = currentPath?.slice(Math.max(currentPath.lastIndexOf('/'), currentPath.lastIndexOf('\\')) + 1)
   const outcome = await pickSave('design-save', currentName || suggestedName || 'Untitled')
-  if (outcome.kind === 'cancelled') throw new Error('Dialog cancelled')
+  if (outcome.kind === 'cancelled') throw pickCancelled('dialog.pick_save')
   return outcome.path
 }
 
@@ -77,11 +77,11 @@ export function prepareDraftWrite(id: string): PreparedDesignWriteDestination {
 
 /**
  * Show the host's Open dialog, then load the chosen design.
- * Returns the loaded Design with its path. Throws "Dialog cancelled" if user dismisses.
+ * Returns the loaded Design with its path. Throws the pick cancel (pickCancelled) if the user dismisses it.
  */
 export async function openDesignDialog(): Promise<{ design: LoadedDesign; path: string }> {
   const outcome = await pickOpen('design-open')
-  if (outcome.kind === 'cancelled') throw new Error('Dialog cancelled')
+  if (outcome.kind === 'cancelled') throw pickCancelled('dialog.pick_open')
   const filePath = outcome.paths[0]!
   const design = await loadDesign(filePath)
   return { design, path: filePath }

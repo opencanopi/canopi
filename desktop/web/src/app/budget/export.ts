@@ -1,4 +1,5 @@
 import { deliverBudgetCsv } from '#budget-export-platform'
+import { isCancelledFailure } from '../../failures/ipc-failure'
 import { t } from '../../i18n'
 import { escapeBudgetCsvField } from './formatting'
 import { readBudgetPlanningSurface } from '../planning-projection'
@@ -9,8 +10,9 @@ export interface BudgetExportRow {
   count: number
 }
 
+/** A dismissed Save dialog: the typed cancel, never a failure whose text says "cancelled" (canopi-f47t.52.172). */
 export function isBudgetExportCancelled(error: unknown): boolean {
-  return error instanceof Error && error.message === 'Dialog cancelled'
+  return isCancelledFailure(error)
 }
 
 export async function exportBudgetCsv(

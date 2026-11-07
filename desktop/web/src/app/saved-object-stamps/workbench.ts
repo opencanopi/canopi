@@ -42,6 +42,7 @@ import {
   importedSavedObjectStampName,
   savedObjectStampPayloadFromCanopiFile,
 } from './file'
+import { isCancelledFailure } from '../../failures/ipc-failure'
 import { createMutationQueue } from '../mutation-queue'
 import type { LocaleKey } from '../../generated/locale-keys'
 
@@ -255,7 +256,7 @@ export function createSavedObjectStampWorkbench({
       return queue.isCurrent(admittedLifetime) ? exportedPath : null
     } catch (error) {
       if (!queue.isCurrent(admittedLifetime)) return null
-      if (isDialogCancelled(error)) return null
+      if (isCancelledFailure(error)) return null
       throw error
     }
   }
@@ -266,7 +267,7 @@ export function createSavedObjectStampWorkbench({
       try {
         file = await importSavedObjectStampFile()
       } catch (error) {
-        if (!queue.isCurrent(admittedLifetime) || isDialogCancelled(error)) return IMPORT_CANCELLED
+        if (!queue.isCurrent(admittedLifetime) || isCancelledFailure(error)) return IMPORT_CANCELLED
         const failure = designLoadFailureOf(error)
         return {
           status: 'refused',
@@ -323,10 +324,6 @@ export function createSavedObjectStampWorkbench({
     importStampFile,
     dispose,
   }
-}
-
-function isDialogCancelled(error: unknown): boolean {
-  return error instanceof Error && error.message === 'Dialog cancelled'
 }
 
 function savedObjectStampFileName(name: string): string {

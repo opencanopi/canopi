@@ -1,5 +1,5 @@
 import { invokeCommand } from './transport'
-import { pickSave, type SaveDialogKind } from './dialogs'
+import { pickCancelled, pickSave, type SaveDialogKind } from './dialogs'
 
 /**
  * Show `kind`'s Save dialog suggesting `name`, then write the UTF-8 text through the native
@@ -7,7 +7,7 @@ import { pickSave, type SaveDialogKind } from './dialogs'
  */
 export async function exportFile(data: string, name: string, kind: SaveDialogKind): Promise<string> {
   const outcome = await pickSave(kind, name)
-  if (outcome.kind === 'cancelled') throw new Error('Dialog cancelled')
+  if (outcome.kind === 'cancelled') throw pickCancelled('dialog.pick_save')
   return invokeCommand('export_file', { data, path: outcome.path })
 }
 

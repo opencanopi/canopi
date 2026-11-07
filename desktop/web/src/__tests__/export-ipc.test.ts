@@ -5,6 +5,7 @@ const invoke = vi.hoisted(() => vi.fn(async (_command: string, _args?: unknown):
 vi.mock('@tauri-apps/api/core', () => ({ invoke }))
 
 import { exportFile } from '../ipc/export'
+import { isCancelledFailure } from '../failures/ipc-failure'
 
 describe('text export IPC', () => {
   beforeEach(() => invoke.mockReset())
@@ -26,7 +27,7 @@ describe('text export IPC', () => {
   it('does not invoke the native command when the dialog is cancelled', async () => {
     invoke.mockResolvedValueOnce({ kind: 'cancelled' })
 
-    await expect(exportFile('data', 'budget.csv', 'budget-csv-export')).rejects.toThrow('Dialog cancelled')
+    await expect(exportFile('data', 'budget.csv', 'budget-csv-export')).rejects.toSatisfy(isCancelledFailure)
     expect(invoke).toHaveBeenCalledTimes(1)
   })
 })

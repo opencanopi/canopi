@@ -1,7 +1,7 @@
 import { invokeCommand } from './transport'
 import type { CanopiFile } from '../types/design'
 import type { SavedObjectStamp } from '../types/saved-object-stamps'
-import { pickOpen, pickSave } from './dialogs'
+import { pickCancelled, pickOpen, pickSave } from './dialogs'
 
 export async function getSavedObjectStamps(): Promise<SavedObjectStamp[]> {
   return invokeCommand('get_saved_object_stamps')
@@ -35,7 +35,7 @@ export async function exportSavedObjectStampCanopiFile(
   defaultName: string,
 ): Promise<string> {
   const outcome = await pickSave('stamp-export', defaultName)
-  if (outcome.kind === 'cancelled') throw new Error('Dialog cancelled')
+  if (outcome.kind === 'cancelled') throw pickCancelled('dialog.pick_save')
   return invokeCommand('export_saved_object_stamp_canopi_file', {
     path: outcome.path,
     content,
@@ -44,6 +44,6 @@ export async function exportSavedObjectStampCanopiFile(
 
 export async function importSavedObjectStampCanopiFile(): Promise<CanopiFile> {
   const outcome = await pickOpen('stamp-import')
-  if (outcome.kind === 'cancelled') throw new Error('Dialog cancelled')
+  if (outcome.kind === 'cancelled') throw pickCancelled('dialog.pick_open')
   return invokeCommand('load_saved_object_stamp_canopi_file', { path: outcome.paths[0]! })
 }
