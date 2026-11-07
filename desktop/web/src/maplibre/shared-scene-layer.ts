@@ -1,5 +1,5 @@
 // Production CSP rejects Pixi's generated functions; its shim avoids eval.
-import { logMapError } from './redact-credentials'
+import { reportMapError } from './map-errors'
 import 'pixi.js/unsafe-eval'
 // The one extension the layer registers itself (skipExtensionImports leaves it out): the plant
 // layer's opacity and species dim and the placement ghosts draw through an AlphaFilter.
@@ -163,7 +163,7 @@ export function createSharedMapSceneLayer(options: SharedMapSceneLayerOptions): 
     try {
       options.onFailure?.(error)
     } catch (observerError) {
-      logMapError('Shared map scene failure observer failed:', observerError)
+      reportMapError('Shared map scene failure observer failed:', observerError)
     }
   }
 

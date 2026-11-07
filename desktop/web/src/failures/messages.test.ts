@@ -42,10 +42,10 @@ describe('failure messages', () => {
   it('[1b-c1 canopi-f47t.52.35] every_code_has_a_message_or_is_silent', () => {
     const silent = new Set<Kind>()
     for (const code of ALL) {
-      for (const platform of ['desktop', 'web'] as const) {
-        const key = failureMessage(code, 'library.list', platform)
+      for (const storage of ['disk', 'device'] as const) {
+        const key = failureMessage(code, 'library.list', { storage })
         if (key === null) silent.add(code.kind)
-        else expect(typeof english(key), `${JSON.stringify(code)} on ${platform}: ${key}`).toBe('string')
+        else expect(typeof english(key), `${JSON.stringify(code)} with ${storage} storage: ${key}`).toBe('string')
       }
     }
     // A cancel, a second file dialog (2.1-Q284) and the map failures until 2d's map status (2.1-Q300).
@@ -53,15 +53,15 @@ describe('failure messages', () => {
   })
 
   it('says what happened and what to do, with no codes (2.1-Q299, 2.1-Q289)', () => {
-    const say = (code: FailureCode, platform: 'desktop' | 'web' = 'desktop') => english(failureMessage(code, 'design.save', platform) ?? '')
+    const say = (code: FailureCode, storage: 'disk' | 'device' = 'disk') => english(failureMessage(code, 'design.save', { storage }) ?? '')
     expect(say({ kind: 'busy', lane: 'library' })).toBe('Canopi is busy with other work. Try again in a moment.')
     expect(say({ kind: 'io', io: 'no_space' })).toBe('Your disk is full. Free some space and try again.')
     expect(say({ kind: 'network', network: 'offline' })).toBe('Couldn’t connect. Check your connection and try again.')
     expect(say({ kind: 'internal' })).toBe('Something went wrong. You can try again or report a problem.')
-    // The edition refines: a browser frees its device's storage, not a disk.
-    expect(say({ kind: 'io', io: 'no_space' }, 'web')).toBe('Your device’s storage is full. Free some space and try again.')
+    // A capability refines: browser storage is freed on the device, not on a disk.
+    expect(say({ kind: 'io', io: 'no_space' }, 'device')).toBe('Your device’s storage is full. Free some space and try again.')
     for (const code of ALL) {
-      const text = english(failureMessage(code, 'design.save', 'desktop') ?? '')
+      const text = english(failureMessage(code, 'design.save', { storage: 'disk' }) ?? '')
       if (typeof text === 'string') expect(text).not.toMatch(/[a-z]+_[a-z_]+|\bcode\b/)
     }
   })

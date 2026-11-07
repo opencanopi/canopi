@@ -1,5 +1,5 @@
 import { signal } from '@preact/signals'
-import { logMapError } from './redact-credentials'
+import { reportMapError } from './map-errors'
 import type { SceneRendererSnapshot } from '../canvas/runtime/renderers/scene-types'
 import type { CameraDriver } from '../canvas/runtime/view/camera-driver'
 import { createNavigationPolicy, type NavigationPolicy } from '../canvas/runtime/view/navigation-policy'
@@ -556,7 +556,7 @@ async function teardownInstance(instance: SnapshotInstance, timeoutMs: number): 
     errors.push(error)
   }
   instance.container.remove()
-  if (errors.length > 0) logMapError('View snapshot map teardown failed:', errors[0])
+  if (errors.length > 0) reportMapError('View snapshot map teardown failed:', errors[0])
 }
 
 function validateRequest(request: ViewSnapshotRequest): string | null {

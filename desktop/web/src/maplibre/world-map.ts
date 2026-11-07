@@ -1,5 +1,5 @@
 import { createMapLibreEmptyStyle } from './config'
-import { logMapError } from './redact-credentials'
+import { reportMapSourceFailure } from './map-errors'
 import type { MapLibreApi, MapLibreMapInstance } from './loader'
 
 export interface WorldMapLibreMap extends MapLibreMapInstance {
@@ -67,8 +67,8 @@ export function createWorldMapLibreMap(
   // MapLibre prints an error event nobody listens to on the console, and a
   // failed official tile's message carries its URL with the Google key and
   // session. Every World map error is passive (tiles, sources), so it is only
-  // logged, redacted.
-  map.on('error', (event) => logMapError('Passive MapLibre World map error:', event))
+  // recorded, redacted, and told no one until 2d's map status (2.1-Q300).
+  map.on('error', (event) => reportMapSourceFailure('Passive MapLibre World map error:', event))
 
   // The World map stays north-up: its keyboard handler keeps arrow pans and
   // +/- zoom, but Shift+arrows neither turn nor tilt it (world-map-surface.test.tsx,

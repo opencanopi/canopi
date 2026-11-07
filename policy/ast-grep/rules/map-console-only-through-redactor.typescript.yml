@@ -1,8 +1,8 @@
-# map-console-only-through-redactor (FAP conversion, F1a): map-layer console writes go through the credential redactor, maplibre/redact-credentials.ts (AGENTS.md Secrets)
+# map-console-only-through-redactor (FAP conversion, F1a): map-layer console writes go through the failure sink, maplibre/map-errors.ts (AGENTS.md Secrets)
 id: map-console-only-through-redactor.typescript
 language: typescript
 severity: error
-message: "map-layer console writes go through the credential redactor, maplibre/redact-credentials.ts (AGENTS.md Secrets); owner desktop/web/src/maplibre/redact-credentials.ts; example desktop/web/src/maplibre/redact-credentials.ts"
+message: "map-layer console writes go through the failure sink, maplibre/map-errors.ts (AGENTS.md Secrets); owner desktop/web/src/maplibre/map-errors.ts; example desktop/web/src/maplibre/map-errors.ts"
 files:
   - "{desktop/web,policy/fixtures/rules/*}/src/maplibre/*.ts"
   - "{desktop/web,policy/fixtures/rules/*}/src/app/canvas-map-surface/*.ts"
@@ -10,7 +10,7 @@ ignores:
   - "{desktop/web,policy/fixtures/rules/*}/src/__tests__/**"
   - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
   - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
-  - "{desktop/web,policy/fixtures/rules/*}/src/maplibre/redact-credentials.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/maplibre/map-errors.ts"
 rule:
   # a console method read on `console` at any depth (`window.console`, `globalThis.console?`, `window.console!`), as
   # the text check `\bconsole\.(error|warn|log|info|debug)\b` read it, dotted or by bracket

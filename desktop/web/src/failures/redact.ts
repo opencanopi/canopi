@@ -121,3 +121,13 @@ function holdsSeparator(text: string, start: number, end: number): boolean {
   }
   return false
 }
+
+/** The same error when redaction changes nothing, otherwise a redacted copy keeping its name (mapError's propagation). */
+export function redactError(error: Error): Error {
+  const message = redact(error.message)
+  if (message === error.message) return error
+  const redacted = new Error(message)
+  redacted.name = error.name
+  return redacted
+}
+

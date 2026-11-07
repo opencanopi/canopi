@@ -134,6 +134,9 @@
     "app/canvas-map-surface -> canvas": {
       "count": 1
     },
+    "app/canvas-map-surface -> failures": {
+      "count": 1
+    },
     "app/canvas-map-surface -> maplibre": {
       "count": 1
     },
@@ -307,6 +310,9 @@
       "count": 1
     },
     "app/document-session -> canvas": {
+      "count": 1
+    },
+    "app/document-session -> failures": {
       "count": 1
     },
     "app/document-session -> generated": {
@@ -1056,6 +1062,9 @@
     "maplibre -> canvas": {
       "count": 1,
       "bead": "canopi-f47t.52.213"
+    },
+    "maplibre -> failures": {
+      "count": 1
     },
     "platform -> app/document-session": {
       "count": 1,

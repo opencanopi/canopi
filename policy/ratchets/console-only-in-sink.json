@@ -29,10 +29,6 @@
       "count": 1,
       "bead": "canopi-f47t.52.36"
     },
-    "desktop/web/src/app/document-session/lifecycle.ts": {
-      "count": 1,
-      "bead": "canopi-f47t.52.36"
-    },
     "desktop/web/src/app/document-session/open-failure.ts": {
       "count": 1,
       "bead": "canopi-f47t.52.36"
@@ -117,10 +113,6 @@
       "count": 1,
       "bead": "canopi-f47t.52.36"
     },
-    "desktop/web/src/maplibre/redact-credentials.ts": {
-      "count": 1,
-      "bead": "canopi-f47t.52.36"
-    },
     "desktop/web/src/platform/browser.ts": {
       "count": 2,
       "bead": "canopi-f47t.52.36"
@@ -130,7 +122,7 @@
       "bead": "canopi-f47t.52.36"
     },
     "desktop/web/src/web/WebCanvasWorkspace.tsx": {
-      "count": 4,
+      "count": 3,
       "bead": "canopi-f47t.52.36"
     },
     "desktop/web/src/web/WebWelcomeScreen.tsx": {

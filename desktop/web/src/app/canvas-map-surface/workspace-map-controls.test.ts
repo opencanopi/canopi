@@ -21,6 +21,7 @@ import { GOOGLE_SESSION_TILES } from '../../maplibre/basemap-tile-auth'
 import { GOOGLE_KEYLESS_TILES } from '../../maplibre/satellite-provider'
 import { MAPLIBRE_SHARED_SCENE_LAYER_ID } from '../../maplibre/shared-scene-layer'
 import { WorkspaceMapControls } from './workspace-map-controls'
+import { ringEntries } from '../../failures/ring'
 import { getMapNoticeReadModel } from './map-notice'
 import type { MapLibreCanvasSurfaceState } from '../../maplibre/canvas-surface-state'
 import { t } from '../../i18n'
@@ -1311,8 +1312,8 @@ describe('WorkspaceMapControls', () => {
   })
 
   it('ignores passive OpenFreeMap source errors after style admission', async () => {
-    const logError = vi.fn()
-    const { controls, maps } = createControls({ logError })
+    const logError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const { controls, maps } = createControls()
     const acquisition = controls.createMap(new AbortController().signal)
     const map = await waitForMap(maps)
     map.emit('style.load')
@@ -1326,10 +1327,9 @@ describe('WorkspaceMapControls', () => {
 
     expect(map.remove).not.toHaveBeenCalled()
     expect(reportFailure).not.toHaveBeenCalled()
-    expect(logError).toHaveBeenCalledWith(
-      'Passive MapLibre workspace basemap error:',
-      'source ofm-openmaptiles · vector tile unavailable',
-    )
+    expect(logError).toHaveBeenCalledWith('Passive MapLibre workspace basemap error:', 'source ofm-openmaptiles · vector tile unavailable')
+    expect(ringEntries().at(-1)).toMatchObject({ code: { kind: 'tile_source_failed', layer: 'ofm-openmaptiles' } })
+    logError.mockRestore()
   })
 
   it('cancels module loading and style waiting without leaving a map alive', async () => {
@@ -1627,7 +1627,7 @@ describe('WorkspaceMapControls OpenFreeMap basemap', () => {
 
     expect(reportFailure).not.toHaveBeenCalled()
     expect(states.at(-1)?.basemapStatus).toBe('ok')
-    expect(logError).toHaveBeenCalledWith('Passive MapLibre workspace basemap error:', expect.stringContaining('ofm-openmaptiles'))
+    expect(ringEntries().at(-1)).toMatchObject({ code: { kind: 'tile_source_failed', layer: 'ofm-openmaptiles' }, surfaced: false })
   })
 
   it('still treats an unattributed error from outside the basemap as a map failure', async () => {

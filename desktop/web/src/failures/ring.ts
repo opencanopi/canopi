@@ -1,5 +1,5 @@
 /**
- * failures/ring.ts: Owner of the frontend diagnostics ring, the last 50 settlements the problem report carries
+ * failures/ring.ts: the frontend diagnostics ring, the last 50 settlements the problem report carries
  * (no-renderer-module-state's failures/ entry, contracts §13 Failure report, ADR 0025). Invariant: only the sink,
  * failures/report.ts, writes it; a settlement object has one entry, kept by identity even after it leaves the ring.
  */

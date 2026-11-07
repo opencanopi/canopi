@@ -32,7 +32,7 @@ import type {
   ViewScreen,
 } from '../canvas/runtime/view/types'
 import type { MapLibreLngLat, MapLibreMapInstance, MapLibreTransformConstrain } from './loader'
-import { redactCredentials } from './redact-credentials'
+import { redact } from '../failures/redact'
 
 /** The map operations the driver uses: MapLibre 6.10.0 declares every one, so the driver never falls back. */
 export type MapLibreCameraDriverMap = Required<Pick<MapLibreMapInstance,
@@ -143,7 +143,7 @@ export function createMapLibreCameraDriver(
     if (failure.peek()) return
     flight = null
     queued.length = 0
-    failure.value = { reason: 'map-error', message: redactCredentials(message) }
+    failure.value = { reason: 'map-error', message: redact(message) }
   }
 
   function placeholderCamera(): ViewCamera {

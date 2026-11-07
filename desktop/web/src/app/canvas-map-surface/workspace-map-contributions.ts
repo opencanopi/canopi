@@ -1,4 +1,4 @@
-import { logMapError } from '../../maplibre/redact-credentials'
+import { reportMapError } from '../../maplibre/map-errors'
 import type { MapLibreSurfaceContext } from '../../maplibre/surface'
 import type { MapLibreMapInstance } from '../../maplibre/loader'
 import {
@@ -383,7 +383,7 @@ export class WorkspaceMapContributions {
     this.userLocationRejected = true
     if (this.userLocationFailureLogged) return
     this.userLocationFailureLogged = true
-    ;(this.options.logError ?? logMapError)('Skipped the user location map overlay that failed to draw.')
+    ;(this.options.logError ?? reportMapError)('Skipped the user location map overlay that failed to draw.')
   }
 
   private clearUserLocation(): void {
@@ -546,7 +546,7 @@ export class WorkspaceMapContributions {
   }
 
   private log(message: string, error: unknown): void {
-    (this.options.logError ?? logMapError)(message, error)
+    (this.options.logError ?? reportMapError)(message, error)
   }
 }
 

@@ -604,13 +604,13 @@
       "tool": "ast-grep",
       "ledger": "2.1-M189",
       "adr": "0025",
-      "owner_today": "desktop/web/src/maplibre/redact-credentials.ts",
+      "owner_today": "desktop/web/src/failures/redact.ts",
       "owner_target": {
         "path": "desktop/web/src/failures/redact.ts",
         "phase": "1b",
         "bead": "canopi-f47t.52.37"
       },
-      "example": "desktop/web/src/maplibre/redact-credentials.ts",
+      "example": "desktop/web/src/failures/redact.ts",
       "note": "credential-name literals and user-path regexes live only in the redactor (failures/redact.ts from 1b; canopi-redact natively)"
     },
     {
@@ -1060,7 +1060,7 @@
     },
     {
       "primitive": "F7",
-      "owner_today": "desktop/web/src/maplibre/redact-credentials.ts",
+      "owner_today": "desktop/web/src/maplibre/map-errors.ts",
       "check": "desktop/web/src/__tests__/map-error-redaction.test.ts",
       "phase": "2d"
     },
@@ -1072,7 +1072,7 @@
     },
     {
       "primitive": "F24",
-      "owner_today": "desktop/web/src/maplibre/redact-credentials.ts",
+      "owner_today": "desktop/web/src/failures/redact.ts",
       "check": "desktop/web/src/__tests__/map-error-redaction.test.ts",
       "phase": "1b"
     },

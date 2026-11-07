@@ -9,7 +9,7 @@ import { signal } from '@preact/signals'
 import type { Failure, FailureCode, FrontendDiagnosticLevel } from '../generated/contracts'
 import type { LocaleKey } from '../generated/locale-keys'
 import { IpcFailure } from './ipc-failure'
-import { failureMessage, type FailurePlatform } from './messages'
+import { failureMessage, type FailureCapabilities } from './messages'
 import { appendEntry, entryForSettlement, type RingEntry } from './ring'
 import { redact } from './redact'
 
@@ -26,8 +26,11 @@ interface ReportOptions {
   /** A frontend failure's source (`plant-catalog`, `map`); a native settlement's is its op. */
   readonly source?: string
   readonly level?: FrontendDiagnosticLevel
-  /** Also write the redacted text to the console (the Web console, design check F23). */
-  readonly echo?: boolean
+  /**
+   * Also write to the console (the Web console, design check F23): `true` writes the entry's text; values write those
+   * instead, each redacted, keeping a logger's shape (`'label:', error`; an error stays an error for its stack).
+   */
+  readonly echo?: boolean | readonly unknown[]
 }
 
 interface FailureNotice {
@@ -36,7 +39,7 @@ interface FailureNotice {
   readonly key: string
   readonly code: FailureCode
   readonly source: string
-  /** What the notice says on this edition (failures/messages.ts). */
+  /** What the notice says with the edition's capabilities (failures/messages.ts). */
   readonly message: LocaleKey
 }
 
@@ -49,7 +52,7 @@ const queue = signal<readonly FailureNotice[]>([])
 const repeats = new Map<string, number>()
 let nextNoticeId = 1
 let noticesOpen = true
-let platform: FailurePlatform = 'desktop'
+let capabilities: FailureCapabilities = { storage: 'disk' }
 
 /**
  * Records a failure and tells the user as `shown` says. `subject` is a settlement (`IpcFailure` or a wire `Failure`)
@@ -69,10 +72,10 @@ function record(subject: unknown, options: ReportOptions): void {
   const entry = known ?? newEntry(subject, options)
   if (!known) {
     appendEntry(entry, settlement)
-    if (options.echo) echo(entry)
+    if (options.echo) echo(entry, options.echo)
   }
-  if (options.shown !== 'none') entry.surfaced = true
-  if (options.shown === 'notice') notice(entry)
+  // Surfaced only when the user was told: inline, or by a notice a silent code or a disposed lifetime never queues.
+  if (options.shown === 'inline' || (options.shown === 'notice' && notice(entry))) entry.surfaced = true
 }
 
 function newEntry(subject: unknown, options: ReportOptions): RingEntry {
@@ -91,15 +94,28 @@ function newEntry(subject: unknown, options: ReportOptions): RingEntry {
   }
 }
 
-function notice(entry: RingEntry): void {
-  const message = failureMessage(entry.code, entry.source, platform)
+/**
+ * A console-shaped reporter for an owner that injects `logError(message, ...params)`: each call is one ring entry under
+ * `source`, echoed to the console, with no notice (the owner shows its own state).
+ */
+export function failureLogger(source: string): (message?: unknown, ...optionalParams: unknown[]) => void {
+  return (...values) => {
+    const present = values.filter((value) => value !== undefined)
+    reportFailure(present.map(textOf).join(' '), { shown: 'none', source, echo: present })
+  }
+}
+
+/** Queues the entry's notice, or counts a repeat of one already told; false when the user is not told at all. */
+function notice(entry: RingEntry): boolean {
+  const message = failureMessage(entry.code, entry.source, capabilities)
   // A silent code is recorded and never told (a cancel; a map failure until 2d's map status, 2.1-Q300).
-  if (!noticesOpen || message === null) return
+  if (!noticesOpen || message === null) return false
   const key = noticeKey(entry.code, entry.source)
   const seen = repeats.get(key)
   repeats.set(key, (seen ?? 0) + 1)
-  if (seen !== undefined) return
+  if (seen !== undefined) return true
   queue.value = [...queue.value, { id: nextNoticeId++, key, code: entry.code, source: entry.source, message }]
+  return true
 }
 
 /** The dedupe key of a failure: its code, sub-kind included, and its op or source. */
@@ -107,10 +123,23 @@ function noticeKey(code: FailureCode, source: string): string {
   return `${JSON.stringify(code)}@${source}`
 }
 
-function echo(entry: RingEntry): void {
+function echo(entry: RingEntry, values: true | readonly unknown[]): void {
   const text = entry.origin === 'native' ? entry.detail ?? entry.code.kind : entry.text
-  if (entry.level === 'warning') console.warn(`[${entry.source}]`, text)
-  else console.error(`[${entry.source}]`, text)
+  const written = values === true ? [`[${entry.source}]`, text] : values.map(redactedValue)
+  if (entry.level === 'warning') console.warn(...written)
+  else console.error(...written)
+}
+
+function redactedValue(value: unknown): unknown {
+  if (typeof value === 'string') return safeRedact(value)
+  if (value instanceof Error) {
+    const message = safeRedact(value.message)
+    if (message === value.message) return value
+    const redacted = new Error(message)
+    redacted.name = value.name
+    return redacted
+  }
+  return safeRedact(textOf(value))
 }
 
 function isFailure(value: unknown): value is Failure {
@@ -152,12 +181,12 @@ type HookTarget = Pick<Window, 'addEventListener' | 'removeEventListener'> & { [
 
 /**
  * Installs the window `error` and `unhandledrejection` hooks for an edition's app lifetime (both roots; ADR 0025) and
- * returns its disposer; notices are worded for that edition. A second install replaces the first. After dispose, reports still reach the ring but queue
- * no notice.
+ * returns its disposer; notices are worded for its capabilities. A second install replaces the first. After dispose,
+ * reports still reach the ring but queue no notice.
  */
-export function installFailureHooks(edition: FailurePlatform, target: HookTarget = window): () => void {
+export function installFailureHooks(edition: FailureCapabilities, target: HookTarget = window): () => void {
   target[HOOKS]?.()
-  platform = edition
+  capabilities = edition
   const onError = (event: Event) => {
     const error = (event as ErrorEvent).error ?? (event as ErrorEvent).message
     reportFailure(error ?? 'Uncaught error', { shown: 'none', source: 'window.error' })

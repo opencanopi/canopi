@@ -1,13 +1,17 @@
 /**
- * failures/messages.ts: Owner of the one code-to-message map (contracts §2, 2.1-M413). Invariant: every generated
+ * failures/messages.ts: the one code-to-message map (contracts §2, 2.1-M413). Invariant: every generated
  * failure kind has one rule, silent or a locale key, so a new catalogue code fails typecheck until it has one; a rule
- * may refine by the code's own sub-kind, the dotted op and the edition. Wording says what happened and what to do,
+ * may refine by the code's own sub-kind, the dotted op and the edition's capabilities (ADR 0030: never the edition). Wording says what happened and what to do,
  * never a code (2.1-Q299); an unexpected fault reads the generic message (2.1-Q289).
  */
 import type { FailureCode, IoFailureKind, NetworkFailureKind } from '../generated/contracts'
 import type { LocaleKey } from '../generated/locale-keys'
 
-export type FailurePlatform = 'desktop' | 'web'
+/** What a message may depend on in the running edition, set by its platform adapter. */
+export interface FailureCapabilities {
+  /** Where user data lives: a disk the user can free, or storage the browser holds on the device. */
+  readonly storage: 'disk' | 'device'
+}
 
 type Kind = FailureCode['kind']
 type CodeOf<K extends Kind> = Extract<FailureCode, { kind: K }>
@@ -18,7 +22,7 @@ const SILENT = { silent: true } as const
 type MessageRule<K extends Kind> =
   | typeof SILENT
   | LocaleKey
-  | ((code: CodeOf<K>, op: string, platform: FailurePlatform) => LocaleKey)
+  | ((code: CodeOf<K>, op: string, capabilities: FailureCapabilities) => LocaleKey)
 
 const IO_MESSAGES = {
   not_found: 'failure.fileNotFound',
@@ -47,8 +51,8 @@ const MESSAGE_BY_CODE: { readonly [K in Kind]: MessageRule<K> } = {
   dialog_already_open: SILENT,
   plant_db_unavailable: 'failure.plantCatalogUnavailable',
   library_read_only: (code) => code.reason === 'refused_newer' ? 'failure.libraryNewer' : 'failure.libraryUnavailable',
-  // A browser has no disk of its own to free: its storage is the device's.
-  io: (code, _op, platform) => code.io === 'no_space' && platform === 'web' ? 'failure.storageFull' : IO_MESSAGES[code.io],
+  // Browser storage is freed on the device, not on a disk.
+  io: (code, _op, { storage }) => code.io === 'no_space' && storage === 'device' ? 'failure.storageFull' : IO_MESSAGES[code.io],
   network: (code) => NETWORK_MESSAGES[code.network],
   invalid: 'failure.internal',
   internal: 'failure.internal',
@@ -58,11 +62,11 @@ const MESSAGE_BY_CODE: { readonly [K in Kind]: MessageRule<K> } = {
 }
 
 // Any one rule, its code widened: the mapped type above already tied each rule to its own kind.
-type WidenedRule = typeof SILENT | LocaleKey | ((code: FailureCode, op: string, platform: FailurePlatform) => LocaleKey)
+type WidenedRule = typeof SILENT | LocaleKey | ((code: FailureCode, op: string, capabilities: FailureCapabilities) => LocaleKey)
 
-/** The locale key that tells a failure on this edition, or null when its code is silent. */
-export function failureMessage(code: FailureCode, op: string, platform: FailurePlatform): LocaleKey | null {
+/** The locale key that tells a failure with these capabilities, or null when its code is silent. */
+export function failureMessage(code: FailureCode, op: string, capabilities: FailureCapabilities): LocaleKey | null {
   const rule = MESSAGE_BY_CODE[code.kind] as WidenedRule
   if (typeof rule === 'object') return null
-  return typeof rule === 'string' ? rule : rule(code, op, platform)
+  return typeof rule === 'string' ? rule : rule(code, op, capabilities)
 }
