@@ -1,16 +1,18 @@
 /**
  * components/workspace/launch-notices.ts: Owner of the Desktop root's launch and update notices on the one notice row
  * (failures/notices.ts; contracts §18 F3, 2.1-Q290). Invariant: each takes no focus and stays until dismissed: the
- * launch check's available update (2.1-Q164, M211) until dismissed or installed this session, and, since the launch
- * check runs once per launch and nothing is stored, again at the next launch until installed (2.1-Q293); the Windows
- * next-launch "Update not installed" (2.1-Q234); "Canopi opens one Design at a time" (2.1-Q228); and "Installing
- * update…" or "Finishing update…" while a window close waits for an update (2.1-Q254), withdrawn once it settles.
+ * launch check's available update (2.1-Q164, M211) until dismissed or its install starts this session, and, since the
+ * launch check runs once per launch and nothing is stored, again at the next launch until installed (2.1-Q293); the
+ * Windows next-launch "Update not installed" (2.1-Q234); "Canopi opens one Design at a time" (2.1-Q228); and
+ * "Installing update…" or "Finishing update…" while a window close waits for an update (2.1-Q254), withdrawn once it
+ * settles.
  */
 import { effect } from '@preact/signals'
 import { openAboutCanopiDialog } from '../../app/about/state'
 import { dismissMultiOpenNotice, multiOpenNotice } from '../../app/document-session/launch-file'
 import { closeWaitsFor } from '../../app/shell/close-guard'
 import type { UpdateController } from '../../app/updates/controller'
+import type { UpdateStateKind } from '../../app/updates/state'
 import { raiseNotice, withdrawNotice } from '../../failures/notices'
 import type { UpdateOffer } from '../../generated/contracts'
 
@@ -32,10 +34,16 @@ export function raiseUpdateNotInstalledNotice(): void {
   raiseNotice({ key: 'update.not-installed', message: 'update.failure.notInstalledPlain', tone: 'warning' })
 }
 
-/** Withdraws the available update once the controller has installed it; returns the dispose. */
+/** The states in which the offer's install has started, so About (and, while a close waits, the row) says the rest. */
+const INSTALL_UNDERWAY: ReadonlySet<UpdateStateKind> = new Set(['installing', 'close_requested', 'installed'])
+
+/**
+ * Withdraws the available update once its install starts (2.1-Q293's "installed this session"), so the closing notice
+ * of a window close waiting for that install is never queued behind it (2.1-Q254); returns the dispose.
+ */
 export function withdrawUpdateNoticeOnInstall(controller: UpdateController): () => void {
   return effect(() => {
-    if (controller.state.value.kind === 'installed') withdrawNotice(UPDATE_AVAILABLE)
+    if (INSTALL_UNDERWAY.has(controller.state.value.kind)) withdrawNotice(UPDATE_AVAILABLE)
   })
 }
 
