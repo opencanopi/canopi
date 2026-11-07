@@ -13,19 +13,11 @@
     "notice-only-in-failures"
   ],
   "entries": {
-    "desktop/web/src/app.tsx": {
-      "count": 1,
-      "bead": "canopi-f47t.52.36"
-    },
     "desktop/web/src/components/canvas/LockedMoveToast.tsx": {
       "count": 1,
       "bead": "canopi-f47t.52.36"
     },
     "desktop/web/src/components/panels/StoriesPanel.tsx": {
-      "count": 1,
-      "bead": "canopi-f47t.52.36"
-    },
-    "desktop/web/src/components/shared/AboutCanopiDialog.tsx": {
       "count": 1,
       "bead": "canopi-f47t.52.36"
     },

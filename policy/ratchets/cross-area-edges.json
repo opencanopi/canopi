@@ -31,9 +31,6 @@
     "app-shell -> components": {
       "count": 1
     },
-    "app-shell -> i18n": {
-      "count": 1
-    },
     "app-shell -> ipc": {
       "count": 1
     },
