@@ -11,6 +11,11 @@ function alreadyOpen(op: string): Failure {
   return { code: { kind: 'dialog_already_open' }, user_may_retry: false, op, operation: null, detail: null }
 }
 
+/** A host failure the page must still hear about: a path that is not valid Unicode. */
+function internal(op: string): Failure {
+  return { code: { kind: 'internal' }, user_may_retry: false, op, operation: null, detail: null }
+}
+
 describe('the host dialog wire (canopi-f47t.52.228.14, 2.1-M81)', () => {
   beforeEach(() => invoke.mockReset())
 
@@ -31,11 +36,19 @@ describe('the host dialog wire (canopi-f47t.52.228.14, 2.1-M81)', () => {
     expect(invoke).toHaveBeenCalledWith('pick_save', { kind: 'pdf-export', stem: 'Garden' })
   })
 
-  it('passes the host refusal of a second dialog on as a rejection', async () => {
-    const refusal = alreadyOpen('dialog.pick_open')
-    invoke.mockRejectedValueOnce(refusal)
+  it('settles a second dialog the host brought forward as a cancel, so no caller shows a notice (canopi-f47t.52.35, 2.1-Q284)', async () => {
+    invoke.mockRejectedValueOnce(alreadyOpen('dialog.pick_open'))
+    await expect(pickOpen('design-open')).resolves.toEqual({ kind: 'cancelled' })
 
-    await expect(pickOpen('design-open')).rejects.toBe(refusal)
+    invoke.mockRejectedValueOnce(alreadyOpen('dialog.pick_save'))
+    await expect(pickSave('design-save', 'Orchard')).resolves.toEqual({ kind: 'cancelled' })
+  })
+
+  it('passes any other host failure on as a rejection', async () => {
+    const failure = internal('dialog.pick_open')
+    invoke.mockRejectedValueOnce(failure)
+
+    await expect(pickOpen('design-open')).rejects.toBe(failure)
   })
 })
 
@@ -62,18 +75,26 @@ describe('a typed dialog rejection reaching a 2.0 caller (canopi-f47t.52.35)', (
       ['dialog.pick_save', () => createPdfDelivery().save(new Uint8Array(), 'Garden', new AbortController().signal)],
     ]
     for (const [op, call] of callers) {
-      const refusal = alreadyOpen(op)
-      invoke.mockRejectedValueOnce(refusal)
-      await expect(call()).rejects.toBe(refusal)
+      const failure = internal(op)
+      invoke.mockRejectedValueOnce(failure)
+      await expect(call()).rejects.toBe(failure)
     }
     expect(invoke).toHaveBeenCalledTimes(callers.length)
+  })
+
+  it('settles a second Design open as the dialog cancel the session reads as no notice (canopi-f47t.52.35, 2.1-Q284)', async () => {
+    const { openDesignDialog } = await import('./design')
+    invoke.mockRejectedValueOnce(alreadyOpen('dialog.pick_open'))
+
+    await expect(openDesignDialog()).rejects.toThrow('Dialog cancelled')
+    expect(invoke).toHaveBeenCalledTimes(1)
   })
 
   it('keeps the Design open notice in its own words, never [object Object]', async () => {
     const { designOpenFailureNoticeOf } = await import('../app/document-session/open-failure')
     const { t } = await import('../i18n')
 
-    const notice = designOpenFailureNoticeOf(alreadyOpen('dialog.pick_open'))
+    const notice = designOpenFailureNoticeOf(internal('dialog.pick_open'))
 
     expect(notice).toEqual({ tone: 'error', title: t('start.cantOpenTitle'), message: t('start.cantRead') })
     expect(`${notice.title} ${notice.message}`).not.toContain('[object Object]')
