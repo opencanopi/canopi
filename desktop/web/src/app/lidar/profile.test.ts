@@ -5,7 +5,8 @@ import type { GeoPoint, LidarSamplePointsRequest, LidarSampleSeries } from '../.
 import { setCurrentCanvasSession } from '../../canvas/session'
 import type { CanvasRuntimeSurfaces } from '../../canvas/runtime/runtime'
 import { activePanel, sidePanel } from '../shell/state'
-import { recentFrontendDiagnostics, resetFrontendDiagnosticsForTests } from '../problem-report/diagnostics'
+import { recentFrontendDiagnostics } from '../problem-report/diagnostics'
+import { resetFrontendDiagnosticsForTests } from '../../failures/ring'
 import {
   createSiteProfile,
   profileCopyText,

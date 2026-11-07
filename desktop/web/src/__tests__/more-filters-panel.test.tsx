@@ -129,7 +129,7 @@ describe('MoreFiltersPanel outside-click behavior', () => {
 
   it('a filter whose options cannot load says the plant catalog could not load, with Retry, never the raw error (canopi-etzh)', async () => {
     const diagnostics = await import('../app/problem-report/diagnostics')
-    diagnostics.resetFrontendDiagnosticsForTests()
+    await import('../failures/ring').then((ring) => ring.resetFrontendDiagnosticsForTests())
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
     dynamicOptionsFailure = new SyntaxError('JSON.parse: unexpected character at line 1 column 1 of the JSON data')
     try {

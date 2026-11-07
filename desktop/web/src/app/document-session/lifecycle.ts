@@ -7,6 +7,7 @@ import {
   CanvasRuntimeCleanupError,
   runCanvasRuntimeCleanups,
 } from "../../canvas/runtime/cleanup";
+import { failureLogger } from "../../failures/report";
 import { flushSettingsProjection } from "../settings/projection";
 import {
   createDesktopWorkspaceRuntimeComposition,
@@ -53,7 +54,7 @@ const DEFAULT_LIFECYCLE_DEPS: DesignSessionLifecycleDeps = {
     if (typeof ResizeObserver === "undefined") return null;
     return new ResizeObserver(callback);
   },
-  logError: (message, ...optionalParams) => console.error(message, ...optionalParams),
+  logError: failureLogger("document-session"),
   onInitializationFailure: () => {},
 };
 

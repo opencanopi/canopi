@@ -1,7 +1,7 @@
 import type { LidarImportRefusal, LidarImportRefusalReason } from '../../generated/contracts'
 import { t } from '../../i18n'
 import { locale } from '../settings/state'
-import { recordFrontendDiagnostic } from '../problem-report/diagnostics'
+import { reportFailure } from '../../failures/report'
 
 /**
  * The one mapper from a Data library failure to what users read (canopi-bkbh).
@@ -60,10 +60,10 @@ function isRefusal(error: unknown): error is LidarImportRefusal {
  */
 export function lidarFailureMessage(error: unknown, record = true): string {
   if (isRefusal(error)) {
-    if (record) recordFrontendDiagnostic({ level: 'warning', source: 'lidar-library', message: `${error.reason.kind}: ${error.detail}` })
+    if (record) reportFailure(`${error.reason.kind}: ${error.detail}`, { shown: 'none', source: 'lidar-library', level: 'warning' })
     return (REFUSAL_COPY[error.reason.kind] as (reason: Reason) => string)(error.reason)
   }
   const detail = error instanceof Error ? error.message : typeof error === 'string' ? error : JSON.stringify(error) ?? String(error)
-  if (record) recordFrontendDiagnostic({ level: 'error', source: 'lidar-library', message: detail })
+  if (record) reportFailure(detail, { shown: 'none', source: 'lidar-library', level: 'error' })
   return t('canvas.lidar.failure.generic')
 }

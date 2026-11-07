@@ -134,6 +134,9 @@
     "app/canvas-map-surface -> canvas": {
       "count": 1
     },
+    "app/canvas-map-surface -> failures": {
+      "count": 1
+    },
     "app/canvas-map-surface -> maplibre": {
       "count": 1
     },
@@ -260,13 +263,13 @@
     "app/design-edit -> app/document-session": {
       "count": 1
     },
-    "app/design-edit -> app/problem-report": {
-      "count": 1
-    },
     "app/design-edit -> app/timeline": {
       "count": 1
     },
     "app/design-edit -> canvas": {
+      "count": 1
+    },
+    "app/design-edit -> failures": {
       "count": 1
     },
     "app/design-edit -> generated": {
@@ -307,6 +310,9 @@
       "count": 1
     },
     "app/document-session -> canvas": {
+      "count": 1
+    },
+    "app/document-session -> failures": {
       "count": 1
     },
     "app/document-session -> generated": {
@@ -382,9 +388,6 @@
     "app/lidar -> app/keyboard": {
       "count": 1
     },
-    "app/lidar -> app/problem-report": {
-      "count": 1
-    },
     "app/lidar -> app/settings": {
       "count": 1
     },
@@ -395,6 +398,9 @@
       "count": 1
     },
     "app/lidar -> canvas": {
+      "count": 1
+    },
+    "app/lidar -> failures": {
       "count": 1
     },
     "app/lidar -> generated": {
@@ -481,10 +487,10 @@
     "app/plant-browser -> app/health": {
       "count": 1
     },
-    "app/plant-browser -> app/problem-report": {
+    "app/plant-browser -> app/settings": {
       "count": 1
     },
-    "app/plant-browser -> app/settings": {
+    "app/plant-browser -> failures": {
       "count": 1
     },
     "app/plant-browser -> generated": {
@@ -561,13 +567,13 @@
     "app/problem-report -> app/document-session": {
       "count": 1
     },
+    "app/problem-report -> failures": {
+      "count": 1
+    },
     "app/problem-report -> i18n": {
       "count": 1
     },
     "app/problem-report -> ipc": {
-      "count": 1
-    },
-    "app/problem-report -> maplibre": {
       "count": 1
     },
     "app/recent-files -> ipc": {
@@ -869,6 +875,9 @@
       "count": 1,
       "bead": "canopi-f47t.52.73"
     },
+    "commands -> failures": {
+      "count": 1
+    },
     "commands -> i18n": {
       "count": 1
     },
@@ -1038,6 +1047,9 @@
     "desktop-root -> platform": {
       "count": 1
     },
+    "failures -> generated": {
+      "count": 1
+    },
     "i18n -> app/settings": {
       "count": 1,
       "bead": "canopi-f47t.52.213"
@@ -1053,6 +1065,9 @@
     "maplibre -> canvas": {
       "count": 1,
       "bead": "canopi-f47t.52.213"
+    },
+    "maplibre -> failures": {
+      "count": 1
     },
     "platform -> app/document-session": {
       "count": 1,
@@ -1097,6 +1112,9 @@
     "platform -> commands": {
       "count": 1,
       "bead": "canopi-f47t.52.213"
+    },
+    "platform -> failures": {
+      "count": 1
     },
     "platform -> generated": {
       "count": 1

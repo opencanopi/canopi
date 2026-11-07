@@ -18,7 +18,8 @@ import {
   resetLidarLibraryForTests,
 } from '../app/lidar/library-store'
 import { locale } from '../app/settings/state'
-import { recentFrontendDiagnostics, resetFrontendDiagnosticsForTests } from '../app/problem-report/diagnostics'
+import { recentFrontendDiagnostics } from '../app/problem-report/diagnostics'
+import { resetFrontendDiagnosticsForTests } from '../failures/ring'
 
 const emptyLibrary: LibrarySnapshot = librarySnapshot([])
 

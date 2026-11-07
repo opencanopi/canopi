@@ -14,10 +14,8 @@ import { designSessionFixture, resetDirtyBaselines } from './support/design-sess
 import * as documentActions from '../app/document-session/actions'
 import { problemReportDialogOpen } from '../app/problem-report/state'
 import { answerSaveProblem, requestSaveProblemDecision } from '../app/document-session/save-problem'
-import {
-  recentFrontendDiagnostics,
-  resetFrontendDiagnosticsForTests,
-} from '../app/problem-report/diagnostics'
+import { recentFrontendDiagnostics } from '../app/problem-report/diagnostics'
+import { resetFrontendDiagnosticsForTests } from '../failures/ring'
 import * as settingsProjection from '../app/settings/projection'
 import {
   appCommandGraphChromeProjection,
@@ -704,20 +702,20 @@ describe('command registry canvas tool switching', () => {
     expect(flattenMenuActions(help ? [help] : []).some((entry) => entry.id === 'help.reportProblem')).toBe(true)
   })
 
-  it('records async command failures for Problem Reports', async () => {
+  it('records async command failures for Problem Reports and the console without home paths (canopi-f47t.52.36)', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
     vi.spyOn(documentActions, 'newDesignAction').mockRejectedValue(new Error('disk failed at /home/alice/design.canopi'))
 
     getCommand('file.new').action()
     await new Promise((resolve) => globalThis.setTimeout(resolve, 0))
 
     expect(recentFrontendDiagnostics()).toEqual([
-      expect.objectContaining({
-        level: 'error',
-        source: 'command:New design',
-        message: expect.stringContaining('disk failed'),
-      }),
+      expect.objectContaining({ level: 'error', source: 'command:New design', message: expect.stringContaining('disk failed') }),
     ])
     expect(recentFrontendDiagnostics()[0]!.message).not.toContain('/home/alice')
+    const written = consoleError.mock.calls.flat().map((value) => (value instanceof Error ? value.message : String(value)))
+    expect(written.join(' ')).toMatch(/New design failed:.*disk failed/)
+    expect(written.join(' ')).not.toContain('/home/alice')
   })
 
   it('puts every command in File, Edit, View, Tools or Help with its shortcut', () => {

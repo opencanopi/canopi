@@ -54,7 +54,7 @@
     "story-overrides-only-in-controller": { "count": 1 },
     "suppressions": { "count": 8 },
     "tauri-only-in-native-host": { "count": 5 },
-    "test-location": { "count": 105 },
+    "test-location": { "count": 104 },
     "tool-arming-only-in-arm-canvas-tool": { "count": 3 },
     "tool-id-literal-only-in-rows": { "count": 15 },
     "tools-import-no-maplibre-dom-or-pixi": { "count": 5 },

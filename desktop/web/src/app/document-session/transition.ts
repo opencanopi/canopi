@@ -1,4 +1,5 @@
 import type { CanvasDocumentSurface } from "../../canvas/runtime/runtime";
+import { failureLogger } from "../../failures/report";
 import * as designIpc from "../../ipc/design";
 import {
   applyNewDesignBackground,
@@ -41,7 +42,7 @@ export function startAttachedDesignSession(
 
 export function abortFailedAttachedDesignSessionStart(
   session: CanvasDocumentSurface,
-  logError: (message?: unknown, ...optionalParams: unknown[]) => void = console.error,
+  logError: (message?: unknown, ...optionalParams: unknown[]) => void = failureLogger("document-session"),
 ): void {
   designSessionStateMachine.teardownAttachedDesignSession({
     session,

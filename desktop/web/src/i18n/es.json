@@ -2143,5 +2143,23 @@
         "downloadFailed": "la descarga falló"
       }
     }
+  },
+  "failure": {
+    "busy": "Canopi está ocupado con otra tarea. Vuelve a intentarlo en un momento.",
+    "internal": "Algo salió mal. Puedes volver a intentarlo o informar de un problema.",
+    "connection": "No se pudo conectar. Comprueba tu conexión y vuelve a intentarlo.",
+    "serverError": "El servidor no pudo responder. Vuelve a intentarlo más tarde.",
+    "addressRefused": "Canopi rechazó una dirección fuera de sus sitios permitidos. Informa de un problema si vuelve a ocurrir.",
+    "downloadTooLarge": "La descarga supera el tamaño que permite Canopi. Informa de un problema si la necesitas.",
+    "fileNotFound": "No se encontró el archivo. Comprueba que todavía existe y vuelve a intentarlo.",
+    "permissionDenied": "Canopi no tiene permiso para usar este archivo o carpeta. Comprueba sus permisos y vuelve a intentarlo.",
+    "readOnly": "Esta ubicación es de solo lectura. Elige otra ubicación y vuelve a intentarlo.",
+    "diskFull": "Tu disco está lleno. Libera espacio y vuelve a intentarlo.",
+    "storageFull": "El almacenamiento de tu dispositivo está lleno. Libera espacio y vuelve a intentarlo.",
+    "fileTooLarge": "Este archivo supera el tamaño que permite Canopi. Elige un archivo más pequeño.",
+    "fileError": "Canopi no pudo leer ni escribir el archivo. Vuelve a intentarlo.",
+    "plantCatalogUnavailable": "No se pudo abrir el catálogo de plantas. Reinicia Canopi y reinstálalo si el problema continúa.",
+    "libraryNewer": "Esta biblioteca de datos se guardó con una versión más reciente de Canopi. Actualiza Canopi para modificarla.",
+    "libraryUnavailable": "No se pudo abrir la biblioteca de datos, así que los cambios no se guardarán en esta sesión. Reinicia Canopi y vuelve a intentarlo."
   }
 }

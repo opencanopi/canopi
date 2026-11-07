@@ -407,7 +407,8 @@ describe('ProfileChart', () => {
   // The chart reads only its own copy; the reason goes to diagnostics, once per run of failures, so Retry or a
   // redrawn line on a failing library never fills the problem report's ring.
   it('a failed read records its reason in diagnostics once, however often it is retried or redrawn', async () => {
-    const { recentFrontendDiagnostics, resetFrontendDiagnosticsForTests } = await import('../app/problem-report/diagnostics')
+    const { recentFrontendDiagnostics } = await import('../app/problem-report/diagnostics')
+    const { resetFrontendDiagnosticsForTests } = await import('../failures/ring')
     resetFrontendDiagnosticsForTests()
     sampling.answer = () => { throw new Error('sampling refused') }
     await drawLine()

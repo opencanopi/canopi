@@ -99,7 +99,8 @@ import {
   settleResultAttachments,
 } from '../app/lidar/actions'
 import { lidarStatusMessage } from '../app/lidar/library-store'
-import { recentFrontendDiagnostics, resetFrontendDiagnosticsForTests } from '../app/problem-report/diagnostics'
+import { recentFrontendDiagnostics } from '../app/problem-report/diagnostics'
+import { resetFrontendDiagnosticsForTests } from '../failures/ring'
 import { locale } from '../app/settings/state'
 import { librarySnapshot, slopeItem, sourceItem } from './support/library-fixtures'
 import type * as DesignEditLidarModule from '../app/design-edit/lidar'

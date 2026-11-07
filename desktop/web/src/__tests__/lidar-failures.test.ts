@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import type { LidarImportRefusal, LidarImportRefusalReason } from '../generated/contracts'
 import { lidarFailureMessage } from '../app/lidar/lidar-failures'
-import { recentFrontendDiagnostics, resetFrontendDiagnosticsForTests } from '../app/problem-report/diagnostics'
+import { recentFrontendDiagnostics } from '../app/problem-report/diagnostics'
+import { resetFrontendDiagnosticsForTests } from '../failures/ring'
 import { locale } from '../app/settings/state'
 import { SUPPORTED_LOCALES } from '../i18n'
 

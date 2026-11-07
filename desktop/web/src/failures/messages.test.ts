@@ -1,15 +1,68 @@
-// Every catalogue code maps to one message or is silent (contracts §2, §13; 2.1-M418). failures/messages.ts arrives in
-// 1b-c1; until then this test fails on its absence.
+// Every catalogue code maps to one message or is silent (contracts §2, §13; 2.1-M413): the mapped type makes a missing
+// kind a type error, and these cases pin which codes are silent, that every key exists, and the wording rules.
 import { describe, expect, it } from 'vitest'
+import type { FailureCode, IoFailureKind, Lane, LibraryReadOnlyReason, NetworkFailureKind, PlantCatalogCause } from '../generated/contracts'
+import en from '../i18n/en.json'
+import { failureMessage } from './messages'
 
-type MessagesModule = Record<string, unknown>
+type Kind = FailureCode['kind']
+type CodeOf<K extends Kind> = Extract<FailureCode, { kind: K }>
+
+const keysOf = <T extends string>(table: Record<T, true>) => Object.keys(table) as T[]
+const LANES = keysOf<Lane>({ catalog: true, user_data: true, library: true, local: true, network: true })
+const CAUSES = keysOf<PlantCatalogCause>({ missing: true, open_failed: true })
+const REASONS = keysOf<LibraryReadOnlyReason>({ refused_newer: true, unavailable: true })
+const IO = keysOf<IoFailureKind>({ not_found: true, permission_denied: true, read_only: true, no_space: true, too_large: true, other: true })
+const NETWORK = keysOf<NetworkFailureKind>({ timeout: true, offline: true, status: true, host_not_allowed: true, too_large: true })
+
+// One example per code and sub-kind; a kind the catalogue adds is a type error here until it has its examples.
+const EXAMPLES: { readonly [K in Kind]: readonly CodeOf<K>[] } = {
+  busy: LANES.map((lane) => ({ kind: 'busy', lane })),
+  cancelled: [{ kind: 'cancelled' }],
+  unavailable: [{ kind: 'unavailable' }],
+  panicked: [{ kind: 'panicked' }],
+  join_failed: [{ kind: 'join_failed' }],
+  dialog_already_open: [{ kind: 'dialog_already_open' }],
+  plant_db_unavailable: CAUSES.map((cause) => ({ kind: 'plant_db_unavailable', cause })),
+  library_read_only: REASONS.map((reason) => ({ kind: 'library_read_only', reason })),
+  io: IO.map((io) => ({ kind: 'io', io })),
+  network: NETWORK.map((network) => ({ kind: 'network', network })),
+  invalid: [{ kind: 'invalid' }],
+  internal: [{ kind: 'internal' }],
+  style_failed: [{ kind: 'style_failed' }],
+  tile_source_failed: [{ kind: 'tile_source_failed', layer: 'satellite' }],
+}
+const ALL: readonly FailureCode[] = Object.values(EXAMPLES).flat()
+
+function english(key: string): unknown {
+  return key.split('.').reduce<unknown>((node, part) => (node as Record<string, unknown> | undefined)?.[part], en)
+}
 
 describe('failure messages', () => {
-  it.fails('[1b-c1 canopi-f47t.52.35] every_code_has_a_message_or_is_silent', async () => {
-    const loaders = import.meta.glob<MessagesModule>('./messages.ts')
-    const load = loaders['./messages.ts']
-    expect(load, 'failures/messages.ts, the one code-to-message table').toBeDefined()
-    const messages = await load!()
-    expect(messages.MESSAGE_BY_CODE, 'one row per FailureCode kind').toBeDefined()
+  it('[1b-c1 canopi-f47t.52.35] every_code_has_a_message_or_is_silent', () => {
+    const silent = new Set<Kind>()
+    for (const code of ALL) {
+      for (const storage of ['disk', 'device'] as const) {
+        const key = failureMessage(code, 'library.list', { storage })
+        if (key === null) silent.add(code.kind)
+        else expect(typeof english(key), `${JSON.stringify(code)} with ${storage} storage: ${key}`).toBe('string')
+      }
+    }
+    // A cancel, a second file dialog (2.1-Q284) and the map failures until 2d's map status (2.1-Q300).
+    expect([...silent].sort()).toEqual(['cancelled', 'dialog_already_open', 'style_failed', 'tile_source_failed'])
+  })
+
+  it('says what happened and what to do, with no codes (2.1-Q299, 2.1-Q289)', () => {
+    const say = (code: FailureCode, storage: 'disk' | 'device' = 'disk') => english(failureMessage(code, 'design.save', { storage }) ?? '')
+    expect(say({ kind: 'busy', lane: 'library' })).toBe('Canopi is busy with other work. Try again in a moment.')
+    expect(say({ kind: 'io', io: 'no_space' })).toBe('Your disk is full. Free some space and try again.')
+    expect(say({ kind: 'network', network: 'offline' })).toBe('Couldn’t connect. Check your connection and try again.')
+    expect(say({ kind: 'internal' })).toBe('Something went wrong. You can try again or report a problem.')
+    // A capability refines: browser storage is freed on the device, not on a disk.
+    expect(say({ kind: 'io', io: 'no_space' }, 'device')).toBe('Your device’s storage is full. Free some space and try again.')
+    for (const code of ALL) {
+      const text = english(failureMessage(code, 'design.save', { storage: 'disk' }) ?? '')
+      if (typeof text === 'string') expect(text).not.toMatch(/[a-z]+_[a-z_]+|\bcode\b/)
+    }
   })
 })

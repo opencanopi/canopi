@@ -1,4 +1,4 @@
-import { logMapError } from '../../maplibre/redact-credentials'
+import { reportMapError } from '../../maplibre/map-errors'
 import type { WorkspaceMapContributionSnapshot } from './workspace-map-contribution-adapter'
 import { throwCanvasRuntimeCleanupErrors } from '../../canvas/runtime/cleanup'
 import type { SceneCanvasRuntime } from '../../canvas/runtime/scene-runtime'
@@ -376,7 +376,7 @@ export class WorkspaceActivationCoordinator {
     // cleanup but never fails on those errors a second time.
     if (this.active) {
       this.retainedCleanup = this.cleanupActiveGeneration().catch((error) => {
-        logMapError('Shared workspace cleanup before a map Retry failed:', error)
+        reportMapError('Shared workspace cleanup before a map Retry failed:', error)
       })
     }
     this.mapUnavailable = false
@@ -447,7 +447,7 @@ export class WorkspaceActivationCoordinator {
     // Design replacement is synchronous. Keep a terminal observation here so
     // an intentionally unjoined cleanup cannot become an unhandled rejection.
     void cleanup.catch((error) => {
-      logMapError('Shared workspace Design-replacement cleanup failed:', error)
+      reportMapError('Shared workspace Design-replacement cleanup failed:', error)
     })
     return cleanup
   }
@@ -512,7 +512,7 @@ export class WorkspaceActivationCoordinator {
     if (current.failure) return current.failure
     // Every core map failure passes here once per generation. The notice and the
     // published state carry no engine text, so the log keeps the redacted cause.
-    logMapError('Shared workspace map failed:', error)
+    reportMapError('Shared workspace map failed:', error)
 
     // Install the failure fence before invoking composition, runtime, or
     // cleanup code. Those boundaries may synchronously report another failure.
@@ -595,7 +595,7 @@ export class WorkspaceActivationCoordinator {
     try {
       this.options.onRetryAvailabilityChange?.()
     } catch (error) {
-      logMapError('Shared workspace Retry availability observer failed:', error)
+      reportMapError('Shared workspace Retry availability observer failed:', error)
     }
   }
 
@@ -771,7 +771,7 @@ export class WorkspaceActivationCoordinator {
   private observeFailure(current: ActivationGeneration, error: unknown): void {
     void this.reportFailureFor(current, error).catch((failure) => {
       if (this.isCurrent(current)) {
-        logMapError('Shared workspace map failure handling failed:', failure)
+        reportMapError('Shared workspace map failure handling failed:', failure)
       }
     })
   }
@@ -812,7 +812,7 @@ export class WorkspaceActivationCoordinator {
     try {
       this.options.map.releaseMap(map)
     } catch (error) {
-      logMapError('Failed to release stale MapLibre workspace map:', error)
+      reportMapError('Failed to release stale MapLibre workspace map:', error)
     }
   }
 

@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { DESIGN_EDIT_EXTRA_KEYS, readExtra, withExtra } from '../app/design-edit/extra-keys'
 import { readPlantDisplayOptions, withPlantDisplayOptions } from '../app/design-edit/plant-display'
-import { recentFrontendDiagnostics, resetFrontendDiagnosticsForTests } from '../app/problem-report/diagnostics'
+import { recentFrontendDiagnostics } from '../app/problem-report/diagnostics'
+import { resetFrontendDiagnosticsForTests } from '../failures/ring'
 import type { CanopiFile } from '../types/design'
 
 function design(overrides: Partial<CanopiFile> = {}): CanopiFile {

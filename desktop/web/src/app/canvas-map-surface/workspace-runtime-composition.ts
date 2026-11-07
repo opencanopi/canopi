@@ -1,4 +1,4 @@
-import { logMapError } from '../../maplibre/redact-credentials'
+import { reportMapError } from '../../maplibre/map-errors'
 import { effect } from '@preact/signals'
 import { throwCanvasRuntimeCleanupErrors } from '../../canvas/runtime/cleanup'
 import type { CanvasRuntimeAppAdapter } from '../../canvas/runtime/app-adapter'
@@ -345,8 +345,8 @@ function reportCompositionFailure(
 ): void {
   try {
     if (observer) observer(error)
-    else logMapError('Shared workspace composition failed:', error)
+    else reportMapError('Shared workspace composition failed:', error)
   } catch (observerError) {
-    logMapError('Shared workspace failure observer failed:', observerError)
+    reportMapError('Shared workspace failure observer failed:', observerError)
   }
 }
