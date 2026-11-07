@@ -6,7 +6,7 @@
 //! operations. Threads and blocking pools are disallowed by clippy (`clippy.toml`); this module
 //! checks that list's floor (`ESCAPE_ENTRY_POINTS`), and the push-lane `disallowed-methods`
 //! ratchet counts every production escape from it (`policy/adapters/clippy.mjs`).
-//! It also checks every registered command against the frontend's `invoke(...)` call sites.
+//! It also checks every registered command against the frontend's `invoke(...)` and `invokeCommand(...)` call sites.
 
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -898,9 +898,8 @@ impl TestModuleFiles {
     }
 }
 
-/// Every registered command must have an `invoke('<name>'...)` call site in
-/// production frontend source. There are no exemptions: a command nothing
-/// invokes is deleted.
+/// Every registered command has an `invoke` or `invokeCommand('<name>'...)` call site in production
+/// frontend source. There are no exemptions: a command nothing invokes is deleted.
 fn audit_frontend_invocations(
     registry_source: &str,
     frontend_sources: &[(&str, &str)],
@@ -929,7 +928,7 @@ fn audit_frontend_invocations(
     violations
 }
 
-/// Command names of `invoke('name', ...)` / `invoke<T>("name")` call sites.
+/// Command names of `invoke('name', ...)` / `invoke<T>("name")` / `invokeCommand('name')` call sites.
 fn invoked_command_names(source: &str) -> Vec<String> {
     let bytes = source.as_bytes();
     let mut names = Vec::new();
@@ -937,6 +936,7 @@ fn invoked_command_names(source: &str) -> Vec<String> {
     while let Some(offset) = source[search..].find("invoke") {
         let start = search + offset;
         search = start + "invoke".len();
+        search += "Command".len() * usize::from(source[search..].starts_with("Command"));
         if start > 0 && is_identifier_byte(bytes[start - 1]) {
             continue;
         }
@@ -1699,16 +1699,16 @@ mod tests {
     fn invoke_call_sites_are_recognised_in_every_quoting_style() {
         let names = invoked_command_names(
             r#"
-                invoke('single', { a })
-                await invoke<string>("double_quoted", { path })
+                invoke('single', { a }) invokeCommand('routed', { a })
+                await invoke<string>("double", { path }) await invokeCommand<T>("typed")
                 invoke(
                   `template`,
                 )
-                reinvoke('not_a_call')
-                invoke(dynamicName)
+                reinvoke('not_a_call') reinvokeCommand('not_a_call') invokeCommands('not_a_call')
+                invoke(dynamicName) invokeCommand(dynamicName)
             "#,
         );
-        assert_eq!(names, ["single", "double_quoted", "template"]);
+        assert_eq!(names, ["single", "routed", "double", "typed", "template"]);
     }
 
     #[test]
