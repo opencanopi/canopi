@@ -9,10 +9,11 @@ import type { StoreId } from '../generated/contracts'
 import { dismissStoreNotice, storeHealth } from './health'
 import { noticeForStore } from './health-presentation'
 import { raiseNotice, withdrawNotice } from './notices'
+import type { ReportOrigin } from './report'
 
 export interface HealthNoticeActions {
-  /** Opens the edition's problem report; null where the edition has none yet. */
-  readonly report: (() => void) | null
+  /** Opens the edition's problem report from a store's state; null where the edition has none yet. */
+  readonly report: ((origin: ReportOrigin) => void) | null
   /** Opens the edition's update; null where it has no updater. */
   readonly update: (() => void) | null
   /** Each store's own Try again, where its owner can open it again (settings, 2.1-Q295). */

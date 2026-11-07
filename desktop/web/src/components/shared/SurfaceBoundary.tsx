@@ -13,7 +13,7 @@
 import { createContext, type ComponentChildren } from 'preact'
 import { useContext, useErrorBoundary, useLayoutEffect, useRef, useState } from 'preact/hooks'
 import { isChunkLoadFailure, RetryGeneration } from '../../failures/lazy'
-import { reportFailure } from '../../failures/report'
+import { reportFailure, reportOriginOf, type ReportOrigin } from '../../failures/report'
 import { t } from '../../i18n'
 import { useModalLayer } from './useModalLayer'
 import styles from './SurfaceBoundary.module.css'
@@ -31,8 +31,11 @@ export type BoundedSurface =
   | 'story-presenter'
   | 'canvas-pdf'
 
-/** Opens the edition's problem report; null where the edition has none (the Web Edition until its report lands). */
-const ProblemReportOpener = createContext<(() => void) | null>(null)
+/**
+ * Opens the edition's problem report from a fault, which the report lists first; null where the edition has none (the
+ * Web Edition until its report lands).
+ */
+const ProblemReportOpener = createContext<((origin: ReportOrigin | null) => void) | null>(null)
 
 /** The edition's reload, which saves first; a page reload outside a root (a test or gallery surface). */
 const EditionReload = createContext<() => void>(() => location.reload())
@@ -56,17 +59,20 @@ export function SurfaceBoundary({ surface, onClose, children }: {
       resetError()
     }
     const reload = isChunkLoadFailure(error)
+    // Report a problem opens the report from this fault, by the ring entry the catch recorded.
+    const origin = reportOriginOf(error)
     return onClose
-      ? <DialogFallback surface={surface} reload={reload} onRetry={retry} onClose={onClose} />
-      : <SurfaceFallback surface={surface} reload={reload} onRetry={retry} />
+      ? <DialogFallback surface={surface} reload={reload} origin={origin} onRetry={retry} onClose={onClose} />
+      : <SurfaceFallback surface={surface} reload={reload} origin={origin} onRetry={retry} />
   }
   return <RetryGeneration.Provider value={generation}>{children}</RetryGeneration.Provider>
 }
 
-function SurfaceFallback({ surface, reload, onRetry, focus = false }: {
+function SurfaceFallback({ surface, reload, origin, onRetry, focus = false }: {
   readonly surface: BoundedSurface
   /** The fault is a chunk that could not load: Reload is offered, since Try again may never fetch it. */
   readonly reload: boolean
+  readonly origin: ReportOrigin | null
   onRetry(): void
   readonly focus?: boolean
 }) {
@@ -84,16 +90,17 @@ function SurfaceFallback({ surface, reload, onRetry, focus = false }: {
       <div className={styles.actions}>
         <button ref={retryRef} type="button" className={styles.primary} onClick={onRetry}>{t('boundary.tryAgain')}</button>
         {reload && <button type="button" className={styles.secondary} onClick={editionReload}>{t('boundary.reload')}</button>}
-        {report && <button type="button" className={styles.secondary} onClick={report}>{t('boundary.reportProblem')}</button>}
+        {report && <button type="button" className={styles.secondary} onClick={() => report(origin)}>{t('boundary.reportProblem')}</button>}
       </div>
     </div>
   )
 }
 
 /** A dialog host's fallback: modal like its host, Esc closes it, focus starts on Try again. */
-function DialogFallback({ surface, reload, onRetry, onClose }: {
+function DialogFallback({ surface, reload, origin, onRetry, onClose }: {
   readonly surface: BoundedSurface
   readonly reload: boolean
+  readonly origin: ReportOrigin | null
   onRetry(): void
   onClose(): void
 }) {
@@ -113,7 +120,7 @@ function DialogFallback({ surface, reload, onRetry, onClose }: {
           onClose()
         }}
       >
-        <SurfaceFallback surface={surface} reload={reload} onRetry={onRetry} focus />
+        <SurfaceFallback surface={surface} reload={reload} origin={origin} onRetry={onRetry} focus />
       </section>
     </div>
   )
@@ -127,7 +134,8 @@ function DialogFallback({ surface, reload, onRetry, onClose }: {
 export function RootBoundary({ source, onReport, onReload, dialogs, children }: {
   /** The ring source of a root fault: `root.<edition>`. */
   readonly source: `root.${string}`
-  readonly onReport?: () => void
+  /** Opens the edition's problem report from a fault (null when none is known), which the report lists first. */
+  readonly onReport?: (origin: ReportOrigin | null) => void
   /** The edition's reload, writing the Design first; a page reload when omitted. */
   readonly onReload?: () => void
   readonly dialogs?: ComponentChildren
@@ -146,7 +154,7 @@ export function RootBoundary({ source, onReport, onReload, dialogs, children }: 
           <p className={styles.message}>{t('boundary.rootMessage')}</p>
           <div className={styles.actions}>
             <button type="button" className={styles.primary} onClick={reload}>{t('boundary.reload')}</button>
-            {report && <button type="button" className={styles.secondary} onClick={report}>{t('boundary.reportProblem')}</button>}
+            {report && <button type="button" className={styles.secondary} onClick={() => report(reportOriginOf(error))}>{t('boundary.reportProblem')}</button>}
           </div>
         </div>
         {dialogs}

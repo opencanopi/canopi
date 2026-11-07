@@ -134,6 +134,19 @@ describe('store health presentation', () => {
     dispose()
   })
 
+  it('[canopi-f47t.52.36] a store notice\'s Report a problem opens the report from that store, carrying its code', () => {
+    const report = vi.fn()
+    const dispose = installHealthNotices({ report, update: null })
+    writeStoreHealth('web_drafts', { status: { kind: 'unavailable', code: { kind: 'io', io: 'permission_denied' } }, notice: null })
+    writeStoreHealth('user_db', { status: { kind: 'set_aside_damaged', file: 'user.db.corrupt-3' }, notice: null })
+    for (const notice of notices.value) notice.action!.run()
+    expect(report.mock.calls).toEqual([
+      [{ source: 'health.web_drafts', code: { kind: 'io', io: 'permission_denied' }, operation: null, detail: 'web_drafts: unavailable' }],
+      [{ source: 'health.user_db', code: null, operation: null, detail: 'user_db: set_aside_damaged' }],
+    ])
+    dispose()
+  })
+
   it('[canopi-f47t.52.36] a one-time store notice is cleared in the model when dismissed; the status stays', () => {
     const dispose = installHealthNotices(NO_ACTIONS)
     applyHealthSnapshot({ user_db: { status: { kind: 'ready' }, notice: 'moved_aside_pre_2_0' } })

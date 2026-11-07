@@ -2,15 +2,19 @@ import { SurfaceBoundary } from './SurfaceBoundary'
 import { useLayoutEffect, useRef } from 'preact/hooks'
 import { problemReportDialogOpen } from '../../app/problem-report/state'
 import { problemReportSubmission } from '../../app/problem-report/submission'
+import type { ReportOrigin } from '../../failures/report'
 import { t } from '../../i18n'
 import styles from './ProblemReportDialog.module.css'
 import { ControlIcon } from './ControlIcon'
 import { useModalLayer } from './useModalLayer'
 import { useScrimPress } from './useScrimPress'
 
-/** Opens the problem report: the Desktop root's fallback offers it even after the app below has failed. */
-export function openProblemReport(): void {
-  problemReportSubmission.open()
+/**
+ * Opens the problem report from a failure's Report a problem (a notice, a boundary), which the report lists first: the
+ * Desktop root's fallback offers it even after the app below has failed.
+ */
+export function openProblemReport(origin: ReportOrigin | null = null): void {
+  problemReportSubmission.open(origin)
 }
 
 export function ProblemReportDialog() {
