@@ -6,7 +6,8 @@
   "tool": "ast-grep",
   "scope": [
     "desktop/src/**",
-    "canopi-types/src/**"
+    "canopi-types/src/**",
+    "canopi-redact/src/**"
   ],
   "lane": "commit",
   "keys": "path",

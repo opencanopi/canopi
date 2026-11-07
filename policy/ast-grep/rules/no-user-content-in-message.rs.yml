@@ -9,7 +9,9 @@ message: "no-user-content-in-message (2.1-M224): user content (a user path, a De
 files:
   - "desktop/src/**/*.rs"
   - "canopi-types/src/**/*.rs"
+  - "canopi-redact/src/**/*.rs"
   - "policy/fixtures/rules/*/desktop/src/**/*.rs"
+  - "policy/fixtures/rules/*/canopi-redact/src/**/*.rs"
 ignores:
   - "desktop/src/commands/design/tests.rs"
   - "desktop/src/db/test_support.rs"
