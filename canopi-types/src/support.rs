@@ -1,48 +1,50 @@
-//! Problem reports: the user-initiated request, its result and the
-//! diagnostics and attachments it may carry.
+//! Problem reports (ADR 0025 "A problem report carries", contracts §13): the
+//! sections the frontend fills, the Design attached by consent, and the
+//! saved zip named by its file name, never a path (2.1-Q276 to 2.1-Q278).
 
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
+use crate::failure::RedactedText;
+use crate::report::ReportSectionId;
+
+/// What the frontend sends to save a report on Desktop: the sections the one
+/// TS builder fills, each redacted by TS and again when decoded, and the
+/// current Design, only when the user ticked its checkbox. Desktop adds its
+/// native sections and the manifest, and zips (2.1-M412, 2.1-M422).
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
-#[expect(
-    missing_docs,
-    reason = "undocumented before 2.1-Q217; document when this file is next touched"
-)]
 pub struct ProblemReportRequest {
-    pub description: String,
+    /// The frontend's sections: what the user wrote, the frontend ring and the
+    /// failure the report was opened from; each id at most once.
+    pub sections: Vec<ReportSectionText>,
+    /// The current Design's `.canopi` text, attached only by consent
+    /// (`ReportConsent::CurrentDesign`, 2.1-Q278).
     #[serde(default)]
-    pub frontend_diagnostics: Vec<FrontendDiagnosticEntry>,
-    #[serde(default)]
-    pub sensitive_attachments: ProblemReportSensitiveAttachments,
+    pub current_design: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Type)]
-#[expect(
-    missing_docs,
-    reason = "undocumented before 2.1-Q217; document when this file is next touched"
-)]
+/// One frontend section's content.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
+pub struct ReportSectionText {
+    /// The section.
+    pub id: ReportSectionId,
+    /// Its content, redacted.
+    pub text: RedactedText,
+}
+
+/// A saved report: its file name in the "Problem reports" folder, never a
+/// path, and whether the file manager showed it (2.1-Q276, 2.1-M299).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
 pub struct ProblemReportResult {
-    pub folder_path: String,
-    pub summary_path: String,
-    pub bundle_path: String,
-    pub report_summary: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Type)]
-#[expect(
-    missing_docs,
-    reason = "undocumented before 2.1-Q217; document when this file is next touched"
-)]
-pub struct FrontendDiagnosticEntry {
-    pub level: String,
-    pub source: String,
-    pub message: String,
-    pub timestamp_ms: f64,
+    /// `canopi-report-YYYYMMDD-HHMMSS.zip`, with `-2` and on for a second
+    /// report in the same second (2.1-Q281).
+    pub file_name: String,
+    /// Whether the file manager showed the zip; when not, the zip is kept.
+    pub revealed: bool,
 }
 
 /// The level of a frontend diagnostics ring entry (contracts §13 Failure
-/// report). Phase 1's 1a-c6 types `FrontendDiagnosticEntry::level` with it.
+/// report).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
 #[serde(rename_all = "snake_case")]
 pub enum FrontendDiagnosticLevel {
@@ -52,14 +54,4 @@ pub enum FrontendDiagnosticLevel {
     Warning,
     /// A record kept for the report only.
     Info,
-}
-
-#[derive(Debug, Clone, Default, Serialize, Deserialize, Type)]
-#[expect(
-    missing_docs,
-    reason = "undocumented before 2.1-Q217; document when this file is next touched"
-)]
-pub struct ProblemReportSensitiveAttachments {
-    #[serde(default)]
-    pub current_design: Option<String>,
 }

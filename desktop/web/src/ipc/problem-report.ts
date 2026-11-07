@@ -9,6 +9,7 @@ export async function createProblemReport(
   return invoke('create_problem_report', { request })
 }
 
-export async function showProblemReportFolder(folderPath: string): Promise<void> {
-  await invoke('show_problem_report_folder', { path: folderPath })
+/** Shows a saved report selected in the "Problem reports" folder, named by its file name, never a path. */
+export async function showProblemReportFolder(fileName: string): Promise<void> {
+  await invoke('show_problem_report_folder', { fileName })
 }

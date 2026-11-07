@@ -87,16 +87,8 @@ function ProblemReportDialogContent() {
             <p className={styles.body}>{t('problemReport.successText')}</p>
             <dl className={styles.paths}>
               <div>
-                <dt>{t('problemReport.folderPath')}</dt>
-                <dd>{result.folder_path}</dd>
-              </div>
-              <div>
-                <dt>{t('problemReport.summaryFile')}</dt>
-                <dd>Report Summary.txt</dd>
-              </div>
-              <div>
                 <dt>{t('problemReport.bundleFile')}</dt>
-                <dd>Diagnostic Bundle.zip</dd>
+                <dd>{result.file_name}</dd>
               </div>
             </dl>
             <div className={styles.footer}>

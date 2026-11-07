@@ -1346,8 +1346,6 @@
     "close": "Close",
     "successTitle": "Report created",
     "successText": "The report files are in this folder. Attach the bundle and paste the summary when you contact support.",
-    "folderPath": "Folder",
-    "summaryFile": "Summary",
     "bundleFile": "Bundle",
     "copySummary": "Copy summary",
     "copiedSummary": "Copied",

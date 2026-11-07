@@ -1353,8 +1353,6 @@
     "close": "닫기",
     "successTitle": "보고서 생성됨",
     "successText": "보고서 파일은 이 폴더에 있습니다. 지원팀에 연락할 때 번들을 첨부하고 요약을 붙여 넣으세요.",
-    "folderPath": "폴더",
-    "summaryFile": "요약",
     "bundleFile": "번들",
     "copySummary": "요약 복사",
     "copiedSummary": "복사됨",

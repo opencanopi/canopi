@@ -15,7 +15,8 @@ import { beforePaint, holdAfterPaint } from './support/before-paint'
 const water = 'water' as unknown as AnalysisGroup
 
 /** Every parameter type, an advanced disclosure, visibleWhen and optional outputs. */
-const FLOW: AnalysisEntry = {
+// Fixture keys are opaque to the code under test, so they are not LocaleKeys.
+const FLOW = {
   id: 'hydrology.flow',
   version: 1,
   group: water,
@@ -46,10 +47,10 @@ const FLOW: AnalysisEntry = {
   outputs: [
     { key: 'area', labelKey: 'fixture.area', item: { kind: 'Raster', quantity: 'OtherContinuous' }, units: { kind: 'fixed', value: 'm²' }, optional: true, defaultSelected: true, presentable: true },
     { key: 'wetness', labelKey: 'fixture.wetness', item: { kind: 'Raster', quantity: 'OtherContinuous' }, units: { kind: 'fixed', value: '' }, optional: true, defaultSelected: false, presentable: true },
-  ],
-}
+  ],} as unknown as AnalysisEntry
 
-const SLOPE: AnalysisEntry = {
+// Fixture keys are opaque to the code under test, so they are not LocaleKeys.
+const SLOPE = {
   ...FLOW,
   id: 'terrain.slope',
   group: 'terrain',
@@ -60,8 +61,7 @@ const SLOPE: AnalysisEntry = {
     kind: { type: 'choice', options: ['degrees', 'percent'] }, default: null, advanced: false, visibleWhen: null,
     optionLabelKeys: { degrees: 'analyses.terrain.slope.params.unit.options.degrees', percent: 'analyses.terrain.slope.params.unit.options.percent' },
   }],
-  outputs: [{ key: 'slope', labelKey: 'analyses.terrain.slope.outputs.slope', item: { kind: 'Raster', quantity: 'Slope' }, units: { kind: 'by-param', param: 'unit', map: { degrees: '°', percent: '%' } }, optional: false, defaultSelected: true, presentable: true }],
-}
+  outputs: [{ key: 'slope', labelKey: 'analyses.terrain.slope.outputs.slope', item: { kind: 'Raster', quantity: 'Slope' }, units: { kind: 'by-param', param: 'unit', map: { degrees: '°', percent: '%' } }, optional: false, defaultSelected: true, presentable: true }],} as unknown as AnalysisEntry
 
 const REGISTRY = [SLOPE, FLOW]
 const GROUPS = [{ key: 'terrain' as AnalysisGroup, labelKey: 'analyses.groups.terrain' }, { key: water, labelKey: 'fixture.water' }]

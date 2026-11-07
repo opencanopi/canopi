@@ -1353,8 +1353,6 @@
     "close": "Sluiten",
     "successTitle": "Rapport gemaakt",
     "successText": "De rapportbestanden staan in deze map. Voeg de bundel toe en plak de samenvatting wanneer je contact opneemt met support.",
-    "folderPath": "Map",
-    "summaryFile": "Samenvatting",
     "bundleFile": "Bundel",
     "copySummary": "Samenvatting kopiëren",
     "copiedSummary": "Gekopieerd",

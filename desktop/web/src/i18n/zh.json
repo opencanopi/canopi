@@ -1353,8 +1353,6 @@
     "close": "关闭",
     "successTitle": "报告已创建",
     "successText": "报告文件位于此文件夹。联系支持时请附上诊断包并粘贴摘要。",
-    "folderPath": "文件夹",
-    "summaryFile": "摘要",
     "bundleFile": "诊断包",
     "copySummary": "复制摘要",
     "copiedSummary": "已复制",

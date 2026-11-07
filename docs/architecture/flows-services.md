@@ -149,7 +149,7 @@ sequenceDiagram
 ### Failure from native code to the notice and the report
 
 Model: target
-Source: ADR 0025; contracts §2; 2.1-Q60, 2.1-Q86, 2.1-Q47
+Source: ADR 0025; contracts §2; 2.1-Q60, 2.1-Q86, 2.1-Q47, 2.1-Q276, 2.1-Q277
 
 ```mermaid
 sequenceDiagram
@@ -169,9 +169,9 @@ sequenceDiagram
   FR-)C: notice row, Retry only when user_may_retry
   C->>PR: Report a problem from the notice, with its code
   PR->>FR: ring, that OperationId first
-  PR->>RB: request with REPORT_SECTIONS consent
-  RB->>RB: every section, Sensitive fields rendered by consent, redacted
-  RB-->>PR: zip saved, nothing sent
+  PR->>RB: frontend sections, the Design only by consent
+  RB->>RB: native sections, an entry per REPORT_SECTIONS row, redacted; manifest of the rest
+  RB-->>PR: one zip in Problem reports, shown selected; its file name, nothing sent
 ```
 
 - Owner: `failures/` (2.1) owns the sink, the ring and the notice signal; the catalogue in `canopi-types` owns codes.

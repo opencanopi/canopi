@@ -1353,8 +1353,6 @@
     "close": "Fechar",
     "successTitle": "Relatório criado",
     "successText": "Os arquivos do relatório estão nesta pasta. Anexe o pacote e cole o resumo ao contatar o suporte.",
-    "folderPath": "Pasta",
-    "summaryFile": "Resumo",
     "bundleFile": "Pacote",
     "copySummary": "Copiar resumo",
     "copiedSummary": "Copiado",

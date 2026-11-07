@@ -2,6 +2,7 @@
 // Source: canopi-types/analysis-registry.json
 
 import type { LibraryItemType } from './contracts'
+import type { LocaleKey } from './locale-keys'
 
 export type AnalysisGroup = "terrain"
 export type AnalysisLane = { readonly kind: 'geolibre-windowed'; readonly halo: number }
@@ -15,8 +16,8 @@ export type AnalysisParamKind =
 
 export interface AnalysisParamSpec {
   readonly key: string
-  readonly labelKey: string
-  readonly helpKey: string
+  readonly labelKey: LocaleKey
+  readonly helpKey: LocaleKey
   readonly kind: AnalysisParamKind
   /** `null` when the user must choose. */
   readonly default: string | number | boolean | null
@@ -24,7 +25,7 @@ export interface AnalysisParamSpec {
   readonly advanced: boolean
   readonly visibleWhen: { readonly param: string; readonly equals: string } | null
   /** One label key per choice option; empty for other kinds. */
-  readonly optionLabelKeys: Readonly<Record<string, string>>
+  readonly optionLabelKeys: Readonly<Record<string, LocaleKey>>
 }
 
 export interface AnalysisInputSpec {
@@ -39,7 +40,7 @@ export type AnalysisOutputUnits =
 
 export interface AnalysisOutputSpec {
   readonly key: string
-  readonly labelKey: string
+  readonly labelKey: LocaleKey
   readonly item: LibraryItemType
   readonly units: AnalysisOutputUnits
   readonly optional: boolean
@@ -53,15 +54,15 @@ export interface AnalysisEntry {
   /** Recipe version; bumped when the method changes. */
   readonly version: number
   readonly group: AnalysisGroup
-  readonly titleKey: string
-  readonly summaryKey: string
+  readonly titleKey: LocaleKey
+  readonly summaryKey: LocaleKey
   readonly lane: AnalysisLane
   readonly inputs: readonly AnalysisInputSpec[]
   readonly params: readonly AnalysisParamSpec[]
   readonly outputs: readonly AnalysisOutputSpec[]
 }
 
-export const ANALYSIS_GROUPS: readonly { readonly key: AnalysisGroup; readonly labelKey: string }[] = [
+export const ANALYSIS_GROUPS: readonly { readonly key: AnalysisGroup; readonly labelKey: LocaleKey }[] = [
   { key: "terrain", labelKey: "analyses.groups.terrain" },
 ]
 

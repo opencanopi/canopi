@@ -10,7 +10,7 @@ pub fn get_health(health: tauri::State<'_, AppHealth>) -> SubsystemHealth {
 #[cfg(test)]
 mod tests {
     use crate::AppHealth;
-    use canopi_types::health::{PlantDbStatus, StoreHealth, StoreId, SubsystemHealth};
+    use canopi_types::health::{PlantDbStatus, StoreId, SubsystemHealth};
 
     #[test]
     fn get_health_returns_the_startup_snapshot() {
@@ -18,10 +18,7 @@ mod tests {
         let mut snapshot = crate::services::health::all_ready();
         snapshot.0.insert(
             StoreId::PlantCatalog,
-            StoreHealth {
-                status: PlantDbStatus::Missing.store_status(),
-                notice: None,
-            },
+            crate::services::health::plant_catalog(PlantDbStatus::Missing),
         );
         let app = tauri::test::mock_builder()
             .manage(AppHealth(snapshot.clone()))

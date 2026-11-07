@@ -426,16 +426,9 @@ export type FlowerColorResolution = {
 
 export type Freshness = { state: "Current" } | { state: "Stale"; reasons: StaleReason[] };
 
-export type FrontendDiagnosticEntry = {
-	level: string,
-	source: string,
-	message: string,
-	timestamp_ms: number,
-};
-
 /**
  *  The level of a frontend diagnostics ring entry (contracts §13 Failure
- *  report). Phase 1's 1a-c6 types `FrontendDiagnosticEntry::level` with it.
+ *  report).
  */
 export type FrontendDiagnosticLevel =
 // Lost work or a failed action.
@@ -951,21 +944,37 @@ export type PlantDbStatus =
 
 export type PlantLabels = "none" | "codes" | "names";
 
+/**
+ *  What the frontend sends to save a report on Desktop: the sections the one
+ *  TS builder fills, each redacted by TS and again when decoded, and the
+ *  current Design, only when the user ticked its checkbox. Desktop adds its
+ *  native sections and the manifest, and zips (2.1-M412, 2.1-M422).
+ */
 export type ProblemReportRequest = {
-	description: string,
-	frontend_diagnostics?: FrontendDiagnosticEntry[],
-	sensitive_attachments?: ProblemReportSensitiveAttachments,
-};
-
-export type ProblemReportResult = {
-	folder_path: string,
-	summary_path: string,
-	bundle_path: string,
-	report_summary: string,
-};
-
-export type ProblemReportSensitiveAttachments = {
+	/**
+	 *  The frontend's sections: what the user wrote, the frontend ring and the
+	 *  failure the report was opened from; each id at most once.
+	 */
+	sections: ReportSectionText[],
+	/**
+	 *  The current Design's `.canopi` text, attached only by consent
+	 *  (`ReportConsent::CurrentDesign`, 2.1-Q278).
+	 */
 	current_design?: string | null,
+};
+
+/**
+ *  A saved report: its file name in the "Problem reports" folder, never a
+ *  path, and whether the file manager showed it (2.1-Q276, 2.1-M299).
+ */
+export type ProblemReportResult = {
+	/**
+	 *  `canopi-report-YYYYMMDD-HHMMSS.zip`, with `-2` and on for a second
+	 *  report in the same second (2.1-Q281).
+	 */
+	file_name: string,
+	// Whether the file manager showed the zip; when not, the zip is kept.
+	revealed: boolean,
 };
 
 /**
@@ -1078,8 +1087,8 @@ export type RecentDesignUnreadableReason =
 /**
  *  Text a redactor has passed: logs, failure details and report inputs take
  *  only this type. Its field is private and its one constructor is
- *  [`Redactor::redact`]; it serialises as a plain string and is a branded
- *  string in TypeScript (2.1-M424).
+ *  [`Redactor::redact`]; it serialises as a plain string, a decoded string is
+ *  redacted again, and it is a branded string in TypeScript (2.1-M424).
  */
 export type RedactedText = string & { readonly __brand: "RedactedText" };
 
@@ -1089,6 +1098,29 @@ export type ReportConsent =
 "always" |
 // Only when the user ticks the current Design's checkbox.
 "current_design";
+
+/**
+ *  A report's `manifest.json`: every entry of the zip but itself, in report order, each with
+ *  its section and status; the Design is an entry only by consent (2.1-Q277, 2.1-M436).
+ */
+export type ReportManifest = {
+	// The manifest's format name.
+	format: string,
+	// When the report was made, ISO 8601 UTC.
+	created_at: string,
+	// The zip's other entries.
+	entries: ReportManifestEntry[],
+};
+
+// One entry the manifest lists.
+export type ReportManifestEntry = {
+	// Its section.
+	section: ReportSectionId,
+	// Its name in the zip, the section's `file`.
+	file: string,
+	// What it holds.
+	status: ReportSectionStatus,
+};
 
 /**
  *  One row of `REPORT_SECTIONS`: its id, its entry in the zip, its consent and
@@ -1131,6 +1163,30 @@ export type ReportSectionId =
 "originating_failure" |
 // The current Design, by consent only.
 "design";
+
+/**
+ *  What a section's entry holds, as the manifest lists it: a section with
+ *  nothing to say still has its entry, marked (ADR 0025, 2.1-M421).
+ */
+export type ReportSectionStatus =
+// The section's content.
+"included" |
+// The source had nothing to say: no failure opened the report, no text was written.
+"empty" |
+// The source exists but could not be read in full; what was read is kept.
+"unreadable" |
+// No source yet: "not collected before Phase 3".
+"not_collected" |
+// This edition has no source for the section (F13).
+"not_on_this_edition";
+
+// One frontend section's content.
+export type ReportSectionText = {
+	// The section.
+	id: ReportSectionId,
+	// Its content, redacted.
+	text: RedactedText,
+};
 
 export type RichTextBlock = { kind: "paragraph"; spans: RichTextSpan[] } | { kind: "bullets"; items: RichTextListItem[] };
 
@@ -1815,6 +1871,9 @@ export const REPORT_SECTIONS: readonly ReportSection[] = [
     "privacy": "The current Design, only if you tick it: its objects, map coordinates, notes, timeline and budget."
   }
 ]
+
+export const REPORT_MANIFEST_FILE = "manifest.json"
+export const REPORT_NOT_COLLECTED_NOTE = "not collected before Phase 3"
 
 export type FailureRow = { readonly source: FailureSource; readonly user_may_retry: boolean; readonly silent: boolean; readonly level: FailureLogLevel }
 

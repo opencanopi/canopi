@@ -82,12 +82,12 @@ Check every section in light and dark, English and French, and a 720 px tall win
 ## Settings and shell
 
 1. Settings › Appearance: theme and language switch live, including menus, dates and numbers (175,473 / 175 473).
-2. Map and imagery: add a Google key (masked, Show reveals it), switch to free imagery and back, Remove key; the key is absent from a Problem report bundle.
+2. Map and imagery: add a Google key (masked, Show reveals it), switch to free imagery and back, Remove key; the key is absent from a problem report zip.
 3. New Designs: set satellite, symbol size and labels; a new Design starts with them and an existing Design keeps its own.
 4. Keyboard: turn single-key shortcuts off; tool keys and N stop; Shift N, Ctrl shortcuts, Delete, Esc, arrows and F keys work; menus and F1 hide the keys that are off.
 5. Canvas › Pointing device: Mouse, then Trackpad; the Select tool card follows; pinch and Ctrl + wheel zoom either way, Shift + wheel pans.
 6. Files and data: Show in folder opens the Drafts and Data library folders.
-7. Help › Command palette… (Ctrl Shift P) runs a command; Report a problem…: the report folder holds a summary and a bundle without Design contents, paths or the key; Getting started and About Canopi open with the release version.
+7. Help › Command palette… (Ctrl Shift P) runs a command; Report a problem…: one zip in "Problem reports", shown selected; no path or key, the Design only if ticked; Getting started and About Canopi open with the release version.
 8. 720 × 1024 px window: the panel rail folds into More panels, the tool rail into More tools with Undo and Redo visible, menus scroll, the credits pill folds to (i), and highlights and the selection chip stay in the visible map area.
 9. Dialogs are modal: with one open, menus, shortcuts and the map do not respond.
 

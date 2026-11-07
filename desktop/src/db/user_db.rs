@@ -25,7 +25,9 @@ pub enum UserDbInitError {
         found: i32,
         supported: i32,
     },
+    /// It could not be moved aside; `reason` tells a damaged file from a pre-2.0 one.
     SetAside {
+        reason: super::SetAsideReason,
         source: std::io::Error,
     },
     ConfigureForeignKeys(rusqlite::Error),
@@ -88,7 +90,7 @@ impl fmt::Display for UserDbInitError {
                 formatter,
                 "user database schema version {found} was written by a newer Canopi (this version reads {supported}); open it with that newer Canopi"
             ),
-            Self::SetAside { source } => write!(
+            Self::SetAside { source, .. } => write!(
                 formatter,
                 "failed to move the user database aside: {source}"
             ),
@@ -99,12 +101,10 @@ impl fmt::Display for UserDbInitError {
             Self::CreateSchema(error) => {
                 write!(formatter, "failed to create the user database: {error}")
             }
-            Self::VerifyIntegrity(error) => {
-                write!(
-                    formatter,
-                    "failed to verify user database integrity: {error}"
-                )
-            }
+            Self::VerifyIntegrity(error) => write!(
+                formatter,
+                "failed to verify user database integrity: {error}"
+            ),
             Self::ForeignKeysDisabled => write!(
                 formatter,
                 "user database foreign-key enforcement could not be enabled"
@@ -130,7 +130,7 @@ impl std::error::Error for UserDbInitError {
             | Self::ConfigureForeignKeys(error)
             | Self::CreateSchema(error)
             | Self::VerifyIntegrity(error) => Some(error),
-            Self::SetAside { source } => Some(source),
+            Self::SetAside { source, .. } => Some(source),
             Self::OlderSchemaVersion { .. }
             | Self::NewerSchemaVersion { .. }
             | Self::ForeignKeysDisabled
@@ -417,6 +417,7 @@ fn saved_object_stamp_from_row(
 mod tests {
     use super::*;
     use crate::test_scratch::TestScratch;
+    use canopi_types::health::{StoreHealth, StoreNotice, StoreOpenStatus};
     use rusqlite::Connection;
 
     fn test_db() -> Connection {
@@ -605,32 +606,6 @@ mod tests {
     }
 
     #[test]
-    fn a_corrupt_database_is_set_aside_and_the_app_starts_fresh() {
-        let scratch =
-            TestScratch::new("user-db-a-corrupt-database-is-set-aside-and-the-app-starts-fresh");
-        let path = temp_user_db_path(&scratch, "corrupt");
-        std::fs::write(&path, b"this is not a SQLite database, it is just text").unwrap();
-
-        let (user_db, opened) =
-            crate::db::UserDb::open(&path).expect("a corrupt user DB must not stop startup");
-        assert_eq!(opened, crate::db::UserDbOpened::ReplacedCorrupt);
-        {
-            let conn = user_db.acquire();
-            assert_eq!(schema_version(&conn).unwrap(), CURRENT_USER_DB_VERSION);
-        }
-        drop(user_db);
-
-        let aside = files_starting_with(&path, ".corrupt-");
-        assert_eq!(aside.len(), 1, "{aside:?}");
-        assert_eq!(
-            std::fs::read(&aside[0]).unwrap(),
-            b"this is not a SQLite database, it is just text"
-        );
-
-        remove_all_starting_with(&path);
-    }
-
-    #[test]
     fn a_database_with_foreign_key_violations_is_set_aside_as_corrupt() {
         let scratch = TestScratch::new(
             "user-db-a-database-with-foreign-key-violations-is-set-aside-as-corrupt",
@@ -691,11 +666,8 @@ mod tests {
             let (user_db, opened) = crate::db::UserDb::open(&path)
                 .unwrap_or_else(|error| panic!("schema {version} must not stop startup: {error}"));
 
-            assert_eq!(
-                opened,
-                crate::db::UserDbOpened::MovedAside,
-                "schema {version}"
-            );
+            let once = (StoreOpenStatus::Ready, Some(StoreNotice::MovedAsidePre20));
+            assert_eq!((opened.status, opened.notice), once, "schema {version}");
             {
                 let conn = user_db.acquire();
                 assert_eq!(schema_version(&conn).unwrap(), CURRENT_USER_DB_VERSION);
@@ -724,8 +696,14 @@ mod tests {
         let (second, reopened) = crate::db::UserDb::open(&path).unwrap();
         drop(second);
 
-        assert_eq!(created, crate::db::UserDbOpened::Ready);
-        assert_eq!(reopened, crate::db::UserDbOpened::Ready);
+        assert_eq!(
+            (created.status, created.notice),
+            (StoreOpenStatus::Ready, None)
+        );
+        assert_eq!(
+            (reopened.status, reopened.notice),
+            (StoreOpenStatus::Ready, None)
+        );
         assert!(files_starting_with(&path, ".").is_empty(), "nothing moved");
         std::fs::remove_file(path).unwrap();
     }
@@ -961,31 +939,46 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "expected-fail 1a-c5 canopi-f47t.52.41"]
     fn nat_02_a_damaged_user_db_is_set_aside_and_named_once() {
+        const DAMAGED: &[u8] = b"this is not a SQLite database, it is just text";
         let scratch = TestScratch::new("user-db-nat-02-a-damaged-user-db-is-named-once");
         let path = temp_user_db_path(&scratch, "damaged");
-        std::fs::write(&path, b"this is not a SQLite database, it is just text").unwrap();
+        let shm = path.with_file_name("damaged.db-shm");
+        std::fs::write(&path, DAMAGED).unwrap();
+        std::fs::write(&shm, b"its shm").unwrap();
+        let open = || crate::db::UserDb::open(&path).map(|(db, health)| (drop(db), health).1);
+        let damaged_file = |health: StoreHealth| match health {
+            StoreHealth {
+                status: StoreOpenStatus::SetAsideDamaged { file },
+                notice: None,
+            } => file,
+            other => panic!("not a damaged set-aside: {other:?}"),
+        };
 
-        let (user_db, opened) =
-            crate::db::UserDb::open(&path).expect("a damaged user DB must not stop startup");
-        drop(user_db);
-        let aside = files_starting_with(&path, ".corrupt-");
-        assert_eq!(aside.len(), 1, "{aside:?}");
-        let aside_name = aside[0].file_name().unwrap().to_string_lossy().into_owned();
-        // The store's open status names the file it set aside (set_aside_damaged{file}), so the one
-        // notice can tell the user where their old data went.
+        let file = damaged_file(open().expect("a damaged user DB must not stop startup"));
         assert!(
-            format!("{opened:?}").contains(&aside_name),
-            "the open outcome {opened:?} does not name {aside_name}"
+            !file.contains(['/', '\\']),
+            "a file name, never a path (2.1-Q285): {file}"
         );
+        assert_eq!(std::fs::read(path.with_file_name(&file)).unwrap(), DAMAGED);
+        assert!(!shm.exists() && path.with_file_name(file + "-shm").exists());
 
-        // The next launch opens the fresh database and names nothing again.
-        let (user_db, reopened) = crate::db::UserDb::open(&path).expect("the fresh DB opens");
-        drop(user_db);
-        assert_eq!(reopened, crate::db::UserDbOpened::Ready);
-        assert_eq!(files_starting_with(&path, ".corrupt-").len(), 1);
+        let again = open().expect("the fresh DB opens");
+        assert_eq!((again.status, again.notice), (StoreOpenStatus::Ready, None));
 
-        remove_all_starting_with(&path);
+        // A second damage overwrites no earlier set-aside, nor a name an orphan journal holds:
+        // with every `corrupt-<seconds>` of the next minute held, the status names a `-2` file.
+        std::fs::write(&path, DAMAGED).unwrap();
+        let name = path.file_name().unwrap().to_string_lossy().into_owned();
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap();
+        for seconds in now.as_secs()..now.as_secs() + 60 {
+            let orphan = path.with_file_name(format!("{name}.corrupt-{seconds}-journal"));
+            std::fs::write(orphan, b"").unwrap();
+        }
+        let file = damaged_file(open().expect("a second damage must not stop startup"));
+        assert!(file.ends_with("-2"), "{file}");
+        assert_eq!(std::fs::read(path.with_file_name(file)).unwrap(), DAMAGED);
     }
 }

@@ -23,7 +23,8 @@ import {
 const water = 'water' as unknown as AnalysisGroup
 
 /** One entry covering every parameter type, advanced disclosure, visibleWhen and optional outputs. */
-const FLOW: AnalysisEntry = {
+// Fixture keys are opaque to the code under test, so they are not LocaleKeys.
+const FLOW = {
   id: 'hydrology.flow',
   version: 3,
   group: water,
@@ -54,8 +55,7 @@ const FLOW: AnalysisEntry = {
   outputs: [
     { key: 'area', labelKey: 'out.area', item: { kind: 'Raster', quantity: 'OtherContinuous' }, units: { kind: 'fixed', value: 'm²' }, optional: true, defaultSelected: true, presentable: true },
     { key: 'wetness', labelKey: 'out.wet', item: { kind: 'Raster', quantity: 'OtherContinuous' }, units: { kind: 'fixed', value: '' }, optional: true, defaultSelected: false, presentable: true },
-  ],
-}
+  ],} as unknown as AnalysisEntry
 
 const SLOPE = ANALYSIS_REGISTRY.find((entry) => entry.id === 'terrain.slope')!
 const REGISTRY = [SLOPE, FLOW]

@@ -45,15 +45,8 @@ REFERENCE = re.compile(r"^\s{0,3}\[[^\]]+\]:\s*(<[^>]+>|\S+)", re.MULTILINE)
 # that belongs in bd or nowhere.
 DOCS_FILES = {"README.md", "architecture.md", "workflow.md", "review-checklist.md"}
 DOCS_DIRECTORIES = {"adr", "architecture", "decisions", "guides", "plans", "release-notes"}
-LINE_BUDGETS = {
-    "AGENTS.md": 120,
-    "README.md": 80,
-    "CONTEXT.md": 250,
-    "docs/README.md": 60,
-    "docs/architecture.md": 160,
-    "docs/workflow.md": 100,
-    "docs/review-checklist.md": 200,
-}
+LINE_BUDGETS = {"AGENTS.md": 120, "README.md": 80, "CONTEXT.md": 250, "docs/README.md": 60, "docs/architecture.md": 160,
+                "docs/workflow.md": 100, "docs/review-checklist.md": 200}
 # A guide states rules and boundaries; wiring lives in code comments and policy
 # tests. Budgets in bytes stop the guides from growing by accretion again.
 BYTE_BUDGETS = {
@@ -77,13 +70,12 @@ ADR_BUDGET = 60
 PARAGRAPH_BUDGET = 600
 # Exempt: release notes, and the ONF adaptation plan, written before the budget
 # reached docs/plans, whose long paragraphs are lists of upstream names.
-PARAGRAPH_EXEMPT = (
-    "docs/release-notes/",
-    "docs/plans/onf-plugin-adaptation.md",
-)
+PARAGRAPH_EXEMPT = ("docs/release-notes/", "docs/plans/onf-plugin-adaptation.md")
 
 
 COVERS = re.compile(r"^Covers:\s*(.*)$", re.MULTILINE)
+# A guide's backticked `file.ext::NAME` (a threat-model cell, ADR 0029) names a declaration in that file (2.1-M428).
+DECLARED = re.compile(r"`([\w./-]+\.\w+)::([A-Za-z_]\w*)`")
 
 
 def covers(text):
@@ -140,6 +132,11 @@ def check_document(file, root):
         for path in paths or []:
             if not (root / path).exists() or path.endswith("/") != (root / path).is_dir():
                 errors.append(f"{relative}: covers missing path {path}")
+        for number, line in enumerate(text.splitlines(), start=1):
+            for path, name in DECLARED.findall(line):
+                source = next((root / base / path for base in PATH_ROOTS if (root / base / path).is_file()), None)
+                if source is None or name not in DECLARATION.findall(source.read_text(encoding="utf-8")):
+                    errors.append(f"{relative}:{number}: `{path}::{name}` names no declaration")
     if relative.startswith("docs/plans/") and not re.search(r"^Status:\s*\S", text, re.MULTILINE):
         errors.append(f"{relative}: a plan needs a `Status:` line (proposed, agreed, in progress)")
     if relative.startswith("docs/adr/"):

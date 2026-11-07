@@ -14,6 +14,7 @@ pub mod host;
 mod http;
 mod image_cache;
 mod logging;
+pub use logging::install_panic_hook;
 #[cfg(test)]
 mod module_layering;
 #[cfg(test)]
@@ -22,13 +23,19 @@ mod native_operation;
 mod services;
 #[cfg(test)]
 mod test_scratch;
-use canopi_types::health::{StoreHealth, StoreId, StoreNotice, StoreOpenStatus, SubsystemHealth};
+use canopi_types::failure::{Failure, FailureCode, IoFailureKind, PlantCatalogCause};
+use canopi_types::health::{StoreHealth, StoreId, SubsystemHealth};
+use canopi_types::sensitive::UserPath;
 use rusqlite::{Connection, OpenFlags};
 use tauri::Manager;
 
 pub struct AppHealth(pub SubsystemHealth);
 
 const PLANT_DB_BUNDLED_PATH: &str = "resources/canopi-core.db";
+
+/// The ops of startup work outside a command: the image cache's open and the app's run.
+const IMAGE_CACHE_OPEN_OP: &str = "image_cache.open";
+const APP_RUN_OP: &str = "app.run";
 
 fn resolve_plant_db_path<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
@@ -147,10 +154,8 @@ pub fn run() {
             commands::lidar::lidar_layer_collection,
         ])
         .setup(|app| {
-            // Logging
-            let log_dir = app.path().app_log_dir()?;
-            std::fs::create_dir_all(&log_dir)?;
-            logging::init(&log_dir);
+            // Logging: a log folder that cannot be opened logs to stderr, never stops startup.
+            logging::init(app.path().app_log_dir().ok().as_deref());
             tracing::info!("Canopi starting");
             build_main_window(app.handle())?;
 
@@ -163,12 +168,11 @@ pub fn run() {
             std::fs::create_dir_all(&data_dir)?;
             app.manage(design::drafts::DesignDrafts::new(&data_dir));
             app.manage(services::recent_design_previews::RecentDesignPreviews::default());
-            let (user_db, user_db_notice) = match open_user_data(&data_dir) {
+            let (user_db, user_db_health) = match open_user_data(&data_dir) {
                 Ok(opened) => opened,
                 Err(error) => {
-                    // A user database this Canopi cannot own (written by a newer
-                    // version) is refused, never modified: tell the user and exit
-                    // instead of panicking or showing a half-working window.
+                    // A user database this Canopi cannot own or set aside is refused, never
+                    // modified: tell the user, in English before the webview (2.1-Q288), and exit.
                     if let Some(message) = startup_refusal_message(&error) {
                         tracing::error!("User DB refused at startup");
                         refuse_startup(app, message);
@@ -195,7 +199,11 @@ pub fn run() {
             let image_cache = match image_cache::ImageCache::new(&data_dir) {
                 Ok(cache) => cache,
                 Err(error) => {
-                    tracing::warn!("Image cache init failed: {error}, using temp dir fallback");
+                    let failure = Failure::new(FailureCode::Io { io: IoFailureKind::Other }, IMAGE_CACHE_OPEN_OP);
+                    logging::log_failure(
+                        &failure.with_english(&format!("the image cache fell back to the temp folder: {error}")),
+                        None,
+                    );
                     image_cache::ImageCache::new(&std::env::temp_dir()).map_err(|fallback| {
                         format!("Failed to initialize image cache: {error}; temp dir fallback: {fallback}")
                     })?
@@ -214,26 +222,33 @@ pub fn run() {
                         OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
                     ) {
                         Ok(plant_conn) => {
+                            // Info, not warn: a tuning pragma only, and the catalog reads without it.
                             if let Err(e) = plant_conn.pragma_update(None, "mmap_size", 268435456_i64) {
-                                tracing::warn!("Failed to set plant DB mmap_size: {e}");
+                                tracing::info!("Plant DB mmap_size left at its default: {e}");
                             }
                             if let Err(e) = plant_conn.pragma_update(None, "cache_size", -64000_i64) {
-                                tracing::warn!("Failed to set plant DB cache_size: {e}");
+                                tracing::info!("Plant DB cache_size left at its default: {e}");
                             }
                             let plant_db = db::PlantDb::available(plant_conn);
                             if plant_db.status() == canopi_types::health::PlantDbStatus::Available {
-                                tracing::info!("Plant DB admitted at {}", path.display());
+                                tracing::info!("Plant DB admitted at {}", UserPath::from(path.as_path()));
                             }
                             plant_db
                         }
                         Err(e) => {
-                            tracing::error!("Failed to open plant DB at {}: {e}. Species search unavailable.", path.display());
+                            db::log_plant_db_unavailable(
+                                PlantCatalogCause::OpenFailed,
+                                &format!("the plant DB at {} could not be opened: {e}", UserPath::from(path.as_path())),
+                            );
                             db::PlantDb::corrupt()
                         }
                     }
                 }
                 None => {
-                    tracing::error!("Plant DB not found. Run scripts/prepare-db.py first. Species search unavailable.");
+                    db::log_plant_db_unavailable(
+                        PlantCatalogCause::Missing,
+                        "the plant DB was not found; run scripts/prepare-db.py first",
+                    );
                     db::PlantDb::missing()
                 }
             };
@@ -243,8 +258,8 @@ pub fn run() {
 
             let entry = |status, notice| StoreHealth { status, notice };
             app.manage(AppHealth(SubsystemHealth(std::collections::BTreeMap::from([
-                (StoreId::PlantCatalog, entry(plant_db_status.store_status(), None)),
-                (StoreId::UserDb, entry(StoreOpenStatus::Ready, user_db_notice)),
+                (StoreId::PlantCatalog, services::health::plant_catalog(plant_db_status)),
+                (StoreId::UserDb, user_db_health),
                 (StoreId::LibraryCatalogue, entry(lidar_library_status, None)),
             ]))));
 
@@ -254,7 +269,11 @@ pub fn run() {
     match app {
         Ok(app) => app.run(|app, event| on_run_event(app, &event)),
         Err(error) => {
-            tracing::error!("Canopi failed to run: {error}");
+            let failure = Failure::new(FailureCode::Internal, APP_RUN_OP);
+            logging::log_failure(
+                &failure.with_english(&format!("Canopi failed to run: {error}")),
+                None,
+            );
             eprintln!("Canopi failed to run: {error}");
             std::process::exit(1);
         }
@@ -300,22 +319,20 @@ fn open_link_in_system(url: &tauri::Url) -> bool {
     tauri_plugin_opener::open_url(url.as_str(), None::<&str>).is_ok()
 }
 
-/// Open the user database in `data_dir`.
+/// Open the user database in `data_dir`, with its entry in `SubsystemHealth`.
 ///
-/// Canopi 2.0 breaks stored data (ADR 0021): a user database from before 2.0
-/// is renamed, since 2.0 needs its path, and the returned notice tells the
-/// user once. Drafts in an earlier format and the retired 1.x autosave store
-/// stay where they are, unread, and are not reported (U59).
+/// A user database from before 2.0 is renamed, since 2.0 needs its path, and a
+/// notice tells the user once (ADR 0021); a damaged one is set aside and its
+/// status names the set-aside file on that start only (NAT-02). Drafts in an
+/// earlier format and the retired 1.x autosave store stay where they are,
+/// unread, and are not reported (U59).
 fn open_user_data(
     data_dir: &std::path::Path,
-) -> Result<(db::UserDb, Option<StoreNotice>), db::UserDbInitError> {
-    let (user_db, opened) = db::UserDb::open(data_dir.join("user.db"))?;
-    let notice = (opened == db::UserDbOpened::MovedAside).then_some(StoreNotice::MovedAsidePre20);
-    Ok((user_db, notice))
+) -> Result<(db::UserDb, StoreHealth), db::UserDbInitError> {
+    db::UserDb::open(data_dir.join("user.db"))
 }
 
-/// The message for a startup failure the user can act on, or `None` when the
-/// failure is an internal error.
+/// The message for a startup failure the user can act on, or `None` for an internal error.
 fn startup_refusal_message(error: &db::UserDbInitError) -> Option<String> {
     match error {
         db::UserDbInitError::NewerSchemaVersion { .. } => Some(
@@ -323,11 +340,7 @@ fn startup_refusal_message(error: &db::UserDbInitError) -> Option<String> {
              Install the latest Canopi to open it; this version will not change it."
                 .to_string(),
         ),
-        db::UserDbInitError::SetAside { .. } => Some(
-            "Canopi could not move its earlier data file aside to start fresh. \
-             Check that the Canopi data folder can be written to, then start Canopi again."
-                .to_string(),
-        ),
+        db::UserDbInitError::SetAside { reason, .. } => Some(reason.startup_refusal().to_owned()),
         _ => None,
     }
 }
@@ -347,6 +360,7 @@ fn refuse_startup(app: &tauri::App, message: String) {
 
 #[cfg(test)]
 mod tests {
+    use canopi_types::health::{StoreNotice, StoreOpenStatus};
     /// 2.1-M82: the NSIS installer's Restart Manager close reaches Canopi only as
     /// `RunEvent::Exit`; the handler holds the exit until a Design, Draft or settings write
     /// already running has landed.
@@ -396,14 +410,19 @@ mod tests {
         };
         let message = super::startup_refusal_message(&newer).expect("newer data is refused");
         assert!(message.contains("newer version of Canopi"));
-        let set_aside = super::db::UserDbInitError::SetAside {
+        let set_aside = |reason| super::db::UserDbInitError::SetAside {
+            reason,
             source: std::io::Error::from(std::io::ErrorKind::PermissionDenied),
         };
-        assert!(
-            super::startup_refusal_message(&set_aside)
-                .expect("a failed move aside is explained")
-                .contains("can be written to")
+        let corrupt = set_aside(super::db::SetAsideReason::Corrupt);
+        let message = super::startup_refusal_message(&corrupt).expect("explained in English");
+        assert_eq!(
+            message,
+            "Canopi could not start: its saved data is damaged and could not be moved aside. Free some disk space or check folder permissions, then start Canopi again.",
         );
+        let pre_2_0 = set_aside(super::db::SetAsideReason::Before2_0);
+        let message = super::startup_refusal_message(&pre_2_0).expect("explained in English");
+        assert!(!message.contains("damaged"), "{message}");
         let internal = super::db::UserDbInitError::ForeignKeysDisabled;
         assert!(super::startup_refusal_message(&internal).is_none());
     }
@@ -412,10 +431,10 @@ mod tests {
     fn a_fresh_data_folder_opens_as_current() {
         let data_dir = super::test_scratch::TestScratch::new("startup-fresh");
 
-        let (user_db, status) = super::open_user_data(&data_dir).expect("a fresh folder opens");
+        let (user_db, health) = super::open_user_data(&data_dir).expect("a fresh folder opens");
         drop(user_db);
 
-        assert_eq!(status, None);
+        assert!(health.status == StoreOpenStatus::Ready && health.notice.is_none());
     }
 
     /// Canopi 2.0 breaks stored data (ADR 0021): a user database from before
@@ -432,13 +451,14 @@ mod tests {
             .unwrap();
         drop(connection);
 
-        let (user_db, status) = super::open_user_data(&data_dir).expect("earlier data opens");
+        let (user_db, health) = super::open_user_data(&data_dir).expect("earlier data opens");
         drop(user_db);
-        assert_eq!(status, Some(super::StoreNotice::MovedAsidePre20));
+        assert_eq!(health.status, StoreOpenStatus::Ready);
+        assert_eq!(health.notice, Some(StoreNotice::MovedAsidePre20));
 
         let (user_db, again) = super::open_user_data(&data_dir).expect("current data opens");
         drop(user_db);
-        assert_eq!(again, None, "told once");
+        assert_eq!(again.notice, None, "told once");
     }
 
     /// Drafts in an earlier format and the retired 1.x autosave store stay
@@ -462,9 +482,9 @@ mod tests {
         std::fs::write(autosave.join("recovery.canopi"), "unsaved work").unwrap();
 
         for start in ["first", "second"] {
-            let (user_db, status) = super::open_user_data(&data_dir).expect("the folder opens");
+            let (user_db, health) = super::open_user_data(&data_dir).expect("the folder opens");
             drop(user_db);
-            assert_eq!(status, None, "{start} start");
+            assert_eq!(health.notice, None, "{start} start");
             assert_eq!(
                 std::fs::read_to_string(drafts.join("old.canopi")).unwrap(),
                 older

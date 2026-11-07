@@ -715,31 +715,6 @@
     ]
   },
   {
-    "name": "FrontendDiagnosticEntry",
-    "fields": [
-      {
-        "name": "level",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "source",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "message",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "timestamp_ms",
-        "flatten": false,
-        "skip": false
-      }
-    ]
-  },
-  {
     "name": "GeoPoint",
     "fields": [
       {
@@ -1523,17 +1498,12 @@
     "name": "ProblemReportRequest",
     "fields": [
       {
-        "name": "description",
+        "name": "sections",
         "flatten": false,
         "skip": false
       },
       {
-        "name": "frontend_diagnostics",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "sensitive_attachments",
+        "name": "current_design",
         "flatten": false,
         "skip": false
       }
@@ -1543,32 +1513,12 @@
     "name": "ProblemReportResult",
     "fields": [
       {
-        "name": "folder_path",
+        "name": "file_name",
         "flatten": false,
         "skip": false
       },
       {
-        "name": "summary_path",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "bundle_path",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "report_summary",
-        "flatten": false,
-        "skip": false
-      }
-    ]
-  },
-  {
-    "name": "ProblemReportSensitiveAttachments",
-    "fields": [
-      {
-        "name": "current_design",
+        "name": "revealed",
         "flatten": false,
         "skip": false
       }
@@ -1750,6 +1700,46 @@
     ]
   },
   {
+    "name": "ReportManifest",
+    "fields": [
+      {
+        "name": "format",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "created_at",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "entries",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "ReportManifestEntry",
+    "fields": [
+      {
+        "name": "section",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "file",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "status",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
     "name": "ReportSection",
     "fields": [
       {
@@ -1769,6 +1759,21 @@
       },
       {
         "name": "privacy",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "ReportSectionText",
+    "fields": [
+      {
+        "name": "id",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "text",
         "flatten": false,
         "skip": false
       }

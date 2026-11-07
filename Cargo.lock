@@ -458,6 +458,7 @@ name = "canopi-desktop"
 version = "2.1.0-beta.1"
 dependencies = [
  "base64 0.22.1",
+ "canopi-redact",
  "canopi-types",
  "ed25519-dalek",
  "libc",

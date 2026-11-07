@@ -1409,7 +1409,6 @@ export type LocaleKey =
   | "problemReport.descriptionLabel"
   | "problemReport.descriptionPlaceholder"
   | "problemReport.errorTitle"
-  | "problemReport.folderPath"
   | "problemReport.includeCurrentDesign"
   | "problemReport.includeCurrentDesignDescription"
   | "problemReport.intro"
@@ -1420,7 +1419,6 @@ export type LocaleKey =
   | "problemReport.showingFolder"
   | "problemReport.successText"
   | "problemReport.successTitle"
-  | "problemReport.summaryFile"
   | "problemReport.title"
   | "saveProblem.closeWithoutSaving"
   | "saveProblem.conflictMessage"
@@ -1965,3 +1963,6 @@ export type LocaleKey =
   | "worldMap.openTemplate"
   | "worldMap.title"
   | "worldMap.zoomToExplore"
+
+/** A LocaleKey's family, up to and including its first `_`: `filters.habit_` for `filters.habit_Tree`. */
+export type LocaleKeyFamily = LocaleKey extends infer Key ? (Key extends `${infer Family}_${string}` ? `${Family}_` : never) : never

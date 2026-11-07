@@ -1353,8 +1353,6 @@
     "close": "Schließen",
     "successTitle": "Bericht erstellt",
     "successText": "Die Berichtsdateien befinden sich in diesem Ordner. Hängen Sie das Paket an und fügen Sie die Zusammenfassung ein, wenn Sie den Support kontaktieren.",
-    "folderPath": "Ordner",
-    "summaryFile": "Zusammenfassung",
     "bundleFile": "Paket",
     "copySummary": "Zusammenfassung kopieren",
     "copiedSummary": "Kopiert",

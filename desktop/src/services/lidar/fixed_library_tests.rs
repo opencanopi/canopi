@@ -2391,72 +2391,72 @@ fn a_failed_job_logs_its_reason_for_the_problem_report() {
     let _ = std::fs::remove_dir_all(&root);
 }
 
-/// LID-01 (2.1-Q298): a cancel the staging step sees while it converts a source settles as a
-/// withdrawal, never as a Failed item. Today the per-source staging error is prefixed with the
-/// file name (`orchard: cancelled`), so the settlement's `error == "cancelled"` test misses it
-/// and the item reads Failed.
+/// LID-01 (2.1-Q298, canopi-f47t.52.38): a cancel the staging step sees while the cancel's own
+/// withdrawal still waits settles as a withdrawal, never as a Failed item: the per-source
+/// staging error names the file (`orchard: cancelled`), so only the job's cancel flag says
+/// the import was cancelled.
 #[test]
-#[ignore = "expected-fail 1a-c5 canopi-f47t.52.38"]
 fn lid_01_a_cancel_seen_during_staging_withdraws_the_import_never_failed() {
-    use std::sync::Arc;
     let root = scratch("lid-01-cancel-during-staging");
     let library = attached_library(&root);
-    // A source large enough that its conversion is still running when the cancel lands.
-    let (width, height) = (2048u32, 2048u32);
-    let values: Vec<f32> = (0..height)
-        .flat_map(|_| (0..width).map(|x| x as f32))
-        .collect();
-    let raw = root.join("orchard.raw");
-    import::write_f32_raw(&raw, &values).unwrap();
-    let source = root.join("orchard.tif");
-    import::raw_to_tif(
-        library.inner.engine.as_ref(),
-        &AtomicBool::new(false),
-        &raw,
-        &source,
-        &grid::RasterGrid {
-            width,
-            height,
-            geotransform: [445_000.0, 1.0, 0.0, 6_806_000.0, 0.0, -1.0],
-        },
-        "EPSG:2154",
-        -9999.0,
-    )
-    .unwrap();
-    let (layer_id, job_id) = library
-        .record_import_item(
+    let source = plane(&library, &root, "orchard", 445_000.0);
+    // Cancel sets the flag at once while its withdrawal waits on the UserData lane; the flag
+    // lands once the source is copied into the library, so staging itself sees the cancel.
+    let (landed_tx, landed) = std::sync::mpsc::channel();
+    acceptance_hooks::on_source_staged(
+        &library,
+        Box::new(move |library| {
+            for flag in library.inner.cancel_flags.lock().unwrap().values() {
+                flag.store(true, Ordering::Relaxed);
+            }
+            landed_tx.send(!library_files(library).is_empty()).unwrap();
+        }),
+    );
+    let receipt = library
+        .import_item(
             "Orchard",
             RasterQuantity::GroundElevation,
             None,
             false,
-            std::slice::from_ref(&source),
+            vec![source.clone()],
         )
         .unwrap();
+    let staged = landed
+        .recv_timeout(std::time::Duration::from_secs(60))
+        .expect("the cancel landed during staging");
+    assert!(staged, "the source was copied into the library first");
+    await_settled(&library, &receipt.job_id);
 
-    // The cancel lands once the staging step has started writing into its job folder: inside
-    // the source's conversion, after the loop's own cancel check.
-    let cancel = Arc::new(AtomicBool::new(false));
-    let job_dir = library.inner.paths.job_dir(&job_id);
-    let watcher = {
-        let cancel = Arc::clone(&cancel);
-        std::thread::spawn(move || {
-            let deadline = std::time::Instant::now() + std::time::Duration::from_secs(60);
-            while std::time::Instant::now() < deadline {
-                if std::fs::read_dir(&job_dir).is_ok_and(|mut entries| entries.next().is_some()) {
-                    cancel.store(true, Ordering::Relaxed);
-                    return;
-                }
-                std::thread::yield_now();
-            }
-        })
-    };
-    let staged = import::stage_import(&library, &job_id, &layer_id, &[source], &cancel);
-    watcher.join().unwrap();
-    assert!(
-        cancel.load(Ordering::Relaxed),
-        "the cancel never landed during staging"
+    // The job's own settlement withdrew the import: the item left the list, never Failed,
+    // and every file the job wrote is gone.
+    assert!(library.library_snapshot().unwrap().items.is_empty());
+    assert_eq!(import_rows(&library), no_import_rows());
+    assert_eq!(library_files(&library), Vec::<PathBuf>::new());
+    // The withdrawal that waited finds nothing left to withdraw and leaves no lasting state.
+    library.cancel_import(&receipt.job_id).unwrap();
+    assert!(library.library_snapshot().unwrap().items.is_empty());
+    assert_eq!(import_rows(&library), no_import_rows());
+
+    // The same file imports again as a new item.
+    imported(&library, "Orchard", &source);
+    // A job that panics while staging fails as before, never withdrawn, and a later cancel
+    // keeps that failure: both items stay.
+    acceptance_hooks::on_source_staged(&library, Box::new(|_| panic!("staging stopped")));
+    let failed = library
+        .import_item(
+            "Orchard",
+            RasterQuantity::GroundElevation,
+            None,
+            false,
+            vec![source],
+        )
+        .unwrap();
+    assert_eq!(
+        await_import(&library, &failed.job_id),
+        LidarImportJobState::Failed
     );
-    // The settlement recognises a cancel only by this exact outcome.
-    assert_eq!(staged, Err("cancelled".to_owned()));
+    library.cancel_import(&failed.job_id).unwrap();
+    row_message(&library, &failed.layer_id);
+    assert_eq!(library.library_snapshot().unwrap().items.len(), 2);
     let _ = std::fs::remove_dir_all(&root);
 }

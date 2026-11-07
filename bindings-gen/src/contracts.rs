@@ -101,8 +101,11 @@ pub(crate) fn contract_types() -> TypeCollection {
         .register::<canopi_types::lidar::LidarSampleUnavailableReason>()
         .register::<canopi_types::location::GeoResult>()
         .register::<canopi_types::report::ReportConsent>()
+        .register::<canopi_types::report::ReportManifest>()
+        .register::<canopi_types::report::ReportManifestEntry>()
         .register::<canopi_types::report::ReportSection>()
         .register::<canopi_types::report::ReportSectionId>()
+        .register::<canopi_types::report::ReportSectionStatus>()
         .register::<canopi_types::saved_object_stamps::SavedObjectStamp>()
         .register::<canopi_types::views::RichTextBlock>()
         .register::<canopi_types::views::RichTextListItem>()
@@ -124,10 +127,10 @@ pub(crate) fn contract_types() -> TypeCollection {
         .register::<canopi_types::settings::Locale>()
         .register::<canopi_types::settings::Settings>()
         .register::<canopi_types::settings::Theme>()
-        .register::<canopi_types::support::FrontendDiagnosticEntry>()
         .register::<canopi_types::support::FrontendDiagnosticLevel>()
         .register::<canopi_types::support::ProblemReportRequest>()
         .register::<canopi_types::support::ProblemReportResult>()
+        .register::<canopi_types::support::ReportSectionText>()
         .register::<canopi_types::species::CommonNameEntry>()
         .register::<canopi_types::species::DynamicFilter>()
         .register::<canopi_types::species::DynamicFilterOptions>()
@@ -189,8 +192,10 @@ pub(crate) fn render_typescript_contracts() -> Result<String, Box<dyn std::error
     // The problem report's sections (ADR 0025, 2.1-M421): the one TS builder
     // reads the rows Rust declares.
     normalized.push_str(&format!(
-        "\nexport const REPORT_SECTIONS: readonly ReportSection[] = {}\n",
-        serde_json::to_string_pretty(&canopi_types::report::REPORT_SECTIONS)?
+        "\nexport const REPORT_SECTIONS: readonly ReportSection[] = {}\n\nexport const REPORT_MANIFEST_FILE = {}\nexport const REPORT_NOT_COLLECTED_NOTE = {}\n",
+        serde_json::to_string_pretty(&canopi_types::report::REPORT_SECTIONS)?,
+        serde_json::to_string(canopi_types::report::MANIFEST_FILE)?,
+        serde_json::to_string(canopi_types::report::NOT_COLLECTED_NOTE)?,
     ));
     // The failure catalogue's rows (contracts §2, 2.1-M413): the frontend's one
     // message map skips the silent rows, and the transport records none of them.

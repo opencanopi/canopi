@@ -801,6 +801,9 @@
     "bindings-gen -> canopi-types": {
       "count": 1
     },
+    "canopi-desktop -> canopi-redact": {
+      "count": 1
+    },
     "canopi-desktop -> canopi-types": {
       "count": 1
     },

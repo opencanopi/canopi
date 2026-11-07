@@ -4,13 +4,16 @@
 //! declared even when it has no source yet; the same ids exist on both
 //! editions, and each edition's adapter fills a section or marks it "not on
 //! this edition" (no editions column). The report is one zip whose manifest
-//! lists every entry but itself (2.1-Q277, 2.1-M436).
+//! lists every entry but itself (2.1-Q277, 2.1-M436), each entry with its
+//! [`ReportSectionStatus`].
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use specta::Type;
 
 /// A section's id.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Type)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Type,
+)]
 #[serde(rename_all = "snake_case")]
 pub enum ReportSectionId {
     /// The build: app version, platform, webview or browser.
@@ -37,6 +40,52 @@ pub enum ReportSectionId {
     OriginatingFailure,
     /// The current Design, by consent only.
     Design,
+}
+
+/// What a section's entry holds, as the manifest lists it: a section with
+/// nothing to say still has its entry, marked (ADR 0025, 2.1-M421).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[serde(rename_all = "snake_case")]
+pub enum ReportSectionStatus {
+    /// The section's content.
+    Included,
+    /// The source had nothing to say: no failure opened the report, no text was written.
+    Empty,
+    /// The source exists but could not be read in full; what was read is kept.
+    Unreadable,
+    /// No source yet: "not collected before Phase 3".
+    NotCollected,
+    /// This edition has no source for the section (F13).
+    NotOnThisEdition,
+}
+
+/// The line an entry with no source yet reads (ADR 0025, 2.1-M421).
+pub const NOT_COLLECTED_NOTE: &str = "not collected before Phase 3";
+
+/// The manifest's entry name: listed by no section, and listing every entry but itself.
+pub const MANIFEST_FILE: &str = "manifest.json";
+
+/// A report's `manifest.json`: every entry of the zip but itself, in report order, each with
+/// its section and status; the Design is an entry only by consent (2.1-Q277, 2.1-M436).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Type)]
+pub struct ReportManifest {
+    /// The manifest's format name.
+    pub format: &'static str,
+    /// When the report was made, ISO 8601 UTC.
+    pub created_at: String,
+    /// The zip's other entries.
+    pub entries: Vec<ReportManifestEntry>,
+}
+
+/// One entry the manifest lists.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Type)]
+pub struct ReportManifestEntry {
+    /// Its section.
+    pub section: ReportSectionId,
+    /// Its name in the zip, the section's `file`.
+    pub file: &'static str,
+    /// What it holds.
+    pub status: ReportSectionStatus,
 }
 
 /// When a section is included.
@@ -164,10 +213,7 @@ mod tests {
         let files: HashSet<_> = REPORT_SECTIONS.iter().map(|s| s.file).collect();
         assert_eq!(ids.len(), REPORT_SECTIONS.len());
         assert_eq!(files.len(), REPORT_SECTIONS.len());
-        assert!(
-            !files.contains("manifest.json"),
-            "the manifest is no section"
-        );
+        assert!(!files.contains(MANIFEST_FILE), "the manifest is no section");
         let consented: Vec<_> = REPORT_SECTIONS
             .iter()
             .filter(|s| s.consent == ReportConsent::CurrentDesign)

@@ -5,6 +5,8 @@ import {
   type ProblemReportRequest,
   type ProblemReportResult,
 } from '../../ipc/problem-report'
+import type { RedactedText } from '../../generated/contracts'
+import { redact } from '../../failures/redact'
 import { t } from '../../i18n'
 import { recentFrontendDiagnostics } from './diagnostics'
 import { buildCurrentDesignProblemReportAttachment } from './attachments'
@@ -116,22 +118,27 @@ export function createProblemReportSubmission(
       copyState.value = 'idle'
 
       try {
-        const sensitiveAttachments: NonNullable<ProblemReportRequest['sensitive_attachments']> = {}
+        let currentDesign: string | null = null
         if (includeCurrentDesign.value) {
-          const currentDesign = deps.buildCurrentDesignAttachment()
+          currentDesign = deps.buildCurrentDesignAttachment()
           if (!currentDesign) {
             if (submitGeneration === generation) {
               error.value = deps.currentDesignUnavailableMessage()
             }
             return
           }
-          sensitiveAttachments.current_design = currentDesign
         }
 
+        // The frontend's own sections, redacted here; Desktop adds the native ones (2.1-M421).
         const nextResult = await deps.createProblemReport({
-          description: description.value,
-          frontend_diagnostics: deps.readFrontendDiagnostics(),
-          sensitive_attachments: sensitiveAttachments,
+          sections: [
+            { id: 'description', text: redact(description.value) as RedactedText },
+            {
+              id: 'frontend_ring',
+              text: redact(JSON.stringify(deps.readFrontendDiagnostics(), null, 2)) as RedactedText,
+            },
+          ],
+          current_design: currentDesign,
         })
         if (submitGeneration !== generation) return
         result.value = nextResult
@@ -148,7 +155,7 @@ export function createProblemReportSubmission(
     async copySummary() {
       if (!result.value) return
       try {
-        await deps.writeClipboardText(result.value.report_summary)
+        await deps.writeClipboardText(result.value.file_name)
         copyState.value = 'copied'
       } catch {
         copyState.value = 'failed'
@@ -158,7 +165,7 @@ export function createProblemReportSubmission(
       if (!result.value) return
       showFolderState.value = 'showing'
       try {
-        await deps.showProblemReportFolder(result.value.folder_path)
+        await deps.showProblemReportFolder(result.value.file_name)
         showFolderState.value = 'idle'
       } catch {
         showFolderState.value = 'failed'

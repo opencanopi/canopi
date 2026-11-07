@@ -2,7 +2,7 @@
 // failures/ from Phase 1's 1b-c1, and the report reads it there), plus `recordFrontendDiagnostic` for ErrorBoundary.tsx,
 // the last writer through this name until 1b-c3 points it at failures/report.ts. A write here is a `reportFailure` with
 // no notice; the report reads the ring as frontend diagnostics entries.
-import type { FrontendDiagnosticEntry, FrontendDiagnosticLevel } from '../../generated/contracts'
+import type { FrontendDiagnosticLevel } from '../../generated/contracts'
 import { reportFailure } from '../../failures/report'
 import { ringEntries } from '../../failures/ring'
 
@@ -19,6 +19,14 @@ interface RecordFrontendDiagnosticInput {
 
 export function recordFrontendDiagnostic(input: RecordFrontendDiagnosticInput): void {
   reportFailure(input.message, { shown: 'none', source: input.source, level: input.level })
+}
+
+/** One ring entry as the report's app-failures section lists it. */
+export interface FrontendDiagnosticEntry {
+  readonly level: FrontendDiagnosticLevel
+  readonly source: string
+  readonly message: string
+  readonly timestamp_ms: number
 }
 
 export function recentFrontendDiagnostics(): FrontendDiagnosticEntry[] {

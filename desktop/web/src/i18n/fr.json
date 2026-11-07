@@ -1353,8 +1353,6 @@
     "close": "Fermer",
     "successTitle": "Rapport créé",
     "successText": "Les fichiers du rapport sont dans ce dossier. Joignez le paquet et collez le résumé lorsque vous contactez le support.",
-    "folderPath": "Dossier",
-    "summaryFile": "Résumé",
     "bundleFile": "Paquet",
     "copySummary": "Copier le résumé",
     "copiedSummary": "Copié",

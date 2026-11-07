@@ -1353,8 +1353,6 @@
     "close": "Chiudi",
     "successTitle": "Rapporto creato",
     "successText": "I file del rapporto sono in questa cartella. Allega il pacchetto e incolla il riepilogo quando contatti il supporto.",
-    "folderPath": "Cartella",
-    "summaryFile": "Riepilogo",
     "bundleFile": "Pacchetto",
     "copySummary": "Copia riepilogo",
     "copiedSummary": "Copiato",

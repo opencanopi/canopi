@@ -42,10 +42,6 @@
     "desktop/src/services/lidar/recovery.rs": {
       "count": 2,
       "bead": "canopi-f47t.52.190"
-    },
-    "desktop/src/services/problem_report/bundle.rs": {
-      "count": 1,
-      "bead": "canopi-f47t.52.190"
     }
   }
 }

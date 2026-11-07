@@ -12,6 +12,7 @@ pub mod lidar;
 pub mod location;
 pub mod report;
 pub mod saved_object_stamps;
+pub mod sensitive;
 pub mod settings;
 pub mod species;
 pub mod support;

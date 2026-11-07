@@ -1241,7 +1241,7 @@
       "quote": "Redaction:",
       "state": {
         "exists": {
-          "check": "desktop/src/services/problem_report/redactions.rs"
+          "check": "canopi-redact/src/tests.rs"
         }
       }
     },

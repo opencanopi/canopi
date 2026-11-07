@@ -1353,8 +1353,6 @@
     "close": "Cerrar",
     "successTitle": "Informe creado",
     "successText": "Los archivos del informe están en esta carpeta. Adjunta el paquete y pega el resumen cuando contactes con soporte.",
-    "folderPath": "Carpeta",
-    "summaryFile": "Resumen",
     "bundleFile": "Paquete",
     "copySummary": "Copiar resumen",
     "copiedSummary": "Copiado",

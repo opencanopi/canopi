@@ -1353,8 +1353,6 @@
     "close": "閉じる",
     "successTitle": "レポートを作成しました",
     "successText": "レポートファイルはこのフォルダーにあります。サポートに連絡するときは、バンドルを添付し概要を貼り付けてください。",
-    "folderPath": "フォルダー",
-    "summaryFile": "概要",
     "bundleFile": "バンドル",
     "copySummary": "概要をコピー",
     "copiedSummary": "コピー済み",

@@ -8,15 +8,13 @@ import type { ProblemReportResult } from '../ipc/problem-report'
 function createDeps(overrides: Partial<ProblemReportSubmissionDeps> = {}): ProblemReportSubmissionDeps {
   return {
     createProblemReport: vi.fn().mockResolvedValue({
-      folder_path: '/tmp/Canopi Problem Report',
-      summary_path: '/tmp/Canopi Problem Report/Report Summary.txt',
-      bundle_path: '/tmp/Canopi Problem Report/Diagnostic Bundle.zip',
-      report_summary: 'Canopi Problem Report',
-    }),
+      file_name: 'canopi-report-20261107-101500.zip',
+      revealed: true,
+    } satisfies ProblemReportResult),
     showProblemReportFolder: vi.fn().mockResolvedValue(undefined),
     readFrontendDiagnostics: vi.fn(() => [
       {
-        level: 'error',
+        level: 'error' as const,
         source: 'command:Open design',
         message: 'disk failed at <path>',
         timestamp_ms: 1,
@@ -41,25 +39,32 @@ function deferred<T>() {
 }
 
 describe('Problem Report submission module', () => {
-  it('submits recent diagnostics and excludes current Design contents by default', async () => {
+  it('sends the description and the frontend ring as sections and excludes current Design contents by default', async () => {
     const deps = createDeps()
     const submission = createProblemReportSubmission(deps)
 
     submission.setDescription('Canvas froze after placing a species')
     await submission.submit()
 
-    expect(deps.createProblemReport).toHaveBeenCalledWith({
-      description: 'Canvas froze after placing a species',
-      frontend_diagnostics: [
-        expect.objectContaining({
-          message: 'disk failed at <path>',
-        }),
-      ],
-      sensitive_attachments: {},
-    })
+    const request = vi.mocked(deps.createProblemReport).mock.calls[0]?.[0]
+    expect(request?.sections.map((section) => section.id)).toEqual(['description', 'frontend_ring'])
+    expect(request?.sections[0]?.text).toBe('Canvas froze after placing a species')
+    expect(request?.sections[1]?.text).toContain('disk failed at <path>')
+    expect(request?.current_design).toBeNull()
     expect(deps.buildCurrentDesignAttachment).not.toHaveBeenCalled()
-    expect(submission.result.value?.bundle_path).toContain('Diagnostic Bundle.zip')
+    expect(submission.result.value?.file_name).toBe('canopi-report-20261107-101500.zip')
     expect(submission.error.value).toBeNull()
+  })
+
+  it('redacts a home path the user typed before the description leaves the frontend', async () => {
+    const deps = createDeps()
+    const submission = createProblemReportSubmission(deps)
+
+    submission.setDescription('It failed opening /home/alice/designs/orchard.canopi')
+    await submission.submit()
+
+    const request = vi.mocked(deps.createProblemReport).mock.calls[0]?.[0]
+    expect(request?.sections[0]?.text).not.toContain('alice')
   })
 
   it('includes current Design contents only after explicit opt-in', async () => {
@@ -71,9 +76,7 @@ describe('Problem Report submission module', () => {
 
     expect(deps.buildCurrentDesignAttachment).toHaveBeenCalledOnce()
     expect(deps.createProblemReport).toHaveBeenCalledWith(expect.objectContaining({
-      sensitive_attachments: {
-        current_design: 'current design json',
-      },
+      current_design: 'current design json',
     }))
   })
 
@@ -104,7 +107,7 @@ describe('Problem Report submission module', () => {
     expect(submission.submitting.value).toBe(false)
   })
 
-  it('copies the generated summary and reveals the generated folder through commands', async () => {
+  it('copies the saved file name and shows the saved zip by its file name, never a path', async () => {
     const deps = createDeps()
     const submission = createProblemReportSubmission(deps)
 
@@ -112,9 +115,9 @@ describe('Problem Report submission module', () => {
     await submission.copySummary()
     await submission.showFolder()
 
-    expect(deps.writeClipboardText).toHaveBeenCalledWith('Canopi Problem Report')
+    expect(deps.writeClipboardText).toHaveBeenCalledWith('canopi-report-20261107-101500.zip')
     expect(submission.copyState.value).toBe('copied')
-    expect(deps.showProblemReportFolder).toHaveBeenCalledWith('/tmp/Canopi Problem Report')
+    expect(deps.showProblemReportFolder).toHaveBeenCalledWith('canopi-report-20261107-101500.zip')
     expect(submission.showFolderState.value).toBe('idle')
   })
 
@@ -148,12 +151,7 @@ describe('Problem Report submission module', () => {
     submission.open()
     submission.setDescription('Fresh report')
 
-    pending.resolve({
-      folder_path: '/tmp/Canopi Problem Report/old',
-      summary_path: '/tmp/Canopi Problem Report/old/Report Summary.txt',
-      bundle_path: '/tmp/Canopi Problem Report/old/Diagnostic Bundle.zip',
-      report_summary: 'Old report summary',
-    })
+    pending.resolve({ file_name: 'canopi-report-20261107-101400.zip', revealed: true })
     await oldSubmit
 
     expect(submission.description.value).toBe('Fresh report')

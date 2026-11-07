@@ -1,5 +1,5 @@
-//! Settings › Files and data: where Canopi keeps Design Drafts and the Data
-//! library on this device, and opening those folders.
+//! Settings › Files and data: where Canopi keeps Design Drafts, the Data
+//! library and problem reports on this device, and opening those folders.
 //!
 //! The paths are the user's own. They are returned for display on that screen
 //! only and never written to a log or an error message.
@@ -15,6 +15,12 @@ pub(crate) fn app_folder_path(app_data_dir: &Path, folder: AppFolder) -> PathBuf
         AppFolder::Drafts => crate::design::drafts::drafts_root(app_data_dir),
         AppFolder::DataLibrary => crate::services::lidar::paths::library_root(app_data_dir),
     }
+}
+
+/// The "Problem reports" folder in Canopi's local data folder, where Desktop saves each report
+/// (2.1-Q276): never the Desktop, which a cloud sync may upload before the user chooses to share.
+pub(crate) fn problem_reports_folder(app_data_dir: &Path) -> PathBuf {
+    app_data_dir.join("Problem reports")
 }
 
 pub(crate) fn app_folder_locations(app_data_dir: &Path) -> AppFolderLocations {

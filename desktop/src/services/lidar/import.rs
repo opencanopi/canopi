@@ -309,8 +309,7 @@ pub fn stage_import(
         ));
     }
 
-    // Union grid across every compatible source. It is metadata: work is
-    // bounded by blocks, never sized by its area.
+    // Union grid across every compatible source: metadata, work is bounded by blocks.
     let mut union = grid_for_source(compatible[0]);
     let layer_nodata = compatible[0].nodata.unwrap_or(FALLBACK_NODATA);
     for source in &compatible {
@@ -326,8 +325,7 @@ pub fn stage_import(
     check_cancel(cancel)?;
     let engine_version = engine_version(engine);
 
-    // Every issue is reported against the file it is about, so a refused batch
-    // names the user's own sources rather than only the rule that refused them.
+    // Each issue names its file, so a refused batch names the user's own sources.
     let issues: Vec<String> = staged
         .iter()
         .flat_map(|source| {
@@ -637,6 +635,8 @@ fn stage_source(
     // deduplicated original be verified before it is trusted.
     let (sha256, managed_original, size_bytes) =
         stage_managed_original(paths, source_path, job_dir, cancel)?;
+    #[cfg(test)]
+    super::acceptance_hooks::after_source_staged(library);
 
     // Probe from the managed copy so the flow survives user-file changes.
     let probe = engine.probe(&managed_original, cancel)?;

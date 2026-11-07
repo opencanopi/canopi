@@ -15,10 +15,6 @@
     "no-user-content-in-message"
   ],
   "entries": {
-    "desktop/src/db/mod.rs": {
-      "count": 2,
-      "bead": "canopi-f47t.52.224"
-    },
     "desktop/src/design/format.rs": {
       "count": 3,
       "bead": "canopi-f47t.52.224"
@@ -37,10 +33,6 @@
     },
     "desktop/src/host/updater/launch/nsis_round_trip.rs": {
       "count": 1,
-      "bead": "canopi-f47t.52.224"
-    },
-    "desktop/src/lib.rs": {
-      "count": 2,
       "bead": "canopi-f47t.52.224"
     },
     "desktop/src/services/lidar/catalogue.rs": {
@@ -106,14 +98,6 @@
     "desktop/src/services/lidar/source_meta.rs": {
       "count": 2,
       "bead": "canopi-f47t.52.61"
-    },
-    "desktop/src/services/problem_report/folder_reveal.rs": {
-      "count": 4,
-      "bead": "canopi-f47t.52.224"
-    },
-    "desktop/src/services/problem_report/mod.rs": {
-      "count": 3,
-      "bead": "canopi-f47t.52.224"
     }
   }
 }

@@ -22,13 +22,13 @@ class DocumentationChecks(unittest.TestCase):
         with TemporaryDirectory() as directory:
             root = Path(directory)
             (root / "src/canvas").mkdir(parents=True)
-            (root / "src/canvas/a.ts").write_text("", encoding="utf-8")
+            (root / "src/canvas/a.ts").write_text("export const SECTIONS = [];\n", encoding="utf-8")
             guide = root / "docs/guides/map.md"
             guide.parent.mkdir(parents=True)
             guide.write_text("# Map\n\n## Purpose\n", encoding="utf-8")
             self.assertIn("needs a `Covers:` line", check_document(guide, root)[0])
-            guide.write_text("# Map\n\nCovers: `src/canvas/`, `src/canvas/a.ts`\n", encoding="utf-8")
-            self.assertEqual(check_document(guide, root), [])
+            guide.write_text("# Map\n\nCovers: `src/canvas/`, `src/canvas/a.ts`\n\n| `src/canvas/a.ts::SECTIONS` | `src/canvas/a.ts::GONE` | `src/b.rs::X` |\n", encoding="utf-8")
+            self.assertEqual(check_document(guide, root), ["docs/guides/map.md:5: `src/canvas/a.ts::GONE` names no declaration", "docs/guides/map.md:5: `src/b.rs::X` names no declaration"])
             guide.write_text("# Map\n\nCovers: `src/gone/`, `src/canvas`\n", encoding="utf-8")
             self.assertEqual(check_document(guide, root), [
                 "docs/guides/map.md: covers missing path src/gone/",

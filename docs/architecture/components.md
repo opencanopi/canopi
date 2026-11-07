@@ -251,6 +251,7 @@ flowchart LR
   canopi_redact["canopi-redact: Redactor, RedactedText (skeleton)"]
   bindings_gen["bindings-gen: TS emitter"]
   canopi_desktop --> canopi_types
+  canopi_desktop --> canopi_redact
   canopi_types --> canopi_redact
   bindings_gen --> canopi_types
 ```
