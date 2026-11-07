@@ -1331,8 +1331,12 @@
   "error": {
     "title": "Qualcosa è andato storto",
     "message": "L’applicazione ha riscontrato un errore imprevisto. Puoi provare a ricaricare.",
-    "reload": "Ricarica",
-    "details": "Dettagli dell’errore"
+    "reload": "Ricarica"
+  },
+  "boundary": {
+    "panelFailed": "Impossibile caricare questo pannello",
+    "tryAgain": "Riprova",
+    "reportProblem": "Segnala un problema"
   },
   "shared": {
     "datePicker": {

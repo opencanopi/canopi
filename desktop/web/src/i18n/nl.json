@@ -1331,8 +1331,12 @@
   "error": {
     "title": "Er is iets misgegaan",
     "message": "De toepassing heeft een onverwachte fout aangetroffen. Je kunt proberen opnieuw te laden.",
-    "reload": "Opnieuw laden",
-    "details": "Foutdetails"
+    "reload": "Opnieuw laden"
+  },
+  "boundary": {
+    "panelFailed": "Dit paneel kon niet worden geladen",
+    "tryAgain": "Opnieuw proberen",
+    "reportProblem": "Probleem melden"
   },
   "shared": {
     "datePicker": {

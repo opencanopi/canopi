@@ -1,5 +1,7 @@
-import { lazy, Suspense } from 'preact/compat'
-import { dataDialog, libraryView } from '../../app/lidar/library-navigation'
+import { Suspense } from 'preact/compat'
+import { retryableLazy } from '../../failures/lazy'
+import { closeDataDialog, closeDataLibrary, dataDialog, libraryView } from '../../app/lidar/library-navigation'
+import { SurfaceBoundary } from '../shared/SurfaceBoundary'
 import { appCommandGraphPanelProjection } from '../../commands/registry'
 import { CanvasPanel } from '../panels/CanvasPanel'
 import {
@@ -7,57 +9,57 @@ import {
   type WorkspaceSurfaces,
 } from './WorkspaceComposition'
 
-const PlantDbPanel = lazy(async () => {
+const PlantDbPanel = retryableLazy(async () => {
   const module = await import('../panels/PlantDbPanel')
   return { default: module.PlantDbPanel }
 })
 
-const FavoritesPanel = lazy(async () => {
+const FavoritesPanel = retryableLazy(async () => {
   const module = await import('../panels/FavoritesPanel')
   return { default: module.FavoritesPanel }
 })
 
-const DesignNotebookPanel = lazy(async () => {
+const DesignNotebookPanel = retryableLazy(async () => {
   const module = await import('../panels/DesignNotebookPanel')
   return { default: module.DesignNotebookPanel }
 })
 
-const SpeciesKeyPanel = lazy(async () => {
+const SpeciesKeyPanel = retryableLazy(async () => {
   const module = await import('../panels/DesktopSpeciesKeyPanel')
   return { default: module.DesktopSpeciesKeyPanel }
 })
 
-const LayersPanel = lazy(async () => {
+const LayersPanel = retryableLazy(async () => {
   const module = await import('../panels/LayersPanel')
   return { default: module.LayersPanel }
 })
 
-const SiteDataPanel = lazy(async () => {
+const SiteDataPanel = retryableLazy(async () => {
   const module = await import('../panels/lidar/SiteDataPanel')
   return { default: module.SiteDataPanel }
 })
 
-const DataDialogs = lazy(async () => {
+const DataDialogs = retryableLazy(async () => {
   const module = await import('../panels/lidar/DataDialogs')
   return { default: module.DataDialogs }
 })
 
-const BudgetPanel = lazy(async () => {
+const BudgetPanel = retryableLazy(async () => {
   const module = await import('../panels/BudgetPanel')
   return { default: module.BudgetPanel }
 })
 
-const CalendarPanel = lazy(async () => {
+const CalendarPanel = retryableLazy(async () => {
   const module = await import('../panels/CalendarPanel')
   return { default: module.CalendarPanel }
 })
 
-const ConsortiumPanel = lazy(async () => {
+const ConsortiumPanel = retryableLazy(async () => {
   const module = await import('../panels/ConsortiumPanel')
   return { default: module.ConsortiumPanel }
 })
 
-const StoriesPanel = lazy(async () => {
+const StoriesPanel = retryableLazy(async () => {
   const module = await import('../panels/StoriesPanel')
   return { default: module.StoriesPanel }
 })
@@ -88,6 +90,12 @@ const DESKTOP_WORKSPACE_SURFACES: WorkspaceSurfaces = {
   },
 }
 
+/** The Data dialogs host's fallback closes both the open dialog and the library under it. */
+function closeDataSurfaces(): void {
+  closeDataDialog()
+  closeDataLibrary()
+}
+
 export function DesktopWorkspace() {
   return (
     <>
@@ -97,9 +105,11 @@ export function DesktopWorkspace() {
       />
       {/* The Data library and the data dialogs sit outside the composition, which turns inert under them. */}
       {(libraryView.value || dataDialog.value) && (
-        <Suspense fallback={null}>
-          <DataDialogs />
-        </Suspense>
+        <SurfaceBoundary surface="data-dialogs" onClose={closeDataSurfaces}>
+          <Suspense fallback={null}>
+            <DataDialogs />
+          </Suspense>
+        </SurfaceBoundary>
       )}
     </>
   )

@@ -1331,8 +1331,12 @@
   "error": {
     "title": "Something went wrong",
     "message": "The application encountered an unexpected error. You can try reloading.",
-    "reload": "Reload",
-    "details": "Error details"
+    "reload": "Reload"
+  },
+  "boundary": {
+    "panelFailed": "This panel couldn’t load",
+    "tryAgain": "Try again",
+    "reportProblem": "Report a problem"
   },
   "problemReport": {
     "title": "Report a problem",

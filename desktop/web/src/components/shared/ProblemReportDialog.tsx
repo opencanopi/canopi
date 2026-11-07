@@ -1,3 +1,4 @@
+import { SurfaceBoundary } from './SurfaceBoundary'
 import { useLayoutEffect, useRef } from 'preact/hooks'
 import { problemReportDialogOpen } from '../../app/problem-report/state'
 import { problemReportSubmission } from '../../app/problem-report/submission'
@@ -7,9 +8,14 @@ import { ControlIcon } from './ControlIcon'
 import { useModalLayer } from './useModalLayer'
 import { useScrimPress } from './useScrimPress'
 
+/** Opens the problem report: the Desktop root's fallback offers it even after the app below has failed. */
+export function openProblemReport(): void {
+  problemReportSubmission.open()
+}
+
 export function ProblemReportDialog() {
   if (!problemReportDialogOpen.value) return null
-  return <ProblemReportDialogContent />
+  return <SurfaceBoundary surface="problem-report" onClose={() => problemReportSubmission.close()}><ProblemReportDialogContent /></SurfaceBoundary>
 }
 
 function ProblemReportDialogContent() {

@@ -1331,8 +1331,12 @@
   "error": {
     "title": "문제가 발생했습니다",
     "message": "애플리케이션에서 예기치 않은 오류가 발생했습니다. 다시 로드해 보세요.",
-    "reload": "다시 로드",
-    "details": "오류 세부 정보"
+    "reload": "다시 로드"
+  },
+  "boundary": {
+    "panelFailed": "이 패널을 불러오지 못했습니다",
+    "tryAgain": "다시 시도",
+    "reportProblem": "문제 신고"
   },
   "shared": {
     "datePicker": {

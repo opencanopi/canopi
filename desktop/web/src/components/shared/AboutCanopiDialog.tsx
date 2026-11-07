@@ -1,3 +1,4 @@
+import { SurfaceBoundary } from './SurfaceBoundary'
 import type { ComponentChildren } from 'preact'
 import { useLayoutEffect, useRef, useState } from 'preact/hooks'
 import { aboutCanopiDialogOpen, closeAboutCanopiDialog, openAboutCanopiDialog } from '../../app/about/state'
@@ -25,7 +26,7 @@ import styles from './AboutCanopiDialog.module.css'
  */
 export function AboutCanopiDialog({ updates }: { readonly updates?: ComponentChildren }) {
   if (!aboutCanopiDialogOpen.value) return null
-  return <AboutCanopiDialogContent updates={updates} />
+  return <SurfaceBoundary surface="about" onClose={closeAboutCanopiDialog}><AboutCanopiDialogContent updates={updates} /></SurfaceBoundary>
 }
 
 function AboutCanopiDialogContent({ updates }: { readonly updates?: ComponentChildren }) {

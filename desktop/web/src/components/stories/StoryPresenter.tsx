@@ -1,3 +1,4 @@
+import { SurfaceBoundary } from '../shared/SurfaceBoundary'
 import { useEffect, useId, useLayoutEffect, useRef } from 'preact/hooks'
 import {
   goToPresentedStep,
@@ -31,7 +32,7 @@ const SWIPE_MIN_PX = 48
  */
 export function StoryPresenter() {
   const presented = presentedStep.value
-  return presented ? <StoryPresenterContent presented={presented} /> : null
+  return presented ? <SurfaceBoundary surface="story-presenter" onClose={leaveStoryPresentation}><StoryPresenterContent presented={presented} /></SurfaceBoundary> : null
 }
 
 function StoryPresenterContent({ presented }: { readonly presented: PresentedStep }) {

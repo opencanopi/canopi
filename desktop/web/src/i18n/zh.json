@@ -1331,8 +1331,12 @@
   "error": {
     "title": "出现了问题",
     "message": "应用程序遇到了意外错误。您可以尝试重新加载。",
-    "reload": "重新加载",
-    "details": "错误详情"
+    "reload": "重新加载"
+  },
+  "boundary": {
+    "panelFailed": "无法加载此面板",
+    "tryAgain": "重试",
+    "reportProblem": "报告问题"
   },
   "shared": {
     "datePicker": {

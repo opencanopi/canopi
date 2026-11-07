@@ -1331,8 +1331,12 @@
   "error": {
     "title": "Algo salió mal",
     "message": "La aplicación encontró un error inesperado. Puedes intentar recargar.",
-    "reload": "Recargar",
-    "details": "Detalles del error"
+    "reload": "Recargar"
+  },
+  "boundary": {
+    "panelFailed": "No se pudo cargar este panel",
+    "tryAgain": "Reintentar",
+    "reportProblem": "Informar de un problema"
   },
   "shared": {
     "datePicker": {

@@ -1,3 +1,4 @@
+import { SurfaceBoundary } from './SurfaceBoundary'
 import type { RefObject } from 'preact'
 import { useEffect, useLayoutEffect, useRef } from 'preact/hooks'
 import {
@@ -21,7 +22,7 @@ export function SaveProblemDialog() {
   const lastFocused = useLastFocusedOutside()
   const request = saveProblem.value
   if (!request) return null
-  return <SaveProblemDialogContent request={request} lastFocused={lastFocused} />
+  return <SurfaceBoundary surface="save-problem" onClose={() => answerSaveProblem('cancel')}><SaveProblemDialogContent request={request} lastFocused={lastFocused} /></SurfaceBoundary>
 }
 
 /** Tries, a frame apart, to give focus back to an opener that the flow re-enables after the answer. */

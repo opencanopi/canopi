@@ -23,6 +23,7 @@ import { GettingStartedDialog } from '../shared/GettingStartedDialog'
 import type { PanelRailCommand } from '../shared/PanelRail'
 import { PhoneSheet } from '../shared/PhoneSheet'
 import { SidePanelDock } from '../shared/SidePanelDock'
+import { SurfaceBoundary } from '../shared/SurfaceBoundary'
 import { useModalInertRegion } from '../shared/useModalLayer'
 import styles from './WorkspaceComposition.module.css'
 
@@ -92,9 +93,11 @@ export function WorkspaceComposition({
   const phone = phoneTabs ? phoneLayout.value : null
   const sidePanelContent = mountedSide && SideSurface ? (
     <div className={styles.sidePanel} data-workspace-side-panel={mountedSide}>
-      <Suspense fallback={<WorkspaceLoading />}>
-        <SideSurface />
-      </Suspense>
+      <SurfaceBoundary key={mountedSide} surface="workspace-side">
+        <Suspense fallback={<WorkspaceLoading />}>
+          <SideSurface />
+        </Suspense>
+      </SurfaceBoundary>
     </div>
   ) : null
 
@@ -119,9 +122,11 @@ export function WorkspaceComposition({
       data-workspace-sidebar-open={mountedSide ? 'true' : undefined}
     >
       <div className={styles.primary}>
-        <Suspense fallback={<WorkspaceLoading />}>
-          <PrimarySurface />
-        </Suspense>
+        <SurfaceBoundary key={primary} surface="workspace-primary">
+          <Suspense fallback={<WorkspaceLoading />}>
+            <PrimarySurface />
+          </Suspense>
+        </SurfaceBoundary>
       </div>
       {phone && phoneTabs ? (
         // The phone sheet stands in for the dock and the panel rail; it steps aside with the dock.

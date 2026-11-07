@@ -1331,8 +1331,12 @@
   "error": {
     "title": "Une erreur est survenue",
     "message": "L’application a rencontré une erreur inattendue. Vous pouvez essayer de recharger.",
-    "reload": "Recharger",
-    "details": "Détails de l’erreur"
+    "reload": "Recharger"
+  },
+  "boundary": {
+    "panelFailed": "Ce panneau n’a pas pu se charger",
+    "tryAgain": "Réessayer",
+    "reportProblem": "Signaler un problème"
   },
   "shared": {
     "datePicker": {

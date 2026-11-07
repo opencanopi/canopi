@@ -1331,8 +1331,12 @@
   "error": {
     "title": "問題が発生しました",
     "message": "アプリケーションで予期しないエラーが発生しました。再読み込みをお試しください。",
-    "reload": "再読み込み",
-    "details": "エラーの詳細"
+    "reload": "再読み込み"
+  },
+  "boundary": {
+    "panelFailed": "このパネルを読み込めませんでした",
+    "tryAgain": "再試行",
+    "reportProblem": "問題を報告"
   },
   "shared": {
     "datePicker": {

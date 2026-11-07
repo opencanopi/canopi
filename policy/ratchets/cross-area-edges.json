@@ -1032,6 +1032,9 @@
     "components -> commands": {
       "count": 1
     },
+    "components -> failures": {
+      "count": 1
+    },
     "components -> generated": {
       "count": 1
     },
@@ -1233,6 +1236,9 @@
       "count": 1
     },
     "web-root -> components": {
+      "count": 1
+    },
+    "web-root -> failures": {
       "count": 1
     },
     "web-root -> generated": {
