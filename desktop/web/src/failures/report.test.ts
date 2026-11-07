@@ -150,6 +150,21 @@ describe('failure sink: failure states', () => {
     expect(JSON.stringify(entry)).not.toMatch(/SECRETDIR|AIzaSECRET/)
   })
 
+  it('[canopi-f47t.52.36] a frames-only stack (WebKitGTK, Safari, Firefox) still records the name and message', () => {
+    const error = new TypeError('the plan has no site')
+    error.stack = 'drawSite@tauri://localhost/assets/index.js:12:34\nrender@tauri://localhost/assets/index.js:56:78'
+    reportFailure(error, { shown: 'none' })
+    const [entry] = ringEntries()
+    expect(entry?.origin === 'frontend' && entry.text).toBe(`TypeError: the plan has no site\n${error.stack}`)
+  })
+
+  it('[canopi-f47t.52.36] a V8 stack that already starts with the name and message is kept as is', () => {
+    const error = new Error('drawing failed')
+    error.stack = 'Error: drawing failed\n    at draw (app.js:1:1)'
+    reportFailure(error, { shown: 'none' })
+    expect(ringEntries().map((entry) => entry.origin === 'frontend' && entry.text)).toEqual([error.stack])
+  })
+
   it('the sink never throws: a failing stack getter or toString still leaves an entry', () => {
     const hostile = new Error('hostile')
     Object.defineProperty(hostile, 'stack', { get: () => { throw new Error('stack getter') } })

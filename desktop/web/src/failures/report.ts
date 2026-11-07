@@ -150,7 +150,7 @@ function isFailure(value: unknown): value is Failure {
 }
 
 function textOf(subject: unknown): string {
-  if (subject instanceof Error) return subject.stack || `${subject.name}: ${subject.message}`
+  if (subject instanceof Error) return errorText(subject)
   if (typeof subject === 'string') return subject
   try {
     return String(subject)
@@ -158,6 +158,15 @@ function textOf(subject: unknown): string {
     // A value whose toString throws still leaves an entry; its text is what cannot be printed.
     return 'Unprintable failure'
   }
+}
+
+// V8 starts `stack` with `Name: message`; JavaScriptCore (WebKitGTK, Safari) and SpiderMonkey (Firefox) hold only
+// frames there, so the cause line goes first unless the stack already carries it.
+function errorText(error: Error): string {
+  const cause = error.message ? `${error.name}: ${error.message}` : error.name
+  const stack = error.stack
+  if (!stack) return cause
+  return stack.startsWith(cause) ? stack : `${cause}\n${stack}`
 }
 
 function safeRedact(text: string): string {

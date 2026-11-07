@@ -5,7 +5,7 @@
  * a summary carries the source, the HTTP status and the redacted message, never a tile object or a request.
  */
 import type { FailureCode } from '../generated/contracts'
-import { reportFailure } from '../failures/report'
+import { failureLogger, reportFailure } from '../failures/report'
 import { redact } from '../failures/redact'
 
 /** The logger shape map owners accept, so a test can inject a spy; the default reports through the sink. */
@@ -31,6 +31,8 @@ function describeMapErrorEvent(event: unknown): string {
   return parts.length > 0 ? parts.join(' · ') : 'Unknown map error'
 }
 
+const logMapFailure = failureLogger('map')
+
 /**
  * The default map reporter: one ring entry, echoed to the console in the logger's shape, telling no one (the map shows
  * its own state). An event object is reduced to its summary; the sink redacts the text and every echoed value.
@@ -38,7 +40,7 @@ function describeMapErrorEvent(event: unknown): string {
 export const reportMapError: MapErrorReporter = (message, ...optionalParams) => {
   const values = [message, ...optionalParams].filter((value) => value !== undefined)
     .map((value) => typeof value === 'string' || value instanceof Error ? value : describeMapErrorEvent(value))
-  reportFailure(values.map((value) => value instanceof Error ? errorText(value) : value).join(' '), { shown: 'none', source: 'map', echo: values })
+  logMapFailure(...values)
 }
 
 /**
@@ -53,9 +55,4 @@ export function reportMapSourceFailure(context: string, event: unknown): void {
 function mapFailureCode(event: unknown): FailureCode {
   const sourceId = typeof event === 'object' && event !== null ? (event as { sourceId?: unknown }).sourceId : undefined
   return typeof sourceId === 'string' ? { kind: 'tile_source_failed', layer: sourceId } : { kind: 'style_failed' }
-}
-
-// An error keeps its stack for the report; the sink redacts the whole text once.
-function errorText(error: Error): string {
-  return error.stack || `${error.name}: ${error.message}`
 }

@@ -81,6 +81,18 @@ describe('map error credential redaction', () => {
     expect((quiet.mock.calls[0]![1] as Error).message).toContain('key=<redacted>')
   })
 
+  it('[canopi-f47t.52.36] a map error whose stack holds only frames still records its redacted cause', () => {
+    const failure = new Error(`AJAXError: Forbidden (403): ${KEYED_TILE}`)
+    failure.stack = 'reportFailureFor@tauri://localhost/assets/index.js:12:34'
+    reportMapError('Shared workspace map failed:', failure)
+
+    const text = ringEntries()[0]?.origin === 'frontend' ? (ringEntries()[0] as { text: string }).text : ''
+    expect(text).toContain('Shared workspace map failed: Error: AJAXError: Forbidden (403):')
+    expect(text).toContain('key=<redacted>')
+    expect(text).toContain('reportFailureFor@tauri://localhost/assets/index.js:12:34')
+    expect(text).not.toMatch(/AIzaSECRET|AKz-SESSION/)
+  })
+
   it('tile source failing before 2d: one redacted entry per occurrence under its layer, no notice (2.1-Q300)', () => {
     const dispose = installFailureHooks({ storage: 'disk' }, window)
     const event = { sourceId: 'satellite', error: { status: 403, message: `AJAXError: Forbidden (403): ${KEYED_TILE}` } }
