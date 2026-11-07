@@ -98,10 +98,6 @@
     "desktop/src/services/lidar/source_meta.rs": {
       "count": 2,
       "bead": "canopi-f47t.52.61"
-    },
-    "desktop/src/services/problem_report/folder_reveal.rs": {
-      "count": 4,
-      "bead": "canopi-f47t.52.224"
     }
   }
 }

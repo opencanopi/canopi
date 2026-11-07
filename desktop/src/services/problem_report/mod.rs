@@ -1,26 +1,60 @@
+//! Desktop's problem report writer (ADR 0025 "A problem report carries"; 2.1-Q276 to 2.1-Q278,
+//! 2.1-Q281): the frontend's sections and the native ones, one zip in the "Problem reports"
+//! folder of Canopi's local data folder, then shown selected in the file manager.
+//!
+//! - **Sections.** One entry per `REPORT_SECTIONS` row, even when its source has nothing to say
+//!   (`bundle.rs`); the frontend sends only its own sections, and Desktop fills the rest. The
+//!   manifest lists every entry but itself with its status; the Design is an entry only by consent.
+//! - **Privacy.** Every entry but the consented Design is redacted text: a path reads as its
+//!   folder's token or `<path>`, never the path, whatever the consent (2.1-Q278).
+//! - **Writing.** `canopi-report-YYYYMMDD-HHMMSS.zip` (UTC), `-2` and on for a second report in
+//!   the same second, created new so no report is overwritten; a failed write removes the
+//!   partial file, so the folder holds whole reports only.
+//! - **Failures.** A `Failure` whose detail names a path only as `UserPath`'s placeholder; a
+//!   reveal that fails keeps the zip and reports `revealed: false` (2.1-M299).
+
 use canopi_redact::{NamedFolder, Redactor};
+use canopi_types::failure::{Failure, FailureCode, IoFailureKind};
 use canopi_types::health::SubsystemHealth;
+use canopi_types::library::LibrarySnapshot;
+use canopi_types::report::ReportSectionId;
 use canopi_types::sensitive::UserPath;
 use canopi_types::settings::Settings;
 use canopi_types::support::{ProblemReportRequest, ProblemReportResult};
+use std::collections::BTreeSet;
+use std::io::Write as _;
 use std::path::{Path, PathBuf};
+
+use crate::logging::SettledFailure;
+use crate::services::folder_reveal::FolderRevealer;
 
 mod bundle;
 mod folder_reveal;
-mod summary;
 mod zip;
 
-pub(crate) use folder_reveal::show_problem_report_folder;
+pub(crate) use folder_reveal::{SHOW_OP, show_problem_report};
 
-use bundle::build_diagnostic_bundle;
-use summary::build_report_summary;
+/// The dotted op of `create_problem_report`.
+pub const CREATE_OP: &str = "problem_report.create";
 
-const SUMMARY_FILENAME: &str = "Report Summary.txt";
-const BUNDLE_FILENAME: &str = "Diagnostic Bundle.zip";
-const CURRENT_DESIGN_ATTACHMENT_FILENAME: &str = "current-design.canopi";
+/// A report's file name before its stamp, and after.
+const NAME_PREFIX: &str = "canopi-report-";
+const NAME_SUFFIX: &str = ".zip";
 
+/// How many reports may share one second before the write gives up.
+const MAX_SAME_SECOND: usize = 100;
+
+/// The sections the frontend fills; Desktop fills every other but the Design.
+const FRONTEND_SECTIONS: [ReportSectionId; 3] = [
+    ReportSectionId::Description,
+    ReportSectionId::FrontendRing,
+    ReportSectionId::OriginatingFailure,
+];
+
+/// What the native sections read, gathered by the command.
 pub struct ProblemReportContext {
-    pub output_root: PathBuf,
+    /// The "Problem reports" folder, created if missing.
+    pub reports_folder: PathBuf,
     pub log_dir: Option<PathBuf>,
     pub app_data_dir: Option<PathBuf>,
     pub timestamp_secs: u64,
@@ -29,63 +63,130 @@ pub struct ProblemReportContext {
     /// The webview's version, read by the shell (`tauri::webview_version`, 2.1-M82); `None` when it
     /// could not be read. A plain value, so this module names no tauri path.
     pub webview_version: Option<String>,
-    pub settings: Option<Settings>,
-    pub settings_error: Option<String>,
+    pub settings: Result<Settings, String>,
     pub health: SubsystemHealth,
+    /// The last native failure settlements (`logging::recent_failures`).
+    pub settlements: Vec<SettledFailure>,
+    /// The Data library's items with their latest jobs, read for job counts and failures.
+    pub library: Result<LibrarySnapshot, String>,
+    /// Bytes the Data library folder occupies.
+    pub library_disk_bytes: Result<u64, String>,
 }
 
+/// Write the report and show it selected in the file manager.
 pub fn create_problem_report(
     request: &ProblemReportRequest,
-    context: ProblemReportContext,
-) -> Result<ProblemReportResult, String> {
-    create_problem_report_with_writer(request, context, |path, bytes| std::fs::write(path, bytes))
+    context: &ProblemReportContext,
+    revealer: &impl FolderRevealer,
+) -> Result<ProblemReportResult, Failure> {
+    create_problem_report_with_writer(request, context, revealer, |file, bytes| {
+        file.write_all(bytes)?;
+        file.sync_all()
+    })
 }
 
-/// Create the report folder and its files. A failure after the folder exists
-/// removes the folder, so no half-written report is left for the user to send.
 fn create_problem_report_with_writer(
     request: &ProblemReportRequest,
-    context: ProblemReportContext,
-    write_file: impl Fn(&Path, &[u8]) -> std::io::Result<()>,
-) -> Result<ProblemReportResult, String> {
-    let timestamp_iso = crate::design::unix_to_iso8601(context.timestamp_secs);
-    let folder_name = format!("Canopi Problem Report {}", folder_stamp(&timestamp_iso));
-    let folder = create_unique_report_folder(&context.output_root, &folder_name)?;
-    let redactor = report_redactor(&context);
-
-    let result = (|| {
-        let summary = build_report_summary(request, &context, &timestamp_iso, &redactor);
-        let summary_path = folder.join(SUMMARY_FILENAME);
-        write_file(&summary_path, summary.as_bytes())
-            .map_err(|error| format!("Failed to write the report summary: {error}"))?;
-
-        let bundle =
-            build_diagnostic_bundle(request, &context, &timestamp_iso, &summary, &redactor)?;
-        let bundle_path = folder.join(BUNDLE_FILENAME);
-        write_file(&bundle_path, &bundle)
-            .map_err(|error| format!("Failed to write the diagnostic bundle: {error}"))?;
-
-        Ok(ProblemReportResult {
-            folder_path: folder.to_string_lossy().into_owned(),
-            summary_path: summary_path.to_string_lossy().into_owned(),
-            bundle_path: bundle_path.to_string_lossy().into_owned(),
-            report_summary: summary,
-        })
-    })();
-
-    if let Err(error) = &result
-        && let Err(cleanup) = std::fs::remove_dir_all(&folder)
-    {
-        return Err(format!(
-            "{error}; the incomplete report folder could not be removed: {cleanup}"
-        ));
+    context: &ProblemReportContext,
+    revealer: &impl FolderRevealer,
+    write: impl Fn(&mut std::fs::File, &[u8]) -> std::io::Result<()>,
+) -> Result<ProblemReportResult, Failure> {
+    admit(request)?;
+    let created_at = crate::design::unix_to_iso8601(context.timestamp_secs);
+    let zip = bundle::report_zip(request, context, &created_at, &report_redactor(context))?;
+    let folder = &context.reports_folder;
+    std::fs::create_dir_all(folder)
+        .map_err(|error| io_failure(&error, "Creating the problem reports folder", folder))?;
+    let (path, mut file) = create_unique(folder, &file_stem(&created_at))?;
+    if let Err(error) = write(&mut file, &zip) {
+        drop(file);
+        // A partial zip is removed; a removal that fails too is named in the detail.
+        let removal = std::fs::remove_file(&path).err();
+        let what = match removal {
+            None => "Writing the problem report",
+            Some(_) => "Writing the problem report (its partial file was not removed)",
+        };
+        return Err(io_failure(&error, what, folder));
     }
-    result
+    drop(file);
+    let file_name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or_default()
+        .to_owned();
+    let revealed = revealer.show_item(&path).is_ok();
+    Ok(ProblemReportResult {
+        file_name,
+        revealed,
+    })
 }
 
-/// The redactor that names this machine's folders in the report (contracts
-/// §13): the report root, the log and local data folders and the home folder;
-/// any other path reads `<path>` (2.1-Q278).
+/// The request's sections are the frontend's own, each once.
+fn admit(request: &ProblemReportRequest) -> Result<(), Failure> {
+    let mut seen = BTreeSet::new();
+    for section in &request.sections {
+        if !FRONTEND_SECTIONS.contains(&section.id) || !seen.insert(section.id) {
+            return Err(Failure::new(FailureCode::Invalid, CREATE_OP)
+                .with_english("a problem report section is not the frontend's or is sent twice"));
+        }
+    }
+    Ok(())
+}
+
+/// `canopi-report-YYYYMMDD-HHMMSS` from an ISO 8601 UTC stamp (2.1-Q281).
+fn file_stem(created_at: &str) -> String {
+    let digits: String = created_at.chars().filter(char::is_ascii_digit).collect();
+    let (date, time) = digits.split_at(digits.len().min(8));
+    format!("{NAME_PREFIX}{date}-{}", time.get(..6).unwrap_or(time))
+}
+
+/// Create `stem.zip`, or `stem-2.zip` and on when taken: never an existing report.
+fn create_unique(folder: &Path, stem: &str) -> Result<(PathBuf, std::fs::File), Failure> {
+    for attempt in 1..=MAX_SAME_SECOND {
+        let name = if attempt == 1 {
+            format!("{stem}{NAME_SUFFIX}")
+        } else {
+            format!("{stem}-{attempt}{NAME_SUFFIX}")
+        };
+        let path = folder.join(name);
+        match std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&path)
+        {
+            Ok(file) => return Ok((path, file)),
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {}
+            Err(error) => return Err(io_failure(&error, "Creating the problem report", folder)),
+        }
+    }
+    Err(Failure::new(
+        FailureCode::Io {
+            io: IoFailureKind::Other,
+        },
+        CREATE_OP,
+    )
+    .with_english(&format!(
+        "Creating the problem report in {} failed: {MAX_SAME_SECOND} reports share its second",
+        UserPath::from(folder)
+    )))
+}
+
+/// A file failure of `what` in `folder`: its io kind, the folder only as `<path>`.
+fn io_failure(error: &std::io::Error, what: &str, folder: &Path) -> Failure {
+    Failure::new(
+        FailureCode::Io {
+            io: error.kind().into(),
+        },
+        CREATE_OP,
+    )
+    .with_english(&format!(
+        "{what} in {} failed: {error}",
+        UserPath::from(folder)
+    ))
+}
+
+/// The redactor that names this machine's folders in the report (contracts §13): the reports,
+/// log and local data folders and the home folder; any other path reads `<path>` (2.1-Q278).
 fn report_redactor(context: &ProblemReportContext) -> Redactor {
     let homes = ["HOME", "USERPROFILE"]
         .into_iter()
@@ -93,7 +194,7 @@ fn report_redactor(context: &ProblemReportContext) -> Redactor {
         .map(|home| (NamedFolder::Home, PathBuf::from(home)));
     Redactor::with_roots(
         [
-            Some((NamedFolder::Report, context.output_root.clone())),
+            Some((NamedFolder::Report, context.reports_folder.clone())),
             context.log_dir.clone().map(|dir| (NamedFolder::Log, dir)),
             context
                 .app_data_dir
@@ -106,467 +207,5 @@ fn report_redactor(context: &ProblemReportContext) -> Redactor {
     )
 }
 
-fn folder_stamp(timestamp_iso: &str) -> String {
-    timestamp_iso
-        .trim_end_matches('Z')
-        .replace('T', " ")
-        .replace(':', "-")
-}
-
-fn create_unique_report_folder(root: &Path, folder_name: &str) -> Result<PathBuf, String> {
-    std::fs::create_dir_all(root).map_err(|error| {
-        format!(
-            "Failed to create report root {}: {error}",
-            UserPath::from(root)
-        )
-    })?;
-
-    for suffix in 0..100 {
-        let candidate = if suffix == 0 {
-            root.join(folder_name)
-        } else {
-            root.join(format!("{folder_name}-{suffix}"))
-        };
-        match std::fs::create_dir(&candidate) {
-            Ok(()) => return Ok(candidate),
-            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {}
-            Err(error) => {
-                return Err(format!(
-                    "Failed to create report folder {}: {error}",
-                    UserPath::from(candidate)
-                ));
-            }
-        }
-    }
-
-    Err(format!(
-        "Failed to create report folder in {}: too many existing reports for {folder_name}",
-        UserPath::from(root)
-    ))
-}
-
 #[cfg(test)]
-mod tests {
-    use crate::services::folder_reveal::recording::{RecordingRevealer, Shown};
-    use crate::test_scratch::TestScratch;
-    use canopi_types::settings::Settings;
-    use canopi_types::support::{
-        FrontendDiagnosticEntry, ProblemReportRequest, ProblemReportSensitiveAttachments,
-    };
-    use std::path::Path;
-    use std::path::PathBuf;
-
-    struct TempProblemReportDir {
-        root: TestScratch,
-    }
-
-    impl TempProblemReportDir {
-        fn new(label: &str) -> Self {
-            Self {
-                root: TestScratch::new(&format!("problem-report-{label}")),
-            }
-        }
-    }
-
-    #[test]
-    fn creates_report_summary_and_diagnostic_bundle_in_visible_folder() {
-        let temp = TempProblemReportDir::new("bundle");
-        let log_dir = temp.root.join("logs");
-        std::fs::create_dir_all(&log_dir).unwrap();
-        std::fs::write(
-            log_dir.join("canopi.log"),
-            "Loaded design from /home/alice/Garden Site.canopi\nCanopi starting\n",
-        )
-        .unwrap();
-
-        let result = super::create_problem_report(
-            &ProblemReportRequest {
-                description: "Canvas froze after placing a species".to_owned(),
-                frontend_diagnostics: vec![FrontendDiagnosticEntry {
-                    level: "error".to_owned(),
-                    source: "ErrorBoundary".to_owned(),
-                    message: "Render failed at /home/alice/Garden Site.canopi".to_owned(),
-                    timestamp_ms: 1_801_440_010_000.0,
-                }],
-                sensitive_attachments: ProblemReportSensitiveAttachments::default(),
-            },
-            super::ProblemReportContext {
-                output_root: temp.root.join("Desktop"),
-                log_dir: Some(log_dir.clone()),
-                app_data_dir: Some(temp.root.join("app-data")),
-                timestamp_secs: 1_801_440_000,
-                app_version: "0.5.0".to_owned(),
-                target: "test-os/test-arch".to_owned(),
-                webview_version: Some("2.44.0".to_owned()),
-                settings: Some(Settings {
-                    plant_spacing_interval_m: 0.75,
-                    // A recognizable fake credential: the diagnostic allowlist
-                    // must never carry it, so the assertions below stay honest.
-                    google_maps_api_key: Some("FAKE-GOOGLE-MAPS-KEY-DO-NOT-EXPORT".to_owned()),
-                    ..Settings::default()
-                }),
-                settings_error: None,
-                health: crate::services::health::all_ready(),
-            },
-        )
-        .unwrap();
-
-        let folder = PathBuf::from(&result.folder_path);
-        assert!(folder.ends_with("Canopi Problem Report 2027-02-01 00-00-00"));
-        assert!(folder.join("Report Summary.txt").exists());
-        assert!(folder.join("Diagnostic Bundle.zip").exists());
-        assert_eq!(
-            PathBuf::from(&result.summary_path),
-            folder.join("Report Summary.txt")
-        );
-        assert_eq!(
-            PathBuf::from(&result.bundle_path),
-            folder.join("Diagnostic Bundle.zip")
-        );
-
-        let summary = std::fs::read_to_string(folder.join("Report Summary.txt")).unwrap();
-        assert!(summary.contains("Canvas froze after placing a species"));
-        assert!(summary.contains("Canopi 0.5.0"));
-        assert!(summary.contains("Webview: 2.44.0\n"));
-        assert!(!summary.contains("/home/alice"));
-        // The device-local Google key is a credential, not diagnostic content.
-        assert!(!summary.contains("FAKE-GOOGLE-MAPS-KEY-DO-NOT-EXPORT"));
-
-        let bundle = std::fs::read(folder.join("Diagnostic Bundle.zip")).unwrap();
-        assert!(bundle.starts_with(b"PK\x03\x04"));
-        assert!(bundle.windows(4).any(|window| window == b"PK\x05\x06"));
-        let bundle_text = String::from_utf8_lossy(&bundle);
-        assert!(bundle_text.contains("manifest.json"));
-        assert!(bundle_text.contains("\"webview_version\": \"2.44.0\""));
-        assert!(bundle_text.contains("backend-log.txt"));
-        assert!(bundle_text.contains("frontend-diagnostics.json"));
-        assert!(bundle_text.contains("Render failed"));
-        assert!(bundle_text.contains("\"plant_spacing_interval_m\""));
-        assert!(bundle_text.contains("0.75"));
-        assert!(!bundle_text.contains("current-design.canopi"));
-        assert!(!bundle_text.contains("/home/alice"));
-        assert!(!bundle_text.contains("Garden Site.canopi"));
-        // `settings_summary` is an explicit allowlist rather than a settings
-        // dump, which is what keeps the credential out; the key must not appear
-        // by name, by value, or in the manifest's own settings object.
-        assert!(!bundle_text.contains("FAKE-GOOGLE-MAPS-KEY-DO-NOT-EXPORT"));
-        assert!(!bundle_text.contains("google_maps_api_key"));
-    }
-
-    #[test]
-    fn create_problem_report_includes_current_design_after_explicit_consent() {
-        let temp = TempProblemReportDir::new("current-design");
-
-        let result = super::create_problem_report(
-            &ProblemReportRequest {
-                description: "Budget panel failed after editing notes".to_owned(),
-                frontend_diagnostics: Vec::new(),
-                sensitive_attachments: ProblemReportSensitiveAttachments {
-                    current_design: Some(
-                        "{\n  \"name\": \"Secret Orchard\",\n  \"plants\": [{\"position\": {\"lat\": 48.8566, \"lon\": 2.3522}}]\n}\n"
-                            .to_owned(),
-                    ),
-                },
-            },
-            super::ProblemReportContext {
-                output_root: temp.root.join("Desktop"),
-                log_dir: None,
-                app_data_dir: Some(temp.root.join("app-data")),
-                timestamp_secs: 1_801_440_000,
-                app_version: "0.5.0".to_owned(),
-                target: "test-os/test-arch".to_owned(),
-                webview_version: None,
-                settings: Some(Settings::default()),
-                settings_error: None,
-                health: crate::services::health::all_ready(),
-            },
-        )
-        .unwrap();
-
-        let summary = std::fs::read_to_string(&result.summary_path).unwrap();
-        assert!(summary.contains("Current Design (.canopi) included by explicit consent"));
-
-        let bundle = std::fs::read(&result.bundle_path).unwrap();
-        let bundle_text = String::from_utf8_lossy(&bundle);
-        assert!(bundle_text.contains("current-design.canopi"));
-        assert!(bundle_text.contains("Secret Orchard"));
-        assert!(bundle_text.contains("Current Design included by explicit user consent"));
-        assert!(bundle_text.contains("\"includes_design_contents\": true"));
-        assert!(
-            !bundle_text.contains("precise_location"),
-            "v2 has no Design location"
-        );
-        assert!(
-            !bundle_text.contains("Precise Location"),
-            "v2 has no Design location"
-        );
-    }
-
-    fn minimal_context(
-        output_root: PathBuf,
-        log_dir: Option<PathBuf>,
-    ) -> super::ProblemReportContext {
-        super::ProblemReportContext {
-            output_root,
-            log_dir,
-            app_data_dir: None,
-            timestamp_secs: 1_801_440_000,
-            app_version: "0.5.0".to_owned(),
-            target: "test-os/test-arch".to_owned(),
-            webview_version: None,
-            settings: Some(Settings::default()),
-            settings_error: None,
-            health: crate::services::health::all_ready(),
-        }
-    }
-
-    /// ADR 0025's report sections and their zip entries (canopi-types REPORT_SECTIONS, 2.1-M421),
-    /// the current-design attachment left out: it needs consent.
-    const SECTION_FILES: [&str; 11] = [
-        "failure.json",
-        "description.txt",
-        "build.json",
-        "health.json",
-        "queues.json",
-        "native-failures.json",
-        "app-failures.json",
-        "jobs.json",
-        "library.json",
-        "log-tail.txt",
-        "settings.json",
-    ];
-
-    #[test]
-    #[ignore = "expected-fail 1a-c6 canopi-f47t.52.37"]
-    fn problem_report_always_carries_every_section() {
-        let temp = TempProblemReportDir::new("every-section");
-        // No log folder and no settings: a section with nothing to say still has its entry.
-        let mut context = minimal_context(temp.root.join("Reports"), None);
-        context.settings = None;
-        let result = super::create_problem_report(&request("Nothing happened"), context).unwrap();
-        let bundle = std::fs::read(&result.bundle_path).unwrap();
-        let bundle_text = String::from_utf8_lossy(&bundle);
-        let missing: Vec<_> = SECTION_FILES
-            .iter()
-            .filter(|file| !bundle_text.contains(*file))
-            .collect();
-        assert!(
-            missing.is_empty(),
-            "the report has no entry for {missing:?}"
-        );
-    }
-
-    fn request(description: &str) -> ProblemReportRequest {
-        ProblemReportRequest {
-            description: description.to_owned(),
-            frontend_diagnostics: Vec::new(),
-            sensitive_attachments: ProblemReportSensitiveAttachments::default(),
-        }
-    }
-
-    #[test]
-    fn a_saved_design_name_never_reaches_the_diagnostic_bundle() {
-        let temp = TempProblemReportDir::new("design-name");
-        let log_dir = temp.root.join("logs");
-        std::fs::create_dir_all(&log_dir).unwrap();
-        let user_db =
-            crate::db::UserDb::initialize(rusqlite::Connection::open_in_memory().unwrap()).unwrap();
-        let design_path = temp.root.join("designs").join("orchard.canopi");
-        std::fs::create_dir_all(design_path.parent().unwrap()).unwrap();
-        let (_, logs) = crate::services::design_files::capture_logs(|| {
-            crate::services::design_files::save_design(
-                &user_db,
-                design_path.to_string_lossy().into_owned(),
-                crate::design::format::create_new_design(
-                    "Secret Orchard of Alice",
-                    "2026-07-02T00:00:00Z",
-                ),
-                None,
-            )
-            .unwrap();
-        });
-        assert!(logs.contains("Design saved"), "{logs}");
-        std::fs::write(log_dir.join("canopi.log"), logs).unwrap();
-
-        let result = super::create_problem_report(
-            &request("Save felt slow"),
-            minimal_context(temp.root.join("Desktop"), Some(log_dir)),
-        )
-        .unwrap();
-
-        let bundle = std::fs::read(&result.bundle_path).unwrap();
-        let bundle_text = String::from_utf8_lossy(&bundle);
-        assert!(
-            bundle_text.contains("Design saved"),
-            "the log line is still reported"
-        );
-        assert!(!bundle_text.contains("Secret Orchard of Alice"));
-        assert!(!bundle_text.contains("orchard.canopi"));
-    }
-
-    #[test]
-    fn nat_07_a_session_value_or_share_path_in_the_log_tail_never_reaches_the_report() {
-        let temp = TempProblemReportDir::new("log-tail-redaction");
-        let log_dir = temp.root.join("logs");
-        std::fs::create_dir_all(&log_dir).unwrap();
-        std::fs::write(
-            log_dir.join("canopi.log"),
-            format!(
-                "GET https://tile.googleapis.com/v1/2dtiles/3/4/5?session=SESSION-SECRET failed\n\
-                 Opening \\\\nas\\shared\\Secret Orchard.canopi failed\n\
-                 Rotated {}\n",
-                log_dir.join("canopi.log.1").display()
-            ),
-        )
-        .unwrap();
-
-        let result = super::create_problem_report(
-            &request("Tiles stopped loading"),
-            minimal_context(temp.root.join("Reports"), Some(log_dir)),
-        )
-        .unwrap();
-
-        let bundle = std::fs::read(&result.bundle_path).unwrap();
-        let bundle_text = String::from_utf8_lossy(&bundle);
-        assert!(
-            bundle_text.contains("?session=<redacted> failed"),
-            "{bundle_text}"
-        );
-        assert!(
-            bundle_text.contains("Opening <path> failed"),
-            "{bundle_text}"
-        );
-        assert!(bundle_text.contains("Rotated <log-dir>"), "{bundle_text}");
-        assert!(!bundle_text.contains("SESSION-SECRET"));
-        assert!(!bundle_text.contains("Secret Orchard"));
-    }
-
-    #[test]
-    fn a_report_root_that_cannot_be_created_fails_without_naming_its_path() {
-        let temp = TempProblemReportDir::new("root-not-creatable");
-        let blocker = temp.root.join("Secret Orchard");
-        std::fs::write(&blocker, b"a file where the report root would go").unwrap();
-
-        let error = super::create_problem_report(
-            &request("Report root blocked"),
-            minimal_context(blocker.join("Reports"), None),
-        )
-        .unwrap_err();
-
-        assert!(
-            error.starts_with("Failed to create report root <path>: "),
-            "{error}"
-        );
-        assert!(!error.contains("Secret Orchard"), "{error}");
-    }
-
-    #[test]
-    fn a_failed_bundle_write_leaves_no_report_folder() {
-        let temp = TempProblemReportDir::new("failed-write");
-        let output_root = temp.root.join("Desktop");
-
-        let error = super::create_problem_report_with_writer(
-            &request("Bundle write fails"),
-            minimal_context(output_root.clone(), None),
-            |path, bytes| {
-                if path.ends_with(super::BUNDLE_FILENAME) {
-                    Err(std::io::Error::other("disk full"))
-                } else {
-                    std::fs::write(path, bytes)
-                }
-            },
-        )
-        .unwrap_err();
-
-        assert!(error.contains("disk full"), "{error}");
-        assert_eq!(
-            std::fs::read_dir(&output_root).unwrap().count(),
-            0,
-            "the half-written report folder must be removed"
-        );
-    }
-
-    fn report_folder_in(root: &Path) -> PathBuf {
-        let report_folder = root.join("Canopi Problem Report 2027-02-01 00-00-00");
-        std::fs::create_dir_all(&report_folder).unwrap();
-        std::fs::write(report_folder.join("Report Summary.txt"), "summary").unwrap();
-        std::fs::write(report_folder.join("Diagnostic Bundle.zip"), b"bundle").unwrap();
-        report_folder
-    }
-
-    #[test]
-    fn show_problem_report_folder_reveals_the_new_bundle_in_its_folder() {
-        let temp = TempProblemReportDir::new("show-folder");
-        let report_folder = report_folder_in(&temp.root);
-        let revealer = RecordingRevealer::default();
-
-        super::show_problem_report_folder(&report_folder, &temp.root, &revealer).unwrap();
-
-        assert_eq!(
-            revealer.shown(),
-            vec![Shown::Item(report_folder.join("Diagnostic Bundle.zip"))]
-        );
-    }
-
-    #[test]
-    fn show_problem_report_folder_opens_the_report_folder_when_the_file_manager_cannot_select_the_bundle()
-     {
-        let temp = TempProblemReportDir::new("show-folder-no-file-manager");
-        let report_folder = report_folder_in(&temp.root);
-        let revealer = RecordingRevealer::without_file_manager();
-
-        super::show_problem_report_folder(&report_folder, &temp.root, &revealer).unwrap();
-
-        assert_eq!(
-            revealer.shown(),
-            vec![
-                Shown::Item(report_folder.join("Diagnostic Bundle.zip")),
-                Shown::Folder(report_folder.clone()),
-            ]
-        );
-    }
-
-    #[test]
-    fn show_problem_report_folder_refuses_a_deleted_report_before_revealing() {
-        let temp = TempProblemReportDir::new("show-folder-deleted");
-        let report_folder = report_folder_in(&temp.root);
-        std::fs::remove_dir_all(&report_folder).unwrap();
-        let revealer = RecordingRevealer::default();
-
-        assert!(super::show_problem_report_folder(&report_folder, &temp.root, &revealer).is_err());
-        assert!(revealer.shown().is_empty());
-    }
-
-    #[test]
-    fn show_problem_report_folder_rejects_non_report_folders_before_revealing() {
-        let temp = TempProblemReportDir::new("show-folder-invalid");
-        let not_a_report = temp.root.join("Downloads");
-        std::fs::create_dir_all(&not_a_report).unwrap();
-        let revealer = RecordingRevealer::default();
-
-        let error =
-            super::show_problem_report_folder(&not_a_report, &temp.root, &revealer).unwrap_err();
-
-        assert!(error.contains("is not a Canopi Problem Report folder"));
-        assert!(revealer.shown().is_empty());
-    }
-
-    #[test]
-    fn show_problem_report_folder_rejects_report_folders_outside_the_output_root() {
-        let temp = TempProblemReportDir::new("show-folder-outside");
-        let elsewhere = temp.root.join("elsewhere");
-        let report_folder = report_folder_in(&elsewhere);
-        let output_root = temp.root.join("Desktop");
-        std::fs::create_dir_all(&output_root).unwrap();
-        let revealer = RecordingRevealer::default();
-
-        let error =
-            super::show_problem_report_folder(&report_folder, &output_root, &revealer).unwrap_err();
-
-        assert!(
-            error.contains("is not a Canopi Problem Report folder"),
-            "{error}"
-        );
-        assert!(revealer.shown().is_empty());
-    }
-}
+mod tests;

@@ -137,9 +137,7 @@ pub fn log_failure(failure: &Failure, lane: Option<Lane>) {
     }
 }
 
-/// The last native failure settlements, oldest first, for the problem report: test-only until
-/// the report's native sections read it (1a-c6).
-#[cfg(test)]
+/// The last native failure settlements, oldest first, for the problem report's native section.
 pub fn recent_failures() -> Vec<SettledFailure> {
     let ring = RING.0.lock().unwrap_or_else(PoisonError::into_inner);
     ring.iter().cloned().collect()
@@ -344,17 +342,18 @@ fn write_panic(info: &std::panic::PanicHookInfo<'_>) {
     }
 }
 
-/// The last `max_lines` lines of the daily files in `log_dir`, oldest first, each redacted
+/// The last `max` lines of the daily files in `log_dir`, oldest first, each redacted
 /// by `redactor` (the report's, which names this machine's folders): a JSON line is redacted
 /// again, idempotently, and a 2.0 plain-text line, written before the layer, is redacted
-/// here for the first time. Test-only until the report's native sections read it (1a-c6).
-#[cfg(test)]
-pub fn log_tail(log_dir: &Path, redactor: &Redactor, max_lines: usize) -> Vec<RedactedText> {
+/// here for the first time. Also how many could not be read (a file gone or locked since the
+/// listing, or the folder itself), so the report marks its section rather than omitting it.
+pub fn log_tail(log_dir: &Path, redactor: &Redactor, max: usize) -> (Vec<RedactedText>, usize) {
     use std::io::{Read, Seek, SeekFrom};
     const MAX_BYTES_PER_FILE: u64 = 256 * 1024;
-    let mut files: Vec<_> = std::fs::read_dir(log_dir)
-        .into_iter()
-        .flatten()
+    let Ok(entries) = std::fs::read_dir(log_dir) else {
+        return (Vec::new(), 1);
+    };
+    let mut files: Vec<_> = entries
         .filter_map(|entry| entry.ok().map(|entry| entry.path()))
         .filter(|path| {
             path.is_file()
@@ -366,7 +365,7 @@ pub fn log_tail(log_dir: &Path, redactor: &Redactor, max_lines: usize) -> Vec<Re
         .collect();
     // `canopi.<yyyy-mm-dd>` sorts by day.
     files.sort();
-    let mut tail = Vec::new();
+    let (mut tail, mut unreadable) = (Vec::new(), 0);
     for path in files.iter().rev() {
         let mut text = Vec::new();
         let read = std::fs::File::open(path).and_then(|mut file| {
@@ -374,26 +373,21 @@ pub fn log_tail(log_dir: &Path, redactor: &Redactor, max_lines: usize) -> Vec<Re
             file.seek(SeekFrom::Start(start))?;
             file.read_to_end(&mut text).map(|_| start > 0)
         });
-        // A file gone or locked since the listing gives no lines; 1a-c6 marks it.
-        let Ok(cut) = read else { continue };
+        let Ok(cut) = read else {
+            unreadable += 1;
+            continue;
+        };
         let text = String::from_utf8_lossy(&text);
         // A line cut by the byte cap could hide a path's start from the redactor: it goes.
-        let whole = text.lines().skip(usize::from(cut));
-        let room = max_lines.saturating_sub(tail.len());
-        let lines: Vec<_> = whole.collect();
-        tail.extend(
-            lines
-                .iter()
-                .rev()
-                .take(room)
-                .map(|line| redactor.redact(line)),
-        );
-        if tail.len() == max_lines {
+        let lines: Vec<_> = text.lines().skip(usize::from(cut)).collect();
+        let room = max.saturating_sub(tail.len());
+        tail.extend(lines.iter().rev().take(room).map(|l| redactor.redact(l)));
+        if tail.len() == max {
             break;
         }
     }
     tail.reverse();
-    tail
+    (tail, unreadable)
 }
 
 /// The JSON lines the redacting layer writes for what `run` logs on this thread.
@@ -765,7 +759,8 @@ mod tests {
         let home = canopi_redact::NamedFolder::Home;
         let redactor = Redactor::with_roots([(home, Path::new("/home/ana"))]);
 
-        let tail = log_tail(logs.path(), &redactor, 10);
+        let (tail, unreadable) = log_tail(logs.path(), &redactor, 10);
+        assert_eq!(unreadable, 0);
         let tail: Vec<&str> = tail.iter().map(RedactedText::as_str).collect();
         assert_eq!(tail.len(), 2, "{tail:?}");
         assert!(
@@ -775,7 +770,7 @@ mod tests {
         let line: Value = serde_json::from_str(tail[1]).expect("a JSON line stays JSON");
         assert_eq!(line["message"], "Saved <path>");
         assert_eq!(
-            log_tail(logs.path(), &redactor, 1).len(),
+            log_tail(logs.path(), &redactor, 1).0.len(),
             1,
             "the newest line only"
         );

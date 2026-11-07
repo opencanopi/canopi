@@ -542,7 +542,7 @@ impl<'ast> Visit<'ast> for CommandBodyVisitor {
     }
 
     fn visit_expr_method_call(&mut self, node: &'ast ExprMethodCall) {
-        if matches!(node.method.to_string().as_str(), "run" | "inner")
+        if ["run", "run_typed", "inner"].contains(&node.method.to_string().as_str())
             && expression_is_identifier(&node.receiver, "executor")
         {
             self.routes_through_executor = true;
@@ -584,7 +584,7 @@ struct ExecutorRouteVisitor {
 
 impl<'ast> Visit<'ast> for ExecutorRouteVisitor {
     fn visit_expr_method_call(&mut self, node: &'ast ExprMethodCall) {
-        if matches!(node.method.to_string().as_str(), "run" | "inner")
+        if ["run", "run_typed", "inner"].contains(&node.method.to_string().as_str())
             && expression_is_identifier(&node.receiver, "executor")
         {
             self.found = true;
@@ -664,7 +664,7 @@ impl<'ast> Visit<'ast> for StateAccessVisitor {
     }
 
     fn visit_expr_method_call(&mut self, node: &'ast ExprMethodCall) {
-        if node.method == "run"
+        if (node.method == "run" || node.method == "run_typed")
             && receiver_root(&node.receiver).is_some_and(|root| self.executors.contains(&root))
         {
             // The executor closure is the managed boundary; its body is not inspected here.
