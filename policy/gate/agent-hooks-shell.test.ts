@@ -219,6 +219,14 @@ describe('a shell -c string, its prefix assignments and quotes in a parameter ex
     expect(verdict('bash -c -x "git log"')).toEqual(['pass', ''])
   })
 
+  it('canopi-f47t.52.269: each o or O in an option cluster takes a value word wherever it sits, as bash and sh read it', () => {
+    for (const command of ['bash -oc errexit "git reset --hard"', 'bash -Oc extglob "git reset --hard"',
+      'sh -oc errexit "git reset --hard"', 'bash -oOc errexit extglob "git reset --hard"']) {
+      expect(verdict(command), command).toEqual(['deny', 'hook-reset-hard'])
+    }
+    expect(verdict('bash -oc errexit "git log"')).toEqual(['pass', ''])
+  })
+
   it('canopi-f47t.52.269: a prefix assignment before a shell -c reaches the child shell, as it does a plain command', () => {
     const plain = verdict(`GIT_DIR=${outside}/.git git commit -m x`)
     expect(plain[0]).toBe('ask')

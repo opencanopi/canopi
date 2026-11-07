@@ -149,7 +149,8 @@ export function gitSubcommandAt(words: readonly string[]): number {
 /** Where a shell reads its commands: the index of its -c string, -1 for its input, undefined for a script file. As bash
  * and zsh read them, the options run to the first other word, `--` or `-`; an option cluster holding c (`-c`, `-lc`,
  * `-Ec`) makes that word the string (`bash -c -x <s>`, `bash -c -- <s>`; canopi-f47t.52.269), one holding s reads the
- * input. A cluster ending in o or O, and bash's --rcfile and --init-file, take the next word as their value. */
+ * input. Each o or O in a cluster, wherever it sits, takes the next value word in letter order (`-oc errexit <s>`,
+ * `-oOc errexit extglob <s>`), as do bash's --rcfile and --init-file. */
 export function shellCommands(words: readonly string[]): number | undefined {
   let commands = false
   let input = false
@@ -166,7 +167,7 @@ export function shellCommands(words: readonly string[]): number | undefined {
     if (cluster === undefined) break
     commands ||= word.startsWith('-') && cluster.includes('c')
     input ||= word.startsWith('-') && cluster.includes('s')
-    if (/[oO]$/.test(cluster)) k += 1
+    k += cluster.replace(/[^oO]/g, '').length
   }
   if (commands) return k < words.length ? k : -1
   return input || k >= words.length ? -1 : undefined
