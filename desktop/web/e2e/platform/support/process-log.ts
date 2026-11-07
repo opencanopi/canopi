@@ -2,7 +2,7 @@
 // uploads when it fails (desktop-real-app.yml), and still passed on to the job log. F5 probe 8: a WebDriver session
 // request timed out on ubuntu-22.04 with the app's output mixed into the job log and nothing in the profile, so the
 // driver's hang and an app that hung before its own log started looked alike. Framework-free, so it is unit tested
-// (src/__tests__/process-log.test.ts).
+// (process-log.test.ts, beside it).
 import type { ChildProcess } from 'node:child_process'
 import { appendFileSync, writeFileSync } from 'node:fs'
 import { Socket } from 'node:net'

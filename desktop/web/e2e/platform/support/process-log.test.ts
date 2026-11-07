@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { PassThrough } from 'node:stream'
 import { describe, expect, it } from 'vitest'
-import { logOutput } from '../../e2e/platform/support/process-log'
+import { logOutput } from './process-log'
 
 function closed(child: ReturnType<typeof spawn>): Promise<void> {
   return new Promise((done) => child.once('close', () => done()))

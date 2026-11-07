@@ -6,12 +6,10 @@ id: no-user-content-in-message.rs
 language: rs
 severity: error
 message: "no-user-content-in-message (2.1-M224): user content (a user path, a Design or file name) reaches a failure or log message only as a RedactedText or path field, never formatted into its free text; lowered by 1a-c3 (canopi-redact) and, for the LiDAR sites, N1. Owner none; example desktop/src/host/updater/failure.rs"
+# rust-scope: desktop/src canopi-types/src canopi-redact/src
 files:
-  - "desktop/src/**/*.rs"
-  - "canopi-types/src/**/*.rs"
-  - "canopi-redact/src/**/*.rs"
-  - "policy/fixtures/rules/*/desktop/src/**/*.rs"
-  - "policy/fixtures/rules/*/canopi-redact/src/**/*.rs"
+  - "{desktop/src,canopi-types/src,canopi-redact/src}/**/*.rs"
+  - "policy/fixtures/rules/*/{desktop/src,canopi-types/src,canopi-redact/src}/**/*.rs"
 ignores:
   - "desktop/src/commands/design/tests.rs"
   - "desktop/src/db/test_support.rs"

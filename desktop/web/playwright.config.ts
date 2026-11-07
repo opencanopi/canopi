@@ -29,6 +29,13 @@ const isCI = Boolean(process.env.CI)
  * Android smoke (Playwright `_android` on an emulator, `npm run test:android`).
  */
 const NOT_ENGINE_SPECS = ['platform/**', 'phones/**']
+/**
+ * W18's pin (e2e/canvas/firefox-headless-webgl-pin.spec.ts): the one spec run in headless Firefox, which proves the
+ * headed setup below still needed; it needs no server. The firefox project depends on it, so every lane that runs
+ * Firefox runs the pin first, unsharded and unfiltered (Playwright runs a dependency whole in each shard): when a bump's
+ * headless Firefox creates a context, the pin fails and the Firefox lane stops there. Named alone, it runs by itself.
+ */
+const FIREFOX_HEADLESS_PIN = 'canvas/firefox-headless-webgl-pin.spec.ts'
 // upstream: W18
 /**
  * Firefox as the specs need it: headed (see the header), and geolocation blocked unless a spec grants it, as Chromium and
@@ -67,10 +74,11 @@ const GALLERY_SERVER: WebServer = {
 /**
  * The servers the chosen projects use. Playwright starts every listed server whatever `--project` picks, so
  * the gallery lane would need the built Web Edition and the canvas lane would optimise the gallery's
- * dependencies. With no `--project`, both start.
+ * dependencies. With no `--project`, both start; the firefox-headless pin alone starts none.
  */
 export function webServersFor(argv: readonly string[]): WebServer[] {
-  const projects = namedProjects(argv)
+  const projects = namedProjects(argv).filter((project) => project !== 'firefox-headless')
+  if (projects.length === 0 && namedProjects(argv).length > 0) return []
   const gallery = projects.some((project) => project.startsWith('gallery-'))
   const webEdition = projects.some((project) => !project.startsWith('gallery-'))
   if (projects.length === 0 || (gallery && webEdition)) return [WEB_EDITION_SERVER, GALLERY_SERVER]
@@ -104,11 +112,12 @@ const PERF_FLAG = 'CANOPI_PERF_PROJECT'
 /** The configured projects: every lane's, and `perf` only when the command names it (or a worker inherits it). */
 export function projectsFor(argv: readonly string[], env: Readonly<Record<string, string | undefined>> = {}): Project[] {
   const perf = namedProjects(argv).includes('perf') || env[PERF_FLAG] === '1'
-  const ignore = ['gallery/**', 'perf/**', ...NOT_ENGINE_SPECS]
+  const ignore = ['gallery/**', 'perf/**', FIREFOX_HEADLESS_PIN, ...NOT_ENGINE_SPECS]
   return [
     { name: 'chromium', testIgnore: ignore, use: { browserName: 'chromium' } },
     { name: 'webkit', testIgnore: ignore, use: { browserName: 'webkit' } },
-    { name: 'firefox', testIgnore: ignore, use: FIREFOX, workers: FIREFOX_WORKERS },
+    { name: 'firefox', testIgnore: ignore, use: FIREFOX, workers: FIREFOX_WORKERS, dependencies: ['firefox-headless'] },
+    { name: 'firefox-headless', testMatch: FIREFOX_HEADLESS_PIN, use: { browserName: 'firefox', headless: true } },
     { name: 'gallery-chromium', testMatch: 'gallery/**/*.spec.ts', testIgnore: NOT_ENGINE_SPECS, use: { browserName: 'chromium', baseURL: `http://127.0.0.1:${GALLERY_PORT}/` } },
     { name: 'gallery-webkit', testMatch: 'gallery/**/*.spec.ts', testIgnore: NOT_ENGINE_SPECS, use: { browserName: 'webkit', baseURL: `http://127.0.0.1:${GALLERY_PORT}/` } },
     { name: 'gallery-firefox', testMatch: 'gallery/**/*.spec.ts', testIgnore: NOT_ENGINE_SPECS, use: { ...FIREFOX, baseURL: `http://127.0.0.1:${GALLERY_PORT}/` }, workers: FIREFOX_WORKERS },

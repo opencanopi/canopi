@@ -5,10 +5,10 @@ id: text-match-on-native-error.rs
 language: rs
 severity: error
 message: "text-match-on-native-error (2.1-M427): a native or IPC failure is read by its typed code, never by matching its English text (a substring, prefix or regex over an error message, or an equality with English text); today's sites go as their commands return catalogue failures (1a, 1b, N1, N2). Owner none; example desktop/web/src/app/updates/state.ts"
+# rust-scope: desktop/src canopi-types/src
 files:
-  - "desktop/src/**/*.rs"
-  - "canopi-types/src/**/*.rs"
-  - "policy/fixtures/rules/*/desktop/src/**/*.rs"
+  - "{desktop/src,canopi-types/src}/**/*.rs"
+  - "policy/fixtures/rules/*/{desktop/src,canopi-types/src}/**/*.rs"
 ignores:
   - "desktop/src/commands/design/tests.rs"
   - "desktop/src/db/test_support.rs"

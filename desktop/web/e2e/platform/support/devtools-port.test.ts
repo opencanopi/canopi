@@ -1,7 +1,7 @@
 // The Windows real-app harness reads WebView2's DevTools port from its DevToolsActivePort file while WebView2 may
 // still be writing it (F5 probe 5): only a file with both lines written gives a port.
 import { describe, expect, it } from 'vitest'
-import { devToolsPortIn } from '../../e2e/platform/support/devtools-port'
+import { devToolsPortIn } from './devtools-port'
 
 describe('devToolsPortIn', () => {
   it('reads the port once the port and browser path lines are written', () => {

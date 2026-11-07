@@ -6,7 +6,11 @@
 // sites, pin_test, report, status, exit}`; it is no rule table, so it has no top-level `rules` key (2.1-M222). A site
 // is a repository path, tagged there by a `// upstream: W<n>` line comment (TypeScript, JavaScript, Rust) or a
 // `# upstream: W<n>` comment (TOML), or `{file, pointer}`, a JSON pointer (RFC 6901) into a JSON file, which needs no
-// tag. `pin_test` is `{path, title}`, the test that pins the upstream behaviour, or `{planned: {phase, bead}}`.
+// tag. `pin_test` is `{path, title}`, the test that pins the upstream behaviour, `{planned: {phase, bead}}`, or a
+// tripwire this adapter judges itself where no test can reach the behaviour (no GPU or D-Bus in CI; 2.1-M426):
+// `{tripwire: 'advisories'}`, the OSV exception table's entries for the row (policy/adapters/advisories.ts fails one
+// OSV stops reporting), or `{tripwire: {lock, package}}`, the versions a lock file (Cargo.lock or a package-lock.json)
+// resolves for `package`, each of which the row's `pin` must name, so a bump re-tests the workaround.
 // `report` is a bead id, `declined <date>: <reason>`, `none: <why>` (tracked only), or, on an open row whose draft
 // the main agent has not filed yet, empty. Ids are never reused or renumbered.
 //
@@ -23,6 +27,9 @@
 //   no-pointer  a pointer that resolves to nothing, or to a W id other than its row's
 //   no-pin      an open row's pin test file missing, or holding no test declaration whose first argument is its title
 //   advisory    a W id string in policy/advisories.json with no open row (2.1-M204)
+//   tripwire    an open row's tripwire that trips: an advisories one whose pointer sites miss an entry naming the row
+//               or name none, a lock one whose lock file is missing, lacks the package, or resolves it to a version
+//               the row's pin does not name (canopi-f47t.52.228.43)
 // Rows are judged only when the register is among `paths` (the default check over the tracked tree), and the
 // advisories only when that file is: a planted run over policy/fixtures/rules/<rule>/ judges its tags alone against
 // the register's rows. A site under policy/fixtures/ is never a real one. The register vouches for itself: a missing
@@ -57,6 +64,7 @@ const DECLARATION = /\b(?:it|test|describe)(?:\.[A-Za-z]+)*\(/u;
 const BEAD = /^canopi-[a-z0-9]+(?:\.[0-9]+)*$/u;
 const REPORT = [BEAD, /^declined \d{4}-\d{2}-\d{2}: \S/u, /^none: \S/u];
 const ROW_FIELDS = ['id', 'library', 'pin', 'what', 'sites', 'pin_test', 'report', 'status', 'exit'];
+const LOCK = /(?:^|\/)(?:Cargo\.lock|package-lock\.json)$/u;
 
 const fail = (message) => { throw Object.assign(new Error(`upstream-register: ${message}`), { code: 'tool-failed' }); };
 const isText = (v) => typeof v === 'string' && v.trim() !== '';
@@ -185,11 +193,16 @@ function rowFault(row, phases) {
   }
   const pin = row.pin_test;
   const planned = isObject(pin) && Object.keys(pin).length === 1 && isObject(pin.planned);
-  if (planned) {
+  const tripwire = isObject(pin) && Object.keys(pin).length === 1 && 'tripwire' in pin;
+  if (tripwire) {
+    const lock = pin.tripwire;
+    const isLock = isObject(lock) && Object.keys(lock).length === 2 && isRepoPath(lock.lock) && LOCK.test(lock.lock) && isText(lock.package);
+    if (lock !== 'advisories' && !isLock) return "has a tripwire that is neither 'advisories' nor {lock: <Cargo.lock or package-lock.json>, package}";
+  } else if (planned) {
     if (!phases.includes(pin.planned.phase)) return `plans its pin test in ${JSON.stringify(pin.planned.phase)}, not one of ${RULES_TABLE}'s phases`;
     if (!BEAD.test(pin.planned.bead ?? '')) return 'plans its pin test with no bead';
   } else if (!(isObject(pin) && Object.keys(pin).length === 2 && isRepoPath(pin.path) && isText(pin.title))) {
-    return 'needs pin_test {path, title} or {planned: {phase, bead}}';
+    return 'needs pin_test {path, title}, {planned: {phase, bead}} or {tripwire}';
   }
   const report = row.report;
   if (!(typeof report === 'string' && (REPORT.some((r) => r.test(report)) || (report === '' && row.status === 'open')))) {
@@ -228,6 +241,44 @@ function resolvePointer(doc, pointer) {
 
 /** Every string anywhere in a JSON value. */
 const strings = (v) => (typeof v === 'string' ? [v] : Array.isArray(v) || isObject(v) ? Object.values(v).flatMap(strings) : []);
+
+/** The versions `lock` (Cargo.lock or a package-lock.json, read as `text`) resolves for `name`. */
+function lockedVersions(lock, text, name) {
+  if (lock.endsWith('package-lock.json')) {
+    let doc;
+    try {
+      doc = JSON.parse(text);
+    } catch (error) {
+      fail(`${lock} is not JSON: ${error.message}`);
+    }
+    return Object.entries(doc?.packages ?? {}).filter(([at]) => at === `node_modules/${name}` || at.endsWith(`/node_modules/${name}`))
+      .map(([, entry]) => entry?.version).filter(isText);
+  }
+  return text.split(/^\[\[package\]\]$/mu).slice(1).flatMap((block) => {
+    const field = (key) => new RegExp(`^${key} = "([^"]*)"$`, 'mu').exec(block)?.[1];
+    return field('name') === name && isText(field('version')) ? [field('version')] : [];
+  });
+}
+
+/** Whether the row's pin text names `version` as a whole version (not part of a longer one). */
+function pinNames(pin, version) {
+  const escaped = version.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
+  return new RegExp(`(?<![0-9A-Za-z.])${escaped}(?![0-9A-Za-z.])`, 'u').test(pin);
+}
+
+/** Whether an open row's tripwire trips (see the header). */
+function tripped(root, row, read) {
+  const wire = row.pin_test.tripwire;
+  if (wire === 'advisories') {
+    const listed = new Set(row.sites.filter((s) => isObject(s) && s.file === ADVISORIES).map((s) => s.pointer));
+    const entries = readJson(root, ADVISORIES)?.advisories;
+    const naming = (Array.isArray(entries) ? entries : []).flatMap((e, i) => (isObject(e) && e.upstream === row.id ? [`/advisories/${i}/upstream`] : []));
+    return { where: ADVISORIES, trips: !naming.length || naming.some((pointer) => !listed.has(pointer)) };
+  }
+  if (!fs.existsSync(path.join(root, wire.lock))) return { where: wire.lock, trips: true };
+  const versions = lockedVersions(wire.lock, read(wire.lock), wire.package);
+  return { where: wire.lock, trips: !versions.length || versions.some((v) => !pinNames(row.pin, v)) };
+}
 
 /** One site per fault (see the header). */
 export function collect({ root, paths }) {
@@ -270,6 +321,11 @@ export function collect({ root, paths }) {
       }
       const pin = row.pin_test;
       if (pin.planned) continue;
+      if (pin.tripwire) {
+        const { where, trips } = tripped(root, row, read);
+        if (trips) site('tripwire', row.id, where);
+        continue;
+      }
       if (!exists(pin.path)) { site('no-pin', row.id, pin.path); continue; }
       const src = read(pin.path);
       const found = pinAt(src, pin.title);

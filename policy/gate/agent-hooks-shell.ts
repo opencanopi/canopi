@@ -321,8 +321,12 @@ function parameterEnd(command: string, at: number, scan: Scan, quoted: boolean):
     } else if (inQuotes) {
       j += command.startsWith('${', j) ? parameterEnd(command, j, scan, true) - j : 1
     } else if (d === "'") {
+      // In a double-quoted expansion shells differ on whether a single quote quotes; both read the same end unless the
+      // quoted text holds a brace, a quote, a backslash, a dollar or a backtick (canopi-f47t.52.269).
       const end = command.indexOf(d, j + 1)
-      if (quoted || end < 0) throw new Unparsed('a single quote in a parameter expansion, whose end shells read differently')
+      if (end < 0 || (quoted && /[{}"\\$`]/.test(command.slice(j + 1, end)))) {
+        throw new Unparsed('a single quote in a parameter expansion, whose end shells read differently')
+      }
       j = end + 1
     } else if (command.startsWith('${', j)) {
       depth += 1

@@ -5,8 +5,8 @@ language: rs
 severity: error
 message: "no-string-error-command (§18 R13): a command returns a catalogue Failure, never Result<_, String>, and no error type is built From<String>; 0 at Phase 3. ADR 0025; owner none; target canopi-types/src/failure (1a); example none yet"
 files:
-  - "{desktop,canopi-types,bindings-gen}/src/**/*.rs"
-  - "policy/fixtures/rules/*/{desktop,canopi-types,bindings-gen}/src/**/*.rs"
+  - "{desktop,canopi-types,canopi-redact,bindings-gen}/src/**/*.rs"
+  - "policy/fixtures/rules/*/{desktop,canopi-types,canopi-redact,bindings-gen}/src/**/*.rs"
 ignores:
   - "desktop/src/commands/design/tests.rs"
   - "desktop/src/db/test_support.rs"

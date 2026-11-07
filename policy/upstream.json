@@ -151,9 +151,9 @@
         "desktop/src/main.rs"
       ],
       "pin_test": {
-        "planned": {
-          "phase": "1",
-          "bead": "canopi-f47t.52.228.43"
+        "tripwire": {
+          "lock": "Cargo.lock",
+          "package": "tauri"
         }
       },
       "report": "",
@@ -234,9 +234,9 @@
         }
       ],
       "pin_test": {
-        "planned": {
-          "phase": "1",
-          "bead": "canopi-f47t.52.228.43"
+        "tripwire": {
+          "lock": "desktop/web/package-lock.json",
+          "package": "image-size"
         }
       },
       "report": "none: no upstream bug; each parent's own range is safe in a later release, which Renovate shows",
@@ -271,10 +271,7 @@
         }
       ],
       "pin_test": {
-        "planned": {
-          "phase": "1",
-          "bead": "canopi-f47t.52.228.43"
-        }
+        "tripwire": "advisories"
       },
       "report": "none: Tauri's own move to GTK4 retires the chain; tracked only (2.1-M204)",
       "status": "open",
@@ -289,12 +286,10 @@
         "desktop/web/playwright.config.ts"
       ],
       "pin_test": {
-        "planned": {
-          "phase": "1",
-          "bead": "canopi-f47t.52.228.43"
-        }
+        "path": "desktop/web/e2e/canvas/firefox-headless-webgl-pin.spec.ts",
+        "title": "pin: headless Firefox in the pinned image creates no WebGL context"
       },
-      "report": "none: an environment limit of the pinned image's headless Firefox, re-tested on each Playwright bump",
+      "report": "none: an environment limit of the pinned image's headless Firefox, re-tested on each Playwright bump by every Firefox lane (the firefox project depends on the pin's)",
       "status": "open",
       "exit": "A Playwright image whose headless Firefox creates a WebGL context: the Firefox projects run headless and the Xvfb wrapper goes."
     },
@@ -331,10 +326,7 @@
         }
       ],
       "pin_test": {
-        "planned": {
-          "phase": "1",
-          "bead": "canopi-f47t.52.228.43"
-        }
+        "tripwire": "advisories"
       },
       "report": "none: upstream adoption of glob 14 / minimatch 11; tracked only",
       "status": "open",
@@ -349,9 +341,9 @@
         "desktop/src/services/folder_reveal.rs"
       ],
       "pin_test": {
-        "planned": {
-          "phase": "1",
-          "bead": "canopi-f47t.52.252"
+        "tripwire": {
+          "lock": "Cargo.lock",
+          "package": "tauri-plugin-opener"
         }
       },
       "report": "canopi-f47t.52.252",

@@ -420,9 +420,10 @@ export const TABLE: Table = {
     // commit-gate.ts lists a commit changing one of them that is no test.
     policyGate: String.raw`^(?:policy/|\.githooks/|\.github/)`,
     // The test files the web Vitest project runs (desktop/web/vite.config.ts: Vitest's default include, Playwright's e2e/
-    // and e2e-release/ out): scripts/ and vite.config.test.ts beside src/. The deletion guard's Vitest pass lists these,
-    // and the typecheck covers its TypeScript ones; table.test.ts holds the rule to `vitest list --filesOnly`.
-    webVitestTest: String.raw`^desktop/web/(?!e2e/|e2e-release/)(?:[^/]+/)*[^/]+\.(?:test|spec)\.[cm]?[jt]sx?$`,
+    // and e2e-release/ out): scripts/ and vite.config.test.ts beside src/, and the real-app harness's unit tests beside
+    // their modules in e2e/platform/ (`*.test.*`, never a spec; canopi-f47t.52.228.35). The deletion guard's Vitest pass
+    // lists these, and the typecheck covers its TypeScript ones; table.test.ts holds the rule to `vitest list --filesOnly`.
+    webVitestTest: String.raw`^desktop/web/(?:(?!e2e/|e2e-release/)(?:[^/]+/)*[^/]+\.(?:test|spec)|e2e/platform/(?:[^/]+/)*[^/]+\.test)\.[cm]?[jt]sx?$`,
   },
   families: {
     scanner: String.raw`policy-harness|readdirSync|readFileSync\(\s*(?:new URL\(|[\x60'"](?:\./)?src/)`,

@@ -1,0 +1,23 @@
+{
+  "browser-workspace-reaches-no-desktop": {
+    "src/web/planted-mid.ts": "the reach chain's middle: the rule fires on the transitive edge from browser-workspace-runtime.ts"
+  },
+  "deep-imports": {
+    "src/app/budget/index.ts": "the folder's index.ts that makes inner.ts a deep import"
+  },
+  "desktop-reaches-no-web-only-modules": {
+    "src/planted-mid.ts": "the reach chain's middle: the rule fires on the transitive edge from main.tsx"
+  },
+  "knip": {
+    "src/main.ts": "the entry that reads one of lib.ts's two exports, so the other is unused"
+  },
+  "policy-imports-no-cli": {
+    "adapters/cycle-b.mjs": "the import cycle's other half: the cycle is reported once, from cycle-a.mjs"
+  },
+  "test-location": {
+    "src/mod/planted.ts": "the module whose test sits in src/__tests__ instead of beside it"
+  },
+  "workspace-manifest": {
+    "member/src/lib.rs": "the member crate's source; the rule fires on the member's manifest"
+  }
+}

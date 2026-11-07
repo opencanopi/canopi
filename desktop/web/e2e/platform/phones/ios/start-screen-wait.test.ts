@@ -4,7 +4,7 @@
 // deadline; at the deadline a busy page and an absent start screen fail with different messages, so the lane's
 // planted-page step still matches only the second.
 import { describe, expect, it } from 'vitest'
-import { waitForStartScreen } from '../../e2e/platform/phones/ios/start-screen-wait'
+import { waitForStartScreen } from './start-screen-wait'
 
 const BUSY = 'The remote Safari debugger did not respond to the requested command after 30007.18225ms. It appears that JavaScript execution is blocked, which could be caused by either a modal dialog obstructing the current page, or a JavaScript routine monopolizing the event loop. when running "elements" with method "POST"'
 

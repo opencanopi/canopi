@@ -2,7 +2,7 @@
 // it as a user would see it (F5 probe 8, run 40600121577): every other page error stays APP, and a missing map notice
 // or a log without the crash fails the smoke.
 import { describe, expect, it } from 'vitest'
-import { logStart, pageFailureVerdict, type DesignShell } from '../../e2e/platform/phones/ios/simulator-verdict'
+import { logStart, pageFailureVerdict, type DesignShell } from './simulator-verdict'
 
 const CONTEXT_LOSS = 'console.error: Shared workspace map failed: Error: MapLibre WebGL context was lost while preparing the shared workspace.'
 

@@ -3,7 +3,7 @@
 // answered the first poll 43 s later with the click recorded, but the driver had given up on it after 30 s
 // (webviewAtomWaitTimeout) with its busy-debugger error, and the smoke failed as "no click reached New Design".
 import { describe, expect, it } from 'vitest'
-import { pollThroughBusy } from '../../e2e/platform/phones/ios/busy-poll'
+import { pollThroughBusy } from './busy-poll'
 
 const BUSY = 'The remote Safari debugger did not respond to the requested command after 36710.286375ms. It appears that JavaScript execution is blocked, which could be caused by either a modal dialog obstructing the current page, or a JavaScript routine monopolizing the event loop. when running "execute/sync" with method "POST"'
 

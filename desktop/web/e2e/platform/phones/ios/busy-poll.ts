@@ -2,7 +2,7 @@
 // Design right after the tap: in run 42132960384 (iPhone 17 Pro, iOS 26.5) the first poll's script was answered 43 s
 // later, with the click recorded, but the driver had given up on it after webviewAtomWaitTimeout (wdio.ios.conf.ts) with
 // its busy-debugger error. A busy debugger is therefore asked again until the poll's deadline, as the start-screen wait
-// does (start-screen-wait.ts). Framework-free, so it is unit tested (src/__tests__/ios-busy-poll.test.ts).
+// does (start-screen-wait.ts). Framework-free, so it is unit tested (busy-poll.test.ts, beside it).
 import { isBusyDebugger } from './start-screen-wait'
 
 /** How a poll ended: its condition held, the page kept answering without it, or Safari stayed busy to the deadline. */

@@ -3,7 +3,7 @@
 // loses every WebGL context; the workspace map then reports its context loss and mounts the map notice with Retry, as
 // it does for a user whose GPU resets. Real iPhones and iPads have no SimMetalHost. So that one error is ENV only when
 // the simulator's own log proves the crash and the app handled it the way a user sees it; anything else is APP.
-// Framework-free, so it is unit tested (src/__tests__/ios-smoke-verdict.test.ts).
+// Framework-free, so it is unit tested (simulator-verdict.test.ts, beside it).
 
 /** The only page error the ENV verdict accepts: workspace-activation.ts logging contextLossError's message. */
 export const CONTEXT_LOSS_ERROR =

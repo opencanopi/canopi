@@ -4,6 +4,7 @@ id: process-only-in-runner
 language: rs
 severity: error
 message: "process-only-in-runner (§18 R17): a child process (Command::new) starts only in the engine tool runner; folder_reveal.rs is a named entry until F5 moves FolderRevealer to the opener (canopi-zhv0); an interim site ratchet that N1 replaces with clippy disallowed-methods in the change that builds the owner. ADR 0023; owner desktop/src/services/lidar/process.rs; target canopi-support/src/process.rs (N1); example desktop/src/services/lidar/process.rs"
+# rust-scope: desktop/src
 files:
   - "desktop/src/**/*.rs"
   - "policy/fixtures/rules/*/desktop/src/**/*.rs"
