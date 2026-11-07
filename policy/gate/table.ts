@@ -359,19 +359,22 @@ export const TABLE: Table = {
     },
     {
       // What decides whether an update installs (2.1-M64, M82): the updater and the update flow's files outside its
-      // folders (the update contract, the host's exit, operation, single-instance and launch paths, the close guard and
-      // app root, the dialogs owning the selectors updater.spec.ts drives, the release overlay), the scripts the lane
-      // runs, and the lockfiles and manifest that pin the Tauri CLI (the .sig format, 2.1-M210) and tauri-plugin-updater.
+      // folders (the update contract, the host's exit, operation, single-instance and launch paths, the IPC transport its
+      // commands go through, the close guard and app root, the dialogs and the notice row owning the selectors
+      // updater.spec.ts drives, the launch notices and the notice queue that raise Update not installed, the release
+      // overlay), the scripts the lane runs, and the lockfiles and manifest that pin the Tauri CLI (the .sig format,
+      // 2.1-M210) and tauri-plugin-updater.
       name: 'updater', label: 'Updater',
       row: 'CI `{updater-e2e}`',
       workflow: '.github/workflows/updater-e2e.yml',
       patterns: [String.raw`^desktop/src/host/updater/`, String.raw`^desktop/src/commands/update\.rs$`,
-        String.raw`^desktop/web/src/app/updates/`, String.raw`^desktop/web/src/ipc/update\.ts$`,
+        String.raw`^desktop/web/src/app/updates/`, String.raw`^desktop/web/src/ipc/(update|transport)\.ts$`,
         String.raw`^desktop/web/e2e/platform/(updater\.spec\.ts$|support/)`, String.raw`^desktop/(tauri\.conf|updater-endpoints)\.json$`,
         String.raw`^scripts/(update_channel|release_smoke)\.py$`, String.raw`^desktop/web/package-lock\.json$`,
         String.raw`^(desktop/Cargo\.toml|Cargo\.lock)$`,
         String.raw`^canopi-types/src/update\.rs$`, String.raw`^desktop/src/(host/(exit|single_instance|launch)\.rs|native_operation\.rs|lib\.rs)$`,
         String.raw`^desktop/web/src/(app/shell/close-guard\.ts|app\.tsx|components/shared/(AboutCanopi|Settings)Dialog\.tsx)$`,
+        String.raw`^desktop/web/src/(components/(shared/NoticeRow\.tsx|workspace/launch-notices\.ts)|failures/notices\.ts)$`,
         String.raw`^\.github/tauri-release-updater\.json$`],
       actions: ['install-linux-deps'],
       full: ['updater-e2e'],

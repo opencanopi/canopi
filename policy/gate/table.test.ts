@@ -286,23 +286,29 @@ describe('the updater area (canopi-f47t.52.228)', () => {
 
   it('canopi-f47t.52.228: a change to a file the update flow goes through selects the updater area, on a pull request and on main', () => {
     // The files the update flow goes through outside the updater's own folders (Connections finding 1, Phase 0 close):
-    // the shared update contract, the host's exit, operation, single-instance and launch paths, the app's close guard
-    // and root, the About and Settings dialogs that own the selectors updater.spec.ts drives, and the release overlay.
+    // the shared update contract, the host's exit, operation, single-instance and launch paths, the IPC transport, the
+    // app's close guard and root, the About and Settings dialogs and the notice row that own the selectors
+    // updater.spec.ts drives, the launch notices and notice queue that raise Update not installed, and the release overlay.
     const flow = ['canopi-types/src/update.rs', 'desktop/src/host/exit.rs', 'desktop/src/native_operation.rs',
       'desktop/src/host/single_instance.rs', 'desktop/src/host/launch.rs', 'desktop/src/lib.rs',
       'desktop/web/src/app/shell/close-guard.ts', 'desktop/web/src/app.tsx', 'desktop/web/src/components/shared/AboutCanopiDialog.tsx',
-      'desktop/web/src/components/shared/SettingsDialog.tsx', '.github/tauri-release-updater.json']
+      'desktop/web/src/components/shared/SettingsDialog.tsx', '.github/tauri-release-updater.json', 'desktop/web/src/ipc/transport.ts',
+      'desktop/web/src/components/shared/NoticeRow.tsx', 'desktop/web/src/components/workspace/launch-notices.ts',
+      'desktop/web/src/failures/notices.ts']
     expect(flow.filter((path) => !selects(path))).toEqual([])
     // Every selector updater.spec.ts drives is owned by a file the area selects.
     const spec = read('desktop/web/e2e/platform/updater.spec.ts')
     const sources = spawnSync('git', ['ls-files', 'desktop/web/src/*.tsx'], { cwd: REPO_ROOT, encoding: 'utf8' }).stdout.split('\n')
       .filter((path) => path && !path.includes('/__tests__/'))
-    for (const selector of ['data-about-updates', 'data-launch-check', 'data-update-failed-notice']) {
+    for (const selector of ['data-about-updates', 'data-launch-check', 'data-notice-key']) {
       expect(spec, selector).toContain(selector)
       const owners = sources.filter((path) => read(path).includes(selector))
       expect(owners.length, selector).toBeGreaterThan(0)
       expect(owners.filter((path) => !selects(path)), selector).toEqual([])
     }
+    // The notice row's key the spec waits for is raised by a file the area selects.
+    const key = spec.match(/data-notice-key="([^"]+)"/u)?.[1]
+    expect(key && read('desktop/web/src/components/workspace/launch-notices.ts').includes(`'${key}'`), key).toBe(true)
     // A push to main selects the lane by its area too, so a merge that skipped it is still caught: the changes job turns
     // the updater output on by area outside its pull-request-only block.
     const diff = read(BUILD)

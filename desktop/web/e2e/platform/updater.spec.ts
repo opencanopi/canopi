@@ -375,11 +375,11 @@ describe('the updater, from an installed N-1 to N', () => {
     await waitForExit('the failing installer never took over')
     host.channel = 'good.json'
     await relaunch()
-    const notice = $('[data-update-failed-notice]')
+    const notice = $('[data-notice-key="update.not-installed"]')
     await notice.waitForDisplayed({ timeout: 30_000 })
     await expect(notice).toHaveText(/Update not installed/u)
     expect(installedVersion()).toBe('9.0.0')
-    await notice.$('button=Dismiss').click()
+    await notice.$('button[aria-label="Dismiss"]').click()
     await notice.waitForDisplayed({ reverse: true })
     current = ''
   })
