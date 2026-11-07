@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { SubsystemHealth } from "../generated/contracts";
 
 const mocks = vi.hoisted(() => ({
   disposeCloseGuard: vi.fn(),
@@ -106,9 +107,9 @@ describe("settings platform bootstrap", () => {
       dispose: mocks.disposeSettings,
     });
     mocks.invoke.mockReset().mockResolvedValue({
-      plant_db: "missing",
-      lidar_library: { kind: "recovered", items: 2, generated: 1 },
-      local_data: { kind: "moved_aside" },
+      plant_catalog: { status: { kind: "unavailable", code: { kind: "plant_db_unavailable", cause: "missing" } }, notice: null },
+      library_catalogue: { status: { kind: "recovered", items: 2, generated: 1 }, notice: null },
+      user_db: { status: { kind: "ready" }, notice: "moved_aside_pre_2_0" },
     });
     mocks.registerCloseGuard.mockReset().mockReturnValue({
       dispose: mocks.disposeCloseGuard,
@@ -383,7 +384,7 @@ describe("settings platform bootstrap", () => {
   });
 
   it("ignores health returned after its shell lifetime is disposed", async () => {
-    let resolveHealth!: (health: { plant_db: "missing"; lidar_library: { kind: "unavailable" } }) => void;
+    let resolveHealth!: (health: SubsystemHealth) => void;
     mocks.invoke.mockReturnValue(new Promise((resolve) => {
       resolveHealth = resolve;
     }));
@@ -398,7 +399,10 @@ describe("settings platform bootstrap", () => {
     }, getHealth);
 
     bootstrap.dispose();
-    resolveHealth({ plant_db: "missing", lidar_library: { kind: "unavailable" } });
+    resolveHealth({
+      plant_catalog: { status: { kind: "unavailable", code: { kind: "plant_db_unavailable", cause: "missing" } }, notice: null },
+      library_catalogue: { status: { kind: "unavailable", code: { kind: "library_read_only", reason: "unavailable" } }, notice: null },
+    });
     await bootstrap.ready;
 
     expect(plantDbStatus.value).toBe("available");

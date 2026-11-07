@@ -3133,6 +3133,50 @@
           "check": "scripts/test_update_channel.py"
         }
       }
+    },
+    {
+      "id": "notice-module-launch-file-multi-open",
+      "doc": "desktop/web/src/app/document-session/launch-file.ts",
+      "quote": "export const multiOpenNotice = signal<number | null>(null)",
+      "state": {
+        "planned": {
+          "phase": "1b",
+          "bead": "canopi-f47t.52.36"
+        }
+      }
+    },
+    {
+      "id": "notice-module-canvas-locked-move",
+      "doc": "desktop/web/src/canvas/session-state.ts",
+      "quote": "export const currentCanvasLockedMoveNotice = signal<CanvasLockedMoveNotice | null>(null)",
+      "state": {
+        "planned": {
+          "phase": "1b",
+          "bead": "canopi-f47t.52.36"
+        }
+      }
+    },
+    {
+      "id": "notice-module-browser-shell-notice",
+      "doc": "desktop/web/src/web/browser-shell-notice.ts",
+      "quote": "const notice = signal<BrowserShellNotice | null>(null);",
+      "state": {
+        "planned": {
+          "phase": "1b",
+          "bead": "canopi-f47t.52.36"
+        }
+      }
+    },
+    {
+      "id": "notice-module-browser-release-watch",
+      "doc": "desktop/web/src/web/browser-release-watch.ts",
+      "quote": "const notice = signal<BrowserReleaseWaiting | null>(null);",
+      "state": {
+        "planned": {
+          "phase": "1b",
+          "bead": "canopi-f47t.52.36"
+        }
+      }
     }
   ]
 }

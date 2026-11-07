@@ -41,6 +41,19 @@ pub struct FrontendDiagnosticEntry {
     pub timestamp_ms: f64,
 }
 
+/// The level of a frontend diagnostics ring entry (contracts §13 Failure
+/// report). Phase 1's 1a-c6 types `FrontendDiagnosticEntry::level` with it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[serde(rename_all = "snake_case")]
+pub enum FrontendDiagnosticLevel {
+    /// Lost work or a failed action.
+    Error,
+    /// A degraded or repaired state.
+    Warning,
+    /// A record kept for the report only.
+    Info,
+}
+
 #[derive(Debug, Clone, Default, Serialize, Deserialize, Type)]
 #[expect(
     missing_docs,

@@ -78,10 +78,15 @@
       "ledger": "2.1-M189",
       "family": "invoke-only-in-ipc",
       "adr": "0022",
-      "owner_today": "desktop/web/src/ipc",
-      "example": "desktop/web/src/ipc/export.ts",
-      "note": "P49 only IPC transports invoke native commands",
-      "primitive": "§18 F1"
+      "owner_today": "none",
+      "example": "desktop/web/src/app/updates/controller.ts",
+      "note": "P49 only the IPC transport invokes native commands (narrowed from ipc/ to ipc/transport.ts, design check F15; 1b-c2 lowers the wrappers to 0)",
+      "primitive": "§18 F1",
+      "owner_target": {
+        "path": "desktop/web/src/ipc/transport.ts",
+        "phase": "1b",
+        "bead": "canopi-f47t.52.36"
+      }
     },
     {
       "id": "tool-arming-only-in-arm-canvas-tool",
@@ -297,7 +302,7 @@
         "phase": "1b",
         "bead": "canopi-f47t.52.36"
       },
-      "note": "a notice or toast (the plugin-dialog message box) is raised only through the failures/ notice signal, its one notice row and its one window-level toast slot"
+      "note": "a notice or toast (the plugin-dialog message box, a <Toast> render) is raised only through the failures/ notice signal, its one notice row and its one window-level toast slot (components/shared/ToastSlot.tsx and NoticeRow.tsx, owners from 1b-c3); refuse_startup stays a standing exception (pre-webview, design check F8)"
     },
     {
       "id": "map-constructor-only-in-factory",
@@ -405,7 +410,10 @@
         "bead": "canopi-f47t.52.188"
       },
       "example": "desktop/web/src/app/timeline/civil-date.ts",
-      "note": "dates are parsed (new Date with an argument, Date.parse) and displayed (toLocaleDateString, toLocaleTimeString, Intl.DateTimeFormat) only by the civil date owner"
+      "note": "dates are parsed (new Date with an argument, Date.parse) and displayed (toLocaleDateString, toLocaleTimeString, Intl.DateTimeFormat) only by the civil date owner (exceptions: satellite-http's Retry-After HTTP-date header parse, not display, design check F7)",
+      "exceptions": [
+        "desktop/web/src/maplibre/satellite-http.browser.ts"
+      ]
     },
     {
       "id": "clipboard-only-in-adapter",
@@ -758,8 +766,8 @@
       ],
       "owner_target": {
         "path": "desktop/web/src/failures",
-        "phase": "1a",
-        "bead": "canopi-f47t.52.35"
+        "phase": "1b",
+        "bead": "canopi-f47t.52.36"
       },
       "note": "a cancel is signalled by the catalogue's CancelToken, never by hand: a site is a 'cancelled' string value a guard returns, resolves or builds, or English text matched for it; literal types and equality or case reads are never sites, and the also-owners produce the contracts' outcome unions (the dialog pick, file delivery), whose 'cancelled' is a result; in Rust a site is also a hand-written poll of a cancel flag (check_cancel, cancel.load), which CancelToken replaces (N1)"
     },
@@ -889,12 +897,12 @@
       "adr": "0025",
       "owner_today": "desktop/src/logging.rs",
       "owner_target": {
-        "path": "canopi-support/src/failure_log.rs",
+        "path": "desktop/src/logging.rs",
         "phase": "1a",
         "bead": "canopi-f47t.52.35"
       },
       "example": "desktop/src/logging.rs",
-      "note": "warn! and error! (tracing or log) only in the failure logger; 0 outside it at Phase 3"
+      "note": "warn! and error! (tracing or log) only in the failure logger; 0 outside it at Phase 3; the stream that moves logging into canopi-support re-targets it (design check A1, 2.1-M415)"
     },
     {
       "id": "http-client-only-in-http",

@@ -115,3 +115,20 @@ describe('i18n completeness', () => {
     expect(fr.menu['edit.saveAsStamp']).toBe('Enregistrer comme tampon')
   })
 })
+
+describe('Russian plural forms', () => {
+  it.fails('[1b-c6 canopi-f47t.52.43] APP-06: Russian counts use every plural form', () => {
+    const leaves = (tree: TranslationTree, prefix = ''): [string, string][] =>
+      Object.entries(tree).flatMap(([key, value]): [string, string][] =>
+        typeof value === 'string' ? [[`${prefix}${key}`, value]] : leaves(value, `${prefix}${key}.`))
+    const ruTree: TranslationTree = ru
+    const russian = new Map(leaves(ruTree))
+    const pluralSuffix = /_(zero|one|two|few|many|other)$/
+    // A Russian string that interpolates a count: its key family needs one, few, many and other
+    // (Intl.PluralRules('ru')), or "5 вида" reads where "5 видов" is right.
+    const counted = new Set([...russian].filter(([, text]) => /\{\{\s*count\b/.test(text)).map(([key]) => key.replace(pluralSuffix, '')))
+    const forms = new Intl.PluralRules('ru').resolvedOptions().pluralCategories
+    const missing = [...counted].flatMap((base) => forms.filter((form) => !russian.has(`${base}_${form}`)).map((form) => `${base}_${form}`))
+    expect(missing).toEqual([])
+  })
+})

@@ -729,3 +729,22 @@ describe('view navigation', () => {
     view.dispose()
   })
 })
+
+describe('reopening an empty Design', () => {
+  it.fails('[1b-c7 canopi-eon8.9] canopi-eon8.9: an empty reopened Design opens at its saved map_view, bearing 0', () => {
+    const scene = emptyScene()
+    const view = createTestView({ screen: { width: 1000, height: 800 } })
+    view.setScene(scene, boundsOf(scene, 4))
+    // Placed by a coordinate search and saved: nothing drawn, but a map_view the user chose.
+    const saved = { center: { lon: 2.3522, lat: 48.8566 }, zoom: 17, bearingDeg: 40, pitchDeg: 0 as const }
+
+    view.navigation.openAt(40, saved)
+
+    const opened = view.view().camera
+    expect(opened.center.lon).toBeCloseTo(saved.center.lon, 6)
+    expect(opened.center.lat).toBeCloseTo(saved.center.lat, 6)
+    expect(opened.zoom).toBeCloseTo(saved.zoom, 6)
+    expect(opened.bearingDeg).toBe(0)
+    view.dispose()
+  })
+})

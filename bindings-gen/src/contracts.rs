@@ -37,9 +37,20 @@ pub(crate) fn contract_types() -> TypeCollection {
         .register::<canopi_types::dialog::DialogKind>()
         .register::<canopi_types::dialog::PickOpenOutcome>()
         .register::<canopi_types::dialog::PickSaveOutcome>()
-        .register::<canopi_types::health::LidarLibraryStatus>()
-        .register::<canopi_types::health::LocalDataStatus>()
+        .register::<canopi_types::failure::Failure>()
+        .register::<canopi_types::failure::FailureCode>()
+        .register::<canopi_types::failure::IoFailureKind>()
+        .register::<canopi_types::failure::Lane>()
+        .register::<canopi_types::failure::LibraryReadOnlyReason>()
+        .register::<canopi_types::failure::NetworkFailureKind>()
+        .register::<canopi_types::failure::OperationId>()
+        .register::<canopi_types::failure::PlantCatalogCause>()
+        .register::<canopi_types::failure::RedactedText>()
         .register::<canopi_types::health::PlantDbStatus>()
+        .register::<canopi_types::health::StoreHealth>()
+        .register::<canopi_types::health::StoreId>()
+        .register::<canopi_types::health::StoreNotice>()
+        .register::<canopi_types::health::StoreOpenStatus>()
         .register::<canopi_types::health::SubsystemHealth>()
         .register::<canopi_types::library::AnalysisInputBinding>()
         .register::<canopi_types::library::AnalysisJobState>()
@@ -87,6 +98,9 @@ pub(crate) fn contract_types() -> TypeCollection {
         .register::<canopi_types::lidar::LidarSampleTarget>()
         .register::<canopi_types::lidar::LidarSampleUnavailableReason>()
         .register::<canopi_types::location::GeoResult>()
+        .register::<canopi_types::report::ReportConsent>()
+        .register::<canopi_types::report::ReportSection>()
+        .register::<canopi_types::report::ReportSectionId>()
         .register::<canopi_types::saved_object_stamps::SavedObjectStamp>()
         .register::<canopi_types::views::RichTextBlock>()
         .register::<canopi_types::views::RichTextListItem>()
@@ -109,6 +123,7 @@ pub(crate) fn contract_types() -> TypeCollection {
         .register::<canopi_types::settings::Settings>()
         .register::<canopi_types::settings::Theme>()
         .register::<canopi_types::support::FrontendDiagnosticEntry>()
+        .register::<canopi_types::support::FrontendDiagnosticLevel>()
         .register::<canopi_types::support::ProblemReportRequest>()
         .register::<canopi_types::support::ProblemReportResult>()
         .register::<canopi_types::species::CommonNameEntry>()
@@ -134,6 +149,9 @@ pub(crate) fn contract_types() -> TypeCollection {
         .register::<canopi_types::update::UpdateProgress>()
 }
 
+/// The newtypes rendered as branded strings.
+const BRANDED_STRINGS: [&str; 2] = ["OperationId", "RedactedText"];
+
 pub(crate) fn render_typescript_contracts() -> Result<String, Box<dyn std::error::Error>> {
     let types = contract_types();
     let rendered = Typescript::default()
@@ -155,6 +173,24 @@ pub(crate) fn render_typescript_contracts() -> Result<String, Box<dyn std::error
         .collect::<Vec<_>>()
         .join("\n");
     normalized.push('\n');
+    // Opaque strings cross the seam as plain strings and are branded in TS
+    // (2.1-M420, 2.1-M424): only their owners mint them.
+    for brand in BRANDED_STRINGS {
+        let plain = format!("export type {brand} = string;\n");
+        if !normalized.contains(&plain) {
+            return Err(format!("{brand} is not rendered as a plain string to brand").into());
+        }
+        normalized = normalized.replace(
+            &plain,
+            &format!("export type {brand} = string & {{ readonly __brand: \"{brand}\" }};\n"),
+        );
+    }
+    // The problem report's sections (ADR 0025, 2.1-M421): the one TS builder
+    // reads the rows Rust declares.
+    normalized.push_str(&format!(
+        "\nexport const REPORT_SECTIONS: readonly ReportSection[] = {}\n",
+        serde_json::to_string_pretty(&canopi_types::report::REPORT_SECTIONS)?
+    ));
     // The sampler's caps: Rust refuses a request beyond either, so the
     // frontend batches by the same numbers.
     normalized.push_str(&format!(

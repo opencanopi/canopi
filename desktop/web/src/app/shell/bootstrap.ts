@@ -1,6 +1,6 @@
 import type { SubsystemHealth } from "../../types/health";
 import { initTheme } from "../../utils/theme";
-import { lidarLibraryStatus, localDataStatus, plantDbStatus } from "../health/state";
+import { applyHostHealth } from "../health/state";
 import type { SettingsPlatformAdapter } from "../settings/platform-adapter";
 import { installSettingsProjection } from "../settings/projection";
 
@@ -24,10 +24,7 @@ export function bootstrapShell(
 
   const healthReady = loadHealth()
     .then((health) => {
-      if (disposed) return;
-      plantDbStatus.value = health.plant_db;
-      lidarLibraryStatus.value = health.lidar_library;
-      localDataStatus.value = health.local_data;
+      if (!disposed) applyHostHealth(health);
     })
     .catch((error) => {
       if (!disposed) console.error("Failed to query health:", error);

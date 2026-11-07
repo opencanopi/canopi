@@ -2515,3 +2515,34 @@ function plantAt(position: { lon: number; lat: number }): CanopiFile['plants'][n
     quantity: 1,
   }
 }
+
+describe('browser tab close after a failed Draft write', () => {
+  it.fails('[1b-c7 canopi-f47t.52.39] WEB-03: closing the tab after a failed Draft write prompts', async () => {
+    const storage = memoryStorage()
+    const store = createDesignSessionStore()
+    const appDataStore = createBrowserAppDataStore({ storage })
+    const controller = createBrowserDesignSessionController({
+      store,
+      appDataStore,
+      fileAdapter: testFileAdapter(),
+      now: () => NOW,
+      createDraftId: () => 'draft-tab-close',
+    })
+    const page = testPage()
+    const uninstall = controller.installContinuousSave(page)
+    try {
+      await controller.newDesign()
+      editDesignSessionForTest(store, (design) => ({ ...design, description: 'not written' }))
+      storage.failWrites = true
+      page.window.dispatchEvent(new Event('pagehide'))
+      expect(appDataStore.loadDraft('draft-tab-close')?.description).not.toBe('not written')
+
+      // The edits live only in this tab: closing it asks first.
+      const close = new Event('beforeunload', { cancelable: true })
+      page.window.dispatchEvent(close)
+      expect(close.defaultPrevented).toBe(true)
+    } finally {
+      uninstall()
+    }
+  })
+})

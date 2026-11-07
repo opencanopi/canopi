@@ -22,7 +22,7 @@ function workspace(manifest) {
 }
 
 test('the repository workspace members are its crates', () => {
-  assert.deepEqual(workspaceMemberDirs(REPO), ['desktop', 'canopi-types', 'bindings-gen']);
+  assert.deepEqual(workspaceMemberDirs(REPO), ['desktop', 'canopi-types', 'canopi-redact', 'bindings-gen']);
 });
 
 test('members on several lines, with comments and a trailing comma, read in order', () => {

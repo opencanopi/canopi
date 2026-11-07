@@ -5,10 +5,12 @@
 pub mod analysis_registry;
 pub mod design;
 pub mod dialog;
+pub mod failure;
 pub mod health;
 pub mod library;
 pub mod lidar;
 pub mod location;
+pub mod report;
 pub mod saved_object_stamps;
 pub mod settings;
 pub mod species;

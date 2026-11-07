@@ -1,0 +1,16 @@
+id: text-match-on-native-error.rs
+valid:
+  - |
+    fn busy(code: &FailureCode) -> bool { matches!(code, FailureCode::Busy { .. }) }
+  - |
+    fn f(names: &[&str]) -> bool { names.contains(&"key") }
+  - |
+    #[cfg(test)]
+    mod tests {
+        fn t(message: &str) { assert!(message.contains("busy")); }
+    }
+invalid:
+  - |
+    fn busy(message: &str) -> bool { message.ends_with("operations are busy; try again") }
+  - |
+    fn cancelled(error: &str) -> bool { error.contains("cancelled") }

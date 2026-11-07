@@ -1,7 +1,7 @@
 import { invoke } from '@tauri-apps/api/core'
 import type { SubsystemHealth } from '../types/health'
 
-/** The plant database, LiDAR library and local data status the host reports at start. */
+/** Each store's open status the host reports at start, keyed by store id. */
 export async function getHealth(): Promise<SubsystemHealth> {
   return invoke('get_health')
 }

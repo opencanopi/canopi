@@ -7,7 +7,6 @@ import type {
   LibraryItemType,
   LibrarySnapshot,
   LidarColourRange,
-  LidarLibraryStatus,
   LidarPresentationEntry,
   LidarRamp,
   LidarResultState,
@@ -16,6 +15,7 @@ import { lidarListLibrary } from '../../ipc/lidar'
 import { derivedItemName } from '../analyses/registry'
 import { currentDesign } from '../document-session/store'
 import { lidarLibraryStatus } from '../health/state'
+import type { LidarLibraryStatus } from '../../types/health'
 import { lidarFailureMessage } from './lidar-failures'
 import { referenceDrawOrder } from './reference-tree'
 

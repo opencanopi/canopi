@@ -1,0 +1,119 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "no-user-content-in-message",
+  "ledger": "2.1-M224",
+  "tool": "ast-grep",
+  "scope": [
+    "desktop/src/**",
+    "canopi-types/src/**",
+    "canopi-redact/src/**"
+  ],
+  "lane": "commit",
+  "keys": "path",
+  "select": [
+    "no-user-content-in-message"
+  ],
+  "entries": {
+    "desktop/src/db/mod.rs": {
+      "count": 2,
+      "bead": "canopi-f47t.52.224"
+    },
+    "desktop/src/design/format.rs": {
+      "count": 3,
+      "bead": "canopi-f47t.52.224"
+    },
+    "desktop/src/design/mod.rs": {
+      "count": 2,
+      "bead": "canopi-f47t.52.224"
+    },
+    "desktop/src/host/mod.rs": {
+      "count": 1,
+      "bead": "canopi-f47t.52.224"
+    },
+    "desktop/src/host/updater/launch.rs": {
+      "count": 1,
+      "bead": "canopi-f47t.52.224"
+    },
+    "desktop/src/host/updater/launch/nsis_round_trip.rs": {
+      "count": 1,
+      "bead": "canopi-f47t.52.224"
+    },
+    "desktop/src/lib.rs": {
+      "count": 2,
+      "bead": "canopi-f47t.52.224"
+    },
+    "desktop/src/services/lidar/catalogue.rs": {
+      "count": 3,
+      "bead": "canopi-f47t.52.61"
+    },
+    "desktop/src/services/lidar/display_cog.rs": {
+      "count": 1,
+      "bead": "canopi-f47t.52.61"
+    },
+    "desktop/src/services/lidar/generation.rs": {
+      "count": 1,
+      "bead": "canopi-f47t.52.61"
+    },
+    "desktop/src/services/lidar/geolibre.rs": {
+      "count": 1,
+      "bead": "canopi-f47t.52.61"
+    },
+    "desktop/src/services/lidar/import.rs": {
+      "count": 9,
+      "bead": "canopi-f47t.52.61"
+    },
+    "desktop/src/services/lidar/mod.rs": {
+      "count": 9,
+      "bead": "canopi-f47t.52.61"
+    },
+    "desktop/src/services/lidar/paths.rs": {
+      "count": 1,
+      "bead": "canopi-f47t.52.61"
+    },
+    "desktop/src/services/lidar/prepared_raster.rs": {
+      "count": 2,
+      "bead": "canopi-f47t.52.61"
+    },
+    "desktop/src/services/lidar/process.rs": {
+      "count": 4,
+      "bead": "canopi-f47t.52.61"
+    },
+    "desktop/src/services/lidar/raster_assets.rs": {
+      "count": 2,
+      "bead": "canopi-f47t.52.61"
+    },
+    "desktop/src/services/lidar/recovery.rs": {
+      "count": 3,
+      "bead": "canopi-f47t.52.61"
+    },
+    "desktop/src/services/lidar/rust_engine/cog.rs": {
+      "count": 1,
+      "bead": "canopi-f47t.52.61"
+    },
+    "desktop/src/services/lidar/rust_engine/mod.rs": {
+      "count": 2,
+      "bead": "canopi-f47t.52.61"
+    },
+    "desktop/src/services/lidar/rust_engine/source.rs": {
+      "count": 1,
+      "bead": "canopi-f47t.52.61"
+    },
+    "desktop/src/services/lidar/rust_engine/tiff.rs": {
+      "count": 8,
+      "bead": "canopi-f47t.52.61"
+    },
+    "desktop/src/services/lidar/source_meta.rs": {
+      "count": 2,
+      "bead": "canopi-f47t.52.61"
+    },
+    "desktop/src/services/problem_report/folder_reveal.rs": {
+      "count": 4,
+      "bead": "canopi-f47t.52.224"
+    },
+    "desktop/src/services/problem_report/mod.rs": {
+      "count": 3,
+      "bead": "canopi-f47t.52.224"
+    }
+  }
+}

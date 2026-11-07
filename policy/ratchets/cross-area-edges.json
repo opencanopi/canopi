@@ -798,6 +798,9 @@
     "canopi-desktop -> canopi-types": {
       "count": 1
     },
+    "canopi-types -> canopi-redact": {
+      "count": 1
+    },
     "canvas -> generated": {
       "count": 1
     },

@@ -1,0 +1,58 @@
+# text-match-on-native-error (2.1-M427, design check A21), Rust half: a contains, starts_with, ends_with or find with
+# a string literal on an error or message value (today the updater's executor busy line, until N0's OpSpec answers
+# with a typed refusal). Inline test code is no site; the ignores are the out-of-line test modules and generated files.
+id: text-match-on-native-error.rs
+language: rs
+severity: error
+message: "text-match-on-native-error (2.1-M427): a native or IPC failure is read by its typed code, never by matching its English text (a substring, prefix or regex over an error message, or an equality with English text); today's sites go as their commands return catalogue failures (1a, 1b, N1, N2). Owner none; example desktop/web/src/app/updates/state.ts"
+files:
+  - "desktop/src/**/*.rs"
+  - "canopi-types/src/**/*.rs"
+  - "policy/fixtures/rules/*/desktop/src/**/*.rs"
+ignores:
+  - "desktop/src/commands/design/tests.rs"
+  - "desktop/src/db/test_support.rs"
+  - "desktop/src/db/plant_filter_fields.rs"
+  - "desktop/src/db/schema_contract_generated.rs"
+  - "desktop/src/design/new_design_defaults.rs"
+  - "desktop/src/host/dialogs/tests.rs"
+  - "desktop/src/ci_lane_policy.rs"
+  - "desktop/src/module_layering.rs"
+  - "desktop/src/module_layering/**"
+  - "desktop/src/native_command_policy.rs"
+  - "desktop/src/test_scratch.rs"
+  - "desktop/src/module_layering/tests.rs"
+  - "desktop/src/services/lidar/analyses/tests/**"
+  - "desktop/src/services/lidar/analysis_registry_generated.rs"
+  - "desktop/src/services/lidar/acceptance_hooks.rs"
+  - "desktop/src/services/lidar/e2e.rs"
+  - "desktop/src/services/lidar/gdal_engine.rs"
+  - "desktop/src/services/lidar/measurement.rs"
+  - "desktop/src/services/lidar/fixed_library_tests.rs"
+  - "desktop/src/services/lidar/rust_engine/crs/properties.rs"
+  - "desktop/src/services/lidar/rust_engine/comparison.rs"
+  - "desktop/src/services/lidar/rust_engine/crs_reference_points.rs"
+  - "desktop/src/services/species_catalog_read/test_support.rs"
+  - "canopi-types/src/design/tests.rs"
+  - "canopi-types/src/views/tests.rs"
+  - "bindings-gen/src/plan_support.rs"
+rule:
+  all:
+    - kind: call_expression
+      has:
+        field: function
+        kind: field_expression
+        all:
+          - has: { field: field, regex: '^(contains|starts_with|ends_with|find)$' }
+          - has: { field: value, regex: '^(message|msg|error|err|reason|e)$|(error|err|e)\.to_string\(\)$' }
+    - has: { field: arguments, has: { kind: string_literal } }
+    - not: { matches: test-code }
+utils:
+  # Inline test code: an item (a `mod tests`, a test fn, a cfg(test) helper) whose attributes name test.
+  test-code:
+    inside:
+      stopBy: end
+      follows:
+        kind: attribute_item
+        regex: '^#\[(cfg\((test|all\(test\b)|test\]|tokio::test)'
+        stopBy: { not: { any: [ { kind: attribute_item }, { kind: line_comment }, { kind: block_comment } ] } }

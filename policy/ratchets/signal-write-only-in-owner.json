@@ -43,9 +43,6 @@
     "desktop/web/src/app/settings/projection.ts": {
       "count": 3
     },
-    "desktop/web/src/app/shell/bootstrap.ts": {
-      "count": 3
-    },
     "desktop/web/src/app/shell/state.ts": {
       "count": 1
     },

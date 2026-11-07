@@ -122,7 +122,6 @@ fn create_unique_report_folder(root: &Path, folder_name: &str) -> Result<PathBuf
 mod tests {
     use crate::services::folder_reveal::recording::{RecordingRevealer, Shown};
     use crate::test_scratch::TestScratch;
-    use canopi_types::health::{LidarLibraryStatus, PlantDbStatus, SubsystemHealth};
     use canopi_types::settings::Settings;
     use canopi_types::support::{
         FrontendDiagnosticEntry, ProblemReportRequest, ProblemReportSensitiveAttachments,
@@ -180,11 +179,7 @@ mod tests {
                     ..Settings::default()
                 }),
                 settings_error: None,
-                health: SubsystemHealth {
-                    plant_db: PlantDbStatus::Available,
-                    lidar_library: LidarLibraryStatus::Ready,
-                    local_data: canopi_types::health::LocalDataStatus::Current,
-                },
+                health: crate::services::health::all_ready(),
             },
         )
         .unwrap();
@@ -256,11 +251,7 @@ mod tests {
                 webview_version: None,
                 settings: Some(Settings::default()),
                 settings_error: None,
-                health: SubsystemHealth {
-                    plant_db: PlantDbStatus::Available,
-                    lidar_library: LidarLibraryStatus::Ready,
-                    local_data: canopi_types::health::LocalDataStatus::Current,
-                },
+                health: crate::services::health::all_ready(),
             },
         )
         .unwrap();
@@ -298,12 +289,44 @@ mod tests {
             webview_version: None,
             settings: Some(Settings::default()),
             settings_error: None,
-            health: SubsystemHealth {
-                plant_db: PlantDbStatus::Available,
-                lidar_library: LidarLibraryStatus::Ready,
-                local_data: canopi_types::health::LocalDataStatus::Current,
-            },
+            health: crate::services::health::all_ready(),
         }
+    }
+
+    /// ADR 0025's report sections and their zip entries (canopi-types REPORT_SECTIONS, 2.1-M421),
+    /// the current-design attachment left out: it needs consent.
+    const SECTION_FILES: [&str; 11] = [
+        "failure.json",
+        "description.txt",
+        "build.json",
+        "health.json",
+        "queues.json",
+        "native-failures.json",
+        "app-failures.json",
+        "jobs.json",
+        "library.json",
+        "log-tail.txt",
+        "settings.json",
+    ];
+
+    #[test]
+    #[ignore = "expected-fail 1a-c6 canopi-f47t.52.37"]
+    fn problem_report_always_carries_every_section() {
+        let temp = TempProblemReportDir::new("every-section");
+        // No log folder and no settings: a section with nothing to say still has its entry.
+        let mut context = minimal_context(temp.root.join("Reports"), None);
+        context.settings = None;
+        let result = super::create_problem_report(&request("Nothing happened"), context).unwrap();
+        let bundle = std::fs::read(&result.bundle_path).unwrap();
+        let bundle_text = String::from_utf8_lossy(&bundle);
+        let missing: Vec<_> = SECTION_FILES
+            .iter()
+            .filter(|file| !bundle_text.contains(*file))
+            .collect();
+        assert!(
+            missing.is_empty(),
+            "the report has no entry for {missing:?}"
+        );
     }
 
     fn request(description: &str) -> ProblemReportRequest {

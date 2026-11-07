@@ -52,7 +52,6 @@
     "desktop/web/src/__tests__/lidar-analysis-groups.test.ts": {},
     "desktop/web/src/__tests__/lidar-reference-tree.test.ts": {},
     "desktop/web/src/__tests__/map-error-owner.test.ts": {},
-    "desktop/web/src/__tests__/map-error-redaction.test.ts": {},
     "desktop/web/src/__tests__/maplibre-config.test.ts": {},
     "desktop/web/src/__tests__/maplibre-loader.test.ts": {},
     "desktop/web/src/__tests__/maplibre-surface-state.test.ts": {},
