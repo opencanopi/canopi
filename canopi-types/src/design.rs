@@ -363,6 +363,33 @@ pub fn canopi_file_json_schema() -> serde_json::Value {
         .expect("CanopiFile JSON Schema should serialize")
 }
 
+/// The JSON Schema keywords the generated `CanopiFile` schema may use: the Web decoder and
+/// the native admission walker interpret exactly these, and bindings-gen refuses any other.
+#[cfg(feature = "design-schema")]
+pub const CANOPI_SCHEMA_KEYWORDS: &[&str] = &[
+    "$defs",
+    "$ref",
+    "$schema",
+    "additionalProperties",
+    "anyOf",
+    "const",
+    "default",
+    "enum",
+    "format",
+    "items",
+    "maximum",
+    "minimum",
+    "oneOf",
+    "properties",
+    "required",
+    "title",
+    "type",
+];
+
+/// The number formats the generated `CanopiFile` schema may use, with the keywords above.
+#[cfg(feature = "design-schema")]
+pub const CANOPI_SCHEMA_FORMATS: &[&str] = &["double", "float", "int32", "uint32"];
+
 #[cfg_attr(feature = "design-schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 #[expect(
