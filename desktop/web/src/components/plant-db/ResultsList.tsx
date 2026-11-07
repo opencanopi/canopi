@@ -9,7 +9,7 @@ import {
 } from '@tanstack/virtual-core'
 import { t } from '../../i18n'
 import { speciesCatalogWorkbench } from '../../app/plant-browser'
-import { plantDbStatus } from '../../app/health/state'
+import { plantCatalogCause } from '../../failures/health'
 import { EmptyState } from '../shared/EmptyState'
 import { PanelIcon } from '../shared/PanelIcon'
 import type { CatalogDesignSpecies } from './design-species'
@@ -123,13 +123,13 @@ export function ResultsList({ id, designSpecies, englishNames, highlight, footer
     )
   }
 
-  const dbStatus = plantDbStatus.value
-  if (error !== null && results.length === 0 && dbStatus !== 'available') {
+  const cause = plantCatalogCause()
+  if (error !== null && results.length === 0 && cause !== null) {
     // Search short-circuits without the database file; say why, as the notice does, instead of the internal error.
     return (
       <div className={styles.listContainer}>
         <div className={styles.listError} role="alert">
-          <span>{t(dbStatus === 'corrupt' ? 'health.plantDbCorrupt' : 'health.plantDbMissing')}</span>
+          <span>{t(cause === 'open_failed' ? 'health.plantDbCorrupt' : 'health.plantDbMissing')}</span>
         </div>
       </div>
     )

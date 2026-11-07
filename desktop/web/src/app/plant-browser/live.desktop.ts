@@ -8,7 +8,8 @@ import {
   supersedeSpeciesSearch,
 } from '../../ipc/species'
 import { plantDbUnavailableMessage } from '../../ipc/plant-db-errors'
-import { plantDbStatus } from '../health/state'
+import type { PlantCatalogCause } from '../../generated/contracts'
+import { plantCatalogCause } from '../../failures/health'
 import {
   createSpeciesCatalogWorkbench,
   type SpeciesCatalogWorkbench,
@@ -17,13 +18,17 @@ import {
 /**
  * The plant DB health gate. With the bundled DB missing or corrupt no catalog
  * query crosses IPC: a search fails with the reason the panel shows, a lookup
- * answers empty. The transport (`ipc/species.ts`) knows nothing of app state.
+ * answers empty. The status is the one health model's (canopi-f47t.52.142):
+ * while the catalog is still opening queries go through, and only a known
+ * cause short-circuits them. The transport (`ipc/species.ts`) knows nothing of
+ * app state.
  */
-function whenPlantDbAvailable<T>(fallback: () => Promise<T>, query: () => Promise<T>): Promise<T> {
-  return plantDbStatus.value === 'available' ? query() : fallback()
+function whenPlantDbAvailable<T>(fallback: (cause: PlantCatalogCause) => Promise<T>, query: () => Promise<T>): Promise<T> {
+  const cause = plantCatalogCause()
+  return cause === null ? query() : fallback(cause)
 }
 const empty = <T>(value: T) => () => Promise.resolve(value)
-const unavailable = () => Promise.reject(new Error(plantDbUnavailableMessage(plantDbStatus.value)))
+const unavailable = (cause: PlantCatalogCause) => Promise.reject(new Error(plantDbUnavailableMessage(cause)))
 
 const liveSpeciesCatalogWorkbench = createSpeciesCatalogWorkbench({
   search: (request) => whenPlantDbAvailable(unavailable, () => searchSpecies(request)),

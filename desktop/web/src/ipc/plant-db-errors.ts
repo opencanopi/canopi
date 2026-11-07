@@ -1,9 +1,9 @@
-import type { PlantDbStatus } from '../types/health';
+import type { PlantCatalogCause } from '../generated/contracts';
 
 const PLANT_DB_UNAVAILABLE_PREFIX = 'Plant database unavailable';
 
-export function plantDbUnavailableMessage(status: PlantDbStatus): string {
-  if (status === 'corrupt') {
+export function plantDbUnavailableMessage(cause: PlantCatalogCause): string {
+  if (cause === 'open_failed') {
     return 'Plant database unavailable: bundled plant database is corrupt';
   }
   return 'Plant database unavailable: bundled plant database is missing';
