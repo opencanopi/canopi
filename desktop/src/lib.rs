@@ -14,6 +14,7 @@ pub mod host;
 mod http;
 mod image_cache;
 mod logging;
+pub use logging::install_panic_hook;
 #[cfg(test)]
 mod module_layering;
 #[cfg(test)]
@@ -148,10 +149,8 @@ pub fn run() {
             commands::lidar::lidar_layer_collection,
         ])
         .setup(|app| {
-            // Logging
-            let log_dir = app.path().app_log_dir()?;
-            std::fs::create_dir_all(&log_dir)?;
-            logging::init(&log_dir);
+            // Logging: a log folder that cannot be opened logs to stderr, never stops startup.
+            logging::init(app.path().app_log_dir().ok().as_deref());
             tracing::info!("Canopi starting");
             build_main_window(app.handle())?;
 
