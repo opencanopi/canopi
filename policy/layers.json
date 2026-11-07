@@ -88,6 +88,15 @@
    "area": "failures"
   },
   {
+   "path": "failures/health.ts",
+   "layer": "L1",
+   "rank": 1,
+   "phase": "1",
+   "edition": "both",
+   "area": "failures",
+   "owner": "store health"
+  },
+  {
    "path": "ipc/",
    "layer": "L1",
    "rank": 2,

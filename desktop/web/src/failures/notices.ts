@@ -21,6 +21,8 @@ export interface NoticeSpec {
   readonly tone?: 'info' | 'warning' | 'error'
   /** One action beside Dismiss (Update, Reload, Try again); running it does not dismiss the notice. */
   readonly action?: { readonly label: LocaleKey; run(): void }
+  /** A second action after `action` (Report a problem beside Try again, 2.1-Q295); drawn only with `action`. */
+  readonly secondaryAction?: { readonly label: LocaleKey; run(): void }
   /**
    * A status its raiser withdraws once it no longer holds (a window close waiting for an update): the row draws no
    * Dismiss, since nothing would raise it again meanwhile.

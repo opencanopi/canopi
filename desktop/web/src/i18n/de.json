@@ -109,11 +109,28 @@
     "codesHint": "Kürzel kennzeichnen Arten, die schon in diesem Design sind."
   },
   "health": {
+    "dismiss": "Schließen",
     "plantDbMissing": "Die Datenbankdatei des Pflanzenkatalogs fehlt, daher sind Pflanzensuche und Pflanzendetails nicht verfügbar. Ihre Designs sind sicher. Installieren Sie Canopi neu, um sie wiederherzustellen.",
     "plantDbCorrupt": "Die Datenbankdatei des Pflanzenkatalogs ist beschädigt, daher sind Pflanzensuche und Pflanzendetails nicht verfügbar. Ihre Designs sind sicher. Installieren Sie Canopi neu, um sie wiederherzustellen.",
     "localDataNotOpenedTitle": "Frühere Daten nicht geöffnet",
     "localDataNotOpened": "Canopi 2.0 kann von früheren Versionen gespeicherte Daten nicht öffnen. Sie blieben unverändert, und Canopi hat neu begonnen.",
-    "dismiss": "Schließen"
+    "settingsUnavailable": "Ihre Einstellungen konnten nicht gelesen werden. Canopi verwendet die Standardwerte und ändert Ihre gespeicherten Einstellungen in dieser Sitzung nicht.",
+    "setAside": {
+      "userDb": "Die gespeicherten Daten von Canopi waren beschädigt und wurden als {{file}} beiseitegelegt. Ihre Designs sind nicht betroffen.",
+      "webDrafts": "Die gespeicherten Skizzen von Canopi waren beschädigt und wurden als {{file}} beiseitegelegt. Als Dateien exportierte Designs sind nicht betroffen.",
+      "webSpeciesLists": "Die gespeicherten Favoriten und zuletzt angesehenen Pflanzen von Canopi waren beschädigt und wurden als {{file}} beiseitegelegt. Ihre Designs sind nicht betroffen."
+    },
+    "writesRefused": {
+      "webDrafts": "Die gespeicherten Skizzen von Canopi sind beschädigt und konnten nicht beiseitegelegt werden, daher werden Änderungen an Skizzen in dieser Sitzung nicht gespeichert. Exportieren Sie Ihr Design, um es zu behalten.",
+      "webSpeciesLists": "Die gespeicherten Favoriten und zuletzt angesehenen Pflanzen von Canopi sind beschädigt und konnten nicht beiseitegelegt werden, daher werden Änderungen daran in dieser Sitzung nicht gespeichert."
+    },
+    "newerReadOnly": "Diese Daten wurden von einer neueren Canopi-Version gespeichert. Sie können sie ansehen, aber Änderungen werden nicht gespeichert. Aktualisieren Sie Canopi, um sie zu bearbeiten.",
+    "refusedNewer": "Diese Daten wurden von einer neueren Canopi-Version gespeichert und nicht geöffnet. Aktualisieren Sie Canopi, um sie zu verwenden.",
+    "storeUnavailable": "Einige gespeicherte Daten von Canopi konnten nicht geöffnet werden. Starten Sie Canopi neu und melden Sie ein Problem, wenn das weiterhin passiert.",
+    "fieldsReset": "Einige Einstellungen hatten Werte, die Canopi nicht verwenden konnte, und wurden auf ihre Standardwerte zurückgesetzt.",
+    "writeFailed": "Canopi konnte eine Änderung an seinen gespeicherten Daten nicht speichern. Versuchen Sie es erneut und melden Sie ein Problem, wenn das weiterhin passiert.",
+    "libraryListStale": "Die Liste der Datenbibliothek konnte nicht aktualisiert werden",
+    "update": "Aktualisieren"
   },
   "canvas": {
     "lockToast": {
@@ -611,7 +628,8 @@
         "sortRecent": "Zuletzt hinzugefügt",
         "factAdded": "Hinzugefügt",
         "deletedItem": "Gelöschtes Element",
-        "importNeedsDesign": "Öffnen Sie ein Design, um Daten zu importieren"
+        "importNeedsDesign": "Öffnen Sie ein Design, um Daten zu importieren",
+        "importCancelled": "Import abgebrochen"
       },
       "layers": {
         "emptyTitle": "Noch keine Standortdaten",

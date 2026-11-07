@@ -109,11 +109,28 @@
     "codesHint": "Os códigos marcam as espécies que já estão neste design."
   },
   "health": {
+    "dismiss": "Fechar",
     "plantDbMissing": "O arquivo de banco de dados do catálogo de plantas está ausente, por isso a pesquisa e os detalhes das plantas estão indisponíveis. Seus designs estão seguros. Reinstale o Canopi para restaurá-lo.",
     "plantDbCorrupt": "O arquivo de banco de dados do catálogo de plantas está danificado, por isso a pesquisa e os detalhes das plantas estão indisponíveis. Seus designs estão seguros. Reinstale o Canopi para restaurá-lo.",
     "localDataNotOpenedTitle": "Dados anteriores não abertos",
     "localDataNotOpened": "O Canopi 2.0 não consegue abrir dados salvos por versões anteriores. Eles ficaram inalterados, e o Canopi começou do zero.",
-    "dismiss": "Fechar"
+    "settingsUnavailable": "Não foi possível ler as suas definições. O Canopi está a usar os valores predefinidos e não vai alterar as definições guardadas nesta sessão.",
+    "setAside": {
+      "userDb": "Os dados guardados do Canopi estavam danificados e foram postos de parte como {{file}}. Os seus designs não foram afetados.",
+      "webDrafts": "Os rascunhos guardados do Canopi estavam danificados e foram postos de parte como {{file}}. Os designs que exportou como ficheiros não foram afetados.",
+      "webSpeciesLists": "Os favoritos e as plantas vistas recentemente que o Canopi guardou estavam danificados e foram postos de parte como {{file}}. Os seus designs não foram afetados."
+    },
+    "writesRefused": {
+      "webDrafts": "Os rascunhos guardados do Canopi estão danificados e não foi possível pô-los de parte, por isso as alterações aos rascunhos não serão guardadas nesta sessão. Exporte o seu design para o manter.",
+      "webSpeciesLists": "Os favoritos e as plantas vistas recentemente que o Canopi guardou estão danificados e não foi possível pô-los de parte, por isso as alterações não serão guardadas nesta sessão."
+    },
+    "newerReadOnly": "Estes dados foram guardados por uma versão mais recente do Canopi. Pode vê-los, mas as alterações não serão guardadas. Atualize o Canopi para os editar.",
+    "refusedNewer": "Estes dados foram guardados por uma versão mais recente do Canopi e não foram abertos. Atualize o Canopi para os usar.",
+    "storeUnavailable": "Não foi possível abrir alguns dados guardados do Canopi. Reinicie o Canopi e relate um problema se isto continuar a acontecer.",
+    "fieldsReset": "Algumas definições tinham valores que o Canopi não podia usar e foram repostas nos valores predefinidos.",
+    "writeFailed": "O Canopi não conseguiu guardar uma alteração aos seus dados. Tente novamente e relate um problema se isto continuar a acontecer.",
+    "libraryListStale": "Não foi possível atualizar a lista da Biblioteca de dados",
+    "update": "Atualizar"
   },
   "canvas": {
     "lockToast": {
@@ -611,7 +628,8 @@
         "sortRecent": "Adicionados recentemente",
         "factAdded": "Adicionado",
         "deletedItem": "Item excluído",
-        "importNeedsDesign": "Abra um design para importar dados"
+        "importNeedsDesign": "Abra um design para importar dados",
+        "importCancelled": "Importação cancelada"
       },
       "layers": {
         "emptyTitle": "Ainda não há dados do local",

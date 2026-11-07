@@ -109,11 +109,28 @@
     "codesHint": "代码标记此设计中已有的物种。"
   },
   "health": {
+    "dismiss": "关闭",
     "plantDbMissing": "植物目录的数据库文件缺失，因此无法搜索和查看植物详情。您的设计不受影响。请重新安装 Canopi 以恢复该文件。",
     "plantDbCorrupt": "植物目录的数据库文件已损坏，因此无法搜索和查看植物详情。您的设计不受影响。请重新安装 Canopi 以恢复该文件。",
     "localDataNotOpenedTitle": "未打开旧数据",
     "localDataNotOpened": "Canopi 2.0 无法打开旧版本保存的数据。这些数据保持不变，Canopi 已重新开始。",
-    "dismiss": "关闭"
+    "settingsUnavailable": "无法读取您的设置。Canopi 正在使用默认设置，本次会话不会更改您已保存的设置。",
+    "setAside": {
+      "userDb": "Canopi 保存的数据已损坏，已另存为 {{file}}。您的设计不受影响。",
+      "webDrafts": "Canopi 保存的草稿已损坏，已另存为 {{file}}。已导出为文件的设计不受影响。",
+      "webSpeciesLists": "Canopi 保存的收藏和最近查看的植物已损坏，已另存为 {{file}}。您的设计不受影响。"
+    },
+    "writesRefused": {
+      "webDrafts": "Canopi 保存的草稿已损坏且无法另存，因此本次会话中对草稿的更改不会被保存。请导出您的设计以保留它。",
+      "webSpeciesLists": "Canopi 保存的收藏和最近查看的植物已损坏且无法另存，因此本次会话中对它们的更改不会被保存。"
+    },
+    "newerReadOnly": "这些数据由更新版本的 Canopi 保存。您可以查看，但更改不会被保存。请更新 Canopi 以进行编辑。",
+    "refusedNewer": "这些数据由更新版本的 Canopi 保存，未被打开。请更新 Canopi 以使用它们。",
+    "storeUnavailable": "无法打开 Canopi 保存的部分数据。请重新启动 Canopi，如果问题仍然存在，请报告问题。",
+    "fieldsReset": "部分设置的值 Canopi 无法使用，已重置为默认值。",
+    "writeFailed": "Canopi 无法保存对其数据的更改。请重试，如果问题仍然存在，请报告问题。",
+    "libraryListStale": "无法刷新数据资料库列表",
+    "update": "更新"
   },
   "canvas": {
     "lockToast": {
@@ -611,7 +628,8 @@
         "sortRecent": "最近添加",
         "factAdded": "添加时间",
         "deletedItem": "已删除的项目",
-        "importNeedsDesign": "打开一个设计以导入数据"
+        "importNeedsDesign": "打开一个设计以导入数据",
+        "importCancelled": "已取消导入"
       },
       "layers": {
         "emptyTitle": "暂无场地数据",

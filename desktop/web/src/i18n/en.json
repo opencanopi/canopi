@@ -109,11 +109,28 @@
     "codesHint": "Codes appear on species already in this Design."
   },
   "health": {
+    "dismiss": "Dismiss",
     "plantDbMissing": "The plant catalog's database file is missing, so plant search and details are unavailable. Your Designs are safe. Reinstall Canopi to restore it.",
     "plantDbCorrupt": "The plant catalog's database file is damaged, so plant search and details are unavailable. Your Designs are safe. Reinstall Canopi to restore it.",
     "localDataNotOpenedTitle": "Earlier data not opened",
     "localDataNotOpened": "Canopi 2.0 can’t open data saved by earlier versions. It was left unchanged, and Canopi started fresh.",
-    "dismiss": "Dismiss"
+    "settingsUnavailable": "Your settings couldn’t be read. Canopi is using defaults and won’t change your saved settings this session.",
+    "setAside": {
+      "userDb": "Canopi’s saved data was damaged and has been set aside as {{file}}. Your Designs are not affected.",
+      "webDrafts": "Canopi’s saved Drafts were damaged and have been set aside as {{file}}. Designs you exported as files are not affected.",
+      "webSpeciesLists": "Canopi’s saved favorites and recently viewed plants were damaged and have been set aside as {{file}}. Your Designs are not affected."
+    },
+    "writesRefused": {
+      "webDrafts": "Canopi’s saved Drafts are damaged and couldn’t be set aside, so changes to Drafts won’t be saved this session. Export your Design to keep it.",
+      "webSpeciesLists": "Canopi’s saved favorites and recently viewed plants are damaged and couldn’t be set aside, so changes to them won’t be saved this session."
+    },
+    "newerReadOnly": "This data was saved by a newer Canopi. You can view it, but changes won’t be saved. Update Canopi to edit.",
+    "refusedNewer": "This data was saved by a newer Canopi and wasn’t opened. Update Canopi to use it.",
+    "storeUnavailable": "Some of Canopi’s saved data couldn’t be opened. Restart Canopi, and report a problem if this keeps happening.",
+    "fieldsReset": "Some settings had values Canopi couldn’t use and were reset to their defaults.",
+    "writeFailed": "Canopi couldn’t save a change to its saved data. Try again, and report a problem if this keeps happening.",
+    "libraryListStale": "The Data library list couldn’t be refreshed",
+    "update": "Update"
   },
   "canvas": {
     "lockToast": {
@@ -611,7 +628,8 @@
         "sortRecent": "Recently added",
         "factAdded": "Added",
         "deletedItem": "Deleted item",
-        "importNeedsDesign": "Open a Design to import data"
+        "importNeedsDesign": "Open a Design to import data",
+        "importCancelled": "Import cancelled"
       },
       "layers": {
         "emptyTitle": "No site data yet",
