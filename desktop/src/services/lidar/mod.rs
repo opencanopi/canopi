@@ -1246,14 +1246,12 @@ impl LidarLibrary {
         }
     }
 
-    pub(crate) fn set_cancel_flag(&self, job_id: &str) {
-        // The running job observes the flag between steps and kills its
-        // engine processes.
-        if let Ok(flags) = self.inner.cancel_flags.lock()
-            && let Some(flag) = flags.get(job_id)
-        {
-            flag.store(true, Ordering::Relaxed);
-        }
+    /// Flag a job to stop; true when it was flagged already. The running job
+    /// observes the flag between steps and kills its engine processes.
+    pub(crate) fn set_cancel_flag(&self, job_id: &str) -> bool {
+        let flags = self.inner.cancel_flags.lock();
+        let flag = flags.as_ref().ok().and_then(|flags| flags.get(job_id));
+        flag.is_some_and(|flag| flag.swap(true, Ordering::Relaxed))
     }
 
     fn mark_job_cancelled(&self, job_id: &str) {
@@ -1697,13 +1695,12 @@ impl LidarLibrary {
 
     /// Record the outcome of a one-step import.
     ///
-    /// Import publishes a new fixed item; it never touches another item or
-    /// enqueues analysis.
+    /// Import publishes a new fixed item; it never touches another item or enqueues
+    /// analysis. A job cancelled before it stopped is withdrawn, whatever error it stopped with.
     fn finish_import_sources(&self, job_id: &str, outcome: Result<(), String>) {
-        // From here the job only settles: flagged, it is waited for by
-        // Import, Retry and Dismiss (`await_stopping_jobs`) rather than
-        // refusing them once its item reads Failed or published.
-        self.set_cancel_flag(job_id);
+        // From here the job only settles: flagged, Import, Retry and Dismiss wait for
+        // it (`await_stopping_jobs`) instead of refusing once its item reads Failed or published.
+        let cancelled = self.set_cancel_flag(job_id);
         if let Ok(connection) = self.catalogue() {
             match outcome {
                 Ok(()) => {
@@ -1728,7 +1725,7 @@ impl LidarLibrary {
                     // must describe.
                     self.refresh_source_meta();
                 }
-                Err(error) if error == "cancelled" => {
+                Err(_) if cancelled => {
                     // Cancel withdraws the import; a job that stopped before
                     // the cancel's own withdrawal ran withdraws it here.
                     drop(connection);
