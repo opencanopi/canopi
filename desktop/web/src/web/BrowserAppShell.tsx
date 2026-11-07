@@ -198,7 +198,7 @@ export function BrowserAppShell({
           queue (failures/notices.ts, 2.1-Q290) shows once neither waits, until the shell notice folds into it. */}
       {notice
         ? <ShellNotice notice={notice} top={noticeTop} />
-        : release ? <ReleaseNotice release={release} designOpen={designIdentity !== null} top={noticeTop} /> : <NoticeRow />}
+        : release ? <ReleaseNotice release={release} designOpen={designIdentity !== null} top={noticeTop} /> : <NoticeRow belowTitleBar={{ top: noticeTop }} />}
     </div>
   );
 }

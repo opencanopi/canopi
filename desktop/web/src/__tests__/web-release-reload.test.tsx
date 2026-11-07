@@ -492,4 +492,34 @@ describe('the New version: Reload notice in the shell row (2.1-Q83, Q187, M179)'
     await act(async () => { row()!.querySelector<HTMLButtonElement>(`[aria-label="${t('webShell.dismissNotice')}"]`)!.click() })
     expect(container.querySelector('[data-notice-row]')?.textContent).toContain(t('failure.busy'))
   })
+
+  it('[canopi-f47t.52.36] the one notice row in the Web shell sits below the title bar like the shell\'s other notices, clear of the phone sheet', async () => {
+    const observers: { callback: () => void, targets: Element[] }[] = []
+    vi.stubGlobal('ResizeObserver', class {
+      private readonly entry: { callback: () => void, targets: Element[] }
+      constructor(callback: () => void) {
+        this.entry = { callback, targets: [] }
+        observers.push(this.entry)
+      }
+      observe(target: Element) { this.entry.targets.push(target) }
+      disconnect() { this.entry.targets.length = 0 }
+    })
+    try {
+      await act(async () => { render(<Shell release={null} />, container) })
+      const bar = container.querySelector<HTMLElement>('[data-workspace-title-bar]')!
+      Object.defineProperty(bar, 'offsetTop', { configurable: true, value: 8 })
+      Object.defineProperty(bar, 'offsetHeight', { configurable: true, value: 44 })
+      await act(async () => {
+        for (const observer of observers) if (observer.targets.includes(bar)) observer.callback()
+      })
+      const host = container.querySelector<HTMLElement>('[data-testid="browser-app-shell"]')!
+      const reserved = vi.spyOn(host.style, 'setProperty')
+      await act(async () => { raiseNotice({ key: 'failure.busy', message: 'failure.busy', tone: 'error' }) })
+      const notice = container.querySelector<HTMLElement>('[data-notice-row]')!
+      expect(notice.style.top).toBe('calc(52px + var(--space-2))')
+      expect(reserved.mock.calls.some(([name]) => name === '--chrome-rail-top'), 'the rails start below the row').toBe(true)
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
 })

@@ -7,6 +7,17 @@
   transform: translateX(-50%);
 }
 
+/* Web: below the title bar like the shell's other notices, since the phone sheet holds the window's foot. */
+.belowTitleBar {
+  top: calc(var(--chrome-top) + var(--title-bar-height) + var(--space-2));
+  right: var(--chrome-inset);
+  bottom: auto;
+  left: var(--chrome-inset);
+  z-index: var(--z-shell-notice);
+  width: auto;
+  transform: none;
+}
+
 .title {
   font-weight: 600;
   margin-right: var(--space-2);
