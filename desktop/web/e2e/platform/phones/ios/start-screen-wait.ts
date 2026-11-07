@@ -2,7 +2,7 @@
 // simulator took 80 s to load the app, and the first element lookup sent into the loading page found Safari's debugger
 // busy: the driver gave up on it after webviewAtomWaitTimeout (wdio.ios.conf.ts) with its "JavaScript execution is
 // blocked" error, though the load then finished on the start screen with no dialog. So a busy debugger is asked again
-// until the deadline. Framework-free, so it is unit tested (src/__tests__/ios-start-screen-wait.test.ts).
+// until the deadline. Framework-free, so it is unit tested (start-screen-wait.test.ts, beside it).
 
 /** The driver's error for a page whose debugger answered nothing within webviewAtomWaitTimeout. */
 const BUSY_DEBUGGER = 'The remote Safari debugger did not respond to the requested command'

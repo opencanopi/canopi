@@ -3,7 +3,7 @@
 // join it, since nothing between them starts a new session. tauri-driver's SIGTERM stops only WebKitWebDriver, which
 // orphans the app; the orphan keeps the single-instance name on the job's session bus, so the next spec's app hands its
 // launch off and exits, and WebKitWebDriver never answers POST /session (F5 probe 10, canopi-f47t.52.228.14).
-// Framework-free, so it is unit tested over real processes (src/__tests__/process-group.test.ts).
+// Framework-free, so it is unit tested over real processes (process-group.test.ts, beside it).
 
 /** How long a group has to leave after SIGTERM before SIGKILL, and how often the harness looks. */
 export interface GroupStopOptions {

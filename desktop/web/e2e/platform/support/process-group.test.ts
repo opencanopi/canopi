@@ -7,10 +7,10 @@ import { createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { refuseWhenAnswering } from '../../e2e/platform/support/driver-port'
-import { groupAlive, stopGroup } from '../../e2e/platform/support/process-group'
+import { refuseWhenAnswering } from './driver-port'
+import { groupAlive, stopGroup } from './process-group'
 
-const MODULE = resolve(import.meta.dirname, '../../e2e/platform/support/process-group.ts')
+const MODULE = resolve(import.meta.dirname, './process-group.ts')
 
 function alive(pid: number): boolean {
   try {
