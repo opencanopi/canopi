@@ -117,3 +117,52 @@ describe('failure sink: window hooks', () => {
     expect(ringEntries()).toHaveLength(1)
   })
 })
+
+describe('failure sink: failure states', () => {
+  beforeEach(() => {
+    resetFrontendDiagnosticsForTests()
+    resetFailureNoticesForTests()
+  })
+
+  it('error storm: the ring stays at 50, one notice for the first occurrence, the rest counted (2.1-Q294)', () => {
+    for (let index = 0; index < 500; index += 1) {
+      reportFailure(new Error(`tile ${index} failed`), { shown: 'notice', source: 'canvas.draw' })
+    }
+    const entries = ringEntries()
+    expect(entries).toHaveLength(50)
+    expect(entries.at(-1)).toMatchObject({ origin: 'frontend', text: expect.stringContaining('tile 499 failed') })
+    const { notices, repeats } = failureNoticesForTests()
+    expect(notices).toHaveLength(1)
+    expect([...repeats.values()]).toEqual([500])
+    // Another failure is its own notice.
+    reportFailure(new Error('save failed'), { shown: 'notice', source: 'design.save' })
+    expect(failureNoticesForTests().notices).toHaveLength(2)
+  })
+
+  it('multi-MB stack: the entry is capped and no secret survives at the cut', () => {
+    const error = new Error('drawing failed')
+    // The secret straddles the entry's 8 KiB cut, then megabytes follow.
+    const frames = 'at frame (app.js:1:1)\n'.repeat(400).slice(0, 8 * 1024 - 12)
+    error.stack = `${frames} {"key": "AIzaSECRET"} at /home/ana/SECRETDIR/x.js${'\n at frame'.repeat(300_000)}`
+    reportFailure(error, { shown: 'none' })
+    const [entry] = ringEntries()
+    expect(entry?.origin === 'frontend' && entry.text.length).toBeLessThanOrEqual(8 * 1024 + 1)
+    expect(JSON.stringify(entry)).not.toMatch(/SECRETDIR|AIzaSECRET/)
+  })
+
+  it('the sink never throws: a failing stack getter or toString still leaves an entry', () => {
+    const hostile = new Error('hostile')
+    Object.defineProperty(hostile, 'stack', { get: () => { throw new Error('stack getter') } })
+    const unprintable = { toString: () => { throw new Error('toString') } }
+    expect(() => reportFailure(hostile, { shown: 'notice' })).not.toThrow()
+    expect(() => reportFailure(unprintable, { shown: 'none' })).not.toThrow()
+    expect(ringEntries().map((entry) => entry.origin === 'frontend' && entry.text)).toContain('Unprintable failure')
+  })
+
+  it('native RedactedText is never re-redacted', () => {
+    // Text the TS redactor would change: native detail arrives redacted by canopi-redact and is kept byte for byte.
+    const detail = 'stale lock under /opt/canopi/library: <home-dir>/x' as RedactedText
+    reportFailure({ code: { kind: 'io', io: 'other' }, user_may_retry: true, op: 'library.list', operation: null, detail }, { shown: 'none' })
+    expect(ringEntries()[0]).toMatchObject({ origin: 'native', detail })
+  })
+})

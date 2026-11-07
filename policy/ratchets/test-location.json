@@ -70,7 +70,6 @@
     "desktop/web/src/__tests__/plant-spacing-sequence.test.ts": {},
     "desktop/web/src/__tests__/plant-stamp-source.test.ts": {},
     "desktop/web/src/__tests__/pointer-reorder-owner.test.ts": {},
-    "desktop/web/src/__tests__/problem-report-diagnostics.test.ts": {},
     "desktop/web/src/__tests__/problem-report-submission.test.ts": {},
     "desktop/web/src/__tests__/projection.test.ts": {},
     "desktop/web/src/__tests__/raster-display-overzoom.test.ts": {},
