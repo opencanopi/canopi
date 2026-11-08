@@ -7,6 +7,7 @@
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
+use crate::design::field_path::{FieldPath, Refusal};
 use crate::design::{GeoPoint, WEB_MERCATOR_MAX_LATITUDE_DEG};
 
 /// Highest MapLibre zoom a saved view may hold (the workspace map's maximum).
@@ -298,53 +299,58 @@ pub const STORY_IMAGES_MAX_TOTAL_BYTES: usize = 10 * STORY_IMAGE_MAX_BYTES;
 /// every recorded ground size is positive and at most 1e8 m,
 /// every story step names a saved view of the same Design, rich-text links use
 /// an allowed scheme, and images are `https:` links or embedded raster images
-/// within the per-image and per-Design caps.
-pub fn validate_views_and_stories(views: &[SavedView], stories: &[Story]) -> Result<(), String> {
+/// within the per-image and per-Design caps. A refusal names its field, never a value.
+pub fn validate_views_and_stories(views: &[SavedView], stories: &[Story]) -> Result<(), Refusal> {
+    let root = FieldPath::root();
     let mut view_ids = std::collections::HashSet::new();
     for (index, view) in views.iter().enumerate() {
+        let path = root.field("views").index(index);
         if !view_ids.insert(view.id.as_str()) {
-            return Err(format!(
-                "$.views[{index}].id: duplicate saved view id {:?}",
-                view.id
+            return Err(Refusal::new(
+                path.field("id"),
+                "expected a unique saved view id",
             ));
         }
-        validate_camera(&view.camera, &format!("$.views[{index}].camera"))?;
-        validate_rich_text(&view.text, &format!("$.views[{index}].text"))?;
+        validate_camera(&view.camera, &path.field("camera"))?;
+        validate_rich_text(&view.text, &path.field("text"))?;
     }
 
     let mut story_ids = std::collections::HashSet::new();
     let mut embedded_bytes = 0usize;
     for (story_index, story) in stories.iter().enumerate() {
+        let story_path = root.field("stories").index(story_index);
         if !story_ids.insert(story.id.as_str()) {
-            return Err(format!(
-                "$.stories[{story_index}].id: duplicate story id {:?}",
-                story.id
+            return Err(Refusal::new(
+                story_path.field("id"),
+                "expected a unique story id",
             ));
         }
         let mut step_ids = std::collections::HashSet::new();
         for (step_index, step) in story.steps.iter().enumerate() {
-            let path = format!("$.stories[{story_index}].steps[{step_index}]");
+            let path = story_path.field("steps").index(step_index);
             if !step_ids.insert(step.id.as_str()) {
-                return Err(format!("{path}.id: duplicate step id {:?}", step.id));
+                return Err(Refusal::new(path.field("id"), "expected a unique step id"));
             }
             if !view_ids.contains(step.view_id.as_str()) {
-                return Err(format!("{path}.view_id: no saved view {:?}", step.view_id));
+                let expected = "expected the id of a saved view in this Design";
+                return Err(Refusal::new(path.field("view_id"), expected));
             }
-            validate_rich_text(&step.text, &format!("{path}.text"))?;
+            validate_rich_text(&step.text, &path.field("text"))?;
             for (image_index, image) in step.images.iter().enumerate() {
-                let image_path = format!("{path}.images[{image_index}].src");
+                let image_path = path.field("images").index(image_index).field("src");
                 let bytes = story_image_embedded_bytes(&image.src)
-                    .map_err(|reason| format!("{image_path}: {reason}"))?;
+                    .map_err(|reason| Refusal::new(image_path.clone(), reason))?;
                 if bytes > STORY_IMAGE_MAX_BYTES {
-                    return Err(format!(
-                        "{image_path}: an embedded image holds at most {STORY_IMAGE_MAX_BYTES} bytes"
-                    ));
+                    let expected =
+                        format!("an embedded image holds at most {STORY_IMAGE_MAX_BYTES} bytes");
+                    return Err(Refusal::new(image_path, expected));
                 }
                 embedded_bytes += bytes;
                 if embedded_bytes > STORY_IMAGES_MAX_TOTAL_BYTES {
-                    return Err(format!(
-                        "{image_path}: a Design embeds at most {STORY_IMAGES_MAX_TOTAL_BYTES} bytes of images"
-                    ));
+                    let expected = format!(
+                        "a Design embeds at most {STORY_IMAGES_MAX_TOTAL_BYTES} bytes of images"
+                    );
+                    return Err(Refusal::new(image_path, expected));
                 }
             }
         }
@@ -354,36 +360,56 @@ pub fn validate_views_and_stories(views: &[SavedView], stories: &[Story]) -> Res
 
 /// Check the view a Design was saved with (`$.map_view`) by the saved-view
 /// camera rules.
-pub fn validate_map_view(map_view: Option<&SavedViewCamera>) -> Result<(), String> {
-    map_view.map_or(Ok(()), |camera| validate_camera(camera, "$.map_view"))
+pub fn validate_map_view(map_view: Option<&SavedViewCamera>) -> Result<(), Refusal> {
+    map_view.map_or(Ok(()), |camera| {
+        validate_camera(camera, &FieldPath::root().field("map_view"))
+    })
 }
 
-fn validate_camera(camera: &SavedViewCamera, path: &str) -> Result<(), String> {
-    if !camera.is_valid() {
-        return Err(format!(
-            "{path}: expected lon in [-180, 180], a Web Mercator latitude (±{WEB_MERCATOR_MAX_LATITUDE_DEG}), zoom in [0, {SAVED_VIEW_MAX_ZOOM}] and bearing in [0, 360]"
+/// A camera's leaf at fault, in the schema's sorted field order; its ground size as a whole,
+/// as the Web names it.
+fn validate_camera(camera: &SavedViewCamera, path: &FieldPath) -> Result<(), Refusal> {
+    let in_range =
+        |value: f64, min: f64, max: f64| value.is_finite() && (min..=max).contains(&value);
+    if !in_range(camera.bearing, 0.0, 360.0) {
+        return Err(Refusal::new(
+            path.field("bearing"),
+            "expected bearing in [0, 360]",
         ));
     }
+    let ground = path.field("ground_size_m");
     if !camera.ground_size_m.is_valid() {
-        return Err(format!(
-            "{path}.ground_size_m: expected a finite width and height above 0 and at most {SAVED_VIEW_MAX_GROUND_SIZE_M} m"
+        let expected = format!(
+            "expected a finite width and height above 0 and at most {SAVED_VIEW_MAX_GROUND_SIZE_M} m"
+        );
+        return Err(Refusal::new(ground, expected));
+    }
+    let lat = WEB_MERCATOR_MAX_LATITUDE_DEG;
+    if !in_range(camera.lat, -lat, lat) {
+        let expected = format!("expected a Web Mercator latitude in [-{lat}, {lat}]");
+        return Err(Refusal::new(path.field("lat"), expected));
+    }
+    if !in_range(camera.lon, -180.0, 180.0) {
+        return Err(Refusal::new(
+            path.field("lon"),
+            "expected lon in [-180, 180]",
         ));
+    }
+    if !in_range(camera.zoom, 0.0, SAVED_VIEW_MAX_ZOOM) {
+        let expected = format!("expected zoom in [0, {SAVED_VIEW_MAX_ZOOM}]");
+        return Err(Refusal::new(path.field("zoom"), expected));
     }
     Ok(())
 }
 
-fn validate_rich_text(blocks: &[RichTextBlock], path: &str) -> Result<(), String> {
+fn validate_rich_text(blocks: &[RichTextBlock], path: &FieldPath) -> Result<(), Refusal> {
     for (block_index, block) in blocks.iter().enumerate() {
+        let block_path = path.index(block_index);
         match block {
-            RichTextBlock::Paragraph { spans } => {
-                validate_spans(spans, &format!("{path}[{block_index}]"))?;
-            }
+            RichTextBlock::Paragraph { spans } => validate_spans(spans, &block_path)?,
             RichTextBlock::Bullets { items } => {
                 for (item_index, item) in items.iter().enumerate() {
-                    validate_spans(
-                        &item.spans,
-                        &format!("{path}[{block_index}].items[{item_index}]"),
-                    )?;
+                    validate_spans(&item.spans, &block_path.field("items").index(item_index))?;
                 }
             }
         }
@@ -391,15 +417,17 @@ fn validate_rich_text(blocks: &[RichTextBlock], path: &str) -> Result<(), String
     Ok(())
 }
 
-fn validate_spans(spans: &[RichTextSpan], path: &str) -> Result<(), String> {
+fn validate_spans(spans: &[RichTextSpan], path: &FieldPath) -> Result<(), Refusal> {
     for (span_index, span) in spans.iter().enumerate() {
         let Some(link) = &span.link else { continue };
         let allowed = RICH_TEXT_LINK_SCHEMES
             .iter()
             .any(|scheme| starts_with_ignore_case(link, scheme));
         if !allowed {
-            return Err(format!(
-                "{path}.spans[{span_index}].link: links must be https:, http: or mailto:"
+            let link_path = path.field("spans").index(span_index).field("link");
+            return Err(Refusal::new(
+                link_path,
+                "links must be https:, http: or mailto:",
             ));
         }
     }

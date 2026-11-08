@@ -51,15 +51,15 @@ fn design_positions_are_lon_lat_and_round_trip_exactly() {
 
 #[test]
 fn design_geometry_rejects_out_of_range_positions() {
-    for (lon, lat) in [(180.0001, 0.0), (-180.0001, 0.0), (0.0, 85.0511287798067)] {
+    for (lon, lat, leaf) in [
+        (180.0001, 0.0, "$.plants[0].position.lon"),
+        (-180.0001, 0.0, "$.plants[0].position.lon"),
+        (0.0, 85.0511287798067, "$.plants[0].position.lat"),
+        (181.0, 86.0, "$.plants[0].position.lat"),
+    ] {
         let file = geo_file(json!([plant_at(lon, lat)]));
-        assert_eq!(
-            validate_design_geometry(&file),
-            Err(
-                "$.plants[0].position: expected lon in [-180, 180] and a Web Mercator latitude"
-                    .to_owned()
-            ),
-        );
+        let refusal = validate_design_geometry(&file).expect_err("out of range");
+        assert_eq!(refusal.field_path.to_string(), leaf, "({lon}, {lat})");
     }
 }
 
@@ -168,7 +168,7 @@ fn design_objects_missing_lock_state_load_unlocked_and_serialize_explicitly() {
 
 fn admitted(value: serde_json::Value) -> Result<CanopiFile, String> {
     let file: CanopiFile = serde_json::from_value(value).map_err(|e| e.to_string())?;
-    admit_design_identities_and_ranges(&file)?;
+    admit_design_identities_and_ranges(&file).map_err(|refusal| refusal.to_string())?;
     Ok(file)
 }
 
@@ -238,14 +238,14 @@ fn plants_and_guides_need_an_id_and_unique_non_empty_ids() {
             json!({ "plants": [plant(Some("plant-1")), plant(Some("plant-1"))] })
         ))
         .unwrap_err(),
-        "$.plants[1].id: duplicate id \"plant-1\""
+        "$.plants[1].id: expected a unique id"
     );
     assert_eq!(
         admitted(design_with(
             json!({ "measurement_guides": [guide(Some("g")), guide(Some("g"))] })
         ))
         .unwrap_err(),
-        "$.measurement_guides[1].id: duplicate id \"g\""
+        "$.measurement_guides[1].id: expected a unique id"
     );
     let file = admitted(design_with(json!({
         "plants": [plant(Some("plant-2")), plant(Some("plant-1"))],
@@ -273,7 +273,7 @@ fn zones_annotations_and_groups_need_unique_non_empty_ids() {
     let zone = |id: &str| json!({ "id": id, "zone_type": "rect", "points": [] });
     assert_eq!(
         admitted(design_with(json!({ "zones": [zone("bed"), zone("bed")] }))).unwrap_err(),
-        "$.zones[1].id: duplicate id \"bed\""
+        "$.zones[1].id: expected a unique id"
     );
     assert_eq!(
         admitted(design_with(json!({ "zones": [zone("")] }))).unwrap_err(),
@@ -290,12 +290,12 @@ fn zones_annotations_and_groups_need_unique_non_empty_ids() {
             json!({ "annotations": [note("n"), note("n")] })
         ))
         .unwrap_err(),
-        "$.annotations[1].id: duplicate id \"n\""
+        "$.annotations[1].id: expected a unique id"
     );
     let group = |id: &str| json!({ "id": id, "name": null, "members": [] });
     assert_eq!(
         admitted(design_with(json!({ "groups": [group("g"), group("g")] }))).unwrap_err(),
-        "$.groups[1].id: duplicate id \"g\""
+        "$.groups[1].id: expected a unique id"
     );
 }
 
@@ -464,7 +464,7 @@ fn general_deserialization_rejects_obsolete_object_group_shape() {
 /// A Design through both admission checks, as a load runs them.
 fn admitted_whole(value: serde_json::Value) -> Result<CanopiFile, String> {
     let file = admitted(value)?;
-    validate_design_geometry(&file)?;
+    validate_design_geometry(&file).map_err(|refusal| refusal.to_string())?;
     Ok(file)
 }
 

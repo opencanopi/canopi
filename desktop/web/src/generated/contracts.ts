@@ -171,6 +171,12 @@ export type DesignGroundBounds = {
 export type DesignLoadFailure = {
 	kind: DesignLoadFailureKind,
 	message: string,
+	/**
+	 *  The refused field when the file parsed and the Design was refused (`$.version` for a
+	 *  version this build does not open), for the failure ring and Problem Reports
+	 *  only: the refusal the user reads never names it (2.1-Q286, canopi-cyqd).
+	 */
+	field_path?: string | null,
 };
 
 export type DesignLoadFailureKind =

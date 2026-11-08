@@ -1,6 +1,6 @@
 # Design document
 
-Covers: `canopi-types/src/design.rs`, `canopi-types/src/settings.rs`, `desktop/src/design/`, `desktop/src/services/design_files.rs`, `desktop/src/services/settings.rs`, `desktop/web/src/app/design-edit/`, `desktop/web/src/app/document-session/`, `desktop/web/src/app/design-drafts/`, `desktop/web/src/app/settings/`, `desktop/web/src/app/saved-views/`, `desktop/web/src/app/stories/`
+Covers: `canopi-types/src/design.rs`, `canopi-types/src/design/`, `canopi-types/src/settings.rs`, `desktop/src/design/`, `desktop/src/services/design_files.rs`, `desktop/src/services/settings.rs`, `desktop/web/src/app/design-edit/`, `desktop/web/src/app/document-session/`, `desktop/web/src/app/design-drafts/`, `desktop/web/src/app/settings/`, `desktop/web/src/app/saved-views/`, `desktop/web/src/app/stories/`
 
 ## Purpose
 
@@ -13,7 +13,7 @@ The `.canopi` file, the Design session (open, continuous save, replacement, clos
 - **Settings** (`canopi-types/src/settings.rs`) own device state: locale, theme, map layers, `soften_background`, `scroll_wheel`, the Google key and `satellite_source`, `last_view` (centre and zoom), snapping, tool-rail learning, single-key shortcuts and New Design defaults. A setting never travels with a file; a Design field never depends on the device.
 - **Undo** covers Scene edits only. Design Edit commands, map layers and settings are not undoable.
 - **Coordinates.** The file stores WGS84 `GeoPoint { lon, lat }` for every position, and zone and note rotation in degrees clockwise from true north. Metres exist only in the session plane (`canvas/session-plane.ts`); camera moves, turning the view included, never move objects or change a stored rotation ([ADR 0015](../adr/0015-rotating-map-and-canvas-controls.md)).
-- **Trust boundaries.** Native: `desktop/src/design/format.rs`. Web: `app/contracts/design-ingestion.ts`. Nothing else casts raw JSON to `CanopiFile`; `canopi-design-wire.ts` is the only serializer.
+- **Trust boundaries.** Native: `desktop/src/design/format.rs`, whose schema walk (`desktop/src/design/schema_admission.rs`) runs before serde and stays in step with the Web decoder (`app/contracts/canopi-design-schema-decoder.ts`) so both refuse the same files and name the same field (map entries aside, see the module comment). Web: `app/contracts/design-ingestion.ts`. Nothing else casts raw JSON to `CanopiFile`; `canopi-design-wire.ts` is the only serializer.
 - **Persistence.** Every write goes through `app/document-session/persistence.ts`; only a successful write to the session's home (file or Draft) acknowledges the captured baseline. Downloads, handoffs and Problem Report attachments are exports.
 
 ## Rules
@@ -58,7 +58,7 @@ The `.canopi` file, the Design session (open, continuous save, replacement, clos
 
 | Area | Module | Tests |
 |---|---|---|
-| Format, owners, limits | `canopi-types/src/design.rs`, `views.rs`, `lidar.rs` | `canopi-types/canopi-design-conformance.json`, `desktop/src/design/format.rs` |
+| Format, owners, limits | `canopi-types/src/design.rs`, `design/` (admission, field path), `views.rs`, `lidar.rs`; native schema walk `desktop/src/design/schema_admission.rs` | `canopi-types/canopi-design-conformance.json`, `desktop/src/design/format.rs` |
 | Web admission and wire | `app/contracts/` | `canopi-design-*`, `file-format-round-trip` |
 | Geo rounding, re-origin | `canvas/runtime/scene/geo-frame.ts`, `scene-runtime/reorigin.ts` | `reorigin.test.ts`, `geolocated-design-codec` |
 | Design Edit | `app/design-edit/` | `design-edit-*`, the `design-edit-authority-*` policy rules |

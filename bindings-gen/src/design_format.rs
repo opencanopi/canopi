@@ -98,7 +98,9 @@ fn validate_canopi_design_conformance_value(
                 )
                 .into());
             }
-            (None, Some(kind)) if valid_error_kinds.contains(kind) => {}
+            (None, Some(kind)) if valid_error_kinds.contains(kind) => {
+                validate_refusal_path(id, case)?;
+            }
             (None, Some(kind)) => {
                 return Err(format!(
                     "Canopi Design conformance case {id} has unknown error kind {kind}",
@@ -112,6 +114,31 @@ fn validate_canopi_design_conformance_value(
                 .into());
             }
         }
+    }
+    Ok(())
+}
+
+/// Both editions refuse at one path (canopi-cyqd, DR30): a refusal names its `error_path`,
+/// and no case carries a native exception.
+fn validate_refusal_path(
+    id: &str,
+    case: &serde_json::Map<String, serde_json::Value>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    if case.contains_key("native_error_path") {
+        return Err(format!(
+            "Canopi Design conformance case {id} has a native_error_path; both editions name error_path",
+        )
+        .into());
+    }
+    let named = case
+        .get("error_path")
+        .and_then(serde_json::Value::as_str)
+        .is_some_and(|path| path.starts_with('$'));
+    if !named {
+        return Err(format!(
+            "Canopi Design conformance refusal case {id} must name its error_path"
+        )
+        .into());
     }
     Ok(())
 }
@@ -257,25 +284,9 @@ fn validate_supported_canopi_schema_node(
     schema: &serde_json::Value,
     path: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    const SUPPORTED_KEYWORDS: &[&str] = &[
-        "$defs",
-        "$ref",
-        "$schema",
-        "additionalProperties",
-        "anyOf",
-        "const",
-        "default",
-        "enum",
-        "format",
-        "items",
-        "maximum",
-        "minimum",
-        "oneOf",
-        "properties",
-        "required",
-        "title",
-        "type",
-    ];
+    use canopi_types::design::{
+        CANOPI_SCHEMA_FORMATS as SUPPORTED_FORMATS, CANOPI_SCHEMA_KEYWORDS as SUPPORTED_KEYWORDS,
+    };
 
     let object = schema
         .as_object()
@@ -289,7 +300,6 @@ fn validate_supported_canopi_schema_node(
         }
     }
     if let Some(format) = object.get("format") {
-        const SUPPORTED_FORMATS: &[&str] = &["double", "float", "int32", "uint32"];
         let format = format
             .as_str()
             .ok_or_else(|| format!("{path}: generated schema format is not a string"))?;
@@ -338,6 +348,34 @@ mod tests {
         validate_canopi_design_schema(&schema).expect("Canopi schema should be consumable by Web");
     }
 
+    /// The Web decoder walks a schema object's properties in the order this emitter writes
+    /// them, and the native admission walker sorts them; both report the first fault, so the
+    /// emitted order must be sorted (serde_json without `preserve_order`, canopi-cyqd).
+    #[test]
+    fn generated_canopi_schema_emits_properties_in_sorted_key_order() {
+        let schema = canopi_types::design::canopi_file_json_schema();
+        let emitted = serde_json::to_string_pretty(&schema).expect("schema serializes");
+        let mut keys = schema["properties"]
+            .as_object()
+            .expect("root properties")
+            .keys()
+            .cloned()
+            .collect::<Vec<_>>();
+        keys.sort();
+        let positions = keys
+            .iter()
+            .map(|key| {
+                emitted
+                    .find(&format!("\n    \"{key}\": "))
+                    .unwrap_or_else(|| panic!("root property {key} is emitted"))
+            })
+            .collect::<Vec<_>>();
+        assert!(
+            positions.windows(2).all(|pair| pair[0] < pair[1]),
+            "root properties are emitted in sorted key order: {keys:?}"
+        );
+    }
+
     #[test]
     fn generated_canopi_schema_rejects_decoder_keywords_before_emitting() {
         let mut schema = canopi_types::design::canopi_file_json_schema();
@@ -373,5 +411,37 @@ mod tests {
             .expect_err("version fact drift should stop generation");
 
         assert!(error.to_string().contains("current_version"));
+    }
+
+    /// canopi-cyqd: every refusal case names the path both editions refuse at, and no case
+    /// carries a native exception (DR30).
+    #[test]
+    fn canopi_cyqd_a_refusal_case_must_name_its_path_and_no_native_exception() {
+        let corpus: serde_json::Value = serde_json::from_str(include_str!(
+            "../../canopi-types/canopi-design-conformance.json"
+        ))
+        .expect("authored corpus should parse");
+        validate_canopi_design_conformance_value(&corpus).expect("the authored corpus is valid");
+        let refusal = corpus["cases"]
+            .as_array()
+            .expect("cases")
+            .iter()
+            .position(|case| case.get("error_kind").is_some())
+            .expect("a refusal case");
+
+        let mut pathless = corpus.clone();
+        pathless["cases"][refusal]
+            .as_object_mut()
+            .expect("case object")
+            .remove("error_path");
+        let error = validate_canopi_design_conformance_value(&pathless)
+            .expect_err("a refusal without its path stops generation");
+        assert!(error.to_string().contains("error_path"), "{error}");
+
+        let mut native = corpus;
+        native["cases"][refusal]["native_error_path"] = serde_json::json!("$");
+        let error = validate_canopi_design_conformance_value(&native)
+            .expect_err("a native exception stops generation");
+        assert!(error.to_string().contains("native_error_path"), "{error}");
     }
 }

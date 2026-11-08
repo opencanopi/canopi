@@ -1,3 +1,4 @@
+use canopi_types::design::field_path::{FieldPath, Refusal};
 use canopi_types::design::{
     CURRENT_CANOPI_FILE_VERSION, CanopiDesignIngestionErrorKind, CanopiFile,
     DEFAULT_BUDGET_CURRENCY, DesignLoadFailure, DesignLoadFailureKind, Layer,
@@ -8,33 +9,39 @@ use std::fmt;
 use std::path::Path;
 
 use super::new_design_defaults::NEW_DESIGN_LAYER_DEFAULTS;
+use super::schema_admission::{admit_schema, canopi_file_schema};
 
+/// A refused Design: its kind, and the typed refusal naming the field (canopi-cyqd).
 #[derive(Debug)]
 pub(crate) struct CanopiDesignIngestionError {
     kind: CanopiDesignIngestionErrorKind,
-    message: String,
+    refusal: Refusal,
     /// The file's version when it is one this build does not open.
     unsupported_version: Option<u64>,
 }
 
 impl CanopiDesignIngestionError {
-    fn new(kind: CanopiDesignIngestionErrorKind, message: impl Into<String>) -> Self {
+    fn new(kind: CanopiDesignIngestionErrorKind, refusal: Refusal) -> Self {
         Self {
             kind,
-            message: message.into(),
+            refusal,
             unsupported_version: None,
         }
     }
 
+    fn invalid(field_path: FieldPath, expected: &str) -> Self {
+        let kind = CanopiDesignIngestionErrorKind::InvalidDocument;
+        Self::new(kind, Refusal::new(field_path, expected))
+    }
+
     fn unsupported_version(version: u64) -> Self {
+        let expected = format!(
+            "unsupported Canopi Design version {version}; Canopi 2.0 and later open only version {CURRENT_CANOPI_FILE_VERSION}",
+        );
+        let refusal = Refusal::new(FieldPath::root().field("version"), expected);
         Self {
             unsupported_version: Some(version),
-            ..Self::new(
-                CanopiDesignIngestionErrorKind::UnsupportedVersion,
-                format!(
-                    "$.version: unsupported Canopi Design version {version}; Canopi 2.0 and later open only version {CURRENT_CANOPI_FILE_VERSION}",
-                ),
-            )
+            ..Self::new(CanopiDesignIngestionErrorKind::UnsupportedVersion, refusal)
         }
     }
 
@@ -53,7 +60,7 @@ impl CanopiDesignIngestionError {
 
 impl fmt::Display for CanopiDesignIngestionError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(formatter, "{}: {}", self.kind.as_str(), self.message)
+        write!(formatter, "{}: {}", self.kind.as_str(), self.refusal)
     }
 }
 
@@ -72,6 +79,11 @@ pub(crate) enum DesignLoadError {
 
 impl DesignLoadError {
     pub(crate) fn failure(&self) -> DesignLoadFailure {
+        // The refused field, when the file parsed as JSON and the Design was refused.
+        let field_path = match self {
+            Self::Ingestion { source } => Some(source.refusal.field_path.clone()),
+            _ => None,
+        };
         let kind = match self {
             Self::Read { source } if source.kind() == std::io::ErrorKind::NotFound => {
                 DesignLoadFailureKind::Missing
@@ -88,6 +100,7 @@ impl DesignLoadError {
         DesignLoadFailure {
             kind,
             message: self.to_string(),
+            field_path,
         }
     }
 }
@@ -255,34 +268,37 @@ fn admit_current_design_value(
     // `extra` is the in-memory bag for unknown root fields, never a wire key:
     // the canonical encoder writes unknown fields at the root.
     if object.contains_key("extra") {
-        return Err(CanopiDesignIngestionError::new(
-            CanopiDesignIngestionErrorKind::InvalidDocument,
-            "$.extra: reserved root field; unknown fields are stored at the root",
+        let expected = "reserved root field; unknown fields are stored at the root";
+        return Err(CanopiDesignIngestionError::invalid(
+            FieldPath::root().field("extra"),
+            expected,
         ));
     }
 
     value["version"] = serde_json::json!(CURRENT_CANOPI_FILE_VERSION);
-    let file: CanopiFile = serde_json::from_value(value).map_err(|error| {
-        CanopiDesignIngestionError::new(
-            CanopiDesignIngestionErrorKind::InvalidDocument,
-            format!("$: {error}"),
-        )
+    let invalid = |refusal| {
+        CanopiDesignIngestionError::new(CanopiDesignIngestionErrorKind::InvalidDocument, refusal)
+    };
+    // The schema names the refused field; serde only builds what it admitted, so a serde
+    // error past it is a schema the Rust types outgrew, named at the root without its text.
+    admit_schema(&value, canopi_file_schema()).map_err(invalid)?;
+    let file: CanopiFile = serde_json::from_value(value).map_err(|_| {
+        CanopiDesignIngestionError::invalid(FieldPath::root(), "expected a Canopi Design")
     })?;
     validate_design_geometry(&file)
         .and_then(|()| admit_design_identities_and_ranges(&file))
         .and_then(|()| validate_views_and_stories(&file.views, &file.stories))
         .and_then(|()| validate_map_view(file.map_view.as_ref()))
-        .map_err(|error| {
-            CanopiDesignIngestionError::new(CanopiDesignIngestionErrorKind::InvalidDocument, error)
-        })?;
+        .map_err(invalid)?;
     Ok(file)
 }
 
 fn read_design_version(value: &serde_json::Value) -> Result<u64, CanopiDesignIngestionError> {
     let Some(object) = value.as_object() else {
-        return Err(CanopiDesignIngestionError::new(
-            CanopiDesignIngestionErrorKind::InvalidDocument,
-            "$: expected a Canopi Design object",
+        let expected = "expected a Canopi Design object";
+        return Err(CanopiDesignIngestionError::invalid(
+            FieldPath::root(),
+            expected,
         ));
     };
     let Some(raw_version) = object.get("version") else {
@@ -294,19 +310,16 @@ fn read_design_version(value: &serde_json::Value) -> Result<u64, CanopiDesignIng
                 .then_some(version as u64)
         })
     });
-    let Some(version) = version else {
-        return Err(CanopiDesignIngestionError::new(
+    match version {
+        Some(version) if version > 0 => Ok(version),
+        _ => Err(CanopiDesignIngestionError::new(
             CanopiDesignIngestionErrorKind::InvalidVersion,
-            "$.version: expected a positive integer",
-        ));
-    };
-    if version == 0 {
-        return Err(CanopiDesignIngestionError::new(
-            CanopiDesignIngestionErrorKind::InvalidVersion,
-            "$.version: expected a positive integer",
-        ));
+            Refusal::new(
+                FieldPath::root().field("version"),
+                "expected a positive integer",
+            ),
+        )),
     }
-    Ok(version)
 }
 
 /// Compose a new Design from caller-owned identity and generated static defaults.
@@ -380,100 +393,57 @@ mod tests {
         assert!(!path.exists(), "nothing is written for a refused Design");
     }
 
+    /// canopi-cyqd: the shared corpus decodes natively as on the Web: each accepted case to
+    /// its document (and back), and each refusal with its kind and the typed field path the
+    /// Web names (`error_path`), with no native exception (`native_error_path`) left.
     #[test]
-    fn shared_canopi_conformance_corpus_matches_native_ingestion() {
+    fn canopi_cyqd_every_corpus_refusal_names_its_field_path() {
         let corpus: serde_json::Value = serde_json::from_str(include_str!(
             "../../../canopi-types/canopi-design-conformance.json"
         ))
         .expect("shared Canopi conformance corpus should be valid JSON");
-
         assert_eq!(corpus["contract_version"], serde_json::json!(1));
+        let kinds = CanopiDesignIngestionErrorKind::ALL
+            .iter()
+            .map(|kind| kind.as_str());
         assert_eq!(
             corpus["facts"],
             serde_json::json!({
                 "current_version": CURRENT_CANOPI_FILE_VERSION,
                 "missing_version": MISSING_CANOPI_FILE_VERSION,
                 "future_version_policy": canopi_types::design::FUTURE_CANOPI_FILE_VERSION_POLICY,
-                "error_kinds": CanopiDesignIngestionErrorKind::ALL
-                    .iter()
-                    .map(|kind| kind.as_str())
-                    .collect::<Vec<_>>(),
+                "error_kinds": kinds.collect::<Vec<_>>(),
             }),
         );
-
-        for case in corpus["cases"]
-            .as_array()
-            .expect("conformance cases should be an array")
-        {
-            let id = case["id"].as_str().expect("case id should be a string");
-            let input = case["input"].clone();
-            if let Some(expected_name) = case.get("accepted").and_then(|value| value.as_str()) {
-                let expected = corpus["accepted_documents"][expected_name].clone();
-                let file = decode_design_value(input)
-                    .unwrap_or_else(|error| panic!("{id}: ingestion failed: {error}"));
-                assert_eq!(conformance_document_value(&file), expected, "{id}");
-                let wire = serde_json::to_value(file)
-                    .expect("accepted Canopi Design should serialize for round trip");
-                let round_tripped = decode_design_value(wire)
-                    .unwrap_or_else(|error| panic!("{id}: round trip failed: {error}"));
-                assert_eq!(
-                    conformance_document_value(&round_tripped),
-                    expected,
-                    "{id}: round trip",
-                );
-                continue;
-            }
-            let expected_kind = case["error_kind"].as_str().expect("error case kind");
-
-            let error = match decode_design_value(input) {
-                Ok(_) => panic!("{id}: expected ingestion to fail"),
-                Err(error) => error,
-            };
-            assert_eq!(error.kind.as_str(), expected_kind, "{id}");
-            // serde reports a shape error at the root without its path; the
-            // corpus names that as `native_error_path` (canopi-cyqd shares
-            // the validators in 2.1).
-            let expected_path = case
-                .get("native_error_path")
-                .or_else(|| case.get("error_path"))
-                .and_then(|value| value.as_str())
-                .unwrap_or_else(|| panic!("{id}: every refusal case names its path"));
-            let path = error
-                .message
-                .split_once(": ")
-                .map_or(error.message.as_str(), |(path, _)| path);
-            assert_eq!(path, expected_path, "{id}: {}", error.message);
-        }
-    }
-
-    /// canopi-cyqd: every corpus refusal names its field path, the corpus's `error_path` that the
-    /// Web validators name, with no native exception (`native_error_path`) left: a problem report
-    /// names the refused field (design check A19). Today serde reports a shape error at the root or
-    /// its parent object.
-    #[test]
-    #[ignore = "expected-fail 1a-c7 canopi-cyqd"]
-    fn canopi_cyqd_every_corpus_refusal_names_its_field_path() {
-        let corpus: serde_json::Value = serde_json::from_str(include_str!(
-            "../../../canopi-types/canopi-design-conformance.json"
-        ))
-        .expect("shared Canopi conformance corpus should be valid JSON");
         let mut wrong = Vec::new();
         for case in corpus["cases"].as_array().expect("conformance cases") {
-            let Some(expected_path) = case.get("error_path").and_then(|value| value.as_str())
-            else {
-                continue;
-            };
             let id = case["id"].as_str().expect("case id should be a string");
-            let Err(error) = decode_design_value(case["input"].clone()) else {
-                wrong.push(format!("{id}: accepted"));
+            assert!(case.get("native_error_path").is_none(), "{id}");
+            if let Some(expected_name) = case.get("accepted").and_then(|value| value.as_str()) {
+                let expected = &corpus["accepted_documents"][expected_name];
+                let file = decode_design_value(case["input"].clone())
+                    .unwrap_or_else(|error| panic!("{id}: ingestion failed: {error}"));
+                assert_eq!(&conformance_document_value(&file), expected, "{id}");
+                let wire = serde_json::to_value(file).expect("an accepted Design serializes");
+                let round_tripped = decode_design_value(wire)
+                    .unwrap_or_else(|error| panic!("{id}: round trip failed: {error}"));
+                let round_tripped = conformance_document_value(&round_tripped);
+                assert_eq!(&round_tripped, expected, "{id}: round trip");
                 continue;
-            };
-            let path = error
-                .message
-                .split_once(": ")
-                .map_or(error.message.as_str(), |(path, _)| path);
-            if path != expected_path {
-                wrong.push(format!("{id}: named {path:?}, not {expected_path:?}"));
+            }
+            let expected_path = case["error_path"]
+                .as_str()
+                .expect("a refusal names its path");
+            match decode_design_value(case["input"].clone()) {
+                Ok(_) => wrong.push(format!("{id}: accepted")),
+                Err(error) => {
+                    let (kind, path) = (error.kind.as_str(), error.refusal.field_path.to_string());
+                    if (kind, path.as_str())
+                        != (case["error_kind"].as_str().unwrap_or(""), expected_path)
+                    {
+                        wrong.push(format!("{id}: {error}, not {expected_path}"));
+                    }
+                }
             }
         }
         assert!(wrong.is_empty(), "{}", wrong.join("\n"));
@@ -880,7 +850,7 @@ mod tests {
         let error = decode_design_value(value).expect_err("root extra must be refused");
 
         assert_eq!(error.kind, CanopiDesignIngestionErrorKind::InvalidDocument);
-        assert!(error.message.starts_with("$.extra:"), "{error}");
+        assert!(error.refusal.to_string().starts_with("$.extra:"), "{error}");
     }
 
     /// Canopi 2.0 breaks stored data (ADR 0021): the 2.0 previews' formats
@@ -903,7 +873,7 @@ mod tests {
             );
             assert!(error.is_older_than_supported(), "v{version}");
             assert_eq!(
-                error.message,
+                error.refusal.to_string(),
                 format!(
                     "$.version: unsupported Canopi Design version {version}; Canopi 2.0 and later open only version {CURRENT_CANOPI_FILE_VERSION}"
                 ),
@@ -1026,9 +996,11 @@ mod tests {
 
         let garbage = dir.join("garbage.canopi");
         std::fs::write(&garbage, "not json").unwrap();
+        let failure = load_from_file(&garbage).unwrap_err().failure();
+        assert_eq!(failure.kind, DesignLoadFailureKind::InvalidJson);
         assert_eq!(
-            load_from_file(&garbage).unwrap_err().failure().kind,
-            DesignLoadFailureKind::InvalidJson
+            failure.field_path, None,
+            "only a refused Design names a field"
         );
 
         let invalid = dir.join("invalid.canopi");
@@ -1057,6 +1029,21 @@ mod tests {
             load_from_file(&folder).unwrap_err().failure().kind,
             DesignLoadFailureKind::Unreadable
         );
+    }
+
+    /// canopi-cyqd: a refused Design's failure carries the refused field, typed.
+    #[test]
+    fn canopi_cyqd_a_refused_design_failure_carries_its_field_path() {
+        let dir = unique_dir("field-path");
+        let refused = dir.join("refused.canopi");
+        let mut value = serde_json::to_value(create_default()).expect("serialize");
+        value["map_view"] = map_view_value();
+        value["map_view"]["zoom"] = serde_json::json!(27.5);
+        std::fs::write(&refused, value.to_string()).expect("write");
+        let failure = load_from_file(&refused).unwrap_err().failure();
+        assert_eq!(failure.kind, DesignLoadFailureKind::InvalidDocument);
+        let path = failure.field_path.map(|path| path.to_string());
+        assert_eq!(path.as_deref(), Some("$.map_view.zoom"));
     }
 
     fn with_views_and_stories() -> CanopiFile {
@@ -1170,10 +1157,14 @@ mod tests {
     #[test]
     fn an_invalid_map_view_is_refused_at_its_path() {
         for (field, invalid, path) in [
-            ("zoom", serde_json::json!(27.5), "$.map_view: "),
-            ("bearing", serde_json::json!(361.0), "$.map_view: "),
-            ("lat", serde_json::json!(86.0), "$.map_view: "),
-            ("ground_size_m", serde_json::Value::Null, "$: "),
+            ("zoom", serde_json::json!(27.5), "$.map_view.zoom: "),
+            ("bearing", serde_json::json!(361.0), "$.map_view.bearing: "),
+            ("lat", serde_json::json!(86.0), "$.map_view.lat: "),
+            (
+                "ground_size_m",
+                serde_json::Value::Null,
+                "$.map_view.ground_size_m: ",
+            ),
             (
                 "ground_size_m",
                 serde_json::json!({ "width": 0.0, "height": 187.5 }),
@@ -1187,7 +1178,10 @@ mod tests {
             let error = decode_design_value(value).expect_err("an invalid map view is refused");
 
             assert_eq!(error.kind, CanopiDesignIngestionErrorKind::InvalidDocument);
-            assert!(error.message.starts_with(path), "{field}: {error}");
+            assert!(
+                error.refusal.to_string().starts_with(path),
+                "{field}: {error}"
+            );
         }
     }
 
@@ -1200,7 +1194,10 @@ mod tests {
 
         assert_eq!(error.kind, CanopiDesignIngestionErrorKind::InvalidDocument);
         assert!(
-            error.message.starts_with("$.stories[0].steps[0].view_id"),
+            error
+                .refusal
+                .to_string()
+                .starts_with("$.stories[0].steps[0].view_id"),
             "{error}"
         );
     }
