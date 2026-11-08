@@ -1,5 +1,5 @@
 /**
- * app/problem-report/builder.ts: Owner of a problem report's contents, the one TS builder over `REPORT_SECTIONS` on
+ * app/problem-report/builder.ts: the one TS builder of a problem report over `REPORT_SECTIONS` on
  * both editions (contracts §13 Failure report and §22, ADR 0025, 2.1-M412, 2.1-M421, 2.1-M422, 2.1-Q277, 2.1-Q281).
  *
  * - **Entries.** One per `REPORT_SECTIONS` row, in report order; the Design only by consent. The frontend's own
