@@ -11,8 +11,8 @@ import {
 import type { ReportOrigin } from '../../failures/report'
 import {
   buildProblemReport,
+  NATIVE_SECTIONS,
   nativeRequest,
-  REPORT_MANIFEST_FORMAT,
   type EditionSections,
   type ProblemReportInput,
 } from './builder'
@@ -22,16 +22,7 @@ const FIXTURES = import.meta.glob<{ default: Failure }>('../../../../../canopi-t
 const CREATED_AT = new Date('2026-11-08T09:05:03.250Z')
 
 /** Desktop: the native command fills every edition section. */
-const DESKTOP: EditionSections = {
-  build: 'native',
-  health: 'native',
-  queues: 'native',
-  native_settlements: 'native',
-  jobs: 'native',
-  library_disk: 'native',
-  log_tail: 'native',
-  settings_summary: 'native',
-}
+const DESKTOP = NATIVE_SECTIONS
 
 /** Web: the browser fills what it has and lacks the rest (F13). */
 const WEB: EditionSections = {
@@ -125,7 +116,7 @@ describe('problem report builder', () => {
   it('lists every entry but itself in the manifest, in both consent states (2.1-Q277, 2.1-M436)', () => {
     for (const design of [null, '{"name":"Orchard"}\n']) {
       const report = buildProblemReport(input({ design }))
-      expect(report.manifest!.format).toBe(REPORT_MANIFEST_FORMAT)
+      expect(report.manifest!.format).toBe('canopi-problem-report-2')
       expect(report.manifest!.created_at).toBe('2026-11-08T09:05:03Z')
       expect(report.manifest!.entries.map((entry) => entry.file)).toEqual(report.entries.map((entry) => entry.file))
       expect(report.manifest!.entries.some((entry) => entry.file === 'manifest.json')).toBe(false)

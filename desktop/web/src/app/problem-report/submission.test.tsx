@@ -13,8 +13,7 @@ import { IpcFailure } from '../../failures/ipc-failure'
 import { t } from '../../i18n'
 import { createProblemReportSubmission, type ProblemReportSubmissionDeps } from './submission'
 import { recentFrontendDiagnostics } from './diagnostics'
-import type { ProblemReport } from './builder'
-import { desktopProblemReport } from '../../platform/problem-report.desktop'
+import { NATIVE_SECTIONS, type ProblemReport } from './builder'
 
 type Write = (report: ProblemReport) => Promise<ProblemReportResult>
 
@@ -22,7 +21,7 @@ const SAVED: ProblemReportResult = { file_name: 'canopi-report-20261108-090503.z
 
 function deps(write: Write = vi.fn<Write>().mockResolvedValue(SAVED)): ProblemReportSubmissionDeps {
   return {
-    port: { sections: desktopProblemReport.sections, write },
+    port: { sections: NATIVE_SECTIONS, write },
     createProblemReport: vi.fn(),
     showProblemReportFolder: vi.fn().mockResolvedValue(undefined),
     readFrontendDiagnostics: recentFrontendDiagnostics,

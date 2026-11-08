@@ -16,6 +16,7 @@
 import {
   REPORT_SECTIONS,
   type ProblemReportRequest,
+  type ProblemReportResult,
   type RedactedText,
   type ReportManifest,
   type ReportSectionId,
@@ -26,7 +27,7 @@ import { redact } from '../../failures/redact'
 import type { ReportOrigin } from '../../failures/report'
 
 /** The manifest's format name, as Desktop's native writer names it (`bundle.rs` MANIFEST_FORMAT). */
-export const REPORT_MANIFEST_FORMAT = 'canopi-problem-report-2'
+const REPORT_MANIFEST_FORMAT = 'canopi-problem-report-2'
 
 /** What a redactor fault stores instead of the text. */
 const REDACTION_FAILED = 'redaction_failed'
@@ -39,13 +40,37 @@ const FRONTEND_SECTIONS = ['originating_failure', 'description', 'frontend_ring'
 type FrontendSectionId = (typeof FRONTEND_SECTIONS)[number]
 
 /** The sections an edition fills, natively or by a reader, or lacks. */
-export type EditionSectionId = Exclude<ReportSectionId, FrontendSectionId | 'design'>
+type EditionSectionId = Exclude<ReportSectionId, FrontendSectionId | 'design'>
 
 /** How an edition fills one section: a reader of its value, its native writer, or not at all on this edition (F13). */
-export type SectionReader = 'native' | 'not_on_this_edition' | (() => unknown)
+type SectionReader = 'native' | 'not_on_this_edition' | (() => unknown)
 
 /** Every section an edition answers for, so a section added to `REPORT_SECTIONS` fails typecheck until each edition says. */
 export type EditionSections = { readonly [S in EditionSectionId]: SectionReader }
+
+/** Desktop: the native command fills every section but the frontend's own (2.1-M421). */
+export const NATIVE_SECTIONS: EditionSections = {
+  build: 'native',
+  health: 'native',
+  queues: 'native',
+  native_settlements: 'native',
+  jobs: 'native',
+  library_disk: 'native',
+  log_tail: 'native',
+  settings_summary: 'native',
+}
+
+/**
+ * The problemReport port (contracts §22, 2.1-M422): one builder, two writers. Desktop's adapter
+ * (platform/problem-report.desktop.ts) sends the frontend sections to the native command, which adds its own and zips;
+ * Web's (platform/problem-report.browser.ts) zips the whole report in TS and downloads it. Each names how it fills every
+ * section the frontend does not, a section it lacks marked not on this edition (F13, 2.1-M412).
+ */
+export interface ProblemReportPort {
+  readonly sections: EditionSections
+  /** Writes one report as one zip; its file name only, never a path. Throws a typed failure (busy, io) unwritten. */
+  write(report: ProblemReport): Promise<ProblemReportResult>
+}
 
 export interface ProblemReportInput {
   readonly createdAt: Date
@@ -63,7 +88,7 @@ export interface ProblemReportInput {
 }
 
 /** One entry of the report; a native section's text is the native writer's, so null here. */
-export interface ReportEntry {
+interface ReportEntry {
   readonly section: ReportSectionId
   readonly file: string
   readonly status: ReportSectionStatus | 'native'
@@ -85,6 +110,7 @@ export function buildProblemReport(input: ProblemReportInput): ProblemReport {
     try {
       return redactor(text)
     } catch {
+      // A redactor fault stores its marker, never the unredacted text, and the report is still built.
       return REDACTION_FAILED
     }
   }
@@ -121,18 +147,11 @@ function isFrontendSection(id: ReportSectionId): id is FrontendSectionId {
 type Filled = Pick<ReportEntry, 'status' | 'text'>
 
 function fill(id: ReportSectionId, input: ProblemReportInput, safe: (text: string) => string): Filled | null {
-  switch (id) {
-    case 'design':
-      return input.design === null ? null : { status: 'included', text: input.design }
-    case 'originating_failure':
-      return frontendText(input.origin ? safe(json(originText(input.origin))) : '')
-    case 'description':
-      return frontendText(safe(input.description))
-    case 'frontend_ring':
-      return frontendText(safe(JSON.stringify(input.ring, null, 2)))
-    default:
-      return editionSection(input.sections[id], safe)
-  }
+  if (id === 'design') return input.design === null ? null : { status: 'included', text: input.design }
+  if (id === 'originating_failure') return frontendText(input.origin ? safe(json(originText(input.origin))) : '')
+  if (id === 'description') return frontendText(safe(input.description))
+  if (id === 'frontend_ring') return frontendText(safe(JSON.stringify(input.ring, null, 2)))
+  return editionSection(input.sections[id], safe)
 }
 
 /** The originating failure, its code and operation first. */

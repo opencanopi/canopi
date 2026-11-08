@@ -5,11 +5,9 @@ import {
   type ProblemReportRequest,
   type ProblemReportResult,
 } from '../../ipc/problem-report'
-import type { ProblemReportPort } from '../../platform/problem-report'
-import { desktopProblemReport } from '../../platform/problem-report.desktop'
 import { reportInline, type ReportOrigin } from '../../failures/report'
 import { t } from '../../i18n'
-import { buildProblemReport, nativeRequest } from './builder'
+import { buildProblemReport, NATIVE_SECTIONS, nativeRequest, type ProblemReportPort } from './builder'
 import { recentFrontendDiagnostics } from './diagnostics'
 import { buildCurrentDesignProblemReportAttachment } from './attachments'
 import { problemReportDialogOpen } from './state'
@@ -50,10 +48,11 @@ export interface ProblemReportSubmission {
   submit(): Promise<void>
   copySummary(): Promise<void>
   showFolder(): Promise<void>
+  /** Writes later reports through `port` until the returned uninstall. */
+  installPort(port: ProblemReportPort): () => void
 }
 
 const DEFAULT_DEPS: ProblemReportSubmissionDeps = {
-  port: desktopProblemReport,
   createProblemReport,
   showProblemReportFolder,
   readFrontendDiagnostics: recentFrontendDiagnostics,
@@ -69,6 +68,11 @@ const DEFAULT_DEPS: ProblemReportSubmissionDeps = {
 }
 
 export const problemReportSubmission = createProblemReportSubmission(DEFAULT_DEPS)
+
+/** Installs the edition's problemReport writer for the app's report, at boot (main.tsx); returns the uninstall. */
+export function installProblemReportPort(port: ProblemReportPort): () => void {
+  return problemReportSubmission.installPort(port)
+}
 
 /** Opens the problem report from a menu or a link: no failure leads it. */
 export function openProblemReportDialog(): void {
@@ -86,6 +90,7 @@ export function createProblemReportSubmission(
   const showFolderState = signal<ProblemReportShowFolderState>('idle')
   let generation = 0
   let origin: ReportOrigin | null = null
+  let port: ProblemReportPort | null = deps.port ?? null
 
   function reset(): void {
     generation += 1
@@ -145,17 +150,17 @@ export function createProblemReportSubmission(
         }
 
         // The one builder fills the frontend's sections, redacted; Desktop's command adds the native ones (2.1-M421).
-        const port: ProblemReportPort = deps.port
-          ?? { sections: desktopProblemReport.sections, write: (built) => deps.createProblemReport(nativeRequest(built)) }
+        const writer: ProblemReportPort = port
+          ?? { sections: NATIVE_SECTIONS, write: (built) => deps.createProblemReport(nativeRequest(built)) }
         const report = buildProblemReport({
           createdAt: new Date(),
           description: description.value,
           ring: deps.readFrontendDiagnostics(),
           origin,
           design: currentDesign,
-          sections: port.sections,
+          sections: writer.sections,
         })
-        const nextResult = await port.write(report)
+        const nextResult = await writer.write(report)
         if (submitGeneration !== generation) return
         result.value = nextResult
         showFolderState.value = 'idle'
@@ -178,6 +183,12 @@ export function createProblemReportSubmission(
         copyState.value = 'copied'
       } catch {
         copyState.value = 'failed'
+      }
+    },
+    installPort(next) {
+      port = next
+      return () => {
+        if (port === next) port = deps.port ?? null
       }
     },
     async showFolder() {

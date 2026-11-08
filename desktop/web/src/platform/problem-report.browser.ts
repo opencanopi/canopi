@@ -2,12 +2,8 @@
 // Q282). Invariant: one stored zip of the builder's entries and a manifest of every other entry, downloaded under the
 // report's file name; its object URL is revoked after a delay (an at-once revoke can fail a download not yet started)
 // and every pending one is freed on dispose. Sections with no browser source are marked not on this edition (F13).
-import { CANOPI_VERSION } from '../app/about/metadata'
-import { locale, plantSpacingIntervalM, theme } from '../app/settings/state'
-import type { ProblemReport } from '../app/problem-report/builder'
-import { storeHealth } from '../failures/health'
+import type { ProblemReport, ProblemReportPort } from '../app/problem-report/builder'
 import { REPORT_MANIFEST_FILE, type ProblemReportResult } from '../generated/contracts'
-import type { ProblemReportPort } from './problem-report'
 
 /** Long enough for any browser to start the download from the URL. */
 const REVOKE_AFTER_MS = 60_000
@@ -111,7 +107,14 @@ export interface BrowserProblemReportWriter extends ProblemReportPort {
   dispose(): void
 }
 
-export function createBrowserProblemReportWriter(): BrowserProblemReportWriter {
+/** What the Web root reads for the sections the browser has: the build, the store health, the settings summary. */
+export interface BrowserReportReaders {
+  readonly build: () => Record<string, unknown>
+  readonly health: () => unknown
+  readonly settings: () => unknown
+}
+
+export function createBrowserProblemReportWriter(readers: BrowserReportReaders): BrowserProblemReportWriter {
   const pending = new Map<string, ReturnType<typeof setTimeout>>()
   const release = (url: string) => {
     clearTimeout(pending.get(url))
@@ -120,14 +123,14 @@ export function createBrowserProblemReportWriter(): BrowserProblemReportWriter {
   }
   return {
     sections: {
-      build: () => ({ app: 'Canopi', version: CANOPI_VERSION, edition: 'web', browser: browserFamily(navigator.userAgent) }),
-      health: () => ({ stores: storeHealth.value }),
+      build: () => ({ ...readers.build(), browser: browserFamily(navigator.userAgent) }),
+      health: () => ({ stores: readers.health() }),
       queues: 'not_on_this_edition',
       native_settlements: 'not_on_this_edition',
       jobs: 'not_on_this_edition',
       library_disk: 'not_on_this_edition',
       log_tail: 'not_on_this_edition',
-      settings_summary: () => ({ locale: locale.value, theme: theme.value, plant_spacing_interval_m: plantSpacingIntervalM.value }),
+      settings_summary: readers.settings,
     },
     async write(report: ProblemReport): Promise<ProblemReportResult> {
       const manifest = report.manifest

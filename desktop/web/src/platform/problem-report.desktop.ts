@@ -2,19 +2,9 @@
 // native command fills every section but the frontend's own, redacts them and writes the zip in "Problem reports"; a
 // busy lane or a failed write settles as its typed failure with nothing written.
 import { createProblemReport } from '../ipc/problem-report'
-import { nativeRequest } from '../app/problem-report/builder'
-import type { ProblemReportPort } from './problem-report'
+import { NATIVE_SECTIONS, nativeRequest, type ProblemReportPort } from '../app/problem-report/builder'
 
 export const desktopProblemReport: ProblemReportPort = {
-  sections: {
-    build: 'native',
-    health: 'native',
-    queues: 'native',
-    native_settlements: 'native',
-    jobs: 'native',
-    library_disk: 'native',
-    log_tail: 'native',
-    settings_summary: 'native',
-  },
+  sections: NATIVE_SECTIONS,
   write: (report) => createProblemReport(nativeRequest(report)),
 }

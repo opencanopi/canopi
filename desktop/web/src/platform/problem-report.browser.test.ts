@@ -5,6 +5,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { REPORT_MANIFEST_FILE, REPORT_SECTIONS, type ReportManifest } from '../generated/contracts'
 import { buildProblemReport } from '../app/problem-report/builder'
+
+const READERS = { build: () => ({ app: 'Canopi', version: '2.1.0' }), health: () => ({}), settings: () => ({ locale: 'en' }) }
 import { browserFamily, createBrowserProblemReportWriter, storedZip } from './problem-report.browser'
 
 /** Reads a stored (method 0) zip's entries by its central directory, checking each local header and CRC. */
@@ -91,7 +93,7 @@ describe('Web problem report writer', () => {
     vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) {
       clicked.push(this.download)
     })
-    const writer = createBrowserProblemReportWriter()
+    const writer = createBrowserProblemReportWriter(READERS)
     for (const design of [null, '{"name":"Orchard"}\n']) {
       const report = buildProblemReport({ ...WEB_INPUT, design })
       await expect(writer.write(report)).resolves.toEqual({ file_name: 'canopi-report-20261108-090503.zip', revealed: true })
@@ -107,7 +109,7 @@ describe('Web problem report writer', () => {
 
   it('revokes the download URL after a delay, and frees any still pending on dispose', async () => {
     vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
-    const writer = createBrowserProblemReportWriter()
+    const writer = createBrowserProblemReportWriter(READERS)
     await writer.write(buildProblemReport(WEB_INPUT))
     // Revoked at once, a download the browser has not started yet would fail.
     expect(URL.revokeObjectURL).not.toHaveBeenCalled()
@@ -121,7 +123,7 @@ describe('Web problem report writer', () => {
   })
 
   it('refuses a report with native sections, which only Desktop\'s command can fill', async () => {
-    const writer = createBrowserProblemReportWriter()
+    const writer = createBrowserProblemReportWriter(READERS)
     const native = buildProblemReport({ ...WEB_INPUT, sections: { ...WEB_INPUT.sections, build: 'native' } })
     await expect(writer.write(native)).rejects.toThrow()
     expect(URL.createObjectURL).not.toHaveBeenCalled()
