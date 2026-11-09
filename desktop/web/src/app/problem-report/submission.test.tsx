@@ -34,7 +34,6 @@ const NATIVE: EditionSections = {
 
 function deps(overrides: Partial<ProblemReportSubmissionDeps> = {}): ProblemReportSubmissionDeps {
   return {
-    showProblemReportFolder: vi.fn().mockResolvedValue(undefined),
     readFrontendDiagnostics: recentFrontendDiagnostics,
     buildCurrentDesignAttachment: () => null,
     writeClipboardText: vi.fn().mockResolvedValue(undefined),

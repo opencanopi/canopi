@@ -3,8 +3,9 @@
 // Owner of the Desktop problem report writer: a native host adapter for the problemReport port
 // (platform/problem-report.ts; tauri-only-in-native-host, ADR 0022, ADR 0025; contracts §22, 2.1-M421, 2.1-M422).
 // Invariant: the native command fills every section but the frontend's own, redacts them and writes the zip in
-// "Problem reports"; a busy lane or a failed write settles as its typed failure with nothing written.
-import { createProblemReport } from '../ipc/problem-report'
+// "Problem reports" and shows it selected, which Show folder repeats; a busy lane or a failed write settles as its typed
+// failure with nothing written.
+import { createProblemReport, showProblemReportFolder } from '../ipc/problem-report'
 import type { ProblemReportRequest, RedactedText } from '../generated/contracts'
 import type { EditionSections, ProblemReport, ProblemReportPort } from './problem-report'
 
@@ -37,4 +38,5 @@ function nativeRequest(report: ProblemReport): ProblemReportRequest {
 export const desktopProblemReport: ProblemReportPort = {
   sections: NATIVE_SECTIONS,
   write: (report) => createProblemReport(nativeRequest(report)),
+  reveal: showProblemReportFolder,
 }

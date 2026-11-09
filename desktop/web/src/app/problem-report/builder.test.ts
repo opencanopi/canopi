@@ -16,6 +16,7 @@ import { buildProblemReport, type ProblemReportInput } from './builder'
 
 vi.mock('../../ipc/problem-report', () => ({
   createProblemReport: vi.fn().mockResolvedValue({ file_name: 'canopi-report-20261108-090503.zip', revealed: true }),
+  showProblemReportFolder: vi.fn(),
 }))
 
 /** What Desktop's adapter sends the native command for a report, through the real adapter. */

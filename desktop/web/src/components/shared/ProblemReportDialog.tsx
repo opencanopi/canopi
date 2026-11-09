@@ -34,6 +34,8 @@ function ProblemReportDialogContent() {
   const error = problemReportSubmission.error.value
   const copyState = problemReportSubmission.copyState.value
   const showFolderState = problemReportSubmission.showFolderState.value
+  // Web's report is a download: with no folder to show, Show folder is left out, never drawn dead.
+  const canReveal = problemReportSubmission.port.value?.reveal !== undefined
 
   // Focus goes in as the dialog commits, with its modal layer, so an Esc at once is the dialog's (canopi-f47t.52.228.20).
   useLayoutEffect(() => {
@@ -109,14 +111,16 @@ function ProblemReportDialogContent() {
               <button type="button" className={styles.secondaryButton} onClick={closeDialog}>
                 {t('problemReport.close')}
               </button>
-              <button
-                type="button"
-                className={styles.primaryButton}
-                onClick={() => void showFolder()}
-                disabled={showFolderState === 'showing'}
-              >
-                {t(showFolderState === 'showing' ? 'problemReport.showingFolder' : 'problemReport.showFolder')}
-              </button>
+              {canReveal && (
+                <button
+                  type="button"
+                  className={styles.primaryButton}
+                  onClick={() => void showFolder()}
+                  disabled={showFolderState === 'showing'}
+                >
+                  {t(showFolderState === 'showing' ? 'problemReport.showingFolder' : 'problemReport.showFolder')}
+                </button>
+              )}
             </div>
             {copyState === 'failed' && (
               <p className={styles.errorText}>{t('problemReport.copyFailed')}</p>

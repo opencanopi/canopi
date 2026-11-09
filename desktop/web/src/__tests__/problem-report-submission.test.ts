@@ -21,10 +21,13 @@ const NATIVE: EditionSections = {
 const port = {
   sections: NATIVE,
   write: vi.fn<(report: ProblemReport) => Promise<ProblemReportResult>>(),
+  reveal: vi.fn<(fileName: string) => Promise<void>>(),
 } satisfies ProblemReportPort
 
 beforeEach(() => {
   port.write.mockReset()
+  port.reveal.mockReset()
+  port.reveal.mockResolvedValue(undefined)
   port.write.mockResolvedValue({ file_name: 'canopi-report-20261107-101500.zip', revealed: true })
 })
 
@@ -42,7 +45,6 @@ function written(id: string): string | undefined {
 
 function createDeps(overrides: Partial<ProblemReportSubmissionDeps> = {}): ProblemReportSubmissionDeps {
   return {
-    showProblemReportFolder: vi.fn().mockResolvedValue(undefined),
     readFrontendDiagnostics: vi.fn(() => [
       {
         level: 'error' as const,
@@ -144,7 +146,7 @@ describe('Problem Report submission module', () => {
 
     expect(deps.writeClipboardText).toHaveBeenCalledWith('canopi-report-20261107-101500.zip')
     expect(submission.copyState.value).toBe('copied')
-    expect(deps.showProblemReportFolder).toHaveBeenCalledWith('canopi-report-20261107-101500.zip')
+    expect(port.reveal).toHaveBeenCalledWith('canopi-report-20261107-101500.zip')
     expect(submission.showFolderState.value).toBe('idle')
   })
 

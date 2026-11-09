@@ -13,6 +13,8 @@ import { beforePaint, holdAfterPaint } from './support/before-paint'
 import { replaceCurrentDesignState } from './support/design-session-state'
 import { ProblemReportDialog } from '../components/shared/ProblemReportDialog'
 import { desktopProblemReport } from '../platform/problem-report.desktop'
+import { createBrowserProblemReportWriter } from '../platform/problem-report.browser'
+import { ringEntries } from '../failures/ring'
 import type { CanopiFile } from '../types/design'
 
 const mocks = vi.hoisted(() => ({
@@ -215,5 +217,28 @@ describe('ProblemReportDialog', () => {
     expect(mocks.showProblemReportFolder).toHaveBeenCalledWith(REPORT_FILE)
     expect(container.textContent).toContain('Could not show the folder')
     expect(container.textContent).toContain(REPORT_FILE)
+  })
+
+  it('a Web report is a download: the dialog offers no Show folder, so no dead action records a failure', async () => {
+    uninstallPort()
+    URL.createObjectURL = vi.fn(() => 'blob:report')
+    URL.revokeObjectURL = vi.fn()
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    const writer = createBrowserProblemReportWriter({ build: () => ({}), health: () => ({}), settings: () => ({}) })
+    uninstallPort = problemReportSubmission.installPort(writer)
+
+    await act(async () => {
+      render(<ProblemReportDialog />, container)
+    })
+    await act(async () => {
+      container.querySelector('form')!.dispatchEvent(new SubmitEvent('submit', { bubbles: true, cancelable: true }))
+    })
+
+    expect(problemReportSubmission.result.value?.revealed).toBe(false)
+    expect([...container.querySelectorAll('button')].map((button) => button.textContent)).not.toContain('Show folder')
+    await act(async () => problemReportSubmission.showFolder())
+    expect(mocks.showProblemReportFolder).not.toHaveBeenCalled()
+    expect(ringEntries()).toEqual([])
+    writer.dispose()
   })
 })

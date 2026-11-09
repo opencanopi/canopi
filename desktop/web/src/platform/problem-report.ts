@@ -37,4 +37,9 @@ export interface ProblemReportPort {
   readonly sections: EditionSections
   /** Writes one report as one zip; its file name only, never a path. Throws a typed failure (busy, io) unwritten. */
   write(report: ProblemReport): Promise<ProblemReportResult>
+  /**
+   * Shows a saved report in the file manager, by its file name. Absent where the report is a download with no folder
+   * to show (Web), so the dialog offers no Show folder there.
+   */
+  readonly reveal?: (fileName: string) => Promise<void>
 }

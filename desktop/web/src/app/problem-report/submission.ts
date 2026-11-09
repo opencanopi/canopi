@@ -1,5 +1,4 @@
-import { signal, type Signal } from '@preact/signals'
-import { showProblemReportFolder } from '../../ipc/problem-report'
+import { signal, type ReadonlySignal, type Signal } from '@preact/signals'
 import type { ProblemReportResult } from '../../generated/contracts'
 import type { ProblemReportPort } from '../../platform/problem-report'
 import { reportInline, type ReportOrigin } from '../../failures/report'
@@ -13,7 +12,6 @@ type ProblemReportCopyState = 'idle' | 'copied' | 'failed'
 type ProblemReportShowFolderState = 'idle' | 'showing' | 'failed'
 
 export interface ProblemReportSubmissionDeps {
-  readonly showProblemReportFolder: (folderPath: string) => Promise<void>
   readonly readFrontendDiagnostics: typeof recentFrontendDiagnostics
   readonly buildCurrentDesignAttachment: () => string | null
   readonly writeClipboardText: (text: string) => Promise<void>
@@ -29,6 +27,8 @@ export interface ProblemReportSubmission {
   readonly error: Signal<string | null>
   readonly copyState: Signal<ProblemReportCopyState>
   readonly showFolderState: Signal<ProblemReportShowFolderState>
+  /** The installed writer, which says what the edition fills and whether it can show a saved report. */
+  readonly port: ReadonlySignal<ProblemReportPort | null>
   /** Opens the dialog afresh; a report opened from a failure lists it first (contracts §13). */
   open(origin?: ReportOrigin | null): void
   close(): void
@@ -37,13 +37,13 @@ export interface ProblemReportSubmission {
   setIncludeCurrentDesign(include: boolean): void
   submit(): Promise<void>
   copySummary(): Promise<void>
+  /** Shows the saved report in the file manager; nothing on an edition whose writer has no `reveal`. */
   showFolder(): Promise<void>
   /** The edition's problemReport writer (contracts §22), the one way to set it; returns the uninstall. */
   installPort(port: ProblemReportPort): () => void
 }
 
 const DEFAULT_DEPS: ProblemReportSubmissionDeps = {
-  showProblemReportFolder,
   readFrontendDiagnostics: recentFrontendDiagnostics,
   buildCurrentDesignAttachment: buildCurrentDesignProblemReportAttachment,
   writeClipboardText: async (text) => {
@@ -79,7 +79,7 @@ export function createProblemReportSubmission(
   const showFolderState = signal<ProblemReportShowFolderState>('idle')
   let generation = 0
   let origin: ReportOrigin | null = null
-  let port: ProblemReportPort | null = null
+  const port = signal<ProblemReportPort | null>(null)
 
   function reset(): void {
     generation += 1
@@ -101,6 +101,7 @@ export function createProblemReportSubmission(
     error,
     copyState,
     showFolderState,
+    port,
     open(from = null) {
       reset()
       origin = from
@@ -139,7 +140,7 @@ export function createProblemReportSubmission(
         }
 
         // The one builder fills the frontend's sections, redacted; Desktop's command adds the native ones (2.1-M421).
-        const writer = port
+        const writer = port.value
         if (!writer) throw new Error('No problem report writer is installed for this edition')
         const report = buildProblemReport({
           createdAt: new Date(),
@@ -175,16 +176,17 @@ export function createProblemReportSubmission(
       }
     },
     installPort(next) {
-      port = next
+      port.value = next
       return () => {
-        if (port === next) port = null
+        if (port.peek() === next) port.value = null
       }
     },
     async showFolder() {
-      if (!result.value) return
+      const reveal = port.peek()?.reveal
+      if (!result.value || !reveal) return
       showFolderState.value = 'showing'
       try {
-        await deps.showProblemReportFolder(result.value.file_name)
+        await reveal(result.value.file_name)
         showFolderState.value = 'idle'
       } catch {
         showFolderState.value = 'failed'
