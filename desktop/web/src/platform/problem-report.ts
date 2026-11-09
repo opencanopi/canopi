@@ -35,6 +35,8 @@ export interface ProblemReport {
 
 export interface ProblemReportPort {
   readonly sections: EditionSections
+  /** The current Design's `.canopi` text for the consent row, or null when none is open (2.1-Q278). */
+  currentDesign(): string | null
   /** Writes one report as one zip; its file name only, never a path. Throws a typed failure (busy, io) unwritten. */
   write(report: ProblemReport): Promise<ProblemReportResult>
   /**

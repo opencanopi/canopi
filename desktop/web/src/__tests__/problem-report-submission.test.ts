@@ -20,6 +20,7 @@ const NATIVE: EditionSections = {
 /** The edition's writer: each test reads the report it is given. */
 const port = {
   sections: NATIVE,
+  currentDesign: vi.fn<() => string | null>(),
   write: vi.fn<(report: ProblemReport) => Promise<ProblemReportResult>>(),
   reveal: vi.fn<(fileName: string) => Promise<void>>(),
 } satisfies ProblemReportPort
@@ -27,6 +28,8 @@ const port = {
 beforeEach(() => {
   port.write.mockReset()
   port.reveal.mockReset()
+  port.currentDesign.mockReset()
+  port.currentDesign.mockReturnValue('current design json')
   port.reveal.mockResolvedValue(undefined)
   port.write.mockResolvedValue({ file_name: 'canopi-report-20261107-101500.zip', revealed: true })
 })
@@ -53,7 +56,6 @@ function createDeps(overrides: Partial<ProblemReportSubmissionDeps> = {}): Probl
         timestamp_ms: 1,
       },
     ]),
-    buildCurrentDesignAttachment: vi.fn(() => 'current design json'),
     currentDesignUnavailableMessage: () => 'Current Design is unavailable',
     setDialogOpen: vi.fn(),
     ...overrides,
@@ -83,7 +85,7 @@ describe('Problem Report submission module', () => {
     expect(written('description')).toBe('Canvas froze after placing a species')
     expect(written('frontend_ring')).toContain('disk failed at <path>')
     expect(written('design')).toBeUndefined()
-    expect(deps.buildCurrentDesignAttachment).not.toHaveBeenCalled()
+    expect(port.currentDesign).not.toHaveBeenCalled()
     expect(submission.result.value?.file_name).toBe('canopi-report-20261107-101500.zip')
     expect(submission.error.value).toBeNull()
   })
@@ -105,14 +107,13 @@ describe('Problem Report submission module', () => {
     submission.setIncludeCurrentDesign(true)
     await submission.submit()
 
-    expect(deps.buildCurrentDesignAttachment).toHaveBeenCalledOnce()
+    expect(port.currentDesign).toHaveBeenCalledOnce()
     expect(written('design')).toBe('current design json')
   })
 
   it('blocks submission when current Design is selected but unavailable', async () => {
-    const deps = createDeps({
-      buildCurrentDesignAttachment: vi.fn(() => null),
-    })
+    port.currentDesign.mockReturnValue(null)
+    const deps = createDeps()
     const submission = createProblemReportSubmission(deps)
 
     submission.setIncludeCurrentDesign(true)

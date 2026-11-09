@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { REPORT_MANIFEST_FILE, REPORT_SECTIONS, type ReportManifest } from '../generated/contracts'
 import { buildProblemReport } from '../app/problem-report/builder'
 
-const READERS = { build: () => ({ app: 'Canopi', version: '2.1.0' }), health: () => ({}), settings: () => ({ locale: 'en' }) }
+const READERS = { build: () => ({ app: 'Canopi', version: '2.1.0' }), health: () => ({}), settings: () => ({ locale: 'en' }), currentDesign: () => null }
 import { browserFamily, createBrowserProblemReportWriter, storedZip } from './problem-report.browser'
 
 /** Reads a stored (method 0) zip's entries by its central directory, checking each local header and CRC. */

@@ -5,7 +5,6 @@ import { reportFailure, reportInline, type ReportOrigin } from '../../failures/r
 import { t } from '../../i18n'
 import { buildProblemReport } from './builder'
 import { recentFrontendDiagnostics } from './diagnostics'
-import { buildCurrentDesignProblemReportAttachment } from './attachments'
 import { problemReportDialogOpen } from './state'
 
 /** The op a report's failure is recorded under. */
@@ -15,7 +14,6 @@ type ProblemReportShowFolderState = 'idle' | 'showing' | 'failed'
 
 export interface ProblemReportSubmissionDeps {
   readonly readFrontendDiagnostics: typeof recentFrontendDiagnostics
-  readonly buildCurrentDesignAttachment: () => string | null
   readonly currentDesignUnavailableMessage: () => string
   readonly setDialogOpen: (open: boolean) => void
 }
@@ -44,7 +42,6 @@ export interface ProblemReportSubmission {
 
 const DEFAULT_DEPS: ProblemReportSubmissionDeps = {
   readFrontendDiagnostics: recentFrontendDiagnostics,
-  buildCurrentDesignAttachment: buildCurrentDesignProblemReportAttachment,
   currentDesignUnavailableMessage: () => t('problemReport.currentDesignUnavailable'),
   setDialogOpen: (open) => {
     problemReportDialogOpen.value = open
@@ -119,9 +116,11 @@ export function createProblemReportSubmission(
       error.value = null
 
       try {
+        const writer = port.value
+        if (!writer) throw new Error('No problem report writer is installed for this edition')
         let currentDesign: string | null = null
         if (includeCurrentDesign.value) {
-          currentDesign = deps.buildCurrentDesignAttachment()
+          currentDesign = writer.currentDesign()
           if (!currentDesign) {
             if (submitGeneration === generation) {
               error.value = deps.currentDesignUnavailableMessage()
@@ -131,8 +130,6 @@ export function createProblemReportSubmission(
         }
 
         // The one builder fills the frontend's sections, redacted; Desktop's command adds the native ones (2.1-M421).
-        const writer = port.value
-        if (!writer) throw new Error('No problem report writer is installed for this edition')
         const report = buildProblemReport({
           createdAt: new Date(),
           description: description.value,

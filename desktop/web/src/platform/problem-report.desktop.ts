@@ -8,6 +8,7 @@
 import { createProblemReport, showProblemReportFolder } from '../ipc/problem-report'
 import type { ProblemReportRequest, RedactedText } from '../generated/contracts'
 import type { EditionSections, ProblemReport, ProblemReportPort } from './problem-report'
+import { buildCurrentDesignProblemReportAttachment } from '../app/problem-report/attachments'
 
 /** Desktop: the native command fills every section but the frontend's own (2.1-M421). */
 const NATIVE_SECTIONS: EditionSections = {
@@ -37,6 +38,8 @@ function nativeRequest(report: ProblemReport): ProblemReportRequest {
 
 export const desktopProblemReport: ProblemReportPort = {
   sections: NATIVE_SECTIONS,
+  // The Desktop Design session's observation (canopi-f47t.52.36: the one listed platform -> app edge of this adapter).
+  currentDesign: buildCurrentDesignProblemReportAttachment,
   write: (report) => createProblemReport(nativeRequest(report)),
   reveal: showProblemReportFolder,
 }

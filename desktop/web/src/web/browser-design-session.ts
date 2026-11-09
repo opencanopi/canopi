@@ -109,11 +109,13 @@ export interface BrowserDesignSessionController {
   /** Write the Design to its Draft, then close it; false when cancelled or nothing was open. */
   closeDesign(): Promise<boolean>;
   openCanopi(): Promise<boolean>;
-  openCanopiTemplate(
-    template: DesignTemplateEnvelope,
-    options?: { readonly isCancelled?: () => boolean },
-  ): Promise<"opened" | "cancelled">;
+  openCanopiTemplate(template: DesignTemplateEnvelope, options?: { readonly isCancelled?: () => boolean }): Promise<"opened" | "cancelled">;
   downloadCanopi(): Promise<void>;
+  /**
+   * The current Design as `.canopi` text, as the canvas holds it now, for a problem report's consent row; null when
+   * none is open.
+   */
+  currentDesignText(): string | null;
   /** Download a copy of a stored Draft without opening it (the welcome screen's Draft row, 2.1-Q193). */
   downloadDraft(id: string): Promise<void>;
   renameDesign(name: string): void;
@@ -238,15 +240,9 @@ export function createBrowserDesignSessionController({
     replacement.replace(input, canvas, baseline.isDesignBaselineCurrent);
   }
 
-  function quarantineCompetingPendingReplacement(
-    input: ResolvedDesignReplacement,
-    canvas: CanvasDocumentSurface,
-  ): void {
+  function quarantineCompetingPendingReplacement(input: ResolvedDesignReplacement, canvas: CanvasDocumentSurface): void {
     const identity = replacement.pendingCanvasReplacement(canvas)?.identity ?? null;
-    if (
-      !identity
-      || replacement.matchesPendingCanvasReplacement(input, canvas, identity)
-    ) return;
+    if (!identity || replacement.matchesPendingCanvasReplacement(input, canvas, identity)) return;
 
     resumeExactPendingCanvasReplacement(canvas, identity);
     throw new CanvasAuthorityBusyError("document-settlement");
@@ -401,6 +397,11 @@ export function createBrowserDesignSessionController({
       blocksReplacement: false,
       write: (content) => downloadCopy(content, name),
     }));
+  }
+
+  function currentDesignText(): string | null {
+    const design = persistence.captureObservation(canvasSession);
+    return design ? `${JSON.stringify(encodeCanopiDesign(design), null, 2)}\n` : null;
   }
 
   async function downloadDraft(id: string): Promise<void> {
@@ -578,9 +579,7 @@ export function createBrowserDesignSessionController({
     };
   }
 
-  function settlePendingReplacementForHandoff(
-    session: CanvasDocumentSurface,
-  ): void {
+  function settlePendingReplacementForHandoff(session: CanvasDocumentSurface): void {
     const pending = replacement.pendingCanvasReplacement(session);
     if (!pending) return;
     if (!replacement.settlePendingCanvasReplacementForHandoff(session, pending.identity)) {
@@ -624,6 +623,7 @@ export function createBrowserDesignSessionController({
     openCanopi,
     openCanopiTemplate,
     downloadCanopi,
+    currentDesignText,
     downloadDraft,
     renameDesign,
     revertDesign,

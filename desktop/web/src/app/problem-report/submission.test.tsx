@@ -35,7 +35,6 @@ const NATIVE: EditionSections = {
 function deps(overrides: Partial<ProblemReportSubmissionDeps> = {}): ProblemReportSubmissionDeps {
   return {
     readFrontendDiagnostics: recentFrontendDiagnostics,
-    buildCurrentDesignAttachment: () => null,
     currentDesignUnavailableMessage: () => 'No current Design is available to attach.',
     setDialogOpen: vi.fn(),
     ...overrides,
@@ -44,7 +43,7 @@ function deps(overrides: Partial<ProblemReportSubmissionDeps> = {}): ProblemRepo
 
 /** A submission writing through a port whose write is `write`. */
 function submissionWith(write: Write = vi.fn<Write>().mockResolvedValue(SAVED), submissionDeps = deps()) {
-  const port: ProblemReportPort = { sections: NATIVE, write: vi.fn(write) }
+  const port: ProblemReportPort = { sections: NATIVE, currentDesign: () => null, write: vi.fn(write) }
   const submission = createProblemReportSubmission(submissionDeps)
   submission.installPort(port)
   return { submission, port, submissionDeps }
@@ -120,9 +119,9 @@ describe('problem report submission', () => {
     URL.createObjectURL = vi.fn(() => 'blob:report')
     URL.revokeObjectURL = vi.fn()
     const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
-    const writer = createBrowserProblemReportWriter({ build: () => ({}), health: () => ({}), settings: () => ({}) })
+    const writer = createBrowserProblemReportWriter({ build: () => ({}), health: () => ({}), settings: () => ({}), currentDesign: () => null })
     const write = vi.spyOn(writer, 'write')
-    const submission = createProblemReportSubmission(deps({ buildCurrentDesignAttachment: () => null }))
+    const submission = createProblemReportSubmission(deps())
     submission.installPort(writer)
     submission.open()
     submission.setIncludeCurrentDesign(true)
@@ -190,7 +189,7 @@ describe('problem report submission', () => {
 
   it('with no writer installed, a report fails and writes nothing', async () => {
     const submission = createProblemReportSubmission(deps())
-    const port: ProblemReportPort = { sections: NATIVE, write: vi.fn<Write>().mockResolvedValue(SAVED) }
+    const port: ProblemReportPort = { sections: NATIVE, currentDesign: () => null, write: vi.fn<Write>().mockResolvedValue(SAVED) }
     const uninstall = submission.installPort(port)
     uninstall()
     await submission.submit()

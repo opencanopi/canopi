@@ -19,6 +19,7 @@ import { canvasCommandDefinitions, type CanvasCommandProjection } from '../app/c
 import { installKeyRouter, type KeyRouterHandle } from '../app/keyboard/key-router'
 import { CANVAS_KEYMAP_ROWS, shellKeymapRows, type CommandSink } from '../app/keyboard/keymap'
 import { saveProblem } from '../app/document-session/save-problem'
+import { openProblemReportDialog } from '../app/problem-report/submission'
 import { savedViewDialogOpen } from '../app/saved-views/dialogs'
 import { singleKeyShortcuts } from '../app/settings/state'
 import { focusOwner } from '../app/keyboard/focus-owner'
@@ -62,6 +63,7 @@ type BrowserShellCapabilityId =
   | 'toggleTheme'
   | 'showShortcuts'
   | 'gettingStarted'
+  | 'reportProblem'
   | 'aboutCanopi'
 
 type BrowserShellCommandId = ShellCommandIdForCapability<BrowserShellCapabilityId>
@@ -209,6 +211,8 @@ export function createBrowserShellCatalog(
     navigateBudget: designPanel('budget'),
     navigateConsortium: designPanel('consortium'),
     navigateStories: designPanel('stories'),
+    // A Web report is one zip, downloaded (2.1-Q60, Q283).
+    reportProblem: { execute: openProblemReportDialog },
   })
 }
 

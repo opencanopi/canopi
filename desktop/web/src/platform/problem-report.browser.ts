@@ -107,11 +107,15 @@ export interface BrowserProblemReportWriter extends ProblemReportPort {
   dispose(): void
 }
 
-/** What the Web root reads for the sections the browser has: the build, the store health, the settings summary. */
+/**
+ * What the Web shell reads for the sections the browser has (the build, the store health, the settings summary) and
+ * for the consent row (the current Design, from the Web Design session).
+ */
 export interface BrowserReportReaders {
   readonly build: () => Record<string, unknown>
   readonly health: () => unknown
   readonly settings: () => unknown
+  readonly currentDesign: () => string | null
 }
 
 export function createBrowserProblemReportWriter(readers: BrowserReportReaders): BrowserProblemReportWriter {
@@ -132,6 +136,7 @@ export function createBrowserProblemReportWriter(readers: BrowserReportReaders):
       log_tail: 'not_on_this_edition',
       settings_summary: readers.settings,
     },
+    currentDesign: readers.currentDesign,
     async write(report: ProblemReport): Promise<ProblemReportResult> {
       const manifest = report.manifest
       if (!manifest) throw new Error('A Web problem report has no native sections')

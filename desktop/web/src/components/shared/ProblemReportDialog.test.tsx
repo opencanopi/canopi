@@ -78,6 +78,7 @@ function installWebWriter(): void {
     build: () => ({ app: 'Canopi' }),
     health: () => ({}),
     settings: () => ({}),
+    currentDesign: () => null,
   })
   uninstallPort = problemReportSubmission.installPort(webWriter)
 }
