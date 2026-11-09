@@ -171,4 +171,25 @@ describe('the drawers that subscribe (D11)', () => {
     await settled()
     expect(requestRepaint).not.toHaveBeenCalled()
   })
+
+  // Expected to fail until the main agent applies the draft-layer fix: draft-layer.test.ts, which asserts a text-less
+  // request, has no owner row for 1b-c7 (patch in gate-logs/phase-1/proper/scratch/1b-c7/f47t37-draft-chip-text.patch).
+  it.fails('canopi-f47t.37 (owner main agent, draft-layer.test.ts unowned): a draft chip asks for the faces its own text needs, so a Cyrillic chip gets the Cyrillic face', () => {
+    const fonts = stubFonts()
+    const layer = createDraftLayer({
+      createText: () => new MeasuredText(),
+      viewSize: { width: 400, height: 300 },
+      painters: createDraftScenePainters(() => createTestSceneRendererSnapshot()),
+      requestRepaint: vi.fn(),
+    })
+    layer.setView(createTestRendererView({ x: 0, y: 0, scale: 1 }))
+    const chip = 'Площадь 4 м²'
+    layer.setDraft({ shapes: [{ kind: 'label', anchor: { x: 0, y: 0 }, offsetPx: { x: 0, y: 0 }, text: chip, tone: 'measure' }] })
+
+    expect(fonts.load).toHaveBeenCalledOnce()
+    const [font, text] = fonts.load.mock.calls[0] ?? []
+    expect(font).toMatch(/px /)
+    for (const character of chip) expect(text, `the request names ${character}`).toContain(character)
+    layer.dispose()
+  })
 })
