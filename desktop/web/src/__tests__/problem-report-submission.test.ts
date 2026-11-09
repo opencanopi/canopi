@@ -54,7 +54,6 @@ function createDeps(overrides: Partial<ProblemReportSubmissionDeps> = {}): Probl
       },
     ]),
     buildCurrentDesignAttachment: vi.fn(() => 'current design json'),
-    writeClipboardText: vi.fn().mockResolvedValue(undefined),
     currentDesignUnavailableMessage: () => 'Current Design is unavailable',
     setDialogOpen: vi.fn(),
     ...overrides,
@@ -124,16 +123,13 @@ describe('Problem Report submission module', () => {
     expect(submission.submitting.value).toBe(false)
   })
 
-  it('copies the saved file name and shows the saved zip by its file name, never a path', async () => {
-    const deps = createDeps()
-    const submission = createProblemReportSubmission(deps)
+  it('shows the saved zip by its file name, never a path', async () => {
+    const submissionDeps = createDeps()
+    const submission = createProblemReportSubmission(submissionDeps)
 
     await submission.submit()
-    await submission.copySummary()
     await submission.showFolder()
 
-    expect(deps.writeClipboardText).toHaveBeenCalledWith('canopi-report-20261107-101500.zip')
-    expect(submission.copyState.value).toBe('copied')
     expect(port.reveal).toHaveBeenCalledWith('canopi-report-20261107-101500.zip')
     expect(submission.showFolderState.value).toBe('idle')
   })

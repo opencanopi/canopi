@@ -11,13 +11,11 @@ import { problemReportDialogOpen } from './state'
 /** The op a report's failure is recorded under. */
 const REPORT_SOURCE = 'problem_report.create'
 
-type ProblemReportCopyState = 'idle' | 'copied' | 'failed'
 type ProblemReportShowFolderState = 'idle' | 'showing' | 'failed'
 
 export interface ProblemReportSubmissionDeps {
   readonly readFrontendDiagnostics: typeof recentFrontendDiagnostics
   readonly buildCurrentDesignAttachment: () => string | null
-  readonly writeClipboardText: (text: string) => Promise<void>
   readonly currentDesignUnavailableMessage: () => string
   readonly setDialogOpen: (open: boolean) => void
 }
@@ -28,7 +26,6 @@ export interface ProblemReportSubmission {
   readonly submitting: Signal<boolean>
   readonly result: Signal<ProblemReportResult | null>
   readonly error: Signal<string | null>
-  readonly copyState: Signal<ProblemReportCopyState>
   readonly showFolderState: Signal<ProblemReportShowFolderState>
   /** The installed writer, which says what the edition fills and whether it can show a saved report. */
   readonly port: ReadonlySignal<ProblemReportPort | null>
@@ -39,7 +36,6 @@ export interface ProblemReportSubmission {
   setDescription(description: string): void
   setIncludeCurrentDesign(include: boolean): void
   submit(): Promise<void>
-  copySummary(): Promise<void>
   /** Shows the saved report in the file manager; nothing on an edition whose writer has no `reveal`. */
   showFolder(): Promise<void>
   /** The edition's problemReport writer (contracts §22), the one way to set it; returns the uninstall. */
@@ -49,10 +45,6 @@ export interface ProblemReportSubmission {
 const DEFAULT_DEPS: ProblemReportSubmissionDeps = {
   readFrontendDiagnostics: recentFrontendDiagnostics,
   buildCurrentDesignAttachment: buildCurrentDesignProblemReportAttachment,
-  writeClipboardText: async (text) => {
-    if (!navigator.clipboard?.writeText) throw new Error('Clipboard is not available')
-    await navigator.clipboard.writeText(text)
-  },
   currentDesignUnavailableMessage: () => t('problemReport.currentDesignUnavailable'),
   setDialogOpen: (open) => {
     problemReportDialogOpen.value = open
@@ -78,7 +70,6 @@ export function createProblemReportSubmission(
   const submitting = signal(false)
   const result = signal<ProblemReportResult | null>(null)
   const error = signal<string | null>(null)
-  const copyState = signal<ProblemReportCopyState>('idle')
   const showFolderState = signal<ProblemReportShowFolderState>('idle')
   let generation = 0
   let origin: ReportOrigin | null = null
@@ -92,7 +83,6 @@ export function createProblemReportSubmission(
     submitting.value = false
     result.value = null
     error.value = null
-    copyState.value = 'idle'
     showFolderState.value = 'idle'
   }
 
@@ -102,7 +92,6 @@ export function createProblemReportSubmission(
     submitting,
     result,
     error,
-    copyState,
     showFolderState,
     port,
     open(from = null) {
@@ -128,7 +117,6 @@ export function createProblemReportSubmission(
       const submitGeneration = generation
       submitting.value = true
       error.value = null
-      copyState.value = 'idle'
 
       try {
         let currentDesign: string | null = null
@@ -168,15 +156,6 @@ export function createProblemReportSubmission(
         if (submitGeneration === generation) {
           submitting.value = false
         }
-      }
-    },
-    async copySummary() {
-      if (!result.value) return
-      try {
-        await deps.writeClipboardText(result.value.file_name)
-        copyState.value = 'copied'
-      } catch {
-        copyState.value = 'failed'
       }
     },
     installPort(next) {

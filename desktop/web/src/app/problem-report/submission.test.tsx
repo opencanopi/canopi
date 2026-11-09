@@ -36,7 +36,6 @@ function deps(overrides: Partial<ProblemReportSubmissionDeps> = {}): ProblemRepo
   return {
     readFrontendDiagnostics: recentFrontendDiagnostics,
     buildCurrentDesignAttachment: () => null,
-    writeClipboardText: vi.fn().mockResolvedValue(undefined),
     currentDesignUnavailableMessage: () => 'No current Design is available to attach.',
     setDialogOpen: vi.fn(),
     ...overrides,
