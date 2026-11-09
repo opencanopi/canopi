@@ -5,6 +5,7 @@ import type { SceneRendererSnapshot } from './renderers/scene-types'
 import type { SceneDesignObjectTarget } from './scene'
 import type { SessionPlane } from '../session-plane'
 import { stageScaleToMapZoom } from '../projection'
+import { canvasFonts, distinctCharacters } from './font-loading'
 import { drawInspectionLensScene } from './inspection-lens-drawing'
 import { getSceneLayerStyle } from './scene-visuals'
 import { inspectionLayout, inspectionScale } from './inspection-layout'
@@ -123,8 +124,14 @@ export class SceneCanvasInspectionOwner {
         planeRevision: mainView.planeRevision,
       })
       lensView = view
-      const laidOut = inspectionLayout(visible, view, snapshot.localizedCommonNames,
-        value => ctx ? ctx.measureText(value).width : Array.from(value).length * 12)
+      const measured = new Set<string>()
+      const laidOut = inspectionLayout(visible, view, snapshot.localizedCommonNames, value => {
+        measured.add(value)
+        return ctx ? ctx.measureText(value).width : Array.from(value).length * 12
+      })
+      // Names measured while their web font loads are measured in the fallback (font-loading.ts): ask for the faces
+      // their characters need, and a load paints the lens again.
+      if (ctx) canvasFonts.request(ctx.font, distinctCharacters(measured))
       if (highlightedId && !laidOut.some(plant => plant.id === highlightedId)) clearHighlight()
       footprint.value = view.visibleWorldQuad()
       if (ctx) {
@@ -150,6 +157,7 @@ export class SceneCanvasInspectionOwner {
       if (target?.kind === 'plant' && target.id === previous) options.setHoveredTarget(null)
     }
     let unsubscribe: (() => void) | undefined
+    let unsubscribeFonts: (() => void) | undefined
     let observer: ResizeObserver | null = null
     const owned = {
       refresh: schedule,
@@ -162,7 +170,7 @@ export class SceneCanvasInspectionOwner {
           () => { if (frame !== null) cancelAnimationFrame(frame); frame = null },
           () => unsubscribe?.(),
           () => observer?.disconnect(),
-          () => document.fonts?.removeEventListener('loadingdone', schedule),
+          () => unsubscribeFonts?.(),
           () => canvas.remove(),
           () => { state.value = null; footprint.value = null },
           clearHighlight,
@@ -176,7 +184,7 @@ export class SceneCanvasInspectionOwner {
         void options.frames.viewFrame.value
         schedule()
       })
-      document.fonts?.addEventListener('loadingdone', schedule)
+      unsubscribeFonts = canvasFonts.subscribe(schedule)
       observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(schedule)
       observer?.observe(container)
     } catch (error) {

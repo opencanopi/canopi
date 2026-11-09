@@ -1,15 +1,12 @@
 /**
- * The scene's billboard root (spec §1.5): plants, their rings and stack
- * badges, notes, measurement-guide labels and plant names, drawn upright in CSS
- * px under an identity transform. Each sits at its world anchor projected
- * through `view.projectAnchors`, plus a CSS-px offset, so a pan moves them all
- * and a turned view keeps them upright; a note's text turns by its own angle
- * less the bearing. A scene sync builds what the snapshot decides (entries,
- * order, stack counts, rings, text and styles); every frame then places it
- * (projection, the cull, positions, and sizes when the scale changed). Glyphs,
- * rings, badges and note markers bind shared drawing contexts keyed by their
- * look, glyph radii rounded to 0.25 px, so a pan or a warm zoom draws nothing.
- * Labels are admitted by `label-admission.ts`, mid-zoom only on a band change.
+ * The scene's billboard root (spec §1.5): plants, their rings and stack badges, notes, measurement-guide labels and
+ * plant names, drawn upright in CSS px under an identity transform. Each sits at its world anchor projected through
+ * `view.projectAnchors`, plus a CSS-px offset, so a pan moves them all and a turned view keeps them upright; a note's
+ * text turns by its own angle less the bearing. A scene sync builds what the snapshot decides (entries, order, stack
+ * counts, rings, text and styles); every frame then places it (projection, the cull, positions, and sizes when the
+ * scale changed). Glyphs, rings, badges and note markers bind shared drawing contexts keyed by their look, glyph
+ * radii rounded to 0.25 px, so a pan or a warm zoom draws nothing. Labels are admitted by `label-admission.ts`,
+ * mid-zoom only on a band change. Text asks font-loading.ts for its web font and is drawn anew when one loads.
  */
 
 // Production CSP rejects Pixi's generated functions; its shim avoids eval.
@@ -17,7 +14,8 @@ import 'pixi.js/unsafe-eval'
 import { CANVAS_CHROME_FONT_FAMILY } from '../../chrome-fonts'
 import { SPECIES_FOCUS_DIM_OPACITY, speciesFocusOpacity } from '../species-key'
 import { AlphaFilter, CanvasTextMetrics, Container, Graphics, GraphicsContext, Rectangle, type Text } from 'pixi.js'
-import { annotationOutlineCorners, getAnnotationFontEpoch, getAnnotationPresentation } from '../annotation-layout'
+import { annotationOutlineCorners, getAnnotationPresentation } from '../annotation-layout'
+import { canvasFonts, distinctCharacters } from '../font-loading'
 import { getCanvasDetailLayout, isMeasurementLabelVisible } from '../automatic-detail'
 import {
   createMeasurementGuidePresentation,
@@ -168,7 +166,6 @@ export function createBillboardLayer(options: BillboardLayerOptions): BillboardL
     highlightLayer: annotationHighlightLayer,
     shared,
     textById: new Map(),
-    fontEpoch: getAnnotationFontEpoch(),
     markerById: new Map(),
     outlineById: new Map(),
     built: null,
@@ -180,11 +177,21 @@ export function createBillboardLayer(options: BillboardLayerOptions): BillboardL
   let snapshot: SceneRendererSnapshot | null = null
   /** The admission the name labels hold; a new one restyles them, the same one only moves them. */
   let drawnLabels: AdmittedLabels | null = null
+  let fontEpoch = canvasFonts.epoch()
 
   return {
     root,
     present(view, next, settled = true) {
       if (next) {
+        // Pixi keeps rasters and ascents and hears no font load: every text goes, and the build draws it in the web font.
+        if (fontEpoch !== canvasFonts.epoch()) {
+          fontEpoch = canvasFonts.epoch()
+          CanvasTextMetrics.clearMetrics()
+          for (const texts of [plants.badgeTextById, notes.textById, measurementLabels.labelById, plantNameLabelById,
+            selectionLabelBySpecies]) destroyEntriesNotIn(texts, new Set())
+          destroyEntriesNotIn(plants.badgeById, new Set(), destroySharedGraphics)
+          drawnLabels = null
+        }
         snapshot = next
         labels.setScene(next)
         shared.cache.beginGeneration()
@@ -463,6 +470,7 @@ function buildPlants(
   }, snapshot.selectedPlantIds))
   const stackCounts = measurePixiSceneWork('plantLayout', () => plantStackCounts(entries))
 
+  if (stackCounts.size) canvasFonts.request(`${STACK_BADGE_FONT_SIZE_PX}px ${CANVAS_CHROME_FONT_FAMILY}`, '0123456789')
   const rings = new Map<string, PlantRing>()
   const ringLooks = new Map<CanvasInteractionVisualState, PlantRing>()
   for (const entry of entries) {
@@ -549,9 +557,7 @@ function placePlants(plants: PlantGraphics, viewSize: { width: number; height: n
     })
     return inView
   })
-  for (const plantId of visibleIds) {
-    if (!nextVisibleIds.has(plantId)) hidePlant(plants, plantId)
-  }
+  for (const plantId of visibleIds) if (!nextVisibleIds.has(plantId)) hidePlant(plants, plantId)
   measurePixiSceneWork('plantDraw', () => {
     built.entries.forEach((entry, index) => {
       if (nextVisibleIds.has(entry.plant.id)) showPlant(plants, built, entry, projected[index * 2]!, projected[index * 2 + 1]!)
@@ -700,8 +706,6 @@ interface NoteGraphics {
   readonly highlightLayer: Container
   readonly shared: SharedContexts
   readonly textById: Map<string, Text>
-  /** The web-font loads the note texts were drawn after (`getAnnotationFontEpoch`). */
-  fontEpoch: number
   /** Each note's marker, bound to the shared normal or compact marker. */
   readonly markerById: Map<string, Graphics>
   /** Each outlined note's frame, in CSS px about its anchor on the ground; a frame turns it by the bearing. */
@@ -730,14 +734,7 @@ interface BuiltNote {
 function buildNotes(createText: () => Text, notes: NoteGraphics, snapshot: SceneRendererSnapshot, pixelsPerMetre: number): void {
   const { textLayer, highlightLayer, shared, textById, markerById, outlineById } = notes
   const keep = new Set(snapshot.scene.annotations.filter((annotation) => annotation.annotationType === 'text').map((annotation) => annotation.id))
-  // Pixi keeps a text's raster while its text and style stay the same, and a font's ascent and descent by its CSS font
-  // string, and nothing in Pixi listens for fonts: a note drawn before its web font loaded would keep the fallback's
-  // glyphs and baseline inside an outline measured in the web font. So a font load forgets the ascents and lets every
-  // note text go, which frees the raster, and draws them anew.
-  const fontEpoch = getAnnotationFontEpoch()
-  if (notes.fontEpoch !== fontEpoch) CanvasTextMetrics.clearMetrics()
-  destroyEntriesNotIn(textById, notes.fontEpoch === fontEpoch ? keep : new Set())
-  notes.fontEpoch = fontEpoch
+  destroyEntriesNotIn(textById, keep)
   destroyEntriesNotIn(markerById, keep, destroySharedGraphics)
   destroyEntriesNotIn(outlineById, keep)
   const layer = getSceneLayerStyle(snapshot.scene, 'annotations')
@@ -914,6 +911,7 @@ function buildMeasurementLabels(createText: () => Text, labels: MeasurementLabel
   }
   labels.built = built
   destroyEntriesNotIn(labelById, new Set(built.map(({ guide }) => guide.id)))
+  if (built.length) canvasFonts.request(`${MEASUREMENT_GUIDE_LABEL_FONT_SIZE_PX}px ${CANVAS_CHROME_FONT_FAMILY}`, distinctCharacters(built.map(({ text }) => text.text)))
 }
 
 function placeMeasurementLabels(labels: MeasurementLabelGraphics, snapshot: SceneRendererSnapshot, view: ViewTransform): void {
@@ -960,6 +958,7 @@ function syncNameLabels<L extends NameLabel>(
       text.alpha = label.opacity ?? 1
     }
     destroyEntriesNotIn(textByKey, new Set(labels.map(keyOf)))
+    for (const style of new Set(labels.map((label) => label.fontStyle))) canvasFonts.request(`${style} 600 12px ${CANVAS_CHROME_FONT_FAMILY}`, distinctCharacters(labels.filter((label) => label.fontStyle === style).map((label) => label.text)))
   }
   const projected = projection.project(view, labels.map((label) => label.anchor))
   labels.forEach((label, index) => {
