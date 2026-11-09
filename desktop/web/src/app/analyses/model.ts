@@ -14,6 +14,7 @@ import type {
   ParamValue,
   Provenance,
 } from '../../generated/contracts'
+import type { LocaleKey } from '../../generated/locale-keys'
 
 /**
  * The Analyze dialog as a pure model, generated from the analysis registry.
@@ -61,7 +62,7 @@ interface AnalysisOption {
 
 export interface AnalysisOptionGroup {
   readonly key: AnalysisGroup
-  readonly labelKey: string
+  readonly labelKey: LocaleKey
   readonly options: readonly AnalysisOption[]
 }
 
@@ -104,7 +105,7 @@ export function analysisOptions(
   context: AnalysisContext,
   locale: string,
   registry: readonly AnalysisEntry[] = ANALYSIS_REGISTRY,
-  groups: readonly { readonly key: AnalysisGroup; readonly labelKey: string }[] = ANALYSIS_GROUPS,
+  groups: readonly { readonly key: AnalysisGroup; readonly labelKey: LocaleKey }[] = ANALYSIS_GROUPS,
 ): AnalysisOptionGroup[] {
   return groups.flatMap((group) => {
     const options = registry

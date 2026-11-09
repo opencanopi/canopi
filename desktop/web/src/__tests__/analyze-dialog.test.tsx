@@ -5,7 +5,7 @@ import { act } from 'preact/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AnalysisEntry, AnalysisGroup } from '../generated/analysis-registry'
 import type { AnalysisOffer, AnalysisRequest } from '../generated/contracts'
-import type { AnalysisContext } from '../app/analyses/model'
+import type { AnalysisContext, AnalysisOptionGroup } from '../app/analyses/model'
 import { AnalyzeDialog } from '../components/panels/analyze/AnalyzeDialog'
 import { locale } from '../app/settings/state'
 import { slopeProvenance } from './support/library-fixtures'
@@ -63,7 +63,7 @@ const SLOPE: AnalysisEntry = {
   outputs: [{ key: 'slope', labelKey: 'analyses.terrain.slope.outputs.slope', item: { kind: 'Raster', quantity: 'Slope' }, units: { kind: 'by-param', param: 'unit', map: { degrees: '°', percent: '%' } }, optional: false, defaultSelected: true, presentable: true }],}
 
 const REGISTRY = [SLOPE, FLOW]
-const GROUPS = [{ key: 'terrain' as AnalysisGroup, labelKey: 'analyses.groups.terrain' }, { key: water, labelKey: 'fixture.water' }]
+const GROUPS: Pick<AnalysisOptionGroup, 'key' | 'labelKey'>[] = [{ key: 'terrain', labelKey: 'analyses.groups.terrain' }, { key: water, labelKey: 'siteData.display.ramp.Magma' }]
 const OFFERS: AnalysisOffer[] = [
   { analysis_id: 'terrain.slope', unavailable: null },
   { analysis_id: 'hydrology.flow', unavailable: null },
@@ -198,7 +198,7 @@ describe('Analyze dialog', () => {
   it('lists the registry by group and focuses the chosen entry', async () => {
     mount({ initial: 'hydrology.flow' })
     await act(async () => {})
-    expect(Array.from(container.querySelectorAll('legend')).slice(0, 2).map((node) => node.textContent)).toEqual(['Terrain', 'fixture.water'])
+    expect(Array.from(container.querySelectorAll('legend')).slice(0, 2).map((node) => node.textContent)).toEqual(['Terrain', 'Magma'])
     expect(document.activeElement).toBe(radio('Relief'))
     expect(radio('Relief').checked).toBe(true)
   })

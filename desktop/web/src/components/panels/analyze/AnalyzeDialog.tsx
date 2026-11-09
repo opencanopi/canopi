@@ -7,6 +7,7 @@ import {
   type AnalysisParamSpec,
 } from '../../../generated/analysis-registry'
 import type { AnalysisRequest } from '../../../generated/contracts'
+import type { LocaleKey } from '../../../generated/locale-keys'
 import {
   analysisOptions,
   buildAnalysisRequest,
@@ -23,7 +24,6 @@ import {
 } from '../../../app/analyses/model'
 import { locale } from '../../../app/settings/state'
 import { t } from '../../../i18n'
-import { registryText } from '../../../app/analyses/registry'
 import { Dropdown } from '../../shared/Dropdown'
 import { Notice } from '../../shared/Notice'
 import { Switch } from '../../shared/Switch'
@@ -78,7 +78,7 @@ export function AnalyzeDialog({
   onShowInSiteData(itemId: string): void
   onAddExisting(itemId: string): void
   registry?: readonly AnalysisEntry[]
-  groups?: readonly { readonly key: AnalysisGroup; readonly labelKey: string }[]
+  groups?: readonly { readonly key: AnalysisGroup; readonly labelKey: LocaleKey }[]
 }) {
   const language = locale.value
   const titleId = useId()
@@ -214,7 +214,7 @@ export function AnalyzeDialog({
       <p className={styles.intro}>{t(context.inDesign.has(item.id) ? 'analyses.dialog.intro' : 'analyses.dialog.introLibraryOnly')}</p>
       {options.map((group) => (
         <fieldset key={group.key} className={styles.entries}>
-          <legend>{registryText(group.labelKey)}</legend>
+          <legend>{t(group.labelKey)}</legend>
           {group.options.map((option) => {
             const checked = option.entry.id === selectedId
             const reasonId = `${titleId}-${option.entry.id}-reason`

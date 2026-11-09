@@ -18,6 +18,7 @@ import {
   validateForm,
   type AnalysisContext,
   type AnalysisForm,
+  type AnalysisOptionGroup,
   type AnalysisSubject,
 } from '../app/analyses/model'
 import {
@@ -69,7 +70,7 @@ const FLOW: AnalysisEntry = {
 
 const SLOPE = ANALYSIS_REGISTRY.find((entry) => entry.id === 'terrain.slope')!
 const REGISTRY = [SLOPE, FLOW]
-const GROUPS = [{ key: 'terrain' as AnalysisGroup, labelKey: 'analyses.groups.terrain' }, { key: water, labelKey: 'analyses.groups.water' }]
+const GROUPS: Pick<AnalysisOptionGroup, 'key' | 'labelKey'>[] = [{ key: 'terrain', labelKey: 'analyses.groups.terrain' }, { key: water, labelKey: 'siteData.display.ramp.Magma' }]
 
 function subject(offers: AnalysisOffer[] = [
   { analysis_id: 'terrain.slope', unavailable: null },
@@ -297,6 +298,15 @@ describe('generated registry texts', () => {
 
     expect(keys.filter((key) => t(key) === key)).toEqual([])
     expect(t(misspelt)).toBe(misspelt)
+  })
+
+  it('canopi-f47t.52.228.48: an analysis option group carries its label as a LocaleKey, read by t', () => {
+    // @ts-expect-error 'analyses.groups.terain' is no LocaleKey; this directive fails typecheck if the model retypes group labels as string
+    const misspelt: AnalysisOptionGroup['labelKey'] = 'analyses.groups.terain'
+    const groups = analysisOptions(subject(), context(), 'en', ANALYSIS_REGISTRY)
+
+    expect(groups.map((group) => t(group.labelKey))).toEqual(['Terrain'])
+    expect(misspelt).toBe('analyses.groups.terain')
   })
 
   it('canopi-f47t.52.228.48: strip and chip fields carry typed keys and no fallback label, and none shows raw', () => {
