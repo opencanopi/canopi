@@ -171,16 +171,8 @@ function startOfLocalDay(date: Date): number {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime()
 }
 
-const dateTimeFormats = new Map<string, Intl.DateTimeFormat>()
-
 function dateTimeFormat(locale: string, options: Intl.DateTimeFormatOptions): Intl.DateTimeFormat {
-  const key = `${locale}:${JSON.stringify(options)}`
-  let format = dateTimeFormats.get(key)
-  if (!format) {
-    format = new Intl.DateTimeFormat(locale, options)
-    dateTimeFormats.set(key, format)
-  }
-  return format
+  return new Intl.DateTimeFormat(locale, options)
 }
 
 /** A civil date in a field: "Jul 4, 2026". */
