@@ -170,3 +170,32 @@ export function formatInstantInDetail(stamp: string, locale: string): string {
 function startOfLocalDay(date: Date): number {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime()
 }
+
+const dateTimeFormats = new Map<string, Intl.DateTimeFormat>()
+
+function dateTimeFormat(locale: string, options: Intl.DateTimeFormatOptions): Intl.DateTimeFormat {
+  const key = `${locale}:${JSON.stringify(options)}`
+  let format = dateTimeFormats.get(key)
+  if (!format) {
+    format = new Intl.DateTimeFormat(locale, options)
+    dateTimeFormats.set(key, format)
+  }
+  return format
+}
+
+/** A civil date in a field: "Jul 4, 2026". */
+export function formatCivilDateLabel(date: CivilDate, locale: string): string {
+  return dateTimeFormat(locale, { day: 'numeric', month: 'short', year: 'numeric' }).format(civilDateToLocalDate(date))
+}
+
+/** A month heading: "July 2026". */
+export function formatCivilMonthLabel(month: CivilDate, locale: string): string {
+  return dateTimeFormat(locale, { month: 'long', year: 'numeric' }).format(civilDateToLocalDate(startOfCivilMonth(month)))
+}
+
+/** The short weekday names from the locale's week start, as a month grid's column headers. */
+export function civilWeekdayLabels(locale: string): string[] {
+  const format = dateTimeFormat(locale, { weekday: 'short' })
+  // 2024-01-07 is a Sunday, weekday 0.
+  return Array.from({ length: 7 }, (_, index) => format.format(new Date(2024, 0, 7 + civilWeekStartDay(locale) + index)))
+}
