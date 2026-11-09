@@ -20,6 +20,13 @@ import {
   type AnalysisForm,
   type AnalysisSubject,
 } from '../app/analyses/model'
+import {
+  activeChipFields,
+  stripControls,
+  type ActiveChipField,
+  type StripChoiceField,
+  type StripControlField,
+} from '../app/plant-browser/species-catalog-filters'
 import { analysisTitle, derivedItemName } from '../app/analyses/registry'
 import { t } from '../i18n'
 
@@ -290,6 +297,20 @@ describe('generated registry texts', () => {
 
     expect(keys.filter((key) => t(key) === key)).toEqual([])
     expect(t(misspelt)).toBe(misspelt)
+  })
+
+  it('canopi-f47t.52.228.48: strip and chip fields carry typed keys and no fallback label, and none shows raw', () => {
+    // @ts-expect-error 'filters.nitrogne' is no LocaleKey; this directive fails typecheck if the strip retypes its labels as string
+    const misspeltLabel: StripControlField['labelI18nKey'] = 'filters.nitrogne'
+    // @ts-expect-error 'filters.habbit_' starts no LocaleKey; this directive fails typecheck if the strip retypes its value families as string
+    const misspeltFamily: StripChoiceField['valueI18nPrefix'] = 'filters.habbit_'
+    const fields: readonly (StripControlField | ActiveChipField)[] = [...stripControls(), ...activeChipFields()]
+    const labels = fields.flatMap((field) => ('labelI18nKey' in field ? [field.labelI18nKey] : []))
+
+    expect(fields.filter((field) => 'fallbackLabel' in field).map((field) => field.filterKey)).toEqual([])
+    expect(labels.length).toBeGreaterThan(0)
+    expect(labels.filter((key) => t(key) === key)).toEqual([])
+    expect([misspeltLabel, misspeltFamily]).toEqual(['filters.nitrogne', 'filters.habbit_'])
   })
 
   it('names an analysis by its title, and one this build no longer knows by its id', () => {
