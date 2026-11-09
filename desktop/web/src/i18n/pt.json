@@ -114,21 +114,21 @@
     "plantDbCorrupt": "O arquivo de banco de dados do catálogo de plantas está danificado, por isso a pesquisa e os detalhes das plantas estão indisponíveis. Seus designs estão seguros. Reinstale o Canopi para restaurá-lo.",
     "localDataNotOpenedTitle": "Dados anteriores não abertos",
     "localDataNotOpened": "O Canopi 2.0 não consegue abrir dados salvos por versões anteriores. Eles ficaram inalterados, e o Canopi começou do zero.",
-    "settingsUnavailable": "Não foi possível ler as suas definições. O Canopi está a usar os valores predefinidos e não vai alterar as definições guardadas nesta sessão.",
+    "settingsUnavailable": "Não foi possível ler suas configurações. O Canopi está usando os valores padrão e não vai alterar as configurações salvas nesta sessão.",
     "setAside": {
-      "userDb": "Os dados guardados do Canopi estavam danificados e foram postos de parte como {{file}}. Os seus designs não foram afetados.",
-      "webDrafts": "Os rascunhos guardados do Canopi estavam danificados e foram postos de parte como {{file}}. Os designs que exportou como ficheiros não foram afetados.",
-      "webSpeciesLists": "Os favoritos e as plantas vistas recentemente que o Canopi guardou estavam danificados e foram postos de parte como {{file}}. Os seus designs não foram afetados."
+      "userDb": "Os dados salvos do Canopi estavam danificados e foram separados como {{file}}. Seus designs não foram afetados.",
+      "webDrafts": "Os rascunhos salvos do Canopi estavam danificados e foram separados como {{file}}. Os designs que você exportou como arquivos não foram afetados.",
+      "webSpeciesLists": "Os favoritos e as plantas vistas recentemente que o Canopi salvou estavam danificados e foram separados como {{file}}. Seus designs não foram afetados."
     },
     "writesRefused": {
-      "webDrafts": "Os rascunhos guardados do Canopi estão danificados e não foi possível pô-los de parte, por isso as alterações aos rascunhos não serão guardadas nesta sessão. Exporte o seu design para o manter.",
-      "webSpeciesLists": "Os favoritos e as plantas vistas recentemente que o Canopi guardou estão danificados e não foi possível pô-los de parte, por isso as alterações não serão guardadas nesta sessão."
+      "webDrafts": "Os rascunhos salvos do Canopi estão danificados e não foi possível separá-los, por isso as alterações nos rascunhos não serão salvas nesta sessão. Exporte seu design para mantê-lo.",
+      "webSpeciesLists": "Os favoritos e as plantas vistas recentemente que o Canopi salvou estão danificados e não foi possível separá-los, por isso as alterações não serão salvas nesta sessão."
     },
-    "newerReadOnly": "Estes dados foram guardados por uma versão mais recente do Canopi. Pode vê-los, mas as alterações não serão guardadas. Atualize o Canopi para os editar.",
-    "refusedNewer": "Estes dados foram guardados por uma versão mais recente do Canopi e não foram abertos. Atualize o Canopi para os usar.",
-    "storeUnavailable": "Não foi possível abrir alguns dados guardados do Canopi. Reinicie o Canopi e relate um problema se isto continuar a acontecer.",
-    "fieldsReset": "Algumas definições tinham valores que o Canopi não podia usar e foram repostas nos valores predefinidos.",
-    "writeFailed": "O Canopi não conseguiu guardar uma alteração aos seus dados. Tente novamente e relate um problema se isto continuar a acontecer.",
+    "newerReadOnly": "Estes dados foram salvos por uma versão mais recente do Canopi. Você pode vê-los, mas as alterações não serão salvas. Atualize o Canopi para editá-los.",
+    "refusedNewer": "Estes dados foram salvos por uma versão mais recente do Canopi e não foram abertos. Atualize o Canopi para usá-los.",
+    "storeUnavailable": "Não foi possível abrir alguns dados salvos do Canopi. Reinicie o Canopi e relate um problema se isso continuar acontecendo.",
+    "fieldsReset": "Algumas configurações tinham valores que o Canopi não podia usar e foram redefinidas para os valores padrão.",
+    "writeFailed": "O Canopi não conseguiu salvar uma alteração nos seus dados. Tente novamente e relate um problema se isso continuar acontecendo.",
     "libraryListStale": "Não foi possível atualizar a lista da Biblioteca de dados",
     "update": "Atualizar"
   },
@@ -1564,7 +1564,7 @@
     "outline": "Contorno",
     "labelsNone": "Nenhum",
     "softenBackground": "Suavizar o fundo",
-    "softenBackgroundHint": "Esmaece o mapa ou o satélite sob as plantas. Guardado neste dispositivo.",
+    "softenBackgroundHint": "Esmaece o mapa ou o satélite sob as plantas. Salvo neste dispositivo.",
     "stratumLegend": "Cores dos estratos",
     "noStratumYet": "Ainda sem estrato",
     "stratumHint": "As cores seguem o estrato de cada espécie no Consórcio. Uma amostra muda a cor de todo o estrato; as cores das espécies são mantidas.",
