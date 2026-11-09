@@ -76,6 +76,11 @@ export interface ContinuousSave {
   readonly failureReason: ReadonlySignal<string | null>
   readonly conflict: ReadonlySignal<ContinuousSaveConflict | null>
   readonly revertAvailable: ReadonlySignal<boolean>
+  /**
+   * Whether leaving now would lose edits the home does not hold (2.1-Q22, WEB-03): the last write failed, a conflict
+   * holds them back, or a write is still in flight. Pending edits not yet tried do not arm it: `flushNow` writes them.
+   */
+  readonly leaveGuardArmed: ReadonlySignal<boolean>
   /** Bind a new home to the store's current session (call from replacement finalization). */
   beginSession(input: DesignSessionHomeInput): void
   /** Forget the closed session's home: nothing more is written for it (call from close finalization). */
@@ -90,6 +95,11 @@ export interface ContinuousSave {
   hasPendingChanges(): boolean
   /** Write now; true when the home holds every committed change. */
   flush(): Promise<boolean>
+  /**
+   * Starts the pending write within the calling task, so a synchronous writer (browser Drafts) settles before the page
+   * unloads; true when nothing would be lost by leaving now (no Design, or the home holds every change).
+   */
+  flushNow(): boolean
   /**
    * A manual Save: write now even with nothing pending, so the home also holds the live view. It asks for one write
    * and marks nothing: when a write with no edits fails, the error shows but nothing stays unsaved. Retry in both
@@ -155,6 +165,12 @@ export function createContinuousSave({
     if (!store.designPath.value) return 'draft'
     const writing = writingSession.value !== null && writingSession.value === currentRecord()?.identity
     return writing || pending.value ? 'saving' : 'saved'
+  })
+
+  const leaveGuardArmed = computed(() => {
+    const current = currentRecord()
+    if (!current || store.currentDesign.value === null) return false
+    return failed.value || conflict.value !== null || writingSession.value === current.identity
   })
 
   // Changed since opened: unwritten edits now, or edits already written.
@@ -289,11 +305,19 @@ export function createContinuousSave({
     return written && !pending.peek() && !conflict.peek()
   }
 
+  function flushNow(): boolean {
+    clearTimer()
+    if (!store.hasCurrentDesign()) return true
+    if (!active && !conflict.peek() && (pending.peek() || forceWrite)) void startWrite()
+    return !leaveGuardArmed.peek() && !pending.peek()
+  }
+
   return {
     status,
     failureReason: computed(() => status.value === 'error' ? failureReason.value : null),
     conflict,
     revertAvailable,
+    leaveGuardArmed,
 
     beginSession({ draftId, fingerprint, writePending: pendingWrite }) {
       const path = store.readDesignPath()
@@ -361,6 +385,8 @@ export function createContinuousSave({
     hasPendingChanges: () => pending.peek(),
 
     flush,
+
+    flushNow,
 
     save() {
       // A Save that cannot write now (no Design, or a conflict) is not kept for a later write.

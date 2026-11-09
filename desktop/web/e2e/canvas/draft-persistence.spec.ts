@@ -512,7 +512,7 @@ test.describe('the leave prompt', () => {
   // The app's own line for the write the browser refused.
   test.use({ expectedConsoleErrors: ['Continuous save failed:'] })
 
-  test.fail('[1b-c7 canopi-f47t.52.39] WEB-03: closing the tab after a failed Draft write prompts', async ({ page }) => {
+  test('WEB-03: closing the tab after a failed Draft write prompts', async ({ page }) => {
     await page.addInitScript((key) => {
       // The browser's storage full for Drafts while `__failDrafts` is set (a quota refusal).
       const setItem = Storage.prototype.setItem

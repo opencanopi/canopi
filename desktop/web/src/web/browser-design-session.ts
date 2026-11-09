@@ -138,8 +138,8 @@ export interface BrowserDesignSessionController {
 }
 
 export const browserDesignFileAdapter: BrowserDesignFileAdapter = {
-  openCanopiFile,
-  downloadCanopiFile,
+  openCanopiFile: async () => pickBrowserTextFile(".canopi,application/json"),
+  downloadCanopiFile: async ({ fileName, text }) => downloadBrowserTextFile(fileName, text, "application/json"),
 };
 
 export function createBrowserDesignSessionController({
@@ -466,6 +466,7 @@ export function createBrowserDesignSessionController({
   }
 
   let releaseReload: Promise<boolean> | null = null;
+  let reloading = false;
 
   function reloadForRelease(): Promise<boolean> {
     releaseReload ??= flushThenReload().finally(() => { releaseReload = null; });
@@ -493,6 +494,7 @@ export function createBrowserDesignSessionController({
     // The tab's record says what it had, a Draft or none, so the reload never opens another tab's Draft (2.1-Q189).
     const home = continuousSave.readHome();
     appDataStore.noteReloadHome(home?.kind === "draft" ? home.id : null);
+    reloading = true; // written, or Reload without saving: the unload asks nothing more
     reload();
     return true;
   }
@@ -591,17 +593,23 @@ export function createBrowserDesignSessionController({
     page: BrowserPageLifecycleTarget = { document: globalThis.document, window: globalThis.window },
   ): () => void {
     const uninstall = continuousSave.install();
-    const flush = () => {
-      void continuousSave.flush().catch(logBrowserDesignSessionError);
-    };
+    const flush = () => void continuousSave.flush().catch(logBrowserDesignSessionError);
     const flushWhenHidden = () => {
       if (page.document.visibilityState === "hidden") flush();
     };
+    // WEB-03 (2.1-Q22): write a pending edit first; ask only if edits would still be lost (never on iOS, ADR 0025).
+    const askBeforeLeaving = (event: BeforeUnloadEvent) => {
+      if (reloading || continuousSave.flushNow()) return;
+      event.preventDefault();
+      event.returnValue = true; // older engines prompt on a non-empty returnValue
+    };
     page.document.addEventListener("visibilitychange", flushWhenHidden);
     page.window.addEventListener("pagehide", flush);
+    page.window.addEventListener("beforeunload", askBeforeLeaving);
     return () => {
       page.document.removeEventListener("visibilitychange", flushWhenHidden);
       page.window.removeEventListener("pagehide", flush);
+      page.window.removeEventListener("beforeunload", askBeforeLeaving);
       uninstall();
     };
   }
@@ -687,14 +695,6 @@ function parseCanopiJson(text: string): CanopiFile {
     throw asCanopiDesignIngestionError(error);
   }
   return decodeCanopiDesign(parsed);
-}
-
-async function openCanopiFile(): Promise<BrowserOpenedCanopiFile | null> {
-  return pickBrowserTextFile(".canopi,application/json");
-}
-
-async function downloadCanopiFile({ fileName, text }: BrowserCanopiDownload): Promise<void> {
-  downloadBrowserTextFile(fileName, text, "application/json");
 }
 
 function nameFromFileName(fileName: string): string {
