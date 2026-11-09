@@ -28,7 +28,8 @@ async function openReportDialog(page: Page) {
 
 async function createReport(page: Page, dialog: Awaited<ReturnType<typeof openReportDialog>>): Promise<string> {
   const [download] = await Promise.all([
-    page.waitForEvent('download'),
+    // A report downloads within seconds; a writer that refuses shows its error and never downloads.
+    page.waitForEvent('download', { timeout: 30_000 }),
     dialog.getByRole('button', { name: 'Create report', exact: true }).click(),
   ])
   expect(download.suggestedFilename()).toMatch(REPORT_NAME)
@@ -52,4 +53,18 @@ test('Help › Report a problem downloads one zip of the browser\'s sections, wi
   // A download: no folder to show, and nothing names a path (2.1-Q283).
   await expect(dialog.getByText('Report downloaded. Attach the file to your message to support.')).toBeVisible()
   await expect(dialog.getByRole('button', { name: 'Show again' })).toHaveCount(0)
+})
+
+// Expected to fail until web/WebApp.tsx passes currentDesignText={() => controller.currentDesignText()} to
+// BrowserAppShell (main agent, file outside chunk 1b-c5; canopi-f47t.52.36): until then the writer has no Design.
+test.fail('canopi-f47t.52.36: Include current Design ticked puts the open Design in the Web report (expected to fail until WebApp.tsx passes currentDesignText, main agent)', async ({ page }) => {
+  await openFixtureFromStart(page)
+  const dialog = await openReportDialog(page)
+  await dialog.getByRole('checkbox', { name: /Include current Design/ }).check()
+
+  const zip = await createReport(page, dialog)
+  expect(zip).toContain('design.canopi')
+  // The fixture's own species codes, so the attachment is the open Design and not an empty file.
+  expect(zip).toContain('"Corylus avellana": "CAV"')
+  await expect(dialog.getByText('No current Design is available to attach.')).toHaveCount(0)
 })
