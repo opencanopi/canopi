@@ -1351,6 +1351,7 @@
     "summaryAnnotation_few": "注釈 {{count, number}} 件",
     "summaryAnnotation_many": "注釈 {{count, number}} 件",
     "summaryAnnotation_other": "注釈 {{count, number}} 件",
+    "defaultNameParts": "{{zones}}、{{annotations}}",
     "summaryEmpty": "表示オブジェクトなし",
     "summaryUnavailable": "プレビュー不可",
     "summaryBefore2_0": "Canopi 2.0 より前のバージョンで保存されたため、Canopi 2.0 では配置できません。",

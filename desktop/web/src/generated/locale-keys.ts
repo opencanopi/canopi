@@ -1525,6 +1525,7 @@ export type LocaleKey =
   | "savedObjectStamps.cancelRename"
   | "savedObjectStamps.confirmDelete"
   | "savedObjectStamps.confirmRename"
+  | "savedObjectStamps.defaultNameParts"
   | "savedObjectStamps.delete"
   | "savedObjectStamps.deleteConfirmCopy"
   | "savedObjectStamps.deleteNamed"

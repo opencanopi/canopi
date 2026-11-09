@@ -1351,6 +1351,7 @@
     "summaryAnnotation_few": "주석 {{count, number}}개",
     "summaryAnnotation_many": "주석 {{count, number}}개",
     "summaryAnnotation_other": "주석 {{count, number}}개",
+    "defaultNameParts": "{{zones}}, {{annotations}}",
     "summaryEmpty": "보이는 객체 없음",
     "summaryUnavailable": "미리보기 사용할 수 없음",
     "summaryBefore2_0": "Canopi 2.0 이전 버전에서 저장되어 Canopi 2.0에서는 배치할 수 없습니다.",

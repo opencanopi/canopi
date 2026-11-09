@@ -1351,6 +1351,7 @@
     "summaryAnnotation_few": "{{count, number}} аннотации",
     "summaryAnnotation_many": "{{count, number}} аннотаций",
     "summaryAnnotation_other": "{{count, number}} аннотации",
+    "defaultNameParts": "{{zones}}, {{annotations}}",
     "summaryEmpty": "Нет видимых объектов",
     "summaryUnavailable": "Предпросмотр недоступен",
     "summaryBefore2_0": "Сохранён в Canopi до версии 2.0; Canopi 2.0 не может его разместить.",

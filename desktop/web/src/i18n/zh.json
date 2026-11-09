@@ -1351,6 +1351,7 @@
     "summaryAnnotation_few": "{{count, number}} 条注释",
     "summaryAnnotation_many": "{{count, number}} 条注释",
     "summaryAnnotation_other": "{{count, number}} 条注释",
+    "defaultNameParts": "{{zones}}、{{annotations}}",
     "summaryEmpty": "没有可见对象",
     "summaryUnavailable": "预览不可用",
     "summaryBefore2_0": "由 Canopi 2.0 之前的版本保存，Canopi 2.0 无法放置。",

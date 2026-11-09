@@ -15,11 +15,13 @@ import type { SavedObjectStamp } from '../types/saved-object-stamps'
 import { createTestCanvasQuerySurface } from './support/canvas-query-surface'
 import { setCurrentCanvasSession } from '../canvas/session'
 import { setCanvasSelection } from '../canvas/session-state'
+import { locale } from '../app/settings/state'
 
 describe('Saved Object Stamp Workbench', () => {
   afterEach(() => {
     setCurrentCanvasSession(null)
     setCanvasSelection([])
+    locale.value = 'en'
   })
 
   const makeStamp = (id: string, name: string, sortOrder: number): SavedObjectStamp => ({
@@ -475,27 +477,16 @@ describe('Saved Object Stamp Workbench', () => {
     }])
   })
 
-  it('uses zone and annotation counts when a saved selection has no plants', async () => {
+  it('names a saved selection with no plants by its zone and annotation counts, in the interface language (D12)', async () => {
+    locale.value = 'ru'
     const scene = createDefaultScenePersistedState()
     scene.zones = [{
-      kind: 'zone',
-      id: 'Water', name: 'Water',
-      locked: false,
-      zoneType: 'polygon',
-      points: [{ x: 0, y: 0 }, { x: 4, y: 0 }, { x: 4, y: 4 }],
-      rotationDeg: 0,
-      fillColor: null,
-      notes: null,
+      kind: 'zone', id: 'Water', name: 'Water', locked: false, zoneType: 'polygon',
+      points: [{ x: 0, y: 0 }, { x: 4, y: 0 }, { x: 4, y: 4 }], rotationDeg: 0, fillColor: null, notes: null,
     }]
     scene.annotations = [{
-      kind: 'annotation',
-      id: 'note-1',
-      locked: false,
-      annotationType: 'text',
-      position: { x: 1, y: 1 },
-      text: 'Irrigation',
-      fontSize: 12,
-      rotationDeg: null,
+      kind: 'annotation', id: 'note-1', locked: false, annotationType: 'text',
+      position: { x: 1, y: 1 }, text: 'Irrigation', fontSize: 12, rotationDeg: null,
     }]
     const query = {
       ...createTestCanvasQuerySurface({ scene }),
@@ -527,7 +518,7 @@ describe('Saved Object Stamp Workbench', () => {
 
     const saved = await workbench.saveSelection(captureFromQuery(query))
 
-    expect(saved?.name).toBe('1 zone, 1 annotation')
+    expect(saved?.name).toBe('1 зона, 1 аннотация')
   })
 
   it('renames deletes and reorders saved stamps through the library adapters', async () => {

@@ -1351,6 +1351,7 @@
     "summaryAnnotation_few": "{{count, number}} annotazioni",
     "summaryAnnotation_many": "{{count, number}} annotazioni",
     "summaryAnnotation_other": "{{count, number}} annotazioni",
+    "defaultNameParts": "{{zones}}, {{annotations}}",
     "summaryEmpty": "Nessun oggetto visibile",
     "summaryUnavailable": "Anteprima non disponibile",
     "summaryBefore2_0": "Salvato con una versione di Canopi precedente alla 2.0; Canopi 2.0 non può posizionarlo.",

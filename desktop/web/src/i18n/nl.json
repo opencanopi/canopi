@@ -1351,6 +1351,7 @@
     "summaryAnnotation_few": "{{count, number}} annotaties",
     "summaryAnnotation_many": "{{count, number}} annotaties",
     "summaryAnnotation_other": "{{count, number}} annotaties",
+    "defaultNameParts": "{{zones}}, {{annotations}}",
     "summaryEmpty": "Geen zichtbare objecten",
     "summaryUnavailable": "Voorbeeld niet beschikbaar",
     "summaryBefore2_0": "Opgeslagen met Canopi vóór 2.0; Canopi 2.0 kan hem niet plaatsen.",
