@@ -2,7 +2,7 @@
 // Q282). Invariant: one stored zip of the builder's entries and a manifest of every other entry, downloaded under the
 // report's file name; its object URL is revoked after a delay (an at-once revoke can fail a download not yet started)
 // and every pending one is freed on dispose. Sections with no browser source are marked not on this edition (F13).
-import type { ProblemReport, ProblemReportPort } from '../app/problem-report/builder'
+import type { ProblemReport, ProblemReportPort } from './problem-report'
 import { REPORT_MANIFEST_FILE, type ProblemReportResult } from '../generated/contracts'
 
 /** Long enough for any browser to start the download from the URL. */

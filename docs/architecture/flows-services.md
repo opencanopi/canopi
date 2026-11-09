@@ -158,7 +158,7 @@ sequenceDiagram
   participant IPC as ipc/transport.ts
   participant C as calling feature, L3
   participant FR as failures/ reportFailure, ring, notice signal (2.1)
-  participant PR as app/problem-report/ builder and problemReport port
+  participant PR as app/problem-report/ builder, through the platform/problem-report.ts port
   participant RB as services/problem_report/
   SVC->>LOG: settlement: op, operation, lane, code, queued_ms, running_ms, slow
   SVC-->>IPC: Err(Failure): code, user_may_retry, op, detail as RedactedText

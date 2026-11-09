@@ -1,6 +1,6 @@
 // The one TS report builder over REPORT_SECTIONS (contracts §13 Failure report, 2.1-M421, 2.1-M422): Desktop and Web
 // build the same sections, every catalogue code reaches the report, and a report opened from a failure leads with it.
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
   FAILURE_CATALOGUE,
   REPORT_SECTIONS,
@@ -9,20 +9,27 @@ import {
   type ReportSectionId,
 } from '../../generated/contracts'
 import type { ReportOrigin } from '../../failures/report'
-import {
-  buildProblemReport,
-  NATIVE_SECTIONS,
-  nativeRequest,
-  type EditionSections,
-  type ProblemReportInput,
-} from './builder'
+import type { EditionSections, ProblemReport } from '../../platform/problem-report'
+import { desktopProblemReport } from '../../platform/problem-report.desktop'
+import { createProblemReport } from '../../ipc/problem-report'
+import { buildProblemReport, type ProblemReportInput } from './builder'
+
+vi.mock('../../ipc/problem-report', () => ({
+  createProblemReport: vi.fn().mockResolvedValue({ file_name: 'canopi-report-20261108-090503.zip', revealed: true }),
+}))
+
+/** What Desktop's adapter sends the native command for a report, through the real adapter. */
+async function nativeRequest(report: ProblemReport) {
+  await desktopProblemReport.write(report)
+  return vi.mocked(createProblemReport).mock.calls.at(-1)![0]
+}
 
 const FIXTURES = import.meta.glob<{ default: Failure }>('../../../../../canopi-types/fixtures/failures/*.json', { eager: true })
 
 const CREATED_AT = new Date('2026-11-08T09:05:03.250Z')
 
 /** Desktop: the native command fills every edition section. */
-const DESKTOP = NATIVE_SECTIONS
+const DESKTOP = desktopProblemReport.sections
 
 /** Web: the browser fills what it has and lacks the rest (F13). */
 const WEB: EditionSections = {
@@ -59,7 +66,7 @@ function originOf(failure: Failure): ReportOrigin {
 }
 
 describe('problem report builder', () => {
-  it('[1b-c5 canopi-f47t.52.37] every_code_reaches_the_report', () => {
+  it('[1b-c5 canopi-f47t.52.37] every_code_reaches_the_report', async () => {
     const fixtures = new Map(Object.values(FIXTURES).map(({ default: failure }) => [failure.code.kind, failure]))
     for (const kind of Object.keys(FAILURE_CATALOGUE) as FailureCode['kind'][]) {
       const failure = fixtures.get(kind)
@@ -70,7 +77,7 @@ describe('problem report builder', () => {
         expect(failureJson.code, kind).toEqual(failure!.code)
         // Desktop's command receives the code in the section the frontend sends.
         if (sections === DESKTOP) {
-          const sent = nativeRequest(report).sections.find((section) => section.id === 'originating_failure')
+          const sent = (await nativeRequest(report)).sections.find((section) => section.id === 'originating_failure')
           expect(JSON.parse(sent!.text).code).toEqual(failure!.code)
         }
       }
@@ -92,7 +99,7 @@ describe('problem report builder', () => {
     expect(JSON.parse(text(web, 'build')).browser).toEqual({ name: 'Firefox', major: 140, os: 'Linux' })
   })
 
-  it('[1b-c5 canopi-f47t.52.37] a report opened from a failure lists its code and operation first', () => {
+  it('[1b-c5 canopi-f47t.52.37] a report opened from a failure lists its code and operation first', async () => {
     const origin: ReportOrigin = {
       source: 'library.delete_item',
       code: { kind: 'busy', lane: 'library' },
@@ -109,7 +116,7 @@ describe('problem report builder', () => {
     const plain = buildProblemReport(input())
     expect(plain.manifest!.entries[0]!.status).toBe('empty')
     expect(text(plain, 'originating_failure')).toBe('empty\n')
-    expect(nativeRequest(buildProblemReport(input({ sections: DESKTOP }))).sections.map((section) => section.id))
+    expect((await nativeRequest(buildProblemReport(input({ sections: DESKTOP })))).sections.map((section) => section.id))
       .toEqual(['description', 'frontend_ring'])
   })
 
@@ -124,12 +131,12 @@ describe('problem report builder', () => {
     }
   })
 
-  it('maps each consent row to its request field: the Design to current_design, unredacted, only when ticked', () => {
+  it('maps each consent row to its request field: the Design to current_design, unredacted, only when ticked', async () => {
     const design = '{"notes":"/home/ana/secret.canopi"}\n'
     for (const row of REPORT_SECTIONS.filter((candidate) => candidate.consent === 'current_design')) {
       expect(row.id).toBe('design')
-      expect(nativeRequest(buildProblemReport(input({ sections: DESKTOP, design }))).current_design).toBe(design)
-      expect(nativeRequest(buildProblemReport(input({ sections: DESKTOP }))).current_design).toBeNull()
+      expect((await nativeRequest(buildProblemReport(input({ sections: DESKTOP, design })))).current_design).toBe(design)
+      expect((await nativeRequest(buildProblemReport(input({ sections: DESKTOP })))).current_design).toBeNull()
     }
     expect(text(buildProblemReport(input({ design })), 'design')).toBe(design)
   })

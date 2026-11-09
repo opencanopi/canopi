@@ -12,6 +12,7 @@ import { problemReportDialogOpen } from '../app/problem-report/state'
 import { beforePaint, holdAfterPaint } from './support/before-paint'
 import { replaceCurrentDesignState } from './support/design-session-state'
 import { ProblemReportDialog } from '../components/shared/ProblemReportDialog'
+import { desktopProblemReport } from '../platform/problem-report.desktop'
 import type { CanopiFile } from '../types/design'
 
 const mocks = vi.hoisted(() => ({
@@ -64,11 +65,13 @@ const REPORT_FILE = 'canopi-report-20260601-103000.zip'
 describe('ProblemReportDialog', () => {
   let container: HTMLDivElement
   let clipboardWrite: ReturnType<typeof vi.fn>
+  let uninstallPort: () => void
 
   beforeEach(() => {
     container = document.createElement('div')
     document.body.textContent = ''
     document.body.appendChild(container)
+    uninstallPort = problemReportSubmission.installPort(desktopProblemReport)
     openProblemReportDialog()
     mocks.createProblemReport.mockReset()
     mocks.showProblemReportFolder.mockReset()
@@ -85,6 +88,7 @@ describe('ProblemReportDialog', () => {
     render(null, container)
     container.remove()
     problemReportSubmission.close()
+    uninstallPort()
     vi.restoreAllMocks()
   })
 

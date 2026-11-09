@@ -1,13 +1,10 @@
 import { signal, type Signal } from '@preact/signals'
-import {
-  createProblemReport,
-  showProblemReportFolder,
-  type ProblemReportRequest,
-  type ProblemReportResult,
-} from '../../ipc/problem-report'
+import { showProblemReportFolder } from '../../ipc/problem-report'
+import type { ProblemReportResult } from '../../generated/contracts'
+import type { ProblemReportPort } from '../../platform/problem-report'
 import { reportInline, type ReportOrigin } from '../../failures/report'
 import { t } from '../../i18n'
-import { buildProblemReport, NATIVE_SECTIONS, nativeRequest, type ProblemReportPort } from './builder'
+import { buildProblemReport } from './builder'
 import { recentFrontendDiagnostics } from './diagnostics'
 import { buildCurrentDesignProblemReportAttachment } from './attachments'
 import { problemReportDialogOpen } from './state'
@@ -16,13 +13,6 @@ type ProblemReportCopyState = 'idle' | 'copied' | 'failed'
 type ProblemReportShowFolderState = 'idle' | 'showing' | 'failed'
 
 export interface ProblemReportSubmissionDeps {
-  /** The edition's problemReport writer (contracts §22); Desktop's request writer below when omitted. */
-  readonly port?: ProblemReportPort
-  /**
-   * Desktop's request writer as the pre-port suite injects it, used only when no port is given; leaves with
-   * __tests__/problem-report-submission.test.ts, which 1b-c5 asked to retire (canopi-f47t.52.36).
-   */
-  readonly createProblemReport: (request: ProblemReportRequest) => Promise<ProblemReportResult>
   readonly showProblemReportFolder: (folderPath: string) => Promise<void>
   readonly readFrontendDiagnostics: typeof recentFrontendDiagnostics
   readonly buildCurrentDesignAttachment: () => string | null
@@ -48,12 +38,11 @@ export interface ProblemReportSubmission {
   submit(): Promise<void>
   copySummary(): Promise<void>
   showFolder(): Promise<void>
-  /** Writes later reports through `port` until the returned uninstall. */
+  /** The edition's problemReport writer (contracts §22), the one way to set it; returns the uninstall. */
   installPort(port: ProblemReportPort): () => void
 }
 
 const DEFAULT_DEPS: ProblemReportSubmissionDeps = {
-  createProblemReport,
   showProblemReportFolder,
   readFrontendDiagnostics: recentFrontendDiagnostics,
   buildCurrentDesignAttachment: buildCurrentDesignProblemReportAttachment,
@@ -90,7 +79,7 @@ export function createProblemReportSubmission(
   const showFolderState = signal<ProblemReportShowFolderState>('idle')
   let generation = 0
   let origin: ReportOrigin | null = null
-  let port: ProblemReportPort | null = deps.port ?? null
+  let port: ProblemReportPort | null = null
 
   function reset(): void {
     generation += 1
@@ -150,8 +139,8 @@ export function createProblemReportSubmission(
         }
 
         // The one builder fills the frontend's sections, redacted; Desktop's command adds the native ones (2.1-M421).
-        const writer: ProblemReportPort = port
-          ?? { sections: NATIVE_SECTIONS, write: (built) => deps.createProblemReport(nativeRequest(built)) }
+        const writer = port
+        if (!writer) throw new Error('No problem report writer is installed for this edition')
         const report = buildProblemReport({
           createdAt: new Date(),
           description: description.value,
@@ -188,7 +177,7 @@ export function createProblemReportSubmission(
     installPort(next) {
       port = next
       return () => {
-        if (port === next) port = deps.port ?? null
+        if (port === next) port = null
       }
     },
     async showFolder() {

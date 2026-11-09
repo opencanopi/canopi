@@ -4,8 +4,8 @@
  *
  * - **Entries.** One per `REPORT_SECTIONS` row, in report order; the Design only by consent. The frontend's own
  *   sections (the originating failure, the description, the app-failures ring) are filled here; each other section is
- *   read through the edition's `EditionSections`: a reader, `native` (Desktop's command fills it) or
- *   `not_on_this_edition` (F13; no editions column).
+ *   read through the edition's `EditionSections` (the port, platform/problem-report.ts): a reader, `native`
+ *   (Desktop's command fills it) or `not_on_this_edition` (F13; no editions column).
  * - **Manifest.** Every entry but itself with its status, in the shape and format Desktop's native writer uses
  *   (`bundle.rs`); null when a section is native, since the native writer then lists it. A frontend section's status
  *   follows the native rule: included when its text holds anything, else empty with the `empty` marker.
@@ -13,18 +13,10 @@
  *   `redaction_failed`, never the text (contracts §13). A reader that throws, as a degraded store may, marks its
  *   section unreadable and the report is still built.
  */
-import {
-  REPORT_SECTIONS,
-  type ProblemReportRequest,
-  type ProblemReportResult,
-  type RedactedText,
-  type ReportManifest,
-  type ReportSectionId,
-  type ReportSectionStatus,
-  type ReportSectionText,
-} from '../../generated/contracts'
+import { REPORT_SECTIONS, type ReportSectionId } from '../../generated/contracts'
 import { redact } from '../../failures/redact'
 import type { ReportOrigin } from '../../failures/report'
+import type { EditionSections, ProblemReport, ReportEntry, SectionReader } from '../../platform/problem-report'
 
 /** The manifest's format name, as Desktop's native writer names it (`bundle.rs` MANIFEST_FORMAT). */
 const REPORT_MANIFEST_FORMAT = 'canopi-problem-report-2'
@@ -34,43 +26,6 @@ const REDACTION_FAILED = 'redaction_failed'
 
 /** The text a frontend section with nothing to say holds, as the native writer writes it. */
 const EMPTY_TEXT = 'empty\n'
-
-/** The sections this builder fills on both editions; the Design is attached by consent. */
-const FRONTEND_SECTIONS = ['originating_failure', 'description', 'frontend_ring'] as const
-type FrontendSectionId = (typeof FRONTEND_SECTIONS)[number]
-
-/** The sections an edition fills, natively or by a reader, or lacks. */
-type EditionSectionId = Exclude<ReportSectionId, FrontendSectionId | 'design'>
-
-/** How an edition fills one section: a reader of its value, its native writer, or not at all on this edition (F13). */
-type SectionReader = 'native' | 'not_on_this_edition' | (() => unknown)
-
-/** Every section an edition answers for, so a section added to `REPORT_SECTIONS` fails typecheck until each edition says. */
-export type EditionSections = { readonly [S in EditionSectionId]: SectionReader }
-
-/** Desktop: the native command fills every section but the frontend's own (2.1-M421). */
-export const NATIVE_SECTIONS: EditionSections = {
-  build: 'native',
-  health: 'native',
-  queues: 'native',
-  native_settlements: 'native',
-  jobs: 'native',
-  library_disk: 'native',
-  log_tail: 'native',
-  settings_summary: 'native',
-}
-
-/**
- * The problemReport port (contracts §22, 2.1-M422): one builder, two writers. Desktop's adapter
- * (platform/problem-report.desktop.ts) sends the frontend sections to the native command, which adds its own and zips;
- * Web's (platform/problem-report.browser.ts) zips the whole report in TS and downloads it. Each names how it fills every
- * section the frontend does not, a section it lacks marked not on this edition (F13, 2.1-M412).
- */
-export interface ProblemReportPort {
-  readonly sections: EditionSections
-  /** Writes one report as one zip; its file name only, never a path. Throws a typed failure (busy, io) unwritten. */
-  write(report: ProblemReport): Promise<ProblemReportResult>
-}
 
 export interface ProblemReportInput {
   readonly createdAt: Date
@@ -85,22 +40,6 @@ export interface ProblemReportInput {
   readonly sections: EditionSections
   /** The redactor; `failures/redact.ts` unless a test plants a fault. */
   readonly redact?: (text: string) => string
-}
-
-/** One entry of the report; a native section's text is the native writer's, so null here. */
-interface ReportEntry {
-  readonly section: ReportSectionId
-  readonly file: string
-  readonly status: ReportSectionStatus | 'native'
-  readonly text: string | null
-}
-
-export interface ProblemReport {
-  /** `canopi-report-YYYYMMDD-HHMMSS.zip`, UTC, the same on both editions (2.1-Q281). */
-  readonly fileName: string
-  readonly entries: readonly ReportEntry[]
-  /** The manifest, or null when a native writer lists its own sections. */
-  readonly manifest: ReportManifest | null
 }
 
 /** Builds the report's entries and manifest from the edition's sections; never throws on a section's fault. */
@@ -127,21 +66,6 @@ export function buildProblemReport(input: ProblemReportInput): ProblemReport {
     ? { format: REPORT_MANIFEST_FORMAT, created_at: createdAt, entries: listed }
     : null
   return { fileName: reportFileName(createdAt), entries, manifest }
-}
-
-/** What Desktop's command takes: the frontend sections that hold anything (it marks the rest empty) and the Design. */
-export function nativeRequest(report: ProblemReport): ProblemReportRequest {
-  const sections: ReportSectionText[] = report.entries.flatMap((entry) =>
-    isFrontendSection(entry.section) && entry.status === 'included' && entry.text !== null
-      ? [{ id: entry.section, text: entry.text as RedactedText }]
-      : [],
-  )
-  const design = report.entries.find((entry) => entry.section === 'design')
-  return { sections, current_design: design?.text ?? null }
-}
-
-function isFrontendSection(id: ReportSectionId): id is FrontendSectionId {
-  return (FRONTEND_SECTIONS as readonly ReportSectionId[]).includes(id)
 }
 
 type Filled = Pick<ReportEntry, 'status' | 'text'>
