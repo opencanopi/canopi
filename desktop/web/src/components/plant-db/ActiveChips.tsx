@@ -145,7 +145,7 @@ export function ActiveChips() {
 
   for (const ef of extras) {
     const fieldDef = FIELD_REGISTRY.find((f) => f.key === ef.field);
-    const label = fieldDef ? filterText(fieldDef.i18nKey, ef.field) : ef.field;
+    const label = fieldDef ? t(fieldDef.i18nKey) : ef.field;
     chips.push({
       key: `extra-${ef.field}`,
       label: formatExtraFilterDisplay(ef, label, localeOptions),

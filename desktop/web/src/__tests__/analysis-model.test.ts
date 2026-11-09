@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { AnalysisEntry, AnalysisGroup } from '../generated/analysis-registry'
-import { ANALYSIS_REGISTRY } from '../generated/analysis-registry'
+import { ANALYSIS_GROUPS, ANALYSIS_REGISTRY } from '../generated/analysis-registry'
+import { FILTER_CATEGORIES, PLANT_FILTER_FIELDS, type PlantFilterFieldDef } from '../generated/plant-filter-fields'
 import type { AnalysisOffer, Provenance } from '../generated/contracts'
 import {
   analysisOptions,
@@ -19,43 +20,45 @@ import {
   type AnalysisForm,
   type AnalysisSubject,
 } from '../app/analyses/model'
+import { analysisTitle, derivedItemName } from '../app/analyses/registry'
+import { t } from '../i18n'
 
 const water = 'water' as unknown as AnalysisGroup
 
 /** One entry covering every parameter type, advanced disclosure, visibleWhen and optional outputs. */
-// Fixture keys are opaque to the code under test, so they are not LocaleKeys.
-const FLOW = {
+// The model never reads its texts, so the fixture borrows Slope's keys.
+const FLOW: AnalysisEntry = {
   id: 'hydrology.flow',
   version: 3,
   group: water,
-  titleKey: 'analyses.hydrology.flow.title',
-  summaryKey: 'analyses.hydrology.flow.summary',
+  titleKey: 'analyses.terrain.slope.title',
+  summaryKey: 'analyses.terrain.slope.summary',
   lane: { kind: 'geolibre-windowed', halo: 0 },
   inputs: [{ key: 'dem', accepts: [{ kind: 'Raster', quantity: 'GroundElevation' }], requires: [] }],
   params: [
     {
-      key: 'depressions', labelKey: 'l.depressions', helpKey: 'h.depressions',
+      key: 'depressions', labelKey: 'analyses.terrain.slope.params.unit.label', helpKey: 'analyses.terrain.slope.params.unit.help',
       kind: { type: 'choice', options: ['breach', 'fill'] }, default: 'breach', advanced: false, visibleWhen: null,
-      optionLabelKeys: { breach: 'o.breach', fill: 'o.fill' },
+      optionLabelKeys: { breach: 'analyses.terrain.slope.params.unit.options.degrees', fill: 'analyses.terrain.slope.params.unit.options.percent' },
     },
     {
-      key: 'max_breach_m', labelKey: 'l.max', helpKey: 'h.max',
+      key: 'max_breach_m', labelKey: 'analyses.terrain.slope.params.unit.label', helpKey: 'analyses.terrain.slope.params.unit.help',
       kind: { type: 'number', min: 1, max: 1000, step: 0.5, unit: 'metre' }, default: 50, advanced: true,
       visibleWhen: { param: 'depressions', equals: 'breach' }, optionLabelKeys: {},
     },
     {
-      key: 'passes', labelKey: 'l.passes', helpKey: 'h.passes',
+      key: 'passes', labelKey: 'analyses.terrain.slope.params.unit.label', helpKey: 'analyses.terrain.slope.params.unit.help',
       kind: { type: 'integer', min: 1, max: 5 }, default: 2, advanced: true, visibleWhen: null, optionLabelKeys: {},
     },
     {
-      key: 'log', labelKey: 'l.log', helpKey: 'h.log',
+      key: 'log', labelKey: 'analyses.terrain.slope.params.unit.label', helpKey: 'analyses.terrain.slope.params.unit.help',
       kind: { type: 'boolean' }, default: null, advanced: false, visibleWhen: null, optionLabelKeys: {},
     },
   ],
   outputs: [
-    { key: 'area', labelKey: 'out.area', item: { kind: 'Raster', quantity: 'OtherContinuous' }, units: { kind: 'fixed', value: 'm²' }, optional: true, defaultSelected: true, presentable: true },
-    { key: 'wetness', labelKey: 'out.wet', item: { kind: 'Raster', quantity: 'OtherContinuous' }, units: { kind: 'fixed', value: '' }, optional: true, defaultSelected: false, presentable: true },
-  ],} as unknown as AnalysisEntry
+    { key: 'area', labelKey: 'analyses.terrain.slope.outputs.slope', item: { kind: 'Raster', quantity: 'OtherContinuous' }, units: { kind: 'fixed', value: 'm²' }, optional: true, defaultSelected: true, presentable: true },
+    { key: 'wetness', labelKey: 'analyses.terrain.slope.outputs.slope', item: { kind: 'Raster', quantity: 'OtherContinuous' }, units: { kind: 'fixed', value: '' }, optional: true, defaultSelected: false, presentable: true },
+  ],}
 
 const SLOPE = ANALYSIS_REGISTRY.find((entry) => entry.id === 'terrain.slope')!
 const REGISTRY = [SLOPE, FLOW]
@@ -260,5 +263,39 @@ describe('Analyze dialog model', () => {
     const slope = formFromProvenance(SLOPE, provenance(), ['slope'], 'Ground', 'Slope', 'en')
     expect(buildAnalysisRequest(SLOPE, { id: 'ground' }, slope, 'en')?.parameters)
       .toEqual([{ key: 'unit', value: { Choice: 'degrees' } }])
+  })
+})
+
+describe('generated registry texts', () => {
+  it('canopi-f47t.52.228.48: registry keys are LocaleKeys: a misspelt one fails typecheck, and no shipped one shows raw', () => {
+    // @ts-expect-error 'analyses.terrain.slope.titel' is no LocaleKey; this directive fails typecheck if the registry stops typing its keys
+    const misspelt: AnalysisEntry['titleKey'] = 'analyses.terrain.slope.titel'
+    const keys = [
+      ...ANALYSIS_GROUPS.map((group) => group.labelKey),
+      ...ANALYSIS_REGISTRY.flatMap((entry) => [
+        entry.titleKey, entry.summaryKey,
+        ...entry.params.flatMap((param) => [param.labelKey, param.helpKey, ...Object.values(param.optionLabelKeys)]),
+        ...entry.outputs.map((output) => output.labelKey),
+      ]),
+    ]
+
+    expect(keys.filter((key) => t(key) === key)).toEqual([])
+    expect(t(misspelt)).toBe(misspelt)
+  })
+
+  it('canopi-f47t.52.228.48: filter keys are LocaleKeys: a misspelt one fails typecheck, and no shipped one shows raw', () => {
+    // @ts-expect-error 'filters.heigth' is no LocaleKey; this directive fails typecheck if the registry stops typing its keys
+    const misspelt: PlantFilterFieldDef['i18nKey'] = 'filters.heigth'
+    const keys = [...FILTER_CATEGORIES.map((category) => category.i18nKey), ...PLANT_FILTER_FIELDS.map((field) => field.i18nKey)]
+
+    expect(keys.filter((key) => t(key) === key)).toEqual([])
+    expect(t(misspelt)).toBe(misspelt)
+  })
+
+  it('names an analysis by its title, and one this build no longer knows by its id', () => {
+    expect(analysisTitle('terrain.slope')).toBe('Slope')
+    expect(analysisTitle('hydrology.retired')).toBe('hydrology.retired')
+    expect(derivedItemName('Ground', 'terrain.slope')).toBe('Ground · Slope')
+    expect(derivedItemName(null, 'terrain.slope')).toBe('Slope')
   })
 })

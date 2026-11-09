@@ -15,42 +15,41 @@ import { beforePaint, holdAfterPaint } from './support/before-paint'
 const water = 'water' as unknown as AnalysisGroup
 
 /** Every parameter type, an advanced disclosure, visibleWhen and optional outputs. */
-// Fixture keys are opaque to the code under test, so they are not LocaleKeys.
-const FLOW = {
+// Its keys borrow shipped texts that no other control shows, so a label is found by its English text.
+const FLOW: AnalysisEntry = {
   id: 'hydrology.flow',
   version: 1,
   group: water,
-  titleKey: 'fixture.flow.title',
-  summaryKey: 'fixture.flow.summary',
+  titleKey: 'siteData.display.ramp.Relief',
+  summaryKey: 'siteData.display.cutOutliersHint',
   lane: { kind: 'geolibre-windowed', halo: 0 },
   inputs: [{ key: 'dem', accepts: [{ kind: 'Raster', quantity: 'GroundElevation' }], requires: [] }],
   params: [
     {
-      key: 'depressions', labelKey: 'fixture.depressions', helpKey: 'fixture.depressionsHelp',
+      key: 'depressions', labelKey: 'siteData.display.colors', helpKey: 'siteData.hint',
       kind: { type: 'choice', options: ['breach', 'fill'] }, default: 'breach', advanced: false, visibleWhen: null,
-      optionLabelKeys: { breach: 'fixture.breach', fill: 'fixture.fill' },
+      optionLabelKeys: { breach: 'siteData.display.ramp.Earth', fill: 'siteData.display.ramp.Gray' },
     },
     {
-      key: 'max_breach_m', labelKey: 'fixture.maxBreach', helpKey: 'fixture.maxBreachHelp',
+      key: 'max_breach_m', labelKey: 'siteData.display.maximum', helpKey: 'siteData.hintTouch',
       kind: { type: 'number', min: 1, max: 1000, step: 1, unit: 'metre' }, default: 50, advanced: true,
       visibleWhen: { param: 'depressions', equals: 'breach' }, optionLabelKeys: {},
     },
     {
-      key: 'passes', labelKey: 'fixture.passes', helpKey: 'fixture.passesHelp',
+      key: 'passes', labelKey: 'siteData.display.dataRange', helpKey: 'siteData.filterLabel',
       kind: { type: 'integer', min: 1, max: 5 }, default: 2, advanced: false, visibleWhen: null, optionLabelKeys: {},
     },
     {
-      key: 'log', labelKey: 'fixture.log', helpKey: 'fixture.logHelp',
+      key: 'log', labelKey: 'siteData.display.reverse', helpKey: 'siteData.hiddenFromMap',
       kind: { type: 'boolean' }, default: true, advanced: false, visibleWhen: null, optionLabelKeys: {},
     },
   ],
   outputs: [
-    { key: 'area', labelKey: 'fixture.area', item: { kind: 'Raster', quantity: 'OtherContinuous' }, units: { kind: 'fixed', value: 'm²' }, optional: true, defaultSelected: true, presentable: true },
-    { key: 'wetness', labelKey: 'fixture.wetness', item: { kind: 'Raster', quantity: 'OtherContinuous' }, units: { kind: 'fixed', value: '' }, optional: true, defaultSelected: false, presentable: true },
-  ],} as unknown as AnalysisEntry
+    { key: 'area', labelKey: 'siteData.display.custom', item: { kind: 'Raster', quantity: 'OtherContinuous' }, units: { kind: 'fixed', value: 'm²' }, optional: true, defaultSelected: true, presentable: true },
+    { key: 'wetness', labelKey: 'siteData.display.ramp.Greens', item: { kind: 'Raster', quantity: 'OtherContinuous' }, units: { kind: 'fixed', value: '' }, optional: true, defaultSelected: false, presentable: true },
+  ],}
 
-// Fixture keys are opaque to the code under test, so they are not LocaleKeys.
-const SLOPE = {
+const SLOPE: AnalysisEntry = {
   ...FLOW,
   id: 'terrain.slope',
   group: 'terrain',
@@ -61,7 +60,7 @@ const SLOPE = {
     kind: { type: 'choice', options: ['degrees', 'percent'] }, default: null, advanced: false, visibleWhen: null,
     optionLabelKeys: { degrees: 'analyses.terrain.slope.params.unit.options.degrees', percent: 'analyses.terrain.slope.params.unit.options.percent' },
   }],
-  outputs: [{ key: 'slope', labelKey: 'analyses.terrain.slope.outputs.slope', item: { kind: 'Raster', quantity: 'Slope' }, units: { kind: 'by-param', param: 'unit', map: { degrees: '°', percent: '%' } }, optional: false, defaultSelected: true, presentable: true }],} as unknown as AnalysisEntry
+  outputs: [{ key: 'slope', labelKey: 'analyses.terrain.slope.outputs.slope', item: { kind: 'Raster', quantity: 'Slope' }, units: { kind: 'by-param', param: 'unit', map: { degrees: '°', percent: '%' } }, optional: false, defaultSelected: true, presentable: true }],}
 
 const REGISTRY = [SLOPE, FLOW]
 const GROUPS = [{ key: 'terrain' as AnalysisGroup, labelKey: 'analyses.groups.terrain' }, { key: water, labelKey: 'fixture.water' }]
@@ -170,8 +169,8 @@ describe('Analyze dialog', () => {
     expect(dropdownTrigger(container, 'Source')?.textContent).toContain('Canopy')
     expect(container.textContent).toContain('Needs Ground elevation (DTM).')
     // Slope cannot run from Canopy, so the first analysis that can is chosen and named after the new source.
-    expect(radio('fixture.flow.title').checked).toBe(true)
-    expect(container.querySelector<HTMLInputElement>('input:not([type])')!.value).toBe('Canopy · fixture.flow.title')
+    expect(radio('Relief').checked).toBe(true)
+    expect(container.querySelector<HTMLInputElement>('input:not([type])')!.value).toBe('Canopy · Relief')
     await submit()
     expect(onRun).toHaveBeenCalledWith(expect.objectContaining({ inputs: [{ key: 'dem', item_id: 'canopy' }] }))
   })
@@ -187,7 +186,7 @@ describe('Analyze dialog', () => {
     await chooseSource('Canopy')
     await type(container.querySelector<HTMLInputElement>('input:not([type])')!, 'Canopy flow (fine)')
     await chooseSource('Ground')
-    expect(container.querySelector<HTMLInputElement>('input:not([type])')!.value).toBe('Ground · fixture.flow.title')
+    expect(container.querySelector<HTMLInputElement>('input:not([type])')!.value).toBe('Ground · Relief')
   })
 
   it('keeps the source of Run again with changes fixed', () => {
@@ -200,8 +199,8 @@ describe('Analyze dialog', () => {
     mount({ initial: 'hydrology.flow' })
     await act(async () => {})
     expect(Array.from(container.querySelectorAll('legend')).slice(0, 2).map((node) => node.textContent)).toEqual(['Terrain', 'fixture.water'])
-    expect(document.activeElement).toBe(radio('fixture.flow.title'))
-    expect(radio('fixture.flow.title').checked).toBe(true)
+    expect(document.activeElement).toBe(radio('Relief'))
+    expect(radio('Relief').checked).toBe(true)
   })
 
   // canopi-f47t.52.228.20: the chosen entry took focus after paint (Preact 11 useEffect), after the dialog shell had
@@ -228,7 +227,7 @@ describe('Analyze dialog', () => {
         container,
       )
       await beforePaint()
-      expect(document.activeElement, 'the chosen entry has focus as it first shows').toBe(radio('fixture.flow.title'))
+      expect(document.activeElement, 'the chosen entry has focus as it first shows').toBe(radio('Relief'))
       document.activeElement!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
       expect(onCancel, 'Esc cancelled').toHaveBeenCalledTimes(1)
     } finally {
@@ -238,27 +237,27 @@ describe('Analyze dialog', () => {
 
   it('renders parameters by type, advanced ones in a disclosure, and honours visibleWhen', async () => {
     mount({ initial: 'hydrology.flow' })
-    expect(radio('fixture.breach').checked).toBe(true)
-    expect(field('fixture.passes').value).toBe('2')
+    expect(radio('Earth').checked).toBe(true)
+    expect(field('Data range').value).toBe('2')
     expect(container.querySelector<HTMLInputElement>('input[role="switch"]')!.checked).toBe(true)
     const advanced = container.querySelector('details')!
     expect(advanced.querySelector('summary')?.textContent).toBe('Advanced settings')
-    const max = field('fixture.maxBreach')
+    const max = field('Maximum')
     expect(advanced.contains(max)).toBe(true)
     expect(max.value).toBe('50')
     expect(max.getAttribute('aria-describedby')).toContain(`${max.id}-unit`)
     expect(document.getElementById(`${max.id}-unit`)?.textContent).toBe('m')
 
-    await act(async () => { radio('fixture.fill').click() })
+    await act(async () => { radio('Gray').click() })
     expect(container.querySelector('details')).toBeNull()
   })
 
   it('builds the request from the form: typed values, hidden parameters omitted, chosen outputs', async () => {
     mount({ initial: 'hydrology.flow' })
-    await act(async () => { radio('fixture.fill').click() })
+    await act(async () => { radio('Gray').click() })
     await act(async () => { container.querySelector<HTMLInputElement>('input[role="switch"]')!.click() })
     const wetness = Array.from(container.querySelectorAll<HTMLInputElement>('input[type="checkbox"]:not([role])'))
-      .find((input) => input.closest('label')?.textContent === 'fixture.wetness')!
+      .find((input) => input.closest('label')?.textContent === 'Greens')!
     await act(async () => { wetness.click() })
     const name = container.querySelector<HTMLInputElement>('input:not([type])')!
     await type(name, 'Flow paths')
@@ -279,7 +278,7 @@ describe('Analyze dialog', () => {
 
   it('explains invalid values inline and does not run', async () => {
     mount({ initial: 'hydrology.flow' })
-    const passes = field('fixture.passes')
+    const passes = field('Data range')
     await type(passes, '9')
     expect(container.textContent).toContain('Enter a value from 1 to 5.')
     expect(passes.getAttribute('aria-invalid')).toBe('true')
