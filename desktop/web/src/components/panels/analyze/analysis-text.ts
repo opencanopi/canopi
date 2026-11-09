@@ -61,10 +61,3 @@ export function paramValueText(entry: AnalysisEntry | null, parameter: AnalysisP
   const unit = spec?.kind.type === 'number' ? unitSuffix(paramUnitSuffix(spec.kind.unit)) : ''
   return `${new Intl.NumberFormat(locale, { maximumFractionDigits: 6 }).format(number)}${unit}`
 }
-
-/** A recorded timestamp (unix milliseconds as text) as a local date and time. */
-export function formatTimestamp(value: string, locale: string): string {
-  const time = Number(value)
-  if (!Number.isFinite(time)) return value
-  return new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(time))
-}

@@ -2,6 +2,7 @@ import type { ComponentChildren } from 'preact'
 import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks'
 import { t } from '../../i18n'
 import { locale } from '../../app/settings/state'
+import { formatInstantInList } from '../../app/timeline/civil-date'
 import {
   designNotebookWorkbench,
   type DesignNotebookWorkbench,
@@ -530,7 +531,7 @@ function NotebookRow({
   readonly onRemove: () => void
   readonly onPointerDown: (event: PointerEvent) => void
 }) {
-  const date = formatDate(entry.updated_at, lang)
+  const date = formatInstantInList(entry.updated_at, lang)
 
   return (
     <div
@@ -812,16 +813,4 @@ function PlusIcon() {
       <path d="M6.5 2.5v8M2.5 6.5h8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
     </svg>
   )
-}
-
-function formatDate(iso: string, lang: string): string {
-  try {
-    return new Intl.DateTimeFormat(lang, {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    }).format(new Date(iso))
-  } catch {
-    return ''
-  }
 }

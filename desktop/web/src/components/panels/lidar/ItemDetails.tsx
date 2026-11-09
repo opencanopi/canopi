@@ -6,10 +6,11 @@ import { formatRasterMetres, formatRasterRange } from '../../../app/lidar/displa
 import { itemTypeLabel } from '../../../app/lidar/item-types'
 import type { LibraryItem } from '../../../app/lidar/library-items'
 import { locale } from '../../../app/settings/state'
+import { formatInstantInDetail } from '../../../app/timeline/civil-date'
 import type { ProcessingRun, Provenance } from '../../../generated/contracts'
 import { t } from '../../../i18n'
 import { Notice } from '../../shared/Notice'
-import { formatTimestamp, paramValueText, staleReasonText } from '../analyze/analysis-text'
+import { paramValueText, staleReasonText } from '../analyze/analysis-text'
 import { isRunning, isStale, itemStatusLabel } from './item-text'
 import styles from './data-library.module.css'
 
@@ -80,7 +81,7 @@ export function ItemDetails({ item, nameOf, onOpenInput, onRefresh, busy, previe
         <dt>{t('canvas.lidar.library.factStatus')}</dt>
         <dd>{item.status === 'ready' ? t('canvas.lidar.library.ready') : itemStatusLabel(item)}</dd>
         <dt>{t('canvas.lidar.library.factAdded')}</dt>
-        <dd>{formatTimestamp(item.createdAt, locale.value)}</dd>
+        <dd>{formatInstantInDetail(item.createdAt, locale.value)}</dd>
         {item.provenance && <ProvenanceFacts provenance={item.provenance} nameOf={nameOf} onOpenInput={onOpenInput} />}
         {results.length > 0 && <>
           <dt>{t('canvas.lidar.library.factResults')}</dt>
@@ -139,7 +140,7 @@ function ProvenanceFacts({ provenance, nameOf, onOpenInput }: {
       <dd className={styles.filename}>{tool.version} ({tool.revision.slice(0, 12)})</dd>
     </>}
     <dt>{t('analyses.details.created')}</dt>
-    <dd>{formatTimestamp(provenance.created_at, language)}</dd>
+    <dd>{formatInstantInDetail(provenance.created_at, language)}</dd>
   </>
 }
 
@@ -172,7 +173,7 @@ function ProcessingHistory({ definitionId }: { definitionId: string }) {
             <li key={entry.job_id} data-state={entry.state}>
               <strong>{t(`analyses.details.runState.${entry.state}`)}{index === 0 && entry.state === 'Complete' ? ` · ${t('analyses.details.current')}` : ''}</strong>
               <span className={styles.muted}>
-                {formatTimestamp(entry.created_at, language)}{entry.tool ? ` · ${entry.tool.version}` : ''} · {runOutputs(entry, language)}
+                {formatInstantInDetail(entry.created_at, language)}{entry.tool ? ` · ${entry.tool.version}` : ''} · {runOutputs(entry, language)}
               </span>
             </li>
           ))}
