@@ -162,6 +162,21 @@ describe('problem report submission', () => {
     expect(ringEntries().filter((entry) => entry.code.kind === 'busy')).toHaveLength(1)
   })
 
+  it('[canopi-f47t.52.36] an untyped writer error is recorded once and reads the catalogue\'s message, never its text', async () => {
+    for (const fault of [new Error('SecurityError at /home/ana/Downloads'), 'quota exceeded']) {
+      resetFrontendDiagnosticsForTests()
+      const { submission } = submissionWith(() => Promise.reject(fault))
+      submission.open()
+      await submission.submit()
+      expect(submission.result.value).toBeNull()
+      expect(submission.error.value).toBe(t('failure.internal'))
+      const entries = ringEntries()
+      expect(entries).toHaveLength(1)
+      expect(entries[0]).toMatchObject({ source: 'problem_report.create', code: { kind: 'internal' }, surfaced: true })
+      expect(JSON.stringify(entries[0])).not.toContain('/home/ana')
+    }
+  })
+
   it('a dialog closed while the report is being made shows nothing it returns', async () => {
     let resolve!: (result: ProblemReportResult) => void
     const { submission } = submissionWith(() => new Promise<ProblemReportResult>((done) => { resolve = done }))

@@ -124,18 +124,6 @@ describe('Problem Report submission module', () => {
     expect(submission.submitting.value).toBe(false)
   })
 
-  it('shows errors from the active submission', async () => {
-    port.write.mockRejectedValue(new Error('disk full'))
-    const deps = createDeps()
-    const submission = createProblemReportSubmission(deps)
-
-    await submission.submit()
-
-    expect(submission.error.value).toBe('disk full')
-    expect(submission.result.value).toBeNull()
-    expect(submission.submitting.value).toBe(false)
-  })
-
   it('copies the saved file name and shows the saved zip by its file name, never a path', async () => {
     const deps = createDeps()
     const submission = createProblemReportSubmission(deps)

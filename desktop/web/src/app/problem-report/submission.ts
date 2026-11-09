@@ -1,12 +1,15 @@
 import { signal, type ReadonlySignal, type Signal } from '@preact/signals'
 import type { ProblemReportResult } from '../../generated/contracts'
 import type { ProblemReportPort } from '../../platform/problem-report'
-import { reportInline, type ReportOrigin } from '../../failures/report'
+import { reportFailure, reportInline, type ReportOrigin } from '../../failures/report'
 import { t } from '../../i18n'
 import { buildProblemReport } from './builder'
 import { recentFrontendDiagnostics } from './diagnostics'
 import { buildCurrentDesignProblemReportAttachment } from './attachments'
 import { problemReportDialogOpen } from './state'
+
+/** The op a report's failure is recorded under. */
+const REPORT_SOURCE = 'problem_report.create'
 
 type ProblemReportCopyState = 'idle' | 'copied' | 'failed'
 type ProblemReportShowFolderState = 'idle' | 'showing' | 'failed'
@@ -156,10 +159,11 @@ export function createProblemReportSubmission(
         showFolderState.value = 'idle'
       } catch (caught) {
         if (submitGeneration !== generation) return
-        // A typed failure (busy, io) reads its catalogue message; an untyped one keeps its text until the pre-port
-        // suite asserting it is retired (canopi-f47t.52.117 via 1b-c5's file request).
-        const message = reportInline(caught, 'problem_report.create')
-        error.value = message ? t(message) : caught instanceof Error ? caught.message : String(caught)
+        // A typed failure (busy, io) reads its catalogue message. Anything else (a browser download fault, a build
+        // fault) is one internal ring entry and reads the internal message, never its own text (.117).
+        const message = reportInline(caught, REPORT_SOURCE)
+        if (!message) reportFailure(caught, { shown: 'inline', source: REPORT_SOURCE })
+        error.value = t(message ?? 'failure.internal')
       } finally {
         if (submitGeneration === generation) {
           submitting.value = false
