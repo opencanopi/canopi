@@ -106,7 +106,7 @@ mod tests {
             health
                 .0
                 .get(&StoreId::UserDb)
-                .and_then(|entry| entry.notice.clone())
+                .and_then(|entry| entry.notice)
         };
         assert_eq!(notice(&get_health(&health)), None);
         assert_eq!(report_health(&health), startup);

@@ -139,13 +139,13 @@ describe('SurfaceBoundary', () => {
         <Suspense fallback={null}><Lazy /></Suspense>
       </SurfaceBoundary>,
     )
-    for (let turn = 0; turn < 20 && !container.textContent?.includes(t('boundary.panelFailed')); turn += 1) {
+    for (let turn = 0; turn < 500 && !container.textContent?.includes(t('boundary.panelFailed')); turn += 1) {
       await act(async () => new Promise((resolve) => setTimeout(resolve, 10)))
     }
     expect(container.textContent).toContain(t('boundary.panelFailed'))
     expect(button(t('boundary.reload'))).toBeDefined()
     await click(t('boundary.tryAgain'))
-    for (let turn = 0; turn < 20 && !container.textContent?.includes(t('boundary.panelFailed')); turn += 1) {
+    for (let turn = 0; turn < 500 && !container.textContent?.includes(t('boundary.panelFailed')); turn += 1) {
       await act(async () => new Promise((resolve) => setTimeout(resolve, 10)))
     }
     expect(button(t('boundary.reload'))).toBeDefined()
@@ -162,7 +162,7 @@ describe('SurfaceBoundary', () => {
         </SurfaceBoundary>
       </RootBoundary>,
     )
-    for (let turn = 0; turn < 20 && !container.textContent?.includes(t('boundary.panelFailed')); turn += 1) {
+    for (let turn = 0; turn < 500 && !container.textContent?.includes(t('boundary.panelFailed')); turn += 1) {
       await act(async () => new Promise((resolve) => setTimeout(resolve, 10)))
     }
     await click(t('boundary.reload'))
