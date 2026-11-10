@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { SubsystemHealth } from "../generated/contracts";
+import type { StoreId, SubsystemHealth } from "../generated/contracts";
 
 const mocks = vi.hoisted(() => ({
   disposeCloseGuard: vi.fn(),
@@ -373,6 +373,45 @@ describe("settings platform bootstrap", () => {
 
     expect(mocks.disposeSettings).toHaveBeenCalledOnce();
     expect(mocks.disposeTheme).toHaveBeenCalledOnce();
+  });
+
+  it("canopi-f47t.52.36: a dismissed one-time store notice stays dismissed after the shell bootstraps again in the same app run", async () => {
+    // The host's health outlives the page: a reload (location.reload) asks the same native process again.
+    const host: SubsystemHealth = { user_db: { status: { kind: "ready" }, notice: "moved_aside_pre_2_0" } };
+    mocks.invoke.mockImplementation(async (command: string, args?: { store: StoreId }) => {
+      if (command === "get_health") return structuredClone(host);
+      if (command === "dismiss_store_notice" && args) {
+        host[args.store] = { ...host[args.store]!, notice: null };
+        return null;
+      }
+      throw new Error(`unexpected command ${command}`);
+    });
+    // The Desktop root's wiring: its store notices with the host's dismissal, then the shell's boot snapshot.
+    const boot = async () => {
+      const { bootstrapShell } = await import("../app/shell/bootstrap");
+      const { dismissStoreNoticeOnHost, getHealth } = await import("../ipc/health");
+      const { installStoreNotices } = await import("../components/workspace/store-notices");
+      const queue = await import("../failures/notices");
+      const disposeNotices = installStoreNotices({ report: null, updatesInAbout: true, dismissOnHost: dismissStoreNoticeOnHost });
+      const shell = bootstrapShell({ load: vi.fn(), save: vi.fn().mockResolvedValue(undefined) }, getHealth);
+      await shell.ready;
+      return { queue, dispose: () => { disposeNotices(); shell.dispose(); } };
+    };
+
+    const first = await boot();
+    const [told] = first.queue.notices.value;
+    expect(told?.message).toBe("health.localDataNotOpened");
+    first.queue.dismissNotice(told!.id);
+    await vi.waitFor(() => expect(host.user_db?.notice).toBeNull());
+    first.dispose();
+
+    // Reload after dismissing the pre-2.0 notice: fresh modules, the same host; it is not shown again.
+    vi.resetModules();
+    const second = await boot();
+    expect(second.queue.notices.value).toEqual([]);
+    const { storeHealth } = await import("../failures/health");
+    expect(storeHealth.value.user_db).toEqual({ status: { kind: "ready" }, notice: null });
+    second.dispose();
   });
 
   it("leaves a settings load failure to the settings projection's one report without rejecting shell readiness", async () => {

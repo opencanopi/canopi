@@ -79,7 +79,7 @@ describe('App sidebar width', () => {
 
   it('opens the dock at 380 px, or 440 px for Budget and Consortium, until a width is saved', async () => {
     await act(async () => {
-      render(<App updates={NO_UPDATES} />, container)
+      render(<App updates={NO_UPDATES} dismissStoreNoticeOnHost={async () => {}} />, container)
     })
 
     expect(sidePanelElement(container).getAttribute('style')).toContain('--side-panel-width: 380px')
@@ -94,7 +94,7 @@ describe('App sidebar width', () => {
     sidePanel.value = 'design-notebook'
 
     await act(async () => {
-      render(<App updates={NO_UPDATES} />, container)
+      render(<App updates={NO_UPDATES} dismissStoreNoticeOnHost={async () => {}} />, container)
     })
 
     // The notebook panel mounts after its lazy workbench resolves.
@@ -106,7 +106,7 @@ describe('App sidebar width', () => {
     sidePanelWidth.value = 480
 
     await act(async () => {
-      render(<App updates={NO_UPDATES} />, container)
+      render(<App updates={NO_UPDATES} dismissStoreNoticeOnHost={async () => {}} />, container)
     })
 
     const panel = sidePanelElement(container)
@@ -155,7 +155,7 @@ describe('App sidebar width', () => {
     sidePanelWidth.value = 480
 
     await act(async () => {
-      render(<App updates={NO_UPDATES} />, container)
+      render(<App updates={NO_UPDATES} dismissStoreNoticeOnHost={async () => {}} />, container)
     })
 
     const handle = resizeHandle(container)
@@ -176,7 +176,7 @@ describe('App sidebar width', () => {
 
   it('does not persist the responsive default from a resize-handle click without movement', async () => {
     await act(async () => {
-      render(<App updates={NO_UPDATES} />, container)
+      render(<App updates={NO_UPDATES} dismissStoreNoticeOnHost={async () => {}} />, container)
     })
 
     await act(async () => {
@@ -200,7 +200,7 @@ describe('App sidebar width', () => {
 
   it('does not persist or fix the responsive default when pointer movement stays clamped', async () => {
     await act(async () => {
-      render(<App updates={NO_UPDATES} />, container)
+      render(<App updates={NO_UPDATES} dismissStoreNoticeOnHost={async () => {}} />, container)
     })
 
     const panel = sidePanelElement(container)
@@ -243,7 +243,7 @@ describe('App sidebar width', () => {
 
   it('releases an active resize and restores body styles when App unmounts', async () => {
     await act(async () => {
-      render(<App updates={NO_UPDATES} />, container)
+      render(<App updates={NO_UPDATES} dismissStoreNoticeOnHost={async () => {}} />, container)
     })
 
     document.body.style.cursor = 'wait'
@@ -274,7 +274,7 @@ describe('App sidebar width', () => {
 
   it('releases an active resize when the conditional Sidebar surface unmounts', async () => {
     await act(async () => {
-      render(<App updates={NO_UPDATES} />, container)
+      render(<App updates={NO_UPDATES} dismissStoreNoticeOnHost={async () => {}} />, container)
     })
 
     document.body.style.cursor = 'help'

@@ -21,7 +21,7 @@ import { installStoreNotices } from "./components/workspace/store-notices";
 import { createUpdateController, type UpdateController, type UpdaterPort } from "./app/updates/controller";
 import { blockEditsWhile, flushBeforeExit, holdCloseUntilSettled } from "./app/shell/close-guard";
 import { designPath } from "./app/document-session/store";
-import type { UpdateOs } from "./generated/contracts";
+import type { StoreId, UpdateOs } from "./generated/contracts";
 import updaterEndpoints from "../../updater-endpoints.json";
 
 /** Settings › Files and data on Desktop: the app-data folders and Show in folder. */
@@ -81,11 +81,18 @@ export function reloadAfterExitFlush(): void {
   });
 }
 
-export function App({ updates: ports }: { readonly updates: DesktopUpdatePorts }) {
+/**
+ * The Desktop root, given its host ports by main.tsx (platform/*.desktop.ts); the host's dismissal of a one-time store
+ * notice keeps a reload in this run from telling it again.
+ */
+export function App({ updates: ports, dismissStoreNoticeOnHost }: {
+  readonly updates: DesktopUpdatePorts;
+  readonly dismissStoreNoticeOnHost: (store: StoreId) => Promise<void>;
+}) {
   const updates = useDesktopUpdates(ports);
   useEffect(raiseLaunchNotices, []);
   // Report a problem opens the problem report; Update opens About, where the update installs.
-  useEffect(() => installStoreNotices({ report: openProblemReport, updatesInAbout: true }), []);
+  useEffect(() => installStoreNotices({ report: openProblemReport, updatesInAbout: true, dismissOnHost: dismissStoreNoticeOnHost }), [dismissStoreNoticeOnHost]);
   return (
     <div className={styles.appRoot}>
       <DesktopWorkspace />

@@ -7,6 +7,7 @@ import { RootBoundary } from "./components/shared/SurfaceBoundary";
 import { SaveProblemDialog } from "./components/shared/SaveProblemDialog";
 import { desktopUpdatePorts } from "./platform/updates.desktop";
 import { desktopProblemReport } from "./platform/problem-report.desktop";
+import { dismissStoreNoticeOnHost } from "./platform/settings.desktop";
 
 bootstrapPlatform();
 // The report writes through the native command (contracts §22, 2.1-M422).
@@ -19,7 +20,7 @@ render(
     onReload={reloadAfterExitFlush}
     dialogs={<><ProblemReportDialog /><SaveProblemDialog /></>}
   >
-    <App updates={desktopUpdatePorts} />
+    <App updates={desktopUpdatePorts} dismissStoreNoticeOnHost={dismissStoreNoticeOnHost} />
   </RootBoundary>,
   document.getElementById("app")!,
 );

@@ -29,7 +29,7 @@ use canopi_types::sensitive::UserPath;
 use rusqlite::{Connection, OpenFlags};
 use tauri::Manager;
 
-pub struct AppHealth(pub SubsystemHealth);
+pub struct AppHealth(std::sync::Mutex<SubsystemHealth>);
 
 const PLANT_DB_BUNDLED_PATH: &str = "resources/canopi-core.db";
 
@@ -119,6 +119,7 @@ pub fn run() {
             commands::export::pick_geojson_file,
             commands::export::save_canvas_pdf,
             commands::health::get_health,
+            commands::health::dismiss_store_notice,
             commands::host::take_pending_open,
             commands::host::pick_open,
             commands::host::pick_save,
@@ -256,11 +257,10 @@ pub fn run() {
             app.manage(plant_db);
             app.manage(services::plant_browser::SpeciesSearchCancellation::default());
 
-            let entry = |status, notice| StoreHealth { status, notice };
-            app.manage(AppHealth(SubsystemHealth(std::collections::BTreeMap::from([
+            app.manage(AppHealth::new(SubsystemHealth(std::collections::BTreeMap::from([
                 (StoreId::PlantCatalog, services::health::plant_catalog(plant_db_status)),
                 (StoreId::UserDb, user_db_health),
-                (StoreId::LibraryCatalogue, entry(lidar_library_status, None)),
+                (StoreId::LibraryCatalogue, StoreHealth { status: lidar_library_status, notice: None }),
             ]))));
 
             Ok(())

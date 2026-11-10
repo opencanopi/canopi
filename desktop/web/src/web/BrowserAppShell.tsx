@@ -85,7 +85,7 @@ export function BrowserAppShell({
   useModalInertRegion(shell);
   useLayoutEffect(() => installPhoneLayout(window), []);
   // Web reloads to update; Report a problem downloads one zip (2.1-Q60, Q283).
-  useEffect(() => installStoreNotices({ report: openProblemReport, updatesInAbout: false }), []);
+  useEffect(() => installStoreNotices({ report: openProblemReport, updatesInAbout: false, dismissOnHost: null }), []);
   const phone = phoneLayout.value;
   const noticeTop = useTitleBarBottom(shell, phone);
   const [searching, setSearching] = useState(false);
