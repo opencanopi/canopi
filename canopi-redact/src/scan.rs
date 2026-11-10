@@ -11,6 +11,7 @@
 //! cannot tell apart). Every step reads by `get` and
 //! iterators, so no input panics.
 
+use crate::table_generated::KNOWN_EXTENSIONS;
 use crate::{CREDENTIAL_NAMES, REDACTED_TOKEN};
 
 /// `text` with each path replaced by `path_token(span)` and each credential
@@ -192,25 +193,22 @@ fn trim_trailing_dots(rest: &str, length: usize) -> usize {
 }
 
 /// Whether a later word of a path's segment reads as part of a path with
-/// spaces in it: it holds a separator or a file extension.
+/// spaces in it: it holds a separator, plain or percent-encoded, or a file
+/// extension.
 fn word_reads_as_path(word: &str) -> bool {
     let has_extension = word
         .split('.')
         .skip(1)
         .any(|part| part.chars().next().is_some_and(char::is_alphanumeric));
-    word.contains(['/', '\\']) || has_extension
+    let lower = word.to_ascii_lowercase();
+    word.contains(['/', '\\']) || lower.contains("%2f") || lower.contains("%5c") || has_extension
 }
 
-/// The file types Canopi reads or writes. Only a name ending in one of them
-/// ends a path before the words leading to `: `; any other dot (`J.Dupont`,
-/// `2024.05`, `v1.2`) may be inside a folder name, so the segment stays
-/// whole: an unknown type costs the reason's words, never a leaked name.
-const KNOWN_EXTENSIONS: &[&str] = &[
-    "canopi", "json", "geojson", "csv", "txt", "log", "toml", "db", "sqlite", "zip", "tif", "tiff",
-    "png", "jpg", "jpeg", "webp", "svg", "pdf", "las", "laz", "copc", "gpkg", "kml", "kmz", "shp",
-];
-
-/// Whether a word's last component is a file name with a known extension.
+/// Whether a word's last component is a file name with a known extension
+/// (`redaction.json`'s `known_extensions`). Only such a name ends a path
+/// before the words leading to `: `; any other dot (`J.Dupont`, `2024.05`,
+/// `v1.2`) may be inside a folder name, so the segment stays whole: an unknown
+/// type costs the reason's words, never a leaked name.
 fn ends_in_file_name(word: &str) -> bool {
     let name = word.rsplit(['/', '\\']).next().unwrap_or_default();
     name.rsplit_once('.').is_some_and(|(stem, extension)| {

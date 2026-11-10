@@ -231,6 +231,42 @@
       "expected": "{\"session\":\"<redacted>\"}"
     },
     {
+      "id": "file-name-then-reason-before-pair-colon",
+      "shape": "unquoted-end",
+      "input": "Failed to open /home/ana/plan.canopi because it is locked: os error 32",
+      "expected": "Failed to open <path> because it is locked: os error 32"
+    },
+    {
+      "id": "trailing-full-stop",
+      "shape": "unquoted-end",
+      "input": "Could not read /home/ana/plan.canopi.",
+      "expected": "Could not read <path>."
+    },
+    {
+      "id": "backtick-quoted",
+      "shape": "unquoted-end",
+      "input": "Could not read `/home/ana/plan.canopi` now",
+      "expected": "Could not read `<path>` now"
+    },
+    {
+      "id": "name-with-space-and-extension",
+      "shape": "unquoted-end",
+      "input": "Opening /home/ana/my plan.canopi failed",
+      "expected": "Opening <path> failed"
+    },
+    {
+      "id": "second-path-after-kept-word",
+      "shape": "unquoted-end",
+      "input": "copy /home/ana/a.canopi to /home/ana/b.canopi: denied",
+      "expected": "copy <path> to <path>: denied"
+    },
+    {
+      "id": "percent-encoded-name-with-space",
+      "shape": "unquoted-end",
+      "input": "Opening %2Fhome%2Fana%2FMy Designs%2Fplan failed",
+      "expected": "Opening <path> failed"
+    },
+    {
       "id": "url-without-credentials",
       "shape": "kept",
       "input": "GET https://tile.example.com/1/2/3.png failed with 404",
