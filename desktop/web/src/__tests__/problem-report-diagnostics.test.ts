@@ -18,7 +18,7 @@ describe('frontend problem-report diagnostics', () => {
       recordFrontendDiagnostic({
         level: 'error',
         source: 'command:Open design',
-        message: `Failed at /home/alice/Secret Garden/design-${index}.canopi`,
+        message: `Failed at /home/alice/Secret Garden/design-${index}.canopi on try ${index}`,
       })
     }
 

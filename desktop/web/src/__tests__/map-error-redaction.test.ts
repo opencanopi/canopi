@@ -93,7 +93,7 @@ describe('map error credential redaction', () => {
     expect(text).not.toMatch(/AIzaSECRET|AKz-SESSION/)
   })
 
-  it('tile source failing before 2d: one redacted entry per occurrence under its layer, no notice (2.1-Q300)', () => {
+  it('tile source failing before 2d: one redacted entry under its layer counting each occurrence, no notice (2.1-Q300)', () => {
     const dispose = installFailureHooks({ storage: 'disk' }, window)
     const event = { sourceId: 'satellite', error: { status: 403, message: `AJAXError: Forbidden (403): ${KEYED_TILE}` } }
     reportMapSourceFailure('Passive MapLibre World map error:', event)
@@ -101,10 +101,10 @@ describe('map error credential redaction', () => {
     reportMapSourceFailure('MapLibre workspace basemap resource failed to load:', { error: { message: 'sprite failed' } })
     dispose()
 
-    expect(ringEntries().map((entry) => entry.code)).toEqual([
-      { kind: 'tile_source_failed', layer: 'satellite' },
-      { kind: 'tile_source_failed', layer: 'satellite' },
-      { kind: 'style_failed' },
+    // A repeat counts on the entry it repeats (canopi-vsey, 2.1-Q294).
+    expect(ringEntries().map((entry) => [entry.code, entry.count])).toEqual([
+      [{ kind: 'tile_source_failed', layer: 'satellite' }, 2],
+      [{ kind: 'style_failed' }, 1],
     ])
     expect(JSON.stringify(ringEntries())).not.toMatch(/AIzaSECRET|AKz-SESSION/)
     expect(failureNoticesForTests().notices).toEqual([])

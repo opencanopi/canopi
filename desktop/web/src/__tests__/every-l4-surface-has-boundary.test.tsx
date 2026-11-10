@@ -150,7 +150,8 @@ describe('error boundaries', () => {
       expect(side?.querySelector('[data-surface-fallback="workspace-side"]'), panel).not.toBeNull()
       expect(container.querySelector('[data-canvas]')).not.toBeNull()
     }
-    expect(ringEntries().map((entry) => entry.source)).toEqual(sides.map(() => 'surface.workspace-side'))
+    // Each side's fault is recorded, the repeats counted on one entry (canopi-vsey, 2.1-Q294).
+    expect(ringEntries().map((entry) => [entry.source, entry.count])).toEqual([['surface.workspace-side', sides.length]])
   })
 
   /**

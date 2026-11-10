@@ -76,7 +76,8 @@ describe('failure sink: one entry per settlement', () => {
     const failure = new IpcFailure({ code: { kind: 'unavailable' }, user_may_retry: true, op: 'library.list', operation: null, detail: null }, 'closed')
     reportFailure(failure, { shown: 'none' })
     reportFailure(new IpcFailure(failure.failure, failure.message), { shown: 'none' })
-    expect(ringEntries()).toHaveLength(2)
+    // Counted on the entry it repeats, so a repeat never pushes older failures out (canopi-vsey, 2.1-Q294).
+    expect(ringEntries()).toEqual([expect.objectContaining({ source: 'library.list', count: 2 })])
   })
 })
 

@@ -59,8 +59,7 @@ export function reportFailure(subject: unknown, options: ReportOptions): void {
 function record(subject: unknown, options: ReportOptions): void {
   const settlement = typeof subject === 'object' && subject !== null ? subject : null
   const known = settlement ? entryForSettlement(settlement) : undefined
-  const entry = known ?? newEntry(subject, options)
-  if (!known) appendEntry(entry, settlement)
+  const entry = known ?? appendEntry(newEntry(subject, options), settlement)
   // An echo is the caller's console line, written even when the transport recorded the settlement silently.
   if (options.echo) echo(entry, options.echo)
   // Surfaced only when the user was told: inline, or by a notice a silent code or a disposed lifetime never queues.
@@ -69,7 +68,7 @@ function record(subject: unknown, options: ReportOptions): void {
 
 function newEntry(subject: unknown, options: ReportOptions): RingEntry {
   const failure = failureOf(subject)
-  const base = { level: options.level ?? 'error', timestamp_ms: Date.now(), surfaced: false }
+  const base = { level: options.level ?? 'error', timestamp_ms: Date.now(), count: 1, surfaced: false }
   if (failure) {
     return { ...base, origin: 'native', source: failure.op, code: failure.code, operation: failure.operation, detail: failure.detail }
   }
