@@ -1201,8 +1201,7 @@
       "quote": "Text and rings over the map follow the map backdrop and the strokes of",
       "state": {
         "exists": {
-          "check": "desktop/web/src/__tests__/canvas-map-backdrop-ink.test.ts",
-          "reads_source": true
+          "check": "desktop/web/e2e/canvas/backdrop-ink.spec.ts"
         }
       }
     },
