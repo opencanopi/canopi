@@ -140,7 +140,7 @@ describe('a second launch while Canopi runs', () => {
 
     expect(second.exit).toBe(0)
     await waitForOpenDesign('Meadow')
-    await expect($('[data-multi-open-notice]')).not.toBeExisting()
+    await expect($('[data-notice-key="launch.multi-open"]')).not.toBeExisting()
   })
 
   it('with several files opens the first and says Canopi opens one Design at a time (2.1-Q228)', async () => {
@@ -151,10 +151,10 @@ describe('a second launch while Canopi runs', () => {
 
     expect(launch.exit).toBe(0)
     await waitForOpenDesign('First pick')
-    const notice = $('[data-multi-open-notice]')
+    const notice = $('[data-notice-key="launch.multi-open"]')
     await expect(notice).toBeDisplayed()
     await expect(notice).toHaveText(expect.stringContaining('Canopi opens one Design at a time'))
-    const focusInNotice = await browser.execute(() => document.activeElement?.closest('[data-multi-open-notice]') !== null)
+    const focusInNotice = await browser.execute(() => document.activeElement?.closest('[data-notice-key="launch.multi-open"]') !== null)
     expect(focusInNotice).toBe(false)
   })
 
