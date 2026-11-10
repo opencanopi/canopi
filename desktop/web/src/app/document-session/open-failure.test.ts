@@ -70,6 +70,23 @@ describe('a refused Design', () => {
     expect(entries[0]!.origin === 'frontend' ? entries[0]!.text : '').toContain(FIELD_PATH)
   })
 
+  it('canopi-f47t.52.36: the command graph echoes a refused open as its redacted entry text, never [object Object]', () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    const rejected = { kind: 'unreadable', message: 'cannot read /home/ana/Secret Garden/plan.canopi' } as const
+    presentDesignOpenFailure(rejected)
+    // The command graph's logCommandFailure: its label and the rethrown object as the console echo.
+    reportFailure(rejected, { shown: 'none', source: 'command:Open design', echo: ['Open design failed:', rejected] })
+
+    expect(consoleError).toHaveBeenCalledTimes(1)
+    const written = consoleError.mock.calls[0]!
+    expect(written[0]).toBe('Open design failed:')
+    expect(typeof written[1]).toBe('string')
+    expect(written[1]).toContain('unreadable: cannot read')
+    expect(written.join(' ')).not.toContain('[object Object]')
+    expect(written.join(' ')).not.toContain('/home/ana')
+    consoleError.mockRestore()
+  })
+
   it('records each load failure kind under its catalogue code', () => {
     presentDesignOpenFailure({ kind: 'missing', message: 'nothing at the path' })
     presentDesignOpenFailure({ kind: 'newer_version', message: 'version 11', field_path: '$.version' })
