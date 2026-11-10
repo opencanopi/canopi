@@ -3,8 +3,9 @@
 // Owner of the Desktop problem report writer: a native host adapter for the problemReport port
 // (platform/problem-report.ts; tauri-only-in-native-host, ADR 0022, ADR 0025; contracts §22, 2.1-M421, 2.1-M422).
 // Invariant: the native command fills every section but the frontend's own, redacts them and writes the zip in
-// "Problem reports" and shows it selected, which Show folder repeats; a busy lane or a failed write settles as its typed
-// failure with nothing written.
+// "Problem reports", showing nothing; `reveal` shows it selected, which the submission does once after the write while
+// the user still wants the report, and Show again repeats (canopi-f47t.52.36). A busy lane or a failed write settles as
+// its typed failure with nothing written.
 import { createProblemReport, showProblemReportFolder } from '../ipc/problem-report'
 import type { ProblemReportRequest, RedactedText } from '../generated/contracts'
 import type { EditionSections, ProblemReport, ProblemReportPort } from './problem-report'

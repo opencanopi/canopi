@@ -31,7 +31,7 @@ beforeEach(() => {
   port.currentDesign.mockReset()
   port.currentDesign.mockReturnValue('current design json')
   port.reveal.mockResolvedValue(undefined)
-  port.write.mockResolvedValue({ file_name: 'canopi-report-20261107-101500.zip', revealed: true })
+  port.write.mockResolvedValue({ file_name: 'canopi-report-20261107-101500.zip' })
 })
 
 function createProblemReportSubmission(deps: ProblemReportSubmissionDeps) {
@@ -164,7 +164,7 @@ describe('Problem Report submission module', () => {
     submission.open()
     submission.setDescription('Fresh report')
 
-    pending.resolve({ file_name: 'canopi-report-20261107-101400.zip', revealed: true })
+    pending.resolve({ file_name: 'canopi-report-20261107-101400.zip' })
     await oldSubmit
 
     expect(submission.description.value).toBe('Fresh report')

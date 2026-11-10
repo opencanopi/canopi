@@ -971,7 +971,8 @@ export type ProblemReportRequest = {
 
 /**
  *  A saved report: its file name in the "Problem reports" folder, never a
- *  path, and whether the file manager showed it (2.1-Q276, 2.1-M299).
+ *  path (2.1-Q276, 2.1-M299). Writing shows nothing: the frontend shows the
+ *  zip selected only while the user still wants the report (canopi-f47t.52.36).
  */
 export type ProblemReportResult = {
 	/**
@@ -979,8 +980,6 @@ export type ProblemReportResult = {
 	 *  report in the same second (2.1-Q281).
 	 */
 	file_name: string,
-	// Whether the file manager showed the zip; when not, the zip is kept.
-	revealed: boolean,
 };
 
 /**

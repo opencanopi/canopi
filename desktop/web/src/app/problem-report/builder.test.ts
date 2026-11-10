@@ -15,7 +15,7 @@ import { createProblemReport } from '../../ipc/problem-report'
 import { buildProblemReport, type ProblemReportInput } from './builder'
 
 vi.mock('../../ipc/problem-report', () => ({
-  createProblemReport: vi.fn().mockResolvedValue({ file_name: 'canopi-report-20261108-090503.zip', revealed: true }),
+  createProblemReport: vi.fn().mockResolvedValue({ file_name: 'canopi-report-20261108-090503.zip' }),
   showProblemReportFolder: vi.fn(),
 }))
 

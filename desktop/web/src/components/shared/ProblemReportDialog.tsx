@@ -135,10 +135,9 @@ function ProblemReportDialogContent() {
             <h3 className={styles.sectionTitle}>{t('problemReport.successTitle')}</h3>
             {canReveal ? (
               <>
-                {result.revealed && showFolderState !== 'failed' && <p className={styles.body}>{t('problemReport.successText')}</p>}
-                {(!result.revealed || showFolderState === 'failed') && (
-                  <p className={styles.errorText}>{t('problemReport.showFolderFailed')}</p>
-                )}
+                {showFolderState === 'failed'
+                  ? <p className={styles.errorText}>{t('problemReport.showFolderFailed')}</p>
+                  : <p className={styles.body}>{t('problemReport.successText')}</p>}
                 <dl className={styles.paths}>
                   <div>
                     <dt>{t('problemReport.bundleFile')}</dt>

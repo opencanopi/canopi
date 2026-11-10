@@ -96,8 +96,8 @@ describe('Web problem report writer', () => {
     const writer = createBrowserProblemReportWriter(READERS)
     for (const design of [null, '{"name":"Orchard"}\n']) {
       const report = buildProblemReport({ ...WEB_INPUT, design })
-      // A download: no file manager showed it, and the writer has no folder to show (2.1-Q283).
-      await expect(writer.write(report)).resolves.toEqual({ file_name: 'canopi-report-20261108-090503.zip', revealed: false })
+      // A download: the writer has no folder to show (2.1-Q283).
+      await expect(writer.write(report)).resolves.toEqual({ file_name: 'canopi-report-20261108-090503.zip' })
       const files = unzip(new Uint8Array(await blobs.at(-1)!.arrayBuffer()))
       const manifest = JSON.parse(files.get(REPORT_MANIFEST_FILE)!) as ReportManifest
       expect(manifest.entries.map((entry) => entry.file)).toEqual([...files.keys()].filter((name) => name !== REPORT_MANIFEST_FILE))

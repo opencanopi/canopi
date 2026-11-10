@@ -68,7 +68,11 @@ export function createProblemReportSubmission(
   const result = signal<ProblemReportResult | null>(null)
   const error = signal<string | null>(null)
   const showFolderState = signal<ProblemReportShowFolderState>('idle')
+  // `generation` names the report the user still wants: an open, a close or a new Create moves it on, so a write that
+  // settles for an older one shows nothing. `inFlight` outlives an open: a write cannot be stopped once sent, so a
+  // Create while one runs joins it rather than writing a second report (canopi-f47t.52.36).
   let generation = 0
+  let inFlight: Promise<ProblemReportResult> | null = null
   let origin: ReportOrigin | null = null
   const port = signal<ProblemReportPort | null>(null)
 
@@ -115,33 +119,41 @@ export function createProblemReportSubmission(
       submitting.value = true
       error.value = null
 
+      let write: Promise<ProblemReportResult> | null = null
       try {
         const writer = port.value
         if (!writer) throw new Error('No problem report writer is installed for this edition')
-        let currentDesign: string | null = null
-        if (includeCurrentDesign.value) {
-          currentDesign = writer.currentDesign()
-          if (!currentDesign) {
-            if (submitGeneration === generation) {
-              error.value = deps.currentDesignUnavailableMessage()
+        write = inFlight
+        if (!write) {
+          let currentDesign: string | null = null
+          if (includeCurrentDesign.value) {
+            currentDesign = writer.currentDesign()
+            if (!currentDesign) {
+              if (submitGeneration === generation) {
+                error.value = deps.currentDesignUnavailableMessage()
+              }
+              return
             }
-            return
           }
-        }
 
-        // The one builder fills the frontend's sections, redacted; Desktop's command adds the native ones (2.1-M421).
-        const report = buildProblemReport({
-          createdAt: new Date(),
-          description: description.value,
-          ring: deps.readFrontendDiagnostics(),
-          origin,
-          design: currentDesign,
-          sections: writer.sections,
-        })
-        const nextResult = await writer.write(report)
+          // The one builder fills the frontend's sections, redacted; Desktop's command adds the native ones (2.1-M421).
+          const report = buildProblemReport({
+            createdAt: new Date(),
+            description: description.value,
+            ring: deps.readFrontendDiagnostics(),
+            origin,
+            design: currentDesign,
+            sections: writer.sections,
+          })
+          write = writer.write(report)
+          inFlight = write
+        }
+        const nextResult = await write
         if (submitGeneration !== generation) return
         result.value = nextResult
-        showFolderState.value = 'idle'
+        // Shown selected once, here and only while the user still wants it: the write itself shows nothing (2.1-Q276).
+        if (writer.reveal) await reveal(writer.reveal, nextResult.file_name, submitGeneration)
+        else showFolderState.value = 'idle'
       } catch (caught) {
         if (submitGeneration !== generation) return
         // A typed failure (busy, io) reads its catalogue message. Anything else (a browser download fault, a build
@@ -150,6 +162,7 @@ export function createProblemReportSubmission(
         if (!message) reportFailure(caught, { shown: 'inline', source: REPORT_SOURCE })
         error.value = t(message ?? 'failure.internal')
       } finally {
+        if (write !== null && inFlight === write) inFlight = null
         if (submitGeneration === generation) {
           submitting.value = false
         }
@@ -162,15 +175,20 @@ export function createProblemReportSubmission(
       }
     },
     async showFolder() {
-      const reveal = port.peek()?.reveal
-      if (!result.value || !reveal) return
-      showFolderState.value = 'showing'
-      try {
-        await reveal(result.value.file_name)
-        showFolderState.value = 'idle'
-      } catch {
-        showFolderState.value = 'failed'
-      }
+      const show = port.peek()?.reveal
+      if (!result.value || !show) return
+      await reveal(show, result.value.file_name, generation)
     },
+  }
+
+  /** Shows a saved report in the file manager; its outcome is told only to the dialog that still shows the report. */
+  async function reveal(show: (fileName: string) => Promise<void>, fileName: string, wanted: number): Promise<void> {
+    showFolderState.value = 'showing'
+    try {
+      await show(fileName)
+      if (wanted === generation) showFolderState.value = 'idle'
+    } catch {
+      if (wanted === generation) showFolderState.value = 'failed'
+    }
   }
 }

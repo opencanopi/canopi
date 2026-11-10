@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 // The problem report submission over the one builder and the edition's port (contracts §13, §22, 2.1-M421): a report
 // opened from a failure carries its code (plan Real-environment checks), through the real boundary, ring, builder and
-// submission; none written when consent finds no Design; one press makes one report; a dialog closed mid-build drops
-// what the build returns.
+// submission; none written when consent finds no Design; one press makes one report; a saved report is shown in the
+// file manager only while the user still wants it, and a reopened dialog joins a write still in flight.
 import { render } from 'preact'
 import { act } from 'preact/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -19,7 +19,7 @@ import { recentFrontendDiagnostics } from './diagnostics'
 
 type Write = (report: ProblemReport) => Promise<ProblemReportResult>
 
-const SAVED: ProblemReportResult = { file_name: 'canopi-report-20261108-090503.zip', revealed: true }
+const SAVED: ProblemReportResult = { file_name: 'canopi-report-20261108-090503.zip' }
 
 const NATIVE: EditionSections = {
   build: 'native',
@@ -47,6 +47,25 @@ function submissionWith(write: Write = vi.fn<Write>().mockResolvedValue(SAVED), 
   const submission = createProblemReportSubmission(submissionDeps)
   submission.installPort(port)
   return { submission, port, submissionDeps }
+}
+
+/** A Desktop-like submission whose writer can show a saved report; `reveal` resolves unless given. */
+function revealingSubmission(write: Write, reveal: (fileName: string) => Promise<void> = () => Promise.resolve()) {
+  const port = { sections: NATIVE, currentDesign: () => null, write: vi.fn(write), reveal: vi.fn(reveal) } satisfies ProblemReportPort
+  const submission = createProblemReportSubmission(deps())
+  submission.installPort(port)
+  return { submission, port }
+}
+
+/** A write that settles when the test says. */
+function deferredWrite() {
+  let resolve!: (result: ProblemReportResult) => void
+  let reject!: (reason: unknown) => void
+  const promise = new Promise<ProblemReportResult>((done, fail) => {
+    resolve = done
+    reject = fail
+  })
+  return { write: () => promise, resolve, reject }
 }
 
 function sent(port: ProblemReportPort): ProblemReport {
@@ -175,16 +194,63 @@ describe('problem report submission', () => {
     }
   })
 
-  it('a dialog closed while the report is being made shows nothing it returns', async () => {
-    let resolve!: (result: ProblemReportResult) => void
-    const { submission } = submissionWith(() => new Promise<ProblemReportResult>((done) => { resolve = done }))
+  it('a saved report is shown selected in the file manager once; a reveal that fails says the zip is kept (2.1-Q276)', async () => {
+    const { submission, port } = revealingSubmission(vi.fn<Write>().mockResolvedValue(SAVED))
     submission.open()
-    const pending = submission.submit()
+    await submission.submit()
+    expect(port.reveal).toHaveBeenCalledOnce()
+    expect(port.reveal).toHaveBeenCalledWith(SAVED.file_name)
+    expect(submission.result.value).toEqual(SAVED)
+    expect(submission.showFolderState.value).toBe('idle')
+
+    const refused = revealingSubmission(vi.fn<Write>().mockResolvedValue(SAVED), () => Promise.reject(new Error('xdg-open missing')))
+    refused.submission.open()
+    await refused.submission.submit()
+    expect(refused.submission.result.value).toEqual(SAVED)
+    expect(refused.submission.showFolderState.value).toBe('failed')
+    expect(refused.submission.error.value).toBeNull()
+  })
+
+  it('[canopi-f47t.52.36] a report closed while it is written shows nothing: no file manager, no result, no error', async () => {
+    for (const settle of ['written', 'failed'] as const) {
+      resetFrontendDiagnosticsForTests()
+      const write = deferredWrite()
+      const { submission, port } = revealingSubmission(write.write)
+      submission.open()
+      const pending = submission.submit()
+      submission.close()
+      if (settle === 'written') write.resolve(SAVED)
+      else write.reject(new Error('SecurityError at /home/ana/Downloads'))
+      await pending
+      expect(port.reveal, settle).not.toHaveBeenCalled()
+      expect(submission.result.value, settle).toBeNull()
+      expect(submission.error.value, settle).toBeNull()
+      expect(submission.submitting.value, settle).toBe(false)
+    }
+  })
+
+  it('[canopi-f47t.52.36] a report reopened while the first write is in flight makes no second write and joins the first', async () => {
+    const write = deferredWrite()
+    const { submission, port } = revealingSubmission(write.write)
+    submission.open()
+    const first = submission.submit()
     submission.close()
-    resolve(SAVED)
-    await pending
-    expect(submission.result.value).toBeNull()
-    expect(submission.submitting.value).toBe(false)
+    submission.open()
+    submission.setDescription('Second try')
+    const second = submission.submit()
+    expect(submission.submitting.value).toBe(true)
+    write.resolve(SAVED)
+    await Promise.all([first, second])
+    expect(port.write).toHaveBeenCalledTimes(1)
+    // The report the user still wants is the one written, shown once.
+    expect(submission.result.value).toEqual(SAVED)
+    expect(port.reveal).toHaveBeenCalledOnce()
+    expect(submission.error.value).toBeNull()
+
+    // Once it has settled, a new report is a new write.
+    submission.open()
+    await submission.submit()
+    expect(port.write).toHaveBeenCalledTimes(2)
   })
 
   it('with no writer installed, a report fails and writes nothing', async () => {

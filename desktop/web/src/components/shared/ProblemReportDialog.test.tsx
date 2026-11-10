@@ -112,7 +112,8 @@ beforeEach(() => {
   openProblemReportDialog()
   mocks.createProblemReport.mockReset()
   mocks.showProblemReportFolder.mockReset()
-  mocks.createProblemReport.mockResolvedValue({ file_name: REPORT_FILE, revealed: true })
+  mocks.createProblemReport.mockResolvedValue({ file_name: REPORT_FILE })
+  mocks.showProblemReportFolder.mockResolvedValue(undefined)
   resetFrontendDiagnosticsForTests()
   replaceCurrentDesignState(makeDesign(), null, 'Secret Orchard')
 })
@@ -198,6 +199,8 @@ describe('ProblemReportDialog', () => {
     })
     expect(container.textContent).toContain(REPORT_FILE)
     expect(container.textContent).toContain(en.problemReport.successText)
+    // Shown selected in the file manager once, by its file name (2.1-Q276).
+    expect(mocks.showProblemReportFolder.mock.calls).toEqual([[REPORT_FILE]])
     expect(buttons()).toEqual(['', 'Close', 'Show again'])
     expect(container.querySelector(`a[href="${PROBLEM_REPORT_ISSUES_URL}"]`)).not.toBeNull()
   })
@@ -222,9 +225,9 @@ describe('ProblemReportDialog', () => {
   })
 
   it('Show again shows the saved zip by its file name; when the folder cannot be shown, the zip is said to be kept (2.1-Q276)', async () => {
-    mocks.showProblemReportFolder.mockRejectedValue(new Error('xdg-open unavailable'))
     await show()
     await send()
+    mocks.showProblemReportFolder.mockRejectedValue(new Error('xdg-open unavailable'))
     await act(async () => button('Show again').click())
 
     // Show passes the file name, never a path.
@@ -235,11 +238,27 @@ describe('ProblemReportDialog', () => {
   })
 
   it('a saved report the file manager did not show says the zip is kept and offers Show again (2.1-Q276)', async () => {
-    mocks.createProblemReport.mockResolvedValue({ file_name: REPORT_FILE, revealed: false })
+    mocks.showProblemReportFolder.mockRejectedValue(new Error('xdg-open unavailable'))
     await show()
     await send()
     expect(container.textContent).toContain(en.problemReport.showFolderFailed)
+    expect(container.textContent).toContain(REPORT_FILE)
     expect(buttons()).toContain('Show again')
+  })
+
+  it('[canopi-f47t.52.36] a report cancelled while the native write runs never opens the file manager or shows an error', async () => {
+    let written!: (result: { file_name: string }) => void
+    mocks.createProblemReport.mockReturnValue(new Promise((done) => { written = done }))
+    await show()
+    await send()
+    await act(async () => button('Cancel').click())
+    expect(problemReportDialogOpen.value).toBe(false)
+    await act(async () => written({ file_name: REPORT_FILE }))
+
+    expect(mocks.createProblemReport).toHaveBeenCalledOnce()
+    expect(mocks.showProblemReportFolder).not.toHaveBeenCalled()
+    expect(problemReportSubmission.error.value).toBeNull()
+    expect(ringEntries()).toEqual([])
   })
 
   it('a Web report is a download: the dialog offers no Show folder, so no dead action records a failure', async () => {
@@ -247,7 +266,8 @@ describe('ProblemReportDialog', () => {
     await show()
     await send()
 
-    expect(problemReportSubmission.result.value?.revealed).toBe(false)
+    // Nothing was shown in a file manager: no folder to show, so no failed showing either.
+    expect(problemReportSubmission.showFolderState.value).toBe('idle')
     expect(container.textContent).toContain('Report downloaded. Attach the file to your message to support.')
     expect(container.textContent).not.toContain(REPORT_FILE)
     expect(buttons()).toEqual(['', 'Close'])

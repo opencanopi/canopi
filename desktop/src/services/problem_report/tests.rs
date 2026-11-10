@@ -2,7 +2,6 @@
 //! nothing private, and the failure states of contracts §13.
 
 use super::{ProblemReportContext, create_problem_report, create_problem_report_with_writer};
-use crate::services::folder_reveal::recording::{RecordingRevealer, Shown};
 use crate::test_scratch::TestScratch;
 use canopi_redact::Redactor;
 use canopi_types::failure::{FailureCode, IoFailureKind};
@@ -108,7 +107,7 @@ fn status_of(entries: &[(String, String)], file: &str) -> String {
 }
 
 #[test]
-fn a_report_is_one_zip_in_the_problem_reports_folder_revealed_selected() {
+fn a_report_is_one_zip_in_the_problem_reports_folder_named_by_its_file_name() {
     let scratch = TestScratch::new("problem-report-one-zip");
     let log_dir = logs_with(
         &scratch,
@@ -122,17 +121,14 @@ fn a_report_is_one_zip_in_the_problem_reports_folder_revealed_selected() {
         google_maps_api_key: Some("FAKE-GOOGLE-MAPS-KEY-DO-NOT-EXPORT".to_owned()),
         ..Settings::default()
     });
-    let revealer = RecordingRevealer::default();
 
-    let result = create_problem_report(
-        &request("Canvas froze after placing a species"),
-        &context,
-        &revealer,
-    )
-    .unwrap();
+    let result =
+        create_problem_report(&request("Canvas froze after placing a species"), &context).unwrap();
 
-    assert_eq!(result.file_name, FIRST_NAME);
-    assert!(result.revealed);
+    assert_eq!(
+        result.file_name, FIRST_NAME,
+        "a file name, never a path (2.1-M299)"
+    );
     let folder = &context.reports_folder;
     let names: Vec<_> = std::fs::read_dir(folder)
         .unwrap()
@@ -143,7 +139,6 @@ fn a_report_is_one_zip_in_the_problem_reports_folder_revealed_selected() {
         [FIRST_NAME],
         "one zip, no folder and no summary.txt (2.1-Q277)"
     );
-    assert_eq!(revealer.shown(), vec![Shown::Item(folder.join(FIRST_NAME))]);
     let entries = report(folder, FIRST_NAME);
     assert_eq!(
         entry(&entries, "description.txt"),
@@ -169,7 +164,7 @@ fn create_problem_report_includes_current_design_after_explicit_consent() {
     let mut request = request("Budget panel failed after editing notes");
     request.current_design = Some("{\"name\": \"Secret Orchard\"}\n".to_owned());
 
-    create_problem_report(&request, &context, &RecordingRevealer::default()).unwrap();
+    create_problem_report(&request, &context).unwrap();
 
     let entries = report(&context.reports_folder, FIRST_NAME);
     assert_eq!(
@@ -192,7 +187,7 @@ fn problem_report_always_carries_every_section() {
         current_design: None,
     };
 
-    create_problem_report(&empty, &context, &RecordingRevealer::default()).unwrap();
+    create_problem_report(&empty, &context).unwrap();
 
     let entries = report(&context.reports_folder, FIRST_NAME);
     let files: Vec<_> = entries.iter().map(|(name, _)| name.as_str()).collect();
@@ -218,7 +213,7 @@ fn the_manifest_lists_every_zip_entry_but_itself_with_and_without_the_design() {
         let context = context(&scratch, None);
         let mut request = request("Manifest");
         request.current_design = design.clone();
-        create_problem_report(&request, &context, &RecordingRevealer::default()).unwrap();
+        create_problem_report(&request, &context).unwrap();
         let entries = report(&context.reports_folder, FIRST_NAME);
         let others: Vec<_> = entries
             .iter()
@@ -253,8 +248,7 @@ fn a_section_the_frontend_does_not_own_or_sends_twice_is_refused_before_any_outp
             sections,
             current_design: None,
         };
-        let failure =
-            create_problem_report(&request, &context, &RecordingRevealer::default()).unwrap_err();
+        let failure = create_problem_report(&request, &context).unwrap_err();
         assert_eq!(failure.code, FailureCode::Invalid);
     }
     assert!(!context.reports_folder.exists());
@@ -264,7 +258,7 @@ fn a_section_the_frontend_does_not_own_or_sends_twice_is_refused_before_any_outp
 fn a_log_folder_that_cannot_be_read_marks_the_log_tail_unreadable_never_omitted() {
     let scratch = TestScratch::new("problem-report-log-unreadable");
     let context = context(&scratch, Some(scratch.join("logs-gone")));
-    create_problem_report(&request("Logs"), &context, &RecordingRevealer::default()).unwrap();
+    create_problem_report(&request("Logs"), &context).unwrap();
     let entries = report(&context.reports_folder, FIRST_NAME);
     assert_eq!(status_of(&entries, "log-tail.txt"), "unreadable");
     assert!(entry(&entries, "log-tail.txt").starts_with("unreadable: 1 log file(s)"));
@@ -285,7 +279,7 @@ fn a_locked_log_file_marks_the_log_tail_unreadable_and_keeps_the_other_lines() {
     }
     let context = context(&scratch, Some(log_dir));
 
-    create_problem_report(&request("Logs"), &context, &RecordingRevealer::default()).unwrap();
+    create_problem_report(&request("Logs"), &context).unwrap();
 
     let entries = report(&context.reports_folder, FIRST_NAME);
     assert_eq!(status_of(&entries, "log-tail.txt"), "unreadable");
@@ -317,12 +311,7 @@ fn a_saved_design_name_never_reaches_the_diagnostic_bundle() {
     assert!(logs.contains("Design saved"), "{logs}");
     let context = context(&scratch, Some(logs_with(&scratch, &logs)));
 
-    create_problem_report(
-        &request("Save felt slow"),
-        &context,
-        &RecordingRevealer::default(),
-    )
-    .unwrap();
+    create_problem_report(&request("Save felt slow"), &context).unwrap();
 
     let tail = report(&context.reports_folder, FIRST_NAME);
     let tail = entry(&tail, "log-tail.txt");
@@ -347,12 +336,7 @@ fn nat_07_a_session_value_or_share_path_in_the_log_tail_never_reaches_the_report
     );
     let context = context(&scratch, Some(logs_with(&scratch, &line)));
 
-    create_problem_report(
-        &request("Tiles stopped loading"),
-        &context,
-        &RecordingRevealer::default(),
-    )
-    .unwrap();
+    create_problem_report(&request("Tiles stopped loading"), &context).unwrap();
 
     let entries = report(&context.reports_folder, FIRST_NAME);
     let tail = entry(&entries, "log-tail.txt");
@@ -370,9 +354,7 @@ fn a_report_root_that_cannot_be_created_fails_without_naming_its_path() {
     let mut context = context(&scratch, None);
     context.reports_folder = blocker.join("Problem reports");
 
-    let failure =
-        create_problem_report(&request("Blocked"), &context, &RecordingRevealer::default())
-            .unwrap_err();
+    let failure = create_problem_report(&request("Blocked"), &context).unwrap_err();
 
     assert!(
         matches!(failure.code, FailureCode::Io { .. }),
@@ -393,16 +375,12 @@ fn a_disk_full_write_settles_as_no_space_and_leaves_no_half_written_zip() {
     let scratch = TestScratch::new("problem-report-disk-full");
     let context = context(&scratch, None);
 
-    let failure = create_problem_report_with_writer(
-        &request("Disk full"),
-        &context,
-        &RecordingRevealer::default(),
-        |file, bytes| {
+    let failure =
+        create_problem_report_with_writer(&request("Disk full"), &context, |file, bytes| {
             std::io::Write::write_all(file, &bytes[..bytes.len() / 2])?;
             Err(std::io::ErrorKind::StorageFull.into())
-        },
-    )
-    .unwrap_err();
+        })
+        .unwrap_err();
 
     assert_eq!(
         failure.code,
@@ -419,33 +397,11 @@ fn a_disk_full_write_settles_as_no_space_and_leaves_no_half_written_zip() {
 }
 
 #[test]
-fn a_reveal_that_fails_keeps_the_zip_and_the_result_names_no_path() {
-    let scratch = TestScratch::new("problem-report-reveal-fails");
-    let context = context(&scratch, None);
-
-    let result = create_problem_report(
-        &request("Reveal"),
-        &context,
-        &RecordingRevealer::refusing_everything(),
-    )
-    .unwrap();
-
-    assert!(!result.revealed);
-    assert_eq!(
-        result.file_name, FIRST_NAME,
-        "a file name, never a path (2.1-M299)"
-    );
-    assert!(context.reports_folder.join(FIRST_NAME).is_file());
-}
-
-#[test]
 fn a_second_report_in_the_same_second_gets_a_suffix_and_never_overwrites() {
     let scratch = TestScratch::new("problem-report-same-second");
     let context = context(&scratch, None);
-    let revealer = RecordingRevealer::default();
-
-    let first = create_problem_report(&request("First"), &context, &revealer).unwrap();
-    let second = create_problem_report(&request("Second"), &context, &revealer).unwrap();
+    let first = create_problem_report(&request("First"), &context).unwrap();
+    let second = create_problem_report(&request("Second"), &context).unwrap();
 
     assert_eq!(first.file_name, FIRST_NAME);
     assert_eq!(second.file_name, "canopi-report-20270201-000000-2.zip");

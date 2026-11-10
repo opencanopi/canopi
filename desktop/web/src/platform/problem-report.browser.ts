@@ -157,8 +157,8 @@ export function createBrowserProblemReportWriter(readers: BrowserReportReaders):
         anchor.remove()
       }
       pending.set(url, setTimeout(() => release(url), REVOKE_AFTER_MS))
-      // A download: no file manager showed it, and this writer has no folder to show (no `reveal`).
-      return { file_name: report.fileName, revealed: false }
+      // A download: this writer has no folder to show (no `reveal`).
+      return { file_name: report.fileName }
     },
     dispose() {
       for (const url of [...pending.keys()]) release(url)
