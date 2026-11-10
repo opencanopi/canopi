@@ -70,7 +70,10 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           set -euo pipefail
-          timeout 10m sudo apt-get -o Acquire::Retries=5 -o Acquire::http::Timeout=60 install -y webkit2gtk-driver xvfb dbus dbus-x11 openbox xdotool xdg-utils file pkexec
+          # WebKitWebDriver's package is webkitgtk-webdriver from Ubuntu 26.04 (ubuntu-latest since November 2026).
+          driver=webkit2gtk-driver
+          apt-cache show webkit2gtk-driver 2>/dev/null | grep -q '^Version:' || driver=webkitgtk-webdriver
+          timeout 10m sudo apt-get -o Acquire::Retries=5 -o Acquire::http::Timeout=60 install -y "$driver" xvfb dbus dbus-x11 openbox xdotool xdg-utils file pkexec
           sudo tee /etc/polkit-1/rules.d/49-canopi-updater-e2e.rules > /dev/null <<'RULE'
           polkit.addRule(function (action, subject) {
             if (action.id !== "org.freedesktop.policykit.exec" || subject.user !== "runner") return polkit.Result.NOT_HANDLED;
