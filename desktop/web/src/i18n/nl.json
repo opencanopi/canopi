@@ -113,6 +113,7 @@
     "localDataNotOpenedTitle": "Eerdere gegevens niet geopend",
     "localDataNotOpened": "Canopi 2.0 kan gegevens van eerdere versies niet openen. Ze zijn ongewijzigd gelaten en Canopi is opnieuw begonnen.",
     "settingsUnavailable": "Je instellingen konden niet worden gelezen. Canopi gebruikt de standaardwaarden en wijzigt je opgeslagen instellingen deze sessie niet.",
+    "settingsStillUnavailable": "Je instellingen konden nog steeds niet worden gelezen.",
     "setAside": {
       "userDb": "De opgeslagen gegevens van Canopi waren beschadigd en zijn apart gezet als {{file}}. Je ontwerpen zijn niet getroffen.",
       "webDrafts": "De opgeslagen concepten van Canopi waren beschadigd en zijn apart gezet als {{file}}. Ontwerpen die je als bestand hebt geëxporteerd zijn niet getroffen.",
@@ -1377,7 +1378,8 @@
   "notice": {
     "count": "{{index}} van {{count}}",
     "dismiss": "Sluiten",
-    "reload": "Opnieuw laden"
+    "reload": "Opnieuw laden",
+    "tryingAgain": "Opnieuw proberen…"
   },
   "shared": {
     "datePicker": {

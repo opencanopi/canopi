@@ -113,6 +113,7 @@
     "localDataNotOpenedTitle": "Earlier data not opened",
     "localDataNotOpened": "Canopi 2.0 can’t open data saved by earlier versions. It was left unchanged, and Canopi started fresh.",
     "settingsUnavailable": "Your settings couldn’t be read. Canopi is using defaults and won’t change your saved settings this session.",
+    "settingsStillUnavailable": "Your settings still couldn’t be read.",
     "setAside": {
       "userDb": "Canopi’s saved data was damaged and has been set aside as {{file}}. Your Designs are not affected.",
       "webDrafts": "Canopi’s saved Drafts were damaged and have been set aside as {{file}}. Designs you exported as files are not affected.",
@@ -1377,7 +1378,8 @@
   "notice": {
     "count": "{{index}} of {{count}}",
     "dismiss": "Dismiss",
-    "reload": "Reload"
+    "reload": "Reload",
+    "tryingAgain": "Trying again…"
   },
   "problemReport": {
     "title": "Report a problem",

@@ -113,6 +113,7 @@
     "localDataNotOpenedTitle": "未打开旧数据",
     "localDataNotOpened": "Canopi 2.0 无法打开旧版本保存的数据。这些数据保持不变，Canopi 已重新开始。",
     "settingsUnavailable": "无法读取您的设置。Canopi 正在使用默认设置，本次会话不会更改您已保存的设置。",
+    "settingsStillUnavailable": "仍无法读取您的设置。",
     "setAside": {
       "userDb": "Canopi 保存的数据已损坏，已另存为 {{file}}。您的设计不受影响。",
       "webDrafts": "Canopi 保存的草稿已损坏，已另存为 {{file}}。已导出为文件的设计不受影响。",
@@ -1377,7 +1378,8 @@
   "notice": {
     "count": "第 {{index}} 条，共 {{count}} 条",
     "dismiss": "关闭",
-    "reload": "重新加载"
+    "reload": "重新加载",
+    "tryingAgain": "正在重试…"
   },
   "shared": {
     "datePicker": {

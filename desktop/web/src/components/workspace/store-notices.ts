@@ -10,10 +10,6 @@ import { retrySettingsLoad } from '../../app/settings/projection'
 import { installHealthNotices } from '../../failures/health-notices'
 import type { StoreId } from '../../generated/contracts'
 
-function retrySettings(): void {
-  void retrySettingsLoad()
-}
-
 /** Raises each store's notice with the root's Report a problem and, where it updates in About, Update; returns the dispose. */
 export function installStoreNotices(edition: {
   readonly report: (() => void) | null
@@ -22,5 +18,5 @@ export function installStoreNotices(edition: {
   readonly dismissOnHost: ((store: StoreId) => Promise<void>) | null
 }): () => void {
   const update = edition.updatesInAbout ? openAboutCanopiDialog : null
-  return installHealthNotices({ report: edition.report, update, retry: { settings: retrySettings }, dismissOnHost: edition.dismissOnHost })
+  return installHealthNotices({ report: edition.report, update, retry: { settings: retrySettingsLoad }, dismissOnHost: edition.dismissOnHost })
 }

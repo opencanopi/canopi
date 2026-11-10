@@ -95,9 +95,15 @@ function storeMessage(store: StoreId, status: StoreOpenStatus): StoreMessage | n
   return 'silent' in message ? null : message
 }
 
+/** A store's Try again: its run, and whether one runs, while which the action reads busy and takes no click. */
+export interface StoreRetry {
+  run(): void
+  running(): boolean
+}
+
 /** The handlers an edition offers for a store notice's actions; one it lacks is null and its button is left out. */
 export interface HealthActions {
-  readonly retry?: (() => void) | null
+  readonly retry?: StoreRetry | null
   /** Opens the problem report from the store's state, which the report lists first. */
   readonly report: ((origin: ReportOrigin) => void) | null
   readonly update: (() => void) | null
@@ -145,15 +151,19 @@ function origin(store: StoreId, code: FailureCode | null, state: string): Report
 }
 
 function spec(key: string, message: StoreMessage, actions: HealthActions, from: ReportOrigin): NoticeSpec {
-  const report = actions.report
+  const { report, retry } = actions
   const handlers: Record<HealthAction, (() => void) | null> = {
-    retry: actions.retry ?? null,
+    retry: retry ? () => retry.run() : null,
     report: report ? () => report(from) : null,
     update: actions.update,
   }
-  const runs = message.actions
-    .map((action) => ({ label: ACTION_LABEL[action], run: handlers[action] }))
-    .filter((action): action is { label: LocaleKey; run: () => void } => action.run !== null)
+  const runs = message.actions.flatMap((action): NonNullable<NoticeSpec['action']>[] => {
+    const run = handlers[action]
+    if (!run) return []
+    // Try again reads busy while its read runs, so a press that fails again still shows it ran.
+    const busy: LocaleKey = 'notice.tryingAgain'
+    return [{ label: ACTION_LABEL[action], run, ...(action === 'retry' && retry ? { busy: { label: busy, now: () => retry.running() } } : {}) }]
+  })
   return {
     key,
     message: message.message,
@@ -169,4 +179,23 @@ function spec(key: string, message: StoreMessage, actions: HealthActions, from: 
 /** The last path segment: a host that sent a path still shows a file name only (2.1-Q285). */
 function fileName(file: string): string {
   return file.split(/[\\/]/).pop() ?? file
+}
+
+/** What a store says when its Try again fails again, where it has a Try again. */
+const RETRY_FAILED: { readonly [S in StoreId]?: LocaleKey } = {
+  settings: 'health.settingsStillUnavailable',
+}
+
+/**
+ * The outcome notice of a Try again that failed again, or null for a store without one: the store's status notice is
+ * told once per state and stays, so this short-lived outcome is what tells the user the press ran (2.1-Q295).
+ */
+export function retryFailedNotice(store: StoreId): NoticeSpec | null {
+  const message = RETRY_FAILED[store]
+  return message ? { key: retryFailedKey(store), message, tone: 'error', kind: 'outcome', source: 'health' } : null
+}
+
+/** The key of a store's retry-failed outcome notice, withdrawn once a Try again opens the store. */
+export function retryFailedKey(store: StoreId): string {
+  return `health:${store}:retry-failed`
 }

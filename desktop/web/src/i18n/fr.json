@@ -113,6 +113,7 @@
     "localDataNotOpenedTitle": "Données antérieures non ouvertes",
     "localDataNotOpened": "Canopi 2.0 ne peut pas ouvrir les données enregistrées par les versions précédentes. Elles sont restées inchangées, et Canopi repart de zéro.",
     "settingsUnavailable": "Vos réglages n’ont pas pu être lus. Canopi utilise les valeurs par défaut et ne modifiera pas vos réglages enregistrés pendant cette session.",
+    "settingsStillUnavailable": "Vos réglages n’ont toujours pas pu être lus.",
     "setAside": {
       "userDb": "Les données enregistrées de Canopi étaient endommagées et ont été mises de côté sous le nom {{file}}. Vos Designs ne sont pas concernés.",
       "webDrafts": "Les brouillons enregistrés de Canopi étaient endommagés et ont été mis de côté sous le nom {{file}}. Les Designs exportés en fichiers ne sont pas concernés.",
@@ -1377,7 +1378,8 @@
   "notice": {
     "count": "{{index}} sur {{count}}",
     "dismiss": "Ignorer",
-    "reload": "Recharger"
+    "reload": "Recharger",
+    "tryingAgain": "Nouvelle tentative…"
   },
   "shared": {
     "datePicker": {

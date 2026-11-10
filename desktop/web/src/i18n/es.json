@@ -113,6 +113,7 @@
     "localDataNotOpenedTitle": "Datos anteriores no abiertos",
     "localDataNotOpened": "Canopi 2.0 no puede abrir los datos guardados por versiones anteriores. Se han dejado sin cambios y Canopi ha empezado de cero.",
     "settingsUnavailable": "No se pudieron leer tus ajustes. Canopi usa los valores predeterminados y no cambiará tus ajustes guardados en esta sesión.",
+    "settingsStillUnavailable": "Tus ajustes siguen sin poder leerse.",
     "setAside": {
       "userDb": "Los datos guardados de Canopi estaban dañados y se han apartado como {{file}}. Tus diseños no se ven afectados.",
       "webDrafts": "Los borradores guardados de Canopi estaban dañados y se han apartado como {{file}}. Los diseños que exportaste como archivos no se ven afectados.",
@@ -1377,7 +1378,8 @@
   "notice": {
     "count": "{{index}} de {{count}}",
     "dismiss": "Descartar",
-    "reload": "Recargar"
+    "reload": "Recargar",
+    "tryingAgain": "Reintentando…"
   },
   "shared": {
     "datePicker": {

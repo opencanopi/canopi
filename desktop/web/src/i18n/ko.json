@@ -113,6 +113,7 @@
     "localDataNotOpenedTitle": "이전 데이터를 열지 않았습니다",
     "localDataNotOpened": "Canopi 2.0은 이전 버전에서 저장한 데이터를 열 수 없습니다. 해당 데이터는 변경 없이 그대로 두었고 Canopi는 새로 시작했습니다.",
     "settingsUnavailable": "설정을 읽을 수 없습니다. Canopi는 기본값을 사용하며 이번 세션 동안 저장된 설정을 변경하지 않습니다.",
+    "settingsStillUnavailable": "설정을 여전히 읽을 수 없습니다.",
     "setAside": {
       "userDb": "Canopi의 저장된 데이터가 손상되어 {{file}}(으)로 따로 보관했습니다. 디자인에는 영향이 없습니다.",
       "webDrafts": "Canopi에 저장된 초안이 손상되어 {{file}}(으)로 따로 보관했습니다. 파일로 내보낸 디자인에는 영향이 없습니다.",
@@ -1377,7 +1378,8 @@
   "notice": {
     "count": "{{count}}개 중 {{index}}번째",
     "dismiss": "닫기",
-    "reload": "다시 로드"
+    "reload": "다시 로드",
+    "tryingAgain": "다시 시도하는 중…"
   },
   "shared": {
     "datePicker": {
