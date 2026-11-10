@@ -3,6 +3,7 @@ import { useId, useLayoutEffect, useRef } from 'preact/hooks'
 import { SurfaceBoundary } from './SurfaceBoundary'
 import { t } from '../../i18n'
 import { ControlIcon } from './ControlIcon'
+import { toastFocusables, trapToastTab } from './ToastSlot'
 import { useModalLayer } from './useModalLayer'
 import { useScrimPress } from './useScrimPress'
 import styles from './WorkspaceDialog.module.css'
@@ -11,7 +12,8 @@ const FOCUSABLE = 'button:not([disabled]), [href], input:not([disabled]), select
 
 /**
  * A modal workspace dialog: Literata title, close button, focus moved in on
- * open, trapped while open and returned on close (`useModalLayer`, which also
+ * open, trapped while open (with the window's toasts, so an Undo stays in
+ * reach) and returned on close (`useModalLayer`, which also
  * makes the chrome behind it inert); Escape closes. `large` is a sheet of fixed
  * size, min(1200 px, 100vw − 48) × min(860 px, 100vh − 48), whose body does not
  * scroll: its content lays out panes that scroll on their own (the Data library).
@@ -29,6 +31,19 @@ export function WorkspaceDialog({ title, onClose, children, footer, wide = false
 
   useModalLayer()
   const scrim = useScrimPress(onClose)
+  // Tab wraps inside the dialog, through the window's toasts (an Undo shown above it sits in its cycle). Only a step
+  // across an end of that cycle is moved by hand; the browser moves every other.
+  const trapTab = (event: KeyboardEvent) => {
+    const own = Array.from(dialog.current?.querySelectorAll<HTMLElement>(FOCUSABLE) ?? [])
+    const toasts = toastFocusables()
+    const cycle = [...own, ...toasts]
+    const at = cycle.findIndex((element) => element === document.activeElement)
+    const crossing = at >= 0 && (at >= own.length || at === (event.shiftKey ? 0 : own.length - 1))
+    if (!crossing) return
+    event.preventDefault()
+    cycle[(at + (event.shiftKey ? -1 : 1) + cycle.length) % cycle.length]?.focus()
+  }
+  useLayoutEffect(() => trapToastTab(trapTab), [])
   // Focus goes in as the dialog commits, after the modal layer has read the focus to give back, so an Esc at once is
   // the dialog's (canopi-f47t.52.228.20).
   useLayoutEffect(() => {
@@ -53,17 +68,7 @@ export function WorkspaceDialog({ title, onClose, children, footer, wide = false
             onClose()
             return
           }
-          if (event.key !== 'Tab') return
-          const focusable = Array.from(dialog.current?.querySelectorAll<HTMLElement>(FOCUSABLE) ?? [])
-          const first = focusable[0]
-          const last = focusable.at(-1)
-          if (event.shiftKey && document.activeElement === first) {
-            event.preventDefault()
-            last?.focus()
-          } else if (!event.shiftKey && document.activeElement === last) {
-            event.preventDefault()
-            first?.focus()
-          }
+          if (event.key === 'Tab') trapTab(event)
         }}
       >
         <header className={styles.header}>

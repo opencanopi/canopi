@@ -3,7 +3,7 @@
  * F3, 2.1-Q292). Invariant: every toast in the window (an Undo after a delete, a transient result such as "Import
  * cancelled") is drawn in one layer on <body> (`[data-toast-layer]`, styles/global.css) at --z-toast, above the active
  * dialog: no chrome region holds it, so a modal's inert hold never reaches it and its action stays pressable while the
- * dialog is open. A component that owns its toast's state renders `SlotToast`; a raiser that is not a component calls
+ * dialog is open, and in that dialog's Tab cycle (`trapToastTab`). A component that owns its toast's state renders `SlotToast`; a raiser that is not a component calls
  * failures/toasts.ts `showToast`, which `ToastSlot` (mounted once in each root) draws. The canvas lock toast stays canvas
  * chrome (components/canvas/LockedMoveToast.tsx, canopi-eon8.14.3).
  */
@@ -28,9 +28,32 @@ function toastLayer(): HTMLElement {
   return layer
 }
 
+/** The Tab traps of the open modal dialogs, oldest first; Tab pressed in a toast goes to the topmost. */
+const tabTraps: Array<(event: KeyboardEvent) => void> = []
+
+/**
+ * Puts the window's toasts in an open dialog's Tab cycle (canopi-f47t.52.36): the toast layer sits outside the dialog,
+ * so Tab pressed in a toast is handed to `trap`, the topmost dialog's. Returns the release.
+ */
+export function trapToastTab(trap: (event: KeyboardEvent) => void): () => void {
+  tabTraps.push(trap)
+  return () => {
+    const index = tabTraps.indexOf(trap)
+    if (index >= 0) tabTraps.splice(index, 1)
+  }
+}
+
+/** The toasts' pressable controls, in order, for a dialog's Tab cycle. */
+export function toastFocusables(): HTMLElement[] {
+  return layer?.isConnected ? Array.from(layer.querySelectorAll<HTMLElement>('button:not([disabled])')) : []
+}
+
 /** A toast whose state its component owns (an Undo toast), drawn in the window's one toast position. */
 export function SlotToast(props: ComponentProps<typeof Toast>) {
-  return createPortal(<Toast {...props} />, toastLayer())
+  return createPortal(
+    <Toast {...props} onKeyDown={(event) => { if (event.key === 'Tab') tabTraps.at(-1)?.(event) }} />,
+    toastLayer(),
+  )
 }
 
 /** Draws the transient results raised through failures/toasts.ts; mounted once in each edition's root. */

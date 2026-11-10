@@ -11,11 +11,13 @@ const TOAST_TIMEOUT_MS = 8000
  * ToastSlot.tsx places it in the window's one toast position (the canvas lock toast stays canvas chrome); the caller
  * owns which toast is showing.
  */
-export function Toast({ message, actionLabel, onAction, onDismiss, timeoutMs = TOAST_TIMEOUT_MS, icon = 'check' }: {
+export function Toast({ message, actionLabel, onAction, onDismiss, onKeyDown, timeoutMs = TOAST_TIMEOUT_MS, icon = 'check' }: {
   readonly message: ComponentChildren
   readonly actionLabel?: string
   onAction?(): void
   onDismiss(): void
+  /** A key pressed in the toast (ToastSlot hands Tab to an open dialog's trap). */
+  onKeyDown?(event: KeyboardEvent): void
   readonly timeoutMs?: number
   readonly icon?: ControlIconName
 }) {
@@ -34,6 +36,7 @@ export function Toast({ message, actionLabel, onAction, onDismiss, timeoutMs = T
     <div
       className={styles.toast}
       role="status"
+      onKeyDown={onKeyDown}
       onPointerEnter={() => setHovered(true)}
       onPointerLeave={() => setHovered(false)}
       onFocusIn={() => setFocused(true)}

@@ -11,6 +11,7 @@ import { resetToastsForTests, showToast } from '../../failures/toasts'
 import { t } from '../../i18n'
 import { NoticeRow } from './NoticeRow'
 import { SlotToast, ToastSlot } from './ToastSlot'
+import { WorkspaceDialog } from './WorkspaceDialog'
 import { useModalInertRegion, useModalLayer } from './useModalLayer'
 
 let container: HTMLDivElement
@@ -104,5 +105,43 @@ describe('ToastSlot', () => {
     await act(async () => { raiseNotice({ key: 'update', message: 'failure.internal' }) })
     expect(container.querySelector('[data-notice-row]')).not.toBeNull()
     expect(document.documentElement.style.getPropertyValue('--notice-row-clearance')).toBe('')
+  })
+
+  it('canopi-f47t.52.36: an Undo toast while a workspace dialog is open sits in its Tab cycle', async () => {
+    await act(async () => render(
+      <>
+        <WorkspaceDialog title="Manage views" onClose={() => {}}><button type="button">Delete</button></WorkspaceDialog>
+        <SlotToast message="View deleted" actionLabel="Undo" onAction={() => {}} onDismiss={() => {}} />
+      </>,
+      container,
+    ))
+    const button = (name: string) => [...document.querySelectorAll<HTMLButtonElement>('button')]
+      .find((candidate) => (candidate.getAttribute('aria-label') ?? candidate.textContent) === name)!
+    const tab = (from: HTMLElement, shiftKey = false) => act(async () => {
+      from.focus()
+      from.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', shiftKey, bubbles: true, cancelable: true }))
+    })
+    const close = button(t('window.close'))
+    const undo = button('Undo')
+    await tab(button('Delete'))
+    expect(document.activeElement, 'Tab from the dialog\'s last control reaches Undo').toBe(undo)
+    await tab(undo)
+    expect(document.activeElement, 'Tab from Undo wraps to the dialog\'s first control').toBe(close)
+    await tab(close, true)
+    expect(document.activeElement, 'Shift+Tab from the first control reaches Undo').toBe(undo)
+    await tab(undo, true)
+    expect(document.activeElement, 'Shift+Tab from Undo goes back into the dialog').toBe(button('Delete'))
+  })
+
+  it('a workspace dialog with no toast still wraps Tab inside itself', async () => {
+    await act(async () => render(
+      <WorkspaceDialog title="Manage views" onClose={() => {}}><button type="button">Delete</button></WorkspaceDialog>,
+      container,
+    ))
+    const close = container.querySelector<HTMLButtonElement>(`button[aria-label="${t('window.close')}"]`)!
+    const remove = [...container.querySelectorAll('button')].find((candidate) => candidate.textContent === 'Delete')!
+    remove.focus()
+    await act(async () => { remove.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true })) })
+    expect(document.activeElement).toBe(close)
   })
 })
