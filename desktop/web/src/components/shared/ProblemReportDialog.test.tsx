@@ -161,6 +161,23 @@ describe('ProblemReportDialog', () => {
     expect(problemReportDialogOpen.value).toBe(false)
   })
 
+  // Show again disables itself while the file manager opens; Chromium blurs a focused control that becomes disabled.
+  it('canopi-f47t.52.36: pressing Show again moves focus to Close while it shows, so Esc still closes the dialog', async () => {
+    await show()
+    await send()
+    let shown = (): void => {}
+    mocks.showProblemReportFolder.mockImplementation(() => new Promise<void>((resolve) => { shown = resolve }))
+    const again = button('Show again')
+    again.focus()
+    await act(async () => again.click())
+
+    expect(again.disabled, 'Show again is disabled while it shows').toBe(true)
+    expect(document.activeElement).toBe(button('Close'))
+    document.activeElement!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
+    expect(problemReportDialogOpen.value).toBe(false)
+    shown()
+  })
+
   it('canopi-f47t.52.36: after a Web download, focus is on Close, the success view\'s only action', async () => {
     installWebWriter()
     await show()
