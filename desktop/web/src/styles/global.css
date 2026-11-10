@@ -392,11 +392,12 @@ mark {
 }
 
 /* The one window-level toast position (components/shared/ToastSlot.tsx, 2.1-Q292): every toast, stacked at the window's
-   foot above the active dialog. No chrome region holds it, so a modal's inert hold never reaches its Undo. */
+   foot above the active dialog. No chrome region holds it, so a modal's inert hold never reaches its Undo. It stacks
+   above the Desktop notice row, whose height components/shared/NoticeRow.tsx publishes while it shows. */
 [data-toast-layer] {
   position: fixed;
   left: 50%;
-  bottom: var(--space-6);
+  bottom: calc(var(--space-6) + var(--notice-row-clearance, 0px));
   z-index: var(--z-toast);
   display: flex;
   flex-direction: column;

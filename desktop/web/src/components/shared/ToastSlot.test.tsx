@@ -6,7 +6,7 @@ import { render } from 'preact'
 import { useRef } from 'preact/hooks'
 import { act } from 'preact/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { raiseNotice, resetNoticesForTests } from '../../failures/notices'
+import { dismissNotice, notices, raiseNotice, resetNoticesForTests } from '../../failures/notices'
 import { resetToastsForTests, showToast } from '../../failures/toasts'
 import { t } from '../../i18n'
 import { NoticeRow } from './NoticeRow'
@@ -26,6 +26,7 @@ afterEach(() => {
   resetToastsForTests()
   resetNoticesForTests()
   vi.useRealTimers()
+  vi.restoreAllMocks()
 })
 
 /** A panel in a chrome region a modal makes inert, owning an Undo toast. */
@@ -81,5 +82,27 @@ describe('ToastSlot', () => {
     expect(shown()).toHaveLength(1)
     await act(async () => { vi.advanceTimersByTime(1000) })
     expect(shown()).toHaveLength(0)
+  })
+
+  it('canopi-f47t.52.36: a toast while the Desktop notice row shows stacks above the row, never over its actions', async () => {
+    vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockImplementation(function (this: HTMLElement) {
+      return this.hasAttribute('data-notice-row') ? 56 : 0
+    })
+    const clearance = () => document.documentElement.style.getPropertyValue('--notice-row-clearance')
+    await act(async () => render(<><NoticeRow /><ToastSlot /></>, container))
+    await act(async () => {
+      raiseNotice({ key: 'update', message: 'failure.internal' })
+      showToast({ key: 'library.import-cancelled:a', message: 'canvas.lidar.library.importCancelled' })
+    })
+    expect(clearance(), 'the foot row publishes the room it takes').toBe('calc(56px + var(--space-2))')
+    await act(async () => { dismissNotice(notices.value[0]!.id) })
+    expect(clearance(), 'the foot is the toast\'s again once the row goes').toBe('')
+  })
+
+  it('canopi-f47t.52.36: Web\'s notice row below the title bar leaves the toast at the foot', async () => {
+    await act(async () => render(<><NoticeRow belowTitleBar={{ top: null }} /><ToastSlot /></>, container))
+    await act(async () => { raiseNotice({ key: 'update', message: 'failure.internal' }) })
+    expect(container.querySelector('[data-notice-row]')).not.toBeNull()
+    expect(document.documentElement.style.getPropertyValue('--notice-row-clearance')).toBe('')
   })
 })

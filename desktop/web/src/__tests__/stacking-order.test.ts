@@ -60,6 +60,14 @@ describe('stacking order', () => {
     expect(read('../components/shared/NoticeRow.module.css')).toMatch(/\.row\s*\{[^}]*z-index:\s*var\(--z-notice\)/)
   })
 
+  // Both share the window's foot on Desktop; the row publishes its height (NoticeRow.tsx, ToastSlot.test.tsx), so a
+  // toast never covers a notice's words or its action.
+  it('canopi-f47t.52.36: lifts the toast layer above the Desktop notice row', () => {
+    expect(global).toMatch(
+      /\[data-toast-layer\]\s*\{[^}]*bottom:\s*calc\(var\(--space-6\)\s*\+\s*var\(--notice-row-clearance,\s*0px\)\)/,
+    )
+  })
+
   // The canvas hover card names what the pointer rests on: its layer sits above the canvas chrome and under every
   // full-window surface, toast, dialog and popup (canopi-xpqt).
   it('puts the canvas hover card above the canvas chrome and under every full-window surface, toast, dialog and popup', () => {
