@@ -343,6 +343,17 @@
       }
     },
     {
+      "id": "adr-0028-support-copies-no-runtime-guard",
+      "doc": "docs/adr/0028-architecture-fitness-and-verification.md",
+      "quote": "a policy test that `__tests__/support/` copies no runtime guard",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/__tests__/support-copies-no-runtime-guard.test.ts",
+          "reads_source": true
+        }
+      }
+    },
+    {
       "id": "adr-0029-accessibility",
       "doc": "docs/adr/0029-system-qualities.md",
       "quote": "Accessibility.",

@@ -41,14 +41,6 @@
       "count": 2,
       "bead": "canopi-f47t.52.228.39"
     },
-    "desktop/web/src/__tests__/support-copies-no-runtime-guard.test.ts": {
-      "count": 1,
-      "bead": "canopi-f47t.52.228.40"
-    },
-    "desktop/web/src/__tests__/toolchain-typecheck.test.ts": {
-      "count": 1,
-      "bead": "canopi-f47t.52.228.40"
-    },
     "desktop/web/src/canvas/runtime/scene-visuals.test.ts": {
       "count": 1,
       "bead": "canopi-f47t.52.51"
