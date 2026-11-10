@@ -35,7 +35,7 @@ export function designOpenFailureNoticeOf(error: unknown): DesignOpenFailureNoti
   return { tone: 'error', title: 'start.cantOpenTitle', message: key }
 }
 
-/** The catalogue code a load failure is recorded under until `design_load` joins the catalogue (2a). */
+/** The catalogue code a load failure is recorded under until `design_load` joins the catalogue (2b, 2.1-M419). */
 function failureCodeOf(kind: DesignLoadFailureKind): FailureCode {
   switch (kind) {
     case 'missing':
