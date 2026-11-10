@@ -13,8 +13,6 @@ const REPORT_SOURCE = 'problem_report.create'
 type ProblemReportShowFolderState = 'idle' | 'showing' | 'failed'
 
 export interface ProblemReportSubmissionDeps {
-  readonly readFrontendDiagnostics: typeof recentFrontendDiagnostics
-  readonly currentDesignUnavailableMessage: () => string
   readonly setDialogOpen: (open: boolean) => void
 }
 
@@ -30,7 +28,6 @@ export interface ProblemReportSubmission {
   /** Opens the dialog afresh; a report opened from a failure lists it first (contracts §13). */
   open(origin?: ReportOrigin | null): void
   close(): void
-  reset(): void
   setDescription(description: string): void
   setIncludeCurrentDesign(include: boolean): void
   submit(): Promise<void>
@@ -41,8 +38,6 @@ export interface ProblemReportSubmission {
 }
 
 const DEFAULT_DEPS: ProblemReportSubmissionDeps = {
-  readFrontendDiagnostics: recentFrontendDiagnostics,
-  currentDesignUnavailableMessage: () => t('problemReport.currentDesignUnavailable'),
   setDialogOpen: (open) => {
     problemReportDialogOpen.value = open
   },
@@ -104,7 +99,6 @@ export function createProblemReportSubmission(
       deps.setDialogOpen(false)
       reset()
     },
-    reset,
     setDescription(nextDescription) {
       description.value = nextDescription
     },
@@ -130,7 +124,7 @@ export function createProblemReportSubmission(
             currentDesign = writer.currentDesign()
             if (!currentDesign) {
               if (submitGeneration === generation) {
-                error.value = deps.currentDesignUnavailableMessage()
+                error.value = t('problemReport.currentDesignUnavailable')
               }
               return
             }
@@ -140,7 +134,7 @@ export function createProblemReportSubmission(
           const report = buildProblemReport({
             createdAt: new Date(),
             description: description.value,
-            ring: deps.readFrontendDiagnostics(),
+            ring: recentFrontendDiagnostics(),
             origin,
             design: currentDesign,
             sections: writer.sections,

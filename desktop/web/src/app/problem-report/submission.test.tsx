@@ -15,7 +15,6 @@ import { t } from '../../i18n'
 import type { EditionSections, ProblemReport, ProblemReportPort } from '../../platform/problem-report'
 import { createBrowserProblemReportWriter } from '../../platform/problem-report.browser'
 import { createProblemReportSubmission, type ProblemReportSubmissionDeps } from './submission'
-import { recentFrontendDiagnostics } from './diagnostics'
 
 type Write = (report: ProblemReport) => Promise<ProblemReportResult>
 
@@ -32,13 +31,8 @@ const NATIVE: EditionSections = {
   settings_summary: 'native',
 }
 
-function deps(overrides: Partial<ProblemReportSubmissionDeps> = {}): ProblemReportSubmissionDeps {
-  return {
-    readFrontendDiagnostics: recentFrontendDiagnostics,
-    currentDesignUnavailableMessage: () => 'No current Design is available to attach.',
-    setDialogOpen: vi.fn(),
-    ...overrides,
-  }
+function deps(): ProblemReportSubmissionDeps {
+  return { setDialogOpen: vi.fn() }
 }
 
 /** A submission writing through a port whose write is `write`. */
@@ -251,6 +245,60 @@ describe('problem report submission', () => {
     submission.open()
     await submission.submit()
     expect(port.write).toHaveBeenCalledTimes(2)
+  })
+
+  it('sends what the user wrote, redacted, and the app failures ring, and reads no Design unless ticked', async () => {
+    reportFailure(new Error('disk failed at /home/ana/Designs/orchard.canopi'), { shown: 'none', source: 'command:Open design' })
+    const currentDesign = vi.fn(() => '{"name":"Orchard"}\n')
+    const port: ProblemReportPort = { sections: NATIVE, currentDesign, write: vi.fn<Write>().mockResolvedValue(SAVED) }
+    const submission = createProblemReportSubmission(deps())
+    submission.installPort(port)
+    submission.open()
+    submission.setDescription('It failed opening /home/ana/Designs/orchard.canopi')
+    await submission.submit()
+
+    const report = sent(port)
+    expect(report.entries.filter((entry) => entry.status === 'included').map((entry) => entry.section))
+      .toEqual(['description', 'frontend_ring'])
+    expect(section(report, 'description')).toContain('It failed opening')
+    expect(section(report, 'frontend_ring')).toContain('disk failed at')
+    expect(JSON.stringify(report.entries)).not.toContain('/home/ana')
+    expect(currentDesign).not.toHaveBeenCalled()
+    expect(report.entries.some((entry) => entry.section === 'design')).toBe(false)
+  })
+
+  it('closing resets the dialog: no description, no consent, no result, and the dialog is closed', async () => {
+    const { submission, submissionDeps } = submissionWith()
+    submission.open()
+    submission.setDescription('Canvas froze')
+    await submission.submit()
+    submission.setIncludeCurrentDesign(true)
+    submission.close()
+
+    expect(submissionDeps.setDialogOpen).toHaveBeenLastCalledWith(false)
+    expect(submission.description.value).toBe('')
+    expect(submission.includeCurrentDesign.value).toBe(false)
+    expect(submission.result.value).toBeNull()
+    expect(submission.error.value).toBeNull()
+  })
+
+  it('a report closed and reopened before its write settles shows nothing of it in the new dialog', async () => {
+    for (const settle of ['written', 'failed'] as const) {
+      const write = deferredWrite()
+      const { submission } = revealingSubmission(write.write)
+      submission.open()
+      const old = submission.submit()
+      submission.close()
+      submission.open()
+      submission.setDescription('Fresh report')
+      if (settle === 'written') write.resolve(SAVED)
+      else write.reject(new Error('old request failed'))
+      await old
+      expect(submission.description.value, settle).toBe('Fresh report')
+      expect(submission.result.value, settle).toBeNull()
+      expect(submission.error.value, settle).toBeNull()
+      expect(submission.submitting.value, settle).toBe(false)
+    }
   })
 
   it('with no writer installed, a report fails and writes nothing', async () => {
