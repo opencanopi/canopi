@@ -16,9 +16,10 @@ import { holdModalLayer, registerModalInertRegion, type ModalToastCycle } from '
  */
 export function useModalLayer(toastCycle?: ModalToastCycle): () => void {
   const releaseRef = useRef<() => void>(() => {})
+  const mountedToastCycle = useRef(toastCycle)
   useLayoutEffect(() => {
     const previous = document.activeElement
-    const hold = holdModalLayer(toastCycle)
+    const hold = holdModalLayer(mountedToastCycle.current)
     let released = false
     const release = () => {
       if (released) return
