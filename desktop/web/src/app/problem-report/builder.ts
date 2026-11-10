@@ -8,7 +8,8 @@
  *   (Desktop's command fills it) or `not_on_this_edition` (F13; no editions column).
  * - **Manifest.** Every entry but itself with its status, in the shape and format Desktop's native writer uses
  *   (`bundle.rs`); null when a section is native, since the native writer then lists it. A frontend section's status
- *   follows the native rule: included when its text holds anything, else empty with the `empty` marker.
+ *   follows the native rule: included when its text holds anything, else empty with the `empty` marker; an empty ring
+ *   holds nothing, as an empty native-failures list is empty.
  * - **Privacy.** Every text but the consented Design is redacted by `failures/redact.ts`; a redactor fault stores
  *   `redaction_failed`, never the text (contracts §13). A reader that throws, as a degraded store may, marks its
  *   section unreadable and the report is still built.
@@ -74,13 +75,18 @@ function fill(id: ReportSectionId, input: ProblemReportInput, safe: (text: strin
   if (id === 'design') return input.design === null ? null : { status: 'included', text: input.design }
   if (id === 'originating_failure') return frontendText(input.origin ? safe(json(originText(input.origin))) : '')
   if (id === 'description') return frontendText(safe(input.description))
-  if (id === 'frontend_ring') return frontendText(safe(JSON.stringify(input.ring, null, 2)))
+  // An empty ring has nothing to say: empty, as the native writer marks an empty native-failures list.
+  if (id === 'frontend_ring') return frontendText(isEmptyList(input.ring) ? '' : safe(JSON.stringify(input.ring, null, 2)))
   return editionSection(input.sections[id], safe)
 }
 
 /** The originating failure, its code and operation first. */
 function originText(origin: ReportOrigin): Record<string, unknown> {
   return { code: origin.code, operation: origin.operation, op: origin.source, detail: origin.detail }
+}
+
+function isEmptyList(value: unknown): boolean {
+  return Array.isArray(value) && value.length === 0
 }
 
 function frontendText(text: string): Filled {
