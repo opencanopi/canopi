@@ -20,13 +20,18 @@ import { useEffect, useState } from "preact/hooks";
 import { raiseLaunchNotices, raiseUpdateNotice, raiseUpdateNotInstalledNotice, withdrawUpdateNoticeOnInstall } from "./components/workspace/launch-notices";
 import { installStoreNotices } from "./components/workspace/store-notices";
 import { createUpdateController, type UpdateController, type UpdaterPort } from "./app/updates/controller";
-import { blockEditsWhile, flushBeforeExit, holdCloseUntilSettled } from "./app/shell/close-guard";
+import { blockEditsWhile, flushBeforeExit, holdCloseUntilSettled, reloadAfterExitFlush as reloadThroughExitFlush } from "./app/shell/close-guard";
 import { designPath } from "./app/document-session/store";
 import type { StoreId, UpdateOs } from "./generated/contracts";
 import updaterEndpoints from "../../updater-endpoints.json";
 
 /** Settings › Files and data on Desktop: the app-data folders and Show in folder. */
 const DESKTOP_FOLDERS: SettingsFoldersAdapter = { load: getAppFolders, show: showAppFolder };
+
+/** The root boundary's Reload: the exit flush with its reload purpose first, so a failed write asks in reload words. */
+export function reloadAfterExitFlush(): void {
+  reloadThroughExitFlush();
+}
 
 /** The Desktop updater's host ports, which the Desktop root passes in (platform/updates.desktop.ts). */
 export interface DesktopUpdatePorts {
