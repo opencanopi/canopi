@@ -7,7 +7,7 @@ import { REPORT_MANIFEST_FILE, REPORT_SECTIONS, type ReportManifest } from '../g
 import { buildProblemReport } from '../app/problem-report/builder'
 
 const READERS = { build: () => ({ app: 'Canopi', version: '2.1.0' }), health: () => ({}), settings: () => ({ locale: 'en' }), currentDesign: () => null }
-import { browserFamily, createBrowserProblemReportWriter, storedZip } from './problem-report.browser'
+import { createBrowserProblemReportWriter } from './problem-report.browser'
 
 /** Reads a stored (method 0) zip's entries by its central directory, checking each local header and CRC. */
 function unzip(bytes: Uint8Array): Map<string, string> {
@@ -83,9 +83,14 @@ afterEach(() => {
 })
 
 describe('Web problem report writer', () => {
-  it('writes a stored zip of every entry and its manifest, which lists every other entry', () => {
-    const files = unzip(storedZip([{ name: 'a.txt', text: 'Café\n' }, { name: 'b.json', text: '{}' }]))
-    expect([...files]).toEqual([['a.txt', 'Café\n'], ['b.json', '{}']])
+  it('writes a stored zip of every entry and its manifest, its UTF-8 text intact', async () => {
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    const writer = createBrowserProblemReportWriter(READERS)
+    await writer.write(buildProblemReport({ ...WEB_INPUT, description: 'Café ☕\n' }))
+    const files = unzip(new Uint8Array(await blobs[0]!.arrayBuffer()))
+    expect(files.get('description.txt')).toBe('Café ☕\n')
+    expect([...files.keys()].at(-1)).toBe(REPORT_MANIFEST_FILE)
+    writer.dispose()
   })
 
   it('downloads one canopi-report-YYYYMMDD-HHMMSS.zip with the entries and manifest, in both consent states', async () => {
@@ -132,15 +137,24 @@ describe('Web problem report writer', () => {
   })
 
   it('names the browser, its major version and OS family, or unknown when the user agent is unparsable (2.1-Q282)', () => {
-    expect(browserFamily('Mozilla/5.0 (X11; Linux x86_64; rv:140.0) Gecko/20100101 Firefox/140.0'))
+    const writer = createBrowserProblemReportWriter(READERS)
+    const userAgent = vi.spyOn(navigator, 'userAgent', 'get')
+    /** The build section's browser for a user agent, as the report writes it. */
+    const browserFor = (agent: string) => {
+      userAgent.mockReturnValue(agent)
+      return ((writer.sections.build as () => { browser: unknown })()).browser
+    }
+    expect(browserFor('Mozilla/5.0 (X11; Linux x86_64; rv:140.0) Gecko/20100101 Firefox/140.0'))
       .toEqual({ name: 'Firefox', major: 140, os: 'Linux' })
-    expect(browserFamily('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36 Edg/141.0.0.0'))
+    expect(browserFor('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36 Edg/141.0.0.0'))
       .toEqual({ name: 'Edge', major: 141, os: 'Windows' })
-    expect(browserFamily('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.4 Safari/605.1.15'))
+    expect(browserFor('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.4 Safari/605.1.15'))
       .toEqual({ name: 'Safari', major: 18, os: 'macOS' })
-    expect(browserFamily('Mozilla/5.0 (Linux; Android 15) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Mobile Safari/537.36'))
+    expect(browserFor('Mozilla/5.0 (Linux; Android 15) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Mobile Safari/537.36'))
       .toEqual({ name: 'Chrome', major: 141, os: 'Android' })
-    expect(browserFamily('')).toEqual({ name: 'unknown', major: null, os: 'unknown' })
-    expect(browserFamily('\u0000garbage/((')).toEqual({ name: 'unknown', major: null, os: 'unknown' })
+    expect(browserFor('')).toEqual({ name: 'unknown', major: null, os: 'unknown' })
+    expect(browserFor('\u0000garbage/((')).toEqual({ name: 'unknown', major: null, os: 'unknown' })
+    // The build section keeps the app's own fields beside the browser.
+    expect((writer.sections.build as () => Record<string, unknown>)()).toMatchObject({ app: 'Canopi', version: '2.1.0' })
   })
 })

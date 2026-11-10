@@ -15,7 +15,7 @@ import { desktopProblemReport } from '../../platform/problem-report.desktop'
 import { createBrowserProblemReportWriter, type BrowserProblemReportWriter } from '../../platform/problem-report.browser'
 import en from '../../i18n/en.json'
 import type { CanopiFile } from '../../types/design'
-import { ProblemReportDialog, PROBLEM_REPORT_ISSUES_URL, SECTION_LINES } from './ProblemReportDialog'
+import { ProblemReportDialog } from './ProblemReportDialog'
 import styles from './ProblemReportDialog.module.css'
 
 const mocks = vi.hoisted(() => ({
@@ -64,6 +64,8 @@ function makeDesign(): CanopiFile {
 }
 
 const REPORT_FILE = 'canopi-report-20260601-103000.zip'
+/** Where a report is sent (2.1-Q279). */
+const ISSUES_URL = 'https://github.com/opencanopi/canopi/issues'
 
 let container: HTMLDivElement
 let uninstallPort: () => void
@@ -166,11 +168,13 @@ describe('ProblemReportDialog', () => {
     expect(container.textContent).toContain(en.problemReport.section.build)
   })
 
-  it('each section reads its REPORT_SECTIONS line in English', () => {
-    for (const row of REPORT_SECTIONS) {
-      const key = SECTION_LINES[row.id].split('.').at(-1) as keyof typeof en.problemReport.section
-      expect(en.problemReport.section[key].replaceAll('’', '\'')).toBe(row.privacy)
-    }
+  it('each section reads its REPORT_SECTIONS line in English', async () => {
+    await show()
+    const lines = [
+      ...[...container.querySelectorAll('[data-report-section]')].map((item) => [item.getAttribute('data-report-section'), item.textContent]),
+      ...[...container.querySelectorAll('input[type="checkbox"]')].map((box) => ['design', box.closest('label')!.lastElementChild!.lastElementChild!.textContent]),
+    ]
+    expect(lines.map(([id, line]) => [id, line?.replaceAll('’', '\'')]).sort()).toEqual(REPORT_SECTIONS.map((row) => [row.id, row.privacy]).sort())
   })
 
   it('draws each listed section as a row of the dialog\'s section list, and the issues page as its link', async () => {
@@ -180,13 +184,13 @@ describe('ProblemReportDialog', () => {
     const rows = [...container.querySelectorAll('[data-report-section]')]
     expect(rows.length).toBeGreaterThan(0)
     expect(rows.every((row) => row.classList.contains(styles.sectionRow!))).toBe(true)
-    const link = container.querySelector<HTMLAnchorElement>(`a[href="${PROBLEM_REPORT_ISSUES_URL}"]`)!
+    const link = container.querySelector<HTMLAnchorElement>(`a[href="${ISSUES_URL}"]`)!
     expect(link.classList.contains(styles.link!)).toBe(true)
   })
 
   it('names the GitHub issues page with a link and says what to attach (2.1-Q279)', async () => {
     await show()
-    const link = container.querySelector<HTMLAnchorElement>(`a[href="${PROBLEM_REPORT_ISSUES_URL}"]`)
+    const link = container.querySelector<HTMLAnchorElement>(`a[href="${ISSUES_URL}"]`)
     expect(link?.textContent).toBe('Open the GitHub issues page')
     expect(link?.rel).toContain('noopener')
     expect(container.textContent).toContain(en.problemReport.sendText)
@@ -214,7 +218,7 @@ describe('ProblemReportDialog', () => {
     // Shown selected in the file manager once, by its file name (2.1-Q276).
     expect(mocks.showProblemReportFolder.mock.calls).toEqual([[REPORT_FILE]])
     expect(buttons()).toEqual(['', 'Close', 'Show again'])
-    expect(container.querySelector(`a[href="${PROBLEM_REPORT_ISSUES_URL}"]`)).not.toBeNull()
+    expect(container.querySelector(`a[href="${ISSUES_URL}"]`)).not.toBeNull()
   })
 
   it('includes the current Design attachment only after explicit opt-in', async () => {

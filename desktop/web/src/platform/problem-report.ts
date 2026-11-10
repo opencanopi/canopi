@@ -6,7 +6,7 @@
 import type { ProblemReportResult, ReportManifest, ReportSectionId, ReportSectionStatus } from '../generated/contracts'
 
 /** The sections the builder fills on both editions; the Design is attached by consent. */
-export type FrontendSectionId = 'originating_failure' | 'description' | 'frontend_ring'
+type FrontendSectionId = 'originating_failure' | 'description' | 'frontend_ring'
 
 /** The sections an edition fills, natively or by a reader, or lacks. */
 type EditionSectionId = Exclude<ReportSectionId, FrontendSectionId | 'design'>

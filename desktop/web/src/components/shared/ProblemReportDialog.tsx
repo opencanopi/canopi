@@ -14,10 +14,10 @@ import { useModalLayer } from './useModalLayer'
 import { useScrimPress } from './useScrimPress'
 
 /** Where a report is sent (2.1-Q279): Canopi sends nothing itself. */
-export const PROBLEM_REPORT_ISSUES_URL = 'https://github.com/opencanopi/canopi/issues'
+const PROBLEM_REPORT_ISSUES_URL = 'https://github.com/opencanopi/canopi/issues'
 
 /** Each section's line in the dialog, one per `REPORT_SECTIONS` row (2.1-Q280); en.json holds the table's English. */
-export const SECTION_LINES: { readonly [S in ReportSectionId]: LocaleKey } = {
+const SECTION_LINES: { readonly [S in ReportSectionId]: LocaleKey } = {
   originating_failure: 'problemReport.section.originatingFailure',
   description: 'problemReport.section.description',
   build: 'problemReport.section.build',
