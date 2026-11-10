@@ -1408,7 +1408,7 @@
     "contentsTitle": "レポートの内容",
     "sendText": "送るには、Canopi の GitHub Issues ページで Issue を作成し、起きたことを書いて zip を添付してください。",
     "issuesLink": "GitHub Issues ページを開く",
-    "downloadedText": "レポートをダウンロードしました。サポートへのメッセージにファイルを添付してください。",
+    "downloadedText": "レポートをダウンロードしました。zip はブラウザーのダウンロードにあります。",
     "showAgain": "もう一度表示",
     "section": {
       "originatingFailure": "報告元の失敗とそのコード、操作。",

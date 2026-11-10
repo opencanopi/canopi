@@ -1408,7 +1408,7 @@
     "contentsTitle": "보고서 내용",
     "sendText": "보내려면 Canopi의 GitHub 이슈 페이지에서 이슈를 열고, 무슨 일이 있었는지 적은 뒤 zip을 첨부하세요.",
     "issuesLink": "GitHub 이슈 페이지 열기",
-    "downloadedText": "보고서를 다운로드했습니다. 지원팀에 보내는 메시지에 파일을 첨부하세요.",
+    "downloadedText": "보고서를 다운로드했습니다. zip은 브라우저의 다운로드 폴더에 있습니다.",
     "showAgain": "다시 표시",
     "section": {
       "originatingFailure": "보고를 시작한 실패와 그 코드, 작업.",

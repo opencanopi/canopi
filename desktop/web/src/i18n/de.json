@@ -1408,7 +1408,7 @@
     "contentsTitle": "Der Bericht enthält",
     "sendText": "Zum Senden eröffnen Sie ein Issue auf Canopis GitHub-Issues-Seite, beschreiben, was passiert ist, und hängen die ZIP-Datei an.",
     "issuesLink": "GitHub-Issues-Seite öffnen",
-    "downloadedText": "Bericht heruntergeladen. Hängen Sie die Datei an Ihre Nachricht an den Support an.",
+    "downloadedText": "Bericht heruntergeladen. Die ZIP-Datei liegt in den Downloads Ihres Browsers.",
     "showAgain": "Erneut anzeigen",
     "section": {
       "originatingFailure": "Der Fehler, von dem aus Sie melden, mit Code und Vorgang.",

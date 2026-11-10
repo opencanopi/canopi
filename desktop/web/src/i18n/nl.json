@@ -1408,7 +1408,7 @@
     "contentsTitle": "Het rapport bevat",
     "sendText": "Om het te versturen opent u een issue op Canopi’s GitHub-issuespagina, beschrijft u wat er gebeurde en voegt u de zip toe.",
     "issuesLink": "GitHub-issuespagina openen",
-    "downloadedText": "Rapport gedownload. Voeg het bestand toe aan uw bericht aan support.",
+    "downloadedText": "Rapport gedownload. De zip staat in de downloads van uw browser.",
     "showAgain": "Opnieuw tonen",
     "section": {
       "originatingFailure": "De fout van waaruit u meldt, met de code en de bewerking.",

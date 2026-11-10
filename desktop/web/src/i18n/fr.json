@@ -1408,7 +1408,7 @@
     "contentsTitle": "Le rapport contient",
     "sendText": "Pour l’envoyer, ouvrez un ticket sur la page GitHub des tickets de Canopi, décrivez ce qui s’est passé et joignez le zip.",
     "issuesLink": "Ouvrir la page GitHub des tickets",
-    "downloadedText": "Rapport téléchargé. Joignez le fichier à votre message au support.",
+    "downloadedText": "Rapport téléchargé. Le zip se trouve dans les téléchargements de votre navigateur.",
     "showAgain": "Afficher à nouveau",
     "section": {
       "originatingFailure": "L’échec à partir duquel vous signalez, avec son code et son opération.",

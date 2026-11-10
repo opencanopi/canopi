@@ -1408,7 +1408,7 @@
     "contentsTitle": "Il rapporto contiene",
     "sendText": "Per inviarlo, apri una segnalazione nella pagina delle segnalazioni di Canopi su GitHub, descrivi cosa è successo e allega lo zip.",
     "issuesLink": "Apri la pagina delle segnalazioni su GitHub",
-    "downloadedText": "Rapporto scaricato. Allega il file al tuo messaggio per l’assistenza.",
+    "downloadedText": "Rapporto scaricato. Lo zip si trova nei download del browser.",
     "showAgain": "Mostra di nuovo",
     "section": {
       "originatingFailure": "L’errore da cui stai segnalando, con il suo codice e la sua operazione.",

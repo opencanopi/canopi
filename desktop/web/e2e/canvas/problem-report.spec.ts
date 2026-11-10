@@ -51,7 +51,7 @@ test('Help › Report a problem downloads one zip of the browser\'s sections, wi
   expect(zip).not.toContain('design.canopi')
 
   // A download: no folder to show, and nothing names a path (2.1-Q283).
-  await expect(dialog.getByText('Report downloaded. Attach the file to your message to support.')).toBeVisible()
+  await expect(dialog.getByText('Report downloaded. The zip is in your browser’s downloads.')).toBeVisible()
   await expect(dialog.getByRole('button', { name: 'Show again' })).toHaveCount(0)
 })
 

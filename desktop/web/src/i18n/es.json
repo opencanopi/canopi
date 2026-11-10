@@ -1408,7 +1408,7 @@
     "contentsTitle": "El informe contiene",
     "sendText": "Para enviarlo, abra una incidencia en la página de incidencias de Canopi en GitHub, describa lo que pasó y adjunte el zip.",
     "issuesLink": "Abrir la página de incidencias de GitHub",
-    "downloadedText": "Informe descargado. Adjunte el archivo a su mensaje para el soporte.",
+    "downloadedText": "Informe descargado. El zip está en las descargas de su navegador.",
     "showAgain": "Mostrar de nuevo",
     "section": {
       "originatingFailure": "El fallo desde el que informa, con su código y su operación.",

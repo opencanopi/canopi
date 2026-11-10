@@ -1401,7 +1401,7 @@
     "contentsTitle": "The report holds",
     "sendText": "To send it, open an issue on Canopi’s GitHub issues page, describe what happened and attach the zip.",
     "issuesLink": "Open the GitHub issues page",
-    "downloadedText": "Report downloaded. Attach the file to your message to support.",
+    "downloadedText": "Report downloaded. The zip is in your browser’s downloads.",
     "showAgain": "Show again",
     "section": {
       "originatingFailure": "The failure you reported from, by its code and operation.",

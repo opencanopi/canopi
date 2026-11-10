@@ -1408,7 +1408,7 @@
     "contentsTitle": "O relatório contém",
     "sendText": "Para enviá-lo, abra um chamado na página de issues do Canopi no GitHub, descreva o que aconteceu e anexe o zip.",
     "issuesLink": "Abrir a página de issues do GitHub",
-    "downloadedText": "Relatório baixado. Anexe o arquivo à sua mensagem para o suporte.",
+    "downloadedText": "Relatório baixado. O zip está nos downloads do seu navegador.",
     "showAgain": "Mostrar de novo",
     "section": {
       "originatingFailure": "A falha a partir da qual você relata, com o código e a operação.",
