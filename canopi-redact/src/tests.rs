@@ -89,6 +89,7 @@ fn the_corpus_names_every_path_shape_and_credential() {
         "verbatim",
         "file-url",
         "percent-encoded",
+        "after-punctuation",
         "tilde",
         "json-escaped",
         "credential",
