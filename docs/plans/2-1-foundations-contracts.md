@@ -870,7 +870,7 @@ const CAPABILITY_MATRIX = { /* … */ } satisfies Record<ObjectKind, Record<Capa
 | speciesLists | `species-lists.ts` | L21 |
 | geocoding | `geocoding.ts` | L23 |
 | speciesReader (outcome B of 2.1-E1) or catalogSource (outcome A) | `species-reader.ts` or a plain `CatalogSource` value | L20 |
-| problemReport (Desktop native command, with `reveal`; Web zip and download until 2a folds it into FileDelivery, so `revealed` is false there and no Show folder is offered; 2.1-M422, 2.1-M445) | `problem-report.ts` | ADR 0025 |
+| problemReport (Desktop native command that writes and shows nothing, with `reveal` for the zip once written and still wanted; Web zip and download until 2a folds it into FileDelivery, with no reveal and no Show folder; 2.1-M422, 2.1-M458) | `problem-report.ts` | ADR 0025 |
 | capabilities | computed at startup from edition plus OS over `canopi-types/edition-capabilities.json` | ADR 0030 |
 
 - Not fields: Desktop window control (bound only by `editions/desktop/`), the inversion port `ScenePainter` (declared by `maplibre/`), and the one-implementation adapters `clipboard.ts` and `page-rules.ts`.
