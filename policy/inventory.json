@@ -1659,8 +1659,7 @@
       "quote": "`map-error-redaction.test.ts`",
       "state": {
         "exists": {
-          "check": "desktop/web/src/__tests__/map-error-redaction.test.ts",
-          "reads_source": true
+          "check": "desktop/web/src/__tests__/map-error-redaction.test.ts"
         }
       }
     },
@@ -2311,6 +2310,16 @@
       "state": {
         "exists": {
           "check": "google-key-urls-only-in-satellite-provider"
+        }
+      }
+    },
+    {
+      "id": "google-tile-endpoint-only-in-tile-auth",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M236 |",
+      "state": {
+        "exists": {
+          "check": "google-tile-endpoint-only-in-tile-auth"
         }
       }
     },

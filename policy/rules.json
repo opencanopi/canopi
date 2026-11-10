@@ -1894,6 +1894,16 @@
       "note": "P46b only the Satellite provider builds the Google key URLs"
     },
     {
+      "id": "google-tile-endpoint-only-in-tile-auth",
+      "tool": "ast-grep",
+      "ledger": "2.1-M236",
+      "family": "google-tile-endpoint-only-in-tile-auth",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/maplibre/basemap-tile-auth.ts",
+      "example": "desktop/web/src/maplibre/basemap-tile-auth.ts",
+      "note": "S24 one module spells the Google tile endpoint, so a reviewer reads one file to see where the key and session go (AGENTS.md Secrets; the source read in map-error-redaction.test.ts retired onto this rule, 2.1-Q13)"
+    },
+    {
       "id": "maplibre-listeners-only-on-abort-signals",
       "tool": "ast-grep",
       "ledger": "2.1-M186",
