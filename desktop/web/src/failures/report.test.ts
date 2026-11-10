@@ -148,30 +148,31 @@ describe('failure sink: failure states', () => {
 
   it('error storm: the ring stays at 50, one notice for the first occurrence, the rest counted (2.1-Q294)', () => {
     for (let index = 0; index < 500; index += 1) {
-      reportFailure(new Error(`tile ${index} failed`), { shown: 'notice', source: 'canvas.draw' })
+      reportFailure(`tile ${index} failed`, { shown: 'notice', source: 'canvas.draw' })
     }
     const entries = ringEntries()
     expect(entries).toHaveLength(50)
     expect(entries.at(-1)).toMatchObject({ origin: 'frontend', text: expect.stringContaining('tile 499 failed') })
-    const { notices, repeats } = failureNoticesForTests()
-    expect(notices).toHaveLength(1)
-    expect([...repeats.values()]).toEqual([500])
+    expect(failureNoticesForTests().notices).toHaveLength(1)
+    // A repeat is counted on its ring entry, the count the problem report reads, and queues no notice.
+    reportFailure('tile 499 failed', { shown: 'notice', source: 'canvas.draw' })
+    expect(ringEntries().at(-1)?.count).toBe(2)
+    expect(failureNoticesForTests().notices).toHaveLength(1)
     // Another failure is its own notice.
-    reportFailure(new Error('save failed'), { shown: 'notice', source: 'design.save' })
+    reportFailure('save failed', { shown: 'notice', source: 'design.save' })
     expect(failureNoticesForTests().notices).toHaveLength(2)
   })
 
   it('[canopi-f47t.52.36] the same failure after its notice was dismissed queues no new notice and keeps counting, since it never recovered (2.1-Q294)', () => {
-    reportFailure(new Error('save failed'), { shown: 'notice', source: 'design.save' })
-    reportFailure(new Error('save failed again'), { shown: 'notice', source: 'design.save' })
+    reportFailure('save failed', { shown: 'notice', source: 'design.save' })
+    reportFailure('save failed', { shown: 'notice', source: 'design.save' })
     const [first] = failureNoticesForTests().notices
     dismissNotice(first!.id)
-    reportFailure(new Error('save failed later'), { shown: 'notice', source: 'design.save' })
-    const { notices, repeats } = failureNoticesForTests()
-    expect(notices).toHaveLength(0)
-    expect([...repeats.values()]).toEqual([3])
-    // The user was told of this failure by its first notice.
-    expect(ringEntries().at(-1)).toMatchObject({ surfaced: true })
+    reportFailure('save failed', { shown: 'notice', source: 'design.save' })
+    expect(failureNoticesForTests().notices).toHaveLength(0)
+    // Counted on its one ring entry, which the problem report reads; the user was told of it by its first notice.
+    expect(ringEntries()).toHaveLength(1)
+    expect(ringEntries().at(-1)).toMatchObject({ count: 3, surfaced: true })
   })
 
   it('multi-MB stack: the entry is capped and no secret survives at the cut', () => {

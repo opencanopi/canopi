@@ -39,10 +39,11 @@ interface ReportOptions {
 const INTERNAL: FailureCode = { kind: 'internal' }
 const REDACTION_FAILED = 'redaction_failed'
 
-/** Occurrences per dedupe key since its notice was queued; 1b-c5's report reads the counts. */
-const repeats = new Map<string, number>()
-/** The ids of the notices this sink queued since the last test reset. */
-const raised = new Set<number>()
+/**
+ * The dedupe keys whose first occurrence was told: a repeat queues no notice. The counts live on the ring entry
+ * (`entry.count`, ring.ts), which the problem report reads.
+ */
+const told = new Set<string>()
 let noticesOpen = true
 let capabilities: FailureCapabilities = { storage: 'disk' }
 
@@ -133,16 +134,15 @@ export function failureLogger(source: string): (message?: unknown, ...optionalPa
   }
 }
 
-/** Queues the entry's notice, or counts a repeat of one already told; false when the user is not told at all. */
+/** Queues the entry's notice unless one was told for its key; false when the user is not told at all. */
 function notice(entry: RingEntry): boolean {
   const message = failureMessage(entry.code, entry.source, capabilities)
   // A silent code is recorded and never told (a cancel; a map failure until 2d's map status, 2.1-Q300).
   if (!noticesOpen || message === null) return false
   const key = noticeKey(entry.code, entry.source)
-  const told = repeats.get(key)
-  repeats.set(key, (told ?? 0) + 1)
-  // A repeat was told by the first occurrence's notice, shown or dismissed: it is only counted.
-  if (told === undefined) raised.add(raiseNotice({ key, message, tone: 'error', code: entry.code, source: entry.source }))
+  // A repeat was told by the first occurrence's notice, shown or dismissed: the ring counts it.
+  if (!told.has(key)) raiseNotice({ key, message, tone: 'error', code: entry.code, source: entry.source })
+  told.add(key)
   return true
 }
 
@@ -248,14 +248,13 @@ export function installFailureHooks(edition: FailureCapabilities, target: HookTa
   return dispose
 }
 
-/** @testonly The queued notices and the occurrence count per dedupe key. */
-export function failureNoticesForTests(): { notices: readonly Notice[]; repeats: ReadonlyMap<string, number> } {
-  return { notices: notices.value.filter((notice) => raised.has(notice.id)), repeats: new Map(repeats) }
+/** @testonly The queued notices this sink raised. */
+export function failureNoticesForTests(): { notices: readonly Notice[] } {
+  return { notices: notices.value.filter((notice) => told.has(notice.key)) }
 }
 
 /** @testonly */
 export function resetFailureNoticesForTests(): void {
-  raised.clear()
-  repeats.clear()
+  told.clear()
   noticesOpen = true
 }
