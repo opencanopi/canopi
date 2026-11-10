@@ -219,7 +219,11 @@ jobs:
           [ "$EVENT" = workflow_dispatch ] || args+=(--ignoreStatic)
           before=$( [ -f "$out/incremental.json" ] && cksum < "$out/incremental.json" || true)
           rc=0
-          timeout --signal=INT --kill-after=5m "$BUDGET" npm run test:mutation -- "${args[@]}" || rc=$?
+          # Ubuntu 26.04's timeout (uutils 0.10.0) sends SIGKILL at the budget when --kill-after is given, so the tool never
+          # sees SIGINT and writes no partial report; GNU's ships beside it as gnutimeout.
+          # upstream: W22
+          tm=$(command -v gnutimeout || command -v timeout)
+          "$tm" --signal=INT --kill-after=5m "$BUDGET" npm run test:mutation -- "${args[@]}" || rc=$?
           if [ "$rc" -eq 124 ]; then
             after=$( [ -f "$out/incremental.json" ] && cksum < "$out/incremental.json" || true)
             echo "::notice::Stryker stopped at its $BUDGET budget; the report holds the mutants it reached"
@@ -350,7 +354,11 @@ jobs:
           # GitHub runs bash with -e: the exit is captured, never ending the script. At BUDGET cargo-mutants gets
           # SIGINT, as from a terminal, and stops with mutants.out holding what it reached.
           rc=0
-          timeout --signal=INT --kill-after=5m "$BUDGET" cargo mutants "${args[@]}" || rc=$?
+          # Ubuntu 26.04's timeout (uutils 0.10.0) sends SIGKILL at the budget when --kill-after is given, so the tool never
+          # sees SIGINT and writes no partial report; GNU's ships beside it as gnutimeout.
+          # upstream: W22
+          tm=$(command -v gnutimeout || command -v timeout)
+          "$tm" --signal=INT --kill-after=5m "$BUDGET" cargo mutants "${args[@]}" || rc=$?
           # 0 every mutant caught, 2 some missed, 3 some timed out, 124 the budget ran out: information. Anything else
           # (usage, a failing baseline) fails this non-blocking job, so the run shows it.
           case $rc in

@@ -51,11 +51,19 @@ describe('TS redaction', () => {
   })
 
   it('stays linear on hostile input: many path starts with no end', () => {
-    const hostile = ' /a'.repeat(MAX_REDACT_INPUT / 3)
-    const started = performance.now()
-    redact(hostile)
-    redact(`${' /a b'.repeat(MAX_REDACT_INPUT / 5)}`)
-    expect(performance.now() - started).toBeLessThan(1_000)
+    // Time grows with length, not its square: four times the input takes well under the sixteen times a quadratic scan
+    // would, whatever the machine's speed or a mutation run's instrumentation (no wall-clock bound; canopi-f47t.52.36).
+    const fastest = (input: string) => Math.min(...[0, 1, 2].map(() => {
+      const started = performance.now()
+      redact(input)
+      return performance.now() - started
+    }))
+    const hostile = (repeat: string, length: number) => repeat.repeat(Math.floor(length / repeat.length))
+    for (const repeat of [' /a', ' /a b']) {
+      const quarter = fastest(hostile(repeat, MAX_REDACT_INPUT / 4))
+      const whole = fastest(hostile(repeat, MAX_REDACT_INPUT))
+      expect(whole / Math.max(quarter, 0.05), repeat).toBeLessThan(10)
+    }
   })
 
   it('keeps the error reason that follows a path', () => {

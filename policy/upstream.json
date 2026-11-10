@@ -349,6 +349,24 @@
       "report": "canopi-f47t.52.252",
       "status": "open",
       "exit": "An opener release reaches the portal: the pin fails, reveal_item selects the item on a desktop with no FileManager1, and show_item's folder fallback stays only for a refused portal."
+    },
+    {
+      "id": "W22",
+      "library": "uutils coreutils timeout (Ubuntu 26.04)",
+      "pin": "0.10.0",
+      "what": "The mutation lanes' Mutate steps run gnutimeout when it is installed, since uutils timeout sends SIGKILL at the budget when --kill-after is given, so cargo-mutants and Stryker never see SIGINT and write no partial report.",
+      "sites": [
+        ".github/workflows/mutation.yml"
+      ],
+      "pin_test": {
+        "planned": {
+          "phase": "2",
+          "bead": "canopi-ivit"
+        }
+      },
+      "report": "",
+      "status": "open",
+      "exit": "A uutils release sends SIGINT at the budget and SIGKILL only after --kill-after, and ubuntu-latest carries it: the fallback goes and this row closes."
     }
   ]
 }

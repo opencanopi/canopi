@@ -59,6 +59,7 @@ const TAG = /^ upstream: (W[1-9][0-9]*)(?![0-9])/u;
 const JS = /\.(?:[cm]?[jt]sx?)$/u;
 const RUST = /\.rs$/u;
 const TOML = /\.toml$/u;
+const YAML = /\.ya?ml$/u;
 const MARKER = /\b(?:it|test|describe)\.fails?\(/u;
 const DECLARATION = /\b(?:it|test|describe)(?:\.[A-Za-z]+)*\(/u;
 const BEAD = /^canopi-[a-z0-9]+(?:\.[0-9]+)*$/u;
@@ -101,6 +102,13 @@ function lineComments(rel, src) {
     return lexRust(src).comments.filter((c) => lines[c.line - 1]?.includes(`//${c.text}`));
   }
   if (TOML.test(rel)) return tomlComments(src);
+  // YAML: a whole-line `#` comment only, since a `#` after a value may sit inside a run script's string (W22).
+  if (YAML.test(rel)) {
+    return src.split('\n').flatMap((text, at) => {
+      const match = /^\s*#(.*)$/u.exec(text);
+      return match ? [{ line: at + 1, text: match[1] }] : [];
+    });
+  }
   return [];
 }
 
@@ -289,7 +297,7 @@ export function collect({ root, paths }) {
   const site = (kind, id, rel, line) => sites.push({ rule: RULE, name: `${kind} ${id} ${rel}`, path: rel, ...(line ? { line } : {}) });
   const tagged = new Map();
   for (const rel of paths) {
-    if (!(JS.test(rel) || RUST.test(rel) || TOML.test(rel)) || !exists(rel)) continue;
+    if (!(JS.test(rel) || RUST.test(rel) || TOML.test(rel) || YAML.test(rel)) || !exists(rel)) continue;
     const tags = tagsIn(rel, read(rel));
     tagged.set(rel, tags);
     for (const { id, line } of tags) {

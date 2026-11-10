@@ -36,6 +36,12 @@ const NOT_ENGINE_SPECS = ['platform/**', 'phones/**']
  * headless Firefox creates a context, the pin fails and the Firefox lane stops there. Named alone, it runs by itself.
  */
 const FIREFOX_HEADLESS_PIN = 'canvas/firefox-headless-webgl-pin.spec.ts'
+/**
+ * The pin's Firefox sees no display: the Firefox lanes run under xvfb-run, and with DISPLAY set headless Firefox draws
+ * WebGL through Mesa's software path (measured in the pinned image, 2026-11-10), which is not the case W18 describes.
+ */
+const NO_DISPLAY_ENV = Object.fromEntries(Object.entries(process.env)
+  .filter((entry): entry is [string, string] => entry[1] !== undefined && entry[0] !== 'DISPLAY' && entry[0] !== 'WAYLAND_DISPLAY'))
 // upstream: W18
 /**
  * Firefox as the specs need it: headed (see the header), and geolocation blocked unless a spec grants it, as Chromium and
@@ -117,7 +123,7 @@ export function projectsFor(argv: readonly string[], env: Readonly<Record<string
     { name: 'chromium', testIgnore: ignore, use: { browserName: 'chromium' } },
     { name: 'webkit', testIgnore: ignore, use: { browserName: 'webkit' } },
     { name: 'firefox', testIgnore: ignore, use: FIREFOX, workers: FIREFOX_WORKERS, dependencies: ['firefox-headless'] },
-    { name: 'firefox-headless', testMatch: FIREFOX_HEADLESS_PIN, use: { browserName: 'firefox', headless: true } },
+    { name: 'firefox-headless', testMatch: FIREFOX_HEADLESS_PIN, use: { browserName: 'firefox', headless: true, launchOptions: { env: NO_DISPLAY_ENV } } },
     { name: 'gallery-chromium', testMatch: 'gallery/**/*.spec.ts', testIgnore: NOT_ENGINE_SPECS, use: { browserName: 'chromium', baseURL: `http://127.0.0.1:${GALLERY_PORT}/` } },
     { name: 'gallery-webkit', testMatch: 'gallery/**/*.spec.ts', testIgnore: NOT_ENGINE_SPECS, use: { browserName: 'webkit', baseURL: `http://127.0.0.1:${GALLERY_PORT}/` } },
     { name: 'gallery-firefox', testMatch: 'gallery/**/*.spec.ts', testIgnore: NOT_ENGINE_SPECS, use: { ...FIREFOX, baseURL: `http://127.0.0.1:${GALLERY_PORT}/` }, workers: FIREFOX_WORKERS },
