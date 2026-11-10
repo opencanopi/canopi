@@ -2,7 +2,7 @@
 // notice queue; a fake stands only at the settings adapter.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { installSettingsProjection, resetSettingsProjectionForTests, type SettingsProjectionInstallation } from '../../app/settings/projection'
-import { resetStoreHealthForTests, storeStatus } from '../../failures/health'
+import { resetStoreHealthForTests, storeStatus, writeStoreHealth } from '../../failures/health'
 import { notices, resetNoticesForTests } from '../../failures/notices'
 import { resetFrontendDiagnosticsForTests } from '../../failures/ring'
 import { DEFAULT_SETTINGS } from '../../generated/settings'
@@ -64,5 +64,13 @@ describe('store notices', () => {
     await vi.runAllTimersAsync()
     expect(storeStatus('settings')).toEqual({ kind: 'ready' })
     expect(notices.value).toEqual([])
+  })
+
+  it('canopi-f47t.52.36: a store notice\'s Report a problem passes the store\'s origin to the root\'s report', () => {
+    const report = vi.fn()
+    disposeNotices = installStoreNotices({ report, updatesInAbout: false, dismissOnHost: null })
+    writeStoreHealth('web_drafts', { status: { kind: 'unavailable', code: { kind: 'internal' } }, notice: null })
+    notices.value[0]!.action!.run()
+    expect(report).toHaveBeenCalledWith({ source: 'health.web_drafts', code: { kind: 'internal' }, operation: null, detail: 'web_drafts: unavailable' })
   })
 })

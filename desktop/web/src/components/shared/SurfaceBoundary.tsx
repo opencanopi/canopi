@@ -32,8 +32,8 @@ export type BoundedSurface =
   | 'canvas-pdf'
 
 /**
- * Opens the edition's problem report from a fault, which the report lists first; null where the edition has none (the
- * Web Edition until its report lands).
+ * Opens the edition's problem report from a fault, which the report lists first; null outside a root (a test or
+ * gallery surface).
  */
 const ProblemReportOpener = createContext<((origin: ReportOrigin | null) => void) | null>(null)
 
