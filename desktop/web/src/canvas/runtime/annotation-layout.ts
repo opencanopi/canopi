@@ -1,5 +1,5 @@
 import { CANVAS_CHROME_FONT_FAMILY } from '../chrome-fonts'
-import { canvasFonts } from './font-loading'
+import { canvasFonts } from './fonts/font-loading'
 import { getCanvasTextOpacity } from './text-visibility'
 import type { SceneAnnotationEntity, SceneDesignObjectSelection, ScenePoint } from './scene'
 

@@ -4,12 +4,12 @@
 import 'pixi.js/unsafe-eval'
 import { Text, type Container } from 'pixi.js'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createTestRendererView, createTestSceneRendererSnapshot } from '../../__tests__/support/scene-renderer-snapshot'
-import { measurementGuide, plantEntity } from '../../__tests__/support/tool-harness'
+import { createTestRendererView, createTestSceneRendererSnapshot } from '../../../__tests__/support/scene-renderer-snapshot'
+import { measurementGuide, plantEntity } from '../../../__tests__/support/tool-harness'
 import { canvasFonts } from './font-loading'
-import { createBillboardLayer } from './renderers/billboard-layer'
-import { createDraftLayer } from './renderers/draft-layer'
-import { createDraftScenePainters } from './renderers/pixi-scene'
+import { createBillboardLayer } from '../renderers/billboard-layer'
+import { createDraftLayer } from '../renderers/draft-layer'
+import { createDraftScenePainters } from '../renderers/pixi-scene'
 
 type Face = { status: FontFaceLoadStatus }
 

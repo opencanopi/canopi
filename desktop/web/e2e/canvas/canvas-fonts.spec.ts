@@ -1,5 +1,5 @@
 // Canvas text drawn before its web font arrives is drawn again in that font once it has loaded (D11,
-// canvas/runtime/font-loading.ts). Pixi rasterises a text once and keeps the raster while its text and style stay the
+// canvas/runtime/fonts/font-loading.ts). Pixi rasterises a text once and keeps the raster while its text and style stay the
 // same, and nothing in Pixi listens for fonts, so the billboard layer asks the loader for each label's font and lets
 // every name, stack badge and guide label go when the loader's epoch moves. This runs in the browser, in every engine:
 // the interface font's files are held back while a Design with a pinned plant name, a stack of two plants and a

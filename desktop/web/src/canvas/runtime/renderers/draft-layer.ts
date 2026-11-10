@@ -17,7 +17,7 @@
 // Production CSP rejects Pixi's generated functions; its shim avoids eval.
 import 'pixi.js/unsafe-eval'
 import { AlphaFilter, Container, Graphics, Rectangle, TextStyle, type Text } from 'pixi.js'
-import { canvasFonts, distinctCharacters } from '../font-loading'
+import { canvasFonts, distinctCharacters } from '../fonts/font-loading'
 import type { SceneAnnotationEntity, ScenePlantEntity, SceneZoneEntity } from '../scene'
 import {
   getDraftLabelVisual,

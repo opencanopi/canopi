@@ -15,7 +15,7 @@ import { CANVAS_CHROME_FONT_FAMILY } from '../../chrome-fonts'
 import { SPECIES_FOCUS_DIM_OPACITY, speciesFocusOpacity } from '../species-key'
 import { AlphaFilter, CanvasTextMetrics, Container, Graphics, GraphicsContext, Rectangle, type Text } from 'pixi.js'
 import { annotationOutlineCorners, getAnnotationPresentation } from '../annotation-layout'
-import { canvasFonts, distinctCharacters } from '../font-loading'
+import { canvasFonts, distinctCharacters } from '../fonts/font-loading'
 import { getCanvasDetailLayout, isMeasurementLabelVisible } from '../automatic-detail'
 import {
   createMeasurementGuidePresentation,

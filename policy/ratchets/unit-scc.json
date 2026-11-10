@@ -168,7 +168,7 @@
     "canvas/point-editor <-> canvas/runtime/tools": { "count": 7 },
     "canvas/runtime <-> canvas/runtime/chrome": { "count": 4 },
     "canvas/runtime <-> canvas/runtime/input": { "count": 6 },
-    "canvas/runtime <-> canvas/runtime/renderers": { "count": 20 },
+    "canvas/runtime <-> canvas/runtime/renderers": { "count": 18 },
     "canvas/runtime <-> canvas/runtime/scene": { "count": 10 },
     "canvas/runtime <-> canvas/runtime/scene-runtime": { "count": 31 },
     "canvas/runtime <-> canvas/runtime/tools": { "count": 24 },
