@@ -27,7 +27,7 @@ export async function invokeCommand<T>(command: string, args?: InvokeArgs): Prom
     return await (args === undefined ? invoke<T>(command) : invoke<T>(command, args))
   } catch (rejection) {
     // A typed refusal not yet on the catalogue (`DesignLoadFailure`, `LidarImportRefusal`) is its caller's outcome,
-    // worded by the surface that reads its shape; it joins the catalogue with its stream (design_load in 2a,
+    // worded by the surface that reads its shape; it joins the catalogue with its stream (design_load in 2b,
     // import_refused in N1), so it passes unchanged and unrecorded until then.
     if (isTypedRefusal(rejection)) throw rejection
     throw settle(command, rejection)

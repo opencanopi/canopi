@@ -113,6 +113,7 @@
     "localDataNotOpenedTitle": "Dati precedenti non aperti",
     "localDataNotOpened": "Canopi 2.0 non può aprire i dati salvati dalle versioni precedenti. Sono stati lasciati invariati e Canopi è ripartito da zero.",
     "settingsUnavailable": "Impossibile leggere le tue impostazioni. Canopi usa i valori predefiniti e non modificherà le impostazioni salvate in questa sessione.",
+    "settingsStillUnavailable": "Le tue impostazioni non sono ancora leggibili.",
     "setAside": {
       "userDb": "I dati salvati di Canopi erano danneggiati e sono stati messi da parte come {{file}}. I tuoi progetti non sono interessati.",
       "webDrafts": "Le bozze salvate di Canopi erano danneggiate e sono state messe da parte come {{file}}. I progetti esportati come file non sono interessati.",
@@ -1377,7 +1378,8 @@
   "notice": {
     "count": "{{index}} di {{count}}",
     "dismiss": "Ignora",
-    "reload": "Ricarica"
+    "reload": "Ricarica",
+    "tryingAgain": "Nuovo tentativo…"
   },
   "shared": {
     "datePicker": {
@@ -1406,7 +1408,7 @@
     "contentsTitle": "Il rapporto contiene",
     "sendText": "Per inviarlo, apri una segnalazione nella pagina delle segnalazioni di Canopi su GitHub, descrivi cosa è successo e allega lo zip.",
     "issuesLink": "Apri la pagina delle segnalazioni su GitHub",
-    "downloadedText": "Rapporto scaricato. Allega il file al tuo messaggio per l’assistenza.",
+    "downloadedText": "Rapporto scaricato. Lo zip si trova nei download del browser.",
     "showAgain": "Mostra di nuovo",
     "section": {
       "originatingFailure": "L’errore da cui stai segnalando, con il suo codice e la sua operazione.",

@@ -113,6 +113,7 @@
     "localDataNotOpenedTitle": "以前のデータは開いていません",
     "localDataNotOpened": "Canopi 2.0 は以前のバージョンで保存されたデータを開けません。データは変更せずにそのまま残し、Canopi は新しい状態で開始しました。",
     "settingsUnavailable": "設定を読み込めませんでした。Canopi は既定の設定を使用しており、このセッション中は保存された設定を変更しません。",
+    "settingsStillUnavailable": "設定をまだ読み込めません。",
     "setAside": {
       "userDb": "Canopi の保存データが破損していたため、{{file}} として別に保管しました。デザインには影響ありません。",
       "webDrafts": "Canopi に保存された下書きが破損していたため、{{file}} として別に保管しました。ファイルとして書き出したデザインには影響ありません。",
@@ -1377,7 +1378,8 @@
   "notice": {
     "count": "{{count}} 件中 {{index}} 件目",
     "dismiss": "閉じる",
-    "reload": "再読み込み"
+    "reload": "再読み込み",
+    "tryingAgain": "再試行中…"
   },
   "shared": {
     "datePicker": {
@@ -1406,7 +1408,7 @@
     "contentsTitle": "レポートの内容",
     "sendText": "送るには、Canopi の GitHub Issues ページで Issue を作成し、起きたことを書いて zip を添付してください。",
     "issuesLink": "GitHub Issues ページを開く",
-    "downloadedText": "レポートをダウンロードしました。サポートへのメッセージにファイルを添付してください。",
+    "downloadedText": "レポートをダウンロードしました。zip はブラウザーのダウンロードにあります。",
     "showAgain": "もう一度表示",
     "section": {
       "originatingFailure": "報告元の失敗とそのコード、操作。",

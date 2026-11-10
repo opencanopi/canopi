@@ -339,14 +339,14 @@ describe('ProblemReportDialog', () => {
     expect(ringEntries()).toEqual([])
   })
 
-  it('a Web report is a download: the dialog offers no Show folder, so no dead action records a failure', async () => {
+  it('canopi-f47t.52.36: a Web report is a download: the dialog says where the zip went, offers no Show folder, and no dead action records a failure', async () => {
     installWebWriter()
     await show()
     await send()
 
     // Nothing was shown in a file manager: no folder to show, so no failed showing either.
     expect(problemReportSubmission.showFolderState.value).toBe('idle')
-    expect(container.textContent).toContain('Report downloaded. Attach the file to your message to support.')
+    expect(container.textContent).toContain('Report downloaded. The zip is in your browser’s downloads.')
     expect(container.textContent).not.toContain(REPORT_FILE)
     expect(buttons()).toEqual(['', 'Close'])
     await act(async () => problemReportSubmission.showFolder())

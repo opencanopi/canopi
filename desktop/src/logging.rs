@@ -133,14 +133,14 @@ pub fn log_failure(failure: &Failure, lane: Option<Lane>) {
         RING.keep(SettledFailure {
             failure: failure.clone(),
             lane,
+            count: 1,
         });
     }
 }
 
 /// The last native failure settlements, oldest first, for the problem report's native section.
 pub fn recent_failures() -> Vec<SettledFailure> {
-    let ring = RING.0.lock().unwrap_or_else(PoisonError::into_inner);
-    ring.iter().cloned().collect()
+    RING.held()
 }
 
 /// One kept settlement: the failure as it crossed the seam, and its lane.
@@ -148,10 +148,13 @@ pub fn recent_failures() -> Vec<SettledFailure> {
 pub struct SettledFailure {
     pub failure: Failure,
     pub lane: Option<Lane>,
+    /// How many times it settled while the ring held it.
+    pub count: u32,
 }
 
-/// The last [`RING_CAPACITY`] failure settlements, in memory: a log write that fails never
-/// loses one.
+/// The last [`RING_CAPACITY`] distinct failure settlements, in memory, a repeat counted on its
+/// held entry: a log write that fails never loses one, and a burst of one refusal never pushes
+/// out an earlier failure.
 struct SettlementRing(Mutex<VecDeque<SettledFailure>>);
 
 impl SettlementRing {
@@ -159,13 +162,33 @@ impl SettlementRing {
         Self(Mutex::new(VecDeque::new()))
     }
 
-    fn keep(&self, settled: SettledFailure) {
+    /// Keeps `settled`; a repeat of a held entry (same lane, code, op and redacted detail, the
+    /// operation left out as 2.1-M459 does) counts on it, takes its failure and moves newest.
+    fn keep(&self, mut settled: SettledFailure) {
         let mut ring = self.0.lock().unwrap_or_else(PoisonError::into_inner);
-        if ring.len() == RING_CAPACITY {
+        let repeat = ring.iter().position(|held| same_failure(held, &settled));
+        if let Some(held) = repeat.and_then(|index| ring.remove(index)) {
+            settled.count = settled.count.saturating_add(held.count);
+        } else if ring.len() == RING_CAPACITY {
             ring.pop_front();
         }
         ring.push_back(settled);
     }
+
+    fn held(&self) -> Vec<SettledFailure> {
+        let ring = self.0.lock().unwrap_or_else(PoisonError::into_inner);
+        ring.iter().cloned().collect()
+    }
+}
+
+/// Whether `a` and `b` are one failure repeating: every field but the operation.
+fn same_failure(a: &SettledFailure, b: &SettledFailure) -> bool {
+    let (a_failure, b_failure) = (&a.failure, &b.failure);
+    a.lane == b.lane
+        && a_failure.code == b_failure.code
+        && a_failure.op == b_failure.op
+        && a_failure.user_may_retry == b_failure.user_may_retry
+        && a_failure.detail == b_failure.detail
 }
 
 const fn lane_name(lane: Lane) -> &'static str {

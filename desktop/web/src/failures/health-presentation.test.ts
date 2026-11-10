@@ -41,7 +41,7 @@ function hasKey(key: string): boolean {
 }
 
 const NO_ACTIONS = { report: null, update: null }
-const EVERY_ACTION = { retry: () => {}, report: () => {}, update: () => {}, dismissNotice: () => {} }
+const EVERY_ACTION = { retry: { run: () => {}, running: () => false }, report: () => {}, update: () => {}, dismissNotice: () => {} }
 
 /** The row notice one store's status alone raises, if any. */
 function statusNotice(store: StoreId, status: StoreOpenStatus) {
@@ -115,7 +115,7 @@ describe('store health presentation', () => {
   })
 
   it('[canopi-f47t.52.40] settings unavailable offers Try again and Report a problem, and leaves the row once read (2.1-Q295)', () => {
-    const retry = vi.fn()
+    const retry = vi.fn(async () => true)
     const report = vi.fn()
     const dispose = installHealthNotices({ report, update: null, retry: { settings: retry } })
     writeStoreHealth('settings', { status: { kind: 'unavailable', code: { kind: 'internal' } }, notice: null })
@@ -150,7 +150,7 @@ describe('store health presentation', () => {
   it('canopi-f47t.52.36: a store whose failure code changes under the same kind replaces its notice, and Report names the new code', () => {
     // Same kind, new code: notice replaced.
     const report = vi.fn()
-    const dispose = installHealthNotices({ report, update: null, retry: { settings: () => {} } })
+    const dispose = installHealthNotices({ report, update: null, retry: { settings: async () => true } })
     writeStoreHealth('settings', { status: { kind: 'unavailable', code: { kind: 'internal' } }, notice: null })
     writeStoreHealth('settings', { status: { kind: 'unavailable', code: { kind: 'io', io: 'permission_denied' } }, notice: null })
     expect(notices.value).toHaveLength(1)

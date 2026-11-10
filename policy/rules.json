@@ -2277,7 +2277,7 @@
       "ledger": "2.1-M224",
       "family": "no-user-content-in-message",
       "adr": "0025",
-      "owner_today": "none",
+      "owner_today": "canopi-redact",
       "owner_target": {
         "path": "canopi-redact",
         "phase": "1a",

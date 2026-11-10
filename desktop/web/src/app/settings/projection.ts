@@ -80,7 +80,7 @@ interface ActiveSettingsProjection {
   readonly resolveRetired: () => void
   ready: Promise<void> | null
   /** The first or a Try again read in flight; a press joins it, so one read lands and applies the session's changes. */
-  retrying: Promise<void> | null
+  retrying: Promise<boolean> | null
 }
 
 interface PendingHydrationIntent {
@@ -617,13 +617,13 @@ function loadSettingsProjection(projection: ActiveSettingsProjection): void | Pr
   return readSettings(projection, Promise.resolve(loaded), SETTINGS_LOAD_RETRY_DELAYS_MS)
 }
 
-/** Try again (2.1-Q295): once read, the session's changes are applied over the record and saved. */
-export function retrySettingsLoad(): Promise<void> {
+/** Try again (2.1-Q295): once read, the session's changes are applied over the record and saved; resolves false when the read failed again. */
+export function retrySettingsLoad(): Promise<boolean> {
   const projection = activeSettingsProjection
-  if (!projection || projection.durable || !isCurrentProjection(projection)) return Promise.resolve()
+  if (!projection || projection.durable || !isCurrentProjection(projection)) return Promise.resolve(true)
   if (projection.retrying) return projection.retrying
   const retrying = readSettings(projection, Promise.resolve().then(() => projection.adapter.load()), [])
-    .catch(() => undefined)
+    .then(() => true, () => false)
     .finally(() => { projection.retrying = null })
   projection.retrying = retrying
   return retrying
@@ -671,7 +671,7 @@ export function installSettingsProjection(
     : loadSettingsProjection(projection)
   const ready = isPromiseLike(loaded) ? Promise.resolve(loaded).then(() => undefined) : Promise.resolve()
   projection.ready = ready
-  if (isPromiseLike(loaded)) projection.retrying = ready.catch(() => undefined).finally(() => (projection.retrying = null))
+  if (isPromiseLike(loaded)) projection.retrying = ready.then(() => true, () => false).finally(() => (projection.retrying = null))
 
   return {
     ready,

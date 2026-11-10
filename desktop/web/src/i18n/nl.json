@@ -113,6 +113,7 @@
     "localDataNotOpenedTitle": "Eerdere gegevens niet geopend",
     "localDataNotOpened": "Canopi 2.0 kan gegevens van eerdere versies niet openen. Ze zijn ongewijzigd gelaten en Canopi is opnieuw begonnen.",
     "settingsUnavailable": "Je instellingen konden niet worden gelezen. Canopi gebruikt de standaardwaarden en wijzigt je opgeslagen instellingen deze sessie niet.",
+    "settingsStillUnavailable": "Je instellingen konden nog steeds niet worden gelezen.",
     "setAside": {
       "userDb": "De opgeslagen gegevens van Canopi waren beschadigd en zijn apart gezet als {{file}}. Je ontwerpen zijn niet getroffen.",
       "webDrafts": "De opgeslagen concepten van Canopi waren beschadigd en zijn apart gezet als {{file}}. Ontwerpen die je als bestand hebt geëxporteerd zijn niet getroffen.",
@@ -1377,7 +1378,8 @@
   "notice": {
     "count": "{{index}} van {{count}}",
     "dismiss": "Sluiten",
-    "reload": "Opnieuw laden"
+    "reload": "Opnieuw laden",
+    "tryingAgain": "Opnieuw proberen…"
   },
   "shared": {
     "datePicker": {
@@ -1406,7 +1408,7 @@
     "contentsTitle": "Het rapport bevat",
     "sendText": "Om het te versturen opent u een issue op Canopi’s GitHub-issuespagina, beschrijft u wat er gebeurde en voegt u de zip toe.",
     "issuesLink": "GitHub-issuespagina openen",
-    "downloadedText": "Rapport gedownload. Voeg het bestand toe aan uw bericht aan support.",
+    "downloadedText": "Rapport gedownload. De zip staat in de downloads van uw browser.",
     "showAgain": "Opnieuw tonen",
     "section": {
       "originatingFailure": "De fout van waaruit u meldt, met de code en de bewerking.",

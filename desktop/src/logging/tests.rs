@@ -307,8 +307,9 @@ fn a_log_file_deleted_or_full_mid_session_drops_lines_and_keeps_every_settlement
             ["probe.deleted", "probe.full"],
             "every settlement kept, a cancel left out"
         );
-        for _ in 0..RING_CAPACITY {
-            log_failure(&Failure::new(FailureCode::Internal, "probe.flood"), None);
+        for flood in 0..RING_CAPACITY {
+            let failure = Failure::new(FailureCode::Internal, "probe.flood");
+            log_failure(&failure.with_english(&format!("flood {flood}")), None);
         }
         let kept = recent_failures();
         assert_eq!(kept.len(), RING_CAPACITY);
@@ -389,4 +390,58 @@ fn twenty_old_daily_files_leave_fourteen_and_no_other_file_is_touched() {
     for kept in ["notes.txt", "engine-1-out.log", "canopi.2025-02-01"] {
         assert!(logs.join(kept).exists(), "{kept} is untouched");
     }
+}
+
+/// 2.1-M459 on the native ring: a repeat (same lane, code, op and redacted detail) counts on
+/// its held entry and takes the newest place, so a burst of busy refusals never pushes out the
+/// failure the user is reporting; the operation stays out of the key.
+#[test]
+fn canopi_f47t_52_36_repeated_busy_settlements_keep_the_earlier_failure_in_the_ring() {
+    let ring = SettlementRing::new();
+    let settled = |failure: Failure, lane| SettledFailure {
+        failure,
+        lane,
+        count: 1,
+    };
+    ring.keep(settled(
+        Failure::new(FailureCode::Internal, "probe.catalog_open"),
+        None,
+    ));
+    let busy = Failure::new(
+        FailureCode::Busy {
+            lane: Lane::Catalog,
+        },
+        "probe.search",
+    );
+    let mut newest = None;
+    for _ in 0..60 {
+        let operation = OperationId::system();
+        newest = Some(operation.clone());
+        ring.keep(settled(
+            busy.clone().with_operation(operation),
+            Some(Lane::Catalog),
+        ));
+    }
+    ring.keep(settled(
+        busy.clone().with_english("a different reason"),
+        Some(Lane::Catalog),
+    ));
+
+    let kept = ring.held();
+    let summary: Vec<_> = kept
+        .iter()
+        .map(|kept| (kept.failure.op, kept.failure.detail.is_some(), kept.count))
+        .collect();
+    assert_eq!(
+        summary,
+        [
+            ("probe.catalog_open", false, 1),
+            ("probe.search", false, 60),
+            ("probe.search", true, 1),
+        ]
+    );
+    assert_eq!(
+        kept[1].failure.operation, newest,
+        "the newest occurrence's operation"
+    );
 }

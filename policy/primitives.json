@@ -204,10 +204,10 @@
       "owner_today": "none",
       "owner_target": {
         "path": "desktop/web/src/failures",
-        "phase": "1b",
+        "phase": "2a",
         "bead": "canopi-f47t.52.70"
       },
-      "note": "no correlation or sequence field in Failure, ring entries or log fields but operation, job_id and item_id (Failure and the ring do not exist yet)"
+      "note": "no correlation or sequence field in Failure, ring entries or log fields but operation, job_id and item_id; Phase 1 built Failure and the ring with an optional operation, and 2a's invoke<K> and its minters make it required, with this rule (2.1-M411)"
     },
     {
       "id": "wasm-glue-only-in-adapter",
@@ -291,8 +291,9 @@
       "tool": "ast-grep",
       "ledger": "2.1-M189",
       "adr": "0025",
-      "owner_today": "desktop/web/src/failures/notices.ts",
+      "owner_today": "desktop/web/src/failures",
       "also_owners": [
+        "desktop/web/src/failures/notices.ts",
         "desktop/web/src/components/shared/NoticeRow.tsx",
         "desktop/web/src/components/shared/ToastSlot.tsx"
       ],
@@ -757,7 +758,7 @@
       "tool": "ast-grep",
       "ledger": "2.1-M224",
       "adr": "0025",
-      "owner_today": "none",
+      "owner_today": "desktop/web/src/failures",
       "also_owners": [
         "desktop/web/src/ipc/dialogs.ts",
         "desktop/web/src/ipc/geojson.ts",
@@ -883,7 +884,7 @@
       "tool": "ast-grep",
       "ledger": "2.1-M189",
       "adr": "0025",
-      "owner_today": "none",
+      "owner_today": "canopi-types/src/failure",
       "owner_target": {
         "path": "canopi-types/src/failure",
         "phase": "1a",

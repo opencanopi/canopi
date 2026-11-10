@@ -113,6 +113,7 @@
     "localDataNotOpenedTitle": "Frühere Daten nicht geöffnet",
     "localDataNotOpened": "Canopi 2.0 kann von früheren Versionen gespeicherte Daten nicht öffnen. Sie blieben unverändert, und Canopi hat neu begonnen.",
     "settingsUnavailable": "Ihre Einstellungen konnten nicht gelesen werden. Canopi verwendet die Standardwerte und ändert Ihre gespeicherten Einstellungen in dieser Sitzung nicht.",
+    "settingsStillUnavailable": "Ihre Einstellungen konnten weiterhin nicht gelesen werden.",
     "setAside": {
       "userDb": "Die gespeicherten Daten von Canopi waren beschädigt und wurden als {{file}} beiseitegelegt. Ihre Designs sind nicht betroffen.",
       "webDrafts": "Die gespeicherten Skizzen von Canopi waren beschädigt und wurden als {{file}} beiseitegelegt. Als Dateien exportierte Designs sind nicht betroffen.",
@@ -1377,7 +1378,8 @@
   "notice": {
     "count": "{{index}} von {{count}}",
     "dismiss": "Schließen",
-    "reload": "Neu laden"
+    "reload": "Neu laden",
+    "tryingAgain": "Wird erneut versucht…"
   },
   "shared": {
     "datePicker": {
@@ -1406,7 +1408,7 @@
     "contentsTitle": "Der Bericht enthält",
     "sendText": "Zum Senden eröffnen Sie ein Issue auf Canopis GitHub-Issues-Seite, beschreiben, was passiert ist, und hängen die ZIP-Datei an.",
     "issuesLink": "GitHub-Issues-Seite öffnen",
-    "downloadedText": "Bericht heruntergeladen. Hängen Sie die Datei an Ihre Nachricht an den Support an.",
+    "downloadedText": "Bericht heruntergeladen. Die ZIP-Datei liegt in den Downloads Ihres Browsers.",
     "showAgain": "Erneut anzeigen",
     "section": {
       "originatingFailure": "Der Fehler, von dem aus Sie melden, mit Code und Vorgang.",

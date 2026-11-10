@@ -148,11 +148,14 @@ impl HostDialogs {
         lock(&self.windows).remove(window);
     }
 
-    /// Show one dialog in `window` and wait for its answer; `None` is cancelled. A second pick
-    /// while one is open brings that dialog forward and is recorded at its row's level.
+    /// Show one dialog in `window` under the command's `op` and wait for its answer; `None` is
+    /// cancelled. The executor settles the dialog's start under `op` too, so its ring entry and
+    /// the returned `Failure` name one op. A second pick while one is open brings that dialog
+    /// forward and is recorded at its row's level.
     async fn pick(
         &self,
         executor: &NativeOperationExecutor,
+        op: &'static str,
         window: &str,
         kind: DialogKind,
         file_name: Option<String>,
@@ -203,7 +206,7 @@ impl HostDialogs {
         };
         // The start folder's check and the e2e build's answer file are filesystem work.
         let shown = executor
-            .run_typed(NativeOperationClass::Local, "file dialog", move || {
+            .run_typed(NativeOperationClass::Local, op, move || {
                 request.start_folder = request.start_folder.take().filter(|f| f.is_dir());
                 picker.show(request, answer);
                 Ok::<_, PickRefusal>(())
@@ -236,7 +239,7 @@ pub async fn pick_open(
     if kind.purpose() != DialogPurpose::Open {
         return Err(Failure::new(FailureCode::Invalid, OP));
     }
-    let picked = dialogs.pick(executor, window, kind, None).await;
+    let picked = dialogs.pick(executor, OP, window, kind, None).await;
     let Some(mut paths) = picked.map_err(|refusal| refusal.failure(OP))? else {
         return Ok(PickOpenOutcome::Cancelled);
     };
@@ -269,7 +272,9 @@ pub async fn pick_save(
     }
     let not_unicode = || Failure::new(FailureCode::Internal, OP);
     let file_name = path_text(with_extension(kind, PathBuf::from(stem))).ok_or_else(not_unicode)?;
-    let picked = dialogs.pick(executor, window, kind, Some(file_name)).await;
+    let picked = dialogs
+        .pick(executor, OP, window, kind, Some(file_name))
+        .await;
     let picked = picked.map_err(|refusal| refusal.failure(OP))?;
     let Some(path) = picked.and_then(|paths| paths.into_iter().next()) else {
         return Ok(PickSaveOutcome::Cancelled);
@@ -279,7 +284,8 @@ pub async fn pick_save(
     })
 }
 
-/// Show the Open dialog of a kind the host reads itself; the path stays in the host.
+/// Show the Open dialog of a kind the host reads itself, under the Open dialog's op; the path
+/// stays in the host.
 pub async fn pick_host_read(
     executor: &NativeOperationExecutor,
     dialogs: &HostDialogs,
@@ -289,7 +295,9 @@ pub async fn pick_host_read(
     if kind.purpose() != DialogPurpose::HostRead {
         return Err(format!("{} is not read by the host", kind.literal()));
     }
-    let picked = dialogs.pick(executor, window, kind, None).await;
+    let picked = dialogs
+        .pick(executor, ops::DIALOG_PICK_OPEN, window, kind, None)
+        .await;
     Ok(picked
         .map_err(PickRefusal::text)?
         .and_then(|paths| paths.into_iter().next()))

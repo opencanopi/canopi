@@ -113,6 +113,7 @@
     "localDataNotOpenedTitle": "未打开旧数据",
     "localDataNotOpened": "Canopi 2.0 无法打开旧版本保存的数据。这些数据保持不变，Canopi 已重新开始。",
     "settingsUnavailable": "无法读取您的设置。Canopi 正在使用默认设置，本次会话不会更改您已保存的设置。",
+    "settingsStillUnavailable": "仍无法读取您的设置。",
     "setAside": {
       "userDb": "Canopi 保存的数据已损坏，已另存为 {{file}}。您的设计不受影响。",
       "webDrafts": "Canopi 保存的草稿已损坏，已另存为 {{file}}。已导出为文件的设计不受影响。",
@@ -1377,7 +1378,8 @@
   "notice": {
     "count": "第 {{index}} 条，共 {{count}} 条",
     "dismiss": "关闭",
-    "reload": "重新加载"
+    "reload": "重新加载",
+    "tryingAgain": "正在重试…"
   },
   "shared": {
     "datePicker": {
@@ -1406,7 +1408,7 @@
     "contentsTitle": "报告包含",
     "sendText": "要发送报告，请在 Canopi 的 GitHub Issues 页面新建 Issue，描述发生了什么并附上 zip 文件。",
     "issuesLink": "打开 GitHub Issues 页面",
-    "downloadedText": "报告已下载。请将文件附在发给支持团队的消息中。",
+    "downloadedText": "报告已下载。zip 文件位于浏览器的下载内容中。",
     "showAgain": "再次显示",
     "section": {
       "originatingFailure": "你从中报告的故障，及其代码和操作。",

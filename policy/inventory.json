@@ -124,22 +124,20 @@
     {
       "id": "adr-0025-every-l4-surface-has-an-error-boundary",
       "doc": "docs/adr/0025-failure-model-and-native-scheduling.md",
-      "quote": "a policy test that every L4 surface has an error boundary (to be created by Phase 1)",
+      "quote": "a policy test that every L4 surface has an error boundary (built in Phase 1)",
       "state": {
-        "planned": {
-          "phase": "1b",
-          "bead": "canopi-f47t.52.36"
+        "exists": {
+          "check": "desktop/web/src/__tests__/every-l4-surface-has-boundary.test.tsx"
         }
       }
     },
     {
       "id": "adr-0025-and-to-be-created-by",
       "doc": "docs/adr/0025-failure-model-and-native-scheduling.md",
-      "quote": "`every_code_reaches_the_report` and `problem_report_always_carries_every_section` (to be created by Phase 1)",
+      "quote": "`every_code_reaches_the_report` and `problem_report_always_carries_every_section` (built in Phase 1)",
       "state": {
-        "planned": {
-          "phase": "1a",
-          "bead": "canopi-f47t.52.37"
+        "exists": {
+          "check": "desktop/web/src/app/problem-report/builder.test.ts"
         }
       }
     },
@@ -158,9 +156,8 @@
       "doc": "docs/adr/0025-failure-model-and-native-scheduling.md",
       "quote": "One tagged redaction corpus (`canopi-types/fixtures/redaction/`, shared and native-only cases), run",
       "state": {
-        "planned": {
-          "phase": "1a",
-          "bead": "canopi-f47t.52.37"
+        "exists": {
+          "check": "desktop/web/src/failures/redact.test.ts"
         }
       }
     },
