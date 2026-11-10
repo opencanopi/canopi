@@ -28,18 +28,27 @@ function toastLayer(): HTMLElement {
   return layer
 }
 
-/** The Tab traps of the open modal dialogs, oldest first; Tab pressed in a toast goes to the topmost. */
-const tabTraps: Array<(event: KeyboardEvent) => void> = []
+/** How a dialog takes the window's toasts into its focus cycle. */
+export interface ToastFocusCycle {
+  /** Tab pressed in a toast. */
+  trapTab(event: KeyboardEvent): void
+  /** A toast holding focus is leaving: focus goes back into the dialog. */
+  returnFocus(): void
+}
+
+/** The focus cycles of the open modal dialogs, oldest first; a toast's focus goes to the topmost. */
+const cycles: ToastFocusCycle[] = []
 
 /**
- * Puts the window's toasts in an open dialog's Tab cycle (canopi-f47t.52.36): the toast layer sits outside the dialog,
- * so Tab pressed in a toast is handed to `trap`, the topmost dialog's. Returns the release.
+ * Puts the window's toasts in an open dialog's focus cycle (canopi-f47t.52.36): the toast layer sits outside the
+ * dialog, so Tab pressed in a toast is handed to the topmost dialog's cycle, and a focused toast that leaves (its Undo
+ * pressed from the keyboard) gives focus back to it. Returns the release.
  */
-export function trapToastTab(trap: (event: KeyboardEvent) => void): () => void {
-  tabTraps.push(trap)
+export function trapToastTab(cycle: ToastFocusCycle): () => void {
+  cycles.push(cycle)
   return () => {
-    const index = tabTraps.indexOf(trap)
-    if (index >= 0) tabTraps.splice(index, 1)
+    const index = cycles.indexOf(cycle)
+    if (index >= 0) cycles.splice(index, 1)
   }
 }
 
@@ -51,7 +60,11 @@ export function toastFocusables(): HTMLElement[] {
 /** A toast whose state its component owns (an Undo toast), drawn in the window's one toast position. */
 export function SlotToast(props: ComponentProps<typeof Toast>) {
   return createPortal(
-    <Toast {...props} onKeyDown={(event) => { if (event.key === 'Tab') tabTraps.at(-1)?.(event) }} />,
+    <Toast
+      {...props}
+      onKeyDown={(event) => { if (event.key === 'Tab') cycles.at(-1)?.trapTab(event) }}
+      onLeaveFocused={() => cycles.at(-1)?.returnFocus()}
+    />,
     toastLayer(),
   )
 }

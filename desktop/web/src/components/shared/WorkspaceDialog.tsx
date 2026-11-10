@@ -43,14 +43,23 @@ export function WorkspaceDialog({ title, onClose, children, footer, wide = false
     event.preventDefault()
     cycle[(at + (event.shiftKey ? -1 : 1) + cycle.length) % cycle.length]?.focus()
   }
-  useLayoutEffect(() => trapToastTab(trapTab), [])
-  // Focus goes in as the dialog commits, after the modal layer has read the focus to give back, so an Esc at once is
-  // the dialog's (canopi-f47t.52.228.20).
-  useLayoutEffect(() => {
+  // The dialog control that last had focus: a focused toast that leaves (its Undo pressed from the keyboard) gives
+  // focus back to it, or to the initial control once it is gone, so Escape and Tab stay the dialog's.
+  const lastFocused = useRef<HTMLElement | null>(null)
+  const focusInitial = () => {
     const initial = dialog.current?.querySelector<HTMLElement>('[data-dialog-initial-focus]')
       ?? dialog.current?.querySelector<HTMLElement>(FOCUSABLE)
     initial?.focus()
-  }, [])
+  }
+  const returnFocus = () => {
+    const last = lastFocused.current
+    if (last && dialog.current?.contains(last)) last.focus()
+    else focusInitial()
+  }
+  useLayoutEffect(() => trapToastTab({ trapTab, returnFocus }), [])
+  // Focus goes in as the dialog commits, after the modal layer has read the focus to give back, so an Esc at once is
+  // the dialog's (canopi-f47t.52.228.20).
+  useLayoutEffect(focusInitial, [])
 
   return (
     <div className={styles.overlay} {...scrim}>
@@ -61,6 +70,7 @@ export function WorkspaceDialog({ title, onClose, children, footer, wide = false
         aria-modal="true"
         aria-labelledby={titleId}
         data-preserve-overlays="true"
+        onFocusIn={(event) => { if (event.target instanceof HTMLElement) lastFocused.current = event.target }}
         onKeyDown={(event) => {
           if (event.key === 'Escape') {
             event.preventDefault()

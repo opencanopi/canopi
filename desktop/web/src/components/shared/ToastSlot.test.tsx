@@ -3,7 +3,7 @@
 // active dialog and outside every chrome region a modal makes inert, so an Undo stays pressable while a dialog is open.
 // Stacking-order.test.ts holds the layer above the dialog layers on the z scale.
 import { render } from 'preact'
-import { useRef } from 'preact/hooks'
+import { useRef, useState } from 'preact/hooks'
 import { act } from 'preact/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { dismissNotice, notices, raiseNotice, resetNoticesForTests } from '../../failures/notices'
@@ -131,6 +131,34 @@ describe('ToastSlot', () => {
     expect(document.activeElement, 'Shift+Tab from the first control reaches Undo').toBe(undo)
     await tab(undo, true)
     expect(document.activeElement, 'Shift+Tab from Undo goes back into the dialog').toBe(button('Delete'))
+  })
+
+  it('canopi-f47t.52.36: Undo pressed from the keyboard in a dialog\'s Tab cycle leaves focus in the dialog, so Escape still closes it', async () => {
+    const onClose = vi.fn()
+    function ManageViews() {
+      const [toast, setToast] = useState(true)
+      return (
+        <>
+          <WorkspaceDialog title="Manage views" onClose={onClose}><button type="button">Delete</button></WorkspaceDialog>
+          {toast && <SlotToast message="View deleted" actionLabel="Undo" onAction={() => {}} onDismiss={() => setToast(false)} />}
+        </>
+      )
+    }
+    await act(async () => render(<ManageViews />, container))
+    const button = (name: string) => [...document.querySelectorAll<HTMLButtonElement>('button')]
+      .find((candidate) => candidate.textContent === name)!
+    const remove = button('Delete')
+    remove.focus()
+    await act(async () => { remove.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true })) })
+    const undo = button('Undo')
+    expect(document.activeElement).toBe(undo)
+    await act(async () => { undo.click() })
+    expect(undo.isConnected, 'the toast leaves once its action ran').toBe(false)
+    expect(document.activeElement, 'focus goes back to the control it left for the toast').toBe(remove)
+    await act(async () => {
+      document.activeElement!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
+    })
+    expect(onClose).toHaveBeenCalledOnce()
   })
 
   it('a workspace dialog with no toast still wraps Tab inside itself', async () => {

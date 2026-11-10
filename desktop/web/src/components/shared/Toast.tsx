@@ -1,5 +1,5 @@
 import type { ComponentChildren } from 'preact'
-import { useEffect, useRef, useState } from 'preact/hooks'
+import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks'
 import { ControlIcon, type ControlIconName } from './ControlIcon'
 import styles from './Toast.module.css'
 
@@ -11,13 +11,17 @@ const TOAST_TIMEOUT_MS = 8000
  * ToastSlot.tsx places it in the window's one toast position (the canvas lock toast stays canvas chrome); the caller
  * owns which toast is showing.
  */
-export function Toast({ message, actionLabel, onAction, onDismiss, onKeyDown, timeoutMs = TOAST_TIMEOUT_MS, icon = 'check' }: {
+export function Toast({
+  message, actionLabel, onAction, onDismiss, onKeyDown, onLeaveFocused, timeoutMs = TOAST_TIMEOUT_MS, icon = 'check',
+}: {
   readonly message: ComponentChildren
   readonly actionLabel?: string
   onAction?(): void
   onDismiss(): void
   /** A key pressed in the toast (ToastSlot hands Tab to an open dialog's trap). */
   onKeyDown?(event: KeyboardEvent): void
+  /** The toast is leaving while it holds focus (its Undo was pressed from the keyboard): focus must go somewhere live. */
+  onLeaveFocused?(): void
   readonly timeoutMs?: number
   readonly icon?: ControlIconName
 }) {
@@ -25,6 +29,14 @@ export function Toast({ message, actionLabel, onAction, onDismiss, onKeyDown, ti
   const [focused, setFocused] = useState(false)
   const dismiss = useRef(onDismiss)
   dismiss.current = onDismiss
+  const root = useRef<HTMLDivElement>(null)
+  const leaveFocused = useRef(onLeaveFocused)
+  leaveFocused.current = onLeaveFocused
+
+  // Runs as the toast unmounts, before its DOM goes, while the focus it holds can still be read.
+  useLayoutEffect(() => () => {
+    if (root.current?.contains(document.activeElement)) leaveFocused.current?.()
+  }, [])
 
   useEffect(() => {
     if (hovered || focused) return
@@ -34,6 +46,7 @@ export function Toast({ message, actionLabel, onAction, onDismiss, onKeyDown, ti
 
   return (
     <div
+      ref={root}
       className={styles.toast}
       role="status"
       onKeyDown={onKeyDown}
