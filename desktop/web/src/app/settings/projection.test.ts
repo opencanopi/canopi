@@ -158,6 +158,23 @@ describe('settings projection load failures', () => {
     expect(save).toHaveBeenLastCalledWith(expect.objectContaining({ theme: 'dark' }))
   })
 
+  it('[canopi-f47t.52.36] Try again pressed during the first settings read joins it instead of starting a second read', async () => {
+    const answers: Array<(settings: Settings) => void> = []
+    const load = vi.fn(() => new Promise<Settings>((resolve) => { answers.push(resolve) }))
+    const save = vi.fn(async (_settings: Settings) => undefined)
+    installation = installSettingsProjection({ load, save })
+
+    const pressed = retrySettingsLoad()
+    await vi.runAllTimersAsync()
+    expect(load).toHaveBeenCalledTimes(1)
+    for (const answer of answers) answer(storedSettingsAsSettings({ theme: 'light' }))
+    await Promise.all([pressed, installation.ready])
+
+    expect(load).toHaveBeenCalledTimes(1)
+    expect(storeStatus('settings')).toEqual({ kind: 'ready' })
+    expect(theme.value).toBe('light')
+  })
+
   it('[canopi-f47t.52.40] a projection retired mid-load (HMR) writes nothing when its load settles', async () => {
     let fail!: (error: Error) => void
     const save = vi.fn(async (_settings: Settings) => undefined)
