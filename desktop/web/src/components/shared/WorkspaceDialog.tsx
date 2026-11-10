@@ -3,8 +3,7 @@ import { useId, useLayoutEffect, useRef } from 'preact/hooks'
 import { SurfaceBoundary } from './SurfaceBoundary'
 import { t } from '../../i18n'
 import { ControlIcon } from './ControlIcon'
-import { toastFocusables } from './ToastSlot'
-import { useModalLayer } from './useModalLayer'
+import { trapTabWithToasts, useModalLayer } from './useModalLayer'
 import { useScrimPress } from './useScrimPress'
 import styles from './WorkspaceDialog.module.css'
 
@@ -29,35 +28,15 @@ export function WorkspaceDialog({ title, onClose, children, footer, wide = false
   const dialog = useRef<HTMLElement>(null)
   const titleId = useId()
 
-  // Tab wraps inside the dialog, through the window's toasts (an Undo shown above it sits in its cycle). Only a step
-  // across an end of that cycle is moved by hand; the browser moves every other.
-  const trapTab = (event: KeyboardEvent) => {
-    const own = Array.from(dialog.current?.querySelectorAll<HTMLElement>(FOCUSABLE) ?? [])
-    const toasts = toastFocusables()
-    const cycle = [...own, ...toasts]
-    const at = cycle.findIndex((element) => element === document.activeElement)
-    const crossing = at >= 0 && (at >= own.length || at === (event.shiftKey ? 0 : own.length - 1))
-    if (!crossing) return
-    event.preventDefault()
-    cycle[(at + (event.shiftKey ? -1 : 1) + cycle.length) % cycle.length]?.focus()
-  }
-  // The dialog control that last had focus: a focused toast that leaves (its Undo pressed from the keyboard) gives
-  // focus back to it, or to the initial control once it is gone, so Escape and Tab stay the dialog's.
-  const lastFocused = useRef<HTMLElement | null>(null)
   const focusInitial = () => {
     const initial = dialog.current?.querySelector<HTMLElement>('[data-dialog-initial-focus]')
       ?? dialog.current?.querySelector<HTMLElement>(FOCUSABLE)
     initial?.focus()
   }
-  const returnFocus = () => {
-    const last = lastFocused.current
-    if (last && dialog.current?.contains(last)) last.focus()
-    else focusInitial()
-  }
-  // The toasts join this cycle only while the dialog is the topmost modal (app/shell/modal-layer.ts).
-  const close = useRef(onClose)
-  close.current = onClose
-  useModalLayer({ trapTab, returnFocus, escape: () => close.current() })
+  // Tab wraps inside the dialog, through the window's toasts while it is the topmost modal (an Undo shown above it
+  // sits in its cycle), and Escape in a toast closes it.
+  const tabStops = () => Array.from(dialog.current?.querySelectorAll<HTMLElement>(FOCUSABLE) ?? [])
+  useModalLayer({ root: dialog, tabStops, escape: onClose })
   const scrim = useScrimPress(onClose)
   // Focus goes in as the dialog commits, after the modal layer has read the focus to give back, so an Esc at once is
   // the dialog's (canopi-f47t.52.228.20).
@@ -72,15 +51,13 @@ export function WorkspaceDialog({ title, onClose, children, footer, wide = false
         aria-modal="true"
         aria-labelledby={titleId}
         data-preserve-overlays="true"
-        onFocusIn={(event) => { if (event.target instanceof HTMLElement) lastFocused.current = event.target }}
         onKeyDown={(event) => {
           if (event.key === 'Escape') {
             event.preventDefault()
             event.stopPropagation()
             onClose()
-            return
           }
-          if (event.key === 'Tab') trapTab(event)
+          if (event.key === 'Tab') trapTabWithToasts(tabStops(), event)
         }}
       >
         <header className={styles.header}>

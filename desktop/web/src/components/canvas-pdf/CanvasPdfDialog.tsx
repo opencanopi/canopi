@@ -7,7 +7,7 @@ import type { PdfWorkflow } from '../../app/canvas-pdf/workflow'
 import { PDF_MAP_ORIENTATIONS, PDF_PLANT_COLORS, type PdfMapOrientation, type PdfPlan, type PdfPaper } from '../../app/canvas-pdf/types'
 import { t } from '../../i18n'
 import { Dropdown } from '../shared/Dropdown'
-import { useModalLayer } from '../shared/useModalLayer'
+import { trapTabWithToasts, useModalLayer } from '../shared/useModalLayer'
 import { PdfKeyFinder } from './PdfKeyFinder'
 import { PdfPageEditor } from './PdfPageEditor'
 import { PdfPageRail } from './PdfPageRail'
@@ -47,7 +47,8 @@ function PrintWorkspace({ workflow }: { readonly workflow: PdfWorkflow }) {
   const keyMatchesOnPage = page && !adding
     ? keySearch.results.filter((result) => result.location.pageId === page.id).map((result) => result.location.bounds)
     : []
-  useModalLayer()
+  // Tab wraps through the sheet, the preview and the window's toasts; Escape in a toast is the dialog's.
+  useModalLayer({ root, tabStops, escape })
   // Focus goes in as the dialog commits, with its modal layer, so an Esc at once is the dialog's (canopi-f47t.52.228.20).
   useLayoutEffect(() => {
     root.current?.querySelector<HTMLButtonElement>('button')?.focus()
@@ -79,17 +80,19 @@ function PrintWorkspace({ workflow }: { readonly workflow: PdfWorkflow }) {
     if (event.key === 'Escape') {
       if (root.current?.querySelector('[aria-expanded="true"]')) return
       event.preventDefault()
-      if (splitPreview) { workflow.cancelSplit(); selectPage('overview') }
-      else if (adding) cancelAdd()
-      else if (inspecting) setInspecting(false)
-      else workflow.close()
+      escape()
     }
-    if (event.key === 'Tab') {
-      const items = Array.from(root.current?.querySelectorAll<HTMLElement>('button:not(:disabled),input:not(:disabled),[tabindex="0"]') ?? [])
-      const first = items[0], last = items[items.length - 1]
-      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus() }
-      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus() }
-    }
+    if (event.key === 'Tab') trapTabWithToasts(tabStops(), event)
+  }
+  /** Escape steps back: out of a split preview, out of adding a page, out of inspecting, then out of the dialog. */
+  function escape() {
+    if (splitPreview) { workflow.cancelSplit(); selectPage('overview') }
+    else if (adding) cancelAdd()
+    else if (inspecting) setInspecting(false)
+    else workflow.close()
+  }
+  function tabStops() {
+    return Array.from(root.current?.querySelectorAll<HTMLElement>('button:not(:disabled),input:not(:disabled),[tabindex="0"]') ?? [])
   }
   return <div className={styles.overlay}>
     <section ref={root} role="dialog" aria-modal="true" aria-labelledby="canvas-pdf-title" className={styles.workspace}

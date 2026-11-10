@@ -3,10 +3,11 @@
  * F3, 2.1-Q292). Invariant: every toast in the window (an Undo after a delete, a transient result such as "Import
  * cancelled") is drawn in one layer on <body> (`[data-toast-layer]`, styles/global.css) at --z-toast, above the active
  * dialog: no chrome region holds it, so a modal's inert hold never reaches it and its action stays pressable while the
- * dialog is open, and in the topmost modal's focus cycle when it takes part (app/shell/modal-layer.ts
- * `topModalToastCycle`), where Escape pressed in a toast is the modal's Escape. A component that owns its toast's state renders `SlotToast`; a raiser that is not a component calls
- * failures/toasts.ts `showToast`, which `ToastSlot` (mounted once in each root) draws. The canvas lock toast stays canvas
- * chrome (components/canvas/LockedMoveToast.tsx, canopi-eon8.14.3).
+ * dialog is open, and in the topmost modal's Tab cycle when that modal keeps focus inside itself (every such modal
+ * passes its focus to useModalLayer.ts; app/shell/modal-layer.ts `topModalToastCycle`), where Escape pressed in a
+ * toast is the modal's Escape. A component that owns its toast's state renders `SlotToast`; a raiser that is not a
+ * component calls failures/toasts.ts `showToast`, which `ToastSlot` (mounted once in each root) draws. The canvas lock
+ * toast stays canvas chrome (components/canvas/LockedMoveToast.tsx, canopi-eon8.14.3).
  */
 import type { ComponentProps } from 'preact'
 import { createPortal } from 'preact/compat'

@@ -8,7 +8,7 @@ import {
   type SaveProblemRequest,
 } from '../../app/document-session/save-problem'
 import { t } from '../../i18n'
-import { useModalLayer } from './useModalLayer'
+import { trapTabWithToasts, useModalLayer } from './useModalLayer'
 import styles from './save-problem-dialog.module.css'
 
 interface DialogAction {
@@ -81,7 +81,10 @@ function SaveProblemDialogContent({ request, lastFocused }: {
 }) {
   const firstActionRef = useRef<HTMLButtonElement>(null)
   useOpenerFocusReturn(lastFocused)
-  useModalLayer()
+  const dialog = useRef<HTMLElement>(null)
+  // Tab wraps through the actions and the window's toasts; Escape in a toast cancels, like Escape here.
+  const tabStops = () => Array.from(dialog.current?.querySelectorAll<HTMLElement>('button:not([disabled])') ?? [])
+  useModalLayer({ root: dialog, tabStops, escape: () => answerSaveProblem('cancel') })
   // Focus goes in as the dialog commits, after the opener and the modal layer have read where it was, so an Esc at
   // once is the dialog's (canopi-f47t.52.228.20).
   useLayoutEffect(() => {
@@ -100,6 +103,7 @@ function SaveProblemDialogContent({ request, lastFocused }: {
       }}
     >
       <section
+        ref={dialog}
         className={styles.dialog}
         role="alertdialog"
         aria-modal="true"
@@ -108,10 +112,7 @@ function SaveProblemDialogContent({ request, lastFocused }: {
         data-preserve-overlays="true"
         data-save-problem={request.kind}
         onKeyDown={(event) => {
-          if (event.key === 'Tab') {
-            trapTab(event)
-            return
-          }
+          if (event.key === 'Tab') trapTabWithToasts(tabStops(), event)
           if (event.key !== 'Escape') return
           event.preventDefault()
           event.stopPropagation()
@@ -241,17 +242,4 @@ function describe(request: SaveProblemRequest): {
       cancel,
     ],
   }
-}
-
-/** Tab and Shift+Tab cycle through the dialog's own buttons. */
-function trapTab(event: KeyboardEvent): void {
-  const dialog = event.currentTarget as HTMLElement
-  const focusable = Array.from(dialog.querySelectorAll<HTMLButtonElement>('button:not([disabled])'))
-  if (focusable.length === 0) return
-  const index = focusable.indexOf(document.activeElement as HTMLButtonElement)
-  const next = event.shiftKey
-    ? (index <= 0 ? focusable.length - 1 : index - 1)
-    : (index === focusable.length - 1 ? 0 : index + 1)
-  event.preventDefault()
-  focusable[next]!.focus()
 }
