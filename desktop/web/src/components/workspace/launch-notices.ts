@@ -29,9 +29,10 @@ export function raiseUpdateNotice(offer: UpdateOffer): void {
   })
 }
 
-/** "Update not installed", the one time the host's next-launch marker is read (2.1-Q234). */
+/** "Update not installed", the one time the host's next-launch marker is read (2.1-Q234): the outcome of the install the
+ * user started, so it shows ahead of a store notice raised at boot (2.1-Q304). */
 export function raiseUpdateNotInstalledNotice(): void {
-  raiseNotice({ key: 'update.not-installed', message: 'update.failure.notInstalledPlain', tone: 'warning' })
+  raiseNotice({ key: 'update.not-installed', message: 'update.failure.notInstalledPlain', tone: 'warning', kind: 'outcome' })
 }
 
 /** The states in which the offer's install has started, so About (and, while a close waits, the row) says the rest. */
@@ -51,6 +52,8 @@ export function raiseLaunchNotices(): () => void {
     raiseNotice({
       key: 'launch.multi-open',
       message: 'launch.oneDesignAtATime',
+      // The result of the launch the user just made, so it shows ahead of a store notice raised at boot (2.1-Q304).
+      kind: 'outcome',
       onDismiss: () => {
         const id = multiOpenNotice.peek()
         if (id !== null) dismissMultiOpenNotice(id)

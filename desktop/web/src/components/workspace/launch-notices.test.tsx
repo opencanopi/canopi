@@ -7,7 +7,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { locale } from '../../app/settings/state'
 import { closeWaitsFor } from '../../app/shell/close-guard'
 import { createUpdateController, type UpdateController } from '../../app/updates/controller'
-import { resetNoticesForTests } from '../../failures/notices'
+import { raiseNotice, resetNoticesForTests } from '../../failures/notices'
+import { multiOpenNotice } from '../../app/document-session/launch-file'
 import type { UpdateOffer, UpdateOs } from '../../generated/contracts'
 import { NoticeRow } from '../shared/NoticeRow'
 import { raiseLaunchNotices, raiseUpdateNotice, raiseUpdateNotInstalledNotice, withdrawUpdateNoticeOnInstall } from './launch-notices'
@@ -100,6 +101,17 @@ describe('launch notices', () => {
     // Once the close settles, the older notice holds the row again.
     await act(async () => { closeWaitsFor.value = null })
     expect(row()).toEqual({ key: 'update.not-installed', count: null })
+  })
+
+  it('canopi-f47t.52.36: Update not installed and one Design at a time show ahead of a store notice raised at boot, as the result of what the user just did (2.1-Q304)', async () => {
+    raiseNotice({ key: 'health.plant-catalog', message: 'health.plantDbMissing', tone: 'error' })
+    disposers.push(raiseLaunchNotices())
+    await act(async () => { render(<NoticeRow />, container) })
+    await act(async () => { raiseUpdateNotInstalledNotice() })
+    expect(row()).toEqual({ key: 'update.not-installed', count: '1 of 2' })
+    await act(async () => { multiOpenNotice.value = 1 })
+    expect(row()).toEqual({ key: 'launch.multi-open', count: '1 of 3' })
+    multiOpenNotice.value = null
   })
 
   it('[canopi-f47t.52.36] the closing notice offers no Dismiss, since nothing would raise it again while the close waits (2.1-Q254)', async () => {
