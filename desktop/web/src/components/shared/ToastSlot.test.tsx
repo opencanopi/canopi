@@ -161,6 +161,38 @@ describe('ToastSlot', () => {
     expect(onClose).toHaveBeenCalledOnce()
   })
 
+  it('canopi-f47t.52.36: Escape pressed in a toast in a workspace dialog\'s Tab cycle closes the dialog', async () => {
+    const onClose = vi.fn()
+    await act(async () => render(
+      <>
+        <WorkspaceDialog title="Manage views" onClose={onClose}><button type="button">Delete</button></WorkspaceDialog>
+        <SlotToast message="View deleted" actionLabel="Undo" onAction={() => {}} onDismiss={() => {}} />
+      </>,
+      container,
+    ))
+    const undo = [...document.querySelectorAll<HTMLButtonElement>('button')].find((button) => button.textContent === 'Undo')!
+    undo.focus()
+    const escape = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })
+    await act(async () => { undo.dispatchEvent(escape) })
+    expect(onClose).toHaveBeenCalledOnce()
+    expect(escape.defaultPrevented, 'no later route takes the key').toBe(true)
+  })
+
+  it('canopi-f47t.52.36: Escape in a toast leaves a modal that does not take part to the browser', async () => {
+    await act(async () => render(
+      <>
+        <Modal />
+        <SlotToast message="View deleted" actionLabel="Undo" onAction={() => {}} onDismiss={() => {}} />
+      </>,
+      container,
+    ))
+    const undo = [...document.querySelectorAll<HTMLButtonElement>('button')].find((button) => button.textContent === 'Undo')!
+    undo.focus()
+    const escape = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })
+    await act(async () => { undo.dispatchEvent(escape) })
+    expect(escape.defaultPrevented).toBe(false)
+  })
+
   it('canopi-f47t.52.36: Tab in a toast never moves focus into a workspace dialog another modal covers', async () => {
     await act(async () => render(
       <>

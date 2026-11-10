@@ -55,7 +55,9 @@ export function WorkspaceDialog({ title, onClose, children, footer, wide = false
     else focusInitial()
   }
   // The toasts join this cycle only while the dialog is the topmost modal (app/shell/modal-layer.ts).
-  useModalLayer({ trapTab, returnFocus })
+  const close = useRef(onClose)
+  close.current = onClose
+  useModalLayer({ trapTab, returnFocus, escape: () => close.current() })
   const scrim = useScrimPress(onClose)
   // Focus goes in as the dialog commits, after the modal layer has read the focus to give back, so an Esc at once is
   // the dialog's (canopi-f47t.52.228.20).

@@ -4,7 +4,7 @@
  * cancelled") is drawn in one layer on <body> (`[data-toast-layer]`, styles/global.css) at --z-toast, above the active
  * dialog: no chrome region holds it, so a modal's inert hold never reaches it and its action stays pressable while the
  * dialog is open, and in the topmost modal's focus cycle when it takes part (app/shell/modal-layer.ts
- * `topModalToastCycle`). A component that owns its toast's state renders `SlotToast`; a raiser that is not a component calls
+ * `topModalToastCycle`), where Escape pressed in a toast is the modal's Escape. A component that owns its toast's state renders `SlotToast`; a raiser that is not a component calls
  * failures/toasts.ts `showToast`, which `ToastSlot` (mounted once in each root) draws. The canvas lock toast stays canvas
  * chrome (components/canvas/LockedMoveToast.tsx, canopi-eon8.14.3).
  */
@@ -40,7 +40,17 @@ export function SlotToast(props: ComponentProps<typeof Toast>) {
   return createPortal(
     <Toast
       {...props}
-      onKeyDown={(event) => { if (event.key === 'Tab') topModalToastCycle()?.trapTab(event) }}
+      onKeyDown={(event) => {
+        const cycle = topModalToastCycle()
+        if (!cycle) return
+        if (event.key === 'Tab') cycle.trapTab(event)
+        if (event.key !== 'Escape') return
+        // The toast sits outside the dialog, so the dialog's own Escape handler never sees the key.
+        event.preventDefault()
+        event.stopPropagation()
+        cycle.returnFocus()
+        cycle.escape()
+      }}
       onLeaveFocused={() => topModalToastCycle()?.returnFocus()}
     />,
     toastLayer(),

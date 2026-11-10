@@ -18,7 +18,7 @@ export function Toast({
   readonly actionLabel?: string
   onAction?(): void
   onDismiss(): void
-  /** A key pressed in the toast (ToastSlot hands Tab to an open dialog's trap). */
+  /** A key pressed in the toast (ToastSlot hands Tab and Escape to the topmost dialog). */
   onKeyDown?(event: KeyboardEvent): void
   /** The toast is leaving while it holds focus (its Undo was pressed from the keyboard): focus must go somewhere live. */
   onLeaveFocused?(): void

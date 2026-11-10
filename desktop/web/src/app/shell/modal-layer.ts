@@ -23,6 +23,8 @@ export interface ModalToastCycle {
   trapTab(event: KeyboardEvent): void
   /** A toast holding focus is leaving (its Undo pressed from the keyboard): focus goes back into the modal. */
   returnFocus(): void
+  /** Escape pressed in a toast: the modal's own Escape (close it, or step back), run after focus went back into it. */
+  escape(): void
 }
 
 /** The open holds, oldest first, each with its modal's toast cycle if it has one. */
