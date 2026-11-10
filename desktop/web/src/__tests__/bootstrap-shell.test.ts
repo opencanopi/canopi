@@ -78,6 +78,7 @@ vi.mock("../utils/theme", () => ({
 
 vi.mock("../app/settings/projection", () => ({
   installSettingsProjection: mocks.installSettingsProjection,
+  retrySettingsLoad: async () => false,
 }));
 
 vi.mock("../app/shell/close-guard", () => ({
