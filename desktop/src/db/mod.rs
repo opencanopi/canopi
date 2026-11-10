@@ -1,5 +1,6 @@
 pub mod design_notebook;
 pub(crate) mod plant_catalog_connection;
+mod plant_db_connection_guard;
 pub(crate) mod plant_filter_fields;
 pub mod query_builder;
 pub mod recent_files;
@@ -14,10 +15,10 @@ use canopi_types::failure::{Failure, FailureCode, PlantCatalogCause};
 use canopi_types::health::{PlantDbStatus, StoreHealth, StoreOpenStatus};
 use canopi_types::sensitive::UserPath;
 use rusqlite::{Connection, InterruptHandle};
-use std::ops::Deref;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, MutexGuard};
 
+pub(crate) use plant_db_connection_guard::PlantDbConnectionGuard;
 pub use set_aside_reason::SetAsideReason;
 pub use user_db::UserDbInitError;
 
@@ -76,16 +77,6 @@ impl PlantDb {
             PlantDbState::Available { interrupt, .. } => Some(Arc::clone(interrupt)),
             PlantDbState::Missing | PlantDbState::Corrupt => None,
         }
-    }
-}
-
-pub(crate) struct PlantDbConnectionGuard<'a>(MutexGuard<'a, Connection>);
-
-impl Deref for PlantDbConnectionGuard<'_> {
-    type Target = Connection;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
     }
 }
 
