@@ -161,6 +161,23 @@ describe('ToastSlot', () => {
     expect(onClose).toHaveBeenCalledOnce()
   })
 
+  it('canopi-f47t.52.36: Tab in a toast never moves focus into a workspace dialog another modal covers', async () => {
+    await act(async () => render(
+      <>
+        <WorkspaceDialog title="Manage views" onClose={() => {}}><button type="button">Delete</button></WorkspaceDialog>
+        <Modal />
+        <SlotToast message="View deleted" actionLabel="Undo" onAction={() => {}} onDismiss={() => {}} />
+      </>,
+      container,
+    ))
+    const undo = [...document.querySelectorAll<HTMLButtonElement>('button')].find((button) => button.textContent === 'Undo')!
+    undo.focus()
+    const tab = new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true })
+    await act(async () => { undo.dispatchEvent(tab) })
+    expect(tab.defaultPrevented, 'the covered dialog\'s trap stands aside').toBe(false)
+    expect(document.activeElement).toBe(undo)
+  })
+
   it('a workspace dialog with no toast still wraps Tab inside itself', async () => {
     await act(async () => render(
       <WorkspaceDialog title="Manage views" onClose={() => {}}><button type="button">Delete</button></WorkspaceDialog>,

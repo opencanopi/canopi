@@ -3,7 +3,7 @@ import { useId, useLayoutEffect, useRef } from 'preact/hooks'
 import { SurfaceBoundary } from './SurfaceBoundary'
 import { t } from '../../i18n'
 import { ControlIcon } from './ControlIcon'
-import { toastFocusables, trapToastTab } from './ToastSlot'
+import { toastFocusables } from './ToastSlot'
 import { useModalLayer } from './useModalLayer'
 import { useScrimPress } from './useScrimPress'
 import styles from './WorkspaceDialog.module.css'
@@ -29,8 +29,6 @@ export function WorkspaceDialog({ title, onClose, children, footer, wide = false
   const dialog = useRef<HTMLElement>(null)
   const titleId = useId()
 
-  useModalLayer()
-  const scrim = useScrimPress(onClose)
   // Tab wraps inside the dialog, through the window's toasts (an Undo shown above it sits in its cycle). Only a step
   // across an end of that cycle is moved by hand; the browser moves every other.
   const trapTab = (event: KeyboardEvent) => {
@@ -56,7 +54,9 @@ export function WorkspaceDialog({ title, onClose, children, footer, wide = false
     if (last && dialog.current?.contains(last)) last.focus()
     else focusInitial()
   }
-  useLayoutEffect(() => trapToastTab({ trapTab, returnFocus }), [])
+  // The toasts join this cycle only while the dialog is the topmost modal (app/shell/modal-layer.ts).
+  useModalLayer({ trapTab, returnFocus })
+  const scrim = useScrimPress(onClose)
   // Focus goes in as the dialog commits, after the modal layer has read the focus to give back, so an Esc at once is
   // the dialog's (canopi-f47t.52.228.20).
   useLayoutEffect(focusInitial, [])

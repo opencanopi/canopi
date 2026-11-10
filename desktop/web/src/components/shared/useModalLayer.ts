@@ -1,6 +1,6 @@
 import type { RefObject } from 'preact'
 import { useLayoutEffect, useRef } from 'preact/hooks'
-import { holdModalLayer, registerModalInertRegion } from '../../app/shell/modal-layer'
+import { holdModalLayer, registerModalInertRegion, type ModalToastCycle } from '../../app/shell/modal-layer'
 
 /**
  * Makes the calling dialog modal: the chrome behind it is inert while it is
@@ -11,12 +11,14 @@ import { holdModalLayer, registerModalInertRegion } from '../../app/shell/modal-
  * The returned function releases the layer early, before the dialog unmounts.
  * A dialog that closes to run a command calls it first, so the command finds
  * the chrome live and any focus it moves is not undone by the unmount.
+ *
+ * `toastCycle`, read once at mount, puts the window's toasts in the dialog's focus cycle while it is the topmost modal.
  */
-export function useModalLayer(): () => void {
+export function useModalLayer(toastCycle?: ModalToastCycle): () => void {
   const releaseRef = useRef<() => void>(() => {})
   useLayoutEffect(() => {
     const previous = document.activeElement
-    const hold = holdModalLayer()
+    const hold = holdModalLayer(toastCycle)
     let released = false
     const release = () => {
       if (released) return
