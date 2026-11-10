@@ -38,16 +38,26 @@ describe('stacking order', () => {
 
   it('puts popups above every dialog and full-window surface, and tooltips above popups', () => {
     const fullWindow = token(global, '--z-full-window')
-    const toast = token(global, '--z-toast')
+    const notice = token(global, '--z-notice')
     const dialog = token(global, '--z-dialog')
     const alert = token(global, '--z-dialog-alert')
     const popover = token(global, '--z-popover')
     const tooltip = token(global, '--z-tooltip')
-    expect(fullWindow).toBeLessThan(toast)
-    expect(toast).toBeLessThan(dialog)
+    expect(fullWindow).toBeLessThan(notice)
+    expect(notice).toBeLessThan(dialog)
     expect(dialog).toBeLessThan(alert)
     expect(alert).toBeLessThan(popover)
     expect(popover).toBeLessThan(tooltip)
+  })
+
+  // One toast position for the window, above the active dialog (2.1-Q292): an Undo stays visible and pressable while a
+  // dialog is open; menus and tooltips still draw over it. The notice row stays under dialogs.
+  it('canopi-f47t.52.36: draws the one toast layer above every dialog and under popups', () => {
+    const toast = token(global, '--z-toast')
+    expect(toast).toBeGreaterThan(token(global, '--z-dialog-alert'))
+    expect(toast).toBeLessThan(token(global, '--z-popover'))
+    expect(global).toMatch(/\[data-toast-layer\]\s*\{(?=[^}]*position:\s*fixed)(?=[^}]*z-index:\s*var\(--z-toast\))[^}]*\}/)
+    expect(read('../components/shared/NoticeRow.module.css')).toMatch(/\.row\s*\{[^}]*z-index:\s*var\(--z-notice\)/)
   })
 
   // The canvas hover card names what the pointer rests on: its layer sits above the canvas chrome and under every

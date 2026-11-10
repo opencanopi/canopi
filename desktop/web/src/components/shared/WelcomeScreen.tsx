@@ -12,7 +12,7 @@ import { openKeyboardShortcutsDialog, openSettingsDialog } from '../../app/shell
 import { openProblemReportDialog } from '../../app/problem-report/submission'
 import { formatShortcut } from '../../app/shell-commands/shortcut-text'
 import { StartScreen } from './StartScreen'
-import { Toast } from './Toast'
+import { SlotToast } from './ToastSlot'
 
 /** Desktop start screen: recent Design files and Design Drafts from app data. */
 export function WelcomeScreen() {
@@ -66,28 +66,18 @@ export function WelcomeScreen() {
       }))}
     />
     {revealFailure && (
-      // A failed Show in folder (2.1-Q227) says so without the path, at the toast layer; the Start screen has no map,
-      // so it registers with no visible-map-area seam.
-      <div style={REVEAL_FAILURE_SLOT} data-reveal-failure="">
-        <Toast
-          key={revealFailure.id}
-          icon="info"
-          message={t('start.showInFolderFailed')}
-          onDismiss={() => recentFilesController.dismissRevealFailure(revealFailure)}
-        />
-      </div>
+      // A failed Show in folder (2.1-Q227) says so without the path, in the window's toast position; the Start screen
+      // has no map, so it registers with no visible-map-area seam.
+      <SlotToast
+        key={revealFailure.id}
+        icon="info"
+        message={t('start.showInFolderFailed')}
+        onDismiss={() => recentFilesController.dismissRevealFailure(revealFailure)}
+      />
     )}
     </>
   )
 }
-
-const REVEAL_FAILURE_SLOT = {
-  position: 'fixed',
-  left: '50%',
-  bottom: 'var(--space-6)',
-  zIndex: 'var(--z-toast)',
-  transform: 'translateX(-50%)',
-} as const
 
 function logWelcomeError(error: unknown): void {
   console.error('Welcome screen command failed:', error)

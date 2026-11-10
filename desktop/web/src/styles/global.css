@@ -18,9 +18,12 @@
   /* The canvas hover card: above every frame over the map, under every surface the user opens (canopi-xpqt). */
   --z-hover-card: 890;
   --z-full-window: 900;
-  --z-toast: 950;
+  /* The Desktop notice row at the window's foot: over full-window surfaces, under every dialog. */
+  --z-notice: 950;
   --z-dialog: 1000;
   --z-dialog-alert: 1010;
+  /* The one window toast position (2.1-Q292): above the active dialog, so its Undo stays pressable; under popups. */
+  --z-toast: 1050;
   --z-popover: 1100;
   --z-tooltip: 1200;
   /* ── Field Atlas — Light Theme ──
@@ -386,6 +389,25 @@ mark {
   inset: 0;
   z-index: var(--z-tooltip);
   pointer-events: none;
+}
+
+/* The one window-level toast position (components/shared/ToastSlot.tsx, 2.1-Q292): every toast, stacked at the window's
+   foot above the active dialog. No chrome region holds it, so a modal's inert hold never reaches its Undo. */
+[data-toast-layer] {
+  position: fixed;
+  left: 50%;
+  bottom: var(--space-6);
+  z-index: var(--z-toast);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+[data-toast-layer] > * {
+  pointer-events: auto;
 }
 
 /* The canvas hover card's window-level layer (utils/tooltip-layer.ts): above every frame over the map, and under every

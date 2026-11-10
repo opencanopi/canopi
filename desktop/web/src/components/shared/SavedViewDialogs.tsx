@@ -21,7 +21,7 @@ import {
 import { t } from '../../i18n'
 import type { SavedView } from '../../types/design'
 import { SavedViewThumbnail } from './SavedViewThumbnail'
-import { Toast } from './Toast'
+import { SlotToast } from './ToastSlot'
 import { WorkspaceDialog } from './WorkspaceDialog'
 import styles from './SavedViewDialogs.module.css'
 
@@ -32,7 +32,7 @@ export function SavedViewDialogs() {
     <>
       <SaveViewDialog />
       {manageOpen && <ManageViewsDialog />}
-      {!manageOpen && <SavedViewUndoToast floating />}
+      <SavedViewUndoToast />
     </>
   )
 }
@@ -145,7 +145,6 @@ function ManageViewsDialog() {
             {views.map((view) => <ManagedViewRow key={view.id} view={view} />)}
           </ul>
         )}
-      <SavedViewUndoToast />
     </WorkspaceDialog>
   )
 }
@@ -281,18 +280,17 @@ function DeleteConfirmation({ confirmation }: { readonly confirmation: SavedView
   )
 }
 
-function SavedViewUndoToast({ floating = false }: { readonly floating?: boolean }) {
+// In the window's one toast position, above Manage views while it is open (2.1-Q292).
+function SavedViewUndoToast() {
   const undo = savedViewUndo.value
   if (!undo) return null
   return (
-    <div className={floating ? styles.floatingToast : styles.toastSlot}>
-      <Toast
-        message={undo.message}
-        icon={undo.deletion ? 'check' : 'alert'}
-        actionLabel={undo.deletion ? t('savedViews.undo') : undefined}
-        onAction={undo.deletion ? undoDeleteView : undefined}
-        onDismiss={() => dismissDeleteViewUndo(undo)}
-      />
-    </div>
+    <SlotToast
+      message={undo.message}
+      icon={undo.deletion ? 'check' : 'alert'}
+      actionLabel={undo.deletion ? t('savedViews.undo') : undefined}
+      onAction={undo.deletion ? undoDeleteView : undefined}
+      onDismiss={() => dismissDeleteViewUndo(undo)}
+    />
   )
 }

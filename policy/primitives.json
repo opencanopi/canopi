@@ -293,14 +293,15 @@
       "adr": "0025",
       "owner_today": "desktop/web/src/failures/notices.ts",
       "also_owners": [
-        "desktop/web/src/components/shared/NoticeRow.tsx"
+        "desktop/web/src/components/shared/NoticeRow.tsx",
+        "desktop/web/src/components/shared/ToastSlot.tsx"
       ],
       "owner_target": {
         "path": "desktop/web/src/failures",
         "phase": "1b",
         "bead": "canopi-f47t.52.36"
       },
-      "note": "a notice or toast (the plugin-dialog message box, a <Toast> render) is raised only through the failures/ notice signal, its one notice row and its one window-level toast slot (failures/notices.ts and components/shared/NoticeRow.tsx from 1b-c3, components/shared/ToastSlot.tsx to come); refuse_startup stays a standing exception (pre-webview, design check F8)"
+      "note": "a notice or toast (the plugin-dialog message box, a <Toast> render) is raised only through the failures/ notice signal, its one notice row and its one window-level toast slot (failures/notices.ts and failures/toasts.ts, drawn by components/shared/NoticeRow.tsx and components/shared/ToastSlot.tsx); refuse_startup stays a standing exception (pre-webview, design check F8)"
     },
     {
       "id": "map-constructor-only-in-factory",

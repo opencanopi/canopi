@@ -8,7 +8,8 @@ const TOAST_TIMEOUT_MS = 8000
 /**
  * A short confirmation with at most one action (usually Undo). It dismisses itself after
  * `timeoutMs`, but never while it is hovered or holds focus; the countdown restarts after.
- * The caller owns placement and which toast is showing.
+ * ToastSlot.tsx places it in the window's one toast position (the canvas lock toast stays canvas chrome); the caller
+ * owns which toast is showing.
  */
 export function Toast({ message, actionLabel, onAction, onDismiss, timeoutMs = TOAST_TIMEOUT_MS, icon = 'check' }: {
   readonly message: ComponentChildren
