@@ -80,9 +80,6 @@
     "desktop/web/src/__tests__/web-layers-panel.test.tsx": {
       "count": 1
     },
-    "desktop/web/src/__tests__/web-release-reload.test.tsx": {
-      "count": 1
-    },
     "desktop/web/src/__tests__/zoom-controls.test.tsx": {
       "count": 1
     },

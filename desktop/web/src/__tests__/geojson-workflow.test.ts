@@ -7,9 +7,11 @@ import { CURRENT_CANOPI_FILE_VERSION } from '../generated/canopi-design-format'
 import type { CanvasRuntimeSurfaces } from '../canvas/runtime/runtime'
 import {
   createGeoJsonWorkflow,
+  geoJsonNoticeText,
   type GeoJsonFileAdapter,
   type GeoJsonNotice,
 } from '../app/geojson/workflow'
+import { t } from '../i18n'
 import { geoAt } from './support/geo-design'
 import { createLiveTestCanvasRuntimeHost, type CanvasRuntimeHost } from './support/live-canvas-runtime'
 
@@ -130,7 +132,6 @@ function workflowFor(surfaces: CanvasRuntimeSurfaces, files: GeoJsonFileAdapter)
     notify: (notice) => { notices.push(notice) },
     designName: () => 'Kitchen / garden',
     canvas: () => surfaces,
-    translate: (key, options) => options ? `${key} ${JSON.stringify(options)}` : key,
   })
   return { workflow, notices }
 }
@@ -194,8 +195,13 @@ describe('GeoJSON workflow through the scene runtime', () => {
       skipped: 0,
     })
     expect(notices).toHaveLength(1)
-    expect(notices[0]).toMatchObject({ tone: 'info', title: 'geojson.importTitle' })
-    expect(notices[0]!.message).toContain('geojson.importSummary')
+    expect(notices[0]).toEqual({
+      tone: 'info',
+      title: 'geojson.importTitle',
+      message: 'geojson.importSummary',
+      params: { plants: 1, zones: 2, annotations: 1, guides: 1 },
+    })
+    expect(geoJsonNoticeText(notices[0]!)).toBe(t('geojson.importSummary', { plants: 1, zones: 2, annotations: 1, guides: 1 }))
 
     const after = target.queries.getSettledDesignObjects()!
     expect(after.plants).toHaveLength(2)
@@ -260,9 +266,10 @@ describe('GeoJSON workflow through the scene runtime', () => {
     expect(notices).toEqual([{
       tone: 'error',
       title: 'geojson.importTitle',
-      message: expect.stringContaining('geojson.errors.invalid_coordinates'),
+      message: 'geojson.errors.invalid_coordinates',
+      params: { feature: 2, max: expect.any(Number) },
     }])
-    expect(notices[0]!.message).toContain('"feature":2')
+    expect(geoJsonNoticeText(notices[0]!)).toBe(t('geojson.errors.invalid_coordinates', notices[0]!.params))
     expect(target.queries.getSettledDesignObjects()).toEqual(before)
     expect(target.commands.history.canUndo.value).toBe(false)
   })
@@ -279,8 +286,11 @@ describe('GeoJSON workflow through the scene runtime', () => {
     const { workflow, notices } = workflowFor(target, files)
 
     await expect(workflow.importGeoJson()).resolves.toEqual({ status: 'empty', skipped: 2 })
-    expect(notices[0]!.message).toContain('geojson.importNothing')
-    expect(notices[0]!.message).toContain('geojson.importSkipped {"count":2}')
+    expect(notices[0]).toMatchObject({
+      message: 'geojson.importNothing',
+      detail: { message: 'geojson.importSkipped', params: { count: 2 } },
+    })
+    expect(geoJsonNoticeText(notices[0]!)).toBe(`${t('geojson.importNothing')} ${t('geojson.importSkipped', { count: 2 })}`)
     expect(target.commands.history.canUndo.value).toBe(false)
   })
 

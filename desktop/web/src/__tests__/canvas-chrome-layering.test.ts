@@ -34,21 +34,23 @@ describe('floating chrome layering', () => {
   it('lays app-wide notices over the map on the opaque surface, under their translucent error tint', () => {
     // The last background layer is the surface, so the map never shows through the tint.
     const onSurface = /background:\s*linear-gradient\(var\(--color-danger-bg\),\s*var\(--color-danger-bg\)\),\s*var\(--color-surface\)\s*;/
-    expect(ruleBody('web/BrowserAppShell.module.css', '.notice[data-tone="error"]')).toMatch(onSurface)
+    // The Web shell keeps no notice row of its own: its notices are the one notice row's (2.1-Q290).
+    expect(readCssSource('web/BrowserAppShell.module.css')).not.toMatch(/\.notice\b/)
     // The one notice row (Desktop's foot, Web's title-bar row) lays its error and warning tints on the surface too.
     expect(ruleBody('components/shared/NoticeRow.module.css', '.row [data-notice-tone="error"]')).toMatch(onSurface)
     expect(ruleBody('components/shared/NoticeRow.module.css', '.row [data-notice-tone="warning"]'))
       .toMatch(/background:\s*linear-gradient\(var\(--color-warning-bg\),\s*var\(--color-warning-bg\)\),\s*var\(--color-surface\)\s*;/)
   })
 
-  // The Web shell notice row, the New version: Reload notice among them (2.1-Q83): it takes its own row under the title
-  // bar, so the bar draws over it; it draws over the phone sheet and context bar, and the phone search card covers it.
+  // The one notice row in the Web shell, the New version: Reload notice among them (2.1-Q83, Q290): it takes its own row
+  // under the title bar, so the bar draws over it; it draws over the phone sheet and context bar, and the phone search
+  // card covers it.
   it('stacks the Web notice row under the title bar and phone search card and over the phone sheet', () => {
-    const notice = classZIndex('web/BrowserAppShell.module.css', 'notice')
+    const notice = classZIndex('components/shared/NoticeRow.module.css', 'belowTitleBar')
     expect(classZIndex('components/shared/WorkspaceTitleBar.module.css', 'titleBar')).toBeGreaterThan(notice)
     expect(classZIndex('web/BrowserAppShell.module.css', 'phoneSearch')).toBeGreaterThan(notice)
     expect(notice).toBeGreaterThan(classZIndex('components/shared/PhoneSheet.module.css', 'sheet'))
-    expect(readCssSource('web/BrowserAppShell.module.css')).toMatch(/\.notice\s*\{[^}]*z-index:\s*var\(--z-shell-notice\)/)
+    expect(readCssSource('components/shared/NoticeRow.module.css')).toMatch(/\.belowTitleBar\s*\{[^}]*z-index:\s*var\(--z-shell-notice\)/)
   })
 
   it('stacks the title bar over the dock, the dock over the rails and chips, and all of them over map status', () => {

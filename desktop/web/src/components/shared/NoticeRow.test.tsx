@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 // The one notice row (contracts §18 F3, 2.1-Q290): one notice at a time with its place in the count, oldest first,
 // each kept until dismissed, worded in the current locale.
+import { signal } from '@preact/signals'
 import { render } from 'preact'
 import { act } from 'preact/test-utils'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -79,5 +80,49 @@ describe('NoticeRow', () => {
     })
     expect(runs).toBe(1)
     expect(container.querySelector('[data-notice-row]')).not.toBeNull()
+  })
+
+  it('[canopi-f47t.52.36] a notice reads its live words and a second sentence in the current locale', async () => {
+    const designOpen = signal(true)
+    await act(async () => render(<NoticeRow />, container))
+    await act(async () => {
+      raiseNotice({
+        key: 'import',
+        message: 'geojson.importNothing',
+        detail: { message: 'geojson.importSkipped', params: { count: 2 } },
+        messageNow: () => (designOpen.value ? 'webRelease.message' : 'webRelease.messageNoDesign'),
+      })
+    })
+    expect(container.textContent).toContain(t('webRelease.message'))
+    expect(container.textContent).toContain(t('geojson.importSkipped', { count: 2 }))
+    await act(async () => { designOpen.value = false })
+    expect(container.textContent).toContain(t('webRelease.messageNoDesign'))
+  })
+
+  it('[canopi-f47t.52.36] while its action is busy the action reads its busy words, and neither it nor Dismiss takes a click', async () => {
+    const busy = signal(false)
+    let runs = 0
+    let dismissed = 0
+    await act(async () => render(<NoticeRow />, container))
+    await act(async () => {
+      raiseNotice({
+        key: 'web.release',
+        message: 'webRelease.message',
+        action: { label: 'notice.reload', run: () => { runs += 1 }, busy: { label: 'saveStatus.saving', now: () => busy.value } },
+        onDismiss: () => { dismissed += 1 },
+      })
+    })
+    const action = () => [...container.querySelectorAll<HTMLButtonElement>('button')].find((button) => !button.hasAttribute('aria-label'))!
+    const dismissButton = () => container.querySelector<HTMLButtonElement>(`button[aria-label="${t('notice.dismiss')}"]`)!
+    expect(action().textContent).toBe(t('notice.reload'))
+    await act(async () => { busy.value = true })
+    expect(action().textContent).toBe(t('saveStatus.saving'))
+    expect(action().disabled).toBe(true)
+    expect(dismissButton().disabled).toBe(true)
+    await act(async () => { action().click(); dismissButton().click() })
+    expect(runs).toBe(0)
+    expect(dismissed).toBe(0)
+    await act(async () => { busy.value = false })
+    expect(dismissButton().disabled).toBe(false)
   })
 })

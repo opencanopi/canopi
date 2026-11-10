@@ -52,9 +52,28 @@
   cursor: pointer;
 }
 
-.action:hover,
-.dismiss:hover {
+.action:hover:not(:disabled),
+.dismiss:hover:not(:disabled) {
   background: var(--color-surface);
+}
+
+.action:disabled,
+.dismiss:disabled {
+  cursor: default;
+  opacity: 0.7;
+}
+
+/* Phones (the Web shell's phone layout): 44 px targets, clear of the notch's side insets. */
+[data-phone-layout] .belowTitleBar {
+  right: calc(var(--chrome-inset) + env(safe-area-inset-right));
+  left: calc(var(--chrome-inset) + env(safe-area-inset-left));
+}
+
+[data-phone-layout] .belowTitleBar .action,
+[data-phone-layout] .belowTitleBar .dismiss {
+  min-height: var(--control-size-touch);
+  min-width: var(--control-size-touch);
+  justify-content: center;
 }
 
 .action:focus-visible,

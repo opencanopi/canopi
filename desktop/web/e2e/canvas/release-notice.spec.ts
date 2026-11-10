@@ -40,7 +40,7 @@ const SETTINGS_KEY = 'canopi:web-app-data:v3:settings'
 const DRAFTS_KEY = 'canopi:web-app-data:v3:drafts'
 const SAVE_FAILED = 'Continuous save failed:'
 
-type Strings = { webRelease: Record<string, string>, error: Record<string, string>, webShell: Record<string, string>, saveProblem: Record<string, string>, canvas: { file: Record<string, string> } }
+type Strings = { webRelease: Record<string, string>, notice: Record<string, string>, saveProblem: Record<string, string>, canvas: { file: Record<string, string> } }
 function strings(locale: string): Strings {
   return JSON.parse(readFileSync(fileURLToPath(new URL(`../../src/i18n/${locale}.json`, import.meta.url)), 'utf8')) as Strings
 }
@@ -61,7 +61,7 @@ async function routeManifest(page: Page, version: () => string): Promise<{ reads
 }
 
 function releaseNotice(page: Page): Locator {
-  return page.locator('[data-web-shell-notice][data-release]')
+  return page.locator('[data-notice-row][data-notice-key="web.release"]')
 }
 
 /** Window focus, as when the user comes back to the tab; the watch reads on it at most once a minute. */
@@ -82,7 +82,7 @@ test('Q83: another release named by the manifest shows one New version: Reload n
   // This tab's own release: no notice.
   await focusWindow(page)
   await expect.poll(manifest.reads).toBe(1)
-  await expect(page.locator('[data-web-shell-notice]')).toHaveCount(0)
+  await expect(releaseNotice(page)).toHaveCount(0)
 
   // A deploy drops the PDF preview's chunk this tab's release named; the failed import reads the manifest at once.
   version = OTHER_VERSION
@@ -92,7 +92,7 @@ test('Q83: another release named by the manifest shows one New version: Reload n
   if (await pdf.isVisible()) await pdf.getByRole('button', { name: /Back to the Design/ }).click()
   const notice = releaseNotice(page)
   await expect(notice).toBeVisible()
-  await expect(page.locator('[data-web-shell-notice]'), 'one notice row').toHaveCount(1)
+  await expect(page.locator('[data-notice-row]'), 'one notice row').toHaveCount(1)
   await expect(notice).toHaveAttribute('role', 'status')
   await expect(notice).toContainText('New version')
   await expect(notice).toContainText('Canopi was updated. Reload to use it; your Design is saved first.')
@@ -103,7 +103,7 @@ test('Q83: another release named by the manifest shows one New version: Reload n
   await page.clock.fastForward(61_000)
   await focusWindow(page)
   await focusWindow(page)
-  await expect(page.locator('[data-web-shell-notice]')).toHaveCount(1)
+  await expect(page.locator('[data-notice-row]')).toHaveCount(1)
 
   // Dismissed, it stays away for the same release and returns after another failed import (Q187).
   await notice.getByRole('button', { name: 'Dismiss' }).click()
@@ -112,7 +112,7 @@ test('Q83: another release named by the manifest shows one New version: Reload n
   await expect(notice).toBeVisible()
   // Counted behind that read: a focus read while the notice showed would have been answered first, making four.
   expect(manifest.reads(), 'focus read nothing while the notice showed').toBe(3)
-  await expect(page.locator('[data-web-shell-notice]')).toHaveCount(1)
+  await expect(page.locator('[data-notice-row]')).toHaveCount(1)
 })
 
 test.describe('a Draft write that fails', () => {
@@ -183,7 +183,7 @@ test.describe('a Draft write that fails', () => {
     expect(draftNames(await page.evaluate(() => sessionStorage.getItem('e2e:drafts-at-unload'))), 'saved before the reload').toContain('Orchard before the deploy')
     await expect(page.locator('[data-workspace-title-bar] [data-save-status]')).toBeVisible()
     await expect(page.locator('[data-workspace-title-bar]').getByRole('button', { name: /^Rename Design/ })).toHaveText('Orchard before the deploy')
-    await expect(page.locator('[data-web-shell-notice]'), 'the reloaded tab runs the served release').toHaveCount(0)
+    await expect(releaseNotice(page), 'the reloaded tab runs the served release').toHaveCount(0)
   })
 })
 
@@ -273,7 +273,7 @@ for (const locale of LOCALES) {
             expect(overlap(noticeBox, neighbour.box), `the notice overlaps ${neighbour.name} (${name})`).toBe(false)
           }
           const phone = await page.locator('[data-phone-layout]').count() > 0
-          for (const label of [text.error.reload!, text.webShell.dismissNotice!]) {
+          for (const label of [text.notice.reload!, text.notice.dismiss!]) {
             const button = notice.getByRole('button', { name: label, exact: true })
             await expect(async () => { await expectHitAtCentre(button, `${label} (${name})`) }).toPass({ timeout: 5000 })
             if (phone) expect((await boxOf(button)).height, `${label} is a 44 px phone target`).toBeGreaterThanOrEqual(44 - 0.5)

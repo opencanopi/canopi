@@ -48,4 +48,12 @@ describe('notice queue', () => {
     expect(onDismiss).toHaveBeenCalledTimes(1)
     expect(notices.value.map((notice) => notice.key)).toEqual(['later'])
   })
+
+  it('[canopi-f47t.52.36] a standing offer (a waiting release) yields: every notice raised after it queues ahead (2.1-M182)', () => {
+    raiseNotice({ key: 'earlier', message: 'health.localDataNotOpened' })
+    raiseNotice({ key: 'web.release', message: 'webRelease.message', yields: true })
+    raiseNotice({ key: 'import', message: 'geojson.importNothing' })
+    raiseNotice({ key: 'status', message: 'update.installing', undismissable: true })
+    expect(notices.value.map((notice) => notice.key)).toEqual(['status', 'earlier', 'import', 'web.release'])
+  })
 })

@@ -307,7 +307,7 @@ test('canopi-eon8.15: Reload from the start screen with an unkept Draft keeps th
   await expect(welcome.getByRole('button', { name: 'Keep my drafts' })).toBeVisible()
 
   await page.evaluate(() => window.dispatchEvent(new Event('focus')))
-  const notice = page.locator('[data-web-shell-notice][data-release]')
+  const notice = page.locator('[data-notice-row][data-notice-key="web.release"]')
   await expect(notice).toBeVisible()
   await expect(notice, 'no Design is open, so none is saved first').toContainText('Canopi was updated. Reload to use it.')
   await expect(notice).not.toContainText('saved first')

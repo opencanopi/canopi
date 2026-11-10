@@ -3157,17 +3157,6 @@
       }
     },
     {
-      "id": "notice-module-browser-shell-notice",
-      "doc": "desktop/web/src/web/browser-shell-notice.ts",
-      "quote": "const notice = signal<BrowserShellNotice | null>(null);",
-      "state": {
-        "planned": {
-          "phase": "1b",
-          "bead": "canopi-f47t.52.36"
-        }
-      }
-    },
-    {
       "id": "notice-module-browser-release-watch",
       "doc": "desktop/web/src/web/browser-release-watch.ts",
       "quote": "const notice = signal<BrowserReleaseWaiting | null>(null);",

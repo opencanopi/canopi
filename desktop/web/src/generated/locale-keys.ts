@@ -2002,7 +2002,6 @@ export type LocaleKey =
   | "webRelease.message"
   | "webRelease.messageNoDesign"
   | "webRelease.title"
-  | "webShell.dismissNotice"
   | "webShell.downloadCanopi"
   | "webShell.downloadCopy"
   | "webShell.openCanopi"

@@ -1,5 +1,5 @@
 import type { ComponentChildren } from "preact";
-import { useMemo, useState } from "preact/hooks";
+import { useEffect, useMemo } from "preact/hooks";
 import { activePanel, sidePanel } from "../app/shell/state";
 import { keyboardShortcutsDialogOpen } from "../app/shell/dialogs";
 import { workspaceCanvasCommandProjection } from "../app/workspace-commands/canvas-actions";
@@ -18,6 +18,7 @@ import {
 } from "./browser-design-session";
 import { browserDraftPersistence, type BrowserDraftPersistence } from "./browser-draft-persistence";
 import { browserReleaseWatch } from "./browser-release-watch";
+import { installReleaseNotice } from "./browser-notices";
 import { hasConfiguredStaticDesignTemplates } from "../app/community/catalog.browser";
 import { WorkspaceDialogs } from "../components/workspace/WorkspaceComposition";
 import { SaveProblemDialog } from "../components/shared/SaveProblemDialog";
@@ -97,22 +98,15 @@ export function WebApp({
     canvas: workspaceCanvasCommandProjection.value,
   });
 
-  // Reload saves first: Saving… until the session reloads the page, or the user cancels its save problem (M179).
-  const [reloading, setReloading] = useState(false);
-  const releaseNotice = browserReleaseWatch.notice.value ? {
-    reloading,
-    onReload: () => {
-      setReloading(true);
-      void controller.reloadForRelease().then((reloaded) => {
-        if (reloaded) return;
-        setReloading(false);
-      }, (error: unknown) => {
-        setReloading(false);
-        logWebAppCommandError(error);
-      });
-    },
-    onDismiss: () => browserReleaseWatch.dismiss(),
-  } : null;
+  // New version: Reload on the one notice row; Reload saves first: Saving… until the session reloads the page, or the
+  // user cancels its save problem (M179).
+  useEffect(() => installReleaseNotice({
+    waiting: browserReleaseWatch.notice,
+    designOpen: () => controller.hasCurrentDesign(),
+    reload: () => controller.reloadForRelease(),
+    dismiss: () => browserReleaseWatch.dismiss(),
+    onError: logWebAppCommandError,
+  }), [controller]);
 
   return (
     <div className={styles.root} data-canopi-web-root>
@@ -128,7 +122,6 @@ export function WebApp({
         }}
         placeSearch={hasDesign}
         persistence={persistence}
-        release={releaseNotice}
         undo={hasDesign ? workspaceCanvasCommandProjection.value.historyActions.find((action) => action.id === "undo") : undefined}
       >
         {workspace ?? (

@@ -30,7 +30,7 @@ const mocks = vi.hoisted(() => ({
   installToolRailLearning: vi.fn(),
   disposeToolRailLearning: vi.fn(),
   takeEarlierDataNotice: vi.fn(),
-  showBrowserShellNotice: vi.fn(),
+  raiseEarlierDataNotice: vi.fn(),
   installLaunchFile: vi.fn(),
   disposeLaunchFile: vi.fn(),
 }));
@@ -43,8 +43,9 @@ vi.mock("../web/browser-app-data", () => ({
   browserAppDataStore: { takeEarlierDataNotice: mocks.takeEarlierDataNotice },
 }));
 
-vi.mock("../web/browser-shell-notice", () => ({
-  showBrowserShellNotice: mocks.showBrowserShellNotice,
+vi.mock("../web/browser-notices", () => ({
+  raiseEarlierDataNotice: mocks.raiseEarlierDataNotice,
+  presentBrowserDesignOpenFailure: vi.fn(),
 }));
 
 vi.mock("../app/tool-rail/learning", () => ({
@@ -123,7 +124,7 @@ describe("settings platform bootstrap", () => {
     mocks.disposeToolRailLearning.mockReset();
     mocks.installToolRailLearning.mockReset().mockReturnValue(mocks.disposeToolRailLearning);
     mocks.takeEarlierDataNotice.mockReset().mockReturnValue(false);
-    mocks.showBrowserShellNotice.mockReset();
+    mocks.raiseEarlierDataNotice.mockReset();
     mocks.disposeLaunchFile.mockReset();
     mocks.installLaunchFile.mockReset().mockReturnValue(mocks.disposeLaunchFile);
   });
@@ -175,26 +176,15 @@ describe("settings platform bootstrap", () => {
     expect(mocks.installContinuousSave).toHaveBeenCalledTimes(2);
   });
 
-  it("tells once that browser data from before Canopi 2.0 was not opened, once the locale is known", async () => {
+  // The notice holds locale keys (failures/notices.ts), so raised at once it reads in the user's locale once it loads.
+  it("tells once that browser data from before Canopi 2.0 was not opened, at launch, ahead of any later notice", async () => {
     mocks.takeEarlierDataNotice.mockReturnValue(true);
-    const { t } = await import("../i18n");
     const { bootstrapPlatform } = await import("../platform/browser");
 
     bootstrapPlatform();
-    expect(mocks.showBrowserShellNotice).not.toHaveBeenCalled();
-    await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(mocks.takeEarlierDataNotice).toHaveBeenCalledOnce();
-    expect(mocks.showBrowserShellNotice).toHaveBeenCalledOnce();
-    expect(mocks.showBrowserShellNotice).toHaveBeenCalledWith({
-      tone: "info",
-      title: t("health.localDataNotOpenedTitle"),
-      message: t("health.localDataNotOpened"),
-    });
-    expect(t("health.localDataNotOpenedTitle")).toBe("Earlier data not opened");
-    expect(t("health.localDataNotOpened")).toBe(
-      "Canopi 2.0 can’t open data saved by earlier versions. It was left unchanged, and Canopi started fresh.",
-    );
+    expect(mocks.raiseEarlierDataNotice).toHaveBeenCalledOnce();
     expect(mocks.restoreLatestDraft).toHaveBeenCalledOnce();
   });
 
@@ -204,7 +194,7 @@ describe("settings platform bootstrap", () => {
     bootstrapPlatform();
     await new Promise((resolve) => setTimeout(resolve, 0));
 
-    expect(mocks.showBrowserShellNotice).not.toHaveBeenCalled();
+    expect(mocks.raiseEarlierDataNotice).not.toHaveBeenCalled();
     expect(mocks.restoreLatestDraft).toHaveBeenCalledOnce();
   });
 

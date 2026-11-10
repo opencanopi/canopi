@@ -336,8 +336,8 @@ describe('document replacement actions', () => {
     expect(mocks.presentOpenFailure).toHaveBeenCalledTimes(1)
     expect(mocks.presentOpenFailure.mock.calls[0]?.[0]).toEqual({
       tone: 'error',
-      title: 'Can’t open this Design',
-      message: 'Can’t read this file',
+      title: 'start.cantOpenTitle',
+      message: 'start.cantRead',
     })
   })
 

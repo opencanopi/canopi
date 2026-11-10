@@ -63,18 +63,24 @@ function rowAttributes(notice: QueuedNotice) {
 }
 
 function NoticeContent({ notice, count }: { readonly notice: QueuedNotice; readonly count: number }) {
-  const { action, secondaryAction } = notice
+  const { action, secondaryAction, detail } = notice
+  // While the action is under way (Reload writing the Design first) a second click or a Dismiss would not stop it.
+  const busy = action?.busy?.now() ?? false
   return (
     <Notice
       tone={notice.tone ?? 'info'}
       action={(
         <>
-          {action && <button type="button" className={styles.action} onClick={() => action.run()}>{t(action.label)}</button>}
+          {action && (
+            <button type="button" className={styles.action} disabled={busy} onClick={() => action.run()}>
+              {t(busy && action.busy ? action.busy.label : action.label)}
+            </button>
+          )}
           {action && secondaryAction && (
             <button type="button" className={styles.action} onClick={() => secondaryAction.run()}>{t(secondaryAction.label)}</button>
           )}
           {!notice.undismissable && (
-            <button type="button" className={styles.dismiss} aria-label={t('notice.dismiss')} onClick={() => dismissNotice(notice.id)}>
+            <button type="button" className={styles.dismiss} aria-label={t('notice.dismiss')} disabled={busy} onClick={() => dismissNotice(notice.id)}>
               <ControlIcon name="close" size={16} />
             </button>
           )}
@@ -82,7 +88,8 @@ function NoticeContent({ notice, count }: { readonly notice: QueuedNotice; reado
       )}
     >
       {notice.title && <strong className={styles.title}>{t(notice.title)}</strong>}
-      <span>{t(notice.message, notice.params)}</span>
+      <span>{t(notice.messageNow?.() ?? notice.message, notice.params)}</span>
+      {detail && <span> {t(detail.message, detail.params)}</span>}
       {count > 1 && (
         <span className={styles.count} data-notice-count="">{t('notice.count', { index: 1, count })}</span>
       )}
