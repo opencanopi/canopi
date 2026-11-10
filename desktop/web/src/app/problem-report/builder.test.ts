@@ -135,8 +135,22 @@ describe('problem report builder', () => {
     const plain = buildProblemReport(input())
     expect(plain.manifest!.entries[0]!.status).toBe('empty')
     expect(text(plain, 'originating_failure')).toBe('empty\n')
-    expect((await nativeRequest(buildProblemReport(input({ sections: DESKTOP })))).sections.map((section) => section.id))
+    const ring = [{ level: 'error', source: 'map' }]
+    expect((await nativeRequest(buildProblemReport(input({ ring, sections: DESKTOP })))).sections.map((section) => section.id))
       .toEqual(['description', 'frontend_ring'])
+  })
+
+  it('canopi-f47t.52.36: an empty app-failures ring is marked empty on both editions, as an empty native-failures list is', async () => {
+    const web = buildProblemReport(input({ ring: [], sections: WEB }))
+    expect(web.manifest!.entries.find((entry) => entry.section === 'frontend_ring')!.status).toBe('empty')
+    expect(text(web, 'frontend_ring')).toBe('empty\n')
+    // Desktop sends no text for it, so the native writer marks it empty with the same marker.
+    const desktop = buildProblemReport(input({ ring: [], sections: DESKTOP }))
+    expect(desktop.entries.find((entry) => entry.section === 'frontend_ring')!.status).toBe('empty')
+    expect((await nativeRequest(desktop)).sections.map((section) => section.id)).toEqual(['description'])
+    // A ring holding a failure is included.
+    const held = buildProblemReport(input({ ring: [{ level: 'error', source: 'map' }], sections: WEB }))
+    expect(held.manifest!.entries.find((entry) => entry.section === 'frontend_ring')!.status).toBe('included')
   })
 
   it('lists every entry but itself in the manifest, in both consent states (2.1-Q277, 2.1-M436)', () => {

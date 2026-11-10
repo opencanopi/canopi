@@ -64,6 +64,9 @@ export function ProblemReportDialog() {
 
 function ProblemReportDialogContent() {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const dialogRef = useRef<HTMLElement>(null)
+  const successCloseRef = useRef<HTMLButtonElement>(null)
+  const createRef = useRef<HTMLButtonElement>(null)
   useModalLayer()
   const scrim = useScrimPress(closeDialog)
   const description = problemReportSubmission.description.value
@@ -81,6 +84,21 @@ function ProblemReportDialogContent() {
   useLayoutEffect(() => {
     textareaRef.current?.focus()
   }, [])
+
+  // A view swap (writing, created, failed) must not drop focus to <body>, outside the dialog's Esc handler
+  // (canopi-f47t.52.36): focus left on nothing, a disabled button or the dialog itself moves to the view's control:
+  // Close once created (Show again is disabled while the first showing runs), Create again after a failure, and the
+  // dialog itself while the write runs; Show again, disabled while it shows, hands focus to Close.
+  const view = result ? 'created' : submitting ? 'writing' : 'form'
+  useLayoutEffect(() => {
+    const dialog = dialogRef.current
+    if (!dialog) return
+    const active = document.activeElement
+    const lost = active === null || active === dialog || !dialog.contains(active) || (active as HTMLButtonElement).disabled === true
+    if (!lost) return
+    const target = view === 'created' ? successCloseRef.current : view === 'form' ? createRef.current : null
+    ;(target ?? dialog).focus()
+  }, [view, showFolderState])
 
   function closeDialog(): void {
     problemReportSubmission.close()
@@ -106,6 +124,8 @@ function ProblemReportDialogContent() {
   return (
     <div className={styles.overlay} {...scrim}>
       <section
+        ref={dialogRef}
+        tabIndex={-1}
         className={styles.dialog}
         role="dialog"
         aria-modal="true"
@@ -150,7 +170,7 @@ function ProblemReportDialogContent() {
             )}
             <SendTo />
             <div className={styles.footer}>
-              <button type="button" className={styles.secondaryButton} onClick={closeDialog}>
+              <button type="button" ref={successCloseRef} className={styles.secondaryButton} onClick={closeDialog}>
                 {t('problemReport.close')}
               </button>
               {canReveal && (
@@ -214,7 +234,7 @@ function ProblemReportDialogContent() {
               <button type="button" className={styles.secondaryButton} onClick={closeDialog}>
                 {t('problemReport.cancel')}
               </button>
-              <button type="submit" className={styles.primaryButton} disabled={submitting}>
+              <button type="submit" ref={createRef} className={styles.primaryButton} disabled={submitting}>
                 {t(submitting ? 'problemReport.creating' : 'problemReport.create')}
               </button>
             </div>

@@ -114,15 +114,17 @@ function ManageViewsDialog() {
   const views = currentSavedViews()
   const confirmation = savedViewDeleteConfirmation.value
   const listRef = useRef<HTMLUListElement>(null)
+  const doneRef = useRef<HTMLButtonElement>(null)
   const previousCount = useRef(views.length)
 
   // After a delete the row and its focused button are gone: keep focus in the list, as the change commits, so an Esc
-  // at once is the dialog's (canopi-f47t.52.228.20).
+  // at once is the dialog's (canopi-f47t.52.228.20); with the last view gone the list is too, and Done takes it
+  // (canopi-f47t.52.36).
   useLayoutEffect(() => {
     if (views.length < previousCount.current) {
       const next = listRef.current?.querySelector<HTMLElement>('button')
       if (next) next.focus()
-      else listRef.current?.closest('[role="dialog"]')?.querySelector<HTMLElement>('button')?.focus()
+      else doneRef.current?.focus()
     }
     previousCount.current = views.length
   }, [views.length])
@@ -132,7 +134,7 @@ function ManageViewsDialog() {
       title={t('savedViews.manageTitle')}
       onClose={closeManageViewsDialog}
       footer={(
-        <button type="button" className={styles.button} onClick={closeManageViewsDialog}>
+        <button ref={doneRef} type="button" className={styles.button} onClick={closeManageViewsDialog}>
           {t('savedViews.done')}
         </button>
       )}

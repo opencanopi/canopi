@@ -152,14 +152,20 @@ function noticeKey(code: FailureCode, source: string): string {
 }
 
 function echo(entry: RingEntry, values: true | readonly unknown[]): void {
-  const text = entry.origin === 'native' ? entry.detail ?? entry.code.kind : entry.text
-  const written = values === true ? [`[${entry.source}]`, text] : values.map(redactedValue)
+  const written = values === true ? [`[${entry.source}]`, entryText(entry)] : values.map(redactedValue)
   if (entry.level === 'warning') console.warn(...written)
   else console.error(...written)
 }
 
+function entryText(entry: RingEntry): string {
+  return entry.origin === 'native' ? entry.detail ?? entry.code.kind : entry.text
+}
+
 function redactedValue(value: unknown): unknown {
   if (typeof value === 'string') return safeRedact(value)
+  // A recorded non-Error object (a typed load failure) prints its entry's redacted text, never `[object Object]`.
+  const recorded = typeof value === 'object' && value !== null && !(value instanceof Error) ? entryForSettlement(value) : undefined
+  if (recorded) return entryText(recorded)
   if (value instanceof Error) {
     const message = safeRedact(value.message)
     if (message === value.message) return value

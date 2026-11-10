@@ -25,6 +25,11 @@
   box-shadow: var(--shadow-float);
 }
 
+/* The dialog holds focus only while a report is written, with no control to show it on. */
+.dialog:focus {
+  outline: none;
+}
+
 .header {
   display: flex;
   align-items: flex-start;
