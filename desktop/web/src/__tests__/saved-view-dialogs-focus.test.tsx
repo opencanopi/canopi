@@ -143,4 +143,27 @@ describe('Manage views keeps focus with the control that replaced the focused on
       release()
     }
   })
+
+  it('canopi-f47t.52.36: after a confirmed delete focus is in the list, so an Esc closes the dialog', async () => {
+    await openManageViews([POND, HEDGE], [TOUR])
+    await act(async () => button(t('savedViews.deleteAria', { name: 'Pond' })).click())
+    const confirm = Array.from(container.querySelectorAll<HTMLButtonElement>('[role="alertdialog"] button'))
+      .find((node) => node.textContent === t('savedViews.deleteConfirmAction'))!
+    confirm.focus()
+    await act(async () => confirm.click())
+    expect(container.querySelector('[role="dialog"] ul')!.contains(document.activeElement), 'focus is in the list').toBe(true)
+    escape()
+    expect(manageViewsDialogOpen.value, 'Esc closed the dialog').toBe(false)
+  })
+
+  it('canopi-f47t.52.36: after deleting the last view focus stays in the dialog, so an Esc closes it', async () => {
+    await openManageViews([POND])
+    const remove = button(t('savedViews.deleteAria', { name: 'Pond' }))
+    remove.focus()
+    await act(async () => remove.click())
+    expect(container.textContent).toContain(t('savedViews.empty'))
+    expect(container.querySelector('[role="dialog"]')!.contains(document.activeElement), 'focus is in the dialog').toBe(true)
+    escape()
+    expect(manageViewsDialogOpen.value, 'Esc closed the dialog').toBe(false)
+  })
 })
