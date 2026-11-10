@@ -1894,6 +1894,15 @@
       "note": "P46b only the Satellite provider builds the Google key URLs"
     },
     {
+      "id": "pixi-unsafe-eval-shim-first",
+      "tool": "ast-grep",
+      "ledger": "2.1-M236",
+      "family": "pixi-unsafe-eval-shim-first",
+      "owner_today": "desktop/web/src/canvas/runtime/renderers/pixi-scene.ts",
+      "example": "desktop/web/src/canvas/runtime/renderers/pixi-scene.ts",
+      "note": "a module importing from pixi.js imports pixi.js/unsafe-eval first, since the packaged Desktop CSP (script-src 'self') rejects Pixi's new Function and the map scene would fail (the source read in pixi-csp-guard.test.ts retired onto this rule, 2.1-Q13)"
+    },
+    {
       "id": "google-tile-endpoint-only-in-tile-auth",
       "tool": "ast-grep",
       "ledger": "2.1-M236",

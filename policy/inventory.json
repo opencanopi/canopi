@@ -2314,6 +2314,16 @@
       }
     },
     {
+      "id": "pixi-unsafe-eval-shim-first",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M236 |",
+      "state": {
+        "exists": {
+          "check": "pixi-unsafe-eval-shim-first"
+        }
+      }
+    },
+    {
       "id": "google-tile-endpoint-only-in-tile-auth",
       "doc": "docs/decisions/2-1.md",
       "quote": "| 2.1-M236 |",
