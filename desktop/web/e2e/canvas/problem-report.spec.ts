@@ -55,9 +55,7 @@ test('Help › Report a problem downloads one zip of the browser\'s sections, wi
   await expect(dialog.getByRole('button', { name: 'Show again' })).toHaveCount(0)
 })
 
-// Expected to fail until web/WebApp.tsx passes currentDesignText={() => controller.currentDesignText()} to
-// BrowserAppShell (main agent, file outside chunk 1b-c5; canopi-f47t.52.36): until then the writer has no Design.
-test.fail('canopi-f47t.52.36: Include current Design ticked puts the open Design in the Web report (expected to fail until WebApp.tsx passes currentDesignText, main agent)', async ({ page }) => {
+test('canopi-f47t.52.36: Include current Design ticked puts the open Design in the Web report', async ({ page }) => {
   await openFixtureFromStart(page)
   const dialog = await openReportDialog(page)
   await dialog.getByRole('checkbox', { name: /Include current Design/ }).check()
