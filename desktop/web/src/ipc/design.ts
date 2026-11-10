@@ -117,6 +117,10 @@ async function saveDesignDraft(id: string, content: CanopiFile): Promise<void> {
   return invokeCommand('save_design_draft', { id, content: encodeCanopiDesign(content) })
 }
 
+/**
+ * Load the Draft `id`.
+ * Rejects with a `DesignLoadFailure` (`app/contracts/canopi-design-errors.ts`).
+ */
 export async function loadDesignDraft(id: string): Promise<CanopiFile> {
   return invokeCommand('load_design_draft', { id })
 }

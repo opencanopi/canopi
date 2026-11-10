@@ -44,17 +44,18 @@ function isDesignLoadFailureKind(kind: unknown): kind is DesignLoadFailureKind {
 /**
  * The typed failure a native `load_design` rejection carries, or the
  * equivalent for a Web ingestion error; null for anything else (a cancelled
- * dialog, an unexpected exception).
+ * dialog, an unexpected exception). A refused field's path is kept for the
+ * failure ring and Problem Reports only, never for the screen (2.1-Q286); a
+ * Web refusal names its field in its message, but for a version, `$.version`
+ * as native does.
  */
 export function designLoadFailureOf(error: unknown): DesignLoadFailure | null {
   if (error instanceof CanopiDesignIngestionError) {
     const newer = error.unsupportedVersion !== null && error.unsupportedVersion > CURRENT_CANOPI_FILE_VERSION
-    return {
-      kind: error.kind === 'unsupported_version'
-        ? (newer ? 'newer_version' : 'older_version')
-        : 'invalid_document',
-      message: error.message,
+    if (error.kind === 'unsupported_version') {
+      return { kind: newer ? 'newer_version' : 'older_version', message: error.message, field_path: '$.version' }
     }
+    return { kind: 'invalid_document', message: error.message }
   }
   if (
     error !== null
@@ -64,7 +65,10 @@ export function designLoadFailureOf(error: unknown): DesignLoadFailure | null {
     && typeof error.message === 'string'
     && isDesignLoadFailureKind(error.kind)
   ) {
-    return { kind: error.kind, message: error.message }
+    const fieldPath = 'field_path' in error && typeof error.field_path === 'string' ? error.field_path : null
+    return fieldPath === null
+      ? { kind: error.kind, message: error.message }
+      : { kind: error.kind, message: error.message, field_path: fieldPath }
   }
   return null
 }

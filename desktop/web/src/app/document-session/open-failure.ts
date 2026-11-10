@@ -1,12 +1,19 @@
 import { designLoadFailureMessageKey, designLoadFailureOf } from '../contracts/canopi-design-errors'
 import type { LocaleKey } from '../../generated/locale-keys'
+import type { FailureCode } from '../../generated/contracts'
+import type { DesignLoadFailureKind } from '../../types/design'
+import { reportFailure } from '../../failures/report'
+
+/** The ring source of a Design that could not be opened. */
+const DESIGN_LOAD_SOURCE = 'design.load'
 
 /**
  * What the user sees when a Design cannot be opened: the typed load failure
  * turned into the Start screen's wording (older version, newer version,
  * missing, damaged), never a path or the raw error, as locale keys. The
  * presenter is the edition's notice surface (a native dialog on Desktop, the
- * one notice row on the Web); without one the failure is only logged by the caller.
+ * one notice row on the Web); with or without one the failure is recorded for the
+ * problem report, its refused field there only (2.1-Q286).
  */
 export interface DesignOpenFailureNotice {
   readonly tone: 'error'
@@ -28,8 +35,47 @@ export function designOpenFailureNoticeOf(error: unknown): DesignOpenFailureNoti
   return { tone: 'error', title: 'start.cantOpenTitle', message: key }
 }
 
-/** Show the failure to the user through the registered presenter, if any. */
+/** The catalogue code a load failure is recorded under until `design_load` joins the catalogue (2a). */
+function failureCodeOf(kind: DesignLoadFailureKind): FailureCode {
+  switch (kind) {
+    case 'missing':
+      return { kind: 'io', io: 'not_found' }
+    case 'unreadable':
+      return { kind: 'io', io: 'other' }
+    case 'too_large':
+      return { kind: 'io', io: 'too_large' }
+    case 'invalid_json':
+    case 'older_version':
+    case 'newer_version':
+    case 'invalid_document':
+      return { kind: 'invalid' }
+    case 'internal':
+      return { kind: 'internal' }
+  }
+}
+
+/**
+ * Records the failure in the ring, told when a presenter shows it: a typed load failure as its kind, message and
+ * refused field (the report's, never the screen's, 2.1-Q286); anything else as itself, so a settlement the transport
+ * recorded keeps its one entry.
+ */
+function recordDesignOpenFailure(error: unknown, shown: 'inline' | 'none'): void {
+  const failure = designLoadFailureOf(error)
+  if (!failure) {
+    reportFailure(error, { shown, source: DESIGN_LOAD_SOURCE })
+    return
+  }
+  const field = failure.field_path ? ` at ${failure.field_path}` : ''
+  reportFailure(`${failure.kind}${field}: ${failure.message}`, {
+    shown,
+    source: DESIGN_LOAD_SOURCE,
+    code: failureCodeOf(failure.kind),
+  })
+}
+
+/** Show the failure to the user through the registered presenter, if any, and record it for the problem report. */
 export function presentDesignOpenFailure(error: unknown): void {
+  recordDesignOpenFailure(error, presenter ? 'inline' : 'none')
   if (!presenter) return
   void Promise.resolve(presenter(designOpenFailureNoticeOf(error))).catch((cause) => {
     console.error('Design open failure could not be presented:', cause)
