@@ -171,7 +171,8 @@ sequenceDiagram
   PR->>FR: ring, that OperationId first
   PR->>RB: frontend sections, the Design only by consent
   RB->>RB: native sections, an entry per REPORT_SECTIONS row, redacted; manifest of the rest
-  RB-->>PR: one zip in Problem reports, shown selected; its file name, nothing sent (Web: PR zips and downloads)
+  RB-->>PR: one zip in Problem reports, its file name; the write shows nothing, nothing sent (Web: PR zips and downloads)
+  PR->>RB: show_problem_report_folder once, selected, only while the user still wants the report (port reveal; Web: none)
 ```
 
 - Owner: `failures/` (2.1) owns the sink, the ring and the notice signal; `app/problem-report/` is the report builder's one home; the catalogue in `canopi-types` owns codes.
