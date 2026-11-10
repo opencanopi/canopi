@@ -16,6 +16,7 @@ import { createBrowserProblemReportWriter, type BrowserProblemReportWriter } fro
 import en from '../../i18n/en.json'
 import type { CanopiFile } from '../../types/design'
 import { ProblemReportDialog, PROBLEM_REPORT_ISSUES_URL, SECTION_LINES } from './ProblemReportDialog'
+import styles from './ProblemReportDialog.module.css'
 
 const mocks = vi.hoisted(() => ({
   createProblemReport: vi.fn(),
@@ -170,6 +171,17 @@ describe('ProblemReportDialog', () => {
       const key = SECTION_LINES[row.id].split('.').at(-1) as keyof typeof en.problemReport.section
       expect(en.problemReport.section[key].replaceAll('’', '\'')).toBe(row.privacy)
     }
+  })
+
+  it('draws each listed section as a row of the dialog\'s section list, and the issues page as its link', async () => {
+    await show()
+    const list = container.querySelector('[data-report-section]')!.parentElement!
+    expect(list.classList.contains(styles.sectionList!)).toBe(true)
+    const rows = [...container.querySelectorAll('[data-report-section]')]
+    expect(rows.length).toBeGreaterThan(0)
+    expect(rows.every((row) => row.classList.contains(styles.sectionRow!))).toBe(true)
+    const link = container.querySelector<HTMLAnchorElement>(`a[href="${PROBLEM_REPORT_ISSUES_URL}"]`)!
+    expect(link.classList.contains(styles.link!)).toBe(true)
   })
 
   it('names the GitHub issues page with a link and says what to attach (2.1-Q279)', async () => {

@@ -182,8 +182,8 @@ function ProblemReportDialogContent() {
             />
             <fieldset className={styles.attachments}>
               <legend>{t('problemReport.contentsTitle')}</legend>
-              <ul className={styles.privacy}>
-                {listed.map((row) => <li key={row.id} data-report-section={row.id}>{t(SECTION_LINES[row.id])}</li>)}
+              <ul className={styles.sectionList}>
+                {listed.map((row) => <li key={row.id} className={styles.sectionRow} data-report-section={row.id}>{t(SECTION_LINES[row.id])}</li>)}
               </ul>
               {consentRows.map((row) => {
                 const checkbox = CONSENT_CHECKBOXES[row.consent]
@@ -230,7 +230,7 @@ function SendTo() {
   return (
     <p className={styles.body}>
       {t('problemReport.sendText')}{' '}
-      <a href={PROBLEM_REPORT_ISSUES_URL} target="_blank" rel="noopener noreferrer">{t('problemReport.issuesLink')}</a>
+      <a className={styles.link} href={PROBLEM_REPORT_ISSUES_URL} target="_blank" rel="noopener noreferrer">{t('problemReport.issuesLink')}</a>
     </p>
   )
 }
