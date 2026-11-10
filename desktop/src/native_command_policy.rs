@@ -126,8 +126,8 @@ const STATE_ACCESS_ALLOWLIST: &[StateAccessAllowance] = &[
     },
     StateAccessAllowance {
         path: "commands::problem_report::create_problem_report",
-        operation: "get_health",
-        reason: "clones the in-memory health snapshot under its lock",
+        operation: "report_health",
+        reason: "clones the in-memory startup health snapshot",
     },
 ];
 

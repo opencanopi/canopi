@@ -49,7 +49,7 @@ pub async fn create_problem_report(
         target: format!("{}/{}", std::env::consts::OS, std::env::consts::ARCH),
         webview_version: tauri::webview_version().ok(),
         settings,
-        health: crate::services::health::get_health(&health),
+        health: crate::services::health::report_health(&health),
         settlements: crate::logging::recent_failures(),
         library: Err(String::new()),
         library_disk_bytes: Err(String::new()),

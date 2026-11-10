@@ -29,7 +29,7 @@ use canopi_types::sensitive::UserPath;
 use rusqlite::{Connection, OpenFlags};
 use tauri::Manager;
 
-pub struct AppHealth(std::sync::Mutex<SubsystemHealth>);
+pub struct AppHealth(SubsystemHealth, services::health::DismissedNotices);
 
 const PLANT_DB_BUNDLED_PATH: &str = "resources/canopi-core.db";
 
