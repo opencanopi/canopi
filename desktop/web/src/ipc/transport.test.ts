@@ -115,6 +115,20 @@ describe('IPC transport', () => {
     expect(ringEntries()).toEqual([])
   })
 
+  it('canopi-f47t.52.36: a species search superseded by a newer query settles cancelled and is never recorded', async () => {
+    // search_species still rejects a superseded query with plain text (desktop/src/services/plant_browser.rs).
+    const superseded = 'Species search cancelled because a newer query superseded it'
+    invoke.mockRejectedValueOnce(superseded)
+    const settled = await rejected('search_species')
+    expect(isCancelledFailure(settled)).toBe(true)
+    expect(settled.message).toBe(superseded)
+    expect(ringEntries()).toEqual([])
+    // Only search_species's own text is silenced: another command's same words stay a recorded failure.
+    invoke.mockRejectedValueOnce(superseded)
+    expect((await rejected('get_species_detail')).failure.code).toEqual({ kind: 'internal' })
+    expect(ringEntries()).toHaveLength(1)
+  })
+
   it('same settlement reported twice: one entry, marked surfaced', async () => {
     invoke.mockRejectedValueOnce('Plant database unavailable: bundled plant database is missing')
     const settled = await rejected('search_species')

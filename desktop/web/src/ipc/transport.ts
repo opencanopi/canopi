@@ -58,20 +58,35 @@ function untypedOp(command: string): string {
 }
 
 /**
- * A rejection that is not a `Failure`, settled `internal` with its text redacted here (2.1-M409; deleted at R13 0).
- * The host's refusal of a second dialog, still the bare string `dialog_already_open` on `pick_geojson_file`, settles
- * as its silent catalogue code so it is never recorded (2.1-M437, 2.1-Q284).
+ * Each String command's silent refusal text and its catalogue code, bound to its command so no other command's text is
+ * silenced; a row goes when its command is typed. `pick_geojson_file` refuses a second dialog with the bare kind, and
+ * `search_species` a query a newer one superseded (desktop/src/services/plant_browser.rs).
+ */
+const SILENT_UNTYPED: ReadonlyMap<string, readonly [text: string, code: Failure['code']]> = new Map([
+  ['pick_geojson_file', ['dialog_already_open', { kind: 'dialog_already_open' }]],
+  ['search_species', ['Species search cancelled because a newer query superseded it', { kind: 'cancelled' }]],
+])
+
+/**
+ * A rejection that is not a `Failure`, settled `internal` with its text redacted here (2.1-M409; deleted at R13 0),
+ * but for the String commands' silent outcomes in `SILENT_UNTYPED`, settled as their silent catalogue code so they are
+ * never recorded (2.1-M437, 2.1-Q284).
  */
 function untypedNativeFailure(command: string, rejection: unknown): IpcFailure {
   const text = rejectionText(rejection)
   const failure: Failure = {
-    code: text === 'dialog_already_open' ? { kind: 'dialog_already_open' } : { kind: 'internal' },
+    code: untypedCode(command, text),
     user_may_retry: false,
     op: untypedOp(command),
     operation: null,
     detail: redactedDetail(text),
   }
   return new IpcFailure(failure, text)
+}
+
+function untypedCode(command: string, text: string): Failure['code'] {
+  const silent = SILENT_UNTYPED.get(command)
+  return silent?.[0] === text ? silent[1] : { kind: 'internal' }
 }
 
 /** The rejection's text as today's callers read it: the bare string, or an error's message. */

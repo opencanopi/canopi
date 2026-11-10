@@ -86,6 +86,10 @@
       "count": 3,
       "bead": "canopi-f47t.52.35"
     },
+    "desktop/web/src/ipc/transport.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.36"
+    },
     "desktop/web/src/web/browser-design-session.ts": {
       "count": 3,
       "bead": "canopi-f47t.52.35"
