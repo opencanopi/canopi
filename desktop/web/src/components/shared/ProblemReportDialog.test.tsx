@@ -205,11 +205,11 @@ describe('ProblemReportDialog', () => {
     })
     await send()
 
-    // The frontend sends its own sections; the report is one zip with no summary file (2.1-Q277).
+    // The frontend sends its own sections; the report is one zip with no summary file (2.1-Q277). The empty ring sends
+    // no text, so the native writer marks it empty (canopi-f47t.52.36).
     expect(mocks.createProblemReport).toHaveBeenCalledWith({
       sections: [
         { id: 'description', text: 'Canvas froze after placing a species' },
-        { id: 'frontend_ring', text: '[]' },
       ],
       current_design: null,
     })
