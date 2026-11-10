@@ -14,6 +14,7 @@ import { installStoreNotices } from "../components/workspace/store-notices";
 import { openProblemReport, ProblemReportDialog } from "../components/shared/ProblemReportDialog";
 import { PanelRail } from "../components/shared/PanelRail";
 import { SaveStatusLabel } from "../components/shared/SaveStatusLabel";
+import { ToastSlot } from "../components/shared/ToastSlot";
 import { useChromeRow } from "../components/shared/useMapChrome";
 import { useModalInertRegion } from "../components/shared/useModalLayer";
 import { WorkspaceTitleBar, type TitleBarCommand } from "../components/shared/WorkspaceTitleBar";
@@ -207,6 +208,7 @@ export function BrowserAppShell({
     </div>
     {/* A modal: outside the frame the dialog makes inert. */}
     <ProblemReportDialog />
+    <ToastSlot />
     </>
   );
 }

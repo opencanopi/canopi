@@ -18,6 +18,7 @@ import { currentDesign } from '../document-session/store'
 import { storeStatus } from '../../failures/health'
 import { raiseNotice, withdrawNotice } from '../../failures/notices'
 import { reportFailure } from '../../failures/report'
+import { showToast } from '../../failures/toasts'
 import { referenceDrawOrder } from './reference-tree'
 
 /** How the library opened, as far as a row reads it: only the status kind, never its code or counts. */
@@ -38,13 +39,11 @@ const listStale = signal(false)
  */
 export const lidarLibraryStale: ReadonlySignal<boolean> = listStale
 
-/** How long the "Import cancelled" notice stays: short, it only confirms what the user did (2.1-Q298). */
-const IMPORT_CANCELLED_NOTICE_MS = 4000
+/** How long the "Import cancelled" toast stays: short, it only confirms what the user did (2.1-Q298). */
+const IMPORT_CANCELLED_TOAST_MS = 4000
 
 // The imports the user cancelled whose outcome the list has not shown yet, by layer id.
 const cancelledImports = signal<ReadonlySet<string>>(new Set())
-
-const cancelledNoticeKey = (layerId: string) => `library.import-cancelled:${layerId}`
 
 /** Notes that the user pressed Cancel on an import, so its row leaving the list reads as cancelled, not lost. */
 export function noteImportCancel(layerId: string): void {
@@ -52,7 +51,8 @@ export function noteImportCancel(layerId: string): void {
 }
 
 /**
- * A cancelled import the list no longer has was withdrawn: one short notice, withdrawn by itself, nothing stored. One
+ * A cancelled import the list no longer has was withdrawn: one short toast in the window's toast position, which leaves
+ * by itself and never waits behind the notice row's queue; nothing stored. One
  * the list still has settled otherwise (it failed first, or published before the cancel was seen) and keeps its row with
  * no notice; one still running waits.
  */
@@ -63,8 +63,11 @@ function settleCancelledImports(snapshot: LibrarySnapshot): void {
     const state = item?.import_job?.state
     if (state === 'Staging' || state === 'Applying') waiting.add(layerId)
     else if (!item) {
-      raiseNotice({ key: cancelledNoticeKey(layerId), message: 'canvas.lidar.library.importCancelled', tone: 'info' })
-      globalThis.setTimeout(() => withdrawNotice(cancelledNoticeKey(layerId)), IMPORT_CANCELLED_NOTICE_MS)
+      showToast({
+        key: `library.import-cancelled:${layerId}`,
+        message: 'canvas.lidar.library.importCancelled',
+        timeoutMs: IMPORT_CANCELLED_TOAST_MS,
+      })
     }
   }
   if (waiting.size !== cancelledImports.peek().size) cancelledImports.value = waiting
@@ -206,7 +209,6 @@ export function resetLidarLibraryForTests(): void {
   lidarStatusMessage.value = null
   if (listStale.peek()) withdrawNotice(LIST_STALE_NOTICE)
   listStale.value = false
-  for (const layerId of cancelledImports.peek()) withdrawNotice(cancelledNoticeKey(layerId))
   cancelledImports.value = new Set()
 }
 

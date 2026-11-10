@@ -1,13 +1,14 @@
 // One library status (canopi-f47t.52.142): rows, the notice row and the problem report read how the library opened from
 // the one health model; a list that cannot be refreshed keeps its last rows, marked stale, under one notice with Try
-// again (2.1-Q297); a cancelled import the library withdrew leaves one short notice and nothing else (2.1-Q298).
+// again (2.1-Q297); a cancelled import the library withdrew leaves one short toast and nothing else (2.1-Q298).
 import { signal } from '@preact/signals'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { librarySnapshot, sourceItem } from '../../__tests__/support/library-fixtures'
 import type { LibrarySnapshot } from '../../generated/contracts'
 import { applyHealthSnapshot, resetStoreHealthForTests } from '../../failures/health'
-import { notices, resetNoticesForTests } from '../../failures/notices'
+import { notices, raiseNotice, resetNoticesForTests } from '../../failures/notices'
 import { resetFrontendDiagnosticsForTests, ringEntries } from '../../failures/ring'
+import { resetToastsForTests, toasts } from '../../failures/toasts'
 
 const mocks = vi.hoisted(() => ({
   listLibrary: vi.fn<() => Promise<unknown>>(),
@@ -43,8 +44,8 @@ function running(id: string): LibrarySnapshot {
   })])
 }
 
-function cancelledNotices() {
-  return notices.value.filter((notice) => notice.message === 'canvas.lidar.library.importCancelled')
+function cancelledToasts() {
+  return toasts.value.filter((toast) => toast.message === 'canvas.lidar.library.importCancelled')
 }
 
 function staleNotices() {
@@ -57,6 +58,7 @@ beforeEach(() => {
   resetLidarLibraryForTests()
   resetStoreHealthForTests()
   resetNoticesForTests()
+  resetToastsForTests()
   resetFrontendDiagnosticsForTests()
   applyHealthSnapshot({ library_catalogue: { status: { kind: 'ready' }, notice: null } })
 })
@@ -127,25 +129,36 @@ describe('one library status', () => {
 })
 
 describe('a cancelled import (2.1-Q298)', () => {
-  it('[canopi-f47t.52.38] an import withdrawn after Cancel leaves the list with one short notice and no lasting state', async () => {
+  it('[canopi-f47t.52.38] an import withdrawn after Cancel leaves the list with one short toast and no lasting state', async () => {
     mocks.listLibrary.mockResolvedValue(running('import-1'))
     await refreshLidarLibrary()
     noteImportCancel('import-1')
 
-    // Still staging: no notice yet.
+    // Still staging: no toast yet.
     await refreshLidarLibrary()
-    expect(cancelledNotices()).toHaveLength(0)
+    expect(cancelledToasts()).toHaveLength(0)
 
     mocks.listLibrary.mockResolvedValue(librarySnapshot([]))
     await refreshLidarLibrary()
-    expect(cancelledNotices()).toEqual([expect.objectContaining({ tone: 'info' })])
+    // Short (four seconds, the toast slot times it): a toast, never a notice in the row's queue.
+    expect(cancelledToasts()).toEqual([expect.objectContaining({ timeoutMs: 4000 })])
+    expect(notices.value).toEqual([])
+    // Nothing brings it back once it has left.
+    resetToastsForTests()
     await refreshLidarLibrary()
-    expect(cancelledNotices()).toHaveLength(1)
-    // Short (four seconds): it leaves by itself, and nothing brings it back.
-    await vi.advanceTimersByTimeAsync(4000)
-    expect(cancelledNotices()).toHaveLength(0)
+    expect(cancelledToasts()).toHaveLength(0)
+  })
+
+  it('canopi-f47t.52.36: two notices queued: Import cancelled still shown as a toast', async () => {
+    raiseNotice({ key: 'first', message: 'failure.internal' })
+    raiseNotice({ key: 'second', message: 'failure.internal' })
+    mocks.listLibrary.mockResolvedValue(running('import-1'))
     await refreshLidarLibrary()
-    expect(cancelledNotices()).toHaveLength(0)
+    noteImportCancel('import-1')
+    mocks.listLibrary.mockResolvedValue(librarySnapshot([]))
+    await refreshLidarLibrary()
+    expect(cancelledToasts()).toHaveLength(1)
+    expect(notices.value.map((notice) => notice.key)).toEqual(['first', 'second'])
   })
 
   it('[canopi-f47t.52.38] a cancelled import that failed first, or published, keeps its row with no notice', async () => {
@@ -158,6 +171,7 @@ describe('a cancelled import (2.1-Q298)', () => {
     await refreshLidarLibrary()
     mocks.listLibrary.mockResolvedValue(librarySnapshot([]))
     await refreshLidarLibrary()
-    expect(cancelledNotices()).toHaveLength(0)
+    expect(cancelledToasts()).toHaveLength(0)
+    expect(notices.value).toEqual([])
   })
 })

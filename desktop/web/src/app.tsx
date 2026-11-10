@@ -5,6 +5,7 @@ import { CommandPalette } from "./components/shared/CommandPalette";
 import { AboutCanopiDialog, AboutUpdates } from "./components/shared/AboutCanopiDialog";
 import { SaveProblemDialog } from "./components/shared/SaveProblemDialog";
 import { NoticeRow } from "./components/shared/NoticeRow";
+import { ToastSlot } from "./components/shared/ToastSlot";
 import { ProblemReportDialog, openProblemReport } from "./components/shared/ProblemReportDialog";
 import { LaunchCheckSwitch, SettingsDialog, type LaunchCheckPort, type SettingsFoldersAdapter } from "./components/shared/SettingsDialog";
 import { KeyboardShortcutsDialog } from "./components/shared/KeyboardShortcutsDialog";
@@ -106,6 +107,7 @@ export function App({ updates: ports, dismissStoreNoticeOnHost }: {
       <SaveProblemDialog />
       <ProblemReportDialog />
       <NoticeRow />
+      <ToastSlot />
     </div>
   );
 }

@@ -62,6 +62,7 @@ import { KeyboardShortcutsDialog } from '../src/components/shared/KeyboardShortc
 import type { InputPlatform } from '../src/canvas/runtime/input/platform'
 import { WelcomeScreen } from '../src/components/shared/WelcomeScreen'
 import { NoticeRow } from '../src/components/shared/NoticeRow'
+import { ToastSlot } from '../src/components/shared/ToastSlot'
 import { BrowserAppShell } from '../src/web/BrowserAppShell'
 import { WebPhoneBar } from '../src/web/WebWorkspace'
 import {
@@ -280,6 +281,7 @@ function GalleryDesktopFrame() {
   return <>
     <TitleBar />
     <NoticeRow />
+    <ToastSlot />
     {selectedSurface.value === 'workspace' && <DesktopPanelRail />}
     {selectedSurface.value === 'workspace' && <WorkspaceDialogs />}
     <SettingsDialog folders={{ load: getAppFolders, show: showAppFolder }} />

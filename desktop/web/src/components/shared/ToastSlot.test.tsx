@@ -6,7 +6,11 @@ import { render } from 'preact'
 import { useRef } from 'preact/hooks'
 import { act } from 'preact/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { SlotToast } from './ToastSlot'
+import { raiseNotice, resetNoticesForTests } from '../../failures/notices'
+import { resetToastsForTests, showToast } from '../../failures/toasts'
+import { t } from '../../i18n'
+import { NoticeRow } from './NoticeRow'
+import { SlotToast, ToastSlot } from './ToastSlot'
 import { useModalInertRegion, useModalLayer } from './useModalLayer'
 
 let container: HTMLDivElement
@@ -19,6 +23,9 @@ beforeEach(() => {
 afterEach(() => {
   render(null, container)
   container.remove()
+  resetToastsForTests()
+  resetNoticesForTests()
+  vi.useRealTimers()
 })
 
 /** A panel in a chrome region a modal makes inert, owning an Undo toast. */
@@ -49,5 +56,30 @@ describe('ToastSlot', () => {
     expect(container.contains(undo)).toBe(false)
     await act(async () => { undo.click() })
     expect(onUndo).toHaveBeenCalledOnce()
+  })
+
+  it('canopi-f47t.52.36: two notices queued: Import cancelled still shown as a toast, above them', async () => {
+    await act(async () => render(<><NoticeRow /><ToastSlot /></>, container))
+    await act(async () => {
+      raiseNotice({ key: 'first', message: 'failure.internal' })
+      raiseNotice({ key: 'second', message: 'failure.internal' })
+      showToast({ key: 'library.import-cancelled:a', message: 'canvas.lidar.library.importCancelled' })
+    })
+    expect(document.querySelector('[data-toast-layer]')!.textContent).toContain(t('canvas.lidar.library.importCancelled'))
+    expect(container.querySelector('[data-notice-count]')?.textContent, 'the notices still wait in the row').toBe('1 of 2')
+  })
+
+  it('a transient toast leaves by itself, and the same key raised again restarts it as one toast', async () => {
+    vi.useFakeTimers()
+    await act(async () => render(<ToastSlot />, container))
+    const show = () => showToast({ key: 'k', message: 'canvas.lidar.library.importCancelled', timeoutMs: 4000 })
+    const shown = () => document.querySelectorAll('[data-toast-layer] [role="status"]')
+    await act(async () => { show() })
+    await act(async () => { vi.advanceTimersByTime(3000) })
+    await act(async () => { show() })
+    await act(async () => { vi.advanceTimersByTime(3000) })
+    expect(shown()).toHaveLength(1)
+    await act(async () => { vi.advanceTimersByTime(1000) })
+    expect(shown()).toHaveLength(0)
   })
 })
