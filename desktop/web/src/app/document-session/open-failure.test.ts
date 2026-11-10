@@ -59,6 +59,17 @@ describe('a refused Design', () => {
     expect(ringEntries()).toMatchObject([{ source: 'ipc.load_design', surfaced: true }])
   })
 
+  it('canopi-f47t.52.36: a refused open the command graph reports again keeps its one typed entry', () => {
+    const rejected = { ...refused }
+    presentDesignOpenFailure(rejected)
+    // The open command rethrows the same object; the command graph's catch reports it untold.
+    reportFailure(rejected, { shown: 'none', source: 'command:Open design' })
+    const entries = ringEntries()
+    expect(entries).toHaveLength(1)
+    expect(entries[0]).toMatchObject({ source: 'design.load', code: { kind: 'invalid' }, surfaced: true })
+    expect(entries[0]!.origin === 'frontend' ? entries[0]!.text : '').toContain(FIELD_PATH)
+  })
+
   it('records each load failure kind under its catalogue code', () => {
     presentDesignOpenFailure({ kind: 'missing', message: 'nothing at the path' })
     presentDesignOpenFailure({ kind: 'newer_version', message: 'version 11', field_path: '$.version' })

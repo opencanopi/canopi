@@ -55,21 +55,17 @@ function failureCodeOf(kind: DesignLoadFailureKind): FailureCode {
 }
 
 /**
- * Records the failure in the ring, told when a presenter shows it: a typed load failure as its kind, message and
- * refused field (the report's, never the screen's, 2.1-Q286); anything else as itself, so a settlement the transport
- * recorded keeps its one entry.
+ * Records the failure in the ring against the rejected object, told when a presenter shows it, so the command graph
+ * reporting the rethrown object, or a transport that recorded it first, keeps its one entry: a typed load failure as
+ * its kind, message and refused field (the report's, never the screen's, 2.1-Q286); anything else as itself.
  */
 function recordDesignOpenFailure(error: unknown, shown: 'inline' | 'none'): void {
   const failure = designLoadFailureOf(error)
-  if (!failure) {
-    reportFailure(error, { shown, source: DESIGN_LOAD_SOURCE })
-    return
-  }
-  const field = failure.field_path ? ` at ${failure.field_path}` : ''
-  reportFailure(`${failure.kind}${field}: ${failure.message}`, {
+  const field = failure?.field_path ? ` at ${failure.field_path}` : ''
+  reportFailure(error, {
     shown,
     source: DESIGN_LOAD_SOURCE,
-    code: failureCodeOf(failure.kind),
+    ...(failure && { code: failureCodeOf(failure.kind), text: `${failure.kind}${field}: ${failure.message}` }),
   })
 }
 

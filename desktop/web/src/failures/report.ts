@@ -26,6 +26,8 @@ interface ReportOptions {
   readonly code?: FailureCode
   /** A frontend failure's source (`plant-catalog`, `map`); a native settlement's is its op. */
   readonly source?: string
+  /** A frontend failure's text in place of the subject's own, so a typed failure is still recorded against its object. */
+  readonly text?: string
   readonly level?: FrontendDiagnosticLevel
   /**
    * Also write to the console (the Web console, design check F23): `true` writes the entry's text; values write those
@@ -78,7 +80,7 @@ function newEntry(subject: unknown, options: ReportOptions): RingEntry {
     source: safeRedact(options.source ?? 'frontend'),
     code: options.code ?? INTERNAL,
     operation: null,
-    text: capped(safeRedact(textOf(subject))),
+    text: capped(safeRedact(options.text ?? textOf(subject))),
   }
 }
 
