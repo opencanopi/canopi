@@ -1,6 +1,6 @@
 /**
- * components/shared/ToastSlot.tsx: Owner of the one window-level toast position (notice-only-in-failures, contracts §18
- * F3, 2.1-Q292). Invariant: every toast in the window (an Undo after a delete, a transient result such as "Import
+ * components/shared/ToastSlot.tsx: Owner of the one window-level toast position (notice-only-in-failures, ADR 0025;
+ * contracts §18 F3, 2.1-Q292). Invariant: every toast in the window (an Undo after a delete, a transient result such as "Import
  * cancelled") is drawn in one layer on <body> (`[data-toast-layer]`, styles/global.css) at --z-toast, above the active
  * dialog: no chrome region holds it, so a modal's inert hold never reaches it and its action stays pressable while the
  * dialog is open, and in the topmost modal's Tab cycle when that modal keeps focus inside itself (every such modal
