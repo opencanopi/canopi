@@ -5,9 +5,10 @@
  * the row is keyed by its StoreId and state, so it is raised once; a file name is the set-aside file's name only, never
  * a path (2.1-Q285); an action an edition lacks (Report a problem, Update) is left out, never drawn dead.
  */
-import type { StoreHealth, StoreId, StoreNotice, StoreOpenStatus } from '../generated/contracts'
+import type { FailureCode, StoreHealth, StoreId, StoreNotice, StoreOpenStatus } from '../generated/contracts'
 import type { LocaleKey } from '../generated/locale-keys'
 import type { NoticeSpec } from './notices'
+import type { ReportOrigin } from './report'
 
 type Kind = StoreOpenStatus['kind']
 type StatusOf<K extends Kind> = Extract<StoreOpenStatus, { kind: K }>
@@ -97,7 +98,8 @@ function storeMessage(store: StoreId, status: StoreOpenStatus): StoreMessage | n
 /** The handlers an edition offers for a store notice's actions; one it lacks is null and its button is left out. */
 export interface HealthActions {
   readonly retry?: (() => void) | null
-  readonly report: (() => void) | null
+  /** Opens the problem report from the store's state, which the report lists first. */
+  readonly report: ((origin: ReportOrigin) => void) | null
   readonly update: (() => void) | null
   /** Called when the user dismisses the store's one-time notice. */
   readonly dismissNotice: () => void
@@ -113,16 +115,31 @@ const ACTION_LABEL: Record<HealthAction, LocaleKey> = {
 export function noticeForStore(store: StoreId, entry: StoreHealth, actions: HealthActions): NoticeSpec[] {
   const out: NoticeSpec[] = []
   const status = storeMessage(store, entry.status)
-  if (status) out.push(spec(`health:${store}:${entry.status.kind}`, status, actions))
+  if (status) {
+    const code = entry.status.kind === 'unavailable' ? entry.status.code : null
+    out.push(spec(`health:${store}:${entry.status.kind}`, status, actions, origin(store, code, entry.status.kind)))
+  }
   if (entry.notice !== null) {
-    out.push({ ...spec(`health:${store}:notice:${entry.notice}`, MESSAGE_BY_NOTICE[entry.notice], actions), onDismiss: actions.dismissNotice })
+    const told = spec(`health:${store}:notice:${entry.notice}`, MESSAGE_BY_NOTICE[entry.notice], actions, origin(store, null, entry.notice))
+    out.push({ ...told, onDismiss: actions.dismissNotice })
   }
   return out
 }
 
-function spec(key: string, message: StoreMessage, actions: HealthActions): NoticeSpec {
+/** The store's state as a problem report opened from its notice names it: its code when it has one. */
+function origin(store: StoreId, code: FailureCode | null, state: string): ReportOrigin {
+  return { source: `health.${store}`, code, operation: null, detail: `${store}: ${state}` }
+}
+
+function spec(key: string, message: StoreMessage, actions: HealthActions, from: ReportOrigin): NoticeSpec {
+  const report = actions.report
+  const handlers: Record<HealthAction, (() => void) | null> = {
+    retry: actions.retry ?? null,
+    report: report ? () => report(from) : null,
+    update: actions.update,
+  }
   const runs = message.actions
-    .map((action) => ({ label: ACTION_LABEL[action], run: actions[action] ?? null }))
+    .map((action) => ({ label: ACTION_LABEL[action], run: handlers[action] }))
     .filter((action): action is { label: LocaleKey; run: () => void } => action.run !== null)
   return {
     key,

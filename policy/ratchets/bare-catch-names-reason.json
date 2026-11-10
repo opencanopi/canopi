@@ -50,7 +50,7 @@
       "bead": "canopi-f47t.52.36"
     },
     "desktop/web/src/app/problem-report/submission.ts": {
-      "count": 2,
+      "count": 1,
       "bead": "canopi-f47t.52.36"
     },
     "desktop/web/src/app/recent-files/controller.ts": {
@@ -78,10 +78,6 @@
       "bead": "canopi-f47t.52.36"
     },
     "desktop/web/src/canvas/saved-object-stamp-source.ts": {
-      "count": 1,
-      "bead": "canopi-f47t.52.36"
-    },
-    "desktop/web/src/components/panels/DesignNotebookPanel.tsx": {
       "count": 1,
       "bead": "canopi-f47t.52.36"
     },

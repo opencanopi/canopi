@@ -158,7 +158,7 @@ sequenceDiagram
   participant IPC as ipc/transport.ts
   participant C as calling feature, L3
   participant FR as failures/ reportFailure, ring, notice signal (2.1)
-  participant PR as app/problem-report/
+  participant PR as app/problem-report/ builder, through the platform/problem-report.ts port
   participant RB as services/problem_report/
   SVC->>LOG: settlement: op, operation, lane, code, queued_ms, running_ms, slow
   SVC-->>IPC: Err(Failure): code, user_may_retry, op, detail as RedactedText
@@ -171,10 +171,10 @@ sequenceDiagram
   PR->>FR: ring, that OperationId first
   PR->>RB: frontend sections, the Design only by consent
   RB->>RB: native sections, an entry per REPORT_SECTIONS row, redacted; manifest of the rest
-  RB-->>PR: one zip in Problem reports, shown selected; its file name, nothing sent
+  RB-->>PR: one zip in Problem reports, shown selected; its file name, nothing sent (Web: PR zips and downloads)
 ```
 
-- Owner: `failures/` (2.1) owns the sink, the ring and the notice signal; the catalogue in `canopi-types` owns codes.
+- Owner: `failures/` (2.1) owns the sink, the ring and the notice signal; `app/problem-report/` is the report builder's one home; the catalogue in `canopi-types` owns codes.
 - Invariant: one request per action, no client retry, no text match on a native error, no native message dialog.
 - Test: `every_code_has_a_message_or_is_silent`, `every_code_reaches_the_report`, `ipc/transport.test.ts`.
 

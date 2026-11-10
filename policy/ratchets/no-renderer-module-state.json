@@ -154,9 +154,10 @@
       "bead": "canopi-f47t.52.51"
     },
     "desktop/web/src/canvas/runtime/annotation-layout.ts": {
-      "count": 4,
+      "count": 3,
       "bead": "canopi-f47t.52.51"
     },
+    "desktop/web/src/canvas/runtime/font-loading.ts": { "count": 1, "bead": "canopi-f47t.52.51" },
     "desktop/web/src/canvas/runtime/interaction-session.ts": {
       "count": 1,
       "bead": "canopi-f47t.52.51"

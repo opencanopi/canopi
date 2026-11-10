@@ -2278,7 +2278,7 @@ module.exports = {
         ]
       },
       "to": {
-        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:app/problem-report/diagnostics\\.ts$|app/problem-report/attachments\\.ts$|ipc/problem-report\\.ts$)"
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:app/problem-report/diagnostics\\.ts$|failures/ring\\.ts$|app/problem-report/attachments\\.ts$|ipc/problem-report\\.ts$)"
       }
     },
     {
@@ -2552,7 +2552,7 @@ module.exports = {
         ]
       },
       "to": {
-        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:ipc/.*$|components/shared/TitleBar\\.tsx$|components/shared/MenuBar\\.tsx$|components/shared/ProblemReportDialog\\.tsx$|components/panels/DesignNotebookPanel\\.tsx$|components/panels/CanvasPanel\\.tsx$|components/canvas/DisplayLegend\\.tsx$|app/design-notebook/.*$|app/document-session/actions\\.ts$|app/document-session/lifecycle\\.ts$|app/document-session/transition\\.ts$|app/document-session/state-machine\\.ts$|app/problem-report/.*$|commands/registry\\.ts$|commands/graph/.*$)|^(?:node_modules/)?@tauri-apps(?:[/.]|$)"
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:ipc/.*$|components/shared/TitleBar\\.tsx$|components/shared/MenuBar\\.tsx$|components/panels/DesignNotebookPanel\\.tsx$|components/panels/CanvasPanel\\.tsx$|components/canvas/DisplayLegend\\.tsx$|app/design-notebook/.*$|app/document-session/actions\\.ts$|app/document-session/lifecycle\\.ts$|app/document-session/transition\\.ts$|app/document-session/state-machine\\.ts$|app/problem-report/attachments\\.ts$|commands/registry\\.ts$|commands/graph/.*$)|^(?:node_modules/)?@tauri-apps(?:[/.]|$)"
       }
     },
     {

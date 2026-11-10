@@ -1,0 +1,21 @@
+id: locale-key-typing.plural
+valid:
+  - |
+    export const label = (count: number) => t('savedObjectStamps.summaryZone', { count })
+  - |
+    export const first = (items: string[]) => (items.length === 1 ? items[0] : undefined)
+  - |
+    export const label = (count: number) => (count === 0 ? t('plants.none') : t('plants.count', { count }))
+  - |
+    export const detail = (species: Species[]) => species.length === 1 ? species[0].name : t('chip.species', { count: species.length })
+  - |
+    export const head = (zones: Zone[]) => (zones.length === 1 ? t('chip.zone') : t('chip.zones', { count: zones.length }))
+invalid:
+  - |
+    export const label = (count: number) => t(count === 1 ? 'x.itemOne' : 'x.itemOther', { count })
+  - |
+    export const label = (count: number) => (count === 1 ? t('x.item') : `${count} ${t('x.items')}`)
+  - |
+    export const label = (items: string[]) => (items.length !== 1 ? t('x.many', { n: items.length }) : t('x.one'))
+  - |
+    export const label = (n: number) => ((1 == n) ? t('x.one') : t('x.many', { n }))

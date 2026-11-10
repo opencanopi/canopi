@@ -198,12 +198,11 @@ describe('opening a Design at the view it was saved with', () => {
     expectCameraAt(host, { ...file.map_view!, zoom })
   })
 
-  it('an empty Design with a saved view opens north up on the new-Design overview', () => {
+  it('canopi-eon8.9: an empty Design with a saved view opens at that view, north up (2.1-Q28)', () => {
     const file = { ...orchard(), plants: [], map_view: savedOrchard().map_view }
     const { host } = openOrchard(file)
 
-    expect(cameraOf(host).bearingDeg).toBe(0)
-    expect(host.surfaces.queries.view.mode.value).toBe('overview')
+    expectCameraAt(host, { ...file.map_view!, bearing: 0 })
   })
 
   it('a file without one opens with the fit at the live bearing, north up on the runtime\'s first open', () => {

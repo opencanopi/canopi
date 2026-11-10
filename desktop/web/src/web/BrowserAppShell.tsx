@@ -11,6 +11,12 @@ import { ControlIcon } from "../components/shared/ControlIcon";
 import { DesignNameField } from "../components/shared/DesignNameField";
 import { NoticeRow } from "../components/shared/NoticeRow";
 import { installStoreNotices } from "../components/workspace/store-notices";
+import { openProblemReport, ProblemReportDialog } from "../components/shared/ProblemReportDialog";
+import { installProblemReportPort } from "../app/problem-report/submission";
+import { CANOPI_VERSION } from "../app/about/metadata";
+import { locale, plantSpacingIntervalM, theme } from "../app/settings/state";
+import { storeHealth } from "../failures/health";
+import { createBrowserProblemReportWriter } from "../platform/problem-report.browser";
 import { PanelRail } from "../components/shared/PanelRail";
 import { SaveStatusLabel } from "../components/shared/SaveStatusLabel";
 import { useChromeRow } from "../components/shared/useMapChrome";
@@ -48,6 +54,8 @@ interface BrowserAppShellProps {
   readonly persistence?: Pick<BrowserDraftPersistence, "view" | "keep" | "showReason"> | null;
   /** A release waits (2.1-Q83): the New version: Reload notice, which keeps the notice row over later notices. */
   readonly release?: BrowserShellReleaseNotice | null;
+  /** The current Design as `.canopi` text for a problem report's consent row; absent, none can be attached. */
+  readonly currentDesignText?: () => string | null;
   readonly children?: ComponentChildren;
 }
 
@@ -76,6 +84,7 @@ export function BrowserAppShell({
   undo,
   persistence = null,
   release = null,
+  currentDesignText,
   children,
 }: BrowserAppShellProps) {
   const notice = browserShellNotice.value;
@@ -83,8 +92,11 @@ export function BrowserAppShell({
   const shell = useRef<HTMLDivElement>(null);
   useModalInertRegion(shell);
   useLayoutEffect(() => installPhoneLayout(window), []);
-  // Web reloads to update and has no problem report: settings keep Try again.
-  useEffect(() => installStoreNotices({ report: null, updatesInAbout: false }), []);
+  // Web reloads to update; Report a problem downloads one zip (2.1-Q60, Q283).
+  useEffect(() => installStoreNotices({ report: openProblemReport, updatesInAbout: false }), []);
+  const designText = useRef(currentDesignText);
+  designText.current = currentDesignText;
+  useEffect(() => installBrowserProblemReport(() => designText.current?.() ?? null), []);
   const phone = phoneLayout.value;
   const noticeTop = useTitleBarBottom(shell, phone);
   const [searching, setSearching] = useState(false);
@@ -123,6 +135,7 @@ export function BrowserAppShell({
     : commandProjection.workspaceMenus;
 
   return (
+    <>
     <div ref={shell} className={styles.shell} data-testid="browser-app-shell" data-phone-layout={phone ?? undefined}>
       <main className={styles.workspace} aria-label={t("webShell.workspace")}>
         {children}
@@ -203,7 +216,28 @@ export function BrowserAppShell({
         ? <ShellNotice notice={notice} top={noticeTop} />
         : release ? <ReleaseNotice release={release} designOpen={designIdentity !== null} top={noticeTop} /> : <NoticeRow belowTitleBar={{ top: noticeTop }} />}
     </div>
+    {/* A modal: outside the frame the dialog makes inert. */}
+    <ProblemReportDialog />
+    </>
   );
+}
+
+/**
+ * The Web problem report's writer (contracts §22): one zip of the browser's sections, downloaded; the Design for its
+ * consent row from the caller's Design session. Installed while the shell is mounted; its pending download URLs freed after.
+ */
+function installBrowserProblemReport(currentDesign: () => string | null): () => void {
+  const writer = createBrowserProblemReportWriter({
+    build: () => ({ app: "Canopi", version: CANOPI_VERSION }),
+    health: () => storeHealth.peek(),
+    settings: () => ({ locale: locale.peek(), theme: theme.peek(), plant_spacing_interval_m: plantSpacingIntervalM.peek() }),
+    currentDesign,
+  });
+  const uninstall = installProblemReportPort(writer);
+  return () => {
+    uninstall();
+    writer.dispose();
+  };
 }
 
 /** Undo in the phone top bar: the tool strip there leaves history to it and to Edit. */

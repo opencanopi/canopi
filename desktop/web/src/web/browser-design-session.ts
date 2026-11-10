@@ -109,11 +109,13 @@ export interface BrowserDesignSessionController {
   /** Write the Design to its Draft, then close it; false when cancelled or nothing was open. */
   closeDesign(): Promise<boolean>;
   openCanopi(): Promise<boolean>;
-  openCanopiTemplate(
-    template: DesignTemplateEnvelope,
-    options?: { readonly isCancelled?: () => boolean },
-  ): Promise<"opened" | "cancelled">;
+  openCanopiTemplate(template: DesignTemplateEnvelope, options?: { readonly isCancelled?: () => boolean }): Promise<"opened" | "cancelled">;
   downloadCanopi(): Promise<void>;
+  /**
+   * The current Design as `.canopi` text, as the canvas holds it now, for a problem report's consent row; null when
+   * none is open.
+   */
+  currentDesignText(): string | null;
   /** Download a copy of a stored Draft without opening it (the welcome screen's Draft row, 2.1-Q193). */
   downloadDraft(id: string): Promise<void>;
   renameDesign(name: string): void;
@@ -136,8 +138,8 @@ export interface BrowserDesignSessionController {
 }
 
 export const browserDesignFileAdapter: BrowserDesignFileAdapter = {
-  openCanopiFile,
-  downloadCanopiFile,
+  openCanopiFile: async () => pickBrowserTextFile(".canopi,application/json"),
+  downloadCanopiFile: async ({ fileName, text }) => downloadBrowserTextFile(fileName, text, "application/json"),
 };
 
 export function createBrowserDesignSessionController({
@@ -238,15 +240,9 @@ export function createBrowserDesignSessionController({
     replacement.replace(input, canvas, baseline.isDesignBaselineCurrent);
   }
 
-  function quarantineCompetingPendingReplacement(
-    input: ResolvedDesignReplacement,
-    canvas: CanvasDocumentSurface,
-  ): void {
+  function quarantineCompetingPendingReplacement(input: ResolvedDesignReplacement, canvas: CanvasDocumentSurface): void {
     const identity = replacement.pendingCanvasReplacement(canvas)?.identity ?? null;
-    if (
-      !identity
-      || replacement.matchesPendingCanvasReplacement(input, canvas, identity)
-    ) return;
+    if (!identity || replacement.matchesPendingCanvasReplacement(input, canvas, identity)) return;
 
     resumeExactPendingCanvasReplacement(canvas, identity);
     throw new CanvasAuthorityBusyError("document-settlement");
@@ -403,6 +399,11 @@ export function createBrowserDesignSessionController({
     }));
   }
 
+  function currentDesignText(): string | null {
+    const design = persistence.captureObservation(canvasSession);
+    return design ? `${JSON.stringify(encodeCanopiDesign(design), null, 2)}\n` : null;
+  }
+
   async function downloadDraft(id: string): Promise<void> {
     const draft = appDataStore.loadDraft(id);
     if (!draft) throw new Error(`No browser Draft ${id}`);
@@ -465,6 +466,7 @@ export function createBrowserDesignSessionController({
   }
 
   let releaseReload: Promise<boolean> | null = null;
+  let reloading = false;
 
   function reloadForRelease(): Promise<boolean> {
     releaseReload ??= flushThenReload().finally(() => { releaseReload = null; });
@@ -492,6 +494,7 @@ export function createBrowserDesignSessionController({
     // The tab's record says what it had, a Draft or none, so the reload never opens another tab's Draft (2.1-Q189).
     const home = continuousSave.readHome();
     appDataStore.noteReloadHome(home?.kind === "draft" ? home.id : null);
+    reloading = true; // written, or Reload without saving: the unload asks nothing more
     reload();
     return true;
   }
@@ -578,9 +581,7 @@ export function createBrowserDesignSessionController({
     };
   }
 
-  function settlePendingReplacementForHandoff(
-    session: CanvasDocumentSurface,
-  ): void {
+  function settlePendingReplacementForHandoff(session: CanvasDocumentSurface): void {
     const pending = replacement.pendingCanvasReplacement(session);
     if (!pending) return;
     if (!replacement.settlePendingCanvasReplacementForHandoff(session, pending.identity)) {
@@ -592,17 +593,23 @@ export function createBrowserDesignSessionController({
     page: BrowserPageLifecycleTarget = { document: globalThis.document, window: globalThis.window },
   ): () => void {
     const uninstall = continuousSave.install();
-    const flush = () => {
-      void continuousSave.flush().catch(logBrowserDesignSessionError);
-    };
+    const flush = () => void continuousSave.flush().catch(logBrowserDesignSessionError);
     const flushWhenHidden = () => {
       if (page.document.visibilityState === "hidden") flush();
     };
+    // WEB-03 (2.1-Q22): write a pending edit first; ask only if edits would still be lost (never on iOS, ADR 0025).
+    const askBeforeLeaving = (event: BeforeUnloadEvent) => {
+      if (reloading || continuousSave.flushNow()) return;
+      event.preventDefault();
+      event.returnValue = true; // older engines prompt on a non-empty returnValue
+    };
     page.document.addEventListener("visibilitychange", flushWhenHidden);
     page.window.addEventListener("pagehide", flush);
+    page.window.addEventListener("beforeunload", askBeforeLeaving);
     return () => {
       page.document.removeEventListener("visibilitychange", flushWhenHidden);
       page.window.removeEventListener("pagehide", flush);
+      page.window.removeEventListener("beforeunload", askBeforeLeaving);
       uninstall();
     };
   }
@@ -624,6 +631,7 @@ export function createBrowserDesignSessionController({
     openCanopi,
     openCanopiTemplate,
     downloadCanopi,
+    currentDesignText,
     downloadDraft,
     renameDesign,
     revertDesign,
@@ -687,14 +695,6 @@ function parseCanopiJson(text: string): CanopiFile {
     throw asCanopiDesignIngestionError(error);
   }
   return decodeCanopiDesign(parsed);
-}
-
-async function openCanopiFile(): Promise<BrowserOpenedCanopiFile | null> {
-  return pickBrowserTextFile(".canopi,application/json");
-}
-
-async function downloadCanopiFile({ fileName, text }: BrowserCanopiDownload): Promise<void> {
-  downloadBrowserTextFile(fileName, text, "application/json");
 }
 
 function nameFromFileName(fileName: string): string {

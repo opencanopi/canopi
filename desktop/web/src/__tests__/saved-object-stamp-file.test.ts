@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import type { SavedObjectStampPayload } from '../canvas/saved-object-stamp-payload'
 import {
   composeSavedObjectStampCanopiFile,
@@ -10,6 +10,7 @@ import { CURRENT_CANOPI_FILE_VERSION } from '../generated/canopi-design-format'
 import { roundGeoPosition } from '../canvas/runtime/scene'
 import { createSessionPlane } from '../canvas/session-plane'
 import { geoAt } from './support/geo-design'
+import { locale } from '../app/settings/state'
 
 // Portable stamp files place the arrangement around 0°/0°.
 const stampPlane = createSessionPlane({ lon: 0, lat: 0 })
@@ -51,6 +52,10 @@ function canopiFile(overrides: Partial<CanopiFile> = {}): CanopiFile {
 }
 
 describe('Saved Object Stamp file composition', () => {
+  afterEach(() => {
+    locale.value = 'en'
+  })
+
   it('exports a minimal Canopi file with only visible stamp geometry', () => {
     const payload: SavedObjectStampPayload = {
       version: 2,
@@ -395,7 +400,8 @@ describe('Saved Object Stamp file composition', () => {
     expectPointNear(payload?.anchor, { x: 45, y: 47 })
   })
 
-  it('rejects empty imports and falls back to a composition name when the file name is blank', () => {
+  it('rejects empty imports and falls back to a composition name in the interface language when the file name is blank (D12)', () => {
+    locale.value = 'ru'
     const emptyPayload = savedObjectStampPayloadFromCanopiFile(canopiFile({
       name: '',
       plants: [],
@@ -419,6 +425,31 @@ describe('Saved Object Stamp file composition', () => {
 
     expect(emptyPayload).toBeNull()
     expect(importedSavedObjectStampName(canopiFile({ name: '  ' }), visibleZonePayload!))
-      .toBe('1 zone, 0 annotations')
+      .toBe('1 зона, 0 аннотаций')
+  })
+
+  it('counts a plantless stamp in the plural form each count takes, and names a plant stamp by its most frequent plants', () => {
+    locale.value = 'ru'
+    const at = { x: 0, y: 0 }
+    const stamp = (zones: number, annotations: number, plants: readonly (string | null)[] = []): SavedObjectStampPayload => ({
+      version: 2,
+      anchor: at,
+      plants: plants.map((commonName, index) => ({
+        id: `plant-${index}`, canonicalName: `Species ${commonName ?? index}`, commonName, color: null, position: at, rotationDeg: null, scale: null,
+      })),
+      zones: Array.from({ length: zones }, (_, index) => ({
+        id: `zone-${index}`, name: null, zoneType: 'rect', points: [at, { x: 1, y: 1 }], rotationDeg: 0, fillColor: null,
+      })),
+      annotations: Array.from({ length: annotations }, (_, index) => ({
+        id: `note-${index}`, annotationType: 'text', position: at, text: 'Note', fontSize: 14, rotationDeg: null,
+      })),
+      groups: [],
+    })
+    const blank = canopiFile({ name: '' })
+
+    expect(importedSavedObjectStampName(blank, stamp(3, 5))).toBe('3 зоны, 5 аннотаций')
+    expect(importedSavedObjectStampName(blank, stamp(21, 22))).toBe('21 зона, 22 аннотации')
+    expect(importedSavedObjectStampName(blank, stamp(1, 0, ['Pear', 'Apple', 'Apple', 'Plum', 'Fig', 'Fig'])))
+      .toBe('Apple, Fig, Pear')
   })
 })

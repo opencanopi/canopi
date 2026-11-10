@@ -590,7 +590,7 @@
   {
    "path": "components/shared/ProblemReportDialog.tsx",
    "layer": "L4",
-   "edition": "desktop",
+   "edition": "both",
    "area": "components"
   },
   {

@@ -198,3 +198,48 @@ describe('LiDAR raster type labels', () => {
     }
   })
 })
+
+describe('Brazilian Portuguese', () => {
+  /*
+   * pt.json is Brazilian Portuguese (canopi-f47t.52.228.44). European Portuguese words, pre-1990 spellings and the
+   * "estar a" progressive that Brazilian copy never uses; each has its Brazilian form beside it.
+   */
+  const EUROPEAN_PORTUGUESE: readonly (readonly [RegExp, string])[] = [
+    [/ecrãs?/u, 'tela'],
+    [/ficheiros?/u, 'arquivo'],
+    [/utilizador(?:es|as?)?/u, 'usuário'],
+    [/telemóve(?:l|is)/u, 'celular'],
+    [/registos?/u, 'registro'],
+    [/contactos?/u, 'contato'],
+    [/definições/u, 'configurações'],
+    [/equipas?/u, 'equipe'],
+    [/palavras?-passe/u, 'senha'],
+    [/partilh(?:ar|a|ado|ada|e)/u, 'compartilhar'],
+    [/predefinid[oa]s?/u, 'padrão'],
+    [/(?:pôr|posto|postos|posta|postas|pô-l[oa]s?) de parte/u, 'separar'],
+    [/(?:está|estão|estou|estamos|estava|estavam) a \p{L}+r/u, 'está usando'],
+    [/ac[çc][ãõ](?:o|es)|selec[çc][ãõ](?:o|es)|sec[çc][ãõ](?:o|es)|direc[çc][ãõ](?:o|es)/u, 'ação, seleção, seção, direção'],
+    [/objectos?|projectos?|actual(?:izar|mente)?|óptim[oa]s?/u, 'objeto, projeto, atual, ótimo'],
+  ]
+
+  function europeanPortuguese(text: string): string[] {
+    return EUROPEAN_PORTUGUESE.flatMap(([word]) => [
+      ...text.matchAll(new RegExp(`(?<!\\p{L})(?:${word.source})(?!\\p{L})`, 'giu')),
+    ].map((match) => match[0]))
+  }
+
+  it('canopi-f47t.52.228.44: pt.json is Brazilian, never a European Portuguese word or construction', () => {
+    const found = [...flatten(pt)].flatMap(([key, text]) => europeanPortuguese(text).map((word) => `${key}: ${word}`))
+
+    expect(found).toEqual([])
+  })
+
+  it('finds a European Portuguese word, spelling or progressive and passes the Brazilian forms', () => {
+    expect(europeanPortuguese('Guarde o ficheiro no ecrã')).toEqual(['ecrã', 'ficheiro'])
+    expect(europeanPortuguese('O Canopi está a usar as definições predefinidas')).toEqual(['definições', 'predefinidas', 'está a usar'])
+    expect(europeanPortuguese('Os rascunhos foram postos de parte; a selecção actual')).toEqual(['postos de parte', 'selecção', 'actual'])
+    expect(europeanPortuguese('O Canopi está usando as configurações padrão. Salve o arquivo na tela; a seleção atual')).toEqual([])
+    expect(europeanPortuguese('Uma fotografia de contactos antigos')).toEqual(['contactos'])
+    expect(europeanPortuguese('compartilhar o ficheiro')).toEqual(['ficheiro'])
+  })
+})

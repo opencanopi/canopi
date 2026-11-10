@@ -2516,33 +2516,33 @@ function plantAt(position: { lon: number; lat: number }): CanopiFile['plants'][n
   }
 }
 
-describe('browser tab close after a failed Draft write', () => {
-  it.fails('[1b-c7 canopi-f47t.52.39] WEB-03: closing the tab after a failed Draft write prompts', async () => {
-    const storage = memoryStorage()
-    const store = createDesignSessionStore()
-    const appDataStore = createBrowserAppDataStore({ storage })
-    const controller = createBrowserDesignSessionController({
-      store,
-      appDataStore,
-      fileAdapter: testFileAdapter(),
-      now: () => NOW,
-      createDraftId: () => 'draft-tab-close',
-    })
+describe('browser tab close after a failed Draft write (2.1-Q22; the guard in continuous-save.test.ts, engines in e2e)', () => {
+  it('WEB-03: closing the tab after a failed Draft write prompts', async () => {
+    const [storage, store] = [memoryStorage(), createDesignSessionStore()]
+    const appDataStore = createBrowserAppDataStore({ storage, session: memoryStorage() })
+    const controller = createBrowserDesignSessionController({ store, appDataStore, fileAdapter: testFileAdapter(), now: () => NOW,
+      createDraftId: () => 'draft-tab-close', requestSaveDecision: vi.fn(async () => 'discard') as never, reload: vi.fn() })
     const page = testPage()
-    const uninstall = controller.installContinuousSave(page)
-    try {
-      await controller.newDesign()
-      editDesignSessionForTest(store, (design) => ({ ...design, description: 'not written' }))
-      storage.failWrites = true
-      page.window.dispatchEvent(new Event('pagehide'))
-      expect(appDataStore.loadDraft('draft-tab-close')?.description).not.toBe('not written')
-
-      // The edits live only in this tab: closing it asks first.
-      const close = new Event('beforeunload', { cancelable: true })
-      page.window.dispatchEvent(close)
-      expect(close.defaultPrevented).toBe(true)
-    } finally {
-      uninstall()
-    }
+    const close = () => !page.window.dispatchEvent(new Event('beforeunload', { cancelable: true }))
+    let uninstall = controller.installContinuousSave(page)
+    expect(close(), 'no Design: nothing to lose').toBe(false)
+    await controller.newDesign()
+    editDesignSessionForTest(store, (design) => ({ ...design, description: 'written at close' }))
+    expect(close(), 'the close writes a pending edit itself').toBe(false)
+    expect(appDataStore.loadDraft('draft-tab-close')?.description).toBe('written at close')
+    editDesignSessionForTest(store, (design) => ({ ...design, description: 'not written' }))
+    storage.failWrites = true
+    expect(close(), 'the edit lives only in this tab').toBe(true)
+    storage.failWrites = false
+    expect(close(), 'a later write succeeds and disarms it').toBe(false)
+    editDesignSessionForTest(store, (design) => ({ ...design, description: 'given up' }))
+    storage.failWrites = true
+    uninstall()
+    expect(close(), 'a hot reload removes the listener').toBe(false)
+    uninstall = controller.installContinuousSave(page)
+    expect(close()).toBe(true)
+    expect(await controller.reloadForRelease()).toBe(true)
+    expect(close(), 'after Reload without saving the unload asks nothing more').toBe(false)
+    uninstall()
   })
 })

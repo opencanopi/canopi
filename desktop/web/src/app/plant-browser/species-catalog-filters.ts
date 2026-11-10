@@ -5,6 +5,7 @@ import {
   type PlantFilterUiPlacement,
   type SpeciesFilterFixedBehavior,
 } from '../../generated/plant-filter-fields'
+import type { LocaleKey, LocaleKeyFamily } from '../../generated/locale-keys'
 import type { FilterOptions, SpeciesFilter } from '../../types/species'
 
 export type SpeciesFilterKey = Exclude<keyof SpeciesFilter, 'extra'>
@@ -29,17 +30,16 @@ interface FilterActivityStrategy {
 
 export interface StripOptionSource {
   readonly filterOptionsKey: FilterOptionsKey
-  readonly valueI18nPrefix: string
+  readonly valueI18nPrefix: LocaleKeyFamily
 }
 
 export interface StripChoiceField {
   readonly kind: 'choice'
   readonly field?: PlantFilterFieldDef
   readonly filterKey: SpeciesFilterKey
-  readonly labelI18nKey: string
-  readonly fallbackLabel: string
+  readonly labelI18nKey: LocaleKey
   readonly optionsKey: FilterOptionsKey
-  readonly valueI18nPrefix: string
+  readonly valueI18nPrefix: LocaleKeyFamily
   readonly color: string
   readonly source: 'schema' | 'adapter'
 }
@@ -48,8 +48,7 @@ export interface StripBooleanField {
   readonly kind: 'boolean'
   readonly field?: PlantFilterFieldDef
   readonly filterKey: SpeciesFilterKey
-  readonly labelI18nKey: string
-  readonly fallbackLabel: string
+  readonly labelI18nKey: LocaleKey
   readonly color: string
   readonly activeValue: boolean
   readonly source: 'schema' | 'adapter'
@@ -58,8 +57,7 @@ export interface StripBooleanField {
 export interface StripThresholdField {
   readonly kind: 'threshold'
   readonly filterKey: SpeciesFilterKey
-  readonly labelI18nKey: string
-  readonly fallbackLabel: string
+  readonly labelI18nKey: LocaleKey
   readonly color: string
   readonly min: number
   readonly max: number
@@ -72,7 +70,7 @@ export interface ActiveArrayChipField {
   readonly kind: 'array'
   readonly filterKey: SpeciesFilterKey
   readonly keyPrefix: string
-  readonly valueI18nPrefix: string
+  readonly valueI18nPrefix: LocaleKeyFamily
   readonly color: string
   readonly source: 'schema' | 'adapter'
 }
@@ -80,8 +78,7 @@ export interface ActiveArrayChipField {
 export interface ActiveBooleanChipField {
   readonly kind: 'boolean'
   readonly filterKey: SpeciesFilterKey
-  readonly labelI18nKey: string
-  readonly fallbackLabel: string
+  readonly labelI18nKey: LocaleKey
   readonly color: string
   readonly source: 'schema' | 'adapter'
 }
@@ -89,8 +86,7 @@ export interface ActiveBooleanChipField {
 export interface ActiveNumericChipField {
   readonly kind: 'numeric-threshold'
   readonly filterKey: SpeciesFilterKey
-  readonly labelI18nKey: string
-  readonly fallbackLabel: string
+  readonly labelI18nKey: LocaleKey
   readonly color: string
   readonly suffix: string
   readonly source: 'adapter'
@@ -199,7 +195,6 @@ export function stripChoiceFields(): readonly StripChoiceField[] {
       field,
       filterKey: field.key,
       labelI18nKey: field.i18nKey,
-      fallbackLabel: field.key,
       optionsKey: field.stripChoice.optionsKey as FilterOptionsKey,
       valueI18nPrefix: field.stripChoice.valueI18nPrefix,
       color: field.colorToken,
@@ -213,7 +208,6 @@ export function stripChoiceFields(): readonly StripChoiceField[] {
       kind: 'choice',
       filterKey: behavior.key as SpeciesFilterKey,
       labelI18nKey: behavior.stripChoice.labelI18nKey,
-      fallbackLabel: behavior.stripChoice.fallbackLabel,
       optionsKey: behavior.stripChoice.optionsKey as FilterOptionsKey,
       valueI18nPrefix: behavior.stripChoice.valueI18nPrefix,
       color: behavior.stripChoice.colorToken,
@@ -231,7 +225,6 @@ export function stripThresholdFields(): readonly StripThresholdField[] {
       kind: 'threshold',
       filterKey: behavior.key as SpeciesFilterKey,
       labelI18nKey: behavior.stripThreshold.labelI18nKey,
-      fallbackLabel: behavior.stripThreshold.fallbackLabel,
       min: behavior.stripThreshold.min,
       max: behavior.stripThreshold.max,
       color: behavior.stripThreshold.colorToken,
@@ -248,7 +241,6 @@ export function stripBooleanFields(): readonly StripBooleanField[] {
       field,
       filterKey: field.key,
       labelI18nKey: field.i18nKey,
-      fallbackLabel: field.key,
       color: field.colorToken,
       activeValue: true,
       source: 'schema',
@@ -261,7 +253,6 @@ export function stripBooleanFields(): readonly StripBooleanField[] {
       kind: 'boolean',
       filterKey: behavior.key as SpeciesFilterKey,
       labelI18nKey: behavior.stripBoolean.labelI18nKey,
-      fallbackLabel: behavior.stripBoolean.fallbackLabel,
       color: behavior.stripBoolean.colorToken,
       activeValue: true,
       source: 'adapter',
@@ -338,7 +329,6 @@ export function activeBooleanChipFields(): readonly ActiveBooleanChipField[] {
       kind: 'boolean',
       filterKey: field.key,
       labelI18nKey: field.i18nKey,
-      fallbackLabel: field.key,
       color: field.colorToken,
       source: 'schema',
     }]
@@ -350,7 +340,6 @@ export function activeBooleanChipFields(): readonly ActiveBooleanChipField[] {
       kind: 'boolean',
       filterKey: behavior.key as SpeciesFilterKey,
       labelI18nKey: behavior.activeBooleanChip.labelI18nKey,
-      fallbackLabel: behavior.activeBooleanChip.fallbackLabel,
       color: behavior.activeBooleanChip.colorToken,
       source: 'adapter',
     }]
@@ -366,7 +355,6 @@ export function activeNumericChipFields(): readonly ActiveNumericChipField[] {
       kind: 'numeric-threshold',
       filterKey: behavior.key as SpeciesFilterKey,
       labelI18nKey: behavior.activeNumericChip.labelI18nKey,
-      fallbackLabel: behavior.activeNumericChip.fallbackLabel,
       color: behavior.activeNumericChip.colorToken,
       suffix: behavior.activeNumericChip.suffix,
       source: 'adapter',

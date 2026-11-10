@@ -39,6 +39,7 @@ import type {
 } from '../../canvas/saved-object-stamp-payload'
 import {
   composeSavedObjectStampCanopiFile,
+  defaultSavedObjectStampName,
   importedSavedObjectStampName,
   savedObjectStampPayloadFromCanopiFile,
 } from './file'
@@ -402,7 +403,7 @@ function normalizeSelection(capture: CanvasRuntimeSavedObjectStampCapture): Norm
     groups,
   }
   return {
-    name: defaultStampName(payload, capture.localizedCommonNames),
+    name: defaultSavedObjectStampName(payload, capture.localizedCommonNames),
     payload,
   }
 }
@@ -490,33 +491,6 @@ function remapGroupMember(
 
 function concreteKey(member: SceneObjectGroupMember): string {
   return `${member.kind}:${member.id}`
-}
-
-function defaultStampName(
-  payload: SavedObjectStampPayload,
-  localizedNames: ReadonlyMap<string, string | null>,
-): string {
-  if (payload.plants.length > 0) {
-    const counts = new Map<string, { count: number; firstIndex: number }>()
-    payload.plants.forEach((plant, index) => {
-      const name = localizedNames.get(plant.canonicalName) ?? plant.commonName ?? plant.canonicalName
-      const current = counts.get(name)
-      counts.set(name, current
-        ? { ...current, count: current.count + 1 }
-        : { count: 1, firstIndex: index })
-    })
-    return [...counts.entries()]
-      .sort(([, left], [, right]) => right.count - left.count || left.firstIndex - right.firstIndex)
-      .slice(0, 3)
-      .map(([name]) => name)
-      .join(', ')
-  }
-
-  const zonePart = payload.zones.length === 1 ? '1 zone' : `${payload.zones.length} zones`
-  const annotationPart = payload.annotations.length === 1
-    ? '1 annotation'
-    : `${payload.annotations.length} annotations`
-  return `${zonePart}, ${annotationPart}`
 }
 
 function compareSavedObjectStamps(left: SavedObjectStamp, right: SavedObjectStamp): number {

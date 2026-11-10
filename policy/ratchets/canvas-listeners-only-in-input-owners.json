@@ -21,9 +21,6 @@
     },
     "desktop/web/src/canvas/runtime/input/selection-drag-guard.ts": {
       "count": 3
-    },
-    "desktop/web/src/canvas/runtime/inspection-lens.ts": {
-      "count": 1
     }
   }
 }

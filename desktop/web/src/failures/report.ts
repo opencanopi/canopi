@@ -6,7 +6,8 @@
  * its first occurrence, later ones only counted, dismissed or not (2.1-Q294: until it recovers; dismissing is no
  * recovery, and the sink sees none yet), and none after the app lifetime that installed the hooks is disposed.
  */
-import type { FailureCode, FrontendDiagnosticLevel } from '../generated/contracts'
+import type { FailureCode, FrontendDiagnosticLevel, OperationId } from '../generated/contracts'
+import type { LocaleKey } from '../generated/locale-keys'
 import { failureOf } from './ipc-failure'
 import { failureMessage, type FailureCapabilities } from './messages'
 import { notices, raiseNotice, type Notice } from './notices'
@@ -80,6 +81,42 @@ function newEntry(subject: unknown, options: ReportOptions): RingEntry {
     operation: null,
     text: capped(safeRedact(textOf(subject))),
   }
+}
+
+/**
+ * The failure a problem report is opened from (a notice's or a boundary's Report a problem): its code, its op or
+ * source, its operation and its redacted detail, which the report lists first (contracts §13, 2.1-Q286). A store
+ * notice's state that carries no code names its store and state in `detail`.
+ */
+export interface ReportOrigin {
+  readonly source: string
+  readonly code: FailureCode | null
+  readonly operation: OperationId | null
+  readonly detail: string | null
+}
+
+/** The origin of a failure this sink recorded, found by identity; null for one it never saw. */
+export function reportOriginOf(subject: unknown): ReportOrigin | null {
+  if (typeof subject !== 'object' || subject === null) return null
+  const entry = entryForSettlement(subject)
+  if (!entry) return null
+  return {
+    source: entry.source,
+    code: entry.code,
+    operation: entry.operation,
+    detail: entry.origin === 'native' ? entry.detail : entry.text,
+  }
+}
+
+/**
+ * Records a typed failure its surface tells inline and returns its catalogue message, never its text (.117); null for
+ * a value that carries no settlement, or a silent code, which the caller words itself.
+ */
+export function reportInline(subject: unknown, source: string): LocaleKey | null {
+  const failure = failureOf(subject)
+  if (!failure) return null
+  reportFailure(subject, { shown: 'inline', source })
+  return failureMessage(failure.code, failure.op, capabilities)
 }
 
 /**

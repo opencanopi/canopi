@@ -1127,18 +1127,14 @@ function savedStampSummary(stamp: SavedObjectStamp): string {
   const payload = parseSavedObjectStampPayload(stamp.payload_json)
   if (!payload) return t('savedObjectStamps.summaryUnavailable')
   const parts = [
-    countPart(payload.plants.length, 'savedObjectStamps.summaryPlantOne', 'savedObjectStamps.summaryPlantOther'),
-    countPart(payload.zones.length, 'savedObjectStamps.summaryZoneOne', 'savedObjectStamps.summaryZoneOther'),
-    countPart(payload.annotations.length, 'savedObjectStamps.summaryAnnotationOne', 'savedObjectStamps.summaryAnnotationOther'),
+    countedPart(payload.plants.length, 'savedObjectStamps.summaryPlant'),
+    countedPart(payload.zones.length, 'savedObjectStamps.summaryZone'),
+    countedPart(payload.annotations.length, 'savedObjectStamps.summaryAnnotation'),
   ].filter((part): part is string => part !== null)
   return parts.length > 0 ? parts.join(' · ') : t('savedObjectStamps.summaryEmpty')
 }
 
-function countPart(
-  count: number,
-  singularKey: LocaleKey,
-  pluralKey: LocaleKey,
-): string | null {
-  if (count <= 0) return null
-  return t(count === 1 ? singularKey : pluralKey, { count })
+/** A count in the locale's plural form: i18next picks `_one`, `_few`, `_many` or `_other` from the count (APP-06). */
+function countedPart(count: number, key: LocaleKey): string | null {
+  return count > 0 ? t(key, { count }) : null
 }

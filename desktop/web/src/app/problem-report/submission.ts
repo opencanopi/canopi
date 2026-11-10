@@ -1,26 +1,19 @@
-import { signal, type Signal } from '@preact/signals'
-import {
-  createProblemReport,
-  showProblemReportFolder,
-  type ProblemReportRequest,
-  type ProblemReportResult,
-} from '../../ipc/problem-report'
-import type { RedactedText } from '../../generated/contracts'
-import { redact } from '../../failures/redact'
+import { signal, type ReadonlySignal, type Signal } from '@preact/signals'
+import type { ProblemReportResult } from '../../generated/contracts'
+import type { ProblemReportPort } from '../../platform/problem-report'
+import { reportFailure, reportInline, type ReportOrigin } from '../../failures/report'
 import { t } from '../../i18n'
+import { buildProblemReport } from './builder'
 import { recentFrontendDiagnostics } from './diagnostics'
-import { buildCurrentDesignProblemReportAttachment } from './attachments'
 import { problemReportDialogOpen } from './state'
 
-type ProblemReportCopyState = 'idle' | 'copied' | 'failed'
+/** The op a report's failure is recorded under. */
+const REPORT_SOURCE = 'problem_report.create'
+
 type ProblemReportShowFolderState = 'idle' | 'showing' | 'failed'
 
 export interface ProblemReportSubmissionDeps {
-  readonly createProblemReport: (request: ProblemReportRequest) => Promise<ProblemReportResult>
-  readonly showProblemReportFolder: (folderPath: string) => Promise<void>
   readonly readFrontendDiagnostics: typeof recentFrontendDiagnostics
-  readonly buildCurrentDesignAttachment: () => string | null
-  readonly writeClipboardText: (text: string) => Promise<void>
   readonly currentDesignUnavailableMessage: () => string
   readonly setDialogOpen: (open: boolean) => void
 }
@@ -31,27 +24,24 @@ export interface ProblemReportSubmission {
   readonly submitting: Signal<boolean>
   readonly result: Signal<ProblemReportResult | null>
   readonly error: Signal<string | null>
-  readonly copyState: Signal<ProblemReportCopyState>
   readonly showFolderState: Signal<ProblemReportShowFolderState>
-  open(): void
+  /** The installed writer, which says what the edition fills and whether it can show a saved report. */
+  readonly port: ReadonlySignal<ProblemReportPort | null>
+  /** Opens the dialog afresh; a report opened from a failure lists it first (contracts §13). */
+  open(origin?: ReportOrigin | null): void
   close(): void
   reset(): void
   setDescription(description: string): void
   setIncludeCurrentDesign(include: boolean): void
   submit(): Promise<void>
-  copySummary(): Promise<void>
+  /** Shows the saved report in the file manager; nothing on an edition whose writer has no `reveal`. */
   showFolder(): Promise<void>
+  /** The edition's problemReport writer (contracts §22), the one way to set it; returns the uninstall. */
+  installPort(port: ProblemReportPort): () => void
 }
 
 const DEFAULT_DEPS: ProblemReportSubmissionDeps = {
-  createProblemReport,
-  showProblemReportFolder,
   readFrontendDiagnostics: recentFrontendDiagnostics,
-  buildCurrentDesignAttachment: buildCurrentDesignProblemReportAttachment,
-  writeClipboardText: async (text) => {
-    if (!navigator.clipboard?.writeText) throw new Error('Clipboard is not available')
-    await navigator.clipboard.writeText(text)
-  },
   currentDesignUnavailableMessage: () => t('problemReport.currentDesignUnavailable'),
   setDialogOpen: (open) => {
     problemReportDialogOpen.value = open
@@ -60,10 +50,15 @@ const DEFAULT_DEPS: ProblemReportSubmissionDeps = {
 
 export const problemReportSubmission = createProblemReportSubmission(DEFAULT_DEPS)
 
-export function openProblemReportDialog(): void {
-  problemReportSubmission.open()
+/** Installs the edition's problemReport writer for the app's report, at boot (main.tsx); returns the uninstall. */
+export function installProblemReportPort(port: ProblemReportPort): () => void {
+  return problemReportSubmission.installPort(port)
 }
 
+/** Opens the problem report from a menu or a link: no failure leads it. */
+export function openProblemReportDialog(): void {
+  problemReportSubmission.open(null)
+}
 export function createProblemReportSubmission(
   deps: ProblemReportSubmissionDeps,
 ): ProblemReportSubmission {
@@ -72,18 +67,19 @@ export function createProblemReportSubmission(
   const submitting = signal(false)
   const result = signal<ProblemReportResult | null>(null)
   const error = signal<string | null>(null)
-  const copyState = signal<ProblemReportCopyState>('idle')
   const showFolderState = signal<ProblemReportShowFolderState>('idle')
   let generation = 0
+  let origin: ReportOrigin | null = null
+  const port = signal<ProblemReportPort | null>(null)
 
   function reset(): void {
     generation += 1
+    origin = null
     description.value = ''
     includeCurrentDesign.value = false
     submitting.value = false
     result.value = null
     error.value = null
-    copyState.value = 'idle'
     showFolderState.value = 'idle'
   }
 
@@ -93,10 +89,11 @@ export function createProblemReportSubmission(
     submitting,
     result,
     error,
-    copyState,
     showFolderState,
-    open() {
+    port,
+    open(from = null) {
       reset()
+      origin = from
       deps.setDialogOpen(true)
     },
     close() {
@@ -111,16 +108,19 @@ export function createProblemReportSubmission(
       includeCurrentDesign.value = include
     },
     async submit() {
+      // A second press while a report is being made makes no second report.
+      if (submitting.value) return
       generation += 1
       const submitGeneration = generation
       submitting.value = true
       error.value = null
-      copyState.value = 'idle'
 
       try {
+        const writer = port.value
+        if (!writer) throw new Error('No problem report writer is installed for this edition')
         let currentDesign: string | null = null
         if (includeCurrentDesign.value) {
-          currentDesign = deps.buildCurrentDesignAttachment()
+          currentDesign = writer.currentDesign()
           if (!currentDesign) {
             if (submitGeneration === generation) {
               error.value = deps.currentDesignUnavailableMessage()
@@ -129,43 +129,44 @@ export function createProblemReportSubmission(
           }
         }
 
-        // The frontend's own sections, redacted here; Desktop adds the native ones (2.1-M421).
-        const nextResult = await deps.createProblemReport({
-          sections: [
-            { id: 'description', text: redact(description.value) as RedactedText },
-            {
-              id: 'frontend_ring',
-              text: redact(JSON.stringify(deps.readFrontendDiagnostics(), null, 2)) as RedactedText,
-            },
-          ],
-          current_design: currentDesign,
+        // The one builder fills the frontend's sections, redacted; Desktop's command adds the native ones (2.1-M421).
+        const report = buildProblemReport({
+          createdAt: new Date(),
+          description: description.value,
+          ring: deps.readFrontendDiagnostics(),
+          origin,
+          design: currentDesign,
+          sections: writer.sections,
         })
+        const nextResult = await writer.write(report)
         if (submitGeneration !== generation) return
         result.value = nextResult
         showFolderState.value = 'idle'
       } catch (caught) {
         if (submitGeneration !== generation) return
-        error.value = caught instanceof Error ? caught.message : String(caught)
+        // A typed failure (busy, io) reads its catalogue message. Anything else (a browser download fault, a build
+        // fault) is one internal ring entry and reads the internal message, never its own text (.117).
+        const message = reportInline(caught, REPORT_SOURCE)
+        if (!message) reportFailure(caught, { shown: 'inline', source: REPORT_SOURCE })
+        error.value = t(message ?? 'failure.internal')
       } finally {
         if (submitGeneration === generation) {
           submitting.value = false
         }
       }
     },
-    async copySummary() {
-      if (!result.value) return
-      try {
-        await deps.writeClipboardText(result.value.file_name)
-        copyState.value = 'copied'
-      } catch {
-        copyState.value = 'failed'
+    installPort(next) {
+      port.value = next
+      return () => {
+        if (port.peek() === next) port.value = null
       }
     },
     async showFolder() {
-      if (!result.value) return
+      const reveal = port.peek()?.reveal
+      if (!result.value || !reveal) return
       showFolderState.value = 'showing'
       try {
-        await deps.showProblemReportFolder(result.value.file_name)
+        await reveal(result.value.file_name)
         showFolderState.value = 'idle'
       } catch {
         showFolderState.value = 'failed'

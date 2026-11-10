@@ -504,3 +504,73 @@ for (const locale of LOCALES) {
     })
   }
 }
+
+// WEB-03 (2.1-Q22, ADR 0025): the tab asks before it closes only while the Design's last Draft write failed; the close
+// first writes a pending edit synchronously, so an edit the browser can store closes with no prompt. iOS Safari fires no
+// beforeunload that can prompt (a known gap; its save status error is the protection).
+test.describe('the leave prompt', () => {
+  // The app's own line for the write the browser refused.
+  test.use({ expectedConsoleErrors: ['Continuous save failed:'] })
+
+  test('WEB-03: closing the tab after a failed Draft write prompts', async ({ page }) => {
+    await page.addInitScript((key) => {
+      // The browser's storage full for Drafts while `__failDrafts` is set (a quota refusal).
+      const setItem = Storage.prototype.setItem
+      Storage.prototype.setItem = function failingSetItem(this: Storage, name: string, value: string) {
+        if ((window as unknown as { __failDrafts?: boolean }).__failDrafts && name === key) {
+          throw new DOMException('The quota has been exceeded.', 'QuotaExceededError')
+        }
+        setItem.call(this, name, value)
+      }
+    }, DRAFTS_KEY)
+    await page.goto('')
+    await openFixtureFromStart(page)
+    const draftNames = () => page.evaluate((key) => (JSON.parse(localStorage.getItem(key) || '{"drafts":[]}') as { drafts: { name: string }[] }).drafts.map((draft) => draft.name), DRAFTS_KEY)
+    await expect.poll(draftNames, 'the opened Design is a Draft').toHaveLength(1)
+    const dialogs: string[] = []
+    page.on('dialog', (dialog) => { dialogs.push(dialog.type()); void dialog.dismiss() })
+
+    // An edit the browser cannot write: the close's own write fails too, so the tab asks, and stays when told to.
+    await page.evaluate(() => { (window as unknown as { __failDrafts: boolean }).__failDrafts = true })
+    await renameDesignInTitleBar(page, 'Orchard not yet written')
+    await page.close({ runBeforeUnload: true })
+    await expect.poll(() => dialogs).toEqual(['beforeunload'])
+    expect(page.isClosed()).toBe(false)
+    expect(await draftNames()).not.toContain('Orchard not yet written')
+
+    // Room again: the close writes the edit first, and the tab closes without asking.
+    await page.evaluate(() => { (window as unknown as { __failDrafts: boolean }).__failDrafts = false })
+    const context = page.context()
+    await page.close({ runBeforeUnload: true })
+    await expect.poll(() => page.isClosed()).toBe(true)
+    expect(dialogs).toEqual(['beforeunload'])
+    const next = await context.newPage()
+    await next.goto('')
+    expect(await next.evaluate((key) => (JSON.parse(localStorage.getItem(key)!) as { drafts: { name: string }[] }).drafts.map((draft) => draft.name), DRAFTS_KEY)).toContain('Orchard not yet written')
+  })
+
+  test('WEB-03: an edit the close writes closes the tab without asking', async ({ page }) => {
+    const dialogs: string[] = []
+    page.on('dialog', (dialog) => { dialogs.push(dialog.type()); void dialog.dismiss() })
+    await page.goto('')
+    await openFixtureFromStart(page)
+    // Closed before the continuous save's delay: the close's synchronous write keeps the edit.
+    await renameDesignInTitleBar(page, 'Orchard written at close')
+    const context = page.context()
+    await page.close({ runBeforeUnload: true })
+    await expect.poll(() => page.isClosed()).toBe(true)
+    expect(dialogs).toEqual([])
+    const next = await context.newPage()
+    await next.goto('')
+    expect(await next.evaluate((key) => (JSON.parse(localStorage.getItem(key)!) as { drafts: { name: string }[] }).drafts.map((draft) => draft.name), DRAFTS_KEY)).toContain('Orchard written at close')
+  })
+})
+
+async function renameDesignInTitleBar(page: Page, name: string): Promise<void> {
+  const titleBar = page.locator('[data-workspace-title-bar]')
+  await titleBar.getByRole('button', { name: /^Rename Design/ }).click()
+  const field = titleBar.getByRole('textbox', { name: 'Design name' })
+  await field.fill(name)
+  await field.press('Enter')
+  await expect(titleBar.getByRole('button', { name: /^Rename Design/ })).toHaveText(name)
+}

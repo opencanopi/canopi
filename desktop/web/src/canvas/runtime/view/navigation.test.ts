@@ -705,9 +705,7 @@ describe('view navigation', () => {
     const scene = emptyScene()
     const view = createTestView({ screen: { width: 1000, height: 800 }, camera: { bearingDeg: 30 } })
     view.setScene(scene, boundsOf(scene, 4))
-
     view.navigation.openAt(30)
-
     // The new-Design overview: the plane origin at the screen centre, at the empty scene's scale, north up.
     expectPlacement(placement(view), { x: 500, y: 400, scale: 4, bearingDeg: 0 })
     view.dispose()
@@ -730,21 +728,23 @@ describe('view navigation', () => {
   })
 })
 
-describe('reopening an empty Design', () => {
-  it.fails('[1b-c7 canopi-eon8.9] canopi-eon8.9: an empty reopened Design opens at its saved map_view, bearing 0', () => {
-    const scene = emptyScene()
+describe('reopening an empty Design (2.1-Q28; no saved view: "openAt opens an empty scene at 0")', () => {
+  const openEmpty = (saved: Parameters<TestView['navigation']['openAt']>[1]) => {
     const view = createTestView({ screen: { width: 1000, height: 800 } })
-    view.setScene(scene, boundsOf(scene, 4))
-    // Placed by a coordinate search and saved: nothing drawn, but a map_view the user chose.
-    const saved = { center: { lon: 2.3522, lat: 48.8566 }, zoom: 17, bearingDeg: 40, pitchDeg: 0 as const }
-
+    view.setScene(emptyScene(), boundsOf(emptyScene(), 4))
     view.navigation.openAt(40, saved)
-
-    const opened = view.view().camera
-    expect(opened.center.lon).toBeCloseTo(saved.center.lon, 6)
-    expect(opened.center.lat).toBeCloseTo(saved.center.lat, 6)
-    expect(opened.zoom).toBeCloseTo(saved.zoom, 6)
-    expect(opened.bearingDeg).toBe(0)
+    return view
+  }
+  it('canopi-eon8.9: an empty reopened Design opens at its saved map_view, bearing 0', () => {
+    // Placed by a coordinate search and saved: nothing drawn, but a map_view the user chose.
+    const view = openEmpty({ center: { lon: 2.3522, lat: 48.8566 }, zoom: 17, bearingDeg: 40, pitchDeg: 0 })
+    const near = (n: number) => expect.closeTo(n, 6)
+    expect(view.view().camera).toMatchObject({ center: { lon: near(2.3522), lat: near(48.8566) }, zoom: near(17), bearingDeg: 0 })
+    view.dispose()
+  })
+  it('canopi-eon8.9: a saved map_view that is not finite opens on the north-up overview', () => {
+    const view = openEmpty({ center: { lon: Number.NaN, lat: 48 }, zoom: 17, bearingDeg: 40, pitchDeg: 0 })
+    expectPlacement(placement(view), { x: 500, y: 400, scale: 4, bearingDeg: 0 })
     view.dispose()
   })
 })

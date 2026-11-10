@@ -564,10 +564,8 @@
     "app/problem-report -> failures": {
       "count": 1
     },
+    "app/problem-report -> generated": { "count": 1, "bead": "canopi-f47t.52.36" },
     "app/problem-report -> i18n": {
-      "count": 1
-    },
-    "app/problem-report -> ipc": {
       "count": 1
     },
     "app/recent-files -> ipc": {
@@ -591,6 +589,7 @@
     "app/saved-object-stamps -> generated": {
       "count": 1
     },
+    "app/saved-object-stamps -> i18n": { "count": 1, "bead": "canopi-f47t.52.36" },
     "app/saved-object-stamps -> ipc": {
       "count": 1
     },
@@ -1106,6 +1105,7 @@
       "count": 1,
       "bead": "canopi-f47t.52.213"
     },
+    "platform -> app/problem-report": { "count": 1, "bead": "canopi-f47t.52.36" },
     "platform -> app/settings": {
       "count": 1,
       "bead": "canopi-f47t.52.213"
@@ -1213,6 +1213,7 @@
     "web-root -> app/plant-finder": {
       "count": 1
     },
+    "web-root -> app/problem-report": { "count": 1, "bead": "canopi-f47t.52.36" },
     "web-root -> app/saved-views": {
       "count": 1
     },
