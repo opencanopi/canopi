@@ -535,3 +535,30 @@ fn canopi_f47t_52_228_14_a_dialog_that_fails_to_open_frees_the_window_for_the_ne
     );
     assert_eq!(settle(next), Ok(picked(&garden)));
 }
+
+/// One problem report names one settlement under one op: a pick the executor settles keeps
+/// its native ring entry under the op of the Failure the webview receives.
+#[test]
+fn canopi_f47t_52_36_a_settled_pick_keeps_its_ring_entry_under_the_commands_op() {
+    let picker = Arc::new(FailsFirstPicker::default());
+    let shown: Arc<dyn Picker> = picker.clone();
+    let host = Host {
+        executor: executor(),
+        dialogs: Arc::new(HostDialogs::new(shown)),
+        picker: Arc::new(HeldPicker::default()),
+    };
+
+    let failed = settle(host.save(DialogKind::DesignSave, "Orchard")).expect_err("panicked");
+
+    assert_eq!(failed.op, ops::DIALOG_PICK_SAVE);
+    let kept = crate::logging::recent_failures();
+    assert!(
+        kept.iter()
+            .any(|kept| kept.failure.op == failed.op && kept.failure.code == FailureCode::Panicked),
+        "{kept:?}"
+    );
+    assert!(
+        kept.iter().all(|kept| kept.failure.op != "file dialog"),
+        "{kept:?}"
+    );
+}
