@@ -289,6 +289,18 @@
       "shape": "kept",
       "input": "Press the key to continue",
       "expected": "Press the key to continue"
+    },
+    {
+      "id": "zero-width-no-break-space-joins-a-name",
+      "shape": "os-root",
+      "input": "Open /home/ana/plan﻿secret failed",
+      "expected": "Open <path> failed"
+    },
+    {
+      "id": "next-line-ends-a-path",
+      "shape": "os-root",
+      "input": "Open /home/ana/plan.canopithen failed",
+      "expected": "Open <path>then failed"
     }
   ]
 }

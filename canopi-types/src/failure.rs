@@ -273,6 +273,8 @@ pub mod ops {
     pub const DIALOG_PICK_OPEN: &str = "dialog.pick_open";
     /// `pick_save`: the host's Save dialog.
     pub const DIALOG_PICK_SAVE: &str = "dialog.pick_save";
+    /// `pick_geojson_file` and the other host-read dialogs: a file the host reads itself.
+    pub const DIALOG_PICK_HOST_READ: &str = "dialog.pick_host_read";
     /// `update_check`: reading the update channel file.
     pub const UPDATER_CHECK: &str = "updater.check";
     /// `update_download`: fetching and verifying the update payload.
@@ -300,6 +302,7 @@ pub mod ops {
     pub const ALL: &[&str] = &[
         DIALOG_PICK_OPEN,
         DIALOG_PICK_SAVE,
+        DIALOG_PICK_HOST_READ,
         UPDATER_CHECK,
         UPDATER_DOWNLOAD,
         UPDATER_INSTALL,

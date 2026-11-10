@@ -41,7 +41,8 @@ const JOINS_WORDS = /[\p{Alphabetic}\p{N}/\\._+%~-]/u
 // Characters that end an unquoted path (canopi-redact `stops_path`); `<` and `>` keep a path token from growing into
 // its neighbours.
 const HARD_END = new Set(['\n', '\r', '"', "'", '`', ')', ']', '}', ',', ';', '<', '>'])
-const WHITESPACE = /\s/
+// Rust's char::is_whitespace is Unicode White_Space: JS `\s` adds U+FEFF and leaves out U+0085, so it is not used.
+const WHITESPACE = /\p{White_Space}/u
 const EXTENSIONS: ReadonlySet<string> = new Set(KNOWN_EXTENSIONS)
 
 function redactPaths(text: string): string {

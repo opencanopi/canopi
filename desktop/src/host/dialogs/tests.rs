@@ -562,3 +562,27 @@ fn canopi_f47t_52_36_a_settled_pick_keeps_its_ring_entry_under_the_commands_op()
         "{kept:?}"
     );
 }
+
+#[test]
+fn canopi_f47t_52_36_a_settled_host_read_pick_keeps_its_ring_entry_under_the_host_read_op() {
+    let picker = Arc::new(FailsFirstPicker::default());
+    let shown: Arc<dyn Picker> = picker.clone();
+    let dialogs = HostDialogs::new(shown);
+    let executor = executor();
+
+    let refused = tauri::async_runtime::block_on(pick_host_read(
+        &executor,
+        &dialogs,
+        "main",
+        DialogKind::GeojsonImport,
+    ));
+
+    assert!(refused.is_err(), "{refused:?}");
+    let kept = crate::logging::recent_failures();
+    assert!(
+        kept.iter()
+            .any(|kept| kept.failure.op == ops::DIALOG_PICK_HOST_READ
+                && kept.failure.code == FailureCode::Panicked),
+        "{kept:?}"
+    );
+}
