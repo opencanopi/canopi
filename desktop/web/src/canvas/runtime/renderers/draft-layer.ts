@@ -17,7 +17,7 @@
 // Production CSP rejects Pixi's generated functions; its shim avoids eval.
 import 'pixi.js/unsafe-eval'
 import { AlphaFilter, Container, Graphics, Rectangle, TextStyle, type Text } from 'pixi.js'
-import { canvasFonts } from '../font-loading'
+import { canvasFonts, distinctCharacters } from '../font-loading'
 import type { SceneAnnotationEntity, ScenePlantEntity, SceneZoneEntity } from '../scene'
 import {
   getDraftLabelVisual,
@@ -268,7 +268,7 @@ export function createDraftLayer(options: DraftLayerOptions): DraftLayer {
 
   function drawLabel(shape: Extract<DraftShape, { kind: 'label' }>): void {
     const visual = getDraftLabelVisual(shape.tone)
-    canvasFonts.request(`${visual.fontWeight} ${visual.fontSizePx}px ${visual.fontFamily}`)
+    canvasFonts.request(`${visual.fontWeight} ${visual.fontSizePx}px ${visual.fontFamily}`, distinctCharacters([shape.text]))
     const text = createText()
     text.text = shape.text
     text.style = new TextStyle({

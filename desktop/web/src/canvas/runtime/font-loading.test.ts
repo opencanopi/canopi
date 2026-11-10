@@ -172,9 +172,7 @@ describe('the drawers that subscribe (D11)', () => {
     expect(requestRepaint).not.toHaveBeenCalled()
   })
 
-  // Expected to fail until the main agent applies the draft-layer fix: draft-layer.test.ts, which asserts a text-less
-  // request, has no owner row for 1b-c7 (patch in gate-logs/phase-1/proper/scratch/1b-c7/f47t37-draft-chip-text.patch).
-  it.fails('canopi-f47t.37 (owner main agent, draft-layer.test.ts unowned): a draft chip asks for the faces its own text needs, so a Cyrillic chip gets the Cyrillic face', () => {
+  it('canopi-f47t.37: a draft chip asks for the faces its own text needs, so a Cyrillic chip gets the Cyrillic face', () => {
     const fonts = stubFonts()
     const layer = createDraftLayer({
       createText: () => new MeasuredText(),
