@@ -1650,7 +1650,11 @@
     "settingsCloseAnyway": "Cerrar de todos modos",
     "flushFailedReloadMessage": "No se pudo guardar tu diseño en este navegador. Descarga una copia antes de recargar.",
     "tabConflictReloadMessage": "Este diseño cambió en otra pestaña del navegador, así que tus últimos cambios no se escribieron. Descarga una copia antes de recargar, o cancela y resuelve primero el cambio.",
-    "discardAndReload": "Recargar sin guardar"
+    "discardAndReload": "Recargar sin guardar",
+    "flushFailedAppReloadMessage": "Canopi no pudo escribir tus últimos cambios. Vuelve a intentarlo o recarga sin guardarlos.",
+    "settingsFailedReloadMessage": "Tu diseño está guardado. Canopi no pudo guardar tus últimos cambios en los ajustes. Vuelve a intentarlo o recarga de todos modos y piérdelos.",
+    "settingsFailedDesignUnsavedReloadMessage": "Canopi no pudo guardar tus últimos cambios en los ajustes. Vuelve a intentarlo o recarga de todos modos y piérdelos.",
+    "settingsReloadAnyway": "Recargar de todos modos"
   },
   "drafts": {
     "title": "Borradores",

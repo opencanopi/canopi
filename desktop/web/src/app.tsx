@@ -75,13 +75,6 @@ function useDesktopUpdates(ports: DesktopUpdatePorts): { readonly controller: Up
   return { controller, launchCheck };
 }
 
-/** The Desktop root boundary's Reload: the exit flush first, as a window close runs it, then the reload on proceed. */
-export function reloadAfterExitFlush(): void {
-  void flushBeforeExit("close").then((answer) => {
-    if (answer === "proceed") location.reload();
-  });
-}
-
 /**
  * The Desktop root, given its host ports by main.tsx (platform/*.desktop.ts); the host's dismissal of a one-time store
  * notice keeps a reload in this run from telling it again.

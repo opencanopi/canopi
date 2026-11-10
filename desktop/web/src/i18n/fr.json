@@ -1650,7 +1650,11 @@
     "settingsCloseAnyway": "Fermer quand même",
     "flushFailedReloadMessage": "Votre Design n’a pas pu être enregistré dans ce navigateur. Téléchargez une copie avant de recharger.",
     "tabConflictReloadMessage": "Ce Design a été modifié dans un autre onglet du navigateur, vos dernières modifications n’ont donc pas été écrites. Téléchargez une copie avant de recharger, ou annulez et résolvez d’abord la modification.",
-    "discardAndReload": "Recharger sans enregistrer"
+    "discardAndReload": "Recharger sans enregistrer",
+    "flushFailedAppReloadMessage": "Canopi n’a pas pu écrire vos dernières modifications. Réessayez, ou rechargez sans les enregistrer.",
+    "settingsFailedReloadMessage": "Votre Design est enregistré. Canopi n’a pas pu enregistrer vos dernières modifications de réglages. Réessayez, ou rechargez quand même et perdez-les.",
+    "settingsFailedDesignUnsavedReloadMessage": "Canopi n’a pas pu enregistrer vos dernières modifications de réglages. Réessayez, ou rechargez quand même et perdez-les.",
+    "settingsReloadAnyway": "Recharger quand même"
   },
   "drafts": {
     "title": "Brouillons",

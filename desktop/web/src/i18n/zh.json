@@ -1650,7 +1650,11 @@
     "settingsCloseAnyway": "仍然关闭",
     "flushFailedReloadMessage": "无法在此浏览器中保存您的设计。请在重新加载前下载副本。",
     "tabConflictReloadMessage": "此设计已在另一个浏览器标签页中更改，因此您最近的更改未写入。请在重新加载前下载副本，或取消并先处理该更改。",
-    "discardAndReload": "不保存并重新加载"
+    "discardAndReload": "不保存并重新加载",
+    "flushFailedAppReloadMessage": "Canopi 无法写入您最近的更改。请重试，或不保存直接重新加载。",
+    "settingsFailedReloadMessage": "您的设计已保存。Canopi 无法保存您最近的设置更改。请重试，或仍然重新加载并放弃这些更改。",
+    "settingsFailedDesignUnsavedReloadMessage": "Canopi 无法保存您最近的设置更改。请重试，或仍然重新加载并放弃这些更改。",
+    "settingsReloadAnyway": "仍然重新加载"
   },
   "drafts": {
     "title": "草稿",

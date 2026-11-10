@@ -1,6 +1,7 @@
 import { render } from "preact";
 import "maplibre-gl/dist/maplibre-gl.css";
-import { App, reloadAfterExitFlush } from "./app";
+import { App } from "./app";
+import { reloadAfterExitFlush } from "./app/shell/close-guard";
 import { bootstrapPlatform } from "#platform";
 import { installProblemReportPort, openProblemReport, ProblemReportDialog } from "./components/shared/ProblemReportDialog";
 import { RootBoundary } from "./components/shared/SurfaceBoundary";
@@ -17,7 +18,7 @@ render(
   <RootBoundary
     source="root.desktop"
     onReport={openProblemReport}
-    onReload={reloadAfterExitFlush}
+    onReload={() => reloadAfterExitFlush()}
     dialogs={<><ProblemReportDialog /><SaveProblemDialog /></>}
   >
     <App updates={desktopUpdatePorts} dismissStoreNoticeOnHost={dismissStoreNoticeOnHost} />

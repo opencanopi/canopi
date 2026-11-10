@@ -155,14 +155,16 @@ function describe(request: SaveProblemRequest): {
   }
   if (request.kind === 'settings-failed') {
     // Only a written Design is called saved; Cancel, like Escape, keeps the window open.
+    const reload = request.purpose === 'reload'
+    const message = request.designSaved
+      ? (reload ? 'saveProblem.settingsFailedReloadMessage' : 'saveProblem.settingsFailedMessage')
+      : (reload ? 'saveProblem.settingsFailedDesignUnsavedReloadMessage' : 'saveProblem.settingsFailedDesignUnsavedMessage')
     return {
       title: t('saveProblem.settingsFailedTitle'),
-      message: t(request.designSaved
-        ? 'saveProblem.settingsFailedMessage'
-        : 'saveProblem.settingsFailedDesignUnsavedMessage'),
+      message: t(message),
       actions: [
         { choice: 'retry', label: t('saveProblem.retry'), tone: 'primary' },
-        { choice: 'discard', label: t('saveProblem.settingsCloseAnyway'), tone: 'danger' },
+        { choice: 'discard', label: t(reload ? 'saveProblem.settingsReloadAnyway' : 'saveProblem.settingsCloseAnyway'), tone: 'danger' },
         cancel,
       ],
     }
@@ -186,7 +188,8 @@ function describe(request: SaveProblemRequest): {
   if (request.kind === 'flush-failed') {
     const discard: DialogAction = {
       choice: 'discard',
-      label: t(request.purpose === 'close' ? 'saveProblem.closeWithoutSaving' : 'saveProblem.discard'),
+      label: t(request.purpose === 'close' ? 'saveProblem.closeWithoutSaving'
+        : request.purpose === 'app-reload' ? 'saveProblem.discardAndReload' : 'saveProblem.discard'),
       tone: 'danger',
     }
     if (request.conflict) {
@@ -200,9 +203,8 @@ function describe(request: SaveProblemRequest): {
     }
     return {
       title: t('saveProblem.flushFailedTitle'),
-      message: t(request.purpose === 'close'
-        ? 'saveProblem.flushFailedCloseMessage'
-        : 'saveProblem.flushFailedMessage'),
+      message: t(request.purpose === 'close' ? 'saveProblem.flushFailedCloseMessage'
+        : request.purpose === 'app-reload' ? 'saveProblem.flushFailedAppReloadMessage' : 'saveProblem.flushFailedMessage'),
       actions: [{ choice: 'retry', label: t('saveProblem.retry'), tone: 'primary' }, discard, cancel],
     }
   }

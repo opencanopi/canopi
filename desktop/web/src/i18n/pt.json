@@ -1650,7 +1650,11 @@
     "settingsCloseAnyway": "Fechar mesmo assim",
     "flushFailedReloadMessage": "Não foi possível salvar seu design neste navegador. Baixe uma cópia antes de recarregar.",
     "tabConflictReloadMessage": "Este design foi alterado em outra aba do navegador, então suas últimas alterações não foram gravadas. Baixe uma cópia antes de recarregar ou cancele e resolva a alteração primeiro.",
-    "discardAndReload": "Recarregar sem salvar"
+    "discardAndReload": "Recarregar sem salvar",
+    "flushFailedAppReloadMessage": "O Canopi não conseguiu gravar suas últimas alterações. Tente novamente ou recarregue sem salvá-las.",
+    "settingsFailedReloadMessage": "Seu design está salvo. O Canopi não conseguiu salvar suas últimas alterações nas configurações. Tente novamente ou recarregue mesmo assim e perca-as.",
+    "settingsFailedDesignUnsavedReloadMessage": "O Canopi não conseguiu salvar suas últimas alterações nas configurações. Tente novamente ou recarregue mesmo assim e perca-as.",
+    "settingsReloadAnyway": "Recarregar mesmo assim"
   },
   "drafts": {
     "title": "Rascunhos",

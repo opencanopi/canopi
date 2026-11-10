@@ -1650,7 +1650,11 @@
     "settingsCloseAnyway": "Toch sluiten",
     "flushFailedReloadMessage": "Je ontwerp kon niet in deze browser worden opgeslagen. Download een kopie voordat je opnieuw laadt.",
     "tabConflictReloadMessage": "Dit ontwerp is in een ander browsertabblad gewijzigd, dus je laatste wijzigingen zijn niet weggeschreven. Download een kopie voordat je opnieuw laadt, of annuleer en los de wijziging eerst op.",
-    "discardAndReload": "Opnieuw laden zonder opslaan"
+    "discardAndReload": "Opnieuw laden zonder opslaan",
+    "flushFailedAppReloadMessage": "Canopi kon je laatste wijzigingen niet wegschrijven. Probeer het opnieuw of laad opnieuw zonder ze op te slaan.",
+    "settingsFailedReloadMessage": "Je ontwerp is opgeslagen. Canopi kon je laatste wijzigingen in de instellingen niet opslaan. Probeer het opnieuw, of laad toch opnieuw en verlies ze.",
+    "settingsFailedDesignUnsavedReloadMessage": "Canopi kon je laatste wijzigingen in de instellingen niet opslaan. Probeer het opnieuw, of laad toch opnieuw en verlies ze.",
+    "settingsReloadAnyway": "Toch opnieuw laden"
   },
   "drafts": {
     "title": "Concepten",
