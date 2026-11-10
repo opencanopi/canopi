@@ -3,8 +3,9 @@
  * (no-renderer-module-state's failures/ entry, contracts §13 Failure report, ADR 0025). Invariant: only the sink,
  * failures/report.ts, writes it; a settlement object has one entry, kept by identity even after it leaves the ring.
  * A repeat of an entry the ring holds (same origin, level, source, code and redacted text) is counted on that entry,
- * which moves to the newest place, so a failure that repeats on every re-ask never pushes older ones out
- * (canopi-vsey; counted in the report until it recovers, 2.1-Q294).
+ * which moves to the newest place and takes the repeat's time and operation, so a failure that repeats on every re-ask
+ * never pushes older ones out (canopi-vsey; counted in the report until it recovers, 2.1-Q294). The operation stays out
+ * of the repeat key: each re-ask runs under a new one.
  */
 import type { FailureCode, FrontendDiagnosticLevel, OperationId, RedactedText } from '../generated/contracts'
 
@@ -16,7 +17,8 @@ interface RingEntryBase {
   /** The dotted op of a native settlement, or the frontend source that reported. */
   readonly source: string
   readonly code: FailureCode
-  readonly operation: OperationId | null
+  /** The operation of its newest occurrence. */
+  operation: OperationId | null
   /** When it last occurred. */
   timestamp_ms: number
   /** How many times it occurred while the ring held it. */
@@ -33,13 +35,14 @@ export type RingEntry =
 let entries: RingEntry[] = []
 let bySettlement = new WeakMap<object, RingEntry>()
 
-/** Records one occurrence: a repeat of a held entry counts on it and moves it to the newest place. */
+/** Records one occurrence: a repeat of a held entry counts on it and takes its time, operation and newest place. */
 export function appendEntry(entry: RingEntry, settlement: object | null): RingEntry {
   const held = entries.findIndex((candidate) => sameFailure(candidate, entry))
   const kept = held < 0 ? entry : entries.splice(held, 1)[0]!
   if (kept !== entry) {
     kept.count += entry.count
     kept.timestamp_ms = entry.timestamp_ms
+    kept.operation = entry.operation
   }
   entries.push(kept)
   if (entries.length > RING_CAPACITY) entries = entries.slice(-RING_CAPACITY)

@@ -2,7 +2,7 @@
 // The one sink (contracts §2, §13; design check F15, 1b probe): one ring entry per settlement however many times it is
 // reported, window hooks that survive a second bootstrap (HMR) with one entry per error, and a sink that never throws.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { RedactedText } from '../generated/contracts'
+import type { OperationId, RedactedText } from '../generated/contracts'
 import { invokeCommand } from '../ipc/transport'
 import { IpcFailure } from './ipc-failure'
 import { dismissNotice } from './notices'
@@ -78,6 +78,19 @@ describe('failure sink: one entry per settlement', () => {
     reportFailure(new IpcFailure(failure.failure, failure.message), { shown: 'none' })
     // Counted on the entry it repeats, so a repeat never pushes older failures out (canopi-vsey, 2.1-Q294).
     expect(ringEntries()).toEqual([expect.objectContaining({ source: 'library.list', count: 2 })])
+  })
+
+  it('[canopi-f47t.52.36] a repeat under another operation counts on its entry, which names the newest occurrence\'s operation', () => {
+    // Each re-ask runs under a new OperationId, so the operation stays out of the repeat key; the entry's operation
+    // follows its timestamp to the newest occurrence, the one the native log tail most likely still holds.
+    const failure = (operation: string) => new IpcFailure(
+      { code: { kind: 'unavailable' }, user_may_retry: true, op: 'library.list', operation: operation as OperationId, detail: null },
+      'closed',
+    )
+    reportFailure(failure('op-1'), { shown: 'none' })
+    reportFailure(failure('op-2'), { shown: 'none' })
+
+    expect(ringEntries()).toEqual([expect.objectContaining({ source: 'library.list', count: 2, operation: 'op-2' })])
   })
 })
 
