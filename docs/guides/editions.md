@@ -9,13 +9,13 @@ One frontend ships as a Desktop edition (Tauri), a Web edition (static bundle) a
 ## Authorities and boundaries
 
 - Entries: `main.tsx` with `index.html` (Desktop) and `main.web.tsx` with `web.html` (Web). The codec, scene runtime, workbenches, Design Edit and `WorkspaceComposition` are shared; `DesktopWorkspace.tsx` and `web/WebWorkspace.tsx` bind the edition's capabilities.
-- Every edition difference is a compile-time alias (`vite.config.ts`, mirrored in `tsconfig.json` and the gallery's fixtures) or an injected capability (for example `context.edition` in `app/analyses/model.ts`). The only aliases are Web's, each a `*.desktop.ts` / `*.browser.ts` pair.
+- Every edition difference is a compile-time alias or an injected capability. The only aliases are Web's, each a `*.desktop.ts` / `*.browser.ts` pair.
 
 - Commands: `app/shell-commands/index.ts` owns the neutral ids; the Desktop graph and `web/browser-shell-commands.ts` declare what their edition supports. Web has no Recent Designs, Design Notebook, updater or native window controls, and drops the shortcuts a browser keeps (`BROWSER_RESERVED_SHORTCUTS`).
 - Web data: `web/browser-app-data.ts` owns four localStorage records (Drafts, Settings, Species activity, Saved Object Stamps) and one per-tab sessionStorage record, the Draft or none the tab had open at a release reload (session state, 2.1-Q189). Drafts are the Web Design home; a downloaded `.canopi` is an export. `web/browser-draft-persistence.ts` asks the browser to keep them, at most once per launch (2.1-Q82, Q191, M180): first visits by New or Open, existing users by Keep my drafts (Q198), never without a reason on screen (`web-draft-persistence.test.ts`, `draft-persistence.spec.ts`).
 - Release watch: `web/browser-release-watch.ts` reads the edition manifest on focus and on becoming visible (each at most once a minute) and on every `vite:preloadError`. Any release other than the tab's own, older included, shows one dismissible New version: Reload notice (2.1-Q83, Q186, Q187); after a dismissal reads compare against the dismissed release, and a failed lazy import shows it again (`web-release-watch.test.ts`).
 - Reload saves first (Retry, Download a copy, Reload without saving, Cancel; Q188), then reopens what this tab had, its Draft or the start screen, never the newest Draft unless the tab cannot write session storage (then as at launch); Dismiss is off while it saves (`web-release-reload.test.tsx`).
-- Report a problem downloads one zip of the sections a browser has (2.1-Q60, Q283); the dialog lists only those and offers no Show folder (`problem-report.spec.ts`).
+- Report a problem downloads one zip of the sections a browser has (2.1-Q60, Q283); the dialog lists only those and offers no Show folder; the root fallback offers it too (`problem-report.spec.ts`, `WebRoot.test.tsx`).
 - Shell notices share one row under the title bar; any shell notice, whatever its tone, holds it over a waiting release, which returns once it is dismissed (2.1-M182; same test). Desktop reaches neither the persistence request nor the release watch (its assets ship in the binary).
 - Phone layout: the Browser App Shell owns `installPhoneLayout` (`portrait` below 640 px wide; `landscape` when wider than tall, under 480 px tall and 960 px wide). The phone sheet replaces the dock only when the edition passes `phoneTabs`; Desktop passes none. Design: [controls and shell](../../.interface-design/patterns/controls-and-shell.md).
 - Web maps and catalog: Desktop's providers and geocoding; no local raster processing, so no Site data panel, Profile or Data library. The catalog is the reduced Parquet artifact ([species catalog](species-catalog.md)).
@@ -46,7 +46,7 @@ One frontend ships as a Desktop edition (Tauri), a Web edition (static bundle) a
 
 ## Development hosts
 
-Install: `npm ci --prefix desktop/web` (Node from `engines`, Rust from `rust-toolchain.toml`).
+Install: `npm ci --prefix desktop/web`.
 
 | Host | Command | Address | Data |
 | --- | --- | --- | --- |
@@ -54,7 +54,7 @@ Install: `npm ci --prefix desktop/web` (Node from `engines`, Rust from `rust-too
 | Web | `desktop/web/`: `npm run dev:web` | `localhost:1421/` | browser profile; the catalog needs `npm run generate:web-catalog` |
 | UI gallery | `desktop/web/`: `npm run dev:ui` | `127.0.0.1:1422` | memory fixtures ([README](../../desktop/web/ui-gallery/README.md)) |
 
-`npm run check:editions` typechecks and builds both editions; no tests. Clearing site data for `localhost:1421` resets all Web records. The gallery's `edition=web` shows the phone layout in a phone-sized window (390×844, 844×390).
+`npm run check:editions` typechecks and builds both editions; no tests. The gallery's `edition=web` shows the phone layout in a phone-sized window (390×844, 844×390).
 
 ## Web publishing
 
@@ -64,7 +64,7 @@ python3 -I scripts/web_release.py package --dist desktop/web/dist-web --output-d
 scripts/publish-web-release.sh --tag v<version> [--artifact <archive>] [--verify-only]
 ```
 
-The build needs the generated catalog; the packager's rules live in `scripts/web_release_package.py`. Every release ships the Web Edition:
+The build needs the generated catalog. Every release ships the Web Edition:
 
 - `publish-db-release.sh` puts the Web catalog on `canopi-core-db` under its identity name; the Release Candidate's `web` job packages the root artifact with it; promotion attaches the archive with `WEB-RELEASE-SHA256SUMS.txt`.
 - `publish-web-release.sh` deploys it to Cloudflare Pages project `canopi-web` (branch `production`, `web.projectcanopi.com`, ADR 0005) with the operator's logged-in wrangler; GitHub holds no Cloudflare secret.
@@ -76,7 +76,7 @@ The build needs the generated catalog; the packager's rules live in `scripts/web
 Hosting rules (ADR 0029):
 
 - Every file a release writes except `index.html`, the manifest and `sw.js` sits under `assets/`, as `<name>-<16-character hash>.<ext>` or in `assets/catalog/<first 16 hex of its manifest's SHA-256>/` with only the manifest's files (2.1-M176). `web_release.py verify` refuses other names among this release's files, never among carried ones.
-- The deploy owns `_headers` and an empty `404.html` per top-level directory, so a missing file under a directory is a 404, while a missing root file or any other route gets `index.html` (Pages' own SPA fallback: no top-level `404.html`, no `_redirects`; `DEPLOY_OWNED`, `scripts/test_web_release.py`). The manifest is `no-cache`, `assets/*` immutable, a carried fixed-name directory (2.0.2's `canopi-catalog/`, `pdf-fonts/`) `no-cache` while carried; the shell keeps Pages' revalidation. Every response sends `nosniff` and `strict-origin-when-cross-origin`.
+- The deploy owns `_headers` and an empty `404.html` per top-level directory, so a missing file under a directory is a 404, while a missing root file or any other route gets `index.html` (Pages' own SPA fallback: no top-level `404.html`, no `_redirects`). The manifest is `no-cache`, `assets/*` immutable, a carried fixed-name directory (2.0.2's `canopi-catalog/`, `pdf-fonts/`) `no-cache` while carried; the shell keeps Pages' revalidation. Every response sends `nosniff` and `strict-origin-when-cross-origin`.
 - The zone Cache Rule `Canopi Web catalog Parquet ranges` (hosts `web` and `web-preview`, `/assets/*.parquet`) makes the custom domains answer ranges with 206; DuckDB-WASM reads the catalog only by range. `*.pages.dev` answers no range, so checks run on custom domains.
 - Rollback is "Rollback to this deployment" on `canopi-web`: it serves that deployment's merged set, and open tabs of the newer release see another release in the manifest and offer Reload (Q186).
 

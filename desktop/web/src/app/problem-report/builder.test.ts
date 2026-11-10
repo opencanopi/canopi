@@ -8,14 +8,16 @@ import {
   type FailureCode,
   type ReportSectionId,
 } from '../../generated/contracts'
-import type { ReportOrigin } from '../../failures/report'
+import { reportFailure, type ReportOrigin } from '../../failures/report'
+import { resetFrontendDiagnosticsForTests } from '../../failures/ring'
 import type { EditionSections, ProblemReport } from '../../platform/problem-report'
 import { desktopProblemReport } from '../../platform/problem-report.desktop'
 import { createProblemReport } from '../../ipc/problem-report'
 import { buildProblemReport, type ProblemReportInput } from './builder'
+import { recentFrontendDiagnostics } from './diagnostics'
 
 vi.mock('../../ipc/problem-report', () => ({
-  createProblemReport: vi.fn().mockResolvedValue({ file_name: 'canopi-report-20261108-090503.zip', revealed: true }),
+  createProblemReport: vi.fn().mockResolvedValue({ file_name: 'canopi-report-20261108-090503.zip' }),
   showProblemReportFolder: vi.fn(),
 }))
 
@@ -83,6 +85,22 @@ describe('problem report builder', () => {
         }
       }
     }
+
+    // Each code also reaches the app-failures ring section once, however many surfaces report its settlement.
+    resetFrontendDiagnosticsForTests()
+    for (const failure of fixtures.values()) {
+      const settlement = { ...failure }
+      reportFailure(settlement, { shown: 'none' })
+      reportFailure(settlement, { shown: 'inline', source: 'surface.example' })
+    }
+    for (const sections of [DESKTOP, WEB]) {
+      const report = buildProblemReport(input({ ring: recentFrontendDiagnostics(), sections }))
+      const ring = JSON.parse(text(report, 'frontend_ring')) as { code: FailureCode }[]
+      for (const failure of fixtures.values()) {
+        expect(ring.filter((entry) => JSON.stringify(entry.code) === JSON.stringify(failure.code)), failure.code.kind).toHaveLength(1)
+      }
+    }
+    resetFrontendDiagnosticsForTests()
   })
 
   it('[1b-c5 canopi-f47t.52.96] a Web problem report bundle carries Desktop\'s sections', () => {

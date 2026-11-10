@@ -9,7 +9,7 @@ import { REPORT_MANIFEST_FILE, type ProblemReportResult } from '../generated/con
 const REVOKE_AFTER_MS = 60_000
 
 /** The browser as the report names it (2.1-Q282): family, major version and OS family, never the full user agent. */
-export interface BrowserFamily {
+interface BrowserFamily {
   readonly name: string
   readonly major: number | null
   readonly os: string
@@ -34,7 +34,7 @@ const SYSTEMS: readonly (readonly [string, RegExp])[] = [
 ]
 
 /** Reads the browser family from a user agent; unknown parts say unknown, and it never throws. */
-export function browserFamily(userAgent: string): BrowserFamily {
+function browserFamily(userAgent: string): BrowserFamily {
   const browser = BROWSERS.map(([name, pattern]) => [name, pattern.exec(userAgent)] as const).find(([, match]) => match)
   const os = SYSTEMS.find(([, pattern]) => pattern.test(userAgent))?.[0] ?? 'unknown'
   const major = browser ? Number(browser[1]![1]) : NaN
@@ -54,7 +54,7 @@ function crc32(data: Uint8Array): number {
 }
 
 /** A zip of the files, each stored uncompressed (method 0) with UTF-8 names, as Desktop's `zip.rs` writes them. */
-export function storedZip(files: readonly { readonly name: string; readonly text: string }[]): Uint8Array {
+function storedZip(files: readonly { readonly name: string; readonly text: string }[]): Uint8Array {
   const encoder = new TextEncoder()
   const parts: Uint8Array[] = []
   const central: Uint8Array[] = []
@@ -157,8 +157,8 @@ export function createBrowserProblemReportWriter(readers: BrowserReportReaders):
         anchor.remove()
       }
       pending.set(url, setTimeout(() => release(url), REVOKE_AFTER_MS))
-      // A download: no file manager showed it, and this writer has no folder to show (no `reveal`).
-      return { file_name: report.fileName, revealed: false }
+      // A download: this writer has no folder to show (no `reveal`).
+      return { file_name: report.fileName }
     },
     dispose() {
       for (const url of [...pending.keys()]) release(url)

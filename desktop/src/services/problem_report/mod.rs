@@ -1,6 +1,8 @@
 //! Desktop's problem report writer (ADR 0025 "A problem report carries"; 2.1-Q276 to 2.1-Q278,
 //! 2.1-Q281): the frontend's sections and the native ones, one zip in the "Problem reports"
-//! folder of Canopi's local data folder, then shown selected in the file manager.
+//! folder of Canopi's local data folder. Writing shows nothing: the frontend shows the zip selected
+//! (`show_problem_report`) only while the user still wants it, so a report cancelled during its
+//! write never opens the file manager (canopi-f47t.52.36).
 //!
 //! - **Sections.** One entry per `REPORT_SECTIONS` row, even when its source has nothing to say
 //!   (`bundle.rs`); the frontend sends only its own sections, and Desktop fills the rest. The
@@ -10,8 +12,8 @@
 //! - **Writing.** `canopi-report-YYYYMMDD-HHMMSS.zip` (UTC), `-2` and on for a second report in
 //!   the same second, created new so no report is overwritten; a failed write removes the
 //!   partial file, so the folder holds whole reports only.
-//! - **Failures.** A `Failure` whose detail names a path only as `UserPath`'s placeholder; a
-//!   reveal that fails keeps the zip and reports `revealed: false` (2.1-M299).
+//! - **Failures.** A `Failure` whose detail names a path only as `UserPath`'s placeholder; the
+//!   result names the zip by its file name, never a path (2.1-M299).
 
 use canopi_redact::{NamedFolder, Redactor};
 use canopi_types::failure::{Failure, FailureCode, IoFailureKind};
@@ -26,7 +28,6 @@ use std::io::Write as _;
 use std::path::{Path, PathBuf};
 
 use crate::logging::SettledFailure;
-use crate::services::folder_reveal::FolderRevealer;
 
 mod bundle;
 mod folder_reveal;
@@ -73,13 +74,12 @@ pub struct ProblemReportContext {
     pub library_disk_bytes: Result<u64, String>,
 }
 
-/// Write the report and show it selected in the file manager.
+/// Write the report; nothing is shown.
 pub fn create_problem_report(
     request: &ProblemReportRequest,
     context: &ProblemReportContext,
-    revealer: &impl FolderRevealer,
 ) -> Result<ProblemReportResult, Failure> {
-    create_problem_report_with_writer(request, context, revealer, |file, bytes| {
+    create_problem_report_with_writer(request, context, |file, bytes| {
         file.write_all(bytes)?;
         file.sync_all()
     })
@@ -88,7 +88,6 @@ pub fn create_problem_report(
 fn create_problem_report_with_writer(
     request: &ProblemReportRequest,
     context: &ProblemReportContext,
-    revealer: &impl FolderRevealer,
     write: impl Fn(&mut std::fs::File, &[u8]) -> std::io::Result<()>,
 ) -> Result<ProblemReportResult, Failure> {
     admit(request)?;
@@ -114,11 +113,7 @@ fn create_problem_report_with_writer(
         .and_then(|name| name.to_str())
         .unwrap_or_default()
         .to_owned();
-    let revealed = revealer.show_item(&path).is_ok();
-    Ok(ProblemReportResult {
-        file_name,
-        revealed,
-    })
+    Ok(ProblemReportResult { file_name })
 }
 
 /// The request's sections are the frontend's own, each once.

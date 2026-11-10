@@ -12,9 +12,10 @@ const REPORT_SOURCE = 'problem_report.create'
 
 type ProblemReportShowFolderState = 'idle' | 'showing' | 'failed'
 
+/** A sent write's outcome belongs to its own Create; the next one only waits for it to settle. */
+function noop(): void {}
+
 export interface ProblemReportSubmissionDeps {
-  readonly readFrontendDiagnostics: typeof recentFrontendDiagnostics
-  readonly currentDesignUnavailableMessage: () => string
   readonly setDialogOpen: (open: boolean) => void
 }
 
@@ -30,7 +31,6 @@ export interface ProblemReportSubmission {
   /** Opens the dialog afresh; a report opened from a failure lists it first (contracts §13). */
   open(origin?: ReportOrigin | null): void
   close(): void
-  reset(): void
   setDescription(description: string): void
   setIncludeCurrentDesign(include: boolean): void
   submit(): Promise<void>
@@ -41,8 +41,6 @@ export interface ProblemReportSubmission {
 }
 
 const DEFAULT_DEPS: ProblemReportSubmissionDeps = {
-  readFrontendDiagnostics: recentFrontendDiagnostics,
-  currentDesignUnavailableMessage: () => t('problemReport.currentDesignUnavailable'),
   setDialogOpen: (open) => {
     problemReportDialogOpen.value = open
   },
@@ -68,7 +66,12 @@ export function createProblemReportSubmission(
   const result = signal<ProblemReportResult | null>(null)
   const error = signal<string | null>(null)
   const showFolderState = signal<ProblemReportShowFolderState>('idle')
+  // `generation` names the report the user still wants: an open, a close or a new Create moves it on, so a write that
+  // settles for an older one shows nothing. `writing` settles when the last sent write settles and outlives an open: a
+  // write cannot be stopped once sent, so a Create while one runs waits for it, then writes its own report, the one
+  // the user just entered, unless the user has moved on by then (canopi-f47t.52.36).
   let generation = 0
+  let writing: Promise<void> | null = null
   let origin: ReportOrigin | null = null
   const port = signal<ProblemReportPort | null>(null)
 
@@ -100,7 +103,6 @@ export function createProblemReportSubmission(
       deps.setDialogOpen(false)
       reset()
     },
-    reset,
     setDescription(nextDescription) {
       description.value = nextDescription
     },
@@ -122,9 +124,7 @@ export function createProblemReportSubmission(
         if (includeCurrentDesign.value) {
           currentDesign = writer.currentDesign()
           if (!currentDesign) {
-            if (submitGeneration === generation) {
-              error.value = deps.currentDesignUnavailableMessage()
-            }
+            error.value = t('problemReport.currentDesignUnavailable')
             return
           }
         }
@@ -133,15 +133,26 @@ export function createProblemReportSubmission(
         const report = buildProblemReport({
           createdAt: new Date(),
           description: description.value,
-          ring: deps.readFrontendDiagnostics(),
+          ring: recentFrontendDiagnostics(),
           origin,
           design: currentDesign,
           sections: writer.sections,
         })
-        const nextResult = await writer.write(report)
+        if (writing) {
+          await writing
+          if (submitGeneration !== generation) return
+        }
+        const write = writer.write(report)
+        const settled: Promise<void> = write.then(noop, noop).then(() => {
+          if (writing === settled) writing = null
+        })
+        writing = settled
+        const nextResult = await write
         if (submitGeneration !== generation) return
         result.value = nextResult
-        showFolderState.value = 'idle'
+        // Shown selected once, here and only while the user still wants it: the write itself shows nothing (2.1-Q276).
+        if (writer.reveal) await reveal(writer.reveal, nextResult.file_name, submitGeneration)
+        else showFolderState.value = 'idle'
       } catch (caught) {
         if (submitGeneration !== generation) return
         // A typed failure (busy, io) reads its catalogue message. Anything else (a browser download fault, a build
@@ -162,15 +173,20 @@ export function createProblemReportSubmission(
       }
     },
     async showFolder() {
-      const reveal = port.peek()?.reveal
-      if (!result.value || !reveal) return
-      showFolderState.value = 'showing'
-      try {
-        await reveal(result.value.file_name)
-        showFolderState.value = 'idle'
-      } catch {
-        showFolderState.value = 'failed'
-      }
+      const show = port.peek()?.reveal
+      if (!result.value || !show) return
+      await reveal(show, result.value.file_name, generation)
     },
+  }
+
+  /** Shows a saved report in the file manager; its outcome is told only to the dialog that still shows the report. */
+  async function reveal(show: (fileName: string) => Promise<void>, fileName: string, wanted: number): Promise<void> {
+    showFolderState.value = 'showing'
+    try {
+      await show(fileName)
+      if (wanted === generation) showFolderState.value = 'idle'
+    } catch {
+      if (wanted === generation) showFolderState.value = 'failed'
+    }
   }
 }

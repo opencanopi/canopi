@@ -12,11 +12,6 @@ import { DesignNameField } from "../components/shared/DesignNameField";
 import { NoticeRow } from "../components/shared/NoticeRow";
 import { installStoreNotices } from "../components/workspace/store-notices";
 import { openProblemReport, ProblemReportDialog } from "../components/shared/ProblemReportDialog";
-import { installProblemReportPort } from "../app/problem-report/submission";
-import { CANOPI_VERSION } from "../app/about/metadata";
-import { locale, plantSpacingIntervalM, theme } from "../app/settings/state";
-import { storeHealth } from "../failures/health";
-import { createBrowserProblemReportWriter } from "../platform/problem-report.browser";
 import { PanelRail } from "../components/shared/PanelRail";
 import { SaveStatusLabel } from "../components/shared/SaveStatusLabel";
 import { useChromeRow } from "../components/shared/useMapChrome";
@@ -54,8 +49,6 @@ interface BrowserAppShellProps {
   readonly persistence?: Pick<BrowserDraftPersistence, "view" | "keep" | "showReason"> | null;
   /** A release waits (2.1-Q83): the New version: Reload notice, which keeps the notice row over later notices. */
   readonly release?: BrowserShellReleaseNotice | null;
-  /** The current Design as `.canopi` text for a problem report's consent row; absent, none can be attached. */
-  readonly currentDesignText?: () => string | null;
   readonly children?: ComponentChildren;
 }
 
@@ -84,7 +77,6 @@ export function BrowserAppShell({
   undo,
   persistence = null,
   release = null,
-  currentDesignText,
   children,
 }: BrowserAppShellProps) {
   const notice = browserShellNotice.value;
@@ -94,9 +86,6 @@ export function BrowserAppShell({
   useLayoutEffect(() => installPhoneLayout(window), []);
   // Web reloads to update; Report a problem downloads one zip (2.1-Q60, Q283).
   useEffect(() => installStoreNotices({ report: openProblemReport, updatesInAbout: false }), []);
-  const designText = useRef(currentDesignText);
-  designText.current = currentDesignText;
-  useEffect(() => installBrowserProblemReport(() => designText.current?.() ?? null), []);
   const phone = phoneLayout.value;
   const noticeTop = useTitleBarBottom(shell, phone);
   const [searching, setSearching] = useState(false);
@@ -220,24 +209,6 @@ export function BrowserAppShell({
     <ProblemReportDialog />
     </>
   );
-}
-
-/**
- * The Web problem report's writer (contracts §22): one zip of the browser's sections, downloaded; the Design for its
- * consent row from the caller's Design session. Installed while the shell is mounted; its pending download URLs freed after.
- */
-function installBrowserProblemReport(currentDesign: () => string | null): () => void {
-  const writer = createBrowserProblemReportWriter({
-    build: () => ({ app: "Canopi", version: CANOPI_VERSION }),
-    health: () => storeHealth.peek(),
-    settings: () => ({ locale: locale.peek(), theme: theme.peek(), plant_spacing_interval_m: plantSpacingIntervalM.peek() }),
-    currentDesign,
-  });
-  const uninstall = installProblemReportPort(writer);
-  return () => {
-    uninstall();
-    writer.dispose();
-  };
 }
 
 /** Undo in the phone top bar: the tool strip there leaves history to it and to Edit. */

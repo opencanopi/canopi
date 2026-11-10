@@ -6,7 +6,7 @@
 import type { ProblemReportResult, ReportManifest, ReportSectionId, ReportSectionStatus } from '../generated/contracts'
 
 /** The sections the builder fills on both editions; the Design is attached by consent. */
-export type FrontendSectionId = 'originating_failure' | 'description' | 'frontend_ring'
+type FrontendSectionId = 'originating_failure' | 'description' | 'frontend_ring'
 
 /** The sections an edition fills, natively or by a reader, or lacks. */
 type EditionSectionId = Exclude<ReportSectionId, FrontendSectionId | 'design'>
@@ -40,8 +40,9 @@ export interface ProblemReportPort {
   /** Writes one report as one zip; its file name only, never a path. Throws a typed failure (busy, io) unwritten. */
   write(report: ProblemReport): Promise<ProblemReportResult>
   /**
-   * Shows a saved report in the file manager, by its file name. Absent where the report is a download with no folder
-   * to show (Web), so the dialog offers no Show folder there.
+   * Shows a saved report in the file manager, by its file name: once after the write while the user still wants the
+   * report, and on Show again; `write` itself shows nothing. Absent where the report is a download with no folder to
+   * show (Web), so the dialog offers no Show folder there.
    */
   readonly reveal?: (fileName: string) => Promise<void>
 }

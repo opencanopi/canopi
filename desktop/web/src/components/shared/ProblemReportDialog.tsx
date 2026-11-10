@@ -14,10 +14,10 @@ import { useModalLayer } from './useModalLayer'
 import { useScrimPress } from './useScrimPress'
 
 /** Where a report is sent (2.1-Q279): Canopi sends nothing itself. */
-export const PROBLEM_REPORT_ISSUES_URL = 'https://github.com/opencanopi/canopi/issues'
+const PROBLEM_REPORT_ISSUES_URL = 'https://github.com/opencanopi/canopi/issues'
 
 /** Each section's line in the dialog, one per `REPORT_SECTIONS` row (2.1-Q280); en.json holds the table's English. */
-export const SECTION_LINES: { readonly [S in ReportSectionId]: LocaleKey } = {
+const SECTION_LINES: { readonly [S in ReportSectionId]: LocaleKey } = {
   originating_failure: 'problemReport.section.originatingFailure',
   description: 'problemReport.section.description',
   build: 'problemReport.section.build',
@@ -135,10 +135,9 @@ function ProblemReportDialogContent() {
             <h3 className={styles.sectionTitle}>{t('problemReport.successTitle')}</h3>
             {canReveal ? (
               <>
-                {result.revealed && showFolderState !== 'failed' && <p className={styles.body}>{t('problemReport.successText')}</p>}
-                {(!result.revealed || showFolderState === 'failed') && (
-                  <p className={styles.errorText}>{t('problemReport.showFolderFailed')}</p>
-                )}
+                {showFolderState === 'failed'
+                  ? <p className={styles.errorText}>{t('problemReport.showFolderFailed')}</p>
+                  : <p className={styles.body}>{t('problemReport.successText')}</p>}
                 <dl className={styles.paths}>
                   <div>
                     <dt>{t('problemReport.bundleFile')}</dt>
@@ -183,8 +182,8 @@ function ProblemReportDialogContent() {
             />
             <fieldset className={styles.attachments}>
               <legend>{t('problemReport.contentsTitle')}</legend>
-              <ul className={styles.privacy}>
-                {listed.map((row) => <li key={row.id} data-report-section={row.id}>{t(SECTION_LINES[row.id])}</li>)}
+              <ul className={styles.sectionList}>
+                {listed.map((row) => <li key={row.id} className={styles.sectionRow} data-report-section={row.id}>{t(SECTION_LINES[row.id])}</li>)}
               </ul>
               {consentRows.map((row) => {
                 const checkbox = CONSENT_CHECKBOXES[row.consent]
@@ -231,7 +230,7 @@ function SendTo() {
   return (
     <p className={styles.body}>
       {t('problemReport.sendText')}{' '}
-      <a href={PROBLEM_REPORT_ISSUES_URL} target="_blank" rel="noopener noreferrer">{t('problemReport.issuesLink')}</a>
+      <a className={styles.link} href={PROBLEM_REPORT_ISSUES_URL} target="_blank" rel="noopener noreferrer">{t('problemReport.issuesLink')}</a>
     </p>
   )
 }

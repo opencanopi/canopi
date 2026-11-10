@@ -33,14 +33,13 @@ pub struct ReportSectionText {
 }
 
 /// A saved report: its file name in the "Problem reports" folder, never a
-/// path, and whether the file manager showed it (2.1-Q276, 2.1-M299).
+/// path (2.1-Q276, 2.1-M299). Writing shows nothing: the frontend shows the
+/// zip selected only while the user still wants the report (canopi-f47t.52.36).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
 pub struct ProblemReportResult {
     /// `canopi-report-YYYYMMDD-HHMMSS.zip`, with `-2` and on for a second
     /// report in the same second (2.1-Q281).
     pub file_name: String,
-    /// Whether the file manager showed the zip; when not, the zip is kept.
-    pub revealed: bool,
 }
 
 /// The level of a frontend diagnostics ring entry (contracts §13 Failure

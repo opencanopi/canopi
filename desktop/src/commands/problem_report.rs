@@ -77,8 +77,7 @@ async fn create_problem_report_with_executor(
                 context.library = library.library_snapshot();
                 context.library_disk_bytes = library.disk_usage();
             }
-            let revealer = crate::services::folder_reveal::SystemFolderRevealer;
-            crate::services::problem_report::create_problem_report(&request, &context, &revealer)
+            crate::services::problem_report::create_problem_report(&request, &context)
                 .inspect_err(|failure| crate::logging::log_failure(failure, Some(Lane::Local)))
         })
         .await

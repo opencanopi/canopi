@@ -54,8 +54,7 @@ const fixedTranslations = new Map<string, typeof i18n.t>();
  * The interface string for `key` in the observed locale (reading `locale` subscribes the caller). `key` is a
  * generated LocaleKey (bindings-gen, from en.json), so a key English lacks fails typecheck. A key computed at run
  * time is a typed table lookup (`Record<Id, LocaleKey>` declared `satisfies`, in the module that owns the ids) or a
- * template over a closed union; a value from an open set goes through `openSetText`, or `isLocaleKey` for a key a
- * generated table carries as a string. No code casts to LocaleKey (rule
+ * template over a closed union; a value from an open set goes through `openSetText`. No code casts to LocaleKey (rule
  * locale-key-typing).
  */
 export function t(key: LocaleKey, options?: TOptions): string {
@@ -68,23 +67,12 @@ export function t(key: LocaleKey, options?: TOptions): string {
   return options === undefined ? fixedTranslation(key) : fixedTranslation(key, options);
 }
 
-/** i18next's plural categories other than `other` (`Intl.PluralRules`); bindings-gen's locale_keys.rs uses the same set. */
-const PLURAL_SIBLINGS = ["zero", "one", "two", "few", "many"] as const;
-
-function isEnglishString(key: string): boolean {
-  return typeof i18n.getResource("en", "translation", key) === "string";
-}
-
 /**
- * Whether `key` is a LocaleKey: English holds it as a string, or as the base of plural forms (`_other` and another
- * plural category). A group of keys is none. For a key a generated table carries as a string, whose absence the caller
- * shows another way: `isLocaleKey(key) ? t(key) : key`; an open-set value goes through `openSetText`. It narrows only
- * what the union holds, in every build, but its fallback hides a misspelled key, so each call outside this module is a
- * counted site (rule locale-key-typing).
+ * Whether English holds `key` as a string, in every build: an open-set key is a family and a value, never the base of
+ * plural forms, so only a string key narrows.
  */
-export function isLocaleKey(key: string): key is LocaleKey {
-  return isEnglishString(key)
-    || (isEnglishString(`${key}_other`) && PLURAL_SIBLINGS.some((category) => isEnglishString(`${key}_${category}`)));
+function isLocaleKey(key: string): key is LocaleKey {
+  return typeof i18n.getResource("en", "translation", key) === "string";
 }
 
 /** A LocaleKey's family, up to and including its first `_`: `filters.habit_` for `filters.habit_Tree`. */
