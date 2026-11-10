@@ -296,7 +296,7 @@ pub async fn pick_host_read(
         return Err(format!("{} is not read by the host", kind.literal()));
     }
     let picked = dialogs
-        .pick(executor, ops::DIALOG_PICK_OPEN, window, kind, None)
+        .pick(executor, ops::DIALOG_PICK_HOST_READ, window, kind, None)
         .await;
     Ok(picked
         .map_err(PickRefusal::text)?
