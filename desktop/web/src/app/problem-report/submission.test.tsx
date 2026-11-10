@@ -2,7 +2,7 @@
 // The problem report submission over the one builder and the edition's port (contracts §13, §22, 2.1-M421): a report
 // opened from a failure carries its code (plan Real-environment checks), through the real boundary, ring, builder and
 // submission; none written when consent finds no Design; one press makes one report; a saved report is shown in the
-// file manager only while the user still wants it, and a reopened dialog joins a write still in flight.
+// file manager only while the user still wants it, and a reopened dialog's report is written after one still in flight.
 import { render } from 'preact'
 import { act } from 'preact/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -223,28 +223,97 @@ describe('problem report submission', () => {
     }
   })
 
-  it('[canopi-f47t.52.36] a report reopened while the first write is in flight makes no second write and joins the first', async () => {
-    const write = deferredWrite()
-    const { submission, port } = revealingSubmission(write.write)
+  it('[canopi-f47t.52.36] a report reopened while the first write is in flight is written after it, with what the user entered since', async () => {
+    const first = deferredWrite()
+    const SECOND: ProblemReportResult = { file_name: 'canopi-report-20261108-090509.zip' }
+    const writes = [first.write, () => Promise.resolve(SECOND)]
+    const port = {
+      sections: NATIVE,
+      currentDesign: () => '{"name":"Orchard"}\n',
+      write: vi.fn<Write>(() => writes.shift()!()),
+      reveal: vi.fn(() => Promise.resolve()),
+    } satisfies ProblemReportPort
+    const submission = createProblemReportSubmission(deps())
+    submission.installPort(port)
     submission.open()
-    const first = submission.submit()
+    const old = submission.submit()
     submission.close()
     submission.open()
     submission.setDescription('Second try')
-    const second = submission.submit()
+    submission.setIncludeCurrentDesign(true)
+    const fresh = submission.submit()
     expect(submission.submitting.value).toBe(true)
-    write.resolve(SAVED)
-    await Promise.all([first, second])
+    // A sent write cannot be stopped, so the next one waits for it: never two at once.
     expect(port.write).toHaveBeenCalledTimes(1)
-    // The report the user still wants is the one written, shown once.
-    expect(submission.result.value).toEqual(SAVED)
-    expect(port.reveal).toHaveBeenCalledOnce()
-    expect(submission.error.value).toBeNull()
-
-    // Once it has settled, a new report is a new write.
-    submission.open()
-    await submission.submit()
+    first.resolve(SAVED)
+    await Promise.all([old, fresh])
     expect(port.write).toHaveBeenCalledTimes(2)
+    const report = vi.mocked(port.write).mock.calls[1]![0]
+    expect(section(report, 'description')).toContain('Second try')
+    expect(section(report, 'design')).toContain('Orchard')
+    expect(submission.result.value).toEqual(SECOND)
+    expect(port.reveal).toHaveBeenCalledOnce()
+    expect(port.reveal).toHaveBeenCalledWith(SECOND.file_name)
+    expect(submission.error.value).toBeNull()
+  })
+
+  it('[canopi-f47t.52.36] a reopened report asking for a Design with none open says so while the earlier write runs', async () => {
+    const write = deferredWrite()
+    const { submission, port } = revealingSubmission(write.write)
+    submission.open()
+    const old = submission.submit()
+    submission.close()
+    submission.open()
+    submission.setIncludeCurrentDesign(true)
+    await submission.submit()
+    expect(submission.error.value).toBe(t('problemReport.currentDesignUnavailable'))
+    expect(submission.submitting.value).toBe(false)
+    write.resolve(SAVED)
+    await old
+    expect(port.write).toHaveBeenCalledTimes(1)
+    expect(submission.result.value).toBeNull()
+    expect(port.reveal).not.toHaveBeenCalled()
+  })
+
+  it('[canopi-f47t.52.36] a reopened report closed while it waits for the earlier write is never written', async () => {
+    const write = deferredWrite()
+    const { submission, port } = revealingSubmission(write.write)
+    submission.open()
+    const old = submission.submit()
+    submission.close()
+    submission.open()
+    const waiting = submission.submit()
+    submission.close()
+    write.resolve(SAVED)
+    await Promise.all([old, waiting])
+    expect(port.write).toHaveBeenCalledTimes(1)
+    expect(port.reveal).not.toHaveBeenCalled()
+    expect(submission.result.value).toBeNull()
+    expect(submission.submitting.value).toBe(false)
+  })
+
+  it('[canopi-f47t.52.36] a report created while the file manager still opens for a written one is a new write', async () => {
+    // The file manager is slow to open: every reveal stays pending until the test ends it.
+    const opening: (() => void)[] = []
+    const SECOND: ProblemReportResult = { file_name: 'canopi-report-20261108-090509.zip' }
+    const { submission, port } = revealingSubmission(
+      vi.fn<Write>().mockResolvedValueOnce(SAVED).mockResolvedValueOnce(SECOND),
+      () => new Promise<void>((done) => { opening.push(done) }),
+    )
+    submission.open()
+    const old = submission.submit()
+    await vi.waitFor(() => expect(port.reveal).toHaveBeenCalledOnce())
+    submission.close()
+    submission.open()
+    submission.setDescription('Another problem')
+    const fresh = submission.submit()
+    await vi.waitFor(() => expect(port.write).toHaveBeenCalledTimes(2))
+    expect(section(vi.mocked(port.write).mock.calls[1]![0], 'description')).toContain('Another problem')
+    await vi.waitFor(() => expect(port.reveal).toHaveBeenCalledTimes(2))
+    expect(port.reveal).toHaveBeenLastCalledWith(SECOND.file_name)
+    for (const done of opening) done()
+    await Promise.all([old, fresh])
+    expect(submission.result.value).toEqual(SECOND)
   })
 
   it('sends what the user wrote, redacted, and the app failures ring, and reads no Design unless ticked', async () => {

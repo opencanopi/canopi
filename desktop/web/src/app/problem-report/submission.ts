@@ -12,6 +12,9 @@ const REPORT_SOURCE = 'problem_report.create'
 
 type ProblemReportShowFolderState = 'idle' | 'showing' | 'failed'
 
+/** A sent write's outcome belongs to its own Create; the next one only waits for it to settle. */
+function noop(): void {}
+
 export interface ProblemReportSubmissionDeps {
   readonly setDialogOpen: (open: boolean) => void
 }
@@ -64,10 +67,11 @@ export function createProblemReportSubmission(
   const error = signal<string | null>(null)
   const showFolderState = signal<ProblemReportShowFolderState>('idle')
   // `generation` names the report the user still wants: an open, a close or a new Create moves it on, so a write that
-  // settles for an older one shows nothing. `inFlight` outlives an open: a write cannot be stopped once sent, so a
-  // Create while one runs joins it rather than writing a second report (canopi-f47t.52.36).
+  // settles for an older one shows nothing. `writing` settles when the last sent write settles and outlives an open: a
+  // write cannot be stopped once sent, so a Create while one runs waits for it, then writes its own report, the one
+  // the user just entered, unless the user has moved on by then (canopi-f47t.52.36).
   let generation = 0
-  let inFlight: Promise<ProblemReportResult> | null = null
+  let writing: Promise<void> | null = null
   let origin: ReportOrigin | null = null
   const port = signal<ProblemReportPort | null>(null)
 
@@ -113,35 +117,36 @@ export function createProblemReportSubmission(
       submitting.value = true
       error.value = null
 
-      let write: Promise<ProblemReportResult> | null = null
       try {
         const writer = port.value
         if (!writer) throw new Error('No problem report writer is installed for this edition')
-        write = inFlight
-        if (!write) {
-          let currentDesign: string | null = null
-          if (includeCurrentDesign.value) {
-            currentDesign = writer.currentDesign()
-            if (!currentDesign) {
-              if (submitGeneration === generation) {
-                error.value = t('problemReport.currentDesignUnavailable')
-              }
-              return
-            }
+        let currentDesign: string | null = null
+        if (includeCurrentDesign.value) {
+          currentDesign = writer.currentDesign()
+          if (!currentDesign) {
+            error.value = t('problemReport.currentDesignUnavailable')
+            return
           }
-
-          // The one builder fills the frontend's sections, redacted; Desktop's command adds the native ones (2.1-M421).
-          const report = buildProblemReport({
-            createdAt: new Date(),
-            description: description.value,
-            ring: recentFrontendDiagnostics(),
-            origin,
-            design: currentDesign,
-            sections: writer.sections,
-          })
-          write = writer.write(report)
-          inFlight = write
         }
+
+        // The one builder fills the frontend's sections, redacted; Desktop's command adds the native ones (2.1-M421).
+        const report = buildProblemReport({
+          createdAt: new Date(),
+          description: description.value,
+          ring: recentFrontendDiagnostics(),
+          origin,
+          design: currentDesign,
+          sections: writer.sections,
+        })
+        if (writing) {
+          await writing
+          if (submitGeneration !== generation) return
+        }
+        const write = writer.write(report)
+        const settled: Promise<void> = write.then(noop, noop).then(() => {
+          if (writing === settled) writing = null
+        })
+        writing = settled
         const nextResult = await write
         if (submitGeneration !== generation) return
         result.value = nextResult
@@ -156,7 +161,6 @@ export function createProblemReportSubmission(
         if (!message) reportFailure(caught, { shown: 'inline', source: REPORT_SOURCE })
         error.value = t(message ?? 'failure.internal')
       } finally {
-        if (write !== null && inFlight === write) inFlight = null
         if (submitGeneration === generation) {
           submitting.value = false
         }
