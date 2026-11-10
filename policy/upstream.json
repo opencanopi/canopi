@@ -174,7 +174,7 @@
           "bead": "canopi-f47t.52.61"
         }
       },
-      "report": "",
+      "report": "canopi-f47t.52.61",
       "status": "open",
       "exit": "A wbprojection release places the reference points (EPSG 28992, 31370, 27700, 31287, 2100, 2169, 5514, 2263) within proj4rs's tolerance, or Canopi keeps proj4rs and closes this row."
     },
