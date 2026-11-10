@@ -2624,16 +2624,6 @@
       }
     },
     {
-      "id": "map-console-only-through-redactor",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M186 |",
-      "state": {
-        "exists": {
-          "check": "map-console-only-through-redactor"
-        }
-      }
-    },
-    {
       "id": "no-compat-event-alias",
       "doc": "docs/decisions/2-1.md",
       "quote": "| 2.1-M224 |",

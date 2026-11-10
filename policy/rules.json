@@ -2244,16 +2244,6 @@
       "note": "item-types.ts is the one place that spells a RasterQuantity member (canopi-f47t.42)"
     },
     {
-      "id": "map-console-only-through-redactor",
-      "tool": "ast-grep",
-      "ledger": "2.1-M186",
-      "family": "map-console-only-through-redactor",
-      "adr": "0022",
-      "owner_today": "desktop/web/src/maplibre/map-errors.ts",
-      "example": "desktop/web/src/maplibre/map-errors.ts",
-      "note": "map-layer console writes go through the failure sink, maplibre/map-errors.ts (AGENTS.md Secrets)"
-    },
-    {
       "id": "scene-writes-only-in-authority",
       "tool": "ast-grep",
       "ledger": "2.1-M186",
