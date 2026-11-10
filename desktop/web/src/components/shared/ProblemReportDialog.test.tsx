@@ -147,6 +147,51 @@ describe('ProblemReportDialog', () => {
     }
   })
 
+  // canopi-f47t.52.36: Create swapped the form, with its focused button, for the success view; focus fell to <body>,
+  // outside the dialog's Esc handler, so Esc did nothing.
+  it('canopi-f47t.52.36: after Create, focus is on the success view\'s Close, so Esc still closes the dialog', async () => {
+    await show()
+    button('Create report').focus()
+    await send()
+
+    expect(container.textContent).toContain(REPORT_FILE)
+    // Close, always enabled: Show again is disabled while the first showing runs.
+    expect(document.activeElement).toBe(button('Close'))
+    document.activeElement!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
+    expect(problemReportDialogOpen.value).toBe(false)
+  })
+
+  it('canopi-f47t.52.36: after a Web download, focus is on Close, the success view\'s only action', async () => {
+    installWebWriter()
+    await show()
+    button('Create report').focus()
+    await send()
+
+    expect(document.activeElement).toBe(button('Close'))
+  })
+
+  it('canopi-f47t.52.36: after a failed Create, focus is back on Create, so Esc still closes the dialog', async () => {
+    let fail!: (error: Error) => void
+    mocks.createProblemReport.mockReturnValue(new Promise((_, reject) => { fail = reject }))
+    await show()
+    button('Create report').focus()
+    let held: Element | null
+    try {
+      await send()
+      held = document.activeElement
+    } finally {
+      // Settled whatever is asserted, so no later test inherits a write still running.
+      await act(async () => fail(new Error('disk full')))
+    }
+    // While the write ran, the disabled button could not hold focus: the dialog did.
+    expect(held).toBe(container.querySelector('[role="dialog"]'))
+
+    expect(container.querySelector('[role="alert"]')).not.toBeNull()
+    expect(document.activeElement).toBe(button('Create report'))
+    document.activeElement!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
+    expect(problemReportDialogOpen.value).toBe(false)
+  })
+
   it('the dialog\'s checkboxes match the consent kinds of REPORT_SECTIONS', async () => {
     await show()
     const kinds = new Set(REPORT_SECTIONS.map((row) => row.consent).filter((consent) => consent !== 'always'))
