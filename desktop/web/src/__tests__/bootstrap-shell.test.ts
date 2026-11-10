@@ -414,6 +414,26 @@ describe("settings platform bootstrap", () => {
     second.dispose();
   });
 
+  it("get_health rejects -> every store opening, one sink entry", async () => {
+    mocks.invoke.mockRejectedValue("the health snapshot is unavailable");
+    const { bootstrapShell } = await import("../app/shell/bootstrap");
+    const { getHealth } = await import("../ipc/health");
+    const { storeHealth, storeStatus } = await import("../failures/health");
+    const { ringEntries } = await import("../failures/ring");
+
+    const bootstrap = bootstrapShell({ load: vi.fn(), save: vi.fn().mockResolvedValue(undefined) }, getHealth);
+    await expect(bootstrap.ready).resolves.toBeUndefined();
+
+    // Nothing reported a store, so each still opens: never ready.
+    expect(storeHealth.value).toEqual({});
+    for (const store of ["plant_catalog", "user_db", "settings", "library_catalogue"] as const) {
+      expect(storeStatus(store)).toEqual({ kind: "opening" });
+    }
+    // The transport's settlement is the one entry; the shell's report of the same rejection adds none.
+    expect(ringEntries().map((entry) => [entry.source, entry.code.kind])).toEqual([["ipc.get_health", "internal"]]);
+    bootstrap.dispose();
+  });
+
   it("leaves a settings load failure to the settings projection's one report without rejecting shell readiness", async () => {
     const error = new Error("settings unavailable");
     const logError = vi.spyOn(console, "error").mockImplementation(() => {});
