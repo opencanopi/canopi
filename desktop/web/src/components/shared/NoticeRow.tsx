@@ -1,7 +1,7 @@
 /**
  * components/shared/NoticeRow.tsx: Owner of the one notice row (notice-only-in-failures, ADR 0025, contracts §18 F3, 2.1-Q290). Invariant: it shows the
  * first queued notice of failures/notices.ts (a status, else the latest action's outcome, else the oldest), with its place in the count ("1 of 3") once more than one waits, in the
- * current locale, its one or two actions, and Dismiss unless the notice is undismissable; it takes no focus. At the window's foot (Desktop) it
+ * current locale, its one or two actions, and Dismiss unless the notice is undismissable; it takes no focus, and is inert behind a modal dialog. At the window's foot (Desktop) it
  * registers with the visible-map-area seam as status chrome (`frames: false`), so chips avoid it and the camera's
  * framing never moves, and the toast layer stacks above it; below the title bar (Web, `belowTitleBar`, where the phone sheet holds the foot) it is a chrome
  * row like the Web shell's other notices, which the rails start below.
@@ -13,6 +13,7 @@ import { t } from '../../i18n'
 import { ControlIcon } from './ControlIcon'
 import { Notice } from './Notice'
 import { useChromeRow, useMapOccluder } from './useMapChrome'
+import { useModalInertRegion } from './useModalLayer'
 import styles from './NoticeRow.module.css'
 
 /** The foot row's height plus a gap, on the root while it shows; styles/global.css lifts the toast layer by it. */
@@ -34,6 +35,9 @@ export function NoticeRow({ belowTitleBar }: {
 function FootRow({ notice, children }: { readonly notice: QueuedNotice; readonly children: ComponentChildren }) {
   const slot = useRef<HTMLDivElement>(null)
   useMapOccluder(slot, 'bottom', true, { frames: false })
+  // Behind a modal dialog the row is inert like the rest of the chrome (app/shell/modal-layer.ts), so Tab never lands
+  // on its actions under the scrim; on Web the row sits inside the inert shell.
+  useModalInertRegion(slot)
   // Toasts share the window's foot (ToastSlot.tsx): the row publishes the room it takes there, so a toast stacks above
   // it instead of covering its words and actions (canopi-f47t.52.36).
   useLayoutEffect(() => {

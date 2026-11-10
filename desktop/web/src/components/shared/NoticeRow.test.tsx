@@ -6,6 +6,7 @@ import { render } from 'preact'
 import { act } from 'preact/test-utils'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { locale } from '../../app/settings/state'
+import { holdModalLayer } from '../../app/shell/modal-layer'
 import { raiseNotice, resetNoticesForTests } from '../../failures/notices'
 import { reportFailure, resetFailureNoticesForTests } from '../../failures/report'
 import { resetFrontendDiagnosticsForTests } from '../../failures/ring'
@@ -124,5 +125,17 @@ describe('NoticeRow', () => {
     expect(dismissed).toBe(0)
     await act(async () => { busy.value = false })
     expect(dismissButton().disabled).toBe(false)
+  })
+
+  it('canopi-f47t.52.36: the Desktop row is inert behind a modal dialog, so Tab never reaches its actions under the scrim', async () => {
+    raiseNotice({ key: 'update', message: 'notice.reload', action: { label: 'notice.reload', run: () => undefined } })
+    await act(async () => render(<NoticeRow />, container))
+    const row = () => container.querySelector('[data-notice-row]')!
+    expect(row().hasAttribute('inert')).toBe(false)
+
+    const release = holdModalLayer()
+    expect(row().hasAttribute('inert')).toBe(true)
+    release()
+    expect(row().hasAttribute('inert')).toBe(false)
   })
 })
