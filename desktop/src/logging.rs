@@ -45,7 +45,7 @@ const PANIC_TARGET: &str = "canopi::panic";
 const SETTLEMENT_TARGET: &str = "canopi::settlement";
 
 /// The op of the log's own open, logged when the folder falls back to stderr.
-const LOG_OPEN_OP: &str = "logging.open";
+const LOG_OPEN_OP: &str = canopi_types::failure::ops::LOGGING_OPEN;
 
 /// How many failure settlements the ring keeps (ADR 0025: the last 50).
 const RING_CAPACITY: usize = 50;

@@ -15,7 +15,7 @@ use std::path::PathBuf;
 use tauri::{AppHandle, Manager, State};
 
 /// The settings read the report's settings summary comes from.
-const SETTINGS_READ_OP: &str = "problem_report.read_settings";
+const SETTINGS_READ_OP: &str = canopi_types::failure::ops::PROBLEM_REPORT_READ_SETTINGS;
 
 #[tauri::command]
 pub async fn create_problem_report(

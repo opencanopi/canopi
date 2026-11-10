@@ -279,6 +279,22 @@ pub mod ops {
     pub const UPDATER_DOWNLOAD: &str = "updater.download";
     /// `update_install`: installing the verified payload.
     pub const UPDATER_INSTALL: &str = "updater.install";
+    /// `create_problem_report`: writing the report zip.
+    pub const PROBLEM_REPORT_CREATE: &str = "problem_report.create";
+    /// `show_problem_report`: revealing a written report in the file manager.
+    pub const PROBLEM_REPORT_SHOW: &str = "problem_report.show";
+    /// Reading the settings summary a report carries.
+    pub const PROBLEM_REPORT_READ_SETTINGS: &str = "problem_report.read_settings";
+    /// System origin: opening the daily log folder at startup.
+    pub const LOGGING_OPEN: &str = "logging.open";
+    /// System origin: a database handle's lock found poisoned.
+    pub const DB_LOCK: &str = "db.lock";
+    /// System origin: opening the plant catalog at startup.
+    pub const PLANT_CATALOG_OPEN: &str = "plant_catalog.open";
+    /// System origin: opening the image cache at startup.
+    pub const IMAGE_CACHE_OPEN: &str = "image_cache.open";
+    /// System origin: the Tauri application's run loop.
+    pub const APP_RUN: &str = "app.run";
 
     /// Every op constant.
     pub const ALL: &[&str] = &[
@@ -287,6 +303,14 @@ pub mod ops {
         UPDATER_CHECK,
         UPDATER_DOWNLOAD,
         UPDATER_INSTALL,
+        PROBLEM_REPORT_CREATE,
+        PROBLEM_REPORT_SHOW,
+        PROBLEM_REPORT_READ_SETTINGS,
+        LOGGING_OPEN,
+        DB_LOCK,
+        PLANT_CATALOG_OPEN,
+        IMAGE_CACHE_OPEN,
+        APP_RUN,
     ];
 }
 

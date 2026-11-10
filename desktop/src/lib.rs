@@ -34,8 +34,8 @@ pub struct AppHealth(SubsystemHealth, services::health::DismissedNotices);
 const PLANT_DB_BUNDLED_PATH: &str = "resources/canopi-core.db";
 
 /// The ops of startup work outside a command: the image cache's open and the app's run.
-const IMAGE_CACHE_OPEN_OP: &str = "image_cache.open";
-const APP_RUN_OP: &str = "app.run";
+const IMAGE_CACHE_OPEN_OP: &str = canopi_types::failure::ops::IMAGE_CACHE_OPEN;
+const APP_RUN_OP: &str = canopi_types::failure::ops::APP_RUN;
 
 fn resolve_plant_db_path<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
