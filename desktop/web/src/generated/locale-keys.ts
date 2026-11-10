@@ -958,7 +958,6 @@ export type LocaleKey =
   | "gettingStarted.site"
   | "gettingStarted.title"
   | "gettingStarted.zones"
-  | "health.dismiss"
   | "health.fieldsReset"
   | "health.libraryListStale"
   | "health.localDataNotOpened"

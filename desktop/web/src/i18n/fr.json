@@ -109,7 +109,6 @@
     "codesHint": "Les codes marquent les espèces déjà présentes dans ce Design."
   },
   "health": {
-    "dismiss": "Fermer",
     "plantDbMissing": "Le fichier de base de données du catalogue des plantes est introuvable : la recherche et les fiches des plantes sont indisponibles. Vos Designs ne sont pas touchés. Réinstallez Canopi pour le rétablir.",
     "plantDbCorrupt": "Le fichier de base de données du catalogue des plantes est endommagé : la recherche et les fiches des plantes sont indisponibles. Vos Designs ne sont pas touchés. Réinstallez Canopi pour le rétablir.",
     "localDataNotOpenedTitle": "Données antérieures non ouvertes",

@@ -5,7 +5,6 @@ import { act } from 'preact/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('../components/shared/TitleBar', () => ({ TitleBar: () => <div data-testid="title-bar" /> }))
-vi.mock('../components/shared/DegradedBanner', () => ({ DegradedBanner: () => null }))
 vi.mock('../components/shared/CommandPalette', () => ({ CommandPalette: () => null }))
 vi.mock('../components/shared/ProblemReportDialog', () => ({ ProblemReportDialog: () => null }))
 vi.mock('../components/panels/CanvasPanel', () => ({ CanvasPanel: () => <div data-testid="canvas-panel" /> }))

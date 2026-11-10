@@ -940,9 +940,6 @@
     "components -> app/geocoding": {
       "count": 1
     },
-    "components -> app/health": {
-      "count": 1
-    },
     "components -> app/keyboard": {
       "count": 1
     },

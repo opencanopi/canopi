@@ -7,6 +7,15 @@
   transform: translateX(-50%);
 }
 
+/* The error and warning tints are translucent; lay them on the surface so the map never shows through. */
+.row [data-notice-tone="error"] {
+  background: linear-gradient(var(--color-danger-bg), var(--color-danger-bg)), var(--color-surface);
+}
+
+.row [data-notice-tone="warning"] {
+  background: linear-gradient(var(--color-warning-bg), var(--color-warning-bg)), var(--color-surface);
+}
+
 /* Web: below the title bar like the shell's other notices, since the phone sheet holds the window's foot. */
 .belowTitleBar {
   top: calc(var(--chrome-top) + var(--title-bar-height) + var(--space-2));

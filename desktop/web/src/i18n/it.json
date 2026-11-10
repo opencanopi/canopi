@@ -109,7 +109,6 @@
     "codesHint": "I codici indicano le specie già presenti in questo progetto."
   },
   "health": {
-    "dismiss": "Chiudi",
     "plantDbMissing": "Manca il file di database del catalogo delle piante, quindi la ricerca e le schede delle piante non sono disponibili. I tuoi progetti sono al sicuro. Reinstalla Canopi per ripristinarlo.",
     "plantDbCorrupt": "Il file di database del catalogo delle piante è danneggiato, quindi la ricerca e le schede delle piante non sono disponibili. I tuoi progetti sono al sicuro. Reinstalla Canopi per ripristinarlo.",
     "localDataNotOpenedTitle": "Dati precedenti non aperti",

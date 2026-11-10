@@ -337,12 +337,6 @@
    "area": "app/geojson"
   },
   {
-   "path": "app/health/",
-   "layer": "L3",
-   "edition": "both",
-   "area": "app/health"
-  },
-  {
    "path": "app/keyboard/",
    "layer": "L3",
    "edition": "both",

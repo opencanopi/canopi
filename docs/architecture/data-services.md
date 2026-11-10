@@ -321,9 +321,9 @@ flowchart LR
   LF[app/lidar/lidar-failures.ts: refusal copy, generic text]
   DIAG[failures/ring.ts: ring of 50, read by app/problem-report/diagnostics.ts]
   RED[failures/redact.ts]
-  HS[commands/health.rs: SubsystemHealth plant_db, lidar_library, local_data]
-  HST[app/health/state.ts: three status signals]
-  BAN[components/shared/DegradedBanner.tsx]
+  HS[commands/health.rs: SubsystemHealth by StoreId]
+  HST[failures/health.ts: one store health model]
+  BAN[failures/health-notices.ts: store notices on the notice row]
   STR --> PDB
   STR --> LF
   LF --> DIAG

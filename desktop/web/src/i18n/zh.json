@@ -109,7 +109,6 @@
     "codesHint": "代码标记此设计中已有的物种。"
   },
   "health": {
-    "dismiss": "关闭",
     "plantDbMissing": "植物目录的数据库文件缺失，因此无法搜索和查看植物详情。您的设计不受影响。请重新安装 Canopi 以恢复该文件。",
     "plantDbCorrupt": "植物目录的数据库文件已损坏，因此无法搜索和查看植物详情。您的设计不受影响。请重新安装 Canopi 以恢复该文件。",
     "localDataNotOpenedTitle": "未打开旧数据",

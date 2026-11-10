@@ -109,7 +109,6 @@
     "codesHint": "Kürzel kennzeichnen Arten, die schon in diesem Design sind."
   },
   "health": {
-    "dismiss": "Schließen",
     "plantDbMissing": "Die Datenbankdatei des Pflanzenkatalogs fehlt, daher sind Pflanzensuche und Pflanzendetails nicht verfügbar. Ihre Designs sind sicher. Installieren Sie Canopi neu, um sie wiederherzustellen.",
     "plantDbCorrupt": "Die Datenbankdatei des Pflanzenkatalogs ist beschädigt, daher sind Pflanzensuche und Pflanzendetails nicht verfügbar. Ihre Designs sind sicher. Installieren Sie Canopi neu, um sie wiederherzustellen.",
     "localDataNotOpenedTitle": "Frühere Daten nicht geöffnet",

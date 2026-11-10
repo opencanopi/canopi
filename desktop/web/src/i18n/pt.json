@@ -109,7 +109,6 @@
     "codesHint": "Os códigos marcam as espécies que já estão neste design."
   },
   "health": {
-    "dismiss": "Fechar",
     "plantDbMissing": "O arquivo de banco de dados do catálogo de plantas está ausente, por isso a pesquisa e os detalhes das plantas estão indisponíveis. Seus designs estão seguros. Reinstale o Canopi para restaurá-lo.",
     "plantDbCorrupt": "O arquivo de banco de dados do catálogo de plantas está danificado, por isso a pesquisa e os detalhes das plantas estão indisponíveis. Seus designs estão seguros. Reinstale o Canopi para restaurá-lo.",
     "localDataNotOpenedTitle": "Dados anteriores não abertos",

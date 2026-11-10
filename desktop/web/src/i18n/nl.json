@@ -109,7 +109,6 @@
     "codesHint": "Codes markeren soorten die al in dit ontwerp staan."
   },
   "health": {
-    "dismiss": "Sluiten",
     "plantDbMissing": "Het databasebestand van de plantencatalogus ontbreekt, dus zoeken en plantdetails zijn niet beschikbaar. Je ontwerpen zijn veilig. Installeer Canopi opnieuw om het te herstellen.",
     "plantDbCorrupt": "Het databasebestand van de plantencatalogus is beschadigd, dus zoeken en plantdetails zijn niet beschikbaar. Je ontwerpen zijn veilig. Installeer Canopi opnieuw om het te herstellen.",
     "localDataNotOpenedTitle": "Eerdere gegevens niet geopend",

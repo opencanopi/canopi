@@ -29,7 +29,8 @@ import {
 } from '../src/app/shell/state'
 import { plantColorMenuOpen } from '../src/canvas/plant-color-menu-state'
 import { plantSymbolMenuOpen } from '../src/canvas/plant-symbol-menu-state'
-import { plantDbStatus } from '../src/app/health/state'
+import { applyHealthSnapshot } from '../src/failures/health'
+import { installHealthNotices } from '../src/failures/health-notices'
 import { theme, locale } from '../src/app/settings/state'
 import { designFixture } from './fixtures'
 import { currentDesign, designSessionStore } from '../src/app/document-session/store'
@@ -60,7 +61,7 @@ import { getAppFolders, showAppFolder } from '../src/ipc/settings'
 import { KeyboardShortcutsDialog } from '../src/components/shared/KeyboardShortcutsDialog'
 import type { InputPlatform } from '../src/canvas/runtime/input/platform'
 import { WelcomeScreen } from '../src/components/shared/WelcomeScreen'
-import { DegradedBanner } from '../src/components/shared/DegradedBanner'
+import { NoticeRow } from '../src/components/shared/NoticeRow'
 import { BrowserAppShell } from '../src/web/BrowserAppShell'
 import { WebPhoneBar } from '../src/web/WebWorkspace'
 import {
@@ -110,9 +111,13 @@ if (Number.isFinite(requestedPanelWidth) && requestedPanelWidth >= 320) {
 locale.value = (params.get('locale') ?? 'en') as typeof locale.value
 theme.value = params.get('theme') === 'dark' ? 'dark' : 'light'
 const disposeTheme = effect(() => { document.documentElement.dataset.theme = theme.value })
-// `plantDb=corrupt|missing` shows the plant database notice under the title bar.
+// `plantDb=corrupt|missing` shows the plant database notice on the notice row, through the one health model.
 const plantDb = params.get('plantDb')
-plantDbStatus.value = plantDb === 'corrupt' || plantDb === 'missing' ? plantDb : 'available'
+const disposeHealthNotices = installHealthNotices({ report: null, update: null })
+if (plantDb === 'corrupt' || plantDb === 'missing') {
+  const cause = plantDb === 'missing' ? 'missing' : 'open_failed'
+  applyHealthSnapshot({ plant_catalog: { status: { kind: 'unavailable', code: { kind: 'plant_db_unavailable', cause } }, notice: null } })
+}
 // `bearing=30` turns the map 30° clockwise from north once the Design is fitted (compass, turned grid).
 const requestedBearing = Number(params.get('bearing') ?? 0)
 // `platform=mac|linux`: F1 (Help › Keyboard shortcuts) lists the gestures as on a Mac whose WebKit delivers gesture
@@ -274,7 +279,7 @@ function GalleryDesktopFrame() {
   if (selectedSurface.value !== 'workspace' && selectedSurface.value !== 'start') return null
   return <>
     <TitleBar />
-    <DegradedBanner />
+    <NoticeRow />
     {selectedSurface.value === 'workspace' && <DesktopPanelRail />}
     {selectedSurface.value === 'workspace' && <WorkspaceDialogs />}
     <SettingsDialog folders={{ load: getAppFolders, show: showAppFolder }} />
@@ -367,4 +372,4 @@ function editionUrl(nextEdition: 'desktop' | 'web'): string {
 selectGallerySurface(initial)
 const root = document.getElementById('app')!
 render(<Gallery />, root)
-if (import.meta.hot) import.meta.hot.dispose(() => { render(null, root); disposeTheme() })
+if (import.meta.hot) import.meta.hot.dispose(() => { render(null, root); disposeTheme(); disposeHealthNotices() })

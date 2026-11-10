@@ -109,7 +109,6 @@
     "codesHint": "Codes appear on species already in this Design."
   },
   "health": {
-    "dismiss": "Dismiss",
     "plantDbMissing": "The plant catalog's database file is missing, so plant search and details are unavailable. Your Designs are safe. Reinstall Canopi to restore it.",
     "plantDbCorrupt": "The plant catalog's database file is damaged, so plant search and details are unavailable. Your Designs are safe. Reinstall Canopi to restore it.",
     "localDataNotOpenedTitle": "Earlier data not opened",

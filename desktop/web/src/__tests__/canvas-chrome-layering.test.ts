@@ -35,7 +35,10 @@ describe('floating chrome layering', () => {
     // The last background layer is the surface, so the map never shows through the tint.
     const onSurface = /background:\s*linear-gradient\(var\(--color-danger-bg\),\s*var\(--color-danger-bg\)\),\s*var\(--color-surface\)\s*;/
     expect(ruleBody('web/BrowserAppShell.module.css', '.notice[data-tone="error"]')).toMatch(onSurface)
-    expect(ruleBody('components/shared/DegradedBanner.module.css', '.banner .notice[data-notice-tone="error"]')).toMatch(onSurface)
+    // The one notice row (Desktop's foot, Web's title-bar row) lays its error and warning tints on the surface too.
+    expect(ruleBody('components/shared/NoticeRow.module.css', '.row [data-notice-tone="error"]')).toMatch(onSurface)
+    expect(ruleBody('components/shared/NoticeRow.module.css', '.row [data-notice-tone="warning"]'))
+      .toMatch(/background:\s*linear-gradient\(var\(--color-warning-bg\),\s*var\(--color-warning-bg\)\),\s*var\(--color-surface\)\s*;/)
   })
 
   // The Web shell notice row, the New version: Reload notice among them (2.1-Q83): it takes its own row under the title

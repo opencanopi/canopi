@@ -12,7 +12,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 const host = { launchCheck: true, launchNotice: false }
 
 vi.mock('../components/shared/TitleBar', () => ({ TitleBar: () => null }))
-vi.mock('../components/shared/DegradedBanner', () => ({ DegradedBanner: () => null }))
 vi.mock('../components/shared/CommandPalette', () => ({ CommandPalette: () => null }))
 vi.mock('../components/shared/ProblemReportDialog', () => ({ ProblemReportDialog: () => null }))
 vi.mock('../components/workspace/DesktopWorkspace', () => ({ DesktopWorkspace: () => null }))

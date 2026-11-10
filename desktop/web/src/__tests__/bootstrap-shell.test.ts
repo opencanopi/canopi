@@ -463,9 +463,6 @@ describe("settings platform bootstrap", () => {
     }));
     const { bootstrapShell } = await import("../app/shell/bootstrap");
     const { getHealth } = await import("../ipc/health");
-    const { lidarLibraryStatus, plantDbStatus } = await import("../app/health/state");
-    plantDbStatus.value = "available";
-    lidarLibraryStatus.value = { kind: "ready" };
     const bootstrap = bootstrapShell({
       load: vi.fn(),
       save: vi.fn().mockResolvedValue(undefined),
@@ -478,10 +475,10 @@ describe("settings platform bootstrap", () => {
     });
     await bootstrap.ready;
 
-    expect(plantDbStatus.value).toBe("available");
-    expect(lidarLibraryStatus.value).toEqual({ kind: "ready" });
     // The one health model (failures/health.ts) is left untouched: every store still opening.
-    const { storeHealth } = await import("../failures/health");
+    const { storeHealth, storeStatus } = await import("../failures/health");
     expect(storeHealth.value).toEqual({});
+    expect(storeStatus("plant_catalog")).toEqual({ kind: "opening" });
+    expect(storeStatus("library_catalogue")).toEqual({ kind: "opening" });
   });
 });
