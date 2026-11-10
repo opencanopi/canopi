@@ -1,3 +1,5 @@
+mod species_search_progress;
+
 use canopi_types::species::{
     PaginatedResult, SpeciesDetail, SpeciesListItem, SpeciesSearchRequest,
 };
@@ -45,10 +47,6 @@ pub struct SpeciesSearchCancellationToken {
 struct SpeciesSearchRunningGuard {
     cancellation: SpeciesSearchCancellation,
     generation: u64,
-}
-
-struct SpeciesSearchProgressGuard<'connection> {
-    connection: &'connection Connection,
 }
 
 impl SpeciesSearchCancellation {
@@ -257,19 +255,6 @@ impl SpeciesSearchCancellationToken {
     fn mark_running(&self) -> Result<SpeciesSearchRunningGuard, String> {
         self.cancellation.mark_running(self.generation)
     }
-
-    fn install_progress_handler<'connection>(
-        &self,
-        connection: &'connection Connection,
-    ) -> SpeciesSearchProgressGuard<'connection> {
-        let inner = Arc::clone(&self.cancellation.inner);
-        let generation = self.generation;
-        connection.progress_handler(
-            SPECIES_SEARCH_PROGRESS_INTERVAL,
-            Some(move || inner.next_generation.load(Ordering::Acquire) != generation),
-        );
-        SpeciesSearchProgressGuard { connection }
-    }
 }
 
 impl Drop for SpeciesSearchCancellationToken {
@@ -281,12 +266,6 @@ impl Drop for SpeciesSearchCancellationToken {
 impl Drop for SpeciesSearchRunningGuard {
     fn drop(&mut self) {
         self.cancellation.finish_running(self.generation);
-    }
-}
-
-impl Drop for SpeciesSearchProgressGuard<'_> {
-    fn drop(&mut self) {
-        self.connection.progress_handler(0, None::<fn() -> bool>);
     }
 }
 
@@ -346,10 +325,14 @@ pub async fn search_species_async_cancellable(
                 }
 
                 let mut result = {
-                    let conn = db::require_plant_db(&plant_db)?;
-                    let _progress = cancellation
-                        .as_ref()
-                        .map(|cancellation| cancellation.install_progress_handler(&conn));
+                    let plant_conn = db::require_plant_db(&plant_db)?;
+                    let progress;
+                    let conn = if let Some(cancellation) = &cancellation {
+                        progress = cancellation.install_progress_handler(plant_conn)?;
+                        &progress.connection
+                    } else {
+                        &plant_conn
+                    };
                     let _running = cancellation
                         .as_ref()
                         .map(|cancellation| cancellation.mark_running())
@@ -361,7 +344,7 @@ pub async fn search_species_async_cancellable(
                     if let Some(cancellation) = &cancellation {
                         cancellation.ensure_current()?;
                     }
-                    match SpeciesCatalogRead::new(&conn).search(request) {
+                    match SpeciesCatalogRead::new(conn).search(request) {
                         Ok(result) => {
                             #[cfg(test)]
                             if let Some(cancellation) = &cancellation {
@@ -766,15 +749,16 @@ mod tests {
 
     #[test]
     fn generation_progress_handler_aborts_an_interrupt_delivered_before_sqlite_starts() {
-        let connection = Connection::open_in_memory().unwrap();
+        let mut connection = Connection::open_in_memory().unwrap();
         let cancellation = SpeciesSearchCancellation::default();
         let token = cancellation.begin(Arc::new(connection.get_interrupt_handle()));
-        let progress = token.install_progress_handler(&connection);
+        let progress = token.install_progress_handler(&mut connection).unwrap();
         let running = token.mark_running().unwrap();
 
         cancellation.supersede_request();
 
-        let error = connection
+        let error = progress
+            .connection
             .query_row(
                 "WITH RECURSIVE cnt(x) AS (
                      VALUES(0)
@@ -840,7 +824,7 @@ mod tests {
         let release_reader = Arc::clone(&release_read);
 
         let reader = std::thread::spawn(move || {
-            let conn = db::require_plant_db(&reader_db).unwrap();
+            let mut conn = db::require_plant_db(&reader_db).unwrap();
             let mut started_tx = Some(started_tx);
             conn.progress_handler(
                 1,
@@ -853,7 +837,8 @@ mod tests {
                     }
                     false
                 }),
-            );
+            )
+            .unwrap();
 
             conn.query_row(
                 "WITH RECURSIVE cnt(x) AS (
@@ -923,7 +908,7 @@ mod tests {
         let release_reader_thread = Arc::clone(&release_reader);
         let (reader_started_tx, reader_started_rx) = mpsc::channel();
         let reader = std::thread::spawn(move || {
-            let conn = db::require_plant_db(&reader_db).unwrap();
+            let mut conn = db::require_plant_db(&reader_db).unwrap();
             let mut reader_started_tx = Some(reader_started_tx);
             conn.progress_handler(
                 1,
@@ -936,7 +921,8 @@ mod tests {
                     }
                     false
                 }),
-            );
+            )
+            .unwrap();
             conn.query_row(
                 "WITH RECURSIVE cnt(x) AS (
                      VALUES(0)
@@ -945,9 +931,8 @@ mod tests {
                  )
                  SELECT sum(x) FROM cnt",
                 [],
-                |row| row.get::<_, i64>(0),
+                |_| Ok(()),
             )
-            .map(|_| ())
             .map_err(|error| error.to_string())
         });
 
