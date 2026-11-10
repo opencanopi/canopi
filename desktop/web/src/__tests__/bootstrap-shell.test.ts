@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { SubsystemHealth } from "../generated/contracts";
+import type { StoreId, SubsystemHealth } from "../generated/contracts";
 
 const mocks = vi.hoisted(() => ({
   disposeCloseGuard: vi.fn(),
@@ -30,7 +30,7 @@ const mocks = vi.hoisted(() => ({
   installToolRailLearning: vi.fn(),
   disposeToolRailLearning: vi.fn(),
   takeEarlierDataNotice: vi.fn(),
-  showBrowserShellNotice: vi.fn(),
+  raiseEarlierDataNotice: vi.fn(),
   installLaunchFile: vi.fn(),
   disposeLaunchFile: vi.fn(),
 }));
@@ -43,8 +43,9 @@ vi.mock("../web/browser-app-data", () => ({
   browserAppDataStore: { takeEarlierDataNotice: mocks.takeEarlierDataNotice },
 }));
 
-vi.mock("../web/browser-shell-notice", () => ({
-  showBrowserShellNotice: mocks.showBrowserShellNotice,
+vi.mock("../web/browser-notices", () => ({
+  raiseEarlierDataNotice: mocks.raiseEarlierDataNotice,
+  presentBrowserDesignOpenFailure: vi.fn(),
 }));
 
 vi.mock("../app/tool-rail/learning", () => ({
@@ -123,7 +124,7 @@ describe("settings platform bootstrap", () => {
     mocks.disposeToolRailLearning.mockReset();
     mocks.installToolRailLearning.mockReset().mockReturnValue(mocks.disposeToolRailLearning);
     mocks.takeEarlierDataNotice.mockReset().mockReturnValue(false);
-    mocks.showBrowserShellNotice.mockReset();
+    mocks.raiseEarlierDataNotice.mockReset();
     mocks.disposeLaunchFile.mockReset();
     mocks.installLaunchFile.mockReset().mockReturnValue(mocks.disposeLaunchFile);
   });
@@ -175,26 +176,15 @@ describe("settings platform bootstrap", () => {
     expect(mocks.installContinuousSave).toHaveBeenCalledTimes(2);
   });
 
-  it("tells once that browser data from before Canopi 2.0 was not opened, once the locale is known", async () => {
+  // The notice holds locale keys (failures/notices.ts), so raised at once it reads in the user's locale once it loads.
+  it("tells once that browser data from before Canopi 2.0 was not opened, at launch, ahead of any later notice", async () => {
     mocks.takeEarlierDataNotice.mockReturnValue(true);
-    const { t } = await import("../i18n");
     const { bootstrapPlatform } = await import("../platform/browser");
 
     bootstrapPlatform();
-    expect(mocks.showBrowserShellNotice).not.toHaveBeenCalled();
-    await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(mocks.takeEarlierDataNotice).toHaveBeenCalledOnce();
-    expect(mocks.showBrowserShellNotice).toHaveBeenCalledOnce();
-    expect(mocks.showBrowserShellNotice).toHaveBeenCalledWith({
-      tone: "info",
-      title: t("health.localDataNotOpenedTitle"),
-      message: t("health.localDataNotOpened"),
-    });
-    expect(t("health.localDataNotOpenedTitle")).toBe("Earlier data not opened");
-    expect(t("health.localDataNotOpened")).toBe(
-      "Canopi 2.0 can’t open data saved by earlier versions. It was left unchanged, and Canopi started fresh.",
-    );
+    expect(mocks.raiseEarlierDataNotice).toHaveBeenCalledOnce();
     expect(mocks.restoreLatestDraft).toHaveBeenCalledOnce();
   });
 
@@ -204,7 +194,7 @@ describe("settings platform bootstrap", () => {
     bootstrapPlatform();
     await new Promise((resolve) => setTimeout(resolve, 0));
 
-    expect(mocks.showBrowserShellNotice).not.toHaveBeenCalled();
+    expect(mocks.raiseEarlierDataNotice).not.toHaveBeenCalled();
     expect(mocks.restoreLatestDraft).toHaveBeenCalledOnce();
   });
 
@@ -375,6 +365,65 @@ describe("settings platform bootstrap", () => {
     expect(mocks.disposeTheme).toHaveBeenCalledOnce();
   });
 
+  it("canopi-f47t.52.36: a dismissed one-time store notice stays dismissed after the shell bootstraps again in the same app run", async () => {
+    // The host's health outlives the page: a reload (location.reload) asks the same native process again.
+    const host: SubsystemHealth = { user_db: { status: { kind: "ready" }, notice: "moved_aside_pre_2_0" } };
+    mocks.invoke.mockImplementation(async (command: string, args?: { store: StoreId }) => {
+      if (command === "get_health") return structuredClone(host);
+      if (command === "dismiss_store_notice" && args) {
+        host[args.store] = { ...host[args.store]!, notice: null };
+        return null;
+      }
+      throw new Error(`unexpected command ${command}`);
+    });
+    // The Desktop root's wiring: its store notices with the host's dismissal, then the shell's boot snapshot.
+    const boot = async () => {
+      const { bootstrapShell } = await import("../app/shell/bootstrap");
+      const { dismissStoreNoticeOnHost, getHealth } = await import("../ipc/health");
+      const { installStoreNotices } = await import("../components/workspace/store-notices");
+      const queue = await import("../failures/notices");
+      const disposeNotices = installStoreNotices({ report: null, updatesInAbout: true, dismissOnHost: dismissStoreNoticeOnHost });
+      const shell = bootstrapShell({ load: vi.fn(), save: vi.fn().mockResolvedValue(undefined) }, getHealth);
+      await shell.ready;
+      return { queue, dispose: () => { disposeNotices(); shell.dispose(); } };
+    };
+
+    const first = await boot();
+    const [told] = first.queue.notices.value;
+    expect(told?.message).toBe("health.localDataNotOpened");
+    first.queue.dismissNotice(told!.id);
+    await vi.waitFor(() => expect(host.user_db?.notice).toBeNull());
+    first.dispose();
+
+    // Reload after dismissing the pre-2.0 notice: fresh modules, the same host; it is not shown again.
+    vi.resetModules();
+    const second = await boot();
+    expect(second.queue.notices.value).toEqual([]);
+    const { storeHealth } = await import("../failures/health");
+    expect(storeHealth.value.user_db).toEqual({ status: { kind: "ready" }, notice: null });
+    second.dispose();
+  });
+
+  it("get_health rejects -> every store opening, one sink entry", async () => {
+    mocks.invoke.mockRejectedValue("the health snapshot is unavailable");
+    const { bootstrapShell } = await import("../app/shell/bootstrap");
+    const { getHealth } = await import("../ipc/health");
+    const { storeHealth, storeStatus } = await import("../failures/health");
+    const { ringEntries } = await import("../failures/ring");
+
+    const bootstrap = bootstrapShell({ load: vi.fn(), save: vi.fn().mockResolvedValue(undefined) }, getHealth);
+    await expect(bootstrap.ready).resolves.toBeUndefined();
+
+    // Nothing reported a store, so each still opens: never ready.
+    expect(storeHealth.value).toEqual({});
+    for (const store of ["plant_catalog", "user_db", "settings", "library_catalogue"] as const) {
+      expect(storeStatus(store)).toEqual({ kind: "opening" });
+    }
+    // The transport's settlement is the one entry; the shell's report of the same rejection adds none.
+    expect(ringEntries().map((entry) => [entry.source, entry.code.kind])).toEqual([["ipc.get_health", "internal"]]);
+    bootstrap.dispose();
+  });
+
   it("leaves a settings load failure to the settings projection's one report without rejecting shell readiness", async () => {
     const error = new Error("settings unavailable");
     const logError = vi.spyOn(console, "error").mockImplementation(() => {});
@@ -424,9 +473,6 @@ describe("settings platform bootstrap", () => {
     }));
     const { bootstrapShell } = await import("../app/shell/bootstrap");
     const { getHealth } = await import("../ipc/health");
-    const { lidarLibraryStatus, plantDbStatus } = await import("../app/health/state");
-    plantDbStatus.value = "available";
-    lidarLibraryStatus.value = { kind: "ready" };
     const bootstrap = bootstrapShell({
       load: vi.fn(),
       save: vi.fn().mockResolvedValue(undefined),
@@ -439,10 +485,10 @@ describe("settings platform bootstrap", () => {
     });
     await bootstrap.ready;
 
-    expect(plantDbStatus.value).toBe("available");
-    expect(lidarLibraryStatus.value).toEqual({ kind: "ready" });
     // The one health model (failures/health.ts) is left untouched: every store still opening.
-    const { storeHealth } = await import("../failures/health");
+    const { storeHealth, storeStatus } = await import("../failures/health");
     expect(storeHealth.value).toEqual({});
+    expect(storeStatus("plant_catalog")).toEqual({ kind: "opening" });
+    expect(storeStatus("library_catalogue")).toEqual({ kind: "opening" });
   });
 });

@@ -29,13 +29,13 @@ use canopi_types::sensitive::UserPath;
 use rusqlite::{Connection, OpenFlags};
 use tauri::Manager;
 
-pub struct AppHealth(pub SubsystemHealth);
+pub struct AppHealth(SubsystemHealth, services::health::DismissedNotices);
 
 const PLANT_DB_BUNDLED_PATH: &str = "resources/canopi-core.db";
 
 /// The ops of startup work outside a command: the image cache's open and the app's run.
-const IMAGE_CACHE_OPEN_OP: &str = "image_cache.open";
-const APP_RUN_OP: &str = "app.run";
+const IMAGE_CACHE_OPEN_OP: &str = canopi_types::failure::ops::IMAGE_CACHE_OPEN;
+const APP_RUN_OP: &str = canopi_types::failure::ops::APP_RUN;
 
 fn resolve_plant_db_path<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
@@ -119,6 +119,7 @@ pub fn run() {
             commands::export::pick_geojson_file,
             commands::export::save_canvas_pdf,
             commands::health::get_health,
+            commands::health::dismiss_store_notice,
             commands::host::take_pending_open,
             commands::host::pick_open,
             commands::host::pick_save,
@@ -256,11 +257,10 @@ pub fn run() {
             app.manage(plant_db);
             app.manage(services::plant_browser::SpeciesSearchCancellation::default());
 
-            let entry = |status, notice| StoreHealth { status, notice };
-            app.manage(AppHealth(SubsystemHealth(std::collections::BTreeMap::from([
+            app.manage(AppHealth::new(SubsystemHealth(std::collections::BTreeMap::from([
                 (StoreId::PlantCatalog, services::health::plant_catalog(plant_db_status)),
                 (StoreId::UserDb, user_db_health),
-                (StoreId::LibraryCatalogue, entry(lidar_library_status, None)),
+                (StoreId::LibraryCatalogue, StoreHealth { status: lidar_library_status, notice: None }),
             ]))));
 
             Ok(())

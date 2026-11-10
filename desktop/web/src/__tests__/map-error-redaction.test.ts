@@ -1,8 +1,6 @@
 // @vitest-environment jsdom
 // Map failures reach the console and the problem report only through the failure sink, whose one redactor removes the
 // Google key and session MapLibre copies from request URLs into errors (AGENTS.md Secrets, ADR 0025).
-import { readFileSync, readdirSync } from 'node:fs'
-import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { redactError } from '../failures/redact'
 import { failureNoticesForTests, installFailureHooks, resetFailureNoticesForTests } from '../failures/report'
@@ -56,15 +54,6 @@ describe('map error credential redaction', () => {
     expect(redacted.message).toBe('GET https://x/tile?session=<redacted> failed')
   })
 
-  // S24: one module builds every URL that carries the Google key or a session, so a reviewer reads one file to see
-  // where they go; the provider asks it for request URLs.
-  it('keeps every Google tile endpoint in basemap-tile-auth.ts', () => {
-    const sources = readdirSync('src', { recursive: true, encoding: 'utf8' })
-      .filter((path) => /\.tsx?$/.test(path) && !/(^|\/)__tests__\//.test(path) && !/\.test\.tsx?$/.test(path))
-    const holders = sources.filter((path) => readFileSync(join('src', path), 'utf8').includes('tile.googleapis.com'))
-    expect(holders).toEqual(['maplibre/basemap-tile-auth.ts'])
-  })
-
   it('[1b-c1 canopi-f47t.52.42] WEB-06: a keyed tile URL in a composition failure reaches the ring redacted', () => {
     const failure = new Error(`AJAXError: Forbidden (403): ${KEYED_TILE}`)
     reportMapError('Shared workspace composition failed:', failure)
@@ -93,7 +82,7 @@ describe('map error credential redaction', () => {
     expect(text).not.toMatch(/AIzaSECRET|AKz-SESSION/)
   })
 
-  it('tile source failing before 2d: one redacted entry per occurrence under its layer, no notice (2.1-Q300)', () => {
+  it('tile source failing before 2d: one redacted entry under its layer counting each occurrence, no notice (2.1-Q300)', () => {
     const dispose = installFailureHooks({ storage: 'disk' }, window)
     const event = { sourceId: 'satellite', error: { status: 403, message: `AJAXError: Forbidden (403): ${KEYED_TILE}` } }
     reportMapSourceFailure('Passive MapLibre World map error:', event)
@@ -101,10 +90,10 @@ describe('map error credential redaction', () => {
     reportMapSourceFailure('MapLibre workspace basemap resource failed to load:', { error: { message: 'sprite failed' } })
     dispose()
 
-    expect(ringEntries().map((entry) => entry.code)).toEqual([
-      { kind: 'tile_source_failed', layer: 'satellite' },
-      { kind: 'tile_source_failed', layer: 'satellite' },
-      { kind: 'style_failed' },
+    // A repeat counts on the entry it repeats (canopi-vsey, 2.1-Q294).
+    expect(ringEntries().map((entry) => [entry.code, entry.count])).toEqual([
+      [{ kind: 'tile_source_failed', layer: 'satellite' }, 2],
+      [{ kind: 'style_failed' }, 1],
     ])
     expect(JSON.stringify(ringEntries())).not.toMatch(/AIzaSECRET|AKz-SESSION/)
     expect(failureNoticesForTests().notices).toEqual([])

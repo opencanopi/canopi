@@ -34,7 +34,7 @@ import { Dropdown } from '../shared/Dropdown'
 import { EmptyState } from '../shared/EmptyState'
 import { PanelIcon } from '../shared/PanelIcon'
 import { SavedViewThumbnail } from '../shared/SavedViewThumbnail'
-import { Toast } from '../shared/Toast'
+import { SlotToast } from '../shared/ToastSlot'
 import { usePointerReorder } from '../shared/usePointerReorder'
 import { StepEditor } from '../stories/StepEditor'
 import styles from './StoriesPanel.module.css'
@@ -318,16 +318,15 @@ function StoryUndoToast() {
 function StoryUndoToastContent({ undo }: { readonly undo: StoryUndo }) {
   // Ctrl Z reaches the toast only while it is on screen.
   useEffect(() => registerStoryUndoToast(), [])
+  // In the window's one toast position (2.1-Q292).
   return (
-    <div className={styles.toastSlot}>
-      <Toast
-        message={undo.message}
-        icon={undo.undo ? 'check' : 'alert'}
-        actionLabel={undo.undo ? t('stories.undo') : undefined}
-        onAction={undo.undo ? undoStoryDelete : undefined}
-        onDismiss={() => dismissStoryUndo(undo)}
-      />
-    </div>
+    <SlotToast
+      message={undo.message}
+      icon={undo.undo ? 'check' : 'alert'}
+      actionLabel={undo.undo ? t('stories.undo') : undefined}
+      onAction={undo.undo ? undoStoryDelete : undefined}
+      onDismiss={() => dismissStoryUndo(undo)}
+    />
   )
 }
 

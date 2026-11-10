@@ -36,7 +36,7 @@ mod zip;
 pub(crate) use folder_reveal::{SHOW_OP, show_problem_report};
 
 /// The dotted op of `create_problem_report`.
-pub const CREATE_OP: &str = "problem_report.create";
+pub const CREATE_OP: &str = canopi_types::failure::ops::PROBLEM_REPORT_CREATE;
 
 /// A report's file name before its stamp, and after.
 const NAME_PREFIX: &str = "canopi-report-";

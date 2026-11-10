@@ -24,7 +24,6 @@
     "workspace": "Area di lavoro web",
     "openCanopi": "Apri un file .canopi…",
     "downloadCanopi": "Scarica una copia",
-    "dismissNotice": "Chiudi",
     "downloadCopy": "Scarica una copia",
     "savedInBrowser": "Salvato in questo browser",
     "openCanopiFile": "Apri un file .canopi"
@@ -109,7 +108,6 @@
     "codesHint": "I codici indicano le specie già presenti in questo progetto."
   },
   "health": {
-    "dismiss": "Chiudi",
     "plantDbMissing": "Manca il file di database del catalogo delle piante, quindi la ricerca e le schede delle piante non sono disponibili. I tuoi progetti sono al sicuro. Reinstalla Canopi per ripristinarlo.",
     "plantDbCorrupt": "Il file di database del catalogo delle piante è danneggiato, quindi la ricerca e le schede delle piante non sono disponibili. I tuoi progetti sono al sicuro. Reinstalla Canopi per ripristinarlo.",
     "localDataNotOpenedTitle": "Dati precedenti non aperti",
@@ -1651,7 +1649,11 @@
     "settingsCloseAnyway": "Chiudi comunque",
     "flushFailedReloadMessage": "Non è stato possibile salvare il progetto in questo browser. Scarica una copia prima di ricaricare.",
     "tabConflictReloadMessage": "Questo progetto è stato modificato in un’altra scheda del browser, quindi le ultime modifiche non sono state scritte. Scarica una copia prima di ricaricare, oppure annulla e risolvi prima la modifica.",
-    "discardAndReload": "Ricarica senza salvare"
+    "discardAndReload": "Ricarica senza salvare",
+    "flushFailedAppReloadMessage": "Canopi non è riuscito a scrivere le ultime modifiche. Riprova oppure ricarica senza salvarle.",
+    "settingsFailedReloadMessage": "Il progetto è salvato. Canopi non è riuscito a salvare le ultime modifiche alle impostazioni. Riprova oppure ricarica comunque e perdile.",
+    "settingsFailedDesignUnsavedReloadMessage": "Canopi non è riuscito a salvare le ultime modifiche alle impostazioni. Riprova oppure ricarica comunque e perdile.",
+    "settingsReloadAnyway": "Ricarica comunque"
   },
   "drafts": {
     "title": "Bozze",

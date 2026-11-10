@@ -1,5 +1,5 @@
 {
-  "$comment": "The redaction corpus, shared cases (contracts §13 Redaction; ADR 0025): every case's input redacted equals its expected text. Rust (canopi-redact, Redactor::generic()) and TS (failures/redact.ts) both run these; new cases by 1a only (the Phase 1 owners file).",
+  "$comment": "The redaction corpus, shared cases (contracts §13 Redaction; ADR 0025): every case's input redacted equals its expected text. Rust (canopi-redact, Redactor::generic()) and TS (failures/redact.ts) both run these, so a new case lands with both sides passing it.",
   "version": 1,
   "cases": [
     {
@@ -115,6 +115,42 @@
       "shape": "percent-encoded",
       "input": "Opening %2Fhome%2Fana%2Fplan.canopi failed",
       "expected": "Opening <path> failed"
+    },
+    {
+      "id": "percent-encoded-unc",
+      "shape": "percent-encoded",
+      "input": "Opening %5C%5Cnas%5Cshared%5Cplan.canopi failed",
+      "expected": "Opening <path> failed"
+    },
+    {
+      "id": "percent-encoded-unc-lowercase",
+      "shape": "percent-encoded",
+      "input": "Opening %5c%5cnas%5cshared%5cplan.canopi failed",
+      "expected": "Opening <path> failed"
+    },
+    {
+      "id": "after-colon",
+      "shape": "after-punctuation",
+      "input": "ENOENT:/home/ana/secret.canopi",
+      "expected": "ENOENT:<path>"
+    },
+    {
+      "id": "stack-frame-after-at",
+      "shape": "after-punctuation",
+      "input": "foo@file:///home/ana/app.js:1:2",
+      "expected": "foo@<path>"
+    },
+    {
+      "id": "after-pipe",
+      "shape": "after-punctuation",
+      "input": "path|/home/ana/Secret",
+      "expected": "path|<path>"
+    },
+    {
+      "id": "after-comma",
+      "shape": "after-punctuation",
+      "input": "value=/home/ana/x and ,/home/ana/y",
+      "expected": "value=<path> and ,<path>"
     },
     {
       "id": "tilde-home",

@@ -293,14 +293,15 @@
       "adr": "0025",
       "owner_today": "desktop/web/src/failures/notices.ts",
       "also_owners": [
-        "desktop/web/src/components/shared/NoticeRow.tsx"
+        "desktop/web/src/components/shared/NoticeRow.tsx",
+        "desktop/web/src/components/shared/ToastSlot.tsx"
       ],
       "owner_target": {
         "path": "desktop/web/src/failures",
         "phase": "1b",
         "bead": "canopi-f47t.52.36"
       },
-      "note": "a notice or toast (the plugin-dialog message box, a <Toast> render) is raised only through the failures/ notice signal, its one notice row and its one window-level toast slot (failures/notices.ts and components/shared/NoticeRow.tsx from 1b-c3, components/shared/ToastSlot.tsx to come); refuse_startup stays a standing exception (pre-webview, design check F8)"
+      "note": "a notice or toast (the plugin-dialog message box, a <Toast> render) is raised only through the failures/ notice signal, its one notice row and its one window-level toast slot (failures/notices.ts and failures/toasts.ts, drawn by components/shared/NoticeRow.tsx and components/shared/ToastSlot.tsx); refuse_startup stays a standing exception (pre-webview, design check F8)"
     },
     {
       "id": "map-constructor-only-in-factory",
@@ -762,14 +763,16 @@
         "desktop/web/src/ipc/geojson.ts",
         "desktop/web/src/app/geojson/workflow.ts",
         "desktop/web/src/app/canvas-pdf/platform.browser.ts",
-        "desktop/web/src/app/canvas-pdf/platform.desktop.ts"
+        "desktop/web/src/app/canvas-pdf/platform.desktop.ts",
+        "desktop/web/src/app/document-session/state-machine.ts",
+        "desktop/web/src/app/saved-object-stamps/workbench.ts"
       ],
       "owner_target": {
         "path": "desktop/web/src/failures",
         "phase": "1b",
         "bead": "canopi-f47t.52.36"
       },
-      "note": "a cancel is signalled by the catalogue's CancelToken, never by hand: a site is a 'cancelled' string value a guard returns, resolves or builds, or English text matched for it; literal types and equality or case reads are never sites, and the also-owners produce the contracts' outcome unions (the dialog pick, file delivery), whose 'cancelled' is a result; in Rust a site is also a hand-written poll of a cancel flag (check_cancel, cancel.load), which CancelToken replaces (N1)"
+      "note": "a cancel is signalled by the catalogue's CancelToken, never by hand: a site is a 'cancelled' string value a guard returns, resolves or builds, or English text matched for it; literal types and equality or case reads are never sites, and the also-owners produce the contracts' outcome unions (the dialog pick, file delivery, a document transition, a stamp import), whose 'cancelled' is a result; in Rust a site is also a hand-written poll of a cancel flag (check_cancel, cancel.load), which CancelToken replaces (N1)"
     },
     {
       "id": "tauri-only-in-shell",

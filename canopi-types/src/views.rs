@@ -7,8 +7,8 @@
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
+use crate::design::WEB_MERCATOR_MAX_LATITUDE_DEG;
 use crate::design::field_path::{FieldPath, Refusal};
-use crate::design::{GeoPoint, WEB_MERCATOR_MAX_LATITUDE_DEG};
 
 /// Highest MapLibre zoom a saved view may hold (the workspace map's maximum).
 pub const SAVED_VIEW_MAX_ZOOM: f64 = 27.0;
@@ -102,24 +102,6 @@ impl SavedViewGroundSize {
         [self.width, self.height]
             .iter()
             .all(|side| side.is_finite() && *side > 0.0 && *side <= SAVED_VIEW_MAX_GROUND_SIZE_M)
-    }
-}
-
-impl SavedViewCamera {
-    #[expect(
-        missing_docs,
-        reason = "undocumented before 2.1-Q217; document when this file is next touched"
-    )]
-    pub fn is_valid(&self) -> bool {
-        GeoPoint {
-            lon: self.lon,
-            lat: self.lat,
-        }
-        .is_valid()
-            && self.zoom.is_finite()
-            && (0.0..=SAVED_VIEW_MAX_ZOOM).contains(&self.zoom)
-            && self.bearing.is_finite()
-            && (0.0..=360.0).contains(&self.bearing)
     }
 }
 

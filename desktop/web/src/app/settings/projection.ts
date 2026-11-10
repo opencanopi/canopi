@@ -79,7 +79,7 @@ interface ActiveSettingsProjection {
   readonly retired: Promise<void>
   readonly resolveRetired: () => void
   ready: Promise<void> | null
-  /** The Try again read in flight; a second press joins it, so one read lands and applies the session's changes. */
+  /** The first or a Try again read in flight; a press joins it, so one read lands and applies the session's changes. */
   retrying: Promise<void> | null
 }
 
@@ -671,6 +671,7 @@ export function installSettingsProjection(
     : loadSettingsProjection(projection)
   const ready = isPromiseLike(loaded) ? Promise.resolve(loaded).then(() => undefined) : Promise.resolve()
   projection.ready = ready
+  if (isPromiseLike(loaded)) projection.retrying = ready.catch(() => undefined).finally(() => (projection.retrying = null))
 
   return {
     ready,

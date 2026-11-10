@@ -35,7 +35,11 @@ const SYNC_COMMAND_ALLOWLIST: &[SyncCommandAllowance] = &[
     },
     SyncCommandAllowance {
         path: "commands::health::get_health",
-        reason: "returns a clone of the immutable startup health snapshot; it cannot fail, so it returns SubsystemHealth itself",
+        reason: "returns a clone of the in-memory health snapshot under its lock; it cannot fail, so it returns SubsystemHealth itself",
+    },
+    SyncCommandAllowance {
+        path: "commands::health::dismiss_store_notice",
+        reason: "clears one store's one-time notice in the in-memory health snapshot under its lock; no I/O",
     },
     SyncCommandAllowance {
         path: "commands::host::take_pending_open",
@@ -122,8 +126,8 @@ const STATE_ACCESS_ALLOWLIST: &[StateAccessAllowance] = &[
     },
     StateAccessAllowance {
         path: "commands::problem_report::create_problem_report",
-        operation: "get_health",
-        reason: "clones the immutable startup health snapshot",
+        operation: "report_health",
+        reason: "clones the in-memory startup health snapshot",
     },
 ];
 
@@ -1117,19 +1121,7 @@ pub(crate) fn crate_rust_sources() -> Vec<(String, String)> {
 pub(crate) fn rust_sources_in(manifest: &Path) -> Vec<(String, String)> {
     let mut paths = Vec::new();
     rust_sources_under(&manifest.join("src"), &mut paths);
-    paths.sort();
-    paths
-        .into_iter()
-        .map(|path| {
-            let relative = path
-                .strip_prefix(manifest)
-                .unwrap()
-                .to_string_lossy()
-                .replace('\\', "/");
-            let source = fs::read_to_string(&path).unwrap();
-            (relative, source)
-        })
-        .collect()
+    read_sorted(manifest, paths)
 }
 
 /// Every Rust source under each workspace member's `src/`, sorted, as (path relative to the workspace with '/',
@@ -1149,12 +1141,17 @@ fn workspace_rust_sources() -> Vec<(String, String)> {
     {
         rust_sources_under(&workspace.join(member).join("src"), &mut paths);
     }
+    read_sorted(workspace, paths)
+}
+
+/// Each path, sorted, as (path relative to `root` with '/', as on Windows too, source text).
+fn read_sorted(root: &Path, mut paths: Vec<PathBuf>) -> Vec<(String, String)> {
     paths.sort();
     paths
         .into_iter()
         .map(|path| {
             let relative = path
-                .strip_prefix(workspace)
+                .strip_prefix(root)
                 .unwrap()
                 .to_string_lossy()
                 .replace('\\', "/");

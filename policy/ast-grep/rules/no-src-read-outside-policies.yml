@@ -19,10 +19,9 @@ files:
   - "policy/fixtures/rules/no-src-read-outside-policies/**/*.test.ts"
 ignores:
   - "desktop/web/src/__tests__/canvas-chrome-layering.test.ts"
-  - "desktop/web/src/__tests__/canvas-map-backdrop-ink.test.ts"
   - "desktop/web/src/__tests__/css-module-policies.test.ts"
-  - "desktop/web/src/__tests__/map-error-redaction.test.ts"
   - "desktop/web/src/__tests__/stacking-order.test.ts"
+  - "desktop/web/src/__tests__/support-copies-no-runtime-guard.test.ts"
   - "desktop/web/src/__tests__/web-build-configuration.test.ts"
 utils:
   fs-read:

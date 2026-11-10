@@ -168,6 +168,22 @@ fn every_op_is_a_unique_dotted_lower_snake_case_name() {
 }
 
 #[test]
+fn canopi_f47t_52_36_the_native_system_and_report_ops_are_in_the_one_vocabulary() {
+    for op in [
+        "logging.open",
+        "db.lock",
+        "plant_catalog.open",
+        "image_cache.open",
+        "app.run",
+        "problem_report.create",
+        "problem_report.show",
+        "problem_report.read_settings",
+    ] {
+        assert!(ops::ALL.contains(&op), "{op} is outside ops::ALL");
+    }
+}
+
+#[test]
 fn a_system_id_is_minted_fresh_and_parses_back() {
     let first = OperationId::system();
     let second = OperationId::system();

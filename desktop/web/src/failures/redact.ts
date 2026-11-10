@@ -6,7 +6,8 @@
  * Credentials: each name of the generated table (`generated/redaction.ts`, shared with canopi-redact) as a query or
  * form parameter (`key=…`) or a JSON key (`"key": "…"`) keeps its name and loses its value. Paths: anything that
  * starts like a path (an absolute Unix path, a drive letter, a UNC or verbatim prefix, `file://`, `~/`, a
- * percent-encoded `/`) after a boundary becomes the path token; a quoted path runs to its closing quote, an unquoted
+ * percent-encoded `/` or `\`) at the start or after any character that does not join words (canopi-redact's
+ * `starts_path_after`) becomes the path token; a quoted path runs to its closing quote, an unquoted
  * one to the `: ` that ends a `path: reason` pair, else across spaces while the next word still holds a separator.
  *
  * Input is capped before scanning and the path scan is one linear pass, so a multi-MB stack costs one bounded scan; a
@@ -32,7 +33,9 @@ export function redact(text: string): string {
   return redactPaths(withoutCredentials)
 }
 
-const BOUNDARY = new Set([' ', '\t', '\n', '\r', '"', "'", '(', '[', '{', '='])
+// A path may start after anything but a character that joins words (a letter, a digit, a separator or `. _ - + % ~`),
+// so a fraction, a date, `km/h`, `+/-` or a URL's later slashes start none (canopi-redact `starts_path_after`).
+const JOINS_WORDS = /[\p{Alphabetic}\p{N}/\\._+%~-]/u
 // Characters that end an unquoted path; `<` and `>` keep a path token from growing into its neighbours.
 const HARD_END = new Set(['\n', '\r', '"', "'", ')', ']', '}', ',', ';', '<', '>'])
 
@@ -43,7 +46,7 @@ function redactPaths(text: string): string {
   let index = 0
   while (index < text.length) {
     const before = index === 0 ? ' ' : text[index - 1]!
-    if (!BOUNDARY.has(before) || !startsPath(text, index)) {
+    if (JOINS_WORDS.test(before) || !startsPath(text, index)) {
       index += 1
       continue
     }
@@ -76,10 +79,13 @@ function scanAhead(text: string): { nextHardEnd: Int32Array; nextColonSpace: Int
 function startsPath(text: string, index: number): boolean {
   const char = text[index]!
   const next = text[index + 1]
-  if (char === '/') return next !== undefined && !/\s/.test(next)
-  if (char === '\\') return next === '\\' && text[index + 2] !== undefined && !/\s/.test(text[index + 2]!)
+  if (char === '/') return next !== undefined && next !== '/' && !/\s/.test(next) && !HARD_END.has(next)
+  if (char === '\\') {
+    const third = text[index + 2]
+    return next === '\\' && third !== undefined && !/\s/.test(third) && !HARD_END.has(third)
+  }
   if (char === '~') return next === '/' || next === '\\'
-  if (char === '%') return next === '2' && (text[index + 2] === 'F' || text[index + 2] === 'f')
+  if (char === '%') return isEncodedSeparator(text, index)
   if (/[A-Za-z]/.test(char) && next === ':' && (text[index + 2] === '\\' || text[index + 2] === '/')) return true
   return (char === 'f' || char === 'F') && text.slice(index, index + 7).toLowerCase() === 'file://'
 }
@@ -117,9 +123,15 @@ function holdsSeparator(text: string, start: number, end: number): boolean {
   for (let index = start; index < end; index += 1) {
     const char = text[index]!
     if (char === '/' || char === '\\') return true
-    if (char === '%' && text[index + 1] === '2' && (text[index + 2] === 'F' || text[index + 2] === 'f')) return true
+    if (char === '%' && isEncodedSeparator(text, index)) return true
   }
   return false
+}
+
+/** A percent-encoded `/` (`%2F`) or `\` (`%5C`), either case, at `index`. */
+function isEncodedSeparator(text: string, index: number): boolean {
+  const code = text.slice(index, index + 3).toUpperCase()
+  return code === '%2F' || code === '%5C'
 }
 
 /** The same error when redaction changes nothing, otherwise a redacted copy keeping its name (mapError's propagation). */

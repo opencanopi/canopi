@@ -73,9 +73,6 @@
     "desktop/web/src/components/shared/CommandPalette.tsx": {
       "count": 4
     },
-    "desktop/web/src/components/shared/DegradedBanner.tsx": {
-      "count": 1
-    },
     "desktop/web/src/components/shared/DockPanelHeader.tsx": {
       "count": 1
     },

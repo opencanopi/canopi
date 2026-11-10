@@ -17,9 +17,7 @@ vi.mock('../ipc/design', async (importOriginal) => ({
   listDesignDrafts: vi.fn(async () => []),
 }))
 
-import { plantDbStatus } from '../app/health/state'
 import { locale } from '../app/settings/state'
-import { DegradedBanner } from '../components/shared/DegradedBanner'
 import { StartScreen } from '../components/shared/StartScreen'
 import { WelcomeScreen } from '../components/shared/WelcomeScreen'
 import type * as IpcDesignModule from '../ipc/design'
@@ -36,7 +34,6 @@ beforeEach(() => {
 afterEach(() => {
   render(null, container)
   container.remove()
-  plantDbStatus.value = 'available'
 })
 
 function renderStart(props: Partial<Parameters<typeof StartScreen>[0]> = {}) {
@@ -190,24 +187,5 @@ describe('Desktop recent Designs', () => {
     expect(rows[3]).toContain('In 2026')
     // A name no other row has needs nothing more.
     expect(rows[4]).not.toMatch(/pond\.canopi|In /)
-  })
-})
-
-describe('Plant database notice', () => {
-  it('reserves its own row below the title bar so rails, dock and start screen move down', async () => {
-    const host = document.createElement('div')
-    container.appendChild(host)
-    plantDbStatus.value = 'corrupt'
-    await act(async () => { render(<DegradedBanner />, host) })
-
-    const alert = host.querySelector('[role="alert"]')!
-    expect(alert.textContent).toContain("The plant catalog's database file is damaged")
-    // The chrome below the title bar starts from --chrome-rail-top; the notice pushes it.
-    expect(host.style.getPropertyValue('--chrome-rail-top')).toMatch(/^calc\(\d+px \+ var\(--space-2\)\)$/)
-
-    await act(async () => { plantDbStatus.value = 'available' })
-    expect(host.querySelector('[role="alert"]')).toBeNull()
-    expect(host.style.getPropertyValue('--chrome-rail-top')).toBe('')
-    render(null, host)
   })
 })

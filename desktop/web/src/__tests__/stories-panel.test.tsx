@@ -306,7 +306,7 @@ describe('Stories panel', () => {
     await openMenuItem(button('More actions for step 1'), 'delete')
     expect(stepIds()).toEqual(['s3', 's2'])
     expect(storyUndo.value?.message).toBe('Deleted step “The site”')
-    await act(async () => { button('Undo').click() })
+    await act(async () => { button('Undo', document.querySelector('[data-toast-layer]')!).click() })
     expect(stepIds()).toEqual(['s1', 's3', 's2'])
   })
 
@@ -376,7 +376,7 @@ describe('Stories panel', () => {
 
     await openMenuItem(button('More actions for this story'), 'delete-story')
     expect(currentDesign.value!.stories!.map((story) => story.id)).toEqual(['open-day'])
-    await act(async () => { button('Undo').click() })
+    await act(async () => { button('Undo', document.querySelector('[data-toast-layer]')!).click() })
     expect(currentDesign.value!.stories!.map((story) => story.id)).toEqual(['visit', 'open-day'])
   })
 })

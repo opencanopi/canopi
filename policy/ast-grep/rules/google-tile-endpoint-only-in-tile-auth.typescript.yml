@@ -1,0 +1,17 @@
+# google-tile-endpoint-only-in-tile-auth (S24, 2.1-M236): one module spells the Google tile endpoint, so a reviewer reads
+# one file to see where the key and session go; the source read 'keeps every Google tile endpoint in basemap-tile-auth.ts'
+# retired onto this rule (2.1-Q13). A string or template fragment holding `tile.googleapis.com` counts.
+id: google-tile-endpoint-only-in-tile-auth.typescript
+language: typescript
+severity: error
+message: "S24 one module spells the Google tile endpoint (AGENTS.md Secrets); owner desktop/web/src/maplibre/basemap-tile-auth.ts; example desktop/web/src/maplibre/basemap-tile-auth.ts"
+files:
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.ts"
+ignores:
+  - "{desktop/web,policy/fixtures/rules/*}/src/__tests__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
+  - "{desktop/web,policy/fixtures/rules/*}/src/maplibre/basemap-tile-auth.ts"
+rule:
+  kind: string_fragment
+  regex: tile\.googleapis\.com

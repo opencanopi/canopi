@@ -31,7 +31,7 @@
     "platform/browser.ts -> web/browser-design-session.ts": { "count": 1 },
     "platform/browser.ts -> web/browser-draft-persistence.ts": { "count": 1 },
     "platform/browser.ts -> web/browser-release-watch.ts": { "count": 1 },
-    "platform/browser.ts -> web/browser-shell-notice.ts": { "count": 1 },
+    "platform/browser.ts -> web/browser-notices.ts": { "count": 1 },
     "platform/desktop.ts -> platform/open-failure.desktop.ts": { "count": 1 },
     "platform/desktop.ts -> platform/settings.desktop.ts": { "count": 1 },
     "platform/settings.browser.ts -> web/browser-app-data.ts": { "count": 1 },

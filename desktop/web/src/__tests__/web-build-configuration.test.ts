@@ -106,6 +106,20 @@ describe('Web Edition build configuration', () => {
     }
   })
 
+  // The type checker sees the language the bundle ships (2.1-M184, DR7): an older target hides newer lib members, a
+  // newer one lets code through that the bundle would have to down-level. Each edition's build, as Vite evaluates it.
+  it('compiles for the same language level as the Vite build', async () => {
+    const tsconfig = JSON.parse(readFileSync(new URL('../../tsconfig.json', import.meta.url), 'utf8')) as {
+      compilerOptions: { target: string; lib: string[] }
+    }
+    for (const mode of ['desktop', 'web']) {
+      const buildTarget = (await resolveConfig(mode)).build?.target
+      expect(typeof buildTarget, mode).toBe('string')
+      expect(tsconfig.compilerOptions.target.toLowerCase(), mode).toBe(buildTarget)
+      expect(tsconfig.compilerOptions.lib.map((lib) => lib.toLowerCase()), mode).toContain(buildTarget)
+    }
+  })
+
   it('loads the gallery config for a build, as knip reads it, and refuses a gallery build when it starts', async () => {
     const configFile = fileURLToPath(new URL('../../ui-gallery/vite.config.ts', import.meta.url))
     const forBuild = await resolveViteConfig({ configFile, logLevel: 'silent' }, 'build')

@@ -1,4 +1,4 @@
-// canvas/runtime/font-loading.ts: the one loader of the canvas's web fonts (D11). Invariant: canvas text drawn while its
+// canvas/runtime/fonts/font-loading.ts: the one loader of the canvas's web fonts (D11). Invariant: canvas text drawn while its
 // web font is still loading keeps the fallback's glyphs and widths, and nothing in Pixi or a 2D context listens for
 // fonts; so whatever draws canvas text asks here for its font and text, and redraws when the epoch moves. The epoch
 // moves once per load that brought a face that had not loaded; a failed load moves nothing and is never asked

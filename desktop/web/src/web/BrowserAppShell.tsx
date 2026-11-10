@@ -14,7 +14,7 @@ import { installStoreNotices } from "../components/workspace/store-notices";
 import { openProblemReport, ProblemReportDialog } from "../components/shared/ProblemReportDialog";
 import { PanelRail } from "../components/shared/PanelRail";
 import { SaveStatusLabel } from "../components/shared/SaveStatusLabel";
-import { useChromeRow } from "../components/shared/useMapChrome";
+import { ToastSlot } from "../components/shared/ToastSlot";
 import { useModalInertRegion } from "../components/shared/useModalLayer";
 import { WorkspaceTitleBar, type TitleBarCommand } from "../components/shared/WorkspaceTitleBar";
 import titleBarStyles from "../components/shared/WorkspaceTitleBar.module.css";
@@ -23,11 +23,6 @@ import {
   type BrowserShellDesignIdentity,
   type BrowserShellProjectedCommand,
 } from "./browser-shell-commands";
-import {
-  browserShellNotice,
-  dismissBrowserShellNotice,
-  type BrowserShellNotice as BrowserShellNoticeState,
-} from "./browser-shell-notice";
 import { canKeepDrafts, DRAFT_PERSISTENCE_REASON, type BrowserDraftPersistence } from "./browser-draft-persistence";
 import styles from "./BrowserAppShell.module.css";
 
@@ -47,16 +42,7 @@ interface BrowserAppShellProps {
    * popover gives the reason, Keep my Drafts while it is offered (2.1-Q198) and Download a copy. Absent: no warning.
    */
   readonly persistence?: Pick<BrowserDraftPersistence, "view" | "keep" | "showReason"> | null;
-  /** A release waits (2.1-Q83): the New version: Reload notice, which keeps the notice row over later notices. */
-  readonly release?: BrowserShellReleaseNotice | null;
   readonly children?: ComponentChildren;
-}
-
-/** The New version: Reload notice's state and actions; Reload saves first (`reloading` while it saves). */
-interface BrowserShellReleaseNotice {
-  readonly reloading: boolean;
-  readonly onReload: () => void;
-  readonly onDismiss: () => void;
 }
 
 /**
@@ -76,16 +62,14 @@ export function BrowserAppShell({
   placeSearch = false,
   undo,
   persistence = null,
-  release = null,
   children,
 }: BrowserAppShellProps) {
-  const notice = browserShellNotice.value;
   // The whole frame sits behind a modal dialog; the dialogs mount outside it.
   const shell = useRef<HTMLDivElement>(null);
   useModalInertRegion(shell);
   useLayoutEffect(() => installPhoneLayout(window), []);
   // Web reloads to update; Report a problem downloads one zip (2.1-Q60, Q283).
-  useEffect(() => installStoreNotices({ report: openProblemReport, updatesInAbout: false }), []);
+  useEffect(() => installStoreNotices({ report: openProblemReport, updatesInAbout: false, dismissOnHost: null }), []);
   const phone = phoneLayout.value;
   const noticeTop = useTitleBarBottom(shell, phone);
   const [searching, setSearching] = useState(false);
@@ -197,16 +181,13 @@ export function BrowserAppShell({
           commandProjection.panelBar.planning,
         ]}
       />}
-      {/* One notice at a time. A shell notice reports what the user did, whatever its tone, and holds the row over a
-          waiting release, which returns once it is dismissed (2.1-M182). The one notice not from an action, the
-          launch's Earlier data, comes before any release can be read, so it too shows first. The one notice row's
-          queue (failures/notices.ts, 2.1-Q290) shows once neither waits, until the shell notice folds into it. */}
-      {notice
-        ? <ShellNotice notice={notice} top={noticeTop} />
-        : release ? <ReleaseNotice release={release} designOpen={designIdentity !== null} top={noticeTop} /> : <NoticeRow belowTitleBar={{ top: noticeTop }} />}
+      {/* The one notice row (failures/notices.ts, 2.1-Q290): the launch's Earlier data, what the user did and a waiting
+          release (web/browser-notices.ts), one at a time, below the title bar. */}
+      <NoticeRow belowTitleBar={{ top: noticeTop }} />
     </div>
     {/* A modal: outside the frame the dialog makes inert. */}
     <ProblemReportDialog />
+    <ToastSlot />
     </>
   );
 }
@@ -272,80 +253,6 @@ function useTitleBarBottom(shell: RefObject<HTMLElement | null>, phone: unknown)
     return () => observer.disconnect();
   }, [shell, phone]);
   return bottom;
-}
-
-function noticeRowStyle(top: number | null) {
-  return top === null ? undefined : { top: `calc(${top}px + var(--space-2))` };
-}
-
-/** The one dismissible Web notice: a row of its own below the title bar (`useChromeRow`). */
-function ShellNotice({ notice, top }: { readonly notice: BrowserShellNoticeState; readonly top: number | null }) {
-  const row = useRef<HTMLDivElement>(null);
-  useChromeRow(row, top);
-  return (
-    <div
-      ref={row}
-      className={styles.notice}
-      style={noticeRowStyle(top)}
-      role={notice.tone === "error" ? "alert" : "status"}
-      data-tone={notice.tone}
-      data-web-shell-notice
-    >
-      <span className={styles.noticeTitle}>{notice.title}</span>
-      <span className={styles.noticeMessage}>{notice.message}</span>
-      <button
-        type="button"
-        className={styles.noticeDismiss}
-        aria-label={t("webShell.dismissNotice")}
-        onClick={dismissBrowserShellNotice}
-      >
-        <ControlIcon name="close" />
-      </button>
-    </div>
-  );
-}
-
-/**
- * New version: Reload (2.1-Q83, Q187): the notice row with Reload, which reads Saving… and ignores clicks while the
- * Design is written first, and Dismiss. Polite: it never takes focus from an edit. With no Design open (the welcome
- * screen) it promises no save first (canopi-eon8.15).
- */
-function ReleaseNotice({ release, designOpen, top }: {
-  readonly release: BrowserShellReleaseNotice;
-  readonly designOpen: boolean;
-  readonly top: number | null;
-}) {
-  const row = useRef<HTMLDivElement>(null);
-  useChromeRow(row, top);
-  return (
-    <div ref={row} className={styles.notice} style={noticeRowStyle(top)} role="status" data-tone="info" data-web-shell-notice data-release="">
-      <span className={styles.noticeText}>
-        <span className={styles.noticeTitle}>{t("webRelease.title")}</span>{" "}
-        <span className={styles.noticeMessage}>{t(designOpen ? "webRelease.message" : "webRelease.messageNoDesign")}</span>
-      </span>
-      <span className={styles.noticeActions}>
-        <button
-          type="button"
-          className={styles.noticeAction}
-          data-release-reload
-          disabled={release.reloading}
-          onClick={release.onReload}
-        >
-          {t(release.reloading ? "saveStatus.saving" : "notice.reload")}
-        </button>
-        <button
-          type="button"
-          className={styles.noticeDismiss}
-          aria-label={t("webShell.dismissNotice")}
-          // While Reload saves, the reload is under way: Dismiss would not stop it (Cancel in its save problem does).
-          disabled={release.reloading}
-          onClick={release.onDismiss}
-        >
-          <ControlIcon name="close" />
-        </button>
-      </span>
-    </div>
-  );
 }
 
 type TitleBarMenus = ComponentProps<typeof WorkspaceTitleBar>["menus"];

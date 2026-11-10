@@ -1,0 +1,16 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "pixi-unsafe-eval-shim-first",
+  "ledger": "2.1-M236",
+  "tool": "ast-grep",
+  "scope": [
+    "desktop/web/src/**"
+  ],
+  "lane": "commit",
+  "keys": "path",
+  "select": [
+    "pixi-unsafe-eval-shim-first"
+  ],
+  "entries": {}
+}

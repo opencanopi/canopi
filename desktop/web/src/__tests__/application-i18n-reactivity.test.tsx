@@ -5,11 +5,13 @@ import { render } from 'preact'
 import { act } from 'preact/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { plantDbStatus } from '../app/health/state'
 import { locale } from '../app/settings/state'
 import { commandPaletteOpen } from '../commands/registry'
 import { CommandPalette } from '../components/shared/CommandPalette'
-import { DegradedBanner } from '../components/shared/DegradedBanner'
+import { NoticeRow } from '../components/shared/NoticeRow'
+import { applyHealthSnapshot, resetStoreHealthForTests } from '../failures/health'
+import { installHealthNotices } from '../failures/health-notices'
+import { resetNoticesForTests } from '../failures/notices'
 import { t } from '../i18n'
 
 describe('application translation authority', () => {
@@ -20,22 +22,24 @@ describe('application translation authority', () => {
     document.body.appendChild(container)
     locale.value = 'en'
     await i18n.changeLanguage('en')
-    plantDbStatus.value = 'missing'
     commandPaletteOpen.value = false
   })
 
   afterEach(() => {
     render(null, container)
     container.remove()
-    plantDbStatus.value = 'available'
+    resetStoreHealthForTests()
+    resetNoticesForTests()
     commandPaletteOpen.value = false
     vi.restoreAllMocks()
     locale.value = 'en'
   })
 
-  it('rerenders mounted degraded chrome when only the locale changes', async () => {
+  it('rerenders the mounted notice row when only the locale changes', async () => {
+    const dispose = installHealthNotices({ report: null, update: null })
+    applyHealthSnapshot({ plant_catalog: { status: { kind: 'unavailable', code: { kind: 'plant_db_unavailable', cause: 'missing' } }, notice: null } })
     await act(async () => {
-      render(<DegradedBanner />, container)
+      render(<NoticeRow />, container)
     })
 
     expect(container.textContent).toContain("The plant catalog's database file is missing")
@@ -45,6 +49,7 @@ describe('application translation authority', () => {
     })
 
     expect(container.textContent).toContain('Le fichier de base de données du catalogue des plantes est introuvable')
+    dispose()
   })
 
   it('pins interpolation, count, and fallback reads to the observed locale synchronously', () => {

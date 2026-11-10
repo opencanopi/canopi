@@ -9,7 +9,7 @@ use super::{NAME_PREFIX, NAME_SUFFIX};
 use crate::services::folder_reveal::FolderRevealer;
 
 /// The dotted op of `show_problem_report_folder`.
-pub const SHOW_OP: &str = "problem_report.show";
+pub const SHOW_OP: &str = canopi_types::failure::ops::PROBLEM_REPORT_SHOW;
 
 /// Show `file_name`, a report in `reports_folder`, selected in its folder (the folder opens when
 /// the file manager cannot select it).

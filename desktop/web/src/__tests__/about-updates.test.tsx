@@ -12,7 +12,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 const host = { launchCheck: true, launchNotice: false }
 
 vi.mock('../components/shared/TitleBar', () => ({ TitleBar: () => null }))
-vi.mock('../components/shared/DegradedBanner', () => ({ DegradedBanner: () => null }))
 vi.mock('../components/shared/CommandPalette', () => ({ CommandPalette: () => null }))
 vi.mock('../components/shared/ProblemReportDialog', () => ({ ProblemReportDialog: () => null }))
 vi.mock('../components/workspace/DesktopWorkspace', () => ({ DesktopWorkspace: () => null }))
@@ -501,7 +500,7 @@ describe('Desktop root', () => {
   /** The closing notice while a window close waits for `waitsFor`, and the row once the wait settles. */
   async function closingNotice(waitsFor: 'install' | 'exit') {
     host.launchCheck = false
-    await act(async () => { render(<App updates={rootPorts()} />, container) })
+    await act(async () => { render(<App updates={rootPorts()} dismissStoreNoticeOnHost={async () => {}} />, container) })
     await act(async () => { closeWaitsFor.value = waitsFor })
     const notice = rowNotice('update.closing')
     const shown = { text: notice?.textContent, role: notice?.getAttribute('role') }
@@ -515,7 +514,7 @@ describe('Desktop root', () => {
 
   it('the Desktop root shows the launch check\'s notice on the notice row once, takes no focus, and its About offers Download and install (2.1-Q293)', async () => {
     const before = document.activeElement
-    await act(async () => { render(<App updates={rootPorts()} />, container) })
+    await act(async () => { render(<App updates={rootPorts()} dismissStoreNoticeOnHost={async () => {}} />, container) })
     await vi.waitFor(() => expect(rowNotice('update.available')).not.toBeNull())
 
     const rows = container.querySelectorAll('[data-notice-row]').length
@@ -529,7 +528,7 @@ describe('Desktop root', () => {
 
   it('[canopi-f47t.52.36] a dismissed update notice stays hidden for the session and shows again at the next launch, with nothing stored (2.1-Q293)', async () => {
     const stored = { local: localStorage.length, session: sessionStorage.length }
-    await act(async () => { render(<App updates={rootPorts()} />, container) })
+    await act(async () => { render(<App updates={rootPorts()} dismissStoreNoticeOnHost={async () => {}} />, container) })
     await vi.waitFor(() => expect(rowNotice('update.available')).not.toBeNull())
     await dismissShown()
     expect(rowNotice('update.available')).toBeNull()
@@ -537,7 +536,7 @@ describe('Desktop root', () => {
     expect(rowNotice('update.available')).toBeNull()
     // The next launch: a fresh root over the same host.
     unmount(container)
-    await act(async () => { render(<App updates={rootPorts()} />, container) })
+    await act(async () => { render(<App updates={rootPorts()} dismissStoreNoticeOnHost={async () => {}} />, container) })
     await vi.waitFor(() => expect(rowNotice('update.available')).not.toBeNull())
     expect({ local: localStorage.length, session: sessionStorage.length }).toEqual(stored)
   })
@@ -545,7 +544,7 @@ describe('Desktop root', () => {
   it('[canopi-f47t.52.36] a launch notice and a failure notice share the one notice row, the oldest first with "1 of 2" (2.1-Q290)', async () => {
     host.launchCheck = false
     multiOpenNotice.value = 7
-    await act(async () => { render(<App updates={rootPorts()} />, container) })
+    await act(async () => { render(<App updates={rootPorts()} dismissStoreNoticeOnHost={async () => {}} />, container) })
     await act(async () => { reportFailure(new Error('disk full'), { shown: 'notice', source: 'export', code: { kind: 'io', io: 'no_space' } }) })
     const rows = container.querySelectorAll('[data-notice-row]').length
     const shown = rowNotice('launch.multi-open')?.textContent?.includes('Canopi opens one Design at a time')
@@ -556,7 +555,7 @@ describe('Desktop root', () => {
 
   it('the Desktop root runs no launch check when Check for updates at launch is off', async () => {
     host.launchCheck = false
-    await act(async () => { render(<App updates={rootPorts()} />, container) })
+    await act(async () => { render(<App updates={rootPorts()} dismissStoreNoticeOnHost={async () => {}} />, container) })
     await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)) })
 
     expect(rowNotice('update.available')).toBeNull()
@@ -565,7 +564,7 @@ describe('Desktop root', () => {
   it('after a Windows update that did not install, the Desktop root says Update not installed once', async () => {
     host.launchCheck = false
     host.launchNotice = true
-    await act(async () => { render(<App updates={rootPorts()} />, container) })
+    await act(async () => { render(<App updates={rootPorts()} dismissStoreNoticeOnHost={async () => {}} />, container) })
     await vi.waitFor(() => expect(container.textContent).toContain('Update not installed'))
   })
 
@@ -575,7 +574,7 @@ describe('Desktop root', () => {
     const before = document.activeElement
     vi.useFakeTimers()
     try {
-      await act(async () => { render(<App updates={rootPorts()} />, container) })
+      await act(async () => { render(<App updates={rootPorts()} dismissStoreNoticeOnHost={async () => {}} />, container) })
       await vi.waitFor(() => expect(rowNotice('update.not-installed')).not.toBeNull())
       await act(async () => { vi.advanceTimersByTime(60_000) })
     } finally {

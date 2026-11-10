@@ -24,7 +24,6 @@
     "workspace": "Web 版ワークスペース",
     "openCanopi": ".canopi ファイルを開く…",
     "downloadCanopi": "コピーをダウンロード",
-    "dismissNotice": "閉じる",
     "downloadCopy": "コピーをダウンロード",
     "savedInBrowser": "このブラウザーに保存済み",
     "openCanopiFile": ".canopi ファイルを開く"
@@ -109,7 +108,6 @@
     "codesHint": "コードはこのデザインにすでにある種を示します。"
   },
   "health": {
-    "dismiss": "閉じる",
     "plantDbMissing": "植物カタログのデータベースファイルが見つからないため、植物の検索と詳細は利用できません。デザインは安全です。Canopi を再インストールして復元してください。",
     "plantDbCorrupt": "植物カタログのデータベースファイルが破損しているため、植物の検索と詳細は利用できません。デザインは安全です。Canopi を再インストールして復元してください。",
     "localDataNotOpenedTitle": "以前のデータは開いていません",
@@ -1651,7 +1649,11 @@
     "settingsCloseAnyway": "このまま閉じる",
     "flushFailedReloadMessage": "このブラウザーにデザインを保存できませんでした。再読み込みする前にコピーをダウンロードしてください。",
     "tabConflictReloadMessage": "このデザインはブラウザーの別のタブで変更されたため、最新の変更は書き込まれていません。再読み込みする前にコピーをダウンロードするか、キャンセルして先に変更を解決してください。",
-    "discardAndReload": "保存せずに再読み込み"
+    "discardAndReload": "保存せずに再読み込み",
+    "flushFailedAppReloadMessage": "Canopi は最新の変更を書き込めませんでした。再試行するか、保存せずに再読み込みしてください。",
+    "settingsFailedReloadMessage": "デザインは保存されています。Canopi は最新の設定の変更を保存できませんでした。再試行するか、変更を破棄してこのまま再読み込みしてください。",
+    "settingsFailedDesignUnsavedReloadMessage": "Canopi は最新の設定の変更を保存できませんでした。再試行するか、変更を破棄してこのまま再読み込みしてください。",
+    "settingsReloadAnyway": "このまま再読み込み"
   },
   "drafts": {
     "title": "下書き",

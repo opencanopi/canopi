@@ -78,8 +78,11 @@ export function blockEditsWhile(exiting: ReadonlySignal<boolean>): () => void {
   };
 }
 
-/** Why Canopi is about to exit: the window's close, or an update's install or restart (2.1-M209). */
-type ExitPurpose = "close" | "update";
+/**
+ * Why Canopi is about to exit: the window's close, an update's install or restart (2.1-M209), or the Desktop root
+ * boundary's Reload, whose save question speaks of reloading.
+ */
+type ExitPurpose = "close" | "update" | "reload";
 
 /** What the exit flush answers: go on and exit, or keep Canopi open. */
 export type ExitAnswer = "proceed" | "cancel";
@@ -87,7 +90,8 @@ export type ExitAnswer = "proceed" | "cancel";
 /**
  * Before Canopi exits it writes the current Design to its home first, then the settings. Only a failed write asks the
  * user anything: for the Design Retry, Close without saving or Cancel; for the settings Retry, Close anyway or Cancel,
- * Cancel and Escape keeping Canopi open (2.1-Q20, Q176, Q182, M71). The settings dialog calls the Design saved only
+ * Cancel and Escape keeping Canopi open (2.1-Q20, Q176, Q182, M71); before a reload the same choices say Reload
+ * without saving and Reload anyway (canopi-f47t.52.36). The settings dialog calls the Design saved only
  * when a Design is open and the flush wrote it: flush also succeeds when no Design is open, which saved nothing
  * (M175). `abandoned` ends the flush with cancel, asking nothing more, once the caller no longer needs its answer.
  */
@@ -102,7 +106,7 @@ async function runExitFlush(purpose: ExitPurpose, abandoned: () => boolean): Pro
     }
     const choice = await requestSaveProblemDecision({
       kind: "flush-failed",
-      purpose: "close",
+      purpose: purpose === "reload" ? "app-reload" : "close",
       conflict: designContinuousSave.conflict.peek() !== null,
     });
     if (abandoned() || choice === "cancel") return "cancel";
@@ -118,7 +122,9 @@ async function runExitFlush(purpose: ExitPurpose, abandoned: () => boolean): Pro
       if (abandoned()) return "cancel";
       console.error(`Failed to flush settings before ${purpose}:`, error);
     }
-    const choice = await requestSaveProblemDecision({ kind: "settings-failed", designSaved });
+    const choice = await requestSaveProblemDecision(purpose === "reload"
+      ? { kind: "settings-failed", designSaved, purpose: "reload" }
+      : { kind: "settings-failed", designSaved });
     if (abandoned() || choice === "cancel") return "cancel";
     if (choice === "discard") break;
   }
@@ -132,6 +138,16 @@ async function runExitFlush(purpose: ExitPurpose, abandoned: () => boolean): Pro
  */
 export function flushBeforeExit(purpose: ExitPurpose): Promise<ExitAnswer> {
   return runExitFlush(purpose, () => false);
+}
+
+/**
+ * The Desktop root boundary's Reload: the exit flush first, as a window close runs it, asking in reload words, then the
+ * reload on proceed; Cancel keeps Canopi as it is.
+ */
+export function reloadAfterExitFlush(reload: () => void = () => location.reload()): void {
+  void flushBeforeExit("reload").then((answer) => {
+    if (answer === "proceed") reload();
+  });
 }
 
 /**

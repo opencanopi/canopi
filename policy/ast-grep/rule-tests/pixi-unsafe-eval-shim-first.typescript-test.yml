@@ -1,0 +1,22 @@
+id: pixi-unsafe-eval-shim-first.typescript
+valid:
+  - |
+    import 'pixi.js/unsafe-eval'
+    import { Container } from 'pixi.js'
+  - |
+    import 'pixi.js/unsafe-eval'
+    import { signal } from '@preact/signals'
+    import type { Text } from 'pixi.js'
+    export { Graphics } from 'pixi.js'
+  - |
+    import { Container } from './pixi-scene'
+invalid:
+  - |
+    import { Container } from 'pixi.js'
+  - |
+    import type { Text } from 'pixi.js'
+  - |
+    import { Container } from 'pixi.js'
+    import 'pixi.js/unsafe-eval'
+  - |
+    export { Graphics } from 'pixi.js'

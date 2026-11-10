@@ -2,7 +2,7 @@
  * failures/health-presentation.ts: the one store health presentation (contracts §2 and §11, design check F3):
  * each `StoreOpenStatus` kind and each `StoreNotice` maps to one rule, silent or a tone, a locale key and its actions,
  * so a new kind fails typecheck until it has one (`every_health_status_has_one_message`). Invariant: a store's notice on
- * the row is keyed by its StoreId and state, so it is raised once; a file name is the set-aside file's name only, never
+ * the row is keyed by its StoreId and whole state (code and file included), so it is raised once per state; a file name is the set-aside file's name only, never
  * a path (2.1-Q285); an action an edition lacks (Report a problem, Update) is left out, never drawn dead.
  */
 import type { FailureCode, StoreHealth, StoreId, StoreNotice, StoreOpenStatus } from '../generated/contracts'
@@ -117,13 +117,26 @@ export function noticeForStore(store: StoreId, entry: StoreHealth, actions: Heal
   const status = storeMessage(store, entry.status)
   if (status) {
     const code = entry.status.kind === 'unavailable' ? entry.status.code : null
-    out.push(spec(`health:${store}:${entry.status.kind}`, status, actions, origin(store, code, entry.status.kind)))
+    out.push(spec(statusNoticeKey(store, entry.status), status, actions, origin(store, code, entry.status.kind)))
   }
   if (entry.notice !== null) {
-    const told = spec(`health:${store}:notice:${entry.notice}`, MESSAGE_BY_NOTICE[entry.notice], actions, origin(store, null, entry.notice))
+    const told = spec(`${oneTimeNoticePrefix(store)}${entry.notice}`, MESSAGE_BY_NOTICE[entry.notice], actions, origin(store, null, entry.notice))
     out.push({ ...told, onDismiss: actions.dismissNotice })
   }
   return out
+}
+
+/**
+ * A status notice's key: its whole status, so a new code or set-aside file under the same kind replaces the notice and
+ * its Report names the new code (notices.ts keys a failure by its code plus its StoreId).
+ */
+function statusNoticeKey(store: StoreId, status: StoreOpenStatus): string {
+  return `health:${store}:status:${JSON.stringify(status)}`
+}
+
+/** The key prefix of a store's one-time notices, which stay on the row until dismissed. */
+export function oneTimeNoticePrefix(store: StoreId): string {
+  return `health:${store}:notice:`
 }
 
 /** The store's state as a problem report opened from its notice names it: its code when it has one. */

@@ -4,7 +4,7 @@ import {
   type GeoJsonFileAdapter,
   type GeoJsonWorkflow,
 } from "../app/geojson/workflow";
-import { showBrowserShellNotice } from "./browser-shell-notice";
+import { presentBrowserGeoJsonNotice } from "./browser-notices";
 import { downloadBrowserTextFile, pickBrowserTextFile } from "./browser-text-files";
 
 /** Web GeoJSON file I/O: the browser picker reads, a download writes. */
@@ -22,7 +22,7 @@ export const browserGeoJsonFiles: GeoJsonFileAdapter = {
 export function createBrowserGeoJsonWorkflow(): GeoJsonWorkflow {
   return createGeoJsonWorkflow({
     files: browserGeoJsonFiles,
-    notify: showBrowserShellNotice,
+    notify: presentBrowserGeoJsonNotice,
     designName: () => designName.value,
   });
 }

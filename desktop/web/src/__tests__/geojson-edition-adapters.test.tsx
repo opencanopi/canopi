@@ -17,11 +17,9 @@ vi.mock('@tauri-apps/plugin-dialog', () => ({ message: tauri.message }))
 import { desktopGeoJsonFiles } from '../ipc/geojson'
 import { presentDesktopGeoJsonNotice } from '../platform/geojson.desktop'
 import { browserGeoJsonFiles } from '../web/browser-geojson'
-import {
-  browserShellNotice,
-  dismissBrowserShellNotice,
-  showBrowserShellNotice,
-} from '../web/browser-shell-notice'
+import { presentBrowserGeoJsonNotice } from '../web/browser-notices'
+import { notices, resetNoticesForTests } from '../failures/notices'
+import { t } from '../i18n'
 import { BrowserAppShell } from '../web/BrowserAppShell'
 import { appCommandGraphChromeProjection } from '../commands/registry'
 import { setCurrentCanvasSession } from '../canvas/session'
@@ -57,7 +55,7 @@ beforeEach(() => {
 afterEach(() => {
   setCurrentCanvasSession(null)
   designSessionFixture.file = null
-  dismissBrowserShellNotice()
+  resetNoticesForTests()
   vi.restoreAllMocks()
 })
 
@@ -93,9 +91,17 @@ describe('Desktop GeoJSON file adapter', () => {
   })
 
   it('presents notices through the native message dialog', async () => {
-    await presentDesktopGeoJsonNotice({ tone: 'error', title: 'GeoJSON import', message: 'Bad file' })
+    await presentDesktopGeoJsonNotice({
+      tone: 'info',
+      title: 'geojson.importTitle',
+      message: 'geojson.importNothing',
+      detail: { message: 'geojson.importSkipped', params: { count: 1 } },
+    })
 
-    expect(tauri.message).toHaveBeenCalledWith('Bad file', { title: 'GeoJSON import', kind: 'error' })
+    expect(tauri.message).toHaveBeenCalledWith(
+      `${t('geojson.importNothing')} ${t('geojson.importSkipped', { count: 1 })}`,
+      { title: 'GeoJSON import', kind: 'info' },
+    )
   })
 })
 
@@ -170,7 +176,7 @@ describe('Web GeoJSON file adapter and notice', () => {
     expect(input!.accept).toBe('.geojson,.json,application/geo+json,application/json')
   })
 
-  it('shows and dismisses the shell notice', async () => {
+  it('shows an import outcome on the one notice row below the title bar, the latest in place of the last, and dismisses it', async () => {
     const container = document.createElement('div')
     document.body.appendChild(container)
     const projection = projectBrowserShellForTest({
@@ -197,24 +203,26 @@ describe('Web GeoJSON file adapter and notice', () => {
       await act(async () => {
         render(<BrowserAppShell commandProjection={projection} />, container)
       })
-      expect(container.querySelector('[data-web-shell-notice]')).toBeNull()
+      expect(container.querySelector('[data-notice-row]')).toBeNull()
 
-      await act(async () => {
-        showBrowserShellNotice({ tone: 'error', title: 'GeoJSON import', message: 'Feature 2 has invalid geometry.' })
-      })
-      const notice = container.querySelector<HTMLElement>('[data-web-shell-notice]')!
-      expect(notice.getAttribute('role')).toBe('alert')
-      expect(notice.textContent).toContain('Feature 2 has invalid geometry.')
+      const invalid = { tone: 'error', title: 'geojson.importTitle', message: 'geojson.errors.invalid_coordinates', params: { feature: 2, max: 1 } } as const
+      await act(async () => { presentBrowserGeoJsonNotice(invalid) })
+      // A second outcome replaces the first: one notice, not "1 of 2".
+      await act(async () => { presentBrowserGeoJsonNotice(invalid) })
+      expect(notices.value).toHaveLength(1)
+      const notice = container.querySelector<HTMLElement>('[data-notice-row]')!
+      expect(notice.querySelector('[role="alert"]')).not.toBeNull()
+      expect(notice.textContent).toContain(t('geojson.errors.invalid_coordinates', { feature: 2, max: 1 }))
       // Its own row below the title bar: the rail, the dock and the chips start below it.
       const shell = container.querySelector<HTMLElement>('[data-testid="browser-app-shell"]')!
       expect(notice.parentElement).toBe(shell)
       expect(shell.style.getPropertyValue('--chrome-rail-top')).toMatch(/^calc\(\d+px \+ var\(--space-2\)\)$/)
 
       await act(async () => {
-        notice.querySelector('button')!.click()
+        notice.querySelector<HTMLButtonElement>(`button[aria-label="${t('notice.dismiss')}"]`)!.click()
       })
-      expect(browserShellNotice.value).toBeNull()
-      expect(container.querySelector('[data-web-shell-notice]')).toBeNull()
+      expect(notices.value).toEqual([])
+      expect(container.querySelector('[data-notice-row]')).toBeNull()
       expect(container.querySelector<HTMLElement>('[data-testid="browser-app-shell"]')!.style.getPropertyValue('--chrome-rail-top')).toBe('')
     } finally {
       render(null, container)

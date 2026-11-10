@@ -4,11 +4,10 @@ import { installSettingsProjection } from "../app/settings/projection";
 import { initTheme } from "../utils/theme";
 import { registerDesignOpenFailurePresenter } from "../app/document-session/open-failure";
 import { browserDesignSessionController } from "../web/browser-design-session";
-import { showBrowserShellNotice } from "../web/browser-shell-notice";
+import { presentBrowserDesignOpenFailure, raiseEarlierDataNotice } from "../web/browser-notices";
 import { browserAppDataStore } from "../web/browser-app-data";
 import { browserDraftPersistence } from "../web/browser-draft-persistence";
 import { browserReleaseWatch } from "../web/browser-release-watch";
-import { t } from "../i18n";
 import { browserSettingsPlatformAdapter } from "./settings.browser";
 import { installFailureHooks } from "../failures/report";
 
@@ -26,17 +25,8 @@ export function bootstrapPlatform(): void {
     if (!disposed) console.error("Failed to bootstrap settings:", error);
   });
   // Browser data from before Canopi 2.0 stays in place, unread (ADR 0021);
-  // the told-once notice waits for the user's locale.
-  if (browserAppDataStore.takeEarlierDataNotice(new Date().toISOString())) {
-    void settingsInstallation.ready.catch(() => undefined).then(() => {
-      if (disposed) return;
-      showBrowserShellNotice({
-        tone: "info",
-        title: t("health.localDataNotOpenedTitle"),
-        message: t("health.localDataNotOpened"),
-      });
-    });
-  }
+  // the told-once notice is raised at once, ahead of any later notice, and reads in the user's locale once it loads.
+  if (browserAppDataStore.takeEarlierDataNotice(new Date().toISOString())) raiseEarlierDataNotice();
   // Web application lifetime: the newest Draft reopens before first render,
   // and continuous save outlives every view.
   // "Drafts at launch" is whether Drafts are stored, not whether one reopened: a release Reload from the start
@@ -54,7 +44,7 @@ export function bootstrapPlatform(): void {
   const uninstallContinuousSave = browserDesignSessionController.installContinuousSave();
   // A deploy while this tab is open: the manifest names another release and the shell offers Reload (2.1-Q83, M179).
   const stopReleaseWatch = browserReleaseWatch.start();
-  registerDesignOpenFailurePresenter(showBrowserShellNotice);
+  registerDesignOpenFailurePresenter(presentBrowserDesignOpenFailure);
   const disposePlaceSearchSession = installPlaceSearchSession();
   const disposeToolRailLearning = installToolRailLearning();
 

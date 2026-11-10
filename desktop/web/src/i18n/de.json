@@ -24,7 +24,6 @@
     "workspace": "Arbeitsbereich der Web Edition",
     "openCanopi": ".canopi-Datei öffnen…",
     "downloadCanopi": "Kopie herunterladen",
-    "dismissNotice": "Schließen",
     "downloadCopy": "Kopie herunterladen",
     "savedInBrowser": "In diesem Browser gespeichert",
     "openCanopiFile": ".canopi-Datei öffnen"
@@ -109,7 +108,6 @@
     "codesHint": "Kürzel kennzeichnen Arten, die schon in diesem Design sind."
   },
   "health": {
-    "dismiss": "Schließen",
     "plantDbMissing": "Die Datenbankdatei des Pflanzenkatalogs fehlt, daher sind Pflanzensuche und Pflanzendetails nicht verfügbar. Ihre Designs sind sicher. Installieren Sie Canopi neu, um sie wiederherzustellen.",
     "plantDbCorrupt": "Die Datenbankdatei des Pflanzenkatalogs ist beschädigt, daher sind Pflanzensuche und Pflanzendetails nicht verfügbar. Ihre Designs sind sicher. Installieren Sie Canopi neu, um sie wiederherzustellen.",
     "localDataNotOpenedTitle": "Frühere Daten nicht geöffnet",
@@ -1651,7 +1649,11 @@
     "settingsCloseAnyway": "Trotzdem schließen",
     "flushFailedReloadMessage": "Ihr Design konnte in diesem Browser nicht gespeichert werden. Laden Sie vor dem Neuladen eine Kopie herunter.",
     "tabConflictReloadMessage": "Dieses Design wurde in einem anderen Browser-Tab geändert, daher wurden Ihre letzten Änderungen nicht geschrieben. Laden Sie vor dem Neuladen eine Kopie herunter, oder brechen Sie ab und klären Sie zuerst die Änderung.",
-    "discardAndReload": "Ohne Speichern neu laden"
+    "discardAndReload": "Ohne Speichern neu laden",
+    "flushFailedAppReloadMessage": "Canopi konnte Ihre letzten Änderungen nicht schreiben. Versuchen Sie es erneut oder laden Sie neu, ohne sie zu speichern.",
+    "settingsFailedReloadMessage": "Ihr Design ist gespeichert. Canopi konnte Ihre letzten Änderungen an den Einstellungen nicht speichern. Versuchen Sie es erneut, oder laden Sie trotzdem neu und verwerfen Sie sie.",
+    "settingsFailedDesignUnsavedReloadMessage": "Canopi konnte Ihre letzten Änderungen an den Einstellungen nicht speichern. Versuchen Sie es erneut, oder laden Sie trotzdem neu und verwerfen Sie sie.",
+    "settingsReloadAnyway": "Trotzdem neu laden"
   },
   "drafts": {
     "title": "Skizzen",

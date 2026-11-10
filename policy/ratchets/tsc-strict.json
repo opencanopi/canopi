@@ -80,9 +80,6 @@
     "desktop/web/src/__tests__/web-layers-panel.test.tsx": {
       "count": 1
     },
-    "desktop/web/src/__tests__/web-release-reload.test.tsx": {
-      "count": 1
-    },
     "desktop/web/src/__tests__/zoom-controls.test.tsx": {
       "count": 1
     },
@@ -315,9 +312,6 @@
       "count": 1
     },
     "desktop/web/src/components/shared/ActionMenu.tsx": {
-      "count": 2
-    },
-    "desktop/web/src/components/shared/DegradedBanner.tsx": {
       "count": 2
     },
     "desktop/web/src/components/shared/Dropdown.tsx": {

@@ -299,6 +299,10 @@ function analyticValue(item: LibraryItemSummary, lon: number, lat: number): numb
 }
 
 export function convertFileSrc(path: string) { return path }
+/** The host's progress channel (ipc/transport.ts re-exports it); the gallery runs no update download, so none speaks. */
+export class Channel<T> {
+  onmessage: (message: T) => void = () => undefined
+}
 export async function invoke<T>(command: string, args: Record<string, unknown> = {}): Promise<T> {
   const canonicalName = String(args.canonicalName ?? '')
   const plant = species.find(plant => plant.canonical_name === canonicalName) ?? species[0]!

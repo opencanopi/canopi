@@ -126,11 +126,25 @@ describe('IPC transport', () => {
     expect(failureNoticesForTests().notices).toHaveLength(1)
   })
 
-  it('a copied failure is a new report with its own entry (the ring matches by identity)', async () => {
+  it('a copied failure is a new report, counted on the entry it repeats (2.1-Q294)', async () => {
     invoke.mockRejectedValueOnce(UNAVAILABLE)
     const settled = await rejected('lidar_list_library')
     reportFailure(new IpcFailure(settled.failure, settled.message), { shown: 'none' })
-    expect(ringEntries()).toHaveLength(2)
+    expect(ringEntries()).toEqual([expect.objectContaining({ source: 'library.list', count: 2 })])
+  })
+
+  it('canopi-f47t.52.36: a busy display re-asked for 30 minutes: ring keeps older entries', async () => {
+    invoke.mockRejectedValueOnce('stale lock under /home/ana/.local/share/canopi')
+    await rejected('get_settings')
+    // The display store re-asks a busy descriptor every 30 s at most: 60 refusals in 30 minutes.
+    for (let ask = 0; ask < 60; ask += 1) {
+      invoke.mockRejectedValueOnce('Native library operations are busy; try again')
+      await rejected('lidar_display_descriptor')
+    }
+    const entries = ringEntries()
+    expect(entries.map((entry) => entry.source)).toEqual(['ipc.get_settings', 'ipc.lidar_display_descriptor'])
+    expect(entries[1]).toMatchObject({ code: { kind: 'internal' }, count: 60 })
+    expect(entries[0]).toMatchObject({ count: 1 })
   })
 
   it('a never-awaited rejection: the unhandledrejection hook adds no second entry', async () => {

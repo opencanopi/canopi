@@ -15,7 +15,7 @@ use std::path::PathBuf;
 use tauri::{AppHandle, Manager, State};
 
 /// The settings read the report's settings summary comes from.
-const SETTINGS_READ_OP: &str = "problem_report.read_settings";
+const SETTINGS_READ_OP: &str = canopi_types::failure::ops::PROBLEM_REPORT_READ_SETTINGS;
 
 #[tauri::command]
 pub async fn create_problem_report(
@@ -49,7 +49,7 @@ pub async fn create_problem_report(
         target: format!("{}/{}", std::env::consts::OS, std::env::consts::ARCH),
         webview_version: tauri::webview_version().ok(),
         settings,
-        health: crate::services::health::get_health(&health),
+        health: crate::services::health::report_health(&health),
         settlements: crate::logging::recent_failures(),
         library: Err(String::new()),
         library_disk_bytes: Err(String::new()),

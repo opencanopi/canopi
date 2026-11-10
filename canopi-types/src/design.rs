@@ -501,19 +501,6 @@ pub struct GeoPoint {
     pub lat: f64,
 }
 
-impl GeoPoint {
-    #[expect(
-        missing_docs,
-        reason = "undocumented before 2.1-Q217; document when this file is next touched"
-    )]
-    pub fn is_valid(&self) -> bool {
-        self.lon.is_finite()
-            && (-180.0..=180.0).contains(&self.lon)
-            && self.lat.is_finite()
-            && (-WEB_MERCATOR_MAX_LATITUDE_DEG..=WEB_MERCATOR_MAX_LATITUDE_DEG).contains(&self.lat)
-    }
-}
-
 #[cfg_attr(feature = "design-schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Serialize, Type)]
 #[expect(

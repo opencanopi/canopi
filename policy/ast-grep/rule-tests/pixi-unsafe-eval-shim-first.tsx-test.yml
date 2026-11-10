@@ -1,0 +1,9 @@
+id: pixi-unsafe-eval-shim-first.tsx
+valid:
+  - |
+    import 'pixi.js/unsafe-eval'
+    import { Container } from 'pixi.js'
+invalid:
+  - |
+    import { Container } from 'pixi.js'
+    import 'pixi.js/unsafe-eval'

@@ -24,7 +24,6 @@
     "workspace": "网页版工作区",
     "openCanopi": "打开 .canopi 文件…",
     "downloadCanopi": "下载副本",
-    "dismissNotice": "关闭",
     "downloadCopy": "下载副本",
     "savedInBrowser": "已保存在此浏览器中",
     "openCanopiFile": "打开 .canopi 文件"
@@ -109,7 +108,6 @@
     "codesHint": "代码标记此设计中已有的物种。"
   },
   "health": {
-    "dismiss": "关闭",
     "plantDbMissing": "植物目录的数据库文件缺失，因此无法搜索和查看植物详情。您的设计不受影响。请重新安装 Canopi 以恢复该文件。",
     "plantDbCorrupt": "植物目录的数据库文件已损坏，因此无法搜索和查看植物详情。您的设计不受影响。请重新安装 Canopi 以恢复该文件。",
     "localDataNotOpenedTitle": "未打开旧数据",
@@ -1651,7 +1649,11 @@
     "settingsCloseAnyway": "仍然关闭",
     "flushFailedReloadMessage": "无法在此浏览器中保存您的设计。请在重新加载前下载副本。",
     "tabConflictReloadMessage": "此设计已在另一个浏览器标签页中更改，因此您最近的更改未写入。请在重新加载前下载副本，或取消并先处理该更改。",
-    "discardAndReload": "不保存并重新加载"
+    "discardAndReload": "不保存并重新加载",
+    "flushFailedAppReloadMessage": "Canopi 无法写入您最近的更改。请重试，或不保存直接重新加载。",
+    "settingsFailedReloadMessage": "您的设计已保存。Canopi 无法保存您最近的设置更改。请重试，或仍然重新加载并放弃这些更改。",
+    "settingsFailedDesignUnsavedReloadMessage": "Canopi 无法保存您最近的设置更改。请重试，或仍然重新加载并放弃这些更改。",
+    "settingsReloadAnyway": "仍然重新加载"
   },
   "drafts": {
     "title": "草稿",

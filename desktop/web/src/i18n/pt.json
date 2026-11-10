@@ -24,7 +24,6 @@
     "workspace": "Área de trabalho web",
     "openCanopi": "Abrir um arquivo .canopi…",
     "downloadCanopi": "Baixar uma cópia",
-    "dismissNotice": "Fechar",
     "downloadCopy": "Baixar uma cópia",
     "savedInBrowser": "Salvo neste navegador",
     "openCanopiFile": "Abrir um arquivo .canopi"
@@ -109,7 +108,6 @@
     "codesHint": "Os códigos marcam as espécies que já estão neste design."
   },
   "health": {
-    "dismiss": "Fechar",
     "plantDbMissing": "O arquivo de banco de dados do catálogo de plantas está ausente, por isso a pesquisa e os detalhes das plantas estão indisponíveis. Seus designs estão seguros. Reinstale o Canopi para restaurá-lo.",
     "plantDbCorrupt": "O arquivo de banco de dados do catálogo de plantas está danificado, por isso a pesquisa e os detalhes das plantas estão indisponíveis. Seus designs estão seguros. Reinstale o Canopi para restaurá-lo.",
     "localDataNotOpenedTitle": "Dados anteriores não abertos",
@@ -1651,7 +1649,11 @@
     "settingsCloseAnyway": "Fechar mesmo assim",
     "flushFailedReloadMessage": "Não foi possível salvar seu design neste navegador. Baixe uma cópia antes de recarregar.",
     "tabConflictReloadMessage": "Este design foi alterado em outra aba do navegador, então suas últimas alterações não foram gravadas. Baixe uma cópia antes de recarregar ou cancele e resolva a alteração primeiro.",
-    "discardAndReload": "Recarregar sem salvar"
+    "discardAndReload": "Recarregar sem salvar",
+    "flushFailedAppReloadMessage": "O Canopi não conseguiu gravar suas últimas alterações. Tente novamente ou recarregue sem salvá-las.",
+    "settingsFailedReloadMessage": "Seu design está salvo. O Canopi não conseguiu salvar suas últimas alterações nas configurações. Tente novamente ou recarregue mesmo assim e perca-as.",
+    "settingsFailedDesignUnsavedReloadMessage": "O Canopi não conseguiu salvar suas últimas alterações nas configurações. Tente novamente ou recarregue mesmo assim e perca-as.",
+    "settingsReloadAnyway": "Recarregar mesmo assim"
   },
   "drafts": {
     "title": "Rascunhos",

@@ -24,7 +24,6 @@
     "workspace": "Web Edition workspace",
     "openCanopi": "Open a .canopi file…",
     "downloadCanopi": "Download a copy",
-    "dismissNotice": "Dismiss",
     "downloadCopy": "Download a copy",
     "savedInBrowser": "Saved in this browser",
     "openCanopiFile": "Open a .canopi file"
@@ -109,7 +108,6 @@
     "codesHint": "Codes appear on species already in this Design."
   },
   "health": {
-    "dismiss": "Dismiss",
     "plantDbMissing": "The plant catalog's database file is missing, so plant search and details are unavailable. Your Designs are safe. Reinstall Canopi to restore it.",
     "plantDbCorrupt": "The plant catalog's database file is damaged, so plant search and details are unavailable. Your Designs are safe. Reinstall Canopi to restore it.",
     "localDataNotOpenedTitle": "Earlier data not opened",
@@ -1651,7 +1649,11 @@
     "settingsCloseAnyway": "Close anyway",
     "flushFailedReloadMessage": "Your Design couldn't be saved in this browser. Download a copy before you reload.",
     "tabConflictReloadMessage": "This Design was changed in another browser tab, so your latest changes were not written. Download a copy before you reload, or cancel and resolve the change first.",
-    "discardAndReload": "Reload without saving"
+    "discardAndReload": "Reload without saving",
+    "flushFailedAppReloadMessage": "Canopi couldn't write your latest changes. Try again, or reload without saving them.",
+    "settingsFailedReloadMessage": "Your Design is saved. Canopi couldn't save your latest settings changes. Try again, or reload anyway and lose them.",
+    "settingsFailedDesignUnsavedReloadMessage": "Canopi couldn't save your latest settings changes. Try again, or reload anyway and lose them.",
+    "settingsReloadAnyway": "Reload anyway"
   },
   "drafts": {
     "title": "Drafts",

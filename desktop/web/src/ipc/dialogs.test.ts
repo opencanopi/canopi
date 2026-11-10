@@ -111,7 +111,7 @@ describe('a typed dialog rejection reaching a 2.0 caller (canopi-f47t.52.35)', (
 
     const notice = designOpenFailureNoticeOf(internal('dialog.pick_open'))
 
-    expect(notice).toEqual({ tone: 'error', title: t('start.cantOpenTitle'), message: t('start.cantRead') })
-    expect(`${notice.title} ${notice.message}`).not.toContain('[object Object]')
+    expect(notice).toEqual({ tone: 'error', title: 'start.cantOpenTitle', message: 'start.cantRead' })
+    expect(`${t(notice.title)} ${t(notice.message)}`).not.toContain('[object Object]')
   })
 })

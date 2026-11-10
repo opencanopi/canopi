@@ -2,9 +2,18 @@
   position: fixed;
   left: 50%;
   bottom: var(--space-6);
-  z-index: var(--z-toast);
+  z-index: var(--z-notice);
   width: min(560px, calc(100vw - 2 * var(--space-6)));
   transform: translateX(-50%);
+}
+
+/* The error and warning tints are translucent; lay them on the surface so the map never shows through. */
+.row [data-notice-tone="error"] {
+  background: linear-gradient(var(--color-danger-bg), var(--color-danger-bg)), var(--color-surface);
+}
+
+.row [data-notice-tone="warning"] {
+  background: linear-gradient(var(--color-warning-bg), var(--color-warning-bg)), var(--color-surface);
 }
 
 /* Web: below the title bar like the shell's other notices, since the phone sheet holds the window's foot. */
@@ -43,9 +52,28 @@
   cursor: pointer;
 }
 
-.action:hover,
-.dismiss:hover {
+.action:hover:not(:disabled),
+.dismiss:hover:not(:disabled) {
   background: var(--color-surface);
+}
+
+.action:disabled,
+.dismiss:disabled {
+  cursor: default;
+  opacity: 0.7;
+}
+
+/* Phones (the Web shell's phone layout): 44 px targets, clear of the notch's side insets. */
+[data-phone-layout] .belowTitleBar {
+  right: calc(var(--chrome-inset) + env(safe-area-inset-right));
+  left: calc(var(--chrome-inset) + env(safe-area-inset-left));
+}
+
+[data-phone-layout] .belowTitleBar .action,
+[data-phone-layout] .belowTitleBar .dismiss {
+  min-height: var(--control-size-touch);
+  min-width: var(--control-size-touch);
+  justify-content: center;
 }
 
 .action:focus-visible,

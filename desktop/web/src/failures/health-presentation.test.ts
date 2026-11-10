@@ -147,6 +147,26 @@ describe('store health presentation', () => {
     dispose()
   })
 
+  it('canopi-f47t.52.36: a store whose failure code changes under the same kind replaces its notice, and Report names the new code', () => {
+    // Same kind, new code: notice replaced.
+    const report = vi.fn()
+    const dispose = installHealthNotices({ report, update: null, retry: { settings: () => {} } })
+    writeStoreHealth('settings', { status: { kind: 'unavailable', code: { kind: 'internal' } }, notice: null })
+    writeStoreHealth('settings', { status: { kind: 'unavailable', code: { kind: 'io', io: 'permission_denied' } }, notice: null })
+    expect(notices.value).toHaveLength(1)
+    notices.value[0]!.secondaryAction!.run()
+    expect(report).toHaveBeenCalledWith(expect.objectContaining({ source: 'health.settings', code: { kind: 'io', io: 'permission_denied' } }))
+
+    // A second set-aside under a new name is told, even after the first was dismissed.
+    writeStoreHealth('web_drafts', { status: { kind: 'set_aside_damaged', file: 'canopi:drafts:damaged-1' }, notice: null })
+    const first = notices.value.find((notice) => notice.key.startsWith('health:web_drafts'))!
+    dismissNotice(first.id)
+    writeStoreHealth('web_drafts', { status: { kind: 'set_aside_damaged', file: 'canopi:drafts:damaged-2' }, notice: null })
+    const told = notices.value.filter((notice) => notice.key.startsWith('health:web_drafts'))
+    expect(told.map((notice) => notice.params?.file)).toEqual(['canopi:drafts:damaged-2'])
+    dispose()
+  })
+
   it('[canopi-f47t.52.36] a one-time store notice is cleared in the model when dismissed; the status stays', () => {
     const dispose = installHealthNotices(NO_ACTIONS)
     applyHealthSnapshot({ user_db: { status: { kind: 'ready' }, notice: 'moved_aside_pre_2_0' } })

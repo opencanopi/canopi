@@ -292,11 +292,14 @@ flowchart LR
   SINK[failures/: reportFailure, ring, notice signal, redact.ts, health model (2.1)]:::target
   NOTE[notice row and toast slot]
   REP[services/problem_report/]
+  LOG[logging.rs: redacting layer, panic hook, failure logger]
   RS[REPORT_SECTIONS table, both editions (2.1)]:::target
   RUN[each store runner or browser adapter: StoreOpenStatus (2.1)]:::target
   SH["SubsystemHealth: Map of StoreId to {status, notice?}; plant_catalog, user_db, settings, library_catalogue, web_drafts, web_records, web_user_data, web_library (2.1)"]:::target
   CAT --> WIRE
   WIRE --> IPC
+  WIRE --> LOG
+  LOG --> REP
   IPC --> SINK
   SINK --> NOTE
   SINK --> RS
@@ -307,7 +310,7 @@ flowchart LR
 ```
 
 - Owner: the catalogue (one row per code, the L14 change); `reportFailure` in `failures/ (2.1)` is the only sink, imported directly with no port; one presentation module maps each health status to its tone and message.
-- Invariant: user content travels as `Sensitive<T>` fields, never inside text; `detail` is never shown; `user_may_retry` only allows a Retry button.
+- Invariant: user content travels as `Sensitive<T>` fields, never inside text; `detail` is never shown; `user_may_retry` only allows a Retry button; native warn and error come only from `logging::log_failure` (R15).
 - Tests: `every_code_has_a_message_or_is_silent`, `every_code_reaches_the_report`, `every_health_status_has_one_message`, the shared redaction corpus.
 
 ### Failures and health at HEAD (replaced by the catalogue and `failures/` (2.1))
@@ -321,9 +324,9 @@ flowchart LR
   LF[app/lidar/lidar-failures.ts: refusal copy, generic text]
   DIAG[failures/ring.ts: ring of 50, read by app/problem-report/diagnostics.ts]
   RED[failures/redact.ts]
-  HS[commands/health.rs: SubsystemHealth plant_db, lidar_library, local_data]
-  HST[app/health/state.ts: three status signals]
-  BAN[components/shared/DegradedBanner.tsx]
+  HS[commands/health.rs: SubsystemHealth by StoreId]
+  HST[failures/health.ts: one store health model]
+  BAN[failures/health-notices.ts: store notices on the notice row]
   STR --> PDB
   STR --> LF
   LF --> DIAG

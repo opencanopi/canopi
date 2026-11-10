@@ -256,10 +256,10 @@ pub fn acquire<'a, T>(mutex: &'a Mutex<T>, name: &str) -> MutexGuard<'a, T> {
 }
 
 /// The op of recovering a lock a panicking command left poisoned.
-const LOCK_OP: &str = "db.lock";
+const LOCK_OP: &str = canopi_types::failure::ops::DB_LOCK;
 
 /// The op of opening and admitting the bundled plant catalog at startup.
-pub(crate) const PLANT_CATALOG_OPEN_OP: &str = "plant_catalog.open";
+pub(crate) const PLANT_CATALOG_OPEN_OP: &str = canopi_types::failure::ops::PLANT_CATALOG_OPEN;
 
 /// The plant catalog is unavailable for `cause`, through the failure logger; `english` is
 /// redacted, so a path formatted into it reads `<path>` (canopi-ouxd).

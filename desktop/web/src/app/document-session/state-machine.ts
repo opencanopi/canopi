@@ -1,3 +1,9 @@
+// app/document-session/state-machine.ts
+// Owner of the document transition outcome (no-cancelled-literal, ADR 0025; §18 R14, 2.1-M268). Invariant:
+// 'cancelled' is a DocumentTransitionResult status, built only when a close or revert does not happen (nothing open,
+// the user kept the Design, a dismissed pick); ast-grep skips this file, so a hand-written cancel guard added here goes
+// uncounted and belongs to the catalogue's CancelToken instead.
+
 import {
   CanvasAuthorityBusyError,
   type CanvasDocumentSurface,

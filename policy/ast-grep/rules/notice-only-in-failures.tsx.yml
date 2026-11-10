@@ -6,7 +6,7 @@
 id: notice-only-in-failures.tsx
 language: tsx
 severity: error
-message: "notice-only-in-failures (§18 F3): a notice or toast (the plugin-dialog message box, a <Toast> render) is raised only through the failures/ notice signal, its one notice row and its one window-level toast slot (failures/notices.ts and components/shared/NoticeRow.tsx from 1b-c3, components/shared/ToastSlot.tsx to come); refuse_startup stays a standing exception (pre-webview, design check F8). ADR 0025; owner desktop/web/src/failures/notices.ts (also desktop/web/src/components/shared/NoticeRow.tsx); target desktop/web/src/failures (1b); example none yet"
+message: "notice-only-in-failures (§18 F3): a notice or toast (the plugin-dialog message box, a <Toast> render) is raised only through the failures/ notice signal, its one notice row and its one window-level toast slot (failures/notices.ts and failures/toasts.ts, drawn by components/shared/NoticeRow.tsx and components/shared/ToastSlot.tsx); refuse_startup stays a standing exception (pre-webview, design check F8). ADR 0025; owner desktop/web/src/failures/notices.ts (also desktop/web/src/components/shared/NoticeRow.tsx, desktop/web/src/components/shared/ToastSlot.tsx); target desktop/web/src/failures (1b); example none yet"
 files:
   - "{desktop/web,policy/fixtures/rules/*}/src/**/*.tsx"
 ignores:
@@ -17,6 +17,7 @@ ignores:
   - "{desktop/web,policy/fixtures/rules/*}/src/generated/**"
   - "{desktop/web,policy/fixtures/rules/*}/src/failures/notices.ts"
   - "{desktop/web,policy/fixtures/rules/*}/src/components/shared/NoticeRow.tsx"
+  - "{desktop/web,policy/fixtures/rules/*}/src/components/shared/ToastSlot.tsx"
 rule:
   any:
     # A native message box imported from the dialog plugin.

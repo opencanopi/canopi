@@ -1,8 +1,8 @@
 {
   "$schema": "./ratchet.schema.json",
   "version": 1,
-  "family": "map-console-only-through-redactor",
-  "ledger": "2.1-M186",
+  "family": "google-tile-endpoint-only-in-tile-auth",
+  "ledger": "2.1-M236",
   "tool": "ast-grep",
   "scope": [
     "desktop/web/src/**"
@@ -10,7 +10,7 @@
   "lane": "commit",
   "keys": "path",
   "select": [
-    "map-console-only-through-redactor"
+    "google-tile-endpoint-only-in-tile-auth"
   ],
   "entries": {}
 }

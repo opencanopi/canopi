@@ -31,12 +31,8 @@ import {
 } from '../web/browser-design-session'
 import type { CanopiFile } from '../types/design'
 import { registerDesignOpenFailurePresenter } from '../app/document-session/open-failure'
-import {
-  browserShellNotice,
-  dismissBrowserShellNotice,
-  showBrowserShellNotice,
-} from '../web/browser-shell-notice'
-import { t } from '../i18n'
+import { presentBrowserDesignOpenFailure } from '../web/browser-notices'
+import { notices, resetNoticesForTests } from '../failures/notices'
 import { createBrowserDesignTemplateImportWorkflow } from '../app/design-template-import/workflow.browser'
 import { browserDraftPersistence } from '../web/browser-draft-persistence'
 import {
@@ -239,8 +235,8 @@ describe('browser Design Session lifecycle', () => {
     }
     expect(presented).toHaveBeenCalledWith({
       tone: 'error',
-      title: t('start.cantOpenTitle'),
-      message: t('start.cantReadDamaged'),
+      title: 'start.cantOpenTitle',
+      message: 'start.cantReadDamaged',
     })
     expect(store.readDesignName()).toBe('Working Garden')
     expect(store.readCurrentDesign()).toEqual(original)
@@ -338,8 +334,8 @@ describe('browser Design Session lifecycle', () => {
       messageKey: 'start.cantRead',
     },
   ] as const)('tells the user why $label cannot be opened', async ({ fileName, text, messageKey }) => {
-    dismissBrowserShellNotice()
-    registerDesignOpenFailurePresenter(showBrowserShellNotice)
+    resetNoticesForTests()
+    registerDesignOpenFailurePresenter(presentBrowserDesignOpenFailure)
     try {
       const store = createDesignSessionStore()
       const controller = createBrowserDesignSessionController({
@@ -351,15 +347,15 @@ describe('browser Design Session lifecycle', () => {
       })
 
       await expect(controller.openCanopi()).resolves.toBe(false)
-      expect(browserShellNotice.value).toEqual({
+      expect(notices.value).toEqual([expect.objectContaining({
         tone: 'error',
-        title: t('start.cantOpenTitle'),
-        message: t(messageKey),
-      })
+        title: 'start.cantOpenTitle',
+        message: messageKey,
+      })])
       expect(store.hasCurrentDesign()).toBe(false)
     } finally {
       registerDesignOpenFailurePresenter(null)
-      dismissBrowserShellNotice()
+      resetNoticesForTests()
     }
   })
 

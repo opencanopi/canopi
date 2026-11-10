@@ -1,3 +1,9 @@
+// app/saved-object-stamps/workbench.ts
+// Owner of the stamp import outcome (no-cancelled-literal, ADR 0025; §18 R14, 2.1-M268). Invariant: 'cancelled' is a
+// SavedObjectStampImportOutcome status, built only from a dismissed pick or a Workbench disposed meanwhile; ast-grep
+// skips this file, so a hand-written cancel guard added here goes uncounted and belongs to the catalogue's
+// CancelToken instead.
+
 import { batch, computed, signal, type ReadonlySignal } from '@preact/signals'
 import type {
   CanvasDesignObjectSelectionModel,

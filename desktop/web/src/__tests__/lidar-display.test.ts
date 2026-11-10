@@ -453,12 +453,13 @@ describe('LiDAR display descriptor refusals', () => {
     const calls = invoke.mock.calls.length
     expect(calls).toBeGreaterThan(2)
     expect(calls).toBeLessThan(10)
-    // The page reads only Display failed; the reason is in diagnostics, one transport entry per failed call
-    // (2.1-M409), and the call that turned the row to Display failed marks its own entry surfaced, never a second one.
-    expect(recentFrontendDiagnostics()).toEqual(Array.from({ length: calls }, () =>
-      expect.objectContaining({ source: 'ipc.lidar_display_descriptor', message: 'catalogue: database disk image is malformed' })))
+    // The page reads only Display failed; the reason is in diagnostics, each failed call recorded by the transport
+    // (2.1-M409) and counted on one entry (canopi-vsey, 2.1-Q294), which the call that turned the row to Display
+    // failed marked surfaced, never a second entry.
+    expect(recentFrontendDiagnostics()).toEqual([expect.objectContaining({
+      source: 'ipc.lidar_display_descriptor', message: 'catalogue: database disk image is malformed', count: calls })])
     const { ringEntries } = await import('../failures/ring')
-    expect(ringEntries().map((entry) => entry.surfaced)).toEqual(Array.from({ length: calls }, (_, index) => index === 2))
+    expect(ringEntries().map((entry) => entry.surfaced)).toEqual([true])
     expect((await refusalRecord()).noticeCount).toBe(0)
     // Effects asking again while it is failing never add a call outside the back-off.
     display.requestLidarDisplay('Source', 'lyr-1', 'gen-2', 'relief')
@@ -467,7 +468,7 @@ describe('LiDAR display descriptor refusals', () => {
     invoke.mockResolvedValue(descriptor({ relief: true }))
     await vi.advanceTimersByTimeAsync(30_000)
     expect(display.readLidarDisplay('Source', 'lyr-1', 'gen-2', 'relief')?.state).toBe('Ready')
-    expect(recentFrontendDiagnostics()).toHaveLength(calls)
+    expect(recentFrontendDiagnostics()).toEqual([expect.objectContaining({ count: calls })])
   })
 
   // A Data library mounts a preview for every ready row at once; the user-data executor admits 8 calls and runs 1.
@@ -503,8 +504,8 @@ describe('LiDAR display descriptor refusals', () => {
     await vi.advanceTimersByTimeAsync(120_000)
     expect(display.readLidarDisplay('Source', 'lyr-1', 'gen-2', 'relief')?.state).not.toBe('Failed')
     const calls = invoke.mock.calls.length
-    expect(recentFrontendDiagnostics()).toEqual(Array.from({ length: calls }, () =>
-      expect.objectContaining({ source: 'ipc.lidar_display_descriptor', message: 'Native user-data operations are busy; try again' })))
+    expect(recentFrontendDiagnostics()).toEqual([expect.objectContaining({
+      source: 'ipc.lidar_display_descriptor', message: 'Native user-data operations are busy; try again', count: calls })])
     expect((await refusalRecord()).noticeCount).toBe(0)
     expect(calls).toBeGreaterThan(2)
     expect(calls).toBeLessThan(15)

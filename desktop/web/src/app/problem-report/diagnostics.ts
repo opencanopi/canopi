@@ -3,7 +3,10 @@
 // every entry carries its catalogue code, so each code the ring holds reaches the report (every_code_reaches_the_report).
 import { ringEntries } from '../../failures/ring'
 
-/** The ring as the report's app-failures section lists it, oldest first: a native entry by its redacted detail. */
+/**
+ * The ring as the report's app-failures section lists it, oldest first: a native entry by its redacted detail, with
+ * how often it repeated and when it last did (2.1-Q294).
+ */
 export function recentFrontendDiagnostics() {
   return ringEntries().map((entry) => ({
     level: entry.level,
@@ -11,5 +14,6 @@ export function recentFrontendDiagnostics() {
     code: entry.code,
     message: entry.origin === 'native' ? entry.detail ?? entry.code.kind : entry.text,
     timestamp_ms: entry.timestamp_ms,
+    count: entry.count,
   }))
 }

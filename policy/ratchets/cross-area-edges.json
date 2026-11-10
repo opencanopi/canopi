@@ -318,9 +318,6 @@
     "app/document-session -> generated": {
       "count": 1
     },
-    "app/document-session -> i18n": {
-      "count": 1
-    },
     "app/document-session -> ipc": {
       "count": 1
     },
@@ -938,9 +935,6 @@
       "count": 1
     },
     "components -> app/geocoding": {
-      "count": 1
-    },
-    "components -> app/health": {
       "count": 1
     },
     "components -> app/keyboard": {

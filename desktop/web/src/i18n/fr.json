@@ -24,7 +24,6 @@
     "workspace": "Espace de travail web",
     "openCanopi": "Ouvrir un fichier .canopi…",
     "downloadCanopi": "Télécharger une copie",
-    "dismissNotice": "Fermer",
     "downloadCopy": "Télécharger une copie",
     "savedInBrowser": "Enregistré dans ce navigateur",
     "openCanopiFile": "Ouvrir un fichier .canopi"
@@ -109,7 +108,6 @@
     "codesHint": "Les codes marquent les espèces déjà présentes dans ce Design."
   },
   "health": {
-    "dismiss": "Fermer",
     "plantDbMissing": "Le fichier de base de données du catalogue des plantes est introuvable : la recherche et les fiches des plantes sont indisponibles. Vos Designs ne sont pas touchés. Réinstallez Canopi pour le rétablir.",
     "plantDbCorrupt": "Le fichier de base de données du catalogue des plantes est endommagé : la recherche et les fiches des plantes sont indisponibles. Vos Designs ne sont pas touchés. Réinstallez Canopi pour le rétablir.",
     "localDataNotOpenedTitle": "Données antérieures non ouvertes",
@@ -1651,7 +1649,11 @@
     "settingsCloseAnyway": "Fermer quand même",
     "flushFailedReloadMessage": "Votre Design n’a pas pu être enregistré dans ce navigateur. Téléchargez une copie avant de recharger.",
     "tabConflictReloadMessage": "Ce Design a été modifié dans un autre onglet du navigateur, vos dernières modifications n’ont donc pas été écrites. Téléchargez une copie avant de recharger, ou annulez et résolvez d’abord la modification.",
-    "discardAndReload": "Recharger sans enregistrer"
+    "discardAndReload": "Recharger sans enregistrer",
+    "flushFailedAppReloadMessage": "Canopi n’a pas pu écrire vos dernières modifications. Réessayez, ou rechargez sans les enregistrer.",
+    "settingsFailedReloadMessage": "Votre Design est enregistré. Canopi n’a pas pu enregistrer vos dernières modifications de réglages. Réessayez, ou rechargez quand même et perdez-les.",
+    "settingsFailedDesignUnsavedReloadMessage": "Canopi n’a pas pu enregistrer vos dernières modifications de réglages. Réessayez, ou rechargez quand même et perdez-les.",
+    "settingsReloadAnyway": "Recharger quand même"
   },
   "drafts": {
     "title": "Brouillons",

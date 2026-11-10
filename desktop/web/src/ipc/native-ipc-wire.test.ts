@@ -1,8 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { plantDbStatus } from '../app/health/state'
-import { searchSpecies } from '../ipc/species'
-import { getAppFolders, showAppFolder } from '../ipc/settings'
-import { removeRecentDesign, showRecentDesignInFolder } from '../ipc/design'
+import { searchSpecies } from './species'
+import { getAppFolders, showAppFolder } from './settings'
+import { removeRecentDesign, showRecentDesignInFolder } from './design'
 import type { SpeciesSearchRequest } from '../types/species'
 
 const invoke = vi.hoisted(() => vi.fn(async (
@@ -18,7 +17,6 @@ describe('native IPC wire format', () => {
   })
 
   it('sends species search as one request contract', async () => {
-    plantDbStatus.value = 'available'
     const request: SpeciesSearchRequest = {
       text: 'malus',
       filters: {} as SpeciesSearchRequest['filters'],

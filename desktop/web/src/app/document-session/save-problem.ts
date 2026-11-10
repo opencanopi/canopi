@@ -2,8 +2,9 @@ import { computed, signal, type ReadonlySignal } from '@preact/signals'
 
 /**
  * The one in-app dialog continuous save raises. `flush-failed` asks what to
- * do when a replacement, close or Web release reload could not write the
- * current Design first (a reload also offers Download a copy, `save-copy`,
+ * do when a replacement, close, Web release reload or Desktop reload
+ * (`app-reload`, the root boundary's Reload) could not write the current
+ * Design first (a Web reload also offers Download a copy, `save-copy`,
  * which downloads and asks again; 2.1-Q83, Q188);
  * `conflict` asks how to resolve a file that changed outside Canopi;
  * `revert` confirms replacing the Design with the version it was opened at,
@@ -14,7 +15,7 @@ import { computed, signal, type ReadonlySignal } from '@preact/signals'
 export type SaveProblemRequest =
   | {
     readonly kind: 'flush-failed'
-    readonly purpose: 'replace' | 'close' | 'reload'
+    readonly purpose: 'replace' | 'close' | 'reload' | 'app-reload'
     /** The failure is a pending conflict, so Retry cannot succeed. */
     readonly conflict: boolean
     /** Where the conflicting change came from; omitted: outside Canopi. */
@@ -26,6 +27,8 @@ export type SaveProblemRequest =
     readonly kind: 'settings-failed'
     /** Close wrote the Design; false when the user closed it without saving. */
     readonly designSaved: boolean
+    /** Before the Desktop reload, not a close: the choices say reload. */
+    readonly purpose?: 'reload'
   }
 
 /** A browser Draft written by another tab of the Web Edition. */

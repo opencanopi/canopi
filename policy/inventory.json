@@ -343,6 +343,17 @@
       }
     },
     {
+      "id": "adr-0028-support-copies-no-runtime-guard",
+      "doc": "docs/adr/0028-architecture-fitness-and-verification.md",
+      "quote": "a policy test that `__tests__/support/` copies no runtime guard",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/__tests__/support-copies-no-runtime-guard.test.ts",
+          "reads_source": true
+        }
+      }
+    },
+    {
       "id": "adr-0029-accessibility",
       "doc": "docs/adr/0029-system-qualities.md",
       "quote": "Accessibility.",
@@ -1190,8 +1201,7 @@
       "quote": "Text and rings over the map follow the map backdrop and the strokes of",
       "state": {
         "exists": {
-          "check": "desktop/web/src/__tests__/canvas-map-backdrop-ink.test.ts",
-          "reads_source": true
+          "check": "desktop/web/e2e/canvas/backdrop-ink.spec.ts"
         }
       }
     },
@@ -1659,8 +1669,7 @@
       "quote": "`map-error-redaction.test.ts`",
       "state": {
         "exists": {
-          "check": "desktop/web/src/__tests__/map-error-redaction.test.ts",
-          "reads_source": true
+          "check": "desktop/web/src/__tests__/map-error-redaction.test.ts"
         }
       }
     },
@@ -2315,6 +2324,26 @@
       }
     },
     {
+      "id": "pixi-unsafe-eval-shim-first",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M236 |",
+      "state": {
+        "exists": {
+          "check": "pixi-unsafe-eval-shim-first"
+        }
+      }
+    },
+    {
+      "id": "google-tile-endpoint-only-in-tile-auth",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M236 |",
+      "state": {
+        "exists": {
+          "check": "google-tile-endpoint-only-in-tile-auth"
+        }
+      }
+    },
+    {
       "id": "maplibre-listeners-only-on-abort-signals",
       "doc": "docs/decisions/2-1.md",
       "quote": "| 2.1-M186 |",
@@ -2611,16 +2640,6 @@
       "state": {
         "exists": {
           "check": "raster-quantity-literal-only-in-item-types"
-        }
-      }
-    },
-    {
-      "id": "map-console-only-through-redactor",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M186 |",
-      "state": {
-        "exists": {
-          "check": "map-console-only-through-redactor"
         }
       }
     },
@@ -3149,17 +3168,6 @@
       "id": "notice-module-canvas-locked-move",
       "doc": "desktop/web/src/canvas/session-state.ts",
       "quote": "export const currentCanvasLockedMoveNotice = signal<CanvasLockedMoveNotice | null>(null)",
-      "state": {
-        "planned": {
-          "phase": "1b",
-          "bead": "canopi-f47t.52.36"
-        }
-      }
-    },
-    {
-      "id": "notice-module-browser-shell-notice",
-      "doc": "desktop/web/src/web/browser-shell-notice.ts",
-      "quote": "const notice = signal<BrowserShellNotice | null>(null);",
       "state": {
         "planned": {
           "phase": "1b",

@@ -5,6 +5,7 @@ import { CommandPalette } from "./components/shared/CommandPalette";
 import { AboutCanopiDialog, AboutUpdates } from "./components/shared/AboutCanopiDialog";
 import { SaveProblemDialog } from "./components/shared/SaveProblemDialog";
 import { NoticeRow } from "./components/shared/NoticeRow";
+import { ToastSlot } from "./components/shared/ToastSlot";
 import { ProblemReportDialog, openProblemReport } from "./components/shared/ProblemReportDialog";
 import { LaunchCheckSwitch, SettingsDialog, type LaunchCheckPort, type SettingsFoldersAdapter } from "./components/shared/SettingsDialog";
 import { KeyboardShortcutsDialog } from "./components/shared/KeyboardShortcutsDialog";
@@ -19,13 +20,18 @@ import { useEffect, useState } from "preact/hooks";
 import { raiseLaunchNotices, raiseUpdateNotice, raiseUpdateNotInstalledNotice, withdrawUpdateNoticeOnInstall } from "./components/workspace/launch-notices";
 import { installStoreNotices } from "./components/workspace/store-notices";
 import { createUpdateController, type UpdateController, type UpdaterPort } from "./app/updates/controller";
-import { blockEditsWhile, flushBeforeExit, holdCloseUntilSettled } from "./app/shell/close-guard";
+import { blockEditsWhile, flushBeforeExit, holdCloseUntilSettled, reloadAfterExitFlush as reloadThroughExitFlush } from "./app/shell/close-guard";
 import { designPath } from "./app/document-session/store";
-import type { UpdateOs } from "./generated/contracts";
+import type { StoreId, UpdateOs } from "./generated/contracts";
 import updaterEndpoints from "../../updater-endpoints.json";
 
 /** Settings › Files and data on Desktop: the app-data folders and Show in folder. */
 const DESKTOP_FOLDERS: SettingsFoldersAdapter = { load: getAppFolders, show: showAppFolder };
+
+/** The root boundary's Reload: the exit flush with its reload purpose first, so a failed write asks in reload words. */
+export function reloadAfterExitFlush(): void {
+  reloadThroughExitFlush();
+}
 
 /** The Desktop updater's host ports, which the Desktop root passes in (platform/updates.desktop.ts). */
 export interface DesktopUpdatePorts {
@@ -74,18 +80,18 @@ function useDesktopUpdates(ports: DesktopUpdatePorts): { readonly controller: Up
   return { controller, launchCheck };
 }
 
-/** The Desktop root boundary's Reload: the exit flush first, as a window close runs it, then the reload on proceed. */
-export function reloadAfterExitFlush(): void {
-  void flushBeforeExit("close").then((answer) => {
-    if (answer === "proceed") location.reload();
-  });
-}
-
-export function App({ updates: ports }: { readonly updates: DesktopUpdatePorts }) {
+/**
+ * The Desktop root, given its host ports by main.tsx (platform/*.desktop.ts); the host's dismissal of a one-time store
+ * notice keeps a reload in this run from telling it again.
+ */
+export function App({ updates: ports, dismissStoreNoticeOnHost }: {
+  readonly updates: DesktopUpdatePorts;
+  readonly dismissStoreNoticeOnHost: (store: StoreId) => Promise<void>;
+}) {
   const updates = useDesktopUpdates(ports);
   useEffect(raiseLaunchNotices, []);
   // Report a problem opens the problem report; Update opens About, where the update installs.
-  useEffect(() => installStoreNotices({ report: openProblemReport, updatesInAbout: true }), []);
+  useEffect(() => installStoreNotices({ report: openProblemReport, updatesInAbout: true, dismissOnHost: dismissStoreNoticeOnHost }), [dismissStoreNoticeOnHost]);
   return (
     <div className={styles.appRoot}>
       <DesktopWorkspace />
@@ -99,6 +105,7 @@ export function App({ updates: ports }: { readonly updates: DesktopUpdatePorts }
       <SaveProblemDialog />
       <ProblemReportDialog />
       <NoticeRow />
+      <ToastSlot />
     </div>
   );
 }
