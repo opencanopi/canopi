@@ -2,8 +2,9 @@
  * failures/notices.ts: Owner of the one notice queue the notice row shows (notice-only-in-failures, ADR 0025, contracts §13 and §18 F3, design check F16,
  * 2.1-Q290). Invariant: notices are kept oldest first and each stays until dismissed (an undismissable one until its
  * raiser withdraws it), so a notice raised during boot survives every later one; an undismissable status (a window
- * close waiting for an update) queues ahead of every notice the user can dismiss, so the row says why Canopi waits, and a standing offer (a waiting
- * Web release) queues behind every later notice; a notice whose dedupe key (a
+ * close waiting for an update) queues ahead of every notice the user can dismiss, so the row says why Canopi waits; an
+ * action's outcome queues ahead of every other dismissable notice, the latest first (2.1-Q304), and a standing offer (a
+ * waiting Web release) behind every later notice (2.1-M182); a notice whose dedupe key (a
  * failure's code plus its StoreId or op) is already queued adds none. A notice holds locale keys, never words, so it re-renders in the current locale.
  */
 import { signal, type ReadonlySignal } from '@preact/signals'
@@ -41,10 +42,12 @@ export interface NoticeSpec {
    */
   readonly undismissable?: true
   /**
-   * A standing offer (a waiting Web release): every notice raised after it queues ahead of it, so what the user did,
-   * whatever its tone, shows first and the offer returns once it is dismissed (2.1-M182).
+   * What the notice is, where that moves it off oldest first: an `outcome` is the result of something the user just did
+   * (an import summary or error, an open failure, a failed download) and queues ahead of every older dismissable
+   * notice, which return in order once it is dismissed (2.1-Q304); an `offer` is a standing offer (a waiting Web
+   * release) and every notice raised after it queues ahead of it (2.1-M182).
    */
-  readonly yields?: true
+  readonly kind?: 'outcome' | 'offer'
   /** Called once the user dismisses it, for a raiser that keeps its own session state. */
   readonly onDismiss?: () => void
   /** A failure notice's code and op or source, for the problem report (failures/report.ts). */
@@ -59,7 +62,7 @@ export interface Notice extends NoticeSpec {
 const queue = signal<readonly Notice[]>([])
 let nextId = 1
 
-/** The queued notices, statuses then the rest, each oldest first; the notice row shows the first with its place in the count. */
+/** The queued notices: statuses oldest first, outcomes latest first, the rest oldest first, then offers; the notice row shows the first with its place in the count. */
 export const notices: ReadonlySignal<readonly Notice[]> = queue
 
 /** Queues a notice and returns its id; a notice with the same key already queued is kept and its id returned. */
@@ -68,10 +71,11 @@ export function raiseNotice(spec: NoticeSpec): number {
   if (queued) return queued.id
   const notice: Notice = { ...spec, id: nextId++ }
   const current = queue.peek()
-  const firstOffer = current.findIndex((other) => other.yields)
-  const at = notice.undismissable
-    ? current.filter((other) => other.undismissable).length
-    : notice.yields || firstOffer < 0 ? current.length : firstOffer
+  const statuses = current.filter((other) => other.undismissable).length
+  const firstOffer = current.findIndex((other) => other.kind === 'offer')
+  const at = notice.undismissable || notice.kind === 'outcome'
+    ? statuses
+    : notice.kind === 'offer' || firstOffer < 0 ? current.length : firstOffer
   queue.value = [...current.slice(0, at), notice, ...current.slice(at)]
   return notice.id
 }

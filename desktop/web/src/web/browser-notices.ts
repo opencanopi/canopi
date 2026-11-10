@@ -2,8 +2,8 @@
  * web/browser-notices.ts: the Web Edition's notices on the one notice row (failures/notices.ts, contracts §18 F3,
  * 2.1-Q290): the launch's Earlier data, an action's outcome (a GeoJSON import or export, a Design that cannot be
  * opened, a Draft download that failed) and the New version: Reload offer. Invariant: each is locale keys, never words;
- * an action's outcome replaces the one before it under the same key; the release offer yields to every later notice
- * (2.1-M182) and, while Reload writes the Design first, reads Saving… with neither Reload nor Dismiss taking a click
+ * an action's outcome shows at the front of the row, older notices waiting behind it (2.1-Q304), and replaces the one
+ * before it under the same key; the release offer yields to every later notice (2.1-M182) and, while Reload writes the Design first, reads Saving… with neither Reload nor Dismiss taking a click
  * (2.1-Q83, Q187, M179). With no Design open it promises no save first (canopi-eon8.15).
  */
 import { effect, signal, type ReadonlySignal } from '@preact/signals'
@@ -13,10 +13,10 @@ import { raiseNotice, withdrawNotice, type NoticeSpec } from '../failures/notice
 
 type ActionNotice = Pick<NoticeSpec, 'tone' | 'title' | 'message' | 'params' | 'detail'>
 
-/** Shows an action's outcome, replacing the outcome shown before it under the same key. */
+/** Shows an action's outcome at the front of the row, replacing the outcome shown before it under the same key. */
 function showOutcome(key: string, notice: ActionNotice): void {
   withdrawNotice(key)
-  raiseNotice({ key, ...notice })
+  raiseNotice({ key, ...notice, kind: 'outcome' })
 }
 
 export function presentBrowserGeoJsonNotice(notice: GeoJsonNotice): void {
@@ -82,7 +82,7 @@ export function installReleaseNotice({ waiting, designOpen, reload, dismiss, onE
       message: 'webRelease.message',
       messageNow: () => (designOpen() ? 'webRelease.message' : 'webRelease.messageNoDesign'),
       action: { label: 'notice.reload', run, busy: { label: 'saveStatus.saving', now: () => reloading.value } },
-      yields: true,
+      kind: 'offer',
       onDismiss: () => {
         if (!withdrawing) dismiss()
       },

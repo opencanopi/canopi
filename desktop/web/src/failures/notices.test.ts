@@ -51,9 +51,30 @@ describe('notice queue', () => {
 
   it('[canopi-f47t.52.36] a standing offer (a waiting release) yields: every notice raised after it queues ahead (2.1-M182)', () => {
     raiseNotice({ key: 'earlier', message: 'health.localDataNotOpened' })
-    raiseNotice({ key: 'web.release', message: 'webRelease.message', yields: true })
+    raiseNotice({ key: 'web.release', message: 'webRelease.message', kind: 'offer' })
     raiseNotice({ key: 'import', message: 'geojson.importNothing' })
     raiseNotice({ key: 'status', message: 'update.installing', undismissable: true })
     expect(notices.value.map((notice) => notice.key)).toEqual(['status', 'earlier', 'import', 'web.release'])
+  })
+
+  it('canopi-f47t.52.36: an action outcome goes to the front, older notices stay queued behind it in order and return on dismiss (2.1-Q304)', () => {
+    raiseNotice({ key: 'earlier', message: 'health.localDataNotOpened' })
+    raiseNotice({ key: 'web.release', message: 'webRelease.message', kind: 'offer' })
+    raiseNotice({ key: 'store-health', message: 'failure.internal' })
+    const first = raiseNotice({ key: 'import', message: 'geojson.importNothing', kind: 'outcome' })
+    expect(notices.value.map((notice) => notice.key)).toEqual(['import', 'earlier', 'store-health', 'web.release'])
+
+    // A later outcome is what the user did last: it takes the front, the earlier outcome waits behind it.
+    raiseNotice({ key: 'open', message: 'failure.internal', kind: 'outcome' })
+    // Every other notice keeps oldest first, behind the outcomes and ahead of the offer.
+    raiseNotice({ key: 'later', message: 'failure.internal' })
+    raiseNotice({ key: 'status', message: 'update.installing', undismissable: true })
+    expect(notices.value.map((notice) => notice.key)).toEqual(['status', 'open', 'import', 'earlier', 'store-health', 'later', 'web.release'])
+    expect(raiseNotice({ key: 'import', message: 'geojson.importNothing', kind: 'outcome' }), 'a queued key adds none').toBe(first)
+    expect(notices.value).toHaveLength(7)
+
+    dismissNotice(notices.value[1]!.id)
+    dismissNotice(notices.value[1]!.id)
+    expect(notices.value.map((notice) => notice.key)).toEqual(['status', 'earlier', 'store-health', 'later', 'web.release'])
   })
 })
