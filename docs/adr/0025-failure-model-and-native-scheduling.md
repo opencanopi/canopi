@@ -1,6 +1,6 @@
 # Failure model and native scheduling
 
-Status: Accepted (2026-10-16, Canopi 2.1 target; built by the 2.1 foundation phases); amended 2026-10-17 (Q34 format core failures, Q47 operation id, Q45 pass; the job-runner prototype; ledger 2.1-Q60, 2.1-Q86, 2.1-M6); amended 2026-11-06 (Phase 1 proper: 2.1-Q276 to 2.1-Q278, 2.1-M409, 2.1-M412, 2.1-M421)
+Status: Accepted (2026-10-16, Canopi 2.1 target; built by the 2.1 foundation phases); amended 2026-10-17 (Q34 format core failures, Q47 operation id, Q45 pass; the job-runner prototype; ledger 2.1-Q60, 2.1-Q86, 2.1-M6); amended 2026-11-06 (Phase 1 proper: 2.1-Q276 to 2.1-Q278, 2.1-M409, 2.1-M412, 2.1-M421); amended 2026-11-11 (the reader release's worker, 2.1-M476, 2.1-M477)
 
 ## Context
 
@@ -34,8 +34,8 @@ In 2.0 about 69 commands return `Result<_, String>`. The frontend recognises bus
   - A damaged user DB is set aside and the user is told once, with the set-aside file named (Q23).
 - **Format core failures** (Q34, 2.1-M154). The adapter maps each to a typed failure; nothing is retried silently and each is reported once. It compiles the `WebAssembly.Module` once at boot and posts it to every respawned or recycled worker, so neither fetches again; a recycle waits until the worker is idle. Every call settles exactly once.
   - A failed load settles `format_core_unavailable`. Load-failed is left only by a user action (Retry, New, Open), which tries one load. New, Open and the Draft list are then unavailable, with one notice that names the format core, not a file. Mid-session, the open Design stays in memory, its save status is error ("not saved yet", Retry) and the leave prompt is armed.
-  - A trap settles `format_core_trapped` with the panic hook's message in `detail`, or `trapped` for an out-of-memory abort, which runs no hook. Calls queued behind it settle `format_core_trapped` without running, never replayed. The worker is then terminated and respawned, because a trapped instance stays dead. An encode trap puts the save status in error with Retry and stops automatic save ticks until the next edit or Retry.
-  - A write refused by admission is a save error naming the field; nothing is written.
+  - A trap settles `format_core_trapped` with the panic hook's message in `detail`, or `trapped` for an out-of-memory abort, which runs no hook. Calls queued behind it settle `format_core_trapped` without running, never replayed. The worker is then terminated and respawned, because a trapped instance stays dead. An encode trap puts the save status in error with Retry and stops automatic save ticks until the next edit or Retry. A write refused by admission is a save error naming the field; nothing is written.
+  - The reader release (Step 2.0.4) runs the worker on Web only, decode only (2.1-M476): it loads on the first newer file or Draft; a failed load refuses only that open with `format_core_unavailable`, and Retry loads once; a trap respawns it as above. The boot compile, the recycle and New, Open and the Draft list unavailable come with 2b's full core (2.1-M477).
 
 ## Alternatives rejected
 

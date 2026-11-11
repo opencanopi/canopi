@@ -139,7 +139,7 @@ flowchart LR
 
 Model: target
 Enum: Admission (2.1)
-Source: ADR 0026, contracts §10, 2.1-Q35r, 2.1-Q69, 2.1-Q96, 2.1-Q162
+Source: ADR 0026, contracts §10, 2.1-Q35r, 2.1-Q69, 2.1-Q96, 2.1-Q162, 2.1-Q314, 2.1-M475, 2.1-M481, 2.1-M482
 
 ```mermaid
 stateDiagram-v2
@@ -158,7 +158,10 @@ stateDiagram-v2
 | Unknown keys | root only, through the flattened `extra` | an extension bag on every nested object | `canopi-format` |
 | Plant display | `extra.plant_display` through `app/design-edit/extra-keys.ts` | typed field `plant_display`; the extra-key registry deleted if empty | Document |
 | Budget | `BudgetItem` lines with category, quantity and currency each | plant lines only (target, unit cost), one currency; non-plant lines kept unshown in the budget's bag | Document |
-| Group members | plant, zone, annotation | adds measurement guide; normalised at decode, refused on write | Scene |
+| Group members | plant, zone, annotation | adds measurement guide (`measurement_guide`); normalised at decode, refused on write | Scene |
+| Plant spread | `PlacedPlant.scale` | `canopy_spread_m`, finite and above 0 | Scene |
+| Site data | root `lidar`; each entry carries `kind` | root `site_data`; `kind` optional and ignored, resolved by id, or required, per Step 2.0.4 R2's probe | Document |
+| Read schema (frozen by the reader release) | none | only identity and geometry required; every other field optional with a documented default | `canopi-format` |
 | Additions, no step (`canopi-format/spec/v10/additions/` (2.1)) | none | `print_setup` (Document); zone stroke colour and opacity (Scene) | spec emitter |
 | Codec | native `desktop/src/design/format.rs`; TS `app/contracts/canopi-design-schema-decoder.ts` | `canopi-format-wasm` (2.1) in the format worker on both editions, canonical encode; TS decoder deleted | `canopi-format` |
 
