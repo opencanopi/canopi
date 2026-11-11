@@ -380,7 +380,8 @@ describe('the updater, from an installed N-1 to N', () => {
     await expect(notice).toHaveText(/Update not installed/u)
     expect(installedVersion()).toBe('9.0.0')
     await notice.$('button[aria-label="Dismiss"]').click()
-    await notice.waitForDisplayed({ reverse: true })
+    // The row keeps its element and shows the next notice (a store notice raised at boot), so the check queries again.
+    await browser.waitUntil(async () => !(await $('[data-notice-key="update.not-installed"]').isExisting()))
     current = ''
   })
 
