@@ -24,7 +24,6 @@
     "workspace": "Webeditie-werkruimte",
     "openCanopi": "Een .canopi-bestand openen…",
     "downloadCanopi": "Een kopie downloaden",
-    "dismissNotice": "Sluiten",
     "downloadCopy": "Een kopie downloaden",
     "savedInBrowser": "Opgeslagen in deze browser",
     "openCanopiFile": "Een .canopi-bestand openen"
@@ -113,7 +112,24 @@
     "plantDbCorrupt": "Het databasebestand van de plantencatalogus is beschadigd, dus zoeken en plantdetails zijn niet beschikbaar. Je ontwerpen zijn veilig. Installeer Canopi opnieuw om het te herstellen.",
     "localDataNotOpenedTitle": "Eerdere gegevens niet geopend",
     "localDataNotOpened": "Canopi 2.0 kan gegevens van eerdere versies niet openen. Ze zijn ongewijzigd gelaten en Canopi is opnieuw begonnen.",
-    "dismiss": "Sluiten"
+    "settingsUnavailable": "Je instellingen konden niet worden gelezen. Canopi gebruikt de standaardwaarden en wijzigt je opgeslagen instellingen deze sessie niet.",
+    "settingsStillUnavailable": "Je instellingen konden nog steeds niet worden gelezen.",
+    "setAside": {
+      "userDb": "De opgeslagen gegevens van Canopi waren beschadigd en zijn apart gezet als {{file}}. Je ontwerpen zijn niet getroffen.",
+      "webDrafts": "De opgeslagen concepten van Canopi waren beschadigd en zijn apart gezet als {{file}}. Ontwerpen die je als bestand hebt geëxporteerd zijn niet getroffen.",
+      "webSpeciesLists": "De favorieten en onlangs bekeken planten die Canopi had opgeslagen waren beschadigd en zijn apart gezet als {{file}}. Je ontwerpen zijn niet getroffen."
+    },
+    "writesRefused": {
+      "webDrafts": "De opgeslagen concepten van Canopi zijn beschadigd en konden niet apart worden gezet, dus wijzigingen in concepten worden deze sessie niet opgeslagen. Exporteer je ontwerp om het te bewaren.",
+      "webSpeciesLists": "De favorieten en onlangs bekeken planten die Canopi had opgeslagen zijn beschadigd en konden niet apart worden gezet, dus wijzigingen daarin worden deze sessie niet opgeslagen."
+    },
+    "newerReadOnly": "Deze gegevens zijn opgeslagen door een nieuwere Canopi. Je kunt ze bekijken, maar wijzigingen worden niet opgeslagen. Werk Canopi bij om ze te bewerken.",
+    "refusedNewer": "Deze gegevens zijn opgeslagen door een nieuwere Canopi en zijn niet geopend. Werk Canopi bij om ze te gebruiken.",
+    "storeUnavailable": "Sommige opgeslagen gegevens van Canopi konden niet worden geopend. Start Canopi opnieuw en meld een probleem als dit blijft gebeuren.",
+    "fieldsReset": "Sommige instellingen hadden waarden die Canopi niet kon gebruiken en zijn teruggezet naar hun standaardwaarden.",
+    "writeFailed": "Canopi kon een wijziging in zijn opgeslagen gegevens niet opslaan. Probeer het opnieuw en meld een probleem als dit blijft gebeuren.",
+    "libraryListStale": "De lijst van de Databibliotheek kon niet worden vernieuwd",
+    "update": "Bijwerken"
   },
   "canvas": {
     "lockToast": {
@@ -156,7 +172,10 @@
       "selectSource": "Klik op een geplaatste plant om die in een rij te herhalen",
       "sourceMissed": "Klik op een zichtbare, niet-vergrendelde geplaatste plant",
       "interval": "Interval",
-      "generatedCount": "{{count}} gegenereerd",
+      "generatedCount_one": "{{count}} gegenereerd",
+      "generatedCount_few": "{{count}} gegenereerd",
+      "generatedCount_many": "{{count}} gegenereerd",
+      "generatedCount_other": "{{count}} gegenereerd",
       "commitLimitWarning": "Vergroot het interval of verkort de lijn",
       "dragAlong": "sleep langs de rij",
       "mode": "Afstand",
@@ -210,7 +229,10 @@
     },
     "plantColor": {
       "label": "Plantkleur",
-      "selectedCount": "{{count}} geselecteerd",
+      "selectedCount_one": "{{count}} geselecteerd",
+      "selectedCount_few": "{{count}} geselecteerd",
+      "selectedCount_many": "{{count}} geselecteerd",
+      "selectedCount_other": "{{count}} geselecteerd",
       "suggested": "Voorgesteld op basis van bloemkleur",
       "moreColors": "Eigen kleur",
       "hue": "Tint",
@@ -218,11 +240,17 @@
       "preview": "Voorbeeld",
       "customHex": "Aangepaste hex",
       "setColorForSpecies": "Instellen voor alle {{species}}",
-      "applySelection": "Toepassen op {{count}} geselecteerde"
+      "applySelection_one": "Toepassen op {{count}} geselecteerde",
+      "applySelection_few": "Toepassen op {{count}} geselecteerde",
+      "applySelection_many": "Toepassen op {{count}} geselecteerde",
+      "applySelection_other": "Toepassen op {{count}} geselecteerde"
     },
     "plantSymbol": {
       "label": "Plantsymbool",
-      "selectedCount": "{{count}} geselecteerd",
+      "selectedCount_one": "{{count}} geselecteerd",
+      "selectedCount_few": "{{count}} geselecteerd",
+      "selectedCount_many": "{{count}} geselecteerd",
+      "selectedCount_other": "{{count}} geselecteerd",
       "setSymbolForSpecies": "Instellen voor alle {{species}}",
       "mixed": "Gemengde symbolen",
       "current": "Huidig: {{symbol}}",
@@ -268,7 +296,10 @@
         "does": "Wat ze doet",
         "abstract": "Abstract"
       },
-      "applySelection": "Toepassen op {{count}} geselecteerde"
+      "applySelection_one": "Toepassen op {{count}} geselecteerde",
+      "applySelection_few": "Toepassen op {{count}} geselecteerde",
+      "applySelection_many": "Toepassen op {{count}} geselecteerde",
+      "applySelection_other": "Toepassen op {{count}} geselecteerde"
     },
     "placeSearch": {
       "placeholder": "Plaats of coördinaten",
@@ -611,7 +642,8 @@
         "sortRecent": "Recent toegevoegd",
         "factAdded": "Toegevoegd",
         "deletedItem": "Verwijderd item",
-        "importNeedsDesign": "Open een ontwerp om data te importeren"
+        "importNeedsDesign": "Open een ontwerp om data te importeren",
+        "importCancelled": "Importeren geannuleerd"
       },
       "layers": {
         "emptyTitle": "Nog geen terreindata",
@@ -1306,12 +1338,19 @@
     "selectHint": "Selecteer planten, zones, annotaties of groepen om ze samen op te slaan.",
     "loading": "Opgeslagen stempels laden…",
     "empty": "Sla een selectie op om deze hier opnieuw te gebruiken.",
-    "summaryPlantOne": "{{count}} plant",
-    "summaryPlantOther": "{{count}} planten",
-    "summaryZoneOne": "{{count}} zone",
-    "summaryZoneOther": "{{count}} zones",
-    "summaryAnnotationOne": "{{count}} annotatie",
-    "summaryAnnotationOther": "{{count}} annotaties",
+    "summaryPlant_one": "{{count, number}} plant",
+    "summaryPlant_few": "{{count, number}} planten",
+    "summaryPlant_many": "{{count, number}} planten",
+    "summaryPlant_other": "{{count, number}} planten",
+    "summaryZone_one": "{{count, number}} zone",
+    "summaryZone_few": "{{count, number}} zones",
+    "summaryZone_many": "{{count, number}} zones",
+    "summaryZone_other": "{{count, number}} zones",
+    "summaryAnnotation_one": "{{count, number}} annotatie",
+    "summaryAnnotation_few": "{{count, number}} annotaties",
+    "summaryAnnotation_many": "{{count, number}} annotaties",
+    "summaryAnnotation_other": "{{count, number}} annotaties",
+    "defaultNameParts": "{{zones}}, {{annotations}}",
     "summaryEmpty": "Geen zichtbare objecten",
     "summaryUnavailable": "Voorbeeld niet beschikbaar",
     "summaryBefore2_0": "Opgeslagen met Canopi vóór 2.0; Canopi 2.0 kan hem niet plaatsen.",
@@ -1328,11 +1367,19 @@
     "deleteNamed": "Stempel {{name}} verwijderen",
     "actionsFor": "Meer acties voor {{name}}"
   },
-  "error": {
-    "title": "Er is iets misgegaan",
-    "message": "De toepassing heeft een onverwachte fout aangetroffen. Je kunt proberen opnieuw te laden.",
+  "boundary": {
+    "panelFailed": "Dit paneel kon niet worden geladen",
+    "tryAgain": "Opnieuw proberen",
+    "reportProblem": "Probleem melden",
+    "rootTitle": "Er is iets misgegaan",
+    "rootMessage": "De toepassing heeft een onverwachte fout aangetroffen. Je kunt proberen opnieuw te laden.",
+    "reload": "Opnieuw laden"
+  },
+  "notice": {
+    "count": "{{index}} van {{count}}",
+    "dismiss": "Sluiten",
     "reload": "Opnieuw laden",
-    "details": "Foutdetails"
+    "tryingAgain": "Opnieuw proberen…"
   },
   "shared": {
     "datePicker": {
@@ -1343,30 +1390,40 @@
   },
   "problemReport": {
     "title": "Probleem melden",
-    "intro": "Maak een samenvatting en diagnosebundel die je later kunt delen.",
+    "intro": "Canopi slaat één zipbestand op dit apparaat op. Er wordt niets verstuurd: u kiest waar u het deelt.",
     "descriptionLabel": "Wat is er gebeurd?",
     "descriptionPlaceholder": "Beschrijf wat je deed, wat er misging en of je het kunt herhalen.",
-    "privacyNote": "Het diagnosepakket sluit standaard je ontwerp (inclusief de coördinaten), schermafbeeldingen en ruwe bestandspaden uit.",
     "create": "Rapport maken",
     "creating": "Maken…",
     "cancel": "Annuleren",
     "close": "Sluiten",
     "successTitle": "Rapport gemaakt",
-    "successText": "De rapportbestanden staan in deze map. Voeg de bundel toe en plak de samenvatting wanneer je contact opneemt met support.",
-    "folderPath": "Map",
-    "summaryFile": "Samenvatting",
-    "bundleFile": "Bundel",
-    "copySummary": "Samenvatting kopiëren",
-    "copiedSummary": "Gekopieerd",
-    "copyFailed": "Kan de samenvatting niet kopiëren. Het samenvattingsbestand staat nog in de rapportmap.",
+    "successText": "De zip staat in de map Probleemrapporten in Canopi’s gegevensmap.",
+    "bundleFile": "Bestand",
     "errorTitle": "Rapport kon niet worden gemaakt",
-    "showFolder": "Map tonen",
     "showingFolder": "Openen…",
-    "showFolderFailed": "Kan de map niet tonen. Het exacte pad blijft hierboven zichtbaar.",
-    "optionalAttachments": "Optionele bijlagen",
+    "showFolderFailed": "De map kon niet worden getoond. De zip staat nog in de map Probleemrapporten.",
     "includeCurrentDesign": "Huidig ontwerp opnemen",
-    "includeCurrentDesignDescription": "Voegt een .canopi-kopie toe met de canvasinhoud en de coördinaten, notities, tijdlijn en budget.",
-    "currentDesignUnavailable": "Er is geen huidig ontwerp beschikbaar om bij te voegen."
+    "currentDesignUnavailable": "Er is geen huidig ontwerp beschikbaar om bij te voegen.",
+    "contentsTitle": "Het rapport bevat",
+    "sendText": "Om het te versturen opent u een issue op Canopi’s GitHub-issuespagina, beschrijft u wat er gebeurde en voegt u de zip toe.",
+    "issuesLink": "GitHub-issuespagina openen",
+    "downloadedText": "Rapport gedownload. De zip staat in de downloads van uw browser.",
+    "showAgain": "Opnieuw tonen",
+    "section": {
+      "originatingFailure": "De fout van waaruit u meldt, met de code en de bewerking.",
+      "description": "Wat u hierboven schreef.",
+      "build": "De versie van Canopi, uw besturingssysteem en de webweergave of uw browser.",
+      "health": "Hoe elke gegevensopslag werd geopend, zonder bestandspaden.",
+      "queues": "Wachtend en lopend achtergrondwerk, naar aantal en tijd.",
+      "nativeSettlements": "De laatste 50 mislukte achtergrondbewerkingen, zonder paden en sleutels.",
+      "frontendRing": "Recente fouten in het appvenster, zonder paden en sleutels.",
+      "jobs": "Aantallen taken van de databibliotheek en recente taakfouten, zonder namen van items.",
+      "libraryDisk": "Schijfgebruik van de databibliotheek en de stand van het opruimen, zonder namen van items.",
+      "logTail": "Het einde van Canopi’s logboek, zonder paden en sleutels.",
+      "settingsSummary": "Uw taal, thema en weergave-instellingen; nooit uw Maps-sleutel.",
+      "design": "Het huidige Design, alleen als u het aanvinkt: de objecten, kaartcoördinaten, notities, tijdlijn en het budget."
+    }
   },
   "pdf": {
     "title": "Exporteren naar PDF",
@@ -1403,7 +1460,10 @@
     "wholeDesign": "Hele ontwerp",
     "splitHint": "Controleer de genummerde kaders en elk blad voordat je ze toepast.",
     "splitSheets": "Verdelen in leesbare bladen",
-    "splitPreview": "Voorbeeld · {{count}} pagina’s in de PDF",
+    "splitPreview_one": "Voorbeeld · {{count}} pagina in de PDF",
+    "splitPreview_few": "Voorbeeld · {{count}} pagina’s in de PDF",
+    "splitPreview_many": "Voorbeeld · {{count}} pagina’s in de PDF",
+    "splitPreview_other": "Voorbeeld · {{count}} pagina’s in de PDF",
     "applySheets": "Bladen toepassen",
     "addPage": "Veldblad toevoegen",
     "addHint": "Sleep een rechthoek rond het gebied dat je wilt afdrukken.",
@@ -1529,7 +1589,10 @@
     "importTitle": "GeoJSON-import",
     "exportTitle": "GeoJSON-export",
     "importSummary": "{{plants}} planten, {{zones}} zones, {{annotations}} notities en {{guides}} meethulplijnen geïmporteerd.",
-    "importSkipped": "{{count}} objecten met niet-ondersteunde geometrie zijn overgeslagen.",
+    "importSkipped_one": "{{count}} object met niet-ondersteunde geometrie is overgeslagen.",
+    "importSkipped_few": "{{count}} objecten met niet-ondersteunde geometrie zijn overgeslagen.",
+    "importSkipped_many": "{{count}} objecten met niet-ondersteunde geometrie zijn overgeslagen.",
+    "importSkipped_other": "{{count}} objecten met niet-ondersteunde geometrie zijn overgeslagen.",
     "importNothing": "Het bestand bevat geen ontwerpobjecten om te importeren.",
     "busy": "Het canvas is bezig. Probeer het zo opnieuw.",
     "readFailed": "Het bestand kon niet worden gelezen.",
@@ -1588,7 +1651,11 @@
     "settingsCloseAnyway": "Toch sluiten",
     "flushFailedReloadMessage": "Je ontwerp kon niet in deze browser worden opgeslagen. Download een kopie voordat je opnieuw laadt.",
     "tabConflictReloadMessage": "Dit ontwerp is in een ander browsertabblad gewijzigd, dus je laatste wijzigingen zijn niet weggeschreven. Download een kopie voordat je opnieuw laadt, of annuleer en los de wijziging eerst op.",
-    "discardAndReload": "Opnieuw laden zonder opslaan"
+    "discardAndReload": "Opnieuw laden zonder opslaan",
+    "flushFailedAppReloadMessage": "Canopi kon je laatste wijzigingen niet wegschrijven. Probeer het opnieuw of laad opnieuw zonder ze op te slaan.",
+    "settingsFailedReloadMessage": "Je ontwerp is opgeslagen. Canopi kon je laatste wijzigingen in de instellingen niet opslaan. Probeer het opnieuw, of laad toch opnieuw en verlies ze.",
+    "settingsFailedDesignUnsavedReloadMessage": "Canopi kon je laatste wijzigingen in de instellingen niet opslaan. Probeer het opnieuw, of laad toch opnieuw en verlies ze.",
+    "settingsReloadAnyway": "Toch opnieuw laden"
   },
   "drafts": {
     "title": "Concepten",
@@ -2128,7 +2195,6 @@
     "restart": "Opnieuw starten om de update te voltooien",
     "checkAtLaunch": "Bij het starten naar updates zoeken",
     "linkOnly": "Download de update van projectcanopi.com",
-    "dismiss": "Sluiten",
     "failure": {
       "offline": "Kan niet naar updates zoeken zonder verbinding",
       "checkFailed": "Kan niet naar updates zoeken",
@@ -2143,5 +2209,23 @@
         "downloadFailed": "de download is mislukt"
       }
     }
+  },
+  "failure": {
+    "busy": "Canopi is met ander werk bezig. Probeer het zo opnieuw.",
+    "internal": "Er ging iets mis. Je kunt het opnieuw proberen of een probleem melden.",
+    "connection": "Kan geen verbinding maken. Controleer je verbinding en probeer het opnieuw.",
+    "serverError": "De server kon niet antwoorden. Probeer het later opnieuw.",
+    "addressRefused": "Canopi heeft een adres buiten de toegestane sites geweigerd. Meld een probleem als dit opnieuw gebeurt.",
+    "downloadTooLarge": "De download is groter dan Canopi toestaat. Meld een probleem als je hem nodig hebt.",
+    "fileNotFound": "Het bestand is niet gevonden. Controleer of het nog bestaat en probeer het opnieuw.",
+    "permissionDenied": "Canopi mag dit bestand of deze map niet gebruiken. Controleer de rechten en probeer het opnieuw.",
+    "readOnly": "Deze locatie is alleen-lezen. Kies een andere locatie en probeer het opnieuw.",
+    "diskFull": "Je schijf is vol. Maak ruimte vrij en probeer het opnieuw.",
+    "storageFull": "De opslag van je apparaat is vol. Maak ruimte vrij en probeer het opnieuw.",
+    "fileTooLarge": "Dit bestand is groter dan Canopi toestaat. Kies een kleiner bestand.",
+    "fileError": "Canopi kon het bestand niet lezen of schrijven. Probeer het opnieuw.",
+    "plantCatalogUnavailable": "De plantencatalogus kon niet worden geopend. Start Canopi opnieuw en installeer het opnieuw als het probleem blijft.",
+    "libraryNewer": "Deze Databibliotheek is opgeslagen door een nieuwere Canopi. Werk Canopi bij om haar te wijzigen.",
+    "libraryUnavailable": "De Databibliotheek kon niet worden geopend, dus wijzigingen worden deze sessie niet opgeslagen. Start Canopi opnieuw en probeer het opnieuw."
   }
 }

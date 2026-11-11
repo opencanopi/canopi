@@ -12,6 +12,7 @@ import {
 import { getZoneWorldBounds } from '../../canvas/runtime/zone-geometry'
 import { CURRENT_CANOPI_FILE_VERSION } from '../../generated/canopi-design-format'
 import { createSessionPlane, sessionPlaneOriginForPoints, type SessionPlane } from '../../canvas/session-plane'
+import { t } from '../../i18n'
 
 // A stamp is a relative arrangement in metres. Its portable `.canopi` file
 // places that arrangement around 0°/0°; import reads it back through a plane
@@ -172,7 +173,7 @@ export function importedSavedObjectStampName(
   file: CanopiFile,
   payload: SavedObjectStampPayload,
 ): string {
-  return file.name.trim() || fallbackStampName(payload)
+  return file.name.trim() || defaultSavedObjectStampName(payload)
 }
 
 function stampZonePointsToGeo(
@@ -277,11 +278,20 @@ function zoneAnchorPoints(zone: SavedObjectStampPayload['zones'][number]): Scene
   ]
 }
 
-function fallbackStampName(payload: SavedObjectStampPayload): string {
+/**
+ * The name a stamp gets when it has none (a saved selection, an imported file with a blank name): its three most
+ * frequent plant names, each in the interface language when `localizedNames` has it, else its zone and annotation
+ * counts in the locale's plural forms ("1 zone, 0 annotations"; Russian "5 зон"), from the same plural keys as the
+ * Saved stamps summary.
+ */
+export function defaultSavedObjectStampName(
+  payload: SavedObjectStampPayload,
+  localizedNames: ReadonlyMap<string, string | null> = new Map(),
+): string {
   if (payload.plants.length > 0) {
     const counts = new Map<string, { count: number; firstIndex: number }>()
     payload.plants.forEach((plant, index) => {
-      const name = plant.commonName ?? plant.canonicalName
+      const name = localizedNames.get(plant.canonicalName) ?? plant.commonName ?? plant.canonicalName
       const current = counts.get(name)
       counts.set(name, current
         ? { ...current, count: current.count + 1 }
@@ -294,9 +304,8 @@ function fallbackStampName(payload: SavedObjectStampPayload): string {
       .join(', ')
   }
 
-  const zonePart = payload.zones.length === 1 ? '1 zone' : `${payload.zones.length} zones`
-  const annotationPart = payload.annotations.length === 1
-    ? '1 annotation'
-    : `${payload.annotations.length} annotations`
-  return `${zonePart}, ${annotationPart}`
+  return t('savedObjectStamps.defaultNameParts', {
+    zones: t('savedObjectStamps.summaryZone', { count: payload.zones.length }),
+    annotations: t('savedObjectStamps.summaryAnnotation', { count: payload.annotations.length }),
+  })
 }

@@ -1,0 +1,40 @@
+# text-match-on-native-error (2.1-M427, design check A21): code that reads a failure by matching its English text,
+# the shape a typed catalogue code replaces. A site is a substring, prefix or suffix test (includes, startsWith,
+# endsWith, indexOf, match) on an error or message value, a regex literal's test of one, or an equality between an
+# error's .message and English text (a capitalised word and a space, so a thrown internal code like
+# 'coverage-too-large' is no site).
+id: text-match-on-native-error.tsx
+language: tsx
+severity: error
+message: "text-match-on-native-error (2.1-M427): a native or IPC failure is read by its typed code, never by matching its English text (a substring, prefix or regex over an error message, or an equality with English text); today's sites go as their commands return catalogue failures (1a, 1b, N1, N2). Owner none; example desktop/web/src/app/updates/state.ts"
+files:
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.tsx"
+ignores:
+  - "{desktop/web,policy/fixtures/rules/*}/src/__tests__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/__fixtures__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
+  - "{desktop/web,policy/fixtures/rules/*}/src/generated/**"
+rule:
+  any:
+    - kind: call_expression
+      has:
+        field: function
+        kind: member_expression
+        all:
+          - has: { field: property, regex: '^(includes|startsWith|endsWith|indexOf|match)$' }
+          - has: { field: object, regex: '^(message|msg|error|err|reason)$|\.message$' }
+    - kind: call_expression
+      all:
+        - has:
+            field: function
+            kind: member_expression
+            all:
+              - has: { field: property, regex: '^test$' }
+              - has: { field: object, kind: regex }
+        - has: { field: arguments, regex: '^\((message|msg|error|err|reason|[\w.]*\.message)\)$' }
+    - kind: binary_expression
+      all:
+        - has: { field: operator, regex: '^[!=]==?$' }
+        - has: { kind: member_expression, regex: '\.message$' }
+        - has: { kind: string, regex: '^.[A-Z][a-z]+ |cancel|busy' }

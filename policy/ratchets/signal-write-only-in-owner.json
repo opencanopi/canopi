@@ -43,9 +43,6 @@
     "desktop/web/src/app/settings/projection.ts": {
       "count": 3
     },
-    "desktop/web/src/app/shell/bootstrap.ts": {
-      "count": 3
-    },
     "desktop/web/src/app/shell/state.ts": {
       "count": 1
     },
@@ -75,9 +72,6 @@
     },
     "desktop/web/src/components/shared/CommandPalette.tsx": {
       "count": 4
-    },
-    "desktop/web/src/components/shared/DegradedBanner.tsx": {
-      "count": 1
     },
     "desktop/web/src/components/shared/DockPanelHeader.tsx": {
       "count": 1

@@ -1293,6 +1293,7 @@
         ],
         "to": [
           "app/problem-report/diagnostics.ts",
+          "failures/ring.ts",
           "app/problem-report/attachments.ts",
           "ipc/problem-report.ts"
         ]
@@ -1708,7 +1709,6 @@
           "ipc/**",
           "components/shared/TitleBar.tsx",
           "components/shared/MenuBar.tsx",
-          "components/shared/ProblemReportDialog.tsx",
           "components/panels/DesignNotebookPanel.tsx",
           "components/panels/CanvasPanel.tsx",
           "components/canvas/DisplayLegend.tsx",
@@ -1717,7 +1717,7 @@
           "app/document-session/lifecycle.ts",
           "app/document-session/transition.ts",
           "app/document-session/state-machine.ts",
-          "app/problem-report/**",
+          "app/problem-report/attachments.ts",
           "commands/registry.ts",
           "commands/graph/**"
         ],
@@ -1892,6 +1892,25 @@
       "owner_today": "desktop/web/src/maplibre/basemap-tile-auth.ts",
       "example": "desktop/web/src/maplibre/satellite-provider-session.ts",
       "note": "P46b only the Satellite provider builds the Google key URLs"
+    },
+    {
+      "id": "pixi-unsafe-eval-shim-first",
+      "tool": "ast-grep",
+      "ledger": "2.1-M236",
+      "family": "pixi-unsafe-eval-shim-first",
+      "owner_today": "desktop/web/src/canvas/runtime/renderers/pixi-scene.ts",
+      "example": "desktop/web/src/canvas/runtime/renderers/pixi-scene.ts",
+      "note": "a module importing from pixi.js imports pixi.js/unsafe-eval first, since the packaged Desktop CSP (script-src 'self') rejects Pixi's new Function and the map scene would fail (the source read in pixi-csp-guard.test.ts retired onto this rule, 2.1-Q13)"
+    },
+    {
+      "id": "google-tile-endpoint-only-in-tile-auth",
+      "tool": "ast-grep",
+      "ledger": "2.1-M236",
+      "family": "google-tile-endpoint-only-in-tile-auth",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/maplibre/basemap-tile-auth.ts",
+      "example": "desktop/web/src/maplibre/basemap-tile-auth.ts",
+      "note": "S24 one module spells the Google tile endpoint, so a reviewer reads one file to see where the key and session go (AGENTS.md Secrets; the source read in map-error-redaction.test.ts retired onto this rule, 2.1-Q13)"
     },
     {
       "id": "maplibre-listeners-only-on-abort-signals",
@@ -2234,16 +2253,6 @@
       "note": "item-types.ts is the one place that spells a RasterQuantity member (canopi-f47t.42)"
     },
     {
-      "id": "map-console-only-through-redactor",
-      "tool": "ast-grep",
-      "ledger": "2.1-M186",
-      "family": "map-console-only-through-redactor",
-      "adr": "0022",
-      "owner_today": "desktop/web/src/maplibre/redact-credentials.ts",
-      "example": "desktop/web/src/maplibre/redact-credentials.ts",
-      "note": "map-layer console writes go through the credential redactor, maplibre/redact-credentials.ts (AGENTS.md Secrets)"
-    },
-    {
       "id": "scene-writes-only-in-authority",
       "tool": "ast-grep",
       "ledger": "2.1-M186",
@@ -2265,16 +2274,27 @@
     {
       "id": "no-user-content-in-message",
       "tool": "ast-grep",
-      "status": "planned",
       "ledger": "2.1-M224",
+      "family": "no-user-content-in-message",
+      "adr": "0025",
+      "owner_today": "canopi-redact",
+      "owner_target": {
+        "path": "canopi-redact",
+        "phase": "1a",
+        "bead": "canopi-f47t.52.224"
+      },
+      "example": "desktop/src/host/updater/failure.rs",
+      "note": "user content (a user path, a Design or file name) reaches a failure or log message only as a RedactedText or path field, never formatted into its free text (ADR 0025:60, plan C18); the Rust half counts a path's display() or to_string_lossy() inside format!, write!, panic!, a tracing or log macro or an Err (commit 0, 2.1-M416), lowered by 1a-c3 and, for the LiDAR sites, N1; the TypeScript half is planned for 2a (canopi-ds03)"
+    },
+    {
+      "id": "text-match-on-native-error",
+      "tool": "ast-grep",
+      "ledger": "2.1-M427",
+      "family": "text-match-on-native-error",
       "adr": "0025",
       "owner_today": "none",
-      "owner_target": {
-        "path": "desktop/web/src/failures",
-        "phase": "1a",
-        "bead": "canopi-f47t.52.35"
-      },
-      "note": "user content (a user path, a Design or file name) reaches a failure or log message only as a Sensitive<T> or UserPath field, never formatted into its free text (ADR 0025:60, plan C18); planned until 1a lands those field types, the sites it counts"
+      "example": "desktop/web/src/app/updates/state.ts",
+      "note": "a native or IPC failure is read by its typed code, never by matching its English text: a substring, prefix, suffix or regex test on an error or message value, or an equality between an error's message and English text; each site goes in the change that types its command (2.1-M41), and residual entries re-point to canopi-f47t.52.211 or the C04 beads at Phase 1's close (design check A21)"
     },
     {
       "id": "signal-write-only-in-owner",
@@ -2344,7 +2364,7 @@
       "ledger": "2.1-M189",
       "family": "rust-test-has-assertion",
       "owner_today": "none",
-      "example": "desktop/src/native_operation.rs",
+      "example": "desktop/src/native_operation/tests.rs",
       "note": "a Rust test asserts what it names (assert*!, prop_assert*!, panic!, an assert_* helper or #[should_panic]); an unwrap-only test is assertion-free; replaces rustqual (2.1-Q218); today's tests are path entries"
     },
     {
@@ -2716,7 +2736,7 @@
       "family": "locale-key-typing",
       "owner_today": "desktop/web/src/i18n/index.ts",
       "example": "desktop/web/src/app/planning-projection/timeline.ts",
-      "note": "t takes the generated LocaleKey union; a key built at run time is a typed table lookup (Record<Union, LocaleKey>) or a template over a closed union, a value from an open set goes through openSetText, whose key family is typed; a cast to LocaleKey, an isLocaleKey call outside i18n/index.ts and a filterText call are counted sites (design-check A30); the baseline is policy/ratchets/locale-key-typing.json"
+      "note": "t takes the generated LocaleKey union; a key built at run time is a typed table lookup (Record<Union, LocaleKey>) or a template over a closed union, a value from an open set goes through openSetText, whose key family is typed; a cast to LocaleKey and an isLocaleKey call outside i18n/index.ts are counted sites (design-check A30), and a key chosen by a count compared with 1 (a ternary inside t's arguments, or both branches reading a key with none passing count) is refused (APP-06, design-check 1b-c6); the baseline is policy/ratchets/locale-key-typing.json"
     },
     {
       "id": "tsc-strict",

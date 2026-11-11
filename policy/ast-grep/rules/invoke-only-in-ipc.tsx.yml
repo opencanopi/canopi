@@ -1,15 +1,16 @@
-# invoke-only-in-ipc (FAP conversion, F1a): P49 only IPC transports invoke native commands
+# invoke-only-in-ipc (FAP conversion, F1a): P49 only the IPC transport invokes native commands; commit 0 narrowed
+# the owner from ipc/ to ipc/transport.ts (design check F15), and 1b-c2 moved every ipc/ wrapper onto invokeCommand.
 id: invoke-only-in-ipc.tsx
 language: tsx
 severity: error
-message: "P49 only IPC transports invoke native commands; owner desktop/web/src/ipc; example desktop/web/src/ipc/export.ts"
+message: "P49 only the IPC transport invokes native commands (narrowed to ipc/transport.ts by commit 0, design check F15; 1b-c2 moved the ipc/ wrappers onto it); owner desktop/web/src/ipc/transport.ts; example desktop/web/src/app/updates/controller.ts"
 files:
   - "{desktop/web,policy/fixtures/rules/*}/src/**/*.tsx"
 ignores:
   - "{desktop/web,policy/fixtures/rules/*}/src/__tests__/**"
   - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
   - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
-  - "{desktop/web,policy/fixtures/rules/*}/src/ipc/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/ipc/transport.ts"
 rule:
   any:
     - kind: identifier

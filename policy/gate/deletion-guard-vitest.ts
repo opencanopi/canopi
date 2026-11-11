@@ -148,7 +148,17 @@ export async function vitestPass(git: RangeGit, mergeBase: string, head: string,
   }
   const pairs = rewordPairs(text, true)
   const findings: Finding[] = []
-  for (const [name, file] of lost) {
+  // A loss whose own file holds a quoted replacement is routed first, then one whose own title is quoted where it moved
+  // to, so a loss with neither never takes their quote (the static pass's pair does the same; canopi-f47t.52.36).
+  const rank = ([name, file]: Listed): number => {
+    const path = `${WEB}/${file}`
+    const same = new Set([path, renamed.get(path) ?? path])
+    const title = lastPart(name)
+    if (free.some(([t, p]) => same.has(p) && quoted(t, text))) return 0
+    return free.some(([t]) => t === title && quoted(t, text)) ? 1 : 2
+  }
+  const ordered = [0, 1, 2].flatMap((r) => lost.filter((pair) => rank(pair) === r))
+  for (const [name, file] of ordered) {
     const path = `${WEB}/${file}`
     const title = lastPart(name)
     const textAt = await git.show(mergeBase, path)
@@ -168,7 +178,7 @@ export async function vitestPass(git: RangeGit, mergeBase: string, head: string,
       if (kept !== undefined) next = { ...route, reword: { title: kept, sameFile: true } }
       else {
         const named = free.flatMap(([t], i) => (quoted(t, text) ? [i] : []))
-        pick = named.find((i) => same.has(free[i]?.[1] ?? '')) ?? named[0] ?? -1
+        pick = named.find((i) => same.has(free[i]?.[1] ?? '')) ?? named.find((i) => free[i]?.[0] === title) ?? named[0] ?? -1
         if (pick !== -1) next = { ...route, replacement: free[pick]?.[0] ?? '' }
       }
     }

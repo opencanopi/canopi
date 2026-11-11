@@ -372,3 +372,76 @@ describe('continuous save', () => {
     expect(idle).toBe(true)
   })
 })
+
+// WEB-03 (2.1-Q22): what the Web leave prompt reads. A synchronous writer settles inside flushNow; an asynchronous one
+// (the IndexedDB Draft store to come) keeps the guard armed until its write settles.
+describe('the leave guard', () => {
+  function synchronousSave(fail: () => boolean): ContinuousSave {
+    uninstall()
+    save.dispose()
+    save = createContinuousSave({
+      store,
+      writeHome: (home) => {
+        writes.push(home)
+        if (fail()) throw new Error('quota exceeded')
+        fixture.markSaved()
+        return { kind: 'written' }
+      },
+      logError: () => {},
+    })
+    uninstall = save.install()
+    return save
+  }
+
+  it('WEB-03: flushNow writes a pending edit in the calling task and leaves nothing armed', () => {
+    const sync = synchronousSave(() => false)
+    openSession()
+    edit('a')
+    expect(sync.flushNow()).toBe(true)
+    expect(writes).toEqual([{ kind: 'draft', id: 'draft-1' }])
+    expect(sync.leaveGuardArmed.value).toBe(false)
+  })
+
+  it('WEB-03: a failed write arms the guard until a later write succeeds', () => {
+    let failing = true
+    const sync = synchronousSave(() => failing)
+    openSession()
+    edit('a')
+    expect(sync.flushNow()).toBe(false)
+    expect(sync.leaveGuardArmed.value).toBe(true)
+
+    failing = false
+    expect(sync.flushNow()).toBe(true)
+    expect(sync.leaveGuardArmed.value).toBe(false)
+  })
+
+  it('WEB-03: an asynchronous write in flight arms the guard, and it disarms when the write settles', async () => {
+    openSession()
+    let finish!: () => void
+    writeHome.mockImplementationOnce(() => {
+      fixture.markSaved()
+      return new Promise((resolve) => { finish = () => resolve({ kind: 'written' }) })
+    })
+    edit('a')
+    expect(save.flushNow()).toBe(false)
+    expect(save.leaveGuardArmed.value).toBe(true)
+    // A second close while it is in flight starts no second write.
+    expect(save.flushNow()).toBe(false)
+    expect(writeHome).toHaveBeenCalledTimes(1)
+
+    finish()
+    await settle()
+    expect(save.leaveGuardArmed.value).toBe(false)
+    expect(save.flushNow()).toBe(true)
+  })
+
+  it('WEB-03: no Design and a closed session never arm it', () => {
+    const sync = synchronousSave(() => true)
+    expect(sync.flushNow()).toBe(true)
+    openSession()
+    edit('a')
+    expect(sync.flushNow()).toBe(false)
+    sync.endSession()
+    expect(sync.leaveGuardArmed.value).toBe(false)
+  })
+})

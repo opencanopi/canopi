@@ -16,6 +16,11 @@ export interface CssDeclarationFact {
 export interface CssFileFacts {
   readonly path: string
   readonly declarations: readonly CssDeclarationFact[]
+  /**
+   * Each block at-rule's prelude as a fact whose property is its at-keyword (`@media`) and value its condition, so a
+   * policy on every property (`*`) reads a breakpoint too (`@media (max-width: 48rem)`).
+   */
+  readonly preludes?: readonly CssDeclarationFact[]
 }
 
 export type CssModuleFacts = CssFileFacts
@@ -30,10 +35,33 @@ interface CssBoundary {
 const CSS_PROPERTY_PATTERN = /^--?[a-z_][\w-]*$|^[a-z_][\w-]*$/i
 
 export function parseCssDeclarations(path: string, source: string): CssDeclarationFact[] {
+  return [...parseCssFile(path, source).declarations]
+}
+
+/** A stylesheet's declarations and its block at-rules' preludes (CssFileFacts). */
+export function parseCssFile(path: string, source: string): CssFileFacts {
   const declarations: CssDeclarationFact[] = []
+  const preludes: CssDeclarationFact[] = []
   const blockStack: string[] = []
   const lineStarts = collectLineStarts(source)
   let index = 0
+  const openBlock = (start: number, end: number) => {
+    const block = normalizeCssFragment(source.slice(start, end))
+    const keyword = /^@[\w-]+/.exec(block)?.[0]
+    if (keyword) {
+      const location = sourceLocation(lineStarts, start)
+      preludes.push({
+        path,
+        rule: [...blockStack].reverse().find((outer) => !outer.startsWith('@')) ?? '',
+        atRules: blockStack.filter((outer) => outer.startsWith('@')),
+        property: keyword.toLowerCase(),
+        value: stripCssComments(block.slice(keyword.length)).trim(),
+        line: location.line,
+        column: location.column,
+      })
+    }
+    blockStack.push(block)
+  }
 
   while (index < source.length) {
     index = skipTrivia(source, index)
@@ -53,7 +81,7 @@ export function parseCssDeclarations(path: string, source: string): CssDeclarati
     const boundary = findBoundary(source, statementStart, true)
 
     if (boundary.kind === 'open-brace') {
-      blockStack.push(normalizeCssFragment(source.slice(statementStart, boundary.index)))
+      openBlock(statementStart, boundary.index)
       index = boundary.index + 1
       continue
     }
@@ -83,7 +111,7 @@ export function parseCssDeclarations(path: string, source: string): CssDeclarati
 
       const blockStart = findOpeningBrace(source, statementStart)
       if (blockStart >= 0) {
-        blockStack.push(normalizeCssFragment(source.slice(statementStart, blockStart)))
+        openBlock(statementStart, blockStart)
         index = blockStart + 1
         continue
       }
@@ -93,7 +121,7 @@ export function parseCssDeclarations(path: string, source: string): CssDeclarati
     index = boundary.kind === 'end' ? source.length : boundary.index + 1
   }
 
-  return declarations
+  return { path, declarations, preludes }
 }
 
 export function discoverCssModuleFacts(root: string | URL): CssModuleFacts[] {
@@ -103,10 +131,7 @@ export function discoverCssModuleFacts(root: string | URL): CssModuleFacts[] {
     .map((filePath) => {
       const relativePath = relative(rootPath, filePath).split(sep).join('/')
       const path = `${pathPrefix}/${relativePath}`
-      return {
-        path,
-        declarations: parseCssDeclarations(path, readFileSync(filePath, 'utf8')),
-      }
+      return parseCssFile(path, readFileSync(filePath, 'utf8'))
     })
     .sort((left, right) => left.path < right.path ? -1 : left.path > right.path ? 1 : 0)
 }
@@ -308,7 +333,7 @@ export function collectCssPolicyViolations(
     }
 
     for (const file of files) {
-      for (const declaration of file.declarations) {
+      for (const declaration of [...file.declarations, ...(file.preludes ?? [])]) {
         if (!picomatch.isMatch(declaration.property, policy.properties, { dot: true, posix: true })) continue
         policy.rawValue.lastIndex = 0
         if (!policy.rawValue.test(declaration.value)) continue
@@ -381,4 +406,95 @@ function cssAtRuleContext(atRules: readonly string[]): string {
 
 function arraysEqual(left: readonly string[], right: readonly string[]): boolean {
   return left.length === right.length && left.every((value, index) => value === right[index])
+}
+
+export function cssMathFunctionBodies(value: string): string[] {
+  const starts = value.matchAll(
+    /\b(?:abs|acos|asin|atan|atan2|calc|clamp|cos|exp|hypot|log|max|min|mod|pow|rem|round|sign|sin|sqrt|tan)\(/gi,
+  )
+  const bodies: string[] = []
+  for (const match of starts) {
+    const open = (match.index ?? 0) + match[0].length - 1
+    const close = matchingParenthesis(value, open)
+    if (close >= 0) bodies.push(value.slice(open + 1, close))
+  }
+  return bodies
+}
+
+function matchingParenthesis(value: string, open: number): number {
+  let depth = 0
+  let quote: string | null = null
+  for (let index = open; index < value.length; index += 1) {
+    const char = value[index]!
+    if (quote) {
+      if (char === '\\') index += 1
+      else if (char === quote) quote = null
+      continue
+    }
+    if (char === '"' || char === "'") quote = char
+    else if (char === '(') depth += 1
+    else if (char === ')' && --depth === 0) return index
+  }
+  return -1
+}
+
+export function splitTopLevelComponents(value: string, splitSlash = false): string[] {
+  const components: string[] = []
+  let start = 0
+  let depth = 0
+  let quote: string | null = null
+  let index = 0
+
+  const push = (end: number) => {
+    const component = value.slice(start, end).trim()
+    if (component) components.push(component)
+  }
+
+  while (index < value.length) {
+    const char = value[index]!
+    if (quote) {
+      if (char === '\\') index += 1
+      else if (char === quote) quote = null
+    } else if (char === '"' || char === "'") {
+      quote = char
+    } else if (char === '(') {
+      depth += 1
+    } else if (char === ')' && depth > 0) {
+      depth -= 1
+    } else if (depth === 0 && (/\s/.test(char) || (splitSlash && char === '/'))) {
+      push(index)
+      start = index + 1
+    }
+    index += 1
+  }
+  push(value.length)
+  return components
+}
+
+/**
+ * The stylesheets that are not CSS Modules (styles/global.css, styles/fonts.css), parsed as the modules are, for the
+ * policies that hold every stylesheet.
+ */
+export function globalStylesheetFacts(directory = 'src'): CssFileFacts[] {
+  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    const path = join(directory, entry.name).split('\\').join('/')
+    if (entry.isDirectory()) return globalStylesheetFacts(path)
+    return entry.name.endsWith('.css') && !entry.name.endsWith('.module.css')
+      ? [parseCssFile(path, readFileSync(path, 'utf8'))]
+      : []
+  }).sort((left, right) => (left.path < right.path ? -1 : left.path > right.path ? 1 : 0))
+}
+
+/**
+ * Text is sized in px tokens, while a rem length follows the browser's default font size: at a large browser font a rem
+ * flex-basis or max-width outgrows its px-sized row and pushes text under its icon or button (canopi-6spu). It holds
+ * every stylesheet, not only the CSS Modules.
+ */
+export const REM_FREE_POLICY: CssDeclarationPolicy = {
+  name: 'Stylesheets size no length in rem',
+  properties: ['*'],
+  rawValue: /(?:^|[^\w.-])(?:\d*\.\d+|\d+)rem(?![\w-])/i,
+  requiredValue: /$^/,
+  accepts: () => false,
+  exceptions: [],
 }

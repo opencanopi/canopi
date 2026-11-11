@@ -31,9 +31,6 @@
     "app-shell -> components": {
       "count": 1
     },
-    "app-shell -> i18n": {
-      "count": 1
-    },
     "app-shell -> ipc": {
       "count": 1
     },
@@ -65,6 +62,9 @@
       "count": 1
     },
     "app/budget -> canvas": {
+      "count": 1
+    },
+    "app/budget -> failures": {
       "count": 1
     },
     "app/budget -> i18n": {
@@ -132,6 +132,9 @@
       "count": 1
     },
     "app/canvas-map-surface -> canvas": {
+      "count": 1
+    },
+    "app/canvas-map-surface -> failures": {
       "count": 1
     },
     "app/canvas-map-surface -> maplibre": {
@@ -260,13 +263,13 @@
     "app/design-edit -> app/document-session": {
       "count": 1
     },
-    "app/design-edit -> app/problem-report": {
-      "count": 1
-    },
     "app/design-edit -> app/timeline": {
       "count": 1
     },
     "app/design-edit -> canvas": {
+      "count": 1
+    },
+    "app/design-edit -> failures": {
       "count": 1
     },
     "app/design-edit -> generated": {
@@ -309,10 +312,10 @@
     "app/document-session -> canvas": {
       "count": 1
     },
-    "app/document-session -> generated": {
+    "app/document-session -> failures": {
       "count": 1
     },
-    "app/document-session -> i18n": {
+    "app/document-session -> generated": {
       "count": 1
     },
     "app/document-session -> ipc": {
@@ -376,13 +379,7 @@
     "app/lidar -> app/document-session": {
       "count": 1
     },
-    "app/lidar -> app/health": {
-      "count": 1
-    },
     "app/lidar -> app/keyboard": {
-      "count": 1
-    },
-    "app/lidar -> app/problem-report": {
       "count": 1
     },
     "app/lidar -> app/settings": {
@@ -395,6 +392,9 @@
       "count": 1
     },
     "app/lidar -> canvas": {
+      "count": 1
+    },
+    "app/lidar -> failures": {
       "count": 1
     },
     "app/lidar -> generated": {
@@ -478,13 +478,10 @@
     "app/planning-view -> app/document-session": {
       "count": 1
     },
-    "app/plant-browser -> app/health": {
-      "count": 1
-    },
-    "app/plant-browser -> app/problem-report": {
-      "count": 1
-    },
     "app/plant-browser -> app/settings": {
+      "count": 1
+    },
+    "app/plant-browser -> failures": {
       "count": 1
     },
     "app/plant-browser -> generated": {
@@ -561,13 +558,11 @@
     "app/problem-report -> app/document-session": {
       "count": 1
     },
+    "app/problem-report -> failures": {
+      "count": 1
+    },
+    "app/problem-report -> generated": { "count": 1, "bead": "canopi-f47t.52.36" },
     "app/problem-report -> i18n": {
-      "count": 1
-    },
-    "app/problem-report -> ipc": {
-      "count": 1
-    },
-    "app/problem-report -> maplibre": {
       "count": 1
     },
     "app/recent-files -> ipc": {
@@ -585,9 +580,13 @@
     "app/saved-object-stamps -> canvas": {
       "count": 1
     },
+    "app/saved-object-stamps -> failures": {
+      "count": 1
+    },
     "app/saved-object-stamps -> generated": {
       "count": 1
     },
+    "app/saved-object-stamps -> i18n": { "count": 1, "bead": "canopi-f47t.52.36" },
     "app/saved-object-stamps -> ipc": {
       "count": 1
     },
@@ -638,13 +637,14 @@
       "count": 1,
       "bead": "canopi-f47t.52.213"
     },
+    "app/settings -> failures": {
+      "count": 1,
+      "bead": "canopi-f47t.52.36"
+    },
     "app/settings -> generated": {
       "count": 1
     },
     "app/shell -> app/document-session": {
-      "count": 1
-    },
-    "app/shell -> app/health": {
       "count": 1
     },
     "app/shell -> app/settings": {
@@ -652,6 +652,10 @@
     },
     "app/shell -> canvas": {
       "count": 1
+    },
+    "app/shell -> failures": {
+      "count": 1,
+      "bead": "canopi-f47t.52.36"
     },
     "app/shell -> generated": {
       "count": 1
@@ -747,6 +751,9 @@
     "app/tool-rail -> canvas": {
       "count": 1
     },
+    "app/updates -> failures": {
+      "count": 1
+    },
     "app/workspace-commands -> app/about": {
       "count": 1
     },
@@ -795,7 +802,13 @@
     "bindings-gen -> canopi-types": {
       "count": 1
     },
+    "canopi-desktop -> canopi-redact": {
+      "count": 1
+    },
     "canopi-desktop -> canopi-types": {
+      "count": 1
+    },
+    "canopi-types -> canopi-redact": {
       "count": 1
     },
     "canvas -> generated": {
@@ -866,6 +879,9 @@
       "count": 1,
       "bead": "canopi-f47t.52.73"
     },
+    "commands -> failures": {
+      "count": 1
+    },
     "commands -> i18n": {
       "count": 1
     },
@@ -919,9 +935,6 @@
       "count": 1
     },
     "components -> app/geocoding": {
-      "count": 1
-    },
-    "components -> app/health": {
       "count": 1
     },
     "components -> app/keyboard": {
@@ -1011,6 +1024,9 @@
     "components -> commands": {
       "count": 1
     },
+    "components -> failures": {
+      "count": 1
+    },
     "components -> generated": {
       "count": 1
     },
@@ -1035,6 +1051,9 @@
     "desktop-root -> platform": {
       "count": 1
     },
+    "failures -> generated": {
+      "count": 1
+    },
     "i18n -> app/settings": {
       "count": 1,
       "bead": "canopi-f47t.52.213"
@@ -1047,9 +1066,18 @@
       "count": 1,
       "bead": "canopi-f47t.52.213"
     },
+    "ipc -> failures": {
+      "count": 1
+    },
+    "ipc -> generated": {
+      "count": 1
+    },
     "maplibre -> canvas": {
       "count": 1,
       "bead": "canopi-f47t.52.213"
+    },
+    "maplibre -> failures": {
+      "count": 1
     },
     "platform -> app/document-session": {
       "count": 1,
@@ -1071,6 +1099,7 @@
       "count": 1,
       "bead": "canopi-f47t.52.213"
     },
+    "platform -> app/problem-report": { "count": 1, "bead": "canopi-f47t.52.36" },
     "platform -> app/settings": {
       "count": 1,
       "bead": "canopi-f47t.52.213"
@@ -1094,6 +1123,9 @@
     "platform -> commands": {
       "count": 1,
       "bead": "canopi-f47t.52.213"
+    },
+    "platform -> failures": {
+      "count": 1
     },
     "platform -> generated": {
       "count": 1
@@ -1175,6 +1207,7 @@
     "web-root -> app/plant-finder": {
       "count": 1
     },
+    "web-root -> app/problem-report": { "count": 1, "bead": "canopi-f47t.52.36" },
     "web-root -> app/saved-views": {
       "count": 1
     },
@@ -1197,6 +1230,9 @@
       "count": 1
     },
     "web-root -> components": {
+      "count": 1
+    },
+    "web-root -> failures": {
       "count": 1
     },
     "web-root -> generated": {

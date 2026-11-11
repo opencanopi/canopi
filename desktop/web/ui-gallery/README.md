@@ -28,7 +28,7 @@ The canvas is the production shared workspace (MapLibre and its Pixi scene layer
 - `sampleDelay=<ms>`: each `lidar_sample_points` answer waits this long. The memory backend samples an analytic site (ground elevation 140 + 30·sin, the surface 6 m above, a canopy 6 ± 4 m, slope from the ground's gradient; no data outside an item's bounds, which cover the west of the fixture Design) and throws on a request over `LIDAR_SAMPLE_MAX_TARGETS` or `LIDAR_SAMPLE_MAX_POINTS`, so the test that sent it fails; Rust's refusal is tested in Rust.
 - `bearing=<degrees>` turns the map clockwise from north once the Design is fitted (the compass, a turned grid); absent, 0 or not a number keeps north up.
 - `location=off|following|moved-away|blocked|stale` on `location` (default `following`); `stale` is Following with the position unavailable.
-- `plantDb=corrupt|missing` (the plant database notice), `theme=dark`, `locale=fr`, `panelWidth=320|352|480|800`.
+- `plantDb=corrupt|missing` (the plant database notice on the notice row), `theme=dark`, `locale=fr`, `panelWidth=320|352|480|800`.
 - `platform=mac|linux`: F1's gesture rows as on a Mac with trackpad gestures (Control-click, the twist), or on Linux with Desktop's pinch note (Desktop only). Only F1 reads it; press F1 on the workspace.
 - `edition=web` uses browser-safe registrations. In a phone-sized window (390×844 or 844×390) it shows the phone layout; between 640 and 760 px the stacked dock. Edition links reload the page so two canvas owners never mount together.
 

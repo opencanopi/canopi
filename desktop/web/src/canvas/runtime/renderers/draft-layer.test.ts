@@ -478,7 +478,7 @@ describe('draft layer', () => {
     expect(pathSteps(fills[0]!).find((step) => step.action === 'circle')?.data.slice(0, 3)).toEqual([0, 0, 2])
   })
 
-  it('a chip whose font has not loaded asks the browser for it once per font, then redraws the draft and asks for a frame', async () => {
+  it('a chip whose font has not loaded asks the browser for it once per font and characters, then redraws the draft and asks for a frame', async () => {
     // Canvas text drawn while its web font loads keeps the fallback and is never redrawn by itself.
     const face = { status: 'unloaded' as FontFaceLoadStatus }
     let finishLoad!: () => void
@@ -504,12 +504,12 @@ describe('draft layer', () => {
       layer.setView(at({ x: 0, y: 0 }, 1))
       const chip = (text: string, tone: 'measure' | 'measure-quiet') => ({ kind: 'label', anchor: { x: 0, y: 0 }, offsetPx: { x: 0, y: 0 }, text, tone }) as const
       layer.setDraft({ shapes: [chip('112 m²', 'measure'), chip('14 m', 'measure-quiet'), chip('8 m', 'measure-quiet')] })
-      layer.setDraft({ shapes: [chip('113 m²', 'measure')] })
+      layer.setDraft({ shapes: [chip('121 m²', 'measure')] })
 
       const size = getDraftLabelVisual('measure').fontSizePx
       expect(load.mock.calls).toEqual([
-        [`600 ${size}px ${CANVAS_CHROME_FONT_FAMILY}`],
-        [`400 ${size}px ${CANVAS_CHROME_FONT_FAMILY}`],
+        [`600 ${size}px ${CANVAS_CHROME_FONT_FAMILY}`, ' 12m²'],
+        [`400 ${size}px ${CANVAS_CHROME_FONT_FAMILY}`, ' 14m'], [`400 ${size}px ${CANVAS_CHROME_FONT_FAMILY}`, ' 8m'],
       ])
       const before = layer.billboardDraftRoot.children[0]
       finishLoad()
@@ -522,7 +522,7 @@ describe('draft layer', () => {
       const loaded = mountLayer()
       loaded.setView(at({ x: 0, y: 0 }, 1))
       loaded.setDraft({ shapes: [chip('4 m', 'measure')] })
-      expect(load, 'a loaded font is not asked for').toHaveBeenCalledTimes(2)
+      expect(load, 'a loaded font is not asked for').toHaveBeenCalledTimes(3)
     } finally {
       Reflect.deleteProperty(document, 'fonts')
     }

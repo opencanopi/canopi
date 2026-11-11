@@ -29,9 +29,12 @@ import { readCurrentLidarPresentation, refreshLidarLibrary, type LidarPresentati
  * A refused or failed call is no answer about the derivative: a wanted key is
  * asked again, ever more slowly with a random spread, so keys refused together
  * never re-ask together. A busy executor ("operations are busy") is only
- * waited out: it never reads Display failed and records nothing. Any other
- * call that keeps failing reads Display failed until one answers, its reason
- * recorded once through `lidarFailureMessage`. When the last asker lets a key
+ * waited out: it never reads Display failed. Any other call that keeps
+ * failing reads Display failed until one answers, the entry of the call that
+ * turned it marked surfaced through `lidarFailureMessage`. Every refused call
+ * is recorded by the transport (2.1-M409), a repeat counted on the entry it
+ * repeats (failures/ring.ts, canopi-vsey); the re-ask back-off bounds how fast
+ * they come. When the last asker lets a key
  * go, its re-asks stop and a call-failure Display failed is dropped, so the
  * next asker asks afresh. A failed preparation is an answer and is never
  * asked again unasked.

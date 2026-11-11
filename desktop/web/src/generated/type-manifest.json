@@ -421,6 +421,11 @@
         "name": "message",
         "flatten": false,
         "skip": false
+      },
+      {
+        "name": "field_path",
+        "flatten": false,
+        "skip": false
       }
     ]
   },
@@ -610,6 +615,36 @@
     ]
   },
   {
+    "name": "Failure",
+    "fields": [
+      {
+        "name": "code",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "user_may_retry",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "op",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "operation",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "detail",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
     "name": "FilterOptions",
     "fields": [
       {
@@ -679,31 +714,6 @@
       },
       {
         "name": "source",
-        "flatten": false,
-        "skip": false
-      }
-    ]
-  },
-  {
-    "name": "FrontendDiagnosticEntry",
-    "fields": [
-      {
-        "name": "level",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "source",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "message",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "timestamp_ms",
         "flatten": false,
         "skip": false
       }
@@ -1493,17 +1503,12 @@
     "name": "ProblemReportRequest",
     "fields": [
       {
-        "name": "description",
+        "name": "sections",
         "flatten": false,
         "skip": false
       },
       {
-        "name": "frontend_diagnostics",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "sensitive_attachments",
+        "name": "current_design",
         "flatten": false,
         "skip": false
       }
@@ -1513,32 +1518,7 @@
     "name": "ProblemReportResult",
     "fields": [
       {
-        "name": "folder_path",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "summary_path",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "bundle_path",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "report_summary",
-        "flatten": false,
-        "skip": false
-      }
-    ]
-  },
-  {
-    "name": "ProblemReportSensitiveAttachments",
-    "fields": [
-      {
-        "name": "current_design",
+        "name": "file_name",
         "flatten": false,
         "skip": false
       }
@@ -1714,6 +1694,86 @@
       },
       {
         "name": "preview",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "ReportManifest",
+    "fields": [
+      {
+        "name": "format",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "created_at",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "entries",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "ReportManifestEntry",
+    "fields": [
+      {
+        "name": "section",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "file",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "status",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "ReportSection",
+    "fields": [
+      {
+        "name": "id",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "file",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "consent",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "privacy",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "ReportSectionText",
+    "fields": [
+      {
+        "name": "id",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "text",
         "flatten": false,
         "skip": false
       }
@@ -3110,6 +3170,21 @@
     ]
   },
   {
+    "name": "StoreHealth",
+    "fields": [
+      {
+        "name": "status",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "notice",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
     "name": "Story",
     "fields": [
       {
@@ -3169,26 +3244,6 @@
       },
       {
         "name": "images",
-        "flatten": false,
-        "skip": false
-      }
-    ]
-  },
-  {
-    "name": "SubsystemHealth",
-    "fields": [
-      {
-        "name": "plant_db",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "lidar_library",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "local_data",
         "flatten": false,
         "skip": false
       }
@@ -3269,31 +3324,6 @@
       },
       {
         "name": "tools",
-        "flatten": false,
-        "skip": false
-      }
-    ]
-  },
-  {
-    "name": "UpdateFailure",
-    "fields": [
-      {
-        "name": "code",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "user_may_retry",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "op",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "detail",
         "flatten": false,
         "skip": false
       }

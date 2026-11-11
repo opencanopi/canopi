@@ -42,8 +42,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      # With the shared packages, in their one bounded download (a slow mirror is left for a second one): WebKitWebDriver
-      # ships in webkit2gtk-driver; the suite runs in its own D-Bus session and X server with openbox; the
+      # With the shared packages, in their one bounded download (a slow mirror is left for a second one): the suite runs in its own D-Bus session and X server with openbox; the
       # single-instance spec minimises the window with xdotool before a second launch must focus it; the reveal spec
       # opens the folder through xdg-open (xdg-utils) when no file manager can select the Design, and xdg-mime, which
       # xdg-open asks for the folder's type outside a desktop session, reads it with file.
@@ -51,7 +50,18 @@ jobs:
         if: runner.os == 'Linux'
         uses: ./.github/actions/install-linux-deps
         with:
-          packages: webkit2gtk-driver xvfb dbus dbus-x11 openbox xdotool xdg-utils file
+          packages: xvfb dbus dbus-x11 openbox xdotool xdg-utils file
+
+      # WebKitWebDriver ships in webkit2gtk-driver up to Ubuntu 24.04 and in webkitgtk-webdriver from 26.04, which
+      # ubuntu-latest became in November 2026; the package lists are fresh from the step above.
+      - name: Install the WebKit driver under this Ubuntu's package name
+        if: runner.os == 'Linux'
+        run: |
+          set -euo pipefail
+          driver=webkit2gtk-driver
+          apt-cache show webkit2gtk-driver 2>/dev/null | grep -q '^Version:' || driver=webkitgtk-webdriver
+          timeout 10m sudo apt-get -o Acquire::Retries=5 -o Acquire::http::Timeout=60 install -y "$driver"
+          echo "CANOPI_WEBKIT_DRIVER=$driver" >> "$GITHUB_ENV"
 
       - uses: dtolnay/rust-toolchain@1.97.1
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
@@ -87,10 +97,10 @@ jobs:
           command -v tauri-driver
           command -v WebKitWebDriver
           engine="$(dpkg-query -W -f='${Version}' libwebkit2gtk-4.1-0)"
-          driver="$(dpkg-query -W -f='${Version}' webkit2gtk-driver)"
-          echo "WebKitGTK $engine, webkit2gtk-driver $driver"
+          driver="$(dpkg-query -W -f='${Version}' "$CANOPI_WEBKIT_DRIVER")"
+          echo "WebKitGTK $engine, $CANOPI_WEBKIT_DRIVER $driver"
           if [ "$engine" != "$driver" ]; then
-            echo "::error::webkit2gtk-driver $driver does not match WebKitGTK $engine"
+            echo "::error::$CANOPI_WEBKIT_DRIVER $driver does not match WebKitGTK $engine"
             exit 1
           fi
 

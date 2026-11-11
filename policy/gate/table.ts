@@ -90,7 +90,7 @@ const ACTIONLINT_VERSION = '1.7.12'
 /** What check:notices regenerates THIRD_PARTY_NOTICES.md from, beside the bundles: the lockfiles, the manifests of
  * desktop and the workspace members it depends on (the crates cargo-about lists), cargo-about's config and template,
  * the generator and its hand rows, and the file itself. */
-const NOTICES_INPUTS = [String.raw`^Cargo\.lock$`, String.raw`^(desktop|canopi-types)/Cargo\.toml$`,
+const NOTICES_INPUTS = [String.raw`^Cargo\.lock$`, String.raw`^(desktop|canopi-types|canopi-redact)/Cargo\.toml$`,
   String.raw`^desktop/web/package-lock\.json$`, String.raw`(^|/)THIRD_PARTY_NOTICES\.md$`,
   String.raw`^about\.(toml|hbs)$`, String.raw`^scripts/(generate_notices\.mjs|notices-hand-rows\.json)$`]
 
@@ -359,19 +359,22 @@ export const TABLE: Table = {
     },
     {
       // What decides whether an update installs (2.1-M64, M82): the updater and the update flow's files outside its
-      // folders (the update contract, the host's exit, operation, single-instance and launch paths, the close guard and
-      // app root, the dialogs owning the selectors updater.spec.ts drives, the release overlay), the scripts the lane
-      // runs, and the lockfiles and manifest that pin the Tauri CLI (the .sig format, 2.1-M210) and tauri-plugin-updater.
+      // folders (the update contract, the host's exit, operation, single-instance and launch paths, the IPC transport its
+      // commands go through, the close guard and app root, the dialogs and the notice row owning the selectors
+      // updater.spec.ts drives, the launch notices and the notice queue that raise Update not installed, the release
+      // overlay), the scripts the lane runs, and the lockfiles and manifest that pin the Tauri CLI (the .sig format,
+      // 2.1-M210) and tauri-plugin-updater.
       name: 'updater', label: 'Updater',
       row: 'CI `{updater-e2e}`',
       workflow: '.github/workflows/updater-e2e.yml',
       patterns: [String.raw`^desktop/src/host/updater/`, String.raw`^desktop/src/commands/update\.rs$`,
-        String.raw`^desktop/web/src/app/updates/`, String.raw`^desktop/web/src/ipc/update\.ts$`,
+        String.raw`^desktop/web/src/app/updates/`, String.raw`^desktop/web/src/ipc/(update|transport)\.ts$`,
         String.raw`^desktop/web/e2e/platform/(updater\.spec\.ts$|support/)`, String.raw`^desktop/(tauri\.conf|updater-endpoints)\.json$`,
         String.raw`^scripts/(update_channel|release_smoke)\.py$`, String.raw`^desktop/web/package-lock\.json$`,
         String.raw`^(desktop/Cargo\.toml|Cargo\.lock)$`,
         String.raw`^canopi-types/src/update\.rs$`, String.raw`^desktop/src/(host/(exit|single_instance|launch)\.rs|native_operation\.rs|lib\.rs)$`,
         String.raw`^desktop/web/src/(app/shell/close-guard\.ts|app\.tsx|components/shared/(AboutCanopi|Settings)Dialog\.tsx)$`,
+        String.raw`^desktop/web/src/(components/(shared/NoticeRow\.tsx|workspace/launch-notices\.ts)|failures/notices\.ts)$`,
         String.raw`^\.github/tauri-release-updater\.json$`],
       actions: ['install-linux-deps'],
       full: ['updater-e2e'],
@@ -420,9 +423,10 @@ export const TABLE: Table = {
     // commit-gate.ts lists a commit changing one of them that is no test.
     policyGate: String.raw`^(?:policy/|\.githooks/|\.github/)`,
     // The test files the web Vitest project runs (desktop/web/vite.config.ts: Vitest's default include, Playwright's e2e/
-    // and e2e-release/ out): scripts/ and vite.config.test.ts beside src/. The deletion guard's Vitest pass lists these,
-    // and the typecheck covers its TypeScript ones; table.test.ts holds the rule to `vitest list --filesOnly`.
-    webVitestTest: String.raw`^desktop/web/(?!e2e/|e2e-release/)(?:[^/]+/)*[^/]+\.(?:test|spec)\.[cm]?[jt]sx?$`,
+    // and e2e-release/ out): scripts/ and vite.config.test.ts beside src/, and the real-app harness's unit tests beside
+    // their modules in e2e/platform/ (`*.test.*`, never a spec; canopi-f47t.52.228.35). The deletion guard's Vitest pass
+    // lists these, and the typecheck covers its TypeScript ones; table.test.ts holds the rule to `vitest list --filesOnly`.
+    webVitestTest: String.raw`^desktop/web/(?:(?!e2e/|e2e-release/)(?:[^/]+/)*[^/]+\.(?:test|spec)|e2e/platform/(?:[^/]+/)*[^/]+\.test)\.[cm]?[jt]sx?$`,
   },
   families: {
     scanner: String.raw`policy-harness|readdirSync|readFileSync\(\s*(?:new URL\(|[\x60'"](?:\./)?src/)`,

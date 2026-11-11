@@ -12,7 +12,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 const host = { launchCheck: true, launchNotice: false }
 
 vi.mock('../components/shared/TitleBar', () => ({ TitleBar: () => null }))
-vi.mock('../components/shared/DegradedBanner', () => ({ DegradedBanner: () => null }))
 vi.mock('../components/shared/CommandPalette', () => ({ CommandPalette: () => null }))
 vi.mock('../components/shared/ProblemReportDialog', () => ({ ProblemReportDialog: () => null }))
 vi.mock('../components/workspace/DesktopWorkspace', () => ({ DesktopWorkspace: () => null }))
@@ -25,22 +24,26 @@ import { aboutCanopiDialogOpen, closeAboutCanopiDialog } from '../app/about/stat
 import { CANOPI_VERSION } from '../app/about/metadata'
 import { locale } from '../app/settings/state'
 import { closeWaitsFor } from '../app/shell/close-guard'
+import { multiOpenNotice } from '../app/document-session/launch-file'
+import { resetNoticesForTests } from '../failures/notices'
+import { reportFailure, resetFailureNoticesForTests } from '../failures/report'
+import { resetFrontendDiagnosticsForTests } from '../failures/ring'
 import { closeSettingsDialog, openSettingsDialog } from '../app/shell/dialogs'
 import { createUpdateController, type UpdateController, type UpdaterPort } from '../app/updates/controller'
-import { AboutCanopiDialog, AboutUpdates, UpdateAvailableNotice } from '../components/shared/AboutCanopiDialog'
+import { AboutCanopiDialog, AboutUpdates } from '../components/shared/AboutCanopiDialog'
 import { LaunchCheckSwitch, SettingsDialog } from '../components/shared/SettingsDialog'
-import type { UpdateDownload, UpdateFailure, UpdateOffer, UpdateOs, UpdateProgress } from '../generated/contracts'
+import type { UpdateDownload, UpdaterFailure, UpdateOffer, UpdateOs, UpdateProgress } from '../generated/contracts'
 import { WebApp } from '../web/WebApp'
 import { unmount } from './support/unmount'
 
 const OFFER: UpdateOffer = { version: '2.1.0', date: '2026-11-02', notes_url: 'https://github.com/opencanopi/canopi/releases/tag/v2.1.0' }
 const DOWNLOAD_PAGE = 'https://projectcanopi.com'
-const OFFLINE: UpdateFailure = { code: { kind: 'network', network: 'offline' }, user_may_retry: true, op: 'updater.check', detail: 'offline' }
-const NO_ENTRY: UpdateFailure = { code: { kind: 'update_no_channel_entry', os: 'linux', arch: 'x86_64', bundle: 'appimage' }, user_may_retry: false, op: 'updater.check', detail: 'no entry' }
-const CANCELLED: UpdateFailure = { code: { kind: 'cancelled' }, user_may_retry: false, op: 'updater.download', detail: 'cancelled by the user' }
-const DOWNLOAD_FAILED: UpdateFailure = { code: { kind: 'network', network: 'timeout' }, user_may_retry: true, op: 'updater.download', detail: 'timed out' }
-const NOT_VERIFIED: UpdateFailure = { code: { kind: 'update_signature_refused' }, user_may_retry: false, op: 'updater.download', detail: 'signature refused' }
-const PROMPT_CLOSED: UpdateFailure = { code: { kind: 'update_admin_prompt_dismissed' }, user_may_retry: true, op: 'updater.install', detail: 'pkexec exit 126' }
+const OFFLINE: UpdaterFailure = { code: { kind: 'network', network: 'offline' }, user_may_retry: true, op: 'updater.check', operation: null, detail: null }
+const NO_ENTRY: UpdaterFailure = { code: { kind: 'update_no_channel_entry', os: 'linux', arch: 'x86_64', bundle: 'appimage' }, user_may_retry: false, op: 'updater.check', operation: null, detail: null }
+const CANCELLED: UpdaterFailure = { code: { kind: 'cancelled' }, user_may_retry: false, op: 'updater.download', operation: null, detail: null }
+const DOWNLOAD_FAILED: UpdaterFailure = { code: { kind: 'network', network: 'timeout' }, user_may_retry: true, op: 'updater.download', operation: null, detail: null }
+const NOT_VERIFIED: UpdaterFailure = { code: { kind: 'update_signature_refused' }, user_may_retry: false, op: 'updater.download', operation: null, detail: null }
+const PROMPT_CLOSED: UpdaterFailure = { code: { kind: 'update_admin_prompt_dismissed' }, user_may_retry: true, op: 'updater.install', operation: null, detail: null }
 
 /** One pending host reply the test settles by hand. */
 interface Pending<T> {
@@ -354,7 +357,7 @@ describe('About › Updates', () => {
 
   // 2.1-Q252: Windows shows Linux's two download reasons; Retry, offered when the failure allows it, downloads again.
   it('on Windows a failed or unverifiable download shows Update not installed with its reason, and Retry downloads again', async () => {
-    const failedWith = async (failure: UpdateFailure) => {
+    const failedWith = async (failure: UpdaterFailure) => {
       const fake = fakePort()
       await showAbout(controllerFor(fake.port, 'windows'))
       await press(action())
@@ -396,37 +399,6 @@ describe('About › Updates', () => {
     await press(button)
     await settle(() => fake.installs[0]!.reject(PROMPT_CLOSED))
     expect({ focused: document.activeElement === button, same: action() === button }).toEqual({ focused: true, same: true })
-  })
-})
-
-describe('Available-update notice', () => {
-  let container: HTMLDivElement
-
-  beforeEach(() => {
-    container = document.createElement('div')
-    document.body.innerHTML = ''
-    document.body.appendChild(container)
-    locale.value = 'en'
-    closeAboutCanopiDialog()
-  })
-
-  afterEach(() => {
-    unmount(container)
-    container.remove()
-    closeAboutCanopiDialog()
-  })
-
-  it('the notice is non-modal, takes no focus and opens About', async () => {
-    const before = document.createElement('button')
-    document.body.appendChild(before)
-    before.focus()
-    await act(async () => { render(<UpdateAvailableNotice version="2.1.0" onDismiss={() => {}} />, container) })
-
-    const notice = container.querySelector<HTMLElement>('[role="status"]')!
-    expect({ text: notice.textContent, modal: container.querySelector('[aria-modal]'), focused: document.activeElement === before })
-      .toEqual({ text: 'Canopi 2.1.0 is availableAbout Canopi', modal: null, focused: true })
-    await act(async () => { notice.querySelector('button')!.dispatchEvent(new MouseEvent('click', { bubbles: true })) })
-    expect(aboutCanopiDialogOpen.value).toBe(true)
   })
 })
 
@@ -491,7 +463,7 @@ describe('Web root', () => {
       about: about?.includes('Check for updates'),
       section: container.querySelector('[data-about-updates]'),
       launchCheck: container.querySelector('[data-launch-check]'),
-      notice: container.querySelector('[data-update-notice]'),
+      notice: container.querySelector('[data-notice-key="update.available"]'),
     }).toEqual({ about: false, section: null, launchCheck: null, notice: null })
   })
 })
@@ -513,32 +485,86 @@ describe('Desktop root', () => {
     unmount(container)
     container.remove()
     closeAboutCanopiDialog()
+    closeWaitsFor.value = null
+    multiOpenNotice.value = null
+    resetNoticesForTests()
+    resetFailureNoticesForTests()
+    resetFrontendDiagnosticsForTests()
   })
 
-  it('the Desktop root shows the launch check\'s notice once, takes no focus, and its About offers Download and install', async () => {
-    const before = document.activeElement
-    await act(async () => { render(<App updates={rootPorts()} />, container) })
-    await vi.waitFor(() => expect(container.querySelector('[data-update-notice]')).not.toBeNull())
+  /** The notice row while it shows the notice raised under `key`; null otherwise. */
+  function rowNotice(key: string): HTMLElement | null {
+    return container.querySelector<HTMLElement>(`[data-notice-row][data-notice-key="${key}"]`)
+  }
 
-    expect({ notices: container.querySelectorAll('[data-update-notice]').length, focused: document.activeElement === before })
-      .toEqual({ notices: 1, focused: true })
-    await act(async () => { container.querySelector<HTMLButtonElement>('[data-update-notice] button')!.click() })
+  /** The closing notice while a window close waits for `waitsFor`, and the row once the wait settles. */
+  async function closingNotice(waitsFor: 'install' | 'exit') {
+    host.launchCheck = false
+    await act(async () => { render(<App updates={rootPorts()} dismissStoreNoticeOnHost={async () => {}} />, container) })
+    await act(async () => { closeWaitsFor.value = waitsFor })
+    const notice = rowNotice('update.closing')
+    const shown = { text: notice?.textContent, role: notice?.getAttribute('role') }
+    await act(async () => { closeWaitsFor.value = null })
+    return { shown, after: rowNotice('update.closing') }
+  }
+
+  function dismissShown(): Promise<void> {
+    return act(async () => { container.querySelector<HTMLButtonElement>('[data-notice-row] button[aria-label="Dismiss"]')!.click() })
+  }
+
+  it('the Desktop root shows the launch check\'s notice on the notice row once, takes no focus, and its About offers Download and install (2.1-Q293)', async () => {
+    const before = document.activeElement
+    await act(async () => { render(<App updates={rootPorts()} dismissStoreNoticeOnHost={async () => {}} />, container) })
+    await vi.waitFor(() => expect(rowNotice('update.available')).not.toBeNull())
+
+    const rows = container.querySelectorAll('[data-notice-row]').length
+    expect({ rows, text: rowNotice('update.available')!.textContent, modal: container.querySelector('[aria-modal]'), focused: document.activeElement === before })
+      .toEqual({ rows: 1, text: 'Canopi 2.1.0 is availableAbout Canopi', modal: null, focused: true })
+    await act(async () => { [...rowNotice('update.available')!.querySelectorAll('button')].find((button) => button.textContent === 'About Canopi')!.click() })
     expect(container.querySelector('[data-about-updates] button')!.textContent).toBe('Download and install')
-    expect(container.querySelector('[data-update-notice]')).toBeNull()
+    // Opening About is no dismissal: the notice stays until dismissed or installed this session (2.1-Q293).
+    expect(rowNotice('update.available')).not.toBeNull()
+  })
+
+  it('[canopi-f47t.52.36] a dismissed update notice stays hidden for the session and shows again at the next launch, with nothing stored (2.1-Q293)', async () => {
+    const stored = { local: localStorage.length, session: sessionStorage.length }
+    await act(async () => { render(<App updates={rootPorts()} dismissStoreNoticeOnHost={async () => {}} />, container) })
+    await vi.waitFor(() => expect(rowNotice('update.available')).not.toBeNull())
+    await dismissShown()
+    expect(rowNotice('update.available')).toBeNull()
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)) })
+    expect(rowNotice('update.available')).toBeNull()
+    // The next launch: a fresh root over the same host.
+    unmount(container)
+    await act(async () => { render(<App updates={rootPorts()} dismissStoreNoticeOnHost={async () => {}} />, container) })
+    await vi.waitFor(() => expect(rowNotice('update.available')).not.toBeNull())
+    expect({ local: localStorage.length, session: sessionStorage.length }).toEqual(stored)
+  })
+
+  it('[canopi-f47t.52.36] a launch notice and a failure notice share the one notice row, the oldest first with "1 of 2" (2.1-Q290)', async () => {
+    host.launchCheck = false
+    multiOpenNotice.value = 7
+    await act(async () => { render(<App updates={rootPorts()} dismissStoreNoticeOnHost={async () => {}} />, container) })
+    await act(async () => { reportFailure(new Error('disk full'), { shown: 'notice', source: 'export', code: { kind: 'io', io: 'no_space' } }) })
+    const rows = container.querySelectorAll('[data-notice-row]').length
+    const shown = rowNotice('launch.multi-open')?.textContent?.includes('Canopi opens one Design at a time')
+    expect({ rows, shown, count: container.querySelector('[data-notice-count]')?.textContent }).toEqual({ rows: 1, shown: true, count: '1 of 2' })
+    await dismissShown()
+    expect({ multiOpen: multiOpenNotice.value, rows: container.querySelectorAll('[data-notice-row]').length }).toEqual({ multiOpen: null, rows: 1 })
   })
 
   it('the Desktop root runs no launch check when Check for updates at launch is off', async () => {
     host.launchCheck = false
-    await act(async () => { render(<App updates={rootPorts()} />, container) })
+    await act(async () => { render(<App updates={rootPorts()} dismissStoreNoticeOnHost={async () => {}} />, container) })
     await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)) })
 
-    expect(container.querySelector('[data-update-notice]')).toBeNull()
+    expect(rowNotice('update.available')).toBeNull()
   })
 
   it('after a Windows update that did not install, the Desktop root says Update not installed once', async () => {
     host.launchCheck = false
     host.launchNotice = true
-    await act(async () => { render(<App updates={rootPorts()} />, container) })
+    await act(async () => { render(<App updates={rootPorts()} dismissStoreNoticeOnHost={async () => {}} />, container) })
     await vi.waitFor(() => expect(container.textContent).toContain('Update not installed'))
   })
 
@@ -548,40 +574,24 @@ describe('Desktop root', () => {
     const before = document.activeElement
     vi.useFakeTimers()
     try {
-      await act(async () => { render(<App updates={rootPorts()} />, container) })
-      await vi.waitFor(() => expect(container.querySelector('[data-update-failed-notice]')).not.toBeNull())
+      await act(async () => { render(<App updates={rootPorts()} dismissStoreNoticeOnHost={async () => {}} />, container) })
+      await vi.waitFor(() => expect(rowNotice('update.not-installed')).not.toBeNull())
       await act(async () => { vi.advanceTimersByTime(60_000) })
     } finally {
       vi.useRealTimers()
     }
-    const notice = container.querySelector<HTMLElement>('[data-update-failed-notice]')
+    const notice = rowNotice('update.not-installed')
     expect({ text: notice?.textContent, focused: document.activeElement === before })
-      .toEqual({ text: 'Update not installedDismiss', focused: true })
-    await act(async () => { notice!.querySelector<HTMLButtonElement>('button')!.click() })
-    expect(container.querySelector('[data-update-failed-notice]')).toBeNull()
+      .toEqual({ text: 'Update not installed', focused: true })
+    await dismissShown()
+    expect(rowNotice('update.not-installed')).toBeNull()
   })
 
   it('while a window close waits for an update install the Desktop root says Installing update… (canopi-f47t.52.228.15)', async () => {
-    host.launchCheck = false
-    await act(async () => { render(<App updates={rootPorts()} />, container) })
-    await act(async () => { closeWaitsFor.value = 'install' })
-    const notice = container.querySelector<HTMLElement>('[data-update-closing-notice]')
-    const shown = { text: notice?.textContent, role: notice?.getAttribute('role') }
-    await act(async () => { closeWaitsFor.value = null })
-
-    expect({ shown, after: container.querySelector('[data-update-closing-notice]') })
-      .toEqual({ shown: { text: 'Installing update…', role: 'status' }, after: null })
+    expect(await closingNotice('install')).toEqual({ shown: { text: 'Installing update…', role: 'status' }, after: null })
   })
 
   it('while a window close waits for an update\'s exit flush, installer start or restart the Desktop root says Finishing update… (canopi-f47t.52.228)', async () => {
-    host.launchCheck = false
-    await act(async () => { render(<App updates={rootPorts()} />, container) })
-    await act(async () => { closeWaitsFor.value = 'exit' })
-    const notice = container.querySelector<HTMLElement>('[data-update-closing-notice]')
-    const shown = { text: notice?.textContent, role: notice?.getAttribute('role') }
-    await act(async () => { closeWaitsFor.value = null })
-
-    expect({ shown, after: container.querySelector('[data-update-closing-notice]') })
-      .toEqual({ shown: { text: 'Finishing update…', role: 'status' }, after: null })
+    expect(await closingNotice('exit')).toEqual({ shown: { text: 'Finishing update…', role: 'status' }, after: null })
   })
 })

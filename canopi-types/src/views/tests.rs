@@ -3,6 +3,16 @@
 use super::*;
 use serde_json::json;
 
+/// The views and stories check with its refusal as the text a log reads.
+fn views_and_stories(views: &[SavedView], stories: &[Story]) -> Result<(), String> {
+    validate_views_and_stories(views, stories).map_err(|refusal| refusal.to_string())
+}
+
+/// The map view check with its refusal as the text a log reads.
+fn map_view_check(map_view: Option<&SavedViewCamera>) -> Result<(), String> {
+    validate_map_view(map_view).map_err(|refusal| refusal.to_string())
+}
+
 fn view_value(camera: serde_json::Value) -> serde_json::Value {
     json!({
         "id": "view-1",
@@ -86,17 +96,21 @@ fn rich_text_marks_default_to_plain() {
 
 #[test]
 fn view_cameras_must_be_on_the_map_with_in_range_zoom_and_bearing() {
-    for (lon, lat, zoom, bearing) in [
-        (180.5, 0.0, 10.0, 0.0),
-        (0.0, 86.0, 10.0, 0.0),
-        (0.0, 0.0, 27.5, 0.0),
-        (0.0, 0.0, -1.0, 0.0),
-        (0.0, 0.0, 10.0, 361.0),
+    for (lon, lat, zoom, bearing, leaf) in [
+        (180.5, 0.0, 10.0, 0.0, "lon"),
+        (0.0, 86.0, 10.0, 0.0, "lat"),
+        (0.0, 0.0, 27.5, 0.0, "zoom"),
+        (0.0, 0.0, -1.0, 0.0, "zoom"),
+        (0.0, 0.0, 10.0, 361.0, "bearing"),
+        (180.5, 86.0, 27.5, 0.0, "lat"),
     ] {
         let view: SavedView = serde_json::from_value(view_value(camera(lon, lat, zoom, bearing)))
             .expect("view should parse");
-        let error = validate_views_and_stories(&[view], &[]).expect_err("camera is invalid");
-        assert!(error.starts_with("$.views[0].camera"), "{error}");
+        let refusal = validate_views_and_stories(&[view], &[]).expect_err("camera is invalid");
+        assert_eq!(
+            refusal.field_path.to_string(),
+            format!("$.views[0].camera.{leaf}")
+        );
     }
 }
 
@@ -138,14 +152,14 @@ fn view_ground_sizes_round_trip_and_must_be_positive_finite_and_at_most_1e8_m() 
         }
     );
     assert_eq!(serde_json::to_value(&view).expect("serialize"), value);
-    validate_views_and_stories(&[view], &[]).expect("a positive ground size is valid");
+    views_and_stories(&[view], &[]).expect("a positive ground size is valid");
 
     let mut largest = valid_view();
     largest.camera.ground_size_m = SavedViewGroundSize {
         width: SAVED_VIEW_MAX_GROUND_SIZE_M,
         height: SAVED_VIEW_MAX_GROUND_SIZE_M,
     };
-    validate_views_and_stories(&[largest], &[]).expect("1e8 m is the largest ground size");
+    views_and_stories(&[largest], &[]).expect("1e8 m is the largest ground size");
 
     for (width, height) in [
         (0.0, 200.0),
@@ -156,7 +170,7 @@ fn view_ground_sizes_round_trip_and_must_be_positive_finite_and_at_most_1e8_m() 
     ] {
         let mut view = valid_view();
         view.camera.ground_size_m = SavedViewGroundSize { width, height };
-        let error = validate_views_and_stories(&[view], &[]).expect_err("ground size is invalid");
+        let error = views_and_stories(&[view], &[]).expect_err("ground size is invalid");
         assert!(
             error.starts_with("$.views[0].camera.ground_size_m: "),
             "{error}"
@@ -176,11 +190,14 @@ fn story_steps_must_name_a_saved_view() {
         }))
         .expect("story should parse")
     };
-    validate_views_and_stories(std::slice::from_ref(&view), &[story("view-1")])
+    views_and_stories(std::slice::from_ref(&view), &[story("view-1")])
         .expect("known view is valid");
     assert_eq!(
-        validate_views_and_stories(&[view], &[story("missing")]),
-        Err("$.stories[0].steps[0].view_id: no saved view \"missing\"".to_owned()),
+        views_and_stories(&[view], &[story("missing")]),
+        Err(
+            "$.stories[0].steps[0].view_id: expected the id of a saved view in this Design"
+                .to_owned()
+        ),
     );
 }
 
@@ -214,19 +231,19 @@ fn data_uri(mime: &str, decoded_bytes: usize) -> String {
 fn saved_view_and_story_ids_are_unique() {
     let view = valid_view();
     assert_eq!(
-        validate_views_and_stories(&[view.clone(), view.clone()], &[]),
-        Err("$.views[1].id: duplicate saved view id \"view-1\"".to_owned()),
+        views_and_stories(&[view.clone(), view.clone()], &[]),
+        Err("$.views[1].id: expected a unique saved view id".to_owned()),
     );
     let story = story_with_step(json!({ "id": "step-1", "view_id": "view-1", "title": "A" }));
     assert_eq!(
-        validate_views_and_stories(std::slice::from_ref(&view), &[story.clone(), story.clone()]),
-        Err("$.stories[1].id: duplicate story id \"story-1\"".to_owned()),
+        views_and_stories(std::slice::from_ref(&view), &[story.clone(), story.clone()]),
+        Err("$.stories[1].id: expected a unique story id".to_owned()),
     );
     let mut twice = story;
     twice.steps.push(twice.steps[0].clone());
     assert_eq!(
-        validate_views_and_stories(&[view], &[twice]),
-        Err("$.stories[0].steps[1].id: duplicate step id \"step-1\"".to_owned()),
+        views_and_stories(&[view], &[twice]),
+        Err("$.stories[0].steps[1].id: expected a unique step id".to_owned()),
     );
 }
 
@@ -243,7 +260,7 @@ fn rich_text_links_open_only_web_and_mail_schemes() {
             { "kind": "paragraph", "spans": [{ "text": "x", "link": link }] }
         ]))
         .expect("text should parse");
-        validate_views_and_stories(&[view], &[]).expect("allowed link scheme");
+        views_and_stories(&[view], &[]).expect("allowed link scheme");
     }
     for link in [
         "javascript:alert(1)",
@@ -257,7 +274,7 @@ fn rich_text_links_open_only_web_and_mail_schemes() {
             { "kind": "bullets", "items": [{ "spans": [{ "text": "x", "link": link }] }] }
         ]))
         .expect("text should parse");
-        let error = validate_views_and_stories(&[view], &[]).expect_err("link scheme is refused");
+        let error = views_and_stories(&[view], &[]).expect_err("link scheme is refused");
         assert_eq!(
             error,
             "$.views[0].text[0].items[0].spans[0].link: links must be https:, http: or mailto:",
@@ -268,8 +285,7 @@ fn rich_text_links_open_only_web_and_mail_schemes() {
         "id": "step-1", "view_id": "view-1", "title": "A",
         "text": [{ "kind": "paragraph", "spans": [{ "text": "x", "link": "vbscript:x" }] }]
     }));
-    let error =
-        validate_views_and_stories(&[valid_view()], &[step]).expect_err("step link is refused");
+    let error = views_and_stories(&[valid_view()], &[step]).expect_err("step link is refused");
     assert!(
         error.starts_with("$.stories[0].steps[0].text[0].spans[0].link"),
         "{error}"
@@ -286,7 +302,7 @@ fn story_images_are_https_links_or_embedded_raster_images() {
         data_uri("image/gif", 3),
     ] {
         let story = story_with_step(step_with_images(json!([{ "src": src, "alt": "Hedge" }])));
-        validate_views_and_stories(&[valid_view()], &[story]).expect("image source is allowed");
+        views_and_stories(&[valid_view()], &[story]).expect("image source is allowed");
     }
     for src in [
         "http://example.org/hedge.jpg",
@@ -299,8 +315,8 @@ fn story_images_are_https_links_or_embedded_raster_images() {
         "data:image/png;base64,AAA",
     ] {
         let story = story_with_step(step_with_images(json!([{ "src": src }])));
-        let error = validate_views_and_stories(&[valid_view()], &[story])
-            .expect_err("image source is refused");
+        let error =
+            views_and_stories(&[valid_view()], &[story]).expect_err("image source is refused");
         assert!(
             error.starts_with("$.stories[0].steps[0].images[0].src: "),
             "{src}: {error}"
@@ -313,13 +329,13 @@ fn an_embedded_image_holds_at_most_one_megabyte() {
     let at_cap = story_with_step(step_with_images(
         json!([{ "src": data_uri("image/jpeg", STORY_IMAGE_MAX_BYTES) }]),
     ));
-    validate_views_and_stories(&[valid_view()], &[at_cap]).expect("an image at the cap is allowed");
+    views_and_stories(&[valid_view()], &[at_cap]).expect("an image at the cap is allowed");
 
     let over = story_with_step(step_with_images(
         json!([{ "src": data_uri("image/jpeg", STORY_IMAGE_MAX_BYTES + 1) }]),
     ));
     assert_eq!(
-        validate_views_and_stories(&[valid_view()], &[over]),
+        views_and_stories(&[valid_view()], &[over]),
         Err(format!(
             "$.stories[0].steps[0].images[0].src: an embedded image holds at most {STORY_IMAGE_MAX_BYTES} bytes"
         )),
@@ -340,7 +356,7 @@ fn a_design_embeds_at_most_ten_megabytes_of_images() {
     };
     assert_eq!(STORY_IMAGES_MAX_TOTAL_BYTES, 10 * STORY_IMAGE_MAX_BYTES);
     let full = [story("a", steps(6, "a")), story("b", steps(4, "b"))];
-    validate_views_and_stories(&[valid_view()], &full).expect("ten full images fit");
+    views_and_stories(&[valid_view()], &full).expect("ten full images fit");
 
     let mut over = full.to_vec();
     over[1].steps[3].images.push(StoryImage {
@@ -348,7 +364,7 @@ fn a_design_embeds_at_most_ten_megabytes_of_images() {
         alt: String::new(),
     });
     assert_eq!(
-        validate_views_and_stories(&[valid_view()], &over),
+        views_and_stories(&[valid_view()], &over),
         Err(format!(
             "$.stories[1].steps[3].images[1].src: a Design embeds at most {STORY_IMAGES_MAX_TOTAL_BYTES} bytes of images"
         )),
@@ -364,13 +380,13 @@ fn a_story_image_whose_base64_holds_plus_and_slash_is_admitted_and_one_outside_b
         ))
     };
     for payload in ["A+/A", "+/+/", "AB+=", "A/=="] {
-        validate_views_and_stories(&[valid_view()], &[image(payload)])
+        views_and_stories(&[valid_view()], &[image(payload)])
             .unwrap_or_else(|error| panic!("{payload}: {error}"));
     }
     // Each the length of whole base64 quads, so only the alphabet refuses it.
     for payload in ["AA-A", "AA_A", "AA A", "AA.A", "AAé", "A=AA"] {
         assert_eq!(
-            validate_views_and_stories(&[valid_view()], &[image(payload)]),
+            views_and_stories(&[valid_view()], &[image(payload)]),
             Err(
                 "$.stories[0].steps[0].images[0].src: an embedded image must be valid base64 data"
                     .to_owned()
@@ -389,9 +405,9 @@ fn two_embedded_images_of_1_mib_are_admitted_and_eleven_are_refused_canopi_f47t_
             count
         ])))
     };
-    validate_views_and_stories(&[valid_view()], &[images(2)]).expect("two 1 MiB images fit");
+    views_and_stories(&[valid_view()], &[images(2)]).expect("two 1 MiB images fit");
     assert_eq!(
-        validate_views_and_stories(&[valid_view()], &[images(11)]),
+        views_and_stories(&[valid_view()], &[images(11)]),
         Err(format!(
             "$.stories[0].steps[0].images[10].src: a Design embeds at most {STORY_IMAGES_MAX_TOTAL_BYTES} bytes of images"
         )),
@@ -404,24 +420,24 @@ fn a_map_view_at_latitude_89_with_zoom_above_the_maximum_or_ground_size_0_is_ref
     let map_view = |camera: serde_json::Value| -> SavedViewCamera {
         serde_json::from_value(camera).expect("camera should parse")
     };
-    validate_map_view(Some(&map_view(camera(2.0, 48.0, SAVED_VIEW_MAX_ZOOM, 0.0))))
+    map_view_check(Some(&map_view(camera(2.0, 48.0, SAVED_VIEW_MAX_ZOOM, 0.0))))
         .expect("a map view at the maximum zoom is admitted");
-    validate_map_view(None).expect("a Design without a map view is admitted");
+    map_view_check(None).expect("a Design without a map view is admitted");
     let off_map = format!(
-        "$.map_view: expected lon in [-180, 180], a Web Mercator latitude (±{WEB_MERCATOR_MAX_LATITUDE_DEG}), zoom in [0, {SAVED_VIEW_MAX_ZOOM}] and bearing in [0, 360]"
+        "$.map_view.lat: expected a Web Mercator latitude in [-{WEB_MERCATOR_MAX_LATITUDE_DEG}, {WEB_MERCATOR_MAX_LATITUDE_DEG}]"
     );
-    for (camera, label) in [
-        (camera(2.0, 89.0, 17.0, 0.0), "latitude 89"),
-        (camera(2.0, -89.0, 17.0, 0.0), "latitude -89"),
+    let too_close = format!("$.map_view.zoom: expected zoom in [0, {SAVED_VIEW_MAX_ZOOM}]");
+    for (camera, expected) in [
+        (camera(2.0, 89.0, 17.0, 0.0), &off_map),
+        (camera(2.0, -89.0, 17.0, 0.0), &off_map),
         (
             camera(2.0, 48.0, SAVED_VIEW_MAX_ZOOM + 0.5, 0.0),
-            "zoom above the maximum",
+            &too_close,
         ),
     ] {
         assert_eq!(
-            validate_map_view(Some(&map_view(camera))),
-            Err(off_map.clone()),
-            "{label}"
+            map_view_check(Some(&map_view(camera))),
+            Err(expected.clone())
         );
     }
     let ground_size = format!(
@@ -434,7 +450,7 @@ fn a_map_view_at_latitude_89_with_zoom_above_the_maximum_or_ground_size_0_is_ref
         let mut zero = camera(2.0, 48.0, 17.0, 0.0);
         zero["ground_size_m"] = size.clone();
         assert_eq!(
-            validate_map_view(Some(&map_view(zero))),
+            map_view_check(Some(&map_view(zero))),
             Err(ground_size.clone()),
             "{size}"
         );

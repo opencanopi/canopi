@@ -37,10 +37,22 @@ export interface GeoJsonFileAdapter {
   writeGeoJsonFile(text: string, fileName: string): Promise<GeoJsonWriteOutcome>
 }
 
+type NoticeParams = Readonly<Record<string, string | number>>
+
+/** An import or export outcome as locale keys, so each edition words it in the current locale. */
 export interface GeoJsonNotice {
   readonly tone: 'info' | 'error'
-  readonly title: string
-  readonly message: string
+  readonly title: LocaleKey
+  readonly message: LocaleKey
+  readonly params?: NoticeParams
+  /** A second sentence: the features the import skipped. */
+  readonly detail?: { readonly message: LocaleKey; readonly params?: NoticeParams }
+}
+
+/** The notice's message and its second sentence in the current locale, for a native message box. */
+export function geoJsonNoticeText(notice: GeoJsonNotice, translate: (key: LocaleKey, params?: NoticeParams) => string = t): string {
+  const message = translate(notice.message, notice.params)
+  return notice.detail ? `${message} ${translate(notice.detail.message, notice.detail.params)}` : message
 }
 
 interface GeoJsonCanvas {
@@ -65,7 +77,6 @@ export interface GeoJsonWorkflowDeps {
   readonly canvas?: () => GeoJsonCanvas | null
   /** Identity of the open Design Session; an import applies only to the session it began in. */
   readonly sessionIdentity?: () => object | null
-  readonly translate?: (key: LocaleKey, options?: Record<string, unknown>) => string
 }
 
 export interface GeoJsonWorkflow {
@@ -85,11 +96,11 @@ export function createGeoJsonWorkflow({
   designName,
   canvas = readCurrentGeoJsonCanvas,
   sessionIdentity = () => designSessionStore.sessionIdentity.peek(),
-  translate = t,
 }: GeoJsonWorkflowDeps): GeoJsonWorkflow {
-  const importTitle = () => translate('geojson.importTitle')
-  const exportTitle = () => translate('geojson.exportTitle')
-  const error = async (title: string, message: string) => notify({ tone: 'error', title, message })
+  const importTitle = 'geojson.importTitle'
+  const exportTitle = 'geojson.exportTitle'
+  const error = async (title: LocaleKey, message: LocaleKey, params?: NoticeParams) =>
+    notify({ tone: 'error', title, message, ...(params ? { params } : {}) })
 
   async function importGeoJson(): Promise<GeoJsonImportOutcome> {
     if (!canvas()) return { status: 'unavailable' }
@@ -99,7 +110,7 @@ export function createGeoJsonWorkflow({
       file = await files.pickGeoJsonFile()
     } catch (cause) {
       console.error('GeoJSON import could not read the file:', cause)
-      await error(importTitle(), translate('geojson.readFailed'))
+      await error(importTitle, 'geojson.readFailed')
       return { status: 'read-failed' }
     }
     if (!file) return { status: 'cancelled' }
@@ -109,13 +120,16 @@ export function createGeoJsonWorkflow({
       decoded = parseDesignGeoJson(file.text)
     } catch (cause) {
       if (!(cause instanceof GeoJsonImportError)) throw cause
-      await error(importTitle(), rejectionMessage(cause, translate))
+      await error(importTitle, `geojson.errors.${cause.code}`, {
+        feature: cause.featureIndex === null ? '' : cause.featureIndex + 1,
+        max: GEOJSON_MAX_FEATURES,
+      })
       return { status: 'rejected', code: cause.code }
     }
 
     const { counts, skipped, objects } = decoded
     if (counts.plants + counts.zones + counts.annotations + counts.measurementGuides === 0) {
-      await notify({ tone: 'info', title: importTitle(), message: withSkipped(translate('geojson.importNothing'), skipped, translate) })
+      await notify({ tone: 'info', title: importTitle, message: 'geojson.importNothing', ...skippedDetail(skipped) })
       return { status: 'empty', skipped }
     }
 
@@ -124,19 +138,21 @@ export function createGeoJsonWorkflow({
     if (!target || sessionIdentity() !== session) return { status: 'unavailable' }
     const receipt = target.commands.sceneEdits.importDesignObjects(objects)
     if (!receipt.committed) {
-      await error(importTitle(), translate('geojson.busy'))
+      await error(importTitle, 'geojson.busy')
       return { status: 'busy' }
     }
     target.commands.viewport.zoomToFit()
     await notify({
       tone: 'info',
-      title: importTitle(),
-      message: withSkipped(translate('geojson.importSummary', {
+      title: importTitle,
+      message: 'geojson.importSummary',
+      params: {
         plants: counts.plants,
         zones: counts.zones,
         annotations: counts.annotations,
         guides: counts.measurementGuides,
-      }), skipped, translate),
+      },
+      ...skippedDetail(skipped),
     })
     return { status: 'imported', counts, skipped }
   }
@@ -146,7 +162,7 @@ export function createGeoJsonWorkflow({
     if (!source) return { status: 'unavailable' }
     const objects = source.queries.getSettledDesignObjects()
     if (!objects) {
-      await error(exportTitle(), translate('geojson.busy'))
+      await error(exportTitle, 'geojson.busy')
       return { status: 'busy' }
     }
     const text = serializeDesignGeoJson(objects)
@@ -155,7 +171,7 @@ export function createGeoJsonWorkflow({
       outcome = await files.writeGeoJsonFile(text, `${safeFileStem(designName())}.geojson`)
     } catch (cause) {
       console.error('GeoJSON export could not write the file:', cause)
-      await error(exportTitle(), translate('geojson.writeFailed'))
+      await error(exportTitle, 'geojson.writeFailed')
       return { status: 'write-failed' }
     }
     if (outcome === 'cancelled') return { status: 'cancelled' }
@@ -173,22 +189,8 @@ export function createGeoJsonWorkflow({
   }
 }
 
-function rejectionMessage(
-  error: GeoJsonImportError,
-  translate: NonNullable<GeoJsonWorkflowDeps['translate']>,
-): string {
-  return translate(`geojson.errors.${error.code}`, {
-    feature: error.featureIndex === null ? '' : error.featureIndex + 1,
-    max: GEOJSON_MAX_FEATURES,
-  })
-}
-
-function withSkipped(
-  message: string,
-  skipped: number,
-  translate: NonNullable<GeoJsonWorkflowDeps['translate']>,
-): string {
-  return skipped > 0 ? `${message} ${translate('geojson.importSkipped', { count: skipped })}` : message
+function skippedDetail(skipped: number): Pick<GeoJsonNotice, 'detail'> {
+  return skipped > 0 ? { detail: { message: 'geojson.importSkipped', params: { count: skipped } } } : {}
 }
 
 function safeFileStem(name: string): string {

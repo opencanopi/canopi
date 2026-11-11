@@ -10,7 +10,7 @@ Source: ADR 0024 Library jobs; ADR 0025; contracts §3, §7, §8; 2.1-M56, 2.1-Q
 ```mermaid
 sequenceDiagram
   participant UI as app/data-library/ library store (2.1)
-  participant IPC as ipc/transport.ts (2.1)
+  participant IPC as ipc/transport.ts
   participant F as canopi-library facade (2.1)
   participant EX as canopi-support executor (2.1)
   participant R as canopi-library job runner, owner of library_jobs and the Job lane slots (2.1)
@@ -149,16 +149,16 @@ sequenceDiagram
 ### Failure from native code to the notice and the report
 
 Model: target
-Source: ADR 0025; contracts §2; 2.1-Q60, 2.1-Q86, 2.1-Q47
+Source: ADR 0025; contracts §2; 2.1-Q60, 2.1-Q86, 2.1-Q47, 2.1-Q276, 2.1-Q277
 
 ```mermaid
 sequenceDiagram
   participant SVC as service crate facade (2.1)
   participant LOG as redacting JSON tracing layer (2.1)
-  participant IPC as ipc/transport.ts (2.1)
+  participant IPC as ipc/transport.ts
   participant C as calling feature, L3
   participant FR as failures/ reportFailure, ring, notice signal (2.1)
-  participant PR as app/problem-report/
+  participant PR as app/problem-report/ builder, through the platform/problem-report.ts port
   participant RB as services/problem_report/
   SVC->>LOG: settlement: op, operation, lane, code, queued_ms, running_ms, slow
   SVC-->>IPC: Err(Failure): code, user_may_retry, op, detail as RedactedText
@@ -169,14 +169,15 @@ sequenceDiagram
   FR-)C: notice row, Retry only when user_may_retry
   C->>PR: Report a problem from the notice, with its code
   PR->>FR: ring, that OperationId first
-  PR->>RB: request with REPORT_SECTIONS consent
-  RB->>RB: every section, Sensitive fields rendered by consent, redacted
-  RB-->>PR: zip saved, nothing sent
+  PR->>RB: frontend sections, the Design only by consent
+  RB->>RB: native sections, an entry per REPORT_SECTIONS row, redacted; manifest of the rest
+  RB-->>PR: one zip in Problem reports, its file name; the write shows nothing, nothing sent (Web: PR zips and downloads)
+  PR->>RB: show_problem_report_folder once, selected, only while the user still wants the report (port reveal; Web: none)
 ```
 
-- Owner: `failures/` (2.1) owns the sink, the ring and the notice signal; the catalogue in `canopi-types` owns codes.
+- Owner: `failures/` (2.1) owns the sink, the ring and the notice signal; `app/problem-report/` is the report builder's one home; the catalogue in `canopi-types` owns codes.
 - Invariant: one request per action, no client retry, no text match on a native error, no native message dialog.
-- Test: `every_code_has_a_message_or_is_silent`, `every_code_reaches_the_report`, `ipc/transport.test.ts` (2.1).
+- Test: `every_code_has_a_message_or_is_silent`, `every_code_reaches_the_report`, `ipc/transport.test.ts`.
 
 ### Failure at HEAD (replaced by the typed catalogue)
 

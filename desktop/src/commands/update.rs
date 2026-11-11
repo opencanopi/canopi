@@ -4,7 +4,10 @@
 
 use std::{path::PathBuf, sync::Arc};
 
-use canopi_types::update::{UpdateDownload, UpdateFailure, UpdateOffer, UpdateProgress};
+use canopi_types::{
+    failure::Failure,
+    update::{UpdateDownload, UpdateOffer, UpdateProgress},
+};
 use tauri::{AppHandle, Runtime, State, ipc::Channel};
 
 use crate::{
@@ -21,7 +24,7 @@ pub async fn update_check<R: Runtime>(
     executor: State<'_, NativeOperationExecutor>,
     updater: State<'_, UpdaterHost>,
     operation: String,
-) -> Result<Option<UpdateOffer>, UpdateFailure> {
+) -> Result<Option<UpdateOffer>, Failure> {
     UpdaterHost::check(updater.inner(), &app, executor.inner(), &operation).await
 }
 
@@ -34,7 +37,7 @@ pub async fn update_download<R: Runtime>(
     updater: State<'_, UpdaterHost>,
     operation: String,
     progress: Channel<UpdateProgress>,
-) -> Result<UpdateDownload, UpdateFailure> {
+) -> Result<UpdateDownload, Failure> {
     let sink: ProgressSink = Arc::new(move |received| {
         // A closed webview channel only loses the progress line; the download goes on.
         let _sent = progress.send(received);
@@ -50,7 +53,7 @@ pub async fn update_install<R: Runtime>(
     executor: State<'_, NativeOperationExecutor>,
     updater: State<'_, UpdaterHost>,
     design_path: Option<PathBuf>,
-) -> Result<(), UpdateFailure> {
+) -> Result<(), Failure> {
     UpdaterHost::install(updater.inner(), &app, executor.inner(), design_path).await
 }
 
@@ -73,7 +76,7 @@ pub fn update_restart<R: Runtime>(app: AppHandle<R>, design_path: Option<PathBuf
 pub async fn update_launch_check_get(
     executor: State<'_, NativeOperationExecutor>,
     user_db: State<'_, UserDb>,
-) -> Result<bool, UpdateFailure> {
+) -> Result<bool, Failure> {
     updater::launch_check_get(executor.inner(), user_db.inner().clone()).await
 }
 
@@ -83,7 +86,7 @@ pub async fn update_launch_check_set(
     executor: State<'_, NativeOperationExecutor>,
     user_db: State<'_, UserDb>,
     on: bool,
-) -> Result<(), UpdateFailure> {
+) -> Result<(), Failure> {
     updater::launch_check_set(executor.inner(), user_db.inner().clone(), on).await
 }
 
@@ -93,6 +96,6 @@ pub async fn update_take_launch_notice<R: Runtime>(
     app: AppHandle<R>,
     executor: State<'_, NativeOperationExecutor>,
     updater: State<'_, UpdaterHost>,
-) -> Result<bool, UpdateFailure> {
+) -> Result<bool, Failure> {
     UpdaterHost::take_launch_notice(updater.inner(), &app, executor.inner()).await
 }

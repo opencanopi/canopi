@@ -24,7 +24,7 @@
       "bead": "canopi-f47t.52.35"
     },
     "desktop/src/commands/design.rs": {
-      "count": 10,
+      "count": 9,
       "bead": "canopi-f47t.52.35"
     },
     "desktop/src/commands/design_notebook.rs": {
@@ -43,20 +43,8 @@
       "count": 1,
       "bead": "canopi-f47t.52.35"
     },
-    "desktop/src/commands/health.rs": {
-      "count": 1,
-      "bead": "canopi-f47t.52.35"
-    },
-    "desktop/src/commands/host.rs": {
-      "count": 2,
-      "bead": "canopi-f47t.52.35"
-    },
     "desktop/src/commands/lidar.rs": {
       "count": 14,
-      "bead": "canopi-f47t.52.35"
-    },
-    "desktop/src/commands/problem_report.rs": {
-      "count": 2,
       "bead": "canopi-f47t.52.35"
     },
     "desktop/src/commands/saved_object_stamps.rs": {

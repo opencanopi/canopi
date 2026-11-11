@@ -14,9 +14,10 @@ use crate::host::updater::{
     testkit::{APPIMAGE, FAST, Offer, elf_payload, mock_app, run, scratch, sink},
 };
 use crate::native_operation::NativeOperationExecutor;
+use canopi_types::failure::{FailureCode, IoFailureKind};
+use canopi_types::update::UpdateBundle;
 #[cfg(unix)]
 use canopi_types::update::UpdateDownload;
-use canopi_types::update::{IoFailureKind, UpdateBundle, UpdateFailureCode};
 use std::path::{Path, PathBuf};
 
 #[cfg(all(test, unix))]
@@ -118,7 +119,7 @@ fn an_unwritable_marker_is_refused_before_the_installer_runs() {
     std::fs::write(&blocker, "a file where the app data folder should be").unwrap();
     let refused = write_marker(&blocker.join(super::MARKER_FILE), "2.2.0").unwrap_err();
     assert!(
-        matches!(refused.code, UpdateFailureCode::Io { io } if io != IoFailureKind::NotFound),
+        matches!(refused.code, FailureCode::Io { io } if io != IoFailureKind::NotFound),
         "{refused:?}"
     );
 }
@@ -147,11 +148,11 @@ fn fake_pkexec(status: i32) -> std::path::PathBuf {
 fn the_deb_installs_through_pkexec_dpkg_and_its_exit_statuses_settle_as_their_codes() {
     for (status, settled) in [
         (0, Ok(())),
-        (126, Err(UpdateFailureCode::UpdateAdminPromptDismissed)),
-        (127, Err(UpdateFailureCode::UpdateAdminPromptRefused)),
+        (126, Err(FailureCode::UpdateAdminPromptDismissed)),
+        (127, Err(FailureCode::UpdateAdminPromptRefused)),
         (
             1,
-            Err(UpdateFailureCode::UpdateInstallFailed {
+            Err(FailureCode::UpdateInstallFailed {
                 bundle: UpdateBundle::Deb,
             }),
         ),
@@ -274,7 +275,7 @@ fn the_deb_install_without_pkexec_on_path_is_admin_prompt_unavailable() {
     std::fs::remove_file(bin.join("pkexec")).unwrap();
     assert_eq!(
         code(run(host.install(app.handle(), &executor, None))),
-        UpdateFailureCode::UpdateAdminPromptUnavailable
+        FailureCode::UpdateAdminPromptUnavailable
     );
 }
 
@@ -337,7 +338,7 @@ fn staged_deb(bin: &Path, temp: &Path) -> StagedUpdate {
 }
 
 impl StagedUpdate {
-    fn install(&self) -> Result<(), canopi_types::update::UpdateFailure> {
+    fn install(&self) -> Result<(), canopi_types::failure::Failure> {
         run(self.host.install(self.app.handle(), &self.executor, None))
     }
 }
@@ -415,7 +416,7 @@ fn replace_failure_child() {
 
     assert_eq!(
         installed.map_err(|failure| failure.code),
-        Err(UpdateFailureCode::UpdateInstallFailed {
+        Err(FailureCode::UpdateInstallFailed {
             bundle: UpdateBundle::Appimage
         })
     );
@@ -524,7 +525,7 @@ fn canopi_f47t_52_228_15_install_refuses_a_payload_whose_signature_does_not_matc
 
     assert_eq!(
         deb.install().map_err(|failure| failure.code),
-        Err(UpdateFailureCode::UpdateSignatureRefused)
+        Err(FailureCode::UpdateSignatureRefused)
     );
     assert!(!bin.join("args").exists(), "pkexec never runs");
     assert_eq!(
@@ -541,7 +542,7 @@ fn canopi_f47t_52_228_15_install_refuses_a_payload_whose_signature_does_not_matc
 
     assert_eq!(
         staged.install().map_err(|failure| failure.code),
-        Err(UpdateFailureCode::UpdateSignatureRefused)
+        Err(FailureCode::UpdateSignatureRefused)
     );
     assert!(
         std::fs::read(&appimage).unwrap() == running,

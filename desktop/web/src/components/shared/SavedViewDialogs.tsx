@@ -21,7 +21,7 @@ import {
 import { t } from '../../i18n'
 import type { SavedView } from '../../types/design'
 import { SavedViewThumbnail } from './SavedViewThumbnail'
-import { Toast } from './Toast'
+import { SlotToast } from './ToastSlot'
 import { WorkspaceDialog } from './WorkspaceDialog'
 import styles from './SavedViewDialogs.module.css'
 
@@ -32,7 +32,7 @@ export function SavedViewDialogs() {
     <>
       <SaveViewDialog />
       {manageOpen && <ManageViewsDialog />}
-      {!manageOpen && <SavedViewUndoToast floating />}
+      <SavedViewUndoToast />
     </>
   )
 }
@@ -114,15 +114,17 @@ function ManageViewsDialog() {
   const views = currentSavedViews()
   const confirmation = savedViewDeleteConfirmation.value
   const listRef = useRef<HTMLUListElement>(null)
+  const doneRef = useRef<HTMLButtonElement>(null)
   const previousCount = useRef(views.length)
 
   // After a delete the row and its focused button are gone: keep focus in the list, as the change commits, so an Esc
-  // at once is the dialog's (canopi-f47t.52.228.20).
+  // at once is the dialog's (canopi-f47t.52.228.20); with the last view gone the list is too, and Done takes it
+  // (canopi-f47t.52.36).
   useLayoutEffect(() => {
     if (views.length < previousCount.current) {
       const next = listRef.current?.querySelector<HTMLElement>('button')
       if (next) next.focus()
-      else listRef.current?.closest('[role="dialog"]')?.querySelector<HTMLElement>('button')?.focus()
+      else doneRef.current?.focus()
     }
     previousCount.current = views.length
   }, [views.length])
@@ -132,7 +134,7 @@ function ManageViewsDialog() {
       title={t('savedViews.manageTitle')}
       onClose={closeManageViewsDialog}
       footer={(
-        <button type="button" className={styles.button} onClick={closeManageViewsDialog}>
+        <button ref={doneRef} type="button" className={styles.button} onClick={closeManageViewsDialog}>
           {t('savedViews.done')}
         </button>
       )}
@@ -145,7 +147,6 @@ function ManageViewsDialog() {
             {views.map((view) => <ManagedViewRow key={view.id} view={view} />)}
           </ul>
         )}
-      <SavedViewUndoToast />
     </WorkspaceDialog>
   )
 }
@@ -281,18 +282,17 @@ function DeleteConfirmation({ confirmation }: { readonly confirmation: SavedView
   )
 }
 
-function SavedViewUndoToast({ floating = false }: { readonly floating?: boolean }) {
+// In the window's one toast position, above Manage views while it is open (2.1-Q292).
+function SavedViewUndoToast() {
   const undo = savedViewUndo.value
   if (!undo) return null
   return (
-    <div className={floating ? styles.floatingToast : styles.toastSlot}>
-      <Toast
-        message={undo.message}
-        icon={undo.deletion ? 'check' : 'alert'}
-        actionLabel={undo.deletion ? t('savedViews.undo') : undefined}
-        onAction={undo.deletion ? undoDeleteView : undefined}
-        onDismiss={() => dismissDeleteViewUndo(undo)}
-      />
-    </div>
+    <SlotToast
+      message={undo.message}
+      icon={undo.deletion ? 'check' : 'alert'}
+      actionLabel={undo.deletion ? t('savedViews.undo') : undefined}
+      onAction={undo.deletion ? undoDeleteView : undefined}
+      onDismiss={() => dismissDeleteViewUndo(undo)}
+    />
   )
 }

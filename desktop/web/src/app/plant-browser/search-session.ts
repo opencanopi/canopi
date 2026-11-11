@@ -8,7 +8,7 @@ import type {
   SpeciesListItem,
   SpeciesSearchRequest,
 } from '../../types/species'
-import { diagnosticMessageFromError, recordFrontendDiagnostic } from '../problem-report/diagnostics'
+import { reportFailure } from '../../failures/report'
 import { speciesSearchAdmission } from '../../utils/species-search-normalization'
 import { createEmptySpeciesFilter, plantFilterModel } from './plant-filter-model'
 
@@ -132,7 +132,7 @@ function errorMessage(error: unknown): string {
  * the message for the surfaces' own tests and logic.
  */
 export function recordCatalogFailure(caught: unknown): void {
-  recordFrontendDiagnostic({ level: 'error', source: 'plant-catalog', message: diagnosticMessageFromError(caught) })
+  reportFailure(caught, { shown: 'none', source: 'plant-catalog', level: 'error' })
 }
 
 function searchTextPolicy(rawText: string): SearchTextPolicy {

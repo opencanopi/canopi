@@ -86,6 +86,7 @@ pub(crate) fn internal_load_failure(message: String) -> DesignLoadFailure {
     DesignLoadFailure {
         kind: DesignLoadFailureKind::Internal,
         message,
+        field_path: None,
     }
 }
 
@@ -233,15 +234,16 @@ pub async fn load_design_draft(
     executor: State<'_, NativeOperationExecutor>,
     drafts: State<'_, DesignDrafts>,
     id: String,
-) -> Result<CanopiFile, String> {
+) -> Result<CanopiFile, DesignLoadFailure> {
     let drafts = drafts.inner().clone();
     executor
         .run(
             NativeOperationClass::Local,
             "design draft load",
-            move || drafts.load(&id),
+            move || Ok(drafts.load(&id)),
         )
         .await
+        .unwrap_or_else(|message| Err(internal_load_failure(message)))
 }
 
 /// List readable Design drafts, most recently written first.

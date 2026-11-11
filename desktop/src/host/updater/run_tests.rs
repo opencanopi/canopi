@@ -13,7 +13,10 @@ use std::{
     time::Duration,
 };
 
-use canopi_types::update::{UpdateDownload, UpdateFailure, UpdateFailureCode, UpdateLane};
+use canopi_types::{
+    failure::{Failure, FailureCode, Lane},
+    update::UpdateDownload,
+};
 
 use super::{
     UpdaterHost,
@@ -50,7 +53,7 @@ fn signed_channel(offer: &Offer) -> Vec<u8> {
 /// cancelled: C's settlement and B's.
 async fn overlap<F, O>(host: &UpdaterHost, op: O, [a, b, c]: [&'static str; 3]) -> [F::Output; 2]
 where
-    F: Future<Output = Result<(), UpdateFailure>>,
+    F: Future<Output = Result<(), Failure>>,
     O: Fn(&'static str) -> F,
 {
     let mut run_a = pin!(op(a));
@@ -58,7 +61,7 @@ where
     host.cancel(a);
     let mut run_b = pin!(op(b));
     start(&mut run_b).await;
-    assert_eq!(code(run_a.await), UpdateFailureCode::Cancelled);
+    assert_eq!(code(run_a.await), FailureCode::Cancelled);
     let mut run_c = pin!(op(c));
     start(&mut run_c).await;
     host.cancel(b);
@@ -89,7 +92,7 @@ fn a_cancelled_run_settling_late_leaves_the_later_run_joinable() {
         let (progress, _) = sink();
         host.download(app, executor, id, progress).await.map(|_| ())
     };
-    let cancelled = UpdateFailureCode::Cancelled;
+    let cancelled = FailureCode::Cancelled;
 
     slow("/stable.json", signed_channel(&offer));
     let [b, c] = run(overlap(host, check, ["check-a", "check-b", "check-c"]));
@@ -133,7 +136,7 @@ fn a_cancelled_check_settling_late_keeps_the_later_checks_offer() {
         host.cancel("check-a");
         let b = host.check(app.handle(), &executor, "check-b").await;
         assert_eq!(b.unwrap().unwrap().version, "9.0.0");
-        assert_eq!(code(run_a.await), UpdateFailureCode::Cancelled);
+        assert_eq!(code(run_a.await), FailureCode::Cancelled);
     });
 
     let (progress, _) = sink();
@@ -183,11 +186,79 @@ fn the_link_only_probe_runs_as_a_local_executor_operation() {
     release.send(()).unwrap();
     run(hold).unwrap().unwrap();
 
+    assert_eq!(code(settled), FailureCode::Busy { lane: Lane::Local });
+    assert_eq!(offer.server.hits(), ["/stable.json"]);
+}
+
+/// canopi-f47t.52.35: an executor refusal reaches the updater as its own catalogue code, read from
+/// the typed `ExecutorError`, never from its text: with the Network lane full, a check settles busy
+/// on the network lane under `updater.check`, Retry allowed, the work never run (About shows
+/// "Couldn't check for updates", updater-flow.test.ts).
+#[test]
+fn a_full_network_lane_settles_the_check_busy_on_the_network_lane() {
+    let offer = Offer::signed(APPIMAGE);
+    let app = mock_app(&offer.key.public_key());
+    let one = NativeOperationClassLimits::new(1, 1);
+    let roomy = NativeOperationClassLimits::new(4, 2);
+    let executor =
+        NativeOperationExecutor::new(NativeOperationLimits::new(roomy, roomy, roomy, one, roomy))
+            .unwrap();
+    let host = offer.host(APPIMAGE, FAST);
+
+    let (started, holding) = std::sync::mpsc::channel();
+    let (release, released) = std::sync::mpsc::channel::<()>();
+    let holder = executor.clone();
+    let hold = tauri::async_runtime::spawn(async move {
+        holder
+            .run(NativeOperationClass::Network, "test.hold", move || {
+                started.send(()).ok();
+                released.recv().ok();
+                Ok(())
+            })
+            .await
+    });
+    holding.recv().unwrap();
+    let settled = run(host.check(app.handle(), &executor, "check"));
+    release.send(()).unwrap();
+    run(hold).unwrap().unwrap();
+
+    let failure = settled.unwrap_err();
     assert_eq!(
-        code(settled),
-        UpdateFailureCode::Busy {
-            lane: UpdateLane::Local
+        failure.code,
+        FailureCode::Busy {
+            lane: Lane::Network
         }
     );
-    assert_eq!(offer.server.hits(), ["/stable.json"]);
+    assert_eq!(failure.op, "updater.check");
+    assert!(failure.user_may_retry);
+    assert!(offer.server.hits().is_empty(), "the check never ran");
+}
+
+/// canopi-f47t.52.35: a cancelled check or download settles `cancelled` under its own op, a silent
+/// row: About goes back to idle and no message is shown.
+#[test]
+fn a_cancelled_check_or_download_settles_silent_cancelled_under_its_op() {
+    let offer = Offer::signed(APPIMAGE);
+    let app = mock_app(&offer.key.public_key());
+    let executor = NativeOperationExecutor::production();
+    let host = UpdaterHost {
+        appimage: Some(scratch("cancelled-op").join("Canopi.AppImage")),
+        ..offer.host(APPIMAGE, FAST)
+    };
+
+    host.cancel("check-1");
+    let check = run(host.check(app.handle(), &executor, "check-1")).unwrap_err();
+    run(host.check(app.handle(), &executor, "check-2"))
+        .unwrap()
+        .unwrap();
+    host.cancel("download-1");
+    let (progress, _) = sink();
+    let download = run(host.download(app.handle(), &executor, "download-1", progress)).unwrap_err();
+
+    for (failure, op) in [(check, "updater.check"), (download, "updater.download")] {
+        assert_eq!(failure.code, FailureCode::Cancelled, "{op}");
+        assert_eq!(failure.op, op);
+        assert!(failure.code.row().silent, "{op}");
+        assert!(!failure.user_may_retry, "{op}");
+    }
 }

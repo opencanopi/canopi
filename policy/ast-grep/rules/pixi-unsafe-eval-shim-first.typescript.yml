@@ -1,0 +1,27 @@
+# pixi-unsafe-eval-shim-first (2.1-M236): packaged Desktop builds enforce `script-src 'self'`, and Pixi v8 otherwise
+# compiles uniform sync with `new Function`, which that policy rejects, so the shared map scene fails with "Map
+# unavailable". Pixi's documented route is its `pixi.js/unsafe-eval` shim, which must load before any Pixi renderer: a
+# module importing from `pixi.js` (types included, as the retired source read 'loads the unsafe-eval shim before Pixi in
+# every module that imports Pixi' counted them) imports the shim first (2.1-Q13).
+id: pixi-unsafe-eval-shim-first.typescript
+language: typescript
+severity: error
+message: "a module importing from pixi.js imports 'pixi.js/unsafe-eval' first (the packaged CSP rejects Pixi's new Function); owner desktop/web/src/canvas/runtime/renderers/pixi-scene.ts; example desktop/web/src/canvas/runtime/renderers/pixi-scene.ts"
+files:
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.ts"
+ignores:
+  - "{desktop/web,policy/fixtures/rules/*}/src/__tests__/**"
+rule:
+  any:
+    - kind: import_statement
+    - kind: export_statement
+  has:
+    field: source
+    regex: ^['"]pixi\.js['"]$
+  not:
+    follows:
+      stopBy: end
+      kind: import_statement
+      has:
+        field: source
+        regex: ^['"]pixi\.js/unsafe-eval['"]$

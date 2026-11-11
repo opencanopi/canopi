@@ -1,7 +1,6 @@
 import { useSignal, useSignalEffect } from '@preact/signals'
 import { useRef, useEffect } from 'preact/hooks'
 import { t } from '../../i18n'
-import { filterText } from './filter-text'
 import { usePopoverEscapeLayer } from '../../app/keyboard/use-popover-escape-layer'
 import { formatCount } from '../../utils/format-count'
 import { locale } from '../../app/settings/state'
@@ -102,7 +101,7 @@ function CategorySection({ category, searchQuery }: {
 
   // Filter fields by search query
   const visibleFields = searchQuery
-    ? fields.filter((f) => filterText(f.i18nKey, f.key).toLowerCase().includes(searchQuery))
+    ? fields.filter((f) => t(f.i18nKey).toLowerCase().includes(searchQuery))
     : fields
 
   if (visibleFields.length === 0) return null
@@ -123,7 +122,7 @@ function CategorySection({ category, searchQuery }: {
         onClick={() => { open.value = !open.value }}
         aria-expanded={isOpen}
       >
-        <span className={styles.categoryTitle}>{filterText(category.i18nKey, category.key)}</span>
+        <span className={styles.categoryTitle}>{t(category.i18nKey)}</span>
         {activeCount > 0 && <span className={styles.categoryBadge}>{formatCount(activeCount, locale.value)}</span>}
         <span className={`${styles.chevron} ${isOpen ? styles.chevronOpen : ''}`} aria-hidden="true">›</span>
       </button>
@@ -148,7 +147,7 @@ function FieldRow({ field }: { field: FieldDef }) {
   const errors = dynamicOptions.errors[loc] ?? {}
   const expanded = useSignal(false)
   const activeFilter = extras.find((ef) => ef.field === field.key)
-  const label = filterText(field.i18nKey, field.key)
+  const label = t(field.i18nKey)
 
   if (field.kind === 'boolean') {
     const isActive = !!activeFilter

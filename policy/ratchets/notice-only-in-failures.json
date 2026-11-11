@@ -13,6 +13,10 @@
     "notice-only-in-failures"
   ],
   "entries": {
+    "desktop/web/src/components/canvas/LockedMoveToast.tsx": {
+      "count": 1,
+      "bead": "canopi-f47t.52.36"
+    },
     "desktop/web/src/platform/geojson.desktop.ts": {
       "count": 1,
       "bead": "canopi-f47t.52.36"

@@ -1,6 +1,8 @@
 import { readdirSync, readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
+import { t } from '../i18n'
+
 import en from '../i18n/en.json'
 import de from '../i18n/de.json'
 import es from '../i18n/es.json'
@@ -113,5 +115,90 @@ describe('i18n completeness', () => {
     expect(fr.savedObjectStamps.title).toBe('Tampons enregistrés')
     expect(fr.canvas.tools.objectStamp).toBe('Placer un tampon')
     expect(fr.menu['edit.saveAsStamp']).toBe('Enregistrer comme tampon')
+  })
+})
+
+const PLURAL_SUFFIX = /_(zero|one|two|few|many|other)$/
+const INTERPOLATES_COUNT = /\{\{\s*count\b/
+
+/**
+ * Strings that interpolate a count but agree with no counted word in any locale: "N of M", "label: N", "(N)", "+N".
+ * A string here never needs plural forms; a new counted string is a plural family (`key_one`, `key_few`, `key_many`,
+ * `key_other` in every locale) or joins this list with that shape.
+ */
+const COUNT_NEUTRAL = new Set([
+  'canvas.budget.missingPrice',
+  'canvas.calendar.currentSelection',
+  'canvas.calendar.moreActions',
+  'canvas.lidar.import.files',
+  'canvas.lidar.library.deleteBlocked',
+  'canvas.lidar.library.sourceFiles',
+  'notice.count',
+  'pdf.pageCount',
+  'plantDetail.showAllNames',
+  'plantFinder.selectedOnMapCount',
+  'presentation.announce',
+  'presentation.stepOf',
+  'presentation.storyStep',
+])
+
+const english: TranslationTree = en
+
+function leaves(tree: TranslationTree, prefix = ''): [string, string][] {
+  return Object.entries(tree).flatMap(([key, value]): [string, string][] =>
+    typeof value === 'string' ? [[`${prefix}${key}`, value]] : leaves(value, `${prefix}${key}.`))
+}
+
+/** Each plural form a locale lacks: a counted string's family needs every category `Intl.PluralRules` names for it. */
+function missingPluralForms(code: string, tree: TranslationTree): string[] {
+  const entries = new Map(leaves(tree))
+  const englishBases = leaves(english).map(([key]) => key).filter((key) => key.endsWith('_other')).map((key) => key.slice(0, -'_other'.length))
+  const counted = new Set([
+    ...[...entries].filter(([key, text]) => INTERPOLATES_COUNT.test(text) && !COUNT_NEUTRAL.has(key)).map(([key]) => key.replace(PLURAL_SUFFIX, '')),
+    ...englishBases.filter((base) => [...entries.keys()].some((key) => key !== `${base}_other` && key.replace(PLURAL_SUFFIX, '') === base)),
+  ])
+  const forms = new Intl.PluralRules(code).resolvedOptions().pluralCategories
+  return [...counted].flatMap((base) => forms.filter((form) => !entries.has(`${base}_${form}`)).map((form) => `${code}: ${base}_${form}`))
+}
+
+describe('plural forms', () => {
+  it('canopi-f47t.52.43: APP-06: Russian counts use every plural form', () => {
+    // The Saved stamps row summary as FavoritesPanel asks for it: one plural key per noun, the form picked from the count.
+    const summary = (count: number) => [
+      t('savedObjectStamps.summaryPlant', { count, lng: 'ru' }),
+      t('savedObjectStamps.summaryZone', { count, lng: 'ru' }),
+      t('savedObjectStamps.summaryAnnotation', { count, lng: 'ru' }),
+    ].join(' · ')
+
+    expect([1, 3, 5, 21, 22, 11].map(summary)).toEqual([
+      '1 растение · 1 зона · 1 аннотация',
+      '3 растения · 3 зоны · 3 аннотации',
+      '5 растений · 5 зон · 5 аннотаций',
+      '21 растение · 21 зона · 21 аннотация',
+      '22 растения · 22 зоны · 22 аннотации',
+      '11 растений · 11 зон · 11 аннотаций',
+    ])
+  })
+
+  it('gives every counted string each plural form its locale names, in all 11 locales', () => {
+    const all: Record<string, TranslationTree> = { en: english, ...locales }
+
+    expect(Object.entries(all).flatMap(([code, tree]) => missingPluralForms(code, tree))).toEqual([])
+  })
+
+  it('finds a counted string with no plural forms, and a family missing a form its locale names', () => {
+    expect(missingPluralForms('ru', { stamps: { summary: '{{count}} растений' } })).toEqual([
+      'ru: stamps.summary_one', 'ru: stamps.summary_few', 'ru: stamps.summary_many', 'ru: stamps.summary_other',
+    ])
+    expect(missingPluralForms('ru', { stamps: { summary_one: '{{count}} растение', summary_other: '{{count}} растения' } }))
+      .toEqual(['ru: stamps.summary_few', 'ru: stamps.summary_many'])
+    expect(missingPluralForms('ja', { stamps: { summary_other: '{{count}} 件' } })).toEqual([])
+    expect(missingPluralForms('ru', { notice: { count: '{{index}} из {{count}}' } })).toEqual([])
+  })
+
+  it('lists as count-neutral only strings English holds with a count', () => {
+    const texts = new Map(leaves(english))
+
+    expect([...COUNT_NEUTRAL].filter((key) => !INTERPOLATES_COUNT.test(texts.get(key) ?? ''))).toEqual([])
   })
 })

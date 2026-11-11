@@ -107,19 +107,13 @@
       "count": 23
     },
     "services::problem_report": {
-      "count": 5
+      "count": 3
     },
     "services::problem_report::bundle": {
-      "count": 5
+      "count": 3
     },
     "services::problem_report::folder_reveal": {
-      "count": 5
-    },
-    "services::problem_report::redactions": {
-      "count": 5
-    },
-    "services::problem_report::summary": {
-      "count": 5
+      "count": 3
     },
     "services::species_catalog_read::common_names": {
       "count": 3

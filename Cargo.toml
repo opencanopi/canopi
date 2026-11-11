@@ -1,5 +1,5 @@
 [workspace]
-members = ["desktop", "canopi-types", "bindings-gen"]
+members = ["desktop", "canopi-types", "canopi-redact", "bindings-gen"]
 resolver = "2"
 
 [workspace.package]

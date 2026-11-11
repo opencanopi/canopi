@@ -9,7 +9,10 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use canopi_types::update::{UpdateBundle, UpdateFailure, UpdateFailureCode, UpdateOp};
+use canopi_types::{
+    failure::{Failure, FailureCode},
+    update::{UpdateBundle, UpdateOp},
+};
 use serde::{Deserialize, Serialize};
 use tauri_plugin_updater::Update;
 
@@ -107,7 +110,7 @@ pub fn install(
     update: &Update,
     bytes: &[u8],
     executor: &NativeOperationExecutor,
-) -> Result<Installed, UpdateFailure> {
+) -> Result<Installed, Failure> {
     match installation.bundle {
         UpdateBundle::Deb => install_deb(context, update, bytes).map(|()| Installed::InPlace),
         UpdateBundle::Appimage => {
@@ -121,13 +124,13 @@ pub fn install(
         }
         UpdateBundle::App => Err(failure::failure(
             UpdateOp::Install,
-            UpdateFailureCode::Invalid,
+            FailureCode::Invalid,
             "the macOS app updates by its download link",
         )),
     }
 }
 
-fn verify(update: &Update, bytes: &[u8], installation: Installation) -> Result<(), UpdateFailure> {
+fn verify(update: &Update, bytes: &[u8], installation: Installation) -> Result<(), Failure> {
     update
         .verify(bytes)
         .map_err(|error| failure::from_plugin(UpdateOp::Install, installation, &error))
@@ -137,7 +140,7 @@ fn verify(update: &Update, bytes: &[u8], installation: Installation) -> Result<(
 /// name in the shared temp folder, which another account could swap before root reads it),
 /// installed by `pkexec dpkg -i`, the folder removed.
 /// pkexec's 126 is a closed password prompt, its 127 a refusal.
-fn install_deb(context: &Context, update: &Update, bytes: &[u8]) -> Result<(), UpdateFailure> {
+fn install_deb(context: &Context, update: &Update, bytes: &[u8]) -> Result<(), Failure> {
     let op = UpdateOp::Install;
     let installation = Installation {
         os: canopi_types::update::UpdateOs::Linux,
@@ -148,7 +151,7 @@ fn install_deb(context: &Context, update: &Update, bytes: &[u8]) -> Result<(), U
     let Some(pkexec) = find_on_path("pkexec", context.search_path.as_deref()) else {
         return Err(failure::failure(
             op,
-            UpdateFailureCode::UpdateAdminPromptUnavailable,
+            FailureCode::UpdateAdminPromptUnavailable,
             "pkexec is not on PATH",
         ));
     };
@@ -169,12 +172,12 @@ fn install_deb(context: &Context, update: &Update, bytes: &[u8]) -> Result<(), U
         Ok(Some(0)) => Ok(()),
         Ok(Some(126)) => Err(failure::failure(
             op,
-            UpdateFailureCode::UpdateAdminPromptDismissed,
+            FailureCode::UpdateAdminPromptDismissed,
             "the password prompt was closed",
         )),
         Ok(Some(127)) => Err(failure::failure(
             op,
-            UpdateFailureCode::UpdateAdminPromptRefused,
+            FailureCode::UpdateAdminPromptRefused,
             "pkexec refused the request",
         )),
         Ok(_) | Err(_) => Err(failure::install_failed(UpdateBundle::Deb)),
@@ -233,7 +236,7 @@ fn install_appimage(
     context: &Context,
     update: &Update,
     bytes: &[u8],
-) -> Result<(), UpdateFailure> {
+) -> Result<(), Failure> {
     verify(update, bytes, installation)?;
     // An AppImage is an ELF executable; Canopi's channel announces it uncompressed.
     if !bytes.starts_with(b"\x7fELF") {
@@ -242,7 +245,7 @@ fn install_appimage(
     let Some(appimage) = context.appimage.as_deref() else {
         return Err(failure::failure(
             UpdateOp::Install,
-            UpdateFailureCode::Internal,
+            FailureCode::Internal,
             "Canopi does not run as an AppImage",
         ));
     };
@@ -293,7 +296,7 @@ fn install_by_plugin(
     installation: Installation,
     update: &Update,
     bytes: &[u8],
-) -> Result<(), UpdateFailure> {
+) -> Result<(), Failure> {
     update
         .install(bytes)
         .map_err(|error| failure::from_plugin(UpdateOp::Install, installation, &error))
@@ -317,13 +320,13 @@ fn install_windows(
     update: &Update,
     bytes: &[u8],
     executor: &NativeOperationExecutor,
-) -> Result<ExitDrain, UpdateFailure> {
+) -> Result<ExitDrain, Failure> {
     let op = UpdateOp::Install;
     verify(update, bytes, installation)?;
     let Some(marker) = &context.marker else {
         return Err(failure::failure(
             op,
-            UpdateFailureCode::Internal,
+            FailureCode::Internal,
             "no app data folder",
         ));
     };
@@ -366,18 +369,12 @@ fn start_installer(_: &launch::InstallerCommand) -> std::io::Result<()> {
     Err(std::io::Error::from(std::io::ErrorKind::Unsupported))
 }
 
-fn write_marker(marker: &Path, version: &str) -> Result<(), UpdateFailure> {
+fn write_marker(marker: &Path, version: &str) -> Result<(), Failure> {
     let op = UpdateOp::Install;
     let text = serde_json::to_string(&Marker {
         version: version.to_owned(),
     })
-    .map_err(|_| {
-        failure::failure(
-            op,
-            UpdateFailureCode::Internal,
-            "the marker did not serialize",
-        )
-    })?;
+    .map_err(|_| failure::failure(op, FailureCode::Internal, "the marker did not serialize"))?;
     if let Some(folder) = marker.parent() {
         std::fs::create_dir_all(folder)
             .map_err(|error| failure::io(op, &error, "the app data folder could not be made"))?;

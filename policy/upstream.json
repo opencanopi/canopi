@@ -151,9 +151,9 @@
         "desktop/src/main.rs"
       ],
       "pin_test": {
-        "planned": {
-          "phase": "1",
-          "bead": "canopi-f47t.52.228.43"
+        "tripwire": {
+          "lock": "Cargo.lock",
+          "package": "tauri"
         }
       },
       "report": "",
@@ -174,7 +174,7 @@
           "bead": "canopi-f47t.52.61"
         }
       },
-      "report": "",
+      "report": "canopi-f47t.52.61",
       "status": "open",
       "exit": "A wbprojection release places the reference points (EPSG 28992, 31370, 27700, 31287, 2100, 2169, 5514, 2263) within proj4rs's tolerance, or Canopi keeps proj4rs and closes this row."
     },
@@ -234,9 +234,9 @@
         }
       ],
       "pin_test": {
-        "planned": {
-          "phase": "1",
-          "bead": "canopi-f47t.52.228.43"
+        "tripwire": {
+          "lock": "desktop/web/package-lock.json",
+          "package": "image-size"
         }
       },
       "report": "none: no upstream bug; each parent's own range is safe in a later release, which Renovate shows",
@@ -271,10 +271,7 @@
         }
       ],
       "pin_test": {
-        "planned": {
-          "phase": "1",
-          "bead": "canopi-f47t.52.228.43"
-        }
+        "tripwire": "advisories"
       },
       "report": "none: Tauri's own move to GTK4 retires the chain; tracked only (2.1-M204)",
       "status": "open",
@@ -289,12 +286,10 @@
         "desktop/web/playwright.config.ts"
       ],
       "pin_test": {
-        "planned": {
-          "phase": "1",
-          "bead": "canopi-f47t.52.228.43"
-        }
+        "path": "desktop/web/e2e/canvas/firefox-headless-webgl-pin.spec.ts",
+        "title": "pin: headless Firefox in the pinned image creates no WebGL context"
       },
-      "report": "none: an environment limit of the pinned image's headless Firefox, re-tested on each Playwright bump",
+      "report": "none: an environment limit of the pinned image's headless Firefox, re-tested on each Playwright bump by every Firefox lane (the firefox project depends on the pin's)",
       "status": "open",
       "exit": "A Playwright image whose headless Firefox creates a WebGL context: the Firefox projects run headless and the Xvfb wrapper goes."
     },
@@ -331,10 +326,7 @@
         }
       ],
       "pin_test": {
-        "planned": {
-          "phase": "1",
-          "bead": "canopi-f47t.52.228.43"
-        }
+        "tripwire": "advisories"
       },
       "report": "none: upstream adoption of glob 14 / minimatch 11; tracked only",
       "status": "open",
@@ -349,14 +341,32 @@
         "desktop/src/services/folder_reveal.rs"
       ],
       "pin_test": {
-        "planned": {
-          "phase": "1",
-          "bead": "canopi-f47t.52.252"
+        "tripwire": {
+          "lock": "Cargo.lock",
+          "package": "tauri-plugin-opener"
         }
       },
       "report": "canopi-f47t.52.252",
       "status": "open",
       "exit": "An opener release reaches the portal: the pin fails, reveal_item selects the item on a desktop with no FileManager1, and show_item's folder fallback stays only for a refused portal."
+    },
+    {
+      "id": "W22",
+      "library": "uutils coreutils timeout (Ubuntu 26.04)",
+      "pin": "0.10.0",
+      "what": "The mutation lanes' Mutate steps run gnutimeout when it is installed, since uutils timeout sends SIGKILL at the budget when --kill-after is given, so cargo-mutants and Stryker never see SIGINT and write no partial report.",
+      "sites": [
+        ".github/workflows/mutation.yml"
+      ],
+      "pin_test": {
+        "planned": {
+          "phase": "2",
+          "bead": "canopi-ivit"
+        }
+      },
+      "report": "",
+      "status": "open",
+      "exit": "A uutils release sends SIGINT at the budget and SIGKILL only after --kill-after, and ubuntu-latest carries it: the fallback goes and this row closes."
     }
   ]
 }

@@ -31,12 +31,8 @@ import {
 } from '../web/browser-design-session'
 import type { CanopiFile } from '../types/design'
 import { registerDesignOpenFailurePresenter } from '../app/document-session/open-failure'
-import {
-  browserShellNotice,
-  dismissBrowserShellNotice,
-  showBrowserShellNotice,
-} from '../web/browser-shell-notice'
-import { t } from '../i18n'
+import { presentBrowserDesignOpenFailure } from '../web/browser-notices'
+import { notices, resetNoticesForTests } from '../failures/notices'
 import { createBrowserDesignTemplateImportWorkflow } from '../app/design-template-import/workflow.browser'
 import { browserDraftPersistence } from '../web/browser-draft-persistence'
 import {
@@ -239,8 +235,8 @@ describe('browser Design Session lifecycle', () => {
     }
     expect(presented).toHaveBeenCalledWith({
       tone: 'error',
-      title: t('start.cantOpenTitle'),
-      message: t('start.cantReadDamaged'),
+      title: 'start.cantOpenTitle',
+      message: 'start.cantReadDamaged',
     })
     expect(store.readDesignName()).toBe('Working Garden')
     expect(store.readCurrentDesign()).toEqual(original)
@@ -338,8 +334,8 @@ describe('browser Design Session lifecycle', () => {
       messageKey: 'start.cantRead',
     },
   ] as const)('tells the user why $label cannot be opened', async ({ fileName, text, messageKey }) => {
-    dismissBrowserShellNotice()
-    registerDesignOpenFailurePresenter(showBrowserShellNotice)
+    resetNoticesForTests()
+    registerDesignOpenFailurePresenter(presentBrowserDesignOpenFailure)
     try {
       const store = createDesignSessionStore()
       const controller = createBrowserDesignSessionController({
@@ -351,15 +347,15 @@ describe('browser Design Session lifecycle', () => {
       })
 
       await expect(controller.openCanopi()).resolves.toBe(false)
-      expect(browserShellNotice.value).toEqual({
+      expect(notices.value).toEqual([expect.objectContaining({
         tone: 'error',
-        title: t('start.cantOpenTitle'),
-        message: t(messageKey),
-      })
+        title: 'start.cantOpenTitle',
+        message: messageKey,
+      })])
       expect(store.hasCurrentDesign()).toBe(false)
     } finally {
       registerDesignOpenFailurePresenter(null)
-      dismissBrowserShellNotice()
+      resetNoticesForTests()
     }
   })
 
@@ -2515,3 +2511,34 @@ function plantAt(position: { lon: number; lat: number }): CanopiFile['plants'][n
     quantity: 1,
   }
 }
+
+describe('browser tab close after a failed Draft write (2.1-Q22; the guard in continuous-save.test.ts, engines in e2e)', () => {
+  it('WEB-03: closing the tab after a failed Draft write prompts', async () => {
+    const [storage, store] = [memoryStorage(), createDesignSessionStore()]
+    const appDataStore = createBrowserAppDataStore({ storage, session: memoryStorage() })
+    const controller = createBrowserDesignSessionController({ store, appDataStore, fileAdapter: testFileAdapter(), now: () => NOW,
+      createDraftId: () => 'draft-tab-close', requestSaveDecision: vi.fn(async () => 'discard') as never, reload: vi.fn() })
+    const page = testPage()
+    const close = () => !page.window.dispatchEvent(new Event('beforeunload', { cancelable: true }))
+    let uninstall = controller.installContinuousSave(page)
+    expect(close(), 'no Design: nothing to lose').toBe(false)
+    await controller.newDesign()
+    editDesignSessionForTest(store, (design) => ({ ...design, description: 'written at close' }))
+    expect(close(), 'the close writes a pending edit itself').toBe(false)
+    expect(appDataStore.loadDraft('draft-tab-close')?.description).toBe('written at close')
+    editDesignSessionForTest(store, (design) => ({ ...design, description: 'not written' }))
+    storage.failWrites = true
+    expect(close(), 'the edit lives only in this tab').toBe(true)
+    storage.failWrites = false
+    expect(close(), 'a later write succeeds and disarms it').toBe(false)
+    editDesignSessionForTest(store, (design) => ({ ...design, description: 'given up' }))
+    storage.failWrites = true
+    uninstall()
+    expect(close(), 'a hot reload removes the listener').toBe(false)
+    uninstall = controller.installContinuousSave(page)
+    expect(close()).toBe(true)
+    expect(await controller.reloadForRelease()).toBe(true)
+    expect(close(), 'after Reload without saving the unload asks nothing more').toBe(false)
+    uninstall()
+  })
+})

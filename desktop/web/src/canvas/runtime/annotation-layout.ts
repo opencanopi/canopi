@@ -1,4 +1,5 @@
 import { CANVAS_CHROME_FONT_FAMILY } from '../chrome-fonts'
+import { canvasFonts } from './fonts/font-loading'
 import { getCanvasTextOpacity } from './text-visibility'
 import type { SceneAnnotationEntity, SceneDesignObjectSelection, ScenePoint } from './scene'
 
@@ -125,19 +126,17 @@ type MeasureContext = Pick<CanvasRenderingContext2D, 'font' | 'measureText'>
 /** The 2D context notes are measured with; null where there is none, and undefined until the first note asks. */
 let measureContext: MeasureContext | null | undefined
 const textMetricsByKey = new Map<string, AnnotationTextMetrics>()
-const requestedFontTexts = new Set<string>()
-const fontLoadListeners = new Set<() => void>()
-let fontEpoch = 0
+/** The font epoch the memoised widths were measured at. */
+let metricsEpoch = canvasFonts.epoch()
 
 /** Counts the web-font loads that re-measured the notes; memos of anything sized by a note keep it in their key. */
 export function getAnnotationFontEpoch(): number {
-  return fontEpoch
+  return canvasFonts.epoch()
 }
 
-/** Calls `listener` after a web font a note asked for has loaded and the notes measure anew; returns the unsubscribe. */
+/** Calls `listener` after a web font loaded and the notes measure anew; returns the unsubscribe. */
 export function onAnnotationFontLoad(listener: () => void): () => void {
-  fontLoadListeners.add(listener)
-  return () => { fontLoadListeners.delete(listener) }
+  return canvasFonts.subscribe(listener)
 }
 
 /**
@@ -147,6 +146,11 @@ export function onAnnotationFontLoad(listener: () => void): () => void {
  * this module's importers (the tools), hence the 2D context of its own.
  */
 function getAnnotationTextMetrics(annotation: Pick<SceneAnnotationEntity, 'text' | 'fontSize'>): AnnotationTextMetrics {
+  // A font load forgets every width measured in the fallback.
+  if (metricsEpoch !== canvasFonts.epoch()) {
+    metricsEpoch = canvasFonts.epoch()
+    textMetricsByKey.clear()
+  }
   const key = `${annotation.fontSize}|${annotation.text}`
   const known = textMetricsByKey.get(key)
   if (known) return known
@@ -168,7 +172,7 @@ function measureLinesWidth(lines: readonly string[], fontSize: number): number {
   if (!context) return Math.max(...lines.map((line) => line.length), 1) * fontSize * CHARACTER_WIDTH_FACTOR
   const font = `${fontSize}px ${CANVAS_CHROME_FONT_FAMILY}`
   context.font = font
-  requestFont(font, lines.join(''))
+  canvasFonts.request(font, lines.join(''))
   return Math.max(...lines.map((line) => {
     const measured = context.measureText(line)
     return Math.max(measured.width, measured.actualBoundingBoxLeft + measured.actualBoundingBoxRight)
@@ -189,32 +193,6 @@ function getMeasureContext(): MeasureContext | null {
     measureContext = null
   }
   return measureContext
-}
-
-/**
- * A note measured while its web font is still loading is measured in the fallback font. So the measure asks the
- * browser for the font and the note's text, one request at a time for each (no listener), and when a face that had not
- * loaded then has loaded, forgets every width and tells the listeners (the runtime redraws the scene).
- * The request names the text because a font's faces cover character ranges (fonts.css): a Latin note's load brings
- * back only the Latin face, while a Cyrillic note in the same font waits for the Cyrillic one. `fonts.check()` cannot
- * tell: WebKit reports a face still loading under font-display: swap as failed, so check() is true, and only `load()`
- * waits for the face to arrive.
- */
-function requestFont(font: string, text: string): void {
-  const fonts = globalThis.document?.fonts
-  const request = `${font}\n${text}`
-  if (!fonts || requestedFontTexts.has(request)) return
-  const unloaded = new Set<FontFace>()
-  fonts.forEach((face) => { if (face.status !== 'loaded') unloaded.add(face) })
-  if (unloaded.size === 0) return
-  requestedFontTexts.add(request)
-  fonts.load(font, text).then((faces) => {
-    requestedFontTexts.delete(request)
-    if (!faces.some((face) => unloaded.has(face) && face.status === 'loaded')) return
-    fontEpoch += 1
-    textMetricsByKey.clear()
-    for (const listener of [...fontLoadListeners]) listener()
-  }, () => { requestedFontTexts.delete(request) })
 }
 
 export function getAnnotationWorldBounds(

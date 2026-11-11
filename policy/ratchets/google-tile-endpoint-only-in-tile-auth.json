@@ -1,0 +1,16 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "google-tile-endpoint-only-in-tile-auth",
+  "ledger": "2.1-M236",
+  "tool": "ast-grep",
+  "scope": [
+    "desktop/web/src/**"
+  ],
+  "lane": "commit",
+  "keys": "path",
+  "select": [
+    "google-tile-endpoint-only-in-tile-auth"
+  ],
+  "entries": {}
+}

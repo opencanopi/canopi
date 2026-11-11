@@ -84,9 +84,17 @@
    "layer": "L1",
    "rank": 1,
    "phase": "1",
-   "status": "new",
    "edition": "both",
    "area": "failures"
+  },
+  {
+   "path": "failures/health.ts",
+   "layer": "L1",
+   "rank": 1,
+   "phase": "1",
+   "edition": "both",
+   "area": "failures",
+   "owner": "store health"
   },
   {
    "path": "ipc/",
@@ -327,12 +335,6 @@
    "layer": "L3",
    "edition": "both",
    "area": "app/geojson"
-  },
-  {
-   "path": "app/health/",
-   "layer": "L3",
-   "edition": "both",
-   "area": "app/health"
   },
   {
    "path": "app/keyboard/",
@@ -582,7 +584,7 @@
   {
    "path": "components/shared/ProblemReportDialog.tsx",
    "layer": "L4",
-   "edition": "desktop",
+   "edition": "both",
    "area": "components"
   },
   {

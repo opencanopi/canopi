@@ -12,13 +12,13 @@ import {
   type WorkspacePanelProjection,
   type WorkspaceSurfaces,
 } from '../components/workspace/WorkspaceComposition'
-import { lazy } from 'preact/compat'
+import { retryableLazy } from '../failures/lazy'
 import type { PanelRailCommand } from '../components/shared/PanelRail'
 import { PhoneContextBar } from '../components/canvas/PhoneContextBar'
 import { ToolOptions } from '../components/canvas/ToolCard'
 import { designSessionStore } from '../app/document-session/store'
 
-const WorldMapPanel = lazy(async () => {
+const WorldMapPanel = retryableLazy(async () => {
   const module = await import('../components/panels/WorldMapPanel')
   return { default: module.WorldMapPanel }
 })

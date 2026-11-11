@@ -1,11 +1,12 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   ADMIN_PROMPT_DISMISSED, fakeHost, INSTALLER_FAILED, OFFER, OFFLINE, settleTasks, startUpdater, type FakeUpdateHost,
 } from './support/fake-update-host'
+import { checkForUpdate as checkForUpdateOverIpc } from '../ipc/update'
 import type { SaveProblemRequest } from '../app/document-session/save-problem'
-import { updateFailureMessage, type UpdateFailureMessage } from '../app/updates/state'
+import { updateFailureMessage, type UpdateFailureMessage } from '../failures/messages'
 import { t } from '../i18n'
-import type { UpdateFailure, UpdateFailureCode, UpdateOffer, UpdateOp, UpdateOs } from '../generated/contracts'
+import type { UpdaterFailure, UpdateOffer, UpdateOp, UpdateOs } from '../generated/contracts'
 
 // The Desktop updater's user paths (canopi-f47t.52.228.15) through the real state machine, controller and close guard:
 // fakes stand only at the ports, the host's update commands (UpdaterPort, what ipc/update.ts invokes) and the close
@@ -22,9 +23,13 @@ function translated(message: UpdateFailureMessage | null): string | null {
   return message.reason === undefined ? t(message.key) : t(message.key, { reason: t(message.reason) })
 }
 
-function shown(failure: UpdateFailure, platform: UpdateOs = 'linux'): string | null {
+function shown(failure: UpdaterFailure, platform: UpdateOs = 'linux'): string | null {
   return translated(updateFailureMessage(failure, platform))
 }
+
+// Tauri's invoke, for the one path through the real ipc/update.ts and transport.
+const tauriInvoke = vi.hoisted(() => vi.fn())
+vi.mock('@tauri-apps/api/core', () => ({ invoke: tauriInvoke, Channel: class {} }))
 
 beforeEach(() => {
   fakeHost()
@@ -284,16 +289,31 @@ describe('Desktop updater controller', () => {
     await updater.check()
 
     expect({ state: updater.state.value, canRetry: updater.canRetry.value }).toEqual({
-      state: { kind: 'failed', failure: { code: { kind: 'internal' }, user_may_retry: false, op: 'updater.check', detail: 'Error: lost' } },
+      state: { kind: 'failed', failure: { code: { kind: 'internal' }, user_may_retry: false, op: 'updater.check', operation: null, detail: null } },
       canRetry: false,
     })
+  })
+
+  // Through the real ipc/update.ts and transport: a rejection that is no typed failure (Tauri's own, a String error)
+  // is already in the ring, redacted, and About shows the failed check with only that redacted detail (2.1-M409).
+  it('a check rejected with untyped text settles failed internal under updater.check, its detail redacted', async () => {
+    const host = fakeHost()
+    tauriInvoke.mockRejectedValueOnce('channel file unreadable at /home/ana/.cache/canopi/latest.json')
+    const updater = startUpdater({ ...host, updater: { ...host.updater, checkForUpdate: checkForUpdateOverIpc } }, { platform: 'linux' })
+
+    await updater.check()
+
+    const state = updater.state.value
+    expect(state).toMatchObject({ kind: 'failed', failure: { code: { kind: 'internal' }, op: 'updater.check', user_may_retry: false } })
+    expect(JSON.stringify(state)).not.toContain('/home/ana')
+    expect(state.kind === 'failed' && state.failure.detail).toContain('channel file unreadable')
   })
 
   // Channel messages and the command's reply are not ordered: progress the channel delivers after the download has
   // failed must not take About off the failure and back to a progress bar.
   it('progress arriving after a failed download leaves About on the failure', async () => {
     const host = fakeHost()
-    const failure: UpdateFailure = { code: { kind: 'network', network: 'timeout' }, user_may_retry: true, op: 'updater.download', detail: 'timeout' }
+    const failure: UpdaterFailure = { code: { kind: 'network', network: 'timeout' }, user_may_retry: true, op: 'updater.download', operation: null, detail: null }
     let lateProgress = () => {}
     const updater = startUpdater({
       ...host,
@@ -316,9 +336,9 @@ describe('Desktop updater controller', () => {
   // Each start reaches the host only from its own state (the controller's runs do not check that their first move
   // took): Download from available, Retry after a failed download that allows it, Install from verified.
   it('download, retry and install call the host only from available, a retryable failed download and verified', async () => {
-    const retryable: UpdateFailure = { code: { kind: 'network', network: 'timeout' }, user_may_retry: true, op: 'updater.download', detail: 'timeout' }
-    const final: UpdateFailure = { ...retryable, code: { kind: 'update_signature_refused' }, user_may_retry: false }
-    const run = async (failDownload: UpdateFailure | null) => {
+    const retryable: UpdaterFailure = { code: { kind: 'network', network: 'timeout' }, user_may_retry: true, op: 'updater.download', operation: null, detail: null }
+    const final: UpdaterFailure = { ...retryable, code: { kind: 'update_signature_refused' }, user_may_retry: false }
+    const run = async (failDownload: UpdaterFailure | null) => {
       const host = fakeHost()
       let failNext = failDownload
       const updater = startUpdater({
@@ -454,12 +474,15 @@ describe('Desktop updater controller', () => {
 })
 
 /** Every updater failure code (contracts §2 updater row and the codes it reuses), with the op it settles on. */
-const FAILURE_TEXT: readonly (readonly [UpdateOp, UpdateFailureCode, string | null])[] = [
+const FAILURE_TEXT: readonly (readonly [UpdateOp, UpdaterFailure['code'], string | null])[] = [
   ['updater.check', { kind: 'network', network: 'offline' }, 'Can’t check for updates while offline'],
   ['updater.check', { kind: 'network', network: 'timeout' }, 'Couldn’t check for updates'],
   ['updater.check', { kind: 'io', io: 'other' }, 'Couldn’t check for updates'],
   ['updater.check', { kind: 'invalid' }, 'Couldn’t check for updates'],
   ['updater.check', { kind: 'busy', lane: 'network' }, 'Couldn’t check for updates'],
+  ['updater.check', { kind: 'unavailable' }, 'Couldn’t check for updates'],
+  ['updater.check', { kind: 'panicked' }, 'Couldn’t check for updates'],
+  ['updater.check', { kind: 'join_failed' }, 'Couldn’t check for updates'],
   ['updater.check', { kind: 'internal' }, 'Couldn’t check for updates'],
   ['updater.check', { kind: 'cancelled' }, null],
   ['updater.check', { kind: 'update_no_channel_entry', os: 'linux', arch: 'x86_64', bundle: 'deb' }, 'Download the update from projectcanopi.com'],
@@ -467,6 +490,8 @@ const FAILURE_TEXT: readonly (readonly [UpdateOp, UpdateFailureCode, string | nu
   ['updater.download', { kind: 'update_signature_refused' }, 'Update not installed: the download could not be verified'],
   ['updater.download', { kind: 'network', network: 'too_large' }, 'Update not installed: the download failed'],
   ['updater.download', { kind: 'io', io: 'no_space' }, 'Update not installed: the download failed'],
+  ['updater.download', { kind: 'busy', lane: 'local' }, 'Update not installed: the download failed'],
+  ['updater.download', { kind: 'panicked' }, 'Update not installed: the download failed'],
   ['updater.download', { kind: 'cancelled' }, null],
   ['updater.install', { kind: 'update_admin_prompt_dismissed' }, 'Update not installed: the password prompt was closed'],
   ['updater.install', { kind: 'update_admin_prompt_refused' }, 'Update not installed: permission was refused'],
@@ -474,16 +499,17 @@ const FAILURE_TEXT: readonly (readonly [UpdateOp, UpdateFailureCode, string | nu
   ['updater.install', { kind: 'update_install_failed', bundle: 'appimage' }, 'Update not installed: the installer reported an error'],
   ['updater.install', { kind: 'io', io: 'permission_denied' }, 'Update not installed: the installer reported an error'],
   ['updater.install', { kind: 'internal' }, 'Update not installed: the installer reported an error'],
+  ['updater.install', { kind: 'join_failed' }, 'Update not installed: the installer reported an error'],
 ]
 
 describe('updater failure messages (2.1-Q237, 2.1-Q244)', () => {
   it('maps every updater failure code to its one message, and a cancel to none', () => {
-    const messages = FAILURE_TEXT.map(([op, code]) => shown({ code, op, user_may_retry: true, detail: '' }))
+    const messages = FAILURE_TEXT.map(([op, code]) => shown({ code, op, user_may_retry: true, operation: null, detail: null }))
     expect(messages).toEqual(FAILURE_TEXT.map(([, , text]) => text))
   })
   // Windows install failures show plain "Update not installed" (2.1-Q234, 2.1-Q244): the six reasons are Linux only.
   it('on Windows an install failure is plain Update not installed, without a Linux reason (canopi-f47t.52.228.15)', () => {
-    const windowsText: readonly (readonly [UpdateOp, UpdateFailureCode, string | null])[] = [
+    const windowsText: readonly (readonly [UpdateOp, UpdaterFailure['code'], string | null])[] = [
       ['updater.install', { kind: 'update_install_failed', bundle: 'nsis' }, 'Update not installed'],
       ['updater.install', { kind: 'io', io: 'other' }, 'Update not installed'],
       ['updater.install', { kind: 'internal' }, 'Update not installed'],
@@ -492,7 +518,7 @@ describe('updater failure messages (2.1-Q237, 2.1-Q244)', () => {
       ['updater.install', { kind: 'cancelled' }, null],
       ['updater.download', { kind: 'update_signature_refused' }, 'Update not installed: the download could not be verified'],
     ]
-    const messages = windowsText.map(([op, code]) => shown({ code, op, user_may_retry: true, detail: '' }, 'windows'))
+    const messages = windowsText.map(([op, code]) => shown({ code, op, user_may_retry: true, operation: null, detail: null }, 'windows'))
     expect(messages).toEqual(windowsText.map(([, , text]) => text))
   })
 })

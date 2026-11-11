@@ -29,10 +29,6 @@
       "count": 1,
       "bead": "canopi-f47t.52.36"
     },
-    "desktop/web/src/app/document-session/lifecycle.ts": {
-      "count": 1,
-      "bead": "canopi-f47t.52.36"
-    },
     "desktop/web/src/app/document-session/open-failure.ts": {
       "count": 1,
       "bead": "canopi-f47t.52.36"
@@ -69,10 +65,6 @@
       "count": 1,
       "bead": "canopi-f47t.52.36"
     },
-    "desktop/web/src/app/shell/bootstrap.ts": {
-      "count": 2,
-      "bead": "canopi-f47t.52.36"
-    },
     "desktop/web/src/app/shell/close-guard.ts": {
       "count": 4,
       "bead": "canopi-f47t.52.36"
@@ -82,10 +74,6 @@
       "bead": "canopi-f47t.52.36"
     },
     "desktop/web/src/canvas/runtime/scene-runtime/render-scheduler.ts": {
-      "count": 1,
-      "bead": "canopi-f47t.52.36"
-    },
-    "desktop/web/src/commands/graph/catalog.ts": {
       "count": 1,
       "bead": "canopi-f47t.52.36"
     },
@@ -101,10 +89,6 @@
       "count": 1,
       "bead": "canopi-f47t.52.36"
     },
-    "desktop/web/src/components/shared/ErrorBoundary.tsx": {
-      "count": 1,
-      "bead": "canopi-f47t.52.36"
-    },
     "desktop/web/src/components/shared/TitleBar.tsx": {
       "count": 1,
       "bead": "canopi-f47t.52.36"
@@ -117,10 +101,6 @@
       "count": 1,
       "bead": "canopi-f47t.52.36"
     },
-    "desktop/web/src/maplibre/redact-credentials.ts": {
-      "count": 1,
-      "bead": "canopi-f47t.52.36"
-    },
     "desktop/web/src/platform/browser.ts": {
       "count": 2,
       "bead": "canopi-f47t.52.36"
@@ -130,7 +110,7 @@
       "bead": "canopi-f47t.52.36"
     },
     "desktop/web/src/web/WebCanvasWorkspace.tsx": {
-      "count": 4,
+      "count": 3,
       "bead": "canopi-f47t.52.36"
     },
     "desktop/web/src/web/WebWelcomeScreen.tsx": {

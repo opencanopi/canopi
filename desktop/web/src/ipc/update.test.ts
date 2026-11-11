@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { UpdateFailure, UpdateProgress } from '../generated/contracts'
+import type { UpdaterFailure, UpdateProgress } from '../generated/contracts'
 import {
   cancelUpdate,
   checkForUpdate,
@@ -56,15 +56,17 @@ describe('the updater wire (canopi-f47t.52.228.15, 2.1-M241)', () => {
   })
 
   it('passes an update failure on as the rejection', async () => {
-    const failure: UpdateFailure = {
+    const failure: UpdaterFailure = {
       code: { kind: 'update_signature_refused' },
       user_may_retry: false,
       op: 'updater.download',
-      detail: 'the signature did not verify',
+      operation: null,
+      detail: null,
     }
     invoke.mockRejectedValueOnce(failure)
 
-    await expect(downloadUpdate('download-1', () => undefined)).rejects.toBe(failure)
+    // The transport's settlement carries the host's failure as it came (design check F15).
+    await expect(downloadUpdate('download-1', () => undefined)).rejects.toHaveProperty('failure', failure)
   })
 
   // The cancel names the operation it stops, so one sent right after its op starts still stops it when it reaches

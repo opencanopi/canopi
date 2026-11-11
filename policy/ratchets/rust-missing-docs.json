@@ -10,15 +10,13 @@
   "select": ["missing_docs"],
   "entries": {
     "canopi-types/src/analysis_registry.rs: clippy:missing_docs": { "count": 12 },
-    "canopi-types/src/design.rs: clippy:missing_docs": { "count": 43 },
-    "canopi-types/src/health.rs: clippy:missing_docs": { "count": 3 },
+    "canopi-types/src/design.rs: clippy:missing_docs": { "count": 42 },
     "canopi-types/src/library.rs: clippy:missing_docs": { "count": 21 },
     "canopi-types/src/lidar.rs: clippy:missing_docs": { "count": 21 },
     "canopi-types/src/location.rs: clippy:missing_docs": { "count": 1 },
     "canopi-types/src/saved_object_stamps.rs: clippy:missing_docs": { "count": 1 },
     "canopi-types/src/settings.rs: clippy:missing_docs": { "count": 10 },
     "canopi-types/src/species.rs: clippy:missing_docs": { "count": 15 },
-    "canopi-types/src/support.rs: clippy:missing_docs": { "count": 4 },
-    "canopi-types/src/views.rs: clippy:missing_docs": { "count": 16 }
+    "canopi-types/src/views.rs: clippy:missing_docs": { "count": 15 }
   }
 }

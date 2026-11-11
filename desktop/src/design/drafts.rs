@@ -2,7 +2,9 @@
 //! file or deleted. Each draft is `{app_data}/drafts/<id>.canopi` in the same
 //! `.canopi` wire format, encoder, durable write and load admission as a Design file.
 
-use canopi_types::design::{CanopiFile, DesignDraftSummary};
+use canopi_types::design::{
+    CanopiFile, DesignDraftSummary, DesignLoadFailure, DesignLoadFailureKind,
+};
 use std::path::{Path, PathBuf};
 
 use super::format;
@@ -59,10 +61,14 @@ impl DesignDrafts {
     }
 
     /// Load the draft `id` with the same size cap and version admission as a
-    /// Design file.
-    pub(crate) fn load(&self, id: &str) -> Result<CanopiFile, String> {
-        let path = draft_path(&self.dir, id)?;
-        format::load_from_file(&path).map_err(|error| error.to_string())
+    /// Design file, its refusal typed as a Design file's is (canopi-cyqd).
+    pub(crate) fn load(&self, id: &str) -> Result<CanopiFile, DesignLoadFailure> {
+        let path = draft_path(&self.dir, id).map_err(|message| DesignLoadFailure {
+            kind: DesignLoadFailureKind::Missing,
+            message,
+            field_path: None,
+        })?;
+        format::load_from_file(&path).map_err(|error| error.failure())
     }
 
     /// Every readable draft, most recently written first. A draft that cannot be
@@ -381,10 +387,41 @@ mod tests {
         drop(huge);
 
         let old = drafts.load("old").unwrap_err();
-        assert!(old.contains("unsupported_version"), "{old}");
+        assert_eq!(old.kind, DesignLoadFailureKind::OlderVersion);
+        assert!(old.message.contains("unsupported_version"), "{old:?}");
         let huge = drafts.load("huge").unwrap_err();
-        assert!(huge.contains("64 MiB"), "{huge}");
-        assert!(drafts.load("absent").is_err());
+        assert_eq!(huge.kind, DesignLoadFailureKind::TooLarge);
+        assert!(huge.message.contains("64 MiB"), "{huge:?}");
+        assert_eq!(
+            drafts.load("absent").unwrap_err().kind,
+            DesignLoadFailureKind::Missing
+        );
+    }
+
+    /// canopi-cyqd: a refused draft keeps the typed failure a Design file's refusal has,
+    /// its refused field included.
+    #[test]
+    fn canopi_cyqd_a_refused_draft_keeps_its_typed_failure() {
+        let root = unique_dir("typed-refusal");
+        let drafts = DesignDrafts::new(&root);
+        let dir = drafts.dir.clone();
+        fs::create_dir_all(&dir).unwrap();
+        let mut refused = serde_json::to_value(design("Refused")).unwrap();
+        refused["plants"] = serde_json::json!(3);
+        fs::write(
+            dir.join("refused.canopi"),
+            serde_json::to_vec(&refused).unwrap(),
+        )
+        .unwrap();
+
+        let failure = drafts.load("refused").unwrap_err();
+        assert_eq!(failure.kind, DesignLoadFailureKind::InvalidDocument);
+        let path = failure.field_path.map(|path| path.to_string());
+        assert_eq!(path.as_deref(), Some("$.plants"));
+        assert_eq!(
+            drafts.load("Not An Id").unwrap_err().kind,
+            DesignLoadFailureKind::Missing
+        );
     }
 
     #[test]

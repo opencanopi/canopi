@@ -1,6 +1,5 @@
 import { useSignalEffect } from '@preact/signals'
-import { t } from '../../i18n'
-import { filterText } from './filter-text'
+import { openSetText, t, type LocaleKeyFamily } from '../../i18n'
 import { locale } from '../../app/settings/state'
 import { plantFilterCatalog, speciesCatalogWorkbench } from '../../app/plant-browser'
 import type { DynamicFilter, DynamicFilterOptions, SpeciesFilter } from '../../types/species'
@@ -17,14 +16,14 @@ function addArrayChips(
   filters: SpeciesFilter,
   field: SpeciesFilterKey,
   prefix: string,
-  i18nPrefix: string,
+  i18nPrefix: LocaleKeyFamily,
 ) {
   const values = filters[field] as string[] | null;
   if (!values) return;
   for (const v of values) {
     chips.push({
       key: `${prefix}-${v}`,
-      label: filterText(`${i18nPrefix}${v}`, v),
+      label: openSetText(i18nPrefix, v),
       onDismiss: () => speciesCatalogWorkbench.patchFilters({ [field]: toggleArrayValue(filters[field] as string[] | null, v) }),
     });
   }
@@ -51,7 +50,7 @@ function addCatalogChips(
       if (filters[field.filterKey] === null) continue
       chips.push({
         key: field.filterKey,
-        label: filterText(field.labelI18nKey, field.fallbackLabel),
+        label: t(field.labelI18nKey),
         onDismiss: () => speciesCatalogWorkbench.patchFilters({ [field.filterKey]: null }),
       })
       continue
@@ -61,7 +60,7 @@ function addCatalogChips(
     if (value === null) continue
     chips.push({
       key: field.filterKey,
-      label: `${filterText(field.labelI18nKey, field.fallbackLabel)}: ${value}${field.suffix}`,
+      label: `${t(field.labelI18nKey)}: ${value}${field.suffix}`,
       onDismiss: () => speciesCatalogWorkbench.patchFilters({ [field.filterKey]: null }),
     })
   }
@@ -145,7 +144,7 @@ export function ActiveChips() {
 
   for (const ef of extras) {
     const fieldDef = FIELD_REGISTRY.find((f) => f.key === ef.field);
-    const label = fieldDef ? filterText(fieldDef.i18nKey, ef.field) : ef.field;
+    const label = fieldDef ? t(fieldDef.i18nKey) : ef.field;
     chips.push({
       key: `extra-${ef.field}`,
       label: formatExtraFilterDisplay(ef, label, localeOptions),

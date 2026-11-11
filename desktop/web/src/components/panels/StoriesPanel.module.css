@@ -275,12 +275,6 @@
   font-size: var(--text-xs);
 }
 
-.toastSlot {
-  display: flex;
-  justify-content: center;
-  padding: var(--space-2) var(--space-3);
-}
-
 @media (pointer: coarse) {
   .grip {
     width: var(--control-size-touch);

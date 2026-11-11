@@ -8,19 +8,25 @@ use crate::native_operation::{
     NativeOperationClassLimits, NativeOperationExecutor, NativeOperationLimits,
 };
 use canopi_types::dialog::{DialogKind, PickOpenOutcome, PickSaveOutcome};
+use canopi_types::failure::{Failure, FailureCode, ops};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, PoisonError};
 use std::time::{Duration, Instant};
 
-/// Holds each dialog until the test answers it.
+/// Holds each dialog until the test answers it, and records each window brought forward.
 #[derive(Default)]
 struct HeldPicker {
     held: Mutex<Vec<(DialogRequest, Option<Answer>)>>,
+    brought_forward: Mutex<Vec<String>>,
 }
 
 impl Picker for HeldPicker {
     fn show(&self, request: DialogRequest, answer: Answer) {
         lock_held(&self.held).push((request, Some(answer)));
+    }
+
+    fn bring_forward(&self, window: &str) {
+        lock_held(&self.brought_forward).push(window.to_string());
     }
 }
 
@@ -80,7 +86,7 @@ impl Host {
         &self,
         window: &'static str,
         kind: DialogKind,
-    ) -> tauri::async_runtime::JoinHandle<Result<PickOpenOutcome, String>> {
+    ) -> tauri::async_runtime::JoinHandle<Result<PickOpenOutcome, Failure>> {
         let (executor, dialogs) = self.parts();
         tauri::async_runtime::spawn(
             async move { pick_open(&executor, &dialogs, window, kind).await },
@@ -91,7 +97,7 @@ impl Host {
         &self,
         kind: DialogKind,
         stem: &'static str,
-    ) -> tauri::async_runtime::JoinHandle<Result<PickSaveOutcome, String>> {
+    ) -> tauri::async_runtime::JoinHandle<Result<PickSaveOutcome, Failure>> {
         let (executor, dialogs) = self.parts();
         tauri::async_runtime::spawn(async move {
             pick_save(&executor, &dialogs, "main", kind, stem).await
@@ -190,20 +196,51 @@ fn canopi_f47t_52_228_14_a_file_picked_through_the_host_dialogs_is_refused_over_
     );
 }
 
-/// Contracts §7: one pick at a time per window; another window may pick meanwhile.
+/// Contracts §7: one pick at a time per window; another window may pick meanwhile. The second
+/// brings the open dialog forward and settles the silent `dialog_already_open`, recorded once
+/// in the log with no notice (2.1-Q284); the first dialog still answers its own pick.
 #[test]
 fn canopi_f47t_52_228_14_a_second_pick_in_the_same_window_is_refused() {
     let host = Host::new();
     let first = host.open("main", DialogKind::DesignOpen);
     host.picker.request(0);
 
-    let second = settle(host.open("main", DialogKind::StampImport));
+    let (second, logs) = crate::services::design_files::capture_logs(|| {
+        tauri::async_runtime::block_on(pick_save(
+            &host.executor,
+            &host.dialogs,
+            "main",
+            DialogKind::DesignSave,
+            "copy",
+        ))
+    });
+    let host_read = tauri::async_runtime::block_on(pick_host_read(
+        &host.executor,
+        &host.dialogs,
+        "main",
+        DialogKind::GeojsonImport,
+    ));
     let other = host.open("other", DialogKind::StampImport);
     host.picker.answer(1, None);
     let garden = absolute(&["garden.canopi"]);
     host.picker.answer(0, Some(vec![garden.clone()]));
 
-    assert_eq!(second, Err(ALREADY_OPEN.to_string()));
+    assert_eq!(host_read, Err("dialog_already_open".to_string()));
+    assert_eq!(
+        second,
+        Err(Failure::new(
+            FailureCode::DialogAlreadyOpen,
+            ops::DIALOG_PICK_SAVE
+        ))
+    );
+    assert!(FailureCode::DialogAlreadyOpen.row().silent);
+    assert_eq!(*lock_held(&host.picker.brought_forward), ["main", "main"]);
+    let recorded: Vec<_> = logs
+        .lines()
+        .filter(|line| line.contains("dialog_already_open"))
+        .collect();
+    assert_eq!(recorded.len(), 1, "{logs}");
+    assert!(recorded[0].contains(" INFO "), "{logs}");
     assert_eq!(settle(other), Ok(PickOpenOutcome::Cancelled));
     assert_eq!(settle(first), Ok(picked(&garden)));
     let again = host.open("main", DialogKind::DesignOpen);
@@ -229,6 +266,7 @@ fn canopi_f47t_52_228_14_a_destroyed_window_settles_cancelled_and_drops_the_late
 
     assert_eq!(settle(first), Ok(PickOpenOutcome::Cancelled));
     assert_eq!(settle(later), Ok(picked(&garden)));
+    assert!(lock_held(&host.picker.brought_forward).is_empty());
 }
 
 /// The Save dialog suggests the stem with the kind's extension, and a chosen name without
@@ -328,12 +366,13 @@ fn canopi_f47t_52_228_14_each_command_takes_only_its_own_kinds() {
     let host = Host::new();
     let (executor, dialogs) = host.parts();
     tauri::async_runtime::block_on(async {
+        let invalid = |op| Failure::new(FailureCode::Invalid, op);
         let open = pick_open(&executor, &dialogs, "main", DialogKind::PdfExport);
-        assert!(open.await.is_err());
+        assert_eq!(open.await, Err(invalid(ops::DIALOG_PICK_OPEN)));
         let host_read = pick_open(&executor, &dialogs, "main", DialogKind::GeojsonImport);
-        assert!(host_read.await.is_err());
+        assert_eq!(host_read.await, Err(invalid(ops::DIALOG_PICK_OPEN)));
         let save = pick_save(&executor, &dialogs, "main", DialogKind::DesignOpen, "x");
-        assert!(save.await.is_err());
+        assert_eq!(save.await, Err(invalid(ops::DIALOG_PICK_SAVE)));
         let read = pick_host_read(&executor, &dialogs, "main", DialogKind::StampImport);
         assert!(read.await.is_err());
     });
@@ -466,10 +505,15 @@ impl Picker for FailsFirstPicker {
         );
         self.held.show(request, answer);
     }
+
+    fn bring_forward(&self, window: &str) {
+        self.held.bring_forward(window);
+    }
 }
 
-/// Contracts §7: a pick whose dialog fails to open settles as an error and frees its window, so
-/// the next pick there shows its dialog rather than being refused as already open.
+/// Contracts §7: a pick whose dialog fails to open settles as an error (its panic settles
+/// `panicked` through the executor) and frees its window, so the next pick there shows its
+/// dialog rather than being refused as already open.
 #[test]
 fn canopi_f47t_52_228_14_a_dialog_that_fails_to_open_frees_the_window_for_the_next_pick() {
     let picker = Arc::new(FailsFirstPicker::default());
@@ -485,9 +529,60 @@ fn canopi_f47t_52_228_14_a_dialog_that_fails_to_open_frees_the_window_for_the_ne
     let garden = absolute(&["garden.canopi"]);
     picker.held.answer(0, Some(vec![garden.clone()]));
 
-    assert!(
-        failed.as_ref().is_err_and(|error| error != ALREADY_OPEN),
-        "{failed:?}"
+    assert_eq!(
+        failed,
+        Err(Failure::new(FailureCode::Panicked, ops::DIALOG_PICK_OPEN))
     );
     assert_eq!(settle(next), Ok(picked(&garden)));
+}
+
+/// One problem report names one settlement under one op: a pick the executor settles keeps
+/// its native ring entry under the op of the Failure the webview receives.
+#[test]
+fn canopi_f47t_52_36_a_settled_pick_keeps_its_ring_entry_under_the_commands_op() {
+    let picker = Arc::new(FailsFirstPicker::default());
+    let shown: Arc<dyn Picker> = picker.clone();
+    let host = Host {
+        executor: executor(),
+        dialogs: Arc::new(HostDialogs::new(shown)),
+        picker: Arc::new(HeldPicker::default()),
+    };
+
+    let failed = settle(host.save(DialogKind::DesignSave, "Orchard")).expect_err("panicked");
+
+    assert_eq!(failed.op, ops::DIALOG_PICK_SAVE);
+    let kept = crate::logging::recent_failures();
+    assert!(
+        kept.iter()
+            .any(|kept| kept.failure.op == failed.op && kept.failure.code == FailureCode::Panicked),
+        "{kept:?}"
+    );
+    assert!(
+        kept.iter().all(|kept| kept.failure.op != "file dialog"),
+        "{kept:?}"
+    );
+}
+
+#[test]
+fn canopi_f47t_52_36_a_settled_host_read_pick_keeps_its_ring_entry_under_the_host_read_op() {
+    let picker = Arc::new(FailsFirstPicker::default());
+    let shown: Arc<dyn Picker> = picker.clone();
+    let dialogs = HostDialogs::new(shown);
+    let executor = executor();
+
+    let refused = tauri::async_runtime::block_on(pick_host_read(
+        &executor,
+        &dialogs,
+        "main",
+        DialogKind::GeojsonImport,
+    ));
+
+    assert!(refused.is_err(), "{refused:?}");
+    let kept = crate::logging::recent_failures();
+    assert!(
+        kept.iter()
+            .any(|kept| kept.failure.op == ops::DIALOG_PICK_HOST_READ
+                && kept.failure.code == FailureCode::Panicked),
+        "{kept:?}"
+    );
 }

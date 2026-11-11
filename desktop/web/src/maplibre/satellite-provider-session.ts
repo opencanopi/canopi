@@ -4,7 +4,7 @@ import {
   type SatelliteConfig,
 } from './satellite-provider'
 import { googleSessionRequestUrl, googleViewportRequestUrl, type BasemapTileAuth } from './basemap-tile-auth'
-import { logMapError } from './redact-credentials'
+import { reportMapError } from './map-errors'
 
 /**
  * One active Google satellite imagery generation.
@@ -426,7 +426,7 @@ export class SatelliteImageryProvider {
     if (response === null) return null
     if (!response.ok) {
       // The numeric status only: the request URL carries the key.
-      logMapError(`Satellite session request failed (HTTP ${response.status}).`)
+      reportMapError(`Satellite session request failed (HTTP ${response.status}).`)
       return null
     }
     const body = response.json

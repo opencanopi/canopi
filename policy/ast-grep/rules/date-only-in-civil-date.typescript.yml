@@ -5,7 +5,7 @@
 id: date-only-in-civil-date.typescript
 language: typescript
 severity: error
-message: "date-only-in-civil-date (§18 F13): dates are parsed (new Date with an argument, Date.parse) and displayed (toLocaleDateString, toLocaleTimeString, Intl.DateTimeFormat) only by the civil date owner. ADR 0028; owner desktop/web/src/app/timeline/civil-date.ts; target desktop/web/src/app/timeline/civil-date.ts (1b); example desktop/web/src/app/timeline/civil-date.ts"
+message: "date-only-in-civil-date (§18 F13): dates are parsed (new Date with an argument, Date.parse) and displayed (toLocaleDateString, toLocaleTimeString, Intl.DateTimeFormat) only by the civil date owner (exceptions: satellite-http's Retry-After HTTP-date header parse, not display, design check F7). ADR 0028; owner desktop/web/src/app/timeline/civil-date.ts; target desktop/web/src/app/timeline/civil-date.ts (1b); example desktop/web/src/app/timeline/civil-date.ts"
 files:
   - "{desktop/web,policy/fixtures/rules/*}/src/**/*.ts"
 ignores:

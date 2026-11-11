@@ -123,6 +123,34 @@ describe('the Vitest pass (2.1-Q224)', () => {
     expect(status, out).toBe(0)
   })
 
+  it('canopi-f47t.52.36: a quoted replacement routes the loss in its own file first, never one an earlier file lost', () => {
+    // Phase 1's range: a test lost with no route in an earlier file took a later file's quoted replacement, and the
+    // loss that quote named was refused instead of the unrouted one.
+    const one = (title: string) => `import { expect, it } from 'vitest'\n\nit('${title}', () => {\n  expect(1).toBe(1)\n})\n`
+    repo.write({ 'desktop/web/src/a.test.ts': one('old a') + ANYTHING.replace('anything', 'keeps a'), 'desktop/web/src/b.test.ts': one('old b') })
+    repo.base = repo.commit('test(frontend): two files')
+    const [status, out] = gate({ 'desktop/web/src/a.test.ts': "import { expect, it } from 'vitest'\n" + ANYTHING.replace('anything', 'keeps a'), 'desktop/web/src/b.test.ts': one('new b') },
+      "test(frontend): 'new b' replaces 'old b'")
+    expect(status, out).toBe(1)
+    expect(out, out).toContain("'old a'")
+    expect(out, out).not.toContain("'old b'")
+  })
+
+  it('canopi-f47t.52.36: a test moved under another describe keeps its own quoted title, never one an unrouted loss takes', () => {
+    const block = (group: string, title: string) =>
+      `import { describe, expect, it } from 'vitest'\n\ndescribe('${group}', () => {\n  it('${title}', () => {\n    expect(1).toBe(1)\n  })\n})\n`
+    repo.write({ 'desktop/web/src/w.test.ts': block('Lost', 'early') + ANYTHING, 'desktop/web/src/x.test.ts': block('a', 'moved') + ANYTHING.replace('anything', 'keeps x') })
+    repo.base = repo.commit('test(frontend): three files')
+    const [status, out] = gate({
+      'desktop/web/src/w.test.ts': "import { expect, it } from 'vitest'\n" + ANYTHING,
+      'desktop/web/src/x.test.ts': "import { expect, it } from 'vitest'\n" + ANYTHING.replace('anything', 'keeps x'),
+      'desktop/web/src/y.test.ts': block('z', 'moved'),
+    }, "test(frontend): 'moved' moves to y")
+    expect(status, out).toBe(1)
+    expect(out, out).toContain("'Lost > early'")
+    expect(out, out).not.toContain('moved')
+  })
+
   it('canopi-f47t.52.240: a src test replaced by a quoted title under scripts/ passes the vitest list pass', () => {
     // The web Vitest project runs desktop/web's every test file, scripts/ and vite.config.test.ts beside src/: a
     // replacement there is listed as added, so the deleting commit's quote routes the loss (CI run 42117580716).

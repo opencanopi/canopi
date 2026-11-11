@@ -170,16 +170,3 @@
   justify-content: flex-end;
   gap: var(--space-2);
 }
-
-.toastSlot {
-  display: flex;
-  justify-content: center;
-}
-
-.floatingToast {
-  position: fixed;
-  left: 50%;
-  bottom: var(--space-6);
-  z-index: var(--z-toast);
-  transform: translateX(-50%);
-}

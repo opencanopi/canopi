@@ -1,0 +1,9 @@
+id: google-tile-endpoint-only-in-tile-auth.tsx
+valid:
+  - |
+    export const host = 'maps.googleapis.com'
+invalid:
+  - |
+    export const url = 'https://tile.googleapis.com/v1/createSession'
+  - |
+    export const link = <a href="https://tile.googleapis.com/v1/2dtiles">tiles</a>

@@ -233,6 +233,10 @@ describe('saved view dialogs', () => {
   const dialog = () => container.querySelector<HTMLElement>('[role="dialog"]')
   const button = (name: string) => [...container.querySelectorAll<HTMLButtonElement>('button')]
     .find((element) => (element.getAttribute('aria-label') ?? element.textContent) === name)
+  // The window's one toast position, a layer on <body> above the dialog (2.1-Q292).
+  const toastLayer = () => document.querySelector<HTMLElement>('[data-toast-layer]')
+  const toastButton = (name: string) => [...(toastLayer()?.querySelectorAll<HTMLButtonElement>('button') ?? [])]
+    .find((element) => element.textContent === name)
   const key = (target: Element, init: KeyboardEventInit) =>
     act(async () => { target.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, cancelable: true, ...init })) })
   const type = (input: HTMLInputElement, value: string) =>
@@ -304,20 +308,21 @@ describe('saved view dialogs', () => {
     expect(currentDesign.value?.views?.map((view) => view.name)).toEqual(['Wildlife pond', 'Hedge'])
   })
 
-  it('deletes an unused view with an Undo toast in the dialog', async () => {
+  it('deletes an unused view with an Undo toast in the window toast position, above the dialog (2.1-Q292)', async () => {
     open(design([POND, HEDGE]))
     await act(async () => { openManageViewsDialog() })
 
     await act(async () => { button('Delete Pond')!.click() })
 
     expect(currentDesign.value?.views?.map((view) => view.id)).toEqual(['hedge'])
-    const toast = dialog()!.querySelector('[role="status"]')!
+    const toast = toastLayer()!.querySelector('[role="status"]')!
     expect(toast.textContent).toContain('Deleted “Pond”')
+    expect(dialog()!.contains(toast)).toBe(false)
     expect(dialog()!.contains(document.activeElement)).toBe(true)
 
-    await act(async () => { button('Undo')!.click() })
+    await act(async () => { toastButton('Undo')!.click() })
     expect(currentDesign.value?.views?.map((view) => view.id)).toEqual(['pond', 'hedge'])
-    expect(container.querySelector('[role="status"]')).toBeNull()
+    expect(toastLayer()!.querySelector('[role="status"]')).toBeNull()
   })
 
   it('asks before deleting a view that stories show, naming them', async () => {
@@ -351,7 +356,7 @@ describe('saved view dialogs', () => {
     await act(async () => { button('Done')!.click() })
 
     expect(dialog()).toBeNull()
-    await act(async () => { button('Undo')!.click() })
+    await act(async () => { toastButton('Undo')!.click() })
     expect(currentDesign.value?.views?.map((view) => view.id)).toEqual(['pond'])
   })
 

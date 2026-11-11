@@ -1,9 +1,14 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import {
   BrowserDraftChangedError,
   createBrowserAppDataStore,
   type BrowserStorageAdapter,
 } from '../web/browser-app-data'
+import { resetStoreHealthForTests, storeStatus } from '../failures/health'
+import { StoreRefusedError, StoreUnreadableError } from '../failures/store-read'
+import { installHealthNotices } from '../failures/health-notices'
+import { notices, resetNoticesForTests } from '../failures/notices'
+import { t } from '../i18n'
 import type { CanopiFile } from '../types/design'
 
 /** Canopi 2.0's records. */
@@ -299,9 +304,13 @@ describe('browser app data store', () => {
     expect(store.listDrafts().map((draft) => draft.id)).toEqual(
       corruptKey === KEYS.drafts ? [] : ['draft-1'],
     )
-    expect(store.loadSettings()).toEqual(
-      corruptKey === KEYS.settings ? null : { locale: 'fr' },
-    )
+    if (corruptKey === KEYS.settings) {
+      // 2.1-Q67: an unreadable settings record is refused, never read as defaults a later save would write over.
+      expect(() => store.loadSettings()).toThrow(StoreUnreadableError)
+      expect(storage.values.get(KEYS.settings)).toBe('{not-json')
+    } else {
+      expect(store.loadSettings()).toEqual({ locale: 'fr' })
+    }
     expect(store.listFavoriteSpecies()).toEqual(
       corruptKey === KEYS.species ? [] : ['Malus domestica'],
     )
@@ -392,6 +401,81 @@ describe('browser app data store', () => {
     expect(store.listSavedObjectStamps()).toEqual([
       { id: 'stamp-1', name: 'Guild', payload: { objects: 2 } },
     ])
+  })
+
+  describe('a damaged Drafts or species lists record (2.1-Q287, 2.1-M438)', () => {
+    const NOW = '2026-11-07T10:00:00.000Z'
+
+    afterEach(() => {
+      resetStoreHealthForTests()
+      resetNoticesForTests()
+    })
+
+    it.each([
+      ['web_drafts', KEYS.drafts, 'Drafts'],
+      ['web_species_lists', KEYS.species, 'favorites and recently viewed plants'],
+    ] as const)('[canopi-f47t.52.36] a damaged %s record moves aside under its own key, named once, before reading as empty', (store, key, named) => {
+      const dispose = installHealthNotices({ report: null, update: null })
+      const storage = memoryStorage()
+      seedPartitions(storage)
+      storage.values.set(key, '{"version":3,"drafts":')
+      const data = createBrowserAppDataStore({ storage, now: () => NOW })
+
+      expect(data.listDrafts().map((draft) => draft.id)).toEqual(key === KEYS.drafts ? [] : ['draft-1'])
+      expect(data.listFavoriteSpecies()).toEqual(key === KEYS.species ? [] : ['Malus domestica'])
+      // Read again: the record is already aside, so it is named once.
+      data.listDrafts()
+      data.listRecentlyViewedSpecies()
+
+      const aside = `${key}:damaged-${NOW}`
+      expect(storage.values.get(aside)).toBe('{"version":3,"drafts":')
+      expect(storage.values.has(key)).toBe(false)
+      expect(storeStatus(store)).toEqual({ kind: 'set_aside_damaged', file: aside })
+      const told = notices.value.filter((notice) => notice.key.startsWith(`health:${store}`))
+      expect(told).toHaveLength(1)
+      expect(t(told[0]!.message, told[0]!.params)).toContain(named)
+      // The store works again: a new write lands under the store's key, the set-aside record kept.
+      expect(key === KEYS.drafts
+        ? data.saveDraft({ file: makeDesign({ name: 'Fresh' }), now: NOW }).ok
+        : data.setFavoriteSpecies(['Malus domestica']).ok).toBe(true)
+      expect(storage.values.get(aside)).toBe('{"version":3,"drafts":')
+      dispose()
+    })
+
+    it('[canopi-f47t.52.36] a damaged record that cannot be moved aside (quota) is kept and its store refuses writes for the session, told once', () => {
+      const dispose = installHealthNotices({ report: null, update: null })
+      const storage = memoryStorage()
+      storage.values.set(KEYS.drafts, 'not json')
+      storage.rejectWrite = () => new DOMException('The quota has been exceeded.', 'QuotaExceededError')
+      const data = createBrowserAppDataStore({ storage, now: () => NOW })
+
+      expect(data.listDrafts()).toEqual([])
+      storage.rejectWrite = null
+      const refused = data.saveDraft({ file: makeDesign({ name: 'Lost?' }), now: NOW })
+      expect(refused.ok).toBe(false)
+      if (refused.ok) throw new Error('the write should be refused')
+      expect(refused.error).toBeInstanceOf(StoreRefusedError)
+      expect(data.deleteDraft('anything').ok).toBe(false)
+
+      expect(storage.values.get(KEYS.drafts)).toBe('not json')
+      expect(storeStatus('web_drafts')).toEqual({ kind: 'unavailable', code: { kind: 'io', io: 'no_space' } })
+      expect(notices.value.map((notice) => notice.message)).toEqual(['health.writesRefused.webDrafts'])
+      // Other stores still write.
+      expect(data.setFavoriteSpecies(['Malus domestica']).ok).toBe(true)
+      dispose()
+    })
+
+    it('[canopi-f47t.52.36] a species lists record a newer Canopi wrote is kept untouched and refuses writes', () => {
+      const storage = memoryStorage()
+      const newer = JSON.stringify({ version: 4, favourites: ['Malus domestica'] })
+      storage.values.set(KEYS.species, newer)
+      const data = createBrowserAppDataStore({ storage, now: () => NOW })
+
+      expect(data.listFavoriteSpecies()).toEqual([])
+      expect(data.setFavoriteSpecies(['Pyrus communis']).ok).toBe(false)
+      expect(storage.values.get(KEYS.species)).toBe(newer)
+      expect(storeStatus('web_species_lists')).toEqual({ kind: 'refused_newer' })
+    })
   })
 })
 

@@ -3,98 +3,38 @@ import { useSignal, useSignalEffect } from '@preact/signals'
 import { createPortal, type RefObject } from 'preact'
 import { t } from '../../i18n'
 import { locale } from '../../app/settings/state'
+import {
+  addCivilDays,
+  addCivilMonths,
+  buildCivilMonthGrid,
+  civilWeekdayLabels,
+  compareCivilDates,
+  endOfCivilMonth,
+  formatCivilDate,
+  formatCivilDateLabel,
+  formatCivilMonthLabel,
+  localToday,
+  parseCivilDate,
+  type CivilDate,
+} from '../../app/timeline/civil-date'
 import { computeFloatingDirection, shouldAlignRight } from '../../utils/floating-position'
 import styles from './DatePicker.module.css'
 
-/** Format a Date as ISO 8601 date string (YYYY-MM-DD). */
-function toISODate(date: Date): string {
-  const y = date.getFullYear()
-  const m = String(date.getMonth() + 1).padStart(2, '0')
-  const d = String(date.getDate()).padStart(2, '0')
-  return `${y}-${m}-${d}`
+// Dates are civil dates (app/timeline/civil-date.ts): a stored value that is no real day (2026-02-30) is no date, and
+// the grid starts on the locale's week start, like the Calendar panel's (canopi-f47t.52.82).
+
+function isDayInRange(date: CivilDate, min: CivilDate | null, max: CivilDate | null): boolean {
+  return (!min || compareCivilDates(date, min) >= 0) && (!max || compareCivilDates(date, max) <= 0)
 }
 
-// ---------------------------------------------------------------------------
-// Intl.DateTimeFormat cache
-// ---------------------------------------------------------------------------
-
-const _dtfCache = new Map<string, Intl.DateTimeFormat>()
-
-function cachedDTF(loc: string, options: Intl.DateTimeFormatOptions): Intl.DateTimeFormat {
-  const key = `${loc}:${JSON.stringify(options)}`
-  let fmt = _dtfCache.get(key)
-  if (!fmt) {
-    fmt = new Intl.DateTimeFormat(loc, options)
-    _dtfCache.set(key, fmt)
-  }
-  return fmt
+/** Whether a month has no selectable day within min/max. */
+function isMonthFullyDisabled(month: CivilDate, min: CivilDate | null, max: CivilDate | null): boolean {
+  return (min !== null && compareCivilDates(endOfCivilMonth(month), min) < 0)
+    || (max !== null && compareCivilDates({ ...month, day: 1 }, max) > 0)
 }
 
-// ---------------------------------------------------------------------------
-// Week start day by locale
-// ---------------------------------------------------------------------------
-
-const SUNDAY_START_LOCALES = new Set(['en', 'pt', 'zh', 'ja', 'ko'])
-
-function weekStartsOnSunday(loc: string): boolean {
-  return SUNDAY_START_LOCALES.has(loc)
-}
-
-// ---------------------------------------------------------------------------
-// Date helpers
-// ---------------------------------------------------------------------------
-
-function parseISO(iso: string): Date | null {
-  if (!iso) return null
-  const d = new Date(iso + 'T00:00:00')
-  return isNaN(d.getTime()) ? null : d
-}
-
-function daysInMonth(year: number, month: number): number {
-  return new Date(year, month + 1, 0).getDate()
-}
-
-function isSameDay(a: Date, b: Date): boolean {
-  return a.getFullYear() === b.getFullYear() &&
-    a.getMonth() === b.getMonth() &&
-    a.getDate() === b.getDate()
-}
-
-function isDayInRange(date: Date, min: Date | null, max: Date | null): boolean {
-  if (min) {
-    const minDay = new Date(min.getFullYear(), min.getMonth(), min.getDate())
-    if (date < minDay) return false
-  }
-  if (max) {
-    const maxDay = new Date(max.getFullYear(), max.getMonth(), max.getDate())
-    if (date > maxDay) return false
-  }
-  return true
-}
-
-/** Check if an entire month has zero selectable days within min/max range. */
-function isMonthFullyDisabled(year: number, month: number, min: Date | null, max: Date | null): boolean {
-  if (!min && !max) return false
-  const days = daysInMonth(year, month)
-  const firstDay = new Date(year, month, 1)
-  const lastDay = new Date(year, month, days)
-  if (min) {
-    const minDay = new Date(min.getFullYear(), min.getMonth(), min.getDate())
-    if (lastDay < minDay) return true
-  }
-  if (max) {
-    const maxDay = new Date(max.getFullYear(), max.getMonth(), max.getDate())
-    if (firstDay > maxDay) return true
-  }
-  return false
-}
-
-function prevMonth(year: number, month: number): [number, number] {
-  return month === 0 ? [year - 1, 11] : [year, month - 1]
-}
-
-function nextMonth(year: number, month: number): [number, number] {
-  return month === 11 ? [year + 1, 0] : [year, month + 1]
+function sameDay(a: CivilDate, b: CivilDate | null): boolean {
+  return b !== null && compareCivilDates(a, b) === 0
 }
 
 // ---------------------------------------------------------------------------
@@ -147,23 +87,18 @@ export function DatePicker({
   const triggerRef = useRef<HTMLButtonElement>(null)
   const popupRef = useRef<HTMLDivElement>(null)
 
-  const parsedValue = parseISO(value)
-  const minDate = parseISO(min ?? '')
-  const maxDate = parseISO(max ?? '')
+  const parsedValue = parseCivilDate(value)
+  const minDate = parseCivilDate(min)
+  const maxDate = parseCivilDate(max)
 
-  // View month state -- initialize to value's month or today
-  const viewYear = useSignal(parsedValue?.getFullYear() ?? new Date().getFullYear())
-  const viewMonth = useSignal(parsedValue?.getMonth() ?? new Date().getMonth())
+  // The month shown (day 1): the value's month, else today's
+  const viewMonth = useSignal<CivilDate>({ ...(parsedValue ?? localToday()), day: 1 })
 
   // When value changes externally, sync view month
   const lastValue = useRef(value)
   if (value !== lastValue.current) {
     lastValue.current = value
-    const d = parseISO(value)
-    if (d) {
-      viewYear.value = d.getFullYear()
-      viewMonth.value = d.getMonth()
-    }
+    if (parsedValue) viewMonth.value = { ...parsedValue, day: 1 }
   }
 
   // Click-outside (pointerup) and focus leaving for another control, mirrors Dropdown.tsx
@@ -189,33 +124,18 @@ export function DatePicker({
 
   // Sync view to selected date when opening
   const handleToggle = () => {
-    if (!open.value) {
-      const d = parseISO(value)
-      if (d) {
-        viewYear.value = d.getFullYear()
-        viewMonth.value = d.getMonth()
-      }
-    }
+    if (!open.value && parsedValue) viewMonth.value = { ...parsedValue, day: 1 }
     open.value = !open.value
   }
 
-  const handleSelectDay = (date: Date) => {
+  const handleSelectDay = (date: CivilDate) => {
     open.value = false
-    onChange(toISODate(date))
+    onChange(formatCivilDate(date))
     triggerRef.current?.focus()
   }
 
-  const handlePrevMonth = () => {
-    const [y, m] = prevMonth(viewYear.value, viewMonth.value)
-    viewYear.value = y
-    viewMonth.value = m
-  }
-
-  const handleNextMonth = () => {
-    const [y, m] = nextMonth(viewYear.value, viewMonth.value)
-    viewYear.value = y
-    viewMonth.value = m
-  }
+  const handlePrevMonth = () => { viewMonth.value = addCivilMonths(viewMonth.value, -1) }
+  const handleNextMonth = () => { viewMonth.value = addCivilMonths(viewMonth.value, 1) }
 
   // Viewport-aware direction and horizontal alignment
   let resolvedDir: 'up' | 'down' = 'down'
@@ -227,9 +147,7 @@ export function DatePicker({
   }
 
   // Format trigger display
-  const triggerText = parsedValue
-    ? cachedDTF(currentLocale, { day: 'numeric', month: 'short', year: 'numeric' }).format(parsedValue)
-    : null
+  const triggerText = parsedValue ? formatCivilDateLabel(parsedValue, currentLocale) : null
 
   const triggerClasses = [
     styles.trigger,
@@ -240,7 +158,6 @@ export function DatePicker({
 
   const calendar = open.value && (
     <CalendarPanel
-      viewYear={viewYear.value}
       viewMonth={viewMonth.value}
       selectedDate={parsedValue}
       minDate={minDate}
@@ -288,24 +205,23 @@ export function DatePicker({
 // ---------------------------------------------------------------------------
 
 interface CalendarPanelProps {
-  viewYear: number
-  viewMonth: number
-  selectedDate: Date | null
-  minDate: Date | null
-  maxDate: Date | null
+  /** The month shown, day 1. */
+  viewMonth: CivilDate
+  selectedDate: CivilDate | null
+  minDate: CivilDate | null
+  maxDate: CivilDate | null
   locale: string
   direction: 'up' | 'down'
   alignRight?: boolean
   popupRef: RefObject<HTMLDivElement | null>
   floatingAnchor: DOMRect | null
-  onSelect: (date: Date) => void
+  onSelect: (date: CivilDate) => void
   onPrevMonth: () => void
   onNextMonth: () => void
   onClose: () => void
 }
 
 function CalendarPanel({
-  viewYear,
   viewMonth,
   selectedDate,
   minDate,
@@ -328,25 +244,25 @@ function CalendarPanel({
   // Carries a keyboard-navigated day across the month-change re-render
   const pendingFocusDay = useRef<number | null>(null)
 
-  // Determine initial focused day
-  const today = new Date()
-  const totalDays = daysInMonth(viewYear, viewMonth)
+  const today = localToday()
+  const totalDays = endOfCivilMonth(viewMonth).day
+  const dayOfView = (day: number): CivilDate => ({ ...viewMonth, day })
+  // The selected day in this month, else today, else the first selectable day
   const getInitialFocus = (): number => {
-    if (selectedDate && selectedDate.getFullYear() === viewYear && selectedDate.getMonth() === viewMonth) {
-      return selectedDate.getDate()
+    if (selectedDate && selectedDate.year === viewMonth.year && selectedDate.month === viewMonth.month) {
+      return selectedDate.day
     }
-    if (today.getFullYear() === viewYear && today.getMonth() === viewMonth) {
-      const day = today.getDate()
-      if (isDayInRange(new Date(viewYear, viewMonth, day), minDate, maxDate)) return day
+    if (today.year === viewMonth.year && today.month === viewMonth.month && isDayInRange(today, minDate, maxDate)) {
+      return today.day
     }
     for (let d = 1; d <= totalDays; d++) {
-      if (isDayInRange(new Date(viewYear, viewMonth, d), minDate, maxDate)) return d
+      if (isDayInRange(dayOfView(d), minDate, maxDate)) return d
     }
     return 1
   }
 
   // Reset focused day when view month changes (no signal writes during render)
-  const viewKey = `${viewYear}-${viewMonth}`
+  const viewKey = formatCivilDate(viewMonth)
   if (lastView.current !== viewKey) {
     lastView.current = viewKey
     if (pendingFocusDay.current !== null) {
@@ -367,62 +283,18 @@ function CalendarPanel({
   useLayoutEffect(() => {
     const btn = gridRef.current?.querySelector(`[data-day="${focusedDayRef.current}"]`) as HTMLButtonElement | null
     btn?.focus()
-  }, [viewYear, viewMonth])
+  }, [viewKey])
 
-  // Month+year header label
-  const monthYearLabel = cachedDTF(loc, { month: 'long', year: 'numeric' }).format(
-    new Date(viewYear, viewMonth, 1)
-  )
+  const monthYearLabel = formatCivilMonthLabel(viewMonth, loc)
+  const weekdayHeaders = civilWeekdayLabels(loc)
+  // The same weeks as the Calendar panel's grid; days outside the month are padding
+  const cells = buildCivilMonthGrid(viewMonth, loc).flat().map((date) => {
+    const current = date.month === viewMonth.month
+    return { date, current, disabled: !current || !isDayInRange(date, minDate, maxDate) }
+  })
 
-  // Day-of-week headers
-  const sundayStart = weekStartsOnSunday(loc)
-  const weekdayFmt = cachedDTF(loc, { weekday: 'short' })
-  const weekdayHeaders: string[] = []
-  // Generate day headers starting from the correct day
-  const baseDate = new Date(2024, 0, 7) // A known Sunday (2024-01-07)
-  const startOffset = sundayStart ? 0 : 1
-  for (let i = 0; i < 7; i++) {
-    const d = new Date(baseDate)
-    d.setDate(baseDate.getDate() + startOffset + i)
-    weekdayHeaders.push(weekdayFmt.format(d))
-  }
-
-  // Grid cells
-  const firstDayOfMonth = new Date(viewYear, viewMonth, 1).getDay() // 0=Sun
-  const offset = sundayStart ? firstDayOfMonth : ((firstDayOfMonth + 6) % 7)
-  const prevDays = daysInMonth(...prevMonth(viewYear, viewMonth))
-
-  type CellData = { day: number; type: 'padding' | 'current'; date: Date; disabled: boolean }
-  const cells: CellData[] = []
-
-  // Padding from previous month
-  for (let i = offset - 1; i >= 0; i--) {
-    const day = prevDays - i
-    const [py, pm] = prevMonth(viewYear, viewMonth)
-    cells.push({ day, type: 'padding', date: new Date(py, pm, day), disabled: true })
-  }
-
-  // Current month days
-  for (let d = 1; d <= totalDays; d++) {
-    const date = new Date(viewYear, viewMonth, d)
-    const disabled = !isDayInRange(date, minDate, maxDate)
-    cells.push({ day: d, type: 'current', date, disabled })
-  }
-
-  // Padding from next month
-  const remaining = 7 - (cells.length % 7)
-  if (remaining < 7) {
-    const [ny, nm] = nextMonth(viewYear, viewMonth)
-    for (let d = 1; d <= remaining; d++) {
-      cells.push({ day: d, type: 'padding', date: new Date(ny, nm, d), disabled: true })
-    }
-  }
-
-  // Nav button disabled state
-  const [prevY, prevM] = prevMonth(viewYear, viewMonth)
-  const [nextY, nextM] = nextMonth(viewYear, viewMonth)
-  const prevDisabled = isMonthFullyDisabled(prevY, prevM, minDate, maxDate)
-  const nextDisabled = isMonthFullyDisabled(nextY, nextM, minDate, maxDate)
+  const prevDisabled = isMonthFullyDisabled(addCivilMonths(viewMonth, -1), minDate, maxDate)
+  const nextDisabled = isMonthFullyDisabled(addCivilMonths(viewMonth, 1), minDate, maxDate)
 
   // Keyboard handler on the calendar dialog
   const handleKeyDown = (e: KeyboardEvent) => {
@@ -433,30 +305,25 @@ function CalendarPanel({
     }
 
     const currentFocus = focusedDayRef.current ?? getInitialFocus()
+    const steps: Record<string, number> = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 }
+    const step = steps[e.key]
 
-    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+    if (step !== undefined) {
       e.preventDefault()
-      let newDate = new Date(viewYear, viewMonth, currentFocus)
-
-      if (e.key === 'ArrowLeft') newDate.setDate(newDate.getDate() - 1)
-      else if (e.key === 'ArrowRight') newDate.setDate(newDate.getDate() + 1)
-      else if (e.key === 'ArrowUp') newDate.setDate(newDate.getDate() - 7)
-      else if (e.key === 'ArrowDown') newDate.setDate(newDate.getDate() + 7)
-
-      // Clamp to min/max
-      if (minDate && newDate < minDate) newDate = new Date(minDate)
-      if (maxDate && newDate > maxDate) newDate = new Date(maxDate)
+      let newDate = addCivilDays(dayOfView(currentFocus), step)
+      if (minDate && compareCivilDates(newDate, minDate) < 0) newDate = minDate
+      if (maxDate && compareCivilDates(newDate, maxDate) > 0) newDate = maxDate
 
       // If navigated to a different month, change view
-      if (newDate.getMonth() !== viewMonth || newDate.getFullYear() !== viewYear) {
-        pendingFocusDay.current = newDate.getDate()
-        if (newDate < new Date(viewYear, viewMonth, 1)) onPrevMonth()
+      if (newDate.month !== viewMonth.month || newDate.year !== viewMonth.year) {
+        pendingFocusDay.current = newDate.day
+        if (compareCivilDates(newDate, viewMonth) < 0) onPrevMonth()
         else onNextMonth()
-        // The layout effect on [viewYear, viewMonth] focuses the day as the new month commits
+        // The layout effect on the view month focuses the day as the new month commits
       } else {
-        focusedDayRef.current = newDate.getDate()
+        focusedDayRef.current = newDate.day
         // Same-month navigation: focus the button directly
-        const btn = gridRef.current?.querySelector(`[data-day="${newDate.getDate()}"]`) as HTMLButtonElement | null
+        const btn = gridRef.current?.querySelector(`[data-day="${newDate.day}"]`) as HTMLButtonElement | null
         btn?.focus()
       }
       return
@@ -464,10 +331,8 @@ function CalendarPanel({
 
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault()
-      const date = new Date(viewYear, viewMonth, currentFocus)
-      if (isDayInRange(date, minDate, maxDate)) {
-        onSelect(date)
-      }
+      const date = dayOfView(currentFocus)
+      if (isDayInRange(date, minDate, maxDate)) onSelect(date)
     }
   }
 
@@ -534,22 +399,23 @@ function CalendarPanel({
         {Array.from({ length: Math.ceil(cells.length / 7) }, (_, rowIdx) => (
           <div key={rowIdx} role="row" style={{ display: 'contents' }}>
             {cells.slice(rowIdx * 7, rowIdx * 7 + 7).map((cell) => {
-              if (cell.type === 'padding') {
+              const day = cell.date.day
+              if (!cell.current) {
                 return (
                   <div
-                    key={`pad-${cell.date.getTime()}`}
+                    key={`pad-${formatCivilDate(cell.date)}`}
                     className={`${styles.day} ${styles.dayPadding}`}
                     role="gridcell"
                     aria-disabled="true"
                   >
-                    {cell.day}
+                    {day}
                   </div>
                 )
               }
 
-              const isToday = isSameDay(cell.date, today)
-              const isSelected = selectedDate !== null && isSameDay(cell.date, selectedDate)
-              const isFocused = effectiveFocusedDay === cell.day
+              const isToday = sameDay(cell.date, today)
+              const isSelected = sameDay(cell.date, selectedDate)
+              const isFocused = effectiveFocusedDay === day
 
               const dayClasses = [
                 styles.day,
@@ -560,11 +426,11 @@ function CalendarPanel({
 
               return (
                 <button
-                  key={cell.day}
+                  key={day}
                   className={dayClasses}
                   type="button"
                   role="gridcell"
-                  data-day={cell.day}
+                  data-day={day}
                   tabIndex={isFocused ? 0 : -1}
                   aria-selected={isSelected}
                   aria-disabled={cell.disabled}
@@ -573,7 +439,7 @@ function CalendarPanel({
                     if (!cell.disabled) onSelect(cell.date)
                   }}
                 >
-                  {cell.day}
+                  {day}
                 </button>
               )
             })}

@@ -1,9 +1,12 @@
+// The problem report reads the failures/ ring, written only through the sink (ADR 0025; design check DR18).
 import { beforeEach, describe, expect, it } from 'vitest'
-import {
-  recordFrontendDiagnostic,
-  recentFrontendDiagnostics,
-  resetFrontendDiagnosticsForTests,
-} from '../app/problem-report/diagnostics'
+import { recentFrontendDiagnostics } from '../app/problem-report/diagnostics'
+import { reportFailure } from '../failures/report'
+import { resetFrontendDiagnosticsForTests } from '../failures/ring'
+
+function recordFrontendDiagnostic(input: { level: 'error'; source: string; message: string }): void {
+  reportFailure(input.message, { shown: 'none', source: input.source, level: input.level })
+}
 
 describe('frontend problem-report diagnostics', () => {
   beforeEach(() => {
@@ -15,7 +18,7 @@ describe('frontend problem-report diagnostics', () => {
       recordFrontendDiagnostic({
         level: 'error',
         source: 'command:Open design',
-        message: `Failed at /home/alice/Secret Garden/design-${index}.canopi`,
+        message: `Failed at /home/alice/Secret Garden/design-${index}.canopi on try ${index}`,
       })
     }
 

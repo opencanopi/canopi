@@ -24,7 +24,6 @@
     "workspace": "웹 에디션 작업 공간",
     "openCanopi": ".canopi 파일 열기…",
     "downloadCanopi": "사본 다운로드",
-    "dismissNotice": "닫기",
     "downloadCopy": "사본 다운로드",
     "savedInBrowser": "이 브라우저에 저장됨",
     "openCanopiFile": ".canopi 파일 열기"
@@ -113,7 +112,24 @@
     "plantDbCorrupt": "식물 카탈로그의 데이터베이스 파일이 손상되어 식물 검색과 상세 정보를 사용할 수 없습니다. 디자인은 안전합니다. Canopi를 다시 설치하여 복원하세요.",
     "localDataNotOpenedTitle": "이전 데이터를 열지 않았습니다",
     "localDataNotOpened": "Canopi 2.0은 이전 버전에서 저장한 데이터를 열 수 없습니다. 해당 데이터는 변경 없이 그대로 두었고 Canopi는 새로 시작했습니다.",
-    "dismiss": "닫기"
+    "settingsUnavailable": "설정을 읽을 수 없습니다. Canopi는 기본값을 사용하며 이번 세션 동안 저장된 설정을 변경하지 않습니다.",
+    "settingsStillUnavailable": "설정을 여전히 읽을 수 없습니다.",
+    "setAside": {
+      "userDb": "Canopi의 저장된 데이터가 손상되어 {{file}}(으)로 따로 보관했습니다. 디자인에는 영향이 없습니다.",
+      "webDrafts": "Canopi에 저장된 초안이 손상되어 {{file}}(으)로 따로 보관했습니다. 파일로 내보낸 디자인에는 영향이 없습니다.",
+      "webSpeciesLists": "Canopi에 저장된 즐겨찾기와 최근 본 식물이 손상되어 {{file}}(으)로 따로 보관했습니다. 디자인에는 영향이 없습니다."
+    },
+    "writesRefused": {
+      "webDrafts": "Canopi에 저장된 초안이 손상되었고 따로 보관할 수 없어 이번 세션 동안 초안 변경 사항은 저장되지 않습니다. 디자인을 보존하려면 내보내세요.",
+      "webSpeciesLists": "Canopi에 저장된 즐겨찾기와 최근 본 식물이 손상되었고 따로 보관할 수 없어 이번 세션 동안 변경 사항은 저장되지 않습니다."
+    },
+    "newerReadOnly": "이 데이터는 최신 버전의 Canopi에서 저장되었습니다. 볼 수는 있지만 변경 사항은 저장되지 않습니다. 편집하려면 Canopi를 업데이트하세요.",
+    "refusedNewer": "이 데이터는 최신 버전의 Canopi에서 저장되어 열지 않았습니다. 사용하려면 Canopi를 업데이트하세요.",
+    "storeUnavailable": "Canopi의 저장된 데이터 일부를 열 수 없습니다. Canopi를 다시 시작하고, 문제가 계속되면 신고하세요.",
+    "fieldsReset": "일부 설정에 Canopi가 사용할 수 없는 값이 있어 기본값으로 재설정했습니다.",
+    "writeFailed": "Canopi가 저장된 데이터의 변경 사항을 저장하지 못했습니다. 다시 시도하고, 문제가 계속되면 신고하세요.",
+    "libraryListStale": "데이터 라이브러리 목록을 새로 고칠 수 없습니다",
+    "update": "업데이트"
   },
   "canvas": {
     "lockToast": {
@@ -156,7 +172,10 @@
       "selectSource": "배치된 식물을 클릭해 줄로 반복합니다",
       "sourceMissed": "보이고 잠기지 않은 배치된 식물을 클릭하세요",
       "interval": "간격",
-      "generatedCount": "{{count}}개 생성",
+      "generatedCount_one": "{{count}}개 생성",
+      "generatedCount_few": "{{count}}개 생성",
+      "generatedCount_many": "{{count}}개 생성",
+      "generatedCount_other": "{{count}}개 생성",
       "commitLimitWarning": "간격을 늘리거나 선을 줄이세요",
       "dragAlong": "줄을 따라 드래그",
       "mode": "간격 방식",
@@ -210,7 +229,10 @@
     },
     "plantColor": {
       "label": "식물 색상",
-      "selectedCount": "{{count}}개 선택됨",
+      "selectedCount_one": "{{count}}개 선택됨",
+      "selectedCount_few": "{{count}}개 선택됨",
+      "selectedCount_many": "{{count}}개 선택됨",
+      "selectedCount_other": "{{count}}개 선택됨",
       "suggested": "꽃 색상 기반 추천",
       "moreColors": "사용자 지정 색상",
       "hue": "색조",
@@ -218,11 +240,17 @@
       "preview": "미리보기",
       "customHex": "사용자 Hex",
       "setColorForSpecies": "모든 {{species}}에 적용",
-      "applySelection": "선택한 {{count}}개에 적용"
+      "applySelection_one": "선택한 {{count}}개에 적용",
+      "applySelection_few": "선택한 {{count}}개에 적용",
+      "applySelection_many": "선택한 {{count}}개에 적용",
+      "applySelection_other": "선택한 {{count}}개에 적용"
     },
     "plantSymbol": {
       "label": "식물 심볼",
-      "selectedCount": "{{count}}개 선택됨",
+      "selectedCount_one": "{{count}}개 선택됨",
+      "selectedCount_few": "{{count}}개 선택됨",
+      "selectedCount_many": "{{count}}개 선택됨",
+      "selectedCount_other": "{{count}}개 선택됨",
       "setSymbolForSpecies": "모든 {{species}}에 설정",
       "mixed": "여러 심볼",
       "current": "현재: {{symbol}}",
@@ -268,7 +296,10 @@
         "does": "하는 일",
         "abstract": "추상 도형"
       },
-      "applySelection": "선택한 {{count}}개에 적용"
+      "applySelection_one": "선택한 {{count}}개에 적용",
+      "applySelection_few": "선택한 {{count}}개에 적용",
+      "applySelection_many": "선택한 {{count}}개에 적용",
+      "applySelection_other": "선택한 {{count}}개에 적용"
     },
     "placeSearch": {
       "placeholder": "장소 또는 좌표",
@@ -611,7 +642,8 @@
         "sortRecent": "최근 추가순",
         "factAdded": "추가됨",
         "deletedItem": "삭제된 항목",
-        "importNeedsDesign": "데이터를 가져오려면 디자인을 여세요"
+        "importNeedsDesign": "데이터를 가져오려면 디자인을 여세요",
+        "importCancelled": "가져오기를 취소했습니다"
       },
       "layers": {
         "emptyTitle": "아직 부지 데이터가 없습니다",
@@ -1306,12 +1338,19 @@
     "selectHint": "식물, 구역, 주석 또는 그룹을 선택해 함께 저장하세요.",
     "loading": "저장된 스탬프를 불러오는 중…",
     "empty": "선택 항목을 저장하면 여기에서 다시 사용할 수 있습니다.",
-    "summaryPlantOne": "식물 {{count}}개",
-    "summaryPlantOther": "식물 {{count}}개",
-    "summaryZoneOne": "구역 {{count}}개",
-    "summaryZoneOther": "구역 {{count}}개",
-    "summaryAnnotationOne": "주석 {{count}}개",
-    "summaryAnnotationOther": "주석 {{count}}개",
+    "summaryPlant_one": "식물 {{count, number}}개",
+    "summaryPlant_few": "식물 {{count, number}}개",
+    "summaryPlant_many": "식물 {{count, number}}개",
+    "summaryPlant_other": "식물 {{count, number}}개",
+    "summaryZone_one": "구역 {{count, number}}개",
+    "summaryZone_few": "구역 {{count, number}}개",
+    "summaryZone_many": "구역 {{count, number}}개",
+    "summaryZone_other": "구역 {{count, number}}개",
+    "summaryAnnotation_one": "주석 {{count, number}}개",
+    "summaryAnnotation_few": "주석 {{count, number}}개",
+    "summaryAnnotation_many": "주석 {{count, number}}개",
+    "summaryAnnotation_other": "주석 {{count, number}}개",
+    "defaultNameParts": "{{zones}}, {{annotations}}",
     "summaryEmpty": "보이는 객체 없음",
     "summaryUnavailable": "미리보기 사용할 수 없음",
     "summaryBefore2_0": "Canopi 2.0 이전 버전에서 저장되어 Canopi 2.0에서는 배치할 수 없습니다.",
@@ -1328,11 +1367,19 @@
     "deleteNamed": "스탬프 {{name}} 삭제",
     "actionsFor": "{{name}} 추가 작업"
   },
-  "error": {
-    "title": "문제가 발생했습니다",
-    "message": "애플리케이션에서 예기치 않은 오류가 발생했습니다. 다시 로드해 보세요.",
+  "boundary": {
+    "panelFailed": "이 패널을 불러오지 못했습니다",
+    "tryAgain": "다시 시도",
+    "reportProblem": "문제 신고",
+    "rootTitle": "문제가 발생했습니다",
+    "rootMessage": "애플리케이션에서 예기치 않은 오류가 발생했습니다. 다시 로드해 보세요.",
+    "reload": "다시 로드"
+  },
+  "notice": {
+    "count": "{{count}}개 중 {{index}}번째",
+    "dismiss": "닫기",
     "reload": "다시 로드",
-    "details": "오류 세부 정보"
+    "tryingAgain": "다시 시도하는 중…"
   },
   "shared": {
     "datePicker": {
@@ -1343,30 +1390,40 @@
   },
   "problemReport": {
     "title": "문제 신고",
-    "intro": "나중에 공유할 수 있는 요약과 진단 번들을 만듭니다.",
+    "intro": "Canopi는 이 기기에 zip 파일 하나를 저장합니다. 아무것도 전송되지 않으며 공유할 곳은 직접 고릅니다.",
     "descriptionLabel": "무슨 일이 있었나요?",
     "descriptionPlaceholder": "무엇을 하고 있었는지, 무엇이 잘못되었는지, 재현할 수 있는지 설명하세요.",
-    "privacyNote": "진단 번들에는 기본적으로 디자인(좌표 포함), 스크린샷, 원시 파일 경로가 포함되지 않습니다.",
     "create": "보고서 만들기",
     "creating": "만드는 중…",
     "cancel": "취소",
     "close": "닫기",
     "successTitle": "보고서 생성됨",
-    "successText": "보고서 파일은 이 폴더에 있습니다. 지원팀에 연락할 때 번들을 첨부하고 요약을 붙여 넣으세요.",
-    "folderPath": "폴더",
-    "summaryFile": "요약",
-    "bundleFile": "번들",
-    "copySummary": "요약 복사",
-    "copiedSummary": "복사됨",
-    "copyFailed": "요약을 복사할 수 없습니다. 요약 파일은 보고서 폴더에 남아 있습니다.",
+    "successText": "zip은 Canopi 데이터 폴더의 문제 보고서 폴더에 있습니다.",
+    "bundleFile": "파일",
     "errorTitle": "보고서를 만들 수 없습니다",
-    "showFolder": "폴더 보기",
     "showingFolder": "여는 중…",
-    "showFolderFailed": "폴더를 표시할 수 없습니다. 정확한 폴더 경로는 위에 계속 표시됩니다.",
-    "optionalAttachments": "선택 첨부",
+    "showFolderFailed": "폴더를 표시할 수 없었습니다. zip은 문제 보고서 폴더에 그대로 있습니다.",
     "includeCurrentDesign": "현재 디자인 포함",
-    "includeCurrentDesignDescription": "캔버스 내용과 좌표, 메모, 일정, 예산이 담긴 .canopi 사본을 추가합니다.",
-    "currentDesignUnavailable": "첨부할 현재 디자인이 없습니다."
+    "currentDesignUnavailable": "첨부할 현재 디자인이 없습니다.",
+    "contentsTitle": "보고서 내용",
+    "sendText": "보내려면 Canopi의 GitHub 이슈 페이지에서 이슈를 열고, 무슨 일이 있었는지 적은 뒤 zip을 첨부하세요.",
+    "issuesLink": "GitHub 이슈 페이지 열기",
+    "downloadedText": "보고서를 다운로드했습니다. zip은 브라우저의 다운로드 폴더에 있습니다.",
+    "showAgain": "다시 표시",
+    "section": {
+      "originatingFailure": "보고를 시작한 실패와 그 코드, 작업.",
+      "description": "위에 쓴 내용.",
+      "build": "Canopi 버전, 운영체제와 그 웹 보기 또는 브라우저.",
+      "health": "각 데이터 저장소가 열린 상태(파일 경로 없음).",
+      "queues": "대기 중이거나 실행 중인 백그라운드 작업의 개수와 시간.",
+      "nativeSettlements": "실패한 최근 백그라운드 작업 50개(경로와 키 제거).",
+      "frontendRing": "앱 창의 최근 오류(경로와 키 제거).",
+      "jobs": "데이터 라이브러리 작업 수와 최근 작업 실패(항목 이름 없음).",
+      "libraryDisk": "데이터 라이브러리 디스크 사용량과 정리 상태(항목 이름 없음).",
+      "logTail": "Canopi 로그의 끝부분(경로와 키 제거).",
+      "settingsSummary": "언어, 테마, 표시 설정. Maps 키는 포함하지 않습니다.",
+      "design": "현재 디자인(선택한 경우에만): 개체, 지도 좌표, 메모, 타임라인, 예산."
+    }
   },
   "pdf": {
     "title": "PDF로 내보내기",
@@ -1403,7 +1460,10 @@
     "wholeDesign": "전체 디자인",
     "splitHint": "적용하기 전에 번호가 매겨진 영역과 각 도면을 확인하세요.",
     "splitSheets": "읽기 쉬운 도면으로 나누기",
-    "splitPreview": "미리보기 · PDF {{count}}페이지",
+    "splitPreview_one": "미리보기 · PDF {{count}}페이지",
+    "splitPreview_few": "미리보기 · PDF {{count}}페이지",
+    "splitPreview_many": "미리보기 · PDF {{count}}페이지",
+    "splitPreview_other": "미리보기 · PDF {{count}}페이지",
     "applySheets": "도면 적용",
     "addPage": "현장 도면 추가",
     "addHint": "인쇄할 범위를 둘러싸는 사각형을 드래그하여 그리세요.",
@@ -1529,7 +1589,10 @@
     "importTitle": "GeoJSON 가져오기",
     "exportTitle": "GeoJSON 내보내기",
     "importSummary": "식물 {{plants}}개, 구역 {{zones}}개, 주석 {{annotations}}개, 측정 가이드 {{guides}}개를 가져왔습니다.",
-    "importSkipped": "지원하지 않는 지오메트리의 피처 {{count}}개를 건너뛰었습니다.",
+    "importSkipped_one": "지원하지 않는 지오메트리의 피처 {{count}}개를 건너뛰었습니다.",
+    "importSkipped_few": "지원하지 않는 지오메트리의 피처 {{count}}개를 건너뛰었습니다.",
+    "importSkipped_many": "지원하지 않는 지오메트리의 피처 {{count}}개를 건너뛰었습니다.",
+    "importSkipped_other": "지원하지 않는 지오메트리의 피처 {{count}}개를 건너뛰었습니다.",
     "importNothing": "파일에 가져올 디자인 개체가 없습니다.",
     "busy": "캔버스가 사용 중입니다. 잠시 후 다시 시도하세요.",
     "readFailed": "파일을 읽을 수 없습니다.",
@@ -1588,7 +1651,11 @@
     "settingsCloseAnyway": "그래도 닫기",
     "flushFailedReloadMessage": "이 브라우저에 디자인을 저장하지 못했습니다. 다시 로드하기 전에 사본을 다운로드하세요.",
     "tabConflictReloadMessage": "이 디자인이 다른 브라우저 탭에서 변경되어 최근 변경 사항이 기록되지 않았습니다. 다시 로드하기 전에 사본을 다운로드하거나, 취소하고 먼저 변경을 해결하세요.",
-    "discardAndReload": "저장하지 않고 다시 로드"
+    "discardAndReload": "저장하지 않고 다시 로드",
+    "flushFailedAppReloadMessage": "Canopi가 최근 변경 사항을 기록하지 못했습니다. 다시 시도하거나 저장하지 않고 다시 로드하세요.",
+    "settingsFailedReloadMessage": "디자인은 저장되었습니다. Canopi가 최근 설정 변경 사항을 저장하지 못했습니다. 다시 시도하거나, 변경 사항을 버리고 그래도 다시 로드하세요.",
+    "settingsFailedDesignUnsavedReloadMessage": "Canopi가 최근 설정 변경 사항을 저장하지 못했습니다. 다시 시도하거나, 변경 사항을 버리고 그래도 다시 로드하세요.",
+    "settingsReloadAnyway": "그래도 다시 로드"
   },
   "drafts": {
     "title": "초안",
@@ -2128,7 +2195,6 @@
     "restart": "업데이트를 완료하려면 다시 시작",
     "checkAtLaunch": "시작할 때 업데이트 확인",
     "linkOnly": "projectcanopi.com에서 업데이트를 다운로드하세요",
-    "dismiss": "닫기",
     "failure": {
       "offline": "오프라인 상태에서는 업데이트를 확인할 수 없습니다",
       "checkFailed": "업데이트를 확인할 수 없습니다",
@@ -2143,5 +2209,23 @@
         "downloadFailed": "다운로드에 실패했습니다"
       }
     }
+  },
+  "failure": {
+    "busy": "Canopi가 다른 작업을 하는 중입니다. 잠시 후 다시 시도하세요.",
+    "internal": "문제가 발생했습니다. 다시 시도하거나 문제를 보고할 수 있습니다.",
+    "connection": "연결할 수 없습니다. 연결을 확인하고 다시 시도하세요.",
+    "serverError": "서버가 응답하지 못했습니다. 나중에 다시 시도하세요.",
+    "addressRefused": "Canopi가 허용된 사이트 밖의 주소를 거부했습니다. 계속 발생하면 문제를 보고하세요.",
+    "downloadTooLarge": "다운로드가 Canopi에서 허용하는 크기보다 큽니다. 필요하면 문제를 보고하세요.",
+    "fileNotFound": "파일을 찾을 수 없습니다. 파일이 아직 있는지 확인하고 다시 시도하세요.",
+    "permissionDenied": "Canopi에 이 파일이나 폴더를 사용할 권한이 없습니다. 권한을 확인하고 다시 시도하세요.",
+    "readOnly": "이 위치는 읽기 전용입니다. 다른 위치를 선택하고 다시 시도하세요.",
+    "diskFull": "디스크가 가득 찼습니다. 공간을 확보하고 다시 시도하세요.",
+    "storageFull": "기기 저장 공간이 가득 찼습니다. 공간을 확보하고 다시 시도하세요.",
+    "fileTooLarge": "이 파일은 Canopi에서 허용하는 크기보다 큽니다. 더 작은 파일을 선택하세요.",
+    "fileError": "Canopi가 파일을 읽거나 쓰지 못했습니다. 다시 시도하세요.",
+    "plantCatalogUnavailable": "식물 카탈로그를 열 수 없습니다. Canopi를 다시 시작하고, 계속되면 다시 설치하세요.",
+    "libraryNewer": "이 데이터 라이브러리는 더 새로운 Canopi에서 저장되었습니다. 변경하려면 Canopi를 업데이트하세요.",
+    "libraryUnavailable": "데이터 라이브러리를 열 수 없어 이번 세션의 변경 사항은 저장되지 않습니다. Canopi를 다시 시작하고 다시 시도하세요."
   }
 }

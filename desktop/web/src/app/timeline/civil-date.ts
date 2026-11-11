@@ -133,3 +133,61 @@ export function civilDateInRange(
 ): boolean {
   return compareCivilDates(date, start) >= 0 && compareCivilDates(date, end) <= 0
 }
+
+// Instants (2.1-Q103): a stamp is ISO text with its zone or unix milliseconds as text; it shows relative in lists and
+// as the full local date and time in detail panes. An unreadable stamp shows as nothing.
+const INSTANT_PATTERN = /^(\d{4}-\d{2}-\d{2})T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:\d{2})$/
+const UNIX_MS_PATTERN = /^-?\d+$/
+
+function parseInstant(stamp: string): Date | null {
+  if (UNIX_MS_PATTERN.test(stamp)) return new Date(Number(stamp))
+  const match = INSTANT_PATTERN.exec(stamp)
+  if (!match || !parseCivilDate(match[1])) return null
+  const date = new Date(stamp)
+  return Number.isNaN(date.getTime()) ? null : date
+}
+
+/** "Today, 2:05 PM", "Yesterday, 6:20 PM", then "Sep 12" (with the year once it is not this year). */
+export function formatInstantInList(stamp: string, locale: string, now = new Date()): string {
+  const date = parseInstant(stamp)
+  if (!date) return ''
+  const dayDelta = Math.round((startOfLocalDay(now) - startOfLocalDay(date)) / (1000 * 60 * 60 * 24))
+  if (dayDelta === 0 || dayDelta === 1) {
+    const day = new Intl.RelativeTimeFormat(locale, { numeric: 'auto' }).format(-dayDelta, 'day')
+    const time = new Intl.DateTimeFormat(locale, { hour: 'numeric', minute: '2-digit' }).format(date)
+    return `${day.charAt(0).toLocaleUpperCase(locale)}${day.slice(1)}, ${time}`
+  }
+  const year = date.getFullYear() === now.getFullYear() ? {} : { year: 'numeric' as const }
+  return new Intl.DateTimeFormat(locale, { month: 'short', day: 'numeric', ...year }).format(date)
+}
+
+/** The full local date and time, for a detail pane. */
+export function formatInstantInDetail(stamp: string, locale: string): string {
+  const date = parseInstant(stamp)
+  return date ? new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }).format(date) : ''
+}
+
+function startOfLocalDay(date: Date): number {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime()
+}
+
+function dateTimeFormat(locale: string, options: Intl.DateTimeFormatOptions): Intl.DateTimeFormat {
+  return new Intl.DateTimeFormat(locale, options)
+}
+
+/** A civil date in a field: "Jul 4, 2026". */
+export function formatCivilDateLabel(date: CivilDate, locale: string): string {
+  return dateTimeFormat(locale, { day: 'numeric', month: 'short', year: 'numeric' }).format(civilDateToLocalDate(date))
+}
+
+/** A month heading: "July 2026". */
+export function formatCivilMonthLabel(month: CivilDate, locale: string): string {
+  return dateTimeFormat(locale, { month: 'long', year: 'numeric' }).format(civilDateToLocalDate(startOfCivilMonth(month)))
+}
+
+/** The short weekday names from the locale's week start, as a month grid's column headers. */
+export function civilWeekdayLabels(locale: string): string[] {
+  const format = dateTimeFormat(locale, { weekday: 'short' })
+  // 2024-01-07 is a Sunday, weekday 0.
+  return Array.from({ length: 7 }, (_, index) => format.format(new Date(2024, 0, 7 + civilWeekStartDay(locale) + index)))
+}

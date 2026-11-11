@@ -1,0 +1,17 @@
+id: text-match-on-native-error.tsx
+valid:
+  - |
+    const busy = failure.code.kind === 'busy'
+  - |
+    if (error.message === 'coverage-too-large') throw error
+  - |
+    const names = items.map((item) => item.name).includes(name)
+invalid:
+  - |
+    const busy = error.message.includes('busy')
+  - |
+    const missing = message.startsWith(PLANT_DB_UNAVAILABLE_PREFIX)
+  - |
+    const busy = /operations are busy; try again$/.test(message)
+  - |
+    const cancelled = error instanceof Error && error.message === 'Dialog cancelled'

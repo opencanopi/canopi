@@ -1,0 +1,306 @@
+{
+  "$comment": "The redaction corpus, shared cases (contracts §13 Redaction; ADR 0025): every case's input redacted equals its expected text. Rust (canopi-redact, Redactor::generic()) and TS (failures/redact.ts) both run these, so a new case lands with both sides passing it.",
+  "version": 1,
+  "cases": [
+    {
+      "id": "unix-home",
+      "shape": "os-root",
+      "input": "Opening /home/ana/designs/plan.canopi failed",
+      "expected": "Opening <path> failed"
+    },
+    {
+      "id": "macos-users",
+      "shape": "os-root",
+      "input": "Opening /Users/ana/Documents/plan.canopi failed",
+      "expected": "Opening <path> failed"
+    },
+    {
+      "id": "unix-root-home",
+      "shape": "os-root",
+      "input": "read /root/plan.canopi",
+      "expected": "read <path>"
+    },
+    {
+      "id": "linux-mnt",
+      "shape": "os-root",
+      "input": "Opening /mnt/data/plan.canopi failed",
+      "expected": "Opening <path> failed"
+    },
+    {
+      "id": "linux-media",
+      "shape": "os-root",
+      "input": "Opening /media/ana/USB/plan.canopi failed",
+      "expected": "Opening <path> failed"
+    },
+    {
+      "id": "macos-volumes",
+      "shape": "os-root",
+      "input": "Opening /Volumes/Backup/plan.canopi failed",
+      "expected": "Opening <path> failed"
+    },
+    {
+      "id": "unix-tmp",
+      "shape": "os-root",
+      "input": "temp file /tmp/canopi-1234/plan.canopi.tmp",
+      "expected": "temp file <path>"
+    },
+    {
+      "id": "windows-drive",
+      "shape": "os-root",
+      "input": "Opening C:\\Users\\ana\\plan.canopi failed",
+      "expected": "Opening <path> failed"
+    },
+    {
+      "id": "windows-second-disk",
+      "shape": "os-root",
+      "input": "Opening D:\\Plans\\plan.canopi failed",
+      "expected": "Opening <path> failed"
+    },
+    {
+      "id": "windows-lowercase-drive",
+      "shape": "os-root",
+      "input": "Opening e:\\plan.canopi failed",
+      "expected": "Opening <path> failed"
+    },
+    {
+      "id": "windows-forward-slash",
+      "shape": "os-root",
+      "input": "Opening C:/Users/ana/plan.canopi failed",
+      "expected": "Opening <path> failed"
+    },
+    {
+      "id": "windows-unc",
+      "shape": "unc",
+      "input": "Opening \\\\nas\\shared\\plan.canopi failed",
+      "expected": "Opening <path> failed"
+    },
+    {
+      "id": "windows-verbatim",
+      "shape": "verbatim",
+      "input": "Opening \\\\?\\C:\\Users\\ana\\plan.canopi failed",
+      "expected": "Opening <path> failed"
+    },
+    {
+      "id": "windows-verbatim-unc",
+      "shape": "verbatim",
+      "input": "Opening \\\\?\\UNC\\nas\\shared\\plan.canopi failed",
+      "expected": "Opening <path> failed"
+    },
+    {
+      "id": "file-url-unix",
+      "shape": "file-url",
+      "input": "Fetching file:///home/ana/plan.canopi failed",
+      "expected": "Fetching <path> failed"
+    },
+    {
+      "id": "file-url-windows",
+      "shape": "file-url",
+      "input": "Fetching file:///C:/Users/ana/plan.canopi failed",
+      "expected": "Fetching <path> failed"
+    },
+    {
+      "id": "file-url-host",
+      "shape": "file-url",
+      "input": "Fetching file://nas/shared/plan.canopi failed",
+      "expected": "Fetching <path> failed"
+    },
+    {
+      "id": "file-url-percent-encoded",
+      "shape": "percent-encoded",
+      "input": "Fetching file:///home/ana/My%20Designs/plan.canopi failed",
+      "expected": "Fetching <path> failed"
+    },
+    {
+      "id": "percent-encoded-path",
+      "shape": "percent-encoded",
+      "input": "Opening %2Fhome%2Fana%2Fplan.canopi failed",
+      "expected": "Opening <path> failed"
+    },
+    {
+      "id": "percent-encoded-unc",
+      "shape": "percent-encoded",
+      "input": "Opening %5C%5Cnas%5Cshared%5Cplan.canopi failed",
+      "expected": "Opening <path> failed"
+    },
+    {
+      "id": "percent-encoded-unc-lowercase",
+      "shape": "percent-encoded",
+      "input": "Opening %5c%5cnas%5cshared%5cplan.canopi failed",
+      "expected": "Opening <path> failed"
+    },
+    {
+      "id": "after-colon",
+      "shape": "after-punctuation",
+      "input": "ENOENT:/home/ana/secret.canopi",
+      "expected": "ENOENT:<path>"
+    },
+    {
+      "id": "stack-frame-after-at",
+      "shape": "after-punctuation",
+      "input": "foo@file:///home/ana/app.js:1:2",
+      "expected": "foo@<path>"
+    },
+    {
+      "id": "after-pipe",
+      "shape": "after-punctuation",
+      "input": "path|/home/ana/Secret",
+      "expected": "path|<path>"
+    },
+    {
+      "id": "after-comma",
+      "shape": "after-punctuation",
+      "input": "value=/home/ana/x and ,/home/ana/y",
+      "expected": "value=<path> and ,<path>"
+    },
+    {
+      "id": "tilde-home",
+      "shape": "tilde",
+      "input": "Opening ~/Designs/plan.canopi failed",
+      "expected": "Opening <path> failed"
+    },
+    {
+      "id": "quoted-path-with-spaces",
+      "shape": "quoted",
+      "input": "Opening \"/home/ana/My Designs/plan.canopi\" failed",
+      "expected": "Opening \"<path>\" failed"
+    },
+    {
+      "id": "json-escaped-windows",
+      "shape": "json-escaped",
+      "input": "{\"path\":\"C:\\\\Users\\\\ana\\\\plan.canopi\"}",
+      "expected": "{\"path\":\"<path>\"}"
+    },
+    {
+      "id": "query-key",
+      "shape": "credential",
+      "input": "GET https://maps.example.com/tiles/1/2/3.png?key=AIzaSyA-secret&v=2",
+      "expected": "GET https://maps.example.com/tiles/1/2/3.png?key=<redacted>&v=2"
+    },
+    {
+      "id": "query-api-key-hyphen",
+      "shape": "credential",
+      "input": "GET https://example.com/v1?api-key=abc123",
+      "expected": "GET https://example.com/v1?api-key=<redacted>"
+    },
+    {
+      "id": "query-api-key-underscore",
+      "shape": "credential",
+      "input": "GET https://example.com/v1?a=1&api_key=abc123",
+      "expected": "GET https://example.com/v1?a=1&api_key=<redacted>"
+    },
+    {
+      "id": "query-apikey",
+      "shape": "credential",
+      "input": "GET https://example.com/v1?apikey=abc123#top",
+      "expected": "GET https://example.com/v1?apikey=<redacted>#top"
+    },
+    {
+      "id": "query-session",
+      "shape": "credential",
+      "input": "GET https://example.com/tiles?session=abc",
+      "expected": "GET https://example.com/tiles?session=<redacted>"
+    },
+    {
+      "id": "query-key-uppercase",
+      "shape": "credential",
+      "input": "GET https://example.com/v1?KEY=abc123",
+      "expected": "GET https://example.com/v1?KEY=<redacted>"
+    },
+    {
+      "id": "bare-session",
+      "shape": "credential",
+      "input": "session=abc",
+      "expected": "session=<redacted>"
+    },
+    {
+      "id": "json-key",
+      "shape": "json-credential",
+      "input": "{\"key\":\"AIzaSyA-secret\",\"zoom\":3}",
+      "expected": "{\"key\":\"<redacted>\",\"zoom\":3}"
+    },
+    {
+      "id": "json-api-key-spaced",
+      "shape": "json-credential",
+      "input": "{\"api_key\": \"abc123\"}",
+      "expected": "{\"api_key\": \"<redacted>\"}"
+    },
+    {
+      "id": "json-session",
+      "shape": "json-credential",
+      "input": "{\"session\":\"abc\"}",
+      "expected": "{\"session\":\"<redacted>\"}"
+    },
+    {
+      "id": "file-name-then-reason-before-pair-colon",
+      "shape": "unquoted-end",
+      "input": "Failed to open /home/ana/plan.canopi because it is locked: os error 32",
+      "expected": "Failed to open <path> because it is locked: os error 32"
+    },
+    {
+      "id": "trailing-full-stop",
+      "shape": "unquoted-end",
+      "input": "Could not read /home/ana/plan.canopi.",
+      "expected": "Could not read <path>."
+    },
+    {
+      "id": "backtick-quoted",
+      "shape": "unquoted-end",
+      "input": "Could not read `/home/ana/plan.canopi` now",
+      "expected": "Could not read `<path>` now"
+    },
+    {
+      "id": "name-with-space-and-extension",
+      "shape": "unquoted-end",
+      "input": "Opening /home/ana/my plan.canopi failed",
+      "expected": "Opening <path> failed"
+    },
+    {
+      "id": "second-path-after-kept-word",
+      "shape": "unquoted-end",
+      "input": "copy /home/ana/a.canopi to /home/ana/b.canopi: denied",
+      "expected": "copy <path> to <path>: denied"
+    },
+    {
+      "id": "percent-encoded-name-with-space",
+      "shape": "unquoted-end",
+      "input": "Opening %2Fhome%2Fana%2FMy Designs%2Fplan failed",
+      "expected": "Opening <path> failed"
+    },
+    {
+      "id": "url-without-credentials",
+      "shape": "kept",
+      "input": "GET https://tile.example.com/1/2/3.png failed with 404",
+      "expected": "GET https://tile.example.com/1/2/3.png failed with 404"
+    },
+    {
+      "id": "plain-text",
+      "shape": "kept",
+      "input": "The library lane is full; try again",
+      "expected": "The library lane is full; try again"
+    },
+    {
+      "id": "ratio-and-date",
+      "shape": "kept",
+      "input": "1/2 done on 2026/11/06",
+      "expected": "1/2 done on 2026/11/06"
+    },
+    {
+      "id": "key-word-in-prose",
+      "shape": "kept",
+      "input": "Press the key to continue",
+      "expected": "Press the key to continue"
+    },
+    {
+      "id": "zero-width-no-break-space-joins-a-name",
+      "shape": "os-root",
+      "input": "Open /home/ana/plan﻿secret failed",
+      "expected": "Open <path> failed"
+    },
+    {
+      "id": "next-line-ends-a-path",
+      "shape": "os-root",
+      "input": "Open /home/ana/plan.canopithen failed",
+      "expected": "Open <path>then failed"
+    }
+  ]
+}

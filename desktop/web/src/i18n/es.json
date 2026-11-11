@@ -24,7 +24,6 @@
     "workspace": "Espacio de trabajo web",
     "openCanopi": "Abrir un archivo .canopi…",
     "downloadCanopi": "Descargar una copia",
-    "dismissNotice": "Cerrar",
     "downloadCopy": "Descargar una copia",
     "savedInBrowser": "Guardado en este navegador",
     "openCanopiFile": "Abrir un archivo .canopi"
@@ -113,7 +112,24 @@
     "plantDbCorrupt": "El archivo de base de datos del catálogo de plantas está dañado, así que la búsqueda y las fichas de plantas no están disponibles. Tus diseños están a salvo. Reinstala Canopi para restaurarlo.",
     "localDataNotOpenedTitle": "Datos anteriores no abiertos",
     "localDataNotOpened": "Canopi 2.0 no puede abrir los datos guardados por versiones anteriores. Se han dejado sin cambios y Canopi ha empezado de cero.",
-    "dismiss": "Cerrar"
+    "settingsUnavailable": "No se pudieron leer tus ajustes. Canopi usa los valores predeterminados y no cambiará tus ajustes guardados en esta sesión.",
+    "settingsStillUnavailable": "Tus ajustes siguen sin poder leerse.",
+    "setAside": {
+      "userDb": "Los datos guardados de Canopi estaban dañados y se han apartado como {{file}}. Tus diseños no se ven afectados.",
+      "webDrafts": "Los borradores guardados de Canopi estaban dañados y se han apartado como {{file}}. Los diseños que exportaste como archivos no se ven afectados.",
+      "webSpeciesLists": "Los favoritos y las plantas vistas recientemente que Canopi guardó estaban dañados y se han apartado como {{file}}. Tus diseños no se ven afectados."
+    },
+    "writesRefused": {
+      "webDrafts": "Los borradores guardados de Canopi están dañados y no se pudieron apartar, así que los cambios en los borradores no se guardarán en esta sesión. Exporta tu diseño para conservarlo.",
+      "webSpeciesLists": "Los favoritos y las plantas vistas recientemente que Canopi guardó están dañados y no se pudieron apartar, así que sus cambios no se guardarán en esta sesión."
+    },
+    "newerReadOnly": "Estos datos se guardaron con una versión más reciente de Canopi. Puedes verlos, pero los cambios no se guardarán. Actualiza Canopi para editarlos.",
+    "refusedNewer": "Estos datos se guardaron con una versión más reciente de Canopi y no se abrieron. Actualiza Canopi para usarlos.",
+    "storeUnavailable": "No se pudieron abrir algunos datos guardados de Canopi. Reinicia Canopi e informa de un problema si sigue ocurriendo.",
+    "fieldsReset": "Algunos ajustes tenían valores que Canopi no podía usar y se restablecieron a sus valores predeterminados.",
+    "writeFailed": "Canopi no pudo guardar un cambio en sus datos guardados. Inténtalo de nuevo e informa de un problema si sigue ocurriendo.",
+    "libraryListStale": "No se pudo actualizar la lista de la Biblioteca de datos",
+    "update": "Actualizar"
   },
   "canvas": {
     "lockToast": {
@@ -156,7 +172,10 @@
       "selectSource": "Haz clic en una planta colocada para repetirla en una fila",
       "sourceMissed": "Haz clic en una planta colocada, visible y no bloqueada",
       "interval": "Intervalo",
-      "generatedCount": "{{count}} generadas",
+      "generatedCount_one": "{{count}} generada",
+      "generatedCount_few": "{{count}} generadas",
+      "generatedCount_many": "{{count}} generadas",
+      "generatedCount_other": "{{count}} generadas",
       "commitLimitWarning": "Aumenta el intervalo o acorta la línea",
       "dragAlong": "arrastra a lo largo de la fila",
       "mode": "Espaciado",
@@ -210,7 +229,10 @@
     },
     "plantColor": {
       "label": "Color de planta",
-      "selectedCount": "{{count}} seleccionadas",
+      "selectedCount_one": "{{count}} seleccionada",
+      "selectedCount_few": "{{count}} seleccionadas",
+      "selectedCount_many": "{{count}} seleccionadas",
+      "selectedCount_other": "{{count}} seleccionadas",
       "suggested": "Sugerido por el color de la flor",
       "moreColors": "Color personalizado",
       "hue": "Matiz",
@@ -218,11 +240,17 @@
       "preview": "Vista previa",
       "customHex": "Hex personalizado",
       "setColorForSpecies": "Asignar a todas las {{species}}",
-      "applySelection": "Aplicar a {{count}} seleccionadas"
+      "applySelection_one": "Aplicar a {{count}} seleccionada",
+      "applySelection_few": "Aplicar a {{count}} seleccionadas",
+      "applySelection_many": "Aplicar a {{count}} seleccionadas",
+      "applySelection_other": "Aplicar a {{count}} seleccionadas"
     },
     "plantSymbol": {
       "label": "Símbolo de planta",
-      "selectedCount": "{{count}} seleccionadas",
+      "selectedCount_one": "{{count}} seleccionada",
+      "selectedCount_few": "{{count}} seleccionadas",
+      "selectedCount_many": "{{count}} seleccionadas",
+      "selectedCount_other": "{{count}} seleccionadas",
       "setSymbolForSpecies": "Asignar a todas las {{species}}",
       "mixed": "Símbolos mixtos",
       "current": "Actual: {{symbol}}",
@@ -268,7 +296,10 @@
         "does": "Lo que hace",
         "abstract": "Abstractos"
       },
-      "applySelection": "Aplicar a {{count}} seleccionadas"
+      "applySelection_one": "Aplicar a {{count}} seleccionada",
+      "applySelection_few": "Aplicar a {{count}} seleccionadas",
+      "applySelection_many": "Aplicar a {{count}} seleccionadas",
+      "applySelection_other": "Aplicar a {{count}} seleccionadas"
     },
     "placeSearch": {
       "placeholder": "Lugar o coordenadas",
@@ -611,7 +642,8 @@
         "sortRecent": "Añadidos recientemente",
         "factAdded": "Añadido",
         "deletedItem": "Elemento eliminado",
-        "importNeedsDesign": "Abre un diseño para importar datos"
+        "importNeedsDesign": "Abre un diseño para importar datos",
+        "importCancelled": "Importación cancelada"
       },
       "layers": {
         "emptyTitle": "Aún no hay datos del lugar",
@@ -1306,12 +1338,19 @@
     "selectHint": "Selecciona plantas, zonas, anotaciones o grupos para guardarlos juntos.",
     "loading": "Cargando sellos guardados…",
     "empty": "Guarda una selección para reutilizarla aquí.",
-    "summaryPlantOne": "{{count}} planta",
-    "summaryPlantOther": "{{count}} plantas",
-    "summaryZoneOne": "{{count}} zona",
-    "summaryZoneOther": "{{count}} zonas",
-    "summaryAnnotationOne": "{{count}} anotación",
-    "summaryAnnotationOther": "{{count}} anotaciones",
+    "summaryPlant_one": "{{count, number}} planta",
+    "summaryPlant_few": "{{count, number}} plantas",
+    "summaryPlant_many": "{{count, number}} plantas",
+    "summaryPlant_other": "{{count, number}} plantas",
+    "summaryZone_one": "{{count, number}} zona",
+    "summaryZone_few": "{{count, number}} zonas",
+    "summaryZone_many": "{{count, number}} zonas",
+    "summaryZone_other": "{{count, number}} zonas",
+    "summaryAnnotation_one": "{{count, number}} anotación",
+    "summaryAnnotation_few": "{{count, number}} anotaciones",
+    "summaryAnnotation_many": "{{count, number}} anotaciones",
+    "summaryAnnotation_other": "{{count, number}} anotaciones",
+    "defaultNameParts": "{{zones}}, {{annotations}}",
     "summaryEmpty": "Sin objetos visibles",
     "summaryUnavailable": "Vista previa no disponible",
     "summaryBefore2_0": "Guardado con una versión de Canopi anterior a la 2.0; Canopi 2.0 no puede colocarlo.",
@@ -1328,11 +1367,19 @@
     "deleteNamed": "Eliminar el sello {{name}}",
     "actionsFor": "Más acciones para {{name}}"
   },
-  "error": {
-    "title": "Algo salió mal",
-    "message": "La aplicación encontró un error inesperado. Puedes intentar recargar.",
+  "boundary": {
+    "panelFailed": "No se pudo cargar este panel",
+    "tryAgain": "Reintentar",
+    "reportProblem": "Informar de un problema",
+    "rootTitle": "Algo salió mal",
+    "rootMessage": "La aplicación encontró un error inesperado. Puedes intentar recargar.",
+    "reload": "Recargar"
+  },
+  "notice": {
+    "count": "{{index}} de {{count}}",
+    "dismiss": "Descartar",
     "reload": "Recargar",
-    "details": "Detalles del error"
+    "tryingAgain": "Reintentando…"
   },
   "shared": {
     "datePicker": {
@@ -1343,30 +1390,40 @@
   },
   "problemReport": {
     "title": "Informar de un problema",
-    "intro": "Crea un resumen y un paquete de diagnóstico que puedes compartir después.",
+    "intro": "Canopi guarda un único archivo zip en este dispositivo. No se envía nada: usted elige dónde compartirlo.",
     "descriptionLabel": "¿Qué pasó?",
     "descriptionPlaceholder": "Describe qué estabas haciendo, qué falló y si puedes repetirlo.",
-    "privacyNote": "El paquete de diagnóstico excluye por defecto tu diseño (incluidas sus coordenadas), las capturas de pantalla y las rutas de archivo sin procesar.",
     "create": "Crear informe",
     "creating": "Creando…",
     "cancel": "Cancelar",
     "close": "Cerrar",
     "successTitle": "Informe creado",
-    "successText": "Los archivos del informe están en esta carpeta. Adjunta el paquete y pega el resumen cuando contactes con soporte.",
-    "folderPath": "Carpeta",
-    "summaryFile": "Resumen",
-    "bundleFile": "Paquete",
-    "copySummary": "Copiar resumen",
-    "copiedSummary": "Copiado",
-    "copyFailed": "No se pudo copiar el resumen. El archivo de resumen sigue en la carpeta del informe.",
+    "successText": "El zip está en la carpeta Informes de problemas de la carpeta de datos de Canopi.",
+    "bundleFile": "Archivo",
     "errorTitle": "No se pudo crear el informe",
-    "showFolder": "Mostrar carpeta",
     "showingFolder": "Abriendo…",
-    "showFolderFailed": "No se pudo mostrar la carpeta. La ruta exacta sigue visible arriba.",
-    "optionalAttachments": "Adjuntos opcionales",
+    "showFolderFailed": "No se pudo mostrar la carpeta. El zip sigue en la carpeta Informes de problemas.",
     "includeCurrentDesign": "Incluir el diseño actual",
-    "includeCurrentDesignDescription": "Añade una copia .canopi con el contenido del lienzo y sus coordenadas, las notas, la cronología y el presupuesto.",
-    "currentDesignUnavailable": "No hay un diseño actual disponible para adjuntar."
+    "currentDesignUnavailable": "No hay un diseño actual disponible para adjuntar.",
+    "contentsTitle": "El informe contiene",
+    "sendText": "Para enviarlo, abra una incidencia en la página de incidencias de Canopi en GitHub, describa lo que pasó y adjunte el zip.",
+    "issuesLink": "Abrir la página de incidencias de GitHub",
+    "downloadedText": "Informe descargado. El zip está en las descargas de su navegador.",
+    "showAgain": "Mostrar de nuevo",
+    "section": {
+      "originatingFailure": "El fallo desde el que informa, con su código y su operación.",
+      "description": "Lo que escribió arriba.",
+      "build": "La versión de Canopi, su sistema operativo y su vista web o su navegador.",
+      "health": "Cómo se abrió cada almacén de datos, sin rutas de archivo.",
+      "queues": "El trabajo en segundo plano en espera y en curso, por cantidad y tiempo.",
+      "nativeSettlements": "Las últimas 50 operaciones en segundo plano fallidas, sin rutas ni claves.",
+      "frontendRing": "Los errores recientes de la ventana de la aplicación, sin rutas ni claves.",
+      "jobs": "El número de trabajos de la biblioteca de datos y sus fallos recientes, sin nombres de elementos.",
+      "libraryDisk": "El uso de disco de la biblioteca de datos y el estado de la limpieza, sin nombres de elementos.",
+      "logTail": "El final del registro de Canopi, sin rutas ni claves.",
+      "settingsSummary": "Su idioma, su tema y sus ajustes de visualización; nunca su clave de Maps.",
+      "design": "El diseño actual, solo si lo marca: sus objetos, coordenadas en el mapa, notas, cronología y presupuesto."
+    }
   },
   "pdf": {
     "title": "Exportar a PDF",
@@ -1403,7 +1460,10 @@
     "wholeDesign": "Todo el diseño",
     "splitHint": "Revisa los marcos numerados y cada hoja antes de aplicar.",
     "splitSheets": "Dividir en hojas legibles",
-    "splitPreview": "Vista previa · {{count}} páginas en el PDF",
+    "splitPreview_one": "Vista previa · {{count}} página en el PDF",
+    "splitPreview_few": "Vista previa · {{count}} páginas en el PDF",
+    "splitPreview_many": "Vista previa · {{count}} páginas en el PDF",
+    "splitPreview_other": "Vista previa · {{count}} páginas en el PDF",
     "applySheets": "Aplicar hojas",
     "addPage": "Añadir hoja de campo",
     "addHint": "Arrastra para dibujar un rectángulo alrededor del área que quieres imprimir.",
@@ -1529,7 +1589,10 @@
     "importTitle": "Importación GeoJSON",
     "exportTitle": "Exportación GeoJSON",
     "importSummary": "Se importaron {{plants}} plantas, {{zones}} zonas, {{annotations}} anotaciones y {{guides}} guías de medición.",
-    "importSkipped": "Se omitieron {{count}} entidades con geometría no compatible.",
+    "importSkipped_one": "Se omitió {{count}} entidad con geometría no compatible.",
+    "importSkipped_few": "Se omitieron {{count}} entidades con geometría no compatible.",
+    "importSkipped_many": "Se omitieron {{count}} entidades con geometría no compatible.",
+    "importSkipped_other": "Se omitieron {{count}} entidades con geometría no compatible.",
     "importNothing": "El archivo no contiene objetos de diseño para importar.",
     "busy": "El lienzo está ocupado. Inténtalo de nuevo en un momento.",
     "readFailed": "No se pudo leer el archivo.",
@@ -1588,7 +1651,11 @@
     "settingsCloseAnyway": "Cerrar de todos modos",
     "flushFailedReloadMessage": "No se pudo guardar tu diseño en este navegador. Descarga una copia antes de recargar.",
     "tabConflictReloadMessage": "Este diseño cambió en otra pestaña del navegador, así que tus últimos cambios no se escribieron. Descarga una copia antes de recargar, o cancela y resuelve primero el cambio.",
-    "discardAndReload": "Recargar sin guardar"
+    "discardAndReload": "Recargar sin guardar",
+    "flushFailedAppReloadMessage": "Canopi no pudo escribir tus últimos cambios. Vuelve a intentarlo o recarga sin guardarlos.",
+    "settingsFailedReloadMessage": "Tu diseño está guardado. Canopi no pudo guardar tus últimos cambios en los ajustes. Vuelve a intentarlo o recarga de todos modos y piérdelos.",
+    "settingsFailedDesignUnsavedReloadMessage": "Canopi no pudo guardar tus últimos cambios en los ajustes. Vuelve a intentarlo o recarga de todos modos y piérdelos.",
+    "settingsReloadAnyway": "Recargar de todos modos"
   },
   "drafts": {
     "title": "Borradores",
@@ -2128,7 +2195,6 @@
     "restart": "Reiniciar para terminar la actualización",
     "checkAtLaunch": "Buscar actualizaciones al iniciar",
     "linkOnly": "Descarga la actualización desde projectcanopi.com",
-    "dismiss": "Cerrar",
     "failure": {
       "offline": "No se pueden buscar actualizaciones sin conexión",
       "checkFailed": "No se pudieron buscar actualizaciones",
@@ -2143,5 +2209,23 @@
         "downloadFailed": "la descarga falló"
       }
     }
+  },
+  "failure": {
+    "busy": "Canopi está ocupado con otra tarea. Vuelve a intentarlo en un momento.",
+    "internal": "Algo salió mal. Puedes volver a intentarlo o informar de un problema.",
+    "connection": "No se pudo conectar. Comprueba tu conexión y vuelve a intentarlo.",
+    "serverError": "El servidor no pudo responder. Vuelve a intentarlo más tarde.",
+    "addressRefused": "Canopi rechazó una dirección fuera de sus sitios permitidos. Informa de un problema si vuelve a ocurrir.",
+    "downloadTooLarge": "La descarga supera el tamaño que permite Canopi. Informa de un problema si la necesitas.",
+    "fileNotFound": "No se encontró el archivo. Comprueba que todavía existe y vuelve a intentarlo.",
+    "permissionDenied": "Canopi no tiene permiso para usar este archivo o carpeta. Comprueba sus permisos y vuelve a intentarlo.",
+    "readOnly": "Esta ubicación es de solo lectura. Elige otra ubicación y vuelve a intentarlo.",
+    "diskFull": "Tu disco está lleno. Libera espacio y vuelve a intentarlo.",
+    "storageFull": "El almacenamiento de tu dispositivo está lleno. Libera espacio y vuelve a intentarlo.",
+    "fileTooLarge": "Este archivo supera el tamaño que permite Canopi. Elige un archivo más pequeño.",
+    "fileError": "Canopi no pudo leer ni escribir el archivo. Vuelve a intentarlo.",
+    "plantCatalogUnavailable": "No se pudo abrir el catálogo de plantas. Reinicia Canopi y reinstálalo si el problema continúa.",
+    "libraryNewer": "Esta biblioteca de datos se guardó con una versión más reciente de Canopi. Actualiza Canopi para modificarla.",
+    "libraryUnavailable": "No se pudo abrir la biblioteca de datos, así que los cambios no se guardarán en esta sesión. Reinicia Canopi y vuelve a intentarlo."
   }
 }

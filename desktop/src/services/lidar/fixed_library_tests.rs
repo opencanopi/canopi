@@ -2390,3 +2390,73 @@ fn a_failed_job_logs_its_reason_for_the_problem_report() {
     assert!(!written.contains("anl-stopped"), "{written}");
     let _ = std::fs::remove_dir_all(&root);
 }
+
+/// LID-01 (2.1-Q298, canopi-f47t.52.38): a cancel the staging step sees while the cancel's own
+/// withdrawal still waits settles as a withdrawal, never as a Failed item: the per-source
+/// staging error names the file (`orchard: cancelled`), so only the job's cancel flag says
+/// the import was cancelled.
+#[test]
+fn lid_01_a_cancel_seen_during_staging_withdraws_the_import_never_failed() {
+    let root = scratch("lid-01-cancel-during-staging");
+    let library = attached_library(&root);
+    let source = plane(&library, &root, "orchard", 445_000.0);
+    // Cancel sets the flag at once while its withdrawal waits on the UserData lane; the flag
+    // lands once the source is copied into the library, so staging itself sees the cancel.
+    let (landed_tx, landed) = std::sync::mpsc::channel();
+    acceptance_hooks::on_source_staged(
+        &library,
+        Box::new(move |library| {
+            for flag in library.inner.cancel_flags.lock().unwrap().values() {
+                flag.store(true, Ordering::Relaxed);
+            }
+            landed_tx.send(!library_files(library).is_empty()).unwrap();
+        }),
+    );
+    let receipt = library
+        .import_item(
+            "Orchard",
+            RasterQuantity::GroundElevation,
+            None,
+            false,
+            vec![source.clone()],
+        )
+        .unwrap();
+    let staged = landed
+        .recv_timeout(std::time::Duration::from_secs(60))
+        .expect("the cancel landed during staging");
+    assert!(staged, "the source was copied into the library first");
+    await_settled(&library, &receipt.job_id);
+
+    // The job's own settlement withdrew the import: the item left the list, never Failed,
+    // and every file the job wrote is gone.
+    assert!(library.library_snapshot().unwrap().items.is_empty());
+    assert_eq!(import_rows(&library), no_import_rows());
+    assert_eq!(library_files(&library), Vec::<PathBuf>::new());
+    // The withdrawal that waited finds nothing left to withdraw and leaves no lasting state.
+    library.cancel_import(&receipt.job_id).unwrap();
+    assert!(library.library_snapshot().unwrap().items.is_empty());
+    assert_eq!(import_rows(&library), no_import_rows());
+
+    // The same file imports again as a new item.
+    imported(&library, "Orchard", &source);
+    // A job that panics while staging fails as before, never withdrawn, and a later cancel
+    // keeps that failure: both items stay.
+    acceptance_hooks::on_source_staged(&library, Box::new(|_| panic!("staging stopped")));
+    let failed = library
+        .import_item(
+            "Orchard",
+            RasterQuantity::GroundElevation,
+            None,
+            false,
+            vec![source],
+        )
+        .unwrap();
+    assert_eq!(
+        await_import(&library, &failed.job_id),
+        LidarImportJobState::Failed
+    );
+    library.cancel_import(&failed.job_id).unwrap();
+    row_message(&library, &failed.layer_id);
+    assert_eq!(library.library_snapshot().unwrap().items.len(), 2);
+    let _ = std::fs::remove_dir_all(&root);
+}

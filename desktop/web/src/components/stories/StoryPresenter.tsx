@@ -1,3 +1,4 @@
+import { SurfaceBoundary } from '../shared/SurfaceBoundary'
 import { useEffect, useId, useLayoutEffect, useRef } from 'preact/hooks'
 import {
   goToPresentedStep,
@@ -15,7 +16,7 @@ import { t } from '../../i18n'
 import { PresentedMapNotice } from '../canvas/MapNotice'
 import { ButtonTooltip } from '../shared/ButtonTooltip'
 import { ControlIcon } from '../shared/ControlIcon'
-import { useModalLayer } from '../shared/useModalLayer'
+import { trapTabWithToasts, useModalLayer } from '../shared/useModalLayer'
 import { RichTextView } from './RichTextView'
 import styles from './StoryPresenter.module.css'
 
@@ -31,12 +32,13 @@ const SWIPE_MIN_PX = 48
  */
 export function StoryPresenter() {
   const presented = presentedStep.value
-  return presented ? <StoryPresenterContent presented={presented} /> : null
+  return presented ? <SurfaceBoundary surface="story-presenter" onClose={leaveStoryPresentation}><StoryPresenterContent presented={presented} /></SurfaceBoundary> : null
 }
 
 function StoryPresenterContent({ presented }: { readonly presented: PresentedStep }) {
-  useModalLayer()
   const root = useRef<HTMLDivElement>(null)
+  // Tab stays in the presenter, with the window's toasts; Escape in a toast leaves the presentation.
+  useModalLayer({ root, tabStops, escape: leaveStoryPresentation })
   const next = useRef<HTMLButtonElement>(null)
   const swipe = useRef<{ x: number; y: number; id: number } | null>(null)
   const titleId = useId()
@@ -100,24 +102,15 @@ function StoryPresenterContent({ presented }: { readonly presented: PresentedSte
         void togglePresentationFullScreen()
         return
       case 'Tab':
-        trapFocus(event)
+        trapTabWithToasts(tabStops(), event)
     }
   }
 
-  function trapFocus(event: KeyboardEvent): void {
+  function tabStops(): HTMLElement[] {
     const all = [...root.current?.querySelectorAll<HTMLElement>('button, a[href]') ?? []]
     // Controls a narrow layout hides take no part (a layout-less DOM keeps them all).
     const shown = all.filter((element) => element.getClientRects().length > 0)
-    const focusables = shown.length > 0 ? shown : all
-    const active = document.activeElement
-    if (focusables.length === 0 || !active) return
-    // Wrap when no control lies ahead of focus in the Tab direction, wherever focus sits: on the last control, on the
-    // map notice that holds focus after Retry, or on the presenter itself. Otherwise focus would leave the page.
-    const ahead = event.shiftKey ? Node.DOCUMENT_POSITION_PRECEDING : Node.DOCUMENT_POSITION_FOLLOWING
-    if (focusables.some((element) => (active.compareDocumentPosition(element) & ahead) !== 0)) return
-    event.preventDefault()
-    const wrapTo = event.shiftKey ? focusables.at(-1)! : focusables[0]!
-    wrapTo.focus()
+    return shown.length > 0 ? shown : all
   }
 
   return (

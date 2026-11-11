@@ -18,11 +18,14 @@
 // option cluster holding c and the options before it, as a command mentioning git) in a child context, so its cd and
 // variables stay inside it; a `-c` inside it asks, as does a shell reading its input. agent-hooks-context.ts
 // follows `cd`, `pushd`, `popd` and `git -C` to the repository a git command targets, unknown under `--git-dir`,
-// `--work-tree` or GIT_DIR; agent-hooks-stamp.ts says whether a command may write a pre-push stamp. Long options are read
+// `--work-tree` or GIT_DIR; agent-hooks-arguments.ts expands the known variables in git's own words (an unknown one where
+// a rule reads an option or the subcommand asks), skips option values and tells a checkout pathspec from a branch
+// (canopi-f47t.52.269); agent-hooks-stamp.ts says whether a command may write a pre-push stamp. Long options are read
 // as git reads them, a unique prefix as the option (longOption). What cannot be parsed asks; nothing here throws. Each refusal's reason starts with its rule id in brackets (policy/rules.json, tool agent-hooks) and names
 // the fix.
 import { existsSync, readFileSync } from 'node:fs'
 import { dirname, join, posix, resolve as resolvePath } from 'node:path'
+import { checkoutOperands, expandArguments, optionWords } from './agent-hooks-arguments.ts'
 import { Context, gitOut, mainWorktree, resolve } from './agent-hooks-context.ts'
 import { braceExpansion, type Command, expandProgram, GIT_VALUE_OPTIONS, gitSubcommandAt, SHELLS, shellCommands, Unparsed } from './agent-hooks-command.ts'
 import { read } from './agent-hooks-shell.ts'
@@ -61,9 +64,12 @@ const FILE_TOOLS = new Set(['Write', 'Edit', 'MultiEdit', 'NotebookEdit'])
 // git push's options that take a separate value.
 const PUSH_VALUE_OPTIONS = new Set(['--repo', '-o', '--push-option', '--receive-pack', '--exec'])
 // git commit's options that take a value: short ones end a cluster, long ones take the next word unless `=` is used.
-const COMMIT_SHORT_VALUE = new Set('mFcCt')
+const COMMIT_SHORT_VALUE = 'mFcCt'
 const COMMIT_LONG_VALUE = new Set(['--message', '--file', '--author', '--date', '--template', '--reuse-message',
   '--reedit-message', '--fixup', '--squash', '--trailer', '--cleanup', '--pathspec-from-file'])
+// git checkout's and switch's options that take a value (canopi-f47t.52.269): `-bfoo` names the branch foo, no force.
+const CHECKOUT_LONG_VALUE = new Set(['--orphan', '--conflict', '--pathspec-from-file'])
+const SWITCH_LONG_VALUE = new Set(['--create', '--force-create', '--orphan', '--conflict'])
 const COMMIT_CREATING = new Set(['commit', 'cherry-pick', 'revert', 'am', 'rebase'])
 const REPOSITORY_VARIABLES = ['GIT_DIR', 'GIT_WORK_TREE', 'GIT_COMMON_DIR']
 // git config's options that take a value (long forms; `-f` is --file), and its subcommands.
@@ -99,28 +105,6 @@ const longOption = (word: string, full: string, shortest = full.slice(0, 3)) => 
 const hasOption = (args: readonly string[], ...names: string[]) => args.some((a) => names.some((n) => (n === '--' ? a === n
   : n.startsWith('--') ? longOption(a, n) : /^-[A-Za-z]+$/.test(a) && a.includes(n.slice(1)))))
 
-/** git commit's flags with option values skipped: each flag word and each short flag letter. */
-function commitFlags(args: readonly string[]): string[] {
-  const flags: string[] = []
-  for (let i = 0; i < args.length; i += 1) {
-    const word = args[i] ?? ''
-    if (word === '--') break
-    if (word.startsWith('--')) {
-      flags.push(word)
-      if (!word.includes('=') && COMMIT_LONG_VALUE.has(word)) i += 1
-    } else if (word.startsWith('-') && word.length > 1) {
-      for (const [k, letter] of [...word.slice(1)].entries()) {
-        if (COMMIT_SHORT_VALUE.has(letter)) {
-          if (k === word.length - 2) i += 1
-          break
-        }
-        flags.push(`-${letter}`)
-      }
-    }
-  }
-  return flags
-}
-
 const isHooksPath = (value: string) => (value.split('=', 1)[0] ?? '').toLowerCase() === HOOKS_PATH
 
 /** git's global options: the subcommand's index and the repository `-C` names, or a hooks path override's refusal, or
@@ -151,20 +135,54 @@ function gitBypass(sub: string, args: readonly string[], ctx: Context, env: Reco
     if (key.startsWith('GIT_CONFIG_KEY') && value.toLowerCase() === HOOKS_PATH) return decision('hook-hooks-path-override')
   }
   if (!['commit', 'push', 'merge', 'pull', 'rebase', 'cherry-pick', 'revert', 'am'].includes(sub)) return undefined
-  const flags = sub === 'commit' ? commitFlags(args) : args.filter((a) => a.startsWith('-'))
+  const flags = sub === 'commit' ? optionWords(args, COMMIT_SHORT_VALUE, COMMIT_LONG_VALUE).flags : args.filter((a) => a.startsWith('-'))
   if (flags.some((f) => longOption(f, '--no-verify', '--no-v'))) return decision('hook-no-verify')
   return sub === 'commit' && flags.includes('-n') ? decision('hook-no-verify') : undefined
 }
 
+/** A git checkout that overwrites worktree files: forced, given `--` or a pathspec file, or with an operand the
+ * repository names a pathspec (checkoutOperands); one it cannot tell asks (canopi-f47t.52.269). */
+function checkoutDiscard(args: readonly string[], target: string | undefined): Verdict {
+  const { flags, operands, separated } = optionWords(args, 'bB', CHECKOUT_LONG_VALUE)
+  if (separated || hasOption(flags, '-f', '--force', '--pathspec-from-file')) return decision('hook-discard')
+  if (hasOption(flags, '-b', '-B', '--orphan', '-p', '--patch')) return undefined
+  const operandsDo = checkoutOperands(operands, target)
+  if (operandsDo === 'unknown') return unparsed(`the hook cannot tell whether checkout's \`${operands.join(' ')}\` names a branch or paths`)
+  return operandsDo === 'discard' ? decision('hook-discard') : undefined
+}
+
 /** A git command that discards uncommitted work (2.1-M339). */
-function gitDiscard(sub: string, args: readonly string[]): Verdict {
-  const has = (...names: string[]) => hasOption(args, ...names)
-  if (sub === 'reset' && has('--hard')) return decision('hook-reset-hard')
-  if (sub === 'checkout' && has('--', '-f', '--force')) return decision('hook-discard')
-  if (sub === 'switch' && has('-f', '--force', '--discard-changes')) return decision('hook-discard')
+function gitDiscard(sub: string, args: readonly string[], target: string | undefined): Verdict {
+  if (sub === 'reset' && hasOption(args, '--hard')) return decision('hook-reset-hard')
+  if (sub === 'checkout') return checkoutDiscard(args, target)
+  if (sub === 'switch' && hasOption(optionWords(args, 'cC', SWITCH_LONG_VALUE).flags, '-f', '--force', '--discard-changes')) {
+    return decision('hook-discard')
+  }
   const staged = args.some((a) => a === '--staged' || a === '-S')
-  if (sub === 'restore' && (!staged || has('--worktree', '-W'))) return decision('hook-discard')
-  if (sub === 'clean' && has('-f', '--force')) return decision('hook-discard')
+  if (sub === 'restore' && (!staged || hasOption(args, '--worktree', '-W'))) return decision('hook-discard')
+  if (sub === 'clean' && hasOption(optionWords(args, 'e', new Set(['--exclude'])).flags, '-f', '--force')) return decision('hook-discard')
+  return undefined
+}
+
+// The subcommands whose rules read their options or operands: an unknown variable there could be what a rule reads.
+const RULE_SUBCOMMANDS = new Set(['reset', 'checkout', 'switch', 'restore', 'clean', 'stash', 'config', 'push', 'commit',
+  'commit-tree', 'merge', 'pull', 'rebase', 'cherry-pick', 'revert', 'am'])
+// A word after one of these is an option's value, which no rule reads as an option (a message, a file, a branch name).
+const VALUE_BEFORE = /^(?:-[A-Za-z]*[mFbBcCo]|--(?:message|file|author|date|orphan|create|force-create|template))$/
+
+/** An ask for a git word holding an unknown variable where it could be the subcommand, a global option (not -C's value)
+ * or an option of a subcommand whose rules read options (canopi-f47t.52.269); a variable after `=` or a path's first
+ * character, or in an option's value, is read as written. */
+function unknownArgument(words: readonly string[], unknown: ReadonlyMap<number, string>, at: number): Verdict {
+  const sub = words[at] ?? ''
+  for (const [k, before] of unknown) {
+    const previous = words[k - 1] ?? ''
+    if (k < at && previous === '-C') continue
+    const optionLike = before === '' || (before.startsWith('-') && !before.includes('='))
+    if (k <= at || (RULE_SUBCOMMANDS.has(sub) && optionLike && !VALUE_BEFORE.test(previous))) {
+      return outside(`the git word \`${words[k] ?? ''}\`, holding a variable it cannot expand to a plain word`)
+    }
+  }
   return undefined
 }
 
@@ -181,14 +199,36 @@ function gitCommitsInCheckout(sub: string, args: readonly string[], target: stri
 // The git subcommands whose rules read operands, not only options: a brace there could make the verb, key or refspec.
 const OPERAND_RULES = new Set(['stash', 'config', 'push'])
 
+/**
+ * Whether a git word could expand to an option (2.1-M408; canopi-f47t.52.269): it starts with `-`, or with a brace one
+ * of whose alternatives, followed by the text after the brace, could (`{--hard,}`, `{,-}-f`, `{a,}{-f,}`); a brace in
+ * it or a range is read as one that could. `{src,docs}/x.md` cannot.
+ */
+function couldBeOption(word: string): boolean {
+  if (word.startsWith('-')) return true
+  if (!word.startsWith('{')) return false
+  for (let j = 1, depth = 1; j < word.length; j += 1) {
+    if (word[j] === '{') depth += 1
+    if (word[j] === '}' && --depth === 0) {
+      const body = word.slice(1, j)
+      return /[{]|\.\./.test(body) || body.split(',').some((alternative) => couldBeOption(alternative + word.slice(j + 1)))
+    }
+  }
+  return true
+}
+
 function checkGit(command: Command, ctx: Context): Verdict {
-  const { words, env, patterns, shaped } = command
-  const globals = gitGlobals(command, ctx)
+  const { env, patterns, shaped } = command
+  // git's words with the variables the command knows expanded (canopi-f47t.52.269): `M=--hard; git reset $M` is a reset --hard.
+  const { words, unknown } = expandArguments(shaped, (name) => ctx.vars[name])
+  const globals = gitGlobals({ ...command, words }, ctx)
   if ('decision' in globals) return globals
+  const unread = unknownArgument(words, unknown, globals.at)
+  if (unread) return unread
   const sub = words[globals.at] ?? ''
   // A glob or brace could expand to the option or subcommand a rule reads (a file named `--hard`, `{--hard,}`), or a brace
   // to an operand a rule reads (`git stash {push,}`); elsewhere it is only a path or an argument, read as written.
-  const patterned = [...patterns].find((k) => k <= globals.at || /^[-{]/.test(words[k] ?? '')
+  const patterned = [...patterns].find((k) => k <= globals.at || couldBeOption(words[k] ?? '')
     || (OPERAND_RULES.has(sub) && braceExpansion(shaped[k]?.shape ?? '')))
   if (patterned !== undefined) return outside(`the git word \`${words[patterned] ?? ''}\`, holding a glob or brace`)
   if (globals.at >= words.length) return undefined
@@ -199,7 +239,7 @@ function checkGit(command: Command, ctx: Context): Verdict {
   if (sub === 'config') return checkConfig(args)
   if (sub === 'stash') return checkStash(args)
   if (sub === 'push') return checkTagPush(args, globals.target)
-  return gitDiscard(sub, args) ?? gitCommitsInCheckout(sub, args, globals.target, ctx)
+  return gitDiscard(sub, args, globals.target) ?? gitCommitsInCheckout(sub, args, globals.target, ctx)
 }
 
 /** git push's operands, its repository then its refspecs: the words that are no option nor an option's value. */
@@ -393,8 +433,11 @@ function checkSegment(command: Command, ctx: Context, depth: number, mentions: b
     const at = shellCommands(words)
     if (at === undefined || at < 0) return undefined
     if (depth >= 1) return unparsed('a shell -c inside a shell -c')
-    // The string runs in a child shell: its cd, pushd, export and assignments stay inside it.
-    return checkCommand(words[at] ?? '', ctx.child(), depth + 1, mentions)
+    // The string runs in a child shell: its cd, pushd, export and assignments stay inside it, and the prefix assignments
+    // before the shell are in its environment (`GIT_DIR=x bash -c "git commit"`; canopi-f47t.52.269).
+    const child = ctx.child()
+    Object.assign(child.env, env)
+    return checkCommand(words[at] ?? '', child, depth + 1, mentions)
   }
   if (program === 'git') return checkGit(command, ctx)
   if (program === 'npm') return checkNpm(words.slice(1), ctx, env)

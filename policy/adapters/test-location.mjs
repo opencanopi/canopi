@@ -9,16 +9,18 @@
 // specifier as written, then with .ts, .tsx, .js, .mjs or .json, then a directory's index file); a file under a
 // `__tests__/` directory is test support, never production. A test whose production files all sit in one directory
 // is one site { rule: 'test-location', path } at its path; a test reaching two directories or none is a
-// cross-module suite. A test whose one directory sits in an `e2e/` or `e2e-release/` tree is no site: vitest excludes
-// those trees (desktop/web/vite.config.ts), so beside its module it would never run (canopi-f47t.52.228 seam 11). Package specifiers are not read. Paths are taken relative to the test, so a planted mirror of
-// the layout under policy/fixtures/ resolves the same way. A relative specifier that resolves to no file is
-// tool-failed, never a test with one fewer module.
+// cross-module suite. A test whose one directory sits where vitest collects no test (desktop/web/vite.config.ts's
+// exclude: an `e2e/` subdirectory other than `e2e/platform/`, or an `e2e-release/` tree) is no site, since beside its
+// module it would never run (canopi-f47t.52.228 seam 11); `e2e/platform/` keeps its unit tests beside its modules
+// (canopi-f47t.52.228.35), so a test of one module there is a site. Package specifiers are not read. Paths are taken
+// relative to the test, so a planted mirror of the layout under policy/fixtures/ resolves the same way. A relative
+// specifier that resolves to no file is tool-failed, never a test with one fewer module.
 import fs from 'node:fs';
 import path from 'node:path';
 
 const IN_TESTS_DIR = /(?:^|\/)__tests__\/(?!(?:support|fixtures)\/)(?:[^/]+\/)*[^/]+\.test\.tsx?$/u;
 const TEST_SUPPORT = /(?:^|\/)__tests__\//u;
-const UNCOLLECTED = /(?:^|\/)e2e(?:-release)?(?:\/|$)/u;
+const UNCOLLECTED = /(?:^|\/)(?:e2e\/(?!platform(?:\/|$))[^/]+|e2e-release)(?:\/|$)/u;
 const STATIC = /(?:^|\n)[ \t]*((?:import|export)\b[^;'"`]*?)\bfrom[ \t]*['"]([^'"\n]+)['"]/gu;
 const BARE_IMPORT = /(?:^|\n)[ \t]*import[ \t]*['"]([^'"\n]+)['"]/gu;
 const DYNAMIC = /\bimport\(\s*['"]([^'"\n]+)['"]\s*\)/gu;

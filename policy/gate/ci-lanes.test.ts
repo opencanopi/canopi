@@ -481,6 +481,17 @@ describe('mutation lane', () => {
     })
   })
 
+  // Ubuntu 26.04's timeout is uutils coreutils 0.10.0, which sends SIGKILL at the budget when --kill-after is given, so
+  // the tool never sees SIGINT and writes nothing; the step takes GNU's gnutimeout there (canopi-f47t.52.36).
+  it('canopi-f47t.52.36: a budget stop still interrupts the tool where timeout is uutils, through GNU gnutimeout', () => {
+    fake('timeout', 'shift 3\n"$@" &\nsleep 1\nkill -9 $!\nexit 137')
+    fake('gnutimeout', 'for real in /usr/bin/gnutimeout /usr/bin/timeout; do [ -x "$real" ] && exec "$real" "$@"; done\nexit 127')
+    fake('cargo', interruptible(`touch ${join(dir, 'interrupted')}`))
+    const result = run(script('cargo-mutants', 'Mutate'), '.', { EVENT: 'workflow_dispatch', AREA: 'core', BASE: '', CRATE: 'planted-core', SHARD: '0/1', BUDGET: '1s' })
+    expect(result.status, result.stdout).toBe(0)
+    expect(existsSync(join(dir, 'interrupted'))).toBe(true)
+  })
+
   // A PR run of Stryker skips static mutants (24% of a diff's mutants, 95% of its time) and stops at its budget;
   // Stryker writes the partial incremental report on SIGINT, which then stands as the run's report.
   describe('Stryker on a budget', () => {
@@ -528,7 +539,7 @@ describe('mutation lane', () => {
       const job = mutation.jobs[name]
       const steps = job?.steps ?? []
       const step = steps.find((s) => s.name === 'Mutate')
-      const killAfter = /timeout --signal=INT --kill-after=(\d+)m "\$BUDGET"/.exec(step?.run ?? '')
+      const killAfter = /"\$tm" --signal=INT --kill-after=(\d+)m "\$BUDGET"/.exec(step?.run ?? '')
       expect(killAfter, `${name}: the Mutate step runs under timeout with SIGINT`).not.toBeNull()
       for (const event of ['dispatch', 'pr'] as const) {
         expect(minutes(job?.env?.['BUDGET'], event) + Number(killAfter?.[1]) + 5, `${name} ${event}`).toBeLessThanOrEqual(minutes(job?.['timeout-minutes'], event))

@@ -27,6 +27,7 @@ import { useDesignReveal } from '../app/canvas-map-surface/design-reveal'
 import { hasVisibleMapLayer } from '../app/map-layers/state'
 import { presentedMapLayers } from '../app/story-presentation/overrides'
 import { MapNotice } from '../components/canvas/MapNotice'
+import { reportMapError } from '../maplibre/map-errors'
 import { t } from '../i18n'
 import { WebWelcomeScreen } from './WebWelcomeScreen'
 import { useMapArea } from '../components/shared/useMapChrome'
@@ -152,7 +153,7 @@ export function WebCanvasWorkspace({
           onMapStateChange: (state) => {
             setMapState(state)
           },
-          onFailure: (error) => console.error('Shared browser workspace failed:', error),
+          onFailure: (error) => reportMapError('Shared browser workspace failed:', error),
         })
       } finally {
         finishCompositionCreation()

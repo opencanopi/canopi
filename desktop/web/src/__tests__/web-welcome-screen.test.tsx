@@ -14,7 +14,7 @@ import { createBrowserDesignSessionController, type BrowserCanopiDownload } from
 import type { BrowserDraftPersistence } from '../web/browser-draft-persistence'
 
 type BrowserDraftPersistenceView = BrowserDraftPersistence['view']['value']
-import { browserShellNotice, dismissBrowserShellNotice } from '../web/browser-shell-notice'
+import { notices, resetNoticesForTests } from '../failures/notices'
 import { WebWelcomeScreen } from '../web/WebWelcomeScreen'
 
 // The Web welcome screen's persistence line and per-Draft Download a copy (2.1-Q82, Q190, Q193, Q194; rows L2, L5, L19).
@@ -28,7 +28,7 @@ beforeEach(() => {
 })
 
 afterEach(() => {
-  dismissBrowserShellNotice()
+  resetNoticesForTests()
   render(null, container)
   container.remove()
 })
@@ -185,11 +185,11 @@ describe('Web welcome screen and Draft persistence', () => {
     await act(async () => { download.click() })
     await act(async () => { await Promise.resolve() })
     expect(downloadCanopiFile).not.toHaveBeenCalled()
-    expect(browserShellNotice.value).toEqual({
+    expect(notices.value).toEqual([expect.objectContaining({
       tone: 'error',
-      title: t('webStorage.downloadFailedTitle'),
-      message: t('webStorage.downloadFailedMessage'),
-    })
+      title: 'webStorage.downloadFailedTitle',
+      message: 'webStorage.downloadFailedMessage',
+    })])
     expect(Array.from(container.querySelectorAll('button[aria-label^="Actions for "]')).map((row) => row.getAttribute('aria-label')))
       .toEqual(['Actions for Hedge'])
   })

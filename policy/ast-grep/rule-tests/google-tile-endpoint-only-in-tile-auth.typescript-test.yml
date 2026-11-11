@@ -1,0 +1,14 @@
+id: google-tile-endpoint-only-in-tile-auth.typescript
+valid:
+  - |
+    export const host = 'maps.googleapis.com'
+  - |
+    // tile.googleapis.com in a comment names no endpoint
+    export const planted = 1
+invalid:
+  - |
+    export const url = 'https://tile.googleapis.com/v1/createSession'
+  - |
+    export const url = "https://tile.googleapis.com/v1/2dtiles"
+  - |
+    export const url = `https://tile.googleapis.com/v1/2dtiles/${z}/${x}/${y}`

@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'preact/hooks'
 import { locale } from '../../app/settings/state'
+import { formatInstantInList } from '../../app/timeline/civil-date'
 import { t } from '../../i18n'
 import { ActionMenu } from './ActionMenu'
 import { recentDesignLocations, type RecentDesignLocation } from '../../app/recent-files/locations'
@@ -8,7 +9,6 @@ import { ControlIcon, type ControlIconName } from './ControlIcon'
 import { DesignSketchThumbnail } from './DesignSketchThumbnail'
 import { visibleDesignName } from './DesignNameField'
 import { EmptyState } from './EmptyState'
-import { formatRelativeDate } from './relative-date'
 import styles from './StartScreen.module.css'
 import type { LocaleKey } from '../../generated/locale-keys'
 
@@ -266,7 +266,7 @@ function RecentRow({ design, location }: { readonly design: StartScreenDesign; r
               </span>
             )}
           </span>
-          <span className={styles.rowDate}>{formatRelativeDate(design.updatedAt, locale.value)}</span>
+          <span className={styles.rowDate}>{formatInstantInList(design.updatedAt, locale.value)}</span>
         </button>
         <ActionMenu
           label={t('start.designActions', { name })}
@@ -292,7 +292,7 @@ function DraftRow({ draft }: { readonly draft: StartScreenDraft }) {
             <span className={styles.rowName}>{name}</span>
             <span className={styles.rowMeta}>{t('drafts.neverSaved')}</span>
           </span>
-          <span className={styles.rowDate}>{formatRelativeDate(draft.updatedAt, locale.value)}</span>
+          <span className={styles.rowDate}>{formatInstantInList(draft.updatedAt, locale.value)}</span>
         </button>
         <ActionMenu
           label={t('drafts.actions', { name })}

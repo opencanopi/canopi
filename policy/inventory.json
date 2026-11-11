@@ -124,22 +124,20 @@
     {
       "id": "adr-0025-every-l4-surface-has-an-error-boundary",
       "doc": "docs/adr/0025-failure-model-and-native-scheduling.md",
-      "quote": "a policy test that every L4 surface has an error boundary (to be created by Phase 1)",
+      "quote": "a policy test that every L4 surface has an error boundary (built in Phase 1)",
       "state": {
-        "planned": {
-          "phase": "1b",
-          "bead": "canopi-f47t.52.36"
+        "exists": {
+          "check": "desktop/web/src/__tests__/every-l4-surface-has-boundary.test.tsx"
         }
       }
     },
     {
       "id": "adr-0025-and-to-be-created-by",
       "doc": "docs/adr/0025-failure-model-and-native-scheduling.md",
-      "quote": "`every_code_reaches_the_report` and `problem_report_always_carries_every_section` (to be created by Phase 1)",
+      "quote": "`every_code_reaches_the_report` and `problem_report_always_carries_every_section` (built in Phase 1)",
       "state": {
-        "planned": {
-          "phase": "1a",
-          "bead": "canopi-f47t.52.37"
+        "exists": {
+          "check": "desktop/web/src/app/problem-report/builder.test.ts"
         }
       }
     },
@@ -158,9 +156,8 @@
       "doc": "docs/adr/0025-failure-model-and-native-scheduling.md",
       "quote": "One tagged redaction corpus (`canopi-types/fixtures/redaction/`, shared and native-only cases), run",
       "state": {
-        "planned": {
-          "phase": "1a",
-          "bead": "canopi-f47t.52.37"
+        "exists": {
+          "check": "desktop/web/src/failures/redact.test.ts"
         }
       }
     },
@@ -339,6 +336,17 @@
         "planned": {
           "phase": "2b",
           "bead": "canopi-f47t.52.72"
+        }
+      }
+    },
+    {
+      "id": "adr-0028-support-copies-no-runtime-guard",
+      "doc": "docs/adr/0028-architecture-fitness-and-verification.md",
+      "quote": "a policy test that `__tests__/support/` copies no runtime guard",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/__tests__/support-copies-no-runtime-guard.test.ts",
+          "reads_source": true
         }
       }
     },
@@ -1190,8 +1198,7 @@
       "quote": "Text and rings over the map follow the map backdrop and the strokes of",
       "state": {
         "exists": {
-          "check": "desktop/web/src/__tests__/canvas-map-backdrop-ink.test.ts",
-          "reads_source": true
+          "check": "desktop/web/e2e/canvas/backdrop-ink.spec.ts"
         }
       }
     },
@@ -1241,7 +1248,7 @@
       "quote": "Redaction:",
       "state": {
         "exists": {
-          "check": "desktop/src/services/problem_report/redactions.rs"
+          "check": "canopi-redact/src/tests.rs"
         }
       }
     },
@@ -1659,8 +1666,7 @@
       "quote": "`map-error-redaction.test.ts`",
       "state": {
         "exists": {
-          "check": "desktop/web/src/__tests__/map-error-redaction.test.ts",
-          "reads_source": true
+          "check": "desktop/web/src/__tests__/map-error-redaction.test.ts"
         }
       }
     },
@@ -2315,6 +2321,26 @@
       }
     },
     {
+      "id": "pixi-unsafe-eval-shim-first",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M236 |",
+      "state": {
+        "exists": {
+          "check": "pixi-unsafe-eval-shim-first"
+        }
+      }
+    },
+    {
+      "id": "google-tile-endpoint-only-in-tile-auth",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M236 |",
+      "state": {
+        "exists": {
+          "check": "google-tile-endpoint-only-in-tile-auth"
+        }
+      }
+    },
+    {
       "id": "maplibre-listeners-only-on-abort-signals",
       "doc": "docs/decisions/2-1.md",
       "quote": "| 2.1-M186 |",
@@ -2611,16 +2637,6 @@
       "state": {
         "exists": {
           "check": "raster-quantity-literal-only-in-item-types"
-        }
-      }
-    },
-    {
-      "id": "map-console-only-through-redactor",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M186 |",
-      "state": {
-        "exists": {
-          "check": "map-console-only-through-redactor"
         }
       }
     },
@@ -3131,6 +3147,39 @@
       "state": {
         "exists": {
           "check": "scripts/test_update_channel.py"
+        }
+      }
+    },
+    {
+      "id": "notice-module-launch-file-multi-open",
+      "doc": "desktop/web/src/app/document-session/launch-file.ts",
+      "quote": "export const multiOpenNotice = signal<number | null>(null)",
+      "state": {
+        "planned": {
+          "phase": "1b",
+          "bead": "canopi-f47t.52.36"
+        }
+      }
+    },
+    {
+      "id": "notice-module-canvas-locked-move",
+      "doc": "desktop/web/src/canvas/session-state.ts",
+      "quote": "export const currentCanvasLockedMoveNotice = signal<CanvasLockedMoveNotice | null>(null)",
+      "state": {
+        "planned": {
+          "phase": "1b",
+          "bead": "canopi-f47t.52.36"
+        }
+      }
+    },
+    {
+      "id": "notice-module-browser-release-watch",
+      "doc": "desktop/web/src/web/browser-release-watch.ts",
+      "quote": "const notice = signal<BrowserReleaseWaiting | null>(null);",
+      "state": {
+        "planned": {
+          "phase": "1b",
+          "bead": "canopi-f47t.52.36"
         }
       }
     }

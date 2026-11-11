@@ -1,3 +1,9 @@
+// app/saved-object-stamps/workbench.ts
+// Owner of the stamp import outcome (no-cancelled-literal, ADR 0025; §18 R14, 2.1-M268). Invariant: 'cancelled' is a
+// SavedObjectStampImportOutcome status, built only from a dismissed pick or a Workbench disposed meanwhile; ast-grep
+// skips this file, so a hand-written cancel guard added here goes uncounted and belongs to the catalogue's
+// CancelToken instead.
+
 import { batch, computed, signal, type ReadonlySignal } from '@preact/signals'
 import type {
   CanvasDesignObjectSelectionModel,
@@ -39,9 +45,11 @@ import type {
 } from '../../canvas/saved-object-stamp-payload'
 import {
   composeSavedObjectStampCanopiFile,
+  defaultSavedObjectStampName,
   importedSavedObjectStampName,
   savedObjectStampPayloadFromCanopiFile,
 } from './file'
+import { isCancelledFailure } from '../../failures/ipc-failure'
 import { createMutationQueue } from '../mutation-queue'
 import type { LocaleKey } from '../../generated/locale-keys'
 
@@ -255,7 +263,7 @@ export function createSavedObjectStampWorkbench({
       return queue.isCurrent(admittedLifetime) ? exportedPath : null
     } catch (error) {
       if (!queue.isCurrent(admittedLifetime)) return null
-      if (isDialogCancelled(error)) return null
+      if (isCancelledFailure(error)) return null
       throw error
     }
   }
@@ -266,7 +274,7 @@ export function createSavedObjectStampWorkbench({
       try {
         file = await importSavedObjectStampFile()
       } catch (error) {
-        if (!queue.isCurrent(admittedLifetime) || isDialogCancelled(error)) return IMPORT_CANCELLED
+        if (!queue.isCurrent(admittedLifetime) || isCancelledFailure(error)) return IMPORT_CANCELLED
         const failure = designLoadFailureOf(error)
         return {
           status: 'refused',
@@ -323,10 +331,6 @@ export function createSavedObjectStampWorkbench({
     importStampFile,
     dispose,
   }
-}
-
-function isDialogCancelled(error: unknown): boolean {
-  return error instanceof Error && error.message === 'Dialog cancelled'
 }
 
 function savedObjectStampFileName(name: string): string {
@@ -405,7 +409,7 @@ function normalizeSelection(capture: CanvasRuntimeSavedObjectStampCapture): Norm
     groups,
   }
   return {
-    name: defaultStampName(payload, capture.localizedCommonNames),
+    name: defaultSavedObjectStampName(payload, capture.localizedCommonNames),
     payload,
   }
 }
@@ -493,33 +497,6 @@ function remapGroupMember(
 
 function concreteKey(member: SceneObjectGroupMember): string {
   return `${member.kind}:${member.id}`
-}
-
-function defaultStampName(
-  payload: SavedObjectStampPayload,
-  localizedNames: ReadonlyMap<string, string | null>,
-): string {
-  if (payload.plants.length > 0) {
-    const counts = new Map<string, { count: number; firstIndex: number }>()
-    payload.plants.forEach((plant, index) => {
-      const name = localizedNames.get(plant.canonicalName) ?? plant.commonName ?? plant.canonicalName
-      const current = counts.get(name)
-      counts.set(name, current
-        ? { ...current, count: current.count + 1 }
-        : { count: 1, firstIndex: index })
-    })
-    return [...counts.entries()]
-      .sort(([, left], [, right]) => right.count - left.count || left.firstIndex - right.firstIndex)
-      .slice(0, 3)
-      .map(([name]) => name)
-      .join(', ')
-  }
-
-  const zonePart = payload.zones.length === 1 ? '1 zone' : `${payload.zones.length} zones`
-  const annotationPart = payload.annotations.length === 1
-    ? '1 annotation'
-    : `${payload.annotations.length} annotations`
-  return `${zonePart}, ${annotationPart}`
 }
 
 function compareSavedObjectStamps(left: SavedObjectStamp, right: SavedObjectStamp): number {

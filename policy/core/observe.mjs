@@ -103,7 +103,9 @@ export async function observeFamily(root, file, doc, paths, adapter, inScope = (
 // site is neither a failure nor a firing: a tool that sees nothing (a config listing no method) refuses every
 // exemption too, so a refusal proves nothing about the rule's real config. A table row naming a family runs
 // through that family the same way, and a table rule with no family (an agent-hooks or commit-gate row, enforced outside
-// the checker) must have its tool report the rule's id there. A rule whose planted violation passes is untested, so the checker fails it. This checker's own
+// the checker) must have its tool report the rule's id there. A family's planted directory fires file by file: each planted
+// file must be touched by a firing site, so one firing file cannot hide a sibling guarding another glob; manifests and
+// the helpers in policy/fixtures/rules/helpers.json (each with its reason) aside (canopi-f47t.52.224). A rule whose planted violation passes is untested, so the checker fails it. This checker's own
 // id is exempt: its planted violations are the cases under policy/fixtures/check/.
 
 export const PLANTED_DIR = `${FIXTURES_DIR}/rules`;
@@ -159,6 +161,70 @@ function plantedPaths(root, rules, observes) {
 }
 
 /**
+ * Whether `site` touches the planted file `file`: it is the site's file, or the site's name names it as one end of an
+ * edge (a repository path, or a module path relative to its source root) or holds it in a folder group (an SCC's
+ * `a <-> b`).
+ */
+function touches(site, file) {
+  if (site.path === file) return true;
+  return (site.name ?? '').split(/ -> | <-> /).some((end) => end && (end === file || file.endsWith(`/${end}`) || file.includes(`/${end}/`)));
+}
+
+/** A planted file a tool reads as a manifest or config, never as a site (a planted crate's Cargo.toml, knip's package.json). */
+const MANIFESTS = new Set(['.gitignore', 'Cargo.toml', 'Cargo.lock', 'deny.toml', 'package.json', 'knip.json']);
+/** Planted source files that only carry a violation (an import cycle's other half, a reach chain's middle): { rule -> { file -> why } }. */
+const PLANTED_HELPERS = `${PLANTED_DIR}/helpers.json`;
+
+/** The declared helpers ({ rule -> Set of repository paths }), with a refusal for each that names no planted file. */
+function plantedHelpers(root, files) {
+  const file = path.join(root, PLANTED_HELPERS);
+  const declared = fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')) : {};
+  const helpers = new Map();
+  const refusals = [];
+  for (const [id, entries] of Object.entries(declared)) {
+    for (const rel of Object.keys(entries)) {
+      const full = `${PLANTED_DIR}/${id}/${rel}`;
+      if (!files.includes(full)) refusals.push(refusal('stray-planted', PLANTED_HELPERS, `helper ${id}/${rel} names no planted file; remove it`));
+      else helpers.set(id, new Set([...helpers.get(id) ?? [], full]));
+    }
+  }
+  return { helpers, refusals };
+}
+
+/**
+ * A family's planted violation: { failed, fired, silent }. `failed` holds refusals that are neither firing nor
+ * neutral; `fired` whether the directory fires as a whole; `silent` each planted file (manifests and `helpers` aside)
+ * no firing site touches, so one firing file never hides a sibling that guards another glob (canopi-f47t.52.224). A
+ * measured family (budgets, floors), or one whose sites name crates or modules rather than files, fires as one.
+ */
+async function plantedFamily(root, file, doc, paths, adapter, shared, helpers = new Set()) {
+  const measured = shapeOf(doc) === 'budgets' || shapeOf(doc) === 'floors';
+  if (measured || typeof adapter.collect !== 'function') {
+    const found = await observeFamily(root, file, doc, paths, adapter, undefined, shared);
+    const failed = found.filter((r) => !FIRES.has(r.code) && !PLANTED_NEUTRAL.has(r.code));
+    return { failed, fired: found.some((r) => FIRES.has(r.code)), silent: [] };
+  }
+  let sites;
+  try {
+    sites = await adapter.collect({ root, paths, exec, select: doc.select, shared });
+  } catch (error) {
+    return { failed: [toolRefusal(error, file)], fired: false, silent: [] };
+  }
+  const judge = (subset) => {
+    const { observed, refusals } = observe(doc, subset, adapter.refuse);
+    return [...refusals, ...compare(doc, observed)];
+  };
+  const found = judge(sites);
+  const failed = found.filter((r) => !FIRES.has(r.code) && !PLANTED_NEUTRAL.has(r.code));
+  const fired = found.some((r) => FIRES.has(r.code));
+  const selected = sites.filter((s) => !doc.select || doc.select.includes(s.rule));
+  if (failed.length || !fired || !selected.some((s) => s.path !== undefined)) return { failed, fired, silent: [] };
+  const held = paths.filter((p) => !MANIFESTS.has(path.posix.basename(p)) && !helpers.has(p));
+  const silent = held.filter((p) => !judge(sites.filter((s) => touches(s, p))).some((r) => FIRES.has(r.code)));
+  return { failed: [], fired, silent };
+}
+
+/**
  * Runs the planted violation of each observed rule (in `lane` alone, a rule with no family being commit-lane, or of the
  * named `only` families) through its tool; refuses each that does not fire, with every rule's layout refusals.
  */
@@ -168,6 +234,8 @@ export async function checkPlanted(root = REPO_ROOT, lane = 'commit', only = [])
   const observes = observer(lane, only, families);
   refusals.push(...plantedLayout(root, rules));
   const { planted, sharing } = plantedPaths(root, rules, observes);
+  const { helpers, refusals: strayHelpers } = plantedHelpers(root, listFiles(root));
+  refusals.push(...strayHelpers);
   for (const [id, { tool, family, table }, paths] of planted) {
     const where = `${PLANTED_DIR}/${id}/`;
     if (typeof tool !== 'string' || !fs.existsSync(path.join(root, adapterFile(tool)))) {
@@ -181,10 +249,12 @@ export async function checkPlanted(root = REPO_ROOT, lane = 'commit', only = [])
       // A count family's planted sites are its own, so they are compared with 0: against the whole tree's count a
       // planted clone reads falling, neither firing nor neutral (2.1-M231).
       const doc = shapeOf(family.doc) === 'count' ? { ...family.doc, count: 0 } : family.doc;
-      const found = await observeFamily(root, family.file, doc, paths, adapter, undefined, shared);
-      const failed = found.filter((r) => !FIRES.has(r.code) && !PLANTED_NEUTRAL.has(r.code));
-      if (failed.length) { refusals.push(...failed); continue; }
-      fired = found.some((r) => FIRES.has(r.code));
+      const result = await plantedFamily(root, family.file, doc, paths, adapter, shared, helpers.get(id));
+      if (result.failed.length) { refusals.push(...result.failed); continue; }
+      for (const file of result.silent) {
+        refusals.push(refusal('planted-silent', file, `${tool} does not fail rule ${id} on this planted file; every planted file must fire (a helper the rule needs fires through the site that names it)`));
+      }
+      fired = result.fired;
     } else {
       try {
         if (typeof adapter.collect !== 'function') {

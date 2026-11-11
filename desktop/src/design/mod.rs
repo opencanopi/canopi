@@ -3,7 +3,7 @@ pub mod drafts;
 pub mod format;
 mod new_design_defaults;
 pub(crate) mod preview;
-
+mod schema_admission;
 use std::{
     collections::HashMap,
     path::{Path, PathBuf},

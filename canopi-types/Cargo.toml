@@ -9,10 +9,14 @@ publish = false
 design-schema = ["dep:schemars"]
 
 [dependencies]
+canopi-redact = { path = "../canopi-redact", features = ["specta"] }
 schemars = { version = "1.2.1", optional = true }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 specta = { version = "=2.0.0-rc.23", features = ["derive"] }
+# Operation ids are `u-` or `s-` before a uuid v4 (2.1-M420): Rust mints its system ids and parses
+# the frontend's (canopi-ar61).
+uuid = { version = "1.22", features = ["v4"] }
 
 [lints]
 workspace = true

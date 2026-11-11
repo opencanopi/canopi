@@ -16,7 +16,8 @@ import type { CanopiFile } from '../types/design'
 import { createBrowserAppDataStore, type BrowserStorageAdapter } from '../web/browser-app-data'
 import { createBrowserDesignSessionController, type BrowserCanopiDownload } from '../web/browser-design-session'
 import { BrowserAppShell } from '../web/BrowserAppShell'
-import { dismissBrowserShellNotice, showBrowserShellNotice } from '../web/browser-shell-notice'
+import { installReleaseNotice, presentBrowserGeoJsonNotice, raiseEarlierDataNotice } from '../web/browser-notices'
+import { raiseNotice, resetNoticesForTests } from '../failures/notices'
 import { editDesignSessionForTest } from './support/design-session-edit'
 import { projectBrowserShellForTest } from './support/browser-shell-projection'
 
@@ -308,8 +309,11 @@ describe('the New version: Reload notice in the shell row (2.1-Q83, Q187, M179)'
     container = document.createElement('div')
     document.body.appendChild(container)
   })
+  let uninstall: (() => void) | null = null
   afterEach(() => {
-    dismissBrowserShellNotice()
+    uninstall?.()
+    uninstall = null
+    resetNoticesForTests()
     render(null, container)
     container.remove()
   })
@@ -322,53 +326,96 @@ describe('the New version: Reload notice in the shell row (2.1-Q83, Q187, M179)'
     },
   })
 
-  type ShellProps = Parameters<typeof BrowserAppShell>[0]
-  function Shell({ release, designIdentity = null }: { release: ShellProps['release'], designIdentity?: ShellProps['designIdentity'] }) {
-    return <BrowserAppShell commandProjection={projection()} release={release} designIdentity={designIdentity} />
+  function Shell() {
+    return <BrowserAppShell commandProjection={projection()} />
   }
 
+  /** A release waiting as the watch says, through the real notice; `reload` resolves false when its save is cancelled. */
+  function offer({ waiting = true, designOpen = true, reload = async () => false }: {
+    waiting?: boolean, designOpen?: boolean, reload?: () => Promise<boolean>,
+  } = {}) {
+    const state = { waiting: signal<object | null>(waiting ? { version: 'next' } : null), designOpen: signal(designOpen) }
+    const dismiss = vi.fn(() => { state.waiting.value = null })
+    const reloadSpy = vi.fn(reload)
+    uninstall = installReleaseNotice({
+      waiting: state.waiting,
+      designOpen: () => state.designOpen.value,
+      reload: reloadSpy,
+      dismiss,
+      onError: () => undefined,
+    })
+    return { ...state, dismiss, reload: reloadSpy }
+  }
+
+  /** The one notice row, whichever notice it shows. */
   function row(): HTMLElement | null {
-    return container.querySelector<HTMLElement>('[data-web-shell-notice]')
+    return container.querySelector<HTMLElement>('[data-notice-row]')
+  }
+
+  function shown(): string | undefined {
+    return row()?.dataset.noticeKey
+  }
+
+  function reloadButton(): HTMLButtonElement {
+    return [...row()!.querySelectorAll<HTMLButtonElement>('button')].find((button) => !button.hasAttribute('aria-label'))!
+  }
+
+  function dismissButton(): HTMLButtonElement {
+    return row()!.querySelector<HTMLButtonElement>(`[aria-label="${t('notice.dismiss')}"]`)!
+  }
+
+  /** Each ResizeObserver with what it watches, fired by hand. */
+  function stubResizeObservers(): { callback: () => void, targets: Element[] }[] {
+    const observers: { callback: () => void, targets: Element[] }[] = []
+    vi.stubGlobal('ResizeObserver', class {
+      private readonly entry: { callback: () => void, targets: Element[] }
+      constructor(callback: () => void) {
+        this.entry = { callback, targets: [] }
+        observers.push(this.entry)
+      }
+      observe(target: Element) { this.entry.targets.push(target) }
+      disconnect() { this.entry.targets.length = 0 }
+    })
+    return observers
   }
 
   it('shows title, message, Reload and Dismiss politely, and Saving… while it saves', async () => {
-    const onReload = vi.fn()
-    const onDismiss = vi.fn()
-    const reloading = signal(false)
-    const Live = () => <Shell release={{ reloading: reloading.value, onReload, onDismiss }} designIdentity={{ name: 'Orchard', saveStatus: 'saved', saveFailureReason: null }} />
-    await act(async () => { render(<Live />, container) })
+    let cancelSave: (reloaded: boolean) => void = () => undefined
+    const release = offer({ reload: () => new Promise<boolean>((resolve) => { cancelSave = resolve }) })
+    await act(async () => { render(<Shell />, container) })
     const notice = row()!
-    expect(notice.dataset.release).toBe('')
+    expect(shown()).toBe('web.release')
     expect(notice.getAttribute('role')).toBe('status')
     expect(notice.textContent).toContain(t('webRelease.title'))
     expect(notice.textContent).toContain(t('webRelease.message'))
-    const reload = notice.querySelector<HTMLButtonElement>('[data-release-reload]')!
-    expect(reload.textContent).toBe(t('error.reload'))
+    const reload = reloadButton()
+    expect(reload.textContent).toBe(t('notice.reload'))
     expect(t('webRelease.title')).toBe('New version')
-    expect(t('error.reload')).toBe('Reload')
+    expect(t('notice.reload')).toBe('Reload')
     await act(async () => { reload.click() })
-    expect(onReload).toHaveBeenCalledOnce()
-    await act(async () => { reloading.value = true })
+    expect(release.reload).toHaveBeenCalledOnce()
     expect(reload.textContent).toBe(t('saveStatus.saving'))
     expect(reload.disabled).toBe(true)
     await act(async () => { reload.click() })
-    expect(onReload, 'a second click while saving is ignored').toHaveBeenCalledOnce()
-    await act(async () => { reloading.value = false })
-    await act(async () => { notice.querySelector<HTMLButtonElement>(`[aria-label="${t('webShell.dismissNotice')}"]`)!.click() })
-    expect(onDismiss).toHaveBeenCalledOnce()
+    expect(release.reload, 'a second click while saving is ignored').toHaveBeenCalledOnce()
+    // The user cancels the save problem: Reload is offered again.
+    await act(async () => { cancelSave(false) })
+    expect(reloadButton().textContent).toBe(t('notice.reload'))
+    await act(async () => { dismissButton().click() })
+    expect(release.dismiss).toHaveBeenCalledOnce()
+    expect(row()).toBeNull()
   })
 
   // canopi-eon8.15 (S4): with no Design open, as on the welcome screen, there is nothing to save first, so the notice
   // makes no such promise beside the Drafts warning.
   it('canopi-eon8.15: with no Design open the notice does not say a Design is saved first', async () => {
-    const release = { reloading: false, onReload: () => undefined, onDismiss: () => undefined }
-    await act(async () => { render(<Shell release={release} />, container) })
+    const release = offer({ designOpen: false })
+    await act(async () => { render(<Shell />, container) })
     expect(row()!.textContent).toContain(t('webRelease.messageNoDesign'))
     expect(row()!.textContent).not.toContain(t('webRelease.message'))
     expect(t('webRelease.messageNoDesign')).toBe('Canopi was updated. Reload to use it.')
 
-    const open = { name: 'Orchard', saveStatus: 'saved' as const, saveFailureReason: null }
-    await act(async () => { render(<Shell release={release} designIdentity={open} />, container) })
+    await act(async () => { release.designOpen.value = true })
     expect(row()!.textContent).toContain(t('webRelease.message'))
   })
 
@@ -384,36 +431,27 @@ describe('the New version: Reload notice in the shell row (2.1-Q83, Q187, M179)'
   })
 
   it('C2-4: Dismiss is off while Reload saves, so no reload follows a Dismiss', async () => {
-    const onDismiss = vi.fn()
-    const reloading = signal(true)
-    const Live = () => <Shell release={{ reloading: reloading.value, onReload: () => undefined, onDismiss }} />
-    await act(async () => { render(<Live />, container) })
-    const dismiss = row()!.querySelector<HTMLButtonElement>(`[aria-label="${t('webShell.dismissNotice')}"]`)!
+    let cancelSave: (reloaded: boolean) => void = () => undefined
+    const release = offer({ reload: () => new Promise<boolean>((resolve) => { cancelSave = resolve }) })
+    await act(async () => { render(<Shell />, container) })
+    await act(async () => { reloadButton().click() })
+    const dismiss = dismissButton()
     expect(dismiss.disabled).toBe(true)
     await act(async () => { dismiss.click() })
-    expect(onDismiss).not.toHaveBeenCalled()
+    expect(release.dismiss).not.toHaveBeenCalled()
     // A cancelled save puts the choice back.
-    await act(async () => { reloading.value = false })
+    await act(async () => { cancelSave(false) })
     expect(dismiss.disabled).toBe(false)
     await act(async () => { dismiss.click() })
-    expect(onDismiss).toHaveBeenCalledOnce()
+    expect(release.dismiss).toHaveBeenCalledOnce()
   })
 
   it('C2-3: the title bar growing moves the Reload notice in place, keeping its focus and its live region', async () => {
     // Each observer with what it watches: a moved row resizes nothing, so only the title bar's observer fires.
-    const observers: { callback: () => void, targets: Element[] }[] = []
-    vi.stubGlobal('ResizeObserver', class {
-      private readonly entry: { callback: () => void, targets: Element[] }
-      constructor(callback: () => void) {
-        this.entry = { callback, targets: [] }
-        observers.push(this.entry)
-      }
-      observe(target: Element) { this.entry.targets.push(target) }
-      disconnect() { this.entry.targets.length = 0 }
-    })
+    const observers = stubResizeObservers()
     try {
-      const Live = () => <Shell release={{ reloading: false, onReload: () => undefined, onDismiss: () => undefined }} />
-      await act(async () => { render(<Live />, container) })
+      offer()
+      await act(async () => { render(<Shell />, container) })
       const bar = container.querySelector<HTMLElement>('[data-workspace-title-bar]')!
       const place = async (height: number) => {
         Object.defineProperty(bar, 'offsetTop', { configurable: true, value: 8 })
@@ -424,7 +462,7 @@ describe('the New version: Reload notice in the shell row (2.1-Q83, Q187, M179)'
       }
       await place(48)
       const notice = row()!
-      const reload = notice.querySelector<HTMLButtonElement>('[data-release-reload]')!
+      const reload = reloadButton()
       reload.focus()
       const host = notice.parentElement!
       const reserved = vi.spyOn(host.style, 'setProperty')
@@ -441,44 +479,85 @@ describe('the New version: Reload notice in the shell row (2.1-Q83, Q187, M179)'
   })
 
   it('the launch\'s Earlier data notice keeps the row, and the Reload notice follows once it is dismissed (M182)', async () => {
-    const release = signal<{ reloading: boolean, onReload: () => void, onDismiss: () => void } | null>(null)
-    const Live = () => <Shell release={release.value} />
-    await act(async () => { render(<Live />, container) })
-    await act(async () => { showBrowserShellNotice({ tone: 'info', title: 'Earlier', message: 'kept in place' }) })
-    await act(async () => { release.value = { reloading: false, onReload: () => undefined, onDismiss: () => { release.value = null } } })
-    expect(container.querySelectorAll('[data-web-shell-notice]'), 'one row').toHaveLength(1)
-    expect(row()?.textContent).toContain('kept in place')
+    const release = offer({ waiting: false })
+    await act(async () => { render(<Shell />, container) })
+    await act(async () => { raiseEarlierDataNotice() })
+    await act(async () => { release.waiting.value = { version: 'next' } })
+    expect(container.querySelectorAll('[data-notice-row]'), 'one row').toHaveLength(1)
+    expect(row()?.textContent).toContain(t('health.localDataNotOpened'))
 
-    await act(async () => { row()!.querySelector<HTMLButtonElement>(`[aria-label="${t('webShell.dismissNotice')}"]`)!.click() })
-    expect(row()?.dataset.release, 'the waiting release shows').toBe('')
+    await act(async () => { dismissButton().click() })
+    expect(shown(), 'the waiting release shows').toBe('web.release')
+  })
+
+  it('canopi-f47t.52.36: the Reload notice leaves the row once no release waits, and leaving the shell never dismisses the release', async () => {
+    const release = offer()
+    await act(async () => { render(<Shell />, container) })
+    expect(shown()).toBe('web.release')
+    await act(async () => { release.waiting.value = null })
+    expect(row()).toBeNull()
+    await act(async () => { release.waiting.value = { version: 'next' } })
+    expect(shown()).toBe('web.release')
+    await act(async () => { uninstall?.(); uninstall = null })
+    expect(row()).toBeNull()
+    expect(release.dismiss, 'the watch keeps the release for the next shell').not.toHaveBeenCalled()
   })
 
   it('2.1-M182 (R2-3): an information notice from the user\'s own import shows over the Reload notice, which returns after it', async () => {
-    const onDismiss = vi.fn()
-    const Live = () => <Shell release={{ reloading: false, onReload: () => undefined, onDismiss }} />
-    await act(async () => { render(<Live />, container) })
-    await act(async () => { showBrowserShellNotice({ tone: 'info', title: 'Nothing imported', message: 'no supported shapes' }) })
-    expect(container.querySelectorAll('[data-web-shell-notice]'), 'one row').toHaveLength(1)
-    expect(row()?.dataset.release, 'the import\'s notice takes the row').toBeUndefined()
-    expect(row()?.textContent).toContain('no supported shapes')
-    await act(async () => { row()!.querySelector<HTMLButtonElement>(`[aria-label="${t('webShell.dismissNotice')}"]`)!.click() })
-    expect(onDismiss).not.toHaveBeenCalled()
-    expect(row()?.dataset.release, 'the Reload notice returns').toBe('')
+    const release = offer()
+    await act(async () => { render(<Shell />, container) })
+    await act(async () => { presentBrowserGeoJsonNotice({ tone: 'info', title: 'geojson.importTitle', message: 'geojson.importNothing' }) })
+    expect(container.querySelectorAll('[data-notice-row]'), 'one row').toHaveLength(1)
+    expect(shown(), 'the import\'s notice takes the row').toBe('web.geojson')
+    expect(row()?.textContent).toContain(t('geojson.importNothing'))
+    await act(async () => { dismissButton().click() })
+    expect(release.dismiss).not.toHaveBeenCalled()
+    expect(shown(), 'the Reload notice returns').toBe('web.release')
   })
 
   it('2.1-M182 (C2-2): an error from the user\'s own action shows over the Reload notice, which returns once it is dismissed', async () => {
-    const onDismiss = vi.fn()
-    const Live = () => <Shell release={{ reloading: false, onReload: () => undefined, onDismiss }} />
-    await act(async () => { render(<Live />, container) })
-    expect(row()?.dataset.release).toBe('')
-    await act(async () => { showBrowserShellNotice({ tone: 'error', title: 'Couldn’t open', message: 'damaged file' }) })
-    expect(container.querySelectorAll('[data-web-shell-notice]'), 'one row').toHaveLength(1)
-    expect(row()?.dataset.release, 'the error takes the row').toBeUndefined()
-    expect(row()?.getAttribute('role')).toBe('alert')
-    expect(row()?.textContent).toContain('damaged file')
+    const release = offer()
+    await act(async () => { render(<Shell />, container) })
+    expect(shown()).toBe('web.release')
+    await act(async () => { presentBrowserGeoJsonNotice({ tone: 'error', title: 'geojson.importTitle', message: 'geojson.readFailed' }) })
+    expect(container.querySelectorAll('[data-notice-row]'), 'one row').toHaveLength(1)
+    expect(shown(), 'the error takes the row').toBe('web.geojson')
+    expect(row()?.querySelector('[role="alert"]')).not.toBeNull()
+    expect(row()?.textContent).toContain(t('geojson.readFailed'))
 
-    await act(async () => { row()!.querySelector<HTMLButtonElement>(`[aria-label="${t('webShell.dismissNotice')}"]`)!.click() })
-    expect(onDismiss, 'dismissing the error leaves the release waiting').not.toHaveBeenCalled()
-    expect(row()?.dataset.release, 'the Reload notice returns').toBe('')
+    await act(async () => { dismissButton().click() })
+    expect(release.dismiss, 'dismissing the error leaves the release waiting').not.toHaveBeenCalled()
+    expect(shown(), 'the Reload notice returns').toBe('web.release')
+  })
+
+  it('[canopi-f47t.52.36] a notice raised on the one notice row shows in the Web shell, after its own row (2.1-Q290)', async () => {
+    await act(async () => { render(<Shell />, container) })
+    await act(async () => { raiseEarlierDataNotice() })
+    await act(async () => { raiseNotice({ key: 'failure.busy', message: 'failure.busy', tone: 'error' }) })
+    expect(container.querySelectorAll('[data-notice-row]'), 'one notice at a time').toHaveLength(1)
+    expect(shown()).toBe('web.earlier-data')
+    await act(async () => { dismissButton().click() })
+    expect(row()?.textContent).toContain(t('failure.busy'))
+  })
+
+  it('[canopi-f47t.52.36] the one notice row in the Web shell sits below the title bar like the shell\'s other notices, clear of the phone sheet', async () => {
+    const observers = stubResizeObservers()
+    try {
+      await act(async () => { render(<Shell />, container) })
+      const bar = container.querySelector<HTMLElement>('[data-workspace-title-bar]')!
+      Object.defineProperty(bar, 'offsetTop', { configurable: true, value: 8 })
+      Object.defineProperty(bar, 'offsetHeight', { configurable: true, value: 44 })
+      await act(async () => {
+        for (const observer of observers) if (observer.targets.includes(bar)) observer.callback()
+      })
+      const host = container.querySelector<HTMLElement>('[data-testid="browser-app-shell"]')!
+      const reserved = vi.spyOn(host.style, 'setProperty')
+      await act(async () => { raiseNotice({ key: 'failure.busy', message: 'failure.busy', tone: 'error' }) })
+      const notice = container.querySelector<HTMLElement>('[data-notice-row]')!
+      expect(notice.style.top).toBe('calc(52px + var(--space-2))')
+      expect(reserved.mock.calls.some(([name]) => name === '--chrome-rail-top'), 'the rails start below the row').toBe(true)
+    } finally {
+      vi.unstubAllGlobals()
+    }
   })
 })

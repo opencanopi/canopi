@@ -4,6 +4,8 @@
 )]
 
 fn main() {
+    // First, so a panic anywhere after it is logged once, redacted (ADR 0025 Logs).
+    canopi_desktop::install_panic_hook();
     configure_linux_webkitgtk_environment();
     canopi_desktop::run();
 }

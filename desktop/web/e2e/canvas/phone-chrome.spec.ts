@@ -1023,7 +1023,7 @@ for (const phone of PHONES) {
         await openFixture(page, FIXTURE, { locale, basemapHidden: true })
         const where = `${size} ${locale}`
         await page.evaluate(() => window.dispatchEvent(new Event('focus')))
-        const notice = page.locator('[data-web-shell-notice][data-release]')
+        const notice = page.locator('[data-notice-row][data-notice-key="web.release"]')
         await expect(notice, `${where}: the notice shows`).toBeVisible()
         for (const button of await notice.getByRole('button').all()) {
           const box = await boxOf(button)

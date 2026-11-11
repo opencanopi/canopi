@@ -78,9 +78,9 @@
       "ledger": "2.1-M189",
       "family": "invoke-only-in-ipc",
       "adr": "0022",
-      "owner_today": "desktop/web/src/ipc",
-      "example": "desktop/web/src/ipc/export.ts",
-      "note": "P49 only IPC transports invoke native commands",
+      "owner_today": "desktop/web/src/ipc/transport.ts",
+      "example": "desktop/web/src/app/updates/controller.ts",
+      "note": "P49 only the IPC transport invokes native commands (narrowed from ipc/ to ipc/transport.ts, design check F15; 1b-c2 lowered the wrappers to 0)",
       "primitive": "§18 F1"
     },
     {
@@ -204,10 +204,10 @@
       "owner_today": "none",
       "owner_target": {
         "path": "desktop/web/src/failures",
-        "phase": "1b",
+        "phase": "2a",
         "bead": "canopi-f47t.52.70"
       },
-      "note": "no correlation or sequence field in Failure, ring entries or log fields but operation, job_id and item_id (Failure and the ring do not exist yet)"
+      "note": "no correlation or sequence field in Failure, ring entries or log fields but operation, job_id and item_id; Phase 1 built Failure and the ring with an optional operation, and 2a's invoke<K> and its minters make it required, with this rule (2.1-M411)"
     },
     {
       "id": "wasm-glue-only-in-adapter",
@@ -291,13 +291,18 @@
       "tool": "ast-grep",
       "ledger": "2.1-M189",
       "adr": "0025",
-      "owner_today": "none",
+      "owner_today": "desktop/web/src/failures",
+      "also_owners": [
+        "desktop/web/src/failures/notices.ts",
+        "desktop/web/src/components/shared/NoticeRow.tsx",
+        "desktop/web/src/components/shared/ToastSlot.tsx"
+      ],
       "owner_target": {
         "path": "desktop/web/src/failures",
         "phase": "1b",
         "bead": "canopi-f47t.52.36"
       },
-      "note": "a notice or toast (the plugin-dialog message box) is raised only through the failures/ notice signal, its one notice row and its one window-level toast slot"
+      "note": "a notice or toast (the plugin-dialog message box, a <Toast> render) is raised only through the failures/ notice signal, its one notice row and its one window-level toast slot (failures/notices.ts and failures/toasts.ts, drawn by components/shared/NoticeRow.tsx and components/shared/ToastSlot.tsx); refuse_startup stays a standing exception (pre-webview, design check F8)"
     },
     {
       "id": "map-constructor-only-in-factory",
@@ -405,7 +410,10 @@
         "bead": "canopi-f47t.52.188"
       },
       "example": "desktop/web/src/app/timeline/civil-date.ts",
-      "note": "dates are parsed (new Date with an argument, Date.parse) and displayed (toLocaleDateString, toLocaleTimeString, Intl.DateTimeFormat) only by the civil date owner"
+      "note": "dates are parsed (new Date with an argument, Date.parse) and displayed (toLocaleDateString, toLocaleTimeString, Intl.DateTimeFormat) only by the civil date owner (exceptions: satellite-http's Retry-After HTTP-date header parse, not display, design check F7)",
+      "exceptions": [
+        "desktop/web/src/maplibre/satellite-http.browser.ts"
+      ]
     },
     {
       "id": "clipboard-only-in-adapter",
@@ -565,12 +573,13 @@
       "tool": "ast-grep",
       "ledger": "2.1-M189",
       "adr": "0025",
-      "owner_today": "none",
+      "owner_today": "desktop/web/src/failures/report.ts",
       "owner_target": {
         "path": "desktop/web/src/failures",
         "phase": "3",
         "bead": "canopi-f47t.52.36"
       },
+      "example": "desktop/web/src/failures/report.ts",
       "note": "console output and the window error hooks (error, unhandledrejection) only in the failures/ sink, reportFailure"
     },
     {
@@ -595,13 +604,13 @@
       "tool": "ast-grep",
       "ledger": "2.1-M189",
       "adr": "0025",
-      "owner_today": "desktop/web/src/maplibre/redact-credentials.ts",
+      "owner_today": "desktop/web/src/failures/redact.ts",
       "owner_target": {
         "path": "desktop/web/src/failures/redact.ts",
         "phase": "1b",
         "bead": "canopi-f47t.52.37"
       },
-      "example": "desktop/web/src/maplibre/redact-credentials.ts",
+      "example": "desktop/web/src/failures/redact.ts",
       "note": "credential-name literals and user-path regexes live only in the redactor (failures/redact.ts from 1b; canopi-redact natively)"
     },
     {
@@ -749,19 +758,22 @@
       "tool": "ast-grep",
       "ledger": "2.1-M224",
       "adr": "0025",
-      "owner_today": "none",
+      "owner_today": "desktop/web/src/failures",
       "also_owners": [
+        "desktop/web/src/ipc/dialogs.ts",
         "desktop/web/src/ipc/geojson.ts",
         "desktop/web/src/app/geojson/workflow.ts",
         "desktop/web/src/app/canvas-pdf/platform.browser.ts",
-        "desktop/web/src/app/canvas-pdf/platform.desktop.ts"
+        "desktop/web/src/app/canvas-pdf/platform.desktop.ts",
+        "desktop/web/src/app/document-session/state-machine.ts",
+        "desktop/web/src/app/saved-object-stamps/workbench.ts"
       ],
       "owner_target": {
         "path": "desktop/web/src/failures",
-        "phase": "1a",
-        "bead": "canopi-f47t.52.35"
+        "phase": "1b",
+        "bead": "canopi-f47t.52.36"
       },
-      "note": "a cancel is signalled by the catalogue's CancelToken, never by hand: a site is a 'cancelled' string value a guard returns, resolves or builds, or English text matched for it; literal types and equality or case reads are never sites, and the also-owners produce the contracts' outcome unions (the dialog pick, file delivery), whose 'cancelled' is a result; in Rust a site is also a hand-written poll of a cancel flag (check_cancel, cancel.load), which CancelToken replaces (N1)"
+      "note": "a cancel is signalled by the catalogue's CancelToken, never by hand: a site is a 'cancelled' string value a guard returns, resolves or builds, or English text matched for it; literal types and equality or case reads are never sites, and the also-owners produce the contracts' outcome unions (the dialog pick, file delivery, a document transition, a stamp import), whose 'cancelled' is a result; in Rust a site is also a hand-written poll of a cancel flag (check_cancel, cancel.load), which CancelToken replaces (N1)"
     },
     {
       "id": "tauri-only-in-shell",
@@ -872,7 +884,7 @@
       "tool": "ast-grep",
       "ledger": "2.1-M189",
       "adr": "0025",
-      "owner_today": "none",
+      "owner_today": "canopi-types/src/failure",
       "owner_target": {
         "path": "canopi-types/src/failure",
         "phase": "1a",
@@ -889,12 +901,12 @@
       "adr": "0025",
       "owner_today": "desktop/src/logging.rs",
       "owner_target": {
-        "path": "canopi-support/src/failure_log.rs",
+        "path": "desktop/src/logging.rs",
         "phase": "1a",
         "bead": "canopi-f47t.52.35"
       },
       "example": "desktop/src/logging.rs",
-      "note": "warn! and error! (tracing or log) only in the failure logger; 0 outside it at Phase 3"
+      "note": "warn! and error! (tracing or log) only in the failure logger; 0 outside it at Phase 3; the stream that moves logging into canopi-support re-targets it (design check A1, 2.1-M415)"
     },
     {
       "id": "http-client-only-in-http",
@@ -1051,7 +1063,7 @@
     },
     {
       "primitive": "F7",
-      "owner_today": "desktop/web/src/maplibre/redact-credentials.ts",
+      "owner_today": "desktop/web/src/maplibre/map-errors.ts",
       "check": "desktop/web/src/__tests__/map-error-redaction.test.ts",
       "phase": "2d"
     },
@@ -1063,7 +1075,7 @@
     },
     {
       "primitive": "F24",
-      "owner_today": "desktop/web/src/maplibre/redact-credentials.ts",
+      "owner_today": "desktop/web/src/failures/redact.ts",
       "check": "desktop/web/src/__tests__/map-error-redaction.test.ts",
       "phase": "1b"
     },

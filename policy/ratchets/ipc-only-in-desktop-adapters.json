@@ -23,7 +23,6 @@
     "app/lidar/sampler.ts -> ipc/lidar.ts": { "count": 1 },
     "app/plant-detail/detail-controller.ts -> ipc/species.ts": { "count": 1 },
     "app/plant-detail/media-controller.ts -> ipc/species.ts": { "count": 1 },
-    "app/problem-report/submission.ts -> ipc/problem-report.ts": { "count": 1 },
     "app/recent-files/controller.ts -> ipc/design.ts": { "count": 1 },
     "app/saved-object-stamps/workbench.ts -> ipc/saved-object-stamps.ts": { "count": 1 },
     "canvas/runtime/species-cache.ts -> ipc/plant-db-errors.ts": { "count": 1 },

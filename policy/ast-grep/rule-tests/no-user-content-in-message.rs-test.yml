@@ -1,0 +1,18 @@
+id: no-user-content-in-message.rs
+valid:
+  - |
+    fn f(path: &Path) -> Result<(), String> { Err("the Design could not be read".to_owned()) }
+  - |
+    fn f(path: &Path) -> String { path.display().to_string() }
+  - |
+    #[cfg(test)]
+    mod tests {
+        fn t(path: &Path) { panic!("{}", path.display()); }
+    }
+invalid:
+  - |
+    fn f(path: &Path) -> Result<(), String> { Err(format!("cannot read {}", path.display())) }
+  - |
+    fn f(path: &Path) { tracing::warn!("open failed at {}", path.to_string_lossy()); }
+  - |
+    fn f(path: &Path) -> Result<(), String> { Err(path.display().to_string()) }

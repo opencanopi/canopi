@@ -1,0 +1,13 @@
+id: locale-key-typing.tsx.plural
+valid:
+  - |
+    export const Count = ({ count }: { count: number }) => <span>{t('savedObjectStamps.summaryZone', { count })}</span>
+  - |
+    export const Only = ({ items }: { items: string[] }) => <span>{items.length === 1 ? items[0] : null}</span>
+  - |
+    export const Head = ({ n }: { n: number }) => <span>{n === 1 ? t('chip.zone') : t('chip.zones', { count: n })}</span>
+invalid:
+  - |
+    export const Count = ({ count }: { count: number }) => <span>{count === 1 ? t('x.item') : `${count} ${t('x.items')}`}</span>
+  - |
+    export const Count = ({ count }: { count: number }) => <span>{t(count === 1 ? 'x.itemOne' : 'x.itemOther', { count })}</span>

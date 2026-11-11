@@ -1,4 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { pickCancelled } from '../ipc/dialogs'
+import { t } from '../i18n'
 
 const mocks = vi.hoisted(() => ({
   loadDesign: vi.fn(),
@@ -37,26 +39,24 @@ describe('a Design that cannot be opened is told to the user', () => {
   })
 
   it('turns the typed load failure into the Start-screen wording, never the raw message or a path', () => {
-    expect(designOpenFailureNoticeOf(olderVersion)).toEqual({
-      tone: 'error',
-      title: 'Can’t open this Design',
-      message: 'Made with Canopi before 2.0; Canopi 2.0 and later can’t open it',
-    })
-    expect(designOpenFailureNoticeOf(new Error('/home/someone/garden.canopi: boom'))).toEqual({
-      tone: 'error',
-      title: 'Can’t open this Design',
-      message: 'Can’t read this file',
-    })
+    const older = designOpenFailureNoticeOf(olderVersion)
+    expect([older.tone, t(older.title), t(older.message)]).toEqual([
+      'error', 'Can’t open this Design', 'Made with Canopi before 2.0; Canopi 2.0 and later can’t open it',
+    ])
+    const unreadable = designOpenFailureNoticeOf(new Error('/home/someone/garden.canopi: boom'))
+    expect([unreadable.tone, t(unreadable.title), t(unreadable.message)]).toEqual([
+      'error', 'Can’t open this Design', 'Can’t read this file',
+    ])
   })
 
   it('presents a failure from the open dialog, and says nothing when the dialog is cancelled', async () => {
     mocks.openDesignDialog.mockRejectedValue({ kind: 'newer_version', message: 'newer' })
     await expect(openDesign()).rejects.toBeTruthy()
     expect(presenter).toHaveBeenCalledTimes(1)
-    expect(presenter.mock.calls[0]?.[0].message).toBe('Made with a newer version of Canopi; update Canopi to open it')
+    expect(t(presenter.mock.calls[0]?.[0].message)).toBe('Made with a newer version of Canopi; update Canopi to open it')
 
     presenter.mockReset()
-    mocks.openDesignDialog.mockRejectedValue(new Error('Dialog cancelled'))
+    mocks.openDesignDialog.mockRejectedValue(pickCancelled('dialog.pick_open'))
     await openDesign()
     expect(presenter).not.toHaveBeenCalled()
   })

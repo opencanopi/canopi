@@ -13,7 +13,7 @@ import {
   DRAFT_PERSISTENCE_REASON,
   type BrowserDraftPersistence,
 } from './browser-draft-persistence'
-import { showBrowserShellNotice } from './browser-shell-notice'
+import { presentBrowserDraftDownloadFailure } from './browser-notices'
 
 interface WebWelcomeScreenProps {
   readonly controller?: BrowserDesignSessionController
@@ -65,11 +65,7 @@ export function WebWelcomeScreen({
               // A Draft gone from this browser (another tab, or the browser cleared it) fails visibly and the rows re-list (review F4).
               void controller.downloadDraft(draft.id).catch((error: unknown) => {
                 logWebWelcomeError(error)
-                showBrowserShellNotice({
-                  tone: 'error',
-                  title: t('webStorage.downloadFailedTitle'),
-                  message: t('webStorage.downloadFailedMessage'),
-                })
+                presentBrowserDraftDownloadFailure()
                 setDrafts(controller.listDrafts())
               })
             },

@@ -1,0 +1,42 @@
+{
+  "$comment": "The credential names and redaction tokens both redactors read (contracts §13, ADR 0025 Redaction; 2.1-M434): bindings-gen emits desktop/web/src/generated/redaction.ts and canopi-redact/src/table_generated.rs from this file. A name matches case-insensitively as a query or form parameter (`name=value`) and as a JSON key (`\"name\": \"value\"`); its value becomes the redacted token. A new name comes only through the Phase 1 owners file. `known_extensions` are the file types Canopi reads or writes: an unquoted path whose last word before a `path: reason` pair's colon ends in one of them ends there, so the reason is kept; any other dot may sit inside a folder name, so an unknown type costs the reason's words, never a leaked name.",
+  "version": 1,
+  "credential_names": [
+    "key",
+    "api-key",
+    "api_key",
+    "apikey",
+    "session"
+  ],
+  "known_extensions": [
+    "canopi",
+    "json",
+    "geojson",
+    "csv",
+    "txt",
+    "log",
+    "toml",
+    "db",
+    "sqlite",
+    "zip",
+    "tif",
+    "tiff",
+    "png",
+    "jpg",
+    "jpeg",
+    "webp",
+    "svg",
+    "pdf",
+    "las",
+    "laz",
+    "copc",
+    "gpkg",
+    "kml",
+    "kmz",
+    "shp"
+  ],
+  "tokens": {
+    "redacted": "<redacted>",
+    "path": "<path>"
+  }
+}

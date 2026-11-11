@@ -1,4 +1,4 @@
-import { signal } from '@preact/signals'
+import { signal, type ReadonlySignal } from '@preact/signals'
 import type {
   AnalysisRunStatus,
   Freshness,
@@ -7,25 +7,71 @@ import type {
   LibraryItemType,
   LibrarySnapshot,
   LidarColourRange,
-  LidarLibraryStatus,
   LidarPresentationEntry,
   LidarRamp,
   LidarResultState,
+  StoreOpenStatus,
 } from '../../generated/contracts'
 import { lidarListLibrary } from '../../ipc/lidar'
 import { derivedItemName } from '../analyses/registry'
 import { currentDesign } from '../document-session/store'
-import { lidarLibraryStatus } from '../health/state'
-import { lidarFailureMessage } from './lidar-failures'
+import { storeStatus } from '../../failures/health'
+import { raiseNotice, withdrawNotice } from '../../failures/notices'
+import { reportFailure } from '../../failures/report'
+import { showToast } from '../../failures/toasts'
 import { referenceDrawOrder } from './reference-tree'
 
+/** How the library opened, as far as a row reads it: only the status kind, never its code or counts. */
+type LibraryOpenKind = StoreOpenStatus | { readonly kind: StoreOpenStatus['kind'] }
+
 const LIDAR_POLL_INTERVAL_MS = 1500
+/** The one notice a list that cannot be refreshed raises (2.1-Q297). */
+const LIST_STALE_NOTICE = 'library.list-stale'
 
 /** Library-side snapshot; null until the first successful read. */
 export const lidarLibrary = signal<LibrarySnapshot | null>(null)
+/** An action's message in the item's details; a list read never writes it. */
 export const lidarStatusMessage = signal<string | null>(null)
-/** Whether the latest list read failed; with no snapshot yet, the library is unopened rather than loading. */
-const lidarLibraryReadFailed = signal(false)
+const listStale = signal(false)
+/**
+ * Whether the latest list read failed: the last rows stay, marked stale, under one notice with Try again (2.1-Q297).
+ * How the library opened is the health model's (`library_catalogue`), never this.
+ */
+export const lidarLibraryStale: ReadonlySignal<boolean> = listStale
+
+/** How long the "Import cancelled" toast stays: short, it only confirms what the user did (2.1-Q298). */
+const IMPORT_CANCELLED_TOAST_MS = 4000
+
+// The imports the user cancelled whose outcome the list has not shown yet, by layer id.
+const cancelledImports = signal<ReadonlySet<string>>(new Set())
+
+/** Notes that the user pressed Cancel on an import, so its row leaving the list reads as cancelled, not lost. */
+export function noteImportCancel(layerId: string): void {
+  cancelledImports.value = new Set(cancelledImports.peek()).add(layerId)
+}
+
+/**
+ * A cancelled import the list no longer has was withdrawn: one short toast in the window's toast position, which leaves
+ * by itself and never waits behind the notice row's queue; nothing stored. One
+ * the list still has settled otherwise (it failed first, or published before the cancel was seen) and keeps its row with
+ * no notice; one still running waits.
+ */
+function settleCancelledImports(snapshot: LibrarySnapshot): void {
+  const waiting = new Set<string>()
+  for (const layerId of cancelledImports.peek()) {
+    const item = snapshot.items.find((candidate) => candidate.id === layerId)
+    const state = item?.import_job?.state
+    if (state === 'Staging' || state === 'Applying') waiting.add(layerId)
+    else if (!item) {
+      showToast({
+        key: `library.import-cancelled:${layerId}`,
+        message: 'canvas.lidar.library.importCancelled',
+        timeoutMs: IMPORT_CANCELLED_TOAST_MS,
+      })
+    }
+  }
+  if (waiting.size !== cancelledImports.peek().size) cancelledImports.value = waiting
+}
 
 let pollTimer: ReturnType<typeof setInterval> | null = null
 let refreshInFlight: Promise<void> | null = null
@@ -57,16 +103,36 @@ async function readLibrarySnapshot(startSequence: number): Promise<LibrarySnapsh
     publishedReadSequence = startSequence
     lidarLibrary.value = snapshot
     lidarStatusMessage.value = null
-    lidarLibraryReadFailed.value = false
+    settleCancelledImports(snapshot)
+    if (listStale.peek()) {
+      listStale.value = false
+      withdrawNotice(LIST_STALE_NOTICE)
+    }
   }
   return snapshot
 }
 
 /**
+ * A failed read keeps the last rows, marked stale, and raises one notice with Try again (2.1-Q297); the failure goes to
+ * the sink once per streak of failed reads, until a read succeeds.
+ */
+function markListStale(error: unknown): void {
+  if (listStale.peek()) return
+  listStale.value = true
+  reportFailure(error, { shown: 'none', source: 'library.list', level: 'warning' })
+  raiseNotice({
+    key: LIST_STALE_NOTICE,
+    message: 'health.libraryListStale',
+    tone: 'warning',
+    action: { label: 'boundary.tryAgain', run: () => { void refreshLidarLibrary() } },
+    source: 'library.list',
+  })
+}
+
+/**
  * Refresh the library snapshot. Overlapping callers coalesce onto the read in
- * flight; a failed read keeps the previous snapshot (Web has no library) and
- * publishes the generic message, its reason going to diagnostics once per
- * streak of failed reads.
+ * flight; a read that started before the last published one is dropped; a
+ * failed read keeps the previous snapshot, marked stale (Web has no library).
  */
 export async function refreshLidarLibrary(): Promise<void> {
   if (refreshInFlight) {
@@ -81,9 +147,8 @@ export async function refreshLidarLibrary(): Promise<void> {
       await readLibrarySnapshot(startSequence)
     } catch (error) {
       if (!isCurrentRead(startSequence)) return
-      // Polling goes on while work runs; a streak of failed reads is recorded once, until a read succeeds.
-      lidarStatusMessage.value = lidarFailureMessage(error, !lidarLibraryReadFailed.value)
-      lidarLibraryReadFailed.value = true
+      // Polling goes on while work runs; a streak of failed reads is told and recorded once, until a read succeeds.
+      markListStale(error)
     } finally {
       if (refreshInFlight === read) refreshInFlight = null
     }
@@ -142,7 +207,9 @@ export function resetLidarLibraryForTests(): void {
   publishedReadSequence = readStartSequence
   lidarLibrary.value = null
   lidarStatusMessage.value = null
-  lidarLibraryReadFailed.value = false
+  if (listStale.peek()) withdrawNotice(LIST_STALE_NOTICE)
+  listStale.value = false
+  cancelledImports.value = new Set()
 }
 
 /**
@@ -233,9 +300,9 @@ export function isMissing(item: Pick<LidarPresentationItem, 'availability'>): bo
 }
 
 /** Why an entry the library does not list is missing, from how the library opened. */
-function absentAvailability(library: LibrarySnapshot | null, status: LidarLibraryStatus): LidarAvailability {
+function absentAvailability(library: LibrarySnapshot | null, status: LibraryOpenKind): LidarAvailability {
   if (status.kind === 'refused_newer') return 'needs-newer-canopi'
-  if (status.kind === 'unavailable') return 'library-unopened'
+  if (status.kind === 'unavailable' || status.kind === 'set_aside_damaged') return 'library-unopened'
   return library ? 'not-in-library' : 'loading'
 }
 
@@ -256,7 +323,7 @@ export function readLidarPresentation(
     lidar?: { visible: boolean; entries: readonly LidarPresentationEntry[] } | null
   } | null,
   library: LibrarySnapshot | null,
-  libraryStatus: LidarLibraryStatus = { kind: 'ready' },
+  libraryStatus: LibraryOpenKind = { kind: 'ready' },
 ): LidarPresentationItem[] {
   const entries = design?.lidar?.entries ?? []
   const sectionVisible = design?.lidar?.visible ?? true
@@ -322,10 +389,7 @@ export function readLidarPresentation(
  * this seam owns the design read so map snapshot code never bypasses it.
  */
 export function readCurrentLidarPresentation(): LidarPresentationItem[] {
-  const library = lidarLibrary.value
-  // A library whose list cannot be read and that has no snapshot yet is unopened: its entries are missing, not loading.
-  const status: LidarLibraryStatus = library === null && lidarLibraryReadFailed.value
-    ? { kind: 'unavailable' }
-    : lidarLibraryStatus.value
-  return readLidarPresentation(currentDesign.value, library, status)
+  // How the library opened is the one status the banner and the report read too (canopi-f47t.52.142): a list that
+  // cannot be read leaves its rows loading or stale, never "not opened".
+  return readLidarPresentation(currentDesign.value, lidarLibrary.value, storeStatus('library_catalogue'))
 }

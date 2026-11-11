@@ -1,4 +1,4 @@
-import { invoke } from '@tauri-apps/api/core'
+import { invokeCommand } from './transport'
 import type {
   CanopiFile,
   DesignDraftSummary,
@@ -15,7 +15,7 @@ import {
   prepareDesignWriteDestination,
   type PreparedDesignWriteDestination,
 } from '../app/document-session/write-admission'
-import { pickOpen, pickSave } from './dialogs'
+import { pickCancelled, pickOpen, pickSave } from './dialogs'
 
 // ---------------------------------------------------------------------------
 // File dialogs: the host shows them (`./dialogs`, `desktop/src/host/dialogs.rs`)
@@ -40,7 +40,7 @@ export async function selectDesignSavePath({
   // Windows paths separate folders with backslashes.
   const currentName = currentPath?.slice(Math.max(currentPath.lastIndexOf('/'), currentPath.lastIndexOf('\\')) + 1)
   const outcome = await pickSave('design-save', currentName || suggestedName || 'Untitled')
-  if (outcome.kind === 'cancelled') throw new Error('Dialog cancelled')
+  if (outcome.kind === 'cancelled') throw pickCancelled('dialog.pick_save')
   return outcome.path
 }
 
@@ -77,11 +77,11 @@ export function prepareDraftWrite(id: string): PreparedDesignWriteDestination {
 
 /**
  * Show the host's Open dialog, then load the chosen design.
- * Returns the loaded Design with its path. Throws "Dialog cancelled" if user dismisses.
+ * Returns the loaded Design with its path. Throws the pick cancel (pickCancelled) if the user dismisses it.
  */
 export async function openDesignDialog(): Promise<{ design: LoadedDesign; path: string }> {
   const outcome = await pickOpen('design-open')
-  if (outcome.kind === 'cancelled') throw new Error('Dialog cancelled')
+  if (outcome.kind === 'cancelled') throw pickCancelled('dialog.pick_open')
   const filePath = outcome.paths[0]!
   const design = await loadDesign(filePath)
   return { design, path: filePath }
@@ -97,7 +97,7 @@ async function saveDesign(
   content: CanopiFile,
   expectedFingerprint: string | null,
 ): Promise<DesignSaveOutcome> {
-  return invoke('save_design', {
+  return invokeCommand('save_design', {
     path,
     content: encodeCanopiDesign(content),
     expectedFingerprint,
@@ -110,33 +110,37 @@ async function saveDesign(
  * Rejects with a `DesignLoadFailure` (`app/contracts/canopi-design-errors.ts`).
  */
 export async function loadDesign(path: string): Promise<LoadedDesign> {
-  return invoke('load_design', { path })
+  return invokeCommand('load_design', { path })
 }
 
 async function saveDesignDraft(id: string, content: CanopiFile): Promise<void> {
-  return invoke('save_design_draft', { id, content: encodeCanopiDesign(content) })
+  return invokeCommand('save_design_draft', { id, content: encodeCanopiDesign(content) })
 }
 
+/**
+ * Load the Draft `id`.
+ * Rejects with a `DesignLoadFailure` (`app/contracts/canopi-design-errors.ts`).
+ */
 export async function loadDesignDraft(id: string): Promise<CanopiFile> {
-  return invoke('load_design_draft', { id })
+  return invokeCommand('load_design_draft', { id })
 }
 
 export async function listDesignDrafts(): Promise<DesignDraftSummary[]> {
-  return invoke('list_design_drafts')
+  return invokeCommand('list_design_drafts')
 }
 
 export async function deleteDesignDraft(id: string): Promise<void> {
-  return invoke('delete_design_draft', { id })
+  return invokeCommand('delete_design_draft', { id })
 }
 
 /** Create a new empty design with default layers. */
 export async function newDesign(): Promise<CanopiFile> {
-  return invoke('new_design')
+  return invokeCommand('new_design')
 }
 
 /** Get recently opened files list. */
 export async function getRecentFiles(): Promise<DesignSummary[]> {
-  return invoke('get_recent_files')
+  return invokeCommand('get_recent_files')
 }
 
 /**
@@ -144,48 +148,48 @@ export async function getRecentFiles(): Promise<DesignSummary[]> {
  * the listed files. Paths not on the list are skipped.
  */
 export async function getRecentDesignPreviews(paths: readonly string[]): Promise<RecentDesignSummary[]> {
-  return invoke('get_recent_design_previews', { paths })
+  return invokeCommand('get_recent_design_previews', { paths })
 }
 
 /** Start › Recent Designs › Remove from list; the file is untouched. */
 export async function removeRecentDesign(path: string): Promise<void> {
-  return invoke('remove_recent_design', { path })
+  return invokeCommand('remove_recent_design', { path })
 }
 
 /** Start › Recent Designs › Show in folder. */
 export async function showRecentDesignInFolder(path: string): Promise<void> {
-  return invoke('show_recent_design_in_folder', { path })
+  return invokeCommand('show_recent_design_in_folder', { path })
 }
 
 /** Get saved Design references plus user-owned Notebook Section organization. */
 export async function getDesignNotebook(): Promise<DesignNotebookSnapshot> {
-  return invoke('get_design_notebook')
+  return invokeCommand('get_design_notebook')
 }
 
 export async function createNotebookSection(name: string): Promise<DesignNotebookSection> {
-  return invoke('create_notebook_section', { name })
+  return invokeCommand('create_notebook_section', { name })
 }
 
 export async function addDesignReferenceToNotebook(
   path: string,
   content: CanopiFile,
 ): Promise<void> {
-  return invoke('add_design_reference_to_notebook', { path, content })
+  return invokeCommand('add_design_reference_to_notebook', { path, content })
 }
 
 export async function renameNotebookSection(sectionId: string, name: string): Promise<void> {
-  return invoke('rename_notebook_section', { sectionId, name })
+  return invokeCommand('rename_notebook_section', { sectionId, name })
 }
 
 export async function deleteNotebookSection(sectionId: string): Promise<void> {
-  return invoke('delete_notebook_section', { sectionId })
+  return invokeCommand('delete_notebook_section', { sectionId })
 }
 
 export async function moveDesignReferenceToSection(
   path: string,
   sectionId: string | null,
 ): Promise<void> {
-  return invoke('move_design_reference_to_section', { path, sectionId })
+  return invokeCommand('move_design_reference_to_section', { path, sectionId })
 }
 
 export async function relocateDesignReference(
@@ -193,17 +197,17 @@ export async function relocateDesignReference(
   sectionId: string | null,
   paths: string[],
 ): Promise<void> {
-  return invoke('relocate_design_reference', { path, sectionId, paths })
+  return invokeCommand('relocate_design_reference', { path, sectionId, paths })
 }
 
 export async function removeDesignReference(path: string): Promise<void> {
-  return invoke('remove_design_reference', { path })
+  return invokeCommand('remove_design_reference', { path })
 }
 
 export async function reorderNotebookSections(sectionIds: string[]): Promise<void> {
-  return invoke('reorder_notebook_sections', { sectionIds })
+  return invokeCommand('reorder_notebook_sections', { sectionIds })
 }
 
 export async function reorderDesignReferences(paths: string[]): Promise<void> {
-  return invoke('reorder_design_references', { paths })
+  return invokeCommand('reorder_design_references', { paths })
 }

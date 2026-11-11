@@ -2,31 +2,19 @@ import type { TargetedKeyboardEvent } from 'preact'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks'
 import { currentDesign } from '../../../app/document-session/store'
 import {
-  addToDesign,
-  cancelAnalysisJob,
-  cancelLibraryImport,
-  deleteLibraryItem,
-  dismissLibraryImport,
-  fetchDeleteImpact,
-  fetchLibraryDiskUsage,
-  renameLibraryItem,
-  rerunAnalysis,
-  retryLibraryImport,
-  showDataLibraryFolder,
+  addToDesign, cancelAnalysisJob, cancelLibraryImport, deleteLibraryItem, dismissLibraryImport, fetchDeleteImpact,
+  fetchLibraryDiskUsage, renameLibraryItem, rerunAnalysis, retryLibraryImport, showDataLibraryFolder,
 } from '../../../app/lidar/actions'
-import { findAnalysis, registryText } from '../../../app/analyses/registry'
+import { findAnalysis } from '../../../app/analyses/registry'
 import {
-  filterLibraryItems,
-  libraryItems,
-  selectionAfter,
-  takenItemNames,
-  type LibraryItem,
-  type LibrarySort,
+  filterLibraryItems, libraryItems, selectionAfter, takenItemNames, type LibraryItem, type LibrarySort,
   type LibraryTypeFilter,
 } from '../../../app/lidar/library-items'
-import { installLidarLibraryObserver, lidarLibrary, lidarStatusMessage } from '../../../app/lidar/library-store'
+import {
+  installLidarLibraryObserver, lidarLibrary, lidarLibraryStale, lidarStatusMessage, noteImportCancel,
+} from '../../../app/lidar/library-store'
 import { analyzeItem, beginDataImport, closeDataLibrary, revealInSiteData } from '../../../app/lidar/library-navigation'
-import { lidarLibraryStatus } from '../../../app/health/state'
+import { storeStatus } from '../../../failures/health'
 import { locale } from '../../../app/settings/state'
 import { ANALYSIS_GROUPS } from '../../../generated/analysis-registry'
 import type { LibraryDeleteImpact } from '../../../generated/contracts'
@@ -248,7 +236,7 @@ export function DataLibraryView({ focusId }: { readonly focusId: string | null }
             max={100}
             value={progress?.percent}
           />
-          <button type="button" onClick={() => void run(() => cancelLibraryImport(row.importJob!.job_id))}>
+          <button type="button" onClick={() => { noteImportCancel(row.importJob!.layer_id); void run(() => cancelLibraryImport(row.importJob!.job_id)) }}>
             {t('canvas.lidar.layers.cancelImport')}
           </button>
         </div>
@@ -486,14 +474,18 @@ function EmptyLibrary() {
  * not be opened at all.
  */
 function LibraryOpenNotice() {
-  const status = lidarLibraryStatus.value
+  const status = storeStatus('library_catalogue')
   switch (status.kind) {
+    case 'opening':
+    case 'migrating':
     case 'ready':
-      return null
+      return lidarLibraryStale.value ? <Notice tone="warning">{t('health.libraryListStale')}</Notice> : null
     case 'recovered':
       return <Notice tone="warning">{t('canvas.lidar.library.recovered')}</Notice>
     case 'refused_newer':
       return <Notice tone="error">{t('canvas.lidar.library.refusedNewer')}</Notice>
+    case 'newer_read_only':
+    case 'set_aside_damaged':
     case 'unavailable':
       return <Notice tone="error">{t('canvas.lidar.library.unavailable')}</Notice>
   }
@@ -504,7 +496,7 @@ function TypeFilter({ value, onChange }: { value: LibraryTypeFilter; onChange(ne
   const items: DropdownItem<LibraryTypeFilter>[] = [
     { value: 'all', label: t('canvas.lidar.library.typeAll') },
     { value: 'sources', label: t('canvas.lidar.library.typeSources') },
-    ...ANALYSIS_GROUPS.map((group) => ({ value: group.key, label: registryText(group.labelKey) })),
+    ...ANALYSIS_GROUPS.map((group) => ({ value: group.key, label: t(group.labelKey) })),
   ]
   return (
     <Dropdown

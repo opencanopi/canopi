@@ -4,6 +4,7 @@ id: process-only-in-runner
 language: rs
 severity: error
 message: "process-only-in-runner (§18 R17): a child process (Command::new) starts only in the engine tool runner; folder_reveal.rs is a named entry until F5 moves FolderRevealer to the opener (canopi-zhv0); an interim site ratchet that N1 replaces with clippy disallowed-methods in the change that builds the owner. ADR 0023; owner desktop/src/services/lidar/process.rs; target canopi-support/src/process.rs (N1); example desktop/src/services/lidar/process.rs"
+# rust-scope: desktop/src
 files:
   - "desktop/src/**/*.rs"
   - "policy/fixtures/rules/*/desktop/src/**/*.rs"
@@ -19,7 +20,10 @@ ignores:
   - "desktop/src/module_layering/**"
   - "desktop/src/native_command_policy.rs"
   - "desktop/src/test_scratch.rs"
+  - "desktop/src/logging/tests.rs"
   - "desktop/src/module_layering/tests.rs"
+  - "desktop/src/native_operation/tests.rs"
+  - "desktop/src/native_operation/tests/**"
   - "desktop/src/services/lidar/analyses/tests/**"
   - "desktop/src/services/lidar/analysis_registry_generated.rs"
   - "desktop/src/services/lidar/acceptance_hooks.rs"
@@ -30,9 +34,13 @@ ignores:
   - "desktop/src/services/lidar/rust_engine/crs/properties.rs"
   - "desktop/src/services/lidar/rust_engine/comparison.rs"
   - "desktop/src/services/lidar/rust_engine/crs_reference_points.rs"
+  - "desktop/src/services/problem_report/tests.rs"
   - "desktop/src/services/species_catalog_read/test_support.rs"
   - "canopi-types/src/design/tests.rs"
+  - "canopi-types/src/failure/tests.rs"
   - "canopi-types/src/views/tests.rs"
+  - "canopi-redact/src/tests.rs"
+  - "canopi-redact/src/table_generated.rs"
   - "bindings-gen/src/plan_support.rs"
   - "desktop/src/services/lidar/process.rs"
   - "policy/fixtures/rules/*/desktop/src/services/lidar/process.rs"

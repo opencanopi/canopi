@@ -1,54 +1,19 @@
-import { redactCredentials } from '../../maplibre/redact-credentials'
-import type { FrontendDiagnosticEntry } from '../../generated/contracts'
+// app/problem-report/diagnostics.ts: the problem report's reading of the failures/ ring (ADR 0025: the ring lives in
+// failures/, written only through failures/report.ts, and the report lists it in its app-failures section). Invariant:
+// every entry carries its catalogue code, so each code the ring holds reaches the report (every_code_reaches_the_report).
+import { ringEntries } from '../../failures/ring'
 
-type FrontendDiagnosticLevel = 'error' | 'warning' | 'info'
-
-interface RecordFrontendDiagnosticInput {
-  readonly level: FrontendDiagnosticLevel
-  readonly source: string
-  readonly message: string
-}
-
-const MAX_FRONTEND_DIAGNOSTICS = 50
-
-let diagnostics: FrontendDiagnosticEntry[] = []
-
-export function recordFrontendDiagnostic(input: RecordFrontendDiagnosticInput): void {
-  diagnostics = [
-    ...diagnostics,
-    {
-      level: input.level,
-      source: sanitizeDiagnosticText(input.source),
-      message: sanitizeDiagnosticText(input.message),
-      timestamp_ms: Date.now(),
-    },
-  ].slice(-MAX_FRONTEND_DIAGNOSTICS)
-}
-
-export function recentFrontendDiagnostics(): FrontendDiagnosticEntry[] {
-  return diagnostics.map((entry) => ({ ...entry }))
-}
-
-export function diagnosticMessageFromError(error: unknown): string {
-  if (error instanceof Error) return error.stack || error.message
-  return String(error)
-}
-
-/** @testonly */
-export function resetFrontendDiagnosticsForTests(): void {
-  diagnostics = []
-}
-
-// A path token may contain spaces, so it runs to a delimiter or to a `: `
-// separator; the error reason that usually follows a path stays readable.
-const PATH_TOKEN = String.raw`(?:[^\n\r"')\]},;:]|:(?!\s|$))+`
-const FILE_URL_PATH = new RegExp(String.raw`\bfile:\/\/\/${PATH_TOKEN}`, 'g')
-const UNIX_PATH = new RegExp(String.raw`(^|[\s"'([{=])\/${PATH_TOKEN}`, 'g')
-const WINDOWS_PATH = new RegExp(String.raw`(^|[\s"'([{=])[A-Za-z]:[\\/]${PATH_TOKEN}`, 'g')
-
-function sanitizeDiagnosticText(text: string): string {
-  return redactCredentials(text)
-    .replace(FILE_URL_PATH, 'file://<path>')
-    .replace(UNIX_PATH, '$1<path>')
-    .replace(WINDOWS_PATH, '$1<path>')
+/**
+ * The ring as the report's app-failures section lists it, oldest first: a native entry by its redacted detail, with
+ * how often it repeated and when it last did (2.1-Q294).
+ */
+export function recentFrontendDiagnostics() {
+  return ringEntries().map((entry) => ({
+    level: entry.level,
+    source: entry.source,
+    code: entry.code,
+    message: entry.origin === 'native' ? entry.detail ?? entry.code.kind : entry.text,
+    timestamp_ms: entry.timestamp_ms,
+    count: entry.count,
+  }))
 }

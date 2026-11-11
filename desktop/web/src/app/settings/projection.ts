@@ -1,15 +1,13 @@
 import { batch } from '@preact/signals'
 import type { LastView, SatelliteSource, ScrollWheel } from '../../generated/contracts'
+import { readFailureCode, readWithRetry } from '../../failures/store-read'
+import { writeStoreHealth } from '../../failures/health'
+import { reportFailure } from '../../failures/report'
 import { WEB_MERCATOR_MAX_LATITUDE_DEG } from '../../generated/canopi-design-format'
 import type { Locale, Settings, Theme } from '../../types/settings'
 import { FALLBACK_PLANT_SPACING_INTERVAL_M } from '../../canvas/plant-spacing-interval'
 import { clampPlantSymbolScale } from '../../canvas/runtime/plant-display'
-import {
-  mapLayers,
-  mapLayersEqual,
-  normalizeMapLayers,
-  type MapLayersState,
-} from '../map-layers/state'
+import { mapLayers, mapLayersEqual, normalizeMapLayers, type MapLayersState } from '../map-layers/state'
 import { snapToGridEnabled } from '../canvas-settings/signals'
 import { sidePanelWidth } from '../shell/state'
 import {
@@ -41,12 +39,8 @@ export interface SettingsProjectionDraft {
   snapToGrid: boolean
   plantSpacingIntervalM: number
   lastView: LastView | null
-  sidePanel: {
-    width: number | null
-  }
-  savedStamps: {
-    frameHeight: number
-  }
+  sidePanel: { width: number | null }
+  savedStamps: { frameHeight: number }
   mapLayers: MapLayersState
   toolRail: {
     usedTools: readonly string[]
@@ -72,7 +66,6 @@ interface ActiveSettingsProjection {
   disposed: boolean
   retiring: boolean
   durable: Settings | null
-  persistenceRequired: boolean
   requested: Settings | null
   saving: Settings | null
   queuedPersistTimer: ReturnType<typeof globalThis.setTimeout> | null
@@ -86,6 +79,8 @@ interface ActiveSettingsProjection {
   readonly retired: Promise<void>
   readonly resolveRetired: () => void
   ready: Promise<void> | null
+  /** The first or a Try again read in flight; a press joins it, so one read lands and applies the session's changes. */
+  retrying: Promise<boolean> | null
 }
 
 interface PendingHydrationIntent {
@@ -95,6 +90,7 @@ interface PendingHydrationIntent {
 }
 
 const DEFAULT_QUEUED_PERSIST_DELAY_MS = 160
+const SETTINGS_LOAD_RETRY_DELAYS_MS: readonly number[] = [100, 400] // SET-05: a busy store gets two more reads
 const MIN_SIDE_PANEL_WIDTH = 320
 
 let sourceSettings: Settings | null = null
@@ -366,7 +362,6 @@ async function drainPersistence(projection: ActiveSettingsProjection): Promise<v
 
     if (projection.disposed) return
     projection.durable = next
-    projection.persistenceRequired = false
     projection.saving = null
     if (projection.requested && settingsEqual(projection.requested, next)) {
       projection.requested = null
@@ -400,14 +395,14 @@ function admitPersistenceSnapshot(
   projection: ActiveSettingsProjection,
   settings: Settings,
 ): void {
-  if (projection.disposed || projection.retiring) return
+  // A record that could not be read is never written over (SET-05, 2.1-Q67): only a read record admits a write.
+  if (projection.disposed || projection.retiring || !projection.durable) return
   projection.retryBlocked = false
   projection.persistenceError = null
 
   if (
     !projection.saving
     && projection.durable
-    && !projection.persistenceRequired
     && settingsEqual(settings, projection.durable)
   ) {
     projection.requested = null
@@ -442,7 +437,6 @@ function persistProjection(mode: SettingsPersistMode, delayMs = DEFAULT_QUEUED_P
   if (
     !projection.saving
     && !projection.requested
-    && !projection.persistenceRequired
     && settingsEqual(updated, projection.durable)
   ) {
     clearQueuedPersist(projection)
@@ -567,7 +561,6 @@ function applyLoadedSettings(
   const durable = projectSettingsToSignals(settings)
   sourceSettings = durable
   projection.durable = durable
-  projection.persistenceRequired = false
   projection.requested = null
   projection.retryBlocked = false
   projection.persistenceError = null
@@ -585,47 +578,55 @@ function applyLoadedSettings(
   }
 }
 
-function recoverFromSettingsLoadFailure(projection: ActiveSettingsProjection): void {
-  if (activeSettingsProjection !== projection || projection.retiring || projection.disposed) return
-
-  const shouldPersist = projection.pendingHydrationPersistence
-  projection.pendingHydrationPatch = {}
-  projection.pendingHydrationPersistence = false
-  projection.durable = projection.fallback
-  projection.persistenceRequired = shouldPersist
-  sourceSettings = projection.fallback
-  projection.retryBlocked = false
-  projection.persistenceError = null
-
-  const desired = currentSettingsSnapshot()
-  if (shouldPersist) {
-    admitPersistenceSnapshot(projection, desired)
-  }
+function isCurrentProjection(projection: ActiveSettingsProjection): boolean {
+  return activeSettingsProjection === projection && !projection.retiring && !projection.disposed
 }
 
-function loadSettingsProjection(projection: ActiveSettingsProjection): void | Promise<void> {
-  if (activeSettingsProjection !== projection || projection.retiring || projection.disposed) return
+function admitLoadedSettings(projection: ActiveSettingsProjection, settings: Settings): void {
+  applyLoadedSettings(projection, settings)
+  if (isCurrentProjection(projection)) writeStoreHealth('settings', { status: { kind: 'ready' }, notice: null })
+}
 
-  let loaded: Settings | Promise<Settings>
-  try {
-    loaded = projection.adapter.load()
-  } catch (error) {
-    recoverFromSettingsLoadFailure(projection)
-    return Promise.reject(error)
-  }
-
-  if (!isPromiseLike(loaded)) {
-    applyLoadedSettings(projection, loaded)
-    return
-  }
-
-  return Promise.resolve(loaded).then(
-    (settings) => applyLoadedSettings(projection, settings),
-    (error) => {
-      recoverFromSettingsLoadFailure(projection)
+/**
+ * Reads the record, again after each pause of `delays` (SET-05, 2.1-Q67, 2.1-Q295); after the last the session runs on
+ * the defaults with `durable` null, so every change stays in memory, never written over the record, and the health
+ * model says `settings` is unavailable, which the notice row tells once with Try again.
+ */
+function readSettings(projection: ActiveSettingsProjection, first: Promise<Settings>, delays: readonly number[]) {
+  const current = () => isCurrentProjection(projection)
+  return readWithRetry(first, () => projection.adapter.load(), delays, current).then(
+    (settings) => admitLoadedSettings(projection, settings),
+    (error: unknown) => {
+      if (current()) {
+        sourceSettings = projection.fallback
+        const code = readFailureCode(error)
+        reportFailure(error, { shown: 'none', source: 'settings.load', code })
+        writeStoreHealth('settings', { status: { kind: 'unavailable', code }, notice: null })
+      }
       throw error
     },
   )
+}
+
+/** The first read answers synchronously when the adapter does, so hydration can be immediate. */
+function loadSettingsProjection(projection: ActiveSettingsProjection): void | Promise<void> {
+  if (!isCurrentProjection(projection)) return
+  let loaded: Settings | Promise<Settings>
+  try { loaded = projection.adapter.load() } catch (error) { loaded = Promise.reject(error) }
+  if (!isPromiseLike(loaded)) return admitLoadedSettings(projection, loaded)
+  return readSettings(projection, Promise.resolve(loaded), SETTINGS_LOAD_RETRY_DELAYS_MS)
+}
+
+/** Try again (2.1-Q295): once read, the session's changes are applied over the record and saved; resolves false when the read failed again. */
+export function retrySettingsLoad(): Promise<boolean> {
+  const projection = activeSettingsProjection
+  if (!projection || projection.durable || !isCurrentProjection(projection)) return Promise.resolve(true)
+  if (projection.retrying) return projection.retrying
+  const retrying = readSettings(projection, Promise.resolve().then(() => projection.adapter.load()), [])
+    .then(() => true, () => false)
+    .finally(() => { projection.retrying = null })
+  projection.retrying = retrying
+  return retrying
 }
 
 export function installSettingsProjection(
@@ -646,7 +647,6 @@ export function installSettingsProjection(
     disposed: false,
     retiring: false,
     durable: null,
-    persistenceRequired: false,
     requested: null,
     saving: null,
     queuedPersistTimer: null,
@@ -660,6 +660,7 @@ export function installSettingsProjection(
     retired,
     resolveRetired,
     ready: null,
+    retrying: null,
   }
   activeSettingsProjection = projection
   sourceSettings = null
@@ -670,6 +671,7 @@ export function installSettingsProjection(
     : loadSettingsProjection(projection)
   const ready = isPromiseLike(loaded) ? Promise.resolve(loaded).then(() => undefined) : Promise.resolve()
   projection.ready = ready
+  if (isPromiseLike(loaded)) projection.retrying = ready.then(() => true, () => false).finally(() => (projection.retrying = null))
 
   return {
     ready,
@@ -684,7 +686,6 @@ export function installSettingsProjection(
   sourceSettings = normalizedSettings
   if (projection && !projection.disposed) {
     projection.durable = normalizedSettings
-    projection.persistenceRequired = false
     projection.requested = null
     projection.retryBlocked = false
     projection.persistenceError = null
@@ -758,7 +759,6 @@ export async function flushSettingsProjection(): Promise<void> {
       projection.queuedPersistTimer !== null
       || projection.saving !== null
       || projection.requested !== null
-      || projection.persistenceRequired
       || !projection.durable
       || !settingsEqual(latest, projection.durable)
     ) continue

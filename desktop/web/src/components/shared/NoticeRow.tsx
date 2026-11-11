@@ -1,0 +1,120 @@
+/**
+ * components/shared/NoticeRow.tsx: Owner of the one notice row (notice-only-in-failures, ADR 0025, contracts §18 F3, 2.1-Q290). Invariant: it shows the
+ * first queued notice of failures/notices.ts (a status, else the latest action's outcome, else the oldest), with its place in the count ("1 of 3") once more than one waits, in the
+ * current locale, its one or two actions, and Dismiss unless the notice is undismissable; it takes no focus, and is inert behind a modal dialog. At the window's foot (Desktop) it
+ * registers with the visible-map-area seam as status chrome (`frames: false`), so chips avoid it and the camera's
+ * framing never moves, and the toast layer stacks above it; below the title bar (Web, `belowTitleBar`, where the phone sheet holds the foot) it is a chrome
+ * row like the Web shell's other notices, which the rails start below.
+ */
+import type { ComponentChildren } from 'preact'
+import { useLayoutEffect, useRef } from 'preact/hooks'
+import { dismissNotice, notices, type Notice as QueuedNotice } from '../../failures/notices'
+import { t } from '../../i18n'
+import { ControlIcon } from './ControlIcon'
+import { Notice } from './Notice'
+import { useChromeRow, useMapOccluder } from './useMapChrome'
+import { useModalInertRegion } from './useModalLayer'
+import styles from './NoticeRow.module.css'
+
+/** The foot row's height plus a gap, on the root while it shows; styles/global.css lifts the toast layer by it. */
+const CLEARANCE = '--notice-row-clearance'
+
+export function NoticeRow({ belowTitleBar }: {
+  /** Place the row below the title bar, whose measured bottom is `top` (null: the title bar's token height). */
+  readonly belowTitleBar?: { readonly top: number | null }
+}) {
+  const queued = notices.value
+  const notice = queued[0]
+  if (!notice) return null
+  const content = <NoticeContent notice={notice} count={queued.length} />
+  return belowTitleBar
+    ? <TitleBarRow notice={notice} top={belowTitleBar.top}>{content}</TitleBarRow>
+    : <FootRow notice={notice}>{content}</FootRow>
+}
+
+function FootRow({ notice, children }: { readonly notice: QueuedNotice; readonly children: ComponentChildren }) {
+  const slot = useRef<HTMLDivElement>(null)
+  useMapOccluder(slot, 'bottom', true, { frames: false })
+  // Behind a modal dialog the row is inert like the rest of the chrome (app/shell/modal-layer.ts), so Tab never lands
+  // on its actions under the scrim; on Web the row sits inside the inert shell.
+  useModalInertRegion(slot)
+  // Toasts share the window's foot (ToastSlot.tsx): the row publishes the room it takes there, so a toast stacks above
+  // it instead of covering its words and actions (canopi-f47t.52.36).
+  useLayoutEffect(() => {
+    const row = slot.current
+    if (!row) return
+    const root = document.documentElement
+    const publish = () => root.style.setProperty(CLEARANCE, `calc(${row.offsetHeight}px + var(--space-2))`)
+    publish()
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(publish)
+    observer?.observe(row)
+    return () => {
+      observer?.disconnect()
+      root.style.removeProperty(CLEARANCE)
+    }
+  }, [])
+  return <div ref={slot} className={styles.row} {...rowAttributes(notice)}>{children}</div>
+}
+
+function TitleBarRow({ notice, top, children }: {
+  readonly notice: QueuedNotice
+  readonly top: number | null
+  readonly children: ComponentChildren
+}) {
+  const slot = useRef<HTMLDivElement>(null)
+  useChromeRow(slot, top)
+  return (
+    <div
+      ref={slot}
+      className={`${styles.row} ${styles.belowTitleBar}`}
+      style={top === null ? undefined : { top: `calc(${top}px + var(--space-2))` }}
+      {...rowAttributes(notice)}
+    >
+      {children}
+    </div>
+  )
+}
+
+// A warning or an error announces itself through its Notice; an info notice is announced politely by the row.
+function rowAttributes(notice: QueuedNotice) {
+  return {
+    role: (notice.tone ?? 'info') === 'info' ? ('status' as const) : undefined,
+    'data-notice-row': '',
+    'data-notice-key': notice.key,
+  }
+}
+
+function NoticeContent({ notice, count }: { readonly notice: QueuedNotice; readonly count: number }) {
+  const { action, secondaryAction, detail } = notice
+  // While the action is under way (Reload writing the Design first) a second click or a Dismiss would not stop it.
+  const busy = action?.busy?.now() ?? false
+  return (
+    <Notice
+      tone={notice.tone ?? 'info'}
+      action={(
+        <>
+          {action && (
+            <button type="button" className={styles.action} disabled={busy} onClick={() => action.run()}>
+              {t(busy && action.busy ? action.busy.label : action.label)}
+            </button>
+          )}
+          {action && secondaryAction && (
+            <button type="button" className={styles.action} onClick={() => secondaryAction.run()}>{t(secondaryAction.label)}</button>
+          )}
+          {!notice.undismissable && (
+            <button type="button" className={styles.dismiss} aria-label={t('notice.dismiss')} disabled={busy} onClick={() => dismissNotice(notice.id)}>
+              <ControlIcon name="close" size={16} />
+            </button>
+          )}
+        </>
+      )}
+    >
+      {notice.title && <strong className={styles.title}>{t(notice.title)}</strong>}
+      <span>{t(notice.messageNow?.() ?? notice.message, notice.params)}</span>
+      {detail && <span> {t(detail.message, detail.params)}</span>}
+      {count > 1 && (
+        <span className={styles.count} data-notice-count="">{t('notice.count', { index: 1, count })}</span>
+      )}
+    </Notice>
+  )
+}

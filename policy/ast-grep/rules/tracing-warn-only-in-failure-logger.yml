@@ -3,10 +3,10 @@
 id: tracing-warn-only-in-failure-logger
 language: rs
 severity: error
-message: "tracing-warn-only-in-failure-logger (§18 R15): warn! and error! (tracing or log) only in the failure logger; 0 outside it at Phase 3. ADR 0025; owner desktop/src/logging.rs; target canopi-support/src/failure_log.rs (1a); example desktop/src/logging.rs"
+message: "tracing-warn-only-in-failure-logger (§18 R15): warn! and error! (tracing or log) only in the failure logger; 0 outside it at Phase 3; the stream that moves logging into canopi-support re-targets it (design check A1, 2.1-M415). ADR 0025; owner desktop/src/logging.rs; target desktop/src/logging.rs (1a); example desktop/src/logging.rs"
 files:
-  - "{desktop,canopi-types,bindings-gen}/src/**/*.rs"
-  - "policy/fixtures/rules/*/{desktop,canopi-types,bindings-gen}/src/**/*.rs"
+  - "{desktop,canopi-types,canopi-redact,bindings-gen}/src/**/*.rs"
+  - "policy/fixtures/rules/*/{desktop,canopi-types,canopi-redact,bindings-gen}/src/**/*.rs"
 ignores:
   - "desktop/src/commands/design/tests.rs"
   - "desktop/src/db/test_support.rs"
@@ -19,7 +19,10 @@ ignores:
   - "desktop/src/module_layering/**"
   - "desktop/src/native_command_policy.rs"
   - "desktop/src/test_scratch.rs"
+  - "desktop/src/logging/tests.rs"
   - "desktop/src/module_layering/tests.rs"
+  - "desktop/src/native_operation/tests.rs"
+  - "desktop/src/native_operation/tests/**"
   - "desktop/src/services/lidar/analyses/tests/**"
   - "desktop/src/services/lidar/analysis_registry_generated.rs"
   - "desktop/src/services/lidar/acceptance_hooks.rs"
@@ -30,9 +33,13 @@ ignores:
   - "desktop/src/services/lidar/rust_engine/crs/properties.rs"
   - "desktop/src/services/lidar/rust_engine/comparison.rs"
   - "desktop/src/services/lidar/rust_engine/crs_reference_points.rs"
+  - "desktop/src/services/problem_report/tests.rs"
   - "desktop/src/services/species_catalog_read/test_support.rs"
   - "canopi-types/src/design/tests.rs"
+  - "canopi-types/src/failure/tests.rs"
   - "canopi-types/src/views/tests.rs"
+  - "canopi-redact/src/tests.rs"
+  - "canopi-redact/src/table_generated.rs"
   - "bindings-gen/src/plan_support.rs"
   - "desktop/src/logging.rs"
   - "policy/fixtures/rules/*/desktop/src/logging.rs"

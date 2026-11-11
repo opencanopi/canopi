@@ -1,4 +1,4 @@
-import { logMapError } from './redact-credentials'
+import { reportMapError } from './map-errors'
 import { loadMapLibreModule, type MapLibreApi, type MapLibreMapInstance } from './loader'
 
 type MapLibreSurfaceEventListener = (event?: unknown) => void
@@ -76,7 +76,7 @@ export class MapLibreSurface<TMap extends MapLibreMapInstance = MapLibreMapInsta
   private generation = 0
 
   constructor(private readonly deps: MapLibreSurfaceDeps = {}) {
-    this.logError = deps.logError ?? logMapError
+    this.logError = deps.logError ?? reportMapError
   }
 
   get map(): TMap | null {

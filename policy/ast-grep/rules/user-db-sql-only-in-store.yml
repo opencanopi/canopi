@@ -4,6 +4,7 @@ id: user-db-sql-only-in-store
 language: rs
 severity: error
 message: "user-db-sql-only-in-store (§18 R6): user database SQL and rusqlite paths only in the store, db/ today; the library (sql-only-in-repository) and the catalog reader (no-formatted-sql, N4) hold their own SQL. ADR 0023; owner desktop/src/db (also desktop/src/services/lidar, desktop/src/services/species_catalog_read); target canopi-store/src (N2); example desktop/src/db/user_db.rs"
+# rust-scope: desktop/src
 files:
   - "desktop/src/**/*.rs"
   - "policy/fixtures/rules/*/desktop/src/**/*.rs"
@@ -19,7 +20,10 @@ ignores:
   - "desktop/src/module_layering/**"
   - "desktop/src/native_command_policy.rs"
   - "desktop/src/test_scratch.rs"
+  - "desktop/src/logging/tests.rs"
   - "desktop/src/module_layering/tests.rs"
+  - "desktop/src/native_operation/tests.rs"
+  - "desktop/src/native_operation/tests/**"
   - "desktop/src/services/lidar/analyses/tests/**"
   - "desktop/src/services/lidar/analysis_registry_generated.rs"
   - "desktop/src/services/lidar/acceptance_hooks.rs"
@@ -30,9 +34,13 @@ ignores:
   - "desktop/src/services/lidar/rust_engine/crs/properties.rs"
   - "desktop/src/services/lidar/rust_engine/comparison.rs"
   - "desktop/src/services/lidar/rust_engine/crs_reference_points.rs"
+  - "desktop/src/services/problem_report/tests.rs"
   - "desktop/src/services/species_catalog_read/test_support.rs"
   - "canopi-types/src/design/tests.rs"
+  - "canopi-types/src/failure/tests.rs"
   - "canopi-types/src/views/tests.rs"
+  - "canopi-redact/src/tests.rs"
+  - "canopi-redact/src/table_generated.rs"
   - "bindings-gen/src/plan_support.rs"
   - "desktop/src/db/**"
   - "policy/fixtures/rules/*/desktop/src/db/**"

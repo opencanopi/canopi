@@ -4,6 +4,7 @@ id: janitor-only-deletes
 language: rs
 severity: error
 message: "janitor-only-deletes (§18 R9): a Library file or directory is deleted (remove_file, remove_dir, remove_dir_all) only by the janitor; scope services/lidar, the only Library writer today; Design-write sidecar and cache deletes are no Library deletes and are unguarded until N2 builds the Design-write sidecar sweep (plan N2). ADR 0024; owner none; target canopi-library/src/janitor.rs (N1); example none yet"
+# rust-scope: desktop/src/services/lidar
 files:
   - "desktop/src/services/lidar/**/*.rs"
   - "policy/fixtures/rules/*/desktop/src/services/lidar/**/*.rs"
@@ -19,7 +20,10 @@ ignores:
   - "desktop/src/module_layering/**"
   - "desktop/src/native_command_policy.rs"
   - "desktop/src/test_scratch.rs"
+  - "desktop/src/logging/tests.rs"
   - "desktop/src/module_layering/tests.rs"
+  - "desktop/src/native_operation/tests.rs"
+  - "desktop/src/native_operation/tests/**"
   - "desktop/src/services/lidar/analyses/tests/**"
   - "desktop/src/services/lidar/analysis_registry_generated.rs"
   - "desktop/src/services/lidar/acceptance_hooks.rs"
@@ -30,9 +34,13 @@ ignores:
   - "desktop/src/services/lidar/rust_engine/crs/properties.rs"
   - "desktop/src/services/lidar/rust_engine/comparison.rs"
   - "desktop/src/services/lidar/rust_engine/crs_reference_points.rs"
+  - "desktop/src/services/problem_report/tests.rs"
   - "desktop/src/services/species_catalog_read/test_support.rs"
   - "canopi-types/src/design/tests.rs"
+  - "canopi-types/src/failure/tests.rs"
   - "canopi-types/src/views/tests.rs"
+  - "canopi-redact/src/tests.rs"
+  - "canopi-redact/src/table_generated.rs"
   - "bindings-gen/src/plan_support.rs"
 rule:
   all:

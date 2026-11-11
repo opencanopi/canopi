@@ -6,11 +6,23 @@ valid:
   - |
     declare const log: { error(m: string): void }
     log.error('x')
+  - |
+    myconsole.error('map failed')
 invalid:
   - |
     console.error('failed')
   - |
     console.warn('slow')
+  - |
+    window.console.warn(error)
+  - |
+    globalThis.console?.error(error)
+  - |
+    window.console!.log(error)
+  - |
+    console['error'](error)
+  - |
+    const log = console.error
   - |
     window.addEventListener('unhandledrejection', () => {})
   - |

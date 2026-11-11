@@ -1,0 +1,7 @@
+{
+  "code": { "kind": "tile_source_failed", "layer": "satellite" },
+  "user_may_retry": true,
+  "op": "fixtures.example",
+  "operation": null,
+  "detail": null
+}

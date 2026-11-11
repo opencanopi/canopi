@@ -6,7 +6,7 @@
 //! operations. Threads and blocking pools are disallowed by clippy (`clippy.toml`); this module
 //! checks that list's floor (`ESCAPE_ENTRY_POINTS`), and the push-lane `disallowed-methods`
 //! ratchet counts every production escape from it (`policy/adapters/clippy.mjs`).
-//! It also checks every registered command against the frontend's `invoke(...)` call sites.
+//! It also checks every registered command against the frontend's `invoke(...)` and `invokeCommand(...)` call sites.
 
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -35,7 +35,11 @@ const SYNC_COMMAND_ALLOWLIST: &[SyncCommandAllowance] = &[
     },
     SyncCommandAllowance {
         path: "commands::health::get_health",
-        reason: "clones the immutable startup health snapshot",
+        reason: "returns a clone of the in-memory health snapshot under its lock; it cannot fail, so it returns SubsystemHealth itself",
+    },
+    SyncCommandAllowance {
+        path: "commands::health::dismiss_store_notice",
+        reason: "clears one store's one-time notice in the in-memory health snapshot under its lock; no I/O",
     },
     SyncCommandAllowance {
         path: "commands::host::take_pending_open",
@@ -122,8 +126,8 @@ const STATE_ACCESS_ALLOWLIST: &[StateAccessAllowance] = &[
     },
     StateAccessAllowance {
         path: "commands::problem_report::create_problem_report",
-        operation: "get_health",
-        reason: "clones the immutable startup health snapshot",
+        operation: "report_health",
+        reason: "clones the in-memory startup health snapshot",
     },
 ];
 
@@ -542,7 +546,7 @@ impl<'ast> Visit<'ast> for CommandBodyVisitor {
     }
 
     fn visit_expr_method_call(&mut self, node: &'ast ExprMethodCall) {
-        if matches!(node.method.to_string().as_str(), "run" | "inner")
+        if ["run", "run_typed", "inner"].contains(&node.method.to_string().as_str())
             && expression_is_identifier(&node.receiver, "executor")
         {
             self.routes_through_executor = true;
@@ -584,7 +588,7 @@ struct ExecutorRouteVisitor {
 
 impl<'ast> Visit<'ast> for ExecutorRouteVisitor {
     fn visit_expr_method_call(&mut self, node: &'ast ExprMethodCall) {
-        if matches!(node.method.to_string().as_str(), "run" | "inner")
+        if ["run", "run_typed", "inner"].contains(&node.method.to_string().as_str())
             && expression_is_identifier(&node.receiver, "executor")
         {
             self.found = true;
@@ -664,7 +668,7 @@ impl<'ast> Visit<'ast> for StateAccessVisitor {
     }
 
     fn visit_expr_method_call(&mut self, node: &'ast ExprMethodCall) {
-        if node.method == "run"
+        if (node.method == "run" || node.method == "run_typed")
             && receiver_root(&node.receiver).is_some_and(|root| self.executors.contains(&root))
         {
             // The executor closure is the managed boundary; its body is not inspected here.
@@ -898,9 +902,8 @@ impl TestModuleFiles {
     }
 }
 
-/// Every registered command must have an `invoke('<name>'...)` call site in
-/// production frontend source. There are no exemptions: a command nothing
-/// invokes is deleted.
+/// Every registered command has an `invoke` or `invokeCommand('<name>'...)` call site in production
+/// frontend source. There are no exemptions: a command nothing invokes is deleted.
 fn audit_frontend_invocations(
     registry_source: &str,
     frontend_sources: &[(&str, &str)],
@@ -929,7 +932,7 @@ fn audit_frontend_invocations(
     violations
 }
 
-/// Command names of `invoke('name', ...)` / `invoke<T>("name")` call sites.
+/// Command names of `invoke('name', ...)` / `invoke<T>("name")` / `invokeCommand('name')` call sites.
 fn invoked_command_names(source: &str) -> Vec<String> {
     let bytes = source.as_bytes();
     let mut names = Vec::new();
@@ -937,6 +940,7 @@ fn invoked_command_names(source: &str) -> Vec<String> {
     while let Some(offset) = source[search..].find("invoke") {
         let start = search + offset;
         search = start + "invoke".len();
+        search += "Command".len() * usize::from(source[search..].starts_with("Command"));
         if start > 0 && is_identifier_byte(bytes[start - 1]) {
             continue;
         }
@@ -1117,19 +1121,7 @@ pub(crate) fn crate_rust_sources() -> Vec<(String, String)> {
 pub(crate) fn rust_sources_in(manifest: &Path) -> Vec<(String, String)> {
     let mut paths = Vec::new();
     rust_sources_under(&manifest.join("src"), &mut paths);
-    paths.sort();
-    paths
-        .into_iter()
-        .map(|path| {
-            let relative = path
-                .strip_prefix(manifest)
-                .unwrap()
-                .to_string_lossy()
-                .replace('\\', "/");
-            let source = fs::read_to_string(&path).unwrap();
-            (relative, source)
-        })
-        .collect()
+    read_sorted(manifest, paths)
 }
 
 /// Every Rust source under each workspace member's `src/`, sorted, as (path relative to the workspace with '/',
@@ -1149,12 +1141,17 @@ fn workspace_rust_sources() -> Vec<(String, String)> {
     {
         rust_sources_under(&workspace.join(member).join("src"), &mut paths);
     }
+    read_sorted(workspace, paths)
+}
+
+/// Each path, sorted, as (path relative to `root` with '/', as on Windows too, source text).
+fn read_sorted(root: &Path, mut paths: Vec<PathBuf>) -> Vec<(String, String)> {
     paths.sort();
     paths
         .into_iter()
         .map(|path| {
             let relative = path
-                .strip_prefix(workspace)
+                .strip_prefix(root)
                 .unwrap()
                 .to_string_lossy()
                 .replace('\\', "/");
@@ -1699,16 +1696,16 @@ mod tests {
     fn invoke_call_sites_are_recognised_in_every_quoting_style() {
         let names = invoked_command_names(
             r#"
-                invoke('single', { a })
-                await invoke<string>("double_quoted", { path })
+                invoke('single', { a }) invokeCommand('routed', { a })
+                await invoke<string>("double", { path }) await invokeCommand<T>("typed")
                 invoke(
                   `template`,
                 )
-                reinvoke('not_a_call')
-                invoke(dynamicName)
+                reinvoke('not_a_call') reinvokeCommand('not_a_call') invokeCommands('not_a_call')
+                invoke(dynamicName) invokeCommand(dynamicName)
             "#,
         );
-        assert_eq!(names, ["single", "double_quoted", "template"]);
+        assert_eq!(names, ["single", "routed", "double", "typed", "template"]);
     }
 
     #[test]

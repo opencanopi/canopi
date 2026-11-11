@@ -1,20 +1,25 @@
 pub mod design_notebook;
 pub(crate) mod plant_catalog_connection;
+mod plant_db_connection_guard;
 pub(crate) mod plant_filter_fields;
 pub mod query_builder;
 pub mod recent_files;
 pub(crate) mod schema_contract;
+mod set_aside_reason;
 pub(crate) mod species_search_normalization;
 #[cfg(test)]
 pub(crate) mod test_support;
 pub mod user_db;
 
-use canopi_types::health::PlantDbStatus;
+use canopi_types::failure::{Failure, FailureCode, PlantCatalogCause};
+use canopi_types::health::{PlantDbStatus, StoreHealth, StoreOpenStatus};
+use canopi_types::sensitive::UserPath;
 use rusqlite::{Connection, InterruptHandle};
-use std::ops::Deref;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, MutexGuard};
 
+pub(crate) use plant_db_connection_guard::PlantDbConnectionGuard;
+pub use set_aside_reason::SetAsideReason;
 pub use user_db::UserDbInitError;
 
 /// Plant database availability boundary.
@@ -38,7 +43,10 @@ enum PlantDbState {
 impl PlantDb {
     pub fn available(connection: Connection) -> Self {
         if let Err(error) = plant_catalog_connection::admit_prepared_catalog(&connection) {
-            tracing::error!("Rejected bundled plant database: {error}");
+            log_plant_db_unavailable(
+                PlantCatalogCause::OpenFailed,
+                &format!("the bundled plant database was rejected: {error}"),
+            );
             return Self(PlantDbState::Corrupt);
         }
         let interrupt = Arc::new(connection.get_interrupt_handle());
@@ -72,47 +80,9 @@ impl PlantDb {
     }
 }
 
-pub(crate) struct PlantDbConnectionGuard<'a>(MutexGuard<'a, Connection>);
-
-impl Deref for PlantDbConnectionGuard<'_> {
-    type Target = Connection;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
 /// User database — writable, serialized access via Mutex.
 #[derive(Clone)]
 pub struct UserDb(Arc<Mutex<Connection>>);
-
-/// How [`UserDb::open`] found the file it opened.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum UserDbOpened {
-    /// A current database, or a new one where there was none.
-    Ready,
-    /// A database from before Canopi 2.0 was moved aside (ADR 0021); the user
-    /// is told once.
-    MovedAside,
-    /// A damaged database was set aside as corrupt.
-    ReplacedCorrupt,
-}
-
-/// Why a database file is set aside: the suffix its new name carries.
-#[derive(Debug, Clone, Copy)]
-enum SetAsideReason {
-    Before2_0,
-    Corrupt,
-}
-
-impl SetAsideReason {
-    fn suffix(self) -> &'static str {
-        match self {
-            Self::Before2_0 => "before-2.0",
-            Self::Corrupt => "corrupt",
-        }
-    }
-}
 
 impl UserDb {
     /// Open the user database at `path`.
@@ -124,33 +94,39 @@ impl UserDb {
     /// `<file>.corrupt-<unix-seconds>` the same way. Neither rename
     /// overwrites an earlier one, and companion files move with the database.
     /// A newer database is refused as-is with
-    /// [`UserDbInitError::NewerSchemaVersion`].
-    pub fn open(path: impl AsRef<Path>) -> Result<(Self, UserDbOpened), UserDbInitError> {
+    /// [`UserDbInitError::NewerSchemaVersion`]. The user DB's entry in
+    /// `SubsystemHealth` comes back with it.
+    pub fn open(path: impl AsRef<Path>) -> Result<(Self, StoreHealth), UserDbInitError> {
         let path = path.as_ref();
         let error = match Self::initialize(Connection::open(path).map_err(UserDbInitError::Open)?) {
-            Ok(user_db) => return Ok((user_db, UserDbOpened::Ready)),
+            Ok(user_db) => {
+                let ready = StoreHealth {
+                    status: StoreOpenStatus::Ready,
+                    notice: None,
+                };
+                return Ok((user_db, ready));
+            }
             Err(error) => error,
         };
-        let (reason, opened) = match error {
-            UserDbInitError::OlderSchemaVersion { .. } => {
-                (SetAsideReason::Before2_0, UserDbOpened::MovedAside)
-            }
-            _ if error.sets_aside_as_corrupt() => {
-                (SetAsideReason::Corrupt, UserDbOpened::ReplacedCorrupt)
-            }
+        let reason = match error {
+            UserDbInitError::OlderSchemaVersion { .. } => SetAsideReason::Before2_0,
+            _ if error.sets_aside_as_corrupt() => SetAsideReason::Corrupt,
             _ => return Err(error),
         };
         let aside = set_aside_user_db(path, &set_aside_name(path, reason))
-            .map_err(|source| UserDbInitError::SetAside { source })?;
+            .map_err(|source| UserDbInitError::SetAside { reason, source })?;
+        // The set-aside name is Canopi's own (`user.db.corrupt-<seconds>`), never
+        // the folder it sits in.
+        let file = aside
+            .file_name()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .into_owned();
         tracing::warn!(
-            "Set aside the user database ({error}) as {}; starting with an empty one",
-            aside
-                .file_name()
-                .map(|name| name.to_string_lossy())
-                .unwrap_or_default()
+            "Set aside the user database ({error}) as {file}; starting with an empty one"
         );
         let user_db = Self::initialize(Connection::open(path).map_err(UserDbInitError::Open)?)?;
-        Ok((user_db, opened))
+        Ok((user_db, reason.health(file)))
     }
 
     pub fn initialize(connection: Connection) -> Result<Self, UserDbInitError> {
@@ -215,7 +191,7 @@ pub(crate) fn move_aside(
         .ok_or_else(|| {
             std::io::Error::new(
                 std::io::ErrorKind::AlreadyExists,
-                format!("no free name to set {} aside", path.display()),
+                format!("no free name to set {} aside", UserPath::from(path)),
             )
         })?;
 
@@ -257,11 +233,33 @@ pub(crate) fn move_aside(
     Ok(aside)
 }
 
+/// Locks `mutex`, recovering it once when a panicking command left it poisoned: the poison is
+/// cleared so the recovery settles once per panic, not on every later read.
 pub fn acquire<'a, T>(mutex: &'a Mutex<T>, name: &str) -> MutexGuard<'a, T> {
     mutex.lock().unwrap_or_else(|e| {
-        tracing::warn!("Recovered poisoned {name} lock; a prior command panicked while holding it");
+        let failure = Failure::new(FailureCode::Internal, LOCK_OP).with_english(&format!(
+            "recovered the poisoned {name} lock; a prior command panicked while holding it"
+        ));
+        crate::logging::log_failure(&failure, None);
+        mutex.clear_poison();
         e.into_inner()
     })
+}
+
+/// The op of recovering a lock a panicking command left poisoned.
+const LOCK_OP: &str = canopi_types::failure::ops::DB_LOCK;
+
+/// The op of opening and admitting the bundled plant catalog at startup.
+pub(crate) const PLANT_CATALOG_OPEN_OP: &str = canopi_types::failure::ops::PLANT_CATALOG_OPEN;
+
+/// The plant catalog is unavailable for `cause`, through the failure logger; `english` is
+/// redacted, so a path formatted into it reads `<path>` (canopi-ouxd).
+pub(crate) fn log_plant_db_unavailable(cause: PlantCatalogCause, english: &str) {
+    let failure = Failure::new(
+        FailureCode::PlantDbUnavailable { cause },
+        PLANT_CATALOG_OPEN_OP,
+    );
+    crate::logging::log_failure(&failure.with_english(english), None);
 }
 
 pub fn plant_db_unavailable_error(status: PlantDbStatus) -> String {
@@ -348,50 +346,135 @@ mod tests {
         let _ = std::fs::remove_file(with_suffix(&aside, "-journal"));
     }
 
-    #[test]
-    fn set_aside_never_overwrites_an_earlier_set_aside_or_its_journal() {
-        let scratch =
-            TestScratch::new("db-set-aside-never-overwrites-an-earlier-set-aside-or-its-journal");
-        let path = temp_database_path(&scratch, "unique");
-        let base = format!("{}.corrupt-0", path.file_name().unwrap().to_string_lossy());
-        std::fs::write(&path, b"first").unwrap();
-        let first = set_aside_user_db(&path, &base).unwrap();
-        // An orphan journal of an earlier set-aside name also blocks that name.
-        std::fs::write(
-            with_suffix(
-                &path.with_file_name(format!(
-                    "{}-2",
-                    first.file_name().unwrap().to_string_lossy()
-                )),
-                "-journal",
-            ),
-            b"orphan",
-        )
-        .unwrap();
-        std::fs::write(&path, b"second").unwrap();
-        let second = set_aside_user_db(&path, &base).unwrap();
-
-        assert_ne!(first, second);
-        assert!(
-            second.to_string_lossy().ends_with(".corrupt-0-3"),
-            "{second:?}"
-        );
-        assert_eq!(std::fs::read(&first).unwrap(), b"first");
-        assert_eq!(std::fs::read(&second).unwrap(), b"second");
-
-        for file in [
-            first.clone(),
-            second,
-            with_suffix(
-                &path.with_file_name(format!(
-                    "{}-2",
-                    first.file_name().unwrap().to_string_lossy()
-                )),
-                "-journal",
-            ),
-        ] {
-            let _ = std::fs::remove_file(file);
+    /// Makes `path`'s `-shm` companion a directory and each name it could move to for `reason` a
+    /// dangling link, so `UserDb::open`'s set-aside fails late; returns the refusal's reason.
+    #[cfg(unix)]
+    fn refusal_with_the_set_aside_blocked(path: &Path, reason: SetAsideReason) -> SetAsideReason {
+        std::fs::create_dir(with_suffix(path, "-shm")).unwrap();
+        let base = set_aside_name(path, reason);
+        let (prefix, seconds) = base.rsplit_once('-').unwrap();
+        let seconds: u64 = seconds.parse().unwrap();
+        for second in seconds..seconds + 60 {
+            let blocked = path.with_file_name(format!("{prefix}-{second}-shm"));
+            std::os::unix::fs::symlink("nowhere", blocked).unwrap();
         }
+        match UserDb::open(path) {
+            Err(UserDbInitError::SetAside { reason, .. }) => reason,
+            other => panic!("refused as a failed set-aside: {:?}", other.err()),
+        }
+    }
+
+    /// NAT-02: the set-aside of a damaged database fails after the database itself moved.
+    #[cfg(unix)]
+    #[test]
+    fn nat_02_a_set_aside_that_fails_moves_the_database_back_and_refuses_startup() {
+        let scratch = TestScratch::new("db-nat-02-a-set-aside-that-fails");
+        let path = temp_database_path(&scratch, "stuck");
+        std::fs::write(&path, b"damaged database").unwrap();
+
+        let reason = refusal_with_the_set_aside_blocked(&path, SetAsideReason::Corrupt);
+
+        assert_eq!(reason, SetAsideReason::Corrupt);
+        assert_eq!(
+            std::fs::read(&path).unwrap(),
+            b"damaged database",
+            "moved back"
+        );
+        assert!(
+            with_suffix(&path, "-shm").is_dir(),
+            "its companion stays in place"
+        );
+    }
+
+    /// canopi-f47t.52.41: a healthy pre-2.0 user DB whose set-aside fails (a data folder Canopi
+    /// cannot write to) is refused as pre-2.0, and its startup message never calls it damaged.
+    #[cfg(unix)]
+    #[test]
+    fn canopi_f47t_52_41_a_pre_2_0_user_db_that_cannot_be_moved_aside_is_not_called_damaged() {
+        let scratch = TestScratch::new("db-a-pre-2-0-set-aside-that-fails");
+        let path = temp_database_path(&scratch, "stuck-before-2-0");
+        Connection::open(&path)
+            .unwrap()
+            .execute_batch("CREATE TABLE favorites (id INTEGER); PRAGMA user_version = 1;")
+            .unwrap();
+
+        let reason = refusal_with_the_set_aside_blocked(&path, SetAsideReason::Before2_0);
+
+        assert_eq!(reason, SetAsideReason::Before2_0);
+        assert_eq!(
+            reason.startup_refusal(),
+            "Canopi could not move its earlier data file aside to start fresh. Check that the Canopi data folder can be written to, then start Canopi again.",
+        );
+    }
+
+    #[test]
+    fn nat_02_a_busy_or_failing_user_db_is_refused_never_set_aside() {
+        use rusqlite::ffi::{Error, SQLITE_BUSY, SQLITE_CORRUPT, SQLITE_IOERR_READ, SQLITE_LOCKED};
+        let failure = |code| rusqlite::Error::SqliteFailure(Error::new(code), None);
+        let wrappers: [fn(rusqlite::Error) -> UserDbInitError; 4] = [
+            UserDbInitError::ReadSchemaVersion,
+            UserDbInitError::ConfigureForeignKeys,
+            UserDbInitError::CreateSchema,
+            UserDbInitError::VerifyIntegrity,
+        ];
+        for (code, wrap) in [SQLITE_BUSY, SQLITE_LOCKED, SQLITE_IOERR_READ]
+            .into_iter()
+            .flat_map(|code| wrappers.map(|wrap| (code, wrap)))
+        {
+            let error = wrap(failure(code));
+            assert!(!error.sets_aside_as_corrupt(), "{code}: {error}");
+        }
+        assert!(UserDbInitError::VerifyIntegrity(failure(SQLITE_CORRUPT)).sets_aside_as_corrupt());
+    }
+
+    #[test]
+    fn set_aside_with_no_free_name_fails_without_naming_the_database_path() {
+        let scratch = TestScratch::new("db-set-aside-no-free-name");
+        let path = temp_database_path(&scratch, "full");
+        std::fs::write(&path, b"damaged database").unwrap();
+
+        let error = move_aside(&path, std::iter::empty(), &USER_DB_COMPANION_SUFFIXES).unwrap_err();
+
+        assert_eq!(error.kind(), std::io::ErrorKind::AlreadyExists);
+        assert_eq!(error.to_string(), "no free name to set <path> aside");
+        assert_eq!(std::fs::read(&path).unwrap(), b"damaged database");
+    }
+
+    #[test]
+    fn canopi_f47t_52_35_a_rejected_plant_db_and_a_poisoned_lock_settle_once_through_the_logger() {
+        let rejected = crate::logging::lines_of(|| {
+            let _ = PlantDb::available(Connection::open_in_memory().unwrap());
+        });
+        assert!(
+            rejected.iter().any(|line| line["level"] == "WARN"
+                && line["settlement"] == "plant_db_unavailable"
+                && line["code"].as_str().unwrap().contains("open_failed")),
+            "{rejected:?}"
+        );
+        let unopened = crate::logging::lines_of(|| {
+            let db = Path::new("/home/ana/Applications/canopi/resources/canopi-core.db");
+            let english = format!("the plant DB at {} could not be opened", db.display());
+            log_plant_db_unavailable(PlantCatalogCause::OpenFailed, &english);
+        });
+        assert_eq!(
+            unopened[0]["detail"], "the plant DB at <path> could not be opened",
+            "canopi-ouxd: {unopened:?}"
+        );
+        let lock = Arc::new(Mutex::new(()));
+        let held = Arc::clone(&lock);
+        let _ = std::thread::spawn(move || {
+            let _guard = held.lock().unwrap();
+            panic!("a command panicked holding the lock");
+        })
+        .join();
+        let poisoned = crate::logging::lines_of(|| {
+            drop(acquire(&lock, "UserDb"));
+            drop(acquire(&lock, "UserDb"));
+        });
+        let recovered: Vec<_> = poisoned.iter().filter(|l| l["op"] == "db.lock").collect();
+        assert_eq!(recovered.len(), 1, "logged once per panic: {poisoned:?}");
+        assert_eq!(recovered[0]["level"], "ERROR");
+        assert_eq!(recovered[0]["settlement"], "internal");
     }
 
     #[test]

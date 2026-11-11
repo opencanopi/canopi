@@ -4,7 +4,7 @@ import { getCurrentWindow } from '@tauri-apps/api/window'
 import { flushBeforeExit, holdCloseUntilSettled } from '../../app/shell/close-guard'
 import { createUpdateController, type UpdateController, type UpdaterPort } from '../../app/updates/controller'
 import { createUuid } from '../../utils/ids'
-import type { UpdateDownload, UpdateFailure, UpdateOffer, UpdateOs, UpdateProgress } from '../../generated/contracts'
+import type { UpdateDownload, UpdaterFailure, UpdateOffer, UpdateOs, UpdateProgress } from '../../generated/contracts'
 
 // The fake host behind the Desktop updater suites (updater-flow.test.ts, app/shell/close-guard-update.test.ts): fakes
 // stand only at the ports, the host's update commands (UpdaterPort, what ipc/update.ts invokes) and the close guard's
@@ -32,7 +32,7 @@ vi.mock('../../app/document-session/save-problem', () => ({
 vi.mock('../../app/settings/projection', () => ({ flushSettingsProjection: () => closePorts.flushSettings() }))
 
 /** A command's reply: contracts §1, `Promise<Result<Reply, Failure>>`. */
-export type Result<T> = { readonly ok: true, readonly value: T } | { readonly ok: false, readonly failure: UpdateFailure }
+export type Result<T> = { readonly ok: true, readonly value: T } | { readonly ok: false, readonly failure: UpdaterFailure }
 
 /** One step of the close guard as the fake saw it: the Design flush, or a save-problem question and its answer. */
 export type CloseEvent = 'design-flushed' | { readonly asked: SaveProblemRequest, readonly answer: SaveProblemChoice }
@@ -64,10 +64,10 @@ export interface FakeUpdateHost {
 
 export const OFFER: UpdateOffer = { version: '2.1.0', date: '2026-11-02', notes_url: 'https://github.com/canopi/canopi/releases/tag/v2.1.0' }
 /** The executor's silent settlement for a cancelled op (contracts §2): never a user-facing failure. */
-export const CANCELLED: UpdateFailure = { code: { kind: 'cancelled' }, user_may_retry: false, op: 'updater.download', detail: 'cancelled by the user' }
-export const OFFLINE: UpdateFailure = { code: { kind: 'network', network: 'offline' }, user_may_retry: true, op: 'updater.check', detail: 'offline' }
-export const ADMIN_PROMPT_DISMISSED: UpdateFailure = { code: { kind: 'update_admin_prompt_dismissed' }, user_may_retry: true, op: 'updater.install', detail: 'pkexec exit 126' }
-export const INSTALLER_FAILED: UpdateFailure = { code: { kind: 'update_install_failed', bundle: 'nsis' }, user_may_retry: true, op: 'updater.install', detail: 'installer did not start' }
+export const CANCELLED: UpdaterFailure = { code: { kind: 'cancelled' }, user_may_retry: false, op: 'updater.download', operation: null, detail: null }
+export const OFFLINE: UpdaterFailure = { code: { kind: 'network', network: 'offline' }, user_may_retry: true, op: 'updater.check', operation: null, detail: null }
+export const ADMIN_PROMPT_DISMISSED: UpdaterFailure = { code: { kind: 'update_admin_prompt_dismissed' }, user_may_retry: true, op: 'updater.install', operation: null, detail: null }
+export const INSTALLER_FAILED: UpdaterFailure = { code: { kind: 'update_install_failed', bundle: 'nsis' }, user_may_retry: true, op: 'updater.install', operation: null, detail: null }
 
 export interface HostScript {
   readonly check?: Result<UpdateOffer | null>

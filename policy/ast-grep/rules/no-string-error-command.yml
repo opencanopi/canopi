@@ -3,10 +3,10 @@
 id: no-string-error-command
 language: rs
 severity: error
-message: "no-string-error-command (§18 R13): a command returns a catalogue Failure, never Result<_, String>, and no error type is built From<String>; 0 at Phase 3. ADR 0025; owner none; target canopi-types/src/failure (1a); example none yet"
+message: "no-string-error-command (§18 R13): a command returns a catalogue Failure, never Result<_, String>, and no error type is built From<String>; 0 at Phase 3. ADR 0025; owner canopi-types/src/failure; target canopi-types/src/failure (1a); example none yet"
 files:
-  - "{desktop,canopi-types,bindings-gen}/src/**/*.rs"
-  - "policy/fixtures/rules/*/{desktop,canopi-types,bindings-gen}/src/**/*.rs"
+  - "{desktop,canopi-types,canopi-redact,bindings-gen}/src/**/*.rs"
+  - "policy/fixtures/rules/*/{desktop,canopi-types,canopi-redact,bindings-gen}/src/**/*.rs"
 ignores:
   - "desktop/src/commands/design/tests.rs"
   - "desktop/src/db/test_support.rs"
@@ -19,7 +19,10 @@ ignores:
   - "desktop/src/module_layering/**"
   - "desktop/src/native_command_policy.rs"
   - "desktop/src/test_scratch.rs"
+  - "desktop/src/logging/tests.rs"
   - "desktop/src/module_layering/tests.rs"
+  - "desktop/src/native_operation/tests.rs"
+  - "desktop/src/native_operation/tests/**"
   - "desktop/src/services/lidar/analyses/tests/**"
   - "desktop/src/services/lidar/analysis_registry_generated.rs"
   - "desktop/src/services/lidar/acceptance_hooks.rs"
@@ -30,10 +33,16 @@ ignores:
   - "desktop/src/services/lidar/rust_engine/crs/properties.rs"
   - "desktop/src/services/lidar/rust_engine/comparison.rs"
   - "desktop/src/services/lidar/rust_engine/crs_reference_points.rs"
+  - "desktop/src/services/problem_report/tests.rs"
   - "desktop/src/services/species_catalog_read/test_support.rs"
   - "canopi-types/src/design/tests.rs"
+  - "canopi-types/src/failure/tests.rs"
   - "canopi-types/src/views/tests.rs"
+  - "canopi-redact/src/tests.rs"
+  - "canopi-redact/src/table_generated.rs"
   - "bindings-gen/src/plan_support.rs"
+  - "canopi-types/src/failure/**"
+  - "policy/fixtures/rules/*/canopi-types/src/failure/**"
 rule:
   any:
     # A command returning Result<_, String>.

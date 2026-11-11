@@ -24,7 +24,6 @@
     "workspace": "Web 版ワークスペース",
     "openCanopi": ".canopi ファイルを開く…",
     "downloadCanopi": "コピーをダウンロード",
-    "dismissNotice": "閉じる",
     "downloadCopy": "コピーをダウンロード",
     "savedInBrowser": "このブラウザーに保存済み",
     "openCanopiFile": ".canopi ファイルを開く"
@@ -113,7 +112,24 @@
     "plantDbCorrupt": "植物カタログのデータベースファイルが破損しているため、植物の検索と詳細は利用できません。デザインは安全です。Canopi を再インストールして復元してください。",
     "localDataNotOpenedTitle": "以前のデータは開いていません",
     "localDataNotOpened": "Canopi 2.0 は以前のバージョンで保存されたデータを開けません。データは変更せずにそのまま残し、Canopi は新しい状態で開始しました。",
-    "dismiss": "閉じる"
+    "settingsUnavailable": "設定を読み込めませんでした。Canopi は既定の設定を使用しており、このセッション中は保存された設定を変更しません。",
+    "settingsStillUnavailable": "設定をまだ読み込めません。",
+    "setAside": {
+      "userDb": "Canopi の保存データが破損していたため、{{file}} として別に保管しました。デザインには影響ありません。",
+      "webDrafts": "Canopi に保存された下書きが破損していたため、{{file}} として別に保管しました。ファイルとして書き出したデザインには影響ありません。",
+      "webSpeciesLists": "Canopi に保存されたお気に入りと最近表示した植物が破損していたため、{{file}} として別に保管しました。デザインには影響ありません。"
+    },
+    "writesRefused": {
+      "webDrafts": "Canopi に保存された下書きが破損しており、別に保管できなかったため、このセッション中は下書きへの変更は保存されません。デザインを残すには書き出してください。",
+      "webSpeciesLists": "Canopi に保存されたお気に入りと最近表示した植物が破損しており、別に保管できなかったため、このセッション中はそれらへの変更は保存されません。"
+    },
+    "newerReadOnly": "このデータは新しいバージョンの Canopi で保存されました。表示はできますが、変更は保存されません。編集するには Canopi を更新してください。",
+    "refusedNewer": "このデータは新しいバージョンの Canopi で保存されたため、開きませんでした。使用するには Canopi を更新してください。",
+    "storeUnavailable": "Canopi の保存データの一部を開けませんでした。Canopi を再起動し、問題が続く場合は報告してください。",
+    "fieldsReset": "一部の設定に Canopi が使用できない値があったため、既定値に戻しました。",
+    "writeFailed": "Canopi は保存データへの変更を保存できませんでした。もう一度お試しください。問題が続く場合は報告してください。",
+    "libraryListStale": "データライブラリの一覧を更新できませんでした",
+    "update": "更新"
   },
   "canvas": {
     "lockToast": {
@@ -156,7 +172,10 @@
       "selectSource": "配置済みの植物をクリックして列に並べます",
       "sourceMissed": "表示中でロックされていない配置済みの植物をクリックしてください",
       "interval": "間隔",
-      "generatedCount": "{{count}} 生成",
+      "generatedCount_one": "{{count}} 生成",
+      "generatedCount_few": "{{count}} 生成",
+      "generatedCount_many": "{{count}} 生成",
+      "generatedCount_other": "{{count}} 生成",
       "commitLimitWarning": "間隔を広げるか線を短くしてください",
       "dragAlong": "列に沿ってドラッグ",
       "mode": "間隔の決め方",
@@ -210,7 +229,10 @@
     },
     "plantColor": {
       "label": "植物の色",
-      "selectedCount": "{{count}} 件を選択",
+      "selectedCount_one": "{{count}} 件を選択",
+      "selectedCount_few": "{{count}} 件を選択",
+      "selectedCount_many": "{{count}} 件を選択",
+      "selectedCount_other": "{{count}} 件を選択",
       "suggested": "花色からの提案",
       "moreColors": "カスタムカラー",
       "hue": "色相",
@@ -218,11 +240,17 @@
       "preview": "プレビュー",
       "customHex": "カスタム Hex",
       "setColorForSpecies": "すべての {{species}} に設定",
-      "applySelection": "選択した{{count}}個に適用"
+      "applySelection_one": "選択した{{count}}個に適用",
+      "applySelection_few": "選択した{{count}}個に適用",
+      "applySelection_many": "選択した{{count}}個に適用",
+      "applySelection_other": "選択した{{count}}個に適用"
     },
     "plantSymbol": {
       "label": "植物シンボル",
-      "selectedCount": "{{count}}件選択",
+      "selectedCount_one": "{{count}} 件を選択",
+      "selectedCount_few": "{{count}} 件を選択",
+      "selectedCount_many": "{{count}} 件を選択",
+      "selectedCount_other": "{{count}} 件を選択",
       "setSymbolForSpecies": "{{species}} すべてに設定",
       "mixed": "シンボルが混在",
       "current": "現在: {{symbol}}",
@@ -268,7 +296,10 @@
         "does": "果たす役割",
         "abstract": "抽象図形"
       },
-      "applySelection": "選択した{{count}}個に適用"
+      "applySelection_one": "選択した{{count}}個に適用",
+      "applySelection_few": "選択した{{count}}個に適用",
+      "applySelection_many": "選択した{{count}}個に適用",
+      "applySelection_other": "選択した{{count}}個に適用"
     },
     "placeSearch": {
       "placeholder": "場所または座標",
@@ -611,7 +642,8 @@
         "sortRecent": "最近追加した順",
         "factAdded": "追加日",
         "deletedItem": "削除された項目",
-        "importNeedsDesign": "データをインポートするにはデザインを開いてください"
+        "importNeedsDesign": "データをインポートするにはデザインを開いてください",
+        "importCancelled": "インポートをキャンセルしました"
       },
       "layers": {
         "emptyTitle": "敷地データはまだありません",
@@ -1306,12 +1338,19 @@
     "selectHint": "植物、ゾーン、注釈、またはグループを選択して一緒に保存します。",
     "loading": "保存済みスタンプを読み込み中…",
     "empty": "選択を保存するとここで再利用できます。",
-    "summaryPlantOne": "植物 {{count}} 件",
-    "summaryPlantOther": "植物 {{count}} 件",
-    "summaryZoneOne": "ゾーン {{count}} 件",
-    "summaryZoneOther": "ゾーン {{count}} 件",
-    "summaryAnnotationOne": "注釈 {{count}} 件",
-    "summaryAnnotationOther": "注釈 {{count}} 件",
+    "summaryPlant_one": "植物 {{count, number}} 件",
+    "summaryPlant_few": "植物 {{count, number}} 件",
+    "summaryPlant_many": "植物 {{count, number}} 件",
+    "summaryPlant_other": "植物 {{count, number}} 件",
+    "summaryZone_one": "ゾーン {{count, number}} 件",
+    "summaryZone_few": "ゾーン {{count, number}} 件",
+    "summaryZone_many": "ゾーン {{count, number}} 件",
+    "summaryZone_other": "ゾーン {{count, number}} 件",
+    "summaryAnnotation_one": "注釈 {{count, number}} 件",
+    "summaryAnnotation_few": "注釈 {{count, number}} 件",
+    "summaryAnnotation_many": "注釈 {{count, number}} 件",
+    "summaryAnnotation_other": "注釈 {{count, number}} 件",
+    "defaultNameParts": "{{zones}}、{{annotations}}",
     "summaryEmpty": "表示オブジェクトなし",
     "summaryUnavailable": "プレビュー不可",
     "summaryBefore2_0": "Canopi 2.0 より前のバージョンで保存されたため、Canopi 2.0 では配置できません。",
@@ -1328,11 +1367,19 @@
     "deleteNamed": "スタンプ「{{name}}」を削除",
     "actionsFor": "{{name}}のその他の操作"
   },
-  "error": {
-    "title": "問題が発生しました",
-    "message": "アプリケーションで予期しないエラーが発生しました。再読み込みをお試しください。",
+  "boundary": {
+    "panelFailed": "このパネルを読み込めませんでした",
+    "tryAgain": "再試行",
+    "reportProblem": "問題を報告",
+    "rootTitle": "問題が発生しました",
+    "rootMessage": "アプリケーションで予期しないエラーが発生しました。再読み込みをお試しください。",
+    "reload": "再読み込み"
+  },
+  "notice": {
+    "count": "{{count}} 件中 {{index}} 件目",
+    "dismiss": "閉じる",
     "reload": "再読み込み",
-    "details": "エラーの詳細"
+    "tryingAgain": "再試行中…"
   },
   "shared": {
     "datePicker": {
@@ -1343,30 +1390,40 @@
   },
   "problemReport": {
     "title": "問題を報告",
-    "intro": "後で共有できる概要と診断バンドルを作成します。",
+    "intro": "Canopi はこのデバイスに zip ファイルを 1 つ保存します。何も送信されません。共有先はご自身で選べます。",
     "descriptionLabel": "何が起きましたか？",
     "descriptionPlaceholder": "何をしていたか、何がうまくいかなかったか、再現できるかを説明してください。",
-    "privacyNote": "診断バンドルには、既定でデザイン（座標を含む）、スクリーンショット、生のファイルパスは含まれません。",
     "create": "レポートを作成",
     "creating": "作成中…",
     "cancel": "キャンセル",
     "close": "閉じる",
     "successTitle": "レポートを作成しました",
-    "successText": "レポートファイルはこのフォルダーにあります。サポートに連絡するときは、バンドルを添付し概要を貼り付けてください。",
-    "folderPath": "フォルダー",
-    "summaryFile": "概要",
-    "bundleFile": "バンドル",
-    "copySummary": "概要をコピー",
-    "copiedSummary": "コピー済み",
-    "copyFailed": "概要をコピーできませんでした。概要ファイルはレポートフォルダーに残っています。",
+    "successText": "zip は Canopi のデータフォルダー内の「問題レポート」フォルダーにあります。",
+    "bundleFile": "ファイル",
     "errorTitle": "レポートを作成できませんでした",
-    "showFolder": "フォルダーを表示",
     "showingFolder": "開いています…",
-    "showFolderFailed": "フォルダーを表示できませんでした。正確なフォルダーパスは上に表示されたままです。",
-    "optionalAttachments": "任意の添付",
+    "showFolderFailed": "フォルダーを表示できませんでした。zip は「問題レポート」フォルダーに残っています。",
     "includeCurrentDesign": "現在のデザインを含める",
-    "includeCurrentDesignDescription": "キャンバスの内容とその座標、メモ、タイムライン、予算を含む .canopi のコピーを追加します。",
-    "currentDesignUnavailable": "添付できる現在のデザインがありません。"
+    "currentDesignUnavailable": "添付できる現在のデザインがありません。",
+    "contentsTitle": "レポートの内容",
+    "sendText": "送るには、Canopi の GitHub Issues ページで Issue を作成し、起きたことを書いて zip を添付してください。",
+    "issuesLink": "GitHub Issues ページを開く",
+    "downloadedText": "レポートをダウンロードしました。zip はブラウザーのダウンロードにあります。",
+    "showAgain": "もう一度表示",
+    "section": {
+      "originatingFailure": "報告元の失敗とそのコード、操作。",
+      "description": "上に書いた内容。",
+      "build": "Canopi のバージョン、OS とその Web ビュー、またはブラウザー。",
+      "health": "各データストアの開いた状態（ファイルパスなし）。",
+      "queues": "待機中と実行中のバックグラウンド処理の件数と時間。",
+      "nativeSettlements": "失敗した直近 50 件のバックグラウンド操作（パスとキーは除去）。",
+      "frontendRing": "アプリ画面の最近のエラー（パスとキーは除去）。",
+      "jobs": "データライブラリのジョブ件数と最近のジョブの失敗（項目名なし）。",
+      "libraryDisk": "データライブラリのディスク使用量とクリーンアップの状態（項目名なし）。",
+      "logTail": "Canopi のログの末尾（パスとキーは除去）。",
+      "settingsSummary": "言語、テーマ、表示設定。Maps キーは含みません。",
+      "design": "現在のデザイン（チェックした場合のみ）：オブジェクト、地図座標、メモ、タイムライン、予算。"
+    }
   },
   "pdf": {
     "title": "PDF にエクスポート",
@@ -1403,7 +1460,10 @@
     "wholeDesign": "デザイン全体",
     "splitHint": "適用する前に、番号付きの枠と各図面を確認してください。",
     "splitSheets": "読みやすい図面に分割",
-    "splitPreview": "プレビュー · PDF 全 {{count}} ページ",
+    "splitPreview_one": "プレビュー · PDF 全 {{count}} ページ",
+    "splitPreview_few": "プレビュー · PDF 全 {{count}} ページ",
+    "splitPreview_many": "プレビュー · PDF 全 {{count}} ページ",
+    "splitPreview_other": "プレビュー · PDF 全 {{count}} ページ",
     "applySheets": "図面を適用",
     "addPage": "現場用図面を追加",
     "addHint": "印刷する範囲を囲む長方形をドラッグして描きます。",
@@ -1529,7 +1589,10 @@
     "importTitle": "GeoJSON のインポート",
     "exportTitle": "GeoJSON のエクスポート",
     "importSummary": "植物 {{plants}} 件、ゾーン {{zones}} 件、注釈 {{annotations}} 件、計測ガイド {{guides}} 件をインポートしました。",
-    "importSkipped": "未対応のジオメトリを持つ {{count}} 件のフィーチャをスキップしました。",
+    "importSkipped_one": "未対応のジオメトリを持つ {{count}} 件のフィーチャをスキップしました。",
+    "importSkipped_few": "未対応のジオメトリを持つ {{count}} 件のフィーチャをスキップしました。",
+    "importSkipped_many": "未対応のジオメトリを持つ {{count}} 件のフィーチャをスキップしました。",
+    "importSkipped_other": "未対応のジオメトリを持つ {{count}} 件のフィーチャをスキップしました。",
     "importNothing": "このファイルにはインポートできるデザインオブジェクトがありません。",
     "busy": "キャンバスが処理中です。しばらくしてからもう一度お試しください。",
     "readFailed": "ファイルを読み込めませんでした。",
@@ -1588,7 +1651,11 @@
     "settingsCloseAnyway": "このまま閉じる",
     "flushFailedReloadMessage": "このブラウザーにデザインを保存できませんでした。再読み込みする前にコピーをダウンロードしてください。",
     "tabConflictReloadMessage": "このデザインはブラウザーの別のタブで変更されたため、最新の変更は書き込まれていません。再読み込みする前にコピーをダウンロードするか、キャンセルして先に変更を解決してください。",
-    "discardAndReload": "保存せずに再読み込み"
+    "discardAndReload": "保存せずに再読み込み",
+    "flushFailedAppReloadMessage": "Canopi は最新の変更を書き込めませんでした。再試行するか、保存せずに再読み込みしてください。",
+    "settingsFailedReloadMessage": "デザインは保存されています。Canopi は最新の設定の変更を保存できませんでした。再試行するか、変更を破棄してこのまま再読み込みしてください。",
+    "settingsFailedDesignUnsavedReloadMessage": "Canopi は最新の設定の変更を保存できませんでした。再試行するか、変更を破棄してこのまま再読み込みしてください。",
+    "settingsReloadAnyway": "このまま再読み込み"
   },
   "drafts": {
     "title": "下書き",
@@ -2128,7 +2195,6 @@
     "restart": "再起動して更新を完了",
     "checkAtLaunch": "起動時に更新を確認",
     "linkOnly": "projectcanopi.com から更新をダウンロードしてください",
-    "dismiss": "閉じる",
     "failure": {
       "offline": "オフラインのときは更新を確認できません",
       "checkFailed": "更新を確認できませんでした",
@@ -2143,5 +2209,23 @@
         "downloadFailed": "ダウンロードに失敗しました"
       }
     }
+  },
+  "failure": {
+    "busy": "Canopi は別の作業を実行中です。少し待ってからもう一度お試しください。",
+    "internal": "問題が発生しました。もう一度試すか、問題を報告してください。",
+    "connection": "接続できませんでした。接続を確認して、もう一度お試しください。",
+    "serverError": "サーバーが応答できませんでした。後でもう一度お試しください。",
+    "addressRefused": "Canopi は許可されたサイト以外のアドレスを拒否しました。繰り返し起きる場合は問題を報告してください。",
+    "downloadTooLarge": "ダウンロードが Canopi の上限を超えています。必要な場合は問題を報告してください。",
+    "fileNotFound": "ファイルが見つかりません。まだ存在するか確認して、もう一度お試しください。",
+    "permissionDenied": "Canopi にはこのファイルまたはフォルダーを使う権限がありません。権限を確認して、もう一度お試しください。",
+    "readOnly": "この場所は読み取り専用です。別の場所を選んで、もう一度お試しください。",
+    "diskFull": "ディスクがいっぱいです。空き容量を増やして、もう一度お試しください。",
+    "storageFull": "デバイスのストレージがいっぱいです。空き容量を増やして、もう一度お試しください。",
+    "fileTooLarge": "このファイルは Canopi の上限を超えています。小さいファイルを選んでください。",
+    "fileError": "Canopi はファイルを読み書きできませんでした。もう一度お試しください。",
+    "plantCatalogUnavailable": "植物カタログを開けませんでした。Canopi を再起動し、続く場合は再インストールしてください。",
+    "libraryNewer": "このデータライブラリは新しいバージョンの Canopi で保存されています。変更するには Canopi を更新してください。",
+    "libraryUnavailable": "データライブラリを開けなかったため、このセッションの変更は保存されません。Canopi を再起動して、もう一度お試しください。"
   }
 }

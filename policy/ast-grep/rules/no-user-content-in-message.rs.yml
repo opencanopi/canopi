@@ -1,0 +1,61 @@
+# no-user-content-in-message (ADR 0025:60, plan C18, 2.1-M224), Rust half: a path's display() or to_string_lossy()
+# formatted into free text: inside format!, write!, writeln!, panic!, bail!, anyhow! or a tracing or log macro, or
+# an Err built from one directly. Inline test code is no site; the ignores are the out-of-line test modules and
+# generated files. The TypeScript half lands with failures/ in 1b.
+id: no-user-content-in-message.rs
+language: rs
+severity: error
+message: "no-user-content-in-message (2.1-M224): user content (a user path, a Design or file name) reaches a failure or log message only as a RedactedText or path field, never formatted into its free text; lowered by 1a-c3 (canopi-redact) and, for the LiDAR sites, N1. Owner none; example desktop/src/host/updater/failure.rs"
+# rust-scope: desktop/src canopi-types/src canopi-redact/src
+files:
+  - "{desktop/src,canopi-types/src,canopi-redact/src}/**/*.rs"
+  - "policy/fixtures/rules/*/{desktop/src,canopi-types/src,canopi-redact/src}/**/*.rs"
+ignores:
+  - "desktop/src/commands/design/tests.rs"
+  - "desktop/src/db/test_support.rs"
+  - "desktop/src/db/plant_filter_fields.rs"
+  - "desktop/src/db/schema_contract_generated.rs"
+  - "desktop/src/design/new_design_defaults.rs"
+  - "desktop/src/host/dialogs/tests.rs"
+  - "desktop/src/ci_lane_policy.rs"
+  - "desktop/src/module_layering.rs"
+  - "desktop/src/module_layering/**"
+  - "desktop/src/native_command_policy.rs"
+  - "desktop/src/test_scratch.rs"
+  - "desktop/src/module_layering/tests.rs"
+  - "desktop/src/services/lidar/analyses/tests/**"
+  - "desktop/src/services/lidar/analysis_registry_generated.rs"
+  - "desktop/src/services/lidar/acceptance_hooks.rs"
+  - "desktop/src/services/lidar/e2e.rs"
+  - "desktop/src/services/lidar/gdal_engine.rs"
+  - "desktop/src/services/lidar/measurement.rs"
+  - "desktop/src/services/lidar/fixed_library_tests.rs"
+  - "desktop/src/services/lidar/rust_engine/crs/properties.rs"
+  - "desktop/src/services/lidar/rust_engine/comparison.rs"
+  - "desktop/src/services/lidar/rust_engine/crs_reference_points.rs"
+  - "desktop/src/services/species_catalog_read/test_support.rs"
+  - "canopi-types/src/design/tests.rs"
+  - "canopi-types/src/views/tests.rs"
+  - "bindings-gen/src/plan_support.rs"
+rule:
+  all:
+    - any:
+        - kind: macro_invocation
+          all:
+            - has: { field: macro, regex: '^(format|write|writeln|panic|bail|anyhow|tracing::\w+|log::\w+|warn|error|info|debug|trace)$' }
+            - has: { kind: token_tree, regex: '\.(display|to_string_lossy)\s*\(\s*\)' }
+        - kind: call_expression
+          all:
+            - has: { field: function, regex: '^Err$' }
+            - has: { field: arguments, regex: '\.(display|to_string_lossy)\s*\(\s*\)' }
+          not: { has: { field: arguments, stopBy: end, kind: macro_invocation, has: { field: macro, regex: '^format$' } } }
+    - not: { matches: test-code }
+utils:
+  # Inline test code: an item (a `mod tests`, a test fn, a cfg(test) helper) whose attributes name test.
+  test-code:
+    inside:
+      stopBy: end
+      follows:
+        kind: attribute_item
+        regex: '^#\[(cfg\((test|all\(test\b)|test\]|tokio::test)'
+        stopBy: { not: { any: [ { kind: attribute_item }, { kind: line_comment }, { kind: block_comment } ] } }

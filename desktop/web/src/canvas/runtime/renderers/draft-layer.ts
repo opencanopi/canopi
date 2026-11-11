@@ -17,6 +17,7 @@
 // Production CSP rejects Pixi's generated functions; its shim avoids eval.
 import 'pixi.js/unsafe-eval'
 import { AlphaFilter, Container, Graphics, Rectangle, TextStyle, type Text } from 'pixi.js'
+import { canvasFonts, distinctCharacters } from '../fonts/font-loading'
 import type { SceneAnnotationEntity, ScenePlantEntity, SceneZoneEntity } from '../scene'
 import {
   getDraftLabelVisual,
@@ -113,7 +114,12 @@ export function createDraftLayer(options: DraftLayerOptions): DraftLayer {
   const drawn: Container[] = []
   const filters: AlphaFilter[] = []
   const upright: UprightPart[] = []
-  const requestedFonts = new Set<string>()
+  // A chip drawn while its web font loads keeps the fallback (font-loading.ts): a load redraws the live draft.
+  const unsubscribeFonts = canvasFonts.subscribe(() => {
+    if (!draft || !view) return
+    trace(draft, view)
+    options.requestRepaint?.()
+  })
 
   function clear(): void {
     for (const node of drawn.splice(0)) {
@@ -262,7 +268,7 @@ export function createDraftLayer(options: DraftLayerOptions): DraftLayer {
 
   function drawLabel(shape: Extract<DraftShape, { kind: 'label' }>): void {
     const visual = getDraftLabelVisual(shape.tone)
-    requestFont(`${visual.fontWeight} ${visual.fontSizePx}px ${visual.fontFamily}`)
+    canvasFonts.request(`${visual.fontWeight} ${visual.fontSizePx}px ${visual.fontFamily}`, distinctCharacters([shape.text]))
     const text = createText()
     text.text = shape.text
     text.style = new TextStyle({
@@ -299,28 +305,6 @@ export function createDraftLayer(options: DraftLayerOptions): DraftLayer {
         x: shape.offsetPx.x - width / 2,
         y: shape.offsetPx.y - (visual.placement === 'centre' ? height / 2 : visual.gapPx + height),
       }, true)
-  }
-
-  /**
-   * Canvas text drawn while its web font is still loading keeps the fallback font, and nothing in the DOM need have asked
-   * for a chip's face yet (a weight the page has not drawn). So the layer asks the browser for it, once per
-   * font while a face has not loaded, and when a face that had not loaded then has loaded, redraws the live draft and
-   * asks for a frame. `fonts.check()` cannot tell: WebKit reports a face still loading under font-display: swap as
-   * failed, so check() is true, and only `load()` waits for the face to arrive (as the notes' measure does).
-   */
-  function requestFont(font: string): void {
-    const fonts = globalThis.document?.fonts
-    if (!fonts || requestedFonts.has(font)) return
-    const unloaded = new Set<FontFace>()
-    fonts.forEach((face) => { if (face.status !== 'loaded') unloaded.add(face) })
-    if (unloaded.size === 0) return
-    requestedFonts.add(font)
-    fonts.load(font).then((faces) => {
-      if (!faces.some((face) => unloaded.has(face) && face.status === 'loaded')) return
-      if (!draft || !view) return
-      trace(draft, view)
-      options.requestRepaint?.()
-    }, () => {})
   }
 
   /**
@@ -459,6 +443,7 @@ export function createDraftLayer(options: DraftLayerOptions): DraftLayer {
       }
     },
     dispose() {
+      unsubscribeFonts()
       draft = null
       clear()
     },

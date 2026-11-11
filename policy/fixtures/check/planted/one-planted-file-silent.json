@@ -1,0 +1,43 @@
+{
+  "about": "A family whose planted directory holds two planted files fails when one of them never fires: planted-silent names the silent file, so a second planted file guarding another glob is held on its own (canopi-f47t.52.224)",
+  "expect": [
+    "planted-silent"
+  ],
+  "files": {
+    "policy/adapters/scan.mjs": "import fs from 'node:fs';\nimport path from 'node:path';\nexport function collect({ root, paths }) {\n  return paths.flatMap((p) => [...fs.readFileSync(path.join(root, p), 'utf8').matchAll(/(PLANT|no-plant)/g)].map((m) => ({ rule: m[1] === 'PLANT' ? 'plant' : 'no-plant', path: p })));\n}\n",
+    "src/a.ts": "PLANT\n",
+    "policy/ratchets/plants.json": {
+      "version": 1,
+      "family": "plants",
+      "ledger": "2.1-M187",
+      "tool": "scan",
+      "scope": [
+        "src/**"
+      ],
+      "lane": "commit",
+      "keys": "path",
+      "entries": {
+        "src/a.ts": {}
+      }
+    },
+    "policy/fixtures/rules/plants/b.ts": "PLANT\n",
+    "policy/fixtures/rules/plants/c.ts": "clean\n",
+    "policy/rules.json": {
+      "version": 1,
+      "phases": [
+        "later"
+      ],
+      "rules": [
+        {
+          "id": "fixture-later",
+          "status": "planned",
+          "owner_today": "none",
+          "owner_target": {
+            "path": "src/",
+            "phase": "later"
+          }
+        }
+      ]
+    }
+  }
+}

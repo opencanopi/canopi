@@ -171,7 +171,7 @@ flowchart TB
     core["5 app/document-session/core/ (2.1), owner Session core"]:::target
   end
   subgraph L1["L1 adapters, ranked"]
-    fail["1 failures/ (2.1)"]:::target
+    fail["1 failures/"]
     ipc["2 ipc/, owner native host commands"]
     ml["3 maplibre/, owner MapLibre (L7)"]
     plat["3 platform/"]
@@ -248,8 +248,11 @@ Graph: cargo
 flowchart LR
   canopi_desktop["canopi-desktop: shell, commands, services, stores, catalog, LiDAR"]
   canopi_types["canopi-types: contract shapes"]
+  canopi_redact["canopi-redact: Redactor, RedactedText (skeleton)"]
   bindings_gen["bindings-gen: TS emitter"]
   canopi_desktop --> canopi_types
+  canopi_desktop --> canopi_redact
+  canopi_types --> canopi_redact
   bindings_gen --> canopi_types
 ```
 
@@ -275,7 +278,7 @@ flowchart BT
   bg["bindings-gen: TS from the shared shapes"]
   fw["canopi-format-wasm (2.1)"]:::target
   sw["canopi-page-rules-wasm (2.1)"]:::target
-  rd["canopi-redact (2.1): Redactor, RedactedText"]:::target
+  rd["canopi-redact: Redactor, RedactedText"]
   lw["canopi-library-wasm (2.1): catalogue feature, no native"]:::target
   fmt --> types
   st --> types

@@ -104,7 +104,6 @@
     "desktop/web/src/app/canvas-map-surface/workspace-map-controls.test.ts <-> desktop/web/src/app/canvas-map-surface/workspace-map-controls.test.ts": { "count": 1 },
     "desktop/web/src/app/keyboard/keymap.test.ts <-> desktop/web/src/app/keyboard/keymap.test.ts": { "count": 1 },
     "desktop/web/src/app/my-location/follow.test.ts <-> desktop/web/src/maplibre/camera-driver.test.ts": { "count": 1 },
-    "desktop/web/src/app/saved-object-stamps/file.ts <-> desktop/web/src/app/saved-object-stamps/workbench.ts": { "count": 1 },
     "desktop/web/src/canvas/plant-stamp-source.ts <-> desktop/web/src/canvas/saved-object-stamp-source.ts": { "count": 1 },
     "desktop/web/src/canvas/runtime/renderers/draft-layer.test.ts <-> desktop/web/src/canvas/runtime/renderers/draft-layer.test.ts": { "count": 1 },
     "desktop/web/src/canvas/runtime/scene-runtime.test.ts <-> desktop/web/src/canvas/runtime/scene-runtime.test.ts": { "count": 4 },

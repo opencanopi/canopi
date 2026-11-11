@@ -49,7 +49,8 @@ export interface ViewNavigation extends ViewCommandSurface {
   returnFromTemporaryFocus(): boolean        // bookmark is a ViewCamera: re-origin cannot invalidate it
   clearTemporaryFocus(): void
   /** Opening a Design: the camera it was saved with (`saved`, already framed for this map) or else the oriented fit at the
-   *  given bearing; an empty scene opens on the north-up fit either way (spec §4.15). Every open path calls it through
+   *  given bearing; an empty scene opens at its saved camera north up, else on the north-up fit (spec §4.15, 2.1-Q28);
+   *  a saved camera that is not finite is ignored. Every open path calls it through
    *  document-surface.ts's open fit; Fit to Design stays zoomToFit. */
   openAt(bearingDeg: number, saved?: ViewCamera | null): void
 
@@ -203,10 +204,11 @@ export function createViewNavigation(deps: ViewNavigationDeps): ViewNavigation {
     },
     openAt(bearingDeg, saved) {
       const extent = deps.readSceneExtent()
-      // A new or empty Design opens north up: "Where is your site?" appears over a north-up overview.
+      // A new or empty Design opens north up: "Where is your site?" appears over a north-up overview, unless the empty
+      // Design was saved with a view (placed by a search, canopi-eon8.9, 2.1-Q28), which opens there, north up.
       const empty = isEmptyExtent(extent, frame().view.pixelsPerMetre)
-      if (saved && !empty) {
-        jump(saved)
+      if (saved && isFiniteCamera(saved)) {
+        jump(empty ? { ...saved, bearingDeg: 0 } : saved)
         return
       }
       const bearing = empty ? 0 : normaliseBearing(bearingDeg)
@@ -295,6 +297,10 @@ function cameraCentredOn(view: ViewTransform, point: WorldPoint, pixelsPerMetre:
     bearingDeg,
     pitchDeg: 0,
   }
+}
+
+function isFiniteCamera(camera: ViewCamera): boolean {
+  return [camera.center.lon, camera.center.lat, camera.zoom, camera.bearingDeg].every(Number.isFinite)
 }
 
 function samePlanar(a: PlanarCamera, b: PlanarCamera): boolean {

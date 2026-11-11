@@ -15,7 +15,8 @@ import {
 } from '../../maplibre/map-background'
 import { OPENFREEMAP_LAYER_PREFIX, OPENFREEMAP_SOURCE_PREFIX } from '../../maplibre/openfreemap-basemap'
 import { mapErrorResourceId } from '../../maplibre/map-error-owner'
-import { describeMapErrorEvent, logMapError, redactCredentials, redactError } from '../../maplibre/redact-credentials'
+import { redact, redactError } from '../../failures/redact'
+import { reportMapError, reportMapSourceFailure } from '../../maplibre/map-errors'
 import { UNAVAILABLE_MAPLIBRE_CANVAS_SURFACE_STATE } from '../../maplibre/canvas-surface-state'
 import { readSatelliteConfig } from '../settings/satellite-config'
 import {
@@ -83,7 +84,7 @@ export class WorkspaceMapControls implements WorkspaceActivationMapControls {
 
   constructor(private readonly options: WorkspaceActivationMapControlsOptions) {
     this.surface = options.surface ?? new MapLibreSurface()
-    this.logError = options.logError ?? logMapError
+    this.logError = options.logError ?? reportMapError
   }
 
   createMap(
@@ -163,11 +164,11 @@ export class WorkspaceMapControls implements WorkspaceActivationMapControls {
             if (attempt.admitted && attempt.contributions.handleMapError(event)) return
             // The Basemap's sprite or TileJSON failed (offline): its notice shows, the map keeps drawing.
             if (attempt.admitted && attempt.background?.claimMapError(event)) {
-              this.logError('MapLibre workspace basemap resource failed to load:', describeMapErrorEvent(event))
+              reportMapSourceFailure('MapLibre workspace basemap resource failed to load:', event)
               return
             }
             if (attempt.admitted && isPassiveBasemapError(event)) {
-              this.logError('Passive MapLibre workspace basemap error:', describeMapErrorEvent(event))
+              reportMapSourceFailure('Passive MapLibre workspace basemap error:', event)
               return
             }
             const error = mapError(event)
@@ -432,10 +433,10 @@ function isPassiveBasemapError(event: unknown): boolean {
 
 function mapError(event: unknown): Error {
   if (event instanceof Error) return redactError(event)
-  if (typeof event === 'string' && event.length > 0) return new Error(redactCredentials(event))
+  if (typeof event === 'string' && event.length > 0) return new Error(redact(event))
   if (typeof event === 'object' && event !== null && 'message' in event
     && typeof event.message === 'string' && event.message.length > 0) {
-    return new Error(redactCredentials(event.message))
+    return new Error(redact(event.message))
   }
   if (
     typeof event === 'object'

@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { locale } from '../app/settings/state'
-import { isLocaleKey, openSetText, t } from '.'
+import { openSetText, t } from '.'
 
 describe('typed translation keys', () => {
   afterEach(() => {
@@ -21,24 +21,25 @@ describe('typed translation keys', () => {
     expect(t('plantDb.speciesAtLeast', { count: 3 })).toBe('3+ species')
   })
 
-  it('isLocaleKey narrows only a key English holds, plural bases included, in production too', () => {
+  it('openSetText reads a value whose key English holds as a string, in production too', () => {
     vi.stubEnv('PROD', true)
     vi.stubEnv('DEV', false)
-    const known: string = 'about.title'
-    const unknown: string = 'filters.habit_Unheard of'
+    locale.value = 'en'
+    const tree: string = 'Tree'
+    const other: string = 'other'
 
-    expect(isLocaleKey(known) ? t(known) : 'fallback').toBe('About Canopi')
-    expect(isLocaleKey('plantDb.speciesAtLeast')).toBe(true)
-    expect(isLocaleKey('plantDb.speciesAtLeast_other')).toBe(true)
-    expect(isLocaleKey(unknown) ? t(unknown) : 'fallback').toBe('fallback')
+    expect(openSetText('filters.habit_', tree)).toBe(t('filters.habit_Tree'))
+    expect(openSetText('canvas.timeline.type_', other)).toBe(t('canvas.timeline.type_other'))
   })
 
-  it('isLocaleKey refuses a group of keys and an _other key with no plural siblings, as the LocaleKey union does', () => {
-    const group: string = 'plantDb'
+  it('openSetText falls back for a key English lacks, in production too, never reading a missing key', () => {
+    vi.stubEnv('PROD', true)
+    vi.stubEnv('DEV', false)
+    const unheardOf: string = 'Unheard of'
+    const none: string = ''
 
-    expect(isLocaleKey(group) ? t(group) : 'fallback').toBe('fallback')
-    expect(isLocaleKey('canvas.timeline.type')).toBe(false)
-    expect(isLocaleKey('canvas.timeline.type_other')).toBe(true)
+    expect(openSetText('filters.habit_', unheardOf, '-')).toBe('-')
+    expect(openSetText('canvas.timeline.type_', none, '-')).toBe('-')
   })
 
   it('openSetText names an open-set value in its key family, or its fallback, and refuses a family English lacks', () => {

@@ -19,8 +19,8 @@ An agent adding to a seam copies its canonical example; a new kind of seam adds 
 | `reportFailure` and the notice row | the one failure sink, ring and in-app notice | `failures/` (2.1) | One sink, both editions | the owner | keep (ADR 0025, M105) |
 | `OperationId` | correlation per user action | `canopi-types` (2.1) | Report from a failure; jobs | `failures/` (2.1) | change (M105) |
 | `Sensitive<T>`, `UserPath`, `RedactedText` | user content typed, not formatted | `canopi-types` (2.1) | Trust boundary (logs, reports) | `canopi-types/fixtures/redaction/` (2.1) | keep (ADR 0025, M113) |
-| Redaction | each language redacts the text it produces, once | `canopi-redact` (2.1); `failures/redact.ts` (2.1) | Trust boundary | `maplibre/redact-credentials.ts` | change (M113) |
-| `REPORT_SECTIONS` and builder | report contents, consent, editions column | one TS builder in `failures/` (2.1) | Consent; both editions (Q60) | `app/problem-report/diagnostics.ts` | change (M112) |
+| Redaction | each language redacts the text it produces, once | `canopi-redact` (2.1); `failures/redact.ts` | Trust boundary | `failures/redact.ts` | change (M113) |
+| `REPORT_SECTIONS` and builder | sections and consent, an entry per row, even empty; manifest of the rest | `canopi-types/src/report.rs`; builder in `app/problem-report/`; port and writers `platform/problem-report*.ts`; `services/problem_report/` adds Desktop native sections | Consent; both editions (Q60), a lacking edition marks it (M412); paths placeholders (Q278) | `desktop/web/src/app/problem-report/builder.ts` | change (M112, Q277, M421, M436) |
 | `SubsystemHealth` | closed `StoreId` map to status and notice | `canopi-types/src/health.rs` | Desktop runners and Web adapters | the owner | change (M112) |
 
 ## Native scheduling

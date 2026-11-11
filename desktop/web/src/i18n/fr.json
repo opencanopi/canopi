@@ -24,7 +24,6 @@
     "workspace": "Espace de travail web",
     "openCanopi": "Ouvrir un fichier .canopi…",
     "downloadCanopi": "Télécharger une copie",
-    "dismissNotice": "Fermer",
     "downloadCopy": "Télécharger une copie",
     "savedInBrowser": "Enregistré dans ce navigateur",
     "openCanopiFile": "Ouvrir un fichier .canopi"
@@ -113,7 +112,24 @@
     "plantDbCorrupt": "Le fichier de base de données du catalogue des plantes est endommagé : la recherche et les fiches des plantes sont indisponibles. Vos Designs ne sont pas touchés. Réinstallez Canopi pour le rétablir.",
     "localDataNotOpenedTitle": "Données antérieures non ouvertes",
     "localDataNotOpened": "Canopi 2.0 ne peut pas ouvrir les données enregistrées par les versions précédentes. Elles sont restées inchangées, et Canopi repart de zéro.",
-    "dismiss": "Fermer"
+    "settingsUnavailable": "Vos réglages n’ont pas pu être lus. Canopi utilise les valeurs par défaut et ne modifiera pas vos réglages enregistrés pendant cette session.",
+    "settingsStillUnavailable": "Vos réglages n’ont toujours pas pu être lus.",
+    "setAside": {
+      "userDb": "Les données enregistrées de Canopi étaient endommagées et ont été mises de côté sous le nom {{file}}. Vos Designs ne sont pas concernés.",
+      "webDrafts": "Les brouillons enregistrés de Canopi étaient endommagés et ont été mis de côté sous le nom {{file}}. Les Designs exportés en fichiers ne sont pas concernés.",
+      "webSpeciesLists": "Les favoris et les plantes récemment consultées enregistrés par Canopi étaient endommagés et ont été mis de côté sous le nom {{file}}. Vos Designs ne sont pas concernés."
+    },
+    "writesRefused": {
+      "webDrafts": "Les brouillons enregistrés de Canopi sont endommagés et n’ont pas pu être mis de côté : les modifications des brouillons ne seront pas enregistrées pendant cette session. Exportez votre Design pour le conserver.",
+      "webSpeciesLists": "Les favoris et les plantes récemment consultées enregistrés par Canopi sont endommagés et n’ont pas pu être mis de côté : leurs modifications ne seront pas enregistrées pendant cette session."
+    },
+    "newerReadOnly": "Ces données ont été enregistrées par une version plus récente de Canopi. Vous pouvez les consulter, mais les modifications ne seront pas enregistrées. Mettez Canopi à jour pour les modifier.",
+    "refusedNewer": "Ces données ont été enregistrées par une version plus récente de Canopi et n’ont pas été ouvertes. Mettez Canopi à jour pour les utiliser.",
+    "storeUnavailable": "Certaines données enregistrées de Canopi n’ont pas pu être ouvertes. Redémarrez Canopi et signalez un problème si cela se reproduit.",
+    "fieldsReset": "Certains réglages avaient des valeurs que Canopi ne pouvait pas utiliser et ont été remis à leur valeur par défaut.",
+    "writeFailed": "Canopi n’a pas pu enregistrer une modification de ses données. Réessayez et signalez un problème si cela se reproduit.",
+    "libraryListStale": "La liste de la Bibliothèque de données n’a pas pu être actualisée",
+    "update": "Mettre à jour"
   },
   "canvas": {
     "lockToast": {
@@ -156,7 +172,10 @@
       "selectSource": "Cliquez sur une plante placée pour la répéter en rangée",
       "sourceMissed": "Cliquez sur une plante placée, visible et non verrouillée",
       "interval": "Intervalle",
-      "generatedCount": "{{count}} générées",
+      "generatedCount_one": "{{count}} générée",
+      "generatedCount_few": "{{count}} générées",
+      "generatedCount_many": "{{count}} générées",
+      "generatedCount_other": "{{count}} générées",
       "commitLimitWarning": "Augmentez l’intervalle ou raccourcissez la ligne",
       "dragAlong": "faites glisser le long de la rangée",
       "mode": "Espacement",
@@ -210,7 +229,10 @@
     },
     "plantColor": {
       "label": "Couleur de plante",
-      "selectedCount": "{{count}} sélectionnées",
+      "selectedCount_one": "{{count}} sélectionnée",
+      "selectedCount_few": "{{count}} sélectionnées",
+      "selectedCount_many": "{{count}} sélectionnées",
+      "selectedCount_other": "{{count}} sélectionnées",
       "suggested": "Suggestion basée sur la couleur de la fleur",
       "moreColors": "Couleur personnalisée",
       "hue": "Teinte",
@@ -218,11 +240,17 @@
       "preview": "Aperçu",
       "customHex": "Hex personnalisé",
       "setColorForSpecies": "Définir pour tous les {{species}}",
-      "applySelection": "Appliquer aux {{count}} sélectionnés"
+      "applySelection_one": "Appliquer à la sélection ({{count}})",
+      "applySelection_few": "Appliquer à la sélection ({{count}})",
+      "applySelection_many": "Appliquer à la sélection ({{count}})",
+      "applySelection_other": "Appliquer à la sélection ({{count}})"
     },
     "plantSymbol": {
       "label": "Symbole de plante",
-      "selectedCount": "{{count}} sélectionnées",
+      "selectedCount_one": "{{count}} sélectionnée",
+      "selectedCount_few": "{{count}} sélectionnées",
+      "selectedCount_many": "{{count}} sélectionnées",
+      "selectedCount_other": "{{count}} sélectionnées",
       "setSymbolForSpecies": "Définir pour tous les {{species}}",
       "mixed": "Symboles mixtes",
       "current": "Actuel : {{symbol}}",
@@ -268,7 +296,10 @@
         "does": "Ce qu’elle fait",
         "abstract": "Abstraits"
       },
-      "applySelection": "Appliquer aux {{count}} sélectionnés"
+      "applySelection_one": "Appliquer à la sélection ({{count}})",
+      "applySelection_few": "Appliquer à la sélection ({{count}})",
+      "applySelection_many": "Appliquer à la sélection ({{count}})",
+      "applySelection_other": "Appliquer à la sélection ({{count}})"
     },
     "placeSearch": {
       "placeholder": "Lieu ou coordonnées",
@@ -611,7 +642,8 @@
         "sortRecent": "Ajout récent",
         "factAdded": "Ajouté",
         "deletedItem": "Élément supprimé",
-        "importNeedsDesign": "Ouvrez un Design pour importer des données"
+        "importNeedsDesign": "Ouvrez un Design pour importer des données",
+        "importCancelled": "Import annulé"
       },
       "layers": {
         "emptyTitle": "Aucune donnée du site pour l’instant",
@@ -1306,12 +1338,19 @@
     "selectHint": "Sélectionnez des plantes, zones, annotations ou groupes à enregistrer ensemble.",
     "loading": "Chargement des tampons enregistrés…",
     "empty": "Enregistrez une sélection pour la réutiliser ici.",
-    "summaryPlantOne": "{{count}} plante",
-    "summaryPlantOther": "{{count}} plantes",
-    "summaryZoneOne": "{{count}} zone",
-    "summaryZoneOther": "{{count}} zones",
-    "summaryAnnotationOne": "{{count}} annotation",
-    "summaryAnnotationOther": "{{count}} annotations",
+    "summaryPlant_one": "{{count, number}} plante",
+    "summaryPlant_few": "{{count, number}} plantes",
+    "summaryPlant_many": "{{count, number}} plantes",
+    "summaryPlant_other": "{{count, number}} plantes",
+    "summaryZone_one": "{{count, number}} zone",
+    "summaryZone_few": "{{count, number}} zones",
+    "summaryZone_many": "{{count, number}} zones",
+    "summaryZone_other": "{{count, number}} zones",
+    "summaryAnnotation_one": "{{count, number}} annotation",
+    "summaryAnnotation_few": "{{count, number}} annotations",
+    "summaryAnnotation_many": "{{count, number}} annotations",
+    "summaryAnnotation_other": "{{count, number}} annotations",
+    "defaultNameParts": "{{zones}}, {{annotations}}",
     "summaryEmpty": "Aucun objet visible",
     "summaryUnavailable": "Aperçu indisponible",
     "summaryBefore2_0": "Enregistré avec une version de Canopi antérieure à la 2.0 ; Canopi 2.0 ne peut pas le placer.",
@@ -1328,11 +1367,19 @@
     "deleteNamed": "Supprimer le tampon {{name}}",
     "actionsFor": "Autres actions pour {{name}}"
   },
-  "error": {
-    "title": "Une erreur est survenue",
-    "message": "L’application a rencontré une erreur inattendue. Vous pouvez essayer de recharger.",
+  "boundary": {
+    "panelFailed": "Ce panneau n’a pas pu se charger",
+    "tryAgain": "Réessayer",
+    "reportProblem": "Signaler un problème",
+    "rootTitle": "Une erreur est survenue",
+    "rootMessage": "L’application a rencontré une erreur inattendue. Vous pouvez essayer de recharger.",
+    "reload": "Recharger"
+  },
+  "notice": {
+    "count": "{{index}} sur {{count}}",
+    "dismiss": "Ignorer",
     "reload": "Recharger",
-    "details": "Détails de l’erreur"
+    "tryingAgain": "Nouvelle tentative…"
   },
   "shared": {
     "datePicker": {
@@ -1343,30 +1390,40 @@
   },
   "problemReport": {
     "title": "Signaler un problème",
-    "intro": "Créez un résumé et un paquet de diagnostic à partager plus tard.",
+    "intro": "Canopi enregistre un seul fichier zip sur cet appareil. Rien n’est envoyé : vous choisissez où le partager.",
     "descriptionLabel": "Que s’est-il passé ?",
     "descriptionPlaceholder": "Décrivez ce que vous faisiez, ce qui a échoué et si vous pouvez le reproduire.",
-    "privacyNote": "Le paquet de diagnostic exclut par défaut votre Design (y compris ses coordonnées), les captures d’écran et les chemins de fichiers bruts.",
     "create": "Créer le rapport",
     "creating": "Création…",
     "cancel": "Annuler",
     "close": "Fermer",
     "successTitle": "Rapport créé",
-    "successText": "Les fichiers du rapport sont dans ce dossier. Joignez le paquet et collez le résumé lorsque vous contactez le support.",
-    "folderPath": "Dossier",
-    "summaryFile": "Résumé",
-    "bundleFile": "Paquet",
-    "copySummary": "Copier le résumé",
-    "copiedSummary": "Copié",
-    "copyFailed": "Impossible de copier le résumé. Le fichier de résumé reste dans le dossier du rapport.",
+    "successText": "Le zip se trouve dans le dossier Rapports de problème du dossier de données de Canopi.",
+    "bundleFile": "Fichier",
     "errorTitle": "Le rapport n’a pas pu être créé",
-    "showFolder": "Afficher le dossier",
     "showingFolder": "Ouverture…",
-    "showFolderFailed": "Impossible d’afficher le dossier. Le chemin exact du dossier reste affiché ci-dessus.",
-    "optionalAttachments": "Pièces jointes facultatives",
+    "showFolderFailed": "Le dossier n’a pas pu être affiché. Le zip reste dans le dossier Rapports de problème.",
     "includeCurrentDesign": "Inclure le Design actuel",
-    "includeCurrentDesignDescription": "Ajoute une copie .canopi avec le contenu du canevas et ses coordonnées, les notes, le calendrier et le budget.",
-    "currentDesignUnavailable": "Aucun Design actuel à joindre."
+    "currentDesignUnavailable": "Aucun Design actuel à joindre.",
+    "contentsTitle": "Le rapport contient",
+    "sendText": "Pour l’envoyer, ouvrez un ticket sur la page GitHub des tickets de Canopi, décrivez ce qui s’est passé et joignez le zip.",
+    "issuesLink": "Ouvrir la page GitHub des tickets",
+    "downloadedText": "Rapport téléchargé. Le zip se trouve dans les téléchargements de votre navigateur.",
+    "showAgain": "Afficher à nouveau",
+    "section": {
+      "originatingFailure": "L’échec à partir duquel vous signalez, avec son code et son opération.",
+      "description": "Ce que vous avez écrit ci-dessus.",
+      "build": "La version de Canopi, votre système d’exploitation et sa vue web ou votre navigateur.",
+      "health": "Comment chaque stockage de données s’est ouvert, sans chemins de fichiers.",
+      "queues": "Les tâches de fond en attente et en cours, par nombre et par durée.",
+      "nativeSettlements": "Les 50 dernières opérations de fond échouées, sans chemins ni clés.",
+      "frontendRing": "Les erreurs récentes de la fenêtre de l’application, sans chemins ni clés.",
+      "jobs": "Le nombre de tâches de la bibliothèque de données et leurs échecs récents, sans noms d’éléments.",
+      "libraryDisk": "L’espace disque de la bibliothèque de données et l’état du nettoyage, sans noms d’éléments.",
+      "logTail": "La fin du journal de Canopi, sans chemins ni clés.",
+      "settingsSummary": "Votre langue, votre thème et vos réglages d’affichage ; jamais votre clé Maps.",
+      "design": "Le Design actuel, seulement si vous le cochez : ses objets, ses coordonnées sur la carte, ses notes, sa chronologie et son budget."
+    }
   },
   "pdf": {
     "title": "Exporter en PDF",
@@ -1403,7 +1460,10 @@
     "wholeDesign": "Tout le Design",
     "splitHint": "Vérifiez les cadres numérotés et chaque fiche avant de les appliquer.",
     "splitSheets": "Diviser en fiches lisibles",
-    "splitPreview": "Aperçu · {{count}} pages dans le PDF",
+    "splitPreview_one": "Aperçu · {{count}} page dans le PDF",
+    "splitPreview_few": "Aperçu · {{count}} pages dans le PDF",
+    "splitPreview_many": "Aperçu · {{count}} pages dans le PDF",
+    "splitPreview_other": "Aperçu · {{count}} pages dans le PDF",
     "applySheets": "Appliquer les fiches",
     "addPage": "Ajouter une fiche terrain",
     "addHint": "Tracez un rectangle autour de la surface à imprimer.",
@@ -1529,7 +1589,10 @@
     "importTitle": "Import GeoJSON",
     "exportTitle": "Export GeoJSON",
     "importSummary": "{{plants}} plantes, {{zones}} zones, {{annotations}} annotations et {{guides}} guides de mesure importés.",
-    "importSkipped": "{{count}} entités à la géométrie non prise en charge ont été ignorées.",
+    "importSkipped_one": "{{count}} entité à la géométrie non prise en charge a été ignorée.",
+    "importSkipped_few": "{{count}} entités à la géométrie non prise en charge ont été ignorées.",
+    "importSkipped_many": "{{count}} entités à la géométrie non prise en charge ont été ignorées.",
+    "importSkipped_other": "{{count}} entités à la géométrie non prise en charge ont été ignorées.",
     "importNothing": "Le fichier ne contient aucun objet de Design à importer.",
     "busy": "Le canevas est occupé. Réessayez dans un instant.",
     "readFailed": "Le fichier n’a pas pu être lu.",
@@ -1588,7 +1651,11 @@
     "settingsCloseAnyway": "Fermer quand même",
     "flushFailedReloadMessage": "Votre Design n’a pas pu être enregistré dans ce navigateur. Téléchargez une copie avant de recharger.",
     "tabConflictReloadMessage": "Ce Design a été modifié dans un autre onglet du navigateur, vos dernières modifications n’ont donc pas été écrites. Téléchargez une copie avant de recharger, ou annulez et résolvez d’abord la modification.",
-    "discardAndReload": "Recharger sans enregistrer"
+    "discardAndReload": "Recharger sans enregistrer",
+    "flushFailedAppReloadMessage": "Canopi n’a pas pu écrire vos dernières modifications. Réessayez, ou rechargez sans les enregistrer.",
+    "settingsFailedReloadMessage": "Votre Design est enregistré. Canopi n’a pas pu enregistrer vos dernières modifications de réglages. Réessayez, ou rechargez quand même et perdez-les.",
+    "settingsFailedDesignUnsavedReloadMessage": "Canopi n’a pas pu enregistrer vos dernières modifications de réglages. Réessayez, ou rechargez quand même et perdez-les.",
+    "settingsReloadAnyway": "Recharger quand même"
   },
   "drafts": {
     "title": "Brouillons",
@@ -2128,7 +2195,6 @@
     "restart": "Redémarrer pour terminer la mise à jour",
     "checkAtLaunch": "Rechercher des mises à jour au démarrage",
     "linkOnly": "Téléchargez la mise à jour sur projectcanopi.com",
-    "dismiss": "Fermer",
     "failure": {
       "offline": "Impossible de rechercher des mises à jour hors ligne",
       "checkFailed": "Impossible de rechercher des mises à jour",
@@ -2143,5 +2209,23 @@
         "downloadFailed": "le téléchargement a échoué"
       }
     }
+  },
+  "failure": {
+    "busy": "Canopi est occupé par une autre tâche. Réessayez dans un instant.",
+    "internal": "Un problème est survenu. Vous pouvez réessayer ou signaler un problème.",
+    "connection": "Connexion impossible. Vérifiez votre connexion et réessayez.",
+    "serverError": "Le serveur n’a pas pu répondre. Réessayez plus tard.",
+    "addressRefused": "Canopi a refusé une adresse hors de ses sites autorisés. Signalez un problème si cela se reproduit.",
+    "downloadTooLarge": "Le téléchargement dépasse la taille autorisée par Canopi. Signalez un problème si vous en avez besoin.",
+    "fileNotFound": "Le fichier est introuvable. Vérifiez qu’il existe toujours et réessayez.",
+    "permissionDenied": "Canopi n’a pas le droit d’utiliser ce fichier ou ce dossier. Vérifiez ses autorisations et réessayez.",
+    "readOnly": "Cet emplacement est en lecture seule. Choisissez un autre emplacement et réessayez.",
+    "diskFull": "Votre disque est plein. Libérez de l’espace et réessayez.",
+    "storageFull": "Le stockage de votre appareil est plein. Libérez de l’espace et réessayez.",
+    "fileTooLarge": "Ce fichier dépasse la taille autorisée par Canopi. Choisissez un fichier plus petit.",
+    "fileError": "Canopi n’a pas pu lire ou écrire le fichier. Réessayez.",
+    "plantCatalogUnavailable": "Le catalogue des plantes n’a pas pu être ouvert. Redémarrez Canopi, puis réinstallez-le si le problème persiste.",
+    "libraryNewer": "Cette Bibliothèque de données a été enregistrée par une version plus récente de Canopi. Mettez Canopi à jour pour la modifier.",
+    "libraryUnavailable": "La Bibliothèque de données n’a pas pu être ouverte : les modifications ne seront pas enregistrées pendant cette session. Redémarrez Canopi et réessayez."
   }
 }
