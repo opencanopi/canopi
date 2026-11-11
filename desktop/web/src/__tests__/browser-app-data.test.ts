@@ -32,6 +32,13 @@ const EARLIER_KEYS = {
 const ALL_EARLIER_KEYS: readonly string[] = [V1_KEY, ...Object.values(EARLIER_KEYS)]
 
 describe('browser app data store', () => {
+  // Store health and notices are module state: a damaged record set aside in one test must not reach the next one's
+  // notices, whatever order the seed lane runs them in (canopi-f47t.52.36).
+  afterEach(() => {
+    resetStoreHealthForTests()
+    resetNoticesForTests()
+  })
+
   it('persists Browser Drafts as local convenience state without notebook fields', () => {
     const storage = memoryStorage()
     const store = createBrowserAppDataStore({ storage })
@@ -405,11 +412,6 @@ describe('browser app data store', () => {
 
   describe('a damaged Drafts or species lists record (2.1-Q287, 2.1-M438)', () => {
     const NOW = '2026-11-07T10:00:00.000Z'
-
-    afterEach(() => {
-      resetStoreHealthForTests()
-      resetNoticesForTests()
-    })
 
     it.each([
       ['web_drafts', KEYS.drafts, 'Drafts'],
