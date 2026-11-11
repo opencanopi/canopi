@@ -2280,8 +2280,7 @@
       "owner_today": "canopi-redact",
       "owner_target": {
         "path": "canopi-redact",
-        "phase": "1a",
-        "bead": "canopi-f47t.52.224"
+        "phase": "1a"
       },
       "example": "desktop/src/host/updater/failure.rs",
       "note": "user content (a user path, a Design or file name) reaches a failure or log message only as a RedactedText or path field, never formatted into its free text (ADR 0025:60, plan C18); the Rust half counts a path's display() or to_string_lossy() inside format!, write!, panic!, a tracing or log macro or an Err (commit 0, 2.1-M416), lowered by 1a-c3 and, for the LiDAR sites, N1; the TypeScript half is planned for 2a (canopi-ds03)"
