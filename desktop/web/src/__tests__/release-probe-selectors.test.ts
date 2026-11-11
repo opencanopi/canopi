@@ -16,9 +16,9 @@ describe('the release probe selectors', () => {
   it('[canopi-hul9] every data attribute and notice key the macOS probe queries is rendered by the app', () => {
     const app = sources(resolve('src')).map((path) => readFileSync(path, 'utf8')).join('\n')
     const attributes = [...new Set([...PROBE.matchAll(/\[(data-[a-z-]+)/g)].map((match) => match[1]!))]
-    const keys = [...new Set([...PROBE.matchAll(/data-notice-key=\\?["']([\w.-]+)/g)].map((match) => match[1]!))]
+    const keys = [...new Set([...PROBE.matchAll(/noticeKey === '([\w.-]+)'/g)].map((match) => match[1]!))]
 
-    expect(attributes).toContain('data-notice-key')
+    expect(attributes).toContain('data-notice-row')
     expect(keys).toEqual(['update.available'])
     expect(attributes.filter((name) => !app.includes(name))).toEqual([])
     expect(keys.filter((key) => !app.includes(`'${key}'`))).toEqual([])

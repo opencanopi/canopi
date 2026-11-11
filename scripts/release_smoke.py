@@ -478,8 +478,8 @@ def macos_probe(app: Path, design: Path, start: str, version: str, settings: Pat
         bridge.wait(f"return !!document.querySelector('button[aria-label=\"Rename Design: {start_name}\"]')",
                     "the Design opened")
         observed["N installed and driven"] = bundle_version(app) == start
-        bridge.wait("const action = document.querySelector('[data-notice-key=\"update.available\"] button'); "
-                    "if (action) action.click(); return !!document.querySelector('[data-about-updates]')",
+        bridge.wait("if (document.querySelector('[data-about-updates]')) return true; const r = document.querySelector('[data-notice-row]'); "
+                    "if (r) [...r.querySelectorAll('button')].at(r.dataset.noticeKey === 'update.available' ? 0 : -1).click(); return false",
                     "the launch check's notice and About", WAIT_SECONDS)
         bridge.wait(f"return document.querySelector('[data-about-updates]').textContent.includes({json.dumps(version)})",
                     f"About offers {version}")
