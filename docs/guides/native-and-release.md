@@ -86,7 +86,7 @@ Linux deps: GTK/WebKitGTK, librsvg, patchelf (never `libappindicator3-dev`).
 ## Release workflow
 
 1. Merge through PRs into `main` with CI green.
-2. Bump `desktop/tauri.conf.json`; keep `Cargo.toml`, `desktop/web/package.json` and `package-lock.json` in sync.
+2. Bump `desktop/tauri.conf.json`; keep `Cargo.toml`, `desktop/web/package.json` and `package-lock.json` in sync. Dispatch `Updater end to end` on the bump's branch before it merges: its macOS probe runs only on a dispatch and a Release Candidate, so a UI change that broke it shows up here, not at the candidate.
 3. Run `Release Candidate` (`.github/workflows/release-candidate.yml`) with `ref`, `release_version` and `db_release_tag`.
 4. Smoke test the exact artifacts on Linux (start; create, edit, save, reopen Designs; search, placement; undo; layers; place search moves the view only; theme and locale) and record run id, commit, DB SHA-256, tester and results. No Windows or Mac hand check gates a release (U20): each is recorded as untested. macOS needs 12 or later (`bundle.macOS.minimumSystemVersion`).
 5. Promote: `scripts/promote-release.sh --run-id <run-id> --tag v<version> --title "Canopi <version>"` drafts a checksum-verified release of a matching successful candidate, body `docs/release-notes/v<version>.md`.
