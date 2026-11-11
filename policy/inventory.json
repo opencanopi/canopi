@@ -351,6 +351,17 @@
       }
     },
     {
+      "id": "adr-0029-macos-update-probe-drives-the-app",
+      "doc": "docs/adr/0029-system-qualities.md",
+      "quote": "F6's macOS update probe, with its release check if clean (2.1-Q136)",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/__tests__/release-probe-selectors.test.ts",
+          "reads_source": true
+        }
+      }
+    },
+    {
       "id": "adr-0029-accessibility",
       "doc": "docs/adr/0029-system-qualities.md",
       "quote": "Accessibility.",
