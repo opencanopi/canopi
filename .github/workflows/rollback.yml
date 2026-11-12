@@ -10,6 +10,9 @@ name: Rollback lane
 #   survive the round trip the Web harness depends on: a JSON seed written into a profile in Chromium and WebKit, then
 #   read back in a fresh page, byte-identical. Each engine's verdict is a `SEED-ROUNDTRIP` line in the job summary.
 #
+# - resolve: the lane's reader and writer refs (policy/gate/rollback-refs.ts says when each mode holds), in the job
+#   summary and as job outputs.
+#
 # It runs on a dispatch and on a pull request that changes it (GitHub dispatches only workflows already on the
 # default branch). R4-2 turns it into the two-job lane Build & Test and Release Candidate call.
 on:
@@ -19,10 +22,16 @@ on:
         description: The tag whose tree reader-build checks out and builds
         type: string
         default: v2.0.3
+      writer_ref:
+        description: On a release/<major>.<minor> branch, the pending store step's branch the readers read (main if empty)
+        type: string
+        default: ''
   pull_request:
     branches: [main]
     paths:
       - .github/workflows/rollback.yml
+      - policy/gate/rollback-refs.ts
+      - policy/gate/main.ts
 
 # A PR update cancels that PR's older run; every other run has a group of its own.
 concurrency:
@@ -38,6 +47,28 @@ defaults:
     shell: bash
 
 jobs:
+  resolve:
+    name: Reader and writer refs
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      mode: ${{ steps.refs.outputs.mode }}
+      reader: ${{ steps.refs.outputs.reader }}
+      writer: ${{ steps.refs.outputs.writer }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      # The tag names from the remote, which the shallow checkout lacks; a failed listing fails the step (pipefail).
+      - name: Resolve the reader and writer refs
+        id: refs
+        env:
+          ROLLBACK_BRANCH: ${{ github.base_ref || github.ref_name }}
+          ROLLBACK_CANDIDATE: ${{ github.event.pull_request.head.sha || github.sha }}
+          ROLLBACK_WRITER_REF: ${{ inputs.writer_ref }}
+        run: git ls-remote --tags --refs origin 'refs/tags/v*' | sed 's#^.*refs/tags/##' | node policy/gate/cli.mjs rollback-refs
+
   reader-build:
     name: Reader tree ${{ inputs.reader_tag || 'v2.0.3' }} builds on today's runner
     runs-on: ubuntu-latest

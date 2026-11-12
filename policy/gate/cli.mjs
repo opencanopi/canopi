@@ -19,6 +19,8 @@
 //   node policy/gate/cli.mjs gate-cov                         the policy-gate Vitest project's coverage, its child CLIs
 //                                                             included, held to policy/ratchets/coverage.json's floors
 //   node policy/gate/cli.mjs bundle-summary <row log>         a red Frontend row's bundle refusals to the step summary
+//   node policy/gate/cli.mjs rollback-refs                    the rollback lane's reader and writer refs from the tag
+//                                                             names on stdin (rollback-refs.ts)
 //   node policy/gate/cli.mjs agents-rows [--check]            AGENTS.md's rows rendered from the table, or their check
 //   node policy/gate/cli.mjs commit-gate pre-commit|pre-merge-commit|commit-msg <file>
 //                                                             the tracked hooks' commit gate (commit-gate.ts)
