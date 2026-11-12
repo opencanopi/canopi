@@ -15,7 +15,8 @@ const { parse } = createRequire(join(REPO_ROOT, 'desktop/web/package.json'))('ya
 type Step = { name?: string, uses?: string, run?: string, if?: string, with?: Record<string, unknown>,
   env?: Record<string, string>, 'continue-on-error'?: unknown }
 type Job = { steps: Step[], 'continue-on-error'?: unknown, needs?: string | string[], outputs?: Record<string, string> }
-const ROLLBACK = parse(readFileSync(join(REPO_ROOT, '.github/workflows/rollback.yml'), 'utf8')) as { jobs: Record<string, Job> }
+const ROLLBACK = parse(readFileSync(join(REPO_ROOT, '.github/workflows/rollback.yml'), 'utf8')) as { jobs: Record<string, Job>,
+  on: { pull_request?: { branches?: string[], paths?: string[] } } }
 
 const CANDIDATE = '3f9c2e1d0b8a7f6e5d4c3b2a1f0e9d8c7b6a5f4e'
 /** The repository's tags on 2026-11-12: stable releases to v2.0.3, two 2.1 betas and the channel and asset tags. */
@@ -129,6 +130,12 @@ describe('rollback.yml (canopi-f47t.52.239)', () => {
     // A failed tag listing is a failed step, not candidate mode.
     fake('git', '', 128)
     expect(run(resolveStep(), { ROLLBACK_BRANCH: 'main', ROLLBACK_CANDIDATE: CANDIDATE, ROLLBACK_WRITER_REF: '' }).status).not.toBe(0)
+  })
+
+  it('canopi-f47t.52.239: a pull request starts the lane only when it changes rollback.yml, not on a gate edit', () => {
+    // The resolver's own tests run in the policy-gate project; an edit to the gate's entry or the resolver starts no
+    // v2.0.3 build or browser legs.
+    expect(ROLLBACK.on.pull_request).toEqual({ branches: ['main'], paths: ['.github/workflows/rollback.yml'] })
   })
 
   it('canopi-f47t.52.239: a reader tag that fails to build is red, with no fallback to head\'s tree', () => {

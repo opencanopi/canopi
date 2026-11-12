@@ -13,8 +13,8 @@ name: Rollback lane
 # - resolve: the lane's reader and writer refs (policy/gate/rollback-refs.ts says when each mode holds), in the job
 #   summary and as job outputs.
 #
-# It runs on a dispatch and on a pull request that changes it (GitHub dispatches only workflows already on the
-# default branch). R4-2 turns it into the two-job lane Build & Test and Release Candidate call.
+# It runs on a dispatch and on a pull request that changes this file, nothing else (GitHub dispatches only workflows
+# already on the default branch; the resolver's tests run in the policy-gate project). R4-2 turns it into the two-job lane Build & Test and Release Candidate call.
 on:
   workflow_dispatch:
     inputs:
@@ -30,8 +30,6 @@ on:
     branches: [main]
     paths:
       - .github/workflows/rollback.yml
-      - policy/gate/rollback-refs.ts
-      - policy/gate/main.ts
 
 # A PR update cancels that PR's older run; every other run has a group of its own.
 concurrency:
