@@ -12,37 +12,35 @@ import {
 import { installDesktopKeys } from '../../__tests__/support/desktop-key-router'
 import { setCurrentCanvasSession } from '../../canvas/session'
 import { currentCanvasTool } from '../../canvas/session-state'
-import type { CanopiFile } from '../../types/design'
 import { focusOwner } from '../keyboard/focus-owner'
 import { singleKeyShortcuts } from '../settings/state'
 import { activePanel } from '../shell/state'
 import { createDesignSessionStoreTestFixture, designSessionStore } from './store'
+import type { CanopiFile } from '../../types/design'
 
 const fixture = createDesignSessionStoreTestFixture(designSessionStore)
 
-function shownFile(): CanopiFile {
-  return {
-    version: 9,
-    name: 'Orchard 2.1',
-    description: null,
-    plant_species_colors: {},
-    plant_species_symbols: {},
-    layers: [],
-    plants: [],
-    zones: [],
-    annotations: [],
-    measurement_guides: [],
-    groups: [],
-    consortiums: [],
-    timeline: [],
-    budget: [],
-    budget_currency: 'EUR',
-    views: [],
-    stories: [],
-    created_at: '2026-09-01T00:00:00.000Z',
-    updated_at: '2026-09-01T00:00:00.000Z',
-    extra: {},
-  }
+const SHOWN: CanopiFile = {
+  version: 9,
+  name: 'Orchard 2.1',
+  description: null,
+  plant_species_colors: {},
+  plant_species_symbols: {},
+  layers: [],
+  plants: [],
+  zones: [],
+  annotations: [],
+  measurement_guides: [],
+  groups: [],
+  consortiums: [],
+  timeline: [],
+  budget: [],
+  budget_currency: 'EUR',
+  views: [],
+  stories: [],
+  created_at: '2026-09-01T00:00:00.000Z',
+  updated_at: '2026-09-01T00:00:00.000Z',
+  extra: {},
 }
 
 let host: HTMLDivElement
@@ -64,7 +62,7 @@ beforeEach(() => {
   activePanel.value = 'canvas'
   currentCanvasTool.value = 'select'
   singleKeyShortcuts.value = true
-  designSessionStore.replaceCurrentDesignState(shownFile(), null, 'Orchard 2.1', {
+  designSessionStore.replaceCurrentDesignState(SHOWN, null, 'Orchard 2.1', {
     kind: 'read-only',
     origin: 'newer-version',
     savedByVersion: 10,

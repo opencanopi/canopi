@@ -3,7 +3,6 @@
 // save writes nothing, Design Edit refuses edits, Save, Save As and Revert are off, and Close ends it through the close
 // replacement without asking. The Canvas here is the real Scene authority, so what a close leaves is read from its
 // Scene content and undo history.
-import { signal } from '@preact/signals'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
@@ -31,51 +30,52 @@ import { SceneRuntimeEditCoordinator } from '../../canvas/runtime/scene-runtime/
 import type { SceneCommand } from '../../canvas/runtime/scene-commands'
 import type { ReadOnlyDesign } from '../../generated/contracts'
 import type { CanopiFile } from '../../types/design'
+import { createTestCanvasDocumentSurface } from '../../__tests__/support/canvas-runtime-surfaces'
 import {
   editDesignSessionForTest,
   markDesignSessionDirtyForTest,
   reconcileDesignSessionForTest,
 } from '../../__tests__/support/design-session-edit'
 
-function makeFile(name: string, plantCount = 0): CanopiFile {
-  return {
-    version: 9,
-    name,
-    description: null,
-    plant_species_colors: {},
-    plant_species_symbols: {},
-    layers: [],
-    plants: Array.from({ length: plantCount }, (_, index) => ({
-      id: `plant-${index}`,
-      canonical_name: 'Malus domestica',
-      common_name: null,
-      color: null,
-      position: { lon: 2 + index * 1e-5, lat: 48 },
-      rotation: null,
-      scale: null,
-      notes: null,
-      planted_date: null,
-      quantity: null,
-    })) as CanopiFile['plants'],
-    zones: [],
-    annotations: [],
-    measurement_guides: [],
-    groups: [],
-    consortiums: [],
-    timeline: [],
-    budget: [],
-    budget_currency: 'EUR',
-    views: [],
-    stories: [],
-    created_at: '2026-09-01T00:00:00.000Z',
-    updated_at: '2026-09-01T00:00:00.000Z',
-    extra: {},
-  }
+const EMPTY_DESIGN: Omit<CanopiFile, 'name' | 'plants'> = {
+  version: 9,
+  description: null,
+  plant_species_colors: {},
+  plant_species_symbols: {},
+  layers: [],
+  zones: [],
+  annotations: [],
+  measurement_guides: [],
+  groups: [],
+  consortiums: [],
+  timeline: [],
+  budget: [],
+  budget_currency: 'EUR',
+  views: [],
+  stories: [],
+  created_at: '2026-09-01T00:00:00.000Z',
+  updated_at: '2026-09-01T00:00:00.000Z',
+  extra: {},
 }
 
-/** What load_design answers for a `.canopi` v10 file: the read view, never a fingerprint. */
-function newerDesign(name: string, plantCount = 3): ReadOnlyDesign {
-  return { view: makeFile(name, plantCount), saved_by_version: 10 }
+/** The `index`th apple tree of a row a metre or so apart. */
+function apple(index: number): CanopiFile['plants'][number] {
+  return {
+    id: `plant-${index}`,
+    canonical_name: 'Malus domestica',
+    common_name: null,
+    color: null,
+    position: { lon: 2 + index * 1e-5, lat: 48 },
+    rotation: null,
+    scale: null,
+    notes: null,
+    planted_date: null,
+    quantity: null,
+  } as CanopiFile['plants'][number]
+}
+
+function makeFile(name: string, plantCount = 0): CanopiFile {
+  return { ...EMPTY_DESIGN, name, plants: Array.from({ length: plantCount }, (_, index) => apple(index)) }
 }
 
 interface SceneSession extends CanvasDocumentSurface {
@@ -83,6 +83,7 @@ interface SceneSession extends CanvasDocumentSurface {
   readonly sceneStore: SceneStore
 }
 
+/** The test document surface, its Scene and undo history the real Scene authority's. */
 function makeSceneSession(file: CanopiFile): SceneSession {
   const history = new SceneHistory()
   const sceneStore = new SceneStore().hydrate(file)
@@ -94,30 +95,29 @@ function makeSceneSession(file: CanopiFile): SceneSession {
     syncCanvasSignalsFromScene: () => {},
     invalidate: () => {},
   })
-  return {
-    history,
-    sceneStore,
-    presented: signal(true),
-    attachInspectionTo: () => { throw new Error('Inspection is not used by this fixture.') },
+  const surface = createTestCanvasDocumentSurface({
+    hasLoadedDocument: () => true,
     showCanvasChrome: vi.fn(),
     hideCanvasChrome: vi.fn(),
-    zoomToFit: vi.fn(),
-    loadDocument: vi.fn((next: CanopiFile) => authority.hydrate(next)),
-    replaceDocument: vi.fn((next, token, finalizeReplacement) => ({
+    loadDocument: (next) => authority.hydrate(next),
+    replaceDocument: (next, token, finalizeReplacement) => ({
       callerFinalizerInvoked: authority.replaceDocument(next, { token, prepare: () => {}, finalizeReplacement }),
-    })),
-    hasLoadedDocument: vi.fn(() => true),
-    captureForPersistence: vi.fn((metadata, document) => {
+    }),
+    captureForPersistence: (metadata, document) => {
       const capture = authority.capturePersistence()
       return {
         content: { ...document, name: metadata.name },
         isCurrent: () => capture.isCurrent(),
         acknowledgeSaved: () => capture.acknowledgeSaved(),
       }
-    }),
-    resize: vi.fn(),
-    destroy: vi.fn(() => authority.disposePersistence()),
-  }
+    },
+  })
+  return { ...surface, history, sceneStore }
+}
+
+/** What load_design answers for a `.canopi` v10 file: the read view, never a fingerprint. */
+function newerDesign(name: string, plantCount = 3): ReadOnlyDesign {
+  return { view: makeFile(name, plantCount), saved_by_version: 10 }
 }
 
 function deferred<T>() {
