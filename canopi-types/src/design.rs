@@ -881,8 +881,12 @@ pub enum RecentDesignPreview {
         bounds: Option<DesignGroundBounds>,
         sketch: Option<DesignSketch>,
     },
-    /// The file is larger than previews read; the row shows its name only.
-    TooLarge,
+    /// The file is larger than previews read; the row shows its name, and says it is
+    /// read-only when a newer Canopi saved it and Open still reads it (2.1-Q316).
+    TooLarge {
+        /// Saved by a newer Canopi, within the size Open reads: Open shows it read-only.
+        saved_by_newer: bool,
+    },
     /// The file cannot be opened, and why when that is known.
     Unreadable {
         reason: RecentDesignUnreadableReason,

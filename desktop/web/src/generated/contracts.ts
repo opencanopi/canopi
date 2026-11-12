@@ -1170,8 +1170,13 @@ bounds: DesignGroundBounds | null; sketch: DesignSketch | null } |
 saved_by_version: number; plant_count: number; zone_count: number;
 // `None` when the Design has no plants or zones yet.
 bounds: DesignGroundBounds | null; sketch: DesignSketch | null } |
-// The file is larger than previews read; the row shows its name only.
-{ kind: "too_large" } |
+/**
+ *  The file is larger than previews read; the row shows its name, and says it is
+ *  read-only when a newer Canopi saved it and Open still reads it (2.1-Q316).
+ */
+{ kind: "too_large";
+// Saved by a newer Canopi, within the size Open reads: Open shows it read-only.
+saved_by_newer: boolean } |
 // The file cannot be opened, and why when that is known.
 { kind: "unreadable"; reason: RecentDesignUnreadableReason };
 

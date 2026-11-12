@@ -142,7 +142,7 @@ describe('Desktop recent Designs', () => {
         },
       },
       { path: '/d/old.canopi', preview: { kind: 'unreadable', reason: 'unknown' } },
-      { path: '/d/huge.canopi', preview: { kind: 'too_large' } },
+      { path: '/d/huge.canopi', preview: { kind: 'too_large', saved_by_newer: false } },
     ]
     await act(async () => { render(<WelcomeScreen />, container) })
     await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)) })
@@ -193,6 +193,19 @@ describe('Desktop recent Designs', () => {
     expect(row.closest('li')?.hasAttribute('data-read-only')).toBe(true)
     await act(async () => { container.querySelector<HTMLButtonElement>('button[aria-label="More actions for Pond"]')!.click() })
     expect(Array.from(document.body.querySelectorAll('[role="menuitem"]')).map((item) => item.textContent)).toEqual(['Show in folder', 'Remove from list'])
+  })
+
+  it('canopi-f47t.52.270: labels a newer Design too large for a preview read-only, by its name alone', async () => {
+    recentDesigns.files = [{ path: '/d/estate.canopi', name: 'Estate', updated_at: new Date().toISOString() }]
+    recentDesigns.previews = async () => [{ path: '/d/estate.canopi', preview: { kind: 'too_large', saved_by_newer: true } }]
+    await act(async () => { render(<WelcomeScreen />, container) })
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)) })
+
+    const row = Array.from(container.querySelectorAll('button')).find((button) => button.textContent?.includes('Estate'))!
+    expect(row.textContent).toContain('Read-only: saved by a newer Canopi')
+    expect(row.textContent).not.toMatch(/plant/i)
+    expect(row.querySelector('[data-design-sketch]')).toBeNull()
+    expect(row.closest('li')?.hasAttribute('data-read-only')).toBe(true)
   })
 
   it('tells rows with the same Design name apart by file name, or by folder when that is the same too', async () => {

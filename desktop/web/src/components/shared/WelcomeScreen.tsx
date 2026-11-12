@@ -11,6 +11,7 @@ import { createRecentFilesController } from '../../app/recent-files'
 import { openKeyboardShortcutsDialog, openSettingsDialog } from '../../app/shell/dialogs'
 import { openProblemReportDialog } from '../../app/problem-report/submission'
 import { formatShortcut } from '../../app/shell-commands/shortcut-text'
+import type { RecentDesignPreview } from '../../types/design'
 import { StartScreen } from './StartScreen'
 import { SlotToast } from './ToastSlot'
 
@@ -53,8 +54,9 @@ export function WelcomeScreen() {
         path: file.path,
         updatedAt: file.updated_at,
         preview: recentFilesController.previews.value.get(file.path),
-        // A Recent Design a newer Canopi saved opens read-only, and its row says so (2.1-Q316).
-        readOnly: recentFilesController.previews.value.get(file.path)?.kind === 'read_only',
+        // A Recent Design a newer Canopi saved opens read-only, and its row says so, a file too
+        // large for a preview included (2.1-Q316).
+        readOnly: savedByNewer(recentFilesController.previews.value.get(file.path)),
         open: () => { void openDesignFromPath(file.path).catch(logWelcomeError) },
         showInFolder: () => { void recentFilesController.showInFolder(file.path) },
         remove: () => { void recentFilesController.remove(file.path).catch(logWelcomeError) },
@@ -84,6 +86,10 @@ export function WelcomeScreen() {
     )}
     </>
   )
+}
+
+function savedByNewer(preview: RecentDesignPreview | undefined): boolean {
+  return preview?.kind === 'read_only' || (preview?.kind === 'too_large' && preview.saved_by_newer)
 }
 
 function logWelcomeError(error: unknown): void {

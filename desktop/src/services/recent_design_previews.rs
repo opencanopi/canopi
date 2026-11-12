@@ -102,7 +102,7 @@ impl RecentDesignPreviews {
 /// cached), rather than a read error that could clear without the file changing.
 fn read_preview(path: &Path, len: u64) -> (RecentDesignPreview, bool) {
     if len > RECENT_PREVIEW_MAX_BYTES {
-        return (RecentDesignPreview::TooLarge, true);
+        return too_large(path, len);
     }
     match format::open_within(path, RECENT_PREVIEW_MAX_BYTES) {
         Ok(OpenedDesign::Editable(file)) => (crate::design::preview::preview_of(&file), true),
@@ -123,7 +123,8 @@ fn read_preview(path: &Path, len: u64) -> (RecentDesignPreview, bool) {
             );
             (unreadable(reason), true)
         }
-        Err(DesignLoadError::TooLarge { .. }) => (RecentDesignPreview::TooLarge, true),
+        // The file grew past the cap after its size was read.
+        Err(DesignLoadError::TooLarge { .. }) => too_large(path, len),
         Err(DesignLoadError::Read { source, .. }) => {
             tracing::warn!("A Recent Design could not be read for its preview");
             (unreadable(io_reason(&source)), false)
@@ -146,6 +147,28 @@ fn read_preview(path: &Path, len: u64) -> (RecentDesignPreview, bool) {
             );
             (unreadable(reason), true)
         }
+    }
+}
+
+/// A file over the preview cap: only its root version is decoded, streamed past in one
+/// sequential read, so a newer Design Open still reads keeps its read-only row (2.1-Q316).
+/// One larger than Open reads is refused by Open as too large, so it is never read-only.
+fn too_large(path: &Path, len: u64) -> (RecentDesignPreview, bool) {
+    if len > format::MAX_CANOPI_FILE_BYTES {
+        return (
+            RecentDesignPreview::TooLarge {
+                saved_by_newer: false,
+            },
+            true,
+        );
+    }
+    let newer = std::fs::File::open(path).and_then(|file| {
+        let bounded = std::io::Read::take(file, format::MAX_CANOPI_FILE_BYTES);
+        canopi_format::read::saved_by_newer(std::io::BufReader::new(bounded))
+    });
+    match newer {
+        Ok(saved_by_newer) => (RecentDesignPreview::TooLarge { saved_by_newer }, true),
+        Err(error) => (unreadable(io_reason(&error)), false),
     }
 }
 
@@ -355,7 +378,7 @@ mod tests {
     }
 
     #[test]
-    fn a_file_over_the_preview_cap_is_not_read() {
+    fn a_file_over_the_preview_cap_shows_its_name_only() {
         let root = scratch("large");
         let path = root.join("large.canopi");
         let file = std::fs::File::create(&path).unwrap();
@@ -363,7 +386,53 @@ mod tests {
         let previews = RecentDesignPreviews::default();
 
         let result = previews.previews(&[path.to_string_lossy().into_owned()]);
-        assert_eq!(result[0].preview, RecentDesignPreview::TooLarge);
+        assert_eq!(
+            result[0].preview,
+            RecentDesignPreview::TooLarge {
+                saved_by_newer: false
+            }
+        );
+    }
+
+    /// canopi-f47t.52.270 (2.1-Q316): a newer Design too large for a preview, which Open
+    /// still opens read-only, keeps its read-only row; one larger than Open reads does not.
+    #[test]
+    fn canopi_f47t_52_270_a_newer_recent_design_over_the_preview_cap_keeps_its_read_only_row() {
+        let root = scratch("large-newer");
+        let padded = |path: &Path, len: u64| {
+            let head = format!(
+                r#"{{"version": {}, "name": "Next", "description": ""#,
+                CURRENT_CANOPI_FILE_VERSION + 1
+            );
+            let mut bytes = head.into_bytes();
+            bytes.resize(usize::try_from(len).unwrap() - 2, b' ');
+            bytes.extend_from_slice(br#""}"#);
+            std::fs::write(path, bytes).unwrap();
+        };
+        let large = root.join("large-newer.canopi");
+        padded(&large, RECENT_PREVIEW_MAX_BYTES + 1);
+        let unopenable = root.join("unopenable-newer.canopi");
+        let file = std::fs::File::create(&unopenable).unwrap();
+        file.set_len(format::MAX_CANOPI_FILE_BYTES + 1).unwrap();
+        let previews = RecentDesignPreviews::default();
+
+        let result = previews.previews(&[
+            large.to_string_lossy().into_owned(),
+            unopenable.to_string_lossy().into_owned(),
+        ]);
+
+        assert_eq!(
+            result[0].preview,
+            RecentDesignPreview::TooLarge {
+                saved_by_newer: true
+            }
+        );
+        assert_eq!(
+            result[1].preview,
+            RecentDesignPreview::TooLarge {
+                saved_by_newer: false
+            }
+        );
     }
 
     #[test]
