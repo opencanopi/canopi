@@ -1950,6 +1950,8 @@
     "filesWeb": "Die Web-Edition hält Ihre Designs und Skizzen in diesem Browser. Laden Sie eine Kopie herunter, um eine Datei zu behalten.",
     "filesLoading": "Ordner werden gesucht…",
     "filesUnavailable": "Canopi hat seine Ordner nicht gefunden. Starten Sie Canopi neu, um es erneut zu versuchen.",
+    "favouritesDesktop": "Favoriten bleiben auf diesem Computer, nicht in einem Design: Ein Design, das Sie teilen oder anderswo öffnen, nimmt sie nicht mit.",
+    "favouritesWeb": "Favoriten bleiben in diesem Browser, nicht in einem Design: Ein Design, das Sie teilen oder anderswo öffnen, nimmt sie nicht mit.",
     "draftsHint": "Designs, die nie in einer Datei gespeichert wurden.",
     "dataLibrary": "Datenbibliothek",
     "dataLibraryHint": "Importierte Gelände- und Höhendaten.",

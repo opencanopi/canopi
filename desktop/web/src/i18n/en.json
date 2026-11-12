@@ -1950,6 +1950,8 @@
     "filesWeb": "The Web Edition keeps your Designs and Drafts in this browser. Download a copy to keep a file.",
     "filesLoading": "Finding folders…",
     "filesUnavailable": "Canopi couldn’t find its folders. Restart Canopi to try again.",
+    "favouritesDesktop": "Favorites stay on this computer, not in a Design: a Design you share or open elsewhere doesn’t carry them.",
+    "favouritesWeb": "Favorites stay in this browser, not in a Design: a Design you share or open elsewhere doesn’t carry them.",
     "draftsHint": "Designs never saved to a file.",
     "dataLibrary": "Data library",
     "dataLibraryHint": "Terrain and height data you imported.",

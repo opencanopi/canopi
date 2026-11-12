@@ -1950,6 +1950,8 @@
     "filesWeb": "L’édition Web garde vos Designs et brouillons dans ce navigateur. Téléchargez une copie pour garder un fichier.",
     "filesLoading": "Recherche des dossiers…",
     "filesUnavailable": "Canopi n’a pas trouvé ses dossiers. Redémarrez Canopi pour réessayer.",
+    "favouritesDesktop": "Les favoris restent sur cet ordinateur, pas dans un Design : un Design que vous partagez ou ouvrez ailleurs ne les emporte pas.",
+    "favouritesWeb": "Les favoris restent dans ce navigateur, pas dans un Design : un Design que vous partagez ou ouvrez ailleurs ne les emporte pas.",
     "draftsHint": "Designs jamais enregistrés dans un fichier.",
     "dataLibrary": "Bibliothèque de données",
     "dataLibraryHint": "Données de terrain et de hauteur importées.",

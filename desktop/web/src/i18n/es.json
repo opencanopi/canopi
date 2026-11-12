@@ -1950,6 +1950,8 @@
     "filesWeb": "La edición Web guarda tus diseños y borradores en este navegador. Descarga una copia para conservar un archivo.",
     "filesLoading": "Buscando carpetas…",
     "filesUnavailable": "Canopi no encontró sus carpetas. Reinicia Canopi para intentarlo de nuevo.",
+    "favouritesDesktop": "Los favoritos se quedan en este ordenador, no en un diseño: un diseño que compartes o abres en otro lugar no los lleva.",
+    "favouritesWeb": "Los favoritos se quedan en este navegador, no en un diseño: un diseño que compartes o abres en otro lugar no los lleva.",
     "draftsHint": "Diseños nunca guardados en un archivo.",
     "dataLibrary": "Biblioteca de datos",
     "dataLibraryHint": "Datos de terreno y altura que importaste.",
