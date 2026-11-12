@@ -7,8 +7,13 @@ publish = false
 
 # The stored user work's format crate (ADR 0026, contracts §18 R7): no tauri, tokio or rusqlite under it
 # (`format-crate-bans-native`), so the same reader builds natively and for wasm32 inside canopi-format-wasm.
-# Step 2.0.4 grows its read half (R1-2); its dependencies arrive with the code that uses them.
+# Step 2.0.4 grows its read half (R1-2): the schema walker and v10 read admission; `design-schema` gives the
+# schema keywords the walker interprets, and schemars the v10 read schema.
 [dependencies]
+canopi-types = { path = "../canopi-types", features = ["design-schema"] }
+schemars = "1.2.1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
 
 [lints]
 workspace = true
