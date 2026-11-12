@@ -6,10 +6,11 @@
 // - WebKitGTK and WebView2 themselves: the WebDriver test, run by web-edition-browsers.yml's format-core-engines job
 //   against WebKitWebDriver (MiniBrowser on Ubuntu 22.04's WebKitGTK, Desktop's Linux floor) and msedgedriver, with
 //   CANOPI_FORMAT_PROBE_WEBDRIVER (the driver's URL) and CANOPI_FORMAT_PROBE_CAPABILITIES (its capabilities, JSON).
-// - The engine floor (U-2's old WebKit images, recorded in canopi-4kfl): not covered yet. U's floor lane
-//   (engine-floor-probe.yml) only boots the app pages, and nothing starts this worker until R1-6, so no WebKit of the
-//   floor's age has instantiated the module; until that lane runs runProbe, the default target features are
-//   unmeasured there.
+// - The engine floor (U-2's Safari 16.4-era WebKit images, canopi-4kfl): not covered yet, and owed before R1-6 starts
+//   this worker. U's floor lane (engine-floor-probe.yml) only boots the app pages, so no WebKit of the floor's age has
+//   instantiated the module. The guard is this spec's WebDriver test, run in the floor image by that lane exactly as
+//   format-core-engines runs it (CANOPI_FORMAT_PROBE_WEBDRIVER and _CAPABILITIES naming the floor's driver,
+//   `--project=chromium --grep "WebDriver engine"`); if it fails there, build-wasm.mjs builds with `-C target-cpu=mvp`.
 // The preview server labels the .wasm `application/wasm`, so the worker compiles it as it streams; a host that labels it
 // otherwise gets the arrayBuffer fallback, as does an engine refusing a parameter after the label, and a load that
 // fails answers `unavailable` and is retried by the next call.
