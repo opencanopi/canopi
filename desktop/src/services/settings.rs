@@ -1,9 +1,13 @@
-use canopi_types::settings::{Locale, Settings};
+use canopi_types::settings::{Locale, ScrollWheel, Settings};
 
 use crate::db::{self, UserDb};
 
 pub fn get_settings(user_db: &UserDb) -> Result<Settings, String> {
-    get_settings_with_locale(user_db, sys_locale::get_locale().as_deref())
+    get_settings_with_locale(
+        user_db,
+        sys_locale::get_locale().as_deref(),
+        std::env::consts::OS,
+    )
 }
 
 pub fn set_settings(user_db: &UserDb, settings: Settings) -> Result<(), String> {
@@ -48,9 +52,14 @@ const SET_ASIDE_SETTINGS_KEY: &str = "settings.set-aside";
 /// or basemap style, a wrong type) is set aside under
 /// [`SET_ASIDE_SETTINGS_KEY`] and replaced by defaults. Unknown keys are not
 /// invalid; they are ignored and never re-emitted.
+///
+/// `os` is `std::env::consts::OS`, a parameter so tests choose it: the first-run
+/// record on macOS starts on Trackpad (2.1-Q309). `Settings::default()` stays
+/// host-independent because generated bindings are built from it.
 fn get_settings_with_locale(
     user_db: &UserDb,
     detected_os_locale: Option<&str>,
+    os: &str,
 ) -> Result<Settings, String> {
     let conn = user_db.acquire();
     let json = db::user_db::get_setting(&conn, "settings")
@@ -66,6 +75,9 @@ fn get_settings_with_locale(
     let mut settings = Settings::default();
     if let Some(locale) = detect_initial_locale(detected_os_locale) {
         settings.locale = locale;
+    }
+    if os == "macos" {
+        settings.scroll_wheel = ScrollWheel::Pan;
     }
     let json = serde_json::to_string(&settings)
         .map_err(|e| format!("Failed to serialize settings: {e}"))?;
@@ -123,7 +135,7 @@ mod tests {
         updater_check_at_launch,
     };
     use crate::db::UserDb;
-    use canopi_types::settings::{BasemapStyle, Locale, Settings, Theme};
+    use canopi_types::settings::{BasemapStyle, Locale, ScrollWheel, Settings, Theme};
     use rusqlite::Connection;
 
     fn test_user_db() -> UserDb {
@@ -163,7 +175,7 @@ mod tests {
             store_raw_settings(&user_db, raw);
 
             let (settings, logs) = crate::services::design_files::capture_logs(|| {
-                get_settings_with_locale(&user_db, Some("fr_FR"))
+                get_settings_with_locale(&user_db, Some("fr_FR"), "linux")
             });
             let settings = settings.expect("invalid settings must not fail forever");
 
@@ -177,7 +189,7 @@ mod tests {
             assert!(logs.contains("Set aside unreadable settings"), "{logs}");
             assert!(!logs.contains("SECRET-KEY"), "{logs}");
 
-            let reread = get_settings_with_locale(&user_db, Some("en_US")).unwrap();
+            let reread = get_settings_with_locale(&user_db, Some("en_US"), "linux").unwrap();
             assert_eq!(reread.locale, Locale::Fr, "defaults were persisted");
         }
     }
@@ -186,11 +198,11 @@ mod tests {
     fn initializes_and_persists_detected_locale_on_first_read() {
         let user_db = test_user_db();
 
-        let settings = get_settings_with_locale(&user_db, Some("fr_FR")).unwrap();
+        let settings = get_settings_with_locale(&user_db, Some("fr_FR"), "linux").unwrap();
 
         assert_eq!(settings.locale, Locale::Fr);
 
-        let persisted = get_settings_with_locale(&user_db, Some("en_US")).unwrap();
+        let persisted = get_settings_with_locale(&user_db, Some("en_US"), "linux").unwrap();
         assert_eq!(persisted.locale, Locale::Fr);
     }
 
@@ -208,7 +220,7 @@ mod tests {
 
         set_settings(&user_db, settings.clone()).unwrap();
 
-        let stored = get_settings_with_locale(&user_db, Some("en_US")).unwrap();
+        let stored = get_settings_with_locale(&user_db, Some("en_US"), "linux").unwrap();
         assert_eq!(stored.locale, Locale::De);
         assert_eq!(stored.theme, Theme::Dark);
         assert_eq!(stored.basemap_style, BasemapStyle::Dark);
@@ -245,12 +257,85 @@ mod tests {
 
         assert!(!updater_check_at_launch(&user_db).unwrap());
         assert_eq!(
-            get_settings_with_locale(&user_db, Some("en_US"))
+            get_settings_with_locale(&user_db, Some("en_US"), "linux")
                 .unwrap()
                 .theme,
             Theme::Dark
         );
         set_updater_check_at_launch(&user_db, true).unwrap();
         assert!(updater_check_at_launch(&user_db).unwrap());
+    }
+
+    fn stored_keys(record: &str) -> Vec<String> {
+        let value: serde_json::Value = serde_json::from_str(record).unwrap();
+        let mut keys: Vec<String> = value.as_object().unwrap().keys().cloned().collect();
+        keys.sort();
+        keys
+    }
+
+    /// 2.1-Q309: a new Mac profile starts on Trackpad; the record it writes is the record every
+    /// first launch writes (no new key, 2.1-M473), and "pan" is the literal 2.0.3 already reads.
+    #[test]
+    fn u_canopi_pqxl_macos_first_launch_defaults_the_pointing_device_to_trackpad() {
+        let user_db = test_user_db();
+
+        let settings = get_settings_with_locale(&user_db, Some("en_US"), "macos").unwrap();
+
+        assert_eq!(settings.scroll_wheel, ScrollWheel::Pan);
+        let stored = stored_setting(&user_db, "settings").expect("first launch stores the record");
+        let value: serde_json::Value = serde_json::from_str(&stored).unwrap();
+        assert_eq!(value["scroll_wheel"], "pan", "2.0.3 reads the literal pan");
+        assert_eq!(
+            stored_keys(&stored),
+            stored_keys(&serde_json::to_string(&Settings::default()).unwrap()),
+            "no new stored key"
+        );
+        assert_eq!(
+            Settings::default().scroll_wheel,
+            ScrollWheel::Zoom,
+            "the host-independent default stays Mouse"
+        );
+        assert_eq!(
+            get_settings_with_locale(&user_db, Some("en_US"), "linux")
+                .unwrap()
+                .scroll_wheel,
+            ScrollWheel::Pan,
+            "the stored choice is kept"
+        );
+    }
+
+    #[test]
+    fn u_canopi_pqxl_a_set_aside_record_on_macos_defaults_to_trackpad() {
+        let user_db = test_user_db();
+        store_raw_settings(&user_db, r#"{"theme":"sepia","scroll_wheel":"zoom"}"#);
+
+        let settings = get_settings_with_locale(&user_db, Some("en_US"), "macos").unwrap();
+
+        assert_eq!(settings.scroll_wheel, ScrollWheel::Pan);
+        assert!(stored_setting(&user_db, super::SET_ASIDE_SETTINGS_KEY).is_some());
+    }
+
+    #[test]
+    fn u_canopi_pqxl_an_existing_zoom_record_on_macos_stays_mouse() {
+        let user_db = test_user_db();
+        store_raw_settings(&user_db, SETTINGS_RECORD_2_0_3);
+
+        let settings = get_settings_with_locale(&user_db, Some("en_US"), "macos").unwrap();
+
+        assert_eq!(settings.scroll_wheel, ScrollWheel::Zoom);
+        assert_eq!(
+            stored_setting(&user_db, "settings").as_deref(),
+            Some(SETTINGS_RECORD_2_0_3),
+            "the stored record is not rewritten"
+        );
+    }
+
+    #[test]
+    fn u_canopi_pqxl_other_systems_start_on_mouse() {
+        for os in ["windows", "linux"] {
+            let user_db = test_user_db();
+            let settings = get_settings_with_locale(&user_db, Some("en_US"), os).unwrap();
+            assert_eq!(settings.scroll_wheel, ScrollWheel::Zoom, "{os}");
+        }
     }
 }
