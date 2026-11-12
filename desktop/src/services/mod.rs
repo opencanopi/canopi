@@ -12,5 +12,7 @@ pub mod problem_report;
 pub mod recent_design_previews;
 pub mod saved_object_stamps;
 pub mod settings;
+#[cfg(test)]
+mod settings_reader_release_tests;
 pub mod species_catalog;
 pub(crate) mod species_catalog_read;
