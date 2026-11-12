@@ -155,7 +155,8 @@ describe('Desktop recent Designs', () => {
     expect(rowOf('Huge estate').textContent).not.toMatch(/plant|read/i)
   })
 
-  it('says why a file cannot be opened when that is known', async () => {
+  // 2.1-Q316 changes the newer row: a Design a newer Canopi saved opens read-only, so its row says so.
+  it('says why a file cannot be opened when that is known, and labels a newer one read-only (canopi-f47t.52.270)', async () => {
     const reasons = ['missing', 'older_version', 'newer_version', 'damaged'] as const
     recentDesigns.files = reasons.map((reason) => ({ path: `/d/${reason}.canopi`, name: `Garden ${reason}`, updated_at: new Date().toISOString() }))
     recentDesigns.previews = async (paths) => paths.map((path, index) => ({ path, preview: { kind: 'unreadable', reason: reasons[index]! } }))
@@ -165,7 +166,9 @@ describe('Desktop recent Designs', () => {
     const rowOf = (name: string) => Array.from(container.querySelectorAll('button')).find((button) => button.textContent?.includes(name))!
     expect(rowOf('Garden missing').textContent).toContain('moved or deleted')
     expect(rowOf('Garden older_version').textContent).toContain('Made with Canopi before 2.0')
-    expect(rowOf('Garden newer_version').textContent).toContain('newer version of Canopi')
+    expect(rowOf('Garden newer_version').textContent).toContain('Read-only: saved by a newer Canopi')
+    expect(rowOf('Garden newer_version').closest('li')?.hasAttribute('data-read-only')).toBe(true)
+    expect(rowOf('Garden damaged').closest('li')?.hasAttribute('data-read-only')).toBe(false)
     expect(rowOf('Garden damaged').textContent).toContain('damaged')
   })
 
