@@ -8,5 +8,8 @@ export default function init(input: { module_or_path: WebAssembly.Module }): Pro
 /** The built `.wasm`'s URL (a Vite `?url` asset), which the worker fetches and compiles. */
 export const moduleUrl: string;
 
-/** The probe call: `{"current_version":<n>,"redacted":<text redacted>}` as JSON. */
-export function probe(text: string): string;
+/**
+ * The read call: a `.canopi` text of version 10 or later read for the read-only view, as JSON:
+ * `{"read":{"view":…,"saved_by_version":<n>}}` or `{"refused":{"kind":…,"message":…,"field_path":…}}`.
+ */
+export function read_newer_design(text: string): string;

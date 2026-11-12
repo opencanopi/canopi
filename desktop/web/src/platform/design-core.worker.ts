@@ -13,10 +13,12 @@
  * engine refuses the label (a host that serves it as octet-stream, or with a parameter, still works); a failed load
  * answers `unavailable` and the next call loads again.
  *
- * R1-1 is the skeleton: one `probe` call, answered with the path the module was compiled by. R1-6's design-core adapter
- * starts it lazily and adds the read calls, Retry and the trap respawn.
+ * Its one call in the reader release is `read` (2.1-M477): a `.canopi` text of version 10 or later read for the
+ * read-only view, answered with the module's JSON and the path the module was compiled by. A call that throws inside
+ * the module answers `trapped`: a trapped instance stays dead, so the design-core adapter (platform/design-core.ts),
+ * which starts this worker on the first newer file and is its one caller, terminates it and starts another.
  */
-import initFormatCore, { moduleUrl as formatModuleUrl, probe } from '../../../../canopi-format-wasm/glue.js'
+import initFormatCore, { moduleUrl as formatModuleUrl, read_newer_design } from '../../../../canopi-format-wasm/glue.js'
 
 /** How the module was compiled: from the streamed response, or from its whole body when not labelled wasm. */
 type CompilePath = 'streaming' | 'arrayBuffer'
@@ -24,14 +26,18 @@ type CompilePath = 'streaming' | 'arrayBuffer'
 /** A call into the module. */
 interface FormatCoreRequest {
   readonly id: number
-  readonly call: 'probe'
+  readonly call: 'read'
   readonly text: string
 }
 
-/** The answer to one call: the module's JSON string, or why the module could not load. */
+/**
+ * The answer to one call: the module's JSON string, or why it gave none: the module could not load (`unavailable`, the
+ * engine's words in `detail`) or the call trapped (`trapped`; no panic hook runs in the reader release, so `detail` is
+ * `trapped`, ADR 0025).
+ */
 type FormatCoreReply =
   | { readonly id: number, readonly ok: true, readonly value: string, readonly compiledBy: CompilePath }
-  | { readonly id: number, readonly ok: false, readonly error: 'unavailable', readonly detail: string }
+  | { readonly id: number, readonly ok: false, readonly error: 'unavailable' | 'trapped', readonly detail: string }
 
 /** The dedicated worker scope, typed narrowly so the DOM program stays unchanged. */
 const scope = self as unknown as {
@@ -88,7 +94,12 @@ async function answer(request: FormatCoreRequest): Promise<FormatCoreReply> {
     // The engine's own words (a CompileError names the feature it refused); no Design content reaches a load.
     return { id: request.id, ok: false, error: 'unavailable', detail: error instanceof Error ? `${error.name}: ${error.message}` : 'unknown' }
   }
-  return { id: request.id, ok: true, value: probe(request.text), compiledBy }
+  try {
+    return { id: request.id, ok: true, value: read_newer_design(request.text), compiledBy }
+  } catch {
+    // A trap (a Rust panic, an out-of-memory abort) leaves the instance dead; the adapter replaces this worker.
+    return { id: request.id, ok: false, error: 'trapped', detail: 'trapped' }
+  }
 }
 
 scope.onmessage = (event) => {
