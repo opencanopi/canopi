@@ -1,0 +1,17 @@
+id: wasm-glue-only-in-adapter.typescript
+valid:
+  - |
+    export const crate = 'canopi-format-wasm'
+  - |
+    import { decode } from './canopi-format-wasm-port'
+  - |
+    import { startDesignCore } from '../platform/design-core'
+invalid:
+  - |
+    import init, { probe } from '../../../../canopi-format-wasm/glue.js'
+  - |
+    import url from '../../../../canopi-format-wasm/dist/canopi_format_wasm_bg.wasm?url'
+  - |
+    export { probe } from '../../../../canopi-format-wasm/glue'
+  - |
+    export const glue = import('../../../../canopi-future-wasm/dist/canopi_future_wasm.js')

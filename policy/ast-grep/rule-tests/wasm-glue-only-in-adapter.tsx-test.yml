@@ -1,0 +1,9 @@
+id: wasm-glue-only-in-adapter.tsx
+valid:
+  - |
+    export const Crate = () => <span>canopi-format-wasm/glue.js</span>
+invalid:
+  - |
+    import init from '../../../../canopi-format-wasm/glue.js'
+  - |
+    export const glue = import('../../../../canopi-format-wasm/dist/canopi_format_wasm.js')

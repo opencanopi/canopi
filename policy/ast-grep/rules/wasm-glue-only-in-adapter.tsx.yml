@@ -1,0 +1,27 @@
+# wasm-glue-only-in-adapter (§18 F28): a workspace -wasm crate's wasm-bindgen glue and its .wasm (canopi-*-wasm/glue.js,
+# canopi-*-wasm/dist/...) are imported only by the module that runs it: the format worker today
+# (platform/design-core.worker.ts), the design-core port adapter's worker. A new -wasm crate's runner joins also_owners
+# in the change that adds it. 0 outside today.
+# message and ignores: generated from policy/primitives.json.
+id: wasm-glue-only-in-adapter.tsx
+language: tsx
+severity: error
+message: "wasm-glue-only-in-adapter (§18 F28): a -wasm crate's wasm-bindgen glue and .wasm only in the worker that runs it, the design-core port adapter's (lands with each -wasm crate, 2.1-M77). ADR 0022; owner desktop/web/src/platform/design-core.worker.ts; target desktop/web/src/platform/design-core.worker.ts (2.0.4); example desktop/web/src/platform/design-core.worker.ts"
+files:
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.tsx"
+ignores:
+  - "{desktop/web,policy/fixtures/rules/*}/src/__tests__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/__fixtures__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
+  - "{desktop/web,policy/fixtures/rules/*}/src/generated/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/platform/design-core.worker.ts"
+rule:
+  kind: string_fragment
+  regex: (^|/)canopi-[a-z0-9-]+-wasm/(glue(\.js)?|dist/.+)$
+  inside:
+    any:
+      - kind: import_statement
+      - kind: export_statement
+      - kind: call_expression
+    stopBy: end

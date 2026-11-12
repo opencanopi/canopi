@@ -216,14 +216,14 @@
       "tool": "ast-grep",
       "ledger": "2.1-M189",
       "adr": "0022",
-      "status": "planned",
-      "owner_today": "none",
+      "owner_today": "desktop/web/src/platform/design-core.worker.ts",
       "owner_target": {
-        "path": "desktop/web/src/platform",
+        "path": "desktop/web/src/platform/design-core.worker.ts",
         "phase": "2.0.4",
-        "bead": "canopi-f47t.52.49"
+        "bead": "canopi-f47t.52.270"
       },
-      "note": "wasm-bindgen glue only in its design-core port adapter (lands with each -wasm crate, 2.1-M77)"
+      "example": "desktop/web/src/platform/design-core.worker.ts",
+      "note": "a -wasm crate's wasm-bindgen glue and .wasm only in the worker that runs it, the design-core port adapter's (lands with each -wasm crate, 2.1-M77)"
     },
     {
       "id": "settings-no-upward",
