@@ -9,7 +9,7 @@ use std::fmt;
 use std::path::Path;
 
 use super::new_design_defaults::NEW_DESIGN_LAYER_DEFAULTS;
-use super::schema_admission::{admit_schema, canopi_file_schema};
+use super::schema_admission::admit_v9_schema;
 
 /// A refused Design: its kind, and the typed refusal naming the field (canopi-cyqd).
 #[derive(Debug)]
@@ -281,7 +281,7 @@ fn admit_current_design_value(
     };
     // The schema names the refused field; serde only builds what it admitted, so a serde
     // error past it is a schema the Rust types outgrew, named at the root without its text.
-    admit_schema(&value, canopi_file_schema()).map_err(invalid)?;
+    admit_v9_schema(&value).map_err(invalid)?;
     let file: CanopiFile = serde_json::from_value(value).map_err(|_| {
         CanopiDesignIngestionError::invalid(FieldPath::root(), "expected a Canopi Design")
     })?;

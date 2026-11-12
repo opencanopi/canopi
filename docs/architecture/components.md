@@ -253,6 +253,8 @@ flowchart LR
   bindings_gen["bindings-gen: TS emitter"]
   canopi_desktop --> canopi_types
   canopi_desktop --> canopi_redact
+  canopi_desktop --> canopi_format
+  canopi_format --> canopi_types
   canopi_types --> canopi_redact
   canopi_format_wasm --> canopi_types
   canopi_format_wasm --> canopi_redact

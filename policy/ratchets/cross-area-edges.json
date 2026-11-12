@@ -802,10 +802,16 @@
     "bindings-gen -> canopi-types": {
       "count": 1
     },
+    "canopi-desktop -> canopi-format": {
+      "count": 1
+    },
     "canopi-desktop -> canopi-redact": {
       "count": 1
     },
     "canopi-desktop -> canopi-types": {
+      "count": 1
+    },
+    "canopi-format -> canopi-types": {
       "count": 1
     },
     "canopi-format-wasm -> canopi-redact": {

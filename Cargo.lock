@@ -458,6 +458,7 @@ name = "canopi-desktop"
 version = "2.1.0-beta.2"
 dependencies = [
  "base64 0.22.1",
+ "canopi-format",
  "canopi-redact",
  "canopi-types",
  "ed25519-dalek",
@@ -491,6 +492,12 @@ dependencies = [
 [[package]]
 name = "canopi-format"
 version = "2.1.0-beta.2"
+dependencies = [
+ "canopi-types",
+ "schemars 1.2.1",
+ "serde",
+ "serde_json",
+]
 
 [[package]]
 name = "canopi-format-wasm"
