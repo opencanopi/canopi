@@ -1,0 +1,1 @@
+//! A planted stand-in.
