@@ -383,6 +383,41 @@ describe('Settings › Files and data', () => {
     expect(dialog().textContent).toContain('The Web Edition keeps your Designs and Drafts in this browser.')
     expect(dialog().querySelector('[data-app-folder]')).toBeNull()
   })
+
+  // 2.1-Q312: favourites belong to this computer or this browser, never to a Design; the note shows in every state.
+  const DESKTOP_NOTE = 'Favorites stay on this computer, not in a Design: a Design you share or open elsewhere doesn’t carry them.'
+  const WEB_NOTE = 'Favorites stay in this browser, not in a Design: a Design you share or open elsewhere doesn’t carry them.'
+
+  function favouritesNote(): string | null {
+    return dialog().querySelector<HTMLElement>('[data-favourites-note]')?.textContent ?? null
+  }
+
+  it('U canopi-4j6l: Desktop shows the favourites note beside its folders', async () => {
+    const folders: SettingsFoldersAdapter = {
+      load: vi.fn().mockResolvedValue({ drafts: '/home/me/drafts', data_library: '/home/me/lidar' }),
+      show: vi.fn().mockResolvedValue(undefined),
+    }
+    await openSection('files', folders)
+    expect(dialog().querySelectorAll('[data-app-folder]')).toHaveLength(2)
+    expect(favouritesNote()).toBe(DESKTOP_NOTE)
+  })
+
+  it('U canopi-4j6l: Desktop shows the favourites note while its folders load', async () => {
+    await openSection('files', { load: () => new Promise(() => {}), show: vi.fn() })
+    expect(dialog().textContent).toContain('Finding folders…')
+    expect(favouritesNote()).toBe(DESKTOP_NOTE)
+  })
+
+  it('U canopi-4j6l: Desktop shows the favourites note when its folders cannot be found', async () => {
+    await openSection('files', { load: vi.fn().mockRejectedValue(new Error('no folders')), show: vi.fn() })
+    expect(dialog().querySelector('[role="alert"]')!.textContent).toBe('Canopi couldn’t find its folders. Restart Canopi to try again.')
+    expect(favouritesNote()).toBe(DESKTOP_NOTE)
+  })
+
+  it('U canopi-4j6l: Web says favourites stay in this browser', async () => {
+    await openSection('files')
+    expect(favouritesNote()).toBe(WEB_NOTE)
+  })
 })
 
 describe('Settings › About', () => {

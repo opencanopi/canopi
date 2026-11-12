@@ -1950,6 +1950,8 @@
     "filesWeb": "L’edizione Web tiene i tuoi progetti e le bozze in questo browser. Scarica una copia per conservare un file.",
     "filesLoading": "Ricerca delle cartelle…",
     "filesUnavailable": "Canopi non ha trovato le sue cartelle. Riavvia Canopi per riprovare.",
+    "favouritesDesktop": "I preferiti restano su questo computer, non in un progetto: un progetto che condividi o apri altrove non li porta con sé.",
+    "favouritesWeb": "I preferiti restano in questo browser, non in un progetto: un progetto che condividi o apri altrove non li porta con sé.",
     "draftsHint": "Progetti mai salvati in un file.",
     "dataLibrary": "Libreria dati",
     "dataLibraryHint": "Dati di terreno e altezza che hai importato.",

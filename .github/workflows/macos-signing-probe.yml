@@ -1,0 +1,300 @@
+name: macOS signing probe
+
+# Step 2.0.4 U-7 (canopi-3cu2): a Mac user on an M3 was told Canopi "is damaged and can't be opened". Canopi takes no
+# Developer ID and no notarization (2.1-Q305); ad-hoc signing ships only if this probe shows macOS's verdict on the
+# quarantined bundle improves (2.1-M472), and the unsigned dmg must still install with steps a user can follow.
+#
+# Two macos-15 builds through the release's own packaging action: today's bundle and one with signingIdentity '-'
+# (Tauri's ad-hoc signing). Each dmg is quarantined as a browser download is, mounted, and its app copied out, then read
+# by codesign --verify --deep --strict, spctl, syspolicy_check and a real quarantined launch, whose Gatekeeper dialog
+# is screenshotted, read through System Events where the runner allows it, and logged by syspolicyd. Today's install
+# step (`xattr -dr com.apple.quarantine`) is then tried on both. The verdict job first checks its own classifier on
+# planted rows (the failure states: no verdict change drops the config change; tools that read both bundles alike
+# prove the stream's assumption wrong, and a wrong or untested assumption drops it too), then reads the two rows into
+# `SIGNING-` lines in the job summary.
+#
+# A dispatch only: a probe that informs a decision, never a merge's check (2.1-Q222).
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: macos-signing-probe-${{ github.run_id }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    name: probe (${{ matrix.variant }})
+    runs-on: macos-15
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - variant: unsigned
+            bundle_args: ''
+          # A JSON merge over desktop/tauri.conf.json and tauri.macos.conf.json, one word with no spaces: the action
+          # splits bundle-args on whitespace and never removes quotes.
+          - variant: adhoc
+            bundle_args: '--config {"bundle":{"macOS":{"signingIdentity":"-"}}}'
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@1.97.1
+        with:
+          targets: aarch64-apple-darwin
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          shared-key: release-aarch64-apple-darwin
+          cache-on-failure: false
+          save-if: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: desktop/web/package-lock.json
+      - name: Install frontend deps
+        run: npm ci --prefix desktop/web
+      - uses: ./.github/actions/build-geolibre-cli
+      - uses: ./.github/actions/package-desktop
+        with:
+          target: aarch64-apple-darwin
+          bundle-args: ${{ matrix.bundle_args }}
+          artifact-name: signing-probe-${{ matrix.variant }}-bundle
+          retention-days: "7"
+
+      # Infrastructure faults (no dmg, a mount that fails) fail the step; every reading is recorded, never fatal.
+      # macOS bash 3.2: no arrays read under set -u, no associative arrays.
+      - name: Quarantine, install and read the ${{ matrix.variant }} bundle
+        shell: bash
+        env:
+          VARIANT: ${{ matrix.variant }}
+        run: |
+          set -euo pipefail
+          out="$GITHUB_WORKSPACE/signing-results"
+          mkdir -p "$out" "$RUNNER_TEMP/Applications"
+          row="$out/$VARIANT.env"
+          raw="$out/$VARIANT-raw.txt"
+          : > "$row"
+          : > "$raw"
+          dmg="$(ls target/aarch64-apple-darwin/release/bundle/dmg/*.dmg | head -n 1)"
+          app=""
+          norm() { tr '\n' ' ' | sed -e "s#${app:-@none@}#APP#g" -e "s#$dmg#DMG#g" -e 's/[[:space:]][[:space:]]*/ /g' -e 's/ $//'; }
+          put() { printf '%s=%s\n' "$1" "$2" >> "$row"; }
+          measure() {
+            name="$1"; shift
+            rc=0
+            text="$("$@" 2>&1)" || rc=$?
+            put "${name}_exit" "$rc"
+            put "${name}_msg" "$(printf '%s' "$text" | norm)"
+            printf '== %s (exit %s): %s\n%s\n\n' "$name" "$rc" "$*" "$text" >> "$raw"
+          }
+          put variant "$VARIANT"
+          put macos "$(sw_vers -productVersion) $(uname -m)"
+
+          # Gatekeeper must assess, or the launch reading means nothing: the verdict job refuses a disabled row.
+          sudo spctl --global-enable 2>/dev/null || sudo spctl --master-enable || true
+          put gatekeeper "$(spctl --status 2>&1 | norm)"
+
+          # A browser download's quarantine on the dmg, then the user's install: mount, copy the app out.
+          xattr -w com.apple.quarantine "0083;$(printf '%x' "$(date +%s)");Safari;$(uuidgen)" "$dmg"
+          measure dmg_verify hdiutil verify "$dmg"
+          measure dmg_signature codesign -dv "$dmg"
+          mnt="$RUNNER_TEMP/canopi-dmg"
+          hdiutil attach -nobrowse -readonly -mountpoint "$mnt" "$dmg" > /dev/null
+          src="$(ls -d "$mnt"/*.app | head -n 1)"
+          app="$RUNNER_TEMP/Applications/$(basename "$src")"
+          ditto "$src" "$app"
+          hdiutil detach "$mnt" > /dev/null
+          if xattr -p com.apple.quarantine "$app" > /dev/null 2>&1; then put quarantine propagated; else
+            xattr -w com.apple.quarantine "$(xattr -p com.apple.quarantine "$dmg")" "$app"
+            put quarantine set
+          fi
+          exe="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$app/Contents/Info.plist")"
+
+          measure signature codesign -dvvv "$app"
+          measure codesign codesign --verify --deep --strict --verbose=4 "$app"
+          measure spctl spctl --assess --type execute --verbose=4 "$app"
+          if command -v syspolicy_check > /dev/null; then measure syspolicy syspolicy_check distribution "$app"; else
+            put syspolicy_exit missing
+            put syspolicy_msg 'syspolicy_check not on this runner'
+          fi
+
+          # The quarantined launch: Gatekeeper's own verdict, as its dialog says it.
+          since="$(date '+%Y-%m-%d %H:%M:%S')"
+          open "$app" || true
+          sleep 10
+          screencapture -x "$out/$VARIANT-dialog.png" || true
+          dialog="$(osascript -e 'tell application "System Events" to get value of every static text of every window of process "CoreServicesUIAgent"' 2>&1 || true)"
+          put dialog "$(printf '%s' "$dialog" | norm)"
+          if pgrep -x "$exe" > /dev/null; then put launched_quarantined yes; else put launched_quarantined no; fi
+          pkill -x "$exe" || true
+          killall CoreServicesUIAgent 2> /dev/null || true
+          log show --start "$since" --style compact --predicate 'process == "syspolicyd" OR process == "CoreServicesUIAgent"' \
+            > "$out/$VARIANT-gatekeeper.log" 2>&1 || true
+          put gatekeeper_log "$(grep -iE 'damaged|no usable signature|adhoc|ad-hoc|notari|could not verify|GK |evaluat' "$out/$VARIANT-gatekeeper.log" | tail -n 12 | norm)"
+
+          # Today's install step, the one the website gives (2.1-Q313).
+          xattr -dr com.apple.quarantine "$app"
+          open "$app" || true
+          sleep 15
+          if pgrep -x "$exe" > /dev/null; then put launched_after_xattr yes; else put launched_after_xattr no; fi
+          pkill -x "$exe" || true
+          cat "$row"
+
+      - uses: actions/upload-artifact@v7
+        if: ${{ !cancelled() }}
+        with:
+          name: signing-probe-${{ matrix.variant }}-results
+          path: signing-results/
+          if-no-files-found: error
+          retention-days: 30
+
+  verdict:
+    needs: probe
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: signing-probe-*-results
+          merge-multiple: true
+          path: signing-results
+
+      # The classifier, checked first on planted rows, then on the two the probe wrote. A row's class is Gatekeeper's
+      # ("accepted" when the quarantined app ran, else as its dialog says it); with neither read, the tools' (codesign,
+      # then spctl). The assumption holds when spctl and syspolicy_check each read the two bundles differently and both
+      # rows' tools agree with Gatekeeper's reading; the verdict improves only when the ad-hoc bundle ranks above
+      # today's, and the change ships only when the assumption holds.
+      - name: Read the verdict
+        shell: bash
+        env:
+          RESULTS: signing-results
+        run: |
+          set -euo pipefail
+          lower() { printf '%s' "$1" | tr '[:upper:]' '[:lower:]'; }
+          tool_class() { if [ "$1" != 0 ]; then echo damaged; elif [ "$2" = 0 ]; then echo accepted; else echo unidentified; fi; }
+          dialog_class() {
+            case "$(lower "$1")" in
+              *damaged*) echo damaged ;;
+              *"could not verify"*|*"unidentified developer"*|*"cannot check it for malicious"*|*"not opened"*) echo unidentified ;;
+              *) echo unread ;;
+            esac
+          }
+          # Gatekeeper's own reading of a row: a quarantined app that ran is its acceptance (no dialog appears), else
+          # the dialog's class. Both the row's class and the tools' agreement read this one value.
+          gatekeeper_class() { if [ "$2" = yes ]; then echo accepted; else echo "$1"; fi; }
+          seen_class() { if [ "$2" != unread ]; then echo "$2"; else echo "$1"; fi; }
+          rank() { case "$1" in damaged) echo 0 ;; unidentified) echo 1 ;; accepted) echo 2 ;; *) echo -1 ;; esac; }
+          verdict() {
+            if [ "$(rank "$2")" -gt "$(rank "$1")" ]; then echo improved
+            elif [ "$(rank "$2")" -eq "$(rank "$1")" ]; then echo unchanged
+            else echo worse; fi
+          }
+          # The ad-hoc bundle ships only on a better verdict that today's install step still opens, read by tools that
+          # held against Gatekeeper's own dialog: an untested or wrong assumption leaves exit codes alone, which a broken
+          # seal and a valid ad-hoc seal tell apart by construction.
+          decision() { if [ "$1" = improved ] && [ "$2" = yes ] && [ "$3" = holds ]; then echo "ship signingIdentity '-' and the Release Candidate verify check"; else echo 'drop the config change'; fi; }
+          # The Mac install steps for the release notes and the GitHub release page (2.1-Q326), one per decision: a
+          # damaged verdict has no Open Anyway, so today's steps are xattr alone; a shipped ad-hoc bundle leads with
+          # Open Anyway and keeps xattr, which the probe saw open it, as the fallback.
+          xattr_steps='Open the dmg and drag Canopi to Applications. Open Terminal, run xattr -dr com.apple.quarantine /Applications/Canopi.app, then open Canopi.'
+          open_anyway_steps='Open the dmg and drag Canopi to Applications, then open Canopi. If macOS says it could not verify Canopi, click Done, open System Settings > Privacy & Security, click Open Anyway beside Canopi and confirm. If macOS says Canopi is damaged, open Terminal, run xattr -dr com.apple.quarantine /Applications/Canopi.app, then open Canopi.'
+          install_text() { case "$1" in ship*) echo "$open_anyway_steps" ;; *) echo "$xattr_steps" ;; esac; }
+          tells_apart() { if [ "$1" = "$2" ]; then echo untested; elif [ "$3" = missing ] || [ "$4" = missing ]; then echo unread; elif [ "$5" != "$6" ]; then echo yes; else echo no; fi; }
+          agrees() { if [ "$2" = unread ]; then echo unread; elif [ "$1" = "$2" ]; then echo yes; else echo no; fi; }
+          # Arguments: spctl apart, syspolicy_check apart, then each row's tool-against-Gatekeeper agreement. Any no is
+          # wrong; holds needs all four yes, so a row Gatekeeper left unread (no dialog read, no launch) never agrees.
+          assumption() {
+            for word in "$@"; do if [ "$word" = no ]; then echo wrong; return; fi; done
+            for word in "$@"; do if [ "$word" != yes ]; then echo untested; return; fi; done
+            echo holds
+          }
+
+          fail=0
+          expect() { if [ "$2" != "$3" ]; then echo "::error::classifier self-test $1: got '$2', wanted '$3'"; fail=1; fi; }
+          expect 'a broken seal is damaged' "$(tool_class 1 3)" damaged
+          expect 'a valid ad-hoc seal spctl rejects is unidentified' "$(tool_class 0 3)" unidentified
+          expect 'the damaged dialog' "$(dialog_class '“Canopi” is damaged and can’t be opened. You should move it to the Trash.')" damaged
+          expect 'the Sequoia not-verified dialog' "$(dialog_class '“Canopi” Not Opened Apple could not verify “Canopi” is free of malware')" unidentified
+          expect 'no dialog read' "$(dialog_class 'execution error: System Events got an error: osascript is not allowed assistive access. (-1719)')" unread
+          expect 'a quarantined app that ran is Gatekeeper accepting it (canopi-3cu2)' "$(gatekeeper_class unread yes)" accepted
+          expect 'a quarantined app that did not run keeps its dialog' "$(gatekeeper_class damaged no)" damaged
+          expect 'the dialog wins over the tools' "$(seen_class unidentified damaged)" damaged
+          expect 'the tools stand in for an unread dialog' "$(seen_class damaged unread)" damaged
+          expect 'a quarantined app that ran was accepted' "$(seen_class damaged "$(gatekeeper_class unread yes)")" accepted
+          expect 'damaged to unidentified improves' "$(verdict damaged unidentified)" improved
+          expect 'improved and installable ships' "$(decision improved yes holds)" "ship signingIdentity '-' and the Release Candidate verify check"
+          expect 'improved but not installable by the steps drops' "$(decision improved no holds)" 'drop the config change'
+          expect 'no verdict change: both damaged' "$(verdict damaged damaged)" unchanged
+          expect 'no verdict change: both unidentified' "$(verdict unidentified unidentified)" unchanged
+          expect 'no verdict change (drop the config change)' "$(decision "$(verdict damaged damaged)" yes holds)" 'drop the config change'
+          expect 'a worse verdict drops' "$(decision "$(verdict unidentified damaged)" yes holds)" 'drop the config change'
+          expect 'spctl reading both alike is no' "$(tells_apart damaged unidentified 3 3 'APP: rejected' 'APP: rejected')" no
+          expect 'spctl reading them differently is yes' "$(tells_apart damaged unidentified 3 3 'APP: a sealed resource is missing or invalid' 'APP: rejected source=no usable signature')" yes
+          expect 'one class for both tests nothing' "$(tells_apart damaged damaged 3 3 a b)" untested
+          expect 'a missing tool reads nothing' "$(tells_apart damaged unidentified missing 1 a b)" unread
+          expect 'tools against an unread dialog' "$(agrees damaged unread)" unread
+          expect 'the assumption holds' "$(assumption yes yes yes yes)" holds
+          expect 'tools reading both alike prove it wrong' "$(assumption no yes yes yes)" wrong
+          expect 'tools against the dialog prove it wrong' "$(assumption yes yes no unread)" wrong
+          expect 'one class leaves it untested' "$(assumption untested untested unread unread)" untested
+          expect 'tools never held against a dialog leave it untested' "$(assumption yes yes unread unread)" untested
+          expect 'one dialog read leaves it untested' "$(assumption yes yes yes unread)" untested
+          expect 'improved and installable ships only on a held assumption' "$(decision improved yes untested)" 'drop the config change'
+          expect 'a wrong assumption drops an improved verdict' "$(decision improved yes wrong)" 'drop the config change'
+          # The best verdict end to end: no dialog appears when Gatekeeper accepts the quarantined ad-hoc app, so its
+          # launch is the dialog's reading. Tools that accept it too hold and ship; an spctl that still rejects it
+          # disagrees with Gatekeeper, so a Release Candidate check built on it would misread users' verdict: wrong.
+          a_gk_ran="$(gatekeeper_class unread yes)"
+          expect 'an ad-hoc launch under quarantine the tools accept holds (canopi-3cu2)' "$(assumption yes yes "$(agrees damaged damaged)" "$(agrees accepted "$a_gk_ran")")" holds
+          expect 'an ad-hoc launch under quarantine the tools accept ships (canopi-3cu2)' "$(decision "$(verdict damaged "$(seen_class accepted "$a_gk_ran")")" yes "$(assumption yes yes "$(agrees damaged damaged)" "$(agrees accepted "$a_gk_ran")")")" "ship signingIdentity '-' and the Release Candidate verify check"
+          expect 'an ad-hoc launch under quarantine spctl rejects is wrong (canopi-3cu2)' "$(assumption yes yes "$(agrees damaged damaged)" "$(agrees unidentified "$a_gk_ran")")" wrong
+          expect 'an ad-hoc launch under quarantine spctl rejects drops (canopi-3cu2)' "$(decision "$(verdict damaged "$(seen_class unidentified "$a_gk_ran")")" yes "$(assumption yes yes "$(agrees damaged damaged)" "$(agrees unidentified "$a_gk_ran")")")" 'drop the config change'
+          expect 'a dropped change keeps the xattr steps' "$(install_text 'drop the config change')" "$xattr_steps"
+          expect 'a shipped change leads with Open Anyway' "$(install_text "$(decision improved yes holds)")" "$open_anyway_steps"
+          if [ "$fail" != 0 ]; then exit 1; fi
+          echo 'classifier self-test passed'
+
+          val() { sed -n "s/^$2=//p" "$RESULTS/$1.env" | head -n 1; }
+          for variant in unsigned adhoc; do
+            if [ ! -f "$RESULTS/$variant.env" ]; then echo "::error::the $variant probe wrote no row"; exit 1; fi
+            case "$(val "$variant" gatekeeper)" in
+              *enabled*) ;;
+              *) echo "::error::Gatekeeper did not assess on the $variant runner ($(val "$variant" gatekeeper)): the probe reads nothing"; exit 1 ;;
+            esac
+          done
+          u_tool="$(tool_class "$(val unsigned codesign_exit)" "$(val unsigned spctl_exit)")"
+          a_tool="$(tool_class "$(val adhoc codesign_exit)" "$(val adhoc spctl_exit)")"
+          u_gk="$(gatekeeper_class "$(dialog_class "$(val unsigned dialog)")" "$(val unsigned launched_quarantined)")"
+          a_gk="$(gatekeeper_class "$(dialog_class "$(val adhoc dialog)")" "$(val adhoc launched_quarantined)")"
+          u_seen="$(seen_class "$u_tool" "$u_gk")"
+          a_seen="$(seen_class "$a_tool" "$a_gk")"
+          spctl_apart="$(tells_apart "$u_seen" "$a_seen" "$(val unsigned spctl_exit)" "$(val adhoc spctl_exit)" "$(val unsigned spctl_msg)" "$(val adhoc spctl_msg)")"
+          policy_apart="$(tells_apart "$u_seen" "$a_seen" "$(val unsigned syspolicy_exit)" "$(val adhoc syspolicy_exit)" "$(val unsigned syspolicy_msg)" "$(val adhoc syspolicy_msg)")"
+          held="$(assumption "$spctl_apart" "$policy_apart" "$(agrees "$u_tool" "$u_gk")" "$(agrees "$a_tool" "$a_gk")")"
+          found="$(verdict "$u_seen" "$a_seen")"
+          chosen="$(decision "$found" "$(val adhoc launched_after_xattr)" "$held")"
+          {
+            for variant in unsigned adhoc; do
+              echo "SIGNING-ROW $variant: $(val "$variant" macos); quarantine $(val "$variant" quarantine); codesign exit $(val "$variant" codesign_exit) ($(val "$variant" codesign_msg)); spctl exit $(val "$variant" spctl_exit) ($(val "$variant" spctl_msg)); syspolicy_check exit $(val "$variant" syspolicy_exit) ($(val "$variant" syspolicy_msg)); dialog ($(val "$variant" dialog)); ran quarantined: $(val "$variant" launched_quarantined); opens after xattr: $(val "$variant" launched_after_xattr)"
+            done
+            echo "SIGNING-CLASS unsigned: tools $u_tool, Gatekeeper $u_gk, seen $u_seen"
+            echo "SIGNING-CLASS adhoc: tools $a_tool, Gatekeeper $a_gk, seen $a_seen"
+            echo "SIGNING-ASSUMPTION: $held (spctl tells them apart: $spctl_apart; syspolicy_check: $policy_apart)"
+            echo "SIGNING-VERDICT: $found: $chosen"
+            echo "SIGNING-INSTALL-TEXT: $(install_text "$chosen")"
+          } | tee signing-verdict.txt
+          {
+            echo '### macOS signing probe'
+            echo '```'
+            cat signing-verdict.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          # The duty this probe guards whatever the verdict: today's unsigned dmg installs with the published step.
+          if [ "$(val unsigned launched_after_xattr)" != yes ]; then
+            echo '::error::the unsigned app did not open after xattr -dr com.apple.quarantine: the published install step fails'
+            exit 1
+          fi

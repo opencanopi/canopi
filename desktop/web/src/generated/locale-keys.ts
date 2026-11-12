@@ -1606,6 +1606,8 @@ export type LocaleKey =
   | "settings.dataLibrary"
   | "settings.dataLibraryHint"
   | "settings.draftsHint"
+  | "settings.favouritesDesktop"
+  | "settings.favouritesWeb"
   | "settings.filesAndData"
   | "settings.filesIntro"
   | "settings.filesLoading"

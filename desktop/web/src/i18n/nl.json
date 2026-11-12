@@ -1950,6 +1950,8 @@
     "filesWeb": "De webeditie bewaart je ontwerpen en concepten in deze browser. Download een kopie om een bestand te bewaren.",
     "filesLoading": "Mappen zoeken…",
     "filesUnavailable": "Canopi kon zijn mappen niet vinden. Start Canopi opnieuw om het nog eens te proberen.",
+    "favouritesDesktop": "Favorieten blijven op deze computer, niet in een ontwerp: een ontwerp dat je deelt of elders opent, neemt ze niet mee.",
+    "favouritesWeb": "Favorieten blijven in deze browser, niet in een ontwerp: een ontwerp dat je deelt of elders opent, neemt ze niet mee.",
     "draftsHint": "Ontwerpen die nooit in een bestand zijn opgeslagen.",
     "dataLibrary": "Databibliotheek",
     "dataLibraryHint": "Terrein- en hoogtegegevens die je hebt geïmporteerd.",

@@ -1950,6 +1950,8 @@
     "filesWeb": "A edição Web mantém seus designs e rascunhos neste navegador. Baixe uma cópia para manter um arquivo.",
     "filesLoading": "Procurando pastas…",
     "filesUnavailable": "O Canopi não encontrou suas pastas. Reinicie o Canopi para tentar de novo.",
+    "favouritesDesktop": "Os favoritos ficam neste computador, não em um design: um design que você compartilha ou abre em outro lugar não os leva.",
+    "favouritesWeb": "Os favoritos ficam neste navegador, não em um design: um design que você compartilha ou abre em outro lugar não os leva.",
     "draftsHint": "Designs nunca salvos em um arquivo.",
     "dataLibrary": "Biblioteca de dados",
     "dataLibraryHint": "Dados de terreno e altura que você importou.",

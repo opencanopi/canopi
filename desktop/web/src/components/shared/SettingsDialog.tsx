@@ -275,12 +275,24 @@ type FolderState =
   | { readonly status: 'ready'; readonly locations: AppFolderLocations }
   | { readonly status: 'failed' }
 
+/**
+ * Favourites belong to this computer or this browser, never to a Design (2.1-Q312), so the note shows whatever the
+ * folders do; export and import wait for a second request (canopi-13lh).
+ */
 function FilesSection({ folders }: { readonly folders?: SettingsFoldersAdapter }) {
+  return <>
+    {folders ? <AppFolders folders={folders} /> : <p className={styles.intro}>{t('settings.filesWeb')}</p>}
+    <p className={styles.hint} data-favourites-note>
+      {t(folders ? 'settings.favouritesDesktop' : 'settings.favouritesWeb')}
+    </p>
+  </>
+}
+
+function AppFolders({ folders }: { readonly folders: SettingsFoldersAdapter }) {
   const [state, setState] = useState<FolderState>({ status: 'loading' })
   const [failed, setFailed] = useState<AppFolder | null>(null)
 
   useEffect(() => {
-    if (!folders) return
     let live = true
     folders.load().then(
       (locations) => { if (live) setState({ status: 'ready', locations }) },
@@ -290,7 +302,6 @@ function FilesSection({ folders }: { readonly folders?: SettingsFoldersAdapter }
     return () => { live = false }
   }, [folders])
 
-  if (!folders) return <p className={styles.intro}>{t('settings.filesWeb')}</p>
   if (state.status === 'loading') return <p className={styles.hint} role="status">{t('settings.filesLoading')}</p>
   if (state.status === 'failed') return <p className={styles.status} role="alert">{t('settings.filesUnavailable')}</p>
 
