@@ -125,9 +125,8 @@ describe('reader release on Web: records from their 2.1 keys', () => {
 })
 
 describe('first launch on a Mac (canopi-pqxl)', () => {
-  it.fails('U canopi-pqxl: macOS first launch defaults the pointing device to Trackpad and leaves a stored choice (Web)', async () => {
+  it('U canopi-pqxl: macOS first launch defaults the pointing device to Trackpad and leaves a stored choice (Web)', async () => {
     browserIs(MAC_SAFARI, 'MacIntel')
-    // Today the fallback is Settings::default(), Mouse, on every system.
     expect((await browserSettingsPlatformAdapter.load()).scroll_wheel, 'a new Mac profile starts on Trackpad').toBe('pan')
 
     localStorage.setItem(V3_SETTINGS_KEY, JSON.stringify({ version: 3, settings: { scroll_wheel: 'zoom' } }))
