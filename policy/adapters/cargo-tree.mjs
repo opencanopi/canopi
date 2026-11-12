@@ -18,7 +18,9 @@ export const RULES = [
   {
     rule: 'format-crate-bans-native',
     guarded: ['canopi-format', 'canopi-format-wasm'],
-    banned: ['tauri', 'tokio', 'rusqlite'],
+    // schemars too: the Web worker's module carries the read half, and the schema derive is a build-time tool that
+    // made it thirteen times larger (canopi-f47t.52.270); the walker reads its keywords from ungated constants.
+    banned: ['tauri', 'tokio', 'rusqlite', 'schemars'],
   },
 ];
 

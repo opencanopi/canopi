@@ -363,7 +363,8 @@ pub fn canopi_file_json_schema() -> serde_json::Value {
 
 /// The JSON Schema keywords the generated `CanopiFile` schema may use: the Web decoder and
 /// the native admission walker interpret exactly these, and bindings-gen refuses any other.
-#[cfg(feature = "design-schema")]
+/// Ungated, unlike the schema itself, so the format crate reads them without schemars and the
+/// Web format worker's module carries none (canopi-f47t.52.270).
 pub const CANOPI_SCHEMA_KEYWORDS: &[&str] = &[
     "$defs",
     "$ref",
@@ -385,7 +386,6 @@ pub const CANOPI_SCHEMA_KEYWORDS: &[&str] = &[
 ];
 
 /// The number formats the generated `CanopiFile` schema may use, with the keywords above.
-#[cfg(feature = "design-schema")]
 pub const CANOPI_SCHEMA_FORMATS: &[&str] = &["double", "float", "int32", "uint32"];
 
 #[cfg_attr(feature = "design-schema", derive(schemars::JsonSchema))]

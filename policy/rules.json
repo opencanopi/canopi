@@ -2506,7 +2506,7 @@
       "family": "format-crate-bans-native",
       "owner_today": "canopi-format/Cargo.toml",
       "example": "canopi-format-wasm/Cargo.toml",
-      "note": "§18 R7: canopi-format and canopi-format-wasm reach no tauri, tokio or rusqlite over normal and build edges (design check F9: policy/adapters/cargo-tree.mjs reads each one's whole graph, since cargo-deny's [bans] wrappers judge only direct parents); from Step 2.0.4 (canopi-f47t.52.270)"
+      "note": "§18 R7: canopi-format and canopi-format-wasm reach no tauri, tokio or rusqlite over normal and build edges, nor schemars, which the Web worker's module would carry (canopi-f47t.52.270) (design check F9: policy/adapters/cargo-tree.mjs reads each one's whole graph, since cargo-deny's [bans] wrappers judge only direct parents); from Step 2.0.4 (canopi-f47t.52.270)"
     },
     {
       "id": "catalog-store-only-in-desktop",

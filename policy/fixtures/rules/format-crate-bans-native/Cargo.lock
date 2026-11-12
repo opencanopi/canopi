@@ -16,6 +16,7 @@ version = "0.1.0"
 dependencies = [
  "canopi-format",
  "rusqlite",
+ "schemars",
 ]
 
 [[package]]
@@ -27,6 +28,10 @@ dependencies = [
 
 [[package]]
 name = "rusqlite"
+version = "0.1.0"
+
+[[package]]
+name = "schemars"
 version = "0.1.0"
 
 [[package]]
