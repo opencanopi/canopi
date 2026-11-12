@@ -2238,5 +2238,10 @@
     "libraryUnavailable": "The Data library couldn’t be opened, so changes won’t be saved this session. Restart Canopi and try again.",
     "formatCoreUnavailable": "Canopi couldn’t load the part that opens Designs. Try again, and report a problem if this keeps happening.",
     "formatCoreTrapped": "Canopi stopped while reading this Design. Try again, and report a problem if this keeps happening."
+  },
+  "startup": {
+    "title": "Canopi couldn’t start",
+    "desktopHint": "Your system may be too old for this version of Canopi. Update your operating system, then open Canopi again.",
+    "webHint": "This browser may be too old for Canopi. Update it or try another browser, then reload the page."
   }
 }

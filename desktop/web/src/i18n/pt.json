@@ -2238,5 +2238,10 @@
     "libraryUnavailable": "Não foi possível abrir a biblioteca de dados, então as alterações não serão salvas nesta sessão. Reinicie o Canopi e tente novamente.",
     "formatCoreUnavailable": "O Canopi não conseguiu carregar a parte que abre os designs. Tente novamente e relate um problema se isso continuar.",
     "formatCoreTrapped": "O Canopi parou ao ler este design. Tente novamente e relate um problema se isso continuar."
+  },
+  "startup": {
+    "title": "Não foi possível iniciar o Canopi",
+    "desktopHint": "Seu sistema pode ser antigo demais para esta versão do Canopi. Atualize o sistema operacional e abra o Canopi novamente.",
+    "webHint": "Este navegador pode ser antigo demais para o Canopi. Atualize-o ou use outro navegador e recarregue a página."
   }
 }

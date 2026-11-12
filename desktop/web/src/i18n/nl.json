@@ -2238,5 +2238,10 @@
     "libraryUnavailable": "De Databibliotheek kon niet worden geopend, dus wijzigingen worden deze sessie niet opgeslagen. Start Canopi opnieuw en probeer het opnieuw.",
     "formatCoreUnavailable": "Canopi kon het onderdeel dat ontwerpen opent niet laden. Probeer het opnieuw en meld een probleem als dit blijft gebeuren.",
     "formatCoreTrapped": "Canopi stopte tijdens het lezen van dit ontwerp. Probeer het opnieuw en meld een probleem als dit blijft gebeuren."
+  },
+  "startup": {
+    "title": "Canopi kon niet starten",
+    "desktopHint": "Je systeem is mogelijk te oud voor deze versie van Canopi. Werk je besturingssysteem bij en open Canopi daarna opnieuw.",
+    "webHint": "Deze browser is mogelijk te oud voor Canopi. Werk hem bij of probeer een andere browser en laad de pagina daarna opnieuw."
   }
 }

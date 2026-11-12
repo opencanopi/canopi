@@ -29,6 +29,13 @@
    "area": "utils"
   },
   {
+   "path": "boot-guard/",
+   "layer": "L0",
+   "edition": "both",
+   "area": "boot-guard",
+   "note": "the start-up guard: a classic script vite.config.ts builds and loads before the entry module; the app imports only its types (2.1-M489)"
+  },
+  {
    "path": "utils/theme.ts",
    "layer": "L0",
    "destination": "app/settings/theme.ts",

@@ -2238,5 +2238,10 @@
     "libraryUnavailable": "La Bibliothèque de données n’a pas pu être ouverte : les modifications ne seront pas enregistrées pendant cette session. Redémarrez Canopi et réessayez.",
     "formatCoreUnavailable": "Canopi n’a pas pu charger la partie qui ouvre les Designs. Réessayez, et signalez un problème si cela continue.",
     "formatCoreTrapped": "Canopi s’est arrêté en lisant ce Design. Réessayez, et signalez un problème si cela continue."
+  },
+  "startup": {
+    "title": "Canopi n’a pas pu démarrer",
+    "desktopHint": "Votre système est peut-être trop ancien pour cette version de Canopi. Mettez à jour votre système d’exploitation, puis rouvrez Canopi.",
+    "webHint": "Ce navigateur est peut-être trop ancien pour Canopi. Mettez-le à jour ou essayez un autre navigateur, puis rechargez la page."
   }
 }
