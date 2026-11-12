@@ -138,9 +138,13 @@ pub(crate) enum GroupMemberRead {
 #[derive(Debug, Serialize, Deserialize)]
 pub(crate) struct BudgetLineRead {
     pub(crate) target: BudgetTargetRead,
-    // In the Design's `budget_currency`. Default: 0.
+    // In the Design's `budget_currency` unless `ext.currency` names another. Default: 0.
     #[serde(default)]
     pub(crate) unit_cost: f64,
+    // The line's extension bag; its `currency`, which 2b's v9-to-v10 step keeps for a line in
+    // another currency (contracts §10), hides the line from the read.
+    #[serde(default)]
+    pub(crate) ext: Option<serde_json::Value>,
 }
 
 // What a budget line prices: `kind` an open string, `species` naming `canonical_name`.

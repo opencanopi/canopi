@@ -85,7 +85,7 @@
       }
     },
     {
-      "id": "read-foreign-currency-budget-line-in-the-design-currency",
+      "id": "read-foreign-currency-budget-line-not-shown",
       "input": {
         "version": 10,
         "budget_currency": "EUR",
@@ -94,14 +94,19 @@
             "target": { "kind": "species", "canonical_name": "Malus domestica" },
             "unit_cost": 10,
             "ext": { "currency": "USD", "quantity": 4, "description": "Apples bought abroad" }
+          },
+          {
+            "target": { "kind": "species", "canonical_name": "Corylus avellana" },
+            "unit_cost": 5,
+            "ext": { "currency": "EUR" }
           }
         ]
       },
       "read": {
         "/view/budget_currency": "EUR",
+        "/view/budget/0/description": "Corylus avellana",
         "/view/budget/0/currency": "EUR",
-        "/view/budget/0/unit_cost": 10.0,
-        "/view/budget/0/description": "Malus domestica",
+        "/view/budget/0/unit_cost": 5.0,
         "/view/budget/1": null
       }
     },
@@ -137,18 +142,24 @@
       }
     },
     {
-      "id": "read-groups-as-filed-nothing-normalised",
+      "id": "read-groups-normalised-at-read",
       "input": {
         "version": 10,
-        "plants": [{ "id": "p1", "canonical_name": "Malus domestica", "position": { "lon": 2.29, "lat": 48.85 } }],
+        "plants": [
+          { "id": "p1", "canonical_name": "Malus domestica", "position": { "lon": 2.29, "lat": 48.85 } },
+          { "id": "p2", "canonical_name": "Corylus avellana", "position": { "lon": 2.3, "lat": 48.85 } }
+        ],
+        "measurement_guides": [{ "id": "m1", "start": { "lon": 2.29, "lat": 48.85 }, "end": { "lon": 2.3, "lat": 48.85 } }],
         "groups": [
-          { "id": "g1", "members": [{ "kind": "plant", "id": "p1" }] },
-          { "id": "g2", "members": [{ "kind": "zone", "id": "missing-zone" }, { "kind": "plant", "id": "p1" }, { "kind": "plant", "id": "p1" }] }
+          { "id": "lone", "members": [{ "kind": "plant", "id": "p1" }] },
+          { "id": "kept", "members": [{ "kind": "zone", "id": "missing-zone" }, { "kind": "plant", "id": "p1" }, { "kind": "plant", "id": "p1" }, { "kind": "plant", "id": "p2" }] },
+          { "id": "guide", "members": [{ "kind": "plant", "id": "p2" }, { "kind": "measurement_guide", "id": "m1" }] }
         ]
       },
       "read": {
-        "/view/groups/0/members": [{ "kind": "plant", "id": "p1" }],
-        "/view/groups/1/members": [{ "kind": "zone", "id": "missing-zone" }, { "kind": "plant", "id": "p1" }, { "kind": "plant", "id": "p1" }]
+        "/view/groups/0/id": "kept",
+        "/view/groups/0/members": [{ "kind": "plant", "id": "p1" }, { "kind": "plant", "id": "p2" }],
+        "/view/groups/1": null
       }
     }
   ]

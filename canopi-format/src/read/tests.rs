@@ -16,10 +16,11 @@ fn v10() -> Value {
         "plants": [{
             "id": "p1", "canonical_name": "Malus domestica", "position": point(2.29, 48.85),
             "canopy_spread_m": 4.5, "scale": 0.0, "ext": { "later": true }
-        }],
+        }, { "id": "p2", "canonical_name": "Corylus avellana", "position": point(2.3, 48.85) }],
         "measurement_guides": [{ "id": "m1", "start": point(2.29, 48.85), "end": point(2.3, 48.85) }],
         "groups": [{ "id": "g1", "members": [
-            { "kind": "plant", "id": "p1" }, { "kind": "measurement_guide", "id": "m1" }
+            { "kind": "plant", "id": "p1" }, { "kind": "measurement_guide", "id": "m1" },
+            { "kind": "plant", "id": "p2" }
         ] }],
         "site_data": { "visible": true, "entries": [
             { "id": "lyr-1", "name": "Terrain", "ramp": "Aurora", "kind": { "any": "value" }, "order": 2 },
@@ -53,9 +54,14 @@ fn a_v10_design_reads_into_this_builds_shape_with_v10_names_mapped_back() {
     assert_eq!(view.plants[0].scale, Some(4.5), "the spread, not `scale`");
     assert_eq!(
         view.groups[0].members,
-        [ObjectGroupMember::Plant {
-            id: "p1".to_owned()
-        }]
+        [
+            ObjectGroupMember::Plant {
+                id: "p1".to_owned()
+            },
+            ObjectGroupMember::Plant {
+                id: "p2".to_owned()
+            }
+        ]
     );
     let lidar = view.lidar.expect("Site data reads as the LiDAR section");
     let roles = lidar.entries.iter().map(|entry| (entry.kind, entry.ramp));
@@ -257,14 +263,21 @@ fn a_v10_object_of_only_its_identity_and_geometry_reads_with_every_default() {
     let value = json!({
         "version": 10,
         "layers": [{ "name": "plants" }],
-        "annotations": [{ "id": "a1", "position": point(2.29, 48.85) }],
+        "annotations": [
+            { "id": "a1", "position": point(2.29, 48.85) },
+            { "id": "a2", "position": point(2.3, 48.85) }
+        ],
         "consortiums": [{ "target": { "kind": "species", "canonical_name": "Malus domestica" } }],
         "timeline": [{ "id": "t1" }],
         "views": [{ "id": "v1", "camera": camera, "text": [{ "kind": "paragraph" }, { "kind": "bullets" }] }],
         "stories": [{ "id": "s1", "steps": [{ "id": "st1", "view_id": "v1" }] }],
         "map_view": camera,
         "site_data": { "entries": [{ "id": "lyr-1", "name": "Terrain" }] },
-        "groups": [{ "id": "g1" }],
+        // A group under two members is dropped at read, so this one names two notes.
+        "groups": [
+            { "id": "g1", "members": [{ "kind": "annotation", "id": "a1" }, { "kind": "annotation", "id": "a2" }] },
+            { "id": "g2" }
+        ],
         "budget": [{ "target": { "kind": "species", "canonical_name": "Malus domestica" } }]
     });
     let view = read_newer_design(&value)
@@ -333,7 +346,15 @@ fn a_v10_object_of_only_its_identity_and_geometry_reads_with_every_default() {
     );
     assert_eq!(read["map_view"]["bearing"], json!(0.0));
     assert_eq!(read["lidar"]["entries"][0]["opacity"], json!(1.0));
-    assert_eq!(read["groups"][0]["members"], json!([]));
+    assert_eq!(
+        (&read["groups"][0]["locked"], &read["groups"][0]["name"]),
+        (&json!(false), &Value::Null)
+    );
+    assert_eq!(
+        read["groups"][1],
+        Value::Null,
+        "a group of no members is dropped"
+    );
     assert_eq!(read["budget"][0]["unit_cost"], json!(0.0));
 }
 
@@ -424,4 +445,60 @@ fn a_non_finite_canopy_spread_never_reaches_the_read() {
     assert_eq!(value["plants"][0]["canopy_spread_m"], Value::Null);
     let view = read_newer_design(&value).expect("a null spread reads").view;
     assert_eq!(view.plants[0].scale, None);
+}
+
+/// canopi-f47t.52.270: a species line whose `ext` names another currency than the Design's is
+/// not shown (a price relabelled would be wrong) and is kept in the file, never written.
+#[test]
+fn canopi_f47t_52_270_a_budget_line_in_another_currency_is_not_shown() {
+    let mut value = v10();
+    value["budget"][0]["ext"] = json!({ "currency": "EUR", "quantity": 3 });
+    assert!(
+        read_newer_design(&value)
+            .expect("it reads")
+            .view
+            .budget
+            .is_empty()
+    );
+    value["budget"][0]["ext"] = json!({ "currency": "USD" });
+    assert_eq!(
+        read_newer_design(&value)
+            .expect("it reads")
+            .view
+            .budget
+            .len(),
+        1
+    );
+}
+
+/// canopi-f47t.52.270: groups are normalised at read as contracts §10 decodes them: after the
+/// guide members this build cannot hold go, dangling and repeated members are removed and a
+/// group under two members is dropped.
+#[test]
+fn canopi_f47t_52_270_groups_are_normalised_at_read() {
+    let mut value = v10();
+    value["groups"] = json!([
+        { "id": "lone", "members": [{ "kind": "plant", "id": "p1" }, { "kind": "measurement_guide", "id": "m1" }] },
+        { "id": "kept", "members": [
+            { "kind": "annotation", "id": "missing" }, { "kind": "plant", "id": "p2" },
+            { "kind": "plant", "id": "p2" }, { "kind": "plant", "id": "p1" }
+        ] }
+    ]);
+    let groups = read_newer_design(&value).expect("it reads").view.groups;
+    let ids = groups
+        .iter()
+        .map(|group| group.id.as_str())
+        .collect::<Vec<_>>();
+    assert_eq!(ids, ["kept"]);
+    assert_eq!(
+        groups[0].members,
+        [
+            ObjectGroupMember::Plant {
+                id: "p2".to_owned()
+            },
+            ObjectGroupMember::Plant {
+                id: "p1".to_owned()
+            }
+        ]
+    );
 }

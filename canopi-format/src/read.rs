@@ -20,6 +20,7 @@ use canopi_types::lidar::{LidarPresentationEntry, LidarPresentationSection, Lida
 use canopi_types::settings::PlantLabels;
 use canopi_types::views::{validate_map_view, validate_views_and_stories};
 use serde_json::Value;
+use std::collections::HashSet;
 
 use crate::schema::{admit_schema, fill_defaults};
 use crate::v10::{
@@ -81,6 +82,7 @@ pub fn read_newer_design(value: &Value) -> Result<ReadOnlyDesign, ReadRefusal> {
     if let Some(section) = view.lidar.as_mut() {
         keep_lowest_order(&mut section.entries);
     }
+    normalise_groups(&mut view);
     Ok(ReadOnlyDesign {
         view,
         saved_by_version: version,
@@ -198,8 +200,34 @@ fn plant_of(plant: PlantRead) -> PlacedPlant {
     }
 }
 
-/// A group without its measurement guide members, which this build's groups cannot hold;
-/// the view never writes, so nothing is normalised.
+/// The groups as contracts §10 decodes them: a member naming no plant, zone or note of the
+/// view, or repeating one before it, is removed, then a group under two members is dropped.
+/// The view never writes, so the file keeps them.
+fn normalise_groups(view: &mut CanopiFile) {
+    let plants = view.plants.iter().map(|plant| plant.id.as_str());
+    let zones = view.zones.iter().map(|zone| zone.id.as_str());
+    let notes = view.annotations.iter().map(|note| note.id.as_str());
+    let existing = plants
+        .map(|id| ("plant", id))
+        .chain(zones.map(|id| ("zone", id)))
+        .chain(notes.map(|id| ("annotation", id)))
+        .collect::<HashSet<_>>();
+    for group in &mut view.groups {
+        let mut seen = HashSet::new();
+        group.members.retain(|member| {
+            let key = match member {
+                ObjectGroupMember::Plant { id } => ("plant", id.as_str()),
+                ObjectGroupMember::Zone { id } => ("zone", id.as_str()),
+                ObjectGroupMember::Annotation { id } => ("annotation", id.as_str()),
+            };
+            existing.contains(&key) && seen.insert((key.0, key.1.to_owned()))
+        });
+    }
+    view.groups.retain(|group| group.members.len() >= 2);
+}
+
+/// A group without its measurement guide members, which this build's groups cannot hold
+/// ([`normalise_groups`] then drops a group they leave under two members).
 fn group_of(group: GroupRead) -> ObjectGroup {
     let members = group
         .members
@@ -238,12 +266,17 @@ fn species_lines_named(lines: &[BudgetLineRead]) -> Result<(), Refusal> {
     }
 }
 
-/// The species lines as this build's plant lines; a line whose target is not a species is
-/// skipped (2.1-M491), and a species line names its species ([`species_lines_named`]).
+/// The species lines as this build's plant lines; a line whose target is not a species, or
+/// whose `ext.currency` is not the Design's, is skipped, never relabelled (2.1-M491), and a
+/// species line names its species ([`species_lines_named`]).
 fn budget_of(lines: Vec<BudgetLineRead>, currency: &str) -> Vec<BudgetItem> {
     lines
         .into_iter()
         .filter(|line| line.target.kind == "species")
+        .filter(|line| {
+            let own = line.ext.as_ref().and_then(|ext| ext.get("currency"));
+            own.is_none_or(|own| own.as_str() == Some(currency))
+        })
         .filter_map(|line| {
             let canonical_name = line.target.canonical_name?;
             Some(BudgetItem {
