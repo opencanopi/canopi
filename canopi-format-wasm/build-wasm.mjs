@@ -1,19 +1,23 @@
 #!/usr/bin/env node
 // canopi-format-wasm/build-wasm.mjs: builds the Web format worker's module from source (Step 2.0.4 R1-1; design check
 // A23): `npm run build:format-wasm` in desktop/web, which every Web build runs first. Never committed: the .wasm and its
-// glue land in canopi-format-wasm/dist/ (git-ignored), where src/platform/design-core.worker.ts imports them by `?url`.
+// glue land in canopi-format-wasm/dist/ (git-ignored), where src/platform/design-core.worker.ts imports them through
+// canopi-format-wasm/glue.js (the .wasm by `?url`).
 //
 // 1. The wasm-bindgen CLI on PATH must be the version Cargo.lock pins for the wasm-bindgen crate: the glue and the
 //    module's custom section must agree, and a mismatch fails at bind time or worse at run time. CI installs the lock's
-//    version (taiki-e/install-action, .github/workflows/build.yml); a mismatch here names the install command.
+//    version (taiki-e/install-action, in each workflow that builds the Web edition, held to the lock by
+//    build-wasm.test.ts); a mismatch here names the install command.
 // 2. `cargo build --release --locked --target wasm32-unknown-unknown -p canopi-format-wasm` (the target comes from
-//    rust-toolchain.toml), in Cargo's target directory as `cargo metadata` reports it, so CARGO_TARGET_DIR holds.
+//    rust-toolchain.toml), in Cargo's target directory as `cargo metadata` reports it, so CARGO_TARGET_DIR holds, with
+//    the builder's paths remapped (moduleRustflags) so the module is the same bytes on every machine.
 // 3. `wasm-bindgen --target web --no-typescript` into dist/: canopi_format_wasm.js and canopi_format_wasm_bg.wasm.
 //
 // CANOPI_FORMAT_WASM_MVP=1 builds for the WebAssembly MVP (`-C target-cpu=mvp`), the plan's fallback should an engine
 // Canopi supports refuse the default target features; the probe (e2e/canvas/format-core-probe.spec.ts) found none.
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -49,6 +53,23 @@ export function versionRefusal(locked, installed) {
   return undefined;
 }
 
+/**
+ * The module's rustflags, encoded as CARGO_ENCODED_RUSTFLAGS (the variable Cargo reads first, so these flags always
+ * apply): the caller's own (CARGO_ENCODED_RUSTFLAGS, else RUSTFLAGS), then the remaps of the builder's home, Cargo home
+ * and repository paths, the most specific last since rustc applies the last matching remap, then the MVP flag. The
+ * remaps keep panic locations from naming the builder's paths, so the module and its hashed name are the same on every
+ * machine and a local release build publishes no username. The home maps to `~`, not an absolute root, so every absolute
+ * Rust source path left in the module starts with `/cargo/`, `/canopi/` or rustc's own `/rustc/` and `/rust/deps/`, and
+ * the probe spec can tell a leaked path from a remapped one on any host.
+ */
+export function moduleRustflags({ env, home, cargoHome, root, mvp }) {
+  const own = env.CARGO_ENCODED_RUSTFLAGS !== undefined
+    ? env.CARGO_ENCODED_RUSTFLAGS.split('\x1f')
+    : (env.RUSTFLAGS ?? '').split(/\s+/u);
+  const remaps = [[home, '~'],[cargoHome, '/cargo'], [root, '/canopi']].map(([from, to]) => `--remap-path-prefix=${from}=${to}`);
+  return [...own.filter(Boolean), ...remaps, ...(mvp ? ['-C', 'target-cpu=mvp'] : [])].join('\x1f');
+}
+
 function installedCli() {
   try {
     return cliVersion(execFileSync('wasm-bindgen', ['--version'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }));
@@ -64,8 +85,16 @@ function main() {
     console.error(`build-wasm: ${refusal}`);
     return 1;
   }
-  const env = { ...process.env };
-  if (process.env.CANOPI_FORMAT_WASM_MVP === '1') env.RUSTFLAGS = `${env.RUSTFLAGS ?? ''} -C target-cpu=mvp`.trim();
+  const env = {
+    ...process.env,
+    CARGO_ENCODED_RUSTFLAGS: moduleRustflags({
+      env: process.env,
+      home: os.homedir(),
+      cargoHome: process.env.CARGO_HOME ?? path.join(os.homedir(), '.cargo'),
+      root: ROOT,
+      mvp: process.env.CANOPI_FORMAT_WASM_MVP === '1',
+    }),
+  };
   const run = (command, args) => execFileSync(command, args, { cwd: ROOT, env, stdio: 'inherit' });
   run('cargo', ['build', '--release', '--locked', '--target', TARGET, '-p', CRATE]);
   const metadata = JSON.parse(execFileSync('cargo', ['metadata', '--format-version', '1', '--no-deps', '--locked'], { cwd: ROOT, env, encoding: 'utf8' }));

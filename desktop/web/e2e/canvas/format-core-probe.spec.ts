@@ -8,12 +8,13 @@
 //   CANOPI_FORMAT_PROBE_WEBDRIVER (the driver's URL) and CANOPI_FORMAT_PROBE_CAPABILITIES (its capabilities, JSON).
 // - The engine floor: U's old WebKit images boot dist-web, which carries the worker (canopi-4kfl).
 // The preview server labels the .wasm `application/wasm`, so the worker compiles it as it streams; a host that labels it
-// otherwise gets the arrayBuffer fallback, and a load that fails answers `unavailable` and is retried by the next call.
-// Measured 2026-11-12 (wasm-bindgen 0.2.130, Rust 1.97.1 release, no wasm-opt): the .wasm is 61,791 bytes, and the
-// worker's chunk with the glue bundled in 3,655 (7,201 unminified); it instantiated with the default target features
+// otherwise, a parameter after it included, gets the arrayBuffer fallback, and a load that fails answers `unavailable` and is retried by the next call.
+// Measured 2026-11-12 (wasm-bindgen 0.2.130, Rust 1.97.1 release, builder paths remapped, no wasm-opt): the .wasm is
+// 61,779 bytes, and the worker's chunk with the glue bundled in 3,640; it instantiated with the default target features
 // (reference types among them) in the pinned image's Chromium, WebKit and Firefox and in MiniBrowser on Ubuntu 22.04's
 // WebKitGTK 2.50.4 through WebKitWebDriver, so no `-C target-cpu=mvp`.
-import { readdirSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
+import { homedir } from 'node:os'
 import { fileURLToPath } from 'node:url'
 import type { Page } from '@playwright/test'
 import { expect, test } from '../support/offline'
@@ -102,6 +103,43 @@ test('canopi-f47t.52.270: a .wasm served without application/wasm loads through 
   await openProbePage(page)
   const [reply] = await page.evaluate(runProbe, { workerUrl: WORKER_URL(), texts: [PROBE_TEXT] }) as ProbeReply[]
   expectProbeAnswer(reply!, 'arrayBuffer')
+})
+
+test('canopi-f47t.52.270: a .wasm labelled application/wasm with a parameter loads through the arrayBuffer fallback', async ({ page, context }) => {
+  const wasmUrl = WASM_URL()
+  await context.route(wasmUrl, async (route) => {
+    const response = await route.fetch()
+    await route.fulfill({ response, headers: { ...response.headers(), 'content-type': 'application/wasm; charset=binary' } })
+  })
+  await openProbePage(page)
+  const [reply] = await page.evaluate(runProbe, { workerUrl: WORKER_URL(), texts: [PROBE_TEXT] }) as ProbeReply[]
+  expectProbeAnswer(reply!, 'arrayBuffer')
+})
+
+/**
+ * The roots an absolute Rust source path in the module may start with: build-wasm.mjs's remap targets for the Cargo home
+ * and the repository, and rustc's own for the standard library and its vendored crates. The home maps to `~`, so it is
+ * no absolute root, and a builder's home, Cargo home or checkout left unremapped starts with none of these.
+ */
+const REMAPPED_ROOTS = ['/cargo/', '/canopi/', '/rustc/', '/rust/deps/']
+const ABSOLUTE_RUST_SOURCE = /(?<![\w.~-])\/[\w.@+\-/]+\.rs\b/gu
+
+/** The absolute Rust source paths in `text` that start with no remapped root: builder paths the build failed to remap. */
+function unremappedSourcePaths(text: string): string[] {
+  return [...new Set(text.match(ABSOLUTE_RUST_SOURCE) ?? [])].filter((source) => !REMAPPED_ROOTS.some((root) => source.startsWith(root)))
+}
+
+// Two checks, because the gate's docker lane runs this spec with HOME=/tmp in a repository mounted at /work over a
+// module built on the host: there the literal home and repository paths are not the builder's, and only the
+// host-independent check (every absolute source path starts with a remapped root) can see a leak. In CI, which builds
+// and tests in one container, both apply.
+test('canopi-f47t.52.270: the built .wasm names no builder path (home, Cargo home or repository)', () => {
+  const bytes = readFileSync(fileURLToPath(new URL(`../../dist-web/assets/${WASM_URL().split('/').at(-1)}`, import.meta.url))).toString('latin1')
+  expect(unremappedSourcePaths(`${bytes}\0/home/ana/.cargo/registry/src/x/lib.rs\0/work/canopi-types/src/lib.rs`))
+    .toEqual(['/home/ana/.cargo/registry/src/x/lib.rs', '/work/canopi-types/src/lib.rs'])
+  expect(unremappedSourcePaths(bytes)).toEqual([])
+  const repository = fileURLToPath(new URL('../../../../', import.meta.url)).replace(/\/$/, '')
+  for (const builderPath of [homedir(), repository, '/.cargo/registry/']) expect(bytes, builderPath).not.toContain(builderPath)
 })
 
 test.describe('a format module that fails to load', () => {

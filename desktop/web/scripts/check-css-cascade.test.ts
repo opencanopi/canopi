@@ -88,6 +88,6 @@ describe('the built stylesheet cascade check', () => {
   it('runs after the Desktop and the Web bundle builds, before the identifier scanner', () => {
     const { scripts } = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as { scripts: Record<string, string> }
     expect(scripts['build:desktop:bundle']).toMatch(/^vite build && node scripts\/check-css-cascade\.mjs dist && /)
-    expect(scripts['build:web:bundle']).toMatch(/^vite build --mode web && .*node scripts\/check-css-cascade\.mjs dist-web && /)
+    expect(scripts['build:web:bundle']).toMatch(/^npm run build:format-wasm && vite build --mode web && .*node scripts\/check-css-cascade\.mjs dist-web && /)
   })
 })

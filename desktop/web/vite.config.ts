@@ -25,7 +25,8 @@ const WEB_HASHED_NAMES = {
 // asciiIdentifierKeysPlugin quotes the property names Oxc's minifier unquoted (canopi-f47t.52.228.18).
 const ASCII_OUTPUT = { charset: "ascii" } as const;
 // The format worker's built module (canopi-format-wasm/build-wasm.mjs, `npm run build:format-wasm`, git-ignored): the
-// worker imports its glue and .wasm by `?url`, and Vite serves them from outside this directory in dev.
+// worker imports its glue and the .wasm's `?url` through canopi-format-wasm/glue.js, and Vite serves them from outside
+// this directory in dev.
 const FORMAT_WASM_DIST = fileURLToPath(new URL("../../canopi-format-wasm/dist/", import.meta.url));
 // The Web build's entries. The format worker is its own entry until R1-6's design-core adapter starts it with
 // `new Worker(new URL(...))` (Step 2.0.4 R1-1, its probe: e2e/canvas/format-core-probe.spec.ts); Desktop reads natively
