@@ -124,6 +124,12 @@
       "webSpeciesLists": "Canopi 保存的收藏和最近查看的植物已损坏且无法另存，因此本次会话中对它们的更改不会被保存。"
     },
     "newerReadOnly": "这些数据由更新版本的 Canopi 保存。您可以查看，但更改不会被保存。请更新 Canopi 以进行编辑。",
+    "newerReadOnlyStore": {
+      "userDb": "您的收藏、已保存的图章和最近的设计由更新版本的 Canopi 保存。您可以查看，但更改不会被保存。请更新 Canopi 后再编辑。",
+      "settings": "您的设置由更新版本的 Canopi 保存。更改在关闭 Canopi 前有效，但不会被保存。请更新 Canopi 以保留更改。",
+      "libraryCatalogue": "数据资料库由更新版本的 Canopi 保存。其中的项目会列出，但更改不会被保存。请更新 Canopi 后再使用。",
+      "webSpeciesLists": "您的收藏和最近查看的植物由更新版本的 Canopi 保存。您可以查看，但更改不会被保存。请更新 Canopi 后再编辑。"
+    },
     "refusedNewer": "这些数据由更新版本的 Canopi 保存，未被打开。请更新 Canopi 以使用它们。",
     "storeUnavailable": "无法打开 Canopi 保存的部分数据。请重新启动 Canopi，如果问题仍然存在，请报告问题。",
     "fieldsReset": "部分设置的值 Canopi 无法使用，已重置为默认值。",
@@ -1827,7 +1833,8 @@
     "cantReadMissing": "找不到此文件：已被移动或删除",
     "cantReadOlderVersion": "由 Canopi 2.0 之前的版本创建，Canopi 2.0 及更高版本无法打开",
     "cantReadNewerVersion": "由新版 Canopi 创建，请更新 Canopi 后打开",
-    "cantReadDamaged": "无法读取此文件：文件已损坏"
+    "cantReadDamaged": "无法读取此文件：文件已损坏",
+    "rowReadOnly": "只读：由更新版本的 Canopi 保存"
   },
   "shortcutKeys": {
     "ctrl": "Ctrl",
@@ -2226,6 +2233,8 @@
     "fileError": "Canopi 无法读取或写入该文件。请重试。",
     "plantCatalogUnavailable": "无法打开植物目录。请重启 Canopi，如果问题仍然存在，请重新安装。",
     "libraryNewer": "此数据资料库由更新版本的 Canopi 保存。请更新 Canopi 后再修改。",
-    "libraryUnavailable": "无法打开数据资料库，因此本次会话的更改不会保存。请重启 Canopi 后重试。"
+    "libraryUnavailable": "无法打开数据资料库，因此本次会话的更改不会保存。请重启 Canopi 后重试。",
+    "formatCoreUnavailable": "Canopi 无法加载用于打开设计的部分。请重试，如果问题反复出现，请报告问题。",
+    "formatCoreTrapped": "Canopi 在读取此设计时停止。请重试，如果问题反复出现，请报告问题。"
   }
 }

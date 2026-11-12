@@ -2260,6 +2260,9 @@ fn resolve_units(
 mod fixed_library_tests;
 
 #[cfg(test)]
+mod reader_release_tests;
+
+#[cfg(test)]
 mod tests {
     #[test]
     fn the_library_size_counts_files_in_every_folder() {

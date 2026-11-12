@@ -23,11 +23,9 @@ pub const DEFAULT_PLANT_SYMBOL_ID: &str = "round";
 pub const CURRENT_CANOPI_FILE_VERSION: u32 = 9;
 /// Missing versions are interpreted as the first public `.canopi` format.
 pub const MISSING_CANOPI_FILE_VERSION: u32 = 1;
-#[expect(
-    missing_docs,
-    reason = "undocumented before 2.1-Q217; document when this file is next touched"
-)]
-pub const FUTURE_CANOPI_FILE_VERSION_POLICY: &str = "reject";
+/// What the reader release does with a file newer than [`CURRENT_CANOPI_FILE_VERSION`] (the corpus fact
+/// `future_version_policy`): it opens read-only, never written (2.1-M478, 2.1-M481; Step 2.0.4).
+pub const FUTURE_CANOPI_FILE_VERSION_POLICY: &str = "newer_read_only";
 #[expect(
     missing_docs,
     reason = "undocumented before 2.1-Q217; document when this file is next touched"
@@ -954,6 +952,18 @@ pub struct DesignNotebookSnapshot {
 pub struct LoadedDesign {
     pub file: CanopiFile,
     pub fingerprint: String,
+}
+
+/// A Design saved by a newer Canopi, read for the read-only view (contracts §11 Rollback, 2.1-M478, 2.1-M479):
+/// `view` is its read projection in the in-memory shape this build draws, `saved_by_version` the file's format
+/// version. A distinct type on purpose: no save, Draft or export API takes it or its `view`, so a v10 Design never
+/// reaches 2.0 persistence (held by R1's type rule).
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct ReadOnlyDesign {
+    /// The Design as the read view maps it onto this build's shape, shown and never written.
+    pub view: CanopiFile,
+    /// The format version the file was saved at, above [`CURRENT_CANOPI_FILE_VERSION`].
+    pub saved_by_version: u32,
 }
 
 /// Why a Design file could not be opened. `kind` is what the interface maps

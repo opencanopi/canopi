@@ -56,6 +56,8 @@ fn row_to_saved_object_stamp(row: crate::db::user_db::SavedObjectStampRow) -> Sa
         sort_order: row.sort_order,
         created_at: row.created_at,
         updated_at: row.updated_at,
+        // R2 computes it in the listing query (2.1-M88, design check F6).
+        needs_newer: false,
     }
 }
 

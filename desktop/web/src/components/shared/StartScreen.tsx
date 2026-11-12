@@ -30,6 +30,8 @@ interface StartScreenDesign {
   readonly updatedAt: string
   /** What the file says about the Design; absent until it has been read. */
   readonly preview?: RecentDesignPreview
+  /** Saved by a newer Canopi: labelled read-only, and opening it shows the read-only view (2.1-Q316). */
+  readonly readOnly?: boolean
   open(): void
   /** More › Show in folder: the file's folder in the system file manager. */
   showInFolder(): void
@@ -41,9 +43,15 @@ export interface StartScreenDraft {
   readonly id: string
   readonly name: string
   readonly updatedAt: string
+  /**
+   * Saved by a newer Canopi (a 2.1 Draft): labelled read-only instead of "never saved", and opening it shows the
+   * read-only view (2.1-Q316, 2.1-Q321). Such a row has no `delete`.
+   */
+  readonly readOnly?: boolean
   open(): void
-  delete(): void
-  /** More-menu items before Delete (Web: Download a copy). */
+  /** More › Delete, confirmed inline; absent on a row that cannot be deleted (a read-only Draft, design check F7). */
+  readonly delete?: () => void
+  /** More-menu items before Delete (Web: Download a copy, also on a read-only row, 2.1-Q323). */
   readonly actions?: readonly StartScreenAction[]
 }
 
@@ -71,6 +79,8 @@ interface StartScreenProps {
   readonly loading?: boolean
   /** A line under the ways in; Desktop passes none. */
   readonly notice?: StartScreenNotice | null
+  /** One line into Help under the links, which each edition's welcome screen fills (design check A22). */
+  readonly helpLine?: StartScreenAction | null
 }
 
 /**
@@ -79,7 +89,7 @@ interface StartScreenProps {
  * yet, the right column says where Designs will appear and offers New Design.
  * Deleting a Draft confirms inline and names it, because a Draft cannot be recovered.
  */
-export function StartScreen({ newDesign, openDesign, links, footer, recent, drafts, loading = false, notice = null }: StartScreenProps) {
+export function StartScreen({ newDesign, openDesign, links, footer, recent, drafts, loading = false, notice = null, helpLine = null }: StartScreenProps) {
   const [query, setQuery] = useState('')
   const searchId = useId()
   const needle = fold(query.trim())
@@ -170,6 +180,12 @@ export function StartScreen({ newDesign, openDesign, links, footer, recent, draf
               {link.label}
             </button>
           ))}
+          {helpLine && (
+            <button type="button" className={styles.link} onClick={helpLine.run} data-start-help-line>
+              <ControlIcon name="help" />
+              {helpLine.label}
+            </button>
+          )}
         </nav>
         <p className={styles.footer}>{footer}</p>
       </div>
@@ -244,12 +260,14 @@ function RecentRow({ design, location }: { readonly design: StartScreenDesign; r
   const name = visibleDesignName(design.name)
   const preview = design.preview
   const sketch = preview?.kind === 'read' ? preview.sketch : null
-  const status = preview?.kind === 'read'
-    ? `${t('start.plantCount', { count: preview.plant_count })} · ${t('start.zoneCount', { count: preview.zone_count })}`
-    : preview?.kind === 'unreadable' ? t(UNREADABLE_MESSAGE_KEYS[preview.reason]) : null
+  const status = design.readOnly
+    ? t('start.rowReadOnly')
+    : preview?.kind === 'read'
+      ? `${t('start.plantCount', { count: preview.plant_count })} · ${t('start.zoneCount', { count: preview.zone_count })}`
+      : preview?.kind === 'unreadable' ? t(UNREADABLE_MESSAGE_KEYS[preview.reason]) : null
   const place = location?.kind === 'file' ? location.text : location ? t('start.inFolder', { folder: location.text }) : null
   return (
-    <li className={styles.row}>
+    <li className={styles.row} data-read-only={design.readOnly ? '' : undefined}>
       <div className={styles.rowLine}>
         <button type="button" className={styles.rowButton} onClick={design.open}>
           <span className={`${styles.thumb} ${sketch ? styles.sketchThumb : ''}`} aria-hidden="true">
@@ -283,26 +301,25 @@ function RecentRow({ design, location }: { readonly design: StartScreenDesign; r
 function DraftRow({ draft }: { readonly draft: StartScreenDraft }) {
   const [confirming, setConfirming] = useState(false)
   const name = visibleDesignName(draft.name)
+  const remove = draft.delete
+  const items = [
+    ...(draft.actions ?? []).map((action) => ({ label: action.label, run: action.run })),
+    ...(remove ? [{ label: t('drafts.deleteItem'), danger: true, run: () => setConfirming(true) }] : []),
+  ]
   return (
-    <li className={styles.row}>
+    <li className={styles.row} data-read-only={draft.readOnly ? '' : undefined}>
       <div className={styles.rowLine}>
         <button type="button" className={styles.rowButton} onClick={draft.open}>
           <span className={`${styles.thumb} ${styles.draftThumb}`} aria-hidden="true"><ControlIcon name="draft" size={20} /></span>
           <span className={styles.rowText}>
             <span className={styles.rowName}>{name}</span>
-            <span className={styles.rowMeta}>{t('drafts.neverSaved')}</span>
+            <span className={styles.rowMeta}>{t(draft.readOnly ? 'start.rowReadOnly' : 'drafts.neverSaved')}</span>
           </span>
           <span className={styles.rowDate}>{formatInstantInList(draft.updatedAt, locale.value)}</span>
         </button>
-        <ActionMenu
-          label={t('drafts.actions', { name })}
-          items={[
-            ...(draft.actions ?? []).map((action) => ({ label: action.label, run: action.run })),
-            { label: t('drafts.deleteItem'), danger: true, run: () => setConfirming(true) },
-          ]}
-        />
+        {items.length > 0 && <ActionMenu label={t('drafts.actions', { name })} items={items} />}
       </div>
-      {confirming && (
+      {confirming && remove && (
         <div className={styles.confirm} role="alertdialog" aria-label={t('drafts.confirmDelete', { name })}>
           <span className={styles.confirmText}>{t('drafts.confirmDelete', { name })}</span>
           <button type="button" className={styles.secondarySmall} onClick={() => setConfirming(false)} autoFocus>
@@ -313,7 +330,7 @@ function DraftRow({ draft }: { readonly draft: StartScreenDraft }) {
             className={styles.danger}
             onClick={() => {
               setConfirming(false)
-              draft.delete()
+              remove()
             }}
           >
             {t('drafts.confirmDeleteAction')}

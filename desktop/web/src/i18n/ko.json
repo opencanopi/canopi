@@ -124,6 +124,12 @@
       "webSpeciesLists": "Canopi에 저장된 즐겨찾기와 최근 본 식물이 손상되었고 따로 보관할 수 없어 이번 세션 동안 변경 사항은 저장되지 않습니다."
     },
     "newerReadOnly": "이 데이터는 최신 버전의 Canopi에서 저장되었습니다. 볼 수는 있지만 변경 사항은 저장되지 않습니다. 편집하려면 Canopi를 업데이트하세요.",
+    "newerReadOnlyStore": {
+      "userDb": "즐겨찾기, 저장한 스탬프, 최근 디자인이 더 새로운 Canopi에서 저장되었습니다. 볼 수는 있지만 변경 사항은 저장되지 않습니다. 편집하려면 Canopi를 업데이트하세요.",
+      "settings": "설정이 더 새로운 Canopi에서 저장되었습니다. 변경 사항은 Canopi를 닫을 때까지 적용되지만 저장되지 않습니다. 유지하려면 Canopi를 업데이트하세요.",
+      "libraryCatalogue": "데이터 라이브러리가 더 새로운 Canopi에서 저장되었습니다. 항목은 목록에 표시되지만 변경 사항은 저장되지 않습니다. 사용하려면 Canopi를 업데이트하세요.",
+      "webSpeciesLists": "즐겨찾기와 최근 본 식물이 더 새로운 Canopi에서 저장되었습니다. 볼 수는 있지만 변경 사항은 저장되지 않습니다. 편집하려면 Canopi를 업데이트하세요."
+    },
     "refusedNewer": "이 데이터는 최신 버전의 Canopi에서 저장되어 열지 않았습니다. 사용하려면 Canopi를 업데이트하세요.",
     "storeUnavailable": "Canopi의 저장된 데이터 일부를 열 수 없습니다. Canopi를 다시 시작하고, 문제가 계속되면 신고하세요.",
     "fieldsReset": "일부 설정에 Canopi가 사용할 수 없는 값이 있어 기본값으로 재설정했습니다.",
@@ -1827,7 +1833,8 @@
     "cantReadMissing": "파일을 찾을 수 없습니다: 이동되었거나 삭제되었습니다",
     "cantReadOlderVersion": "Canopi 2.0 이전 버전으로 만든 파일이라 Canopi 2.0 이상에서는 열 수 없습니다",
     "cantReadNewerVersion": "최신 버전의 Canopi로 만든 파일입니다. 열려면 Canopi를 업데이트하세요",
-    "cantReadDamaged": "파일을 읽을 수 없습니다: 손상되었습니다"
+    "cantReadDamaged": "파일을 읽을 수 없습니다: 손상되었습니다",
+    "rowReadOnly": "읽기 전용: 더 새로운 Canopi에서 저장됨"
   },
   "shortcutKeys": {
     "ctrl": "Ctrl",
@@ -2226,6 +2233,8 @@
     "fileError": "Canopi가 파일을 읽거나 쓰지 못했습니다. 다시 시도하세요.",
     "plantCatalogUnavailable": "식물 카탈로그를 열 수 없습니다. Canopi를 다시 시작하고, 계속되면 다시 설치하세요.",
     "libraryNewer": "이 데이터 라이브러리는 더 새로운 Canopi에서 저장되었습니다. 변경하려면 Canopi를 업데이트하세요.",
-    "libraryUnavailable": "데이터 라이브러리를 열 수 없어 이번 세션의 변경 사항은 저장되지 않습니다. Canopi를 다시 시작하고 다시 시도하세요."
+    "libraryUnavailable": "데이터 라이브러리를 열 수 없어 이번 세션의 변경 사항은 저장되지 않습니다. Canopi를 다시 시작하고 다시 시도하세요.",
+    "formatCoreUnavailable": "Canopi가 디자인을 여는 부분을 불러오지 못했습니다. 다시 시도하고, 계속 발생하면 문제를 보고하세요.",
+    "formatCoreTrapped": "Canopi가 이 디자인을 읽는 중에 멈췄습니다. 다시 시도하고, 계속 발생하면 문제를 보고하세요."
   }
 }

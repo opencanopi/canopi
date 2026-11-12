@@ -124,6 +124,12 @@
       "webSpeciesLists": "Canopi に保存されたお気に入りと最近表示した植物が破損しており、別に保管できなかったため、このセッション中はそれらへの変更は保存されません。"
     },
     "newerReadOnly": "このデータは新しいバージョンの Canopi で保存されました。表示はできますが、変更は保存されません。編集するには Canopi を更新してください。",
+    "newerReadOnlyStore": {
+      "userDb": "お気に入り、保存したスタンプ、最近のデザインは新しいバージョンの Canopi で保存されました。表示はできますが、変更は保存されません。編集するには Canopi を更新してください。",
+      "settings": "設定は新しいバージョンの Canopi で保存されました。変更は Canopi を閉じるまで適用されますが、保存されません。保持するには Canopi を更新してください。",
+      "libraryCatalogue": "データライブラリは新しいバージョンの Canopi で保存されました。項目は一覧に表示されますが、変更は保存されません。使用するには Canopi を更新してください。",
+      "webSpeciesLists": "お気に入りと最近表示した植物は新しいバージョンの Canopi で保存されました。表示はできますが、変更は保存されません。編集するには Canopi を更新してください。"
+    },
     "refusedNewer": "このデータは新しいバージョンの Canopi で保存されたため、開きませんでした。使用するには Canopi を更新してください。",
     "storeUnavailable": "Canopi の保存データの一部を開けませんでした。Canopi を再起動し、問題が続く場合は報告してください。",
     "fieldsReset": "一部の設定に Canopi が使用できない値があったため、既定値に戻しました。",
@@ -1827,7 +1833,8 @@
     "cantReadMissing": "ファイルが見つかりません：移動または削除されました",
     "cantReadOlderVersion": "Canopi 2.0 より前のバージョンで作成されたため、Canopi 2.0 以降では開けません",
     "cantReadNewerVersion": "新しいバージョンの Canopi で作成されました。開くには Canopi を更新してください",
-    "cantReadDamaged": "ファイルを読み込めません：破損しています"
+    "cantReadDamaged": "ファイルを読み込めません：破損しています",
+    "rowReadOnly": "読み取り専用：新しいバージョンの Canopi で保存"
   },
   "shortcutKeys": {
     "ctrl": "Ctrl",
@@ -2226,6 +2233,8 @@
     "fileError": "Canopi はファイルを読み書きできませんでした。もう一度お試しください。",
     "plantCatalogUnavailable": "植物カタログを開けませんでした。Canopi を再起動し、続く場合は再インストールしてください。",
     "libraryNewer": "このデータライブラリは新しいバージョンの Canopi で保存されています。変更するには Canopi を更新してください。",
-    "libraryUnavailable": "データライブラリを開けなかったため、このセッションの変更は保存されません。Canopi を再起動して、もう一度お試しください。"
+    "libraryUnavailable": "データライブラリを開けなかったため、このセッションの変更は保存されません。Canopi を再起動して、もう一度お試しください。",
+    "formatCoreUnavailable": "Canopi はデザインを開く部分を読み込めませんでした。もう一度お試しください。繰り返し起きる場合は問題を報告してください。",
+    "formatCoreTrapped": "Canopi はこのデザインの読み込み中に停止しました。もう一度お試しください。繰り返し起きる場合は問題を報告してください。"
   }
 }

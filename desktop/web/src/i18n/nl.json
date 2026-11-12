@@ -124,6 +124,12 @@
       "webSpeciesLists": "De favorieten en onlangs bekeken planten die Canopi had opgeslagen zijn beschadigd en konden niet apart worden gezet, dus wijzigingen daarin worden deze sessie niet opgeslagen."
     },
     "newerReadOnly": "Deze gegevens zijn opgeslagen door een nieuwere Canopi. Je kunt ze bekijken, maar wijzigingen worden niet opgeslagen. Werk Canopi bij om ze te bewerken.",
+    "newerReadOnlyStore": {
+      "userDb": "Je favorieten, opgeslagen stempels en recente ontwerpen zijn opgeslagen door een nieuwere Canopi. Je kunt ze bekijken, maar wijzigingen worden niet opgeslagen. Werk Canopi bij om ze te bewerken.",
+      "settings": "Je instellingen zijn opgeslagen door een nieuwere Canopi. Wijzigingen gelden tot je Canopi sluit, maar worden niet opgeslagen. Werk Canopi bij om ze te bewaren.",
+      "libraryCatalogue": "De Databibliotheek is opgeslagen door een nieuwere Canopi. De items worden getoond, maar wijzigingen worden niet opgeslagen. Werk Canopi bij om ze te gebruiken.",
+      "webSpeciesLists": "Je favorieten en onlangs bekeken planten zijn opgeslagen door een nieuwere Canopi. Je kunt ze bekijken, maar wijzigingen worden niet opgeslagen. Werk Canopi bij om ze te bewerken."
+    },
     "refusedNewer": "Deze gegevens zijn opgeslagen door een nieuwere Canopi en zijn niet geopend. Werk Canopi bij om ze te gebruiken.",
     "storeUnavailable": "Sommige opgeslagen gegevens van Canopi konden niet worden geopend. Start Canopi opnieuw en meld een probleem als dit blijft gebeuren.",
     "fieldsReset": "Sommige instellingen hadden waarden die Canopi niet kon gebruiken en zijn teruggezet naar hun standaardwaarden.",
@@ -1827,7 +1833,8 @@
     "cantReadMissing": "Bestand niet gevonden: het is verplaatst of verwijderd",
     "cantReadOlderVersion": "Gemaakt met Canopi vóór 2.0; Canopi 2.0 en later kan het niet openen",
     "cantReadNewerVersion": "Gemaakt met een nieuwere versie van Canopi; werk Canopi bij om het te openen",
-    "cantReadDamaged": "Bestand kan niet worden gelezen: het is beschadigd"
+    "cantReadDamaged": "Bestand kan niet worden gelezen: het is beschadigd",
+    "rowReadOnly": "Alleen-lezen: opgeslagen door een nieuwere Canopi"
   },
   "shortcutKeys": {
     "ctrl": "Ctrl",
@@ -2226,6 +2233,8 @@
     "fileError": "Canopi kon het bestand niet lezen of schrijven. Probeer het opnieuw.",
     "plantCatalogUnavailable": "De plantencatalogus kon niet worden geopend. Start Canopi opnieuw en installeer het opnieuw als het probleem blijft.",
     "libraryNewer": "Deze Databibliotheek is opgeslagen door een nieuwere Canopi. Werk Canopi bij om haar te wijzigen.",
-    "libraryUnavailable": "De Databibliotheek kon niet worden geopend, dus wijzigingen worden deze sessie niet opgeslagen. Start Canopi opnieuw en probeer het opnieuw."
+    "libraryUnavailable": "De Databibliotheek kon niet worden geopend, dus wijzigingen worden deze sessie niet opgeslagen. Start Canopi opnieuw en probeer het opnieuw.",
+    "formatCoreUnavailable": "Canopi kon het onderdeel dat ontwerpen opent niet laden. Probeer het opnieuw en meld een probleem als dit blijft gebeuren.",
+    "formatCoreTrapped": "Canopi stopte tijdens het lezen van dit ontwerp. Probeer het opnieuw en meld een probleem als dit blijft gebeuren."
   }
 }

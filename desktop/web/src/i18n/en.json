@@ -124,6 +124,12 @@
       "webSpeciesLists": "Canopi’s saved favorites and recently viewed plants are damaged and couldn’t be set aside, so changes to them won’t be saved this session."
     },
     "newerReadOnly": "This data was saved by a newer Canopi. You can view it, but changes won’t be saved. Update Canopi to edit.",
+    "newerReadOnlyStore": {
+      "userDb": "Your favorites, saved stamps and recent Designs were saved by a newer Canopi. You can view them, but changes won’t be saved. Update Canopi to edit them.",
+      "settings": "Your settings were saved by a newer Canopi. Changes apply until you close Canopi but won’t be saved. Update Canopi to keep them.",
+      "libraryCatalogue": "The Data library was saved by a newer Canopi. Its items are listed, but changes won’t be saved. Update Canopi to use them.",
+      "webSpeciesLists": "Your favorites and recently viewed plants were saved by a newer Canopi. You can view them, but changes won’t be saved. Update Canopi to edit them."
+    },
     "refusedNewer": "This data was saved by a newer Canopi and wasn’t opened. Update Canopi to use it.",
     "storeUnavailable": "Some of Canopi’s saved data couldn’t be opened. Restart Canopi, and report a problem if this keeps happening.",
     "fieldsReset": "Some settings had values Canopi couldn’t use and were reset to their defaults.",
@@ -1827,7 +1833,8 @@
     "cantReadMissing": "Can’t find this file: it was moved or deleted",
     "cantReadOlderVersion": "Made with Canopi before 2.0; Canopi 2.0 and later can’t open it",
     "cantReadNewerVersion": "Made with a newer version of Canopi; update Canopi to open it",
-    "cantReadDamaged": "Can’t read this file: it is damaged"
+    "cantReadDamaged": "Can’t read this file: it is damaged",
+    "rowReadOnly": "Read-only: saved by a newer Canopi"
   },
   "shortcutKeys": {
     "ctrl": "Ctrl",
@@ -2226,6 +2233,8 @@
     "fileError": "Canopi couldn’t read or write the file. Try again.",
     "plantCatalogUnavailable": "The plant catalog couldn’t be opened. Restart Canopi, and reinstall it if this keeps happening.",
     "libraryNewer": "This Data library was saved by a newer Canopi. Update Canopi to change it.",
-    "libraryUnavailable": "The Data library couldn’t be opened, so changes won’t be saved this session. Restart Canopi and try again."
+    "libraryUnavailable": "The Data library couldn’t be opened, so changes won’t be saved this session. Restart Canopi and try again.",
+    "formatCoreUnavailable": "Canopi couldn’t load the part that opens Designs. Try again, and report a problem if this keeps happening.",
+    "formatCoreTrapped": "Canopi stopped while reading this Design. Try again, and report a problem if this keeps happening."
   }
 }

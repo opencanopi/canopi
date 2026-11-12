@@ -10,6 +10,7 @@ pub(crate) fn contract_types() -> TypeCollection {
     TypeCollection::default()
         .register::<canopi_types::design::Annotation>()
         .register::<canopi_types::design::LoadedDesign>()
+        .register::<canopi_types::design::ReadOnlyDesign>()
         .register::<canopi_types::design::DesignLoadFailure>()
         .register::<canopi_types::design::DesignSaveOutcome>()
         .register::<canopi_types::design::DesignDraftSummary>()

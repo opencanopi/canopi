@@ -11,6 +11,7 @@ pub use canopi_redact::RedactedText;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
+use crate::health::StoreId;
 use crate::update::{UpdateArch, UpdateBundle, UpdateOs};
 
 /// A failed settlement as it crosses the seam: what the interface maps to a
@@ -33,7 +34,8 @@ pub struct Failure {
 }
 
 /// The catalogue's codes produced at Phase 1's close, plus the map codes
-/// WEB-06's observers report (contracts §2, 2.1-M418).
+/// WEB-06's observers report (contracts §2, 2.1-M418) and the reader release's
+/// format core and read-only store codes (Step 2.0.4's commit 0).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum FailureCode {
@@ -108,6 +110,16 @@ pub enum FailureCode {
         /// The installer that failed.
         bundle: UpdateBundle,
     },
+    /// The format core's `.wasm` failed to load or instantiate; Retry loads it once (ADR 0025, 2.1-M477).
+    FormatCoreUnavailable,
+    /// The format core trapped; `detail` holds the panic message or `trapped` (ADR 0025).
+    FormatCoreTrapped,
+    /// A write refused by a store read as newer-read-only; silent, since the store's one notice says it
+    /// (2.1-M487).
+    StoreReadOnly {
+        /// The store that refused the write.
+        store: StoreId,
+    },
 }
 
 /// The part of Canopi that produces a code (contracts §2's Source column).
@@ -124,6 +136,10 @@ pub enum FailureSource {
     Map,
     /// The Desktop updater (contracts §2 updater row, 2.1-M210).
     Updater,
+    /// The format core's worker adapter (Web only until 2b, 2.1-M476).
+    FormatCore,
+    /// A store read as newer-read-only, on both editions (2.1-M487).
+    ReadOnlyStore,
 }
 
 /// The level a settlement with a code is logged at (ADR 0025 Logs).
@@ -227,6 +243,10 @@ catalogue! {
         Updater, retry: false, silent: false, Warn;
     UpdateInstallFailed { bundle: UpdateBundle::Deb } => "update_install_failed",
         Updater, retry: true, silent: false, Warn;
+    FormatCoreUnavailable => "format_core_unavailable", FormatCore, retry: true, silent: false, Warn;
+    FormatCoreTrapped => "format_core_trapped", FormatCore, retry: true, silent: false, Error;
+    StoreReadOnly { store: StoreId::UserDb } => "store_read_only",
+        ReadOnlyStore, retry: false, silent: true, Info;
 }
 
 impl Failure {
@@ -410,7 +430,9 @@ impl From<std::io::ErrorKind> for IoFailureKind {
 pub struct OperationId(String);
 
 impl OperationId {
-    /// A fresh id for work Rust starts itself, not for a user action.
+    /// A fresh id for work Rust starts itself, not for a user action; Desktop only (`system-ids`), since minting
+    /// needs a randomness source the wasm32 build has none of.
+    #[cfg(any(test, feature = "system-ids"))]
     pub fn system() -> Self {
         Self(format!("s-{}", uuid::Uuid::new_v4().hyphenated()))
     }

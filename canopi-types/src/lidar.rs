@@ -19,6 +19,9 @@ pub enum LidarResultState {
     Preparing,
     Ready,
     Failed,
+    /// Made by a newer Canopi (a 2.1 kind, lineage or job this build does not read): listed by name and type with a
+    /// note to update, never drawn, placed, renamed or deleted (2.1-Q318, 2.1-M488).
+    NeedsNewer,
 }
 
 /// Import job states.

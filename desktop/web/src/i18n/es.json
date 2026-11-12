@@ -124,6 +124,12 @@
       "webSpeciesLists": "Los favoritos y las plantas vistas recientemente que Canopi guardó están dañados y no se pudieron apartar, así que sus cambios no se guardarán en esta sesión."
     },
     "newerReadOnly": "Estos datos se guardaron con una versión más reciente de Canopi. Puedes verlos, pero los cambios no se guardarán. Actualiza Canopi para editarlos.",
+    "newerReadOnlyStore": {
+      "userDb": "Tus favoritos, sellos guardados y diseños recientes se guardaron con una versión más reciente de Canopi. Puedes verlos, pero los cambios no se guardarán. Actualiza Canopi para editarlos.",
+      "settings": "Tus ajustes se guardaron con una versión más reciente de Canopi. Los cambios se aplican hasta que cierres Canopi, pero no se guardarán. Actualiza Canopi para conservarlos.",
+      "libraryCatalogue": "La biblioteca de datos se guardó con una versión más reciente de Canopi. Sus elementos aparecen en la lista, pero los cambios no se guardarán. Actualiza Canopi para usarlos.",
+      "webSpeciesLists": "Tus favoritos y las plantas vistas recientemente se guardaron con una versión más reciente de Canopi. Puedes verlos, pero los cambios no se guardarán. Actualiza Canopi para editarlos."
+    },
     "refusedNewer": "Estos datos se guardaron con una versión más reciente de Canopi y no se abrieron. Actualiza Canopi para usarlos.",
     "storeUnavailable": "No se pudieron abrir algunos datos guardados de Canopi. Reinicia Canopi e informa de un problema si sigue ocurriendo.",
     "fieldsReset": "Algunos ajustes tenían valores que Canopi no podía usar y se restablecieron a sus valores predeterminados.",
@@ -1827,7 +1833,8 @@
     "cantReadMissing": "No se encuentra el archivo: se movió o se eliminó",
     "cantReadOlderVersion": "Creado con una versión de Canopi anterior a la 2.0; Canopi 2.0 y posteriores no pueden abrirlo",
     "cantReadNewerVersion": "Creado con una versión más reciente de Canopi; actualiza Canopi para abrirlo",
-    "cantReadDamaged": "No se puede leer el archivo: está dañado"
+    "cantReadDamaged": "No se puede leer el archivo: está dañado",
+    "rowReadOnly": "Solo lectura: guardado con una versión más reciente de Canopi"
   },
   "shortcutKeys": {
     "ctrl": "Ctrl",
@@ -2226,6 +2233,8 @@
     "fileError": "Canopi no pudo leer ni escribir el archivo. Vuelve a intentarlo.",
     "plantCatalogUnavailable": "No se pudo abrir el catálogo de plantas. Reinicia Canopi y reinstálalo si el problema continúa.",
     "libraryNewer": "Esta biblioteca de datos se guardó con una versión más reciente de Canopi. Actualiza Canopi para modificarla.",
-    "libraryUnavailable": "No se pudo abrir la biblioteca de datos, así que los cambios no se guardarán en esta sesión. Reinicia Canopi y vuelve a intentarlo."
+    "libraryUnavailable": "No se pudo abrir la biblioteca de datos, así que los cambios no se guardarán en esta sesión. Reinicia Canopi y vuelve a intentarlo.",
+    "formatCoreUnavailable": "Canopi no pudo cargar la parte que abre los diseños. Inténtalo de nuevo e informa de un problema si sigue ocurriendo.",
+    "formatCoreTrapped": "Canopi se detuvo al leer este diseño. Inténtalo de nuevo e informa de un problema si sigue ocurriendo."
   }
 }

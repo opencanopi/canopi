@@ -16,7 +16,10 @@ export interface FailureCapabilities {
 type Kind = FailureCode['kind']
 type CodeOf<K extends Kind> = Extract<FailureCode, { kind: K }>
 
-/** Recorded in the ring and the report, never told (a cancel, or a map failure until 2d's map status). */
+/**
+ * Recorded in the ring and the report, never told (a cancel, a map failure until 2d's map status, a write a
+ * newer-read-only store refused).
+ */
 const SILENT = { silent: true } as const
 
 type MessageRule<K extends Kind> =
@@ -80,6 +83,11 @@ const MESSAGE_BY_CODE: { readonly [K in Kind]: MessageRule<K> } = {
   style_failed: SILENT,
   tile_source_failed: SILENT,
   ...UPDATE_MESSAGES,
+  // The format core's worker (ADR 0025): its notice names the part that opens Designs, never a file.
+  format_core_unavailable: 'failure.formatCoreUnavailable',
+  format_core_trapped: 'failure.formatCoreTrapped',
+  // The store's one newer-read-only notice already says changes are not saved (2.1-M487, 2.1-Q319).
+  store_read_only: SILENT,
 }
 
 // Any one rule, its code widened: the mapped type above already tied each rule to its own kind.

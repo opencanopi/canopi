@@ -18,18 +18,25 @@ export class StoreUnreadableError extends Error {
   }
 }
 
-/** A write to a store that refuses writes for this session: its record is damaged or newer (2.1-M438). */
+/**
+ * A write to a store that refuses writes for this session: its record is damaged or newer (2.1-M438). It carries
+ * `store_read_only{store}`, silent, since the store's one notice already says changes are not saved (2.1-M487); a
+ * caller passes the error through rather than wording a second failure.
+ */
 export class StoreRefusedError extends Error {
   override readonly name = 'StoreRefusedError'
+  readonly code: Extract<FailureCode, { kind: 'store_read_only' }>
 
   constructor(readonly store: StoreId) {
     super(`The ${store} store refuses writes for this session`)
+    this.code = { kind: 'store_read_only', store }
   }
 }
 
-/** A failed read's code: the typed failure's, the adapter's own, else `internal`. */
+/** A failed read or write's code: the typed failure's, the adapter's own, else `internal`. */
 export function readFailureCode(error: unknown): FailureCode {
-  return failureOf(error)?.code ?? (error instanceof StoreUnreadableError ? error.code : { kind: 'internal' })
+  const own = error instanceof StoreUnreadableError || error instanceof StoreRefusedError ? error.code : null
+  return failureOf(error)?.code ?? own ?? { kind: 'internal' }
 }
 
 /**

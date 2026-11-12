@@ -124,6 +124,12 @@
       "webSpeciesLists": "Die gespeicherten Favoriten und zuletzt angesehenen Pflanzen von Canopi sind beschädigt und konnten nicht beiseitegelegt werden, daher werden Änderungen daran in dieser Sitzung nicht gespeichert."
     },
     "newerReadOnly": "Diese Daten wurden von einer neueren Canopi-Version gespeichert. Sie können sie ansehen, aber Änderungen werden nicht gespeichert. Aktualisieren Sie Canopi, um sie zu bearbeiten.",
+    "newerReadOnlyStore": {
+      "userDb": "Ihre Favoriten, gespeicherten Stempel und zuletzt geöffneten Designs wurden von einer neueren Canopi-Version gespeichert. Sie können sie ansehen, aber Änderungen werden nicht gespeichert. Aktualisieren Sie Canopi, um sie zu bearbeiten.",
+      "settings": "Ihre Einstellungen wurden von einer neueren Canopi-Version gespeichert. Änderungen gelten, bis Sie Canopi schließen, werden aber nicht gespeichert. Aktualisieren Sie Canopi, um sie zu behalten.",
+      "libraryCatalogue": "Die Datenbibliothek wurde von einer neueren Canopi-Version gespeichert. Ihre Elemente werden aufgelistet, aber Änderungen werden nicht gespeichert. Aktualisieren Sie Canopi, um sie zu verwenden.",
+      "webSpeciesLists": "Ihre Favoriten und zuletzt angesehenen Pflanzen wurden von einer neueren Canopi-Version gespeichert. Sie können sie ansehen, aber Änderungen werden nicht gespeichert. Aktualisieren Sie Canopi, um sie zu bearbeiten."
+    },
     "refusedNewer": "Diese Daten wurden von einer neueren Canopi-Version gespeichert und nicht geöffnet. Aktualisieren Sie Canopi, um sie zu verwenden.",
     "storeUnavailable": "Einige gespeicherte Daten von Canopi konnten nicht geöffnet werden. Starten Sie Canopi neu und melden Sie ein Problem, wenn das weiterhin passiert.",
     "fieldsReset": "Einige Einstellungen hatten Werte, die Canopi nicht verwenden konnte, und wurden auf ihre Standardwerte zurückgesetzt.",
@@ -1827,7 +1833,8 @@
     "cantReadMissing": "Datei nicht gefunden: Sie wurde verschoben oder gelöscht",
     "cantReadOlderVersion": "Mit Canopi vor Version 2.0 erstellt; Canopi 2.0 und neuer kann es nicht öffnen",
     "cantReadNewerVersion": "Mit einer neueren Canopi-Version erstellt; aktualisieren Sie Canopi, um sie zu öffnen",
-    "cantReadDamaged": "Datei kann nicht gelesen werden: Sie ist beschädigt"
+    "cantReadDamaged": "Datei kann nicht gelesen werden: Sie ist beschädigt",
+    "rowReadOnly": "Schreibgeschützt: von einer neueren Canopi-Version gespeichert"
   },
   "shortcutKeys": {
     "ctrl": "Strg",
@@ -2226,6 +2233,8 @@
     "fileError": "Canopi konnte die Datei nicht lesen oder schreiben. Versuchen Sie es erneut.",
     "plantCatalogUnavailable": "Der Pflanzenkatalog konnte nicht geöffnet werden. Starten Sie Canopi neu und installieren Sie es erneut, wenn das Problem bleibt.",
     "libraryNewer": "Diese Datenbibliothek wurde von einer neueren Canopi-Version gespeichert. Aktualisieren Sie Canopi, um sie zu ändern.",
-    "libraryUnavailable": "Die Datenbibliothek konnte nicht geöffnet werden, daher werden Änderungen in dieser Sitzung nicht gespeichert. Starten Sie Canopi neu und versuchen Sie es erneut."
+    "libraryUnavailable": "Die Datenbibliothek konnte nicht geöffnet werden, daher werden Änderungen in dieser Sitzung nicht gespeichert. Starten Sie Canopi neu und versuchen Sie es erneut.",
+    "formatCoreUnavailable": "Canopi konnte den Teil, der Designs öffnet, nicht laden. Versuchen Sie es erneut und melden Sie ein Problem, wenn das weiter passiert.",
+    "formatCoreTrapped": "Canopi wurde beim Lesen dieses Designs unterbrochen. Versuchen Sie es erneut und melden Sie ein Problem, wenn das weiter passiert."
   }
 }

@@ -2,7 +2,8 @@
  * failures/health-presentation.ts: the one store health presentation (contracts §2 and §11, design check F3):
  * each `StoreOpenStatus` kind and each `StoreNotice` maps to one rule, silent or a tone, a locale key and its actions,
  * so a new kind fails typecheck until it has one (`every_health_status_has_one_message`). Invariant: a store's notice on
- * the row is keyed by its StoreId and whole state (code and file included), so it is raised once per state; a file name is the set-aside file's name only, never
+ * the row is keyed by its StoreId and whole state (code and file included), so it is raised once per state, a store read
+ * as newer-read-only naming itself (2.1-Q319); a file name is the set-aside file's name only, never
  * a path (2.1-Q285); an action an edition lacks (Report a problem, Update) is left out, never drawn dead.
  */
 import type { FailureCode, StoreHealth, StoreId, StoreNotice, StoreOpenStatus } from '../generated/contracts'
@@ -41,6 +42,17 @@ const WRITES_REFUSED: { readonly [S in StoreId]?: LocaleKey } = {
   web_species_lists: 'health.writesRefused.webSpeciesLists',
 }
 
+/**
+ * Each store read as newer-read-only names itself in its one notice (2.1-Q319); the plant catalog and Web Drafts never
+ * read so (Web Drafts stay ready, their IndexedDB rows read-only, 2.1-M486) and keep the plain sentence.
+ */
+const NEWER_READ_ONLY: { readonly [S in StoreId]?: LocaleKey } = {
+  user_db: 'health.newerReadOnlyStore.userDb',
+  settings: 'health.newerReadOnlyStore.settings',
+  library_catalogue: 'health.newerReadOnlyStore.libraryCatalogue',
+  web_species_lists: 'health.newerReadOnlyStore.webSpeciesLists',
+}
+
 const error = (message: LocaleKey, actions: readonly HealthAction[] = []): StoreMessage => ({ tone: 'error', message, actions })
 
 function unavailableMessage(store: StoreId, status: StatusOf<'unavailable'>): StoreMessage {
@@ -62,7 +74,7 @@ const MESSAGE_BY_STATUS: { readonly [K in Kind]: StatusRule<K> } = {
   ready: SILENT,
   // The Data library says it was rebuilt itself, beside the items Retry prepares again.
   recovered: SILENT,
-  newer_read_only: () => ({ tone: 'warning', message: 'health.newerReadOnly', actions: ['update'] }),
+  newer_read_only: (store) => ({ tone: 'warning', message: NEWER_READ_ONLY[store] ?? 'health.newerReadOnly', actions: ['update'] }),
   refused_newer: (store) => error(store === 'library_catalogue' ? 'canvas.lidar.library.refusedNewer' : 'health.refusedNewer', ['update']),
   set_aside_damaged: (store, status) => ({
     tone: 'warning',
