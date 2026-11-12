@@ -65,8 +65,8 @@ describe('Web Edition build configuration', () => {
 
     expect(web.base).toBe('/')
     expect(web.build?.outDir).toBe('dist-web')
-    // Two entries: the page, and the format worker until R1-6's design-core adapter starts it (canopi-f47t.52.270).
-    expect(web.build?.rolldownOptions?.input).toEqual({ web: 'web.html', 'design-core.worker': 'src/platform/design-core.worker.ts' })
+    // One entry, the page: the design-core adapter starts the format worker, a worker chunk (canopi-f47t.52.270).
+    expect(web.build?.rolldownOptions?.input).toEqual({ web: 'web.html' })
     expect(web.plugins).toEqual(expect.arrayContaining([
       expect.objectContaining({ name: 'canopi-web-edition-dev-entry' }),
     ]))

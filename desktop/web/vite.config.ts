@@ -28,10 +28,9 @@ const ASCII_OUTPUT = { charset: "ascii" } as const;
 // worker imports its glue and the .wasm's `?url` through canopi-format-wasm/glue.js, and Vite serves them from outside
 // this directory in dev.
 const FORMAT_WASM_DIST = fileURLToPath(new URL("../../canopi-format-wasm/dist/", import.meta.url));
-// The Web build's entries. The format worker is its own entry until R1-6's design-core adapter starts it with
-// `new Worker(new URL(...))` (Step 2.0.4 R1-1, its probe: e2e/canvas/format-core-probe.spec.ts); Desktop reads natively
-// and never builds it (2.1-M476).
-const WEB_INPUT = { web: "web.html", "design-core.worker": "src/platform/design-core.worker.ts" } as const;
+// The Web build's entry. The format worker is no entry: platform/design-core.ts starts it with `new Worker(new URL(...))`,
+// so Vite emits it as a worker chunk (`worker` below); Desktop reads natively and never builds it (2.1-M476).
+const WEB_INPUT = { web: "web.html" } as const;
 const DEFAULT_WEB_CATALOG_INPUT = fileURLToPath(new URL('./catalog-input/', import.meta.url));
 // The PDF fonts' one script (plain JavaScript, run by node too): imported by URL, typed here.
 const { pdfFontsPlugin } = (await import(new URL("./scripts/prepare-pdf-fonts.mjs", import.meta.url).href)) as { pdfFontsPlugin(): Plugin };

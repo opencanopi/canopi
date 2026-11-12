@@ -9,6 +9,7 @@ import { browserAppDataStore } from "../web/browser-app-data";
 import { browserDraftPersistence } from "../web/browser-draft-persistence";
 import { browserReleaseWatch } from "../web/browser-release-watch";
 import { browserSettingsPlatformAdapter } from "./settings.browser";
+import { createDesignCore } from "./design-core";
 import { installFailureHooks } from "../failures/report";
 
 let disposePlatformBootstrap: (() => void) | null = null;
@@ -31,6 +32,8 @@ export function bootstrapPlatform(): void {
   // and continuous save outlives every view.
   // "Drafts at launch" is whether Drafts are stored, not whether one reopened: a release Reload from the start
   // screen reopens none (2.1-Q189), yet its unkept Drafts still warn (canopi-eon8.15, 2.1-M181).
+  // The format core reads a Design a newer Canopi saved, read-only (2.1-M478); its worker starts on the first such open.
+  const uninstallFormatCore = browserDesignSessionController.installFormatCore(createDesignCore());
   let hasDrafts: boolean;
   try {
     browserDesignSessionController.restoreLatestDraft();
@@ -56,6 +59,7 @@ export function bootstrapPlatform(): void {
     disposePlaceSearchSession();
     stopReleaseWatch();
     uninstallContinuousSave();
+    uninstallFormatCore();
     disposeDraftPersistence();
     settingsInstallation.dispose();
     disposeTheme();

@@ -6,8 +6,8 @@
 //   (contracts §11 Rollback harness, 2.1-M484). Each Web row's `path` is a seed dump, `{ localStorage?: {key: value},
 //   indexedDB?: [{ name, version, stores: [{ name, keyPath, records }] }] }`, written into the origin before the load.
 //
-// Written failing in commit 0 and marked expected-fail (`test.fail`): R1-6 removes the first marker, R4-2 (which
-// writes spec/rollback/manifest.json and its Web seed dumps) the second.
+// Written failing in commit 0 and marked expected-fail (`test.fail`): R1-6 removed the first marker; R4-2 (which
+// writes spec/rollback/manifest.json and its Web seed dumps) removes the second.
 import { existsSync, readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import type { Page } from '@playwright/test'
@@ -53,24 +53,29 @@ async function storageDump(page: Page): Promise<unknown> {
   })
 }
 
-test.fail('R1 canopi-f47t.52.270: reader release: a v10 Design opens read-only and says a newer Canopi saved it (Web)', async ({ page }) => {
+/** The dump without device settings: the place last viewed (`last_view`) is the device's, saved whichever Design shows. */
+async function designStorageDump(page: Page): Promise<unknown> {
+  const { local, databases } = await storageDump(page) as { local: [string, string | null][], databases: unknown }
+  return { local: local.filter(([key]) => !key.endsWith(':settings')), databases }
+}
+
+test('R1 canopi-f47t.52.270: reader release: a v10 Design opens read-only and says a newer Canopi saved it (Web)', async ({ page }) => {
   await page.goto('')
   const start = page.locator('[data-start-screen]')
   await expect(start).toBeVisible()
-  const before = await storageDump(page)
+  const before = await designStorageDump(page)
 
   const open = start.getByRole('button').filter({ hasText: /\.canopi/ }).first()
   const [chooser] = await Promise.all([page.waitForEvent('filechooser'), open.click()])
   await chooser.setFiles({ name: 'Orchard 2.1.canopi', mimeType: 'application/json', buffer: v10Design('Orchard 2.1') })
 
-  // Today the file is refused as made with a newer Canopi, and the start screen stays.
   const status = page.locator('[data-workspace-title-bar] [data-save-status]')
   await expect(status, 'the Design opens').toBeVisible()
   await expect(status).toContainText(/newer Canopi/)
   await expect(status.getByRole('button', { name: 'Update' }), 'the save status offers Update').toBeVisible()
   await expect(page.locator('[data-workspace-title-bar]')).toContainText('Orchard 2.1')
 
-  expect(await storageDump(page), 'the v10 Design is never written as a Draft').toEqual(before)
+  expect(await designStorageDump(page), 'the v10 Design is never written as a Draft').toEqual(before)
 })
 
 test.fail('R4 canopi-f47t.52.239: reader release: a session over every frozen 2.1 store fixture writes no byte (Web)', async ({ page }) => {

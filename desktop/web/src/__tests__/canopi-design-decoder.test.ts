@@ -4,6 +4,8 @@ import { pickCancelled } from '../ipc/dialogs'
 import {
   CanopiDesignIngestionError,
   decodeCanopiDesign,
+  isSavedByNewerCanopi,
+  parseCanopiText,
 } from '../app/contracts/design-ingestion'
 import {
   designLoadFailureMessageKey,
@@ -326,6 +328,21 @@ describe('Design ingestion outcomes and typed load failures', () => {
     expect(designLoadFailureMessageKey('invalid_document')).toBe('start.cantReadDamaged')
     expect(designLoadFailureMessageKey('too_large')).toBe('start.cantRead')
     expect(designLoadFailureMessageKey('internal')).toBe('start.cantRead')
+  })
+})
+
+describe('a Design a newer Canopi saved, told apart before decoding', () => {
+  it('canopi-f47t.52.270: Open sends a Design whose version is an integer above 9 to the read view, as saved_by_newer does', () => {
+    expect([10, 10.0, 11, 2 ** 40].map((version) => isSavedByNewerCanopi({ version }))).toEqual([true, true, true, true])
+    expect([9, 8, 10.5, '10', null, Number.POSITIVE_INFINITY].map((version) => isSavedByNewerCanopi({ version }))).toEqual([false, false, false, false, false, false])
+    expect([null, [], 'text', {}].map(isSavedByNewerCanopi)).toEqual([false, false, false, false])
+    // Decoding still refuses it, for a stamp or template import (2.1-M478).
+    expectKind(() => decodeCanopiDesign(currentDesign({ version: 10 })), 'unsupported_version')
+  })
+
+  it('canopi-f47t.52.270: text that is no JSON is a damaged Design before any version is read', () => {
+    expect(parseCanopiText('{"version": 10}')).toEqual({ version: 10 })
+    expectKind(() => parseCanopiText('{"version": 10,'), 'invalid_document')
   })
 })
 

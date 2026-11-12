@@ -3,6 +3,7 @@ import type { LocaleKey } from '../../generated/locale-keys'
 import type { FailureCode } from '../../generated/contracts'
 import type { DesignLoadFailureKind } from '../../types/design'
 import { reportFailure } from '../../failures/report'
+import { failureOf } from '../../failures/ipc-failure'
 
 /** The ring source of a Design that could not be opened. */
 const DESIGN_LOAD_SOURCE = 'design.load'
@@ -14,6 +15,9 @@ const DESIGN_LOAD_SOURCE = 'design.load'
  * presenter is the edition's notice surface (a native dialog on Desktop, the
  * one notice row on the Web); with or without one the failure is recorded for the
  * problem report, its refused field there only (2.1-Q286).
+ *
+ * On the Web a newer Design is read by the format core (platform/design-core.ts, 2.1-M477): a core that failed to load
+ * or trapped says so in its own words, which name the part that opens Designs, never the file (ADR 0025).
  */
 export interface DesignOpenFailureNotice {
   readonly tone: 'error'
@@ -29,7 +33,15 @@ export function registerDesignOpenFailurePresenter(next: DesignOpenFailurePresen
   presenter = next
 }
 
+/** The format core's own messages (ADR 0025); its other settlements carry a load failure. */
+const FORMAT_CORE_MESSAGES: Readonly<Partial<Record<FailureCode['kind'], LocaleKey>>> = {
+  format_core_unavailable: 'failure.formatCoreUnavailable',
+  format_core_trapped: 'failure.formatCoreTrapped',
+}
+
 export function designOpenFailureNoticeOf(error: unknown): DesignOpenFailureNotice {
+  const formatCore = FORMAT_CORE_MESSAGES[failureOf(error)?.code.kind ?? 'internal']
+  if (formatCore) return { tone: 'error', title: 'start.cantOpenTitle', message: formatCore }
   const failure = designLoadFailureOf(error)
   const key = failure ? designLoadFailureMessageKey(failure.kind) : 'start.cantRead'
   return { tone: 'error', title: 'start.cantOpenTitle', message: key }

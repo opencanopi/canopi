@@ -15,7 +15,8 @@ export { CanopiDesignIngestionError }
 /**
  * Admit a Design: the Web mirror of `decode_design_value`. Canopi 2.0 breaks
  * stored data (ADR 0021): there is no migration ladder, and any version other
- * than the current one is refused as `unsupported_version`.
+ * than the current one is refused as `unsupported_version`; Open reads a newer
+ * one read-only instead (`isSavedByNewerCanopi`).
  */
 export function decodeCanopiDesign(value: unknown): CanopiFile {
   try {
@@ -31,6 +32,26 @@ export function decodeCanopiDesign(value: unknown): CanopiFile {
   } catch (error) {
     throw asCanopiDesignIngestionError(error)
   }
+}
+
+/** The value a picked `.canopi` file's text holds; text that is no JSON is a damaged Design, as any refused one. */
+export function parseCanopiText(text: string): unknown {
+  try {
+    return JSON.parse(text) as unknown
+  } catch (error) {
+    throw asCanopiDesignIngestionError(error)
+  }
+}
+
+/**
+ * Whether a `.canopi` value was saved by a newer Canopi: its root `version` an integer above this build's. Such a
+ * Design opens read-only through the format core's read view (2.1-M478), never through `decodeCanopiDesign`, which
+ * refuses it as it refuses it for a stamp or template import. The mirror of `canopi_format::read::saved_by_newer`.
+ */
+export function isSavedByNewerCanopi(value: unknown): boolean {
+  if (!isRecord(value)) return false
+  const version = value.version
+  return typeof version === 'number' && Number.isInteger(version) && version > CURRENT_CANOPI_FILE_VERSION
 }
 
 function admitDesignVersion(value: unknown): number {
