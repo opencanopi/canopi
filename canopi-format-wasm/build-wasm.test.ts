@@ -61,6 +61,34 @@ describe('canopi-f47t.52.270: the module names no builder path', () => {
   })
 })
 
+/** The jobs of a workflow that run a Web build (`npm run build:web`, `build:web:bundle`) with no wasm32 target or no
+ * wasm-bindgen CLI installed before it. */
+function webBuildsWithoutModuleTools(workflow: string): string[] {
+  const jobs = workflow.split(/\njobs:\n/u)[1]?.split(/\n(?= {2}[a-z][\w-]*:\n)/u) ?? []
+  return jobs.flatMap((job) => {
+    const build = job.search(/npm run build:web(?::bundle)?\b/u)
+    if (build < 0) return []
+    const before = job.slice(0, build)
+    return /targets: wasm32-unknown-unknown/u.test(before) && /tool: wasm-bindgen@/u.test(before) ? [] : [job.trim().split(':')[0]!]
+  })
+}
+
+describe('canopi-f47t.52.270: every CI Web build has the module tools', () => {
+  it('names a job that builds the Web edition before installing the wasm32 target and the wasm-bindgen CLI', () => {
+    const planted = ['on: push', 'jobs:', '  ready:', '    steps:', '      - uses: dtolnay/rust-toolchain@1.97.1', '        with:',
+      '          targets: wasm32-unknown-unknown', '      - uses: taiki-e/install-action@v2', '        with:', '          tool: wasm-bindgen@0.2.130',
+      '      - run: npm run build:web', '  bare:', '    steps:', '      - run: npm run build:web:bundle', '  other:', '    steps:', '      - run: npm test', ''].join('\n')
+    expect(webBuildsWithoutModuleTools(planted)).toEqual(['bare'])
+  })
+
+  it('installs both in every workflow job that builds the Web edition, the release candidate\'s included', () => {
+    const workflows = path.join(CRATE_DIR, '..', '.github', 'workflows')
+    const missing = fs.readdirSync(workflows).filter((name) => /\.ya?ml$/u.test(name)).flatMap((name) =>
+      webBuildsWithoutModuleTools(fs.readFileSync(path.join(workflows, name), 'utf8')).map((job) => `${name} ${job}`))
+    expect(missing).toEqual([])
+  })
+})
+
 describe('canopi-f47t.52.270: the wasm-bindgen CLI pinned in CI is the lock version', () => {
   it('installs, in every workflow, the wasm-bindgen CLI at the version Cargo.lock pins for the crate', () => {
     const repo = path.join(CRATE_DIR, '..')
