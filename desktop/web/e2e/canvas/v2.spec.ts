@@ -8,7 +8,7 @@
 // one the canvas has drawn the change the DOM checks saw (expectCanvasDrawn).
 import { fileURLToPath } from 'node:url'
 import type { Page } from '@playwright/test'
-import { bearing, designMap, expectCanvasDrawn, pressMod } from '../support/canvas'
+import { bearing, designMap, expectCanvasDrawn, pressMod, seedPointingDevice } from '../support/canvas'
 import { nextFrames, openFixture } from '../support/layout'
 import { expect, test } from '../support/offline'
 
@@ -25,6 +25,7 @@ const RECT_ZONE_CHIP = 'Rectangle zone · 112 m² · 44 m'
 const APPLE = { x: 430, y: 273 }
 
 async function openBaseFixture(page: Page): Promise<void> {
+  await seedPointingDevice(page) // WebKit reports a Mac, where a new profile starts on Trackpad (2.1-Q309)
   await page.goto('')
   const [chooser] = await Promise.all([
     page.waitForEvent('filechooser'),
@@ -314,7 +315,6 @@ test('canvas v2 0E: a viewport resize keeps the map and the Design on their grou
   }
   expect(back.equals(before), 'resizing back gives the pixels before the resize: the map and the Design kept their ground').toBe(true)
 })
-
 
 // The 2.0 seam scenarios (plan section 4, release close step 2): the Web steps phases F, 1 and 2 listed that only a
 // real engine shows (keys and focus through the key router, real pointer buttons and wheels through the recogniser,
