@@ -1,0 +1,12 @@
+{
+  "about": "A line that is not one of cargo tree's package lines is tool-failed",
+  "tool": "cargo-tree",
+  "stdout": "canopi-format v2.1.0 (/r/canopi-format)\nserde v1.0.228\nserde_derive v1.0.228 (proc-macro)\n\ncanopi-format-wasm v2.1.0 (/r/canopi-format-wasm)\ncanopi-format v2.1.0 (/r/canopi-format)\nserde v1.0.228\nwasm-bindgen v0.2.130\nwarning: something else\n",
+  "paths": [
+    "Cargo.lock"
+  ],
+  "message": "not a cargo tree package",
+  "expect": [
+    "tool-failed"
+  ]
+}

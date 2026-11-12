@@ -1,0 +1,12 @@
+{
+  "about": "Output that gives no tree for a guarded crate (truncated) is tool-failed",
+  "tool": "cargo-tree",
+  "stdout": "canopi-format v2.1.0 (/r/canopi-format)\nserde v1.0.228\n",
+  "paths": [
+    "Cargo.lock"
+  ],
+  "message": "no tree for canopi-format-wasm",
+  "expect": [
+    "tool-failed"
+  ]
+}

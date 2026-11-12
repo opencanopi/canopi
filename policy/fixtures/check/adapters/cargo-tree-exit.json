@@ -1,0 +1,14 @@
+{
+  "about": "A cargo tree that exits non-zero (a guarded crate renamed away) is tool-failed, never a graph without banned crates",
+  "tool": "cargo-tree",
+  "status": 101,
+  "stdout": "",
+  "stderr": "error: package ID specification `canopi-format-wasm` did not match any packages\n",
+  "paths": [
+    "Cargo.lock"
+  ],
+  "message": "exited 101",
+  "expect": [
+    "tool-failed"
+  ]
+}

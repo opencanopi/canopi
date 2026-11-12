@@ -1,0 +1,12 @@
+{
+  "about": "Over the repository's workspace the run is one cargo tree, locked, over the guarded crates' normal and build edges on every target with no deduplication, and a graph without banned crates is no site",
+  "tool": "cargo-tree",
+  "stdout": "canopi-format v2.1.0 (/r/canopi-format)\nserde v1.0.228\nserde_derive v1.0.228 (proc-macro)\n\ncanopi-format-wasm v2.1.0 (/r/canopi-format-wasm)\ncanopi-format v2.1.0 (/r/canopi-format)\nserde v1.0.228\nwasm-bindgen v0.2.130\n",
+  "paths": [
+    "Cargo.lock"
+  ],
+  "showCommand": true,
+  "expect": [
+    "$ cargo tree --locked -p canopi-format -p canopi-format-wasm -e normal,build --target all --no-dedupe --prefix none --format {p}"
+  ]
+}
