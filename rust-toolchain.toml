@@ -2,3 +2,5 @@
 channel = "1.97.1"
 profile = "minimal"
 components = ["rustfmt", "clippy"]
+# The Web format worker builds canopi-format-wasm for this target (Step 2.0.4; build-wasm.mjs).
+targets = ["wasm32-unknown-unknown"]

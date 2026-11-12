@@ -1,0 +1,24 @@
+[package]
+name = "canopi-format-wasm"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+# The Web format worker's module (ADR 0025 format worker, 2.1-M476, 2.1-M477): canopi-format's read half behind
+# wasm-bindgen, JSON string results, no wasm-pack and no serde-wasm-bindgen (design check §4). Built from source by
+# build-wasm.mjs (`npm run build:format-wasm` in desktop/web), never committed: the .wasm and its glue land in dist/.
+# wasm-bindgen is a plain dependency, not a wasm32-only one, so cargo-deny's native graph sees this crate as its one
+# workspace user (`wasm-bindgen-only-in-wasm-crates`).
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+canopi-redact = { path = "../canopi-redact" }
+canopi-types = { path = "../canopi-types" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+wasm-bindgen = "0.2.130"
+
+[lints]
+workspace = true

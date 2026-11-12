@@ -1,0 +1,12 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "format-crate-bans-native",
+  "ledger": "2.1-M189",
+  "tool": "cargo-tree",
+  "scope": ["Cargo.lock", "**/Cargo.toml"],
+  "lane": "push",
+  "keys": "name",
+  "select": ["format-crate-bans-native"],
+  "entries": {}
+}

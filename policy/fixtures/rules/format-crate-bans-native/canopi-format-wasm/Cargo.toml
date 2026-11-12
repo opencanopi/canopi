@@ -1,0 +1,9 @@
+[package]
+name = "canopi-format-wasm"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+canopi-format = { path = "../canopi-format" }
+rusqlite = { path = "../rusqlite" }

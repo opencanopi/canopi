@@ -7,6 +7,8 @@
   "scope": [
     "desktop/src/**",
     "canopi-types/src/**",
+    "canopi-format/src/**",
+    "canopi-format-wasm/src/**",
     "bindings-gen/src/**"
   ],
   "lane": "commit",

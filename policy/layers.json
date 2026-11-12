@@ -138,6 +138,15 @@
    "area": "platform"
   },
   {
+   "path": "platform/design-core.worker.ts",
+   "layer": "L1",
+   "rank": 3,
+   "edition": "web",
+   "entry": true,
+   "area": "platform",
+   "note": "the format worker, a Web build entry (vite.config.ts WEB_INPUT) until R1-6 starts it from the design-core adapter (Step 2.0.4, canopi-f47t.52.270)"
+  },
+  {
    "path": "platform/desktop-host.ts",
    "layer": "L1",
    "rank": 3,

@@ -1,6 +1,7 @@
 {
   "entry": [
     "src/maplibre/raster-display/worker.ts!",
+    "src/platform/design-core.worker.ts!",
     "src/main.tsx!",
     "src/main.web.tsx!",
     "src/web/dev-entry.ts!",

@@ -5,8 +5,8 @@ language: rs
 severity: error
 message: "no-formatted-sql (§18 R5): no SQL built by format!, write! or format_args! and no locale value_* column in any crate: queries come from the generated query builder. ADR 0027; owner desktop/src/db/query_builder; target canopi-catalog/src/generated (N4); example desktop/src/db/query_builder"
 files:
-  - "{desktop,canopi-types,canopi-redact,bindings-gen}/src/**/*.rs"
-  - "policy/fixtures/rules/*/{desktop,canopi-types,canopi-redact,bindings-gen}/src/**/*.rs"
+  - "{desktop,canopi-types,canopi-redact,canopi-format,canopi-format-wasm,bindings-gen}/src/**/*.rs"
+  - "policy/fixtures/rules/*/{desktop,canopi-types,canopi-redact,canopi-format,canopi-format-wasm,bindings-gen}/src/**/*.rs"
 ignores:
   - "desktop/src/commands/design/tests.rs"
   - "desktop/src/db/test_support.rs"
@@ -43,6 +43,7 @@ ignores:
   - "canopi-types/src/views/tests.rs"
   - "canopi-redact/src/tests.rs"
   - "canopi-redact/src/table_generated.rs"
+  - "canopi-format-wasm/src/tests.rs"
   - "bindings-gen/src/plan_support.rs"
   - "desktop/src/db/query_builder/**"
   - "policy/fixtures/rules/*/desktop/src/db/query_builder/**"

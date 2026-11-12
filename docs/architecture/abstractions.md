@@ -54,13 +54,13 @@ An agent adding to a seam copies its canonical example; a new kind of seam adds 
 
 | Abstraction | Concept owned | Owner | Why it exists | Canonical example | Verdict |
 |---|---|---|---|---|---|
-| Format core | read checks, chain, writer, admission, builder, stamp chain | `canopi-format` (2.1) | Native and wasm; hostile files | `desktop/src/design/format.rs` | keep (ADR 0026) |
+| Format core | read checks, chain, writer, admission, builder, stamp chain | `canopi-format` | Native and wasm; hostile files | `desktop/src/design/format.rs` | keep (ADR 0026) |
 | Design-core port | decode, encode, new, Draft envelope | `platform/design-core.ts` (2.1) | One worker adapter; fake | `ipc/design.ts` | change: worker on both editions, raw bytes (M154, M156) |
-| Design-core worker | worker union loading, ready, load-failed, poisoned | `platform/design-core.worker.ts` (2.1) | Isolates untrusted bytes; one core on both editions | `platform/browser.ts` | change (M148) |
-| Canonical encode | byte-identical encode of one Design | `canopi-format` (2.1) | `HomeVersion`, Draft move verify, lost-ack adoption | `desktop/src/design/format.rs` | add (M156) |
+| Design-core worker | worker union loading, ready, load-failed, poisoned | `platform/design-core.worker.ts` | Isolates untrusted bytes; one core on both editions | `platform/browser.ts` | change (M148) |
+| Canonical encode | byte-identical encode of one Design | `canopi-format` | `HomeVersion`, Draft move verify, lost-ack adoption | `desktop/src/design/format.rs` | add (M156) |
 | Spec emitter | frozen generated format spec | `canopi-format/spec/` (2.1) | Every format change; rollback lane | `scripts/schema-contract.json` | keep (ADR 0026) |
 | `DESIGN_FILE_FIELDS` | one owner per Design field: Scene, Document or Format | `canopi-types/src/design.rs` | Exclusive authorities | the owner | change (M121) |
-| `GeoPoint` | lon/lat in files and TS | `canopi-format` (2.1) | ADR 0001 | `canopi-types/src/design.rs` | change (M123) |
+| `GeoPoint` | lon/lat in files and TS | `canopi-format` | ADR 0001 | `canopi-types/src/design.rs` | change (M123) |
 | Print setup | pages as box, whole design or split sheet; splits by pivot | Document | PDF editor | `app/canvas-pdf/layout.ts` | change (M122, M161) |
 | Stamp file | v3 payload mapped field by field; codes reallocated when taken | Document; Session core places it | Stamps, merge | `canvas/saved-object-stamp-payload.ts` | change (M122, Q168) |
 | Object kind rows | `ObjectOwner`, `Backing`, `ObjectKindRow`, `ownerOf` | `app/command-table/object-capabilities.ts` (2.1) | Print, planning, merge | `canopi-types/src/design.rs` | change (M126) |

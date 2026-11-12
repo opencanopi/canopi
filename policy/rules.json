@@ -2467,15 +2467,12 @@
     {
       "id": "wasm-bindgen-only-in-wasm-crates",
       "tool": "cargo-deny",
-      "status": "planned",
       "ledger": "2.1-M189",
       "adr": "0023",
-      "owner_today": "none",
-      "owner_target": {
-        "path": "Cargo.toml",
-        "phase": "2.0.4"
-      },
-      "note": "§18 R20: wasm-bindgen only in the -wasm crates, each created in its phase (cargo-deny [bans] wrappers); 0 today"
+      "family": "cargo-deny",
+      "owner_today": "canopi-format-wasm/Cargo.toml",
+      "example": "canopi-format-wasm/src/lib.rs",
+      "note": "§18 R20: wasm-bindgen only in the -wasm crates, each created in its phase (deny.toml [bans] wrappers over the native graph, where the -wasm crate's plain dependency is the one edge); canopi-format-wasm from Step 2.0.4 (canopi-f47t.52.270)"
     },
     {
       "id": "no-path-string-command-arg",
@@ -2503,16 +2500,13 @@
     },
     {
       "id": "format-crate-bans-native",
-      "tool": "cargo-deny",
-      "status": "planned",
+      "tool": "cargo-tree",
       "ledger": "2.1-M189",
       "adr": "0023",
-      "owner_today": "none",
-      "owner_target": {
-        "path": "Cargo.toml",
-        "phase": "2b"
-      },
-      "note": "§18 R7: canopi-format depends on no tauri, tokio or rusqlite (cargo-deny [bans] with the crate)"
+      "family": "format-crate-bans-native",
+      "owner_today": "canopi-format/Cargo.toml",
+      "example": "canopi-format-wasm/Cargo.toml",
+      "note": "§18 R7: canopi-format and canopi-format-wasm reach no tauri, tokio or rusqlite over normal and build edges (design check F9: policy/adapters/cargo-tree.mjs reads each one's whole graph, since cargo-deny's [bans] wrappers judge only direct parents); from Step 2.0.4 (canopi-f47t.52.270)"
     },
     {
       "id": "catalog-store-only-in-desktop",

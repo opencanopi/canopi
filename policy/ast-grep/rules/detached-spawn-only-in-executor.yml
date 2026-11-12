@@ -5,8 +5,8 @@ language: rs
 severity: error
 message: "detached-spawn-only-in-executor (§18 R2): a detached task (tauri::async_runtime::spawn, tokio::spawn, tokio::task::spawn) starts only in the executor, whose bounded drain joins it; an interim site ratchet that N1 replaces with clippy disallowed-methods in the change that builds the owner. ADR 0025; owner desktop/src/native_operation.rs; target canopi-support/src (N1); example desktop/src/native_operation.rs"
 files:
-  - "{desktop,canopi-types,canopi-redact,bindings-gen}/src/**/*.rs"
-  - "policy/fixtures/rules/*/{desktop,canopi-types,canopi-redact,bindings-gen}/src/**/*.rs"
+  - "{desktop,canopi-types,canopi-redact,canopi-format,canopi-format-wasm,bindings-gen}/src/**/*.rs"
+  - "policy/fixtures/rules/*/{desktop,canopi-types,canopi-redact,canopi-format,canopi-format-wasm,bindings-gen}/src/**/*.rs"
 ignores:
   - "desktop/src/commands/design/tests.rs"
   - "desktop/src/db/test_support.rs"
@@ -43,6 +43,7 @@ ignores:
   - "canopi-types/src/views/tests.rs"
   - "canopi-redact/src/tests.rs"
   - "canopi-redact/src/table_generated.rs"
+  - "canopi-format-wasm/src/tests.rs"
   - "bindings-gen/src/plan_support.rs"
   - "desktop/src/native_operation.rs"
   - "policy/fixtures/rules/*/desktop/src/native_operation.rs"

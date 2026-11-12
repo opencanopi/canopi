@@ -68,7 +68,7 @@ flowchart TB
     app["Shared app, desktop/web/src/"]
     rw["maplibre/raster-display/worker.ts"]
     pw["app/canvas-pdf/worker.ts"]
-    fw["Format worker: platform/design-core.worker.ts (2.1)"]:::target
+    fw["Format worker: platform/design-core.worker.ts"]
   end
   userdb[("User DB: settings, favourites, stamps, Notebook, Recent Designs")]
   plantdb[("canopi-core.db plant catalog, read only")]
@@ -108,7 +108,7 @@ flowchart TB
     app["Shared app, desktop/web/src/"]
     st["platform/page-rules.ts (2.1): page-rules wasm in the page"]:::target
   end
-  fw["Format worker: platform/design-core.worker.ts (2.1)"]:::target
+  fw["Format worker: platform/design-core.worker.ts"]
   lw["Library worker: catalogue in SQLite on OPFS, engine child, Web Lock (2.1)"]:::target
   dw["DuckDB worker over the catalog Parquet, species reader (E1 outcome A: one reader, both editions)"]
   rw["maplibre/raster-display/worker.ts"]
@@ -249,10 +249,13 @@ flowchart LR
   canopi_desktop["canopi-desktop: shell, commands, services, stores, catalog, LiDAR"]
   canopi_types["canopi-types: contract shapes"]
   canopi_redact["canopi-redact: Redactor, RedactedText (skeleton)"]
+  canopi_format
   bindings_gen["bindings-gen: TS emitter"]
   canopi_desktop --> canopi_types
   canopi_desktop --> canopi_redact
   canopi_types --> canopi_redact
+  canopi_format_wasm --> canopi_types
+  canopi_format_wasm --> canopi_redact
   bindings_gen --> canopi_types
 ```
 
@@ -267,7 +270,7 @@ Source: ADR 0023, 2.1-Q9, 2.1-Q34, 2.1-Q122, 2.1-M4
 flowchart BT
   classDef target stroke-dasharray: 4 3
   types["canopi-types: shapes, DESIGN_FILE_FIELDS; failure, settings and quantity tables (2.1)"]:::target
-  fmt["canopi-format (2.1): stored user work"]:::target
+  fmt["canopi-format: stored user work"]
   st["canopi-search-text (2.1): search normalisation"]:::target
   sup["canopi-support (2.1): executor, durable files, http, process"]:::target
   veg["canopi-vegetation (2.1): crown algorithms, roadmap"]:::target
@@ -276,7 +279,7 @@ flowchart BT
   store["canopi-store (2.1): user DB, Drafts, Design files"]:::target
   desk["canopi-desktop: shell, commands table, host, composition"]
   bg["bindings-gen: TS from the shared shapes"]
-  fw["canopi-format-wasm (2.1)"]:::target
+  fw["canopi-format-wasm"]
   sw["canopi-page-rules-wasm (2.1)"]:::target
   rd["canopi-redact: Redactor, RedactedText"]
   lw["canopi-library-wasm (2.1): catalogue feature, no native"]:::target
@@ -304,7 +307,7 @@ flowchart BT
 ```
 
 - No edge between `canopi-catalog` (2.1) and `canopi-store` (2.1); only `canopi-desktop` depends on both and composes favourites with the catalog.
-- Tauri only in `canopi-desktop`; tauri, tokio and sqlite never under `canopi-format` (2.1); wasm-bindgen only in the `-wasm` crates (cargo-deny, Phase 0). Rust SCC count 0 (`rust-scc` ratchet).
+- Tauri only in `canopi-desktop`; tauri, tokio and sqlite never under `canopi-format`; wasm-bindgen only in the `-wasm` crates (cargo-deny). Rust SCC count 0 (`rust-scc` ratchet).
 - Inside `canopi-library` (2.1): leaves < engines < repository < extensions < jobs < facade, and no extension imports another (`module_layering.rs`, narrowed by N1).
 
 ### Ports and edition roots

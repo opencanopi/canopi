@@ -65,7 +65,8 @@ describe('Web Edition build configuration', () => {
 
     expect(web.base).toBe('/')
     expect(web.build?.outDir).toBe('dist-web')
-    expect(web.build?.rolldownOptions?.input).toBe('web.html')
+    // Two entries: the page, and the format worker until R1-6's design-core adapter starts it (canopi-f47t.52.270).
+    expect(web.build?.rolldownOptions?.input).toEqual({ web: 'web.html', 'design-core.worker': 'src/platform/design-core.worker.ts' })
     expect(web.plugins).toEqual(expect.arrayContaining([
       expect.objectContaining({ name: 'canopi-web-edition-dev-entry' }),
     ]))
@@ -233,6 +234,19 @@ describe('Web Edition build configuration', () => {
     expect(packageJson.scripts?.['build:web:bundle']).toContain(
       'vite build --mode web && node scripts/check-web-build-boundaries.mjs',
     )
+  })
+
+  it('canopi-f47t.52.270: builds the format module before every Web bundle and the Web dev server, never before Desktop', () => {
+    const { scripts } = JSON.parse(
+      readFileSync(new URL('../../package.json', import.meta.url), 'utf8'),
+    ) as { scripts: Record<string, string> }
+
+    expect(scripts['build:format-wasm']).toBe('node ../../canopi-format-wasm/build-wasm.mjs')
+    expect(scripts['build:web:bundle']).toMatch(/^npm run build:format-wasm && vite build --mode web && /)
+    expect(scripts['dev:web']).toBe('npm run build:format-wasm && vite --mode web')
+    // Desktop reads .canopi natively and never loads the module (A8).
+    expect(scripts['build:desktop:bundle']).not.toContain('build:format-wasm')
+    expect(scripts['dev']).toBe('vite')
   })
 
   it('checks every Desktop and Web build for non-ASCII scripts and identifiers (canopi-f47t.52.228.18)', () => {

@@ -5,8 +5,8 @@ language: rs
 severity: error
 message: "canopi-decode-only-in-format (§18 R7): a .canopi file is decoded into CanopiFile (serde_json by turbofish or by the binding type) only by the format module, canopi-format from 2b. ADR 0026; owner desktop/src/design/format.rs; target canopi-format/src (2b); example desktop/src/design/format.rs"
 files:
-  - "{desktop,canopi-types,canopi-redact,bindings-gen}/src/**/*.rs"
-  - "policy/fixtures/rules/*/{desktop,canopi-types,canopi-redact,bindings-gen}/src/**/*.rs"
+  - "{desktop,canopi-types,canopi-redact,canopi-format,canopi-format-wasm,bindings-gen}/src/**/*.rs"
+  - "policy/fixtures/rules/*/{desktop,canopi-types,canopi-redact,canopi-format,canopi-format-wasm,bindings-gen}/src/**/*.rs"
 ignores:
   - "desktop/src/commands/design/tests.rs"
   - "desktop/src/db/test_support.rs"
@@ -43,6 +43,7 @@ ignores:
   - "canopi-types/src/views/tests.rs"
   - "canopi-redact/src/tests.rs"
   - "canopi-redact/src/table_generated.rs"
+  - "canopi-format-wasm/src/tests.rs"
   - "bindings-gen/src/plan_support.rs"
   - "desktop/src/design/format.rs"
   - "policy/fixtures/rules/*/desktop/src/design/format.rs"

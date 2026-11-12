@@ -1,0 +1,15 @@
+# The wasm-bindgen-only-in-wasm-crates rule's planted violation (§18 R20): a workspace of its own (so the repository's
+# cargo never reads it) whose member, not a -wasm crate, depends on a local path crate named `wasm-bindgen`. The
+# cargo-deny adapter runs it offline with the repository's deny.toml, whose [bans] entry for wasm-bindgen allows it
+# only under the -wasm crates; the path dependency is a wildcard that `publish = false` allows.
+[package]
+name = "planted-wasm-bindgen-only-in-wasm-crates"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+wasm-bindgen = { path = "wasm-bindgen" }
+
+[workspace]
+members = ["wasm-bindgen"]

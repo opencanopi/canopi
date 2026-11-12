@@ -644,6 +644,15 @@ jobs:
       - name: Install frontend deps
         run: npm ci --prefix desktop/web
 
+      # The Web build compiles the format worker's module first (`npm run build:format-wasm`, Step 2.0.4): the wasm32
+      # target, and the wasm-bindgen CLI at Cargo.lock's wasm-bindgen version, the one build-wasm.mjs accepts.
+      - uses: dtolnay/rust-toolchain@1.97.1
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: wasm-bindgen@0.2.130
+
       - name: Build the root Web Edition
         working-directory: desktop/web
         run: npm run build:web

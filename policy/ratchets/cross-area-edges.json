@@ -808,6 +808,12 @@
     "canopi-desktop -> canopi-types": {
       "count": 1
     },
+    "canopi-format-wasm -> canopi-redact": {
+      "count": 1
+    },
+    "canopi-format-wasm -> canopi-types": {
+      "count": 1
+    },
     "canopi-types -> canopi-redact": {
       "count": 1
     },

@@ -88,9 +88,10 @@ export const POLICY_COMMIT = ['policy-check', 'policy-node-tests', 'policy-gener
 // the digest (the release's actionlint_<version>_checksums.txt), and build.yml's workflows job equals both.
 const ACTIONLINT_VERSION = '1.7.12'
 /** What check:notices regenerates THIRD_PARTY_NOTICES.md from, beside the bundles: the lockfiles, the manifests of
- * desktop and the workspace members it depends on (the crates cargo-about lists), cargo-about's config and template,
+ * desktop, of the format worker's module (canopi-format-wasm, cargo-about's second run) and of the workspace members they
+ * depend on (the crates cargo-about lists), cargo-about's config and template,
  * the generator and its hand rows, and the file itself. */
-const NOTICES_INPUTS = [String.raw`^Cargo\.lock$`, String.raw`^(desktop|canopi-types|canopi-redact)/Cargo\.toml$`,
+const NOTICES_INPUTS = [String.raw`^Cargo\.lock$`, String.raw`^(desktop|canopi-types|canopi-redact|canopi-format-wasm)/Cargo\.toml$`,
   String.raw`^desktop/web/package-lock\.json$`, String.raw`(^|/)THIRD_PARTY_NOTICES\.md$`,
   String.raw`^about\.(toml|hbs)$`, String.raw`^scripts/(generate_notices\.mjs|notices-hand-rows\.json)$`]
 
@@ -160,7 +161,7 @@ export const TABLE: Table = {
     // driver and a display (docs/guides/native-and-release.md has the local Linux run); the browser suites need the
     // pinned Playwright image; the updater lane installs and updates real packages.
     'desktop-real-app': { command: 'CI job real-app: the Desktop real-app suite on WebKitGTK and WebView2', shown: 'build.yml real-app', ciOnly: true },
-    'web-browsers': { command: 'CI job web-browsers: the canvas and gallery suites in Chromium, WebKit and Firefox', shown: 'build.yml web-browsers', ciOnly: true },
+    'web-browsers': { command: 'CI job web-browsers: the canvas and gallery suites in Chromium, WebKit and Firefox, and the format worker in WebKitGTK and Edge', shown: 'build.yml web-browsers', ciOnly: true },
     'updater-e2e': { command: 'CI job updater: N-1 updates itself to N as an AppImage, a .deb and an NSIS install', shown: 'build.yml updater', ciOnly: true },
     'release-build': { command: 'CI job release-build: the Release Candidate\'s preflight and build on every platform as a dry run, publishing nothing', shown: 'build.yml release-build', ciOnly: true },
     'docs': { command: 'python3 scripts/check_docs.py' },
@@ -252,7 +253,10 @@ export const TABLE: Table = {
         + '{policy-bundle} && {notices}`; `{gate-coverage}`; `{oldest-engine}`',
       // The notices' inputs select it too: Cargo.lock, whose crates THIRD_PARTY_NOTICES.md and third-party-notices.test.ts
       // name (17a86728d left them stale), and the npm lockfile; the affected lane runs check:notices for them alone.
-      patterns: [String.raw`^desktop/web/(?!.*\.md$)`, String.raw`^policy/`, String.raw`^sgconfig\.yml$`, ...NOTICES_INPUTS],
+      // And the crates the Web build compiles into the format worker's module (`build:format-wasm`, Step 2.0.4), whose
+      // size is a bundle budget.
+      patterns: [String.raw`^desktop/web/(?!.*\.md$)`, String.raw`^policy/`, String.raw`^sgconfig\.yml$`, ...NOTICES_INPUTS,
+        String.raw`^canopi-(types|redact|format|format-wasm)/`],
       full: ['typecheck', 'coverage', ...POLICY_COMMIT, 'build', 'build-web', 'policy-bundle', 'notices', 'gate-coverage', 'oldest-engine'],
       affected: ['typecheck'],
       affectedWhen: { notices: NOTICES_INPUTS },
@@ -356,7 +360,10 @@ export const TABLE: Table = {
       name: 'web-browsers', label: 'Web Edition browsers and axe reports',
       row: 'CI `{web-browsers}`, then `cd desktop/web && {policy-self-test-a11y} && {policy-a11y}`',
       workflow: '.github/workflows/web-edition-browsers.yml',
-      patterns: [String.raw`^desktop/web/(?!.*\.md$)`, String.raw`^desktop/tauri\.conf\.json$`, String.raw`^policy/`],
+      // The format worker's module instantiated in every engine: the crates it is built from (Step 2.0.4).
+      patterns: [String.raw`^desktop/web/(?!.*\.md$)`, String.raw`^desktop/tauri\.conf\.json$`, String.raw`^policy/`,
+        String.raw`^canopi-(redact|format|format-wasm)/`],
+      actions: ['install-linux-deps'],
       full: ['web-browsers', 'policy-self-test-a11y', 'policy-a11y'],
     },
     {
@@ -458,6 +465,7 @@ export const TABLE: Table = {
     'build-and-test': { 'Every job passed or was skipped': CI_SETUP },
     'desktop-real-app.yml real-app': { '*': 'desktop-real-app' },
     'web-edition-browsers.yml browsers': { '*': 'web-browsers' },
+    'web-edition-browsers.yml format-core-engines': { '*': 'web-browsers' },
     'web-edition-browsers.yml a11y-policy': { 'Install frontend deps': CI_SETUP, 'Trust the workspace for the planted cases': CI_SETUP },
     // The macOS self-update probe runs on a dispatch or a Release Candidate only, never called by build.yml (2.1-Q136).
     'updater-e2e.yml updater': { '*': 'updater-e2e' },
