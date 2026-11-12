@@ -1628,6 +1628,11 @@
     "resolve": "Resolver…",
     "conflictAnotherTab": "Alterado em outra aba"
   },
+  "readOnlyDesign": {
+    "status": "Somente leitura: salvo por uma versão mais recente do Canopi",
+    "details": "Este design foi salvo por uma versão mais recente do Canopi. Você pode vê-lo, mas não pode alterá-lo nem salvá-lo. Atualize o Canopi para editá-lo.",
+    "update": "Atualizar"
+  },
   "saveProblem": {
     "flushFailedTitle": "Não foi possível salvar suas alterações",
     "flushFailedMessage": "O Canopi não conseguiu gravar suas últimas alterações. Tente novamente ou descarte-as para continuar.",

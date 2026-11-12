@@ -1628,6 +1628,11 @@
     "resolve": "解決…",
     "conflictAnotherTab": "別のタブで変更されました"
   },
+  "readOnlyDesign": {
+    "status": "読み取り専用：新しいバージョンの Canopi で保存",
+    "details": "このデザインは新しいバージョンの Canopi で保存されました。表示はできますが、変更や保存はできません。編集するには Canopi を更新してください。",
+    "update": "更新"
+  },
   "saveProblem": {
     "flushFailedTitle": "変更を保存できませんでした",
     "flushFailedMessage": "Canopi は最新の変更を書き込めませんでした。再試行するか、変更を破棄して続行してください。",

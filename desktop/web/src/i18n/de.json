@@ -1628,6 +1628,11 @@
     "resolve": "Klären…",
     "conflictAnotherTab": "In einem anderen Tab geändert"
   },
+  "readOnlyDesign": {
+    "status": "Schreibgeschützt: von einer neueren Canopi-Version gespeichert",
+    "details": "Dieses Design wurde von einer neueren Canopi-Version gespeichert. Sie können es ansehen, aber nicht ändern oder speichern. Aktualisieren Sie Canopi, um es zu bearbeiten.",
+    "update": "Aktualisieren"
+  },
   "saveProblem": {
     "flushFailedTitle": "Änderungen konnten nicht gespeichert werden",
     "flushFailedMessage": "Canopi konnte Ihre letzten Änderungen nicht schreiben. Versuchen Sie es erneut oder verwerfen Sie sie, um fortzufahren.",
