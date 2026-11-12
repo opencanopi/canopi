@@ -24,6 +24,13 @@ const WEB_HASHED_NAMES = {
 // Every emitted script, workers included, is ASCII, as esbuild's were before Vite 8: Rolldown escapes non-ASCII text, and
 // asciiIdentifierKeysPlugin quotes the property names Oxc's minifier unquoted (canopi-f47t.52.228.18).
 const ASCII_OUTPUT = { charset: "ascii" } as const;
+// The format worker's built module (canopi-format-wasm/build-wasm.mjs, `npm run build:format-wasm`, git-ignored): the
+// worker imports its glue and .wasm by `?url`, and Vite serves them from outside this directory in dev.
+const FORMAT_WASM_DIST = fileURLToPath(new URL("../../canopi-format-wasm/dist/", import.meta.url));
+// The Web build's entries. The format worker is its own entry until R1-6's design-core adapter starts it with
+// `new Worker(new URL(...))` (Step 2.0.4 R1-1, its probe: e2e/canvas/format-core-probe.spec.ts); Desktop reads natively
+// and never builds it (2.1-M476).
+const WEB_INPUT = { web: "web.html", "design-core.worker": "src/platform/design-core.worker.ts" } as const;
 const DEFAULT_WEB_CATALOG_INPUT = fileURLToPath(new URL('./catalog-input/', import.meta.url));
 // The PDF fonts' one script (plain JavaScript, run by node too): imported by URL, typed here.
 const { pdfFontsPlugin } = (await import(new URL("./scripts/prepare-pdf-fonts.mjs", import.meta.url).href)) as { pdfFontsPlugin(): Plugin };
@@ -120,6 +127,7 @@ export default defineConfig(({ mode }) => {
           // The About dialog's notices view imports the root file `?raw`.
           notices.NOTICES_PATH,
           `${notices.NOTICES_PATH}?raw`,
+          FORMAT_WASM_DIST,
         ],
       },
     },
@@ -128,7 +136,7 @@ export default defineConfig(({ mode }) => {
       outDir: isWebEdition ? "dist-web" : "dist",
       emptyOutDir: true,
       rolldownOptions: {
-        input: isWebEdition ? "web.html" : "index.html",
+        input: isWebEdition ? WEB_INPUT : "index.html",
         output: {
           ...ASCII_OUTPUT,
           ...(isWebEdition ? WEB_HASHED_NAMES : {}),
@@ -163,7 +171,7 @@ export default defineConfig(({ mode }) => {
       // An unhandled error or rejection fails the run even when every test passes.
       dangerouslyIgnoreUnhandledErrors: false,
       // The app's tests, with every option above, and the repository tooling's: policy/gate's TypeScript and a ported
-      // adapter's (policy/adapters/*.ts, 2.1-M349), their tests beside them (design check AR20), in plain Node from the repository root with the same order and assertion rule,
+      // adapter's (policy/adapters/*.ts, 2.1-M349) and the format module's build script (canopi-format-wasm/), their tests beside them (design check AR20), in plain Node from the repository root with the same order and assertion rule,
       // inheriting nothing else (Vitest 5's inline projects extend this file unless told not to). Under
       // CANOPI_VITEST_WEB_ONLY=1 (Stryker) the web project alone.
       projects: [
@@ -174,7 +182,7 @@ export default defineConfig(({ mode }) => {
           test: {
             name: "policy-gate",
             root: fileURLToPath(new URL("../..", import.meta.url)),
-            include: ["policy/gate/**/*.test.ts", "policy/adapters/**/*.test.ts"],
+            include: ["policy/gate/**/*.test.ts", "policy/adapters/**/*.test.ts", "canopi-format-wasm/*.test.ts"],
             environment: "node",
             sequence: { shuffle: { files: true, tests: true }, seed: mode === "test" ? testSeed() : PINNED_TEST_SEED },
             expect: { requireAssertions: true },

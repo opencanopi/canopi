@@ -12,7 +12,7 @@ sequenceDiagram
   participant Root as editions/desktop/ (2.1) owner edition root
   participant Home as platform/design-home.ts (2.1) DesignHomeStore, with FileAccess pickers
   participant Core as app/document-session/core/ (2.1) owner Session core
-  participant Fmt as platform/design-core.worker.ts (2.1) format worker
+  participant Fmt as platform/design-core.worker.ts format worker
   participant Scene as canvas/runtime/scene-runtime/ owner Scene
   participant Doc as app/design-edit/document/ (2.1) owner Document
   participant Ask as session question dialog (2.1) reads core state
@@ -101,7 +101,7 @@ Source: ADR 0026 Web Drafts, contracts §11, 2.1-Q22, 2.1-Q40, 2.1-Q47, 2.1-Q82
 ```mermaid
 sequenceDiagram
   participant Core as app/document-session/core/ (2.1) owner Session core
-  participant Fmt as platform/design-core.worker.ts (2.1) format worker
+  participant Fmt as platform/design-core.worker.ts format worker
   participant DH as platform/design-home.desktop.ts (2.1) owner Draft store
   participant Dur as canopi-support (2.1) publish_durably
   participant WH as platform/design-home.browser.ts (2.1) owner Draft store
@@ -180,12 +180,12 @@ Source: ADR 0026 `.canopi` admission and Rollback, contracts §10, 2.1-Q35r, 2.1
 ```mermaid
 sequenceDiagram
   participant Core as app/document-session/core/ (2.1) owner Session core
-  participant Chain as canopi-format (2.1) owner .canopi chain
+  participant Chain as canopi-format owner .canopi chain
   participant DH as platform/design-home.desktop.ts (2.1) file home
   participant Ask as save status (2.1) reads core state
   participant Old as app/document-session/state-machine.ts 2.0.4 Desktop
   participant OldWeb as web/browser-design-session.ts 2.0.4 Web
-  participant Wasm as canopi-format-wasm (2.1) decode only
+  participant Wasm as canopi-format-wasm decode only
   Core->>Chain: decode(bytes): cap, JSON, version, Admission
   alt BeforeFloor or Newer
     Chain-->>Core: refusal, file unchanged
