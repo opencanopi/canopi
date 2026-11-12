@@ -1016,8 +1016,10 @@ mod tests {
         assert_eq!(error.failure().kind, DesignLoadFailureKind::OlderVersion);
         assert!(!error.failure().message.contains("old.canopi"));
 
+        // canopi-f47t.52.270: a stamp import's read refuses even a newer Design the view reads.
         let newer = dir.join("newer.canopi");
-        std::fs::write(&newer, r#"{"version": 99, "name": "Next"}"#).unwrap();
+        let v10 = include_str!("../../../canopi-format/spec/v10/read-fixture.canopi");
+        std::fs::write(&newer, v10).unwrap();
         assert_eq!(
             load_from_file(&newer).unwrap_err().failure().kind,
             DesignLoadFailureKind::NewerVersion
