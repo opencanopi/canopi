@@ -57,7 +57,13 @@ pub fn read_newer_design(value: &Value) -> Result<ReadOnlyDesign, ReadRefusal> {
         },
         refusal,
     };
-    admit_schema(value, read_schema()).map_err(refused)?;
+    let schema = read_schema().ok_or_else(|| {
+        refused(Refusal::new(
+            FieldPath::root(),
+            "a read schema this build can parse",
+        ))
+    })?;
+    admit_schema(value, schema).map_err(refused)?;
     // The schema admitted it, so serde builds it; an error past it is a schema the read
     // shape outgrew, named at the root without serde's text.
     let file = serde_json::from_value::<FileRead>(value.clone())
@@ -544,8 +550,8 @@ mod tests {
 
     #[test]
     fn the_read_schema_is_built_once() {
-        let schema = crate::v10::read_schema();
-        assert!(std::ptr::eq(schema, crate::v10::read_schema()));
+        let schema = crate::v10::read_schema().expect("the frozen read schema parses");
+        assert!(crate::v10::read_schema().is_some_and(|again| std::ptr::eq(schema, again)));
         assert_eq!(schema["required"], json!(["version"]));
     }
 }
