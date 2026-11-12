@@ -15,7 +15,7 @@ import type { LocaleKey } from '../../generated/locale-keys'
 export type CanvasToolId = Exclude<ToolId, 'saved-object-stamp'>
 
 /** The tools that only look at a Design: all a read-only Session arms (2.1-M478). */
-export const CANVAS_READ_TOOLS: ReadonlySet<ToolId> = new Set<ToolId>(['select', 'hand'])
+const CANVAS_READ_TOOLS: ReadonlySet<ToolId> = new Set<ToolId>(['select', 'hand'])
 
 /** Tool rail groups, top to bottom. Only `zones` carries a heading. */
 type CanvasToolGroupId = 'navigate' | 'plant' | 'zones' | 'annotate'

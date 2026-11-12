@@ -14,7 +14,7 @@
 // tool activates (canopi-n2cg); Select and Pan work in overview as they are. A drop arms in the runtime, with no `from`.
 // Rail learning is not recorded here: it stays an effect on every tool change (app/tool-rail/learning.ts).
 
-import { CANVAS_READ_TOOLS, type CanvasCommandFrom } from '../canvas-commands'
+import type { CanvasCommandFrom } from '../canvas-commands'
 import type { ToolId } from '../../canvas/runtime/interaction-types'
 import type { ToolSource } from '../../canvas/runtime/tools/tool'
 import { selectPlantStampSource } from '../../canvas/plant-stamp-source'
@@ -25,8 +25,7 @@ import {
   currentCanvasViewportCommandSurface,
   setCurrentCanvasTool,
 } from '../../canvas/session'
-import { designSessionStore } from '../document-session/store'
-import { activePanel, selectPanel } from '../shell/state'
+import { activePanel, designShownReadOnly, selectPanel } from '../shell/state'
 import { focusOwner } from './focus-owner'
 
 /** Who armed the tool: a command surface (CanvasCommandFrom), a panel's Place, the tool card or the Start card. */
@@ -38,8 +37,10 @@ export function armCanvasTool(
   options: { readonly from: ArmFrom; readonly source?: ToolSource },
 ): boolean {
   const { from, source } = options
-  // A read-only Session (a Design a newer Canopi saved) arms only the read tools, whoever asks (2.1-M478).
-  if (designSessionStore.isReadOnly() && !CANVAS_READ_TOOLS.has(tool)) return false
+  // Select and Pan only look: they work in overview as they are, and are all a read-only Session (a Design a newer
+  // Canopi saved) arms, whoever asks (2.1-M478; the command table greys the rest by CANVAS_READ_TOOLS).
+  const looksOnly = tool === 'select' || tool === 'hand'
+  if (!looksOnly && designShownReadOnly()) return false
   const command = from !== 'panel' && from !== 'card'
   // The command and Start-card callers bring the map forward; Place plants arms without a species too (its card offers
   // the chooser).
@@ -58,7 +59,7 @@ export function armCanvasTool(
   }
   // Never short-circuited for the tool already armed: arming it again takes the new source (and Copy an object on the
   // map arms Select, then Place a stamp, to drop the stamp it held).
-  if (tool !== 'select' && tool !== 'hand' && currentCanvasQuerySurface.peek()?.view.mode.peek() === 'overview') {
+  if (!looksOnly && currentCanvasQuerySurface.peek()?.view.mode.peek() === 'overview') {
     // Fit first, so the tool's first configure sees site mode (the fit jumps; the mode is current on return).
     currentCanvasViewportCommandSurface.peek()?.returnToDesign({ around: 'view-centre' })
   }

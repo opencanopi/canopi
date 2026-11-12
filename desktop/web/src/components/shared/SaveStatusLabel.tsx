@@ -225,7 +225,7 @@ function DraftWarningDetails({ warning, draftAction, fallbackFocus }: {
  * A Design a newer Canopi saved (2.1-Q317, M478): muted, never red, as nothing failed. The label opens a popover that
  * explains it cannot change here, with Update, which also sits beside the label.
  */
-function ReadOnlyDesignDetails({ onUpdate }: { onUpdate?(): void }) {
+function ReadOnlyDesignDetails({ onUpdate }: { readonly onUpdate: (() => void) | undefined }) {
   const [open, setOpen] = useState(false)
   const trigger = useRef<HTMLButtonElement>(null)
   const popover = useRef<HTMLDivElement>(null)

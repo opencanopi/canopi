@@ -1,7 +1,6 @@
 import { openAboutCanopiDialog } from '../about/state'
-import { designSessionStore } from '../document-session/store'
 import { focusOpenPlantFinder } from '../plant-finder/focus'
-import { selectPanel } from '../shell/state'
+import { designShownReadOnly, selectPanel } from '../shell/state'
 import { setMapBackground } from '../map-layers/actions'
 import { mapBackgroundOf, mapLayers } from '../map-layers/state'
 import { mutateSettingsProjection } from '../settings/projection'
@@ -22,7 +21,7 @@ import { toggleToolNames, toolRailShowsNames } from '../tool-rail/learning'
  * Design (one a newer Canopi saved) offers Close only (2.1-Q315, M478).
  */
 export function designChangeable(state: ShellCommandState): boolean {
-  return state.hasDesign && !designSessionStore.isReadOnly()
+  return state.hasDesign && !designShownReadOnly()
 }
 
 /**

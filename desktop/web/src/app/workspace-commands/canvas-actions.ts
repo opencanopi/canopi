@@ -26,7 +26,7 @@ import { sceneHasLockedDesignObjects } from '../../canvas/runtime/scene'
 import { t } from '../../i18n'
 import { singleKeyShortcuts } from '../settings/state'
 import { armCanvasTool } from '../keyboard/arming'
-import { designSessionStore } from '../document-session/store'
+import { designShownReadOnly } from '../shell/state'
 
 /**
  * The canvas half of the command graph, shared by both editions: projection
@@ -69,7 +69,7 @@ function readCanvasState(held: boolean): CanvasCommandProjectionState {
     activeTool: currentCanvasTool.value,
     canvasAvailable: surface !== null,
     spatialEditingAvailable: queries?.view.mode.value !== 'overview',
-    readOnly: designSessionStore.sessionKind.value.kind === 'read-only',
+    readOnly: designShownReadOnly(),
     selection: selection === null ? null : withEditionCapabilities(selectionCommandAvailability(selection), surface),
     held,
     lockedObjectsPresent: queries !== null && sceneHasLockedDesignObjects(queries.getSceneSnapshot()),
