@@ -49,15 +49,19 @@ impl DesignDrafts {
         }
     }
 
-    /// Durably write the draft `id`, creating the store when needed.
+    /// Durably write the draft `id`, creating the store when needed; a Draft saved by a
+    /// newer Canopi is never saved over ([`refuse_newer`]).
     pub(crate) fn save(&self, id: &str, content: &CanopiFile) -> Result<(), String> {
         let dir = self.dir.as_path();
         let path = draft_path(dir, id)?;
         let bytes = format::encode_design(content)?;
         std::fs::create_dir_all(dir)
             .map_err(|e| format!("Failed to create the drafts store: {e}"))?;
-        super::with_write_admission(&path, || super::write_file_durably(&path, &bytes, "tmp"))
-            .map_err(|e| format!("Failed to save the Design draft: {e}"))
+        super::with_write_admission(&path, || {
+            refuse_newer(&path)?;
+            super::write_file_durably(&path, &bytes, "tmp")
+                .map_err(|e| format!("Failed to save the Design draft: {e}"))
+        })
     }
 
     /// Load the draft `id` with the same size cap and version admission as a
@@ -110,15 +114,45 @@ impl DesignDrafts {
         Ok(drafts.into_iter().map(|(_, draft)| draft).collect())
     }
 
-    /// Delete the draft `id`. Deleting a draft that is already gone succeeds.
+    /// Delete the draft `id`. Deleting a draft that is already gone succeeds; a Draft saved
+    /// by a newer Canopi is never deleted ([`refuse_newer`]).
     pub(crate) fn delete(&self, id: &str) -> Result<(), String> {
         let path = draft_path(&self.dir, id)?;
-        super::with_write_admission(&path, || match std::fs::remove_file(&path) {
-            Ok(()) => Ok(()),
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
-            Err(error) => Err(format!("Failed to delete the Design draft: {error}")),
+        super::with_write_admission(&path, || {
+            refuse_newer(&path)?;
+            match std::fs::remove_file(&path) {
+                Ok(()) => Ok(()),
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+                Err(error) => Err(format!("Failed to delete the Design draft: {error}")),
+            }
         })
     }
+}
+
+/// The store's write accessors never replace or delete a Draft saved by a newer Canopi,
+/// whoever asks (2.1-M410, 2.1-M478): after a rollback its bytes stay as that Canopi wrote
+/// them. A Draft whose version cannot be read (over the size cap, or a read error) cannot be
+/// shown not to be newer and is refused too. Run under the Draft's write admission.
+fn refuse_newer(path: &Path) -> Result<(), String> {
+    use std::io::Read as _;
+    let unchecked = |error: std::io::Error| format!("Failed to check the Design draft: {error}");
+    let file = match std::fs::File::open(path) {
+        Ok(file) => file,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+        Err(error) => return Err(unchecked(error)),
+    };
+    if file.metadata().map_err(unchecked)?.len() > format::MAX_CANOPI_FILE_BYTES {
+        return Err(
+            "The Design draft is larger than Canopi opens; it is left unchanged".to_owned(),
+        );
+    }
+    let reader = std::io::BufReader::new(file.take(format::MAX_CANOPI_FILE_BYTES + 1));
+    if canopi_format::read::saved_by_newer(reader).map_err(unchecked)? {
+        return Err(
+            "This Design draft was saved by a newer Canopi; it is left unchanged".to_owned(),
+        );
+    }
+    Ok(())
 }
 
 /// The draft id a store entry names, or `None` for anything else (temporary
@@ -422,6 +456,77 @@ mod tests {
             drafts.load("Not An Id").unwrap_err().kind,
             DesignLoadFailureKind::Missing
         );
+    }
+
+    /// The hand-made v10 Design R1 froze (`canopi-format/spec/v10/`), as 2.1 writes a Draft.
+    const V10_DRAFT: &str = include_str!("../../../canopi-format/spec/v10/read-fixture.canopi");
+
+    fn sidecar_free(dir: &Path) -> Vec<String> {
+        let mut names = fs::read_dir(dir)
+            .unwrap()
+            .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
+            .collect::<Vec<_>>();
+        names.sort();
+        names
+    }
+
+    /// canopi-f47t.52.270: after a rollback, a Draft 2.1 saved is neither saved over nor
+    /// deleted by the store, whoever asks (2.1-M410); its bytes stay as 2.1 wrote them.
+    #[test]
+    fn canopi_f47t_52_270_saving_or_deleting_over_a_newer_draft_is_refused_and_leaves_its_bytes() {
+        let root = unique_dir("newer_guard");
+        let drafts = DesignDrafts::new(&root);
+        let dir = drafts.dir.clone();
+        fs::create_dir_all(&dir).unwrap();
+        let mut later: serde_json::Value = serde_json::from_str(V10_DRAFT).unwrap();
+        later["version"] = serde_json::json!(11);
+        let later = serde_json::to_vec(&later).unwrap();
+        fs::write(dir.join("orchard-2-1.canopi"), V10_DRAFT).unwrap();
+        fs::write(dir.join("orchard-2-2.canopi"), &later).unwrap();
+
+        for (id, bytes) in [
+            ("orchard-2-1", V10_DRAFT.as_bytes()),
+            ("orchard-2-2", later.as_slice()),
+        ] {
+            let saved = drafts.save(id, &design("Over it")).unwrap_err();
+            assert!(saved.contains("newer Canopi"), "{saved}");
+            let deleted = drafts.delete(id).unwrap_err();
+            assert!(deleted.contains("newer Canopi"), "{deleted}");
+            assert_eq!(fs::read(dir.join(format!("{id}.canopi"))).unwrap(), bytes);
+        }
+        assert_eq!(
+            sidecar_free(&dir),
+            ["orchard-2-1.canopi", "orchard-2-2.canopi"]
+        );
+    }
+
+    /// canopi-f47t.52.270: a Draft whose version cannot be read (over the size cap, or a read
+    /// error before its version) cannot be shown not to be newer, so it is left as it is; a
+    /// damaged Draft is still saved over and deleted.
+    #[test]
+    fn canopi_f47t_52_270_a_draft_whose_version_cannot_be_read_is_left_unchanged() {
+        let root = unique_dir("unreadable_guard");
+        let drafts = DesignDrafts::new(&root);
+        let dir = drafts.dir.clone();
+        fs::create_dir_all(dir.join("folder.canopi")).unwrap();
+        let huge = fs::File::create(dir.join("huge.canopi")).unwrap();
+        huge.set_len(format::MAX_CANOPI_FILE_BYTES + 1).unwrap();
+        drop(huge);
+        fs::write(dir.join("damaged.canopi"), "{ not json").unwrap();
+
+        for id in ["huge", "folder"] {
+            assert!(drafts.save(id, &design("Over it")).is_err(), "{id}");
+            assert!(drafts.delete(id).is_err(), "{id}");
+        }
+        let huge = fs::metadata(dir.join("huge.canopi")).unwrap();
+        assert_eq!(huge.len(), format::MAX_CANOPI_FILE_BYTES + 1);
+        assert!(dir.join("folder.canopi").is_dir());
+
+        drafts.save("damaged", &design("Repaired")).unwrap();
+        assert_eq!(drafts.load("damaged").unwrap().name, "Repaired");
+        fs::write(dir.join("damaged.canopi"), "{ not json").unwrap();
+        drafts.delete("damaged").unwrap();
+        assert_eq!(sidecar_free(&dir), ["folder.canopi", "huge.canopi"]);
     }
 
     #[test]

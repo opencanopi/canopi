@@ -116,6 +116,33 @@ fn read_version(value: &Value) -> Result<u32, ReadRefusal> {
     }
 }
 
+/// Whether `.canopi` bytes hold a Design saved by a later format than this build's, so a
+/// store's write accessor refuses to replace or delete them (2.1-M410, 2.1-M478). Only the
+/// root `version` is decoded, every other value skipped as it streams past, so the check
+/// costs one sequential read. Bytes that are no JSON object, or whose version is missing, not
+/// an integer or not above this build's, hold none.
+///
+/// # Errors
+///
+/// The reader's error: what could not be read cannot be shown not to be newer.
+pub fn saved_by_newer(reader: impl std::io::Read) -> std::io::Result<bool> {
+    #[derive(serde::Deserialize)]
+    struct RootVersion {
+        version: Option<Value>,
+    }
+    match serde_json::from_reader::<_, RootVersion>(reader) {
+        Ok(root) => Ok(root.version.as_ref().is_some_and(|version| {
+            let above = u64::from(CURRENT_CANOPI_FILE_VERSION);
+            version.as_u64().is_some_and(|version| version > above)
+                || version.as_f64().is_some_and(|version| {
+                    version.is_finite() && version.fract() == 0.0 && version > above as f64
+                })
+        })),
+        Err(error) if error.is_io() => Err(error.into()),
+        Err(_) => Ok(false),
+    }
+}
+
 /// The read file in this build's in-memory shape, v10 names mapped back to v9's so no 2.0
 /// code changes; never written. Its `version` is this build's, the file's being
 /// [`ReadOnlyDesign::saved_by_version`].

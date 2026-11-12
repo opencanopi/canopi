@@ -502,3 +502,44 @@ fn canopi_f47t_52_270_groups_are_normalised_at_read() {
         ]
     );
 }
+
+/// canopi-f47t.52.270: a store's write accessor asks whether the bytes it would replace or
+/// delete hold a Design saved by a newer Canopi (2.1-M410): only the root `version` decides,
+/// read past any value before it, and bytes no Canopi reads as a Design hold none.
+#[test]
+fn canopi_f47t_52_270_saved_by_newer_reads_only_the_root_version() {
+    let newer = |text: &str| super::saved_by_newer(text.as_bytes()).expect("bytes read");
+    let current = canopi_types::design::CURRENT_CANOPI_FILE_VERSION;
+    assert!(newer(&v10().to_string()));
+    let late = r#"{"plants": [{"id": "p", "version": 1}], "name": "Late", "version": 11.0}"#;
+    assert!(
+        newer(late),
+        "a version after other values, as an integral float"
+    );
+    for held in [
+        format!(r#"{{"version": {current}, "name": "Current"}}"#),
+        r#"{"version": 4, "name": "Canopi 1.1"}"#.to_owned(),
+        r#"{"name": "No version"}"#.to_owned(),
+        r#"{"version": "10"}"#.to_owned(),
+        r#"{"version": 10.5}"#.to_owned(),
+        r#"[{"version": 10}]"#.to_owned(),
+        r#"{"version": 10"#.to_owned(),
+        "not json".to_owned(),
+        String::new(),
+    ] {
+        assert!(!newer(&held), "{held}");
+    }
+}
+
+/// canopi-f47t.52.270: a read that fails is no answer, so the caller writes nothing.
+#[test]
+fn canopi_f47t_52_270_saved_by_newer_passes_a_read_error_on() {
+    struct Failing;
+    impl std::io::Read for Failing {
+        fn read(&mut self, _: &mut [u8]) -> std::io::Result<usize> {
+            Err(std::io::Error::from(std::io::ErrorKind::PermissionDenied))
+        }
+    }
+    let error = super::saved_by_newer(Failing).expect_err("the read failed");
+    assert_eq!(error.kind(), std::io::ErrorKind::PermissionDenied);
+}
