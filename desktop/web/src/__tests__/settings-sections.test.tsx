@@ -29,7 +29,6 @@ import {
   type SettingsProjectionInstallation,
 } from '../app/settings/projection'
 import { resetStoreHealthForTests, storeStatus } from '../failures/health'
-import { DEFAULT_SETTINGS } from '../generated/settings'
 import { createBrowserSettingsPlatformAdapter } from '../platform/settings.browser'
 import { createBrowserAppDataStore, type BrowserStorageAdapter } from '../web/browser-app-data'
 
@@ -304,18 +303,38 @@ describe('Settings › Canvas on a Mac (canopi-pqxl)', () => {
     expect(storage.items.get(SETTINGS_KEY)).toBe(record)
   })
 
-  it('U canopi-pqxl: a Mac browser refusing storage (SecurityError) runs on the in-memory default and writes nothing', async () => {
-    const setItem = vi.fn()
-    const refusing: BrowserStorageAdapter = {
+  function refusingStorage(setItem: BrowserStorageAdapter['setItem']): BrowserStorageAdapter {
+    return {
       getItem: () => { throw new DOMException('The operation is insecure.', 'SecurityError') },
       setItem,
       removeItem: () => undefined,
     }
-    await launchOnAMac(refusing)
+  }
+
+  it('U canopi-pqxl: a Mac browser refusing storage (SecurityError) runs on the in-memory default and writes nothing', async () => {
+    const setItem = vi.fn()
+    await launchOnAMac(refusingStorage(setItem))
 
     expect(storeStatus('settings')).toEqual({ kind: 'unavailable', code: { kind: 'io', io: 'permission_denied' } })
-    expect(scrollWheel.value).toBe(DEFAULT_SETTINGS.scroll_wheel)
     expect(setItem).not.toHaveBeenCalled()
+  })
+
+  // Expected to fail until the projection's unavailable branch takes the adapter's host fallback (owner: main agent,
+  // app/settings/projection.ts and platform-adapter.ts; tracker canopi-pqxl): the signals keep the host-independent Mouse.
+  it.fails('U canopi-pqxl (main agent, projection fallback): a Mac browser refusing storage starts on Trackpad', async () => {
+    await launchOnAMac(refusingStorage(vi.fn()))
+
+    expect(storeStatus('settings')).toMatchObject({ kind: 'unavailable' })
+    expect(scrollWheel.value).toBe('pan')
+  })
+
+  it.fails('U canopi-pqxl (main agent, projection fallback): a Mac with a record the store refuses starts on Trackpad and keeps the record', async () => {
+    const storage = memoryStorage({ [SETTINGS_KEY]: 'not a record' })
+    await launchOnAMac(storage)
+
+    expect(storeStatus('settings')).toEqual({ kind: 'unavailable', code: { kind: 'invalid' } })
+    expect(storage.items.get(SETTINGS_KEY)).toBe('not a record')
+    expect(scrollWheel.value).toBe('pan')
   })
 })
 
