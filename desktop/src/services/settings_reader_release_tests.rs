@@ -80,17 +80,25 @@ fn r2_canopi_f47t_52_271_a_v3_saved_stamp_needs_a_newer_canopi_and_its_row_is_un
         r#"{"version":2,"plants":[],"zones":[],"annotations":[],"groups":[]}"#.to_string(),
     )
     .unwrap();
-    let newer = saved_object_stamps::create_saved_object_stamp(
-        &user_db,
-        "Apple guild".to_string(),
-        r#"{"version":3,"plants":[],"zones":[],"annotations":[],"groups":[],"guides":[],"notes":[]}"#
-            .to_string(),
-    )
-    .unwrap();
+    // The v3 row goes in as 2.1 leaves it, not through this build's writer, which a reader may refuse for a newer
+    // payload (contracts §11: a reader never writes a newer payload).
+    let newer_id = "stamp-apple-guild-v3";
+    {
+        let conn = user_db.acquire();
+        conn.execute(
+            "INSERT INTO saved_object_stamps (id, name, payload_json, sort_order, created_at, updated_at)
+             VALUES (?1, 'Apple guild', ?2, 1, '2026-11-01T00:00:00Z', '2026-11-01T00:00:00Z')",
+            rusqlite::params![
+                newer_id,
+                r#"{"version":3,"plants":[],"zones":[],"annotations":[],"groups":[],"guides":[],"notes":[]}"#
+            ],
+        )
+        .unwrap();
+    }
     let before = saved_object_stamps::get_saved_object_stamps(&user_db).unwrap();
 
     // Today needs_newer is never set and the v3 row renames, reorders and deletes like any other.
-    let listed = before.iter().find(|stamp| stamp.id == newer.id).unwrap();
+    let listed = before.iter().find(|stamp| stamp.id == newer_id).unwrap();
     assert!(
         listed.needs_newer,
         "the v3 stamp lists as needing a newer Canopi"
@@ -103,27 +111,27 @@ fn r2_canopi_f47t_52_271_a_v3_saved_stamp_needs_a_newer_canopi_and_its_row_is_un
             .needs_newer
     );
     assert!(
-        saved_object_stamps::rename_saved_object_stamp(&user_db, newer.id.clone(), "x".into())
+        saved_object_stamps::rename_saved_object_stamp(&user_db, newer_id.to_string(), "x".into())
             .is_err(),
         "a v3 row is never renamed"
     );
     assert!(
         saved_object_stamps::reorder_saved_object_stamps(
             &user_db,
-            vec![newer.id.clone(), older.id.clone()]
+            vec![newer_id.to_string(), older.id.clone()]
         )
         .is_err(),
         "a reorder naming a v3 row is refused"
     );
     assert!(
-        saved_object_stamps::delete_saved_object_stamp(&user_db, newer.id.clone()).is_err(),
+        saved_object_stamps::delete_saved_object_stamp(&user_db, newer_id.to_string()).is_err(),
         "a v3 row is never deleted"
     );
     let after = saved_object_stamps::get_saved_object_stamps(&user_db).unwrap();
     let row = |stamps: &[canopi_types::saved_object_stamps::SavedObjectStamp]| {
         stamps
             .iter()
-            .find(|stamp| stamp.id == newer.id)
+            .find(|stamp| stamp.id == newer_id)
             .map(|stamp| {
                 (
                     stamp.name.clone(),

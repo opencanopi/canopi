@@ -3,8 +3,9 @@
 //!
 //! Written failing in commit 0 and marked expected-fail: R2-4 (the catalogue's newer-read-only open) removes the marker.
 //! The catalogue is a real library built by this binary, then stamped schema version 26 with the frozen read
-//! projection's `library_items` table beside its v25 tables, as 2.1 leaves it after its step; R2-4 may swap in the
-//! frozen `catalogue-26.sql` fixture once R2-3 lands it.
+//! projection's `library_items` table and the jobs table under its 2.1 name `library_jobs` (2.1-M474). The other
+//! tables keep their v25 names here only because R2-3 freezes their `library_*` names: R2-4 must swap in the frozen
+//! `catalogue-26.sql` fixture before it removes the marker, so an R2 still reading a v25 table cannot pass.
 
 use super::*;
 use canopi_types::health::StoreOpenStatus;
@@ -12,13 +13,15 @@ use canopi_types::library::RasterQuantity;
 use std::collections::BTreeMap;
 use std::path::Path;
 
-/// Every file under `root` with its bytes, except what SQLite may create on a read-only open: a `-shm` file or an
-/// empty `-wal` (contracts §11 Degraded stores: engine metadata, not a write).
-fn files(root: &Path) -> BTreeMap<PathBuf, Vec<u8>> {
-    fn walk(dir: &Path, root: &Path, out: &mut BTreeMap<PathBuf, Vec<u8>>) {
+/// Every directory (as `None`) and file (with its bytes) under `root`, except what SQLite may create on a read-only
+/// open: a `-shm` file or an empty `-wal` (contracts §11 Degraded stores: engine metadata, not a write). Directories
+/// count, so a created empty directory shows (2.1-M488: no directory created).
+fn files(root: &Path) -> BTreeMap<PathBuf, Option<Vec<u8>>> {
+    fn walk(dir: &Path, root: &Path, out: &mut BTreeMap<PathBuf, Option<Vec<u8>>>) {
         for entry in std::fs::read_dir(dir).unwrap() {
             let path = entry.unwrap().path();
             if path.is_dir() {
+                out.insert(path.strip_prefix(root).unwrap().to_path_buf(), None);
                 walk(&path, root, out);
                 continue;
             }
@@ -27,7 +30,7 @@ fn files(root: &Path) -> BTreeMap<PathBuf, Vec<u8>> {
             if name.ends_with("-shm") || (name.ends_with("-wal") && bytes.is_empty()) {
                 continue;
             }
-            out.insert(path.strip_prefix(root).unwrap().to_path_buf(), bytes);
+            out.insert(path.strip_prefix(root).unwrap().to_path_buf(), Some(bytes));
         }
     }
     let mut out = BTreeMap::new();
@@ -36,7 +39,8 @@ fn files(root: &Path) -> BTreeMap<PathBuf, Vec<u8>> {
 }
 
 /// Stamps the catalogue at `path` as 2.1's catalogue 26 would leave it: schema version 26 and the read projection's
-/// `library_items(id, kind, lineage_tag, name, name_key)` listing every item (contracts §11 Read projections).
+/// `library_items(id, kind, lineage_tag, name, name_key)` listing every item (contracts §11 Read projections) and the
+/// jobs table renamed `library_jobs` (2.1-M474).
 #[cfg(test)]
 fn stamp_catalogue_26(path: &Path) {
     let connection = rusqlite::Connection::open(path).unwrap();
@@ -47,6 +51,7 @@ fn stamp_catalogue_26(path: &Path) {
              );
              INSERT INTO library_items(id, kind, lineage_tag, name, name_key)
                  SELECT id, 'raster', NULL, name, lower(name) FROM lidar_source_layers;
+             ALTER TABLE lidar_import_jobs RENAME TO library_jobs;
              UPDATE lidar_catalogue_meta SET value = '26' WHERE key = 'schema_version';
              PRAGMA wal_checkpoint(TRUNCATE);",
         )
