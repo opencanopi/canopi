@@ -49,6 +49,11 @@ interface SaveStatusLabelProps {
   readonly conflictSource?: SaveConflictSource
   onRetry(): void
   onResolveConflict?(): void
+  /**
+   * Update, offered while a newer Canopi's Design is shown read-only (2.1-Q317): Desktop checks for updates, the Web
+   * reloads. Absent: the read-only status has no action.
+   */
+  onUpdate?(): void
 }
 
 /**
@@ -65,6 +70,7 @@ export function SaveStatusLabel({
   conflictSource,
   onRetry,
   onResolveConflict,
+  onUpdate,
 }: SaveStatusLabelProps) {
   // Web (a link-style Draft action) can focus the status itself when its warning leaves under focus.
   const statusRef = useRef<HTMLSpanElement>(null)
@@ -102,6 +108,7 @@ export function SaveStatusLabel({
           <SaveFailureDetails reason={failureReason} onRetry={onRetry} saveElsewhere={saveElsewhere} />
         </>
       )}
+      {status === 'read-only' && <ReadOnlyDesignDetails onUpdate={onUpdate} />}
       {status === 'conflict' && (
         <>
           <span className={styles.errorText} role="alert"><ControlIcon name="alert" /><span className={styles.label}>{t(conflictSource === 'another-tab' ? 'saveStatus.conflictAnotherTab' : 'saveStatus.conflict')}</span></span>
@@ -211,6 +218,73 @@ function DraftWarningDetails({ warning, draftAction, fallbackFocus }: {
         </div>
       )}
     </span>
+  )
+}
+
+/**
+ * A Design a newer Canopi saved (2.1-Q317, M478): muted, never red, as nothing failed. The label opens a popover that
+ * explains it cannot change here, with Update, which also sits beside the label.
+ */
+function ReadOnlyDesignDetails({ onUpdate }: { onUpdate?(): void }) {
+  const [open, setOpen] = useState(false)
+  const trigger = useRef<HTMLButtonElement>(null)
+  const popover = useRef<HTMLDivElement>(null)
+  const titleId = useId()
+  const descriptionId = useId()
+  usePopover(trigger, popover, open, setOpen)
+
+  function close(): void {
+    setOpen(false)
+    trigger.current?.focus()
+  }
+
+  return (
+    <>
+      <span className={styles.detailsAnchor} data-preserve-overlays="true">
+        <span className={styles.warningStatus} role="status">
+          <button
+            ref={trigger}
+            type="button"
+            className={styles.warningTrigger}
+            aria-haspopup="dialog"
+            aria-expanded={open}
+            onClick={() => setOpen(!open)}
+          >
+            <ControlIcon name="info" /><span className={styles.label}>{t('readOnlyDesign.status')}</span>
+          </button>
+        </span>
+        {open && (
+          <div
+            ref={popover}
+            className={styles.popover}
+            role="dialog"
+            aria-labelledby={titleId}
+            aria-describedby={descriptionId}
+            onKeyDown={(event) => {
+              if (event.key !== 'Escape') return
+              event.preventDefault()
+              event.stopPropagation()
+              close()
+            }}
+          >
+            <h2 className={styles.popoverTitle} id={titleId}>{t('readOnlyDesign.status')}</h2>
+            <p className={styles.popoverText} id={descriptionId}>{t('readOnlyDesign.details')}</p>
+            {onUpdate && (
+              <div className={styles.popoverActions}>
+                <button type="button" className={styles.primary} onClick={() => { close(); onUpdate() }}>
+                  {t('readOnlyDesign.update')}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      </span>
+      {onUpdate && (
+        <button type="button" className={styles.action} onClick={onUpdate}>
+          {t('readOnlyDesign.update')}
+        </button>
+      )}
+    </>
   )
 }
 
