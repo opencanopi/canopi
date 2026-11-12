@@ -88,9 +88,10 @@ export const POLICY_COMMIT = ['policy-check', 'policy-node-tests', 'policy-gener
 // the digest (the release's actionlint_<version>_checksums.txt), and build.yml's workflows job equals both.
 const ACTIONLINT_VERSION = '1.7.12'
 /** What check:notices regenerates THIRD_PARTY_NOTICES.md from, beside the bundles: the lockfiles, the manifests of
- * desktop and the workspace members it depends on (the crates cargo-about lists), cargo-about's config and template,
+ * desktop, of the format worker's module (canopi-format-wasm, cargo-about's second run) and of the workspace members they
+ * depend on (the crates cargo-about lists), cargo-about's config and template,
  * the generator and its hand rows, and the file itself. */
-const NOTICES_INPUTS = [String.raw`^Cargo\.lock$`, String.raw`^(desktop|canopi-types|canopi-redact)/Cargo\.toml$`,
+const NOTICES_INPUTS = [String.raw`^Cargo\.lock$`, String.raw`^(desktop|canopi-types|canopi-redact|canopi-format-wasm)/Cargo\.toml$`,
   String.raw`^desktop/web/package-lock\.json$`, String.raw`(^|/)THIRD_PARTY_NOTICES\.md$`,
   String.raw`^about\.(toml|hbs)$`, String.raw`^scripts/(generate_notices\.mjs|notices-hand-rows\.json)$`]
 

@@ -261,9 +261,9 @@ Bundled by the Desktop or the Web build, app chunks and workers (rollup-plugin-l
 | `xml-utils` | CC0-1.0 | 05d9f1a0 |
 | `zstddec` | MIT AND BSD-3-Clause | 4f2e423c |
 
-## Rust crates in the Desktop binary
+## Rust crates in the Desktop binary and the Web format worker
 
-Linked into the Desktop binary on its release targets (cargo-about over `desktop/Cargo.toml`'s normal dependencies), with the licence texts in each crate's source.
+Linked into the Desktop binary on its release targets (cargo-about over `desktop/Cargo.toml`'s normal dependencies) or compiled into the Web format worker's module (over `canopi-format-wasm/Cargo.toml` for wasm32), with the licence texts in each crate's source.
 
 | Crate | Licence | Licence texts |
 |---|---|---|
@@ -296,6 +296,7 @@ Linked into the Desktop binary on its release targets (cargo-about over `desktop
 | `blocking` | Apache-2.0 OR MIT | 0ffddef9 |
 | `brotli` | BSD-3-Clause AND MIT | 24285452, c71815ab |
 | `brotli-decompressor` | BSD-3-Clause OR MIT | c71815ab |
+| `bumpalo` | MIT OR Apache-2.0 | 0ffddef9 |
 | `bytemuck` | Zlib OR Apache-2.0 OR MIT | 0ffddef9 |
 | `byteorder` | Unlicense OR MIT | 952115fb |
 | `bytes` | MIT | 0893c838 |
@@ -630,6 +631,10 @@ Linked into the Desktop binary on its release targets (cargo-about over `desktop
 | `uuid` | Apache-2.0 OR MIT | 0ffddef9 |
 | `walkdir` | Unlicense OR MIT | 952115fb |
 | `want` | MIT | d3ed37e8 |
+| `wasm-bindgen` | MIT OR Apache-2.0 | 0ffddef9 |
+| `wasm-bindgen-macro` | MIT OR Apache-2.0 | 0ffddef9 |
+| `wasm-bindgen-macro-support` | MIT OR Apache-2.0 | 0ffddef9 |
+| `wasm-bindgen-shared` | MIT OR Apache-2.0 | 0ffddef9 |
 | `wbgeotiff` | MIT OR Apache-2.0 | 0ffddef9 |
 | `web-time` | MIT OR Apache-2.0 | 76bf7c64 |
 | `web_atoms` | MIT OR Apache-2.0 | 0ffddef9 |

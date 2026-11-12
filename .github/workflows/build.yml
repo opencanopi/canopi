@@ -440,7 +440,10 @@ jobs:
       # scripts/generate_notices.mjs's CARGO_ABOUT_VERSION (third-party-notices.test.ts keeps them equal).
       - uses: taiki-e/install-action@v2
         with:
-          tool: cargo-about@0.9.3,wasm-bindgen@0.2.130
+          tool: cargo-about@0.9.3
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: wasm-bindgen@0.2.130
 
       - name: Install frontend deps and fetch the locked crates
         run: |
