@@ -11,9 +11,10 @@
 //! root key, its `color_by` and `labels` open strings; a budget line `{target: {kind,
 //! canonical_name}, unit_cost, ext?}` whose `target.kind` is an open string, a line whose
 //! target is not a species being skipped (2.1-M491). An unknown key is ignored anywhere, the
-//! root included. Every root field but `version` is optional with the default named beside
-//! it. Objects v10 leaves as v9 read by their v9 types (R1-3's freeze sweeps their required
-//! fields down to identity and geometry, 2.1-M481).
+//! root included. Only identity and geometry are required (2.1-M481): every other field
+//! is optional with the default the frozen schema documents beside it. Objects v10 leaves as
+//! v9 read by their v9 types, which require more: the read sets each absent field to its
+//! documented default ([`crate::schema::fill_defaults`]) before serde reads it.
 
 use canopi_types::design::{
     Annotation, Consortium, GeoPoint, Layer, MeasurementGuide, TimelineAction, Zone,
@@ -271,13 +272,115 @@ mod tests {
         assert_eq!(crate::schema::unsupported_keyword(schema), None);
     }
 
+    /// Each object schema of the frozen read schema, named `Def` or `Def[i]` for a `oneOf`
+    /// variant, with the root as `CanopiFile`.
+    fn objects(schema: &serde_json::Value) -> Vec<(String, &serde_json::Value)> {
+        let mut named = vec![("CanopiFile".to_owned(), schema)];
+        for (name, def) in schema["$defs"].as_object().into_iter().flatten() {
+            match def["oneOf"].as_array() {
+                Some(variants) => named.extend(
+                    variants
+                        .iter()
+                        .enumerate()
+                        .map(|(index, variant)| (format!("{name}[{index}]"), variant)),
+                ),
+                None => named.push((name.clone(), def)),
+            }
+        }
+        named.retain(|(_, object)| object.get("properties").is_some());
+        named
+    }
+
+    /// 2.1-M481 (A12): the v10 read schema requires only identity and geometry; every other
+    /// field is optional with the default the schema documents, so a later optional drop
+    /// needs no reader release. A variant's `kind` or `mode` names what it is.
+    #[test]
+    fn the_v10_read_schema_requires_only_identity_and_geometry() {
+        let schema = read_schema().expect("the frozen read schema parses");
+        let identity_and_geometry: &[(&str, &[&str])] = &[
+            ("CanopiFile", &["version"]),
+            ("Annotation", &["id", "position"]),
+            ("BudgetLine", &["target"]),
+            ("BudgetTarget", &["kind"]),
+            ("Consortium", &["target"]),
+            ("GeoPoint", &["lat", "lon"]),
+            ("Layer", &["name"]),
+            ("LidarColourRange[0]", &["mode"]),
+            ("LidarColourRange[1]", &["mode"]),
+            ("LidarColourRange[2]", &["max", "min", "mode"]),
+            ("MeasurementGuide", &["end", "id", "start"]),
+            ("ObjectGroup", &["id"]),
+            ("ObjectGroupMember[0]", &["id", "kind"]),
+            ("ObjectGroupMember[1]", &["id", "kind"]),
+            ("ObjectGroupMember[2]", &["id", "kind"]),
+            ("ObjectGroupMember[3]", &["id", "kind"]),
+            ("PanelTarget[0]", &["kind", "plant_id"]),
+            ("PanelTarget[1]", &["canonical_name", "kind"]),
+            ("PanelTarget[2]", &["kind", "zone_id"]),
+            ("PanelTarget[3]", &["kind"]),
+            ("PanelTarget[4]", &["kind"]),
+            ("PlacedPlant", &["canonical_name", "id", "position"]),
+            ("PlantDisplay", &[]),
+            ("RichTextBlock[0]", &["kind"]),
+            ("RichTextBlock[1]", &["kind"]),
+            ("RichTextListItem", &[]),
+            ("RichTextSpan", &[]),
+            ("SavedView", &["camera", "id"]),
+            ("SavedViewBackground[0]", &["kind", "style"]),
+            ("SavedViewBackground[1]", &["kind"]),
+            ("SavedViewBackground[2]", &["kind"]),
+            ("SavedViewCamera", &["ground_size_m", "lat", "lon", "zoom"]),
+            ("SavedViewGroundSize", &["height", "width"]),
+            ("SavedViewHighlight", &[]),
+            ("SavedViewLayers", &[]),
+            ("SavedViewObject[0]", &["id", "kind"]),
+            ("SavedViewObject[1]", &["id", "kind"]),
+            ("SavedViewObject[2]", &["id", "kind"]),
+            ("SavedViewObject[3]", &["id", "kind"]),
+            ("SavedViewObject[4]", &["id", "kind"]),
+            ("SavedViewTerrain", &[]),
+            ("SiteData", &[]),
+            ("SiteDataEntry", &["id", "name"]),
+            ("SpeciesPanelTarget", &["canonical_name", "kind"]),
+            ("Story", &["id"]),
+            ("StoryImage", &["src"]),
+            ("StoryStep", &["id", "view_id"]),
+            ("TimelineAction", &["id"]),
+            ("Zone", &["id", "points", "zone_type"]),
+        ];
+        let mut found = Vec::new();
+        for (name, object) in objects(schema) {
+            let mut required = object["required"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .filter_map(serde_json::Value::as_str)
+                .collect::<Vec<_>>();
+            required.sort_unstable();
+            for (key, property) in object["properties"].as_object().into_iter().flatten() {
+                let documented =
+                    required.contains(&key.as_str()) || property.get("default").is_some();
+                assert!(
+                    documented,
+                    "{name}.{key} is optional with no documented default"
+                );
+            }
+            found.push((name, required));
+        }
+        let expected = identity_and_geometry
+            .iter()
+            .map(|(name, required)| ((*name).to_owned(), required.to_vec()))
+            .collect::<Vec<_>>();
+        assert_eq!(found, expected);
+    }
+
     /// 2.1-M31: the reader release's v10 read schema is frozen; an edit here is a format
     /// change a released reader cannot follow.
     #[test]
     fn the_v10_read_schema_is_frozen() {
         assert_eq!(
             fingerprint(read_schema().expect("the frozen read schema parses")),
-            11_824_481_355_090_760_614,
+            1_526_076_181_921_967_706,
             "spec/v10/read-schema.json changed"
         );
     }

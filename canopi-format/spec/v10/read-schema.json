@@ -3,9 +3,11 @@
     "Annotation": {
       "properties": {
         "annotation_type": {
+          "default": "text",
           "type": "string"
         },
         "font_size": {
+          "default": 16.0,
           "format": "double",
           "type": "number"
         },
@@ -28,15 +30,13 @@
           ]
         },
         "text": {
+          "default": "",
           "type": "string"
         }
       },
       "required": [
         "id",
-        "annotation_type",
-        "position",
-        "text",
-        "font_size"
+        "position"
       ],
       "type": "object"
     },
@@ -77,16 +77,19 @@
     "Consortium": {
       "properties": {
         "end_phase": {
+          "default": 2,
           "format": "uint32",
           "minimum": 0,
           "type": "integer"
         },
         "start_phase": {
+          "default": 0,
           "format": "uint32",
           "minimum": 0,
           "type": "integer"
         },
         "stratum": {
+          "default": "unassigned",
           "type": "string"
         },
         "target": {
@@ -94,10 +97,7 @@
         }
       },
       "required": [
-        "target",
-        "stratum",
-        "start_phase",
-        "end_phase"
+        "target"
       ],
       "type": "object"
     },
@@ -125,24 +125,24 @@
     "Layer": {
       "properties": {
         "locked": {
+          "default": false,
           "type": "boolean"
         },
         "name": {
           "type": "string"
         },
         "opacity": {
+          "default": 1.0,
           "format": "float",
           "type": "number"
         },
         "visible": {
+          "default": true,
           "type": "boolean"
         }
       },
       "required": [
-        "name",
-        "visible",
-        "locked",
-        "opacity"
+        "name"
       ],
       "type": "object"
     },
@@ -482,24 +482,28 @@
     "PlantDisplay": {
       "properties": {
         "color_by": {
+          "default": "species",
           "type": [
             "string",
             "null"
           ]
         },
         "labels": {
+          "default": "names",
           "type": [
             "string",
             "null"
           ]
         },
         "one_color": {
+          "default": "#27231D",
           "type": [
             "string",
             "null"
           ]
         },
         "outline": {
+          "default": true,
           "type": [
             "boolean",
             "null"
@@ -509,12 +513,14 @@
           "additionalProperties": {
             "type": "string"
           },
+          "default": null,
           "type": [
             "object",
             "null"
           ]
         },
         "symbol_scale": {
+          "default": 1.0,
           "format": "double",
           "type": [
             "number",
@@ -541,6 +547,7 @@
               "type": "string"
             },
             "spans": {
+              "default": [],
               "items": {
                 "$ref": "#/$defs/RichTextSpan"
               },
@@ -548,14 +555,14 @@
             }
           },
           "required": [
-            "kind",
-            "spans"
+            "kind"
           ],
           "type": "object"
         },
         {
           "properties": {
             "items": {
+              "default": [],
               "items": {
                 "$ref": "#/$defs/RichTextListItem"
               },
@@ -567,8 +574,7 @@
             }
           },
           "required": [
-            "kind",
-            "items"
+            "kind"
           ],
           "type": "object"
         }
@@ -577,15 +583,13 @@
     "RichTextListItem": {
       "properties": {
         "spans": {
+          "default": [],
           "items": {
             "$ref": "#/$defs/RichTextSpan"
           },
           "type": "array"
         }
       },
-      "required": [
-        "spans"
-      ],
       "type": "object"
     },
     "RichTextSpan": {
@@ -606,12 +610,10 @@
           ]
         },
         "text": {
+          "default": "",
           "type": "string"
         }
       },
-      "required": [
-        "text"
-      ],
       "type": "object"
     },
     "SavedView": {
@@ -620,7 +622,11 @@
           "$ref": "#/$defs/SavedViewCamera"
         },
         "highlighted": {
-          "$ref": "#/$defs/SavedViewHighlight"
+          "$ref": "#/$defs/SavedViewHighlight",
+          "default": {
+            "objects": [],
+            "species": []
+          }
         },
         "id": {
           "type": "string"
@@ -637,6 +643,7 @@
           "default": null
         },
         "name": {
+          "default": "",
           "type": "string"
         },
         "text": {
@@ -654,15 +661,28 @@
           ]
         },
         "visible_layers": {
-          "$ref": "#/$defs/SavedViewLayers"
+          "$ref": "#/$defs/SavedViewLayers",
+          "default": {
+            "background": {
+              "kind": "none"
+            },
+            "scene_layers": [
+              "zones",
+              "plants",
+              "measurement-guides",
+              "annotations"
+            ],
+            "site_data": [],
+            "terrain": {
+              "contours": false,
+              "hillshade": false
+            }
+          }
         }
       },
       "required": [
         "id",
-        "name",
-        "camera",
-        "visible_layers",
-        "highlighted"
+        "camera"
       ],
       "type": "object"
     },
@@ -713,6 +733,7 @@
     "SavedViewCamera": {
       "properties": {
         "bearing": {
+          "default": 0.0,
           "format": "double",
           "maximum": 360.0,
           "minimum": 0.0,
@@ -744,7 +765,6 @@
         "lon",
         "lat",
         "zoom",
-        "bearing",
         "ground_size_m"
       ],
       "type": "object"
@@ -773,51 +793,57 @@
     "SavedViewHighlight": {
       "properties": {
         "objects": {
+          "default": [],
           "items": {
             "$ref": "#/$defs/SavedViewObject"
           },
           "type": "array"
         },
         "species": {
+          "default": [],
           "items": {
             "type": "string"
           },
           "type": "array"
         }
       },
-      "required": [
-        "species",
-        "objects"
-      ],
       "type": "object"
     },
     "SavedViewLayers": {
       "properties": {
         "background": {
-          "$ref": "#/$defs/SavedViewBackground"
+          "$ref": "#/$defs/SavedViewBackground",
+          "default": {
+            "kind": "none"
+          }
         },
         "scene_layers": {
+          "default": [
+            "zones",
+            "plants",
+            "measurement-guides",
+            "annotations"
+          ],
           "items": {
             "type": "string"
           },
           "type": "array"
         },
         "site_data": {
+          "default": [],
           "items": {
             "type": "string"
           },
           "type": "array"
         },
         "terrain": {
-          "$ref": "#/$defs/SavedViewTerrain"
+          "$ref": "#/$defs/SavedViewTerrain",
+          "default": {
+            "contours": false,
+            "hillshade": false
+          }
         }
       },
-      "required": [
-        "background",
-        "terrain",
-        "scene_layers",
-        "site_data"
-      ],
       "type": "object"
     },
     "SavedViewObject": {
@@ -907,16 +933,14 @@
     "SavedViewTerrain": {
       "properties": {
         "contours": {
+          "default": false,
           "type": "boolean"
         },
         "hillshade": {
+          "default": false,
           "type": "boolean"
         }
       },
-      "required": [
-        "contours",
-        "hillshade"
-      ],
       "type": "object"
     },
     "SiteData": {
@@ -1014,9 +1038,11 @@
           "type": "string"
         },
         "name": {
+          "default": "",
           "type": "string"
         },
         "steps": {
+          "default": [],
           "items": {
             "$ref": "#/$defs/StoryStep"
           },
@@ -1024,9 +1050,7 @@
         }
       },
       "required": [
-        "id",
-        "name",
-        "steps"
+        "id"
       ],
       "type": "object"
     },
@@ -1065,6 +1089,7 @@
           "type": "array"
         },
         "title": {
+          "default": "",
           "type": "string"
         },
         "view_id": {
@@ -1073,17 +1098,18 @@
       },
       "required": [
         "id",
-        "view_id",
-        "title"
+        "view_id"
       ],
       "type": "object"
     },
     "TimelineAction": {
       "properties": {
         "action_type": {
+          "default": "other",
           "type": "string"
         },
         "completed": {
+          "default": false,
           "type": "boolean"
         },
         "depends_on": {
@@ -1097,6 +1123,7 @@
           ]
         },
         "description": {
+          "default": "",
           "type": "string"
         },
         "end_date": {
@@ -1110,6 +1137,7 @@
           "type": "string"
         },
         "order": {
+          "default": 0,
           "format": "int32",
           "type": "integer"
         },
@@ -1140,11 +1168,7 @@
         }
       },
       "required": [
-        "id",
-        "action_type",
-        "description",
-        "completed",
-        "order"
+        "id"
       ],
       "type": "object"
     },

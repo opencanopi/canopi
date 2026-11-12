@@ -43,6 +43,8 @@ ignores:
   - "canopi-types/src/views/tests.rs"
   - "canopi-redact/src/tests.rs"
   - "canopi-redact/src/table_generated.rs"
+  - "canopi-format/src/read/tests.rs"
+  - "canopi-format/src/schema/tests.rs"
   - "canopi-format-wasm/src/tests.rs"
   - "bindings-gen/src/plan_support.rs"
   - "desktop/src/db/query_builder/**"
