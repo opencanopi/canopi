@@ -133,7 +133,7 @@ jobs:
           const launcher = { chromium, webkit }[ENGINE]
           if (!launcher) throw new Error(`ENGINE is ${JSON.stringify(ENGINE)}, not chromium or webkit`)
 
-          const canopi = (name, extra) => JSON.stringify({ version: 10, name, description: 'Ligne 1\nLigne 2\t"citée" \\ \u0001  ',
+          const canopi = (name, extra) => JSON.stringify({ version: 10, name, description: 'Ligne 1\nLigne 2\t"citée" \\ \u0001 \u2028',
             location: { lon: 2.3522219, lat: 48.856614, altitude_m: -0.125 }, north_bearing_deg: 359.99999999999994,
             plants: [{ id: '5f2c', canonical_name: 'Malus domestica', position: { x: 1e-7, y: 123456789.5 } }], ...extra }, null, 2)
           const SEED = {

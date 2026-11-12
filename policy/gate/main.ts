@@ -58,7 +58,7 @@ export async function main(ROOT: string, args: readonly string[]): Promise<numbe
   if (args[0] === 'agent-hook') return (await import('./agent-hooks.ts')).agentHook(ROOT, args.slice(1))
   let modules
   try {
-    modules = await Promise.all([import('./table.ts'), import('./plan.ts'), import('./run.ts'), import('./agents-rows.ts')])
+    modules = await Promise.all([import('./table-faults.ts'), import('./plan.ts'), import('./run.ts'), import('./agents-rows.ts')])
   } catch (error) {
     return refuse(`policy/gate/table.ts or a module beside it cannot be loaded: ${(error as Error).message}`)
   }

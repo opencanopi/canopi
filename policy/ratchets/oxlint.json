@@ -268,7 +268,6 @@
     "policy/gate/plan.ts: oxlint:complexity": { "count": 1 },
     "policy/gate/plan.ts: oxlint:typescript/no-unnecessary-type-assertion": { "count": 1 },
     "policy/gate/run.ts: oxlint:complexity": { "count": 1 },
-    "policy/gate/table.ts: oxlint:complexity": { "count": 1 },
     "policy/generate.mjs: oxlint:complexity": { "count": 2 },
     "policy/generate/depcruise.mjs: oxlint:complexity": { "count": 1 }
   }

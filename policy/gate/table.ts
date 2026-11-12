@@ -3,7 +3,7 @@
 // directory (leading NAME=value words are its environment) and what it needs; each area maps its anchored path regexes
 // (never globs: picomatch through policy/check.mjs is the one glob engine) to its checks per lane, and renders its
 // AGENTS.md Quality gates row from a template whose `{id}` placeholders name its checks (agents-rows.ts). An area's
-// scans are the files its source-text tests read: they select those tests, never a check or a CI job. validateTable
+// scans are the files its source-text tests read: they select those tests, never a check or a CI job. table-faults.ts
 // refuses a malformed table naming this file, before any plan is made.
 
 export const TABLE_FILE = 'policy/gate/table.ts'
@@ -71,7 +71,7 @@ export interface Table {
   readonly ci: Readonly<Record<string, Readonly<Record<string, string>>>>
 }
 
-export type PathRule = 'toolchain' | 'policy' | 'docsOnly' | 'notDocs' | 'docsValidator' | 'webModule' | 'spec'
+type PathRule = 'toolchain' | 'policy' | 'docsOnly' | 'notDocs' | 'docsValidator' | 'webModule' | 'spec'
   | 'e2eCanvas' | 'e2eGallery' | 'policyGate' | 'webVitestTest'
 
 const web = (command: string, extra: Omit<Check, 'command' | 'cwd'> = {}): Check => ({ command, cwd: WEB, ...extra })
@@ -196,6 +196,8 @@ export const TABLE: Table = {
       shown: 'pdf-production-probe.yml', ciOnly: true, on: ['pull_request', 'push', 'workflow_dispatch'] },
     'engine-floor-probe': { command: 'CI workflow engine-floor-probe.yml: both editions booted in old Playwright WebKit images and the listener page in three engines',
       shown: 'engine-floor-probe.yml', ciOnly: true, on: ['workflow_dispatch'] },
+    'rollback': { command: 'CI workflow rollback.yml: the rollback lane\'s reader and writer refs, the reader tag\'s tree built on today\'s runner and the Web seed round trip in Chromium and WebKit',
+      shown: 'rollback.yml', ciOnly: true, on: ['pull_request', 'workflow_dispatch'] },
     'macos-signing-probe': { command: 'CI workflow macos-signing-probe.yml: today\'s quarantined Mac bundle against an ad-hoc signed one, read by codesign, spctl, syspolicy_check and Gatekeeper',
       shown: 'macos-signing-probe.yml', ciOnly: true, on: ['workflow_dispatch'] },
     'phone-smoke': { command: 'CI workflow phone-smoke.yml: Safari in iOS simulators and Chrome on an Android emulator',
@@ -494,6 +496,9 @@ export const TABLE: Table = {
     'pdf-production-probe.yml verify': { '*': 'pdf-production-probe' },
     'engine-floor-probe.yml build': { '*': 'engine-floor-probe' },
     'engine-floor-probe.yml engines': { '*': 'engine-floor-probe' },
+    'rollback.yml resolve': { '*': 'rollback' },
+    'rollback.yml reader-build': { '*': 'rollback' },
+    'rollback.yml web-seed': { '*': 'rollback' },
     'macos-signing-probe.yml probe': { '*': 'macos-signing-probe' },
     'macos-signing-probe.yml verdict': { '*': 'macos-signing-probe' },
     'phone-smoke.yml ios': { '*': 'phone-smoke' },
@@ -506,89 +511,6 @@ export const TABLE: Table = {
     'seed-lane.yml proptest': { '*': 'seed' },
     'update-channel.yml publish': { '*': 'update-channel' },
   },
-}
-
-/** The table cannot be read as a gate: the CLI refuses naming TABLE_FILE and makes no plan. */
-export class TableError extends Error {}
-
-const PLACEHOLDER = /\{([a-z0-9-]+)\}/g
-const SHELL_SYNTAX = /[*?[\]'"$`\\|;&<>(){}~]/g
-const anchored = (pattern: string) => (pattern.startsWith('^') || pattern.startsWith('(^|/)') || pattern.endsWith('$'))
-  && !pattern.includes('**')
-
-/** Every fault of `table` as a gate table, each naming TABLE_FILE; none for a sound table. */
-export function tableFaults(table: Table): string[] {
-  const faults: string[] = []
-  const fault = (what: string) => faults.push(`${TABLE_FILE}: ${what}`)
-  const regex = (where: string, pattern: string) => {
-    try {
-      new RegExp(pattern)
-    } catch (error) {
-      fault(`${where} ${JSON.stringify(pattern)} is no regex (${(error as Error).message})`)
-    }
-  }
-  for (const [id, check] of Object.entries(table.checks)) {
-    if (!/^[a-z0-9-]+$/.test(id)) fault(`check id ${JSON.stringify(id)} is not lower-case words joined by '-'`)
-    if (typeof check?.command !== 'string' || check.command.trim() === '') fault(`check ${id} has no command`)
-    // The gate splits a command on whitespace (run.ts splitEnv) and an agent pastes its row into zsh: shell syntax
-    // would run differently in each (an unquoted glob fails in zsh), so a runnable command holds none.
-    const syntax = check?.ciOnly ? [] : [...new Set(check?.command?.match(SHELL_SYNTAX) ?? [])]
-    if (syntax.length) {
-      fault(`check ${id} command holds shell syntax the gate never reads (${syntax.map((c) => JSON.stringify(c)).join(', ')}); a pasted row would differ`)
-    }
-    for (const ran of check?.runs ?? []) if (!(ran in table.checks)) fault(`check ${id} runs ${ran}, which is no check`)
-    if (check?.on && !check.ciOnly) fault(`check ${id} names the triggers of a workflow of its own, but is no CI-only lane`)
-  }
-  const names = new Set<string>()
-  for (const area of table.areas) {
-    if (names.has(area.name)) fault(`area ${area.name} is listed twice`)
-    names.add(area.name)
-    if (!area.full?.length) fault(`area ${area.name} has no full checks`)
-    for (const lane of ['full', 'affected', 'commit', 'coveredBy'] as const) {
-      for (const id of area[lane] ?? []) if (!(id in table.checks)) fault(`area ${area.name} ${lane} names ${id}, which is no check`)
-    }
-    for (const [where, list] of [['pattern', area.patterns], ['scan', area.scans ?? []]] as const) {
-      if (where === 'pattern' && !list?.length) fault(`area ${area.name} has no patterns`)
-      for (const pattern of list ?? []) {
-        regex(`area ${area.name} ${where}`, pattern)
-        if (!anchored(pattern)) fault(`area ${area.name} ${where} ${JSON.stringify(pattern)} is not anchored`)
-      }
-    }
-    // affectedWhen adds a check of the area's row to its affected lane where an anchored pattern matches (C9a review).
-    for (const [id, inputs] of Object.entries(area.affectedWhen ?? {})) {
-      if (!area.full?.includes(id)) fault(`area ${area.name} affectedWhen names ${id}, which is not one of its full checks`)
-      for (const pattern of inputs) {
-        regex(`area ${area.name} affectedWhen ${id} pattern`, pattern)
-        if (!anchored(pattern)) fault(`area ${area.name} affectedWhen ${id} pattern ${JSON.stringify(pattern)} is not anchored`)
-      }
-    }
-    const named = [...(area.row ?? '').matchAll(PLACEHOLDER)].map((match) => match[1] ?? '')
-    for (const id of named) {
-      if (!area.full?.includes(id)) fault(`area ${area.name} row names {${id}}, which is not one of its full checks`)
-    }
-    for (const id of area.full ?? []) {
-      const times = named.filter((name) => name === id).length
-      const prose = table.checks[id]?.prose === true
-      if (!prose && times !== 1) fault(`area ${area.name} row names {${id}} ${times} times; a full check is named once`)
-      if (prose && times !== 0) fault(`area ${area.name} row names {${id}}, which its row holds as prose`)
-    }
-  }
-  for (const [rule, pattern] of Object.entries({ ...table.paths, ...table.families })) regex(`rule ${rule}`, pattern)
-  if (!/^\d+\.\d+\.\d+$/.test(table.actionlint?.version ?? '')) fault('actionlint version is not x.y.z')
-  if (!/^[0-9a-f]{64}$/.test(table.actionlint?.sha256 ?? '')) fault('actionlint sha256 is not 64 hex digits')
-  for (const [job, steps] of Object.entries(table.ci ?? {})) {
-    for (const [step, row] of Object.entries(steps)) {
-      if (row !== CI_SETUP && table.checks[row]?.ciOnly !== true) fault(`ci row ${job}/${step} is ${row}, neither ${CI_SETUP} nor a ci_only check`)
-    }
-  }
-  return faults
-}
-
-/** The table, or a TableError listing its faults. */
-export function validTable(table: Table = TABLE): Table {
-  const faults = tableFaults(table)
-  if (faults.length) throw new TableError(faults.join('\n'))
-  return table
 }
 
 /** The gate refuses `check` without desktop/web/node_modules, so a CI job installs them before its row. */
