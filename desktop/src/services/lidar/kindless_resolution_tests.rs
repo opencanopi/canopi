@@ -5,10 +5,17 @@
 //! against the library it finds: its own catalogue 25 (two tables: imported items in `lidar_source_layers`, minted
 //! `lyr-`, and analysis results in `lidar_derived_items`, minted `item-`) or 2.1's catalogue 26 read projection
 //! `library_items`. An id the library does not hold, or holds twice, lists unavailable by the entry's stored name and
-//! never draws another item. If these tests hold, R1-3 freezes `kind` in the v10 read schema optional and ignored.
+//! never draws another item. These tests show the library side holds: an id names at most one item in either
+//! catalogue, so `kind` is not needed to find it. R1-3 may freeze `kind` in the v10 read schema optional only together
+//! with the product change below.
 //!
-//! The resolvers here are the probe's, not the product's: R2-4 builds the reader's catalogue projection and R1 the
-//! read-only Session's Site data rows on the contract these tests fix.
+//! The resolvers here are the probe's, not the product's. The product resolves Site data rows in TypeScript, and today
+//! matches id and kind together (`readLidarPresentation` in `desktop/web/src/app/lidar/library-store.ts`, and
+//! `upsertLidarEntry` in `desktop/web/src/app/design-edit/lidar.ts` for edits): an entry with no kind, or the other
+//! kind, lists unavailable there although its id is in the library. The contract these tests fix is that the product
+//! matches by id alone and takes the kind from the matched library item (R2-4 owns `readLidarPresentation`, with a
+//! regression test through it for kind-less and wrong-kind entries); until it does, "optional and ignored" holds only
+//! for these resolvers.
 
 use super::*;
 use canopi_types::library::RasterQuantity;
