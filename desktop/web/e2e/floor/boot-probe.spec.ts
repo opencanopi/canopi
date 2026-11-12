@@ -7,6 +7,12 @@
 //   what the start-up guard (U-4) listens for;
 // - what Playwright WebKit on a Linux host reports as its user agent, which decides whether the macOS Trackpad default
 //   (2.1-Q309, U-1) flips an e2e run's scroll setting: it does, and the pin at the end says why e2e seeds it.
+// Since U-2 set the floor (Safari 16.4, desktop/web/engine-floor.ts; U-3) it also holds that floor in the engines on
+// both sides of it: a class static block, the floor's cause, parses in a WebKit at or above the floor and is refused
+// below it, and the Web Edition's format worker (design-core.worker, canopi-format-wasm) starts straight from
+// dist-web/assets on a blank page and answers its probe call at and above the floor, as e2e/canvas/format-core-probe.spec.ts
+// starts it, while a worker that answers 404 or does not compile turns that probe red (the R1-1 hand-off: the module
+// must instantiate on the floor engine).
 //
 // The same file runs under today's runner and under the old runners whose WebKit predates the floor: the repository's
 // Playwright config matches it for local runs, and .github/workflows/engine-floor-probe.yml copies it, with the one app
@@ -23,10 +29,11 @@
 // parsed; the Web Edition (dist-web) row tells whether the app rendered.
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
 import type { AddressInfo } from 'node:net'
-import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { dirname, extname, join, normalize, resolve, sep } from 'node:path'
 import { expect, test, type Browser, type Page } from '@playwright/test'
 import { detectPlatform } from '../../src/canvas/runtime/input/platform'
+import { compareVersions, ENGINE_FLOOR } from '../../engine-floor'
 
 type Handler = (request: IncomingMessage, response: ServerResponse) => void
 
@@ -196,6 +203,59 @@ const EDITIONS = [
   { edition: 'dist', page: '/index.html', root: process.env['CANOPI_FLOOR_DIST'] ?? 'dist', rendersInBrowser: false },
 ] as const
 
+/** Whether this run's engine is a WebKit below the floor's Safari, where Canopi supports nothing (2.1-Q306). */
+const belowFloor = (browser: Browser, browserName: string) => browserName === 'webkit' && compareVersions(browser.version(), ENGINE_FLOOR.safari) < 0
+
+const BLANK_PAGE = '<!doctype html><html><head><meta charset="utf-8"></head><body>engine floor probe</body></html>'
+/** A worker module no engine compiles, and the floor's cause (a class static block) as a module of its own. */
+const BROKEN_WORKER = 'export const = ;\n'
+const STATIC_BLOCK = 'export class Held { static { this.ready = true } }\n'
+
+/** A built edition (or none) behind a blank page, a broken worker and a static-block module, all on one origin. */
+function probeSite(root: string | undefined): Handler {
+  const built = root ? staticRoot(root) : undefined
+  const bodies: Readonly<Record<string, readonly [string, string]>> = {
+    '/__blank.html': [TYPES['.html']!, BLANK_PAGE],
+    '/__broken-worker.js': [TYPES['.js']!, BROKEN_WORKER],
+    '/__static-block.js': [TYPES['.js']!, STATIC_BLOCK],
+  }
+  return (request, response) => {
+    const body = bodies[(request.url ?? '/').split('?')[0] ?? '/']
+    if (body) {
+      response.writeHead(200, { 'content-type': body[0] })
+      response.end(body[1])
+      return
+    }
+    if (built) return built(request, response)
+    response.writeHead(404, { 'content-type': 'text/plain' })
+    response.end('Not Found')
+  }
+}
+
+/** The format worker's built file in dist-web/assets, or undefined when the Web Edition is not built. */
+function formatWorker(root: string): string | undefined {
+  const assets = join(root, 'assets')
+  if (!existsSync(assets)) return undefined
+  return readdirSync(assets).find((name) => /^design-core\.worker-[\w-]{16}\.js$/.test(name))
+}
+
+/** A path the shared corpus redacts to `<path>`, as format-core-probe.spec.ts sends it. */
+const PROBE_TEXT = '/home/ana/plan.canopi'
+
+interface WorkerRun { reply?: { ok?: boolean, value?: string, compiledBy?: string, error?: string, detail?: string }, error?: string, timedOut?: boolean }
+
+/** Starts the module worker at `url`, sends it one probe call and settles with its reply, its error or a timeout (ES5). */
+function runWorker(page: Page, url: string): Promise<WorkerRun> {
+  return page.evaluate(`new Promise(function (resolve) {
+    var worker;
+    try { worker = new Worker(${JSON.stringify(url)}, { type: 'module' }); } catch (error) { resolve({ error: 'not started: ' + error }); return; }
+    var timer = setTimeout(function () { worker.terminate(); resolve({ timedOut: true }); }, 30000);
+    worker.onmessage = function (event) { clearTimeout(timer); worker.terminate(); resolve({ reply: event.data }); };
+    worker.onerror = function (event) { clearTimeout(timer); worker.terminate(); resolve({ error: 'worker error: ' + (event.message || 'no message') }); };
+    worker.postMessage({ id: 1, call: 'probe', text: ${JSON.stringify(PROBE_TEXT)} });
+  })`) as Promise<WorkerRun>
+}
+
 test.describe('engine floor (canopi-4kfl)', () => {
   test('U canopi-4kfl: a module SyntaxError and a 404 module reach a classic capture listener before load', async ({ page }) => {
     const site = await serve(listenerSite())
@@ -251,6 +311,55 @@ test.describe('engine floor (canopi-4kfl)', () => {
       }
     })
   }
+
+  test('U canopi-4kfl: a class static block parses in a WebKit at or above the floor and is refused below it', async ({ page, browser, browserName }) => {
+    test.skip(browserName !== 'webkit', 'the floor is a Safari version: the WebKit rows hold it')
+    const site = await serve(probeSite(undefined))
+    try {
+      await page.goto(`${site.origin}/__blank.html`)
+      const outcome = await page.evaluate(`import('/__static-block.js').then(function () { return 'parsed' }, function (error) { return String(error && error.name) + ': ' + String(error && error.message) })`) as string
+      console.log(`FLOOR-STATIC-BLOCK ${JSON.stringify({ browserVersion: browser.version(), floor: ENGINE_FLOOR.safari, outcome })}`)
+      if (belowFloor(browser, browserName)) expect(outcome, `WebKit ${browser.version()} is below the floor and must refuse a static block`).toMatch(/SyntaxError/)
+      else expect(outcome, `WebKit ${browser.version()} is at or above the floor and must parse a static block`).toBe('parsed')
+    } finally {
+      await site.close()
+    }
+  })
+
+  test('U canopi-4kfl: the format worker starts from dist-web/assets on a blank page and answers its probe at and above the floor', async ({ page, browser, browserName }) => {
+    test.setTimeout(120_000)
+    const root = EDITIONS[0].root
+    const worker = formatWorker(root)
+    test.skip(!worker, `dist-web is not built at ${resolve(root)} with its format worker (npm run build:web)`)
+    test.skip(belowFloor(browser, browserName), `WebKit ${browser.version()} is below the floor (Safari ${ENGINE_FLOOR.safari}): nothing is supported there`)
+    const site = await serve(probeSite(root))
+    try {
+      await page.goto(`${site.origin}/__blank.html`)
+      const run = await runWorker(page, `${site.origin}/assets/${worker}`)
+      console.log(`FLOOR-FORMAT-WORKER ${JSON.stringify({ browserName, browserVersion: browser.version(), run })}`)
+      expect(run.reply, JSON.stringify(run)).toMatchObject({ ok: true })
+      expect((JSON.parse(run.reply?.value ?? 'null') as { redacted?: string } | null)?.redacted, JSON.stringify(run)).toBe('<path>')
+    } finally {
+      await site.close()
+    }
+  })
+
+  // The inverted step: the probe above must be able to go red, or its green proves nothing.
+  test('U canopi-4kfl: the format worker probe goes red for a worker that answers 404 and for one the engine cannot compile', async ({ page }) => {
+    const site = await serve(probeSite(undefined))
+    try {
+      await page.goto(`${site.origin}/__blank.html`)
+      const missing = await runWorker(page, `${site.origin}/assets/design-core.worker-missing.js`)
+      const broken = await runWorker(page, `${site.origin}/__broken-worker.js`)
+      console.log(`FLOOR-FORMAT-WORKER-RED ${JSON.stringify({ missing, broken })}`)
+      for (const run of [missing, broken]) {
+        expect(run.reply, JSON.stringify(run)).toBeUndefined()
+        expect(run.error, JSON.stringify(run)).toMatch(/^worker error/)
+      }
+    } finally {
+      await site.close()
+    }
+  })
 })
 
 async function userAgentOf(browser: Browser): Promise<string> {

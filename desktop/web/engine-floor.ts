@@ -22,3 +22,14 @@ export const ENGINE_FLOOR_BROWSERS: readonly string[] = Object.entries(ENGINE_FL
 
 /** The scripts' target: the language level the build is written for, held to the floor's browsers. */
 export const ENGINE_FLOOR_TARGET: readonly string[] = ['es2022', ...ENGINE_FLOOR_BROWSERS]
+
+/** Two engine versions compared as dotted numbers (`16.4` against `17.0`): negative, zero or positive. */
+export function compareVersions(a: string, b: string): number {
+  const left = a.split('.').map(Number)
+  const right = b.split('.').map(Number)
+  for (let index = 0; index < Math.max(left.length, right.length); index++) {
+    const difference = (left[index] ?? 0) - (right[index] ?? 0)
+    if (difference !== 0) return difference
+  }
+  return 0
+}

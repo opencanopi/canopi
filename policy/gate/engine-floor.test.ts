@@ -7,21 +7,10 @@ import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import { ENGINE_FLOOR, ENGINE_FLOOR_BROWSERS, ENGINE_FLOOR_TARGET } from '../../desktop/web/engine-floor.ts'
+import { compareVersions, ENGINE_FLOOR, ENGINE_FLOOR_BROWSERS, ENGINE_FLOOR_TARGET } from '../../desktop/web/engine-floor.ts'
 import { REPO_ROOT } from './planted-repo.ts'
 
 const read = (path: string) => readFileSync(join(REPO_ROOT, path), 'utf8')
-
-/** `a` against `b` as dotted numbers: negative, zero or positive. */
-function compareVersions(a: string, b: string): number {
-  const left = a.split('.').map(Number)
-  const right = b.split('.').map(Number)
-  for (let index = 0; index < Math.max(left.length, right.length); index++) {
-    const difference = (left[index] ?? 0) - (right[index] ?? 0)
-    if (difference !== 0) return difference
-  }
-  return 0
-}
 
 /**
  * The oldest macOS whose Software Update reaches a Safari at the floor: Monterey (12.0) takes Safari up to 17.6, Ventura
