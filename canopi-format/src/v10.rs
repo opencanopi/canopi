@@ -141,8 +141,10 @@ pub(crate) struct BudgetLineRead {
     // In the Design's `budget_currency` unless `ext.currency` names another. Default: 0.
     #[serde(default)]
     pub(crate) unit_cost: f64,
-    // The line's extension bag; its `currency`, which 2b's v9-to-v10 step keeps for a line in
-    // another currency (contracts §10), hides the line from the read.
+    // The line's extension bag. 2.1-M482 keeps the fields v9-to-v10 drops here under their v9
+    // names, so a v9 line's `currency` (an ISO code) sits at `ext.currency`; the read hides a
+    // line whose `ext.currency` differs from `budget_currency`. The read corpus case
+    // `read-foreign-currency-budget-line-not-shown` pins the key 2b's step must write.
     #[serde(default)]
     pub(crate) ext: Option<serde_json::Value>,
 }
