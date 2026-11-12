@@ -178,6 +178,9 @@ export const TABLE: Table = {
       shown: 'build.yml supply-chain', ciOnly: true },
     'web-release': { command: 'CI job frontend: the Web Edition packaged and verified as a release would', shown: 'build.yml frontend', ciOnly: true },
     'closed-beads': { command: 'node policy/check.mjs --closed-beads' },
+    // The expected-fail marker check (prepush-checks.ts) from origin/main, as the pre-push lane runs it from its base:
+    // the Commit gate runs it on every PR, so a branch a scratch-only stamp let through never merges a new marker (2.1-Q328).
+    'prepush-checks': { command: 'node policy/gate/cli.mjs prepush-checks --base origin/main' },
     // The plan names the families a change's paths reach (CHEAP_FAMILIES) after `--`.
     'cheap-families': web('npm run test:policies:family --'),
     'actionlint': { command: 'node policy/gate/cli.mjs actionlint' },
