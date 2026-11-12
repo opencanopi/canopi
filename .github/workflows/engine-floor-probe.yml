@@ -7,8 +7,8 @@ name: Engine floor probe
 # and its cause are read from the rows, and U-3 enforces the floor at build time.
 #
 # Each old image runs the runner it was built for (an image's browsers speak only their own Playwright's protocol), so
-# the spec runs outside the repository's Playwright config, from a scratch package that installs that runner. The old
-# images are pinned by digest and make no baselines; the control image is the locked one. WebKit versions per image:
+# here the spec runs without the repository's Playwright config, from a scratch package that installs that runner.
+# The old images are pinned by digest and make no baselines; the control image is the locked one. WebKit per image:
 # Playwright 1.20.0 ships WebKit 15.4, 1.24.0 WebKit 16.0, 1.28.0 WebKit 16.4 and 1.36.0 WebKit 17.0 (each row's
 # FLOOR-UA line confirms its own).
 #
@@ -91,7 +91,9 @@ jobs:
           path: desktop/web
       # The spec and the one app module it imports (detectPlatform) are copied into a scratch package inside the
       # image, which installs the image's own runner; the built editions are read from the mounted checkout.
+      # `shell: bash` runs with pipefail, so a failing spec or install turns the row red through the `tee`.
       - name: Boot both editions and the listener page (${{ matrix.label }})
+        shell: bash
         env:
           IMAGE: ${{ matrix.image }}
           PLAYWRIGHT: ${{ matrix.playwright }}
