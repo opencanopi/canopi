@@ -77,7 +77,7 @@ afterEach(() => {
   elsewhere.remove()
 })
 
-it.fails('R1 canopi-f47t.52.270: a drawing tool\'s key arms nothing over a read-only Design; Pan\'s still arms', () => {
+it('R1 canopi-f47t.52.270: a drawing tool\'s key arms nothing over a read-only Design; Pan\'s still arms', () => {
   elsewhere.focus()
   const keys = installDesktopKeys()
   try {
