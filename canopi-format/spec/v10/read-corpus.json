@@ -1,0 +1,155 @@
+{
+  "about": "The v10 read corpus (2.1-M481, 2.1-M482, 2.1-M491, 2.1-M493): each case is a .canopi value of version 10 or later and what the reader release's read gives for it, either `refused` (the load failure kind and the file's own path) or `read` (JSON pointers into the ReadOnlyDesign and the value each holds). Held by canopi-format's every_v10_read_corpus_case_reads_as_written.",
+  "cases": [
+    {
+      "id": "refuse-v10-schema-fault-as-invalid-document",
+      "input": {
+        "version": 10,
+        "plants": [{ "id": "p1", "canonical_name": "Malus domestica", "position": { "lon": 2.29, "lat": 86.0 } }]
+      },
+      "refused": { "kind": "invalid_document", "error_path": "$.plants[0].position.lat" }
+    },
+    {
+      "id": "refuse-v11-schema-fault-as-newer-version",
+      "input": {
+        "version": 11,
+        "plants": [{ "id": "p1", "canonical_name": "Malus domestica", "position": { "lon": 2.29, "lat": 86.0 } }]
+      },
+      "refused": { "kind": "newer_version", "error_path": "$.plants[0].position.lat" }
+    },
+    {
+      "id": "refuse-v10-zero-spread-as-invalid-document-at-its-path",
+      "input": {
+        "version": 10,
+        "plants": [{ "id": "p1", "canonical_name": "Malus domestica", "position": { "lon": 2.29, "lat": 48.85 }, "canopy_spread_m": 0, "scale": 2.0 }]
+      },
+      "refused": { "kind": "invalid_document", "error_path": "$.plants[0].canopy_spread_m" }
+    },
+    {
+      "id": "refuse-v12-negative-spread-as-newer-version-at-its-path",
+      "input": {
+        "version": 12,
+        "plants": [{ "id": "p1", "canonical_name": "Malus domestica", "position": { "lon": 2.29, "lat": 48.85 }, "canopy_spread_m": -1.5 }]
+      },
+      "refused": { "kind": "newer_version", "error_path": "$.plants[0].canopy_spread_m" }
+    },
+    {
+      "id": "refuse-v10-unknown-group-member-kind-as-invalid-document",
+      "input": {
+        "version": 10,
+        "groups": [{ "id": "g1", "members": [{ "kind": "pond", "id": "x" }] }]
+      },
+      "refused": { "kind": "invalid_document", "error_path": "$.groups[0].members[0].kind" }
+    },
+    {
+      "id": "refuse-v11-unknown-group-member-kind-as-newer-version",
+      "input": {
+        "version": 11,
+        "groups": [{ "id": "g1", "members": [{ "kind": "pond", "id": "x" }] }]
+      },
+      "refused": { "kind": "newer_version", "error_path": "$.groups[0].members[0].kind" }
+    },
+    {
+      "id": "refuse-v10-species-line-without-its-species",
+      "input": {
+        "version": 10,
+        "budget": [{ "target": { "kind": "species" }, "unit_cost": 3 }]
+      },
+      "refused": { "kind": "invalid_document", "error_path": "$.budget[0].target.canonical_name" }
+    },
+    {
+      "id": "refuse-version-below-10",
+      "input": { "version": 9 },
+      "refused": { "kind": "invalid_document", "error_path": "$.version" }
+    },
+    {
+      "id": "read-duplicate-site-data-ids-keeping-the-lowest-order",
+      "input": {
+        "version": 10,
+        "site_data": {
+          "entries": [
+            { "id": "item-2", "name": "Later", "order": 5 },
+            { "id": "lyr-1", "name": "Terrain", "order": 2 },
+            { "id": "item-2", "kind": "Source", "name": "Earlier", "order": 1, "reversed": true }
+          ]
+        }
+      },
+      "read": {
+        "/view/lidar/entries/0/id": "item-2",
+        "/view/lidar/entries/0/name": "Earlier",
+        "/view/lidar/entries/0/kind": "Derived",
+        "/view/lidar/entries/0/reversed": true,
+        "/view/lidar/entries/1/id": "lyr-1",
+        "/view/lidar/entries/1/kind": "Source",
+        "/view/lidar/entries/2": null
+      }
+    },
+    {
+      "id": "read-foreign-currency-budget-line-in-the-design-currency",
+      "input": {
+        "version": 10,
+        "budget_currency": "EUR",
+        "budget": [
+          {
+            "target": { "kind": "species", "canonical_name": "Malus domestica" },
+            "unit_cost": 10,
+            "ext": { "currency": "USD", "quantity": 4, "description": "Apples bought abroad" }
+          }
+        ]
+      },
+      "read": {
+        "/view/budget_currency": "EUR",
+        "/view/budget/0/currency": "EUR",
+        "/view/budget/0/unit_cost": 10.0,
+        "/view/budget/0/description": "Malus domestica",
+        "/view/budget/1": null
+      }
+    },
+    {
+      "id": "read-unknown-open-literals-at-their-defaults",
+      "input": {
+        "version": 10,
+        "site_data": { "entries": [{ "id": "lyr-1", "name": "Terrain", "ramp": "Aurora" }] },
+        "plant_display": { "color_by": "by_height", "labels": "initials", "ext": { "later": true } }
+      },
+      "read": {
+        "/view/lidar/entries/0/ramp": null,
+        "/view/plant_display/color_by": "species",
+        "/view/plant_display/labels": "names"
+      }
+    },
+    {
+      "id": "read-extension-bags-and-an-unknown-root-key",
+      "input": {
+        "version": 11,
+        "plants": [{ "id": "p1", "canonical_name": "Malus domestica", "position": { "lon": 2.29, "lat": 48.85, "ext": { "z": 1 } }, "ext": { "a": { "b": [1] } } }],
+        "timeline": [{ "id": "t1", "ext": { "reminder": "P1D" } }],
+        "budget": [{ "target": { "kind": "nursery_order", "order_id": "n1" }, "unit_cost": 40, "ext": { "supplier": "x" } }],
+        "a_later_root_key": [1, 2]
+      },
+      "read": {
+        "/saved_by_version": 11,
+        "/view/plants/0/id": "p1",
+        "/view/plants/0/ext": null,
+        "/view/timeline/0/targets": [{ "kind": "manual" }],
+        "/view/budget/0": null,
+        "/view/a_later_root_key": null
+      }
+    },
+    {
+      "id": "read-groups-as-filed-nothing-normalised",
+      "input": {
+        "version": 10,
+        "plants": [{ "id": "p1", "canonical_name": "Malus domestica", "position": { "lon": 2.29, "lat": 48.85 } }],
+        "groups": [
+          { "id": "g1", "members": [{ "kind": "plant", "id": "p1" }] },
+          { "id": "g2", "members": [{ "kind": "zone", "id": "missing-zone" }, { "kind": "plant", "id": "p1" }, { "kind": "plant", "id": "p1" }] }
+        ]
+      },
+      "read": {
+        "/view/groups/0/members": [{ "kind": "plant", "id": "p1" }],
+        "/view/groups/1/members": [{ "kind": "zone", "id": "missing-zone" }, { "kind": "plant", "id": "p1" }, { "kind": "plant", "id": "p1" }]
+      }
+    }
+  ]
+}

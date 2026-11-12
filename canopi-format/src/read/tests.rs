@@ -377,3 +377,51 @@ fn the_v10_read_fixture_reads_to_its_expected_read_output() {
         expected
     );
 }
+
+/// The v10 read corpus: each case reads or refuses as `spec/v10/read-corpus.json` writes it,
+/// a refusal by its load failure kind and the file's own path, a read by the values its
+/// pointers hold (`null` for an absent value).
+#[test]
+fn every_v10_read_corpus_case_reads_as_written() {
+    let corpus = serde_json::from_str::<Value>(include_str!("../../spec/v10/read-corpus.json"))
+        .expect("the corpus is JSON");
+    let cases = corpus["cases"].as_array().expect("cases");
+    assert!(!cases.is_empty());
+    for case in cases {
+        let id = case["id"].as_str().expect("a case id");
+        match (read_newer_design(&case["input"]), case.get("refused")) {
+            (Err(refused), Some(expected)) => {
+                let kind = serde_json::to_value(refused.kind).expect("the kind serializes");
+                assert_eq!(kind, expected["kind"], "{id}");
+                let path = refused.refusal.field_path.to_string();
+                assert_eq!(Some(path.as_str()), expected["error_path"].as_str(), "{id}");
+            }
+            (Ok(read), None) => {
+                let read = serde_json::to_value(read).expect("the read serializes");
+                let pointers = case["read"]
+                    .as_object()
+                    .expect("a read case lists pointers");
+                for (pointer, expected) in pointers {
+                    let found = read.pointer(pointer).unwrap_or(&Value::Null);
+                    assert_eq!(found, expected, "{id} {pointer}");
+                }
+            }
+            (outcome, _) => panic!("{id}: {outcome:?}"),
+        }
+    }
+}
+
+/// 2.1-M482: a non-finite spread never reaches the read: JSON holds none, a literal past
+/// `f64` fails the parse before the read, and a value serde_json cannot hold as a number is
+/// `null`, which reads as no spread (the species' own) with a `scale` beside it ignored.
+#[test]
+fn a_non_finite_canopy_spread_never_reaches_the_read() {
+    let text = r#"{"version": 10, "plants": [{"id": "p1", "canonical_name": "Malus domestica",
+        "position": {"lon": 2.29, "lat": 48.85}, "canopy_spread_m": 1e999}]}"#;
+    assert!(serde_json::from_str::<Value>(text).is_err());
+    let mut value = v10();
+    value["plants"][0]["canopy_spread_m"] = json!(f64::INFINITY);
+    assert_eq!(value["plants"][0]["canopy_spread_m"], Value::Null);
+    let view = read_newer_design(&value).expect("a null spread reads").view;
+    assert_eq!(view.plants[0].scale, None);
+}
