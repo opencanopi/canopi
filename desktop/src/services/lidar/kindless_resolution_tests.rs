@@ -9,13 +9,18 @@
 //! catalogue, so `kind` is not needed to find it. R1-3 may freeze `kind` in the v10 read schema optional only together
 //! with the product change below.
 //!
-//! The resolvers here are the probe's, not the product's. The product resolves Site data rows in TypeScript, and today
-//! matches id and kind together (`readLidarPresentation` in `desktop/web/src/app/lidar/library-store.ts`, and
-//! `upsertLidarEntry` in `desktop/web/src/app/design-edit/lidar.ts` for edits): an entry with no kind, or the other
-//! kind, lists unavailable there although its id is in the library. The contract these tests fix is that the product
-//! matches by id alone and takes the kind from the matched library item (R2-4 owns `readLidarPresentation`, with a
-//! regression test through it for kind-less and wrong-kind entries); until it does, "optional and ignored" holds only
-//! for these resolvers.
+//! The resolvers here are the probe's, not the product's. The product resolves Site data entries in TypeScript, and
+//! today two functions match id and kind together, each failing its own way on an entry with no kind or the other kind:
+//! - `readLidarPresentation` (`desktop/web/src/app/lidar/library-store.ts`) lists the entry unavailable although its id
+//!   is in the library;
+//! - `upsertLidarEntry` (`desktop/web/src/app/design-edit/lidar.ts`), called with a kind on each edit, misses the
+//!   stored entry and appends a second entry with the same id.
+//!
+//! The contract these tests fix is that both match by id alone: the reader takes the kind from the matched library
+//! item, and an edit updates the stored entry (writing the kind it was called with) instead of adding a duplicate.
+//! Each change ships with a regression test through the real function for kind-less and wrong-kind entries: R2-4 owns
+//! `readLidarPresentation`; `upsertLidarEntry` needs its own owner, named by the step plan. Until both land,
+//! "optional and ignored" holds only for these resolvers, and R1-3 must not freeze `kind` optional.
 
 use super::*;
 use canopi_types::library::RasterQuantity;
