@@ -268,8 +268,8 @@ fn species_lines_named(lines: &[BudgetLineRead]) -> Result<(), Refusal> {
 
 /// The species lines as this build's plant lines; a line whose target is not a species, or
 /// whose `ext.currency` (the v9 line's currency, kept by 2.1-M482) is not the Design's, is
-/// skipped, never relabelled (2.1-M491), and a
-/// species line names its species ([`species_lines_named`]).
+/// skipped, never relabelled (2.1-M491), and a species line names its species
+/// ([`species_lines_named`]).
 fn budget_of(lines: Vec<BudgetLineRead>, currency: &str) -> Vec<BudgetItem> {
     lines
         .into_iter()
