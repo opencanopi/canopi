@@ -12,9 +12,14 @@ name: Engine floor probe
 # Playwright 1.20.0 ships WebKit 15.4, 1.24.0 WebKit 16.0, 1.28.0 WebKit 16.4 and 1.36.0 WebKit 17.0 (each row's
 # FLOOR-UA line confirms its own).
 #
-# A dispatch only: a probe that informs a decision, never a merge's check (2.1-Q222).
+# A dispatch, or a pull request into main that changes this file (GitHub dispatches only a workflow already on main):
+# a probe that informs a decision, never a required check (2.1-Q222).
 on:
   workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - .github/workflows/engine-floor-probe.yml
 
 concurrency:
   group: engine-floor-probe-${{ github.run_id }}

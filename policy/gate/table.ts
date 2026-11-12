@@ -91,7 +91,7 @@ const ACTIONLINT_VERSION = '1.7.12'
  * desktop, of the format worker's module (canopi-format-wasm, cargo-about's second run) and of the workspace members they
  * depend on (the crates cargo-about lists), cargo-about's config and template,
  * the generator and its hand rows, and the file itself. */
-const NOTICES_INPUTS = [String.raw`^Cargo\.lock$`, String.raw`^(desktop|canopi-types|canopi-redact|canopi-format-wasm)/Cargo\.toml$`,
+const NOTICES_INPUTS = [String.raw`^Cargo\.lock$`, String.raw`^(desktop|canopi-types|canopi-redact|canopi-format|canopi-format-wasm)/Cargo\.toml$`,
   String.raw`^desktop/web/package-lock\.json$`, String.raw`(^|/)THIRD_PARTY_NOTICES\.md$`,
   String.raw`^about\.(toml|hbs)$`, String.raw`^scripts/(generate_notices\.mjs|notices-hand-rows\.json)$`]
 
@@ -198,11 +198,11 @@ export const TABLE: Table = {
     'pdf-production-probe': { command: 'CI workflow pdf-production-probe.yml: the production PDF worker in each platform\'s WebView',
       shown: 'pdf-production-probe.yml', ciOnly: true, on: ['pull_request', 'push', 'workflow_dispatch'] },
     'engine-floor-probe': { command: 'CI workflow engine-floor-probe.yml: both editions booted in old Playwright WebKit images and the listener page in three engines',
-      shown: 'engine-floor-probe.yml', ciOnly: true, on: ['workflow_dispatch'] },
+      shown: 'engine-floor-probe.yml', ciOnly: true, on: ['pull_request', 'workflow_dispatch'] },
     'rollback': { command: 'CI workflow rollback.yml: the rollback lane\'s reader and writer refs, the reader tag\'s tree built on today\'s runner and the Web seed round trip in Chromium and WebKit',
       shown: 'rollback.yml', ciOnly: true, on: ['pull_request', 'workflow_dispatch'] },
     'macos-signing-probe': { command: 'CI workflow macos-signing-probe.yml: today\'s quarantined Mac bundle against an ad-hoc signed one, read by codesign, spctl, syspolicy_check and Gatekeeper',
-      shown: 'macos-signing-probe.yml', ciOnly: true, on: ['workflow_dispatch'] },
+      shown: 'macos-signing-probe.yml', ciOnly: true, on: ['pull_request', 'workflow_dispatch'] },
     'phone-smoke': { command: 'CI workflow phone-smoke.yml: Safari in iOS simulators and Chrome on an Android emulator',
       shown: 'phone-smoke.yml', ciOnly: true, on: ['pull_request', 'push', 'schedule', 'workflow_dispatch'] },
     'seed': { command: 'CI workflow seed-lane.yml: the suites from random seeds, with their planted failures', shown: 'seed-lane.yml',
