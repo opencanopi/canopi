@@ -2467,15 +2467,12 @@
     {
       "id": "wasm-bindgen-only-in-wasm-crates",
       "tool": "cargo-deny",
-      "status": "planned",
       "ledger": "2.1-M189",
       "adr": "0023",
-      "owner_today": "none",
-      "owner_target": {
-        "path": "Cargo.toml",
-        "phase": "2.0.4"
-      },
-      "note": "§18 R20: wasm-bindgen only in the -wasm crates, each created in its phase (cargo-deny [bans] wrappers); 0 today"
+      "family": "cargo-deny",
+      "owner_today": "canopi-format-wasm/Cargo.toml",
+      "example": "canopi-format-wasm/src/lib.rs",
+      "note": "§18 R20: wasm-bindgen only in the -wasm crates, each created in its phase (deny.toml [bans] wrappers over the native graph, where the -wasm crate's plain dependency is the one edge); canopi-format-wasm from Step 2.0.4 (canopi-f47t.52.270)"
     },
     {
       "id": "no-path-string-command-arg",
