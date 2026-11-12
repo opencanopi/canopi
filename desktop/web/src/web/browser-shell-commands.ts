@@ -11,7 +11,7 @@ import {
 } from '../app/shell-commands'
 import { composeWorkspaceMenus, type MenuDefinition } from '../app/shell-commands/menus'
 import { setShortcutPlatform } from '../app/shell-commands/shortcut-text'
-import { createWorkspaceShellCapabilities } from '../app/workspace-commands/capabilities'
+import { createWorkspaceShellCapabilities, designChangeable } from '../app/workspace-commands/capabilities'
 import { savedViewMenuActions } from '../app/saved-views'
 import { plantLabelMenuActions } from '../app/plant-display/menu'
 import { exportCurrentBudgetCsv } from '../app/budget/export'
@@ -163,6 +163,8 @@ export function createBrowserShellCatalog(
   { templatesEnabled, canvasReady }: BrowserShellCatalogOptions,
 ): BrowserShellCatalog {
   const needsDesign = (state: ShellCommandState) => !state.hasDesign
+  // A read-only Design offers Close only (2.1-Q315): no copy, revert, import or export.
+  const needsChangeable = (state: ShellCommandState) => !designChangeable(state)
   const designPanel = (panel: SidePanel) => ({
     execute: () => capabilities.navigate(panel),
     isExecutionDisabled: needsDesign,
@@ -173,27 +175,27 @@ export function createBrowserShellCatalog(
     openCanopi: { execute: () => capabilities.openCanopi() },
     downloadCanopi: {
       execute: () => capabilities.downloadCanopi(),
-      isExecutionDisabled: needsDesign,
+      isExecutionDisabled: needsChangeable,
     },
     revertDesign: {
       execute: () => capabilities.revertDesign(),
-      isExecutionDisabled: (state) => !state.hasDesign || !state.revertAvailable,
+      isExecutionDisabled: (state) => needsChangeable(state) || !state.revertAvailable,
     },
     importGeoJson: {
       execute: () => capabilities.importGeoJson(),
-      isExecutionDisabled: (state) => !state.hasDesign || !canvasReady(),
+      isExecutionDisabled: (state) => needsChangeable(state) || !canvasReady(),
     },
     exportCanvasPdf: {
       execute: () => canvasPdf.show(),
-      isExecutionDisabled: () => !canExportCanvasPdf(),
+      isExecutionDisabled: (state) => needsChangeable(state) || !canExportCanvasPdf(),
     },
     exportGeoJson: {
       execute: () => capabilities.exportGeoJson(),
-      isExecutionDisabled: (state) => !state.hasDesign || !canvasReady(),
+      isExecutionDisabled: (state) => needsChangeable(state) || !canvasReady(),
     },
     exportBudgetCsv: {
       execute: () => capabilities.exportBudgetCsv(),
-      isExecutionDisabled: needsDesign,
+      isExecutionDisabled: needsChangeable,
     },
     closeDesign: {
       execute: () => capabilities.closeDesign(),
