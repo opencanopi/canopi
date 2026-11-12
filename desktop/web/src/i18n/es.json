@@ -1839,7 +1839,8 @@
     "cantReadOlderVersion": "Creado con una versión de Canopi anterior a la 2.0; Canopi 2.0 y posteriores no pueden abrirlo",
     "cantReadNewerVersion": "Creado con una versión más reciente de Canopi; actualiza Canopi para abrirlo",
     "cantReadDamaged": "No se puede leer el archivo: está dañado",
-    "rowReadOnly": "Solo lectura: guardado con una versión más reciente de Canopi"
+    "rowReadOnly": "Solo lectura: guardado con una versión más reciente de Canopi",
+    "unreadableDraft": "Guardado con una versión más reciente de Canopi; esta versión no puede leerlo"
   },
   "shortcutKeys": {
     "ctrl": "Ctrl",

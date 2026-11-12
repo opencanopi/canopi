@@ -1874,6 +1874,7 @@ export type LocaleKey =
   | "start.searchDesigns"
   | "start.showInFolder"
   | "start.showInFolderFailed"
+  | "start.unreadableDraft"
   | "start.zoneCount"
   | "start.zoneCount_few"
   | "start.zoneCount_many"

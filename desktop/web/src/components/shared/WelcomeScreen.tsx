@@ -11,7 +11,6 @@ import { createRecentFilesController } from '../../app/recent-files'
 import { openKeyboardShortcutsDialog, openSettingsDialog } from '../../app/shell/dialogs'
 import { openProblemReportDialog } from '../../app/problem-report/submission'
 import { formatShortcut } from '../../app/shell-commands/shortcut-text'
-import type { RecentDesignPreview } from '../../types/design'
 import { StartScreen } from './StartScreen'
 import { SlotToast } from './ToastSlot'
 
@@ -54,7 +53,8 @@ export function WelcomeScreen() {
         path: file.path,
         updatedAt: file.updated_at,
         preview: recentFilesController.previews.value.get(file.path),
-        readOnly: savedByNewerCanopi(recentFilesController.previews.value.get(file.path)),
+        // A Recent Design a newer Canopi saved opens read-only, and its row says so (2.1-Q316).
+        readOnly: recentFilesController.previews.value.get(file.path)?.kind === 'read_only',
         open: () => { void openDesignFromPath(file.path).catch(logWelcomeError) },
         showInFolder: () => { void recentFilesController.showInFolder(file.path) },
         remove: () => { void recentFilesController.remove(file.path).catch(logWelcomeError) },
@@ -63,8 +63,13 @@ export function WelcomeScreen() {
         id: draft.id,
         name: draft.name,
         updatedAt: draft.updated_at,
+        // A newer Draft opens read-only, one the read refuses is listed unreadable; the store deletes neither (2.1-Q316, F7).
+        readOnly: draft.access === 'read_only',
+        unreadable: draft.access === 'unreadable',
         open: () => { void openDesignDraft(draft.id).catch(logWelcomeError) },
-        delete: () => { void draftsController.remove(draft.id).catch(logWelcomeError) },
+        ...((draft.access ?? 'editable') === 'editable'
+          ? { delete: () => { void draftsController.remove(draft.id).catch(logWelcomeError) } }
+          : {}),
       }))}
     />
     {revealFailure && (
@@ -79,14 +84,6 @@ export function WelcomeScreen() {
     )}
     </>
   )
-}
-
-/**
- * A Recent Design a newer Canopi saved opens read-only (2.1-Q316): its row is labelled so. Its preview reads it as
- * newer until previews read the view itself (recent_design_previews.rs).
- */
-function savedByNewerCanopi(preview: RecentDesignPreview | undefined): boolean {
-  return preview?.kind === 'unreadable' && preview.reason === 'newer_version'
 }
 
 function logWelcomeError(error: unknown): void {

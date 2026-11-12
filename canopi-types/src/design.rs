@@ -869,6 +869,18 @@ pub enum RecentDesignPreview {
         bounds: Option<DesignGroundBounds>,
         sketch: Option<DesignSketch>,
     },
+    /// Saved by a newer Canopi and read for the read-only view (2.1-Q316): the row is labelled
+    /// "Read-only: saved by a newer Canopi", never "update Canopi to open it", with what the
+    /// read view shows of it.
+    ReadOnly {
+        /// The format version the file was saved at, above [`CURRENT_CANOPI_FILE_VERSION`].
+        saved_by_version: u32,
+        plant_count: u32,
+        zone_count: u32,
+        /// `None` when the Design has no plants or zones yet.
+        bounds: Option<DesignGroundBounds>,
+        sketch: Option<DesignSketch>,
+    },
     /// The file is larger than previews read; the row shows its name only.
     TooLarge,
     /// The file cannot be opened, and why when that is known.
@@ -1034,6 +1046,35 @@ pub struct DesignDraftSummary {
     pub id: String,
     pub name: String,
     pub updated_at: String,
+    /// Whether opening the Draft edits it, shows it read-only, or refuses it (2.1-Q316). Absent on
+    /// the wire for an editable Draft, the common case; a newer Draft always carries it.
+    #[serde(default, skip_serializing_if = "DesignDraftAccess::is_editable")]
+    #[specta(optional)]
+    pub access: DesignDraftAccess,
+}
+
+/// How a listed Draft opens (2.1-Q316). Only an `Editable` Draft is ever opened for editing or
+/// deleted; the store refuses writes to the others (design check F7).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[serde(rename_all = "snake_case")]
+pub enum DesignDraftAccess {
+    /// A current Draft: it opens for editing.
+    #[default]
+    Editable,
+    /// Saved by a newer Canopi and read for the read-only view: listed as
+    /// "Read-only: saved by a newer Canopi".
+    ReadOnly,
+    /// Saved by a newer Canopi whose read this build refuses: listed as unreadable, never
+    /// hidden, and opening it says why.
+    Unreadable,
+}
+
+impl DesignDraftAccess {
+    /// Whether the Draft opens for editing; the wire omits `access` then.
+    #[must_use]
+    pub fn is_editable(&self) -> bool {
+        *self == Self::Editable
+    }
 }
 
 #[cfg(test)]

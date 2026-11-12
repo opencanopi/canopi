@@ -3,7 +3,7 @@
 //! `.canopi` wire format, encoder, durable write and load admission as a Design file.
 
 use canopi_types::design::{
-    CanopiFile, DesignDraftSummary, DesignLoadFailure, DesignLoadFailureKind,
+    CanopiFile, DesignDraftAccess, DesignDraftSummary, DesignLoadFailure, DesignLoadFailureKind,
 };
 use std::path::{Path, PathBuf};
 
@@ -180,11 +180,14 @@ fn summarize_draft(
     let modified = std::fs::metadata(path)
         .and_then(|metadata| metadata.modified())
         .map_err(|_| DraftSkip::Unreadable)?;
-    let name = match format::open_within(path, format::MAX_CANOPI_FILE_BYTES) {
-        Ok(OpenedDesign::Editable(file)) => file.name,
-        Ok(OpenedDesign::ReadOnly(design)) => design.view.name,
-        // Opening it says why the read refused it.
-        Err(format::DesignLoadError::NewerRefused { .. }) => String::new(),
+    let (name, access) = match format::open_within(path, format::MAX_CANOPI_FILE_BYTES) {
+        Ok(OpenedDesign::Editable(file)) => (file.name, DesignDraftAccess::Editable),
+        Ok(OpenedDesign::ReadOnly(design)) => (design.view.name, DesignDraftAccess::ReadOnly),
+        // Listed unreadable, never as an editable Untitled row; opening it says why the read
+        // refused it.
+        Err(format::DesignLoadError::NewerRefused { .. }) => {
+            (String::new(), DesignDraftAccess::Unreadable)
+        }
         Err(error) if error.failure().kind == DesignLoadFailureKind::OlderVersion => {
             return Err(DraftSkip::BeforeCanopi2);
         }
@@ -205,6 +208,7 @@ fn summarize_draft(
             id: id.to_owned(),
             name,
             updated_at: super::unix_to_iso8601(seconds),
+            access,
         },
     ))
 }
@@ -333,6 +337,17 @@ mod tests {
                 ("unnamed", "Untitled", "2025-06-15T15:06:40Z"),
                 ("older", "Older", "2023-11-14T22:13:20Z"),
             ]
+        );
+        assert!(
+            drafts
+                .iter()
+                .all(|draft| draft.access == DesignDraftAccess::Editable),
+            "{drafts:?}"
+        );
+        let wire = serde_json::to_value(&drafts[0]).unwrap();
+        assert!(
+            wire.get("access").is_none(),
+            "an editable Draft omits it: {wire}"
         );
     }
 

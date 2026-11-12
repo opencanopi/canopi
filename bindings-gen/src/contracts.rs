@@ -14,6 +14,7 @@ pub(crate) fn contract_types() -> TypeCollection {
         .register::<canopi_types::design::DesignLoadFailure>()
         .register::<canopi_types::design::DesignSaveOutcome>()
         .register::<canopi_types::design::DesignDraftSummary>()
+        .register::<canopi_types::design::DesignDraftAccess>()
         .register::<canopi_types::design::BudgetItem>()
         .register::<canopi_types::design::CanopiFile>()
         .register::<canopi_types::design::Consortium>()

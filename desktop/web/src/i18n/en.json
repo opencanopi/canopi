@@ -1839,7 +1839,8 @@
     "cantReadOlderVersion": "Made with Canopi before 2.0; Canopi 2.0 and later can’t open it",
     "cantReadNewerVersion": "Made with a newer version of Canopi; update Canopi to open it",
     "cantReadDamaged": "Can’t read this file: it is damaged",
-    "rowReadOnly": "Read-only: saved by a newer Canopi"
+    "rowReadOnly": "Read-only: saved by a newer Canopi",
+    "unreadableDraft": "Saved by a newer Canopi; this version can’t read it"
   },
   "shortcutKeys": {
     "ctrl": "Ctrl",

@@ -13,7 +13,7 @@ use std::{
 };
 
 use canopi_types::design::{
-    RecentDesignPreview, RecentDesignSummary, RecentDesignUnreadableReason,
+    ReadOnlyDesign, RecentDesignPreview, RecentDesignSummary, RecentDesignUnreadableReason,
 };
 
 use crate::design::format::{self, DesignLoadError, OpenedDesign};
@@ -106,12 +106,10 @@ fn read_preview(path: &Path, len: u64) -> (RecentDesignPreview, bool) {
     }
     match format::open_within(path, RECENT_PREVIEW_MAX_BYTES) {
         Ok(OpenedDesign::Editable(file)) => (crate::design::preview::preview_of(&file), true),
-        // A newer Design opens read-only (2.1-Q316); its row says newer by its reason until a
-        // read-only preview has a wire state. A version-10 file the read refuses is damaged,
-        // as Open says.
-        Ok(OpenedDesign::ReadOnly(_)) => {
-            (unreadable(RecentDesignUnreadableReason::NewerVersion), true)
-        }
+        // A newer Design opens read-only (2.1-Q316): its row is read-only with what the read
+        // view shows. A newer file the read refuses says why as Open says (damaged at version
+        // 10, newer above it).
+        Ok(OpenedDesign::ReadOnly(design)) => (read_only_preview(&design), true),
         Err(DesignLoadError::NewerRefused { source }) => {
             let reason = match source.kind {
                 canopi_types::design::DesignLoadFailureKind::NewerVersion => {
@@ -148,6 +146,24 @@ fn read_preview(path: &Path, len: u64) -> (RecentDesignPreview, bool) {
             );
             (unreadable(reason), true)
         }
+    }
+}
+
+fn read_only_preview(design: &ReadOnlyDesign) -> RecentDesignPreview {
+    match crate::design::preview::preview_of(&design.view) {
+        RecentDesignPreview::Read {
+            plant_count,
+            zone_count,
+            bounds,
+            sketch,
+        } => RecentDesignPreview::ReadOnly {
+            saved_by_version: design.saved_by_version,
+            plant_count,
+            zone_count,
+            bounds,
+            sketch,
+        },
+        other => other,
     }
 }
 
@@ -233,15 +249,6 @@ mod tests {
         std::fs::write(&old, r#"{"version": 4, "name": "Canopi 1.1"}"#).unwrap();
         let unversioned = root.join("unversioned.canopi");
         std::fs::write(&unversioned, r#"{"name": "Canopi 1"}"#).unwrap();
-        let newer = root.join("newer.canopi");
-        std::fs::write(
-            &newer,
-            format!(
-                r#"{{"version": {}, "name": "Next"}}"#,
-                CURRENT_CANOPI_FILE_VERSION + 1
-            ),
-        )
-        .unwrap();
         // canopi-f47t.52.270: a newer Design the read refuses says why as Open would.
         let newer_refused = root.join("newer-refused.canopi");
         let refused = |version: u32| format!(r#"{{"version": {version}, "plants": 3}}"#);
@@ -255,7 +262,6 @@ mod tests {
             &invalid,
             &old,
             &unversioned,
-            &newer,
             &newer_refused,
             &later_refused,
             &moved,
@@ -277,7 +283,6 @@ mod tests {
                 Damaged,
                 OlderVersion,
                 OlderVersion,
-                NewerVersion,
                 Damaged,
                 NewerVersion,
                 Missing,
@@ -286,6 +291,36 @@ mod tests {
             .map(unreadable)
         );
         assert!(!logs.contains(&*root.to_string_lossy()), "{logs}");
+    }
+
+    /// canopi-f47t.52.270 (2.1-Q316): a Design a newer Canopi saved previews read-only with
+    /// what its read view shows, never as the 2.0.3 "update Canopi to open it" state.
+    #[test]
+    fn canopi_f47t_52_270_a_newer_recent_design_previews_read_only_never_the_update_state() {
+        let root = scratch("newer");
+        let newer = root.join("newer.canopi");
+        std::fs::write(
+            &newer,
+            format!(
+                r#"{{"version": {}, "name": "Next"}}"#,
+                CURRENT_CANOPI_FILE_VERSION + 1
+            ),
+        )
+        .unwrap();
+        let previews = RecentDesignPreviews::default();
+
+        let result = previews.previews(&[newer.to_string_lossy().into_owned()]);
+
+        assert_eq!(
+            result[0].preview,
+            RecentDesignPreview::ReadOnly {
+                saved_by_version: CURRENT_CANOPI_FILE_VERSION + 1,
+                plant_count: 0,
+                zone_count: 0,
+                bounds: None,
+                sketch: None,
+            }
+        );
     }
 
     /// The 2.0 previews' formats (v7, v8) are not read through any ladder:

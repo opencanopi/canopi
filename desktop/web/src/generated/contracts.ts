@@ -143,6 +143,24 @@ export type Consortium = {
 };
 
 /**
+ *  How a listed Draft opens (2.1-Q316). Only an `Editable` Draft is ever opened for editing or
+ *  deleted; the store refuses writes to the others (design check F7).
+ */
+export type DesignDraftAccess =
+// A current Draft: it opens for editing.
+"editable" |
+/**
+ *  Saved by a newer Canopi and read for the read-only view: listed as
+ *  "Read-only: saved by a newer Canopi".
+ */
+"read_only" |
+/**
+ *  Saved by a newer Canopi whose read this build refuses: listed as unreadable, never
+ *  hidden, and opening it says why.
+ */
+"unreadable";
+
+/**
  *  A Design draft: an unsaved (Untitled) Design kept in app data until the
  *  user saves it as a file or deletes it.
  */
@@ -150,6 +168,11 @@ export type DesignDraftSummary = {
 	id: string,
 	name: string,
 	updated_at: string,
+	/**
+	 *  Whether opening the Draft edits it, shows it read-only, or refuses it (2.1-Q316). Absent on
+	 *  the wire for an editable Draft, the common case; a newer Draft always carries it.
+	 */
+	access?: DesignDraftAccess,
 };
 
 /**
@@ -1135,6 +1158,16 @@ export type ReadOnlyDesign = {
 
 // What a Recent Design's file says about it, read when the list is shown.
 export type RecentDesignPreview = { kind: "read"; plant_count: number; zone_count: number;
+// `None` when the Design has no plants or zones yet.
+bounds: DesignGroundBounds | null; sketch: DesignSketch | null } |
+/**
+ *  Saved by a newer Canopi and read for the read-only view (2.1-Q316): the row is labelled
+ *  "Read-only: saved by a newer Canopi", never "update Canopi to open it", with what the
+ *  read view shows of it.
+ */
+{ kind: "read_only";
+// The format version the file was saved at, above [`CURRENT_CANOPI_FILE_VERSION`].
+saved_by_version: number; plant_count: number; zone_count: number;
 // `None` when the Design has no plants or zones yet.
 bounds: DesignGroundBounds | null; sketch: DesignSketch | null } |
 // The file is larger than previews read; the row shows its name only.

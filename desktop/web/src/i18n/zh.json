@@ -1839,7 +1839,8 @@
     "cantReadOlderVersion": "由 Canopi 2.0 之前的版本创建，Canopi 2.0 及更高版本无法打开",
     "cantReadNewerVersion": "由新版 Canopi 创建，请更新 Canopi 后打开",
     "cantReadDamaged": "无法读取此文件：文件已损坏",
-    "rowReadOnly": "只读：由更新版本的 Canopi 保存"
+    "rowReadOnly": "只读：由更新版本的 Canopi 保存",
+    "unreadableDraft": "由更新版本的 Canopi 保存，此版本无法读取"
   },
   "shortcutKeys": {
     "ctrl": "Ctrl",

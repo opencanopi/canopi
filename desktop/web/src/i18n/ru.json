@@ -1839,7 +1839,8 @@
     "cantReadOlderVersion": "Создан в Canopi до версии 2.0; Canopi 2.0 и новее не может его открыть",
     "cantReadNewerVersion": "Создан в более новой версии Canopi; обновите Canopi, чтобы открыть",
     "cantReadDamaged": "Не удаётся прочитать файл: он повреждён",
-    "rowReadOnly": "Только чтение: сохранено более новой версией Canopi"
+    "rowReadOnly": "Только чтение: сохранено более новой версией Canopi",
+    "unreadableDraft": "Сохранено более новой версией Canopi; эта версия не может его прочитать"
   },
   "shortcutKeys": {
     "ctrl": "Ctrl",

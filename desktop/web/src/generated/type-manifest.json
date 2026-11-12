@@ -381,6 +381,11 @@
         "name": "updated_at",
         "flatten": false,
         "skip": false
+      },
+      {
+        "name": "access",
+        "flatten": false,
+        "skip": false
       }
     ]
   },

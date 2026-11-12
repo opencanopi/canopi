@@ -316,7 +316,8 @@ const V10_DESIGN: &str = include_str!("../../../../canopi-format/spec/v10/read-f
 
 /// canopi-f47t.52.270: after a rollback, a Design 2.1 saved opens read-only from Open, Recent
 /// and the Draft list (2.1-M478, 2.1-Q316), its wire shape `ReadOnlyDesign` told apart by
-/// `saved_by_version`; it is listed in Recent Designs and its Draft is listed, never hidden.
+/// `saved_by_version`; its Recent row is read-only, never the 2.0.3 update state, and its Draft
+/// is listed read-only, one the read refuses unreadable, never hidden or editable.
 #[test]
 fn canopi_f47t_52_270_a_newer_design_opens_read_only_from_open_recent_and_the_draft_list() {
     use crate::design::format::OpenedDesign;
@@ -341,7 +342,10 @@ fn canopi_f47t_52_270_a_newer_design_opens_read_only_from_open_recent_and_the_dr
         serde_json::json!("Orchard by the pond")
     );
     assert!(wire.get("fingerprint").is_none(), "{wire}");
-    assert!(matches!(opened, OpenedDesign::ReadOnly(_)));
+    let OpenedDesign::ReadOnly(view) = &opened else {
+        panic!("a v10 Design opens read-only");
+    };
+    assert_eq!(view.saved_by_version, 10);
     let recent =
         tauri::async_runtime::block_on(super::get_recent_files(app.state(), app.state())).unwrap();
     assert_eq!(recent.len(), 1);
@@ -353,12 +357,13 @@ fn canopi_f47t_52_270_a_newer_design_opens_read_only_from_open_recent_and_the_dr
         vec![path.clone()],
     ))
     .unwrap();
-    assert_eq!(
-        previews[0].preview,
-        canopi_types::design::RecentDesignPreview::Unreadable {
-            reason: canopi_types::design::RecentDesignUnreadableReason::NewerVersion,
-        },
-        "the row says a newer Canopi saved it until its read-only preview has a wire state"
+    let plants = Some(view.view.plants.len());
+    assert!(
+        matches!(previews[0].preview, canopi_types::design::RecentDesignPreview::ReadOnly {
+            saved_by_version: 10, plant_count, ..
+        } if usize::try_from(plant_count).ok() == plants),
+        "a newer Recent Design is read-only, never the update state: {:?}",
+        previews[0].preview
     );
 
     std::fs::create_dir_all(root.join("drafts")).unwrap();
@@ -370,18 +375,25 @@ fn canopi_f47t_52_270_a_newer_design_opens_read_only_from_open_recent_and_the_dr
     let listed =
         tauri::async_runtime::block_on(super::list_design_drafts(app.state(), app.state()))
             .unwrap();
+    // The wire's access state; an editable Draft omits it.
     let mut listed: Vec<_> = listed
         .iter()
-        .map(|draft| (draft.id.as_str(), draft.name.as_str()))
+        .map(|draft| {
+            let wire = serde_json::to_value(draft).unwrap();
+            let access = wire["access"].as_str().unwrap_or("editable").to_owned();
+            (draft.id.clone(), draft.name.clone(), access)
+        })
         .collect();
     listed.sort_unstable();
+    let expected = [
+        ("pond-2-1", "Orchard by the pond", "read_only"),
+        ("pond-2-2", "Untitled", "unreadable"),
+    ]
+    .map(|(id, name, access)| (id.to_owned(), name.to_owned(), access.to_owned()));
     assert_eq!(
-        listed,
-        [
-            ("pond-2-1", "Orchard by the pond"),
-            ("pond-2-2", "Untitled")
-        ],
-        "a newer Draft the read refuses is listed too, and says why when opened"
+        listed, expected,
+        "a newer Draft is listed read-only, and one the read refuses unreadable, never as an \
+         editable row; opening it says why"
     );
     let unread = tauri::async_runtime::block_on(super::load_design_draft(
         app.state(),

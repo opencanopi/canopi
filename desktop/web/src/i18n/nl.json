@@ -1839,7 +1839,8 @@
     "cantReadOlderVersion": "Gemaakt met Canopi vóór 2.0; Canopi 2.0 en later kan het niet openen",
     "cantReadNewerVersion": "Gemaakt met een nieuwere versie van Canopi; werk Canopi bij om het te openen",
     "cantReadDamaged": "Bestand kan niet worden gelezen: het is beschadigd",
-    "rowReadOnly": "Alleen-lezen: opgeslagen door een nieuwere Canopi"
+    "rowReadOnly": "Alleen-lezen: opgeslagen door een nieuwere Canopi",
+    "unreadableDraft": "Opgeslagen door een nieuwere Canopi; deze versie kan het niet lezen"
   },
   "shortcutKeys": {
     "ctrl": "Ctrl",

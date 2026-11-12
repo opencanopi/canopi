@@ -1839,7 +1839,8 @@
     "cantReadOlderVersion": "Canopi 2.0 이전 버전으로 만든 파일이라 Canopi 2.0 이상에서는 열 수 없습니다",
     "cantReadNewerVersion": "최신 버전의 Canopi로 만든 파일입니다. 열려면 Canopi를 업데이트하세요",
     "cantReadDamaged": "파일을 읽을 수 없습니다: 손상되었습니다",
-    "rowReadOnly": "읽기 전용: 더 새로운 Canopi에서 저장됨"
+    "rowReadOnly": "읽기 전용: 더 새로운 Canopi에서 저장됨",
+    "unreadableDraft": "더 새로운 Canopi에서 저장되었습니다. 이 버전에서는 읽을 수 없습니다"
   },
   "shortcutKeys": {
     "ctrl": "Ctrl",
