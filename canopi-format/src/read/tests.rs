@@ -361,3 +361,19 @@ fn canopi_f47t_52_270_a_species_budget_line_without_its_species_is_refused_at_it
         "a line that prices no species is skipped"
     );
 }
+
+/// 2.1-M31: the hand-made v10 read fixture reads to its expected read output, the view this
+/// build shows: v10 names mapped back, every extension bag, unknown open literal and unknown
+/// root key read without a refusal.
+#[test]
+fn the_v10_read_fixture_reads_to_its_expected_read_output() {
+    let fixture = serde_json::from_str::<Value>(include_str!("../../spec/v10/read-fixture.canopi"))
+        .expect("the fixture is JSON");
+    let expected = serde_json::from_str::<Value>(include_str!("../../spec/v10/read-expected.json"))
+        .expect("the expected output is JSON");
+    let read = read_newer_design(&fixture).expect("the v10 read fixture reads");
+    assert_eq!(
+        serde_json::to_value(read).expect("the read serializes"),
+        expected
+    );
+}

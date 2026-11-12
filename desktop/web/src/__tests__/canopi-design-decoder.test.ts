@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { pickCancelled } from '../ipc/dialogs'
 import {
@@ -8,6 +9,9 @@ import {
   designLoadFailureMessageKey,
   designLoadFailureOf,
 } from '../app/contracts/canopi-design-errors'
+import { readPlantDisplayOptions } from '../app/design-edit/plant-display'
+import { recentFrontendDiagnostics } from '../app/problem-report/diagnostics'
+import { resetFrontendDiagnosticsForTests } from '../failures/ring'
 import {
   STORY_IMAGE_MAX_BYTES,
   STORY_IMAGES_MAX_TOTAL_BYTES,
@@ -322,6 +326,26 @@ describe('Design ingestion outcomes and typed load failures', () => {
     expect(designLoadFailureMessageKey('invalid_document')).toBe('start.cantReadDamaged')
     expect(designLoadFailureMessageKey('too_large')).toBe('start.cantRead')
     expect(designLoadFailureMessageKey('internal')).toBe('start.cantRead')
+  })
+})
+
+describe('the v10 read view handed to the 2.0 reader', () => {
+  it('canopi-f47t.52.270: the v10 read fixture\'s view decodes as a 2.0 Design and shows its display options with no repair', () => {
+    // The output canopi-format's read gives for spec/v10/read-fixture.canopi, held equal by
+    // the Rust test the_v10_read_fixture_reads_to_its_expected_read_output.
+    const expected = JSON.parse(readFileSync('../../canopi-format/spec/v10/read-expected.json', 'utf8')) as {
+      readonly saved_by_version: number
+      readonly view: unknown
+    }
+    resetFrontendDiagnosticsForTests()
+    const design = decodeCanopiDesign(expected.view)
+    expect(readPlantDisplayOptions(design)).toMatchObject({
+      colorBy: 'species',
+      labels: 'codes',
+      symbolScale: 1.25,
+      outline: false,
+    })
+    expect(recentFrontendDiagnostics()).toEqual([])
   })
 })
 

@@ -1,0 +1,290 @@
+{
+  "saved_by_version": 10,
+  "view": {
+    "annotations": [
+      {
+        "annotation_type": "text",
+        "font_size": 14.0,
+        "id": "note-1",
+        "locked": false,
+        "position": {
+          "lat": 48.8583,
+          "lon": 2.2946
+        },
+        "rotation": null,
+        "text": "Well"
+      }
+    ],
+    "budget": [
+      {
+        "category": "plants",
+        "currency": "USD",
+        "description": "Malus domestica",
+        "quantity": 0.0,
+        "target": {
+          "canonical_name": "Malus domestica",
+          "kind": "species"
+        },
+        "unit_cost": 24.5
+      }
+    ],
+    "budget_currency": "USD",
+    "consortiums": [
+      {
+        "end_phase": 3,
+        "start_phase": 1,
+        "stratum": "high",
+        "target": {
+          "canonical_name": "Malus domestica",
+          "kind": "species"
+        }
+      }
+    ],
+    "created_at": "2027-01-10T09:00:00.000Z",
+    "description": "A hand-made v10 Design: every name and shape v10 changes, extension bags and keys this build does not know.",
+    "groups": [
+      {
+        "id": "group-1",
+        "locked": false,
+        "members": [
+          {
+            "id": "plant-1",
+            "kind": "plant"
+          },
+          {
+            "id": "plant-2",
+            "kind": "plant"
+          }
+        ],
+        "name": "Row"
+      }
+    ],
+    "layers": [
+      {
+        "locked": false,
+        "name": "zones",
+        "opacity": 0.5,
+        "visible": true
+      },
+      {
+        "locked": false,
+        "name": "plants",
+        "opacity": 1.0,
+        "visible": true
+      }
+    ],
+    "lidar": {
+      "entries": [
+        {
+          "id": "lyr-terrain",
+          "kind": "Source",
+          "name": "Terrain",
+          "opacity": 0.75,
+          "order": 0,
+          "ramp": null,
+          "range": null,
+          "reversed": false,
+          "visible": true
+        },
+        {
+          "id": "item-slope",
+          "kind": "Derived",
+          "name": "Slope",
+          "opacity": 1.0,
+          "order": 1,
+          "ramp": "Magma",
+          "range": {
+            "max": 45.0,
+            "min": 0.0,
+            "mode": "Custom"
+          },
+          "reversed": true,
+          "visible": true
+        }
+      ],
+      "visible": true
+    },
+    "map_view": {
+      "bearing": 0.0,
+      "ground_size_m": {
+        "height": 160.0,
+        "width": 240.0
+      },
+      "lat": 48.8584,
+      "lon": 2.2945,
+      "zoom": 18.0
+    },
+    "measurement_guides": [
+      {
+        "end": {
+          "lat": 48.8585,
+          "lon": 2.2947
+        },
+        "id": "guide-1",
+        "locked": false,
+        "start": {
+          "lat": 48.8584,
+          "lon": 2.2945
+        }
+      }
+    ],
+    "name": "Orchard by the pond",
+    "plant_display": {
+      "color_by": "species",
+      "labels": "codes",
+      "one_color": "#27231D",
+      "outline": false,
+      "symbol_scale": 1.25
+    },
+    "plant_species_codes": {
+      "Malus domestica": "MD"
+    },
+    "plant_species_colors": {
+      "Malus domestica": "#A1B2C3"
+    },
+    "plant_species_symbols": {
+      "Malus domestica": "apple"
+    },
+    "plants": [
+      {
+        "canonical_name": "Malus domestica",
+        "color": null,
+        "common_name": "Apple",
+        "id": "plant-1",
+        "locked": false,
+        "notes": null,
+        "pinned_name": false,
+        "planted_date": null,
+        "position": {
+          "lat": 48.8584,
+          "lon": 2.2945
+        },
+        "quantity": 3,
+        "rotation": 15.0,
+        "scale": 4.5,
+        "symbol": null
+      },
+      {
+        "canonical_name": "Corylus avellana",
+        "color": null,
+        "common_name": null,
+        "id": "plant-2",
+        "locked": true,
+        "notes": null,
+        "pinned_name": false,
+        "planted_date": null,
+        "position": {
+          "lat": 48.8585,
+          "lon": 2.2947
+        },
+        "quantity": null,
+        "rotation": null,
+        "scale": null,
+        "symbol": null
+      }
+    ],
+    "stories": [
+      {
+        "id": "story-1",
+        "name": "Walk",
+        "steps": [
+          {
+            "id": "step-1",
+            "images": [],
+            "text": [],
+            "title": "The pond",
+            "view_id": "view-1"
+          }
+        ]
+      }
+    ],
+    "timeline": [
+      {
+        "action_type": "planting",
+        "completed": false,
+        "depends_on": null,
+        "description": "Plant the apple",
+        "end_date": null,
+        "id": "task-1",
+        "order": 0,
+        "recurrence": null,
+        "start_date": "2027-03-01",
+        "targets": [
+          {
+            "kind": "placed_plant",
+            "plant_id": "plant-1"
+          }
+        ]
+      }
+    ],
+    "updated_at": "2027-02-01T17:30:00.000Z",
+    "version": 9,
+    "views": [
+      {
+        "camera": {
+          "bearing": 30.0,
+          "ground_size_m": {
+            "height": 80.0,
+            "width": 120.0
+          },
+          "lat": 48.8584,
+          "lon": 2.2945,
+          "zoom": 19.0
+        },
+        "highlighted": {
+          "objects": [
+            {
+              "id": "zone-1",
+              "kind": "zone"
+            }
+          ],
+          "species": [
+            "Malus domestica"
+          ]
+        },
+        "id": "view-1",
+        "labels": null,
+        "name": "Pond edge",
+        "text": [],
+        "title": null,
+        "visible_layers": {
+          "background": {
+            "kind": "satellite"
+          },
+          "scene_layers": [
+            "zones",
+            "plants"
+          ],
+          "site_data": [
+            "lyr-terrain"
+          ],
+          "terrain": {
+            "contours": true,
+            "hillshade": false
+          }
+        }
+      }
+    ],
+    "zones": [
+      {
+        "fill_color": "#3A6EA5",
+        "id": "zone-1",
+        "locked": false,
+        "name": "Pond",
+        "notes": null,
+        "points": [
+          {
+            "lat": 48.8581,
+            "lon": 2.2941
+          },
+          {
+            "lat": 48.8579,
+            "lon": 2.2943
+          }
+        ],
+        "rotation": 0.0,
+        "zone_type": "ellipse"
+      }
+    ]
+  }
+}

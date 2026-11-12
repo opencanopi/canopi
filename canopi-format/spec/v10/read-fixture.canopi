@@ -1,0 +1,158 @@
+{
+  "version": 10,
+  "name": "Orchard by the pond",
+  "description": "A hand-made v10 Design: every name and shape v10 changes, extension bags and keys this build does not know.",
+  "plant_species_colors": { "Malus domestica": "#A1B2C3" },
+  "plant_species_symbols": { "Malus domestica": "apple" },
+  "plant_species_codes": { "Malus domestica": "MD" },
+  "layers": [
+    { "name": "zones", "visible": true, "locked": false, "opacity": 0.5, "ext": { "tint": "warm" } },
+    { "name": "plants" }
+  ],
+  "plants": [
+    {
+      "id": "plant-1",
+      "canonical_name": "Malus domestica",
+      "common_name": "Apple",
+      "position": { "lon": 2.2945, "lat": 48.8584, "ext": { "altitude_m": 35 } },
+      "canopy_spread_m": 4.5,
+      "scale": 0.25,
+      "rotation": 15.0,
+      "quantity": 3,
+      "ext": { "planted_by": "a later Canopi", "nested": { "deeper": [1, 2, 3] } }
+    },
+    {
+      "id": "plant-2",
+      "canonical_name": "Corylus avellana",
+      "position": { "lon": 2.2947, "lat": 48.8585 },
+      "locked": true
+    }
+  ],
+  "zones": [
+    {
+      "id": "zone-1",
+      "name": "Pond",
+      "zone_type": "ellipse",
+      "points": [{ "lon": 2.2941, "lat": 48.8581 }, { "lon": 2.2943, "lat": 48.8579 }],
+      "fill_color": "#3A6EA5",
+      "ext": { "depth_m": 1.2 }
+    }
+  ],
+  "annotations": [
+    {
+      "id": "note-1",
+      "annotation_type": "text",
+      "position": { "lon": 2.2946, "lat": 48.8583 },
+      "text": "Well",
+      "font_size": 14.0,
+      "ext": {}
+    }
+  ],
+  "measurement_guides": [
+    {
+      "id": "guide-1",
+      "start": { "lon": 2.2945, "lat": 48.8584 },
+      "end": { "lon": 2.2947, "lat": 48.8585 },
+      "ext": { "label": "row" }
+    }
+  ],
+  "consortiums": [
+    {
+      "target": { "kind": "species", "canonical_name": "Malus domestica", "ext": { "x": 1 } },
+      "stratum": "high",
+      "start_phase": 1,
+      "end_phase": 3
+    }
+  ],
+  "groups": [
+    {
+      "id": "group-1",
+      "name": "Row",
+      "members": [
+        { "kind": "plant", "id": "plant-1" },
+        { "kind": "plant", "id": "plant-2" },
+        { "kind": "measurement_guide", "id": "guide-1", "ext": { "role": "spine" } }
+      ],
+      "ext": { "colour": "#112233" }
+    }
+  ],
+  "timeline": [
+    {
+      "id": "task-1",
+      "action_type": "planting",
+      "description": "Plant the apple",
+      "start_date": "2027-03-01",
+      "targets": [{ "kind": "placed_plant", "plant_id": "plant-1" }],
+      "completed": false,
+      "order": 0,
+      "ext": { "reminder": "P1D" }
+    }
+  ],
+  "budget": [
+    {
+      "target": { "kind": "species", "canonical_name": "Malus domestica" },
+      "unit_cost": 24.5,
+      "ext": { "category": "plants", "description": "Apples", "quantity": 3, "currency": "USD" }
+    },
+    {
+      "target": { "kind": "zone", "zone_id": "zone-1" },
+      "unit_cost": 120.0,
+      "ext": { "category": "earthworks", "description": "Dig the pond" }
+    }
+  ],
+  "budget_currency": "USD",
+  "site_data": {
+    "visible": true,
+    "entries": [
+      { "id": "lyr-terrain", "name": "Terrain", "opacity": 0.75, "order": 0, "ramp": "Aurora", "ext": { "later": true } },
+      { "id": "item-slope", "kind": "Derived", "name": "Slope", "order": 1, "ramp": "Magma", "reversed": true, "range": { "mode": "Custom", "min": 0.0, "max": 45.0 } }
+    ],
+    "ext": { "source": "survey" }
+  },
+  "plant_display": {
+    "color_by": "by_height",
+    "labels": "codes",
+    "symbol_scale": 1.25,
+    "outline": false,
+    "ext": { "halo": true }
+  },
+  "views": [
+    {
+      "id": "view-1",
+      "name": "Pond edge",
+      "camera": {
+        "lon": 2.2945,
+        "lat": 48.8584,
+        "zoom": 19.0,
+        "bearing": 30.0,
+        "ground_size_m": { "width": 120.0, "height": 80.0 },
+        "ext": { "pitch": 0 }
+      },
+      "visible_layers": {
+        "background": { "kind": "satellite" },
+        "terrain": { "contours": true, "hillshade": false },
+        "scene_layers": ["zones", "plants"],
+        "site_data": ["lyr-terrain"]
+      },
+      "highlighted": { "species": ["Malus domestica"], "objects": [{ "kind": "zone", "id": "zone-1" }] },
+      "ext": { "thumbnail": "none" }
+    }
+  ],
+  "stories": [
+    {
+      "id": "story-1",
+      "name": "Walk",
+      "steps": [{ "id": "step-1", "view_id": "view-1", "title": "The pond", "ext": {} }]
+    }
+  ],
+  "map_view": {
+    "lon": 2.2945,
+    "lat": 48.8584,
+    "zoom": 18.0,
+    "bearing": 0.0,
+    "ground_size_m": { "width": 240.0, "height": 160.0 }
+  },
+  "created_at": "2027-01-10T09:00:00.000Z",
+  "updated_at": "2027-02-01T17:30:00.000Z",
+  "a_later_root_key": { "anything": ["a later Canopi writes"] }
+}
