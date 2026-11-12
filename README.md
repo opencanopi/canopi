@@ -33,7 +33,7 @@ Rust (Tauri v2, rusqlite) · Preact, @preact/signals, TypeScript, Vite · MapLib
 
 Download Canopi from the [latest release](https://github.com/opencanopi/canopi/releases/latest): `canopi-linux-x64.deb` or `canopi-linux-x64.AppImage`; `canopi-macos-arm64.dmg` (Apple silicon) or `canopi-macos-x64.dmg` (Intel), for macOS 12 or later; `canopi-windows-x64.exe` or `canopi-windows-x64.msi`. `RELEASE-SHA256SUMS.txt` lists their checksums. The [Web Edition](https://web.projectcanopi.com) runs in the browser with nothing to install.
 
-The installers are not signed yet, so the first open takes one more step. macOS: open Canopi once, then go to **System Settings › Privacy & Security** and click **Open Anyway** (since macOS 15, right-click › Open no longer does this). If macOS says the app is damaged, run `xattr -dr com.apple.quarantine /Applications/Canopi.app` in Terminal. Windows: when SmartScreen says "Windows protected your PC", click **More info**, then **Run anyway**.
+The installers are not signed yet, so the first open takes one more step. macOS: open the dmg and drag Canopi to Applications; macOS then says Canopi is damaged, which it is not. Open Terminal, run `xattr -dr com.apple.quarantine /Applications/Canopi.app`, then open Canopi as usual (once per download). Windows: when SmartScreen says "Windows protected your PC", click **More info**, then **Run anyway**.
 
 ## Building from source
 

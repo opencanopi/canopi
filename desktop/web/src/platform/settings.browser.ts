@@ -39,6 +39,8 @@ export function createBrowserSettingsPlatformAdapter(
       const result = store.saveSettings({ ...settings })
       if (!result.ok) throw result.error
     },
+    // A record this edition cannot read, or a browser refusing storage, starts on the same first run (2.1-Q309).
+    firstRunSettings: () => ({ scroll_wheel: firstRunScrollWheel(os()) }),
   }
 }
 

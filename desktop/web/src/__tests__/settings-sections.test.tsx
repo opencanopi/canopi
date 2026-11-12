@@ -321,14 +321,14 @@ describe('Settings › Canvas on a Mac (canopi-pqxl)', () => {
 
   // Expected to fail until the projection's unavailable branch takes the adapter's host fallback (owner: main agent,
   // app/settings/projection.ts and platform-adapter.ts; tracker canopi-pqxl): the signals keep the host-independent Mouse.
-  it.fails('U canopi-pqxl (main agent, projection fallback): a Mac browser refusing storage starts on Trackpad', async () => {
+  it('U canopi-pqxl (main agent, projection fallback): a Mac browser refusing storage starts on Trackpad', async () => {
     await launchOnAMac(refusingStorage(vi.fn()))
 
     expect(storeStatus('settings')).toMatchObject({ kind: 'unavailable' })
     expect(scrollWheel.value).toBe('pan')
   })
 
-  it.fails('U canopi-pqxl (main agent, projection fallback): a Mac with a record the store refuses starts on Trackpad and keeps the record', async () => {
+  it('U canopi-pqxl (main agent, projection fallback): a Mac with a record the store refuses starts on Trackpad and keeps the record', async () => {
     const storage = memoryStorage({ [SETTINGS_KEY]: 'not a record' })
     await launchOnAMac(storage)
 

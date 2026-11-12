@@ -165,7 +165,7 @@ describe('the favourites note (canopi-4j6l)', () => {
     return container.querySelector<HTMLElement>('[role="dialog"] section')!
   }
 
-  it.fails('U canopi-4j6l: Settings shows the favourites note while folders load', async () => {
+  it('U canopi-4j6l: Settings shows the favourites note while folders load', async () => {
     // Desktop: the folders never answer, so the section stays loading.
     const loading: SettingsFoldersAdapter = { load: () => new Promise(() => {}), show: async () => {} }
     const desktop = await openFilesSection(loading)
