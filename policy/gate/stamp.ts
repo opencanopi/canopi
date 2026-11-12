@@ -4,14 +4,14 @@
 // common one, not `git rev-parse --git-path canopi-gate` (a linked worktree's own), so a stamp made in one worktree
 // serves a push from any other. It is written to a temporary name and renamed, so a reader never sees half a stamp and
 // two runs on one commit leave one whole stamp. A stamp that cannot be read or parsed is no stamp.
-// A lane whose only red is expected-fail markers added since the base (prepush-checks.ts records them in a temporary file
-// it names in MARKERS_RECORD, and passes) writes a stamp with `markers`, which verify-push.ts accepts for refs under
+// A lane whose only red is expected-fail markers added since the base (its prepush-checks check, alone given a temporary
+// file in MARKERS_RECORD by run.ts's recordingMarkers, records them there and passes) writes a stamp with `markers`, which verify-push.ts accepts for refs under
 // scratch/ only (2.1-Q328); the lane says so and lists them. A stamp with no `markers`, as every stamp before, is green.
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { git, type Plan } from './plan.ts'
-import { MARKERS_RECORD } from './prepush-checks.ts'
+import { recordingMarkers } from './run.ts'
 import { TABLE_FILE } from './table.ts'
 
 export const STAMP_DIR = 'canopi-gate'
@@ -106,9 +106,9 @@ const log = (line: string) => process.stderr.write(`gate: ${line}\n`)
  * The push lane `made`, planned from `base` on the commit `head`, run by `run`, and `head` stamped when it is green:
  * refused before running when HEAD is no longer `head` (it moved while the lane was planned) or the tree is not
  * HEAD's (treeChanges), and red without a stamp when HEAD or the tree moved during the run or the stamp cannot be
- * written, since a push of that commit would then be refused. The run's marker check records added markers in a
- * temporary file (MARKERS_RECORD, set on this process's environment, which the run's checks inherit): a green run that
- * recorded some writes a scratch-only stamp naming them (2.1-Q328).
+ * written, since a push of that commit would then be refused. The run's prepush-checks check, alone, records added
+ * markers in a temporary file (recordingMarkers): a green run that recorded some writes a scratch-only stamp naming them
+ * (2.1-Q328).
  */
 export async function pushAndStamp(root: string, base: string, head: string, made: Plan, run: () => Promise<number>,
   env: NodeJS.ProcessEnv = process.env): Promise<number> {
@@ -124,16 +124,12 @@ export async function pushAndStamp(root: string, base: string, head: string, mad
   }
   const recordDir = mkdtempSync(join(tmpdir(), 'canopi-gate-markers-'))
   const record = join(recordDir, 'markers.json')
-  const previous = process.env[MARKERS_RECORD]
   let code: number
   let markers: string[] = []
   try {
-    process.env[MARKERS_RECORD] = record
-    code = await run()
+    code = await recordingMarkers(record, run)
     if (code === 0 && existsSync(record)) markers = JSON.parse(readFileSync(record, 'utf8')) as string[]
   } finally {
-    if (previous === undefined) delete process.env[MARKERS_RECORD]
-    else process.env[MARKERS_RECORD] = previous
     rmSync(recordDir, { recursive: true, force: true })
   }
   if (code !== 0) return code

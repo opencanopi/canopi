@@ -61,6 +61,22 @@ describe('a lane whose only red is added markers stamps for scratch/ refs only (
     expect(listed()).toEqual([])
   })
 
+  it('2.1-Q328: while the outer lane records its markers, a marker check its own checks run still fails, and none sees the record', () => {
+    const head = commitMarker()
+    // Each npm check runs the marker check on the same tree, as the policy-gate project's planted runs do.
+    const inner = join(repo.root, 'inner.log')
+    writeFileSync(join(repo.bin, 'npm'), `#!/bin/sh\necho "npm $*" >> "$SHIM_LOG"\n`
+      + `echo "record=\${CANOPI_GATE_MARKERS_RECORD:-unset}" >> '${inner}'\n`
+      + `cd '${repo.repo}' && '${process.execPath}' policy/gate/cli.mjs prepush-checks --base ${repo.base} > /dev/null\n`
+      + `echo "status=$?" >> '${inner}'\nexit 0\n`, { mode: 0o755 })
+    const run = repo.gate(['push', '--base', repo.base])
+    expect(run.status, run.stderr).toBe(0)
+    const lines = readFileSync(inner, 'utf8').split('\n').filter((line) => line !== '')
+    expect(lines.length).toBeGreaterThan(0)
+    expect([...new Set(lines)].sort()).toEqual(['record=unset', 'status=1'])
+    expect(stampOf(head)).toMatchObject({ markers: [MARKER] })
+  })
+
   it('2.1-Q328: the marker check run alone still fails on an added marker', () => {
     commitMarker()
     const run = repo.gate(['prepush-checks', '--base', repo.base])

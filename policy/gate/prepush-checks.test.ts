@@ -1,6 +1,8 @@
+import { existsSync } from 'node:fs'
+import { join } from 'node:path'
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 import { git, PlantedRepo } from './planted-repo.ts'
-import { addedMarkers } from './prepush-checks.ts'
+import { addedMarkers, MARKERS_RECORD } from './prepush-checks.ts'
 
 const repo = new PlantedRepo()
 afterAll(() => repo.cleanup())
@@ -58,6 +60,22 @@ describe('the pre-push lane\'s expected-fail marker check (canopi-f47t.52.228.54
     const green = repo.gate(['prepush-checks', '--base', base])
     expect(green.stdout).toContain('PASS no expected-fail markers beyond those on the base')
     expect(green.status).toBe(0)
+  })
+
+  it('2.1-Q328: a planted marker check fails on an added marker even under a push lane\'s marker record, and writes none', () => {
+    commit(register([]))
+    const base = git(repo.repo, 'rev-parse', 'HEAD')
+    commit({ 'desktop/web/src/app/new.test.ts': "it.fails('red', () => {})\n" })
+    const record = join(repo.root, 'outer-record.json')
+    process.env[MARKERS_RECORD] = record
+    try {
+      const run = repo.gate(['prepush-checks', '--base', base])
+      expect(run.status).toBe(1)
+      expect(run.stdout).toContain('FAIL expected-fail markers added since the base')
+      expect(existsSync(record)).toBe(false)
+    } finally {
+      delete process.env[MARKERS_RECORD]
+    }
   })
 
   it('unreadable: an upstream register that cannot list its markers fails the check, never exempting nothing', () => {
