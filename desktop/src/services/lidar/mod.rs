@@ -2258,10 +2258,10 @@ fn resolve_units(
 
 #[cfg(test)]
 mod fixed_library_tests;
-
+#[cfg(test)]
+mod kindless_resolution_tests;
 #[cfg(test)]
 mod reader_release_tests;
-
 #[cfg(test)]
 mod tests {
     #[test]
