@@ -1,0 +1,261 @@
+name: Rollback lane
+
+# Step 2.0.4 R4 (canopi-f47t.52.239; ADR 0026 Checks, contracts §11 Rollback harness, 2.1-M37, 2.1-M53, 2.1-M68,
+# 2.1-M484). The lane builds the readers from an older tree and runs them over what head writes, so before it is built
+# this probe checks its two riskiest assumptions:
+# - reader-build: an old tag's tree still builds on today's runner, with that tag's own toolchain file and Linux
+#   dependencies action (default v2.0.3, the last 2.0.x before the readers). A tag that fails to build is red: nothing
+#   here falls back to head's tree.
+# - web-seed: the frozen Web forms (the IndexedDB Draft store and the 2.1 settings and species-list keys, contracts §11)
+#   survive the round trip the Web harness depends on: a JSON seed written into a profile in Chromium and WebKit, then
+#   read back in a fresh page, byte-identical. Each engine's verdict is a `SEED-ROUNDTRIP` line in the job summary.
+#
+# - resolve: the lane's reader and writer refs (policy/gate/rollback-refs.ts says when each mode holds), in the job
+#   summary and as job outputs.
+#
+# It runs on a dispatch and on a pull request that changes this file, nothing else (GitHub dispatches only workflows
+# already on the default branch; the resolver's tests run in the policy-gate project).
+# R4-2 turns it into the two-job lane Build & Test and Release Candidate call.
+on:
+  workflow_dispatch:
+    inputs:
+      reader_tag:
+        description: The tag whose tree reader-build checks out and builds
+        type: string
+        default: v2.0.3
+      writer_ref:
+        description: On a release/<major>.<minor> branch, the pending store step's branch the readers read (main if empty)
+        type: string
+        default: ''
+  pull_request:
+    branches: [main]
+    paths:
+      - .github/workflows/rollback.yml
+
+# A PR update cancels that PR's older run; every other run has a group of its own.
+concurrency:
+  group: rollback-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+# An explicit bash runs with pipefail, so `node … | tee` keeps node's exit status.
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  resolve:
+    name: Reader and writer refs
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      mode: ${{ steps.refs.outputs.mode }}
+      reader: ${{ steps.refs.outputs.reader }}
+      writer: ${{ steps.refs.outputs.writer }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      # The tag names from the remote, which the shallow checkout lacks; a failed listing fails the step (pipefail).
+      - name: Resolve the reader and writer refs
+        id: refs
+        env:
+          ROLLBACK_BRANCH: ${{ github.base_ref || github.ref_name }}
+          ROLLBACK_CANDIDATE: ${{ github.event.pull_request.head.sha || github.sha }}
+          ROLLBACK_WRITER_REF: ${{ inputs.writer_ref }}
+        run: git ls-remote --tags --refs origin 'refs/tags/v*' | sed 's#^.*refs/tags/##' | node policy/gate/cli.mjs rollback-refs
+
+  reader-build:
+    name: Reader tree ${{ inputs.reader_tag || 'v2.0.3' }} builds on today's runner
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      CANOPI_SKIP_BUNDLED_DB: "1"
+      CARGO_TERM_COLOR: always
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.reader_tag || 'v2.0.3' }}
+      # The tag's own toolchain: with no argument rustup installs what the tree's rust-toolchain.toml pins.
+      - name: Install the tag's Rust toolchain
+        run: |
+          rustup toolchain install
+          rustc --version
+      # A local action resolves in the checked-out tree, so this is the tag's install, not head's.
+      - name: Install Linux dependencies
+        uses: ./.github/actions/install-linux-deps
+      - name: Build the tag's desktop tests
+        run: cargo test -p canopi-desktop --no-run --locked
+
+  web-seed:
+    name: Web records survive a JSON seed round trip in ${{ matrix.engine }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        engine: [chromium, webkit]
+    # The browsers of the locked @playwright/test (scripts/check_playwright_pins.py holds the tag to it).
+    container:
+      image: mcr.microsoft.com/playwright:v1.64.1-noble
+      options: --ipc=host
+    defaults:
+      run:
+        working-directory: desktop/web
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: desktop/web/package-lock.json
+      - name: Install frontend deps
+        run: npm ci --no-audit --no-fund
+      # Seeds the forms as the Web harness will (localStorage keys, then each database at its version with every record
+      # in one readwrite transaction), closes the page, reads the origin back in a fresh one and compares one canonical
+      # JSON form byte for byte: localStorage keys sorted, stores by name, records in IndexedDB's key order. The values
+      # are chosen to break a lossy trip: astral and right-to-left text, escapes and control characters inside the
+      # .canopi text, fractional and large numbers, a 300 kB Draft, unknown nested keys.
+      - name: Seed, reopen and read back the frozen Web forms
+        env:
+          ENGINE: ${{ matrix.engine }}
+          # Firefox and WebKit refuse a $HOME they do not own, and Actions points the container's at the runner user's.
+          HOME: /root
+        run: |
+          node --input-type=module <<'PROBE' | tee -a "$GITHUB_STEP_SUMMARY"
+          import { createServer } from 'node:http'
+          import { chromium, webkit } from '@playwright/test'
+
+          const ENGINE = process.env.ENGINE ?? ''
+          const launcher = { chromium, webkit }[ENGINE]
+          if (!launcher) throw new Error(`ENGINE is ${JSON.stringify(ENGINE)}, not chromium or webkit`)
+
+          const canopi = (name, extra) => JSON.stringify({ version: 10, name, description: 'Ligne 1\nLigne 2\t"citée" \\ \u0001  ',
+            location: { lon: 2.3522219, lat: 48.856614, altitude_m: -0.125 }, north_bearing_deg: 359.99999999999994,
+            plants: [{ id: '5f2c', canonical_name: 'Malus domestica', position: { x: 1e-7, y: 123456789.5 } }], ...extra }, null, 2)
+          const SEED = {
+            localStorage: {
+              'canopi:web-app-data:v4:settings': JSON.stringify({ version: 2, locale: 'fr', theme: 'dark', pointer_device: 'trackpad',
+                later_field: { nested: [1, 2.5, -0.125, null, true] } }),
+              'canopi:web-app-data:v4:species': JSON.stringify({ version: 1,
+                favourites: [{ canonical_name: 'Malus domestica', at: '2026-11-12T08:30:00.000Z' }],
+                recently_viewed: [{ canonical_name: 'Castanea sativa', at: '2026-11-12T08:31:12.345Z' },
+                  { canonical_name: 'Rubus idaeus × occidentalis', at: '2026-11-11T23:59:59.999Z' }] }),
+            },
+            indexedDB: [{
+              name: 'canopi-drafts',
+              version: 4,
+              stores: [
+                { name: 'drafts', keyPath: 'id', records: [
+                  { id: '9a1d6c1e-3b0f-4c55-8e7a-0d2b9f4e6a10', canopi_version: '2.1.0-beta.3', version: 7, name: 'Jardin d’été 🌳',
+                    updated_at: '2026-11-12T08:30:00.000Z', content: canopi('Jardin d’été 🌳', { budget: [{ kind: 'tool', cost: 12.5 }] }) },
+                  { id: '0c3e9b52-7f1a-4d8e-9b6c-5a4f3e2d1c0b', canopi_version: '2.1.0', version: 1, name: 'Сад 庭 حديقة',
+                    updated_at: '2026-11-01T00:00:00.000Z', content: canopi('Сад 庭 حديقة', { notes: 'x'.repeat(300_000) }) },
+                ] },
+                { name: 'meta', keyPath: 'key', records: [
+                  { key: 'move', state: 'copied', sourceHash: 'sha256:6f1ed002ab5595859014ebf0951522d9', rev: 3,
+                    copiedIds: ['0c3e9b52-7f1a-4d8e-9b6c-5a4f3e2d1c0b', '9a1d6c1e-3b0f-4c55-8e7a-0d2b9f4e6a10'] },
+                ] },
+              ],
+            }],
+          }
+
+          const byText = (a, b) => (a < b ? -1 : a > b ? 1 : 0)
+          const canonical = (dump) => JSON.stringify({
+            localStorage: Object.fromEntries(Object.entries(dump.localStorage).sort(([a], [b]) => byText(a, b))),
+            indexedDB: dump.indexedDB.map((db) => ({ name: db.name, version: db.version,
+              stores: [...db.stores].sort((a, b) => byText(a.name, b.name)).map((store) => ({ name: store.name, keyPath: store.keyPath,
+                records: [...store.records].sort((a, b) => byText(a[store.keyPath], b[store.keyPath])) })) })),
+          })
+
+          async function seed(dump) {
+            for (const [key, value] of Object.entries(dump.localStorage)) localStorage.setItem(key, value)
+            for (const db of dump.indexedDB) {
+              await new Promise((resolve, reject) => {
+                const request = indexedDB.open(db.name, db.version)
+                request.onupgradeneeded = () => {
+                  for (const store of db.stores) request.result.createObjectStore(store.name, { keyPath: store.keyPath })
+                }
+                request.onerror = () => reject(request.error)
+                request.onsuccess = () => {
+                  const connection = request.result
+                  const tx = connection.transaction(db.stores.map((store) => store.name), 'readwrite')
+                  for (const store of db.stores) for (const record of store.records) tx.objectStore(store.name).put(record)
+                  tx.oncomplete = () => { connection.close(); resolve() }
+                  tx.onerror = () => reject(tx.error)
+                  tx.onabort = () => reject(tx.error ?? new Error('transaction aborted'))
+                }
+              })
+            }
+          }
+
+          async function read(names) {
+            const storage = {}
+            for (let index = 0; index < localStorage.length; index += 1) {
+              const key = localStorage.key(index)
+              storage[key] = localStorage.getItem(key)
+            }
+            const databases = []
+            for (const name of names) {
+              databases.push(await new Promise((resolve, reject) => {
+                const request = indexedDB.open(name)
+                request.onupgradeneeded = () => reject(new Error(`${name} did not exist`))
+                request.onerror = () => reject(request.error)
+                request.onsuccess = async () => {
+                  const connection = request.result
+                  const stores = []
+                  for (const storeName of [...connection.objectStoreNames]) {
+                    const store = connection.transaction(storeName, 'readonly').objectStore(storeName)
+                    const records = await new Promise((done, fail) => {
+                      const all = store.getAll()
+                      all.onsuccess = () => done(all.result)
+                      all.onerror = () => fail(all.error)
+                    })
+                    stores.push({ name: storeName, keyPath: store.keyPath, records })
+                  }
+                  connection.close()
+                  resolve({ name, version: connection.version, stores })
+                }
+              }))
+            }
+            // JSON in the page: what leaves it is what a JSON dump of the profile holds.
+            return JSON.stringify({ localStorage: storage, indexedDB: databases })
+          }
+
+          const server = createServer((_, response) => {
+            response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' })
+            response.end('<!doctype html><title>seed round trip</title>')
+          })
+          await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve))
+          const origin = `http://127.0.0.1:${server.address().port}/`
+          const browser = await launcher.launch()
+          let status = 0
+          try {
+            const context = await browser.newContext()
+            const writer = await context.newPage()
+            await writer.goto(origin)
+            // Through JSON text, as the harness hands a seed file to the page.
+            await writer.evaluate(seed, JSON.parse(JSON.stringify(SEED)))
+            await writer.close()
+            const reader = await context.newPage()
+            await reader.goto(origin)
+            const actual = canonical(JSON.parse(await reader.evaluate(read, SEED.indexedDB.map((db) => db.name))))
+            const expected = canonical(SEED)
+            const records = SEED.indexedDB.flatMap((db) => db.stores).reduce((n, store) => n + store.records.length, 0)
+            if (actual === expected) {
+              console.log(`SEED-ROUNDTRIP ${ENGINE} ${browser.version()} ok: ${Object.keys(SEED.localStorage).length} keys, ${records} records, ${expected.length} bytes identical`)
+            } else {
+              let at = 0
+              while (at < expected.length && expected[at] === actual[at]) at += 1
+              console.log(`SEED-ROUNDTRIP ${ENGINE} ${browser.version()} differs at byte ${at}: expected …${expected.slice(Math.max(0, at - 60), at + 60)}… got …${actual.slice(Math.max(0, at - 60), at + 60)}…`)
+              status = 1
+            }
+          } finally {
+            await browser.close()
+            server.close()
+          }
+          process.exitCode = status
+          PROBE

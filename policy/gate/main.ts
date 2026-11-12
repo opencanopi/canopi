@@ -17,6 +17,7 @@ const USAGE = `usage: node policy/gate/cli.mjs affected (--base <rev> | --staged
        node policy/gate/cli.mjs cov
        node policy/gate/cli.mjs gate-cov
        node policy/gate/cli.mjs bundle-summary <row log>
+       node policy/gate/cli.mjs rollback-refs   (rollback.yml's resolve step; tag names on stdin)
        node policy/gate/cli.mjs agents-rows [--check]
        node policy/gate/cli.mjs commit-gate <mode> ...
        node policy/gate/cli.mjs agent-hook pre-tool-use|session-start|planted <command.json>...`
@@ -74,6 +75,7 @@ export async function main(ROOT: string, args: readonly string[]): Promise<numbe
     if (mode === 'gate-cov' && !rest.length) return await (await import('./gate-cov.mjs')).runGateCov(ROOT)
     if (mode === 'oldest-engine' && !rest.length) return (await import('./oldest-engine.ts')).runOldestEngine(ROOT)
     if (mode === 'bundle-summary' && rest.length === 1) return (await import('./bundle-summary.ts')).runBundleSummary(rest[0] ?? '')
+    if (mode === 'rollback-refs' && !rest.length) return (await import('./rollback-refs.ts')).runRollbackRefs(readFileSync(0, 'utf8'), process.env)
     if (mode === 'agents-rows') {
       const parsed = parse(rest, ['--check'], [])
       if (!parsed) return usage()

@@ -222,7 +222,7 @@ const GATE_FULL = /node policy\/gate\/cli\.mjs full --area ([a-z0-9-]+)/g
  * its first `|`, `&`, `;` or `)`. */
 const GATE_CALL = /node policy\/gate\/cli\.mjs[ \t]+([^\s|&;)]+)([^\n|&;)]*)/g
 /** The modes that run no check of a table row: the selection, the hooks' judges, the reports. */
-const ROW_FREE = new Set(['areas', 'verify-push', 'bundle-summary', 'agents-rows', 'agent-hook'])
+const ROW_FREE = new Set(['areas', 'verify-push', 'bundle-summary', 'rollback-refs', 'agents-rows', 'agent-hook'])
 /** The commit gate's modes that run no row: the message, range, push and planted-case judges (commit-gate.ts). */
 const COMMIT_GATE_FREE = new Set(['commit-msg', 'pr', 'tree', 'planted'])
 /** One word of a shell line: an expression, a quoted word or a bare one. */
