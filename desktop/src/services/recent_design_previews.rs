@@ -16,7 +16,7 @@ use canopi_types::design::{
     RecentDesignPreview, RecentDesignSummary, RecentDesignUnreadableReason,
 };
 
-use crate::design::format::{self, DesignLoadError};
+use crate::design::format::{self, DesignLoadError, OpenedDesign};
 
 /// Files larger than this are not read for a preview; the row shows the name only.
 pub(crate) const RECENT_PREVIEW_MAX_BYTES: u64 = 16 * 1024 * 1024;
@@ -104,8 +104,27 @@ fn read_preview(path: &Path, len: u64) -> (RecentDesignPreview, bool) {
     if len > RECENT_PREVIEW_MAX_BYTES {
         return (RecentDesignPreview::TooLarge, true);
     }
-    match format::load_within(path, RECENT_PREVIEW_MAX_BYTES) {
-        Ok(file) => (crate::design::preview::preview_of(&file), true),
+    match format::open_within(path, RECENT_PREVIEW_MAX_BYTES) {
+        Ok(OpenedDesign::Editable(file)) => (crate::design::preview::preview_of(&file), true),
+        // A newer Design opens read-only (2.1-Q316); its row says newer by its reason until a
+        // read-only preview has a wire state. A version-10 file the read refuses is damaged,
+        // as Open says.
+        Ok(OpenedDesign::ReadOnly(_)) => {
+            (unreadable(RecentDesignUnreadableReason::NewerVersion), true)
+        }
+        Err(DesignLoadError::NewerRefused { source }) => {
+            let reason = match source.kind {
+                canopi_types::design::DesignLoadFailureKind::NewerVersion => {
+                    RecentDesignUnreadableReason::NewerVersion
+                }
+                _ => RecentDesignUnreadableReason::Damaged,
+            };
+            tracing::info!(
+                ?reason,
+                "A newer Recent Design could not be read; no preview"
+            );
+            (unreadable(reason), true)
+        }
         Err(DesignLoadError::TooLarge { .. }) => (RecentDesignPreview::TooLarge, true),
         Err(DesignLoadError::Read { source, .. }) => {
             tracing::warn!("A Recent Design could not be read for its preview");
@@ -223,6 +242,12 @@ mod tests {
             ),
         )
         .unwrap();
+        // canopi-f47t.52.270: a newer Design the read refuses says why as Open would.
+        let newer_refused = root.join("newer-refused.canopi");
+        let refused = |version: u32| format!(r#"{{"version": {version}, "plants": 3}}"#);
+        std::fs::write(&newer_refused, refused(CURRENT_CANOPI_FILE_VERSION + 1)).unwrap();
+        let later_refused = root.join("later-refused.canopi");
+        std::fs::write(&later_refused, refused(CURRENT_CANOPI_FILE_VERSION + 2)).unwrap();
         let moved = root.join("moved.canopi");
         let previews = RecentDesignPreviews::default();
         let paths = [
@@ -231,6 +256,8 @@ mod tests {
             &old,
             &unversioned,
             &newer,
+            &newer_refused,
+            &later_refused,
             &moved,
             &root.path().to_path_buf(),
         ]
@@ -250,6 +277,8 @@ mod tests {
                 Damaged,
                 OlderVersion,
                 OlderVersion,
+                NewerVersion,
+                Damaged,
                 NewerVersion,
                 Missing,
                 Unknown

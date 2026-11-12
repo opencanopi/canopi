@@ -68,7 +68,8 @@ fn save_and_load_commands_carry_fingerprints_and_refuse_outside_changes() {
         app.state(),
         path.clone(),
     ))
-    .unwrap();
+    .unwrap()
+    .editable();
     assert_eq!(loaded.fingerprint, fingerprint);
     assert_eq!(loaded.file.name, "First");
     assert!(matches!(
@@ -275,7 +276,8 @@ fn draft_commands_save_list_load_and_delete_through_managed_state() {
         app.state(),
         "draft-1".to_owned(),
     ))
-    .unwrap();
+    .unwrap()
+    .editable();
     assert_eq!(loaded.name, "Sketch");
     assert!(
         tauri::async_runtime::block_on(super::load_design_draft(
@@ -306,5 +308,104 @@ fn new_design_command_returns_an_untitled_current_design() {
     assert_eq!(
         design.version,
         canopi_types::design::CURRENT_CANOPI_FILE_VERSION
+    );
+}
+
+/// The hand-made v10 Design R1 froze (`canopi-format/spec/v10/`), as 2.1 saves it.
+const V10_DESIGN: &str = include_str!("../../../../canopi-format/spec/v10/read-fixture.canopi");
+
+/// canopi-f47t.52.270: after a rollback, a Design 2.1 saved opens read-only from Open, Recent
+/// and the Draft list (2.1-M478, 2.1-Q316), its wire shape `ReadOnlyDesign` told apart by
+/// `saved_by_version`; it is listed in Recent Designs and its Draft is listed, never hidden.
+#[test]
+fn canopi_f47t_52_270_a_newer_design_opens_read_only_from_open_recent_and_the_draft_list() {
+    use crate::design::format::OpenedDesign;
+    let root = scratch_root("newer");
+    let app = mock_app(&root);
+    let path = root.join("pond.canopi");
+    std::fs::write(&path, V10_DESIGN).unwrap();
+    let path = path.to_string_lossy().into_owned();
+
+    let opened = tauri::async_runtime::block_on(super::load_design(
+        window(&app, "main"),
+        app.state(),
+        app.state(),
+        app.state(),
+        path.clone(),
+    ))
+    .unwrap();
+    let wire = serde_json::to_value(&opened).unwrap();
+    assert_eq!(wire["saved_by_version"], serde_json::json!(10));
+    assert_eq!(
+        wire["view"]["name"],
+        serde_json::json!("Orchard by the pond")
+    );
+    assert!(wire.get("fingerprint").is_none(), "{wire}");
+    assert!(matches!(opened, OpenedDesign::ReadOnly(_)));
+    let recent =
+        tauri::async_runtime::block_on(super::get_recent_files(app.state(), app.state())).unwrap();
+    assert_eq!(recent.len(), 1);
+    assert_eq!(recent[0].name, "Orchard by the pond");
+    let previews = tauri::async_runtime::block_on(super::get_recent_design_previews(
+        app.state(),
+        app.state(),
+        app.state(),
+        vec![path.clone()],
+    ))
+    .unwrap();
+    assert_eq!(
+        previews[0].preview,
+        canopi_types::design::RecentDesignPreview::Unreadable {
+            reason: canopi_types::design::RecentDesignUnreadableReason::NewerVersion,
+        },
+        "the row says a newer Canopi saved it until its read-only preview has a wire state"
+    );
+
+    std::fs::create_dir_all(root.join("drafts")).unwrap();
+    std::fs::write(root.join("drafts/pond-2-1.canopi"), V10_DESIGN).unwrap();
+    let mut unread: serde_json::Value = serde_json::from_str(V10_DESIGN).unwrap();
+    unread["version"] = serde_json::json!(11);
+    unread["plants"] = serde_json::json!(3);
+    std::fs::write(root.join("drafts/pond-2-2.canopi"), unread.to_string()).unwrap();
+    let listed =
+        tauri::async_runtime::block_on(super::list_design_drafts(app.state(), app.state()))
+            .unwrap();
+    let mut listed: Vec<_> = listed
+        .iter()
+        .map(|draft| (draft.id.as_str(), draft.name.as_str()))
+        .collect();
+    listed.sort_unstable();
+    assert_eq!(
+        listed,
+        [
+            ("pond-2-1", "Orchard by the pond"),
+            ("pond-2-2", "Untitled")
+        ],
+        "a newer Draft the read refuses is listed too, and says why when opened"
+    );
+    let unread = tauri::async_runtime::block_on(super::load_design_draft(
+        app.state(),
+        app.state(),
+        "pond-2-2".to_owned(),
+    ))
+    .unwrap_err();
+    assert_eq!(
+        unread.kind,
+        canopi_types::design::DesignLoadFailureKind::NewerVersion
+    );
+    let draft = tauri::async_runtime::block_on(super::load_design_draft(
+        app.state(),
+        app.state(),
+        "pond-2-1".to_owned(),
+    ))
+    .unwrap();
+    let OpenedDesign::ReadOnly(draft) = draft else {
+        panic!("a v10 Draft opens read-only");
+    };
+    assert_eq!(draft.saved_by_version, 10);
+    assert_eq!(
+        std::fs::read_to_string(root.join("drafts/pond-2-1.canopi")).unwrap(),
+        V10_DESIGN,
+        "opening and listing write nothing"
     );
 }

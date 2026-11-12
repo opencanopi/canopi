@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 
 use crate::db::UserDb;
 use crate::design::format;
+type OpenedLoad = format::OpenedDesign<LoadedDesign>;
 
 const RECENT_DESIGNS_LIMIT: usize = 20;
 
@@ -54,17 +55,16 @@ pub fn export_design_file(path: String, content: CanopiFile) -> Result<String, S
     Ok(path)
 }
 
-/// Open a Design file. Only the current format opens; an older one is
-/// refused as `OlderVersion` (ADR 0021).
-pub fn load_design(user_db: &UserDb, path: String) -> Result<LoadedDesign, DesignLoadFailure> {
+/// Open a Design: to edit, read-only when newer (2.1-M478), refused when older (ADR 0021).
+pub fn load_design(user_db: &UserDb, path: String) -> Result<OpenedLoad, DesignLoadFailure> {
     let dest = std::path::PathBuf::from(&path);
-    let (file, fingerprint) = format::load_with_fingerprint(&dest).map_err(|error| {
+    let opened = format::open_with_fingerprint(&dest).map_err(|error| {
         tracing::info!(kind = ?error.failure().kind, "Design could not be opened");
         error.failure()
     })?;
-    try_record_recent(user_db, &path, &file.name);
+    try_record_recent(user_db, &path, opened.name());
     tracing::info!("Design loaded");
-    Ok(LoadedDesign { file, fingerprint })
+    Ok(opened)
 }
 
 /// Read a Design file for a stamp import, without listing it as recent.
@@ -304,8 +304,8 @@ mod tests {
     use rusqlite::Connection;
     use std::path::PathBuf;
 
-    fn loaded_design(outcome: Result<LoadedDesign, DesignLoadFailure>) -> LoadedDesign {
-        outcome.expect("the Design loads")
+    fn loaded_design(outcome: Result<super::OpenedLoad, DesignLoadFailure>) -> LoadedDesign {
+        outcome.expect("the Design loads").editable()
     }
 
     fn test_user_db() -> UserDb {

@@ -7,7 +7,7 @@ use canopi_types::design::{
 };
 use std::path::{Path, PathBuf};
 
-use super::format;
+use super::format::{self, OpenedDesign};
 
 const DRAFTS_DIR: &str = "drafts";
 const DRAFT_EXTENSION: &str = "canopi";
@@ -64,21 +64,21 @@ impl DesignDrafts {
         })
     }
 
-    /// Load the draft `id` with the same size cap and version admission as a
-    /// Design file, its refusal typed as a Design file's is (canopi-cyqd).
-    pub(crate) fn load(&self, id: &str) -> Result<CanopiFile, DesignLoadFailure> {
+    /// Load the draft `id` with the same size cap and version admission as a Design file, a
+    /// newer one read-only (2.1-M478), its refusal typed as a Design file's is (canopi-cyqd).
+    pub(crate) fn load(&self, id: &str) -> Result<OpenedDesign<CanopiFile>, DesignLoadFailure> {
         let path = draft_path(&self.dir, id).map_err(|message| DesignLoadFailure {
             kind: DesignLoadFailureKind::Missing,
             message,
             field_path: None,
         })?;
-        format::load_from_file(&path).map_err(|error| error.failure())
+        format::open_within(&path, format::MAX_CANOPI_FILE_BYTES).map_err(|error| error.failure())
     }
 
-    /// Every readable draft, most recently written first. A draft that cannot be
-    /// read or decoded is skipped with a warning instead of failing the list; a
-    /// draft from before Canopi 2.0 stays in place, unread (ADR 0021), and is
-    /// skipped quietly.
+    /// Every readable draft, most recently written first; one a newer Canopi saved is listed
+    /// even when its read refuses it, never hidden (2.1-Q316). A draft that cannot be read or
+    /// decoded is skipped with a warning instead of failing the list; a draft from before
+    /// Canopi 2.0 stays in place, unread (ADR 0021), and is skipped quietly.
     pub(crate) fn list(&self) -> Result<Vec<DesignDraftSummary>, String> {
         let entries = match std::fs::read_dir(&self.dir) {
             Ok(entries) => entries,
@@ -180,17 +180,20 @@ fn summarize_draft(
     let modified = std::fs::metadata(path)
         .and_then(|metadata| metadata.modified())
         .map_err(|_| DraftSkip::Unreadable)?;
-    let file = format::load_from_file(path).map_err(|error| {
-        if error.failure().kind == canopi_types::design::DesignLoadFailureKind::OlderVersion {
-            DraftSkip::BeforeCanopi2
-        } else {
-            DraftSkip::Unreadable
+    let name = match format::open_within(path, format::MAX_CANOPI_FILE_BYTES) {
+        Ok(OpenedDesign::Editable(file)) => file.name,
+        Ok(OpenedDesign::ReadOnly(design)) => design.view.name,
+        // Opening it says why the read refused it.
+        Err(format::DesignLoadError::NewerRefused { .. }) => String::new(),
+        Err(error) if error.failure().kind == DesignLoadFailureKind::OlderVersion => {
+            return Err(DraftSkip::BeforeCanopi2);
         }
-    })?;
-    let name = if file.name.trim().is_empty() {
+        Err(_) => return Err(DraftSkip::Unreadable),
+    };
+    let name = if name.trim().is_empty() {
         UNTITLED_DRAFT_NAME.to_owned()
     } else {
-        file.name
+        name
     };
     let seconds = modified
         .duration_since(std::time::UNIX_EPOCH)
@@ -240,7 +243,10 @@ mod tests {
             bytes,
             format::encode_design(&design("Orchard sketch")).unwrap()
         );
-        assert_eq!(drafts.load("draft-1").unwrap().name, "Orchard sketch");
+        assert_eq!(
+            drafts.load("draft-1").unwrap().editable().name,
+            "Orchard sketch"
+        );
         let names = fs::read_dir(&dir)
             .unwrap()
             .map(|entry| entry.unwrap().file_name())
@@ -251,7 +257,7 @@ mod tests {
             .save("draft-1", &design("Orchard sketch, later"))
             .unwrap();
         assert_eq!(
-            drafts.load("draft-1").unwrap().name,
+            drafts.load("draft-1").unwrap().editable().name,
             "Orchard sketch, later"
         );
     }
@@ -523,7 +529,7 @@ mod tests {
         assert!(dir.join("folder.canopi").is_dir());
 
         drafts.save("damaged", &design("Repaired")).unwrap();
-        assert_eq!(drafts.load("damaged").unwrap().name, "Repaired");
+        assert_eq!(drafts.load("damaged").unwrap().editable().name, "Repaired");
         fs::write(dir.join("damaged.canopi"), "{ not json").unwrap();
         drafts.delete("damaged").unwrap();
         assert_eq!(sidecar_free(&dir), ["folder.canopi", "huge.canopi"]);

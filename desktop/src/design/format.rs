@@ -1,8 +1,10 @@
+use canopi_format::read::{FIRST_READ_VERSION, ReadRefusal, read_newer_design};
 use canopi_types::design::field_path::{FieldPath, Refusal};
 use canopi_types::design::{
     CURRENT_CANOPI_FILE_VERSION, CanopiDesignIngestionErrorKind, CanopiFile,
-    DEFAULT_BUDGET_CURRENCY, DesignLoadFailure, DesignLoadFailureKind, Layer,
-    MISSING_CANOPI_FILE_VERSION, admit_design_identities_and_ranges, validate_design_geometry,
+    DEFAULT_BUDGET_CURRENCY, DesignLoadFailure, DesignLoadFailureKind, Layer, LoadedDesign,
+    MISSING_CANOPI_FILE_VERSION, ReadOnlyDesign, admit_design_identities_and_ranges,
+    validate_design_geometry,
 };
 use canopi_types::views::{validate_map_view, validate_views_and_stories};
 use std::fmt;
@@ -71,10 +73,55 @@ pub(crate) const MAX_CANOPI_FILE_BYTES: u64 = 64 * 1024 * 1024;
 /// the caller knows the path, and they reach logs and Problem Reports.
 #[derive(Debug)]
 pub(crate) enum DesignLoadError {
-    Read { source: std::io::Error },
-    TooLarge { limit: u64 },
-    InvalidJson { source: serde_json::Error },
-    Ingestion { source: CanopiDesignIngestionError },
+    Read {
+        source: std::io::Error,
+    },
+    TooLarge {
+        limit: u64,
+    },
+    InvalidJson {
+        source: serde_json::Error,
+    },
+    Ingestion {
+        source: CanopiDesignIngestionError,
+    },
+    /// A Design of version 10 or later the read view refused, with its kind (2.1-M481).
+    NewerRefused {
+        source: ReadRefusal,
+    },
+}
+
+/// A Design as it opens (2.1-M478): `Editable` in this build's format, or `ReadOnly` when a
+/// newer Canopi saved it, a view no save, Draft or export path takes (2.1-M479). The wire
+/// carries the one shape or the other, a read-only one told apart by `saved_by_version`.
+#[derive(Debug, serde::Serialize)]
+#[serde(untagged)]
+pub enum OpenedDesign<T> {
+    /// This build's format, to edit.
+    Editable(T),
+    /// Saved by a newer Canopi, to read only.
+    ReadOnly(Box<ReadOnlyDesign>),
+}
+
+impl OpenedDesign<LoadedDesign> {
+    /// The Design's name as saved, for Recent Designs.
+    pub(crate) fn name(&self) -> &str {
+        match self {
+            Self::Editable(loaded) => &loaded.file.name,
+            Self::ReadOnly(design) => &design.view.name,
+        }
+    }
+}
+
+#[cfg(test)]
+impl<T> OpenedDesign<T> {
+    /// The Design opened to edit; a test that expects this build's format.
+    pub(crate) fn editable(self) -> T {
+        match self {
+            Self::Editable(design) => design,
+            Self::ReadOnly(_) => panic!("expected this build's format, opened to edit"),
+        }
+    }
 }
 
 impl DesignLoadError {
@@ -82,6 +129,7 @@ impl DesignLoadError {
         // The refused field, when the file parsed as JSON and the Design was refused.
         let field_path = match self {
             Self::Ingestion { source } => Some(source.refusal.field_path.clone()),
+            Self::NewerRefused { source } => Some(source.refusal.field_path.clone()),
             _ => None,
         };
         let kind = match self {
@@ -96,6 +144,7 @@ impl DesignLoadError {
                 Some(_) => DesignLoadFailureKind::NewerVersion,
                 None => DesignLoadFailureKind::InvalidDocument,
             },
+            Self::NewerRefused { source } => source.kind,
         };
         DesignLoadFailure {
             kind,
@@ -119,6 +168,13 @@ impl fmt::Display for DesignLoadError {
             }
             Self::Ingestion { source } => {
                 write!(formatter, "Failed to parse the Design: {source}")
+            }
+            Self::NewerRefused { source } => {
+                write!(
+                    formatter,
+                    "Failed to read the newer Design: {}",
+                    source.refusal
+                )
             }
         }
     }
@@ -191,29 +247,37 @@ pub fn export_to_file(path: &Path, content: &CanopiFile) -> Result<(), String> {
         .map_err(|e| format!("Failed to export {}: {e}", path.display()))
 }
 
-/// Load a `CanopiFile` from disk.
+/// Load a `CanopiFile` from disk to use its content, as a stamp or template import does.
 ///
 /// Refuses files over [`MAX_CANOPI_FILE_BYTES`], parses JSON to a value for
-/// strict version admission (only the current format opens, ADR 0021), then
-/// deserializes `CanopiFile`. Unknown root fields are preserved in `CanopiFile::extra`.
+/// strict version admission (only the current format, ADR 0021; a newer Design too, whose
+/// read-only view is never imported, 2.1-M478), then deserializes `CanopiFile`. Unknown
+/// root fields are preserved in `CanopiFile::extra`.
 pub(crate) fn load_from_file(path: &Path) -> Result<CanopiFile, DesignLoadError> {
-    Ok(load_with_fingerprint(path)?.0)
+    decode_design_bytes(&read_bounded(path, MAX_CANOPI_FILE_BYTES)?)
 }
 
-/// [`load_from_file`] plus the [`super::fingerprint`] of the exact bytes read.
-pub(crate) fn load_with_fingerprint(path: &Path) -> Result<(CanopiFile, String), DesignLoadError> {
+/// Open a Design to show it: this build's format with the [`super::fingerprint`] of the
+/// exact bytes read, or a newer one read-only ([`open_within`]).
+pub(crate) fn open_with_fingerprint(
+    path: &Path,
+) -> Result<OpenedDesign<LoadedDesign>, DesignLoadError> {
     let content = read_bounded(path, MAX_CANOPI_FILE_BYTES)?;
     let fingerprint = super::fingerprint(&content);
-    let decoded = decode_design_bytes(&content)?;
-    Ok((decoded, fingerprint))
+    Ok(match open_design_bytes(&content)? {
+        OpenedDesign::Editable(file) => OpenedDesign::Editable(LoadedDesign { file, fingerprint }),
+        OpenedDesign::ReadOnly(design) => OpenedDesign::ReadOnly(design),
+    })
 }
 
-/// Load a Design only when its file is at most `limit` bytes, with the same
-/// admission as [`load_with_fingerprint`]. Recent Design previews read
-/// through it so a very large file is skipped rather than parsed.
-pub(crate) fn load_within(path: &Path, limit: u64) -> Result<CanopiFile, DesignLoadError> {
-    let content = read_bounded(path, limit.min(MAX_CANOPI_FILE_BYTES))?;
-    decode_design_bytes(&content)
+/// Open a Design only when its file is at most `limit` bytes: the current format admitted as
+/// [`load_from_file`] admits it, a version of 10 or later read for the read-only view.
+/// Drafts and Recent Design previews open through it, a preview skipping a very large file.
+pub(crate) fn open_within(
+    path: &Path,
+    limit: u64,
+) -> Result<OpenedDesign<CanopiFile>, DesignLoadError> {
+    open_design_bytes(&read_bounded(path, limit.min(MAX_CANOPI_FILE_BYTES))?)
 }
 
 fn read_bounded(path: &Path, limit: u64) -> Result<Vec<u8>, DesignLoadError> {
@@ -236,6 +300,23 @@ fn read_bounded(path: &Path, limit: u64) -> Result<Vec<u8>, DesignLoadError> {
         return Err(DesignLoadError::TooLarge { limit });
     }
     Ok(content)
+}
+
+/// The branch at the version check (2.1-M478): a version of 10 or later goes to the read
+/// view, any other to this build's admission.
+fn open_design_bytes(content: &[u8]) -> Result<OpenedDesign<CanopiFile>, DesignLoadError> {
+    let value: serde_json::Value = serde_json::from_slice(content)
+        .map_err(|source| DesignLoadError::InvalidJson { source })?;
+    let newer =
+        read_design_version(&value).is_ok_and(|version| version >= u64::from(FIRST_READ_VERSION));
+    if newer {
+        return read_newer_design(&value)
+            .map(|design| OpenedDesign::ReadOnly(Box::new(design)))
+            .map_err(|source| DesignLoadError::NewerRefused { source });
+    }
+    decode_design_value(value)
+        .map(OpenedDesign::Editable)
+        .map_err(|source| DesignLoadError::Ingestion { source })
 }
 
 fn decode_design_bytes(content: &[u8]) -> Result<CanopiFile, DesignLoadError> {
@@ -988,7 +1069,10 @@ mod write_tests {
         let path = dir.join("garden.canopi");
 
         let saved = saved_fingerprint(save_to_file(&path, &named("Garden"), None).unwrap());
-        let (loaded, loaded_fingerprint) = load_with_fingerprint(&path).unwrap();
+        let LoadedDesign {
+            file: loaded,
+            fingerprint: loaded_fingerprint,
+        } = open_with_fingerprint(&path).unwrap().editable();
 
         let bytes = std::fs::read(&path).unwrap();
         assert_eq!(saved, crate::design::fingerprint(&bytes));
@@ -1014,7 +1098,10 @@ mod write_tests {
         assert_ne!(second, first);
         assert_eq!(load_from_file(&path).unwrap().name, "Second");
         let third = saved_fingerprint(save_to_file(&path, &named("Third"), Some(&second)).unwrap());
-        assert_eq!(load_with_fingerprint(&path).unwrap().1, third);
+        assert_eq!(
+            open_with_fingerprint(&path).unwrap().editable().fingerprint,
+            third
+        );
         let entries = std::fs::read_dir(&dir).unwrap().count();
         assert_eq!(entries, 1, "a save leaves only the Design file, no backup");
     }
@@ -1069,7 +1156,10 @@ mod write_tests {
         let fingerprint =
             saved_fingerprint(save_to_file(&path, &named("Keep mine"), None).unwrap());
 
-        let (loaded, loaded_fingerprint) = load_with_fingerprint(&path).unwrap();
+        let LoadedDesign {
+            file: loaded,
+            fingerprint: loaded_fingerprint,
+        } = open_with_fingerprint(&path).unwrap().editable();
         assert_eq!(loaded.name, "Keep mine");
         assert_eq!(loaded_fingerprint, fingerprint);
     }

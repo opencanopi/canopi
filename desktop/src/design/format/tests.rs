@@ -194,7 +194,7 @@ fn a_canopi_1_2_design_is_refused_as_an_older_version() {
         "no paths: {}",
         failure.message
     );
-    assert!(load_with_fingerprint(&path).is_err());
+    assert!(open_with_fingerprint(&path).is_err());
 }
 
 /// Open the user's own Designs: every `.canopi` in
@@ -311,4 +311,70 @@ fn opening_a_design_over_the_size_limit_is_refused() {
 
     assert!(matches!(error, DesignLoadError::TooLarge { .. }), "{error}");
     assert!(error.to_string().contains("64 MiB"), "{error}");
+}
+
+/// The hand-made v10 Design R1 froze (`canopi-format/spec/v10/`), as 2.1 saves it.
+const V10_DESIGN: &str = include_str!("../../../../canopi-format/spec/v10/read-fixture.canopi");
+
+fn opened_failure(path: &Path) -> DesignLoadFailure {
+    open_with_fingerprint(path).unwrap_err().failure()
+}
+
+/// canopi-f47t.52.270: Open branches at the version check: this build's format opens to edit
+/// with its fingerprint, a newer Design read-only with the version that saved it (2.1-M478),
+/// and a newer one the read refuses keeps its kind and field. A file over the cap, or one
+/// that cannot be read, is refused before anything is decoded.
+#[test]
+fn canopi_f47t_52_270_open_shows_a_newer_design_read_only_and_refuses_what_it_cannot_read() {
+    let dir = unique_dir("open_newer");
+    let current = dir.join("current.canopi");
+    save_to_file(&current, &create_default(), None).unwrap();
+    let OpenedDesign::Editable(loaded) = open_with_fingerprint(&current).unwrap() else {
+        panic!("this build's format opens to edit");
+    };
+    assert_eq!(loaded.file.name, "Untitled");
+    assert_eq!(
+        loaded.fingerprint,
+        super::super::fingerprint(&std::fs::read(&current).unwrap())
+    );
+
+    let newer = dir.join("newer.canopi");
+    std::fs::write(&newer, V10_DESIGN).unwrap();
+    let OpenedDesign::ReadOnly(design) = open_with_fingerprint(&newer).unwrap() else {
+        panic!("a v10 Design opens read-only");
+    };
+    assert_eq!(design.saved_by_version, 10);
+    assert_eq!(design.view.name, "Orchard by the pond");
+    assert_eq!(design.view.version, CURRENT_CANOPI_FILE_VERSION);
+
+    let mut value: serde_json::Value = serde_json::from_str(V10_DESIGN).unwrap();
+    value["plants"] = serde_json::json!(3);
+    let refused = dir.join("refused.canopi");
+    std::fs::write(&refused, value.to_string()).unwrap();
+    let failure = opened_failure(&refused);
+    assert_eq!(failure.kind, DesignLoadFailureKind::InvalidDocument);
+    let field = failure.field_path.map(|path| path.to_string());
+    assert_eq!(field.as_deref(), Some("$.plants"));
+    value["version"] = serde_json::json!(11);
+    std::fs::write(&refused, value.to_string()).unwrap();
+    assert_eq!(
+        opened_failure(&refused).kind,
+        DesignLoadFailureKind::NewerVersion
+    );
+
+    let huge = dir.join("huge.canopi");
+    let file = std::fs::File::create(&huge).unwrap();
+    file.set_len(MAX_CANOPI_FILE_BYTES + 1).unwrap();
+    drop(file);
+    assert_eq!(opened_failure(&huge).kind, DesignLoadFailureKind::TooLarge);
+    let folder = dir.join("folder.canopi");
+    std::fs::create_dir(&folder).unwrap();
+    assert_eq!(
+        opened_failure(&folder).kind,
+        DesignLoadFailureKind::Unreadable
+    );
+    assert_eq!(
+        opened_failure(&dir.join("absent.canopi")).kind,
+        DesignLoadFailureKind::Missing
+    );
 }
