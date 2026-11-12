@@ -184,7 +184,8 @@ export const TABLE: Table = {
     // The plan names the families a change's paths reach (CHEAP_FAMILIES) after `--`.
     'cheap-families': web('npm run test:policies:family --'),
     'actionlint': { command: 'node policy/gate/cli.mjs actionlint' },
-    // Both builds' chunks parsed by the oldest engine, Debian 12's JavaScriptCore, in its pinned image (A15).
+    // Both builds' chunks parsed by the oldest engines in their pinned images: Debian 12's JavaScriptCore (A15) and the
+    // engine floor's WebKit (desktop/web/engine-floor.ts, 2.1-M490).
     'oldest-engine': { command: 'node policy/gate/cli.mjs oldest-engine' },
     'pdf-fonts': web('npm run prepare:pdf-fonts'),
     // The lanes outside Build & Test, each a workflow of its own on the events it names (A5 (4)): information, a
