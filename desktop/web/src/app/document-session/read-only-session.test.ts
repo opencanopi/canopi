@@ -81,6 +81,7 @@ function makeFile(name: string, plantCount = 0): CanopiFile {
 interface SceneSession extends CanvasDocumentSurface {
   readonly history: SceneHistory
   readonly sceneStore: SceneStore
+  readonly authority: SceneRuntimeEditCoordinator
 }
 
 /** The test document surface, its Scene and undo history the real Scene authority's. */
@@ -94,6 +95,7 @@ function makeSceneSession(file: CanopiFile): SceneSession {
     incrementSceneRevision: () => {},
     syncCanvasSignalsFromScene: () => {},
     invalidate: () => {},
+    refusesEdits: () => store.isReadOnly(),
   })
   const surface = createTestCanvasDocumentSurface({
     hasLoadedDocument: () => true,
@@ -112,7 +114,7 @@ function makeSceneSession(file: CanopiFile): SceneSession {
       }
     },
   })
-  return { ...surface, history, sceneStore }
+  return { ...surface, history, sceneStore, authority }
 }
 
 /** What load_design answers for a `.canopi` v10 file: the read view, never a fingerprint. */
@@ -235,6 +237,28 @@ describe('the read-only Session kind (canopi-f47t.52.270)', () => {
     expect(store.readDesignName()).toBe('Orchard 2.1')
     expect(store.isDesignDirty()).toBe(false)
     expect(shown?.description).toBeNull()
+  })
+
+  it('the Scene refuses edits: a drag, a drop, Delete or Undo leaves the shown Design; a selection still applies', async () => {
+    await openNewer('Orchard 2.1', 3)
+    const { authority, sceneStore } = session
+    const shown = sceneStore.persisted
+
+    const moved = authority.run('move-plant', (tx) => {
+      tx.mutate((draft) => { draft.plants.pop() })
+      tx.setSelection([{ kind: 'plant', id: 'plant-0' }])
+    })
+    const drag = authority.begin('drag-plant')
+    drag.mutate((draft) => { draft.plants.shift() })
+    drag.commit()
+
+    expect(moved).toBe(true)
+    expect(sceneStore.persisted).toBe(shown)
+    expect(sceneStore.persisted.plants.length).toBe(3)
+    expect(sceneStore.session.selectedTargets).toEqual([{ kind: 'plant', id: 'plant-0' }])
+    session.history.record({ type: 'test-edit' } as unknown as SceneCommand, () => {})
+    expect(authority.canUndo.value).toBe(false)
+    expect(authority.undo()).toBe(false)
   })
 
   it('runs no continuous save or page-hide flush, even after a Scene change', async () => {
