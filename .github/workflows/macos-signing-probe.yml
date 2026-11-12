@@ -164,9 +164,9 @@ jobs:
           path: signing-results
 
       # The classifier, checked first on planted rows, then on the two the probe wrote. A row's class is Gatekeeper's
-      # as the dialog says it ("accepted" when the quarantined app ran); with no dialog read, the tools' (codesign, then
-      # spctl). The assumption holds when spctl and syspolicy_check each read the two bundles differently and both
-      # rows' tools agree with a dialog that was read; the verdict improves only when the ad-hoc bundle ranks above
+      # ("accepted" when the quarantined app ran, else as its dialog says it); with neither read, the tools' (codesign,
+      # then spctl). The assumption holds when spctl and syspolicy_check each read the two bundles differently and both
+      # rows' tools agree with Gatekeeper's reading; the verdict improves only when the ad-hoc bundle ranks above
       # today's, and the change ships only when the assumption holds.
       - name: Read the verdict
         shell: bash
@@ -183,7 +183,10 @@ jobs:
               *) echo unread ;;
             esac
           }
-          seen_class() { if [ "$3" = yes ]; then echo accepted; elif [ "$2" != unread ]; then echo "$2"; else echo "$1"; fi; }
+          # Gatekeeper's own reading of a row: a quarantined app that ran is its acceptance (no dialog appears), else
+          # the dialog's class. Both the row's class and the tools' agreement read this one value.
+          gatekeeper_class() { if [ "$2" = yes ]; then echo accepted; else echo "$1"; fi; }
+          seen_class() { if [ "$2" != unread ]; then echo "$2"; else echo "$1"; fi; }
           rank() { case "$1" in damaged) echo 0 ;; unidentified) echo 1 ;; accepted) echo 2 ;; *) echo -1 ;; esac; }
           verdict() {
             if [ "$(rank "$2")" -gt "$(rank "$1")" ]; then echo improved
@@ -202,8 +205,8 @@ jobs:
           install_text() { case "$1" in ship*) echo "$open_anyway_steps" ;; *) echo "$xattr_steps" ;; esac; }
           tells_apart() { if [ "$1" = "$2" ]; then echo untested; elif [ "$3" = missing ] || [ "$4" = missing ]; then echo unread; elif [ "$5" != "$6" ]; then echo yes; else echo no; fi; }
           agrees() { if [ "$2" = unread ]; then echo unread; elif [ "$1" = "$2" ]; then echo yes; else echo no; fi; }
-          # Arguments: spctl apart, syspolicy_check apart, then each row's tool-against-dialog agreement. Any no is wrong;
-          # holds needs all four yes, so a dialog left unread never counts as agreement.
+          # Arguments: spctl apart, syspolicy_check apart, then each row's tool-against-Gatekeeper agreement. Any no is
+          # wrong; holds needs all four yes, so a row Gatekeeper left unread (no dialog read, no launch) never agrees.
           assumption() {
             for word in "$@"; do if [ "$word" = no ]; then echo wrong; return; fi; done
             for word in "$@"; do if [ "$word" != yes ]; then echo untested; return; fi; done
@@ -217,9 +220,11 @@ jobs:
           expect 'the damaged dialog' "$(dialog_class '“Canopi” is damaged and can’t be opened. You should move it to the Trash.')" damaged
           expect 'the Sequoia not-verified dialog' "$(dialog_class '“Canopi” Not Opened Apple could not verify “Canopi” is free of malware')" unidentified
           expect 'no dialog read' "$(dialog_class 'execution error: System Events got an error: osascript is not allowed assistive access. (-1719)')" unread
-          expect 'the dialog wins over the tools' "$(seen_class unidentified damaged no)" damaged
-          expect 'the tools stand in for an unread dialog' "$(seen_class damaged unread no)" damaged
-          expect 'a quarantined app that ran was accepted' "$(seen_class damaged unread yes)" accepted
+          expect 'a quarantined app that ran is Gatekeeper accepting it (canopi-3cu2)' "$(gatekeeper_class unread yes)" accepted
+          expect 'a quarantined app that did not run keeps its dialog' "$(gatekeeper_class damaged no)" damaged
+          expect 'the dialog wins over the tools' "$(seen_class unidentified damaged)" damaged
+          expect 'the tools stand in for an unread dialog' "$(seen_class damaged unread)" damaged
+          expect 'a quarantined app that ran was accepted' "$(seen_class damaged "$(gatekeeper_class unread yes)")" accepted
           expect 'damaged to unidentified improves' "$(verdict damaged unidentified)" improved
           expect 'improved and installable ships' "$(decision improved yes holds)" "ship signingIdentity '-' and the Release Candidate verify check"
           expect 'improved but not installable by the steps drops' "$(decision improved no holds)" 'drop the config change'
@@ -240,6 +245,14 @@ jobs:
           expect 'one dialog read leaves it untested' "$(assumption yes yes yes unread)" untested
           expect 'improved and installable ships only on a held assumption' "$(decision improved yes untested)" 'drop the config change'
           expect 'a wrong assumption drops an improved verdict' "$(decision improved yes wrong)" 'drop the config change'
+          # The best verdict end to end: no dialog appears when Gatekeeper accepts the quarantined ad-hoc app, so its
+          # launch is the dialog's reading. Tools that accept it too hold and ship; an spctl that still rejects it
+          # disagrees with Gatekeeper, so a Release Candidate check built on it would misread users' verdict: wrong.
+          a_gk_ran="$(gatekeeper_class unread yes)"
+          expect 'an ad-hoc launch under quarantine the tools accept holds (canopi-3cu2)' "$(assumption yes yes "$(agrees damaged damaged)" "$(agrees accepted "$a_gk_ran")")" holds
+          expect 'an ad-hoc launch under quarantine the tools accept ships (canopi-3cu2)' "$(decision "$(verdict damaged "$(seen_class accepted "$a_gk_ran")")" yes "$(assumption yes yes "$(agrees damaged damaged)" "$(agrees accepted "$a_gk_ran")")")" "ship signingIdentity '-' and the Release Candidate verify check"
+          expect 'an ad-hoc launch under quarantine spctl rejects is wrong (canopi-3cu2)' "$(assumption yes yes "$(agrees damaged damaged)" "$(agrees unidentified "$a_gk_ran")")" wrong
+          expect 'an ad-hoc launch under quarantine spctl rejects drops (canopi-3cu2)' "$(decision "$(verdict damaged "$(seen_class unidentified "$a_gk_ran")")" yes "$(assumption yes yes "$(agrees damaged damaged)" "$(agrees unidentified "$a_gk_ran")")")" 'drop the config change'
           expect 'a dropped change keeps the xattr steps' "$(install_text 'drop the config change')" "$xattr_steps"
           expect 'a shipped change leads with Open Anyway' "$(install_text "$(decision improved yes holds)")" "$open_anyway_steps"
           if [ "$fail" != 0 ]; then exit 1; fi
@@ -255,21 +268,21 @@ jobs:
           done
           u_tool="$(tool_class "$(val unsigned codesign_exit)" "$(val unsigned spctl_exit)")"
           a_tool="$(tool_class "$(val adhoc codesign_exit)" "$(val adhoc spctl_exit)")"
-          u_dialog="$(dialog_class "$(val unsigned dialog)")"
-          a_dialog="$(dialog_class "$(val adhoc dialog)")"
-          u_seen="$(seen_class "$u_tool" "$u_dialog" "$(val unsigned launched_quarantined)")"
-          a_seen="$(seen_class "$a_tool" "$a_dialog" "$(val adhoc launched_quarantined)")"
+          u_gk="$(gatekeeper_class "$(dialog_class "$(val unsigned dialog)")" "$(val unsigned launched_quarantined)")"
+          a_gk="$(gatekeeper_class "$(dialog_class "$(val adhoc dialog)")" "$(val adhoc launched_quarantined)")"
+          u_seen="$(seen_class "$u_tool" "$u_gk")"
+          a_seen="$(seen_class "$a_tool" "$a_gk")"
           spctl_apart="$(tells_apart "$u_seen" "$a_seen" "$(val unsigned spctl_exit)" "$(val adhoc spctl_exit)" "$(val unsigned spctl_msg)" "$(val adhoc spctl_msg)")"
           policy_apart="$(tells_apart "$u_seen" "$a_seen" "$(val unsigned syspolicy_exit)" "$(val adhoc syspolicy_exit)" "$(val unsigned syspolicy_msg)" "$(val adhoc syspolicy_msg)")"
-          held="$(assumption "$spctl_apart" "$policy_apart" "$(agrees "$u_tool" "$u_dialog")" "$(agrees "$a_tool" "$a_dialog")")"
+          held="$(assumption "$spctl_apart" "$policy_apart" "$(agrees "$u_tool" "$u_gk")" "$(agrees "$a_tool" "$a_gk")")"
           found="$(verdict "$u_seen" "$a_seen")"
           chosen="$(decision "$found" "$(val adhoc launched_after_xattr)" "$held")"
           {
             for variant in unsigned adhoc; do
               echo "SIGNING-ROW $variant: $(val "$variant" macos); quarantine $(val "$variant" quarantine); codesign exit $(val "$variant" codesign_exit) ($(val "$variant" codesign_msg)); spctl exit $(val "$variant" spctl_exit) ($(val "$variant" spctl_msg)); syspolicy_check exit $(val "$variant" syspolicy_exit) ($(val "$variant" syspolicy_msg)); dialog ($(val "$variant" dialog)); ran quarantined: $(val "$variant" launched_quarantined); opens after xattr: $(val "$variant" launched_after_xattr)"
             done
-            echo "SIGNING-CLASS unsigned: tools $u_tool, dialog $u_dialog, seen $u_seen"
-            echo "SIGNING-CLASS adhoc: tools $a_tool, dialog $a_dialog, seen $a_seen"
+            echo "SIGNING-CLASS unsigned: tools $u_tool, Gatekeeper $u_gk, seen $u_seen"
+            echo "SIGNING-CLASS adhoc: tools $a_tool, Gatekeeper $a_gk, seen $a_seen"
             echo "SIGNING-ASSUMPTION: $held (spctl tells them apart: $spctl_apart; syspolicy_check: $policy_apart)"
             echo "SIGNING-VERDICT: $found: $chosen"
             echo "SIGNING-INSTALL-TEXT: $(install_text "$chosen")"
