@@ -536,6 +536,13 @@ export type LibraryEngines = {
 	geolibre: LidarEngineStatus,
 };
 
+// The kind of one Data library item, stored in `library_items.kind` from catalogue 26.
+export type LibraryItemKind =
+// A gridded item: an imported elevation model or an analysis raster.
+"raster" |
+// Vector features: bring-your-own vectors and hydrology outputs (2.1-Q100).
+"vector";
+
 export type LibraryItemRole = "Source" | "Derived";
 
 // One Data Library item as the UI reads it.
@@ -588,6 +595,28 @@ export type LibraryItemSummary = {
  *  produce them.
  */
 export type LibraryItemType = { kind: "Raster"; quantity: RasterQuantity };
+
+// How a settled `library_jobs` row ended (contracts §8); present exactly when the state is settled.
+export type LibraryJobOutcome =
+// Published.
+"succeeded" |
+// Discarded with a failure, which the row stores as catalogue JSON.
+"failed" |
+// Cancelled by the user.
+"cancelled" |
+// Stopped by quit, or found unfinished at open; offers Run again.
+"interrupted";
+
+// The stored state of one `library_jobs` row (contracts §8), for imports and analyses alike.
+export type LibraryJobState =
+// Submitted, waiting for the runner.
+"queued" |
+// The runner is working on it.
+"running" |
+// The work returned or was cancelled; its result is being published or discarded.
+"settling" |
+// Final; the row's outcome says how it ended.
+"settled";
 
 // Why the Data library is read-only for the session.
 export type LibraryReadOnlyReason =
@@ -849,6 +878,18 @@ export type LidarSampleUnavailableReason =
  *  be read; asking again may succeed.
  */
 "ReadFailed";
+
+/**
+ *  Where a library item came from, stored as `library_items.lineage_tag` from catalogue 26. The tag only:
+ *  what an analysis or external item also records lives in its lineage's own detail table.
+ */
+export type Lineage =
+// Imported by the user from a file.
+"source" |
+// Produced by a registered analysis; the only lineage that can be out of date and refreshed.
+"analysis" |
+// Made by another tool, recorded with that tool, its date, notes and links.
+"external";
 
 /**
  *  A Design read from a file, with the fingerprint (SHA-256 of the file's

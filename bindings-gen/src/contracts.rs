@@ -66,10 +66,14 @@ pub(crate) fn contract_types() -> TypeCollection {
         .register::<canopi_types::library::Freshness>()
         .register::<canopi_types::library::LibraryDeleteImpact>()
         .register::<canopi_types::library::LibraryEngines>()
+        .register::<canopi_types::library::LibraryItemKind>()
         .register::<canopi_types::library::LibraryItemRole>()
         .register::<canopi_types::library::LibraryItemSummary>()
         .register::<canopi_types::library::LibraryItemType>()
+        .register::<canopi_types::library::LibraryJobOutcome>()
+        .register::<canopi_types::library::LibraryJobState>()
         .register::<canopi_types::library::LibrarySnapshot>()
+        .register::<canopi_types::library::Lineage>()
         .register::<canopi_types::library::ParamValue>()
         .register::<canopi_types::library::ProcessingHistoryPage>()
         .register::<canopi_types::library::ProcessingRun>()
@@ -315,6 +319,43 @@ mod tests {
         }
         assert!(rendered.contains("export type PickOpenOutcome ="));
         assert!(rendered.contains("export type PickSaveOutcome ="));
+    }
+
+    /// Catalogue 26's stored enums reach TypeScript as unions of exactly their stored literals (contracts §7).
+    #[test]
+    fn r2_canopi_f47t_52_271_catalogue_26_stored_enums_reach_typescript_as_their_literals() {
+        use canopi_types::library::{LibraryItemKind, LibraryJobOutcome, LibraryJobState, Lineage};
+        let rendered = super::render_typescript_contracts().expect("contracts render");
+        let union_of = |name: &str| -> Vec<String> {
+            rendered
+                .split(&format!("export type {name} ="))
+                .nth(1)
+                .and_then(|rest| rest.split(";\n").next())
+                .unwrap_or_else(|| panic!("{name} is exported"))
+                .lines()
+                .filter(|line| !line.trim_start().starts_with("//"))
+                .collect::<String>()
+                .split('|')
+                .map(|literal| literal.trim().trim_matches('"').to_owned())
+                .collect()
+        };
+        let literals = |all: &[&str]| all.iter().map(|&l| l.to_owned()).collect::<Vec<_>>();
+        assert_eq!(
+            union_of("LibraryItemKind"),
+            literals(&LibraryItemKind::ALL.map(LibraryItemKind::literal))
+        );
+        assert_eq!(
+            union_of("Lineage"),
+            literals(&Lineage::ALL.map(Lineage::literal))
+        );
+        assert_eq!(
+            union_of("LibraryJobState"),
+            literals(&LibraryJobState::ALL.map(LibraryJobState::literal))
+        );
+        assert_eq!(
+            union_of("LibraryJobOutcome"),
+            literals(&LibraryJobOutcome::ALL.map(LibraryJobOutcome::literal))
+        );
     }
 }
 
