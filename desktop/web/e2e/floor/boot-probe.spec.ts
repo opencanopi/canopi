@@ -8,9 +8,10 @@
 // - what Playwright WebKit on a Linux host reports as its user agent, which decides whether the macOS Trackpad default
 //   (2.1-Q309, U-1) flips an e2e run's scroll setting: it does, and the pin at the end says why e2e seeds it.
 //
-// It runs outside the repository's Playwright config, so the same file runs under today's runner and under the old
-// runners whose WebKit predates the floor (.github/workflows/engine-floor-probe.yml copies it, with the one app module it
-// imports, into a scratch package that installs the runner matching each image). So it uses only the API Playwright
+// The same file runs under today's runner and under the old runners whose WebKit predates the floor: the repository's
+// Playwright config matches it for local runs, and .github/workflows/engine-floor-probe.yml copies it, with the one app
+// module it imports, into a scratch package that installs the runner matching each image and runs it without that
+// config. No regular CI lane runs e2e/floor, so nothing here runs on a runner bump. So it uses only the API Playwright
 // 1.20 already had, serves its own pages with node:http, and writes every in-page script as ES5. Each boot writes one
 // `FLOOR-ROW {json}` line, which the workflow gathers into its summary: the floor and its cause are read from there.
 //
@@ -265,8 +266,9 @@ async function userAgentOf(browser: Browser): Promise<string> {
 // Measured 2026-11-12 in the 1.64.1 image (WebKit 27.2) and the 1.20.0 image (WebKit 15.4): Playwright WebKit on Linux
 // sends Safari's Mac user agent (Macintosh; Intel Mac OS X 10_15_7) while navigator.platform says Linux, so
 // detectPlatform reads it as a Mac and a new Web profile would start on Trackpad (2.1-Q309). Every e2e wheel step
-// therefore seeds the pointing device (support/canvas.ts). When a runner bump changes either answer, this pin fails
-// first and the seed is reviewed.
+// therefore seeds the pointing device (support/canvas.ts). This pin runs only when the probe is dispatched or run by
+// hand, not on a runner bump; the seed works whichever answer a bump brings, so a changed answer only means the seed
+// may no longer be needed.
 test.describe('the e2e user agent (canopi-pqxl)', () => {
   test('U canopi-pqxl: on a Linux host Playwright WebKit reads as a Mac, Chromium and Firefox as Linux (e2e default flip)', async ({ page, browserName }) => {
     test.skip(process.platform !== 'linux', 'the pin is about the Linux hosts CI and the pinned images run on')
