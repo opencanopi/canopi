@@ -14,7 +14,8 @@
 // 3. `wasm-bindgen --target web --no-typescript` into dist/: canopi_format_wasm.js and canopi_format_wasm_bg.wasm.
 //
 // CANOPI_FORMAT_WASM_MVP=1 builds for the WebAssembly MVP (`-C target-cpu=mvp`), the plan's fallback should an engine
-// Canopi supports refuse the default target features; the probe (e2e/canvas/format-core-probe.spec.ts) found none.
+// Canopi supports refuse the default target features; the probe (e2e/canvas/format-core-probe.spec.ts) found none among
+// the current engines it runs in, and has not yet run at the engine floor (see the spec's header).
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';

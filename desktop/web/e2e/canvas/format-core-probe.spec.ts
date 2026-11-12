@@ -6,14 +6,17 @@
 // - WebKitGTK and WebView2 themselves: the WebDriver test, run by web-edition-browsers.yml's format-core-engines job
 //   against WebKitWebDriver (MiniBrowser on Ubuntu 22.04's WebKitGTK, Desktop's Linux floor) and msedgedriver, with
 //   CANOPI_FORMAT_PROBE_WEBDRIVER (the driver's URL) and CANOPI_FORMAT_PROBE_CAPABILITIES (its capabilities, JSON).
-// - The engine floor: U's old WebKit images boot dist-web, which carries the worker (canopi-4kfl).
+// - The engine floor (U-2's old WebKit images, recorded in canopi-4kfl): not covered yet. U's floor lane
+//   (engine-floor-probe.yml) only boots the app pages, and nothing starts this worker until R1-6, so no WebKit of the
+//   floor's age has instantiated the module; until that lane runs runProbe, the default target features are
+//   unmeasured there.
 // The preview server labels the .wasm `application/wasm`, so the worker compiles it as it streams; a host that labels it
 // otherwise gets the arrayBuffer fallback, as does an engine refusing a parameter after the label, and a load that
 // fails answers `unavailable` and is retried by the next call.
 // Measured 2026-11-12 (wasm-bindgen 0.2.130, Rust 1.97.1 release, builder paths remapped, no wasm-opt): the .wasm is
 // 61,779 bytes, and the worker's chunk with the glue bundled in 3,640; it instantiated with the default target features
 // (reference types among them) in the pinned image's Chromium, WebKit and Firefox and in MiniBrowser on Ubuntu 22.04's
-// WebKitGTK 2.50.4 through WebKitWebDriver, so no `-C target-cpu=mvp`.
+// WebKitGTK 2.50.4 through WebKitWebDriver, so no `-C target-cpu=mvp` for those engines; the floor is unmeasured.
 import { readdirSync, readFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { fileURLToPath } from 'node:url'
