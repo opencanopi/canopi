@@ -27,7 +27,7 @@ import {
   usedCanvasTools,
   type NewDesignDefaults,
 } from './state'
-import type { SettingsPlatformAdapter } from './platform-adapter'
+import { withFirstRunSettings, type SettingsPlatformAdapter } from './platform-adapter'
 
 export type SettingsPersistMode = 'immediate' | 'queued' | 'none'
 
@@ -589,8 +589,8 @@ function admitLoadedSettings(projection: ActiveSettingsProjection, settings: Set
 
 /**
  * Reads the record, again after each pause of `delays` (SET-05, 2.1-Q67, 2.1-Q295); after the last the session runs on
- * the defaults with `durable` null, so every change stays in memory, never written over the record, and the health
- * model says `settings` is unavailable, which the notice row tells once with Try again.
+ * the defaults and the platform's first run (2.1-Q309) with `durable` null, so every change stays in memory, never
+ * written over the record (2.1-M473), and the health model says `settings` is unavailable, told once with Try again.
  */
 function readSettings(projection: ActiveSettingsProjection, first: Promise<Settings>, delays: readonly number[]) {
   const current = () => isCurrentProjection(projection)
@@ -598,6 +598,8 @@ function readSettings(projection: ActiveSettingsProjection, first: Promise<Setti
     (settings) => admitLoadedSettings(projection, settings),
     (error: unknown) => {
       if (current()) {
+        const firstRun = withFirstRunSettings(projection.adapter, currentSettingsSnapshot(), projection.pendingHydrationPatch)
+        if (firstRun) projectSettingsToSignals(firstRun)
         sourceSettings = projection.fallback
         const code = readFailureCode(error)
         reportFailure(error, { shown: 'none', source: 'settings.load', code })
@@ -636,11 +638,9 @@ export function installSettingsProjection(
 
   const inheritedIntent = pendingHydrationIntent
   pendingHydrationIntent = null
-  const fallback = inheritedIntent?.fallback ?? currentSettingsSnapshot()
+  const fallback = inheritedIntent?.fallback ?? { ...currentSettingsSnapshot(), ...adapter.firstRunSettings?.() }
   let resolveRetired!: () => void
-  const retired = new Promise<void>((resolve) => {
-    resolveRetired = resolve
-  })
+  const retired = new Promise<void>((resolve) => { resolveRetired = resolve })
 
   const projection: ActiveSettingsProjection = {
     adapter,
