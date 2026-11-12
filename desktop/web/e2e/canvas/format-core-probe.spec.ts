@@ -8,7 +8,8 @@
 //   CANOPI_FORMAT_PROBE_WEBDRIVER (the driver's URL) and CANOPI_FORMAT_PROBE_CAPABILITIES (its capabilities, JSON).
 // - The engine floor: U's old WebKit images boot dist-web, which carries the worker (canopi-4kfl).
 // The preview server labels the .wasm `application/wasm`, so the worker compiles it as it streams; a host that labels it
-// otherwise, a parameter after it included, gets the arrayBuffer fallback, and a load that fails answers `unavailable` and is retried by the next call.
+// otherwise gets the arrayBuffer fallback, as does an engine refusing a parameter after the label, and a load that
+// fails answers `unavailable` and is retried by the next call.
 // Measured 2026-11-12 (wasm-bindgen 0.2.130, Rust 1.97.1 release, builder paths remapped, no wasm-opt): the .wasm is
 // 61,779 bytes, and the worker's chunk with the glue bundled in 3,640; it instantiated with the default target features
 // (reference types among them) in the pinned image's Chromium, WebKit and Firefox and in MiniBrowser on Ubuntu 22.04's
@@ -105,7 +106,10 @@ test('canopi-f47t.52.270: a .wasm served without application/wasm loads through 
   expectProbeAnswer(reply!, 'arrayBuffer')
 })
 
-test('canopi-f47t.52.270: a .wasm labelled application/wasm with a parameter loads through the arrayBuffer fallback', async ({ page, context }) => {
+// The worker tries to stream any `application/wasm` label; an engine that refuses the parameter (a TypeError) falls
+// back to the body. Chromium refuses it, so there the fallback must have run; Playwright's WebKit hands the worker the
+// label without the parameter (measured 2026-11-12), so there it streams.
+test('canopi-f47t.52.270: a .wasm labelled application/wasm with a parameter loads, through the arrayBuffer fallback where the engine refuses the label', async ({ page, context, browserName }) => {
   const wasmUrl = WASM_URL()
   await context.route(wasmUrl, async (route) => {
     const response = await route.fetch()
@@ -113,7 +117,10 @@ test('canopi-f47t.52.270: a .wasm labelled application/wasm with a parameter loa
   })
   await openProbePage(page)
   const [reply] = await page.evaluate(runProbe, { workerUrl: WORKER_URL(), texts: [PROBE_TEXT] }) as ProbeReply[]
-  expectProbeAnswer(reply!, 'arrayBuffer')
+  test.info().annotations.push({ type: `parameterised label, ${browserName}`, description: JSON.stringify(reply) })
+  expect(reply, JSON.stringify(reply)).toMatchObject({ ok: true })
+  expect(JSON.parse(reply!.value ?? 'null')).toEqual(EXPECTED_VALUE)
+  if (browserName === 'chromium') expect(reply!.compiledBy).toBe('arrayBuffer')
 })
 
 /**
