@@ -4,7 +4,7 @@
 //   edition's built page boots once with WebGL and once with WebGL taken away, and the two must render alike; a window
 //   left empty must carry the engine error that emptied it;
 // - a module SyntaxError and a module that answers 404 reach a classic `error` capture listener before `load`, which is
-//   what the start-up guard (U-4) listens for;
+//   what the start-up guard (U-4) listens for; the Web Edition's start-up guard shows exactly when its window is empty;
 // - what Playwright WebKit on a Linux host reports as its user agent, which decides whether the macOS Trackpad default
 //   (2.1-Q309, U-1) flips an e2e run's scroll setting: it does, and the pin at the end says why e2e seeds it.
 // Since U-2 set the floor (Safari 16.4, desktop/web/engine-floor.ts; U-3) it also holds that floor in the engines on
@@ -158,6 +158,8 @@ interface BootRun {
   webglAsked: boolean
   webglAvailable: boolean
   rendered: boolean
+  /** The start-up guard (src/boot-guard/guard.ts) shows "Canopi couldn't start". */
+  guard: boolean
   appChildren: number
   appText: number
   events: FloorEvent[]
@@ -185,7 +187,7 @@ async function boot(browser: Browser, url: string, webgl: boolean): Promise<Boot
       var app = document.getElementById('app'), canvas = document.createElement('canvas'), gl = null;
       try { gl = canvas.getContext('webgl2') || canvas.getContext('webgl'); } catch (error) { gl = null; }
       return { appChildren: app ? app.childElementCount : -1, appText: app ? (app.textContent || '').trim().length : -1,
-        webglAvailable: !!gl, events: window.__floor ? window.__floor.events : [] };
+        webglAvailable: !!gl, guard: !!document.querySelector('[data-boot-guard]'), events: window.__floor ? window.__floor.events : [] };
     })()`) as Omit<BootRun, 'webglAsked' | 'rendered' | 'pageErrors' | 'console'>
     return { ...state, webglAsked: webgl, rendered: state.appChildren > 0, pageErrors, console: consoleLines }
   } finally {
@@ -301,6 +303,8 @@ test.describe('engine floor (canopi-4kfl)', () => {
         expect(withoutWebgl.rendered, 'taking WebGL away changes whether the window renders: the empty window would be WebGL\'s')
           .toBe(withWebgl.rendered)
         for (const run of rendersInBrowser ? [withWebgl, withoutWebgl] : []) {
+          // The start-up guard (U-4) replaces the empty window below the floor, and never shows over a rendered one.
+          expect(run.guard, `the start-up guard shows exactly when the window is empty (WebGL ${run.webglAsked ? 'on' : 'off'})`).toBe(!run.rendered)
           if (!run.rendered) {
             expect(engineErrors(run).length + run.pageErrors.length,
               `the empty window (WebGL ${run.webglAsked ? 'on' : 'off'}) carries the engine error that emptied it`).toBeGreaterThan(0)
