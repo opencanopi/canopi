@@ -22,15 +22,15 @@ import { DesignHomeConflictError } from './continuous-save'
 import { prepareDesignWriteDestination } from './write-admission'
 import { draftLoadResultOf, loadResultOf, type DocumentTransitionLoadResult } from './load-result'
 import { createDesignSessionStateMachine, type DesignSessionStateMachine } from './state-machine'
-import { createDesignSessionStore, type PersistenceCapableDesignSessionStore } from './store'
+import { createDesignSessionStore, designSessionStore, type PersistenceCapableDesignSessionStore } from './store'
+import { createAppCanvasRuntimeAppAdapter } from '../canvas-runtime/app-adapter'
 import type { CanvasDocumentSurface } from '../../canvas/runtime/runtime'
-import { SceneHistory } from '../../canvas/runtime/scene-history'
-import { SceneStore } from '../../canvas/runtime/scene'
-import { SceneRuntimeEditCoordinator } from '../../canvas/runtime/scene-runtime/transactions'
-import type { SceneCommand } from '../../canvas/runtime/scene-commands'
+import { createDetachedCanvasRuntimeAppAdapter } from '../../canvas/runtime/app-adapter'
+import type { SceneStateReader } from '../../canvas/runtime/scene'
+import { SceneCanvasRuntime } from '../../canvas/runtime/scene-runtime'
+import type { SceneRuntimeConstruction } from '../../canvas/runtime/scene-runtime/construction'
 import type { ReadOnlyDesign } from '../../generated/contracts'
 import type { CanopiFile } from '../../types/design'
-import { createTestCanvasDocumentSurface } from '../../__tests__/support/canvas-runtime-surfaces'
 import {
   editDesignSessionForTest,
   markDesignSessionDirtyForTest,
@@ -79,42 +79,33 @@ function makeFile(name: string, plantCount = 0): CanopiFile {
 }
 
 interface SceneSession extends CanvasDocumentSurface {
-  readonly history: SceneHistory
-  readonly sceneStore: SceneStore
-  readonly authority: SceneRuntimeEditCoordinator
+  readonly runtime: SceneCanvasRuntime
+  readonly sceneStore: SceneStateReader
+  readonly authority: SceneRuntimeConstruction['sceneCommands']
+  readonly canUndo: () => boolean
+  undo(): void
 }
 
-/** The test document surface, its Scene and undo history the real Scene authority's. */
+/**
+ * The real Scene runtime, built by the real construction with the app adapter's read-only query answering the Design
+ * session (as app/canvas-runtime/app-adapter.ts does): its document surface is the Session's surface.
+ */
 function makeSceneSession(file: CanopiFile): SceneSession {
-  const history = new SceneHistory()
-  const sceneStore = new SceneStore().hydrate(file)
-  const authority = new SceneRuntimeEditCoordinator({
-    sceneStore,
-    history,
-    setSelection: (ids) => sceneStore.setSelection(ids),
-    incrementSceneRevision: () => {},
-    syncCanvasSignalsFromScene: () => {},
-    invalidate: () => {},
-    refusesEdits: () => store.isReadOnly(),
+  const runtime = new SceneCanvasRuntime({
+    appAdapter: { ...createDetachedCanvasRuntimeAppAdapter(), isReadOnly: () => store.isReadOnly() },
   })
-  const surface = createTestCanvasDocumentSurface({
-    hasLoadedDocument: () => true,
-    showCanvasChrome: vi.fn(),
-    hideCanvasChrome: vi.fn(),
-    loadDocument: (next) => authority.hydrate(next),
-    replaceDocument: (next, token, finalizeReplacement) => ({
-      callerFinalizerInvoked: authority.replaceDocument(next, { token, prepare: () => {}, finalizeReplacement }),
-    }),
-    captureForPersistence: (metadata, document) => {
-      const capture = authority.capturePersistence()
-      return {
-        content: { ...document, name: metadata.name },
-        isCurrent: () => capture.isCurrent(),
-        acknowledgeSaved: () => capture.acknowledgeSaved(),
-      }
-    },
+  const construction = (runtime as unknown as { _construction: SceneRuntimeConstruction })._construction
+  const surface = runtime.documentSurface
+  surface.loadDocument(file)
+  vi.spyOn(surface, 'showCanvasChrome')
+  vi.spyOn(surface, 'hideCanvasChrome')
+  return Object.assign(surface, {
+    runtime,
+    sceneStore: construction.sceneState,
+    authority: construction.sceneCommands,
+    canUndo: () => runtime.commandSurface.history.canUndo.value,
+    undo: () => runtime.commandSurface.history.undo(),
   })
-  return { ...surface, history, sceneStore, authority }
 }
 
 /** What load_design answers for a `.canopi` v10 file: the read view, never a fingerprint. */
@@ -158,9 +149,9 @@ function openNewer(name = 'Orchard 2.1', plantCount = 3) {
   return openPath(async () => loadResultOf(newerDesign(name, plantCount), `/designs/${name}.canopi`))
 }
 
-/** What the Scene runtime reports after an edit the user made on the map. */
+/** An edit the user tries on the map, and the canvas reporting a change: over a read-only Design the edit is refused. */
 function editScene(): void {
-  session.history.record({ type: 'test-edit' } as unknown as SceneCommand, () => {})
+  session.authority.run('test-edit', (tx) => tx.mutate((draft) => { draft.plants.pop() }))
   store.setCanvasClean(false)
 }
 
@@ -207,6 +198,20 @@ describe('the read-only Session kind (canopi-f47t.52.270)', () => {
     expect(machine.continuousSave.revertAvailable.value).toBe(false)
     expect(machine.continuousSave.leaveGuardArmed.value).toBe(false)
     expectNothingWritten()
+  })
+
+  it("the app's canvas adapter answers the Design session's read-only state, which the Scene authority refuses edits on", () => {
+    const adapter = createAppCanvasRuntimeAppAdapter({ presentationData: {} })
+    try {
+      expect(adapter.isReadOnly?.()).toBe(false)
+      designSessionStore.replaceCurrentDesignState(makeFile('Orchard 2.1'), null, 'Orchard 2.1', {
+        kind: 'read-only', origin: 'newer-version', savedByVersion: 10,
+      })
+      expect(adapter.isReadOnly?.()).toBe(true)
+    } finally {
+      designSessionStore.clearCurrentDesign()
+    }
+    expect(adapter.isReadOnly?.()).toBe(false)
   })
 
   it('a newer Draft opens read-only without its Draft id; a 2.0 Draft keeps it', () => {
@@ -256,9 +261,9 @@ describe('the read-only Session kind (canopi-f47t.52.270)', () => {
     expect(sceneStore.persisted).toBe(shown)
     expect(sceneStore.persisted.plants.length).toBe(3)
     expect(sceneStore.session.selectedTargets).toEqual([{ kind: 'plant', id: 'plant-0' }])
-    session.history.record({ type: 'test-edit' } as unknown as SceneCommand, () => {})
-    expect(authority.canUndo.value).toBe(false)
-    expect(authority.undo()).toBe(false)
+    expect(session.canUndo()).toBe(false)
+    session.undo()
+    expect(sceneStore.persisted).toBe(shown)
   })
 
   it('runs no continuous save or page-hide flush, even after a Scene change', async () => {
@@ -299,7 +304,8 @@ describe('the read-only Session kind (canopi-f47t.52.270)', () => {
   it('reader release: closing the read-only view leaves no scene or Document state for the next Design', async () => {
     await openNewer('Orchard 2.1', 3)
     editScene()
-    expect(session.history.canUndo.value).toBe(true)
+    // The Scene authority refused the edit: the read-only view has no undo step to leave behind.
+    expect(session.canUndo()).toBe(false)
 
     await expect(machine.closeDesign()).resolves.toMatchObject({ status: 'applied' })
 
@@ -310,7 +316,7 @@ describe('the read-only Session kind (canopi-f47t.52.270)', () => {
     expect(store.sessionKind.value).toEqual({ kind: 'editing' })
     expect(store.isDesignDirty()).toBe(false)
     expect(session.sceneStore.persisted.plants.length).toBe(0)
-    expect(session.history.canUndo.value).toBe(false)
+    expect(session.canUndo()).toBe(false)
     expect(session.hideCanvasChrome).toHaveBeenCalled()
 
     // The next Design is an editing session with its own home and nothing of the read-only one.
@@ -318,7 +324,7 @@ describe('the read-only Session kind (canopi-f47t.52.270)', () => {
     await openPath(async () => ({ file: next, path: '/designs/next.canopi', name: 'Next', fingerprint: 'fp-next' }))
     expect(store.sessionKind.value).toEqual({ kind: 'editing' })
     expect(session.sceneStore.persisted.plants.length).toBe(1)
-    expect(session.history.canUndo.value).toBe(false)
+    expect(session.canUndo()).toBe(false)
     expect(machine.continuousSave.readHome()).toEqual({ kind: 'file', path: '/designs/next.canopi', fingerprint: 'fp-next' })
     expect(editDesignSessionForTest(store, (design) => ({ ...design, description: 'mine' }))?.description).toBe('mine')
     await expect(machine.continuousSave.flush()).resolves.toBe(true)

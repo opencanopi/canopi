@@ -158,6 +158,8 @@ export function createSceneRuntimeConstruction(
     incrementSceneRevision: callbacks.incrementSceneRevision,
     syncCanvasSignalsFromScene: callbacks.syncCanvasSignalsFromScene,
     invalidate: callbacks.invalidate,
+    // A read-only Design (2.1-M478): a drag, drop, Delete or Undo reaches the authority and changes nothing.
+    refusesEdits: () => appAdapter.isReadOnly?.() ?? false,
   })
   const settledReader: SettledSceneReader = sceneEdits
   const panelTargetAdapter =

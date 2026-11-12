@@ -11,7 +11,7 @@ import { gridVisible, snapToGridEnabled } from '../canvas-settings/signals'
 import { mutateSettingsProjection } from '../settings/projection'
 import { lastView, locale, plantSpacingIntervalM, scrollWheel, theme } from '../settings/state'
 import { composeDocumentForSave } from '../contracts/document'
-import { setCanvasClean } from '../document-session/store'
+import { designSessionStore, setCanvasClean } from '../document-session/store'
 import { closeCanvasContextMenu, openCanvasContextMenu } from '../canvas-context-menu/state'
 import { t } from '../../i18n'
 import { currentPlantDisplay } from '../plant-display/state'
@@ -37,6 +37,8 @@ export function createAppCanvasRuntimeAppAdapter(
 ): CanvasRuntimeAppAdapter {
   return {
     cleanState: { setCanvasClean },
+    // A Design a newer Canopi saved shows read-only (2.1-M478): the Scene authority refuses every edit over it.
+    isReadOnly: () => designSessionStore.isReadOnly(),
     // A tool's focus request and a closed text entry focus the map through the one focus owner.
     focus: focusOwner,
     document: { composeDocumentForSave },
