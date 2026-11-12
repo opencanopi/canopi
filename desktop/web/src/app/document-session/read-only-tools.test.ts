@@ -4,8 +4,12 @@
 // Canopi saved can be looked at with Select and Pan, and no drawing tool's key arms one over it. Failure state "an edit
 // tool reachable by shortcut", through the real Desktop key router and armCanvasTool. The one canvas command projection
 // greys the drawing tools, Undo, Redo and the edits that change an object, so the rail, menus and palette follow it.
+// Both editions' command catalogs offer Close only (2.1-Q315): Rename, Save, Save as, Revert, the imports, the exports,
+// Download a copy and the saved-view edits are off; Close and the panels stay.
 import { signal } from '@preact/signals'
-import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { isCatalogCommandDisabled, type AppCommandId } from '../../commands/graph/catalog'
+import { createBrowserShellCatalog } from '../../web/browser-shell-commands'
 import {
   createTestCanvasCommandSurface,
   createTestCanvasKeyboardPort,
@@ -19,7 +23,7 @@ import { dispatchWorkspaceCanvasIntent, workspaceCanvasCommandProjection } from 
 import { focusOwner } from '../keyboard/focus-owner'
 import { singleKeyShortcuts } from '../settings/state'
 import { activePanel } from '../shell/state'
-import { createDesignSessionStoreTestFixture, designSessionStore } from './store'
+import { createDesignSessionStoreTestFixture, designSessionStore, EDITING_DESIGN_SESSION } from './store'
 import type { CanopiFile } from '../../types/design'
 
 const fixture = createDesignSessionStoreTestFixture(designSessionStore)
@@ -121,4 +125,56 @@ it('R1 canopi-f47t.52.270: the one command projection greys the drawing tools, U
   } finally {
     setCanvasSelection([])
   }
+})
+
+/** Every command that changes, writes or carries the Design out. */
+const CHANGES_OR_EXPORTS = [
+  'file.rename',
+  'file.save',
+  'file.saveAs',
+  'file.revert',
+  'file.addData',
+  'file.importGeoJson',
+  'file.exportCanvasPdf',
+  'file.exportGeoJson',
+  'file.exportBudgetCsv',
+  'view.saveCurrentView',
+  'view.manageViews',
+] as const
+
+describe('R1 canopi-f47t.52.270: a read-only Design offers Close only', () => {
+  it('Desktop: the catalog turns off every change, save and export, and keeps Close', () => {
+    const enabled = CHANGES_OR_EXPORTS.filter((id) => !isCatalogCommandDisabled(id as AppCommandId))
+    expect(enabled).toEqual([])
+    expect(isCatalogCommandDisabled('file.close')).toBe(false)
+    expect(isCatalogCommandDisabled('nav.layers')).toBe(false)
+  })
+
+  it('Desktop: an editing Design of the same content keeps Rename, Save and Save as', () => {
+    designSessionStore.replaceCurrentDesignState(SHOWN, null, SHOWN.name, EDITING_DESIGN_SESSION)
+    expect(isCatalogCommandDisabled('file.rename')).toBe(false)
+    expect(isCatalogCommandDisabled('file.save')).toBe(false)
+    expect(isCatalogCommandDisabled('file.saveAs')).toBe(false)
+  })
+
+  it('Web: the catalog turns off Rename, Download a copy, Revert, the imports and the exports, and keeps Close', () => {
+    const run = vi.fn()
+    const catalog = createBrowserShellCatalog({
+      newDesign: run,
+      openCanopi: run,
+      downloadCanopi: run,
+      revertDesign: run,
+      importGeoJson: run,
+      exportGeoJson: run,
+      exportBudgetCsv: run,
+      closeDesign: run,
+      navigate: run,
+    }, { templatesEnabled: false, canvasReady: () => true })
+    const state = { hasDesign: true, revertAvailable: true, activePanel: 'canvas', sidePanel: null } as const
+    const enabled = catalog.filter((entry) => !entry.isExecutionDisabled(state)).map((entry) => entry.id)
+    for (const id of ['file.rename', 'file.downloadCanopi', 'file.revert', 'file.importGeoJson', 'file.exportGeoJson', 'file.exportBudgetCsv', 'file.exportCanvasPdf', 'view.saveCurrentView']) {
+      expect(enabled, id).not.toContain(id)
+    }
+    expect(enabled).toContain('file.close')
+  })
 })

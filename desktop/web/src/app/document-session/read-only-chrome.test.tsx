@@ -23,26 +23,10 @@ vi.mock('@tauri-apps/api/window', () => ({
 const fixture = createDesignSessionStoreTestFixture(designSessionStore)
 
 const SHOWN: CanopiFile = {
-  version: 9,
-  name: 'Orchard 2.1',
-  description: null,
-  plant_species_colors: {},
-  plant_species_symbols: {},
-  layers: [],
-  plants: [],
-  zones: [],
-  annotations: [],
-  measurement_guides: [],
-  groups: [],
-  consortiums: [],
-  timeline: [],
-  budget: [],
-  budget_currency: 'EUR',
-  views: [],
-  stories: [],
-  created_at: '2026-09-01T00:00:00.000Z',
-  updated_at: '2026-09-01T00:00:00.000Z',
-  extra: {},
+  version: 9, name: 'Orchard 2.1', description: null, plant_species_colors: {}, plant_species_symbols: {}, layers: [],
+  plants: [], zones: [], annotations: [], measurement_guides: [], groups: [], consortiums: [], timeline: [], budget: [],
+  budget_currency: 'EUR', views: [], stories: [], created_at: '2026-09-01T00:00:00.000Z',
+  updated_at: '2026-09-01T00:00:00.000Z', extra: {},
 }
 
 const STATUS = 'Read-only: saved by a newer Canopi'
