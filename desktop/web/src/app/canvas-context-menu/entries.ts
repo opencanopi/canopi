@@ -19,7 +19,6 @@ import type { MapSelectionSummary } from '../map-selection/summary'
 import type { CalendarAddTarget } from '../timeline/calendar-request'
 import { openRotateSelectionDialog } from '../rotate-selection/state'
 import { loneEditableZoneId, openRenameZoneDialog } from '../rename-zone/state'
-import { designShownReadOnly } from '../shell/state'
 import type { LocaleKey } from '../../generated/locale-keys'
 
 export type CanvasContextMenuItemId =
@@ -78,6 +77,8 @@ export interface CanvasContextMenuEntryOptions {
   setUnitCost(canonicalName: string): void
   /** Profile this line (Desktop's Site data, spec §1.10, U49 Q29); absent where there is no Site data. */
   readonly profileLine?: CanvasContextMenuProfileLine
+  /** The open Design is shown read-only (2.1-M478): only the entries that look stay offered. Absent: an editing Design. */
+  readonly readOnly?: boolean
 }
 
 /** What "Profile this line" needs from the edition that has Site data (app/lidar/profile.ts). */
@@ -89,6 +90,14 @@ export interface CanvasContextMenuProfileLine {
 }
 
 const SEPARATOR = { separator: true } as const
+
+/**
+ * What a read-only Design's menu keeps (2.1-M478): the entries that look, copy or select. Everything else changes the
+ * Design or arms an edit tool, so it greys, a new entry included until it is listed here.
+ */
+const READ_ONLY_KEEPS: ReadonlySet<CanvasContextMenuItemId> = new Set([
+  'copy', 'select-all', 'select-same-species', 'species-details', 'profile-line', 'turn-view-to-edge',
+])
 
 /** The point menu's labels (A16). */
 const POINT_ACTION_LABEL_KEYS: Readonly<Record<PointAction, LocaleKey>> = {
@@ -109,22 +118,34 @@ const POINT_ACTION_LABEL_KEYS: Readonly<Record<PointAction, LocaleKey>> = {
  * (`canvas-commands/edit-availability.ts`): while a gesture or tool transient
  * is live, Cut and Delete are disabled (U39). Where there is Site data, a
  * lone Line zone or Measure guide offers Profile this line after the zone's
- * own entries. Over a read-only Design (2.1-M478) every entry that changes the
- * Design or arms an edit tool is greyed; Copy, selecting, Species details,
- * Profile this line and Turn view to this edge stay.
+ * own entries. Over a read-only Design only what looks stays offered.
  */
 export function buildCanvasContextMenuEntries(
+  request: CanvasContextMenuRequest,
+  options: CanvasContextMenuEntryOptions,
+): readonly CanvasContextMenuEntry[] {
+  const entries = editableMenuEntries(request, options)
+  return options.readOnly === true ? entries.map(keptWhileReadOnly) : entries
+}
+
+/** A read-only Design's entry: one READ_ONLY_KEEPS lists as it is, any other greyed and inert, a submenu with it. */
+function keptWhileReadOnly(entry: CanvasContextMenuEntry): CanvasContextMenuEntry {
+  if ('separator' in entry) return entry
+  if ('submenu' in entry) return { ...entry, disabled: true, submenu: entry.submenu.map(keptWhileReadOnly) }
+  return READ_ONLY_KEEPS.has(entry.id) ? entry : { ...entry, disabled: true, run: () => {} }
+}
+
+function editableMenuEntries(
   request: CanvasContextMenuRequest,
   options: CanvasContextMenuEntryOptions,
 ): readonly CanvasContextMenuEntry[] {
   const { commands, selection, world } = request
   // The table the menu bar greys with (S3b). The menu never opens in overview, and Unlock all is not in it.
   const can = selection ? selectionCommandAvailability(selection) : null
-  const readOnly = designShownReadOnly()
   const availability = {
     canvasAvailable: true,
     overview: false,
-    readOnly,
+    readOnly: options.readOnly === true,
     selection: can,
     held: request.holdsSelectionDeletes === true,
     lockedObjectsPresent: false,
@@ -165,9 +186,9 @@ export function buildCanvasContextMenuEntries(
         id: entry.action,
         label: options.translate(POINT_ACTION_LABEL_KEYS[entry.action]),
         ...(entry.action === 'delete-point' ? deleteKeys : {}),
-        disabled: entry.disabled || readOnly,
+        disabled: entry.disabled,
         run: () => {
-          if (!entry.disabled && !readOnly) entry.run()
+          if (!entry.disabled) entry.run()
         },
       })),
     ]
@@ -182,10 +203,8 @@ export function buildCanvasContextMenuEntries(
         ? [{
             id: 'place-plants-here' as const,
             label: options.translate('canvas.contextMenu.placePlantsHere'),
-            disabled: readOnly,
-            run: () => {
-              if (!readOnly) placePlantsAt(world)
-            },
+            disabled: false,
+            run: () => placePlantsAt(world),
           }, SEPARATOR]
         : [],
       paste,
@@ -193,15 +212,13 @@ export function buildCanvasContextMenuEntries(
     ]
   }
 
-  // Plant appearance and name pins change the Design: a read-only one keeps them.
-  const plantAppearance = can.plantAppearance && !readOnly
   const appearance = (kind: PlantAppearanceKind, labelKey: LocaleKey): CanvasContextMenuCommand => ({
     id: kind === 'color' ? 'plant-color' : 'plant-symbol',
     label: options.translate(labelKey),
-    disabled: !plantAppearance,
+    disabled: !can.plantAppearance,
     opensDialog: true,
     run: (itemBounds) => {
-      if (!plantAppearance) return
+      if (!can.plantAppearance) return
       const bounds = itemBounds ?? request.anchor
       options.openPlantAppearance(kind, {
         getBoundingClientRect: () => ({ top: bounds.top, right: bounds.right }),
@@ -226,12 +243,9 @@ export function buildCanvasContextMenuEntries(
     },
   })
   const calendarTarget = calendarTargetFor(selection)
-  // The Calendar and the Budget are Design content: over a read-only Design neither takes a new entry.
   const planningEntries: readonly CanvasContextMenuEntry[] = [
-    plain('add-to-calendar', 'canvas.contextMenu.addToCalendar', readOnly ? null : calendarTarget, options.addToCalendar),
-    ...plants
-      ? [plain('set-unit-cost', 'canvas.contextMenu.setUnitCost', readOnly ? null : oneSpecies, options.setUnitCost)]
-      : [],
+    plain('add-to-calendar', 'canvas.contextMenu.addToCalendar', calendarTarget, options.addToCalendar),
+    ...plants ? [plain('set-unit-cost', 'canvas.contextMenu.setUnitCost', oneSpecies, options.setUnitCost)] : [],
     SEPARATOR,
   ]
   const plantEntries: readonly CanvasContextMenuEntry[] = plants
@@ -242,9 +256,9 @@ export function buildCanvasContextMenuEntries(
         {
           id: 'toggle-plant-names',
           label: options.translate(can.plantNamesPinned ? 'canvas.contextMenu.hideName' : 'canvas.contextMenu.showName'),
-          disabled: !plantAppearance,
+          disabled: !can.plantAppearance,
           run: () => {
-            if (plantAppearance) commands.toggleSelectedPlantNamePins()
+            if (can.plantAppearance) commands.toggleSelectedPlantNamePins()
           },
         },
         plain('species-details', 'canvas.contextMenu.speciesDetails', oneSpecies, options.openSpeciesDetail),
@@ -254,7 +268,7 @@ export function buildCanvasContextMenuEntries(
 
   // Rename zone… names one lone zone; a locked one keeps the item, disabled.
   const loneZone = calendarTarget?.kind === 'zone' ? calendarTarget.zoneId : null
-  const renameZoneId = readOnly ? null : loneEditableZoneId(selection)
+  const renameZoneId = loneEditableZoneId(selection)
   const zoneEntries: readonly CanvasContextMenuEntry[] = loneZone === null
     ? []
     : [{

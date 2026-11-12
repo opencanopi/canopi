@@ -179,6 +179,8 @@ function contextMenu(targets: CanvasDesignObjectSelectionModel['editableTargets'
     openSpeciesDetail: spy(),
     addToCalendar: spy(),
     setUnitCost: spy(),
+    // What components/canvas/CanvasContextMenu.tsx passes: the Design session's kind.
+    readOnly: designSessionStore.isReadOnly(),
   }
   const flat = (entries: readonly CanvasContextMenuEntry[]): CanvasContextMenuCommand[] =>
     entries.flatMap((entry) => 'submenu' in entry ? flat(entry.submenu) : 'run' in entry ? [entry] : [])
