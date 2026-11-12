@@ -124,6 +124,12 @@
       "webSpeciesLists": "Les favoris et les plantes récemment consultées enregistrés par Canopi sont endommagés et n’ont pas pu être mis de côté : leurs modifications ne seront pas enregistrées pendant cette session."
     },
     "newerReadOnly": "Ces données ont été enregistrées par une version plus récente de Canopi. Vous pouvez les consulter, mais les modifications ne seront pas enregistrées. Mettez Canopi à jour pour les modifier.",
+    "newerReadOnlyStore": {
+      "userDb": "Vos favoris, tampons enregistrés et Designs récents ont été enregistrés par une version plus récente de Canopi. Vous pouvez les consulter, mais les modifications ne seront pas enregistrées. Mettez Canopi à jour pour les modifier.",
+      "settings": "Vos réglages ont été enregistrés par une version plus récente de Canopi. Les modifications s’appliquent jusqu’à la fermeture de Canopi, mais ne seront pas enregistrées. Mettez Canopi à jour pour les conserver.",
+      "libraryCatalogue": "La Bibliothèque de données a été enregistrée par une version plus récente de Canopi. Ses éléments sont listés, mais les modifications ne seront pas enregistrées. Mettez Canopi à jour pour les utiliser.",
+      "webSpeciesLists": "Vos favoris et plantes récemment consultées ont été enregistrés par une version plus récente de Canopi. Vous pouvez les consulter, mais les modifications ne seront pas enregistrées. Mettez Canopi à jour pour les modifier."
+    },
     "refusedNewer": "Ces données ont été enregistrées par une version plus récente de Canopi et n’ont pas été ouvertes. Mettez Canopi à jour pour les utiliser.",
     "storeUnavailable": "Certaines données enregistrées de Canopi n’ont pas pu être ouvertes. Redémarrez Canopi et signalez un problème si cela se reproduit.",
     "fieldsReset": "Certains réglages avaient des valeurs que Canopi ne pouvait pas utiliser et ont été remis à leur valeur par défaut.",
@@ -1827,7 +1833,8 @@
     "cantReadMissing": "Fichier introuvable : il a été déplacé ou supprimé",
     "cantReadOlderVersion": "Créé avec une version de Canopi antérieure à la 2.0 ; Canopi 2.0 et les versions suivantes ne peuvent pas l’ouvrir",
     "cantReadNewerVersion": "Créé avec une version plus récente de Canopi ; mettez Canopi à jour pour l’ouvrir",
-    "cantReadDamaged": "Impossible de lire ce fichier : il est endommagé"
+    "cantReadDamaged": "Impossible de lire ce fichier : il est endommagé",
+    "rowReadOnly": "Lecture seule : enregistré par une version plus récente de Canopi"
   },
   "shortcutKeys": {
     "ctrl": "Ctrl",
@@ -2226,6 +2233,8 @@
     "fileError": "Canopi n’a pas pu lire ou écrire le fichier. Réessayez.",
     "plantCatalogUnavailable": "Le catalogue des plantes n’a pas pu être ouvert. Redémarrez Canopi, puis réinstallez-le si le problème persiste.",
     "libraryNewer": "Cette Bibliothèque de données a été enregistrée par une version plus récente de Canopi. Mettez Canopi à jour pour la modifier.",
-    "libraryUnavailable": "La Bibliothèque de données n’a pas pu être ouverte : les modifications ne seront pas enregistrées pendant cette session. Redémarrez Canopi et réessayez."
+    "libraryUnavailable": "La Bibliothèque de données n’a pas pu être ouverte : les modifications ne seront pas enregistrées pendant cette session. Redémarrez Canopi et réessayez.",
+    "formatCoreUnavailable": "Canopi n’a pas pu charger la partie qui ouvre les Designs. Réessayez, et signalez un problème si cela continue.",
+    "formatCoreTrapped": "Canopi s’est arrêté en lisant ce Design. Réessayez, et signalez un problème si cela continue."
   }
 }

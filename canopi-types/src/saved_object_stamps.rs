@@ -16,4 +16,9 @@ pub struct SavedObjectStamp {
     pub sort_order: i32,
     pub created_at: String,
     pub updated_at: String,
+    /// The payload is newer than this build reads (above v2): listed as needing a newer Canopi, never placed,
+    /// renamed, reordered or deleted (2.1-M88). Computed by the owner's listing query; absent reads as false.
+    #[serde(default)]
+    #[specta(optional)]
+    pub needs_newer: bool,
 }

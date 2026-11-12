@@ -7,6 +7,9 @@ publish = false
 
 [features]
 design-schema = ["dep:schemars"]
+# Minting system operation ids needs a randomness source, so only the Desktop host enables it; without it the crate
+# builds for wasm32-unknown-unknown and still parses ids (2.1-M420; design check A1). Never uuid's `js` feature.
+system-ids = ["uuid/v4"]
 
 [dependencies]
 canopi-redact = { path = "../canopi-redact", features = ["specta"] }
@@ -14,8 +17,12 @@ schemars = { version = "1.2.1", optional = true }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 specta = { version = "=2.0.0-rc.23", features = ["derive"] }
-# Operation ids are `u-` or `s-` before a uuid v4 (2.1-M420): Rust mints its system ids and parses
+# Operation ids are `u-` or `s-` before a uuid v4 (2.1-M420): Rust mints its system ids (`system-ids`) and parses
 # the frontend's (canopi-ar61).
+uuid = { version = "1.22", default-features = false, features = ["std"] }
+
+[dev-dependencies]
+# The crate's own tests mint ids without the feature.
 uuid = { version = "1.22", features = ["v4"] }
 
 [lints]

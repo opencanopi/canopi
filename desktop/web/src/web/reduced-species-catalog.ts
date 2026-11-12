@@ -7,6 +7,7 @@ import type {
 } from '../types/species'
 import type { SpeciesCatalogDetail } from '../app/plant-browser/workbench'
 import type { BrowserAppDataStore } from './browser-app-data'
+import { StoreRefusedError } from '../failures/store-read'
 
 export type WebSupportedFilterOptionsKey = keyof Pick<
   FilterOptions,
@@ -61,6 +62,15 @@ export interface ReducedSpeciesCatalogAdapters {
   recordRecentlyViewed(canonicalName: string, limit?: number): Promise<void>
 }
 
+/**
+ * What a failed species-list write throws: a refusing store's `StoreRefusedError` passes through with its silent
+ * `store_read_only` code (2.1-M487), so no second failure is worded over the store's one notice; any other failure
+ * keeps its English line for logs, the cause attached.
+ */
+function refusal(error: unknown, english: string): Error {
+  return error instanceof StoreRefusedError ? error : new Error(english, { cause: error })
+}
+
 interface ReducedSpeciesCatalogAdaptersOptions {
   readonly appDataStore: BrowserAppDataStore
   readonly reader: ReducedSpeciesCatalogReader
@@ -112,13 +122,13 @@ export function createReducedSpeciesCatalogAdapters({
         ? current.filter((name) => name !== canonicalName)
         : [canonicalName, ...current]
       const result = appDataStore.setFavoriteSpecies(next)
-      if (!result.ok) throw new Error('Failed to persist Web Edition Species favorite.')
+      if (!result.ok) throw refusal(result.error, 'Failed to persist Web Edition Species favorite.')
       return !isFavorite
     },
 
     async recordRecentlyViewed(canonicalName, limit = 50) {
       const result = appDataStore.recordRecentlyViewedSpecies(canonicalName, limit)
-      if (!result.ok) throw new Error('Failed to persist Web Edition recently viewed Species.')
+      if (!result.ok) throw refusal(result.error, 'Failed to persist Web Edition recently viewed Species.')
     },
   }
 }

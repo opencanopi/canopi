@@ -1,7 +1,7 @@
 // Every catalogue code maps to one message or is silent (contracts §2, §13; 2.1-M413): the mapped type makes a missing
 // kind a type error, and these cases pin which codes are silent, that every key exists, and the wording rules.
 import { describe, expect, it } from 'vitest'
-import type { FailureCode, IoFailureKind, Lane, LibraryReadOnlyReason, NetworkFailureKind, PlantCatalogCause } from '../generated/contracts'
+import type { FailureCode, IoFailureKind, Lane, LibraryReadOnlyReason, NetworkFailureKind, PlantCatalogCause, StoreId } from '../generated/contracts'
 import en from '../i18n/en.json'
 import { failureMessage } from './messages'
 
@@ -14,6 +14,9 @@ const CAUSES = keysOf<PlantCatalogCause>({ missing: true, open_failed: true })
 const REASONS = keysOf<LibraryReadOnlyReason>({ refused_newer: true, unavailable: true })
 const IO = keysOf<IoFailureKind>({ not_found: true, permission_denied: true, read_only: true, no_space: true, too_large: true, other: true })
 const NETWORK = keysOf<NetworkFailureKind>({ timeout: true, offline: true, status: true, host_not_allowed: true, too_large: true })
+const STORES = keysOf<StoreId>({
+  plant_catalog: true, user_db: true, settings: true, library_catalogue: true, web_drafts: true, web_species_lists: true,
+})
 
 // One example per code and sub-kind; a kind the catalogue adds is a type error here until it has its examples.
 const EXAMPLES: { readonly [K in Kind]: readonly CodeOf<K>[] } = {
@@ -38,6 +41,9 @@ const EXAMPLES: { readonly [K in Kind]: readonly CodeOf<K>[] } = {
   update_admin_prompt_refused: [{ kind: 'update_admin_prompt_refused' }],
   update_location_not_writable: [{ kind: 'update_location_not_writable' }],
   update_install_failed: [{ kind: 'update_install_failed', bundle: 'deb' }],
+  format_core_unavailable: [{ kind: 'format_core_unavailable' }],
+  format_core_trapped: [{ kind: 'format_core_trapped' }],
+  store_read_only: STORES.map((store) => ({ kind: 'store_read_only', store })),
 }
 const ALL: readonly FailureCode[] = Object.values(EXAMPLES).flat()
 
@@ -55,8 +61,15 @@ describe('failure messages', () => {
         else expect(typeof english(key), `${JSON.stringify(code)} with ${storage} storage: ${key}`).toBe('string')
       }
     }
-    // A cancel, a second file dialog (2.1-Q284) and the map failures until 2d's map status (2.1-Q300).
-    expect([...silent].sort()).toEqual(['cancelled', 'dialog_already_open', 'style_failed', 'tile_source_failed'])
+    // A cancel, a second file dialog (2.1-Q284), the map failures until 2d's map status (2.1-Q300) and a write a
+    // newer-read-only store refused, which its store's one notice tells (2.1-M487).
+    expect([...silent].sort()).toEqual(['cancelled', 'dialog_already_open', 'store_read_only', 'style_failed', 'tile_source_failed'])
+  })
+
+  it('names the part that opens Designs when the format core fails, never a file (ADR 0025)', () => {
+    const say = (code: FailureCode) => english(failureMessage(code, 'design.open', { storage: 'device' }) ?? '')
+    expect(say({ kind: 'format_core_unavailable' })).toBe('Canopi couldn’t load the part that opens Designs. Try again, and report a problem if this keeps happening.')
+    expect(say({ kind: 'format_core_trapped' })).toBe('Canopi stopped while reading this Design. Try again, and report a problem if this keeps happening.')
   })
 
   it('says what happened and what to do, with no codes (2.1-Q299, 2.1-Q289)', () => {

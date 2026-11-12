@@ -1685,6 +1685,21 @@
     ]
   },
   {
+    "name": "ReadOnlyDesign",
+    "fields": [
+      {
+        "name": "view",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "saved_by_version",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
     "name": "RecentDesignSummary",
     "fields": [
       {
@@ -1844,6 +1859,11 @@
       },
       {
         "name": "updated_at",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "needs_newer",
         "flatten": false,
         "skip": false
       }

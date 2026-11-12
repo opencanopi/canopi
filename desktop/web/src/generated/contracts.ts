@@ -314,7 +314,8 @@ export type Failure = {
 
 /**
  *  The catalogue's codes produced at Phase 1's close, plus the map codes
- *  WEB-06's observers report (contracts §2, 2.1-M418).
+ *  WEB-06's observers report (contracts §2, 2.1-M418) and the reader release's
+ *  format core and read-only store codes (Step 2.0.4's commit 0).
  */
 export type FailureCode =
 // The lane was full.
@@ -381,7 +382,18 @@ bundle: UpdateBundle } |
 // The installer reported an error.
 { kind: "update_install_failed";
 // The installer that failed.
-bundle: UpdateBundle };
+bundle: UpdateBundle } |
+// The format core's `.wasm` failed to load or instantiate; Retry loads it once (ADR 0025, 2.1-M477).
+{ kind: "format_core_unavailable" } |
+// The format core trapped; `detail` holds the panic message or `trapped` (ADR 0025).
+{ kind: "format_core_trapped" } |
+/**
+ *  A write refused by a store read as newer-read-only; silent, since the store's one notice says it
+ *  (2.1-M487).
+ */
+{ kind: "store_read_only";
+// The store that refused the write.
+store: StoreId };
 
 // The level a settlement with a code is logged at (ADR 0025 Logs).
 export type FailureLogLevel =
@@ -405,7 +417,11 @@ export type FailureSource =
 // The map and its sources.
 "map" |
 // The Desktop updater (contracts §2 updater row, 2.1-M210).
-"updater";
+"updater" |
+// The format core's worker adapter (Web only until 2b, 2.1-M476).
+"format_core" |
+// A store read as newer-read-only, on both editions (2.1-M487).
+"read_only_store";
 
 export type FilterOp = "Equals" | "In" | "Gte" | "Lte" | "Between" | "IsTrue";
 
@@ -791,7 +807,12 @@ export type LidarPresentationSection = {
 export type LidarRamp = "Relief" | "Terrain" | "Earth" | "Greens" | "YellowRed" | "Magma" | "Gray";
 
 // State of a library item: its operation while it runs, then a fixed result.
-export type LidarResultState = "Preparing" | "Ready" | "Failed";
+export type LidarResultState = "Preparing" | "Ready" | "Failed" |
+/**
+ *  Made by a newer Canopi (a 2.1 kind, lineage or job this build does not read): listed by name and type with a
+ *  note to update, never drawn, placed, renamed or deleted (2.1-Q318, 2.1-M488).
+ */
+"NeedsNewer";
 
 export type LidarSamplePointsRequest = {
 	targets: LidarSampleTarget[],
@@ -1058,6 +1079,19 @@ export type RasterQuantity =
 // Terrain slope, in degrees or percent (derived only).
 "Slope";
 
+/**
+ *  A Design saved by a newer Canopi, read for the read-only view (contracts §11 Rollback, 2.1-M478, 2.1-M479):
+ *  `view` is its read projection in the in-memory shape this build draws, `saved_by_version` the file's format
+ *  version. A distinct type on purpose: no save, Draft or export API takes it or its `view`, so a v10 Design never
+ *  reaches 2.0 persistence (held by R1's type rule).
+ */
+export type ReadOnlyDesign = {
+	// The Design as the read view maps it onto this build's shape, shown and never written.
+	view: CanopiFile,
+	// The format version the file was saved at, above [`CURRENT_CANOPI_FILE_VERSION`].
+	saved_by_version: number,
+};
+
 // What a Recent Design's file says about it, read when the list is shown.
 export type RecentDesignPreview = { kind: "read"; plant_count: number; zone_count: number;
 // `None` when the Design has no plants or zones yet.
@@ -1219,6 +1253,11 @@ export type SavedObjectStamp = {
 	sort_order: number,
 	created_at: string,
 	updated_at: string,
+	/**
+	 *  The payload is newer than this build reads (above v2): listed as needing a newer Canopi, never placed,
+	 *  renamed, reordered or deleted (2.1-M88). Computed by the owner's listing query; absent reads as false.
+	 */
+	needs_newer?: boolean,
 };
 
 export type SavedView = {
@@ -1901,6 +1940,18 @@ export const FAILURE_CATALOGUE: { readonly [K in FailureCode["kind"]]: FailureRo
     "silent": true,
     "level": "info"
   },
+  "format_core_trapped": {
+    "source": "format_core",
+    "user_may_retry": true,
+    "silent": false,
+    "level": "error"
+  },
+  "format_core_unavailable": {
+    "source": "format_core",
+    "user_may_retry": true,
+    "silent": false,
+    "level": "warn"
+  },
   "internal": {
     "source": "native_service",
     "user_may_retry": false,
@@ -1948,6 +1999,12 @@ export const FAILURE_CATALOGUE: { readonly [K in FailureCode["kind"]]: FailureRo
     "user_may_retry": false,
     "silent": false,
     "level": "warn"
+  },
+  "store_read_only": {
+    "source": "read_only_store",
+    "user_may_retry": false,
+    "silent": true,
+    "level": "info"
   },
   "style_failed": {
     "source": "map",

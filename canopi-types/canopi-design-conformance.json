@@ -3,7 +3,7 @@
   "facts": {
     "current_version": 9,
     "missing_version": 1,
-    "future_version_policy": "reject",
+    "future_version_policy": "newer_read_only",
     "error_kinds": [
       "invalid_version",
       "unsupported_version",

@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "manifest.schema.json",
+  "title": "Rollback harness manifest (contracts §11 Rollback harness, 2.1-M484)",
+  "description": "The forms the reader release's rollback tests read, one row each, from spec/rollback/manifest.json. Each row names a stored form, the version written, the edition that reads it and its file under the one fixture directory (the in-repo fixtures unless the lane overrides the root). The reader tests assert only what holds for any form: it opens newer-read-only, raises its notice and changes no byte; main's lane hashes the files itself. The contract freezes at the reader release's tag and may be extended (a new store literal, a new optional field), never broken: no field is renamed, retyped or removed, and no literal changes meaning.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "forms"],
+  "properties": {
+    "$schema": { "const": "./manifest.schema.json" },
+    "version": { "const": 1 },
+    "forms": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/form" }
+    }
+  },
+  "$defs": {
+    "form": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["store", "form_version", "edition", "path"],
+      "properties": {
+        "store": {
+          "description": "The stored form (contracts §11's StoredForm names, each mapped to its StoreId where it has one): a .canopi file, a Desktop Draft, the user database, the Data library catalogue, the settings record, the IndexedDB Draft store and the Web species-list record.",
+          "enum": ["canopi_file", "desktop_draft", "user_db", "library_catalogue", "settings", "web_drafts", "web_species_lists"]
+        },
+        "form_version": {
+          "description": "The version the form was written at: the .canopi format version, user_version, the catalogue's schema_version, the settings or species-list record version, or the IndexedDB database version.",
+          "type": "integer",
+          "minimum": 1
+        },
+        "edition": {
+          "description": "The edition whose reader opens the form.",
+          "enum": ["desktop", "web"]
+        },
+        "path": {
+          "description": "The form's file or seed dump, relative to the fixture directory: forward slashes, no leading slash, no segment starting with a dot (so no '.' or '..').",
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_][A-Za-z0-9_.-]*(/[A-Za-z0-9_][A-Za-z0-9_.-]*)*$"
+        }
+      }
+    }
+  }
+}
