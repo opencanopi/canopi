@@ -336,3 +336,28 @@ fn a_v10_object_of_only_its_identity_and_geometry_reads_with_every_default() {
     assert_eq!(read["groups"][0]["members"], json!([]));
     assert_eq!(read["budget"][0]["unit_cost"], json!(0.0));
 }
+
+/// 2.1-M481, 2.1-M491: a species line's species is its identity, so a species line without
+/// `canonical_name` is refused at its path, where a line whose target is not a species is
+/// skipped.
+#[test]
+fn canopi_f47t_52_270_a_species_budget_line_without_its_species_is_refused_at_its_path() {
+    let mut value = v10();
+    value["budget"][0]["target"] = json!({ "kind": "species" });
+    assert_eq!(
+        refusal_of(&value),
+        (
+            DesignLoadFailureKind::InvalidDocument,
+            "$.budget[0].target.canonical_name".to_owned()
+        )
+    );
+    value["budget"][0]["target"] = json!({ "kind": "nursery_order" });
+    let budget = read_newer_design(&value)
+        .expect("an unknown line kind reads")
+        .view
+        .budget;
+    assert!(
+        budget.is_empty(),
+        "a line that prices no species is skipped"
+    );
+}

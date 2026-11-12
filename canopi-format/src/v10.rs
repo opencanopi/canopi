@@ -10,7 +10,8 @@
 //! guide group member `{"kind": "measurement_guide", "id"}`; `plant_display` typed at its
 //! root key, its `color_by` and `labels` open strings; a budget line `{target: {kind,
 //! canonical_name}, unit_cost, ext?}` whose `target.kind` is an open string, a line whose
-//! target is not a species being skipped (2.1-M491). An unknown key is ignored anywhere, the
+//! target is not a species being skipped (2.1-M491) and a species line without its
+//! `canonical_name` refused at that path. An unknown key is ignored anywhere, the
 //! root included. Only identity and geometry are required (2.1-M481): every other field
 //! is optional with the default the frozen schema documents beside it. Objects v10 leaves as
 //! v9 read by their v9 types, which require more: the read sets each absent field to its

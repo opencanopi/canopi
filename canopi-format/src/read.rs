@@ -70,6 +70,7 @@ pub fn read_newer_design(value: &Value) -> Result<ReadOnlyDesign, ReadRefusal> {
     // shape outgrew, named at the root without serde's text.
     let file = serde_json::from_value::<FileRead>(value)
         .map_err(|_| refused(Refusal::new(FieldPath::root(), "expected a Canopi Design")))?;
+    species_lines_named(&file.budget).map_err(refused)?;
     let mut view = view_of(file);
     // Checked before duplicates go, so a refused entry is named by its index in the file.
     validate_design_geometry(&view)
@@ -218,8 +219,27 @@ fn group_of(group: GroupRead) -> ObjectGroup {
     }
 }
 
-/// The species lines as this build's plant lines; a line whose target is not a species, or
-/// a species line without its name, is skipped (2.1-M491).
+/// A species line names its species, its identity (2.1-M481); a line whose target is not a
+/// species needs nothing, being skipped (2.1-M491).
+fn species_lines_named(lines: &[BudgetLineRead]) -> Result<(), Refusal> {
+    let unnamed = lines
+        .iter()
+        .position(|line| line.target.kind == "species" && line.target.canonical_name.is_none());
+    match unnamed {
+        Some(index) => Err(Refusal::new(
+            FieldPath::root()
+                .field("budget")
+                .index(index)
+                .field("target")
+                .field("canonical_name"),
+            "missing required value",
+        )),
+        None => Ok(()),
+    }
+}
+
+/// The species lines as this build's plant lines; a line whose target is not a species is
+/// skipped (2.1-M491), and a species line names its species ([`species_lines_named`]).
 fn budget_of(lines: Vec<BudgetLineRead>, currency: &str) -> Vec<BudgetItem> {
     lines
         .into_iter()
