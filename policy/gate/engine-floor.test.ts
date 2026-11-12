@@ -87,8 +87,7 @@ describe('the engine floor (canopi-4kfl)', () => {
     expect(floorLineGaps(line, '12.0', { ...ENGINE_FLOOR, safari: '17.0' })).toEqual(['Safari 17.0'])
   })
 
-  // The published line is not this chunk's to write: README.md and the stable notes belong to the release (main agent).
-  it.fails('U canopi-4kfl (main agent, expected fail until README and the release notes carry it): the download line and the stable release notes publish the floor', () => {
+  it('U canopi-4kfl: the download line and the stable release notes publish the floor', () => {
     const minimum = tauriConfig().bundle.macOS?.minimumSystemVersion ?? ''
     const download = read('README.md').split('\n').find((line) => line.includes('canopi-macos-arm64.dmg')) ?? ''
     expect(download, 'README.md has no download line').not.toBe('')
