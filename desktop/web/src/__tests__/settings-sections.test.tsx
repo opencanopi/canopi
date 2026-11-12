@@ -23,6 +23,14 @@ import {
   openSettingsDialog,
 } from '../app/shell/dialogs'
 import { SettingsDialog, type SettingsFoldersAdapter } from '../components/shared/SettingsDialog'
+import {
+  installSettingsProjection,
+  resetSettingsProjectionForTests,
+  type SettingsProjectionInstallation,
+} from '../app/settings/projection'
+import { resetStoreHealthForTests, storeStatus } from '../failures/health'
+import { createBrowserSettingsPlatformAdapter } from '../platform/settings.browser'
+import { createBrowserAppDataStore, type BrowserStorageAdapter } from '../web/browser-app-data'
 
 const FAKE_KEY = 'FAKE-GOOGLE-KEY-never-log-me-42'
 const DEFAULT_NEW_DESIGNS = { satellite: false, symbolScale: 1, labels: 'names' } as const
@@ -231,6 +239,102 @@ describe('Settings › Canvas', () => {
     expect(radio('Trackpad: two fingers pan').getAttribute('aria-checked')).toBe('true')
     await act(async () => { radio('Mouse: the wheel zooms').click() })
     expect(scrollWheel.value).toBe('zoom')
+  })
+})
+
+// 2.1-Q309, 2.1-Q324: on a Mac a new Web profile starts on Trackpad; a stored choice stays, and reading the record writes
+// nothing (2.1-M473). Through the real record store, browser adapter and settings projection.
+describe('Settings › Canvas on a Mac (canopi-pqxl)', () => {
+  const SETTINGS_KEY = 'canopi:web-app-data:v3:settings'
+  let installation: SettingsProjectionInstallation | null = null
+
+  function memoryStorage(initial: Record<string, string> = {}): BrowserStorageAdapter & { readonly items: Map<string, string> } {
+    const items = new Map(Object.entries(initial))
+    return {
+      items,
+      getItem: (key) => items.get(key) ?? null,
+      setItem: (key, value) => { items.set(key, value) },
+      removeItem: (key) => { items.delete(key) },
+    }
+  }
+
+  async function launchOnAMac(storage: BrowserStorageAdapter): Promise<void> {
+    const adapter = createBrowserSettingsPlatformAdapter(
+      createBrowserAppDataStore({ storage, session: memoryStorage() }),
+      () => 'mac',
+    )
+    installation = installSettingsProjection(adapter)
+    const ready = installation.ready.catch(() => undefined)
+    await vi.runAllTimersAsync()
+    await ready
+  }
+
+  beforeEach(() => {
+    vi.useFakeTimers()
+    resetSettingsProjectionForTests()
+    resetStoreHealthForTests()
+  })
+
+  afterEach(() => {
+    installation?.dispose()
+    installation = null
+    resetSettingsProjectionForTests()
+    resetStoreHealthForTests()
+    vi.useRealTimers()
+  })
+
+  it('U canopi-pqxl: a first launch on a Mac shows Trackpad chosen and writes nothing', async () => {
+    const storage = memoryStorage()
+    await launchOnAMac(storage)
+    await openSection('canvas')
+
+    expect(radio('Trackpad: two fingers pan').getAttribute('aria-checked')).toBe('true')
+    expect(scrollWheel.value).toBe('pan')
+    expect([...storage.items.keys()].filter((key) => key === SETTINGS_KEY), 'reading writes no record').toEqual([])
+  })
+
+  it('U canopi-pqxl: a stored Mouse choice on a Mac stays Mouse and its record is not rewritten', async () => {
+    const record = JSON.stringify({ version: 3, settings: { scroll_wheel: 'zoom', theme: 'dark' } })
+    const storage = memoryStorage({ [SETTINGS_KEY]: record })
+    await launchOnAMac(storage)
+    await openSection('canvas')
+
+    expect(radio('Mouse: the wheel zooms').getAttribute('aria-checked')).toBe('true')
+    expect(storage.items.get(SETTINGS_KEY)).toBe(record)
+  })
+
+  function refusingStorage(setItem: BrowserStorageAdapter['setItem']): BrowserStorageAdapter {
+    return {
+      getItem: () => { throw new DOMException('The operation is insecure.', 'SecurityError') },
+      setItem,
+      removeItem: () => undefined,
+    }
+  }
+
+  it('U canopi-pqxl: a Mac browser refusing storage (SecurityError) runs on the in-memory default and writes nothing', async () => {
+    const setItem = vi.fn()
+    await launchOnAMac(refusingStorage(setItem))
+
+    expect(storeStatus('settings')).toEqual({ kind: 'unavailable', code: { kind: 'io', io: 'permission_denied' } })
+    expect(setItem).not.toHaveBeenCalled()
+  })
+
+  // Expected to fail until the projection's unavailable branch takes the adapter's host fallback (owner: main agent,
+  // app/settings/projection.ts and platform-adapter.ts; tracker canopi-pqxl): the signals keep the host-independent Mouse.
+  it.fails('U canopi-pqxl (main agent, projection fallback): a Mac browser refusing storage starts on Trackpad', async () => {
+    await launchOnAMac(refusingStorage(vi.fn()))
+
+    expect(storeStatus('settings')).toMatchObject({ kind: 'unavailable' })
+    expect(scrollWheel.value).toBe('pan')
+  })
+
+  it.fails('U canopi-pqxl (main agent, projection fallback): a Mac with a record the store refuses starts on Trackpad and keeps the record', async () => {
+    const storage = memoryStorage({ [SETTINGS_KEY]: 'not a record' })
+    await launchOnAMac(storage)
+
+    expect(storeStatus('settings')).toEqual({ kind: 'unavailable', code: { kind: 'invalid' } })
+    expect(storage.items.get(SETTINGS_KEY)).toBe('not a record')
+    expect(scrollWheel.value).toBe('pan')
   })
 })
 
