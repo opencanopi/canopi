@@ -6,6 +6,7 @@ import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, rea
 import { tmpdir } from 'node:os'
 import { delimiter, dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { MARKERS_RECORD } from './prepush-checks.ts'
 
 export const REPO_ROOT = fileURLToPath(new URL('../../', import.meta.url))
 /** The gate's entry, every caller's: plain JavaScript, so any Node can load it and learn it is the wrong one. */
@@ -31,10 +32,11 @@ export function git(cwd: string, ...args: string[]): string {
   return run.stdout.trim()
 }
 
-/** The test process's environment without git's hook variables, an offline npm or a cargo target. */
+/** The test process's environment without git's hook variables, an offline npm, a cargo target or a push lane's marker
+ * record (2.1-Q328: a planted marker check must fail as alone, never write the outer lane's record). */
 export function cleanEnv(): NodeJS.ProcessEnv {
   return Object.fromEntries(Object.entries(process.env).filter(([name]) =>
-    !name.startsWith('GIT_') && name !== 'npm_config_offline' && name !== 'CARGO_TARGET_DIR'))
+    !name.startsWith('GIT_') && name !== 'npm_config_offline' && name !== 'CARGO_TARGET_DIR' && name !== MARKERS_RECORD))
 }
 
 export interface GateRun {

@@ -3,8 +3,10 @@
 // worktree. It allows a deletion, a commit origin/main holds to any ref (and a tag only so), a range holding no
 // change, and a docs or beads-only range after its cheap lane runs here on the commit checked out; any other pushed
 // commit needs a green pre-push stamp (stamp.ts) made from the gate table that commit holds, from a merge base the
-// pushed range's start or origin/main holds, with the e2e run and Rust checks the range needs. Otherwise it refuses,
-// naming the command to run.
+// pushed range's start or origin/main holds, with the e2e run and Rust checks the range needs. A stamp naming
+// expected-fail markers added since its base (stamp.ts) serves only a remote ref under refs/heads/scratch/, where a step's
+// integration tip and its mid-step CI probe go (2.1-Q328); for any other ref it refuses, naming the markers. Otherwise it
+// refuses, naming the command to run.
 import { check, GateError, docsOnly, git, planAffected, pushNeeds } from './plan.ts'
 import { execute } from './run.ts'
 import { readStamp, tableAt, treeChanges, treeFault } from './stamp.ts'
@@ -26,8 +28,12 @@ const isAncestor = (root: string, ancestor: string, of: string, env: NodeJS.Proc
 const changedPaths = (root: string, from: string, sha: string, env: NodeJS.ProcessEnv) =>
   git(root, ['diff', '--name-only', '-z', from, sha], env).split('\0').filter((path) => path !== '')
 
-/** Why `sha`'s stamp does not cover the range `base..sha` with `paths` changed, or undefined when it does. */
-function stampFault(root: string, sha: string, base: string, paths: readonly string[], env: NodeJS.ProcessEnv) {
+const SCRATCH_REFS = 'refs/heads/scratch/'
+
+/** Why `sha`'s stamp does not cover the range `base..sha` with `paths` changed, pushed to `remoteRef`, or undefined when
+ * it does. */
+function stampFault(root: string, sha: string, base: string, paths: readonly string[], remoteRef: string,
+  env: NodeJS.ProcessEnv) {
   const stamp = readStamp(root, sha, env)
   if (!stamp) return 'it has no green pre-push stamp'
   if (stamp.sha !== sha) return `its stamp names another commit (${short(stamp.sha)})`
@@ -45,6 +51,10 @@ function stampFault(root: string, sha: string, base: string, paths: readonly str
     (path) => git(root, ['ls-tree', '--name-only', sha, '--', path], env).trim() !== '')
   if (needs.e2e && !stamp.e2e) return "its stamp's lane ran no e2e, which the pushed changes need"
   if (needs.rust && !stamp.rust) return "its stamp's lane ran no Rust check, which the pushed changes need"
+  if (stamp.markers?.length && !remoteRef.startsWith(SCRATCH_REFS)) {
+    return `its stamp serves refs under scratch/ only, for the expected-fail markers added since its base `
+      + `(${stamp.markers.join(', ')}): clear them and stamp again, or push to ${SCRATCH_REFS}`
+  }
   return undefined
 }
 
@@ -88,7 +98,7 @@ async function judge(root: string, sha: string, remoteRef: string, remoteSha: st
   }
   const paths = changedPaths(root, base, sha, env)
   if (!paths.length) return undefined
-  const fault = stampFault(root, sha, base, paths, env)
+  const fault = stampFault(root, sha, base, paths, remoteRef, env)
   if (!fault || !docsOnly(paths)) return fault
   return await cheapLane(root, sha, base, paths, env)
 }

@@ -1,6 +1,8 @@
+import { existsSync, readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'
-import { git, PlantedRepo } from './planted-repo.ts'
-import { addedMarkers } from './prepush-checks.ts'
+import { git, PlantedRepo, REPO_ROOT } from './planted-repo.ts'
+import { addedMarkers, MARKERS_RECORD } from './prepush-checks.ts'
 
 const repo = new PlantedRepo()
 afterAll(() => repo.cleanup())
@@ -58,6 +60,49 @@ describe('the pre-push lane\'s expected-fail marker check (canopi-f47t.52.228.54
     const green = repo.gate(['prepush-checks', '--base', base])
     expect(green.stdout).toContain('PASS no expected-fail markers beyond those on the base')
     expect(green.status).toBe(0)
+  })
+
+  it('2.1-Q328: a planted marker check fails on an added marker even under a push lane\'s marker record, and writes none', () => {
+    commit(register([]))
+    const base = git(repo.repo, 'rev-parse', 'HEAD')
+    commit({ 'desktop/web/src/app/new.test.ts': "it.fails('red', () => {})\n" })
+    const record = join(repo.root, 'outer-record.json')
+    process.env[MARKERS_RECORD] = record
+    try {
+      const run = repo.gate(['prepush-checks', '--base', base])
+      expect(run.status).toBe(1)
+      expect(run.stdout).toContain('FAIL expected-fail markers added since the base')
+      expect(existsSync(record)).toBe(false)
+    } finally {
+      delete process.env[MARKERS_RECORD]
+    }
+  })
+
+  it('2.1-Q328: CI refuses a PR whose head adds an expected-fail marker, so a scratch-only stamp never reaches main', () => {
+    const step = readFileSync(join(REPO_ROOT, '.github/workflows/commit-gate.yml'), 'utf8').split('      - name: No expected-fail marker added by the PR\n')[1]?.split('\n      - ')[0] ?? ''
+    expect(step).toContain("if: github.event_name == 'pull_request'")
+    expect(step).toContain('run: node policy/gate/cli.mjs check prepush-checks')
+    expect(step).not.toContain('CANOPI_GATE_MARKERS_RECORD')
+    // The step's command, through the real entry, in a planted repository whose origin/main is the PR's base.
+    const planted = new PlantedRepo()
+    try {
+      planted.write({ 'policy/adapters/upstream-register.mjs': '\n', 'desktop/web/src/app/a.test.ts': "it('one', () => {})\n" })
+      git(planted.repo, 'add', '-A')
+      git(planted.repo, '-c', 'core.hooksPath=/dev/null', 'commit', '-q', '-m', 'base')
+      git(planted.repo, 'update-ref', 'refs/remotes/origin/main', git(planted.repo, 'rev-parse', 'HEAD'))
+      planted.write({ 'desktop/web/src/app/a.test.ts': "it('one', () => {})\nit('two', () => {})\n" })
+      git(planted.repo, '-c', 'core.hooksPath=/dev/null', 'commit', '-q', '-am', 'clean')
+      const clean = planted.gate(['check', 'prepush-checks'])
+      expect(clean.status, clean.stderr).toBe(0)
+      expect(clean.stdout).toContain('PASS no expected-fail markers beyond those on the base')
+      planted.write({ 'desktop/web/src/app/a.test.ts': "it('one', () => {})\nit.fails('red', () => {})\n" })
+      git(planted.repo, '-c', 'core.hooksPath=/dev/null', 'commit', '-q', '-am', 'marker')
+      const red = planted.gate(['check', 'prepush-checks'])
+      expect(red.status).toBe(1)
+      expect(red.stdout).toContain("FAIL expected-fail markers added since the base:\ndesktop/web/src/app/a.test.ts:2:it.fails('red', () => {})")
+    } finally {
+      planted.cleanup()
+    }
   })
 
   it('unreadable: an upstream register that cannot list its markers fails the check, never exempting nothing', () => {

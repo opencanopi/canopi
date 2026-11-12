@@ -404,7 +404,8 @@ export function planAffected(root: string, paths: readonly string[], staged: boo
  * and every-change area runs its full row (ci_only checks and a workflow area's aside), whose coverage runs (the web
  * project's and the policy-gate project's) hold the Vitest files and whose script tests hold each changed script's; a bead-only change runs the every-change rows too.
  * Every change also runs CI's Commit gate, its closed-bead check and its range, `--vitest` included (commit-gate.yml; the
- * PR body is CI's), then the expected-fail marker check no CI job runs (prepush-checks.ts).
+ * PR body is CI's), then the expected-fail marker check from `base` (prepush-checks.ts), which the Commit gate runs from
+ * origin/main on every PR (2.1-Q328).
  */
 export function planPush(root: string, paths: readonly string[], base?: string, env: NodeJS.ProcessEnv = process.env,
   given: Table = TABLE): Plan {
@@ -413,7 +414,7 @@ export function planPush(root: string, paths: readonly string[], base?: string, 
   const covered = (planned: PlannedCheck) => planned.ciOnly || (ids.has('coverage') && ids.has('gate-coverage') && planned.id.startsWith('vitest-'))
     || (ids.has('script-tests') && planned.id.startsWith('unittest-'))
   const range: PlannedCheck = { id: 'commit-gate-pr', command: `node policy/gate/cli.mjs commit-gate pr ${base ?? 'origin/main'} HEAD --vitest` }
-  const local: PlannedCheck = { id: 'prepush-checks', command: `node policy/gate/cli.mjs prepush-checks --base ${base ?? 'origin/main'}` }
+  const local: PlannedCheck = { ...check('prepush-checks', given), command: `node policy/gate/cli.mjs prepush-checks --base ${base ?? 'origin/main'}` }
   return { ...plan, checks: dedupe([...plan.checks.filter((planned) => !covered(planned)), check('closed-beads', given), range, local]) }
 }
 

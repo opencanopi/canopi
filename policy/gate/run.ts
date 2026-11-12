@@ -4,12 +4,16 @@
 // runs npm offline and stops at its first failure. A desktop/web check where its packages are not installed (a fresh
 // worktree) fails naming `npm ci` and runs nothing; policy/check.mjs refuses so itself when it needs its glob engine.
 // SIGINT or SIGTERM stops the running check's group and every later check, and the summary says the run is not green; the gate writes only its stamp under the git dir (stamp.ts).
+// The push lane's marker-record file (2.1-Q328) reaches the prepush-checks check alone, set by recordingMarkers for the
+// run stamp.ts makes, never through this process's environment: every other check, and the planted runs they make,
+// runs with the variable removed, so their own marker checks fail as alone and never write the lane's record.
 import { spawn, spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { constants } from 'node:os'
 import { join } from 'node:path'
 import type { E2ePlan, PlannedCheck } from './plan.ts'
 import { GateError } from './plan.ts'
+import { MARKERS_RECORD } from './prepush-checks.ts'
 import { display, needsPackages, TABLE, WEB, type Table } from './table.ts'
 
 const log = (line: string) => process.stderr.write(`gate: ${line}\n`)
@@ -62,9 +66,23 @@ function start(name: string, argv: readonly string[], cwd: string, env: NodeJS.P
   }
 }
 
-/** A check's environment: no GIT_* variable; npm offline in the commit lane. */
+/** The marker-record file the running push lane gives its prepush-checks check, or undefined outside one. */
+let markersRecord: string | undefined
+
+/** `body`'s result, the plan it executes giving `record` to its prepush-checks check alone (MARKERS_RECORD, 2.1-Q328). */
+export async function recordingMarkers<T>(record: string, body: () => Promise<T>): Promise<T> {
+  markersRecord = record
+  try {
+    return await body()
+  } finally {
+    markersRecord = undefined
+  }
+}
+
+/** A check's environment: no GIT_* variable and no marker record (recordingMarkers); npm offline in the commit lane. */
 export function checkEnv(env: NodeJS.ProcessEnv, staged: boolean): NodeJS.ProcessEnv {
-  const clean: NodeJS.ProcessEnv = Object.fromEntries(Object.entries(env).filter(([name]) => !name.startsWith('GIT_')))
+  const clean: NodeJS.ProcessEnv = Object.fromEntries(Object.entries(env).filter(([name]) => !name.startsWith('GIT_')
+    && name !== MARKERS_RECORD))
   if (staged) clean['npm_config_offline'] = 'true'
   return clean
 }
@@ -141,7 +159,8 @@ export async function execute(root: string, checks: readonly PlannedCheck[], e2e
         continue
       }
       const { env: extra, argv } = splitEnv(planned.command)
-      const code = await timed(index, () => run(text, argv, join(root, planned.cwd ?? ''), { ...base, ...extra }))
+      const record = planned.id === 'prepush-checks' && markersRecord !== undefined ? { [MARKERS_RECORD]: markersRecord } : {}
+      const code = await timed(index, () => run(text, argv, join(root, planned.cwd ?? ''), { ...base, ...extra, ...record }))
       if (interrupted) break
       if (code === 0) passed += 1
       else {

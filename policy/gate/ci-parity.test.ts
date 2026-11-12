@@ -513,7 +513,7 @@ describe('selection parity (A5, AR2)', () => {
 
   it('canopi-f47t.52.228.54: the pre-push lane runs every check the Commit gate runs; the other lanes check closed beads for any .beads/ change', () => {
     const commit = real.get('commit-gate.yml') ?? {}
-    expect(commitGateChecks(commit)).toEqual({ checks: new Set(['closed-beads', 'commit-gate-pr']), faults: [] })
+    expect(commitGateChecks(commit)).toEqual({ checks: new Set(['closed-beads', 'commit-gate-pr', 'prepush-checks']), faults: [] })
     const mixed = [['.beads/issues.jsonl', 'docs/a.md'], ['.beads/issues.jsonl', 'scripts/release_smoke.py']]
     expect(commitGateFaults(commit, [...PROBES.map((path) => [path]), ...mixed])).toEqual([])
     const gate = commit.jobs?.['gate'] ?? {}
