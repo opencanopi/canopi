@@ -8,6 +8,8 @@ import { join, resolve } from "node:path";
 import { fileURLToPath, URL } from "node:url";
 import { resolveWebEditionDevHtmlUrl } from "./src/web/dev-entry";
 import { admitWebCatalogManifest } from "./src/generated/web-catalog-artifact.mjs";
+// The engine floor's one source (canopi-4kfl, 2.1-M490): both editions' scripts, pre-bundled dependencies and styles.
+import { ENGINE_FLOOR_BROWSERS, ENGINE_FLOOR_TARGET } from "./engine-floor";
 // The coverage floors' one home (2.1-M217): policy/check.mjs holds this config's loaded values to the same family.
 import coverageFamily from "../../policy/ratchets/coverage.json";
 
@@ -108,7 +110,7 @@ export default defineConfig(({ mode }) => {
       // Lazily imported by the PDF export; discovering them at runtime makes Vite
       // re-optimize and reload the page mid-session.
       include: ['pdfkit', 'fontkit'],
-      rolldownOptions: { transform: { target: 'es2022' } },
+      rolldownOptions: { transform: { target: [...ENGINE_FLOOR_TARGET] } },
     },
     worker: {
       // The raster decode lane imports geotiff codecs dynamically.
@@ -133,7 +135,8 @@ export default defineConfig(({ mode }) => {
       },
     },
     build: {
-      target: 'es2022',
+      target: [...ENGINE_FLOOR_TARGET],
+      cssTarget: [...ENGINE_FLOOR_BROWSERS],
       outDir: isWebEdition ? "dist-web" : "dist",
       emptyOutDir: true,
       rolldownOptions: {
