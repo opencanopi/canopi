@@ -66,7 +66,13 @@ jobs:
         run: npm ci --no-audit --no-fund
 
       # The Web build compiles the format worker's module first (`npm run build:format-wasm`, Step 2.0.4): the wasm32
-      # target, and the wasm-bindgen CLI at Cargo.lock's wasm-bindgen version, the one build-wasm.mjs accepts.
+      # target, and the wasm-bindgen CLI at Cargo.lock's wasm-bindgen version, the one build-wasm.mjs accepts. The
+      # Playwright image has no C compiler, which the crates' build scripts link with on the host.
+      - name: Install the host C toolchain
+        if: matrix.suite == 'canvas'
+        run: |
+          timeout 3m apt-get -o Acquire::Retries=5 -o Acquire::http::Timeout=60 update -qq
+          timeout 5m apt-get -o Acquire::Retries=5 -o Acquire::http::Timeout=60 install -y -qq --no-install-recommends gcc libc6-dev
       - uses: dtolnay/rust-toolchain@1.97.1
         if: matrix.suite == 'canvas'
         with:
@@ -193,14 +199,21 @@ jobs:
             echo "CANOPI_FORMAT_PROBE_DRIVER=WebKitWebDriver" >> "$GITHUB_ENV"
             printf 'CANOPI_FORMAT_PROBE_CAPABILITIES={"webkitgtk:browserOptions":{"binary":"%s","args":["--automation"]}}\n' "$browser" >> "$GITHUB_ENV"
           else
-            echo "CANOPI_FORMAT_PROBE_DRIVER=$(cygpath -u "$EDGEWEBDRIVER")/msedgedriver.exe" >> "$GITHUB_ENV"
+            # The image no longer ships msedgedriver: fetch the one matching its Edge.
+            edge='C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe'
+            version="$(powershell -NoProfile -Command "(Get-Item '$edge').VersionInfo.ProductVersion" | tr -d '\r')"
+            if [ -z "$version" ]; then echo "::error::no Edge version on this image"; exit 1; fi
+            curl --proto '=https' --tlsv1.2 --retry 5 --location --silent --show-error --fail \
+              -o "$RUNNER_TEMP/edgedriver.zip" "https://msedgedriver.microsoft.com/$version/edgedriver_win64.zip"
+            unzip -q -o "$RUNNER_TEMP/edgedriver.zip" -d "$RUNNER_TEMP/edgedriver"
+            echo "CANOPI_FORMAT_PROBE_DRIVER=$(cygpath -u "$RUNNER_TEMP")/edgedriver/msedgedriver.exe" >> "$GITHUB_ENV"
             echo 'CANOPI_FORMAT_PROBE_CAPABILITIES={"browserName":"MicrosoftEdge","ms:edgeOptions":{"args":["--headless=new"]}}' >> "$GITHUB_ENV"
           fi
 
       - name: Drive the format worker in ${{ matrix.engine }}
         run: |
           set -euo pipefail
-          run='"$CANOPI_FORMAT_PROBE_DRIVER" --port=4444 & driver=$!; trap "kill $driver" EXIT; sleep 3
+          run='"$CANOPI_FORMAT_PROBE_DRIVER" --port=4444 & driver=$!; trap "kill $driver" EXIT; sleep 3; kill -0 $driver
             npx playwright test e2e/canvas/format-core-probe.spec.ts --project=chromium --grep "WebDriver engine" --reporter=line'
           if [ "$RUNNER_OS" = Linux ]; then xvfb-run -a bash -euo pipefail -c "$run"; else bash -euo pipefail -c "$run"; fi
 

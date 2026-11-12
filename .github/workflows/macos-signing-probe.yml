@@ -73,6 +73,7 @@ jobs:
       # macOS bash 3.2: no arrays read under set -u, no associative arrays.
       - name: Quarantine, install and read the ${{ matrix.variant }} bundle
         shell: bash
+        timeout-minutes: 20
         env:
           VARIANT: ${{ matrix.variant }}
         run: |
@@ -87,10 +88,12 @@ jobs:
           app=""
           norm() { tr '\n' ' ' | sed -e "s#${app:-@none@}#APP#g" -e "s#$dmg#DMG#g" -e 's/[[:space:]][[:space:]]*/ /g' -e 's/ $//'; }
           put() { printf '%s=%s\n' "$1" "$2" >> "$row"; }
+          # Every reading is bounded: a command waiting on a dialog or a permission prompt ends after 60 s (exit 142).
+          bounded() { perl -e 'alarm shift; exec @ARGV or exit 127' 60 "$@"; }
           measure() {
             name="$1"; shift
             rc=0
-            text="$("$@" 2>&1)" || rc=$?
+            text="$(bounded "$@" 2>&1)" || rc=$?
             put "${name}_exit" "$rc"
             put "${name}_msg" "$(printf '%s' "$text" | norm)"
             printf '== %s (exit %s): %s\n%s\n\n' "$name" "$rc" "$*" "$text" >> "$raw"
@@ -99,7 +102,7 @@ jobs:
           put macos "$(sw_vers -productVersion) $(uname -m)"
 
           # Gatekeeper must assess, or the launch reading means nothing: the verdict job refuses a disabled row.
-          sudo spctl --global-enable 2>/dev/null || sudo spctl --master-enable || true
+          bounded sudo spctl --global-enable 2>/dev/null || bounded sudo spctl --master-enable || true
           put gatekeeper "$(spctl --status 2>&1 | norm)"
 
           # A browser download's quarantine on the dmg, then the user's install: mount, copy the app out.
@@ -128,21 +131,21 @@ jobs:
 
           # The quarantined launch: Gatekeeper's own verdict, as its dialog says it.
           since="$(date '+%Y-%m-%d %H:%M:%S')"
-          open "$app" || true
+          bounded open "$app" || true
           sleep 10
           screencapture -x "$out/$VARIANT-dialog.png" || true
-          dialog="$(osascript -e 'tell application "System Events" to get value of every static text of every window of process "CoreServicesUIAgent"' 2>&1 || true)"
+          dialog="$(bounded osascript -e 'tell application "System Events" to get value of every static text of every window of process "CoreServicesUIAgent"' 2>&1 || true)"
           put dialog "$(printf '%s' "$dialog" | norm)"
           if pgrep -x "$exe" > /dev/null; then put launched_quarantined yes; else put launched_quarantined no; fi
           pkill -x "$exe" || true
           killall CoreServicesUIAgent 2> /dev/null || true
-          log show --start "$since" --style compact --predicate 'process == "syspolicyd" OR process == "CoreServicesUIAgent"' \
+          bounded log show --start "$since" --style compact --predicate 'process == "syspolicyd" OR process == "CoreServicesUIAgent"' \
             > "$out/$VARIANT-gatekeeper.log" 2>&1 || true
           put gatekeeper_log "$(grep -iE 'damaged|no usable signature|adhoc|ad-hoc|notari|could not verify|GK |evaluat' "$out/$VARIANT-gatekeeper.log" | tail -n 12 | norm)"
 
           # Today's install step, the one the website gives (2.1-Q313).
           xattr -dr com.apple.quarantine "$app"
-          open "$app" || true
+          bounded open "$app" || true
           sleep 15
           if pgrep -x "$exe" > /dev/null; then put launched_after_xattr yes; else put launched_after_xattr no; fi
           pkill -x "$exe" || true
