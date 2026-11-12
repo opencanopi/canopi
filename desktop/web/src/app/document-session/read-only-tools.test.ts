@@ -4,6 +4,8 @@
 // Canopi saved can be looked at with Select and Pan, and no drawing tool's key arms one over it. Failure state "an edit
 // tool reachable by shortcut", through the real Desktop key router and armCanvasTool. The one canvas command projection
 // greys the drawing tools, Undo, Redo and the edits that change an object, so the rail, menus and palette follow it.
+// The right-click menu greys every entry that changes the Design or arms an edit tool ("an edit tool reachable by
+// right-click menu").
 // Both editions' command catalogs offer Close only (2.1-Q315): Rename, Save, Save as, Revert, the imports, the exports,
 // Download a copy and the saved-view edits are off; Close and the panels stay.
 import { signal } from '@preact/signals'
@@ -24,6 +26,15 @@ import { focusOwner } from '../keyboard/focus-owner'
 import { singleKeyShortcuts } from '../settings/state'
 import { activePanel } from '../shell/state'
 import { createDesignSessionStoreTestFixture, designSessionStore, EDITING_DESIGN_SESSION } from './store'
+import {
+  buildCanvasContextMenuEntries,
+  type CanvasContextMenuCommand,
+  type CanvasContextMenuEntry,
+} from '../canvas-context-menu/entries'
+import { renameZoneDialog } from '../rename-zone/state'
+import type { CanvasContextMenuCommands, CanvasContextMenuRequest } from '../../canvas/runtime/app-adapter'
+import type { CanvasDesignObjectSelectionModel } from '../../canvas/runtime/runtime'
+import { t } from '../../i18n'
 import type { CanopiFile } from '../../types/design'
 
 const fixture = createDesignSessionStoreTestFixture(designSessionStore)
@@ -125,6 +136,88 @@ it('R1 canopi-f47t.52.270: the one command projection greys the drawing tools, U
   } finally {
     setCanvasSelection([])
   }
+})
+
+/** The right-click menu over `targets` (none: the empty map, or a point menu with `pointRun`), its commands spied. */
+function contextMenu(targets: CanvasDesignObjectSelectionModel['editableTargets'] | null, pointRun?: () => void) {
+  const spy = () => vi.fn()
+  const commands: CanvasContextMenuCommands = {
+    copy: spy(), pasteAt: spy(), canPaste: vi.fn(() => true), duplicateSelected: spy(), toggleSelectedPlantNamePins: spy(),
+    deleteSelected: spy(), selectAll: spy(), selectSameSpecies: spy(), bringToFront: spy(), sendToBack: spy(),
+    lockSelected: spy(), unlockSelected: spy(), groupSelected: spy(), ungroupSelected: spy(),
+    renameZone: vi.fn(() => true), rotateSelected: spy(),
+  }
+  const plantIds = targets?.filter((target) => target.kind === 'plant').map((target) => target.id) ?? []
+  const request: CanvasContextMenuRequest = {
+    anchor: { left: 300, top: 200, right: 300, bottom: 200 },
+    world: { x: 12, y: 34 },
+    selection: targets && {
+      editableTargets: targets,
+      lockedTargets: [],
+      blockedTargets: [],
+      bounds: { minX: 0, minY: 0, maxX: 10, maxY: 10 },
+      sameSpeciesReferenceCanonicalName: plantIds.length > 0 ? 'Malus domestica' : null,
+      plantNamePinning: { plantIds, allPinned: false },
+    },
+    commands,
+    saveSelectionAsObjectStamp: spy(),
+    placePlantsAt: spy(),
+    ...(pointRun ? { pointActions: [{ action: 'delete-point' as const, disabled: false, run: pointRun }] } : {}),
+    returnFocus: spy(),
+  }
+  const options = {
+    translate: t,
+    characterKeyShortcuts: true,
+    openPlantAppearance: spy(),
+    summary: plantIds.length > 0
+      ? {
+          plantCount: plantIds.length,
+          species: [{ canonicalName: 'Malus domestica', name: 'Apple', englishFallback: false, selectedCount: 2, designCount: 2 }],
+          plantSpacingM: 1.5, zones: [], noteCount: 0, noteText: null, measurementCount: 0, measurementLengthM: null,
+        }
+      : null,
+    openSpeciesDetail: spy(),
+    addToCalendar: spy(),
+    setUnitCost: spy(),
+  }
+  const flat = (entries: readonly CanvasContextMenuEntry[]): CanvasContextMenuCommand[] =>
+    entries.flatMap((entry) => 'submenu' in entry ? flat(entry.submenu) : 'run' in entry ? [entry] : [])
+  const entries = flat(buildCanvasContextMenuEntries(request, options))
+  return { entries, enabled: entries.filter((entry) => !entry.disabled).map((entry) => entry.id), commands, request, options }
+}
+
+it('R1 canopi-f47t.52.270: the right-click menu greys every edit and edit tool over a read-only Design and runs none', () => {
+  const pointRun = vi.fn()
+  const apples = contextMenu([{ kind: 'plant', id: 'apple-1' }, { kind: 'plant', id: 'apple-2' }])
+  const zone = contextMenu([{ kind: 'zone', id: 'zone-1' }])
+  const emptyMap = contextMenu(null)
+  const corner = contextMenu(null, pointRun)
+
+  // Copy, selecting and Species details look; Cut, Delete, Duplicate, Group, Lock, Paste and the rest change the Design.
+  expect(apples.enabled).toEqual(['copy', 'select-same-species', 'species-details'])
+  expect(zone.enabled).toEqual(['copy'])
+  // Place plants here would arm an edit tool on the empty map.
+  expect(emptyMap.enabled).toEqual(['select-all'])
+  expect(corner.enabled).toEqual([])
+  for (const menu of [apples, zone, emptyMap, corner]) {
+    for (const entry of menu.entries) {
+      if (entry.disabled) entry.run()
+    }
+    for (const command of Object.values(menu.commands)) {
+      if (command !== menu.commands.canPaste) expect(command).not.toHaveBeenCalled()
+    }
+    expect(menu.request.placePlantsAt).not.toHaveBeenCalled()
+    expect(menu.options.openPlantAppearance).not.toHaveBeenCalled()
+    expect(menu.options.addToCalendar).not.toHaveBeenCalled()
+    expect(menu.options.setUnitCost).not.toHaveBeenCalled()
+  }
+  expect(pointRun).not.toHaveBeenCalled()
+  expect(renameZoneDialog.value).toBeNull()
+
+  // The same menu over an editing Design offers the edits.
+  designSessionStore.replaceCurrentDesignState(SHOWN, '/designs/orchard.canopi', 'Orchard', EDITING_DESIGN_SESSION)
+  expect(contextMenu([{ kind: 'plant', id: 'apple-1' }]).enabled).toEqual(expect.arrayContaining(['cut', 'delete', 'lock']))
+  expect(contextMenu(null).enabled).toEqual(['place-plants-here', 'paste', 'select-all'])
 })
 
 /** Every command that changes, writes or carries the Design out. */

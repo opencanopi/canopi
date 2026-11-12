@@ -110,9 +110,9 @@ export interface CanvasCommandProjectionState {
   readonly spatialEditingAvailable: boolean
   /**
    * The Design Session is read-only (a Design a newer Canopi saved, 2.1-M478): only Select and Pan arm, and Undo, Redo
-   * and every edit that changes an object are off. Absent: an editing Session.
+   * and every edit that changes an object are off.
    */
-  readonly readOnly?: boolean
+  readonly readOnly: boolean
   /** What the selection's commands can do; null with nothing selected. */
   readonly selection: CanvasEditSelectionAvailability | null
   /** The re-origin hold (a press, a tool transient or a text entry): Cut and Delete wait (U39). */
@@ -386,7 +386,7 @@ export function isCanvasCommandDisabled(
   intent: CanvasCommandIntent,
   state: CanvasCommandProjectionState,
 ): boolean {
-  const readOnly = state.readOnly === true
+  const readOnly = state.readOnly
   switch (intent.type) {
     case 'select-tool':
       // Only a read-only Session greys a tool: before the canvas mounts a tool primes the one it starts with, and in

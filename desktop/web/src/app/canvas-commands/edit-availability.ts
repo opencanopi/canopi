@@ -24,8 +24,8 @@ interface CanvasEditAvailabilityInput {
   readonly canvasAvailable: boolean
   /** Overview hides Design objects, so nothing that changes one can run. */
   readonly overview: boolean
-  /** A read-only Session (2.1-M478): nothing that changes a Design object can run, as in overview. Absent: editing. */
-  readonly readOnly?: boolean
+  /** A read-only Session (2.1-M478): nothing that changes a Design object can run, as in overview. */
+  readonly readOnly: boolean
   /** What the selection's commands can do; null with nothing selected. */
   readonly selection: CanvasEditSelectionAvailability | null
   /** The re-origin hold: a press, a tool transient or a text entry is live, so Cut and Delete wait (U39). */
@@ -49,7 +49,7 @@ const MUTATING: ReadonlySet<CanvasEditAction> = new Set([
  */
 export function canvasEditAvailable(action: CanvasEditAction, input: CanvasEditAvailabilityInput): boolean {
   if (!input.canvasAvailable) return false
-  if ((input.overview || input.readOnly === true) && MUTATING.has(action)) return false
+  if ((input.overview || input.readOnly) && MUTATING.has(action)) return false
   const can = input.selection
   switch (action) {
     case 'select-all': return true

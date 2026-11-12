@@ -27,6 +27,7 @@ function input(overrides: Partial<CanvasEditAvailabilityInput> = {}): CanvasEdit
   return {
     canvasAvailable: true,
     overview: false,
+    readOnly: false,
     selection: EVERYTHING,
     held: false,
     lockedObjectsPresent: true,
