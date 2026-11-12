@@ -14,6 +14,9 @@ import type { LocaleKey } from '../../generated/locale-keys'
  */
 export type CanvasToolId = Exclude<ToolId, 'saved-object-stamp'>
 
+/** The tools that only look at a Design: all a read-only Session arms (2.1-M478). */
+export const CANVAS_READ_TOOLS: ReadonlySet<ToolId> = new Set<ToolId>(['select', 'hand'])
+
 /** Tool rail groups, top to bottom. Only `zones` carries a heading. */
 type CanvasToolGroupId = 'navigate' | 'plant' | 'zones' | 'annotate'
 
@@ -105,6 +108,11 @@ export interface CanvasCommandProjectionState {
   readonly canvasAvailable: boolean
   /** False in overview, where Design objects are hidden and cannot change (the mutating edits); tools stay enabled. */
   readonly spatialEditingAvailable: boolean
+  /**
+   * The Design Session is read-only (a Design a newer Canopi saved, 2.1-M478): only Select and Pan arm, and Undo, Redo
+   * and every edit that changes an object are off. Absent: an editing Session.
+   */
+  readonly readOnly?: boolean
   /** What the selection's commands can do; null with nothing selected. */
   readonly selection: CanvasEditSelectionAvailability | null
   /** The re-origin hold (a press, a tool transient or a text entry): Cut and Delete wait (U39). */
@@ -378,15 +386,16 @@ export function isCanvasCommandDisabled(
   intent: CanvasCommandIntent,
   state: CanvasCommandProjectionState,
 ): boolean {
+  const readOnly = state.readOnly === true
   switch (intent.type) {
     case 'select-tool':
-      // Never disabled: before the canvas mounts a tool primes the one it starts with, and in overview arming fits the
-      // Design first (app/keyboard/arming.ts).
-      return false
+      // Only a read-only Session greys a tool: before the canvas mounts a tool primes the one it starts with, and in
+      // overview arming fits the Design first (app/keyboard/arming.ts).
+      return readOnly && !CANVAS_READ_TOOLS.has(intent.tool)
     case 'undo':
-      return !state.canUndo
+      return readOnly || !state.canUndo
     case 'redo':
-      return !state.canRedo
+      return readOnly || !state.canRedo
     case 'toggle-grid':
     case 'toggle-snap-to-grid':
       return !state.canvasAvailable
@@ -396,6 +405,7 @@ export function isCanvasCommandDisabled(
       return !canvasEditAvailable(intent.action, {
         canvasAvailable: state.canvasAvailable,
         overview: !state.spatialEditingAvailable,
+        readOnly,
         selection: state.selection,
         held: state.held,
         lockedObjectsPresent: state.lockedObjectsPresent,

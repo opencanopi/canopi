@@ -2,16 +2,20 @@
 
 // The read-only Session kind arms only read tools (2.1-M478, design check F3; canopi-f47t.52.270): a Design a newer
 // Canopi saved can be looked at with Select and Pan, and no drawing tool's key arms one over it. Failure state "an edit
-// tool reachable by shortcut", through the real Desktop key router and armCanvasTool.
+// tool reachable by shortcut", through the real Desktop key router and armCanvasTool. The one canvas command projection
+// greys the drawing tools, Undo, Redo and the edits that change an object, so the rail, menus and palette follow it.
+import { signal } from '@preact/signals'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import {
   createTestCanvasCommandSurface,
   createTestCanvasKeyboardPort,
   createTestCanvasRuntimeSurfaces,
 } from '../../__tests__/support/canvas-runtime-surfaces'
+import { createTestCanvasQuerySurface } from '../../__tests__/support/canvas-query-surface'
 import { installDesktopKeys } from '../../__tests__/support/desktop-key-router'
 import { setCurrentCanvasSession } from '../../canvas/session'
-import { currentCanvasTool } from '../../canvas/session-state'
+import { currentCanvasTool, setCanvasSelection } from '../../canvas/session-state'
+import { dispatchWorkspaceCanvasIntent, workspaceCanvasCommandProjection } from '../workspace-commands/canvas-actions'
 import { focusOwner } from '../keyboard/focus-owner'
 import { singleKeyShortcuts } from '../settings/state'
 import { activePanel } from '../shell/state'
@@ -88,4 +92,33 @@ it('R1 canopi-f47t.52.270: a drawing tool\'s key arms nothing over a read-only D
   }
   expect(setTool).not.toHaveBeenCalledWith('line')
   expect(setTool).toHaveBeenCalledWith('hand')
+})
+
+it('R1 canopi-f47t.52.270: the one command projection greys the drawing tools, Undo and the object edits over a read-only Design', () => {
+  const deleteSelected = vi.fn()
+  const undo = vi.fn()
+  setCurrentCanvasSession(createTestCanvasRuntimeSurfaces({
+    commands: createTestCanvasCommandSurface({
+      tools: { setTool },
+      history: { canUndo: signal(true), canRedo: signal(true), undo },
+      sceneEdits: { deleteSelected },
+    }),
+    queries: createTestCanvasQuerySurface({ selection: [{ kind: 'plant', id: 'plant-1' }] }),
+    keyboard: createTestCanvasKeyboardPort({ host }),
+  }))
+  setCanvasSelection(['plant-1'])
+  try {
+    const projection = workspaceCanvasCommandProjection.value
+    const enabledTools = projection.toolGroups.flatMap((group) => group.tools).filter((tool) => !tool.disabled)
+    expect(enabledTools.map((tool) => tool.tool)).toEqual(['select', 'hand'])
+    expect(projection.historyActions.filter((action) => !action.disabled)).toEqual([])
+    const enabledEdits = projection.editActions.filter((action) => !action.disabled).map((action) => action.id)
+    expect(enabledEdits).toEqual(['copy', 'select-all', 'deselect'])
+    dispatchWorkspaceCanvasIntent({ type: 'edit', action: 'delete' }, 'shortcut')
+    dispatchWorkspaceCanvasIntent({ type: 'undo' }, 'shortcut')
+    expect(deleteSelected).not.toHaveBeenCalled()
+    expect(undo).not.toHaveBeenCalled()
+  } finally {
+    setCanvasSelection([])
+  }
 })
