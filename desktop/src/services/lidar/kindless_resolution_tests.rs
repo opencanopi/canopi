@@ -5,22 +5,22 @@
 //! against the library it finds: its own catalogue 25 (two tables: imported items in `lidar_source_layers`, minted
 //! `lyr-`, and analysis results in `lidar_derived_items`, minted `item-`) or 2.1's catalogue 26 read projection
 //! `library_items`. An id the library does not hold, or holds twice, lists unavailable by the entry's stored name and
-//! never draws another item. These tests show the library side holds: an id names at most one item in either
-//! catalogue, so `kind` is not needed to find it. R1-3 may freeze `kind` in the v10 read schema optional only together
-//! with the product change below.
+//! never draws another item.
+//!
+//! Measured result: the library side holds. An id names at most one item in either catalogue, so `kind` is not
+//! needed to find it. The verdict R1-3 acts on, and what it requires of the product, is the ledger's (2.1-M475 and
+//! the row that records this result), not this comment's.
 //!
 //! The resolvers here are the probe's, not the product's. The product resolves Site data entries in TypeScript, and
-//! today two functions match id and kind together, each failing its own way on an entry with no kind or the other kind:
+//! at this commit two functions match id and kind together, each failing its own way on an entry with no kind or the
+//! other kind:
 //! - `readLidarPresentation` (`desktop/web/src/app/lidar/library-store.ts`) lists the entry unavailable although its id
 //!   is in the library;
 //! - `upsertLidarEntry` (`desktop/web/src/app/design-edit/lidar.ts`), called with a kind on each edit, misses the
 //!   stored entry and appends a second entry with the same id.
 //!
-//! The contract these tests fix is that both match by id alone: the reader takes the kind from the matched library
-//! item, and an edit updates the stored entry (writing the kind it was called with) instead of adding a duplicate.
-//! Each change ships with a regression test through the real function for kind-less and wrong-kind entries: R2-4 owns
-//! `readLidarPresentation`; `upsertLidarEntry` needs its own owner, named by the step plan. Until both land,
-//! "optional and ignored" holds only for these resolvers, and R1-3 must not freeze `kind` optional.
+//! The contract these tests fix for any resolver is matching by id alone: a reader takes the kind from the matched
+//! library item, and an edit updates the stored entry instead of adding a duplicate.
 
 use super::*;
 use canopi_types::library::RasterQuantity;
