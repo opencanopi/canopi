@@ -10,7 +10,7 @@
 // Since U-2 set the floor (Safari 16.4, desktop/web/engine-floor.ts; U-3) it also holds that floor in the engines on
 // both sides of it: a class static block, the floor's cause, parses in a WebKit at or above the floor and is refused
 // below it, and the Web Edition's format worker (design-core.worker, canopi-format-wasm) starts straight from
-// dist-web/assets on a blank page and answers its probe call at and above the floor, as e2e/canvas/format-core-probe.spec.ts
+// dist-web/assets on a blank page and answers its read call at and above the floor, as e2e/canvas/format-core-probe.spec.ts
 // starts it, while a worker that answers 404 or does not compile turns that probe red (the R1-1 hand-off: the module
 // must instantiate on the floor engine).
 //
@@ -241,12 +241,16 @@ function formatWorker(root: string): string | undefined {
   return readdirSync(assets).find((name) => /^design-core\.worker-[\w-]{16}\.js$/.test(name))
 }
 
-/** A path the shared corpus redacts to `<path>`, as format-core-probe.spec.ts sends it. */
-const PROBE_TEXT = '/home/ana/plan.canopi'
+/** The frozen v10 fixture and the read view canopi-format gives for it, as format-core-probe.spec.ts sends them: the
+ * worker's one call is `read` (R1-6). CANOPI_FLOOR_FORMAT_SPEC names their directory (default: the repository's, from
+ * desktop/web); a working-directory path, since the old runners compile this file without import.meta. */
+const FORMAT_SPEC = process.env['CANOPI_FLOOR_FORMAT_SPEC'] ?? '../../canopi-format/spec/v10'
+const PROBE_TEXT = readFileSync(join(FORMAT_SPEC, 'read-fixture.canopi'), 'utf8')
+const EXPECTED_VALUE = { read: JSON.parse(readFileSync(join(FORMAT_SPEC, 'read-expected.json'), 'utf8')) as unknown }
 
 interface WorkerRun { reply?: { ok?: boolean, value?: string, compiledBy?: string, error?: string, detail?: string }, error?: string, timedOut?: boolean }
 
-/** Starts the module worker at `url`, sends it one probe call and settles with its reply, its error or a timeout (ES5). */
+/** Starts the module worker at `url`, sends it one read call and settles with its reply, its error or a timeout (ES5). */
 function runWorker(page: Page, url: string): Promise<WorkerRun> {
   return page.evaluate(`new Promise(function (resolve) {
     var worker;
@@ -254,7 +258,7 @@ function runWorker(page: Page, url: string): Promise<WorkerRun> {
     var timer = setTimeout(function () { worker.terminate(); resolve({ timedOut: true }); }, 30000);
     worker.onmessage = function (event) { clearTimeout(timer); worker.terminate(); resolve({ reply: event.data }); };
     worker.onerror = function (event) { clearTimeout(timer); worker.terminate(); resolve({ error: 'worker error: ' + (event.message || 'no message') }); };
-    worker.postMessage({ id: 1, call: 'probe', text: ${JSON.stringify(PROBE_TEXT)} });
+    worker.postMessage({ id: 1, call: 'read', text: ${JSON.stringify(PROBE_TEXT)} });
   })`) as Promise<WorkerRun>
 }
 
@@ -342,7 +346,7 @@ test.describe('engine floor (canopi-4kfl)', () => {
       const run = await runWorker(page, `${site.origin}/assets/${worker}`)
       console.log(`FLOOR-FORMAT-WORKER ${JSON.stringify({ browserName, browserVersion: browser.version(), run })}`)
       expect(run.reply, JSON.stringify(run)).toMatchObject({ ok: true })
-      expect((JSON.parse(run.reply?.value ?? 'null') as { redacted?: string } | null)?.redacted, JSON.stringify(run)).toBe('<path>')
+      expect(JSON.parse(run.reply?.value ?? 'null'), JSON.stringify(run)).toEqual(EXPECTED_VALUE)
     } finally {
       await site.close()
     }
