@@ -9,7 +9,7 @@ import type * as TS from 'typescript'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { display, POLICY_COMMIT, TABLE, type Check, type Table } from './table.ts'
 import { tableFaults } from './table-faults.ts'
-import { cleanEnv, PlantedRepo, REPO_ROOT } from './planted-repo.ts'
+import { cleanEnv, git, PlantedRepo, REPO_ROOT } from './planted-repo.ts'
 import { type Job, readActions, readWorkflows, type Step, type Workflow } from './workflows.ts'
 
 const read = (path: string) => readFileSync(join(REPO_ROOT, path), 'utf8')
@@ -451,5 +451,39 @@ describe('where an area\'s CI job lives (canopi-f47t.52.228.54)', () => {
     const all = new Map([['a.yml', lane('b.yml')], ['b.yml', lane('a.yml')]])
     expect(jobHome({ uses: './.github/workflows/a.yml' }, all).sort())
       .toEqual([BUILD, '.github/workflows/a.yml', '.github/workflows/b.yml'].sort())
+  })
+})
+
+describe('the commit lane checks the shared contracts (2.1-Q330)', () => {
+  const CHECK_TYPES = 'cd desktop/web && npm run check:types'
+  let repo: PlantedRepo
+  beforeEach(() => { repo = new PlantedRepo() })
+  afterEach(() => {
+    repo?.cleanup()
+    repo = undefined as never
+  })
+
+  it('2.1-Q330: a staged change to en.json or to `canopi-types` runs the shared-contracts check in the commit lane', () => {
+    // A commit changing en.json ran nothing that compares generated/locale-keys.ts with the generator, so a stale
+    // binding reached a merge; the commit lane now runs check:types where its inputs change, never gen:types.
+    for (const path of ['desktop/web/src/i18n/en.json', 'canopi-types/src/x.rs', 'canopi-types/plant-filter-fields.json']) {
+      repo.reset()
+      const checks = repo.checks([path], true)
+      expect(checks, path).toContain(CHECK_TYPES)
+      expect(checks.filter((check) => check.includes('gen:types')), path).toEqual([])
+    }
+    repo.reset()
+    expect(repo.checks(['desktop/web/src/i18n/fr.json'], true)).not.toContain(CHECK_TYPES)
+    // It builds bindings-gen, so a linked worktree commits it with its own cargo target (2.1-M201), named when unset.
+    const linked = join(repo.root, 'linked')
+    git(repo.repo, 'worktree', 'add', '-q', '-b', 'linked', linked)
+    repo.write({ 'desktop/web/src/i18n/en.json': '{}\n' }, linked)
+    git(linked, 'add', 'desktop/web/src/i18n/en.json')
+    const refused = repo.gate(['affected', '--staged', '--print'], { cwd: linked })
+    expect(refused.status).toBe(1)
+    expect(refused.stderr).toContain('2.1-M201')
+    const own = repo.gate(['affected', '--staged', '--print'], { cwd: linked, env: { CARGO_TARGET_DIR: join(repo.root, 't') } })
+    expect(own.status, own.stderr).toBe(0)
+    expect((JSON.parse(own.stdout) as { checks: { command: string }[] }).checks.map((check) => check.command)).toContain(CHECK_TYPES)
   })
 })

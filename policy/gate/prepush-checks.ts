@@ -7,18 +7,10 @@
 //   marker the upstream register exempts (tagged with an open W row, 2.1-M237) waits on its upstream fix. Markers are read
 //   from the base and HEAD commits, the whole tree by file type (a new test root never drops one), policy/ aside (its
 //   planted fixtures and comments name the markers); the register's list must be readable, never read as empty.
-// - Inside `gate push` (2.1-Q328), which names a record file in MARKERS_RECORD, added markers do not stop the lane: they
-//   go to that file and the check says SCRATCH ONLY, so the rest of the lane (its e2e run included) still runs, and a lane
-//   otherwise green writes a stamp naming them, which verify-push.ts accepts for refs under scratch/ only (a step's
-//   integration tip carries the markers its streams have not cleared yet). Run alone, the check fails as above.
 // quiet-gates' other rule, a green CI run on HEAD for a change to CI or the Playwright setup (2.0.3), is not here: HEAD
 // reaches CI only once pushed, and the stamp this lane writes is what lets it be pushed. The merge holds it instead: Build
 // & Test, a required check, runs the lanes such a change selects on the PR's head.
 import { spawnSync } from 'node:child_process'
-import { writeFileSync } from 'node:fs'
-
-/** The environment variable naming the file `gate push` reads the added markers from (stamp.ts). */
-export const MARKERS_RECORD = 'CANOPI_GATE_MARKERS_RECORD'
 
 const TS_MARKER = String.raw`\b(it|test|describe)\.fails?\(`
 const RUST_MARKER = '#[ignore = "expected-fail'
@@ -45,7 +37,7 @@ export function addedMarkers(root: string, base: string, exempt: ReadonlySet<str
     && !exempt.has(marker.replace(/^([^:]*:\d+):.*$/su, '$1'))).sort()
 }
 
-/** The marker check from `base`, printing PASS, SCRATCH ONLY (markers recorded for `gate push`) or FAIL: 0 unless FAIL. */
+/** The marker check from `base`, printing PASS or FAIL: 0 when it passes. */
 export function prepushChecks(root: string, base: string): number {
   const listed = spawnSync(process.execPath, [REGISTER, 'markers'], { cwd: root, encoding: 'utf8' })
   if (listed.status !== 0) {
@@ -54,13 +46,6 @@ export function prepushChecks(root: string, base: string): number {
   }
   const exempt = new Set(listed.stdout.split('\n').filter((line) => line !== '').map((line) => line.split(' ')[0] ?? ''))
   const added = addedMarkers(root, base, exempt)
-  const record = process.env[MARKERS_RECORD]
-  if (added.length && record) {
-    writeFileSync(record, `${JSON.stringify(added)}\n`)
-    process.stdout.write(`SCRATCH ONLY expected-fail markers added since the base:\n${added.join('\n')}\n`
-      + 'the lane goes on; green, its stamp serves refs under scratch/ only until they are cleared\n')
-    return 0
-  }
   if (added.length) {
     process.stdout.write(`FAIL expected-fail markers added since the base:\n${added.join('\n')}\n`)
     return 1
