@@ -522,7 +522,7 @@ describe('affected selection (canopi-f47t.52.228.10)', () => {
     expect(reached).toContain('src/app/design-edit/index.ts')
     expect(reached).toContain('src/__tests__/budget-actions.test.ts')
     expect(reached).not.toContain('src/app/design-edit/budget.ts')
-  })
+  }, 300_000) // one dependency-cruiser pass over the whole graph: 16 s alone, past 120 s on a loaded machine (2.1-M501)
 })
 
 describe('planning is pure and reads the index safely (2.1-Q267)', () => {
