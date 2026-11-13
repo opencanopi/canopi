@@ -1895,6 +1895,7 @@
     "gestures": {
       "heading": "鼠标、触控板和触控笔",
       "rightDrag": "右键拖动、中键拖动或 Space + 拖动",
+      "trackpadPan": "在触控板上用双指（“设置 › 画布 › 指针设备”），或使用“平移”工具",
       "pan": "平移地图",
       "shiftDrag": "Shift + 右键拖动或 Shift + 中键拖动",
       "turnView": "旋转视图；加 {{mod}} 以 15° 为步长",
@@ -1908,6 +1909,7 @@
       "pinch": "捏合或 Ctrl + 滚轮",
       "zoom": "缩放",
       "altClick": "Alt + 单击",
+      "optionClick": "Option + 单击",
       "removeFromSelection": "从选择中移除",
       "linuxPinch": "在 Linux 上暂不支持触控板捏合。请使用 Ctrl + 滚动进行缩放。",
       "touchHeading": "触摸",

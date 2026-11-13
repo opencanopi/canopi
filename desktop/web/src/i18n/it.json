@@ -1895,6 +1895,7 @@
     "gestures": {
       "heading": "Mouse, trackpad e penna",
       "rightDrag": "Trascina con il tasto destro, con quello centrale o Spazio + trascina",
+      "trackpadPan": "Due dita sul trackpad (Impostazioni › Tela › Dispositivo di puntamento) o lo strumento Sposta la vista",
       "pan": "Spostare la mappa",
       "shiftDrag": "Maiusc + trascina con il tasto destro o Maiusc + trascina con quello centrale",
       "turnView": "Ruotare la vista; aggiungi {{mod}} per passi di 15°",
@@ -1908,6 +1909,7 @@
       "pinch": "Pizzico o Ctrl + rotellina",
       "zoom": "Zoom",
       "altClick": "Alt + clic",
+      "optionClick": "Opzione + clic",
       "removeFromSelection": "Rimuovere dalla selezione",
       "linuxPinch": "Su Linux il pizzico sul trackpad non è ancora supportato. Usa Ctrl + scorrimento per lo zoom.",
       "touchHeading": "Touch",

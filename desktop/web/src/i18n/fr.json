@@ -1895,6 +1895,7 @@
     "gestures": {
       "heading": "Souris, pavé tactile et stylet",
       "rightDrag": "Glisser avec le bouton droit, celui du milieu ou Espace + glisser",
+      "trackpadPan": "Deux doigts sur le pavé tactile (Réglages › Canevas › Périphérique de pointage), ou l’outil Déplacer la vue",
       "pan": "Déplacer la carte",
       "shiftDrag": "Maj + glisser avec le bouton droit ou Maj + glisser avec celui du milieu",
       "turnView": "Tourner la vue ; ajoutez {{mod}} pour des pas de 15°",
@@ -1908,6 +1909,7 @@
       "pinch": "Pincement ou Ctrl + molette",
       "zoom": "Zoomer",
       "altClick": "Alt + clic",
+      "optionClick": "Option + clic",
       "removeFromSelection": "Retirer de la sélection",
       "linuxPinch": "Sous Linux, le pincement sur le pavé tactile n’est pas encore pris en charge. Utilisez Ctrl + défilement pour zoomer.",
       "touchHeading": "Tactile",

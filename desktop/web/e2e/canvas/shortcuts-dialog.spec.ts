@@ -35,6 +35,17 @@ test('every F1 key box stays inside its section in French on a Mac with trackpad
   expect(outside, 'key boxes that run past their section').toEqual([])
 })
 
+test('on a Mac the gestures section pans with two fingers or the Pan tool and removes with Option-click, like the Select hint (canopi-pqxl)', async ({ page }) => {
+  await page.goto('')
+  await expect(page.locator('[data-start-screen]')).toBeVisible()
+  await page.getByRole('button', { name: 'Moving around' }).click()
+  const gestures = page.getByRole('dialog', { name: 'Keyboard shortcuts' }).locator('section', { has: page.locator('#shortcuts-gestures') })
+  const row = (label: string) => gestures.locator('dl > div', { has: page.getByRole('term').filter({ hasText: new RegExp(`^${label}$`) }) }).getByRole('definition')
+  // Right-drag, Control-drag and Space-drag are not yet checked in real Mac browsers, so a Mac is not sent to them.
+  await expect(row('Pan the map')).toHaveText('Two fingers on the trackpad (Settings › Canvas › Pointing device), or the Pan tool')
+  await expect(row('Remove from the selection')).toHaveText('Option + click')
+})
+
 /** The nearest ancestor of the gestures heading that scrolls: the dialog's body. */
 async function gesturesScroll(heading: Locator): Promise<{ scrollTop: number; offset: number }> {
   return heading.evaluate((element) => {

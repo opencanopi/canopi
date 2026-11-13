@@ -1895,6 +1895,7 @@
     "gestures": {
       "heading": "Maus, Trackpad und Stift",
       "rightDrag": "Rechts ziehen, mittig ziehen oder Leertaste + ziehen",
+      "trackpadPan": "Zwei Finger auf dem Trackpad (Einstellungen › Zeichenfläche › Zeigegerät) oder das Werkzeug Verschieben",
       "pan": "Karte verschieben",
       "shiftDrag": "Umschalt + rechts ziehen oder Umschalt + mittig ziehen",
       "turnView": "Ansicht drehen; mit {{mod}} in 15°-Schritten",
@@ -1908,6 +1909,7 @@
       "pinch": "Zusammenziehen oder Strg + Rad",
       "zoom": "Zoomen",
       "altClick": "Alt + Klick",
+      "optionClick": "Wahltaste + Klick",
       "removeFromSelection": "Aus der Auswahl entfernen",
       "linuxPinch": "Unter Linux wird Zusammenziehen auf dem Trackpad noch nicht unterstützt. Zoomen Sie mit Strg + Scrollen.",
       "touchHeading": "Touch",

@@ -1895,6 +1895,7 @@
     "gestures": {
       "heading": "マウス、トラックパッド、ペン",
       "rightDrag": "右ドラッグ、中ドラッグ、Space + ドラッグ",
+      "trackpadPan": "トラックパッドで 2 本指（設定 › キャンバス › ポインティングデバイス）、または「パン」ツール",
       "pan": "地図を移動",
       "shiftDrag": "Shift + 右ドラッグ、Shift + 中ドラッグ",
       "turnView": "ビューを回転。{{mod}} を加えると 15° 刻み",
@@ -1908,6 +1909,7 @@
       "pinch": "ピンチまたは Ctrl + ホイール",
       "zoom": "ズーム",
       "altClick": "Alt + クリック",
+      "optionClick": "Option + クリック",
       "removeFromSelection": "選択から外す",
       "linuxPinch": "Linux ではトラックパッドのピンチにまだ対応していません。Ctrl + スクロールでズームしてください。",
       "touchHeading": "タッチ",

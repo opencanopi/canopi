@@ -1895,6 +1895,7 @@
     "gestures": {
       "heading": "Mouse, trackpad and pen",
       "rightDrag": "Right-drag, middle-drag or Space + drag",
+      "trackpadPan": "Two fingers on the trackpad (Settings › Canvas › Pointing device), or the Pan tool",
       "pan": "Pan the map",
       "shiftDrag": "Shift + right-drag or Shift + middle-drag",
       "turnView": "Turn the view; add {{mod}} for 15° steps",
@@ -1908,6 +1909,7 @@
       "pinch": "Pinch or Ctrl + wheel",
       "zoom": "Zoom",
       "altClick": "Alt + click",
+      "optionClick": "Option + click",
       "removeFromSelection": "Remove from the selection",
       "linuxPinch": "On Linux, trackpad pinch is not supported yet. Use Ctrl + scroll to zoom.",
       "touchHeading": "Touch",

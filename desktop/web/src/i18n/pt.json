@@ -1895,6 +1895,7 @@
     "gestures": {
       "heading": "Mouse, trackpad e caneta",
       "rightDrag": "Arrastar com o botão direito, com o do meio ou Espaço + arrastar",
+      "trackpadPan": "Dois dedos no trackpad (Configurações › Tela › Dispositivo apontador) ou a ferramenta Mover a vista",
       "pan": "Deslocar o mapa",
       "shiftDrag": "Shift + arrastar com o botão direito ou Shift + arrastar com o do meio",
       "turnView": "Girar a vista; adicione {{mod}} para passos de 15°",
@@ -1908,6 +1909,7 @@
       "pinch": "Pinçar ou Ctrl + roda",
       "zoom": "Zoom",
       "altClick": "Alt + clique",
+      "optionClick": "Option + clique",
       "removeFromSelection": "Remover da seleção",
       "linuxPinch": "No Linux, o gesto de pinça no trackpad ainda não é suportado. Use Ctrl + rolagem para dar zoom.",
       "touchHeading": "Toque",

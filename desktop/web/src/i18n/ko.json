@@ -1895,6 +1895,7 @@
     "gestures": {
       "heading": "마우스, 트랙패드, 펜",
       "rightDrag": "오른쪽 드래그, 가운데 드래그 또는 Space + 드래그",
+      "trackpadPan": "트랙패드에서 두 손가락(설정 › 캔버스 › 포인팅 장치) 또는 이동 도구",
       "pan": "지도 이동",
       "shiftDrag": "Shift + 오른쪽 드래그 또는 Shift + 가운데 드래그",
       "turnView": "보기 회전, {{mod}} 키를 더하면 15° 단위",
@@ -1908,6 +1909,7 @@
       "pinch": "핀치 또는 Ctrl + 휠",
       "zoom": "확대/축소",
       "altClick": "Alt + 클릭",
+      "optionClick": "Option + 클릭",
       "removeFromSelection": "선택에서 제거",
       "linuxPinch": "Linux에서는 아직 트랙패드 핀치를 지원하지 않습니다. Ctrl + 스크롤로 확대/축소하세요.",
       "touchHeading": "터치",

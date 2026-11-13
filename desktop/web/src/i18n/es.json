@@ -1895,6 +1895,7 @@
     "gestures": {
       "heading": "Ratón, panel táctil y lápiz",
       "rightDrag": "Arrastrar con el botón derecho, con el central o Espacio + arrastrar",
+      "trackpadPan": "Dos dedos en el panel táctil (Ajustes › Lienzo › Dispositivo señalador) o la herramienta Desplazar",
       "pan": "Desplazar el mapa",
       "shiftDrag": "Mayús + arrastrar con el botón derecho o Mayús + arrastrar con el central",
       "turnView": "Girar la vista; añade {{mod}} para pasos de 15°",
@@ -1908,6 +1909,7 @@
       "pinch": "Pellizcar o Ctrl + rueda",
       "zoom": "Zoom",
       "altClick": "Alt + clic",
+      "optionClick": "Opción + clic",
       "removeFromSelection": "Quitar de la selección",
       "linuxPinch": "En Linux, el pellizco en el panel táctil aún no es compatible. Usa Ctrl + desplazamiento para hacer zoom.",
       "touchHeading": "Táctil",

@@ -1895,6 +1895,7 @@
     "gestures": {
       "heading": "Muis, trackpad en pen",
       "rightDrag": "Rechts slepen, middel slepen of Spatie + slepen",
+      "trackpadPan": "Twee vingers op de trackpad (Instellingen › Canvas › Aanwijsapparaat) of het gereedschap Pannen",
       "pan": "Kaart verschuiven",
       "shiftDrag": "Shift + rechts slepen of Shift + middel slepen",
       "turnView": "Weergave draaien; met {{mod}} in stappen van 15°",
@@ -1908,6 +1909,7 @@
       "pinch": "Knijpen of Ctrl + wiel",
       "zoom": "Zoomen",
       "altClick": "Alt + klik",
+      "optionClick": "Option + klik",
       "removeFromSelection": "Uit de selectie verwijderen",
       "linuxPinch": "Op Linux wordt knijpen op de trackpad nog niet ondersteund. Zoom met Ctrl + scrollen.",
       "touchHeading": "Aanraken",

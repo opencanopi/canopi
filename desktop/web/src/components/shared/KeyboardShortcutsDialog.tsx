@@ -23,7 +23,7 @@ const MENU_FIT_ROW = 'view.fitToDesign'
 
 interface KeyboardShortcutsDialogProps {
   readonly menus: readonly MenuDefinition[]
-  /** The platform the gesture rows describe: Control-click on a Mac, the trackpad twist where WebKit delivers it. */
+  /** The platform the gesture rows describe: a Mac's pan, Option and Control-click, the trackpad twist where WebKit delivers it. */
   readonly platform?: Pick<InputPlatform, 'os' | 'gestureEvents'>
   /** Desktop on Linux: WebKitGTK delivers no trackpad pinch. */
   readonly linuxPinchNote?: boolean
@@ -175,14 +175,16 @@ type GestureName = LocaleKey extends infer Key ? Key extends `shortcuts.gestures
 
 /**
  * The mouse, trackpad and pen gestures: a static list, so it names only what the input pipeline does on every
- * platform, plus a Mac's Control-click and, where WebKit delivers it, the trackpad twist. The pen row is a note: its
- * side button drags to pan and taps for the menu.
+ * platform, plus a Mac's Control-click and, where WebKit delivers it, the trackpad twist. A Mac says what Select's hint
+ * says (app/tool-card/content.ts): it pans with two fingers or the Pan tool, since right-drag, Control-drag and
+ * Space-drag are not yet checked in real Mac browsers (canopi-pqxl), and it removes with Option-click. The pen row is
+ * a note: its side button drags to pan and taps for the menu.
  */
 function gestureRows(platform: Pick<InputPlatform, 'os' | 'gestureEvents'> | undefined): ShortcutRow[] {
   const g = (name: GestureName) => t(`shortcuts.gestures.${name}`)
   const mac = platform?.os === 'mac'
   return [
-    { id: 'pan', label: g('pan'), shortcut: g('rightDrag') },
+    { id: 'pan', label: g('pan'), shortcut: g(mac ? 'trackpadPan' : 'rightDrag') },
     {
       id: 'turn-view',
       label: t('shortcuts.gestures.turnView', { mod: modKeyName(t) }),
@@ -191,7 +193,7 @@ function gestureRows(platform: Pick<InputPlatform, 'os' | 'gestureEvents'> | und
     { id: 'compass', label: g('compassAction'), shortcut: g('compass') },
     { id: 'menu', label: g('menu'), shortcut: [g('rightClick'), ...mac ? [g('macCtrlClick')] : []].join(' · ') },
     { id: 'zoom', label: g('zoom'), shortcut: g('pinch') },
-    { id: 'remove', label: g('removeFromSelection'), shortcut: g('altClick') },
+    { id: 'remove', label: g('removeFromSelection'), shortcut: g(mac ? 'optionClick' : 'altClick') },
     { id: 'pen', label: `${g('pan')} · ${g('menu')}`, shortcut: g('penButton') },
   ]
 }
