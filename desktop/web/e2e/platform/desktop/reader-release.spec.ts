@@ -57,7 +57,8 @@ describe('the reader release in the Desktop app', () => {
     await $('[data-start-screen]').waitForDisplayed({ timeout: 90_000 })
 
     // Today the v10 Draft is listed, but unlabelled and with Delete offered (the Draft list has no read-only flag yet).
-    const row = $('[data-start-screen] li*=Orchard 2.1')
+    // A text selector scoped from the start screen: WebKitGTK's driver refuses one combined with CSS (canopi-4ycm).
+    const row = $('[data-start-screen]').$('li*=Orchard 2.1')
     await row.waitForDisplayed({ timeout: 30_000 })
     await expect(row).toHaveAttribute('data-read-only')
     await expect(row).toHaveText(expect.stringContaining('Read-only: saved by a newer Canopi'))
