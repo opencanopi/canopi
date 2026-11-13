@@ -5,9 +5,10 @@
  * spec/web/frozen/drafts.json. Invariant: it exposes no put or delete, opens only
  * `readonly` transactions, creates no database and holds no connection between reads.
  *
- * - Existence: `indexedDB.databases()` where the engine has it (it creates nothing, and lists 2.1's database only once
- *   its first upgrade commits); then, and always where it is missing, an open without a version whose upgrade is
- *   aborted at oldVersion 0, so an origin without the store keeps none (e2e/canvas/indexeddb-reader-probe.spec.ts).
+ * - Existence: `indexedDB.databases()` where the engine has it (it creates nothing; Chromium on disk lists 2.1's
+ *   database while its first upgrade runs, the others once it commits); then, and always where it is missing, an
+ *   open without a version, which waits for that upgrade and whose own upgrade is aborted at oldVersion 0, so an
+ *   origin without the store keeps none (e2e/canvas/indexeddb-reader-probe.spec.ts).
  * - Open, read, close: each read opens its own connection and closes it once its transaction ends. A `versionchange`
  *   while it is open (2.1's upgrade, or a delete with no new version) closes it at once, so 2.1 is never blocked, and
  *   tells the page, which offers the one Reload notice (2.1-Q40).

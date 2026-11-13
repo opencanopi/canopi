@@ -9,7 +9,9 @@
 //   by web-edition-browsers.yml's format-core-engines job (its CANOPI_FORMAT_PROBE_WEBDRIVER and
 //   CANOPI_FORMAT_PROBE_CAPABILITIES); one page holds both connections there, which is the same versionchange path.
 // Measured 2026-11-13 in mcr.microsoft.com/playwright:v1.64.1-noble, Chromium, WebKit and Firefox alike: see each
-// test's comment. WebKitGTK and Edge: first answered by the CI job.
+// test's comment. WebKitGTK and Edge: first answered by the CI job. Playwright's contexts keep IndexedDB in memory; a
+// Chromium profile on disk (Edge's WebDriver session, and a user's browser) lists a database during its first upgrade
+// at the new version (canopi-f47t.52.272, Chromium 156 and Edge 156), which the reader's open behind databases() covers.
 import { readdirSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import type { Page } from '@playwright/test'
@@ -73,8 +75,8 @@ test('canopi-f47t.52.272: probe: a database left behind by an open that was not 
 })
 
 // Measured: databases() never creates the database; while 2.1's first upgrade is held open, the reader's databases()
-// answers at once without it (all three engines, 3 runs each) and its open-and-abort waits; both see version 4 once the
-// upgrade commits.
+// answers at once without it (all three engines, 3 runs each, in memory; a Chromium profile on disk lists it at version
+// 4, see the WebDriver test) and its open-and-abort waits; both see version 4 once the upgrade commits.
 test('canopi-f47t.52.272: probe: databases() creates no database and sees a 2.1 database only once its upgrade commits', async ({ page }) => {
   const reader = await openProbe(page)
   expect(await reader.evaluate(databaseVersions, { name: DRAFT_DATABASE })).toEqual([])
@@ -209,7 +211,9 @@ test('canopi-f47t.52.272: probe: the IndexedDB reader behaviours hold in a WebDr
     if (hasDatabases) expect(await engine.run(databaseVersions, { name }), 'databases() creates none').toEqual([])
 
     await engine.run(startHeldUpgrade, { name, version: DRAFT_DATABASE_VERSION })
-    if (hasDatabases) expect(await engine.run(databaseVersions, { name, waitMs: 1500 }), 'databases() during the held upgrade').toEqual([])
+    // On disk, Chromium (Edge) already lists the upgrading database at its new version, where the in-memory engines list
+    // none; either way the reader's open below waits for the upgrade and reads what it committed.
+    if (hasDatabases) expect([[], [DRAFT_DATABASE_VERSION]], 'databases() during the held upgrade').toContainEqual(await engine.run(databaseVersions, { name, waitMs: 1500 }))
     await engine.run(existenceRead, { name, deferred: true })
     expect(await engine.run(heldUpgradeEnd, 'commit')).toBe('committed')
     expect(await engine.run(pendingRead, 5000)).toEqual(DRAFT_STORE)

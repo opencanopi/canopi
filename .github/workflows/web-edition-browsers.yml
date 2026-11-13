@@ -210,11 +210,13 @@ jobs:
             echo 'CANOPI_FORMAT_PROBE_CAPABILITIES={"browserName":"MicrosoftEdge","ms:edgeOptions":{"args":["--headless=new"]}}' >> "$GITHUB_ENV"
           fi
 
+      # One worker: WebKitWebDriver holds one session at a time, and a second spec's session ends the first one's
+      # (`invalid session id`, canopi-f47t.52.272).
       - name: Drive the format worker in ${{ matrix.engine }}
         run: |
           set -euo pipefail
           run='"$CANOPI_FORMAT_PROBE_DRIVER" --port=4444 & driver=$!; trap "kill $driver" EXIT; sleep 3; kill -0 $driver
-            npx playwright test e2e/canvas/format-core-probe.spec.ts e2e/canvas/indexeddb-reader-probe.spec.ts --project=chromium --grep "WebDriver engine" --reporter=line'
+            npx playwright test e2e/canvas/format-core-probe.spec.ts e2e/canvas/indexeddb-reader-probe.spec.ts --project=chromium --grep "WebDriver engine" --workers=1 --reporter=line'
           if [ "$RUNNER_OS" = Linux ]; then xvfb-run -a bash -euo pipefail -c "$run"; else bash -euo pipefail -c "$run"; fi
 
       # The lane's inverted step: with no driver at the URL each spec's test must fail on its own (the format worker,
