@@ -97,6 +97,18 @@ export function savedObjectStampRowState(
   return isSavedObjectStampPayloadFromBefore2_0(stamp.payload_json) ? 'before-2-0' : 'ready'
 }
 
+/**
+ * Moves the ids of `needs-newer` stamps after the others, keeping each part's order: the library lists them last, and
+ * a reorder renumbers only the others, so a drop past one lands above it (canopi-f47t.52.271).
+ */
+export function savedObjectStampIdsNeedsNewerLast(
+  ids: readonly string[],
+  stamps: readonly { readonly id: string; readonly needs_newer?: boolean | undefined }[],
+): readonly string[] {
+  const needsNewer = new Set(stamps.filter((stamp) => stamp.needs_newer === true).map((stamp) => stamp.id))
+  return [...ids.filter((id) => !needsNewer.has(id)), ...ids.filter((id) => needsNewer.has(id))]
+}
+
 export function normalizeSavedObjectStampPayload(raw: unknown): SavedObjectStampPayload | null {
   if (!isRecord(raw)) return null
   if (raw.version !== SAVED_OBJECT_STAMP_PAYLOAD_VERSION) return null

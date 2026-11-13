@@ -17,6 +17,7 @@ const stamp = (id: string, payload: Record<string, unknown>, sortOrder: number, 
 })
 
 const V2 = { version: 2, anchor: { x: 0, y: 0 }, plants: [], zones: [], annotations: [], groups: [] }
+const V3 = { ...V2, version: 3, guides: [] }
 const v2 = stamp('v2', V2, 0)
 const v3 = stamp('v3', { ...V2, version: 3, guides: [] }, 1, true)
 const v1 = stamp('v1', { version: 1, plants: [] }, 2)
@@ -48,7 +49,7 @@ describe('a saved stamp needing a newer Canopi (canopi-f47t.52.271)', () => {
 
     expect(ipc.renameSavedObjectStamp).not.toHaveBeenCalled()
     expect(ipc.deleteSavedObjectStamp).not.toHaveBeenCalled()
-    expect(workbench.library.value.items).toEqual([v2, v3, v1])
+    expect(workbench.library.value.items, "the v3 row lists last").toEqual([v2, v1, v3])
   })
 
   it('canopi-f47t.52.271: a reorder including a v3 id sends only the older ids, the v3 row keeping its place', async () => {
@@ -57,6 +58,28 @@ describe('a saved stamp needing a newer Canopi (canopi-f47t.52.271)', () => {
     await workbench.reorderStamps(['v1', 'v3', 'v2'])
 
     expect(ipc.reorderSavedObjectStamps).toHaveBeenCalledWith(['v1', 'v2'])
+  })
+
+  it('canopi-f47t.52.271: the v3 row lists after the older ones, so a reorder the store renumbers reads back as sent', async () => {
+    // The store numbers the ids it is sent 0..n-1 and leaves the v3 row's sort_order: A=0 ties with the v3 row's 0.
+    const rows = [stamp('v3', V3, 0, true), stamp('A', V2, 1), stamp('B', V2, 2)]
+    const listed = () => [...rows].sort((left, right) => left.sort_order - right.sort_order
+      || left.created_at.localeCompare(right.created_at) || left.id.localeCompare(right.id)).map((row) => ({ ...row }))
+    const workbench = createSavedObjectStampWorkbench({
+      getSavedObjectStamps: async () => listed(),
+      reorderSavedObjectStamps: async (ids) => {
+        ids.forEach((id, index) => { rows.find((row) => row.id === id)!.sort_order = index })
+        return listed()
+      },
+    })
+    await workbench.loadLibrary()
+    expect(workbench.library.value.items.map((item) => item.id)).toEqual(['A', 'B', 'v3'])
+
+    await workbench.reorderStamps(['B', 'A', 'v3'])
+    expect(workbench.library.value.items.map((item) => item.id)).toEqual(['B', 'A', 'v3'])
+
+    await workbench.reorderStamps(['A', 'B'])
+    expect(workbench.library.value.items.map((item) => item.id), 'A no longer ties behind the v3 row').toEqual(['A', 'B', 'v3'])
   })
 
   it('canopi-f47t.52.271: a v3 stamp is never placed', async () => {

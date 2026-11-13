@@ -22,10 +22,7 @@ import {
   clearSavedObjectStampDragSource,
   writeSavedObjectStampDragData,
 } from '../../canvas/saved-object-stamp-source'
-import {
-  parseSavedObjectStampPayload,
-  savedObjectStampRowState,
-} from '../../canvas/saved-object-stamp-payload'
+import { parseSavedObjectStampPayload, savedObjectStampIdsNeedsNewerLast, savedObjectStampRowState } from '../../canvas/saved-object-stamp-payload'
 import type { SavedObjectStamp } from '../../types/saved-object-stamps'
 import type { SpeciesListItem } from '../../types/species'
 import { useFavoriteSpeciesDetailNavigation } from '../plant-db/favorite-species-presentation'
@@ -262,10 +259,10 @@ export function FavoritesPanel() {
     const direction = savedStampReorderDirectionForPointer(session, event.clientY)
     session.direction = direction
     session.lastClientY = event.clientY
-    session.latestIds = mergeVisibleStampOrder(
+    session.latestIds = savedObjectStampIdsNeedsNewerLast(mergeVisibleStampOrder(
       session.baseIds,
       reorderSavedStampIdsForPointer(session.sourceId, event.clientY, direction),
-    )
+    ), savedStampItemsRef.current)
     setSavedStampReorderPreviewIds((current) => sameIdOrder(current, session.latestIds) ? current : session.latestIds)
   }
 
@@ -907,7 +904,8 @@ function SavedObjectStampRow({
         onKeyDown={event => {
           if (needsNewer || !event.altKey || (event.key !== 'ArrowUp' && event.key !== 'ArrowDown')) return
           event.preventDefault()
-          const ids = savedObjectStampWorkbench.library.value.items.map(item => item.id)
+          // Over the stamps this Canopi reads, listed first: one a newer Canopi saved is never stepped past.
+          const ids = savedObjectStampWorkbench.library.value.items.filter(item => item.needs_newer !== true).map(item => item.id)
           const index = ids.indexOf(stamp.id)
           const target = index + (event.key === 'ArrowUp' ? -1 : 1)
           if (index < 0 || target < 0 || target >= ids.length) return

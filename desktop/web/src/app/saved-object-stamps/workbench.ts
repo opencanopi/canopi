@@ -176,7 +176,7 @@ export function createSavedObjectStampWorkbench({
         !queue.isCurrent(admittedLifetime)
         || isLibraryLoadStale(requestGeneration, requestSnapshotEpoch)
       ) return
-      items.value = loaded
+      items.value = [...loaded].sort(compareSavedObjectStamps)
     } finally {
       if (isCurrentLibraryLoad(requestGeneration)) loading.value = false
     }
@@ -242,7 +242,7 @@ export function createSavedObjectStampWorkbench({
     })
   }
 
-  /** Renumbers the stamps this Canopi reads; a newer one keeps its place, since the store refuses a list naming it. */
+  /** Renumbers the stamps this Canopi reads; a newer one stays listed after them, since the store refuses a list naming it. */
   function reorderStamps(ids: string[]): Promise<void> {
     const nextOrder = ids.filter((id) => !needsNewer(id))
     return queue.enqueue(undefined, async (admittedLifetime) => {
@@ -511,6 +511,12 @@ function concreteKey(member: SceneObjectGroupMember): string {
   return `${member.kind}:${member.id}`
 }
 
+/**
+ * The library order: the stamps this Canopi reads by the store's order, then those a newer Canopi saved. A reorder
+ * renumbers only the first (the store refuses a list naming a newer row), so listing those last keeps the order shown
+ * the order saved, whatever sort_order a newer row holds (canopi-f47t.52.271).
+ */
 function compareSavedObjectStamps(left: SavedObjectStamp, right: SavedObjectStamp): number {
-  return left.sort_order - right.sort_order || left.created_at.localeCompare(right.created_at) || left.id.localeCompare(right.id)
+  return Number(left.needs_newer === true) - Number(right.needs_newer === true)
+    || left.sort_order - right.sort_order || left.created_at.localeCompare(right.created_at) || left.id.localeCompare(right.id)
 }

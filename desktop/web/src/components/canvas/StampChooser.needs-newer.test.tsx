@@ -55,9 +55,9 @@ describe('the stamp chooser with a saved stamp a newer Canopi wrote (canopi-f47t
     await vi.waitFor(() => expect(container.querySelector('[data-stamp-option="v3"]')).not.toBeNull())
 
     const options = [...container.querySelectorAll<HTMLButtonElement>('[data-stamp-option]')]
-    expect(options.map((option) => [option.dataset.stampOption, option.disabled])).toEqual([['v3', true], ['v2', false]])
-    expect(options[0]!.textContent).toContain('Saved with a newer Canopi; update Canopi to place it.')
-    await act(async () => { options[0]!.click() })
+    expect(options.map((option) => [option.dataset.stampOption, option.disabled])).toEqual([['v2', false], ['v3', true]])
+    expect(options[1]!.textContent).toContain('Saved with a newer Canopi; update Canopi to place it.')
+    await act(async () => { options[1]!.click() })
     expect(arm).not.toHaveBeenCalled()
     expect(onChosen).not.toHaveBeenCalled()
   })
