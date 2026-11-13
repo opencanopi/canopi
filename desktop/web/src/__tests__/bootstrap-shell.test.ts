@@ -25,6 +25,7 @@ const mocks = vi.hoisted(() => ({
   installNewerDrafts: vi.fn(),
   uninstallNewerDrafts: vi.fn(),
   listDrafts: vi.fn(),
+  listedNewerDrafts: vi.fn(),
   installContinuousSave: vi.fn(),
   uninstallContinuousSave: vi.fn(),
   installFormatCore: vi.fn(),
@@ -62,6 +63,7 @@ vi.mock("../web/browser-design-session", () => ({
     launch: mocks.launch,
     installNewerDrafts: mocks.installNewerDrafts,
     listDrafts: mocks.listDrafts,
+    listedNewerDrafts: mocks.listedNewerDrafts,
     installContinuousSave: mocks.installContinuousSave,
     installFormatCore: mocks.installFormatCore,
   },
@@ -128,6 +130,7 @@ describe("settings platform bootstrap", () => {
     mocks.openSpeciesLists.mockReset();
     mocks.installNewerDrafts.mockReset().mockReturnValue(mocks.uninstallNewerDrafts);
     mocks.listDrafts.mockReset().mockReturnValue([{ id: "draft-1", name: "Orchard", updatedAt: "2026-10-01T00:00:00.000Z" }]);
+    mocks.listedNewerDrafts.mockReset().mockReturnValue([]);
     mocks.uninstallContinuousSave.mockReset();
     mocks.installContinuousSave.mockReset().mockReturnValue(mocks.uninstallContinuousSave);
     mocks.uninstallFormatCore.mockReset();
@@ -263,6 +266,31 @@ describe("settings platform bootstrap", () => {
 
       expect(browserDraftPersistence.view.value.notice).toBe("reason");
       expect(canKeepDrafts(browserDraftPersistence.view.value)).toBe(false);
+    } finally {
+      delete (globalThis.navigator as { storage?: unknown }).storage;
+    }
+  });
+
+  // The launch's 2.1 listing counts: an origin whose only Drafts are 2.1's IndexedDB ones is not a first visit (2.1-Q82,
+  // Q190), so Drafts are counted once that listing settles.
+  it("R3 canopi-f47t.52.272: an origin with only 2.1 Drafts warns when storage is not kept", async () => {
+    let finishLaunch!: (restored: boolean) => void;
+    mocks.launch.mockReturnValue(new Promise<boolean>((resolve) => { finishLaunch = resolve; }));
+    mocks.listDrafts.mockReturnValue([]);
+    mocks.listedNewerDrafts.mockReturnValue(null);
+    const storage = { persisted: vi.fn(async () => false), persist: vi.fn(async () => false) };
+    Object.defineProperty(globalThis.navigator, "storage", { configurable: true, value: storage });
+    try {
+      const { browserDraftPersistence } = await import("../web/browser-draft-persistence");
+      const { bootstrapPlatform } = await import("../platform/browser");
+
+      bootstrapPlatform();
+      mocks.listedNewerDrafts.mockReturnValue([{ id: "draft-1", name: "Orchard in 2.1", updatedAt: "2026-12-01T00:00:00.000Z" }]);
+      finishLaunch(false);
+      await vi.waitFor(() => expect(browserDraftPersistence.view.value.state).toBe("not-kept"));
+
+      expect(browserDraftPersistence.view.value.notice, "the amber warning, not the first-visit reason").toBe("warning");
+      expect(browserDraftPersistence.view.value.warn).toBe(true);
     } finally {
       delete (globalThis.navigator as { storage?: unknown }).storage;
     }
