@@ -2242,6 +2242,6 @@
   "startup": {
     "title": "Canopi n’a pas pu démarrer",
     "desktopHint": "Votre système est peut-être trop ancien pour cette version de Canopi. Mettez à jour votre système d’exploitation, puis rouvrez Canopi.",
-    "webHint": "Ce navigateur est peut-être trop ancien pour Canopi. Mettez-le à jour ou essayez un autre navigateur, puis rechargez la page."
+    "webHint": "Rechargez la page. Si Canopi ne démarre toujours pas, ce navigateur est peut-être trop ancien : mettez-le à jour ou essayez un autre navigateur."
   }
 }

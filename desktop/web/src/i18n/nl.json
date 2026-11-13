@@ -2242,6 +2242,6 @@
   "startup": {
     "title": "Canopi kon niet starten",
     "desktopHint": "Je systeem is mogelijk te oud voor deze versie van Canopi. Werk je besturingssysteem bij en open Canopi daarna opnieuw.",
-    "webHint": "Deze browser is mogelijk te oud voor Canopi. Werk hem bij of probeer een andere browser en laad de pagina daarna opnieuw."
+    "webHint": "Laad de pagina opnieuw. Start Canopi dan nog steeds niet, dan is deze browser mogelijk te oud: werk hem bij of probeer een andere browser."
   }
 }

@@ -2242,6 +2242,6 @@
   "startup": {
     "title": "Canopi konnte nicht starten",
     "desktopHint": "Ihr System ist möglicherweise zu alt für diese Version von Canopi. Aktualisieren Sie Ihr Betriebssystem und öffnen Sie Canopi dann erneut.",
-    "webHint": "Dieser Browser ist möglicherweise zu alt für Canopi. Aktualisieren Sie ihn oder verwenden Sie einen anderen Browser und laden Sie die Seite dann neu."
+    "webHint": "Laden Sie die Seite neu. Startet Canopi dann immer noch nicht, ist dieser Browser möglicherweise zu alt: Aktualisieren Sie ihn oder verwenden Sie einen anderen Browser."
   }
 }

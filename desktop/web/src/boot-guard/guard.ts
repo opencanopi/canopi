@@ -8,6 +8,8 @@
  * error or SyntaxError (the entry or a chunk it needs failed, so the boot cannot finish), and at the load event at the
  * latest (module scripts run before it, so a normal boot, however slow, has acknowledged by then). A missing required
  * API shows the message at once, acknowledged or not. A guard that fails to load changes nothing: the app never reads it.
+ * It is a parser-blocking script on purpose (defer would let an early modulepreload error fire before its listener), so
+ * a stalled request for its 6.5 KB delays the boot; a fast failure does not.
  *
  * Wiring: this file is a script, not an app module; the app imports only its types. vite.config.ts's `bootGuardPlugin`
  * strips its types, defines `__CANOPI_BOOT_GUARD_TEXTS__` as the edition's strings from the 11 locale files

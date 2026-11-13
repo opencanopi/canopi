@@ -2242,6 +2242,6 @@
   "startup": {
     "title": "Não foi possível iniciar o Canopi",
     "desktopHint": "Seu sistema pode ser antigo demais para esta versão do Canopi. Atualize o sistema operacional e abra o Canopi novamente.",
-    "webHint": "Este navegador pode ser antigo demais para o Canopi. Atualize-o ou use outro navegador e recarregue a página."
+    "webHint": "Recarregue a página. Se o Canopi ainda não iniciar, este navegador pode ser antigo demais: atualize-o ou use outro navegador."
   }
 }

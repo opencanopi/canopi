@@ -2242,6 +2242,6 @@
   "startup": {
     "title": "Impossibile avviare Canopi",
     "desktopHint": "Il tuo sistema potrebbe essere troppo vecchio per questa versione di Canopi. Aggiorna il sistema operativo, poi riapri Canopi.",
-    "webHint": "Questo browser potrebbe essere troppo vecchio per Canopi. Aggiornalo o prova un altro browser, poi ricarica la pagina."
+    "webHint": "Ricarica la pagina. Se Canopi continua a non avviarsi, questo browser potrebbe essere troppo vecchio: aggiornalo o prova un altro browser."
   }
 }
