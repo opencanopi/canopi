@@ -55,7 +55,7 @@ An agent adding to a seam copies its canonical example; a new kind of seam adds 
 | Abstraction | Concept owned | Owner | Why it exists | Canonical example | Verdict |
 |---|---|---|---|---|---|
 | Format core | read checks, chain, writer, admission, builder, stamp chain | `canopi-format` | Native and wasm; hostile files | `canopi-format/src/read.rs` | keep (ADR 0026) |
-| Design-core port | decode, encode, new, Draft envelope | `platform/design-core.ts` (2.1) | One worker adapter; fake | `ipc/design.ts` | change: worker on both editions, raw bytes (M154, M156) |
+| Design-core port | decode, encode, new, Draft envelope | `platform/design-core.ts` (Web read view built in 2.0.4; decode and encode 2.1) | One worker adapter; fake | `ipc/design.ts` | change: worker on both editions, raw bytes (M154, M156) |
 | Design-core worker | worker union loading, ready, load-failed, poisoned | `platform/design-core.worker.ts` | Isolates untrusted bytes; one core on both editions | `platform/browser.ts` | change (M148) |
 | Canonical encode | byte-identical encode of one Design | `canopi-format` | `HomeVersion`, Draft move verify, lost-ack adoption | `desktop/src/design/format.rs` | add (M156) |
 | Spec emitter | frozen generated format spec | `canopi-format/spec/` (2.1) | Every format change; rollback lane | `scripts/schema-contract.json` | keep (ADR 0026) |

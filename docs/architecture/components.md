@@ -257,7 +257,7 @@ flowchart LR
   canopi_format --> canopi_types
   canopi_types --> canopi_redact
   canopi_format_wasm --> canopi_types
-  canopi_format_wasm --> canopi_redact
+  canopi_format_wasm --> canopi_format
   bindings_gen --> canopi_types
 ```
 
@@ -346,7 +346,7 @@ flowchart LR
 | Port | Declared in | Desktop adapter | Web adapter | Protects |
 |---|---|---|---|---|
 | DesignHomeStore | `platform/design-home.ts` (2.1) | native files, file grants | IndexedDB Draft store, file input, download | L10, L17, L21 |
-| DesignCore | `platform/design-core.ts` (2.1) | format worker, bytes through `ipc/bytes.ts` (2.1) | format worker over `canopi-format-wasm` (2.1) | L5 |
+| DesignCore | `platform/design-core.ts` (Web read view built in 2.0.4) | format worker, bytes through `ipc/bytes.ts` (2.1) | format worker over `canopi-format-wasm` (2.1) | L5 |
 | FileDelivery | `platform/file-delivery.ts` (2.1) | dialog and native write | download | L12 |
 | File access | `platform/file-access.ts` (2.1) | host dialogs with `pickOpen`, `pickHomeTarget`, `convertFileSrc` | file input | L9 |
 | App lifecycle | not named | close and exit requests, update install | visibility, page hide and show, version change | ADR 0024 |

@@ -2244,5 +2244,10 @@
     "libraryUnavailable": "Impossibile aprire la libreria dati, quindi le modifiche non verranno salvate in questa sessione. Riavvia Canopi e riprova.",
     "formatCoreUnavailable": "Canopi non è riuscito a caricare la parte che apre i progetti. Riprova e segnala un problema se continua a succedere.",
     "formatCoreTrapped": "Canopi si è interrotto durante la lettura di questo progetto. Riprova e segnala un problema se continua a succedere."
+  },
+  "startup": {
+    "title": "Impossibile avviare Canopi",
+    "desktopHint": "Il tuo sistema potrebbe essere troppo vecchio per questa versione di Canopi. Aggiorna il sistema operativo, poi riapri Canopi.",
+    "webHint": "Ricarica la pagina. Se Canopi continua a non avviarsi, questo browser potrebbe essere troppo vecchio: aggiornalo o prova un altro browser."
   }
 }

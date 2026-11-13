@@ -2244,5 +2244,10 @@
     "libraryUnavailable": "无法打开数据资料库，因此本次会话的更改不会保存。请重启 Canopi 后重试。",
     "formatCoreUnavailable": "Canopi 无法加载用于打开设计的部分。请重试，如果问题反复出现，请报告问题。",
     "formatCoreTrapped": "Canopi 在读取此设计时停止。请重试，如果问题反复出现，请报告问题。"
+  },
+  "startup": {
+    "title": "Canopi 无法启动",
+    "desktopHint": "您的系统可能版本过旧，无法运行此版本的 Canopi。请更新操作系统，然后重新打开 Canopi。",
+    "webHint": "请重新加载页面。如果 Canopi 仍无法启动，此浏览器可能版本过旧：请更新浏览器或换用其他浏览器。"
   }
 }

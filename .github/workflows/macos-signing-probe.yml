@@ -191,9 +191,11 @@ jobs:
               *) echo unread ;;
             esac
           }
-          # Gatekeeper's own reading of a row: a quarantined app that ran is its acceptance (no dialog appears), else
-          # the dialog's class. Both the row's class and the tools' agreement read this one value.
-          gatekeeper_class() { if [ "$2" = yes ]; then echo accepted; else echo "$1"; fi; }
+          # Gatekeeper's own reading of a row: its dialog's class when one was read; with no dialog, a quarantined app
+          # that ran is its acceptance. A process seen while the dialog is up is not acceptance (canopi-6tva: PR #96 saw
+          # both rows' process beside the damaged and the not-verified dialogs). Both the row's class and the tools'
+          # agreement read this one value.
+          gatekeeper_class() { if [ "$1" != unread ]; then echo "$1"; elif [ "$2" = yes ]; then echo accepted; else echo unread; fi; }
           seen_class() { if [ "$2" != unread ]; then echo "$2"; else echo "$1"; fi; }
           rank() { case "$1" in damaged) echo 0 ;; unidentified) echo 1 ;; accepted) echo 2 ;; *) echo -1 ;; esac; }
           verdict() {
@@ -230,6 +232,9 @@ jobs:
           expect 'no dialog read' "$(dialog_class 'execution error: System Events got an error: osascript is not allowed assistive access. (-1719)')" unread
           expect 'a quarantined app that ran is Gatekeeper accepting it (canopi-3cu2)' "$(gatekeeper_class unread yes)" accepted
           expect 'a quarantined app that did not run keeps its dialog' "$(gatekeeper_class damaged no)" damaged
+          expect 'a process seen beside the damaged dialog is not acceptance (canopi-6tva)' "$(gatekeeper_class damaged yes)" damaged
+          expect 'a process seen beside the not-verified dialog is not acceptance (canopi-6tva)' "$(gatekeeper_class unidentified yes)" unidentified
+          expect 'no dialog and no launch reads nothing' "$(gatekeeper_class unread no)" unread
           expect 'the dialog wins over the tools' "$(seen_class unidentified damaged)" damaged
           expect 'the tools stand in for an unread dialog' "$(seen_class damaged unread)" damaged
           expect 'a quarantined app that ran was accepted' "$(seen_class damaged "$(gatekeeper_class unread yes)")" accepted

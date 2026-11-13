@@ -1,7 +1,8 @@
 /**
  * platform/design-core.ts: the design-core port's Web adapter over the format worker (ADR 0025 Format core failures;
- * contracts §18 F28; Step 2.0.4, 2.1-M476, 2.1-M477). Invariant: every call settles exactly once, nothing is retried
- * silently, and the worker (platform/design-core.worker.ts) is started only here.
+ * contracts §18 F28; Step 2.0.4, 2.1-M476, 2.1-M477). Owner of the format worker (worker-only-in-owner, ADR 0028; §18
+ * F16). Invariant: every call settles exactly once, nothing is retried silently, and the worker
+ * (platform/design-core.worker.ts) is started only here.
  *
  * In the reader release it is Web only and read only: Desktop reads `.canopi` natively (2.1-M476), and the Web asks
  * it only for the read view of a Design a newer Canopi saved (`readNewerDesign`, 2.1-M478).

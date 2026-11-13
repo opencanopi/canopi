@@ -8,10 +8,12 @@
  * offers Reload, since a chunk gone after a Web deploy never loads again in this page. The root fallback offers Reload
  * and Report a problem, never the raw stack. Every Reload is the edition's (`RootBoundary`'s `onReload`), which writes
  * the Design first and asks the save question when it cannot (on Web, the release's reload, which also reopens the
- * tab's own Draft; 2.1-Q189), never a bare page reload.
+ * tab's own Draft; 2.1-Q189), never a bare page reload. Each root acknowledges the boot when it mounts, so the start-up
+ * guard (boot-guard/guard.ts) leaves every failure from then on to it.
  */
 import { createContext, type ComponentChildren } from 'preact'
 import { useContext, useErrorBoundary, useLayoutEffect, useRef, useState } from 'preact/hooks'
+import type { BootAcknowledgement } from '../../boot-guard/guard'
 import { isChunkLoadFailure, RetryGeneration } from '../../failures/lazy'
 import { reportFailure, reportOriginOf, type ReportOrigin } from '../../failures/report'
 import { t } from '../../i18n'
@@ -144,6 +146,10 @@ export function RootBoundary({ source, onReport, onReload, dialogs, children }: 
   const [error] = useErrorBoundary((caught: unknown) => {
     reportFailure(caught, { shown: 'inline', source })
   })
+  // The boot acknowledgement (2.1-M489): the app's module ran and a root is up, so the start-up guard never shows.
+  useLayoutEffect(() => {
+    Object.assign(window, { __CANOPI_BOOT_ACKNOWLEDGED__: true } satisfies BootAcknowledgement)
+  }, [])
   const report = onReport ?? null
   const reload = onReload ?? (() => location.reload())
   if (error) {

@@ -3,11 +3,13 @@ import { configDefaults } from "vitest/config";
 import preact from "@preact/preset-vite";
 import license from "rollup-plugin-license";
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath, URL } from "node:url";
 import { resolveWebEditionDevHtmlUrl } from "./src/web/dev-entry";
 import { admitWebCatalogManifest } from "./src/generated/web-catalog-artifact.mjs";
+// The engine floor's one source (canopi-4kfl, 2.1-M490): both editions' scripts, pre-bundled dependencies and styles.
+import { ENGINE_FLOOR_BROWSERS, ENGINE_FLOOR_TARGET } from "./engine-floor";
 // The coverage floors' one home (2.1-M217): policy/check.mjs holds this config's loaded values to the same family.
 import coverageFamily from "../../policy/ratchets/coverage.json";
 
@@ -83,6 +85,7 @@ export default defineConfig(({ mode }) => {
       asciiIdentifierKeysPlugin(),
       ...thirdPartyNotices.app,
       chunkPackagesPlugin(isWebEdition ? "web" : "desktop"),
+      bootGuardPlugin(isWebEdition ? "web" : "desktop"),
     ],
     // Both editions are served at the root: web.projectcanopi.com and the Tauri asset protocol (2.1-Q85, 2.1-M66).
     base: "/",
@@ -107,7 +110,7 @@ export default defineConfig(({ mode }) => {
       // Lazily imported by the PDF export; discovering them at runtime makes Vite
       // re-optimize and reload the page mid-session.
       include: ['pdfkit', 'fontkit'],
-      rolldownOptions: { transform: { target: 'es2022' } },
+      rolldownOptions: { transform: { target: [...ENGINE_FLOOR_TARGET] } },
     },
     worker: {
       // The raster decode lane imports geotiff codecs dynamically.
@@ -132,7 +135,8 @@ export default defineConfig(({ mode }) => {
       },
     },
     build: {
-      target: 'es2022',
+      target: [...ENGINE_FLOOR_TARGET],
+      cssTarget: [...ENGINE_FLOOR_BROWSERS],
       outDir: isWebEdition ? "dist-web" : "dist",
       emptyOutDir: true,
       rolldownOptions: {
@@ -440,6 +444,44 @@ function initialStylesheetOrderPlugin(): Plugin {
   };
 }
 
+const LOCALE_DIR = fileURLToPath(new URL("./src/i18n/", import.meta.url));
+
+/**
+ * The start-up guard (canopi-4kfl, 2.1-M471, 2.1-M489): src/boot-guard/guard.ts with the edition's strings from every locale
+ * file, ES2015 in a function scope, as a hashed classic script before the entry module; nothing in public/ (2.1-M176). A
+ * missing string, a result that is not one plain script or a page without one module script fails either edition's build.
+ */
+function bootGuardPlugin(edition: "desktop" | "web"): Plugin {
+  let base = "/";
+  return {
+    name: "canopi-boot-guard", apply: "build",
+    configResolved: (config) => void (base = config.base),
+    async buildStart() {
+      const texts: Record<string, { title: string; hint: string }> = {};
+      for (const file of readdirSync(LOCALE_DIR).filter((name) => name.endsWith(".json")).sort()) {
+        const startup = (JSON.parse(readFileSync(join(LOCALE_DIR, file), "utf8")) as { startup?: Record<string, unknown> }).startup;
+        const [title, hint] = [startup?.title, startup?.[`${edition}Hint`]];
+        if (typeof title !== "string" || typeof hint !== "string") this.error(`src/i18n/${file} lacks startup.title or startup.${edition}Hint.`);
+        texts[file.slice(0, -".json".length)] = { title, hint };
+      }
+      const { code } = await transformWithOxc(readFileSync(new URL("./src/boot-guard/guard.ts", import.meta.url), "utf8"), "guard.ts",
+        { lang: "ts", target: "es2015", define: { __CANOPI_BOOT_GUARD_TEXTS__: JSON.stringify(texts) } });
+      // Oxc keeps the file a module (`export {};`). The guard's code is ASCII: other characters are string text, escaped.
+      const script = `(function () {\n${code.replace(/^export \{\};$/m, "")}})();\n`.replace(/[^\x00-\x7f]/g, (char) => `\\u${char.charCodeAt(0).toString(16).padStart(4, "0")}`);
+      const { errors } = parseSync("boot-guard.js", script, { sourceType: "script" });
+      if (errors.length > 0) this.error(`The start-up guard is not one plain script: ${errors[0]!.message}.`);
+      this.emitFile({ type: "asset", name: "boot-guard.js", source: script });
+    },
+    transformIndexHtml: { order: "post", handler(html, { bundle }) {
+      if (!bundle) return html;
+      const guard = Object.values(bundle).find((file) => file.type === "asset" && file.names.includes("boot-guard.js"));
+      const modules = html.match(/<script\b[^>]*\btype="module"[^>]*><\/script>/g) ?? [];
+      if (!guard || modules.length !== 1) throw new Error(`The ${edition} page has ${modules.length} module scripts and ${guard ? "a" : "no"} start-up guard; it needs one of each.`);
+      return html.replace(modules[0]!, `<script src="${base}${guard.fileName}"></script>\n    ${modules[0]}`);
+    } },
+  };
+}
+
 /** policy/layers.json's package rows in order, generated by policy/generate.mjs: the chunk each package's code joins. */
 const VENDOR_CHUNK_ROWS = (JSON.parse(readFileSync(new URL("./build-facts.generated.json", import.meta.url), "utf8")) as {
   chunkRows: { pattern: string; chunk: string | null }[];
@@ -465,10 +507,8 @@ function webEditionDevEntryPlugin(enabled: boolean): Plugin {
     apply: "serve",
     configureServer(server) {
       if (!enabled) return;
-
       server.middlewares.use((request, _response, next) => {
-        const webEntryUrl = resolveWebEditionDevHtmlUrl(request.url);
-        if (webEntryUrl) request.url = webEntryUrl;
+        request.url = resolveWebEditionDevHtmlUrl(request.url) ?? request.url;
         next();
       });
     },

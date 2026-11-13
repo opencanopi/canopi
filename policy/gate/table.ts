@@ -184,7 +184,8 @@ export const TABLE: Table = {
     // The plan names the families a change's paths reach (CHEAP_FAMILIES) after `--`.
     'cheap-families': web('npm run test:policies:family --'),
     'actionlint': { command: 'node policy/gate/cli.mjs actionlint' },
-    // Both builds' chunks parsed by the oldest engine, Debian 12's JavaScriptCore, in its pinned image (A15).
+    // Both builds' chunks parsed by the oldest engines in their pinned images: Debian 12's JavaScriptCore (A15) and the
+    // engine floor's WebKit (desktop/web/engine-floor.ts, 2.1-M490).
     'oldest-engine': { command: 'node policy/gate/cli.mjs oldest-engine' },
     'pdf-fonts': web('npm run prepare:pdf-fonts'),
     // The lanes outside Build & Test, each a workflow of its own on the events it names (A5 (4)): information, a
@@ -197,7 +198,7 @@ export const TABLE: Table = {
       ciOnly: true, on: ['pull_request', 'push', 'workflow_dispatch'] },
     'pdf-production-probe': { command: 'CI workflow pdf-production-probe.yml: the production PDF worker in each platform\'s WebView',
       shown: 'pdf-production-probe.yml', ciOnly: true, on: ['pull_request', 'push', 'workflow_dispatch'] },
-    'engine-floor-probe': { command: 'CI workflow engine-floor-probe.yml: both editions booted in old Playwright WebKit images and the listener page in three engines',
+    'engine-floor-probe': { command: 'CI workflow engine-floor-probe.yml: both editions and the format worker booted in WebKit images on both sides of the floor, the listener page in three engines',
       shown: 'engine-floor-probe.yml', ciOnly: true, on: ['pull_request', 'workflow_dispatch'] },
     'rollback': { command: 'CI workflow rollback.yml: the rollback lane\'s reader and writer refs, the reader tag\'s tree built on today\'s runner and the Web seed round trip in Chromium and WebKit',
       shown: 'rollback.yml', ciOnly: true, on: ['pull_request', 'workflow_dispatch'] },

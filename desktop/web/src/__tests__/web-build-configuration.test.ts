@@ -9,6 +9,7 @@ import type { ConfigEnv, Plugin, PluginOption, UserConfig } from 'vite'
 
 import viteConfig from '../../vite.config'
 import galleryConfig from '../../ui-gallery/vite.config'
+import { ENGINE_FLOOR_TARGET } from '../../engine-floor'
 import { parseCssDeclarations } from './support/architecture/css-facts'
 import { admitWebCatalogManifest } from '../generated/web-catalog-artifact.mjs'
 import { validWebCatalogManifest } from './fixtures/web-catalog-manifest'
@@ -102,8 +103,10 @@ describe('Web Edition build configuration', () => {
     }
     for (const [name, config] of Object.entries(configs)) {
       expect(deprecatedOptionPaths(config), name).toEqual([])
-      // The dependency optimizer keeps the build's target: the TIFF codecs use top-level await.
-      expect(config.optimizeDeps?.rolldownOptions?.transform?.target, name).toBe('es2022')
+      // The dependency optimizer keeps the build's target: the TIFF codecs use top-level await. Both editions
+      // pre-bundle for the engine floor (canopi-4kfl); the gallery is a development tool and stays on the language level.
+      const expected = name === 'gallery' ? 'es2022' : [...ENGINE_FLOOR_TARGET]
+      expect(config.optimizeDeps?.rolldownOptions?.transform?.target, name).toEqual(expected)
     }
   })
 
@@ -114,8 +117,9 @@ describe('Web Edition build configuration', () => {
       compilerOptions: { target: string; lib: string[] }
     }
     for (const mode of ['desktop', 'web']) {
-      const buildTarget = (await resolveConfig(mode)).build?.target
-      expect(typeof buildTarget, mode).toBe('string')
+      const target = (await resolveConfig(mode)).build?.target
+      expect(target, mode).toEqual([...ENGINE_FLOOR_TARGET])
+      const buildTarget = (target as string[]).find((entry) => /^es\d+$/.test(entry))
       expect(tsconfig.compilerOptions.target.toLowerCase(), mode).toBe(buildTarget)
       expect(tsconfig.compilerOptions.lib.map((lib) => lib.toLowerCase()), mode).toContain(buildTarget)
     }
