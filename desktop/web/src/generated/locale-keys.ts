@@ -1492,6 +1492,7 @@ export type LocaleKey =
   | "problemReport.successTitle"
   | "problemReport.title"
   | "readOnlyDesign.details"
+  | "readOnlyDesign.label"
   | "readOnlyDesign.status"
   | "readOnlyDesign.update"
   | "saveProblem.closeWithoutSaving"

@@ -1639,6 +1639,7 @@
     "conflictAnotherTab": "Gewijzigd in een ander tabblad"
   },
   "readOnlyDesign": {
+    "label": "Alleen-lezen",
     "status": "Alleen-lezen: opgeslagen door een nieuwere Canopi",
     "details": "Dit ontwerp is opgeslagen door een nieuwere Canopi. Je kunt het bekijken, maar niet wijzigen of opslaan. Werk Canopi bij om het te bewerken.",
     "update": "Bijwerken"

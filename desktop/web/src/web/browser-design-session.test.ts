@@ -141,6 +141,7 @@ describe('the session controller with 2.1 Drafts listed', () => {
     expect(await controller.openDraft('orchard')).toBe(true)
     expect(store.sessionKind.value).toEqual({ kind: 'read-only', origin: 'storage-unchecked' })
     expect(controller.continuousSave.status.value).toBe('read-only')
+    expect(controller.readDesignIdentity()?.readOnlyOrigin, 'the save status popover says why (2.1-Q336)').toBe('storage-unchecked')
     expect(uncheckedShown()).toBe(true)
     expect(openFailureShown()).toBe(false)
     // Download a copy still works on the read-only view.

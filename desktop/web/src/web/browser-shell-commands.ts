@@ -29,6 +29,7 @@ import { currentCanvasKeyboardPort } from '../canvas/session'
 import { detectPlatform, type InputPlatform } from '../canvas/runtime/input/platform'
 import { t } from '../i18n'
 import type { DesignSaveStatus } from '../app/document-session/continuous-save'
+import type { DesignSessionKind } from '../app/document-session/store'
 import type { GeoJsonWorkflow } from '../app/geojson/workflow'
 
 type BrowserShellCapabilityId =
@@ -92,6 +93,8 @@ export interface BrowserShellDesignIdentity {
   readonly name: string
   readonly saveStatus: DesignSaveStatus
   readonly saveFailureReason: string | null
+  /** Why a read-only Design is read-only; its save status popover says so (2.1-Q336). */
+  readonly readOnlyOrigin?: Extract<DesignSessionKind, { kind: 'read-only' }>['origin'] | undefined
 }
 
 export interface BrowserShellCapabilities {

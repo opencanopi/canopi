@@ -641,7 +641,13 @@ export function createBrowserDesignSessionController({
       const design = store.currentDesign.value;
       if (!design) return null;
       const name = store.designName.value || design.name || "Untitled";
-      return { name, saveStatus: continuousSave.status.value, saveFailureReason: continuousSave.failureReason.value };
+      const kind = store.sessionKind.value;
+      return {
+        name,
+        saveStatus: continuousSave.status.value,
+        saveFailureReason: continuousSave.failureReason.value,
+        readOnlyOrigin: kind.kind === "read-only" ? kind.origin : undefined,
+      };
     },
     newDesign,
     closeDesign,

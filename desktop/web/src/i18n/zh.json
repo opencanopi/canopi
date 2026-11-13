@@ -1639,6 +1639,7 @@
     "conflictAnotherTab": "已在另一个标签页中更改"
   },
   "readOnlyDesign": {
+    "label": "只读",
     "status": "只读：由更新版本的 Canopi 保存",
     "details": "此设计由更新版本的 Canopi 保存。您可以查看，但无法更改或保存。请更新 Canopi 以进行编辑。",
     "update": "更新"

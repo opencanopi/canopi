@@ -2,9 +2,13 @@ import type { RefObject } from 'preact'
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'preact/hooks'
 import type { DesignSaveStatus } from '../../app/document-session/continuous-save'
 import { saveProblem, type SaveConflictSource } from '../../app/document-session/save-problem'
+import type { DesignSessionKind } from '../../app/document-session/store'
 import { t } from '../../i18n'
 import { ControlIcon } from './ControlIcon'
 import styles from './save-status-label.module.css'
+
+/** Why a Design is read-only: a newer Canopi saved it, or a Web Draft opened while storage could not be checked (Q334). */
+type ReadOnlyOrigin = Extract<DesignSessionKind, { kind: 'read-only' }>['origin']
 
 interface SaveStatusAction {
   readonly label: string
@@ -49,9 +53,11 @@ interface SaveStatusLabelProps {
   readonly conflictSource?: SaveConflictSource
   onRetry(): void
   onResolveConflict?(): void
+  /** Why the read-only status is read-only; its popover says so. Absent: a newer Canopi saved it. */
+  readonly readOnlyOrigin?: ReadOnlyOrigin | undefined
   /**
-   * Update, offered while a newer Canopi's Design is shown read-only (2.1-Q317): Desktop checks for updates, the Web
-   * reloads. Absent: the read-only status has no action.
+   * Update, in the read-only status's popover while a newer Canopi's Design is shown (2.1-Q317, Q336): Desktop checks
+   * for updates, the Web reloads. Absent, or storage not checked: the popover has no action.
    */
   onUpdate?(): void
 }
@@ -70,6 +76,7 @@ export function SaveStatusLabel({
   conflictSource,
   onRetry,
   onResolveConflict,
+  readOnlyOrigin = 'newer-version',
   onUpdate,
 }: SaveStatusLabelProps) {
   // Web (a link-style Draft action) can focus the status itself when its warning leaves under focus.
@@ -108,7 +115,7 @@ export function SaveStatusLabel({
           <SaveFailureDetails reason={failureReason} onRetry={onRetry} saveElsewhere={saveElsewhere} />
         </>
       )}
-      {status === 'read-only' && <ReadOnlyDesignDetails onUpdate={onUpdate} />}
+      {status === 'read-only' && <ReadOnlyDesignDetails origin={readOnlyOrigin} onUpdate={onUpdate} />}
       {status === 'conflict' && (
         <>
           <span className={styles.errorText} role="alert"><ControlIcon name="alert" /><span className={styles.label}>{t(conflictSource === 'another-tab' ? 'saveStatus.conflictAnotherTab' : 'saveStatus.conflict')}</span></span>
@@ -222,16 +229,21 @@ function DraftWarningDetails({ warning, draftAction, fallbackFocus }: {
 }
 
 /**
- * A Design a newer Canopi saved (2.1-Q317, M478): muted, never red, as nothing failed. The label opens a popover that
- * explains it cannot change here, with Update, which also sits beside the label.
+ * A read-only Design (2.1-Q317, M478, Q336): muted, never red, as nothing failed. The bar shows only its icon and
+ * "Read-only"; the label opens a popover that says why by origin: a newer Canopi saved it, with Update, or the browser's
+ * storage could not be checked (Q334), where updating does not help and File keeps Download a copy.
  */
-function ReadOnlyDesignDetails({ onUpdate }: { readonly onUpdate: (() => void) | undefined }) {
+function ReadOnlyDesignDetails({ origin, onUpdate }: {
+  readonly origin: ReadOnlyOrigin
+  readonly onUpdate: (() => void) | undefined
+}) {
   const [open, setOpen] = useState(false)
   const trigger = useRef<HTMLButtonElement>(null)
   const popover = useRef<HTMLDivElement>(null)
   const titleId = useId()
   const descriptionId = useId()
   usePopover(trigger, popover, open, setOpen)
+  const update = origin === 'newer-version' ? onUpdate : undefined
 
   function close(): void {
     setOpen(false)
@@ -239,52 +251,50 @@ function ReadOnlyDesignDetails({ onUpdate }: { readonly onUpdate: (() => void) |
   }
 
   return (
-    <>
-      <span className={styles.detailsAnchor} data-preserve-overlays="true">
-        <span className={styles.warningStatus} role="status">
-          <button
-            ref={trigger}
-            type="button"
-            className={styles.warningTrigger}
-            aria-haspopup="dialog"
-            aria-expanded={open}
-            onClick={() => setOpen(!open)}
-          >
-            <ControlIcon name="info" /><span className={styles.label}>{t('readOnlyDesign.status')}</span>
-          </button>
-        </span>
-        {open && (
-          <div
-            ref={popover}
-            className={styles.popover}
-            role="dialog"
-            aria-labelledby={titleId}
-            aria-describedby={descriptionId}
-            onKeyDown={(event) => {
-              if (event.key !== 'Escape') return
-              event.preventDefault()
-              event.stopPropagation()
-              close()
-            }}
-          >
-            <h2 className={styles.popoverTitle} id={titleId}>{t('readOnlyDesign.status')}</h2>
-            <p className={styles.popoverText} id={descriptionId}>{t('readOnlyDesign.details')}</p>
-            {onUpdate && (
-              <div className={styles.popoverActions}>
-                <button type="button" className={styles.primary} onClick={() => { close(); onUpdate() }}>
-                  {t('readOnlyDesign.update')}
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-      </span>
-      {onUpdate && (
-        <button type="button" className={styles.action} onClick={onUpdate}>
-          {t('readOnlyDesign.update')}
+    <span className={styles.detailsAnchor} data-preserve-overlays="true">
+      <span className={styles.warningStatus} role="status">
+        <button
+          ref={trigger}
+          type="button"
+          className={styles.warningTrigger}
+          aria-haspopup="dialog"
+          aria-expanded={open}
+          onClick={() => setOpen(!open)}
+        >
+          <ControlIcon name="info" /><span className={styles.label}>{t('readOnlyDesign.label')}</span>
         </button>
+      </span>
+      {open && (
+        <div
+          ref={popover}
+          className={styles.popover}
+          role="dialog"
+          tabIndex={-1}
+          aria-labelledby={titleId}
+          aria-describedby={descriptionId}
+          onKeyDown={(event) => {
+            if (event.key !== 'Escape') return
+            event.preventDefault()
+            event.stopPropagation()
+            close()
+          }}
+        >
+          <h2 className={styles.popoverTitle} id={titleId}>
+            {t(origin === 'newer-version' ? 'readOnlyDesign.status' : 'readOnlyDesign.label')}
+          </h2>
+          <p className={styles.popoverText} id={descriptionId}>
+            {t(origin === 'newer-version' ? 'readOnlyDesign.details' : 'webStorage.uncheckedReadOnly')}
+          </p>
+          {update && (
+            <div className={styles.popoverActions}>
+              <button type="button" className={styles.primary} onClick={() => { close(); update() }}>
+                {t('readOnlyDesign.update')}
+              </button>
+            </div>
+          )}
+        </div>
       )}
-    </>
+    </span>
   )
 }
 
@@ -353,10 +363,11 @@ function SaveFailureDetails({ reason, onRetry, saveElsewhere }: {
 }
 
 /**
- * An open popover takes focus on its first button and stays on screen. It closes on a pointer release outside it, when
- * focus moves outside it and its trigger (Tab on to the shell's notice; focus going nowhere, as on a window switch,
- * keeps it), and when a save problem dialog asks, so that modal dialog never sits over it (canopi-eon8.15). A layout
- * effect: focus is in, so its Esc handler hears the key, from the first painted frame (canopi-f47t.52.228.20).
+ * An open popover takes focus on its first button, or itself when it has none, and stays on screen. It closes on a
+ * pointer release outside it, when focus moves outside it and its trigger (Tab on to the shell's notice; focus going
+ * nowhere, as on a window switch, keeps it), and when a save problem dialog asks, so that modal dialog never sits over
+ * it (canopi-eon8.15). A layout effect: focus is in, so its Esc handler hears the key, from the first painted frame
+ * (canopi-f47t.52.228.20).
  */
 function usePopover(
   trigger: RefObject<HTMLElement | null>,
@@ -368,7 +379,9 @@ function usePopover(
   useLayoutEffect(() => {
     if (!open) return
     const element = popover.current
-    element?.querySelector<HTMLButtonElement>('button')?.focus()
+    // A popover with no button (a read-only Design whose storage was not checked) takes focus itself, so Esc reaches it.
+    const first: HTMLElement | null = element?.querySelector<HTMLButtonElement>('button') ?? element
+    first?.focus()
     const inside = (target: Node) => Boolean(popover.current?.contains(target) || trigger.current?.contains(target))
     const outside = (event: Event) => {
       const target = event.target as Node | null

@@ -1639,6 +1639,7 @@
     "conflictAnotherTab": "Modifié dans un autre onglet"
   },
   "readOnlyDesign": {
+    "label": "Lecture seule",
     "status": "Lecture seule : enregistré par une version plus récente de Canopi",
     "details": "Ce Design a été enregistré par une version plus récente de Canopi. Vous pouvez le consulter, mais pas le modifier ni l’enregistrer. Mettez Canopi à jour pour le modifier.",
     "update": "Mettre à jour"

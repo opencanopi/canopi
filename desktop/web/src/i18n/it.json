@@ -1639,6 +1639,7 @@
     "conflictAnotherTab": "Modificato in un’altra scheda"
   },
   "readOnlyDesign": {
+    "label": "Sola lettura",
     "status": "Sola lettura: salvato da una versione più recente di Canopi",
     "details": "Questo progetto è stato salvato da una versione più recente di Canopi. Puoi visualizzarlo, ma non modificarlo né salvarlo. Aggiorna Canopi per modificarlo.",
     "update": "Aggiorna"

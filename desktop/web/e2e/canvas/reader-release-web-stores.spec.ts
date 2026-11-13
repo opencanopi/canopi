@@ -257,7 +257,10 @@ test('R3 canopi-f47t.52.272: a 2.1 Draft opens read-only, downloads as 2.1 saved
 
   await draftRow(page, 'Orchard in 2.1').getByRole('button').first().click()
   const status = page.locator('[data-workspace-title-bar] [data-save-status]')
-  await expect(status, 'the 2.1 Draft opens in the read-only view (2.1-M478)').toContainText(/newer Canopi/)
+  await expect(status, 'the 2.1 Draft opens in the read-only view (2.1-M478)').toHaveAttribute('data-save-status', 'read-only')
+  await status.getByRole('button', { name: 'Read-only', exact: true }).click()
+  await expect(status.getByRole('dialog'), 'its popover says a newer Canopi saved it (2.1-Q336)').toContainText('Read-only: saved by a newer Canopi')
+  await page.keyboard.press('Escape')
   await expect(page.locator('[data-workspace-title-bar]')).toContainText('Orchard in 2.1')
   await page.waitForTimeout(1_000)
   expect(await storageDump(page), 'opening and downloading write no record and no key').toEqual(before)

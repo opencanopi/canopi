@@ -89,7 +89,7 @@ const openItem = params.get('open')
 const selectedSurface = signal<GallerySurface>(initial)
 const galleryCanvasReady = signal(false)
 const file = designFixture(fixtureState)
-// `session=read-only`: the Design opens as one a newer Canopi saved (2.1-Q317), its save status read-only with Update.
+// `session=read-only`: the Design opens as one a newer Canopi saved (2.1-Q317), its save status "Read-only" (Q336).
 const sessionKind = params.get('session') === 'read-only'
   ? { kind: 'read-only', origin: 'newer-version', savedByVersion: 10 } as const
   : undefined
@@ -304,7 +304,10 @@ function GalleryWebFrame({ children }: { readonly children: preact.ComponentChil
   return <>
     <BrowserAppShell
       commandProjection={projection}
-      designIdentity={{ name: file.name, saveStatus: 'draft', saveFailureReason: null }}
+      designIdentity={sessionKind
+        ? { name: file.name, saveStatus: 'read-only', saveFailureReason: null, readOnlyOrigin: sessionKind.origin }
+        : { name: file.name, saveStatus: 'draft', saveFailureReason: null }}
+      onUpdate={sessionKind ? () => {} : undefined}
       placeSearch
       undo={workspaceCanvasCommandProjection.value.historyActions.find((action) => action.id === 'undo')}
     >

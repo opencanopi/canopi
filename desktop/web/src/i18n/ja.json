@@ -1639,6 +1639,7 @@
     "conflictAnotherTab": "別のタブで変更されました"
   },
   "readOnlyDesign": {
+    "label": "読み取り専用",
     "status": "読み取り専用：新しいバージョンの Canopi で保存",
     "details": "このデザインは新しいバージョンの Canopi で保存されました。表示はできますが、変更や保存はできません。編集するには Canopi を更新してください。",
     "update": "更新"
