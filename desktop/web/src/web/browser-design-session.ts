@@ -15,6 +15,7 @@ import { createDesignSessionPersistence, DesignPersistenceLeaseError, type Desig
 import { prepareDesignWriteDestination, prepareSynchronousDesignWriteDestination } from "../app/document-session/write-admission";
 import { CanvasAuthorityBusyError, type CanvasDocumentSurface } from "../canvas/runtime/runtime";
 import type { CanopiFile } from "../types/design";
+import { signal, type ReadonlySignal } from "@preact/signals";
 import { applyNewDesignBackground, withNewDesignDisplay } from "../app/settings/new-design-defaults";
 import { CURRENT_CANOPI_FILE_VERSION } from "../generated/canopi-design-format";
 import type { ReadOnlyDesign } from "../generated/contracts";
@@ -34,10 +35,7 @@ export interface BrowserOpenedCanopiFile {
 
 export type BrowserCanopiDownload = BrowserOpenedCanopiFile;
 
-/**
- * The read half of 2.1's Draft store (platform/draft-records.browser.ts), installed at launch: it offers no write
- * (design check F7). `hiddenIds` are the 2.0 Drafts' ids it hides (2.1-Q322).
- */
+/** 2.1's Draft store read half (platform/draft-records.browser.ts): no write (design check F7); `hiddenIds` hide 2.0 ids (2.1-Q322). */
 interface BrowserNewerDraftRecords {
   list(): Promise<{ readonly drafts: readonly BrowserDraftSummary[]; readonly hiddenIds: readonly string[] }>;
   content(id: string): Promise<string | null>;
@@ -89,10 +87,7 @@ export interface BrowserDesignSessionController {
    * none is open.
    */
   currentDesignText(): string | null;
-  /**
-   * Download a copy of a stored Draft without opening it (the welcome screen's Draft row, 2.1-Q193); a 2.1 Draft's is
-   * its text as 2.1 saved it (2.1-Q323). Rejects when the Draft is gone.
-   */
+  /** Download a copy of a Draft without opening it (2.1-Q193); a 2.1 Draft's as 2.1 saved it (2.1-Q323). Rejects when gone. */
   downloadDraft(id: string): Promise<void>;
   renameDesign(name: string): void;
   revertDesign(): Promise<boolean>;
@@ -118,7 +113,8 @@ export interface BrowserDesignSessionController {
   restoreLatestDraft(): boolean;
   /** The launch: reads 2.1's Draft ids first, then restores only while 2.1 holds no Draft (2.1-Q321, design check A18). */
   launch(): Promise<boolean>;
-  /** 2.1's Draft store read half, at launch; without it there are no 2.1 Drafts. */
+  /** True while launch reads 2.1's Draft ids: the canvas shows neither the start screen nor a Design yet (design-reveal). */
+  readonly launching: ReadonlySignal<boolean>;
   installNewerDrafts(records: BrowserNewerDraftRecords): () => void;
   attachCanvasSession(session: CanvasDocumentSurface): () => void;
   installContinuousSave(page?: BrowserPageLifecycleTarget): () => void;
@@ -151,6 +147,7 @@ export function createBrowserDesignSessionController({
   let newerDrafts: Map<string, BrowserDraftSummary> | null = null;
   let hiddenIds: ReadonlySet<string> = new Set();
   const visibleDrafts = () => appDataStore.listDrafts().filter((draft) => !hiddenIds.has(draft.id));
+  const launching = signal(false);
   let nextDownloadWrite = 0;
   let replacementIntent = 0;
   let workflowInstallAttempt = 0;
@@ -540,9 +537,12 @@ export function createBrowserDesignSessionController({
 
   async function launch(): Promise<boolean> {
     const intent = replacementIntent;
-    const newer = await listNewerDrafts();
-    // With 2.1 Drafts present the start screen lists them and nothing reopens (2.1-Q321); New or Open meanwhile wins.
-    return newer.length === 0 && intent === replacementIntent && restoreLatestDraft();
+    launching.value = true;
+    try {
+      const newer = await listNewerDrafts();
+      // With 2.1 Drafts present the start screen lists them and nothing reopens (2.1-Q321); New or Open meanwhile wins.
+      return newer.length === 0 && intent === replacementIntent && restoreLatestDraft();
+    } finally { launching.value = false; }
   }
 
   function restoreLatestDraft(): boolean {
@@ -661,6 +661,7 @@ export function createBrowserDesignSessionController({
     deleteDraft,
     restoreLatestDraft,
     launch,
+    launching,
     installNewerDrafts(records) {
       newerRecords = records;
       return () => { if (newerRecords === records) newerRecords = null; };
