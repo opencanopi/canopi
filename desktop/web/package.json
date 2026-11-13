@@ -33,6 +33,7 @@
     "test:policies:ast-grep": "cd ../.. && ast-grep test -c sgconfig.yml --skip-snapshot-tests",
     "test:perf": "playwright test e2e/perf --project=perf",
     "test:mutation": "stryker run --incremental",
+    "test:rollback": "playwright test -c e2e-rollback/playwright.config.ts",
     "test:coverage": "vitest run --coverage",
     "test:repeat": "vitest run --repeats=20",
     "test:seed-lane": "node -e \"const seed = (name) => process.env[name] || String(1 + Math.floor(Math.random() * 2147483646)); const env = { ...process.env, CANOPI_TEST_SEED: seed('CANOPI_TEST_SEED'), CANOPI_FC_SEED: seed('CANOPI_FC_SEED') }; console.log('CANOPI_TEST_SEED=' + env.CANOPI_TEST_SEED + ' CANOPI_FC_SEED=' + env.CANOPI_FC_SEED); const run = require('node:child_process').spawnSync('vitest', ['run', ...process.argv.slice(1)], { stdio: 'inherit', env, shell: process.platform === 'win32' }); process.exit(run.status ?? 1)\" --",
