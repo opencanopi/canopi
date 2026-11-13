@@ -109,8 +109,7 @@ impl LibraryOpenStatus {
         }
     }
 
-    /// Why a mutation is refused, when the library is read-only; a newer
-    /// catalogue's `store_read_only` settles silently (2.1-M487).
+    /// Why a mutation is refused while the library is read-only; a newer catalogue's is the silent `store_read_only`.
     pub fn refusal(&self) -> Option<String> {
         match self {
             Self::Ready | Self::Recovered { .. } => None,
@@ -143,9 +142,10 @@ pub fn open_catalogue(
         },
         CatalogueState::Older(version) => recover(paths, RecoveryReason::OlderVersion(version)),
         CatalogueState::Corrupt(reason) => recover(paths, RecoveryReason::Corrupt(reason)),
-        CatalogueState::Newer(found) => {
-            in_memory(super::catalogue_reader::open_status(&path, found))
-        }
+        CatalogueState::Newer(found) => in_memory(match catalogue::newer_items(&path) {
+            Ok(items) => LibraryOpenStatus::NewerReadOnly { found, items },
+            Err(reason) => LibraryOpenStatus::Unavailable { reason },
+        }),
     }
 }
 

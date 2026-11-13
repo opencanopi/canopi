@@ -176,9 +176,10 @@ pub(super) fn initialize_connection(conn: &Connection) -> Result<(), UserDbInitE
 /// aside or refuses those. A newer version keeps its `SQLITE_OPEN_READ_ONLY` connection (never `immutable=1`), read
 /// through the v9 tables and columns by name (A3). A newer file read only through a write (a hot journal; a -wal with
 /// no -shm in a folder Canopi cannot write) is unavailable, never retried read-write, served by a read-only stand-in.
+/// It returns the connection, which `UserDb::open` wraps, so this module never names its parent (no db cycle, 2.1-M189).
 pub(super) fn read_only_admission(
     path: &Path,
-) -> Result<Option<(super::UserDb, StoreHealth)>, UserDbInitError> {
+) -> Result<Option<(Connection, StoreHealth)>, UserDbInitError> {
     let flags = OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX;
     let read = Connection::open_with_flags(path, flags).map_err(UserDbInitError::Open);
     let newer = |found: i32| found > CURRENT_USER_DB_VERSION;
@@ -196,12 +197,11 @@ pub(super) fn read_only_admission(
         }
         Ok(_) | Err(_) => return Ok(None),
     };
-    let user_db = super::UserDb(std::sync::Arc::new(connection.into()), false);
     let health = StoreHealth {
         status,
         notice: None,
     };
-    Ok(Some((user_db, health)))
+    Ok(Some((connection, health)))
 }
 
 /// `user_version` as the main file's header holds it, read without SQLite, which would roll a hot journal back.

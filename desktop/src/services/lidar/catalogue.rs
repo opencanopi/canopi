@@ -77,8 +77,8 @@ pub fn stored_version(path: &std::path::Path) -> Result<Option<i32>, String> {
 
 /// The `library_items(id, kind, lineage_tag, name)` rows of a catalogue at version 26 or later, its frozen read
 /// projection (2.1-M480), through a read-only connection with no pragma, so the reader release writes no byte of it
-/// (2.1-M488). Any failure, a missing table included, is the caller's `unavailable`. `catalogue_reader` decodes them.
-pub fn newer_items(path: &std::path::Path) -> Result<Vec<[String; 4]>, String> {
+/// (2.1-M488), decoded by `catalogue_reader`. Any failure, a missing table included, is the caller's `unavailable`.
+pub fn newer_items(path: &std::path::Path) -> Result<super::catalogue_reader::NewerItems, String> {
     let failed = |e: rusqlite::Error| format!("Failed to read the newer LiDAR catalogue: {e}");
     let connection = Connection::open_with_flags(path, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)
         .map_err(failed)?;
@@ -90,7 +90,8 @@ pub fn newer_items(path: &std::path::Path) -> Result<Vec<[String; 4]>, String> {
             Ok([row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?])
         })
         .map_err(failed)?;
-    rows.collect::<Result<_, _>>().map_err(failed)
+    let rows = rows.collect::<Result<_, _>>().map_err(failed)?;
+    Ok(super::catalogue_reader::decode(rows))
 }
 
 fn schema_version(connection: &Connection) -> Result<Option<i32>, String> {
