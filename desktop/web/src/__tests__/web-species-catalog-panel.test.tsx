@@ -11,6 +11,7 @@ import {
 } from '../canvas/plant-stamp-source'
 import type { PlantSearchResultState } from '../app/plant-browser/search-session'
 import type { SpeciesFilter, SpeciesListItem } from '../types/species'
+import type { StoreOpenStatus } from '../generated/contracts'
 
 const mockCanvasSession = vi.hoisted(() => {
   const toolSurface = {
@@ -248,8 +249,10 @@ describe('Web Edition Species Catalog panel', () => {
   })
 
   it.each([
-    ['a newer Canopi saved', { kind: 'newer_read_only' as const }, 'Saved by a newer Canopi'],
-  ])('R3 canopi-f47t.52.272: under species lists %s, every favourite star is off and says why (2.1-Q320)', async (_case, status, reason) => {
+    ['a newer Canopi saved', { kind: 'newer_read_only' }, 'Saved by a newer Canopi'],
+    ['a newer Canopi saved and this one left untouched', { kind: 'refused_newer' }, 'Saved by a newer Canopi'],
+    ['that could not be read', { kind: 'unavailable', code: { kind: 'invalid' } }, 'won’t be saved this session'],
+  ] satisfies [string, StoreOpenStatus, string][])('R3 canopi-f47t.52.272: under species lists %s, every favourite star is off and says why (2.1-Q320)', async (_case, status, reason) => {
     const { writeStoreHealth, resetStoreHealthForTests } = await import('../failures/health')
     writeStoreHealth('web_species_lists', { status, notice: null })
     // Each star stays focusable (aria-disabled) so its tooltip shows; neither a click nor Enter toggles it.

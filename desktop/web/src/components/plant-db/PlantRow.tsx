@@ -5,6 +5,8 @@ import { speciesCatalogWorkbench } from '../../app/plant-browser'
 import {
   writePlantStampDragData,
 } from '../../canvas/plant-stamp-source'
+import type { StoreOpenStatus } from '../../generated/contracts'
+import type { LocaleKey } from '../../generated/locale-keys'
 import type { SpeciesListItem } from '../../types/species'
 import { PlantSymbolGlyph } from '../canvas/PlantSymbolGlyph'
 import { storeStatus } from '../../failures/health'
@@ -114,12 +116,28 @@ export function PlantRow({ plant, inDesign, englishName, highlight }: Props) {
 }
 
 /**
- * Why every favourite star is off, or undefined while the star works. Lists a newer Canopi saved are shown, never
- * changed (2.1-Q320); the star stays focusable (aria-disabled, not disabled), so its tooltip shows on hover and focus.
- * Desktop never reports the Web species lists, so its star stays live there.
+ * Why the favourite star is off in each Web species-list state that refuses writes, or null where writes go through;
+ * a new state fails typecheck until it says which. Lists a newer Canopi saved are shown, never changed (2.1-Q320); lists
+ * that could not be read say what their launch notice says.
+ */
+const FAVORITE_LOCK: { readonly [K in StoreOpenStatus['kind']]: LocaleKey | null } = {
+  opening: null,
+  migrating: null,
+  ready: null,
+  recovered: null,
+  set_aside_damaged: null,
+  newer_read_only: 'web.favoriteNeedsNewer',
+  refused_newer: 'web.favoriteNeedsNewer',
+  unavailable: 'health.writesRefused.webSpeciesLists',
+}
+
+/**
+ * Why every favourite star is off, or undefined while the star works. The star stays focusable (aria-disabled, not
+ * disabled), so its tooltip shows on hover and focus. Desktop never reports the Web species lists, so its star stays live.
  */
 export function favoriteLockedReason(): string | undefined {
-  return storeStatus('web_species_lists').kind === 'newer_read_only' ? t('web.favoriteNeedsNewer') : undefined
+  const key = FAVORITE_LOCK[storeStatus('web_species_lists').kind]
+  return key ? t(key) : undefined
 }
 
 /** "Tree · 8 m · USDA 5–9 · Edible 4/5": form, height, hardiness and edibility when known. */
