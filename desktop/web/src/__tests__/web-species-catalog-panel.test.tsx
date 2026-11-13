@@ -164,9 +164,7 @@ describe('Web Edition Species Catalog panel', () => {
   })
 
   it('renders catalog search and supported filters through the Species Catalog Workbench', async () => {
-    await act(async () => {
-      render(<WebSpeciesCatalogPanel mode="catalog" />, container)
-    })
+    await act(async () => render(<WebSpeciesCatalogPanel mode="catalog" />, container))
 
     expect(container.querySelector('[data-testid="web-species-catalog-panel"]')).not.toBeNull()
     expect(container.querySelector('h2')?.textContent).toBe('Plant catalog')
@@ -208,9 +206,7 @@ describe('Web Edition Species Catalog panel', () => {
   })
 
   it('offers only the browse orders the Web catalog serves', async () => {
-    await act(async () => {
-      render(<WebSpeciesCatalogPanel mode="catalog" />, container)
-    })
+    await act(async () => render(<WebSpeciesCatalogPanel mode="catalog" />, container))
 
     const sort = requiredElement<HTMLButtonElement>('button[aria-haspopup="listbox"]')
     expect(sort.textContent).toContain('Sort: Recommended')
@@ -234,9 +230,7 @@ describe('Web Edition Species Catalog panel', () => {
       activeCount: 1,
     }
 
-    await act(async () => {
-      render(<WebSpeciesCatalogPanel mode="catalog" />, container)
-    })
+    await act(async () => render(<WebSpeciesCatalogPanel mode="catalog" />, container))
 
     expect(requiredButton('Filters').textContent).toContain('1')
     const remove = requiredElement<HTMLButtonElement>('button[aria-label="Remove filter: Temperate"]')
@@ -248,15 +242,36 @@ describe('Web Edition Species Catalog panel', () => {
   })
 
   it('renders browser-local favorites and recently viewed Species', async () => {
-    await act(async () => {
-      render(<WebSpeciesCatalogPanel mode="favorites" />, container)
-    })
+    await act(async () => render(<WebSpeciesCatalogPanel mode="favorites" />, container))
 
     expect(container.querySelector('[data-testid="web-species-favorites-panel"]')).not.toBeNull()
     expect(mockWorkbench.mount).toHaveBeenCalledWith('favorites')
     expect(container.textContent).toContain('Peach')
     expect(container.textContent).toContain('Lemon balm')
     expect(container.querySelector('[data-testid="web-species-row-metadata"]')).toBeNull()
+  })
+
+  it('R3 canopi-f47t.52.272: under species lists a newer Canopi saved, the Favorites and Recently viewed star is off and says why (2.1-Q320)', async () => {
+    const { writeStoreHealth, resetStoreHealthForTests } = await import('../failures/health')
+    writeStoreHealth('web_species_lists', { status: { kind: 'newer_read_only' }, notice: null })
+    mockWorkbench.toggleFavorite.mockClear()
+    try {
+      await act(async () => render(<WebSpeciesCatalogPanel mode="favorites" />, container))
+      const stars = [...container.querySelectorAll<HTMLButtonElement>('[data-testid="web-species-row"] button[aria-pressed]')]
+      expect(stars.length, 'a Favorites row and a Recently viewed row').toBe(2)
+      for (const star of stars) {
+        expect(star.getAttribute('aria-disabled'), 'the star is off, still focusable for its tooltip').toBe('true')
+        const described = document.getElementById(star.getAttribute('aria-describedby') ?? '')
+        expect(described?.textContent, 'its tooltip says why').toContain('Saved by a newer Canopi')
+        await act(async () => {
+          star.click()
+          star.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
+        })
+      }
+      expect(mockWorkbench.toggleFavorite, 'neither a click nor Enter toggles it').not.toHaveBeenCalled()
+    } finally {
+      resetStoreHealthForTests()
+    }
   })
 
   it('shows English names marked "(en)" in Favorites and Recently viewed when the interface language has none', async () => {
@@ -292,9 +307,7 @@ describe('Web Edition Species Catalog panel', () => {
       favoriteNames: ['Prunus persica'],
       recentlyViewed: [makeSpeciesListItem('Prunus persica', 'Pêcher', true)],
     }
-    await act(async () => {
-      render(<WebSpeciesCatalogPanel mode="favorites" />, container)
-    })
+    await act(async () => render(<WebSpeciesCatalogPanel mode="favorites" />, container))
 
     const search = requiredElement<HTMLInputElement>('[aria-label="Search favorites"]')
     await act(async () => {
@@ -339,9 +352,7 @@ describe('Web Edition Species Catalog panel', () => {
   })
 
   it('renders the common name over the italic scientific name', async () => {
-    await act(async () => {
-      render(<WebSpeciesCatalogPanel mode="catalog" />, container)
-    })
+    await act(async () => render(<WebSpeciesCatalogPanel mode="catalog" />, container))
 
     const row = requiredElement<HTMLElement>('[data-testid="catalog-species-row"]')
     expect(row.querySelector('strong')?.textContent).toBe('Apple')
@@ -361,9 +372,7 @@ describe('Web Edition Species Catalog panel', () => {
       ],
     }
 
-    await act(async () => {
-      render(<WebSpeciesCatalogPanel mode="catalog" />, container)
-    })
+    await act(async () => render(<WebSpeciesCatalogPanel mode="catalog" />, container))
 
     const row = requiredElement<HTMLElement>('[data-testid="catalog-species-row"]')
     expect(row.querySelector('strong')?.textContent).toBe('Malus domestica')
@@ -371,9 +380,7 @@ describe('Web Edition Species Catalog panel', () => {
   })
 
   it('writes desktop Plant Stamp drag payloads from catalog rows', async () => {
-    await act(async () => {
-      render(<WebSpeciesCatalogPanel mode="catalog" />, container)
-    })
+    await act(async () => render(<WebSpeciesCatalogPanel mode="catalog" />, container))
 
     const row = requiredElement<HTMLElement>('[data-testid="catalog-species-row"]')
     const dataTransfer = fakeDataTransfer()
@@ -393,9 +400,7 @@ describe('Web Edition Species Catalog panel', () => {
   })
 
   it('starts Plant Stamp from a catalog Place action without opening detail', async () => {
-    await act(async () => {
-      render(<WebSpeciesCatalogPanel mode="catalog" />, container)
-    })
+    await act(async () => render(<WebSpeciesCatalogPanel mode="catalog" />, container))
 
     await act(async () => {
       requiredElement<HTMLButtonElement>('button[aria-label="Place Apple"]').click()
@@ -422,9 +427,7 @@ describe('Web Edition Species Catalog panel', () => {
       error: 'Failed to load Web Edition Species Catalog manifest.',
     }
 
-    await act(async () => {
-      render(<WebSpeciesCatalogPanel mode="catalog" />, container)
-    })
+    await act(async () => render(<WebSpeciesCatalogPanel mode="catalog" />, container))
 
     // The translated message, never the raw error (canopi-etzh; web-species-catalog-load-failure.test.tsx).
     const alert = requiredElement<HTMLElement>('[role="alert"]')
@@ -437,9 +440,7 @@ describe('Web Edition Species Catalog panel', () => {
   })
 
   it('writes desktop Plant Stamp drag payloads from favorites and recently viewed rows', async () => {
-    await act(async () => {
-      render(<WebSpeciesCatalogPanel mode="favorites" />, container)
-    })
+    await act(async () => render(<WebSpeciesCatalogPanel mode="favorites" />, container))
 
     const rows = Array.from(container.querySelectorAll<HTMLElement>('[data-testid="web-species-row"]'))
     expect(rows).toHaveLength(2)
@@ -458,9 +459,7 @@ describe('Web Edition Species Catalog panel', () => {
   })
 
   it('starts Plant Stamp from favorite and recently viewed Place actions', async () => {
-    await act(async () => {
-      render(<WebSpeciesCatalogPanel mode="favorites" />, container)
-    })
+    await act(async () => render(<WebSpeciesCatalogPanel mode="favorites" />, container))
 
     const placeButtons = Array.from(
       container.querySelectorAll<HTMLButtonElement>('[data-testid="web-species-place"]'),
@@ -484,9 +483,7 @@ describe('Web Edition Species Catalog panel', () => {
   it('keeps Place safe when the canvas command surface is unavailable', async () => {
     mockCanvasSession.currentToolCommandSurface.value = null
 
-    await act(async () => {
-      render(<WebSpeciesCatalogPanel mode="catalog" />, container)
-    })
+    await act(async () => render(<WebSpeciesCatalogPanel mode="catalog" />, container))
 
     await act(async () => {
       requiredElement<HTMLButtonElement>('button[aria-label="Place Apple"]').click()
@@ -520,9 +517,7 @@ describe('Web Edition Species Catalog panel', () => {
       error: null,
     }
 
-    await act(async () => {
-      render(<WebSpeciesCatalogPanel mode="catalog" />, container)
-    })
+    await act(async () => render(<WebSpeciesCatalogPanel mode="catalog" />, container))
 
     const image = requiredElement<HTMLImageElement>('[data-testid="species-photo"]')
     expect(image.getAttribute('src')).toBe('https://images.example.test/apple.jpg')
@@ -562,9 +557,7 @@ describe('Web Edition Species Catalog panel', () => {
       englishName: 'Blackcurrant',
     }
 
-    await act(async () => {
-      render(<WebSpeciesCatalogPanel mode="catalog" />, container)
-    })
+    await act(async () => render(<WebSpeciesCatalogPanel mode="catalog" />, container))
 
     const title = requiredElement<HTMLHeadingElement>('[data-testid="species-detail"] h2')
     expect(title.textContent).toContain('Blackcurrant')
@@ -591,9 +584,7 @@ describe('Web Edition Species Catalog panel', () => {
       error: null,
     }
 
-    await act(async () => {
-      render(<WebSpeciesCatalogPanel mode="catalog" />, container)
-    })
+    await act(async () => render(<WebSpeciesCatalogPanel mode="catalog" />, container))
 
     expect(container.querySelector('[data-testid="species-photo"]')).toBeNull()
     expect(container.textContent).toContain('No photos available')
@@ -622,9 +613,7 @@ describe('Web Edition Species Catalog panel', () => {
       error: null,
     }
 
-    await act(async () => {
-      render(<WebSpeciesCatalogPanel mode="catalog" />, container)
-    })
+    await act(async () => render(<WebSpeciesCatalogPanel mode="catalog" />, container))
 
     await act(async () => {
       requiredElement<HTMLImageElement>('[data-testid="species-photo"]')
