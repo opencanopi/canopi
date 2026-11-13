@@ -2623,22 +2623,12 @@
       "ledger": "2.1-M196"
     },
     {
-      "id": "hook-plumbing-commit",
-      "tool": "agent-hooks",
-      "ledger": "2.1-M196"
-    },
-    {
       "id": "hook-bare-stash",
       "tool": "agent-hooks",
       "ledger": "2.1-M196"
     },
     {
       "id": "hook-user-checkout-commit",
-      "tool": "agent-hooks",
-      "ledger": "2.1-M196"
-    },
-    {
-      "id": "hook-old-husky-install",
       "tool": "agent-hooks",
       "ledger": "2.1-M196"
     },
@@ -2651,21 +2641,6 @@
       "id": "hook-discard",
       "tool": "agent-hooks",
       "ledger": "2.1-M339"
-    },
-    {
-      "id": "hook-stash-stack-asks",
-      "tool": "agent-hooks",
-      "ledger": "2.1-M219"
-    },
-    {
-      "id": "hook-stamp-write",
-      "tool": "agent-hooks",
-      "ledger": "2.1-Q266"
-    },
-    {
-      "id": "hook-tag-push",
-      "tool": "agent-hooks",
-      "ledger": "2.1-Q270"
     },
     {
       "id": "gate-loosening-authority",

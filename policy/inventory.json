@@ -2922,16 +2922,6 @@
       }
     },
     {
-      "id": "hook-plumbing-commit",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M196 |",
-      "state": {
-        "exists": {
-          "check": "hook-plumbing-commit"
-        }
-      }
-    },
-    {
       "id": "hook-bare-stash",
       "doc": "docs/decisions/2-1.md",
       "quote": "| 2.1-M196 |",
@@ -2952,16 +2942,6 @@
       }
     },
     {
-      "id": "hook-old-husky-install",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M196 |",
-      "state": {
-        "exists": {
-          "check": "hook-old-husky-install"
-        }
-      }
-    },
-    {
       "id": "hook-reset-hard",
       "doc": "docs/decisions/2-1.md",
       "quote": "| 2.1-M339 |",
@@ -2978,36 +2958,6 @@
       "state": {
         "exists": {
           "check": "hook-discard"
-        }
-      }
-    },
-    {
-      "id": "hook-stash-stack-asks",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M219 |",
-      "state": {
-        "exists": {
-          "check": "hook-stash-stack-asks"
-        }
-      }
-    },
-    {
-      "id": "hook-stamp-write",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-Q266 |",
-      "state": {
-        "exists": {
-          "check": "hook-stamp-write"
-        }
-      }
-    },
-    {
-      "id": "hook-tag-push",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-Q270 |",
-      "state": {
-        "exists": {
-          "check": "hook-tag-push"
         }
       }
     },

@@ -3,6 +3,6 @@
   "tool_name": "Bash",
   "cwd": "{dir}",
   "tool_input": {
-    "command": "git reset --hard HEAD"
+    "command": "git -C {main_worktree} reset --hard HEAD"
   }
 }

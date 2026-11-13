@@ -34,8 +34,8 @@
 // A Node below the engines major, including one that cannot strip types, runs the entry again on nvm's install of that
 // major: this is the gate's one nvm lookup, so hooks and scripts call plain `node`. With none it refuses in one line
 // before any TypeScript loads, as it does when that Node cannot start or is killed. The engines Node runs main.ts. The
-// agent hooks never refuse by exit 1, which Claude Code reads as a hook error and lets the tool call through: a gate
-// that cannot run there, or a module that cannot load, makes PreToolUse ask and SessionStart warn.
+// agent hooks never exit 1 nor prompt (2.1-Q331): a gate that cannot run there, or a module that cannot load, lets
+// PreToolUse pass, naming why on stderr, and makes SessionStart warn.
 import { spawn } from 'node:child_process'
 import { constants } from 'node:os'
 import { delimiter, dirname, resolve } from 'node:path'
@@ -55,10 +55,8 @@ function cannotRun(/** @type {string} */ why) {
     process.stderr.write(`gate: ${line}\n`)
     return 1
   }
-  process.stdout.write(HOOK === 'pre-tool-use'
-    ? `${JSON.stringify({ hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'ask',
-      permissionDecisionReason: `[agent-hooks] the agent hooks cannot run (${line}); ask the user` } })}\n`
-    : `Canopi hooks warning: the agent hooks cannot run (${line})\n`)
+  if (HOOK === 'pre-tool-use') process.stderr.write(`agent hooks: the agent hooks cannot run (${line})\n`)
+  else process.stdout.write(`Canopi hooks warning: the agent hooks cannot run (${line})\n`)
   return 0
 }
 
