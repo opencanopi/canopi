@@ -71,6 +71,7 @@
     "searchLabel": "搜索植物目录",
     "details": "{{name}}的详情",
     "addFavoriteNamed": "将{{name}}加入收藏",
+    "favoriteNeedsNewer": "由更新版本的 Canopi 保存。请更新 Canopi 后再更改收藏。",
     "removeFavoriteNamed": "将{{name}}移出收藏",
     "factHeight": "{{height}} 米",
     "factHardiness": "USDA {{zones}}",
@@ -2261,8 +2262,5 @@
     "title": "Canopi 无法启动",
     "desktopHint": "您的系统可能版本过旧，无法运行此版本的 Canopi。请更新操作系统，然后重新打开 Canopi。",
     "webHint": "请重新加载页面。如果 Canopi 仍无法启动，此浏览器可能版本过旧：请更新浏览器或换用其他浏览器。"
-  },
-  "web": {
-    "favoriteNeedsNewer": "由更新版本的 Canopi 保存。请更新 Canopi 后再更改收藏。"
   }
 }

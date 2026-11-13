@@ -71,6 +71,7 @@
     "searchLabel": "Search the plant catalog",
     "details": "Details for {{name}}",
     "addFavoriteNamed": "Add {{name}} to favorites",
+    "favoriteNeedsNewer": "Saved by a newer Canopi. Update Canopi to change your favorites.",
     "removeFavoriteNamed": "Remove {{name}} from favorites",
     "factHeight": "{{height}} m",
     "factHardiness": "USDA {{zones}}",
@@ -2261,8 +2262,5 @@
     "title": "Canopi couldn’t start",
     "desktopHint": "Your system may be too old for this version of Canopi. Update your operating system, then open Canopi again.",
     "webHint": "Reload the page. If Canopi still doesn’t start, this browser may be too old: update it or try another browser."
-  },
-  "web": {
-    "favoriteNeedsNewer": "Saved by a newer Canopi. Update Canopi to change your favorites."
   }
 }

@@ -71,6 +71,7 @@
     "searchLabel": "Cerca nel catalogo delle piante",
     "details": "Dettagli di {{name}}",
     "addFavoriteNamed": "Aggiungi {{name}} ai preferiti",
+    "favoriteNeedsNewer": "Salvato da una versione più recente di Canopi. Aggiorna Canopi per modificare i tuoi preferiti.",
     "removeFavoriteNamed": "Rimuovi {{name}} dai preferiti",
     "factHeight": "{{height}} m",
     "factHardiness": "USDA {{zones}}",
@@ -2261,8 +2262,5 @@
     "title": "Impossibile avviare Canopi",
     "desktopHint": "Il tuo sistema potrebbe essere troppo vecchio per questa versione di Canopi. Aggiorna il sistema operativo, poi riapri Canopi.",
     "webHint": "Ricarica la pagina. Se Canopi continua a non avviarsi, questo browser potrebbe essere troppo vecchio: aggiornalo o prova un altro browser."
-  },
-  "web": {
-    "favoriteNeedsNewer": "Salvato da una versione più recente di Canopi. Aggiorna Canopi per modificare i tuoi preferiti."
   }
 }

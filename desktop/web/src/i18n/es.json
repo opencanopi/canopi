@@ -71,6 +71,7 @@
     "searchLabel": "Buscar en el catálogo de plantas",
     "details": "Detalles de {{name}}",
     "addFavoriteNamed": "Añadir {{name}} a favoritos",
+    "favoriteNeedsNewer": "Guardado con una versión más reciente de Canopi. Actualiza Canopi para cambiar tus favoritos.",
     "removeFavoriteNamed": "Quitar {{name}} de favoritos",
     "factHeight": "{{height}} m",
     "factHardiness": "USDA {{zones}}",
@@ -2261,8 +2262,5 @@
     "title": "Canopi no pudo iniciarse",
     "desktopHint": "Puede que tu sistema sea demasiado antiguo para esta versión de Canopi. Actualiza el sistema operativo y vuelve a abrir Canopi.",
     "webHint": "Vuelve a cargar la página. Si Canopi sigue sin iniciarse, puede que este navegador sea demasiado antiguo: actualízalo o prueba otro navegador."
-  },
-  "web": {
-    "favoriteNeedsNewer": "Guardado con una versión más reciente de Canopi. Actualiza Canopi para cambiar tus favoritos."
   }
 }
