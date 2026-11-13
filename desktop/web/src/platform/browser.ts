@@ -52,7 +52,8 @@ export function bootstrapPlatform(): void {
   }).finally(() => {
     if (disposed) return;
     const controller = browserDesignSessionController;
-    const hasDrafts = controller.listDrafts().length + (controller.listedNewerDrafts()?.length ?? 0) > 0;
+    // A listing that never completed may hide 2.1's Drafts: count conservatively, so it warns.
+    const hasDrafts = !controller.draftListingComplete() || controller.listDrafts().length + (controller.listedNewerDrafts()?.length ?? 0) > 0;
     disposeDraftPersistence = browserDraftPersistence.start({ hasDrafts });
   });
   const uninstallContinuousSave = browserDesignSessionController.installContinuousSave();

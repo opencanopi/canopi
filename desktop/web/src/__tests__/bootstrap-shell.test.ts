@@ -26,6 +26,7 @@ const mocks = vi.hoisted(() => ({
   uninstallNewerDrafts: vi.fn(),
   listDrafts: vi.fn(),
   listedNewerDrafts: vi.fn(),
+  draftListingComplete: vi.fn(),
   installContinuousSave: vi.fn(),
   uninstallContinuousSave: vi.fn(),
   installFormatCore: vi.fn(),
@@ -64,6 +65,7 @@ vi.mock("../web/browser-design-session", () => ({
     installNewerDrafts: mocks.installNewerDrafts,
     listDrafts: mocks.listDrafts,
     listedNewerDrafts: mocks.listedNewerDrafts,
+    draftListingComplete: mocks.draftListingComplete,
     installContinuousSave: mocks.installContinuousSave,
     installFormatCore: mocks.installFormatCore,
   },
@@ -131,6 +133,7 @@ describe("settings platform bootstrap", () => {
     mocks.installNewerDrafts.mockReset().mockReturnValue(mocks.uninstallNewerDrafts);
     mocks.listDrafts.mockReset().mockReturnValue([{ id: "draft-1", name: "Orchard", updatedAt: "2026-10-01T00:00:00.000Z" }]);
     mocks.listedNewerDrafts.mockReset().mockReturnValue([]);
+    mocks.draftListingComplete.mockReset().mockReturnValue(true);
     mocks.uninstallContinuousSave.mockReset();
     mocks.installContinuousSave.mockReset().mockReturnValue(mocks.uninstallContinuousSave);
     mocks.uninstallFormatCore.mockReset();
@@ -291,6 +294,24 @@ describe("settings platform bootstrap", () => {
 
       expect(browserDraftPersistence.view.value.notice, "the amber warning, not the first-visit reason").toBe("warning");
       expect(browserDraftPersistence.view.value.warn).toBe(true);
+    } finally {
+      delete (globalThis.navigator as { storage?: unknown }).storage;
+    }
+  });
+
+  // With no listing completed, 2.1 may hold Drafts this launch could not see: count them, so the warning shows.
+  it("R3 canopi-f47t.52.272: a launch whose 2.1 listing never completed warns as if Drafts were kept", async () => {
+    mocks.listDrafts.mockReturnValue([]);
+    mocks.listedNewerDrafts.mockReturnValue([]);
+    mocks.draftListingComplete.mockReturnValue(false);
+    Object.defineProperty(globalThis.navigator, "storage", { configurable: true, value: { persisted: vi.fn(async () => false), persist: vi.fn(async () => false) } });
+    try {
+      const { browserDraftPersistence } = await import("../web/browser-draft-persistence");
+      const { bootstrapPlatform } = await import("../platform/browser");
+
+      bootstrapPlatform();
+      await vi.waitFor(() => expect(browserDraftPersistence.view.value.state).toBe("not-kept"));
+      expect(browserDraftPersistence.view.value.notice, "the amber warning, not the first-visit reason").toBe("warning");
     } finally {
       delete (globalThis.navigator as { storage?: unknown }).storage;
     }
