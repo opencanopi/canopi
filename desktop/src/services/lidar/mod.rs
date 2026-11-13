@@ -656,7 +656,11 @@ impl LidarLibrary {
     }
 
     pub fn library_snapshot(&self) -> Result<LidarSnapshot, String> {
-        let geolibre = self.inner.geolibre.discover();
+        // A refused library offers no analysis, and the engine probe would
+        // capture its output in the refused catalogue's folder (2.1-M488).
+        let geolibre = self
+            .ensure_writable()
+            .and_then(|()| self.inner.geolibre.discover());
         let connection = self.catalogue()?;
         let mut snapshot =
             presentation::library_snapshot(&connection, self.inner.engine.as_ref(), &geolibre)?;

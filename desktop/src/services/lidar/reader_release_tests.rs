@@ -129,6 +129,43 @@ fn r2_canopi_f47t_52_271_catalogue_26_lists_its_items_read_only_and_prunes_no_fi
     );
 }
 
+/// Listing a newer catalogue never probes the GeoLibre engine: the probe captures its output in the library's
+/// `engine-logs/`, which belongs to the newer Canopi, and no listed item offers an analysis (2.1-M488). The end-state
+/// folder check cannot see the probe's capture files, which it removes, so a stub engine marks each run.
+#[cfg(unix)]
+#[test]
+fn r2_canopi_f47t_52_271_listing_catalogue_26_never_probes_the_engine_in_its_engine_logs() {
+    use std::os::unix::fs::PermissionsExt;
+    let root = data_folder("reader-release-catalogue-probe", CATALOGUE_26);
+    let stub_dir = crate::test_scratch::TestScratch::new("reader-release-geolibre-stub");
+    let marker = stub_dir.join("probed");
+    let stub = stub_dir.join("geolibre");
+    std::fs::write(
+        &stub,
+        format!(
+            "#!/bin/sh\ntouch '{}'\necho geolibre-cli 0.0.0\n",
+            marker.display()
+        ),
+    )
+    .unwrap();
+    std::fs::set_permissions(&stub, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let before = files(&root);
+
+    let mut library = LidarLibrary::open(&root).expect("the app starts");
+    let engine_logs = library.inner.paths.engine_log_dir();
+    Arc::get_mut(&mut library.inner)
+        .expect("a refused library spawns nothing that holds it")
+        .geolibre = geolibre::GeolibreEngine::at(stub, engine_logs);
+
+    assert_eq!(listed(&library).len(), 4);
+    assert!(
+        !marker.exists(),
+        "the engine probe ran in the newer catalogue's engine-logs"
+    );
+    drop(library);
+    assert_eq!(files(&root), before);
+}
+
 #[test]
 fn r2_canopi_f47t_52_271_a_vector_row_and_an_unknown_literal_row_each_list_as_needing_a_newer_canopi()
  {
