@@ -40,15 +40,6 @@
   min-width: 0;
 }
 
-/* The name gives way before its save status, which stays in words beside its action (a read-only Design's "saved by a
-   newer Canopi", R1 canopi-f47t.52.270): its shrink weight takes nearly all the room the design area loses, down to a
-   few letters, and only then does the status shorten. */
-.design > .nameButton,
-.design > .nameText {
-  flex: 0 1000 auto;
-  min-width: 4em;
-}
-
 .spacer {
   flex: 1 1 auto;
   min-width: 0;
