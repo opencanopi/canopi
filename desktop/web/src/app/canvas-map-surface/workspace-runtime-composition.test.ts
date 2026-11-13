@@ -294,6 +294,32 @@ describe('createWorkspaceRuntimeComposition', () => {
     }
   })
 
+  // Design check 5c, 2.1-M478: a valid v>=10 Design writes no byte to browser storage, the device settings included.
+  it('canopi-f47t.52.270: a read-only Design\'s camera move reports no settled view, so no last view is written', async () => {
+    vi.useFakeTimers()
+    try {
+      let readOnly = true
+      const onViewSettled = vi.fn<(view: WorkspaceSettledView) => void>()
+      const fixture = compositionFixture({ readSnapshot: () => null, onViewSettled, isReadOnly: () => readOnly })
+      await expect(fixture.composition.start()).resolves.toBe('no-design')
+      fixture.setLoaded(true)
+      fixture.sessionPlane.value = SETTLE_PLANE
+      const lastViewDelay = SETTLE_MS + WORKSPACE_VIEW_SETTLE_MS
+      fixture.view.setViewport({ x: 5, y: 5, scale: 2 })
+      vi.advanceTimersByTime(lastViewDelay * 2)
+      expect(onViewSettled).not.toHaveBeenCalled()
+
+      // The same workspace over an editable Design reports its next settled view.
+      readOnly = false
+      fixture.view.setViewport({ x: 9, y: 5, scale: 2 })
+      vi.advanceTimersByTime(lastViewDelay)
+      expect(onViewSettled).toHaveBeenCalledOnce()
+      await fixture.composition.dispose()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('does not start after terminal disposal before startup', async () => {
     const fixture = compositionFixture({ readSnapshot: () => null })
 
@@ -318,6 +344,7 @@ interface CompositionFixtureOptions {
   readonly initiallyLoaded?: boolean
   readonly zoomToFit?: () => void
   readonly onViewSettled?: (view: WorkspaceSettledView) => void
+  readonly isReadOnly?: () => boolean
   /** Sees the options the composition builds the map controls with. */
   readonly createControls?: (options: { readonly contributions: { readonly userLocation?: unknown } }) => void
 }
@@ -391,7 +418,7 @@ function compositionFixture(options: CompositionFixtureOptions) {
   }
   const composition = createWorkspaceRuntimeComposition({
     container: document.createElement('div'),
-    appAdapter: createDetachedCanvasRuntimeAppAdapter(),
+    appAdapter: { ...createDetachedCanvasRuntimeAppAdapter(), isReadOnly: options.isReadOnly ?? (() => false) },
     targetPresentation: createDetachedSceneRuntimePanelTargetAdapter(),
     mapContributions: options.mapContributions ?? { read: () => null },
     onFailure: options.onFailure,

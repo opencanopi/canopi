@@ -15,6 +15,9 @@ import {
 import { plantColorMenuOpen } from '../canvas/plant-color-menu-state'
 import { plantSymbolMenuOpen } from '../canvas/plant-symbol-menu-state'
 import { setCurrentCanvasSession } from '../canvas/session'
+import { createDesignSessionStoreTestFixture, designSessionStore } from '../app/document-session/store'
+import type { CanopiFile } from '../types/design'
+import type { CanvasContextMenuEntryOptions } from '../app/canvas-context-menu/entries'
 import { currentCanvasSelection } from '../canvas/session-state'
 import type {
   CanvasContextMenuCommands,
@@ -211,6 +214,37 @@ describe('CanvasContextMenu', () => {
     await act(async () => paste.click())
     expect(commands.pasteAt).not.toHaveBeenCalled()
     expect(canvasContextMenuRequest.value).not.toBeNull()
+  })
+
+  // R1-8 failure state: an edit tool reachable by the right-click menu over a read-only Design (2.1-M478).
+  it('canopi-f47t.52.270: over a read-only Session the shipped menu shows its edits disabled and runs none', async () => {
+    designSessionStore.replaceCurrentDesignState({ name: 'Orchard 2.1' } as unknown as CanopiFile, null, 'Orchard 2.1', {
+      kind: 'read-only', origin: 'newer-version', savedByVersion: 10,
+    })
+    try {
+      await open()
+      for (const id of ['cut', 'duplicate', 'delete', 'lock']) {
+        expect(menuItem(id).getAttribute('aria-disabled'), id).toBe('true')
+      }
+      expect(menuItem('copy').getAttribute('aria-disabled')).not.toBe('true')
+      await act(async () => menuItem('duplicate').click())
+      await act(async () => menuItem('delete').click())
+      expect(commands.duplicateSelected).not.toHaveBeenCalled()
+      expect(commands.deleteSelected).not.toHaveBeenCalled()
+      expect(canvasContextMenuRequest.value).not.toBeNull()
+    } finally {
+      createDesignSessionStoreTestFixture(designSessionStore).reset()
+    }
+  })
+
+  it('canopi-f47t.52.270: a new menu caller cannot forget the read-only input', () => {
+    const { readOnly: _forgotten, ...withoutReadOnly }: CanvasContextMenuEntryOptions = {
+      translate: (key) => key, characterKeyShortcuts: true, openPlantAppearance: vi.fn(), summary: null,
+      openSpeciesDetail: vi.fn(), addToCalendar: vi.fn(), setUnitCost: vi.fn(), readOnly: false,
+    }
+    // @ts-expect-error readOnly is required: options that leave it out do not compile
+    const options: CanvasContextMenuEntryOptions = withoutReadOnly
+    expect(options).not.toHaveProperty('readOnly')
   })
 
   it('moves with the arrow keys and returns focus to the map on Escape', async () => {

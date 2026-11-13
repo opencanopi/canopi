@@ -36,15 +36,8 @@ import {
   snapToGridEnabled,
 } from '../../app/canvas-settings/signals'
 import { plantColorMenuOpen } from '../plant-color-menu-state'
-import {
-  clearPlantStampSource,
-  readPlantStampSource,
-  selectPlantStampSource,
-} from '../plant-stamp-source'
-import {
-  clearSavedObjectStampSource,
-  selectSavedObjectStampSource,
-} from '../saved-object-stamp-source'
+import { clearPlantStampSource, readPlantStampSource, selectPlantStampSource } from '../plant-stamp-source'
+import { clearSavedObjectStampSource, selectSavedObjectStampSource } from '../saved-object-stamp-source'
 import { currentCanvasTool, currentCanvasToolGuidance, currentCanvasSelection } from '../session-state'
 import {
   hoveredCanvasTargets,
@@ -67,10 +60,7 @@ import { installCanvasKeyRouter } from '../../__tests__/support/key-router'
 import { placeOnHost } from '../../__tests__/support/test-view'
 import { createTestRendererView } from '../../__tests__/support/scene-renderer-snapshot'
 import { speciesTarget } from '../../target'
-import {
-  CanvasDocumentReplacementNotAdmittedError,
-  createCanvasDocumentReplacementToken,
-} from './runtime'
+import { CanvasDocumentReplacementNotAdmittedError, createCanvasDocumentReplacementToken } from './runtime'
 import { SceneCanvasRuntime } from './scene-runtime.ts'
 import { projectScenePlantLabels } from './selection-labels'
 import type { SceneRuntimePanelTargetAdapter } from './scene-runtime/panel-target-adapter'
@@ -439,6 +429,7 @@ function createCleanStateAdapterProbe() {
       document: { composeDocumentForSave: composeTestDocumentForSave },
       settings: createTestSettingsAdapter(),
       translate: t,
+      isReadOnly: () => false,
     } satisfies CanvasRuntimeAppAdapter,
     setCanvasClean,
   }
@@ -1146,6 +1137,7 @@ describe('scene canvas runtime', () => {
       openSpeciesDetail: () => {},
       addToCalendar: () => {},
       setUnitCost: () => {},
+      readOnly: false,
     }).find((entry): entry is CanvasContextMenuCommand => 'run' in entry && entry.id === 'unlock')!
 
     expect(runtime.querySurface.getSceneSnapshot().plants[0]?.locked).toBe(true)
@@ -2696,6 +2688,13 @@ describe('scene canvas runtime', () => {
       .toThrow('runtime-disposed')
   })
 
+  it('canopi-f47t.52.270: a new app adapter cannot forget the read-only input the Scene authority reads (2.1-M478)', () => {
+    const { isReadOnly: _forgotten, ...withoutReadOnly } = createCleanStateAdapterProbe().adapter
+    // @ts-expect-error isReadOnly is required: an adapter that leaves it out does not compile
+    const adapter: CanvasRuntimeAppAdapter = withoutReadOnly
+    expect(adapter).not.toHaveProperty('isReadOnly')
+  })
+
   it('delegates Design file composition through the injected app adapter', () => {
     const composeDocumentForSave = vi.fn(({
       metadata,
@@ -2713,6 +2712,7 @@ describe('scene canvas runtime', () => {
         document: { composeDocumentForSave },
         settings: createTestSettingsAdapter(),
         translate: t,
+        isReadOnly: () => false,
       },
     })
     const file = makeFile()

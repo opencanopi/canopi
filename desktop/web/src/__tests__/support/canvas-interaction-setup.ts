@@ -176,8 +176,8 @@ function contextMenuEntryOptions() {
     openPlantAppearance: vi.fn(),
     summary: null,
     openSpeciesDetail: vi.fn(),
-    addToCalendar: vi.fn(),
-    setUnitCost: vi.fn(),
+    addToCalendar: vi.fn(), setUnitCost: vi.fn(),
+    readOnly: false,
   }
 }
 

@@ -99,6 +99,7 @@ function rightClickMenuIds(surfaces: CanvasRuntimeSurfaces, container: HTMLEleme
     openSpeciesDetail: () => {},
     addToCalendar: () => {},
     setUnitCost: () => {},
+    readOnly: false,
   }).flatMap((entry) => ('id' in entry ? [entry.id] : []))
 }
 

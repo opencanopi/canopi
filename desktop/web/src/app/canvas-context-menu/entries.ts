@@ -77,8 +77,8 @@ export interface CanvasContextMenuEntryOptions {
   setUnitCost(canonicalName: string): void
   /** Profile this line (Desktop's Site data, spec §1.10, U49 Q29); absent where there is no Site data. */
   readonly profileLine?: CanvasContextMenuProfileLine
-  /** The open Design is shown read-only (2.1-M478): only the entries that look stay offered. Absent: an editing Design. */
-  readonly readOnly?: boolean
+  /** The open Design is shown read-only (2.1-M478): only the entries that look stay offered; false: an editing Design. */
+  readonly readOnly: boolean
 }
 
 /** What "Profile this line" needs from the edition that has Site data (app/lidar/profile.ts). */
@@ -125,7 +125,7 @@ export function buildCanvasContextMenuEntries(
   options: CanvasContextMenuEntryOptions,
 ): readonly CanvasContextMenuEntry[] {
   const entries = editableMenuEntries(request, options)
-  return options.readOnly === true ? entries.map(keptWhileReadOnly) : entries
+  return options.readOnly ? entries.map(keptWhileReadOnly) : entries
 }
 
 /** A read-only Design's entry: one READ_ONLY_KEEPS lists as it is, any other greyed and inert, a submenu with it. */
@@ -145,7 +145,7 @@ function editableMenuEntries(
   const availability = {
     canvasAvailable: true,
     overview: false,
-    readOnly: options.readOnly === true,
+    readOnly: options.readOnly,
     selection: can,
     held: request.holdsSelectionDeletes === true,
     lockedObjectsPresent: false,

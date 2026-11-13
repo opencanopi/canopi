@@ -7,11 +7,9 @@
 // - WebKitGTK and WebView2 themselves: the WebDriver test, run by web-edition-browsers.yml's format-core-engines job
 //   against WebKitWebDriver (MiniBrowser on Ubuntu 22.04's WebKitGTK, Desktop's Linux floor) and msedgedriver, with
 //   CANOPI_FORMAT_PROBE_WEBDRIVER (the driver's URL) and CANOPI_FORMAT_PROBE_CAPABILITIES (its capabilities, JSON).
-// - The engine floor (U-2's Safari 16.4-era WebKit images, canopi-4kfl): not covered yet, and owed before R1-6 starts
-//   this worker. U's floor lane (engine-floor-probe.yml) only boots the app pages, so no WebKit of the floor's age has
-//   instantiated the module. The guard is this spec's WebDriver test, run in the floor image by that lane exactly as
-//   format-core-engines runs it (CANOPI_FORMAT_PROBE_WEBDRIVER and _CAPABILITIES naming the floor's driver,
-//   `--project=chromium --grep "WebDriver engine"`); if it fails there, build-wasm.mjs builds with `-C target-cpu=mvp`.
+// - The engine floor (ENGINE_FLOOR, Safari 16.4; canopi-4kfl): engine-floor-probe.yml starts this worker from dist-web in
+//   its pinned WebKit 16.4 and 17.0 images (e2e/floor/boot-probe.spec.ts, with an inverted step over a worker that does
+//   not compile); both instantiate the module by streaming, so no `-C target-cpu=mvp`.
 // The preview server labels the .wasm `application/wasm`, so the worker compiles it as it streams; a host that labels it
 // otherwise gets the arrayBuffer fallback, as does an engine refusing a parameter after the label, and a load that
 // fails answers `unavailable` and is retried by the next call.
@@ -19,7 +17,7 @@
 // wasm-opt): the .wasm was 61,779 bytes (with the read half, R1-6: 810,236), the worker's chunk with the glue bundled
 // 3,640 (R1-6: 3,821); it instantiated with the default target features
 // (reference types among them) in the pinned image's Chromium, WebKit and Firefox and in MiniBrowser on Ubuntu 22.04's
-// WebKitGTK 2.50.4 through WebKitWebDriver, so no `-C target-cpu=mvp` for those engines; the floor is unmeasured.
+// WebKitGTK 2.50.4 through WebKitWebDriver, so no `-C target-cpu=mvp` for those engines (the floor's, above).
 import { readdirSync, readFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { fileURLToPath } from 'node:url'
