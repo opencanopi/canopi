@@ -129,6 +129,33 @@ describe('IPC transport', () => {
     expect(ringEntries()).toHaveLength(1)
   })
 
+  it('canopi-f47t.52.271: a user DB or settings write refused as read-only settles store_read_only for its store, never recorded', async () => {
+    // Native refuses every write on a newer-read-only user DB with this bare text (desktop/src/db/user_db.rs).
+    const userDbWrites = [
+      'create_notebook_section', 'add_design_reference_to_notebook', 'rename_notebook_section', 'delete_notebook_section',
+      'move_design_reference_to_section', 'relocate_design_reference', 'remove_design_reference',
+      'reorder_notebook_sections', 'reorder_design_references', 'create_saved_object_stamp', 'rename_saved_object_stamp',
+      'delete_saved_object_stamp', 'reorder_saved_object_stamps', 'remove_recent_design', 'toggle_favorite',
+    ]
+    for (const command of userDbWrites) {
+      invoke.mockRejectedValueOnce('store_read_only')
+      const settled = await rejected(command)
+      expect(settled.failure.code, command).toEqual({ kind: 'store_read_only', store: 'user_db' })
+      expect(settled.message).toBe('store_read_only')
+    }
+    invoke.mockRejectedValueOnce('store_read_only')
+    expect((await rejected('set_settings')).failure.code).toEqual({ kind: 'store_read_only', store: 'settings' })
+    expect(ringEntries()).toEqual([])
+    // Any other text from those commands, or the refusal text from another command, stays a recorded internal.
+    invoke.mockRejectedValueOnce('Failed to toggle favorite: disk I/O error')
+    expect((await rejected('toggle_favorite')).failure.code).toEqual({ kind: 'internal' })
+    invoke.mockRejectedValueOnce('Failed to save settings: disk I/O error')
+    expect((await rejected('set_settings')).failure.code).toEqual({ kind: 'internal' })
+    invoke.mockRejectedValueOnce('store_read_only')
+    expect((await rejected('get_species_detail')).failure.code).toEqual({ kind: 'internal' })
+    expect(ringEntries()).toHaveLength(3)
+  })
+
   it('same settlement reported twice: one entry, marked surfaced', async () => {
     invoke.mockRejectedValueOnce('Plant database unavailable: bundled plant database is missing')
     const settled = await rejected('search_species')

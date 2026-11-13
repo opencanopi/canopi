@@ -58,13 +58,39 @@ function untypedOp(command: string): string {
 }
 
 /**
- * Each String command's silent refusal text and its catalogue code, bound to its command so no other command's text is
- * silenced; a row goes when its command is typed. `pick_geojson_file` refuses a second dialog with the bare kind, and
- * `search_species` a query a newer one superseded (desktop/src/services/plant_browser.rs).
+ * A user DB or settings write refused on a newer-read-only store: native rejects with this bare text
+ * (`write_refusal`, desktop/src/db/user_db.rs; desktop/src/services/settings.rs), and the store's one notice says it
+ * (2.1-M487, 2.1-Q319).
  */
-const SILENT_UNTYPED: ReadonlyMap<string, readonly [text: string, code: Failure['code']]> = new Map([
+type SilentRow = readonly [text: string, code: Failure['code']]
+const USER_DB_REFUSED: SilentRow = ['store_read_only', { kind: 'store_read_only', store: 'user_db' }]
+const SETTINGS_REFUSED: SilentRow = ['store_read_only', { kind: 'store_read_only', store: 'settings' }]
+
+/**
+ * Each String command's silent refusal text and its catalogue code, bound to its command so no other command's text is
+ * silenced; a row goes when its command is typed. `pick_geojson_file` refuses a second dialog with the bare kind,
+ * `search_species` a query a newer one superseded (desktop/src/services/plant_browser.rs), and each user DB write a
+ * newer-read-only store.
+ */
+const SILENT_UNTYPED: ReadonlyMap<string, SilentRow> = new Map<string, SilentRow>([
   ['pick_geojson_file', ['dialog_already_open', { kind: 'dialog_already_open' }]],
   ['search_species', ['Species search cancelled because a newer query superseded it', { kind: 'cancelled' }]],
+  ['set_settings', SETTINGS_REFUSED],
+  ['create_notebook_section', USER_DB_REFUSED],
+  ['add_design_reference_to_notebook', USER_DB_REFUSED],
+  ['rename_notebook_section', USER_DB_REFUSED],
+  ['delete_notebook_section', USER_DB_REFUSED],
+  ['move_design_reference_to_section', USER_DB_REFUSED],
+  ['relocate_design_reference', USER_DB_REFUSED],
+  ['remove_design_reference', USER_DB_REFUSED],
+  ['reorder_notebook_sections', USER_DB_REFUSED],
+  ['reorder_design_references', USER_DB_REFUSED],
+  ['create_saved_object_stamp', USER_DB_REFUSED],
+  ['rename_saved_object_stamp', USER_DB_REFUSED],
+  ['delete_saved_object_stamp', USER_DB_REFUSED],
+  ['reorder_saved_object_stamps', USER_DB_REFUSED],
+  ['remove_recent_design', USER_DB_REFUSED],
+  ['toggle_favorite', USER_DB_REFUSED],
 ])
 
 /**
