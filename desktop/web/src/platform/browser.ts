@@ -29,6 +29,8 @@ export function bootstrapPlatform(): void {
   // Browser data from before Canopi 2.0 stays in place, unread (ADR 0021);
   // the told-once notice is raised at once, ahead of any later notice, and reads in the user's locale once it loads.
   if (browserAppDataStore.takeEarlierDataNotice(new Date().toISOString())) raiseEarlierDataNotice();
+  // Species lists a newer Canopi saved, or damaged ones, say so once at launch rather than at the first list (2.1-Q319).
+  browserAppDataStore.openSpeciesLists();
   // Web application lifetime: the newest Draft reopens before first render,
   // and continuous save outlives every view.
   // "Drafts at launch" is whether Drafts are stored, not whether one reopened: a release Reload from the start
