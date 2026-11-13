@@ -1,7 +1,7 @@
 //! The reader release's user-DB user paths on Desktop (Step 2.0.4 R2, canopi-f47t.52.271): settings record 2 (plan
 //! "reader release: settings record 2 applies its known fields and is never written", 2.1-M480, A16) and a saved
 //! stamp with a v3 payload (plan "a saved stamp with a v3 payload lists as needing a newer Canopi and its row is
-//! unchanged", 2.1-M88).
+//! unchanged", 2.1-M88), and the user DB 10 open below them (R2-2: read-only, byte-identical, its failure states).
 //!
 //! Written failing in commit 0 and marked expected-fail: R2-6 removes the settings marker, R2-5 the stamp marker (the
 //! main agent flips the stamp case at R2-5's merge, since R2-6 owns this file). R2-6 may swap the inline record for
@@ -142,4 +142,94 @@ fn r2_canopi_f47t_52_271_a_v3_saved_stamp_needs_a_newer_canopi_and_its_row_is_un
             })
     };
     assert_eq!(row(&after), row(&before), "the v3 row is unchanged");
+}
+
+// User DB 10 (R2-2, canopi-f47t.52.271; contracts §11 Degraded stores): a newer user DB opens SQLITE_OPEN_READ_ONLY,
+// never `immutable=1`, and the open keeps the main file, a pre-existing -wal and `user_version` byte-identical. Linux
+// runs here; Windows runs in CI's `build.yml platform-tests`.
+
+const USER_DB_10: &str = include_str!("../test_fixtures/frozen/user-db-10.sql");
+
+/// `path` with `suffix` appended to its file name (`-wal`, `-shm`, `-journal`).
+fn companion(path: &std::path::Path, suffix: &str) -> std::path::PathBuf {
+    let mut name = path.as_os_str().to_owned();
+    name.push(suffix);
+    name.into()
+}
+
+/// The frozen user DB 10 at `<dir>/user.db` in WAL mode, as 2.1 leaves it on a crash: `user_version` 10 in the main
+/// file, a favourite only in an uncheckpointed -wal, and no -shm.
+fn user_db_10_with_a_wal(dir: &std::path::Path) -> std::path::PathBuf {
+    let path = dir.join("user.db");
+    let writer = Connection::open(&path).unwrap();
+    writer.execute_batch(USER_DB_10).unwrap();
+    writer
+        .set_db_config(
+            rusqlite::config::DbConfig::SQLITE_DBCONFIG_NO_CKPT_ON_CLOSE,
+            true,
+        )
+        .unwrap();
+    writer
+        .execute_batch(
+            "PRAGMA journal_mode = WAL; PRAGMA wal_autocheckpoint = 0;
+             INSERT INTO favorites (added_at, canonical_name) VALUES ('2026-11-04T09:00:00Z', 'Allium ursinum');",
+        )
+        .unwrap();
+    drop(writer);
+    std::fs::remove_file(companion(&path, "-shm")).unwrap();
+    path
+}
+
+/// `user_version` as the main file's header holds it (bytes 60..64), read without SQLite.
+fn header_user_version(path: &std::path::Path) -> i32 {
+    let bytes = std::fs::read(path).unwrap();
+    i32::from_be_bytes(bytes[60..64].try_into().unwrap())
+}
+
+fn read_only(path: &std::path::Path) -> rusqlite::Result<Connection> {
+    Connection::open_with_flags(
+        path,
+        rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX,
+    )
+}
+
+/// Probe (design check §5b R2 2nd): the engine itself keeps a WAL user DB 10 unchanged under a read-only open.
+#[test]
+fn r2_canopi_f47t_52_271_a_read_only_open_of_a_wal_user_db_10_keeps_the_main_file_the_wal_and_user_version()
+ {
+    let scratch = crate::test_scratch::TestScratch::new("reader-release-user-db-10-wal-probe");
+    let path = user_db_10_with_a_wal(&scratch);
+    let (main, wal) = (
+        std::fs::read(&path).unwrap(),
+        std::fs::read(companion(&path, "-wal")).unwrap(),
+    );
+    assert!(!wal.is_empty(), "the probe needs frames in the -wal");
+    assert_eq!(header_user_version(&path), 10);
+    {
+        let conn = read_only(&path).unwrap();
+        let version: i32 = conn
+            .pragma_query_value(None, "user_version", |row| row.get(0))
+            .unwrap();
+        assert_eq!(version, 10);
+        let favourites: i64 = conn
+            .query_row("SELECT COUNT(*) FROM favorites", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(favourites, 3, "the -wal's favourite is read");
+        let write = conn.execute("DELETE FROM favorites", []);
+        assert!(
+            matches!(&write, Err(rusqlite::Error::SqliteFailure(error, _)) if error.code == rusqlite::ErrorCode::ReadOnly),
+            "{write:?}"
+        );
+    }
+    assert_eq!(
+        std::fs::read(&path).unwrap(),
+        main,
+        "the main file is byte-identical"
+    );
+    assert_eq!(
+        std::fs::read(companion(&path, "-wal")).unwrap(),
+        wal,
+        "the -wal is byte-identical"
+    );
+    assert_eq!(header_user_version(&path), 10);
 }
