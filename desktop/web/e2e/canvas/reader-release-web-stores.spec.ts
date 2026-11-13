@@ -12,7 +12,8 @@
 // R3-4 (2.1-Q320, 2.1-M483, 2.1-M486): settings record 2 and the species-list record 1, each under its own 2.1 key and
 // seeded from its frozen form (spec/web/frozen/), are read for the fields this release knows and never written, moved
 // aside or copied to the 2.0 keys; each store reads as saved by a newer Canopi and says so once, at launch; a setting
-// changed applies for the session only; a 2.1 key that is not JSON, or of a later version, is never moved aside.
+// changed applies for the session only; a 2.1 key that is not JSON, or of a later version, is never moved aside; and
+// under either, a favourite star is off, says why, and a click or Enter on it writes nothing.
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import type { Page } from '@playwright/test'
@@ -519,6 +520,57 @@ test('R3 canopi-f47t.52.272: a 2.1 settings or species record of a later version
     expect(await storesDump(page), `${load} moves no record aside and writes none`).toEqual(before)
   }
 })
+
+/** Every species-list entry in localStorage, under either key: what "the star wrote nothing" compares. */
+async function speciesKeysDump(page: Page): Promise<unknown> {
+  return await page.evaluate(() => Object.keys(localStorage).filter((key) => key.includes(':species')).sort().map((key) => [key, localStorage.getItem(key)]))
+}
+
+/** Opens the fixture Design unless launch restored its Draft: offline, a species detail opens from Plants in this Design. */
+async function openFixtureDesign(page: Page): Promise<void> {
+  const map = page.getByRole('application').first()
+  await expect(map.or(startScreen(page)).first()).toBeVisible()
+  if (await map.isVisible()) return
+  const open = startScreen(page).locator('button').filter({ hasText: /\.canopi/ }).first()
+  const [chooser] = await Promise.all([page.waitForEvent('filechooser'), open.click()])
+  await chooser.setFiles(FIXTURE)
+  await expect(map).toBeVisible()
+}
+
+for (const [state, damaged, reason] of [
+  ['saved by a newer Canopi', false, 'Saved by a newer Canopi. Update Canopi to change your favorites.'],
+  ['not JSON', true, 'Canopi’s saved favorites and recently viewed plants are damaged and couldn’t be set aside, so changes to them won’t be saved this session.'],
+] as const) {
+  test(`R3 canopi-f47t.52.272: under a 2.1 species key ${state}, the species detail favourite star is off, says why, and a click or Enter writes nothing, after a reload too (Web)`, async ({ page }) => {
+    const species = frozenRecord('species-lists')
+    await page.goto('')
+    await seedLocalStorage(page, {
+      [V3_SPECIES_KEY]: JSON.stringify({ version: 3, favoriteSpecies: ['Fragaria vesca'], recentlyViewedSpecies: [] }),
+      [species.key]: damaged ? 'not json' : JSON.stringify(species.record),
+    })
+    const before = await speciesKeysDump(page)
+    for (const load of ['launch', 'reload']) {
+      await page.reload()
+      await openFixtureDesign(page)
+      const keyPanel = page.getByRole('region', { name: 'Plants in this Design' })
+      if (!(await keyPanel.isVisible())) await page.getByRole('navigation', { name: 'Web Edition panels' }).getByRole('button', { name: 'Plants in this Design' }).click()
+      await keyPanel.getByRole('button', { name: /^Details for / }).first().click()
+      const star = page.locator('[data-testid="species-detail"] button[aria-pressed]')
+      await expect(star, `the star is off at ${load} (2.1-Q320)`).toHaveAttribute('aria-disabled', 'true')
+      await expect(star, `and says why at ${load}`).toHaveAccessibleDescription(reason)
+      await star.hover()
+      await expect(page.getByRole('tooltip').getByText(reason, { exact: true }), `its tooltip shows at ${load}`).toBeVisible()
+      const pressed = await star.getAttribute('aria-pressed')
+      // Playwright counts aria-disabled as disabled and would wait forever; force still clicks as the pointer does.
+      await star.click({ force: true })
+      await star.focus()
+      await page.keyboard.press('Enter')
+      await page.waitForTimeout(500)
+      await expect(star, `a refused toggle leaves the star as it was at ${load}`).toHaveAttribute('aria-pressed', pressed!)
+      expect(await speciesKeysDump(page), `a click or Enter on the star at ${load} writes neither species key`).toEqual(before)
+    }
+  })
+}
 
 test.describe('a 2.1 key that is not JSON', () => {
   // Settings that cannot be read are reported as the 2.0 key's are (SET-05): the projection's own console line.
