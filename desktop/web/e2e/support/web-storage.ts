@@ -35,7 +35,18 @@ export type ExistenceRead =
   | { readonly found: false, readonly error: string }
   | { readonly found: true, readonly version: number, readonly stores: readonly string[] }
 
-/** What a reader connection saw: one entry per versionchange, and whether it closed there. */
+export interface ExistenceReadOptions {
+  readonly name: string
+  /**
+   * What becomes of a connection once the store is described: closed at once (the default, open-read-close), or kept
+   * as a reader connection that closes on versionchange (the Q40 contract) or, for the probe's control, never closes.
+   */
+  readonly connection?: 'close' | 'close-on-versionchange' | 'keep-open'
+  /** Start the read and answer 'started' at once (it may wait behind another page's upgrade); pendingRead answers it. */
+  readonly deferred?: boolean
+}
+
+/** What a kept reader connection saw: one entry per versionchange, and whether it closed there. */
 export interface ReaderEvent {
   readonly oldVersion: number
   readonly newVersion: number | null
@@ -48,12 +59,22 @@ export interface ChangeOutcome {
   readonly outcome: string
 }
 
+interface ProbeState {
+  readerEvents: ReaderEvent[]
+  held?: { end: (how: 'commit' | 'abort') => Promise<string> }
+  read?: Promise<ExistenceRead>
+}
+
 /**
  * Opens `name` without a version and aborts the upgrade if the engine offers one from version 0, so no database is
- * created; an existing store opens, is described and is closed at once (open-read-close).
+ * created; an existing store is described, and its connection closed or kept as `connection` says (a kept one resets
+ * the recorded versionchange events).
  */
-export async function openAndAbortAtZero(name: string): Promise<ExistenceRead> {
-  return await new Promise<ExistenceRead>((resolve, reject) => {
+export async function existenceRead({ name, connection = 'close', deferred = false }: ExistenceReadOptions): Promise<ExistenceRead | 'started'> {
+  const host = window as unknown as { __canopiIdb?: ProbeState }
+  const state = host.__canopiIdb ??= { readerEvents: [] }
+  if (connection !== 'close') state.readerEvents = []
+  const read = new Promise<ExistenceRead>((resolve, reject) => {
     const request = indexedDB.open(name)
     let aborted = false
     request.onupgradeneeded = (event) => {
@@ -68,11 +89,33 @@ export async function openAndAbortAtZero(name: string): Promise<ExistenceRead> {
     }
     request.onsuccess = () => {
       const db = request.result
-      const read: ExistenceRead = { found: true, version: db.version, stores: [...db.objectStoreNames].sort() }
-      db.close()
-      resolve(read)
+      resolve({ found: true, version: db.version, stores: [...db.objectStoreNames].sort() })
+      if (connection === 'close') {
+        db.close()
+        return
+      }
+      db.onversionchange = (event) => {
+        const closes = connection === 'close-on-versionchange'
+        if (closes) db.close()
+        state.readerEvents.push({ oldVersion: event.oldVersion, newVersion: event.newVersion, closed: closes })
+      }
     }
   })
+  if (!deferred) return await read
+  state.read = read
+  return 'started'
+}
+
+/** The deferred read's answer, or 'pending' if it has not settled within `waitMs`. */
+export async function pendingRead(waitMs: number): Promise<ExistenceRead | 'pending'> {
+  const read = (window as unknown as { __canopiIdb?: ProbeState }).__canopiIdb?.read
+  if (!read) throw new Error('no deferred read')
+  return await Promise.race([read, new Promise<'pending'>((resolve) => setTimeout(() => resolve('pending'), waitMs))])
+}
+
+/** The kept reader connection's recorded versionchange events. */
+export function readerEvents(): ReaderEvent[] {
+  return (window as unknown as { __canopiIdb?: ProbeState }).__canopiIdb?.readerEvents ?? []
 }
 
 /**
@@ -135,13 +178,6 @@ export async function draftStoreDump(name: string): Promise<Record<string, unkno
   })
 }
 
-interface ProbeState {
-  reader?: IDBDatabase
-  readerEvents: { oldVersion: number, newVersion: number | null, closed: boolean }[]
-  held?: { end: (how: 'commit' | 'abort') => Promise<string> }
-  read?: { settled: boolean, value: unknown }
-}
-
 /**
  * The 2.1 page's first upgrade to `version`, held open (its versionchange transaction kept busy) until heldUpgradeEnd;
  * resolves once the upgrade has created the Draft store's object stores.
@@ -184,102 +220,21 @@ export async function heldUpgradeEnd(how: 'commit' | 'abort'): Promise<string> {
   return await state.held.end(how)
 }
 
-/** Starts openAndAbortAtZero's read of `name` without awaiting it (it may wait behind another page's upgrade). */
-export function startPendingRead(name: string): void {
-  const host = window as unknown as { __canopiIdb?: ProbeState }
-  const state = host.__canopiIdb ??= { readerEvents: [] }
-  const read = { settled: false, value: null as unknown }
-  state.read = read
-  const request = indexedDB.open(name)
-  let aborted = false
-  request.onupgradeneeded = (event) => {
-    if (event.oldVersion !== 0) return
-    aborted = true
-    request.transaction!.abort()
-  }
-  request.onerror = (event) => {
-    event.preventDefault()
-    read.value = aborted ? { found: false, error: request.error?.name ?? 'none' } : { failed: request.error?.name ?? 'none' }
-    read.settled = true
-  }
-  request.onsuccess = () => {
-    const db = request.result
-    read.value = { found: true, version: db.version, stores: [...db.objectStoreNames].sort() }
-    db.close()
-    read.settled = true
-  }
-}
-
-/** The started read's answer, or 'pending' if it has not settled within `waitMs`. */
-export async function pendingRead(waitMs: number): Promise<unknown> {
-  const state = (window as unknown as { __canopiIdb?: ProbeState }).__canopiIdb
-  if (!state?.read) throw new Error('no started read')
-  const read = state.read
-  const deadline = Date.now() + waitMs
-  while (!read.settled && Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 20))
-  return read.settled ? read.value : 'pending'
-}
-
 /**
- * Opens a reader connection to `name` and keeps it open; each versionchange is recorded and, with
- * `closeOnVersionChange`, closes it there (the Q40 contract). Resets the recorded events.
+ * A later page changes `name`'s version: opens it at `to` (a 2.1 upgrade) or deletes it; 'pending' if that has not
+ * succeeded within `waitMs`.
  */
-export async function openReaderConnection(
-  { name, closeOnVersionChange }: { name: string, closeOnVersionChange: boolean },
-): Promise<ExistenceRead> {
-  const host = window as unknown as { __canopiIdb?: ProbeState }
-  const state = host.__canopiIdb ??= { readerEvents: [] }
-  state.readerEvents = []
-  return await new Promise<ExistenceRead>((resolve, reject) => {
-    const request = indexedDB.open(name)
-    let aborted = false
-    request.onupgradeneeded = (event) => {
-      if (event.oldVersion !== 0) return
-      aborted = true
-      request.transaction!.abort()
-    }
-    request.onerror = (event) => {
-      event.preventDefault()
-      if (aborted) resolve({ found: false, error: request.error?.name ?? 'none' })
-      else reject(new Error(`open ${name} failed: ${request.error?.name}`))
-    }
+export async function versionChangeOutcome({ name, to, waitMs }: { name: string, to: number | 'delete', waitMs: number }): Promise<ChangeOutcome> {
+  return await new Promise<ChangeOutcome>((resolve) => {
+    let blocked = false
+    const request = to === 'delete' ? indexedDB.deleteDatabase(name) : indexedDB.open(name, to)
+    const timer = setTimeout(() => resolve({ blocked, outcome: 'pending' }), waitMs)
+    request.onblocked = () => { blocked = true }
+    request.onerror = (event) => { event.preventDefault(); clearTimeout(timer); resolve({ blocked, outcome: `error ${request.error?.name}` }) }
     request.onsuccess = () => {
-      const db = request.result
-      state.reader = db
-      db.onversionchange = (event) => {
-        if (closeOnVersionChange) db.close()
-        state.readerEvents.push({ oldVersion: event.oldVersion, newVersion: event.newVersion, closed: closeOnVersionChange })
-      }
-      resolve({ found: true, version: db.version, stores: [...db.objectStoreNames].sort() })
+      if (to !== 'delete') request.result.close()
+      clearTimeout(timer)
+      resolve({ blocked, outcome: to === 'delete' ? 'deleted' : 'upgraded' })
     }
-  })
-}
-
-/** The reader connection's recorded versionchange events. */
-export function readerEvents(): ReaderEvent[] {
-  return (window as unknown as { __canopiIdb?: ProbeState }).__canopiIdb?.readerEvents ?? []
-}
-
-/** A later page opens `name` at `version` (a 2.1 upgrade); 'pending' if it has not succeeded within `waitMs`. */
-export async function upgradeOutcome({ name, version, waitMs }: { name: string, version: number, waitMs: number }): Promise<ChangeOutcome> {
-  return await new Promise<ChangeOutcome>((resolve) => {
-    let blocked = false
-    const request = indexedDB.open(name, version)
-    const timer = setTimeout(() => resolve({ blocked, outcome: 'pending' }), waitMs)
-    request.onblocked = () => { blocked = true }
-    request.onerror = (event) => { event.preventDefault(); clearTimeout(timer); resolve({ blocked, outcome: `error ${request.error?.name}` }) }
-    request.onsuccess = () => { request.result.close(); clearTimeout(timer); resolve({ blocked, outcome: 'upgraded' }) }
-  })
-}
-
-/** A later page deletes `name`; 'pending' if it has not succeeded within `waitMs`. */
-export async function deleteOutcome({ name, waitMs }: { name: string, waitMs: number }): Promise<ChangeOutcome> {
-  return await new Promise<ChangeOutcome>((resolve) => {
-    let blocked = false
-    const request = indexedDB.deleteDatabase(name)
-    const timer = setTimeout(() => resolve({ blocked, outcome: 'pending' }), waitMs)
-    request.onblocked = () => { blocked = true }
-    request.onerror = (event) => { event.preventDefault(); clearTimeout(timer); resolve({ blocked, outcome: `error ${request.error?.name}` }) }
-    request.onsuccess = () => { clearTimeout(timer); resolve({ blocked, outcome: 'deleted' }) }
   })
 }

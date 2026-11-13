@@ -20,22 +20,22 @@ import {
   DRAFT_DATABASE_VERSION,
   createDraftStore,
   databaseVersions,
-  deleteOutcome,
+  existenceRead,
   heldUpgradeEnd,
-  openAndAbortAtZero,
-  openReaderConnection,
+  pendingRead,
   readerEvents,
   removeDatabases,
   startHeldUpgrade,
-  startPendingRead,
-  pendingRead,
-  upgradeOutcome,
+  versionChangeOutcome,
 } from '../support/web-storage'
 
 const PROBE_URL = `${APP_ORIGIN}/indexeddb-reader-probe.html`
 const PROBE_PAGE = '<!doctype html><html><body>IndexedDB reader probe</body></html>'
 /** 2.1's next Draft store version, as a later 2.1 would upgrade to it. */
 const NEXT_VERSION = DRAFT_DATABASE_VERSION + 1
+const ABSENT = { found: false, error: 'AbortError' } as const
+const DRAFT_STORE = { found: true, version: DRAFT_DATABASE_VERSION, stores: ['drafts', 'meta'] } as const
+const EMPTY_DRAFT_STORE = { name: DRAFT_DATABASE, version: DRAFT_DATABASE_VERSION, records: [], copiedIds: [] }
 
 async function openProbe(page: Page): Promise<Page> {
   await page.route(PROBE_URL, (route) => route.fulfill({ status: 200, contentType: 'text/html', body: PROBE_PAGE }))
@@ -52,10 +52,10 @@ async function laterPage(page: Page): Promise<Page> {
 // none, and a second open again starts from version 0.
 test('canopi-f47t.52.272: probe: an open aborted at oldVersion 0 leaves no database', async ({ page }) => {
   await openProbe(page)
-  expect(await page.evaluate(openAndAbortAtZero, DRAFT_DATABASE)).toEqual({ found: false, error: 'AbortError' })
+  expect(await page.evaluate(existenceRead, { name: DRAFT_DATABASE })).toEqual(ABSENT)
   expect(await page.evaluate(databaseVersions, { name: DRAFT_DATABASE })).toEqual([])
   await page.reload()
-  expect(await page.evaluate(openAndAbortAtZero, DRAFT_DATABASE), 'a later open again starts from version 0').toEqual({ found: false, error: 'AbortError' })
+  expect(await page.evaluate(existenceRead, { name: DRAFT_DATABASE }), 'a later open again starts from version 0').toEqual(ABSENT)
   expect(await page.evaluate(databaseVersions, { name: DRAFT_DATABASE })).toEqual([])
 })
 
@@ -68,9 +68,8 @@ test('canopi-f47t.52.272: probe: a database left behind by an open that was not 
     request.onsuccess = () => { request.result.close(); resolve() }
     request.onerror = () => reject(request.error)
   }), DRAFT_DATABASE)
-  const versions = await page.evaluate(databaseVersions, { name: DRAFT_DATABASE })
-  expect(versions).toEqual([1])
-  expect(await page.evaluate(openAndAbortAtZero, DRAFT_DATABASE)).toEqual({ found: true, version: 1, stores: [] })
+  expect(await page.evaluate(databaseVersions, { name: DRAFT_DATABASE })).toEqual([1])
+  expect(await page.evaluate(existenceRead, { name: DRAFT_DATABASE })).toEqual({ found: true, version: 1, stores: [] })
 })
 
 // Measured: databases() never creates the database; while 2.1's first upgrade is held open, the reader's databases()
@@ -85,12 +84,11 @@ test('canopi-f47t.52.272: probe: databases() creates no database and sees a 2.1 
 
   expect(await reader.evaluate(databaseVersions, { name: DRAFT_DATABASE, waitMs: 1500 }), 'no 2.1 database is seen before its upgrade commits')
     .toEqual([])
-  await reader.evaluate(startPendingRead, DRAFT_DATABASE)
+  expect(await reader.evaluate(existenceRead, { name: DRAFT_DATABASE, deferred: true })).toBe('started')
   expect(await reader.evaluate(pendingRead, 1000), 'the reader\'s open waits for the upgrade').toBe('pending')
 
   expect(await later.evaluate(heldUpgradeEnd, 'commit' as const)).toBe('committed')
-  expect(await reader.evaluate(pendingRead, 5000), 'and then reads the committed store')
-    .toEqual({ found: true, version: DRAFT_DATABASE_VERSION, stores: ['drafts', 'meta'] })
+  expect(await reader.evaluate(pendingRead, 5000), 'and then reads the committed store').toEqual(DRAFT_STORE)
   expect(await reader.evaluate(databaseVersions, { name: DRAFT_DATABASE })).toEqual([DRAFT_DATABASE_VERSION])
 })
 
@@ -100,9 +98,9 @@ test('canopi-f47t.52.272: probe: when 2.1\'s first upgrade aborts under a waitin
   const reader = await openProbe(page)
   const later = await laterPage(page)
   await later.evaluate(startHeldUpgrade, { name: DRAFT_DATABASE, version: DRAFT_DATABASE_VERSION })
-  await reader.evaluate(startPendingRead, DRAFT_DATABASE)
+  await reader.evaluate(existenceRead, { name: DRAFT_DATABASE, deferred: true })
   expect(await later.evaluate(heldUpgradeEnd, 'abort' as const)).toBe('AbortError')
-  expect(await reader.evaluate(pendingRead, 5000)).toEqual({ found: false, error: 'AbortError' })
+  expect(await reader.evaluate(pendingRead, 5000)).toEqual(ABSENT)
   expect(await reader.evaluate(databaseVersions, { name: DRAFT_DATABASE })).toEqual([])
 })
 
@@ -111,11 +109,10 @@ test('canopi-f47t.52.272: probe: when 2.1\'s first upgrade aborts under a waitin
 test('canopi-f47t.52.272: probe: a versionchange from another page reaches the reader connection, and closing there avoids blocked', async ({ page }) => {
   const reader = await openProbe(page)
   const later = await laterPage(page)
-  await later.evaluate(createDraftStore, { name: DRAFT_DATABASE, version: DRAFT_DATABASE_VERSION, records: [], copiedIds: [] })
-  expect(await reader.evaluate(openReaderConnection, { name: DRAFT_DATABASE, closeOnVersionChange: true }))
-    .toEqual({ found: true, version: DRAFT_DATABASE_VERSION, stores: ['drafts', 'meta'] })
+  await later.evaluate(createDraftStore, EMPTY_DRAFT_STORE)
+  expect(await reader.evaluate(existenceRead, { name: DRAFT_DATABASE, connection: 'close-on-versionchange' as const })).toEqual(DRAFT_STORE)
 
-  expect(await later.evaluate(upgradeOutcome, { name: DRAFT_DATABASE, version: NEXT_VERSION, waitMs: 5000 }))
+  expect(await later.evaluate(versionChangeOutcome, { name: DRAFT_DATABASE, to: NEXT_VERSION, waitMs: 5000 }))
     .toEqual({ blocked: false, outcome: 'upgraded' })
   expect(await reader.evaluate(readerEvents)).toEqual([{ oldVersion: DRAFT_DATABASE_VERSION, newVersion: NEXT_VERSION, closed: true }])
 })
@@ -125,9 +122,9 @@ test('canopi-f47t.52.272: probe: a versionchange from another page reaches the r
 test('canopi-f47t.52.272: probe: a reader connection kept open through versionchange blocks 2.1\'s upgrade', async ({ page }) => {
   const reader = await openProbe(page)
   const later = await laterPage(page)
-  await later.evaluate(createDraftStore, { name: DRAFT_DATABASE, version: DRAFT_DATABASE_VERSION, records: [], copiedIds: [] })
-  await reader.evaluate(openReaderConnection, { name: DRAFT_DATABASE, closeOnVersionChange: false })
-  expect(await later.evaluate(upgradeOutcome, { name: DRAFT_DATABASE, version: NEXT_VERSION, waitMs: 2000 }))
+  await later.evaluate(createDraftStore, EMPTY_DRAFT_STORE)
+  await reader.evaluate(existenceRead, { name: DRAFT_DATABASE, connection: 'keep-open' as const })
+  expect(await later.evaluate(versionChangeOutcome, { name: DRAFT_DATABASE, to: NEXT_VERSION, waitMs: 2000 }))
     .toEqual({ blocked: true, outcome: 'pending' })
   expect(await reader.evaluate(readerEvents)).toEqual([{ oldVersion: DRAFT_DATABASE_VERSION, newVersion: NEXT_VERSION, closed: false }])
 })
@@ -136,11 +133,12 @@ test('canopi-f47t.52.272: probe: a reader connection kept open through versionch
 test('canopi-f47t.52.272: probe: a delete from another page reaches the reader connection with no new version, and closing there avoids blocked', async ({ page }) => {
   const reader = await openProbe(page)
   const later = await laterPage(page)
-  await later.evaluate(createDraftStore, { name: DRAFT_DATABASE, version: DRAFT_DATABASE_VERSION, records: [], copiedIds: [] })
-  await reader.evaluate(openReaderConnection, { name: DRAFT_DATABASE, closeOnVersionChange: true })
-  expect(await later.evaluate(deleteOutcome, { name: DRAFT_DATABASE, waitMs: 5000 })).toEqual({ blocked: false, outcome: 'deleted' })
+  await later.evaluate(createDraftStore, EMPTY_DRAFT_STORE)
+  await reader.evaluate(existenceRead, { name: DRAFT_DATABASE, connection: 'close-on-versionchange' as const })
+  expect(await later.evaluate(versionChangeOutcome, { name: DRAFT_DATABASE, to: 'delete' as const, waitMs: 5000 }))
+    .toEqual({ blocked: false, outcome: 'deleted' })
   expect(await reader.evaluate(readerEvents)).toEqual([{ oldVersion: DRAFT_DATABASE_VERSION, newVersion: null, closed: true }])
-  expect(await reader.evaluate(openAndAbortAtZero, DRAFT_DATABASE)).toEqual({ found: false, error: 'AbortError' })
+  expect(await reader.evaluate(existenceRead, { name: DRAFT_DATABASE })).toEqual(ABSENT)
 })
 
 // Firefox without databases() (before 126), or any engine without it: the reader's feature test fails, and the
@@ -150,76 +148,86 @@ test('canopi-f47t.52.272: probe: with databases() removed, the open-and-abort fa
   const reader = await openProbe(page)
   expect(await reader.evaluate(() => 'databases' in indexedDB), 'databases() is gone').toBe(false)
   expect(await reader.evaluate(databaseVersions, { name: DRAFT_DATABASE })).toBeNull()
-  expect(await reader.evaluate(openAndAbortAtZero, DRAFT_DATABASE)).toEqual({ found: false, error: 'AbortError' })
+  expect(await reader.evaluate(existenceRead, { name: DRAFT_DATABASE })).toEqual(ABSENT)
 
   const later = await laterPage(page)
   expect(await later.evaluate(databaseVersions, { name: DRAFT_DATABASE }), 'the fallback created no database').toEqual([])
-  await later.evaluate(createDraftStore, { name: DRAFT_DATABASE, version: DRAFT_DATABASE_VERSION, records: [], copiedIds: [] })
-  expect(await reader.evaluate(openAndAbortAtZero, DRAFT_DATABASE))
-    .toEqual({ found: true, version: DRAFT_DATABASE_VERSION, stores: ['drafts', 'meta'] })
+  await later.evaluate(createDraftStore, EMPTY_DRAFT_STORE)
+  expect(await reader.evaluate(existenceRead, { name: DRAFT_DATABASE })).toEqual(DRAFT_STORE)
 })
 
-const ASSETS = fileURLToPath(new URL('../../dist-web/assets/', import.meta.url))
-
-/** A small built file on the preview origin, as a document for the WebDriver page (any same-origin document will do). */
-function builtWorkerUrl(): string {
-  const matches = readdirSync(ASSETS).filter((name) => /^design-core\.worker-[\w-]{16}\.js$/.test(name))
-  if (matches.length !== 1) throw new Error(`dist-web/assets holds ${matches.length} format workers; run npm run build:web`)
-  return `${APP_ORIGIN}/assets/${matches[0]}`
+/** A same-origin document for the WebDriver page: the built format worker's script (any document on the origin will do). */
+function sameOriginDocument(): string {
+  const assets = fileURLToPath(new URL('../../dist-web/assets/', import.meta.url))
+  const [worker, ...more] = readdirSync(assets).filter((name) => /^design-core\.worker-[\w-]{16}\.js$/.test(name))
+  if (!worker || more.length > 0) throw new Error('dist-web/assets needs exactly one format worker; run npm run build:web')
+  return `${APP_ORIGIN}/assets/${worker}`
 }
 
-/** One WebDriver classic call; its `value`, or a thrown error naming the driver's. */
-async function webDriver(base: string, method: 'POST' | 'DELETE', path: string, body?: unknown): Promise<unknown> {
-  const response = await fetch(`${base}${path}`, {
-    method,
-    headers: { 'content-type': 'application/json' },
-    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-  })
-  const answer = await response.json() as { value: unknown }
-  if (!response.ok) throw new Error(`WebDriver ${method} ${path} answered ${response.status}: ${JSON.stringify(answer.value)}`)
-  return answer.value
+interface DriverPage {
+  /** Runs a page function of support/web-storage.ts in the driver's page and returns its answer. */
+  run(fn: (arg: never) => unknown, arg?: unknown): Promise<unknown>
+  quit(): Promise<void>
+}
+
+/** A WebDriver classic session at `base` on a same-origin document. */
+async function driverPage(base: string, capabilities: Record<string, unknown>): Promise<DriverPage> {
+  const send = async (path: string, init: { method: string, body?: unknown }): Promise<unknown> => {
+    const reply = await fetch(`${base}${path}`, {
+      method: init.method,
+      headers: { 'content-type': 'application/json' },
+      body: init.body === undefined ? null : JSON.stringify(init.body),
+    })
+    const { value } = await reply.json() as { value: unknown }
+    if (reply.status >= 400) throw new Error(`${init.method} ${path}: ${reply.status} ${JSON.stringify(value)}`)
+    return value
+  }
+  const { sessionId } = await send('/session', { method: 'POST', body: { capabilities: { alwaysMatch: capabilities } } }) as { sessionId: string }
+  await send(`/session/${sessionId}/url`, { method: 'POST', body: { url: sameOriginDocument() } })
+  return {
+    async run(fn, arg) {
+      const script = `const done = arguments[arguments.length - 1];
+        Promise.resolve().then(() => (${fn.toString()})(arguments[0])).then((value) => done({ value: value === undefined ? null : value }), (error) => done({ thrown: String(error) }));`
+      const answer = await send(`/session/${sessionId}/execute/async`, { method: 'POST', body: { script, args: [arg ?? null] } }) as { value?: unknown, thrown?: string }
+      if (answer.thrown !== undefined) throw new Error(`${fn.name} threw in the WebDriver engine: ${answer.thrown}`)
+      return answer.value
+    },
+    async quit() { await send(`/session/${sessionId}`, { method: 'DELETE' }) },
+  }
 }
 
 test('canopi-f47t.52.272: probe: the IndexedDB reader behaviours hold in a WebDriver engine (WebKitGTK, WebView2)', async ({ browserName }) => {
   const driver = process.env.CANOPI_FORMAT_PROBE_WEBDRIVER
   test.skip(!driver || browserName !== 'chromium', 'web-edition-browsers.yml format-core-engines runs it once per driver, beside the chromium project')
-  const capabilities = JSON.parse(process.env.CANOPI_FORMAT_PROBE_CAPABILITIES ?? '{}') as Record<string, unknown>
-  const session = await webDriver(driver!, 'POST', '/session', { capabilities: { alwaysMatch: capabilities } }) as { sessionId: string }
-  /** Runs one page function of support/web-storage.ts in the driver's page with `arg`, and returns its answer. */
-  const run = async (fn: (arg: never) => unknown, arg?: unknown): Promise<unknown> => {
-    const script = `const done = arguments[arguments.length - 1];
-      Promise.resolve().then(() => (${fn.toString()})(arguments[0])).then((value) => done({ value: value === undefined ? null : value }), (error) => done({ thrown: String(error) }));`
-    const answer = await webDriver(driver!, 'POST', `/session/${session.sessionId}/execute/async`, { script, args: [arg ?? null] }) as { value?: unknown, thrown?: string }
-    if (answer.thrown !== undefined) throw new Error(`${fn.name} threw in the WebDriver engine: ${answer.thrown}`)
-    return answer.value
-  }
+  const engine = await driverPage(driver!, JSON.parse(process.env.CANOPI_FORMAT_PROBE_CAPABILITIES ?? '{}') as Record<string, unknown>)
   try {
-    await webDriver(driver!, 'POST', `/session/${session.sessionId}/url`, { url: builtWorkerUrl() })
     const name = `${DRAFT_DATABASE}-webdriver-probe`
     // A previous run's database, if the driver's profile kept one.
-    await run(deleteOutcome, { name, waitMs: 5000 })
-    expect(await run(openAndAbortAtZero, name), 'an aborted open').toEqual({ found: false, error: 'AbortError' })
-    const hasDatabases = await run(databaseVersions, { name }) !== null
-    if (hasDatabases) expect(await run(databaseVersions, { name }), 'databases() creates none').toEqual([])
+    await engine.run(versionChangeOutcome, { name, to: 'delete', waitMs: 5000 })
+    expect(await engine.run(existenceRead, { name }), 'an aborted open').toEqual(ABSENT)
+    const hasDatabases = await engine.run(databaseVersions, { name }) !== null
+    if (hasDatabases) expect(await engine.run(databaseVersions, { name }), 'databases() creates none').toEqual([])
 
-    await run(startHeldUpgrade, { name, version: DRAFT_DATABASE_VERSION })
-    if (hasDatabases) expect(await run(databaseVersions, { name, waitMs: 1500 }), 'databases() during the held upgrade').toEqual([])
-    await run(startPendingRead, name)
-    expect(await run(heldUpgradeEnd, 'commit')).toBe('committed')
-    expect(await run(pendingRead, 5000)).toEqual({ found: true, version: DRAFT_DATABASE_VERSION, stores: ['drafts', 'meta'] })
+    await engine.run(startHeldUpgrade, { name, version: DRAFT_DATABASE_VERSION })
+    if (hasDatabases) expect(await engine.run(databaseVersions, { name, waitMs: 1500 }), 'databases() during the held upgrade').toEqual([])
+    await engine.run(existenceRead, { name, deferred: true })
+    expect(await engine.run(heldUpgradeEnd, 'commit')).toBe('committed')
+    expect(await engine.run(pendingRead, 5000)).toEqual(DRAFT_STORE)
 
-    await run(openReaderConnection, { name, closeOnVersionChange: true })
-    expect(await run(upgradeOutcome, { name, version: NEXT_VERSION, waitMs: 5000 }), 'versionchange then close').toEqual({ blocked: false, outcome: 'upgraded' })
-    expect(await run(readerEvents)).toEqual([{ oldVersion: DRAFT_DATABASE_VERSION, newVersion: NEXT_VERSION, closed: true }])
+    await engine.run(existenceRead, { name, connection: 'close-on-versionchange' })
+    expect(await engine.run(versionChangeOutcome, { name, to: NEXT_VERSION, waitMs: 5000 }), 'versionchange then close')
+      .toEqual({ blocked: false, outcome: 'upgraded' })
+    expect(await engine.run(readerEvents)).toEqual([{ oldVersion: DRAFT_DATABASE_VERSION, newVersion: NEXT_VERSION, closed: true }])
 
-    await run(openReaderConnection, { name, closeOnVersionChange: true })
-    expect(await run(deleteOutcome, { name, waitMs: 5000 }), 'a delete with the reader open').toEqual({ blocked: false, outcome: 'deleted' })
-    expect(await run(readerEvents)).toEqual([{ oldVersion: NEXT_VERSION, newVersion: null, closed: true }])
+    await engine.run(existenceRead, { name, connection: 'close-on-versionchange' })
+    expect(await engine.run(versionChangeOutcome, { name, to: 'delete', waitMs: 5000 }), 'a delete with the reader open')
+      .toEqual({ blocked: false, outcome: 'deleted' })
+    expect(await engine.run(readerEvents)).toEqual([{ oldVersion: NEXT_VERSION, newVersion: null, closed: true }])
 
-    await run(removeDatabases)
-    expect(await run(databaseVersions, { name }), 'databases() removed').toBeNull()
-    expect(await run(openAndAbortAtZero, name), 'the fallback').toEqual({ found: false, error: 'AbortError' })
+    await engine.run(removeDatabases)
+    expect(await engine.run(databaseVersions, { name }), 'databases() removed').toBeNull()
+    expect(await engine.run(existenceRead, { name }), 'the fallback').toEqual(ABSENT)
   } finally {
-    await webDriver(driver!, 'DELETE', `/session/${session.sessionId}`)
+    await engine.quit()
   }
 })

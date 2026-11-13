@@ -10,21 +10,10 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import type { Page } from '@playwright/test'
 import { expect, test } from '../support/offline'
+import { DRAFT_DATABASE, DRAFT_DATABASE_VERSION, createDraftStore, draftStoreDump, type DraftRecord } from '../support/web-storage'
 
 const FIXTURE = fileURLToPath(new URL('../fixtures/canvas-base.canopi', import.meta.url))
 const V3_DRAFTS_KEY = 'canopi:web-app-data:v3:drafts'
-const DRAFT_DATABASE = 'canopi-drafts'
-const DRAFT_DATABASE_VERSION = 4
-
-/** A record of the 2.1 Draft store's `drafts` object store (contracts §11). */
-interface DraftRecord {
-  readonly id: string
-  readonly canopi_version: string
-  readonly version: number
-  readonly name: string
-  readonly updated_at: string
-  readonly content: string
-}
 
 function baseDesign(): Record<string, unknown> {
   return JSON.parse(readFileSync(FIXTURE, 'utf8')) as Record<string, unknown>
@@ -60,49 +49,13 @@ function v3DraftsRecord(drafts: readonly { id: string, name: string, day: number
 
 /** Writes the 2.1 Draft store as 2.1 leaves it: its Draft records and the move record naming the copied ids. */
 async function seedDraftStore(page: Page, records: readonly DraftRecord[], copiedIds: readonly string[]): Promise<void> {
-  await page.evaluate(async ({ name, version, records, copiedIds }) => {
-    await new Promise<void>((resolve, reject) => {
-      const request = indexedDB.open(name, version)
-      request.onupgradeneeded = () => {
-        request.result.createObjectStore('drafts', { keyPath: 'id' })
-        request.result.createObjectStore('meta', { keyPath: 'key' })
-      }
-      request.onerror = () => reject(request.error)
-      request.onsuccess = () => {
-        const db = request.result
-        const tx = db.transaction(['drafts', 'meta'], 'readwrite')
-        for (const record of records) tx.objectStore('drafts').put(record)
-        tx.objectStore('meta').put({ key: 'move', state: 'copied', sourceHash: 'seeded', rev: 1, copiedIds })
-        tx.oncomplete = () => { db.close(); resolve() }
-        tx.onerror = () => reject(tx.error)
-      }
-    })
-  }, { name: DRAFT_DATABASE, version: DRAFT_DATABASE_VERSION, records, copiedIds })
+  await page.evaluate(createDraftStore, { name: DRAFT_DATABASE, version: DRAFT_DATABASE_VERSION, records, copiedIds })
 }
 
 /** Every record of the Draft store and every localStorage entry: what "writes nothing" compares. */
 async function storageDump(page: Page): Promise<unknown> {
-  return await page.evaluate(async (name) => {
-    const local = Object.keys(localStorage).sort().map((key) => [key, localStorage.getItem(key)])
-    const stores = await new Promise<unknown>((resolve, reject) => {
-      const request = indexedDB.open(name)
-      request.onupgradeneeded = () => { request.transaction!.abort() }
-      request.onerror = () => resolve(null)
-      request.onsuccess = () => {
-        const db = request.result
-        const names = [...db.objectStoreNames].sort()
-        const tx = db.transaction(names, 'readonly')
-        const out: Record<string, unknown> = { version: db.version }
-        for (const store of names) {
-          const all = tx.objectStore(store).getAll()
-          all.onsuccess = () => { out[store] = all.result }
-        }
-        tx.oncomplete = () => { db.close(); resolve(out) }
-        tx.onerror = () => reject(tx.error)
-      }
-    })
-    return { local, stores }
-  }, DRAFT_DATABASE)
+  const local = await page.evaluate(() => Object.keys(localStorage).sort().map((key) => [key, localStorage.getItem(key)]))
+  return { local, stores: await page.evaluate(draftStoreDump, DRAFT_DATABASE) }
 }
 
 function startScreen(page: Page) {
