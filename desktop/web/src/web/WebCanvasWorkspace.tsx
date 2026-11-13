@@ -229,7 +229,8 @@ export function WebCanvasWorkspace({
     mapSurface,
     t,
   })
-  const reveal = useDesignReveal(hasDesign, mapSurface)
+  // While the launch reads 2.1's Draft ids (canopi-f47t.52.272) neither the start screen nor a Design shows.
+  const reveal = useDesignReveal(hasDesign, mapSurface, controller.launching.value)
 
   return (
     <div className={panelStyles.canvasPanel} data-testid="web-canvas-workspace">
