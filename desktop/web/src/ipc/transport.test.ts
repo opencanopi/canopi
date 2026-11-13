@@ -156,6 +156,18 @@ describe('IPC transport', () => {
     expect(ringEntries()).toHaveLength(3)
   })
 
+  it('canopi-f47t.52.271: a Data library write refused on a newer catalogue settles store_read_only{library_catalogue}, never recorded', async () => {
+    // The library refuses each write through `ensure_writable` with this bare text (desktop/src/services/lidar/recovery.rs).
+    for (const command of ['lidar_rename_item', 'lidar_delete_item', 'lidar_dismiss_import', 'lidar_create_analysis', 'lidar_rerun_analysis']) {
+      invoke.mockRejectedValueOnce('store_read_only')
+      expect((await rejected(command)).failure.code, command).toEqual({ kind: 'store_read_only', store: 'library_catalogue' })
+    }
+    expect(ringEntries()).toEqual([])
+    invoke.mockRejectedValueOnce('The Data library could not be opened: disk I/O error')
+    expect((await rejected('lidar_rename_item')).failure.code).toEqual({ kind: 'internal' })
+    expect(ringEntries()).toHaveLength(1)
+  })
+
   it('same settlement reported twice: one entry, marked surfaced', async () => {
     invoke.mockRejectedValueOnce('Plant database unavailable: bundled plant database is missing')
     const settled = await rejected('search_species')

@@ -58,19 +58,20 @@ function untypedOp(command: string): string {
 }
 
 /**
- * A user DB or settings write refused on a newer-read-only store: native rejects with this bare text
- * (`write_refusal`, desktop/src/db/user_db.rs; desktop/src/services/settings.rs), and the store's one notice says it
- * (2.1-M487, 2.1-Q319).
+ * A write refused on a newer-read-only store: native rejects with this bare text (`write_refusal`,
+ * desktop/src/db/user_db.rs; desktop/src/services/settings.rs; the Data library's `ensure_writable`,
+ * desktop/src/services/lidar/recovery.rs), and the store's one notice says it (2.1-M487, 2.1-Q319).
  */
 type SilentRow = readonly [text: string, code: Failure['code']]
 const USER_DB_REFUSED: SilentRow = ['store_read_only', { kind: 'store_read_only', store: 'user_db' }]
 const SETTINGS_REFUSED: SilentRow = ['store_read_only', { kind: 'store_read_only', store: 'settings' }]
+const LIBRARY_REFUSED: SilentRow = ['store_read_only', { kind: 'store_read_only', store: 'library_catalogue' }]
 
 /**
  * Each String command's silent refusal text and its catalogue code, bound to its command so no other command's text is
  * silenced; a row goes when its command is typed. `pick_geojson_file` refuses a second dialog with the bare kind,
- * `search_species` a query a newer one superseded (desktop/src/services/plant_browser.rs), and each user DB write a
- * newer-read-only store.
+ * `search_species` a query a newer one superseded (desktop/src/services/plant_browser.rs), and each user DB, settings
+ * or Data library write a newer-read-only store.
  */
 const SILENT_UNTYPED: ReadonlyMap<string, SilentRow> = new Map<string, SilentRow>([
   ['pick_geojson_file', ['dialog_already_open', { kind: 'dialog_already_open' }]],
@@ -91,6 +92,11 @@ const SILENT_UNTYPED: ReadonlyMap<string, SilentRow> = new Map<string, SilentRow
   ['reorder_saved_object_stamps', USER_DB_REFUSED],
   ['remove_recent_design', USER_DB_REFUSED],
   ['toggle_favorite', USER_DB_REFUSED],
+  ['lidar_rename_item', LIBRARY_REFUSED],
+  ['lidar_delete_item', LIBRARY_REFUSED],
+  ['lidar_dismiss_import', LIBRARY_REFUSED],
+  ['lidar_create_analysis', LIBRARY_REFUSED],
+  ['lidar_rerun_analysis', LIBRARY_REFUSED],
 ])
 
 /**
