@@ -212,9 +212,11 @@ jobs:
           decision() { if [ "$1" = improved ] && [ "$2" = yes ] && [ "$3" = holds ]; then echo "ship signingIdentity '-' and the Release Candidate verify check"; else echo 'drop the config change'; fi; }
           # The Mac install steps for the release notes and the GitHub release page (2.1-Q326), one per decision: a
           # damaged verdict has no Open Anyway, so today's steps are xattr alone; a shipped ad-hoc bundle leads with
-          # Open Anyway and keeps xattr, which the probe saw open it, as the fallback.
+          # Open Anyway and keeps xattr, which the probe saw open it, as the fallback. The probe reads macOS 15's dialog
+          # only, so the steps also name macOS 12 to 14's words, buttons and (on 12) settings app, which the download line
+          # promises.
           xattr_steps='Open the dmg and drag Canopi to Applications. Open Terminal, run xattr -dr com.apple.quarantine /Applications/Canopi.app, then open Canopi.'
-          open_anyway_steps='Open the dmg and drag Canopi to Applications, then open Canopi. If macOS says it could not verify Canopi, click Done, open System Settings > Privacy & Security, click Open Anyway beside Canopi and confirm. If macOS says Canopi is damaged, open Terminal, run xattr -dr com.apple.quarantine /Applications/Canopi.app, then open Canopi.'
+          open_anyway_steps='Open the dmg and drag Canopi to Applications, then open Canopi. If macOS says it cannot verify Canopi or check it for malware, click Done, Cancel or OK (not Move to Trash), open System Settings > Privacy & Security (on macOS 12, System Preferences > Security & Privacy), click Open Anyway beside Canopi and confirm. If macOS says Canopi is damaged, open Terminal, run xattr -dr com.apple.quarantine /Applications/Canopi.app, then open Canopi.'
           install_text() { case "$1" in ship*) echo "$open_anyway_steps" ;; *) echo "$xattr_steps" ;; esac; }
           tells_apart() { if [ "$1" = "$2" ]; then echo untested; elif [ "$3" = missing ] || [ "$4" = missing ]; then echo unread; elif [ "$5" != "$6" ]; then echo yes; else echo no; fi; }
           agrees() { if [ "$2" = unread ]; then echo unread; elif [ "$1" = "$2" ]; then echo yes; else echo no; fi; }

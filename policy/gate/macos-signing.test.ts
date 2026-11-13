@@ -95,6 +95,18 @@ function installFaults(identity: unknown, docs: ReadonlyMap<string, string>): st
   return faults
 }
 
+/** Why the ad-hoc install text matches only macOS 15's dialog, empty when macOS 12 to 14 users find their step in it.
+ * The probe ran on macOS 15 alone ("could not verify", Done); macOS 12 to 14 say Apple cannot check it for malicious
+ * software or cannot verify the developer, offer Cancel or OK, and macOS 12 names the settings app differently. */
+function openAnywayFaults(text: string): string[] {
+  const said = prose(text)
+  return [
+    ...(said.includes('check it for malware') ? [] : ['the install text never names the dialog of macOS 12 to 14 (cannot check it for malware)']),
+    ...(said.includes('cancel') ? [] : ['the install text never names the Cancel button of macOS 12 to 14']),
+    ...(said.includes('system preferences > security & privacy') ? [] : ['the install text never names macOS 12\'s System Preferences > Security & Privacy']),
+  ]
+}
+
 describe('the Mac bundle is sealed ad hoc (canopi-3cu2)', () => {
   let dir: string | undefined
   afterEach(() => {
@@ -225,5 +237,15 @@ exit 64
     expect(installFaults('-', new Map([['README.md', old]]))).toEqual([
       "README.md lacks the probe's install text for the ad-hoc bundle",
       "README.md says macOS calls Canopi damaged, which the ad-hoc bundle's first open does not"])
+  })
+
+  it('canopi-3cu2: the ad-hoc install text names a step on every macOS the install line supports, 12 to 15', () => {
+    expect(openAnywayFaults(probeText('open_anyway_steps'))).toEqual([])
+    // Planted: the macOS 15-only text the probe first printed.
+    expect(openAnywayFaults('If macOS says it could not verify Canopi, click Done, open System Settings > Privacy & Security, click Open Anyway beside Canopi and confirm.'))
+      .toEqual([
+        'the install text never names the dialog of macOS 12 to 14 (cannot check it for malware)',
+        'the install text never names the Cancel button of macOS 12 to 14',
+        'the install text never names macOS 12\'s System Preferences > Security & Privacy'])
   })
 })
