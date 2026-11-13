@@ -71,7 +71,6 @@ fn r2_canopi_f47t_52_271_settings_record_2_applies_its_known_fields_and_is_never
 }
 
 #[test]
-#[ignore = "expected-fail: R2 canopi-f47t.52.271"]
 fn r2_canopi_f47t_52_271_a_v3_saved_stamp_needs_a_newer_canopi_and_its_row_is_unchanged() {
     let user_db = user_db();
     let older = saved_object_stamps::create_saved_object_stamp(
