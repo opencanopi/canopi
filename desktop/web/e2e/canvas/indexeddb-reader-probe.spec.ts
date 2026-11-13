@@ -208,7 +208,9 @@ test('canopi-f47t.52.272: probe: the IndexedDB reader behaviours hold in a WebDr
     await engine.run(versionChangeOutcome, { name, to: 'delete', waitMs: 5000 })
     expect(await engine.run(existenceRead, { name }), 'an aborted open').toEqual(ABSENT)
     const hasDatabases = await engine.run(databaseVersions, { name }) !== null
-    if (hasDatabases) expect(await engine.run(databaseVersions, { name }), 'databases() creates none').toEqual([])
+    // WebKitGTK lists the name at version 0 after the aborted open (an entry with no stores; 2.1 still upgrades from 0),
+    // where Chromium lists none; the reader reads both as absent (the line above).
+    if (hasDatabases) expect([[], [0]], 'databases() creates no store').toContainEqual(await engine.run(databaseVersions, { name }))
 
     await engine.run(startHeldUpgrade, { name, version: DRAFT_DATABASE_VERSION })
     // On disk, Chromium (Edge) already lists the upgrading database at its new version, where the in-memory engines list

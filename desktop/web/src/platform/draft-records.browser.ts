@@ -8,7 +8,8 @@
  * - Existence: `indexedDB.databases()` where the engine has it (it creates nothing; Chromium on disk lists 2.1's
  *   database while its first upgrade runs, the others once it commits); then, and always where it is missing, an
  *   open without a version, which waits for that upgrade and whose own upgrade is aborted at oldVersion 0, so an
- *   origin without the store keeps none (e2e/canvas/indexeddb-reader-probe.spec.ts).
+ *   origin without the store keeps no store (WebKitGTK still lists the name at version 0, read as absent;
+ *   e2e/canvas/indexeddb-reader-probe.spec.ts).
  * - Open, read, close: each read opens its own connection and closes it once its transaction ends. A `versionchange`
  *   while it is open (2.1's upgrade, or a delete with no new version) closes it at once, so 2.1 is never blocked, and
  *   tells the page, which offers the one Reload notice (2.1-Q40).
