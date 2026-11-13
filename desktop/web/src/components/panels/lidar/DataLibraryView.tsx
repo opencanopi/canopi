@@ -477,8 +477,10 @@ function EmptyLibrary() {
 /**
  * How the library opened this session, when that is not simply "ready": rebuilt
  * from its originals (a warning; Retry prepares the failed items again), or
- * refused and read-only (an error). A newer catalogue listed read-only adds no
- * notice: the notice row's one notice names it (2.1-Q319).
+ * unavailable and read-only (an error). A newer catalogue listed read-only adds
+ * no notice: the notice row's one notice names it (2.1-Q319). The native
+ * library never reports `refused_newer` (a newer catalogue is listed
+ * read-only), so it shares the unavailable copy.
  */
 function LibraryOpenNotice() {
   const status = storeStatus('library_catalogue')
@@ -491,7 +493,6 @@ function LibraryOpenNotice() {
     case 'recovered':
       return <Notice tone="warning">{t('canvas.lidar.library.recovered')}</Notice>
     case 'refused_newer':
-      return <Notice tone="error">{t('canvas.lidar.library.refusedNewer')}</Notice>
     case 'set_aside_damaged':
     case 'unavailable':
       return <Notice tone="error">{t('canvas.lidar.library.unavailable')}</Notice>
