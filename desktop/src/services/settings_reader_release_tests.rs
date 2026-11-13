@@ -3,13 +3,13 @@
 //! stamp with a v3 payload (plan "a saved stamp with a v3 payload lists as needing a newer Canopi and its row is
 //! unchanged", 2.1-M88), and the user DB 10 open below them (R2-2: read-only, byte-identical, its failure states).
 //!
-//! Written failing in commit 0 and marked expected-fail: R2-6 removes the settings marker, R2-5 the stamp marker (the
-//! main agent flips the stamp case at R2-5's merge, since R2-6 owns this file). R2-6 may swap the inline record for
-//! the frozen `test_fixtures/frozen/settings-record-2.json` once it lands.
+//! Written failing in commit 0; R2-5 and R2-6 made them pass. Settings record 2 is read from the frozen
+//! `test_fixtures/frozen/settings-record-2.json`; its field-level failure states sit beside the reader in
+//! `services::settings`.
 
 use crate::db::UserDb;
 use crate::services::{saved_object_stamps, settings};
-use canopi_types::settings::{BasemapStyle, Locale, Theme};
+use canopi_types::settings::Theme;
 #[cfg(test)]
 use rusqlite::Connection;
 
@@ -31,42 +31,68 @@ fn settings_rows(user_db: &UserDb) -> Vec<(String, String)> {
         .collect()
 }
 
-/// A record 2.1 writes: a top-level integer `version`, a basemap literal this build does not know, a field it never
-/// heard of and known fields it reads (contracts §11 Read projections: per-field tolerant decode, unknown keys ignored).
-const SETTINGS_RECORD_2: &str = r#"{"version":2,"locale":"de","theme":"dark","snap_to_grid":true,"basemap_style":"terrain-2-1","unit_system":"us_customary"}"#;
+/// The frozen settings record 2 (2.1-M480): what the reader release reads of the record 2.1 writes, never regenerated
+/// and never edited. A top-level integer `version`, every 2.0 field (most away from their defaults), the launch
+/// check under `check_updates_at_launch` (named for good) and a 2.1 field this build never heard of.
+const SETTINGS_RECORD_2: &str = include_str!("../test_fixtures/frozen/settings-record-2.json");
+
+fn store_settings(user_db: &UserDb, record: &str) {
+    let conn = user_db.acquire();
+    crate::db::user_db::set_setting(&conn, "settings", record).unwrap();
+}
 
 #[test]
-#[ignore = "expected-fail: R2 canopi-f47t.52.271"]
 fn r2_canopi_f47t_52_271_settings_record_2_applies_its_known_fields_and_is_never_written() {
     let user_db = user_db();
-    {
-        let conn = user_db.acquire();
-        crate::db::user_db::set_setting(&conn, "settings", SETTINGS_RECORD_2).unwrap();
-    }
+    store_settings(&user_db, SETTINGS_RECORD_2);
     let before = settings_rows(&user_db);
 
-    // Today the unknown basemap literal sets the whole record aside and defaults replace it.
     let read = settings::get_settings(&user_db).expect("settings record 2 is read");
-    assert_eq!(read.locale, Locale::De, "a known field applies");
-    assert_eq!(read.theme, Theme::Dark, "a known field applies");
-    assert!(read.snap_to_grid, "a known field applies");
-    assert_eq!(
-        read.basemap_style,
-        BasemapStyle::Liberty,
-        "an unknown literal takes that field's default"
+    let mut known: serde_json::Value = serde_json::from_str(SETTINGS_RECORD_2).unwrap();
+    let newer_only = ["version", "check_updates_at_launch", "unit_system"];
+    let fields = known.as_object_mut().unwrap();
+    fields.retain(|key, _| !newer_only.contains(&key.as_str()));
+    let read_back = serde_json::to_value(&read).unwrap();
+    assert_eq!(read_back, known, "every known field applies");
+    assert!(
+        !settings::updater_check_at_launch(&user_db).unwrap(),
+        "the launch check reads record 2's field"
     );
     assert_eq!(settings_rows(&user_db), before, "reading writes no row");
 
     let mut changed = read.clone();
     changed.theme = Theme::Light;
-    assert!(
-        settings::set_settings(&user_db, changed).is_err(),
+    assert_eq!(
+        settings::set_settings(&user_db, changed),
+        Err(REFUSED.to_owned()),
         "a settings change is refused, applied for the session only (2.1-Q320)"
     );
+    assert!(settings::set_updater_check_at_launch(&user_db, true).is_err());
+    assert_eq!(settings_rows(&user_db), before, "never written");
+    let reread = settings::get_settings(&user_db).unwrap();
+    assert_eq!(reread.theme, Theme::Dark, "the change was not saved");
+}
+
+#[test]
+fn r2_canopi_f47t_52_271_an_unparseable_settings_record_inside_a_user_db_10_reads_defaults_and_writes_nothing()
+ {
+    let scratch = crate::test_scratch::TestScratch::new("reader-release-user-db-10-settings");
+    let path = user_db_10_with_a_wal_and(
+        &scratch,
+        r#"UPDATE settings SET value = '{"version":2,"theme":' WHERE key = 'settings';"#,
+    );
+    let before = user_db_files(&path);
+    let (user_db, _) = UserDb::open(&path).unwrap();
+
+    let read = settings::get_settings(&user_db).expect("defaults, not a failure");
+
+    assert_eq!(read.theme, Theme::Light, "the defaults");
+    assert!(settings::updater_check_at_launch(&user_db).unwrap());
+    drop(user_db);
     assert_eq!(
-        settings_rows(&user_db),
+        user_db_files(&path),
         before,
-        "the record is never written"
+        "nothing written, nothing set aside"
     );
 }
 
