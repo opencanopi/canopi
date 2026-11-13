@@ -1,6 +1,7 @@
 // The rollback lane's reader and writer refs (rollback-refs.ts; ADR 0026 Checks, 2.1-M37, 2.1-M53, 2.1-M68): the
 // resolver over planted tag lists, its command line (cli.mjs rollback-refs) through the real node and rollback.yml's
-// resolve step, and the reader build that goes red rather than fall back to head's tree.
+// resolve step, the reader jobs that go red rather than fall back to head's tree, the planted-change self-tests and the
+// fixture checks around the readers.
 import { spawnSync } from 'node:child_process'
 import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
@@ -16,7 +17,7 @@ type Step = { name?: string, uses?: string, run?: string, if?: string, with?: Re
   env?: Record<string, string>, 'continue-on-error'?: unknown }
 type Job = { steps: Step[], 'continue-on-error'?: unknown, needs?: string | string[], outputs?: Record<string, string> }
 const ROLLBACK = parse(readFileSync(join(REPO_ROOT, '.github/workflows/rollback.yml'), 'utf8')) as { jobs: Record<string, Job>,
-  on: { pull_request?: { branches?: string[], paths?: string[] } } }
+  on: { pull_request?: unknown, push?: unknown, workflow_call?: { inputs?: Record<string, unknown> }, workflow_dispatch?: unknown } }
 
 const CANDIDATE = '3f9c2e1d0b8a7f6e5d4c3b2a1f0e9d8c7b6a5f4e'
 /** The repository's tags on 2026-11-12: stable releases to v2.0.3, two 2.1 betas and the channel and asset tags. */
@@ -95,8 +96,8 @@ describe('rollback.yml (canopi-f47t.52.239)', () => {
     chmodSync(join(dir, name), 0o755)
   }
   /** `step`'s script in GitHub's bash (`-eo pipefail`) from the repository root, the fakes first on PATH. */
-  const run = (step: Step, env: Record<string, string>) => spawnSync('bash', ['--noprofile', '--norc', '-eo', 'pipefail', '-c', step.run ?? ''], {
-    cwd: REPO_ROOT, encoding: 'utf8', timeout: 60_000,
+  const run = (step: Step, env: Record<string, string>, cwd = REPO_ROOT) => spawnSync('bash', ['--noprofile', '--norc', '-eo', 'pipefail', '-c', step.run ?? ''], {
+    cwd, encoding: 'utf8', timeout: 60_000,
     env: { ...cleanEnv(), ...env, PATH: `${dir}:${process.env['PATH'] ?? ''}`, GITHUB_OUTPUT: join(dir, 'output'),
       GITHUB_STEP_SUMMARY: join(dir, 'summary') },
   })
@@ -132,25 +133,146 @@ describe('rollback.yml (canopi-f47t.52.239)', () => {
     expect(run(resolveStep(), { ROLLBACK_BRANCH: 'main', ROLLBACK_CANDIDATE: CANDIDATE, ROLLBACK_WRITER_REF: '' }).status).not.toBe(0)
   })
 
-  it('canopi-f47t.52.239: a pull request starts the lane only when it changes rollback.yml, not on a gate edit', () => {
-    // The resolver's own tests run in the policy-gate project; an edit to the gate's entry or the resolver starts no
-    // v2.0.3 build or browser legs.
-    expect(ROLLBACK.on.pull_request).toEqual({ branches: ['main'], paths: ['.github/workflows/rollback.yml'] })
+  it('canopi-f47t.52.239: the lane runs when Build & Test or a Release Candidate calls it, or on a dispatch, never on a pull request of its own', () => {
+    // Its release/2.0 trigger is Build & Test's, which a release branch cut from main inherits (ci-parity.test.ts).
+    expect(ROLLBACK.on.pull_request).toBeUndefined()
+    expect(ROLLBACK.on.push).toBeUndefined()
+    expect(Object.keys(ROLLBACK.on.workflow_call?.inputs ?? {}).sort()).toEqual(['branch', 'candidate', 'writer_ref'])
+    expect(ROLLBACK.on.workflow_dispatch).toBeDefined()
+    expect(resolveStep().env).toEqual({ ROLLBACK_BRANCH: '${{ inputs.branch || github.base_ref || github.ref_name }}',
+      ROLLBACK_CANDIDATE: '${{ inputs.candidate || github.event.pull_request.head.sha || github.sha }}',
+      ROLLBACK_WRITER_REF: '${{ inputs.writer_ref }}' })
   })
 
-  it('canopi-f47t.52.239: a reader tag that fails to build is red, with no fallback to head\'s tree', () => {
-    const job = ROLLBACK.jobs['reader-build']
-    if (!job) throw new Error('rollback.yml has no reader-build job')
-    const build = job.steps.find((step) => step.run?.includes('cargo test -p canopi-desktop --no-run'))
-    if (!build) throw new Error('rollback.yml\'s reader-build job has no step building the desktop tests')
+  /** `name`'s job, or a thrown error naming it. */
+  const job = (name: string) => {
+    const found = ROLLBACK.jobs[name]
+    if (!found) throw new Error(`rollback.yml has no ${name} job`)
+    return found
+  }
+  /** `name`'s step whose script holds `text`. */
+  const stepOf = (name: string, text: string) => {
+    const found = job(name).steps.find((step) => step.run?.includes(text))
+    if (!found) throw new Error(`rollback.yml's ${name} job has no step running ${text}`)
+    return found
+  }
+
+  it('canopi-f47t.52.239: each reader job builds the resolved reader tree, red when it fails with no fallback to head\'s tree', () => {
+    for (const name of ['reader-desktop', 'reader-web']) {
+      const reader = job(name)
+      expect(reader.needs).toEqual(['resolve', 'writer'])
+      // The reader tree at the root; this run's tree, whose fixture checks judge the readers, under lane/ only.
+      const checkouts = reader.steps.filter((step) => step.uses?.startsWith('actions/checkout@'))
+      expect(checkouts.map((step) => step.with)).toEqual([{ ref: '${{ needs.resolve.outputs.reader }}' }, { path: 'lane' }])
+      // Red stays red: nothing tolerates a failure, and only the report upload runs after one.
+      expect(reader['continue-on-error']).toBeUndefined()
+      expect(reader.steps.filter((step) => step['continue-on-error'] !== undefined)).toEqual([])
+      expect(reader.steps.filter((step) => step.if !== undefined).map((step) => [step.name, step.if]))
+        .toEqual(name === 'reader-web' ? [['Upload the report and traces', 'failure()']] : [])
+    }
     fake('cargo', 'error: could not compile `canopi-desktop` (lib) due to 3 previous errors\n', 101)
-    const result = run(build, {})
-    expect(result.status).toBe(101)
-    // Red stays red: nothing in the job tolerates the failure or runs after it, and its one checkout is the reader tag.
-    expect(job['continue-on-error']).toBeUndefined()
-    expect(job.steps.filter((step) => step['continue-on-error'] !== undefined || step.if !== undefined)).toEqual([])
-    const checkouts = job.steps.filter((step) => step.uses?.startsWith('actions/checkout@'))
-    expect(checkouts.map((step) => step.with?.['ref'])).toEqual(['${{ inputs.reader_tag || \'v2.0.3\' }}'])
+    expect(run(stepOf('reader-desktop', 'cargo test -p canopi-desktop --test rollback_reader --locked'), {}).status).toBe(101)
+    // The writer lays its tree's forms down, the candidate's in candidate mode.
+    expect(job('writer').steps.find((step) => step.uses?.startsWith('actions/checkout@'))?.with)
+      .toEqual({ ref: '${{ needs.resolve.outputs.writer || needs.resolve.outputs.reader }}' })
+  })
+
+  it('canopi-f47t.52.239: missing fixture artifact: the writer\'s upload fails on an empty directory, and each reader checks what it downloaded first', () => {
+    const upload = job('writer').steps.find((step) => step.uses?.startsWith('actions/upload-artifact@'))
+    expect(upload?.with).toMatchObject({ name: 'rollback-fixtures', 'if-no-files-found': 'error' })
+    for (const name of ['reader-desktop', 'reader-web']) {
+      const steps = job(name).steps
+      const download = steps.findIndex((step) => step.uses?.startsWith('actions/download-artifact@'))
+      expect(steps[download]?.with?.['name']).toBe('rollback-fixtures')
+      const harness = steps.findIndex((step) => /cargo test|npm run test:rollback/.test(step.run ?? ''))
+      const check = steps.findIndex((step) => step.run?.includes('rollback-fixtures check'))
+      expect(download).toBeGreaterThan(-1)
+      expect(check).toBeGreaterThan(download)
+      expect(harness).toBeGreaterThan(check)
+    }
+  })
+
+  it('canopi-f47t.52.239: store with no writer (fixtures only): the writer names each form it laid down from its frozen form in the summary', () => {
+    fake('cargo', 'running 1 test\nFIXTURES-ONLY web settings 2 web/settings.json: no build writes it yet, so the readers read its frozen form\ntest ok\n')
+    const result = run(stepOf('writer', 'the_writer_lays_down'), { RUNNER_TEMP: dir })
+    expect(result.status, result.stderr).toBe(0)
+    expect(readFileSync(join(dir, 'summary'), 'utf8')).toBe('FIXTURES-ONLY web settings 2 web/settings.json: no build writes it yet, so the readers read its frozen form\n')
+    fake('cargo', 'error: test failed\n', 101)
+    expect(run(stepOf('writer', 'the_writer_lays_down'), { RUNNER_TEMP: dir }).status).toBe(101)
+  })
+
+  /** A cargo that lists `ignored` for `--list` and otherwise exits `status`. */
+  const fakeCargo = (ignored: string, status: number) => {
+    writeFileSync(join(dir, 'list.out'), ignored)
+    writeFileSync(join(dir, 'cargo'), `#!/usr/bin/env bash\nif [[ "$*" == *--list* ]]; then cat "${join(dir, 'list.out')}"; exit 0; fi\nexit ${status}\n`)
+    chmodSync(join(dir, 'cargo'), 0o755)
+  }
+
+  it('canopi-f47t.52.239: planted run passes: the Desktop lane fails when its readers pass over the planted change, held only while the session test is expected-fail', () => {
+    const planted = stepOf('reader-desktop', 'rollback-fixtures plant')
+    mkdirSync(join(dir, 'rollback-fixtures'))
+    fake('node', '')
+    const env = { RUNNER_TEMP: dir, CANOPI_ROLLBACK_FIXTURES: join(dir, 'planted') }
+    const again = () => rmSync(join(dir, 'planted'), { recursive: true, force: true })
+    fakeCargo('', 0)
+    let result = run(planted, env)
+    expect(result.status).toBe(1)
+    expect(result.stdout).toContain('::error::the Desktop readers passed over a planted unreadable change')
+    again()
+    fakeCargo('', 101)
+    expect(run(planted, env).status).toBe(0)
+    expect(readFileSync(join(dir, 'summary'), 'utf8')).toContain('PLANTED desktop: the readers failed on the planted change')
+    again()
+    fakeCargo('reader::r4_canopi_f47t_52_239_a_session_over_every_frozen_store_fixture_writes_no_byte_on_desktop: test\n', 0)
+    result = run(planted, env)
+    expect(result.status).toBe(0)
+    expect(result.stdout).toContain('::warning::expected-fail (R4 canopi-f47t.52.239)')
+  })
+
+  it('canopi-f47t.52.239: planted run passes: a Web lane whose readers pass over the planted change fails', () => {
+    // GitHub fills the matrix expression in before bash runs the script.
+    const step = stepOf('reader-web', 'rollback-fixtures plant')
+    const planted = { ...step, run: step.run?.replaceAll('${{ matrix.engine }}', 'webkit') }
+    mkdirSync(join(dir, 'rollback-fixtures'))
+    fake('node', '')
+    const env = { RUNNER_TEMP: dir, CANOPI_ROLLBACK_FIXTURES: join(dir, 'planted') }
+    fake('npm', '1 passed\n', 0)
+    const result = run(planted, env, join(REPO_ROOT, 'desktop/web'))
+    expect(result.status).toBe(1)
+    expect(result.stdout).toContain('::error::the webkit readers passed over a planted unreadable change')
+    rmSync(join(dir, 'planted'), { recursive: true, force: true })
+    fake('npm', '1 failed\n', 1)
+    expect(run(planted, env, join(REPO_ROOT, 'desktop/web')).status).toBe(0)
+  })
+
+  it('canopi-f47t.52.239: cancelled run: a cancelled or failed rollback lane fails Build & Test, on main and release/2.0 alike, and blocks a release', () => {
+    type Caller = { on: unknown, jobs: Record<string, { needs?: string | string[], if?: string, uses?: string, with?: unknown, steps?: Step[] }> }
+    const read = (file: string) => parse(readFileSync(join(REPO_ROOT, '.github/workflows', file), 'utf8')) as Caller
+    // Its release/2.0 trigger is Build & Test's: the lane has none of its own, so the release branch cut from main
+    // inherits it with build.yml.
+    const build = read('build.yml')
+    expect(build.on).toMatchObject({ push: { branches: ['main', 'release/2.0'] }, pull_request: { branches: ['main', 'release/2.0'] } })
+    expect(build.jobs['rollback']).toEqual({ needs: 'changes', if: "needs.changes.outputs.rollback == 'true'", uses: './.github/workflows/rollback.yml' })
+    const aggregate = build.jobs['build-and-test']
+    expect(aggregate?.needs).toContain('rollback')
+    expect(aggregate?.if).toBe('always()')
+    expect(aggregate?.steps?.[0]?.if).toBe("contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')")
+    // A Release Candidate's manifest waits on it and runs only when nothing failed or was cancelled; its dry run never
+    // calls it, which would share the lane's group with Build & Test's call (ci-parity.test.ts nestedFaults).
+    const release = read('release-candidate.yml')
+    expect(release.jobs['rollback']).toEqual({ needs: 'preflight', if: "needs.preflight.outputs.dry_run != 'true'",
+      uses: './.github/workflows/rollback.yml', with: { candidate: '${{ needs.preflight.outputs.head_sha }}', branch: '${{ inputs.ref }}' } })
+    expect(release.jobs['manifest']?.needs).toContain('rollback')
+    expect(release.jobs['manifest']?.if).toContain('!cancelled()')
+  })
+
+  it('canopi-f47t.52.239: -wal/-shm created or a file pruned: the Desktop job compares the fixture bytes after its harness ran', () => {
+    const steps = job('reader-desktop').steps
+    const snapshot = steps.findIndex((step) => step.run?.includes('rollback-fixtures snapshot'))
+    const harness = steps.findIndex((step) => step.run === 'cargo test -p canopi-desktop --test rollback_reader --locked')
+    const compare = steps.findIndex((step) => step.run?.includes('rollback-fixtures compare'))
+    expect([snapshot > -1, harness > snapshot, compare === harness + 1]).toEqual([true, true, true])
+    expect(steps[harness]?.env).toEqual({ CANOPI_ROLLBACK_FIXTURES: '${{ runner.temp }}/rollback-fixtures' })
   })
 })
 

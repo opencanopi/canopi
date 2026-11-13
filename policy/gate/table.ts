@@ -163,6 +163,8 @@ export const TABLE: Table = {
     'desktop-real-app': { command: 'CI job real-app: the Desktop real-app suite on WebKitGTK and WebView2', shown: 'build.yml real-app', ciOnly: true },
     'web-browsers': { command: 'CI job web-browsers: the canvas and gallery suites in Chromium, WebKit and Firefox, and the format worker in WebKitGTK and Edge', shown: 'build.yml web-browsers', ciOnly: true },
     'updater-e2e': { command: 'CI job updater: N-1 updates itself to N as an AppImage, a .deb and an NSIS install', shown: 'build.yml updater', ciOnly: true },
+    // The rollback lane (ADR 0026, contracts §11 Rollback harness): the reader tree's harness over the writer's fixtures.
+    'rollback': { command: 'CI job rollback: the reader release\'s Desktop and Web readers over every frozen store form the writer lays down write no byte, and fail on a planted unreadable change', shown: 'build.yml rollback', ciOnly: true },
     'release-build': { command: 'CI job release-build: the Release Candidate\'s preflight and build on every platform as a dry run, publishing nothing', shown: 'build.yml release-build', ciOnly: true },
     'docs': { command: 'python3 scripts/check_docs.py' },
     'docs-drift': { command: 'python3 scripts/check_docs.py --drift origin/main', shown: '--drift origin/main' },
@@ -201,8 +203,6 @@ export const TABLE: Table = {
       shown: 'pdf-production-probe.yml', ciOnly: true, on: ['pull_request', 'push', 'workflow_dispatch'] },
     'engine-floor-probe': { command: 'CI workflow engine-floor-probe.yml: both editions and the format worker booted in WebKit images on both sides of the floor, the listener page in three engines',
       shown: 'engine-floor-probe.yml', ciOnly: true, on: ['pull_request', 'workflow_dispatch'] },
-    'rollback': { command: 'CI workflow rollback.yml: the rollback lane\'s reader and writer refs, the reader tag\'s tree built on today\'s runner and the Web seed round trip in Chromium and WebKit',
-      shown: 'rollback.yml', ciOnly: true, on: ['pull_request', 'workflow_dispatch'] },
     'macos-signing-probe': { command: 'CI workflow macos-signing-probe.yml: today\'s quarantined Mac bundle against an ad-hoc signed one, read by codesign, spctl, syspolicy_check and Gatekeeper',
       shown: 'macos-signing-probe.yml', ciOnly: true, on: ['pull_request', 'workflow_dispatch'] },
     'phone-smoke': { command: 'CI workflow phone-smoke.yml: Safari in iOS simulators and Chrome on an Android emulator',
@@ -318,14 +318,14 @@ export const TABLE: Table = {
       // And tauri.conf.json, the version authority with the updater key: the dry run builds its version, so a bump to a
       // beta takes the beta paths. The other manifests stay out, so a dependency bump never pays the release build: the
       // policy checker every one of them selects holds their versions to tauri.conf.json's (policy/release-version.mjs).
-      // And updater-e2e.yml, the lane the workflow calls: a dry run skips that job, but GitHub resolves the call when it
+      // And updater-e2e.yml and rollback.yml, the lanes the workflow calls: a dry run skips that job, but GitHub resolves the call when it
       // starts the workflow, so a broken lane breaks the dry run too. And tauri.macos.conf.json, whose ad-hoc signing
       // identity the build job's Mac seal check reads (canopi-3cu2).
       name: 'release-build', label: 'Release build inputs',
       row: 'CI `{release-build}`',
       workflow: '.github/workflows/release-candidate.yml',
       patterns: [String.raw`^\.github/tauri-release-updater\.json$`, String.raw`^scripts/release_smoke\.py$`,
-        String.raw`^desktop/tauri\.conf\.json$`, String.raw`^desktop/tauri\.macos\.conf\.json$`, String.raw`^\.github/workflows/updater-e2e\.yml$`],
+        String.raw`^desktop/tauri\.conf\.json$`, String.raw`^desktop/tauri\.macos\.conf\.json$`, String.raw`^\.github/workflows/(updater-e2e|rollback)\.yml$`],
       actions: ['install-linux-deps', 'build-geolibre-cli', 'package-desktop'],
       full: ['release-build'],
     },
@@ -402,6 +402,23 @@ export const TABLE: Table = {
       full: ['updater-e2e'],
     },
     {
+      // What a reader release reads of every store a later release writes (ADR 0026 Checks; contracts §11 Rollback
+      // harness, 2.1-M484; Step 2.0.4 R4, canopi-f47t.52.239): the .canopi reader, the health and store readers of
+      // user.db, the settings, the Drafts and the LiDAR library catalogue, the Web record and Draft store adapters and
+      // the health notices, the frozen forms and the manifest listing them, the harness on both editions and main's
+      // fixture checks around it.
+      name: 'rollback', label: 'Store readers and frozen store forms',
+      row: 'CI `{rollback}`',
+      workflow: '.github/workflows/rollback.yml',
+      patterns: [String.raw`^canopi-format/`, String.raw`^canopi-types/src/(health|design)\.rs$`,
+        String.raw`^desktop/src/(db/|services/lidar/|services/(health|settings|design_files)\.rs$|test_fixtures/frozen/)`,
+        String.raw`^desktop/tests/rollback_reader\.rs$`, String.raw`^spec/(rollback|web/frozen)/`,
+        String.raw`^desktop/web/src/(platform/(browser-record|draft-records\.browser|settings\.browser)\.ts|web/browser-app-data\.ts|failures/health-presentation\.ts)$`,
+        String.raw`^desktop/web/e2e-rollback/`, String.raw`^policy/gate/rollback-refs\.ts$`],
+      actions: ['install-linux-deps'],
+      full: ['rollback'],
+    },
+    {
       // GitHub refused a workflow only a scratch run saw (canopi-f47t.52.228.15.1): a workflow, the actionlint config or
       // a composite action a workflow runs is checked by the pinned actionlint.
       name: 'workflows', label: 'CI workflows (`.github/`)',
@@ -444,11 +461,11 @@ export const TABLE: Table = {
     // and the release overlay). A change runs its Vitest project's files in the lane tests (design check AR20), and
     // commit-gate.ts lists a commit changing one of them that is no test.
     policyGate: String.raw`^(?:policy/|\.githooks/|\.github/)`,
-    // The test files the web Vitest project runs (desktop/web/vite.config.ts: Vitest's default include, Playwright's e2e/
-    // and e2e-release/ out): scripts/ and vite.config.test.ts beside src/, and the real-app harness's unit tests beside
+    // The test files the web Vitest project runs (desktop/web/vite.config.ts: Vitest's default include, Playwright's e2e/,
+    // e2e-release/ and e2e-rollback/ out): scripts/ and vite.config.test.ts beside src/, and the real-app harness's unit tests beside
     // their modules in e2e/platform/ (`*.test.*`, never a spec; canopi-f47t.52.228.35). The deletion guard's Vitest pass
     // lists these, and the typecheck covers its TypeScript ones; table.test.ts holds the rule to `vitest list --filesOnly`.
-    webVitestTest: String.raw`^desktop/web/(?:(?!e2e/|e2e-release/)(?:[^/]+/)*[^/]+\.(?:test|spec)|e2e/platform/(?:[^/]+/)*[^/]+\.test)\.[cm]?[jt]sx?$`,
+    webVitestTest: String.raw`^desktop/web/(?:(?!e2e/|e2e-release/|e2e-rollback/)(?:[^/]+/)*[^/]+\.(?:test|spec)|e2e/platform/(?:[^/]+/)*[^/]+\.test)\.[cm]?[jt]sx?$`,
   },
   families: {
     scanner: String.raw`policy-harness|readdirSync|readFileSync\(\s*(?:new URL\(|[\x60'"](?:\./)?src/)`,
@@ -506,8 +523,9 @@ export const TABLE: Table = {
     'engine-floor-probe.yml build': { '*': 'engine-floor-probe' },
     'engine-floor-probe.yml engines': { '*': 'engine-floor-probe' },
     'rollback.yml resolve': { '*': 'rollback' },
-    'rollback.yml reader-build': { '*': 'rollback' },
-    'rollback.yml web-seed': { '*': 'rollback' },
+    'rollback.yml writer': { '*': 'rollback' },
+    'rollback.yml reader-desktop': { '*': 'rollback' },
+    'rollback.yml reader-web': { '*': 'rollback' },
     'macos-signing-probe.yml probe': { '*': 'macos-signing-probe' },
     'macos-signing-probe.yml verdict': { '*': 'macos-signing-probe' },
     'phone-smoke.yml ios': { '*': 'phone-smoke' },
