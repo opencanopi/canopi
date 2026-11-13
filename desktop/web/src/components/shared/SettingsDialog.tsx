@@ -357,14 +357,29 @@ function AboutSection({ updates }: { readonly updates?: ComponentChildren }) {
 /** The launch-check setting's own key row, `updater.check_at_launch`, through the host (2.1-M206). */
 export interface LaunchCheckPort {
   get(): Promise<boolean>
+  /** Resolves once written, or once held for the session under settings a newer Canopi saved; rejects otherwise. */
   set(on: boolean): Promise<void>
 }
 
 /**
+ * The port over the host's row, holding a write the store refuses under settings a newer Canopi saved (2.1-Q320,
+ * M487) until the app closes, so the About tab reads the user's value again when it remounts.
+ */
+export function createLaunchCheckPort(get: () => Promise<boolean>, set: (on: boolean) => Promise<void>): LaunchCheckPort {
+  let session: boolean | null = null
+  return {
+    get: () => (session === null ? get() : Promise.resolve(session)),
+    set: (on) => set(on).then(() => { session = null }, (error: unknown) => {
+      if (readFailureCode(error).kind !== 'store_read_only') throw error
+      session = on
+    }),
+  }
+}
+
+/**
  * "Check for updates at launch" (2.1-Q164): its own key row, on when the row is missing (the host's default), so the
- * settings record is never touched (M206). Shown once read; hidden when the row cannot be read. Under settings a newer
- * Canopi saved the refused write keeps the switch as set, for the session, as the store's notice says (2.1-Q320,
- * M487); any other failed write puts it back.
+ * settings record is never touched (M206). Shown once read; hidden when the row cannot be read. A write the port
+ * holds for the session keeps the switch as set (createLaunchCheckPort, 2.1-Q320); any failed write puts it back.
  */
 export function LaunchCheckSwitch({ port }: { readonly port: LaunchCheckPort }) {
   const [on, setOn] = useState<boolean | null>(null)
@@ -385,9 +400,7 @@ export function LaunchCheckSwitch({ port }: { readonly port: LaunchCheckPort }) 
         checked={on}
         onChange={(next) => {
           setOn(next)
-          port.set(next).catch((error: unknown) => {
-            if (readFailureCode(error).kind !== 'store_read_only') setOn(!next)
-          })
+          port.set(next).catch(() => setOn(!next))
         }}
       />
     </div>

@@ -8,7 +8,7 @@ import { act } from 'preact/test-utils'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { locale } from '../../app/settings/state'
 import { StoreRefusedError } from '../../failures/store-read'
-import { LaunchCheckSwitch } from './SettingsDialog'
+import { createLaunchCheckPort, LaunchCheckSwitch, type LaunchCheckPort } from './SettingsDialog'
 
 let container: HTMLDivElement
 
@@ -23,11 +23,16 @@ afterEach(() => {
   container.remove()
 })
 
-async function toggleWith(refusal: unknown): Promise<boolean> {
-  const port = { get: () => Promise.resolve(true), set: () => Promise.reject(refusal) }
+const refusing = (refusal: unknown) => createLaunchCheckPort(() => Promise.resolve(true), () => Promise.reject(refusal))
+
+async function mount(port: LaunchCheckPort): Promise<HTMLInputElement> {
   await act(async () => { render(<LaunchCheckSwitch port={port} />, container) })
   await act(async () => { await Promise.resolve() })
-  const toggle = container.querySelector<HTMLInputElement>('[data-launch-check] input[role="switch"]')!
+  return container.querySelector<HTMLInputElement>('[data-launch-check] input[role="switch"]')!
+}
+
+async function toggleWith(refusal: unknown, port = refusing(refusal)): Promise<boolean> {
+  const toggle = await mount(port)
   await act(async () => {
     toggle.click()
     await new Promise((resolve) => setTimeout(resolve, 0))
@@ -38,6 +43,13 @@ async function toggleWith(refusal: unknown): Promise<boolean> {
 describe('Check for updates at launch', () => {
   it('R3 canopi-f47t.52.272: under settings a newer Canopi saved, the switch keeps its new state for the session (2.1-Q320)', async () => {
     expect(await toggleWith(new StoreRefusedError('settings'))).toBe(false)
+  })
+
+  it('R3 canopi-f47t.52.272: the session value outlives the About tab, which reads it again when it remounts', async () => {
+    const port = refusing(new StoreRefusedError('settings'))
+    expect(await toggleWith(null, port)).toBe(false)
+    render(null, container)
+    expect((await mount(port)).checked).toBe(false)
   })
 
   it('a write that fails for another reason puts the switch back', async () => {
