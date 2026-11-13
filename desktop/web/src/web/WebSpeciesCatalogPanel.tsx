@@ -27,7 +27,7 @@ import detailStyles from '../components/species-detail/SpeciesDetail.module.css'
 import styles from './WebSpeciesCatalogPanel.module.css'
 import { placeSpeciesOnMap } from '../components/plant-db/place-species'
 import { ButtonTooltip } from '../components/shared/ButtonTooltip'
-import { favoriteLockedReason } from '../components/plant-db/PlantRow'
+import { favoriteLockedReason } from '../components/plant-db/favorite-lock'
 
 interface WebSpeciesCatalogPanelProps {
   readonly mode: 'catalog' | 'favorites'

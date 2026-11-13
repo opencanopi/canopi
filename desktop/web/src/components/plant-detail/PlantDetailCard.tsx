@@ -10,7 +10,7 @@ import {
   togglePlantDetailFavorite,
 } from '../../app/plant-detail';
 import type { SpeciesDetail } from '../../types/species';
-import { favoriteLockedReason } from '../plant-db/PlantRow';
+import { favoriteLockedReason } from '../plant-db/favorite-lock'
 import { DetailTags, FactsGrid, OtherNames } from '../species-detail/FactsGrid';
 import { SpeciesDetailLayout } from '../species-detail/SpeciesDetailLayout';
 import { formatNumber } from '../species-detail/species-facts';

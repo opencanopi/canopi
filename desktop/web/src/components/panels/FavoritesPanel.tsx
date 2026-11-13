@@ -16,7 +16,7 @@ import { parseSavedObjectStampPayload } from '../../canvas/saved-object-stamp-pa
 import type { SavedObjectStamp } from '../../types/saved-object-stamps'
 import type { SpeciesListItem } from '../../types/species'
 import { useFavoriteSpeciesDetailNavigation } from '../plant-db/favorite-species-presentation'
-import { favoriteLockedReason } from '../plant-db/PlantRow'
+import { favoriteLockedReason } from '../plant-db/favorite-lock'
 import { PlantDetailCard } from '../plant-detail/PlantDetailCard'
 import { ButtonTooltip } from '../shared/ButtonTooltip'
 import { usePointerResize } from '../shared/usePointerResize'
