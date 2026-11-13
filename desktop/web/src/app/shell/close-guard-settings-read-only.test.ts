@@ -30,10 +30,11 @@ const { snapToGridEnabled } = await import('../canvas-settings/signals')
 let dispose: () => void = () => undefined
 
 async function installDesktopSettings(saveRejection: string): Promise<void> {
-  mocks.invoke.mockImplementation(async (command: string) => {
-    if (command === 'get_settings') return { ...DEFAULT_SETTINGS, snap_to_grid: false }
-    if (command === 'set_settings') throw saveRejection
-    throw new Error(`unexpected command ${command}`)
+  // Native rejects a String command with bare text, as Tauri hands it on.
+  mocks.invoke.mockImplementation((command: string) => {
+    if (command === 'get_settings') return Promise.resolve({ ...DEFAULT_SETTINGS, snap_to_grid: false })
+    if (command === 'set_settings') return Promise.reject(saveRejection)
+    return Promise.reject(new Error(`unexpected command ${command}`))
   })
   const installation = installSettingsProjection(createDesktopSettingsPlatformAdapter({ getSettings, setSettings }))
   dispose = installation.dispose
