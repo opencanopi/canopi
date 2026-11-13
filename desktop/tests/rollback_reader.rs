@@ -5,7 +5,8 @@
 //! The contract, frozen at the reader release's tag and extended, never broken: the fixture directory holds
 //! `manifest.json` (schema `spec/rollback/manifest.schema.json`, rows `{store, form_version, edition, path}`) and each
 //! row's file at its `path`. The reader lists the Desktop rows whose store it knows, skipping a store literal or a field
-//! a later release added, runs one reader session over them and finds each newer-read-only and no byte changed;
+//! a later release added, runs one reader session over them and finds each newer-read-only with its notice raised and
+//! no byte changed;
 //! `main`'s lane hashes the files itself as well (`node policy/gate/cli.mjs rollback-fixtures`).
 //!
 //! The fixture directory is `CANOPI_ROLLBACK_FIXTURES` when set (the rollback lane's reader jobs, over what the writer
@@ -160,10 +161,19 @@ mod reader {
         out
     }
 
-    /// One reader session over the Desktop forms: opens each store as the app does at launch and reports its health.
-    /// This binary reaches no such seam yet: a public Desktop entry over R2-2's `open_stores(data_dir)`, the Draft list
-    /// and the read-only Design open lands it.
-    fn reader_session(forms: &[(String, PathBuf)]) -> Result<Vec<(String, String)>, String> {
+    /// How one reader session read one store: its open status (`StoreOpenStatus`'s kind) and the key of the notice it
+    /// raised for the store, if any (contracts §11: each form "opens newer-read-only, raises its notice", 2.1-Q319).
+    #[derive(Debug, Clone, PartialEq)]
+    struct StoreRead {
+        store: String,
+        status: String,
+        notice: Option<String>,
+    }
+
+    /// One reader session over the Desktop forms: opens each store as the app does at launch and reports how it read
+    /// each, its notice included. This binary reaches no such seam yet: a public Desktop entry over R2-2's
+    /// `open_stores(data_dir)`, the Draft list and the read-only Design open lands it.
+    fn reader_session(forms: &[(String, PathBuf)]) -> Result<Vec<StoreRead>, String> {
         let _ = forms;
         Err("no public reader-session seam in canopi_desktop".to_string())
     }
@@ -296,32 +306,42 @@ mod reader {
         assert_eq!(
             every_form_read_newer_read_only(&forms, &health),
             Ok(()),
-            "every Desktop form opens newer-read-only"
+            "every Desktop form opens newer-read-only and raises its notice"
         );
 
         assert_eq!(files(&root), before, "the session writes no byte");
     }
 
-    /// Each listed Desktop store has a health entry, and every entry is newer-read-only: a session that skips a store
-    /// writes none of its bytes, so the byte comparison alone would pass it. The newer-read-only notice is checked here
-    /// too once the reader-session seam reports it.
+    /// Each listed Desktop store has a health entry, every entry is newer-read-only, and each raises a notice whose key
+    /// names its store as one `:`-separated segment (as `health:<store>:status:...` does): a session that skips a store
+    /// writes none of its bytes, so the byte comparison alone would pass it, and one that drops or misroutes a notice
+    /// leaves the user unaware the store is read-only.
     fn every_form_read_newer_read_only(
         forms: &[(String, PathBuf)],
-        health: &[(String, String)],
+        health: &[StoreRead],
     ) -> Result<(), String> {
         if let Some((store, _)) = forms
             .iter()
-            .find(|(store, _)| !health.iter().any(|(read, _)| read == store))
+            .find(|(store, _)| !health.iter().any(|read| &read.store == store))
         {
             return Err(format!("the session reports no health for {store}"));
         }
-        match health
-            .iter()
-            .find(|(_, status)| status != "newer_read_only")
-        {
-            Some((store, status)) => Err(format!("{store} opens {status}, not newer_read_only")),
-            None => Ok(()),
+        for read in health {
+            if read.status != "newer_read_only" {
+                return Err(format!(
+                    "{} opens {}, not newer_read_only",
+                    read.store, read.status
+                ));
+            }
+            match &read.notice {
+                None => return Err(format!("{} raises no newer-read-only notice", read.store)),
+                Some(key) if !key.split(':').any(|segment| segment == read.store) => {
+                    return Err(format!("{}'s notice {key} names another store", read.store));
+                }
+                Some(_) => {}
+            }
         }
+        Ok(())
     }
 
     #[test]
@@ -330,15 +350,20 @@ mod reader {
             .iter()
             .map(|store| (store.to_string(), PathBuf::from(format!("{store}.bin"))))
             .collect();
-        let read = |stores: &[&str]| -> Vec<(String, String)> {
+        let read = |stores: &[&str]| -> Vec<StoreRead> {
             stores
                 .iter()
-                .map(|store| (store.to_string(), "newer_read_only".to_string()))
+                .map(|store| StoreRead {
+                    store: store.to_string(),
+                    status: "newer_read_only".to_string(),
+                    notice: Some(format!(
+                        "health:{store}:status:{{\"kind\":\"newer_read_only\"}}"
+                    )),
+                })
                 .collect()
         };
-        let fails = |health: Vec<(String, String)>| {
-            every_form_read_newer_read_only(&forms, &health).is_err()
-        };
+        let fails =
+            |health: Vec<StoreRead>| every_form_read_newer_read_only(&forms, &health).is_err();
         assert!(
             !fails(read(&DESKTOP_STORES)),
             "every store read newer-read-only passes"
@@ -349,8 +374,20 @@ mod reader {
             "a session that never opens the catalogue or the Draft fails"
         );
         let mut ready = read(&DESKTOP_STORES);
-        ready[0].1 = "ready".to_string();
+        ready[0].status = "ready".to_string();
         assert!(fails(ready), "a store opened read-write fails");
+        let mut silent = read(&DESKTOP_STORES);
+        silent[2].notice = None;
+        assert!(
+            fails(silent),
+            "a store read newer-read-only with no notice fails"
+        );
+        let mut misrouted = read(&DESKTOP_STORES);
+        misrouted[3].notice = Some("health:user_db:status:newer_read_only".to_string());
+        assert!(
+            fails(misrouted),
+            "a store whose notice names another store fails"
+        );
     }
 
     #[test]
