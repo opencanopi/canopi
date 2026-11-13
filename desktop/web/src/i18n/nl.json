@@ -642,7 +642,6 @@
         "deleteEverywhere": "Overal verwijderen",
         "renameEllipsis": "Hernoemen…",
         "recovered": "Canopi heeft zijn Databibliotheek opnieuw opgebouwd uit de bestanden die het bewaart. Items die als mislukt zijn gemarkeerd, kun je opnieuw voorbereiden met Opnieuw proberen.",
-        "refusedNewer": "De Databibliotheek is opgeslagen door een nieuwere versie van Canopi. Installeer de nieuwste Canopi om hem te gebruiken; deze versie wijzigt hem niet.",
         "unavailable": "De Databibliotheek kon niet worden geopend. Importeren en wijzigen zijn uitgeschakeld totdat Canopi opnieuw start.",
         "sortLabel": "Sorteren",
         "sortRecent": "Recent toegevoegd",
@@ -2254,7 +2253,6 @@
     "fileTooLarge": "Dit bestand is groter dan Canopi toestaat. Kies een kleiner bestand.",
     "fileError": "Canopi kon het bestand niet lezen of schrijven. Probeer het opnieuw.",
     "plantCatalogUnavailable": "De plantencatalogus kon niet worden geopend. Start Canopi opnieuw en installeer het opnieuw als het probleem blijft.",
-    "libraryNewer": "Deze Databibliotheek is opgeslagen door een nieuwere Canopi. Werk Canopi bij om haar te wijzigen.",
     "libraryUnavailable": "De Databibliotheek kon niet worden geopend, dus wijzigingen worden deze sessie niet opgeslagen. Start Canopi opnieuw en probeer het opnieuw.",
     "formatCoreUnavailable": "Canopi kon het onderdeel dat ontwerpen opent niet laden. Probeer het opnieuw en meld een probleem als dit blijft gebeuren.",
     "formatCoreTrapped": "Canopi stopte tijdens het lezen van dit ontwerp. Probeer het opnieuw en meld een probleem als dit blijft gebeuren."

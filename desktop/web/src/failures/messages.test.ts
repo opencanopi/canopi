@@ -11,7 +11,7 @@ type CodeOf<K extends Kind> = Extract<FailureCode, { kind: K }>
 const keysOf = <T extends string>(table: Record<T, true>) => Object.keys(table) as T[]
 const LANES = keysOf<Lane>({ catalog: true, user_data: true, library: true, local: true, network: true })
 const CAUSES = keysOf<PlantCatalogCause>({ missing: true, open_failed: true })
-const REASONS = keysOf<LibraryReadOnlyReason>({ refused_newer: true, unavailable: true })
+const REASONS = keysOf<LibraryReadOnlyReason>({ unavailable: true })
 const IO = keysOf<IoFailureKind>({ not_found: true, permission_denied: true, read_only: true, no_space: true, too_large: true, other: true })
 const NETWORK = keysOf<NetworkFailureKind>({ timeout: true, offline: true, status: true, host_not_allowed: true, too_large: true })
 const STORES = keysOf<StoreId>({

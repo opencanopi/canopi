@@ -642,7 +642,6 @@
         "deleteEverywhere": "Eliminar en todas partes",
         "renameEllipsis": "Renombrar…",
         "recovered": "Canopi reconstruyó su Biblioteca de datos a partir de los archivos que conserva. Los elementos marcados como fallidos se pueden preparar de nuevo con Reintentar.",
-        "refusedNewer": "La Biblioteca de datos fue guardada por una versión más reciente de Canopi. Instala la última versión de Canopi para usarla; esta versión no la modificará.",
         "unavailable": "No se pudo abrir la Biblioteca de datos. Las importaciones y los cambios están desactivados hasta que Canopi se reinicie.",
         "sortLabel": "Ordenar",
         "sortRecent": "Añadidos recientemente",
@@ -2254,7 +2253,6 @@
     "fileTooLarge": "Este archivo supera el tamaño que permite Canopi. Elige un archivo más pequeño.",
     "fileError": "Canopi no pudo leer ni escribir el archivo. Vuelve a intentarlo.",
     "plantCatalogUnavailable": "No se pudo abrir el catálogo de plantas. Reinicia Canopi y reinstálalo si el problema continúa.",
-    "libraryNewer": "Esta biblioteca de datos se guardó con una versión más reciente de Canopi. Actualiza Canopi para modificarla.",
     "libraryUnavailable": "No se pudo abrir la biblioteca de datos, así que los cambios no se guardarán en esta sesión. Reinicia Canopi y vuelve a intentarlo.",
     "formatCoreUnavailable": "Canopi no pudo cargar la parte que abre los diseños. Inténtalo de nuevo e informa de un problema si sigue ocurriendo.",
     "formatCoreTrapped": "Canopi se detuvo al leer este diseño. Inténtalo de nuevo e informa de un problema si sigue ocurriendo."

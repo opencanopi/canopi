@@ -642,7 +642,6 @@
         "deleteEverywhere": "Elimina ovunque",
         "renameEllipsis": "Rinomina…",
         "recovered": "Canopi ha ricostruito la Libreria dati dai file che conserva. Gli elementi contrassegnati come non riusciti possono essere preparati di nuovo con Riprova.",
-        "refusedNewer": "La Libreria dati è stata salvata da una versione più recente di Canopi. Installa l'ultima versione di Canopi per usarla; questa versione non la modificherà.",
         "unavailable": "Impossibile aprire la Libreria dati. Importazioni e modifiche sono disattivate finché Canopi non viene riavviato.",
         "sortLabel": "Ordina",
         "sortRecent": "Aggiunti di recente",
@@ -2254,7 +2253,6 @@
     "fileTooLarge": "Questo file supera le dimensioni consentite da Canopi. Scegli un file più piccolo.",
     "fileError": "Canopi non è riuscito a leggere o scrivere il file. Riprova.",
     "plantCatalogUnavailable": "Impossibile aprire il catalogo delle piante. Riavvia Canopi e reinstallalo se il problema persiste.",
-    "libraryNewer": "Questa libreria dati è stata salvata da una versione più recente di Canopi. Aggiorna Canopi per modificarla.",
     "libraryUnavailable": "Impossibile aprire la libreria dati, quindi le modifiche non verranno salvate in questa sessione. Riavvia Canopi e riprova.",
     "formatCoreUnavailable": "Canopi non è riuscito a caricare la parte che apre i progetti. Riprova e segnala un problema se continua a succedere.",
     "formatCoreTrapped": "Canopi si è interrotto durante la lettura di questo progetto. Riprova e segnala un problema se continua a succedere."
