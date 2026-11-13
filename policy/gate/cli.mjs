@@ -17,6 +17,7 @@
 //                                                             a scratch-only one a ref under scratch/ (verify-push.ts)
 //   node policy/gate/cli.mjs actionlint                       the pinned actionlint over .github/workflows
 //   node policy/gate/cli.mjs oldest-engine                    both builds' chunks parsed by Debian 12's JavaScriptCore
+//                                                             and by the engine floor's WebKit (ENGINE_FLOOR)
 //   node policy/gate/cli.mjs cov                              cargo llvm-cov with policy/ratchets/coverage.json's floors
 //   node policy/gate/cli.mjs gate-cov                         the policy-gate Vitest project's coverage, its child CLIs
 //                                                             included, held to policy/ratchets/coverage.json's floors
