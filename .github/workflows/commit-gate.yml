@@ -5,7 +5,7 @@ name: Commit gate
 # diff rules, the PR body's attribution, and the `vitest list` titles base against head, so a commit made with
 # --no-verify or a bypassed hook fails here. A push to main runs `commit-gate tree`: each first-parent commit names its
 # PR, so a direct push shows red. Both events also run the closed-bead check; a PR also the expected-fail marker check
-# (2.1-Q328), which a push to scratch/ may skip. The job name is the ruleset's required check (2.1-Q222). The gate's own
+# (2.1-Q328), since a push to scratch/ runs no local lane (2.1-Q329). The job name is the ruleset's required check (2.1-Q222). The gate's own
 # tests run in Build & Test's policy-gate Vitest project, not here.
 on:
   pull_request:
@@ -50,8 +50,8 @@ jobs:
           HEAD: ${{ github.event.pull_request.head.sha }}
           PR_BODY: ${{ github.event.pull_request.body }}
         run: node policy/gate/cli.mjs commit-gate pr "$BASE" "$HEAD" --body-env PR_BODY --vitest
-      # A push to scratch/ may carry a stamp despite expected-fail markers added since its base (2.1-Q328): a PR is where
-      # they are refused, so no such branch merges a new marker. The check reads origin/main, as the pre-push lane does, so
+      # A push to scratch/ runs no local lane (2.1-Q329), so it may hold expected-fail markers added since its base: a PR
+      # is where they are refused, so no such branch merges a new marker. The check reads origin/main, as the pre-push lane does, so
       # a PR into another branch (release/2.0) is judged against main's markers too, a limit accepted for now.
       - name: No expected-fail marker added by the PR
         if: github.event_name == 'pull_request'

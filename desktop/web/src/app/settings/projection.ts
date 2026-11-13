@@ -73,6 +73,8 @@ interface ActiveSettingsProjection {
   draining: boolean
   retryBlocked: boolean
   persistenceError: unknown | null
+  /** A save refused as `store_read_only`: changes apply for the session, never written, logged or asked (2.1-Q320). */
+  writesRefused: boolean
   pendingHydrationPatch: Partial<Settings>
   pendingHydrationPersistence: boolean
   readonly fallback: Settings
@@ -353,6 +355,10 @@ async function drainPersistence(projection: ActiveSettingsProjection): Promise<v
       await projection.adapter.save(next)
     } catch (error) {
       projection.saving = null
+      if (readFailureCode(error).kind === 'store_read_only') {
+        projection.writesRefused = true
+        return
+      }
       if (!projection.requested) projection.requested = next
       projection.retryBlocked = true
       projection.persistenceError = error
@@ -373,6 +379,7 @@ function ensurePersistenceDrain(projection: ActiveSettingsProjection): void {
   if (
     projection.disposed
     || projection.retryBlocked
+    || projection.writesRefused
     || projection.draining
     || !projection.requested
   ) return
@@ -384,9 +391,7 @@ function ensurePersistenceDrain(projection: ActiveSettingsProjection): void {
     if (projection.drainPromise !== drainPromise) return
     projection.drainPromise = null
     projection.draining = false
-    if (projection.requested && !projection.retryBlocked) {
-      ensurePersistenceDrain(projection)
-    }
+    ensurePersistenceDrain(projection)
   }
   void drainPromise.then(finishDrain, finishDrain)
 }
@@ -396,7 +401,7 @@ function admitPersistenceSnapshot(
   settings: Settings,
 ): void {
   // A record that could not be read is never written over (SET-05, 2.1-Q67): only a read record admits a write.
-  if (projection.disposed || projection.retiring || !projection.durable) return
+  if (projection.disposed || projection.retiring || !projection.durable || projection.writesRefused) return
   projection.retryBlocked = false
   projection.persistenceError = null
 
@@ -414,14 +419,7 @@ function admitPersistenceSnapshot(
 }
 
 async function waitForPersistence(projection: ActiveSettingsProjection): Promise<void> {
-  while (projection.draining) {
-    const drainPromise = projection.drainPromise
-    if (drainPromise) {
-      await drainPromise
-    } else {
-      await Promise.resolve()
-    }
-  }
+  while (projection.draining) await (projection.drainPromise ?? Promise.resolve())
 
   if (projection.retryBlocked) {
     throw projection.persistenceError ?? new Error('Failed to persist settings')
@@ -654,6 +652,7 @@ export function installSettingsProjection(
     draining: false,
     retryBlocked: false,
     persistenceError: null,
+    writesRefused: false,
     pendingHydrationPatch: { ...inheritedIntent?.patch },
     pendingHydrationPersistence: inheritedIntent?.persist ?? false,
     fallback,
@@ -754,6 +753,7 @@ export async function flushSettingsProjection(): Promise<void> {
       throw error
     }
     if (activeSettingsProjection !== projection) continue
+    if (projection.writesRefused) return
     const latest = currentSettingsSnapshot()
     if (
       projection.queuedPersistTimer !== null

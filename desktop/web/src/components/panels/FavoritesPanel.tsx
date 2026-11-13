@@ -8,7 +8,7 @@ import {
   savedStampsFrameHeight,
 } from '../../app/settings/state'
 import { speciesCatalogWorkbench } from '../../app/plant-browser'
-import { savedObjectStampWorkbench } from '../../app/saved-object-stamps'
+import { savedObjectStampIdsNeedsNewerLast, savedObjectStampRowState, savedObjectStampWorkbench } from '../../app/saved-object-stamps'
 import {
   createSavedObjectStampThumbnailSignature,
   SAVED_OBJECT_STAMP_THUMBNAIL_HEIGHT,
@@ -22,10 +22,7 @@ import {
   clearSavedObjectStampDragSource,
   writeSavedObjectStampDragData,
 } from '../../canvas/saved-object-stamp-source'
-import {
-  isSavedObjectStampPayloadFromBefore2_0,
-  parseSavedObjectStampPayload,
-} from '../../canvas/saved-object-stamp-payload'
+import { parseSavedObjectStampPayload } from '../../canvas/saved-object-stamp-payload'
 import type { SavedObjectStamp } from '../../types/saved-object-stamps'
 import type { SpeciesListItem } from '../../types/species'
 import { useFavoriteSpeciesDetailNavigation } from '../plant-db/favorite-species-presentation'
@@ -262,10 +259,10 @@ export function FavoritesPanel() {
     const direction = savedStampReorderDirectionForPointer(session, event.clientY)
     session.direction = direction
     session.lastClientY = event.clientY
-    session.latestIds = mergeVisibleStampOrder(
+    session.latestIds = savedObjectStampIdsNeedsNewerLast(mergeVisibleStampOrder(
       session.baseIds,
       reorderSavedStampIdsForPointer(session.sourceId, event.clientY, direction),
-    )
+    ), savedStampItemsRef.current)
     setSavedStampReorderPreviewIds((current) => sameIdOrder(current, session.latestIds) ? current : session.latestIds)
   }
 
@@ -789,8 +786,11 @@ function SavedObjectStampRow({
   const rowRef = useRef<HTMLDivElement>(null)
   // Set when the user opens or cancels the Delete confirmation, whose buttons replace the one that had focus.
   const deleteConfirmToggledRef = useRef(false)
-  // Canopi 2.0 cannot place, drag, export or convert a stamp saved before 2.0 (ADR 0021): it offers only Delete.
-  const before2_0 = useMemo(() => isSavedObjectStampPayloadFromBefore2_0(stamp.payload_json), [stamp.payload_json])
+  // Saved before 2.0: Delete only (ADR 0021); saved by a newer Canopi: no place, drag, reorder, rename or delete (2.1-M88).
+  const rowState = useMemo(() => savedObjectStampRowState({ payload_json: stamp.payload_json, needs_newer: stamp.needs_newer }), [stamp.payload_json, stamp.needs_newer])
+  const before2_0 = rowState === 'before-2-0'
+  const needsNewer = rowState === 'needs-newer'
+  const placeable = rowState === 'ready'
   const summaryId = useId()
   const deleteCopyId = useId()
 
@@ -873,7 +873,7 @@ function SavedObjectStampRow({
 
   function handleStampDragStart(event: DragEvent): void {
     const target = event.target
-    if (before2_0 || (target instanceof HTMLElement && target.closest('button, input'))) {
+    if (!placeable || (target instanceof HTMLElement && target.closest('button, input'))) {
       event.preventDefault()
       return
     }
@@ -899,11 +899,13 @@ function SavedObjectStampRow({
         aria-label={t('savedObjectStamps.reorderNamed', { name: stamp.name })}
         aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown"
         data-saved-stamp-grip
-        onPointerDown={(event) => onReorderBegin(stamp.id, event)}
+        disabled={needsNewer}
+        onPointerDown={(event) => { if (!needsNewer) onReorderBegin(stamp.id, event) }}
         onKeyDown={event => {
-          if (!event.altKey || (event.key !== 'ArrowUp' && event.key !== 'ArrowDown')) return
+          if (needsNewer || !event.altKey || (event.key !== 'ArrowUp' && event.key !== 'ArrowDown')) return
           event.preventDefault()
-          const ids = savedObjectStampWorkbench.library.value.items.map(item => item.id)
+          // Over the stamps this Canopi reads, listed first: one a newer Canopi saved is never stepped past.
+          const ids = savedObjectStampWorkbench.library.value.items.filter(item => item.needs_newer !== true).map(item => item.id)
           const index = ids.indexOf(stamp.id)
           const target = index + (event.key === 'ArrowUp' ? -1 : 1)
           if (index < 0 || target < 0 || target >= ids.length) return
@@ -916,17 +918,17 @@ function SavedObjectStampRow({
       <div
         className={styles.savedStampContent}
         data-saved-stamp-body={stamp.id}
-        draggable={!before2_0 && !isRenaming && !confirmingDelete}
+        draggable={placeable && !isRenaming && !confirmingDelete}
         onDragStart={handleStampDragStart}
         onDragEnd={handleStampDragEnd}
-        tabIndex={before2_0 ? undefined : confirmingDelete ? -1 : 0}
+        tabIndex={!placeable ? undefined : confirmingDelete ? -1 : 0}
         onPointerEnter={(event) => {
-          if (before2_0 || isRenaming || confirmingDelete) return
+          if (!placeable || isRenaming || confirmingDelete) return
           onPreviewSchedule(stamp, event.currentTarget as HTMLElement)
         }}
         onPointerLeave={onPreviewClear}
         onFocusIn={(event) => {
-          if (before2_0 || isRenaming || confirmingDelete) return
+          if (!placeable || isRenaming || confirmingDelete) return
           onPreviewRequest(stamp, event.currentTarget as HTMLElement)
         }}
         onFocusOut={onPreviewClear}
@@ -965,9 +967,9 @@ function SavedObjectStampRow({
         ) : (
           <span className={styles.savedStampName}>{stamp.name}</span>
         )}
-        {!confirmingDelete && (before2_0
-          ? <span id={summaryId} className={`${styles.savedStampSummary} ${styles.savedStampSummaryBefore2_0}`}>{t('savedObjectStamps.summaryBefore2_0')}</span>
-          : <span className={styles.savedStampSummary}>{savedStampSummary(stamp)}</span>)}
+        {!confirmingDelete && (placeable
+          ? <span className={styles.savedStampSummary}>{savedStampSummary(stamp)}</span>
+          : <span id={summaryId} className={`${styles.savedStampSummary} ${styles.savedStampSummaryBefore2_0}`}>{t(needsNewer ? 'favorites.needsNewerStamp' : 'savedObjectStamps.summaryBefore2_0')}</span>)}
       </div>
       <div ref={actionsRef} className={styles.savedStampActions}>
         {confirmingDelete ? (
@@ -992,7 +994,7 @@ function SavedObjectStampRow({
               {t('savedObjectStamps.cancelDelete')}
             </button>
           </>
-        ) : before2_0 ? (
+        ) : needsNewer ? null : before2_0 ? (
           <button
             type="button"
             className={styles.savedStampSecondaryButton}

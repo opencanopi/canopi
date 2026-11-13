@@ -1,8 +1,8 @@
-import { existsSync, readFileSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 import { git, PlantedRepo, REPO_ROOT } from './planted-repo.ts'
-import { addedMarkers, MARKERS_RECORD } from './prepush-checks.ts'
+import { addedMarkers } from './prepush-checks.ts'
 
 const repo = new PlantedRepo()
 afterAll(() => repo.cleanup())
@@ -62,27 +62,10 @@ describe('the pre-push lane\'s expected-fail marker check (canopi-f47t.52.228.54
     expect(green.status).toBe(0)
   })
 
-  it('2.1-Q328: a planted marker check fails on an added marker even under a push lane\'s marker record, and writes none', () => {
-    commit(register([]))
-    const base = git(repo.repo, 'rev-parse', 'HEAD')
-    commit({ 'desktop/web/src/app/new.test.ts': "it.fails('red', () => {})\n" })
-    const record = join(repo.root, 'outer-record.json')
-    process.env[MARKERS_RECORD] = record
-    try {
-      const run = repo.gate(['prepush-checks', '--base', base])
-      expect(run.status).toBe(1)
-      expect(run.stdout).toContain('FAIL expected-fail markers added since the base')
-      expect(existsSync(record)).toBe(false)
-    } finally {
-      delete process.env[MARKERS_RECORD]
-    }
-  })
-
-  it('2.1-Q328: CI refuses a PR whose head adds an expected-fail marker, so a scratch-only stamp never reaches main', () => {
+  it('2.1-Q329: CI refuses a PR whose head adds an expected-fail marker, so a scratch/ push the hook let through unstamped never merges one', () => {
     const step = readFileSync(join(REPO_ROOT, '.github/workflows/commit-gate.yml'), 'utf8').split('      - name: No expected-fail marker added by the PR\n')[1]?.split('\n      - ')[0] ?? ''
     expect(step).toContain("if: github.event_name == 'pull_request'")
     expect(step).toContain('run: node policy/gate/cli.mjs check prepush-checks')
-    expect(step).not.toContain('CANOPI_GATE_MARKERS_RECORD')
     // The step's command, through the real entry, in a planted repository whose origin/main is the PR's base.
     const planted = new PlantedRepo()
     try {

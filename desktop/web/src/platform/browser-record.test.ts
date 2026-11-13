@@ -3,16 +3,7 @@
 // written, moved aside or removed, whatever they hold.
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-import {
-  SETTINGS_RECORD_KEY,
-  SETTINGS_RECORD_VERSION,
-  SPECIES_LIST_CAP,
-  SPECIES_LIST_RECORD_KEY,
-  SPECIES_LIST_RECORD_VERSION,
-  readSettingsRecord,
-  readSpeciesListRecord,
-  type BrowserStorage,
-} from './browser-record'
+import { readSettingsRecord, readSpeciesListRecord, type BrowserStorage } from './browser-record'
 
 interface FrozenRecord {
   readonly key: string
@@ -39,19 +30,13 @@ function storage(entries: Record<string, string>): BrowserStorage & { readonly w
 }
 
 describe('browser records: the 2.1 settings and species-list records, read only', () => {
-  it('names the frozen keys and record versions that 2b, 2e and N2 import', () => {
-    expect([SETTINGS_RECORD_KEY, SETTINGS_RECORD_VERSION]).toEqual([SETTINGS.key, SETTINGS.record.version])
-    expect([SPECIES_LIST_RECORD_KEY, SPECIES_LIST_RECORD_VERSION]).toEqual([SPECIES.key, SPECIES.record.version])
-    expect(SPECIES_LIST_CAP).toBe(50)
-  })
-
-  it('reads the frozen settings record with every field, known or not, and writes nothing', () => {
+  it('reads the frozen settings record under its frozen key and version with every field, known or not, and writes nothing', () => {
     const store = storage({ [SETTINGS.key]: JSON.stringify(SETTINGS.record) })
     expect(readSettingsRecord(store)).toEqual({ state: 'current', record: SETTINGS.record })
     expect(store.writes).toEqual([])
   })
 
-  it('reads the frozen species-list record and writes nothing', () => {
+  it('reads the frozen species-list record under its frozen key and version and writes nothing', () => {
     const store = storage({ [SPECIES.key]: JSON.stringify(SPECIES.record) })
     expect(readSpeciesListRecord(store)).toEqual({ state: 'current', record: SPECIES.record })
     expect(store.writes).toEqual([])

@@ -13,3 +13,9 @@ if (import.meta.hot) {
     liveSavedObjectStampWorkbench.dispose()
   })
 }
+
+export {
+  isSavedObjectStampPayloadFromBefore2_0,
+  savedObjectStampIdsNeedsNewerLast,
+  savedObjectStampRowState,
+} from './row-state'

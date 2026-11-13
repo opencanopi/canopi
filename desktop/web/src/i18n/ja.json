@@ -642,14 +642,19 @@
         "deleteEverywhere": "すべてから削除",
         "renameEllipsis": "名前を変更…",
         "recovered": "Canopi は保持しているファイルからデータライブラリを再構築しました。失敗と表示された項目は「再試行」で再度準備できます。",
-        "refusedNewer": "データライブラリは新しいバージョンの Canopi で保存されています。使用するには最新の Canopi をインストールしてください。このバージョンはデータライブラリを変更しません。",
         "unavailable": "データライブラリを開けませんでした。Canopi を再起動するまでインポートと変更は無効です。",
         "sortLabel": "並べ替え",
         "sortRecent": "最近追加した順",
         "factAdded": "追加日",
         "deletedItem": "削除された項目",
         "importNeedsDesign": "データをインポートするにはデザインを開いてください",
-        "importCancelled": "インポートをキャンセルしました"
+        "importCancelled": "インポートをキャンセルしました",
+        "needsNewerNote": "この項目を使用するには Canopi を更新してください。",
+        "newerKind": {
+          "raster": "ラスターデータ",
+          "unknown": "この Canopi が認識できない種類のデータ",
+          "vector": "ベクターデータ"
+        }
       },
       "layers": {
         "emptyTitle": "敷地データはまだありません",
@@ -1334,7 +1339,8 @@
     "searchAll": "お気に入りとスタンプを検索",
     "remove": "{{name}}をお気に入りから削除",
     "detailsFor": "詳細：",
-    "place": "{{name}}を配置"
+    "place": "{{name}}を配置",
+    "needsNewerStamp": "新しいバージョンの Canopi で保存されています。配置するには Canopi を更新してください。"
   },
   "savedObjectStamps": {
     "title": "保存済みスタンプ",
@@ -2247,7 +2253,6 @@
     "fileTooLarge": "このファイルは Canopi の上限を超えています。小さいファイルを選んでください。",
     "fileError": "Canopi はファイルを読み書きできませんでした。もう一度お試しください。",
     "plantCatalogUnavailable": "植物カタログを開けませんでした。Canopi を再起動し、続く場合は再インストールしてください。",
-    "libraryNewer": "このデータライブラリは新しいバージョンの Canopi で保存されています。変更するには Canopi を更新してください。",
     "libraryUnavailable": "データライブラリを開けなかったため、このセッションの変更は保存されません。Canopi を再起動して、もう一度お試しください。",
     "formatCoreUnavailable": "Canopi はデザインを開く部分を読み込めませんでした。もう一度お試しください。繰り返し起きる場合は問題を報告してください。",
     "formatCoreTrapped": "Canopi はこのデザインの読み込み中に停止しました。もう一度お試しください。繰り返し起きる場合は問題を報告してください。"

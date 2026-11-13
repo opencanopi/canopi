@@ -642,14 +642,19 @@
         "deleteEverywhere": "Delete everywhere",
         "renameEllipsis": "Rename…",
         "recovered": "Canopi rebuilt its Data library from the files it keeps. Items marked failed can be prepared again with Retry.",
-        "refusedNewer": "The Data library was saved by a newer version of Canopi. Install the latest Canopi to use it; this version will not change it.",
         "unavailable": "The Data library could not be opened. Imports and changes are off until Canopi restarts.",
         "sortLabel": "Sort",
         "sortRecent": "Recently added",
         "factAdded": "Added",
         "deletedItem": "Deleted item",
         "importNeedsDesign": "Open a Design to import data",
-        "importCancelled": "Import cancelled"
+        "importCancelled": "Import cancelled",
+        "needsNewerNote": "Update Canopi to use this item.",
+        "newerKind": {
+          "raster": "Raster data",
+          "unknown": "Data of a type this Canopi doesn’t know",
+          "vector": "Vector data"
+        }
       },
       "layers": {
         "emptyTitle": "No site data yet",
@@ -1334,7 +1339,8 @@
     "searchAll": "Search favorites and stamps",
     "remove": "Remove {{name}} from favorites",
     "detailsFor": "Details for",
-    "place": "Place {{name}}"
+    "place": "Place {{name}}",
+    "needsNewerStamp": "Saved with a newer Canopi; update Canopi to place it."
   },
   "savedObjectStamps": {
     "title": "Saved stamps",
@@ -2247,7 +2253,6 @@
     "fileTooLarge": "This file is larger than Canopi allows. Choose a smaller file.",
     "fileError": "Canopi couldn’t read or write the file. Try again.",
     "plantCatalogUnavailable": "The plant catalog couldn’t be opened. Restart Canopi, and reinstall it if this keeps happening.",
-    "libraryNewer": "This Data library was saved by a newer Canopi. Update Canopi to change it.",
     "libraryUnavailable": "The Data library couldn’t be opened, so changes won’t be saved this session. Restart Canopi and try again.",
     "formatCoreUnavailable": "Canopi couldn’t load the part that opens Designs. Try again, and report a problem if this keeps happening.",
     "formatCoreTrapped": "Canopi stopped while reading this Design. Try again, and report a problem if this keeps happening."

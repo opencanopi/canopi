@@ -80,8 +80,9 @@ describe('one library status', () => {
     // The one status the rows read is the model's: a library that did not open marks its rows unopened.
     applyHealthSnapshot({ library_catalogue: { status: { kind: 'unavailable', code: { kind: 'library_read_only', reason: 'unavailable' } }, notice: null } })
     expect(readCurrentLidarPresentation()[0]?.availability).toBe('library-unopened')
-    applyHealthSnapshot({ library_catalogue: { status: { kind: 'refused_newer' }, notice: null } })
-    expect(readCurrentLidarPresentation()[0]?.availability).toBe('needs-newer-canopi')
+    // A newer catalogue opens read-only and lists its items: before its list arrives, its rows are loading, not unopened.
+    applyHealthSnapshot({ library_catalogue: { status: { kind: 'newer_read_only' }, notice: null } })
+    expect(readCurrentLidarPresentation()[0]?.availability).toBe('loading')
   })
 
   it('[canopi-f47t.52.142] a list that fails while health is ready keeps its last rows, marked stale, with one notice, and polling continues (2.1-Q297)', async () => {

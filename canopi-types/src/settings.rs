@@ -518,8 +518,10 @@ mod tests {
     }
 
     /// Settings are read strictly: an invalid value refuses the whole record,
-    /// and the Desktop settings service replaces a refused record with
-    /// defaults. No field quietly rewrites a value it does not understand.
+    /// and the Desktop settings service replaces a refused record 1 with
+    /// defaults. No field quietly rewrites a value it does not understand. A
+    /// newer Canopi's record 2 is decoded one field at a time by that service
+    /// and never written (2.1-M480).
     #[test]
     fn invalid_setting_values_are_refused() {
         for invalid in [

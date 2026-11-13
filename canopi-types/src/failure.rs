@@ -217,7 +217,7 @@ catalogue! {
     DialogAlreadyOpen => "dialog_already_open", Host, retry: false, silent: true, Info;
     PlantDbUnavailable { cause: PlantCatalogCause::Missing } => "plant_db_unavailable",
         NativeService, retry: false, silent: false, Warn;
-    LibraryReadOnly { reason: LibraryReadOnlyReason::RefusedNewer } => "library_read_only",
+    LibraryReadOnly { reason: LibraryReadOnlyReason::Unavailable } => "library_read_only",
         NativeService, retry: false, silent: false, Warn;
     Io { io: IoFailureKind::NoSpace } => "io", NativeService, retry: true, silent: false, Warn;
     Network { network: NetworkFailureKind::Offline } => "network",
@@ -367,8 +367,6 @@ pub enum PlantCatalogCause {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
 #[serde(rename_all = "snake_case")]
 pub enum LibraryReadOnlyReason {
-    /// The catalogue was written by a newer Canopi and is left untouched.
-    RefusedNewer,
     /// The catalogue could be neither opened nor rebuilt.
     Unavailable,
 }

@@ -642,14 +642,19 @@
         "deleteEverywhere": "Überall löschen",
         "renameEllipsis": "Umbenennen…",
         "recovered": "Canopi hat seine Datenbibliothek aus den Dateien wiederhergestellt, die es aufbewahrt. Als fehlgeschlagen markierte Elemente können mit „Erneut versuchen“ neu vorbereitet werden.",
-        "refusedNewer": "Die Datenbibliothek wurde von einer neueren Version von Canopi gespeichert. Installieren Sie das neueste Canopi, um sie zu verwenden; diese Version wird sie nicht ändern.",
         "unavailable": "Die Datenbibliothek konnte nicht geöffnet werden. Importe und Änderungen sind bis zum Neustart von Canopi deaktiviert.",
         "sortLabel": "Sortieren",
         "sortRecent": "Zuletzt hinzugefügt",
         "factAdded": "Hinzugefügt",
         "deletedItem": "Gelöschtes Element",
         "importNeedsDesign": "Öffnen Sie ein Design, um Daten zu importieren",
-        "importCancelled": "Import abgebrochen"
+        "importCancelled": "Import abgebrochen",
+        "needsNewerNote": "Aktualisieren Sie Canopi, um dieses Element zu verwenden.",
+        "newerKind": {
+          "raster": "Rasterdaten",
+          "unknown": "Daten eines Typs, den dieses Canopi nicht kennt",
+          "vector": "Vektordaten"
+        }
       },
       "layers": {
         "emptyTitle": "Noch keine Standortdaten",
@@ -1334,7 +1339,8 @@
     "searchAll": "Favoriten und Stempel durchsuchen",
     "remove": "{{name}} aus den Favoriten entfernen",
     "detailsFor": "Details zu",
-    "place": "{{name}} setzen"
+    "place": "{{name}} setzen",
+    "needsNewerStamp": "Mit einer neueren Canopi-Version gespeichert; aktualisieren Sie Canopi, um ihn zu setzen."
   },
   "savedObjectStamps": {
     "title": "Gespeicherte Stempel",
@@ -2247,7 +2253,6 @@
     "fileTooLarge": "Diese Datei ist größer, als Canopi erlaubt. Wählen Sie eine kleinere Datei.",
     "fileError": "Canopi konnte die Datei nicht lesen oder schreiben. Versuchen Sie es erneut.",
     "plantCatalogUnavailable": "Der Pflanzenkatalog konnte nicht geöffnet werden. Starten Sie Canopi neu und installieren Sie es erneut, wenn das Problem bleibt.",
-    "libraryNewer": "Diese Datenbibliothek wurde von einer neueren Canopi-Version gespeichert. Aktualisieren Sie Canopi, um sie zu ändern.",
     "libraryUnavailable": "Die Datenbibliothek konnte nicht geöffnet werden, daher werden Änderungen in dieser Sitzung nicht gespeichert. Starten Sie Canopi neu und versuchen Sie es erneut.",
     "formatCoreUnavailable": "Canopi konnte den Teil, der Designs öffnet, nicht laden. Versuchen Sie es erneut und melden Sie ein Problem, wenn das weiter passiert.",
     "formatCoreTrapped": "Canopi wurde beim Lesen dieses Designs unterbrochen. Versuchen Sie es erneut und melden Sie ein Problem, wenn das weiter passiert."

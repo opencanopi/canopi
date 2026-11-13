@@ -4,19 +4,20 @@
 // caller passes, and the page's Storage adapters stay in web/browser-app-data.ts, counted in
 // policy/ratchets/web-storage-only-in-adapters.json, until 2b moves them here with the records' write half. It holds
 // the read half of the 2.1 records the reader release reads and never writes: settings record 2 and the species-list
-// record 1, each under its own 2.1 key (2.1-M486, 2.1-Q320). 2b, 2e and N2 import these names; the record runner, the
-// quota mapping and the `storage`-event change come with the write half (2b).
+// record 1, each under its own 2.1 key (2.1-M486, 2.1-Q320). The frozen keys and versions stay private until a consumer
+// imports them (2b, 2e, N2 export what they import); the record runner, the quota mapping and the `storage`-event
+// change come with the write half (2b).
 
 /** The 2.1 Web settings record's key; the 2.0 record stays under the v3 key for 2.0 tabs (ADR 0026 Rollback). */
-export const SETTINGS_RECORD_KEY = 'canopi:web-app-data:v4:settings'
+const SETTINGS_RECORD_KEY = 'canopi:web-app-data:v4:settings'
 /** The settings record version 2.1 writes there (a 2.0 record has no version and reads as 1). */
-export const SETTINGS_RECORD_VERSION = 2
+const SETTINGS_RECORD_VERSION = 2
 /** The 2.1 Web species-list record's key (favourites and recently viewed, contracts §19 ED-25). */
-export const SPECIES_LIST_RECORD_KEY = 'canopi:web-app-data:v4:species'
+const SPECIES_LIST_RECORD_KEY = 'canopi:web-app-data:v4:species'
 /** The species-list record version 2.1 writes there. */
-export const SPECIES_LIST_RECORD_VERSION = 1
+const SPECIES_LIST_RECORD_VERSION = 1
 /** At most this many entries in each species list. */
-export const SPECIES_LIST_CAP = 50
+const SPECIES_LIST_CAP = 50
 
 /** The part of Web Storage a record reads and writes; a test passes its own. */
 export interface BrowserStorage {

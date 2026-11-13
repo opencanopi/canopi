@@ -1,7 +1,8 @@
 /**
- * platform/draft-records.browser.ts: the read half of 2.1's Web Draft store, at its target owner (Step 2.0.4 R3,
- * canopi-f47t.52.272; contracts §11 "Web Drafts move to IndexedDB"; design check F7, F8, A18, A19; 2.1-Q40, Q321,
- * Q322, M486), over the frozen form spec/web/frozen/drafts.json. Invariant: it exposes no put or delete, opens only
+ * platform/draft-records.browser.ts: Owner of raw `indexedDB` (web-storage-only-in-adapters, ADR 0026) and of the
+ * read half of 2.1's Web Draft store, at its target owner (Step 2.0.4 R3, canopi-f47t.52.272; contracts §11 "Web
+ * Drafts move to IndexedDB"; design check F7, F8, A18, A19; 2.1-Q40, Q321, Q322, M486), over the frozen form
+ * spec/web/frozen/drafts.json. Invariant: it exposes no put or delete, opens only
  * `readonly` transactions, creates no database and holds no connection between reads.
  *
  * - Existence: `indexedDB.databases()` where the engine has it (it creates nothing, and lists 2.1's database only once

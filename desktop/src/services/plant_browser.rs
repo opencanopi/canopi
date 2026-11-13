@@ -400,23 +400,25 @@ pub fn get_species_detail(
         SpeciesCatalogRead::new(&conn).detail_for_canonical_name(&canonical_name, &locale)?
     };
 
-    {
-        let conn = user_db.acquire();
-        if let Err(error) = crate::db::user_db::record_recently_viewed(&conn, &canonical_name) {
-            tracing::warn!(
-                "Failed to record recently viewed for '{}': {error}",
-                canonical_name
-            );
-        }
-    }
-
+    record_recently_viewed(user_db, &canonical_name);
     Ok(detail)
+}
+
+/// Records a species view beside its detail; a user DB that refuses writes skips it silently.
+pub(crate) fn record_recently_viewed(user_db: &UserDb, canonical_name: &str) {
+    let Some(conn) = user_db.acquire_writable() else {
+        return;
+    };
+    if let Err(error) = crate::db::user_db::record_recently_viewed(&conn, canonical_name) {
+        tracing::warn!("Failed to record recently viewed for '{canonical_name}': {error}");
+    }
 }
 
 pub fn toggle_favorite(user_db: &UserDb, canonical_name: String) -> Result<bool, String> {
     let conn = user_db.acquire();
+    let context = format!("Failed to toggle favorite for '{canonical_name}'");
     crate::db::user_db::toggle_favorite(&conn, &canonical_name)
-        .map_err(|e| format!("Failed to toggle favorite for '{canonical_name}': {e}"))
+        .map_err(crate::db::user_db::write_refusal(&context))
 }
 
 pub(crate) fn get_favorite_names(user_db: &UserDb) -> Result<Vec<String>, String> {

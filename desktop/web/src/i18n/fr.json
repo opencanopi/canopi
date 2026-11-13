@@ -642,14 +642,19 @@
         "deleteEverywhere": "Supprimer partout",
         "renameEllipsis": "Renommer…",
         "recovered": "Canopi a reconstruit sa Bibliothèque de données à partir des fichiers qu'il conserve. Les éléments marqués en échec peuvent être préparés à nouveau avec Réessayer.",
-        "refusedNewer": "La Bibliothèque de données a été enregistrée par une version plus récente de Canopi. Installez la dernière version de Canopi pour l'utiliser ; cette version ne la modifiera pas.",
         "unavailable": "La Bibliothèque de données n'a pas pu être ouverte. Les imports et les modifications sont désactivés jusqu'au redémarrage de Canopi.",
         "sortLabel": "Trier",
         "sortRecent": "Ajout récent",
         "factAdded": "Ajouté",
         "deletedItem": "Élément supprimé",
         "importNeedsDesign": "Ouvrez un Design pour importer des données",
-        "importCancelled": "Import annulé"
+        "importCancelled": "Import annulé",
+        "needsNewerNote": "Mettez Canopi à jour pour utiliser cet élément.",
+        "newerKind": {
+          "raster": "Données raster",
+          "unknown": "Données d’un type que ce Canopi ne connaît pas",
+          "vector": "Données vectorielles"
+        }
       },
       "layers": {
         "emptyTitle": "Aucune donnée du site pour l’instant",
@@ -1334,7 +1339,8 @@
     "searchAll": "Rechercher favoris et tampons",
     "remove": "Retirer {{name}} des favoris",
     "detailsFor": "Détails de",
-    "place": "Placer {{name}}"
+    "place": "Placer {{name}}",
+    "needsNewerStamp": "Enregistré avec une version plus récente de Canopi ; mettez Canopi à jour pour le placer."
   },
   "savedObjectStamps": {
     "title": "Tampons enregistrés",
@@ -2247,7 +2253,6 @@
     "fileTooLarge": "Ce fichier dépasse la taille autorisée par Canopi. Choisissez un fichier plus petit.",
     "fileError": "Canopi n’a pas pu lire ou écrire le fichier. Réessayez.",
     "plantCatalogUnavailable": "Le catalogue des plantes n’a pas pu être ouvert. Redémarrez Canopi, puis réinstallez-le si le problème persiste.",
-    "libraryNewer": "Cette Bibliothèque de données a été enregistrée par une version plus récente de Canopi. Mettez Canopi à jour pour la modifier.",
     "libraryUnavailable": "La Bibliothèque de données n’a pas pu être ouverte : les modifications ne seront pas enregistrées pendant cette session. Redémarrez Canopi et réessayez.",
     "formatCoreUnavailable": "Canopi n’a pas pu charger la partie qui ouvre les Designs. Réessayez, et signalez un problème si cela continue.",
     "formatCoreTrapped": "Canopi s’est arrêté en lisant ce Design. Réessayez, et signalez un problème si cela continue."

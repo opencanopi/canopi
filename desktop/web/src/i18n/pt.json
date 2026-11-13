@@ -642,14 +642,19 @@
         "deleteEverywhere": "Excluir de todos",
         "renameEllipsis": "Renomear…",
         "recovered": "O Canopi reconstruiu sua Biblioteca de dados a partir dos arquivos que ele guarda. Os itens marcados como com falha podem ser preparados novamente com Tentar novamente.",
-        "refusedNewer": "A Biblioteca de dados foi salva por uma versão mais recente do Canopi. Instale o Canopi mais recente para usá-la; esta versão não a alterará.",
         "unavailable": "Não foi possível abrir a Biblioteca de dados. Importações e alterações ficam desativadas até que o Canopi reinicie.",
         "sortLabel": "Ordenar",
         "sortRecent": "Adicionados recentemente",
         "factAdded": "Adicionado",
         "deletedItem": "Item excluído",
         "importNeedsDesign": "Abra um design para importar dados",
-        "importCancelled": "Importação cancelada"
+        "importCancelled": "Importação cancelada",
+        "needsNewerNote": "Atualize o Canopi para usar este item.",
+        "newerKind": {
+          "raster": "Dados raster",
+          "unknown": "Dados de um tipo que este Canopi não reconhece",
+          "vector": "Dados vetoriais"
+        }
       },
       "layers": {
         "emptyTitle": "Ainda não há dados do local",
@@ -1334,7 +1339,8 @@
     "searchAll": "Pesquisar favoritos e carimbos",
     "remove": "Remover {{name}} dos favoritos",
     "detailsFor": "Detalhes de",
-    "place": "Colocar {{name}}"
+    "place": "Colocar {{name}}",
+    "needsNewerStamp": "Salvo com uma versão mais recente do Canopi; atualize o Canopi para colocá-lo."
   },
   "savedObjectStamps": {
     "title": "Carimbos salvos",
@@ -2247,7 +2253,6 @@
     "fileTooLarge": "Este arquivo é maior do que o Canopi permite. Escolha um arquivo menor.",
     "fileError": "O Canopi não conseguiu ler ou gravar o arquivo. Tente novamente.",
     "plantCatalogUnavailable": "Não foi possível abrir o catálogo de plantas. Reinicie o Canopi e reinstale-o se o problema continuar.",
-    "libraryNewer": "Esta biblioteca de dados foi salva por uma versão mais recente do Canopi. Atualize o Canopi para alterá-la.",
     "libraryUnavailable": "Não foi possível abrir a biblioteca de dados, então as alterações não serão salvas nesta sessão. Reinicie o Canopi e tente novamente.",
     "formatCoreUnavailable": "O Canopi não conseguiu carregar a parte que abre os designs. Tente novamente e relate um problema se isso continuar.",
     "formatCoreTrapped": "O Canopi parou ao ler este design. Tente novamente e relate um problema se isso continuar."
