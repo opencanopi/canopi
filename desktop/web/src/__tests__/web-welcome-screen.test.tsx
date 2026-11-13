@@ -177,6 +177,7 @@ describe('Web welcome screen and Draft persistence', () => {
     const { controller, persistence, downloadCanopiFile, appDataStore } = setup({ state: 'refused', notice: 'warning', warn: true })
     vi.spyOn(console, 'error').mockImplementation(() => {})
     await act(async () => { render(<WebWelcomeScreen controller={controller} persistence={persistence} />, container) })
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)) })
     // Another tab, or the browser, removed the Draft after the rows were listed.
     appDataStore.deleteDraft('draft-orchard')
     await act(async () => { container.querySelector<HTMLButtonElement>('button[aria-label="Actions for Orchard"]')!.click() })

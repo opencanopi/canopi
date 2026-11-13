@@ -13,10 +13,13 @@
  *   tells the page, which offers the one Reload notice (2.1-Q40).
  * - Bounded: a read waits at most `timeoutMs` (an open can queue behind another page's upgrade); a connection that opens
  *   later is closed once its read ends.
- * - A listing that fails or runs late is reported and settles on the last good listing, empty only before one (design
- *   check A18), so a re-list never unhides an old-key Draft the session already hides (2.1-Q322, F7). A Draft read
- *   that fails or runs late is reported and gives null, so its open fails visibly and re-lists like a deleted one.
- * Listing reads record fields only; a Design is decoded only when it is opened, by the format core (DR10).
+ * - Complete or not: a listing says whether it read the store. One that fails or runs late is reported and settles on
+ *   the last good listing, empty only before one, marked incomplete (design check A18), so a re-list never unhides an
+ *   old-key Draft the session already hides, and the session restores, opens or deletes no old-key Draft until one
+ *   listing completed (2.1-Q322, F7). An origin without the store lists complete and empty. A Draft read that fails
+ *   or runs late is reported and gives null, so its open fails visibly and re-lists like a deleted one.
+ * A listing loads each record whole (`getAll`) but keeps only its list fields; a Design is decoded only when it is
+ * opened, by the format core (DR10).
  */
 
 /** The 2.1 Draft store's database (spec/web/frozen/drafts.json, at version 4: 2.1-M486). The reader opens it without
@@ -47,11 +50,13 @@ interface DraftStoreListing {
    * the store holds, so an old-key Draft is never shown, opened or deleted under an id 2.1 keeps.
    */
   readonly hiddenIds: readonly string[]
+  /** False when this read failed or ran late, and the Drafts and ids are the last good listing's (empty before one). */
+  readonly complete: boolean
 }
 
 /** The read half; by its type it offers no write. */
 export interface DraftRecordsReader {
-  /** The 2.1 Drafts and the ids they hide; never rejects: a failed or late read is reported and gives the last good listing. */
+  /** The 2.1 Drafts and the ids they hide; never rejects: a failed or late read is reported and gives the last good listing, incomplete. */
   list(): Promise<DraftStoreListing>
   /**
    * The Design of one 2.1 Draft as 2.1 saved it (`.canopi` text); never rejects: null when the store no longer holds
@@ -73,7 +78,7 @@ interface DraftRecordsReaderOptions {
   readonly timeoutMs?: number
 }
 
-const NO_DRAFTS: DraftStoreListing = { drafts: [], hiddenIds: [] }
+const NO_DRAFTS: DraftStoreListing = { drafts: [], hiddenIds: [], complete: true }
 
 export function createDraftRecordsReader({
   factory = globalThis.indexedDB,
@@ -102,10 +107,11 @@ export function createDraftRecordsReader({
     async list() {
       try {
         lastListing = await bounded(withStore(readListing, NO_DRAFTS), timeoutMs)
+        return lastListing
       } catch (error) {
         report(error)
+        return { ...lastListing, complete: false }
       }
-      return lastListing
     },
     async content(id) {
       try {
@@ -163,7 +169,7 @@ async function readListing(db: IDBDatabase): Promise<DraftStoreListing> {
   const copied = isRecord(move) && Array.isArray(move.copiedIds)
     ? move.copiedIds.filter((id): id is string => typeof id === 'string')
     : []
-  return { drafts, hiddenIds: [...new Set([...copied, ...held])] }
+  return { drafts, hiddenIds: [...new Set([...copied, ...held])], complete: true }
 }
 
 /** The results of `requests`, once their transaction completes; rejects with its error or abort. */
