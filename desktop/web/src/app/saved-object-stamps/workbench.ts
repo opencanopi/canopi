@@ -23,11 +23,8 @@ import { currentCanvasQuerySurface, currentCanvasSelection } from '../../canvas/
 import type { CanvasRuntimeSavedObjectStampCapture } from '../../canvas/runtime/app-adapter'
 import { canSaveSelectionAsObjectStamp } from '../../canvas/runtime/interaction/contextual-selection-actions'
 import { armCanvasTool, type ArmFrom } from '../keyboard/arming'
-import {
-  parseSavedObjectStampPayload,
-  SAVED_OBJECT_STAMP_PAYLOAD_VERSION,
-  savedObjectStampRowState,
-} from '../../canvas/saved-object-stamp-payload'
+import { parseSavedObjectStampPayload, SAVED_OBJECT_STAMP_PAYLOAD_VERSION } from '../../canvas/saved-object-stamp-payload'
+import { savedObjectStampRowState } from './row-state'
 import {
   createSavedObjectStamp as createSavedObjectStampIpc,
   deleteSavedObjectStamp as deleteSavedObjectStampIpc,

@@ -22,7 +22,8 @@ import {
   clearSavedObjectStampDragSource,
   writeSavedObjectStampDragData,
 } from '../../canvas/saved-object-stamp-source'
-import { parseSavedObjectStampPayload, savedObjectStampIdsNeedsNewerLast, savedObjectStampRowState } from '../../canvas/saved-object-stamp-payload'
+import { parseSavedObjectStampPayload } from '../../canvas/saved-object-stamp-payload'
+import { savedObjectStampIdsNeedsNewerLast, savedObjectStampRowState } from '../../app/saved-object-stamps/row-state'
 import type { SavedObjectStamp } from '../../types/saved-object-stamps'
 import type { SpeciesListItem } from '../../types/species'
 import { useFavoriteSpeciesDetailNavigation } from '../plant-db/favorite-species-presentation'
