@@ -133,7 +133,7 @@ describe('the session controller with 2.1 Drafts listed', () => {
   })
 
   it('R3 canopi-f47t.52.272: while the 2.1 listing cannot be read, an old-key Draft opens read-only with a notice and is never deleted (2.1-Q334)', async () => {
-    const { appDataStore, controller, records, store } = setup({ drafts: [], hiddenIds: [], complete: false })
+    const { appDataStore, controller, fileAdapter, records, store } = setup({ drafts: [], hiddenIds: [], complete: false })
     await controller.launch()
     expect(controller.draftListingComplete()).toBe(false)
 
@@ -144,8 +144,22 @@ describe('the session controller with 2.1 Drafts listed', () => {
     expect(controller.readDesignIdentity()?.readOnlyOrigin, 'the save status popover says why (2.1-Q336)').toBe('storage-unchecked')
     expect(uncheckedShown()).toBe(true)
     expect(openFailureShown()).toBe(false)
-    // Download a copy still works on the read-only view.
+    // Download a copy gives the stored Draft as the start screen's row does, never a re-encode of the view.
+    vi.mocked(appDataStore.loadDraft).mockClear()
     await controller.downloadCanopi()
+    expect(appDataStore.loadDraft).toHaveBeenCalledWith('orchard')
+    expect(fileAdapter.downloadCanopiFile).toHaveBeenCalledOnce()
+    expect(vi.mocked(fileAdapter.downloadCanopiFile).mock.calls[0]![0].fileName).toBe('Orchard as 2.0 left it.canopi')
+    // The notice offers the same copy.
+    const offer = notices.value.find((notice) => notice.message === 'webStorage.uncheckedReadOnly')!.action!
+    expect(offer.label).toBe('webShell.downloadCopy')
+    offer.run()
+    await vi.waitFor(() => expect(fileAdapter.downloadCanopiFile).toHaveBeenCalledTimes(2))
+    // Close ends the view and its notice; opening it again brings both back.
+    expect(await controller.closeDesign()).toBe(true)
+    expect(uncheckedShown()).toBe(false)
+    expect(await controller.openDraft('orchard')).toBe(true)
+    expect(uncheckedShown()).toBe(true)
     expect((await controller.deleteDraft('hedge')).ok, 'Delete stays off').toBe(false)
     expect(appDataStore.ids()).toEqual(['orchard', 'hedge'])
 
@@ -156,6 +170,7 @@ describe('the session controller with 2.1 Drafts listed', () => {
     expect(await controller.openDraft('hedge')).toBe(true)
     expect(controller.draftListingComplete()).toBe(true)
     expect(store.sessionKind.value).toEqual({ kind: 'editing' })
+    expect(uncheckedShown(), 'the notice leaves with its session').toBe(false)
     // Once one listing completed, a later failed read keeps its hidden ids and lets the rest through without a re-list.
     records.list.mockResolvedValue({ drafts: [], hiddenIds: ['orchard'], complete: false })
     const calls = records.list.mock.calls.length

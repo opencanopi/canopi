@@ -8,7 +8,7 @@ import {
 } from "../app/document-session/replacement";
 import { presentDesignOpenFailure } from "../app/document-session/open-failure";
 import { requestSaveProblemDecision } from "../app/document-session/save-problem";
-import { designSessionStore, type DesignSessionKind, type PersistenceCapableDesignSessionStore } from "../app/document-session/store";
+import { designSessionStore, readOnlyOrigin, type DesignSessionKind, type PersistenceCapableDesignSessionStore } from "../app/document-session/store";
 import { DESIGN_SESSION_WORKFLOWS } from "../app/document-session/workflows";
 import { createDesignSessionWorkflowRunner, type DesignSessionWorkflowRunner } from "../app/document-session/workflow-runner";
 import { createDesignSessionPersistence, DesignPersistenceLeaseError, type DesignReplacementGuardCapture } from "../app/document-session/persistence";
@@ -26,7 +26,7 @@ import {
 import type { BrowserShellDesignIdentity } from "./browser-shell-commands";
 import { browserDraftPersistence } from "./browser-draft-persistence";
 import { createBrowserNewerDrafts, type BrowserNewerDraftRecords } from "./browser-newer-drafts";
-import { presentBrowserDraftOpenFailure, presentBrowserDraftUncheckedNotice } from "./browser-notices";
+import { presentBrowserDraftDownloadFailure, presentBrowserDraftOpenFailure, presentBrowserDraftUncheckedNotice, withdrawBrowserDraftUncheckedNotice } from "./browser-notices";
 import { downloadBrowserTextFile, pickBrowserTextFile } from "./browser-text-files";
 
 /** A `.canopi` file by name and text: one picked to open, or one given as a download. */
@@ -151,6 +151,8 @@ export function createBrowserDesignSessionController({
   const launching = signal(false);
   let nextDownloadWrite = 0;
   let replacementIntent = 0;
+  /** The old-key Draft shown read-only while 2.1's listing could not be read; null otherwise (2.1-Q334). */
+  let uncheckedDraft: string | null = null;
   let workflowInstallAttempt = 0;
   const replacement = createDesignSessionReplacement({
     store,
@@ -223,7 +225,9 @@ export function createBrowserDesignSessionController({
   ): void {
     const canvas = canvasSession;
     if (canvas) quarantineCompetingPendingReplacement(input, canvas);
-    replacement.replace(input, canvas, baseline.isDesignBaselineCurrent);
+    // Whichever replacement finalizes next ends a storage-unchecked view: its Draft id and notice go (2.1-Q334).
+    const ended = () => { if (uncheckedDraft !== null) withdrawBrowserDraftUncheckedNotice(); uncheckedDraft = null; };
+    replacement.replace({ ...input, onDesignFinalized: () => { ended(); input.onDesignFinalized?.(); } }, canvas, baseline.isDesignBaselineCurrent);
   }
 
   function quarantineCompetingPendingReplacement(input: ResolvedDesignReplacement, canvas: CanvasDocumentSurface): void {
@@ -374,6 +378,8 @@ export function createBrowserDesignSessionController({
   }
 
   async function downloadCanopi(): Promise<void> {
+    // A storage-unchecked view downloads its stored Draft, as its start-screen row does (2.1-Q334).
+    if (uncheckedDraft !== null && store.sessionKind.peek().kind === "read-only") return downloadDraft(uncheckedDraft);
     const current = store.readCurrentDesign();
     if (!current) throw new Error("No browser Design is loaded.");
 
@@ -492,8 +498,9 @@ export function createBrowserDesignSessionController({
   }
 
   /** No home, Draft id or write destination: nothing is ever written (2.1-M478). */
-  function readOnlyReplacement(input: Pick<ResolvedDesignReplacement, "file" | "kind" | "name">, session: DesignSessionKind): ResolvedDesignReplacement {
-    return { ...input, path: null, finalizationIdentity: "read-only", session, onDesignFinalized: () => continuousSave.endSession() };
+  function readOnlyReplacement(input: Pick<ResolvedDesignReplacement, "file" | "kind" | "name">, session: DesignSessionKind,
+    shown = () => {}): ResolvedDesignReplacement {
+    return { ...input, path: null, finalizationIdentity: "read-only", session, onDesignFinalized: () => { continuousSave.endSession(); shown(); } };
   }
 
   /** Editable, or read-only while 2.1's listing cannot be read (2.1-Q334); never a 2.0 Draft under a hidden id (Q322). */
@@ -501,8 +508,10 @@ export function createBrowserDesignSessionController({
     const draft = unchecked || newer.editable(id) ? appDataStore.loadDraft(id) : null;
     if (!draft) return false;
     const input = { file: draft, kind: "loaded", name: draft.name || "Untitled" } as const;
-    applyDesignReplacement(unchecked ? readOnlyReplacement(input, { kind: "read-only", origin: "storage-unchecked" })
-      : draftReplacement(input, id, false, storedDraftUpdatedAt(id)));
+    applyDesignReplacement(unchecked ? readOnlyReplacement(input, { kind: "read-only", origin: "storage-unchecked" }, () => {
+      uncheckedDraft = id;
+      presentBrowserDraftUncheckedNotice(() => { downloadDraft(id).catch(presentBrowserDraftDownloadFailure); });
+    }) : draftReplacement(input, id, false, storedDraftUpdatedAt(id)));
     return true;
   }
 
@@ -520,9 +529,7 @@ export function createBrowserDesignSessionController({
     if (!admitted && !unchecked) return draftGone();
     const flushed = flushBeforeReplacement(intent);
     if (flushed !== true && !(await flushed)) return false;
-    if (!applyDraft(id, unchecked)) return draftGone();
-    if (unchecked) presentBrowserDraftUncheckedNotice();
-    return true;
+    return applyDraft(id, unchecked) || draftGone();
   }
 
   async function deleteDraft(id: string): Promise<BrowserAppDataWriteResult<null>> {
@@ -641,13 +648,7 @@ export function createBrowserDesignSessionController({
       const design = store.currentDesign.value;
       if (!design) return null;
       const name = store.designName.value || design.name || "Untitled";
-      const kind = store.sessionKind.value;
-      return {
-        name,
-        saveStatus: continuousSave.status.value,
-        saveFailureReason: continuousSave.failureReason.value,
-        readOnlyOrigin: kind.kind === "read-only" ? kind.origin : undefined,
-      };
+      return { name, saveStatus: continuousSave.status.value, saveFailureReason: continuousSave.failureReason.value, readOnlyOrigin: readOnlyOrigin(store.sessionKind.value) };
     },
     newDesign,
     closeDesign,

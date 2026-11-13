@@ -2,13 +2,10 @@ import type { RefObject } from 'preact'
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'preact/hooks'
 import type { DesignSaveStatus } from '../../app/document-session/continuous-save'
 import { saveProblem, type SaveConflictSource } from '../../app/document-session/save-problem'
-import type { DesignSessionKind } from '../../app/document-session/store'
+import type { ReadOnlyOrigin } from '../../app/document-session/store'
 import { t } from '../../i18n'
 import { ControlIcon } from './ControlIcon'
 import styles from './save-status-label.module.css'
-
-/** Why a Design is read-only: a newer Canopi saved it, or a Web Draft opened while storage could not be checked (Q334). */
-type ReadOnlyOrigin = Extract<DesignSessionKind, { kind: 'read-only' }>['origin']
 
 interface SaveStatusAction {
   readonly label: string
