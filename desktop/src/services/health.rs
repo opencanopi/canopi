@@ -85,10 +85,16 @@ pub(crate) fn open_stores(
     ))
 }
 
-/// The settings record's entry: it lives in the user DB, so it opens as the user DB did; a one-time
-/// notice stays the user DB's.
+/// The settings record's entry: it lives in the user DB, so it shares the user DB's access (newer
+/// read-only, unavailable); a damaged or rebuilt user DB is the user DB's own one-time event, named
+/// once by its entry, and the settings record lives in the fresh database, so it is ready.
 fn settings_entry(user_db: &StoreHealth) -> StoreHealth {
-    let status = user_db.status.clone();
+    let status = match &user_db.status {
+        StoreOpenStatus::SetAsideDamaged { .. } | StoreOpenStatus::Recovered { .. } => {
+            StoreOpenStatus::Ready
+        }
+        status => status.clone(),
+    };
     StoreHealth {
         status,
         notice: None,
@@ -143,7 +149,7 @@ mod tests {
     }
 
     /// On Desktop the settings record lives in the user DB, so its entry follows the user DB's
-    /// status; a one-time notice stays the user DB's own.
+    /// access; a one-time notice or set-aside stays the user DB's own.
     #[test]
     fn r2_canopi_f47t_52_271_the_settings_entry_follows_the_user_db_it_lives_in() {
         use canopi_types::failure::IoFailureKind;
@@ -166,6 +172,22 @@ mod tests {
                     notice: None
                 }
             );
+        }
+        let fresh = [
+            StoreOpenStatus::SetAsideDamaged {
+                file: "user.db.corrupt-1".to_owned(),
+            },
+            StoreOpenStatus::Recovered {
+                items: 1,
+                generated: 0,
+            },
+        ];
+        for status in fresh {
+            let user_db = StoreHealth {
+                status,
+                notice: None,
+            };
+            assert_eq!(settings_entry(&user_db).status, StoreOpenStatus::Ready);
         }
     }
 
@@ -192,6 +214,29 @@ mod tests {
             stores,
             [(StoreId::UserDb, newer.clone()), (StoreId::Settings, newer)]
         );
+    }
+
+    /// A damaged user DB is set aside and named once, by the user DB's own entry: the settings
+    /// record lives in the fresh database that replaced it, so it is ready and raises no second
+    /// set-aside notice.
+    #[test]
+    fn r2_canopi_f47t_52_271_a_damaged_user_db_sets_aside_once_and_the_settings_entry_is_ready() {
+        let data_dir = crate::test_scratch::TestScratch::new("open-stores-damaged-user-db");
+        std::fs::write(data_dir.join("user.db"), b"not a database, damaged on disk").unwrap();
+
+        let (user_db, [(_, user_db_entry), settings]) =
+            open_stores(&data_dir).expect("the app starts");
+        drop(user_db);
+
+        assert!(matches!(
+            user_db_entry.status,
+            StoreOpenStatus::SetAsideDamaged { .. }
+        ));
+        let ready = StoreHealth {
+            status: StoreOpenStatus::Ready,
+            notice: None,
+        };
+        assert_eq!(settings, (StoreId::Settings, ready));
     }
 
     #[test]
