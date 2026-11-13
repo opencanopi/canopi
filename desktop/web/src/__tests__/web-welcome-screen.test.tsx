@@ -194,4 +194,22 @@ describe('Web welcome screen and Draft persistence', () => {
     expect(Array.from(container.querySelectorAll('button[aria-label^="Actions for "]')).map((row) => row.getAttribute('aria-label')))
       .toEqual(['Actions for Hedge'])
   })
+
+  it('R3 canopi-f47t.52.272: an old-key Draft row offers no Delete until a 2.1 listing completes (2.1-Q334)', async () => {
+    const { controller, persistence } = setup({ state: 'kept', notice: null, warn: false })
+    const listing = { drafts: [], hiddenIds: [], complete: false }
+    controller.installNewerDrafts({ list: vi.fn(async () => listing), content: vi.fn(async () => null) })
+    await controller.launch()
+    const menu = async (): Promise<(string | null)[]> => {
+      render(null, container)
+      await act(async () => { render(<WebWelcomeScreen controller={controller} persistence={persistence} />, container) })
+      await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)) })
+      await act(async () => { container.querySelector<HTMLButtonElement>('button[aria-label="Actions for Orchard"]')!.click() })
+      return Array.from(document.body.querySelectorAll('[role="menuitem"]'), (item) => item.textContent)
+    }
+    expect(await menu()).toEqual(['Download a copy'])
+    // A listing that completes: the row is editable again, Delete included.
+    listing.complete = true
+    expect(await menu()).toEqual(['Download a copy', 'Delete draft…'])
+  })
 })
