@@ -70,14 +70,18 @@ function inlineButtons(): string[] {
     .map((candidate) => candidate.textContent ?? '')
 }
 
-function label(props: { readonly origin: 'newer-version' | 'storage-unchecked', readonly onUpdate: () => void }) {
+function label(props: {
+  readonly origin: 'newer-version' | 'storage-unchecked'
+  readonly onUpdate: () => void
+  readonly onDownload?: () => void
+}) {
   return (
     <SaveStatusLabel
       status="read-only"
       readOnlyOrigin={props.origin}
       draftLabel="Draft"
       draftAction={{ label: 'Save as…', style: 'button', run: vi.fn() }}
-      saveElsewhere={{ label: 'Save as…', run: vi.fn() }}
+      saveElsewhere={{ label: 'Download a copy', run: props.onDownload ?? vi.fn() }}
       onRetry={vi.fn()}
       onUpdate={props.onUpdate}
     />
@@ -93,25 +97,26 @@ describe('R1 canopi-f47t.52.270: the read-only Design in the save-status slot (2
     const popover = await openPopover()
     expect(popover.textContent).toContain(NEWER)
     expect(popover.textContent).toContain('This Design was saved by a newer Canopi.')
+    expect(button('Download a copy', popover), 'a newer Canopi\'s Design is never re-encoded').toBeUndefined()
     await act(async () => { button('Update', popover)!.click() })
     expect(onUpdate).toHaveBeenCalledTimes(1)
   })
 
-  it('storage not checked (2.1-Q334): the popover says the browser storage could not be checked, with no Update', async () => {
+  it('storage not checked (2.1-Q334): the popover says the browser storage could not be checked and offers Download a copy, not Update', async () => {
     const onUpdate = vi.fn()
-    await act(async () => { render(label({ origin: 'storage-unchecked', onUpdate }), container) })
+    const onDownload = vi.fn()
+    await act(async () => { render(label({ origin: 'storage-unchecked', onUpdate, onDownload }), container) })
     expect(inlineButtons()).toEqual([LABEL])
 
     const popover = await openPopover()
     expect(popover.textContent).toContain('Canopi couldn’t check this browser’s storage, so this Draft may be out of date.')
     expect(popover.textContent).not.toContain('newer Canopi')
     expect(button('Update', popover)).toBeUndefined()
-
-    // With no button it takes focus itself, so Esc closes it and focus returns to the label.
-    expect(document.activeElement).toBe(popover)
-    await act(async () => { popover.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })) })
-    expect(container.querySelector('[role="dialog"]')).toBeNull()
-    expect(document.activeElement).toBe(button(LABEL, bar()))
+    expect(document.activeElement, 'focus starts on its action').toBe(button('Download a copy', popover))
+    await act(async () => { button('Download a copy', popover)!.click() })
+    expect(onDownload).toHaveBeenCalledTimes(1)
+    expect(onUpdate).not.toHaveBeenCalled()
+    expect(container.querySelector('[role="dialog"]'), 'the popover closes').toBeNull()
   })
 
   it('Web: the frame shows "Read-only", the name as text, and the popover\'s Update reloads', async () => {
@@ -140,14 +145,17 @@ describe('R1 canopi-f47t.52.270: the read-only Design in the save-status slot (2
     expect(onUpdate).toHaveBeenCalledTimes(1)
   })
 
-  it('Web: a Draft opened while storage could not be checked says so in the frame\'s popover', async () => {
+  it('Web: a Draft opened while storage could not be checked says so in the frame\'s popover, whose Download a copy runs File\'s', async () => {
+    // File › Download a copy is on for this origin only (2.1-Q334): the session says which.
+    designSessionStore.replaceCurrentDesignState(SHOWN, null, 'Pond', { kind: 'read-only', origin: 'storage-unchecked' })
     const run = vi.fn()
+    const downloadCanopi = vi.fn()
     await act(async () => {
       render(
         <BrowserAppShell
           commandProjection={projectBrowserShellForTest({
             capabilities: {
-              newDesign: run, openCanopi: run, downloadCanopi: run, revertDesign: run, importGeoJson: run,
+              newDesign: run, openCanopi: run, downloadCanopi, revertDesign: run, importGeoJson: run,
               exportGeoJson: run, exportBudgetCsv: run, closeDesign: run, navigate: run,
             },
           })}
@@ -160,6 +168,9 @@ describe('R1 canopi-f47t.52.270: the read-only Design in the save-status slot (2
     const popover = await openPopover()
     expect(popover.textContent).toContain('Canopi couldn’t check this browser’s storage')
     expect(button('Update', popover)).toBeUndefined()
+    await act(async () => { button('Download a copy', popover)!.click() })
+    expect(downloadCanopi).toHaveBeenCalledTimes(1)
+    expect(run).not.toHaveBeenCalled()
   })
 
   it('Desktop: the title bar shows "Read-only", the name as text, and the popover\'s Update opens About to check for updates', async () => {

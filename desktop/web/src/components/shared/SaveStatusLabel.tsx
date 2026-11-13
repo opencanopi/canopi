@@ -44,7 +44,10 @@ interface SaveStatusLabelProps {
    * Draft action and, when offered, Keep my Drafts (2.1-Q198). Desktop passes none.
    */
   readonly draftWarning?: DraftWarning | null
-  /** Keeps the work somewhere else when writing failed. */
+  /**
+   * Keeps the work somewhere else: when writing failed, and in a storage-unchecked read-only Design's popover (the Web's
+   * Download a copy, 2.1-Q334).
+   */
   readonly saveElsewhere: SaveStatusAction
   /** Where a conflicting change came from; omitted: outside Canopi. */
   readonly conflictSource?: SaveConflictSource
@@ -112,7 +115,7 @@ export function SaveStatusLabel({
           <SaveFailureDetails reason={failureReason} onRetry={onRetry} saveElsewhere={saveElsewhere} />
         </>
       )}
-      {status === 'read-only' && <ReadOnlyDesignDetails origin={readOnlyOrigin} onUpdate={onUpdate} />}
+      {status === 'read-only' && <ReadOnlyDesignDetails origin={readOnlyOrigin} onUpdate={onUpdate} keepCopy={saveElsewhere} />}
       {status === 'conflict' && (
         <>
           <span className={styles.errorText} role="alert"><ControlIcon name="alert" /><span className={styles.label}>{t(conflictSource === 'another-tab' ? 'saveStatus.conflictAnotherTab' : 'saveStatus.conflict')}</span></span>
@@ -228,11 +231,12 @@ function DraftWarningDetails({ warning, draftAction, fallbackFocus }: {
 /**
  * A read-only Design (2.1-Q317, M478, Q336): muted, never red, as nothing failed. The bar shows only its icon and
  * "Read-only"; the label opens a popover that says why by origin: a newer Canopi saved it, with Update, or the browser's
- * storage could not be checked (Q334), where updating does not help and File keeps Download a copy.
+ * storage could not be checked (Q334), where updating does not help and it offers File's Download a copy instead.
  */
-function ReadOnlyDesignDetails({ origin, onUpdate }: {
+function ReadOnlyDesignDetails({ origin, onUpdate, keepCopy }: {
   readonly origin: ReadOnlyOrigin
   readonly onUpdate: (() => void) | undefined
+  readonly keepCopy: SaveStatusAction
 }) {
   const [open, setOpen] = useState(false)
   const trigger = useRef<HTMLButtonElement>(null)
@@ -240,7 +244,9 @@ function ReadOnlyDesignDetails({ origin, onUpdate }: {
   const titleId = useId()
   const descriptionId = useId()
   usePopover(trigger, popover, open, setOpen)
-  const update = origin === 'newer-version' ? onUpdate : undefined
+  const action = origin === 'newer-version'
+    ? (onUpdate ? { label: t('readOnlyDesign.update'), run: onUpdate } : null)
+    : keepCopy
 
   function close(): void {
     setOpen(false)
@@ -266,7 +272,6 @@ function ReadOnlyDesignDetails({ origin, onUpdate }: {
           ref={popover}
           className={styles.popover}
           role="dialog"
-          tabIndex={-1}
           aria-labelledby={titleId}
           aria-describedby={descriptionId}
           onKeyDown={(event) => {
@@ -282,10 +287,10 @@ function ReadOnlyDesignDetails({ origin, onUpdate }: {
           <p className={styles.popoverText} id={descriptionId}>
             {t(origin === 'newer-version' ? 'readOnlyDesign.details' : 'webStorage.uncheckedReadOnly')}
           </p>
-          {update && (
+          {action && (
             <div className={styles.popoverActions}>
-              <button type="button" className={styles.primary} onClick={() => { close(); update() }}>
-                {t('readOnlyDesign.update')}
+              <button type="button" className={styles.primary} onClick={() => { close(); action.run() }}>
+                {action.label}
               </button>
             </div>
           )}
@@ -360,11 +365,10 @@ function SaveFailureDetails({ reason, onRetry, saveElsewhere }: {
 }
 
 /**
- * An open popover takes focus on its first button, or itself when it has none, and stays on screen. It closes on a
- * pointer release outside it, when focus moves outside it and its trigger (Tab on to the shell's notice; focus going
- * nowhere, as on a window switch, keeps it), and when a save problem dialog asks, so that modal dialog never sits over
- * it (canopi-eon8.15). A layout effect: focus is in, so its Esc handler hears the key, from the first painted frame
- * (canopi-f47t.52.228.20).
+ * An open popover takes focus on its first button and stays on screen. It closes on a pointer release outside it, when
+ * focus moves outside it and its trigger (Tab on to the shell's notice; focus going nowhere, as on a window switch,
+ * keeps it), and when a save problem dialog asks, so that modal dialog never sits over it (canopi-eon8.15). A layout
+ * effect: focus is in, so its Esc handler hears the key, from the first painted frame (canopi-f47t.52.228.20).
  */
 function usePopover(
   trigger: RefObject<HTMLElement | null>,
@@ -376,9 +380,7 @@ function usePopover(
   useLayoutEffect(() => {
     if (!open) return
     const element = popover.current
-    // A popover with no button (a read-only Design whose storage was not checked) takes focus itself, so Esc reaches it.
-    const first: HTMLElement | null = element?.querySelector<HTMLButtonElement>('button') ?? element
-    first?.focus()
+    element?.querySelector<HTMLButtonElement>('button')?.focus()
     const inside = (target: Node) => Boolean(popover.current?.contains(target) || trigger.current?.contains(target))
     const outside = (event: Event) => {
       const target = event.target as Node | null
