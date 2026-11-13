@@ -245,7 +245,9 @@ export const TABLE: Table = {
       // check:types compares every committed binding with what bindings-gen writes, never rewriting one, so a stale or
       // hand-edited binding fails it: its inputs (the contracts, en.json for generated/locale-keys.ts (2.1-Q211), the
       // Python contracts it runs and what they read, the toolchain whose rustfmt formats the Rust ones) and its outputs
-      // (bindings-gen/src/lib.rs's paths) select it; the Unicode facts read canopi-types and the pinned Python.
+      // (bindings-gen/src/lib.rs's paths) select it; the Unicode facts read canopi-types and the pinned Python. The commit
+      // lane runs check:types too, so a stale binding or locale key fails at its commit (2.1-Q330); it builds bindings-gen,
+      // so a linked worktree commits such a change with its own CARGO_TARGET_DIR (2.1-M201).
       name: 'shared-contracts', label: 'Shared contracts (`canopi-types/`, `en.json`)',
       row: '`cd desktop/web && {check-types}` (stale: `npm run gen:types`); `{unicode-facts}`',
       patterns: [String.raw`^canopi-types/`, String.raw`^bindings-gen/`, String.raw`^desktop/web/src/i18n/en\.json$`,
@@ -253,6 +255,7 @@ export const TABLE: Table = {
         String.raw`^scripts/(species_catalog_contract\.py|web_catalog_artifact_contract\.py|species_search_normalization\.py|schema-contract\.json)$`,
         String.raw`^rust-toolchain\.toml$`, String.raw`^scripts/species_search_unicode_facts\.py$`, String.raw`^\.python-version$`],
       full: ['check-types', 'unicode-facts'],
+      commit: ['check-types'],
     },
     {
       // `^policy/` and the ast-grep config run the policy lane; the typecheck holds the gallery's project (DR17).
