@@ -7,7 +7,7 @@
 // a probe whose unsigned row silently turns ad hoc, and install text naming a step the shipped bundle never shows. The
 // workflow steps run for real in bash, with codesign stubbed and the probe's rows planted.
 import { spawnSync } from 'node:child_process'
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -247,5 +247,15 @@ exit 64
         'the install text never names the dialog of macOS 12 to 14 (cannot check it for malware)',
         'the install text never names the Cancel button of macOS 12 to 14',
         'the install text never names macOS 12\'s System Preferences > Security & Privacy'])
+  })
+
+  // promote-release.sh builds the release page from docs/release-notes/v<version>.md and writes a bare header when it is
+  // missing; the version files name the next release once its release commit bumps them, and until then they name
+  // 2.1.0-beta.2, published with the linker-signed bundle and its xattr text.
+  it.fails('canopi-3cu2: the release notes of the version the tree would release carry the probe\'s install text (expected to fail until the reader release\'s version bump and notes land: main agent, canopi-3cu2)', () => {
+    const version = (JSON.parse(read('desktop/tauri.conf.json')) as { readonly version: string }).version
+    const notes = `docs/release-notes/v${version}.md`
+    expect(existsSync(join(REPO_ROOT, notes)), `${notes} is missing, so the release page carries no install text`).toBe(true)
+    expect(installFaults(macConfig.bundle?.macOS?.signingIdentity, new Map([[notes, read(notes)]]))).toEqual([])
   })
 })
