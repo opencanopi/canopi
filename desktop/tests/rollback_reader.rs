@@ -293,11 +293,64 @@ mod reader {
         let before = files(&root);
 
         let health = reader_session(&forms).expect("a reader session opens every Desktop form");
-        for (store, status) in &health {
-            assert_eq!(status, "newer_read_only", "{store} opens newer-read-only");
-        }
+        assert_eq!(
+            every_form_read_newer_read_only(&forms, &health),
+            Ok(()),
+            "every Desktop form opens newer-read-only"
+        );
 
         assert_eq!(files(&root), before, "the session writes no byte");
+    }
+
+    /// Each listed Desktop store has a health entry, and every entry is newer-read-only: a session that skips a store
+    /// writes none of its bytes, so the byte comparison alone would pass it. The newer-read-only notice is checked here
+    /// too once the reader-session seam reports it.
+    fn every_form_read_newer_read_only(
+        forms: &[(String, PathBuf)],
+        health: &[(String, String)],
+    ) -> Result<(), String> {
+        if let Some((store, _)) = forms
+            .iter()
+            .find(|(store, _)| !health.iter().any(|(read, _)| read == store))
+        {
+            return Err(format!("the session reports no health for {store}"));
+        }
+        match health
+            .iter()
+            .find(|(_, status)| status != "newer_read_only")
+        {
+            Some((store, status)) => Err(format!("{store} opens {status}, not newer_read_only")),
+            None => Ok(()),
+        }
+    }
+
+    #[test]
+    fn r4_canopi_f47t_52_239_a_session_that_skips_a_listed_desktop_store_fails_the_health_check() {
+        let forms: Vec<(String, PathBuf)> = DESKTOP_STORES
+            .iter()
+            .map(|store| (store.to_string(), PathBuf::from(format!("{store}.bin"))))
+            .collect();
+        let read = |stores: &[&str]| -> Vec<(String, String)> {
+            stores
+                .iter()
+                .map(|store| (store.to_string(), "newer_read_only".to_string()))
+                .collect()
+        };
+        let fails = |health: Vec<(String, String)>| {
+            every_form_read_newer_read_only(&forms, &health).is_err()
+        };
+        assert!(
+            !fails(read(&DESKTOP_STORES)),
+            "every store read newer-read-only passes"
+        );
+        assert!(fails(Vec::new()), "a session that reports no store fails");
+        assert!(
+            fails(read(&["user_db", "settings"])),
+            "a session that never opens the catalogue or the Draft fails"
+        );
+        let mut ready = read(&DESKTOP_STORES);
+        ready[0].1 = "ready".to_string();
+        assert!(fails(ready), "a store opened read-write fails");
     }
 
     #[test]
