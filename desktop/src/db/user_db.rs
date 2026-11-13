@@ -181,29 +181,44 @@ pub(super) fn initialize_connection(conn: &Connection) -> Result<(), UserDbInitE
 }
 
 /// The read-only version check `UserDb::open` runs first (contracts §11; plan :169, 2.1-M410). `None` for a missing
-/// file, versions 0 to 9 and what SQLite cannot read here: the read-write open owns, sets aside or refuses those. A
-/// newer version keeps its `SQLITE_OPEN_READ_ONLY` connection (never `immutable=1`) and is read through the v9 tables
-/// and columns by name (A3). A newer file read only through a write (a hot journal; a -wal with no -shm in a folder
-/// Canopi cannot write) is unavailable, never retried read-write, and served by an empty stand-in.
+/// file (a read-only open creates none), versions 0 to 9 and what SQLite cannot read: the read-write open owns, sets
+/// aside or refuses those. A newer version keeps its `SQLITE_OPEN_READ_ONLY` connection (never `immutable=1`), read
+/// through the v9 tables and columns by name (A3). A newer file read only through a write (a hot journal; a -wal with
+/// no -shm in a folder Canopi cannot write) is unavailable, never retried read-write, served by a read-only stand-in.
 pub(super) fn read_only_admission(
     path: &Path,
 ) -> Result<Option<(super::UserDb, StoreHealth)>, UserDbInitError> {
-    // A read-only open creates no file: a missing one fails here and goes to the read-write open.
     let flags = OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX;
     let read = Connection::open_with_flags(path, flags).map_err(UserDbInitError::Open);
     let newer = |found: i32| found > CURRENT_USER_DB_VERSION;
     let (connection, status) = match read.and_then(|conn| Ok((schema_version(&conn)?, conn))) {
         Ok((found, conn)) if newer(found) => (conn, StoreOpenStatus::NewerReadOnly),
+        Err(_) if header_user_version(path).is_some_and(newer) => {
+            let stand_in = Connection::open_in_memory().map_err(UserDbInitError::Open)?;
+            create_schema(&stand_in)?;
+            let query_only = stand_in.pragma_update(None, "query_only", true);
+            query_only.map_err(UserDbInitError::CreateSchema)?;
+            let code = canopi_types::failure::FailureCode::Io {
+                io: canopi_types::failure::IoFailureKind::ReadOnly,
+            };
+            (stand_in, StoreOpenStatus::Unavailable { code })
+        }
         Ok(_) | Err(_) => return Ok(None),
     };
     let user_db = super::UserDb(std::sync::Arc::new(connection.into()), false);
-    Ok(Some((
-        user_db,
-        StoreHealth {
-            status,
-            notice: None,
-        },
-    )))
+    let health = StoreHealth {
+        status,
+        notice: None,
+    };
+    Ok(Some((user_db, health)))
+}
+
+/// `user_version` as the main file's header holds it, read without SQLite, which would roll a hot journal back.
+fn header_user_version(path: &Path) -> Option<i32> {
+    let mut header = [0u8; 64];
+    std::io::Read::read_exact(&mut std::fs::File::open(path).ok()?, &mut header).ok()?;
+    let version = i32::from_be_bytes(header[60..].try_into().ok()?);
+    header.starts_with(b"SQLite format 3\0").then_some(version)
 }
 
 /// The one place `SQLITE_READONLY` becomes `store_read_only{user_db}` (design check F15, 2.1-M487): a user DB write's

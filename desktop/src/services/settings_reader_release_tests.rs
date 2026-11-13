@@ -479,3 +479,92 @@ fn r2_canopi_f47t_52_271_a_full_user_data_lane_settles_busy_the_same_on_a_user_d
         "no read-write retry wrote a byte"
     );
 }
+
+/// The frozen user DB 10 at `<dir>/user.db` with a hot rollback journal, as a 2.1 crash in mid-write leaves it: the
+/// files are copied while the writer's transaction is open.
+fn user_db_10_with_a_hot_journal(dir: &std::path::Path) -> std::path::PathBuf {
+    let writing = dir.join("writing");
+    std::fs::create_dir(&writing).unwrap();
+    let source = writing.join("user.db");
+    let writer = Connection::open(&source).unwrap();
+    writer.execute_batch(USER_DB_10).unwrap();
+    // With synchronous off the journal header is whole before the commit's sync, so the copy is hot at once.
+    writer
+        .execute_batch(
+            "PRAGMA synchronous = OFF;
+             BEGIN; DELETE FROM favorites; INSERT INTO session_last_home VALUES ('crash', 'mid-write');",
+        )
+        .unwrap();
+    let path = dir.join("user.db");
+    std::fs::copy(&source, &path).unwrap();
+    std::fs::copy(companion(&source, "-journal"), companion(&path, "-journal")).unwrap();
+    drop(writer);
+    path
+}
+
+/// What an unavailable user DB reports: it cannot be read without a write (contracts §11).
+fn unavailable() -> canopi_types::health::StoreOpenStatus {
+    use canopi_types::failure::{FailureCode, IoFailureKind};
+    let code = FailureCode::Io {
+        io: IoFailureKind::ReadOnly,
+    };
+    canopi_types::health::StoreOpenStatus::Unavailable { code }
+}
+
+#[test]
+fn r2_canopi_f47t_52_271_a_user_db_10_with_a_hot_rollback_journal_is_unavailable_never_rolled_back_and_the_app_starts()
+ {
+    use crate::services::plant_browser;
+    let scratch = crate::test_scratch::TestScratch::new("reader-release-user-db-10-hot-journal");
+    let path = user_db_10_with_a_hot_journal(&scratch);
+    let before = user_db_files(&path);
+    assert!(
+        before
+            .iter()
+            .any(|(suffix, journal)| *suffix == "-journal" && journal[0] != 0),
+        "a hot journal"
+    );
+
+    let (user_db, health) = UserDb::open(&path).expect("the app starts");
+
+    assert_eq!((health.status, health.notice), (unavailable(), None));
+    assert!(
+        plant_browser::get_favorite_names(&user_db)
+            .unwrap()
+            .is_empty()
+    );
+    assert_eq!(
+        plant_browser::toggle_favorite(&user_db, "Malus domestica".into()),
+        Err(REFUSED.to_owned())
+    );
+    drop(user_db);
+    assert_eq!(
+        user_db_files(&path),
+        before,
+        "never rolled back: every file byte-identical"
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn r2_canopi_f47t_52_271_a_user_db_10_with_a_wal_and_no_shm_in_a_folder_canopi_cannot_write_is_unavailable()
+ {
+    use std::os::unix::fs::PermissionsExt;
+    let scratch = crate::test_scratch::TestScratch::new("reader-release-user-db-10-locked-folder");
+    let folder = scratch.join("locked");
+    std::fs::create_dir(&folder).unwrap();
+    let path = user_db_10_with_a_wal(&folder);
+    let before = user_db_files(&path);
+    std::fs::set_permissions(&folder, std::fs::Permissions::from_mode(0o555)).unwrap();
+    if std::fs::write(folder.join("probe"), b"").is_ok() {
+        // A user who writes anywhere (root) has no unwritable folder to test.
+        return;
+    }
+
+    let opened = UserDb::open(&path).map(|(user_db, health)| (drop(user_db), health).1);
+    std::fs::set_permissions(&folder, std::fs::Permissions::from_mode(0o755)).unwrap();
+
+    assert_eq!(opened.expect("the app starts").status, unavailable());
+    assert_eq!(user_db_files(&path), before, "every file byte-identical");
+    assert!(!companion(&path, "-shm").exists());
+}
