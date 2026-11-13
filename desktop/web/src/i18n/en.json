@@ -1816,6 +1816,7 @@
     "region": "Start",
     "purpose": "Design agroforestry and food forests on the map of your land.",
     "more": "More",
+    "movingAround": "Moving around",
     "searchDesigns": "Search your Designs",
     "noMatches": "No Designs match “{{query}}”.",
     "recentDesigns": "Recent Designs",

@@ -1816,6 +1816,7 @@
     "region": "Inizio",
     "purpose": "Progetta agroforestazione e foreste commestibili sulla mappa del tuo terreno.",
     "more": "Altro",
+    "movingAround": "Muoversi sulla mappa",
     "searchDesigns": "Cerca nei tuoi progetti",
     "noMatches": "Nessun progetto corrisponde a «{{query}}».",
     "recentDesigns": "Progetti recenti",

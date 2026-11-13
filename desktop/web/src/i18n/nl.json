@@ -1816,6 +1816,7 @@
     "region": "Start",
     "purpose": "Ontwerp agroforestry en voedselbossen op de kaart van je grond.",
     "more": "Meer",
+    "movingAround": "Over de kaart bewegen",
     "searchDesigns": "Je ontwerpen doorzoeken",
     "noMatches": "Geen ontwerpen komen overeen met ‘{{query}}’.",
     "recentDesigns": "Recente ontwerpen",

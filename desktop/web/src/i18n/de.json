@@ -1816,6 +1816,7 @@
     "region": "Start",
     "purpose": "Planen Sie Agroforst und Waldgärten auf der Karte Ihres Grundstücks.",
     "more": "Mehr",
+    "movingAround": "Auf der Karte bewegen",
     "searchDesigns": "Ihre Designs durchsuchen",
     "noMatches": "Kein Design passt zu „{{query}}“.",
     "recentDesigns": "Letzte Designs",

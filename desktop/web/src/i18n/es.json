@@ -1816,6 +1816,7 @@
     "region": "Inicio",
     "purpose": "Diseña sistemas agroforestales y bosques comestibles sobre el mapa de tu terreno.",
     "more": "Más",
+    "movingAround": "Moverse por el mapa",
     "searchDesigns": "Buscar en tus diseños",
     "noMatches": "Ningún diseño coincide con «{{query}}».",
     "recentDesigns": "Diseños recientes",

@@ -1863,6 +1863,7 @@ export type LocaleKey =
   | "start.footerWeb"
   | "start.inFolder"
   | "start.more"
+  | "start.movingAround"
   | "start.noMatches"
   | "start.plantCount"
   | "start.plantCount_few"

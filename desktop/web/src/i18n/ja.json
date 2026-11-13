@@ -1816,6 +1816,7 @@
     "region": "スタート",
     "purpose": "土地の地図の上で、アグロフォレストリーと食べられる森をデザインします。",
     "more": "その他",
+    "movingAround": "地図の移動",
     "searchDesigns": "デザインを検索",
     "noMatches": "「{{query}}」に一致するデザインはありません。",
     "recentDesigns": "最近のデザイン",

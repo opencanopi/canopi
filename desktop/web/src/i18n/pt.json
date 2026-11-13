@@ -1816,6 +1816,7 @@
     "region": "Início",
     "purpose": "Projete agroflorestas e florestas de alimentos no mapa do seu terreno.",
     "more": "Mais",
+    "movingAround": "Navegar pelo mapa",
     "searchDesigns": "Pesquisar seus designs",
     "noMatches": "Nenhum design corresponde a “{{query}}”.",
     "recentDesigns": "Designs recentes",

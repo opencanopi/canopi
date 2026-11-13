@@ -1816,6 +1816,7 @@
     "region": "开始",
     "purpose": "在您土地的地图上设计农林复合系统和食物森林。",
     "more": "更多",
+    "movingAround": "在地图上移动",
     "searchDesigns": "搜索您的设计",
     "noMatches": "没有与“{{query}}”匹配的设计。",
     "recentDesigns": "最近的设计",

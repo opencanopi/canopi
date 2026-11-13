@@ -1,6 +1,11 @@
 import type { MenuDefinition } from '../../app/shell-commands/menus'
 import { flattenMenuActions } from '../../app/shell-commands/menus'
-import { closeKeyboardShortcutsDialog, keyboardShortcutsDialogOpen } from '../../app/shell/dialogs'
+import { useLayoutEffect, useRef } from 'preact/hooks'
+import {
+  closeKeyboardShortcutsDialog,
+  keyboardShortcutsDialogOpen,
+  keyboardShortcutsSectionRequest,
+} from '../../app/shell/dialogs'
 import { singleKeyShortcuts } from '../../app/settings/state'
 import { t } from '../../i18n'
 import { formatShortcut, modKeyName } from '../../app/shell-commands/shortcut-text'
@@ -39,10 +44,23 @@ interface ShortcutRow {
  * rotation rows, and Fit the Design with Home after the map's + and −. With
  * Settings › Keyboard › Single-key shortcuts off, the menus drop those keys,
  * so the list does too (N leaves Reset north), and the footnote says how to
- * turn them back on and that Shift N still resets north.
+ * turn them back on and that Shift N still resets north. Opened at a section (the welcome screen's Moving around:
+ * the gestures), it scrolls that section's heading to the top and focuses it, after the dialog's own first focus; an
+ * open dialog asked again moves there; the request is used once, so a plain reopen starts at the top.
  */
 export function KeyboardShortcutsDialog({ menus, platform, linuxPinchNote = false }: KeyboardShortcutsDialogProps) {
-  if (!keyboardShortcutsDialogOpen.value) return null
+  const open = keyboardShortcutsDialogOpen.value
+  const request = keyboardShortcutsSectionRequest.value
+  const grid = useRef<HTMLDivElement>(null)
+  // A parent's layout effect runs after its children's, so this focus follows WorkspaceDialog's initial focus.
+  useLayoutEffect(() => {
+    if (!open || !request) return
+    const heading = grid.current?.querySelector<HTMLElement>(`#shortcuts-${request.section}`)
+    heading?.scrollIntoView?.({ block: 'start' })
+    heading?.focus({ preventScroll: true })
+    keyboardShortcutsSectionRequest.value = null
+  }, [open, request])
+  if (!open) return null
   const key = (shortcut: string) => formatShortcut(shortcut, t)
   const single = singleKeyShortcuts.value
   const rotationRows: ShortcutRow[] = [
@@ -106,10 +124,11 @@ export function KeyboardShortcutsDialog({ menus, platform, linuxPinchNote = fals
         </>
       )}
     >
-      <div className={styles.grid}>
+      <div ref={grid} className={styles.grid}>
         {allSections.map((section) => (
           <section key={section.id} className={styles.section} aria-labelledby={`shortcuts-${section.id}`}>
-            <h3 className={styles.heading} id={`shortcuts-${section.id}`}>{section.label}</h3>
+            {/* Focusable by script only, for an open at its section. */}
+            <h3 className={styles.heading} id={`shortcuts-${section.id}`} tabIndex={-1}>{section.label}</h3>
             <dl className={styles.rows}>
               {section.rows.map((row) => (
                 <div key={row.id} className={styles.row}>

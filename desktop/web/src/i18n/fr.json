@@ -1816,6 +1816,7 @@
     "region": "Accueil",
     "purpose": "Concevez agroforesterie et forêts nourricières sur la carte de votre terrain.",
     "more": "Plus",
+    "movingAround": "Se déplacer sur la carte",
     "searchDesigns": "Rechercher dans vos Designs",
     "noMatches": "Aucun Design ne correspond à « {{query}} ».",
     "recentDesigns": "Designs récents",

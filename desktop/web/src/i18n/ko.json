@@ -1816,6 +1816,7 @@
     "region": "시작",
     "purpose": "내 땅의 지도 위에서 혼농임업과 먹거리 숲을 디자인하세요.",
     "more": "더 보기",
+    "movingAround": "지도 이동",
     "searchDesigns": "내 디자인 검색",
     "noMatches": "“{{query}}”와 일치하는 디자인이 없습니다.",
     "recentDesigns": "최근 디자인",
