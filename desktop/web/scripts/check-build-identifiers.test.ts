@@ -1,16 +1,16 @@
 import { spawnSync } from 'node:child_process'
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterEach, describe, expect, it } from 'vitest'
 
-import { builtChunkViolations, DESKTOP_VENDOR_CHUNKS } from './check-build-identifiers.mjs'
+import { builtChunkViolations, DESKTOP_VENDOR_CHUNKS, topLevelAwaits } from './check-build-identifiers.mjs'
 
 const SCRIPT = fileURLToPath(new URL('./check-build-identifiers.mjs', import.meta.url))
 const NOTICES = '# Third-party notices\n\nmaplibre-gl BSD-3-Clause\n'
 
-interface Chunk { fileName: string; name: string; isEntry: boolean; packages: string[]; code?: string }
+interface Chunk { fileName: string; name: string; isEntry: boolean; imports?: string[]; packages: string[]; code?: string }
 
 const roots: string[] = []
 afterEach(() => { for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true }) })
@@ -27,15 +27,19 @@ function plantBuild(name: string, chunks: Chunk[], { shipped = NOTICES }: { ship
   writeFileSync(noticesPath, NOTICES)
   if (shipped !== null) writeFileSync(join(dist, 'THIRD_PARTY_NOTICES.md'), shipped)
   for (const { fileName, code } of chunks) if (code !== undefined) writeFileSync(join(dist, fileName), code)
-  const facts = chunks.map(({ code: _code, ...chunk }) => chunk)
+  const facts = chunks.map(({ code: _code, imports = [], ...chunk }) => ({ ...chunk, imports }))
   writeFileSync(join(factsDir, `${name === 'dist' ? 'desktop' : 'web'}.json`), JSON.stringify({ chunks: facts }))
   return { dist, options: { factsDir, noticesPath } }
 }
 
-/** A sound Desktop build: the entry, the four named vendor chunks with their packages, and the notices' lazy chunk. */
+/**
+ * A sound Desktop build: the entry importing the four named vendor chunks with their packages, and the notices' lazy
+ * chunk.
+ */
 function soundDesktop(): Chunk[] {
+  const vendors = Object.keys(DESKTOP_VENDOR_CHUNKS).map((name) => `assets/${name}-c.js`)
   return [
-    { fileName: 'assets/index-a.js', name: 'index', isEntry: true, packages: ['preact'], code: 'import "./about-b.js";' },
+    { fileName: 'assets/index-a.js', name: 'index', isEntry: true, imports: vendors, packages: ['preact'], code: 'import "./about-b.js";' },
     { fileName: 'assets/about-b.js', name: 'about', isEntry: false, packages: [], code: 'export const t="# Third-party notices";' },
     ...Object.entries(DESKTOP_VENDOR_CHUNKS).map(([name, packages]) => (
       { fileName: `assets/${name}-c.js`, name, isEntry: false, packages: [...packages], code: 'export {};' })),
@@ -79,6 +83,36 @@ describe('the built chunk check', () => {
     const partial = plantBuild('dist-web', chunks)
     expect(builtChunkViolations(partial.dist, partial.options))
       .toEqual(['dist-web: assets/i18n-c.js is in the chunk list but not written: run npm run build:web:bundle'])
+  })
+
+  it('canopi-72fm: names a top-level await on the entry\'s static graph, in either edition, and passes one only loaded on demand', () => {
+    // A top-level await anywhere the entry imports statically delays the app's mount past the load event, where the
+    // start-up guard shows over a working app (canopi-72fm: the LZW codec's WASM init rode in raster-display).
+    const awaiting = (code: string) => soundDesktop().map((chunk) => (chunk.name === 'raster-display' ? { ...chunk, code } : chunk))
+    const desktop = plantBuild('dist', awaiting('await async function(){}();export const d=1;'))
+    expect(builtChunkViolations(desktop.dist, desktop.options))
+      .toEqual(['dist: assets/raster-display-c.js runs a top-level await on the entry\'s static graph, so the app would mount after the load event'])
+    const forAwait = plantBuild('dist-web', awaiting('for await (const x of []) {}'))
+    expect(builtChunkViolations(forAwait.dist, forAwait.options))
+      .toEqual(['dist-web: assets/raster-display-c.js runs a top-level await on the entry\'s static graph, so the app would mount after the load event'])
+    const inFunctions = plantBuild('dist', awaiting('export async function f(){await 1}const g=async()=>{for await (const x of []);};class C{async m(){await 1}}'))
+    expect(builtChunkViolations(inFunctions.dist, inFunctions.options)).toEqual([])
+    const lazy = plantBuild('dist', [...soundDesktop(), { fileName: 'assets/lzw-d.js', name: 'lzw', isEntry: false, packages: [], code: 'await 1;' }])
+    expect(builtChunkViolations(lazy.dist, lazy.options)).toEqual([])
+  })
+
+  it('canopi-72fm: an await using declaration counts as a top-level await, and a chunk that does not parse is refused, never passed', () => {
+    expect(topLevelAwaits('a.js', 'await using x = f();')).toBe(true)
+    expect(topLevelAwaits('a.js', 'async function g(){await using x = f();}')).toBe(false)
+    expect(() => topLevelAwaits('a.js', 'await f(); let x = 1 +;')).toThrow('a.js does not parse')
+  })
+
+  it('refuses a chunk list without static imports, an older build, naming the build to run', () => {
+    const { dist, options } = plantBuild('dist', soundDesktop())
+    const factsPath = join(options.factsDir, 'desktop.json')
+    const facts = JSON.parse(readFileSync(factsPath, 'utf8')) as { chunks: Record<string, unknown>[] }
+    writeFileSync(factsPath, JSON.stringify({ chunks: facts.chunks.map(({ imports: _imports, ...chunk }) => chunk) }))
+    expect(builtChunkViolations(dist, options)).toEqual(['dist: the chunk list names no static imports: run npm run build:desktop:bundle'])
   })
 
   it('exits non-zero naming a non-ASCII script of a written build, every Desktop and Web script and worker scanned', () => {

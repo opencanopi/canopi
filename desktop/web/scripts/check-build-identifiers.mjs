@@ -16,8 +16,8 @@ const BUILDS = {
 };
 /**
  * The Desktop build's named vendor chunks and the packages with rendered code each held on Vite 6 (Rollup), the
- * dependencies the group pulled in included; chunk count and bytes are not checked (DR5). vite.config.ts names them from
- * build-facts.generated.json.
+ * dependencies the group pulled in included, less @developmentseed/lzw-tiff-decoder, which loads on demand
+ * (canopi-72fm); chunk count and bytes are not checked (DR5). vite.config.ts names them from build-facts.generated.json.
  */
 export const DESKTOP_VENDOR_CHUNKS = {
   "i18n": ["i18next"],
@@ -25,7 +25,7 @@ export const DESKTOP_VENDOR_CHUNKS = {
   "raster-display": [
     "@chunkd/middleware", "@chunkd/source", "@chunkd/source-http", "@chunkd/source-memory", "@cogeotiff/core",
     "@deck.gl/core", "@deck.gl/geo-layers", "@deck.gl/layers", "@deck.gl/mapbox", "@deck.gl/mesh-layers",
-    "@developmentseed/affine", "@developmentseed/geotiff", "@developmentseed/lzw-tiff-decoder",
+    "@developmentseed/affine", "@developmentseed/geotiff",
     "@loaders.gl/core", "@loaders.gl/images", "@loaders.gl/loader-utils", "@loaders.gl/schema", "@loaders.gl/worker-utils",
     "@luma.gl/core", "@luma.gl/engine", "@luma.gl/gpgpu", "@luma.gl/shadertools", "@luma.gl/webgl", "@mapbox/tiny-sdf",
     "@math.gl/core", "@math.gl/culling", "@math.gl/polygon", "@math.gl/types", "@math.gl/web-mercator",
@@ -88,8 +88,9 @@ export function nonAsciiIdentifiers(program) {
 /**
  * One message per way the written build at `distRoot` (`dist` or `dist-web`) breaks a chunk rule, read from the chunk
  * list its build wrote: each Desktop vendor chunk holds the packages above, the root THIRD_PARTY_NOTICES.md ships at
- * the build root unchanged (2.1-Q221), and its text lies in one chunk, never the entry (the About dialog loads it
- * lazily). A missing list, or one naming a chunk the build never wrote (an interrupted or older build), refuses it.
+ * the build root unchanged (2.1-Q221), its text lies in one chunk, never the entry (the About dialog loads it lazily),
+ * and no chunk on the entry's static graph runs a top-level await (`topLevelAwaits`). A missing list, or one naming a
+ * chunk the build never wrote or no static imports (an interrupted or older build), refuses it.
  */
 export function builtChunkViolations(distRoot, { factsDir = CHUNK_FACTS_DIR, noticesPath = NOTICES_PATH } = {}) {
   const label = basename(distRoot);
@@ -100,6 +101,7 @@ export function builtChunkViolations(distRoot, { factsDir = CHUNK_FACTS_DIR, not
   const { chunks } = JSON.parse(readFileSync(factsPath, "utf8"));
   const unwritten = chunks.find(({ fileName }) => !existsSync(resolve(distRoot, fileName)));
   if (unwritten) return [`${label}: ${unwritten.fileName} is in the chunk list but not written: run ${build}`];
+  if (chunks.some(({ imports }) => !Array.isArray(imports))) return [`${label}: the chunk list names no static imports: run ${build}`];
 
   const violations = [];
   for (const [name, expected] of Object.entries(edition === "desktop" ? DESKTOP_VENDOR_CHUNKS : {})) {
@@ -117,8 +119,58 @@ export function builtChunkViolations(distRoot, { factsDir = CHUNK_FACTS_DIR, not
   if (holders.length !== 1 || holders[0].isEntry) {
     violations.push(`${label}: the notices ship in ${holders.map(({ fileName }) => fileName).join(", ") || "no chunk"}, not in one lazy chunk`);
   }
+  for (const fileName of staticGraph(chunks)) {
+    if (topLevelAwaits(fileName, readFileSync(resolve(distRoot, fileName), "utf8"))) {
+      violations.push(`${label}: ${fileName} runs a top-level await on the entry's static graph, so the app would mount after the load event`);
+    }
+  }
   return violations;
 }
+
+/** The entry chunks and every chunk they import statically, transitively: what runs before the app mounts. */
+function staticGraph(chunks) {
+  const byName = new Map(chunks.map((chunk) => [chunk.fileName, chunk]));
+  const reached = new Set();
+  const stack = chunks.filter(({ isEntry }) => isEntry).map(({ fileName }) => fileName);
+  while (stack.length > 0) {
+    const fileName = stack.pop();
+    const chunk = byName.get(fileName);
+    if (!chunk || reached.has(fileName)) continue;
+    reached.add(fileName);
+    stack.push(...chunk.imports);
+  }
+  return [...reached].sort();
+}
+
+/**
+ * Whether a module script awaits outside any function: `await`, `for await` or `await using` at its top level. A module graph holding
+ * one evaluates asynchronously, and the load event does not wait for it, so the entry's `render` would run after load
+ * and the start-up guard (src/boot-guard/guard.ts, which shows at load before the boot is acknowledged) would cover a
+ * working app (canopi-72fm). A chunk only loaded on demand may await: the boot never waits for it.
+ */
+export function topLevelAwaits(name, source) {
+  if (!source.includes("await")) return false;
+  // A chunk that does not parse would read as an empty program and pass, so it is refused instead.
+  const { program, errors } = parseSync(name, source, { sourceType: "module" });
+  if (errors.length > 0) throw new Error(`${name} does not parse: ${errors[0].message}`);
+  const stack = [program];
+  while (stack.length > 0) {
+    const node = stack.pop();
+    if (node.type === "AwaitExpression" || (node.type === "ForOfStatement" && node.await)
+      || (node.type === "VariableDeclaration" && node.kind === "await using")) return true;
+    if (FUNCTIONS.has(node.type)) continue;
+    for (const child of Object.values(node)) {
+      if (Array.isArray(child)) {
+        for (const item of child) if (item && typeof item === "object") stack.push(item);
+      } else if (child && typeof child === "object") {
+        stack.push(child);
+      }
+    }
+  }
+  return false;
+}
+
+const FUNCTIONS = new Set(["FunctionDeclaration", "FunctionExpression", "ArrowFunctionExpression"]);
 
 function describe(text) {
   const points = [...text].filter((char) => NON_ASCII.test(char))
