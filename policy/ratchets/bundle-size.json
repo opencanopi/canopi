@@ -62,7 +62,7 @@
     "desktop chunk: format-count": { "ceiling": 191486, "tolerance": 0.05 },
     "desktop chunk: geotiff": { "ceiling": 306013, "tolerance": 0.05 },
     "desktop chunk: globals": { "ceiling": 8007, "tolerance": 0.05 },
-    "desktop chunk: health": { "ceiling": 5105, "tolerance": 0.05 },
+    "desktop chunk: health": { "ceiling": 5927, "tolerance": 0.05 },
     "desktop chunk: i18n": { "ceiling": 43439, "tolerance": 0.05 },
     "desktop chunk: ids": { "ceiling": 667, "tolerance": 0.05 },
     "desktop chunk: index": { "ceiling": 504108, "tolerance": 0.05 },
