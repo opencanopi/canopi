@@ -272,4 +272,19 @@ describe('R1 canopi-f47t.52.270: a read-only Design offers Close only', () => {
     }
     expect(enabled).toContain('file.close')
   })
+
+  it('R3 canopi-f47t.52.272: a Web Draft opened while 2.1\'s Drafts could not be listed keeps Download a copy, and nothing else (2.1-Q334)', () => {
+    designSessionStore.replaceCurrentDesignState(SHOWN, null, SHOWN.name, { kind: 'read-only', origin: 'storage-unchecked' })
+    const run = vi.fn()
+    const catalog = createBrowserShellCatalog({
+      newDesign: run, openCanopi: run, downloadCanopi: run, revertDesign: run, importGeoJson: run, exportGeoJson: run,
+      exportBudgetCsv: run, closeDesign: run, navigate: run,
+    }, { templatesEnabled: false, canvasReady: () => true })
+    const state = { hasDesign: true, revertAvailable: true, activePanel: 'canvas', sidePanel: null } as const
+    const enabled = catalog.filter((entry) => !entry.isExecutionDisabled(state)).map((entry) => entry.id)
+    expect(enabled).toContain('file.downloadCanopi')
+    for (const id of ['file.rename', 'file.revert', 'file.importGeoJson', 'file.exportGeoJson', 'file.exportBudgetCsv', 'file.exportCanvasPdf', 'view.saveCurrentView']) {
+      expect(enabled, id).not.toContain(id)
+    }
+  })
 })

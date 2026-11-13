@@ -11,7 +11,7 @@ import type { DesignOpenFailureNotice } from '../app/document-session/open-failu
 import type { GeoJsonNotice } from '../app/geojson/workflow'
 import { raiseNotice, withdrawNotice, type NoticeSpec } from '../failures/notices'
 
-type ActionNotice = Pick<NoticeSpec, 'tone' | 'title' | 'message' | 'params' | 'detail'>
+type ActionNotice = Pick<NoticeSpec, 'tone' | 'title' | 'message' | 'params' | 'detail' | 'action'>
 
 /** Shows an action's outcome at the front of the row, replacing the outcome shown before it under the same key. */
 function showOutcome(key: string, notice: ActionNotice): void {
@@ -37,9 +37,21 @@ export function presentBrowserDraftOpenFailure(): void {
   showOutcome('web.open-failure', { tone: 'error', title: 'start.cantOpenTitle', message: 'webStorage.downloadFailedMessage' })
 }
 
-/** An old-key Draft opened read-only while 2.1's Draft listing could not be read: it may be a copy 2.1 replaced (2.1-Q334). */
-export function presentBrowserDraftUncheckedNotice(): void {
-  showOutcome('web.draft-unchecked', { tone: 'warning', message: 'webStorage.uncheckedReadOnly' })
+const DRAFT_UNCHECKED = 'web.draft-unchecked'
+
+/**
+ * An old-key Draft opened read-only while 2.1's Draft listing could not be read: it may be a copy 2.1 replaced, so the
+ * notice offers its Download a copy (2.1-Q334).
+ */
+export function presentBrowserDraftUncheckedNotice(download: () => void): void {
+  showOutcome(DRAFT_UNCHECKED, {
+    tone: 'warning', message: 'webStorage.uncheckedReadOnly', action: { label: 'webShell.downloadCopy', run: download },
+  })
+}
+
+/** That view's session ended: its notice goes with it. */
+export function withdrawBrowserDraftUncheckedNotice(): void {
+  withdrawNotice(DRAFT_UNCHECKED)
 }
 
 /** Browser data from before Canopi 2.0 stays in place, unread (ADR 0021): told once, at the launch that finds it. */

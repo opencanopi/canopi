@@ -1,5 +1,6 @@
 import { canvasPdf, canExportCanvasPdf } from '../app/canvas-pdf/live'
 import { navigateTo, type Panel, type SidePanel } from '../app/shell/state'
+import { designSessionStore } from '../app/document-session/store'
 import {
   composeShellCommandCatalog,
   projectShellCommandCatalog,
@@ -157,6 +158,11 @@ export interface BrowserShellCatalogOptions {
   readonly canvasReady: () => boolean
 }
 
+const storedCopyShown = () => {
+  const session = designSessionStore.sessionKind.value
+  return session.kind === 'read-only' && session.origin === 'storage-unchecked'
+}
+
 /** The Web Edition command catalog; availability reads the live state it is given. */
 export function createBrowserShellCatalog(
   capabilities: BrowserShellCapabilities,
@@ -175,7 +181,9 @@ export function createBrowserShellCatalog(
     openCanopi: { execute: () => capabilities.openCanopi() },
     downloadCanopi: {
       execute: () => capabilities.downloadCanopi(),
-      isExecutionDisabled: needsChangeable,
+      // A Draft opened read-only while 2.1's Drafts could not be listed keeps its stored copy (2.1-Q334); a newer
+      // Canopi's Design never, since re-encoding it as this format is unsafe.
+      isExecutionDisabled: (state) => needsChangeable(state) && !(state.hasDesign && storedCopyShown()),
     },
     revertDesign: {
       execute: () => capabilities.revertDesign(),
