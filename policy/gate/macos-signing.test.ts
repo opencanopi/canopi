@@ -33,6 +33,7 @@ interface MacConfig { readonly bundle?: { readonly macOS?: { readonly signingIde
 const MAC_CONFIG = 'desktop/tauri.macos.conf.json'
 const RC = '.github/workflows/release-candidate.yml'
 const PROBE = '.github/workflows/macos-signing-probe.yml'
+const INSTALL_DOCS = ['README.md', 'docs/release-notes/v2.1.0.md']
 const SEAL_STEP = 'The Mac app is sealed ad hoc with its resources'
 const PACKAGE_STEP = 'Package the desktop app'
 const VERDICT_STEP = 'Read the verdict'
@@ -75,6 +76,25 @@ function probeText(variable: 'open_anyway_steps' | 'xattr_steps'): string {
   if (text === undefined) throw new Error(`${PROBE} sets no ${variable}`)
   return text
 }
+/** A user's reading of Markdown: no code or bold marks, the house menu arrow as the probe's '>', one space, any case. */
+const prose = (text: string) => text.replace(/\*\*|`/g, '').replace(/›/g, '>').replace(/\s+/g, ' ').toLowerCase()
+
+/** Why a document's Mac install text names a step the shipped bundle does not show, empty when it is the probe's. */
+function installFaults(identity: unknown, docs: ReadonlyMap<string, string>): string[] {
+  const adhoc = identity === '-'
+  const wanted = prose(probeText(adhoc ? 'open_anyway_steps' : 'xattr_steps'))
+  const faults: string[] = []
+  for (const [file, text] of docs) {
+    const said = prose(text)
+    if (!said.includes(wanted)) faults.push(`${file} lacks the probe's install text for the ${adhoc ? 'ad-hoc' : 'unsigned'} bundle`)
+    // The unsigned bundle's dialog says damaged and offers no Open Anyway (the probe, PR #96).
+    if (!adhoc && said.includes('open anyway')) faults.push(`${file} names Open Anyway, which macOS shows only for an ad-hoc sealed bundle`)
+    // The ad-hoc bundle's first dialog is "could not verify": damaged is only the fallback.
+    if (adhoc && said.includes('macos then says canopi is damaged')) faults.push(`${file} says macOS calls Canopi damaged, which the ad-hoc bundle's first open does not`)
+  }
+  return faults
+}
+
 describe('the Mac bundle is sealed ad hoc (canopi-3cu2)', () => {
   let dir: string | undefined
   afterEach(() => {
@@ -191,5 +211,19 @@ exit 64
     const lost = verdict({ unsigned: LINKER, adhoc: LINKER })
     expect(lost.status).toBe(1)
     expect(lost.stdout).toContain('::error::the adhoc row is not sealed ad hoc (linker-signed)')
+  })
+
+  it('canopi-3cu2: the Mac install text everywhere a user reads it is the probe\'s for the shipped bundle', () => {
+    const docs = new Map(INSTALL_DOCS.map((file) => [file, read(file)]))
+    expect(installFaults(macConfig.bundle?.macOS?.signingIdentity, docs)).toEqual([])
+    // Planted: the same text over an unsigned bundle names Open Anyway, which its damaged dialog never shows.
+    expect(installFaults(undefined, new Map([['README.md', read('README.md')]]))).toEqual([
+      "README.md lacks the probe's install text for the unsigned bundle",
+      'README.md names Open Anyway, which macOS shows only for an ad-hoc sealed bundle'])
+    // Planted: 2.0.3's text over the ad-hoc bundle.
+    const old = 'macOS: open the dmg and drag Canopi to Applications; macOS then says Canopi is damaged, which it is not.'
+    expect(installFaults('-', new Map([['README.md', old]]))).toEqual([
+      "README.md lacks the probe's install text for the ad-hoc bundle",
+      "README.md says macOS calls Canopi damaged, which the ad-hoc bundle's first open does not"])
   })
 })
