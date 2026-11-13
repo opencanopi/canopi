@@ -9,6 +9,7 @@ import { browserAppDataStore } from "../web/browser-app-data";
 import { browserDraftPersistence } from "../web/browser-draft-persistence";
 import { browserReleaseWatch } from "../web/browser-release-watch";
 import { browserSettingsPlatformAdapter } from "./settings.browser";
+import { readSpeciesListRecord } from "./browser-record";
 import { createDesignCore } from "./design-core";
 import { createDraftRecordsReader } from "./draft-records.browser";
 import { installFailureHooks, reportFailure } from "../failures/report";
@@ -30,7 +31,7 @@ export function bootstrapPlatform(): void {
   // the told-once notice is raised at once, ahead of any later notice, and reads in the user's locale once it loads.
   if (browserAppDataStore.takeEarlierDataNotice(new Date().toISOString())) raiseEarlierDataNotice();
   // Species lists a newer Canopi saved, or damaged ones, say so once at launch rather than at the first list (2.1-Q319).
-  browserAppDataStore.openSpeciesLists();
+  browserAppDataStore.openSpeciesLists(readSpeciesListRecord);
   // Web application lifetime: the newest Draft reopens before first render,
   // and continuous save outlives every view.
   // "Drafts at launch" is whether Drafts are stored, not whether one reopened: a release Reload from the start

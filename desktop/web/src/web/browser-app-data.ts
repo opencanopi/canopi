@@ -4,16 +4,15 @@ import type { CanopiFile } from "../types/design";
 import { keepUnreadableRecord, StoreRefusedError, StoreUnreadableError } from "../failures/store-read";
 import { writeStoreHealth } from "../failures/health";
 import type { StoreId } from "../generated/contracts";
-import { readSettingsRecord, readSpeciesListRecord, SETTINGS_RECORD_KEY } from "../platform/browser-record";
-import type { RecordRead, SpeciesListEntry } from "../platform/browser-record";
+import type { RecordRead, SpeciesListEntry, SpeciesListRecord } from "../platform/browser-record";
 
 // Canopi 2.0 keeps its records under the `v3` keys and migrates nothing
 // (ADR 0021). Web Edition 1.x wrote the `v1` document and then moved it into
 // the `v2:*` keys (1.0.1 to 1.2.0); 2.0 never reads, writes or deletes any of
 // them, so 1.x still opens them. It only checks whether one exists, to tell the
-// user once that they were not opened. After a rollback from 2.1 it reads the settings and species lists 2.1 keeps
-// under its own keys (platform/browser-record.ts, 2.1-M486) in place of its own, and never writes, moves or copies them
-// (2.1-Q320, M483): each store then reads as saved by a newer Canopi and refuses writes for the session.
+// user once that they were not opened. After a rollback from 2.1 the species lists 2.1 keeps under its own key are read
+// in place of these (2.1-M486), never written, moved or copied (2.1-Q320, M483): the store then reads as saved by a
+// newer Canopi and refuses writes. platform/ passes the reader in (openSpeciesLists), so web/ imports no platform/ code.
 const RECORD_VERSION = 3 as const;
 const EARLIER_KEYS: readonly string[] = [
   "canopi:web-app-data:v1",
@@ -49,6 +48,10 @@ export interface BrowserStorageAdapter {
   setItem(key: string, value: string): void;
   removeItem(key: string): void;
 }
+
+/** Reads 2.1's species-list record (platform/browser-record.ts `readSpeciesListRecord`). */
+type SpeciesListReader = (storage: BrowserStorageAdapter) => RecordRead<SpeciesListRecord>;
+interface NewerRecordReaders { species?: SpeciesListReader }
 
 export type BrowserAppDataWriteResult<T> =
   | { readonly ok: true; readonly value: T }
@@ -107,7 +110,7 @@ interface BrowserStoragePartition<TRecord> {
   /** Storage form of a record; defaults to the record itself. */
   encode?(record: TRecord): unknown;
   /** The record 2.1 keeps for this store under its own key, read in place of this one whenever it is there. */
-  successor?(storage: BrowserStorageAdapter): RecordRead<TRecord>;
+  successor?(storage: BrowserStorageAdapter, readers: NewerRecordReaders): RecordRead<TRecord> | undefined;
 }
 
 const PARTITIONS = {
@@ -203,8 +206,13 @@ export interface BrowserAppDataStore {
   noteReloadHome(draftId: string | null): void;
   /** What this tab had open before its release reload, once; null when nothing was noted or it cannot be read. */
   takeReloadHome(): BrowserReloadHome | null;
-  /** Reads the species lists at launch, so lists a newer Canopi saved, or damaged ones, say so once, then (2.1-Q319). */
-  openSpeciesLists(): void;
+  /**
+   * Reads the species lists at launch, 2.1's key through `read` from now on, so lists a newer Canopi saved, or damaged
+   * ones, say so once, then (2.1-Q319).
+   */
+  openSpeciesLists(read: SpeciesListReader): void;
+  /** Runs a browser-record read over this store's storage (platform/browser-record.ts); it throws as the storage does. */
+  readRecord<T>(read: (storage: BrowserStorageAdapter) => T): T;
 }
 
 export function createBrowserAppDataStore({
@@ -214,18 +222,19 @@ export function createBrowserAppDataStore({
 }: BrowserAppDataStoreOptions = {}): BrowserAppDataStore {
   // The stores that refuse writes for this session: a damaged record that could not be moved aside, or a newer one.
   const refused = new Set<StoreId>();
+  const readers: NewerRecordReaders = {};
 
   function readPartition<TRecord>(partition: BrowserStoragePartition<TRecord>): TRecord {
     const { store, key } = partition;
     let raw: string | null;
     let successor: RecordRead<TRecord> | undefined;
     try {
-      successor = partition.successor?.(storage);
+      successor = partition.successor?.(storage, readers);
       raw = storage.getItem(key);
     } catch {
       return partition.normalize(null);
     }
-    if (successor && successor.state !== "absent") {
+    if (successor !== undefined && successor.state !== "absent") {
       // 2.1's record, never moved aside (design check R3-4): read when it reads, unavailable when not; never written.
       const readable = successor.state === "unreadable" ? null : successor;
       const status = readable ? { kind: "newer_read_only" as const } : { kind: "unavailable" as const, code: { kind: "invalid" as const } };
@@ -295,26 +304,12 @@ export function createBrowserAppDataStore({
     },
 
     saveSettings(settings) {
-      try {
-        // Settings 2.1 saved are never written over: a change applies for this session only (2.1-Q320).
-        if (storage.getItem(SETTINGS_RECORD_KEY) !== null) return { ok: false, error: new StoreRefusedError("settings") };
-      } catch (error) {
-        return { ok: false, error };
-      }
       return writePartition(PARTITIONS.settings, () => ({ next: { version: RECORD_VERSION, settings: { ...settings } }, value: { ...settings } }));
     },
 
     loadSettings() {
       // Strict, unlike the other reads: an unreadable record makes settings unavailable, never read as defaults that
-      // a later save would write over it (SET-05, 2.1-Q67). A refused storage access throws as it was thrown. 2.1's
-      // record, when there, is the latest choice: its fields are read and it is never written (2.1-M483).
-      const successor = readSettingsRecord(storage);
-      if (successor.state === "unreadable") throw new StoreUnreadableError("settings", { kind: "invalid" });
-      if (successor.state !== "absent") {
-        writeStoreHealth("settings", { status: { kind: "newer_read_only" }, notice: null });
-        const { version: _version, ...fields } = successor.record;
-        return fields;
-      }
+      // a later save would write over it (SET-05, 2.1-Q67). A refused storage access throws as it was thrown.
       const raw = storage.getItem(PARTITIONS.settings.key);
       if (raw === null) return null;
       const value = parseRecord(raw);
@@ -383,8 +378,13 @@ export function createBrowserAppDataStore({
       return text === null ? null : parseReloadHome(text);
     },
 
-    openSpeciesLists() {
+    openSpeciesLists(read) {
+      readers.species = read;
       readPartition(PARTITIONS.species);
+    },
+
+    readRecord(read) {
+      return read(storage);
     },
   };
 }
@@ -515,8 +515,9 @@ function emptySpeciesRecord(): BrowserSpeciesRecord {
 }
 
 /** 2.1's species lists as this record: the names, newest first, as 2.1 keeps them (contracts §19 ED-25). */
-function readSpeciesSuccessor(storage: BrowserStorageAdapter): RecordRead<BrowserSpeciesRecord> {
-  const read = readSpeciesListRecord(storage);
+function readSpeciesSuccessor(storage: BrowserStorageAdapter, { species }: NewerRecordReaders): RecordRead<BrowserSpeciesRecord> | undefined {
+  const read = species?.(storage);
+  if (read === undefined) return undefined;
   if (read.state === "absent" || read.state === "unreadable") return read;
   const names = (entries: readonly SpeciesListEntry[]) => uniqueStrings(entries.map((entry) => entry.canonical_name));
   const { favorites, recently_viewed } = read.record;

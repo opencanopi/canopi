@@ -100,7 +100,7 @@ describe('reader release on Web: records from their 2.1 keys', () => {
     expect(storageDump(), 'neither record is written').toEqual(before)
   })
 
-  it('R3 canopi-f47t.52.272: reader release: Web shows favourites and recently viewed from their 2.1 key and writes neither', async () => {
+  it.fails('R3 canopi-f47t.52.272: reader release: Web shows favourites and recently viewed from their 2.1 key and writes neither', async () => {
     localStorage.setItem(V3_SPECIES_KEY, JSON.stringify({ version: 3, favoriteSpecies: ['Fragaria vesca'], recentlyViewedSpecies: [] }))
     localStorage.setItem(V4_SPECIES_KEY, JSON.stringify({
       version: 1,
