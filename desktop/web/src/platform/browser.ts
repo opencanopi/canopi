@@ -36,9 +36,9 @@ export function bootstrapPlatform(): void {
   // The format core reads a Design a newer Canopi saved, read-only (2.1-M478); its worker starts on the first such open.
   const uninstallFormatCore = browserDesignSessionController.installFormatCore(createDesignCore());
   // 2.1's Drafts after a rollback, read-only (2.1-Q321, Q322): the launch reads their ids before it restores, and a
-  // version change from a 2.1 tab closes the read (design check A18).
+  // version change from a 2.1 tab closes the read and offers Reload (2.1-Q40, design check A18).
   const uninstallNewerDrafts = browserDesignSessionController.installNewerDrafts(createDraftRecordsReader({
-    onVersionChange: () => {},
+    onVersionChange: () => browserReleaseWatch.storeChanged(),
     report: (error) => reportFailure(error, { shown: "none", source: "web-drafts.read" }),
   }));
   void browserDesignSessionController.launch().catch((error: unknown) => {

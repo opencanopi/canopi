@@ -7,7 +7,7 @@
 // Written failing in commit 0 and marked expected-fail (`test.fail`); R3-3 built these paths and removed the markers.
 // The records are seeded in the contract's shape before the load; R3-4 may swap in its frozen fixture. The later cases
 // are R3-3's failure states: a 2.1 Draft opened, downloaded, deleted by 2.1 after the list, opened without its worker,
-// and a hidden id at restore.
+// a version change while a read is open, and a hidden id at restore.
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import type { Page } from '@playwright/test'
@@ -241,6 +241,40 @@ test('R3 canopi-f47t.52.272: a 2.1 Draft opened while the format worker cannot l
   await expect(page.getByText('Canopi couldn’t load the part that opens Designs.', { exact: false }), 'format_core_unavailable').toBeVisible()
   await expect(startScreen(page), 'the start screen stays').toBeVisible()
   await expect(draftRow(page, 'Orchard in 2.1'), 'and still lists the Draft, to try again').toHaveCount(1)
+})
+
+test('R3 canopi-f47t.52.272: a version change while a read is open closes it, offers Reload, and 2.1’s upgrade is not blocked', async ({ page, context }) => {
+  // Holds the reader's next Draft read open (its transaction kept busy) until the test lets it end.
+  await page.addInitScript(() => {
+    const host = window as unknown as { __holdReads: boolean }
+    host.__holdReads = false
+    const get = IDBObjectStore.prototype.get
+    IDBObjectStore.prototype.get = function (this: IDBObjectStore, ...args: Parameters<IDBObjectStore['get']>) {
+      const request = get.apply(this, args)
+      if (host.__holdReads && this.name === 'drafts' && args[0] !== 'held') {
+        const keepBusy = (): void => { if (host.__holdReads) get.call(this, 'held').onsuccess = keepBusy }
+        keepBusy()
+      }
+      return request
+    }
+  })
+  await startWithOneNewerDraft(page)
+  await page.evaluate(() => { (window as unknown as { __holdReads: boolean }).__holdReads = true })
+  // Opening the Draft reads its record: held open.
+  await draftRow(page, 'Orchard in 2.1').getByRole('button').first().click()
+
+  const later = await context.newPage()
+  await later.goto('')
+  const upgrade = later.evaluate(async (name) => await new Promise<string>((resolve) => {
+    const request = indexedDB.open(name, 5)
+    request.onblocked = () => resolve('blocked')
+    request.onerror = () => resolve(`error ${request.error?.name}`)
+    request.onsuccess = () => { request.result.close(); resolve('upgraded') }
+  }), DRAFT_DATABASE)
+  await expect(page.getByText('New version'), 'the version change shows the Reload notice (2.1-Q40)').toBeVisible()
+  await expect(page.getByRole('button', { name: 'Reload' })).toBeVisible()
+  await page.evaluate(() => { (window as unknown as { __holdReads: boolean }).__holdReads = false })
+  expect(await upgrade, '2.1’s upgrade is not blocked').toBe('upgraded')
 })
 
 test('R3 canopi-f47t.52.272: launch restores the newest 2.0 Draft whose id 2.1 neither holds nor copied', async ({ page }) => {
