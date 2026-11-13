@@ -5,12 +5,7 @@
 // Chromium, WebKit and Firefox; reader-release-web-stores.spec.ts runs the reader itself in those engines.
 import { readFileSync } from 'node:fs'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import {
-  DRAFT_DATABASE,
-  DRAFT_DATABASE_VERSION,
-  createDraftRecordsReader,
-  type DraftRecordsReader,
-} from './draft-records.browser'
+import { createDraftRecordsReader, type DraftRecordsReader } from './draft-records.browser'
 
 interface FrozenDraftStore {
   readonly database: string
@@ -61,7 +56,7 @@ class FakeIndexedDb {
 
   /** Another page changes the version (null: deletes the database) while connections are open. */
   versionChange(newVersion: number | null): void {
-    const db = this.databases.get(DRAFT_DATABASE)
+    const db = this.databases.get(FROZEN.database)
     for (const connection of this.connections) {
       if (!connection.closed) connection.onversionchange?.({ oldVersion: db?.version ?? 0, newVersion })
     }
@@ -74,7 +69,7 @@ class FakeIndexedDb {
   factory(): Parameters<typeof createDraftRecordsReader>[0]['factory'] {
     const open = (name: string, version?: number) => this.open(name, version)
     const list = async () => [...this.databases].map(([name, db]) => ({ name, version: db.version }))
-    return (this.withDatabases ? { open, databases: list } : { open }) as never
+    return (this.withDatabases ? { open, databases: list } : { open })
   }
 
   private open(name: string, version?: number): IDBOpenDBRequest {
@@ -165,8 +160,13 @@ afterEach(() => {
 })
 
 describe('the 2.1 Draft store read half', () => {
-  it('names the frozen database and version 2b writes', () => {
-    expect([FROZEN.database, FROZEN.version]).toEqual([DRAFT_DATABASE, DRAFT_DATABASE_VERSION])
+  it('reads the frozen database 2b writes, by its name, at the version 2.1 left', async () => {
+    const idb = new FakeIndexedDb()
+    idb.seed(FROZEN)
+    const { records } = reader(idb)
+    expect((await records.list()).drafts).not.toHaveLength(0)
+    expect(idb.opens).toEqual([FROZEN.database])
+    expect(FROZEN.version, 'the container version after the v3 localStorage keys (2.1-M486)').toBe(4)
   })
 
   it('R3 canopi-f47t.52.272: lists 2.1 Drafts from their record fields, newest first, and hides every copied id and every id 2.1 holds', async () => {
@@ -215,7 +215,7 @@ describe('the 2.1 Draft store read half', () => {
     const { records, reports } = reader(idb)
 
     expect(await records.list()).toEqual({ drafts: [], hiddenIds: [] })
-    expect(idb.opens).toEqual([DRAFT_DATABASE])
+    expect(idb.opens).toEqual([FROZEN.database])
     expect(idb.databases.size).toBe(0)
     expect(reports).toEqual([])
   })
@@ -300,7 +300,7 @@ describe('the 2.1 Draft store read half', () => {
     const saved = FROZEN.stores.drafts!.find((record) => record.id === 'draft-orchard')!.content
 
     expect(await records.content('draft-orchard')).toBe(saved)
-    idb.databases.get(DRAFT_DATABASE)!.stores.get('drafts')!.delete('draft-orchard')
+    idb.databases.get(FROZEN.database)!.stores.get('drafts')!.delete('draft-orchard')
     expect(await records.content('draft-orchard')).toBeNull()
   })
 

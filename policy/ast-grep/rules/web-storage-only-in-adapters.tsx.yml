@@ -6,7 +6,7 @@
 id: web-storage-only-in-adapters.tsx
 language: tsx
 severity: error
-message: "web-storage-only-in-adapters (§18 F10): localStorage and sessionStorage only in the browser record adapter, indexedDB only in the IndexedDB adapters (exceptions: the pending-write marker, the first-paint theme key). ADR 0028; owner none; target desktop/web/src/platform/browser-record.ts (2b); example none yet"
+message: "web-storage-only-in-adapters (§18 F10): localStorage and sessionStorage only in the browser record adapter, indexedDB only in the IndexedDB adapters (exceptions: the pending-write marker, the first-paint theme key). ADR 0028; owner desktop/web/src/platform/draft-records.browser.ts; target desktop/web/src/platform/browser-record.ts (2b); example none yet"
 files:
   - "{desktop/web,policy/fixtures/rules/*}/src/**/*.tsx"
 ignores:
@@ -15,6 +15,7 @@ ignores:
   - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
   - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
   - "{desktop/web,policy/fixtures/rules/*}/src/generated/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/platform/draft-records.browser.ts"
 rule:
   any:
     - any:

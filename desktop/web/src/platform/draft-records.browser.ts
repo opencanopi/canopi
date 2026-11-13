@@ -1,7 +1,7 @@
 /**
  * platform/draft-records.browser.ts: the read half of 2.1's Web Draft store, at its target owner (Step 2.0.4 R3,
  * canopi-f47t.52.272; contracts §11 "Web Drafts move to IndexedDB"; design check F7, F8, A18, A19; 2.1-Q40, Q321,
- * Q322, M486). Its names are the frozen form 2b's writer imports. Invariant: it exposes no put or delete, opens only
+ * Q322, M486), over the frozen form spec/web/frozen/drafts.json. Invariant: it exposes no put or delete, opens only
  * `readonly` transactions, creates no database and holds no connection between reads.
  *
  * - Existence: `indexedDB.databases()` where the engine has it (it creates nothing, and lists 2.1's database only once
@@ -15,28 +15,27 @@
  * Listing reads record fields only; a Design is decoded only when it is opened, by the format core (DR10).
  */
 
-/** The 2.1 Draft store's database. */
-export const DRAFT_DATABASE = 'canopi-drafts'
-/** Its IndexedDB version: the container version after the v3 `localStorage` keys (2.1-M486). */
-export const DRAFT_DATABASE_VERSION = 4
+/** The 2.1 Draft store's database (spec/web/frozen/drafts.json, at version 4: 2.1-M486). The reader opens it without
+ * a version, so it names none; 2b's writer exports the frozen names it needs. */
+const DRAFT_DATABASE = 'canopi-drafts'
 /** The object store of Draft records, keyed by `id`. */
-export const DRAFTS_STORE = 'drafts'
+const DRAFTS_STORE = 'drafts'
 /** The object store keyed by `key` that holds the move record. */
-export const META_STORE = 'meta'
+const META_STORE = 'meta'
 /** The move record's key; its `copiedIds` name the old-key Drafts the 2.1 move copied (2.1-Q322, M157). */
-export const MOVE_RECORD_KEY = 'move'
+const MOVE_RECORD_KEY = 'move'
 /** How long one read waits before the launch goes on without it (design check A18). */
-export const DRAFT_READ_TIMEOUT_MS = 3000
+const DRAFT_READ_TIMEOUT_MS = 3000
 
 /** A 2.1 Draft as the list shows it: its record fields, never its Design. */
-export interface DraftRecordSummary {
+interface DraftRecordSummary {
   readonly id: string
   readonly name: string
   /** An ISO 8601 instant; empty when the record holds none. */
   readonly updatedAt: string
 }
 
-export interface DraftStoreListing {
+interface DraftStoreListing {
   /** The 2.1 Drafts whose record fields read, newest first. */
   readonly drafts: readonly DraftRecordSummary[]
   /**
@@ -58,8 +57,8 @@ export interface DraftRecordsReader {
 type DraftStoreFactory = Pick<IDBFactory, 'open'> & { readonly databases?: () => Promise<readonly IDBDatabaseInfo[]> }
 
 interface DraftRecordsReaderOptions {
-  /** The page's `indexedDB`; undefined where the engine offers none (then the store is absent). */
-  readonly factory: DraftStoreFactory | undefined
+  /** The page's `indexedDB` by default; undefined where the engine offers none (then the store is absent). */
+  readonly factory?: DraftStoreFactory | undefined
   /** A version change reached an open connection, which is already closed. */
   readonly onVersionChange: () => void
   /** A listing that failed or ran late. */
@@ -70,7 +69,7 @@ interface DraftRecordsReaderOptions {
 const NO_DRAFTS: DraftStoreListing = { drafts: [], hiddenIds: [] }
 
 export function createDraftRecordsReader({
-  factory,
+  factory = globalThis.indexedDB,
   onVersionChange,
   report,
   timeoutMs = DRAFT_READ_TIMEOUT_MS,

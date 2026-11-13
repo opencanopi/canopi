@@ -2,72 +2,45 @@ import { decodeCanopiDesign, isSavedByNewerCanopi, parseCanopiText } from "../ap
 import { encodeCanopiDesign } from "../app/contracts/canopi-design-wire";
 import { DEFAULT_BUDGET_CURRENCY } from "../app/contracts/document";
 import type { DesignTemplateEnvelope } from "../app/design-template-import/types";
+import { createContinuousSave, DesignHomeConflictError, type ContinuousSave, type DesignHome, type HomeWriteOutcome } from "../app/document-session/continuous-save";
 import {
-  createContinuousSave,
-  DesignHomeConflictError,
-  type ContinuousSave,
-  type DesignHome,
-  type HomeWriteOutcome,
-} from "../app/document-session/continuous-save";
-import {
-  createCloseDesignReplacement,
-  createDesignSessionReplacement,
-  type DesignSessionPendingCanvasReplacementIdentity,
-  type ResolvedDesignReplacement,
+  createCloseDesignReplacement, createDesignSessionReplacement, type DesignSessionPendingCanvasReplacementIdentity, type ResolvedDesignReplacement,
 } from "../app/document-session/replacement";
 import { presentDesignOpenFailure } from "../app/document-session/open-failure";
 import { requestSaveProblemDecision } from "../app/document-session/save-problem";
-import {
-  designSessionStore,
-  type PersistenceCapableDesignSessionStore,
-} from "../app/document-session/store";
+import { designSessionStore, type PersistenceCapableDesignSessionStore } from "../app/document-session/store";
 import { DESIGN_SESSION_WORKFLOWS } from "../app/document-session/workflows";
-import {
-  createDesignSessionWorkflowRunner,
-  type DesignSessionWorkflowRunner,
-} from "../app/document-session/workflow-runner";
-import {
-  createDesignSessionPersistence,
-  DesignPersistenceLeaseError,
-  type DesignReplacementGuardCapture,
-} from "../app/document-session/persistence";
-import {
-  prepareDesignWriteDestination,
-  prepareSynchronousDesignWriteDestination,
-} from "../app/document-session/write-admission";
-import {
-  CanvasAuthorityBusyError,
-  type CanvasDocumentSurface,
-} from "../canvas/runtime/runtime";
+import { createDesignSessionWorkflowRunner, type DesignSessionWorkflowRunner } from "../app/document-session/workflow-runner";
+import { createDesignSessionPersistence, DesignPersistenceLeaseError, type DesignReplacementGuardCapture } from "../app/document-session/persistence";
+import { prepareDesignWriteDestination, prepareSynchronousDesignWriteDestination } from "../app/document-session/write-admission";
+import { CanvasAuthorityBusyError, type CanvasDocumentSurface } from "../canvas/runtime/runtime";
 import type { CanopiFile } from "../types/design";
-import {
-  applyNewDesignBackground,
-  withNewDesignDisplay,
-} from "../app/settings/new-design-defaults";
+import { applyNewDesignBackground, withNewDesignDisplay } from "../app/settings/new-design-defaults";
 import { CURRENT_CANOPI_FILE_VERSION } from "../generated/canopi-design-format";
 import type { ReadOnlyDesign } from "../generated/contracts";
+import { NEW_DESIGN_LAYER_DEFAULTS } from "../generated/new-design-defaults";
 import {
-  NEW_DESIGN_LAYER_DEFAULTS,
-} from "../generated/new-design-defaults";
-import {
-  browserAppDataStore,
-  BrowserDraftChangedError,
-  type BrowserAppDataStore,
-  type BrowserAppDataWriteResult,
-  type BrowserDraftSummary,
+  browserAppDataStore, BrowserDraftChangedError, type BrowserAppDataStore, type BrowserAppDataWriteResult, type BrowserDraftSummary,
 } from "./browser-app-data";
 import type { BrowserShellDesignIdentity } from "./browser-shell-commands";
 import { browserDraftPersistence } from "./browser-draft-persistence";
 import { downloadBrowserTextFile, pickBrowserTextFile } from "./browser-text-files";
 
+/** A `.canopi` file by name and text: one picked to open, or one given as a download. */
 export interface BrowserOpenedCanopiFile {
   readonly fileName: string;
   readonly text: string;
 }
 
-export interface BrowserCanopiDownload {
-  readonly fileName: string;
-  readonly text: string;
+export type BrowserCanopiDownload = BrowserOpenedCanopiFile;
+
+/**
+ * The read half of 2.1's Draft store (platform/draft-records.browser.ts), installed at launch: it offers no write
+ * (design check F7). `hiddenIds` are the 2.0 Drafts' ids it hides (2.1-Q322).
+ */
+interface BrowserNewerDraftRecords {
+  list(): Promise<{ readonly drafts: readonly BrowserDraftSummary[]; readonly hiddenIds: readonly string[] }>;
+  content(id: string): Promise<string | null>;
 }
 
 export interface BrowserDesignFileAdapter {
@@ -116,7 +89,10 @@ export interface BrowserDesignSessionController {
    * none is open.
    */
   currentDesignText(): string | null;
-  /** Download a copy of a stored Draft without opening it (the welcome screen's Draft row, 2.1-Q193). */
+  /**
+   * Download a copy of a stored Draft without opening it (the welcome screen's Draft row, 2.1-Q193); a 2.1 Draft's is
+   * its text as 2.1 saved it (2.1-Q323). Rejects when the Draft is gone.
+   */
   downloadDraft(id: string): Promise<void>;
   renameDesign(name: string): void;
   revertDesign(): Promise<boolean>;
@@ -128,11 +104,22 @@ export interface BrowserDesignSessionController {
    * reload. False when cancelled; a call while one runs joins it.
    */
   reloadForRelease(): Promise<boolean>;
+  /** The 2.0 Drafts, without those whose ids the last 2.1 listing hides (2.1-Q322). */
   listDrafts(): readonly BrowserDraftSummary[];
+  /** Reads 2.1's Drafts afresh (open, read, close), each listed read-only, and the 2.0 ids they hide (2.1-Q321, Q322). */
+  listNewerDrafts(): Promise<readonly BrowserDraftSummary[]>;
+  /** The last 2.1 listing; null until one is read while the store reader is installed. */
+  listedNewerDrafts(): readonly BrowserDraftSummary[] | null;
+  /** Opens a Draft; a 2.1 one read-only through the format core (2.1-M478). False when it is gone or cancelled. */
   openDraft(id: string): Promise<boolean>;
+  /** Refused for the open Design's Draft, and for a 2.1 Draft or a 2.0 Draft under a hidden id (design check F7). */
   deleteDraft(id: string): BrowserAppDataWriteResult<null>;
   /** At launch: the Draft this tab had open before a release reload (2.1-Q189), else the newest Draft; true if one reopened. */
   restoreLatestDraft(): boolean;
+  /** The launch: reads 2.1's Draft ids first, then restores only while 2.1 holds no Draft (2.1-Q321, design check A18). */
+  launch(): Promise<boolean>;
+  /** 2.1's Draft store read half, at launch; without it there are no 2.1 Drafts. */
+  installNewerDrafts(records: BrowserNewerDraftRecords): () => void;
   attachCanvasSession(session: CanvasDocumentSurface): () => void;
   installContinuousSave(page?: BrowserPageLifecycleTarget): () => void;
   /** The format core (platform/design-core.ts, 2.1-M477) at launch; without it a newer Design is refused, as in 2.0. */
@@ -159,6 +146,11 @@ export function createBrowserDesignSessionController({
 }: BrowserDesignSessionControllerOptions = {}): BrowserDesignSessionController {
   let canvasSession: CanvasDocumentSurface | null = null;
   let formatCore: Parameters<BrowserDesignSessionController["installFormatCore"]>[0] | null = null;
+  let newerRecords: BrowserNewerDraftRecords | null = null;
+  // The 2.1 Drafts last listed, and the 2.0 ids they hide from the list, restore and last-updated read (2.1-Q322).
+  let newerDrafts: Map<string, BrowserDraftSummary> | null = null;
+  let hiddenIds: ReadonlySet<string> = new Set();
+  const visibleDrafts = () => appDataStore.listDrafts().filter((draft) => !hiddenIds.has(draft.id));
   let nextDownloadWrite = 0;
   let replacementIntent = 0;
   let workflowInstallAttempt = 0;
@@ -173,15 +165,10 @@ export function createBrowserDesignSessionController({
     },
   });
   const persistence = createDesignSessionPersistence({ store });
-  const continuousSave = createContinuousSave({
-    store,
-    writeHome: writeDraftHome,
-    delayMs: saveDelayMs,
-  });
+  const continuousSave = createContinuousSave({ store, writeHome: writeDraftHome, delayMs: saveDelayMs });
 
-  // What this tab last read or wrote for its Draft. Every tab of the Web
-  // Edition shares the same Drafts, so a write checks that no other tab has
-  // written the Draft since; `overwrite` is the user's "keep my version".
+  // What this tab last read or wrote for its Draft. Every tab of the Web Edition shares the same Drafts, so a write
+  // checks that no other tab has written the Draft since; `overwrite` is the user's "keep my version".
   let draftStamp: { id: string; updatedAt: string | null; overwrite: boolean } | null = null;
 
   // Web homes are always browser Design Drafts; a write is one synchronous
@@ -200,9 +187,7 @@ export function createBrowserDesignSessionController({
             expectedUpdatedAt: stamp && !stamp.overwrite ? stamp.updatedAt : undefined,
           });
           if (!result.ok) {
-            if (result.error instanceof BrowserDraftChangedError) {
-              throw new DesignHomeConflictError(false);
-            }
+            if (result.error instanceof BrowserDraftChangedError) throw new DesignHomeConflictError(false);
             throw new BrowserDraftStorageError(result);
           }
           draftStamp = { id: home.id, updatedAt: result.value.updatedAt, overwrite: false };
@@ -214,7 +199,7 @@ export function createBrowserDesignSessionController({
   }
 
   function storedDraftUpdatedAt(id: string): string | null {
-    return appDataStore.listDrafts().find((draft) => draft.id === id)?.updatedAt ?? null;
+    return visibleDrafts().find((draft) => draft.id === id)?.updatedAt ?? null;
   }
 
   function draftReplacement(
@@ -312,6 +297,11 @@ export function createBrowserDesignSessionController({
 
   async function openCanopi(): Promise<boolean> {
     requestDraftPersistence();
+    return openText(() => fileAdapter.openCanopiFile(), false);
+  }
+
+  /** Opens a picked file, or a 2.1 Draft's text (`newerDraft`), which only the format core reads, read-only. */
+  async function openText(pick: () => Promise<BrowserOpenedCanopiFile | null>, newerDraft: boolean): Promise<boolean> {
     const intent = ++replacementIntent;
     const canvas = canvasSession;
     const pendingIdentity = canvas
@@ -336,7 +326,7 @@ export function createBrowserDesignSessionController({
       || !replacementGuard.isCurrent()
     ) return false;
 
-    const opened = await fileAdapter.openCanopiFile();
+    const opened = await pick();
     const current = () => intent === replacementIntent && replacementGuard?.isCurrent() === true;
     if (!current() || !opened) return false;
     let file: CanopiFile;
@@ -346,7 +336,8 @@ export function createBrowserDesignSessionController({
         throw new Error(`Expected a .canopi file, received ${opened.fileName}.`);
       }
       const value = parseCanopiText(opened.text);
-      readOnly = formatCore && isSavedByNewerCanopi(value) ? await formatCore.readNewerDesign(opened.text) : null;
+      if (newerDraft && !formatCore) throw new Error("A 2.1 Draft opens only through the format core");
+      readOnly = formatCore && (newerDraft || isSavedByNewerCanopi(value)) ? await formatCore.readNewerDesign(opened.text) : null;
       file = readOnly?.view ?? decodeCanopiDesign(value);
     } catch (error) {
       // A refused file leaves the open Design as it was and says why, unless another replacement took its turn.
@@ -410,20 +401,25 @@ export function createBrowserDesignSessionController({
     return design ? `${JSON.stringify(encodeCanopiDesign(design), null, 2)}\n` : null;
   }
 
+  /** A 2.1 Draft's text as 2.1 saved it, named for its row; null once 2.1 no longer holds it. */
+  async function newerDraftFile(id: string): Promise<BrowserOpenedCanopiFile | null> {
+    const text = await newerRecords?.content(id) ?? null;
+    const name = newerDrafts?.get(id)?.name || "Untitled";
+    return text === null ? null : { fileName: `${safeFileStem(name)}.canopi`, text };
+  }
+
   async function downloadDraft(id: string): Promise<void> {
-    const draft = appDataStore.loadDraft(id);
+    // A 2.1 Draft downloads as 2.1 saved it (2.1-Q323); a 2.0 Draft under a hidden id, never.
+    const newer = newerDrafts?.has(id) ? await newerDraftFile(id) : null;
+    if (newer) return fileAdapter.downloadCanopiFile(newer);
+    const draft = hiddenIds.has(id) ? null : appDataStore.loadDraft(id);
     if (!draft) throw new Error(`No browser Draft ${id}`);
     await downloadCopy(draft, "Untitled");
   }
 
   function renameDesign(name: string): void {
     const nextName = name.trim();
-    if (nextName.length === 0) return;
-    if (nextName === store.readDesignName()) return;
-
-    const design = store.readCurrentDesign();
-    if (!design) return;
-
+    if (nextName.length === 0 || nextName === store.readDesignName() || !store.readCurrentDesign()) return;
     store.renameCurrentDesign(nextName);
   }
 
@@ -506,7 +502,8 @@ export function createBrowserDesignSessionController({
   }
 
   function applyDraft(id: string): boolean {
-    const draft = appDataStore.loadDraft(id);
+    // A 2.0 Draft under an id 2.1 holds or copied is never opened (2.1-Q322).
+    const draft = hiddenIds.has(id) ? null : appDataStore.loadDraft(id);
     if (!draft) return false;
     applyDesignReplacement(draftReplacement({
       file: draft,
@@ -517,6 +514,7 @@ export function createBrowserDesignSessionController({
   }
 
   async function openDraft(id: string): Promise<boolean> {
+    if (newerDrafts?.has(id)) return openText(() => newerDraftFile(id), true);
     const intent = ++replacementIntent;
     const flushed = flushBeforeReplacement(intent);
     if (flushed !== true && !(await flushed)) return false;
@@ -528,7 +526,23 @@ export function createBrowserDesignSessionController({
     if (home?.kind === "draft" && home.id === id) {
       return { ok: false, error: new Error("The open Design's Draft cannot be deleted") };
     }
+    // The 2.0 delete never reaches a 2.1 Draft's id, which the old key may also hold (design check F7).
+    if (hiddenIds.has(id)) return { ok: false, error: new Error(`The Draft ${id} is 2.1's and is not deleted here`) };
     return appDataStore.deleteDraft(id);
+  }
+
+  async function listNewerDrafts(): Promise<readonly BrowserDraftSummary[]> {
+    const listing = newerRecords ? await newerRecords.list() : { drafts: [], hiddenIds: [] };
+    newerDrafts = new Map(listing.drafts.map((draft) => [draft.id, draft]));
+    hiddenIds = new Set(listing.hiddenIds);
+    return listing.drafts;
+  }
+
+  async function launch(): Promise<boolean> {
+    const intent = replacementIntent;
+    const newer = await listNewerDrafts();
+    // With 2.1 Drafts present the start screen lists them and nothing reopens (2.1-Q321); New or Open meanwhile wins.
+    return newer.length === 0 && intent === replacementIntent && restoreLatestDraft();
   }
 
   function restoreLatestDraft(): boolean {
@@ -538,7 +552,7 @@ export function createBrowserDesignSessionController({
     // another tab wrote last (2.1-Q189); a Draft gone meanwhile leaves the start screen.
     const reloaded = appDataStore.takeReloadHome();
     if (reloaded !== null) return reloaded.draft !== null && applyDraft(reloaded.draft);
-    const latestDraft = appDataStore.listDrafts()[0];
+    const latestDraft = visibleDrafts()[0];
     return latestDraft ? applyDraft(latestDraft.id) : false;
   }
 
@@ -626,11 +640,8 @@ export function createBrowserDesignSessionController({
     readDesignIdentity() {
       const design = store.currentDesign.value;
       if (!design) return null;
-      return {
-        name: store.designName.value || design.name || "Untitled",
-        saveStatus: continuousSave.status.value,
-        saveFailureReason: continuousSave.failureReason.value,
-      };
+      const name = store.designName.value || design.name || "Untitled";
+      return { name, saveStatus: continuousSave.status.value, saveFailureReason: continuousSave.failureReason.value };
     },
     newDesign,
     closeDesign,
@@ -643,10 +654,17 @@ export function createBrowserDesignSessionController({
     revertDesign,
     resolveSaveConflict,
     reloadForRelease,
-    listDrafts: () => appDataStore.listDrafts(),
+    listDrafts: visibleDrafts,
+    listNewerDrafts,
+    listedNewerDrafts: () => (newerRecords === null ? [] : newerDrafts && [...newerDrafts.values()]),
     openDraft,
     deleteDraft,
     restoreLatestDraft,
+    launch,
+    installNewerDrafts(records) {
+      newerRecords = records;
+      return () => { if (newerRecords === records) newerRecords = null; };
+    },
     attachCanvasSession,
     installContinuousSave,
     installFormatCore(core) {
@@ -657,10 +675,7 @@ export function createBrowserDesignSessionController({
 }
 
 class BrowserDraftStorageError extends Error {
-  readonly result: Extract<
-    BrowserAppDataWriteResult<BrowserDraftSummary>,
-    { readonly ok: false }
-  >;
+  readonly result: Extract<BrowserAppDataWriteResult<BrowserDraftSummary>, { readonly ok: false }>;
 
   constructor(result: BrowserDraftStorageError["result"]) {
     super("Browser Draft storage failed");
@@ -673,26 +688,10 @@ export const browserDesignSessionController = createBrowserDesignSessionControll
 
 function createNewWebCanopiFile(name: string, timestamp: string): CanopiFile {
   return {
-    version: CURRENT_CANOPI_FILE_VERSION,
-    name,
-    description: null,
-    plant_species_colors: {},
-    plant_species_symbols: {},
+    version: CURRENT_CANOPI_FILE_VERSION, name, description: null, plant_species_colors: {}, plant_species_symbols: {},
     layers: NEW_DESIGN_LAYER_DEFAULTS.map((layer) => ({ ...layer })),
-    plants: [],
-    zones: [],
-    annotations: [],
-    measurement_guides: [],
-    groups: [],
-    consortiums: [],
-    timeline: [],
-    budget: [],
-    budget_currency: DEFAULT_BUDGET_CURRENCY,
-    views: [],
-    stories: [],
-    created_at: timestamp,
-    updated_at: timestamp,
-    extra: {},
+    plants: [], zones: [], annotations: [], measurement_guides: [], groups: [], consortiums: [], timeline: [], budget: [],
+    budget_currency: DEFAULT_BUDGET_CURRENCY, views: [], stories: [], created_at: timestamp, updated_at: timestamp, extra: {},
   };
 }
 

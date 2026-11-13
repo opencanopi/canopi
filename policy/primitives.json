@@ -161,7 +161,7 @@
       "tool": "ast-grep",
       "ledger": "2.1-M190",
       "adr": "0028",
-      "owner_today": "none",
+      "owner_today": "desktop/web/src/platform/draft-records.browser.ts",
       "owner_target": {
         "path": "desktop/web/src/platform/browser-record.ts",
         "phase": "2b",

@@ -4,8 +4,10 @@
 // record) read-only beside the editable ones, hides every old-key Draft the 2.1 move copied, restores nothing at launch
 // while 2.1 Drafts exist, creates no database on an origin without one, and never blocks 2.1's upgrade.
 //
-// Written failing in commit 0 and marked expected-fail (`test.fail`): R3's chunk that builds each path removes its
-// marker. The records are seeded in the contract's shape before the load; R3-4 may swap in its frozen fixture.
+// Written failing in commit 0 and marked expected-fail (`test.fail`); R3-3 built these paths and removed the markers.
+// The records are seeded in the contract's shape before the load; R3-4 may swap in its frozen fixture. The later cases
+// are R3-3's failure states: a 2.1 Draft opened, downloaded, deleted by 2.1 after the list, opened without its worker,
+// and a hidden id at restore.
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import type { Page } from '@playwright/test'
@@ -66,7 +68,7 @@ function draftRow(page: Page, name: string) {
   return startScreen(page).locator('li').filter({ hasText: name })
 }
 
-test.fail('R3 canopi-f47t.52.272: reader release: Web lists IndexedDB Drafts read-only and hides old-key Drafts the 2.1 move copied', async ({ page }) => {
+test('R3 canopi-f47t.52.272: reader release: Web lists IndexedDB Drafts read-only and hides old-key Drafts the 2.1 move copied', async ({ page }) => {
   await page.goto('')
   await seedDraftStore(page, [draftRecord('orchard', 'Orchard in 2.1', 3)], ['orchard'])
   // The old key still holds the Draft the move copied, under the same id, and a Draft a 2.0 tab made after the move.
@@ -96,7 +98,7 @@ test.fail('R3 canopi-f47t.52.272: reader release: Web lists IndexedDB Drafts rea
 })
 
 for (const variant of ['databases()', 'databases() stubbed away'] as const) {
-  test.fail(`R3 canopi-f47t.52.272: reader release: listing Drafts on an origin with no Draft store creates no IndexedDB database (${variant})`, async ({ page }) => {
+  test(`R3 canopi-f47t.52.272: reader release: listing Drafts on an origin with no Draft store creates no IndexedDB database (${variant})`, async ({ page }) => {
     // Every IndexedDB open and databases() call the page makes, recorded before any script of the page runs; the
     // second variant removes databases() as engines without it do, so the reader's open-and-abort fallback runs.
     await page.addInitScript((stub) => {
@@ -134,15 +136,16 @@ for (const variant of ['databases()', 'databases() stubbed away'] as const) {
   })
 }
 
-test.fail('R3 canopi-f47t.52.272: reader release: an open reader-release tab closes on versionchange and 2.1’s upgrade is not blocked', async ({ page, context }) => {
+test('R3 canopi-f47t.52.272: reader release: an open reader-release tab closes on versionchange and 2.1’s upgrade is not blocked', async ({ page, context }) => {
   // Every connection the page opens to the Draft store, whether it closed, and whether a versionchange reached it.
   await page.addInitScript(() => {
     interface Seen { closed: boolean, versionchange: boolean }
     const seen: Seen[] = []
     ;(window as unknown as { __draftConnections: Seen[] }).__draftConnections = seen
-    const open = indexedDB.open.bind(indexedDB)
-    indexedDB.open = (name: string, version?: number) => {
-      const request = version === undefined ? open(name) : open(name, version)
+    // On the prototype: WebKit's page code does not see an own property set on `indexedDB` by an init script.
+    const open = IDBFactory.prototype.open
+    IDBFactory.prototype.open = function (this: IDBFactory, name: string, version?: number) {
+      const request = version === undefined ? open.call(this, name) : open.call(this, name, version)
       if (name === 'canopi-drafts') {
         request.addEventListener('success', () => {
           const db = request.result
@@ -181,4 +184,74 @@ test.fail('R3 canopi-f47t.52.272: reader release: an open reader-release tab clo
     await expect(page.getByText('New version'), 'a versionchange shows the Reload notice (2.1-Q40)').toBeVisible()
     await expect(page.getByRole('button', { name: 'Reload' })).toBeVisible()
   }
+})
+
+/** Seeds one 2.1 Draft (no old-key Draft) and loads the start screen that lists it. */
+async function startWithOneNewerDraft(page: Page): Promise<DraftRecord> {
+  const record = draftRecord('orchard', 'Orchard in 2.1', 3)
+  await page.goto('')
+  await seedDraftStore(page, [record], [])
+  await page.reload()
+  await expect(draftRow(page, 'Orchard in 2.1')).toHaveCount(1)
+  return record
+}
+
+test('R3 canopi-f47t.52.272: a 2.1 Draft opens read-only, downloads as 2.1 saved it, and writes nothing', async ({ page }) => {
+  const record = await startWithOneNewerDraft(page)
+  const before = await storageDump(page)
+
+  await draftRow(page, 'Orchard in 2.1').getByRole('button', { name: 'Actions for Orchard in 2.1' }).click()
+  const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('menuitem', { name: 'Download a copy' }).click()])
+  // WebKit hands the name with its spaces as underscores.
+  expect(download.suggestedFilename()).toMatch(/^Orchard[ _]in[ _]2\.1\.canopi$/)
+  expect(readFileSync(await download.path(), 'utf8'), 'the bytes as 2.1 saved them (2.1-Q323)').toBe(record.content)
+
+  await draftRow(page, 'Orchard in 2.1').getByRole('button').first().click()
+  const status = page.locator('[data-workspace-title-bar] [data-save-status]')
+  await expect(status, 'the 2.1 Draft opens in the read-only view (2.1-M478)').toContainText(/newer Canopi/)
+  await expect(page.locator('[data-workspace-title-bar]')).toContainText('Orchard in 2.1')
+  await page.waitForTimeout(1_000)
+  expect(await storageDump(page), 'opening and downloading write no record and no key').toEqual(before)
+})
+
+test('R3 canopi-f47t.52.272: a 2.1 Draft that 2.1 deleted after the list opens nothing and leaves the list', async ({ page }) => {
+  await startWithOneNewerDraft(page)
+  // A 2.1 tab deletes the Draft at the same version: no version change reaches this tab.
+  await page.evaluate(async ([name, version]) => await new Promise<void>((resolve, reject) => {
+    const request = indexedDB.open(name as string, version as number)
+    request.onsuccess = () => {
+      const tx = request.result.transaction('drafts', 'readwrite')
+      tx.objectStore('drafts').delete('orchard')
+      tx.oncomplete = () => { request.result.close(); resolve() }
+      tx.onerror = () => reject(tx.error)
+    }
+    request.onerror = () => reject(request.error)
+  }), [DRAFT_DATABASE, DRAFT_DATABASE_VERSION])
+
+  await draftRow(page, 'Orchard in 2.1').getByRole('button').first().click()
+  await expect(draftRow(page, 'Orchard in 2.1'), 'the rows re-list without it').toHaveCount(0)
+  await expect(startScreen(page), 'nothing opened').toBeVisible()
+})
+
+test('R3 canopi-f47t.52.272: a 2.1 Draft opened while the format worker cannot load is refused and says so', async ({ page }) => {
+  await startWithOneNewerDraft(page)
+  await page.route('**/design-core.worker-*.js', (route) => route.abort())
+
+  await draftRow(page, 'Orchard in 2.1').getByRole('button').first().click()
+  await expect(page.getByText('Canopi couldn’t load the part that opens Designs.', { exact: false }), 'format_core_unavailable').toBeVisible()
+  await expect(startScreen(page), 'the start screen stays').toBeVisible()
+  await expect(draftRow(page, 'Orchard in 2.1'), 'and still lists the Draft, to try again').toHaveCount(1)
+})
+
+test('R3 canopi-f47t.52.272: launch restores the newest 2.0 Draft whose id 2.1 neither holds nor copied', async ({ page }) => {
+  await page.goto('')
+  // 2.1 copied orchard and has since deleted it: no 2.1 Draft is left, so launch restores, yet never orchard.
+  await seedDraftStore(page, [], ['orchard'])
+  await page.evaluate(([key, value]) => localStorage.setItem(key!, value!), [
+    V3_DRAFTS_KEY,
+    v3DraftsRecord([{ id: 'orchard', name: 'Orchard as 2.0 left it', day: 5 }, { id: 'hedge', name: 'Hedge', day: 2 }]),
+  ])
+  await page.reload()
+
+  await expect(page.locator('[data-workspace-title-bar]'), 'the newest visible Draft reopens').toContainText('Hedge')
 })
