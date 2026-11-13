@@ -2,7 +2,7 @@
 // resolver over planted tag lists, its command line (cli.mjs rollback-refs) through the real node and rollback.yml's
 // resolve step, and the reader build that goes red rather than fall back to head's tree.
 import { spawnSync } from 'node:child_process'
-import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -151,5 +151,94 @@ describe('rollback.yml (canopi-f47t.52.239)', () => {
     expect(job.steps.filter((step) => step['continue-on-error'] !== undefined || step.if !== undefined)).toEqual([])
     const checkouts = job.steps.filter((step) => step.uses?.startsWith('actions/checkout@'))
     expect(checkouts.map((step) => step.with?.['ref'])).toEqual(['${{ inputs.reader_tag || \'v2.0.3\' }}'])
+  })
+})
+
+describe('the rollback lane\'s own fixture checks (canopi-f47t.52.239)', () => {
+  let dir = ''
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), 'rollback-fixtures-'))
+  })
+  afterEach(() => {
+    rmSync(dir, { recursive: true, force: true })
+  })
+
+  /** `node policy/gate/cli.mjs rollback-fixtures ...args` through the real node, its summary in the scratch folder. */
+  const cli = (...args: string[]) => spawnSync('node', ['policy/gate/cli.mjs', 'rollback-fixtures', ...args], {
+    cwd: REPO_ROOT, encoding: 'utf8', timeout: 60_000, env: { ...cleanEnv(), GITHUB_STEP_SUMMARY: join(dir, 'summary') },
+  })
+  /** A fixture directory as the writer job uploads it: the manifest and two forms, one of each edition. */
+  const fixtures = () => {
+    const root = join(dir, 'fixtures')
+    mkdirSync(join(root, 'desktop/app-data'), { recursive: true })
+    mkdirSync(join(root, 'web'), { recursive: true })
+    writeFileSync(join(root, 'manifest.json'), JSON.stringify({ version: 1, forms: [
+      { store: 'user_db', form_version: 10, edition: 'desktop', path: 'desktop/app-data/user.db' },
+      { store: 'web_species_lists', form_version: 1, edition: 'web', path: 'web/species-lists.json' }] }))
+    writeFileSync(join(root, 'desktop/app-data/user.db'), 'SQLite format 3\0 frozen pages')
+    writeFileSync(join(root, 'web/species-lists.json'), '{"key":"canopi:web-app-data:v4:species","record":{"version":1}}')
+    return root
+  }
+
+  it('canopi-f47t.52.239: missing fixture artifact: a directory the writer\'s artifact never reached, or missing a listed form, is refused', () => {
+    const absent = cli('check', join(dir, 'never-downloaded'))
+    expect(absent.status).toBe(1)
+    expect(absent.stderr).toContain('the writer job\'s artifact was not downloaded')
+    const root = fixtures()
+    expect(cli('check', root).status).toBe(0)
+    rmSync(join(root, 'web/species-lists.json'))
+    const partial = cli('check', root)
+    expect(partial.status).toBe(1)
+    expect(partial.stderr).toContain('the web web_species_lists form web/species-lists.json is missing')
+    rmSync(join(root, 'manifest.json'))
+    expect(cli('check', root).stderr).toContain('manifest.json is missing')
+    writeFileSync(join(root, 'manifest.json'), '{"forms": []}')
+    expect(cli('check', root).stderr).toContain('lists no forms')
+    writeFileSync(join(root, 'manifest.json'), 'not json')
+    expect(cli('check', root).stderr).toContain('is not JSON')
+  })
+
+  it('canopi-f47t.52.239: -wal/-shm created or a file pruned: only SQLite\'s engine metadata passes, any other write fails naming the file', () => {
+    const root = fixtures()
+    const before = join(dir, 'before.json')
+    expect(cli('snapshot', root, before).status).toBe(0)
+    expect(Object.keys(JSON.parse(readFileSync(before, 'utf8')) as object).sort())
+      .toEqual(['desktop/app-data/user.db', 'manifest.json', 'web/species-lists.json'])
+    // A read-only open of a WAL database may create a -shm and an empty -wal (contracts §11 Degraded stores).
+    writeFileSync(join(root, 'desktop/app-data/user.db-shm'), Buffer.alloc(32))
+    writeFileSync(join(root, 'desktop/app-data/user.db-wal'), '')
+    const clean = cli('compare', root, before)
+    expect(clean.status, clean.stderr).toBe(0)
+    expect(readFileSync(join(dir, 'summary'), 'utf8')).toContain('the readers wrote no byte')
+    // A -wal holding a frame is a write.
+    writeFileSync(join(root, 'desktop/app-data/user.db-wal'), 'frame')
+    expect(cli('compare', root, before).stderr).toContain('ERROR: the readers wrote: desktop/app-data/user.db-wal was created')
+    rmSync(join(root, 'desktop/app-data/user.db-wal'))
+    // A pruned file and a changed byte are changes.
+    rmSync(join(root, 'web/species-lists.json'))
+    writeFileSync(join(root, 'desktop/app-data/user.db'), 'SQLite format 3\0 frozen pageS')
+    const changed = cli('compare', root, before)
+    expect(changed.status).toBe(1)
+    expect(changed.stderr).toContain('desktop/app-data/user.db changed')
+    expect(changed.stderr).toContain('web/species-lists.json was pruned')
+  })
+
+  it('canopi-f47t.52.239: planted run: the self-test makes one frozen form of each edition unreadable, and refuses an edition with none', () => {
+    const root = fixtures()
+    const before = join(dir, 'before.json')
+    expect(cli('snapshot', root, before).status).toBe(0)
+    const planted = cli('plant', root, 'web')
+    expect(planted.status, planted.stderr).toBe(0)
+    expect(planted.stdout).toContain('planted an unreadable change in web/species-lists.json')
+    // A Web record keeps its key, so the harness still seeds it and the reader is what fails on it.
+    expect(JSON.parse(readFileSync(join(root, 'web/species-lists.json'), 'utf8'))).toEqual({ key: 'canopi:web-app-data:v4:species',
+      record: 'planted: a change the readers cannot read, so their run must fail' })
+    expect(cli('compare', root, before).stderr).toContain('web/species-lists.json changed')
+    // A database's bytes are replaced.
+    expect(cli('plant', root, 'desktop').status).toBe(0)
+    expect(readFileSync(join(root, 'desktop/app-data/user.db'), 'utf8')).toMatch(/^planted: /)
+    expect(cli('plant', root, 'phone').stderr).toContain('lists no phone form to plant a change in')
+    expect(cli('plant', join(dir, 'none'), 'web').stderr).toContain('manifest.json is missing')
+    expect(cli('wipe', root).stderr).toContain('usage: rollback-fixtures')
   })
 })

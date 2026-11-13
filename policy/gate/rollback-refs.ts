@@ -9,9 +9,16 @@
 //   no fallback to the candidate's tree.
 // - Maintenance branch (release/<major>.<minor>, a pull request into it or a candidate from it): the readers build from
 //   that candidate and read the frozen fixtures and what main, or the pending store step's branch (writer_ref), writes.
+// - The fixture checks (`node policy/gate/cli.mjs rollback-fixtures`), main's own judgement of the reader jobs around the
+//   reader tree's harness (contracts §11 Rollback harness, 2.1-M484): `check` refuses a fixture directory missing its
+//   manifest or a listed file (a missing artifact), `snapshot` and `compare` hash the file set and contents before and
+//   after the readers, a created `-shm` or empty `-wal` being SQLite's engine metadata (contracts §11 Degraded stores),
+//   and `plant` makes one frozen fixture of an edition unreadable for the planted-change self-test.
 // It and the modules main.ts loads before dispatching (table, plan, run, agents-rows and their imports) need only node:
 // built-ins, picomatch being required lazily at planning only, so the step runs on a bare setup-node with no npm ci.
-import { appendFileSync } from 'node:fs'
+import { createHash } from 'node:crypto'
+import { appendFileSync, existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
+import { join, relative, sep } from 'node:path'
 
 /** The last 2.0.x before the readers (2.1-M33): the reader release is the first stable tag above it. */
 export const LAST_BEFORE_READERS = 'v2.0.3'
@@ -95,4 +102,131 @@ export function runRollbackRefs(stdin: string, env: NodeJS.ProcessEnv): number {
     process.stderr.write(`ERROR: ${error instanceof Error ? error.message : String(error)}\n`)
     return 1
   }
+}
+
+/** A fixture directory's files, each relative path (forward slashes) to its SHA-256, engine metadata left out. */
+export type FixtureSnapshot = Readonly<Record<string, string>>
+
+/** A manifest row, as far as main's lane reads it: the reader's own tests read the rest. */
+interface ManifestForm { readonly store: string, readonly edition: string, readonly path: string }
+
+/** SQLite's engine metadata a read-only open may create: a `-shm` file, or a `-wal` holding no page. */
+const engineMetadata = (name: string, bytes: number) => name.endsWith('-shm') || (name.endsWith('-wal') && bytes === 0)
+
+/** Every file under `root` but engine metadata, by relative path, with its SHA-256. */
+export function snapshotFixtures(root: string): FixtureSnapshot {
+  const out: Record<string, string> = {}
+  const walk = (dir: string) => {
+    for (const entry of readdirSync(dir, { withFileTypes: true }).sort((a, b) => (a.name < b.name ? -1 : 1))) {
+      const path = join(dir, entry.name)
+      if (entry.isDirectory()) {
+        walk(path)
+        continue
+      }
+      if (engineMetadata(entry.name, statSync(path).size)) continue
+      out[relative(root, path).split(sep).join('/')] = createHash('sha256').update(readFileSync(path)).digest('hex')
+    }
+  }
+  walk(root)
+  return out
+}
+
+/** Each way `after` differs from `before`: a file changed, pruned or created; none when the readers wrote no byte. */
+export function fixtureChanges(before: FixtureSnapshot, after: FixtureSnapshot): string[] {
+  const paths = [...new Set([...Object.keys(before), ...Object.keys(after)])].sort()
+  return paths.flatMap((path) => {
+    if (!(path in after)) return [`${path} was pruned`]
+    if (!(path in before)) return [`${path} was created`]
+    return before[path] === after[path] ? [] : [`${path} changed`]
+  })
+}
+
+/** The manifest's rows at `root`, or the reason they cannot be read. */
+function manifestForms(root: string): ManifestForm[] | string {
+  const file = join(root, 'manifest.json')
+  if (!existsSync(file)) return `${file} is missing: the fixture directory holds the writer's manifest.json`
+  try {
+    const manifest = JSON.parse(readFileSync(file, 'utf8')) as { forms?: unknown }
+    if (!Array.isArray(manifest.forms) || manifest.forms.length === 0) return `${file} lists no forms`
+    return manifest.forms as ManifestForm[]
+  } catch (error) {
+    return `${file} is not JSON: ${error instanceof Error ? error.message : String(error)}`
+  }
+}
+
+/** Why the fixture directory at `root` cannot be read: its manifest missing or empty, or a listed file absent. */
+export function fixtureFaults(root: string): string[] {
+  if (!existsSync(root)) return [`the fixture directory ${root} is missing: the writer job's artifact was not downloaded`]
+  const forms = manifestForms(root)
+  if (typeof forms === 'string') return [forms]
+  return forms.filter((form) => typeof form.path !== 'string' || !existsSync(join(root, form.path)))
+    .map((form) => `the ${form.edition} ${form.store} form ${String(form.path)} is missing from ${root}`)
+}
+
+const PLANTED = 'planted: a change the readers cannot read, so their run must fail'
+
+/**
+ * Makes the first `edition` form at `root` unreadable to the readers yet still seedable, so the readers, not the
+ * harness, fail on it: a Web record dump (`{key, record}`) keeps its key and gets a record that is no settings or list
+ * object; any other form's bytes are replaced. Returns its path.
+ */
+export function plantUnreadable(root: string, edition: string): string {
+  const forms = manifestForms(root)
+  if (typeof forms === 'string') throw new Error(forms)
+  const form = forms.find((row) => row.edition === edition)
+  if (!form) throw new Error(`the manifest at ${root} lists no ${edition} form to plant a change in`)
+  const file = join(root, form.path)
+  let dump: unknown
+  try {
+    dump = JSON.parse(readFileSync(file, 'utf8'))
+  } catch {
+    dump = undefined // a database or other binary form: its bytes are replaced below
+  }
+  const record = typeof dump === 'object' && dump !== null && 'record' in dump ? (dump as Record<string, unknown>) : null
+  writeFileSync(file, record ? `${JSON.stringify({ ...record, record: PLANTED })}\n` : `${PLANTED}\n`)
+  return form.path
+}
+
+/**
+ * `node policy/gate/cli.mjs rollback-fixtures <mode> ...`'s exit code: `check <dir>`, `snapshot <dir> <out.json>`,
+ * `compare <dir> <before.json>` or `plant <dir> <desktop|web>`. Each verdict goes to the log and the job summary.
+ */
+export function runRollbackFixtures(args: readonly string[], env: NodeJS.ProcessEnv): number {
+  const say = (line: string, to: NodeJS.WriteStream = process.stdout) => {
+    to.write(`${line}\n`)
+    const summary = env['GITHUB_STEP_SUMMARY']
+    if (summary) appendFileSync(summary, `${line}\n`)
+  }
+  const fail = (lines: readonly string[]) => {
+    for (const line of lines) say(`ERROR: ${line}`, process.stderr)
+    return 1
+  }
+  const [mode, dir = '', other = ''] = args
+  try {
+    if (mode === 'check' && args.length === 2) {
+      const faults = fixtureFaults(dir)
+      if (faults.length) return fail(faults)
+      say(`Rollback fixtures: every form the manifest at ${dir} lists is there.`)
+      return 0
+    }
+    if (mode === 'snapshot' && args.length === 3) {
+      const snapshot = snapshotFixtures(dir)
+      writeFileSync(other, `${JSON.stringify(snapshot, null, 2)}\n`)
+      say(`Rollback fixtures: ${Object.keys(snapshot).length} files hashed under ${dir}.`)
+      return 0
+    }
+    if (mode === 'compare' && args.length === 3) {
+      const changes = fixtureChanges(JSON.parse(readFileSync(other, 'utf8')) as FixtureSnapshot, snapshotFixtures(dir))
+      if (changes.length) return fail(changes.map((change) => `the readers wrote: ${change}`))
+      say(`Rollback fixtures: the readers wrote no byte under ${dir}.`)
+      return 0
+    }
+    if (mode === 'plant' && args.length === 3) {
+      say(`Rollback fixtures: planted an unreadable change in ${plantUnreadable(dir, other)}; the readers' run must fail.`)
+      return 0
+    }
+  } catch (error) {
+    return fail([error instanceof Error ? error.message : String(error)])
+  }
+  return fail(['usage: rollback-fixtures check <dir> | snapshot <dir> <out.json> | compare <dir> <before.json> | plant <dir> <desktop|web>'])
 }
