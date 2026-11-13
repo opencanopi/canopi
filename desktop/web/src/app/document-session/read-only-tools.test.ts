@@ -237,6 +237,17 @@ const CHANGES_OR_EXPORTS = [
   'view.manageViews',
 ] as const
 
+/** The Web catalog's commands a click runs now, over the Design the store shows. */
+function webEnabled(): string[] {
+  const run = vi.fn()
+  const catalog = createBrowserShellCatalog({
+    newDesign: run, openCanopi: run, downloadCanopi: run, revertDesign: run, importGeoJson: run, exportGeoJson: run,
+    exportBudgetCsv: run, closeDesign: run, navigate: run,
+  }, { templatesEnabled: false, canvasReady: () => true })
+  const state = { hasDesign: true, revertAvailable: true, activePanel: 'canvas', sidePanel: null } as const
+  return catalog.filter((entry) => !entry.isExecutionDisabled(state)).map((entry) => entry.id)
+}
+
 describe('R1 canopi-f47t.52.270: a read-only Design offers Close only', () => {
   it('Desktop: the catalog turns off every change, save and export, and keeps Close', () => {
     const enabled = CHANGES_OR_EXPORTS.filter((id) => !isCatalogCommandDisabled(id as AppCommandId))
@@ -253,20 +264,7 @@ describe('R1 canopi-f47t.52.270: a read-only Design offers Close only', () => {
   })
 
   it('Web: the catalog turns off Rename, Download a copy, Revert, the imports and the exports, and keeps Close', () => {
-    const run = vi.fn()
-    const catalog = createBrowserShellCatalog({
-      newDesign: run,
-      openCanopi: run,
-      downloadCanopi: run,
-      revertDesign: run,
-      importGeoJson: run,
-      exportGeoJson: run,
-      exportBudgetCsv: run,
-      closeDesign: run,
-      navigate: run,
-    }, { templatesEnabled: false, canvasReady: () => true })
-    const state = { hasDesign: true, revertAvailable: true, activePanel: 'canvas', sidePanel: null } as const
-    const enabled = catalog.filter((entry) => !entry.isExecutionDisabled(state)).map((entry) => entry.id)
+    const enabled = webEnabled()
     for (const id of ['file.rename', 'file.downloadCanopi', 'file.revert', 'file.importGeoJson', 'file.exportGeoJson', 'file.exportBudgetCsv', 'file.exportCanvasPdf', 'view.saveCurrentView']) {
       expect(enabled, id).not.toContain(id)
     }
@@ -275,13 +273,7 @@ describe('R1 canopi-f47t.52.270: a read-only Design offers Close only', () => {
 
   it('R3 canopi-f47t.52.272: a Web Draft opened while 2.1\'s Drafts could not be listed keeps Download a copy, and nothing else (2.1-Q334)', () => {
     designSessionStore.replaceCurrentDesignState(SHOWN, null, SHOWN.name, { kind: 'read-only', origin: 'storage-unchecked' })
-    const run = vi.fn()
-    const catalog = createBrowserShellCatalog({
-      newDesign: run, openCanopi: run, downloadCanopi: run, revertDesign: run, importGeoJson: run, exportGeoJson: run,
-      exportBudgetCsv: run, closeDesign: run, navigate: run,
-    }, { templatesEnabled: false, canvasReady: () => true })
-    const state = { hasDesign: true, revertAvailable: true, activePanel: 'canvas', sidePanel: null } as const
-    const enabled = catalog.filter((entry) => !entry.isExecutionDisabled(state)).map((entry) => entry.id)
+    const enabled = webEnabled()
     expect(enabled).toContain('file.downloadCanopi')
     for (const id of ['file.rename', 'file.revert', 'file.importGeoJson', 'file.exportGeoJson', 'file.exportBudgetCsv', 'file.exportCanvasPdf', 'view.saveCurrentView']) {
       expect(enabled, id).not.toContain(id)
