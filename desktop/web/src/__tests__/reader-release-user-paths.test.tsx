@@ -137,7 +137,7 @@ describe('first launch on a Mac (canopi-pqxl)', () => {
     expect((await browserSettingsPlatformAdapter.load()).scroll_wheel, 'other systems keep Mouse').toBe('zoom')
   })
 
-  it.fails('U canopi-pqxl: the welcome screen’s Moving around opens Help at the gestures section', async () => {
+  it('U canopi-pqxl: the welcome screen’s Moving around opens Help at the gestures section', async () => {
     await act(async () => {
       render(<><WelcomeScreen /><KeyboardShortcutsDialog menus={[]} /></>, container)
     })
