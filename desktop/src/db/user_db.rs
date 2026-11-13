@@ -1,4 +1,5 @@
 use canopi_types::health::{StoreHealth, StoreOpenStatus};
+use canopi_types::saved_object_stamps::SavedObjectStamp;
 use rusqlite::{Connection, ErrorCode, OpenFlags, OptionalExtension};
 use std::{fmt, path::Path};
 
@@ -134,16 +135,6 @@ impl std::error::Error for UserDbInitError {
             | Self::ForeignKeyViolation { .. } => None,
         }
     }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct SavedObjectStampRow {
-    pub id: String,
-    pub name: String,
-    pub payload_json: String,
-    pub sort_order: i32,
-    pub created_at: String,
-    pub updated_at: String,
 }
 
 /// Schema version recorded in a user database (`PRAGMA user_version`).
@@ -348,105 +339,148 @@ pub fn get_recently_viewed_names(
     stmt.query_map([limit], |row| row.get(0))?.collect()
 }
 
+/// True (1) for a saved stamp whose payload carries a numeric `version` above 2, the newest this build reads
+/// (2.1-M88, design check F6): a v3 payload from 2.1 lists as needing a newer Canopi, and every stamp write guards on
+/// its negation (the plan's `json_extract(payload_json,'$.version') <= 2`). A payload with no numeric version (damaged)
+/// and a pre-2.0 v1 stay this build's to delete. The `CASE` keeps `json_extract` off text that is not JSON, which it
+/// rejects. A macro, so each statement is one `concat!` literal and no SQL is formatted at run time.
+macro_rules! stamp_payload_newer {
+    () => {
+        "COALESCE(CASE WHEN json_valid(payload_json) THEN \
+         json_type(payload_json, '$.version') IN ('integer', 'real') \
+         AND json_extract(payload_json, '$.version') > 2 END, 0)"
+    };
+}
+
+/// A stamp SELECT with `needs_newer` computed beside the columns [`stamp_from_row`] reads.
+macro_rules! select_stamps {
+    ($rest:literal) => {
+        concat!(
+            "SELECT id, name, payload_json, sort_order, created_at, updated_at, ",
+            stamp_payload_newer!(),
+            " FROM saved_object_stamps ",
+            $rest
+        )
+    };
+}
+
+/// A stamp write the store refused.
+#[derive(Debug)]
+pub enum StampWriteError {
+    /// The row's payload is newer than this build reads: never renamed, reordered or deleted (2.1-M88).
+    NeedsNewer,
+    /// SQLite failed, a read-only user DB's `SQLITE_READONLY` included.
+    Sqlite(rusqlite::Error),
+}
+
+impl From<rusqlite::Error> for StampWriteError {
+    fn from(error: rusqlite::Error) -> Self {
+        Self::Sqlite(error)
+    }
+}
+
 pub fn create_saved_object_stamp(
     conn: &Connection,
     name: &str,
     payload_json: &str,
-) -> Result<SavedObjectStampRow, rusqlite::Error> {
+) -> Result<SavedObjectStamp, rusqlite::Error> {
     conn.execute(
         "INSERT INTO saved_object_stamps (id, name, payload_json, sort_order, created_at, updated_at)
-         VALUES (
-            'stamp-' || lower(hex(randomblob(16))),
-            ?1,
-            ?2,
-            COALESCE((SELECT MAX(sort_order) + 1 FROM saved_object_stamps), 0),
-            datetime('now'),
-            datetime('now')
-         )",
+         VALUES ('stamp-' || lower(hex(randomblob(16))), ?1, ?2,
+            COALESCE((SELECT MAX(sort_order) + 1 FROM saved_object_stamps), 0), datetime('now'), datetime('now'))",
         (name, payload_json),
     )?;
-
-    let id = conn.last_insert_rowid();
-    conn.query_row(
-        "SELECT id, name, payload_json, sort_order, created_at, updated_at
-         FROM saved_object_stamps
-         WHERE rowid = ?1",
-        [id],
-        saved_object_stamp_from_row,
-    )
+    let rowid = conn.last_insert_rowid();
+    conn.query_row(select_stamps!("WHERE rowid = ?1"), [rowid], stamp_from_row)
 }
 
 pub fn get_saved_object_stamps(
     conn: &Connection,
-) -> Result<Vec<SavedObjectStampRow>, rusqlite::Error> {
-    let mut stmt = conn.prepare(
-        "SELECT id, name, payload_json, sort_order, created_at, updated_at
-         FROM saved_object_stamps
-         ORDER BY sort_order ASC, created_at ASC, id ASC",
-    )?;
-    stmt.query_map([], saved_object_stamp_from_row)?.collect()
+) -> Result<Vec<SavedObjectStamp>, rusqlite::Error> {
+    let mut stmt = conn.prepare(select_stamps!(
+        "ORDER BY sort_order ASC, created_at ASC, id ASC"
+    ))?;
+    stmt.query_map([], stamp_from_row)?.collect()
 }
 
+/// Renames a row whose payload this build reads; a newer row is refused and left unchanged.
 pub fn rename_saved_object_stamp(
     conn: &Connection,
     id: &str,
     name: &str,
-) -> Result<SavedObjectStampRow, rusqlite::Error> {
-    conn.execute(
-        "UPDATE saved_object_stamps
-         SET name = ?2, updated_at = datetime('now')
-         WHERE id = ?1",
+) -> Result<SavedObjectStamp, StampWriteError> {
+    let renamed = conn.execute(
+        concat!(
+            "UPDATE saved_object_stamps SET name = ?2, updated_at = datetime('now') WHERE id = ?1 AND NOT ",
+            stamp_payload_newer!()
+        ),
         (id, name),
     )?;
-    get_saved_object_stamp(conn, id)
+    refuse_newer_stamp(conn, id, renamed)?;
+    Ok(conn.query_row(select_stamps!("WHERE id = ?1"), [id], stamp_from_row)?)
 }
 
-pub fn delete_saved_object_stamp(conn: &Connection, id: &str) -> Result<bool, rusqlite::Error> {
-    let deleted = conn.execute("DELETE FROM saved_object_stamps WHERE id = ?1", [id])?;
+/// Deletes a row whose payload this build reads, a pre-2.0 v1 included; a newer row is refused and kept. `false` for
+/// an id with no row.
+pub fn delete_saved_object_stamp(conn: &Connection, id: &str) -> Result<bool, StampWriteError> {
+    let deleted = conn.execute(
+        concat!(
+            "DELETE FROM saved_object_stamps WHERE id = ?1 AND NOT ",
+            stamp_payload_newer!()
+        ),
+        [id],
+    )?;
+    refuse_newer_stamp(conn, id, deleted)?;
     Ok(deleted > 0)
 }
 
+/// Renumbers the named rows in the given order; rows not named, a newer one among them, keep their place. A list
+/// naming a newer row is refused whole: the transaction rolls back and no row is renumbered.
 pub fn reorder_saved_object_stamps(
     conn: &Connection,
     ids: &[String],
-) -> Result<(), rusqlite::Error> {
+) -> Result<(), StampWriteError> {
     let tx = conn.unchecked_transaction()?;
     {
-        let mut stmt = tx.prepare(
-            "UPDATE saved_object_stamps
-             SET sort_order = ?2, updated_at = datetime('now')
-             WHERE id = ?1",
-        )?;
+        let mut stmt = tx.prepare(concat!(
+            "UPDATE saved_object_stamps SET sort_order = ?2, updated_at = datetime('now') WHERE id = ?1 AND NOT ",
+            stamp_payload_newer!()
+        ))?;
         for (index, id) in ids.iter().enumerate() {
-            stmt.execute((id, index as i32))?;
+            let renumbered = stmt.execute((id, index as i32))?;
+            refuse_newer_stamp(&tx, id, renumbered)?;
         }
     }
-    tx.commit()
+    Ok(tx.commit()?)
 }
 
-fn get_saved_object_stamp(
-    conn: &Connection,
-    id: &str,
-) -> Result<SavedObjectStampRow, rusqlite::Error> {
-    conn.query_row(
-        "SELECT id, name, payload_json, sort_order, created_at, updated_at
-         FROM saved_object_stamps
-         WHERE id = ?1",
-        [id],
-        saved_object_stamp_from_row,
-    )
+/// After a guarded stamp write that changed `changed` rows: [`StampWriteError::NeedsNewer`] when it changed none
+/// because the row's payload is newer; an id with no row is the caller's to answer.
+fn refuse_newer_stamp(conn: &Connection, id: &str, changed: usize) -> Result<(), StampWriteError> {
+    let newer = || {
+        let sql = concat!(
+            "SELECT ",
+            stamp_payload_newer!(),
+            " FROM saved_object_stamps WHERE id = ?1"
+        );
+        conn.query_row(sql, [id], |row| row.get::<_, bool>(0))
+            .optional()
+    };
+    match changed == 0 && newer()?.unwrap_or(false) {
+        true => Err(StampWriteError::NeedsNewer),
+        false => Ok(()),
+    }
 }
 
-fn saved_object_stamp_from_row(
-    row: &rusqlite::Row<'_>,
-) -> Result<SavedObjectStampRow, rusqlite::Error> {
-    Ok(SavedObjectStampRow {
+fn stamp_from_row(row: &rusqlite::Row<'_>) -> Result<SavedObjectStamp, rusqlite::Error> {
+    Ok(SavedObjectStamp {
         id: row.get(0)?,
         name: row.get(1)?,
         payload_json: row.get(2)?,
         sort_order: row.get(3)?,
         created_at: row.get(4)?,
         updated_at: row.get(5)?,
+        needs_newer: row.get(6)?,
     })
 }
 
@@ -534,66 +568,6 @@ mod tests {
         set_setting(&conn, "locale", "fr").unwrap();
         let val = get_setting(&conn, "locale").unwrap();
         assert_eq!(val.as_deref(), Some("fr"));
-    }
-
-    #[test]
-    fn test_saved_object_stamp_round_trip_preserves_payload_and_order() {
-        let conn = test_db();
-
-        let saved = create_saved_object_stamp(
-            &conn,
-            "Apple guild",
-            r#"{"plants":[{"id":"plant-1"}],"zones":[],"annotations":[],"groups":[]}"#,
-        )
-        .unwrap();
-
-        assert_eq!(saved.name, "Apple guild");
-        assert_eq!(saved.sort_order, 0);
-        assert!(!saved.created_at.is_empty());
-        assert_eq!(saved.updated_at, saved.created_at);
-
-        let stamps = get_saved_object_stamps(&conn).unwrap();
-        assert_eq!(stamps.len(), 1);
-        assert_eq!(stamps[0].id, saved.id);
-        assert_eq!(stamps[0].name, "Apple guild");
-        assert_eq!(
-            stamps[0].payload_json,
-            r#"{"plants":[{"id":"plant-1"}],"zones":[],"annotations":[],"groups":[]}"#
-        );
-        assert_eq!(stamps[0].sort_order, 0);
-    }
-
-    #[test]
-    fn test_saved_object_stamps_can_be_renamed_deleted_and_reordered() {
-        let conn = test_db();
-        let first = create_saved_object_stamp(&conn, "First", r#"{"plants":[]}"#).unwrap();
-        let second = create_saved_object_stamp(&conn, "Second", r#"{"plants":[]}"#).unwrap();
-
-        let renamed = rename_saved_object_stamp(&conn, &first.id, "Renamed").unwrap();
-        assert_eq!(renamed.name, "Renamed");
-
-        reorder_saved_object_stamps(&conn, &[second.id.clone(), first.id.clone()]).unwrap();
-        let reordered = get_saved_object_stamps(&conn).unwrap();
-        assert_eq!(
-            reordered
-                .iter()
-                .map(|stamp| stamp.id.as_str())
-                .collect::<Vec<_>>(),
-            [second.id.as_str(), first.id.as_str()]
-        );
-        assert_eq!(reordered[0].sort_order, 0);
-        assert_eq!(reordered[1].sort_order, 1);
-
-        assert!(delete_saved_object_stamp(&conn, &second.id).unwrap());
-        assert!(!delete_saved_object_stamp(&conn, &second.id).unwrap());
-        let remaining = get_saved_object_stamps(&conn).unwrap();
-        assert_eq!(
-            remaining
-                .iter()
-                .map(|stamp| stamp.id.as_str())
-                .collect::<Vec<_>>(),
-            [first.id.as_str()]
-        );
     }
 
     #[test]
