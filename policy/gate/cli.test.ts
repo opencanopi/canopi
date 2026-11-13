@@ -138,32 +138,31 @@ describe('the engines Node (design check A9)', () => {
     expect(await stopAgain('SIGTERM')).toEqual([143, 'running\n'])
   })
 
-  it('canopi-f47t.52.228.54: when the gate cannot run, the PreToolUse hook asks and SessionStart warns, never exit 1', () => {
-    // Claude Code lets a tool call through on a hook's exit 1, so every deny rule would fail open.
+  it('when the gate cannot run, the PreToolUse hook passes naming why on stderr and SessionStart warns, never exit 1 nor a prompt (2.1-Q331)', () => {
+    // Claude Code reads a hook's exit 1 as a hook error, and a hook's ask prompts the user even in a bypass session.
     const hook = (mode: string, env: Readonly<Record<string, string>>) => {
       const run = spawnSync(process.execPath, [ENTRY, 'agent-hook', mode], { cwd: repo.repo, encoding: 'utf8',
         input: JSON.stringify({ tool_name: 'Bash', tool_input: { command: 'git reset --hard' } }), env: repo.env(env) })
-      return { status: run.status, stdout: run.stdout }
+      return { status: run.status, stdout: run.stdout, stderr: run.stderr }
     }
-    const asks = (why: string) => ({ status: 0, stdout: `${JSON.stringify({ hookSpecificOutput: { hookEventName: 'PreToolUse',
-      permissionDecision: 'ask', permissionDecisionReason: `[agent-hooks] the agent hooks cannot run (${why}); ask the user` } })}\n` })
-    const warns = (why: string) => ({ status: 0, stdout: `Canopi hooks warning: the agent hooks cannot run (${why})\n` })
+    const passes = (why: string) => ({ status: 0, stdout: '', stderr: `agent hooks: the agent hooks cannot run (${why})\n` })
+    const warns = (why: string) => ({ status: 0, stdout: `Canopi hooks warning: the agent hooks cannot run (${why})\n`, stderr: '' })
     const required = `Node 99 is required (engines); found ${process.version}: run nvm install 99`
     engines('>=99')
     const none = { NVM_DIR: join(repo.root, 'no-nvm') }
-    expect(hook('pre-tool-use', none)).toEqual(asks(required))
+    expect(hook('pre-tool-use', none)).toEqual(passes(required))
     expect(hook('session-start', none)).toEqual(warns(required))
     const bin = join(repo.root, 'nvm/versions/node/v99.0.0/bin')
     mkdirSync(bin, { recursive: true })
     writeFileSync(join(bin, 'node'), '#!/bin/sh\nkill -TERM $$\n', { mode: 0o755 })
     expect(hook('pre-tool-use', { NVM_DIR: join(repo.root, 'nvm') }))
-      .toEqual(asks(`${required}; ${join(bin, 'node')} was stopped by SIGTERM`))
+      .toEqual(passes(`${required}; ${join(bin, 'node')} was stopped by SIGTERM`))
     // On the engines Node, a module that cannot load.
     engines('>=1')
     writeFileSync(join(repo.repo, 'policy/gate/agent-hooks.ts'), 'export const = \n')
     const broken = hook('pre-tool-use', {})
-    expect([broken.status, (JSON.parse(broken.stdout) as { hookSpecificOutput: { permissionDecision: string } })
-      .hookSpecificOutput.permissionDecision]).toEqual([0, 'ask'])
+    expect([broken.status, broken.stdout]).toEqual([0, ''])
+    expect(broken.stderr).toMatch(/^agent hooks: the agent hooks cannot run \(.+\)\n$/)
     expect(hook('session-start', {}).stdout).toMatch(/^Canopi hooks warning: the agent hooks cannot run \(.+\)\n$/)
   })
 
