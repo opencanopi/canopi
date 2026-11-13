@@ -67,12 +67,13 @@ describe('Check for updates at launch', () => {
     const pending = {
       held: held !== null,
       hidden: held?.getAttribute('aria-hidden'),
+      inert: held?.querySelector('input')?.disabled,
       switch: container.querySelector('[data-launch-check] input[role="switch"]'),
     }
     await act(async () => { answer(true) })
 
     expect({ pending, sameRow: button.previousElementSibling === held, on: container.querySelector<HTMLInputElement>('[data-launch-check] input[role="switch"]')?.checked })
-      .toEqual({ pending: { held: true, hidden: 'true', switch: null }, sameRow: true, on: true })
+      .toEqual({ pending: { held: true, hidden: 'true', inert: true, switch: null }, sameRow: true, on: true })
   })
 
   it('a row that cannot be read leaves no switch and no held place', async () => {
