@@ -21,7 +21,9 @@ const mocks = vi.hoisted(() => ({
     load: vi.fn(),
     save: vi.fn(),
   },
-  restoreLatestDraft: vi.fn(),
+  launch: vi.fn(),
+  installNewerDrafts: vi.fn(),
+  uninstallNewerDrafts: vi.fn(),
   listDrafts: vi.fn(),
   installContinuousSave: vi.fn(),
   uninstallContinuousSave: vi.fn(),
@@ -33,6 +35,7 @@ const mocks = vi.hoisted(() => ({
   disposeToolRailLearning: vi.fn(),
   takeEarlierDataNotice: vi.fn(),
   raiseEarlierDataNotice: vi.fn(),
+  openSpeciesLists: vi.fn(),
   installLaunchFile: vi.fn(),
   disposeLaunchFile: vi.fn(),
 }));
@@ -42,7 +45,7 @@ vi.mock("../app/document-session/launch-file", () => ({
 }));
 
 vi.mock("../web/browser-app-data", () => ({
-  browserAppDataStore: { takeEarlierDataNotice: mocks.takeEarlierDataNotice },
+  browserAppDataStore: { takeEarlierDataNotice: mocks.takeEarlierDataNotice, openSpeciesLists: mocks.openSpeciesLists },
 }));
 
 vi.mock("../web/browser-notices", () => ({
@@ -56,7 +59,8 @@ vi.mock("../app/tool-rail/learning", () => ({
 
 vi.mock("../web/browser-design-session", () => ({
   browserDesignSessionController: {
-    restoreLatestDraft: mocks.restoreLatestDraft,
+    launch: mocks.launch,
+    installNewerDrafts: mocks.installNewerDrafts,
     listDrafts: mocks.listDrafts,
     installContinuousSave: mocks.installContinuousSave,
     installFormatCore: mocks.installFormatCore,
@@ -119,7 +123,10 @@ describe("settings platform bootstrap", () => {
     mocks.registerCloseGuard.mockReset().mockReturnValue({
       dispose: mocks.disposeCloseGuard,
     });
-    mocks.restoreLatestDraft.mockReset().mockReturnValue(true);
+    mocks.launch.mockReset().mockResolvedValue(true);
+    mocks.uninstallNewerDrafts.mockReset();
+    mocks.openSpeciesLists.mockReset();
+    mocks.installNewerDrafts.mockReset().mockReturnValue(mocks.uninstallNewerDrafts);
     mocks.listDrafts.mockReset().mockReturnValue([{ id: "draft-1", name: "Orchard", updatedAt: "2026-10-01T00:00:00.000Z" }]);
     mocks.uninstallContinuousSave.mockReset();
     mocks.installContinuousSave.mockReset().mockReturnValue(mocks.uninstallContinuousSave);
@@ -163,23 +170,31 @@ describe("settings platform bootstrap", () => {
 
     bootstrapPlatform();
 
-    expect(mocks.restoreLatestDraft).toHaveBeenCalledOnce();
+    expect(mocks.launch).toHaveBeenCalledOnce();
+    // canopi-f47t.52.272: 2.1's Draft store reader is the session's before the launch reads its ids (2.1-Q321, A18).
+    expect(mocks.installNewerDrafts).toHaveBeenCalledOnce();
+    expect(mocks.installNewerDrafts.mock.invocationCallOrder[0]).toBeLessThan(mocks.launch.mock.invocationCallOrder[0]!);
+    // The species lists read 2.1's key through the reader the launch passes in (2.1-Q319, Q320).
+    expect(mocks.openSpeciesLists).toHaveBeenCalledOnce();
+    const { readSpeciesListRecord } = await import("../platform/browser-record");
+    expect(mocks.openSpeciesLists.mock.calls[0]![0]).toBe(readSpeciesListRecord);
     expect(mocks.installContinuousSave).toHaveBeenCalledOnce();
     expect(mocks.installPlaceSearchSession).toHaveBeenCalledOnce();
     expect(mocks.installSettingsProjection.mock.invocationCallOrder[0]).toBeLessThan(
-      mocks.restoreLatestDraft.mock.invocationCallOrder[0]!,
+      mocks.launch.mock.invocationCallOrder[0]!,
     );
-    expect(mocks.restoreLatestDraft.mock.invocationCallOrder[0]).toBeLessThan(
+    expect(mocks.launch.mock.invocationCallOrder[0]).toBeLessThan(
       mocks.installContinuousSave.mock.invocationCallOrder[0]!,
     );
     // canopi-f47t.52.270: the format core is the session's before a Draft reopens, so a newer one opens read-only.
     expect(mocks.installFormatCore.mock.invocationCallOrder[0]).toBeLessThan(
-      mocks.restoreLatestDraft.mock.invocationCallOrder[0]!,
+      mocks.launch.mock.invocationCallOrder[0]!,
     );
 
     bootstrapPlatform();
 
     expect(mocks.uninstallFormatCore).toHaveBeenCalledOnce();
+    expect(mocks.uninstallNewerDrafts).toHaveBeenCalledOnce();
     expect(mocks.uninstallContinuousSave).toHaveBeenCalledOnce();
     expect(mocks.disposePlaceSearchSession).toHaveBeenCalledOnce();
     expect(mocks.installToolRailLearning).toHaveBeenCalledTimes(2);
@@ -196,7 +211,7 @@ describe("settings platform bootstrap", () => {
 
     expect(mocks.takeEarlierDataNotice).toHaveBeenCalledOnce();
     expect(mocks.raiseEarlierDataNotice).toHaveBeenCalledOnce();
-    expect(mocks.restoreLatestDraft).toHaveBeenCalledOnce();
+    expect(mocks.launch).toHaveBeenCalledOnce();
   });
 
   it("says nothing when no browser data from before Canopi 2.0 was found", async () => {
@@ -206,13 +221,13 @@ describe("settings platform bootstrap", () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(mocks.raiseEarlierDataNotice).not.toHaveBeenCalled();
-    expect(mocks.restoreLatestDraft).toHaveBeenCalledOnce();
+    expect(mocks.launch).toHaveBeenCalledOnce();
   });
 
   // canopi-eon8.15 (S1): a release Reload from the start screen reopens no Draft (2.1-Q189), yet the stored Drafts are
   // still there, so the launch is not a first visit: the warning and Keep my drafts show, and New/Open do not ask.
   it("canopi-eon8.15: Drafts stored at launch warn and offer Keep my drafts even when none reopened", async () => {
-    mocks.restoreLatestDraft.mockReturnValue(false);
+    mocks.launch.mockResolvedValue(false);
     const storage = { persisted: vi.fn(async () => false), persist: vi.fn(async () => false) };
     Object.defineProperty(globalThis.navigator, "storage", { configurable: true, value: storage });
     try {
@@ -235,7 +250,7 @@ describe("settings platform bootstrap", () => {
   });
 
   it("canopi-eon8.15: a launch with no stored Draft is a first visit", async () => {
-    mocks.restoreLatestDraft.mockReturnValue(false);
+    mocks.launch.mockResolvedValue(false);
     mocks.listDrafts.mockReturnValue([]);
     const storage = { persisted: vi.fn(async () => false), persist: vi.fn(async () => false) };
     Object.defineProperty(globalThis.navigator, "storage", { configurable: true, value: storage });
@@ -255,15 +270,13 @@ describe("settings platform bootstrap", () => {
 
   it("still saves continuously when restoring the newest Draft fails", async () => {
     const error = new Error("storage unavailable");
-    mocks.restoreLatestDraft.mockImplementation(() => {
-      throw error;
-    });
+    mocks.launch.mockRejectedValue(error);
     const logError = vi.spyOn(console, "error").mockImplementation(() => {});
     const { bootstrapPlatform } = await import("../platform/browser");
 
     bootstrapPlatform();
 
-    expect(logError).toHaveBeenCalledWith("Failed to restore the latest Design Draft:", error);
+    await vi.waitFor(() => expect(logError).toHaveBeenCalledWith("Failed to restore the latest Design Draft:", error));
     expect(mocks.installContinuousSave).toHaveBeenCalledOnce();
   });
 
