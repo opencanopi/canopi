@@ -214,18 +214,21 @@ jobs:
         run: |
           set -euo pipefail
           run='"$CANOPI_FORMAT_PROBE_DRIVER" --port=4444 & driver=$!; trap "kill $driver" EXIT; sleep 3; kill -0 $driver
-            npx playwright test e2e/canvas/format-core-probe.spec.ts --project=chromium --grep "WebDriver engine" --reporter=line'
+            npx playwright test e2e/canvas/format-core-probe.spec.ts e2e/canvas/indexeddb-reader-probe.spec.ts --project=chromium --grep "WebDriver engine" --reporter=line'
           if [ "$RUNNER_OS" = Linux ]; then xvfb-run -a bash -euo pipefail -c "$run"; else bash -euo pipefail -c "$run"; fi
 
-      # The lane's inverted step: with no driver at the URL the test must fail, so a pass above is never a skip.
+      # The lane's inverted step: with no driver at the URL each spec's test must fail on its own (the format worker,
+      # and the IndexedDB reader probe of canopi-f47t.52.272), so a pass above is never a skip in either.
       - name: The ${{ matrix.engine }} lane fails with no driver
         env:
           CANOPI_FORMAT_PROBE_WEBDRIVER: http://127.0.0.1:1
         run: |
-          if npx playwright test e2e/canvas/format-core-probe.spec.ts --project=chromium --grep "WebDriver engine" --reporter=line --output=planted-results; then
-            echo "::error::the WebDriver test passed with no driver"
-            exit 1
-          fi
+          for spec in e2e/canvas/format-core-probe.spec.ts e2e/canvas/indexeddb-reader-probe.spec.ts; do
+            if npx playwright test "$spec" --project=chromium --grep "WebDriver engine" --reporter=line --output=planted-results; then
+              echo "::error::$spec's WebDriver test passed with no driver"
+              exit 1
+            fi
+          done
 
   a11y-policy:
     name: axe ratchet (three engines)
