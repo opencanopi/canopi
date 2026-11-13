@@ -251,11 +251,13 @@ exit 64
 
   // promote-release.sh builds the release page from docs/release-notes/v<version>.md and writes a bare header when it is
   // missing; the version files name the next release once its release commit bumps them, and until then they name
-  // 2.1.0-beta.2, published with the linker-signed bundle and its xattr text.
-  it.fails('canopi-3cu2: the release notes of the version the tree would release carry the probe\'s install text (expected to fail until the reader release\'s version bump and notes land: main agent, canopi-3cu2)', () => {
+  // 2.1.0-beta.2, published with the linker-signed bundle and its xattr text. Only those published notes keep their one
+  // known fault: any bump without the probe's text in its notes fails here.
+  it('canopi-3cu2: the release notes of the version the tree would release carry the probe\'s install text', () => {
     const version = (JSON.parse(read('desktop/tauri.conf.json')) as { readonly version: string }).version
     const notes = `docs/release-notes/v${version}.md`
     expect(existsSync(join(REPO_ROOT, notes)), `${notes} is missing, so the release page carries no install text`).toBe(true)
-    expect(installFaults(macConfig.bundle?.macOS?.signingIdentity, new Map([[notes, read(notes)]]))).toEqual([])
+    const published = version === '2.1.0-beta.2' ? [`${notes} lacks the probe's install text for the ad-hoc bundle`] : []
+    expect(installFaults(macConfig.bundle?.macOS?.signingIdentity, new Map([[notes, read(notes)]]))).toEqual(published)
   })
 })
