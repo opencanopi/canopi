@@ -1,7 +1,7 @@
 // The pre-push stamp (2.1-Q266, 2.1-Q270; design check AR1, A4): the real CLI's `push` in a planted repository, its
 // checks recorded by PATH shims, writes `<git common dir>/canopi-gate/<sha>.json` only when the whole lane is green on a
-// tree that is exactly HEAD (no tracked change, no untracked file), and never a half-written one. A lane whose only red
-// is expected-fail markers added since the base writes a stamp naming them, which serves scratch/ refs only (2.1-Q328).
+// tree that is exactly HEAD (no tracked change, no untracked file), and never a half-written one. An expected-fail marker
+// added since the base fails the lane, so no stamp is written (2.1-Q329).
 import { spawn } from 'node:child_process'
 import { copyFileSync, existsSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -42,46 +42,13 @@ function commitMarker(): string {
 }
 const MARKER = "desktop/web/src/app/red.test.ts:1:it.fails('red, planted', () => {})"
 
-describe('a lane whose only red is added markers stamps for scratch/ refs only (2.1-Q328)', () => {
-  it('2.1-Q328: added markers on an otherwise green lane write a stamp naming them, the output saying it serves scratch/ only', () => {
-    const head = commitMarker()
-    const run = repo.gate(['push', '--base', repo.base])
-    expect(run.status, run.stderr).toBe(0)
-    expect(repo.calls(), 'the e2e run still ran').toContainEqual(expect.stringMatching(/^docker run /u))
-    expect(run.stdout).toContain(`SCRATCH ONLY expected-fail markers added since the base:\n${MARKER}`)
-    expect(run.stderr).toContain(`gate: stamp written for refs under scratch/ only: ${join(stamps(), `${head}.json`)}`)
-    expect(run.stderr).toContain(`expected-fail markers added since the base: ${MARKER}`)
-    expect(stampOf(head)).toMatchObject({ sha: head, lane: 'push', base: repo.base, e2e: true, markers: [MARKER] })
-  })
-
-  it('2.1-Q328: added markers with another red check write no stamp', () => {
+describe('an added marker fails the push lane, whatever ref it is for (2.1-Q329)', () => {
+  it('2.1-Q329: an expected-fail marker added since the base fails gate push and writes no stamp', () => {
     commitMarker()
-    const run = repo.gate(['push', '--base', repo.base], { env: { SHIM_E2E_FAIL: '1' } })
-    expect(run.status).toBe(1)
-    expect(listed()).toEqual([])
-  })
-
-  it('2.1-Q328: while the outer lane records its markers, a marker check its own checks run still fails, and none sees the record', () => {
-    const head = commitMarker()
-    // Each npm check runs the marker check on the same tree, as the policy-gate project's planted runs do.
-    const inner = join(repo.root, 'inner.log')
-    writeFileSync(join(repo.bin, 'npm'), `#!/bin/sh\necho "npm $*" >> "$SHIM_LOG"\n`
-      + `echo "record=\${CANOPI_GATE_MARKERS_RECORD:-unset}" >> '${inner}'\n`
-      + `cd '${repo.repo}' && '${process.execPath}' policy/gate/cli.mjs prepush-checks --base ${repo.base} > /dev/null\n`
-      + `echo "status=$?" >> '${inner}'\nexit 0\n`, { mode: 0o755 })
     const run = repo.gate(['push', '--base', repo.base])
-    expect(run.status, run.stderr).toBe(0)
-    const lines = readFileSync(inner, 'utf8').split('\n').filter((line) => line !== '')
-    expect(lines.length).toBeGreaterThan(0)
-    expect([...new Set(lines)].sort()).toEqual(['record=unset', 'status=1'])
-    expect(stampOf(head)).toMatchObject({ markers: [MARKER] })
-  })
-
-  it('2.1-Q328: the marker check run alone still fails on an added marker', () => {
-    commitMarker()
-    const run = repo.gate(['prepush-checks', '--base', repo.base])
     expect(run.status).toBe(1)
     expect(run.stdout).toContain(`FAIL expected-fail markers added since the base:\n${MARKER}`)
+    expect(listed()).toEqual([])
   })
 })
 

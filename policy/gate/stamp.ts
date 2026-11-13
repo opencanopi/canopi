@@ -4,14 +4,9 @@
 // common one, not `git rev-parse --git-path canopi-gate` (a linked worktree's own), so a stamp made in one worktree
 // serves a push from any other. It is written to a temporary name and renamed, so a reader never sees half a stamp and
 // two runs on one commit leave one whole stamp. A stamp that cannot be read or parsed is no stamp.
-// A lane whose only red is expected-fail markers added since the base (its prepush-checks check, alone given a temporary
-// file in MARKERS_RECORD by run.ts's recordingMarkers, records them there and passes) writes a stamp with `markers`, which verify-push.ts accepts for refs under
-// scratch/ only (2.1-Q328); the lane says so and lists them. A stamp with no `markers`, as every stamp before, is green.
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { git, type Plan } from './plan.ts'
-import { recordingMarkers } from './run.ts'
 import { TABLE_FILE } from './table.ts'
 
 export const STAMP_DIR = 'canopi-gate'
@@ -25,9 +20,6 @@ export interface Stamp {
   readonly base: string
   readonly e2e: boolean
   readonly rust: boolean
-  /** The expected-fail markers added since `base` (`path:line:text`): present and not empty, the stamp serves refs under
-   * scratch/ only (2.1-Q328). */
-  readonly markers?: readonly string[]
 }
 
 /** The stamp directory shared by every worktree of the repository at `root`. */
@@ -72,7 +64,6 @@ const isStamp = (value: unknown): value is Stamp => {
   return typeof stamp === 'object' && stamp !== null && typeof stamp.sha === 'string' && typeof stamp.table === 'string'
     && typeof stamp.lane === 'string' && typeof stamp.base === 'string' && typeof stamp.e2e === 'boolean'
     && typeof stamp.rust === 'boolean'
-    && (stamp.markers === undefined || (Array.isArray(stamp.markers) && stamp.markers.every((marker) => typeof marker === 'string')))
 }
 
 /** The stamp written for `sha`, or undefined when there is none or it cannot be read as one. */
@@ -106,9 +97,7 @@ const log = (line: string) => process.stderr.write(`gate: ${line}\n`)
  * The push lane `made`, planned from `base` on the commit `head`, run by `run`, and `head` stamped when it is green:
  * refused before running when HEAD is no longer `head` (it moved while the lane was planned) or the tree is not
  * HEAD's (treeChanges), and red without a stamp when HEAD or the tree moved during the run or the stamp cannot be
- * written, since a push of that commit would then be refused. The run's prepush-checks check, alone, records added
- * markers in a temporary file (recordingMarkers): a green run that recorded some writes a scratch-only stamp naming them
- * (2.1-Q328).
+ * written, since a push of that commit would then be refused.
  */
 export async function pushAndStamp(root: string, base: string, head: string, made: Plan, run: () => Promise<number>,
   env: NodeJS.ProcessEnv = process.env): Promise<number> {
@@ -122,16 +111,7 @@ export async function pushAndStamp(root: string, base: string, head: string, mad
     log(`gate push stamps the commit it runs on, and ${before}: commit or remove them, then run it again; refusing`)
     return 1
   }
-  const recordDir = mkdtempSync(join(tmpdir(), 'canopi-gate-markers-'))
-  const record = join(recordDir, 'markers.json')
-  let code: number
-  let markers: string[] = []
-  try {
-    code = await recordingMarkers(record, run)
-    if (code === 0 && existsSync(record)) markers = JSON.parse(readFileSync(record, 'utf8')) as string[]
-  } finally {
-    rmSync(recordDir, { recursive: true, force: true })
-  }
+  const code = await run()
   if (code !== 0) return code
   const moved = git(root, ['rev-parse', 'HEAD'], env).trim() !== head
   const after = treeFault(treeChanges(root, env), true)
@@ -143,15 +123,9 @@ export async function pushAndStamp(root: string, base: string, head: string, mad
   const stamp: Stamp = {
     sha: head, table: tableAt(root, head, env), lane: 'push', base: git(root, ['merge-base', base, head], env).trim(),
     e2e: made.e2e !== undefined, rust: made.checks.some((planned) => planned.cargo === true && !planned.ciOnly),
-    ...markers.length ? { markers } : {},
   }
   try {
-    const path = writeStamp(root, stamp, env)
-    if (!markers.length) log(`stamp written: ${path}`)
-    else {
-      log(`stamp written for refs under scratch/ only: ${path}; expected-fail markers added since the base: `
-        + `${markers.join(', ')}; any other ref refuses ${head} until they are cleared and gate push runs again`)
-    }
+    log(`stamp written: ${writeStamp(root, stamp, env)}`)
     return 0
   } catch (error) {
     log(`GREEN, but no stamp was written: ${stampDir(root, env)} cannot be written `

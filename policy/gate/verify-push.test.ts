@@ -1,7 +1,7 @@
 // The pre-push hook (2.1-Q266, 2.1-Q270; design check AR1, A4): real `git push`es from a planted repository and its
 // linked worktree to a bare remote, through the tracked .githooks/pre-push and the real CLI. A pushed commit needs a
-// green pre-push stamp that covers its range; deletions, tags on origin/main and docs or beads-only ranges pass. A stamp
-// naming expected-fail markers added since its base serves refs under scratch/ only (2.1-Q328).
+// green pre-push stamp that covers its range; deletions, tags on origin/main and docs or beads-only ranges pass. A ref
+// under refs/heads/scratch/ needs no stamp: CI on the step's draft PR decides it (2.1-Q329).
 import { spawnSync } from 'node:child_process'
 import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { delimiter, join } from 'node:path'
@@ -235,36 +235,19 @@ describe('the pre-push hook verifies a stamp (canopi-f47t.52.228.54, canopi-f47t
     expect(git(remote, 'rev-parse', 'refs/heads/draft')).toBe(head)
   })
 
-  it('2.1-Q328: a stamp naming added markers pushes to scratch/ only; any other ref is refused, naming them', () => {
-    writeFileSync(join(repo.root, 'node-shim/node'), `#!/bin/sh\necho "node $*" >> "$SHIM_LOG"\n`
-      + `[ "$2" = prepush-checks ] && exec '${process.execPath}' "$@"\nexit 0\n`, { mode: 0o755 })
-    repo.write({ 'policy/adapters/upstream-register.mjs': '\n', 'desktop/web/src/app/red.test.ts': "it.fails('red, planted', () => {})\n" })
-    git(repo.repo, 'add', 'policy/adapters/upstream-register.mjs', 'desktop/web/src/app/red.test.ts')
-    const head = commit('desktop/web/src/app/x.ts')
-    stamp()
-    const marker = "desktop/web/src/app/red.test.ts:1:it.fails('red, planted', () => {})"
-    expect(JSON.parse(readFileSync(stampFile(head), 'utf8'))).toMatchObject({ markers: [marker] })
+  it('2.1-Q329: a push to a ref under scratch/ needs no stamp, an added marker included; any other ref with that commit is refused', () => {
+    repo.write({ 'desktop/web/src/app/red.test.ts': "it.fails('red, planted', () => {})\n" })
+    git(repo.repo, 'add', 'desktop/web/src/app/red.test.ts')
+    const head = commit('desktop/web/src/app/x.ts', 'desktop/src/x.rs')
     expect(push('HEAD:refs/heads/scratch/probe')).toEqual({ status: 0, stderr: '' })
     expect(git(remote, 'rev-parse', 'refs/heads/scratch/probe')).toBe(head)
-    for (const ref of ['refs/heads/work', 'refs/heads/scratchy', 'refs/heads/x/scratch/y']) {
+    expect(repo.calls(), 'the hook ran no lane').toEqual([])
+    for (const ref of ['refs/heads/work', 'refs/heads/scratchy', 'refs/heads/x/scratch/y', 'refs/tags/scratch/t']) {
       const refused = push(`HEAD:${ref}`)
       expect(refused.status, ref).toBe(1)
-      expect(refused.stderr).toContain(`gate: pre-push: ${ref} at ${head.slice(0, 12)}: its stamp serves refs under scratch/ only, `
-        + `for the expected-fail markers added since its base (${marker}): clear them and stamp again, or push to refs/heads/scratch/`)
+      expect(refused.stderr, ref).toContain(`gate: pre-push: ${ref} at ${head.slice(0, 12)}: `)
     }
-  })
-
-  it('2.1-Q328: a full green stamp, with no markers field as before or an empty list, pushes to scratch/ and any other ref', () => {
-    const head = commit('desktop/web/src/app/x.ts')
-    stamp()
-    const good = JSON.parse(readFileSync(stampFile(head), 'utf8')) as Record<string, unknown>
-    expect(good).not.toHaveProperty('markers')
-    expect(push('HEAD:refs/heads/scratch/probe')).toEqual({ status: 0, stderr: '' })
-    expect(push('HEAD:refs/heads/work')).toEqual({ status: 0, stderr: '' })
-    writeFileSync(stampFile(head), JSON.stringify({ ...good, markers: [] }))
-    expect(push('HEAD:refs/heads/other')).toEqual({ status: 0, stderr: '' })
-    writeFileSync(stampFile(head), JSON.stringify({ ...good, markers: 'not a list' }))
-    expect(push('HEAD:refs/heads/scratch/bad').stderr).toContain('it has no green pre-push stamp')
+    expect(push('HEAD:refs/heads/work').stderr).toContain('it has no green pre-push stamp')
   })
 
   it('a docs or beads-only range runs its cheap lane here instead, on a clean checkout of it', () => {
