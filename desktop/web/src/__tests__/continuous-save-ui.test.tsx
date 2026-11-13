@@ -684,13 +684,8 @@ describe('Design Drafts controller', () => {
 describe('WebWelcomeScreen', () => {
   it('lists browser Drafts, opens one and deletes another', async () => {
     const values = new Map<string, string>()
-    const appDataStore = createBrowserAppDataStore({
-      storage: {
-        getItem: (key) => values.get(key) ?? null,
-        setItem: (key, value) => { values.set(key, value) },
-        removeItem: (key) => { values.delete(key) },
-      },
-    })
+    const storage = { getItem: (key: string) => values.get(key) ?? null, setItem: (key: string, value: string) => { values.set(key, value) }, removeItem: (key: string) => { values.delete(key) } }
+    const appDataStore = createBrowserAppDataStore({ storage })
     for (const name of ['Kitchen Garden', 'Hedge']) {
       appDataStore.saveDraft({ id: `draft-${name}`, file: design(name), now: '2026-01-01T00:00:00.000Z' })
     }
@@ -713,6 +708,8 @@ describe('WebWelcomeScreen', () => {
     await act(async () => {
       Array.from(container.querySelectorAll<HTMLButtonElement>('button'))
         .find((button) => button.textContent === 'Delete draft')?.click()
+      // The delete and the open each wait for the 2.1 listing guard (design check A18) before they act.
+      await new Promise((resolve) => setTimeout(resolve, 0))
     })
     expect(container.textContent).not.toContain('Kitchen Garden')
     expect(appDataStore.listDrafts().map((draft) => draft.id)).toEqual(['draft-Hedge'])
@@ -720,6 +717,7 @@ describe('WebWelcomeScreen', () => {
     await act(async () => {
       Array.from(container.querySelectorAll<HTMLButtonElement>('li button'))
         .find((button) => button.textContent?.includes('Hedge'))?.click()
+      await new Promise((resolve) => setTimeout(resolve, 0))
     })
     expect(store.readDesignName()).toBe('Hedge')
   })
