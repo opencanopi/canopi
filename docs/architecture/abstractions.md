@@ -44,11 +44,11 @@ An agent adding to a seam copies its canonical example; a new kind of seam adds 
 | Store migration chain | `FLOOR`, `STEPS`, `CURRENT` per store | pure chain in `canopi-types` (2.1); TS runner in `platform/` | Every store change | `platform/settings.browser.ts` | change: synchronous steps, staged moves (M157) |
 | Fault seams | `DurableFs`, Draft `IDBFactory`, the library worker's OPFS pool | each store adapter | Model suites inject faults | `desktop/src/design/mod.rs` | add a third seam (M110, M151) |
 | `DesignHomeStore` and `DesignHome` | where a Design lives; `HomeVersion` SHA-256; write results | `platform/design-home.ts` (2.1) | Desktop and Web; merge | `app/document-session/continuous-save.ts` | change (M117, Q165) |
-| Draft records | Drafts on Web | `platform/draft-records.browser.ts` (2.1); `desktop/src/design/drafts.rs` | Untrusted record | `web/browser-app-data.ts` | change: internal seam, not a port (M117) |
+| Draft records | Drafts on Web | `platform/draft-records.browser.ts`; `desktop/src/design/drafts.rs` | Untrusted record | `web/browser-app-data.ts` | change: internal seam, not a port (M117) |
 | File access and grants | pick any file kind; opaque handle for a user file | `platform/file-access.ts` (2.1); grant table and dialog registry in `canopi-desktop` | No paths cross IPC | `app/geojson/workflow.ts` | change: pickers, dialog registry, home identity (M155) |
 | FileDelivery | exports: `deliver(row, signal)` over a content union | `platform/file-delivery.ts` (2.1) | Desktop and Web; PDF, CSV, GeoTIFF | `app/canvas-pdf/platform.desktop.ts` | change (M140) |
 | Personal-records ports | saved stamps, Design notebook, species lists | `platform/saved-stamps.ts` (2.1), `platform/design-notebook.ts` (2.1), `platform/species-lists.ts` (2.1) | Desktop and Web; Web parity | `ipc/saved-object-stamps.ts` | change (M141, Q173) |
-| Browser record | the only `localStorage` access | `platform/browser-record.ts` (2.1) | One quota and decode rule | `web/browser-app-data.ts` | add (M141) |
+| Browser record | the only `localStorage` access | `platform/browser-record.ts` | One quota and decode rule | `web/browser-app-data.ts` | add (M141) |
 
 ## Format
 

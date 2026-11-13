@@ -7,6 +7,7 @@ import { invokeCommand } from '../ipc/transport'
 import { IpcFailure } from './ipc-failure'
 import { dismissNotice } from './notices'
 import { failureLogger, failureNoticesForTests, installFailureHooks, reportFailure, resetFailureNoticesForTests } from './report'
+import { StoreRefusedError } from './store-read'
 import { resetFrontendDiagnosticsForTests, ringEntries } from './ring'
 
 type TauriWindow = Window & { __TAURI_INTERNALS__?: { invoke: (command: string) => Promise<unknown> } }
@@ -242,5 +243,14 @@ describe('failure sink: silent codes', () => {
     reportFailure({ code: { kind: 'io', io: 'no_space' }, user_may_retry: true, op: 'drafts.write', operation: null, detail: null }, { shown: 'notice' })
     dispose()
     expect(failureNoticesForTests().notices).toMatchObject([{ source: 'drafts.write', message: 'failure.storageFull' }])
+  })
+
+  it('R3 canopi-f47t.52.272: a Web store refusal reported with no code, or left unhandled, is never recorded (2.1-M487)', () => {
+    const dispose = installFailureHooks({ storage: 'device' }, window)
+    reportFailure(new StoreRefusedError('web_species_lists'), { shown: 'notice', source: 'species.favorite' })
+    raiseUnhandledRejection(new StoreRefusedError('settings'))
+    dispose()
+    expect(ringEntries()).toEqual([])
+    expect(failureNoticesForTests().notices).toEqual([])
   })
 })

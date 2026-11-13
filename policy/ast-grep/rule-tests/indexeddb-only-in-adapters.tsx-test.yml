@@ -1,0 +1,14 @@
+id: indexeddb-only-in-adapters.tsx
+valid:
+  - |
+    // indexedDB is named in a comment only
+    export const key = 'indexedDB'
+  - |
+    export const read = () => localStorage.getItem('a')
+invalid:
+  - |
+    export const open = () => indexedDB.open('canopi')
+  - |
+    export const open = () => window.indexedDB.open('canopi')
+  - |
+    export const databases = () => globalThis.indexedDB.databases()

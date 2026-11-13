@@ -1,0 +1,12 @@
+{
+  "about": "The Web settings record 2 as 2.1 writes it under its own localStorage key, frozen for the reader release (contracts §11, 2.1-M486, 2.1-Q320): a top-level version and the settings fields beside it, a field this release does not know and a literal it does not know among them. Seeded as JSON.stringify(record) under key. Read by platform/browser-record.ts; extended, never broken.",
+  "key": "canopi:web-app-data:v4:settings",
+  "record": {
+    "version": 2,
+    "locale": "de",
+    "theme": "dark",
+    "snap_to_grid": true,
+    "basemap_style": "terrain-2-1",
+    "unit_system": "us_customary"
+  }
+}

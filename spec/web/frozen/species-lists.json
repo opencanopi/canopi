@@ -1,0 +1,14 @@
+{
+  "about": "The Web species-list record 1 as 2.1 writes it under its own localStorage key, frozen for the reader release (contracts §11 and §19 ED-25, 2.1-M486): favourites and recently viewed as {canonical_name, at} with ISO 8601 instants, at most 50 each, newest first. Seeded as JSON.stringify(record) under key. Read by platform/browser-record.ts; extended, never broken.",
+  "key": "canopi:web-app-data:v4:species",
+  "record": {
+    "version": 1,
+    "favorites": [
+      { "canonical_name": "Malus domestica", "at": "2026-12-01T10:00:00.000Z" }
+    ],
+    "recently_viewed": [
+      { "canonical_name": "Corylus avellana", "at": "2026-12-02T10:00:00.000Z" },
+      { "canonical_name": "Malus domestica", "at": "2026-12-01T09:00:00.000Z" }
+    ]
+  }
+}

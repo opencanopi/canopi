@@ -13,10 +13,13 @@ import {
   browserAppDataStore,
   type BrowserAppDataStore,
 } from '../web/browser-app-data'
-import { StoreUnreadableError } from '../failures/store-read'
+import { StoreRefusedError, StoreUnreadableError } from '../failures/store-read'
+import { writeStoreHealth } from '../failures/health'
+import { readSettingsRecord } from './browser-record'
 import { detectPlatform, type InputPlatform } from '../canvas/runtime/input/platform'
 
-type BrowserSettingsStore = Pick<BrowserAppDataStore, 'loadSettings' | 'saveSettings'>
+/** The settings store; without `readRecord` it holds no 2.1 settings record. */
+type BrowserSettingsStore = Pick<BrowserAppDataStore, 'loadSettings' | 'saveSettings'> & Partial<Pick<BrowserAppDataStore, 'readRecord'>>
 
 const MAX_U32 = 4_294_967_295
 
@@ -36,6 +39,10 @@ export function createBrowserSettingsPlatformAdapter(
       return readBrowserSettings(stored, stored === null ? firstRunScrollWheel(os()) : DEFAULT_SETTINGS.scroll_wheel)
     },
     save: async (settings) => {
+      // Settings 2.1 saved are never written over, nor the 2.0 record beside them: a change applies for this session
+      // only (2.1-Q320), refused with the silent store_read_only beside the store's one notice.
+      const successor = store.readRecord?.(readSettingsRecord)
+      if (successor !== undefined && successor.state !== 'absent') throw new StoreRefusedError('settings')
       const result = store.saveSettings({ ...settings })
       if (!result.ok) throw result.error
     },
@@ -52,6 +59,15 @@ export const browserSettingsPlatformAdapter = createBrowserSettingsPlatformAdapt
  */
 function loadStoredSettings(store: BrowserSettingsStore): Record<string, unknown> | null {
   try {
+    // 2.1's settings record 2, when there, is the user's latest choice: its fields are read field by field below, and
+    // it is never written or moved aside (2.1-M483, M486); one that does not read makes settings unavailable (SET-05).
+    const successor = store.readRecord?.(readSettingsRecord)
+    if (successor?.state === 'unreadable') throw new StoreUnreadableError('settings', { kind: 'invalid' })
+    if (successor !== undefined && successor.state !== 'absent') {
+      writeStoreHealth('settings', { status: { kind: 'newer_read_only' }, notice: null })
+      const { version: _version, ...fields } = successor.record
+      return fields
+    }
     return store.loadSettings()
   } catch (error) {
     if (!(error instanceof DOMException && error.name === 'SecurityError')) throw error

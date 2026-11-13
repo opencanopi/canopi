@@ -28,7 +28,7 @@ Diagram files: [components](components.md), [data design](data-design.md), [data
 | A new export or file kind | [output flows](flows-outputs.md) "PDF export with per-page angles" | FileDelivery `platform/file-delivery.ts` (2.1) and the file-kind table | `app/canvas-pdf/platform.desktop.ts` |
 | A new edition difference | [components](components.md) "Ports and edition roots"; [data services](data-services.md) "Object capability matrix and edition capabilities" | `canopi-types/edition-capabilities.json` (2.1); `platform/edition-ports.ts` (2.1) | `platform/settings.desktop.ts` with `platform/settings.browser.ts` |
 | A new store or stored-format step | [data design](data-design.md) "The .canopi file: v9 and v10"; [document flows](flows-document.md) "v9 to v10 migration and the reader release" | `canopi-format` (2.1) for `.canopi`; the store's chain otherwise (pending prototype W) | `desktop/src/design/format.rs` (v9 decode); `canopi-format/src/read.rs` (v10 read) |
-| A new Web storage record | [states](states.md) "Drafts"; [document flows](flows-document.md) "Draft persistence" | `platform/browser-record.ts` (2.1) or the store's IndexedDB adapter | `web/browser-app-data.ts` |
+| A new Web storage record | [states](states.md) "Drafts"; [document flows](flows-document.md) "Draft persistence" | `platform/browser-record.ts` or the store's IndexedDB adapter | `web/browser-app-data.ts` |
 | A new locale string | none | `i18n/` (all 11 locales) | `i18n/en.json` |
 | A new command or shortcut | [components](components.md) "Frontend layers" | `app/command-table/` (2.1); today `app/canvas-commands/index.ts` and `app/keyboard/keymap.ts` | `app/canvas-commands/index.ts` |
 

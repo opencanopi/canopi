@@ -32,6 +32,11 @@ export function presentBrowserDraftDownloadFailure(): void {
   showOutcome('web.draft-download', { tone: 'error', title: 'webStorage.downloadFailedTitle', message: 'webStorage.downloadFailedMessage' })
 }
 
+/** A listed Draft gone from this browser by the time it opens (2.1 or another tab deleted it): opened nothing. */
+export function presentBrowserDraftOpenFailure(): void {
+  showOutcome('web.open-failure', { tone: 'error', title: 'start.cantOpenTitle', message: 'webStorage.downloadFailedMessage' })
+}
+
 /** Browser data from before Canopi 2.0 stays in place, unread (ADR 0021): told once, at the launch that finds it. */
 export function raiseEarlierDataNotice(): void {
   raiseNotice({ key: 'web.earlier-data', title: 'health.localDataNotOpenedTitle', message: 'health.localDataNotOpened' })

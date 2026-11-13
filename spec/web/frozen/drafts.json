@@ -1,0 +1,33 @@
+{
+  "database": "canopi-drafts",
+  "version": 4,
+  "stores": {
+    "drafts": [
+      {
+        "id": "draft-orchard",
+        "canopi_version": "2.1.0",
+        "version": 3,
+        "name": "Orchard in 2.1",
+        "updated_at": "2026-12-03T00:00:00.000Z",
+        "content": "{\"version\":10,\"name\":\"Orchard in 2.1\",\"plants\":[],\"zones\":[],\"site_data\":null}"
+      },
+      {
+        "id": "draft-hedge",
+        "canopi_version": "2.1.0",
+        "version": 1,
+        "name": "Hedge in 2.1",
+        "updated_at": "2026-12-05T00:00:00.000Z",
+        "content": "{\"version\":10,\"name\":\"Hedge in 2.1\",\"plants\":[],\"zones\":[],\"site_data\":null}"
+      }
+    ],
+    "meta": [
+      {
+        "key": "move",
+        "state": "copied",
+        "sourceHash": "frozen",
+        "rev": 1,
+        "copiedIds": ["draft-orchard", "draft-moved-only"]
+      }
+    ]
+  }
+}

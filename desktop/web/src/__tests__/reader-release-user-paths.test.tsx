@@ -29,6 +29,7 @@ import { SettingsDialog, type SettingsFoldersAdapter } from '../components/share
 import { WelcomeScreen } from '../components/shared/WelcomeScreen'
 import { StoreRefusedError } from '../failures/store-read'
 import type * as IpcDesignModule from '../ipc/design'
+import { readSpeciesListRecord } from '../platform/browser-record'
 import { browserSettingsPlatformAdapter } from '../platform/settings.browser'
 import type { SpeciesListItem } from '../types/species'
 import { browserAppDataStore } from '../web/browser-app-data'
@@ -72,7 +73,7 @@ function browserIs(userAgent: string, platform: string): void {
 }
 
 describe('reader release on Web: records from their 2.1 keys', () => {
-  it.fails('R3 canopi-f47t.52.272: reader release: settings record 2 applies its known fields and is never written (Web)', async () => {
+  it('R3 canopi-f47t.52.272: reader release: settings record 2 applies its known fields and is never written (Web)', async () => {
     // A 2.0 tab's record beside the record 2.1 wrote: the 2.1 key is the user's latest choice.
     localStorage.setItem(V3_SETTINGS_KEY, JSON.stringify({ version: 3, settings: { locale: 'fr', theme: 'light' } }))
     localStorage.setItem(V4_SETTINGS_KEY, JSON.stringify({
@@ -100,7 +101,7 @@ describe('reader release on Web: records from their 2.1 keys', () => {
     expect(storageDump(), 'neither record is written').toEqual(before)
   })
 
-  it.fails('R3 canopi-f47t.52.272: reader release: Web shows favourites and recently viewed from their 2.1 key and writes neither', async () => {
+  it('R3 canopi-f47t.52.272: reader release: Web shows favourites and recently viewed from their 2.1 key and writes neither', async () => {
     localStorage.setItem(V3_SPECIES_KEY, JSON.stringify({ version: 3, favoriteSpecies: ['Fragaria vesca'], recentlyViewedSpecies: [] }))
     localStorage.setItem(V4_SPECIES_KEY, JSON.stringify({
       version: 1,
@@ -112,9 +113,11 @@ describe('reader release on Web: records from their 2.1 keys', () => {
       listSpeciesByCanonicalNames: async (names: readonly string[]) =>
         names.map((canonical_name) => ({ canonical_name }) as SpeciesListItem),
     } as Partial<ReducedSpeciesCatalogReader> as ReducedSpeciesCatalogReader
+    // What the Web launch does (platform/browser.ts): the store reads 2.1's key through platform's reader.
+    browserAppDataStore.openSpeciesLists(readSpeciesListRecord)
     const species = createReducedSpeciesCatalogAdapters({ appDataStore: browserAppDataStore, reader })
 
-    // Today the v3 record is read: Fragaria is the favourite and nothing was viewed.
+    // The 2.1 record is read, not the 2.0 key's Fragaria (2.1-M486).
     expect((await species.getFavorites('en')).map((row) => row.canonical_name)).toEqual(['Malus domestica'])
     expect((await species.getRecentlyViewed('en', 50)).map((row) => row.canonical_name)).toEqual(['Corylus avellana'])
 

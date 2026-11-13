@@ -171,7 +171,17 @@
         "desktop/web/src/web/browser-app-data.ts",
         "desktop/web/src/utils/theme.ts"
       ],
-      "note": "localStorage and sessionStorage only in the browser record adapter, indexedDB only in the IndexedDB adapters (exceptions: the pending-write marker, the first-paint theme key)"
+      "note": "localStorage and sessionStorage only in the browser record adapter (exceptions: the pending-write marker, the first-paint theme key)"
+    },
+    {
+      "id": "indexeddb-only-in-adapters",
+      "primitive": "F10",
+      "family": "indexeddb-only-in-adapters",
+      "tool": "ast-grep",
+      "ledger": "2.1-M190",
+      "adr": "0028",
+      "owner_today": "desktop/web/src/platform/draft-records.browser.ts",
+      "note": "indexedDB only in the IndexedDB adapters: the Draft store today, then the settings, stamp, species-list and Notebook adapters and the library worker's lock and port (the service worker owns the canopi-sw database)"
     },
     {
       "id": "serial-lane-only-in-owners",
