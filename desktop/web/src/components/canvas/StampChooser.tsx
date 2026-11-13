@@ -1,8 +1,11 @@
 import { useEffect, useLayoutEffect, useRef } from 'preact/hooks'
 import type { TargetedKeyboardEvent } from 'preact'
-import { savedObjectStampWorkbench } from '../../app/saved-object-stamps'
-import { isSavedObjectStampPayloadFromBefore2_0, parseSavedObjectStampPayload } from '../../canvas/saved-object-stamp-payload'
-import { savedObjectStampRowState } from '../../app/saved-object-stamps/row-state'
+import {
+  isSavedObjectStampPayloadFromBefore2_0,
+  savedObjectStampRowState,
+  savedObjectStampWorkbench,
+} from '../../app/saved-object-stamps'
+import { parseSavedObjectStampPayload } from '../../canvas/saved-object-stamp-payload'
 import { armCanvasTool } from '../../app/keyboard/arming'
 import { t } from '../../i18n'
 import type { SavedObjectStamp } from '../../types/saved-object-stamps'

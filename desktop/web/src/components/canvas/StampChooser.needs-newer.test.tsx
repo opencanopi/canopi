@@ -36,7 +36,8 @@ describe('the stamp chooser with a saved stamp a newer Canopi wrote (canopi-f47t
     ]
     vi.doMock('../../app/saved-object-stamps', async () => {
       const { createSavedObjectStampWorkbench } = await vi.importActual<typeof WorkbenchModule>('../../app/saved-object-stamps/workbench')
-      return { savedObjectStampWorkbench: createSavedObjectStampWorkbench({ getSavedObjectStamps: async () => listed, arm }) }
+      const rowState = await vi.importActual<object>('../../app/saved-object-stamps/row-state')
+      return { ...rowState, savedObjectStampWorkbench: createSavedObjectStampWorkbench({ getSavedObjectStamps: async () => listed, arm }) }
     })
     ;({ StampChooser } = await import('./StampChooser'))
     container = document.createElement('div')

@@ -1,8 +1,27 @@
 // app/saved-object-stamps/row-state.ts
 // Owner of what a listed saved stamp offers and where a newer one lists (Step 2.0.4 R2-5, canopi-f47t.52.271). It sits
-// beside the stamp workbench, not in the payload codec, so the codec the arming chunk carries keeps only what placing a
-// stamp reads (bundle-size, 2.1-Q203).
-import { isSavedObjectStampPayloadFromBefore2_0 } from '../../canvas/saved-object-stamp-payload'
+// beside the stamp workbench, not in the payload codec (canvas/saved-object-stamp-payload.ts), so the codec the arming
+// chunk carries keeps only what placing a stamp reads (bundle-size, 2.1-Q203).
+
+/** The payload version Canopi wrote before 2.0 (ADR 0021). */
+const SAVED_OBJECT_STAMP_PAYLOAD_VERSION_BEFORE_2_0 = 1
+
+/**
+ * True for a payload written by Canopi before 2.0 (version 1). Canopi 2.0
+ * cannot place, drag, export or convert it (ADR 0021); it can only delete it.
+ * The one classifier for Favorites and the tool card's stamp chooser.
+ */
+export function isSavedObjectStampPayloadFromBefore2_0(raw: string): boolean {
+  if (!raw) return false
+  try {
+    const parsed: unknown = JSON.parse(raw)
+    return typeof parsed === 'object' && parsed !== null && 'version' in parsed
+      && parsed.version === SAVED_OBJECT_STAMP_PAYLOAD_VERSION_BEFORE_2_0
+  } catch {
+    // A payload that is not JSON is no stamp Canopi wrote before 2.0 either.
+    return false
+  }
+}
 
 /**
  * What a listed stamp offers, the one classifier for Favorites, the tool card's stamp chooser and the workbench:

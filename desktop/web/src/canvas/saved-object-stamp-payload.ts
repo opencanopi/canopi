@@ -8,11 +8,9 @@ import type {
  * from its identity (`.canopi` v9). Canopi 2.0 breaks stored data (ADR 0021):
  * only version 2 is read; a version 1 payload from before 2.0 and anything
  * newer are refused. A version 1 stamp stays in the library so the user can
- * see it and delete it; a newer one is listed and left alone
- * (`savedObjectStampRowState`, app/saved-object-stamps/row-state.ts).
+ * see it and delete it; a newer one is listed and left alone (app/saved-object-stamps/row-state.ts).
  */
 export const SAVED_OBJECT_STAMP_PAYLOAD_VERSION = 2
-const SAVED_OBJECT_STAMP_PAYLOAD_VERSION_BEFORE_2_0 = 1
 
 export interface SavedObjectStampPayload {
   readonly version: typeof SAVED_OBJECT_STAMP_PAYLOAD_VERSION
@@ -66,21 +64,6 @@ export function parseSavedObjectStampPayload(raw: string): SavedObjectStampPaylo
     return normalizeSavedObjectStampPayload(JSON.parse(raw))
   } catch {
     return null
-  }
-}
-
-/**
- * True for a payload written by Canopi before 2.0 (version 1). Canopi 2.0
- * cannot place, drag, export or convert it (ADR 0021); it can only delete it.
- * The one classifier for Favorites and the tool card's stamp chooser.
- */
-export function isSavedObjectStampPayloadFromBefore2_0(raw: string): boolean {
-  if (!raw) return false
-  try {
-    const parsed: unknown = JSON.parse(raw)
-    return isRecord(parsed) && parsed.version === SAVED_OBJECT_STAMP_PAYLOAD_VERSION_BEFORE_2_0
-  } catch {
-    return false
   }
 }
 
