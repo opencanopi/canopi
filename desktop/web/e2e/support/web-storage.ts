@@ -6,7 +6,8 @@
 // `execute/async` can both send its source; state that outlives one call lives on `window.__canopiIdb`.
 //
 // The reader's existence read, as the probe pins it: databases() where the engine has it (a fast path: it never
-// creates a database, and lists a 2.1 database only once its upgrade commits), and always an open without a version
+// creates a database, and lists a 2.1 database once its upgrade commits, or while it runs in a Chromium profile on
+// disk), and always an open without a version
 // whose upgrade is aborted at oldVersion 0. An engine without databases() runs the open alone. The open stays even
 // after databases() named the store: 2.1's first upgrade may still abort under it, and the abort keeps that open from
 // creating version 1.

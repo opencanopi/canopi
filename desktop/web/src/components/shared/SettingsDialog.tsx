@@ -378,21 +378,30 @@ export function createLaunchCheckPort(get: () => Promise<boolean>, set: (on: boo
 
 /**
  * "Check for updates at launch" (2.1-Q164): its own key row, on when the row is missing (the host's default), so the
- * settings record is never touched (M206). Shown once read; hidden when the row cannot be read. A write the port
- * holds for the session keeps the switch as set (createLaunchCheckPort, 2.1-Q320); any failed write puts it back.
+ * settings record is never touched (M206). Shown once read; hidden when the row cannot be read. While it is read its
+ * place is held, invisible and inert, so a late answer moves nothing below it and a press meant for About Canopi…
+ * never lands on the switch (canopi-f47t.52.271). A write the port holds for the session keeps the switch as set
+ * (createLaunchCheckPort, 2.1-Q320); any failed write puts it back.
  */
 export function LaunchCheckSwitch({ port }: { readonly port: LaunchCheckPort }) {
-  const [on, setOn] = useState<boolean | null>(null)
+  const [on, setOn] = useState<boolean | 'reading' | 'unreadable'>('reading')
   useEffect(() => {
     let live = true
     port.get().then(
       (value) => { if (live) setOn(value) },
       // The row could not be read: the switch stays hidden rather than show a value it does not know.
-      () => {},
+      () => { if (live) setOn('unreadable') },
     )
     return () => { live = false }
   }, [port])
-  if (on === null) return null
+  if (on === 'unreadable') return null
+  if (on === 'reading') {
+    return (
+      <div className={styles.launchCheckReading} aria-hidden="true">
+        <Switch label={t('update.checkAtLaunch')} checked={false} disabled onChange={() => {}} />
+      </div>
+    )
+  }
   return (
     <div data-launch-check="">
       <Switch

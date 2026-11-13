@@ -82,6 +82,11 @@
   color: var(--color-text-secondary);
 }
 
+/* The launch-check row's place while it is read: a late answer moves nothing below it (canopi-f47t.52.271). */
+.launchCheckReading {
+  visibility: hidden;
+}
+
 .hint {
   margin: 0;
   color: var(--color-text-muted);
