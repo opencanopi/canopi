@@ -400,8 +400,8 @@ function frozenRecord(name: 'settings' | 'species-lists'): { key: string, record
 /** A German string: the frozen settings record's locale is German. */
 /** A German string by its key, whose namespace may hold dotted keys (`menu` > `file.settings`); throws on none. */
 function german(key: string, node: unknown = GERMAN): string {
-  const at = (node ?? {}) as Record<string, unknown>, dot = key.indexOf('.')
-  if (typeof at[key] === 'string') return at[key] as string
+  const at = (node ?? {}) as Record<string, unknown>, value = at[key], dot = key.indexOf('.')
+  if (typeof value === 'string') return value
   if (dot < 0) throw new Error(`no German string for ${key}`)
   return german(key.slice(dot + 1), at[key.slice(0, dot)])
 }
