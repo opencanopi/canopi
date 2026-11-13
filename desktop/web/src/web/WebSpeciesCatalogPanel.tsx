@@ -127,6 +127,7 @@ function WebSpeciesDetail({ view }: { readonly view: SpeciesCatalogDetailView })
     <SpeciesDetailLayout
       identity={{ canonicalName, commonName, englishName, family: null, habitKey: detail?.habit ?? null }}
       favorite={favorite}
+      favoriteLockedReason={storeStatus('web_species_lists').kind === 'newer_read_only' ? t('web.favoriteNeedsNewer') : undefined}
       onToggleFavorite={() => { void speciesCatalogWorkbench.toggleFavorite(canonicalName) }}
       onBack={() => speciesCatalogWorkbench.closeSpeciesDetail()}
       place={detail ? { canonical_name: detail.canonical_name, common_name: detail.common_name, stratum: null, width_max_m: null } : null}

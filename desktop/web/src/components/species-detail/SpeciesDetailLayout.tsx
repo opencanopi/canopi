@@ -30,9 +30,11 @@ export interface SpeciesDetailIdentity {
  * code; a scrolling body; and a footer with the species' plants in this Design (Select
  * them, Zoom to them) and Place. Each edition loads its own data and fills the body.
  */
-export function SpeciesDetailLayout({ identity, favorite, onToggleFavorite, onBack, place, children }: {
+export function SpeciesDetailLayout({ identity, favorite, favoriteLockedReason, onToggleFavorite, onBack, place, children }: {
   readonly identity: SpeciesDetailIdentity
   readonly favorite: boolean
+  /** Why the favourite star is off (lists a newer Canopi saved, 2.1-Q320); the star stays focusable and shows it. */
+  readonly favoriteLockedReason?: string
   readonly onToggleFavorite: () => void
   readonly onBack: () => void
   /** The species to place; null until the detail has loaded. */
@@ -77,10 +79,11 @@ export function SpeciesDetailLayout({ identity, favorite, onToggleFavorite, onBa
             className={`${styles.iconButton} ${favorite ? styles.favoriteOn : ''}`}
             aria-label={favoriteLabel}
             aria-pressed={favorite}
-            onClick={onToggleFavorite}
+            aria-disabled={favoriteLockedReason ? true : undefined}
+            onClick={favoriteLockedReason ? undefined : onToggleFavorite}
           >
             <ControlIcon name={favorite ? 'star' : 'star-outline'} size={18} />
-            <ButtonTooltip label={favoriteLabel} side="left" />
+            <ButtonTooltip label={favoriteLockedReason ?? favoriteLabel} side="left" />
           </button>
           <button type="button" className={styles.iconButton} aria-label={t('sidebar.close')} onClick={closeDockPanel}>
             <ControlIcon name="close" size={18} />
