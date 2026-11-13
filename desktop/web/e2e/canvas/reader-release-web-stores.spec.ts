@@ -284,6 +284,27 @@ test('R3 canopi-f47t.52.272: a 2.1 Draft that 2.1 deleted after the list opens n
   await expect(startScreen(page), 'nothing opened').toBeVisible()
 })
 
+test('R3 canopi-f47t.52.272: a 2.0 Draft another tab deleted after the list opens nothing, says so and leaves the list', async ({ page }) => {
+  await page.goto('')
+  // A 2.1 Draft keeps launch on the start screen, which lists the 2.0 Drafts beside it.
+  await seedDraftStore(page, [draftRecord('orchard', 'Orchard in 2.1', 3)], [])
+  await page.evaluate(([key, value]) => localStorage.setItem(key!, value!), [
+    V3_DRAFTS_KEY,
+    v3DraftsRecord([{ id: 'hedge', name: 'Hedge', day: 2 }, { id: 'meadow', name: 'Meadow', day: 1 }]),
+  ])
+  await page.reload()
+  await expect(startScreen(page)).toBeVisible()
+  await expect(draftRow(page, 'Hedge')).toHaveCount(1)
+  // Another tab deletes Hedge: the shared record no longer holds it.
+  await page.evaluate(([key, value]) => localStorage.setItem(key!, value!), [V3_DRAFTS_KEY, v3DraftsRecord([{ id: 'meadow', name: 'Meadow', day: 1 }])])
+
+  await draftRow(page, 'Hedge').getByRole('button').first().click()
+  await expect(page.getByText('This Draft is no longer in this browser, or could not be read.'), 'a visible failure (design check)').toBeVisible()
+  await expect(draftRow(page, 'Hedge'), 'the rows re-list without it').toHaveCount(0)
+  await expect(draftRow(page, 'Meadow')).toHaveCount(1)
+  await expect(startScreen(page), 'nothing opened').toBeVisible()
+})
+
 test('R3 canopi-f47t.52.272: a 2.1 Draft opened while the format worker cannot load is refused and says so', async ({ page }) => {
   await startWithOneNewerDraft(page)
   await page.route('**/design-core.worker-*.js', (route) => route.abort())
