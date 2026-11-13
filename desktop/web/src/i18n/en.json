@@ -71,6 +71,7 @@
     "searchLabel": "Search the plant catalog",
     "details": "Details for {{name}}",
     "addFavoriteNamed": "Add {{name}} to favorites",
+    "favoriteNeedsNewer": "Saved by a newer Canopi. Update Canopi to change your favorites.",
     "removeFavoriteNamed": "Remove {{name}} from favorites",
     "factHeight": "{{height}} m",
     "factHardiness": "USDA {{zones}}",
@@ -2195,6 +2196,7 @@
     "statusDetails": "This browser may clear your Drafts to free up space. Download a copy to keep a file.",
     "downloadFailedTitle": "Couldn’t download a copy",
     "downloadFailedMessage": "This Draft is no longer in this browser, or could not be read.",
+    "uncheckedReadOnly": "Opened read-only: Canopi couldn’t check this browser’s storage, so this Draft may be out of date. Download a copy to keep it.",
     "keepDrafts": "Keep my drafts",
     "keepDraftsMenu": "Keep my drafts…"
   },
@@ -2261,8 +2263,5 @@
     "title": "Canopi couldn’t start",
     "desktopHint": "Your system may be too old for this version of Canopi. Update your operating system, then open Canopi again.",
     "webHint": "Reload the page. If Canopi still doesn’t start, this browser may be too old: update it or try another browser."
-  },
-  "web": {
-    "favoriteNeedsNewer": "Saved by a newer Canopi. Update Canopi to change your favorites."
   }
 }

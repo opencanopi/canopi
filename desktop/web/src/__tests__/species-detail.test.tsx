@@ -6,6 +6,7 @@ import { act } from 'preact/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { locale } from '../app/settings/state'
 import { sidePanel } from '../app/shell/state'
+import { resetStoreHealthForTests, writeStoreHealth } from '../failures/health'
 import type { CatalogDesignSpecies } from '../components/plant-db/design-species'
 import type { SpeciesDetail, SpeciesImage } from '../types/species'
 import { emptySpeciesDetail } from './support/species-detail'
@@ -274,6 +275,20 @@ describe('Species detail (Desktop)', () => {
 
     expect(container.querySelector('[data-testid="species-photo"]')).toBeNull()
     expect(container.textContent).toContain('No photos available')
+  })
+
+  it('R3 canopi-f47t.52.272: under a user database a newer Canopi saved, the detail star is off and says why (2.1-Q320, Q111)', async () => {
+    writeStoreHealth('user_db', { status: { kind: 'newer_read_only' }, notice: null })
+    try {
+      await open()
+      const star = container.querySelector<HTMLButtonElement>('button[aria-pressed]')!
+      expect(star.getAttribute('aria-disabled')).toBe('true')
+      expect(document.getElementById(star.getAttribute('aria-describedby') ?? '')?.textContent).toContain('Saved by a newer Canopi')
+      await act(async () => { star.click() })
+      expect(workbench.toggleFavorite).not.toHaveBeenCalled()
+    } finally {
+      resetStoreHealthForTests()
+    }
   })
 
   it('focuses Back on open; Back closes the detail and Close closes the panel', async () => {

@@ -71,6 +71,7 @@
     "searchLabel": "Pflanzenkatalog durchsuchen",
     "details": "Details zu {{name}}",
     "addFavoriteNamed": "{{name}} zu Favoriten hinzufügen",
+    "favoriteNeedsNewer": "Von einer neueren Canopi-Version gespeichert. Aktualisieren Sie Canopi, um Ihre Favoriten zu ändern.",
     "removeFavoriteNamed": "{{name}} aus Favoriten entfernen",
     "factHeight": "{{height}} m",
     "factHardiness": "USDA {{zones}}",
@@ -2195,6 +2196,7 @@
     "statusDetails": "Dieser Browser kann Ihre Skizzen löschen, um Platz zu schaffen. Laden Sie eine Kopie herunter, um eine Datei zu behalten.",
     "downloadFailedTitle": "Kopie konnte nicht heruntergeladen werden",
     "downloadFailedMessage": "Diese Skizze ist nicht mehr in diesem Browser oder konnte nicht gelesen werden.",
+    "uncheckedReadOnly": "Schreibgeschützt geöffnet: Canopi konnte den Speicher dieses Browsers nicht prüfen, daher ist diese Skizze möglicherweise veraltet. Wählen Sie „Kopie herunterladen“, um sie zu behalten.",
     "keepDrafts": "Meine Skizzen behalten",
     "keepDraftsMenu": "Meine Skizzen behalten…"
   },
@@ -2261,8 +2263,5 @@
     "title": "Canopi konnte nicht starten",
     "desktopHint": "Ihr System ist möglicherweise zu alt für diese Version von Canopi. Aktualisieren Sie Ihr Betriebssystem und öffnen Sie Canopi dann erneut.",
     "webHint": "Laden Sie die Seite neu. Startet Canopi dann immer noch nicht, ist dieser Browser möglicherweise zu alt: Aktualisieren Sie ihn oder verwenden Sie einen anderen Browser."
-  },
-  "web": {
-    "favoriteNeedsNewer": "Von einer neueren Canopi-Version gespeichert. Aktualisieren Sie Canopi, um Ihre Favoriten zu ändern."
   }
 }

@@ -44,12 +44,18 @@ export function bootstrapPlatform(): void {
     onVersionChange: () => browserReleaseWatch.storeChanged(),
     report: (error) => reportFailure(error, { shown: "none", source: "web-drafts.read" }),
   }));
+  // Whether the browser keeps Drafts is read at each launch, once its 2.1 listing settles; stored Drafts not kept warn
+  // at once (2.1-Q82, Q190), counting the visible old-key Drafts and 2.1's (design check A18).
+  let disposeDraftPersistence = () => {};
   void browserDesignSessionController.launch().catch((error: unknown) => {
     if (!disposed) console.error("Failed to restore the latest Design Draft:", error);
+  }).finally(() => {
+    if (disposed) return;
+    const controller = browserDesignSessionController;
+    // A listing that never completed may hide 2.1's Drafts: count conservatively, so it warns.
+    const hasDrafts = !controller.draftListingComplete() || controller.listDrafts().length + (controller.listedNewerDrafts()?.length ?? 0) > 0;
+    disposeDraftPersistence = browserDraftPersistence.start({ hasDrafts });
   });
-  // Whether the browser keeps Drafts is read at each launch; stored Drafts not kept warn at once (2.1-Q82, Q190).
-  const hasDrafts = browserDesignSessionController.listDrafts().length > 0;
-  const disposeDraftPersistence = browserDraftPersistence.start({ hasDrafts });
   const uninstallContinuousSave = browserDesignSessionController.installContinuousSave();
   // A deploy while this tab is open: the manifest names another release and the shell offers Reload (2.1-Q83, M179).
   const stopReleaseWatch = browserReleaseWatch.start();

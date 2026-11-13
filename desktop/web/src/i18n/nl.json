@@ -71,6 +71,7 @@
     "searchLabel": "Plantencatalogus doorzoeken",
     "details": "Details van {{name}}",
     "addFavoriteNamed": "{{name}} toevoegen aan favorieten",
+    "favoriteNeedsNewer": "Opgeslagen door een nieuwere Canopi. Werk Canopi bij om je favorieten te wijzigen.",
     "removeFavoriteNamed": "{{name}} verwijderen uit favorieten",
     "factHeight": "{{height}} m",
     "factHardiness": "USDA {{zones}}",
@@ -2195,6 +2196,7 @@
     "statusDetails": "Deze browser kan je concepten wissen om ruimte vrij te maken. Download een kopie om een bestand te bewaren.",
     "downloadFailedTitle": "Kon geen kopie downloaden",
     "downloadFailedMessage": "Dit concept staat niet meer in deze browser of kon niet worden gelezen.",
+    "uncheckedReadOnly": "Alleen-lezen geopend: Canopi kon de opslag van deze browser niet controleren, dus dit concept is mogelijk verouderd. Download een kopie om het te bewaren.",
     "keepDrafts": "Mijn concepten bewaren",
     "keepDraftsMenu": "Mijn concepten bewaren…"
   },
@@ -2261,8 +2263,5 @@
     "title": "Canopi kon niet starten",
     "desktopHint": "Je systeem is mogelijk te oud voor deze versie van Canopi. Werk je besturingssysteem bij en open Canopi daarna opnieuw.",
     "webHint": "Laad de pagina opnieuw. Start Canopi dan nog steeds niet, dan is deze browser mogelijk te oud: werk hem bij of probeer een andere browser."
-  },
-  "web": {
-    "favoriteNeedsNewer": "Opgeslagen door een nieuwere Canopi. Werk Canopi bij om je favorieten te wijzigen."
   }
 }

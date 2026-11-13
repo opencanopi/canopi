@@ -10,6 +10,7 @@ import {
   togglePlantDetailFavorite,
 } from '../../app/plant-detail';
 import type { SpeciesDetail } from '../../types/species';
+import { favoriteLockedReason } from '../plant-db/PlantRow';
 import { DetailTags, FactsGrid, OtherNames } from '../species-detail/FactsGrid';
 import { SpeciesDetailLayout } from '../species-detail/SpeciesDetailLayout';
 import { formatNumber } from '../species-detail/species-facts';
@@ -62,6 +63,7 @@ export function PlantDetailCard({ canonicalName }: Props) {
         habitKey: detailController.habitKey.value,
       }}
       favorite={isPlantDetailFavorite(effectiveName)}
+      favoriteLockedReason={favoriteLockedReason()}
       onToggleFavorite={() => { void togglePlantDetailFavorite(effectiveName); }}
       onBack={closePlantDetail}
       place={d ? { canonical_name: d.canonical_name, common_name: d.common_name, stratum: null, width_max_m: d.width_max_m } : null}
