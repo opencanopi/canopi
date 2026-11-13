@@ -66,6 +66,35 @@ pub(crate) fn plant_catalog(status: PlantDbStatus) -> StoreHealth {
     }
 }
 
+/// Opens the user database in `data_dir`, with the health entries of the stores it holds: the user DB
+/// and, on Desktop, the settings record (startup seam, R2-2).
+///
+/// A user database from before 2.0 is renamed, since 2.0 needs its path, and a notice tells the
+/// user once (ADR 0021); a damaged one is set aside and its status names the set-aside file on that
+/// start only (NAT-02). One saved by a newer Canopi opens read-only and the app starts (2.1-M410).
+/// Drafts in an earlier format and the retired 1.x autosave store stay where they are, unread, and
+/// are not reported (U59).
+pub(crate) fn open_stores(
+    data_dir: &std::path::Path,
+) -> Result<(crate::db::UserDb, [(StoreId, StoreHealth); 2]), crate::db::UserDbInitError> {
+    let (user_db, health) = crate::db::UserDb::open(data_dir.join("user.db"))?;
+    let settings = settings_entry(&health);
+    Ok((
+        user_db,
+        [(StoreId::UserDb, health), (StoreId::Settings, settings)],
+    ))
+}
+
+/// The settings record's entry: it lives in the user DB, so it opens as the user DB did; a one-time
+/// notice stays the user DB's.
+fn settings_entry(user_db: &StoreHealth) -> StoreHealth {
+    let status = user_db.status.clone();
+    StoreHealth {
+        status,
+        notice: None,
+    }
+}
+
 /// The health of a start where every store the Desktop opens came up ready.
 #[cfg(test)]
 pub(crate) fn all_ready() -> SubsystemHealth {
@@ -77,6 +106,7 @@ pub(crate) fn all_ready() -> SubsystemHealth {
     SubsystemHealth(std::collections::BTreeMap::from([
         (StoreId::PlantCatalog, ready()),
         (StoreId::UserDb, ready()),
+        (StoreId::Settings, ready()),
         (StoreId::LibraryCatalogue, ready()),
     ]))
 }
@@ -110,6 +140,58 @@ mod tests {
         };
         assert_eq!(notice(&get_health(&health)), None);
         assert_eq!(report_health(&health), startup);
+    }
+
+    /// On Desktop the settings record lives in the user DB, so its entry follows the user DB's
+    /// status; a one-time notice stays the user DB's own.
+    #[test]
+    fn r2_canopi_f47t_52_271_the_settings_entry_follows_the_user_db_it_lives_in() {
+        use canopi_types::failure::IoFailureKind;
+        let code = FailureCode::Io {
+            io: IoFailureKind::ReadOnly,
+        };
+        for status in [
+            StoreOpenStatus::Ready,
+            StoreOpenStatus::NewerReadOnly,
+            StoreOpenStatus::Unavailable { code },
+        ] {
+            let user_db = StoreHealth {
+                status: status.clone(),
+                notice: Some(StoreNotice::MovedAsidePre20),
+            };
+            assert_eq!(
+                settings_entry(&user_db),
+                StoreHealth {
+                    status,
+                    notice: None
+                }
+            );
+        }
+    }
+
+    /// A user DB saved by a newer Canopi starts the app (2.1-M410): the user DB and the settings
+    /// it holds come back newer-read-only, where 2.0 refused to start.
+    #[test]
+    fn r2_canopi_f47t_52_271_a_user_db_10_starts_the_app_with_the_user_db_and_settings_newer_read_only()
+     {
+        let data_dir = crate::test_scratch::TestScratch::new("open-stores-user-db-10");
+        let writer = rusqlite::Connection::open(data_dir.join("user.db")).unwrap();
+        writer
+            .execute_batch(include_str!("../test_fixtures/frozen/user-db-10.sql"))
+            .unwrap();
+        drop(writer);
+
+        let (user_db, stores) = open_stores(&data_dir).expect("the app starts");
+        drop(user_db);
+
+        let newer = StoreHealth {
+            status: StoreOpenStatus::NewerReadOnly,
+            notice: None,
+        };
+        assert_eq!(
+            stores,
+            [(StoreId::UserDb, newer.clone()), (StoreId::Settings, newer)]
+        );
     }
 
     #[test]

@@ -20,8 +20,8 @@ pub enum UserDbInitError {
     OlderSchemaVersion {
         found: i32,
     },
-    /// Written by a newer Canopi. It is refused and left untouched; the user
-    /// must run that newer Canopi (or move the file) to continue.
+    /// Written by a newer Canopi, found by the read-write initialization: it
+    /// is left untouched. `UserDb::open` reads such a file read-only first.
     NewerSchemaVersion {
         found: i32,
         supported: i32,
