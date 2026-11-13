@@ -34,7 +34,7 @@ export function SpeciesDetailLayout({ identity, favorite, favoriteLockedReason, 
   readonly identity: SpeciesDetailIdentity
   readonly favorite: boolean
   /** Why the favourite star is off (lists a newer Canopi saved, 2.1-Q320); the star stays focusable and shows it. */
-  readonly favoriteLockedReason?: string
+  readonly favoriteLockedReason?: string | undefined
   readonly onToggleFavorite: () => void
   readonly onBack: () => void
   /** The species to place; null until the detail has loaded. */
@@ -47,9 +47,6 @@ export function SpeciesDetailLayout({ identity, favorite, favoriteLockedReason, 
   const englishFallback = !commonName && Boolean(englishName)
   const title = commonName || englishName || canonicalName
   const titleIsScientific = title === canonicalName
-  const favoriteLabel = favorite
-    ? t('plantDb.removeFavoriteNamed', { name: title })
-    : t('plantDb.addFavoriteNamed', { name: title })
 
   // Opening the detail moves focus to Back, whichever list opened it.
   useLayoutEffect(() => { backRef.current?.focus({ preventScroll: true }) }, [])
@@ -74,17 +71,7 @@ export function SpeciesDetailLayout({ identity, favorite, favoriteLockedReason, 
             <ButtonTooltip label={t('plantDetail.back')} side="right" />
           </button>
           <span className={styles.toolbarSpacer} />
-          <button
-            type="button"
-            className={`${styles.iconButton} ${favorite ? styles.favoriteOn : ''}`}
-            aria-label={favoriteLabel}
-            aria-pressed={favorite}
-            aria-disabled={favoriteLockedReason ? true : undefined}
-            onClick={favoriteLockedReason ? undefined : onToggleFavorite}
-          >
-            <ControlIcon name={favorite ? 'star' : 'star-outline'} size={18} />
-            <ButtonTooltip label={favoriteLockedReason ?? favoriteLabel} side="left" />
-          </button>
+          <FavoriteStar title={title} favorite={favorite} lockedReason={favoriteLockedReason} onToggle={onToggleFavorite} />
           <button type="button" className={styles.iconButton} aria-label={t('sidebar.close')} onClick={closeDockPanel}>
             <ControlIcon name="close" size={18} />
             <ButtonTooltip label={t('sidebar.close')} side="left" />
@@ -133,5 +120,29 @@ export function SpeciesDetailLayout({ identity, favorite, favoriteLockedReason, 
         </button>
       </footer>
     </article>
+  )
+}
+
+/** The favourite star; under a lockedReason it is off but focusable, and its tooltip gives the reason (2.1-Q320). */
+function FavoriteStar({ title, favorite, lockedReason, onToggle }: {
+  readonly title: string
+  readonly favorite: boolean
+  readonly lockedReason: string | undefined
+  readonly onToggle: () => void
+}) {
+  const label = favorite ? t('plantDb.removeFavoriteNamed', { name: title }) : t('plantDb.addFavoriteNamed', { name: title })
+  const locked = lockedReason !== undefined
+  return (
+    <button
+      type="button"
+      className={`${styles.iconButton} ${favorite ? styles.favoriteOn : ''}`}
+      aria-label={label}
+      aria-pressed={favorite}
+      aria-disabled={locked || undefined}
+      onClick={locked ? undefined : onToggle}
+    >
+      <ControlIcon name={favorite ? 'star' : 'star-outline'} size={18} />
+      <ButtonTooltip label={lockedReason ?? label} side="left" />
+    </button>
   )
 }
