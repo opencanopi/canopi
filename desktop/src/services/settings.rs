@@ -95,6 +95,13 @@ fn refuse_newer(row: Result<Option<String>, impl Display>) -> Result<(), Setting
     }
 }
 
+/// Whether the stored record is a newer Canopi's, for the settings' health entry at startup; an unreadable row is
+/// not, since reading it reports it.
+pub(crate) fn record_is_newer(user_db: &UserDb) -> bool {
+    let row = db::user_db::get_setting(&user_db.acquire(), "settings");
+    matches!(read_stored(row), Ok(StoredSettings::Newer(_)))
+}
+
 /// The launch check's own user-DB key row (2.1-Q164, 2.1-M206): read and written only by the
 /// updater, never a field of the settings record, so a whole-record `set_settings` leaves it
 /// alone. Interim until 2e moves it (2.1-Q239, canopi-f47t.52.56).

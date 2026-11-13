@@ -78,7 +78,10 @@ pub(crate) fn open_stores(
     data_dir: &std::path::Path,
 ) -> Result<(crate::db::UserDb, [(StoreId, StoreHealth); 2]), crate::db::UserDbInitError> {
     let (user_db, health) = crate::db::UserDb::open(data_dir.join("user.db"))?;
-    let settings = settings_entry(&health);
+    let mut settings = settings_entry(&health);
+    if settings.status == StoreOpenStatus::Ready && super::settings::record_is_newer(&user_db) {
+        settings.status = StoreOpenStatus::NewerReadOnly;
+    }
     Ok((
         user_db,
         [(StoreId::UserDb, health), (StoreId::Settings, settings)],
@@ -87,7 +90,8 @@ pub(crate) fn open_stores(
 
 /// The settings record's entry: it lives in the user DB, so it shares the user DB's access (newer
 /// read-only, unavailable); a damaged or rebuilt user DB is the user DB's own one-time event, named
-/// once by its entry, and the settings record lives in the fresh database, so it is ready.
+/// once by its entry, and the settings record lives in the fresh database, so it is ready. A ready
+/// user DB holding a newer settings record makes the settings alone newer-read-only (A16).
 fn settings_entry(user_db: &StoreHealth) -> StoreHealth {
     let status = match &user_db.status {
         StoreOpenStatus::SetAsideDamaged { .. } | StoreOpenStatus::Recovered { .. } => {
@@ -213,6 +217,32 @@ mod tests {
         assert_eq!(
             stores,
             [(StoreId::UserDb, newer.clone()), (StoreId::Settings, newer)]
+        );
+    }
+
+    /// Settings keep a newer-read-only state of their own (A16, 2.1-M480): record 2 in a user DB 9, as beta profiles
+    /// hold it, makes the settings newer-read-only while the user DB stays ready; record 1 leaves both ready.
+    #[test]
+    fn r2_canopi_f47t_52_271_settings_record_2_in_a_user_db_9_is_newer_read_only_and_the_user_db_ready()
+     {
+        let entries = |record: &str| {
+            let data_dir = crate::test_scratch::TestScratch::new("open-stores-settings-record-2");
+            let (user_db, _) = crate::db::UserDb::open(data_dir.join("user.db")).unwrap();
+            crate::db::user_db::set_setting(&user_db.acquire(), "settings", record).unwrap();
+            drop(user_db);
+            let (user_db, stores) = open_stores(&data_dir).expect("the app starts");
+            drop(user_db);
+            stores.map(|(store, entry)| (store, entry.status))
+        };
+        use StoreOpenStatus::{NewerReadOnly, Ready};
+
+        assert_eq!(
+            entries(r#"{"version":2,"theme":"dark"}"#),
+            [(StoreId::UserDb, Ready), (StoreId::Settings, NewerReadOnly)]
+        );
+        assert_eq!(
+            entries(r#"{"theme":"dark"}"#),
+            [(StoreId::UserDb, Ready), (StoreId::Settings, Ready)]
         );
     }
 
