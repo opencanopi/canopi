@@ -25,6 +25,7 @@ import {
 } from "./browser-app-data";
 import type { BrowserShellDesignIdentity } from "./browser-shell-commands";
 import { browserDraftPersistence } from "./browser-draft-persistence";
+import { presentBrowserDraftOpenFailure } from "./browser-notices";
 import { downloadBrowserTextFile, pickBrowserTextFile } from "./browser-text-files";
 
 /** A `.canopi` file by name and text: one picked to open, or one given as a download. */
@@ -105,7 +106,7 @@ export interface BrowserDesignSessionController {
   listNewerDrafts(): Promise<readonly BrowserDraftSummary[]>;
   /** The last 2.1 listing; null until one is read while the store reader is installed. */
   listedNewerDrafts(): readonly BrowserDraftSummary[] | null;
-  /** Opens a Draft; a 2.1 one read-only through the format core (2.1-M478). False when it is gone or cancelled. */
+  /** Opens a Draft; a 2.1 one read-only through the format core (2.1-M478). False when cancelled, or gone, which is said. */
   openDraft(id: string): Promise<boolean>;
   /** Refused for the open Design's Draft, and for a 2.1 Draft or a 2.0 Draft under a hidden id (design check F7). */
   deleteDraft(id: string): BrowserAppDataWriteResult<null>;
@@ -297,7 +298,7 @@ export function createBrowserDesignSessionController({
     return openText(() => fileAdapter.openCanopiFile(), false);
   }
 
-  /** Opens a picked file, or a 2.1 Draft's text (`newerDraft`), which only the format core reads, read-only. */
+  /** Opens a picked file (null: cancelled), or a 2.1 Draft's text (`newerDraft`; null: deleted, said), which only the format core reads. */
   async function openText(pick: () => Promise<BrowserOpenedCanopiFile | null>, newerDraft: boolean): Promise<boolean> {
     const intent = ++replacementIntent;
     const canvas = canvasSession;
@@ -325,7 +326,8 @@ export function createBrowserDesignSessionController({
 
     const opened = await pick();
     const current = () => intent === replacementIntent && replacementGuard?.isCurrent() === true;
-    if (!current() || !opened) return false;
+    if (!current()) return false;
+    if (!opened) return newerDraft && draftGone();
     let file: CanopiFile;
     let readOnly: ReadOnlyDesign | null;
     try {
@@ -510,12 +512,15 @@ export function createBrowserDesignSessionController({
     return true;
   }
 
+  /** A listed Draft gone by the time it opens (2.1 or another tab deleted it) opens nothing and says so. */
+  const draftGone = (): false => { presentBrowserDraftOpenFailure(); return false; };
+
   async function openDraft(id: string): Promise<boolean> {
     if (newerDrafts?.has(id)) return openText(() => newerDraftFile(id), true);
     const intent = ++replacementIntent;
     const flushed = flushBeforeReplacement(intent);
     if (flushed !== true && !(await flushed)) return false;
-    return applyDraft(id);
+    return applyDraft(id) || draftGone();
   }
 
   function deleteDraft(id: string): BrowserAppDataWriteResult<null> {
@@ -662,16 +667,10 @@ export function createBrowserDesignSessionController({
     restoreLatestDraft,
     launch,
     launching,
-    installNewerDrafts(records) {
-      newerRecords = records;
-      return () => { if (newerRecords === records) newerRecords = null; };
-    },
+    installNewerDrafts(records) { newerRecords = records; return () => { if (newerRecords === records) newerRecords = null; }; },
     attachCanvasSession,
     installContinuousSave,
-    installFormatCore(core) {
-      formatCore = core;
-      return () => { if (formatCore === core) formatCore = null; };
-    },
+    installFormatCore(core) { formatCore = core; return () => { if (formatCore === core) formatCore = null; }; },
   };
 }
 

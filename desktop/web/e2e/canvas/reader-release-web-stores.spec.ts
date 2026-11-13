@@ -264,7 +264,7 @@ test('R3 canopi-f47t.52.272: a 2.1 Draft opens read-only, downloads as 2.1 saved
   expect(await storageDump(page), 'opening and downloading write no record and no key').toEqual(before)
 })
 
-test('R3 canopi-f47t.52.272: a 2.1 Draft that 2.1 deleted after the list opens nothing and leaves the list', async ({ page }) => {
+test('R3 canopi-f47t.52.272: a 2.1 Draft that 2.1 deleted after the list opens nothing, says so and leaves the list', async ({ page }) => {
   await startWithOneNewerDraft(page)
   // A 2.1 tab deletes the Draft at the same version: no version change reaches this tab.
   await page.evaluate(async ([name, version]) => await new Promise<void>((resolve, reject) => {
@@ -279,6 +279,7 @@ test('R3 canopi-f47t.52.272: a 2.1 Draft that 2.1 deleted after the list opens n
   }), [DRAFT_DATABASE, DRAFT_DATABASE_VERSION])
 
   await draftRow(page, 'Orchard in 2.1').getByRole('button').first().click()
+  await expect(page.getByText('This Draft is no longer in this browser', { exact: false }), 'a visible failure (design check)').toBeVisible()
   await expect(draftRow(page, 'Orchard in 2.1'), 'the rows re-list without it').toHaveCount(0)
   await expect(startScreen(page), 'nothing opened').toBeVisible()
 })
