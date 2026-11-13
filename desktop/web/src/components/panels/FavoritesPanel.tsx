@@ -2,11 +2,7 @@ import type { ComponentChildren } from 'preact'
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks'
 import { t } from '../../i18n'
 import { formatCount } from '../../utils/format-count'
-import {
-  MIN_FAVORITES_FRAME_HEIGHT,
-  locale,
-  savedStampsFrameHeight,
-} from '../../app/settings/state'
+import { MIN_FAVORITES_FRAME_HEIGHT, locale, savedStampsFrameHeight } from '../../app/settings/state'
 import { speciesCatalogWorkbench } from '../../app/plant-browser'
 import { savedObjectStampIdsNeedsNewerLast, savedObjectStampRowState, savedObjectStampWorkbench } from '../../app/saved-object-stamps'
 import {
@@ -14,18 +10,13 @@ import {
   SAVED_OBJECT_STAMP_THUMBNAIL_HEIGHT,
   SAVED_OBJECT_STAMP_THUMBNAIL_WIDTH,
 } from '../../app/saved-object-stamps/thumbnail-renderer'
-import {
-  commitSavedStampsFrameHeight,
-  saveCanvasSelectionAsObjectStamp,
-} from '../../app/favorites/controller'
-import {
-  clearSavedObjectStampDragSource,
-  writeSavedObjectStampDragData,
-} from '../../canvas/saved-object-stamp-source'
+import { commitSavedStampsFrameHeight, saveCanvasSelectionAsObjectStamp } from '../../app/favorites/controller'
+import { clearSavedObjectStampDragSource, writeSavedObjectStampDragData } from '../../canvas/saved-object-stamp-source'
 import { parseSavedObjectStampPayload } from '../../canvas/saved-object-stamp-payload'
 import type { SavedObjectStamp } from '../../types/saved-object-stamps'
 import type { SpeciesListItem } from '../../types/species'
 import { useFavoriteSpeciesDetailNavigation } from '../plant-db/favorite-species-presentation'
+import { favoriteLockedReason } from '../plant-db/PlantRow'
 import { PlantDetailCard } from '../plant-detail/PlantDetailCard'
 import { ButtonTooltip } from '../shared/ButtonTooltip'
 import { usePointerResize } from '../shared/usePointerResize'
@@ -33,9 +24,7 @@ import { usePointerReorder } from '../shared/usePointerReorder'
 import plantDetailStyles from '../plant-detail/PlantDetail.module.css'
 import { currentCanvasQuerySurface } from '../../canvas/session'
 import { resolvePlantSymbolId } from '../../canvas/runtime/scene'
-import {
-  writePlantStampDragData,
-} from '../../canvas/plant-stamp-source'
+import { writePlantStampDragData } from '../../canvas/plant-stamp-source'
 import { navigateTo } from '../../app/shell/state'
 import { designSessionStore } from '../../app/document-session/store'
 import { useEnglishFallbackNames } from '../../app/plant-finder/catalog-names'
@@ -54,6 +43,7 @@ import row from '../shared/species-row.module.css'
 import styles from './FavoritesPanel.module.css'
 import { placeSpeciesOnMap } from '../plant-db/place-species'
 import type { LocaleKey } from '../../generated/locale-keys'
+import { readFailureCode } from '../../failures/store-read'
 
 const SAVED_STAMP_PREVIEW_DELAY_MS = 120
 const SAVED_STAMP_PREVIEW_GAP = 8
@@ -184,7 +174,8 @@ export function FavoritesPanel() {
       const outcome = await savedObjectStampWorkbench.importStampFile()
       if (outcome.status === 'refused') setImportRefusalKey(outcome.messageKey)
     } catch (error) {
-      // The workbench rejects only when saving the read stamp fails.
+      // The workbench rejects only when saving the read stamp fails; a read-only user database's notice says it (M487).
+      if (readFailureCode(error).kind === 'store_read_only') return
       console.error('Saved stamp import failed:', error)
       setImportRefusalKey('savedObjectStamps.importSaveFailed')
     }
@@ -629,6 +620,8 @@ function FavoriteSpeciesRow({ plant, englishName, code, color, symbol, highlight
 }) {
   const commonName = plant.common_name || englishName
   const name = commonName || plant.canonical_name
+  // Under a user database a newer Canopi saved the star is off and says why, as on Web (2.1-Q320, Q111).
+  const lockedReason = favoriteLockedReason()
   return (
     <div className={row.row} role="listitem" data-favorite-species={plant.canonical_name}>
       <button
@@ -636,10 +629,11 @@ function FavoriteSpeciesRow({ plant, englishName, code, color, symbol, highlight
         className={styles.star}
         aria-pressed={true}
         aria-label={t('favorites.remove', { name })}
-        onClick={() => { void speciesCatalogWorkbench.toggleFavorite(plant.canonical_name) }}
+        aria-disabled={lockedReason ? true : undefined}
+        onClick={() => { if (!lockedReason) void speciesCatalogWorkbench.toggleFavorite(plant.canonical_name) }}
       >
         <ControlIcon name="star" size={18} />
-        <ButtonTooltip label={t('favorites.remove', { name })} side="right" />
+        <ButtonTooltip label={lockedReason ?? t('favorites.remove', { name })} side="right" />
       </button>
       <button
         type="button"

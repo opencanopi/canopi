@@ -71,6 +71,7 @@
     "searchLabel": "Rechercher dans le catalogue des plantes",
     "details": "Détails de {{name}}",
     "addFavoriteNamed": "Ajouter {{name}} aux favoris",
+    "favoriteNeedsNewer": "Enregistré par une version plus récente de Canopi. Mettez Canopi à jour pour modifier vos favoris.",
     "removeFavoriteNamed": "Retirer {{name}} des favoris",
     "factHeight": "{{height}} m",
     "factHardiness": "USDA {{zones}}",
@@ -2195,6 +2196,7 @@
     "statusDetails": "Ce navigateur peut effacer vos brouillons pour libérer de l’espace. Téléchargez une copie pour garder un fichier.",
     "downloadFailedTitle": "Impossible de télécharger une copie",
     "downloadFailedMessage": "Ce brouillon n’est plus dans ce navigateur, ou n’a pas pu être lu.",
+    "uncheckedReadOnly": "Ouvert en lecture seule : Canopi n’a pas pu vérifier le stockage de ce navigateur, ce brouillon n’est peut-être pas à jour. Téléchargez une copie pour le conserver.",
     "keepDrafts": "Garder mes brouillons",
     "keepDraftsMenu": "Garder mes brouillons…"
   },
@@ -2261,8 +2263,5 @@
     "title": "Canopi n’a pas pu démarrer",
     "desktopHint": "Votre système est peut-être trop ancien pour cette version de Canopi. Mettez à jour votre système d’exploitation, puis rouvrez Canopi.",
     "webHint": "Rechargez la page. Si Canopi ne démarre toujours pas, ce navigateur est peut-être trop ancien : mettez-le à jour ou essayez un autre navigateur."
-  },
-  "web": {
-    "favoriteNeedsNewer": "Enregistré par une version plus récente de Canopi. Mettez Canopi à jour pour modifier vos favoris."
   }
 }

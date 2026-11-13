@@ -182,6 +182,7 @@ describe('the 2.1 Draft store read half', () => {
     ])
     // draft-hedge was never copied, yet 2.1 holds its id: an old-key Draft under it is hidden too.
     expect([...listing.hiddenIds].sort()).toEqual(['draft-hedge', 'draft-moved-only', 'draft-orchard'])
+    expect(listing.complete).toBe(true)
     expect(reports).toEqual([])
   })
 
@@ -203,7 +204,7 @@ describe('the 2.1 Draft store read half', () => {
     const idb = new FakeIndexedDb()
     const { records, reports } = reader(idb)
 
-    expect(await records.list()).toEqual({ drafts: [], hiddenIds: [] })
+    expect(await records.list()).toEqual({ drafts: [], hiddenIds: [], complete: true })
     expect(await records.content('draft-orchard')).toBeNull()
     expect(idb.opens).toEqual([])
     expect(idb.databases.size).toBe(0)
@@ -214,7 +215,7 @@ describe('the 2.1 Draft store read half', () => {
     const idb = new FakeIndexedDb(false)
     const { records, reports } = reader(idb)
 
-    expect(await records.list()).toEqual({ drafts: [], hiddenIds: [] })
+    expect(await records.list()).toEqual({ drafts: [], hiddenIds: [], complete: true })
     expect(idb.opens).toEqual([FROZEN.database])
     expect(idb.databases.size).toBe(0)
     expect(reports).toEqual([])
@@ -251,7 +252,7 @@ describe('the 2.1 Draft store read half', () => {
     const { records, versionChanges, reports } = reader(idb)
     idb.beforeTransaction = () => idb.versionChange(null)
 
-    expect(await records.list()).toEqual({ drafts: [], hiddenIds: [] })
+    expect(await records.list()).toEqual({ drafts: [], hiddenIds: [], complete: false })
     expect(versionChanges).toHaveLength(1)
     expect(reports).toHaveLength(1)
     expect(idb.connections.every((connection) => connection.closed)).toBe(true)
@@ -267,7 +268,7 @@ describe('the 2.1 Draft store read half', () => {
     const listing = records.list()
     await vi.advanceTimersByTimeAsync(50)
 
-    expect(await listing).toEqual({ drafts: [], hiddenIds: [] })
+    expect(await listing).toEqual({ drafts: [], hiddenIds: [], complete: false })
     expect(reports).toHaveLength(1)
     vi.useRealTimers()
     idb.releaseHeld()
@@ -282,7 +283,7 @@ describe('the 2.1 Draft store read half', () => {
     idb.failOpen = new DOMException('Unknown', 'UnknownError')
     const { records, reports } = reader(idb)
 
-    expect(await records.list()).toEqual({ drafts: [], hiddenIds: [] })
+    expect(await records.list()).toEqual({ drafts: [], hiddenIds: [], complete: false })
     expect(reports).toEqual([idb.failOpen])
   })
 
@@ -293,34 +294,36 @@ describe('the 2.1 Draft store read half', () => {
     const { records, reports } = reader(idb, { timeoutMs: 50 })
     const good = await records.list()
     expect(good.hiddenIds).toContain('draft-moved-only')
+    expect(good.complete).toBe(true)
+    const kept = { ...good, complete: false }
 
     // A 2.1 upgrade closes the connection before the read: the listing is the last good one, not an empty store.
     idb.beforeTransaction = () => idb.versionChange(5)
-    expect(await records.list()).toEqual(good)
+    expect(await records.list()).toEqual(kept)
     idb.beforeTransaction = null
 
     // An open queued behind another page past the bound.
     idb.hold = true
     const late = records.list()
     await vi.advanceTimersByTimeAsync(50)
-    expect(await late).toEqual(good)
+    expect(await late).toEqual(kept)
     idb.hold = false
     idb.releaseHeld()
 
     idb.failOpen = new DOMException('Unknown', 'UnknownError')
-    expect(await records.list()).toEqual(good)
+    expect(await records.list()).toEqual(kept)
     expect(reports).toHaveLength(3)
 
     // A read that succeeds replaces it, an empty store included.
     idb.failOpen = null
     idb.databases.clear()
-    expect(await records.list()).toEqual({ drafts: [], hiddenIds: [] })
+    expect(await records.list()).toEqual({ drafts: [], hiddenIds: [], complete: true })
   })
 
   it('R3 canopi-f47t.52.272: with no IndexedDB in the page, lists nothing', async () => {
     const { records, reports } = reader(new FakeIndexedDb(), { factory: undefined })
 
-    expect(await records.list()).toEqual({ drafts: [], hiddenIds: [] })
+    expect(await records.list()).toEqual({ drafts: [], hiddenIds: [], complete: true })
     expect(reports).toEqual([])
   })
 

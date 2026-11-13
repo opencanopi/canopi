@@ -1,7 +1,9 @@
 // @vitest-environment jsdom
 
 // Favorites lists a saved stamp a newer Canopi wrote with its note and offers nothing on it (Step 2.0.4 R2-5,
-// canopi-f47t.52.271; 2.1-M88), over the real stamp workbench with a fake store.
+// canopi-f47t.52.271; 2.1-M88), over the real stamp workbench with a fake store; under a user database a newer Canopi
+// saved, its favourite stars are off and say why, and a refused stamp import adds no second message (canopi-f47t.52.272;
+// 2.1-Q320, Q111, M487).
 import { render } from 'preact'
 import { act } from 'preact/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -11,7 +13,8 @@ import type * as WorkbenchModule from '../../app/saved-object-stamps/workbench'
 import type * as FavoritesPanelModule from './FavoritesPanel'
 import type { SavedObjectStamp } from '../../types/saved-object-stamps'
 import { readSavedObjectStampDragData } from '../../canvas/saved-object-stamp-source'
-import { createTestSpeciesCatalogWorkbench } from '../../__tests__/support/species-catalog-workbench'
+import { createTestSpeciesCatalogWorkbench, makeSpeciesListItem } from '../../__tests__/support/species-catalog-workbench'
+import type { SpeciesListItem } from '../../types/species'
 
 const V2 = { version: 2, anchor: { x: 0, y: 0 }, plants: [], zones: [], annotations: [], groups: [] }
 const stamp = (id: string, payload: Record<string, unknown>, sortOrder: number, needsNewer = false): SavedObjectStamp => ({
@@ -26,6 +29,7 @@ const stamp = (id: string, payload: Record<string, unknown>, sortOrder: number, 
 
 const V3 = { ...V2, version: 3, guides: [] }
 let libraryRows: SavedObjectStamp[] = []
+let favoriteRows: SpeciesListItem[] = []
 
 /** The stamp store as user_db keeps it: a reorder numbers the ids it names 0..n-1, others keep their sort_order. */
 function fakeStore() {
@@ -83,7 +87,8 @@ describe('Favorites with a saved stamp a newer Canopi wrote (canopi-f47t.52.271)
     const settings = await import('../../app/settings/state')
     settings.locale.value = 'en'
     libraryRows = [stamp('v2', V2, 0), stamp('v3', V3, 1, true)]
-    species = await createTestSpeciesCatalogWorkbench({ locale: settings.locale, getFavorites: async () => [] })
+    favoriteRows = []
+    species = await createTestSpeciesCatalogWorkbench({ locale: settings.locale, getFavorites: async () => favoriteRows })
     store = fakeStore()
     vi.doMock('../../app/plant-browser', async () => ({
       ...await vi.importActual<typeof PlantBrowserModule>('../../app/plant-browser'),
@@ -183,5 +188,39 @@ describe('Favorites with a saved stamp a newer Canopi wrote (canopi-f47t.52.271)
 
     expect(store.reorderSavedObjectStamps).toHaveBeenCalledWith(['B', 'A'])
     await vi.waitFor(() => expect(rowIds(container)).toEqual(['B', 'A', 'v3']))
+  })
+
+  it('R3 canopi-f47t.52.272: under a user database a newer Canopi saved, a favourite row star is off and says why (2.1-Q320, Q111)', async () => {
+    favoriteRows = [makeSpeciesListItem('Malus domestica', true)]
+    const { resetStoreHealthForTests, writeStoreHealth } = await import('../../failures/health')
+    const toggle = vi.spyOn(species, 'toggleFavorite')
+    writeStoreHealth('user_db', { status: { kind: 'newer_read_only' }, notice: null })
+    try {
+      await renderPanel()
+      await act(async () => { await species.loadFavorites() })
+      const star = container.querySelector<HTMLButtonElement>('[data-favorite-species="Malus domestica"] button[aria-pressed]')!
+      expect(star.getAttribute('aria-disabled')).toBe('true')
+      expect(document.getElementById(star.getAttribute('aria-describedby') ?? '')?.textContent).toContain('Saved by a newer Canopi')
+      await act(async () => { star.click() })
+      expect(toggle).not.toHaveBeenCalled()
+    } finally {
+      resetStoreHealthForTests()
+    }
+  })
+
+  it('R3 canopi-f47t.52.272: Import stamp under a user database a newer Canopi saved shows no second message (2.1-M487)', async () => {
+    const { StoreRefusedError } = await import('../../failures/store-read')
+    const { savedObjectStampWorkbench } = await import('../../app/saved-object-stamps')
+    vi.spyOn(savedObjectStampWorkbench, 'importStampFile').mockRejectedValueOnce(new StoreRefusedError('user_db'))
+    await renderPanel()
+
+    await act(async () => {
+      container.querySelector<HTMLButtonElement>('button[aria-label="Import stamps…"]')!.click()
+      await new Promise((resolve) => setTimeout(resolve, 0))
+    })
+
+    expect(savedObjectStampWorkbench.importStampFile).toHaveBeenCalledOnce()
+    // The user database's own notice already says changes are not saved; the panel adds no alert of its own.
+    expect(container.querySelector('[role="alert"]')).toBeNull()
   })
 })

@@ -157,7 +157,7 @@ describe('Reload for a waiting release (2.1-Q83, Q188, Q189)', () => {
     other.saveDraft({ id: 'draft-shared', file: design('Shared'), now: '2026-07-04T11:00:00.000Z' })
     const decide = vi.fn(async () => 'cancel' as const)
     const run = tab(storage, memoryStorage(), decide)
-    expect(run.controller.restoreLatestDraft()).toBe(true)
+    expect(await run.controller.launch()).toBe(true)
     other.saveDraft({ id: 'draft-shared', file: design('Shared', 'other tab'), now: '2026-07-04T13:00:00.000Z' })
     editDesignSessionForTest(run.store, (file) => ({ ...file, description: 'this tab' }))
 
@@ -186,23 +186,23 @@ describe('Reload for a waiting release (2.1-Q83, Q188, Q189)', () => {
 
     // The same tab after the reload: this tab's Design, once; a later launch reopens the newest as before.
     const after = tab(storage, session)
-    expect(after.controller.restoreLatestDraft()).toBe(true)
+    expect(await after.controller.launch()).toBe(true)
     expect(after.store.readDesignName()).toBe('Orchard')
     expect(session.values.size, 'the record is one-shot').toBe(0)
     const later = tab(storage, session)
-    expect(later.controller.restoreLatestDraft()).toBe(true)
+    expect(await later.controller.launch()).toBe(true)
     expect(later.store.readDesignName()).toBe('Hedge')
   })
 
   // C2-1: a reload never falls back to the newest Draft, which may be another tab's open Design.
-  it('Q189: a tab record naming a Draft that is gone opens the start screen, never the newest Draft', () => {
+  it('Q189: a tab record naming a Draft that is gone opens the start screen, never the newest Draft', async () => {
     const storage = memoryStorage()
     const session = memoryStorage()
     const seed = createBrowserAppDataStore({ storage, session })
     seed.saveDraft({ id: 'draft-hedge', file: design('Hedge'), now: '2026-07-04T11:00:00.000Z' })
     seed.noteReloadHome('draft-deleted')
     const after = tab(storage, session)
-    expect(after.controller.restoreLatestDraft()).toBe(false)
+    expect(await after.controller.launch()).toBe(false)
     expect(after.store.hasCurrentDesign()).toBe(false)
   })
 
@@ -214,11 +214,11 @@ describe('Reload for a waiting release (2.1-Q83, Q188, Q189)', () => {
     const before = tab(storage, session)
     await expect(before.controller.reloadForRelease()).resolves.toBe(true)
     const after = tab(storage, session)
-    expect(after.controller.restoreLatestDraft()).toBe(false)
+    expect(await after.controller.launch()).toBe(false)
     expect(after.store.hasCurrentDesign()).toBe(false)
     // The record is one-shot: a later launch reopens the newest Draft as before.
     const later = tab(storage, session)
-    expect(later.controller.restoreLatestDraft()).toBe(true)
+    expect(await later.controller.launch()).toBe(true)
     expect(later.store.readDesignName()).toBe('Orchard')
   })
 
@@ -234,7 +234,7 @@ describe('Reload for a waiting release (2.1-Q83, Q188, Q189)', () => {
     await expect(before.controller.reloadForRelease()).resolves.toBe(true)
     storage.failWrites = false
     const after = tab(storage, session)
-    expect(after.controller.restoreLatestDraft()).toBe(false)
+    expect(await after.controller.launch()).toBe(false)
     expect(after.store.hasCurrentDesign()).toBe(false)
   })
 
@@ -251,7 +251,7 @@ describe('Reload for a waiting release (2.1-Q83, Q188, Q189)', () => {
     await expect(run.controller.reloadForRelease()).resolves.toBe(true)
     expect(run.reload).toHaveBeenCalledOnce()
     const after = tab(storage, broken as MemoryStorage)
-    expect(after.controller.restoreLatestDraft()).toBe(true)
+    expect(await after.controller.launch()).toBe(true)
     expect(after.store.readCurrentDesign()?.description).toBe('saved before the reload')
   })
 })
