@@ -26,6 +26,8 @@ import { SpeciesDetailLayout } from '../components/species-detail/SpeciesDetailL
 import detailStyles from '../components/species-detail/SpeciesDetail.module.css'
 import styles from './WebSpeciesCatalogPanel.module.css'
 import { placeSpeciesOnMap } from '../components/plant-db/place-species'
+import { ButtonTooltip } from '../components/shared/ButtonTooltip'
+import { storeStatus } from '../failures/health'
 
 interface WebSpeciesCatalogPanelProps {
   readonly mode: 'catalog' | 'favorites'
@@ -249,6 +251,9 @@ function SpeciesRow({ item, englishName }: { readonly item: SpeciesListItem; rea
     event.stopPropagation()
     placeSpeciesOnMap(item)
   }
+  // Lists a newer Canopi saved are shown, never changed: the star is off and says why (2.1-Q320). It stays focusable
+  // (aria-disabled, not disabled), so its tooltip shows on hover and focus.
+  const starReadOnly = storeStatus('web_species_lists').kind === 'newer_read_only'
 
   return (
     <div
@@ -287,18 +292,20 @@ function SpeciesRow({ item, englishName }: { readonly item: SpeciesListItem; rea
           className={`${styles.favoriteButton} ${item.is_favorite ? styles.favoriteButtonActive : ''}`}
           aria-label={item.is_favorite ? t('plantDb.removeFavorite') : t('plantDb.addFavorite')}
           aria-pressed={item.is_favorite}
+          aria-disabled={starReadOnly || undefined}
           onClick={(event) => {
             event.stopPropagation()
-            void speciesCatalogWorkbench.toggleFavorite(item.canonical_name)
+            if (!starReadOnly) void speciesCatalogWorkbench.toggleFavorite(item.canonical_name)
           }}
           onKeyDown={(event) => {
             if (event.target !== event.currentTarget || (event.key !== 'Enter' && event.key !== ' ')) return
             event.preventDefault()
             event.stopPropagation()
-            void speciesCatalogWorkbench.toggleFavorite(item.canonical_name)
+            if (!starReadOnly) void speciesCatalogWorkbench.toggleFavorite(item.canonical_name)
           }}
         >
           {item.is_favorite ? '★' : '☆'}
+          {starReadOnly && <ButtonTooltip label={t('web.favoriteNeedsNewer')} side="left" />}
         </button>
         <button type="button" className={styles.favoriteButton} data-species-detail={item.canonical_name}
           aria-label={t('speciesKey.details', { name: displayName })}

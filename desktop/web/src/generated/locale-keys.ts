@@ -2011,6 +2011,7 @@ export type LocaleKey =
   | "update.retry"
   | "update.upToDate"
   | "update.whatsNew"
+  | "web.favoriteNeedsNewer"
   | "webPhone.more"
   | "webPhone.searchBack"
   | "webPhone.sheetExpand"
