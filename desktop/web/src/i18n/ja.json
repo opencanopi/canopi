@@ -1899,6 +1899,7 @@
       "pan": "地図を移動",
       "shiftDrag": "Shift + 右ドラッグ、Shift + 中ドラッグ",
       "turnView": "ビューを回転。{{mod}} を加えると 15° 刻み",
+      "turn": "ビューを回転",
       "trackpadTwist": "トラックパッドで 2 本指をひねる",
       "compass": "コンパス",
       "compassAction": "クリックで北を上に、ドラッグでビューを回転",

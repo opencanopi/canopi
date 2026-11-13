@@ -1899,6 +1899,7 @@
       "pan": "Déplacer la carte",
       "shiftDrag": "Maj + glisser avec le bouton droit ou Maj + glisser avec celui du milieu",
       "turnView": "Tourner la vue ; ajoutez {{mod}} pour des pas de 15°",
+      "turn": "Tourner la vue",
       "trackpadTwist": "Tourner deux doigts sur le pavé tactile",
       "compass": "Boussole",
       "compassAction": "Cliquez pour rétablir le nord, glissez pour tourner la vue",

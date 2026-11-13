@@ -1899,6 +1899,7 @@
       "pan": "지도 이동",
       "shiftDrag": "Shift + 오른쪽 드래그 또는 Shift + 가운데 드래그",
       "turnView": "보기 회전, {{mod}} 키를 더하면 15° 단위",
+      "turn": "보기 회전",
       "trackpadTwist": "트랙패드에서 두 손가락 비틀기",
       "compass": "나침반",
       "compassAction": "클릭하면 북쪽을 위로, 드래그하면 보기 회전",

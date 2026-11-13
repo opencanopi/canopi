@@ -1899,6 +1899,7 @@
       "pan": "Deslocar o mapa",
       "shiftDrag": "Shift + arrastar com o botão direito ou Shift + arrastar com o do meio",
       "turnView": "Girar a vista; adicione {{mod}} para passos de 15°",
+      "turn": "Girar a vista",
       "trackpadTwist": "Girar dois dedos no trackpad",
       "compass": "Bússola",
       "compassAction": "Clique para redefinir o norte, arraste para girar a vista",

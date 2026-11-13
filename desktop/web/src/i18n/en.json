@@ -1899,6 +1899,7 @@
       "pan": "Pan the map",
       "shiftDrag": "Shift + right-drag or Shift + middle-drag",
       "turnView": "Turn the view; add {{mod}} for 15° steps",
+      "turn": "Turn the view",
       "trackpadTwist": "Twist two fingers on the trackpad",
       "compass": "Compass",
       "compassAction": "Click to reset north, drag to turn the view",

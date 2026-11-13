@@ -1899,6 +1899,7 @@
       "pan": "Spostare la mappa",
       "shiftDrag": "Maiusc + trascina con il tasto destro o Maiusc + trascina con quello centrale",
       "turnView": "Ruotare la vista; aggiungi {{mod}} per passi di 15°",
+      "turn": "Ruotare la vista",
       "trackpadTwist": "Ruota due dita sul trackpad",
       "compass": "Bussola",
       "compassAction": "Fai clic per ripristinare il nord, trascina per ruotare la vista",

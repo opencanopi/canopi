@@ -1692,6 +1692,7 @@ export type LocaleKey =
   | "shortcuts.gestures.touchNavigate"
   | "shortcuts.gestures.trackpadPan"
   | "shortcuts.gestures.trackpadTwist"
+  | "shortcuts.gestures.turn"
   | "shortcuts.gestures.turnView"
   | "shortcuts.gestures.twoFingers"
   | "shortcuts.gestures.zoom"

@@ -183,13 +183,14 @@ type GestureName = LocaleKey extends infer Key ? Key extends `shortcuts.gestures
 function gestureRows(platform: Pick<InputPlatform, 'os' | 'gestureEvents'> | undefined): ShortcutRow[] {
   const g = (name: GestureName) => t(`shortcuts.gestures.${name}`)
   const mac = platform?.os === 'mac'
+  // A Mac names only gestures checked in real Mac browsers (canopi-pqxl): no right- or middle-button drag, so it turns
+  // the view by the trackpad twist where WebKit delivers it (which never steps) and otherwise by the compass row.
+  const turnRows: ShortcutRow[] = !mac
+    ? [{ id: 'turn-view', label: t('shortcuts.gestures.turnView', { mod: modKeyName(t) }), shortcut: g('shiftDrag') }]
+    : platform?.gestureEvents ? [{ id: 'turn-view', label: g('turn'), shortcut: g('trackpadTwist') }] : []
   return [
     { id: 'pan', label: g('pan'), shortcut: g(mac ? 'trackpadPan' : 'rightDrag') },
-    {
-      id: 'turn-view',
-      label: t('shortcuts.gestures.turnView', { mod: modKeyName(t) }),
-      shortcut: [g('shiftDrag'), ...platform?.gestureEvents && mac ? [g('trackpadTwist')] : []].join(' · '),
-    },
+    ...turnRows,
     { id: 'compass', label: g('compassAction'), shortcut: g('compass') },
     { id: 'menu', label: g('menu'), shortcut: [g('rightClick'), ...mac ? [g('macCtrlClick')] : []].join(' · ') },
     { id: 'zoom', label: g('zoom'), shortcut: g('pinch') },

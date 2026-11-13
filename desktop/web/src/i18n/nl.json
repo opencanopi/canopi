@@ -1899,6 +1899,7 @@
       "pan": "Kaart verschuiven",
       "shiftDrag": "Shift + rechts slepen of Shift + middel slepen",
       "turnView": "Weergave draaien; met {{mod}} in stappen van 15°",
+      "turn": "Weergave draaien",
       "trackpadTwist": "Twee vingers draaien op de trackpad",
       "compass": "Kompas",
       "compassAction": "Klik om het noorden te herstellen, sleep om de weergave te draaien",

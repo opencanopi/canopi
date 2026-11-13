@@ -285,13 +285,20 @@ describe('Keyboard shortcuts dialog', () => {
     await act(async () => { closeKeyboardShortcutsDialog() })
     render(null, container)
 
-    // A Mac adds Control-click and, where WebKit delivers it, the trackpad twist; mod reads Cmd.
+    // A Mac adds Control-click and turns the view only by the trackpad twist, where WebKit delivers it: the button drags
+    // are unchecked on real Macs (canopi-pqxl), and the twist never steps.
     setShortcutPlatform({ os: 'mac' })
     try {
       await act(async () => { render(<KeyboardShortcutsDialog menus={menus} platform={{ os: 'mac', gestureEvents: true }} />, container) })
       await act(async () => { openKeyboardShortcutsDialog() })
-      expect(gestureRows()).toContainEqual(['Turn the view; add Cmd for 15° steps', 'Shift + right-drag or Shift + middle-drag · Twist two fingers on the trackpad'])
+      expect(gestureRows()).toContainEqual(['Turn the view', 'Twist two fingers on the trackpad'])
       expect(gestureRows()).toContainEqual(['Open the menu', 'Right-click · Control-click'])
+      await act(async () => { closeKeyboardShortcutsDialog() })
+      render(null, container)
+      await act(async () => { render(<KeyboardShortcutsDialog menus={menus} platform={{ os: 'mac', gestureEvents: false }} />, container) })
+      await act(async () => { openKeyboardShortcutsDialog() })
+      expect(gestureRows().map(([label]) => label)).not.toContain('Turn the view')
+      expect(gestureRows().flat().join(' ')).not.toContain('right-drag')
     } finally {
       setShortcutPlatform({ os: 'linux' })
     }

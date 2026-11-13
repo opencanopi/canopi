@@ -1899,6 +1899,7 @@
       "pan": "平移地图",
       "shiftDrag": "Shift + 右键拖动或 Shift + 中键拖动",
       "turnView": "旋转视图；加 {{mod}} 以 15° 为步长",
+      "turn": "旋转视图",
       "trackpadTwist": "在触控板上双指旋转",
       "compass": "指南针",
       "compassAction": "单击重置为正北，拖动旋转视图",

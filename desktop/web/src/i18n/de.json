@@ -1899,6 +1899,7 @@
       "pan": "Karte verschieben",
       "shiftDrag": "Umschalt + rechts ziehen oder Umschalt + mittig ziehen",
       "turnView": "Ansicht drehen; mit {{mod}} in 15°-Schritten",
+      "turn": "Ansicht drehen",
       "trackpadTwist": "Zwei Finger auf dem Trackpad drehen",
       "compass": "Kompass",
       "compassAction": "Klicken richtet nach Norden aus, Ziehen dreht die Ansicht",
