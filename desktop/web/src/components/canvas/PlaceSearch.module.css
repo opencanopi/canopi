@@ -3,9 +3,12 @@
   min-width: 0;
 }
 
+/* In a crowded title bar the field gives way first, down to its placeholder's first words, before the Design name and
+   its save status (R1 canopi-f47t.52.270). */
 .titleBarVariant {
-  flex: 0 1 auto;
+  flex: 0 4 auto;
   width: var(--place-search-width, 290px);
+  min-width: 180px;
 }
 
 .dialogVariant {
