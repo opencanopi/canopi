@@ -91,7 +91,7 @@ export function isSavedObjectStampPayloadFromBefore2_0(raw: string): boolean {
 export type SavedObjectStampRowState = 'ready' | 'before-2-0' | 'needs-newer'
 
 export function savedObjectStampRowState(
-  stamp: { readonly payload_json: string; readonly needs_newer?: boolean },
+  stamp: { readonly payload_json: string; readonly needs_newer?: boolean | undefined },
 ): SavedObjectStampRowState {
   if (stamp.needs_newer === true) return 'needs-newer'
   return isSavedObjectStampPayloadFromBefore2_0(stamp.payload_json) ? 'before-2-0' : 'ready'

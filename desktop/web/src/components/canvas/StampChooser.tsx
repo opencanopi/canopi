@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef } from 'preact/hooks'
 import type { TargetedKeyboardEvent } from 'preact'
 import { savedObjectStampWorkbench } from '../../app/saved-object-stamps'
 import {
+  isSavedObjectStampPayloadFromBefore2_0,
   parseSavedObjectStampPayload,
   savedObjectStampRowState,
 } from '../../canvas/saved-object-stamp-payload'
@@ -23,7 +24,7 @@ import styles from './ToolCard.module.css'
  */
 export function StampChooser({ onChosen, onEscape }: StampChooserProps) {
   const library = savedObjectStampWorkbench.library.value
-  const stamps = library.items.filter((stamp) => savedObjectStampRowState(stamp) !== 'before-2-0')
+  const stamps = library.items.filter((stamp) => !isSavedObjectStampPayloadFromBefore2_0(stamp.payload_json))
   const root = useRef<HTMLDivElement | null>(null)
   const listId = 'tool-card-stamp-options'
 

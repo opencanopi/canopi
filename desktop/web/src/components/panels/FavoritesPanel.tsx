@@ -790,7 +790,7 @@ function SavedObjectStampRow({
   // Set when the user opens or cancels the Delete confirmation, whose buttons replace the one that had focus.
   const deleteConfirmToggledRef = useRef(false)
   // Saved before 2.0: Delete only (ADR 0021); saved by a newer Canopi: no place, drag, reorder, rename or delete (2.1-M88).
-  const rowState = useMemo(() => savedObjectStampRowState(stamp), [stamp.payload_json, stamp.needs_newer])
+  const rowState = useMemo(() => savedObjectStampRowState({ payload_json: stamp.payload_json, needs_newer: stamp.needs_newer }), [stamp.payload_json, stamp.needs_newer])
   const before2_0 = rowState === 'before-2-0'
   const needsNewer = rowState === 'needs-newer'
   const placeable = rowState === 'ready'
