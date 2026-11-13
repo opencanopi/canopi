@@ -172,6 +172,22 @@ describe('Data library health', () => {
       expect([...details.querySelectorAll('button')].map((button) => button.getAttribute('data-focus-target'))).toEqual(['back'])
     })
 
+    it('canopi-f47t.52.271: a search lists only the newer Canopi items whose name matches, none kept as failed', async () => {
+      libraryStatus({ kind: 'newer_read_only' })
+      const newer = { state: 'NeedsNewer' as const, generation_id: null, bounds: null, value_range: null, offers: [] }
+      lidarLibrary.value = librarySnapshot([
+        sourceItem('lyr-1', 'Orchard terrain', { ...newer, newer_kind: 'raster' }),
+        sourceItem('vec-1', 'Hedge lines', { ...newer, newer_kind: 'vector' }),
+      ])
+      await act(async () => { render(<DataLibraryView focusId={null} />, container) })
+      const search = container.querySelector<HTMLInputElement>('input[type="search"]')!
+      await act(async () => {
+        search.value = 'hedge'
+        search.dispatchEvent(new Event('input', { bubbles: true }))
+      })
+      expect([...container.querySelectorAll('[role="option"] strong')].map((name) => name.textContent)).toEqual(['Hedge lines'])
+    })
+
     it('explains a library that could not be opened as an error', async () => {
       libraryStatus(LIBRARY_UNOPENED)
       await act(async () => { render(<DataLibraryView focusId={null} />, container) })

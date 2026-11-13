@@ -61,7 +61,6 @@ export function DataLibraryView({ focusId }: { readonly focusId: string | null }
   const items = useMemo(() => libraryItems(snapshot, sort), [snapshot, sort, locale.value])
   const references = currentDesign.value?.lidar?.entries ?? []
   const readOnly = storeStatus('library_catalogue').kind === 'newer_read_only'
-  const newer = new Map(snapshot?.items.filter((row) => row.state === 'NeedsNewer').map((row) => [row.id, row.newer_kind ?? 'unknown']))
   const [requestedId, setRequestedId] = useState<string | null>(focusId)
   const [pane, setPane] = useState<Pane>(focusId ? 'details' : 'list')
   // Rename or Delete everywhere belongs to the item it opened for: a search or filter that moves the selection closes it.
@@ -194,7 +193,7 @@ export function DataLibraryView({ focusId }: { readonly focusId: string | null }
   }
 
   const actionsFor = (row: LibraryItem) => {
-    if (readOnly || newer.has(row.id)) return null
+    if (readOnly || row.status === 'needs-newer') return null
     const rerun = rerunSubject(row)
     const canDelete = row.status === 'ready' || row.role === 'Derived'
     return <>
@@ -230,7 +229,7 @@ export function DataLibraryView({ focusId }: { readonly focusId: string | null }
     </>
   }
   const operation = (row: LibraryItem) => {
-    if (readOnly || newer.has(row.id)) return null
+    if (readOnly || row.status === 'needs-newer') return null
     if (row.status === 'preparing' && row.importJob) {
       const progress = row.importJob.progress
       return (
@@ -348,8 +347,8 @@ export function DataLibraryView({ focusId }: { readonly focusId: string | null }
                     <LibraryPreview item={row} client={client} width={56} height={42} />
                     <span className={styles.itemText}>
                       <strong>{row.name}</strong>
-                      <small>{newerKind(newer.get(row.id)) ?? itemSummary(row)}{isAdded(row) && ` · ${t('canvas.lidar.library.inThisDesign')}`}</small>
-                      {newer.has(row.id) ? <small>{t('canvas.lidar.library.needsNewerNote')}</small> : row.status !== 'ready' && (
+                      <small>{row.status === 'needs-newer' ? newerKind(row) : itemSummary(row)}{isAdded(row) && ` · ${t('canvas.lidar.library.inThisDesign')}`}</small>
+                      {row.status === 'needs-newer' ? <small>{t('canvas.lidar.library.needsNewerNote')}</small> : row.status !== 'ready' && (
                         <small data-error={row.status === 'failed'}>{itemStatusLabel(row)}</small>
                       )}
                       {isStale(row) && <small className={styles.stale}>{t('analyses.details.outOfDate')}</small>}
@@ -381,7 +380,7 @@ export function DataLibraryView({ focusId }: { readonly focusId: string | null }
                   <RenameForm item={item} busy={busy} error={error} onCancel={() => endMode(['rename'])}
                     onSubmit={(name) => void run(() => renameLibraryItem(item.id, name), () => endMode(['rename']))} />
                 )}
-                {newer.has(item.id) ? <p>{newerKind(newer.get(item.id))} · {t('canvas.lidar.library.needsNewerNote')}</p> : <ItemDetails item={item}
+                {item.status === 'needs-newer' ? <p>{newerKind(item)} · {t('canvas.lidar.library.needsNewerNote')}</p> : <ItemDetails item={item}
                   nameOf={nameOf}
                   busy={busy}
                   rested={restedId === item.id}
@@ -423,9 +422,9 @@ function rowId(id: string): string {
   return `library-item-${id}`
 }
 
-/** The type a newer catalogue's item is listed by (2.1-Q318); undefined for any other item. */
-function newerKind(kind: string | undefined): string | undefined {
-  return kind && t(kind === 'raster' || kind === 'vector' ? `canvas.lidar.library.newerKind.${kind}` : 'canvas.lidar.library.newerKind.unknown')
+/** The type a newer catalogue's item is listed by (2.1-Q318). */
+function newerKind(item: LibraryItem): string {
+  return t(item.newerKind ? `canvas.lidar.library.newerKind.${item.newerKind}` : 'canvas.lidar.library.newerKind.unknown')
 }
 
 /**
