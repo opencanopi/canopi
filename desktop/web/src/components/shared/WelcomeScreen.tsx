@@ -43,9 +43,11 @@ export function WelcomeScreen() {
       openDesign={{ label: t('menu.file.open'), shortcut: formatShortcut('Ctrl+O', t), run: () => { void openDesign().catch(logWelcomeError) } }}
       links={[
         { icon: 'gear', label: t('menu.file.settings'), run: openSettingsDialog },
-        { icon: 'keyboard', label: t('menu.help.shortcuts'), run: openKeyboardShortcutsDialog },
+        { icon: 'keyboard', label: t('menu.help.shortcuts'), run: () => openKeyboardShortcutsDialog() },
         { icon: 'bug', label: t('menu.help.reportProblem'), run: openProblemReportDialog },
       ]}
+      // Help's gestures, one line under the links: no card opens by itself and no new button (2.1-Q310, Q311).
+      helpLine={{ label: t('start.movingAround'), run: () => openKeyboardShortcutsDialog({ section: 'gestures' }) }}
       footer={t('start.footerDesktop')}
       loading={!loaded}
       recent={recentFilesController.recentFiles.value.map((file) => ({

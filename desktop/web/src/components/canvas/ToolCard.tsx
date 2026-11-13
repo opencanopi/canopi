@@ -63,6 +63,8 @@ function useToolCard(phone: boolean) {
         scrollWheel: scrollWheel.value,
         coarsePointer,
         modKey: modKeyName(t),
+        // The mod key's locale key, not its text: Cmd is the edition's Mac platform, whatever the language calls it.
+        macKeys: modKeyName((key) => key) === 'shortcutKeys.cmd',
         translate: t,
       })
   const row = content?.tool === 'plant-spacing' && guidance.plantRow?.phase === 'row' ? guidance.plantRow : null

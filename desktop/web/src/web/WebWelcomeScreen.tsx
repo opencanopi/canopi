@@ -40,8 +40,10 @@ export function WebWelcomeScreen({
         openDesign={{ label: t('webShell.openCanopi'), shortcut: formatShortcut('Ctrl+O', t), run: () => { void controller.openCanopi().catch(logWebWelcomeError) } }}
         links={[
           { icon: 'gear', label: t('menu.file.settings'), run: openSettingsDialog },
-          { icon: 'keyboard', label: t('menu.help.shortcuts'), run: openKeyboardShortcutsDialog },
+          { icon: 'keyboard', label: t('menu.help.shortcuts'), run: () => openKeyboardShortcutsDialog() },
         ]}
+        // Help's gestures, one line under the links: no card opens by itself and no new button (2.1-Q310, Q311).
+        helpLine={{ label: t('start.movingAround'), run: () => openKeyboardShortcutsDialog({ section: 'gestures' }) }}
         footer={t('start.footerWeb')}
         notice={line === 'warning'
           ? {

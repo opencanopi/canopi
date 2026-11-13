@@ -131,6 +131,7 @@ jobs:
             -v "$GITHUB_WORKSPACE:/repo:ro" -v "$GITHUB_WORKSPACE/floor-results:/out" \
             -e PW_VERSION="$version" -e BROWSERS -e LABEL -e FLOOR \
             -e CANOPI_FLOOR_DIST=/repo/desktop/web/dist -e CANOPI_FLOOR_DIST_WEB=/repo/desktop/web/dist-web \
+            -e CANOPI_FLOOR_FORMAT_SPEC=/repo/canopi-format/spec/v10 \
             "$IMAGE" sh -c '
               set -eu
               mkdir -p /probe/e2e/floor /probe/src/canvas/runtime/input

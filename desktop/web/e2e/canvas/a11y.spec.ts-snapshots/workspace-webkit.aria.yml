@@ -23,7 +23,7 @@
     - button "Undo" [disabled]
     - button "Redo" [disabled]
   - region "Select":
-    - status: Select Drag to select · Shift-click adds · Alt-click removes · right-drag pans · wheel zooms
+    - status: "Select Drag to select · Shift-click adds · Option-click removes · wheel zooms · for a trackpad: Settings › Canvas › Pointing device"
   - group "View":
     - button "Grid" [pressed]
     - button "Snap to grid" [pressed]

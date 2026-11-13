@@ -332,7 +332,8 @@ jobs:
             target: x86_64-unknown-linux-gnu
             bundle_args: --bundles deb appimage
             updater: true
-          # macOS keeps its unsigned dmg as today, with no updater artifacts (2.1-Q135, Q136).
+          # macOS: an ad-hoc signed dmg (tauri.macos.conf.json; canopi-3cu2, 2.1-M472), never a Developer ID (2.1-Q305),
+          # with no updater artifacts (2.1-Q135, Q136).
           - os: macos-15
             target: aarch64-apple-darwin
             bundle_args: ""
@@ -412,6 +413,33 @@ jobs:
           ephemeral-key: ${{ needs.preflight.outputs.dry_run }}
           artifact-name: ${{ needs.preflight.outputs.dry_run == 'true' && 'dry-run-' || '' }}canopi-${{ matrix.target }}
           retention-days: ${{ needs.preflight.outputs.dry_run == 'true' && 1 || 30 }}
+
+      # The Mac app is sealed ad hoc with its resources (tauri.macos.conf.json's signingIdentity '-'; canopi-3cu2,
+      # 2.1-M472). A linker-signed bundle, 2.0.3's, is the one macOS calls damaged with no Open Anyway (the signing probe,
+      # PR #96), so it fails the candidate. The dmg holds this .app. Each reading ends after 60 s, as the probe's do.
+      - name: The Mac app is sealed ad hoc with its resources
+        if: runner.os == 'macOS'
+        shell: bash
+        timeout-minutes: 5
+        env:
+          TARGET: ${{ matrix.target }}
+        run: |
+          set -euo pipefail
+          bounded() { perl -e 'alarm shift; exec @ARGV or exit 127' 60 "$@"; }
+          app="$(ls -d "target/$TARGET/release/bundle/macos/"*.app 2> /dev/null | head -n 1 || true)"
+          if [ -z "$app" ]; then echo "::error::no .app under target/$TARGET/release/bundle/macos"; exit 1; fi
+          rc=0
+          verify="$(bounded codesign --verify --deep --strict --verbose=2 "$app" 2>&1)" || rc=$?
+          if [ "$rc" != 0 ]; then echo "::error::codesign --verify --deep --strict failed on $app (exit $rc): $verify"; exit 1; fi
+          rc=0
+          details="$(bounded codesign -dv "$app" 2>&1)" || rc=$?
+          if [ "$rc" != 0 ]; then echo "::error::codesign -dv failed on $app (exit $rc): $details"; exit 1; fi
+          flags="$(printf '%s\n' "$details" | sed -n 's/.*flags=0x[0-9a-fA-F]*(\([^)]*\)).*/\1/p' | head -n 1)"
+          case ",$flags," in
+            *,linker-signed,*) echo "::error::$app is linker-signed ($flags), with no sealed resources: macOS calls it damaged"; exit 1 ;;
+            *,adhoc,*) echo "$app is sealed ad hoc ($flags)" ;;
+            *) echo "::error::$app is not signed ad hoc (flags: ${flags:-none})"; exit 1 ;;
+          esac
 
   # The Linux packages start on Debian 12 (glibc 2.36, the oldest supported
   # with Ubuntu 22.04): the sidecar runs from the unpacked .deb and AppImage,

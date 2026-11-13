@@ -1,6 +1,12 @@
 import type { MenuDefinition } from '../../app/shell-commands/menus'
 import { flattenMenuActions } from '../../app/shell-commands/menus'
-import { closeKeyboardShortcutsDialog, keyboardShortcutsDialogOpen } from '../../app/shell/dialogs'
+import { useLayoutEffect, useRef } from 'preact/hooks'
+import {
+  closeKeyboardShortcutsDialog,
+  keyboardShortcutsDialogOpen,
+  keyboardShortcutsSectionRequest,
+  keyboardShortcutsSectionShown,
+} from '../../app/shell/dialogs'
 import { singleKeyShortcuts } from '../../app/settings/state'
 import { t } from '../../i18n'
 import { formatShortcut, modKeyName } from '../../app/shell-commands/shortcut-text'
@@ -17,7 +23,7 @@ const MENU_FIT_ROW = 'view.fitToDesign'
 
 interface KeyboardShortcutsDialogProps {
   readonly menus: readonly MenuDefinition[]
-  /** The platform the gesture rows describe: Control-click on a Mac, the trackpad twist where WebKit delivers it. */
+  /** The platform the gesture rows describe: a Mac's pan, Option and Control-click, the trackpad twist where WebKit delivers it. */
   readonly platform?: Pick<InputPlatform, 'os' | 'gestureEvents'>
   /** Desktop on Linux: WebKitGTK delivers no trackpad pinch. */
   readonly linuxPinchNote?: boolean
@@ -39,10 +45,23 @@ interface ShortcutRow {
  * rotation rows, and Fit the Design with Home after the map's + and −. With
  * Settings › Keyboard › Single-key shortcuts off, the menus drop those keys,
  * so the list does too (N leaves Reset north), and the footnote says how to
- * turn them back on and that Shift N still resets north.
+ * turn them back on and that Shift N still resets north. Opened at a section (the welcome screen's Moving around:
+ * the gestures), it scrolls that section's heading to the top and focuses it, after the dialog's own first focus; an
+ * open dialog asked again moves there; the request is used once, so a plain reopen starts at the top.
  */
 export function KeyboardShortcutsDialog({ menus, platform, linuxPinchNote = false }: KeyboardShortcutsDialogProps) {
-  if (!keyboardShortcutsDialogOpen.value) return null
+  const open = keyboardShortcutsDialogOpen.value
+  const request = keyboardShortcutsSectionRequest.value
+  const grid = useRef<HTMLDivElement>(null)
+  // A parent's layout effect runs after its children's, so this focus follows WorkspaceDialog's initial focus.
+  useLayoutEffect(() => {
+    if (!open || !request) return
+    const heading = grid.current?.querySelector<HTMLElement>(`#shortcuts-${request.section}`)
+    heading?.scrollIntoView?.({ block: 'start' })
+    heading?.focus({ preventScroll: true })
+    keyboardShortcutsSectionShown()
+  }, [open, request])
+  if (!open) return null
   const key = (shortcut: string) => formatShortcut(shortcut, t)
   const single = singleKeyShortcuts.value
   const rotationRows: ShortcutRow[] = [
@@ -106,10 +125,11 @@ export function KeyboardShortcutsDialog({ menus, platform, linuxPinchNote = fals
         </>
       )}
     >
-      <div className={styles.grid}>
+      <div ref={grid} className={styles.grid}>
         {allSections.map((section) => (
           <section key={section.id} className={styles.section} aria-labelledby={`shortcuts-${section.id}`}>
-            <h3 className={styles.heading} id={`shortcuts-${section.id}`}>{section.label}</h3>
+            {/* Focusable by script only, for an open at its section. */}
+            <h3 className={styles.heading} id={`shortcuts-${section.id}`} tabIndex={-1}>{section.label}</h3>
             <dl className={styles.rows}>
               {section.rows.map((row) => (
                 <div key={row.id} className={styles.row}>
@@ -155,23 +175,26 @@ type GestureName = LocaleKey extends infer Key ? Key extends `shortcuts.gestures
 
 /**
  * The mouse, trackpad and pen gestures: a static list, so it names only what the input pipeline does on every
- * platform, plus a Mac's Control-click and, where WebKit delivers it, the trackpad twist. The pen row is a note: its
- * side button drags to pan and taps for the menu.
+ * platform, plus a Mac's Control-click and, where WebKit delivers it, the trackpad twist. A Mac says what Select's hint
+ * says (app/tool-card/content.ts): it pans with two fingers or the Pan tool, since right-drag, Control-drag and
+ * Space-drag are not yet checked in real Mac browsers (canopi-pqxl), and it removes with Option-click. The pen row is
+ * a note: its side button drags to pan and taps for the menu.
  */
 function gestureRows(platform: Pick<InputPlatform, 'os' | 'gestureEvents'> | undefined): ShortcutRow[] {
   const g = (name: GestureName) => t(`shortcuts.gestures.${name}`)
   const mac = platform?.os === 'mac'
+  // A Mac names only gestures checked in real Mac browsers (canopi-pqxl): no right- or middle-button drag, so it turns
+  // the view by the trackpad twist where WebKit delivers it (which never steps) and otherwise by the compass row.
+  const turnRows: ShortcutRow[] = !mac
+    ? [{ id: 'turn-view', label: t('shortcuts.gestures.turnView', { mod: modKeyName(t) }), shortcut: g('shiftDrag') }]
+    : platform?.gestureEvents ? [{ id: 'turn-view', label: g('turn'), shortcut: g('trackpadTwist') }] : []
   return [
-    { id: 'pan', label: g('pan'), shortcut: g('rightDrag') },
-    {
-      id: 'turn-view',
-      label: t('shortcuts.gestures.turnView', { mod: modKeyName(t) }),
-      shortcut: [g('shiftDrag'), ...platform?.gestureEvents && mac ? [g('trackpadTwist')] : []].join(' · '),
-    },
+    { id: 'pan', label: g('pan'), shortcut: g(mac ? 'trackpadPan' : 'rightDrag') },
+    ...turnRows,
     { id: 'compass', label: g('compassAction'), shortcut: g('compass') },
     { id: 'menu', label: g('menu'), shortcut: [g('rightClick'), ...mac ? [g('macCtrlClick')] : []].join(' · ') },
     { id: 'zoom', label: g('zoom'), shortcut: g('pinch') },
-    { id: 'remove', label: g('removeFromSelection'), shortcut: g('altClick') },
+    { id: 'remove', label: g('removeFromSelection'), shortcut: g(mac ? 'optionClick' : 'altClick') },
     { id: 'pen', label: `${g('pan')} · ${g('menu')}`, shortcut: g('penButton') },
   ]
 }

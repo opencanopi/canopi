@@ -315,12 +315,13 @@ export const TABLE: Table = {
       // beta takes the beta paths. The other manifests stay out, so a dependency bump never pays the release build: the
       // policy checker every one of them selects holds their versions to tauri.conf.json's (policy/release-version.mjs).
       // And updater-e2e.yml, the lane the workflow calls: a dry run skips that job, but GitHub resolves the call when it
-      // starts the workflow, so a broken lane breaks the dry run too.
+      // starts the workflow, so a broken lane breaks the dry run too. And tauri.macos.conf.json, whose ad-hoc signing
+      // identity the build job's Mac seal check reads (canopi-3cu2).
       name: 'release-build', label: 'Release build inputs',
       row: 'CI `{release-build}`',
       workflow: '.github/workflows/release-candidate.yml',
       patterns: [String.raw`^\.github/tauri-release-updater\.json$`, String.raw`^scripts/release_smoke\.py$`,
-        String.raw`^desktop/tauri\.conf\.json$`, String.raw`^\.github/workflows/updater-e2e\.yml$`],
+        String.raw`^desktop/tauri\.conf\.json$`, String.raw`^desktop/tauri\.macos\.conf\.json$`, String.raw`^\.github/workflows/updater-e2e\.yml$`],
       actions: ['install-linux-deps', 'build-geolibre-cli', 'package-desktop'],
       full: ['release-build'],
     },
