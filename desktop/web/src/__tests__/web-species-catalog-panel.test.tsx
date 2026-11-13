@@ -163,23 +163,6 @@ describe('Web Edition Species Catalog panel', () => {
     expect(container.querySelector('button[data-detail-back]')).not.toBeNull()
   })
 
-  it('R3 canopi-f47t.52.272: under species lists a newer Canopi saved, the species detail star is off and says why (2.1-Q320)', async () => {
-    const { writeStoreHealth, resetStoreHealthForTests } = await import('../failures/health')
-    writeStoreHealth('web_species_lists', { status: { kind: 'newer_read_only' }, notice: null })
-    mockWorkbench.detail.value = { canonicalName: 'Prunus persica', loading: true, error: null, detail: null }
-    mockWorkbench.toggleFavorite.mockClear()
-    try {
-      await act(async () => render(<WebSpeciesCatalogPanel mode="favorites" />, container))
-      const star = requiredElement<HTMLButtonElement>('[data-testid="species-detail"] button[aria-pressed]')
-      expect(star.getAttribute('aria-disabled'), 'the star is off, still focusable for its tooltip').toBe('true')
-      expect(document.getElementById(star.getAttribute('aria-describedby') ?? '')?.textContent).toContain('Saved by a newer Canopi')
-      await act(async () => { star.click() })
-      expect(mockWorkbench.toggleFavorite, 'a click does not toggle it').not.toHaveBeenCalled()
-    } finally {
-      resetStoreHealthForTests()
-    }
-  })
-
   it('renders catalog search and supported filters through the Species Catalog Workbench', async () => {
     await act(async () => render(<WebSpeciesCatalogPanel mode="catalog" />, container))
 
@@ -264,24 +247,32 @@ describe('Web Edition Species Catalog panel', () => {
     expect(container.querySelector('[data-testid="web-species-row-metadata"]')).toBeNull()
   })
 
-  it('R3 canopi-f47t.52.272: under species lists a newer Canopi saved, the Favorites and Recently viewed star is off and says why (2.1-Q320)', async () => {
+  it.each([
+    ['a newer Canopi saved', { kind: 'newer_read_only' as const }, 'Saved by a newer Canopi'],
+  ])('R3 canopi-f47t.52.272: under species lists %s, every favourite star is off and says why (2.1-Q320)', async (_case, status, reason) => {
     const { writeStoreHealth, resetStoreHealthForTests } = await import('../failures/health')
-    writeStoreHealth('web_species_lists', { status: { kind: 'newer_read_only' }, notice: null })
-    mockWorkbench.toggleFavorite.mockClear()
-    try {
-      await act(async () => render(<WebSpeciesCatalogPanel mode="favorites" />, container))
-      const stars = [...container.querySelectorAll<HTMLButtonElement>('[data-testid="web-species-row"] button[aria-pressed]')]
-      expect(stars.length, 'a Favorites row and a Recently viewed row').toBe(2)
+    writeStoreHealth('web_species_lists', { status, notice: null })
+    // Each star stays focusable (aria-disabled) so its tooltip shows; neither a click nor Enter toggles it.
+    const starsIn = async (mode: 'catalog' | 'favorites', selector: string): Promise<number> => {
+      await act(async () => render(<WebSpeciesCatalogPanel mode={mode} />, container))
+      const stars = [...container.querySelectorAll<HTMLButtonElement>(`${selector} button[aria-pressed]`)]
       for (const star of stars) {
-        expect(star.getAttribute('aria-disabled'), 'the star is off, still focusable for its tooltip').toBe('true')
-        const described = document.getElementById(star.getAttribute('aria-describedby') ?? '')
-        expect(described?.textContent, 'its tooltip says why').toContain('Saved by a newer Canopi')
+        expect(star.getAttribute('aria-disabled'), `the ${selector} star is off`).toBe('true')
+        expect(document.getElementById(star.getAttribute('aria-describedby') ?? '')?.textContent, 'its tooltip says why').toContain(reason)
         await act(async () => {
           star.click()
           star.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
         })
       }
-      expect(mockWorkbench.toggleFavorite, 'neither a click nor Enter toggles it').not.toHaveBeenCalled()
+      render(null, container)
+      return stars.length
+    }
+    try {
+      expect(await starsIn('catalog', '[data-testid="catalog-species-row"]'), 'a Plant catalog row').toBe(1)
+      expect(await starsIn('favorites', '[data-testid="web-species-row"]'), 'a Favorites row and a Recently viewed row').toBe(2)
+      mockWorkbench.detail.value = { canonicalName: 'Prunus persica', loading: true, error: null, detail: null }
+      expect(await starsIn('favorites', '[data-testid="species-detail"]'), 'the species detail').toBe(1)
+      expect(mockWorkbench.toggleFavorite).not.toHaveBeenCalled()
     } finally {
       resetStoreHealthForTests()
     }

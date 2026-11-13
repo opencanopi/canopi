@@ -27,7 +27,7 @@ import detailStyles from '../components/species-detail/SpeciesDetail.module.css'
 import styles from './WebSpeciesCatalogPanel.module.css'
 import { placeSpeciesOnMap } from '../components/plant-db/place-species'
 import { ButtonTooltip } from '../components/shared/ButtonTooltip'
-import { storeStatus } from '../failures/health'
+import { favoriteLockedReason } from '../components/plant-db/PlantRow'
 
 interface WebSpeciesCatalogPanelProps {
   readonly mode: 'catalog' | 'favorites'
@@ -127,7 +127,7 @@ function WebSpeciesDetail({ view }: { readonly view: SpeciesCatalogDetailView })
     <SpeciesDetailLayout
       identity={{ canonicalName, commonName, englishName, family: null, habitKey: detail?.habit ?? null }}
       favorite={favorite}
-      favoriteLockedReason={storeStatus('web_species_lists').kind === 'newer_read_only' ? t('web.favoriteNeedsNewer') : undefined}
+      favoriteLockedReason={favoriteLockedReason()}
       onToggleFavorite={() => { void speciesCatalogWorkbench.toggleFavorite(canonicalName) }}
       onBack={() => speciesCatalogWorkbench.closeSpeciesDetail()}
       place={detail ? { canonical_name: detail.canonical_name, common_name: detail.common_name, stratum: null, width_max_m: null } : null}
@@ -252,9 +252,7 @@ function SpeciesRow({ item, englishName }: { readonly item: SpeciesListItem; rea
     event.stopPropagation()
     placeSpeciesOnMap(item)
   }
-  // Lists a newer Canopi saved are shown, never changed: the star is off and says why (2.1-Q320). It stays focusable
-  // (aria-disabled, not disabled), so its tooltip shows on hover and focus.
-  const starReadOnly = storeStatus('web_species_lists').kind === 'newer_read_only'
+  const lockedReason = favoriteLockedReason()
 
   return (
     <div
@@ -293,20 +291,20 @@ function SpeciesRow({ item, englishName }: { readonly item: SpeciesListItem; rea
           className={`${styles.favoriteButton} ${item.is_favorite ? styles.favoriteButtonActive : ''}`}
           aria-label={item.is_favorite ? t('plantDb.removeFavorite') : t('plantDb.addFavorite')}
           aria-pressed={item.is_favorite}
-          aria-disabled={starReadOnly || undefined}
+          aria-disabled={lockedReason ? true : undefined}
           onClick={(event) => {
             event.stopPropagation()
-            if (!starReadOnly) void speciesCatalogWorkbench.toggleFavorite(item.canonical_name)
+            if (!lockedReason) void speciesCatalogWorkbench.toggleFavorite(item.canonical_name)
           }}
           onKeyDown={(event) => {
             if (event.target !== event.currentTarget || (event.key !== 'Enter' && event.key !== ' ')) return
             event.preventDefault()
             event.stopPropagation()
-            if (!starReadOnly) void speciesCatalogWorkbench.toggleFavorite(item.canonical_name)
+            if (!lockedReason) void speciesCatalogWorkbench.toggleFavorite(item.canonical_name)
           }}
         >
           {item.is_favorite ? '★' : '☆'}
-          {starReadOnly && <ButtonTooltip label={t('web.favoriteNeedsNewer')} side="left" />}
+          {lockedReason && <ButtonTooltip label={lockedReason} side="left" />}
         </button>
         <button type="button" className={styles.favoriteButton} data-species-detail={item.canonical_name}
           aria-label={t('speciesKey.details', { name: displayName })}
