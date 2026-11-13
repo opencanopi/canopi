@@ -143,18 +143,21 @@ function staticGraph(chunks) {
 }
 
 /**
- * Whether a module script awaits outside any function: `await` or `for await` at its top level. A module graph holding
+ * Whether a module script awaits outside any function: `await`, `for await` or `await using` at its top level. A module graph holding
  * one evaluates asynchronously, and the load event does not wait for it, so the entry's `render` would run after load
  * and the start-up guard (src/boot-guard/guard.ts, which shows at load before the boot is acknowledged) would cover a
  * working app (canopi-72fm). A chunk only loaded on demand may await: the boot never waits for it.
  */
 export function topLevelAwaits(name, source) {
   if (!source.includes("await")) return false;
-  const { program } = parseSync(name, source, { sourceType: "module" });
+  // A chunk that does not parse would read as an empty program and pass, so it is refused instead.
+  const { program, errors } = parseSync(name, source, { sourceType: "module" });
+  if (errors.length > 0) throw new Error(`${name} does not parse: ${errors[0].message}`);
   const stack = [program];
   while (stack.length > 0) {
     const node = stack.pop();
-    if (node.type === "AwaitExpression" || (node.type === "ForOfStatement" && node.await)) return true;
+    if (node.type === "AwaitExpression" || (node.type === "ForOfStatement" && node.await)
+      || (node.type === "VariableDeclaration" && node.kind === "await using")) return true;
     if (FUNCTIONS.has(node.type)) continue;
     for (const child of Object.values(node)) {
       if (Array.isArray(child)) {

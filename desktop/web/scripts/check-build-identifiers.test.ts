@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterEach, describe, expect, it } from 'vitest'
 
-import { builtChunkViolations, DESKTOP_VENDOR_CHUNKS } from './check-build-identifiers.mjs'
+import { builtChunkViolations, DESKTOP_VENDOR_CHUNKS, topLevelAwaits } from './check-build-identifiers.mjs'
 
 const SCRIPT = fileURLToPath(new URL('./check-build-identifiers.mjs', import.meta.url))
 const NOTICES = '# Third-party notices\n\nmaplibre-gl BSD-3-Clause\n'
@@ -99,6 +99,12 @@ describe('the built chunk check', () => {
     expect(builtChunkViolations(inFunctions.dist, inFunctions.options)).toEqual([])
     const lazy = plantBuild('dist', [...soundDesktop(), { fileName: 'assets/lzw-d.js', name: 'lzw', isEntry: false, packages: [], code: 'await 1;' }])
     expect(builtChunkViolations(lazy.dist, lazy.options)).toEqual([])
+  })
+
+  it('canopi-72fm: an await using declaration counts as a top-level await, and a chunk that does not parse is refused, never passed', () => {
+    expect(topLevelAwaits('a.js', 'await using x = f();')).toBe(true)
+    expect(topLevelAwaits('a.js', 'async function g(){await using x = f();}')).toBe(false)
+    expect(() => topLevelAwaits('a.js', 'await f(); let x = 1 +;')).toThrow('a.js does not parse')
   })
 
   it('refuses a chunk list without static imports, an older build, naming the build to run', () => {
