@@ -3,6 +3,6 @@
   "tool_name": "Bash",
   "cwd": "{dir}",
   "tool_input": {
-    "command": "git checkout -- planted.txt"
+    "command": "git -C {main_worktree} checkout -- planted.txt"
   }
 }
