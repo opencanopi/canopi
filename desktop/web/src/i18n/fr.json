@@ -1628,6 +1628,11 @@
     "resolve": "Résoudre…",
     "conflictAnotherTab": "Modifié dans un autre onglet"
   },
+  "readOnlyDesign": {
+    "status": "Lecture seule : enregistré par une version plus récente de Canopi",
+    "details": "Ce Design a été enregistré par une version plus récente de Canopi. Vous pouvez le consulter, mais pas le modifier ni l’enregistrer. Mettez Canopi à jour pour le modifier.",
+    "update": "Mettre à jour"
+  },
   "saveProblem": {
     "flushFailedTitle": "Impossible d’enregistrer vos modifications",
     "flushFailedMessage": "Canopi n’a pas pu écrire vos dernières modifications. Réessayez, ou abandonnez-les pour continuer.",
@@ -1834,7 +1839,8 @@
     "cantReadOlderVersion": "Créé avec une version de Canopi antérieure à la 2.0 ; Canopi 2.0 et les versions suivantes ne peuvent pas l’ouvrir",
     "cantReadNewerVersion": "Créé avec une version plus récente de Canopi ; mettez Canopi à jour pour l’ouvrir",
     "cantReadDamaged": "Impossible de lire ce fichier : il est endommagé",
-    "rowReadOnly": "Lecture seule : enregistré par une version plus récente de Canopi"
+    "rowReadOnly": "Lecture seule : enregistré par une version plus récente de Canopi",
+    "unreadableDraft": "Enregistré par une version plus récente de Canopi ; cette version ne peut pas le lire"
   },
   "shortcutKeys": {
     "ctrl": "Ctrl",

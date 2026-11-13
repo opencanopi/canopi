@@ -10,6 +10,7 @@ import {
   openPlantAppearance,
 } from '../../app/canvas-context-menu/state'
 import { requestBudgetPrice } from '../../app/budget/price-request'
+import { designSessionStore } from '../../app/document-session/store'
 import { useMapSelectionSummary } from '../../app/map-selection/summary'
 import { chordMatches, chordsOfShortcut } from '../../app/keyboard/key-chord'
 import { pushKeyScope } from '../../app/keyboard/keymap'
@@ -54,6 +55,7 @@ function OpenCanvasContextMenu({ request, profileLine }: {
     addToCalendar: requestCalendarAdd,
     setUnitCost: requestBudgetPrice,
     profileLine,
+    readOnly: designSessionStore.isReadOnly(),
   })
   return (
     <ContextMenu

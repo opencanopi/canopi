@@ -536,7 +536,7 @@ describe('canvas context menu entries', () => {
         state: {
           activeTool: 'polygon',
           canvasAvailable: true,
-          spatialEditingAvailable: true,
+          spatialEditingAvailable: true, readOnly: false,
           selection: selectionCommandAvailability(model),
           held,
           lockedObjectsPresent: false,

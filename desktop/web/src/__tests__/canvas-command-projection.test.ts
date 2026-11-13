@@ -17,6 +17,7 @@ function state(overrides: Partial<CanvasCommandProjectionState> = {}): CanvasCom
     activeTool: 'select',
     canvasAvailable: true,
     spatialEditingAvailable: true,
+    readOnly: false,
     selection: null,
     held: false,
     lockedObjectsPresent: false,

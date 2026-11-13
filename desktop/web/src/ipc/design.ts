@@ -9,6 +9,7 @@ import type {
   LoadedDesign,
   RecentDesignSummary,
 } from '../types/design'
+import type { ReadOnlyDesign } from '../generated/contracts'
 import { encodeCanopiDesign } from '../app/contracts/canopi-design-wire'
 import { DesignHomeConflictError } from '../app/document-session/continuous-save'
 import {
@@ -77,9 +78,10 @@ export function prepareDraftWrite(id: string): PreparedDesignWriteDestination {
 
 /**
  * Show the host's Open dialog, then load the chosen design.
- * Returns the loaded Design with its path. Throws the pick cancel (pickCancelled) if the user dismisses it.
+ * Returns the loaded Design (or a newer one's read view) with its path. Throws the pick cancel (pickCancelled) if the
+ * user dismisses it.
  */
-export async function openDesignDialog(): Promise<{ design: LoadedDesign; path: string }> {
+export async function openDesignDialog(): Promise<{ design: LoadedDesign | ReadOnlyDesign; path: string }> {
   const outcome = await pickOpen('design-open')
   if (outcome.kind === 'cancelled') throw pickCancelled('dialog.pick_open')
   const filePath = outcome.paths[0]!
@@ -105,11 +107,11 @@ async function saveDesign(
 }
 
 /**
- * Load a design from a known path (e.g. recent files) with its fingerprint;
- * only the current format opens (ADR 0021).
+ * Load a design from a known path (e.g. recent files) with its fingerprint; the current format opens (ADR 0021), and
+ * one a newer Canopi saved comes as its read view, with no fingerprint, to open read-only (2.1-M478).
  * Rejects with a `DesignLoadFailure` (`app/contracts/canopi-design-errors.ts`).
  */
-export async function loadDesign(path: string): Promise<LoadedDesign> {
+export async function loadDesign(path: string): Promise<LoadedDesign | ReadOnlyDesign> {
   return invokeCommand('load_design', { path })
 }
 
@@ -118,10 +120,10 @@ async function saveDesignDraft(id: string, content: CanopiFile): Promise<void> {
 }
 
 /**
- * Load the Draft `id`.
+ * Load the Draft `id`; one a newer Canopi saved comes as its read view (2.1-M478).
  * Rejects with a `DesignLoadFailure` (`app/contracts/canopi-design-errors.ts`).
  */
-export async function loadDesignDraft(id: string): Promise<CanopiFile> {
+export async function loadDesignDraft(id: string): Promise<CanopiFile | ReadOnlyDesign> {
   return invokeCommand('load_design_draft', { id })
 }
 

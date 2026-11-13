@@ -1628,6 +1628,11 @@
     "resolve": "Resolve…",
     "conflictAnotherTab": "Changed in another tab"
   },
+  "readOnlyDesign": {
+    "status": "Read-only: saved by a newer Canopi",
+    "details": "This Design was saved by a newer Canopi. You can view it, but you can’t change or save it. Update Canopi to edit it.",
+    "update": "Update"
+  },
   "saveProblem": {
     "flushFailedTitle": "Couldn't save your changes",
     "flushFailedMessage": "Canopi couldn't write your latest changes. Try again, or discard them to continue.",
@@ -1834,7 +1839,8 @@
     "cantReadOlderVersion": "Made with Canopi before 2.0; Canopi 2.0 and later can’t open it",
     "cantReadNewerVersion": "Made with a newer version of Canopi; update Canopi to open it",
     "cantReadDamaged": "Can’t read this file: it is damaged",
-    "rowReadOnly": "Read-only: saved by a newer Canopi"
+    "rowReadOnly": "Read-only: saved by a newer Canopi",
+    "unreadableDraft": "Saved by a newer Canopi; this version can’t read it"
   },
   "shortcutKeys": {
     "ctrl": "Ctrl",

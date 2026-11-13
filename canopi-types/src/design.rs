@@ -363,7 +363,8 @@ pub fn canopi_file_json_schema() -> serde_json::Value {
 
 /// The JSON Schema keywords the generated `CanopiFile` schema may use: the Web decoder and
 /// the native admission walker interpret exactly these, and bindings-gen refuses any other.
-#[cfg(feature = "design-schema")]
+/// Ungated, unlike the schema itself, so the format crate reads them without schemars and the
+/// Web format worker's module carries none (canopi-f47t.52.270).
 pub const CANOPI_SCHEMA_KEYWORDS: &[&str] = &[
     "$defs",
     "$ref",
@@ -385,7 +386,6 @@ pub const CANOPI_SCHEMA_KEYWORDS: &[&str] = &[
 ];
 
 /// The number formats the generated `CanopiFile` schema may use, with the keywords above.
-#[cfg(feature = "design-schema")]
 pub const CANOPI_SCHEMA_FORMATS: &[&str] = &["double", "float", "int32", "uint32"];
 
 #[cfg_attr(feature = "design-schema", derive(schemars::JsonSchema))]
@@ -869,8 +869,24 @@ pub enum RecentDesignPreview {
         bounds: Option<DesignGroundBounds>,
         sketch: Option<DesignSketch>,
     },
-    /// The file is larger than previews read; the row shows its name only.
-    TooLarge,
+    /// Saved by a newer Canopi and read for the read-only view (2.1-Q316): the row is labelled
+    /// "Read-only: saved by a newer Canopi", never "update Canopi to open it", with what the
+    /// read view shows of it.
+    ReadOnly {
+        /// The format version the file was saved at, above [`CURRENT_CANOPI_FILE_VERSION`].
+        saved_by_version: u32,
+        plant_count: u32,
+        zone_count: u32,
+        /// `None` when the Design has no plants or zones yet.
+        bounds: Option<DesignGroundBounds>,
+        sketch: Option<DesignSketch>,
+    },
+    /// The file is larger than previews read; the row shows its name, and says it is
+    /// read-only when a newer Canopi saved it and Open still reads it (2.1-Q316).
+    TooLarge {
+        /// Saved by a newer Canopi, within the size Open reads: Open shows it read-only.
+        saved_by_newer: bool,
+    },
     /// The file cannot be opened, and why when that is known.
     Unreadable {
         reason: RecentDesignUnreadableReason,
@@ -1034,6 +1050,35 @@ pub struct DesignDraftSummary {
     pub id: String,
     pub name: String,
     pub updated_at: String,
+    /// Whether opening the Draft edits it, shows it read-only, or refuses it (2.1-Q316). Absent on
+    /// the wire for an editable Draft, the common case; a newer Draft always carries it.
+    #[serde(default, skip_serializing_if = "DesignDraftAccess::is_editable")]
+    #[specta(optional)]
+    pub access: DesignDraftAccess,
+}
+
+/// How a listed Draft opens (2.1-Q316). Only an `Editable` Draft is ever opened for editing or
+/// deleted; the store refuses writes to the others (design check F7).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[serde(rename_all = "snake_case")]
+pub enum DesignDraftAccess {
+    /// A current Draft: it opens for editing.
+    #[default]
+    Editable,
+    /// Saved by a newer Canopi and read for the read-only view: listed as
+    /// "Read-only: saved by a newer Canopi".
+    ReadOnly,
+    /// Saved by a newer Canopi whose read this build refuses: listed as unreadable, never
+    /// hidden, and opening it says why.
+    Unreadable,
+}
+
+impl DesignDraftAccess {
+    /// Whether the Draft opens for editing; the wire omits `access` then.
+    #[must_use]
+    pub fn is_editable(&self) -> bool {
+        *self == Self::Editable
+    }
 }
 
 #[cfg(test)]

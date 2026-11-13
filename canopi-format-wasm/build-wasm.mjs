@@ -11,7 +11,11 @@
 // 2. `cargo build --release --locked --target wasm32-unknown-unknown -p canopi-format-wasm` (the target comes from
 //    rust-toolchain.toml), in Cargo's target directory as `cargo metadata` reports it, so CARGO_TARGET_DIR holds, with
 //    the builder's paths remapped (moduleRustflags) so the module is the same bytes on every machine.
-// 3. `wasm-bindgen --target web --no-typescript` into dist/: canopi_format_wasm.js and canopi_format_wasm_bg.wasm.
+//    The build is for size (MODULE_PROFILE: opt-level s, fat LTO, one codegen unit), set through Cargo's profile
+//    variables for this one command, so the workspace's release profile, Desktop's, stays as it is.
+// 3. `wasm-bindgen --target web --no-typescript --remove-name-section` into dist/: canopi_format_wasm.js and
+//    canopi_format_wasm_bg.wasm, without the name section, which only names functions for a debugger (a quarter of the
+//    module). policy/ratchets/bundle-size.json holds the result to its ceiling.
 //
 // CANOPI_FORMAT_WASM_MVP=1 builds for the WebAssembly MVP (`-C target-cpu=mvp`), the plan's fallback should an engine
 // Canopi supports refuse the default target features; the probe (e2e/canvas/format-core-probe.spec.ts) found none among
@@ -27,6 +31,16 @@ const TARGET = 'wasm32-unknown-unknown';
 export const CRATE_DIR = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.dirname(CRATE_DIR);
 export const OUT_DIR = path.join(CRATE_DIR, 'dist');
+
+/** The release settings the module is built with, as Cargo profile variables (measured, canopi-f47t.52.270). */
+export const MODULE_PROFILE = Object.freeze({
+  CARGO_PROFILE_RELEASE_OPT_LEVEL: 's',
+  CARGO_PROFILE_RELEASE_LTO: 'true',
+  CARGO_PROFILE_RELEASE_CODEGEN_UNITS: '1',
+});
+
+/** The wasm-bindgen arguments before the output directory and the module. */
+export const BIND_ARGS = Object.freeze(['--target', 'web', '--no-typescript', '--remove-name-section']);
 
 /** The version Cargo.lock pins for the registry package `name`, or undefined when it holds none or several. */
 export function lockedVersion(lockText, name) {
@@ -88,6 +102,7 @@ function main() {
   }
   const env = {
     ...process.env,
+    ...MODULE_PROFILE,
     CARGO_ENCODED_RUSTFLAGS: moduleRustflags({
       env: process.env,
       home: os.homedir(),
@@ -101,7 +116,7 @@ function main() {
   const metadata = JSON.parse(execFileSync('cargo', ['metadata', '--format-version', '1', '--no-deps', '--locked'], { cwd: ROOT, env, encoding: 'utf8' }));
   const module = path.join(metadata.target_directory, TARGET, 'release', `${CRATE.replaceAll('-', '_')}.wasm`);
   fs.rmSync(OUT_DIR, { recursive: true, force: true });
-  run('wasm-bindgen', ['--target', 'web', '--no-typescript', '--out-dir', OUT_DIR, module]);
+  run('wasm-bindgen', [...BIND_ARGS, '--out-dir', OUT_DIR, module]);
   return 0;
 }
 

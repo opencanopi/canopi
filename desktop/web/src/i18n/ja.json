@@ -1628,6 +1628,11 @@
     "resolve": "解決…",
     "conflictAnotherTab": "別のタブで変更されました"
   },
+  "readOnlyDesign": {
+    "status": "読み取り専用：新しいバージョンの Canopi で保存",
+    "details": "このデザインは新しいバージョンの Canopi で保存されました。表示はできますが、変更や保存はできません。編集するには Canopi を更新してください。",
+    "update": "更新"
+  },
   "saveProblem": {
     "flushFailedTitle": "変更を保存できませんでした",
     "flushFailedMessage": "Canopi は最新の変更を書き込めませんでした。再試行するか、変更を破棄して続行してください。",
@@ -1834,7 +1839,8 @@
     "cantReadOlderVersion": "Canopi 2.0 より前のバージョンで作成されたため、Canopi 2.0 以降では開けません",
     "cantReadNewerVersion": "新しいバージョンの Canopi で作成されました。開くには Canopi を更新してください",
     "cantReadDamaged": "ファイルを読み込めません：破損しています",
-    "rowReadOnly": "読み取り専用：新しいバージョンの Canopi で保存"
+    "rowReadOnly": "読み取り専用：新しいバージョンの Canopi で保存",
+    "unreadableDraft": "新しいバージョンの Canopi で保存されました。このバージョンでは読み込めません"
   },
   "shortcutKeys": {
     "ctrl": "Ctrl",

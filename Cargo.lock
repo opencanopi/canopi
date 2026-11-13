@@ -494,7 +494,6 @@ name = "canopi-format"
 version = "2.1.0-beta.2"
 dependencies = [
  "canopi-types",
- "schemars 1.2.1",
  "serde",
  "serde_json",
 ]
@@ -503,7 +502,7 @@ dependencies = [
 name = "canopi-format-wasm"
 version = "2.1.0-beta.2"
 dependencies = [
- "canopi-redact",
+ "canopi-format",
  "canopi-types",
  "serde",
  "serde_json",

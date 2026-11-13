@@ -25,6 +25,8 @@ const mocks = vi.hoisted(() => ({
   listDrafts: vi.fn(),
   installContinuousSave: vi.fn(),
   uninstallContinuousSave: vi.fn(),
+  installFormatCore: vi.fn(),
+  uninstallFormatCore: vi.fn(),
   installPlaceSearchSession: vi.fn(),
   disposePlaceSearchSession: vi.fn(),
   installToolRailLearning: vi.fn(),
@@ -57,6 +59,7 @@ vi.mock("../web/browser-design-session", () => ({
     restoreLatestDraft: mocks.restoreLatestDraft,
     listDrafts: mocks.listDrafts,
     installContinuousSave: mocks.installContinuousSave,
+    installFormatCore: mocks.installFormatCore,
   },
 }));
 
@@ -120,6 +123,8 @@ describe("settings platform bootstrap", () => {
     mocks.listDrafts.mockReset().mockReturnValue([{ id: "draft-1", name: "Orchard", updatedAt: "2026-10-01T00:00:00.000Z" }]);
     mocks.uninstallContinuousSave.mockReset();
     mocks.installContinuousSave.mockReset().mockReturnValue(mocks.uninstallContinuousSave);
+    mocks.uninstallFormatCore.mockReset();
+    mocks.installFormatCore.mockReset().mockReturnValue(mocks.uninstallFormatCore);
     mocks.disposePlaceSearchSession.mockReset();
     mocks.installPlaceSearchSession.mockReset().mockReturnValue(mocks.disposePlaceSearchSession);
     mocks.disposeToolRailLearning.mockReset();
@@ -167,9 +172,14 @@ describe("settings platform bootstrap", () => {
     expect(mocks.restoreLatestDraft.mock.invocationCallOrder[0]).toBeLessThan(
       mocks.installContinuousSave.mock.invocationCallOrder[0]!,
     );
+    // canopi-f47t.52.270: the format core is the session's before a Draft reopens, so a newer one opens read-only.
+    expect(mocks.installFormatCore.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.restoreLatestDraft.mock.invocationCallOrder[0]!,
+    );
 
     bootstrapPlatform();
 
+    expect(mocks.uninstallFormatCore).toHaveBeenCalledOnce();
     expect(mocks.uninstallContinuousSave).toHaveBeenCalledOnce();
     expect(mocks.disposePlaceSearchSession).toHaveBeenCalledOnce();
     expect(mocks.installToolRailLearning).toHaveBeenCalledTimes(2);

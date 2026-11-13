@@ -5,7 +5,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { CRATE_DIR, cliVersion, lockedVersion, moduleRustflags, versionRefusal } from './build-wasm.mjs'
+import { BIND_ARGS, CRATE_DIR, MODULE_PROFILE, cliVersion, lockedVersion, moduleRustflags, versionRefusal } from './build-wasm.mjs'
 
 const LOCK = [
   'version = 4',
@@ -58,6 +58,22 @@ describe('canopi-f47t.52.270: the module names no builder path', () => {
       .toEqual(['-C', 'debuginfo=0', '-C', 'opt-level=3', ...remaps, '-C', 'target-cpu=mvp'])
     expect(moduleRustflags({ env: { RUSTFLAGS: '-C debuginfo=0', CARGO_ENCODED_RUSTFLAGS: '-Cfoo=1\x1f-Cbar=2' }, ...places, mvp: false }).split('\x1f'))
       .toEqual(['-Cfoo=1', '-Cbar=2', ...remaps])
+  })
+})
+
+describe('canopi-f47t.52.270: the module is built for size', () => {
+  it('builds with the measured size settings through Cargo profile variables, so the root release profile Desktop uses stays as it is', () => {
+    expect(MODULE_PROFILE).toEqual({
+      CARGO_PROFILE_RELEASE_OPT_LEVEL: 's',
+      CARGO_PROFILE_RELEASE_LTO: 'true',
+      CARGO_PROFILE_RELEASE_CODEGEN_UNITS: '1',
+    })
+    const manifest = fs.readFileSync(path.join(CRATE_DIR, '..', 'Cargo.toml'), 'utf8')
+    expect(manifest).not.toMatch(/opt-level\s*=\s*"s"/u)
+  })
+
+  it('binds without the name section, which only names functions for a debugger', () => {
+    expect(BIND_ARGS).toEqual(['--target', 'web', '--no-typescript', '--remove-name-section'])
   })
 })
 

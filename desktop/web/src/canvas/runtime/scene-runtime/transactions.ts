@@ -35,15 +35,8 @@ export interface SceneEditRunOptions {
 }
 
 export interface SceneEditCoordinator {
-  run(
-    type: string,
-    edit: (tx: SceneEditTransaction) => void,
-    options?: SceneEditRunOptions,
-  ): boolean
-  begin(
-    type: string,
-    options?: Pick<SceneEditRunOptions, 'onCommitted'>,
-  ): SceneEditTransaction
+  run(type: string, edit: (tx: SceneEditTransaction) => void, options?: SceneEditRunOptions): boolean
+  begin(type: string, options?: Pick<SceneEditRunOptions, 'onCommitted'>): SceneEditTransaction
 }
 
 export interface SceneCommandAdmission {
@@ -110,6 +103,8 @@ interface SceneRuntimeEditCoordinatorOptions {
   incrementSceneRevision(): void
   syncCanvasSignalsFromScene(): void
   invalidate(): void
+  /** A read-only Design (2.1-M478): mutate changes nothing, a selection still applies, undo and redo refuse. */
+  refusesEdits?(): boolean
 }
 
 /**
@@ -128,6 +123,7 @@ export class SceneRuntimeEditCoordinator implements SceneRuntimeAuthority {
   private readonly _incrementSceneRevision: SceneRuntimeEditCoordinatorOptions['incrementSceneRevision']
   private readonly _syncCanvasSignalsFromScene: SceneRuntimeEditCoordinatorOptions['syncCanvasSignalsFromScene']
   private readonly _invalidate: SceneRuntimeEditCoordinatorOptions['invalidate']
+  private readonly _refusesEdits: () => boolean
   private readonly _admissionRevision = signal(0)
   private _active: SceneAuthorityOperation | null = null
   private _replacementHandoff: {
@@ -141,11 +137,11 @@ export class SceneRuntimeEditCoordinator implements SceneRuntimeAuthority {
   readonly revision: ReadonlySignal<number> = this._admissionRevision
   readonly canUndo = computed(() => {
     void this._admissionRevision.value
-    return this._active === null && this._history.canUndo.value
+    return this._active === null && !this._refusesEdits() && this._history.canUndo.value
   })
   readonly canRedo = computed(() => {
     void this._admissionRevision.value
-    return this._active === null && this._history.canRedo.value
+    return this._active === null && !this._refusesEdits() && this._history.canRedo.value
   })
 
   constructor(options: SceneRuntimeEditCoordinatorOptions) {
@@ -155,6 +151,7 @@ export class SceneRuntimeEditCoordinator implements SceneRuntimeAuthority {
     this._incrementSceneRevision = options.incrementSceneRevision
     this._syncCanvasSignalsFromScene = options.syncCanvasSignalsFromScene
     this._invalidate = options.invalidate
+    this._refusesEdits = options.refusesEdits ?? (() => false)
   }
 
   runWhenSettled<T>(operation: () => T, busyResult: T): T {
@@ -198,6 +195,7 @@ export class SceneRuntimeEditCoordinator implements SceneRuntimeAuthority {
       syncCanvasSignalsFromScene: this._syncCanvasSignalsFromScene,
       incrementSceneRevision: this._incrementSceneRevision,
       invalidate: this._invalidate,
+      refusesContent: this._refusesEdits,
       onCommitted,
       restore: (snapshot) => this._restore(snapshot),
       release: (settled) => this._release(settled),
@@ -399,7 +397,7 @@ export class SceneRuntimeEditCoordinator implements SceneRuntimeAuthority {
    * them keeps the step and is rethrown after the Scene is released.
    */
   private _replay(direction: 'undo' | 'redo'): boolean {
-    if (this._active) return false
+    if (this._active || this._refusesEdits()) return false
     const replay: SceneAuthorityOperation = { type: `scene-history-${direction}` }
     this._acquire(replay)
     const patchOf = (command: SceneCommand) => direction === 'undo' ? command.before : command.after
@@ -524,6 +522,7 @@ interface SceneRuntimeEditTransactionOptions {
   syncCanvasSignalsFromScene(): void
   incrementSceneRevision(): void
   invalidate(): void
+  refusesContent(): boolean
   onCommitted(): void
   restore(snapshot: SceneCommandSnapshot): void
   release(transaction: SceneRuntimeEditTransaction): void
@@ -574,6 +573,7 @@ class SceneRuntimeEditTransaction implements SceneEditTransaction {
 
   mutate(edit: (draft: ScenePersistedState) => void): void {
     this._assertOpen()
+    if (this._options.refusesContent()) return
     this._sceneStore.updatePersisted(edit)
   }
 

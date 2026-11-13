@@ -463,7 +463,8 @@
       "also_owners": [
         "desktop/web/src/web/duckdb-wasm-catalog.ts",
         "desktop/web/src/app/canvas-pdf/job.ts",
-        "desktop/web/src/maplibre/loader.ts"
+        "desktop/web/src/maplibre/loader.ts",
+        "desktop/web/src/platform/design-core.ts"
       ],
       "owner_target": {
         "path": "desktop/web/src/maplibre/raster-display/pool.ts",

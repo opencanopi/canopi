@@ -1628,6 +1628,11 @@
     "resolve": "Klären…",
     "conflictAnotherTab": "In einem anderen Tab geändert"
   },
+  "readOnlyDesign": {
+    "status": "Schreibgeschützt: von einer neueren Canopi-Version gespeichert",
+    "details": "Dieses Design wurde von einer neueren Canopi-Version gespeichert. Sie können es ansehen, aber nicht ändern oder speichern. Aktualisieren Sie Canopi, um es zu bearbeiten.",
+    "update": "Aktualisieren"
+  },
   "saveProblem": {
     "flushFailedTitle": "Änderungen konnten nicht gespeichert werden",
     "flushFailedMessage": "Canopi konnte Ihre letzten Änderungen nicht schreiben. Versuchen Sie es erneut oder verwerfen Sie sie, um fortzufahren.",
@@ -1834,7 +1839,8 @@
     "cantReadOlderVersion": "Mit Canopi vor Version 2.0 erstellt; Canopi 2.0 und neuer kann es nicht öffnen",
     "cantReadNewerVersion": "Mit einer neueren Canopi-Version erstellt; aktualisieren Sie Canopi, um sie zu öffnen",
     "cantReadDamaged": "Datei kann nicht gelesen werden: Sie ist beschädigt",
-    "rowReadOnly": "Schreibgeschützt: von einer neueren Canopi-Version gespeichert"
+    "rowReadOnly": "Schreibgeschützt: von einer neueren Canopi-Version gespeichert",
+    "unreadableDraft": "Von einer neueren Canopi-Version gespeichert; diese Version kann ihn nicht lesen"
   },
   "shortcutKeys": {
     "ctrl": "Strg",

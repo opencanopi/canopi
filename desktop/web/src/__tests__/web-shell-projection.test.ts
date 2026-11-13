@@ -24,6 +24,7 @@ function canvasProjection(): CanvasCommandProjection {
       activeTool: 'select',
       canvasAvailable: false,
       spatialEditingAvailable: true,
+      readOnly: false,
       selection: null,
       held: false,
       lockedObjectsPresent: false,

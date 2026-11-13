@@ -1,7 +1,8 @@
 // The format worker's probe (Step 2.0.4 R1-1, canopi-f47t.52.270; design check §5b R1): its riskiest assumption, probed
 // first. The built Web Edition's module worker (src/platform/design-core.worker.ts) loads canopi-format-wasm, which
-// links canopi-types and the canopi-redact leaf, and runs it in every engine Canopi supports. It drives no app: a blank
-// page on the preview origin starts the worker from dist-web, as R1-6's adapter will, and asks the module's probe call.
+// links canopi-format's read half and canopi-types, and runs it in every engine Canopi supports. It drives no app: a
+// blank page on the preview origin starts the worker from dist-web, as the design-core adapter does, and asks the
+// module's one call, `read`, for the frozen v10 fixture (R1-6 replaced R1-1's probe call with it).
 // - Chromium (stands in for WebView2), Playwright WebKit and Firefox: the projects of playwright.config.ts.
 // - WebKitGTK and WebView2 themselves: the WebDriver test, run by web-edition-browsers.yml's format-core-engines job
 //   against WebKitWebDriver (MiniBrowser on Ubuntu 22.04's WebKitGTK, Desktop's Linux floor) and msedgedriver, with
@@ -14,8 +15,9 @@
 // The preview server labels the .wasm `application/wasm`, so the worker compiles it as it streams; a host that labels it
 // otherwise gets the arrayBuffer fallback, as does an engine refusing a parameter after the label, and a load that
 // fails answers `unavailable` and is retried by the next call.
-// Measured 2026-11-12 (wasm-bindgen 0.2.130, Rust 1.97.1 release, builder paths remapped, no wasm-opt): the .wasm is
-// 61,779 bytes, and the worker's chunk with the glue bundled in 3,640; it instantiated with the default target features
+// Measured 2026-11-12 with R1-1's probe call (wasm-bindgen 0.2.130, Rust 1.97.1 release, builder paths remapped, no
+// wasm-opt): the .wasm was 61,779 bytes (with the read half, R1-6: 810,236), the worker's chunk with the glue bundled
+// 3,640 (R1-6: 3,821); it instantiated with the default target features
 // (reference types among them) in the pinned image's Chromium, WebKit and Firefox and in MiniBrowser on Ubuntu 22.04's
 // WebKitGTK 2.50.4 through WebKitWebDriver, so no `-C target-cpu=mvp` for those engines; the floor is unmeasured.
 import { readdirSync, readFileSync } from 'node:fs'
@@ -28,9 +30,9 @@ import { APP_ORIGIN } from '../support/storage-persistence'
 const ASSETS = fileURLToPath(new URL('../../dist-web/assets/', import.meta.url))
 const PROBE_URL = `${APP_ORIGIN}/format-core-probe.html`
 const PROBE_PAGE = '<!doctype html><html><body>format core probe</body></html>'
-/** A path the shared corpus redacts to `<path>`: the probe text, which must never come back. */
-const PROBE_TEXT = '/home/ana/plan.canopi'
-const EXPECTED_VALUE = { current_version: 9, redacted: '<path>' }
+/** The frozen v10 fixture, and the read view canopi-format gives for it (held equal by its Rust test). */
+const PROBE_TEXT = readFileSync(fileURLToPath(new URL('../../../../canopi-format/spec/v10/read-fixture.canopi', import.meta.url)), 'utf8')
+const EXPECTED_VALUE = { read: JSON.parse(readFileSync(fileURLToPath(new URL('../../../../canopi-format/spec/v10/read-expected.json', import.meta.url)), 'utf8')) as unknown }
 
 /** The one built file of dist-web/assets whose name matches, as the URL the preview server serves it at. */
 function builtAsset(pattern: RegExp): string {
@@ -70,7 +72,7 @@ async function runProbe({ workerUrl, texts, between }: ProbeRun): Promise<unknow
       replies.push(await new Promise((resolve, reject) => {
         worker.onmessage = (event) => resolve(event.data)
         worker.onerror = (event) => reject(new Error(`worker error: ${event.message || 'no message'}`))
-        worker.postMessage({ id: index + 1, call: 'probe', text })
+        worker.postMessage({ id: index + 1, call: 'read', text })
       }))
     }
   } finally {
@@ -89,7 +91,7 @@ function expectProbeAnswer(reply: ProbeReply, compiledBy: 'streaming' | 'arrayBu
   expect(JSON.parse(reply.value ?? 'null')).toEqual(EXPECTED_VALUE)
 }
 
-test('canopi-f47t.52.270: the format worker instantiates canopi-format-wasm and runs the redact leaf in it', async ({ page, browserName }) => {
+test('canopi-f47t.52.270: the format worker instantiates canopi-format-wasm and reads a v10 Design in it', async ({ page, browserName }) => {
   const wasm = await page.request.get(WASM_URL())
   // The content-type check: the preview server, like Cloudflare Pages, labels the module so it compiles as it streams.
   expect(wasm.headers()['content-type']).toBe('application/wasm')

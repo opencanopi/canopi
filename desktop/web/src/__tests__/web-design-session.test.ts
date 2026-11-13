@@ -250,12 +250,6 @@ describe('browser Design Session lifecycle', () => {
       kind: 'unsupported_version',
     },
     {
-      label: 'a Design newer than this build',
-      content: () => ({ ...makeCanopiFile(), version: 10 }),
-      message: '$.version: unsupported Canopi Design version 10; Canopi 2.0 and later open only version 9',
-      kind: 'unsupported_version',
-    },
-    {
       label: 'a Canopi 1.2 Design (v6, local metres under a spatial frame)',
       content: () => ({
         ...makeCanopiFile(),
@@ -308,18 +302,28 @@ describe('browser Design Session lifecycle', () => {
     expect(store.readCurrentDesign()).toEqual(original)
   })
 
+  it('canopi-f47t.52.270: reader release: a v10 Design opens read-only from its file, with no Draft minted or written', async () => {
+    const [storage, store, page] = [memoryStorage(), createDesignSessionStore(), testPage()]
+    const createDraftId = vi.fn(() => 'draft-never')
+    const readNewerDesign = vi.fn(async () => ({ view: makeCanopiFile({ name: 'Orchard 2.1' }), saved_by_version: 10 }))
+    const text = JSON.stringify({ ...makeCanopiFile(), version: 10 })
+    const controller = createBrowserDesignSessionController({ store, appDataStore: createBrowserAppDataStore({ storage }), createDraftId, fileAdapter: testFileAdapter({ openCanopiFile: vi.fn(async () => ({ fileName: 'orchard.canopi', text })) }) })
+    controller.installFormatCore({ readNewerDesign })
+    controller.installContinuousSave(page)
+    const writes = [vi.spyOn(storage, 'setItem'), vi.spyOn(storage, 'removeItem')]
+    await expect(controller.openCanopi()).resolves.toBe(true)
+    expect([readNewerDesign.mock.calls, store.sessionKind.value, store.readDesignName()]).toEqual([[[text]], { kind: 'read-only', origin: 'newer-version', savedByVersion: 10 }, 'Orchard 2.1'])
+    page.window.dispatchEvent(new Event('pagehide'))
+    await expect(controller.closeDesign()).resolves.toBe(true)
+    expect([createDraftId, ...writes].map((spy) => spy.mock.calls.length)).toEqual([0, 0, 0])
+  })
+
   it.each([
     {
       label: 'a Canopi 1.1 Design (version 6)',
       fileName: 'orchard.canopi',
       text: () => JSON.stringify({ ...makeCanopiFile(), version: 6, extra: {} }),
       messageKey: 'start.cantReadOlderVersion',
-    },
-    {
-      label: 'a Design from a newer Canopi',
-      fileName: 'future.canopi',
-      text: () => JSON.stringify({ ...makeCanopiFile(), version: 99 }),
-      messageKey: 'start.cantReadNewerVersion',
     },
     {
       label: 'a truncated file',

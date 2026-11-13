@@ -6,6 +6,18 @@ import {
   type DesignSessionPersistenceCapture,
 } from './persistence-capability'
 
+/**
+ * What the open Design Session may do (2.1-M478, design check F3). `editing` writes every change to its home;
+ * `read-only` shows a Design a newer Canopi saved (`origin: 'newer-version'`, its format `savedByVersion`): it has no
+ * home, Draft id or write destination, continuous save writes nothing, Design Edit refuses edits, and Close ends it
+ * through the one close replacement without asking.
+ */
+export type DesignSessionKind =
+  | { readonly kind: 'editing' }
+  | { readonly kind: 'read-only'; readonly origin: 'newer-version'; readonly savedByVersion: number }
+
+export const EDITING_DESIGN_SESSION: DesignSessionKind = Object.freeze({ kind: 'editing' })
+
 export interface DesignSessionIdentity {
   readonly file: CanopiFile | null
   readonly path: string | null
@@ -17,6 +29,8 @@ export interface DesignSessionStore {
   readonly currentDesign: ReadonlySignal<CanopiFile | null>
   readonly designPath: ReadonlySignal<string | null>
   readonly designName: ReadonlySignal<string>
+  /** The open session's kind; `editing` with no Design open. */
+  readonly sessionKind: ReadonlySignal<DesignSessionKind>
   readonly designDirty: ReadonlySignal<boolean>
   readonly canvasDirty: ReadonlySignal<boolean>
   readonly committedDesignRevision: ReadonlySignal<number>
@@ -28,10 +42,13 @@ export interface DesignSessionStore {
   readDesignPath(): string | null
   readDesignName(): string
   hasCurrentDesign(): boolean
+  /** The open Design is shown read-only: nothing edits or writes it. */
+  isReadOnly(): boolean
   isDesignDirty(): boolean
   isCanvasDirty(): boolean
 
-  replaceCurrentDesignState(file: CanopiFile, path: string | null, name: string): void
+  /** Start a new session on `file`; `kind` is `editing` unless the replacement opens it read-only. */
+  replaceCurrentDesignState(file: CanopiFile, path: string | null, name: string, kind?: DesignSessionKind): void
   replaceCurrentDesignSnapshot(file: CanopiFile): void
   /** End the session: no current Design, clean baselines, a new session identity. */
   clearCurrentDesign(): void
@@ -95,6 +112,7 @@ export function createDesignSessionStore(
   const currentDesign = signal<CanopiFile | null>(initial.file ?? null)
   const designPath = signal<string | null>(initial.path ?? null)
   const designName = signal<string>(initial.name ?? initial.file?.name ?? 'Untitled')
+  const sessionKind = signal<DesignSessionKind>(EDITING_DESIGN_SESSION)
   const nonCanvasRevision = signal(0)
   const nonCanvasSavedRevision = signal(0)
   const persistenceDiverged = signal(false)
@@ -130,6 +148,8 @@ export function createDesignSessionStore(
   let acknowledgementGeneration = 0
   const committedDesignRevision = signal(0)
 
+  const readOnly = () => sessionKind.peek().kind === 'read-only'
+
   function applyCommittedDesign(
     updater: (design: CanopiFile) => CanopiFile,
     markDirty: boolean,
@@ -160,6 +180,7 @@ export function createDesignSessionStore(
     currentDesign: signals.currentDesign,
     designPath: signals.designPath,
     designName: signals.designName,
+    sessionKind,
     designDirty: signals.designDirty,
     canvasDirty: signals.canvasDirty,
     committedDesignRevision,
@@ -189,6 +210,10 @@ export function createDesignSessionStore(
       return signals.currentDesign.value !== null
     },
 
+    isReadOnly() {
+      return sessionKind.value.kind === 'read-only'
+    },
+
     isDesignDirty() {
       return signals.designDirty.value
     },
@@ -197,7 +222,7 @@ export function createDesignSessionStore(
       return signals.canvasDirty.value
     },
 
-    replaceCurrentDesignState(file, path, name) {
+    replaceCurrentDesignState(file, path, name, kind = EDITING_DESIGN_SESSION) {
       sessionGeneration += 1
       detachedCanvasRevision = 0
       committedContentRevision += 1
@@ -208,6 +233,7 @@ export function createDesignSessionStore(
         signals.persistenceDiverged.value = false
         signals.designPath.value = path
         signals.designName.value = name
+        sessionKind.value = kind
       })
     },
 
@@ -221,6 +247,7 @@ export function createDesignSessionStore(
         committedDesignRevision.value += 1
         signals.designPath.value = null
         signals.designName.value = 'Untitled'
+        sessionKind.value = EDITING_DESIGN_SESSION
         signals.canvasClean.value = true
         signals.detachedCanvasDirty.value = false
         signals.nonCanvasRevision.value = 0
@@ -240,7 +267,7 @@ export function createDesignSessionStore(
 
     renameCurrentDesign(name) {
       const design = signals.currentDesign.peek()
-      if (!design || name === signals.designName.value) return false
+      if (!design || readOnly() || name === signals.designName.value) return false
       const next = { ...design, name }
       committedContentRevision += 1
       batch(() => {
@@ -285,9 +312,11 @@ export function createDesignSessionStore(
   registerDesignEditAuthorityCapability(
     store,
     {
-      editCommitted: (projector) => applyCommittedDesign(projector, true),
+      // A read-only session refuses every edit; reconciling keeps the shown Design coherent and marks nothing.
+      editCommitted: (projector) => (readOnly() ? null : applyCommittedDesign(projector, true)),
       reconcileCommitted: (projector) => applyCommittedDesign(projector, false),
       markCommittedDirty: () => {
+        if (readOnly()) return
         signals.nonCanvasRevision.value += 1
       },
     },
@@ -382,6 +411,7 @@ export function createDesignSessionStore(
         signals.canvasClean.value = state.canvasClean ?? true
         signals.detachedCanvasDirty.value = state.detachedCanvasDirty ?? false
         signals.pendingDesignPath.value = state.pendingDesignPath ?? null
+        sessionKind.value = EDITING_DESIGN_SESSION
         committedDesignRevision.value = 0
       })
     },
@@ -397,6 +427,7 @@ export function createDesignSessionStore(
         if (has('file')) {
           sessionIdentity.value = Object.freeze({})
           signals.currentDesign.value = state.file ?? null
+          sessionKind.value = EDITING_DESIGN_SESSION
           committedDesignRevision.value += 1
         }
         if (has('path')) signals.designPath.value = state.path ?? null

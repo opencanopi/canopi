@@ -4,7 +4,7 @@ import { formatInstantInList } from '../../app/timeline/civil-date'
 import { t } from '../../i18n'
 import { ActionMenu } from './ActionMenu'
 import { recentDesignLocations, type RecentDesignLocation } from '../../app/recent-files/locations'
-import type { RecentDesignPreview, RecentDesignUnreadableReason } from '../../types/design'
+import type { DesignSketch, RecentDesignPreview, RecentDesignUnreadableReason } from '../../types/design'
 import { ControlIcon, type ControlIconName } from './ControlIcon'
 import { DesignSketchThumbnail } from './DesignSketchThumbnail'
 import { visibleDesignName } from './DesignNameField'
@@ -49,7 +49,12 @@ export interface StartScreenDraft {
    */
   readonly readOnly?: boolean
   open(): void
-  /** More › Delete, confirmed inline; absent on a row that cannot be deleted (a read-only Draft, design check F7). */
+  /**
+   * Saved by a newer Canopi whose read this build refuses (2.1-Q316): listed as unreadable, never as an editable
+   * Draft; opening it says why. Such a row has no `delete`.
+   */
+  readonly unreadable?: boolean
+  /** More › Delete, confirmed inline; never on a read-only or unreadable row, which the store refuses (design check F7). */
   readonly delete?: () => void
   /** More-menu items before Delete (Web: Download a copy, also on a read-only row, 2.1-Q323). */
   readonly actions?: readonly StartScreenAction[]
@@ -259,7 +264,7 @@ const UNREADABLE_MESSAGE_KEYS: Record<RecentDesignUnreadableReason, LocaleKey> =
 function RecentRow({ design, location }: { readonly design: StartScreenDesign; readonly location: RecentDesignLocation | null }) {
   const name = visibleDesignName(design.name)
   const preview = design.preview
-  const sketch = preview?.kind === 'read' ? preview.sketch : null
+  const sketch = sketchOf(preview)
   const status = design.readOnly
     ? t('start.rowReadOnly')
     : preview?.kind === 'read'
@@ -301,19 +306,19 @@ function RecentRow({ design, location }: { readonly design: StartScreenDesign; r
 function DraftRow({ draft }: { readonly draft: StartScreenDraft }) {
   const [confirming, setConfirming] = useState(false)
   const name = visibleDesignName(draft.name)
-  const remove = draft.delete
+  const remove = draft.readOnly || draft.unreadable ? undefined : draft.delete
   const items = [
     ...(draft.actions ?? []).map((action) => ({ label: action.label, run: action.run })),
     ...(remove ? [{ label: t('drafts.deleteItem'), danger: true, run: () => setConfirming(true) }] : []),
   ]
   return (
-    <li className={styles.row} data-read-only={draft.readOnly ? '' : undefined}>
+    <li className={styles.row} data-read-only={draft.readOnly ? '' : undefined} data-unreadable={draft.unreadable ? '' : undefined}>
       <div className={styles.rowLine}>
         <button type="button" className={styles.rowButton} onClick={draft.open}>
           <span className={`${styles.thumb} ${styles.draftThumb}`} aria-hidden="true"><ControlIcon name="draft" size={20} /></span>
           <span className={styles.rowText}>
             <span className={styles.rowName}>{name}</span>
-            <span className={styles.rowMeta}>{t(draft.readOnly ? 'start.rowReadOnly' : 'drafts.neverSaved')}</span>
+            <span className={styles.rowMeta}>{t(draftStatusKey(draft))}</span>
           </span>
           <span className={styles.rowDate}>{formatInstantInList(draft.updatedAt, locale.value)}</span>
         </button>
@@ -339,6 +344,16 @@ function DraftRow({ draft }: { readonly draft: StartScreenDraft }) {
       )}
     </li>
   )
+}
+
+/** The sketch a read Design shows, a read-only one included (2.1-Q316). */
+function sketchOf(preview: RecentDesignPreview | undefined): DesignSketch | null {
+  return preview?.kind === 'read' || preview?.kind === 'read_only' ? preview.sketch : null
+}
+
+function draftStatusKey(draft: StartScreenDraft): LocaleKey {
+  if (draft.unreadable) return 'start.unreadableDraft'
+  return draft.readOnly ? 'start.rowReadOnly' : 'drafts.neverSaved'
 }
 
 function fold(text: string): string {

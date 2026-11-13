@@ -1628,6 +1628,11 @@
     "resolve": "解决…",
     "conflictAnotherTab": "已在另一个标签页中更改"
   },
+  "readOnlyDesign": {
+    "status": "只读：由更新版本的 Canopi 保存",
+    "details": "此设计由更新版本的 Canopi 保存。您可以查看，但无法更改或保存。请更新 Canopi 以进行编辑。",
+    "update": "更新"
+  },
   "saveProblem": {
     "flushFailedTitle": "无法保存您的更改",
     "flushFailedMessage": "Canopi 无法写入您最近的更改。请重试，或放弃这些更改以继续。",
@@ -1834,7 +1839,8 @@
     "cantReadOlderVersion": "由 Canopi 2.0 之前的版本创建，Canopi 2.0 及更高版本无法打开",
     "cantReadNewerVersion": "由新版 Canopi 创建，请更新 Canopi 后打开",
     "cantReadDamaged": "无法读取此文件：文件已损坏",
-    "rowReadOnly": "只读：由更新版本的 Canopi 保存"
+    "rowReadOnly": "只读：由更新版本的 Canopi 保存",
+    "unreadableDraft": "由更新版本的 Canopi 保存，此版本无法读取"
   },
   "shortcutKeys": {
     "ctrl": "Ctrl",

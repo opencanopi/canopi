@@ -14,7 +14,7 @@ publish = false
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-canopi-redact = { path = "../canopi-redact" }
+canopi-format = { path = "../canopi-format" }
 canopi-types = { path = "../canopi-types" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

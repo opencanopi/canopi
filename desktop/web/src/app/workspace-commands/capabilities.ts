@@ -1,6 +1,6 @@
 import { openAboutCanopiDialog } from '../about/state'
 import { focusOpenPlantFinder } from '../plant-finder/focus'
-import { selectPanel } from '../shell/state'
+import { designShownReadOnly, selectPanel } from '../shell/state'
 import { setMapBackground } from '../map-layers/actions'
 import { mapBackgroundOf, mapLayers } from '../map-layers/state'
 import { mutateSettingsProjection } from '../settings/projection'
@@ -13,8 +13,16 @@ import {
   openManageViewsDialog,
   openSaveViewDialog,
 } from '../saved-views'
-import type { ShellCommandCapabilities } from '../shell-commands'
+import type { ShellCommandCapabilities, ShellCommandState } from '../shell-commands'
 import { toggleToolNames, toolRailShowsNames } from '../tool-rail/learning'
+
+/**
+ * A Design is open and may change or leave Canopi: Rename, Save, Revert, the imports and the exports. A read-only
+ * Design (one a newer Canopi saved) offers Close only (2.1-Q315, M478).
+ */
+export function designChangeable(state: ShellCommandState): boolean {
+  return state.hasDesign && !designShownReadOnly()
+}
 
 /**
  * Shell capabilities both editions share: they act on app state only (title
@@ -24,17 +32,17 @@ export function createWorkspaceShellCapabilities() {
   return {
     renameDesign: {
       execute: requestDesignRename,
-      isExecutionDisabled: (state) => !state.hasDesign,
+      isExecutionDisabled: (state) => !designChangeable(state),
     },
     openSettings: { execute: openSettingsDialog },
     findPlants: { execute: findPlants },
     saveCurrentView: {
       execute: openSaveViewDialog,
-      isExecutionDisabled: (state) => !state.hasDesign || !canShowSavedViews(),
+      isExecutionDisabled: (state) => !designChangeable(state) || !canShowSavedViews(),
     },
     manageViews: {
       execute: openManageViewsDialog,
-      isExecutionDisabled: (state) => !state.hasDesign || currentSavedViews().length === 0,
+      isExecutionDisabled: (state) => !designChangeable(state) || currentSavedViews().length === 0,
     },
     toggleToolNames: {
       execute: toggleToolNames,

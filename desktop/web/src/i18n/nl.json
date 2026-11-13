@@ -1628,6 +1628,11 @@
     "resolve": "Oplossen…",
     "conflictAnotherTab": "Gewijzigd in een ander tabblad"
   },
+  "readOnlyDesign": {
+    "status": "Alleen-lezen: opgeslagen door een nieuwere Canopi",
+    "details": "Dit ontwerp is opgeslagen door een nieuwere Canopi. Je kunt het bekijken, maar niet wijzigen of opslaan. Werk Canopi bij om het te bewerken.",
+    "update": "Bijwerken"
+  },
   "saveProblem": {
     "flushFailedTitle": "Je wijzigingen konden niet worden opgeslagen",
     "flushFailedMessage": "Canopi kon je laatste wijzigingen niet wegschrijven. Probeer het opnieuw of verwerp ze om door te gaan.",
@@ -1834,7 +1839,8 @@
     "cantReadOlderVersion": "Gemaakt met Canopi vóór 2.0; Canopi 2.0 en later kan het niet openen",
     "cantReadNewerVersion": "Gemaakt met een nieuwere versie van Canopi; werk Canopi bij om het te openen",
     "cantReadDamaged": "Bestand kan niet worden gelezen: het is beschadigd",
-    "rowReadOnly": "Alleen-lezen: opgeslagen door een nieuwere Canopi"
+    "rowReadOnly": "Alleen-lezen: opgeslagen door een nieuwere Canopi",
+    "unreadableDraft": "Opgeslagen door een nieuwere Canopi; deze versie kan het niet lezen"
   },
   "shortcutKeys": {
     "ctrl": "Ctrl",

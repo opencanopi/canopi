@@ -4,7 +4,9 @@
 // says a newer Canopi saved it, with Update (2.1-Q317), Close is its only action (2.1-Q315), and the file is never
 // written; Recent Designs then lists it labelled read-only.
 //
-// Written failing in commit 0 and marked expected-fail: R1-6 removes the markers. Mocha has no expected-fail, so
+// Written failing in commit 0 and marked expected-fail. R1-6 removed the open's marker; the Draft row's stays until the
+// Draft list says which Draft a newer Canopi saved (a read-only flag on DesignDraftSummary, canopi-types/src/design.rs,
+// R1 canopi-f47t.52.270): today the row is listed but not labelled, with Delete offered. Mocha has no expected-fail, so
 // `it.fails` below runs its body and fails unless the body throws, as Vitest's does (a body that passes is a vacuous
 // test). The specs share one app session and run in order; the Draft is written before the page reloads, so the
 // start screen lists it.
@@ -15,8 +17,8 @@ import { answerNextDialog, appFolders, currentProfile, openDesignButton, waitFor
 
 const DESIGN_FIXTURE = resolve(import.meta.dirname, '../../fixtures/canvas-base.canopi')
 
-/** Expected-fail for mocha: the test passes only when its body fails. */
-const it = {
+/** Mocha's `it`, with an expected-fail: `it.fails` passes only when its body fails. */
+const it = Object.assign((title: string, body: () => Promise<void>): void => { globalThis.it(title, body) }, {
   fails(title: string, body: () => Promise<void>): void {
     globalThis.it(title, async () => {
       try {
@@ -28,7 +30,7 @@ const it = {
       throw new Error(`"${title}" passed but is marked expected-fail: remove its marker`)
     })
   },
-}
+})
 
 /** A Design as 2.1 writes it: `.canopi` v10, with the plant `scale` renamed `canopy_spread_m` (2.1-Q314). */
 function v10Design(name: string): string {
@@ -54,7 +56,7 @@ describe('the reader release in the Desktop app', () => {
     await browser.refresh()
     await $('[data-start-screen]').waitForDisplayed({ timeout: 90_000 })
 
-    // Today a v10 Draft is skipped from the list as unreadable.
+    // Today the v10 Draft is listed, but unlabelled and with Delete offered (the Draft list has no read-only flag yet).
     const row = $('[data-start-screen] li*=Orchard 2.1')
     await row.waitForDisplayed({ timeout: 30_000 })
     await expect(row).toHaveAttribute('data-read-only')
@@ -70,14 +72,13 @@ describe('the reader release in the Desktop app', () => {
     expect(readFileSync(draft).equals(bytes)).toBe(true)
   })
 
-  it.fails('R1 canopi-f47t.52.270: reader release: a v10 Design opens read-only and says a newer Canopi saved it (Desktop)', async () => {
+  it('R1 canopi-f47t.52.270: reader release: a v10 Design opens read-only and says a newer Canopi saved it (Desktop)', async () => {
     const file = write(join(currentProfile(), 'designs', 'Orchard newer.canopi'), v10Design('Orchard newer'))
     const bytes = readFileSync(file)
     const answer = answerNextDialog(file)
     await openDesignButton().click()
     await waitForAnswerTaken(answer)
 
-    // Today the file is refused as made with a newer Canopi, and the start screen stays.
     const status = $('[data-workspace-title-bar] [data-save-status]')
     await status.waitForDisplayed({ timeout: 30_000 })
     await expect(status).toHaveText(expect.stringContaining('newer Canopi'))

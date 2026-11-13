@@ -4,22 +4,8 @@ use super::*;
 use serde_json::json;
 
 fn geo_file(plants: serde_json::Value) -> CanopiFile {
-    serde_json::from_value(json!({
-        "version": 9,
-        "name": "Geo",
-        "plant_species_colors": {},
-        "layers": [],
-        "plants": plants,
-        "zones": [],
-        "annotations": [],
-        "consortiums": [],
-        "groups": [],
-        "timeline": [],
-        "budget": [],
-        "created_at": "2026-09-25T00:00:00.000Z",
-        "updated_at": "2026-09-25T00:00:00.000Z"
-    }))
-    .expect("current design should deserialize")
+    serde_json::from_value(design_with(json!({ "plants": plants })))
+        .expect("current design should deserialize")
 }
 
 fn plant_at(lon: f64, lat: f64) -> serde_json::Value {
@@ -65,25 +51,13 @@ fn design_geometry_rejects_out_of_range_positions() {
 
 #[test]
 fn design_positions_reject_local_metre_points() {
-    let result = serde_json::from_value::<CanopiFile>(json!({
-        "version": 9,
-        "name": "Metres",
-        "plant_species_colors": {},
-        "layers": [],
+    let result = serde_json::from_value::<CanopiFile>(design_with(json!({
         "plants": [{
             "id": "plant-1",
             "canonical_name": "Malus domestica",
             "position": { "x": 1.0, "y": 2.0 }
-        }],
-        "zones": [],
-        "annotations": [],
-        "consortiums": [],
-        "groups": [],
-        "timeline": [],
-        "budget": [],
-        "created_at": "2026-09-25T00:00:00.000Z",
-        "updated_at": "2026-09-25T00:00:00.000Z"
-    }));
+        }]
+    })));
     assert!(result.is_err(), "design positions must be lon/lat");
 }
 
@@ -596,4 +570,29 @@ fn a_designs_integer_fields_read_9_and_9_0_and_refuse_9_5_minus_1_and_4294967296
                 .contains("expected a signed 32-bit integer")
         );
     }
+}
+
+/// canopi-f47t.52.245 (2.1-M482): a v9 file written before a field existed reads it at its
+/// documented default: no `budget_currency` is EUR, a timeline action without `targets` is
+/// `[manual]`, and a budget line without `target` is Manual.
+#[test]
+fn canopi_f47t_52_245_a_v9_file_missing_later_fields_reads_their_defaults() {
+    let file = admitted(design_with(json!({
+        "timeline": [{
+            "id": "a", "action_type": "planting", "description": "Plant",
+            "completed": false, "order": 0
+        }],
+        "budget": [{
+            "category": "plants", "description": "Apples", "quantity": 2.0,
+            "unit_cost": 12.0, "currency": "EUR"
+        }]
+    })))
+    .expect("an older v9 file reads");
+    assert_eq!(file.budget_currency, DEFAULT_BUDGET_CURRENCY);
+    assert_eq!(DEFAULT_BUDGET_CURRENCY, "EUR");
+    assert!(matches!(
+        file.timeline[0].targets.as_slice(),
+        [PanelTarget::Manual]
+    ));
+    assert!(matches!(file.budget[0].target, PanelTarget::Manual));
 }

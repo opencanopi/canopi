@@ -1,5 +1,4 @@
-import { decodeCanopiDesign } from "../app/contracts/design-ingestion";
-import { asCanopiDesignIngestionError } from "../app/contracts/canopi-design-errors";
+import { decodeCanopiDesign, isSavedByNewerCanopi, parseCanopiText } from "../app/contracts/design-ingestion";
 import { encodeCanopiDesign } from "../app/contracts/canopi-design-wire";
 import { DEFAULT_BUDGET_CURRENCY } from "../app/contracts/document";
 import type { DesignTemplateEnvelope } from "../app/design-template-import/types";
@@ -46,6 +45,7 @@ import {
   withNewDesignDisplay,
 } from "../app/settings/new-design-defaults";
 import { CURRENT_CANOPI_FILE_VERSION } from "../generated/canopi-design-format";
+import type { ReadOnlyDesign } from "../generated/contracts";
 import {
   NEW_DESIGN_LAYER_DEFAULTS,
 } from "../generated/new-design-defaults";
@@ -135,6 +135,8 @@ export interface BrowserDesignSessionController {
   restoreLatestDraft(): boolean;
   attachCanvasSession(session: CanvasDocumentSurface): () => void;
   installContinuousSave(page?: BrowserPageLifecycleTarget): () => void;
+  /** The format core (platform/design-core.ts, 2.1-M477) at launch; without it a newer Design is refused, as in 2.0. */
+  installFormatCore(core: { readNewerDesign(text: string): Promise<ReadOnlyDesign> }): () => void;
 }
 
 export const browserDesignFileAdapter: BrowserDesignFileAdapter = {
@@ -156,6 +158,7 @@ export function createBrowserDesignSessionController({
   reload = () => globalThis.location.reload(),
 }: BrowserDesignSessionControllerOptions = {}): BrowserDesignSessionController {
   let canvasSession: CanvasDocumentSurface | null = null;
+  let formatCore: Parameters<BrowserDesignSessionController["installFormatCore"]>[0] | null = null;
   let nextDownloadWrite = 0;
   let replacementIntent = 0;
   let workflowInstallAttempt = 0;
@@ -334,26 +337,29 @@ export function createBrowserDesignSessionController({
     ) return false;
 
     const opened = await fileAdapter.openCanopiFile();
-    if (intent !== replacementIntent || !replacementGuard.isCurrent()) return false;
-    if (!opened) return false;
+    const current = () => intent === replacementIntent && replacementGuard?.isCurrent() === true;
+    if (!current() || !opened) return false;
     let file: CanopiFile;
+    let readOnly: ReadOnlyDesign | null;
     try {
       if (!opened.fileName.toLowerCase().endsWith(".canopi")) {
         throw new Error(`Expected a .canopi file, received ${opened.fileName}.`);
       }
-      file = parseCanopiJson(opened.text);
+      const value = parseCanopiText(opened.text);
+      readOnly = formatCore && isSavedByNewerCanopi(value) ? await formatCore.readNewerDesign(opened.text) : null;
+      file = readOnly?.view ?? decodeCanopiDesign(value);
     } catch (error) {
-      // A refused file leaves the open Design as it was and says why.
-      presentOpenFailure(error);
+      // A refused file leaves the open Design as it was and says why, unless another replacement took its turn.
+      if (current()) presentOpenFailure(error);
       return false;
     }
-    const draftId = createDraftId();
-    if (intent !== replacementIntent || !replacementGuard.isCurrent()) return false;
-    applyDesignReplacement(draftReplacement({
-      file,
-      kind: "loaded",
-      name: file.name || nameFromFileName(opened.fileName),
-    }, draftId, true), guardCapture);
+    // A Design a newer Canopi saved is shown read-only: no Draft is minted, so nothing is ever written (2.1-M478).
+    const input = { file, kind: "loaded", name: file.name || nameFromFileName(opened.fileName) } as const;
+    const next: ResolvedDesignReplacement = readOnly ? { ...input, path: null, finalizationIdentity: "read-only",
+      session: { kind: "read-only", origin: "newer-version", savedByVersion: readOnly.saved_by_version },
+      onDesignFinalized: () => continuousSave.endSession() } : draftReplacement(input, createDraftId(), true);
+    if (!current()) return false;
+    applyDesignReplacement(next, guardCapture);
     return true;
   }
 
@@ -643,6 +649,10 @@ export function createBrowserDesignSessionController({
     restoreLatestDraft,
     attachCanvasSession,
     installContinuousSave,
+    installFormatCore(core) {
+      formatCore = core;
+      return () => { if (formatCore === core) formatCore = null; };
+    },
   };
 }
 
@@ -684,17 +694,6 @@ function createNewWebCanopiFile(name: string, timestamp: string): CanopiFile {
     updated_at: timestamp,
     extra: {},
   };
-}
-
-function parseCanopiJson(text: string): CanopiFile {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(text);
-  } catch (error) {
-    // Unparseable text is a damaged Design, like any other refused document.
-    throw asCanopiDesignIngestionError(error);
-  }
-  return decodeCanopiDesign(parsed);
 }
 
 function nameFromFileName(fileName: string): string {

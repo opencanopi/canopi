@@ -125,7 +125,7 @@
     "web chunk: WorldMapPanel": { "ceiling": 7207, "tolerance": 0.05 },
     "web chunk: WorldMapSurface": { "ceiling": 2652, "tolerance": 0.05 },
     "web chunk: browserAll": { "ceiling": 42515, "tolerance": 0.05 },
-    "web chunk: design-core.worker": { "ceiling": 3739, "tolerance": 0.05 },
+    "web chunk: design-core.worker": { "ceiling": 3821, "tolerance": 0.05 },
     "web chunk: i18n": { "ceiling": 43439, "tolerance": 0.05 },
     "web chunk: job": { "ceiling": 607757, "tolerance": 0.05 },
     "web chunk: maplibre-gl": { "ceiling": 1057808, "tolerance": 0.05 },
@@ -134,6 +134,6 @@
     "web chunk: rolldown-runtime": { "ceiling": 726, "tolerance": 0.05 },
     "web chunk: web": { "ceiling": 3296612, "tolerance": 0.05 },
     "web chunk: webworkerAll": { "ceiling": 34, "tolerance": 0.05 },
-    "web wasm: canopi_format_wasm_bg": { "ceiling": 61779, "tolerance": 0.05 }
+    "web wasm: canopi_format_wasm_bg": { "ceiling": 470182, "tolerance": 0.05 }
   }
 }

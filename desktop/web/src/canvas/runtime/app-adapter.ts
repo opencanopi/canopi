@@ -210,6 +210,9 @@ export interface CanvasRuntimeAppAdapter {
   /** How ToolHostDeps.focus leaves the runtime: app/canvas-runtime/app-adapter.ts passes the FocusOwner; absent (a
    *  detached runtime), interaction-session.ts focuses its host itself. */
   readonly focus?: CanvasFocusPort
+  /** The open Design is shown read-only (2.1-M478): the Scene authority refuses every edit while it answers true.
+   *  app/canvas-runtime/app-adapter.ts reads the Design session; the detached runtime answers false. */
+  readonly isReadOnly?: () => boolean
 }
 
 /** How a tool's focus request (ToolEffects.requestFocus) leaves the runtime. The FocusOwner implements it. */
@@ -230,6 +233,7 @@ export function createDetachedCanvasRuntimeAppAdapter(): CanvasRuntimeAppAdapter
       composeDocumentForSave: composeDetachedCanvasDocument,
     },
     translate: detachedCanvasRuntimeTranslator,
+    isReadOnly: () => false,
     settings: {
       readLocale: () => 'en',
       readChromeOverlay: () => ({ gridVisible }),

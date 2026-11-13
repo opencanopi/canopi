@@ -814,7 +814,7 @@
     "canopi-format -> canopi-types": {
       "count": 1
     },
-    "canopi-format-wasm -> canopi-redact": {
+    "canopi-format-wasm -> canopi-format": {
       "count": 1
     },
     "canopi-format-wasm -> canopi-types": {

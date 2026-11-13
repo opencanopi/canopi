@@ -1,11 +1,12 @@
 # worker-only-in-owner (§18 F16): `new Worker`, `new SharedWorker` and a Vite `?worker` import only in the module
-# that starts each worker: the raster display pool, the species reader, the PDF job and the MapLibre loader (its worker
-# URL). A new worker joins also_owners in the change that adds it. 0 outside today.
+# that starts each worker: the raster display pool, the species reader, the PDF job, the MapLibre loader (its worker
+# URL) and the Web format core (platform/design-core.ts, Step 2.0.4). A new worker joins also_owners in the change that
+# adds it. 0 outside today.
 # message and ignores: generated from policy/primitives.json.
 id: worker-only-in-owner.tsx
 language: tsx
 severity: error
-message: "worker-only-in-owner (§18 F16): a worker is started (new Worker, new SharedWorker, a ?worker import) only by the module that owns it. ADR 0028; owner desktop/web/src/maplibre/raster-display/pool.ts (also desktop/web/src/web/duckdb-wasm-catalog.ts, desktop/web/src/app/canvas-pdf/job.ts, desktop/web/src/maplibre/loader.ts); target desktop/web/src/maplibre/raster-display/pool.ts (2b); example desktop/web/src/maplibre/raster-display/pool.ts"
+message: "worker-only-in-owner (§18 F16): a worker is started (new Worker, new SharedWorker, a ?worker import) only by the module that owns it. ADR 0028; owner desktop/web/src/maplibre/raster-display/pool.ts (also desktop/web/src/web/duckdb-wasm-catalog.ts, desktop/web/src/app/canvas-pdf/job.ts, desktop/web/src/maplibre/loader.ts, desktop/web/src/platform/design-core.ts); target desktop/web/src/maplibre/raster-display/pool.ts (2b); example desktop/web/src/maplibre/raster-display/pool.ts"
 files:
   - "{desktop/web,policy/fixtures/rules/*}/src/**/*.tsx"
 ignores:
@@ -18,6 +19,7 @@ ignores:
   - "{desktop/web,policy/fixtures/rules/*}/src/web/duckdb-wasm-catalog.ts"
   - "{desktop/web,policy/fixtures/rules/*}/src/app/canvas-pdf/job.ts"
   - "{desktop/web,policy/fixtures/rules/*}/src/maplibre/loader.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/platform/design-core.ts"
 rule:
   any:
     - kind: new_expression

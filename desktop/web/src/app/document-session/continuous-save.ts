@@ -13,8 +13,9 @@ export const CONTINUOUS_SAVE_DELAY_MS = 1500
 /**
  * `draft`: the Design lives in a Design Draft (never saved to a file); Canopi
  * keeps every change there. `saved`/`saving` describe a Design with a file.
+ * `read-only`: a newer Canopi saved the Design, shown read-only and never written (2.1-M478, Q317).
  */
-export type DesignSaveStatus = 'saved' | 'saving' | 'draft' | 'error' | 'conflict'
+export type DesignSaveStatus = 'saved' | 'saving' | 'draft' | 'error' | 'conflict' | 'read-only'
 
 /**
  * Where a Design Session writes. A file home is the `.canopi` file the
@@ -147,8 +148,12 @@ export function createContinuousSave({
     return current && current.identity === store.sessionIdentity.value ? current : null
   }
 
+  // A read-only session has nothing to write: no change is ever pending, so no timer, flush or leave guard runs.
+  const readOnly = computed(() => store.sessionKind.value.kind === 'read-only')
+
   const pending = computed(() =>
     store.currentDesign.value !== null
+    && !readOnly.value
     && (store.designDirty.value || (currentRecord() !== null && writePending.value))
   )
 
@@ -159,6 +164,7 @@ export function createContinuousSave({
   })
 
   const status = computed<DesignSaveStatus>(() => {
+    if (readOnly.value && store.currentDesign.value !== null) return 'read-only'
     if (homeless.value) return pending.value ? 'error' : 'saved'
     if (conflict.value) return 'conflict'
     if (failed.value) return 'error'
@@ -233,7 +239,7 @@ export function createContinuousSave({
     forceWrite = false
     const session = peekRecord()
     const home = readHome()
-    if (!session || !home || !store.hasCurrentDesign()) return !pending.peek()
+    if (!session || !home || !store.hasCurrentDesign() || readOnly.peek()) return !pending.peek()
     if (conflict.peek()) return false
     if (!pending.peek() && !force) return true
 
@@ -390,7 +396,7 @@ export function createContinuousSave({
 
     save() {
       // A Save that cannot write now (no Design, or a conflict) is not kept for a later write.
-      if (store.hasCurrentDesign() && !conflict.peek()) forceWrite = true
+      if (store.hasCurrentDesign() && !readOnly.peek() && !conflict.peek()) forceWrite = true
       return flush()
     },
 

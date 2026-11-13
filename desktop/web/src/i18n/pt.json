@@ -1628,6 +1628,11 @@
     "resolve": "Resolver…",
     "conflictAnotherTab": "Alterado em outra aba"
   },
+  "readOnlyDesign": {
+    "status": "Somente leitura: salvo por uma versão mais recente do Canopi",
+    "details": "Este design foi salvo por uma versão mais recente do Canopi. Você pode vê-lo, mas não pode alterá-lo nem salvá-lo. Atualize o Canopi para editá-lo.",
+    "update": "Atualizar"
+  },
   "saveProblem": {
     "flushFailedTitle": "Não foi possível salvar suas alterações",
     "flushFailedMessage": "O Canopi não conseguiu gravar suas últimas alterações. Tente novamente ou descarte-as para continuar.",
@@ -1834,7 +1839,8 @@
     "cantReadOlderVersion": "Criado com uma versão do Canopi anterior à 2.0; o Canopi 2.0 e posteriores não podem abri-lo",
     "cantReadNewerVersion": "Criado com uma versão mais recente do Canopi; atualize o Canopi para abri-lo",
     "cantReadDamaged": "Não é possível ler o arquivo: está danificado",
-    "rowReadOnly": "Somente leitura: salvo por uma versão mais recente do Canopi"
+    "rowReadOnly": "Somente leitura: salvo por uma versão mais recente do Canopi",
+    "unreadableDraft": "Salvo por uma versão mais recente do Canopi; esta versão não consegue lê-lo"
   },
   "shortcutKeys": {
     "ctrl": "Ctrl",
