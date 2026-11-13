@@ -329,9 +329,13 @@ export function readLidarPresentation(
   const sectionVisible = design?.lidar?.visible ?? true
   const items: Omit<LidarPresentationItem, 'parentId' | 'depth'>[] = []
   for (const entry of entries) {
-    const item = library?.items.find((candidate) => candidate.id === entry.id && candidate.role === entry.kind)
+    // An id names one item, whatever kind the entry stored or left out (a v10 Design's Site data); the item's role
+    // is the kind (2.1-M493).
+    const listed = library?.items.find((candidate) => candidate.id === entry.id)
+    // An item a newer catalogue lists is never drawn: its row reads by its name, needing a newer Canopi (2.1-Q318).
+    const item = listed?.state === 'NeedsNewer' ? undefined : listed
     const presentation = {
-      kind: entry.kind,
+      kind: listed?.role ?? entry.kind,
       id: entry.id,
       visible: entry.visible,
       shown: entry.visible && sectionVisible,
@@ -361,8 +365,8 @@ export function readLidarPresentation(
         }
       : {
           ...presentation,
-          name: entry.name,
-          availability: absentAvailability(library, libraryStatus),
+          name: listed ? libraryItemName(listed, library) : entry.name,
+          availability: listed ? 'needs-newer-canopi' as const : absentAvailability(library, libraryStatus),
           itemType: null,
           units: '',
           state: null,
