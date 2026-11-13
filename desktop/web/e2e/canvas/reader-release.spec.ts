@@ -1,6 +1,7 @@
 // The reader release on the Web Edition (Step 2.0.4; plan "Tests by behaviour"). After a rollback from 2.1:
-// - R1 (canopi-f47t.52.270): a `.canopi` v10 Design opens in the read-only Session kind; its save status says a newer
-//   Canopi saved it, with Update (2.1-Q317), Close is its only action (2.1-Q315), and it is never handed to the Draft
+// - R1 (canopi-f47t.52.270): a `.canopi` v10 Design opens in the read-only Session kind; its save status says
+//   "Read-only" and its popover that a newer Canopi saved it, with Update (2.1-Q317, Q336), Close is its only action
+//   (2.1-Q315), and it is never handed to the Draft
 //   store (contracts §11: a v10 Design never reaches the 2.0 store or persistence paths).
 // - R4 (canopi-f47t.52.239): a session over every frozen Web store form the rollback manifest lists writes no byte
 //   (contracts §11 Rollback harness, 2.1-M484). Each Web row's `path` is a seed dump, `{ localStorage?: {key: value},
@@ -65,8 +66,13 @@ test('R1 canopi-f47t.52.270: reader release: a v10 Design opens read-only and sa
 
   const status = page.locator('[data-workspace-title-bar] [data-save-status]')
   await expect(status, 'the Design opens').toBeVisible()
-  await expect(status).toContainText(/newer Canopi/)
-  await expect(status.getByRole('button', { name: 'Update' }), 'the save status offers Update').toBeVisible()
+  // The bar says "Read-only"; its popover says why and offers Update (2.1-Q336).
+  await status.getByRole('button', { name: 'Read-only', exact: true }).click()
+  const details = status.getByRole('dialog')
+  await expect(details).toContainText('Read-only: saved by a newer Canopi')
+  await expect(details.getByRole('button', { name: 'Update' }), 'the save status popover offers Update').toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(details).toBeHidden()
   await expect(page.locator('[data-workspace-title-bar]')).toContainText('Orchard 2.1')
 
   // A camera move settles a view (600 ms) and would queue the last view (160 ms more); wait past both (design check 5c).

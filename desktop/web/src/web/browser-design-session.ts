@@ -8,7 +8,7 @@ import {
 } from "../app/document-session/replacement";
 import { presentDesignOpenFailure } from "../app/document-session/open-failure";
 import { requestSaveProblemDecision } from "../app/document-session/save-problem";
-import { designSessionStore, type DesignSessionKind, type PersistenceCapableDesignSessionStore } from "../app/document-session/store";
+import { designSessionStore, readOnlyOrigin, type DesignSessionKind, type PersistenceCapableDesignSessionStore } from "../app/document-session/store";
 import { DESIGN_SESSION_WORKFLOWS } from "../app/document-session/workflows";
 import { createDesignSessionWorkflowRunner, type DesignSessionWorkflowRunner } from "../app/document-session/workflow-runner";
 import { createDesignSessionPersistence, DesignPersistenceLeaseError, type DesignReplacementGuardCapture } from "../app/document-session/persistence";
@@ -299,7 +299,7 @@ export function createBrowserDesignSessionController({
   }
 
   /** Opens a picked file (null: cancelled), or a 2.1 Draft's text (`newerDraft`; null: deleted, said), which only the format core reads. */
-  async function openText(pick: () => Promise<BrowserOpenedCanopiFile | null>, newerDraft: boolean): Promise<boolean> {
+  async function openText(pick: () => Promise<BrowserOpenedCanopiFile | null | "closed">, newerDraft: boolean): Promise<boolean> {
     const intent = ++replacementIntent;
     const canvas = canvasSession;
     const pendingIdentity = canvas
@@ -326,7 +326,8 @@ export function createBrowserDesignSessionController({
 
     const opened = await pick();
     const current = () => intent === replacementIntent && replacementGuard?.isCurrent() === true;
-    if (!current()) return false;
+    // A 2.1 Draft read a version change closed says nothing more: the Reload notice tells the user (2.1-Q40, Q337).
+    if (!current() || opened === "closed") return false;
     if (!opened) return newerDraft && draftGone();
     let file: CanopiFile;
     let readOnly: ReadOnlyDesign | null;
@@ -398,16 +399,15 @@ export function createBrowserDesignSessionController({
   }
 
   /** A 2.1 Draft's text as 2.1 saved it, named for its row; null once 2.1 no longer holds it or it does not read. */
-  async function newerDraftFile(id: string): Promise<BrowserOpenedCanopiFile | null> {
+  async function newerDraftFile(id: string): Promise<BrowserOpenedCanopiFile | null | "closed"> {
     const text = await newer.content(id);
-    const name = newer.name(id) || "Untitled";
-    return text === null ? null : { fileName: `${safeFileStem(name)}.canopi`, text };
+    return text === null || text === "closed" ? text : { fileName: `${safeFileStem(newer.name(id) || "Untitled")}.canopi`, text };
   }
 
   async function downloadDraft(id: string): Promise<void> {
     // A 2.1 Draft downloads as 2.1 saved it (2.1-Q323); a 2.0 Draft under a hidden id, never.
     const newerFile = newer.has(id) ? await newerDraftFile(id) : null;
-    if (newerFile) return fileAdapter.downloadCanopiFile(newerFile);
+    if (newerFile) return newerFile === "closed" ? undefined : fileAdapter.downloadCanopiFile(newerFile);
     const draft = newer.hides(id) ? null : appDataStore.loadDraft(id);
     if (!draft) throw new Error(`No browser Draft ${id}`);
     await downloadCopy(draft, "Untitled");
@@ -648,7 +648,7 @@ export function createBrowserDesignSessionController({
       const design = store.currentDesign.value;
       if (!design) return null;
       const name = store.designName.value || design.name || "Untitled";
-      return { name, saveStatus: continuousSave.status.value, saveFailureReason: continuousSave.failureReason.value };
+      return { name, saveStatus: continuousSave.status.value, saveFailureReason: continuousSave.failureReason.value, readOnlyOrigin: readOnlyOrigin(store.sessionKind.value) };
     },
     newDesign,
     closeDesign,

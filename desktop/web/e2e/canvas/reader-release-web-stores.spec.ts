@@ -257,7 +257,7 @@ test('R3 canopi-f47t.52.272: a 2.1 Draft opens read-only, downloads as 2.1 saved
 
   await draftRow(page, 'Orchard in 2.1').getByRole('button').first().click()
   const status = page.locator('[data-workspace-title-bar] [data-save-status]')
-  await expect(status, 'the 2.1 Draft opens in the read-only view (2.1-M478)').toContainText(/newer Canopi/)
+  await expect(status, 'the 2.1 Draft opens in the read-only view (2.1-M478, Q336)').toHaveAttribute('data-save-status', 'read-only')
   await expect(page.locator('[data-workspace-title-bar]')).toContainText('Orchard in 2.1')
   await page.waitForTimeout(1_000)
   expect(await storageDump(page), 'opening and downloading write no record and no key').toEqual(before)
@@ -341,14 +341,15 @@ test('R3 canopi-f47t.52.272: a 2.1 Draft opened while the format worker cannot l
 })
 
 test('R3 canopi-f47t.52.272: a version change while a read is open closes it, offers Reload, and 2.1’s upgrade is not blocked', async ({ page, context }) => {
-  // Holds the reader's next Draft read open (its transaction kept busy) until the test lets it end.
+  // Holds the reader's next Draft read open (its transaction kept busy) until the test lets it end; `__readHeld`: begun.
   await page.addInitScript(() => {
-    const host = window as unknown as { __holdReads: boolean }
+    const host = window as unknown as { __holdReads: boolean, __readHeld?: boolean }
     host.__holdReads = false
     const get = IDBObjectStore.prototype.get
     IDBObjectStore.prototype.get = function (this: IDBObjectStore, ...args: Parameters<IDBObjectStore['get']>) {
       const request = get.apply(this, args)
       if (host.__holdReads && this.name === 'drafts' && args[0] !== 'held') {
+        host.__readHeld = true
         const keepBusy = (): void => { if (host.__holdReads) get.call(this, 'held').onsuccess = keepBusy }
         keepBusy()
       }
@@ -356,12 +357,12 @@ test('R3 canopi-f47t.52.272: a version change while a read is open closes it, of
     }
   })
   await startWithOneNewerDraft(page)
-  await page.evaluate(() => { (window as unknown as { __holdReads: boolean }).__holdReads = true })
-  // Opening the Draft reads its record: held open.
-  await draftRow(page, 'Orchard in 2.1').getByRole('button').first().click()
-
+  // 2.1's tab loads first, so its upgrade reaches the held read inside its 3 s bound; a late read alone is a failure.
   const later = await context.newPage()
   await later.goto('')
+  await page.evaluate(() => { (window as unknown as { __holdReads: boolean }).__holdReads = true })
+  await draftRow(page, 'Orchard in 2.1').getByRole('button').first().click() // its record's read is held open
+  await page.waitForFunction(() => (window as unknown as { __readHeld?: boolean }).__readHeld === true)
   const upgrade = later.evaluate(async (name) => await new Promise<string>((resolve) => {
     const request = indexedDB.open(name, 5)
     request.onblocked = () => resolve('blocked')
@@ -370,8 +371,11 @@ test('R3 canopi-f47t.52.272: a version change while a read is open closes it, of
   }), DRAFT_DATABASE)
   await expect(page.getByText('New version'), 'the version change shows the Reload notice (2.1-Q40)').toBeVisible()
   await expect(page.getByRole('button', { name: 'Reload' })).toBeVisible()
+  await page.waitForTimeout(3_500) // still held, the read ends at its bound: the Reload notice alone tells (2.1-Q337)
   await page.evaluate(() => { (window as unknown as { __holdReads: boolean }).__holdReads = false })
   expect(await upgrade, '2.1’s upgrade is not blocked').toBe('upgraded')
+  await expect(page.getByText('This Draft is no longer in this browser, or could not be read.'), 'no open failure beside it').toHaveCount(0)
+  await expect(startScreen(page), 'nothing opened').toBeVisible()
 })
 
 test('R3 canopi-f47t.52.272: launch restores the newest 2.0 Draft whose id 2.1 neither holds nor copied', async ({ page }) => {

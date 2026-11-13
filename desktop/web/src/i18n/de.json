@@ -1639,6 +1639,7 @@
     "conflictAnotherTab": "In einem anderen Tab geändert"
   },
   "readOnlyDesign": {
+    "label": "Schreibgeschützt",
     "status": "Schreibgeschützt: von einer neueren Canopi-Version gespeichert",
     "details": "Dieses Design wurde von einer neueren Canopi-Version gespeichert. Sie können es ansehen, aber nicht ändern oder speichern. Aktualisieren Sie Canopi, um es zu bearbeiten.",
     "update": "Aktualisieren"

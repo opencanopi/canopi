@@ -1639,6 +1639,7 @@
     "conflictAnotherTab": "Changed in another tab"
   },
   "readOnlyDesign": {
+    "label": "Read-only",
     "status": "Read-only: saved by a newer Canopi",
     "details": "This Design was saved by a newer Canopi. You can view it, but you can’t change or save it. Update Canopi to edit it.",
     "update": "Update"

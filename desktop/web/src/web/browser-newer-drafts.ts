@@ -11,7 +11,8 @@ import type { BrowserDraftSummary } from "./browser-app-data";
 export interface BrowserNewerDraftRecords {
   /** `complete` is false when the read failed or ran late, and the rest is the last good listing. */
   list(): Promise<{ readonly drafts: readonly BrowserDraftSummary[]; readonly hiddenIds: readonly string[]; readonly complete: boolean }>;
-  content(id: string): Promise<string | null>;
+  /** `closed`: a version change closed the read, and the page offers Reload. */
+  content(id: string): Promise<string | null | "closed">;
 }
 
 export interface BrowserNewerDrafts {
@@ -32,7 +33,7 @@ export interface BrowserNewerDrafts {
   editable(id: string): boolean;
   /** `editable`, after a re-list while no listing has completed yet. */
   admit(id: string): Promise<boolean>;
-  content(id: string): Promise<string | null>;
+  content(id: string): Promise<string | null | "closed">;
 }
 
 export function createBrowserNewerDrafts(): BrowserNewerDrafts {

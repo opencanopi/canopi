@@ -17,7 +17,8 @@
  *   the last good listing, empty only before one, marked incomplete (design check A18), so a re-list never unhides an
  *   old-key Draft the session already hides, and the session restores, opens or deletes no old-key Draft until one
  *   listing completed (2.1-Q322, F7). An origin without the store lists complete and empty. A Draft read that fails
- *   or runs late is reported and gives null, so its open fails visibly and re-lists like a deleted one.
+ *   or runs late is reported and gives null, so its open fails visibly and re-lists like a deleted one; one a
+ *   version change closed gives `closed` unreported, as the Reload notice alone tells the user (2.1-Q337).
  * A listing loads each record whole (`getAll`) but keeps only its list fields; a Design is decoded only when it is
  * opened, by the format core (DR10).
  */
@@ -60,9 +61,9 @@ export interface DraftRecordsReader {
   list(): Promise<DraftStoreListing>
   /**
    * The Design of one 2.1 Draft as 2.1 saved it (`.canopi` text); never rejects: null when the store no longer holds
-   * it, or when the read fails or runs late, which is reported.
+   * it, or when the read fails or runs late, which is reported; `closed` when a version change closed it first.
    */
-  content(id: string): Promise<string | null>
+  content(id: string): Promise<string | null | 'closed'>
 }
 
 /** What the reader needs of `indexedDB`: `open` without a version, and `databases()` where the engine has it. */
@@ -87,12 +88,16 @@ export function createDraftRecordsReader({
   timeoutMs = DRAFT_READ_TIMEOUT_MS,
 }: DraftRecordsReaderOptions): DraftRecordsReader {
   let lastListing = NO_DRAFTS
-  /** Runs `read` on an open connection to an existing store, then closes it; `absent` when there is none. */
-  async function withStore<T>(read: (db: IDBDatabase) => Promise<T>, absent: T): Promise<T> {
+  /**
+   * Runs `read` on an open connection to an existing store, then closes it; `absent` when there is none. `seen.closed`
+   * turns true once a version change closed the connection.
+   */
+  async function withStore<T>(read: (db: IDBDatabase) => Promise<T>, absent: T, seen = { closed: false }): Promise<T> {
     if (!factory || await listedAbsent(factory)) return absent
     const db = await openExisting(factory)
     if (!db) return absent
     db.onversionchange = () => {
+      seen.closed = true
       db.close()
       onVersionChange()
     }
@@ -114,13 +119,16 @@ export function createDraftRecordsReader({
       }
     },
     async content(id) {
+      const seen = { closed: false }
       try {
         return await bounded(withStore(async (db) => {
           const tx = db.transaction(DRAFTS_STORE, 'readonly')
           const [record] = await readAll(tx, [tx.objectStore(DRAFTS_STORE).get(id)])
           return isRecord(record) && typeof record.content === 'string' ? record.content : null
-        }, null), timeoutMs)
+        }, null, seen), timeoutMs)
       } catch (error) {
+        // A version change closed it: the page offers Reload, which is all the user needs to hear (2.1-Q40, Q337).
+        if (seen.closed) return 'closed'
         // The open then says it could not open the Draft and the rows re-list, as for one 2.1 deleted (design check).
         report(error)
         return null

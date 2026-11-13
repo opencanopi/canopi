@@ -136,6 +136,7 @@ export function BrowserAppShell({
               onRetry={() => onRetrySave?.()}
               conflictSource="another-tab"
               onResolveConflict={onResolveSaveConflict}
+              readOnlyOrigin={designIdentity.readOnlyOrigin}
               onUpdate={onUpdate}
             />
           </>

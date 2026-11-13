@@ -20,6 +20,12 @@ export type DesignSessionKind =
 
 export const EDITING_DESIGN_SESSION: DesignSessionKind = Object.freeze({ kind: 'editing' })
 
+/** Why a session is read-only, which its save status popover says (2.1-Q336); undefined while editing. */
+export type ReadOnlyOrigin = Extract<DesignSessionKind, { kind: 'read-only' }>['origin']
+export function readOnlyOrigin(kind: DesignSessionKind): ReadOnlyOrigin | undefined {
+  return kind.kind === 'read-only' ? kind.origin : undefined
+}
+
 export interface DesignSessionIdentity {
   readonly file: CanopiFile | null
   readonly path: string | null
