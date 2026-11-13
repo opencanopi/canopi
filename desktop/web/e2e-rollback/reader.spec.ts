@@ -14,8 +14,9 @@
 // Each Web form is a dump the writer copies as R3 froze it (spec/web/frozen/): a record `{key, record}` seeded as
 // JSON under its key, or the Draft store `{database, version, stores: {name: records}}`. Without
 // CANOPI_ROLLBACK_FIXTURES the spec reads the in-repo frozen forms, the writer naming each Web form after its file.
-import { readFileSync } from 'node:fs'
-import { basename } from 'node:path'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { basename, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { expect, test, type Page } from '@playwright/test'
 
@@ -28,6 +29,8 @@ const BLANK = '/__rollback-blank'
 const FIRST_PAINT_THEME = 'canopi:first-paint-theme'
 /** The key path of each object store of the 2.1 Draft store (contracts §11 "Web Drafts move to IndexedDB"). */
 const KEY_PATHS: Readonly<Record<string, string>> = { drafts: 'id', meta: 'key' }
+/** The Web stores this reader reads (the Desktop harness's WEB_STORES). */
+const WEB_STORES = ['settings', 'web_drafts', 'web_species_lists']
 /** The Web stores that raise their own newer-read-only notice (contracts §11; web_drafts stays ready, 2.1-M486). */
 const NOTICED = ['settings', 'web_species_lists']
 
@@ -39,29 +42,31 @@ interface Seed {
   readonly databases: readonly { name: string, version: number, stores: { name: string, keyPath: string, records: readonly unknown[] }[] }[]
 }
 
-function webForms(): Form[] {
-  const manifest = JSON.parse(readFileSync(MANIFEST, 'utf8')) as { forms: Form[] }
-  return manifest.forms.filter((form) => form.edition === 'web')
+/** The Web rows whose store this reader knows; a store literal a later release added is skipped, never refused (the
+ * contract is extended, never broken), as desktop/tests/rollback_reader.rs skips a Desktop one. */
+function webForms(manifest = MANIFEST): Form[] {
+  const read = JSON.parse(readFileSync(manifest, 'utf8')) as { forms: Form[] }
+  return read.forms.filter((form) => form.edition === 'web' && WEB_STORES.includes(form.store))
 }
 
-function formFile(form: Form): string {
-  return FIXTURES ? `${FIXTURES}/${form.path}` : `${REPOSITORY}spec/web/frozen/${basename(form.path)}`
+function formFile(form: Form, fixtures = FIXTURES): string {
+  return fixtures ? `${fixtures}/${form.path}` : `${REPOSITORY}spec/web/frozen/${basename(form.path)}`
 }
 
 /** What the forms seed: each record under its key as JSON, each database with its stores' records. */
-function seedOf(forms: readonly Form[]): Seed {
+function seedOf(forms: readonly Form[], fixtures = FIXTURES): Seed {
   const localStorage: Record<string, string> = {}
   const databases: Seed['databases'][number][] = []
   for (const form of forms) {
-    const dump = JSON.parse(readFileSync(formFile(form), 'utf8')) as RecordDump | DatabaseDump
+    const dump = JSON.parse(readFileSync(formFile(form, fixtures), 'utf8')) as RecordDump | DatabaseDump
     if ('key' in dump) {
       localStorage[dump.key] = JSON.stringify(dump.record)
       continue
     }
-    databases.push({ name: dump.database, version: dump.version, stores: Object.entries(dump.stores).map(([name, records]) => {
+    // An object store a later release added is skipped, as an unknown row is: this reader never opens it.
+    databases.push({ name: dump.database, version: dump.version, stores: Object.entries(dump.stores).flatMap(([name, records]) => {
       const keyPath = KEY_PATHS[name]
-      if (!keyPath) throw new Error(`the ${form.store} form's store ${name} has no key path here`)
-      return { name, keyPath, records }
+      return keyPath ? [{ name, keyPath, records }] : []
     }) })
   }
   return { localStorage, databases }
@@ -141,7 +146,7 @@ test.beforeEach(async ({ page }) => {
 
 test('R4 canopi-f47t.52.239: reader release: a session over every frozen 2.1 Web store fixture writes no byte, each read newer-read-only with its notice', async ({ page }) => {
   const forms = webForms()
-  for (const store of ['settings', 'web_drafts', 'web_species_lists']) {
+  for (const store of WEB_STORES) {
     expect(forms.some((form) => form.store === store), `the manifest lists a Web ${store} form`).toBe(true)
   }
   const value = seedOf(forms)
@@ -165,6 +170,38 @@ test('R4 canopi-f47t.52.239: reader release: a session over every frozen 2.1 Web
   // The profile as seeded: no record changed, no key written, no database created or opened at a new version.
   await page.goto(BLANK)
   expect(await profile(page), 'the session writes no byte').toEqual(before)
+})
+
+test('R4 canopi-f47t.52.239: a Web row whose store or object store a later release added is skipped, never refused', () => {
+  // A further reader release may extend the contract, never break it (design check F1): this reader keeps seeding the
+  // rows it knows beside a new store literal, a new optional field and a new object store in the Draft database.
+  const fixtures = mkdtempSync(join(tmpdir(), 'canopi-rollback-extended-'))
+  try {
+    mkdirSync(join(fixtures, 'web'))
+    writeFileSync(join(fixtures, 'manifest.json'), JSON.stringify({ version: 1, forms: [
+      { store: 'settings', form_version: 3, edition: 'web', path: 'web/settings.json', written_by: '2.2.0' },
+      { store: 'web_drafts', form_version: 5, edition: 'web', path: 'web/drafts.json' },
+      { store: 'web_library', form_version: 1, edition: 'web', path: 'web/library.json' },
+      { store: 'desktop_notebook', form_version: 1, edition: 'desktop', path: 'desktop/notebook.sqlite' },
+    ] }))
+    writeFileSync(join(fixtures, 'web/settings.json'), JSON.stringify({ key: 'canopi:settings', record: { version: 3 } }))
+    writeFileSync(join(fixtures, 'web/drafts.json'), JSON.stringify({ database: 'canopi-drafts', version: 5,
+      stores: { drafts: [{ id: 'a' }], meta: [{ key: 'b' }], stamps: [{ at: 1 }] } }))
+    writeFileSync(join(fixtures, 'web/library.json'), JSON.stringify({ database: 'canopi-library', version: 1,
+      stores: { items: [{ uid: 'c' }] } }))
+
+    const forms = webForms(join(fixtures, 'manifest.json'))
+    expect(forms.map((form) => form.store)).toEqual(['settings', 'web_drafts'])
+    expect(seedOf(forms, fixtures)).toEqual({
+      localStorage: { 'canopi:settings': '{"version":3}' },
+      databases: [{ name: 'canopi-drafts', version: 5, stores: [
+        { name: 'drafts', keyPath: 'id', records: [{ id: 'a' }] },
+        { name: 'meta', keyPath: 'key', records: [{ key: 'b' }] },
+      ] }],
+    })
+  } finally {
+    rmSync(fixtures, { recursive: true, force: true })
+  }
 })
 
 test('R4 canopi-f47t.52.239: the profile comparison sees a Web database created and the Draft store opened at a newer version', async ({ page }) => {
