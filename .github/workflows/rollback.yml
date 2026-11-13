@@ -9,12 +9,14 @@ name: Rollback lane
 #   candidate itself in candidate mode) lays down every form spec/rollback/manifest.json lists, uploaded as one fixture
 #   directory. A store no build writes yet is laid down from its frozen form, a `FIXTURES-ONLY` line in the summary.
 # - reader-desktop and reader-web: the reader tree (needs.resolve.outputs.reader: the latest stable tag, or the
-#   candidate before the reader release is tagged; a tag that fails to build is red, never replaced by head's tree) runs
-#   its own harness over that directory: desktop/tests/rollback_reader.rs and desktop/web/e2e-rollback/, frozen at the
-#   tag, which a later reader release may extend but never break. Around them this tree's fixture checks
-#   (`node lane/policy/gate/cli.mjs rollback-fixtures`) refuse a missing artifact, fail on a fixture file the Desktop
-#   readers changed, created or pruned (a created -shm or an empty -wal is SQLite's engine metadata), and plant an
-#   unreadable change the readers' second run must fail on.
+#   candidate before the reader release is tagged; a tag that fails to build is red, never replaced by head's tree) is
+#   built and read over that directory (contracts §11: `main`'s lane hashes the files itself; on Web it serves the tag's
+#   bundle over a seeded profile). On Desktop the reader tree runs its own desktop/tests/rollback_reader.rs, frozen at
+#   the tag, which a later reader release may extend but never break; on Web this run's harness under lane/
+#   (desktop/web/e2e-rollback/) serves the reader tree's dist-web, seeds the profile and compares it after the session.
+#   Around them this tree's fixture checks (`node lane/policy/gate/cli.mjs rollback-fixtures`) refuse a missing
+#   artifact, fail on a fixture file the Desktop readers changed, created or pruned (a created -shm or an empty -wal is
+#   SQLite's engine metadata), and plant an unreadable change the readers' second run must fail on.
 # Build & Test calls it when the gate's rollback area is selected, on a push or pull request into main or release/2.0
 # (and the release branch cut from main inherits that call); a Release Candidate calls it as a release check; a
 # dispatch runs it for one branch. A skipped job passes Build & Test's aggregate; a failed or cancelled one fails it.
@@ -183,7 +185,8 @@ jobs:
       fail-fast: false
       matrix:
         engine: [chromium, webkit]
-    # The browsers of the locked @playwright/test (scripts/check_playwright_pins.py holds the tag to it).
+    # The browsers of this run's locked @playwright/test, whose harness under lane/ drives them
+    # (scripts/check_playwright_pins.py holds the tag to it); the reader tree only builds its bundle.
     container:
       image: mcr.microsoft.com/playwright:v1.64.1-noble
       options: --ipc=host
@@ -201,7 +204,9 @@ jobs:
         with:
           node-version: 24
           cache: npm
-          cache-dependency-path: desktop/web/package-lock.json
+          cache-dependency-path: |
+            desktop/web/package-lock.json
+            lane/desktop/web/package-lock.json
       # The Web build compiles the format worker's module first: the reader tree's toolchain with its wasm32 target, and
       # the wasm-bindgen CLI at Cargo.lock's version (canopi-format-wasm/build-wasm.test.ts holds the pin to head's lock).
       # A reader tag whose lock pins another version is refused by its own build-wasm.mjs, naming both. The Playwright
@@ -219,21 +224,29 @@ jobs:
       - uses: taiki-e/install-action@v2
         with:
           tool: wasm-bindgen@0.2.130
-      - name: Install frontend deps
+      - name: Install the reader tree's frontend deps
         run: npm ci --no-audit --no-fund
       - name: Build the reader tree's Web Edition
         run: npm run build:web:bundle
+      - name: Install this run's harness deps
+        working-directory: lane/desktop/web
+        run: npm ci --no-audit --no-fund
       - name: Download the fixture directory
         uses: actions/download-artifact@v8
         with:
           name: rollback-fixtures
           path: ${{ runner.temp }}/rollback-fixtures
       - name: Check the fixture directory
-        run: node ../../lane/policy/gate/cli.mjs rollback-fixtures check "$RUNNER_TEMP/rollback-fixtures"
-      # The harness compares the profile it seeded with the one the session leaves (a created database or a versioned
-      # open included); the fixture directory itself is only read.
-      - name: Run the reader tree's Web harness in ${{ matrix.engine }}
-        run: npm run test:rollback -- --project=${{ matrix.engine }}
+        working-directory: lane/desktop/web
+        run: node ../../policy/gate/cli.mjs rollback-fixtures check "$RUNNER_TEMP/rollback-fixtures"
+      # This run's harness (lane/desktop/web/e2e-rollback/) serves the reader tree's bundle over the profile it seeds,
+      # then compares the profile the session leaves with it (a created database or a versioned open included); the
+      # fixture directory itself is only read. $GITHUB_WORKSPACE is the container's path, which github.workspace is not.
+      - name: Run this run's Web harness over the reader's bundle in ${{ matrix.engine }}
+        working-directory: lane/desktop/web
+        run: |
+          export CANOPI_ROLLBACK_WEB_DIST="$GITHUB_WORKSPACE/desktop/web/dist-web"
+          npm run test:rollback -- --project=${{ matrix.engine }}
         env:
           CANOPI_ROLLBACK_FIXTURES: ${{ runner.temp }}/rollback-fixtures
           # WebKit refuses a $HOME it does not own, and Actions points the container's at the runner user's.
@@ -241,9 +254,11 @@ jobs:
       # The planted-change self-test: the session test over a copy with one Web form made unreadable must fail; its own
       # output directory keeps the first run's report.
       - name: The ${{ matrix.engine }} lane fails on a planted unreadable change
+        working-directory: lane/desktop/web
         run: |
+          export CANOPI_ROLLBACK_WEB_DIST="$GITHUB_WORKSPACE/desktop/web/dist-web"
           cp -r "$RUNNER_TEMP/rollback-fixtures" "$CANOPI_ROLLBACK_FIXTURES"
-          node ../../lane/policy/gate/cli.mjs rollback-fixtures plant "$CANOPI_ROLLBACK_FIXTURES" web
+          node ../../policy/gate/cli.mjs rollback-fixtures plant "$CANOPI_ROLLBACK_FIXTURES" web
           if npm run test:rollback -- --project=${{ matrix.engine }} --grep "writes no byte" --output=planted-results --reporter=line; then
             echo "::error::the ${{ matrix.engine }} readers passed over a planted unreadable change"
             exit 1
@@ -257,6 +272,6 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: rollback-web-${{ matrix.engine }}
-          path: desktop/web/test-results/
+          path: lane/desktop/web/test-results/
           if-no-files-found: ignore
           retention-days: 7

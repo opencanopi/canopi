@@ -14,7 +14,7 @@ import { LAST_BEFORE_READERS, outputLines, resolveRollbackRefs } from './rollbac
 
 const { parse } = createRequire(join(REPO_ROOT, 'desktop/web/package.json'))('yaml') as typeof Yaml
 type Step = { name?: string, uses?: string, run?: string, if?: string, with?: Record<string, unknown>,
-  env?: Record<string, string>, 'continue-on-error'?: unknown }
+  env?: Record<string, string>, 'continue-on-error'?: unknown, 'working-directory'?: string }
 type Job = { steps: Step[], 'continue-on-error'?: unknown, needs?: string | string[], outputs?: Record<string, string> }
 const ROLLBACK = parse(readFileSync(join(REPO_ROOT, '.github/workflows/rollback.yml'), 'utf8')) as { jobs: Record<string, Job>,
   on: { pull_request?: unknown, push?: unknown, workflow_call?: { inputs?: Record<string, unknown> }, workflow_dispatch?: unknown } }
@@ -257,6 +257,28 @@ describe('rollback.yml (canopi-f47t.52.239)', () => {
     rmSync(join(dir, 'planted'), { recursive: true, force: true })
     fake('npm', '1 failed\n', 1)
     expect(run(planted, env, join(REPO_ROOT, 'desktop/web')).status).toBe(0)
+  })
+
+  it('canopi-f47t.52.239: the Web job serves the reader tree\'s bundle to this run\'s harness under lane/, which seeds and compares the profile', () => {
+    // Contracts §11 Rollback harness: main's lane judges the Web readers, as it hashes the Desktop fixtures itself, so a
+    // frozen reader tag never fixes what its Web check asserts.
+    const steps = job('reader-web').steps
+    const build = steps.find((step) => step.run === 'npm run build:web:bundle')
+    expect(build?.['working-directory'], 'the reader tree builds its own bundle').toBeUndefined()
+    expect(steps.filter((step) => step.run?.startsWith('npm ci')).map((step) => step['working-directory']))
+      .toEqual([undefined, 'lane/desktop/web'])
+    for (const text of ['npm run test:rollback -- --project', 'rollback-fixtures plant']) {
+      expect(stepOf('reader-web', text)['working-directory'], text).toBe('lane/desktop/web')
+    }
+    expect(steps.find((step) => step.uses?.startsWith('actions/upload-artifact@'))?.with?.['path']).toBe('lane/desktop/web/test-results/')
+    // Through bash: the harness serves the reader's dist-web, wherever the runner puts the workspace.
+    const harness = stepOf('reader-web', 'npm run test:rollback -- --project')
+    writeFileSync(join(dir, 'npm'), '#!/usr/bin/env bash\necho "serves $CANOPI_ROLLBACK_WEB_DIST"\n')
+    chmodSync(join(dir, 'npm'), 0o755)
+    const result = run({ ...harness, run: harness.run?.replaceAll('${{ matrix.engine }}', 'chromium') },
+      { GITHUB_WORKSPACE: join(dir, 'workspace') }, join(REPO_ROOT, 'desktop/web'))
+    expect(result.status, result.stderr).toBe(0)
+    expect(result.stdout).toBe(`serves ${join(dir, 'workspace')}/desktop/web/dist-web\n`)
   })
 
   it('canopi-f47t.52.239: cancelled run: a cancelled or failed rollback lane fails Build & Test, on main and release/2.0 alike, and blocks a release', () => {
