@@ -4,7 +4,7 @@ import { render } from 'preact'
 import { act } from 'preact/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { LibrarySnapshot, StoreOpenStatus } from '../generated/contracts'
-import { librarySnapshot } from './support/library-fixtures'
+import { librarySnapshot, sourceItem } from './support/library-fixtures'
 
 vi.mock('../app/shell/modal-layer', () => ({
   holdModalLayer: () => () => {},
@@ -55,7 +55,7 @@ import { resetNoticesForTests } from '../failures/notices'
 import type * as LibraryStoreModule from '../app/lidar/library-store'
 
 const RECOVERED = 'Canopi rebuilt its Data library from the files it keeps. Items marked failed can be prepared again with Retry.'
-const REFUSED_NEWER = 'The Data library was saved by a newer version of Canopi. Install the latest Canopi to use it; this version will not change it.'
+const NEWER_READ_ONLY = 'The Data library was saved by a newer Canopi. Its items are listed, but changes won’t be saved. Update Canopi to use them.'
 const UNAVAILABLE = 'The Data library could not be opened. Imports and changes are off until Canopi restarts.'
 const LIBRARY_UNOPENED: StoreOpenStatus = { kind: 'unavailable', code: { kind: 'library_read_only', reason: 'unavailable' } }
 
@@ -99,12 +99,13 @@ describe('Data library health', () => {
       expect(container.querySelector('[data-notice-row]')).toBeNull()
     })
 
-    it('names a library saved by a newer Canopi as an alert', async () => {
-      libraryStatus({ kind: 'refused_newer' })
+    it('canopi-f47t.52.271: names a library saved by a newer Canopi once, as a warning that offers Update', async () => {
+      libraryStatus({ kind: 'newer_read_only' })
       await act(async () => { render(<NoticeRow />, container) })
-      const alerts = container.querySelectorAll('[role="alert"]')
-      expect(alerts).toHaveLength(1)
-      expect(alerts[0]!.textContent).toContain(REFUSED_NEWER)
+      const row = container.querySelector('[data-notice-row]')
+      expect(container.querySelectorAll('[data-notice-row]')).toHaveLength(1)
+      expect(row?.textContent).toContain(NEWER_READ_ONLY)
+      expect(row?.querySelector('[role="alert"]')).toBeNull()
     })
 
     it('names a library that could not be opened as an alert', async () => {
@@ -145,12 +146,30 @@ describe('Data library health', () => {
       expect(notice()?.textContent).toContain(RECOVERED)
     })
 
-    it('explains a library saved by a newer Canopi as an error', async () => {
-      libraryStatus({ kind: 'refused_newer' })
-      await act(async () => { render(<DataLibraryView focusId={null} />, container) })
-      expect(notice()?.getAttribute('data-notice-tone')).toBe('error')
-      expect(notice()?.getAttribute('role')).toBe('alert')
-      expect(notice()?.textContent).toContain(REFUSED_NEWER)
+    it('canopi-f47t.52.271: lists a library saved by a newer Canopi by name and type with a note to update, every action off', async () => {
+      libraryStatus({ kind: 'newer_read_only' })
+      const newer = { state: 'NeedsNewer' as const, generation_id: null, bounds: null, value_range: null, offers: [] }
+      lidarLibrary.value = librarySnapshot([
+        sourceItem('lyr-1', 'Orchard terrain', { ...newer, newer_kind: 'raster' }),
+        sourceItem('vec-1', 'Hedge lines', { ...newer, newer_kind: 'vector' }),
+        sourceItem('pc-1', 'Hedge scan', newer),
+      ])
+      await act(async () => { render(<DataLibraryView focusId="vec-1" />, container) })
+
+      // The one notice is the notice row's (health presentation): the sheet adds none of its own.
+      expect(notice()).toBeNull()
+      const rows = [...container.querySelectorAll('[role="option"]')].map((row) => row.textContent)
+      expect(rows).toHaveLength(3)
+      expect(rows.find((row) => row?.includes('Orchard terrain'))).toContain('Raster data')
+      expect(rows.find((row) => row?.includes('Hedge lines'))).toContain('Vector data')
+      expect(rows.find((row) => row?.includes('Hedge scan'))).toContain('Data of a type this Canopi doesn’t know')
+      expect(rows.every((row) => row?.includes('Update Canopi to use this item.'))).toBe(true)
+      expect(rows.some((row) => row?.includes('Import failed'))).toBe(false)
+      const details = container.querySelector('section[aria-labelledby="library-details-heading"]')!
+      expect(details.querySelector('h3')?.textContent).toBe('Hedge lines')
+      expect(details.textContent).toContain('Update Canopi to use this item.')
+      // No Add, Rename, Delete everywhere, Retry or Dismiss: only Back.
+      expect([...details.querySelectorAll('button')].map((button) => button.getAttribute('data-focus-target'))).toEqual(['back'])
     })
 
     it('explains a library that could not be opened as an error', async () => {

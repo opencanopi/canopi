@@ -649,7 +649,13 @@
         "factAdded": "Added",
         "deletedItem": "Deleted item",
         "importNeedsDesign": "Open a Design to import data",
-        "importCancelled": "Import cancelled"
+        "importCancelled": "Import cancelled",
+        "needsNewerNote": "Update Canopi to use this item.",
+        "newerKind": {
+          "raster": "Raster data",
+          "unknown": "Data of a type this Canopi doesn’t know",
+          "vector": "Vector data"
+        }
       },
       "layers": {
         "emptyTitle": "No site data yet",

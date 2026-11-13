@@ -51,7 +51,7 @@ type FocusTarget = 'row' | 'heading' | 'back' | 'rename' | 'delete' | 'search' |
  * the sheet closes or the Design changes; only an explicit Cancel stops it.
  * Deleting here removes an item from every Design. The footer counts the
  * items, says how much space the library takes on this computer and opens
- * its folder.
+ * its folder. A newer Canopi's library lists by name and type, actions off (2.1-Q318).
  */
 export function DataLibraryView({ focusId }: { readonly focusId: string | null }) {
   useEffect(() => installLidarLibraryObserver(), [])
@@ -60,6 +60,8 @@ export function DataLibraryView({ focusId }: { readonly focusId: string | null }
   const [sort, setSort] = useState<LibrarySort>('name')
   const items = useMemo(() => libraryItems(snapshot, sort), [snapshot, sort, locale.value])
   const references = currentDesign.value?.lidar?.entries ?? []
+  const readOnly = storeStatus('library_catalogue').kind === 'newer_read_only'
+  const newer = new Map(snapshot?.items.filter((row) => row.state === 'NeedsNewer').map((row) => [row.id, row.newer_kind ?? 'unknown']))
   const [requestedId, setRequestedId] = useState<string | null>(focusId)
   const [pane, setPane] = useState<Pane>(focusId ? 'details' : 'list')
   // Rename or Delete everywhere belongs to the item it opened for: a search or filter that moves the selection closes it.
@@ -192,6 +194,7 @@ export function DataLibraryView({ focusId }: { readonly focusId: string | null }
   }
 
   const actionsFor = (row: LibraryItem) => {
+    if (readOnly || newer.has(row.id)) return null
     const rerun = rerunSubject(row)
     const canDelete = row.status === 'ready' || row.role === 'Derived'
     return <>
@@ -227,6 +230,7 @@ export function DataLibraryView({ focusId }: { readonly focusId: string | null }
     </>
   }
   const operation = (row: LibraryItem) => {
+    if (readOnly || newer.has(row.id)) return null
     if (row.status === 'preparing' && row.importJob) {
       const progress = row.importJob.progress
       return (
@@ -344,8 +348,8 @@ export function DataLibraryView({ focusId }: { readonly focusId: string | null }
                     <LibraryPreview item={row} client={client} width={56} height={42} />
                     <span className={styles.itemText}>
                       <strong>{row.name}</strong>
-                      <small>{itemSummary(row)}{isAdded(row) && ` · ${t('canvas.lidar.library.inThisDesign')}`}</small>
-                      {row.status !== 'ready' && (
+                      <small>{newerKind(newer.get(row.id)) ?? itemSummary(row)}{isAdded(row) && ` · ${t('canvas.lidar.library.inThisDesign')}`}</small>
+                      {newer.has(row.id) ? <small>{t('canvas.lidar.library.needsNewerNote')}</small> : row.status !== 'ready' && (
                         <small data-error={row.status === 'failed'}>{itemStatusLabel(row)}</small>
                       )}
                       {isStale(row) && <small className={styles.stale}>{t('analyses.details.outOfDate')}</small>}
@@ -367,7 +371,7 @@ export function DataLibraryView({ focusId }: { readonly focusId: string | null }
                 <button type="button" className={styles.back} data-focus-target="back" onClick={showList}>← {t('canvas.lidar.library.back')}</button>
                 <div className={styles.detailTitle}>
                   <h3 id={headingId} tabIndex={-1} data-focus-target="heading">{item.name}</h3>
-                  {item.status === 'ready' && mode !== 'rename' && (
+                  {item.status === 'ready' && !readOnly && mode !== 'rename' && (
                     <button type="button" className={styles.link} data-focus-target="rename" onClick={() => setMode('rename')}>
                       {t('canvas.lidar.library.renameEllipsis')}
                     </button>
@@ -377,8 +381,7 @@ export function DataLibraryView({ focusId }: { readonly focusId: string | null }
                   <RenameForm item={item} busy={busy} error={error} onCancel={() => endMode(['rename'])}
                     onSubmit={(name) => void run(() => renameLibraryItem(item.id, name), () => endMode(['rename']))} />
                 )}
-                <ItemDetails
-                  item={item}
+                {newer.has(item.id) ? <p>{newerKind(newer.get(item.id))} · {t('canvas.lidar.library.needsNewerNote')}</p> : <ItemDetails item={item}
                   nameOf={nameOf}
                   busy={busy}
                   rested={restedId === item.id}
@@ -406,7 +409,7 @@ export function DataLibraryView({ focusId }: { readonly focusId: string | null }
                     )
                     : actionsFor(item)}
                   operation={operation(item)}
-                />
+                />}
               </section>
             )}
           </div>
@@ -418,6 +421,11 @@ export function DataLibraryView({ focusId }: { readonly focusId: string | null }
 
 function rowId(id: string): string {
   return `library-item-${id}`
+}
+
+/** The type a newer catalogue's item is listed by (2.1-Q318); undefined for any other item. */
+function newerKind(kind: string | undefined): string | undefined {
+  return kind && t(kind === 'raster' || kind === 'vector' ? `canvas.lidar.library.newerKind.${kind}` : 'canvas.lidar.library.newerKind.unknown')
 }
 
 /**
@@ -470,8 +478,8 @@ function EmptyLibrary() {
 /**
  * How the library opened this session, when that is not simply "ready": rebuilt
  * from its originals (a warning; Retry prepares the failed items again), or
- * refused and read-only (an error) because a newer Canopi wrote it or it could
- * not be opened at all.
+ * refused and read-only (an error). A newer catalogue listed read-only adds no
+ * notice: the notice row's one notice names it (2.1-Q319).
  */
 function LibraryOpenNotice() {
   const status = storeStatus('library_catalogue')
@@ -479,12 +487,12 @@ function LibraryOpenNotice() {
     case 'opening':
     case 'migrating':
     case 'ready':
+    case 'newer_read_only':
       return lidarLibraryStale.value ? <Notice tone="warning">{t('health.libraryListStale')}</Notice> : null
     case 'recovered':
       return <Notice tone="warning">{t('canvas.lidar.library.recovered')}</Notice>
     case 'refused_newer':
       return <Notice tone="error">{t('canvas.lidar.library.refusedNewer')}</Notice>
-    case 'newer_read_only':
     case 'set_aside_damaged':
     case 'unavailable':
       return <Notice tone="error">{t('canvas.lidar.library.unavailable')}</Notice>

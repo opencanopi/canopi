@@ -649,7 +649,13 @@
         "factAdded": "Добавлено",
         "deletedItem": "Удалённый элемент",
         "importNeedsDesign": "Откройте проект, чтобы импортировать данные",
-        "importCancelled": "Импорт отменён"
+        "importCancelled": "Импорт отменён",
+        "needsNewerNote": "Обновите Canopi, чтобы использовать этот элемент.",
+        "newerKind": {
+          "raster": "Растровые данные",
+          "unknown": "Данные типа, неизвестного этой версии Canopi",
+          "vector": "Векторные данные"
+        }
       },
       "layers": {
         "emptyTitle": "Данных участка пока нет",

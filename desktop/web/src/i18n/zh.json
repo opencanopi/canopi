@@ -649,7 +649,13 @@
         "factAdded": "添加时间",
         "deletedItem": "已删除的项目",
         "importNeedsDesign": "打开一个设计以导入数据",
-        "importCancelled": "已取消导入"
+        "importCancelled": "已取消导入",
+        "needsNewerNote": "请更新 Canopi 以使用此项目。",
+        "newerKind": {
+          "raster": "栅格数据",
+          "unknown": "此版本 Canopi 无法识别的数据类型",
+          "vector": "矢量数据"
+        }
       },
       "layers": {
         "emptyTitle": "暂无场地数据",

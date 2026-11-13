@@ -649,7 +649,13 @@
         "factAdded": "追加日",
         "deletedItem": "削除された項目",
         "importNeedsDesign": "データをインポートするにはデザインを開いてください",
-        "importCancelled": "インポートをキャンセルしました"
+        "importCancelled": "インポートをキャンセルしました",
+        "needsNewerNote": "この項目を使用するには Canopi を更新してください。",
+        "newerKind": {
+          "raster": "ラスターデータ",
+          "unknown": "この Canopi が認識できない種類のデータ",
+          "vector": "ベクターデータ"
+        }
       },
       "layers": {
         "emptyTitle": "敷地データはまだありません",

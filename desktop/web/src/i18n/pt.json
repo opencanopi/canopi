@@ -649,7 +649,13 @@
         "factAdded": "Adicionado",
         "deletedItem": "Item excluído",
         "importNeedsDesign": "Abra um design para importar dados",
-        "importCancelled": "Importação cancelada"
+        "importCancelled": "Importação cancelada",
+        "needsNewerNote": "Atualize o Canopi para usar este item.",
+        "newerKind": {
+          "raster": "Dados raster",
+          "unknown": "Dados de um tipo que este Canopi não reconhece",
+          "vector": "Dados vetoriais"
+        }
       },
       "layers": {
         "emptyTitle": "Ainda não há dados do local",

@@ -649,7 +649,13 @@
         "factAdded": "Aggiunto",
         "deletedItem": "Elemento eliminato",
         "importNeedsDesign": "Apri un progetto per importare dati",
-        "importCancelled": "Importazione annullata"
+        "importCancelled": "Importazione annullata",
+        "needsNewerNote": "Aggiorna Canopi per usare questo elemento.",
+        "newerKind": {
+          "raster": "Dati raster",
+          "unknown": "Dati di un tipo che questo Canopi non conosce",
+          "vector": "Dati vettoriali"
+        }
       },
       "layers": {
         "emptyTitle": "Ancora nessun dato del sito",
