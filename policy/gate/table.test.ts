@@ -300,7 +300,7 @@ describe('the updater area (canopi-f47t.52.228)', () => {
     // Every selector updater.spec.ts drives is owned by a file the area selects.
     const spec = read('desktop/web/e2e/platform/updater.spec.ts')
     const sources = spawnSync('git', ['ls-files', 'desktop/web/src/*.tsx'], { cwd: REPO_ROOT, encoding: 'utf8' }).stdout.split('\n')
-      .filter((path) => path && !path.includes('/__tests__/'))
+      .filter((path) => path && !path.includes('/__tests__/') && !/\.test\.tsx$/.test(path))
     for (const selector of ['data-about-updates', 'data-launch-check', 'data-notice-key']) {
       expect(spec, selector).toContain(selector)
       const owners = sources.filter((path) => read(path).includes(selector))
