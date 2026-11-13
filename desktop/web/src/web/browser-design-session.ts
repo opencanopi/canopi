@@ -400,7 +400,7 @@ export function createBrowserDesignSessionController({
     return design ? `${JSON.stringify(encodeCanopiDesign(design), null, 2)}\n` : null;
   }
 
-  /** A 2.1 Draft's text as 2.1 saved it, named for its row; null once 2.1 no longer holds it. */
+  /** A 2.1 Draft's text as 2.1 saved it, named for its row; null once 2.1 no longer holds it or it does not read. */
   async function newerDraftFile(id: string): Promise<BrowserOpenedCanopiFile | null> {
     const text = await newerRecords?.content(id) ?? null;
     const name = newerDrafts?.get(id)?.name || "Untitled";

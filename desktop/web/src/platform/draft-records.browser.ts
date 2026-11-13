@@ -13,7 +13,8 @@
  * - Bounded: a read waits at most `timeoutMs` (an open can queue behind another page's upgrade); a connection that opens
  *   later is closed once its read ends.
  * - A listing that fails or runs late is reported and settles on the last good listing, empty only before one (design
- *   check A18), so a re-list never unhides an old-key Draft the session already hides (2.1-Q322, F7).
+ *   check A18), so a re-list never unhides an old-key Draft the session already hides (2.1-Q322, F7). A Draft read
+ *   that fails or runs late is reported and gives null, so its open fails visibly and re-lists like a deleted one.
  * Listing reads record fields only; a Design is decoded only when it is opened, by the format core (DR10).
  */
 
@@ -51,7 +52,10 @@ interface DraftStoreListing {
 export interface DraftRecordsReader {
   /** The 2.1 Drafts and the ids they hide; never rejects: a failed or late read is reported and gives the last good listing. */
   list(): Promise<DraftStoreListing>
-  /** The Design of one 2.1 Draft as 2.1 saved it (`.canopi` text), or null when the store no longer holds it. */
+  /**
+   * The Design of one 2.1 Draft as 2.1 saved it (`.canopi` text); never rejects: null when the store no longer holds
+   * it, or when the read fails or runs late, which is reported.
+   */
   content(id: string): Promise<string | null>
 }
 
@@ -103,11 +107,17 @@ export function createDraftRecordsReader({
       return lastListing
     },
     async content(id) {
-      return await bounded(withStore(async (db) => {
-        const tx = db.transaction(DRAFTS_STORE, 'readonly')
-        const [record] = await readAll(tx, [tx.objectStore(DRAFTS_STORE).get(id)])
-        return isRecord(record) && typeof record.content === 'string' ? record.content : null
-      }, null), timeoutMs)
+      try {
+        return await bounded(withStore(async (db) => {
+          const tx = db.transaction(DRAFTS_STORE, 'readonly')
+          const [record] = await readAll(tx, [tx.objectStore(DRAFTS_STORE).get(id)])
+          return isRecord(record) && typeof record.content === 'string' ? record.content : null
+        }, null), timeoutMs)
+      } catch (error) {
+        // The open then says it could not open the Draft and the rows re-list, as for one 2.1 deleted (design check).
+        report(error)
+        return null
+      }
     },
   }
 }

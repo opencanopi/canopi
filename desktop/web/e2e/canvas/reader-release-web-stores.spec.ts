@@ -284,6 +284,32 @@ test('R3 canopi-f47t.52.272: a 2.1 Draft that 2.1 deleted after the list opens n
   await expect(startScreen(page), 'nothing opened').toBeVisible()
 })
 
+test('R3 canopi-f47t.52.272: a 2.1 Draft whose read fails at open opens nothing, says so and re-lists', async ({ page }) => {
+  // Fails every open of the Draft store once the test says so, counting them: the open's read, then the re-list's.
+  await page.addInitScript(() => {
+    const host = window as unknown as { __failDraftOpens: boolean, __failedDraftOpens: number }
+    host.__failDraftOpens = false
+    host.__failedDraftOpens = 0
+    const proto = IDBFactory.prototype
+    const open = proto.open
+    proto.open = function (this: IDBFactory, name: string, version?: number) {
+      if (host.__failDraftOpens && name === 'canopi-drafts') {
+        host.__failedDraftOpens += 1
+        throw new DOMException('Held for the test', 'UnknownError')
+      }
+      return version === undefined ? open.call(this, name) : open.call(this, name, version)
+    }
+  })
+  await startWithOneNewerDraft(page)
+  await page.evaluate(() => { (window as unknown as { __failDraftOpens: boolean }).__failDraftOpens = true })
+
+  await draftRow(page, 'Orchard in 2.1').getByRole('button').first().click()
+  await expect(page.getByText('This Draft is no longer in this browser, or could not be read.'), 'a visible failure (design check)').toBeVisible()
+  await expect.poll(() => page.evaluate(() => (window as unknown as { __failedDraftOpens: number }).__failedDraftOpens), 'the rows re-list after the failed read').toBeGreaterThanOrEqual(2)
+  await expect(startScreen(page), 'nothing opened').toBeVisible()
+  await expect(draftRow(page, 'Orchard in 2.1'), 'the failed re-list keeps the last good listing').toHaveCount(1)
+})
+
 test('R3 canopi-f47t.52.272: a 2.0 Draft another tab deleted after the list opens nothing, says so and leaves the list', async ({ page }) => {
   await page.goto('')
   // A 2.1 Draft keeps launch on the start screen, which lists the 2.0 Drafts beside it.

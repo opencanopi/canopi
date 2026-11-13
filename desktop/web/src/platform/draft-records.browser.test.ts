@@ -335,6 +335,30 @@ describe('the 2.1 Draft store read half', () => {
     expect(await records.content('draft-orchard')).toBeNull()
   })
 
+  it('R3 canopi-f47t.52.272: a Draft read that fails, aborts or runs late gives null with a report, so the open says so', async () => {
+    vi.useFakeTimers()
+    const idb = new FakeIndexedDb()
+    idb.seed(FROZEN)
+    const { records, reports } = reader(idb, { timeoutMs: 50 })
+
+    idb.failOpen = new DOMException('Unknown', 'UnknownError')
+    expect(await records.content('draft-orchard'), 'an open that fails').toBeNull()
+    idb.failOpen = null
+
+    idb.beforeTransaction = () => idb.versionChange(5)
+    expect(await records.content('draft-orchard'), 'a connection closed before the read').toBeNull()
+    idb.beforeTransaction = null
+
+    idb.hold = true
+    const late = records.content('draft-orchard')
+    await vi.advanceTimersByTimeAsync(50)
+    expect(await late, 'an open queued past the bound').toBeNull()
+    expect(reports).toHaveLength(3)
+    vi.useRealTimers()
+    idb.hold = false
+    idb.releaseHeld()
+  })
+
   it('R3 canopi-f47t.52.272: a record whose fields do not read is listed under defaults, still hidden by id; one with no id is not listed', async () => {
     const idb = new FakeIndexedDb()
     idb.seed({
