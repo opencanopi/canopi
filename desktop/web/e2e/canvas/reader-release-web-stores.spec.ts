@@ -97,6 +97,56 @@ test('R3 canopi-f47t.52.272: reader release: Web lists IndexedDB Drafts read-onl
   expect(await storageDump(page), 'listing writes no record and no key').toEqual(before)
 })
 
+test('R3 canopi-f47t.52.272: a re-list that fails after a good listing keeps the old-key Draft the move copied hidden', async ({ page }) => {
+  // Fails every Draft store lookup once the test says so, counting the failures; on the prototype for WebKit.
+  await page.addInitScript(() => {
+    const host = window as unknown as { __failDraftReads: boolean, __failedDraftReads: number }
+    host.__failDraftReads = false
+    host.__failedDraftReads = 0
+    const proto = IDBFactory.prototype as IDBFactory & { databases?: IDBFactory['databases'] }
+    const open = proto.open
+    proto.open = function (this: IDBFactory, name: string, version?: number) {
+      if (host.__failDraftReads && name === 'canopi-drafts') {
+        host.__failedDraftReads += 1
+        throw new DOMException('Held for the test', 'UnknownError')
+      }
+      return version === undefined ? open.call(this, name) : open.call(this, name, version)
+    }
+    const databases = proto.databases
+    if (databases) {
+      proto.databases = function (this: IDBFactory) {
+        if (!host.__failDraftReads) return databases.call(this)
+        host.__failedDraftReads += 1
+        return Promise.reject(new DOMException('Held for the test', 'UnknownError'))
+      }
+    }
+  })
+  await page.goto('')
+  await seedDraftStore(page, [draftRecord('orchard', 'Orchard in 2.1', 3)], ['orchard'])
+  await page.evaluate(([key, value]) => localStorage.setItem(key!, value!), [
+    V3_DRAFTS_KEY,
+    v3DraftsRecord([{ id: 'orchard', name: 'Orchard as 2.0 left it', day: 1 }, { id: 'hedge', name: 'Hedge', day: 2 }]),
+  ])
+  await page.reload()
+  await expect(draftRow(page, 'Orchard in 2.1'), 'the launch listed the 2.1 Draft').toHaveCount(1)
+
+  // Open Hedge, then close it: the start screen re-lists, and that read fails.
+  await page.evaluate(() => { (window as unknown as { __failDraftReads: boolean }).__failDraftReads = true })
+  await draftRow(page, 'Hedge').getByRole('button').first().click()
+  await expect(page.locator('[data-workspace-title-bar]')).toContainText('Hedge')
+  const compact = page.getByRole('menubar', { name: 'Menus' }).getByRole('menuitem', { name: 'Menu' })
+  if (await compact.isVisible()) await compact.click()
+  await page.getByRole('menuitem', { name: 'File' }).click()
+  await page.getByRole('menuitem', { name: 'Close Design' }).click()
+  await expect(startScreen(page)).toBeVisible()
+  await expect.poll(() => page.evaluate(() => (window as unknown as { __failedDraftReads: number }).__failedDraftReads), 'the re-list failed').toBeGreaterThan(0)
+  await page.waitForTimeout(500)
+
+  await expect(draftRow(page, 'Orchard as 2.0 left it'), 'the copied old-key Draft stays hidden').toHaveCount(0)
+  await expect(draftRow(page, 'Orchard in 2.1'), 'the 2.1 Draft stays listed').toHaveCount(1)
+  await expect(draftRow(page, 'Hedge')).toHaveCount(1)
+})
+
 for (const variant of ['databases()', 'databases() stubbed away'] as const) {
   test(`R3 canopi-f47t.52.272: reader release: listing Drafts on an origin with no Draft store creates no IndexedDB database (${variant})`, async ({ page }) => {
     // Every IndexedDB open and databases() call the page makes, recorded before any script of the page runs; the
