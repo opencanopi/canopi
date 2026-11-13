@@ -2,15 +2,13 @@
 // settings record 2 and the species-list record 1 read from their 2.1 keys, from the frozen Web fixtures, and never
 // written, moved aside or removed, whatever they hold.
 import { readFileSync } from 'node:fs'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import {
   SETTINGS_RECORD_KEY,
   SETTINGS_RECORD_VERSION,
   SPECIES_LIST_CAP,
   SPECIES_LIST_RECORD_KEY,
   SPECIES_LIST_RECORD_VERSION,
-  browserLocalStorage,
-  browserSessionStorage,
   readSettingsRecord,
   readSpeciesListRecord,
   type BrowserStorage,
@@ -98,27 +96,5 @@ describe('browser records: the 2.1 settings and species-list records, read only'
     const read = readSpeciesListRecord(store)
     expect(read.state === 'current' && read.record.favorites).toEqual(many.slice(0, 50))
     expect(read.state === 'current' && read.record.recently_viewed).toEqual([])
-  })
-
-  it('reaches the page’s Storage only through its accessors, at each call', () => {
-    const local = new Map<string, string>()
-    const session = new Map<string, string>()
-    const fake = (map: Map<string, string>) => ({
-      getItem: (key: string) => map.get(key) ?? null,
-      setItem: (key: string, value: string) => { map.set(key, value) },
-      removeItem: (key: string) => { map.delete(key) },
-    })
-    vi.stubGlobal('localStorage', fake(local))
-    vi.stubGlobal('sessionStorage', fake(session))
-    try {
-      browserLocalStorage().setItem('a', '1')
-      browserSessionStorage().setItem('b', '2')
-      expect([browserLocalStorage().getItem('a'), browserSessionStorage().getItem('b')]).toEqual(['1', '2'])
-      browserLocalStorage().removeItem('a')
-      browserSessionStorage().removeItem('b')
-      expect([local.size, session.size]).toEqual([0, 0])
-    } finally {
-      vi.unstubAllGlobals()
-    }
   })
 })

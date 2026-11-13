@@ -1,9 +1,11 @@
 // platform/browser-record.ts: the browser records' owner (contracts §11 "Browser records"; Step 2.0.4 R3, finding F8;
-// canopi-f47t.52.272). Raw `localStorage` and `sessionStorage` live only here (ast-grep `web-storage-only-in-adapters`,
-// §18 F10; the pending-write marker and the first-paint theme key are its named exceptions). It holds the Storage
-// accessors and the read half of the 2.1 records the reader release reads and never writes: settings record 2 and the
-// species-list record 1, each under its own 2.1 key (2.1-M486, 2.1-Q320). 2b, 2e and N2 import these names; the
-// record runner, the quota mapping and the `storage`-event change come with the write half (2b).
+// canopi-f47t.52.272), F10's target owner of raw `localStorage` and `sessionStorage` (ast-grep
+// `web-storage-only-in-adapters`, 2b). It holds no raw Storage use yet: its reads take the `BrowserStorage` their
+// caller passes, and the page's Storage adapters stay in web/browser-app-data.ts, counted in
+// policy/ratchets/web-storage-only-in-adapters.json, until 2b moves them here with the records' write half. It holds
+// the read half of the 2.1 records the reader release reads and never writes: settings record 2 and the species-list
+// record 1, each under its own 2.1 key (2.1-M486, 2.1-Q320). 2b, 2e and N2 import these names; the record runner, the
+// quota mapping and the `storage`-event change come with the write half (2b).
 
 /** The 2.1 Web settings record's key; the 2.0 record stays under the v3 key for 2.0 tabs (ADR 0026 Rollback). */
 export const SETTINGS_RECORD_KEY = 'canopi:web-app-data:v4:settings'
@@ -21,24 +23,6 @@ export interface BrowserStorage {
   getItem(key: string): string | null
   setItem(key: string, value: string): void
   removeItem(key: string): void
-}
-
-/** The page's `localStorage`, reached at each call, so a context that refuses it throws its SecurityError there. */
-export function browserLocalStorage(): BrowserStorage {
-  return {
-    getItem: (key) => globalThis.localStorage.getItem(key),
-    setItem: (key, value) => globalThis.localStorage.setItem(key, value),
-    removeItem: (key) => globalThis.localStorage.removeItem(key),
-  }
-}
-
-/** The page's `sessionStorage` (per-tab state), reached at each call like `browserLocalStorage`. */
-export function browserSessionStorage(): BrowserStorage {
-  return {
-    getItem: (key) => globalThis.sessionStorage.getItem(key),
-    setItem: (key, value) => globalThis.sessionStorage.setItem(key, value),
-    removeItem: (key) => globalThis.sessionStorage.removeItem(key),
-  }
 }
 
 /**
