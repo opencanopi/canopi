@@ -649,7 +649,13 @@
         "factAdded": "Adicionado",
         "deletedItem": "Item excluído",
         "importNeedsDesign": "Abra um design para importar dados",
-        "importCancelled": "Importação cancelada"
+        "importCancelled": "Importação cancelada",
+        "needsNewerNote": "Atualize o Canopi para usar este item.",
+        "newerKind": {
+          "raster": "Dados raster",
+          "unknown": "Dados de um tipo que este Canopi não reconhece",
+          "vector": "Dados vetoriais"
+        }
       },
       "layers": {
         "emptyTitle": "Ainda não há dados do local",
@@ -1334,7 +1340,8 @@
     "searchAll": "Pesquisar favoritos e carimbos",
     "remove": "Remover {{name}} dos favoritos",
     "detailsFor": "Detalhes de",
-    "place": "Colocar {{name}}"
+    "place": "Colocar {{name}}",
+    "needsNewerStamp": "Salvo com uma versão mais recente do Canopi; atualize o Canopi para colocá-lo."
   },
   "savedObjectStamps": {
     "title": "Carimbos salvos",

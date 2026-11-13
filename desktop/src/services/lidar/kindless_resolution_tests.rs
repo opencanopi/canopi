@@ -29,34 +29,10 @@ use serde::Deserialize;
 /// Frozen catalogue 25: the two item tables with one row each.
 const CATALOGUE_25: &str = include_str!("../../test_fixtures/frozen/catalogue-25-probe.sql");
 
-/// A draft of 2.1's catalogue 26 as far as the reader reads it: the version row it keeps (2.1-M474), the read
-/// projection `library_items(id, kind, lineage_tag, name, name_key)` (contracts §11 Read projections, A3) and the
-/// jobs table under its 2.1 name `library_jobs` (2.1-M474). Ids keep their catalogue 25 spelling across the step.
-/// R2-3 freezes the whole `catalogue-26.sql`; this draft holds only what resolution reads.
-const DRAFT_CATALOGUE_26: &str = "
-CREATE TABLE lidar_catalogue_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
-INSERT INTO lidar_catalogue_meta(key, value) VALUES ('schema_version', '26');
-CREATE TABLE library_items (
-    id TEXT PRIMARY KEY,
-    kind TEXT NOT NULL,
-    lineage_tag TEXT,
-    name TEXT NOT NULL,
-    name_key TEXT NOT NULL UNIQUE
-);
-CREATE TABLE library_jobs (
-    id TEXT PRIMARY KEY,
-    operation_id TEXT NOT NULL,
-    item_id TEXT REFERENCES library_items(id),
-    state TEXT NOT NULL,
-    outcome TEXT
-);
-INSERT INTO library_items(id, kind, lineage_tag, name, name_key)
-    VALUES ('lyr-0000018f2a3b4c5d0001', 'raster', 'imported', 'Orchard terrain', 'orchard terrain');
-INSERT INTO library_items(id, kind, lineage_tag, name, name_key)
-    VALUES ('item-0000018f2a3b4c5d0003', 'raster', 'terrain.slope', 'Orchard slope', 'orchard slope');
-INSERT INTO library_items(id, kind, lineage_tag, name, name_key)
-    VALUES ('vec-0000018f2a3b4c5d0004', 'vector', 'imported', 'Hedge lines', 'hedge lines');
-";
+/// Frozen catalogue 26 (Step 2.0.4 R2-3): the version row it keeps (2.1-M474) and the read projection
+/// `library_items(id, kind, lineage_tag, name, name_key)` resolution reads (contracts §11 Read projections, A3). Ids
+/// keep their catalogue 25 spelling across the step (2.1-M493).
+const CATALOGUE_26: &str = include_str!("../../test_fixtures/frozen/catalogue-26.sql");
 
 const SOURCE_ID: &str = "lyr-0000018f2a3b4c5d0001";
 const DERIVED_ID: &str = "item-0000018f2a3b4c5d0003";
@@ -184,7 +160,7 @@ fn r2_canopi_f47t_52_271_kindless_entries_resolve_by_id_against_catalogue_25s_tw
 
 #[test]
 fn r2_canopi_f47t_52_271_kindless_entries_resolve_by_id_against_catalogue_26s_library_items() {
-    let connection = open_fixture(DRAFT_CATALOGUE_26);
+    let connection = open_fixture(CATALOGUE_26);
     let [source, derived, missing] = design_entries();
 
     assert_eq!(
@@ -245,7 +221,7 @@ fn r2_canopi_f47t_52_271_an_id_present_in_both_catalogue_25_tables_lists_unavail
 fn r2_canopi_f47t_52_271_an_id_missing_from_the_library_lists_by_its_stored_name_in_both_catalogues()
  {
     let catalogue_25 = open_fixture(CATALOGUE_25);
-    let catalogue_26 = open_fixture(DRAFT_CATALOGUE_26);
+    let catalogue_26 = open_fixture(CATALOGUE_26);
     let lost =
         entry(serde_json::json!({ "id": "item-0000018f2a3b4c5dfffe", "name": "Deleted slope" }));
     let empty = entry(serde_json::json!({ "id": "", "name": "Blank id" }));

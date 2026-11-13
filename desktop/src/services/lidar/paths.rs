@@ -28,6 +28,15 @@ pub struct LidarPaths {
 }
 
 impl LidarPaths {
+    /// The layout under `app_data_dir`, creating nothing: what a library over a
+    /// newer catalogue reads through, since it writes no directory (2.1-M488).
+    pub fn locate(app_data_dir: &Path) -> Self {
+        Self {
+            root: library_root(app_data_dir),
+        }
+    }
+
+    /// The layout under `app_data_dir`, every managed directory created.
     pub fn open(app_data_dir: &Path) -> Result<Self, String> {
         let root = library_root(app_data_dir);
         for dir in [

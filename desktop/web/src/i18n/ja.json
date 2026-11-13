@@ -649,7 +649,13 @@
         "factAdded": "追加日",
         "deletedItem": "削除された項目",
         "importNeedsDesign": "データをインポートするにはデザインを開いてください",
-        "importCancelled": "インポートをキャンセルしました"
+        "importCancelled": "インポートをキャンセルしました",
+        "needsNewerNote": "この項目を使用するには Canopi を更新してください。",
+        "newerKind": {
+          "raster": "ラスターデータ",
+          "unknown": "この Canopi が認識できない種類のデータ",
+          "vector": "ベクターデータ"
+        }
       },
       "layers": {
         "emptyTitle": "敷地データはまだありません",
@@ -1334,7 +1340,8 @@
     "searchAll": "お気に入りとスタンプを検索",
     "remove": "{{name}}をお気に入りから削除",
     "detailsFor": "詳細：",
-    "place": "{{name}}を配置"
+    "place": "{{name}}を配置",
+    "needsNewerStamp": "新しいバージョンの Canopi で保存されています。配置するには Canopi を更新してください。"
   },
   "savedObjectStamps": {
     "title": "保存済みスタンプ",

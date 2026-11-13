@@ -10,6 +10,7 @@ use std::{
 
 use canopi_types::{
     failure::{Failure, FailureCode},
+    health::StoreId,
     update::UpdateOp,
 };
 use tauri::{AppHandle, Manager as _, Runtime};
@@ -29,6 +30,21 @@ fn row_failure(_: String) -> Failure {
         FailureCode::Internal,
         "the launch check setting could not be read or written",
     )
+}
+
+/// A refused switch is the silent `store_read_only{settings}`: the settings' one notice already says changes are not
+/// saved (2.1-M487).
+fn write_failure(error: settings::SettingsWriteError) -> Failure {
+    match error {
+        settings::SettingsWriteError::ReadOnly => failure::failure(
+            UpdateOp::Check,
+            FailureCode::StoreReadOnly {
+                store: StoreId::Settings,
+            },
+            "the settings refuse writes for this session",
+        ),
+        settings::SettingsWriteError::Failed(text) => row_failure(text),
+    }
 }
 
 /// Whether Canopi checks for an update at launch; a missing row reads on.
@@ -55,7 +71,7 @@ pub async fn launch_check_set(
         .run_typed(
             NativeOperationClass::UserData,
             UpdateOp::Check.op(),
-            move || settings::set_updater_check_at_launch(&user_db, on).map_err(row_failure),
+            move || settings::set_updater_check_at_launch(&user_db, on).map_err(write_failure),
         )
         .await
 }
@@ -515,6 +531,31 @@ mod tests {
         assert!(run(launch_check_get(&executor, user_db.clone())).unwrap());
         run(launch_check_set(&executor, user_db.clone(), false)).unwrap();
         assert!(!run(launch_check_get(&executor, user_db)).unwrap());
+    }
+
+    /// Under settings record 2 the launch check reads the record's `check_updates_at_launch` and its switch is refused
+    /// with the silent `store_read_only{settings}`, writing no row (2.1-M480, 2.1-Q320).
+    #[test]
+    fn r2_canopi_f47t_52_271_under_settings_record_2_the_launch_check_reads_its_field_and_refuses_the_switch()
+     {
+        use canopi_types::{failure::FailureCode, health::StoreId};
+        let executor = NativeOperationExecutor::production();
+        let user_db = UserDb::initialize(Connection::open_in_memory().unwrap()).unwrap();
+        let record = r#"{"version":2,"check_updates_at_launch":false}"#;
+        crate::db::user_db::set_setting(&user_db.acquire(), "settings", record).unwrap();
+
+        assert!(!run(launch_check_get(&executor, user_db.clone())).unwrap());
+        let refused = run(launch_check_set(&executor, user_db.clone(), true)).unwrap_err();
+
+        assert_eq!(
+            refused.code,
+            FailureCode::StoreReadOnly {
+                store: StoreId::Settings
+            }
+        );
+        let conn = user_db.acquire();
+        let row = crate::db::user_db::get_setting(&conn, "updater.check_at_launch").unwrap();
+        assert_eq!(row, None, "no launch-check row written");
     }
 
     #[test]

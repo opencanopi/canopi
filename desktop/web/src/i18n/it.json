@@ -649,7 +649,13 @@
         "factAdded": "Aggiunto",
         "deletedItem": "Elemento eliminato",
         "importNeedsDesign": "Apri un progetto per importare dati",
-        "importCancelled": "Importazione annullata"
+        "importCancelled": "Importazione annullata",
+        "needsNewerNote": "Aggiorna Canopi per usare questo elemento.",
+        "newerKind": {
+          "raster": "Dati raster",
+          "unknown": "Dati di un tipo che questo Canopi non conosce",
+          "vector": "Dati vettoriali"
+        }
       },
       "layers": {
         "emptyTitle": "Ancora nessun dato del sito",
@@ -1334,7 +1340,8 @@
     "searchAll": "Cerca nei preferiti e nei timbri",
     "remove": "Rimuovi {{name}} dai preferiti",
     "detailsFor": "Dettagli di",
-    "place": "Posiziona {{name}}"
+    "place": "Posiziona {{name}}",
+    "needsNewerStamp": "Salvato con una versione più recente di Canopi; aggiorna Canopi per posizionarlo."
   },
   "savedObjectStamps": {
     "title": "Timbri salvati",

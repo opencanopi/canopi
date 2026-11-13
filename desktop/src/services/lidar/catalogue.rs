@@ -75,6 +75,24 @@ pub fn stored_version(path: &std::path::Path) -> Result<Option<i32>, String> {
     schema_version(&connection)
 }
 
+/// The `library_items(id, kind, lineage_tag, name)` rows of a catalogue at version 26 or later, its frozen read
+/// projection (2.1-M480), through a read-only connection with no pragma, so the reader release writes no byte of it
+/// (2.1-M488). Any failure, a missing table included, is the caller's `unavailable`. `catalogue_reader` decodes them.
+pub fn newer_items(path: &std::path::Path) -> Result<Vec<[String; 4]>, String> {
+    let failed = |e: rusqlite::Error| format!("Failed to read the newer LiDAR catalogue: {e}");
+    let connection = Connection::open_with_flags(path, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)
+        .map_err(failed)?;
+    let mut statement = connection
+        .prepare("SELECT id, kind, lineage_tag, name FROM library_items")
+        .map_err(failed)?;
+    let rows = statement
+        .query_map([], |row| {
+            Ok([row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?])
+        })
+        .map_err(failed)?;
+    rows.collect::<Result<_, _>>().map_err(failed)
+}
+
 fn schema_version(connection: &Connection) -> Result<Option<i32>, String> {
     let has_meta: bool = connection
         .query_row(
@@ -1634,32 +1652,6 @@ mod tests {
         drop(open(&path).unwrap());
         assert_eq!(stored_version(&path).unwrap(), Some(CATALOGUE_VERSION));
         let _ = std::fs::remove_dir_all(root);
-    }
-
-    #[test]
-    fn any_other_catalogue_version_is_refused_before_writes() {
-        for version in ["20", "99"] {
-            let root = crate::test_scratch::TestScratch::new("canopi-catalogue-other");
-            std::fs::create_dir_all(&root).unwrap();
-            let path = root.join("lidar-library.sqlite");
-            {
-                let connection = open(&path).unwrap();
-                connection
-                    .execute(
-                        "UPDATE lidar_catalogue_meta SET value = ?1 WHERE key = 'schema_version'",
-                        [version],
-                    )
-                    .unwrap();
-            }
-            let error = open(&path).expect_err("another schema must be refused");
-            assert!(error.contains("is not supported"), "{error}");
-            assert_eq!(
-                stored_version(&path).unwrap(),
-                Some(version.parse().unwrap()),
-                "a refused catalogue is left untouched"
-            );
-            let _ = std::fs::remove_dir_all(root);
-        }
     }
 
     #[test]

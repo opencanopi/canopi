@@ -649,7 +649,13 @@
         "factAdded": "Hinzugefügt",
         "deletedItem": "Gelöschtes Element",
         "importNeedsDesign": "Öffnen Sie ein Design, um Daten zu importieren",
-        "importCancelled": "Import abgebrochen"
+        "importCancelled": "Import abgebrochen",
+        "needsNewerNote": "Aktualisieren Sie Canopi, um dieses Element zu verwenden.",
+        "newerKind": {
+          "raster": "Rasterdaten",
+          "unknown": "Daten eines Typs, den dieses Canopi nicht kennt",
+          "vector": "Vektordaten"
+        }
       },
       "layers": {
         "emptyTitle": "Noch keine Standortdaten",
@@ -1334,7 +1340,8 @@
     "searchAll": "Favoriten und Stempel durchsuchen",
     "remove": "{{name}} aus den Favoriten entfernen",
     "detailsFor": "Details zu",
-    "place": "{{name}} setzen"
+    "place": "{{name}} setzen",
+    "needsNewerStamp": "Mit einer neueren Canopi-Version gespeichert; aktualisieren Sie Canopi, um ihn zu setzen."
   },
   "savedObjectStamps": {
     "title": "Gespeicherte Stempel",

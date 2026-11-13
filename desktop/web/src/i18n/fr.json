@@ -649,7 +649,13 @@
         "factAdded": "Ajouté",
         "deletedItem": "Élément supprimé",
         "importNeedsDesign": "Ouvrez un Design pour importer des données",
-        "importCancelled": "Import annulé"
+        "importCancelled": "Import annulé",
+        "needsNewerNote": "Mettez Canopi à jour pour utiliser cet élément.",
+        "newerKind": {
+          "raster": "Données raster",
+          "unknown": "Données d’un type que ce Canopi ne connaît pas",
+          "vector": "Données vectorielles"
+        }
       },
       "layers": {
         "emptyTitle": "Aucune donnée du site pour l’instant",
@@ -1334,7 +1340,8 @@
     "searchAll": "Rechercher favoris et tampons",
     "remove": "Retirer {{name}} des favoris",
     "detailsFor": "Détails de",
-    "place": "Placer {{name}}"
+    "place": "Placer {{name}}",
+    "needsNewerStamp": "Enregistré avec une version plus récente de Canopi ; mettez Canopi à jour pour le placer."
   },
   "savedObjectStamps": {
     "title": "Tampons enregistrés",

@@ -1,17 +1,20 @@
 //! The reader release's Data library user path (Step 2.0.4 R2, canopi-f47t.52.271; plan "reader release: catalogue 26
-//! lists its items read-only and prunes no file", 2.1-M88, 2.1-Q318).
+//! lists its items read-only and prunes no file", 2.1-M88, 2.1-M488, 2.1-Q318).
 //!
-//! Written failing in commit 0 and marked expected-fail: R2-4 (the catalogue's newer-read-only open) removes the marker.
-//! The catalogue is a real library built by this binary, then stamped schema version 26 with the frozen read
-//! projection's `library_items` table and the jobs table under its 2.1 name `library_jobs` (2.1-M474). The other
-//! tables keep their v25 names here only because R2-3 freezes their `library_*` names: R2-4 must swap in the frozen
-//! `catalogue-26.sql` fixture before it removes the marker, so an R2 still reading a v25 table cannot pass.
+//! Each library here is the real one over the frozen `catalogue-26.sql`, the file 2.1's catalogue reads as, beside
+//! what a 2.0 library would recover, prune or recreate: an orphaned asset, scratch, an engine log and a damaged
+//! display cache. The library lists the items and changes no byte and no directory under the data folder.
 
 use super::*;
 use canopi_types::health::StoreOpenStatus;
-use canopi_types::library::RasterQuantity;
+use canopi_types::library::{LibraryItemKind, LibraryItemSummary};
+use canopi_types::lidar::LidarResultState;
 use std::collections::BTreeMap;
 use std::path::Path;
+
+// Frozen catalogue 26 (Step 2.0.4 R2-3; 2.1-M474, 2.1-M488, 2.1-M493): the literal file 2.1's catalogue
+// reads as, which the reader release and the rollback lane open.
+const CATALOGUE_26: &str = include_str!("../../test_fixtures/frozen/catalogue-26.sql");
 
 /// Every directory (as `None`) and file (with its bytes) under `root`, except what SQLite may create on a read-only
 /// open: a `-shm` file or an empty `-wal` (contracts §11 Degraded stores: engine metadata, not a write). Directories
@@ -38,92 +41,259 @@ fn files(root: &Path) -> BTreeMap<PathBuf, Option<Vec<u8>>> {
     out
 }
 
-/// Stamps the catalogue at `path` as 2.1's catalogue 26 would leave it: schema version 26 and the read projection's
-/// `library_items(id, kind, lineage_tag, name, name_key)` listing every item (contracts §11 Read projections) and the
-/// jobs table renamed `library_jobs` (2.1-M474).
-#[cfg(test)]
-fn stamp_catalogue_26(path: &Path) {
-    let connection = rusqlite::Connection::open(path).unwrap();
+/// A data folder holding `catalogue` (SQL run into a WAL-mode `lidar-library.sqlite`) and what a 2.0 library would
+/// touch on open: an asset no row names, analysis scratch, an engine log and a display cache it cannot open.
+fn data_folder(name: &str, catalogue: &str) -> crate::test_scratch::TestScratch {
+    let root = crate::test_scratch::TestScratch::new(name);
+    let lidar = paths::library_root(&root);
+    for (file, bytes) in [
+        ("assets/unreferenced/cog.tif", &b"kept"[..]),
+        ("prepared/scratch-analysis-job-1/out.tif", b"kept"),
+        ("engine-logs/job-1.log", b"kept"),
+        ("lidar-display-cache.sqlite", b"not a database"),
+    ] {
+        std::fs::create_dir_all(lidar.join(file).parent().unwrap()).unwrap();
+        std::fs::write(lidar.join(file), bytes).unwrap();
+    }
+    let connection = Connection::open(lidar.join(paths::CATALOGUE_FILE)).unwrap();
     connection
-        .execute_batch(
-            "CREATE TABLE library_items (
-                 id TEXT PRIMARY KEY, kind TEXT NOT NULL, lineage_tag TEXT, name TEXT NOT NULL, name_key TEXT NOT NULL
-             );
-             INSERT INTO library_items(id, kind, lineage_tag, name, name_key)
-                 SELECT id, 'raster', NULL, name, lower(name) FROM lidar_source_layers;
-             ALTER TABLE lidar_import_jobs RENAME TO library_jobs;
-             UPDATE lidar_catalogue_meta SET value = '26' WHERE key = 'schema_version';
-             PRAGMA wal_checkpoint(TRUNCATE);",
-        )
+        .pragma_update(None, "journal_mode", "WAL")
         .unwrap();
+    connection.execute_batch(catalogue).unwrap();
+    drop(connection);
+    root
+}
+
+fn listed(library: &LidarLibrary) -> Vec<LibraryItemSummary> {
+    library.library_snapshot().unwrap().items
 }
 
 #[test]
-#[ignore = "expected-fail: R2 canopi-f47t.52.271"]
 fn r2_canopi_f47t_52_271_catalogue_26_lists_its_items_read_only_and_prunes_no_file() {
-    let root = crate::test_scratch::TestScratch::new("reader-release-catalogue-26");
-    let library = LidarLibrary::open(&root).unwrap();
-    library
-        .record_import_item(
-            "Orchard terrain",
-            RasterQuantity::GroundElevation,
-            None,
-            false,
-            &[root.join("orchard.tif")],
-        )
-        .unwrap();
-    let listed: Vec<String> = library
-        .library_snapshot()
-        .unwrap()
-        .items
-        .into_iter()
-        .filter_map(|item| item.name)
-        .collect();
-    assert!(
-        listed.iter().any(|name| name == "Orchard terrain"),
-        "the v25 library lists the item: {listed:?}"
-    );
-    drop(library);
-    let lidar = paths::library_root(&root);
-    stamp_catalogue_26(&lidar.join(paths::CATALOGUE_FILE));
+    let root = data_folder("reader-release-catalogue-26", CATALOGUE_26);
     let before = files(&root);
 
     let library = LidarLibrary::open(&root).expect("the app starts");
 
-    // Today the catalogue is refused (refused_newer) and the library shows empty.
     assert_eq!(
         library.open_status().health(),
         StoreOpenStatus::NewerReadOnly,
         "catalogue 26 opens newer-read-only"
     );
-    let reread: Vec<String> = library
-        .library_snapshot()
-        .unwrap()
-        .items
-        .into_iter()
-        .filter_map(|item| item.name)
+    let items = listed(&library);
+    let names: Vec<_> = items
+        .iter()
+        .filter_map(|item| item.name.as_deref())
         .collect();
+    assert_eq!(names.len(), 4, "every item is listed by name: {names:?}");
+    for name in [
+        "Orchard terrain",
+        "Orchard slope",
+        "Hedge lines",
+        "Drone canopy model",
+    ] {
+        assert!(names.contains(&name), "{name} is listed: {names:?}");
+    }
     assert!(
-        reread.iter().any(|name| name == "Orchard terrain"),
-        "its items are listed by name: {reread:?}"
+        items
+            .iter()
+            .all(|item| item.state == LidarResultState::NeedsNewer && item.generation_id.is_none()),
+        "each needs a newer Canopi and draws nothing (2.1-Q318)"
+    );
+    let id = items[0].id.clone();
+    assert_eq!(
+        library.rename_item(&id, "Renamed"),
+        Err("store_read_only".to_owned())
+    );
+    assert!(
+        library.delete_item(&id).is_err(),
+        "a read-only library refuses a delete"
     );
     assert!(
         library
-            .rename_item(&library.library_snapshot().unwrap().items[0].id, "Renamed")
+            .record_import_item(
+                "Later",
+                RasterQuantity::GroundElevation,
+                None,
+                false,
+                &[root.join("later.tif")],
+            )
             .is_err(),
-        "a read-only library refuses a rename"
+        "a read-only library refuses an import"
     );
     drop(library);
     assert_eq!(
         files(&root),
         before,
-        "no file is pruned, moved, created or written"
+        "no file is pruned, moved, created or written, and no directory is made"
     );
 }
 
-// Frozen catalogue 26 (Step 2.0.4 R2-3; 2.1-M474, 2.1-M488, 2.1-M493): the literal file 2.1's catalogue
-// reads as, which the reader release and the rollback lane open.
-const CATALOGUE_26: &str = include_str!("../../test_fixtures/frozen/catalogue-26.sql");
+/// Listing a newer catalogue never probes the GeoLibre engine: the probe captures its output in the library's
+/// `engine-logs/`, which belongs to the newer Canopi, and no listed item offers an analysis (2.1-M488). The end-state
+/// folder check cannot see the probe's capture files, which it removes, so a stub engine marks each run.
+#[cfg(unix)]
+#[test]
+fn r2_canopi_f47t_52_271_listing_catalogue_26_never_probes_the_engine_in_its_engine_logs() {
+    use std::os::unix::fs::PermissionsExt;
+    let root = data_folder("reader-release-catalogue-probe", CATALOGUE_26);
+    let stub_dir = crate::test_scratch::TestScratch::new("reader-release-geolibre-stub");
+    let marker = stub_dir.join("probed");
+    let stub = stub_dir.join("geolibre");
+    std::fs::write(
+        &stub,
+        format!(
+            "#!/bin/sh\ntouch '{}'\necho geolibre-cli 0.0.0\n",
+            marker.display()
+        ),
+    )
+    .unwrap();
+    std::fs::set_permissions(&stub, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let before = files(&root);
+
+    let mut library = LidarLibrary::open(&root).expect("the app starts");
+    let engine_logs = library.inner.paths.engine_log_dir();
+    Arc::get_mut(&mut library.inner)
+        .expect("a refused library spawns nothing that holds it")
+        .geolibre = geolibre::GeolibreEngine::at(stub, engine_logs);
+
+    assert_eq!(listed(&library).len(), 4);
+    assert!(
+        !marker.exists(),
+        "the engine probe ran in the newer catalogue's engine-logs"
+    );
+    drop(library);
+    assert_eq!(files(&root), before);
+}
+
+#[test]
+fn r2_canopi_f47t_52_271_a_vector_row_and_an_unknown_literal_row_each_list_as_needing_a_newer_canopi()
+ {
+    // A later catalogue step may add literals; its rows still list, one each (2.1-M488).
+    let later = CATALOGUE_26
+        .replace("CHECK (kind IN ('raster', 'vector'))", "")
+        .replace("CHECK (lineage_tag IN ('source', 'analysis', 'external'))", "")
+        + "INSERT INTO library_items(id, kind, lineage_tag, name, name_key)
+               VALUES ('pc-0000018f2a3b4c5d0006', 'point-cloud', 'survey', 'Hedge scan', 'hedge scan');";
+    let root = data_folder("reader-release-catalogue-literals", &later);
+    let library = LidarLibrary::open(&root).expect("the app starts");
+
+    let items = listed(&library);
+    let row = |name: &str| {
+        items
+            .iter()
+            .find(|item| item.name.as_deref() == Some(name))
+            .unwrap_or_else(|| panic!("{name} is listed: {items:?}"))
+    };
+    assert_eq!(items.len(), 5, "the listing is never refused whole");
+    assert_eq!(row("Hedge lines").newer_kind, Some(LibraryItemKind::Vector));
+    assert_eq!(
+        row("Orchard terrain").newer_kind,
+        Some(LibraryItemKind::Raster)
+    );
+    assert_eq!(row("Orchard slope").role, LibraryItemRole::Derived);
+    let unknown = row("Hedge scan");
+    assert_eq!(
+        (unknown.state, unknown.newer_kind, unknown.role),
+        (LidarResultState::NeedsNewer, None, LibraryItemRole::Source)
+    );
+    assert_eq!(row("Hedge lines").state, LidarResultState::NeedsNewer);
+}
+
+#[test]
+fn r2_canopi_f47t_52_271_a_queued_or_running_library_job_is_never_settled_interrupted() {
+    let root = data_folder("reader-release-catalogue-jobs", CATALOGUE_26);
+    let catalogue = paths::library_root(&root).join(paths::CATALOGUE_FILE);
+    let jobs = || -> Vec<(String, String, Option<String>)> {
+        let connection =
+            Connection::open_with_flags(&catalogue, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)
+                .unwrap();
+        let mut statement = connection
+            .prepare("SELECT id, state, outcome FROM library_jobs ORDER BY id")
+            .unwrap();
+        statement
+            .query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))
+            .unwrap()
+            .map(Result::unwrap)
+            .collect()
+    };
+    let before = jobs();
+
+    let library = LidarLibrary::open(&root).expect("the app starts");
+
+    let running = listed(&library)
+        .into_iter()
+        .find(|item| item.name.as_deref() == Some("Hedge lines"))
+        .unwrap();
+    assert_eq!(
+        running.state,
+        LidarResultState::NeedsNewer,
+        "its item lists as needing a newer Canopi"
+    );
+    drop(library);
+    assert_eq!(jobs(), before, "no job is recovered, settled or failed");
+    assert!(before.iter().any(|(_, state, _)| state == "running"));
+    assert!(before.iter().any(|(_, state, _)| state == "queued"));
+}
+
+#[test]
+fn r2_canopi_f47t_52_271_a_newer_catalogue_it_cannot_read_is_unavailable_and_never_set_aside() {
+    // Version 99 without the read projection: the catalogue is newer but its items cannot be read.
+    let root = data_folder(
+        "reader-release-catalogue-unreadable",
+        "CREATE TABLE lidar_catalogue_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+         INSERT INTO lidar_catalogue_meta VALUES ('schema_version', '99');",
+    );
+    let lidar = paths::library_root(&root);
+    std::fs::create_dir_all(lidar.join("sources/sha-n")).unwrap();
+    std::fs::write(lidar.join("sources/sha-n/original"), b"tile").unwrap();
+    let before = files(&root);
+
+    let library = LidarLibrary::open(&root).expect("the app starts");
+
+    assert!(
+        matches!(
+            library.open_status().health(),
+            StoreOpenStatus::Unavailable { .. }
+        ),
+        "{:?}",
+        library.open_status()
+    );
+    assert!(listed(&library).is_empty());
+    assert!(library.rename_item("lyr-n", "x").is_err());
+    drop(library);
+    assert_eq!(files(&root), before, "never set aside, rebuilt or swept");
+    assert!(!lidar.join(recovery::SET_ASIDE_DIR).exists());
+}
+
+/// Moved from `catalogue.rs`, which holds the library's SQL: `catalogue::open` refuses an older or a newer catalogue
+/// before it writes, so only `recovery` decides between a rebuild and the read-only listing.
+#[test]
+fn any_other_catalogue_version_is_refused_before_writes() {
+    for version in ["20", "99"] {
+        let root = crate::test_scratch::TestScratch::new("canopi-catalogue-other");
+        std::fs::create_dir_all(&root).unwrap();
+        let path = root.join("lidar-library.sqlite");
+        {
+            let connection = catalogue::open(&path).unwrap();
+            connection
+                .execute(
+                    "UPDATE lidar_catalogue_meta SET value = ?1 WHERE key = 'schema_version'",
+                    [version],
+                )
+                .unwrap();
+        }
+        let error = catalogue::open(&path).expect_err("another schema must be refused");
+        assert!(error.contains("is not supported"), "{error}");
+        assert_eq!(
+            catalogue::stored_version(&path).unwrap(),
+            Some(version.parse().unwrap()),
+            "a refused catalogue is left untouched"
+        );
+        let _ = std::fs::remove_dir_all(root);
+    }
+}
+
 const CATALOGUE_25: &str = include_str!("../../test_fixtures/frozen/catalogue-25-probe.sql");
 
 /// Each stored-enum column of catalogue 26: its name, the query reading its stored values and its enum's

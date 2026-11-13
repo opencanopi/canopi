@@ -649,7 +649,13 @@
         "factAdded": "Added",
         "deletedItem": "Deleted item",
         "importNeedsDesign": "Open a Design to import data",
-        "importCancelled": "Import cancelled"
+        "importCancelled": "Import cancelled",
+        "needsNewerNote": "Update Canopi to use this item.",
+        "newerKind": {
+          "raster": "Raster data",
+          "unknown": "Data of a type this Canopi doesn’t know",
+          "vector": "Vector data"
+        }
       },
       "layers": {
         "emptyTitle": "No site data yet",
@@ -1334,7 +1340,8 @@
     "searchAll": "Search favorites and stamps",
     "remove": "Remove {{name}} from favorites",
     "detailsFor": "Details for",
-    "place": "Place {{name}}"
+    "place": "Place {{name}}",
+    "needsNewerStamp": "Saved with a newer Canopi; update Canopi to place it."
   },
   "savedObjectStamps": {
     "title": "Saved stamps",

@@ -23,7 +23,11 @@ import { currentCanvasQuerySurface, currentCanvasSelection } from '../../canvas/
 import type { CanvasRuntimeSavedObjectStampCapture } from '../../canvas/runtime/app-adapter'
 import { canSaveSelectionAsObjectStamp } from '../../canvas/runtime/interaction/contextual-selection-actions'
 import { armCanvasTool, type ArmFrom } from '../keyboard/arming'
-import { parseSavedObjectStampPayload, SAVED_OBJECT_STAMP_PAYLOAD_VERSION } from '../../canvas/saved-object-stamp-payload'
+import {
+  parseSavedObjectStampPayload,
+  SAVED_OBJECT_STAMP_PAYLOAD_VERSION,
+  savedObjectStampRowState,
+} from '../../canvas/saved-object-stamp-payload'
 import {
   createSavedObjectStamp as createSavedObjectStampIpc,
   deleteSavedObjectStamp as deleteSavedObjectStampIpc,
@@ -172,7 +176,7 @@ export function createSavedObjectStampWorkbench({
         !queue.isCurrent(admittedLifetime)
         || isLibraryLoadStale(requestGeneration, requestSnapshotEpoch)
       ) return
-      items.value = loaded
+      items.value = [...loaded].sort(compareSavedObjectStamps)
     } finally {
       if (isCurrentLibraryLoad(requestGeneration)) loading.value = false
     }
@@ -203,9 +207,15 @@ export function createSavedObjectStampWorkbench({
     })
   }
 
+  /** A listed stamp a newer Canopi saved: the store refuses its writes, so none is sent (2.1-M88). */
+  function needsNewer(id: string): boolean {
+    const stamp = items.value.find((item) => item.id === id)
+    return stamp !== undefined && savedObjectStampRowState(stamp) === 'needs-newer'
+  }
+
   function renameStamp(id: string, name: string): Promise<SavedObjectStamp | null> {
     const nextName = name.trim()
-    if (nextName.length === 0) return Promise.resolve(null)
+    if (nextName.length === 0 || needsNewer(id)) return Promise.resolve(null)
     return queue.enqueue(null, async (admittedLifetime) => {
       const renamed = await renameSavedObjectStamp(id, nextName)
       if (!queue.isCurrent(admittedLifetime)) return null
@@ -218,6 +228,7 @@ export function createSavedObjectStampWorkbench({
   }
 
   function deleteStamp(id: string): Promise<boolean> {
+    if (needsNewer(id)) return Promise.resolve(false)
     return queue.enqueue(false, async (admittedLifetime) => {
       const deleted = await deleteSavedObjectStamp(id)
       if (!queue.isCurrent(admittedLifetime)) return false
@@ -231,8 +242,9 @@ export function createSavedObjectStampWorkbench({
     })
   }
 
+  /** Renumbers the stamps this Canopi reads; a newer one stays listed after them, since the store refuses a list naming it. */
   function reorderStamps(ids: string[]): Promise<void> {
-    const nextOrder = [...ids]
+    const nextOrder = ids.filter((id) => !needsNewer(id))
     return queue.enqueue(undefined, async (admittedLifetime) => {
       const reordered = await reorderSavedObjectStamps(nextOrder)
       if (!queue.isCurrent(admittedLifetime)) return
@@ -244,7 +256,7 @@ export function createSavedObjectStampWorkbench({
   }
 
   function placeStamp(stamp: SavedObjectStamp, from: Extract<ArmFrom, 'panel' | 'card'>): boolean {
-    if (queue.disposed) return false
+    if (queue.disposed || savedObjectStampRowState(stamp) !== 'ready') return false
     const payload = parseSavedObjectStampPayload(stamp.payload_json)
     if (!payload) return false
     return arm('saved-object-stamp', { from, source: { kind: 'saved-stamp', stamp: payload, name: stamp.name.trim() || null } })
@@ -499,6 +511,12 @@ function concreteKey(member: SceneObjectGroupMember): string {
   return `${member.kind}:${member.id}`
 }
 
+/**
+ * The library order: the stamps this Canopi reads by the store's order, then those a newer Canopi saved. A reorder
+ * renumbers only the first (the store refuses a list naming a newer row), so listing those last keeps the order shown
+ * the order saved, whatever sort_order a newer row holds (canopi-f47t.52.271).
+ */
 function compareSavedObjectStamps(left: SavedObjectStamp, right: SavedObjectStamp): number {
-  return left.sort_order - right.sort_order || left.created_at.localeCompare(right.created_at) || left.id.localeCompare(right.id)
+  return Number(left.needs_newer === true) - Number(right.needs_newer === true)
+    || left.sort_order - right.sort_order || left.created_at.localeCompare(right.created_at) || left.id.localeCompare(right.id)
 }

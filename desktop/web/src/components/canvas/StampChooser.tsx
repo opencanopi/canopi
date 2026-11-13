@@ -4,6 +4,7 @@ import { savedObjectStampWorkbench } from '../../app/saved-object-stamps'
 import {
   isSavedObjectStampPayloadFromBefore2_0,
   parseSavedObjectStampPayload,
+  savedObjectStampRowState,
 } from '../../canvas/saved-object-stamp-payload'
 import { armCanvasTool } from '../../app/keyboard/arming'
 import { t } from '../../i18n'
@@ -18,7 +19,8 @@ import styles from './ToolCard.module.css'
  * each with its plant and species counts, and a way back to copying an object
  * from the map. Choosing arms the stamp and gives the map focus back; Esc
  * closes the chooser. Stamps saved before 2.0 are left out: Canopi 2.0 cannot
- * place them, and Favorites offers to delete them.
+ * place them, and Favorites offers to delete them. A stamp a newer Canopi saved
+ * is listed by name with its note, its option off (2.1-M88).
  */
 export function StampChooser({ onChosen, onEscape }: StampChooserProps) {
   const library = savedObjectStampWorkbench.library.value
@@ -36,7 +38,7 @@ export function StampChooser({ onChosen, onEscape }: StampChooserProps) {
   // stamp (Chromium) ends in the chooser alike. The list arriving never moves focus: a Tab inside the chooser, a click
   // outside it or a stamp removed by the read stays as the user left it (canopi-f47t.52.228.20).
   useLayoutEffect(() => {
-    root.current?.querySelector<HTMLButtonElement>('button')?.focus()
+    root.current?.querySelector<HTMLButtonElement>('button:not(:disabled)')?.focus()
   }, [])
 
   function choose(stamp: SavedObjectStamp): void {
@@ -69,7 +71,8 @@ export function StampChooser({ onChosen, onEscape }: StampChooserProps) {
               <ul className={styles.optionList}>
                 {stamps.map((stamp) => (
                   <li key={stamp.id}>
-                    <button type="button" className={`${styles.option} ${styles.stampOption}`} data-stamp-option={stamp.id} onClick={() => choose(stamp)}>
+                    <button type="button" className={`${styles.option} ${styles.stampOption}`} data-stamp-option={stamp.id}
+                      disabled={savedObjectStampRowState(stamp) === 'needs-newer'} onClick={() => choose(stamp)}>
                       <span className={styles.stampGlyph} aria-hidden="true"><ToolIcon name="object-stamp" /></span>
                       <span className={styles.optionNames}>
                         <span className={styles.optionName}>{stamp.name.trim() || t('canvas.toolCard.untitledStamp')}</span>
@@ -90,6 +93,7 @@ export function StampChooser({ onChosen, onEscape }: StampChooserProps) {
 
 /** "10 plants · 4 species", or what else the stamp holds when it has no plants. */
 function stampSummary(stamp: SavedObjectStamp): string {
+  if (savedObjectStampRowState(stamp) === 'needs-newer') return t('favorites.needsNewerStamp')
   const payload = parseSavedObjectStampPayload(stamp.payload_json)
   if (!payload) return t('savedObjectStamps.summaryUnavailable')
   const plants = payload.plants.length

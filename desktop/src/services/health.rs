@@ -66,6 +66,45 @@ pub(crate) fn plant_catalog(status: PlantDbStatus) -> StoreHealth {
     }
 }
 
+/// Opens the user database in `data_dir`, with the health entries of the stores it holds: the user DB
+/// and, on Desktop, the settings record (startup seam, R2-2).
+///
+/// A user database from before 2.0 is renamed, since 2.0 needs its path, and a notice tells the
+/// user once (ADR 0021); a damaged one is set aside and its status names the set-aside file on that
+/// start only (NAT-02). One saved by a newer Canopi opens read-only and the app starts (2.1-M410).
+/// Drafts in an earlier format and the retired 1.x autosave store stay where they are, unread, and
+/// are not reported (U59).
+pub(crate) fn open_stores(
+    data_dir: &std::path::Path,
+) -> Result<(crate::db::UserDb, [(StoreId, StoreHealth); 2]), crate::db::UserDbInitError> {
+    let (user_db, health) = crate::db::UserDb::open(data_dir.join("user.db"))?;
+    let mut settings = settings_entry(&health);
+    if settings.status == StoreOpenStatus::Ready && super::settings::record_is_newer(&user_db) {
+        settings.status = StoreOpenStatus::NewerReadOnly;
+    }
+    Ok((
+        user_db,
+        [(StoreId::UserDb, health), (StoreId::Settings, settings)],
+    ))
+}
+
+/// The settings record's entry: it lives in the user DB, so it shares the user DB's access (newer
+/// read-only, unavailable); a damaged or rebuilt user DB is the user DB's own one-time event, named
+/// once by its entry, and the settings record lives in the fresh database, so it is ready. A ready
+/// user DB holding a newer settings record makes the settings alone newer-read-only (A16).
+fn settings_entry(user_db: &StoreHealth) -> StoreHealth {
+    let status = match &user_db.status {
+        StoreOpenStatus::SetAsideDamaged { .. } | StoreOpenStatus::Recovered { .. } => {
+            StoreOpenStatus::Ready
+        }
+        status => status.clone(),
+    };
+    StoreHealth {
+        status,
+        notice: None,
+    }
+}
+
 /// The health of a start where every store the Desktop opens came up ready.
 #[cfg(test)]
 pub(crate) fn all_ready() -> SubsystemHealth {
@@ -77,6 +116,7 @@ pub(crate) fn all_ready() -> SubsystemHealth {
     SubsystemHealth(std::collections::BTreeMap::from([
         (StoreId::PlantCatalog, ready()),
         (StoreId::UserDb, ready()),
+        (StoreId::Settings, ready()),
         (StoreId::LibraryCatalogue, ready()),
     ]))
 }
@@ -110,6 +150,123 @@ mod tests {
         };
         assert_eq!(notice(&get_health(&health)), None);
         assert_eq!(report_health(&health), startup);
+    }
+
+    /// On Desktop the settings record lives in the user DB, so its entry follows the user DB's
+    /// access; a one-time notice or set-aside stays the user DB's own.
+    #[test]
+    fn r2_canopi_f47t_52_271_the_settings_entry_follows_the_user_db_it_lives_in() {
+        use canopi_types::failure::IoFailureKind;
+        let code = FailureCode::Io {
+            io: IoFailureKind::ReadOnly,
+        };
+        for status in [
+            StoreOpenStatus::Ready,
+            StoreOpenStatus::NewerReadOnly,
+            StoreOpenStatus::Unavailable { code },
+        ] {
+            let user_db = StoreHealth {
+                status: status.clone(),
+                notice: Some(StoreNotice::MovedAsidePre20),
+            };
+            assert_eq!(
+                settings_entry(&user_db),
+                StoreHealth {
+                    status,
+                    notice: None
+                }
+            );
+        }
+        let fresh = [
+            StoreOpenStatus::SetAsideDamaged {
+                file: "user.db.corrupt-1".to_owned(),
+            },
+            StoreOpenStatus::Recovered {
+                items: 1,
+                generated: 0,
+            },
+        ];
+        for status in fresh {
+            let user_db = StoreHealth {
+                status,
+                notice: None,
+            };
+            assert_eq!(settings_entry(&user_db).status, StoreOpenStatus::Ready);
+        }
+    }
+
+    /// A user DB saved by a newer Canopi starts the app (2.1-M410): the user DB and the settings
+    /// it holds come back newer-read-only, where 2.0 refused to start.
+    #[test]
+    fn r2_canopi_f47t_52_271_a_user_db_10_starts_the_app_with_the_user_db_and_settings_newer_read_only()
+     {
+        let data_dir = crate::test_scratch::TestScratch::new("open-stores-user-db-10");
+        let writer = rusqlite::Connection::open(data_dir.join("user.db")).unwrap();
+        writer
+            .execute_batch(include_str!("../test_fixtures/frozen/user-db-10.sql"))
+            .unwrap();
+        drop(writer);
+
+        let (user_db, stores) = open_stores(&data_dir).expect("the app starts");
+        drop(user_db);
+
+        let newer = StoreHealth {
+            status: StoreOpenStatus::NewerReadOnly,
+            notice: None,
+        };
+        assert_eq!(
+            stores,
+            [(StoreId::UserDb, newer.clone()), (StoreId::Settings, newer)]
+        );
+    }
+
+    /// Settings keep a newer-read-only state of their own (A16, 2.1-M480): record 2 in a user DB 9, as beta profiles
+    /// hold it, makes the settings newer-read-only while the user DB stays ready; record 1 leaves both ready.
+    #[test]
+    fn r2_canopi_f47t_52_271_settings_record_2_in_a_user_db_9_is_newer_read_only_and_the_user_db_ready()
+     {
+        let entries = |record: &str| {
+            let data_dir = crate::test_scratch::TestScratch::new("open-stores-settings-record-2");
+            let (user_db, _) = crate::db::UserDb::open(data_dir.join("user.db")).unwrap();
+            crate::db::user_db::set_setting(&user_db.acquire(), "settings", record).unwrap();
+            drop(user_db);
+            let (user_db, stores) = open_stores(&data_dir).expect("the app starts");
+            drop(user_db);
+            stores.map(|(store, entry)| (store, entry.status))
+        };
+        use StoreOpenStatus::{NewerReadOnly, Ready};
+
+        assert_eq!(
+            entries(r#"{"version":2,"theme":"dark"}"#),
+            [(StoreId::UserDb, Ready), (StoreId::Settings, NewerReadOnly)]
+        );
+        assert_eq!(
+            entries(r#"{"theme":"dark"}"#),
+            [(StoreId::UserDb, Ready), (StoreId::Settings, Ready)]
+        );
+    }
+
+    /// A damaged user DB is set aside and named once, by the user DB's own entry: the settings
+    /// record lives in the fresh database that replaced it, so it is ready and raises no second
+    /// set-aside notice.
+    #[test]
+    fn r2_canopi_f47t_52_271_a_damaged_user_db_sets_aside_once_and_the_settings_entry_is_ready() {
+        let data_dir = crate::test_scratch::TestScratch::new("open-stores-damaged-user-db");
+        std::fs::write(data_dir.join("user.db"), b"not a database, damaged on disk").unwrap();
+
+        let (user_db, [(_, user_db_entry), settings]) =
+            open_stores(&data_dir).expect("the app starts");
+        drop(user_db);
+
+        assert!(matches!(
+            user_db_entry.status,
+            StoreOpenStatus::SetAsideDamaged { .. }
+        ));
+        let ready = StoreHealth {
+            status: StoreOpenStatus::Ready,
+            notice: None,
+        };
+        assert_eq!(settings, (StoreId::Settings, ready));
     }
 
     #[test]

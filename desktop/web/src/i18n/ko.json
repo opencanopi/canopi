@@ -649,7 +649,13 @@
         "factAdded": "추가됨",
         "deletedItem": "삭제된 항목",
         "importNeedsDesign": "데이터를 가져오려면 디자인을 여세요",
-        "importCancelled": "가져오기를 취소했습니다"
+        "importCancelled": "가져오기를 취소했습니다",
+        "needsNewerNote": "이 항목을 사용하려면 Canopi를 업데이트하세요.",
+        "newerKind": {
+          "raster": "래스터 데이터",
+          "unknown": "이 Canopi가 알지 못하는 유형의 데이터",
+          "vector": "벡터 데이터"
+        }
       },
       "layers": {
         "emptyTitle": "아직 부지 데이터가 없습니다",
@@ -1334,7 +1340,8 @@
     "searchAll": "즐겨찾기 및 스탬프 검색",
     "remove": "즐겨찾기에서 {{name}} 제거",
     "detailsFor": "상세 정보:",
-    "place": "{{name}} 배치"
+    "place": "{{name}} 배치",
+    "needsNewerStamp": "최신 버전의 Canopi에서 저장되었습니다. 배치하려면 Canopi를 업데이트하세요."
   },
   "savedObjectStamps": {
     "title": "저장된 스탬프",

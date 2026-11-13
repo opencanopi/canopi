@@ -11,6 +11,7 @@ pub mod admission;
 pub(crate) mod analyses;
 mod analysis_registry_generated;
 pub mod catalogue;
+mod catalogue_reader;
 mod collection;
 mod coverage;
 mod display_cog;
@@ -210,16 +211,24 @@ impl LidarLibrary {
     /// Open the library under the app data directory.
     ///
     /// A bad catalogue never stops the app: an older or corrupt one is set
-    /// aside and rebuilt from the originals, a newer one is refused and the
-    /// library runs empty in memory (`recovery.rs`). The display cache and the
-    /// startup sweep are best effort too. Only the managed directories failing
-    /// to exist is an error.
+    /// aside and rebuilt from the originals (`recovery.rs`). A newer one is
+    /// listed read-only (`catalogue_reader.rs`) and the library writes nothing:
+    /// no directory, no display cache file, no recovery or sweep (2.1-M488).
+    /// The display cache and the startup sweep are best effort too. Only the
+    /// managed directories failing to exist is an error.
     pub fn open(app_data_dir: &std::path::Path) -> Result<Self, String> {
-        let paths = LidarPaths::open(app_data_dir)?;
+        let located = LidarPaths::locate(app_data_dir);
+        let state = recovery::inspect(&located.catalogue_path());
+        let newer = matches!(state, recovery::CatalogueState::Newer(_));
+        let paths = if newer {
+            located
+        } else {
+            LidarPaths::open(app_data_dir)?
+        };
         let recovery::OpenedCatalogue {
             connection: catalogue,
             status,
-        } = recovery::open_catalogue(&paths)?;
+        } = recovery::open_catalogue(&paths, state)?;
         match &status {
             recovery::LibraryOpenStatus::Ready => {}
             recovery::LibraryOpenStatus::Recovered {
@@ -234,17 +243,20 @@ impl LidarLibrary {
                 generated,
                 "LiDAR catalogue set aside and rebuilt from the originals"
             ),
-            recovery::LibraryOpenStatus::RefusedNewer { found, supported } => tracing::warn!(
+            recovery::LibraryOpenStatus::NewerReadOnly { found, .. } => tracing::warn!(
                 found,
-                supported,
-                "LiDAR catalogue written by a newer Canopi; the library is empty and read-only"
+                "LiDAR catalogue written by a newer Canopi; its items are listed read-only"
             ),
             recovery::LibraryOpenStatus::Unavailable { reason } => tracing::error!(
                 %reason,
                 "LiDAR catalogue could not be opened or rebuilt; the library is empty and read-only"
             ),
         }
-        let display_cache = open_display_cache_or_recreate(&paths.display_cache_path())?;
+        let display_cache = if newer {
+            open_display_cache_in_memory()?
+        } else {
+            open_display_cache_or_recreate(&paths.display_cache_path())?
+        };
         let engine_logs = paths.engine_log_dir();
         let library = Self {
             inner: Arc::new(LidarLibraryInner {
@@ -644,9 +656,18 @@ impl LidarLibrary {
     }
 
     pub fn library_snapshot(&self) -> Result<LidarSnapshot, String> {
-        let geolibre = self.inner.geolibre.discover();
+        // A refused library offers no analysis, and the engine probe would
+        // capture its output in the refused catalogue's folder (2.1-M488).
+        let geolibre = self
+            .ensure_writable()
+            .and_then(|()| self.inner.geolibre.discover());
         let connection = self.catalogue()?;
-        presentation::library_snapshot(&connection, self.inner.engine.as_ref(), &geolibre)
+        let mut snapshot =
+            presentation::library_snapshot(&connection, self.inner.engine.as_ref(), &geolibre)?;
+        if let recovery::LibraryOpenStatus::NewerReadOnly { items, .. } = &self.inner.status {
+            snapshot.items.extend(items.0.iter().cloned());
+        }
+        Ok(snapshot)
     }
 
     /// The native cell under each point of each target (spec §1.10), in
@@ -2055,12 +2076,18 @@ fn open_display_cache_or_recreate(path: &std::path::Path) -> Result<Connection, 
         Ok(connection) => Ok(connection),
         Err(error) => {
             tracing::error!(%error, "LiDAR display cache could not be recreated; using memory");
-            let connection = Connection::open_in_memory()
-                .map_err(|e| format!("Failed to open an in-memory display cache: {e}"))?;
-            init_display_cache(&connection)?;
-            Ok(connection)
+            open_display_cache_in_memory()
         }
     }
+}
+
+/// A display cache that lives only in this process: the fallback above, and
+/// the cache of a library over a newer catalogue, which opens no file.
+fn open_display_cache_in_memory() -> Result<Connection, String> {
+    let connection = Connection::open_in_memory()
+        .map_err(|e| format!("Failed to open an in-memory display cache: {e}"))?;
+    init_display_cache(&connection)?;
+    Ok(connection)
 }
 
 fn open_display_cache(path: &std::path::Path) -> Result<Connection, String> {
@@ -3386,70 +3413,6 @@ mod tests {
                 paths.source_original("sha-a")
             ]
         );
-        drop(library);
-        std::fs::remove_dir_all(root).unwrap();
-    }
-
-    /// A newer catalogue belongs to a newer Canopi: it is refused and nothing
-    /// under the library is moved, written or swept. The app still starts with
-    /// an empty, read-only library that names the refusal.
-    #[test]
-    fn a_newer_catalogue_is_refused_without_touching_files() {
-        let root = crate::test_scratch::TestScratch::new("lidar-newer-library");
-        let lidar = paths::library_root(&root);
-        write_original(
-            &lidar,
-            "sha-n",
-            Some(&single_item_meta(
-                "sha-n",
-                "lyr-n",
-                "Future",
-                RasterQuantity::GroundElevation.key(),
-                "m",
-            )),
-        );
-        std::fs::create_dir_all(lidar.join("assets/unreferenced")).unwrap();
-        std::fs::write(lidar.join("assets/unreferenced/cog.tif"), b"kept").unwrap();
-        let catalogue_path = lidar.join(paths::CATALOGUE_FILE);
-        write_catalogue_with_version(&catalogue_path, "99");
-        let newer_bytes = std::fs::read(&catalogue_path).unwrap();
-
-        let library = LidarLibrary::open(&root).expect("the app starts");
-        assert_eq!(
-            *library.open_status(),
-            recovery::LibraryOpenStatus::RefusedNewer {
-                found: 99,
-                supported: catalogue::CATALOGUE_VERSION
-            }
-        );
-        assert!(library.library_snapshot().unwrap().items.is_empty());
-        let refused = library
-            .record_import_item(
-                "Later",
-                RasterQuantity::GroundElevation,
-                None,
-                false,
-                &[root.join("a.tif")],
-            )
-            .unwrap_err();
-        assert!(refused.contains("newer version of Canopi"), "{refused}");
-        assert!(
-            library
-                .rename_item("lyr-n", "x")
-                .unwrap_err()
-                .contains("newer version")
-        );
-        assert_eq!(
-            std::fs::read(&catalogue_path).unwrap(),
-            newer_bytes,
-            "left byte for byte"
-        );
-        assert!(!lidar.join(recovery::SET_ASIDE_DIR).exists());
-        assert!(
-            lidar.join("assets/unreferenced/cog.tif").is_file(),
-            "nothing is swept"
-        );
-        assert!(lidar.join("sources/sha-n/original").is_file());
         drop(library);
         std::fs::remove_dir_all(root).unwrap();
     }
