@@ -11,10 +11,8 @@
 // after databases() named the store: 2.1's first upgrade may still abort under it, and the abort keeps that open from
 // creating version 1.
 
-/** The 2.1 Draft store's database (contracts §11). */
-export const DRAFT_DATABASE = 'canopi-drafts'
-/** Its IndexedDB version: the container version after the v3 `localStorage` keys (2.1-M486). */
-export const DRAFT_DATABASE_VERSION = 4
+// The Draft store's frozen name and version, from their one owner (contracts §11, 2.1-M486).
+export { DRAFT_DATABASE, DRAFT_DATABASE_VERSION } from '../../src/platform/draft-records.browser'
 
 /** A record of the `drafts` object store (key `id`); no Blob, Date or ArrayBuffer, so a fixture round-trips JSON. */
 export interface DraftRecord {
