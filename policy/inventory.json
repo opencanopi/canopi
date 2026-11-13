@@ -2742,6 +2742,11 @@
       "quote": "| 2.1-M190 |"
     },
     {
+      "id": "indexeddb-only-in-adapters",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M190 |"
+    },
+    {
       "id": "serial-lane-only-in-owners",
       "doc": "docs/decisions/2-1.md",
       "quote": "| 2.1-M203 |"
