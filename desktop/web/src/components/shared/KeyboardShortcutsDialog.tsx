@@ -5,6 +5,7 @@ import {
   closeKeyboardShortcutsDialog,
   keyboardShortcutsDialogOpen,
   keyboardShortcutsSectionRequest,
+  keyboardShortcutsSectionShown,
 } from '../../app/shell/dialogs'
 import { singleKeyShortcuts } from '../../app/settings/state'
 import { t } from '../../i18n'
@@ -58,7 +59,7 @@ export function KeyboardShortcutsDialog({ menus, platform, linuxPinchNote = fals
     const heading = grid.current?.querySelector<HTMLElement>(`#shortcuts-${request.section}`)
     heading?.scrollIntoView?.({ block: 'start' })
     heading?.focus({ preventScroll: true })
-    keyboardShortcutsSectionRequest.value = null
+    keyboardShortcutsSectionShown()
   }, [open, request])
   if (!open) return null
   const key = (shortcut: string) => formatShortcut(shortcut, t)

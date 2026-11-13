@@ -27,6 +27,11 @@ export function openKeyboardShortcutsDialog(options: { readonly section?: Keyboa
   keyboardShortcutsDialogOpen.value = true
 }
 
+/** The dialog has moved to the requested section: the request is spent, so a plain reopen starts at the top. */
+export function keyboardShortcutsSectionShown(): void {
+  keyboardShortcutsSectionRequest.value = null
+}
+
 export function closeKeyboardShortcutsDialog(): void {
   keyboardShortcutsSectionRequest.value = null
   keyboardShortcutsDialogOpen.value = false
