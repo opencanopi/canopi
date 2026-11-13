@@ -1,6 +1,7 @@
 use canopi_types::saved_object_stamps::SavedObjectStamp;
 
 use crate::db::UserDb;
+use crate::db::user_db::write_refusal;
 
 pub fn create_saved_object_stamp(
     user_db: &UserDb,
@@ -10,7 +11,9 @@ pub fn create_saved_object_stamp(
     let conn = user_db.acquire();
     crate::db::user_db::create_saved_object_stamp(&conn, &name, &payload_json)
         .map(row_to_saved_object_stamp)
-        .map_err(|e| format!("Failed to create Saved Object Stamp '{name}': {e}"))
+        .map_err(write_refusal(&format!(
+            "Failed to create Saved Object Stamp '{name}'"
+        )))
 }
 
 pub fn get_saved_object_stamps(user_db: &UserDb) -> Result<Vec<SavedObjectStamp>, String> {
@@ -28,13 +31,16 @@ pub fn rename_saved_object_stamp(
     let conn = user_db.acquire();
     crate::db::user_db::rename_saved_object_stamp(&conn, &id, &name)
         .map(row_to_saved_object_stamp)
-        .map_err(|e| format!("Failed to rename Saved Object Stamp '{id}': {e}"))
+        .map_err(write_refusal(&format!(
+            "Failed to rename Saved Object Stamp '{id}'"
+        )))
 }
 
 pub fn delete_saved_object_stamp(user_db: &UserDb, id: String) -> Result<bool, String> {
     let conn = user_db.acquire();
-    crate::db::user_db::delete_saved_object_stamp(&conn, &id)
-        .map_err(|e| format!("Failed to delete Saved Object Stamp '{id}': {e}"))
+    crate::db::user_db::delete_saved_object_stamp(&conn, &id).map_err(write_refusal(&format!(
+        "Failed to delete Saved Object Stamp '{id}'"
+    )))
 }
 
 pub fn reorder_saved_object_stamps(
@@ -45,7 +51,7 @@ pub fn reorder_saved_object_stamps(
     crate::db::user_db::reorder_saved_object_stamps(&conn, &ids)
         .and_then(|()| crate::db::user_db::get_saved_object_stamps(&conn))
         .map(|rows| rows.into_iter().map(row_to_saved_object_stamp).collect())
-        .map_err(|e| format!("Failed to reorder Saved Object Stamps: {e}"))
+        .map_err(write_refusal("Failed to reorder Saved Object Stamps"))
 }
 
 fn row_to_saved_object_stamp(row: crate::db::user_db::SavedObjectStampRow) -> SavedObjectStamp {

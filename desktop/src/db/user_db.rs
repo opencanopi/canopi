@@ -1,11 +1,12 @@
-use rusqlite::Connection;
-use std::fmt;
+use canopi_types::health::{StoreHealth, StoreOpenStatus};
+use rusqlite::{Connection, ErrorCode, OpenFlags, OptionalExtension};
+use std::{fmt, path::Path};
 
 /// The user database shape this build writes (Canopi 2.0).
 ///
 /// Canopi 2.0 breaks stored data (ADR 0021): there is no migration ladder.
 /// An older database is moved aside whole by `UserDb::open` and replaced by
-/// an empty one; a newer one is refused untouched.
+/// an empty one; a newer one is read, never written.
 pub(crate) const CURRENT_USER_DB_VERSION: i32 = 9;
 
 const SCHEMA: &str = include_str!("user_db_schema.sql");
@@ -65,12 +66,8 @@ impl UserDbInitError {
 
 fn is_corrupt_database_error(error: &rusqlite::Error) -> bool {
     matches!(
-        error,
-        rusqlite::Error::SqliteFailure(failure, _)
-            if matches!(
-                failure.code,
-                rusqlite::ErrorCode::NotADatabase | rusqlite::ErrorCode::DatabaseCorrupt
-            )
+        error.sqlite_error_code(),
+        Some(ErrorCode::NotADatabase | ErrorCode::DatabaseCorrupt)
     )
 }
 
@@ -183,6 +180,42 @@ pub(super) fn initialize_connection(conn: &Connection) -> Result<(), UserDbInitE
     verify_integrity(conn)
 }
 
+/// The read-only version check `UserDb::open` runs first (contracts §11; plan :169, 2.1-M410). `None` for a missing
+/// file, versions 0 to 9 and what SQLite cannot read here: the read-write open owns, sets aside or refuses those. A
+/// newer version keeps its `SQLITE_OPEN_READ_ONLY` connection (never `immutable=1`) and is read through the v9 tables
+/// and columns by name (A3). A newer file read only through a write (a hot journal; a -wal with no -shm in a folder
+/// Canopi cannot write) is unavailable, never retried read-write, and served by an empty stand-in.
+pub(super) fn read_only_admission(
+    path: &Path,
+) -> Result<Option<(super::UserDb, StoreHealth)>, UserDbInitError> {
+    // A read-only open creates no file: a missing one fails here and goes to the read-write open.
+    let flags = OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX;
+    let read = Connection::open_with_flags(path, flags).map_err(UserDbInitError::Open);
+    let newer = |found: i32| found > CURRENT_USER_DB_VERSION;
+    let (connection, status) = match read.and_then(|conn| Ok((schema_version(&conn)?, conn))) {
+        Ok((found, conn)) if newer(found) => (conn, StoreOpenStatus::NewerReadOnly),
+        Ok(_) | Err(_) => return Ok(None),
+    };
+    let user_db = super::UserDb(std::sync::Arc::new(connection.into()), false);
+    Ok(Some((
+        user_db,
+        StoreHealth {
+            status,
+            notice: None,
+        },
+    )))
+}
+
+/// The one place `SQLITE_READONLY` becomes `store_read_only{user_db}` (design check F15, 2.1-M487): a user DB write's
+/// error passes here, and a refused one is the catalogue kind, the text the IPC transport settles silently; any other
+/// error reads `<context>: <error>`.
+pub(crate) fn write_refusal(context: &str) -> impl FnOnce(rusqlite::Error) -> String + '_ {
+    move |error| match error.sqlite_error_code() {
+        Some(ErrorCode::ReadOnly) => "store_read_only".to_owned(),
+        _ => format!("{context}: {error}"),
+    }
+}
+
 fn has_tables(conn: &Connection) -> Result<bool, UserDbInitError> {
     conn.query_row(
         "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type = 'table')",
@@ -230,13 +263,10 @@ fn verify_integrity(conn: &Connection) -> Result<(), UserDbInitError> {
 }
 
 pub fn get_setting(conn: &Connection, key: &str) -> Result<Option<String>, rusqlite::Error> {
-    let mut stmt = conn.prepare("SELECT value FROM settings WHERE key = ?1")?;
-    let mut rows = stmt.query_map([key], |row| row.get(0))?;
-    match rows.next() {
-        Some(Ok(val)) => Ok(Some(val)),
-        Some(Err(e)) => Err(e),
-        None => Ok(None),
-    }
+    conn.query_row("SELECT value FROM settings WHERE key = ?1", [key], |row| {
+        row.get(0)
+    })
+    .optional()
 }
 
 pub fn set_setting(conn: &Connection, key: &str, value: &str) -> Result<(), rusqlite::Error> {
@@ -265,25 +295,17 @@ pub fn get_favorite_names(conn: &Connection) -> Result<Vec<String>, rusqlite::Er
 
 /// Toggles a favorite. Returns `true` if now favorited, `false` if unfavorited.
 pub fn toggle_favorite(conn: &Connection, canonical_name: &str) -> Result<bool, rusqlite::Error> {
-    let exists: bool = conn.query_row(
-        "SELECT EXISTS(SELECT 1 FROM favorites WHERE canonical_name = ?1)",
+    let removed = conn.execute(
+        "DELETE FROM favorites WHERE canonical_name = ?1",
         [canonical_name],
-        |row| row.get(0),
     )?;
-
-    if exists {
-        conn.execute(
-            "DELETE FROM favorites WHERE canonical_name = ?1",
-            [canonical_name],
-        )?;
-        Ok(false)
-    } else {
+    if removed == 0 {
         conn.execute(
             "INSERT INTO favorites (canonical_name, added_at) VALUES (?1, datetime('now'))",
             [canonical_name],
         )?;
-        Ok(true)
     }
+    Ok(removed == 0)
 }
 
 /// Records a species view, updating `viewed_at` if already present.
@@ -570,19 +592,6 @@ mod tests {
         .unwrap();
     }
 
-    #[test]
-    fn initialization_refuses_a_newer_schema_version() {
-        let conn = Connection::open_in_memory().unwrap();
-        conn.pragma_update(None, "user_version", CURRENT_USER_DB_VERSION + 1)
-            .unwrap();
-
-        assert!(matches!(
-            crate::db::UserDb::initialize(conn),
-            Err(UserDbInitError::NewerSchemaVersion { found, supported })
-                if found == CURRENT_USER_DB_VERSION + 1 && supported == CURRENT_USER_DB_VERSION
-        ));
-    }
-
     fn files_starting_with(path: &std::path::Path, suffix: &str) -> Vec<std::path::PathBuf> {
         let prefix = format!("{}{suffix}", path.file_name().unwrap().to_string_lossy());
         let mut found = std::fs::read_dir(path.parent().unwrap())
@@ -705,30 +714,6 @@ mod tests {
             (StoreOpenStatus::Ready, None)
         );
         assert!(files_starting_with(&path, ".").is_empty(), "nothing moved");
-        std::fs::remove_file(path).unwrap();
-    }
-
-    /// A newer database is refused with a typed error and left exactly where it is.
-    #[test]
-    fn opening_a_newer_database_is_refused_and_kept() {
-        let scratch = TestScratch::new("user-db-opening-a-newer-database-is-refused-and-kept");
-        let path = temp_user_db_path(&scratch, "newer");
-        Connection::open(&path)
-            .unwrap()
-            .pragma_update(None, "user_version", CURRENT_USER_DB_VERSION + 1)
-            .unwrap();
-        assert!(matches!(
-            crate::db::UserDb::open(&path),
-            Err(UserDbInitError::NewerSchemaVersion { found, supported })
-                if found == CURRENT_USER_DB_VERSION + 1 && supported == CURRENT_USER_DB_VERSION
-        ));
-        assert!(
-            files_starting_with(&path, ".").is_empty(),
-            "nothing is set aside"
-        );
-        let kept = Connection::open(&path).unwrap();
-        assert_eq!(schema_version(&kept).unwrap(), CURRENT_USER_DB_VERSION + 1);
-        drop(kept);
         std::fs::remove_file(path).unwrap();
     }
 

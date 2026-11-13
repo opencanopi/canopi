@@ -1,4 +1,5 @@
 use crate::db::UserDb;
+use crate::db::user_db::write_refusal;
 use crate::services::design_files::{design_path_availability, partition_by_availability};
 use canopi_types::design::{CanopiFile, DesignNotebookSection, DesignNotebookSnapshot};
 
@@ -28,7 +29,7 @@ pub fn create_notebook_section(
     let name = normalize_section_name(name)?;
     let conn = user_db.acquire();
     crate::db::design_notebook::create_notebook_section(&conn, name)
-        .map_err(|e| format!("Failed to create Notebook Section: {e}"))
+        .map_err(write_refusal("Failed to create Notebook Section"))
 }
 
 pub fn add_design_reference(
@@ -47,7 +48,7 @@ pub fn add_design_reference(
         &design.name,
         design.plants.len() as u32,
     )
-    .map_err(|e| format!("Failed to add Design to Notebook: {e}"))
+    .map_err(write_refusal("Failed to add Design to Notebook"))
 }
 
 pub fn rename_notebook_section(
@@ -58,13 +59,13 @@ pub fn rename_notebook_section(
     let name = normalize_section_name(name)?;
     let conn = user_db.acquire();
     crate::db::design_notebook::rename_notebook_section(&conn, section_id, name)
-        .map_err(|e| format!("Failed to rename Notebook Section: {e}"))
+        .map_err(write_refusal("Failed to rename Notebook Section"))
 }
 
 pub fn delete_notebook_section(user_db: &UserDb, section_id: &str) -> Result<(), String> {
     let conn = user_db.acquire();
     crate::db::design_notebook::delete_notebook_section(&conn, section_id)
-        .map_err(|e| format!("Failed to delete Notebook Section: {e}"))
+        .map_err(write_refusal("Failed to delete Notebook Section"))
 }
 
 pub fn move_design_reference_to_section(
@@ -84,11 +85,12 @@ pub fn move_design_reference_to_section(
     {
         Some(section_id) => {
             crate::db::design_notebook::assign_design_reference_to_section(&conn, path, section_id)
-                .map_err(|e| format!("Failed to move Design into Notebook Section: {e}"))?;
+                .map_err(write_refusal("Failed to move Design into Notebook Section"))?;
         }
         None => {
-            crate::db::design_notebook::remove_design_reference_from_section(&conn, path)
-                .map_err(|e| format!("Failed to remove Design from Notebook Section: {e}"))?;
+            crate::db::design_notebook::remove_design_reference_from_section(&conn, path).map_err(
+                write_refusal("Failed to remove Design from Notebook Section"),
+            )?;
         }
     }
 
@@ -112,7 +114,7 @@ pub fn relocate_design_reference(
         section_id.as_deref(),
         &paths,
     )
-    .map_err(|e| format!("Failed to relocate Design Notebook entry: {e}"))
+    .map_err(write_refusal("Failed to relocate Design Notebook entry"))
 }
 
 pub fn remove_design_reference(user_db: &UserDb, path: &str) -> Result<(), String> {
@@ -122,21 +124,21 @@ pub fn remove_design_reference(user_db: &UserDb, path: &str) -> Result<(), Strin
 
     let conn = user_db.acquire();
     crate::db::design_notebook::remove_design_reference(&conn, path)
-        .map_err(|e| format!("Failed to remove Design from Notebook: {e}"))
+        .map_err(write_refusal("Failed to remove Design from Notebook"))
 }
 
 pub fn reorder_notebook_sections(user_db: &UserDb, section_ids: Vec<String>) -> Result<(), String> {
     validate_order_values(&section_ids, "Notebook Section id")?;
     let conn = user_db.acquire();
     crate::db::design_notebook::reorder_notebook_sections(&conn, &section_ids)
-        .map_err(|e| format!("Failed to reorder Notebook Sections: {e}"))
+        .map_err(write_refusal("Failed to reorder Notebook Sections"))
 }
 
 pub fn reorder_design_references(user_db: &UserDb, paths: Vec<String>) -> Result<(), String> {
     validate_order_values(&paths, "Design path")?;
     let conn = user_db.acquire();
     crate::db::design_notebook::reorder_design_references(&conn, &paths)
-        .map_err(|e| format!("Failed to reorder Design Notebook entries: {e}"))
+        .map_err(write_refusal("Failed to reorder Design Notebook entries"))
 }
 
 fn normalize_section_name(name: &str) -> Result<&str, String> {
@@ -159,7 +161,9 @@ fn prune_missing_design_notebook_entries(user_db: &UserDb, paths: &[String]) {
         return;
     }
 
-    let conn = user_db.acquire();
+    let Some(conn) = user_db.acquire_writable() else {
+        return;
+    };
     for path in paths {
         if let Err(error) = crate::db::design_notebook::remove_design_reference(&conn, path) {
             tracing::warn!("Failed to prune a missing Design Notebook entry: {error}");

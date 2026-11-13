@@ -160,6 +160,11 @@ fn companion(path: &std::path::Path, suffix: &str) -> std::path::PathBuf {
 /// The frozen user DB 10 at `<dir>/user.db` in WAL mode, as 2.1 leaves it on a crash: `user_version` 10 in the main
 /// file, a favourite only in an uncheckpointed -wal, and no -shm.
 fn user_db_10_with_a_wal(dir: &std::path::Path) -> std::path::PathBuf {
+    user_db_10_with_a_wal_and(dir, "")
+}
+
+/// [`user_db_10_with_a_wal`], with `more` SQL in the -wal too.
+fn user_db_10_with_a_wal_and(dir: &std::path::Path, more: &str) -> std::path::PathBuf {
     let path = dir.join("user.db");
     let writer = Connection::open(&path).unwrap();
     writer.execute_batch(USER_DB_10).unwrap();
@@ -175,6 +180,7 @@ fn user_db_10_with_a_wal(dir: &std::path::Path) -> std::path::PathBuf {
              INSERT INTO favorites (added_at, canonical_name) VALUES ('2026-11-04T09:00:00Z', 'Allium ursinum');",
         )
         .unwrap();
+    writer.execute_batch(more).unwrap();
     drop(writer);
     std::fs::remove_file(companion(&path, "-shm")).unwrap();
     path
@@ -232,4 +238,244 @@ fn r2_canopi_f47t_52_271_a_read_only_open_of_a_wal_user_db_10_keeps_the_main_fil
         "the -wal is byte-identical"
     );
     assert_eq!(header_user_version(&path), 10);
+}
+
+/// The user DB's files at `path` that exist (main, -wal, -journal) with their bytes: what "no byte written" compares.
+fn user_db_files(path: &std::path::Path) -> Vec<(&'static str, Vec<u8>)> {
+    ["", "-wal", "-journal"]
+        .into_iter()
+        .filter_map(|suffix| Some((suffix, std::fs::read(companion(path, suffix)).ok()?)))
+        .collect()
+}
+
+/// The text a String command rejects with when the read-only user DB refused its write (2.1-M487).
+const REFUSED: &str = "store_read_only";
+
+#[test]
+fn r2_canopi_f47t_52_271_a_user_db_10_opens_newer_read_only_reads_its_v9_tables_by_name_and_refuses_every_write()
+ {
+    use crate::services::{design_files, design_notebook, plant_browser};
+    let scratch = crate::test_scratch::TestScratch::new("reader-release-user-db-10-writes");
+    let path = user_db_10_with_a_wal(&scratch);
+    let before = user_db_files(&path);
+
+    let (user_db, health) = UserDb::open(&path).expect("a newer user DB starts the app");
+    assert_eq!(
+        (health.status, health.notice),
+        (canopi_types::health::StoreOpenStatus::NewerReadOnly, None)
+    );
+    let mut favourites = plant_browser::get_favorite_names(&user_db).unwrap();
+    favourites.sort();
+    assert_eq!(
+        favourites,
+        ["Allium ursinum", "Malus domestica", "Symphytum officinale"]
+    );
+    let stamps = saved_object_stamps::get_saved_object_stamps(&user_db).unwrap();
+    assert_eq!(
+        stamps
+            .iter()
+            .map(|stamp| stamp.name.as_str())
+            .collect::<Vec<_>>(),
+        ["Hedge"]
+    );
+    let notebook = design_notebook::get_design_notebook(&user_db).unwrap();
+    assert_eq!(
+        notebook
+            .sections
+            .iter()
+            .map(|section| section.name.as_str())
+            .collect::<Vec<_>>(),
+        ["Fruit"]
+    );
+
+    let writes: [(&str, Result<(), String>); 6] = [
+        (
+            "star",
+            plant_browser::toggle_favorite(&user_db, "Malus domestica".into()).map(drop),
+        ),
+        (
+            "section",
+            design_notebook::create_notebook_section(&user_db, "Herbs").map(drop),
+        ),
+        (
+            "section delete",
+            design_notebook::delete_notebook_section(&user_db, "section-fruit"),
+        ),
+        (
+            "recent remove",
+            design_files::remove_recent_design(&user_db, "/designs/orchard.canopi"),
+        ),
+        (
+            "stamp",
+            saved_object_stamps::create_saved_object_stamp(&user_db, "Pond".into(), "{}".into())
+                .map(drop),
+        ),
+        (
+            "stamp delete",
+            saved_object_stamps::delete_saved_object_stamp(&user_db, "stamp-hedge".into())
+                .map(drop),
+        ),
+    ];
+    for (write, result) in writes {
+        assert_eq!(
+            result,
+            Err(REFUSED.to_owned()),
+            "{write} settles store_read_only"
+        );
+    }
+    drop(user_db);
+    assert_eq!(
+        user_db_files(&path),
+        before,
+        "no byte of the main file or the -wal changed"
+    );
+    assert_eq!(header_user_version(&path), 10);
+}
+
+#[test]
+fn r2_canopi_f47t_52_271_a_v9_design_saves_beside_a_user_db_10_and_its_recent_entry_is_skipped_silently()
+ {
+    use crate::services::design_files;
+    let scratch = crate::test_scratch::TestScratch::new("reader-release-user-db-10-save");
+    let path = user_db_10_with_a_wal(&scratch);
+    let before = user_db_files(&path);
+    let (user_db, _) = UserDb::open(&path).unwrap();
+    let design = scratch.join("plan.canopi");
+    let content = crate::design::format::create_new_design("Plan", "2026-11-13T00:00:00Z");
+
+    let (saved, logs) = design_files::capture_logs(|| {
+        design_files::save_design(
+            &user_db,
+            design.to_string_lossy().into_owned(),
+            content,
+            None,
+        )
+    });
+
+    assert!(
+        matches!(
+            saved,
+            Ok(canopi_types::design::DesignSaveOutcome::Saved { .. })
+        ),
+        "the Design saves: {saved:?}"
+    );
+    assert!(design.exists());
+    assert!(!logs.contains("WARN"), "skipped silently: {logs}");
+    drop(user_db);
+    assert_eq!(
+        user_db_files(&path),
+        before,
+        "no Recent Designs entry was written"
+    );
+}
+
+#[test]
+fn r2_canopi_f47t_52_271_recent_and_notebook_prunes_and_recently_viewed_are_skipped_silently_on_a_user_db_10()
+ {
+    use crate::services::{design_files, design_notebook, plant_browser};
+    let scratch = crate::test_scratch::TestScratch::new("reader-release-user-db-10-prunes");
+    // Both lists name a Design whose folder is present and whose file is gone: a writable user DB prunes it.
+    let gone = scratch
+        .join("gone.canopi")
+        .to_string_lossy()
+        .replace('\'', "''");
+    let path = user_db_10_with_a_wal_and(
+        &scratch,
+        &format!(
+            "PRAGMA foreign_keys = OFF;
+             UPDATE design_notebook_section_memberships SET path = '{gone}';
+             UPDATE design_notebook_entries SET path = '{gone}';
+             UPDATE recent_files SET path = '{gone}';"
+        ),
+    );
+    let before = user_db_files(&path);
+    let (user_db, _) = UserDb::open(&path).unwrap();
+
+    let ((recent, notebook), logs) = design_files::capture_logs(|| {
+        plant_browser::record_recently_viewed(&user_db, "Malus domestica");
+        (
+            design_files::get_recent_files(&user_db).unwrap(),
+            design_notebook::get_design_notebook(&user_db).unwrap(),
+        )
+    });
+
+    assert!(
+        recent.is_empty() && notebook.entries.is_empty(),
+        "the missing Design is hidden"
+    );
+    assert!(!logs.contains("WARN"), "skipped silently: {logs}");
+    drop(user_db);
+    assert_eq!(
+        user_db_files(&path),
+        before,
+        "nothing pruned, no view recorded"
+    );
+}
+
+/// The read-write initialization keeps refusing a newer user DB, so only the read-only admission ever reads one.
+#[test]
+fn initialization_refuses_a_newer_schema_version() {
+    use crate::db::user_db::CURRENT_USER_DB_VERSION;
+    let conn = Connection::open_in_memory().unwrap();
+    conn.pragma_update(None, "user_version", CURRENT_USER_DB_VERSION + 1)
+        .unwrap();
+
+    assert!(matches!(
+        UserDb::initialize(conn),
+        Err(crate::db::UserDbInitError::NewerSchemaVersion { found, supported })
+            if found == CURRENT_USER_DB_VERSION + 1 && supported == CURRENT_USER_DB_VERSION
+    ));
+}
+
+/// A star toggled through a full user-data lane: the executor's settlement text.
+fn busy_settlement(user_db: UserDb) -> String {
+    use crate::native_operation::{
+        NativeOperationClass, NativeOperationClassLimits, NativeOperationExecutor,
+        NativeOperationLimits,
+    };
+    let one = NativeOperationClassLimits::new(1, 1);
+    let executor =
+        NativeOperationExecutor::new(NativeOperationLimits::new(one, one, one, one, one)).unwrap();
+    let (started_tx, started) = std::sync::mpsc::sync_channel(1);
+    let (release_tx, release) = std::sync::mpsc::sync_channel::<()>(1);
+    let holder = executor.clone();
+    let held = tauri::async_runtime::spawn(async move {
+        holder
+            .run(NativeOperationClass::UserData, "held write", move || {
+                started_tx.send(()).unwrap();
+                release.recv().unwrap();
+                Ok(())
+            })
+            .await
+    });
+    started
+        .recv_timeout(std::time::Duration::from_secs(5))
+        .unwrap();
+    let toggle = executor.run(
+        NativeOperationClass::UserData,
+        "favorite toggle",
+        move || crate::services::plant_browser::toggle_favorite(&user_db, "Malus domestica".into()),
+    );
+    let settled = tauri::async_runtime::block_on(toggle).unwrap_err();
+    release_tx.send(()).unwrap();
+    tauri::async_runtime::block_on(held).unwrap().unwrap();
+    settled
+}
+
+#[test]
+fn r2_canopi_f47t_52_271_a_full_user_data_lane_settles_busy_the_same_on_a_user_db_10_and_never_retries_read_write()
+ {
+    let scratch = crate::test_scratch::TestScratch::new("reader-release-user-db-10-busy");
+    let path = user_db_10_with_a_wal(&scratch);
+    let before = user_db_files(&path);
+    let writable = UserDb::initialize(Connection::open_in_memory().unwrap()).unwrap();
+
+    let newer = busy_settlement(UserDb::open(&path).unwrap().0);
+
+    assert_eq!(newer, busy_settlement(writable), "the same busy{{lane}}");
+    assert_eq!(
+        user_db_files(&path),
+        before,
+        "no read-write retry wrote a byte"
+    );
 }
