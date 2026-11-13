@@ -395,8 +395,28 @@ describe('the rollback lane\'s own fixture checks (canopi-f47t.52.239)', () => {
     // A database's bytes are replaced.
     expect(cli('plant', root, 'desktop').status).toBe(0)
     expect(readFileSync(join(root, 'desktop/app-data/user.db'), 'utf8')).toMatch(/^planted: /)
-    expect(cli('plant', root, 'phone').stderr).toContain('lists no phone form to plant a change in')
+    expect(cli('plant', root, 'phone').stderr).toContain('lists no phone form the reader release reads to plant a change in')
     expect(cli('plant', join(dir, 'none'), 'web').stderr).toContain('manifest.json is missing')
     expect(cli('wipe', root).stderr).toContain('usage: rollback-fixtures')
+  })
+
+  it('canopi-f47t.52.239: planted run: a store row a later release lists first is passed over, the change planted in a store the reader release reads', () => {
+    // Both readers skip a store they do not know, so a change planted there is never read and a correct reader would
+    // turn the lane red for good.
+    const root = fixtures()
+    writeFileSync(join(root, 'desktop/app-data/notebook.sqlite'), 'SQLite format 3\0 notebook')
+    writeFileSync(join(root, 'web/library.json'), '{"key":"canopi:library","record":{"version":1}}')
+    writeFileSync(join(root, 'manifest.json'), JSON.stringify({ version: 1, forms: [
+      { store: 'desktop_notebook', form_version: 1, edition: 'desktop', path: 'desktop/app-data/notebook.sqlite' },
+      { store: 'web_library', form_version: 1, edition: 'web', path: 'web/library.json' },
+      { store: 'user_db', form_version: 10, edition: 'desktop', path: 'desktop/app-data/user.db' },
+      { store: 'web_species_lists', form_version: 1, edition: 'web', path: 'web/species-lists.json' }] }))
+    expect(cli('plant', root, 'web').stdout).toContain('planted an unreadable change in web/species-lists.json')
+    expect(cli('plant', root, 'desktop').stdout).toContain('planted an unreadable change in desktop/app-data/user.db')
+    expect(readFileSync(join(root, 'web/library.json'), 'utf8')).toBe('{"key":"canopi:library","record":{"version":1}}')
+    expect(readFileSync(join(root, 'desktop/app-data/notebook.sqlite'), 'utf8')).toBe('SQLite format 3\0 notebook')
+    writeFileSync(join(root, 'manifest.json'), JSON.stringify({ version: 1, forms: [
+      { store: 'web_library', form_version: 1, edition: 'web', path: 'web/library.json' }] }))
+    expect(cli('plant', root, 'web').stderr).toContain('lists no web form the reader release reads to plant a change in')
   })
 })

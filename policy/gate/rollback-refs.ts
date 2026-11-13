@@ -166,15 +166,26 @@ export function fixtureFaults(root: string): string[] {
 const PLANTED = 'planted: a change the readers cannot read, so their run must fail'
 
 /**
- * Makes the first `edition` form at `root` unreadable to the readers yet still seedable, so the readers, not the
- * harness, fail on it: a Web record dump (`{key, record}`) keeps its key and gets a record that is no settings or list
- * object; any other form's bytes are replaced. Returns its path.
+ * The stores the reader release reads, by edition: its harnesses' frozen DESKTOP_STORES
+ * (desktop/tests/rollback_reader.rs) and WEB_STORES (desktop/web/e2e-rollback/reader.spec.ts). Both skip a store a
+ * later release added, so a change planted there is never read; a later reader release only extends these lists.
+ */
+const READER_RELEASE_STORES: Readonly<Record<string, readonly string[]>> = {
+  desktop: ['canopi_file', 'desktop_draft', 'user_db', 'library_catalogue', 'settings'],
+  web: ['settings', 'web_drafts', 'web_species_lists'],
+}
+
+/**
+ * Makes the first `edition` form at `root` whose store the reader release reads unreadable to the readers yet still
+ * seedable, so the readers, not the harness, fail on it: a Web record dump (`{key, record}`) keeps its key and gets a
+ * record that is no settings or list object; any other form's bytes are replaced. Returns its path.
  */
 export function plantUnreadable(root: string, edition: string): string {
   const forms = manifestForms(root)
   if (typeof forms === 'string') throw new Error(forms)
-  const form = forms.find((row) => row.edition === edition)
-  if (!form) throw new Error(`the manifest at ${root} lists no ${edition} form to plant a change in`)
+  const known = READER_RELEASE_STORES[edition] ?? []
+  const form = forms.find((row) => row.edition === edition && known.includes(row.store))
+  if (!form) throw new Error(`the manifest at ${root} lists no ${edition} form the reader release reads to plant a change in`)
   const file = join(root, form.path)
   let dump: unknown
   try {
