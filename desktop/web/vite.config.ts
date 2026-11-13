@@ -253,9 +253,9 @@ function thirdPartyNoticesPlugins(edition: "desktop" | "web"): { app: Plugin[]; 
 }
 
 /**
- * Lists every chunk of a build (file name, chunk name, entry or not, and the packages whose code it renders) in
- * node_modules/.canopi-build/<edition>.json, so the identifier scanner checks the named vendor chunks and the notices'
- * chunk on the written build, with no second build (design check A22).
+ * Lists every chunk of a build (file name, chunk name, entry or not, its static imports and the packages whose code it
+ * renders) in node_modules/.canopi-build/<edition>.json, so the identifier scanner checks the named vendor chunks, the
+ * notices' chunk and the entry's static graph on the written build, with no second build (design check A22).
  */
 function chunkPackagesPlugin(edition: "desktop" | "web"): Plugin {
   const packageOf = (id: string) => {
@@ -272,7 +272,7 @@ function chunkPackagesPlugin(edition: "desktop" | "web"): Plugin {
         const chunks = Object.values(bundle).flatMap((file) => file.type !== "chunk" ? [] : [{
           fileName: file.fileName,
           name: file.name,
-          isEntry: file.isEntry,
+          isEntry: file.isEntry, imports: file.imports,
           packages: [...new Set(Object.entries(file.modules).flatMap(([id, module]) => module.renderedLength > 0 ? packageOf(id) : []))].sort(),
         }]);
         mkdirSync(CHUNK_FACTS_DIR, { recursive: true });
@@ -495,7 +495,8 @@ const VENDOR_CHUNK_ROWS = (JSON.parse(readFileSync(new URL("./build-facts.genera
  */
 function vendorChunk(id: string): string | null {
   const packages = id.replaceAll("\\", "/").split("node_modules/").slice(1);
-  if (!packages.length) return null;
+  // The LZW codec and decoder load on demand: their top-level await in an eager chunk would defer the mount (canopi-72fm).
+  if (!packages.length || packages.some((pkg) => /^@developmentseed\/(geotiff\/dist\/codecs\/lzw\.js|lzw-tiff-decoder\/)/.test(pkg))) return null;
   const row = VENDOR_CHUNK_ROWS.find(({ pattern }) => pattern === "*" || packages.some((pkg) =>
     pattern.endsWith("/") ? pkg.startsWith(pattern) : pkg === pattern || pkg.startsWith(`${pattern}/`)));
   return row?.chunk ?? null;

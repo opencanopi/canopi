@@ -6,8 +6,10 @@
  * Invariant: the app acknowledges its boot once, when `RootBoundary` mounts (`BootAcknowledgement`); from then on
  * failures are RootBoundary's and the guard never shows for them. Before it, the guard shows at a same-origin script
  * error or SyntaxError (the entry or a chunk it needs failed, so the boot cannot finish), and at the load event at the
- * latest (module scripts run before it, so a normal boot, however slow, has acknowledged by then). A missing required
- * API shows the message at once, acknowledged or not. A guard that fails to load changes nothing: the app never reads it.
+ * latest (module scripts run before it, so a normal boot, however slow, has acknowledged by then; a top-level await on
+ * the entry's static graph would defer the mount past it, which scripts/check-build-identifiers.mjs refuses in both
+ * editions, canopi-72fm). A missing required API shows the message at once, acknowledged or not. A guard that fails to
+ * load changes nothing: the app never reads it.
  * It is a parser-blocking script on purpose (defer would let an early modulepreload error fire before its listener), so
  * a stalled request for its 6.5 KB delays the boot; a fast failure does not.
  *
