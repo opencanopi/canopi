@@ -24,6 +24,7 @@ import { PLANT_SYMBOL_SCALE_MAX, PLANT_SYMBOL_SCALE_MIN } from '../../canvas/run
 import type { AppFolder, AppFolderLocations, BasemapStyle, PlantLabels, ScrollWheel } from '../../generated/contracts'
 import { SETTINGS_BASEMAP_STYLES } from '../../generated/settings'
 import type { Locale, Theme } from '../../types/settings'
+import { readFailureCode } from '../../failures/store-read'
 import { t } from '../../i18n'
 import { ControlIcon, type ControlIconName } from './ControlIcon'
 import { Dropdown, type DropdownItem } from './Dropdown'
@@ -361,8 +362,9 @@ export interface LaunchCheckPort {
 
 /**
  * "Check for updates at launch" (2.1-Q164): its own key row, on when the row is missing (the host's default), so the
- * settings record is never touched (M206). Shown once read; hidden when the row cannot be read; a failed write puts
- * the switch back.
+ * settings record is never touched (M206). Shown once read; hidden when the row cannot be read. Under settings a newer
+ * Canopi saved the refused write keeps the switch as set, for the session, as the store's notice says (2.1-Q320,
+ * M487); any other failed write puts it back.
  */
 export function LaunchCheckSwitch({ port }: { readonly port: LaunchCheckPort }) {
   const [on, setOn] = useState<boolean | null>(null)
@@ -383,7 +385,9 @@ export function LaunchCheckSwitch({ port }: { readonly port: LaunchCheckPort }) 
         checked={on}
         onChange={(next) => {
           setOn(next)
-          port.set(next).catch(() => setOn(!next))
+          port.set(next).catch((error: unknown) => {
+            if (readFailureCode(error).kind !== 'store_read_only') setOn(!next)
+          })
         }}
       />
     </div>
