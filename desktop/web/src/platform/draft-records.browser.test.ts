@@ -286,6 +286,37 @@ describe('the 2.1 Draft store read half', () => {
     expect(reports).toEqual([idb.failOpen])
   })
 
+  it('R3 canopi-f47t.52.272: a re-list that fails or runs late after a good listing keeps that listing, so a copied id stays hidden', async () => {
+    vi.useFakeTimers()
+    const idb = new FakeIndexedDb()
+    idb.seed(FROZEN)
+    const { records, reports } = reader(idb, { timeoutMs: 50 })
+    const good = await records.list()
+    expect(good.hiddenIds).toContain('draft-moved-only')
+
+    // A 2.1 upgrade closes the connection before the read: the listing is the last good one, not an empty store.
+    idb.beforeTransaction = () => idb.versionChange(5)
+    expect(await records.list()).toEqual(good)
+    idb.beforeTransaction = null
+
+    // An open queued behind another page past the bound.
+    idb.hold = true
+    const late = records.list()
+    await vi.advanceTimersByTimeAsync(50)
+    expect(await late).toEqual(good)
+    idb.hold = false
+    idb.releaseHeld()
+
+    idb.failOpen = new DOMException('Unknown', 'UnknownError')
+    expect(await records.list()).toEqual(good)
+    expect(reports).toHaveLength(3)
+
+    // A read that succeeds replaces it, an empty store included.
+    idb.failOpen = null
+    idb.databases.clear()
+    expect(await records.list()).toEqual({ drafts: [], hiddenIds: [] })
+  })
+
   it('R3 canopi-f47t.52.272: with no IndexedDB in the page, lists nothing', async () => {
     const { records, reports } = reader(new FakeIndexedDb(), { factory: undefined })
 

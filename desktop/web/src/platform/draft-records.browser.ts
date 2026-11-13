@@ -10,8 +10,10 @@
  * - Open, read, close: each read opens its own connection and closes it once its transaction ends. A `versionchange`
  *   while it is open (2.1's upgrade, or a delete with no new version) closes it at once, so 2.1 is never blocked, and
  *   tells the page, which offers the one Reload notice (2.1-Q40).
- * - Bounded: a read waits at most `timeoutMs` (an open can queue behind another page's upgrade). The listing then
- *   settles empty and is reported; a connection that opens later is closed once its read ends.
+ * - Bounded: a read waits at most `timeoutMs` (an open can queue behind another page's upgrade); a connection that opens
+ *   later is closed once its read ends.
+ * - A listing that fails or runs late is reported and settles on the last good listing, empty only before one (design
+ *   check A18), so a re-list never unhides an old-key Draft the session already hides (2.1-Q322, F7).
  * Listing reads record fields only; a Design is decoded only when it is opened, by the format core (DR10).
  */
 
@@ -47,7 +49,7 @@ interface DraftStoreListing {
 
 /** The read half; by its type it offers no write. */
 export interface DraftRecordsReader {
-  /** The 2.1 Drafts and the ids they hide; never rejects: a failed or late read is reported and lists nothing. */
+  /** The 2.1 Drafts and the ids they hide; never rejects: a failed or late read is reported and gives the last good listing. */
   list(): Promise<DraftStoreListing>
   /** The Design of one 2.1 Draft as 2.1 saved it (`.canopi` text), or null when the store no longer holds it. */
   content(id: string): Promise<string | null>
@@ -74,6 +76,7 @@ export function createDraftRecordsReader({
   report,
   timeoutMs = DRAFT_READ_TIMEOUT_MS,
 }: DraftRecordsReaderOptions): DraftRecordsReader {
+  let lastListing = NO_DRAFTS
   /** Runs `read` on an open connection to an existing store, then closes it; `absent` when there is none. */
   async function withStore<T>(read: (db: IDBDatabase) => Promise<T>, absent: T): Promise<T> {
     if (!factory || await listedAbsent(factory)) return absent
@@ -93,11 +96,11 @@ export function createDraftRecordsReader({
   return {
     async list() {
       try {
-        return await bounded(withStore(readListing, NO_DRAFTS), timeoutMs)
+        lastListing = await bounded(withStore(readListing, NO_DRAFTS), timeoutMs)
       } catch (error) {
         report(error)
-        return NO_DRAFTS
       }
+      return lastListing
     },
     async content(id) {
       return await bounded(withStore(async (db) => {
