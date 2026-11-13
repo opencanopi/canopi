@@ -1337,7 +1337,8 @@
     "searchAll": "Buscar en favoritos y sellos",
     "remove": "Quitar {{name}} de favoritos",
     "detailsFor": "Detalles de",
-    "place": "Colocar {{name}}"
+    "place": "Colocar {{name}}",
+    "needsNewerStamp": "Guardado con una versión más reciente de Canopi; actualiza Canopi para colocarlo."
   },
   "savedObjectStamps": {
     "title": "Sellos guardados",

@@ -1337,7 +1337,8 @@
     "searchAll": "Pesquisar favoritos e carimbos",
     "remove": "Remover {{name}} dos favoritos",
     "detailsFor": "Detalhes de",
-    "place": "Colocar {{name}}"
+    "place": "Colocar {{name}}",
+    "needsNewerStamp": "Salvo com uma versão mais recente do Canopi; atualize o Canopi para colocá-lo."
   },
   "savedObjectStamps": {
     "title": "Carimbos salvos",

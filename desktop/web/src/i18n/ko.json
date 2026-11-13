@@ -1337,7 +1337,8 @@
     "searchAll": "즐겨찾기 및 스탬프 검색",
     "remove": "즐겨찾기에서 {{name}} 제거",
     "detailsFor": "상세 정보:",
-    "place": "{{name}} 배치"
+    "place": "{{name}} 배치",
+    "needsNewerStamp": "최신 버전의 Canopi에서 저장되었습니다. 배치하려면 Canopi를 업데이트하세요."
   },
   "savedObjectStamps": {
     "title": "저장된 스탬프",

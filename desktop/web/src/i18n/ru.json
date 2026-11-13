@@ -1337,7 +1337,8 @@
     "searchAll": "Поиск в избранном и штампах",
     "remove": "Удалить {{name}} из избранного",
     "detailsFor": "Сведения:",
-    "place": "Разместить {{name}}"
+    "place": "Разместить {{name}}",
+    "needsNewerStamp": "Сохранён в более новой версии Canopi; обновите Canopi, чтобы разместить его."
   },
   "savedObjectStamps": {
     "title": "Сохранённые штампы",

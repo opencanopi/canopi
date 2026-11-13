@@ -1337,7 +1337,8 @@
     "searchAll": "搜索收藏和图章",
     "remove": "从收藏中移除 {{name}}",
     "detailsFor": "详情：",
-    "place": "放置 {{name}}"
+    "place": "放置 {{name}}",
+    "needsNewerStamp": "由更新版本的 Canopi 保存，请更新 Canopi 以放置。"
   },
   "savedObjectStamps": {
     "title": "已保存图章",

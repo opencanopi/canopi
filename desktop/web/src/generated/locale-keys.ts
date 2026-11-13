@@ -813,6 +813,7 @@ export type LocaleKey =
   | "failure.storageFull"
   | "favorites.detailsFor"
   | "favorites.empty"
+  | "favorites.needsNewerStamp"
   | "favorites.place"
   | "favorites.remove"
   | "favorites.search"

@@ -1337,7 +1337,8 @@
     "searchAll": "Cerca nei preferiti e nei timbri",
     "remove": "Rimuovi {{name}} dai preferiti",
     "detailsFor": "Dettagli di",
-    "place": "Posiziona {{name}}"
+    "place": "Posiziona {{name}}",
+    "needsNewerStamp": "Salvato con una versione più recente di Canopi; aggiorna Canopi per posizionarlo."
   },
   "savedObjectStamps": {
     "title": "Timbri salvati",

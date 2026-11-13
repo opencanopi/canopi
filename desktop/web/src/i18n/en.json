@@ -1337,7 +1337,8 @@
     "searchAll": "Search favorites and stamps",
     "remove": "Remove {{name}} from favorites",
     "detailsFor": "Details for",
-    "place": "Place {{name}}"
+    "place": "Place {{name}}",
+    "needsNewerStamp": "Saved with a newer Canopi; update Canopi to place it."
   },
   "savedObjectStamps": {
     "title": "Saved stamps",

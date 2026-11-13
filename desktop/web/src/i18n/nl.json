@@ -1337,7 +1337,8 @@
     "searchAll": "Favorieten en stempels zoeken",
     "remove": "{{name}} uit favorieten verwijderen",
     "detailsFor": "Details van",
-    "place": "{{name}} plaatsen"
+    "place": "{{name}} plaatsen",
+    "needsNewerStamp": "Opgeslagen met een nieuwere Canopi; werk Canopi bij om hem te plaatsen."
   },
   "savedObjectStamps": {
     "title": "Opgeslagen stempels",

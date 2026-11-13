@@ -1337,7 +1337,8 @@
     "searchAll": "Favoriten und Stempel durchsuchen",
     "remove": "{{name}} aus den Favoriten entfernen",
     "detailsFor": "Details zu",
-    "place": "{{name}} setzen"
+    "place": "{{name}} setzen",
+    "needsNewerStamp": "Mit einer neueren Canopi-Version gespeichert; aktualisieren Sie Canopi, um ihn zu setzen."
   },
   "savedObjectStamps": {
     "title": "Gespeicherte Stempel",

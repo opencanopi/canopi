@@ -1337,7 +1337,8 @@
     "searchAll": "Rechercher favoris et tampons",
     "remove": "Retirer {{name}} des favoris",
     "detailsFor": "Détails de",
-    "place": "Placer {{name}}"
+    "place": "Placer {{name}}",
+    "needsNewerStamp": "Enregistré avec une version plus récente de Canopi ; mettez Canopi à jour pour le placer."
   },
   "savedObjectStamps": {
     "title": "Tampons enregistrés",
