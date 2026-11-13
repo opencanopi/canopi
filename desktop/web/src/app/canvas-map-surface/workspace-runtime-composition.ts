@@ -87,7 +87,11 @@ export interface WorkspaceRuntimeCompositionOptions {
     readInitialCenter: () => { readonly lat: number; readonly lon: number },
   ) => WorkspaceActivationSnapshot | null
   readonly readBackgroundPresentation?: () => ReturnType<typeof readWorkspaceBackgroundPresentation>
-  /** Called with the settled camera, `WORKSPACE_VIEW_SETTLE_MS` after it last changed, on a Design. */
+  /**
+   * Called with the settled camera, `WORKSPACE_VIEW_SETTLE_MS` after it last changed, on a Design that is not read-only:
+   * a Design shown read-only writes no byte, the device's last view included (design check 5c, 2.1-M478). Both editions
+   * compose here, so this is the rule's one owner.
+   */
   readonly onViewSettled?: (view: WorkspaceSettledView) => void
 }
 
@@ -237,7 +241,7 @@ export function createWorkspaceRuntimeComposition(
               settleTimer = null
               // Before a Design is loaded and fitted the camera shows its
               // default viewport, which is not a view the user chose.
-              if (!documents.hasLoadedDocument()) return
+              if (!documents.hasLoadedDocument() || options.appAdapter.isReadOnly()) return
               onViewSettled(geographicViewOfCamera(camera))
             }, WORKSPACE_VIEW_SETTLE_MS)
           })
