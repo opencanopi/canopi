@@ -4,9 +4,8 @@
 // record) read-only beside the editable ones, hides every old-key Draft the 2.1 move copied, restores nothing at launch
 // while 2.1 Drafts exist, creates no database on an origin without one, and never blocks 2.1's upgrade.
 //
-// Written failing in commit 0 and marked expected-fail (`test.fail`); R3-3 built these paths and removed the markers.
-// The records are seeded in the contract's shape before the load; R3-4 may swap in its frozen fixture. The later cases
-// are R3-3's failure states: a 2.1 Draft opened, downloaded, deleted by 2.1 after the list, opened without its worker,
+// Written failing in commit 0 and marked expected-fail (`test.fail`); R3-3 and R3-4 built these paths and removed the
+// markers. The later cases are R3-3's failure states: a 2.1 Draft opened, downloaded, deleted by 2.1 after the list, opened without its worker,
 // a version change while a read is open, and a hidden id at restore.
 //
 // R3-4 (2.1-Q320, 2.1-M483, 2.1-M486): settings record 2 and the species-list record 1, each under its own 2.1 key and
@@ -35,14 +34,8 @@ function v10Content(name: string): string {
 }
 
 function draftRecord(id: string, name: string, day: number): DraftRecord {
-  return {
-    id,
-    canopi_version: '2.1.0',
-    version: 3,
-    name,
-    updated_at: new Date(Date.UTC(2026, 11, day)).toISOString(),
-    content: v10Content(name),
-  }
+  const updated_at = new Date(Date.UTC(2026, 11, day)).toISOString()
+  return { id, canopi_version: '2.1.0', version: 3, name, updated_at, content: v10Content(name) }
 }
 
 /** The 2.0 Drafts record under the old key: what a 2.0 tab wrote, and what the 2.1 move copied. */
@@ -405,8 +398,12 @@ function frozenRecord(name: 'settings' | 'species-lists'): { key: string, record
 }
 
 /** A German string: the frozen settings record's locale is German. */
-function german(key: string): string {
-  return key.split('.').reduce<unknown>((node, part) => (node as Record<string, unknown>)[part], GERMAN) as string
+/** A German string by its key, whose namespace may hold dotted keys (`menu` > `file.settings`); throws on none. */
+function german(key: string, node: unknown = GERMAN): string {
+  const at = (node ?? {}) as Record<string, unknown>, dot = key.indexOf('.')
+  if (typeof at[key] === 'string') return at[key] as string
+  if (dot < 0) throw new Error(`no German string for ${key}`)
+  return german(key.slice(dot + 1), at[key.slice(0, dot)])
 }
 
 async function seedLocalStorage(page: Page, entries: Record<string, string>): Promise<void> {
@@ -460,7 +457,7 @@ test('R3 canopi-f47t.52.272: settings record 2 applies its known fields from its
   }
 })
 
-test.fail('R3 canopi-f47t.52.272, passes at merge (R2 canopi-f47t.52.271 settles a refused settings save silently; projection keeps newer_read_only, a hand-off): a setting changed under settings a newer Canopi saved applies for the session, is never written, and the notice names settings', async ({ page }) => {
+test('R3 canopi-f47t.52.272: a setting changed under settings a newer Canopi saved applies for the session, is never written, and the notice names settings', async ({ page }) => {
   const settings = frozenRecord('settings')
   await page.goto('')
   await seedLocalStorage(page, { [settings.key]: JSON.stringify(settings.record) })

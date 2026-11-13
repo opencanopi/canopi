@@ -1,7 +1,7 @@
 import { batch } from '@preact/signals'
 import type { LastView, SatelliteSource, ScrollWheel } from '../../generated/contracts'
 import { readFailureCode, readWithRetry } from '../../failures/store-read'
-import { writeStoreHealth } from '../../failures/health'
+import { storeHealth, writeStoreHealth } from '../../failures/health'
 import { reportFailure } from '../../failures/report'
 import { WEB_MERCATOR_MAX_LATITUDE_DEG } from '../../generated/canopi-design-format'
 import type { Locale, Settings, Theme } from '../../types/settings'
@@ -571,18 +571,18 @@ function applyLoadedSettings(
 
   const desired = projectSettingsToSignals({ ...durable, ...pendingPatch })
   sourceSettings = durable
-  if (shouldPersist && !settingsEqual(desired, durable)) {
-    admitPersistenceSnapshot(projection, desired)
-  }
+  if (shouldPersist && !settingsEqual(desired, durable)) admitPersistenceSnapshot(projection, desired)
 }
 
 function isCurrentProjection(projection: ActiveSettingsProjection): boolean {
   return activeSettingsProjection === projection && !projection.retiring && !projection.disposed
 }
 
+// A settled read makes settings ready, but never over the newer_read_only the adapter or host reported (2.1-Q320).
 function admitLoadedSettings(projection: ActiveSettingsProjection, settings: Settings): void {
   applyLoadedSettings(projection, settings)
-  if (isCurrentProjection(projection)) writeStoreHealth('settings', { status: { kind: 'ready' }, notice: null })
+  if (!isCurrentProjection(projection) || storeHealth.peek().settings?.status.kind === 'newer_read_only') return
+  writeStoreHealth('settings', { status: { kind: 'ready' }, notice: null })
 }
 
 /**
