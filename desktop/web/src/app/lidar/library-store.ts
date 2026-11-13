@@ -301,7 +301,6 @@ export function isMissing(item: Pick<LidarPresentationItem, 'availability'>): bo
 
 /** Why an entry the library does not list is missing, from how the library opened. */
 function absentAvailability(library: LibrarySnapshot | null, status: LibraryOpenKind): LidarAvailability {
-  if (status.kind === 'refused_newer') return 'needs-newer-canopi'
   if (status.kind === 'unavailable' || status.kind === 'set_aside_damaged') return 'library-unopened'
   return library ? 'not-in-library' : 'loading'
 }
