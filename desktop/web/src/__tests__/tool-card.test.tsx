@@ -10,13 +10,12 @@ import { activePanel, sidePanel } from '../app/shell/state'
 import { phoneLayout } from '../app/shell/phone-layout'
 import { ToolCard } from '../components/canvas/ToolCard'
 import { armCanvasTool } from '../app/keyboard/arming'
+import { setShortcutPlatform } from '../app/shell-commands/shortcut-text'
 import { focusOwner } from '../app/keyboard/focus-owner'
 import { parseSavedObjectStampPayload } from '../canvas/saved-object-stamp-payload'
 import { StampChooser } from '../components/canvas/StampChooser'
 import { clearPlantStampSource, selectPlantStampSource } from '../canvas/plant-stamp-source'
-import {
-  clearSavedObjectStampSource,
-} from '../canvas/saved-object-stamp-source'
+import { clearSavedObjectStampSource } from '../canvas/saved-object-stamp-source'
 import { setCurrentCanvasSession } from '../canvas/session'
 import {
   IDLE_CANVAS_TOOL_GUIDANCE,
@@ -97,6 +96,7 @@ describe('Tool card', () => {
     render(null, container)
     container.remove()
     setCanvasTool('select')
+    setShortcutPlatform({ os: 'linux' })
     setCanvasToolGuidance(IDLE_CANVAS_TOOL_GUIDANCE)
     clearPlantStampSource()
     clearSavedObjectStampSource()
@@ -125,19 +125,26 @@ describe('Tool card', () => {
     expect(live().getAttribute('aria-live')).toBe('polite')
   })
 
-  it('the Select card follows the pointing device', async () => {
+  const MOUSE = 'Drag to select · Shift-click adds · Alt-click removes · right-drag pans · wheel zooms · for a trackpad: Settings › Canvas › Pointing device'
+  const TOUCH = 'Drag to select · Shift-click adds · Alt-click removes · two fingers pan · pinch zooms'
+
+  it('the Select card follows the pointing device, names the setting that changes it and says Option-click on a Mac (2.1-Q310)', async () => {
     expect(card()!.dataset.toolCard).toBe('select')
     expect(card()!.getAttribute('aria-label')).toBe('Select')
-    // Mouse (stored scroll_wheel 'zoom').
-    expect(lines()).toEqual(['Select', 'Drag to select · Shift-click adds · Alt-click removes · right-drag pans · wheel zooms'])
+    expect(lines()).toEqual(['Select', MOUSE]) // Mouse (stored scroll_wheel 'zoom').
     expect(live().querySelector('b')).toBeNull()
 
-    // Trackpad (stored 'pan').
-    await act(() => { scrollWheel.value = 'pan' })
-    expect(lines()).toEqual(['Select', 'Drag to select · Shift-click adds · Alt-click removes · two fingers pan · pinch zooms'])
-
+    await act(() => { scrollWheel.value = 'pan' }) // Trackpad (stored 'pan').
+    expect(lines()).toEqual(['Select', `${TOUCH} · for a mouse: Settings › Canvas › Pointing device`])
     await act(() => { locale.value = 'fr' })
-    expect(lines()).toEqual(['Sélection', 'Glisser pour sélectionner · Maj-clic ajoute · Alt-clic retire · deux doigts déplacent la carte · pincement zoome'])
+    expect(lines()).toEqual(['Sélection', 'Glisser pour sélectionner · Maj-clic ajoute · Alt-clic retire · deux doigts déplacent la carte · pincement zoome · pour une souris : Réglages › Canevas › Périphérique de pointage'])
+
+    // A Mac: Option-click; with a mouse no pan gesture until one is checked in real Mac browsers (canopi-pqxl).
+    setShortcutPlatform({ os: 'mac' })
+    await act(() => { locale.value = 'en' })
+    expect(lines()).toEqual(['Select', 'Drag to select · Shift-click adds · Option-click removes · two fingers pan · pinch zooms · for a mouse: Settings › Canvas › Pointing device'])
+    await act(() => { scrollWheel.value = 'zoom' })
+    expect(lines()).toEqual(['Select', 'Drag to select · Shift-click adds · Option-click removes · wheel zooms · for a trackpad: Settings › Canvas › Pointing device'])
   })
 
   it('on a coarse pointer (a touch screen) the Select card names two fingers and a pinch, whatever the pointing device', async () => {
@@ -151,10 +158,10 @@ describe('Tool card', () => {
     }))
     try {
       await act(() => render(<ToolCard />, container))
-      expect(lines()).toEqual(['Select', 'Drag to select · Shift-click adds · Alt-click removes · two fingers pan · pinch zooms'])
+      expect(lines()).toEqual(['Select', TOUCH]) // No setting: it does not change touch.
       // A mouse plugged into a tablet makes the pointer fine again.
       await act(() => { coarse = false; for (const listener of listeners) listener() })
-      expect(lines()).toEqual(['Select', 'Drag to select · Shift-click adds · Alt-click removes · right-drag pans · wheel zooms'])
+      expect(lines()).toEqual(['Select', MOUSE])
     } finally {
       render(null, container)
       vi.unstubAllGlobals()
@@ -555,9 +562,7 @@ describe('Tool card', () => {
           { id: 'b', canonicalName: 'Malus domestica', commonName: 'Apple', color: null, position: { x: 1, y: 0 }, rotationDeg: null, scale: null },
           { id: 'c', canonicalName: 'Rubus idaeus', commonName: 'Raspberry', color: null, position: { x: 2, y: 0 }, rotationDeg: null, scale: null },
         ],
-        zones: [],
-        annotations: [],
-        groups: [],
+        zones: [], annotations: [], groups: [],
       }))!
       armCanvasTool('saved-object-stamp', { from: 'panel', source: { kind: 'saved-stamp', stamp, name: 'Guilde pommier' } })
     })
@@ -571,16 +576,9 @@ describe('Tool card', () => {
     }
     const field = () => container.querySelector<HTMLInputElement>('[data-plant-spacing-interval-input]')
     const count = () => container.querySelector<HTMLElement>('[data-plant-spacing-generated-count]')
-    let spacing: {
-      input: Mock<(text: string) => void>
-      commit: Mock<(text: string) => void>
-      blur: Mock<(text: string) => void>
-      cancel: Mock<() => void>
-    }
-    let path: {
-      finish: Mock<() => void>
-      setMode: Mock<(mode: 'interval' | 'count') => void>
-    }
+    type TextMock = Mock<(text: string) => void>
+    let spacing: { input: TextMock; commit: TextMock; blur: TextMock; cancel: Mock<() => void> }
+    let path: { finish: Mock<() => void>; setMode: Mock<(mode: 'interval' | 'count') => void> }
 
     beforeEach(async () => {
       spacing = { input: vi.fn(), commit: vi.fn(), blur: vi.fn(), cancel: vi.fn() }
