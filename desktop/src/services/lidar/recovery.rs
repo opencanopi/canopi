@@ -6,8 +6,8 @@
 //! and a failed import job whose saved selection is the managed originals, so
 //! Retry prepares them again on demand; analysis definitions come back with
 //! their outputs unpublished, so Retry runs them again once their inputs are
-//! ready. A newer catalogue is refused and left untouched; the library then
-//! runs empty and read-only in memory. Nothing here ever deletes an original.
+//! ready. A newer catalogue is read and never written: the library lists its
+//! items read-only (`catalogue_reader.rs`). Nothing here ever deletes an original.
 
 use super::catalogue::{self, new_id, now_iso};
 use super::paths::LidarPaths;
@@ -64,7 +64,7 @@ pub enum RecoveryReason {
 }
 
 /// How the library opened. Everything but `Ready` is worth showing the user.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum LibraryOpenStatus {
     Ready,
     /// The catalogue was set aside and rebuilt from the originals.
@@ -76,11 +76,10 @@ pub enum LibraryOpenStatus {
         /// Originals without a `meta.json`, listed under a generated name.
         generated: usize,
     },
-    /// The catalogue was written by a newer Canopi and is left untouched; the
-    /// library is empty and read-only until that Canopi opens it.
-    RefusedNewer {
+    /// Written by a newer Canopi: `items` listed, nothing written (2.1-M488).
+    NewerReadOnly {
         found: i32,
-        supported: i32,
+        items: super::catalogue_reader::NewerItems,
     },
     /// The catalogue could be neither opened nor rebuilt; the library is empty
     /// and read-only, and the files are left as they are.
@@ -101,7 +100,7 @@ impl LibraryOpenStatus {
                 items: u32::try_from(*items).unwrap_or(u32::MAX),
                 generated: u32::try_from(*generated).unwrap_or(u32::MAX),
             },
-            Self::RefusedNewer { .. } => StoreOpenStatus::RefusedNewer,
+            Self::NewerReadOnly { .. } => StoreOpenStatus::NewerReadOnly,
             Self::Unavailable { .. } => StoreOpenStatus::Unavailable {
                 code: FailureCode::LibraryReadOnly {
                     reason: LibraryReadOnlyReason::Unavailable,
@@ -110,14 +109,12 @@ impl LibraryOpenStatus {
         }
     }
 
-    /// Why a mutation is refused, when the library is read-only.
+    /// Why a mutation is refused, when the library is read-only; a newer
+    /// catalogue's `store_read_only` settles silently (2.1-M487).
     pub fn refusal(&self) -> Option<String> {
         match self {
             Self::Ready | Self::Recovered { .. } => None,
-            Self::RefusedNewer { .. } => Some(
-                "The Data library was saved by a newer version of Canopi; install the latest Canopi to use it."
-                    .to_string(),
-            ),
+            Self::NewerReadOnly { .. } => Some("store_read_only".to_string()),
             Self::Unavailable { reason } => {
                 Some(format!("The Data library could not be opened: {reason}"))
             }
@@ -130,12 +127,13 @@ pub struct OpenedCatalogue {
     pub status: LibraryOpenStatus,
 }
 
-/// Open the catalogue under `paths`, recovering or refusing as its state
-/// requires. A library that cannot own its file runs in memory; only that
-/// in-memory database failing to open is an error.
-pub fn open_catalogue(paths: &LidarPaths) -> Result<OpenedCatalogue, String> {
+/// Open the catalogue under `paths`, found in `state`; only an in-memory one failing errs.
+pub fn open_catalogue(
+    paths: &LidarPaths,
+    state: CatalogueState,
+) -> Result<OpenedCatalogue, String> {
     let path = paths.catalogue_path();
-    match inspect(&path) {
+    match state {
         CatalogueState::Missing | CatalogueState::Current => match catalogue::open(&path) {
             Ok(connection) => Ok(OpenedCatalogue {
                 connection,
@@ -145,10 +143,9 @@ pub fn open_catalogue(paths: &LidarPaths) -> Result<OpenedCatalogue, String> {
         },
         CatalogueState::Older(version) => recover(paths, RecoveryReason::OlderVersion(version)),
         CatalogueState::Corrupt(reason) => recover(paths, RecoveryReason::Corrupt(reason)),
-        CatalogueState::Newer(found) => in_memory(LibraryOpenStatus::RefusedNewer {
-            found,
-            supported: catalogue::CATALOGUE_VERSION,
-        }),
+        CatalogueState::Newer(found) => {
+            in_memory(super::catalogue_reader::open_status(&path, found))
+        }
     }
 }
 
@@ -517,7 +514,7 @@ mod tests {
     /// the version numbers or the failure reason.
     #[test]
     fn health_keeps_the_state_and_counts_but_no_paths_or_reasons() {
-        let (items, generated, found, supported) = (4, 2, 9, 3);
+        let (items, generated, found) = (4, 2, 26);
         let recovered = LibraryOpenStatus::Recovered {
             reason: RecoveryReason::Corrupt("garbage".into()),
             set_aside: PathBuf::from("/private/set-aside"),
@@ -530,12 +527,15 @@ mod tests {
         let code = FailureCode::LibraryReadOnly {
             reason: LibraryReadOnlyReason::Unavailable,
         };
-        let refused = LibraryOpenStatus::RefusedNewer { found, supported };
+        let newer = LibraryOpenStatus::NewerReadOnly {
+            found,
+            items: Default::default(),
+        };
         let counts = StoreOpenStatus::Recovered { items, generated };
         for (open, health) in [
             (&recovered, counts),
             (&LibraryOpenStatus::Ready, StoreOpenStatus::Ready),
-            (&refused, StoreOpenStatus::RefusedNewer),
+            (&newer, StoreOpenStatus::NewerReadOnly),
             (&unavailable, StoreOpenStatus::Unavailable { code }),
         ] {
             assert_eq!(open.health(), health);
@@ -592,7 +592,7 @@ mod tests {
             .unwrap();
         drop(connection);
 
-        let opened = open_catalogue(&paths).unwrap();
+        let opened = open_catalogue(&paths, inspect(&paths.catalogue_path())).unwrap();
         assert!(
             matches!(
                 opened.status,
@@ -660,7 +660,7 @@ mod tests {
         std::fs::create_dir(&wal).unwrap();
         std::os::unix::fs::symlink(&wal, paths.set_aside_dir()).unwrap();
 
-        let opened = open_catalogue(&paths).unwrap();
+        let opened = open_catalogue(&paths, inspect(&paths.catalogue_path())).unwrap();
 
         assert!(
             matches!(opened.status, LibraryOpenStatus::Unavailable { .. }),

@@ -91,6 +91,7 @@ pub fn library_snapshot(
             offers: analyses::offers(&facts, geolibre),
             dependents: dependents(connection, &layer.id)?,
             created_at: layer.created_at,
+            newer_kind: None,
         });
     }
 
@@ -179,6 +180,7 @@ pub fn library_snapshot(
             offers: analyses::offers(&facts, geolibre),
             dependents: dependents(connection, &item.id)?,
             created_at: item.created_at,
+            newer_kind: None,
         });
     }
 

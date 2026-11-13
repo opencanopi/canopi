@@ -926,6 +926,11 @@
         "name": "created_at",
         "flatten": false,
         "skip": false
+      },
+      {
+        "name": "newer_kind",
+        "flatten": false,
+        "skip": false
       }
     ]
   },

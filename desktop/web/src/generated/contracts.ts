@@ -609,6 +609,12 @@ export type LibraryItemSummary = {
 	 *  `created_at`, Unix milliseconds as text, for sorting by Recently added.
 	 */
 	created_at: string,
+	/**
+	 *  The kind a `NeedsNewer` item's newer catalogue stores, the type its row is listed by (2.1-Q318); absent on
+	 *  any other item and when this build does not know the literal. Interim: N1's summary carries the item's kind
+	 *  itself and deletes this field.
+	 */
+	newer_kind?: LibraryItemKind | null,
 };
 
 /**

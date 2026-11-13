@@ -471,6 +471,12 @@ pub struct LibraryItemSummary {
     /// When the item was added to the library: its catalogue row's
     /// `created_at`, Unix milliseconds as text, for sorting by Recently added.
     pub created_at: String,
+    /// The kind a `NeedsNewer` item's newer catalogue stores, the type its row is listed by (2.1-Q318); absent on
+    /// any other item and when this build does not know the literal. Interim: N1's summary carries the item's kind
+    /// itself and deletes this field.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[specta(optional)]
+    pub newer_kind: Option<LibraryItemKind>,
 }
 
 /// The engines library work depends on.
