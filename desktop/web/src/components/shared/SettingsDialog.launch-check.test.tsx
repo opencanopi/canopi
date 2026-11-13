@@ -55,4 +55,29 @@ describe('Check for updates at launch', () => {
   it('a write that fails for another reason puts the switch back', async () => {
     expect(await toggleWith(new Error('disk I/O error'))).toBe(true)
   })
+
+  // The updater lane's About Canopi… press landed on the switch when its row answered late and pushed the button down,
+  // turning the launch check off: the row's place is held while it is read, so nothing below it moves.
+  it('canopi-f47t.52.271: while the row is read, its place is held, so About Canopi… below it never moves', async () => {
+    let answer: (on: boolean) => void = () => undefined
+    const port = createLaunchCheckPort(() => new Promise<boolean>((resolve) => { answer = resolve }), () => Promise.resolve())
+    await act(async () => { render(<><LaunchCheckSwitch port={port} /><button type="button">About Canopi…</button></>, container) })
+    const button = container.querySelector('button')!
+    const held = button.previousElementSibling
+    const pending = {
+      held: held !== null,
+      hidden: held?.getAttribute('aria-hidden'),
+      switch: container.querySelector('[data-launch-check] input[role="switch"]'),
+    }
+    await act(async () => { answer(true) })
+
+    expect({ pending, sameRow: button.previousElementSibling === held, on: container.querySelector<HTMLInputElement>('[data-launch-check] input[role="switch"]')?.checked })
+      .toEqual({ pending: { held: true, hidden: 'true', switch: null }, sameRow: true, on: true })
+  })
+
+  it('a row that cannot be read leaves no switch and no held place', async () => {
+    await act(async () => { render(<LaunchCheckSwitch port={createLaunchCheckPort(() => Promise.reject(new Error('no row')), () => Promise.resolve())} />, container) })
+    await act(async () => { await Promise.resolve() })
+    expect(container.innerHTML).toBe('')
+  })
 })
