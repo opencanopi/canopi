@@ -39,7 +39,7 @@ function setup(given: Listing) {
   const fileAdapter: BrowserDesignFileAdapter = { openCanopiFile: vi.fn(async () => null), downloadCanopiFile: vi.fn(async () => undefined) }
   const store = createDesignSessionStore()
   const controller = createBrowserDesignSessionController({ store, appDataStore, fileAdapter })
-  const records = { list: vi.fn(async (): Promise<Required<Listing>> => listing), content: vi.fn(async () => null) }
+  const records = { list: vi.fn(async (): Promise<Required<Listing>> => listing), content: vi.fn(async (): Promise<string | null | 'closed'> => null) }
   const uninstall = controller.installNewerDrafts(records)
   return { appDataStore, controller, fileAdapter, records, store, uninstall }
 }
@@ -119,6 +119,17 @@ describe('the session controller with 2.1 Drafts listed', () => {
     expect(await controller.openDraft('orchard')).toBe(false)
     expect(records.content).toHaveBeenCalledWith('orchard')
     expect(openFailureShown()).toBe(true)
+  })
+
+  it('R3 canopi-f47t.52.272: a 2.1 Draft whose read a version change closed opens nothing and says no open failure, as the Reload notice tells the user (2.1-Q40, Q337)', async () => {
+    const { controller, records, fileAdapter } = setup({ drafts: [NEWER], hiddenIds: ['orchard'] })
+    await controller.listNewerDrafts()
+    records.content.mockResolvedValue('closed')
+
+    expect(await controller.openDraft('orchard')).toBe(false)
+    expect(openFailureShown()).toBe(false)
+    await controller.downloadDraft('orchard')
+    expect(fileAdapter.downloadCanopiFile, 'nor does its download write anything').not.toHaveBeenCalled()
   })
 
   it('R3 canopi-f47t.52.272: a launch whose 2.1 listing fails or runs late restores nothing and lists without a second read', async () => {

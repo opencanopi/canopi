@@ -39,6 +39,8 @@ class FakeIndexedDb {
   duringRead: (() => void) | null = null
   /** Runs as a connection is asked for a transaction, before it checks that it is open. */
   beforeTransaction: (() => void) | null = null
+  /** Read transactions never complete, as one another page keeps busy. */
+  stallReads = false
   private readonly held: (() => void)[] = []
 
   constructor(readonly withDatabases = true) {}
@@ -137,7 +139,7 @@ class FakeIndexedDb {
     queueMicrotask(() => {
       for (const run of requests) run()
       this.duringRead?.()
-      queueMicrotask(() => tx.oncomplete?.())
+      if (!this.stallReads) queueMicrotask(() => tx.oncomplete?.())
     })
     return tx as unknown as IDBTransaction
   }
@@ -348,18 +350,35 @@ describe('the 2.1 Draft store read half', () => {
     expect(await records.content('draft-orchard'), 'an open that fails').toBeNull()
     idb.failOpen = null
 
-    idb.beforeTransaction = () => idb.versionChange(5)
-    expect(await records.content('draft-orchard'), 'a connection closed before the read').toBeNull()
-    idb.beforeTransaction = null
-
     idb.hold = true
     const late = records.content('draft-orchard')
     await vi.advanceTimersByTimeAsync(50)
     expect(await late, 'an open queued past the bound').toBeNull()
-    expect(reports).toHaveLength(3)
+    expect(reports).toHaveLength(2)
     vi.useRealTimers()
     idb.hold = false
     idb.releaseHeld()
+  })
+
+  it('R3 canopi-f47t.52.272: a Draft read a version change closed gives "closed" with no report, so the open says nothing beside the Reload notice (2.1-Q40, Q337)', async () => {
+    vi.useFakeTimers()
+    const idb = new FakeIndexedDb()
+    idb.seed(FROZEN)
+    const { records, versionChanges, reports } = reader(idb, { timeoutMs: 50 })
+
+    idb.beforeTransaction = () => idb.versionChange(5)
+    expect(await records.content('draft-orchard'), 'closed before the read').toBe('closed')
+    idb.beforeTransaction = null
+
+    // Closed mid-read, the read then runs past its bound (another page keeps it busy).
+    idb.stallReads = true
+    idb.duringRead = () => idb.versionChange(5)
+    const stalled = records.content('draft-orchard')
+    await vi.advanceTimersByTimeAsync(50)
+    expect(await stalled, 'closed mid-read, then late').toBe('closed')
+
+    expect(versionChanges).toHaveLength(2)
+    expect(reports).toEqual([])
   })
 
   it('R3 canopi-f47t.52.272: a record whose fields do not read is listed under defaults, still hidden by id; one with no id is not listed', async () => {
