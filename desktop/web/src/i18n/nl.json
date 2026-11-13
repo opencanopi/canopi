@@ -2196,6 +2196,7 @@
     "statusDetails": "Deze browser kan je concepten wissen om ruimte vrij te maken. Download een kopie om een bestand te bewaren.",
     "downloadFailedTitle": "Kon geen kopie downloaden",
     "downloadFailedMessage": "Dit concept staat niet meer in deze browser of kon niet worden gelezen.",
+    "uncheckedReadOnly": "Alleen-lezen geopend: Canopi kon de opslag van deze browser niet controleren, dus dit concept is mogelijk verouderd. Download een kopie om het te bewaren.",
     "keepDrafts": "Mijn concepten bewaren",
     "keepDraftsMenu": "Mijn concepten bewaren…"
   },

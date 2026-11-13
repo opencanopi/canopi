@@ -1,7 +1,7 @@
 /**
  * web/browser-notices.ts: the Web Edition's notices on the one notice row (failures/notices.ts, contracts §18 F3,
  * 2.1-Q290): the launch's Earlier data, an action's outcome (a GeoJSON import or export, a Design that cannot be
- * opened, a Draft download that failed) and the New version: Reload offer. Invariant: each is locale keys, never words;
+ * opened, a Draft download that failed, a Draft opened read-only while 2.1's Drafts could not be listed) and the New version: Reload offer. Invariant: each is locale keys, never words;
  * an action's outcome shows at the front of the row, older notices waiting behind it (2.1-Q304), and replaces the one
  * before it under the same key; the release offer yields to every later notice (2.1-M182) and, while Reload writes the Design first, reads Saving… with neither Reload nor Dismiss taking a click
  * (2.1-Q83, Q187, M179). With no Design open it promises no save first (canopi-eon8.15).
@@ -35,6 +35,11 @@ export function presentBrowserDraftDownloadFailure(): void {
 /** A listed Draft gone from this browser by the time it opens (2.1 or another tab deleted it): opened nothing. */
 export function presentBrowserDraftOpenFailure(): void {
   showOutcome('web.open-failure', { tone: 'error', title: 'start.cantOpenTitle', message: 'webStorage.downloadFailedMessage' })
+}
+
+/** An old-key Draft opened read-only while 2.1's Draft listing could not be read: it may be a copy 2.1 replaced (2.1-Q334). */
+export function presentBrowserDraftUncheckedNotice(): void {
+  showOutcome('web.draft-unchecked', { tone: 'warning', message: 'webStorage.uncheckedReadOnly' })
 }
 
 /** Browser data from before Canopi 2.0 stays in place, unread (ADR 0021): told once, at the launch that finds it. */

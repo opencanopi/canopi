@@ -37,13 +37,15 @@ function setup(given: Listing) {
   const listing = { complete: true, ...given }
   const appDataStore = oldKeyStore()
   const fileAdapter: BrowserDesignFileAdapter = { openCanopiFile: vi.fn(async () => null), downloadCanopiFile: vi.fn(async () => undefined) }
-  const controller = createBrowserDesignSessionController({ store: createDesignSessionStore(), appDataStore, fileAdapter })
+  const store = createDesignSessionStore()
+  const controller = createBrowserDesignSessionController({ store, appDataStore, fileAdapter })
   const records = { list: vi.fn(async (): Promise<Required<Listing>> => listing), content: vi.fn(async () => null) }
   const uninstall = controller.installNewerDrafts(records)
-  return { appDataStore, controller, fileAdapter, records, uninstall }
+  return { appDataStore, controller, fileAdapter, records, store, uninstall }
 }
 
 const openFailureShown = () => notices.value.some((notice) => notice.key === 'web.open-failure')
+const uncheckedShown = () => notices.value.some((notice) => notice.message === 'webStorage.uncheckedReadOnly')
 
 beforeEach(() => resetNoticesForTests())
 
@@ -119,7 +121,7 @@ describe('the session controller with 2.1 Drafts listed', () => {
     expect(openFailureShown()).toBe(true)
   })
 
-  it('R3 canopi-f47t.52.272: a launch whose 2.1 listing fails or runs late restores nothing, so a copied old-key Draft never opens', async () => {
+  it('R3 canopi-f47t.52.272: a launch whose 2.1 listing fails or runs late restores nothing and lists without a second read', async () => {
     // 2.1's store exists but its read failed or ran past the bound: the reader gives its last good listing, empty at launch.
     const { appDataStore, controller, records } = setup({ drafts: [], hiddenIds: [], complete: false })
 
@@ -127,23 +129,52 @@ describe('the session controller with 2.1 Drafts listed', () => {
     expect(appDataStore.loadDraft).not.toHaveBeenCalled()
     expect(controller.launching.value).toBe(false)
 
-    // Until one listing completes, an old-key row may be a copy 2.1 keeps: open and delete re-list first, then refuse.
-    expect(await controller.openDraft('orchard')).toBe(false)
-    expect(appDataStore.loadDraft).not.toHaveBeenCalled()
-    expect(openFailureShown()).toBe(true)
-    expect((await controller.deleteDraft('hedge')).ok).toBe(false)
-    expect(appDataStore.ids()).toEqual(['orchard', 'hedge'])
-    expect(records.list).toHaveBeenCalledTimes(3)
+    expect(records.list).toHaveBeenCalledTimes(1)
+  })
 
-    // A re-list that completes: orchard turns out to be 2.1's copy and stays refused, hedge opens and deletes.
+  it('R3 canopi-f47t.52.272: while the 2.1 listing cannot be read, an old-key Draft opens read-only with a notice and is never deleted (2.1-Q334)', async () => {
+    const { appDataStore, controller, records, store } = setup({ drafts: [], hiddenIds: [], complete: false })
+    await controller.launch()
+    expect(controller.draftListingComplete()).toBe(false)
+
+    // It may be a stale copy 2.1 replaced: shown, never edited, and the notice says the storage could not be checked.
+    expect(await controller.openDraft('orchard')).toBe(true)
+    expect(store.sessionKind.value).toEqual({ kind: 'read-only', origin: 'storage-unchecked' })
+    expect(controller.continuousSave.status.value).toBe('read-only')
+    expect(uncheckedShown()).toBe(true)
+    expect(openFailureShown()).toBe(false)
+    // Download a copy still works on the read-only view.
+    await controller.downloadCanopi()
+    expect((await controller.deleteDraft('hedge')).ok, 'Delete stays off').toBe(false)
+    expect(appDataStore.ids()).toEqual(['orchard', 'hedge'])
+
+    // A re-list that completes: orchard turns out to be 2.1's copy and stays refused, hedge opens editable and deletes.
     records.list.mockResolvedValue({ drafts: [], hiddenIds: ['orchard'], complete: true })
     expect(await controller.openDraft('orchard')).toBe(false)
-    expect(appDataStore.loadDraft).not.toHaveBeenCalledWith('orchard')
+    expect(openFailureShown()).toBe(true)
     expect(await controller.openDraft('hedge')).toBe(true)
+    expect(controller.draftListingComplete()).toBe(true)
+    expect(store.sessionKind.value).toEqual({ kind: 'editing' })
     // Once one listing completed, a later failed read keeps its hidden ids and lets the rest through without a re-list.
     records.list.mockResolvedValue({ drafts: [], hiddenIds: ['orchard'], complete: false })
+    const calls = records.list.mock.calls.length
     expect((await controller.deleteDraft('orchard')).ok).toBe(false)
-    expect(records.list).toHaveBeenCalledTimes(4)
+    expect(records.list).toHaveBeenCalledTimes(calls)
+  })
+
+  it('R3 canopi-f47t.52.272: a Draft opened while its delete waited on the 2.1 listing is not deleted', async () => {
+    const { appDataStore, controller, records } = setup({ drafts: [], hiddenIds: [], complete: false })
+    await controller.launch()
+    let finish!: (listing: Required<Listing>) => void
+    records.list.mockReturnValueOnce(new Promise((resolve) => { finish = resolve }))
+    const deleting = controller.deleteDraft('hedge')
+    // The re-list completes after hedge became the open Design's Draft.
+    records.list.mockResolvedValue({ drafts: [], hiddenIds: [], complete: true })
+    expect(await controller.openDraft('hedge')).toBe(true)
+    finish({ drafts: [], hiddenIds: [], complete: true })
+
+    expect((await deleting).ok).toBe(false)
+    expect(appDataStore.ids()).toContain('hedge')
   })
 
   it('R3 canopi-f47t.52.272: a launch whose 2.1 listing completes empty restores the newest Draft', async () => {

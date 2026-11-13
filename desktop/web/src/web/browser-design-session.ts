@@ -8,7 +8,7 @@ import {
 } from "../app/document-session/replacement";
 import { presentDesignOpenFailure } from "../app/document-session/open-failure";
 import { requestSaveProblemDecision } from "../app/document-session/save-problem";
-import { designSessionStore, type PersistenceCapableDesignSessionStore } from "../app/document-session/store";
+import { designSessionStore, type DesignSessionKind, type PersistenceCapableDesignSessionStore } from "../app/document-session/store";
 import { DESIGN_SESSION_WORKFLOWS } from "../app/document-session/workflows";
 import { createDesignSessionWorkflowRunner, type DesignSessionWorkflowRunner } from "../app/document-session/workflow-runner";
 import { createDesignSessionPersistence, DesignPersistenceLeaseError, type DesignReplacementGuardCapture } from "../app/document-session/persistence";
@@ -26,7 +26,7 @@ import {
 import type { BrowserShellDesignIdentity } from "./browser-shell-commands";
 import { browserDraftPersistence } from "./browser-draft-persistence";
 import { createBrowserNewerDrafts, type BrowserNewerDraftRecords } from "./browser-newer-drafts";
-import { presentBrowserDraftOpenFailure } from "./browser-notices";
+import { presentBrowserDraftOpenFailure, presentBrowserDraftUncheckedNotice } from "./browser-notices";
 import { downloadBrowserTextFile, pickBrowserTextFile } from "./browser-text-files";
 
 /** A `.canopi` file by name and text: one picked to open, or one given as a download. */
@@ -101,15 +101,14 @@ export interface BrowserDesignSessionController {
   listNewerDrafts(): Promise<readonly BrowserDraftSummary[]>;
   /** The last 2.1 listing; null until one is read while the store reader is installed. */
   listedNewerDrafts(): readonly BrowserDraftSummary[] | null;
+  /** False until one 2.1 listing completed: old-key Drafts then open read-only and offer no Delete (2.1-Q334). */
+  draftListingComplete(): boolean;
   /**
-   * Opens a Draft; a 2.1 one read-only through the format core (2.1-M478). False when cancelled, or gone, or not yet
-   * known not to be 2.1's (no 2.1 listing completed, even on a re-list), which is said.
+   * Opens a Draft; a 2.1 one read-only through the format core (2.1-M478), an old-key one read-only with a notice while
+   * no 2.1 listing has completed, even on a re-list (2.1-Q334). False when cancelled, or gone, which is said.
    */
   openDraft(id: string): Promise<boolean>;
-  /**
-   * Refused for the open Design's Draft, for a 2.1 Draft or a 2.0 Draft under a hidden id, and while no 2.1 listing has
-   * completed, even on a re-list (design check F7, A18).
-   */
+  /** Refused for the open Design's Draft, a 2.1 Draft or a 2.0 one under a hidden id, and before a 2.1 listing completed (F7, A18). */
   deleteDraft(id: string): Promise<BrowserAppDataWriteResult<null>>;
   /**
    * The launch: reads 2.1's Draft ids first, then restores only on a complete listing with no 2.1 Draft (2.1-Q321,
@@ -276,11 +275,7 @@ export function createBrowserDesignSessionController({
     const flushed = flushBeforeReplacement(intent);
     if (flushed !== true && !(await flushed)) return;
     const file = withNewDesignDisplay(createNewWebCanopiFile("Untitled", now().toISOString()));
-    applyDesignReplacement(draftReplacement({
-      file,
-      kind: "new",
-      name: file.name,
-    }, createDraftId(), false));
+    applyDesignReplacement(draftReplacement({ file, kind: "new", name: file.name }, createDraftId(), false));
     applyNewDesignBackground();
   }
 
@@ -346,9 +341,8 @@ export function createBrowserDesignSessionController({
     }
     // A Design a newer Canopi saved is shown read-only: no Draft is minted, so nothing is ever written (2.1-M478).
     const input = { file, kind: "loaded", name: file.name || nameFromFileName(opened.fileName) } as const;
-    const next: ResolvedDesignReplacement = readOnly ? { ...input, path: null, finalizationIdentity: "read-only",
-      session: { kind: "read-only", origin: "newer-version", savedByVersion: readOnly.saved_by_version },
-      onDesignFinalized: () => continuousSave.endSession() } : draftReplacement(input, createDraftId(), true);
+    const next = readOnly ? readOnlyReplacement(input, { kind: "read-only", origin: "newer-version", savedByVersion: readOnly.saved_by_version })
+      : draftReplacement(input, createDraftId(), true);
     if (!current()) return false;
     applyDesignReplacement(next, guardCapture);
     return true;
@@ -364,11 +358,7 @@ export function createBrowserDesignSessionController({
     const flushed = flushBeforeReplacement(intent);
     if (flushed !== true && !(await flushed)) return "cancelled";
     if (options.isCancelled?.()) return "cancelled";
-    applyDesignReplacement(draftReplacement({
-      file: template.file,
-      kind: "loaded",
-      name: template.name,
-    }, createDraftId(), true));
+    applyDesignReplacement(draftReplacement({ file: template.file, kind: "loaded", name: template.name }, createDraftId(), true));
     return "opened";
   }
 
@@ -501,15 +491,18 @@ export function createBrowserDesignSessionController({
     return true;
   }
 
-  function applyDraft(id: string): boolean {
-    // A 2.0 Draft under an id 2.1 holds or copied, or before one 2.1 listing completed, is never opened (2.1-Q322, A18).
-    const draft = newer.editable(id) ? appDataStore.loadDraft(id) : null;
+  /** No home, Draft id or write destination: nothing is ever written (2.1-M478). */
+  function readOnlyReplacement(input: Pick<ResolvedDesignReplacement, "file" | "kind" | "name">, session: DesignSessionKind): ResolvedDesignReplacement {
+    return { ...input, path: null, finalizationIdentity: "read-only", session, onDesignFinalized: () => continuousSave.endSession() };
+  }
+
+  /** Editable, or read-only while 2.1's listing cannot be read (2.1-Q334); never a 2.0 Draft under a hidden id (Q322). */
+  function applyDraft(id: string, unchecked = false): boolean {
+    const draft = unchecked || newer.editable(id) ? appDataStore.loadDraft(id) : null;
     if (!draft) return false;
-    applyDesignReplacement(draftReplacement({
-      file: draft,
-      kind: "loaded",
-      name: draft.name || "Untitled",
-    }, id, false, storedDraftUpdatedAt(id)));
+    const input = { file: draft, kind: "loaded", name: draft.name || "Untitled" } as const;
+    applyDesignReplacement(unchecked ? readOnlyReplacement(input, { kind: "read-only", origin: "storage-unchecked" })
+      : draftReplacement(input, id, false, storedDraftUpdatedAt(id)));
     return true;
   }
 
@@ -519,22 +512,25 @@ export function createBrowserDesignSessionController({
   async function openDraft(id: string): Promise<boolean> {
     if (newer.has(id)) return openText(() => newerDraftFile(id), true);
     const intent = ++replacementIntent;
-    // Before one 2.1 listing completed the row may be 2.1's copy: re-list first, and refuse while still unknown (A18).
+    // Before one 2.1 listing completed the row may be a stale copy 2.1 replaced: re-list first, and while still unknown
+    // open it read-only and say why (2.1-Q334, A18).
     const admitted = await newer.admit(id);
+    const unchecked = !admitted && !newer.known();
     if (intent !== replacementIntent) return false;
-    if (!admitted) return draftGone();
+    if (!admitted && !unchecked) return draftGone();
     const flushed = flushBeforeReplacement(intent);
     if (flushed !== true && !(await flushed)) return false;
-    return applyDraft(id) || draftGone();
+    if (!applyDraft(id, unchecked)) return draftGone();
+    if (unchecked) presentBrowserDraftUncheckedNotice();
+    return true;
   }
 
   async function deleteDraft(id: string): Promise<BrowserAppDataWriteResult<null>> {
-    const home = continuousSave.readHome();
-    if (home?.kind === "draft" && home.id === id) {
-      return { ok: false, error: new Error("The open Design's Draft cannot be deleted") };
-    }
     // Never a 2.1 Draft's id, which the old key may also hold, nor any id before a 2.1 listing completed (F7, A18).
     if (!(await newer.admit(id))) return { ok: false, error: new Error(`The Draft ${id} may be 2.1's and is not deleted here`) };
+    // Read after the listing, which a Draft may open during.
+    const home = continuousSave.readHome();
+    if (home?.kind === "draft" && home.id === id) return { ok: false, error: new Error("The open Design's Draft cannot be deleted") };
     return appDataStore.deleteDraft(id);
   }
 
@@ -661,6 +657,7 @@ export function createBrowserDesignSessionController({
     listDrafts: visibleDrafts,
     listNewerDrafts: async () => (await newer.relist()).drafts,
     listedNewerDrafts: newer.listed,
+    draftListingComplete: newer.known,
     openDraft,
     deleteDraft,
     launch,

@@ -76,8 +76,9 @@ export function WebWelcomeScreen({
         }).catch(logWebWelcomeError)
       },
     }],
-    // A 2.1 Draft has no Delete: the 2.0 delete never reaches its id (design check F7).
-    ...(readOnly ? {} : {
+    // A 2.1 Draft has no Delete: the 2.0 delete never reaches its id (design check F7); nor has an old-key Draft until
+    // a 2.1 listing completed, since it may be a copy 2.1 replaced (2.1-Q334).
+    ...(readOnly || !controller.draftListingComplete() ? {} : {
       // Refused, and logged, for an id 2.1 keeps or before one 2.1 listing completed (design check A18).
       delete: () => {
         void controller.deleteDraft(draft.id).then((deleted) => {

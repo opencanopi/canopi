@@ -2196,6 +2196,7 @@
     "statusDetails": "Ce navigateur peut effacer vos brouillons pour libérer de l’espace. Téléchargez une copie pour garder un fichier.",
     "downloadFailedTitle": "Impossible de télécharger une copie",
     "downloadFailedMessage": "Ce brouillon n’est plus dans ce navigateur, ou n’a pas pu être lu.",
+    "uncheckedReadOnly": "Ouvert en lecture seule : Canopi n’a pas pu vérifier le stockage de ce navigateur, ce brouillon n’est peut-être pas à jour. Téléchargez une copie pour le conserver.",
     "keepDrafts": "Garder mes brouillons",
     "keepDraftsMenu": "Garder mes brouillons…"
   },

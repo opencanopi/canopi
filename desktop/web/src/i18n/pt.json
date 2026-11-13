@@ -2196,6 +2196,7 @@
     "statusDetails": "Este navegador pode apagar seus rascunhos para liberar espaço. Baixe uma cópia para manter um arquivo.",
     "downloadFailedTitle": "Não foi possível baixar uma cópia",
     "downloadFailedMessage": "Este rascunho não está mais neste navegador ou não pôde ser lido.",
+    "uncheckedReadOnly": "Aberto somente leitura: o Canopi não conseguiu verificar o armazenamento deste navegador, então este rascunho pode estar desatualizado. Baixe uma cópia para mantê-lo.",
     "keepDrafts": "Manter meus rascunhos",
     "keepDraftsMenu": "Manter meus rascunhos…"
   },

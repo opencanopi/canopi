@@ -2045,6 +2045,7 @@ export type LocaleKey =
   | "webStorage.reason"
   | "webStorage.statusDetails"
   | "webStorage.statusWarning"
+  | "webStorage.uncheckedReadOnly"
   | "webStorage.warning"
   | "webStorage.warningNoDrafts"
   | "window.close"

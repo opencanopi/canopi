@@ -8,13 +8,15 @@ import {
 
 /**
  * What the open Design Session may do (2.1-M478, design check F3). `editing` writes every change to its home;
- * `read-only` shows a Design a newer Canopi saved (`origin: 'newer-version'`, its format `savedByVersion`): it has no
- * home, Draft id or write destination, continuous save writes nothing, Design Edit refuses edits, and Close ends it
- * through the one close replacement without asking.
+ * `read-only` shows a Design a newer Canopi saved (`origin: 'newer-version'`, its format `savedByVersion`), or a Web
+ * Draft opened while 2.1's Draft listing could not be read, which may be a copy 2.1 replaced (`origin:
+ * 'storage-unchecked'`, 2.1-Q334): it has no home, Draft id or write destination, continuous save writes nothing,
+ * Design Edit refuses edits, and Close ends it through the one close replacement without asking.
  */
 export type DesignSessionKind =
   | { readonly kind: 'editing' }
   | { readonly kind: 'read-only'; readonly origin: 'newer-version'; readonly savedByVersion: number }
+  | { readonly kind: 'read-only'; readonly origin: 'storage-unchecked' }
 
 export const EDITING_DESIGN_SESSION: DesignSessionKind = Object.freeze({ kind: 'editing' })
 

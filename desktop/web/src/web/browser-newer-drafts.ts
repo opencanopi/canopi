@@ -26,6 +26,8 @@ export interface BrowserNewerDrafts {
   name(id: string): string | undefined;
   /** Whether the last listing hides the old-key Draft `id`. */
   hides(id: string): boolean;
+  /** True once one listing completed, or with no reader installed: until then any old-key Draft may be 2.1's copy. */
+  known(): boolean;
   /** Whether the old-key Draft `id` may be opened or deleted now: one listing completed and it does not hide `id`. */
   editable(id: string): boolean;
   /** `editable`, after a re-list while no listing has completed yet. */
@@ -62,6 +64,7 @@ export function createBrowserNewerDrafts(): BrowserNewerDrafts {
     has: (id) => drafts?.has(id) ?? false,
     name: (id) => drafts?.get(id)?.name,
     hides: (id) => hiddenIds.has(id),
+    known,
     editable,
     async admit(id) {
       if (!known()) await relist();

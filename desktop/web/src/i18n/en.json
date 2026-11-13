@@ -2196,6 +2196,7 @@
     "statusDetails": "This browser may clear your Drafts to free up space. Download a copy to keep a file.",
     "downloadFailedTitle": "Couldn’t download a copy",
     "downloadFailedMessage": "This Draft is no longer in this browser, or could not be read.",
+    "uncheckedReadOnly": "Opened read-only: Canopi couldn’t check this browser’s storage, so this Draft may be out of date. Download a copy to keep it.",
     "keepDrafts": "Keep my drafts",
     "keepDraftsMenu": "Keep my drafts…"
   },
