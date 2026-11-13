@@ -53,17 +53,11 @@ async function storageDump(page: Page): Promise<unknown> {
   })
 }
 
-/** The dump without device settings: the place last viewed (`last_view`) is the device's, saved whichever Design shows. */
-async function designStorageDump(page: Page): Promise<unknown> {
-  const { local, databases } = await storageDump(page) as { local: [string, string | null][], databases: unknown }
-  return { local: local.filter(([key]) => !key.endsWith(':settings')), databases }
-}
-
 test('R1 canopi-f47t.52.270: reader release: a v10 Design opens read-only and says a newer Canopi saved it (Web)', async ({ page }) => {
   await page.goto('')
   const start = page.locator('[data-start-screen]')
   await expect(start).toBeVisible()
-  const before = await designStorageDump(page)
+  const before = await storageDump(page)
 
   const open = start.getByRole('button').filter({ hasText: /\.canopi/ }).first()
   const [chooser] = await Promise.all([page.waitForEvent('filechooser'), open.click()])
@@ -75,7 +69,13 @@ test('R1 canopi-f47t.52.270: reader release: a v10 Design opens read-only and sa
   await expect(status.getByRole('button', { name: 'Update' }), 'the save status offers Update').toBeVisible()
   await expect(page.locator('[data-workspace-title-bar]')).toContainText('Orchard 2.1')
 
-  expect(await designStorageDump(page), 'the v10 Design is never written as a Draft').toEqual(before)
+  // A camera move settles a view (600 ms) and would queue the last view (160 ms more); wait past both (design check 5c).
+  const viewport = page.viewportSize() ?? { width: 1280, height: 720 }
+  await page.mouse.move(viewport.width / 2, viewport.height / 2)
+  await page.mouse.wheel(0, -300)
+  await page.waitForTimeout(1_500)
+
+  expect(await storageDump(page), 'a v10 Design writes no byte to browser storage, the device settings included').toEqual(before)
 })
 
 test.fail('R4 canopi-f47t.52.239: reader release: a session over every frozen 2.1 store fixture writes no byte (Web)', async ({ page }) => {
