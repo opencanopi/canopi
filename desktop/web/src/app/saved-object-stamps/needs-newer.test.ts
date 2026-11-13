@@ -3,7 +3,7 @@
 // rename, delete or reorder naming it, while a stamp from before 2.0 stays deletable.
 import { describe, expect, it, vi } from 'vitest'
 import { createSavedObjectStampWorkbench } from './workbench'
-import { savedObjectStampRowState } from '../../canvas/saved-object-stamp-payload'
+import { savedObjectStampRowState } from './row-state'
 import type { SavedObjectStamp } from '../../types/saved-object-stamps'
 
 const stamp = (id: string, payload: Record<string, unknown>, sortOrder: number, needsNewer = false): SavedObjectStamp => ({

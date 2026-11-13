@@ -27,27 +27,14 @@ impl std::fmt::Debug for NewerItems {
     }
 }
 
-/// Every item of the newer catalogue at `path`, each needing a newer Canopi; an unreadable projection is the
-/// caller's `unavailable`, never a reason to set the catalogue aside.
-fn newer_items(path: &std::path::Path) -> Result<NewerItems, String> {
-    Ok(NewerItems(
-        super::catalogue::newer_items(path)?
-            .into_iter()
+/// Every row of a newer catalogue's read projection, each item needing a newer Canopi. `catalogue::newer_items` reads
+/// the rows and calls it, so this decoder names no other library module (no module cycle, 2.1-M189).
+pub(crate) fn decode(rows: Vec<[String; 4]>) -> NewerItems {
+    NewerItems(
+        rows.into_iter()
             .map(|[id, kind, lineage_tag, name]| summary(id, &kind, &lineage_tag, name))
             .collect(),
-    ))
-}
-
-/// How the library over the newer catalogue at version `found` opens: listing its items read-only, or
-/// `Unavailable` when its projection cannot be read; never set aside or written.
-pub(crate) fn open_status(
-    path: &std::path::Path,
-    found: i32,
-) -> super::recovery::LibraryOpenStatus {
-    match newer_items(path) {
-        Ok(items) => super::recovery::LibraryOpenStatus::NewerReadOnly { found, items },
-        Err(reason) => super::recovery::LibraryOpenStatus::Unavailable { reason },
-    }
+    )
 }
 
 fn summary(id: String, kind: &str, lineage_tag: &str, name: String) -> LibraryItemSummary {

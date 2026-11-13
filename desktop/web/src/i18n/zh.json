@@ -642,7 +642,6 @@
         "deleteEverywhere": "全部删除",
         "renameEllipsis": "重命名…",
         "recovered": "Canopi 已根据其保留的文件重建了数据资料库。标记为失败的项目可以通过“重试”重新准备。",
-        "refusedNewer": "数据资料库由较新版本的 Canopi 保存。请安装最新版 Canopi 以使用它；此版本不会更改它。",
         "unavailable": "无法打开数据资料库。在 Canopi 重新启动之前，导入和更改均已关闭。",
         "sortLabel": "排序",
         "sortRecent": "最近添加",
@@ -2254,7 +2253,6 @@
     "fileTooLarge": "此文件超出 Canopi 允许的大小。请选择较小的文件。",
     "fileError": "Canopi 无法读取或写入该文件。请重试。",
     "plantCatalogUnavailable": "无法打开植物目录。请重启 Canopi，如果问题仍然存在，请重新安装。",
-    "libraryNewer": "此数据资料库由更新版本的 Canopi 保存。请更新 Canopi 后再修改。",
     "libraryUnavailable": "无法打开数据资料库，因此本次会话的更改不会保存。请重启 Canopi 后重试。",
     "formatCoreUnavailable": "Canopi 无法加载用于打开设计的部分。请重试，如果问题反复出现，请报告问题。",
     "formatCoreTrapped": "Canopi 在读取此设计时停止。请重试，如果问题反复出现，请报告问题。"

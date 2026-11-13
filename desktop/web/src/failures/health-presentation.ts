@@ -75,7 +75,7 @@ const MESSAGE_BY_STATUS: { readonly [K in Kind]: StatusRule<K> } = {
   // The Data library says it was rebuilt itself, beside the items Retry prepares again.
   recovered: SILENT,
   newer_read_only: (store) => ({ tone: 'warning', message: NEWER_READ_ONLY[store] ?? 'health.newerReadOnly', actions: ['update'] }),
-  refused_newer: (store) => error(store === 'library_catalogue' ? 'canvas.lidar.library.refusedNewer' : 'health.refusedNewer', ['update']),
+  refused_newer: () => error('health.refusedNewer', ['update']),
   set_aside_damaged: (store, status) => ({
     tone: 'warning',
     message: SET_ASIDE[store] ?? 'health.setAside.userDb',

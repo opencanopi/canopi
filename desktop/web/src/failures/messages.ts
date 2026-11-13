@@ -73,7 +73,7 @@ const MESSAGE_BY_CODE: { readonly [K in Kind]: MessageRule<K> } = {
   // A second file dialog brings the open one forward (2.1-Q284).
   dialog_already_open: SILENT,
   plant_db_unavailable: 'failure.plantCatalogUnavailable',
-  library_read_only: (code) => code.reason === 'refused_newer' ? 'failure.libraryNewer' : 'failure.libraryUnavailable',
+  library_read_only: 'failure.libraryUnavailable',
   // Browser storage is freed on the device, not on a disk.
   io: (code, _op, { storage }) => code.io === 'no_space' && storage === 'device' ? 'failure.storageFull' : IO_MESSAGES[code.io],
   network: (code) => NETWORK_MESSAGES[code.network],

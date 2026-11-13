@@ -91,7 +91,8 @@ describe('Favorites with a saved stamp a newer Canopi wrote (canopi-f47t.52.271)
     }))
     vi.doMock('../../app/saved-object-stamps', async () => {
       const { createSavedObjectStampWorkbench } = await vi.importActual<typeof WorkbenchModule>('../../app/saved-object-stamps/workbench')
-      return { savedObjectStampWorkbench: createSavedObjectStampWorkbench(store) }
+      const rowState = await vi.importActual<object>('../../app/saved-object-stamps/row-state')
+      return { ...rowState, savedObjectStampWorkbench: createSavedObjectStampWorkbench(store) }
     })
     ;({ FavoritesPanel } = await import('./FavoritesPanel'))
     container = document.createElement('div')

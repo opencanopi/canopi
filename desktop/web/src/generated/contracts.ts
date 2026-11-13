@@ -649,8 +649,6 @@ export type LibraryJobState =
 
 // Why the Data library is read-only for the session.
 export type LibraryReadOnlyReason =
-// The catalogue was written by a newer Canopi and is left untouched.
-"refused_newer" |
 // The catalogue could be neither opened nor rebuilt.
 "unavailable";
 

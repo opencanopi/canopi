@@ -97,8 +97,8 @@ impl UserDb {
     /// user DB's entry in `SubsystemHealth` comes back with it.
     pub fn open(path: impl AsRef<Path>) -> Result<(Self, StoreHealth), UserDbInitError> {
         let path = path.as_ref();
-        if let Some(opened) = user_db::read_only_admission(path)? {
-            return Ok(opened);
+        if let Some((connection, health)) = user_db::read_only_admission(path)? {
+            return Ok((Self(Arc::new(Mutex::new(connection)), false), health));
         }
         let error = match Self::initialize(Connection::open(path).map_err(UserDbInitError::Open)?) {
             Ok(user_db) => {

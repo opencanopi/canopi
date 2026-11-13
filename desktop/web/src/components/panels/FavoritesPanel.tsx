@@ -8,7 +8,7 @@ import {
   savedStampsFrameHeight,
 } from '../../app/settings/state'
 import { speciesCatalogWorkbench } from '../../app/plant-browser'
-import { savedObjectStampWorkbench } from '../../app/saved-object-stamps'
+import { savedObjectStampIdsNeedsNewerLast, savedObjectStampRowState, savedObjectStampWorkbench } from '../../app/saved-object-stamps'
 import {
   createSavedObjectStampThumbnailSignature,
   SAVED_OBJECT_STAMP_THUMBNAIL_HEIGHT,
@@ -22,7 +22,7 @@ import {
   clearSavedObjectStampDragSource,
   writeSavedObjectStampDragData,
 } from '../../canvas/saved-object-stamp-source'
-import { parseSavedObjectStampPayload, savedObjectStampIdsNeedsNewerLast, savedObjectStampRowState } from '../../canvas/saved-object-stamp-payload'
+import { parseSavedObjectStampPayload } from '../../canvas/saved-object-stamp-payload'
 import type { SavedObjectStamp } from '../../types/saved-object-stamps'
 import type { SpeciesListItem } from '../../types/species'
 import { useFavoriteSpeciesDetailNavigation } from '../plant-db/favorite-species-presentation'
