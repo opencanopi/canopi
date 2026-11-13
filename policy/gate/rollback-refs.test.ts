@@ -229,6 +229,20 @@ describe('rollback.yml (canopi-f47t.52.239)', () => {
     expect(result.stdout).toContain('::warning::expected-fail (R4 canopi-f47t.52.239)')
   })
 
+  it('canopi-f47t.52.239: a reader tag whose Desktop session test is still expected-fail fails the planted-change step, never held', () => {
+    const planted = stepOf('reader-desktop', 'rollback-fixtures plant')
+    expect(planted.env?.['ROLLBACK_MODE']).toBe('${{ needs.resolve.outputs.mode }}')
+    mkdirSync(join(dir, 'rollback-fixtures'))
+    fake('node', '')
+    fakeCargo('reader::r4_canopi_f47t_52_239_a_session_over_every_frozen_store_fixture_writes_no_byte_on_desktop: test\n', 0)
+    const env = { RUNNER_TEMP: dir, CANOPI_ROLLBACK_FIXTURES: join(dir, 'planted') }
+    const result = run(planted, { ...env, ROLLBACK_MODE: 'tag' })
+    expect(result.status).toBe(1)
+    expect(result.stdout).toContain('::error::the reader tag\'s Desktop session test is still expected-fail')
+    rmSync(join(dir, 'planted'), { recursive: true, force: true })
+    expect(run(planted, { ...env, ROLLBACK_MODE: 'candidate' }).status).toBe(0)
+  })
+
   it('canopi-f47t.52.239: planted run passes: a Web lane whose readers pass over the planted change fails', () => {
     // GitHub fills the matrix expression in before bash runs the script.
     const step = stepOf('reader-web', 'rollback-fixtures plant')

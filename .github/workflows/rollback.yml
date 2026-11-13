@@ -147,15 +147,20 @@ jobs:
           CANOPI_ROLLBACK_FIXTURES: ${{ runner.temp }}/rollback-fixtures
       - name: The Desktop readers wrote no byte
         run: node lane/policy/gate/cli.mjs rollback-fixtures compare "$RUNNER_TEMP/rollback-fixtures" "$RUNNER_TEMP/before.json"
-      # The planted-change self-test: over a copy with one Desktop form made unreadable the harness must fail. While the
-      # reader tree's session test still carries its expected-fail ignore (canopi-f47t.52.239), nothing reads the copy,
-      # which the summary says; once the marker goes, a harness passing over it fails the lane.
+      # The planted-change self-test: over a copy with one Desktop form made unreadable the harness must fail. While a
+      # candidate's session test still carries its expected-fail ignore (canopi-f47t.52.239), nothing reads the copy,
+      # which the summary says; a reader tag carrying it fails, since a frozen tag would hold the check empty for good.
+      # Once the marker goes, a harness passing over the copy fails the lane.
       - name: The Desktop lane fails on a planted unreadable change
         run: |
           cp -r "$RUNNER_TEMP/rollback-fixtures" "$CANOPI_ROLLBACK_FIXTURES"
           node lane/policy/gate/cli.mjs rollback-fixtures plant "$CANOPI_ROLLBACK_FIXTURES" desktop
           cargo test -p canopi-desktop --test rollback_reader --locked -- --list --ignored > "$RUNNER_TEMP/ignored.txt"
           if grep -q 'a_session_over_every_frozen_store_fixture_writes_no_byte' "$RUNNER_TEMP/ignored.txt"; then
+            if [ "$ROLLBACK_MODE" = tag ]; then
+              echo "::error::the reader tag's Desktop session test is still expected-fail (canopi-f47t.52.239), so no reader read the fixtures"
+              exit 1
+            fi
             echo "::warning::expected-fail (R4 canopi-f47t.52.239): this reader tree's Desktop session test is ignored, so no reader read the planted change"
             echo "PLANTED desktop: held, the reader tree's Desktop session test is still expected-fail (canopi-f47t.52.239)" >> "$GITHUB_STEP_SUMMARY"
             exit 0
@@ -167,6 +172,7 @@ jobs:
           echo "PLANTED desktop: the readers failed on the planted change, as they must" >> "$GITHUB_STEP_SUMMARY"
         env:
           CANOPI_ROLLBACK_FIXTURES: ${{ runner.temp }}/rollback-planted
+          ROLLBACK_MODE: ${{ needs.resolve.outputs.mode }}
 
   reader-web:
     name: Web reader ${{ needs.resolve.outputs.reader }} in ${{ matrix.engine }} writes no byte
