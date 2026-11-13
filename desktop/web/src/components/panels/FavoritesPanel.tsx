@@ -43,6 +43,7 @@ import row from '../shared/species-row.module.css'
 import styles from './FavoritesPanel.module.css'
 import { placeSpeciesOnMap } from '../plant-db/place-species'
 import type { LocaleKey } from '../../generated/locale-keys'
+import { readFailureCode } from '../../failures/store-read'
 
 const SAVED_STAMP_PREVIEW_DELAY_MS = 120
 const SAVED_STAMP_PREVIEW_GAP = 8
@@ -173,7 +174,8 @@ export function FavoritesPanel() {
       const outcome = await savedObjectStampWorkbench.importStampFile()
       if (outcome.status === 'refused') setImportRefusalKey(outcome.messageKey)
     } catch (error) {
-      // The workbench rejects only when saving the read stamp fails.
+      // The workbench rejects only when saving the read stamp fails; a read-only user database's notice says it (M487).
+      if (readFailureCode(error).kind === 'store_read_only') return
       console.error('Saved stamp import failed:', error)
       setImportRefusalKey('savedObjectStamps.importSaveFailed')
     }

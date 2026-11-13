@@ -2,7 +2,8 @@
 
 // Favorites lists a saved stamp a newer Canopi wrote with its note and offers nothing on it (Step 2.0.4 R2-5,
 // canopi-f47t.52.271; 2.1-M88), over the real stamp workbench with a fake store; under a user database a newer Canopi
-// saved, its favourite stars are off and say why (canopi-f47t.52.272; 2.1-Q320, Q111).
+// saved, its favourite stars are off and say why, and a refused stamp import adds no second message (canopi-f47t.52.272;
+// 2.1-Q320, Q111, M487).
 import { render } from 'preact'
 import { act } from 'preact/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -205,5 +206,21 @@ describe('Favorites with a saved stamp a newer Canopi wrote (canopi-f47t.52.271)
     } finally {
       resetStoreHealthForTests()
     }
+  })
+
+  it('R3 canopi-f47t.52.272: Import stamp under a user database a newer Canopi saved shows no second message (2.1-M487)', async () => {
+    const { StoreRefusedError } = await import('../../failures/store-read')
+    const { savedObjectStampWorkbench } = await import('../../app/saved-object-stamps')
+    vi.spyOn(savedObjectStampWorkbench, 'importStampFile').mockRejectedValueOnce(new StoreRefusedError('user_db'))
+    await renderPanel()
+
+    await act(async () => {
+      container.querySelector<HTMLButtonElement>('button[aria-label="Import stamps…"]')!.click()
+      await new Promise((resolve) => setTimeout(resolve, 0))
+    })
+
+    expect(savedObjectStampWorkbench.importStampFile).toHaveBeenCalledOnce()
+    // The user database's own notice already says changes are not saved; the panel adds no alert of its own.
+    expect(container.querySelector('[role="alert"]')).toBeNull()
   })
 })
