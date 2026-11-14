@@ -13,7 +13,7 @@ import { cleanEnv, REPO_ROOT } from './planted-repo.ts'
 import { LAST_BEFORE_READERS, outputLines, resolveRollbackRefs } from './rollback-refs.ts'
 
 const { parse } = createRequire(join(REPO_ROOT, 'desktop/web/package.json'))('yaml') as typeof Yaml
-type Step = { name?: string, uses?: string, run?: string, if?: string, with?: Record<string, unknown>,
+type Step = { name?: string, id?: string, uses?: string, run?: string, if?: string, with?: Record<string, unknown>,
   env?: Record<string, string>, 'continue-on-error'?: unknown, 'working-directory'?: string }
 type Job = { steps: Step[], 'continue-on-error'?: unknown, needs?: string | string[], outputs?: Record<string, string> }
 const ROLLBACK = parse(readFileSync(join(REPO_ROOT, '.github/workflows/rollback.yml'), 'utf8')) as { jobs: Record<string, Job>,
@@ -279,6 +279,33 @@ describe('rollback.yml (canopi-f47t.52.239)', () => {
       { GITHUB_WORKSPACE: join(dir, 'workspace') }, join(REPO_ROOT, 'desktop/web'))
     expect(result.status, result.stderr).toBe(0)
     expect(result.stdout).toBe(`serves ${join(dir, 'workspace')}/desktop/web/dist-web\n`)
+  })
+
+  it('canopi-f47t.52.239: the Web job installs the wasm-bindgen CLI the reader tree\'s own lock pins, never head\'s', () => {
+    // The reader tree's build-wasm.mjs refuses a CLI other than its lock's wasm-bindgen version, so a reader tag cut
+    // before head moved the pin still builds.
+    const steps = job('reader-web').steps
+    const pins = steps.find((step) => step.id === 'reader-pins')
+    if (!pins) throw new Error('rollback.yml\'s reader-web job has no reader-pins step')
+    const install = steps.find((step) => step.uses?.startsWith('taiki-e/install-action@') && String(step.with?.['tool']).startsWith('wasm-bindgen@'))
+    expect(install?.with?.['tool']).toBe('wasm-bindgen@${{ steps.reader-pins.outputs.version }}')
+    expect(steps.indexOf(pins)).toBeLessThan(steps.indexOf(install!))
+    // Through bash, from the job's working directory in a planted reader tree.
+    const web = join(dir, 'tree', 'desktop', 'web')
+    mkdirSync(web, { recursive: true })
+    const lock = (body: string) => writeFileSync(join(dir, 'tree', 'Cargo.lock'), `version = 4\n\n${body}`)
+    const pkg = (name: string, version: string) => `[[package]]\nname = "${name}"\nversion = "${version}"\nsource = "registry+https://github.com/rust-lang/crates.io-index"\n\n`
+    lock(pkg('wasm-bindgen-backend', '0.2.99') + pkg('wasm-bindgen', '0.2.131') + pkg('wasm-bindgen-shared', '0.2.99'))
+    const read = run(pins, {}, web)
+    expect(read.status, `${read.stdout}\n${read.stderr}`).toBe(0)
+    expect(readFileSync(join(dir, 'output'), 'utf8')).toBe('version=0.2.131\n')
+    // A lock with no wasm-bindgen, or two versions of it, fails the step rather than installing a guess.
+    for (const body of [pkg('wasm-bindgen-shared', '0.2.99'), pkg('wasm-bindgen', '0.2.114') + pkg('wasm-bindgen', '0.2.131')]) {
+      lock(body)
+      const refused = run(pins, {}, web)
+      expect(refused.status).toBe(1)
+      expect(refused.stdout).toContain('::error::the reader tree\'s Cargo.lock pins no single wasm-bindgen version')
+    }
   })
 
   it('canopi-f47t.52.239: cancelled run: a cancelled or failed rollback lane fails Build & Test, on main and release/2.0 alike, and blocks a release', () => {

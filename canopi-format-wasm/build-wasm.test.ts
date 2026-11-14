@@ -110,8 +110,10 @@ describe('canopi-f47t.52.270: the wasm-bindgen CLI pinned in CI is the lock vers
     const repo = path.join(CRATE_DIR, '..')
     const locked = lockedVersion(fs.readFileSync(path.join(repo, 'Cargo.lock'), 'utf8'), 'wasm-bindgen')
     const workflows = path.join(repo, '.github', 'workflows')
+    // Literal pins only: rollback.yml's reader-web builds an older reader tree and installs the version that tree's own
+    // lock pins, through an expression (policy/gate/rollback-refs.test.ts runs the step that reads it).
     const pins = fs.readdirSync(workflows).filter((name) => /\.ya?ml$/u.test(name)).flatMap((name) =>
-      [...fs.readFileSync(path.join(workflows, name), 'utf8').matchAll(/\bwasm-bindgen(?:-cli)?@([^\s,'"]+)/gu)].map((m) => `${name}: ${m[1]}`))
+      [...fs.readFileSync(path.join(workflows, name), 'utf8').matchAll(/\bwasm-bindgen(?:-cli)?@([0-9][^\s,'"]*)/gu)].map((m) => `${name}: ${m[1]}`))
     expect(pins.length).toBeGreaterThan(0)
     expect(pins.filter((pin) => !pin.endsWith(`: ${locked}`))).toEqual([])
   })

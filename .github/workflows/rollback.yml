@@ -208,9 +208,9 @@ jobs:
             desktop/web/package-lock.json
             lane/desktop/web/package-lock.json
       # The Web build compiles the format worker's module first: the reader tree's toolchain with its wasm32 target, and
-      # the wasm-bindgen CLI at Cargo.lock's version (canopi-format-wasm/build-wasm.test.ts holds the pin to head's lock).
-      # A reader tag whose lock pins another version is refused by its own build-wasm.mjs, naming both. The Playwright
-      # image has no C compiler, which the crates' build scripts link with on the host.
+      # the wasm-bindgen CLI at the version the reader tree's Cargo.lock pins, read by the reader-pins step, since the
+      # reader tree's own build-wasm.mjs refuses any other (policy/gate/rollback-refs.test.ts runs the step). The
+      # Playwright image has no C compiler, which the crates' build scripts link with on the host.
       - name: Install the host C toolchain
         run: |
           timeout 3m apt-get -o Acquire::Retries=5 -o Acquire::http::Timeout=60 update -qq
@@ -221,9 +221,19 @@ jobs:
       # With no argument rustup installs what the reader tree's rust-toolchain.toml pins, its targets included.
       - name: Install the reader tree's Rust toolchain
         run: rustup toolchain install
+      - name: Read the reader tree's wasm-bindgen pin
+        id: reader-pins
+        shell: bash
+        run: |
+          version="$(awk '/^\[\[package\]\]/ { name = "" } /^name = / { name = $3 } /^version = / && name == "\"wasm-bindgen\"" { gsub(/"/, "", $3); print $3 }' ../../Cargo.lock)"
+          if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::the reader tree's Cargo.lock pins no single wasm-bindgen version"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
       - uses: taiki-e/install-action@v2
         with:
-          tool: wasm-bindgen@0.2.130
+          tool: wasm-bindgen@${{ steps.reader-pins.outputs.version }}
       - name: Install the reader tree's frontend deps
         run: npm ci --no-audit --no-fund
       - name: Build the reader tree's Web Edition
