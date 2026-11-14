@@ -16,8 +16,8 @@
 //! them) and reports each as `FIXTURES-ONLY`; `CANOPI_ROLLBACK_WRITE` names the directory the lane's writer job uploads.
 //! A store step that gains a writer replaces its row's frozen form with what the build writes.
 //!
-//! The reader session itself waits on a public Desktop seam (R2-2's `open_stores` is crate-private, and this binary
-//! reaches only the crate's public items), so that test stays marked expected-fail until the seam lands.
+//! The reader session runs through the crate's public, doc-hidden seam `canopi_desktop::reader_session`, which opens
+//! the stores with the app's own launch and open paths.
 
 // Inside a cfg(test) module, so clippy reads the helpers as test code (clippy.toml allow-unwrap-in-tests).
 #[cfg(test)]
@@ -170,12 +170,33 @@ mod reader {
         notice: Option<String>,
     }
 
-    /// One reader session over the Desktop forms: opens each store as the app does at launch and reports how it read
-    /// each, its notice included. This binary reaches no such seam yet: a public Desktop entry over R2-2's
-    /// `open_stores(data_dir)`, the Draft list and the read-only Design open lands it.
+    /// One reader session over the Desktop forms through the crate's reader-session seam
+    /// (`canopi_desktop::reader_session::read_session`): it opens the stores in the app data folder (the folder of the
+    /// user DB's file, which holds the Drafts and the library catalogue too) as the app does at launch, lists and opens
+    /// the Drafts, opens each Design file read-only, and reports how it read each store, its notice included.
     fn reader_session(forms: &[(String, PathBuf)]) -> Result<Vec<StoreRead>, String> {
-        let _ = forms;
-        Err("no public reader-session seam in canopi_desktop".to_string())
+        let data_dir = forms
+            .iter()
+            .find(|(store, _)| store == "user_db")
+            .and_then(|(_, file)| file.parent())
+            .ok_or("the forms name the user DB's file")?;
+        let designs: Vec<PathBuf> = forms
+            .iter()
+            .filter(|(store, _)| store == "canopi_file")
+            .map(|(_, file)| file.clone())
+            .collect();
+        let reads = canopi_desktop::reader_session::read_session(data_dir, &designs)?;
+        Ok(reads
+            .into_iter()
+            .map(|read| StoreRead {
+                status: serde_json::to_value(&read.status).unwrap()["kind"]
+                    .as_str()
+                    .unwrap()
+                    .to_string(),
+                store: read.store,
+                notice: read.notice,
+            })
+            .collect())
     }
 
     /// Runs `sql` into a new SQLite file at `path`, in WAL mode when `wal`, and closes it (a clean close leaves no
@@ -289,7 +310,6 @@ mod reader {
     }
 
     #[test]
-    #[ignore = "expected-fail: R4 canopi-f47t.52.239"]
     fn r4_canopi_f47t_52_239_a_session_over_every_frozen_store_fixture_writes_no_byte_on_desktop() {
         let scratch = Scratch::new("session");
         let root = fixture_root(&scratch);
