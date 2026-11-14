@@ -507,3 +507,26 @@ fn r2_canopi_f47t_52_271_frozen_catalogue_26_keeps_catalogue_25_ids_and_the_job_
         );
     }
 }
+
+/// The open status the app logs gives a newer catalogue's item count and never an item's name.
+#[test]
+fn a_newer_catalogues_logged_status_counts_its_items_without_naming_them() {
+    let items = catalogue_reader::decode(vec![
+        [
+            "lyr-1".into(),
+            "raster".into(),
+            "source".into(),
+            "Private orchard".into(),
+        ],
+        [
+            "res-1".into(),
+            "raster".into(),
+            "analysis".into(),
+            "Private slope".into(),
+        ],
+    ]);
+    let status = recovery::LibraryOpenStatus::NewerReadOnly { found: 26, items };
+    let logged = format!("{status:?}");
+    assert!(logged.contains("2 items"), "{logged}");
+    assert!(!logged.contains("Private"), "{logged}");
+}
