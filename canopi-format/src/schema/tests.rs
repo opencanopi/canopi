@@ -1,6 +1,6 @@
 //! Tests for `schema`, a sibling module so `schema.rs` keeps under the file-size limit.
 
-use super::{admit_schema, unsupported_keyword};
+use super::{admit_schema, fill_defaults, unsupported_keyword};
 use serde_json::{Value, json};
 
 /// The generated v9 `CanopiFile` schema, the one the Desktop decode walks.
@@ -206,5 +206,172 @@ fn an_unsupported_schema_keyword_is_named_with_its_place() {
     assert_eq!(
         unsupported_keyword(&schema).as_deref(),
         Some("$schema.properties.plants: format int64")
+    );
+}
+
+/// A schema built for one test, kept for the walk's `'static` borrow.
+fn schema(value: Value) -> &'static Value {
+    Box::leak(Box::new(value))
+}
+
+fn text_of(value: &Value, schema: &'static Value) -> Option<String> {
+    admit_schema(value, schema)
+        .err()
+        .map(|refusal| refusal.to_string())
+}
+
+/// Each bound and format admits its limit and refuses the first value past it, as the Web
+/// decoder does: zoom 27, a `uint32` of 2^32 - 1, an `int32` within 32 bits, a `float` of
+/// f32's largest magnitude.
+#[test]
+fn numbers_are_admitted_at_their_limit_and_refused_past_it() {
+    let task = |order: Value| {
+        json!([{ "id": "task-1", "action_type": "planting", "description": "Plant",
+            "start_date": "2026-04-01", "end_date": "2026-04-02", "recurrence": null,
+            "targets": [], "depends_on": null, "completed": false, "order": order }])
+    };
+    let layer = |opacity: Value| json!([{ "name": "base", "visible": true, "locked": false, "opacity": opacity }]);
+    let mut zoomed = camera();
+    zoomed["zoom"] = json!(27.0);
+    let float32_max = 3.402_823_466_385_288_6e38_f64;
+    let with = |field: &str, entry: Value| {
+        let mut value = design();
+        value[field] = entry;
+        refused(&value).map(|(_, text)| text)
+    };
+    for (field, entry) in [
+        ("map_view", zoomed),
+        ("version", json!(4_294_967_295_u64)),
+        ("timeline", task(json!(2_147_483_647))),
+        ("timeline", task(json!(-2_147_483_648))),
+        ("layers", layer(json!(float32_max))),
+        ("layers", layer(json!(-float32_max))),
+    ] {
+        assert_eq!(with(field, entry.clone()), None, "{field}: {entry}");
+    }
+    let order = "$.timeline[0].order: expected a signed 32-bit integer";
+    let opacity = "$.layers[0].opacity: expected a finite 32-bit number";
+    for (field, entry, expected) in [
+        (
+            "version",
+            json!(4_294_967_296_u64),
+            "$.version: expected an unsigned 32-bit integer",
+        ),
+        ("timeline", task(json!(2_147_483_648_u64)), order),
+        ("timeline", task(json!(-2_147_483_649_i64)), order),
+        ("layers", layer(json!(3.5e38)), opacity),
+        ("layers", layer(json!(-3.5e38)), opacity),
+    ] {
+        assert_eq!(with(field, entry).as_deref(), Some(expected));
+    }
+}
+
+/// A nullable field's type list is held: `null` or its type, never anything.
+#[test]
+fn a_nullable_field_admits_null_or_its_type_only() {
+    let plant = |rotation: Value| {
+        json!([{ "id": "p", "canonical_name": "Malus", "position": { "lon": 2.0, "lat": 48.0 },
+            "rotation": rotation }])
+    };
+    for rotation in [json!(null), json!(12.5)] {
+        let mut value = design();
+        value["plants"] = plant(rotation);
+        assert_eq!(refused(&value), None);
+    }
+    let mut value = design();
+    value["plants"] = plant(json!("north"));
+    assert_eq!(
+        refused(&value).map(|(_, text)| text).as_deref(),
+        Some("$.plants[0].rotation: expected a finite number or null")
+    );
+}
+
+/// An enum or a tagged kind is refused with the schema's literals as JSON, as the Web
+/// prints them.
+#[test]
+fn an_enum_or_tagged_kind_refusal_lists_the_schema_literals() {
+    let mut value = design();
+    let mut labelled = view(camera());
+    labelled["labels"] = json!("initials");
+    value["views"] = json!([labelled]);
+    assert_eq!(
+        refused(&value).map(|(_, text)| text).as_deref(),
+        Some("$.views[0].labels: expected one of \"none\", \"codes\", \"names\"")
+    );
+    let kinds = schema(json!({ "oneOf": [
+        { "type": "object", "properties": { "kind": { "const": "a" } } },
+        { "type": "object", "properties": { "kind": { "const": "b" } } }
+    ] }));
+    assert_eq!(
+        text_of(&json!({ "kind": "c" }), kinds).as_deref(),
+        Some("$.kind: expected one of \"a\", \"b\"")
+    );
+    let constant = schema(json!({ "const": 3 }));
+    assert_eq!(
+        text_of(&json!(4), constant).as_deref(),
+        Some("$: expected 3")
+    );
+}
+
+/// Of alternatives that all refuse, the refusal reaching deepest is named, the first of
+/// equals, as the Web picks it.
+#[test]
+fn of_refusing_alternatives_the_deepest_first_of_equals_is_named() {
+    let alternatives = schema(json!({ "anyOf": [
+        { "type": "string" },
+        { "type": "object", "properties": { "a": { "type": "string" } } },
+        { "type": "object", "properties": { "a": { "type": "boolean" } } }
+    ] }));
+    assert_eq!(
+        text_of(&json!({ "a": 1 }), alternatives).as_deref(),
+        Some("$.a: expected a string")
+    );
+}
+
+/// The walker reads any schema in its subset as the Web decoder does, not only the shapes
+/// today's generated schemas use: a documented default answers for an absent required
+/// field, and an object with both properties and additionalProperties holds only its
+/// unknown keys to the latter, in the walk and in the defaults it fills.
+#[test]
+fn defaults_and_additional_properties_follow_the_web_decoder() {
+    let defaulted = schema(json!({
+        "type": "object", "required": ["a"],
+        "properties": { "a": { "type": "integer", "default": 1 } }
+    }));
+    assert_eq!(text_of(&json!({}), defaulted), None);
+    let mut filled = json!({});
+    fill_defaults(&mut filled, defaulted);
+    assert_eq!(filled, json!({ "a": 1 }));
+
+    let mixed = schema(json!({
+        "type": "object",
+        "properties": { "known": { "type": "string" }, "other": { "type": "string" } },
+        "additionalProperties": {
+            "type": "object", "properties": { "b": { "type": "boolean", "default": true } }
+        }
+    }));
+    let admitted = json!({ "known": "k", "other": "o", "extra": {} });
+    assert_eq!(text_of(&admitted, mixed), None);
+    assert_eq!(
+        text_of(&json!({ "known": "k", "extra": 2 }), mixed).as_deref(),
+        Some("$[*]: expected an object")
+    );
+    let mut filled = admitted;
+    fill_defaults(&mut filled, mixed);
+    assert_eq!(
+        filled,
+        json!({ "known": "k", "other": "o", "extra": { "b": true } })
+    );
+}
+
+/// A number field whose type list also names a non-null type refuses that type's values
+/// as a number, as the Web decoder does (no generated schema has such a list).
+#[test]
+fn a_number_or_string_type_list_refuses_a_string_as_the_web_does() {
+    let mixed = schema(json!({ "type": ["number", "string", "null"] }));
+    assert_eq!(text_of(&json!(null), mixed), None);
+    assert_eq!(
+        text_of(&json!("x"), mixed).as_deref(),
+        Some("$: expected a finite number")
     );
 }
