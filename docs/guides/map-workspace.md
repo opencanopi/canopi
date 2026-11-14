@@ -29,6 +29,7 @@ Boundaries of the design surface: MapLibre draws the background and holds the ca
 - Design object identity is the typed pair `{ kind, id }`; ids repeat across kinds; `currentCanvasSelection` is a notification, never authority (advice).
 - Abort restores only persisted scene state and transaction-owned selection; nothing retries; an accepted commit is never recorded twice. `captureForPersistence()` is the only save seam, busy in replay, hydration, replacement or a failed open. (`scene-runtime/transactions.test.ts`, `scene-persistence-authority.test.ts`)
 - Overview (below 0.1 CSS px/m, `canvas/workspace-camera-policy.ts`) is presentation: the Design is one pin; mutation commands are unavailable, tools never: a tool picked (`armCanvasTool`), the pin or a drop fits the Design. (`canvas-overview.test.tsx`, `arming.test.ts`, `scene-runtime.test.ts`)
+- A read-only Design (a newer Canopi's, 2.1-M478) arms only Select and Pan, whoever asks; the edit coordinator refuses content edits and undo; the command projection and right-click menu grey every edit. (`scene-runtime/construction.test.ts`, `arming.test.ts`, `edit-availability.test.ts`, `canvas-context-menu.test.tsx`)
 - Species Focus, panel Target hover and selection, story overrides and thumbnails create no Scene Edit, history or dirty state (advice; `target-presentation.test.ts`); map presentation reads `app/story-presentation/overrides.ts`, never the controller (policy test).
 - Tools take world-space gestures through one tool host and never reach camera, DOM, MapLibre or `SceneStore` ([ADR 0018](../adr/0018-narrow-tool-interface.md)); creation tools guard hidden or locked layers at the mutation boundary. A locked object, or a group holding one, is selectable, a refused drag says why (Q177); mixed selections edit the unlocked part, but Group and Rotate need all unlocked (U59). (`tools-*`, `no-dom-names-in-tools`, `scene-writes-only-in-authority`; `scene-runtime/mutations.test.ts`, `edit-availability.test.ts`)
 - A drag-to-create tool holds one Scene Edit from gesture start to commit or cancel; a nudge series (0.1 m or the large step, 800 ms idle) is one undo; cancellation runs once, in capture phase. (the `canvas-interaction-e2e` suites)
@@ -56,14 +57,11 @@ Boundaries of the design surface: MapLibre draws the background and holds the ca
 | Area | Module | Tests |
 |---|---|---|
 | Map surface | `maplibre/surface.ts`, `loader.ts`, `workspace-map.ts` | `__tests__/maplibre-*` |
-| Composition, admission | `app/canvas-map-surface/` | `workspace-*.test.ts` |
 | Background, satellite | `maplibre/map-background.ts`, `satellite-*.ts`, `basemap-tile-auth.ts` | `__tests__/map-background`, `satellite-*` |
 | Map layers, terrain | `app/map-layers/`, `maplibre/terrain*.ts` | `__tests__/map-layers-store`, `maplibre-terrain` |
 | Camera, plane | `canvas/session-plane.ts`, `projection.ts`, `workspace-camera-policy.ts`, `canvas/runtime/view/` | `__tests__/session-plane`, `workspace-camera-*`, `view/*` |
 | Views, stories, snapshots | `app/saved-views/`, `app/story-presentation/`, `maplibre/view-snapshot-map.ts` | `__tests__/saved-view*`, `story-presentation` |
 | Runtime roles, authority | `canvas/runtime/runtime.ts`, `*-surface.ts`, `scene/`, `scene-runtime/` | `__tests__/canvas-runtime-surfaces`, `scene-runtime.test.ts` |
-| Renderer | `canvas/runtime/renderers/`, `maplibre/shared-scene-layer.ts` | `__tests__/pixi-scene`, `v2-shared-map-scene-layer` |
-| Presentation | `canvas/runtime/scene-visuals.ts`, `plant-*.ts`, `automatic-detail.ts` | `__tests__/plant-*`, `automatic-detail` |
 | Interaction, geometry, lens | `canvas/runtime/interaction-session.ts`, `tools/`, `interaction/`, `zone-geometry.ts`, `inspection-lens*.ts` | `__tests__/canvas-interaction-e2e.*`, `hit-testing`, `inspection-*` |
 
 ## Open decisions

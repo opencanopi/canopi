@@ -18,6 +18,7 @@ Boundaries of the Preact frontend in `desktop/web/src/`. Related: [design system
 - Visible map area: chrome registers through `components/shared/useMapChrome.ts`; `app/shell/visible-map-area.ts` derives two frames: the chips' frame (the `--map-inset-*` properties) from all registered chrome, and the frame the camera fits into without chrome registered with `frames: false` (status chrome such as the map notice, which comes and goes with load state, and stands in that frame through `--map-framing-inset-*`); also each rail's room and whether credits fold. Both rails fold through `components/shared/rail-fit.ts`.
 - Workspace frame: `components/workspace/WorkspaceComposition.tsx` owns primary/side routing, the dock, the phone sheet and the shared dialogs, and validates registered surfaces against the shell projection, so command capabilities decide which panels exist.
 - Plant finder: every plant list uses `components/shared/PlantFinder.tsx` over `app/plant-finder/`. `matcher.ts` is pure; `quick-filters.ts` gives Stratum (the Design's) and Form (catalog habit) filters; `map-matches.ts` rings matches only for Plants in this Design through a highlight channel that never selects or dirties. The catalog searches through the workbench's FTS, not the matcher.
+- Start-up guard: `boot-guard/guard.ts` is a classic script loaded before the entry module, never an app module: it imports nothing, the app imports only its types, and its `startup.*` strings are inlined at build, the one exception to `t` (canopi-4kfl, 2.1-M489; `boot-guard/guard.test.ts`).
 - Resource ownership: every runtime, renderer, MapLibre instance, timer, listener, worker and DOM overlay has one lifecycle owner. Application-lifetime owners are installed by `platform/desktop.ts` and `platform/browser.ts` with stored disposers; module-level `effect()` calls dispose under `import.meta.hot.dispose()`.
 
 ## Rules
@@ -58,13 +59,10 @@ Rule ids in parentheses are rows of `policy/rules.json` and `policy/primitives.j
 
 | Area | Module | Tests |
 | --- | --- | --- |
-| Policies | `policy/rules.json`, `policy/primitives.json` | `node policy/check.mjs --self-test` |
 | Commands and menus | `commands/registry.ts`, `app/shell-commands/`, `app/workspace-commands/`, `app/canvas-commands/` | `commands-registry.test.ts`, `shell-command-catalog.test.ts`, `menu-bar-keyboard.test.tsx` |
 | Keys | `app/keyboard/key-router.ts`, `keymap.ts`, `escape-chain.ts`, `app/shell-commands/shortcut-text.ts` | `key-router.test.ts`, `keymap.test.ts`, `escape-chain.test.ts` |
 | Modal layer and focus | `app/shell/modal-layer.ts`, `app/keyboard/focus-owner.ts` | `modal-layer.test.tsx`, `focus-owner.test.ts` |
 | Visible map area | `app/shell/visible-map-area.ts`, `components/shared/useMapChrome.ts`, `rail-fit.ts` | `visible-map-area.test.tsx`, `tool-rail.test.tsx`, `panel-rail.test.tsx` |
 | Workspace frame | `components/workspace/`, `components/canvas/CanvasChrome.tsx`, `components/shared/WorkspaceTitleBar.tsx` | `web-app-shell.test.tsx`, `phone-layout.test.tsx` |
 | Plant finder | `app/plant-finder/`, `components/shared/PlantFinder.tsx` | `plant-finder-*.test.ts(x)` |
-| Planning panels | `app/budget/`, `app/timeline/`, `app/consortium/`, `app/planning-projection/` | `budget-*`, `calendar-*`, `consortium-*` |
 | Localization | `i18n/`, `components/shared/SpeciesIdentity.tsx`, `bindings-gen/src/locale_keys.rs` | `i18n-completeness.test.ts`, `i18n-copy.test.ts`, `i18n/index.test.ts`, `botanical-symbols.test.ts` |
-| Styling | `styles/global.css`, `*.module.css` | `css-module-policies.test.ts` |
