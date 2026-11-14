@@ -137,7 +137,7 @@ fn a_v21_catalogue_is_set_aside_and_rebuilt_with_its_ids_kept() {
 /// A `-wal` SQLite cannot read (here a directory) makes the catalogue
 /// Unreadable, not Corrupt: nothing is set aside or rebuilt, the catalogue
 /// stays in place and the library opens Unavailable. (A sidecar that cannot be
-/// set aside during an install is `failed_rebuild_tests.rs`'s.)
+/// set aside during an install is `install_tests.rs`'s.)
 #[cfg(unix)]
 #[test]
 fn a_wal_that_cannot_move_leaves_the_catalogue_in_place_and_unavailable() {

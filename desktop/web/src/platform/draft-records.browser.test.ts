@@ -468,9 +468,12 @@ describe('the 2.1 Draft store read half', () => {
    * when comparefn(left, right) <= 0); V8's sort at this size reads only answers below zero. This stable insertion sort
    * models SpiderMonkey, so the order holds in Firefox too.
    */
+  const engineSort = Array.prototype.sort
   function sortReadingPositiveAnswers<T>(this: T[], compare?: (a: T, b: T) => number): T[] {
+    // Only comparator sorts are modelled; any other sort running meanwhile keeps the engine's.
+    if (compare === undefined) return engineSort.call(this) as T[]
     for (let i = 1; i < this.length; i += 1) {
-      for (let j = i; j > 0 && compare!(this[j - 1]!, this[j]!) > 0; j -= 1) [this[j - 1], this[j]] = [this[j]!, this[j - 1]!]
+      for (let j = i; j > 0 && compare(this[j - 1]!, this[j]!) > 0; j -= 1) [this[j - 1], this[j]] = [this[j]!, this[j - 1]!]
     }
     return this
   }
