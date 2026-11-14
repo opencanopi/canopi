@@ -22,7 +22,7 @@
     "desktop/src/services/lidar/analyses/tests/geolibre.rs: clippy:clippy::too_many_lines": { "count": 1 },
     "desktop/src/services/lidar/analyses/tests/registry.rs: clippy:clippy::too_many_lines": { "count": 1 },
     "desktop/src/services/lidar/analyses/windowed.rs: clippy:clippy::too_many_lines": { "count": 2 },
-    "desktop/src/services/lidar/catalogue.rs: clippy:clippy::too_many_lines": { "count": 1 },
+    "desktop/src/services/lidar/catalogue/tests.rs: clippy:clippy::too_many_lines": { "count": 1 },
     "desktop/src/services/lidar/display_cog.rs: clippy:clippy::too_many_lines": { "count": 2 },
     "desktop/src/services/lidar/e2e.rs: clippy:clippy::too_many_lines": { "count": 3 },
     "desktop/src/services/lidar/fixed_library_tests.rs: clippy:clippy::too_many_lines": { "count": 1 },

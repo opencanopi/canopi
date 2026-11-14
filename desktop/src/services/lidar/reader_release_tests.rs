@@ -266,6 +266,68 @@ fn r2_canopi_f47t_52_271_a_newer_catalogue_it_cannot_read_is_unavailable_and_nev
     assert!(!lidar.join(recovery::SET_ASIDE_DIR).exists());
 }
 
+/// A later catalogue in rollback-journal mode, left by a crash mid-transaction, is readable only after SQLite rolls its
+/// hot journal back: a write the reader release never makes (2.1-M480, 2.1-M488). The library is unavailable, and the
+/// catalogue and its journal stay as they are, never set aside apart from each other, rebuilt or given folders.
+#[test]
+fn canopi_tavc_a_newer_catalogue_behind_a_hot_journal_is_unavailable_and_never_set_aside() {
+    let staging = crate::test_scratch::TestScratch::new("reader-release-hot-journal-staging");
+    let mut connection = Connection::open(staging.join(paths::CATALOGUE_FILE)).unwrap();
+    connection
+        .pragma_update(None, "journal_mode", "DELETE")
+        .unwrap();
+    connection.execute_batch(CATALOGUE_26).unwrap();
+    connection.pragma_update(None, "cache_size", 1).unwrap();
+    let transaction = connection.transaction().unwrap();
+    // More changed pages than the cache holds spill to the file, so the journal is written before the commit.
+    transaction
+        .execute_batch(
+            "CREATE TABLE filler (bytes BLOB);
+             WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < 200)
+             INSERT INTO filler SELECT randomblob(2000) FROM n;
+             UPDATE library_items SET name = 'Torn';",
+        )
+        .unwrap();
+    let root = crate::test_scratch::TestScratch::new("reader-release-hot-journal");
+    let lidar = paths::library_root(&root);
+    std::fs::create_dir_all(&lidar).unwrap();
+    for suffix in ["", "-journal"] {
+        let name = format!("{}{suffix}", paths::CATALOGUE_FILE);
+        std::fs::copy(staging.join(&name), lidar.join(&name)).unwrap();
+    }
+    drop(transaction);
+    let journal = std::fs::read(lidar.join(format!("{}-journal", paths::CATALOGUE_FILE))).unwrap();
+    assert!(!journal.is_empty(), "the data folder holds a hot journal");
+    let before = files(&root);
+
+    let library = LidarLibrary::open(&root).expect("the app starts");
+
+    let code = canopi_types::failure::FailureCode::LibraryReadOnly {
+        reason: canopi_types::failure::LibraryReadOnlyReason::Unavailable,
+    };
+    assert_eq!(
+        library.open_status().health(),
+        StoreOpenStatus::Unavailable { code },
+        "{:?}",
+        library.open_status()
+    );
+    assert_eq!(listed(&library).len(), 0, "nothing is listed");
+    assert!(
+        library.delete_item("lyr-n").is_err(),
+        "an unavailable library refuses a delete"
+    );
+    drop(library);
+    assert_eq!(
+        files(&root),
+        before,
+        "the catalogue and its journal keep every byte, and no folder is created"
+    );
+    assert!(
+        !lidar.join(recovery::SET_ASIDE_DIR).exists(),
+        "nothing is set aside"
+    );
+}
+
 /// Moved from `catalogue.rs`, which holds the library's SQL: `catalogue::open` refuses an older or a newer catalogue
 /// before it writes, so only `recovery` decides between a rebuild and the read-only listing.
 #[test]
@@ -396,8 +458,8 @@ fn r2_canopi_f47t_52_271_v2_0_3_inspect_reads_frozen_catalogue_26_as_newer_never
         .execute_batch(CATALOGUE_26)
         .unwrap();
     let before = std::fs::read(&path).unwrap();
-    // recovery::inspect and catalogue::stored_version are v2.0.3's, unchanged since the tag but for the
-    // crate rename; R4's rollback lane runs this fixture through the tag's own binary.
+    // v2.0.3's recovery::inspect reads this fixture the same way; R4's rollback lane runs it through the tag's own
+    // binary.
     assert_eq!(inspect(&path), CatalogueState::Newer(26));
     assert_eq!(
         std::fs::read(&path).unwrap(),
