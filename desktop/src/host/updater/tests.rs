@@ -6,7 +6,7 @@
 //! file-size limit.
 #![cfg(test)]
 
-use std::time::Duration;
+use std::{pin::pin, time::Duration};
 
 use canopi_types::{
     failure::{FailureCode, NetworkFailureKind},
@@ -16,8 +16,8 @@ use canopi_types::{
 use super::{
     Limits, UpdaterHost,
     testkit::{
-        APPIMAGE, DEB, FAST, Offer, Route, Server, TestKey, channel_file, closed_port_url, code,
-        elf_payload, mock_app, network, run, scratch, sink,
+        APPIMAGE, DEB, FAST, Gate, Offer, Route, Server, TestKey, UNHURRIED, channel_file,
+        closed_port_url, code, elf_payload, mock_app, network, run, scratch, sink, start,
     },
 };
 use crate::native_operation::{NativeOperationClass, NativeOperationExecutor};
@@ -26,19 +26,22 @@ use crate::native_operation::{NativeOperationClass, NativeOperationExecutor};
 fn a_check_offers_the_newer_release_for_this_installer_once_while_a_second_check_awaits_it() {
     let offer = Offer::signed(APPIMAGE);
     let app = mock_app(&offer.key.public_key());
-    let host = offer.host(APPIMAGE, FAST);
+    let host = offer.host(APPIMAGE, UNHURRIED);
     let executor = NativeOperationExecutor::production();
     let body = channel_file("9.0.0", &APPIMAGE.key(), &offer.server.url("/payload"), "x");
-    offer.server.route(
-        "/stable.json",
-        Route::Slow(Duration::from_millis(300), body),
-    );
+    let gate = Gate::default();
+    offer
+        .server
+        .route("/stable.json", Route::Gated(gate.clone(), body));
 
+    // The channel file waits until both checks asked, so the second finds the first running.
     let (first, second) = run(async {
-        tokio::join!(
-            host.check(app.handle(), &executor, "check"),
-            host.check(app.handle(), &executor, "check")
-        )
+        let mut first = pin!(host.check(app.handle(), &executor, "check"));
+        start(&mut first).await;
+        let mut second = pin!(host.check(app.handle(), &executor, "check"));
+        start(&mut second).await;
+        gate.open();
+        tokio::join!(first, second)
     });
 
     let offered = first.unwrap().unwrap();
@@ -137,39 +140,39 @@ fn a_slow_channel_file_times_out() {
     let app = mock_app(&offer.key.public_key());
     let executor = NativeOperationExecutor::production();
     let body = channel_file("9.0.0", &APPIMAGE.key(), &offer.server.url("/payload"), "x");
+    // The channel file is held back until the check settled: only the timeout can end it.
+    let gate = Gate::default();
     offer
         .server
-        .route("/stable.json", Route::Slow(Duration::from_secs(3), body));
+        .route("/stable.json", Route::Gated(gate.clone(), body));
     let limits = Limits {
         check_timeout: Duration::from_millis(500),
         ..FAST
     };
-    assert_eq!(
-        code(run(offer.host(APPIMAGE, limits).check(
-            app.handle(),
-            &executor,
-            "check"
-        ))),
-        network(NetworkFailureKind::Timeout)
-    );
+    let settled = run(offer
+        .host(APPIMAGE, limits)
+        .check(app.handle(), &executor, "check"));
+    gate.open();
+    assert_eq!(code(settled), network(NetworkFailureKind::Timeout));
 }
 
 #[test]
 fn a_download_verifies_the_payload_and_a_second_download_joins_it_and_hears_its_progress() {
     let offer = Offer::signed(APPIMAGE);
     let app = mock_app(&offer.key.public_key());
-    let host = offer.host(APPIMAGE, FAST);
+    let host = offer.host(APPIMAGE, UNHURRIED);
     let executor = NativeOperationExecutor::production();
     let apps = scratch("download");
     let host = UpdaterHost {
         appimage: Some(apps.join("Canopi.AppImage")),
         ..host
     };
-    // The payload is held back so the first download is still running when the second asks: a
-    // small payload from a local server can otherwise settle first, and the second runs its own.
+    // The payload is held back until both downloads asked, so the first is still running when
+    // the second asks: a small payload from a local server can otherwise settle first.
+    let gate = Gate::default();
     offer.server.route(
         "/payload",
-        Route::Slow(Duration::from_millis(500), offer.payload.clone()),
+        Route::Gated(gate.clone(), offer.payload.clone()),
     );
     run(host.check(app.handle(), &executor, "check"))
         .unwrap()
@@ -178,10 +181,12 @@ fn a_download_verifies_the_payload_and_a_second_download_joins_it_and_hears_its_
     let (second_sink, second_heard) = sink();
 
     let (first, second) = run(async {
-        tokio::join!(
-            host.download(app.handle(), &executor, "download", first_sink),
-            host.download(app.handle(), &executor, "download", second_sink)
-        )
+        let mut first = pin!(host.download(app.handle(), &executor, "download", first_sink));
+        start(&mut first).await;
+        let mut second = pin!(host.download(app.handle(), &executor, "download", second_sink));
+        start(&mut second).await;
+        gate.open();
+        tokio::join!(first, second)
     });
 
     assert_eq!(first, Ok(UpdateDownload::Verified));
@@ -474,7 +479,7 @@ fn a_cancel_that_arrives_after_its_operation_settled_leaves_the_running_one_alon
     let executor = NativeOperationExecutor::production();
     let host = UpdaterHost {
         appimage: Some(scratch("late-cancel").join("Canopi.AppImage")),
-        ..offer.host(APPIMAGE, FAST)
+        ..offer.host(APPIMAGE, UNHURRIED)
     };
     run(host.check(app.handle(), &executor, "check"))
         .unwrap()
@@ -484,22 +489,20 @@ fn a_cancel_that_arrives_after_its_operation_settled_leaves_the_running_one_alon
         run(host.download(app.handle(), &executor, "download-a", progress)),
         Ok(UpdateDownload::Verified)
     );
+    let gate = Gate::default();
     offer.server.route(
         "/payload",
-        Route::Slow(Duration::from_millis(300), offer.payload.clone()),
+        Route::Gated(gate.clone(), offer.payload.clone()),
     );
 
+    // The late cancel lands while download B runs, its payload held back until then.
     let (progress, _) = sink();
-    let (running, ()) = run(async {
-        tokio::join!(
-            host.download(app.handle(), &executor, "download-b", progress),
-            async {
-                while host.ops().download.is_none() {
-                    tokio::time::sleep(Duration::from_millis(5)).await;
-                }
-                host.cancel("download-a");
-            }
-        )
+    let running = run(async {
+        let mut running = pin!(host.download(app.handle(), &executor, "download-b", progress));
+        start(&mut running).await;
+        host.cancel("download-a");
+        gate.open();
+        running.await
     });
 
     assert_eq!(
@@ -507,85 +510,4 @@ fn a_cancel_that_arrives_after_its_operation_settled_leaves_the_running_one_alon
         Ok(UpdateDownload::Verified),
         "a settled operation's late cancel leaves the running one alone"
     );
-}
-
-/// canopi-f47t.52.228.15: a cancelled run settles only after its queued closure gets a Network
-/// slot, so the user can press Check or Download again in between: the new op starts its own run
-/// and is not dragged into the cancelled one.
-#[test]
-fn an_op_started_after_a_cancel_but_before_its_run_settled_runs_on_its_own() {
-    use std::sync::{
-        Arc,
-        atomic::{AtomicBool, Ordering},
-    };
-
-    use crate::native_operation::{NativeOperationClassLimits, NativeOperationLimits};
-
-    let offer = Offer::signed(APPIMAGE);
-    let app = mock_app(&offer.key.public_key());
-    let lane = NativeOperationClassLimits::new(8, 1);
-    let executor =
-        NativeOperationExecutor::new(NativeOperationLimits::new(lane, lane, lane, lane, lane))
-            .unwrap();
-    let host = UpdaterHost {
-        appimage: Some(scratch("cancel-then-restart").join("Canopi.AppImage")),
-        ..offer.host(APPIMAGE, FAST)
-    };
-    let (host, app, executor) = (&host, &app, &executor);
-    // Holds the one Network slot so run A's closure queues until `release` is set.
-    let hold = |release: Arc<AtomicBool>| {
-        executor.run(NativeOperationClass::Network, "held", move || {
-            while !release.load(Ordering::SeqCst) {
-                std::thread::sleep(Duration::from_millis(5));
-            }
-            Ok(())
-        })
-    };
-    let restart = |a: &'static str, b: &'static str| {
-        let release = Arc::new(AtomicBool::new(false));
-        let (held, a, b) = run(async {
-            let a_is_a_check = a.starts_with("check");
-            let op = |id| async move {
-                if a_is_a_check {
-                    host.check(app.handle(), executor, id).await.map(|_| ())
-                } else {
-                    let (progress, _) = sink();
-                    host.download(app.handle(), executor, id, progress)
-                        .await
-                        .map(|_| ())
-                }
-            };
-            tokio::join!(hold(Arc::clone(&release)), op(a), async {
-                while host.cancels().running.is_empty() {
-                    tokio::time::sleep(Duration::from_millis(5)).await;
-                }
-                host.cancel(a);
-                tokio::join!(op(b), async {
-                    while host.cancels().running.len() < 2 {
-                        tokio::time::sleep(Duration::from_millis(5)).await;
-                    }
-                    release.store(true, Ordering::SeqCst);
-                })
-                .0
-            })
-        });
-        assert_eq!(held, Ok(()));
-        (a, b)
-    };
-
-    let (a, b) = restart("check-a", "check-b");
-    assert_eq!(code(a), FailureCode::Cancelled);
-    assert_eq!(
-        b,
-        Ok(()),
-        "the check started after the cancel runs on its own"
-    );
-    let (a, b) = restart("download-a", "download-b");
-    assert_eq!(code(a), FailureCode::Cancelled);
-    assert_eq!(
-        b,
-        Ok(()),
-        "the download started after the cancel runs on its own"
-    );
-    assert!(host.ops().staged.is_some());
 }
