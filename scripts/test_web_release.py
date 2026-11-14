@@ -24,9 +24,8 @@ LOCKED_PLAYWRIGHT = json.loads(LOCKFILE.read_text())["packages"]["node_modules/@
 COMMIT = "abcdef012345" + "6" * 28
 PREVIOUS_COMMIT = "0123456789ab"
 MAX_BYTES = 4000
-CATALOG_MANIFEST = json.dumps(
-    {"assets": {"species": [{"path": "species/species-0000.parquet"}],
-                "names": {"en": {"path": "names/names-en.parquet"}}, "images": []}}).encode()
+CATALOG_MANIFEST = json.dumps({"assets": {"species": [{"path": "species/species-0000.parquet"}],
+                               "names": {"en": {"path": "names/names-en.parquet"}}, "images": []}}).encode()
 CATALOG_ID = hashlib.sha256(CATALOG_MANIFEST).hexdigest()[:16]
 CATALOG = f"assets/catalog/{CATALOG_ID}/"
 SPECIES = CATALOG + "species/species-0000.parquet"
@@ -38,39 +37,27 @@ def site_files():
     """Release N: every file except index.html and the manifest carries a content id under assets/."""
     return {
         "index.html": b'<!doctype html><title>Canopi</title><script type="module" crossorigin src="/assets/web-AbCd1234AbCd1234.js"></script>',
-        "assets/web-AbCd1234AbCd1234.js": b"console.log('canopi')",
-        "assets/web-Ef_h5678Ef_h5678.css": b"body{}",
-        "assets/canopi-logo-Ij-l9012Ij-l9012.svg": b"<svg/>",
-        "assets/font-Mn0p3456Mn0p3456.woff2": b"woff2",
-        "assets/NotoSans-Regular-Qr4s7890Qr4s7890.ttf": b"ttf",
-        CATALOG + "manifest.json": CATALOG_MANIFEST,
-        SPECIES: b"PAR1" + bytes(range(256)) + b"PAR1",
-        NAMES: b"PAR1names" + bytes(150) + b"PAR1",
-    }
+        "assets/web-AbCd1234AbCd1234.js": b"console.log('canopi')", "assets/web-Ef_h5678Ef_h5678.css": b"body{}",
+        "assets/canopi-logo-Ij-l9012Ij-l9012.svg": b"<svg/>", "assets/font-Mn0p3456Mn0p3456.woff2": b"woff2",
+        "assets/NotoSans-Regular-Qr4s7890Qr4s7890.ttf": b"ttf", CATALOG + "manifest.json": CATALOG_MANIFEST,
+        SPECIES: b"PAR1" + bytes(range(256)) + b"PAR1", NAMES: b"PAR1names" + bytes(150) + b"PAR1"}
 
 
 def manifest_for(files, version="2.1.0", commit=COMMIT[:12], **changes):
     catalog_files = sorted(path for path in files if path.endswith(".parquet"))
-    manifest = {
-        "name": "Canopi Web Edition", "version": version, "commit": commit,
-        "catalog": {"manifestPath": CATALOG + "manifest.json", "files": catalog_files},
-        "files": [{"path": path, "bytes": len(data), "sha256": hashlib.sha256(data).hexdigest()}
-                  for path, data in sorted(files.items())],
-    }
-    manifest.update(changes)
-    return manifest
+    return {"name": "Canopi Web Edition", "version": version, "commit": commit,
+            "catalog": {"manifestPath": CATALOG + "manifest.json", "files": catalog_files},
+            "files": [{"path": path, "bytes": len(data), "sha256": hashlib.sha256(data).hexdigest()}
+                      for path, data in sorted(files.items())], **changes}
 
 
 def previous_files():
     """Release N-1 as 2.0.3 shipped it: every file under assets/ but index.html (canopi-eon8.19)."""
     return {
         "index.html": b'<!doctype html><title>Canopi</title><script type="module" src="/assets/web-OLD00001.js"></script>',
-        "assets/web-OLD00001.js": b"console.log('old')",
-        "assets/job-OLD00002OLD00002.js": b"export const lazy = 1",
-        "assets/font-Mn0p3456Mn0p3456.woff2": b"woff2",
-        OLD_CATALOG + "manifest.json": b'{"assets": {"species": [{"path": "species/species-0000.parquet"}]}}',
-        OLD_CATALOG + "species/species-0000.parquet": b"PAR1old-species",
-    }
+        "assets/web-OLD00001.js": b"console.log('old')", "assets/job-OLD00002OLD00002.js": b"export const lazy = 1",
+        "assets/font-Mn0p3456Mn0p3456.woff2": b"woff2", OLD_CATALOG + "species/species-0000.parquet": b"PAR1old-species",
+        OLD_CATALOG + "manifest.json": b'{"assets": {"species": [{"path": "species/species-0000.parquet"}]}}'}
 
 
 def previous_manifest(files, version="2.0.9"):
@@ -197,12 +184,9 @@ class ArchiveTests(ArchiveCase):
         self.assertEqual(self.verify().commit, COMMIT)
 
     def test_oversize_files_and_file_count_are_rejected(self):
-        files = site_files()
-        files["assets/big-AbCd1234AbCd1234.js"] = b"x" * (MAX_BYTES + 1)
-        self.build(files)
+        self.build({**site_files(), "assets/big-AbCd1234AbCd1234.js": b"x" * (MAX_BYTES + 1)})
         self.assert_rejected("above the Pages limit 4000")
-        files = site_files()
-        files.update({f"assets/n{index}-AbCd1234AbCd1234.js": b"" for index in range(12)})
+        files = {**site_files(), **{f"assets/n{index}-AbCd1234AbCd1234.js": b"" for index in range(12)}}
         self.archive.unlink()
         self.build(files)
         self.assert_rejected("files, above the Pages limit 20")
@@ -218,10 +202,8 @@ class ArchiveTests(ArchiveCase):
                  ("404.html", "deploy-owned"), ("assets/_headers", "deploy-owned")]
         for index, (path, pattern) in enumerate(cases):
             with self.subTest(path=path):
-                files = site_files()
-                files[path] = b"x"
                 self.archive.unlink(missing_ok=True)
-                self.build(files)
+                self.build({**site_files(), path: b"x"})
                 with self.assertRaisesRegex(web_release.ReleaseError, pattern):
                     web_release.verify_archive(self.archive, version="2.1.0", output_dir=self.root / f"site-{index}")
 
@@ -278,7 +260,6 @@ class MergeCase(ArchiveCase):
 
 class MergeTests(MergeCase):
     def test_the_merged_set_holds_n_minus_1s_verified_files_and_drops_n_minus_2_only_ones(self):
-        """the merged set holds N-1's verified files and drops N-2-only ones"""
         self.verify(self.build())
         previous_site = self.verify_previous(self.build_previous())
         # N-1's deployment also served N-2's files. Put them where a merge that read a directory instead of N-1's
@@ -330,7 +311,6 @@ class MergeTests(MergeCase):
         self.assertEqual(tree(self.root / "site"), before)
 
     def test_the_manifest_is_the_only_no_cache_file_this_release_writes(self):
-        """the manifest is the only no-cache file this release writes"""
         policies = {path: web_release.cache_policy(path) for path in [*site_files(), web_release.MANIFEST_NAME]}
         self.assertEqual([path for path, policy in policies.items() if policy == "no-cache"], [web_release.MANIFEST_NAME])
         self.assertEqual(policies["index.html"], "revalidate")
@@ -365,7 +345,6 @@ class MergeTests(MergeCase):
             self.verify_previous(self.build_previous(previous))
 
     def test_an_unverifiable_n_minus_1_fails_before_any_deploy(self):
-        """an unverifiable N-1 fails before any deploy"""
         checksums = self.build_previous()
         checksums.write_text("0" * 64 + f"  {self.previous_archive.name}\n")
         with self.assertRaisesRegex(web_release.ReleaseError, "checksum mismatch"):
@@ -396,10 +375,8 @@ class MergeTests(MergeCase):
                                       "assets/NotoSans-SemiBold.ttf", "assets/catalog-manifest.json",
                                       "assets/web-AbCd1234.js", "assets/0123456789abcdef/x.bin"]):
             with self.subTest(path=path):
-                files = site_files()
-                files[path] = b"mutable"
                 self.archive.unlink(missing_ok=True)
-                self.build(files)
+                self.build({**site_files(), path: b"mutable"})
                 with self.assertRaisesRegex(web_release.ReleaseError, f"mutable name: {re.escape(path)}"):
                     web_release.verify_archive(self.archive, version="2.1.0", output_dir=self.root / f"mutable-{index}")
         # 2.0.2's mutable names no longer arrive from N-1: the merge refuses them before copying anything.
@@ -460,13 +437,11 @@ def serving(version, status=200):
 
 
 class PreviousSelectionTests(unittest.TestCase):
-    RELEASES = {
-        "v2.1.0": ["canopi-web-edition-root-v2.1.0-aaaaaaaaaaaa.tar.gz"],
-        "v2.0.10": ["Canopi_2.0.10_amd64.deb"],
+    RELEASES = {  # In `gh release list` order: newest first.
+        "v2.1.0": ["canopi-web-edition-root-v2.1.0-aaaaaaaaaaaa.tar.gz"], "v2.0.10": ["Canopi_2.0.10_amd64.deb"],
         "v2.0.9": ["canopi-web-edition-root-v2.0.9-bbbbbbbbbbbb.tar.gz", "WEB-RELEASE-SHA256SUMS.txt"],
         "v2.0.8": ["canopi-web-edition-root-v2.0.8-cccccccccccc.tar.gz"],
-        "v1.9.0": ["canopi-web-edition-root-v1.9.0-dddddddddddd.tar.gz"],
-    }
+        "v1.9.0": ["canopi-web-edition-root-v1.9.0-dddddddddddd.tar.gz"]}
 
     def previous(self, version="2.1.0", production="2.0.9", releases=None, **options):
         run, calls = fake_gh(self.RELEASES if releases is None else releases)
@@ -517,30 +492,31 @@ class PublishScriptTests(MergeCase):
 
     def setUp(self):
         super().setUp()
-        self.production = self.serve("production")
-        self.preview = self.serve("preview")
+        self.production = self.serve("production", QuietHandler)
+        self.preview = self.serve("preview", PagesHandler)
 
-    def serve(self, name):
+    def serve(self, name, handler):
         directory = self.root / f"served-{name}"
         directory.mkdir()
-        handler = functools.partial(QuietHandler, directory=str(directory))
-        server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
+        server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), functools.partial(handler, directory=str(directory)))
         threading.Thread(target=server.serve_forever, daemon=True).start()
         self.addCleanup(server.server_close)
         self.addCleanup(server.shutdown)
         return directory, f"http://127.0.0.1:{server.server_port}"
 
     def publish(self, *extra, draft=False, release_checksums=None, previous=None, deploys_succeed=False, skew_tab="ok",
-                n_deploy_fails=False, skew_timeout="30", tag="v2.1.0", pull_fails=False,
-                previous_sha=PREVIOUS_COMMIT + "c" * 28, image_local=False, installed=None, stale=None):
+                n_deploy_fails=False, skew_timeout="30", tag="v2.1.0", pull_fails=False, candidate=False, stale=None,
+                previous_sha=PREVIOUS_COMMIT + "c" * 28, image_local=False, installed=None, smoke_passes=False):
         checksums = self.build({**site_files(), **getattr(self, "site_extra", {})})
         previous_checksums = self.build_previous(previous)
         (self.production[0] / web_release.MANIFEST_NAME).write_text(json.dumps(previous_manifest(previous_files())))
         published = self.root / "published"
         (published / "v2.1.0").mkdir(parents=True, exist_ok=True)
         (published / "v2.0.9").mkdir(parents=True, exist_ok=True)
-        shutil.copy(release_checksums or checksums, published / "v2.1.0" / checksums.name)
-        shutil.copy(self.archive, published / "v2.1.0" / self.archive.name)
+        if not candidate:  # A candidate is unpublished: its rehearsal draft deleted, nothing of v2.1.0 is on GitHub.
+            shutil.copy(release_checksums or checksums, published / "v2.1.0" / checksums.name)
+            shutil.copy(self.archive, published / "v2.1.0" / self.archive.name)
+        extra = ("--preview-only", "--artifact", str(self.archive), "--checksums", str(checksums)) * candidate + extra
         if stale:  # An earlier candidate's archive, which promote-release.sh removes and a deploy never takes.
             (published / "v2.1.0" / stale).write_bytes(b"not this release")
         shutil.copy(previous_checksums, published / "v2.0.9" / previous_checksums.name)
@@ -554,7 +530,7 @@ case "$1 $2" in
     if [[ "$*" == *"--json assets"* ]]; then ls {published}/"$3"; exit 0; fi
     printf '%s\\n' {"true" if draft else "false"} ;;
   "release list") printf '%s\\n' '[{{"tagName": "v2.1.0"}}, {{"tagName": "v2.0.9"}}]' ;;
-  "api repos/example/canopi/commits/v2.1.0") printf '%s\\n' {COMMIT} ;;
+  "api repos/example/canopi/commits/v2.1.0"|"api repos/example/canopi/commits/{COMMIT[:12]}") printf '%s\\n' {COMMIT} ;;
   "api repos/example/canopi/commits/v2.0.9") printf '%s\\n' {previous_sha} ;;
   "release download")
     tag="$3"
@@ -566,7 +542,7 @@ case "$1 $2" in
   *) exit 1 ;;
 esac
 """)
-        # npx: `wrangler pages deploy <dir> --project-name <p>` publishes <dir>'s manifest on the matching server.
+        # npx: `wrangler pages deploy <dir> --project-name <p>` publishes <dir> on the matching server.
         (fake / "npx").write_text(f"""#!/usr/bin/env bash
 echo "npx $*" >> {self.root}/calls
 {"" if deploys_succeed else "exit 1"}
@@ -574,11 +550,12 @@ dir="$5"
 {'if [[ "$dir" == */site ]]; then exit 1; fi' if n_deploy_fails else ""}
 for arg; do if [[ "$prev" == --project-name ]]; then project="$arg"; fi; prev="$arg"; done
 if [[ "$project" == canopi-web-preview ]]; then target={self.preview[0]}; else target={self.production[0]}; fi
-cp "$dir/{web_release.MANIFEST_NAME}" "$target/"
+cp -R "$dir/." "$target/"
 echo "Deployment complete! Take a peek over at https://1a2b3c4d.$project.pages.dev"
 """)
-        # docker: the deploy-skew container (`--name`) writes n1-ready, then waits for n-deployed; the smoke fails.
-        # `skew_tab="hang"` never reports n1-ready. `docker rm -f <name>` stops a running container.
+        # docker: the deploy-skew container (`--name`) writes n1-ready, then waits for n-deployed; the smoke passes only if
+        # `smoke_passes`. `skew_tab` "hang" never reports n1-ready, "interrupt" also sends the script (the parent of the
+        # shell running docker) SIGTERM, as a cancelled job does. `docker rm -f <name>` stops a running container.
         containers = self.root / "containers"
         containers.mkdir(exist_ok=True)
         (fake / "docker").write_text(f"""#!/usr/bin/env bash
@@ -598,10 +575,10 @@ for arg; do
   prev="$arg"
 done
 if [[ -n "$results" && -n "$output" ]]; then mkdir -p "$results/$output"; echo trace > "$results/$output/trace.zip"; fi
-if [[ -z "$handoff" ]]; then exit 1; fi
+if [[ -z "$handoff" ]]; then exit {0 if smoke_passes else 1}; fi
 echo "skew chunks: $(tr '\\n' ' ' < "$handoff/carried-chunks")" >> {self.root}/calls
 echo $$ > {containers}/"$name"
-{"exec sleep 300" if skew_tab == "hang" else ""}
+{'kill -TERM "$(ps -o ppid= -p $PPID)"; ' * (skew_tab == "interrupt")}{"exec sleep 300" * (skew_tab != "ok")}
 touch "$handoff/n1-ready"
 for _ in $(seq 100); do
   if [[ -f "$handoff/n-deployed" ]]; then echo "skew: N deployed" >> {self.root}/calls; exit 0; fi
@@ -625,14 +602,15 @@ exec sleep 300
             (repo / "desktop/web/package-lock.json").symlink_to(LOCKFILE)
         version = installed or LOCKED_PLAYWRIGHT
         (runner / "package.json").write_text(json.dumps({"name": "@playwright/test", "version": version}))
-        script = repo / "scripts" / "publish-web-release.sh"
         return subprocess.run(
-            ["bash", str(script), "--tag", tag,
-             "--repo", "example/canopi", *extra],
+            ["bash", str(repo / "scripts" / "publish-web-release.sh"), "--tag", tag, "--repo", "example/canopi", *extra],
             env={**os.environ, "PATH": f"{fake}{os.pathsep}{os.environ['PATH']}", "TMPDIR": str(self.root),
                  "CANOPI_WEB_PRODUCTION_URL": self.production[1], "CANOPI_WEB_PREVIEW_URL": self.preview[1],
-                 "CANOPI_WEB_SKEW_TIMEOUT": skew_timeout},
-            capture_output=True, text=True, timeout=120)
+                 "CANOPI_WEB_SKEW_TIMEOUT": skew_timeout}, capture_output=True, text=True, timeout=120)
+
+    def reset(self):
+        (self.root / "calls").unlink()
+        shutil.rmtree(self.root / "published")
 
     def calls(self):
         path = self.root / "calls"
@@ -673,8 +651,6 @@ exec sleep 300
         self.assertFalse(any(call.startswith(("npx", "docker")) for call in self.calls()))
 
     def test_publish_downloads_n_minus_1_with_its_checksum_file_and_deploys_only_after_the_merge_passes(self):
-        """publish-web-release.sh with fake gh and npx downloads N-1 with its checksum file and deploys only after
-        the merge passes"""
         result = self.publish(previous={**previous_files(), "assets/web-AbCd1234AbCd1234.js": b"collides"})
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("assets/web-AbCd1234AbCd1234.js", result.stderr)
@@ -684,8 +660,7 @@ exec sleep 300
         self.assertIn("--pattern WEB-RELEASE-SHA256SUMS.txt", previous_download[0])
         self.assertFalse(any(call.startswith(("npx", "docker")) for call in self.calls()))
 
-        (self.root / "calls").unlink()
-        shutil.rmtree(self.root / "published")
+        self.reset()
         result = self.publish()
         self.assertNotEqual(result.returncode, 0)
         deploys = [call for call in self.calls() if call.startswith("npx")]
@@ -694,7 +669,7 @@ exec sleep 300
 
     def test_the_deploy_skew_stage_deploys_n_minus_1_then_n_to_the_preview_while_the_tab_is_open(self):
         result = self.publish(deploys_succeed=True)
-        # The fake Pages answers no range request, so the preview HTTP checks stop the release before production.
+        # The fake browser smoke fails on the preview, so the release stops before production.
         self.assertNotEqual(result.returncode, 0)
         calls = [call for call in self.calls() if call.startswith(("npx", "docker run", "skew"))]
         self.assertRegex(calls[0], r"pages deploy \S+/previous --project-name canopi-web-preview")
@@ -706,7 +681,6 @@ exec sleep 300
         self.assertIn("HTTP checks on " + self.preview[1], result.stdout)
         self.assertEqual((self.preview[0] / web_release.MANIFEST_NAME).read_bytes(),
                          (self.root / f"source-{self.archive.name}" / web_release.MANIFEST_NAME).read_bytes())
-
 
     def test_every_pre_release_tag_is_refused_because_no_beta_origin_exists(self):
         for tag in ("v2.1.0-rc.1", "v2.1.0+build.5", "v2.1.0-beta"):
@@ -731,8 +705,7 @@ exec sleep 300
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("deploy-skew check would prove nothing", result.stderr)
         self.assertFalse(any(call.startswith(("npx", "docker")) for call in self.calls()))
-        (self.root / "calls").unlink()
-        shutil.rmtree(self.root / "published")
+        self.reset()
         # The override waives only the chunk proof: N-1 still deploys, its tab still reads the catalog and saves.
         self.publish("--allow-unchanged-pdf-chunk", deploys_succeed=True)
         calls = [call for call in self.calls() if call.startswith(("npx", "docker run", "skew"))]
@@ -758,14 +731,12 @@ exec sleep 300
         self.assertEqual(calls[0], f"docker image inspect {image}")
         self.assertEqual(calls[1], f"docker pull {image}")
         self.assertTrue(calls[2].startswith("npx"), calls)
-        (self.root / "calls").unlink()
-        shutil.rmtree(self.root / "published")
+        self.reset()
         result = self.publish(deploys_succeed=True, pull_fails=True)
         self.assertNotEqual(result.returncode, 0)
         self.assertFalse(any(call.startswith(("npx", "docker run")) for call in self.calls()), self.calls())
         # An image already on the host is used as is: no registry contact (an MCR outage does not stop a release).
-        (self.root / "calls").unlink()
-        shutil.rmtree(self.root / "published")
+        self.reset()
         self.publish(deploys_succeed=True, pull_fails=True, image_local=True)
         self.assertNotIn(f"docker pull {image}", self.calls())
         self.assertTrue(any(call.startswith("npx") for call in self.calls()))
@@ -778,8 +749,7 @@ exec sleep 300
         self.assertIn(f"@playwright/test 1.0.0 is installed but {LOCKED_PLAYWRIGHT} is locked", result.stderr)
         self.assertFalse(any(call.startswith(("npx", "docker")) for call in self.calls()), self.calls())
         # The locked version installed: the release goes on to its deploys.
-        (self.root / "calls").unlink()
-        shutil.rmtree(self.root / "published")
+        self.reset()
         self.publish(deploys_succeed=True, installed=LOCKED_PLAYWRIGHT)
         self.assertTrue(any(call.startswith("npx") for call in self.calls()), self.calls())
 
@@ -788,8 +758,7 @@ exec sleep 300
         deploys = [call for call in self.calls() if call.startswith("npx")]
         self.assertRegex(deploys[0], r"/previous --project-name canopi-web-preview --branch production "
                                      rf"--commit-hash {PREVIOUS_COMMIT}c{{28}}$")
-        (self.root / "calls").unlink()
-        shutil.rmtree(self.root / "published")
+        self.reset()
         # A tag that resolves to another commit than N-1's archive was built from names no archive it carries.
         result = self.publish(deploys_succeed=True, previous_sha="f" * 40)
         self.assertNotEqual(result.returncode, 0)
@@ -816,10 +785,43 @@ exec sleep 300
         result = self.publish(deploys_succeed=True, n_deploy_fails=True)
         self.assert_skew_container_stopped(result)
 
+    def test_canopi_f47t_52_259_preview_only_rehearses_a_candidate_whose_draft_is_deleted_and_stops_before_production(self):
+        result = self.publish(candidate=True, deploys_succeed=True, smoke_passes=True)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn(f"Rehearsed Web Edition 2.1.0 on {self.preview[1]}; stopping before production", result.stdout)
+        deploys = [call for call in self.calls() if call.startswith("npx")]
+        self.assertEqual(len(deploys), 2, deploys)  # N-1, then N while the N-1 tab is open; never production.
+        self.assertRegex(deploys[1], f"/site --project-name canopi-web-preview .*--commit-hash {COMMIT}$")
+        self.assertEqual(json.loads((self.production[0] / web_release.MANIFEST_NAME).read_text())["version"], "2.0.9")
+        # It never reads, publishes or tags the release: a deleted draft leaves no tag behind it.
+        self.assertFalse([call for call in self.calls() if call.startswith("gh") and "v2.1.0" in call], self.calls())
+        self.assertIn("--preview-only takes --artifact and --checksums", self.publish("--preview-only").stderr)
+        self.assertIn("--preview-only and --verify-only", self.publish("--verify-only", candidate=True).stderr)
+
+    def test_canopi_f47t_52_259_a_preview_interrupted_mid_skew_stops_the_container_and_leaves_production_untouched(self):
+        result = self.publish(candidate=True, deploys_succeed=True, skew_tab="interrupt")
+        self.assertEqual(result.returncode, -15, "ended by the SIGTERM, not by the skew timeout")
+        self.assert_skew_container_stopped(result)
+        self.assertFalse(any("/site --project-name" in call for call in self.calls()), "N, or production, deployed")
+
 
 class QuietHandler(http.server.SimpleHTTPRequestHandler):
     def log_message(self, *args):
         pass
+
+
+class PagesHandler(QuietHandler):
+    """Pages over the files deployed to it, as LiveCheckTests' fake answers: headers, ranges, 404s and the shell."""
+    def do_GET(self):
+        root = self.site = Path(self.directory)
+        self.files = {path.relative_to(root).as_posix(): path.read_bytes() for path in root.rglob("*") if path.is_file()}
+        self.carried, self.overrides, self.inject, self.requests = {}, {}, b"", []
+        answer = LiveCheckTests.get(self, self.path, {"Range": self.headers["Range"]} if self.headers["Range"] else None)
+        self.send_response(answer.status)
+        for name, value in {**answer.headers, "content-length": str(len(answer.body))}.items():
+            self.send_header(name, value)
+        self.end_headers()
+        self.wfile.write(answer.body)
 
 
 class LiveCheckTests(unittest.TestCase):
@@ -911,8 +913,7 @@ class LiveCheckTests(unittest.TestCase):
         stale = response(200, {"x-content-type-options": "nosniff", "cache-control": "no-cache"},
                          json.dumps({"version": "2.0.0", "commit": "0" * 12}).encode())
         for path, answer, pattern in [
-            ("/assets/missing-0000.js", html, "expected 404"),
-            (f"/{CATALOG}missing.parquet", html, "expected 404"),
+            ("/assets/missing-0000.js", html, "expected 404"), (f"/{CATALOG}missing.parquet", html, "expected 404"),
             ("/designs", response(200, {"content-type": "text/html"}, self.files["index.html"]), "nosniff"),
             ("/" + web_release.MANIFEST_NAME, stale, "serves 2.0.0"),
             ("/assets/web-AbCd1234AbCd1234.js", response(200, {"x-content-type-options": "nosniff", "content-type": "text/plain"},
@@ -924,7 +925,6 @@ class LiveCheckTests(unittest.TestCase):
                     self.check()
 
     def test_a_parquet_range_answered_200_fails_and_206_passes(self):
-        """http_check fails a 200 to a parquet Range and passes a 206"""
         self.check()
         ranges = [(path, value) for path, value in self.requests if value]
         self.assertEqual(ranges, [(f"/{NAMES}", "bytes=0-99"), (f"/{NAMES}", "bytes=-8")])
