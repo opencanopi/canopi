@@ -4,7 +4,7 @@
 // when ticked, never a newer Canopi's read view (canopi-v4kj), and downloads one zip of the browser's sections.
 import type { ComponentChildren } from "preact";
 import { CANOPI_VERSION } from "../app/about/metadata";
-import { designAttachable } from "../app/problem-report/design-consent";
+import { isNewerReadView } from "../app/document-session/store";
 import { installProblemReportPort } from "../app/problem-report/submission";
 import { locale, plantSpacingIntervalM, theme } from "../app/settings/state";
 import { openProblemReport, ProblemReportDialog } from "../components/shared/ProblemReportDialog";
@@ -27,7 +27,7 @@ export function installWebProblemReport(session: ReportSession = browserDesignSe
     build: () => ({ app: "Canopi", version: CANOPI_VERSION }),
     health: () => storeHealth.peek(),
     settings: () => ({ locale: locale.peek(), theme: theme.peek(), plant_spacing_interval_m: plantSpacingIntervalM.peek() }),
-    currentDesign: () => (designAttachable(session.readDesignIdentity()?.readOnlyOrigin) ? session.currentDesignText() : null),
+    currentDesign: () => (isNewerReadView(session.readDesignIdentity()?.readOnlyOrigin) ? null : session.currentDesignText()),
   });
   const uninstall = installProblemReportPort(writer);
   return () => {

@@ -2,7 +2,6 @@ import { SurfaceBoundary } from './SurfaceBoundary'
 import { useLayoutEffect, useRef } from 'preact/hooks'
 import { problemReportDialogOpen } from '../../app/problem-report/state'
 import { problemReportSubmission } from '../../app/problem-report/submission'
-import { currentDesignAttachable } from '../../app/problem-report/design-consent'
 export { installProblemReportPort } from '../../app/problem-report/submission'
 import type { ReportOrigin } from '../../failures/report'
 import { t } from '../../i18n'
@@ -42,7 +41,7 @@ type ConsentKind = Exclude<ReportConsent, 'always'>
 const CONSENT_CHECKBOXES: { readonly [K in ConsentKind]: { readonly label: LocaleKey, readonly offered: () => boolean, readonly checked: () => boolean, readonly set: (on: boolean) => void } } = {
   current_design: {
     label: 'problemReport.includeCurrentDesign',
-    offered: currentDesignAttachable,
+    offered: () => problemReportSubmission.currentDesignOffered.value,
     checked: () => problemReportSubmission.includeCurrentDesign.value,
     set: (on) => problemReportSubmission.setIncludeCurrentDesign(on),
   },

@@ -26,6 +26,14 @@ export function readOnlyOrigin(kind: DesignSessionKind): ReadOnlyOrigin | undefi
   return kind.kind === 'read-only' ? kind.origin : undefined
 }
 
+/**
+ * Whether a session read-only from `origin` shows a newer Canopi's read view, never the user's file: no save, Draft,
+ * export or problem report encodes it (2.1-M479, canopi-v4kj). A storage-unchecked Draft is the user's own, read whole.
+ */
+export function isNewerReadView(origin: ReadOnlyOrigin | undefined): boolean {
+  return origin === 'newer-version'
+}
+
 export interface DesignSessionIdentity {
   readonly file: CanopiFile | null
   readonly path: string | null
@@ -52,6 +60,8 @@ export interface DesignSessionStore {
   hasCurrentDesign(): boolean
   /** The open Design is shown read-only: nothing edits or writes it. */
   isReadOnly(): boolean
+  /** The open Design is a newer Canopi's read view (`isNewerReadView`); reactive. */
+  holdsNewerReadView(): boolean
   isDesignDirty(): boolean
   isCanvasDirty(): boolean
 
@@ -220,6 +230,10 @@ export function createDesignSessionStore(
 
     isReadOnly() {
       return sessionKind.value.kind === 'read-only'
+    },
+
+    holdsNewerReadView() {
+      return isNewerReadView(readOnlyOrigin(sessionKind.value))
     },
 
     isDesignDirty() {
