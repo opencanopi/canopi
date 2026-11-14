@@ -335,6 +335,9 @@ jobs:
           $shot = New-Object System.Drawing.Bitmap $screen.Width, $screen.Height
           [System.Drawing.Graphics]::FromImage($shot).CopyFromScreen($screen.Left, $screen.Top, 0, 0, $shot.Size)
           $shot.Save((Join-Path $dir 'desktop.png'))
+          # A relaunched N still holds its profile's files open, which the upload cannot read (EBUSY): stop it first.
+          Get-Process canopi-desktop, msedgewebview2 -ErrorAction SilentlyContinue | Stop-Process -Force
+          Start-Sleep -Seconds 3
 
       - name: Upload the app profiles and logs
         if: ${{ failure() || github.event_name == 'workflow_dispatch' }}
