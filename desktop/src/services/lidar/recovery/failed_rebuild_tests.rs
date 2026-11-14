@@ -7,11 +7,11 @@ use super::super::paths::CATALOGUE_FILE;
 use super::tests::{rebuilt_items, seed_original};
 use super::*;
 
-const ANY_FILE_BUT_A_DATABASE: &[u8] = b"not a database at all, just bytes";
+pub(super) const ANY_FILE_BUT_A_DATABASE: &[u8] = b"not a database at all, just bytes";
 
 /// The library folder of a fresh app data folder, with `sha-a` (its meta names item `lyr-a`, with `analyses`) and
 /// `sha-b` (no meta) under `sources/`.
-fn seeded(
+pub(super) fn seeded(
     name: &str,
     analyses: Vec<source_meta::AnalysisMeta>,
 ) -> (crate::test_scratch::TestScratch, LidarPaths) {
@@ -63,15 +63,15 @@ fn analysis_with_a_repeated_input() -> source_meta::AnalysisMeta {
 }
 
 /// Whether the catalogue path still holds the seeded damaged file, byte for byte.
-fn catalogue_unchanged(paths: &LidarPaths) -> bool {
+pub(super) fn catalogue_unchanged(paths: &LidarPaths) -> bool {
     std::fs::read(paths.catalogue_path()).ok().as_deref() == Some(ANY_FILE_BUT_A_DATABASE)
 }
 
-fn item_count(library: &LidarLibrary) -> usize {
+pub(super) fn item_count(library: &LidarLibrary) -> usize {
     rebuilt_items(&library.catalogue().unwrap()).len()
 }
 
-fn assert_originals_kept(paths: &LidarPaths, start: &str) {
+pub(super) fn assert_originals_kept(paths: &LidarPaths, start: &str) {
     for sha256 in ["sha-a", "sha-b"] {
         assert_eq!(
             std::fs::read(paths.source_original(sha256)).ok().as_deref(),
@@ -86,7 +86,7 @@ fn assert_originals_kept(paths: &LidarPaths, start: &str) {
 }
 
 /// What a rebuild staged at the library root and left behind.
-fn staging_left(paths: &LidarPaths) -> Vec<String> {
+pub(super) fn staging_left(paths: &LidarPaths) -> Vec<String> {
     std::fs::read_dir(paths.root())
         .unwrap()
         .flatten()
@@ -95,7 +95,12 @@ fn staging_left(paths: &LidarPaths) -> Vec<String> {
         .collect()
 }
 
-fn assert_recovered(library: &LidarLibrary, items: usize, generated: usize, start: &str) {
+pub(super) fn assert_recovered(
+    library: &LidarLibrary,
+    items: usize,
+    generated: usize,
+    start: &str,
+) {
     let status = library.open_status();
     assert!(
         matches!(status, LibraryOpenStatus::Recovered { items: i, generated: g, .. } if *i == items && *g == generated),
@@ -254,42 +259,6 @@ fn canopi_uidt_the_startup_prune_keeps_every_original_nothing_released() {
         !paths.source_dir("sha-no-original").exists(),
         "a folder with no original goes"
     );
-}
-
-/// A stop after the old catalogue (but not its log) was set aside and before the rebuilt one took its place leaves
-/// no catalogue, a staging folder and a stray log: the next start sets the log aside too and rebuilds.
-#[test]
-fn canopi_uidt_a_stop_between_set_aside_and_install_is_rebuilt_at_the_next_start() {
-    let (root, paths) = seeded("uidt-stop-install", Vec::new());
-    let staging = paths.root().join(REBUILD_STAGING_DIR);
-    std::fs::create_dir_all(&staging).unwrap();
-    drop(catalogue::open(&staging.join(CATALOGUE_FILE)).unwrap());
-    let mut wal = paths.catalogue_path().into_os_string();
-    wal.push("-wal");
-    std::fs::write(&wal, b"the old catalogue's log").unwrap();
-
-    let library = LidarLibrary::open(&root).unwrap();
-
-    assert_recovered(&library, 1, 1, "the next start");
-    assert_eq!(item_count(&library), 2);
-    drop(library);
-    assert!(
-        staging_left(&paths).is_empty(),
-        "{:?}",
-        staging_left(&paths)
-    );
-    let kept: Vec<Vec<u8>> = std::fs::read_dir(paths.set_aside_dir())
-        .unwrap()
-        .flatten()
-        .filter(|entry| entry.file_name().to_string_lossy().ends_with("-wal"))
-        .map(|entry| std::fs::read(entry.path()).unwrap())
-        .collect();
-    assert_eq!(
-        kept,
-        vec![b"the old catalogue's log".to_vec()],
-        "the stray log is set aside, byte for byte"
-    );
-    assert_originals_kept(&paths, "the next start");
 }
 
 /// A stop part way through a rebuild leaves the old catalogue in place beside a staging folder: the next start drops
@@ -473,42 +442,6 @@ fn canopi_uidt_a_crashed_import_frees_the_original_it_created_at_the_next_start(
     );
     assert!(!paths.job_dir("imp-crashed").exists(), "its job root goes");
     assert_originals_kept(&paths, "the next start");
-}
-
-/// Moving the rebuilt catalogue into place can fail after the old one was set aside (a scanner holding the fresh
-/// file): the old catalogue goes back to its place, so the next start recovers it again.
-#[test]
-fn canopi_uidt_a_rebuild_that_cannot_move_into_place_puts_the_old_catalogue_back() {
-    let (root, paths) = seeded("uidt-move-fails", Vec::new());
-    std::fs::write(paths.catalogue_path(), ANY_FILE_BUT_A_DATABASE).unwrap();
-
-    install::FAIL_MOVE_INTO_PLACE.with(|fail| fail.set(true));
-    let first = LidarLibrary::open(&root).expect("start 1");
-    install::FAIL_MOVE_INTO_PLACE.with(|fail| fail.set(false));
-
-    assert!(
-        matches!(first.open_status(), LibraryOpenStatus::Unavailable { .. }),
-        "start 1: {:?}",
-        first.open_status()
-    );
-    drop(first);
-    assert!(
-        catalogue_unchanged(&paths),
-        "the old catalogue is back in its place"
-    );
-    let aside: Vec<_> = std::fs::read_dir(paths.set_aside_dir())
-        .map(|entries| entries.flatten().map(|entry| entry.path()).collect())
-        .unwrap_or_default();
-    assert!(aside.is_empty(), "nothing stays set aside: {aside:?}");
-    assert!(
-        staging_left(&paths).is_empty(),
-        "{:?}",
-        staging_left(&paths)
-    );
-    assert_originals_kept(&paths, "start 1");
-
-    let second = LidarLibrary::open(&root).expect("start 2");
-    assert_recovered(&second, 1, 1, "start 2");
 }
 
 /// A staging folder an earlier start could not remove goes at the next start that finds a current catalogue.

@@ -362,6 +362,42 @@ pub fn is_released(paths: &LidarPaths, sha256: &str) -> bool {
         .is_some_and(|meta| meta.sha256 == sha256 && meta.items.is_empty())
 }
 
+/// What `sources/` holds, as a catalogue rebuild would read it (canopi-uidt).
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub struct Survey {
+    /// An original nothing marked released: what a missing catalogue would lose track of.
+    pub unreleased: bool,
+    /// A meta declaring a version newer than this Canopi reads.
+    pub newer: bool,
+}
+
+/// Survey `sources/`. Any entry, original or meta that cannot be read is an error: no proof of an empty library.
+pub fn survey(paths: &LidarPaths) -> Result<Survey, String> {
+    let unread = |error: std::io::Error| format!("Failed to read the library's originals: {error}");
+    let entries = match std::fs::read_dir(paths.root().join("sources")) {
+        Ok(entries) => entries,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(Survey::default()),
+        Err(error) => return Err(unread(error)),
+    };
+    let mut survey = Survey::default();
+    for entry in entries {
+        let entry = entry.map_err(unread)?;
+        if !std::fs::metadata(entry.path()).map_err(unread)?.is_dir() {
+            continue;
+        }
+        let sha256 = entry.file_name().to_string_lossy().into_owned();
+        let original = match std::fs::metadata(paths.source_original(&sha256)) {
+            Ok(metadata) => metadata.is_file(),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => false,
+            Err(error) => return Err(unread(error)),
+        };
+        let version = stored_version(&paths.source_meta(&sha256))?;
+        survey.newer |= version.is_some_and(|v| v > u64::from(META_VERSION));
+        survey.unreleased |= original && !is_released(paths, &sha256);
+    }
+    Ok(survey)
+}
+
 /// The `version` a meta file declares, read without its other fields: none when there is no file, or it is not
 /// JSON with a numeric `version` (damage the rebuild lists under a generated name); a failing read is an error.
 pub fn stored_version(path: &Path) -> Result<Option<u64>, String> {

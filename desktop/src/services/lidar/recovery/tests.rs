@@ -134,9 +134,10 @@ fn a_v21_catalogue_is_set_aside_and_rebuilt_with_its_ids_kept() {
     std::fs::remove_dir_all(root).unwrap();
 }
 
-/// A `-wal` left behind would be replayed into the rebuilt catalogue, so a
-/// sidecar that cannot follow the catalogue aside moves nothing back and
-/// the library opens Unavailable instead of being rebuilt over it.
+/// A `-wal` SQLite cannot read (here a directory) makes the catalogue
+/// Unreadable, not Corrupt: nothing is set aside or rebuilt, the catalogue
+/// stays in place and the library opens Unavailable. (A sidecar that cannot be
+/// set aside during an install is `failed_rebuild_tests.rs`'s.)
 #[cfg(unix)]
 #[test]
 fn a_wal_that_cannot_move_leaves_the_catalogue_in_place_and_unavailable() {
@@ -145,8 +146,8 @@ fn a_wal_that_cannot_move_leaves_the_catalogue_in_place_and_unavailable() {
     let catalogue_path = paths.catalogue_path();
     let damaged: &[u8] = b"not a database at all, just bytes";
     std::fs::write(&catalogue_path, damaged).unwrap();
-    // A sidecar no rename can move: the set-aside folder lies inside it,
-    // and a directory cannot be moved into itself.
+    // A log no read can open; the set-aside folder lies inside it, so any
+    // set-aside would show there.
     let mut wal = catalogue_path.clone().into_os_string();
     wal.push("-wal");
     let wal = PathBuf::from(wal);

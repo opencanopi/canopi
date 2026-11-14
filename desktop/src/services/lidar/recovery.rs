@@ -3,9 +3,9 @@
 //! An older or corrupt `lidar-library.sqlite`, or a missing or zero-length
 //! one beside originals nothing released, is rebuilt from the originals and
 //! their `meta.json` in a staging folder; only once that rebuild commits is
-//! the old file set aside, byte for byte, under `lidar-library.set-aside/` and
-//! the rebuilt one moved into its place (`install.rs`, canopi-uidt). A rebuild
-//! that fails leaves the old catalogue where it was, so the next start
+//! the old file copied, byte for byte, under `lidar-library.set-aside/` and
+//! replaced by the rebuilt one in one rename (`install.rs`, canopi-uidt). A
+//! rebuild that fails leaves the old catalogue where it was, so the next start
 //! recovers again. Rebuilt items carry their authored facts
 //! and a failed import job whose saved selection is the managed originals, so
 //! Retry prepares them again on demand; analysis definitions come back with
@@ -26,7 +26,6 @@ use std::collections::{BTreeSet, HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
 mod install;
-#[cfg(test)]
 use install::REBUILD_STAGING_DIR;
 
 /// Directory under the library root that keeps catalogues set aside.
@@ -72,7 +71,7 @@ pub fn inspect_library(paths: &LidarPaths) -> CatalogueState {
 pub fn withhold_recovery(paths: &LidarPaths, state: CatalogueState) -> CatalogueState {
     match state {
         CatalogueState::Missing | CatalogueState::Older(_) | CatalogueState::Corrupt(_) => {
-            match install::survey(paths) {
+            match source_meta::survey(paths) {
                 Ok(survey) if survey.newer => CatalogueState::Withheld(
                     "An original's meta was written by a newer Canopi".to_string(),
                 ),
@@ -191,13 +190,19 @@ pub fn open_catalogue(
     let path = paths.catalogue_path();
     match withhold_recovery(paths, state) {
         CatalogueState::Current => {
-            install::discard_staging(paths);
+            discard_staging(paths);
             open_in_place(&path)
         }
         // A lost catalogue beside originals is rebuilt from them: opened empty, it would list none of them again.
         CatalogueState::Missing => {
-            match install::clear_interrupted_rebuild(paths).and_then(|()| install::survey(paths)) {
-                Ok(survey) if !survey.unreleased => open_in_place(&path),
+            discard_staging(paths);
+            match source_meta::survey(paths) {
+                Ok(survey) if !survey.unreleased => {
+                    match install::set_aside_strays(&path, &paths.set_aside_dir(), &now_stamp()) {
+                        Ok(()) => open_in_place(&path),
+                        Err(reason) => in_memory(LibraryOpenStatus::Unavailable { reason }),
+                    }
+                }
                 Ok(_) => recover(paths, RecoveryReason::Missing),
                 Err(reason) => in_memory(LibraryOpenStatus::Unavailable { reason }),
             }
@@ -225,11 +230,29 @@ fn open_in_place(path: &Path) -> Result<OpenedCatalogue, String> {
     }
 }
 
+/// Rebuild into the staging folder, commit and close, then replace the old catalogue (`install.rs`). Until that
+/// rename the old catalogue stays at its path, so any failure leaves it for the next start to recover again.
 fn recover(paths: &LidarPaths, reason: RecoveryReason) -> Result<OpenedCatalogue, String> {
-    let rebuilt = install::rebuild_in_place(paths).and_then(|(set_aside, report)| {
+    discard_staging(paths);
+    let rebuilt = (|| {
+        let staged = install::free_staging_file(&paths.root().join(REBUILD_STAGING_DIR))?;
+        let connection = catalogue::open(&staged)?;
+        let report = rebuild(&connection, paths)?;
+        // The last connection to close checkpoints the log and removes it with the shared-memory file.
+        connection
+            .close()
+            .map_err(|(_, e)| format!("Failed to close the rebuilt catalogue: {e}"))?;
+        let catalogue_path = paths.catalogue_path();
+        let set_aside = install::install(
+            &staged,
+            &catalogue_path,
+            &paths.set_aside_dir(),
+            &now_stamp(),
+        )?;
         // Once in place the rebuild is complete on disk: a failing open leaves it for the next start.
-        Ok((catalogue::open(&paths.catalogue_path())?, set_aside, report))
-    });
+        Ok((catalogue::open(&catalogue_path)?, set_aside, report))
+    })();
+    discard_staging(paths);
     match rebuilt {
         Ok((connection, set_aside, report)) => Ok(OpenedCatalogue {
             connection,
@@ -242,6 +265,12 @@ fn recover(paths: &LidarPaths, reason: RecoveryReason) -> Result<OpenedCatalogue
         }),
         Err(reason) => in_memory(LibraryOpenStatus::Unavailable { reason }),
     }
+}
+
+/// Best effort: a staging folder that cannot be removed now goes at a later start, and never blocks one (a rebuild
+/// stages under a free name beside what stays).
+fn discard_staging(paths: &LidarPaths) {
+    let _ = super::import::remove_dir_if_present(&paths.root().join(REBUILD_STAGING_DIR));
 }
 
 fn now_stamp() -> String {
@@ -563,5 +592,7 @@ fn insert_definition(connection: &Connection, analysis: &AnalysisMeta) -> Result
 
 #[cfg(test)]
 mod failed_rebuild_tests;
+#[cfg(test)]
+mod install_tests;
 #[cfg(test)]
 mod tests;
