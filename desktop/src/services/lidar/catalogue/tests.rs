@@ -234,3 +234,225 @@ fn chunk_pages_order_by_position_and_filter_spatially_in_sql() {
     drop(connection);
     let _ = std::fs::remove_dir_all(root);
 }
+
+/// A catalogue whose version cannot be read says why when it is opened: the reason reaches the library's
+/// Unavailable status and its refusal, so it is never blank.
+#[test]
+fn opening_a_catalogue_whose_version_cannot_be_read_names_the_failure() {
+    let root = crate::test_scratch::TestScratch::new("canopi-catalogue-unread-reason");
+    std::fs::create_dir_all(&root).unwrap();
+    let path = root.join("lidar-library.sqlite");
+    Connection::open(&path)
+        .unwrap()
+        .execute_batch(
+            "CREATE TABLE lidar_catalogue_meta (key, value);
+             INSERT INTO lidar_catalogue_meta VALUES ('schema_version', X'1A');",
+        )
+        .unwrap();
+    let reason = open(&path).expect_err("an unreadable version refuses to open");
+    assert!(
+        reason.starts_with("Failed to read the LiDAR catalogue: "),
+        "{reason}"
+    );
+    let _ = std::fs::remove_dir_all(root);
+}
+
+/// Timestamps are Unix milliseconds of the wall clock, which recovery and the listing order by.
+#[test]
+fn now_iso_is_the_unix_millisecond_clock() {
+    let millis = || {
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_millis()
+    };
+    let before = millis();
+    let stamp = now_iso();
+    let after = millis();
+    let read: u128 = stamp.parse().expect("digits only");
+    assert!(
+        before <= read && read <= after,
+        "{before} <= {stamp} <= {after}"
+    );
+}
+
+/// An interpretation's retained COG reads back every column of its asset row, each from its own column.
+#[test]
+fn an_interpretation_cog_reads_back_its_asset_row_and_nodata() {
+    let root = crate::test_scratch::TestScratch::new("canopi-interpretation-cog");
+    std::fs::create_dir_all(&root).unwrap();
+    let connection = open(&root.join("catalogue.sqlite")).unwrap();
+    connection
+        .execute_batch(
+            "INSERT INTO lidar_sources(sha256, original_filename, size_bytes, probe_json, imported_at)
+             VALUES('sha-src', 'tile.tif', 3, '{}', '1');
+             INSERT INTO lidar_interpretations(
+                id, source_sha256, band_index, quantity, units, scale, offset, crs_ref,
+                vertical_ref, geotransform, width, height, interp_hash, valid_cells)
+             VALUES('interp-1', 'sha-src', 1, 'ground-elevation', 'm', 1, 0, 'EPSG:2154',
+                'unspecified', '0,1,0,0,0,-1', 1, 1, 'hash-1', 1);
+             INSERT INTO lidar_raster_assets(
+                sha256, rel_path, bytes, profile, width, height, geotransform, crs_ref, nodata, created_at)
+             VALUES('sha-cog', 'assets/sha-cog/cog.tif', 4096, 'cog-f32-t256-raw-v1',
+                640, 480, '[0,1,0,0,0,-1]', 'EPSG:2154', -9999.0, '1');
+             INSERT INTO lidar_interpretation_cogs(interpretation_id, asset_sha256, nodata, created_at)
+             VALUES('interp-1', 'sha-cog', -32768.0, '1');",
+        )
+        .unwrap();
+    let (asset, nodata) = interpretation_cog(&connection, "interp-1")
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        asset,
+        RasterAssetRow {
+            sha256: "sha-cog".into(),
+            rel_path: "assets/sha-cog/cog.tif".into(),
+            bytes: 4096,
+            profile: "cog-f32-t256-raw-v1".into(),
+            width: 640,
+            height: 480,
+            geotransform: "[0,1,0,0,0,-1]".into(),
+            crs_ref: "EPSG:2154".into(),
+            nodata: Some(-9999.0),
+        }
+    );
+    assert_eq!(nodata, Some(-32768.0));
+    assert!(
+        interpretation_cog(&connection, "interp-2")
+            .unwrap()
+            .is_none()
+    );
+    drop(connection);
+    let _ = std::fs::remove_dir_all(root);
+}
+
+/// A window with no cell on either axis, or no chunk side, is refused rather than read as a range of chunks.
+#[test]
+fn a_chunk_window_with_an_empty_extent_on_either_axis_is_refused() {
+    for (start_x, end_x, start_y, end_y, side) in [
+        (0, 0, 0, 8, 4),
+        (8, 0, 0, 8, 4),
+        (0, 8, 0, 0, 4),
+        (0, 8, 8, 0, 4),
+        (0, 8, 0, 8, 0),
+        (0, 8, 0, 8, -4),
+    ] {
+        assert!(
+            ChunkWindow::for_cells(start_x, end_x, start_y, end_y, side).is_err(),
+            "{start_x}..{end_x} x {start_y}..{end_y} side {side}"
+        );
+    }
+    assert!(ChunkWindow::for_cells(0, 1, 0, 1, 4).is_ok());
+}
+
+/// Startup drops every chunk row a job left unpublished, in any generation, and counts them; published rows stay.
+#[test]
+fn discarding_unpublished_chunks_drops_and_counts_every_unpublished_row_only() {
+    let root = crate::test_scratch::TestScratch::new("canopi-discard-chunks");
+    std::fs::create_dir_all(&root).unwrap();
+    let connection = open(&root.join("catalogue.sqlite")).unwrap();
+    connection
+        .execute(
+            "INSERT INTO lidar_raster_assets(
+                sha256, rel_path, bytes, profile, width, height, geotransform, crs_ref, nodata, created_at)
+             VALUES('sha-chunk', 'assets/sha-chunk/cog.tif', 8, 'cog-f32-t256-raw-v1',
+                1024, 1024, '[0,1,0,0,0,-1]', 'EPSG:3857', NULL, '1')",
+            [],
+        )
+        .unwrap();
+    let rows = |positions: &[(i64, i64)]| -> Vec<GenerationChunkRow> {
+        positions
+            .iter()
+            .map(|&(chunk_x, chunk_y)| GenerationChunkRow {
+                role: "resolved".to_string(),
+                chunk_x,
+                chunk_y,
+                asset_sha256: "sha-chunk".to_string(),
+                valid_cells: 1,
+                min_value: 1.0,
+                max_value: 1.0,
+                sum_value: 1.0,
+            })
+            .collect()
+    };
+    insert_unpublished_chunks(&connection, "gen-kept", &rows(&[(0, 0)])).unwrap();
+    publish_generation_chunks(&connection, "gen-kept").unwrap();
+    insert_unpublished_chunks(&connection, "gen-a", &rows(&[(0, 0), (1, 0)])).unwrap();
+    insert_unpublished_chunks(&connection, "gen-b", &rows(&[(0, 0)])).unwrap();
+
+    assert_eq!(discard_unpublished_chunks(&connection).unwrap(), 3);
+
+    for generation in ["gen-a", "gen-b"] {
+        assert_eq!(
+            publish_generation_chunks(&connection, generation).unwrap(),
+            0,
+            "{generation} has no row left to publish"
+        );
+    }
+    let kept = generation_chunk_page(&connection, "gen-kept", "resolved", None, None, 10).unwrap();
+    assert_eq!(kept.len(), 1, "a published row stays readable");
+    assert_eq!(discard_unpublished_chunks(&connection).unwrap(), 0);
+    drop(connection);
+    let _ = std::fs::remove_dir_all(root);
+}
+
+/// An analysis reads its input at the generation it pinned: that generation of that item, never another item's.
+#[test]
+fn a_layer_generation_reads_the_pinned_generation_of_its_own_item_only() {
+    let root = crate::test_scratch::TestScratch::new("canopi-layer-generation");
+    std::fs::create_dir_all(&root).unwrap();
+    let connection = open(&root.join("catalogue.sqlite")).unwrap();
+    connection
+        .execute_batch(
+            "INSERT INTO lidar_source_layers(id, name, item_kind, quantity, units, created_at)
+             VALUES('lyr-a', 'A', 'raster', 'ground-elevation', 'm', '1'),
+                   ('lyr-b', 'B', 'raster', 'ground-elevation', 'm', '1');
+             INSERT INTO lidar_layer_generations(
+                id, layer_id, created_at, manifest_json, coverage_cells, min_value, max_value,
+                display_min_value, display_max_value, display_basis, bounds_3857, crs_class)
+             VALUES('gen-a1', 'lyr-a', '1', '{\"m\":1}', 42, -1.5, 9.5, 0.0, 8.0, 'percentile',
+                '[0,0,1,1]', 'projected-metre');",
+        )
+        .unwrap();
+    let row = layer_generation(&connection, "lyr-a", "gen-a1")
+        .unwrap()
+        .expect("the pinned generation");
+    assert_eq!(
+        (
+            row.id.as_str(),
+            row.manifest_json.as_str(),
+            row.coverage_cells,
+            row.min_value,
+            row.max_value,
+        ),
+        ("gen-a1", "{\"m\":1}", Some(42), Some(-1.5), Some(9.5))
+    );
+    assert_eq!(
+        (
+            row.display_min_value,
+            row.display_max_value,
+            row.display_basis.as_deref(),
+            row.bounds_3857.as_str(),
+            row.crs_class.as_str(),
+        ),
+        (
+            Some(0.0),
+            Some(8.0),
+            Some("percentile"),
+            "[0,0,1,1]",
+            "projected-metre"
+        )
+    );
+    assert!(
+        layer_generation(&connection, "lyr-b", "gen-a1")
+            .unwrap()
+            .is_none()
+    );
+    assert!(
+        layer_generation(&connection, "lyr-a", "gen-a2")
+            .unwrap()
+            .is_none()
+    );
+    drop(connection);
+    let _ = std::fs::remove_dir_all(root);
+}
