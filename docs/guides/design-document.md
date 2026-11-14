@@ -8,7 +8,7 @@ The `.canopi` file, the Design session (open, continuous save, replacement, clos
 
 ## Authorities and boundaries
 
-- **Scene runtime** (`SceneStore` behind `SceneCanvasRuntime`) owns plants, zones, annotations, measurement guides, groups, locks, Design layers and the per-species colour, symbol and code maps. It changes only through runtime transactions; panels read it through `CanvasQuerySurface`. Every write carries the live view as `map_view`; Save always writes, a pan never does (U28, U30; `design-map-view.test.ts`).
+- **Scene runtime** (`SceneStore` behind `SceneCanvasRuntime`) owns plants, zones, annotations, measurement guides, groups, locks, Design layers and the per-species colour, symbol and code maps. It changes only through runtime transactions; panels read it through `CanvasQuerySurface`. Every write carries the live view as `map_view`; Save always writes, a pan never (U28, U30; `design-map-view.test.ts`).
 - **Design Edit** (`app/design-edit/`) owns `name`, `description`, `budget`, `budget_currency`, `timeline`, `consortiums`, `lidar` entries, `views`, `stories`, `created_at`, `extra.plant_display` and unknown root keys under `extra`: all of `extra`. Nothing else writes them; its key names live in `app/design-edit/extra-keys.ts` and go through `readExtra`/`withExtra`.
 - **Settings** (`canopi-types/src/settings.rs`) own device state: locale, theme, map layers, `soften_background`, `scroll_wheel`, the Google key and `satellite_source`, `last_view` (centre and zoom), snapping, tool-rail learning, single-key shortcuts and New Design defaults. A setting never travels with a file; a Design field never depends on the device.
 - **Undo** covers Scene edits only. Design Edit commands, map layers and settings are not undoable.
@@ -18,7 +18,7 @@ The `.canopi` file, the Design session (open, continuous save, replacement, clos
 
 ## Rules
 
-- Only version 9 (`CURRENT_CANOPI_FILE_VERSION`) opens. Any other version, or none, fails with `unsupported_version` before the active Design changes, and the file is never written. (conformance corpus)
+- Version 9 (`CURRENT_CANOPI_FILE_VERSION`) opens to edit. A newer one the format core reads (`isSavedByNewerCanopi`) opens as the read-only Session (`origin: 'newer-version'`): no home, Draft id or save; Design Edit refuses edits; its `ReadOnlyDesign` reaches no save, Draft or export (2.1-M478, M479). Any other version, or none, fails with `unsupported_version` before the active Design changes; neither is written. (conformance corpus, `read-only-session.test.ts`)
 - The typed `DesignLoadFailure` makes versions 1 to 8 read as made before 2.0 (`start.cantReadOlderVersion`), never as damaged, and every open path tells the user through `document-session/open-failure.ts`. (`canopi-design-decoder.test.ts`, `design-open-failure.test.ts`)
 - `DESIGN_FILE_FIELDS` names every root field and its owner (a new one also gets conformance cases); `known-canopi-keys.ts` and `composeDocumentForSave()` (`app/contracts/document.ts`) derive from it. (`bindings-gen` fails on divergence; `npm run check:types`)
 - A root `extra` key is refused as `invalid_document`; any other unknown root key (1.x's `location` or `spatial_frame` included) is carried: in memory unknown roots live under `CanopiFile.extra`, and the encoder spreads them first so known fields win. Plant, zone, annotation, guide and group ids are required, unique and non-empty; nothing invents a missing one. (conformance corpus)
@@ -37,14 +37,14 @@ The `.canopi` file, the Design session (open, continuous save, replacement, clos
 - Continuous save restarts a 1500 ms timer per committed change, coalesces writes and flushes on blur, hide, `pagehide`, replacement and close. (`continuous-save.test.ts`, `web-design-session.test.ts`)
 - Dirty means "not yet written to the home": the canvas compares `SceneHistory` state identities, never depth; `persistenceDiverged` keeps a Design dirty when a write captured an older snapshot; nobody writes `designDirty` directly. (`dirty-state.test.ts`, `scene-history-checkpoint.test.ts`)
 - A file write carries the SHA-256 fingerprint it expects (`desktop/src/services/design_files.rs`); a mismatch returns `Conflict` and pauses continuous save until the user chooses Keep mine, Use the file's version or Save a copy. `null` overwrites (Save As). (`design_files.rs` tests, `continuous-save.test.ts`)
-- Native writes are durable: `write_file_durably()` (`desktop/src/design/mod.rs`) for Designs, Drafts and derived output. (`design/mod.rs` tests)
+- Native writes are durable: `write_file_durably()` for Designs, Drafts and derived output. (`design/mod.rs` tests)
 - A dialog answer applies only to the session that asked: capture `continuousSave.sessionToken()` first. (`continuous-save.test.ts`)
 - Desktop Drafts live in `{app_data}/drafts/<id>.canopi`, ids `[a-z0-9-]{1,64}`; Web homes are browser Drafts (`web/browser-app-data.ts`), decoded one by one so a corrupt Draft discards nothing else. Older Drafts, like the 1.x autosave store and Web document, stay where they are, unread and unlisted (ADR 0021); only the 1.x data is told, once. (`drafts.rs` tests, `browser-app-data.test.ts`)
 - An unparseable settings record is set aside under `settings.set-aside` and replaced by defaults; unknown keys are ignored, never re-emitted; the log names a position, never the record. (`services/settings.rs` tests)
 - Settings mutate through `mutateSettingsProjection()`; 60 fps paths commit at gesture end; await `flushSettingsProjection()` when durability gates a transition. (`settings-projection.test.ts`)
 - New Design defaults apply once at creation (`app/settings/new-design-defaults.ts`), never to an opened Design. (`document-actions.test.ts`)
 - GeoJSON is a derived exchange format: `app/geojson/codec.ts` is pure; export reads settled lon/lat; import decodes the whole file before one undoable `importDesignObjects()` placement with fresh ids. (`geojson-*.test.ts`)
-- Stamp export writes a current-version `.canopi` of the visible objects. A stamp payload is version 2 (`canvas/saved-object-stamp-payload.ts`); any other version is refused. (`saved-object-stamp-file.test.ts`, `saved-object-stamp-source.test.ts`)
+- Stamp export writes a current-version `.canopi` of the visible objects. A stamp payload is version 2; any other version is refused. (`saved-object-stamp-file.test.ts`, `saved-object-stamp-source.test.ts`)
 
 ## Do not
 
@@ -59,12 +59,6 @@ The `.canopi` file, the Design session (open, continuous save, replacement, clos
 | Area | Module | Tests |
 |---|---|---|
 | Format, owners, limits | `canopi-types/src/design.rs`, `design/` (admission, field path), `views.rs`, `lidar.rs`; native schema walk `canopi-format/src/schema.rs` (v9 schema `desktop/src/design/schema_admission.rs`), v10 read `canopi-format/src/read.rs` | `canopi-types/canopi-design-conformance.json`, `desktop/src/design/format.rs` |
-| Web admission and wire | `app/contracts/` | `canopi-design-*`, `file-format-round-trip` |
-| Geo rounding, re-origin | `canvas/runtime/scene/geo-frame.ts`, `scene-runtime/reorigin.ts` | `reorigin.test.ts`, `geolocated-design-codec` |
-| Design Edit | `app/design-edit/` | `design-edit-*`, the `design-edit-authority-*` policy rules |
-| Views, stories, images | `app/saved-views/`, `app/stories/` | `saved-views*`, `story-*` |
 | Session, save, replacement | `app/document-session/` | `continuous-save*`, `document-session-*`, `design-session-*` |
 | Web session | `web/browser-design-session.ts`, `web/browser-app-data.ts` | `web-design-session`, `web-canvas-workspace` |
 | Native files, Drafts, previews | `desktop/src/design/`, `services/design_files.rs`, `recent_design_previews.rs` | inline tests |
-| GeoJSON | `app/geojson/` | `geojson-*` |
-| Settings | `canopi-types/src/settings.rs`, `app/settings/` | `settings-*` |
