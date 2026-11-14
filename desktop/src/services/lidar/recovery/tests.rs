@@ -235,6 +235,8 @@ fn canopi_tavc_inspection_keeps_a_corrupt_file_corrupt_and_a_locked_one_unreadab
         "CREATE TABLE other (x)",
         "CREATE TABLE lidar_catalogue_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
          INSERT INTO lidar_catalogue_meta VALUES ('schema_version', 'twenty-six');",
+        "CREATE TABLE lidar_catalogue_meta (key, value);
+         INSERT INTO lidar_catalogue_meta VALUES ('schema_version', X'1A');",
     ] {
         let _ = std::fs::remove_file(&path);
         Connection::open(&path).unwrap().execute_batch(sql).unwrap();
@@ -255,5 +257,74 @@ fn canopi_tavc_inspection_keeps_a_corrupt_file_corrupt_and_a_locked_one_unreadab
         inspect(&path)
     );
     assert_eq!(std::fs::read(&path).unwrap(), before);
+    holder.execute_batch("ROLLBACK").unwrap();
+}
+
+/// A directory where the catalogue file belongs is no catalogue SQLite names damaged, and moving it aside would
+/// set aside whatever it holds: the library is unavailable and the directory stays (canopi-tavc).
+#[test]
+fn canopi_tavc_a_directory_at_the_catalogue_path_is_unreadable_and_left_in_place() {
+    let root = crate::test_scratch::TestScratch::new("canopi-catalogue-directory");
+    let paths = LidarPaths::open(&root).unwrap();
+    std::fs::create_dir(paths.catalogue_path()).unwrap();
+    std::fs::write(paths.catalogue_path().join("kept"), b"kept").unwrap();
+
+    let state = inspect(&paths.catalogue_path());
+    assert!(matches!(state, CatalogueState::Unreadable(_)), "{state:?}");
+    let opened = open_catalogue(&paths, state).unwrap();
+
+    assert!(
+        matches!(opened.status, LibraryOpenStatus::Unavailable { .. }),
+        "{:?}",
+        opened.status
+    );
+    assert_eq!(
+        std::fs::read(paths.catalogue_path().join("kept")).unwrap(),
+        b"kept"
+    );
+    assert!(!paths.set_aside_dir().exists(), "nothing is set aside");
+}
+
+/// A current catalogue whose integrity check cannot run, or whose read-write open fails, is no catalogue SQLite
+/// names damaged: under another connection's lock both fail, and the file stays where it is, unrebuilt, while the
+/// library is unavailable (canopi-tavc).
+#[test]
+fn canopi_tavc_a_current_catalogue_whose_check_or_open_meets_a_lock_is_left_in_place() {
+    let root = crate::test_scratch::TestScratch::new("canopi-catalogue-current-locked");
+    let paths = LidarPaths::open(&root).unwrap();
+    let path = paths.catalogue_path();
+    drop(catalogue::open(&path).unwrap());
+    // Rollback-journal mode, where an exclusive lock keeps every reader out.
+    Connection::open(&path)
+        .unwrap()
+        .pragma_update(None, "journal_mode", "DELETE")
+        .unwrap();
+    let holder = Connection::open(&path).unwrap();
+    holder
+        .execute_batch("BEGIN EXCLUSIVE; CREATE TABLE held (x);")
+        .unwrap();
+    let before = std::fs::read(&path).unwrap();
+
+    assert!(
+        matches!(
+            catalogue::quick_check(&path),
+            Err(catalogue::UnreadCatalogue::Unavailable(_))
+        ),
+        "{:?}",
+        catalogue::quick_check(&path)
+    );
+    let opened = open_catalogue(&paths, CatalogueState::Current).unwrap();
+
+    assert!(
+        matches!(opened.status, LibraryOpenStatus::Unavailable { .. }),
+        "{:?}",
+        opened.status
+    );
+    assert_eq!(
+        std::fs::read(&path).unwrap(),
+        before,
+        "the catalogue stays in place"
+    );
+    assert!(!paths.set_aside_dir().exists(), "nothing is set aside");
     holder.execute_batch("ROLLBACK").unwrap();
 }

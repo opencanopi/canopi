@@ -212,8 +212,8 @@ impl LidarLibrary {
     ///
     /// A bad catalogue never stops the app: an older or corrupt one is set
     /// aside and rebuilt from the originals (`recovery.rs`). A newer one is
-    /// listed read-only (`catalogue_reader.rs`), one SQLite reads only through a
-    /// write is unavailable, and for either the library writes nothing:
+    /// listed read-only (`catalogue_reader.rs`), one SQLite cannot read for a reason other
+    /// than damage is unavailable, and for either the library writes nothing:
     /// no directory, no display cache file, no recovery or sweep (2.1-M488).
     /// The display cache and the startup sweep are best effort too. Only the
     /// managed directories failing to exist is an error.

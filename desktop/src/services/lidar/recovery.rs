@@ -6,9 +6,11 @@
 //! and a failed import job whose saved selection is the managed originals, so
 //! Retry prepares them again on demand; analysis definitions come back with
 //! their outputs unpublished, so Retry runs them again once their inputs are
-//! ready. A newer catalogue is read and never written: the library lists its
-//! items read-only (`catalogue_reader.rs`); one SQLite can read only through a
-//! write is left as it is, unavailable. Nothing here ever deletes an original.
+//! ready. Only damage SQLite or Canopi names (`catalogue::UnreadCatalogue`)
+//! counts as corrupt; a catalogue that cannot be read or opened for any other
+//! reason is left as it is, unavailable. A newer catalogue is read and never
+//! written: the library lists its items read-only (`catalogue_reader.rs`).
+//! Nothing here ever deletes an original.
 
 use super::catalogue::{self, new_id, now_iso};
 use super::paths::LidarPaths;
@@ -32,9 +34,9 @@ pub enum CatalogueState {
     Current,
     Older(i32),
     Newer(i32),
-    /// SQLite reaches the file only through a write: a hot journal to roll back, a WAL it cannot index, or another
-    /// process's lock. A read-only open never makes that write, so the version is unknown and nothing is touched:
-    /// no set-aside, rebuild or directory (2.1-M480, 2.1-M488).
+    /// SQLite could not read the file for a reason that is not damage: a write it would need first (a hot journal,
+    /// a WAL it cannot index), another process's lock, a failing filesystem or memory. The version or integrity is
+    /// unknown, so nothing is touched: no set-aside, rebuild or directory (2.1-M480, 2.1-M488).
     Unreadable(String),
     Corrupt(String),
 }
@@ -44,8 +46,8 @@ pub fn inspect(path: &Path) -> CatalogueState {
         return CatalogueState::Missing;
     };
     match catalogue::stored_version(path) {
-        Err(catalogue::UnreadVersion::NeedsWrite(reason)) => CatalogueState::Unreadable(reason),
-        Err(catalogue::UnreadVersion::Damaged(reason)) => CatalogueState::Corrupt(reason),
+        Err(catalogue::UnreadCatalogue::Unavailable(reason)) => CatalogueState::Unreadable(reason),
+        Err(catalogue::UnreadCatalogue::Damaged(reason)) => CatalogueState::Corrupt(reason),
         // SQLite leaves a zero-length file behind when a catalogue was
         // opened but never created; that is an empty library, not damage.
         Ok(None) if metadata.len() == 0 => CatalogueState::Missing,
@@ -53,7 +55,10 @@ pub fn inspect(path: &Path) -> CatalogueState {
         Ok(Some(version)) if version == catalogue::CATALOGUE_VERSION => {
             match catalogue::quick_check(path) {
                 Ok(()) => CatalogueState::Current,
-                Err(reason) => CatalogueState::Corrupt(reason),
+                Err(catalogue::UnreadCatalogue::Unavailable(reason)) => {
+                    CatalogueState::Unreadable(reason)
+                }
+                Err(catalogue::UnreadCatalogue::Damaged(reason)) => CatalogueState::Corrupt(reason),
             }
         }
         Ok(Some(version)) if version < catalogue::CATALOGUE_VERSION => {
@@ -144,7 +149,8 @@ pub fn open_catalogue(
                 connection,
                 status: LibraryOpenStatus::Ready,
             }),
-            Err(reason) => recover(paths, RecoveryReason::Corrupt(reason)),
+            // Read as current or absent, so a failing read-write open (a lock, a filesystem) is no proof of damage.
+            Err(reason) => in_memory(LibraryOpenStatus::Unavailable { reason }),
         },
         CatalogueState::Older(version) => recover(paths, RecoveryReason::OlderVersion(version)),
         CatalogueState::Corrupt(reason) => recover(paths, RecoveryReason::Corrupt(reason)),

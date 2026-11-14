@@ -26,6 +26,7 @@ ignores:
   - "desktop/src/native_operation/tests/**"
   - "desktop/src/services/lidar/analyses/tests/**"
   - "desktop/src/services/lidar/analysis_registry_generated.rs"
+  - "desktop/src/services/lidar/catalogue/test_oracle.rs"
   - "desktop/src/services/lidar/catalogue/tests.rs"
   - "desktop/src/services/lidar/acceptance_hooks.rs"
   - "desktop/src/services/lidar/e2e.rs"

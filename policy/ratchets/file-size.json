@@ -27,7 +27,7 @@
     "desktop/src/native_command_policy.rs": { "count": 1752 },
     "desktop/src/services/design_files.rs": { "count": 779 },
     "desktop/src/services/lidar/analyses/mod.rs": { "count": 1020 },
-    "desktop/src/services/lidar/catalogue.rs": { "count": 1620 },
+    "desktop/src/services/lidar/catalogue.rs": { "count": 1617 },
     "desktop/src/services/lidar/display_cog.rs": { "count": 2950 },
     "desktop/src/services/lidar/e2e.rs": { "count": 752 },
     "desktop/src/services/lidar/fixed_library_tests.rs": { "count": 2462 },

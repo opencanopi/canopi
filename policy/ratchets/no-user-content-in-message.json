@@ -36,7 +36,7 @@
       "bead": "canopi-ds03"
     },
     "desktop/src/services/lidar/catalogue.rs": {
-      "count": 2,
+      "count": 1,
       "bead": "canopi-f47t.52.61"
     },
     "desktop/src/services/lidar/display_cog.rs": {

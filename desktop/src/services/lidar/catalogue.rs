@@ -26,7 +26,7 @@ pub fn open(path: &std::path::Path) -> Result<Connection, String> {
     connection
         .pragma_update(None, "foreign_keys", "ON")
         .map_err(|e| format!("Failed to enable foreign keys: {e}"))?;
-    match schema_version(&connection)? {
+    match schema_version(&connection).map_err(UnreadCatalogue::into_reason)? {
         None => create_schema(&connection)?,
         Some(CATALOGUE_VERSION) => {}
         Some(other) => {
@@ -50,53 +50,72 @@ pub fn open_in_memory() -> Result<Connection, String> {
     Ok(connection)
 }
 
-/// SQLite's bounded integrity check of an existing catalogue file.
-pub fn quick_check(path: &std::path::Path) -> Result<(), String> {
-    let connection = Connection::open_with_flags(path, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)
-        .map_err(|e| format!("Failed to open LiDAR catalogue {}: {e}", path.display()))?;
-    let verdict: String = connection
-        .query_row("PRAGMA quick_check(1)", [], |row| row.get(0))
-        .map_err(|e| format!("LiDAR catalogue integrity check failed: {e}"))?;
-    if verdict == "ok" {
-        Ok(())
-    } else {
-        Err(format!("LiDAR catalogue integrity check failed: {verdict}"))
-    }
-}
-
-/// Why `stored_version` read no version.
+/// Why an existing catalogue file could not be read. Only a failure SQLite or Canopi names as damage is `Damaged`,
+/// the one kind recovery sets aside and rebuilds (ADR 0021); every other failure leaves the file as it is.
 #[derive(Debug)]
-pub enum UnreadVersion {
-    /// SQLite reaches the file only through a write: a hot journal to roll back, a WAL it cannot index, or another
-    /// connection's lock. The read-only open never makes it (2.1-M480).
-    NeedsWrite(String),
-    /// Not a catalogue SQLite can read: no database, damaged pages, no version table or an unparsable version.
+pub enum UnreadCatalogue {
+    /// Not readable now, for a reason that is not the file: a write SQLite would need first (a hot journal, a WAL
+    /// it cannot index), another connection's lock, a filesystem whose reads, locks or shared memory fail, or no
+    /// memory (2.1-M480).
+    Unavailable(String),
+    /// Damaged: not a database, corrupt pages, no version table, an unparsable version or a failed integrity check.
     Damaged(String),
 }
 
-/// Schema version recorded in an existing catalogue file, or `None` when the file is absent or has never been
-/// initialised. The first read is where SQLite meets a hot journal or a lock, so its failure is classified there;
-/// the read transaction keeps the shared lock it takes, so no later read of the version meets a lock instead.
-pub fn stored_version(path: &std::path::Path) -> Result<Option<i32>, UnreadVersion> {
-    use rusqlite::ErrorCode::{CannotOpen, DatabaseBusy, DatabaseLocked, ReadOnly};
-    let unread = |e: rusqlite::Error| {
-        let reason = format!("Failed to read the LiDAR catalogue: {e}");
-        match e.sqlite_error_code() {
-            Some(ReadOnly | CannotOpen | DatabaseBusy | DatabaseLocked) => {
-                UnreadVersion::NeedsWrite(reason)
+impl UnreadCatalogue {
+    /// A failed read, classified by the allowlist of damage: SQLite's NotADatabase and DatabaseCorrupt, and a
+    /// version value of the wrong type.
+    fn of(error: rusqlite::Error) -> Self {
+        use rusqlite::ErrorCode::{DatabaseCorrupt, NotADatabase};
+        let reason = format!("Failed to read the LiDAR catalogue: {error}");
+        match error {
+            rusqlite::Error::SqliteFailure(failure, _)
+                if matches!(failure.code, NotADatabase | DatabaseCorrupt) =>
+            {
+                Self::Damaged(reason)
             }
-            _ => UnreadVersion::Damaged(reason),
+            rusqlite::Error::InvalidColumnType(..)
+            | rusqlite::Error::FromSqlConversionFailure(..) => Self::Damaged(reason),
+            _ => Self::Unavailable(reason),
         }
-    };
+    }
+
+    pub fn into_reason(self) -> String {
+        match self {
+            Self::Unavailable(reason) | Self::Damaged(reason) => reason,
+        }
+    }
+}
+
+/// SQLite's bounded integrity check of an existing catalogue file: `Damaged` for a verdict other than "ok" or a
+/// damage code, `Unavailable` when the check cannot run.
+pub fn quick_check(path: &std::path::Path) -> Result<(), UnreadCatalogue> {
+    let connection = Connection::open_with_flags(path, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)
+        .map_err(UnreadCatalogue::of)?;
+    let verdict: String = connection
+        .query_row("PRAGMA quick_check(1)", [], |row| row.get(0))
+        .map_err(UnreadCatalogue::of)?;
+    if verdict == "ok" {
+        Ok(())
+    } else {
+        Err(UnreadCatalogue::Damaged(format!(
+            "LiDAR catalogue integrity check failed: {verdict}"
+        )))
+    }
+}
+
+/// Schema version recorded in an existing catalogue file, or `None` when the file is absent or has never been
+/// initialised. Its reads share one read transaction, so the shared lock the first takes holds for the rest.
+pub fn stored_version(path: &std::path::Path) -> Result<Option<i32>, UnreadCatalogue> {
     if !path.exists() {
         return Ok(None);
     }
     let connection = Connection::open_with_flags(path, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)
-        .map_err(unread)?;
-    let read = connection.unchecked_transaction().map_err(unread)?;
-    read.query_row("SELECT count(*) FROM sqlite_master", [], |_| Ok(()))
-        .map_err(unread)?;
-    schema_version(&read).map_err(UnreadVersion::Damaged)
+        .map_err(UnreadCatalogue::of)?;
+    let read = connection
+        .unchecked_transaction()
+        .map_err(UnreadCatalogue::of)?;
+    schema_version(&read)
 }
 
 /// The `library_items(id, kind, lineage_tag, name)` rows of a catalogue at version 26 or later, its frozen read
@@ -118,7 +137,7 @@ pub fn newer_items(path: &std::path::Path) -> Result<super::catalogue_reader::Ne
     Ok(super::catalogue_reader::decode(rows))
 }
 
-fn schema_version(connection: &Connection) -> Result<Option<i32>, String> {
+fn schema_version(connection: &Connection) -> Result<Option<i32>, UnreadCatalogue> {
     let has_meta: bool = connection
         .query_row(
             "SELECT EXISTS(SELECT 1 FROM sqlite_master
@@ -126,7 +145,7 @@ fn schema_version(connection: &Connection) -> Result<Option<i32>, String> {
             [],
             |row| row.get(0),
         )
-        .map_err(|e| format!("Failed to read catalogue version: {e}"))?;
+        .map_err(UnreadCatalogue::of)?;
     if !has_meta {
         return Ok(None);
     }
@@ -137,11 +156,13 @@ fn schema_version(connection: &Connection) -> Result<Option<i32>, String> {
             |row| row.get::<_, String>(0),
         )
         .optional()
-        .map_err(|e| format!("Failed to read catalogue version: {e}"))?
+        .map_err(UnreadCatalogue::of)?
         .map(|value| {
-            value
-                .parse()
-                .map_err(|_| format!("LiDAR catalogue has an unreadable schema version {value:?}"))
+            value.parse().map_err(|_| {
+                UnreadCatalogue::Damaged(format!(
+                    "LiDAR catalogue has an unreadable schema version {value:?}"
+                ))
+            })
         })
         .transpose()
 }
@@ -1499,34 +1520,6 @@ pub fn generation_chunk_page(
     Ok(rows)
 }
 
-/// Published chunk references of one generation and role, ordered by position.
-///
-/// Only `published` rows are selected: an unpublished row belongs to a job
-/// that has not committed, so it must never be readable.
-///
-/// Test oracle only: production readers page through
-/// [`generation_chunk_page`] and never load a generation's whole record set.
-#[cfg(test)]
-pub fn generation_chunk_assets(
-    connection: &Connection,
-    generation_id: &str,
-    role: &str,
-) -> Result<Vec<ChunkAssetRow>, String> {
-    let sql = format!(
-        "{CHUNK_ASSET_COLUMNS}
-     WHERE g.generation_id = ?1 AND g.role = ?2 AND g.state = 'published'
-     ORDER BY g.chunk_y, g.chunk_x"
-    );
-    let mut statement = connection
-        .prepare(&sql)
-        .map_err(|e| format!("Failed to prepare chunk asset query: {e}"))?;
-    statement
-        .query_map(rusqlite::params![generation_id, role], map_chunk_row)
-        .map_err(|e| format!("Failed to read chunk assets: {e}"))?
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(|e| format!("Failed to read chunk assets: {e}"))
-}
-
 /// Drop chunk rows a job left behind before it committed a generation.
 ///
 /// Unpublished rows are never readable, so removing them cannot revoke an
@@ -1617,4 +1610,8 @@ pub fn publish_generation_chunks(
 }
 
 #[cfg(test)]
+mod test_oracle;
+#[cfg(test)]
 mod tests;
+#[cfg(test)]
+pub use test_oracle::generation_chunk_assets;
