@@ -135,8 +135,8 @@ fn a_v21_catalogue_is_set_aside_and_rebuilt_with_its_ids_kept() {
 }
 
 /// A `-wal` left behind would be replayed into the rebuilt catalogue, so a
-/// sidecar that cannot follow the catalogue aside moves nothing back and
-/// the library opens Unavailable instead of being rebuilt over it.
+/// sidecar that cannot be set aside stops the install before its rename: the
+/// old catalogue stays in place and the library opens Unavailable.
 #[cfg(unix)]
 #[test]
 fn a_wal_that_cannot_move_leaves_the_catalogue_in_place_and_unavailable() {

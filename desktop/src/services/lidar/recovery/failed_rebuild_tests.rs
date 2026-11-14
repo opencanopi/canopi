@@ -256,8 +256,8 @@ fn canopi_uidt_the_startup_prune_keeps_every_original_nothing_released() {
     );
 }
 
-/// A stop after the old catalogue (but not its log) was set aside and before the rebuilt one took its place leaves
-/// no catalogue, a staging folder and a stray log: the next start sets the log aside too and rebuilds.
+/// A stop inside an earlier Canopi's set-aside (which moved the catalogue before its log) left no catalogue, a staging
+/// folder and a stray log: the next start rebuilds and moves the log aside, so it is never replayed on the rebuild.
 #[test]
 fn canopi_uidt_a_stop_between_set_aside_and_install_is_rebuilt_at_the_next_start() {
     let (root, paths) = seeded("uidt-stop-install", Vec::new());
@@ -475,16 +475,26 @@ fn canopi_uidt_a_crashed_import_frees_the_original_it_created_at_the_next_start(
     assert_originals_kept(&paths, "the next start");
 }
 
-/// Moving the rebuilt catalogue into place can fail after the old one was set aside (a scanner holding the fresh
-/// file): the old catalogue goes back to its place, so the next start recovers it again.
+/// A failure after the rebuild committed and before the rename (here the set-aside folder refuses the copy) leaves
+/// the old catalogue at its path and no staging folder, so the next start recovers it again.
+#[cfg(unix)]
 #[test]
-fn canopi_uidt_a_rebuild_that_cannot_move_into_place_puts_the_old_catalogue_back() {
-    let (root, paths) = seeded("uidt-move-fails", Vec::new());
+fn canopi_uidt_a_rebuild_that_cannot_set_the_old_catalogue_aside_keeps_it_in_place() {
+    use std::os::unix::fs::PermissionsExt;
+    let (root, paths) = seeded("uidt-set-aside-fails", Vec::new());
     std::fs::write(paths.catalogue_path(), ANY_FILE_BUT_A_DATABASE).unwrap();
+    let set_aside = paths.set_aside_dir();
+    std::fs::create_dir_all(&set_aside).unwrap();
+    std::fs::set_permissions(&set_aside, std::fs::Permissions::from_mode(0o500)).unwrap();
+    if std::fs::write(set_aside.join("probe"), b"").is_ok() {
+        // Run as root: permissions are not enforced, so the folder cannot refuse a write.
+        std::fs::set_permissions(&set_aside, std::fs::Permissions::from_mode(0o755)).unwrap();
+        eprintln!("skipped: permissions are not enforced for this user");
+        return;
+    }
 
-    install::FAIL_MOVE_INTO_PLACE.with(|fail| fail.set(true));
     let first = LidarLibrary::open(&root).expect("start 1");
-    install::FAIL_MOVE_INTO_PLACE.with(|fail| fail.set(false));
+    std::fs::set_permissions(&set_aside, std::fs::Permissions::from_mode(0o755)).unwrap();
 
     assert!(
         matches!(first.open_status(), LibraryOpenStatus::Unavailable { .. }),
@@ -494,12 +504,8 @@ fn canopi_uidt_a_rebuild_that_cannot_move_into_place_puts_the_old_catalogue_back
     drop(first);
     assert!(
         catalogue_unchanged(&paths),
-        "the old catalogue is back in its place"
+        "the old catalogue stays in its place"
     );
-    let aside: Vec<_> = std::fs::read_dir(paths.set_aside_dir())
-        .map(|entries| entries.flatten().map(|entry| entry.path()).collect())
-        .unwrap_or_default();
-    assert!(aside.is_empty(), "nothing stays set aside: {aside:?}");
     assert!(
         staging_left(&paths).is_empty(),
         "{:?}",
@@ -509,6 +515,17 @@ fn canopi_uidt_a_rebuild_that_cannot_move_into_place_puts_the_old_catalogue_back
 
     let second = LidarLibrary::open(&root).expect("start 2");
     assert_recovered(&second, 1, 1, "start 2");
+    drop(second);
+    let copies: Vec<Vec<u8>> = std::fs::read_dir(&set_aside)
+        .unwrap()
+        .flatten()
+        .map(|entry| std::fs::read(entry.path()).unwrap())
+        .collect();
+    assert_eq!(
+        copies,
+        vec![ANY_FILE_BUT_A_DATABASE.to_vec()],
+        "the old catalogue is copied aside, byte for byte"
+    );
 }
 
 /// A staging folder an earlier start could not remove goes at the next start that finds a current catalogue.
