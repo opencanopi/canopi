@@ -168,10 +168,10 @@ export default defineConfig(({ mode }) => {
       // maplibre/camera-driver.test.ts, maplibre/workspace-map.test.ts, __tests__/openfreemap-basemap.test.ts). Builds
       // never resolve it.
       alias: { 'maplibre-gl-source': fileURLToPath(new URL('./node_modules/maplibre-gl/src', import.meta.url)) },
-      // Playwright and WebdriverIO specs (e2e/, e2e-release/) run under their own runners; their `test()` throws in
+      // Playwright and WebdriverIO specs (e2e/, e2e-release/, e2e-rollback/) run under their own runners; their `test()` throws in
       // vitest. The real-app harness's framework-free modules (e2e/platform/) keep their unit tests beside them
       // (`*.test.ts`), which run here (canopi-f47t.52.228.35).
-      exclude: [...configDefaults.exclude, "e2e/**/*.spec.ts", "e2e/!(platform)/**", "e2e-release/**"],
+      exclude: [...configDefaults.exclude, "e2e/**/*.spec.ts", "e2e/!(platform)/**", "e2e-release/**", "e2e-rollback/**"],
       // An unhandled error or rejection fails the run even when every test passes.
       dangerouslyIgnoreUnhandledErrors: false,
       // The app's tests, with every option above, and the repository tooling's: policy/gate's TypeScript and a ported

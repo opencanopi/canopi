@@ -149,24 +149,11 @@ jobs:
           CANOPI_ROLLBACK_FIXTURES: ${{ runner.temp }}/rollback-fixtures
       - name: The Desktop readers wrote no byte
         run: node lane/policy/gate/cli.mjs rollback-fixtures compare "$RUNNER_TEMP/rollback-fixtures" "$RUNNER_TEMP/before.json"
-      # The planted-change self-test: over a copy with one Desktop form made unreadable the harness must fail. While a
-      # candidate's session test still carries its expected-fail ignore (canopi-f47t.52.239), nothing reads the copy,
-      # which the summary says; a reader tag carrying it fails, since a frozen tag would hold the check empty for good.
-      # Once the marker goes, a harness passing over the copy fails the lane.
+      # The planted-change self-test: over a copy with one Desktop form made unreadable the harness must fail.
       - name: The Desktop lane fails on a planted unreadable change
         run: |
           cp -r "$RUNNER_TEMP/rollback-fixtures" "$CANOPI_ROLLBACK_FIXTURES"
           node lane/policy/gate/cli.mjs rollback-fixtures plant "$CANOPI_ROLLBACK_FIXTURES" desktop
-          cargo test -p canopi-desktop --test rollback_reader --locked -- --list --ignored > "$RUNNER_TEMP/ignored.txt"
-          if grep -q 'a_session_over_every_frozen_store_fixture_writes_no_byte' "$RUNNER_TEMP/ignored.txt"; then
-            if [ "$ROLLBACK_MODE" = tag ]; then
-              echo "::error::the reader tag's Desktop session test is still expected-fail (canopi-f47t.52.239), so no reader read the fixtures"
-              exit 1
-            fi
-            echo "::warning::expected-fail (R4 canopi-f47t.52.239): this reader tree's Desktop session test is ignored, so no reader read the planted change"
-            echo "PLANTED desktop: held, the reader tree's Desktop session test is still expected-fail (canopi-f47t.52.239)" >> "$GITHUB_STEP_SUMMARY"
-            exit 0
-          fi
           if cargo test -p canopi-desktop --test rollback_reader --locked; then
             echo "::error::the Desktop readers passed over a planted unreadable change"
             exit 1
@@ -174,7 +161,6 @@ jobs:
           echo "PLANTED desktop: the readers failed on the planted change, as they must" >> "$GITHUB_STEP_SUMMARY"
         env:
           CANOPI_ROLLBACK_FIXTURES: ${{ runner.temp }}/rollback-planted
-          ROLLBACK_MODE: ${{ needs.resolve.outputs.mode }}
 
   reader-web:
     name: Web reader ${{ needs.resolve.outputs.reader }} in ${{ matrix.engine }} writes no byte
@@ -208,9 +194,9 @@ jobs:
             desktop/web/package-lock.json
             lane/desktop/web/package-lock.json
       # The Web build compiles the format worker's module first: the reader tree's toolchain with its wasm32 target, and
-      # the wasm-bindgen CLI at Cargo.lock's version (canopi-format-wasm/build-wasm.test.ts holds the pin to head's lock).
-      # A reader tag whose lock pins another version is refused by its own build-wasm.mjs, naming both. The Playwright
-      # image has no C compiler, which the crates' build scripts link with on the host.
+      # the wasm-bindgen CLI at the version the reader tree's Cargo.lock pins, read by the reader-pins step, since the
+      # reader tree's own build-wasm.mjs refuses any other (policy/gate/rollback-refs.test.ts runs the step). The
+      # Playwright image has no C compiler, which the crates' build scripts link with on the host.
       - name: Install the host C toolchain
         run: |
           timeout 3m apt-get -o Acquire::Retries=5 -o Acquire::http::Timeout=60 update -qq
@@ -221,9 +207,19 @@ jobs:
       # With no argument rustup installs what the reader tree's rust-toolchain.toml pins, its targets included.
       - name: Install the reader tree's Rust toolchain
         run: rustup toolchain install
+      - name: Read the reader tree's wasm-bindgen pin
+        id: reader-pins
+        shell: bash
+        run: |
+          version="$(awk '/^\[\[package\]\]/ { name = "" } /^name = / { name = $3 } /^version = / && name == "\"wasm-bindgen\"" { gsub(/"/, "", $3); print $3 }' ../../Cargo.lock)"
+          if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::the reader tree's Cargo.lock pins no single wasm-bindgen version"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
       - uses: taiki-e/install-action@v2
         with:
-          tool: wasm-bindgen@0.2.130
+          tool: wasm-bindgen@${{ steps.reader-pins.outputs.version }}
       - name: Install the reader tree's frontend deps
         run: npm ci --no-audit --no-fund
       - name: Build the reader tree's Web Edition

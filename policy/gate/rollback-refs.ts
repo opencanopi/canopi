@@ -104,7 +104,10 @@ export function runRollbackRefs(stdin: string, env: NodeJS.ProcessEnv): number {
   }
 }
 
-/** A fixture directory's files, each relative path (forward slashes) to its SHA-256, engine metadata left out. */
+/**
+ * A fixture directory's files, each relative path (forward slashes) to its SHA-256, and its folders, each `path/` to
+ * `directory`, so a folder a reader lays down is a write too; engine metadata left out.
+ */
 export type FixtureSnapshot = Readonly<Record<string, string>>
 
 /** A manifest row, as far as main's lane reads it: the reader's own tests read the rest. */
@@ -113,13 +116,14 @@ interface ManifestForm { readonly store: string, readonly edition: string, reado
 /** SQLite's engine metadata a read-only open may create: a `-shm` file, or a `-wal` holding no page. */
 const engineMetadata = (name: string, bytes: number) => name.endsWith('-shm') || (name.endsWith('-wal') && bytes === 0)
 
-/** Every file under `root` but engine metadata, by relative path, with its SHA-256. */
+/** Every file under `root` but engine metadata, by relative path, with its SHA-256, and every folder under it. */
 export function snapshotFixtures(root: string): FixtureSnapshot {
   const out: Record<string, string> = {}
   const walk = (dir: string) => {
     for (const entry of readdirSync(dir, { withFileTypes: true }).sort((a, b) => (a.name < b.name ? -1 : 1))) {
       const path = join(dir, entry.name)
       if (entry.isDirectory()) {
+        out[`${relative(root, path).split(sep).join('/')}/`] = 'directory'
         walk(path)
         continue
       }
@@ -166,26 +170,25 @@ export function fixtureFaults(root: string): string[] {
 const PLANTED = 'planted: a change the readers cannot read, so their run must fail'
 
 /**
- * The stores the reader release reads, by edition: its harnesses' frozen DESKTOP_STORES
- * (desktop/tests/rollback_reader.rs) and WEB_STORES (desktop/web/e2e-rollback/reader.spec.ts). Both skip a store a
- * later release added, so a change planted there is never read; a later reader release only extends these lists.
+ * The store each edition's change is planted in: one the reader release reads (its harnesses' frozen DESKTOP_STORES in
+ * desktop/tests/rollback_reader.rs and WEB_STORES in desktop/web/e2e-rollback/reader.spec.ts) and whose unreadable form
+ * it refuses without writing. A damaged user DB or Web species list is set aside, a real write, so the plant never goes
+ * there: on Desktop the Design file, which fails to open; on Web the settings record, left untouched while unavailable.
  */
-const READER_RELEASE_STORES: Readonly<Record<string, readonly string[]>> = {
-  desktop: ['canopi_file', 'desktop_draft', 'user_db', 'library_catalogue', 'settings'],
-  web: ['settings', 'web_drafts', 'web_species_lists'],
-}
+const PLANTED_STORE: Readonly<Record<string, string>> = { desktop: 'canopi_file', web: 'settings' }
 
 /**
- * Makes the first `edition` form at `root` whose store the reader release reads unreadable to the readers yet still
- * seedable, so the readers, not the harness, fail on it: a Web record dump (`{key, record}`) keeps its key and gets a
- * record that is no settings or list object; any other form's bytes are replaced. Returns its path.
+ * Makes the first `edition` form at `root` of its planted store unreadable to the readers yet still seedable, so the
+ * readers, not the harness, fail on it: a Web record dump (`{key, record}`) keeps its key and gets a record that is no
+ * settings object; any other form's bytes are replaced. Returns its path.
  */
 export function plantUnreadable(root: string, edition: string): string {
   const forms = manifestForms(root)
   if (typeof forms === 'string') throw new Error(forms)
-  const known = READER_RELEASE_STORES[edition] ?? []
-  const form = forms.find((row) => row.edition === edition && known.includes(row.store))
-  if (!form) throw new Error(`the manifest at ${root} lists no ${edition} form the reader release reads to plant a change in`)
+  const store = PLANTED_STORE[edition]
+  if (!store) throw new Error(`the manifest at ${root} lists no ${edition} form the reader release reads to plant a change in`)
+  const form = forms.find((row) => row.edition === edition && row.store === store)
+  if (!form) throw new Error(`the manifest at ${root} lists no ${edition} ${store} form to plant a change in`)
   const file = join(root, form.path)
   let dump: unknown
   try {
@@ -223,7 +226,7 @@ export function runRollbackFixtures(args: readonly string[], env: NodeJS.Process
     if (mode === 'snapshot' && args.length === 3) {
       const snapshot = snapshotFixtures(dir)
       writeFileSync(other, `${JSON.stringify(snapshot, null, 2)}\n`)
-      say(`Rollback fixtures: ${Object.keys(snapshot).length} files hashed under ${dir}.`)
+      say(`Rollback fixtures: ${Object.values(snapshot).filter((hash) => hash !== 'directory').length} files hashed under ${dir}.`)
       return 0
     }
     if (mode === 'compare' && args.length === 3) {

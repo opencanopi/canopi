@@ -20,6 +20,9 @@ mod module_layering;
 #[cfg(test)]
 mod native_command_policy;
 mod native_operation;
+/// The rollback harness's reader session (`desktop/tests/rollback_reader.rs`); not app API.
+#[doc(hidden)]
+pub mod reader_session;
 mod services;
 #[cfg(test)]
 mod test_scratch;

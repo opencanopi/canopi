@@ -13,7 +13,7 @@ import { cleanEnv, REPO_ROOT } from './planted-repo.ts'
 import { LAST_BEFORE_READERS, outputLines, resolveRollbackRefs } from './rollback-refs.ts'
 
 const { parse } = createRequire(join(REPO_ROOT, 'desktop/web/package.json'))('yaml') as typeof Yaml
-type Step = { name?: string, uses?: string, run?: string, if?: string, with?: Record<string, unknown>,
+type Step = { name?: string, id?: string, uses?: string, run?: string, if?: string, with?: Record<string, unknown>,
   env?: Record<string, string>, 'continue-on-error'?: unknown, 'working-directory'?: string }
 type Job = { steps: Step[], 'continue-on-error'?: unknown, needs?: string | string[], outputs?: Record<string, string> }
 const ROLLBACK = parse(readFileSync(join(REPO_ROOT, '.github/workflows/rollback.yml'), 'utf8')) as { jobs: Record<string, Job>,
@@ -201,46 +201,36 @@ describe('rollback.yml (canopi-f47t.52.239)', () => {
     expect(run(stepOf('writer', 'the_writer_lays_down'), { RUNNER_TEMP: dir }).status).toBe(101)
   })
 
-  /** A cargo that lists `ignored` for `--list` and otherwise exits `status`. */
-  const fakeCargo = (ignored: string, status: number) => {
-    writeFileSync(join(dir, 'list.out'), ignored)
-    writeFileSync(join(dir, 'cargo'), `#!/usr/bin/env bash\nif [[ "$*" == *--list* ]]; then cat "${join(dir, 'list.out')}"; exit 0; fi\nexit ${status}\n`)
-    chmodSync(join(dir, 'cargo'), 0o755)
-  }
-
-  it('canopi-f47t.52.239: planted run passes: the Desktop lane fails when its readers pass over the planted change, held only while the session test is expected-fail', () => {
+  it('canopi-f47t.52.239: planted run passes: the Desktop lane fails when its readers pass over the planted change', () => {
     const planted = stepOf('reader-desktop', 'rollback-fixtures plant')
     mkdirSync(join(dir, 'rollback-fixtures'))
     fake('node', '')
     const env = { RUNNER_TEMP: dir, CANOPI_ROLLBACK_FIXTURES: join(dir, 'planted') }
     const again = () => rmSync(join(dir, 'planted'), { recursive: true, force: true })
-    fakeCargo('', 0)
-    let result = run(planted, env)
+    fake('cargo', '', 0)
+    const result = run(planted, env)
     expect(result.status).toBe(1)
     expect(result.stdout).toContain('::error::the Desktop readers passed over a planted unreadable change')
     again()
-    fakeCargo('', 101)
+    fake('cargo', '', 101)
     expect(run(planted, env).status).toBe(0)
     expect(readFileSync(join(dir, 'summary'), 'utf8')).toContain('PLANTED desktop: the readers failed on the planted change')
-    again()
-    fakeCargo('reader::r4_canopi_f47t_52_239_a_session_over_every_frozen_store_fixture_writes_no_byte_on_desktop: test\n', 0)
-    result = run(planted, env)
-    expect(result.status).toBe(0)
-    expect(result.stdout).toContain('::warning::expected-fail (R4 canopi-f47t.52.239)')
   })
 
-  it('canopi-f47t.52.239: a reader tag whose Desktop session test is still expected-fail fails the planted-change step, never held', () => {
+  it('canopi-f47t.52.239: the Desktop planted-change step holds for no ignored test and no mode: a reader passing over the change fails it', () => {
+    // No tree the lane builds marks its session test expected-fail since c60bf2b6b, so nothing may hold the check empty.
     const planted = stepOf('reader-desktop', 'rollback-fixtures plant')
-    expect(planted.env?.['ROLLBACK_MODE']).toBe('${{ needs.resolve.outputs.mode }}')
+    expect(planted.run).not.toContain('--ignored')
+    expect(planted.env).toEqual({ CANOPI_ROLLBACK_FIXTURES: '${{ runner.temp }}/rollback-planted' })
     mkdirSync(join(dir, 'rollback-fixtures'))
     fake('node', '')
-    fakeCargo('reader::r4_canopi_f47t_52_239_a_session_over_every_frozen_store_fixture_writes_no_byte_on_desktop: test\n', 0)
-    const env = { RUNNER_TEMP: dir, CANOPI_ROLLBACK_FIXTURES: join(dir, 'planted') }
-    const result = run(planted, { ...env, ROLLBACK_MODE: 'tag' })
-    expect(result.status).toBe(1)
-    expect(result.stdout).toContain('::error::the reader tag\'s Desktop session test is still expected-fail')
-    rmSync(join(dir, 'planted'), { recursive: true, force: true })
-    expect(run(planted, { ...env, ROLLBACK_MODE: 'candidate' }).status).toBe(0)
+    fake('cargo', 'reader::r4_canopi_f47t_52_239_a_session_over_every_frozen_store_fixture_writes_no_byte_on_desktop: test\n', 0)
+    for (const mode of ['tag', 'candidate', 'maintenance']) {
+      rmSync(join(dir, 'planted'), { recursive: true, force: true })
+      const result = run(planted, { RUNNER_TEMP: dir, CANOPI_ROLLBACK_FIXTURES: join(dir, 'planted'), ROLLBACK_MODE: mode })
+      expect(result.status, mode).toBe(1)
+      expect(result.stdout).toContain('::error::the Desktop readers passed over a planted unreadable change')
+    }
   })
 
   it('canopi-f47t.52.239: planted run passes: a Web lane whose readers pass over the planted change fails', () => {
@@ -279,6 +269,33 @@ describe('rollback.yml (canopi-f47t.52.239)', () => {
       { GITHUB_WORKSPACE: join(dir, 'workspace') }, join(REPO_ROOT, 'desktop/web'))
     expect(result.status, result.stderr).toBe(0)
     expect(result.stdout).toBe(`serves ${join(dir, 'workspace')}/desktop/web/dist-web\n`)
+  })
+
+  it('canopi-f47t.52.239: the Web job installs the wasm-bindgen CLI the reader tree\'s own lock pins, never head\'s', () => {
+    // The reader tree's build-wasm.mjs refuses a CLI other than its lock's wasm-bindgen version, so a reader tag cut
+    // before head moved the pin still builds.
+    const steps = job('reader-web').steps
+    const pins = steps.find((step) => step.id === 'reader-pins')
+    if (!pins) throw new Error('rollback.yml\'s reader-web job has no reader-pins step')
+    const install = steps.find((step) => step.uses?.startsWith('taiki-e/install-action@') && String(step.with?.['tool']).startsWith('wasm-bindgen@'))
+    expect(install?.with?.['tool']).toBe('wasm-bindgen@${{ steps.reader-pins.outputs.version }}')
+    expect(steps.indexOf(pins)).toBeLessThan(steps.indexOf(install!))
+    // Through bash, from the job's working directory in a planted reader tree.
+    const web = join(dir, 'tree', 'desktop', 'web')
+    mkdirSync(web, { recursive: true })
+    const lock = (body: string) => writeFileSync(join(dir, 'tree', 'Cargo.lock'), `version = 4\n\n${body}`)
+    const pkg = (name: string, version: string) => `[[package]]\nname = "${name}"\nversion = "${version}"\nsource = "registry+https://github.com/rust-lang/crates.io-index"\n\n`
+    lock(pkg('wasm-bindgen-backend', '0.2.99') + pkg('wasm-bindgen', '0.2.131') + pkg('wasm-bindgen-shared', '0.2.99'))
+    const read = run(pins, {}, web)
+    expect(read.status, `${read.stdout}\n${read.stderr}`).toBe(0)
+    expect(readFileSync(join(dir, 'output'), 'utf8')).toBe('version=0.2.131\n')
+    // A lock with no wasm-bindgen, or two versions of it, fails the step rather than installing a guess.
+    for (const body of [pkg('wasm-bindgen-shared', '0.2.99'), pkg('wasm-bindgen', '0.2.114') + pkg('wasm-bindgen', '0.2.131')]) {
+      lock(body)
+      const refused = run(pins, {}, web)
+      expect(refused.status).toBe(1)
+      expect(refused.stdout).toContain('::error::the reader tree\'s Cargo.lock pins no single wasm-bindgen version')
+    }
   })
 
   it('canopi-f47t.52.239: cancelled run: a cancelled or failed rollback lane fails Build & Test, on main and release/2.0 alike, and blocks a release', () => {
@@ -325,16 +342,23 @@ describe('the rollback lane\'s own fixture checks (canopi-f47t.52.239)', () => {
   const cli = (...args: string[]) => spawnSync('node', ['policy/gate/cli.mjs', 'rollback-fixtures', ...args], {
     cwd: REPO_ROOT, encoding: 'utf8', timeout: 60_000, env: { ...cleanEnv(), GITHUB_STEP_SUMMARY: join(dir, 'summary') },
   })
-  /** A fixture directory as the writer job uploads it: the manifest and two forms, one of each edition. */
+  /** The rows `fixtures()` lays down: a store each plant must pass over listed first in each edition. */
+  const ROWS = [
+    { store: 'user_db', form_version: 10, edition: 'desktop', path: 'desktop/app-data/user.db' },
+    { store: 'canopi_file', form_version: 10, edition: 'desktop', path: 'desktop/designs/orchard.canopi' },
+    { store: 'web_species_lists', form_version: 1, edition: 'web', path: 'web/species-lists.json' },
+    { store: 'settings', form_version: 2, edition: 'web', path: 'web/settings.json' }]
+  /** A fixture directory as the writer job uploads it: the manifest and two forms of each edition. */
   const fixtures = () => {
     const root = join(dir, 'fixtures')
     mkdirSync(join(root, 'desktop/app-data'), { recursive: true })
+    mkdirSync(join(root, 'desktop/designs'), { recursive: true })
     mkdirSync(join(root, 'web'), { recursive: true })
-    writeFileSync(join(root, 'manifest.json'), JSON.stringify({ version: 1, forms: [
-      { store: 'user_db', form_version: 10, edition: 'desktop', path: 'desktop/app-data/user.db' },
-      { store: 'web_species_lists', form_version: 1, edition: 'web', path: 'web/species-lists.json' }] }))
+    writeFileSync(join(root, 'manifest.json'), JSON.stringify({ version: 1, forms: ROWS }))
     writeFileSync(join(root, 'desktop/app-data/user.db'), 'SQLite format 3\0 frozen pages')
+    writeFileSync(join(root, 'desktop/designs/orchard.canopi'), '{"version":10}')
     writeFileSync(join(root, 'web/species-lists.json'), '{"key":"canopi:web-app-data:v4:species","record":{"version":1}}')
+    writeFileSync(join(root, 'web/settings.json'), '{"key":"canopi:settings:v2","record":{"version":2}}')
     return root
   }
 
@@ -361,7 +385,8 @@ describe('the rollback lane\'s own fixture checks (canopi-f47t.52.239)', () => {
     const before = join(dir, 'before.json')
     expect(cli('snapshot', root, before).status).toBe(0)
     expect(Object.keys(JSON.parse(readFileSync(before, 'utf8')) as object).sort())
-      .toEqual(['desktop/app-data/user.db', 'manifest.json', 'web/species-lists.json'])
+      .toEqual(['desktop/', 'desktop/app-data/', 'desktop/app-data/user.db', 'desktop/designs/', 'desktop/designs/orchard.canopi',
+        'manifest.json', 'web/', 'web/settings.json', 'web/species-lists.json'])
     // A read-only open of a WAL database may create a -shm and an empty -wal (contracts §11 Degraded stores).
     writeFileSync(join(root, 'desktop/app-data/user.db-shm'), Buffer.alloc(32))
     writeFileSync(join(root, 'desktop/app-data/user.db-wal'), '')
@@ -372,6 +397,13 @@ describe('the rollback lane\'s own fixture checks (canopi-f47t.52.239)', () => {
     writeFileSync(join(root, 'desktop/app-data/user.db-wal'), 'frame')
     expect(cli('compare', root, before).stderr).toContain('ERROR: the readers wrote: desktop/app-data/user.db-wal was created')
     rmSync(join(root, 'desktop/app-data/user.db-wal'))
+    // A folder a reader lays down, empty or not, is a write (a library opened read-write creates display-cog/, assets/).
+    mkdirSync(join(root, 'desktop/app-data/lidar/display-cog'), { recursive: true })
+    const created = cli('compare', root, before)
+    expect(created.status).toBe(1)
+    expect(created.stderr).toContain('desktop/app-data/lidar/ was created')
+    expect(created.stderr).toContain('desktop/app-data/lidar/display-cog/ was created')
+    rmSync(join(root, 'desktop/app-data/lidar'), { recursive: true })
     // A pruned file and a changed byte are changes.
     rmSync(join(root, 'web/species-lists.json'))
     writeFileSync(join(root, 'desktop/app-data/user.db'), 'SQLite format 3\0 frozen pageS')
@@ -381,20 +413,24 @@ describe('the rollback lane\'s own fixture checks (canopi-f47t.52.239)', () => {
     expect(changed.stderr).toContain('web/species-lists.json was pruned')
   })
 
-  it('canopi-f47t.52.239: planted run: the self-test makes one frozen form of each edition unreadable, and refuses an edition with none', () => {
+  it('canopi-f47t.52.239: planted run: the self-test makes the Design file and the Web settings unreadable, whatever the manifest lists first', () => {
+    // A store whose damaged form the reader sets aside (the user DB, Web species lists) would make it really write: the
+    // plant goes where a reader refuses and writes nothing, the Desktop Design file and the Web settings record.
     const root = fixtures()
     const before = join(dir, 'before.json')
     expect(cli('snapshot', root, before).status).toBe(0)
     const planted = cli('plant', root, 'web')
     expect(planted.status, planted.stderr).toBe(0)
-    expect(planted.stdout).toContain('planted an unreadable change in web/species-lists.json')
+    expect(planted.stdout).toContain('planted an unreadable change in web/settings.json')
     // A Web record keeps its key, so the harness still seeds it and the reader is what fails on it.
-    expect(JSON.parse(readFileSync(join(root, 'web/species-lists.json'), 'utf8'))).toEqual({ key: 'canopi:web-app-data:v4:species',
+    expect(JSON.parse(readFileSync(join(root, 'web/settings.json'), 'utf8'))).toEqual({ key: 'canopi:settings:v2',
       record: 'planted: a change the readers cannot read, so their run must fail' })
-    expect(cli('compare', root, before).stderr).toContain('web/species-lists.json changed')
-    // A database's bytes are replaced.
-    expect(cli('plant', root, 'desktop').status).toBe(0)
-    expect(readFileSync(join(root, 'desktop/app-data/user.db'), 'utf8')).toMatch(/^planted: /)
+    expect(cli('compare', root, before).stderr).toContain('web/settings.json changed')
+    // Any other form's bytes are replaced.
+    expect(cli('plant', root, 'desktop').stdout).toContain('planted an unreadable change in desktop/designs/orchard.canopi')
+    expect(readFileSync(join(root, 'desktop/designs/orchard.canopi'), 'utf8')).toMatch(/^planted: /)
+    expect(readFileSync(join(root, 'desktop/app-data/user.db'), 'utf8')).toBe('SQLite format 3\0 frozen pages')
+    expect(readFileSync(join(root, 'web/species-lists.json'), 'utf8')).toBe('{"key":"canopi:web-app-data:v4:species","record":{"version":1}}')
     expect(cli('plant', root, 'phone').stderr).toContain('lists no phone form the reader release reads to plant a change in')
     expect(cli('plant', join(dir, 'none'), 'web').stderr).toContain('manifest.json is missing')
     expect(cli('wipe', root).stderr).toContain('usage: rollback-fixtures')
@@ -408,15 +444,13 @@ describe('the rollback lane\'s own fixture checks (canopi-f47t.52.239)', () => {
     writeFileSync(join(root, 'web/library.json'), '{"key":"canopi:library","record":{"version":1}}')
     writeFileSync(join(root, 'manifest.json'), JSON.stringify({ version: 1, forms: [
       { store: 'desktop_notebook', form_version: 1, edition: 'desktop', path: 'desktop/app-data/notebook.sqlite' },
-      { store: 'web_library', form_version: 1, edition: 'web', path: 'web/library.json' },
-      { store: 'user_db', form_version: 10, edition: 'desktop', path: 'desktop/app-data/user.db' },
-      { store: 'web_species_lists', form_version: 1, edition: 'web', path: 'web/species-lists.json' }] }))
-    expect(cli('plant', root, 'web').stdout).toContain('planted an unreadable change in web/species-lists.json')
-    expect(cli('plant', root, 'desktop').stdout).toContain('planted an unreadable change in desktop/app-data/user.db')
+      { store: 'web_library', form_version: 1, edition: 'web', path: 'web/library.json' }, ...ROWS] }))
+    expect(cli('plant', root, 'web').stdout).toContain('planted an unreadable change in web/settings.json')
+    expect(cli('plant', root, 'desktop').stdout).toContain('planted an unreadable change in desktop/designs/orchard.canopi')
     expect(readFileSync(join(root, 'web/library.json'), 'utf8')).toBe('{"key":"canopi:library","record":{"version":1}}')
     expect(readFileSync(join(root, 'desktop/app-data/notebook.sqlite'), 'utf8')).toBe('SQLite format 3\0 notebook')
     writeFileSync(join(root, 'manifest.json'), JSON.stringify({ version: 1, forms: [
       { store: 'web_library', form_version: 1, edition: 'web', path: 'web/library.json' }] }))
-    expect(cli('plant', root, 'web').stderr).toContain('lists no web form the reader release reads to plant a change in')
+    expect(cli('plant', root, 'web').stderr).toContain('lists no web settings form to plant a change in')
   })
 })

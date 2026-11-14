@@ -105,14 +105,38 @@ describe('canopi-f47t.52.270: every CI Web build has the module tools', () => {
   })
 })
 
+/** The one pin that is no literal: rollback.yml's reader-web builds an older reader tree and installs the version that
+ * tree's own lock pins, which its reader-pins step reads (policy/gate/rollback-refs.test.ts runs the step). */
+const READER_TREE_PIN = { workflow: 'rollback.yml', pin: '${{ steps.reader-pins.outputs.version }}' }
+
+/** Each wasm-bindgen CLI pin in `workflows` (name, text) that is not `locked`, as `name: pin`; an expression or a tag
+ * such as `latest` is a fault too, but for the reader tree's pin in rollback.yml. */
+function pinFaults(workflows: readonly (readonly [string, string])[], locked: string | undefined): string[] {
+  return workflows.flatMap(([name, text]) => [...text.matchAll(/\bwasm-bindgen(?:-cli)?@(\$\{\{[^}]*\}\}|[^\s,'"]+)/gu)]
+    .map((match) => match[1]!)
+    .filter((pin) => pin !== locked && !(name === READER_TREE_PIN.workflow && pin === READER_TREE_PIN.pin))
+    .map((pin) => `${name}: ${pin}`))
+}
+
 describe('canopi-f47t.52.270: the wasm-bindgen CLI pinned in CI is the lock version', () => {
+  it('refuses any other version, a tag or an expression, but the reader tree\'s own pin in rollback.yml', () => {
+    const tool = (pin: string) => `          tool: wasm-bindgen@${pin}\n`
+    expect(pinFaults([
+      ['build.yml', tool('0.2.130') + tool('0.2.114') + tool('latest') + tool('${{ env.WASM_BINDGEN }}')],
+      ['rollback.yml', tool(READER_TREE_PIN.pin) + tool('${{ steps.other.outputs.version }}')],
+      ['other.yml', tool(READER_TREE_PIN.pin) + '        run: cargo install wasm-bindgen-cli@0.2.99\n'],
+    ], '0.2.130')).toEqual(['build.yml: 0.2.114', 'build.yml: latest', 'build.yml: ${{ env.WASM_BINDGEN }}',
+      'rollback.yml: ${{ steps.other.outputs.version }}', `other.yml: ${READER_TREE_PIN.pin}`, 'other.yml: 0.2.99'])
+  })
+
   it('installs, in every workflow, the wasm-bindgen CLI at the version Cargo.lock pins for the crate', () => {
     const repo = path.join(CRATE_DIR, '..')
     const locked = lockedVersion(fs.readFileSync(path.join(repo, 'Cargo.lock'), 'utf8'), 'wasm-bindgen')
     const workflows = path.join(repo, '.github', 'workflows')
-    const pins = fs.readdirSync(workflows).filter((name) => /\.ya?ml$/u.test(name)).flatMap((name) =>
-      [...fs.readFileSync(path.join(workflows, name), 'utf8').matchAll(/\bwasm-bindgen(?:-cli)?@([^\s,'"]+)/gu)].map((m) => `${name}: ${m[1]}`))
-    expect(pins.length).toBeGreaterThan(0)
-    expect(pins.filter((pin) => !pin.endsWith(`: ${locked}`))).toEqual([])
+    const texts = fs.readdirSync(workflows).filter((name) => /\.ya?ml$/u.test(name))
+      .map((name) => [name, fs.readFileSync(path.join(workflows, name), 'utf8')] as const)
+    expect(texts.flatMap(([, text]) => [...text.matchAll(/\bwasm-bindgen(?:-cli)?@[0-9]/gu)]).length).toBeGreaterThan(0)
+    expect(pinFaults(texts, locked)).toEqual([])
+    expect(texts.find(([name]) => name === READER_TREE_PIN.workflow)?.[1]).toContain(`wasm-bindgen@${READER_TREE_PIN.pin}`)
   })
 })
