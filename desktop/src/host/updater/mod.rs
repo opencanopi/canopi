@@ -7,9 +7,11 @@
 //! one cancel signal its leader and followers share; `update_cancel` reaches a run only through the
 //! id of an op in it. Until N0's `OpSpec`, check and download each run in one
 //! `NativeOperationExecutor::run_typed(Network, ..)` under its op (an executor settlement is its
-//! own catalogue code), `block_on` of the plugin's future raced against the
-//! cancel signal, so a cancel drops the transfer and stages nothing (the payload stays in memory);
-//! the install's verify, temp write, `pkexec` and replace run on the Local class (2.1-M207, M241).
+//! own catalogue code), `block_on` of the plugin's future raced against the cancel signal, polled
+//! first, so a cancel drops the transfer; a run reads its cancel once more as it settles, so a
+//! cancel that reached it before then settles it `cancelled` and stages nothing (the payload stays
+//! in memory); the install's verify, temp write, `pkexec` and replace run on the Local class
+//! (2.1-M207, M241).
 //!
 //! The plugin asks the channel file for this installer's `{os}-{arch}-{bundle}` key only, its
 //! client is configured (User-Agent, timeouts, redirects to the endpoint table's hosts only) through
@@ -318,7 +320,12 @@ impl UpdaterHost {
             Turn::Follow(receiver) => return follow(receiver, UpdateOp::Check).await?,
             Turn::Lead(sender) => sender,
         };
-        let settlement = self.run_check(app, executor, cancelled).await;
+        let mut settlement = self.run_check(app, executor, cancelled).await;
+        // The plugin can finish its request within the poll that last read the cancel, so a cancel
+        // that reached the run before it settles is read again here and wins (canopi-ubyr).
+        if *signal.borrow() {
+            settlement = Err(failure::cancelled(UpdateOp::Check));
+        }
         let offered = settlement
             .as_ref()
             .ok()
@@ -355,11 +362,13 @@ impl UpdaterHost {
         let update = executor
             .run_typed(NativeOperationClass::Network, UpdateOp::Check.op(), move || {
                 tauri::async_runtime::block_on(async move {
+                    // The cancel first, so a check cancelled before its turn sends nothing.
                     tokio::select! {
-                        checked = updater.check() => checked
-                            .map_err(|error| failure::from_plugin(UpdateOp::Check, installation, &error)),
+                        biased;
                         _ = cancelled.wait_for(|cancelled| *cancelled) =>
                             Err(failure::cancelled(UpdateOp::Check)),
+                        checked = updater.check() => checked
+                            .map_err(|error| failure::from_plugin(UpdateOp::Check, installation, &error)),
                     }
                 })
             })
@@ -405,13 +414,25 @@ impl UpdaterHost {
             Turn::Follow(receiver) => return follow(receiver, UpdateOp::Download).await?,
             Turn::Lead(lead) => lead,
         };
-        let result = self.run_download(app, executor, sinks, cancelled).await;
-        {
+        let settlement = self.run_download(app, executor, sinks, cancelled).await;
+        let result = {
             let mut ops = self.ops();
             if holds(ops.download.as_ref().map(|(_, _, run)| run), &signal) {
                 ops.download = None;
             }
-        }
+            // As for a check, a cancel that reached the run before it settles wins, so the payload
+            // is staged only after the cancel is read once more (canopi-ubyr).
+            match settlement {
+                Ok(_) if *signal.borrow() => Err(failure::cancelled(UpdateOp::Download)),
+                Ok((download, staged)) => {
+                    if let Some(staged) = staged {
+                        ops.staged = Some(staged);
+                    }
+                    Ok(download)
+                }
+                Err(failure) => Err(failure),
+            }
+        };
         sender.send_replace(Some(result.clone()));
         result
     }
@@ -422,7 +443,7 @@ impl UpdaterHost {
         executor: &NativeOperationExecutor,
         sinks: Sinks,
         mut cancelled: watch::Receiver<bool>,
-    ) -> DownloadSettlement {
+    ) -> Result<(UpdateDownload, Option<Staged>), Failure> {
         let op = UpdateOp::Download;
         let (Some(installation), Some(update)) = (self.installation, self.ops().offered.clone())
         else {
@@ -441,9 +462,8 @@ impl UpdaterHost {
             })
             .await?;
         if !replaceable {
-            return Ok(UpdateDownload::LinkOnly {
-                url: self.endpoints.download_page().to_owned(),
-            });
+            let url = self.endpoints.download_page().to_owned();
+            return Ok((UpdateDownload::LinkOnly { url }, None));
         }
         let local = self
             .local_host
@@ -469,11 +489,11 @@ impl UpdaterHost {
                 ))
             })
             .await?;
-        self.ops().staged = Some(Staged {
+        let staged = Staged {
             update: staged_update,
             bytes: Arc::new(bytes),
-        });
-        Ok(UpdateDownload::Verified)
+        };
+        Ok((UpdateDownload::Verified, Some(staged)))
     }
 
     /// What an install reads from the running app, the Windows relaunch reopening `design_path`.
