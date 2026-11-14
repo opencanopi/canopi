@@ -33,7 +33,7 @@ interface MacConfig { readonly bundle?: { readonly macOS?: { readonly signingIde
 const MAC_CONFIG = 'desktop/tauri.macos.conf.json'
 const RC = '.github/workflows/release-candidate.yml'
 const PROBE = '.github/workflows/macos-signing-probe.yml'
-const INSTALL_DOCS = ['README.md', 'docs/release-notes/v2.1.0.md']
+const INSTALL_DOCS = ['README.md', 'docs/release-notes/v2.0.4.md', 'docs/release-notes/v2.1.0.md']
 const SEAL_STEP = 'The Mac app is sealed ad hoc with its resources'
 const PACKAGE_STEP = 'Package the desktop app'
 const VERDICT_STEP = 'Read the verdict'
