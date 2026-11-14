@@ -34,10 +34,14 @@ const SECTION_LINES: { readonly [S in ReportSectionId]: LocaleKey } = {
 
 type ConsentKind = Exclude<ReportConsent, 'always'>
 
-/** The checkbox each consent kind draws; a new kind fails typecheck until it has one (2.1-Q280). */
-const CONSENT_CHECKBOXES: { readonly [K in ConsentKind]: { readonly label: LocaleKey, readonly checked: () => boolean, readonly set: (on: boolean) => void } } = {
+/**
+ * The checkbox each consent kind draws, while `offered`; a new kind fails typecheck until it has one (2.1-Q280). A newer
+ * Canopi's read view is never offered as the current Design (canopi-v4kj).
+ */
+const CONSENT_CHECKBOXES: { readonly [K in ConsentKind]: { readonly label: LocaleKey, readonly offered: () => boolean, readonly checked: () => boolean, readonly set: (on: boolean) => void } } = {
   current_design: {
     label: 'problemReport.includeCurrentDesign',
+    offered: () => problemReportSubmission.currentDesignOffered.value,
     checked: () => problemReportSubmission.includeCurrentDesign.value,
     set: (on) => problemReportSubmission.setIncludeCurrentDesign(on),
   },
@@ -78,7 +82,8 @@ function ProblemReportDialogContent() {
   // Web's report is a download: with no folder to show, Show again is left out, never drawn dead.
   const canReveal = port?.reveal !== undefined
   const listed = REPORT_SECTIONS.filter((row) => row.consent === 'always' && editionHas(port?.sections, row.id))
-  const consentRows = REPORT_SECTIONS.flatMap((row) => row.consent === 'always' ? [] : [{ ...row, consent: row.consent }])
+  const consentRows = REPORT_SECTIONS.flatMap((row) =>
+    row.consent === 'always' || !CONSENT_CHECKBOXES[row.consent].offered() ? [] : [{ ...row, consent: row.consent }])
 
   // Focus goes in as the dialog commits, with its modal layer, so an Esc at once is the dialog's (canopi-f47t.52.228.20).
   useLayoutEffect(() => {

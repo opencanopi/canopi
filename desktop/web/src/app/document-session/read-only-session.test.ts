@@ -211,6 +211,13 @@ describe('the read-only Session kind (canopi-f47t.52.270)', () => {
     expect(adapter.isReadOnly?.()).toBe(false)
   })
 
+  it('canopi-v4kj: the Design observation is null for a newer Design, never its re-encoded read view (2.1-M479)', async () => {
+    expect(machine.captureCurrentDesignObservation()?.name, 'the editing Design is observed').toBe('Current')
+    await openNewer('Orchard 2.1', 3)
+    expect(store.holdsNewerReadView()).toBe(true)
+    expect(machine.captureCurrentDesignObservation()).toBeNull()
+  })
+
   it('a newer Draft opens read-only without its Draft id; a 2.0 Draft keeps it', () => {
     expect(draftLoadResultOf(newerDesign('Newer draft'), 'draft-newer')).toMatchObject({
       path: null,

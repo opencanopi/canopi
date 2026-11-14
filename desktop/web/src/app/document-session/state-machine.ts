@@ -200,6 +200,7 @@ export class DesignSessionStateMachine {
   captureCurrentDesignObservation(
     session = this.deps.getCurrentSession(),
   ): CanopiFile | null {
+    if (this.deps.store.holdsNewerReadView()) return null; // A newer Canopi's read view is never observed (2.1-M479).
     return this.deps.persistence.captureObservation(session);
   }
 
