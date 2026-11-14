@@ -958,5 +958,4 @@ mod tests {
 }
 
 #[cfg(test)]
-#[path = "user_db_error_tests.rs"]
 mod error_tests;
