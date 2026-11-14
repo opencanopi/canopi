@@ -10,7 +10,7 @@ fn health_keeps_the_state_and_counts_but_no_paths_or_reasons() {
     let (items, generated, found) = (4, 2, 26);
     let recovered = LibraryOpenStatus::Recovered {
         reason: RecoveryReason::Corrupt("garbage".into()),
-        set_aside: PathBuf::from("/private/set-aside"),
+        set_aside: Some(PathBuf::from("/private/set-aside")),
         items: 4,
         generated: 2,
     };
@@ -361,7 +361,7 @@ fn the_set_aside_stamp_names_each_consecutive_civil_day() {
 }
 
 /// An original with its `meta.json`, both under `sources/<sha256>/`.
-fn seed_original(paths: &LidarPaths, sha256: &str, meta: Option<&SourceMeta>) {
+pub(super) fn seed_original(paths: &LidarPaths, sha256: &str, meta: Option<&SourceMeta>) {
     std::fs::create_dir_all(paths.source_dir(sha256)).unwrap();
     std::fs::write(paths.source_original(sha256), b"tile").unwrap();
     if let Some(meta) = meta {
@@ -390,7 +390,7 @@ fn item_meta(sha256: &str, id: &str, quantity: &str, units: &str, members: &[&st
 }
 
 /// (id, name, quantity, units) of every rebuilt item, by name.
-fn rebuilt_items(connection: &Connection) -> Vec<(String, String, String, String)> {
+pub(super) fn rebuilt_items(connection: &Connection) -> Vec<(String, String, String, String)> {
     connection
         .prepare("SELECT id, name, quantity, units FROM lidar_source_layers ORDER BY name")
         .unwrap()

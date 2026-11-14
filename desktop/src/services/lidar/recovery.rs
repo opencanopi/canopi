@@ -1,8 +1,12 @@
 //! Opening a catalogue that cannot simply be opened (ADR 0021).
 //!
-//! An older or corrupt `lidar-library.sqlite` is set aside, byte for byte,
-//! under `lidar-library.set-aside/` and a fresh catalogue is rebuilt from the
-//! originals and their `meta.json`. Rebuilt items carry their authored facts
+//! An older or corrupt `lidar-library.sqlite`, or a missing or zero-length
+//! one beside originals nothing released, is rebuilt from the originals and
+//! their `meta.json` in a staging folder; only once that rebuild commits is
+//! the old file set aside, byte for byte, under `lidar-library.set-aside/` and
+//! the rebuilt one moved into its place (`install.rs`, canopi-uidt). A rebuild
+//! that fails leaves the old catalogue where it was, so the next start
+//! recovers again. Rebuilt items carry their authored facts
 //! and a failed import job whose saved selection is the managed originals, so
 //! Retry prepares them again on demand; analysis definitions come back with
 //! their outputs unpublished, so Retry runs them again once their inputs are
@@ -20,6 +24,10 @@ use canopi_types::health::StoreOpenStatus;
 use rusqlite::Connection;
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::path::{Path, PathBuf};
+
+mod install;
+#[cfg(test)]
+use install::REBUILD_STAGING_DIR;
 
 /// Directory under the library root that keeps catalogues set aside.
 pub const SET_ASIDE_DIR: &str = "lidar-library.set-aside";
@@ -72,16 +80,19 @@ pub fn inspect(path: &Path) -> CatalogueState {
 pub enum RecoveryReason {
     OlderVersion(i32),
     Corrupt(String),
+    /// No catalogue, or a zero-length one, beside originals nothing released.
+    Missing,
 }
 
 /// How the library opened. Everything but `Ready` is worth showing the user.
 #[derive(Debug, Clone, PartialEq)]
 pub enum LibraryOpenStatus {
     Ready,
-    /// The catalogue was set aside and rebuilt from the originals.
+    /// The catalogue was rebuilt from the originals.
     Recovered {
         reason: RecoveryReason,
-        set_aside: PathBuf,
+        /// Where the replaced catalogue file went; none when there was no file.
+        set_aside: Option<PathBuf>,
         /// Items rebuilt from their `meta.json`.
         items: usize,
         /// Originals without a `meta.json`, listed under a generated name.
@@ -144,12 +155,13 @@ pub fn open_catalogue(
 ) -> Result<OpenedCatalogue, String> {
     let path = paths.catalogue_path();
     match state {
-        CatalogueState::Missing | CatalogueState::Current => match catalogue::open(&path) {
-            Ok(connection) => Ok(OpenedCatalogue {
-                connection,
-                status: LibraryOpenStatus::Ready,
-            }),
-            // Read as current or absent, so a failing read-write open (a lock, a filesystem) is no proof of damage.
+        CatalogueState::Current => open_in_place(&path),
+        // A lost catalogue beside originals is rebuilt from them: opened empty, it would list none of them again.
+        CatalogueState::Missing => match install::clear_interrupted_rebuild(paths)
+            .and_then(|()| install::holds_unreleased_originals(paths))
+        {
+            Ok(false) => open_in_place(&path),
+            Ok(true) => recover(paths, RecoveryReason::Missing),
             Err(reason) => in_memory(LibraryOpenStatus::Unavailable { reason }),
         },
         CatalogueState::Older(version) => recover(paths, RecoveryReason::OlderVersion(version)),
@@ -162,14 +174,23 @@ pub fn open_catalogue(
     }
 }
 
+fn open_in_place(path: &Path) -> Result<OpenedCatalogue, String> {
+    match catalogue::open(path) {
+        Ok(connection) => Ok(OpenedCatalogue {
+            connection,
+            status: LibraryOpenStatus::Ready,
+        }),
+        // Read as current or absent, so a failing read-write open (a lock, a filesystem) is no proof of damage.
+        Err(reason) => in_memory(LibraryOpenStatus::Unavailable { reason }),
+    }
+}
+
 fn recover(paths: &LidarPaths, reason: RecoveryReason) -> Result<OpenedCatalogue, String> {
-    let attempt = (|| -> Result<(Connection, PathBuf, RebuildReport), String> {
-        let set_aside = set_aside(paths)?;
-        let connection = catalogue::open(&paths.catalogue_path())?;
-        let report = rebuild(&connection, paths)?;
-        Ok((connection, set_aside, report))
-    })();
-    match attempt {
+    let rebuilt = install::rebuild_in_place(paths).and_then(|(set_aside, report)| {
+        // Once in place the rebuild is complete on disk: a failing open leaves it for the next start.
+        Ok((catalogue::open(&paths.catalogue_path())?, set_aside, report))
+    });
+    match rebuilt {
         Ok((connection, set_aside, report)) => Ok(OpenedCatalogue {
             connection,
             status: LibraryOpenStatus::Recovered {
@@ -183,38 +204,19 @@ fn recover(paths: &LidarPaths, reason: RecoveryReason) -> Result<OpenedCatalogue
     }
 }
 
-fn in_memory(status: LibraryOpenStatus) -> Result<OpenedCatalogue, String> {
-    Ok(OpenedCatalogue {
-        connection: catalogue::open_in_memory()?,
-        status,
-    })
-}
-
-/// Move the catalogue file and its WAL sidecars under the set-aside folder,
-/// all or nothing: a sidecar that cannot follow returns the catalogue to its
-/// place and fails, so no catalogue is rebuilt beside an old log.
-/// Returns the new place of the main file.
-pub fn set_aside(paths: &LidarPaths) -> Result<PathBuf, String> {
-    let directory = paths.set_aside_dir();
-    std::fs::create_dir_all(&directory)
-        .map_err(|e| format!("Failed to create {}: {e}", directory.display()))?;
-    let stamp = utc_stamp(
+fn now_stamp() -> String {
+    utc_stamp(
         std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.as_secs())
             .unwrap_or(0),
-    );
-    let candidates = (0u32..=10_000).map(|attempt| match attempt {
-        0 => directory.join(format!("{stamp}.sqlite")),
-        n => directory.join(format!("{stamp}-{n}.sqlite")),
-    });
-    let source = paths.catalogue_path();
-    crate::db::move_aside(&source, candidates, &["-wal", "-shm"]).map_err(|e| {
-        format!(
-            "Failed to set aside {} under {}: {e}",
-            source.display(),
-            directory.display()
-        )
+    )
+}
+
+fn in_memory(status: LibraryOpenStatus) -> Result<OpenedCatalogue, String> {
+    Ok(OpenedCatalogue {
+        connection: catalogue::open_in_memory()?,
+        status,
     })
 }
 
@@ -519,5 +521,7 @@ fn insert_definition(connection: &Connection, analysis: &AnalysisMeta) -> Result
     Ok(true)
 }
 
+#[cfg(test)]
+mod failed_rebuild_tests;
 #[cfg(test)]
 mod tests;

@@ -242,7 +242,7 @@ impl LidarLibrary {
                 generated,
             } => tracing::warn!(
                 ?reason,
-                set_aside = %set_aside.display(),
+                set_aside = ?set_aside,
                 items,
                 generated,
                 "LiDAR catalogue set aside and rebuilt from the originals"
@@ -458,11 +458,11 @@ impl LidarLibrary {
     }
 
     /// Release each original no item and no saved import selection claims,
-    /// then remove each `sources/<sha256>/` folder nothing claims: no
-    /// catalogue row names it and its `meta.json` names no item. Dismiss and
-    /// Delete release an original's meta and rows, then remove its folder; a
-    /// stop or a failed removal between the two, or a Delete while another
-    /// raster job ran, leaves the rest for this step.
+    /// then remove each `sources/<sha256>/` folder no row claims that holds
+    /// no original or one marked released (`source_meta::is_released`): an
+    /// unclaimed original is no released one (canopi-uidt). Dismiss and Delete
+    /// release, then remove; a stop, a failed removal or a Delete while
+    /// another raster job ran leaves the rest for this step.
     fn prune_released_originals(&self) -> Result<(), String> {
         let sources = self.inner.paths.root().join("sources");
         let entries = match std::fs::read_dir(&sources) {
@@ -505,10 +505,9 @@ impl LidarLibrary {
                     |row| row.get(0),
                 )
                 .map_err(|e| e.to_string())?;
-            if claimed
-                || source_meta::read(&self.inner.paths.source_meta(&sha256))
-                    .is_some_and(|meta| !meta.items.is_empty())
-            {
+            let original = std::fs::symlink_metadata(self.inner.paths.source_original(&sha256));
+            let gone = matches!(original, Err(e) if e.kind() == std::io::ErrorKind::NotFound);
+            if claimed || !(gone || source_meta::is_released(&self.inner.paths, &sha256)) {
                 continue;
             }
             if let Err(error) = import::remove_original_dirs(self, &[sha256]) {
