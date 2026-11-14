@@ -224,8 +224,9 @@ fn an_op_started_after_a_cancel_but_before_its_run_settled_runs_on_its_own() {
 
 /// canopi-ubyr: a check cancelled while it waits for a Network slot settles `cancelled` and never
 /// opens a connection. Its race polls the cancel first, as the download's does, so a cancel sent
-/// before the check's answer is read always wins; an unbiased race polled the request first one
-/// time in two, and settled `Ok` when the answer and the cancel were both ready by its turn.
+/// before the check's answer is read always wins; an unbiased race polled the request first, so a
+/// cancelled check could still open a connection (and could settle `Ok`, which the settle-read test
+/// covers).
 #[test]
 fn canopi_ubyr_a_check_cancelled_before_its_turn_opens_no_connection_and_settles_cancelled() {
     let offer = Offer::signed(APPIMAGE);
