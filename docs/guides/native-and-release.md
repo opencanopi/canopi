@@ -89,7 +89,9 @@ Linux deps: GTK/WebKitGTK, librsvg, patchelf (never `libappindicator3-dev`).
 6. Publish with the command promote prints (`--latest` only with `stable.json`, the stable channel). Never replace a published release.
 7. Deploy the Web Edition, betas excepted (2.1-Q201): `scripts/publish-web-release.sh --tag v<version>` ([editions](editions.md#web-publishing)).
 
-Rehearsal (2.1-Q325): a release first through a changed release path (the reader release: this candidate, `stable.json`, MSI payloads) is rehearsed on the step branch before its closing commit: a signed candidate promoted to a draft and its Web archive previewed ([editions](editions.md#web-publishing)), then the draft (no tag) and run artifacts deleted; `releases/latest` still resolves the last stable. `main`'s tools build every candidate (2.1-M288), so the tooling the rehearsal runs reaches `main` first in its own PR.
+Rehearsal (2.1-Q325): a release first through a changed release path (the reader release: this candidate, `stable.json`, MSI payloads) is rehearsed once the step's PR merges, before the tag and the real candidate: a signed candidate built from the step's tip at its release version, promoted to a draft and its Web archive previewed ([editions](editions.md#web-publishing)), then the draft (no tag) and run artifacts deleted; `releases/latest` still resolves the last stable.
+
+Rehearsal tooling (2.1-M288, M516): `main`'s tools build every candidate, so the tooling a rehearsal runs reaches `main` with the step's own PR, and fixes the rehearsal finds land on `main` by PR before the real candidate.
 
 Release notes repeat the body's Corresponding Source offer in their own words.
 
