@@ -144,6 +144,14 @@ fn canopi_uidt_a_sidecar_that_cannot_follow_puts_the_old_log_back_beside_the_old
         staging_left(&paths)
     );
     assert_originals_kept(&paths, "start 1");
+    // The install ran (no stop at inspection): the old catalogue was copied aside before the -shm refused to follow.
+    let copies: Vec<Vec<u8>> = std::fs::read_dir(paths.set_aside_dir())
+        .unwrap()
+        .flatten()
+        .filter(|entry| entry.file_name().to_string_lossy().ends_with(".sqlite"))
+        .map(|entry| std::fs::read(entry.path()).unwrap())
+        .collect();
+    assert_eq!(copies, vec![ANY_FILE_BUT_A_DATABASE.to_vec()]);
 
     std::fs::remove_file(paths.set_aside_dir()).unwrap();
     std::fs::remove_dir_all(&shm).unwrap();
@@ -182,5 +190,24 @@ fn canopi_uidt_a_stray_log_beside_a_missing_catalogue_is_set_aside_before_it_ope
         kept,
         vec![b"the old catalogue's log".to_vec()],
         "the stray log is set aside, byte for byte"
+    );
+}
+
+/// A zero-length catalogue with no sidecar beside it and no original to rebuild from opens fresh with nothing set
+/// aside: there is no log to keep.
+#[test]
+fn canopi_uidt_a_zero_length_catalogue_without_sidecars_sets_nothing_aside() {
+    let root = crate::test_scratch::TestScratch::new("uidt-zero-length-fresh");
+    let paths = LidarPaths::open(&root).unwrap();
+    std::fs::write(paths.catalogue_path(), b"").unwrap();
+
+    let library = LidarLibrary::open(&root).unwrap();
+
+    assert_eq!(*library.open_status(), LibraryOpenStatus::Ready);
+    drop(library);
+    assert!(
+        !paths.set_aside_dir().exists(),
+        "nothing is set aside: {:?}",
+        std::fs::read_dir(paths.set_aside_dir()).map(|entries| entries.count())
     );
 }

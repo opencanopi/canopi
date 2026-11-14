@@ -60,14 +60,20 @@ pub(super) fn install(
     }
 }
 
-/// Set aside the sidecars at a missing catalogue's path (and a zero-length main file's copy) before a fresh catalogue
-/// opens there: SQLite discards a log it finds beside no database, the only copy of an earlier catalogue's last writes.
+/// Set aside the sidecars at a missing catalogue's path before a fresh catalogue opens there: SQLite discards a log
+/// it finds beside no database, the only copy of an earlier catalogue's last writes. With no sidecar nothing is set
+/// aside; with one beside a zero-length main file, that file's copy goes with it.
 pub(super) fn set_aside_strays(
     catalogue: &Path,
     set_aside_dir: &Path,
     stamp: &str,
 ) -> Result<(), String> {
-    set_aside(catalogue, set_aside_dir, stamp).map(drop)
+    for suffix in SIDECARS {
+        if present(&sidecar(catalogue, suffix))? {
+            return set_aside(catalogue, set_aside_dir, stamp).map(drop);
+        }
+    }
+    Ok(())
 }
 
 /// What `set_aside` did: where the main file's copy went, and each sidecar's move (from, to).
