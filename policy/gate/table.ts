@@ -3,7 +3,7 @@
 // directory (leading NAME=value words are its environment) and what it needs; each area maps its anchored path regexes
 // (never globs: picomatch through policy/check.mjs is the one glob engine) to its checks per lane, and renders its
 // AGENTS.md Quality gates row from a template whose `{id}` placeholders name its checks (agents-rows.ts). An area's
-// scans are the files its source-text tests read: they select those tests, never a check or a CI job. validateTable
+// scans are the files its source-text tests read: they select those tests, never a check or a CI job. table-faults.ts
 // refuses a malformed table naming this file, before any plan is made.
 
 export const TABLE_FILE = 'policy/gate/table.ts'
@@ -71,7 +71,7 @@ export interface Table {
   readonly ci: Readonly<Record<string, Readonly<Record<string, string>>>>
 }
 
-export type PathRule = 'toolchain' | 'policy' | 'docsOnly' | 'notDocs' | 'docsValidator' | 'webModule' | 'spec'
+type PathRule = 'toolchain' | 'policy' | 'docsOnly' | 'notDocs' | 'docsValidator' | 'webModule' | 'spec'
   | 'e2eCanvas' | 'e2eGallery' | 'policyGate' | 'webVitestTest'
 
 const web = (command: string, extra: Omit<Check, 'command' | 'cwd'> = {}): Check => ({ command, cwd: WEB, ...extra })
@@ -88,9 +88,10 @@ export const POLICY_COMMIT = ['policy-check', 'policy-node-tests', 'policy-gener
 // the digest (the release's actionlint_<version>_checksums.txt), and build.yml's workflows job equals both.
 const ACTIONLINT_VERSION = '1.7.12'
 /** What check:notices regenerates THIRD_PARTY_NOTICES.md from, beside the bundles: the lockfiles, the manifests of
- * desktop and the workspace members it depends on (the crates cargo-about lists), cargo-about's config and template,
+ * desktop, of the format worker's module (canopi-format-wasm, cargo-about's second run) and of the workspace members they
+ * depend on (the crates cargo-about lists), cargo-about's config and template,
  * the generator and its hand rows, and the file itself. */
-const NOTICES_INPUTS = [String.raw`^Cargo\.lock$`, String.raw`^(desktop|canopi-types|canopi-redact)/Cargo\.toml$`,
+const NOTICES_INPUTS = [String.raw`^Cargo\.lock$`, String.raw`^(desktop|canopi-types|canopi-redact|canopi-format|canopi-format-wasm)/Cargo\.toml$`,
   String.raw`^desktop/web/package-lock\.json$`, String.raw`(^|/)THIRD_PARTY_NOTICES\.md$`,
   String.raw`^about\.(toml|hbs)$`, String.raw`^scripts/(generate_notices\.mjs|notices-hand-rows\.json)$`]
 
@@ -160,8 +161,10 @@ export const TABLE: Table = {
     // driver and a display (docs/guides/native-and-release.md has the local Linux run); the browser suites need the
     // pinned Playwright image; the updater lane installs and updates real packages.
     'desktop-real-app': { command: 'CI job real-app: the Desktop real-app suite on WebKitGTK and WebView2', shown: 'build.yml real-app', ciOnly: true },
-    'web-browsers': { command: 'CI job web-browsers: the canvas and gallery suites in Chromium, WebKit and Firefox', shown: 'build.yml web-browsers', ciOnly: true },
-    'updater-e2e': { command: 'CI job updater: N-1 updates itself to N as an AppImage, a .deb and an NSIS install', shown: 'build.yml updater', ciOnly: true },
+    'web-browsers': { command: 'CI job web-browsers: the canvas and gallery suites in Chromium, WebKit and Firefox, and the format worker in WebKitGTK and Edge', shown: 'build.yml web-browsers', ciOnly: true },
+    'updater-e2e': { command: 'CI job updater: N-1 updates itself to N as an AppImage, a .deb, an NSIS install and an MSI', shown: 'build.yml updater', ciOnly: true },
+    // The rollback lane (ADR 0026, contracts §11 Rollback harness): the reader tree's harness over the writer's fixtures.
+    'rollback': { command: 'CI job rollback: the reader release\'s Desktop and Web readers over every frozen store form the writer lays down write no byte, and fail on a planted unreadable change', shown: 'build.yml rollback', ciOnly: true },
     'release-build': { command: 'CI job release-build: the Release Candidate\'s preflight and build on every platform as a dry run, publishing nothing', shown: 'build.yml release-build', ciOnly: true },
     'docs': { command: 'python3 scripts/check_docs.py' },
     'docs-drift': { command: 'python3 scripts/check_docs.py --drift origin/main', shown: '--drift origin/main' },
@@ -177,10 +180,15 @@ export const TABLE: Table = {
       shown: 'build.yml supply-chain', ciOnly: true },
     'web-release': { command: 'CI job frontend: the Web Edition packaged and verified as a release would', shown: 'build.yml frontend', ciOnly: true },
     'closed-beads': { command: 'node policy/check.mjs --closed-beads' },
+    // The expected-fail marker check (prepush-checks.ts) from origin/main, as the pre-push lane runs it from its base:
+    // the Commit gate runs it on every PR, so a scratch/ branch the pre-push hook let through unstamped never merges a
+    // new marker (2.1-Q328, 2.1-Q329).
+    'prepush-checks': { command: 'node policy/gate/cli.mjs prepush-checks --base origin/main' },
     // The plan names the families a change's paths reach (CHEAP_FAMILIES) after `--`.
     'cheap-families': web('npm run test:policies:family --'),
     'actionlint': { command: 'node policy/gate/cli.mjs actionlint' },
-    // Both builds' chunks parsed by the oldest engine, Debian 12's JavaScriptCore, in its pinned image (A15).
+    // Both builds' chunks parsed by the oldest engines in their pinned images: Debian 12's JavaScriptCore (A15) and the
+    // engine floor's WebKit (desktop/web/engine-floor.ts, 2.1-M490).
     'oldest-engine': { command: 'node policy/gate/cli.mjs oldest-engine' },
     'pdf-fonts': web('npm run prepare:pdf-fonts'),
     // The lanes outside Build & Test, each a workflow of its own on the events it names (A5 (4)): information, a
@@ -193,6 +201,10 @@ export const TABLE: Table = {
       ciOnly: true, on: ['pull_request', 'push', 'workflow_dispatch'] },
     'pdf-production-probe': { command: 'CI workflow pdf-production-probe.yml: the production PDF worker in each platform\'s WebView',
       shown: 'pdf-production-probe.yml', ciOnly: true, on: ['pull_request', 'push', 'workflow_dispatch'] },
+    'engine-floor-probe': { command: 'CI workflow engine-floor-probe.yml: both editions and the format worker booted in WebKit images on both sides of the floor, the listener page in three engines',
+      shown: 'engine-floor-probe.yml', ciOnly: true, on: ['pull_request', 'workflow_dispatch'] },
+    'macos-signing-probe': { command: 'CI workflow macos-signing-probe.yml: today\'s quarantined Mac bundle against an ad-hoc signed one, read by codesign, spctl, syspolicy_check and Gatekeeper',
+      shown: 'macos-signing-probe.yml', ciOnly: true, on: ['pull_request', 'workflow_dispatch'] },
     'phone-smoke': { command: 'CI workflow phone-smoke.yml: Safari in iOS simulators and Chrome on an Android emulator',
       shown: 'phone-smoke.yml', ciOnly: true, on: ['pull_request', 'push', 'schedule', 'workflow_dispatch'] },
     'seed': { command: 'CI workflow seed-lane.yml: the suites from random seeds, with their planted failures', shown: 'seed-lane.yml',
@@ -233,7 +245,9 @@ export const TABLE: Table = {
       // check:types compares every committed binding with what bindings-gen writes, never rewriting one, so a stale or
       // hand-edited binding fails it: its inputs (the contracts, en.json for generated/locale-keys.ts (2.1-Q211), the
       // Python contracts it runs and what they read, the toolchain whose rustfmt formats the Rust ones) and its outputs
-      // (bindings-gen/src/lib.rs's paths) select it; the Unicode facts read canopi-types and the pinned Python.
+      // (bindings-gen/src/lib.rs's paths) select it; the Unicode facts read canopi-types and the pinned Python. The commit
+      // lane runs check:types too, so a stale binding or locale key fails at its commit (2.1-Q330); it builds bindings-gen,
+      // so a linked worktree commits such a change with its own CARGO_TARGET_DIR (2.1-M201).
       name: 'shared-contracts', label: 'Shared contracts (`canopi-types/`, `en.json`)',
       row: '`cd desktop/web && {check-types}` (stale: `npm run gen:types`); `{unicode-facts}`',
       patterns: [String.raw`^canopi-types/`, String.raw`^bindings-gen/`, String.raw`^desktop/web/src/i18n/en\.json$`,
@@ -241,6 +255,7 @@ export const TABLE: Table = {
         String.raw`^scripts/(species_catalog_contract\.py|web_catalog_artifact_contract\.py|species_search_normalization\.py|schema-contract\.json)$`,
         String.raw`^rust-toolchain\.toml$`, String.raw`^scripts/species_search_unicode_facts\.py$`, String.raw`^\.python-version$`],
       full: ['check-types', 'unicode-facts'],
+      commit: ['check-types'],
     },
     {
       // `^policy/` and the ast-grep config run the policy lane; the typecheck holds the gallery's project (DR17).
@@ -250,7 +265,10 @@ export const TABLE: Table = {
         + '{policy-bundle} && {notices}`; `{gate-coverage}`; `{oldest-engine}`',
       // The notices' inputs select it too: Cargo.lock, whose crates THIRD_PARTY_NOTICES.md and third-party-notices.test.ts
       // name (17a86728d left them stale), and the npm lockfile; the affected lane runs check:notices for them alone.
-      patterns: [String.raw`^desktop/web/(?!.*\.md$)`, String.raw`^policy/`, String.raw`^sgconfig\.yml$`, ...NOTICES_INPUTS],
+      // And the crates the Web build compiles into the format worker's module (`build:format-wasm`, Step 2.0.4), whose
+      // size is a bundle budget.
+      patterns: [String.raw`^desktop/web/(?!.*\.md$)`, String.raw`^policy/`, String.raw`^sgconfig\.yml$`, ...NOTICES_INPUTS,
+        String.raw`^canopi-(types|redact|format|format-wasm)/`],
       full: ['typecheck', 'coverage', ...POLICY_COMMIT, 'build', 'build-web', 'policy-bundle', 'notices', 'gate-coverage', 'oldest-engine'],
       affected: ['typecheck'],
       affectedWhen: { notices: NOTICES_INPUTS },
@@ -300,13 +318,14 @@ export const TABLE: Table = {
       // And tauri.conf.json, the version authority with the updater key: the dry run builds its version, so a bump to a
       // beta takes the beta paths. The other manifests stay out, so a dependency bump never pays the release build: the
       // policy checker every one of them selects holds their versions to tauri.conf.json's (policy/release-version.mjs).
-      // And updater-e2e.yml, the lane the workflow calls: a dry run skips that job, but GitHub resolves the call when it
-      // starts the workflow, so a broken lane breaks the dry run too.
+      // And updater-e2e.yml and rollback.yml, the lanes the workflow calls: a dry run skips that job, but GitHub resolves the call when it
+      // starts the workflow, so a broken lane breaks the dry run too. And tauri.macos.conf.json, whose ad-hoc signing
+      // identity the build job's Mac seal check reads (canopi-3cu2).
       name: 'release-build', label: 'Release build inputs',
       row: 'CI `{release-build}`',
       workflow: '.github/workflows/release-candidate.yml',
       patterns: [String.raw`^\.github/tauri-release-updater\.json$`, String.raw`^scripts/release_smoke\.py$`,
-        String.raw`^desktop/tauri\.conf\.json$`, String.raw`^\.github/workflows/updater-e2e\.yml$`],
+        String.raw`^desktop/tauri\.conf\.json$`, String.raw`^desktop/tauri\.macos\.conf\.json$`, String.raw`^\.github/workflows/(updater-e2e|rollback)\.yml$`],
       actions: ['install-linux-deps', 'build-geolibre-cli', 'package-desktop'],
       full: ['release-build'],
     },
@@ -354,7 +373,10 @@ export const TABLE: Table = {
       name: 'web-browsers', label: 'Web Edition browsers and axe reports',
       row: 'CI `{web-browsers}`, then `cd desktop/web && {policy-self-test-a11y} && {policy-a11y}`',
       workflow: '.github/workflows/web-edition-browsers.yml',
-      patterns: [String.raw`^desktop/web/(?!.*\.md$)`, String.raw`^desktop/tauri\.conf\.json$`, String.raw`^policy/`],
+      // The format worker's module instantiated in every engine: the crates it is built from (Step 2.0.4).
+      patterns: [String.raw`^desktop/web/(?!.*\.md$)`, String.raw`^desktop/tauri\.conf\.json$`, String.raw`^policy/`,
+        String.raw`^canopi-(redact|format|format-wasm)/`],
+      actions: ['install-linux-deps'],
       full: ['web-browsers', 'policy-self-test-a11y', 'policy-a11y'],
     },
     {
@@ -378,6 +400,23 @@ export const TABLE: Table = {
         String.raw`^\.github/tauri-release-updater\.json$`],
       actions: ['install-linux-deps'],
       full: ['updater-e2e'],
+    },
+    {
+      // What a reader release reads of every store a later release writes (ADR 0026 Checks; contracts §11 Rollback
+      // harness, 2.1-M484; Step 2.0.4 R4, canopi-f47t.52.239): the .canopi reader, the health and store readers of
+      // user.db, the settings, the Drafts and the LiDAR library catalogue, the Web record and Draft store adapters and
+      // the health notices, the frozen forms and the manifest listing them, the harness on both editions and main's
+      // fixture checks around it.
+      name: 'rollback', label: 'Store readers and frozen store forms',
+      row: 'CI `{rollback}`',
+      workflow: '.github/workflows/rollback.yml',
+      patterns: [String.raw`^canopi-format/`, String.raw`^canopi-types/src/(health|design)\.rs$`,
+        String.raw`^desktop/src/(db/|services/lidar/|services/(health|settings|design_files)\.rs$|test_fixtures/frozen/)`,
+        String.raw`^desktop/tests/rollback_reader(\.rs$|/)`, String.raw`^spec/(rollback|web/frozen)/`,
+        String.raw`^desktop/web/src/(platform/(browser-record|draft-records\.browser|settings\.browser)\.ts|web/browser-app-data\.ts|failures/health-presentation\.ts)$`,
+        String.raw`^desktop/web/e2e-rollback/`, String.raw`^policy/gate/rollback-refs\.ts$`],
+      actions: ['install-linux-deps'],
+      full: ['rollback'],
     },
     {
       // GitHub refused a workflow only a scratch run saw (canopi-f47t.52.228.15.1): a workflow, the actionlint config or
@@ -422,11 +461,11 @@ export const TABLE: Table = {
     // and the release overlay). A change runs its Vitest project's files in the lane tests (design check AR20), and
     // commit-gate.ts lists a commit changing one of them that is no test.
     policyGate: String.raw`^(?:policy/|\.githooks/|\.github/)`,
-    // The test files the web Vitest project runs (desktop/web/vite.config.ts: Vitest's default include, Playwright's e2e/
-    // and e2e-release/ out): scripts/ and vite.config.test.ts beside src/, and the real-app harness's unit tests beside
+    // The test files the web Vitest project runs (desktop/web/vite.config.ts: Vitest's default include, Playwright's e2e/,
+    // e2e-release/ and e2e-rollback/ out): scripts/ and vite.config.test.ts beside src/, and the real-app harness's unit tests beside
     // their modules in e2e/platform/ (`*.test.*`, never a spec; canopi-f47t.52.228.35). The deletion guard's Vitest pass
     // lists these, and the typecheck covers its TypeScript ones; table.test.ts holds the rule to `vitest list --filesOnly`.
-    webVitestTest: String.raw`^desktop/web/(?:(?!e2e/|e2e-release/)(?:[^/]+/)*[^/]+\.(?:test|spec)|e2e/platform/(?:[^/]+/)*[^/]+\.test)\.[cm]?[jt]sx?$`,
+    webVitestTest: String.raw`^desktop/web/(?:(?!e2e/|e2e-release/|e2e-rollback/)(?:[^/]+/)*[^/]+\.(?:test|spec)|e2e/platform/(?:[^/]+/)*[^/]+\.test)\.[cm]?[jt]sx?$`,
   },
   families: {
     scanner: String.raw`policy-harness|readdirSync|readFileSync\(\s*(?:new URL\(|[\x60'"](?:\./)?src/)`,
@@ -456,6 +495,7 @@ export const TABLE: Table = {
     'build-and-test': { 'Every job passed or was skipped': CI_SETUP },
     'desktop-real-app.yml real-app': { '*': 'desktop-real-app' },
     'web-edition-browsers.yml browsers': { '*': 'web-browsers' },
+    'web-edition-browsers.yml format-core-engines': { '*': 'web-browsers' },
     'web-edition-browsers.yml a11y-policy': { 'Install frontend deps': CI_SETUP, 'Trust the workspace for the planted cases': CI_SETUP },
     // The macOS self-update probe runs on a dispatch or a Release Candidate only, never called by build.yml (2.1-Q136).
     'updater-e2e.yml updater': { '*': 'updater-e2e' },
@@ -480,6 +520,14 @@ export const TABLE: Table = {
     'performance.yml perf': { '*': 'perf' },
     'pdf-production-probe.yml native': { '*': 'pdf-production-probe' },
     'pdf-production-probe.yml verify': { '*': 'pdf-production-probe' },
+    'engine-floor-probe.yml build': { '*': 'engine-floor-probe' },
+    'engine-floor-probe.yml engines': { '*': 'engine-floor-probe' },
+    'rollback.yml resolve': { '*': 'rollback' },
+    'rollback.yml writer': { '*': 'rollback' },
+    'rollback.yml reader-desktop': { '*': 'rollback' },
+    'rollback.yml reader-web': { '*': 'rollback' },
+    'macos-signing-probe.yml probe': { '*': 'macos-signing-probe' },
+    'macos-signing-probe.yml verdict': { '*': 'macos-signing-probe' },
     'phone-smoke.yml ios': { '*': 'phone-smoke' },
     'phone-smoke.yml android-plan': { '*': 'phone-smoke' },
     'phone-smoke.yml android': { '*': 'phone-smoke' },
@@ -490,89 +538,6 @@ export const TABLE: Table = {
     'seed-lane.yml proptest': { '*': 'seed' },
     'update-channel.yml publish': { '*': 'update-channel' },
   },
-}
-
-/** The table cannot be read as a gate: the CLI refuses naming TABLE_FILE and makes no plan. */
-export class TableError extends Error {}
-
-const PLACEHOLDER = /\{([a-z0-9-]+)\}/g
-const SHELL_SYNTAX = /[*?[\]'"$`\\|;&<>(){}~]/g
-const anchored = (pattern: string) => (pattern.startsWith('^') || pattern.startsWith('(^|/)') || pattern.endsWith('$'))
-  && !pattern.includes('**')
-
-/** Every fault of `table` as a gate table, each naming TABLE_FILE; none for a sound table. */
-export function tableFaults(table: Table): string[] {
-  const faults: string[] = []
-  const fault = (what: string) => faults.push(`${TABLE_FILE}: ${what}`)
-  const regex = (where: string, pattern: string) => {
-    try {
-      new RegExp(pattern)
-    } catch (error) {
-      fault(`${where} ${JSON.stringify(pattern)} is no regex (${(error as Error).message})`)
-    }
-  }
-  for (const [id, check] of Object.entries(table.checks)) {
-    if (!/^[a-z0-9-]+$/.test(id)) fault(`check id ${JSON.stringify(id)} is not lower-case words joined by '-'`)
-    if (typeof check?.command !== 'string' || check.command.trim() === '') fault(`check ${id} has no command`)
-    // The gate splits a command on whitespace (run.ts splitEnv) and an agent pastes its row into zsh: shell syntax
-    // would run differently in each (an unquoted glob fails in zsh), so a runnable command holds none.
-    const syntax = check?.ciOnly ? [] : [...new Set(check?.command?.match(SHELL_SYNTAX) ?? [])]
-    if (syntax.length) {
-      fault(`check ${id} command holds shell syntax the gate never reads (${syntax.map((c) => JSON.stringify(c)).join(', ')}); a pasted row would differ`)
-    }
-    for (const ran of check?.runs ?? []) if (!(ran in table.checks)) fault(`check ${id} runs ${ran}, which is no check`)
-    if (check?.on && !check.ciOnly) fault(`check ${id} names the triggers of a workflow of its own, but is no CI-only lane`)
-  }
-  const names = new Set<string>()
-  for (const area of table.areas) {
-    if (names.has(area.name)) fault(`area ${area.name} is listed twice`)
-    names.add(area.name)
-    if (!area.full?.length) fault(`area ${area.name} has no full checks`)
-    for (const lane of ['full', 'affected', 'commit', 'coveredBy'] as const) {
-      for (const id of area[lane] ?? []) if (!(id in table.checks)) fault(`area ${area.name} ${lane} names ${id}, which is no check`)
-    }
-    for (const [where, list] of [['pattern', area.patterns], ['scan', area.scans ?? []]] as const) {
-      if (where === 'pattern' && !list?.length) fault(`area ${area.name} has no patterns`)
-      for (const pattern of list ?? []) {
-        regex(`area ${area.name} ${where}`, pattern)
-        if (!anchored(pattern)) fault(`area ${area.name} ${where} ${JSON.stringify(pattern)} is not anchored`)
-      }
-    }
-    // affectedWhen adds a check of the area's row to its affected lane where an anchored pattern matches (C9a review).
-    for (const [id, inputs] of Object.entries(area.affectedWhen ?? {})) {
-      if (!area.full?.includes(id)) fault(`area ${area.name} affectedWhen names ${id}, which is not one of its full checks`)
-      for (const pattern of inputs) {
-        regex(`area ${area.name} affectedWhen ${id} pattern`, pattern)
-        if (!anchored(pattern)) fault(`area ${area.name} affectedWhen ${id} pattern ${JSON.stringify(pattern)} is not anchored`)
-      }
-    }
-    const named = [...(area.row ?? '').matchAll(PLACEHOLDER)].map((match) => match[1] ?? '')
-    for (const id of named) {
-      if (!area.full?.includes(id)) fault(`area ${area.name} row names {${id}}, which is not one of its full checks`)
-    }
-    for (const id of area.full ?? []) {
-      const times = named.filter((name) => name === id).length
-      const prose = table.checks[id]?.prose === true
-      if (!prose && times !== 1) fault(`area ${area.name} row names {${id}} ${times} times; a full check is named once`)
-      if (prose && times !== 0) fault(`area ${area.name} row names {${id}}, which its row holds as prose`)
-    }
-  }
-  for (const [rule, pattern] of Object.entries({ ...table.paths, ...table.families })) regex(`rule ${rule}`, pattern)
-  if (!/^\d+\.\d+\.\d+$/.test(table.actionlint?.version ?? '')) fault('actionlint version is not x.y.z')
-  if (!/^[0-9a-f]{64}$/.test(table.actionlint?.sha256 ?? '')) fault('actionlint sha256 is not 64 hex digits')
-  for (const [job, steps] of Object.entries(table.ci ?? {})) {
-    for (const [step, row] of Object.entries(steps)) {
-      if (row !== CI_SETUP && table.checks[row]?.ciOnly !== true) fault(`ci row ${job}/${step} is ${row}, neither ${CI_SETUP} nor a ci_only check`)
-    }
-  }
-  return faults
-}
-
-/** The table, or a TableError listing its faults. */
-export function validTable(table: Table = TABLE): Table {
-  const faults = tableFaults(table)
-  if (faults.length) throw new TableError(faults.join('\n'))
-  return table
 }
 
 /** The gate refuses `check` without desktop/web/node_modules, so a CI job installs them before its row. */

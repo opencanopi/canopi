@@ -30,6 +30,23 @@ export async function pressMod(page: Page, key: string): Promise<void> {
   await page.keyboard.press(`${mac ? 'Meta' : 'Control'}+${key}`)
 }
 
+/**
+ * Seeds the pointing device before every navigation, so a wheel step reads the same in every engine: a new profile on a
+ * Mac starts on Trackpad (2.1-Q309, platform/settings.browser.ts), and Playwright's WebKit reports a Mac user agent on
+ * every host. Adds `scroll_wheel` to the Web settings record (web/browser-app-data.ts) only where it has none, so a
+ * spec's own record and the app's later writes stay as they are.
+ */
+export async function seedPointingDevice(page: Page, scrollWheel: 'zoom' | 'pan' = 'zoom'): Promise<void> {
+  await page.addInitScript((seed) => {
+    const key = 'canopi:web-app-data:v3:settings'
+    const raw = localStorage.getItem(key)
+    const record = raw === null ? { version: 3, settings: {} } : JSON.parse(raw) as { settings?: Record<string, unknown> | null }
+    const settings = record.settings ?? {}
+    if ('scroll_wheel' in settings) return
+    localStorage.setItem(key, JSON.stringify({ ...record, settings: { ...settings, scroll_wheel: seed } }))
+  }, scrollWheel)
+}
+
 /** The view's bearing in degrees clockwise from north, read from the compass needle (`rotate(-bearing 10 10)`). */
 export async function bearing(page: Page): Promise<number> {
   const transform = await page.locator('[data-compass] [data-needle]').first().getAttribute('transform')

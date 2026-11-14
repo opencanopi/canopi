@@ -77,6 +77,8 @@ export interface CanvasContextMenuEntryOptions {
   setUnitCost(canonicalName: string): void
   /** Profile this line (Desktop's Site data, spec §1.10, U49 Q29); absent where there is no Site data. */
   readonly profileLine?: CanvasContextMenuProfileLine
+  /** The open Design is shown read-only (2.1-M478): only the entries that look stay offered; false: an editing Design. */
+  readonly readOnly: boolean
 }
 
 /** What "Profile this line" needs from the edition that has Site data (app/lidar/profile.ts). */
@@ -88,6 +90,14 @@ export interface CanvasContextMenuProfileLine {
 }
 
 const SEPARATOR = { separator: true } as const
+
+/**
+ * What a read-only Design's menu keeps (2.1-M478): the entries that look, copy or select. Everything else changes the
+ * Design or arms an edit tool, so it greys, a new entry included until it is listed here.
+ */
+const READ_ONLY_KEEPS: ReadonlySet<CanvasContextMenuItemId> = new Set([
+  'copy', 'select-all', 'select-same-species', 'species-details', 'profile-line', 'turn-view-to-edge',
+])
 
 /** The point menu's labels (A16). */
 const POINT_ACTION_LABEL_KEYS: Readonly<Record<PointAction, LocaleKey>> = {
@@ -108,9 +118,24 @@ const POINT_ACTION_LABEL_KEYS: Readonly<Record<PointAction, LocaleKey>> = {
  * (`canvas-commands/edit-availability.ts`): while a gesture or tool transient
  * is live, Cut and Delete are disabled (U39). Where there is Site data, a
  * lone Line zone or Measure guide offers Profile this line after the zone's
- * own entries.
+ * own entries. Over a read-only Design only what looks stays offered.
  */
 export function buildCanvasContextMenuEntries(
+  request: CanvasContextMenuRequest,
+  options: CanvasContextMenuEntryOptions,
+): readonly CanvasContextMenuEntry[] {
+  const entries = editableMenuEntries(request, options)
+  return options.readOnly ? entries.map(keptWhileReadOnly) : entries
+}
+
+/** A read-only Design's entry: one READ_ONLY_KEEPS lists as it is, any other greyed and inert, a submenu with it. */
+function keptWhileReadOnly(entry: CanvasContextMenuEntry): CanvasContextMenuEntry {
+  if ('separator' in entry) return entry
+  if ('submenu' in entry) return { ...entry, disabled: true, submenu: entry.submenu.map(keptWhileReadOnly) }
+  return READ_ONLY_KEEPS.has(entry.id) ? entry : { ...entry, disabled: true, run: () => {} }
+}
+
+function editableMenuEntries(
   request: CanvasContextMenuRequest,
   options: CanvasContextMenuEntryOptions,
 ): readonly CanvasContextMenuEntry[] {
@@ -120,6 +145,7 @@ export function buildCanvasContextMenuEntries(
   const availability = {
     canvasAvailable: true,
     overview: false,
+    readOnly: options.readOnly,
     selection: can,
     held: request.holdsSelectionDeletes === true,
     lockedObjectsPresent: false,

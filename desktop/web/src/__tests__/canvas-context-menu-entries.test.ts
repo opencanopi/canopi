@@ -118,8 +118,8 @@ function build(
     openPlantAppearance,
     summary: options.summary === undefined ? (model ? APPLE_SUMMARY : null) : options.summary,
     openSpeciesDetail,
-    addToCalendar,
-    setUnitCost,
+    addToCalendar, setUnitCost,
+    readOnly: false,
     ...(options.profileLine ? { profileLine: options.profileLine } : {}),
   })
   return { entries, commands, openPlantAppearance, openSpeciesDetail, addToCalendar, setUnitCost, request }
@@ -536,7 +536,7 @@ describe('canvas context menu entries', () => {
         state: {
           activeTool: 'polygon',
           canvasAvailable: true,
-          spatialEditingAvailable: true,
+          spatialEditingAvailable: true, readOnly: false,
           selection: selectionCommandAvailability(model),
           held,
           lockedObjectsPresent: false,

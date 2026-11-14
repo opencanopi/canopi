@@ -1,9 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import {
-  isSavedObjectStampPayloadFromBefore2_0,
-  parseSavedObjectStampPayload,
-  type SavedObjectStampPayload,
-} from '../canvas/saved-object-stamp-payload'
+import { parseSavedObjectStampPayload, type SavedObjectStampPayload } from '../canvas/saved-object-stamp-payload'
+import { isSavedObjectStampPayloadFromBefore2_0 } from '../app/saved-object-stamps/row-state'
 import type { SavedObjectStamp } from '../types/saved-object-stamps'
 import {
   hasSavedObjectStampDragData,

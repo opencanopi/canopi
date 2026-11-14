@@ -6,7 +6,7 @@ use tauri::State;
 
 use crate::{
     db::UserDb,
-    design::drafts::DesignDrafts,
+    design::{drafts::DesignDrafts, format::OpenedDesign},
     host::dialogs::HostDialogs,
     native_operation::{NativeOperationClass, NativeOperationExecutor},
     services::recent_design_previews::RecentDesignPreviews,
@@ -58,7 +58,8 @@ pub async fn save_design<R: tauri::Runtime>(
 }
 
 /// Load a design and the fingerprint of the bytes read from `path`: a path
-/// the host's Open dialog chose, a recent file or a launch's file. A loaded
+/// the host's Open dialog chose, a recent file or a launch's file; a Design a newer
+/// Canopi saved comes back as its `ReadOnlyDesign`, with no fingerprint (2.1-M478). A loaded
 /// Design records its folder. Failures are typed (`DesignLoadFailure`) so the
 /// interface can say "made with an older version" rather than "invalid".
 #[tauri::command]
@@ -68,7 +69,7 @@ pub async fn load_design<R: tauri::Runtime>(
     user_db: State<'_, UserDb>,
     dialogs: State<'_, HostDialogs>,
     path: String,
-) -> Result<LoadedDesign, DesignLoadFailure> {
+) -> Result<OpenedDesign<LoadedDesign>, DesignLoadFailure> {
     let user_db = user_db.inner().clone();
     let read = path.clone();
     let loaded = executor
@@ -228,13 +229,13 @@ pub async fn save_design_draft(
         .await
 }
 
-/// Load the Design draft `id`.
+/// Load the Design draft `id`; one a newer Canopi saved comes back as its `ReadOnlyDesign`.
 #[tauri::command]
 pub async fn load_design_draft(
     executor: State<'_, NativeOperationExecutor>,
     drafts: State<'_, DesignDrafts>,
     id: String,
-) -> Result<CanopiFile, DesignLoadFailure> {
+) -> Result<OpenedDesign<CanopiFile>, DesignLoadFailure> {
     let drafts = drafts.inner().clone();
     executor
         .run(
@@ -246,7 +247,7 @@ pub async fn load_design_draft(
         .unwrap_or_else(|message| Err(internal_load_failure(message)))
 }
 
-/// List readable Design drafts, most recently written first.
+/// List readable Design drafts and every one a newer Canopi saved, most recently written first.
 #[tauri::command]
 pub async fn list_design_drafts(
     executor: State<'_, NativeOperationExecutor>,

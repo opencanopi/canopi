@@ -120,6 +120,10 @@ export function WebApp({
         onResolveSaveConflict={() => {
           void controller.resolveSaveConflict().catch(logWebAppCommandError);
         }}
+        // Update on a read-only Design reloads, as a waiting release does: nothing of it is pending (2.1-Q317).
+        onUpdate={() => {
+          void controller.reloadForRelease().catch(logWebAppCommandError);
+        }}
         placeSearch={hasDesign}
         persistence={persistence}
         undo={hasDesign ? workspaceCanvasCommandProjection.value.historyActions.find((action) => action.id === "undo") : undefined}

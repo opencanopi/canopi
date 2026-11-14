@@ -3,11 +3,13 @@ import { configDefaults } from "vitest/config";
 import preact from "@preact/preset-vite";
 import license from "rollup-plugin-license";
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath, URL } from "node:url";
 import { resolveWebEditionDevHtmlUrl } from "./src/web/dev-entry";
 import { admitWebCatalogManifest } from "./src/generated/web-catalog-artifact.mjs";
+// The engine floor's one source (canopi-4kfl, 2.1-M490): both editions' scripts, pre-bundled dependencies and styles.
+import { ENGINE_FLOOR_BROWSERS, ENGINE_FLOOR_TARGET } from "./engine-floor";
 // The coverage floors' one home (2.1-M217): policy/check.mjs holds this config's loaded values to the same family.
 import coverageFamily from "../../policy/ratchets/coverage.json";
 
@@ -24,6 +26,13 @@ const WEB_HASHED_NAMES = {
 // Every emitted script, workers included, is ASCII, as esbuild's were before Vite 8: Rolldown escapes non-ASCII text, and
 // asciiIdentifierKeysPlugin quotes the property names Oxc's minifier unquoted (canopi-f47t.52.228.18).
 const ASCII_OUTPUT = { charset: "ascii" } as const;
+// The format worker's built module (canopi-format-wasm/build-wasm.mjs, `npm run build:format-wasm`, git-ignored): the
+// worker imports its glue and the .wasm's `?url` through canopi-format-wasm/glue.js, and Vite serves them from outside
+// this directory in dev.
+const FORMAT_WASM_DIST = fileURLToPath(new URL("../../canopi-format-wasm/dist/", import.meta.url));
+// The Web build's entry. The format worker is no entry: platform/design-core.ts starts it with `new Worker(new URL(...))`,
+// so Vite emits it as a worker chunk (`worker` below); Desktop reads natively and never builds it (2.1-M476).
+const WEB_INPUT = { web: "web.html" } as const;
 const DEFAULT_WEB_CATALOG_INPUT = fileURLToPath(new URL('./catalog-input/', import.meta.url));
 // The PDF fonts' one script (plain JavaScript, run by node too): imported by URL, typed here.
 const { pdfFontsPlugin } = (await import(new URL("./scripts/prepare-pdf-fonts.mjs", import.meta.url).href)) as { pdfFontsPlugin(): Plugin };
@@ -76,6 +85,7 @@ export default defineConfig(({ mode }) => {
       asciiIdentifierKeysPlugin(),
       ...thirdPartyNotices.app,
       chunkPackagesPlugin(isWebEdition ? "web" : "desktop"),
+      bootGuardPlugin(isWebEdition ? "web" : "desktop"),
     ],
     // Both editions are served at the root: web.projectcanopi.com and the Tauri asset protocol (2.1-Q85, 2.1-M66).
     base: "/",
@@ -100,7 +110,7 @@ export default defineConfig(({ mode }) => {
       // Lazily imported by the PDF export; discovering them at runtime makes Vite
       // re-optimize and reload the page mid-session.
       include: ['pdfkit', 'fontkit'],
-      rolldownOptions: { transform: { target: 'es2022' } },
+      rolldownOptions: { transform: { target: [...ENGINE_FLOOR_TARGET] } },
     },
     worker: {
       // The raster decode lane imports geotiff codecs dynamically.
@@ -120,15 +130,17 @@ export default defineConfig(({ mode }) => {
           // The About dialog's notices view imports the root file `?raw`.
           notices.NOTICES_PATH,
           `${notices.NOTICES_PATH}?raw`,
+          FORMAT_WASM_DIST,
         ],
       },
     },
     build: {
-      target: 'es2022',
+      target: [...ENGINE_FLOOR_TARGET],
+      cssTarget: [...ENGINE_FLOOR_BROWSERS],
       outDir: isWebEdition ? "dist-web" : "dist",
       emptyOutDir: true,
       rolldownOptions: {
-        input: isWebEdition ? "web.html" : "index.html",
+        input: isWebEdition ? WEB_INPUT : "index.html",
         output: {
           ...ASCII_OUTPUT,
           ...(isWebEdition ? WEB_HASHED_NAMES : {}),
@@ -156,14 +168,14 @@ export default defineConfig(({ mode }) => {
       // maplibre/camera-driver.test.ts, maplibre/workspace-map.test.ts, __tests__/openfreemap-basemap.test.ts). Builds
       // never resolve it.
       alias: { 'maplibre-gl-source': fileURLToPath(new URL('./node_modules/maplibre-gl/src', import.meta.url)) },
-      // Playwright and WebdriverIO specs (e2e/, e2e-release/) run under their own runners; their `test()` throws in
+      // Playwright and WebdriverIO specs (e2e/, e2e-release/, e2e-rollback/) run under their own runners; their `test()` throws in
       // vitest. The real-app harness's framework-free modules (e2e/platform/) keep their unit tests beside them
       // (`*.test.ts`), which run here (canopi-f47t.52.228.35).
-      exclude: [...configDefaults.exclude, "e2e/**/*.spec.ts", "e2e/!(platform)/**", "e2e-release/**"],
+      exclude: [...configDefaults.exclude, "e2e/**/*.spec.ts", "e2e/!(platform)/**", "e2e-release/**", "e2e-rollback/**"],
       // An unhandled error or rejection fails the run even when every test passes.
       dangerouslyIgnoreUnhandledErrors: false,
       // The app's tests, with every option above, and the repository tooling's: policy/gate's TypeScript and a ported
-      // adapter's (policy/adapters/*.ts, 2.1-M349), their tests beside them (design check AR20), in plain Node from the repository root with the same order and assertion rule,
+      // adapter's (policy/adapters/*.ts, 2.1-M349) and the format module's build script (canopi-format-wasm/), their tests beside them (design check AR20), in plain Node from the repository root with the same order and assertion rule,
       // inheriting nothing else (Vitest 5's inline projects extend this file unless told not to). Under
       // CANOPI_VITEST_WEB_ONLY=1 (Stryker) the web project alone.
       projects: [
@@ -174,7 +186,7 @@ export default defineConfig(({ mode }) => {
           test: {
             name: "policy-gate",
             root: fileURLToPath(new URL("../..", import.meta.url)),
-            include: ["policy/gate/**/*.test.ts", "policy/adapters/**/*.test.ts"],
+            include: ["policy/gate/**/*.test.ts", "policy/adapters/**/*.test.ts", "canopi-format-wasm/*.test.ts"],
             environment: "node",
             sequence: { shuffle: { files: true, tests: true }, seed: mode === "test" ? testSeed() : PINNED_TEST_SEED },
             expect: { requireAssertions: true },
@@ -241,9 +253,9 @@ function thirdPartyNoticesPlugins(edition: "desktop" | "web"): { app: Plugin[]; 
 }
 
 /**
- * Lists every chunk of a build (file name, chunk name, entry or not, and the packages whose code it renders) in
- * node_modules/.canopi-build/<edition>.json, so the identifier scanner checks the named vendor chunks and the notices'
- * chunk on the written build, with no second build (design check A22).
+ * Lists every chunk of a build (file name, chunk name, entry or not, its static imports and the packages whose code it
+ * renders) in node_modules/.canopi-build/<edition>.json, so the identifier scanner checks the named vendor chunks, the
+ * notices' chunk and the entry's static graph on the written build, with no second build (design check A22).
  */
 function chunkPackagesPlugin(edition: "desktop" | "web"): Plugin {
   const packageOf = (id: string) => {
@@ -260,7 +272,7 @@ function chunkPackagesPlugin(edition: "desktop" | "web"): Plugin {
         const chunks = Object.values(bundle).flatMap((file) => file.type !== "chunk" ? [] : [{
           fileName: file.fileName,
           name: file.name,
-          isEntry: file.isEntry,
+          isEntry: file.isEntry, imports: file.imports,
           packages: [...new Set(Object.entries(file.modules).flatMap(([id, module]) => module.renderedLength > 0 ? packageOf(id) : []))].sort(),
         }]);
         mkdirSync(CHUNK_FACTS_DIR, { recursive: true });
@@ -432,6 +444,44 @@ function initialStylesheetOrderPlugin(): Plugin {
   };
 }
 
+const LOCALE_DIR = fileURLToPath(new URL("./src/i18n/", import.meta.url));
+
+/**
+ * The start-up guard (canopi-4kfl, 2.1-M471, 2.1-M489): src/boot-guard/guard.ts with the edition's strings from every locale
+ * file, ES2015 in a function scope, as a hashed classic script before the entry module; nothing in public/ (2.1-M176). A
+ * missing string, a result that is not one plain script or a page without one module script fails either edition's build.
+ */
+function bootGuardPlugin(edition: "desktop" | "web"): Plugin {
+  let base = "/";
+  return {
+    name: "canopi-boot-guard", apply: "build",
+    configResolved: (config) => void (base = config.base),
+    async buildStart() {
+      const texts: Record<string, { title: string; hint: string }> = {};
+      for (const file of readdirSync(LOCALE_DIR).filter((name) => name.endsWith(".json")).sort()) {
+        const startup = (JSON.parse(readFileSync(join(LOCALE_DIR, file), "utf8")) as { startup?: Record<string, unknown> }).startup;
+        const [title, hint] = [startup?.title, startup?.[`${edition}Hint`]];
+        if (typeof title !== "string" || typeof hint !== "string") this.error(`src/i18n/${file} lacks startup.title or startup.${edition}Hint.`);
+        texts[file.slice(0, -".json".length)] = { title, hint };
+      }
+      const { code } = await transformWithOxc(readFileSync(new URL("./src/boot-guard/guard.ts", import.meta.url), "utf8"), "guard.ts",
+        { lang: "ts", target: "es2015", define: { __CANOPI_BOOT_GUARD_TEXTS__: JSON.stringify(texts) } });
+      // Oxc keeps the file a module (`export {};`). The guard's code is ASCII: other characters are string text, escaped.
+      const script = `(function () {\n${code.replace(/^export \{\};$/m, "")}})();\n`.replace(/[^\x00-\x7f]/g, (char) => `\\u${char.charCodeAt(0).toString(16).padStart(4, "0")}`);
+      const { errors } = parseSync("boot-guard.js", script, { sourceType: "script" });
+      if (errors.length > 0) this.error(`The start-up guard is not one plain script: ${errors[0]!.message}.`);
+      this.emitFile({ type: "asset", name: "boot-guard.js", source: script });
+    },
+    transformIndexHtml: { order: "post", handler(html, { bundle }) {
+      if (!bundle) return html;
+      const guard = Object.values(bundle).find((file) => file.type === "asset" && file.names.includes("boot-guard.js"));
+      const modules = html.match(/<script\b[^>]*\btype="module"[^>]*><\/script>/g) ?? [];
+      if (!guard || modules.length !== 1) throw new Error(`The ${edition} page has ${modules.length} module scripts and ${guard ? "a" : "no"} start-up guard; it needs one of each.`);
+      return html.replace(modules[0]!, `<script src="${base}${guard.fileName}"></script>\n    ${modules[0]}`);
+    } },
+  };
+}
+
 /** policy/layers.json's package rows in order, generated by policy/generate.mjs: the chunk each package's code joins. */
 const VENDOR_CHUNK_ROWS = (JSON.parse(readFileSync(new URL("./build-facts.generated.json", import.meta.url), "utf8")) as {
   chunkRows: { pattern: string; chunk: string | null }[];
@@ -445,7 +495,8 @@ const VENDOR_CHUNK_ROWS = (JSON.parse(readFileSync(new URL("./build-facts.genera
  */
 function vendorChunk(id: string): string | null {
   const packages = id.replaceAll("\\", "/").split("node_modules/").slice(1);
-  if (!packages.length) return null;
+  // The LZW codec and decoder load on demand: their top-level await in an eager chunk would defer the mount (canopi-72fm).
+  if (!packages.length || packages.some((pkg) => /^@developmentseed\/(geotiff\/dist\/codecs\/lzw\.js|lzw-tiff-decoder\/)/.test(pkg))) return null;
   const row = VENDOR_CHUNK_ROWS.find(({ pattern }) => pattern === "*" || packages.some((pkg) =>
     pattern.endsWith("/") ? pkg.startsWith(pattern) : pkg === pattern || pkg.startsWith(`${pattern}/`)));
   return row?.chunk ?? null;
@@ -457,10 +508,8 @@ function webEditionDevEntryPlugin(enabled: boolean): Plugin {
     apply: "serve",
     configureServer(server) {
       if (!enabled) return;
-
       server.middlewares.use((request, _response, next) => {
-        const webEntryUrl = resolveWebEditionDevHtmlUrl(request.url);
-        if (webEntryUrl) request.url = webEntryUrl;
+        request.url = resolveWebEditionDevHtmlUrl(request.url) ?? request.url;
         next();
       });
     },

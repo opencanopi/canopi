@@ -11,7 +11,7 @@ import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { Page, TestInfo } from '@playwright/test'
 import { createSessionPlane } from '../../src/canvas/session-plane'
-import { designMap, expectCanvasDrawn } from '../support/canvas'
+import { designMap, expectCanvasDrawn, seedPointingDevice } from '../support/canvas'
 import { expect, test } from '../support/offline'
 
 interface LargeFixtureGenerator {
@@ -91,6 +91,8 @@ async function sampleOf(page: Page, start: number, end: number): Promise<Sample>
 }
 
 async function startScreen(page: Page): Promise<void> {
+  // WebKit reports a Mac user agent, where a new profile starts on Trackpad (2.1-Q309); the wheel steps need Mouse.
+  await seedPointingDevice(page)
   await page.goto('')
   await expect(page.getByRole('button', { name: /Open a \.canopi file…/ }).first()).toBeEnabled()
 }

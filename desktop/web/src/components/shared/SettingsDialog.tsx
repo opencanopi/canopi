@@ -24,6 +24,7 @@ import { PLANT_SYMBOL_SCALE_MAX, PLANT_SYMBOL_SCALE_MIN } from '../../canvas/run
 import type { AppFolder, AppFolderLocations, BasemapStyle, PlantLabels, ScrollWheel } from '../../generated/contracts'
 import { SETTINGS_BASEMAP_STYLES } from '../../generated/settings'
 import type { Locale, Theme } from '../../types/settings'
+import { readFailureCode } from '../../failures/store-read'
 import { t } from '../../i18n'
 import { ControlIcon, type ControlIconName } from './ControlIcon'
 import { Dropdown, type DropdownItem } from './Dropdown'
@@ -275,12 +276,24 @@ type FolderState =
   | { readonly status: 'ready'; readonly locations: AppFolderLocations }
   | { readonly status: 'failed' }
 
+/**
+ * Favourites belong to this computer or this browser, never to a Design (2.1-Q312), so the note shows whatever the
+ * folders do; export and import wait for a second request (canopi-13lh).
+ */
 function FilesSection({ folders }: { readonly folders?: SettingsFoldersAdapter }) {
+  return <>
+    {folders ? <AppFolders folders={folders} /> : <p className={styles.intro}>{t('settings.filesWeb')}</p>}
+    <p className={styles.hint} data-favourites-note>
+      {t(folders ? 'settings.favouritesDesktop' : 'settings.favouritesWeb')}
+    </p>
+  </>
+}
+
+function AppFolders({ folders }: { readonly folders: SettingsFoldersAdapter }) {
   const [state, setState] = useState<FolderState>({ status: 'loading' })
   const [failed, setFailed] = useState<AppFolder | null>(null)
 
   useEffect(() => {
-    if (!folders) return
     let live = true
     folders.load().then(
       (locations) => { if (live) setState({ status: 'ready', locations }) },
@@ -290,7 +303,6 @@ function FilesSection({ folders }: { readonly folders?: SettingsFoldersAdapter }
     return () => { live = false }
   }, [folders])
 
-  if (!folders) return <p className={styles.intro}>{t('settings.filesWeb')}</p>
   if (state.status === 'loading') return <p className={styles.hint} role="status">{t('settings.filesLoading')}</p>
   if (state.status === 'failed') return <p className={styles.status} role="alert">{t('settings.filesUnavailable')}</p>
 
@@ -345,26 +357,51 @@ function AboutSection({ updates }: { readonly updates?: ComponentChildren }) {
 /** The launch-check setting's own key row, `updater.check_at_launch`, through the host (2.1-M206). */
 export interface LaunchCheckPort {
   get(): Promise<boolean>
+  /** Resolves once written, or once held for the session under settings a newer Canopi saved; rejects otherwise. */
   set(on: boolean): Promise<void>
 }
 
 /**
+ * The port over the host's row, holding a write the store refuses under settings a newer Canopi saved (2.1-Q320,
+ * M487) until the app closes, so the About tab reads the user's value again when it remounts.
+ */
+export function createLaunchCheckPort(get: () => Promise<boolean>, set: (on: boolean) => Promise<void>): LaunchCheckPort {
+  let session: boolean | null = null
+  return {
+    get: () => (session === null ? get() : Promise.resolve(session)),
+    set: (on) => set(on).then(() => { session = null }, (error: unknown) => {
+      if (readFailureCode(error).kind !== 'store_read_only') throw error
+      session = on
+    }),
+  }
+}
+
+/**
  * "Check for updates at launch" (2.1-Q164): its own key row, on when the row is missing (the host's default), so the
- * settings record is never touched (M206). Shown once read; hidden when the row cannot be read; a failed write puts
- * the switch back.
+ * settings record is never touched (M206). Shown once read; hidden when the row cannot be read. While it is read its
+ * place is held, invisible and inert, so a late answer moves nothing below it and a press meant for About Canopi…
+ * never lands on the switch (canopi-f47t.52.271). A write the port holds for the session keeps the switch as set
+ * (createLaunchCheckPort, 2.1-Q320); any failed write puts it back.
  */
 export function LaunchCheckSwitch({ port }: { readonly port: LaunchCheckPort }) {
-  const [on, setOn] = useState<boolean | null>(null)
+  const [on, setOn] = useState<boolean | 'reading' | 'unreadable'>('reading')
   useEffect(() => {
     let live = true
     port.get().then(
       (value) => { if (live) setOn(value) },
       // The row could not be read: the switch stays hidden rather than show a value it does not know.
-      () => {},
+      () => { if (live) setOn('unreadable') },
     )
     return () => { live = false }
   }, [port])
-  if (on === null) return null
+  if (on === 'unreadable') return null
+  if (on === 'reading') {
+    return (
+      <div className={styles.launchCheckReading} aria-hidden="true">
+        <Switch label={t('update.checkAtLaunch')} checked={false} disabled onChange={() => {}} />
+      </div>
+    )
+  }
   return (
     <div data-launch-check="">
       <Switch

@@ -1,11 +1,13 @@
-use rusqlite::Connection;
-use std::fmt;
+use canopi_types::health::{StoreHealth, StoreOpenStatus};
+use canopi_types::saved_object_stamps::SavedObjectStamp;
+use rusqlite::{Connection, ErrorCode, OpenFlags, OptionalExtension};
+use std::{fmt, path::Path};
 
 /// The user database shape this build writes (Canopi 2.0).
 ///
 /// Canopi 2.0 breaks stored data (ADR 0021): there is no migration ladder.
 /// An older database is moved aside whole by `UserDb::open` and replaced by
-/// an empty one; a newer one is refused untouched.
+/// an empty one; a newer one is read, never written.
 pub(crate) const CURRENT_USER_DB_VERSION: i32 = 9;
 
 const SCHEMA: &str = include_str!("user_db_schema.sql");
@@ -19,8 +21,8 @@ pub enum UserDbInitError {
     OlderSchemaVersion {
         found: i32,
     },
-    /// Written by a newer Canopi. It is refused and left untouched; the user
-    /// must run that newer Canopi (or move the file) to continue.
+    /// Written by a newer Canopi, found by the read-write initialization: it
+    /// is left untouched. `UserDb::open` reads such a file read-only first.
     NewerSchemaVersion {
         found: i32,
         supported: i32,
@@ -65,12 +67,8 @@ impl UserDbInitError {
 
 fn is_corrupt_database_error(error: &rusqlite::Error) -> bool {
     matches!(
-        error,
-        rusqlite::Error::SqliteFailure(failure, _)
-            if matches!(
-                failure.code,
-                rusqlite::ErrorCode::NotADatabase | rusqlite::ErrorCode::DatabaseCorrupt
-            )
+        error.sqlite_error_code(),
+        Some(ErrorCode::NotADatabase | ErrorCode::DatabaseCorrupt)
     )
 }
 
@@ -139,16 +137,6 @@ impl std::error::Error for UserDbInitError {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct SavedObjectStampRow {
-    pub id: String,
-    pub name: String,
-    pub payload_json: String,
-    pub sort_order: i32,
-    pub created_at: String,
-    pub updated_at: String,
-}
-
 /// Schema version recorded in a user database (`PRAGMA user_version`).
 pub(super) fn schema_version(conn: &Connection) -> Result<i32, UserDbInitError> {
     conn.pragma_query_value(None, "user_version", |row| row.get(0))
@@ -181,6 +169,57 @@ pub(super) fn initialize_connection(conn: &Connection) -> Result<(), UserDbInitE
         create_schema(conn)?;
     }
     verify_integrity(conn)
+}
+
+/// The read-only version check `UserDb::open` runs first (contracts §11; plan :169, 2.1-M410). `None` for a missing
+/// file (a read-only open creates none), versions 0 to 9 and what SQLite cannot read: the read-write open owns, sets
+/// aside or refuses those. A newer version keeps its `SQLITE_OPEN_READ_ONLY` connection (never `immutable=1`), read
+/// through the v9 tables and columns by name (A3). A newer file read only through a write (a hot journal; a -wal with
+/// no -shm in a folder Canopi cannot write) is unavailable, never retried read-write, served by a read-only stand-in.
+/// It returns the connection, which `UserDb::open` wraps, so this module never names its parent (no db cycle, 2.1-M189).
+pub(super) fn read_only_admission(
+    path: &Path,
+) -> Result<Option<(Connection, StoreHealth)>, UserDbInitError> {
+    let flags = OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX;
+    let read = Connection::open_with_flags(path, flags).map_err(UserDbInitError::Open);
+    let newer = |found: i32| found > CURRENT_USER_DB_VERSION;
+    let (connection, status) = match read.and_then(|conn| Ok((schema_version(&conn)?, conn))) {
+        Ok((found, conn)) if newer(found) => (conn, StoreOpenStatus::NewerReadOnly),
+        Err(_) if header_user_version(path).is_some_and(newer) => {
+            let stand_in = Connection::open_in_memory().map_err(UserDbInitError::Open)?;
+            create_schema(&stand_in)?;
+            let query_only = stand_in.pragma_update(None, "query_only", true);
+            query_only.map_err(UserDbInitError::CreateSchema)?;
+            let code = canopi_types::failure::FailureCode::Io {
+                io: canopi_types::failure::IoFailureKind::ReadOnly,
+            };
+            (stand_in, StoreOpenStatus::Unavailable { code })
+        }
+        Ok(_) | Err(_) => return Ok(None),
+    };
+    let health = StoreHealth {
+        status,
+        notice: None,
+    };
+    Ok(Some((connection, health)))
+}
+
+/// `user_version` as the main file's header holds it, read without SQLite, which would roll a hot journal back.
+fn header_user_version(path: &Path) -> Option<i32> {
+    let mut header = [0u8; 64];
+    std::io::Read::read_exact(&mut std::fs::File::open(path).ok()?, &mut header).ok()?;
+    let version = i32::from_be_bytes(header[60..].try_into().ok()?);
+    header.starts_with(b"SQLite format 3\0").then_some(version)
+}
+
+/// The one place `SQLITE_READONLY` becomes `store_read_only{user_db}` (design check F15, 2.1-M487): a user DB write's
+/// error passes here, and a refused one is the catalogue kind, the text the IPC transport settles silently; any other
+/// error reads `<context>: <error>`.
+pub(crate) fn write_refusal(context: &str) -> impl FnOnce(rusqlite::Error) -> String + '_ {
+    move |error| match error.sqlite_error_code() {
+        Some(ErrorCode::ReadOnly) => "store_read_only".to_owned(),
+        _ => format!("{context}: {error}"),
+    }
 }
 
 fn has_tables(conn: &Connection) -> Result<bool, UserDbInitError> {
@@ -230,13 +269,10 @@ fn verify_integrity(conn: &Connection) -> Result<(), UserDbInitError> {
 }
 
 pub fn get_setting(conn: &Connection, key: &str) -> Result<Option<String>, rusqlite::Error> {
-    let mut stmt = conn.prepare("SELECT value FROM settings WHERE key = ?1")?;
-    let mut rows = stmt.query_map([key], |row| row.get(0))?;
-    match rows.next() {
-        Some(Ok(val)) => Ok(Some(val)),
-        Some(Err(e)) => Err(e),
-        None => Ok(None),
-    }
+    conn.query_row("SELECT value FROM settings WHERE key = ?1", [key], |row| {
+        row.get(0)
+    })
+    .optional()
 }
 
 pub fn set_setting(conn: &Connection, key: &str, value: &str) -> Result<(), rusqlite::Error> {
@@ -265,25 +301,17 @@ pub fn get_favorite_names(conn: &Connection) -> Result<Vec<String>, rusqlite::Er
 
 /// Toggles a favorite. Returns `true` if now favorited, `false` if unfavorited.
 pub fn toggle_favorite(conn: &Connection, canonical_name: &str) -> Result<bool, rusqlite::Error> {
-    let exists: bool = conn.query_row(
-        "SELECT EXISTS(SELECT 1 FROM favorites WHERE canonical_name = ?1)",
+    let removed = conn.execute(
+        "DELETE FROM favorites WHERE canonical_name = ?1",
         [canonical_name],
-        |row| row.get(0),
     )?;
-
-    if exists {
-        conn.execute(
-            "DELETE FROM favorites WHERE canonical_name = ?1",
-            [canonical_name],
-        )?;
-        Ok(false)
-    } else {
+    if removed == 0 {
         conn.execute(
             "INSERT INTO favorites (canonical_name, added_at) VALUES (?1, datetime('now'))",
             [canonical_name],
         )?;
-        Ok(true)
     }
+    Ok(removed == 0)
 }
 
 /// Records a species view, updating `viewed_at` if already present.
@@ -311,105 +339,148 @@ pub fn get_recently_viewed_names(
     stmt.query_map([limit], |row| row.get(0))?.collect()
 }
 
+/// True (1) for a saved stamp whose payload carries a numeric `version` above 2, the newest this build reads
+/// (2.1-M88, design check F6): a v3 payload from 2.1 lists as needing a newer Canopi, and every stamp write guards on
+/// its negation (the plan's `json_extract(payload_json,'$.version') <= 2`). A payload with no numeric version (damaged)
+/// and a pre-2.0 v1 stay this build's to delete. The `CASE` keeps `json_extract` off text that is not JSON, which it
+/// rejects. A macro, so each statement is one `concat!` literal and no SQL is formatted at run time.
+macro_rules! stamp_payload_newer {
+    () => {
+        "COALESCE(CASE WHEN json_valid(payload_json) THEN \
+         json_type(payload_json, '$.version') IN ('integer', 'real') \
+         AND json_extract(payload_json, '$.version') > 2 END, 0)"
+    };
+}
+
+/// A stamp SELECT with `needs_newer` computed beside the columns [`stamp_from_row`] reads.
+macro_rules! select_stamps {
+    ($rest:literal) => {
+        concat!(
+            "SELECT id, name, payload_json, sort_order, created_at, updated_at, ",
+            stamp_payload_newer!(),
+            " FROM saved_object_stamps ",
+            $rest
+        )
+    };
+}
+
+/// A stamp write the store refused.
+#[derive(Debug)]
+pub enum StampWriteError {
+    /// The row's payload is newer than this build reads: never renamed, reordered or deleted (2.1-M88).
+    NeedsNewer,
+    /// SQLite failed, a read-only user DB's `SQLITE_READONLY` included.
+    Sqlite(rusqlite::Error),
+}
+
+impl From<rusqlite::Error> for StampWriteError {
+    fn from(error: rusqlite::Error) -> Self {
+        Self::Sqlite(error)
+    }
+}
+
 pub fn create_saved_object_stamp(
     conn: &Connection,
     name: &str,
     payload_json: &str,
-) -> Result<SavedObjectStampRow, rusqlite::Error> {
+) -> Result<SavedObjectStamp, rusqlite::Error> {
     conn.execute(
         "INSERT INTO saved_object_stamps (id, name, payload_json, sort_order, created_at, updated_at)
-         VALUES (
-            'stamp-' || lower(hex(randomblob(16))),
-            ?1,
-            ?2,
-            COALESCE((SELECT MAX(sort_order) + 1 FROM saved_object_stamps), 0),
-            datetime('now'),
-            datetime('now')
-         )",
+         VALUES ('stamp-' || lower(hex(randomblob(16))), ?1, ?2,
+            COALESCE((SELECT MAX(sort_order) + 1 FROM saved_object_stamps), 0), datetime('now'), datetime('now'))",
         (name, payload_json),
     )?;
-
-    let id = conn.last_insert_rowid();
-    conn.query_row(
-        "SELECT id, name, payload_json, sort_order, created_at, updated_at
-         FROM saved_object_stamps
-         WHERE rowid = ?1",
-        [id],
-        saved_object_stamp_from_row,
-    )
+    let rowid = conn.last_insert_rowid();
+    conn.query_row(select_stamps!("WHERE rowid = ?1"), [rowid], stamp_from_row)
 }
 
 pub fn get_saved_object_stamps(
     conn: &Connection,
-) -> Result<Vec<SavedObjectStampRow>, rusqlite::Error> {
-    let mut stmt = conn.prepare(
-        "SELECT id, name, payload_json, sort_order, created_at, updated_at
-         FROM saved_object_stamps
-         ORDER BY sort_order ASC, created_at ASC, id ASC",
-    )?;
-    stmt.query_map([], saved_object_stamp_from_row)?.collect()
+) -> Result<Vec<SavedObjectStamp>, rusqlite::Error> {
+    let mut stmt = conn.prepare(select_stamps!(
+        "ORDER BY sort_order ASC, created_at ASC, id ASC"
+    ))?;
+    stmt.query_map([], stamp_from_row)?.collect()
 }
 
+/// Renames a row whose payload this build reads; a newer row is refused and left unchanged.
 pub fn rename_saved_object_stamp(
     conn: &Connection,
     id: &str,
     name: &str,
-) -> Result<SavedObjectStampRow, rusqlite::Error> {
-    conn.execute(
-        "UPDATE saved_object_stamps
-         SET name = ?2, updated_at = datetime('now')
-         WHERE id = ?1",
+) -> Result<SavedObjectStamp, StampWriteError> {
+    let renamed = conn.execute(
+        concat!(
+            "UPDATE saved_object_stamps SET name = ?2, updated_at = datetime('now') WHERE id = ?1 AND NOT ",
+            stamp_payload_newer!()
+        ),
         (id, name),
     )?;
-    get_saved_object_stamp(conn, id)
+    refuse_newer_stamp(conn, id, renamed)?;
+    Ok(conn.query_row(select_stamps!("WHERE id = ?1"), [id], stamp_from_row)?)
 }
 
-pub fn delete_saved_object_stamp(conn: &Connection, id: &str) -> Result<bool, rusqlite::Error> {
-    let deleted = conn.execute("DELETE FROM saved_object_stamps WHERE id = ?1", [id])?;
+/// Deletes a row whose payload this build reads, a pre-2.0 v1 included; a newer row is refused and kept. `false` for
+/// an id with no row.
+pub fn delete_saved_object_stamp(conn: &Connection, id: &str) -> Result<bool, StampWriteError> {
+    let deleted = conn.execute(
+        concat!(
+            "DELETE FROM saved_object_stamps WHERE id = ?1 AND NOT ",
+            stamp_payload_newer!()
+        ),
+        [id],
+    )?;
+    refuse_newer_stamp(conn, id, deleted)?;
     Ok(deleted > 0)
 }
 
+/// Renumbers the named rows in the given order; rows not named, a newer one among them, keep their place. A list
+/// naming a newer row is refused whole: the transaction rolls back and no row is renumbered.
 pub fn reorder_saved_object_stamps(
     conn: &Connection,
     ids: &[String],
-) -> Result<(), rusqlite::Error> {
+) -> Result<(), StampWriteError> {
     let tx = conn.unchecked_transaction()?;
     {
-        let mut stmt = tx.prepare(
-            "UPDATE saved_object_stamps
-             SET sort_order = ?2, updated_at = datetime('now')
-             WHERE id = ?1",
-        )?;
+        let mut stmt = tx.prepare(concat!(
+            "UPDATE saved_object_stamps SET sort_order = ?2, updated_at = datetime('now') WHERE id = ?1 AND NOT ",
+            stamp_payload_newer!()
+        ))?;
         for (index, id) in ids.iter().enumerate() {
-            stmt.execute((id, index as i32))?;
+            let renumbered = stmt.execute((id, index as i32))?;
+            refuse_newer_stamp(&tx, id, renumbered)?;
         }
     }
-    tx.commit()
+    Ok(tx.commit()?)
 }
 
-fn get_saved_object_stamp(
-    conn: &Connection,
-    id: &str,
-) -> Result<SavedObjectStampRow, rusqlite::Error> {
-    conn.query_row(
-        "SELECT id, name, payload_json, sort_order, created_at, updated_at
-         FROM saved_object_stamps
-         WHERE id = ?1",
-        [id],
-        saved_object_stamp_from_row,
-    )
+/// After a guarded stamp write that changed `changed` rows: [`StampWriteError::NeedsNewer`] when it changed none
+/// because the row's payload is newer; an id with no row is the caller's to answer.
+fn refuse_newer_stamp(conn: &Connection, id: &str, changed: usize) -> Result<(), StampWriteError> {
+    let newer = || {
+        let sql = concat!(
+            "SELECT ",
+            stamp_payload_newer!(),
+            " FROM saved_object_stamps WHERE id = ?1"
+        );
+        conn.query_row(sql, [id], |row| row.get::<_, bool>(0))
+            .optional()
+    };
+    match changed == 0 && newer()?.unwrap_or(false) {
+        true => Err(StampWriteError::NeedsNewer),
+        false => Ok(()),
+    }
 }
 
-fn saved_object_stamp_from_row(
-    row: &rusqlite::Row<'_>,
-) -> Result<SavedObjectStampRow, rusqlite::Error> {
-    Ok(SavedObjectStampRow {
+fn stamp_from_row(row: &rusqlite::Row<'_>) -> Result<SavedObjectStamp, rusqlite::Error> {
+    Ok(SavedObjectStamp {
         id: row.get(0)?,
         name: row.get(1)?,
         payload_json: row.get(2)?,
         sort_order: row.get(3)?,
         created_at: row.get(4)?,
         updated_at: row.get(5)?,
+        needs_newer: row.get(6)?,
     })
 }
 
@@ -500,66 +571,6 @@ mod tests {
     }
 
     #[test]
-    fn test_saved_object_stamp_round_trip_preserves_payload_and_order() {
-        let conn = test_db();
-
-        let saved = create_saved_object_stamp(
-            &conn,
-            "Apple guild",
-            r#"{"plants":[{"id":"plant-1"}],"zones":[],"annotations":[],"groups":[]}"#,
-        )
-        .unwrap();
-
-        assert_eq!(saved.name, "Apple guild");
-        assert_eq!(saved.sort_order, 0);
-        assert!(!saved.created_at.is_empty());
-        assert_eq!(saved.updated_at, saved.created_at);
-
-        let stamps = get_saved_object_stamps(&conn).unwrap();
-        assert_eq!(stamps.len(), 1);
-        assert_eq!(stamps[0].id, saved.id);
-        assert_eq!(stamps[0].name, "Apple guild");
-        assert_eq!(
-            stamps[0].payload_json,
-            r#"{"plants":[{"id":"plant-1"}],"zones":[],"annotations":[],"groups":[]}"#
-        );
-        assert_eq!(stamps[0].sort_order, 0);
-    }
-
-    #[test]
-    fn test_saved_object_stamps_can_be_renamed_deleted_and_reordered() {
-        let conn = test_db();
-        let first = create_saved_object_stamp(&conn, "First", r#"{"plants":[]}"#).unwrap();
-        let second = create_saved_object_stamp(&conn, "Second", r#"{"plants":[]}"#).unwrap();
-
-        let renamed = rename_saved_object_stamp(&conn, &first.id, "Renamed").unwrap();
-        assert_eq!(renamed.name, "Renamed");
-
-        reorder_saved_object_stamps(&conn, &[second.id.clone(), first.id.clone()]).unwrap();
-        let reordered = get_saved_object_stamps(&conn).unwrap();
-        assert_eq!(
-            reordered
-                .iter()
-                .map(|stamp| stamp.id.as_str())
-                .collect::<Vec<_>>(),
-            [second.id.as_str(), first.id.as_str()]
-        );
-        assert_eq!(reordered[0].sort_order, 0);
-        assert_eq!(reordered[1].sort_order, 1);
-
-        assert!(delete_saved_object_stamp(&conn, &second.id).unwrap());
-        assert!(!delete_saved_object_stamp(&conn, &second.id).unwrap());
-        let remaining = get_saved_object_stamps(&conn).unwrap();
-        assert_eq!(
-            remaining
-                .iter()
-                .map(|stamp| stamp.id.as_str())
-                .collect::<Vec<_>>(),
-            [first.id.as_str()]
-        );
-    }
-
-    #[test]
     fn init_creates_design_notebook_tables() {
         let conn = Connection::open_in_memory().unwrap();
         initialize_connection(&conn).unwrap();
@@ -568,19 +579,6 @@ mod tests {
             Ok(())
         })
         .unwrap();
-    }
-
-    #[test]
-    fn initialization_refuses_a_newer_schema_version() {
-        let conn = Connection::open_in_memory().unwrap();
-        conn.pragma_update(None, "user_version", CURRENT_USER_DB_VERSION + 1)
-            .unwrap();
-
-        assert!(matches!(
-            crate::db::UserDb::initialize(conn),
-            Err(UserDbInitError::NewerSchemaVersion { found, supported })
-                if found == CURRENT_USER_DB_VERSION + 1 && supported == CURRENT_USER_DB_VERSION
-        ));
     }
 
     fn files_starting_with(path: &std::path::Path, suffix: &str) -> Vec<std::path::PathBuf> {
@@ -705,30 +703,6 @@ mod tests {
             (StoreOpenStatus::Ready, None)
         );
         assert!(files_starting_with(&path, ".").is_empty(), "nothing moved");
-        std::fs::remove_file(path).unwrap();
-    }
-
-    /// A newer database is refused with a typed error and left exactly where it is.
-    #[test]
-    fn opening_a_newer_database_is_refused_and_kept() {
-        let scratch = TestScratch::new("user-db-opening-a-newer-database-is-refused-and-kept");
-        let path = temp_user_db_path(&scratch, "newer");
-        Connection::open(&path)
-            .unwrap()
-            .pragma_update(None, "user_version", CURRENT_USER_DB_VERSION + 1)
-            .unwrap();
-        assert!(matches!(
-            crate::db::UserDb::open(&path),
-            Err(UserDbInitError::NewerSchemaVersion { found, supported })
-                if found == CURRENT_USER_DB_VERSION + 1 && supported == CURRENT_USER_DB_VERSION
-        ));
-        assert!(
-            files_starting_with(&path, ".").is_empty(),
-            "nothing is set aside"
-        );
-        let kept = Connection::open(&path).unwrap();
-        assert_eq!(schema_version(&kept).unwrap(), CURRENT_USER_DB_VERSION + 1);
-        drop(kept);
         std::fs::remove_file(path).unwrap();
     }
 

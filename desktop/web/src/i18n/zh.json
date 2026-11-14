@@ -71,6 +71,7 @@
     "searchLabel": "搜索植物目录",
     "details": "{{name}}的详情",
     "addFavoriteNamed": "将{{name}}加入收藏",
+    "favoriteNeedsNewer": "由更新版本的 Canopi 保存。请更新 Canopi 后再更改收藏。",
     "removeFavoriteNamed": "将{{name}}移出收藏",
     "factHeight": "{{height}} 米",
     "factHardiness": "USDA {{zones}}",
@@ -124,6 +125,12 @@
       "webSpeciesLists": "Canopi 保存的收藏和最近查看的植物已损坏且无法另存，因此本次会话中对它们的更改不会被保存。"
     },
     "newerReadOnly": "这些数据由更新版本的 Canopi 保存。您可以查看，但更改不会被保存。请更新 Canopi 以进行编辑。",
+    "newerReadOnlyStore": {
+      "userDb": "您的收藏、已保存的图章和最近的设计由更新版本的 Canopi 保存。您可以查看，但更改不会被保存。请更新 Canopi 后再编辑。",
+      "settings": "您的设置由更新版本的 Canopi 保存。更改在关闭 Canopi 前有效，但不会被保存。请更新 Canopi 以保留更改。",
+      "libraryCatalogue": "数据资料库由更新版本的 Canopi 保存。其中的项目会列出，但更改不会被保存。请更新 Canopi 后再使用。",
+      "webSpeciesLists": "您的收藏和最近查看的植物由更新版本的 Canopi 保存。您可以查看，但更改不会被保存。请更新 Canopi 后再编辑。"
+    },
     "refusedNewer": "这些数据由更新版本的 Canopi 保存，未被打开。请更新 Canopi 以使用它们。",
     "storeUnavailable": "无法打开 Canopi 保存的部分数据。请重新启动 Canopi，如果问题仍然存在，请报告问题。",
     "fieldsReset": "部分设置的值 Canopi 无法使用，已重置为默认值。",
@@ -636,14 +643,19 @@
         "deleteEverywhere": "全部删除",
         "renameEllipsis": "重命名…",
         "recovered": "Canopi 已根据其保留的文件重建了数据资料库。标记为失败的项目可以通过“重试”重新准备。",
-        "refusedNewer": "数据资料库由较新版本的 Canopi 保存。请安装最新版 Canopi 以使用它；此版本不会更改它。",
         "unavailable": "无法打开数据资料库。在 Canopi 重新启动之前，导入和更改均已关闭。",
         "sortLabel": "排序",
         "sortRecent": "最近添加",
         "factAdded": "添加时间",
         "deletedItem": "已删除的项目",
         "importNeedsDesign": "打开一个设计以导入数据",
-        "importCancelled": "已取消导入"
+        "importCancelled": "已取消导入",
+        "needsNewerNote": "请更新 Canopi 以使用此项目。",
+        "newerKind": {
+          "raster": "栅格数据",
+          "unknown": "此版本 Canopi 无法识别的数据类型",
+          "vector": "矢量数据"
+        }
       },
       "layers": {
         "emptyTitle": "暂无场地数据",
@@ -813,8 +825,11 @@
       "escSelect": "Esc 返回选择工具",
       "escClearRow": "Esc 清除这一行",
       "escClearStamp": "Esc 清除图章",
-      "selectHint": "拖动以选择 · Shift-点击添加 · Alt-点击移除 · 右键拖动平移地图 · 滚轮缩放",
-      "selectHintPan": "拖动以选择 · Shift-点击添加 · Alt-点击移除 · 双指平移地图 · 捏合缩放",
+      "selectHint": "拖动以选择 · Shift-点击添加 · Alt-点击移除 · 右键拖动平移地图 · 滚轮缩放 · 使用触控板：“设置 › 画布 › 指针设备”",
+      "selectHintPan": "拖动以选择 · Shift-点击添加 · Alt-点击移除 · 双指平移地图 · 捏合缩放 · 使用鼠标：“设置 › 画布 › 指针设备”",
+      "selectHintTouch": "拖动以选择 · Shift-点击添加 · Alt-点击移除 · 双指平移地图 · 捏合缩放",
+      "selectHintMac": "拖动以选择 · Shift-点击添加 · Option-点击移除 · 滚轮缩放 · 使用触控板：“设置 › 画布 › 指针设备”",
+      "selectHintMacPan": "拖动以选择 · Shift-点击添加 · Option-点击移除 · 双指平移地图 · 捏合缩放 · 使用鼠标：“设置 › 画布 › 指针设备”",
       "panHint": "拖动以移动地图",
       "stampPick": "点击植物、区域、注释或组以复制",
       "stampPlace": "点击放置",
@@ -1325,7 +1340,8 @@
     "searchAll": "搜索收藏和图章",
     "remove": "从收藏中移除 {{name}}",
     "detailsFor": "详情：",
-    "place": "放置 {{name}}"
+    "place": "放置 {{name}}",
+    "needsNewerStamp": "由更新版本的 Canopi 保存，请更新 Canopi 以放置。"
   },
   "savedObjectStamps": {
     "title": "已保存图章",
@@ -1622,6 +1638,12 @@
     "resolve": "解决…",
     "conflictAnotherTab": "已在另一个标签页中更改"
   },
+  "readOnlyDesign": {
+    "label": "只读",
+    "status": "只读：由更新版本的 Canopi 保存",
+    "details": "此设计由更新版本的 Canopi 保存。您可以查看，但无法更改或保存。请更新 Canopi 以进行编辑。",
+    "update": "更新"
+  },
   "saveProblem": {
     "flushFailedTitle": "无法保存您的更改",
     "flushFailedMessage": "Canopi 无法写入您最近的更改。请重试，或放弃这些更改以继续。",
@@ -1802,6 +1824,7 @@
     "region": "开始",
     "purpose": "在您土地的地图上设计农林复合系统和食物森林。",
     "more": "更多",
+    "movingAround": "在地图上移动",
     "searchDesigns": "搜索您的设计",
     "noMatches": "没有与“{{query}}”匹配的设计。",
     "recentDesigns": "最近的设计",
@@ -1827,7 +1850,9 @@
     "cantReadMissing": "找不到此文件：已被移动或删除",
     "cantReadOlderVersion": "由 Canopi 2.0 之前的版本创建，Canopi 2.0 及更高版本无法打开",
     "cantReadNewerVersion": "由新版 Canopi 创建，请更新 Canopi 后打开",
-    "cantReadDamaged": "无法读取此文件：文件已损坏"
+    "cantReadDamaged": "无法读取此文件：文件已损坏",
+    "rowReadOnly": "只读：由更新版本的 Canopi 保存",
+    "unreadableDraft": "由更新版本的 Canopi 保存，此版本无法读取"
   },
   "shortcutKeys": {
     "ctrl": "Ctrl",
@@ -1878,9 +1903,11 @@
     "gestures": {
       "heading": "鼠标、触控板和触控笔",
       "rightDrag": "右键拖动、中键拖动或 Space + 拖动",
+      "trackpadPan": "在触控板上用双指（“设置 › 画布 › 指针设备”），或使用“平移”工具",
       "pan": "平移地图",
       "shiftDrag": "Shift + 右键拖动或 Shift + 中键拖动",
       "turnView": "旋转视图；加 {{mod}} 以 15° 为步长",
+      "turn": "旋转视图",
       "trackpadTwist": "在触控板上双指旋转",
       "compass": "指南针",
       "compassAction": "单击重置为正北，拖动旋转视图",
@@ -1891,6 +1918,7 @@
       "pinch": "捏合或 Ctrl + 滚轮",
       "zoom": "缩放",
       "altClick": "Alt + 单击",
+      "optionClick": "Option + 单击",
       "removeFromSelection": "从选择中移除",
       "linuxPinch": "在 Linux 上暂不支持触控板捏合。请使用 Ctrl + 滚动进行缩放。",
       "touchHeading": "触摸",
@@ -1943,6 +1971,8 @@
     "filesWeb": "网页版将你的设计和草稿保存在此浏览器中。下载副本即可保留文件。",
     "filesLoading": "正在查找文件夹…",
     "filesUnavailable": "Canopi 找不到它的文件夹。请重启 Canopi 再试。",
+    "favouritesDesktop": "收藏保存在这台电脑上，而不是设计中：你分享或在别处打开的设计不会带上它们。",
+    "favouritesWeb": "收藏保存在此浏览器中，而不是设计中：你分享或在别处打开的设计不会带上它们。",
     "draftsHint": "从未保存为文件的设计。",
     "dataLibrary": "数据资料库",
     "dataLibraryHint": "你导入的地形和高度数据。",
@@ -2167,6 +2197,7 @@
     "statusDetails": "此浏览器可能会为释放空间而清除您的草稿。下载副本即可保留文件。",
     "downloadFailedTitle": "无法下载副本",
     "downloadFailedMessage": "此草稿已不在此浏览器中，或无法读取。",
+    "uncheckedReadOnly": "已以只读方式打开：Canopi 无法检查此浏览器的存储，因此此草稿可能不是最新的。请下载副本以保留它。",
     "keepDrafts": "保留我的草稿",
     "keepDraftsMenu": "保留我的草稿…"
   },
@@ -2225,7 +2256,13 @@
     "fileTooLarge": "此文件超出 Canopi 允许的大小。请选择较小的文件。",
     "fileError": "Canopi 无法读取或写入该文件。请重试。",
     "plantCatalogUnavailable": "无法打开植物目录。请重启 Canopi，如果问题仍然存在，请重新安装。",
-    "libraryNewer": "此数据资料库由更新版本的 Canopi 保存。请更新 Canopi 后再修改。",
-    "libraryUnavailable": "无法打开数据资料库，因此本次会话的更改不会保存。请重启 Canopi 后重试。"
+    "libraryUnavailable": "无法打开数据资料库，因此本次会话的更改不会保存。请重启 Canopi 后重试。",
+    "formatCoreUnavailable": "Canopi 无法加载用于打开设计的部分。请重试，如果问题反复出现，请报告问题。",
+    "formatCoreTrapped": "Canopi 在读取此设计时停止。请重试，如果问题反复出现，请报告问题。"
+  },
+  "startup": {
+    "title": "Canopi 无法启动",
+    "desktopHint": "您的系统可能版本过旧，无法运行此版本的 Canopi。请更新操作系统，然后重新打开 Canopi。",
+    "webHint": "请重新加载页面。如果 Canopi 仍无法启动，此浏览器可能版本过旧：请更新浏览器或换用其他浏览器。"
   }
 }

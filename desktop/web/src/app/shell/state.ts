@@ -1,5 +1,5 @@
 import { signal, batch, effect } from "@preact/signals";
-import { currentDesign } from "../document-session/store";
+import { currentDesign, designSessionStore } from "../document-session/store";
 import { DEFAULT_SETTINGS } from "../../generated/settings";
 import { phoneToolOptions } from "./phone-layout";
 
@@ -61,4 +61,12 @@ export function navigateTo(panel: Panel): void {
   }
 
   selectPanel(panel);
+}
+
+/**
+ * The open Design is shown read-only (one a newer Canopi saved, 2.1-M478): the chrome's tools and commands read it to
+ * offer only what looks (Select, Pan, the panels, Close). A computed that calls it follows the Session kind.
+ */
+export function designShownReadOnly(): boolean {
+  return designSessionStore.isReadOnly();
 }

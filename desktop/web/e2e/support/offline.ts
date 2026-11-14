@@ -68,6 +68,7 @@ export const test = base.extend<{
   networkRule: void,
   expectedConsoleErrors: readonly string[],
   expectedConsoleLines: readonly string[],
+  expectedPageErrors: readonly RegExp[],
   forbiddenText: readonly string[],
   draftsKept: boolean,
   persistenceRule: void,
@@ -76,6 +77,11 @@ export const test = base.extend<{
   expectedConsoleErrors: [[], { option: true }],
   /** Whole console error lines a spec causes on purpose, for a scenario with a secret in play. */
   expectedConsoleLines: [[], { option: true }],
+  /**
+   * Uncaught page errors a spec causes on purpose, matched against `<name>: <message>` (a module that does not parse:
+   * `/^SyntaxError: /`). The forbidden-text check still applies to them.
+   */
+  expectedPageErrors: [[], { option: true }],
   /**
    * Text no console message (of any type, allowed or not) and no uncaught page error may hold: a spec's test Google
    * key. A message's location URL is the browser's (a failed request's own URL) and is not checked.
@@ -97,7 +103,7 @@ export const test = base.extend<{
     else if (browserName === 'firefox') await context.addInitScript(refusedStub)
     await use()
   }, { auto: true }],
-  networkRule: [async ({ context, expectedConsoleErrors, expectedConsoleLines, forbiddenText }, use) => {
+  networkRule: [async ({ context, expectedConsoleErrors, expectedConsoleLines, expectedPageErrors, forbiddenText }, use) => {
     const aborted = new Set<string>()
     await context.route('**/*', (route) => {
       const url = route.request().url()
@@ -116,9 +122,16 @@ export const test = base.extend<{
       if (secret < 0) unexpected.push(`console error: ${message.text()} (${message.location().url})`)
     })
     context.on('weberror', (error) => {
-      const text = error.error().stack ?? error.error().message
+      // Chromium gives a parse error an empty stack, so the message stands in for it.
+      const text = error.error().stack || error.error().message
       const secret = forbiddenIn(text)
-      unexpected.push(secret >= 0 ? `uncaught error holds forbidden text #${secret}` : `uncaught: ${text}`)
+      if (secret >= 0) {
+        unexpected.push(`uncaught error holds forbidden text #${secret}`)
+        return
+      }
+      const summary = `${error.error().name}: ${error.error().message}`
+      if (expectedPageErrors.some((pattern) => pattern.test(summary))) return
+      unexpected.push(`uncaught: ${text}`)
     })
     await use()
     expect(unexpected, 'console errors and uncaught page errors').toEqual([])

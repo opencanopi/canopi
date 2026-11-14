@@ -1,0 +1,14 @@
+{
+  "$schema": "./manifest.schema.json",
+  "version": 1,
+  "forms": [
+    { "store": "canopi_file", "form_version": 10, "edition": "desktop", "path": "desktop/designs/orchard-by-the-pond.canopi" },
+    { "store": "desktop_draft", "form_version": 10, "edition": "desktop", "path": "desktop/app-data/drafts/orchard-draft.canopi" },
+    { "store": "user_db", "form_version": 10, "edition": "desktop", "path": "desktop/app-data/user.db" },
+    { "store": "settings", "form_version": 2, "edition": "desktop", "path": "desktop/app-data/user.db" },
+    { "store": "library_catalogue", "form_version": 26, "edition": "desktop", "path": "desktop/app-data/lidar/lidar-library.sqlite" },
+    { "store": "settings", "form_version": 2, "edition": "web", "path": "web/settings.json" },
+    { "store": "web_drafts", "form_version": 4, "edition": "web", "path": "web/drafts.json" },
+    { "store": "web_species_lists", "form_version": 1, "edition": "web", "path": "web/species-lists.json" }
+  ]
+}

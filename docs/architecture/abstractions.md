@@ -44,23 +44,23 @@ An agent adding to a seam copies its canonical example; a new kind of seam adds 
 | Store migration chain | `FLOOR`, `STEPS`, `CURRENT` per store | pure chain in `canopi-types` (2.1); TS runner in `platform/` | Every store change | `platform/settings.browser.ts` | change: synchronous steps, staged moves (M157) |
 | Fault seams | `DurableFs`, Draft `IDBFactory`, the library worker's OPFS pool | each store adapter | Model suites inject faults | `desktop/src/design/mod.rs` | add a third seam (M110, M151) |
 | `DesignHomeStore` and `DesignHome` | where a Design lives; `HomeVersion` SHA-256; write results | `platform/design-home.ts` (2.1) | Desktop and Web; merge | `app/document-session/continuous-save.ts` | change (M117, Q165) |
-| Draft records | Drafts on Web | `platform/draft-records.browser.ts` (2.1); `desktop/src/design/drafts.rs` | Untrusted record | `web/browser-app-data.ts` | change: internal seam, not a port (M117) |
+| Draft records | Drafts on Web | `platform/draft-records.browser.ts`; `desktop/src/design/drafts.rs` | Untrusted record | `web/browser-app-data.ts` | change: internal seam, not a port (M117) |
 | File access and grants | pick any file kind; opaque handle for a user file | `platform/file-access.ts` (2.1); grant table and dialog registry in `canopi-desktop` | No paths cross IPC | `app/geojson/workflow.ts` | change: pickers, dialog registry, home identity (M155) |
 | FileDelivery | exports: `deliver(row, signal)` over a content union | `platform/file-delivery.ts` (2.1) | Desktop and Web; PDF, CSV, GeoTIFF | `app/canvas-pdf/platform.desktop.ts` | change (M140) |
 | Personal-records ports | saved stamps, Design notebook, species lists | `platform/saved-stamps.ts` (2.1), `platform/design-notebook.ts` (2.1), `platform/species-lists.ts` (2.1) | Desktop and Web; Web parity | `ipc/saved-object-stamps.ts` | change (M141, Q173) |
-| Browser record | the only `localStorage` access | `platform/browser-record.ts` (2.1) | One quota and decode rule | `web/browser-app-data.ts` | add (M141) |
+| Browser record | the only `localStorage` access | `platform/browser-record.ts` | One quota and decode rule | `web/browser-app-data.ts` | add (M141) |
 
 ## Format
 
 | Abstraction | Concept owned | Owner | Why it exists | Canonical example | Verdict |
 |---|---|---|---|---|---|
-| Format core | read checks, chain, writer, admission, builder, stamp chain | `canopi-format` (2.1) | Native and wasm; hostile files | `desktop/src/design/format.rs` | keep (ADR 0026) |
-| Design-core port | decode, encode, new, Draft envelope | `platform/design-core.ts` (2.1) | One worker adapter; fake | `ipc/design.ts` | change: worker on both editions, raw bytes (M154, M156) |
-| Design-core worker | worker union loading, ready, load-failed, poisoned | `platform/design-core.worker.ts` (2.1) | Isolates untrusted bytes; one core on both editions | `platform/browser.ts` | change (M148) |
-| Canonical encode | byte-identical encode of one Design | `canopi-format` (2.1) | `HomeVersion`, Draft move verify, lost-ack adoption | `desktop/src/design/format.rs` | add (M156) |
+| Format core | read checks, chain, writer, admission, builder, stamp chain | `canopi-format` | Native and wasm; hostile files | `canopi-format/src/read.rs` | keep (ADR 0026) |
+| Design-core port | decode, encode, new, Draft envelope | `platform/design-core.ts` (Web read view built in 2.0.4; decode and encode 2.1) | One worker adapter; fake | `ipc/design.ts` | change: worker on both editions, raw bytes (M154, M156) |
+| Design-core worker | worker union loading, ready, load-failed, poisoned | `platform/design-core.worker.ts` | Isolates untrusted bytes; one core on both editions | `platform/browser.ts` | change (M148) |
+| Canonical encode | byte-identical encode of one Design | `canopi-format` | `HomeVersion`, Draft move verify, lost-ack adoption | `desktop/src/design/format.rs` | add (M156) |
 | Spec emitter | frozen generated format spec | `canopi-format/spec/` (2.1) | Every format change; rollback lane | `scripts/schema-contract.json` | keep (ADR 0026) |
 | `DESIGN_FILE_FIELDS` | one owner per Design field: Scene, Document or Format | `canopi-types/src/design.rs` | Exclusive authorities | the owner | change (M121) |
-| `GeoPoint` | lon/lat in files and TS | `canopi-format` (2.1) | ADR 0001 | `canopi-types/src/design.rs` | change (M123) |
+| `GeoPoint` | lon/lat in files and TS | `canopi-format` | ADR 0001 | `canopi-types/src/design.rs` | change (M123) |
 | Print setup | pages as box, whole design or split sheet; splits by pivot | Document | PDF editor | `app/canvas-pdf/layout.ts` | change (M122, M161) |
 | Stamp file | v3 payload mapped field by field; codes reallocated when taken | Document; Session core places it | Stamps, merge | `canvas/saved-object-stamp-payload.ts` | change (M122, Q168) |
 | Object kind rows | `ObjectOwner`, `Backing`, `ObjectKindRow`, `ownerOf` | `app/command-table/object-capabilities.ts` (2.1) | Print, planning, merge | `canopi-types/src/design.rs` | change (M126) |

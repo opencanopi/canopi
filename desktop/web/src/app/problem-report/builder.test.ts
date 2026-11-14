@@ -86,7 +86,8 @@ describe('problem report builder', () => {
       }
     }
 
-    // Each code also reaches the app-failures ring section once, however many surfaces report its settlement.
+    // Each code also reaches the app-failures ring section once, however many surfaces report its settlement, except
+    // store_read_only, which the sink never records (2.1-M487).
     resetFrontendDiagnosticsForTests()
     for (const failure of fixtures.values()) {
       const settlement = { ...failure }
@@ -97,7 +98,8 @@ describe('problem report builder', () => {
       const report = buildProblemReport(input({ ring: recentFrontendDiagnostics(), sections }))
       const ring = JSON.parse(text(report, 'frontend_ring')) as { code: FailureCode }[]
       for (const failure of fixtures.values()) {
-        expect(ring.filter((entry) => JSON.stringify(entry.code) === JSON.stringify(failure.code)), failure.code.kind).toHaveLength(1)
+        expect(ring.filter((entry) => JSON.stringify(entry.code) === JSON.stringify(failure.code)), failure.code.kind)
+          .toHaveLength(failure.code.kind === 'store_read_only' ? 0 : 1)
       }
     }
     resetFrontendDiagnosticsForTests()

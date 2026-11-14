@@ -250,12 +250,6 @@ describe('browser Design Session lifecycle', () => {
       kind: 'unsupported_version',
     },
     {
-      label: 'a Design newer than this build',
-      content: () => ({ ...makeCanopiFile(), version: 10 }),
-      message: '$.version: unsupported Canopi Design version 10; Canopi 2.0 and later open only version 9',
-      kind: 'unsupported_version',
-    },
-    {
       label: 'a Canopi 1.2 Design (v6, local metres under a spatial frame)',
       content: () => ({
         ...makeCanopiFile(),
@@ -308,18 +302,28 @@ describe('browser Design Session lifecycle', () => {
     expect(store.readCurrentDesign()).toEqual(original)
   })
 
+  it('canopi-f47t.52.270: reader release: a v10 Design opens read-only from its file, with no Draft minted or written', async () => {
+    const [storage, store, page] = [memoryStorage(), createDesignSessionStore(), testPage()]
+    const createDraftId = vi.fn(() => 'draft-never')
+    const readNewerDesign = vi.fn(async () => ({ view: makeCanopiFile({ name: 'Orchard 2.1' }), saved_by_version: 10 }))
+    const text = JSON.stringify({ ...makeCanopiFile(), version: 10 })
+    const controller = createBrowserDesignSessionController({ store, appDataStore: createBrowserAppDataStore({ storage }), createDraftId, fileAdapter: testFileAdapter({ openCanopiFile: vi.fn(async () => ({ fileName: 'orchard.canopi', text })) }) })
+    controller.installFormatCore({ readNewerDesign })
+    controller.installContinuousSave(page)
+    const writes = [vi.spyOn(storage, 'setItem'), vi.spyOn(storage, 'removeItem')]
+    await expect(controller.openCanopi()).resolves.toBe(true)
+    expect([readNewerDesign.mock.calls, store.sessionKind.value, store.readDesignName()]).toEqual([[[text]], { kind: 'read-only', origin: 'newer-version', savedByVersion: 10 }, 'Orchard 2.1'])
+    page.window.dispatchEvent(new Event('pagehide'))
+    await expect(controller.closeDesign()).resolves.toBe(true)
+    expect([createDraftId, ...writes].map((spy) => spy.mock.calls.length)).toEqual([0, 0, 0])
+  })
+
   it.each([
     {
       label: 'a Canopi 1.1 Design (version 6)',
       fileName: 'orchard.canopi',
       text: () => JSON.stringify({ ...makeCanopiFile(), version: 6, extra: {} }),
       messageKey: 'start.cantReadOlderVersion',
-    },
-    {
-      label: 'a Design from a newer Canopi',
-      fileName: 'future.canopi',
-      text: () => JSON.stringify({ ...makeCanopiFile(), version: 99 }),
-      messageKey: 'start.cantReadNewerVersion',
     },
     {
       label: 'a truncated file',
@@ -864,7 +868,7 @@ describe('browser Design Session lifecycle', () => {
       now: () => NOW,
       requestSaveDecision: requestSaveDecision as never,
     })
-    expect(controller.restoreLatestDraft()).toBe(true)
+    expect(await controller.launch()).toBe(true)
     expect(controller.continuousSave.revertAvailable.value).toBe(false)
 
     editDesignSessionForTest(store, (design) => ({ ...design, description: 'changed' }))
@@ -922,7 +926,7 @@ describe('browser Design Session lifecycle', () => {
       file: makeCanopiFile({ name: 'Shared Garden', description: 'as opened' }),
       now: clock().toISOString(),
     })
-    function openTab(requestSaveDecision: ReturnType<typeof vi.fn>) {
+    async function openTab(requestSaveDecision: ReturnType<typeof vi.fn>) {
       const store = createDesignSessionStore()
       const appDataStore = createBrowserAppDataStore({ storage })
       const controller = createBrowserDesignSessionController({
@@ -932,13 +936,13 @@ describe('browser Design Session lifecycle', () => {
         now: clock,
         requestSaveDecision: requestSaveDecision as never,
       })
-      expect(controller.restoreLatestDraft()).toBe(true)
+      expect(await controller.launch()).toBe(true)
       return { store, appDataStore, controller }
     }
     const decideA = vi.fn(async () => 'keep-mine')
     const decideB = vi.fn(async () => 'use-file')
-    const tabA = openTab(decideA)
-    const tabB = openTab(decideB)
+    const tabA = await openTab(decideA)
+    const tabB = await openTab(decideB)
 
     editDesignSessionForTest(tabA.store, (design) => ({ ...design, description: 'twenty plants' }))
     await expect(tabA.controller.continuousSave.flush()).resolves.toBe(true)
@@ -983,7 +987,7 @@ describe('browser Design Session lifecycle', () => {
       now: clock,
       requestSaveDecision: requestSaveDecision as never,
     })
-    expect(controller.restoreLatestDraft()).toBe(true)
+    expect(await controller.launch()).toBe(true)
     other.saveDraft({ id: 'draft-shared', file: makeCanopiFile({ name: 'Shared', description: 'other tab' }), now: clock().toISOString() })
     editDesignSessionForTest(store, (design) => ({ ...design, description: 'this tab' }))
 
@@ -1011,15 +1015,15 @@ describe('browser Design Session lifecycle', () => {
       fileAdapter: testFileAdapter(),
       now: () => NOW,
     })
-    expect(controller.restoreLatestDraft()).toBe(true)
+    expect(await controller.launch()).toBe(true)
     expect(store.readDesignName()).toBe('draft-open')
 
-    expect(controller.deleteDraft('draft-open').ok).toBe(false)
-    expect(controller.deleteDraft('draft-old').ok).toBe(true)
+    expect((await controller.deleteDraft('draft-open')).ok).toBe(false)
+    expect((await controller.deleteDraft('draft-old')).ok).toBe(true)
     expect(controller.listDrafts().map((draft) => draft.id)).toEqual(['draft-open'])
   })
 
-  it('restores the newest Browser Draft into an empty Design Session', () => {
+  it('restores the newest Browser Draft into an empty Design Session', async () => {
     const store = createDesignSessionStore()
     const appDataStore = createBrowserAppDataStore({ storage: memoryStorage() })
     appDataStore.saveDraft({
@@ -1039,7 +1043,7 @@ describe('browser Design Session lifecycle', () => {
       now: () => NOW,
     })
 
-    expect(controller.restoreLatestDraft()).toBe(true)
+    expect(await controller.launch()).toBe(true)
     expect(store.readDesignName()).toBe('Recovered Garden')
     expect(store.readCurrentDesign()?.name).toBe('Recovered Garden')
     expect(store.isDesignDirty()).toBe(false)
@@ -1062,7 +1066,7 @@ describe('browser Design Session lifecycle', () => {
     })
     await controller.newDesign()
 
-    expect(controller.restoreLatestDraft()).toBe(false)
+    expect(await controller.launch()).toBe(false)
     expect(store.readDesignName()).toBe('Untitled')
   })
 
@@ -1227,7 +1231,7 @@ describe('browser Design Session lifecycle', () => {
     }))
     const canvas = testCanvasDocumentSurface({ captureForPersistence })
     controller.attachCanvasSession(canvas)
-    expect(controller.restoreLatestDraft()).toBe(true)
+    expect(await controller.launch()).toBe(true)
     store.setCanvasClean(false)
 
     await expect(controller.continuousSave.flush()).resolves.toBe(false)
@@ -1381,7 +1385,7 @@ describe('browser Design Session lifecycle', () => {
       }),
     })
     const detach = controller.attachCanvasSession(canvas)
-    expect(controller.restoreLatestDraft()).toBe(true)
+    expect(await controller.launch()).toBe(true)
     const uninstall = controller.installContinuousSave(testPage())
     const logError = vi.spyOn(console, 'error').mockImplementation(() => undefined)
 
@@ -1502,7 +1506,7 @@ describe('browser Design Session lifecycle', () => {
     })
     const detach = controller.attachCanvasSession(canvas)
     vi.useFakeTimers()
-    expect(controller.restoreLatestDraft()).toBe(true)
+    expect(await controller.launch()).toBe(true)
     const uninstall = controller.installContinuousSave(testPage())
 
     editDesignSessionForTest(store, (design) => ({
@@ -1575,7 +1579,7 @@ describe('browser Design Session lifecycle', () => {
     })
     const detach = controller.attachCanvasSession(canvas)
     vi.useFakeTimers()
-    expect(controller.restoreLatestDraft()).toBe(true)
+    expect(await controller.launch()).toBe(true)
     const uninstall = controller.installContinuousSave(testPage())
 
     store.setCanvasClean(false)
@@ -2285,7 +2289,7 @@ describe('Web Draft persistence request and Draft download (2.1-Q82, Step 2.0.3 
       requestDraftPersistence,
     })
 
-    expect(controller.restoreLatestDraft()).toBe(true)
+    expect(await controller.launch()).toBe(true)
     await controller.openDraft('draft-kept')
     expect(requestDraftPersistence).not.toHaveBeenCalled()
   })
@@ -2388,7 +2392,7 @@ describe('Web Draft persistence request and Draft download (2.1-Q82, Step 2.0.3 
     expect(seed.deleteDraft('draft-orchard').ok, 'another tab deletes the recorded Draft').toBe(true)
 
     const after = tab()
-    expect(after.restoreLatestDraft(), 'the recorded Draft is gone: the start screen, never the newest').toBe(false)
+    expect(await after.launch(), 'the recorded Draft is gone: the start screen, never the newest').toBe(false)
     expect(after.listDrafts().map((draft) => draft.id), 'the other Draft is still stored').toEqual(['draft-hedge'])
   })
 })

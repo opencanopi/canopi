@@ -53,8 +53,10 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tracing-appender = "0.2"
 tokio = { version = "1", features = ["macros", "sync", "time"] }
 # The generated `.canopi` schema is admitted against before serde (canopi-cyqd).
-canopi-types = { path = "../canopi-types", features = ["design-schema"] }
+canopi-types = { path = "../canopi-types", features = ["design-schema", "system-ids"] }
 canopi-redact = { path = "../canopi-redact" }
+# The `.canopi` format crate: its schema walker admits the v9 decode, its read admission a newer file (Step 2.0.4).
+canopi-format = { path = "../canopi-format" }
 sha2 = "0.10"
 ureq = "3"
 sys-locale = "0.3"

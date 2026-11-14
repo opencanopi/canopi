@@ -9,6 +9,10 @@ import { applyHealthSnapshot, dismissStoreNotice, plantCatalogCause, resetStoreH
 import { installHealthNotices } from './health-notices'
 import { noticeForStore } from './health-presentation'
 import { dismissNotice, notices, resetNoticesForTests } from './notices'
+import { reportFailure, resetFailureNoticesForTests } from './report'
+import { readFailureCode, StoreRefusedError } from './store-read'
+import { createBrowserAppDataStore } from '../web/browser-app-data'
+import { createReducedSpeciesCatalogAdapters, type ReducedSpeciesCatalogReader } from '../web/reduced-species-catalog'
 
 type Kind = StoreOpenStatus['kind']
 
@@ -51,6 +55,7 @@ function statusNotice(store: StoreId, status: StoreOpenStatus) {
 afterEach(() => {
   resetStoreHealthForTests()
   resetNoticesForTests()
+  resetFailureNoticesForTests()
 })
 
 describe('store health presentation', () => {
@@ -72,9 +77,49 @@ describe('store health presentation', () => {
       const [told] = noticeForStore('user_db', { status: { kind: 'opening' }, notice }, EVERY_ACTION)
       expect(hasKey(told!.message), notice).toBe(true)
     }
-    // The newer-read-only wording (2.1-Q296), first shown by R2, offers Update.
-    expect(statusNotice('user_db', { kind: 'newer_read_only' })).toMatchObject({ message: 'health.newerReadOnly', action: { label: 'health.update' } })
+    // The newer-read-only wording (2.1-Q296, named per store by 2.1-Q319), first shown by R2 and R3, offers Update.
+    expect(statusNotice('user_db', { kind: 'newer_read_only' })).toMatchObject({ message: 'health.newerReadOnlyStore.userDb', action: { label: 'health.update' } })
+    // A store with no named sentence keeps the plain one.
     expect(t('health.newerReadOnly')).toBe('This data was saved by a newer Canopi. You can view it, but changes won’t be saved. Update Canopi to edit.')
+  })
+
+  it('canopi-f47t.52.271: each store read as newer-read-only raises its own notice, naming the store (2.1-Q319)', () => {
+    const dispose = installHealthNotices({ report: null, update: () => {} })
+    const named: readonly (readonly [StoreId, string])[] = [
+      ['user_db', 'Your favorites, saved stamps and recent Designs were saved by a newer Canopi. You can view them, but changes won’t be saved. Update Canopi to edit them.'],
+      ['settings', 'Your settings were saved by a newer Canopi. Changes apply until you close Canopi but won’t be saved. Update Canopi to keep them.'],
+      ['library_catalogue', 'The Data library was saved by a newer Canopi. Its items are listed, but changes won’t be saved. Update Canopi to use them.'],
+      ['web_species_lists', 'Your favorites and recently viewed plants were saved by a newer Canopi. You can view them, but changes won’t be saved. Update Canopi to edit them.'],
+    ]
+    for (const [store] of named) writeStoreHealth(store, { status: { kind: 'newer_read_only' }, notice: null })
+    // Read again (a reload's snapshot): still one notice per store.
+    for (const [store] of named) writeStoreHealth(store, { status: { kind: 'newer_read_only' }, notice: null })
+    expect(notices.value.map((notice) => t(notice.message))).toEqual(named.map(([, text]) => text))
+    expect(notices.value.every((notice) => notice.tone === 'warning' && notice.action?.label === 'health.update')).toBe(true)
+    // A store that never reads so keeps the plain sentence.
+    expect(statusNotice('web_drafts', { kind: 'newer_read_only' })?.message).toBe('health.newerReadOnly')
+    dispose()
+  })
+
+  it('canopi-f47t.52.272: a write a read-only store refuses settles store_read_only and raises no second notice (2.1-M487)', async () => {
+    const dispose = installHealthNotices(NO_ACTIONS)
+    const values = new Map([['canopi:web-app-data:v3:species', JSON.stringify({ version: 4, favourites: ['Malus domestica'] })]])
+    const storage = { getItem: (key: string) => values.get(key) ?? null, setItem: (key: string, value: string) => { values.set(key, value) }, removeItem: (key: string) => { values.delete(key) } }
+    const appDataStore = createBrowserAppDataStore({ storage, now: () => '2026-11-12T09:00:00.000Z' })
+    const adapters = createReducedSpeciesCatalogAdapters({ appDataStore, reader: {} as ReducedSpeciesCatalogReader })
+
+    const favourite = adapters.toggleFavorite('Pyrus communis')
+    await expect(favourite).rejects.toBeInstanceOf(StoreRefusedError)
+    const refused = await favourite.catch((error: unknown) => error)
+    const viewed = await adapters.recordRecentlyViewed('Pyrus communis').catch((error: unknown) => error)
+    for (const error of [refused, viewed]) {
+      expect(readFailureCode(error)).toEqual({ kind: 'store_read_only', store: 'web_species_lists' })
+      reportFailure(error, { shown: 'notice', code: readFailureCode(error), source: 'plant-browser' })
+    }
+    // The store's own notice is the only one; the refused writes are recorded silently.
+    expect(notices.value.map((notice) => notice.key)).toEqual(['health:web_species_lists:status:{"kind":"refused_newer"}'])
+    expect(values.get('canopi:web-app-data:v3:species')).toBe(JSON.stringify({ version: 4, favourites: ['Malus domestica'] }))
+    dispose()
   })
 
   it('[canopi-f47t.52.41] NAT-02 notice: a set-aside user DB shows one notice', () => {

@@ -214,9 +214,8 @@
       "doc": "docs/adr/0026-stored-data-after-2-0.md",
       "quote": "The rollback lane (Step 2.0.4):",
       "state": {
-        "planned": {
-          "phase": "2.0.4",
-          "bead": "canopi-f47t.52.239"
+        "exists": {
+          "check": ".github/workflows/rollback.yml"
         }
       }
     },
@@ -2738,6 +2737,11 @@
     },
     {
       "id": "web-storage-only-in-adapters",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M190 |"
+    },
+    {
+      "id": "indexeddb-only-in-adapters",
       "doc": "docs/decisions/2-1.md",
       "quote": "| 2.1-M190 |"
     },

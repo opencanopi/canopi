@@ -1,5 +1,6 @@
 import { canvasPdf, canExportCanvasPdf } from '../app/canvas-pdf/live'
 import { navigateTo, type Panel, type SidePanel } from '../app/shell/state'
+import { designSessionStore } from '../app/document-session/store'
 import {
   composeShellCommandCatalog,
   projectShellCommandCatalog,
@@ -11,7 +12,7 @@ import {
 } from '../app/shell-commands'
 import { composeWorkspaceMenus, type MenuDefinition } from '../app/shell-commands/menus'
 import { setShortcutPlatform } from '../app/shell-commands/shortcut-text'
-import { createWorkspaceShellCapabilities } from '../app/workspace-commands/capabilities'
+import { createWorkspaceShellCapabilities, designChangeable } from '../app/workspace-commands/capabilities'
 import { savedViewMenuActions } from '../app/saved-views'
 import { plantLabelMenuActions } from '../app/plant-display/menu'
 import { exportCurrentBudgetCsv } from '../app/budget/export'
@@ -29,6 +30,7 @@ import { currentCanvasKeyboardPort } from '../canvas/session'
 import { detectPlatform, type InputPlatform } from '../canvas/runtime/input/platform'
 import { t } from '../i18n'
 import type { DesignSaveStatus } from '../app/document-session/continuous-save'
+import type { ReadOnlyOrigin } from '../app/document-session/store'
 import type { GeoJsonWorkflow } from '../app/geojson/workflow'
 
 type BrowserShellCapabilityId =
@@ -92,6 +94,8 @@ export interface BrowserShellDesignIdentity {
   readonly name: string
   readonly saveStatus: DesignSaveStatus
   readonly saveFailureReason: string | null
+  /** Why a read-only Design is read-only; its save status popover says so (2.1-Q336). */
+  readonly readOnlyOrigin?: ReadOnlyOrigin | undefined
 }
 
 export interface BrowserShellCapabilities {
@@ -157,12 +161,19 @@ export interface BrowserShellCatalogOptions {
   readonly canvasReady: () => boolean
 }
 
+const storedCopyShown = () => {
+  const session = designSessionStore.sessionKind.value
+  return session.kind === 'read-only' && session.origin === 'storage-unchecked'
+}
+
 /** The Web Edition command catalog; availability reads the live state it is given. */
 export function createBrowserShellCatalog(
   capabilities: BrowserShellCapabilities,
   { templatesEnabled, canvasReady }: BrowserShellCatalogOptions,
 ): BrowserShellCatalog {
   const needsDesign = (state: ShellCommandState) => !state.hasDesign
+  // A read-only Design offers Close only (2.1-Q315): no copy, revert, import or export.
+  const needsChangeable = (state: ShellCommandState) => !designChangeable(state)
   const designPanel = (panel: SidePanel) => ({
     execute: () => capabilities.navigate(panel),
     isExecutionDisabled: needsDesign,
@@ -173,27 +184,29 @@ export function createBrowserShellCatalog(
     openCanopi: { execute: () => capabilities.openCanopi() },
     downloadCanopi: {
       execute: () => capabilities.downloadCanopi(),
-      isExecutionDisabled: needsDesign,
+      // A Draft opened read-only while 2.1's Drafts could not be listed keeps its stored copy (2.1-Q334); a newer
+      // Canopi's Design never, since re-encoding it as this format is unsafe.
+      isExecutionDisabled: (state) => needsChangeable(state) && !(state.hasDesign && storedCopyShown()),
     },
     revertDesign: {
       execute: () => capabilities.revertDesign(),
-      isExecutionDisabled: (state) => !state.hasDesign || !state.revertAvailable,
+      isExecutionDisabled: (state) => needsChangeable(state) || !state.revertAvailable,
     },
     importGeoJson: {
       execute: () => capabilities.importGeoJson(),
-      isExecutionDisabled: (state) => !state.hasDesign || !canvasReady(),
+      isExecutionDisabled: (state) => needsChangeable(state) || !canvasReady(),
     },
     exportCanvasPdf: {
       execute: () => canvasPdf.show(),
-      isExecutionDisabled: () => !canExportCanvasPdf(),
+      isExecutionDisabled: (state) => needsChangeable(state) || !canExportCanvasPdf(),
     },
     exportGeoJson: {
       execute: () => capabilities.exportGeoJson(),
-      isExecutionDisabled: (state) => !state.hasDesign || !canvasReady(),
+      isExecutionDisabled: (state) => needsChangeable(state) || !canvasReady(),
     },
     exportBudgetCsv: {
       execute: () => capabilities.exportBudgetCsv(),
-      isExecutionDisabled: needsDesign,
+      isExecutionDisabled: needsChangeable,
     },
     closeDesign: {
       execute: () => capabilities.closeDesign(),

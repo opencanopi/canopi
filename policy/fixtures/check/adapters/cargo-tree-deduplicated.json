@@ -1,0 +1,12 @@
+{
+  "about": "A deduplicated subtree ((*)) leaves its crates out, so it is tool-failed rather than read as their absence",
+  "tool": "cargo-tree",
+  "stdout": "canopi-format v2.1.0 (/r/canopi-format)\nserde v1.0.228\nserde_derive v1.0.228 (proc-macro)\n\ncanopi-format-wasm v2.1.0 (/r/canopi-format-wasm)\ncanopi-format v2.1.0 (/r/canopi-format) (*)\nwasm-bindgen v0.2.130\n",
+  "paths": [
+    "Cargo.lock"
+  ],
+  "message": "deduplicated",
+  "expect": [
+    "tool-failed"
+  ]
+}

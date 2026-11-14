@@ -1,7 +1,7 @@
 import { batch } from '@preact/signals'
 import type { LastView, SatelliteSource, ScrollWheel } from '../../generated/contracts'
 import { readFailureCode, readWithRetry } from '../../failures/store-read'
-import { writeStoreHealth } from '../../failures/health'
+import { storeHealth, writeStoreHealth } from '../../failures/health'
 import { reportFailure } from '../../failures/report'
 import { WEB_MERCATOR_MAX_LATITUDE_DEG } from '../../generated/canopi-design-format'
 import type { Locale, Settings, Theme } from '../../types/settings'
@@ -27,7 +27,7 @@ import {
   usedCanvasTools,
   type NewDesignDefaults,
 } from './state'
-import type { SettingsPlatformAdapter } from './platform-adapter'
+import { withFirstRunSettings, type SettingsPlatformAdapter } from './platform-adapter'
 
 export type SettingsPersistMode = 'immediate' | 'queued' | 'none'
 
@@ -73,6 +73,8 @@ interface ActiveSettingsProjection {
   draining: boolean
   retryBlocked: boolean
   persistenceError: unknown | null
+  /** A save refused as `store_read_only`: changes apply for the session, never written, logged or asked (2.1-Q320). */
+  writesRefused: boolean
   pendingHydrationPatch: Partial<Settings>
   pendingHydrationPersistence: boolean
   readonly fallback: Settings
@@ -353,6 +355,10 @@ async function drainPersistence(projection: ActiveSettingsProjection): Promise<v
       await projection.adapter.save(next)
     } catch (error) {
       projection.saving = null
+      if (readFailureCode(error).kind === 'store_read_only') {
+        projection.writesRefused = true
+        return
+      }
       if (!projection.requested) projection.requested = next
       projection.retryBlocked = true
       projection.persistenceError = error
@@ -373,6 +379,7 @@ function ensurePersistenceDrain(projection: ActiveSettingsProjection): void {
   if (
     projection.disposed
     || projection.retryBlocked
+    || projection.writesRefused
     || projection.draining
     || !projection.requested
   ) return
@@ -384,9 +391,7 @@ function ensurePersistenceDrain(projection: ActiveSettingsProjection): void {
     if (projection.drainPromise !== drainPromise) return
     projection.drainPromise = null
     projection.draining = false
-    if (projection.requested && !projection.retryBlocked) {
-      ensurePersistenceDrain(projection)
-    }
+    ensurePersistenceDrain(projection)
   }
   void drainPromise.then(finishDrain, finishDrain)
 }
@@ -396,7 +401,7 @@ function admitPersistenceSnapshot(
   settings: Settings,
 ): void {
   // A record that could not be read is never written over (SET-05, 2.1-Q67): only a read record admits a write.
-  if (projection.disposed || projection.retiring || !projection.durable) return
+  if (projection.disposed || projection.retiring || !projection.durable || projection.writesRefused) return
   projection.retryBlocked = false
   projection.persistenceError = null
 
@@ -414,14 +419,7 @@ function admitPersistenceSnapshot(
 }
 
 async function waitForPersistence(projection: ActiveSettingsProjection): Promise<void> {
-  while (projection.draining) {
-    const drainPromise = projection.drainPromise
-    if (drainPromise) {
-      await drainPromise
-    } else {
-      await Promise.resolve()
-    }
-  }
+  while (projection.draining) await (projection.drainPromise ?? Promise.resolve())
 
   if (projection.retryBlocked) {
     throw projection.persistenceError ?? new Error('Failed to persist settings')
@@ -573,24 +571,24 @@ function applyLoadedSettings(
 
   const desired = projectSettingsToSignals({ ...durable, ...pendingPatch })
   sourceSettings = durable
-  if (shouldPersist && !settingsEqual(desired, durable)) {
-    admitPersistenceSnapshot(projection, desired)
-  }
+  if (shouldPersist && !settingsEqual(desired, durable)) admitPersistenceSnapshot(projection, desired)
 }
 
 function isCurrentProjection(projection: ActiveSettingsProjection): boolean {
   return activeSettingsProjection === projection && !projection.retiring && !projection.disposed
 }
 
+// A settled read makes settings ready, but never over the newer_read_only the adapter or host reported (2.1-Q320).
 function admitLoadedSettings(projection: ActiveSettingsProjection, settings: Settings): void {
   applyLoadedSettings(projection, settings)
-  if (isCurrentProjection(projection)) writeStoreHealth('settings', { status: { kind: 'ready' }, notice: null })
+  if (!isCurrentProjection(projection) || storeHealth.peek().settings?.status.kind === 'newer_read_only') return
+  writeStoreHealth('settings', { status: { kind: 'ready' }, notice: null })
 }
 
 /**
  * Reads the record, again after each pause of `delays` (SET-05, 2.1-Q67, 2.1-Q295); after the last the session runs on
- * the defaults with `durable` null, so every change stays in memory, never written over the record, and the health
- * model says `settings` is unavailable, which the notice row tells once with Try again.
+ * the defaults and the platform's first run (2.1-Q309) with `durable` null, so every change stays in memory, never
+ * written over the record (2.1-M473), and the health model says `settings` is unavailable, told once with Try again.
  */
 function readSettings(projection: ActiveSettingsProjection, first: Promise<Settings>, delays: readonly number[]) {
   const current = () => isCurrentProjection(projection)
@@ -598,6 +596,8 @@ function readSettings(projection: ActiveSettingsProjection, first: Promise<Setti
     (settings) => admitLoadedSettings(projection, settings),
     (error: unknown) => {
       if (current()) {
+        const firstRun = withFirstRunSettings(projection.adapter, currentSettingsSnapshot(), projection.pendingHydrationPatch)
+        if (firstRun) projectSettingsToSignals(firstRun)
         sourceSettings = projection.fallback
         const code = readFailureCode(error)
         reportFailure(error, { shown: 'none', source: 'settings.load', code })
@@ -636,11 +636,9 @@ export function installSettingsProjection(
 
   const inheritedIntent = pendingHydrationIntent
   pendingHydrationIntent = null
-  const fallback = inheritedIntent?.fallback ?? currentSettingsSnapshot()
+  const fallback = inheritedIntent?.fallback ?? { ...currentSettingsSnapshot(), ...adapter.firstRunSettings?.() }
   let resolveRetired!: () => void
-  const retired = new Promise<void>((resolve) => {
-    resolveRetired = resolve
-  })
+  const retired = new Promise<void>((resolve) => { resolveRetired = resolve })
 
   const projection: ActiveSettingsProjection = {
     adapter,
@@ -654,6 +652,7 @@ export function installSettingsProjection(
     draining: false,
     retryBlocked: false,
     persistenceError: null,
+    writesRefused: false,
     pendingHydrationPatch: { ...inheritedIntent?.patch },
     pendingHydrationPersistence: inheritedIntent?.persist ?? false,
     fallback,
@@ -754,6 +753,7 @@ export async function flushSettingsProjection(): Promise<void> {
       throw error
     }
     if (activeSettingsProjection !== projection) continue
+    if (projection.writesRefused) return
     const latest = currentSettingsSnapshot()
     if (
       projection.queuedPersistTimer !== null

@@ -29,6 +29,13 @@
    "area": "utils"
   },
   {
+   "path": "boot-guard/",
+   "layer": "L0",
+   "edition": "both",
+   "area": "boot-guard",
+   "note": "the start-up guard: a classic script vite.config.ts builds and loads before the entry module; the app imports only its types (2.1-M489)"
+  },
+  {
    "path": "utils/theme.ts",
    "layer": "L0",
    "destination": "app/settings/theme.ts",
@@ -136,6 +143,14 @@
    "rank": 3,
    "edition": "both",
    "area": "platform"
+  },
+  {
+   "path": "platform/design-core.worker.ts",
+   "layer": "L1",
+   "rank": 3,
+   "edition": "web",
+   "area": "platform",
+   "note": "the format worker, started by the design-core adapter (platform/design-core.ts, new Worker(new URL(...))); Vite emits it as a worker chunk (Step 2.0.4, canopi-f47t.52.270)"
   },
   {
    "path": "platform/desktop-host.ts",

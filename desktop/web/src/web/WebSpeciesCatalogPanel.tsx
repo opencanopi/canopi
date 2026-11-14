@@ -26,6 +26,8 @@ import { SpeciesDetailLayout } from '../components/species-detail/SpeciesDetailL
 import detailStyles from '../components/species-detail/SpeciesDetail.module.css'
 import styles from './WebSpeciesCatalogPanel.module.css'
 import { placeSpeciesOnMap } from '../components/plant-db/place-species'
+import { ButtonTooltip } from '../components/shared/ButtonTooltip'
+import { favoriteLockedReason } from '../components/plant-db/favorite-lock'
 
 interface WebSpeciesCatalogPanelProps {
   readonly mode: 'catalog' | 'favorites'
@@ -125,6 +127,7 @@ function WebSpeciesDetail({ view }: { readonly view: SpeciesCatalogDetailView })
     <SpeciesDetailLayout
       identity={{ canonicalName, commonName, englishName, family: null, habitKey: detail?.habit ?? null }}
       favorite={favorite}
+      favoriteLockedReason={favoriteLockedReason()}
       onToggleFavorite={() => { void speciesCatalogWorkbench.toggleFavorite(canonicalName) }}
       onBack={() => speciesCatalogWorkbench.closeSpeciesDetail()}
       place={detail ? { canonical_name: detail.canonical_name, common_name: detail.common_name, stratum: null, width_max_m: null } : null}
@@ -249,6 +252,7 @@ function SpeciesRow({ item, englishName }: { readonly item: SpeciesListItem; rea
     event.stopPropagation()
     placeSpeciesOnMap(item)
   }
+  const lockedReason = favoriteLockedReason()
 
   return (
     <div
@@ -287,18 +291,20 @@ function SpeciesRow({ item, englishName }: { readonly item: SpeciesListItem; rea
           className={`${styles.favoriteButton} ${item.is_favorite ? styles.favoriteButtonActive : ''}`}
           aria-label={item.is_favorite ? t('plantDb.removeFavorite') : t('plantDb.addFavorite')}
           aria-pressed={item.is_favorite}
+          aria-disabled={lockedReason ? true : undefined}
           onClick={(event) => {
             event.stopPropagation()
-            void speciesCatalogWorkbench.toggleFavorite(item.canonical_name)
+            if (!lockedReason) void speciesCatalogWorkbench.toggleFavorite(item.canonical_name)
           }}
           onKeyDown={(event) => {
             if (event.target !== event.currentTarget || (event.key !== 'Enter' && event.key !== ' ')) return
             event.preventDefault()
             event.stopPropagation()
-            void speciesCatalogWorkbench.toggleFavorite(item.canonical_name)
+            if (!lockedReason) void speciesCatalogWorkbench.toggleFavorite(item.canonical_name)
           }}
         >
           {item.is_favorite ? '★' : '☆'}
+          {lockedReason && <ButtonTooltip label={lockedReason} side="left" />}
         </button>
         <button type="button" className={styles.favoriteButton} data-species-detail={item.canonical_name}
           aria-label={t('speciesKey.details', { name: displayName })}

@@ -181,12 +181,12 @@ class UpdaterLaneTests(unittest.TestCase):
         from scripts import update_channel as channel
 
         matrix = re.findall(r"- os: \S+\n\s+bundle: (\S+)\n\s+artifact: (\S+)", self.text)
-        self.assertEqual([bundle for bundle, _ in matrix], ["appimage", "deb", "nsis"])
+        self.assertEqual([bundle for bundle, _ in matrix], ["appimage", "deb", "nsis", "msi"])
         build = workflow_steps(self.text, "updater")["Build N-1 and N"]
         destination = re.search(r'cp -r target/debug/bundle/\$\{\{ matrix\.bundle \}\} "([^"]+)"', build)
         self.assertIsNotNone(destination, "the build copies its bundle folder into the version's build folder")
         payloads = {"appimage": "Canopi_9.0.1_amd64.AppImage", "deb": "Canopi_9.0.1_amd64.deb",
-                    "nsis": "Canopi_9.0.1_x64-setup.exe"}
+                    "nsis": "Canopi_9.0.1_x64-setup.exe", "msi": "Canopi_9.0.1_x64_en-US.msi"}
         for bundle, artifact in matrix:
             with self.subTest(bundle=bundle), tempfile.TemporaryDirectory() as temp:
                 folder = Path(destination.group(1).replace("$RUNNER_TEMP", temp).replace("$version", "9.0.1")
@@ -195,7 +195,7 @@ class UpdaterLaneTests(unittest.TestCase):
                 (folder / payloads[bundle]).write_bytes(b"payload")
                 (folder / f"{payloads[bundle]}.sig").write_text("sig")
                 found = channel.updater_artifacts(Path(temp) / "build-9.0.1")
-                self.assertEqual(list(found), [f"{'windows-x86_64' if bundle == 'nsis' else 'linux-x86_64'}-{bundle}"])
+                self.assertEqual(list(found), [f"{'windows' if bundle in ('nsis', 'msi') else 'linux'}-x86_64-{bundle}"])
 
     def test_the_nsis_lane_plants_a_signed_failing_installer_and_hands_the_spec_the_installers_it_runs(self):
         """F6-c5, 2.1-Q234, 2.1-M82, plan:192: before the spec runs, the NSIS lane announces a signed installer that exits
@@ -223,7 +223,7 @@ class UpdaterLaneTests(unittest.TestCase):
     def test_canopi_f47t_52_228_15_the_nsis_lane_audits_process_starts_and_exits_and_keeps_them_on_failure(self):
         """CI triage round 4 (T2): the relaunched N left no trace, so the NSIS lane audits every process start (with
         its command line) and exit before the spec runs, and on failure writes the events for Canopi and its update
-        installer into a folder the profile upload takes."""
+        installer into a folder the profile upload takes, on a dispatch too (canopi-f47t.52.244)."""
         steps = workflow_steps(self.text, "updater")
         names = list(steps)
         audit = steps["Audit process starts and exits with their command lines (Windows)"]
@@ -234,7 +234,7 @@ class UpdaterLaneTests(unittest.TestCase):
         self.assertLess(names.index("Audit process starts and exits with their command lines (Windows)"),
                         names.index("Update N-1 to N"))
         dump = steps["Keep the audited process starts and exits (Windows)"]
-        self.assertIn("if: failure() && runner.os == 'Windows'", dump)
+        self.assertIn("if: (failure() || github.event_name == 'workflow_dispatch') && runner.os == 'Windows'", dump)
         self.assertIn("Id = 4688, 4689", dump)
         for name in ("canopi-desktop.exe", "Canopi-update-setup.exe"):
             self.assertIn(f"'{name}'", dump)

@@ -18,10 +18,14 @@ export interface ToolCardInput {
   readonly speciesName: string | null
   readonly savedStamp: SavedStampSummary | null
   /** Settings › Canvas › Pointing device (stored scroll_wheel: 'zoom' is Mouse, 'pan' is Trackpad): Select's line says
-   *  how this device pans and zooms. */
+   *  how this device pans and zooms, and where to switch to the other (2.1-Q310). */
   readonly scrollWheel: 'zoom' | 'pan'
-  /** A coarse primary pointer (a touch screen): Select's line names two fingers and a pinch, as for a trackpad. */
+  /** A coarse primary pointer (a touch screen): Select's line names two fingers and a pinch and no setting, which does
+   *  not change touch. */
   readonly coarsePointer: boolean
+  /** Mac keys (the mod key is Cmd): Select's line says Option-click, and with a mouse names no pan gesture, since
+   *  right-drag, Control-drag and Space-drag are not yet checked in real Mac browsers (canopi-pqxl). */
+  readonly macKeys: boolean
   /** The platform's mod key name (Ctrl, or Cmd on a Mac), for Plant a row's no-snap hint. */
   readonly modKey: string
   readonly translate: Translate
@@ -103,7 +107,7 @@ export function toolCardContent(input: ToolCardInput): ToolCardContent | null {
   switch (tool) {
     case 'select':
       // No Esc meaning: under Select, Esc only clears the selection.
-      return card(null, '', translate(input.scrollWheel === 'pan' || input.coarsePointer ? 'canvas.toolCard.selectHintPan' : 'canvas.toolCard.selectHint'))
+      return card(null, '', translate(selectHintKey(input)))
     case 'hand':
       return card(null, translate('canvas.toolCard.panHint'))
     case 'plant-stamp':
@@ -158,6 +162,13 @@ export function toolCardContent(input: ToolCardInput): ToolCardContent | null {
     case 'profile':
       return card(null, translate('canvas.toolCard.profile'), hints('canvas.toolCard.lineKeys'))
   }
+}
+
+/** Select's one line: touch, else the pointing device's gestures (Mac keys on a Mac) and the setting that switches it. */
+function selectHintKey({ scrollWheel, coarsePointer, macKeys }: ToolCardInput): LocaleKey {
+  if (coarsePointer) return 'canvas.toolCard.selectHintTouch'
+  if (macKeys) return scrollWheel === 'pan' ? 'canvas.toolCard.selectHintMacPan' : 'canvas.toolCard.selectHintMac'
+  return scrollWheel === 'pan' ? 'canvas.toolCard.selectHintPan' : 'canvas.toolCard.selectHint'
 }
 
 function stampName(stamp: CanvasStampGuidance, translate: Translate): string {

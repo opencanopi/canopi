@@ -35,6 +35,16 @@ fn a_code_tags_its_kind_and_nests_its_sub_kind_under_its_name() {
             },
             json!({ "kind": "tile_source_failed", "layer": "satellite" }),
         ),
+        (
+            FailureCode::StoreReadOnly {
+                store: crate::health::StoreId::WebSpeciesLists,
+            },
+            json!({ "kind": "store_read_only", "store": "web_species_lists" }),
+        ),
+        (
+            FailureCode::FormatCoreTrapped,
+            json!({ "kind": "format_core_trapped" }),
+        ),
     ];
     for (code, expected) in cases {
         assert_eq!(serde_json::to_value(&code).unwrap(), expected);
@@ -86,7 +96,8 @@ fn a_silent_row_is_recorded_and_never_shown() {
             "cancelled",
             "dialog_already_open",
             "style_failed",
-            "tile_source_failed"
+            "tile_source_failed",
+            "store_read_only"
         ]
     );
     assert_eq!(

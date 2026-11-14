@@ -1,0 +1,600 @@
+// The reader release's Web stores (Step 2.0.4 R3, canopi-f47t.52.272; contracts §11 "Web Drafts move to IndexedDB",
+// 2.1-Q321, 2.1-Q322, 2.1-Q323, 2.1-M486). After a rollback from 2.1, the Web Edition lists the Drafts 2.1 keeps in
+// the IndexedDB database `canopi-drafts` (version 4; stores `drafts`, key `id`, and `meta`, key `key`, holding the move
+// record) read-only beside the editable ones, hides every old-key Draft the 2.1 move copied, restores nothing at launch
+// while 2.1 Drafts exist, creates no database on an origin without one, and never blocks 2.1's upgrade.
+//
+// Written failing in commit 0 and marked expected-fail (`test.fail`); R3-3 and R3-4 built these paths and removed the
+// markers. The later cases are R3-3's failure states: a 2.1 Draft opened, downloaded, deleted by 2.1 after the list, opened without its worker,
+// a version change while a read is open, and a hidden id at restore.
+//
+// R3-4 (2.1-Q320, 2.1-M483, 2.1-M486): settings record 2 and the species-list record 1, each under its own 2.1 key and
+// seeded from its frozen form (spec/web/frozen/), are read for the fields this release knows and never written, moved
+// aside or copied to the 2.0 keys; each store reads as saved by a newer Canopi and says so once, at launch; a setting
+// changed applies for the session only; a 2.1 key that is not JSON, or of a later version, is never moved aside; and
+// under either, a favourite star is off, says why, and a click or Enter on it writes nothing.
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+import type { Page } from '@playwright/test'
+import { expect, test } from '../support/offline'
+import { DRAFT_DATABASE, DRAFT_DATABASE_VERSION, createDraftStore, draftStoreDump, type DraftRecord } from '../support/web-storage'
+
+const FIXTURE = fileURLToPath(new URL('../fixtures/canvas-base.canopi', import.meta.url))
+const V3_DRAFTS_KEY = 'canopi:web-app-data:v3:drafts'
+
+function baseDesign(): Record<string, unknown> {
+  return JSON.parse(readFileSync(FIXTURE, 'utf8')) as Record<string, unknown>
+}
+
+/** A Design as 2.1 writes it: `.canopi` v10, with the plant `scale` renamed `canopy_spread_m` (2.1-Q314). */
+function v10Content(name: string): string {
+  const design = baseDesign()
+  const plants = (design.plants as Record<string, unknown>[]).map(({ scale, ...plant }) => ({ ...plant, canopy_spread_m: scale }))
+  return JSON.stringify({ ...design, version: 10, name, plants })
+}
+
+function draftRecord(id: string, name: string, day: number): DraftRecord {
+  const updated_at = new Date(Date.UTC(2026, 11, day)).toISOString()
+  return { id, canopi_version: '2.1.0', version: 3, name, updated_at, content: v10Content(name) }
+}
+
+/** The 2.0 Drafts record under the old key: what a 2.0 tab wrote, and what the 2.1 move copied. */
+function v3DraftsRecord(drafts: readonly { id: string, name: string, day: number }[]): string {
+  const design = baseDesign()
+  return JSON.stringify({
+    version: 3,
+    drafts: drafts.map(({ id, name, day }) => ({ id, name, updatedAt: new Date(Date.UTC(2026, 9, day)).toISOString() })),
+    draftFiles: Object.fromEntries(drafts.map(({ id, name }) => [id, { ...design, name }])),
+  })
+}
+
+/** Writes the 2.1 Draft store as 2.1 leaves it: its Draft records and the move record naming the copied ids. */
+async function seedDraftStore(page: Page, records: readonly DraftRecord[], copiedIds: readonly string[]): Promise<void> {
+  await page.evaluate(createDraftStore, { name: DRAFT_DATABASE, version: DRAFT_DATABASE_VERSION, records, copiedIds })
+}
+
+/** Every record of the Draft store and every localStorage entry: what "writes nothing" compares. */
+async function storageDump(page: Page): Promise<unknown> {
+  const local = await page.evaluate(() => Object.keys(localStorage).sort().map((key) => [key, localStorage.getItem(key)]))
+  return { local, stores: await page.evaluate(draftStoreDump, DRAFT_DATABASE) }
+}
+
+function startScreen(page: Page) {
+  return page.locator('[data-start-screen]')
+}
+
+function draftRow(page: Page, name: string) {
+  return startScreen(page).locator('li').filter({ hasText: name })
+}
+
+test('R3 canopi-f47t.52.272: reader release: Web lists IndexedDB Drafts read-only and hides old-key Drafts the 2.1 move copied', async ({ page }) => {
+  await page.goto('')
+  await seedDraftStore(page, [draftRecord('orchard', 'Orchard in 2.1', 3)], ['orchard'])
+  // The old key still holds the Draft the move copied, under the same id, and a Draft a 2.0 tab made after the move.
+  await page.evaluate(([key, value]) => localStorage.setItem(key!, value!), [
+    V3_DRAFTS_KEY,
+    v3DraftsRecord([{ id: 'orchard', name: 'Orchard as 2.0 left it', day: 1 }, { id: 'hedge', name: 'Hedge', day: 2 }]),
+  ])
+  const before = await storageDump(page)
+  await page.reload()
+
+  // Today launch restores the old key's latest Draft, and the 2.1 Draft is never listed.
+  await expect(startScreen(page), 'launch restores nothing while 2.1 Drafts exist').toBeVisible()
+  const newer = draftRow(page, 'Orchard in 2.1')
+  await expect(newer, 'the 2.1 Draft is listed').toHaveCount(1)
+  await expect(newer).toHaveAttribute('data-read-only', '')
+  await expect(newer).toContainText('Read-only: saved by a newer Canopi')
+  await expect(draftRow(page, 'Hedge'), 'an editable 2.0 Draft is listed beside it').toHaveCount(1)
+  await expect(draftRow(page, 'Hedge')).not.toHaveAttribute('data-read-only', '')
+  await expect(draftRow(page, 'Orchard as 2.0 left it'), 'the old-key Draft the move copied is hidden').toHaveCount(0)
+
+  await newer.getByRole('button', { name: 'Actions for Orchard in 2.1' }).click()
+  await expect(page.getByRole('menuitem', { name: 'Download a copy' }), 'a read-only Draft offers Download a copy').toBeVisible()
+  await expect(page.getByRole('menuitem', { name: 'Delete draft…' }), 'and no Delete').toHaveCount(0)
+  await page.keyboard.press('Escape')
+
+  expect(await storageDump(page), 'listing writes no record and no key').toEqual(before)
+})
+
+test('R3 canopi-f47t.52.272: a re-list that fails after a good listing keeps the old-key Draft the move copied hidden', async ({ page }) => {
+  // Fails every Draft store lookup once the test says so, counting the failures; on the prototype for WebKit.
+  await page.addInitScript(() => {
+    const host = window as unknown as { __failDraftReads: boolean, __failedDraftReads: number }
+    host.__failDraftReads = false
+    host.__failedDraftReads = 0
+    const proto = IDBFactory.prototype as IDBFactory & { databases?: IDBFactory['databases'] }
+    const open = proto.open
+    proto.open = function (this: IDBFactory, name: string, version?: number) {
+      if (host.__failDraftReads && name === 'canopi-drafts') {
+        host.__failedDraftReads += 1
+        throw new DOMException('Held for the test', 'UnknownError')
+      }
+      return version === undefined ? open.call(this, name) : open.call(this, name, version)
+    }
+    const databases = proto.databases
+    if (databases) {
+      proto.databases = function (this: IDBFactory) {
+        if (!host.__failDraftReads) return databases.call(this)
+        host.__failedDraftReads += 1
+        return Promise.reject(new DOMException('Held for the test', 'UnknownError'))
+      }
+    }
+  })
+  await page.goto('')
+  await seedDraftStore(page, [draftRecord('orchard', 'Orchard in 2.1', 3)], ['orchard'])
+  await page.evaluate(([key, value]) => localStorage.setItem(key!, value!), [
+    V3_DRAFTS_KEY,
+    v3DraftsRecord([{ id: 'orchard', name: 'Orchard as 2.0 left it', day: 1 }, { id: 'hedge', name: 'Hedge', day: 2 }]),
+  ])
+  await page.reload()
+  await expect(draftRow(page, 'Orchard in 2.1'), 'the launch listed the 2.1 Draft').toHaveCount(1)
+
+  // Open Hedge, then close it: the start screen re-lists, and that read fails.
+  await page.evaluate(() => { (window as unknown as { __failDraftReads: boolean }).__failDraftReads = true })
+  await draftRow(page, 'Hedge').getByRole('button').first().click()
+  await expect(page.locator('[data-workspace-title-bar]')).toContainText('Hedge')
+  const compact = page.getByRole('menubar', { name: 'Menus' }).getByRole('menuitem', { name: 'Menu' })
+  if (await compact.isVisible()) await compact.click()
+  await page.getByRole('menuitem', { name: 'File' }).click()
+  await page.getByRole('menuitem', { name: 'Close Design' }).click()
+  await expect(startScreen(page)).toBeVisible()
+  await expect.poll(() => page.evaluate(() => (window as unknown as { __failedDraftReads: number }).__failedDraftReads), 'the re-list failed').toBeGreaterThan(0)
+  await page.waitForTimeout(500)
+
+  await expect(draftRow(page, 'Orchard as 2.0 left it'), 'the copied old-key Draft stays hidden').toHaveCount(0)
+  await expect(draftRow(page, 'Orchard in 2.1'), 'the 2.1 Draft stays listed').toHaveCount(1)
+  await expect(draftRow(page, 'Hedge')).toHaveCount(1)
+})
+
+for (const variant of ['databases()', 'databases() stubbed away'] as const) {
+  test(`R3 canopi-f47t.52.272: reader release: listing Drafts on an origin with no Draft store creates no IndexedDB database (${variant})`, async ({ page }) => {
+    // Every IndexedDB open and databases() call the page makes, recorded before any script of the page runs; the
+    // second variant removes databases() as engines without it do, so the reader's open-and-abort fallback runs.
+    await page.addInitScript((stub) => {
+      const factory = indexedDB as IDBFactory & { databases?: IDBFactory['databases'] }
+      const calls: string[] = []
+      ;(window as unknown as { __idbCalls: string[] }).__idbCalls = calls
+      const databases = factory.databases?.bind(factory)
+      ;(window as unknown as { __databases?: IDBFactory['databases'] }).__databases = databases
+      const open = factory.open.bind(factory)
+      factory.open = (name: string, version?: number) => {
+        calls.push(`open ${name}`)
+        return version === undefined ? open(name) : open(name, version)
+      }
+      if (stub) {
+        Object.defineProperty(factory, 'databases', { value: undefined, configurable: true })
+      } else if (databases) {
+        factory.databases = () => {
+          calls.push('databases')
+          return databases()
+        }
+      }
+    }, variant === 'databases() stubbed away')
+    await page.goto('')
+    await expect(startScreen(page)).toBeVisible()
+
+    // Today nothing reads the Draft store, so the reader's check never runs.
+    const calls = await page.evaluate(() => (window as unknown as { __idbCalls: string[] }).__idbCalls)
+    expect(calls.some((call) => call === 'databases' || call === `open ${DRAFT_DATABASE}`), 'the start screen looked for the Draft store').toBe(true)
+    const names = await page.evaluate(async () => {
+      const databases = (window as unknown as { __databases?: IDBFactory['databases'] }).__databases
+      return databases ? (await databases()).map((info) => info.name) : null
+    })
+    // An engine without databases() at all (none the lanes run today) leaves the check to the call record above.
+    if (names !== null) expect(names, 'no database was created').not.toContain(DRAFT_DATABASE)
+  })
+}
+
+test('R3 canopi-f47t.52.272: reader release: an open reader-release tab closes on versionchange and 2.1’s upgrade is not blocked', async ({ page, context }) => {
+  // Every connection the page opens to the Draft store, whether it closed, and whether a versionchange reached it.
+  await page.addInitScript(() => {
+    interface Seen { closed: boolean, versionchange: boolean }
+    const seen: Seen[] = []
+    ;(window as unknown as { __draftConnections: Seen[] }).__draftConnections = seen
+    // On the prototype: WebKit's page code does not see an own property set on `indexedDB` by an init script.
+    const open = IDBFactory.prototype.open
+    IDBFactory.prototype.open = function (this: IDBFactory, name: string, version?: number) {
+      const request = version === undefined ? open.call(this, name) : open.call(this, name, version)
+      if (name === 'canopi-drafts') {
+        request.addEventListener('success', () => {
+          const db = request.result
+          const entry: Seen = { closed: false, versionchange: false }
+          seen.push(entry)
+          db.addEventListener('versionchange', () => { entry.versionchange = true })
+          const close = db.close.bind(db)
+          db.close = () => { entry.closed = true; close() }
+        })
+      }
+      return request
+    }
+  })
+  await page.goto('')
+  await seedDraftStore(page, [draftRecord('orchard', 'Orchard in 2.1', 3)], [])
+  await page.reload()
+  // Today the 2.1 Draft is never listed: nothing reads the store.
+  await expect(draftRow(page, 'Orchard in 2.1'), 'the reader tab lists the 2.1 Draft').toHaveCount(1)
+
+  // A 2.1 tab upgrades the store while the reader tab is open.
+  const later = await context.newPage()
+  await later.goto('')
+  const outcome = await later.evaluate(async (name) => await new Promise<string>((resolve) => {
+    const request = indexedDB.open(name, 5)
+    request.onblocked = () => resolve('blocked')
+    request.onerror = () => resolve(`error ${request.error?.name}`)
+    request.onsuccess = () => { request.result.close(); resolve('upgraded') }
+  }), DRAFT_DATABASE)
+  expect(outcome, '2.1’s upgrade is not blocked').toBe('upgraded')
+
+  const connections = await page.evaluate(() =>
+    (window as unknown as { __draftConnections: { closed: boolean, versionchange: boolean }[] }).__draftConnections)
+  expect(connections.length, 'the reader opened the store').toBeGreaterThan(0)
+  expect(connections.every((connection) => connection.closed), 'every reader connection is closed').toBe(true)
+  if (connections.some((connection) => connection.versionchange)) {
+    await expect(page.getByText('New version'), 'a versionchange shows the Reload notice (2.1-Q40)').toBeVisible()
+    await expect(page.getByRole('button', { name: 'Reload' })).toBeVisible()
+  }
+})
+
+/** Seeds one 2.1 Draft (no old-key Draft) and loads the start screen that lists it. */
+async function startWithOneNewerDraft(page: Page): Promise<DraftRecord> {
+  const record = draftRecord('orchard', 'Orchard in 2.1', 3)
+  await page.goto('')
+  await seedDraftStore(page, [record], [])
+  await page.reload()
+  await expect(draftRow(page, 'Orchard in 2.1')).toHaveCount(1)
+  return record
+}
+
+test('R3 canopi-f47t.52.272: a 2.1 Draft opens read-only, downloads as 2.1 saved it, and writes nothing', async ({ page }) => {
+  const record = await startWithOneNewerDraft(page)
+  const before = await storageDump(page)
+
+  await draftRow(page, 'Orchard in 2.1').getByRole('button', { name: 'Actions for Orchard in 2.1' }).click()
+  const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('menuitem', { name: 'Download a copy' }).click()])
+  // WebKit hands the name with its spaces as underscores.
+  expect(download.suggestedFilename()).toMatch(/^Orchard[ _]in[ _]2\.1\.canopi$/)
+  expect(readFileSync(await download.path(), 'utf8'), 'the bytes as 2.1 saved them (2.1-Q323)').toBe(record.content)
+
+  await draftRow(page, 'Orchard in 2.1').getByRole('button').first().click()
+  const status = page.locator('[data-workspace-title-bar] [data-save-status]')
+  await expect(status, 'the 2.1 Draft opens in the read-only view (2.1-M478, Q336)').toHaveAttribute('data-save-status', 'read-only')
+  await expect(page.locator('[data-workspace-title-bar]')).toContainText('Orchard in 2.1')
+  await page.waitForTimeout(1_000)
+  expect(await storageDump(page), 'opening and downloading write no record and no key').toEqual(before)
+})
+
+test('R3 canopi-f47t.52.272: a 2.1 Draft that 2.1 deleted after the list opens nothing, says so and leaves the list', async ({ page }) => {
+  await startWithOneNewerDraft(page)
+  // A 2.1 tab deletes the Draft at the same version: no version change reaches this tab.
+  await page.evaluate(async ([name, version]) => await new Promise<void>((resolve, reject) => {
+    const request = indexedDB.open(name as string, version as number)
+    request.onsuccess = () => {
+      const tx = request.result.transaction('drafts', 'readwrite')
+      tx.objectStore('drafts').delete('orchard')
+      tx.oncomplete = () => { request.result.close(); resolve() }
+      tx.onerror = () => reject(tx.error)
+    }
+    request.onerror = () => reject(request.error)
+  }), [DRAFT_DATABASE, DRAFT_DATABASE_VERSION])
+
+  await draftRow(page, 'Orchard in 2.1').getByRole('button').first().click()
+  await expect(page.getByText('This Draft is no longer in this browser', { exact: false }), 'a visible failure (design check)').toBeVisible()
+  await expect(draftRow(page, 'Orchard in 2.1'), 'the rows re-list without it').toHaveCount(0)
+  await expect(startScreen(page), 'nothing opened').toBeVisible()
+})
+
+test('R3 canopi-f47t.52.272: a 2.1 Draft whose read fails at open opens nothing, says so and re-lists', async ({ page }) => {
+  // Fails every open of the Draft store once the test says so, counting them: the open's read, then the re-list's.
+  await page.addInitScript(() => {
+    const host = window as unknown as { __failDraftOpens: boolean, __failedDraftOpens: number }
+    host.__failDraftOpens = false
+    host.__failedDraftOpens = 0
+    const proto = IDBFactory.prototype
+    const open = proto.open
+    proto.open = function (this: IDBFactory, name: string, version?: number) {
+      if (host.__failDraftOpens && name === 'canopi-drafts') {
+        host.__failedDraftOpens += 1
+        throw new DOMException('Held for the test', 'UnknownError')
+      }
+      return version === undefined ? open.call(this, name) : open.call(this, name, version)
+    }
+  })
+  await startWithOneNewerDraft(page)
+  await page.evaluate(() => { (window as unknown as { __failDraftOpens: boolean }).__failDraftOpens = true })
+
+  await draftRow(page, 'Orchard in 2.1').getByRole('button').first().click()
+  await expect(page.getByText('This Draft is no longer in this browser, or could not be read.'), 'a visible failure (design check)').toBeVisible()
+  await expect.poll(() => page.evaluate(() => (window as unknown as { __failedDraftOpens: number }).__failedDraftOpens), 'the rows re-list after the failed read').toBeGreaterThanOrEqual(2)
+  await expect(startScreen(page), 'nothing opened').toBeVisible()
+  await expect(draftRow(page, 'Orchard in 2.1'), 'the failed re-list keeps the last good listing').toHaveCount(1)
+})
+
+test('R3 canopi-f47t.52.272: a 2.0 Draft another tab deleted after the list opens nothing, says so and leaves the list', async ({ page }) => {
+  await page.goto('')
+  // A 2.1 Draft keeps launch on the start screen, which lists the 2.0 Drafts beside it.
+  await seedDraftStore(page, [draftRecord('orchard', 'Orchard in 2.1', 3)], [])
+  await page.evaluate(([key, value]) => localStorage.setItem(key!, value!), [
+    V3_DRAFTS_KEY,
+    v3DraftsRecord([{ id: 'hedge', name: 'Hedge', day: 2 }, { id: 'meadow', name: 'Meadow', day: 1 }]),
+  ])
+  await page.reload()
+  await expect(startScreen(page)).toBeVisible()
+  await expect(draftRow(page, 'Hedge')).toHaveCount(1)
+  // Another tab deletes Hedge: the shared record no longer holds it.
+  await page.evaluate(([key, value]) => localStorage.setItem(key!, value!), [V3_DRAFTS_KEY, v3DraftsRecord([{ id: 'meadow', name: 'Meadow', day: 1 }])])
+
+  await draftRow(page, 'Hedge').getByRole('button').first().click()
+  await expect(page.getByText('This Draft is no longer in this browser, or could not be read.'), 'a visible failure (design check)').toBeVisible()
+  await expect(draftRow(page, 'Hedge'), 'the rows re-list without it').toHaveCount(0)
+  await expect(draftRow(page, 'Meadow')).toHaveCount(1)
+  await expect(startScreen(page), 'nothing opened').toBeVisible()
+})
+
+test('R3 canopi-f47t.52.272: a 2.1 Draft opened while the format worker cannot load is refused and says so', async ({ page }) => {
+  await startWithOneNewerDraft(page)
+  await page.route('**/design-core.worker-*.js', (route) => route.abort())
+
+  await draftRow(page, 'Orchard in 2.1').getByRole('button').first().click()
+  await expect(page.getByText('Canopi couldn’t load the part that opens Designs.', { exact: false }), 'format_core_unavailable').toBeVisible()
+  await expect(startScreen(page), 'the start screen stays').toBeVisible()
+  await expect(draftRow(page, 'Orchard in 2.1'), 'and still lists the Draft, to try again').toHaveCount(1)
+})
+
+test('R3 canopi-f47t.52.272: a version change while a read is open closes it, offers Reload, and 2.1’s upgrade is not blocked', async ({ page, context }) => {
+  // Holds the reader's next Draft read open (its transaction kept busy) until the test lets it end; `__readHeld`: begun.
+  await page.addInitScript(() => {
+    const host = window as unknown as { __holdReads: boolean, __readHeld?: boolean }
+    host.__holdReads = false
+    const get = IDBObjectStore.prototype.get
+    IDBObjectStore.prototype.get = function (this: IDBObjectStore, ...args: Parameters<IDBObjectStore['get']>) {
+      const request = get.apply(this, args)
+      if (host.__holdReads && this.name === 'drafts' && args[0] !== 'held') {
+        host.__readHeld = true
+        const keepBusy = (): void => { if (host.__holdReads) get.call(this, 'held').onsuccess = keepBusy }
+        keepBusy()
+      }
+      return request
+    }
+  })
+  await startWithOneNewerDraft(page)
+  // 2.1's tab loads first, so its upgrade reaches the held read inside its 3 s bound; a late read alone is a failure.
+  const later = await context.newPage()
+  await later.goto('')
+  await page.evaluate(() => { (window as unknown as { __holdReads: boolean }).__holdReads = true })
+  await draftRow(page, 'Orchard in 2.1').getByRole('button').first().click() // its record's read is held open
+  await page.waitForFunction(() => (window as unknown as { __readHeld?: boolean }).__readHeld === true)
+  const upgrade = later.evaluate(async (name) => await new Promise<string>((resolve) => {
+    const request = indexedDB.open(name, 5)
+    request.onblocked = () => resolve('blocked')
+    request.onerror = () => resolve(`error ${request.error?.name}`)
+    request.onsuccess = () => { request.result.close(); resolve('upgraded') }
+  }), DRAFT_DATABASE)
+  await expect(page.getByText('New version'), 'the version change shows the Reload notice (2.1-Q40)').toBeVisible()
+  await expect(page.getByRole('button', { name: 'Reload' })).toBeVisible()
+  await page.waitForTimeout(3_500) // still held, the read ends at its bound: the Reload notice alone tells (2.1-Q337)
+  await page.evaluate(() => { (window as unknown as { __holdReads: boolean }).__holdReads = false })
+  expect(await upgrade, '2.1’s upgrade is not blocked').toBe('upgraded')
+  await expect(page.getByText('This Draft is no longer in this browser, or could not be read.'), 'no open failure beside it').toHaveCount(0)
+  await expect(startScreen(page), 'nothing opened').toBeVisible()
+})
+
+test('R3 canopi-f47t.52.272: launch restores the newest 2.0 Draft whose id 2.1 neither holds nor copied', async ({ page }) => {
+  await page.goto('')
+  // 2.1 copied orchard and has since deleted it: no 2.1 Draft is left, so launch restores, yet never orchard.
+  await seedDraftStore(page, [], ['orchard'])
+  await page.evaluate(([key, value]) => localStorage.setItem(key!, value!), [
+    V3_DRAFTS_KEY,
+    v3DraftsRecord([{ id: 'orchard', name: 'Orchard as 2.0 left it', day: 5 }, { id: 'hedge', name: 'Hedge', day: 2 }]),
+  ])
+  await page.reload()
+
+  await expect(page.locator('[data-workspace-title-bar]'), 'the newest visible Draft reopens').toContainText('Hedge')
+})
+
+const FROZEN = fileURLToPath(new URL('../../../../spec/web/frozen/', import.meta.url))
+const V3_SETTINGS_KEY = 'canopi:web-app-data:v3:settings'
+const V3_SPECIES_KEY = 'canopi:web-app-data:v3:species'
+const GERMAN = JSON.parse(readFileSync(fileURLToPath(new URL('../../src/i18n/de.json', import.meta.url)), 'utf8')) as Record<string, unknown>
+
+/** A 2.1 record's frozen form (spec/web/frozen/): its key and the record 2.1 writes there. */
+function frozenRecord(name: 'settings' | 'species-lists'): { key: string, record: Record<string, unknown> } {
+  return JSON.parse(readFileSync(`${FROZEN}${name}.json`, 'utf8')) as { key: string, record: Record<string, unknown> }
+}
+
+/** A German string: the frozen settings record's locale is German. */
+/** A German string by its key, whose namespace may hold dotted keys (`menu` > `file.settings`); throws on none. */
+function german(key: string, node: unknown = GERMAN): string {
+  const at = (node ?? {}) as Record<string, unknown>, value = at[key], dot = key.indexOf('.')
+  if (typeof value === 'string') return value
+  if (dot < 0) throw new Error(`no German string for ${key}`)
+  return german(key.slice(dot + 1), at[key.slice(0, dot)])
+}
+
+async function seedLocalStorage(page: Page, entries: Record<string, string>): Promise<void> {
+  await page.evaluate((seed) => { for (const [key, value] of Object.entries(seed)) localStorage.setItem(key, value) }, entries)
+}
+
+/** A store's health notice key on the notice row (failures/health-presentation.ts). */
+function healthKey(store: string, status: Record<string, unknown>): string {
+  return `health:${store}:status:${JSON.stringify(status)}`
+}
+
+/** Dismisses the notices shown before the one keyed `key` until it shows; fails when it never does. */
+async function expectNotice(page: Page, key: string, dismiss = 'Dismiss'): Promise<void> {
+  const row = page.locator('[data-notice-row]')
+  await expect.poll(async () => {
+    const shown = await row.first().getAttribute('data-notice-key', { timeout: 500 }).catch(() => null)
+    if (shown === key) return true
+    if (shown !== null) await row.first().getByRole('button', { name: dismiss }).click()
+    return false
+  }, { message: `the notice ${key} shows`, timeout: 15_000 }).toBe(true)
+}
+
+/**
+ * Every store's bytes, as `storageDump`, less the first-paint theme cache (utils/theme.ts): a copy of the theme shown,
+ * rewritten at each launch and at each theme change, which is no store (the settings records are).
+ */
+async function storesDump(page: Page): Promise<unknown> {
+  const { local, stores } = await storageDump(page) as { local: [string, string | null][], stores: unknown }
+  return { local: local.filter(([key]) => key !== 'canopi:first-paint-theme'), stores }
+}
+
+const SETTINGS_READ_ONLY = healthKey('settings', { kind: 'newer_read_only' })
+const SPECIES_READ_ONLY = healthKey('web_species_lists', { kind: 'newer_read_only' })
+
+test('R3 canopi-f47t.52.272: settings record 2 applies its known fields from its 2.1 key over the 2.0 key, and launch and reload write nothing (Web)', async ({ page }) => {
+  const settings = frozenRecord('settings')
+  await page.goto('')
+  await seedLocalStorage(page, {
+    [V3_SETTINGS_KEY]: JSON.stringify({ version: 3, settings: { locale: 'en', theme: 'light' } }),
+    [settings.key]: JSON.stringify(settings.record),
+  })
+  const before = await storesDump(page)
+
+  for (const load of ['launch', 'reload']) {
+    await page.reload()
+    await expect(startScreen(page)).toBeVisible()
+    await expect(page.locator('html'), `the 2.1 locale applies at ${load}`).toHaveAttribute('lang', 'de')
+    await expect(page.locator('html'), `the 2.1 theme applies at ${load}`).toHaveAttribute('data-theme', 'dark')
+    await page.waitForTimeout(500)
+    expect(await storesDump(page), `${load} writes neither settings record`).toEqual(before)
+  }
+})
+
+test('R3 canopi-f47t.52.272: a setting changed under settings a newer Canopi saved applies for the session, is never written, and the notice names settings', async ({ page }) => {
+  const settings = frozenRecord('settings')
+  await page.goto('')
+  await seedLocalStorage(page, { [settings.key]: JSON.stringify(settings.record) })
+  const before = await storesDump(page)
+  await page.reload()
+  await expectNotice(page, SETTINGS_READ_ONLY, german('notice.dismiss'))
+  await expect(page.locator('[data-notice-row]').first()).toContainText(german('health.newerReadOnlyStore.settings'))
+
+  await startScreen(page).getByRole('button', { name: german('menu.file.settings') }).click()
+  const dialog = page.getByRole('dialog', { name: german('settings.title') })
+  await dialog.getByRole('radiogroup', { name: german('settings.theme') }).getByRole('radio', { name: german('theme.light') }).click()
+  await expect(page.locator('html'), 'the change applies for the session (2.1-Q320)').toHaveAttribute('data-theme', 'light')
+  await page.keyboard.press('Escape')
+  await page.waitForTimeout(1_000)
+  expect(await storesDump(page), 'the change is never written').toEqual(before)
+
+  await page.reload()
+  await expect(page.locator('html'), 'a reload reads the 2.1 record again').toHaveAttribute('data-theme', 'dark')
+  await expectNotice(page, SETTINGS_READ_ONLY, german('notice.dismiss'))
+  expect(await storesDump(page)).toEqual(before)
+})
+
+test('R3 canopi-f47t.52.272: favourites and recently viewed from their 2.1 key say once at launch that a newer Canopi saved them, and no key is written, after a reload too (Web)', async ({ page }) => {
+  const species = frozenRecord('species-lists')
+  await page.goto('')
+  await seedLocalStorage(page, {
+    [V3_SPECIES_KEY]: JSON.stringify({ version: 3, favoriteSpecies: ['Fragaria vesca'], recentlyViewedSpecies: [] }),
+    [species.key]: JSON.stringify(species.record),
+  })
+  const before = await storesDump(page)
+
+  for (const load of ['launch', 'reload']) {
+    await page.reload()
+    await expectNotice(page, SPECIES_READ_ONLY)
+    await expect(page.locator('[data-notice-row]').first(), `the species lists name themselves at ${load} (2.1-Q319)`)
+      .toContainText('Your favorites and recently viewed plants were saved by a newer Canopi.')
+    await page.waitForTimeout(500)
+    expect(await storesDump(page), `${load} writes neither species record`).toEqual(before)
+  }
+})
+
+test('R3 canopi-f47t.52.272: a 2.1 settings or species record of a later version reads as saved by a newer Canopi and is never moved aside, after a reload too (Web)', async ({ page }) => {
+  const settings = frozenRecord('settings')
+  const species = frozenRecord('species-lists')
+  await page.goto('')
+  await seedLocalStorage(page, {
+    [settings.key]: JSON.stringify({ ...settings.record, version: 3, locale: 'en', a_field_from_later: { nested: true } }),
+    [species.key]: JSON.stringify({ ...species.record, version: 2, starred_collections: [] }),
+  })
+  const before = await storesDump(page)
+
+  for (const load of ['launch', 'reload']) {
+    await page.reload()
+    await expect(page.locator('html'), `a later settings record's known fields apply at ${load}`).toHaveAttribute('data-theme', 'dark')
+    await expectNotice(page, SPECIES_READ_ONLY)
+    await page.waitForTimeout(500)
+    expect(await storesDump(page), `${load} moves no record aside and writes none`).toEqual(before)
+  }
+})
+
+/** Every species-list entry in localStorage, under either key: what "the star wrote nothing" compares. */
+async function speciesKeysDump(page: Page): Promise<unknown> {
+  return await page.evaluate(() => Object.keys(localStorage).filter((key) => key.includes(':species')).sort().map((key) => [key, localStorage.getItem(key)]))
+}
+
+/** Opens the fixture Design unless launch restored its Draft: offline, a species detail opens from Plants in this Design. */
+async function openFixtureDesign(page: Page): Promise<void> {
+  const map = page.getByRole('application').first()
+  await expect(map.or(startScreen(page)).first()).toBeVisible()
+  if (await map.isVisible()) return
+  const open = startScreen(page).locator('button').filter({ hasText: /\.canopi/ }).first()
+  const [chooser] = await Promise.all([page.waitForEvent('filechooser'), open.click()])
+  await chooser.setFiles(FIXTURE)
+  await expect(map).toBeVisible()
+}
+
+for (const [state, damaged, reason] of [
+  ['saved by a newer Canopi', false, 'Saved by a newer Canopi. Update Canopi to change your favorites.'],
+  ['not JSON', true, 'Canopi’s saved favorites and recently viewed plants are damaged and couldn’t be set aside, so changes to them won’t be saved this session.'],
+] as const) {
+  test(`R3 canopi-f47t.52.272: under a 2.1 species key ${state}, the species detail favourite star is off, says why, and a click or Enter writes nothing, after a reload too (Web)`, async ({ page }) => {
+    const species = frozenRecord('species-lists')
+    await page.goto('')
+    await seedLocalStorage(page, {
+      [V3_SPECIES_KEY]: JSON.stringify({ version: 3, favoriteSpecies: ['Fragaria vesca'], recentlyViewedSpecies: [] }),
+      [species.key]: damaged ? 'not json' : JSON.stringify(species.record),
+    })
+    const before = await speciesKeysDump(page)
+    for (const load of ['launch', 'reload']) {
+      await page.reload()
+      await openFixtureDesign(page)
+      const keyPanel = page.getByRole('region', { name: 'Plants in this Design' })
+      if (!(await keyPanel.isVisible())) await page.getByRole('navigation', { name: 'Web Edition panels' }).getByRole('button', { name: 'Plants in this Design' }).click()
+      await keyPanel.getByRole('button', { name: /^Details for / }).first().click()
+      const star = page.locator('[data-testid="species-detail"] button[aria-pressed]')
+      await expect(star, `the star is off at ${load} (2.1-Q320)`).toHaveAttribute('aria-disabled', 'true')
+      await expect(star, `and says why at ${load}`).toHaveAccessibleDescription(reason)
+      await star.hover()
+      await expect(page.getByRole('tooltip').getByText(reason, { exact: true }), `its tooltip shows at ${load}`).toBeVisible()
+      const pressed = await star.getAttribute('aria-pressed')
+      // Playwright counts aria-disabled as disabled and would wait forever; force still clicks as the pointer does.
+      await star.click({ force: true })
+      await star.focus()
+      await page.keyboard.press('Enter')
+      await page.waitForTimeout(500)
+      await expect(star, `a refused toggle leaves the star as it was at ${load}`).toHaveAttribute('aria-pressed', pressed!)
+      expect(await speciesKeysDump(page), `a click or Enter on the star at ${load} writes neither species key`).toEqual(before)
+    }
+  })
+}
+
+test.describe('a 2.1 key that is not JSON', () => {
+  // Settings that cannot be read are reported as the 2.0 key's are (SET-05): the projection's own console line.
+  test.use({ expectedConsoleErrors: ['Failed to bootstrap settings:'] })
+
+  test('R3 canopi-f47t.52.272: a 2.1 settings or species key that is not JSON is never moved aside: settings unavailable, species lists refuse writes, after a reload too (Web)', async ({ page }) => {
+    const settings = frozenRecord('settings')
+    const species = frozenRecord('species-lists')
+    await page.goto('')
+    await seedLocalStorage(page, {
+      [V3_SPECIES_KEY]: JSON.stringify({ version: 3, favoriteSpecies: ['Fragaria vesca'], recentlyViewedSpecies: [] }),
+      [settings.key]: '{"version": 2, "locale": "de"',
+      [species.key]: 'not json',
+    })
+    const before = await storesDump(page)
+
+    for (const load of ['launch', 'reload']) {
+      await page.reload()
+      await expect(startScreen(page)).toBeVisible()
+      await expectNotice(page, healthKey('web_species_lists', { kind: 'unavailable', code: { kind: 'invalid' } }))
+      await expectNotice(page, healthKey('settings', { kind: 'unavailable', code: { kind: 'invalid' } }))
+      await expect(page.locator('html'), `settings that do not read start on defaults at ${load}`).toHaveAttribute('lang', 'en')
+      expect(await storesDump(page), `${load} moves neither 2.1 key aside and writes no key`).toEqual(before)
+    }
+  })
+})

@@ -3,10 +3,12 @@ import type {
   AnalysisOffer,
   AnalysisRunStatus,
   Freshness,
+  LibraryItemKind,
   LibraryItemRole,
   LibraryItemType,
   LibrarySnapshot,
   LidarImportJob,
+  LidarResultState,
   Provenance,
 } from '../../generated/contracts'
 import { analysisGroup } from '../analyses/registry'
@@ -25,7 +27,10 @@ export interface LibraryItem {
   readonly id: string
   readonly name: string
   readonly itemType: LibraryItemType
-  readonly status: 'ready' | 'preparing' | 'failed'
+  /** `needs-newer`: listed by a newer catalogue, by name and type only, never drawn or changed (2.1-Q318). */
+  readonly status: 'ready' | 'preparing' | 'failed' | 'needs-newer'
+  /** The type a `needs-newer` item is listed by; null when this Canopi does not know it, and for any other item. */
+  readonly newerKind: LibraryItemKind | null
   readonly generationId: string | null
   readonly units: string
   readonly resolutionM: number | null
@@ -59,6 +64,13 @@ export type LibrarySort = 'name' | 'recent'
 
 type Unnested = Omit<LibraryItem, 'depth'>
 
+const STATUS: Record<LidarResultState, LibraryItem['status']> = {
+  Ready: 'ready',
+  Preparing: 'preparing',
+  Failed: 'failed',
+  NeedsNewer: 'needs-newer',
+}
+
 /** Stable name order, identity as the tie-breaker: names are not unique. */
 function byName(left: Unnested, right: Unnested): number {
   return left.name.localeCompare(right.name, undefined, { sensitivity: 'base' }) || left.id.localeCompare(right.id)
@@ -83,7 +95,8 @@ export function libraryItems(snapshot: LibrarySnapshot | null, sort: LibrarySort
       id: summary.id,
       name: libraryItemName(summary, snapshot),
       itemType: summary.item_type,
-      status: summary.state === 'Ready' ? 'ready' : summary.state === 'Preparing' ? 'preparing' : 'failed',
+      status: STATUS[summary.state],
+      newerKind: summary.state === 'NeedsNewer' ? summary.newer_kind ?? null : null,
       generationId: summary.generation_id ?? null,
       units: summary.units,
       resolutionM: summary.resolution_m ?? null,
@@ -107,12 +120,13 @@ export function libraryItems(snapshot: LibrarySnapshot | null, sort: LibrarySort
  * Items matching a name search and type filter, each with the sources it was
  * calculated from above it (GeoLibre's browser tree filter). Operations in
  * progress or failed stay listed whatever the filter, so an import or
- * calculation started here is never hidden before it settles.
+ * calculation started here is never hidden before it settles; a newer
+ * Canopi's item is settled and filters like a ready one.
  */
 export function filterLibraryItems(items: readonly LibraryItem[], query: string, type: LibraryTypeFilter): LibraryItem[] {
   const needle = query.trim().toLocaleLowerCase()
   return filterKeepingAncestors(items, (item) => {
-    if (item.status !== 'ready') return true
+    if (item.status === 'preparing' || item.status === 'failed') return true
     if (type === 'sources' && item.role !== 'Source') return false
     if (type !== 'all' && type !== 'sources' && item.group !== type) return false
     return needle === '' || item.name.toLocaleLowerCase().includes(needle)

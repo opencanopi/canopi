@@ -11,9 +11,13 @@
 // length, read from `build.rolldownOptions.output.chunkFileNames` (`[hash:16]` on Web, Vite's `[hash]`, 8, on
 // Desktop), never by splitting on a separator, since a hash holds `-` and `_`. Desktop repeats a name across chunks
 // (a package bundled into the app and into a worker), so a key, `<edition> chunk: <name>`, measures the byte total of
-// every chunk with that name. A config that cannot load, an output dir that is missing or holds no chunk, a file name
-// with no hash of the edition's length and a path that is neither the config nor its build output are
-// `tool-failed`. Rolldown builds are byte-stable, so the family's tolerance is headroom: a chunk over it is a bead.
+// every chunk with that name. A `?url` script asset (the format worker's wasm-bindgen glue, Step 2.0.4) is a .js file
+// named by `assetFileNames`, whose hash length is the chunks' on each edition, so it is a chunk key too. Every .wasm
+// file is an asset, measured the same way as `<edition> wasm: <name>`: the format worker's module (`web wasm:
+// canopi_format_wasm_bg`, its size budget, plan Step 2.0.4 R1) and the packages' decoders. A config that cannot load,
+// an output dir that is missing or holds no chunk, a file name with no hash of the edition's length and a path that is
+// neither the config nor its build output are `tool-failed`. Rolldown builds are byte-stable, so the family's tolerance
+// is headroom: a chunk or module over it is a bead.
 import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
@@ -28,12 +32,18 @@ const DEFAULT_HASH = 8;
 
 const fail = (message) => { throw Object.assign(new Error(`bundle-size: ${message}`), { code: 'tool-failed' }); };
 
-/** The hash length of the chunk file names an edition's loaded config gives Rolldown. */
-function hashLength(config, where) {
+/** Each measured kind of file: its extension, its key's word and the Rolldown output option (Vite's default) naming it. */
+const KINDS = [
+  { ext: '.js', word: 'chunk', option: 'chunkFileNames', fallback: 'assets/[name]-[hash].js' },
+  { ext: '.wasm', word: 'wasm', option: 'assetFileNames', fallback: 'assets/[name]-[hash][extname]' },
+];
+
+/** The hash length of the file names an edition's loaded config gives Rolldown by `kind.option`. */
+function hashLength(config, where, kind) {
   const output = config.build?.rolldownOptions?.output ?? {};
-  const names = Array.isArray(output) ? fail(`${where} gives Rolldown several outputs`) : output.chunkFileNames ?? 'assets/[name]-[hash].js';
-  if (typeof names !== 'string') fail(`${where} names chunks by a function, whose hash length cannot be read`);
-  const hash = /\[hash(?::(\d+))?\]/.exec(names) ?? fail(`${where} names chunks with no [hash]`);
+  const names = Array.isArray(output) ? fail(`${where} gives Rolldown several outputs`) : output[kind.option] ?? kind.fallback;
+  if (typeof names !== 'string') fail(`${where} names files by a function (${kind.option}), whose hash length cannot be read`);
+  const hash = /\[hash(?::(\d+))?\]/.exec(names) ?? fail(`${where} names files with no [hash] (${kind.option})`);
   return hash[1] ? Number(hash[1]) : DEFAULT_HASH;
 }
 
@@ -43,19 +53,23 @@ function walk(dir, prefix = '') {
     ? walk(path.join(dir, e.name), `${prefix}${e.name}/`) : [`${prefix}${e.name}`]));
 }
 
-/** `<edition> chunk: <name>` -> bytes for one built edition's output dir. */
-function chunkBytes(edition, outDir, hash, where, root) {
+/** `<edition> chunk: <name>` and `<edition> wasm: <name>` -> bytes for one built edition's output dir. */
+function fileBytes(edition, outDir, config, where, root) {
   const shown = path.relative(root, outDir).split(path.sep).join('/');
   if (!fs.existsSync(outDir) || !fs.statSync(outDir).isDirectory()) fail(`${where} has no build output at ${shown}; build the edition first`);
   const bytes = {};
-  const chunks = walk(outDir).filter((f) => f.endsWith('.js'));
-  if (!chunks.length) fail(`${where} wrote no chunk to ${shown}`);
-  for (const file of chunks) {
-    const base = path.posix.basename(file, '.js');
-    const name = base.slice(0, -hash - 1);
-    if (!name || base[name.length] !== '-' || !/^[\w-]+$/.test(base.slice(-hash))) fail(`${shown}/${file} has no ${hash}-character hash`);
-    const key = `${edition} chunk: ${name}`;
-    bytes[key] = (bytes[key] ?? 0) + fs.statSync(path.join(outDir, file)).size;
+  const files = walk(outDir);
+  for (const kind of KINDS) {
+    const hash = hashLength(config, where, kind);
+    const measured = files.filter((f) => f.endsWith(kind.ext));
+    if (kind.word === 'chunk' && !measured.length) fail(`${where} wrote no chunk to ${shown}`);
+    for (const file of measured) {
+      const base = path.posix.basename(file, kind.ext);
+      const name = base.slice(0, -hash - 1);
+      if (!name || base[name.length] !== '-' || !/^[\w-]+$/.test(base.slice(-hash))) fail(`${shown}/${file} has no ${hash}-character hash`);
+      const key = `${edition} ${kind.word}: ${name}`;
+      bytes[key] = (bytes[key] ?? 0) + fs.statSync(path.join(outDir, file)).size;
+    }
   }
   return bytes;
 }
@@ -84,7 +98,7 @@ export async function measure({ root, paths }) {
     }
     const outDir = path.resolve(dir, config.root ?? '.', config.build?.outDir ?? 'dist');
     outDirs.push(outDir);
-    Object.assign(observed, chunkBytes(edition, outDir, hashLength(config, where), where, root));
+    Object.assign(observed, fileBytes(edition, outDir, config, where, root));
   }
   const stray = paths.find((p) => p !== file && !outDirs.some((d) => path.join(root, p).startsWith(`${d}${path.sep}`)));
   if (stray) fail(`${stray} is neither the Vite config nor an edition's build output`);

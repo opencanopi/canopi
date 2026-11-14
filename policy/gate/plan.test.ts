@@ -172,7 +172,7 @@ describe('affected selection (canopi-f47t.52.228.10)', () => {
   })
 
   it('canopi-f47t.52.228.10: the commit lane names a change no commit check covers', () => {
-    // An area with no commit checks (species catalog, shared contracts, LiDAR) covers nothing here; docs paths run DOCS.
+    // An area with no commit checks (species catalog, LiDAR) covers nothing here; docs paths run DOCS.
     repo.stage('scripts/foo.py', '.github/workflows/x.yml', 'desktop/web/src/app/x.ts', 'scripts/species_catalog_contract.py',
       'canopi-types/plant-filter-fields.json', 'docs/guides/a.md')
     const printed = repo.printed(['affected', '--staged'])
@@ -522,7 +522,7 @@ describe('affected selection (canopi-f47t.52.228.10)', () => {
     expect(reached).toContain('src/app/design-edit/index.ts')
     expect(reached).toContain('src/__tests__/budget-actions.test.ts')
     expect(reached).not.toContain('src/app/design-edit/budget.ts')
-  })
+  }, 300_000) // one dependency-cruiser pass over the whole graph: 16 s alone, past 120 s on a loaded machine (2.1-M501)
 })
 
 describe('planning is pure and reads the index safely (2.1-Q267)', () => {
@@ -566,7 +566,7 @@ describe('the per-worktree cargo target (2.1-M201)', () => {
 
   it('canopi-f47t.52.228.11: the commit lane never refuses a linked worktree without a cargo target', () => {
     // The pre-commit hook runs from any client (a GUI, an IDE) whose shell may lack CARGO_TARGET_DIR; the per-worktree
-    // target rule (2.1-M201) holds at the affected and full gates.
+    // target rule (2.1-M201) holds at the affected and full gates, and at commit only for check:types (2.1-Q330).
     const linked = join(repo.root, 'linked')
     git(repo.repo, 'worktree', 'add', '-q', '-b', 'linked', linked)
     for (const path of ['desktop/src/lib.rs', 'policy/zz-probe.txt']) {

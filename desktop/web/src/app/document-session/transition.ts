@@ -7,12 +7,12 @@ import {
 } from "../settings/new-design-defaults";
 import {
   createDesignSessionStateMachine,
-  loadResultOf,
   type DocumentTransitionResult,
   type QueuedDocumentLoadOptions,
   type SaveCurrentDesignOptions,
   type TeardownDesignSessionOptions,
 } from "./state-machine";
+import { draftLoadResultOf, loadResultOf } from "./load-result";
 import type { DesignSaveSettlement } from "./persistence";
 import { setPendingDesignPath } from "./store";
 
@@ -139,10 +139,7 @@ export function openDesignDraftSession(id: string): Promise<DocumentTransitionRe
   return designSessionStateMachine.transitionDocument({
     source: "open-draft",
     dirtyGuard: "flush",
-    load: async () => {
-      const file = await designIpc.loadDesignDraft(id);
-      return { file, path: null, name: file.name, draftId: id };
-    },
+    load: async () => draftLoadResultOf(await designIpc.loadDesignDraft(id), id),
   });
 }
 

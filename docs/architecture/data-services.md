@@ -10,7 +10,6 @@ Source: ADR 0023, ADR 0027; contracts §7, §9; 2.1-M46, 2.1-Q100
 ```mermaid
 classDiagram
   class LibraryItemKind {
-    <<2.1>>
     <<owner canopi-types>>
     Raster
     Vector
@@ -28,9 +27,16 @@ classDiagram
     claims() LibraryPath list
   }
   class Lineage {
+    <<owner canopi-types>>
+    Source
+    Analysis
+    External
+    literal()
+    ALL
+  }
+  class LineageDetail {
     <<2.1>>
     <<owner library repository>>
-    Source
     Analysis(provenance)
     External(tool, date, notes, links)
   }
@@ -55,12 +61,13 @@ classDiagram
   Item --> LibraryItemId
   Item --> LibraryItemKind
   Item --> Lineage
-  Lineage --> Provenance
+  Lineage --> LineageDetail
+  LineageDetail --> Provenance
   Item ..> DisplayRecipe : prepare_display
   Item ..> LibraryItemSummary : no raster-only field
   note for LibraryItemId "library_items: id, kind, lineage_tag, name_key UNIQUE; a Site data entry holds only the id"
   classDef target stroke-dasharray: 4 3
-  cssClass "LibraryItemKind,ItemRow,Item,Lineage,DisplayRecipe,LibraryItemId" target
+  cssClass "ItemRow,Item,LineageDetail,DisplayRecipe,LibraryItemId" target
 ```
 
 - Owner: the `canopi-library (2.1)` repository holds all library SQL, the kind decode, item names (one UNIQUE key, one allocator) and claims; `kinds.rs` holds every exhaustive match over the kind; the janitor alone deletes library files.

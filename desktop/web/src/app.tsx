@@ -7,7 +7,7 @@ import { SaveProblemDialog } from "./components/shared/SaveProblemDialog";
 import { NoticeRow } from "./components/shared/NoticeRow";
 import { ToastSlot } from "./components/shared/ToastSlot";
 import { ProblemReportDialog, openProblemReport } from "./components/shared/ProblemReportDialog";
-import { LaunchCheckSwitch, SettingsDialog, type LaunchCheckPort, type SettingsFoldersAdapter } from "./components/shared/SettingsDialog";
+import { createLaunchCheckPort, LaunchCheckSwitch, SettingsDialog, type LaunchCheckPort, type SettingsFoldersAdapter } from "./components/shared/SettingsDialog";
 import { KeyboardShortcutsDialog } from "./components/shared/KeyboardShortcutsDialog";
 import { detectPlatform } from "./canvas/runtime/input/platform";
 import { DesktopPanelRail } from "./components/panels/DesktopPanelRail";
@@ -76,7 +76,7 @@ function useDesktopUpdates(ports: DesktopUpdatePorts): { readonly controller: Up
     });
   }, [controller, ports]);
   // Settings › About's "Check for updates at launch": its own key row through the host (2.1-M206).
-  const [launchCheck] = useState<LaunchCheckPort>(() => ({ get: ports.updater.getLaunchCheck, set: ports.setLaunchCheck }));
+  const [launchCheck] = useState<LaunchCheckPort>(() => createLaunchCheckPort(ports.updater.getLaunchCheck, ports.setLaunchCheck));
   return { controller, launchCheck };
 }
 

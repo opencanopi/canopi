@@ -35,7 +35,7 @@ import { reportFailure } from '../../failures/report'
 import { exportCurrentBudgetCsv } from '../../app/budget/export'
 import { beginDataImport, openDataLibrary } from '../../app/lidar/library-navigation'
 import { armProfile, profileAvailable } from '../../app/lidar/profile'
-import { createWorkspaceShellCapabilities } from '../../app/workspace-commands/capabilities'
+import { createWorkspaceShellCapabilities, designChangeable } from '../../app/workspace-commands/capabilities'
 import {
   readWorkspaceCanvasProjectionState,
   workspaceCanvasCommandProjection,
@@ -141,8 +141,8 @@ function runAsyncCommand(label: string, action: () => Promise<unknown>): void {
   void action().catch((error) => logCommandFailure(label, error))
 }
 
-function isGeoJsonTransferDisabled(state: { readonly hasDesign: boolean }): boolean {
-  return !state.hasDesign || !desktopGeoJson.isAvailable()
+function isGeoJsonTransferDisabled(state: ShellCommandState): boolean {
+  return !designChangeable(state) || !desktopGeoJson.isAvailable()
 }
 
 function designPanel(panel: Panel) {
@@ -162,15 +162,15 @@ export const DESKTOP_SHELL_COMMAND_CATALOG = composeShellCommandCatalog({
   },
   saveDesign: {
     execute: () => runAsyncCommand('Save design', saveCurrentDesign),
-    isExecutionDisabled: (state) => !state.hasDesign,
+    isExecutionDisabled: (state) => !designChangeable(state),
   },
   saveDesignAs: {
     execute: () => runAsyncCommand('Save design as', saveAsCurrentDesign),
-    isExecutionDisabled: (state) => !state.hasDesign,
+    isExecutionDisabled: (state) => !designChangeable(state),
   },
   revertDesign: {
     execute: () => runAsyncCommand('Revert design', revertDesign),
-    isExecutionDisabled: (state) => !state.hasDesign || !state.revertAvailable,
+    isExecutionDisabled: (state) => !designChangeable(state) || !state.revertAvailable,
   },
   importGeoJson: {
     execute: () => runAsyncCommand('Import GeoJSON', desktopGeoJson.importGeoJson),
@@ -178,7 +178,7 @@ export const DESKTOP_SHELL_COMMAND_CATALOG = composeShellCommandCatalog({
   },
   exportCanvasPdf: {
     execute: () => canvasPdf.show(),
-    isExecutionDisabled: () => !canExportCanvasPdf(),
+    isExecutionDisabled: (state) => !designChangeable(state) || !canExportCanvasPdf(),
   },
   exportGeoJson: {
     execute: () => runAsyncCommand('Export GeoJSON', desktopGeoJson.exportGeoJson),
@@ -187,12 +187,12 @@ export const DESKTOP_SHELL_COMMAND_CATALOG = composeShellCommandCatalog({
   // File › Import terrain or height data… picks files and imports them into the open Design's Site data.
   addData: {
     execute: () => runAsyncCommand('Import terrain or height data', () => beginDataImport()),
-    isExecutionDisabled: (state) => !state.hasDesign,
+    isExecutionDisabled: (state) => !designChangeable(state),
   },
   openDataLibrary: { execute: () => openDataLibrary() },
   exportBudgetCsv: {
     execute: () => runAsyncCommand('Export budget CSV', exportCurrentBudgetCsv),
-    isExecutionDisabled: (state) => !state.hasDesign,
+    isExecutionDisabled: (state) => !designChangeable(state),
   },
   closeDesign: {
     execute: () => runAsyncCommand('Close design', closeDesign),
@@ -222,7 +222,7 @@ export const DESKTOP_SHELL_COMMAND_CATALOG = composeShellCommandCatalog({
   navigateStories: designPanel('stories'),
   startProfile: {
     execute: () => armProfile('palette'),
-    isExecutionDisabled: (state) => !state.hasDesign || !profileAvailable.value,
+    isExecutionDisabled: (state) => !designChangeable(state) || !profileAvailable.value,
   },
   reportProblem: { execute: openProblemReportDialog },
   showCommandPalette: { execute: openCommandPalette },

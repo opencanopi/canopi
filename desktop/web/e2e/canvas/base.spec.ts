@@ -6,7 +6,7 @@
 import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import type { Page } from '@playwright/test'
-import { designMap, expectCanvasDrawn } from '../support/canvas'
+import { designMap, expectCanvasDrawn, seedPointingDevice } from '../support/canvas'
 import { expect, test } from '../support/offline'
 
 const FIXTURE = fileURLToPath(new URL('../fixtures/canvas-base.canopi', import.meta.url))
@@ -20,6 +20,8 @@ const RECT_ZONE_EDGE = { x: 367, y: 300 }
 const RECT_ZONE_CHIP = 'Rectangle zone · 112 m² · 44 m'
 
 async function openBaseFixture(page: Page): Promise<void> {
+  // WebKit reports a Mac user agent, where a new profile starts on Trackpad (2.1-Q309); the wheel steps need Mouse.
+  await seedPointingDevice(page)
   await page.goto('')
   const [chooser] = await Promise.all([
     page.waitForEvent('filechooser'),

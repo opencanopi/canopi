@@ -1,7 +1,7 @@
 /**
  * web/browser-notices.ts: the Web Edition's notices on the one notice row (failures/notices.ts, contracts §18 F3,
  * 2.1-Q290): the launch's Earlier data, an action's outcome (a GeoJSON import or export, a Design that cannot be
- * opened, a Draft download that failed) and the New version: Reload offer. Invariant: each is locale keys, never words;
+ * opened, a Draft download that failed, a Draft opened read-only while 2.1's Drafts could not be listed) and the New version: Reload offer. Invariant: each is locale keys, never words;
  * an action's outcome shows at the front of the row, older notices waiting behind it (2.1-Q304), and replaces the one
  * before it under the same key; the release offer yields to every later notice (2.1-M182) and, while Reload writes the Design first, reads Saving… with neither Reload nor Dismiss taking a click
  * (2.1-Q83, Q187, M179). With no Design open it promises no save first (canopi-eon8.15).
@@ -11,7 +11,7 @@ import type { DesignOpenFailureNotice } from '../app/document-session/open-failu
 import type { GeoJsonNotice } from '../app/geojson/workflow'
 import { raiseNotice, withdrawNotice, type NoticeSpec } from '../failures/notices'
 
-type ActionNotice = Pick<NoticeSpec, 'tone' | 'title' | 'message' | 'params' | 'detail'>
+type ActionNotice = Pick<NoticeSpec, 'tone' | 'title' | 'message' | 'params' | 'detail' | 'action'>
 
 /** Shows an action's outcome at the front of the row, replacing the outcome shown before it under the same key. */
 function showOutcome(key: string, notice: ActionNotice): void {
@@ -30,6 +30,28 @@ export function presentBrowserDesignOpenFailure(notice: DesignOpenFailureNotice)
 /** A Draft gone from this browser (another tab, or the browser cleared it) could not be downloaded. */
 export function presentBrowserDraftDownloadFailure(): void {
   showOutcome('web.draft-download', { tone: 'error', title: 'webStorage.downloadFailedTitle', message: 'webStorage.downloadFailedMessage' })
+}
+
+/** A listed Draft gone from this browser by the time it opens (2.1 or another tab deleted it): opened nothing. */
+export function presentBrowserDraftOpenFailure(): void {
+  showOutcome('web.open-failure', { tone: 'error', title: 'start.cantOpenTitle', message: 'webStorage.downloadFailedMessage' })
+}
+
+const DRAFT_UNCHECKED = 'web.draft-unchecked'
+
+/**
+ * An old-key Draft opened read-only while 2.1's Draft listing could not be read: it may be a copy 2.1 replaced, so the
+ * notice offers its Download a copy (2.1-Q334).
+ */
+export function presentBrowserDraftUncheckedNotice(download: () => void): void {
+  showOutcome(DRAFT_UNCHECKED, {
+    tone: 'warning', message: 'webStorage.uncheckedReadOnly', action: { label: 'webShell.downloadCopy', run: download },
+  })
+}
+
+/** That view's session ended: its notice goes with it. */
+export function withdrawBrowserDraftUncheckedNotice(): void {
+  withdrawNotice(DRAFT_UNCHECKED)
 }
 
 /** Browser data from before Canopi 2.0 stays in place, unread (ADR 0021): told once, at the launch that finds it. */

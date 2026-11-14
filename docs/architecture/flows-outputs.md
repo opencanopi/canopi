@@ -66,7 +66,7 @@ sequenceDiagram
   Note right of ST: Desktop: canopi-store (2.1), user DB payload_json<br/>Web: browser record (2.1)
   Note over U,DE: Placement (one compound entry)
   U->>WB: arm a stamp from Favorites and stamps
-  WB->>ST: read row; canopi-format (2.1) chain v2 to v3
+  WB->>ST: read row; canopi-format chain v2 to v3
   ST-->>WB: payload, or newer: needs a newer Canopi, never placed
   WB->>TOOL: arm with ToolSource saved-stamp
   U->>TOOL: press (pivot: screen-aligned box centre)

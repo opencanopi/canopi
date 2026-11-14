@@ -1,6 +1,7 @@
 // The pre-push stamp (2.1-Q266, 2.1-Q270; design check AR1, A4): the real CLI's `push` in a planted repository, its
 // checks recorded by PATH shims, writes `<git common dir>/canopi-gate/<sha>.json` only when the whole lane is green on a
-// tree that is exactly HEAD (no tracked change, no untracked file), and never a half-written one.
+// tree that is exactly HEAD (no tracked change, no untracked file), and never a half-written one. An expected-fail marker
+// added since the base fails the lane, so no stamp is written (2.1-Q329).
 import { spawn } from 'node:child_process'
 import { copyFileSync, existsSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -29,6 +30,27 @@ function commit(...paths: string[]): string {
   git(repo.repo, 'commit', '-q', '-m', 'change')
   return git(repo.repo, 'rev-parse', 'HEAD')
 }
+
+/** The lane's marker check runs on the real Node (the other node checks stay recorded), from a register exempting none;
+ * commits an expected-fail marker added since the base and returns the new HEAD. */
+function commitMarker(): string {
+  writeFileSync(join(repo.bin, 'node'), `#!/bin/sh\necho "node $*" >> "$SHIM_LOG"\n`
+    + `[ "$2" = prepush-checks ] && exec '${process.execPath}' "$@"\nexit 0\n`, { mode: 0o755 })
+  repo.write({ 'policy/adapters/upstream-register.mjs': '\n', 'desktop/web/src/app/red.test.ts': "it.fails('red, planted', () => {})\n" })
+  git(repo.repo, 'add', 'policy/adapters/upstream-register.mjs', 'desktop/web/src/app/red.test.ts')
+  return commit('desktop/web/e2e/canvas/a.spec.ts')
+}
+const MARKER = "desktop/web/src/app/red.test.ts:1:it.fails('red, planted', () => {})"
+
+describe('an added marker fails the push lane, whatever ref it is for (2.1-Q329)', () => {
+  it('2.1-Q329: an expected-fail marker added since the base fails gate push and writes no stamp', () => {
+    commitMarker()
+    const run = repo.gate(['push', '--base', repo.base])
+    expect(run.status).toBe(1)
+    expect(run.stdout).toContain(`FAIL expected-fail markers added since the base:\n${MARKER}`)
+    expect(listed()).toEqual([])
+  })
+})
 
 describe('gate push stamps the commit it ran on (canopi-f47t.52.228.54)', () => {
   it('a green lane on a clean tree writes the stamp: sha, table blob, lane, base, e2e and Rust ran', () => {

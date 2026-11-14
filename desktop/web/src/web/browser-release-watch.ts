@@ -17,12 +17,15 @@ import { CANOPI_VERSION } from "../app/about/metadata";
  *   unreadable, missing or malformed manifest (`vite preview` and dev have none) is silent and logs nothing.
  * - Dismissible (Q187): reads continue and compare against the dismissed release; a further release or a failed import
  *   shows it again. While it shows, nothing reads.
+ * - A version change on 2.1's Draft store (2.1's upgrade or delete reaching this tab's reader, which has closed its
+ *   connection) shows it too, as `source: store`: a newer Canopi is serving this origin (2.1-Q40, design check A18).
+ *   Dismissing it hides it until the next change.
  * The signal is shaped as Phase 1's app-lifecycle `release-waiting{source: manifest}` (2.1-M98); W1 swaps the fetch for
  * `registration.update()` (2.1-M99). Reload is the session's (`browser-design-session.ts` `reloadForRelease`).
  */
 interface BrowserReleaseWaiting {
-  readonly source: "manifest";
-  /** The release the manifest names. */
+  readonly source: "manifest" | "store";
+  /** The release the manifest names; empty for a store change, which names none. */
   readonly version: string;
 }
 
@@ -47,6 +50,8 @@ interface BrowserReleaseWatch {
   /** Listens on `target`; the returned dispose removes the listeners, aborts a read in flight and clears the notice. */
   start(target?: BrowserReleaseWatchTarget): () => void;
   dismiss(): void;
+  /** 2.1's Draft store changed version under this tab (2.1-Q40): shows the notice at once, whatever was dismissed. */
+  storeChanged(): void;
 }
 
 /** Focus and becoming visible each read at most this often. */
@@ -149,7 +154,11 @@ export function createBrowserReleaseWatch({
     notice.value = null;
   }
 
-  return { notice, start, dismiss };
+  function storeChanged(): void {
+    notice.value = { source: "store", version: "" };
+  }
+
+  return { notice, start, dismiss, storeChanged };
 }
 
 /** The version a well-formed edition manifest names, else null. */

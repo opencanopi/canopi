@@ -6,8 +6,11 @@
 //! and a failed import job whose saved selection is the managed originals, so
 //! Retry prepares them again on demand; analysis definitions come back with
 //! their outputs unpublished, so Retry runs them again once their inputs are
-//! ready. A newer catalogue is refused and left untouched; the library then
-//! runs empty and read-only in memory. Nothing here ever deletes an original.
+//! ready. Only damage SQLite or Canopi names (`catalogue::UnreadCatalogue`)
+//! counts as corrupt; a catalogue that cannot be read or opened for any other
+//! reason is left as it is, unavailable. A newer catalogue is read and never
+//! written: the library lists its items read-only (`catalogue_reader.rs`).
+//! Nothing here ever deletes an original.
 
 use super::catalogue::{self, new_id, now_iso};
 use super::paths::LidarPaths;
@@ -31,6 +34,10 @@ pub enum CatalogueState {
     Current,
     Older(i32),
     Newer(i32),
+    /// SQLite could not read the file for a reason that is not damage: a write it would need first (a hot journal,
+    /// a WAL it cannot index), another process's lock, a failing filesystem or memory. The version or integrity is
+    /// unknown, so nothing is touched: no set-aside, rebuild or directory (2.1-M480, 2.1-M488).
+    Unreadable(String),
     Corrupt(String),
 }
 
@@ -39,7 +46,8 @@ pub fn inspect(path: &Path) -> CatalogueState {
         return CatalogueState::Missing;
     };
     match catalogue::stored_version(path) {
-        Err(reason) => CatalogueState::Corrupt(reason),
+        Err(catalogue::UnreadCatalogue::Unavailable(reason)) => CatalogueState::Unreadable(reason),
+        Err(catalogue::UnreadCatalogue::Damaged(reason)) => CatalogueState::Corrupt(reason),
         // SQLite leaves a zero-length file behind when a catalogue was
         // opened but never created; that is an empty library, not damage.
         Ok(None) if metadata.len() == 0 => CatalogueState::Missing,
@@ -47,7 +55,10 @@ pub fn inspect(path: &Path) -> CatalogueState {
         Ok(Some(version)) if version == catalogue::CATALOGUE_VERSION => {
             match catalogue::quick_check(path) {
                 Ok(()) => CatalogueState::Current,
-                Err(reason) => CatalogueState::Corrupt(reason),
+                Err(catalogue::UnreadCatalogue::Unavailable(reason)) => {
+                    CatalogueState::Unreadable(reason)
+                }
+                Err(catalogue::UnreadCatalogue::Damaged(reason)) => CatalogueState::Corrupt(reason),
             }
         }
         Ok(Some(version)) if version < catalogue::CATALOGUE_VERSION => {
@@ -64,7 +75,7 @@ pub enum RecoveryReason {
 }
 
 /// How the library opened. Everything but `Ready` is worth showing the user.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum LibraryOpenStatus {
     Ready,
     /// The catalogue was set aside and rebuilt from the originals.
@@ -76,11 +87,10 @@ pub enum LibraryOpenStatus {
         /// Originals without a `meta.json`, listed under a generated name.
         generated: usize,
     },
-    /// The catalogue was written by a newer Canopi and is left untouched; the
-    /// library is empty and read-only until that Canopi opens it.
-    RefusedNewer {
+    /// Written by a newer Canopi: `items` listed, nothing written (2.1-M488).
+    NewerReadOnly {
         found: i32,
-        supported: i32,
+        items: super::catalogue_reader::NewerItems,
     },
     /// The catalogue could be neither opened nor rebuilt; the library is empty
     /// and read-only, and the files are left as they are.
@@ -101,7 +111,7 @@ impl LibraryOpenStatus {
                 items: u32::try_from(*items).unwrap_or(u32::MAX),
                 generated: u32::try_from(*generated).unwrap_or(u32::MAX),
             },
-            Self::RefusedNewer { .. } => StoreOpenStatus::RefusedNewer,
+            Self::NewerReadOnly { .. } => StoreOpenStatus::NewerReadOnly,
             Self::Unavailable { .. } => StoreOpenStatus::Unavailable {
                 code: FailureCode::LibraryReadOnly {
                     reason: LibraryReadOnlyReason::Unavailable,
@@ -110,14 +120,11 @@ impl LibraryOpenStatus {
         }
     }
 
-    /// Why a mutation is refused, when the library is read-only.
+    /// Why a mutation is refused while the library is read-only; a newer catalogue's is the silent `store_read_only`.
     pub fn refusal(&self) -> Option<String> {
         match self {
             Self::Ready | Self::Recovered { .. } => None,
-            Self::RefusedNewer { .. } => Some(
-                "The Data library was saved by a newer version of Canopi; install the latest Canopi to use it."
-                    .to_string(),
-            ),
+            Self::NewerReadOnly { .. } => Some("store_read_only".to_string()),
             Self::Unavailable { reason } => {
                 Some(format!("The Data library could not be opened: {reason}"))
             }
@@ -130,25 +137,28 @@ pub struct OpenedCatalogue {
     pub status: LibraryOpenStatus,
 }
 
-/// Open the catalogue under `paths`, recovering or refusing as its state
-/// requires. A library that cannot own its file runs in memory; only that
-/// in-memory database failing to open is an error.
-pub fn open_catalogue(paths: &LidarPaths) -> Result<OpenedCatalogue, String> {
+/// Open the catalogue under `paths`, found in `state`; only an in-memory one failing errs.
+pub fn open_catalogue(
+    paths: &LidarPaths,
+    state: CatalogueState,
+) -> Result<OpenedCatalogue, String> {
     let path = paths.catalogue_path();
-    match inspect(&path) {
+    match state {
         CatalogueState::Missing | CatalogueState::Current => match catalogue::open(&path) {
             Ok(connection) => Ok(OpenedCatalogue {
                 connection,
                 status: LibraryOpenStatus::Ready,
             }),
-            Err(reason) => recover(paths, RecoveryReason::Corrupt(reason)),
+            // Read as current or absent, so a failing read-write open (a lock, a filesystem) is no proof of damage.
+            Err(reason) => in_memory(LibraryOpenStatus::Unavailable { reason }),
         },
         CatalogueState::Older(version) => recover(paths, RecoveryReason::OlderVersion(version)),
         CatalogueState::Corrupt(reason) => recover(paths, RecoveryReason::Corrupt(reason)),
-        CatalogueState::Newer(found) => in_memory(LibraryOpenStatus::RefusedNewer {
-            found,
-            supported: catalogue::CATALOGUE_VERSION,
+        CatalogueState::Newer(found) => in_memory(match catalogue::newer_items(&path) {
+            Ok(items) => LibraryOpenStatus::NewerReadOnly { found, items },
+            Err(reason) => LibraryOpenStatus::Unavailable { reason },
         }),
+        CatalogueState::Unreadable(reason) => in_memory(LibraryOpenStatus::Unavailable { reason }),
     }
 }
 
@@ -510,216 +520,4 @@ fn insert_definition(connection: &Connection, analysis: &AnalysisMeta) -> Result
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    /// Health carries the state and counts only: never the set-aside path,
-    /// the version numbers or the failure reason.
-    #[test]
-    fn health_keeps_the_state_and_counts_but_no_paths_or_reasons() {
-        let (items, generated, found, supported) = (4, 2, 9, 3);
-        let recovered = LibraryOpenStatus::Recovered {
-            reason: RecoveryReason::Corrupt("garbage".into()),
-            set_aside: PathBuf::from("/private/set-aside"),
-            items: 4,
-            generated: 2,
-        };
-        let unavailable = LibraryOpenStatus::Unavailable {
-            reason: "/private/path unreadable".into(),
-        };
-        let code = FailureCode::LibraryReadOnly {
-            reason: LibraryReadOnlyReason::Unavailable,
-        };
-        let refused = LibraryOpenStatus::RefusedNewer { found, supported };
-        let counts = StoreOpenStatus::Recovered { items, generated };
-        for (open, health) in [
-            (&recovered, counts),
-            (&LibraryOpenStatus::Ready, StoreOpenStatus::Ready),
-            (&refused, StoreOpenStatus::RefusedNewer),
-            (&unavailable, StoreOpenStatus::Unavailable { code }),
-        ] {
-            assert_eq!(open.health(), health);
-        }
-        let json = serde_json::to_string(&recovered.health()).unwrap();
-        assert!(
-            !json.contains("private") && !json.contains("garbage"),
-            "{json}"
-        );
-    }
-
-    #[test]
-    fn the_set_aside_stamp_is_utc_civil_time() {
-        assert_eq!(utc_stamp(0), "19700101T000000Z");
-        assert_eq!(utc_stamp(1_700_000_000), "20231114T221320Z");
-        assert_eq!(utc_stamp(951_782_400), "20000229T000000Z");
-    }
-
-    /// A v21 catalogue still stores the CRS in `crs_wkt` columns, which v22
-    /// renamed to `crs_ref`; opening it as is would fail on the first read, so
-    /// it is set aside and rebuilt from the originals with every id kept.
-    #[test]
-    fn a_v21_catalogue_is_set_aside_and_rebuilt_with_its_ids_kept() {
-        let root = crate::test_scratch::TestScratch::new("lidar-v21-library");
-        let paths = LidarPaths::open(&root).unwrap();
-        let connection = catalogue::open(&paths.catalogue_path()).unwrap();
-        source_meta::test_support::seed_published_item(
-            &connection,
-            "lyr-delft",
-            "Delft",
-            DEFAULT_QUANTITY_KEY,
-            "m",
-            &[("sha-delft", "delft.tif")],
-        );
-        std::fs::create_dir_all(paths.source_dir("sha-delft")).unwrap();
-        std::fs::write(paths.source_original("sha-delft"), b"tile").unwrap();
-        source_meta::refresh(&connection, &paths).unwrap();
-        // The v21 shape: every CRS column named `crs_wkt`, version 21.
-        for rename in [
-            "ALTER TABLE lidar_interpretations RENAME COLUMN crs_ref TO crs_wkt",
-            "ALTER TABLE lidar_layer_lattices RENAME COLUMN crs_ref TO crs_wkt",
-            "ALTER TABLE lidar_raster_assets RENAME COLUMN crs_ref TO crs_wkt",
-        ] {
-            let table = rename.split_whitespace().nth(2).unwrap();
-            if has_column(&connection, table, "crs_ref") {
-                connection.execute_batch(rename).unwrap();
-            }
-        }
-        connection
-            .execute(
-                "UPDATE lidar_catalogue_meta SET value = '21' WHERE key = 'schema_version'",
-                [],
-            )
-            .unwrap();
-        drop(connection);
-
-        let opened = open_catalogue(&paths).unwrap();
-        assert!(
-            matches!(
-                opened.status,
-                LibraryOpenStatus::Recovered {
-                    reason: RecoveryReason::OlderVersion(21),
-                    items: 1,
-                    generated: 0,
-                    ..
-                }
-            ),
-            "{:?}",
-            opened.status
-        );
-        let kept: Vec<PathBuf> = std::fs::read_dir(paths.set_aside_dir())
-            .unwrap()
-            .flatten()
-            .map(|entry| entry.path())
-            .filter(|path| path.extension().is_some_and(|ext| ext == "sqlite"))
-            .collect();
-        assert_eq!(kept.len(), 1, "the v21 file is kept aside: {kept:?}");
-        assert_eq!(
-            catalogue::stored_version(&kept[0]).unwrap(),
-            Some(21),
-            "set aside as it was"
-        );
-        let ids: Vec<String> = opened
-            .connection
-            .prepare("SELECT id FROM lidar_source_layers")
-            .unwrap()
-            .query_map([], |row| row.get(0))
-            .unwrap()
-            .collect::<Result<_, _>>()
-            .unwrap();
-        assert_eq!(ids, vec!["lyr-delft".to_string()]);
-        assert!(has_column(
-            &opened.connection,
-            "lidar_interpretations",
-            "crs_ref"
-        ));
-        assert!(!has_column(
-            &opened.connection,
-            "lidar_interpretations",
-            "crs_wkt"
-        ));
-        drop(opened);
-        std::fs::remove_dir_all(root).unwrap();
-    }
-
-    /// A `-wal` left behind would be replayed into the rebuilt catalogue, so a
-    /// sidecar that cannot follow the catalogue aside moves nothing back and
-    /// the library opens Unavailable instead of being rebuilt over it.
-    #[cfg(unix)]
-    #[test]
-    fn a_wal_that_cannot_move_leaves_the_catalogue_in_place_and_unavailable() {
-        let root = crate::test_scratch::TestScratch::new("lidar-stuck-wal");
-        let paths = LidarPaths::open(&root).unwrap();
-        let catalogue_path = paths.catalogue_path();
-        let damaged: &[u8] = b"not a database at all, just bytes";
-        std::fs::write(&catalogue_path, damaged).unwrap();
-        // A sidecar no rename can move: the set-aside folder lies inside it,
-        // and a directory cannot be moved into itself.
-        let mut wal = catalogue_path.clone().into_os_string();
-        wal.push("-wal");
-        let wal = PathBuf::from(wal);
-        std::fs::create_dir(&wal).unwrap();
-        std::os::unix::fs::symlink(&wal, paths.set_aside_dir()).unwrap();
-
-        let opened = open_catalogue(&paths).unwrap();
-
-        assert!(
-            matches!(opened.status, LibraryOpenStatus::Unavailable { .. }),
-            "{:?}",
-            opened.status
-        );
-        assert_eq!(
-            std::fs::read(&catalogue_path).unwrap(),
-            damaged,
-            "the catalogue stays where it was, byte for byte"
-        );
-        assert_eq!(
-            std::fs::read_dir(&wal).unwrap().count(),
-            0,
-            "nothing stays in the set-aside folder"
-        );
-    }
-
-    fn has_column(connection: &Connection, table: &str, column: &str) -> bool {
-        connection
-            .prepare("SELECT 1 FROM pragma_table_info(?1) WHERE name = ?2")
-            .unwrap()
-            .exists([table, column])
-            .unwrap()
-    }
-
-    #[test]
-    fn inspection_names_each_catalogue_state() {
-        let root = crate::test_scratch::TestScratch::new("canopi-inspect");
-        std::fs::create_dir_all(&root).unwrap();
-        let path = root.join("c.sqlite");
-        assert_eq!(inspect(&path), CatalogueState::Missing);
-        std::fs::write(&path, b"").unwrap();
-        assert_eq!(inspect(&path), CatalogueState::Missing);
-        std::fs::write(&path, b"not a database at all, just bytes").unwrap();
-        assert!(matches!(inspect(&path), CatalogueState::Corrupt(_)));
-        std::fs::remove_file(&path).unwrap();
-        drop(catalogue::open(&path).unwrap());
-        assert_eq!(inspect(&path), CatalogueState::Current);
-        for (version, expected) in [
-            (
-                catalogue::CATALOGUE_VERSION - 1,
-                CatalogueState::Older(catalogue::CATALOGUE_VERSION - 1),
-            ),
-            (
-                catalogue::CATALOGUE_VERSION + 1,
-                CatalogueState::Newer(catalogue::CATALOGUE_VERSION + 1),
-            ),
-        ] {
-            let connection = Connection::open(&path).unwrap();
-            connection
-                .execute(
-                    "UPDATE lidar_catalogue_meta SET value = ?1 WHERE key = 'schema_version'",
-                    [version.to_string()],
-                )
-                .unwrap();
-            drop(connection);
-            assert_eq!(inspect(&path), expected);
-        }
-        std::fs::remove_dir_all(root).unwrap();
-    }
-}
+mod tests;

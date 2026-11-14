@@ -2,13 +2,17 @@ import { encodeCanopiDesign } from "../app/contracts/canopi-design-wire";
 import { decodeCanopiDesign } from "../app/contracts/design-ingestion";
 import type { CanopiFile } from "../types/design";
 import { keepUnreadableRecord, StoreRefusedError, StoreUnreadableError } from "../failures/store-read";
+import { writeStoreHealth } from "../failures/health";
 import type { StoreId } from "../generated/contracts";
+import type { RecordRead, SpeciesListEntry, SpeciesListRecord } from "../platform/browser-record";
 
 // Canopi 2.0 keeps its records under the `v3` keys and migrates nothing
 // (ADR 0021). Web Edition 1.x wrote the `v1` document and then moved it into
 // the `v2:*` keys (1.0.1 to 1.2.0); 2.0 never reads, writes or deletes any of
 // them, so 1.x still opens them. It only checks whether one exists, to tell the
-// user once that they were not opened.
+// user once that they were not opened. After a rollback from 2.1 the species lists 2.1 keeps under its own key are read
+// in place of these (2.1-M486), never written, moved or copied (2.1-Q320, M483): the store then reads as saved by a
+// newer Canopi and refuses writes. platform/ passes the reader in (openSpeciesLists), so web/ imports no platform/ code.
 const RECORD_VERSION = 3 as const;
 const EARLIER_KEYS: readonly string[] = [
   "canopi:web-app-data:v1",
@@ -44,6 +48,10 @@ export interface BrowserStorageAdapter {
   setItem(key: string, value: string): void;
   removeItem(key: string): void;
 }
+
+/** Reads 2.1's species-list record (platform/browser-record.ts `readSpeciesListRecord`). */
+type SpeciesListReader = (storage: BrowserStorageAdapter) => RecordRead<SpeciesListRecord>;
+interface NewerRecordReaders { species?: SpeciesListReader }
 
 export type BrowserAppDataWriteResult<T> =
   | { readonly ok: true; readonly value: T }
@@ -101,6 +109,8 @@ interface BrowserStoragePartition<TRecord> {
   normalize(value: unknown): TRecord;
   /** Storage form of a record; defaults to the record itself. */
   encode?(record: TRecord): unknown;
+  /** The record 2.1 keeps for this store under its own key, read in place of this one whenever it is there. */
+  successor?(storage: BrowserStorageAdapter, readers: NewerRecordReaders): RecordRead<TRecord> | undefined;
 }
 
 const PARTITIONS = {
@@ -123,6 +133,7 @@ const PARTITIONS = {
     store: "web_species_lists",
     accepts: isSupportedSpeciesRecord,
     normalize: normalizeSpeciesRecord,
+    successor: readSpeciesSuccessor,
   },
   stamps: {
     key: STORAGE_KEYS.stamps,
@@ -195,6 +206,13 @@ export interface BrowserAppDataStore {
   noteReloadHome(draftId: string | null): void;
   /** What this tab had open before its release reload, once; null when nothing was noted or it cannot be read. */
   takeReloadHome(): BrowserReloadHome | null;
+  /**
+   * Reads the species lists at launch, 2.1's key through `read` from now on, so lists a newer Canopi saved, or damaged
+   * ones, say so once, then (2.1-Q319).
+   */
+  openSpeciesLists(read: SpeciesListReader): void;
+  /** Runs a browser-record read over this store's storage (platform/browser-record.ts); it throws as the storage does. */
+  readRecord<T>(read: (storage: BrowserStorageAdapter) => T): T;
 }
 
 export function createBrowserAppDataStore({
@@ -204,19 +222,30 @@ export function createBrowserAppDataStore({
 }: BrowserAppDataStoreOptions = {}): BrowserAppDataStore {
   // The stores that refuse writes for this session: a damaged record that could not be moved aside, or a newer one.
   const refused = new Set<StoreId>();
+  const readers: NewerRecordReaders = {};
 
   function readPartition<TRecord>(partition: BrowserStoragePartition<TRecord>): TRecord {
+    const { store, key } = partition;
     let raw: string | null;
+    let successor: RecordRead<TRecord> | undefined;
     try {
-      raw = storage.getItem(partition.key);
+      successor = partition.successor?.(storage, readers);
+      raw = storage.getItem(key);
     } catch {
       return partition.normalize(null);
+    }
+    if (successor !== undefined && successor.state !== "absent") {
+      // 2.1's record, never moved aside (design check R3-4): read when it reads, unavailable when not; never written.
+      const readable = successor.state === "unreadable" ? null : successor;
+      const status = readable ? { kind: "newer_read_only" as const } : { kind: "unavailable" as const, code: { kind: "invalid" as const } };
+      if (store && !refused.has(store)) writeStoreHealth(store, { status, notice: null });
+      if (store) refused.add(store);
+      return readable ? readable.record : partition.normalize(null);
     }
     if (raw === null) return partition.normalize(null);
     const value = parseRecord(raw);
     if (partition.accepts(value)) return partition.normalize(value);
     // The user's data, never written over (2.1-M438): kept, then its store reads as empty.
-    const { store, key } = partition;
     const newer = isRecord(value) && typeof value.version === "number" && value.version > RECORD_VERSION;
     if (store && !refused.has(store) && keepUnreadableRecord(storage, { store, key, raw, newer, at: now() })) refused.add(store);
     return partition.normalize(null);
@@ -290,16 +319,7 @@ export function createBrowserAppDataStore({
 
     setFavoriteSpecies(canonicalNames) {
       const favorites = uniqueStrings(canonicalNames);
-      return writePartition(
-        PARTITIONS.species,
-        (current) => ({
-          next: {
-            ...current,
-            favoriteSpecies: favorites,
-          },
-          value: favorites,
-        }),
-      );
+      return writePartition(PARTITIONS.species, (current) => ({ next: { ...current, favoriteSpecies: favorites }, value: favorites }));
     },
 
     listFavoriteSpecies() {
@@ -308,22 +328,12 @@ export function createBrowserAppDataStore({
 
     recordRecentlyViewedSpecies(canonicalName, limit = 50) {
       const normalized = canonicalName.trim();
-      return writePartition(
-        PARTITIONS.species,
-        (current) => {
-          const recentlyViewedSpecies = normalized.length === 0
-            ? current.recentlyViewedSpecies
-            : [normalized, ...current.recentlyViewedSpecies.filter((name) => name !== normalized)]
-              .slice(0, Math.max(0, limit));
-          return {
-            next: {
-              ...current,
-              recentlyViewedSpecies,
-            },
-            value: recentlyViewedSpecies,
-          };
-        },
-      );
+      return writePartition(PARTITIONS.species, (current) => {
+        const recentlyViewedSpecies = normalized.length === 0
+          ? current.recentlyViewedSpecies
+          : [normalized, ...current.recentlyViewedSpecies.filter((name) => name !== normalized)].slice(0, Math.max(0, limit));
+        return { next: { ...current, recentlyViewedSpecies }, value: recentlyViewedSpecies };
+      });
     },
 
     listRecentlyViewedSpecies() {
@@ -332,16 +342,7 @@ export function createBrowserAppDataStore({
 
     saveSavedObjectStamps(records) {
       const savedObjectStamps = records.map((record) => ({ ...record }));
-      return writePartition(
-        PARTITIONS.stamps,
-        () => ({
-          next: {
-            version: RECORD_VERSION,
-            savedObjectStamps,
-          },
-          value: savedObjectStamps,
-        }),
-      );
+      return writePartition(PARTITIONS.stamps, () => ({ next: { version: RECORD_VERSION, savedObjectStamps }, value: savedObjectStamps }));
     },
 
     listSavedObjectStamps() {
@@ -375,6 +376,15 @@ export function createBrowserAppDataStore({
         return null;
       }
       return text === null ? null : parseReloadHome(text);
+    },
+
+    openSpeciesLists(read) {
+      readers.species = read;
+      readPartition(PARTITIONS.species);
+    },
+
+    readRecord(read) {
+      return read(storage);
     },
   };
 }
@@ -435,20 +445,15 @@ function browserSessionStorageAdapter(): BrowserStorageAdapter {
 }
 
 function isSupportedDraftsRecord(value: unknown): boolean {
-  return isCurrentRecord(value)
-    && Array.isArray(value.drafts)
-    && isRecord(value.draftFiles);
+  return isCurrentRecord(value) && Array.isArray(value.drafts) && isRecord(value.draftFiles);
 }
 
 function isSupportedSettingsRecord(value: unknown): boolean {
-  return isCurrentRecord(value)
-    && (value.settings === null || isRecord(value.settings));
+  return isCurrentRecord(value) && (value.settings === null || isRecord(value.settings));
 }
 
 function isSupportedSpeciesRecord(value: unknown): boolean {
-  return isCurrentRecord(value)
-    && Array.isArray(value.favoriteSpecies)
-    && Array.isArray(value.recentlyViewedSpecies);
+  return isCurrentRecord(value) && Array.isArray(value.favoriteSpecies) && Array.isArray(value.recentlyViewedSpecies);
 }
 
 function isSupportedStampsRecord(value: unknown): boolean {
@@ -479,33 +484,22 @@ function normalizeDraftsRecord(value: unknown): BrowserDraftsRecord {
 
 function normalizeSettingsRecord(value: unknown): BrowserSettingsRecord {
   if (!isCurrentRecord(value)) return emptySettingsRecord();
-  return {
-    version: RECORD_VERSION,
-    settings: isRecord(value.settings) ? { ...value.settings } : null,
-  };
+  return { version: RECORD_VERSION, settings: isRecord(value.settings) ? { ...value.settings } : null };
 }
 
 function normalizeSpeciesRecord(value: unknown): BrowserSpeciesRecord {
   if (!isCurrentRecord(value)) return emptySpeciesRecord();
   return {
     version: RECORD_VERSION,
-    favoriteSpecies: Array.isArray(value.favoriteSpecies)
-      ? uniqueStrings(value.favoriteSpecies)
-      : [],
-    recentlyViewedSpecies: Array.isArray(value.recentlyViewedSpecies)
-      ? uniqueStrings(value.recentlyViewedSpecies)
-      : [],
+    favoriteSpecies: Array.isArray(value.favoriteSpecies) ? uniqueStrings(value.favoriteSpecies) : [],
+    recentlyViewedSpecies: Array.isArray(value.recentlyViewedSpecies) ? uniqueStrings(value.recentlyViewedSpecies) : [],
   };
 }
 
 function normalizeStampsRecord(value: unknown): BrowserSavedObjectStampsRecord {
   if (!isCurrentRecord(value)) return emptyStampsRecord();
-  return {
-    version: RECORD_VERSION,
-    savedObjectStamps: Array.isArray(value.savedObjectStamps)
-      ? value.savedObjectStamps.filter(isSavedObjectStampRecord)
-      : [],
-  };
+  const savedObjectStamps = Array.isArray(value.savedObjectStamps) ? value.savedObjectStamps.filter(isSavedObjectStampRecord) : [];
+  return { version: RECORD_VERSION, savedObjectStamps };
 }
 
 function emptyDraftsRecord(): BrowserDraftsRecord {
@@ -517,11 +511,17 @@ function emptySettingsRecord(): BrowserSettingsRecord {
 }
 
 function emptySpeciesRecord(): BrowserSpeciesRecord {
-  return {
-    version: RECORD_VERSION,
-    favoriteSpecies: [],
-    recentlyViewedSpecies: [],
-  };
+  return { version: RECORD_VERSION, favoriteSpecies: [], recentlyViewedSpecies: [] };
+}
+
+/** 2.1's species lists as this record: the names, newest first, as 2.1 keeps them (contracts §19 ED-25). */
+function readSpeciesSuccessor(storage: BrowserStorageAdapter, { species }: NewerRecordReaders): RecordRead<BrowserSpeciesRecord> | undefined {
+  const read = species?.(storage);
+  if (read === undefined) return undefined;
+  if (read.state === "absent" || read.state === "unreadable") return read;
+  const names = (entries: readonly SpeciesListEntry[]) => uniqueStrings(entries.map((entry) => entry.canonical_name));
+  const { favorites, recently_viewed } = read.record;
+  return { ...read, record: { version: RECORD_VERSION, favoriteSpecies: names(favorites), recentlyViewedSpecies: names(recently_viewed) } };
 }
 
 function emptyStampsRecord(): BrowserSavedObjectStampsRecord {

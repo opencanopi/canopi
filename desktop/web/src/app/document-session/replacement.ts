@@ -14,7 +14,11 @@ import {
   normalizeNewDocument,
 } from "../contracts/document";
 import { PLANT_DISPLAY_EXTRA_KEY } from "../design-edit/plant-display";
-import type { DesignSessionStore } from "./store";
+import {
+  EDITING_DESIGN_SESSION,
+  type DesignSessionKind,
+  type DesignSessionStore,
+} from "./store";
 import type { DesignSessionWorkflowRunner } from "./workflow-runner";
 
 /** `close` ends the session: the Canvas gets an empty Scene and the store no Design. */
@@ -25,6 +29,8 @@ export interface ResolvedDesignReplacement {
   readonly kind: DesignReplacementKind;
   readonly path: string | null;
   readonly name: string;
+  /** The session the replacement starts; `editing` when omitted. A close always ends in `editing`. */
+  readonly session?: DesignSessionKind;
   readonly finalizationIdentity?: string;
   readonly onDesignFinalized?: () => void;
 }
@@ -240,6 +246,7 @@ function createPendingDesignReplacement(
       input.kind === "close" ? null : ownedFile,
       input.path,
       input.name,
+      input.session ?? EDITING_DESIGN_SESSION,
       input.onDesignFinalized,
     ),
     canvasApplication: null,
@@ -313,6 +320,7 @@ function createDesignReplacementFinalizer(
   file: CanopiFile | null,
   path: string | null,
   name: string,
+  session: DesignSessionKind,
   onDesignFinalized: () => void = () => {},
 ): DesignReplacementFinalizer {
   let outcome: "pending" | "applied" | "preserved" = "pending";
@@ -331,7 +339,7 @@ function createDesignReplacementFinalizer(
         try {
           store.resetDirtyBaselines();
           if (file) {
-            store.replaceCurrentDesignState(file, path, name);
+            store.replaceCurrentDesignState(file, path, name, session);
           } else {
             store.clearCurrentDesign();
           }
@@ -367,6 +375,7 @@ function designReplacementKey(
     input.kind,
     input.path,
     input.name,
+    input.session ?? EDITING_DESIGN_SESSION,
     input.finalizationIdentity ?? null,
     file,
   ]);

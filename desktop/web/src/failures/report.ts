@@ -1,8 +1,9 @@
 /**
  * failures/report.ts: Owner of the frontend failure sink, `reportFailure`, and the window error hooks
- * (console-only-in-sink, contracts §2 and §13, ADR 0025 Frontend sinks). Invariant: every frontend failure reaches the
- * ring through `reportFailure`, which never throws; a settlement object has one ring entry however many times it is
- * reported (transport, a surface, `unhandledrejection`); only `shown: 'notice'` queues a notice, once per failure for
+ * (console-only-in-sink, contracts §2 and §13, ADR 0025 Frontend sinks). Invariant: every frontend failure but a
+ * `store_read_only` refusal, which is never recorded (2.1-M487), reaches the ring through `reportFailure`, which never
+ * throws; a settlement object has one ring entry however many times it is reported (transport, a surface,
+ * `unhandledrejection`); only `shown: 'notice'` queues a notice, once per failure for
  * its first occurrence, later ones only counted, dismissed or not (2.1-Q294: until it recovers; dismissing is no
  * recovery, and the sink sees none yet), and none after the app lifetime that installed the hooks is disposed.
  */
@@ -13,6 +14,7 @@ import { failureMessage, type FailureCapabilities } from './messages'
 import { notices, raiseNotice, type Notice } from './notices'
 import { appendEntry, entryForSettlement, type RingEntry } from './ring'
 import { redact } from './redact'
+import { StoreRefusedError } from './store-read'
 
 /** The longest frontend text an entry keeps, after redaction. */
 const MAX_ENTRY_TEXT = 8 * 1024
@@ -60,6 +62,11 @@ export function reportFailure(subject: unknown, options: ReportOptions): void {
 }
 
 function record(subject: unknown, options: ReportOptions): void {
+  // A write a read-only store refused is never recorded, logged or told (2.1-M487): the store's one notice says it, so
+  // no caller's inline report, log or unhandled rejection puts it in the ring or the problem report. A Web store's
+  // refusal is a StoreRefusedError, whose code no settlement carries.
+  const refused = subject instanceof StoreRefusedError ? subject.code : undefined
+  if ((failureOf(subject)?.code ?? refused ?? options.code)?.kind === 'store_read_only') return
   const settlement = typeof subject === 'object' && subject !== null ? subject : null
   const known = settlement ? entryForSettlement(settlement) : undefined
   const entry = known ?? appendEntry(newEntry(subject, options), settlement)

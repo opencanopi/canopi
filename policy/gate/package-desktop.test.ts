@@ -179,7 +179,7 @@ describe('the package-desktop action (design check AR4)', () => {
   })
 
   // Ported from test_release_smoke_lanes.py's test_the_macos_dmg_is_still_built_and_published_unsigned.
-  it('2.1-Q135: the macOS dmg is still built and uploaded unsigned, with no smoke', () => {
+  it('2.1-Q135: the macOS dmg is still built and uploaded with no publisher certificate, with no smoke', () => {
     const upload = actionSteps.get('Upload artifacts')
     expect(String(upload?.with?.['path'])).toContain('target/${{ inputs.target }}/release/bundle/**/*.dmg')
     const smokes = Object.entries(flows.get('release-candidate.yml')?.jobs ?? {}).filter(([job]) => job.startsWith('smoke-'))
@@ -329,7 +329,7 @@ printf '#!/bin/sh\\necho cannot open display >&2\\nexit 1\\n' > squashfs-root/Ap
 
 // The Intel macOS build is Build & Test's long pole (26.6 min measured 2026-11-04, the frontend job 18): pull requests
 // package Linux, Apple silicon and, for a packaging input, Windows; a push to main and the Release Candidate's dry run
-// package all four, so the unsigned Intel dmg 2.1-Q125 and Q135 keep shipping is still built before a release, and an
+// package all four, so the Intel dmg 2.1-Q125 and Q135 keep shipping with no publisher certificate is still built before a release, and an
 // Intel-only break surfaces on main.
 describe('the platforms Build & Test packages (canopi-f47t.52.228.54)', () => {
   /** build.yml's changes job's packaging step, run by bash for a pull request or a push, with or without a packaging input. */

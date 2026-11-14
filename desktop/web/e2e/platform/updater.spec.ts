@@ -6,7 +6,7 @@
 // UPDATER_E2E_DIR holds good.json (N, signed with the job's ephemeral key), tampered.json (N's entries pointing at a
 // copy with flipped bytes), old.json (N-1's payload and signature announced as N+1), on NSIS failing.json (a signed
 // installer that exits with an error, announced as 9.0.2) and the payloads. UPDATER_E2E_BUNDLE names the installer
-// under test (appimage, deb or nsis); UPDATER_E2E_APPIMAGE is the AppImage's path on that lane. On NSIS,
+// under test (appimage, deb, nsis or msi); UPDATER_E2E_APPIMAGE is the AppImage's path on that lane. On NSIS,
 // UPDATER_E2E_N1_SETUP is N-1's installer and UPDATER_E2E_STABLE_SETUP the published 2.0.3 installer.
 //
 // Not in the wdio config's specs: only the updater lane runs it, with --spec, against an installed bundle. The tests
@@ -20,7 +20,7 @@ import { basename, dirname, join } from 'node:path'
 import { $, $$, browser, expect } from '@wdio/globals'
 import { answerNextDialog, appFolders, currentPlatform, currentProfile, designFile, launchForAttach, openDesignButton, renameOpenDesign, savedName, waitForOpenDesign } from './support/app'
 import { logOutput } from './support/process-log'
-import { canopiProcesses, handProfileToRelaunch, pendingUpdateMarkers, relaunchedWith, relaunchReport, withdrawProfileFromRelaunch } from './support/relaunch'
+import { canopiProcesses, handProfileToRelaunch, msiUpdateClients, pendingRestartFiles, pendingUpdateMarkers, relaunchedWith, relaunchReport, withdrawProfileFromRelaunch } from './support/relaunch'
 
 const PORT = Number(process.env.UPDATER_E2E_PORT ?? '47811')
 const CHANNELS = process.env.UPDATER_E2E_DIR ?? ''
@@ -145,14 +145,22 @@ function sha256(path: string): string {
 }
 
 /**
- * The version now installed, read from what the install left (dpkg's record, the executable's version resource, the
- * AppImage's bytes), never from the relaunch, which an unchanged N-1 would pass too.
+ * The version now installed, read from what the install left (dpkg's record, Windows Installer's product registration,
+ * the executable's version resource, the AppImage's bytes), never from the relaunch, which an unchanged N-1 would pass
+ * too. The MSI answers every registered Canopi product's version, comma-separated: N's major upgrade must have removed
+ * N-1's, so anything but N alone fails.
  */
 function installedVersion(): string {
   const app = process.env.CANOPI_E2E_APP ?? ''
   if (BUNDLE === 'deb') {
     const owner = execFileSync('dpkg', ['-S', app], { encoding: 'utf8' }).split(':')[0] ?? ''
     return execFileSync('dpkg-query', ['-W', '-f=${Version}', owner], { encoding: 'utf8' }).trim()
+  }
+  if (BUNDLE === 'msi') {
+    const script = "@(Get-ItemProperty 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Installer\\UserData\\*\\Products\\*\\InstallProperties'"
+      + " | Where-Object DisplayName -eq 'Canopi' | ForEach-Object DisplayVersion) -join ', '"
+    const versions = execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script], { encoding: 'utf8' }).trim()
+    return versions === '' ? 'no Canopi product registered by Windows Installer' : versions
   }
   if (BUNDLE === 'nsis') {
     const script = `(Get-Item -LiteralPath '${app}').VersionInfo.ProductVersion`
@@ -364,6 +372,10 @@ describe('the updater, from an installed N-1 to N', () => {
 
   // Q234: the marker is written and the installer launched, and Canopi exits; the installer then fails, so nothing
   // relaunches it. The user starts Canopi again: still N-1, it says the update did not install.
+  // A failed MSI install is this documented skip on the msi row (canopi-f47t.52.244): msiexec /passive can report a
+  // failure in its own error window, which no harness answers, and what the next launch says is the same for both Windows installers: the
+  // pending-update marker against the running version (install.rs take_marker; install/tests.rs
+  // a_marker_above_the_running_version_gives_the_notice_once_and_any_other_is_cleared), which this NSIS run holds.
   it('a planted failing Windows installer shows Update not installed at the next launch (2.1-Q234)', async function () {
     if (BUNDLE !== 'nsis') this.skip()
     host.channel = 'failing.json'
@@ -442,6 +454,7 @@ describe('the updater, from an installed N-1 to N', () => {
     current = ''
   })
 
+  // Every row, the MSI's included: msiexec starts only after the update path's flush (canopi-f47t.52.244).
   it('update install during an unsaved edit keeps the edit', async () => {
     host.channel = 'good.json'
     // Launched with A, switched to B: the relaunch must reopen B (plan:194).
@@ -499,5 +512,20 @@ describe('the updater, from an installed N-1 to N', () => {
     expect(pendingUpdateMarkers(currentProfile())).toEqual([])
     // And it is N: a relaunch of an N-1 the install left in place would pass every check above.
     expect(installedVersion()).toBe(announcedN().version)
+  })
+
+  // msiexec runs with /promptrestart: had Canopi still held a file the MSI replaces, Windows Installer would queue the
+  // replacement for a restart and ask the user to restart now, holding msiexec open over the relaunched N. Canopi exits
+  // as msiexec starts, so neither may happen (canopi-f47t.52.244).
+  it('an MSI update asks for no restart and leaves no file for one (canopi-f47t.52.244)', async function () {
+    if (BUNDLE !== 'msi') this.skip()
+    const folder = dirname(process.env.CANOPI_E2E_APP ?? '')
+    // The relaunch runs as msiexec's last action, so its client may still be ending.
+    try {
+      await browser.waitUntil(() => msiUpdateClients().length === 0, { timeout: 60_000 })
+    } catch {
+      throw new Error(`msiexec is still running the update after N started, waiting on a prompt: ${JSON.stringify(msiUpdateClients())}`)
+    }
+    expect(pendingRestartFiles(folder)).toEqual([])
   })
 })

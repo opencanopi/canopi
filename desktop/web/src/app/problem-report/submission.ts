@@ -1,9 +1,10 @@
-import { signal, type ReadonlySignal, type Signal } from '@preact/signals'
+import { computed, signal, type ReadonlySignal, type Signal } from '@preact/signals'
 import type { ProblemReportResult } from '../../generated/contracts'
 import type { ProblemReportPort } from '../../platform/problem-report'
 import { reportFailure, reportInline, type ReportOrigin } from '../../failures/report'
 import { t } from '../../i18n'
 import { buildProblemReport } from './builder'
+import { designSessionStore } from '../document-session/store'
 import { recentFrontendDiagnostics } from './diagnostics'
 import { problemReportDialogOpen } from './state'
 
@@ -22,6 +23,8 @@ export interface ProblemReportSubmissionDeps {
 export interface ProblemReportSubmission {
   readonly description: Signal<string>
   readonly includeCurrentDesign: Signal<boolean>
+  /** Whether the Design row is offered: never for a newer Canopi's read view (2.1-M479, canopi-v4kj). */
+  readonly currentDesignOffered: ReadonlySignal<boolean>
   readonly submitting: Signal<boolean>
   readonly result: Signal<ProblemReportResult | null>
   readonly error: Signal<string | null>
@@ -62,6 +65,7 @@ export function createProblemReportSubmission(
 ): ProblemReportSubmission {
   const description = signal('')
   const includeCurrentDesign = signal(false)
+  const currentDesignOffered = computed(() => !designSessionStore.holdsNewerReadView())
   const submitting = signal(false)
   const result = signal<ProblemReportResult | null>(null)
   const error = signal<string | null>(null)
@@ -89,6 +93,7 @@ export function createProblemReportSubmission(
   return {
     description,
     includeCurrentDesign,
+    currentDesignOffered,
     submitting,
     result,
     error,
@@ -121,7 +126,8 @@ export function createProblemReportSubmission(
         const writer = port.value
         if (!writer) throw new Error('No problem report writer is installed for this edition')
         let currentDesign: string | null = null
-        if (includeCurrentDesign.value) {
+        // A tick left from before a newer Design opened goes with its row, never blocking the report (canopi-v4kj).
+        if (includeCurrentDesign.value && currentDesignOffered.value) {
           currentDesign = writer.currentDesign()
           if (!currentDesign) {
             error.value = t('problemReport.currentDesignUnavailable')

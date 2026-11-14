@@ -65,6 +65,23 @@ jobs:
       - name: Install frontend deps
         run: npm ci --no-audit --no-fund
 
+      # The Web build compiles the format worker's module first (`npm run build:format-wasm`, Step 2.0.4): the wasm32
+      # target, and the wasm-bindgen CLI at Cargo.lock's wasm-bindgen version, the one build-wasm.mjs accepts. The
+      # Playwright image has no C compiler, which the crates' build scripts link with on the host.
+      - name: Install the host C toolchain
+        if: matrix.suite == 'canvas'
+        run: |
+          timeout 3m apt-get -o Acquire::Retries=5 -o Acquire::http::Timeout=60 update -qq
+          timeout 5m apt-get -o Acquire::Retries=5 -o Acquire::http::Timeout=60 install -y -qq --no-install-recommends gcc libc6-dev
+      - uses: dtolnay/rust-toolchain@1.97.1
+        if: matrix.suite == 'canvas'
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: taiki-e/install-action@v2
+        if: matrix.suite == 'canvas'
+        with:
+          tool: wasm-bindgen@0.2.130
+
       # The gallery runs on its own dev server (ui-gallery/) and needs no build.
       - name: Build the Web Edition
         if: matrix.suite == 'canvas'
@@ -122,6 +139,98 @@ jobs:
             desktop/web/test-results/
           if-no-files-found: ignore
           retention-days: 14
+
+  # The format worker in the WebDriver engines Playwright does not drive (Step 2.0.4 R1-1, canopi-f47t.52.270; design
+  # check §5b R1): WebKitGTK, through WebKitWebDriver and MiniBrowser on ubuntu-22.04 (Desktop's Linux floor), and Edge,
+  # WebView2's engine, through the image's msedgedriver. e2e/canvas/format-core-probe.spec.ts's WebDriver test runs
+  # beside the chromium project, which serves dist-web; its inverted step must fail against a driver that is not there.
+  format-core-engines:
+    name: format worker ${{ matrix.engine }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { engine: webkitgtk, os: ubuntu-22.04 }
+          - { engine: edge, os: windows-latest }
+    defaults:
+      run:
+        shell: bash
+        working-directory: desktop/web
+    env:
+      CANOPI_FORMAT_PROBE_WEBDRIVER: http://127.0.0.1:4444
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install WebKitGTK's WebDriver and Xvfb
+        if: runner.os == 'Linux'
+        uses: ./.github/actions/install-linux-deps
+        with:
+          packages: xvfb webkit2gtk-driver
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: desktop/web/package-lock.json
+      - uses: dtolnay/rust-toolchain@1.97.1
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: wasm-bindgen@0.2.130
+
+      - name: Install frontend deps and Playwright's Chromium
+        run: |
+          npm ci --no-audit --no-fund
+          npx playwright install chromium
+
+      - name: Build the Web Edition
+        run: npm run build:web:bundle
+
+      # The driver's browser and capabilities: MiniBrowser from this WebKitGTK's packages, or the image's Edge headless.
+      - name: Choose the driver and its capabilities
+        run: |
+          set -euo pipefail
+          if [ "$RUNNER_OS" = Linux ]; then
+            browser="$(dpkg -L libwebkit2gtk-4.1-0 webkit2gtk-driver 2>/dev/null | grep '/MiniBrowser$' | head -n 1 || true)"
+            if [ -z "$browser" ]; then echo "::error::no MiniBrowser in this WebKitGTK's packages"; exit 1; fi
+            echo "CANOPI_FORMAT_PROBE_DRIVER=WebKitWebDriver" >> "$GITHUB_ENV"
+            printf 'CANOPI_FORMAT_PROBE_CAPABILITIES={"webkitgtk:browserOptions":{"binary":"%s","args":["--automation"]}}\n' "$browser" >> "$GITHUB_ENV"
+          else
+            # The image no longer ships msedgedriver: fetch the one matching its Edge.
+            edge='C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe'
+            version="$(powershell -NoProfile -Command "(Get-Item '$edge').VersionInfo.ProductVersion" | tr -d '\r')"
+            if [ -z "$version" ]; then echo "::error::no Edge version on this image"; exit 1; fi
+            curl --proto '=https' --tlsv1.2 --retry 5 --location --silent --show-error --fail \
+              -o "$RUNNER_TEMP/edgedriver.zip" "https://msedgedriver.microsoft.com/$version/edgedriver_win64.zip"
+            unzip -q -o "$RUNNER_TEMP/edgedriver.zip" -d "$RUNNER_TEMP/edgedriver"
+            echo "CANOPI_FORMAT_PROBE_DRIVER=$(cygpath -u "$RUNNER_TEMP")/edgedriver/msedgedriver.exe" >> "$GITHUB_ENV"
+            echo 'CANOPI_FORMAT_PROBE_CAPABILITIES={"browserName":"MicrosoftEdge","ms:edgeOptions":{"args":["--headless=new"]}}' >> "$GITHUB_ENV"
+          fi
+
+      # One worker: WebKitWebDriver holds one session at a time, and a second spec's session ends the first one's
+      # (`invalid session id`, canopi-f47t.52.272).
+      - name: Drive the format worker in ${{ matrix.engine }}
+        run: |
+          set -euo pipefail
+          run='"$CANOPI_FORMAT_PROBE_DRIVER" --port=4444 & driver=$!; trap "kill $driver" EXIT; sleep 3; kill -0 $driver
+            npx playwright test e2e/canvas/format-core-probe.spec.ts e2e/canvas/indexeddb-reader-probe.spec.ts --project=chromium --grep "WebDriver engine" --workers=1 --reporter=line'
+          if [ "$RUNNER_OS" = Linux ]; then xvfb-run -a bash -euo pipefail -c "$run"; else bash -euo pipefail -c "$run"; fi
+
+      # The lane's inverted step: with no driver at the URL each spec's test must fail on its own (the format worker,
+      # and the IndexedDB reader probe of canopi-f47t.52.272), so a pass above is never a skip in either.
+      - name: The ${{ matrix.engine }} lane fails with no driver
+        env:
+          CANOPI_FORMAT_PROBE_WEBDRIVER: http://127.0.0.1:1
+        run: |
+          for spec in e2e/canvas/format-core-probe.spec.ts e2e/canvas/indexeddb-reader-probe.spec.ts; do
+            if npx playwright test "$spec" --project=chromium --grep "WebDriver engine" --reporter=line --output=planted-results; then
+              echo "::error::$spec's WebDriver test passed with no driver"
+              exit 1
+            fi
+          done
 
   a11y-policy:
     name: axe ratchet (three engines)

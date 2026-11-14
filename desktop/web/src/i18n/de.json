@@ -71,6 +71,7 @@
     "searchLabel": "Pflanzenkatalog durchsuchen",
     "details": "Details zu {{name}}",
     "addFavoriteNamed": "{{name}} zu Favoriten hinzufügen",
+    "favoriteNeedsNewer": "Von einer neueren Canopi-Version gespeichert. Aktualisieren Sie Canopi, um Ihre Favoriten zu ändern.",
     "removeFavoriteNamed": "{{name}} aus Favoriten entfernen",
     "factHeight": "{{height}} m",
     "factHardiness": "USDA {{zones}}",
@@ -124,6 +125,12 @@
       "webSpeciesLists": "Die gespeicherten Favoriten und zuletzt angesehenen Pflanzen von Canopi sind beschädigt und konnten nicht beiseitegelegt werden, daher werden Änderungen daran in dieser Sitzung nicht gespeichert."
     },
     "newerReadOnly": "Diese Daten wurden von einer neueren Canopi-Version gespeichert. Sie können sie ansehen, aber Änderungen werden nicht gespeichert. Aktualisieren Sie Canopi, um sie zu bearbeiten.",
+    "newerReadOnlyStore": {
+      "userDb": "Ihre Favoriten, gespeicherten Stempel und zuletzt geöffneten Designs wurden von einer neueren Canopi-Version gespeichert. Sie können sie ansehen, aber Änderungen werden nicht gespeichert. Aktualisieren Sie Canopi, um sie zu bearbeiten.",
+      "settings": "Ihre Einstellungen wurden von einer neueren Canopi-Version gespeichert. Änderungen gelten, bis Sie Canopi schließen, werden aber nicht gespeichert. Aktualisieren Sie Canopi, um sie zu behalten.",
+      "libraryCatalogue": "Die Datenbibliothek wurde von einer neueren Canopi-Version gespeichert. Ihre Elemente werden aufgelistet, aber Änderungen werden nicht gespeichert. Aktualisieren Sie Canopi, um sie zu verwenden.",
+      "webSpeciesLists": "Ihre Favoriten und zuletzt angesehenen Pflanzen wurden von einer neueren Canopi-Version gespeichert. Sie können sie ansehen, aber Änderungen werden nicht gespeichert. Aktualisieren Sie Canopi, um sie zu bearbeiten."
+    },
     "refusedNewer": "Diese Daten wurden von einer neueren Canopi-Version gespeichert und nicht geöffnet. Aktualisieren Sie Canopi, um sie zu verwenden.",
     "storeUnavailable": "Einige gespeicherte Daten von Canopi konnten nicht geöffnet werden. Starten Sie Canopi neu und melden Sie ein Problem, wenn das weiterhin passiert.",
     "fieldsReset": "Einige Einstellungen hatten Werte, die Canopi nicht verwenden konnte, und wurden auf ihre Standardwerte zurückgesetzt.",
@@ -636,14 +643,19 @@
         "deleteEverywhere": "Überall löschen",
         "renameEllipsis": "Umbenennen…",
         "recovered": "Canopi hat seine Datenbibliothek aus den Dateien wiederhergestellt, die es aufbewahrt. Als fehlgeschlagen markierte Elemente können mit „Erneut versuchen“ neu vorbereitet werden.",
-        "refusedNewer": "Die Datenbibliothek wurde von einer neueren Version von Canopi gespeichert. Installieren Sie das neueste Canopi, um sie zu verwenden; diese Version wird sie nicht ändern.",
         "unavailable": "Die Datenbibliothek konnte nicht geöffnet werden. Importe und Änderungen sind bis zum Neustart von Canopi deaktiviert.",
         "sortLabel": "Sortieren",
         "sortRecent": "Zuletzt hinzugefügt",
         "factAdded": "Hinzugefügt",
         "deletedItem": "Gelöschtes Element",
         "importNeedsDesign": "Öffnen Sie ein Design, um Daten zu importieren",
-        "importCancelled": "Import abgebrochen"
+        "importCancelled": "Import abgebrochen",
+        "needsNewerNote": "Aktualisieren Sie Canopi, um dieses Element zu verwenden.",
+        "newerKind": {
+          "raster": "Rasterdaten",
+          "unknown": "Daten eines Typs, den dieses Canopi nicht kennt",
+          "vector": "Vektordaten"
+        }
       },
       "layers": {
         "emptyTitle": "Noch keine Standortdaten",
@@ -813,8 +825,11 @@
       "escSelect": "Esc kehrt zu Auswählen zurück",
       "escClearRow": "Esc verwirft die Reihe",
       "escClearStamp": "Esc verwirft den Stempel",
-      "selectHint": "Ziehen wählt aus · Umschalt-Klick fügt hinzu · Alt-Klick entfernt · Rechtsziehen verschiebt die Karte · Rad zoomt",
-      "selectHintPan": "Ziehen wählt aus · Umschalt-Klick fügt hinzu · Alt-Klick entfernt · zwei Finger verschieben die Karte · Zusammenziehen zoomt",
+      "selectHint": "Ziehen wählt aus · Umschalt-Klick fügt hinzu · Alt-Klick entfernt · Rechtsziehen verschiebt die Karte · Rad zoomt · für ein Trackpad: Einstellungen › Zeichenfläche › Zeigegerät",
+      "selectHintPan": "Ziehen wählt aus · Umschalt-Klick fügt hinzu · Alt-Klick entfernt · zwei Finger verschieben die Karte · Zusammenziehen zoomt · für eine Maus: Einstellungen › Zeichenfläche › Zeigegerät",
+      "selectHintTouch": "Ziehen wählt aus · Umschalt-Klick fügt hinzu · Alt-Klick entfernt · zwei Finger verschieben die Karte · Zusammenziehen zoomt",
+      "selectHintMac": "Ziehen wählt aus · Umschalt-Klick fügt hinzu · Wahltaste-Klick entfernt · Rad zoomt · für ein Trackpad: Einstellungen › Zeichenfläche › Zeigegerät",
+      "selectHintMacPan": "Ziehen wählt aus · Umschalt-Klick fügt hinzu · Wahltaste-Klick entfernt · zwei Finger verschieben die Karte · Zusammenziehen zoomt · für eine Maus: Einstellungen › Zeichenfläche › Zeigegerät",
       "panHint": "Ziehen verschiebt die Karte",
       "stampPick": "Klicken Sie auf eine Pflanze, Zone, Notiz oder Gruppe, um sie zu kopieren",
       "stampPlace": "klicken zum Setzen",
@@ -1325,7 +1340,8 @@
     "searchAll": "Favoriten und Stempel durchsuchen",
     "remove": "{{name}} aus den Favoriten entfernen",
     "detailsFor": "Details zu",
-    "place": "{{name}} setzen"
+    "place": "{{name}} setzen",
+    "needsNewerStamp": "Mit einer neueren Canopi-Version gespeichert; aktualisieren Sie Canopi, um ihn zu setzen."
   },
   "savedObjectStamps": {
     "title": "Gespeicherte Stempel",
@@ -1622,6 +1638,12 @@
     "resolve": "Klären…",
     "conflictAnotherTab": "In einem anderen Tab geändert"
   },
+  "readOnlyDesign": {
+    "label": "Schreibgeschützt",
+    "status": "Schreibgeschützt: von einer neueren Canopi-Version gespeichert",
+    "details": "Dieses Design wurde von einer neueren Canopi-Version gespeichert. Sie können es ansehen, aber nicht ändern oder speichern. Aktualisieren Sie Canopi, um es zu bearbeiten.",
+    "update": "Aktualisieren"
+  },
   "saveProblem": {
     "flushFailedTitle": "Änderungen konnten nicht gespeichert werden",
     "flushFailedMessage": "Canopi konnte Ihre letzten Änderungen nicht schreiben. Versuchen Sie es erneut oder verwerfen Sie sie, um fortzufahren.",
@@ -1802,6 +1824,7 @@
     "region": "Start",
     "purpose": "Planen Sie Agroforst und Waldgärten auf der Karte Ihres Grundstücks.",
     "more": "Mehr",
+    "movingAround": "Auf der Karte bewegen",
     "searchDesigns": "Ihre Designs durchsuchen",
     "noMatches": "Kein Design passt zu „{{query}}“.",
     "recentDesigns": "Letzte Designs",
@@ -1827,7 +1850,9 @@
     "cantReadMissing": "Datei nicht gefunden: Sie wurde verschoben oder gelöscht",
     "cantReadOlderVersion": "Mit Canopi vor Version 2.0 erstellt; Canopi 2.0 und neuer kann es nicht öffnen",
     "cantReadNewerVersion": "Mit einer neueren Canopi-Version erstellt; aktualisieren Sie Canopi, um sie zu öffnen",
-    "cantReadDamaged": "Datei kann nicht gelesen werden: Sie ist beschädigt"
+    "cantReadDamaged": "Datei kann nicht gelesen werden: Sie ist beschädigt",
+    "rowReadOnly": "Schreibgeschützt: von einer neueren Canopi-Version gespeichert",
+    "unreadableDraft": "Von einer neueren Canopi-Version gespeichert; diese Version kann ihn nicht lesen"
   },
   "shortcutKeys": {
     "ctrl": "Strg",
@@ -1878,9 +1903,11 @@
     "gestures": {
       "heading": "Maus, Trackpad und Stift",
       "rightDrag": "Rechts ziehen, mittig ziehen oder Leertaste + ziehen",
+      "trackpadPan": "Zwei Finger auf dem Trackpad (Einstellungen › Zeichenfläche › Zeigegerät) oder das Werkzeug Verschieben",
       "pan": "Karte verschieben",
       "shiftDrag": "Umschalt + rechts ziehen oder Umschalt + mittig ziehen",
       "turnView": "Ansicht drehen; mit {{mod}} in 15°-Schritten",
+      "turn": "Ansicht drehen",
       "trackpadTwist": "Zwei Finger auf dem Trackpad drehen",
       "compass": "Kompass",
       "compassAction": "Klicken richtet nach Norden aus, Ziehen dreht die Ansicht",
@@ -1891,6 +1918,7 @@
       "pinch": "Zusammenziehen oder Strg + Rad",
       "zoom": "Zoomen",
       "altClick": "Alt + Klick",
+      "optionClick": "Wahltaste + Klick",
       "removeFromSelection": "Aus der Auswahl entfernen",
       "linuxPinch": "Unter Linux wird Zusammenziehen auf dem Trackpad noch nicht unterstützt. Zoomen Sie mit Strg + Scrollen.",
       "touchHeading": "Touch",
@@ -1943,6 +1971,8 @@
     "filesWeb": "Die Web-Edition hält Ihre Designs und Skizzen in diesem Browser. Laden Sie eine Kopie herunter, um eine Datei zu behalten.",
     "filesLoading": "Ordner werden gesucht…",
     "filesUnavailable": "Canopi hat seine Ordner nicht gefunden. Starten Sie Canopi neu, um es erneut zu versuchen.",
+    "favouritesDesktop": "Favoriten bleiben auf diesem Computer, nicht in einem Design: Ein Design, das Sie teilen oder anderswo öffnen, nimmt sie nicht mit.",
+    "favouritesWeb": "Favoriten bleiben in diesem Browser, nicht in einem Design: Ein Design, das Sie teilen oder anderswo öffnen, nimmt sie nicht mit.",
     "draftsHint": "Designs, die nie in einer Datei gespeichert wurden.",
     "dataLibrary": "Datenbibliothek",
     "dataLibraryHint": "Importierte Gelände- und Höhendaten.",
@@ -2167,6 +2197,7 @@
     "statusDetails": "Dieser Browser kann Ihre Skizzen löschen, um Platz zu schaffen. Laden Sie eine Kopie herunter, um eine Datei zu behalten.",
     "downloadFailedTitle": "Kopie konnte nicht heruntergeladen werden",
     "downloadFailedMessage": "Diese Skizze ist nicht mehr in diesem Browser oder konnte nicht gelesen werden.",
+    "uncheckedReadOnly": "Schreibgeschützt geöffnet: Canopi konnte den Speicher dieses Browsers nicht prüfen, daher ist diese Skizze möglicherweise veraltet. Wählen Sie „Kopie herunterladen“, um sie zu behalten.",
     "keepDrafts": "Meine Skizzen behalten",
     "keepDraftsMenu": "Meine Skizzen behalten…"
   },
@@ -2225,7 +2256,13 @@
     "fileTooLarge": "Diese Datei ist größer, als Canopi erlaubt. Wählen Sie eine kleinere Datei.",
     "fileError": "Canopi konnte die Datei nicht lesen oder schreiben. Versuchen Sie es erneut.",
     "plantCatalogUnavailable": "Der Pflanzenkatalog konnte nicht geöffnet werden. Starten Sie Canopi neu und installieren Sie es erneut, wenn das Problem bleibt.",
-    "libraryNewer": "Diese Datenbibliothek wurde von einer neueren Canopi-Version gespeichert. Aktualisieren Sie Canopi, um sie zu ändern.",
-    "libraryUnavailable": "Die Datenbibliothek konnte nicht geöffnet werden, daher werden Änderungen in dieser Sitzung nicht gespeichert. Starten Sie Canopi neu und versuchen Sie es erneut."
+    "libraryUnavailable": "Die Datenbibliothek konnte nicht geöffnet werden, daher werden Änderungen in dieser Sitzung nicht gespeichert. Starten Sie Canopi neu und versuchen Sie es erneut.",
+    "formatCoreUnavailable": "Canopi konnte den Teil, der Designs öffnet, nicht laden. Versuchen Sie es erneut und melden Sie ein Problem, wenn das weiter passiert.",
+    "formatCoreTrapped": "Canopi wurde beim Lesen dieses Designs unterbrochen. Versuchen Sie es erneut und melden Sie ein Problem, wenn das weiter passiert."
+  },
+  "startup": {
+    "title": "Canopi konnte nicht starten",
+    "desktopHint": "Ihr System ist möglicherweise zu alt für diese Version von Canopi. Aktualisieren Sie Ihr Betriebssystem und öffnen Sie Canopi dann erneut.",
+    "webHint": "Laden Sie die Seite neu. Startet Canopi dann immer noch nicht, ist dieser Browser möglicherweise zu alt: Aktualisieren Sie ihn oder verwenden Sie einen anderen Browser."
   }
 }

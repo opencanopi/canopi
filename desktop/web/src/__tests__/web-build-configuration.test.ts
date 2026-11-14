@@ -9,6 +9,7 @@ import type { ConfigEnv, Plugin, PluginOption, UserConfig } from 'vite'
 
 import viteConfig from '../../vite.config'
 import galleryConfig from '../../ui-gallery/vite.config'
+import { ENGINE_FLOOR_TARGET } from '../../engine-floor'
 import { parseCssDeclarations } from './support/architecture/css-facts'
 import { admitWebCatalogManifest } from '../generated/web-catalog-artifact.mjs'
 import { validWebCatalogManifest } from './fixtures/web-catalog-manifest'
@@ -65,7 +66,8 @@ describe('Web Edition build configuration', () => {
 
     expect(web.base).toBe('/')
     expect(web.build?.outDir).toBe('dist-web')
-    expect(web.build?.rolldownOptions?.input).toBe('web.html')
+    // One entry, the page: the design-core adapter starts the format worker, a worker chunk (canopi-f47t.52.270).
+    expect(web.build?.rolldownOptions?.input).toEqual({ web: 'web.html' })
     expect(web.plugins).toEqual(expect.arrayContaining([
       expect.objectContaining({ name: 'canopi-web-edition-dev-entry' }),
     ]))
@@ -101,8 +103,10 @@ describe('Web Edition build configuration', () => {
     }
     for (const [name, config] of Object.entries(configs)) {
       expect(deprecatedOptionPaths(config), name).toEqual([])
-      // The dependency optimizer keeps the build's target: the TIFF codecs use top-level await.
-      expect(config.optimizeDeps?.rolldownOptions?.transform?.target, name).toBe('es2022')
+      // The dependency optimizer keeps the build's target: the TIFF codecs use top-level await. Both editions
+      // pre-bundle for the engine floor (canopi-4kfl); the gallery is a development tool and stays on the language level.
+      const expected = name === 'gallery' ? 'es2022' : [...ENGINE_FLOOR_TARGET]
+      expect(config.optimizeDeps?.rolldownOptions?.transform?.target, name).toEqual(expected)
     }
   })
 
@@ -113,8 +117,9 @@ describe('Web Edition build configuration', () => {
       compilerOptions: { target: string; lib: string[] }
     }
     for (const mode of ['desktop', 'web']) {
-      const buildTarget = (await resolveConfig(mode)).build?.target
-      expect(typeof buildTarget, mode).toBe('string')
+      const target = (await resolveConfig(mode)).build?.target
+      expect(target, mode).toEqual([...ENGINE_FLOOR_TARGET])
+      const buildTarget = (target as string[]).find((entry) => /^es\d+$/.test(entry))
       expect(tsconfig.compilerOptions.target.toLowerCase(), mode).toBe(buildTarget)
       expect(tsconfig.compilerOptions.lib.map((lib) => lib.toLowerCase()), mode).toContain(buildTarget)
     }
@@ -233,6 +238,19 @@ describe('Web Edition build configuration', () => {
     expect(packageJson.scripts?.['build:web:bundle']).toContain(
       'vite build --mode web && node scripts/check-web-build-boundaries.mjs',
     )
+  })
+
+  it('canopi-f47t.52.270: builds the format module before every Web bundle and the Web dev server, never before Desktop', () => {
+    const { scripts } = JSON.parse(
+      readFileSync(new URL('../../package.json', import.meta.url), 'utf8'),
+    ) as { scripts: Record<string, string> }
+
+    expect(scripts['build:format-wasm']).toBe('node ../../canopi-format-wasm/build-wasm.mjs')
+    expect(scripts['build:web:bundle']).toMatch(/^npm run build:format-wasm && vite build --mode web && /)
+    expect(scripts['dev:web']).toBe('npm run build:format-wasm && vite --mode web')
+    // Desktop reads .canopi natively and never loads the module (A8).
+    expect(scripts['build:desktop:bundle']).not.toContain('build:format-wasm')
+    expect(scripts['dev']).toBe('vite')
   })
 
   it('checks every Desktop and Web build for non-ASCII scripts and identifiers (canopi-f47t.52.228.18)', () => {

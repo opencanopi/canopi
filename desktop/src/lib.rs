@@ -20,6 +20,9 @@ mod module_layering;
 #[cfg(test)]
 mod native_command_policy;
 mod native_operation;
+/// The rollback harness's reader session (`desktop/tests/rollback_reader.rs`); not app API.
+#[doc(hidden)]
+pub mod reader_session;
 mod services;
 #[cfg(test)]
 mod test_scratch;
@@ -169,7 +172,7 @@ pub fn run() {
             std::fs::create_dir_all(&data_dir)?;
             app.manage(design::drafts::DesignDrafts::new(&data_dir));
             app.manage(services::recent_design_previews::RecentDesignPreviews::default());
-            let (user_db, user_db_health) = match open_user_data(&data_dir) {
+            let (user_db, user_stores) = match services::health::open_stores(&data_dir) {
                 Ok(opened) => opened,
                 Err(error) => {
                     // A user database this Canopi cannot own or set aside is refused, never
@@ -257,11 +260,10 @@ pub fn run() {
             app.manage(plant_db);
             app.manage(services::plant_browser::SpeciesSearchCancellation::default());
 
-            app.manage(AppHealth::new(SubsystemHealth(std::collections::BTreeMap::from([
+            app.manage(AppHealth::new(SubsystemHealth(std::collections::BTreeMap::from_iter([
                 (StoreId::PlantCatalog, services::health::plant_catalog(plant_db_status)),
-                (StoreId::UserDb, user_db_health),
                 (StoreId::LibraryCatalogue, StoreHealth { status: lidar_library_status, notice: None }),
-            ]))));
+            ].into_iter().chain(user_stores)))));
 
             Ok(())
         })
@@ -319,27 +321,9 @@ fn open_link_in_system(url: &tauri::Url) -> bool {
     tauri_plugin_opener::open_url(url.as_str(), None::<&str>).is_ok()
 }
 
-/// Open the user database in `data_dir`, with its entry in `SubsystemHealth`.
-///
-/// A user database from before 2.0 is renamed, since 2.0 needs its path, and a
-/// notice tells the user once (ADR 0021); a damaged one is set aside and its
-/// status names the set-aside file on that start only (NAT-02). Drafts in an
-/// earlier format and the retired 1.x autosave store stay where they are,
-/// unread, and are not reported (U59).
-fn open_user_data(
-    data_dir: &std::path::Path,
-) -> Result<(db::UserDb, StoreHealth), db::UserDbInitError> {
-    db::UserDb::open(data_dir.join("user.db"))
-}
-
 /// The message for a startup failure the user can act on, or `None` for an internal error.
 fn startup_refusal_message(error: &db::UserDbInitError) -> Option<String> {
     match error {
-        db::UserDbInitError::NewerSchemaVersion { .. } => Some(
-            "Your Canopi data was saved by a newer version of Canopi. \
-             Install the latest Canopi to open it; this version will not change it."
-                .to_string(),
-        ),
         db::UserDbInitError::SetAside { reason, .. } => Some(reason.startup_refusal().to_owned()),
         _ => None,
     }
@@ -403,13 +387,7 @@ mod tests {
     }
 
     #[test]
-    fn refused_user_databases_get_a_message_and_internal_errors_do_not() {
-        let newer = super::db::UserDbInitError::NewerSchemaVersion {
-            found: 99,
-            supported: 9,
-        };
-        let message = super::startup_refusal_message(&newer).expect("newer data is refused");
-        assert!(message.contains("newer version of Canopi"));
+    fn a_user_db_that_cannot_be_set_aside_gets_a_message_and_a_newer_or_internal_error_does_not() {
         let set_aside = |reason| super::db::UserDbInitError::SetAside {
             reason,
             source: std::io::Error::from(std::io::ErrorKind::PermissionDenied),
@@ -425,13 +403,20 @@ mod tests {
         assert!(!message.contains("damaged"), "{message}");
         let internal = super::db::UserDbInitError::ForeignKeysDisabled;
         assert!(super::startup_refusal_message(&internal).is_none());
+        // A newer user DB opens read-only (2.1-M410); only a race past that check reaches here.
+        let newer = super::db::UserDbInitError::NewerSchemaVersion {
+            found: 10,
+            supported: 9,
+        };
+        assert!(super::startup_refusal_message(&newer).is_none());
     }
 
     #[test]
     fn a_fresh_data_folder_opens_as_current() {
         let data_dir = super::test_scratch::TestScratch::new("startup-fresh");
 
-        let (user_db, health) = super::open_user_data(&data_dir).expect("a fresh folder opens");
+        let (user_db, [(_, health), _]) =
+            super::services::health::open_stores(&data_dir).expect("a fresh folder opens");
         drop(user_db);
 
         assert!(health.status == StoreOpenStatus::Ready && health.notice.is_none());
@@ -451,12 +436,14 @@ mod tests {
             .unwrap();
         drop(connection);
 
-        let (user_db, health) = super::open_user_data(&data_dir).expect("earlier data opens");
+        let (user_db, [(_, health), _]) =
+            super::services::health::open_stores(&data_dir).expect("earlier data opens");
         drop(user_db);
         assert_eq!(health.status, StoreOpenStatus::Ready);
         assert_eq!(health.notice, Some(StoreNotice::MovedAsidePre20));
 
-        let (user_db, again) = super::open_user_data(&data_dir).expect("current data opens");
+        let (user_db, [(_, again), _]) =
+            super::services::health::open_stores(&data_dir).expect("current data opens");
         drop(user_db);
         assert_eq!(again.notice, None, "told once");
     }
@@ -482,7 +469,8 @@ mod tests {
         std::fs::write(autosave.join("recovery.canopi"), "unsaved work").unwrap();
 
         for start in ["first", "second"] {
-            let (user_db, health) = super::open_user_data(&data_dir).expect("the folder opens");
+            let (user_db, [(_, health), _]) =
+                super::services::health::open_stores(&data_dir).expect("the folder opens");
             drop(user_db);
             assert_eq!(health.notice, None, "{start} start");
             assert_eq!(

@@ -20,14 +20,15 @@ interface DesignReveal {
  * restoring a Draft) never shows it, since its buttons would replace that Design. A map that failed, or a canvas that could
  * not start (reported as the map unavailable), draws nothing: the Design shows at once, over the map notice. Once shown, an
  * open Design stays shown until it is closed: opening another over it, or a Retry rebuilding the map, never brings the start
- * screen back.
+ * screen back. While `launching` (the Web launch reading which Draft it may reopen) with no Design open, neither shows;
+ * a Draft the launch reopens is one already open, and a launch that reopens none brings the start screen.
  */
-export function useDesignReveal(hasDesign: boolean, mapSurface: MapLibreCanvasSurfaceState): DesignReveal {
+export function useDesignReveal(hasDesign: boolean, mapSurface: MapLibreCanvasSurfaceState, launching = false): DesignReveal {
   const shown = useRef(false)
   const openedFromStartScreen = useRef(!hasDesign)
   if (!hasDesign) {
     shown.current = false
-    openedFromStartScreen.current = true
+    openedFromStartScreen.current = !launching
   } else if (!shown.current) {
     shown.current = currentCanvasDocumentSurface.value?.presented.value === true || mapSurface.status === 'error'
   }

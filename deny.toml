@@ -44,6 +44,9 @@ deny = [
   { crate = "tauri", wrappers = ["canopi-desktop", "tauri-plugin-dialog", "tauri-plugin-fs", "tauri-plugin-mcp-bridge", "tauri-plugin-opener", "tauri-plugin-single-instance", "tauri-plugin-updater"], reason = "tauri-crate-only-in-desktop: desktop/Cargo.toml (example desktop/src/commands/health.rs)" },
   # The updater plugin only through canopi-desktop (its updater module: ast-grep updater-plugin-only-in-updater).
   { crate = "tauri-plugin-updater", wrappers = ["canopi-desktop"], reason = "tauri-crate-only-in-desktop: desktop/Cargo.toml (example desktop/src/commands/health.rs)" },
+  # wasm-bindgen only under the -wasm crates. The graph's targets are native, so a wasm32-only edge (js-sys, web-sys) is
+  # never seen, and each -wasm crate takes it as a plain dependency so that this entry sees its one user.
+  { crate = "wasm-bindgen", wrappers = ["canopi-format-wasm"], reason = "wasm-bindgen-only-in-wasm-crates: canopi-format-wasm/Cargo.toml (example canopi-format-wasm/src/lib.rs)" },
   { crate = "gdal", reason = "no-gdal: the pure-Rust whitebox crates replace GDAL (ADR 0014)" },
   { crate = "gdal-sys", reason = "no-gdal: the pure-Rust whitebox crates replace GDAL (ADR 0014)" },
 ]

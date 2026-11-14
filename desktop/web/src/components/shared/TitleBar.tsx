@@ -1,6 +1,6 @@
 import { useEffect } from 'preact/hooks'
 import { setDesignName } from '../../app/design-edit'
-import { currentDesign, designName } from '../../app/document-session/store'
+import { currentDesign, designName, designSessionStore, readOnlyOrigin } from '../../app/document-session/store'
 import {
   designSaveFailureReason,
   designSaveStatus,
@@ -15,11 +15,12 @@ import {
   toggleMaximizeAppWindow,
 } from '../../app/shell/window-actions'
 import { designNotebookWorkbench } from '../../app/design-notebook'
+import { openAboutCanopiDialog } from '../../app/about/state'
 import { appCommandGraphChromeProjection } from '../../commands/registry'
 import { t } from '../../i18n'
 import { PlaceSearchField } from '../canvas/PlaceSearch'
 import { ControlIcon } from './ControlIcon'
-import { DesignNameField } from './DesignNameField'
+import { DesignNameField, visibleDesignName } from './DesignNameField'
 import { SaveStatusLabel } from './SaveStatusLabel'
 import { WorkspaceTitleBar } from './WorkspaceTitleBar'
 import styles from './WorkspaceTitleBar.module.css'
@@ -28,6 +29,7 @@ import styles from './WorkspaceTitleBar.module.css'
 export function TitleBar() {
   const projection = appCommandGraphChromeProjection.value
   const hasDesign = currentDesign.value !== null
+  const saveStatus = designSaveStatus.value
 
   useEffect(() => {
     void designNotebookWorkbench.loadRecentDesigns()
@@ -50,15 +52,21 @@ export function TitleBar() {
       }}
       design={hasDesign ? (
         <>
-          <DesignNameField name={designName.value} onRename={setDesignName} />
+          {/* A read-only Design (one a newer Canopi saved) is shown, never renamed (2.1-Q315). */}
+          {saveStatus === 'read-only'
+            ? <span className={styles.nameText}>{visibleDesignName(designName.value)}</span>
+            : <DesignNameField name={designName.value} onRename={setDesignName} />}
           <SaveStatusLabel
-            status={designSaveStatus.value}
+            status={saveStatus}
             failureReason={designSaveFailureReason.value}
             draftLabel={t('saveStatus.draft')}
             draftAction={{ label: t('saveStatus.saveAs'), style: 'button', run: saveAs }}
             saveElsewhere={{ label: t('saveStatus.saveAs'), run: saveAs }}
             onRetry={() => { void retryDesignSave() }}
             onResolveConflict={() => { void resolveDesignConflict().catch(logSaveCommandError) }}
+            readOnlyOrigin={readOnlyOrigin(designSessionStore.sessionKind.value)}
+            // Desktop updates in About, where the check for updates lives (2.1-Q317), as a store notice's Update does.
+            onUpdate={openAboutCanopiDialog}
           />
         </>
       ) : undefined}

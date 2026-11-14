@@ -11,14 +11,19 @@
 //   node policy/gate/cli.mjs check <id>... [--print]          table checks by id, outside any area's row (a CI step)
 //   node policy/gate/cli.mjs areas --base <rev>               the areas a change selects, the vitest files its lane adds
 //                                                             and every area's patterns, as JSON, running no tool
-//   node policy/gate/cli.mjs verify-push [<remote> <url>]     the pre-push hook: each pushed ref on stdin needs a stamp
-//                                                             (verify-push.ts)
+//   node policy/gate/cli.mjs verify-push [<remote> <url>]     the pre-push hook: each pushed ref on stdin needs a stamp,
+//                                                             a ref under scratch/ none (2.1-Q329; verify-push.ts)
 //   node policy/gate/cli.mjs actionlint                       the pinned actionlint over .github/workflows
 //   node policy/gate/cli.mjs oldest-engine                    both builds' chunks parsed by Debian 12's JavaScriptCore
+//                                                             and by the engine floor's WebKit (ENGINE_FLOOR)
 //   node policy/gate/cli.mjs cov                              cargo llvm-cov with policy/ratchets/coverage.json's floors
 //   node policy/gate/cli.mjs gate-cov                         the policy-gate Vitest project's coverage, its child CLIs
 //                                                             included, held to policy/ratchets/coverage.json's floors
 //   node policy/gate/cli.mjs bundle-summary <row log>         a red Frontend row's bundle refusals to the step summary
+//   node policy/gate/cli.mjs rollback-refs                    the rollback lane's reader and writer refs from the tag
+//                                                             names on stdin (rollback-refs.ts)
+//   node policy/gate/cli.mjs rollback-fixtures check|snapshot|compare|plant <dir> ...
+//                                                             the rollback lane's own fixture checks around the readers
 //   node policy/gate/cli.mjs agents-rows [--check]            AGENTS.md's rows rendered from the table, or their check
 //   node policy/gate/cli.mjs commit-gate pre-commit|pre-merge-commit|commit-msg <file>
 //                                                             the tracked hooks' commit gate (commit-gate.ts)

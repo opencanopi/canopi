@@ -403,15 +403,15 @@ OPEN_ABOUT = """if (document.querySelector('[data-about-updates]')) return true;
     await new Promise((settle) => setTimeout(settle, 300));
     return !!document.querySelector('[data-about-updates]')"""
 
-# A settings change the locked store cannot take, so the close has settings to flush: the first device switch in
-# Settings that is not the launch check's own key row, looked for section by section, turned over; its name goes in
-# the report, null when no section has one. Settings opens only when it is not open (the shortcut toggles it).
+# A settings change the locked store cannot take, so the close has settings to flush: the first enabled device switch
+# in Settings that is not the launch check's own key row (nor its held place), looked for section by section, turned
+# over; its name goes in the report, null when no section has one. Settings opens only when it is not open (the shortcut toggles it).
 CHANGE_A_SETTING = """if (!document.querySelector('[data-settings-section]')) {
       window.dispatchEvent(new KeyboardEvent('keydown', { key: ',', metaKey: true, bubbles: true }));
       await new Promise((settle) => setTimeout(settle, 500));
     }
     const find = () => [...document.querySelectorAll('[role="dialog"] input[role="switch"]')]
-      .find((input) => !input.closest('[data-launch-check]'));
+      .find((input) => !input.disabled && !input.closest('[data-launch-check]'));
     let toggle = find();
     for (const section of document.querySelectorAll('[data-settings-section]')) {
       if (toggle) break;

@@ -143,6 +143,24 @@ export type Consortium = {
 };
 
 /**
+ *  How a listed Draft opens (2.1-Q316). Only an `Editable` Draft is ever opened for editing or
+ *  deleted; the store refuses writes to the others (design check F7).
+ */
+export type DesignDraftAccess =
+// A current Draft: it opens for editing.
+"editable" |
+/**
+ *  Saved by a newer Canopi and read for the read-only view: listed as
+ *  "Read-only: saved by a newer Canopi".
+ */
+"read_only" |
+/**
+ *  Saved by a newer Canopi whose read this build refuses: listed as unreadable, never
+ *  hidden, and opening it says why.
+ */
+"unreadable";
+
+/**
  *  A Design draft: an unsaved (Untitled) Design kept in app data until the
  *  user saves it as a file or deletes it.
  */
@@ -150,6 +168,11 @@ export type DesignDraftSummary = {
 	id: string,
 	name: string,
 	updated_at: string,
+	/**
+	 *  Whether opening the Draft edits it, shows it read-only, or refuses it (2.1-Q316). Absent on
+	 *  the wire for an editable Draft, the common case; a newer Draft always carries it.
+	 */
+	access?: DesignDraftAccess,
 };
 
 /**
@@ -314,7 +337,8 @@ export type Failure = {
 
 /**
  *  The catalogue's codes produced at Phase 1's close, plus the map codes
- *  WEB-06's observers report (contracts §2, 2.1-M418).
+ *  WEB-06's observers report (contracts §2, 2.1-M418) and the reader release's
+ *  format core and read-only store codes (Step 2.0.4's commit 0).
  */
 export type FailureCode =
 // The lane was full.
@@ -381,7 +405,18 @@ bundle: UpdateBundle } |
 // The installer reported an error.
 { kind: "update_install_failed";
 // The installer that failed.
-bundle: UpdateBundle };
+bundle: UpdateBundle } |
+// The format core's `.wasm` failed to load or instantiate; Retry loads it once (ADR 0025, 2.1-M477).
+{ kind: "format_core_unavailable" } |
+// The format core trapped; `detail` holds the panic message or `trapped` (ADR 0025).
+{ kind: "format_core_trapped" } |
+/**
+ *  A write refused by a store read as newer-read-only; silent, since the store's one notice says it
+ *  (2.1-M487).
+ */
+{ kind: "store_read_only";
+// The store that refused the write.
+store: StoreId };
 
 // The level a settlement with a code is logged at (ADR 0025 Logs).
 export type FailureLogLevel =
@@ -405,7 +440,11 @@ export type FailureSource =
 // The map and its sources.
 "map" |
 // The Desktop updater (contracts §2 updater row, 2.1-M210).
-"updater";
+"updater" |
+// The format core's worker adapter (Web only until 2b, 2.1-M476).
+"format_core" |
+// A store read as newer-read-only, on both editions (2.1-M487).
+"read_only_store";
 
 export type FilterOp = "Equals" | "In" | "Gte" | "Lte" | "Between" | "IsTrue";
 
@@ -520,6 +559,13 @@ export type LibraryEngines = {
 	geolibre: LidarEngineStatus,
 };
 
+// The kind of one Data library item, stored in `library_items.kind` from catalogue 26.
+export type LibraryItemKind =
+// A gridded item: an imported elevation model or an analysis raster.
+"raster" |
+// Vector features: bring-your-own vectors and hydrology outputs (2.1-Q100).
+"vector";
+
 export type LibraryItemRole = "Source" | "Derived";
 
 // One Data Library item as the UI reads it.
@@ -563,6 +609,12 @@ export type LibraryItemSummary = {
 	 *  `created_at`, Unix milliseconds as text, for sorting by Recently added.
 	 */
 	created_at: string,
+	/**
+	 *  The kind a `NeedsNewer` item's newer catalogue stores, the type its row is listed by (2.1-Q318); absent on
+	 *  any other item and when this build does not know the literal. Interim: N1's summary carries the item's kind
+	 *  itself and deletes this field.
+	 */
+	newer_kind?: LibraryItemKind | null,
 };
 
 /**
@@ -573,10 +625,30 @@ export type LibraryItemSummary = {
  */
 export type LibraryItemType = { kind: "Raster"; quantity: RasterQuantity };
 
+// How a settled `library_jobs` row ended (contracts §8); present exactly when the state is settled.
+export type LibraryJobOutcome =
+// Published.
+"succeeded" |
+// Discarded with a failure, which the row stores as catalogue JSON.
+"failed" |
+// Cancelled by the user.
+"cancelled" |
+// Stopped by quit, or found unfinished at open; offers Run again.
+"interrupted";
+
+// The stored state of one `library_jobs` row (contracts §8), for imports and analyses alike.
+export type LibraryJobState =
+// Submitted, waiting for the runner.
+"queued" |
+// The runner is working on it.
+"running" |
+// The work returned or was cancelled; its result is being published or discarded.
+"settling" |
+// Final; the row's outcome says how it ended.
+"settled";
+
 // Why the Data library is read-only for the session.
 export type LibraryReadOnlyReason =
-// The catalogue was written by a newer Canopi and is left untouched.
-"refused_newer" |
 // The catalogue could be neither opened nor rebuilt.
 "unavailable";
 
@@ -791,7 +863,12 @@ export type LidarPresentationSection = {
 export type LidarRamp = "Relief" | "Terrain" | "Earth" | "Greens" | "YellowRed" | "Magma" | "Gray";
 
 // State of a library item: its operation while it runs, then a fixed result.
-export type LidarResultState = "Preparing" | "Ready" | "Failed";
+export type LidarResultState = "Preparing" | "Ready" | "Failed" |
+/**
+ *  Made by a newer Canopi (a 2.1 kind, lineage or job this build does not read): listed by name and type with a
+ *  note to update, never drawn, placed, renamed or deleted (2.1-Q318, 2.1-M488).
+ */
+"NeedsNewer";
 
 export type LidarSamplePointsRequest = {
 	targets: LidarSampleTarget[],
@@ -828,6 +905,18 @@ export type LidarSampleUnavailableReason =
  *  be read; asking again may succeed.
  */
 "ReadFailed";
+
+/**
+ *  Where a library item came from, stored as `library_items.lineage_tag` from catalogue 26. The tag only:
+ *  what an analysis or external item also records lives in its lineage's own detail table.
+ */
+export type Lineage =
+// Imported by the user from a file.
+"source" |
+// Produced by a registered analysis; the only lineage that can be out of date and refreshed.
+"analysis" |
+// Made by another tool, recorded with that tool, its date, notes and links.
+"external";
 
 /**
  *  A Design read from a file, with the fingerprint (SHA-256 of the file's
@@ -1058,12 +1147,40 @@ export type RasterQuantity =
 // Terrain slope, in degrees or percent (derived only).
 "Slope";
 
+/**
+ *  A Design saved by a newer Canopi, read for the read-only view (contracts §11 Rollback, 2.1-M478, 2.1-M479):
+ *  `view` is its read projection in the in-memory shape this build draws, `saved_by_version` the file's format
+ *  version. A distinct type on purpose: no save, Draft or export API takes it or its `view`, so a v10 Design never
+ *  reaches 2.0 persistence (held by R1's type rule).
+ */
+export type ReadOnlyDesign = {
+	// The Design as the read view maps it onto this build's shape, shown and never written.
+	view: CanopiFile,
+	// The format version the file was saved at, above [`CURRENT_CANOPI_FILE_VERSION`].
+	saved_by_version: number,
+};
+
 // What a Recent Design's file says about it, read when the list is shown.
 export type RecentDesignPreview = { kind: "read"; plant_count: number; zone_count: number;
 // `None` when the Design has no plants or zones yet.
 bounds: DesignGroundBounds | null; sketch: DesignSketch | null } |
-// The file is larger than previews read; the row shows its name only.
-{ kind: "too_large" } |
+/**
+ *  Saved by a newer Canopi and read for the read-only view (2.1-Q316): the row is labelled
+ *  "Read-only: saved by a newer Canopi", never "update Canopi to open it", with what the
+ *  read view shows of it.
+ */
+{ kind: "read_only";
+// The format version the file was saved at, above [`CURRENT_CANOPI_FILE_VERSION`].
+saved_by_version: number; plant_count: number; zone_count: number;
+// `None` when the Design has no plants or zones yet.
+bounds: DesignGroundBounds | null; sketch: DesignSketch | null } |
+/**
+ *  The file is larger than previews read; the row shows its name, and says it is
+ *  read-only when a newer Canopi saved it and Open still reads it (2.1-Q316).
+ */
+{ kind: "too_large";
+// Saved by a newer Canopi, within the size Open reads: Open shows it read-only.
+saved_by_newer: boolean } |
 // The file cannot be opened, and why when that is known.
 { kind: "unreadable"; reason: RecentDesignUnreadableReason };
 
@@ -1219,6 +1336,11 @@ export type SavedObjectStamp = {
 	sort_order: number,
 	created_at: string,
 	updated_at: string,
+	/**
+	 *  The payload is newer than this build reads (above v2): listed as needing a newer Canopi, never placed,
+	 *  renamed, reordered or deleted (2.1-M88). Computed by the owner's listing query; absent reads as false.
+	 */
+	needs_newer?: boolean,
 };
 
 export type SavedView = {
@@ -1901,6 +2023,18 @@ export const FAILURE_CATALOGUE: { readonly [K in FailureCode["kind"]]: FailureRo
     "silent": true,
     "level": "info"
   },
+  "format_core_trapped": {
+    "source": "format_core",
+    "user_may_retry": true,
+    "silent": false,
+    "level": "error"
+  },
+  "format_core_unavailable": {
+    "source": "format_core",
+    "user_may_retry": true,
+    "silent": false,
+    "level": "warn"
+  },
   "internal": {
     "source": "native_service",
     "user_may_retry": false,
@@ -1948,6 +2082,12 @@ export const FAILURE_CATALOGUE: { readonly [K in FailureCode["kind"]]: FailureRo
     "user_may_retry": false,
     "silent": false,
     "level": "warn"
+  },
+  "store_read_only": {
+    "source": "read_only_store",
+    "user_may_retry": false,
+    "silent": true,
+    "level": "info"
   },
   "style_failed": {
     "source": "map",

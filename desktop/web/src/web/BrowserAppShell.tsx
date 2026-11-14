@@ -8,7 +8,7 @@ import { PlaceSearchField } from "../components/canvas/PlaceSearch";
 import { ToolIcon } from "../components/canvas/toolbar-icons";
 import { ButtonTooltip } from "../components/shared/ButtonTooltip";
 import { ControlIcon } from "../components/shared/ControlIcon";
-import { DesignNameField } from "../components/shared/DesignNameField";
+import { DesignNameField, visibleDesignName } from "../components/shared/DesignNameField";
 import { NoticeRow } from "../components/shared/NoticeRow";
 import { installStoreNotices } from "../components/workspace/store-notices";
 import { openProblemReport, ProblemReportDialog } from "../components/shared/ProblemReportDialog";
@@ -33,6 +33,8 @@ interface BrowserAppShellProps {
   readonly onRetrySave?: () => void;
   /** Settles a Draft another browser tab changed. */
   readonly onResolveSaveConflict?: () => void;
+  /** Update while a newer Canopi's Design is shown read-only: the Web reloads to update (2.1-Q317). */
+  readonly onUpdate?: () => void;
   /** Whether the title bar offers the place search (while a Design is open). */
   readonly placeSearch?: boolean;
   /** Undo, which the phone top bar carries in place of the tool rail's history. */
@@ -59,6 +61,7 @@ export function BrowserAppShell({
   onRenameDesign,
   onRetrySave,
   onResolveSaveConflict,
+  onUpdate,
   placeSearch = false,
   undo,
   persistence = null,
@@ -117,7 +120,10 @@ export function BrowserAppShell({
         menus={menus}
         design={designIdentity ? (
           <>
-            <DesignNameField name={designIdentity.name} onRename={(name) => onRenameDesign?.(name)} />
+            {/* A read-only Design (one a newer Canopi saved) is shown, never renamed (2.1-Q315). */}
+            {designIdentity.saveStatus === "read-only"
+              ? <span className={titleBarStyles.nameText}>{visibleDesignName(designIdentity.name)}</span>
+              : <DesignNameField name={designIdentity.name} onRename={(name) => onRenameDesign?.(name)} />}
             <SaveStatusLabel
               status={designIdentity.saveStatus}
               failureReason={designIdentity.saveFailureReason}
@@ -130,6 +136,8 @@ export function BrowserAppShell({
               onRetry={() => onRetrySave?.()}
               conflictSource="another-tab"
               onResolveConflict={onResolveSaveConflict}
+              readOnlyOrigin={designIdentity.readOnlyOrigin}
+              onUpdate={onUpdate}
             />
           </>
         ) : undefined}

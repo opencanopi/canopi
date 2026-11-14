@@ -147,7 +147,6 @@
     "desktop/web/src/components/shared/DesignSketchThumbnail.tsx: knip:exports/plantsPath": { "count": 1 },
     "desktop/web/src/components/shared/DesignSketchThumbnail.tsx: knip:exports/zonesPath": { "count": 1 },
     "desktop/web/src/components/shared/PhoneSheet.tsx: knip:exports/PHONE_SHEET_TABS": { "count": 1 },
-    "desktop/web/src/components/shared/StartScreen.tsx: knip:types/StartScreenDraft": { "count": 1 },
     "desktop/web/src/components/stories/RichTextEditor.tsx: knip:exports/insertAtCaret": { "count": 1 },
     "desktop/web/src/components/workspace/WorkspaceComposition.tsx: knip:exports/validateWorkspaceSurfaces": { "count": 1 },
     "desktop/web/src/maplibre/openfreemap-basemap.ts: knip:exports/OPENFREEMAP_BASEMAPS": { "count": 1 },

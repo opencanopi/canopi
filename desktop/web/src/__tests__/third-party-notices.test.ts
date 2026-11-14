@@ -29,6 +29,8 @@ interface Generator {
   bundledPackages(options: { dir: string; run(edition: string): void }): Row[]
   CARGO_ABOUT_VERSION: string
   cargoAboutVersionProblem(versionOutput: string): string | null
+  ABOUT_RUNS: readonly (readonly string[])[]
+  linkedCrates(aboutOutput: (args: readonly string[]) => string): Row[]
 }
 const generator = (await import(pathToFileURL(resolve(root, 'scripts/generate_notices.mjs')).href)) as Generator
 
@@ -169,6 +171,22 @@ describe('the notices generator', () => {
       { name: 'serde', license: 'MIT OR Apache-2.0', texts: [mit('serde')] },
       { name: 'ring', license: 'Apache-2.0 AND ISC', texts: ['Apache\n', mit('serde')] },
     ])
+  })
+
+  // The Web edition ships Rust crates too, inside the format worker's .wasm: a crate only it compiles in (wasm-bindgen)
+  // must be named, so cargo-about runs a second time over canopi-format-wasm on wasm32.
+  it('canopi-f47t.52.270: names the crates compiled into the format worker\'s .wasm, cargo-about over canopi-format-wasm on wasm32', () => {
+    const registry = 'registry+https://github.com/rust-lang/crates.io-index'
+    const about = (crates: string[]) => JSON.stringify({
+      crates: crates.map((name) => ({ name, license: 'MIT', source: registry })),
+      licenses: crates.map((name) => ({ text: mit(name), used_by: [{ name, source: registry }] })),
+    })
+    const wasmRun = generator.ABOUT_RUNS.find((args) => args.includes('canopi-format-wasm/Cargo.toml'))
+    expect(wasmRun).toEqual(['about', 'generate', '--frozen', '-m', 'canopi-format-wasm/Cargo.toml', '--target', 'wasm32-unknown-unknown', '-c', 'about.toml', 'about.hbs'])
+    expect(generator.ABOUT_RUNS.find((args) => args.includes('desktop/Cargo.toml'))).not.toContain('--target')
+    const crates = generator.linkedCrates((args) => (args === wasmRun ? about(['serde', 'wasm-bindgen']) : about(['serde', 'tauri'])))
+    const text = generator.renderNotices({ handRows: fixtureHand, npm: npmFixture, crates: generator.crateTexts(crates, {}) })
+    expect(generator.parseNotices(text).crates.map((row) => row.name)).toEqual(['serde', 'tauri', 'wasm-bindgen'])
   })
 
   // cargo-about falls back to the SPDX template when it finds no licence file in a crate's source; the template's
@@ -368,6 +386,10 @@ describe('THIRD_PARTY_NOTICES.md', () => {
       section[1]!.split('\n').filter((line) => /^[\w-]+ = /.test(line) && !/optional = true|path = /.test(line)).map((line) => line.split(' ')[0]!))
     expect(runtime).toContain('wbgeotiff')
     for (const name of runtime) expect(rows.crates.map((row) => row.name), name).toContain(name)
+  })
+
+  it('canopi-f47t.52.270: names the crates the Web format worker\'s .wasm carries that the Desktop binary does not', () => {
+    for (const name of ['wasm-bindgen', 'wasm-bindgen-shared']) expect(rows.crates.map((row) => row.name), name).toContain(name)
   })
 
   it('carries the hand rows: copied code, the GeoLibre CLI sidecar, the CRS data, fonts and map data', () => {

@@ -84,6 +84,7 @@
     "platform/open-failure.desktop.ts -> app/document-session/open-failure.ts": { "count": 1 },
     "platform/problem-report.desktop.ts -> app/problem-report/attachments.ts": { "count": 1, "bead": "canopi-f47t.52.36" },
     "platform/settings.browser.ts -> app/settings/platform-adapter.ts": { "count": 1 },
+    "platform/settings.browser.ts -> canvas/runtime/input/platform.ts": { "count": 1, "bead": "canopi-pqxl" },
     "platform/settings.browser.ts -> web/browser-app-data.ts": { "count": 1 },
     "platform/settings.desktop.ts -> app/settings/platform-adapter.ts": { "count": 1 },
     "utils/theme.ts -> app/settings/projection.ts": { "count": 1 },

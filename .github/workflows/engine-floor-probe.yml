@@ -1,0 +1,182 @@
+name: Engine floor probe
+
+# Step 2.0.4 U-2 (canopi-4kfl): a Mac user on an old Safari saw an empty window. This probe boots both built editions in
+# old Playwright WebKit images, with and without WebGL, runs a classic error-capture listener page with a module
+# SyntaxError and a 404 module, and logs each engine's user agent (desktop/web/e2e/floor/boot-probe.spec.ts says what
+# each test holds). Today's three engines run it as the control. Each `FLOOR-` line lands in the job summary.
+# U-2 measured the floor there (Safari 16.4); U-3 holds it (desktop/web/engine-floor.ts, 2.1-Q327): a class static block
+# parses at and above the floor and is refused below it, and the Web Edition's format worker starts straight from
+# dist-web/assets and answers at and above the floor (the R1-1 hand-off). The inverted step then serves a dist-web whose
+# worker does not compile, and the same test must go red there, so its green is never one that checked nothing.
+#
+# Each old image runs the runner it was built for (an image's browsers speak only their own Playwright's protocol), so
+# here the spec runs without the repository's Playwright config, from a scratch package that installs that runner.
+# The old images are pinned by digest and make no baselines; the control image is the locked one. WebKit per image:
+# Playwright 1.20.0 ships WebKit 15.4, 1.24.0 WebKit 16.0, 1.28.0 WebKit 16.4 and 1.36.0 WebKit 17.0 (each row's
+# FLOOR-UA line confirms its own).
+#
+# A dispatch, or a pull request into main that changes this file (GitHub dispatches only a workflow already on main):
+# a probe that informs a decision, never a required check (2.1-Q222).
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - .github/workflows/engine-floor-probe.yml
+
+concurrency:
+  group: engine-floor-probe-${{ github.run_id }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: desktop/web
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: desktop/web/package-lock.json
+      - name: Install frontend deps
+        run: npm ci --no-audit --no-fund
+      - uses: dtolnay/rust-toolchain@1.97.1
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: wasm-bindgen@0.2.130
+      - name: Build both editions
+        run: |
+          npm run build
+          npm run build:web
+      - uses: actions/upload-artifact@v7
+        with:
+          name: engine-floor-bundles
+          path: |
+            desktop/web/dist/
+            desktop/web/dist-web/
+          if-no-files-found: error
+          retention-days: 7
+
+  engines:
+    name: ${{ matrix.label }}
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # The control: today's runner (the lockfile's version) and its three engines.
+          - label: current
+            image: mcr.microsoft.com/playwright:v1.64.1-noble
+            playwright: locked
+            browsers: all
+            floor: above
+          - label: webkit-17.0
+            image: mcr.microsoft.com/playwright@sha256:3d3619bf5e622d264f519bffd3aa321d061bf420688eda8a5143da7884b36a6b
+            playwright: 1.36.0
+            browsers: webkit
+            floor: above
+          - label: webkit-16.4
+            image: mcr.microsoft.com/playwright@sha256:005384a627bd71a0791e993d017907d31c9798e6b082d794a36e80213520c0a9
+            playwright: 1.28.0
+            browsers: webkit
+            floor: at
+          - label: webkit-16.0
+            image: mcr.microsoft.com/playwright@sha256:4907c7139c5038265bc84adf0a3ee6d0c04f2b7b4f423268360988ab5728e6a5
+            playwright: 1.24.0
+            browsers: webkit
+            floor: below
+          # The oldest image runs the listener page too: the guard must hear a SyntaxError and a 404 there.
+          - label: webkit-15.4
+            image: mcr.microsoft.com/playwright@sha256:9a72a2ef95fdca5317f62d5c5bd8ed7d6ae9231691a12b8f5d4b8b4a2e0828f4
+            playwright: 1.20.0
+            browsers: webkit
+            floor: below
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          name: engine-floor-bundles
+          path: desktop/web
+      # The spec and the two app modules it imports (detectPlatform, ENGINE_FLOOR) are copied into a scratch package
+      # inside the image, which installs the image's own runner; the built editions are read from the mounted checkout.
+      # `shell: bash` runs with pipefail, so a failing spec or install turns the row red through the `tee`.
+      # At and above the floor the inverted step follows: the format worker test over a dist-web whose worker is a
+      # module no engine compiles must fail after reaching its probe (its FLOOR-FORMAT-WORKER line), else the row is red.
+      - name: Boot both editions and the listener page (${{ matrix.label }})
+        shell: bash
+        env:
+          IMAGE: ${{ matrix.image }}
+          PLAYWRIGHT: ${{ matrix.playwright }}
+          BROWSERS: ${{ matrix.browsers }}
+          LABEL: ${{ matrix.label }}
+          FLOOR: ${{ matrix.floor }}
+        run: |
+          version="$PLAYWRIGHT"
+          if [ "$version" = locked ]; then
+            version="$(node -p "require('./desktop/web/package-lock.json').packages['node_modules/@playwright/test'].version")"
+          fi
+          mkdir -p floor-results
+          docker run --rm --ipc=host \
+            -v "$GITHUB_WORKSPACE:/repo:ro" -v "$GITHUB_WORKSPACE/floor-results:/out" \
+            -e PW_VERSION="$version" -e BROWSERS -e LABEL -e FLOOR \
+            -e CANOPI_FLOOR_DIST=/repo/desktop/web/dist -e CANOPI_FLOOR_DIST_WEB=/repo/desktop/web/dist-web \
+            -e CANOPI_FLOOR_FORMAT_SPEC=/repo/canopi-format/spec/v10 \
+            "$IMAGE" sh -c '
+              set -eu
+              mkdir -p /probe/e2e/floor /probe/src/canvas/runtime/input
+              cp /repo/desktop/web/e2e/floor/boot-probe.spec.ts /probe/e2e/floor/
+              cp /repo/desktop/web/src/canvas/runtime/input/platform.ts /probe/src/canvas/runtime/input/
+              cp /repo/desktop/web/engine-floor.ts /probe/
+              cd /probe
+              npm init -y > /dev/null
+              npm install --no-save --no-audit --no-fund --loglevel=error "@playwright/test@$PW_VERSION"
+              npx playwright test e2e/floor --browser="$BROWSERS" --reporter=list --output="/out/$LABEL"
+              if [ "$FLOOR" != below ]; then
+                worker="$(cd "$CANOPI_FLOOR_DIST_WEB/assets" && ls design-core.worker-*.js)"
+                mkdir -p /tmp/broken-web/assets
+                printf "export const = ;\n" > "/tmp/broken-web/assets/$worker"
+                if CANOPI_FLOOR_DIST_WEB=/tmp/broken-web npx playwright test e2e/floor --browser="$BROWSERS" --reporter=list \
+                  --output="/out/$LABEL-inverted" --grep "format worker starts" > /tmp/inverted.log 2>&1; then
+                  cat /tmp/inverted.log
+                  echo "FLOOR-INVERTED red: the format worker test stayed green over a worker that does not compile"
+                  exit 1
+                fi
+                cat /tmp/inverted.log
+                if ! grep -q "^FLOOR-FORMAT-WORKER " /tmp/inverted.log; then
+                  echo "FLOOR-INVERTED red: the format worker test failed before reaching its probe"
+                  exit 1
+                fi
+                echo "FLOOR-INVERTED ok: the format worker test went red over a worker that does not compile"
+              fi
+            ' 2>&1 | tee "floor-results/$LABEL.log"
+
+      - name: Summarise the rows
+        if: ${{ !cancelled() }}
+        env:
+          LABEL: ${{ matrix.label }}
+        run: |
+          {
+            echo "### $LABEL"
+            echo '```'
+            grep -h '^FLOOR-' "floor-results/$LABEL.log" || echo 'no FLOOR- line: the run stopped before any test wrote one'
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v7
+        if: ${{ !cancelled() }}
+        with:
+          name: engine-floor-${{ matrix.label }}
+          path: floor-results/
+          if-no-files-found: error
+          retention-days: 30

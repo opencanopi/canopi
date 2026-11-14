@@ -110,6 +110,125 @@ pub enum LibraryItemRole {
     Derived,
 }
 
+// Catalogue 26's stored enums (contracts §7 Stored enums and §8; 2.1-M488). Each has one `literal()`, its
+// stored spelling in the catalogue column, the CHECK and the wire, and an `ALL` table the catalogue steps
+// generate their CHECK text from. The frozen `catalogue-26.sql` lists these literals verbatim, and a test in
+// `services/lidar/catalogue.rs` holds every frozen literal to `ALL`, so a literal is never removed or respelled.
+// Parsing a stored literal belongs to the library's one row decoder; these types offer no parse.
+
+/// The kind of one Data library item, stored in `library_items.kind` from catalogue 26.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Type)]
+#[serde(rename_all = "snake_case")]
+pub enum LibraryItemKind {
+    /// A gridded item: an imported elevation model or an analysis raster.
+    Raster,
+    /// Vector features: bring-your-own vectors and hydrology outputs (2.1-Q100).
+    Vector,
+}
+
+impl LibraryItemKind {
+    /// Every kind, in declaration order.
+    pub const ALL: [Self; 2] = [Self::Raster, Self::Vector];
+
+    /// The stored literal.
+    pub const fn literal(self) -> &'static str {
+        match self {
+            Self::Raster => "raster",
+            Self::Vector => "vector",
+        }
+    }
+}
+
+/// Where a library item came from, stored as `library_items.lineage_tag` from catalogue 26. The tag only:
+/// what an analysis or external item also records lives in its lineage's own detail table.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Type)]
+#[serde(rename_all = "snake_case")]
+pub enum Lineage {
+    /// Imported by the user from a file.
+    Source,
+    /// Produced by a registered analysis; the only lineage that can be out of date and refreshed.
+    Analysis,
+    /// Made by another tool, recorded with that tool, its date, notes and links.
+    External,
+}
+
+impl Lineage {
+    /// Every lineage, in declaration order.
+    pub const ALL: [Self; 3] = [Self::Source, Self::Analysis, Self::External];
+
+    /// The stored literal.
+    pub const fn literal(self) -> &'static str {
+        match self {
+            Self::Source => "source",
+            Self::Analysis => "analysis",
+            Self::External => "external",
+        }
+    }
+}
+
+/// The stored state of one `library_jobs` row (contracts §8), for imports and analyses alike.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Type)]
+#[serde(rename_all = "snake_case")]
+pub enum LibraryJobState {
+    /// Submitted, waiting for the runner.
+    Queued,
+    /// The runner is working on it.
+    Running,
+    /// The work returned or was cancelled; its result is being published or discarded.
+    Settling,
+    /// Final; the row's outcome says how it ended.
+    Settled,
+}
+
+impl LibraryJobState {
+    /// Every state, in declaration order.
+    pub const ALL: [Self; 4] = [Self::Queued, Self::Running, Self::Settling, Self::Settled];
+
+    /// The stored literal.
+    pub const fn literal(self) -> &'static str {
+        match self {
+            Self::Queued => "queued",
+            Self::Running => "running",
+            Self::Settling => "settling",
+            Self::Settled => "settled",
+        }
+    }
+}
+
+/// How a settled `library_jobs` row ended (contracts §8); present exactly when the state is settled.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Type)]
+#[serde(rename_all = "snake_case")]
+pub enum LibraryJobOutcome {
+    /// Published.
+    Succeeded,
+    /// Discarded with a failure, which the row stores as catalogue JSON.
+    Failed,
+    /// Cancelled by the user.
+    Cancelled,
+    /// Stopped by quit, or found unfinished at open; offers Run again.
+    Interrupted,
+}
+
+impl LibraryJobOutcome {
+    /// Every outcome, in declaration order.
+    pub const ALL: [Self; 4] = [
+        Self::Succeeded,
+        Self::Failed,
+        Self::Cancelled,
+        Self::Interrupted,
+    ];
+
+    /// The stored literal.
+    pub const fn literal(self) -> &'static str {
+        match self {
+            Self::Succeeded => "succeeded",
+            Self::Failed => "failed",
+            Self::Cancelled => "cancelled",
+            Self::Interrupted => "interrupted",
+        }
+    }
+}
+
 /// State of one analysis job.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
 #[expect(
@@ -352,6 +471,12 @@ pub struct LibraryItemSummary {
     /// When the item was added to the library: its catalogue row's
     /// `created_at`, Unix milliseconds as text, for sorting by Recently added.
     pub created_at: String,
+    /// The kind a `NeedsNewer` item's newer catalogue stores, the type its row is listed by (2.1-Q318); absent on
+    /// any other item and when this build does not know the literal. Interim: N1's summary carries the item's kind
+    /// itself and deletes this field.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[specta(optional)]
+    pub newer_kind: Option<LibraryItemKind>,
 }
 
 /// The engines library work depends on.
@@ -432,7 +557,7 @@ pub const PROCESSING_HISTORY_PAGE: i64 = 50;
 
 #[cfg(test)]
 mod tests {
-    use super::RasterQuantity;
+    use super::{LibraryItemKind, LibraryJobOutcome, LibraryJobState, Lineage, RasterQuantity};
 
     #[test]
     fn quantity_keys_round_trip_and_only_sources_are_importable() {
@@ -442,5 +567,29 @@ mod tests {
         assert_eq!(RasterQuantity::from_key("elevation"), None);
         assert!(RasterQuantity::GroundElevation.is_importable());
         assert!(!RasterQuantity::Slope.is_importable());
+    }
+
+    /// Each stored enum's `ALL` lists every variant once, and serde writes exactly its stored literal, so the
+    /// wire, the TypeScript union and the catalogue CHECK spell a value one way (contracts §7 Stored enums).
+    fn assert_stored_enum<T>(all: &[T], literal: fn(T) -> &'static str)
+    where
+        T: Copy + std::fmt::Debug + PartialEq + serde::Serialize + serde::de::DeserializeOwned,
+    {
+        let mut seen = std::collections::BTreeSet::new();
+        for &value in all {
+            assert!(seen.insert(literal(value)), "{value:?} repeats a literal");
+            let wire = serde_json::to_value(value).unwrap_or_default();
+            assert_eq!(wire, serde_json::json!(literal(value)), "{value:?}");
+            let back: Option<T> = serde_json::from_value(wire).ok();
+            assert_eq!(back, Some(value));
+        }
+    }
+
+    #[test]
+    fn r2_canopi_f47t_52_271_catalogue_26_stored_enums_serialise_as_their_literals() {
+        assert_stored_enum(&LibraryItemKind::ALL, LibraryItemKind::literal);
+        assert_stored_enum(&Lineage::ALL, Lineage::literal);
+        assert_stored_enum(&LibraryJobState::ALL, LibraryJobState::literal);
+        assert_stored_enum(&LibraryJobOutcome::ALL, LibraryJobOutcome::literal);
     }
 }

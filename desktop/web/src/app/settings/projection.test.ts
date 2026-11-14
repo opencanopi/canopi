@@ -18,7 +18,7 @@ import {
   retrySettingsLoad,
   type SettingsProjectionInstallation,
 } from './projection'
-import { theme } from './state'
+import { scrollWheel, theme } from './state'
 
 const SETTINGS_KEY = 'canopi:web-app-data:v3:settings'
 
@@ -231,6 +231,79 @@ describe('Web settings load failures', () => {
     await install(adapter.load, adapter.save)
     expect(storeStatus('settings')).toEqual({ kind: 'ready' })
     expect(theme.value).toBe('dark')
+  })
+
+  it('R3 canopi-f47t.52.272: settings record 2 a newer Canopi saved loads and stays newer_read_only, never ready (2.1-Q320)', async () => {
+    const storage = memoryStorage({
+      'canopi:web-app-data:v4:settings': JSON.stringify({ version: 2, theme: 'dark', snap_to_grid: true }),
+    })
+    const adapter = createBrowserSettingsPlatformAdapter(createBrowserAppDataStore({ storage, session: memoryStorage() }))
+    await install(adapter.load, adapter.save)
+    expect(storeStatus('settings')).toEqual({ kind: 'newer_read_only' })
+    expect(theme.value).toBe('dark')
+    expect(snapToGridEnabled.value).toBe(true)
+  })
+})
+
+// 2.1-Q309, 2.1-M473: settings that cannot be read run on the platform's first-run default (Trackpad on a Mac) in memory,
+// writing nothing; a choice the session made, or a record read later, keeps its own.
+describe('unreadable settings on the platform\'s first-run default (canopi-pqxl)', () => {
+  const trackpad = (): Partial<Settings> => ({ scroll_wheel: 'pan' })
+
+  beforeEach(() => { scrollWheel.value = 'zoom' })
+
+  async function installFailing(load: () => Settings | Promise<Settings>, save: (settings: Settings) => Promise<void>) {
+    installation = installSettingsProjection({ load, save, firstRunSettings: trackpad })
+    const ready = installation.ready.catch(() => undefined)
+    await vi.runAllTimersAsync()
+    await ready
+  }
+
+  it('U canopi-pqxl: settings that cannot be read start on the platform\'s first-run default and write nothing', async () => {
+    const save = vi.fn(async (_settings: Settings) => undefined)
+    await installFailing(() => Promise.reject(new Error('locked')), save)
+
+    expect(storeStatus('settings')).toMatchObject({ kind: 'unavailable' })
+    expect(scrollWheel.value).toBe('pan')
+    await flushSettingsProjection().catch(() => undefined)
+    expect(save).not.toHaveBeenCalled()
+  })
+
+  it('U canopi-pqxl: a choice made while the first read is pending stays over the first-run default', async () => {
+    let fail!: (error: Error) => void
+    const load = vi.fn<() => Promise<Settings>>()
+      .mockImplementationOnce(() => new Promise<Settings>((_resolve, reject) => { fail = reject }))
+      .mockRejectedValue(new Error('locked'))
+    installation = installSettingsProjection({ load, save: async () => undefined, firstRunSettings: trackpad })
+    const ready = installation.ready.catch(() => undefined)
+
+    mutateSettingsProjection((draft) => { draft.scrollWheel = 'pan' })
+    mutateSettingsProjection((draft) => { draft.scrollWheel = 'zoom' })
+    mutateSettingsProjection((draft) => { draft.theme = 'dark' })
+    fail(new Error('locked'))
+    await vi.runAllTimersAsync()
+    await ready
+
+    expect(storeStatus('settings')).toMatchObject({ kind: 'unavailable' })
+    expect(theme.value).toBe('dark')
+    expect(scrollWheel.value).toBe('zoom')
+  })
+
+  it('U canopi-pqxl: Try again reading a stored Mouse choice replaces the first-run default', async () => {
+    const load = vi.fn<() => Promise<Settings>>().mockRejectedValue(new Error('locked'))
+    await installFailing(load, async () => undefined)
+    expect(scrollWheel.value).toBe('pan')
+
+    load.mockResolvedValue(storedSettingsAsSettings({ scroll_wheel: 'zoom' }))
+    await retrySettingsLoad()
+
+    expect(storeStatus('settings')).toEqual({ kind: 'ready' })
+    expect(scrollWheel.value).toBe('zoom')
+  })
+
+  it('U canopi-pqxl: a platform with no first-run default keeps the host-independent defaults', async () => {
+    await install(() => Promise.reject(new Error('locked')), async () => undefined)
+    expect(scrollWheel.value).toBe('zoom')
   })
 })
 

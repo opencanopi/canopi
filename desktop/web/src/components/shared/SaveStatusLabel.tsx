@@ -2,6 +2,7 @@ import type { RefObject } from 'preact'
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'preact/hooks'
 import type { DesignSaveStatus } from '../../app/document-session/continuous-save'
 import { saveProblem, type SaveConflictSource } from '../../app/document-session/save-problem'
+import type { ReadOnlyOrigin } from '../../app/document-session/store'
 import { t } from '../../i18n'
 import { ControlIcon } from './ControlIcon'
 import styles from './save-status-label.module.css'
@@ -43,12 +44,22 @@ interface SaveStatusLabelProps {
    * Draft action and, when offered, Keep my Drafts (2.1-Q198). Desktop passes none.
    */
   readonly draftWarning?: DraftWarning | null
-  /** Keeps the work somewhere else when writing failed. */
+  /**
+   * Keeps the work somewhere else: when writing failed, and in a storage-unchecked read-only Design's popover (the Web's
+   * Download a copy, 2.1-Q334).
+   */
   readonly saveElsewhere: SaveStatusAction
   /** Where a conflicting change came from; omitted: outside Canopi. */
   readonly conflictSource?: SaveConflictSource
   onRetry(): void
   onResolveConflict?(): void
+  /** Why the read-only status is read-only; its popover says so. Absent: a newer Canopi saved it. */
+  readonly readOnlyOrigin?: ReadOnlyOrigin | undefined
+  /**
+   * Update, in the read-only status's popover while a newer Canopi's Design is shown (2.1-Q317, Q336): Desktop checks
+   * for updates, the Web reloads. Absent, or storage not checked: the popover has no action.
+   */
+  onUpdate?(): void
 }
 
 /**
@@ -65,6 +76,8 @@ export function SaveStatusLabel({
   conflictSource,
   onRetry,
   onResolveConflict,
+  readOnlyOrigin = 'newer-version',
+  onUpdate,
 }: SaveStatusLabelProps) {
   // Web (a link-style Draft action) can focus the status itself when its warning leaves under focus.
   const statusRef = useRef<HTMLSpanElement>(null)
@@ -102,6 +115,7 @@ export function SaveStatusLabel({
           <SaveFailureDetails reason={failureReason} onRetry={onRetry} saveElsewhere={saveElsewhere} />
         </>
       )}
+      {status === 'read-only' && <ReadOnlyDesignDetails origin={readOnlyOrigin} onUpdate={onUpdate} keepCopy={saveElsewhere} />}
       {status === 'conflict' && (
         <>
           <span className={styles.errorText} role="alert"><ControlIcon name="alert" /><span className={styles.label}>{t(conflictSource === 'another-tab' ? 'saveStatus.conflictAnotherTab' : 'saveStatus.conflict')}</span></span>
@@ -208,6 +222,78 @@ function DraftWarningDetails({ warning, draftAction, fallbackFocus }: {
               </button>
             )}
           </div>
+        </div>
+      )}
+    </span>
+  )
+}
+
+/**
+ * A read-only Design (2.1-Q317, M478, Q336): muted, never red, as nothing failed. The bar shows only its icon and
+ * "Read-only"; the label opens a popover that says why by origin: a newer Canopi saved it, with Update, or the browser's
+ * storage could not be checked (Q334), where updating does not help and it offers File's Download a copy instead.
+ */
+function ReadOnlyDesignDetails({ origin, onUpdate, keepCopy }: {
+  readonly origin: ReadOnlyOrigin
+  readonly onUpdate: (() => void) | undefined
+  readonly keepCopy: SaveStatusAction
+}) {
+  const [open, setOpen] = useState(false)
+  const trigger = useRef<HTMLButtonElement>(null)
+  const popover = useRef<HTMLDivElement>(null)
+  const titleId = useId()
+  const descriptionId = useId()
+  usePopover(trigger, popover, open, setOpen)
+  const action = origin === 'newer-version'
+    ? (onUpdate ? { label: t('readOnlyDesign.update'), run: onUpdate } : null)
+    : keepCopy
+
+  function close(): void {
+    setOpen(false)
+    trigger.current?.focus()
+  }
+
+  return (
+    <span className={styles.detailsAnchor} data-preserve-overlays="true">
+      <span className={styles.warningStatus} role="status">
+        <button
+          ref={trigger}
+          type="button"
+          className={styles.warningTrigger}
+          aria-haspopup="dialog"
+          aria-expanded={open}
+          onClick={() => setOpen(!open)}
+        >
+          <ControlIcon name="info" /><span className={styles.label}>{t('readOnlyDesign.label')}</span>
+        </button>
+      </span>
+      {open && (
+        <div
+          ref={popover}
+          className={styles.popover}
+          role="dialog"
+          aria-labelledby={titleId}
+          aria-describedby={descriptionId}
+          onKeyDown={(event) => {
+            if (event.key !== 'Escape') return
+            event.preventDefault()
+            event.stopPropagation()
+            close()
+          }}
+        >
+          <h2 className={styles.popoverTitle} id={titleId}>
+            {t(origin === 'newer-version' ? 'readOnlyDesign.status' : 'readOnlyDesign.label')}
+          </h2>
+          <p className={styles.popoverText} id={descriptionId}>
+            {t(origin === 'newer-version' ? 'readOnlyDesign.details' : 'webStorage.uncheckedReadOnly')}
+          </p>
+          {action && (
+            <div className={styles.popoverActions}>
+              <button type="button" className={styles.primary} onClick={() => { close(); action.run() }}>
+                {action.label}
+              </button>
+            </div>
+          )}
         </div>
       )}
     </span>

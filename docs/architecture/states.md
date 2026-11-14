@@ -335,7 +335,7 @@ stateDiagram-v2
   ready --> loading: recycle after a large open, once idle
 ```
 
-- Owner: `platform/design-core.worker.ts` (2.1) on both editions, the only importer of the `canopi-format-wasm` (2.1) glue; every call settles exactly once and nothing retries silently.
+- Owner: `platform/design-core.worker.ts` on both editions, the only importer of the `canopi-format-wasm` glue; every call settles exactly once and nothing retries silently.
 
 ### Web library worker
 

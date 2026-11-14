@@ -1,0 +1,16 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "indexeddb-only-in-adapters",
+  "ledger": "2.1-M190",
+  "tool": "ast-grep",
+  "scope": [
+    "desktop/web/src/**"
+  ],
+  "lane": "commit",
+  "keys": "path",
+  "select": [
+    "indexeddb-only-in-adapters"
+  ],
+  "entries": {}
+}

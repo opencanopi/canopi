@@ -1,5 +1,8 @@
 {
   "bundle": {
-    "fileAssociations": null
+    "fileAssociations": null,
+    "macOS": {
+      "signingIdentity": "-"
+    }
   }
 }

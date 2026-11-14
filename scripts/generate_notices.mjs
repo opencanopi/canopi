@@ -5,8 +5,9 @@
 //   - the npm packages each build bundles, app chunks and workers, which rollup-plugin-license reads from Rolldown's
 //     module graph and desktop/web/vite.config.ts writes to desktop/web/node_modules/.canopi-notices/<edition>.json,
 //     with the licence and notice files of their installed copies (package-lock.json names the copies);
-//   - the crates the Desktop binary links on its release targets, with the licence texts in their sources, from
-//     cargo-about (about.toml, about.hbs), the version CARGO_ABOUT_VERSION pins, run offline;
+//   - the crates the Desktop binary links on its release targets and those the Web format worker's module compiles in
+//     on wasm32 (ABOUT_RUNS), with the licence texts in their sources, from cargo-about (about.toml, about.hbs), the
+//     version CARGO_ABOUT_VERSION pins, run offline;
 //   - the hand rows of scripts/notices-hand-rows.json: copied code, the GeoLibre CLI sidecar, data, fonts, and a
 //     licence or licence text for a package or crate whose manifest or files carry none (cargo-about's fallback SPDX
 //     template, whose placeholders stand where the copyright line belongs, is refused).
@@ -18,7 +19,7 @@
 // The generator builds both editions itself (npm run build:<edition>:bundle), so one command is the whole lane:
 //   cd desktop/web && npm run generate:notices   # write (a temporary name and a rename; byte-identical on a rerun)
 //   cd desktop/web && npm run check:notices      # fail when the file differs, never write; CI's notices job runs it
-//   ... -- --crates <file>                         # cargo-about's about.hbs output, instead of running cargo-about
+//   ... -- --crates <file> --crates <file>         # cargo-about's about.hbs output per run, instead of running it
 import { execFileSync, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
@@ -32,7 +33,7 @@ export const HAND_ROWS_PATH = join(ROOT, 'scripts', 'notices-hand-rows.json');
 export const BUNDLED_LIST_DIR = join(ROOT, 'desktop', 'web', 'node_modules', '.canopi-notices');
 const EDITIONS = ['desktop', 'web'];
 const NPM_HEADING = '## npm packages in the app bundle';
-const CRATES_HEADING = '## Rust crates in the Desktop binary';
+const CRATES_HEADING = '## Rust crates in the Desktop binary and the Web format worker';
 const TEXTS_HEADING = '## Licence texts';
 const ROW = /^\| `([^`]+)` \| (.+) \| ([0-9a-f]{8}(?:, [0-9a-f]{8})*) \|$/gm;
 const TEXT = /^### ([0-9a-f]{8})\n\n(`{3,})\n([\s\S]*?)\n\2$/gm;
@@ -136,7 +137,7 @@ export function renderNotices({ handRows, npm, crates }) {
     'Bundled by the Desktop or the Web build, app chunks and workers (rollup-plugin-license over Rolldown\'s module graph). Each row names its licence and notice texts, written once each under Licence texts.', '',
     ...table('Package', keyed(npm, handRows.clarifications.npm, 'npm package', texts)), '',
     CRATES_HEADING, '',
-    'Linked into the Desktop binary on its release targets (cargo-about over `desktop/Cargo.toml`\'s normal dependencies), with the licence texts in each crate\'s source.', '',
+    'Linked into the Desktop binary on its release targets (cargo-about over `desktop/Cargo.toml`\'s normal dependencies) or compiled into the Web format worker\'s module (over `canopi-format-wasm/Cargo.toml` for wasm32), with the licence texts in each crate\'s source.', '',
     ...table('Crate', keyed(crates, handRows.clarifications.crates, 'crate', texts)), '',
     TEXTS_HEADING, '',
     'Each licence and notice text above, with its copyright lines, once however many packages carry it.', '',
@@ -256,24 +257,40 @@ function buildEdition(edition) {
   spawnSync(`npm run build:${edition}:bundle`, { cwd: join(ROOT, 'desktop', 'web'), shell: true, stdio: 'inherit' });
 }
 
-function readCrates(file) {
-  if (!file) {
+/**
+ * The cargo-about runs whose crates the file names, each `cargo about generate` with about.toml and about.hbs: the
+ * Desktop binary on about.toml's release targets, and the Web format worker's module (canopi-format-wasm, Step 2.0.4)
+ * on wasm32, whose crates the Web edition ships inside the .wasm.
+ */
+export const ABOUT_RUNS = [
+  ['-m', 'desktop/Cargo.toml'],
+  ['-m', 'canopi-format-wasm/Cargo.toml', '--target', 'wasm32-unknown-unknown'],
+].map((scope) => ['about', 'generate', '--frozen', ...scope, '-c', 'about.toml', 'about.hbs']);
+
+/** The crates of every cargo-about run, from each run's about.hbs output (`aboutOutput(args)`), in ABOUT_RUNS order. */
+export function linkedCrates(aboutOutput) {
+  return ABOUT_RUNS.flatMap((args) => cratesFromAbout(aboutOutput(args)));
+}
+
+/** Runs cargo-about after refusing another version, or reads the outputs given with `--crates`, one file per run. */
+function readCrates(files) {
+  if (!files.length) {
     const problem = cargoAboutVersionProblem(execFileSync('cargo', ['about', '--version'], { cwd: ROOT, encoding: 'utf8' }));
     if (problem) throw new Error(problem);
+  } else if (files.length !== ABOUT_RUNS.length) {
+    throw new Error(`--crates takes one cargo-about output per run, ${ABOUT_RUNS.length}: ${ABOUT_RUNS.map((args) => args.join(' ')).join('; ')}`);
   }
-  const output = file ? readFileSync(file, 'utf8') : execFileSync(
-    'cargo', ['about', 'generate', '--frozen', '-m', 'desktop/Cargo.toml', '-c', 'about.toml', 'about.hbs'],
-    { cwd: ROOT, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, stdio: ['ignore', 'pipe', 'inherit'] },
-  );
-  return cratesFromAbout(output);
+  return linkedCrates((args) => (files.length ? readFileSync(files[ABOUT_RUNS.indexOf(args)], 'utf8') : execFileSync(
+    'cargo', args, { cwd: ROOT, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, stdio: ['ignore', 'pipe', 'inherit'] },
+  )));
 }
 
 function main(argv) {
   const check = argv.includes('--check');
-  const cratesAt = argv.indexOf('--crates');
+  const crateFiles = argv.flatMap((arg, index) => (arg === '--crates' ? [argv[index + 1]] : []));
   // Crates first: a wrong cargo-about fails before the two edition builds, not after them.
   const handRows = JSON.parse(readFileSync(HAND_ROWS_PATH, 'utf8'));
-  const crates = crateTexts(readCrates(cratesAt >= 0 ? argv[cratesAt + 1] : undefined), handRows.clarifications.crates);
+  const crates = crateTexts(readCrates(crateFiles), handRows.clarifications.crates);
   const npm = npmLicenceTexts({
     webDir: join(ROOT, 'desktop', 'web'),
     rows: bundledPackages({ dir: BUNDLED_LIST_DIR, run: buildEdition }),

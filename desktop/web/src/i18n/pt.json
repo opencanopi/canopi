@@ -71,6 +71,7 @@
     "searchLabel": "Pesquisar no catálogo de plantas",
     "details": "Detalhes de {{name}}",
     "addFavoriteNamed": "Adicionar {{name}} aos favoritos",
+    "favoriteNeedsNewer": "Salvo por uma versão mais recente do Canopi. Atualize o Canopi para alterar seus favoritos.",
     "removeFavoriteNamed": "Remover {{name}} dos favoritos",
     "factHeight": "{{height}} m",
     "factHardiness": "USDA {{zones}}",
@@ -124,6 +125,12 @@
       "webSpeciesLists": "Os favoritos e as plantas vistas recentemente que o Canopi salvou estão danificados e não foi possível separá-los, por isso as alterações não serão salvas nesta sessão."
     },
     "newerReadOnly": "Estes dados foram salvos por uma versão mais recente do Canopi. Você pode vê-los, mas as alterações não serão salvas. Atualize o Canopi para editá-los.",
+    "newerReadOnlyStore": {
+      "userDb": "Seus favoritos, carimbos salvos e designs recentes foram salvos por uma versão mais recente do Canopi. Você pode vê-los, mas as alterações não serão salvas. Atualize o Canopi para editá-los.",
+      "settings": "Suas configurações foram salvas por uma versão mais recente do Canopi. As alterações valem até você fechar o Canopi, mas não serão salvas. Atualize o Canopi para mantê-las.",
+      "libraryCatalogue": "A biblioteca de dados foi salva por uma versão mais recente do Canopi. Os itens aparecem na lista, mas as alterações não serão salvas. Atualize o Canopi para usá-los.",
+      "webSpeciesLists": "Seus favoritos e plantas vistas recentemente foram salvos por uma versão mais recente do Canopi. Você pode vê-los, mas as alterações não serão salvas. Atualize o Canopi para editá-los."
+    },
     "refusedNewer": "Estes dados foram salvos por uma versão mais recente do Canopi e não foram abertos. Atualize o Canopi para usá-los.",
     "storeUnavailable": "Não foi possível abrir alguns dados salvos do Canopi. Reinicie o Canopi e relate um problema se isso continuar acontecendo.",
     "fieldsReset": "Algumas configurações tinham valores que o Canopi não podia usar e foram redefinidas para os valores padrão.",
@@ -636,14 +643,19 @@
         "deleteEverywhere": "Excluir de todos",
         "renameEllipsis": "Renomear…",
         "recovered": "O Canopi reconstruiu sua Biblioteca de dados a partir dos arquivos que ele guarda. Os itens marcados como com falha podem ser preparados novamente com Tentar novamente.",
-        "refusedNewer": "A Biblioteca de dados foi salva por uma versão mais recente do Canopi. Instale o Canopi mais recente para usá-la; esta versão não a alterará.",
         "unavailable": "Não foi possível abrir a Biblioteca de dados. Importações e alterações ficam desativadas até que o Canopi reinicie.",
         "sortLabel": "Ordenar",
         "sortRecent": "Adicionados recentemente",
         "factAdded": "Adicionado",
         "deletedItem": "Item excluído",
         "importNeedsDesign": "Abra um design para importar dados",
-        "importCancelled": "Importação cancelada"
+        "importCancelled": "Importação cancelada",
+        "needsNewerNote": "Atualize o Canopi para usar este item.",
+        "newerKind": {
+          "raster": "Dados raster",
+          "unknown": "Dados de um tipo que este Canopi não reconhece",
+          "vector": "Dados vetoriais"
+        }
       },
       "layers": {
         "emptyTitle": "Ainda não há dados do local",
@@ -813,8 +825,11 @@
       "escSelect": "Esc para voltar a Selecionar",
       "escClearRow": "Esc para limpar a fileira",
       "escClearStamp": "Esc para limpar o carimbo",
-      "selectHint": "Arraste para selecionar · Shift-clique adiciona · Alt-clique remove · arrastar com o botão direito move o mapa · a roda dá zoom",
-      "selectHintPan": "Arraste para selecionar · Shift-clique adiciona · Alt-clique remove · dois dedos movem o mapa · pinçar dá zoom",
+      "selectHint": "Arraste para selecionar · Shift-clique adiciona · Alt-clique remove · arrastar com o botão direito move o mapa · a roda dá zoom · para um trackpad: Configurações › Tela › Dispositivo apontador",
+      "selectHintPan": "Arraste para selecionar · Shift-clique adiciona · Alt-clique remove · dois dedos movem o mapa · pinçar dá zoom · para um mouse: Configurações › Tela › Dispositivo apontador",
+      "selectHintTouch": "Arraste para selecionar · Shift-clique adiciona · Alt-clique remove · dois dedos movem o mapa · pinçar dá zoom",
+      "selectHintMac": "Arraste para selecionar · Shift-clique adiciona · Option-clique remove · a roda dá zoom · para um trackpad: Configurações › Tela › Dispositivo apontador",
+      "selectHintMacPan": "Arraste para selecionar · Shift-clique adiciona · Option-clique remove · dois dedos movem o mapa · pinçar dá zoom · para um mouse: Configurações › Tela › Dispositivo apontador",
       "panHint": "Arraste para mover o mapa",
       "stampPick": "Clique em uma planta, zona, nota ou grupo para copiá-lo",
       "stampPlace": "clique para colocar",
@@ -1325,7 +1340,8 @@
     "searchAll": "Pesquisar favoritos e carimbos",
     "remove": "Remover {{name}} dos favoritos",
     "detailsFor": "Detalhes de",
-    "place": "Colocar {{name}}"
+    "place": "Colocar {{name}}",
+    "needsNewerStamp": "Salvo com uma versão mais recente do Canopi; atualize o Canopi para colocá-lo."
   },
   "savedObjectStamps": {
     "title": "Carimbos salvos",
@@ -1622,6 +1638,12 @@
     "resolve": "Resolver…",
     "conflictAnotherTab": "Alterado em outra aba"
   },
+  "readOnlyDesign": {
+    "label": "Somente leitura",
+    "status": "Somente leitura: salvo por uma versão mais recente do Canopi",
+    "details": "Este design foi salvo por uma versão mais recente do Canopi. Você pode vê-lo, mas não pode alterá-lo nem salvá-lo. Atualize o Canopi para editá-lo.",
+    "update": "Atualizar"
+  },
   "saveProblem": {
     "flushFailedTitle": "Não foi possível salvar suas alterações",
     "flushFailedMessage": "O Canopi não conseguiu gravar suas últimas alterações. Tente novamente ou descarte-as para continuar.",
@@ -1802,6 +1824,7 @@
     "region": "Início",
     "purpose": "Projete agroflorestas e florestas de alimentos no mapa do seu terreno.",
     "more": "Mais",
+    "movingAround": "Navegar pelo mapa",
     "searchDesigns": "Pesquisar seus designs",
     "noMatches": "Nenhum design corresponde a “{{query}}”.",
     "recentDesigns": "Designs recentes",
@@ -1827,7 +1850,9 @@
     "cantReadMissing": "Arquivo não encontrado: foi movido ou excluído",
     "cantReadOlderVersion": "Criado com uma versão do Canopi anterior à 2.0; o Canopi 2.0 e posteriores não podem abri-lo",
     "cantReadNewerVersion": "Criado com uma versão mais recente do Canopi; atualize o Canopi para abri-lo",
-    "cantReadDamaged": "Não é possível ler o arquivo: está danificado"
+    "cantReadDamaged": "Não é possível ler o arquivo: está danificado",
+    "rowReadOnly": "Somente leitura: salvo por uma versão mais recente do Canopi",
+    "unreadableDraft": "Salvo por uma versão mais recente do Canopi; esta versão não consegue lê-lo"
   },
   "shortcutKeys": {
     "ctrl": "Ctrl",
@@ -1878,9 +1903,11 @@
     "gestures": {
       "heading": "Mouse, trackpad e caneta",
       "rightDrag": "Arrastar com o botão direito, com o do meio ou Espaço + arrastar",
+      "trackpadPan": "Dois dedos no trackpad (Configurações › Tela › Dispositivo apontador) ou a ferramenta Mover a vista",
       "pan": "Deslocar o mapa",
       "shiftDrag": "Shift + arrastar com o botão direito ou Shift + arrastar com o do meio",
       "turnView": "Girar a vista; adicione {{mod}} para passos de 15°",
+      "turn": "Girar a vista",
       "trackpadTwist": "Girar dois dedos no trackpad",
       "compass": "Bússola",
       "compassAction": "Clique para redefinir o norte, arraste para girar a vista",
@@ -1891,6 +1918,7 @@
       "pinch": "Pinçar ou Ctrl + roda",
       "zoom": "Zoom",
       "altClick": "Alt + clique",
+      "optionClick": "Option + clique",
       "removeFromSelection": "Remover da seleção",
       "linuxPinch": "No Linux, o gesto de pinça no trackpad ainda não é suportado. Use Ctrl + rolagem para dar zoom.",
       "touchHeading": "Toque",
@@ -1943,6 +1971,8 @@
     "filesWeb": "A edição Web mantém seus designs e rascunhos neste navegador. Baixe uma cópia para manter um arquivo.",
     "filesLoading": "Procurando pastas…",
     "filesUnavailable": "O Canopi não encontrou suas pastas. Reinicie o Canopi para tentar de novo.",
+    "favouritesDesktop": "Os favoritos ficam neste computador, não em um design: um design que você compartilha ou abre em outro lugar não os leva.",
+    "favouritesWeb": "Os favoritos ficam neste navegador, não em um design: um design que você compartilha ou abre em outro lugar não os leva.",
     "draftsHint": "Designs nunca salvos em um arquivo.",
     "dataLibrary": "Biblioteca de dados",
     "dataLibraryHint": "Dados de terreno e altura que você importou.",
@@ -2167,6 +2197,7 @@
     "statusDetails": "Este navegador pode apagar seus rascunhos para liberar espaço. Baixe uma cópia para manter um arquivo.",
     "downloadFailedTitle": "Não foi possível baixar uma cópia",
     "downloadFailedMessage": "Este rascunho não está mais neste navegador ou não pôde ser lido.",
+    "uncheckedReadOnly": "Aberto somente leitura: o Canopi não conseguiu verificar o armazenamento deste navegador, então este rascunho pode estar desatualizado. Baixe uma cópia para mantê-lo.",
     "keepDrafts": "Manter meus rascunhos",
     "keepDraftsMenu": "Manter meus rascunhos…"
   },
@@ -2225,7 +2256,13 @@
     "fileTooLarge": "Este arquivo é maior do que o Canopi permite. Escolha um arquivo menor.",
     "fileError": "O Canopi não conseguiu ler ou gravar o arquivo. Tente novamente.",
     "plantCatalogUnavailable": "Não foi possível abrir o catálogo de plantas. Reinicie o Canopi e reinstale-o se o problema continuar.",
-    "libraryNewer": "Esta biblioteca de dados foi salva por uma versão mais recente do Canopi. Atualize o Canopi para alterá-la.",
-    "libraryUnavailable": "Não foi possível abrir a biblioteca de dados, então as alterações não serão salvas nesta sessão. Reinicie o Canopi e tente novamente."
+    "libraryUnavailable": "Não foi possível abrir a biblioteca de dados, então as alterações não serão salvas nesta sessão. Reinicie o Canopi e tente novamente.",
+    "formatCoreUnavailable": "O Canopi não conseguiu carregar a parte que abre os designs. Tente novamente e relate um problema se isso continuar.",
+    "formatCoreTrapped": "O Canopi parou ao ler este design. Tente novamente e relate um problema se isso continuar."
+  },
+  "startup": {
+    "title": "Não foi possível iniciar o Canopi",
+    "desktopHint": "Seu sistema pode ser antigo demais para esta versão do Canopi. Atualize o sistema operacional e abra o Canopi novamente.",
+    "webHint": "Recarregue a página. Se o Canopi ainda não iniciar, este navegador pode ser antigo demais: atualize-o ou use outro navegador."
   }
 }

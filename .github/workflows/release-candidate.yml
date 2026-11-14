@@ -332,7 +332,8 @@ jobs:
             target: x86_64-unknown-linux-gnu
             bundle_args: --bundles deb appimage
             updater: true
-          # macOS keeps its unsigned dmg as today, with no updater artifacts (2.1-Q135, Q136).
+          # macOS: an ad-hoc signed dmg (tauri.macos.conf.json; canopi-3cu2, 2.1-M472), never a Developer ID (2.1-Q305),
+          # with no updater artifacts (2.1-Q135, Q136).
           - os: macos-15
             target: aarch64-apple-darwin
             bundle_args: ""
@@ -412,6 +413,33 @@ jobs:
           ephemeral-key: ${{ needs.preflight.outputs.dry_run }}
           artifact-name: ${{ needs.preflight.outputs.dry_run == 'true' && 'dry-run-' || '' }}canopi-${{ matrix.target }}
           retention-days: ${{ needs.preflight.outputs.dry_run == 'true' && 1 || 30 }}
+
+      # The Mac app is sealed ad hoc with its resources (tauri.macos.conf.json's signingIdentity '-'; canopi-3cu2,
+      # 2.1-M472). A linker-signed bundle, 2.0.3's, is the one macOS calls damaged with no Open Anyway (the signing probe,
+      # PR #96), so it fails the candidate. The dmg holds this .app. Each reading ends after 60 s, as the probe's do.
+      - name: The Mac app is sealed ad hoc with its resources
+        if: runner.os == 'macOS'
+        shell: bash
+        timeout-minutes: 5
+        env:
+          TARGET: ${{ matrix.target }}
+        run: |
+          set -euo pipefail
+          bounded() { perl -e 'alarm shift; exec @ARGV or exit 127' 60 "$@"; }
+          app="$(ls -d "target/$TARGET/release/bundle/macos/"*.app 2> /dev/null | head -n 1 || true)"
+          if [ -z "$app" ]; then echo "::error::no .app under target/$TARGET/release/bundle/macos"; exit 1; fi
+          rc=0
+          verify="$(bounded codesign --verify --deep --strict --verbose=2 "$app" 2>&1)" || rc=$?
+          if [ "$rc" != 0 ]; then echo "::error::codesign --verify --deep --strict failed on $app (exit $rc): $verify"; exit 1; fi
+          rc=0
+          details="$(bounded codesign -dv "$app" 2>&1)" || rc=$?
+          if [ "$rc" != 0 ]; then echo "::error::codesign -dv failed on $app (exit $rc): $details"; exit 1; fi
+          flags="$(printf '%s\n' "$details" | sed -n 's/.*flags=0x[0-9a-fA-F]*(\([^)]*\)).*/\1/p' | head -n 1)"
+          case ",$flags," in
+            *,linker-signed,*) echo "::error::$app is linker-signed ($flags), with no sealed resources: macOS calls it damaged"; exit 1 ;;
+            *,adhoc,*) echo "$app is sealed ad hoc ($flags)" ;;
+            *) echo "::error::$app is not signed ad hoc (flags: ${flags:-none})"; exit 1 ;;
+          esac
 
   # The Linux packages start on Debian 12 (glibc 2.36, the oldest supported
   # with Ubuntu 22.04): the sidecar runs from the unpacked .deb and AppImage,
@@ -587,7 +615,7 @@ jobs:
             echo "::notice::this installer declares no .canopi association (a 2.0.x stable fix): no open-design"
           fi
 
-  # The updater's end-to-end lane (plan Phase 0 F6) is a release check: N-1 to N on the AppImage, the .deb and NSIS.
+  # The updater's end-to-end lane (plan Phase 0 F6) is a release check: N-1 to N on the AppImage, the .deb, NSIS and the MSI.
   # A ref with no updater key (a 2.0.x stable fix) has no updater to check. A dry run never calls it: Build & Test calls
   # it for its own area, and the two calls would share the lane's group, one cancelling the other.
   updater-end-to-end:
@@ -596,6 +624,16 @@ jobs:
     uses: ./.github/workflows/updater-e2e.yml
     with:
       ref: ${{ needs.preflight.outputs.head_sha }}
+
+  # The rollback lane is a release check: the reader release's readers over every store form this commit writes. A dry
+  # run never calls it: Build & Test calls it for its own area, and the two calls would share the lane's group.
+  rollback:
+    needs: preflight
+    if: needs.preflight.outputs.dry_run != 'true'
+    uses: ./.github/workflows/rollback.yml
+    with:
+      candidate: ${{ needs.preflight.outputs.head_sha }}
+      branch: ${{ inputs.ref }}
 
   # The root Web Edition (web.projectcanopi.com) from the same commit, with the Web
   # catalog published beside the DB by scripts/publish-db-release.sh.
@@ -644,6 +682,15 @@ jobs:
       - name: Install frontend deps
         run: npm ci --prefix desktop/web
 
+      # The Web build compiles the format worker's module first (`npm run build:format-wasm`, Step 2.0.4): the wasm32
+      # target, and the wasm-bindgen CLI at Cargo.lock's wasm-bindgen version, the one build-wasm.mjs accepts.
+      - uses: dtolnay/rust-toolchain@1.97.1
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: wasm-bindgen@0.2.130
+
       - name: Build the root Web Edition
         working-directory: desktop/web
         run: npm run build:web
@@ -677,7 +724,7 @@ jobs:
 
   # Every lane before it passed or was skipped: a stable fix skips the updater lane, and still reaches its manifest.
   manifest:
-    needs: [preflight, build, linux-floor, smoke-linux, smoke-windows, updater-end-to-end, web]
+    needs: [preflight, build, linux-floor, smoke-linux, smoke-windows, updater-end-to-end, rollback, web]
     if: ${{ needs.preflight.outputs.dry_run != 'true' && !failure() && !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 15

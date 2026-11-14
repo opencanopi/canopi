@@ -1,0 +1,24 @@
+# indexeddb-only-in-adapters (§18 F10, 2.1-M190): raw indexedDB only in the IndexedDB adapters: the Draft store
+# (platform/draft-records.browser.ts) today, then the settings, stamp, species-list and Notebook adapters and the
+# library worker's lock and port; the service worker owns the canopi-sw database. Web storage is its own id,
+# web-storage-only-in-adapters, so each owner is exempt only from its own pattern.
+# message and ignores: generated from policy/primitives.json.
+id: indexeddb-only-in-adapters.typescript
+language: typescript
+severity: error
+message: "indexeddb-only-in-adapters (§18 F10): indexedDB only in the IndexedDB adapters: the Draft store today, then the settings, stamp, species-list and Notebook adapters and the library worker's lock and port (the service worker owns the canopi-sw database). ADR 0028; owner desktop/web/src/platform/draft-records.browser.ts; example none yet"
+files:
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.ts"
+ignores:
+  - "{desktop/web,policy/fixtures/rules/*}/src/__tests__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/__fixtures__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
+  - "{desktop/web,policy/fixtures/rules/*}/src/generated/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/platform/draft-records.browser.ts"
+rule:
+  any:
+    - kind: identifier
+    - kind: property_identifier
+    - kind: shorthand_property_identifier
+  regex: ^indexedDB$

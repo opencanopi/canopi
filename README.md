@@ -31,9 +31,11 @@ Rust (Tauri v2, rusqlite) · Preact, @preact/signals, TypeScript, Vite · MapLib
 
 ## Install
 
-Download Canopi from the [latest release](https://github.com/opencanopi/canopi/releases/latest): `canopi-linux-x64.deb` or `canopi-linux-x64.AppImage`; `canopi-macos-arm64.dmg` (Apple silicon) or `canopi-macos-x64.dmg` (Intel), for macOS 12 or later; `canopi-windows-x64.exe` or `canopi-windows-x64.msi`. `RELEASE-SHA256SUMS.txt` lists their checksums. The [Web Edition](https://web.projectcanopi.com) runs in the browser with nothing to install.
+Download Canopi from the [latest release](https://github.com/opencanopi/canopi/releases/latest): `canopi-linux-x64.deb` or `canopi-linux-x64.AppImage`; `canopi-macos-arm64.dmg` (Apple silicon) or `canopi-macos-x64.dmg` (Intel), for macOS 12 or later with Safari 16.4 or later (Software Update offers it); `canopi-windows-x64.exe` or `canopi-windows-x64.msi`. `RELEASE-SHA256SUMS.txt` lists their checksums. The [Web Edition](https://web.projectcanopi.com) runs in Safari 16.4, Chrome 111, Edge 111 or Firefox 121 or later, with nothing to install.
 
-The installers are not signed yet, so the first open takes one more step. macOS: open Canopi once, then go to **System Settings › Privacy & Security** and click **Open Anyway** (since macOS 15, right-click › Open no longer does this). If macOS says the app is damaged, run `xattr -dr com.apple.quarantine /Applications/Canopi.app` in Terminal. Windows: when SmartScreen says "Windows protected your PC", click **More info**, then **Run anyway**.
+The installers carry no publisher certificate, so the first open takes one more step. Windows: when SmartScreen says "Windows protected your PC", click **More info**, then **Run anyway**.
+
+macOS: open the dmg and drag Canopi to Applications, then open Canopi. If macOS says it cannot verify Canopi or check it for malware, click **Done**, **Cancel** or **OK** (not **Move to Trash**), open System Settings › Privacy & Security (on macOS 12, System Preferences › Security & Privacy), click **Open Anyway** beside Canopi and confirm. If macOS says Canopi is damaged, open Terminal, run `xattr -dr com.apple.quarantine /Applications/Canopi.app`, then open Canopi.
 
 ## Building from source
 

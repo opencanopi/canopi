@@ -80,9 +80,9 @@ impl PlantDb {
     }
 }
 
-/// User database — writable, serialized access via Mutex.
+/// User database, serialized access via Mutex; `.1` is false when it refuses writes for the run.
 #[derive(Clone)]
-pub struct UserDb(Arc<Mutex<Connection>>);
+pub struct UserDb(Arc<Mutex<Connection>>, bool);
 
 impl UserDb {
     /// Open the user database at `path`.
@@ -93,11 +93,13 @@ impl UserDb {
     /// or fails its integrity checks is renamed to
     /// `<file>.corrupt-<unix-seconds>` the same way. Neither rename
     /// overwrites an earlier one, and companion files move with the database.
-    /// A newer database is refused as-is with
-    /// [`UserDbInitError::NewerSchemaVersion`]. The user DB's entry in
-    /// `SubsystemHealth` comes back with it.
+    /// A newer one opens read-only (`user_db::read_only_admission`). The
+    /// user DB's entry in `SubsystemHealth` comes back with it.
     pub fn open(path: impl AsRef<Path>) -> Result<(Self, StoreHealth), UserDbInitError> {
         let path = path.as_ref();
+        if let Some((connection, health)) = user_db::read_only_admission(path)? {
+            return Ok((Self(Arc::new(Mutex::new(connection)), false), health));
+        }
         let error = match Self::initialize(Connection::open(path).map_err(UserDbInitError::Open)?) {
             Ok(user_db) => {
                 let ready = StoreHealth {
@@ -131,11 +133,17 @@ impl UserDb {
 
     pub fn initialize(connection: Connection) -> Result<Self, UserDbInitError> {
         user_db::initialize_connection(&connection)?;
-        Ok(Self(Arc::new(Mutex::new(connection))))
+        Ok(Self(Arc::new(Mutex::new(connection)), true))
     }
 
     pub(crate) fn acquire(&self) -> MutexGuard<'_, Connection> {
         acquire(&self.0, "UserDb")
+    }
+
+    /// The connection for a write that is a side effect (Recent Designs, recently viewed, a prune), or `None`
+    /// while the user DB refuses writes, so the caller skips it silently.
+    pub(crate) fn acquire_writable(&self) -> Option<MutexGuard<'_, Connection>> {
+        self.1.then(|| self.acquire())
     }
 }
 

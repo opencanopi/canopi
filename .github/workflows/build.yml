@@ -31,7 +31,7 @@ jobs:
   # selects its area (the Rust row also runs the LiDAR lanes, platform tests and
   # installers); when the Frontend row does not run, the scripts job runs the
   # vitest files the affected lane adds (`areas`' tests); a push and an unknown base run all.
-  # The lanes this workflow calls (real app, browsers with the axe ratchet, updater, the release build's dry run) run
+  # The lanes this workflow calls (real app, browsers with the axe ratchet, updater, rollback, the release build's dry run) run
   # when their own areas are selected, on a push too, as their own path triggers did; an unknown base runs them all.
   # Every step is a gate call or a ci row of policy/gate/table.ts (policy/gate/ci-parity.test.ts).
   # A same-repo PR from main runs nothing: the push run already checks its head.
@@ -60,6 +60,7 @@ jobs:
       real_app: ${{ steps.diff.outputs.real_app }}
       web_browsers: ${{ steps.diff.outputs.web_browsers }}
       updater: ${{ steps.diff.outputs.updater }}
+      rollback: ${{ steps.diff.outputs.rollback }}
       release_build: ${{ steps.diff.outputs.release_build }}
       supply_chain: ${{ steps.diff.outputs.supply_chain }}
       tests: ${{ steps.diff.outputs.tests }}
@@ -99,7 +100,7 @@ jobs:
         run: |
           set -euo pipefail
           tests=""
-          flags="code rust frontend policy tauri contracts species packaging workflows real_app web_browsers updater release_build supply_chain"
+          flags="code rust frontend policy tauri contracts species packaging workflows real_app web_browsers updater rollback release_build supply_chain"
           if [ -z "$BASE" ] || ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
             for name in $flags; do declare "$name=true"; done
             # advisories.yml scans every push to main; Build & Test scans a pull request's lockfile changes only.
@@ -109,10 +110,11 @@ jobs:
             has() { jq -e --arg a "$1" '.selected | index($a) != null' >/dev/null <<<"$sel"; }
             code="$(jq -r '.code' <<<"$sel")"
             rust=$code frontend=$code policy=$code tauri=$code contracts=$code species=$code packaging=$code workflows=$code
-            real_app=false web_browsers=false updater=false release_build=false supply_chain=false
+            real_app=false web_browsers=false updater=false rollback=false release_build=false supply_chain=false
             if has real-app; then real_app=true; fi
             if has web-browsers; then web_browsers=true; fi
             if has updater; then updater=true; fi
+            if has rollback; then rollback=true; fi
             if has release-build; then release_build=true; fi
             if [ "$PR_RUN" = true ]; then
               rust=false frontend=false policy=false tauri=false contracts=false species=false packaging=false workflows=false
@@ -431,11 +433,19 @@ jobs:
           node-version: 24
           cache: npm
           cache-dependency-path: desktop/web/package-lock.json
+      # The Web build compiles the format worker's module first (`npm run build:format-wasm`, Step 2.0.4): the wasm32
+      # target, and the wasm-bindgen CLI at Cargo.lock's wasm-bindgen version, the one canopi-format-wasm/build-wasm.mjs
+      # accepts.
       - uses: dtolnay/rust-toolchain@1.97.1
+        with:
+          targets: wasm32-unknown-unknown
       # scripts/generate_notices.mjs's CARGO_ABOUT_VERSION (third-party-notices.test.ts keeps them equal).
       - uses: taiki-e/install-action@v2
         with:
           tool: cargo-about@0.9.3
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: wasm-bindgen@0.2.130
 
       - name: Install frontend deps and fetch the locked crates
         run: |
@@ -651,6 +661,13 @@ jobs:
     if: needs.changes.outputs.updater == 'true'
     uses: ./.github/workflows/updater-e2e.yml
 
+  # The rollback lane (ADR 0026, contracts §11 Rollback harness): the reader release's readers over every store form a
+  # later tree writes, on main and release/2.0 alike; the release branch cut from main inherits it.
+  rollback:
+    needs: changes
+    if: needs.changes.outputs.rollback == 'true'
+    uses: ./.github/workflows/rollback.yml
+
   # Fork PRs package nothing, the dry run included (the other lanes test a contributor's code and run).
   release-build:
     needs: changes
@@ -692,7 +709,7 @@ jobs:
   # or cancelled one fails this job. A new job joins `needs`.
   build-and-test:
     name: Build & Test
-    needs: [changes, docs, rust, tauri-command, policy-tooling, shared-contracts, species-catalog, workflows, scripts, frontend, lidar-native, platform-tests, build, linux-floor, real-app, web-browsers, updater, release-build, supply-chain]
+    needs: [changes, docs, rust, tauri-command, policy-tooling, shared-contracts, species-catalog, workflows, scripts, frontend, lidar-native, platform-tests, build, linux-floor, real-app, web-browsers, updater, rollback, release-build, supply-chain]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 10

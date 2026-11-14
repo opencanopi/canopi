@@ -11,11 +11,12 @@ import {
 import { getCurrentCanvasDocumentSurface } from "../../canvas/session";
 import { isCancelledFailure } from "../../failures/ipc-failure";
 import * as designIpc from "../../ipc/design";
-import type { CanopiFile, LoadedDesign } from "../../types/design";
+import type { CanopiFile } from "../../types/design";
 import {
   designSessionStore,
   type PersistenceCapableDesignSessionStore,
 } from "./store";
+import { loadResultOf, type DocumentTransitionLoadResult } from "./load-result";
 import {
   createDesignSessionPersistence,
   type DesignReplacementGuard,
@@ -63,17 +64,7 @@ type DocumentTransitionSource =
  */
 type DirtyGuardMode = "flush" | "skip";
 
-export interface DocumentTransitionLoadResult {
-  file: CanopiFile;
-  path: string | null;
-  name: string;
-  /** Draft home of a pathless Design. */
-  draftId?: string | null;
-  /** Fingerprint of the loaded file at `path`. */
-  fingerprint?: string | null;
-  /** The home does not hold this content yet. */
-  writePending?: boolean;
-}
+export type { DocumentTransitionLoadResult } from "./load-result";
 
 interface DocumentLoadTransitionRequest {
   source: Exclude<DocumentTransitionSource, "close">;
@@ -209,6 +200,7 @@ export class DesignSessionStateMachine {
   captureCurrentDesignObservation(
     session = this.deps.getCurrentSession(),
   ): CanopiFile | null {
+    if (this.deps.store.holdsNewerReadView()) return null; // A newer Canopi's read view is never observed (2.1-M479).
     return this.deps.persistence.captureObservation(session);
   }
 
@@ -300,6 +292,8 @@ export class DesignSessionStateMachine {
     options: SaveCurrentDesignOptions,
     writeView: boolean,
   ): Promise<boolean> {
+    // A read-only Design has no home and gets none: Save neither writes nor asks for a path.
+    if (this.deps.store.isReadOnly()) return false;
     if (this.continuousSave.conflict.peek()) {
       await this.resolveSaveConflict(options);
       return !this.continuousSave.hasPendingChanges();
@@ -315,6 +309,8 @@ export class DesignSessionStateMachine {
   async saveAsCurrentDesign(
     options: SaveCurrentDesignOptions = {},
   ): Promise<DesignSaveSettlement | null> {
+    // A read-only Design is never written, to a new file either (2.1-Q315).
+    if (this.deps.store.isReadOnly()) return null;
     const operationIntent = this.claimOperationIntent();
     const session = this.sessionForOption(options.session);
     let stateStarted = false;
@@ -642,19 +638,33 @@ export class DesignSessionStateMachine {
           }
           assertReplacementAttemptCurrent();
 
-          const home: DesignSessionHomeInput = {
-            draftId: loaded.path ? null : loaded.draftId ?? null,
-            fingerprint: loaded.path ? loaded.fingerprint ?? null : null,
-            writePending: loaded.writePending ?? false,
-          };
-          replacementInput = {
-            file: loaded.file,
-            kind: request.source === "new" ? "new" : "loaded",
-            path: loaded.path,
-            name: loaded.name,
-            finalizationIdentity: `home:${JSON.stringify(home)}`,
-            onDesignFinalized: () => this.continuousSave.beginSession(home),
-          };
+          if (loaded.session?.kind === "read-only") {
+            // No home, Draft id or write destination: the store keeps no path, and continuous save ends the
+            // predecessor's session and starts none (2.1-M478).
+            replacementInput = {
+              file: loaded.file,
+              kind: "loaded",
+              path: null,
+              name: loaded.name,
+              session: loaded.session,
+              finalizationIdentity: "read-only",
+              onDesignFinalized: () => this.continuousSave.endSession(),
+            };
+          } else {
+            const home: DesignSessionHomeInput = {
+              draftId: loaded.path ? null : loaded.draftId ?? null,
+              fingerprint: loaded.path ? loaded.fingerprint ?? null : null,
+              writePending: loaded.writePending ?? false,
+            };
+            replacementInput = {
+              file: loaded.file,
+              kind: request.source === "new" ? "new" : "loaded",
+              path: loaded.path,
+              name: loaded.name,
+              finalizationIdentity: `home:${JSON.stringify(home)}`,
+              onDesignFinalized: () => this.continuousSave.beginSession(home),
+            };
+          }
         }
         if (
           retainedReplacementRetry
@@ -856,7 +866,8 @@ export class DesignSessionStateMachine {
     replacementIsCurrent: () => boolean,
     purpose: "replace" | "close",
   ): Promise<ReplacementDecision> {
-    if (!this.deps.store.hasCurrentDesign()) return "proceed";
+    // A read-only Design holds nothing to keep: Close and the next open go on without writing or asking.
+    if (!this.deps.store.hasCurrentDesign() || this.deps.store.isReadOnly()) return "proceed";
     for (;;) {
       if (await this.continuousSave.flush()) return "proceed";
       if (!replacementIsCurrent()) return "cancel";
@@ -1018,14 +1029,4 @@ function cancelledResult(session: CanvasDocumentSurface | null): DocumentTransit
 function nameFromPath(path: string): string {
   const base = path.split(/[\\/]/).pop() ?? path;
   return base.replace(/\.canopi$/i, "") || "Untitled";
-}
-
-/** The document a transition applies for a Design the native side loaded from `path`. */
-export function loadResultOf(design: LoadedDesign, path: string): DocumentTransitionLoadResult {
-  return {
-    file: design.file,
-    path,
-    name: design.file.name,
-    fingerprint: design.fingerprint,
-  };
 }

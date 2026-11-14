@@ -7,6 +7,9 @@
 # checks. Rules and checks live in scripts/web_release.py; the browser checks are desktop/web/e2e-release/.
 # Safe to re-run: a production that already serves the release manifest and passes its HTTP checks is
 # only checked again; otherwise (say, after a _headers fix) every deploy runs again.
+# --preview-only rehearses an unpublished candidate (2.1-Q325, canopi-f47t.52.259): its archive and checksums, never
+# a release read from GitHub, through every stage up to the preview's checks; it reads production only for the
+# manifest naming N-1 and never deploys it, and an interruption (the EXIT trap) stops the deploy-skew container.
 # Test seams: CANOPI_WEB_PRODUCTION_URL, CANOPI_WEB_PREVIEW_URL, CANOPI_WEB_SKEW_TIMEOUT (seconds).
 
 set -Eeuo pipefail
@@ -27,17 +30,20 @@ Usage:
   scripts/publish-web-release.sh --tag vX.Y.Z [options]
 
 Options:
-  --tag vX.Y.Z         Published GitHub release to deploy (required)
+  --tag vX.Y.Z         Published GitHub release to deploy (required); with --preview-only, the tag the
+                       candidate will carry, never read
   --repo OWNER/REPO    GitHub repository (default: opencanopi/canopi)
   --artifact PATH      Use a local canopi-web-edition-root-*.tar.gz instead of downloading it
-  --checksums PATH     With --artifact --verify-only: checksums to trust (default: beside the archive);
-                       a deploy always verifies against the release's WEB-RELEASE-SHA256SUMS.txt
+  --checksums PATH     With --artifact --verify-only or --preview-only: checksums to trust (default beside the
+                       archive with --verify-only); a deploy verifies against the release's WEB-RELEASE-SHA256SUMS.txt
   --previous-tag vX.Y.Z
                        The release production serves, when it is not the greatest published stable
                        release below this one with a Web archive (open tabs run that release)
   --no-previous        Carry no previous release; refused while production serves a manifest
   --allow-unchanged-pdf-chunk  Run the deploy-skew stage without its lazy-chunk proof when N-1's PDF chunk is N's
   --verify-only        Stop after verifying both archives and merging them
+  --preview-only       Rehearse an unpublished candidate (--artifact and --checksums): the deploy-skew
+                       preview and its checks, stopping before production
 EOF
 }
 
@@ -57,6 +63,7 @@ previous_tag=""
 no_previous=0
 allow_unchanged_chunk=0
 verify_only=0
+preview_only=0
 
 absolute() {
   if [[ "$1" == /* ]]; then printf '%s\n' "$1"; else printf '%s\n' "$caller_dir/$1"; fi
@@ -72,6 +79,7 @@ while [[ $# -gt 0 ]]; do
     --no-previous) no_previous=1; shift ;;
     --allow-unchanged-pdf-chunk) allow_unchanged_chunk=1; shift ;;
     --verify-only) verify_only=1; shift ;;
+    --preview-only) preview_only=1; shift ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Unknown argument: $1" >&2; usage >&2; exit 1 ;;
   esac
@@ -86,6 +94,14 @@ version="${BASH_REMATCH[1]}"
 # does not exist yet (ADR 0005, ADR 0029).
 if [[ -n "${BASH_REMATCH[2]}" ]]; then
   echo "ERROR: $tag is a pre-release; only stable vX.Y.Z tags publish. A Web beta needs its own origin, which is not built yet (ADR 0029)." >&2
+  exit 1
+fi
+if [[ "$preview_only" -eq 1 && "$verify_only" -eq 1 ]]; then
+  echo "ERROR: --preview-only and --verify-only exclude each other." >&2
+  exit 1
+fi
+if [[ "$preview_only" -eq 1 && ( -z "$artifact" || -z "$checksums" ) ]]; then
+  echo "ERROR: --preview-only takes --artifact and --checksums of the unpublished candidate (its Release Candidate run or draft)." >&2
   exit 1
 fi
 
@@ -141,7 +157,20 @@ require_cmd python3
 printf '[publish-web] Verbose log: %s\n' "$log_file"
 
 commit=""
-if [[ -z "$artifact" || "$verify_only" -eq 0 ]]; then
+if [[ "$preview_only" -eq 1 ]]; then
+  # The candidate's commit, from its archive's name: no tag names it yet, and Pages names a deploy by the full commit.
+  require_cmd gh
+  if [[ ! "$(basename "$artifact")" =~ ^canopi-web-edition-root-v${version//./\\.}-([0-9a-f]{12})\.tar\.gz$ ]]; then
+    echo "ERROR: $(basename "$artifact") is not the root Web Edition archive of $version." >&2
+    exit 1
+  fi
+  stage "Resolving the candidate's commit ${BASH_REMATCH[1]} in $repo"
+  commit="$(gh api "repos/$repo/commits/${BASH_REMATCH[1]}" --jq .sha)"
+  if [[ ! "$commit" =~ ^[0-9a-f]{40}$ ]]; then
+    echo "ERROR: Could not resolve the candidate's commit in $repo." >&2
+    exit 1
+  fi
+elif [[ -z "$artifact" || "$verify_only" -eq 0 ]]; then
   require_cmd gh
   stage "Reading release $tag in $repo"
   if [[ "$(gh release view "$tag" --repo "$repo" --json isDraft --jq .isDraft)" != "false" ]]; then
@@ -167,10 +196,10 @@ if [[ -z "$artifact" ]]; then
   fi
   artifact="$work/download/$archive_name"
   checksums="$work/download/WEB-RELEASE-SHA256SUMS.txt"
-elif [[ "$verify_only" -eq 0 ]]; then
+elif [[ "$verify_only" -eq 0 && "$preview_only" -eq 0 ]]; then
   # A deploy trusts only the published release's checksums, never a file beside a local archive.
   if [[ -n "$checksums" ]]; then
-    echo "ERROR: --checksums applies to --verify-only; a deploy verifies against $tag's WEB-RELEASE-SHA256SUMS.txt." >&2
+    echo "ERROR: --checksums applies to --verify-only and --preview-only; a deploy verifies against $tag's WEB-RELEASE-SHA256SUMS.txt." >&2
     exit 1
   fi
   stage "Downloading WEB-RELEASE-SHA256SUMS.txt for the local archive"
@@ -333,7 +362,7 @@ deploy_skew() {
   wait "$skew_pid"
 }
 
-if web_release production-current --base-url "$PRODUCTION_URL" --site "$site" >> "$log_file" 2>&1; then
+if [[ "$preview_only" -eq 0 ]] && web_release production-current --base-url "$PRODUCTION_URL" --site "$site" >> "$log_file" 2>&1; then
   stage "Production already serves $version and passes its HTTP checks; skipping every deploy"
 else
   if [[ -n "$previous_tag" ]]; then
@@ -347,6 +376,10 @@ else
   run web_release http-check --base-url "$PREVIEW_URL" --site "$site"
   stage "Browser smoke (Chromium, WebKit) on $PREVIEW_URL"
   smoke "$PREVIEW_URL" preview
+  if [[ "$preview_only" -eq 1 ]]; then
+    stage "Rehearsed Web Edition $version on $PREVIEW_URL; stopping before production (--preview-only)"
+    exit 0
+  fi
 
   stage "Deploying production"
   run wrangler_deploy "$site" "$PRODUCTION_PROJECT" production "$commit"

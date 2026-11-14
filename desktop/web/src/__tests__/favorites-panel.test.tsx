@@ -218,7 +218,7 @@ describe('FavoritesPanel', () => {
         speciesCatalogWorkbench: workbench,
       }
     })
-    vi.doMock('../app/saved-object-stamps', () => ({
+    vi.doMock('../app/saved-object-stamps', async () => ({ ...await vi.importActual<object>('../app/saved-object-stamps/row-state'),
       savedObjectStampWorkbench: {
         library: stampLibrary,
         selection: signal({

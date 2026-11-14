@@ -3,8 +3,9 @@ use canopi_types::design::{
 };
 use std::path::{Path, PathBuf};
 
-use crate::db::UserDb;
+use crate::db::{UserDb, user_db::write_refusal};
 use crate::design::format;
+type OpenedLoad = format::OpenedDesign<LoadedDesign>;
 
 const RECENT_DESIGNS_LIMIT: usize = 20;
 
@@ -54,17 +55,16 @@ pub fn export_design_file(path: String, content: CanopiFile) -> Result<String, S
     Ok(path)
 }
 
-/// Open a Design file. Only the current format opens; an older one is
-/// refused as `OlderVersion` (ADR 0021).
-pub fn load_design(user_db: &UserDb, path: String) -> Result<LoadedDesign, DesignLoadFailure> {
+/// Open a Design: to edit, read-only when newer (2.1-M478), refused when older (ADR 0021).
+pub fn load_design(user_db: &UserDb, path: String) -> Result<OpenedLoad, DesignLoadFailure> {
     let dest = std::path::PathBuf::from(&path);
-    let (file, fingerprint) = format::load_with_fingerprint(&dest).map_err(|error| {
+    let opened = format::open_with_fingerprint(&dest).map_err(|error| {
         tracing::info!(kind = ?error.failure().kind, "Design could not be opened");
         error.failure()
     })?;
-    try_record_recent(user_db, &path, &file.name);
+    try_record_recent(user_db, &path, opened.name());
     tracing::info!("Design loaded");
-    Ok(LoadedDesign { file, fingerprint })
+    Ok(opened)
 }
 
 /// Read a Design file for a stamp import, without listing it as recent.
@@ -93,8 +93,9 @@ pub fn get_recent_files(user_db: &UserDb) -> Result<Vec<DesignSummary>, String> 
         design_path_availability,
     );
     for path in &filtered.missing_paths {
-        let conn = user_db.acquire();
-        if let Err(error) = crate::db::recent_files::remove_recent_file(&conn, path) {
+        if let Some(conn) = user_db.acquire_writable()
+            && let Err(error) = crate::db::recent_files::remove_recent_file(&conn, path)
+        {
             tracing::warn!("Failed to prune a missing Recent Design: {error}");
         }
     }
@@ -105,7 +106,7 @@ pub fn get_recent_files(user_db: &UserDb) -> Result<Vec<DesignSummary>, String> 
 pub fn remove_recent_design(user_db: &UserDb, path: &str) -> Result<(), String> {
     let conn = user_db.acquire();
     crate::db::recent_files::remove_recent_file(&conn, path)
-        .map_err(|error| format!("Failed to remove the Design from Recent Designs: {error}"))
+        .map_err(write_refusal("Failed to remove a Recent Design"))
 }
 
 /// The paths, among `paths`, that are on the Recent Designs list: previews
@@ -122,10 +123,8 @@ pub fn listed_recent_paths(user_db: &UserDb, paths: Vec<String>) -> Result<Vec<S
     };
     let mut listed: Vec<String> = Vec::new();
     for path in paths {
-        if listed.len() == RECENT_DESIGNS_LIMIT {
-            break;
-        }
-        if on_list.contains(&path) && !listed.contains(&path) {
+        if listed.len() < RECENT_DESIGNS_LIMIT && on_list.contains(&path) && !listed.contains(&path)
+        {
             listed.push(path);
         }
     }
@@ -162,8 +161,9 @@ pub(crate) fn show_design_in_folder(
 }
 
 fn try_record_recent(user_db: &UserDb, path: &str, name: &str) {
-    let conn = user_db.acquire();
-    if let Err(error) = crate::db::recent_files::record_recent_file(&conn, path, name) {
+    if let Some(conn) = user_db.acquire_writable()
+        && let Err(error) = crate::db::recent_files::record_recent_file(&conn, path, name)
+    {
         tracing::warn!("Failed to record a Recent Design: {error}");
     }
 }
@@ -304,8 +304,8 @@ mod tests {
     use rusqlite::Connection;
     use std::path::PathBuf;
 
-    fn loaded_design(outcome: Result<LoadedDesign, DesignLoadFailure>) -> LoadedDesign {
-        outcome.expect("the Design loads")
+    fn loaded_design(outcome: Result<super::OpenedLoad, DesignLoadFailure>) -> LoadedDesign {
+        outcome.expect("the Design loads").editable()
     }
 
     fn test_user_db() -> UserDb {

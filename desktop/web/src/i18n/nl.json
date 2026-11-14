@@ -71,6 +71,7 @@
     "searchLabel": "Plantencatalogus doorzoeken",
     "details": "Details van {{name}}",
     "addFavoriteNamed": "{{name}} toevoegen aan favorieten",
+    "favoriteNeedsNewer": "Opgeslagen door een nieuwere Canopi. Werk Canopi bij om je favorieten te wijzigen.",
     "removeFavoriteNamed": "{{name}} verwijderen uit favorieten",
     "factHeight": "{{height}} m",
     "factHardiness": "USDA {{zones}}",
@@ -124,6 +125,12 @@
       "webSpeciesLists": "De favorieten en onlangs bekeken planten die Canopi had opgeslagen zijn beschadigd en konden niet apart worden gezet, dus wijzigingen daarin worden deze sessie niet opgeslagen."
     },
     "newerReadOnly": "Deze gegevens zijn opgeslagen door een nieuwere Canopi. Je kunt ze bekijken, maar wijzigingen worden niet opgeslagen. Werk Canopi bij om ze te bewerken.",
+    "newerReadOnlyStore": {
+      "userDb": "Je favorieten, opgeslagen stempels en recente ontwerpen zijn opgeslagen door een nieuwere Canopi. Je kunt ze bekijken, maar wijzigingen worden niet opgeslagen. Werk Canopi bij om ze te bewerken.",
+      "settings": "Je instellingen zijn opgeslagen door een nieuwere Canopi. Wijzigingen gelden tot je Canopi sluit, maar worden niet opgeslagen. Werk Canopi bij om ze te bewaren.",
+      "libraryCatalogue": "De Databibliotheek is opgeslagen door een nieuwere Canopi. De items worden getoond, maar wijzigingen worden niet opgeslagen. Werk Canopi bij om ze te gebruiken.",
+      "webSpeciesLists": "Je favorieten en onlangs bekeken planten zijn opgeslagen door een nieuwere Canopi. Je kunt ze bekijken, maar wijzigingen worden niet opgeslagen. Werk Canopi bij om ze te bewerken."
+    },
     "refusedNewer": "Deze gegevens zijn opgeslagen door een nieuwere Canopi en zijn niet geopend. Werk Canopi bij om ze te gebruiken.",
     "storeUnavailable": "Sommige opgeslagen gegevens van Canopi konden niet worden geopend. Start Canopi opnieuw en meld een probleem als dit blijft gebeuren.",
     "fieldsReset": "Sommige instellingen hadden waarden die Canopi niet kon gebruiken en zijn teruggezet naar hun standaardwaarden.",
@@ -636,14 +643,19 @@
         "deleteEverywhere": "Overal verwijderen",
         "renameEllipsis": "Hernoemen…",
         "recovered": "Canopi heeft zijn Databibliotheek opnieuw opgebouwd uit de bestanden die het bewaart. Items die als mislukt zijn gemarkeerd, kun je opnieuw voorbereiden met Opnieuw proberen.",
-        "refusedNewer": "De Databibliotheek is opgeslagen door een nieuwere versie van Canopi. Installeer de nieuwste Canopi om hem te gebruiken; deze versie wijzigt hem niet.",
         "unavailable": "De Databibliotheek kon niet worden geopend. Importeren en wijzigen zijn uitgeschakeld totdat Canopi opnieuw start.",
         "sortLabel": "Sorteren",
         "sortRecent": "Recent toegevoegd",
         "factAdded": "Toegevoegd",
         "deletedItem": "Verwijderd item",
         "importNeedsDesign": "Open een ontwerp om data te importeren",
-        "importCancelled": "Importeren geannuleerd"
+        "importCancelled": "Importeren geannuleerd",
+        "needsNewerNote": "Werk Canopi bij om dit item te gebruiken.",
+        "newerKind": {
+          "raster": "Rastergegevens",
+          "unknown": "Gegevens van een type dat deze Canopi niet kent",
+          "vector": "Vectorgegevens"
+        }
       },
       "layers": {
         "emptyTitle": "Nog geen terreindata",
@@ -813,8 +825,11 @@
       "escSelect": "Esc om terug te gaan naar Selecteren",
       "escClearRow": "Esc om de rij te wissen",
       "escClearStamp": "Esc om de stempel te wissen",
-      "selectHint": "Sleep om te selecteren · Shift-klik voegt toe · Alt-klik verwijdert · rechts slepen verschuift de kaart · wiel zoomt",
-      "selectHintPan": "Sleep om te selecteren · Shift-klik voegt toe · Alt-klik verwijdert · twee vingers verschuiven de kaart · knijpen zoomt",
+      "selectHint": "Sleep om te selecteren · Shift-klik voegt toe · Alt-klik verwijdert · rechts slepen verschuift de kaart · wiel zoomt · voor een trackpad: Instellingen › Canvas › Aanwijsapparaat",
+      "selectHintPan": "Sleep om te selecteren · Shift-klik voegt toe · Alt-klik verwijdert · twee vingers verschuiven de kaart · knijpen zoomt · voor een muis: Instellingen › Canvas › Aanwijsapparaat",
+      "selectHintTouch": "Sleep om te selecteren · Shift-klik voegt toe · Alt-klik verwijdert · twee vingers verschuiven de kaart · knijpen zoomt",
+      "selectHintMac": "Sleep om te selecteren · Shift-klik voegt toe · Option-klik verwijdert · wiel zoomt · voor een trackpad: Instellingen › Canvas › Aanwijsapparaat",
+      "selectHintMacPan": "Sleep om te selecteren · Shift-klik voegt toe · Option-klik verwijdert · twee vingers verschuiven de kaart · knijpen zoomt · voor een muis: Instellingen › Canvas › Aanwijsapparaat",
       "panHint": "Sleep om de kaart te verschuiven",
       "stampPick": "Klik op een plant, zone, notitie of groep om die te kopiëren",
       "stampPlace": "klik om te plaatsen",
@@ -1325,7 +1340,8 @@
     "searchAll": "Favorieten en stempels zoeken",
     "remove": "{{name}} uit favorieten verwijderen",
     "detailsFor": "Details van",
-    "place": "{{name}} plaatsen"
+    "place": "{{name}} plaatsen",
+    "needsNewerStamp": "Opgeslagen met een nieuwere Canopi; werk Canopi bij om hem te plaatsen."
   },
   "savedObjectStamps": {
     "title": "Opgeslagen stempels",
@@ -1622,6 +1638,12 @@
     "resolve": "Oplossen…",
     "conflictAnotherTab": "Gewijzigd in een ander tabblad"
   },
+  "readOnlyDesign": {
+    "label": "Alleen-lezen",
+    "status": "Alleen-lezen: opgeslagen door een nieuwere Canopi",
+    "details": "Dit ontwerp is opgeslagen door een nieuwere Canopi. Je kunt het bekijken, maar niet wijzigen of opslaan. Werk Canopi bij om het te bewerken.",
+    "update": "Bijwerken"
+  },
   "saveProblem": {
     "flushFailedTitle": "Je wijzigingen konden niet worden opgeslagen",
     "flushFailedMessage": "Canopi kon je laatste wijzigingen niet wegschrijven. Probeer het opnieuw of verwerp ze om door te gaan.",
@@ -1802,6 +1824,7 @@
     "region": "Start",
     "purpose": "Ontwerp agroforestry en voedselbossen op de kaart van je grond.",
     "more": "Meer",
+    "movingAround": "Over de kaart bewegen",
     "searchDesigns": "Je ontwerpen doorzoeken",
     "noMatches": "Geen ontwerpen komen overeen met ‘{{query}}’.",
     "recentDesigns": "Recente ontwerpen",
@@ -1827,7 +1850,9 @@
     "cantReadMissing": "Bestand niet gevonden: het is verplaatst of verwijderd",
     "cantReadOlderVersion": "Gemaakt met Canopi vóór 2.0; Canopi 2.0 en later kan het niet openen",
     "cantReadNewerVersion": "Gemaakt met een nieuwere versie van Canopi; werk Canopi bij om het te openen",
-    "cantReadDamaged": "Bestand kan niet worden gelezen: het is beschadigd"
+    "cantReadDamaged": "Bestand kan niet worden gelezen: het is beschadigd",
+    "rowReadOnly": "Alleen-lezen: opgeslagen door een nieuwere Canopi",
+    "unreadableDraft": "Opgeslagen door een nieuwere Canopi; deze versie kan het niet lezen"
   },
   "shortcutKeys": {
     "ctrl": "Ctrl",
@@ -1878,9 +1903,11 @@
     "gestures": {
       "heading": "Muis, trackpad en pen",
       "rightDrag": "Rechts slepen, middel slepen of Spatie + slepen",
+      "trackpadPan": "Twee vingers op de trackpad (Instellingen › Canvas › Aanwijsapparaat) of het gereedschap Pannen",
       "pan": "Kaart verschuiven",
       "shiftDrag": "Shift + rechts slepen of Shift + middel slepen",
       "turnView": "Weergave draaien; met {{mod}} in stappen van 15°",
+      "turn": "Weergave draaien",
       "trackpadTwist": "Twee vingers draaien op de trackpad",
       "compass": "Kompas",
       "compassAction": "Klik om het noorden te herstellen, sleep om de weergave te draaien",
@@ -1891,6 +1918,7 @@
       "pinch": "Knijpen of Ctrl + wiel",
       "zoom": "Zoomen",
       "altClick": "Alt + klik",
+      "optionClick": "Option + klik",
       "removeFromSelection": "Uit de selectie verwijderen",
       "linuxPinch": "Op Linux wordt knijpen op de trackpad nog niet ondersteund. Zoom met Ctrl + scrollen.",
       "touchHeading": "Aanraken",
@@ -1943,6 +1971,8 @@
     "filesWeb": "De webeditie bewaart je ontwerpen en concepten in deze browser. Download een kopie om een bestand te bewaren.",
     "filesLoading": "Mappen zoeken…",
     "filesUnavailable": "Canopi kon zijn mappen niet vinden. Start Canopi opnieuw om het nog eens te proberen.",
+    "favouritesDesktop": "Favorieten blijven op deze computer, niet in een ontwerp: een ontwerp dat je deelt of elders opent, neemt ze niet mee.",
+    "favouritesWeb": "Favorieten blijven in deze browser, niet in een ontwerp: een ontwerp dat je deelt of elders opent, neemt ze niet mee.",
     "draftsHint": "Ontwerpen die nooit in een bestand zijn opgeslagen.",
     "dataLibrary": "Databibliotheek",
     "dataLibraryHint": "Terrein- en hoogtegegevens die je hebt geïmporteerd.",
@@ -2167,6 +2197,7 @@
     "statusDetails": "Deze browser kan je concepten wissen om ruimte vrij te maken. Download een kopie om een bestand te bewaren.",
     "downloadFailedTitle": "Kon geen kopie downloaden",
     "downloadFailedMessage": "Dit concept staat niet meer in deze browser of kon niet worden gelezen.",
+    "uncheckedReadOnly": "Alleen-lezen geopend: Canopi kon de opslag van deze browser niet controleren, dus dit concept is mogelijk verouderd. Download een kopie om het te bewaren.",
     "keepDrafts": "Mijn concepten bewaren",
     "keepDraftsMenu": "Mijn concepten bewaren…"
   },
@@ -2225,7 +2256,13 @@
     "fileTooLarge": "Dit bestand is groter dan Canopi toestaat. Kies een kleiner bestand.",
     "fileError": "Canopi kon het bestand niet lezen of schrijven. Probeer het opnieuw.",
     "plantCatalogUnavailable": "De plantencatalogus kon niet worden geopend. Start Canopi opnieuw en installeer het opnieuw als het probleem blijft.",
-    "libraryNewer": "Deze Databibliotheek is opgeslagen door een nieuwere Canopi. Werk Canopi bij om haar te wijzigen.",
-    "libraryUnavailable": "De Databibliotheek kon niet worden geopend, dus wijzigingen worden deze sessie niet opgeslagen. Start Canopi opnieuw en probeer het opnieuw."
+    "libraryUnavailable": "De Databibliotheek kon niet worden geopend, dus wijzigingen worden deze sessie niet opgeslagen. Start Canopi opnieuw en probeer het opnieuw.",
+    "formatCoreUnavailable": "Canopi kon het onderdeel dat ontwerpen opent niet laden. Probeer het opnieuw en meld een probleem als dit blijft gebeuren.",
+    "formatCoreTrapped": "Canopi stopte tijdens het lezen van dit ontwerp. Probeer het opnieuw en meld een probleem als dit blijft gebeuren."
+  },
+  "startup": {
+    "title": "Canopi kon niet starten",
+    "desktopHint": "Je systeem is mogelijk te oud voor deze versie van Canopi. Werk je besturingssysteem bij en open Canopi daarna opnieuw.",
+    "webHint": "Laad de pagina opnieuw. Start Canopi dan nog steeds niet, dan is deze browser mogelijk te oud: werk hem bij of probeer een andere browser."
   }
 }

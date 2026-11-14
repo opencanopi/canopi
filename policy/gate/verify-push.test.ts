@@ -1,6 +1,7 @@
 // The pre-push hook (2.1-Q266, 2.1-Q270; design check AR1, A4): real `git push`es from a planted repository and its
 // linked worktree to a bare remote, through the tracked .githooks/pre-push and the real CLI. A pushed commit needs a
-// green pre-push stamp that covers its range; deletions, tags on origin/main and docs or beads-only ranges pass.
+// green pre-push stamp that covers its range; deletions, tags on origin/main and docs or beads-only ranges pass. A ref
+// under refs/heads/scratch/ needs no stamp: CI on the step's draft PR decides it (2.1-Q329).
 import { spawnSync } from 'node:child_process'
 import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { delimiter, join } from 'node:path'
@@ -232,6 +233,21 @@ describe('the pre-push hook verifies a stamp (canopi-f47t.52.228.54, canopi-f47t
     expect(repo.calls()).toContain('node policy/gate/cli.mjs prepush-checks --base origin/main')
     expect(push('HEAD:refs/heads/draft')).toEqual({ status: 0, stderr: '' })
     expect(git(remote, 'rev-parse', 'refs/heads/draft')).toBe(head)
+  })
+
+  it('2.1-Q329: a push to a ref under scratch/ needs no stamp, an added marker included; any other ref with that commit is refused', () => {
+    repo.write({ 'desktop/web/src/app/red.test.ts': "it.fails('red, planted', () => {})\n" })
+    git(repo.repo, 'add', 'desktop/web/src/app/red.test.ts')
+    const head = commit('desktop/web/src/app/x.ts', 'desktop/src/x.rs')
+    expect(push('HEAD:refs/heads/scratch/probe')).toEqual({ status: 0, stderr: '' })
+    expect(git(remote, 'rev-parse', 'refs/heads/scratch/probe')).toBe(head)
+    expect(repo.calls(), 'the hook ran no lane').toEqual([])
+    for (const ref of ['refs/heads/work', 'refs/heads/scratchy', 'refs/heads/x/scratch/y', 'refs/tags/scratch/t']) {
+      const refused = push(`HEAD:${ref}`)
+      expect(refused.status, ref).toBe(1)
+      expect(refused.stderr, ref).toContain(`gate: pre-push: ${ref} at ${head.slice(0, 12)}: `)
+    }
+    expect(push('HEAD:refs/heads/work').stderr).toContain('it has no green pre-push stamp')
   })
 
   it('a docs or beads-only range runs its cheap lane here instead, on a clean checkout of it', () => {

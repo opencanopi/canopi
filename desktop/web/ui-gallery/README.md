@@ -29,6 +29,7 @@ The canvas is the production shared workspace (MapLibre and its Pixi scene layer
 - `bearing=<degrees>` turns the map clockwise from north once the Design is fitted (the compass, a turned grid); absent, 0 or not a number keeps north up.
 - `location=off|following|moved-away|blocked|stale` on `location` (default `following`); `stale` is Following with the position unavailable.
 - `plantDb=corrupt|missing` (the plant database notice on the notice row), `theme=dark`, `locale=fr`, `panelWidth=320|352|480|800`.
+- `session=read-only` opens the Design as one a newer Canopi saved, on both editions: the title bar shows its name and "Read-only", whose popover holds the sentence and Update.
 - `platform=mac|linux`: F1's gesture rows as on a Mac with trackpad gestures (Control-click, the twist), or on Linux with Desktop's pinch note (Desktop only). Only F1 reads it; press F1 on the workspace.
 - `edition=web` uses browser-safe registrations. In a phone-sized window (390×844 or 844×390) it shows the phone layout; between 640 and 760 px the stacked dock. Edition links reload the page so two canvas owners never mount together.
 

@@ -71,6 +71,7 @@
     "searchLabel": "植物カタログを検索",
     "details": "{{name}}の詳細",
     "addFavoriteNamed": "{{name}}をお気に入りに追加",
+    "favoriteNeedsNewer": "新しいバージョンの Canopi で保存されました。お気に入りを変更するには Canopi を更新してください。",
     "removeFavoriteNamed": "{{name}}をお気に入りから削除",
     "factHeight": "{{height}} m",
     "factHardiness": "USDA {{zones}}",
@@ -124,6 +125,12 @@
       "webSpeciesLists": "Canopi に保存されたお気に入りと最近表示した植物が破損しており、別に保管できなかったため、このセッション中はそれらへの変更は保存されません。"
     },
     "newerReadOnly": "このデータは新しいバージョンの Canopi で保存されました。表示はできますが、変更は保存されません。編集するには Canopi を更新してください。",
+    "newerReadOnlyStore": {
+      "userDb": "お気に入り、保存したスタンプ、最近のデザインは新しいバージョンの Canopi で保存されました。表示はできますが、変更は保存されません。編集するには Canopi を更新してください。",
+      "settings": "設定は新しいバージョンの Canopi で保存されました。変更は Canopi を閉じるまで適用されますが、保存されません。保持するには Canopi を更新してください。",
+      "libraryCatalogue": "データライブラリは新しいバージョンの Canopi で保存されました。項目は一覧に表示されますが、変更は保存されません。使用するには Canopi を更新してください。",
+      "webSpeciesLists": "お気に入りと最近表示した植物は新しいバージョンの Canopi で保存されました。表示はできますが、変更は保存されません。編集するには Canopi を更新してください。"
+    },
     "refusedNewer": "このデータは新しいバージョンの Canopi で保存されたため、開きませんでした。使用するには Canopi を更新してください。",
     "storeUnavailable": "Canopi の保存データの一部を開けませんでした。Canopi を再起動し、問題が続く場合は報告してください。",
     "fieldsReset": "一部の設定に Canopi が使用できない値があったため、既定値に戻しました。",
@@ -636,14 +643,19 @@
         "deleteEverywhere": "すべてから削除",
         "renameEllipsis": "名前を変更…",
         "recovered": "Canopi は保持しているファイルからデータライブラリを再構築しました。失敗と表示された項目は「再試行」で再度準備できます。",
-        "refusedNewer": "データライブラリは新しいバージョンの Canopi で保存されています。使用するには最新の Canopi をインストールしてください。このバージョンはデータライブラリを変更しません。",
         "unavailable": "データライブラリを開けませんでした。Canopi を再起動するまでインポートと変更は無効です。",
         "sortLabel": "並べ替え",
         "sortRecent": "最近追加した順",
         "factAdded": "追加日",
         "deletedItem": "削除された項目",
         "importNeedsDesign": "データをインポートするにはデザインを開いてください",
-        "importCancelled": "インポートをキャンセルしました"
+        "importCancelled": "インポートをキャンセルしました",
+        "needsNewerNote": "この項目を使用するには Canopi を更新してください。",
+        "newerKind": {
+          "raster": "ラスターデータ",
+          "unknown": "この Canopi が認識できない種類のデータ",
+          "vector": "ベクターデータ"
+        }
       },
       "layers": {
         "emptyTitle": "敷地データはまだありません",
@@ -813,8 +825,11 @@
       "escSelect": "Esc で選択ツールに戻る",
       "escClearRow": "Esc で列をクリア",
       "escClearStamp": "Esc でスタンプをクリア",
-      "selectHint": "ドラッグで選択 · Shift-クリックで追加 · Alt-クリックで除外 · 右ドラッグでパン · ホイールでズーム",
-      "selectHintPan": "ドラッグで選択 · Shift-クリックで追加 · Alt-クリックで除外 · 2 本指でパン · ピンチでズーム",
+      "selectHint": "ドラッグで選択 · Shift-クリックで追加 · Alt-クリックで除外 · 右ドラッグでパン · ホイールでズーム · トラックパッドは「設定 › キャンバス › ポインティングデバイス」",
+      "selectHintPan": "ドラッグで選択 · Shift-クリックで追加 · Alt-クリックで除外 · 2 本指でパン · ピンチでズーム · マウスは「設定 › キャンバス › ポインティングデバイス」",
+      "selectHintTouch": "ドラッグで選択 · Shift-クリックで追加 · Alt-クリックで除外 · 2 本指でパン · ピンチでズーム",
+      "selectHintMac": "ドラッグで選択 · Shift-クリックで追加 · Option-クリックで除外 · ホイールでズーム · トラックパッドは「設定 › キャンバス › ポインティングデバイス」",
+      "selectHintMacPan": "ドラッグで選択 · Shift-クリックで追加 · Option-クリックで除外 · 2 本指でパン · ピンチでズーム · マウスは「設定 › キャンバス › ポインティングデバイス」",
       "panHint": "ドラッグで地図を移動",
       "stampPick": "コピーする植物、ゾーン、メモ、グループをクリック",
       "stampPlace": "クリックして配置",
@@ -1325,7 +1340,8 @@
     "searchAll": "お気に入りとスタンプを検索",
     "remove": "{{name}}をお気に入りから削除",
     "detailsFor": "詳細：",
-    "place": "{{name}}を配置"
+    "place": "{{name}}を配置",
+    "needsNewerStamp": "新しいバージョンの Canopi で保存されています。配置するには Canopi を更新してください。"
   },
   "savedObjectStamps": {
     "title": "保存済みスタンプ",
@@ -1622,6 +1638,12 @@
     "resolve": "解決…",
     "conflictAnotherTab": "別のタブで変更されました"
   },
+  "readOnlyDesign": {
+    "label": "読み取り専用",
+    "status": "読み取り専用：新しいバージョンの Canopi で保存",
+    "details": "このデザインは新しいバージョンの Canopi で保存されました。表示はできますが、変更や保存はできません。編集するには Canopi を更新してください。",
+    "update": "更新"
+  },
   "saveProblem": {
     "flushFailedTitle": "変更を保存できませんでした",
     "flushFailedMessage": "Canopi は最新の変更を書き込めませんでした。再試行するか、変更を破棄して続行してください。",
@@ -1802,6 +1824,7 @@
     "region": "スタート",
     "purpose": "土地の地図の上で、アグロフォレストリーと食べられる森をデザインします。",
     "more": "その他",
+    "movingAround": "地図の移動",
     "searchDesigns": "デザインを検索",
     "noMatches": "「{{query}}」に一致するデザインはありません。",
     "recentDesigns": "最近のデザイン",
@@ -1827,7 +1850,9 @@
     "cantReadMissing": "ファイルが見つかりません：移動または削除されました",
     "cantReadOlderVersion": "Canopi 2.0 より前のバージョンで作成されたため、Canopi 2.0 以降では開けません",
     "cantReadNewerVersion": "新しいバージョンの Canopi で作成されました。開くには Canopi を更新してください",
-    "cantReadDamaged": "ファイルを読み込めません：破損しています"
+    "cantReadDamaged": "ファイルを読み込めません：破損しています",
+    "rowReadOnly": "読み取り専用：新しいバージョンの Canopi で保存",
+    "unreadableDraft": "新しいバージョンの Canopi で保存されました。このバージョンでは読み込めません"
   },
   "shortcutKeys": {
     "ctrl": "Ctrl",
@@ -1878,9 +1903,11 @@
     "gestures": {
       "heading": "マウス、トラックパッド、ペン",
       "rightDrag": "右ドラッグ、中ドラッグ、Space + ドラッグ",
+      "trackpadPan": "トラックパッドで 2 本指（設定 › キャンバス › ポインティングデバイス）、または「パン」ツール",
       "pan": "地図を移動",
       "shiftDrag": "Shift + 右ドラッグ、Shift + 中ドラッグ",
       "turnView": "ビューを回転。{{mod}} を加えると 15° 刻み",
+      "turn": "ビューを回転",
       "trackpadTwist": "トラックパッドで 2 本指をひねる",
       "compass": "コンパス",
       "compassAction": "クリックで北を上に、ドラッグでビューを回転",
@@ -1891,6 +1918,7 @@
       "pinch": "ピンチまたは Ctrl + ホイール",
       "zoom": "ズーム",
       "altClick": "Alt + クリック",
+      "optionClick": "Option + クリック",
       "removeFromSelection": "選択から外す",
       "linuxPinch": "Linux ではトラックパッドのピンチにまだ対応していません。Ctrl + スクロールでズームしてください。",
       "touchHeading": "タッチ",
@@ -1943,6 +1971,8 @@
     "filesWeb": "Web 版はデザインと下書きをこのブラウザーに保存します。ファイルとして残すにはコピーをダウンロードしてください。",
     "filesLoading": "フォルダーを探しています…",
     "filesUnavailable": "Canopi のフォルダーが見つかりません。Canopi を再起動してもう一度お試しください。",
+    "favouritesDesktop": "お気に入りはデザインではなく、このコンピューターに保存されます。共有したデザインや別の場所で開いたデザインには含まれません。",
+    "favouritesWeb": "お気に入りはデザインではなく、このブラウザーに保存されます。共有したデザインや別の場所で開いたデザインには含まれません。",
     "draftsHint": "ファイルに保存したことのないデザイン。",
     "dataLibrary": "データライブラリ",
     "dataLibraryHint": "読み込んだ地形と高さのデータ。",
@@ -2167,6 +2197,7 @@
     "statusDetails": "このブラウザーは空き容量を確保するために下書きを削除することがあります。ファイルを残すにはコピーをダウンロードしてください。",
     "downloadFailedTitle": "コピーをダウンロードできませんでした",
     "downloadFailedMessage": "この下書きはこのブラウザーにもう存在しないか、読み込めませんでした。",
+    "uncheckedReadOnly": "読み取り専用で開きました：Canopi はこのブラウザーのストレージを確認できなかったため、この下書きは最新でない可能性があります。残すには「コピーをダウンロード」を選んでください。",
     "keepDrafts": "下書きを保持する",
     "keepDraftsMenu": "下書きを保持…"
   },
@@ -2225,7 +2256,13 @@
     "fileTooLarge": "このファイルは Canopi の上限を超えています。小さいファイルを選んでください。",
     "fileError": "Canopi はファイルを読み書きできませんでした。もう一度お試しください。",
     "plantCatalogUnavailable": "植物カタログを開けませんでした。Canopi を再起動し、続く場合は再インストールしてください。",
-    "libraryNewer": "このデータライブラリは新しいバージョンの Canopi で保存されています。変更するには Canopi を更新してください。",
-    "libraryUnavailable": "データライブラリを開けなかったため、このセッションの変更は保存されません。Canopi を再起動して、もう一度お試しください。"
+    "libraryUnavailable": "データライブラリを開けなかったため、このセッションの変更は保存されません。Canopi を再起動して、もう一度お試しください。",
+    "formatCoreUnavailable": "Canopi はデザインを開く部分を読み込めませんでした。もう一度お試しください。繰り返し起きる場合は問題を報告してください。",
+    "formatCoreTrapped": "Canopi はこのデザインの読み込み中に停止しました。もう一度お試しください。繰り返し起きる場合は問題を報告してください。"
+  },
+  "startup": {
+    "title": "Canopi を起動できませんでした",
+    "desktopHint": "お使いのシステムは、このバージョンの Canopi には古すぎる可能性があります。オペレーティングシステムを更新してから、Canopi をもう一度開いてください。",
+    "webHint": "ページを再読み込みしてください。それでも Canopi が起動しない場合は、このブラウザーが古すぎる可能性があります。ブラウザーを更新するか、別のブラウザーをお試しください。"
   }
 }

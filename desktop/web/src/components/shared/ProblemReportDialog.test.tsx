@@ -11,6 +11,7 @@ import { openProblemReportDialog, problemReportSubmission } from '../../app/prob
 import { problemReportDialogOpen } from '../../app/problem-report/state'
 import { beforePaint, holdAfterPaint } from '../../__tests__/support/before-paint'
 import { replaceCurrentDesignState } from '../../__tests__/support/design-session-state'
+import { designSessionStore } from '../../app/document-session/store'
 import { desktopProblemReport } from '../../platform/problem-report.desktop'
 import { createBrowserProblemReportWriter, type BrowserProblemReportWriter } from '../../platform/problem-report.browser'
 import en from '../../i18n/en.json'
@@ -300,6 +301,45 @@ describe('ProblemReportDialog', () => {
     expect((attached.plants as Array<{ position: unknown }>)[0]!.position).toEqual({ lon: 2.3522, lat: 48.8566 })
     expect(attached.future_top_level).toEqual({ keep: true })
     expect(attached).not.toHaveProperty('extra')
+  })
+
+  it('canopi-v4kj: the Design row is left out for a Design a newer Canopi saved, open read-only, and kept for a storage-unchecked Draft', async () => {
+    const designRow = () => container.querySelector('input[name="current_design"]')
+    designSessionStore.replaceCurrentDesignState(makeDesign(), null, 'Secret Orchard', { kind: 'read-only', origin: 'newer-version', savedByVersion: 10 })
+    await show()
+    expect(designRow()).toBeNull()
+    expect(container.textContent).not.toContain('Include current Design')
+    await send()
+    expect(mocks.createProblemReport.mock.calls[0]![0].current_design).toBeNull()
+
+    render(null, container)
+    problemReportSubmission.close()
+    openProblemReportDialog()
+    designSessionStore.replaceCurrentDesignState(makeDesign(), null, 'Secret Orchard', { kind: 'read-only', origin: 'storage-unchecked' })
+    await show()
+    expect(designRow()).not.toBeNull()
+
+    render(null, container)
+    replaceCurrentDesignState(makeDesign(), null, 'Secret Orchard')
+    await show()
+    expect(designRow()).not.toBeNull()
+  })
+
+  it('canopi-v4kj: a Design row ticked before a newer Design opens is dropped with the row, never blocking the report', async () => {
+    await show()
+    const checkbox = container.querySelector('input[name="current_design"]') as HTMLInputElement
+    await act(async () => {
+      checkbox.checked = true
+      checkbox.dispatchEvent(new Event('change', { bubbles: true }))
+    })
+    await act(async () => {
+      designSessionStore.replaceCurrentDesignState(makeDesign(), null, 'Orchard 2.1', { kind: 'read-only', origin: 'newer-version', savedByVersion: 10 })
+    })
+    expect(container.querySelector('input[name="current_design"]')).toBeNull()
+    await send()
+
+    expect(container.querySelector('[role="alert"]')).toBeNull()
+    expect(mocks.createProblemReport.mock.calls[0]![0].current_design).toBeNull()
   })
 
   it('Show again shows the saved zip by its file name; when the folder cannot be shown, the zip is said to be kept (2.1-Q276)', async () => {

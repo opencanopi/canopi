@@ -7,8 +7,10 @@ import {
 } from '../../canvas/plant-stamp-source'
 import type { SpeciesListItem } from '../../types/species'
 import { PlantSymbolGlyph } from '../canvas/PlantSymbolGlyph'
+import { ButtonTooltip } from '../shared/ButtonTooltip'
 import { ControlIcon } from '../shared/ControlIcon'
 import { SpeciesCommonName } from '../shared/SpeciesIdentity'
+import { favoriteLockedReason } from './favorite-lock'
 import row from '../shared/species-row.module.css'
 import { secondaryCommonNameForDisplay } from './common-name-display'
 import type { CatalogDesignSpecies } from './design-species'
@@ -39,6 +41,7 @@ export function PlantRow({ plant, inDesign, englishName, highlight }: Props) {
   const showMatchedCommonName = speciesCatalogWorkbench.isActiveSearchText(speciesCatalogWorkbench.intent.value.text)
   const matchedName = showMatchedCommonName ? secondaryCommonNameForDisplay(plant, true) : null
   const facts = catalogFacts(plant, locale.value)
+  const lockedReason = favoriteLockedReason()
 
   const handleDragStart = (e: DragEvent) => {
     writePlantStampDragData(e.dataTransfer, plant)
@@ -96,13 +99,15 @@ export function PlantRow({ plant, inDesign, englishName, highlight }: Props) {
       <button
         type="button"
         className={`${styles.favBtn} ${plant.is_favorite ? styles.favBtnActive : ''}`}
-        onClick={() => { void speciesCatalogWorkbench.toggleFavorite(plant.canonical_name) }}
+        onClick={() => { if (!lockedReason) void speciesCatalogWorkbench.toggleFavorite(plant.canonical_name) }}
         aria-label={plant.is_favorite
           ? t('plantDb.removeFavoriteNamed', { name })
           : t('plantDb.addFavoriteNamed', { name })}
         aria-pressed={plant.is_favorite}
+        aria-disabled={lockedReason ? true : undefined}
       >
         <ControlIcon name={plant.is_favorite ? 'star' : 'star-outline'} />
+        {lockedReason && <ButtonTooltip label={lockedReason} side="left" />}
       </button>
     </div>
   )

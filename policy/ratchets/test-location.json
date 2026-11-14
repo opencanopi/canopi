@@ -79,7 +79,6 @@
     "desktop/web/src/__tests__/satellite-provider-binding.test.ts": {},
     "desktop/web/src/__tests__/satellite-provider-session.test.ts": {},
     "desktop/web/src/__tests__/satellite-provider.test.ts": {},
-    "desktop/web/src/__tests__/saved-object-stamp-source.test.ts": {},
     "desktop/web/src/__tests__/saved-object-stamp-thumbnail-renderer.test.ts": {},
     "desktop/web/src/__tests__/saved-view-thumbnails.test.ts": {},
     "desktop/web/src/__tests__/scale-bar.test.ts": {},

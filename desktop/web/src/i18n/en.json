@@ -71,6 +71,7 @@
     "searchLabel": "Search the plant catalog",
     "details": "Details for {{name}}",
     "addFavoriteNamed": "Add {{name}} to favorites",
+    "favoriteNeedsNewer": "Saved by a newer Canopi. Update Canopi to change your favorites.",
     "removeFavoriteNamed": "Remove {{name}} from favorites",
     "factHeight": "{{height}} m",
     "factHardiness": "USDA {{zones}}",
@@ -124,6 +125,12 @@
       "webSpeciesLists": "Canopi’s saved favorites and recently viewed plants are damaged and couldn’t be set aside, so changes to them won’t be saved this session."
     },
     "newerReadOnly": "This data was saved by a newer Canopi. You can view it, but changes won’t be saved. Update Canopi to edit.",
+    "newerReadOnlyStore": {
+      "userDb": "Your favorites, saved stamps and recent Designs were saved by a newer Canopi. You can view them, but changes won’t be saved. Update Canopi to edit them.",
+      "settings": "Your settings were saved by a newer Canopi. Changes apply until you close Canopi but won’t be saved. Update Canopi to keep them.",
+      "libraryCatalogue": "The Data library was saved by a newer Canopi. Its items are listed, but changes won’t be saved. Update Canopi to use them.",
+      "webSpeciesLists": "Your favorites and recently viewed plants were saved by a newer Canopi. You can view them, but changes won’t be saved. Update Canopi to edit them."
+    },
     "refusedNewer": "This data was saved by a newer Canopi and wasn’t opened. Update Canopi to use it.",
     "storeUnavailable": "Some of Canopi’s saved data couldn’t be opened. Restart Canopi, and report a problem if this keeps happening.",
     "fieldsReset": "Some settings had values Canopi couldn’t use and were reset to their defaults.",
@@ -636,14 +643,19 @@
         "deleteEverywhere": "Delete everywhere",
         "renameEllipsis": "Rename…",
         "recovered": "Canopi rebuilt its Data library from the files it keeps. Items marked failed can be prepared again with Retry.",
-        "refusedNewer": "The Data library was saved by a newer version of Canopi. Install the latest Canopi to use it; this version will not change it.",
         "unavailable": "The Data library could not be opened. Imports and changes are off until Canopi restarts.",
         "sortLabel": "Sort",
         "sortRecent": "Recently added",
         "factAdded": "Added",
         "deletedItem": "Deleted item",
         "importNeedsDesign": "Open a Design to import data",
-        "importCancelled": "Import cancelled"
+        "importCancelled": "Import cancelled",
+        "needsNewerNote": "Update Canopi to use this item.",
+        "newerKind": {
+          "raster": "Raster data",
+          "unknown": "Data of a type this Canopi doesn’t know",
+          "vector": "Vector data"
+        }
       },
       "layers": {
         "emptyTitle": "No site data yet",
@@ -813,8 +825,11 @@
       "escSelect": "Esc to go back to Select",
       "escClearRow": "Esc to clear the row",
       "escClearStamp": "Esc to clear the stamp",
-      "selectHint": "Drag to select · Shift-click adds · Alt-click removes · right-drag pans · wheel zooms",
-      "selectHintPan": "Drag to select · Shift-click adds · Alt-click removes · two fingers pan · pinch zooms",
+      "selectHint": "Drag to select · Shift-click adds · Alt-click removes · right-drag pans · wheel zooms · for a trackpad: Settings › Canvas › Pointing device",
+      "selectHintPan": "Drag to select · Shift-click adds · Alt-click removes · two fingers pan · pinch zooms · for a mouse: Settings › Canvas › Pointing device",
+      "selectHintTouch": "Drag to select · Shift-click adds · Alt-click removes · two fingers pan · pinch zooms",
+      "selectHintMac": "Drag to select · Shift-click adds · Option-click removes · wheel zooms · for a trackpad: Settings › Canvas › Pointing device",
+      "selectHintMacPan": "Drag to select · Shift-click adds · Option-click removes · two fingers pan · pinch zooms · for a mouse: Settings › Canvas › Pointing device",
       "panHint": "Drag to move the map",
       "stampPick": "Click a plant, zone, note or group to copy it",
       "stampPlace": "click to place",
@@ -1325,7 +1340,8 @@
     "searchAll": "Search favorites and stamps",
     "remove": "Remove {{name}} from favorites",
     "detailsFor": "Details for",
-    "place": "Place {{name}}"
+    "place": "Place {{name}}",
+    "needsNewerStamp": "Saved with a newer Canopi; update Canopi to place it."
   },
   "savedObjectStamps": {
     "title": "Saved stamps",
@@ -1622,6 +1638,12 @@
     "resolve": "Resolve…",
     "conflictAnotherTab": "Changed in another tab"
   },
+  "readOnlyDesign": {
+    "label": "Read-only",
+    "status": "Read-only: saved by a newer Canopi",
+    "details": "This Design was saved by a newer Canopi. You can view it, but you can’t change or save it. Update Canopi to edit it.",
+    "update": "Update"
+  },
   "saveProblem": {
     "flushFailedTitle": "Couldn't save your changes",
     "flushFailedMessage": "Canopi couldn't write your latest changes. Try again, or discard them to continue.",
@@ -1802,6 +1824,7 @@
     "region": "Start",
     "purpose": "Design agroforestry and food forests on the map of your land.",
     "more": "More",
+    "movingAround": "Moving around",
     "searchDesigns": "Search your Designs",
     "noMatches": "No Designs match “{{query}}”.",
     "recentDesigns": "Recent Designs",
@@ -1827,7 +1850,9 @@
     "cantReadMissing": "Can’t find this file: it was moved or deleted",
     "cantReadOlderVersion": "Made with Canopi before 2.0; Canopi 2.0 and later can’t open it",
     "cantReadNewerVersion": "Made with a newer version of Canopi; update Canopi to open it",
-    "cantReadDamaged": "Can’t read this file: it is damaged"
+    "cantReadDamaged": "Can’t read this file: it is damaged",
+    "rowReadOnly": "Read-only: saved by a newer Canopi",
+    "unreadableDraft": "Saved by a newer Canopi; this version can’t read it"
   },
   "shortcutKeys": {
     "ctrl": "Ctrl",
@@ -1878,9 +1903,11 @@
     "gestures": {
       "heading": "Mouse, trackpad and pen",
       "rightDrag": "Right-drag, middle-drag or Space + drag",
+      "trackpadPan": "Two fingers on the trackpad (Settings › Canvas › Pointing device), or the Pan tool",
       "pan": "Pan the map",
       "shiftDrag": "Shift + right-drag or Shift + middle-drag",
       "turnView": "Turn the view; add {{mod}} for 15° steps",
+      "turn": "Turn the view",
       "trackpadTwist": "Twist two fingers on the trackpad",
       "compass": "Compass",
       "compassAction": "Click to reset north, drag to turn the view",
@@ -1891,6 +1918,7 @@
       "pinch": "Pinch or Ctrl + wheel",
       "zoom": "Zoom",
       "altClick": "Alt + click",
+      "optionClick": "Option + click",
       "removeFromSelection": "Remove from the selection",
       "linuxPinch": "On Linux, trackpad pinch is not supported yet. Use Ctrl + scroll to zoom.",
       "touchHeading": "Touch",
@@ -1943,6 +1971,8 @@
     "filesWeb": "The Web Edition keeps your Designs and Drafts in this browser. Download a copy to keep a file.",
     "filesLoading": "Finding folders…",
     "filesUnavailable": "Canopi couldn’t find its folders. Restart Canopi to try again.",
+    "favouritesDesktop": "Favorites stay on this computer, not in a Design: a Design you share or open elsewhere doesn’t carry them.",
+    "favouritesWeb": "Favorites stay in this browser, not in a Design: a Design you share or open elsewhere doesn’t carry them.",
     "draftsHint": "Designs never saved to a file.",
     "dataLibrary": "Data library",
     "dataLibraryHint": "Terrain and height data you imported.",
@@ -2167,6 +2197,7 @@
     "statusDetails": "This browser may clear your Drafts to free up space. Download a copy to keep a file.",
     "downloadFailedTitle": "Couldn’t download a copy",
     "downloadFailedMessage": "This Draft is no longer in this browser, or could not be read.",
+    "uncheckedReadOnly": "Opened read-only: Canopi couldn’t check this browser’s storage, so this Draft may be out of date. Download a copy to keep it.",
     "keepDrafts": "Keep my drafts",
     "keepDraftsMenu": "Keep my drafts…"
   },
@@ -2225,7 +2256,13 @@
     "fileTooLarge": "This file is larger than Canopi allows. Choose a smaller file.",
     "fileError": "Canopi couldn’t read or write the file. Try again.",
     "plantCatalogUnavailable": "The plant catalog couldn’t be opened. Restart Canopi, and reinstall it if this keeps happening.",
-    "libraryNewer": "This Data library was saved by a newer Canopi. Update Canopi to change it.",
-    "libraryUnavailable": "The Data library couldn’t be opened, so changes won’t be saved this session. Restart Canopi and try again."
+    "libraryUnavailable": "The Data library couldn’t be opened, so changes won’t be saved this session. Restart Canopi and try again.",
+    "formatCoreUnavailable": "Canopi couldn’t load the part that opens Designs. Try again, and report a problem if this keeps happening.",
+    "formatCoreTrapped": "Canopi stopped while reading this Design. Try again, and report a problem if this keeps happening."
+  },
+  "startup": {
+    "title": "Canopi couldn’t start",
+    "desktopHint": "Your system may be too old for this version of Canopi. Update your operating system, then open Canopi again.",
+    "webHint": "Reload the page. If Canopi still doesn’t start, this browser may be too old: update it or try another browser."
   }
 }

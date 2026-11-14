@@ -21,7 +21,7 @@ classDiagram
     Format (2.1)
   }
   class CanopiFile {
-    <<owner canopi-format (2.1)>>
+    <<owner canopi-format>>
     +version Format
     +updated_at Format
     +map_view Format
@@ -110,7 +110,7 @@ Source: ADR 0001, ADR 0016, contracts §20, 2.1-Q78d, 2.1-M91
 ```mermaid
 flowchart LR
   file["GeoPoint lon/lat WGS84 in .canopi"]
-  core["canopi-format (2.1) decode and admission"]
+  core["canopi-format decode and admission"]
   codec["canvas/runtime/scene/codec.ts hydrate"]
   plane["geo/session-plane.ts (2.1) SessionPlane, Earth model owner"]
   scene["ScenePersistedState in ground metres, Scene"]
@@ -139,7 +139,7 @@ flowchart LR
 
 Model: target
 Enum: Admission (2.1)
-Source: ADR 0026, contracts §10, 2.1-Q35r, 2.1-Q69, 2.1-Q96, 2.1-Q162
+Source: ADR 0026, contracts §10, 2.1-Q35r, 2.1-Q69, 2.1-Q96, 2.1-Q162, 2.1-Q314, 2.1-M475, 2.1-M481, 2.1-M482
 
 ```mermaid
 stateDiagram-v2
@@ -158,11 +158,14 @@ stateDiagram-v2
 | Unknown keys | root only, through the flattened `extra` | an extension bag on every nested object | `canopi-format` |
 | Plant display | `extra.plant_display` through `app/design-edit/extra-keys.ts` | typed field `plant_display`; the extra-key registry deleted if empty | Document |
 | Budget | `BudgetItem` lines with category, quantity and currency each | plant lines only (target, unit cost), one currency; non-plant lines kept unshown in the budget's bag | Document |
-| Group members | plant, zone, annotation | adds measurement guide; normalised at decode, refused on write | Scene |
+| Group members | plant, zone, annotation | adds measurement guide (`measurement_guide`); normalised at decode, refused on write | Scene |
+| Plant spread | `PlacedPlant.scale` | `canopy_spread_m`, finite and above 0 | Scene |
+| Site data | root `lidar`; each entry carries `kind` | root `site_data`; `kind` optional and ignored, resolved by id, or required, per Step 2.0.4 R2's probe | Document |
+| Read schema (frozen by the reader release) | none | only identity and geometry required; every other field optional with a documented default | `canopi-format` |
 | Additions, no step (`canopi-format/spec/v10/additions/` (2.1)) | none | `print_setup` (Document); zone stroke colour and opacity (Scene) | spec emitter |
-| Codec | native `desktop/src/design/format.rs`; TS `app/contracts/canopi-design-schema-decoder.ts` | `canopi-format-wasm` (2.1) in the format worker on both editions, canonical encode; TS decoder deleted | `canopi-format` |
+| Codec | native `desktop/src/design/format.rs`; TS `app/contracts/canopi-design-schema-decoder.ts` | `canopi-format-wasm` in the format worker on both editions, canonical encode; TS decoder deleted | `canopi-format` |
 
-- Owner: `canopi-format` (2.1) owns read checks, the chain (`FLOOR = 9`, `CURRENT = FLOOR + STEPS.len()`), write admission, the new-Design builder and the frozen spec per version.
+- Owner: `canopi-format` owns read checks, the chain (`FLOOR = 9`, `CURRENT = FLOOR + STEPS.len()`), write admission, the new-Design builder and the frozen spec per version.
 - Invariant: a migrated open is clean; the first Desktop write in v10 keeps `<name> (Canopi 2.0).canopi` once; a migrated Desktop Draft keeps its v9 form once, unlisted; a failing step refuses with `migration_failed{from}`.
 - Tests (2.1): `migration_steps_frozen`, the chain from every fixture to head, the encode-decode property test.
 
@@ -181,7 +184,7 @@ classDiagram
     +sort_order
   }
   class SavedObjectStampPayload {
-    <<owner canopi-format (2.1)>>
+    <<owner canopi-format>>
     +version 2 or 3
     +anchor
     +plants
@@ -216,7 +219,7 @@ classDiagram
   note for SavedObjectStamp "canopi-types/src/saved_object_stamps.rs; rows in desktop/src/db/user_db.rs"
 ```
 
-- Owner: each edition's stamp store owns the rows and the library order (new rows take max + 1); `canopi-format` (2.1) runs the payload chain from floor 2 per row at open, in the format worker on both editions.
+- Owner: each edition's stamp store owns the rows and the library order (new rows take max + 1); `canopi-format` runs the payload chain from floor 2 per row at open, in the format worker on both editions.
 - Invariant: positions are relative ground metres from the anchor, never `.canopi` objects. A payload newer than known lists as needing a newer Canopi and is never placed, written or deleted. A placement is one `core.compound` (2.1) entry: objects and species appearance through a Scene transaction, care actions and species data through Design Edit, species data filling only where the Design has none.
 - An exported stamp is a `.canopi` from the core builder and per-entity serializers (`app/saved-object-stamps/file.ts` today); tests: `saved-object-stamp-file.test.ts`, plan 2c's "a stamp with guides, locks, notes and a care action places them all", and a v3 payload with every Q155 item round-trips through the real codec (2b).
 

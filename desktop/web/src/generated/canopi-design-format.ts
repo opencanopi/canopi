@@ -4,7 +4,7 @@ export const CURRENT_CANOPI_FILE_VERSION = 9
 
 export const MISSING_CANOPI_FILE_VERSION = 1
 export const WEB_MERCATOR_MAX_LATITUDE_DEG = 85.0511287798066
-export const FUTURE_CANOPI_FILE_VERSION_POLICY = "reject" as const
+export const FUTURE_CANOPI_FILE_VERSION_POLICY = "newer_read_only" as const
 
 export const SAVED_VIEW_MAX_ZOOM = 27.0
 export const SAVED_VIEW_MAX_GROUND_SIZE_M = 100000000.0

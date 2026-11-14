@@ -291,7 +291,7 @@ async function openOnDesktop(file: CanopiFile = orchard(), settle?: () => Promis
 }
 
 /** The orchard restored from its browser Draft on the Web, through the real browser session controller. */
-function openOnWeb() {
+async function openOnWeb() {
   const values = new Map<string, string>()
   const appDataStore = createBrowserAppDataStore({
     storage: {
@@ -313,7 +313,7 @@ function openOnWeb() {
     workflowRunner: { install: vi.fn(), dispose: vi.fn() },
   })
   const detach = controller.attachCanvasSession(host.surfaces.documents)
-  expect(controller.restoreLatestDraft()).toBe(true)
+  expect(await controller.launch()).toBe(true)
   const page = {
     document: Object.assign(new EventTarget(), { visibilityState: 'visible' as DocumentVisibilityState }),
     window: new EventTarget(),
@@ -527,7 +527,7 @@ describe('the view reaches the home only with a write that already happens (U30)
   })
 
   it('on the Web, panning only, then page hide, detaching the canvas or closing leaves the Draft as it was', async () => {
-    const web = openOnWeb()
+    const web = await openOnWeb()
     try {
       const stored = web.record()
       expect(stored.file).not.toBeNull()
@@ -549,7 +549,7 @@ describe('the view reaches the home only with a write that already happens (U30)
   })
 
   it('on the Web, panning only, then switching to a new Design leaves the Draft as it was', async () => {
-    const web = openOnWeb()
+    const web = await openOnWeb()
     try {
       const stored = web.record()
       moveTheView(web.host)

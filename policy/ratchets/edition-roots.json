@@ -26,6 +26,7 @@
     "main.tsx -> platform/desktop.ts": { "count": 1 },
     "main.web.tsx -> platform/desktop.ts": { "count": 1 },
     "maplibre/satellite-bind.ts -> maplibre/satellite-http.browser.ts": { "count": 1 },
+    "platform/browser.ts -> platform/draft-records.browser.ts": { "count": 1, "bead": "canopi-f47t.52.272" },
     "platform/browser.ts -> platform/settings.browser.ts": { "count": 1 },
     "platform/browser.ts -> web/browser-app-data.ts": { "count": 1 },
     "platform/browser.ts -> web/browser-design-session.ts": { "count": 1 },

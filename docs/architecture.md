@@ -7,7 +7,7 @@ Canopi is a desktop (Tauri) and Web app for designing agroecological sites on a 
 1. **The map is the canvas.** Basemap, satellite, LiDAR and terrain are the background of the design surface. There is no separate local canvas and no Design location ([ADR 0001](adr/0001-geolocated-map-canvas.md)).
 2. **Every design object is geolocated.** Files store WGS84 longitude/latitude; metres exist only in the runtime's session plane ([ADR 0001](adr/0001-geolocated-map-canvas.md)).
 3. **Reuse GeoLibre before writing code.** Generic GIS pieces are copied with attribution or depended on as light packages; Canopi never forks the GeoLibre app or imports its React code ([ADR 0002](adr/0002-geolibre-module-reuse.md)).
-4. **Stored data moves forward from 2.0**; newer and pre-2.0 data are refused or left unread ([ADR 0026](adr/0026-stored-data-after-2-0.md), [Persistence of app data](#persistence-of-app-data)).
+4. **Stored data moves forward from 2.0**; pre-2.0 data is refused or left unread, newer data is refused or read-only where the reader release froze its form ([ADR 0026](adr/0026-stored-data-after-2-0.md), [Persistence of app data](#persistence-of-app-data)).
 5. **Delete, don't deprecate.** Dead code, docs, tests, scripts and dependencies go in the change that makes them dead.
 
 ## Stack
@@ -32,7 +32,7 @@ Canopi is a desktop (Tauri) and Web app for designing agroecological sites on a 
 
 ## Geolocation model
 
-Decided by [ADR 0001](adr/0001-geolocated-map-canvas.md); constants live in `desktop/web/src/canvas/session-plane.ts`.
+Decided by [ADR 0001](adr/0001-geolocated-map-canvas.md).
 
 - **Files store lon/lat.** `.canopi` format v9 (`CURRENT_CANOPI_FILE_VERSION`) stores every persisted position, including saved-view cameras, as `GeoPoint { lon, lat }`; zone and note rotation is degrees clockwise from true north. There is no Design-level anchor, bearing, placement status or altitude; plant and guide ids are required; a bearing belongs only to view cameras.
 - **Session plane.** On load the codec builds a local Mercator-anchored plane (`canvas/projection.ts`) at the centre of the objects' bounds, or the view centre for an empty Design. All runtime geometry, tools, snapping, measurement, hit testing, LiDAR sampling and PDF layout work in metres there, on north-aligned axes; one view transform (centre, zoom, bearing) maps them to screen pixels ([ADR 0016](adr/0016-one-view-transform.md)).
@@ -54,9 +54,9 @@ GeoLibre (MIT, https://github.com/opengeos/GeoLibre) is a React and Zustand app;
 
 | Piece | Source | How |
 |---|---|---|
-| COG display | `maplibre-gl-raster`, `cog-tiler-wasm`, `whitebox-wasm`, `geotiff` (pinned in `desktop/web/package.json`) | Dependency |
-| Raster engine | `wbgeotiff` (`opengeos/whitebox-wasm` rev in `desktop/Cargo.toml`); CRS on `proj4rs` ([ADR 0014](adr/0014-pure-rust-raster-engine.md)) | Dependency |
-| Analyses | GeoLibre CLI from `opengeos/geolibre-rust` (revision in `scripts/build-geolibre-cli.sh` and `desktop/src/services/lidar/geolibre.rs`) | Sidecar binary |
+| COG display | `maplibre-gl-raster`, `cog-tiler-wasm`, `whitebox-wasm`, `geotiff` | Dependency |
+| Raster engine | `wbgeotiff`; CRS on `proj4rs` ([ADR 0014](adr/0014-pure-rust-raster-engine.md)) | Dependency |
+| Analyses | GeoLibre CLI from `opengeos/geolibre-rust` | Sidecar binary |
 | Geocoding registry | `packages/core/src/geocoding.ts` | Copied into `app/geocoding/` |
 | Basemap presets | `OPENFREEMAP_BASEMAPS` | Copied into `maplibre/openfreemap-basemap.ts` |
 | Layer sync | `packages/map/src/layer-sync.ts` | Pattern only (store-driven, idempotent sync) |
@@ -85,7 +85,7 @@ Every `#[tauri::command]` is registered once and is executor-backed async or one
 
 Pre-2.0 data is refused or left unread, the user told once ([ADR 0021](adr/0021-canopi-2-breaks-stored-data.md)); until 2.1 builds each store's forward steps ([ADR 0026](adr/0026-stored-data-after-2-0.md)), a store reads only its current version:
 
-- Designs: only the current format opens; an older or newer file is refused unchanged with a typed `DesignLoadFailure` that says which.
-- Desktop user DB and Drafts: a database from before 2.0 is renamed `….before-2.0-<unix-seconds>` and Canopi starts fresh; older Drafts stay, unread; a newer database is refused untouched; a damaged one is renamed `<file>.corrupt-<unix-seconds>`.
-- LiDAR library: an older or corrupt catalogue is set aside and rebuilt from the originals and their `meta.json`; a newer one is refused and the library runs empty and read-only. Originals are never deleted by recovery.
-- Web: independent browser-local records (drafts, settings, species activity, stamps); the 1.x record and older Drafts stay under their keys, unread.
+- Designs: only the current format opens to edit; a newer one the format core reads opens read-only (2.1-M478); any other is refused unchanged with a typed `DesignLoadFailure` that says which.
+- Desktop user DB and Drafts: a database from before 2.0 is renamed `….before-2.0-<unix-seconds>` and Canopi starts fresh; older Drafts stay, unread; a newer database opens read-only through its frozen projection (2.1-M480); a damaged one is renamed `<file>.corrupt-<unix-seconds>`.
+- LiDAR library: an older or corrupt catalogue is set aside and rebuilt from the originals and their `meta.json`; a newer one opens read-only through its frozen projection (2.1-M480). Originals are never deleted by recovery.
+- Web: independent browser-local records (drafts, settings, species activity, stamps); the 1.x record and older Drafts stay under their keys, unread; 2.1's Drafts and species lists are read, never written (2.1-M486, Q320).
