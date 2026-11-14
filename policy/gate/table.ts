@@ -162,7 +162,7 @@ export const TABLE: Table = {
     // pinned Playwright image; the updater lane installs and updates real packages.
     'desktop-real-app': { command: 'CI job real-app: the Desktop real-app suite on WebKitGTK and WebView2', shown: 'build.yml real-app', ciOnly: true },
     'web-browsers': { command: 'CI job web-browsers: the canvas and gallery suites in Chromium, WebKit and Firefox, and the format worker in WebKitGTK and Edge', shown: 'build.yml web-browsers', ciOnly: true },
-    'updater-e2e': { command: 'CI job updater: N-1 updates itself to N as an AppImage, a .deb and an NSIS install', shown: 'build.yml updater', ciOnly: true },
+    'updater-e2e': { command: 'CI job updater: N-1 updates itself to N as an AppImage, a .deb, an NSIS install and an MSI', shown: 'build.yml updater', ciOnly: true },
     // The rollback lane (ADR 0026, contracts §11 Rollback harness): the reader tree's harness over the writer's fixtures.
     'rollback': { command: 'CI job rollback: the reader release\'s Desktop and Web readers over every frozen store form the writer lays down write no byte, and fail on a planted unreadable change', shown: 'build.yml rollback', ciOnly: true },
     'release-build': { command: 'CI job release-build: the Release Candidate\'s preflight and build on every platform as a dry run, publishing nothing', shown: 'build.yml release-build', ciOnly: true },
