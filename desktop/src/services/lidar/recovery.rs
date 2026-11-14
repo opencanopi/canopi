@@ -197,7 +197,12 @@ pub fn open_catalogue(
         CatalogueState::Missing => {
             discard_staging(paths);
             match source_meta::survey(paths) {
-                Ok(survey) if !survey.unreleased => open_in_place(&path),
+                Ok(survey) if !survey.unreleased => {
+                    match install::set_aside_strays(&path, &paths.set_aside_dir(), &now_stamp()) {
+                        Ok(()) => open_in_place(&path),
+                        Err(reason) => in_memory(LibraryOpenStatus::Unavailable { reason }),
+                    }
+                }
                 Ok(_) => recover(paths, RecoveryReason::Missing),
                 Err(reason) => in_memory(LibraryOpenStatus::Unavailable { reason }),
             }
@@ -587,5 +592,7 @@ fn insert_definition(connection: &Connection, analysis: &AnalysisMeta) -> Result
 
 #[cfg(test)]
 mod failed_rebuild_tests;
+#[cfg(test)]
+mod install_tests;
 #[cfg(test)]
 mod tests;

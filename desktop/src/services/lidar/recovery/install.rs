@@ -1,13 +1,14 @@
 //! Putting a rebuilt catalogue in the catalogue's place (canopi-uidt).
 //!
 //! The rebuild is committed and closed in a staging file with no sidecar beside it. The old catalogue then gets a
-//! forensic copy under the set-aside folder and stays at its path; its sidecars move under the same folder, since a
-//! log left at the catalogue path would be replayed against the rebuilt file. One rename then replaces the old
-//! catalogue with the rebuilt one atomically (`design::atomic_replace`: rename(2) on Unix, `MoveFileExW` replacing
-//! the target on Windows). Any failure before that rename leaves the old main file at its path, which the next start
-//! inspects and recovers again; a stop at any point leaves the old main file (with or without its sidecars) or the
-//! complete rebuild. (Only if Windows refuses the replacing rename, `atomic_replace` moves the old file aside first;
-//! a stop inside that fallback leaves no catalogue, which the next start rebuilds as `Missing`.)
+//! forensic copy under the set-aside folder and stays at its path; its sidecars move beside the copy, since a log
+//! left at the catalogue path would be replayed against the rebuilt file. One rename then replaces the old catalogue
+//! with the rebuilt one atomically (`design::atomic_replace`: rename(2) on Unix, `MoveFileExW` replacing the target
+//! on Windows). If a sidecar or the rename fails, the sidecars already moved go back beside the main file (a few
+//! renames): the old catalogue is then at its path as it was, and the next start inspects and recovers it again. A
+//! stop at any point leaves the old main file (with or without its sidecars) or the complete rebuild. (Only if
+//! Windows refuses the replacing rename, `atomic_replace` moves the old file aside first; a stop inside that fallback
+//! leaves no catalogue, which the next start rebuilds as `Missing`.)
 //!
 //! This module names only std and the crate's file helpers (`design`, `db`), so it stays out of the `services::lidar`
 //! module cycle (`rust-scc`): its caller passes in every path.
@@ -35,7 +36,7 @@ pub(super) fn free_staging_file(staging: &Path) -> Result<PathBuf, String> {
 
 /// Replace the catalogue at `catalogue` with the committed and closed rebuild at `rebuilt`, keeping a copy of the
 /// old one under `set_aside_dir` named after `stamp`. Returns where the old main file's copy went (none when there
-/// was no main file). On failure the old main file is still at its path.
+/// was no main file). On failure the old main file is still at its path, with its sidecars.
 pub(super) fn install(
     rebuilt: &Path,
     catalogue: &Path,
@@ -50,14 +51,35 @@ pub(super) fn install(
         return Err(format!("The rebuilt catalogue kept its {suffix} file"));
     }
     let aside = set_aside(catalogue, set_aside_dir, stamp)?;
-    crate::design::atomic_replace(rebuilt, catalogue)
-        .map_err(|e| format!("Failed to put the rebuilt catalogue in place: {e}"))?;
-    Ok(aside)
+    match crate::design::atomic_replace(rebuilt, catalogue) {
+        Ok(()) => Ok(aside.copy),
+        Err(e) => Err(put_back(
+            &aside.moved,
+            format!("Failed to put the rebuilt catalogue in place: {e}"),
+        )),
+    }
+}
+
+/// Set aside the sidecars at a missing catalogue's path (and a zero-length main file's copy) before a fresh catalogue
+/// opens there: SQLite discards a log it finds beside no database, the only copy of an earlier catalogue's last writes.
+pub(super) fn set_aside_strays(
+    catalogue: &Path,
+    set_aside_dir: &Path,
+    stamp: &str,
+) -> Result<(), String> {
+    set_aside(catalogue, set_aside_dir, stamp).map(drop)
+}
+
+/// What `set_aside` did: where the main file's copy went, and each sidecar's move (from, to).
+struct SetAside {
+    copy: Option<PathBuf>,
+    moved: Vec<(PathBuf, PathBuf)>,
 }
 
 /// Copy the old main file under `directory` and move its sidecars beside the copy, under the first free
-/// `<stamp>[-n].sqlite`. The main file stays at its path; a stop part way leaves at worst a duplicate copy.
-fn set_aside(catalogue: &Path, directory: &Path, stamp: &str) -> Result<Option<PathBuf>, String> {
+/// `<stamp>[-n].sqlite`. The main file stays at its path; a sidecar that cannot follow puts back those that did. A
+/// stop part way leaves at worst a duplicate copy, or the main file without some of its sidecars.
+fn set_aside(catalogue: &Path, directory: &Path, stamp: &str) -> Result<SetAside, String> {
     let main = present(catalogue)?;
     let mut sidecars = Vec::new();
     for suffix in SIDECARS {
@@ -66,7 +88,10 @@ fn set_aside(catalogue: &Path, directory: &Path, stamp: &str) -> Result<Option<P
         }
     }
     if !main && sidecars.is_empty() {
-        return Ok(None);
+        return Ok(SetAside {
+            copy: None,
+            moved: Vec::new(),
+        });
     }
     std::fs::create_dir_all(directory)
         .map_err(|e| format!("Failed to create the set-aside folder: {e}"))?;
@@ -89,15 +114,30 @@ fn set_aside(catalogue: &Path, directory: &Path, stamp: &str) -> Result<Option<P
         crate::design::write_file_durably(&base, &bytes, "set-aside")
             .map_err(|e| format!("Failed to set the catalogue aside: {e}"))?;
     }
+    let mut moved = Vec::new();
     for suffix in sidecars {
-        crate::db::move_aside(
-            &sidecar(catalogue, suffix),
-            std::iter::once(sidecar(&base, suffix)),
-            &[],
-        )
-        .map_err(|e| format!("Failed to set aside the catalogue's {suffix} file: {e}"))?;
+        let (from, to) = (sidecar(catalogue, suffix), sidecar(&base, suffix));
+        if let Err(e) = crate::db::move_aside(&from, std::iter::once(to.clone()), &[]) {
+            let error = format!("Failed to set aside the catalogue's {suffix} file: {e}");
+            return Err(put_back(&moved, error));
+        }
+        moved.push((from, to));
     }
-    Ok(main.then_some(base))
+    Ok(SetAside {
+        copy: main.then_some(base),
+        moved,
+    })
+}
+
+/// Move each set-aside sidecar back beside the main file, last first, and return `error`: a main file without its
+/// log could read as current with stale rows. A move back that fails is added to the error.
+fn put_back(moved: &[(PathBuf, PathBuf)], mut error: String) -> String {
+    for (from, to) in moved.iter().rev() {
+        if let Err(e) = crate::db::move_aside(to, std::iter::once(from.clone()), &[]) {
+            error.push_str(&format!("; a catalogue sidecar stays set aside: {e}"));
+        }
+    }
+    error
 }
 
 fn sidecar(path: &Path, suffix: &str) -> PathBuf {
