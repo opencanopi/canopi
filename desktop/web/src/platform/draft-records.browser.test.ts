@@ -464,9 +464,9 @@ describe('the 2.1 Draft store read half', () => {
   })
 
   /**
-   * V8's sort reads only whether the comparator answers below zero; SpiderMonkey's and JavaScriptCore's merge sorts read
-   * whether it answers above zero. This stable insertion sort does the latter, so the order holds in every engine the
-   * Web Edition runs in.
+   * A spec-stable sort may read only the comparator's answers above zero, as SpiderMonkey's does (it keeps the left item
+   * when comparefn(left, right) <= 0); V8's sort at this size reads only answers below zero. This stable insertion sort
+   * models SpiderMonkey, so the order holds in Firefox too.
    */
   function sortReadingPositiveAnswers<T>(this: T[], compare?: (a: T, b: T) => number): T[] {
     for (let i = 1; i < this.length; i += 1) {
@@ -477,7 +477,7 @@ describe('the 2.1 Draft store read half', () => {
 
   it.each([
     ['the engine’s sort', false],
-    ['a sort that reads only the comparator’s answers above zero', true],
+    ['a spec-stable sort that reads only the comparator’s answers above zero, as SpiderMonkey’s', true],
   ] as const)('canopi-sr7m: many Drafts list newest first, and Drafts saved at the same instant keep the store order by id (%s)', async (_, positiveOnly) => {
     // getAll gives the records in key order; the instants are shuffled and repeat, as a user with many Drafts has.
     const instants = Array.from({ length: 12 }, (_, day) => `2026-12-${String(day + 10).padStart(2, '0')}T00:00:00.000Z`)
@@ -518,7 +518,7 @@ describe('the 2.1 Draft store read half', () => {
     ['an engine abort with its error', 'abort', closedError, closedError],
     ['an abort with no error', 'abort', null, 'Reading canopi-drafts was aborted'],
   ] as const)('canopi-sr7m: a read transaction that fails (%s) settles at once, reported with what failed', async (_, as, error, reported) => {
-    vi.useFakeTimers()
+    // Real timers with a short bound: a read the failure did not end settles on the bound's report, which fails below.
     const idb = new FakeIndexedDb()
     idb.seed(FROZEN)
     const { records, reports } = reader(idb, { timeoutMs: 50 })
