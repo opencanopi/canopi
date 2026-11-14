@@ -1,6 +1,7 @@
 //! Tests for `read`, a sibling module so `read.rs` keeps under the file-size limit.
 
-use super::{FIRST_READ_VERSION, read_newer_design};
+use super::{FIRST_READ_VERSION, in_file_names, read_newer_design};
+use canopi_types::design::field_path::{FieldPath, Refusal};
 use canopi_types::design::{DesignLoadFailureKind, ObjectGroupMember, PanelTarget};
 use canopi_types::library::LibraryItemRole;
 use serde_json::{Value, json};
@@ -10,7 +11,7 @@ fn point(lon: f64, lat: f64) -> Value {
 }
 
 /// A v10 Design with each name and shape v10 changes, and keys this build does not know.
-fn v10() -> Value {
+pub(super) fn v10() -> Value {
     json!({
         "version": 10, "name": "Orchard",
         "plants": [{
@@ -37,7 +38,7 @@ fn v10() -> Value {
     })
 }
 
-fn refusal_of(value: &Value) -> (DesignLoadFailureKind, String) {
+pub(super) fn refusal_of(value: &Value) -> (DesignLoadFailureKind, String) {
     let refused = read_newer_design(value).expect_err("the read refuses it");
     (refused.kind, refused.refusal.field_path.to_string())
 }
@@ -154,33 +155,6 @@ fn canopi_cyqd_a_version_10_file_the_read_refuses_is_invalid_document_at_its_pat
     assert_eq!(refusal_of(&value).1, "$.groups[0].members[1].kind");
 }
 
-/// 2.1-M481: a file above version 10 the read schema refuses was saved by a Canopi that
-/// may have changed what this build reads: `newer_version`, never `invalid_document`.
-#[test]
-fn a_version_above_10_failing_the_read_schema_is_newer_version_not_invalid_document() {
-    let mut value = v10();
-    value["version"] = json!(11);
-    value["plants"][0]["position"] = json!("somewhere else");
-    assert_eq!(
-        refusal_of(&value),
-        (
-            DesignLoadFailureKind::NewerVersion,
-            "$.plants[0].position".to_owned()
-        )
-    );
-    value["version"] = json!(10);
-    assert_eq!(refusal_of(&value).0, DesignLoadFailureKind::InvalidDocument);
-    let mut later = v10();
-    later["version"] = json!(12);
-    later["site_data"]["entries"][0]["opacity"] = json!(2.0);
-    assert_eq!(refusal_of(&later).0, DesignLoadFailureKind::NewerVersion);
-    later["site_data"]["entries"][0]["opacity"] = json!(1.0);
-    assert_eq!(
-        read_newer_design(&later).map(|read| read.saved_by_version),
-        Ok(12)
-    );
-}
-
 /// 2.1-M482: the spread is above 0, refused at its own path, and a `scale` beside it is
 /// not read; a rule past the schema names the file's v10 path, never the v9 one.
 #[test]
@@ -228,21 +202,74 @@ fn of_two_site_data_entries_with_one_id_the_lowest_order_is_kept() {
     );
 }
 
+/// Of entries with one id the first of the lowest `order` stays where the first of them
+/// stood: a later equal or higher `order` never replaces it.
 #[test]
-fn a_version_outside_the_read_is_refused_at_version() {
-    for (version, kind) in [
-        (json!(9), DesignLoadFailureKind::InvalidDocument),
-        (json!("10"), DesignLoadFailureKind::InvalidDocument),
-        (json!(10.5), DesignLoadFailureKind::InvalidDocument),
-        (json!(1_u64 << 33), DesignLoadFailureKind::NewerVersion),
+fn of_site_data_entries_with_one_id_the_first_of_the_lowest_order_stays_in_place() {
+    let mut value = v10();
+    value["site_data"]["entries"] = json!([
+        { "id": "item-2", "name": "First", "order": 1 },
+        { "id": "lyr-1", "name": "Terrain", "order": 0 },
+        { "id": "item-2", "name": "Equal", "order": 1 },
+        { "id": "item-2", "name": "Higher", "order": 5 }
+    ]);
+    let entries = read_newer_design(&value)
+        .expect("duplicates read")
+        .view
+        .lidar
+        .expect("Site data")
+        .entries;
+    let names = entries.iter().map(|entry| entry.name.as_str());
+    assert_eq!(names.collect::<Vec<_>>(), ["First", "Terrain"]);
+}
+
+/// A rule past the schema names `lidar` as `site_data` only at the root, and `scale` as
+/// `canopy_spread_m` only as a plant's own field: the same names elsewhere are the file's.
+#[test]
+fn only_the_root_lidar_and_a_plants_scale_are_renamed_to_their_v10_names() {
+    let renamed = |path: FieldPath| {
+        in_file_names(Refusal::new(path, "x"))
+            .field_path
+            .to_string()
+    };
+    let root = FieldPath::root();
+    assert_eq!(
+        renamed(
+            root.field("lidar")
+                .field("entries")
+                .index(1)
+                .field("opacity")
+        ),
+        "$.site_data.entries[1].opacity"
+    );
+    assert_eq!(
+        renamed(root.field("plants").index(0).field("scale")),
+        "$.plants[0].canopy_spread_m"
+    );
+    for kept in [
+        root.field("views").index(0).field("lidar"),
+        root.field("zones").index(0).field("scale"),
+        root.field("plants").field("scale"),
+        root.field("views").field("plants").index(0).field("scale"),
     ] {
-        let mut value = v10();
-        value["version"] = version;
-        assert_eq!(refusal_of(&value), (kind, "$.version".to_owned()));
+        assert_eq!(renamed(kept.clone()), kept.to_string());
     }
-    let mut missing = v10();
-    missing.as_object_mut().expect("object").remove("version");
-    assert_eq!(refusal_of(&missing).1, "$.version");
+}
+
+/// A `one_color` reads only as `#` and six hex digits; any other string is v9's default.
+#[test]
+fn a_one_color_other_than_hash_and_six_hex_digits_reads_as_the_default() {
+    for color in ["#abc", "abcdef", "1234567", "#abcdeg"] {
+        let mut value = v10();
+        value["plant_display"] = json!({ "one_color": color });
+        let display = read_newer_design(&value)
+            .expect("a v10 Design reads")
+            .view
+            .extra
+            .remove("plant_display")
+            .expect("plant_display");
+        assert_eq!(display["one_color"], json!("#27231D"), "{color}");
+    }
 }
 
 #[test]
@@ -501,45 +528,4 @@ fn canopi_f47t_52_270_groups_are_normalised_at_read() {
             }
         ]
     );
-}
-
-/// canopi-f47t.52.270: a store's write accessor asks whether the bytes it would replace or
-/// delete hold a Design saved by a newer Canopi (2.1-M410): only the root `version` decides,
-/// read past any value before it, and bytes no Canopi reads as a Design hold none.
-#[test]
-fn canopi_f47t_52_270_saved_by_newer_reads_only_the_root_version() {
-    let newer = |text: &str| super::saved_by_newer(text.as_bytes()).expect("bytes read");
-    let current = canopi_types::design::CURRENT_CANOPI_FILE_VERSION;
-    assert!(newer(&v10().to_string()));
-    let late = r#"{"plants": [{"id": "p", "version": 1}], "name": "Late", "version": 11.0}"#;
-    assert!(
-        newer(late),
-        "a version after other values, as an integral float"
-    );
-    for held in [
-        format!(r#"{{"version": {current}, "name": "Current"}}"#),
-        r#"{"version": 4, "name": "Canopi 1.1"}"#.to_owned(),
-        r#"{"name": "No version"}"#.to_owned(),
-        r#"{"version": "10"}"#.to_owned(),
-        r#"{"version": 10.5}"#.to_owned(),
-        r#"[{"version": 10}]"#.to_owned(),
-        r#"{"version": 10"#.to_owned(),
-        "not json".to_owned(),
-        String::new(),
-    ] {
-        assert!(!newer(&held), "{held}");
-    }
-}
-
-/// canopi-f47t.52.270: a read that fails is no answer, so the caller writes nothing.
-#[test]
-fn canopi_f47t_52_270_saved_by_newer_passes_a_read_error_on() {
-    struct Failing;
-    impl std::io::Read for Failing {
-        fn read(&mut self, _: &mut [u8]) -> std::io::Result<usize> {
-            Err(std::io::Error::from(std::io::ErrorKind::PermissionDenied))
-        }
-    }
-    let error = super::saved_by_newer(Failing).expect_err("the read failed");
-    assert_eq!(error.kind(), std::io::ErrorKind::PermissionDenied);
 }

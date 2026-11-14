@@ -392,3 +392,6 @@ fn in_file_names(refusal: Refusal) -> Refusal {
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod version_tests;
