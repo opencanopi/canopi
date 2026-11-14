@@ -60,8 +60,8 @@ Install: `npm ci --prefix desktop/web`.
 
 ```bash
 cd desktop/web && npm run build:web
-python3 -I scripts/web_release.py package --dist desktop/web/dist-web --output-dir <dir> --version <v> --commit <sha>
 scripts/publish-web-release.sh --tag v<version> [--artifact <archive>] [--verify-only]
+scripts/publish-web-release.sh --tag v<version> --preview-only --artifact <archive> --checksums <sums>
 ```
 
 The build needs the generated catalog. Every release ships the Web Edition:
@@ -69,9 +69,9 @@ The build needs the generated catalog. Every release ships the Web Edition:
 - `publish-db-release.sh` puts the Web catalog on `canopi-core-db` under its identity name; the Release Candidate's `web` job packages the root artifact with it; promotion attaches the archive with `WEB-RELEASE-SHA256SUMS.txt`.
 - `publish-web-release.sh` deploys it to Cloudflare Pages project `canopi-web` (branch `production`, `web.projectcanopi.com`, ADR 0005) with the operator's logged-in wrangler; GitHub holds no Cloudflare secret.
 - Before any deploy, `web_release.py` verifies the archive and finds N-1, the greatest published stable release below N with a Web archive (`--previous-tag` overrides; production must serve N-1 or N; `--no-previous` only while production serves no manifest), admits it by its checksums and manifest, and merges its files into N (N-1, 2.0.3 or later, carries only `assets/` files, all immutable): N wins a shared path, any other differing collision fails, and the Pages limits (20,000 files, 25 MiB each, no raw DuckDB WASM) apply to the merged set.
-- Only stable `vX.Y.Z` tags publish; Web has no betas in 2.1 (2.1-Q201). Each deploy names its tag's full commit.
+- Only stable `vX.Y.Z` tags publish; Web has no betas in 2.1 (2.1-Q201). Each deploy names the full commit.
 - Deploy skew (2.1-Q83): the run fails unless N-1's PDF job chunk is one N lacks (`--allow-unchanged-pdf-chunk` waives that proof alone). On `canopi-web-preview` it deploys N-1, opens an N-1 tab (`e2e-release/deploy-skew.spec.ts`), deploys merged N, and checks that the tab loads the chunk, reads the catalog and saves. A 2.0.2 tab has no notice; until a real N-1 carries it, the notice and Reload are proven against a routed manifest (`e2e/canvas/release-notice.spec.ts`, Q197).
-- It then checks the preview, deploys production, waits for its manifest and checks it; a production already serving the release is only checked.
+- It then checks the preview, deploys production, waits for its manifest and checks it; a production already serving the release is only checked. A rehearsal (2.1-Q325) runs `--preview-only` from `main` at the run's `tools_sha` (2.1-M288) on the draft's archive and checksums: it reads no release or tag and stops before production.
 
 Hosting rules (ADR 0029):
 
