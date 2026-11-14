@@ -67,7 +67,7 @@ Each input crossing into native code (ADR 0029, 2.1-M420).
 ## Commands
 
 ```bash
-cargo tauri dev  # -f mcp-bridge for the debug bridge; the Rust gate is AGENTS.md's
+cargo tauri dev  # -f mcp-bridge for the debug bridge
 cd desktop/web && npm audit --omit=dev && npm audit  # before a release
 ```
 
@@ -89,7 +89,7 @@ Linux deps: GTK/WebKitGTK, librsvg, patchelf (never `libappindicator3-dev`).
 6. Publish with the command promote prints (`--latest` only with `stable.json`, the stable channel). Never replace a published release.
 7. Deploy the Web Edition, betas excepted (2.1-Q201): `scripts/publish-web-release.sh --tag v<version>` ([editions](editions.md#web-publishing)).
 
-Rehearsal (2.1-Q325): a release first through a changed release path (the reader release: this candidate, `stable.json`, MSI payloads) is rehearsed before its tag: a signed candidate promoted to a draft and its Web archive previewed ([editions](editions.md#web-publishing)), then the draft (no tag) and run artifacts deleted; `releases/latest` still resolves the last stable.
+Rehearsal (2.1-Q325): a release first through a changed release path (the reader release: this candidate, `stable.json`, MSI payloads) is rehearsed before its tag, once `main`, whose tools build every candidate (2.1-M288), carries the release tooling it runs: a signed candidate promoted to a draft and its Web archive previewed ([editions](editions.md#web-publishing)), then the draft (no tag) and run artifacts deleted; `releases/latest` still resolves the last stable.
 
 Release notes repeat the body's Corresponding Source offer in their own words.
 
