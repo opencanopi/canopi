@@ -4,6 +4,7 @@ import type { ProblemReportPort } from '../../platform/problem-report'
 import { reportFailure, reportInline, type ReportOrigin } from '../../failures/report'
 import { t } from '../../i18n'
 import { buildProblemReport } from './builder'
+import { currentDesignAttachable } from './design-consent'
 import { recentFrontendDiagnostics } from './diagnostics'
 import { problemReportDialogOpen } from './state'
 
@@ -121,7 +122,8 @@ export function createProblemReportSubmission(
         const writer = port.value
         if (!writer) throw new Error('No problem report writer is installed for this edition')
         let currentDesign: string | null = null
-        if (includeCurrentDesign.value) {
+        // A tick left from before a newer Design opened goes with its row, never blocking the report (canopi-v4kj).
+        if (includeCurrentDesign.value && currentDesignAttachable()) {
           currentDesign = writer.currentDesign()
           if (!currentDesign) {
             error.value = t('problemReport.currentDesignUnavailable')
