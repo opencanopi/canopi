@@ -9,7 +9,7 @@ Boundaries for Canopi Desktop's store of LiDAR terrain rasters (imported and der
 ## Authorities and boundaries
 
 - **The library** (catalogue `$APPDATA/lidar/lidar-library.sqlite`) owns originals, generations, derived items, quality masks, jobs, processing history and display derivatives. Closing a panel or switching Designs never stops library work; only Cancel does.
-- **A Design** owns only a `visible` flag and ordered references `{ kind, id, name, visible, opacity, order, ramp, reversed, range }` (`canopi-types/src/lidar.rs`), edited through `app/design-edit/lidar.ts` with no undo (`__tests__/design-edit-lidar`). It never holds paths, pixels or library state; a missing item stays listed by name until removed.
+- **A Design** owns only a `visible` flag and ordered references `{ kind, id, name, visible, opacity, order, ramp, reversed, range }` (`canopi-types/src/lidar.rs`), edited through `app/design-edit/lidar.ts` with no undo (`__tests__/design-edit-lidar`). It never holds paths, pixels or library state. An entry joins its item by id alone, kind from the item (2.1-M493); a missing item stays listed by name until removed.
 - **Numeric reads, analysis and display are separate.** Display colour and resampling never feed analysis; a displayed colour is never a measurement; row values and profiles read the native cell.
 - **The registry** (`canopi-types/analysis-registry.json`) says what an analysis is; executors in `analyses/` say how it runs. The native side validates every request; the frontend only mirrors the rules for inline errors.
 - **Camera and map style** never change raster geography, library data or results, and never start an analysis.
@@ -17,7 +17,8 @@ Boundaries for Canopi Desktop's store of LiDAR terrain rasters (imported and der
 
 ## Rules
 
-- One catalogue schema, `CATALOGUE_VERSION` (`catalogue.rs`), no migration ladder. Every original carries a complete `sources/<sha256>/meta.json` (`source_meta.rs`); an older or corrupt catalogue is set aside and rebuilt from them, ids kept, items re-prepared on Retry; a newer one is refused and an unopenable one is `Unavailable`, both empty and read-only. Recovery never deletes an original. (`mod.rs` recovery tests, `recovery.rs`, `source_meta.rs` tests)
+- One catalogue schema, `CATALOGUE_VERSION` (`catalogue.rs`), no migration ladder. Every original carries a complete `sources/<sha256>/meta.json` (`source_meta.rs`); an older or corrupt catalogue is set aside and rebuilt from them, ids kept, items re-prepared on Retry; an unopenable one is `Unavailable`, empty and read-only. Recovery never deletes an original. (`mod.rs` recovery tests, `recovery.rs`, `source_meta.rs` tests)
+- A newer catalogue (26 or later) opens `newer-read-only` through its frozen read projection (`catalogue_reader.rs`, 2.1-M480): each item lists by name and type, needing a newer Canopi, never drawn, placed, renamed or deleted (2.1-Q318), or is `Unavailable` when unreadable, never set aside. Recovery, janitor and prune skip; no file, directory or job row changes; a refused write settles `store_read_only` (2.1-M487, 2.1-M488). (`reader_release_tests.rs`)
 - How the library opened is health: `SubsystemHealth[library_catalogue]` (state, counts, no paths or reasons) in `failures/health.ts`; the notice row shows the read-only states, the Data library every non-ready one. An unreadable list keeps its rows, marked stale, and offers Try again (2.1-Q297); a cancelled import says so (2.1-Q298). (`health.rs`, `recovery.rs`, `library-store.test.ts`)
 - An import publishes one fixed item from one batch; listed order is source priority (first valid sample wins, NoData reveals the next). A published item never changes its sources. (`import.rs` tests)
 - Files first, then references: originals to `sources/<sha256>/original`, COGs to `assets/<sha256>/cog.tif` by idempotent rename, then one `BEGIN IMMEDIATE` transaction writes the rows; a crash leaves no item or a whole one. Cancel withdraws a running import: a first import's item goes, a Retry's is Failed again, its originals kept until Dismiss. Leased, a settling job, Dismiss and Delete free unclaimed files (Import, Retry and Dismiss wait); startup sweeps the rest. (`fixed_library_tests.rs`)
@@ -45,14 +46,13 @@ Boundaries for Canopi Desktop's store of LiDAR terrain rasters (imported and der
 ## Environment and commands
 
 - GeoLibre CLI: `CANOPI_GEOLIBRE_BIN`, beside the executable, then `PATH` (`geolibre.rs` tests); built by `scripts/build-geolibre-cli.sh` and bundled as a Tauri sidecar ([native and release](native-and-release.md)).
-- Engine lane: the CI job `lidar-native` (`.github/workflows/build.yml`) runs the ignored `services::lidar` tests and skips by name those whose `#[ignore]` reason starts with `local fixture: ` (`ci_lane_policy::tests`).
+- Engine lane: the CI job `lidar-native` runs the ignored `services::lidar` tests but the `local fixture: ` ones (`ci_lane_policy::tests`).
 - Comparison lane (local; GDAL tools via `CANOPI_LIDAR_GDAL_BIN` or `PATH`; skips without them): `cargo test -p canopi-desktop --lib rust_engine::comparison -- --ignored --nocapture`.
 - Fixture lanes (local; no fixtures is not a pass): `CANOPI_LIDAR_E2E_FIXTURE=<IGN MNT GeoTIFF>`, `CANOPI_LIDAR_MNH_DIR=<IGN MNH tiles>`, then `cargo test -p canopi-desktop --lib -- --ignored --test-threads=1 --nocapture` (`e2e.rs`).
-- Raster diagnostics: `localStorage['canopi.rasterDiagnostics']='1'`.
 
 ## Do not
 
-- Add a catalogue migration or compatibility reader; bump `CATALOGUE_VERSION` and let the rebuild carry the data.
+- Add a catalogue migration or a reader of an older catalogue; bump `CATALOGUE_VERSION` and let the rebuild carry the data.
 - Transform coordinates outside `crs.rs`, through `wbprojection`, or from the GeoLibre CLI's WGS84 output.
 - Store a library path, pixel or runtime URL in a `.canopi`, log or Problem Report.
 - Materialise a merged raster, union grid or absent-coordinate walk.
@@ -64,12 +64,8 @@ Boundaries for Canopi Desktop's store of LiDAR terrain rasters (imported and der
 | Area | Module | Tests |
 |---|---|---|
 | Admission, import, publication | `admission.rs`, `import.rs`, `collection.rs`, `generation.rs` | inline tests, `fixed_library_tests.rs`, `e2e.rs` |
-| Catalogue, paths, sweep, recovery | `catalogue.rs`, `paths.rs`, `mod.rs`, `recovery.rs`, `source_meta.rs` | inline tests |
-| Registry, executors | `canopi-types/analysis-registry.json`, `canopi-types/src/analysis_registry.rs`, `analyses/` | `analyses/tests.rs`, `bindings-gen analysis_registry` |
-| Engines, readers, CRS | `engine.rs`, `rust_engine/` (`crs.rs`, `crs_table.rs`), `geolibre.rs`, `prepared_raster.rs` | inline tests, comparison lane, `lidar-native` lane |
+| Catalogue, paths, sweep, recovery | `catalogue.rs`, `catalogue_reader.rs`, `paths.rs`, `mod.rs`, `recovery.rs`, `source_meta.rs` | inline tests |
 | Display | `display_cog.rs`, `rust_engine/warp.rs`, `maplibre/raster-display/`, `app/lidar/display.ts`, `item-types.ts` | `__tests__/raster-display-*`, `lidar-display`, `item-types` |
-| Commands, policy | `desktop/src/commands/lidar.rs`, `native_command_policy.rs` | `native_command_policy::tests` |
-| Frontend state, actions | `app/lidar/`, `app/analyses/model.ts` | `__tests__/lidar-*`, `analysis-model`, `analyze-dialog` |
 | Site data, library, dialogs | `components/panels/lidar/`, `components/panels/analyze/` | `__tests__/lidar-site-data`, `lidar-data-dialogs`, `layer-panel` |
 
 ## Open decisions
