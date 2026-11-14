@@ -412,7 +412,7 @@ export const TABLE: Table = {
       workflow: '.github/workflows/rollback.yml',
       patterns: [String.raw`^canopi-format/`, String.raw`^canopi-types/src/(health|design)\.rs$`,
         String.raw`^desktop/src/(db/|services/lidar/|services/(health|settings|design_files)\.rs$|test_fixtures/frozen/)`,
-        String.raw`^desktop/tests/rollback_reader\.rs$`, String.raw`^spec/(rollback|web/frozen)/`,
+        String.raw`^desktop/tests/rollback_reader(\.rs$|/)`, String.raw`^spec/(rollback|web/frozen)/`,
         String.raw`^desktop/web/src/(platform/(browser-record|draft-records\.browser|settings\.browser)\.ts|web/browser-app-data\.ts|failures/health-presentation\.ts)$`,
         String.raw`^desktop/web/e2e-rollback/`, String.raw`^policy/gate/rollback-refs\.ts$`],
       actions: ['install-linux-deps'],

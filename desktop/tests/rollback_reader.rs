@@ -11,7 +11,7 @@
 //! `main`'s lane hashes the files itself as well (`node policy/gate/cli.mjs rollback-fixtures`).
 //!
 //! The fixture directory is `CANOPI_ROLLBACK_FIXTURES` when set (the rollback lane's reader jobs, over what the writer
-//! job uploaded), else the in-repo frozen fixtures laid down by the writer below into a scratch directory. The writer
+//! job uploaded), else the in-repo frozen fixtures laid down by the writer (`rollback_reader/writer.rs`) into a scratch directory. The writer
 //! stands in for every store no build writes yet: it lays down the frozen form of each row of `spec/rollback/manifest.json`
 //! (the `.canopi` v10 read fixture, user DB 10 holding settings record 2, catalogue 26, and the Web forms as R3 froze
 //! them) and reports each as `FIXTURES-ONLY`; `CANOPI_ROLLBACK_WRITE` names the directory the lane's writer job uploads.
@@ -20,6 +20,10 @@
 //! The reader session runs through the crate's public, doc-hidden seam `canopi_desktop::reader_session`, which opens
 //! the stores with the app's own launch and open paths.
 
+#[cfg(test)]
+#[path = "rollback_reader/writer.rs"]
+mod writer;
+
 // Inside a cfg(test) module, so clippy reads the helpers as test code (clippy.toml allow-unwrap-in-tests).
 #[cfg(test)]
 mod reader {
@@ -27,7 +31,7 @@ mod reader {
     use std::path::{Path, PathBuf};
 
     /// The Desktop stores a 2.1 session leaves behind, each of which the reader release reads newer-read-only.
-    const DESKTOP_STORES: [&str; 5] = [
+    pub(crate) const DESKTOP_STORES: [&str; 5] = [
         "canopi_file",
         "desktop_draft",
         "user_db",
@@ -35,7 +39,7 @@ mod reader {
         "settings",
     ];
     /// The Web stores, which the Web harness (desktop/web/e2e-rollback/reader.spec.ts) reads.
-    const WEB_STORES: [&str; 3] = ["settings", "web_drafts", "web_species_lists"];
+    pub(crate) const WEB_STORES: [&str; 3] = ["settings", "web_drafts", "web_species_lists"];
     /// The Desktop stores that hold one Design each, opened as the page opens a Design rather than through store health.
     const DESIGN_STORES: [&str; 2] = ["canopi_file", "desktop_draft"];
     /// The first `.canopi` format version 2.1 writes, the floor of what the reader release reads (canopi-format's
@@ -44,14 +48,14 @@ mod reader {
 
     /// One manifest row.
     #[derive(Debug, Clone, PartialEq)]
-    struct Form {
-        store: String,
-        form_version: u64,
-        edition: String,
-        path: String,
+    pub(crate) struct Form {
+        pub(crate) store: String,
+        pub(crate) form_version: u64,
+        pub(crate) edition: String,
+        pub(crate) path: String,
     }
 
-    fn repository() -> PathBuf {
+    pub(crate) fn repository() -> PathBuf {
         Path::new(env!("CARGO_MANIFEST_DIR"))
             .parent()
             .unwrap()
@@ -59,10 +63,10 @@ mod reader {
     }
 
     /// A directory of its own under the system temporary folder, removed when dropped.
-    struct Scratch(PathBuf);
+    pub(crate) struct Scratch(pub(crate) PathBuf);
 
     impl Scratch {
-        fn new(name: &str) -> Self {
+        pub(crate) fn new(name: &str) -> Self {
             let path = std::env::temp_dir().join(format!(
                 "canopi-rollback-{name}-{}-{:?}",
                 std::process::id(),
@@ -93,7 +97,7 @@ mod reader {
     }
 
     /// Every row of the manifest at `manifest`; a field a later release added is ignored.
-    fn manifest_forms(manifest: &Path) -> Vec<Form> {
+    pub(crate) fn manifest_forms(manifest: &Path) -> Vec<Form> {
         let text = std::fs::read_to_string(manifest).unwrap_or_else(|error| {
             panic!(
                 "the rollback manifest {} is missing ({error}): the fixture directory holds manifest.json",
@@ -147,7 +151,7 @@ mod reader {
     /// Every file under `root` with its bytes and every directory (`None`), so a created folder is a write too, except
     /// SQLite's engine metadata a read-only open may create (a `-shm` file or an empty `-wal`; contracts §11 Degraded
     /// stores).
-    fn files(root: &Path) -> BTreeMap<PathBuf, Option<Vec<u8>>> {
+    pub(crate) fn files(root: &Path) -> BTreeMap<PathBuf, Option<Vec<u8>>> {
         fn walk(dir: &Path, out: &mut BTreeMap<PathBuf, Option<Vec<u8>>>) {
             for entry in std::fs::read_dir(dir).unwrap() {
                 let path = entry.unwrap().path();
@@ -208,111 +212,13 @@ mod reader {
             .collect())
     }
 
-    /// Runs `sql` into a new SQLite file at `path`, in WAL mode when `wal`, and closes it (a clean close leaves no
-    /// `-wal` or `-shm`).
-    fn sqlite(path: &Path, sql: &str, wal: bool) -> rusqlite::Connection {
-        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
-        assert!(
-            !path.exists(),
-            "the writer never writes over {}",
-            path.display()
-        );
-        let connection = rusqlite::Connection::open(path).unwrap();
-        if wal {
-            connection
-                .pragma_update(None, "journal_mode", "WAL")
-                .unwrap();
-        }
-        connection.execute_batch(sql).unwrap();
-        connection
-    }
-
-    fn copy(source: &str, target: &Path) {
-        std::fs::create_dir_all(target.parent().unwrap()).unwrap();
-        assert!(
-            !target.exists(),
-            "the writer never writes over {}",
-            target.display()
-        );
-        std::fs::copy(repository().join(source), target).unwrap();
-    }
-
-    fn frozen_sql(name: &str) -> String {
-        std::fs::read_to_string(
-            repository()
-                .join("desktop/src/test_fixtures/frozen")
-                .join(name),
-        )
-        .unwrap()
-    }
-
-    /// The writer for every store no build writes yet: lays down each row of `spec/rollback/manifest.json` from its
-    /// frozen form in `dest`, with the manifest beside them, and returns one `FIXTURES-ONLY` line per row.
-    fn write_frozen_fixtures(dest: &Path) -> Vec<String> {
-        let manifest = repository().join("spec/rollback/manifest.json");
-        let forms = manifest_forms(&manifest);
-        std::fs::create_dir_all(dest).unwrap();
-        std::fs::copy(&manifest, dest.join("manifest.json")).unwrap();
-        let mut report = Vec::new();
-        // The settings record lives in the user DB on Desktop, so its row names the user DB's file and is written there.
-        let mut desktop_settings = Vec::new();
-        for form in &forms {
-            let target = dest.join(&form.path);
-            match (form.edition.as_str(), form.store.as_str()) {
-                ("desktop", "canopi_file" | "desktop_draft") => {
-                    copy("canopi-format/spec/v10/read-fixture.canopi", &target);
-                }
-                ("desktop", "user_db") => {
-                    drop(sqlite(&target, &frozen_sql("user-db-10.sql"), false));
-                }
-                ("desktop", "settings") => desktop_settings.push(target.clone()),
-                ("desktop", "library_catalogue") => {
-                    drop(sqlite(&target, &frozen_sql("catalogue-26.sql"), true));
-                }
-                ("web", "settings") => copy("spec/web/frozen/settings.json", &target),
-                ("web", "web_drafts") => copy("spec/web/frozen/drafts.json", &target),
-                ("web", "web_species_lists") => copy("spec/web/frozen/species-lists.json", &target),
-                (edition, store) => {
-                    panic!("the writer has no frozen form for the {edition} {store} row")
-                }
-            }
-            report.push(format!(
-                "FIXTURES-ONLY {} {} {} {}: no build writes it yet, so the readers read its frozen form",
-                form.edition, form.store, form.form_version, form.path
-            ));
-        }
-        for user_db in desktop_settings {
-            assert!(
-                user_db.is_file(),
-                "the Desktop settings row names the user DB's file, {}",
-                user_db.display()
-            );
-            let record: serde_json::Value = serde_json::from_str(
-                &std::fs::read_to_string(
-                    repository().join("desktop/src/test_fixtures/frozen/settings-record-2.json"),
-                )
-                .unwrap(),
-            )
-            .unwrap();
-            let connection = rusqlite::Connection::open(&user_db).unwrap();
-            let changed = connection
-                .execute(
-                    "UPDATE settings SET value = ?1 WHERE key = 'settings'",
-                    [record.to_string()],
-                )
-                .unwrap();
-            assert_eq!(changed, 1, "user DB 10 holds the settings row");
-        }
-        report
-    }
-
     /// The fixture directory: the lane's (`CANOPI_ROLLBACK_FIXTURES`), else the frozen fixtures written into `scratch`.
     fn fixture_root(scratch: &Scratch) -> PathBuf {
         match std::env::var_os("CANOPI_ROLLBACK_FIXTURES") {
             Some(root) => PathBuf::from(root),
             None => {
                 let root = scratch.0.join("fixtures");
-                write_frozen_fixtures(&root);
+                crate::writer::write_frozen_fixtures(&root);
                 root
             }
         }
@@ -413,6 +319,13 @@ mod reader {
             (0, "refused_newer", None, false, "a refused Design"),
             (1, "refused_newer", None, false, "a refused Draft"),
             (2, "refused_newer", None, true, "a refused store"),
+            (
+                2,
+                "newer_read_only",
+                Some(first),
+                true,
+                "a health store with a saved_by_version",
+            ),
         ];
         for (index, status, version, fail, why) in cases {
             let mut health = read(&DESKTOP_STORES);
@@ -420,123 +333,6 @@ mod reader {
             health[index].saved_by_version = version;
             assert_eq!(fails(health), fail, "{why}");
         }
-    }
-
-    #[test]
-    fn r4_canopi_f47t_52_239_the_writer_lays_down_every_frozen_form_the_manifest_lists_and_reports_each_fixtures_only()
-     {
-        let scratch = Scratch::new("writer");
-        let dest = std::env::var_os("CANOPI_ROLLBACK_WRITE")
-            .map(PathBuf::from)
-            .unwrap_or_else(|| scratch.0.join("fixtures"));
-        let report = write_frozen_fixtures(&dest);
-        for line in &report {
-            println!("{line}");
-        }
-
-        let forms = manifest_forms(&dest.join("manifest.json"));
-        assert_eq!(report.len(), forms.len(), "one report line per row");
-        for (store, edition) in DESKTOP_STORES
-            .iter()
-            .map(|store| (store, "desktop"))
-            .chain(WEB_STORES.iter().map(|store| (store, "web")))
-        {
-            assert!(
-                forms
-                    .iter()
-                    .any(|form| &form.store == store && form.edition == edition),
-                "the manifest lists a {edition} {store} form"
-            );
-        }
-        for form in &forms {
-            assert!(dest.join(&form.path).is_file(), "{} is written", form.path);
-            assert!(
-                report.iter().any(|line| line.starts_with(&format!(
-                    "FIXTURES-ONLY {} {} {} {}:",
-                    form.edition, form.store, form.form_version, form.path
-                ))),
-                "{} {} is reported fixtures only",
-                form.edition,
-                form.store
-            );
-        }
-        assert_each_desktop_form_at_its_version(&dest, &forms);
-    }
-
-    /// Each frozen Desktop form is at the version its row names, so a reader opening it reads a newer form, and the
-    /// writer's clean close leaves no SQLite sidecar for the lane to mistake for a reader's write.
-    fn assert_each_desktop_form_at_its_version(dest: &Path, forms: &[Form]) {
-        let path = |store: &str, edition: &str| {
-            dest.join(
-                &forms
-                    .iter()
-                    .find(|form| form.store == store && form.edition == edition)
-                    .unwrap()
-                    .path,
-            )
-        };
-        let version = |store: &str, edition: &str| {
-            forms
-                .iter()
-                .find(|form| form.store == store && form.edition == edition)
-                .unwrap()
-                .form_version
-        };
-        for store in ["canopi_file", "desktop_draft"] {
-            let design: serde_json::Value =
-                serde_json::from_str(&std::fs::read_to_string(path(store, "desktop")).unwrap())
-                    .unwrap();
-            assert_eq!(
-                design["version"].as_u64(),
-                Some(version(store, "desktop")),
-                "{store}"
-            );
-        }
-        let user_db = rusqlite::Connection::open_with_flags(
-            path("user_db", "desktop"),
-            rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY,
-        )
-        .unwrap();
-        let user_version: i64 = user_db
-            .pragma_query_value(None, "user_version", |row| row.get(0))
-            .unwrap();
-        assert_eq!(
-            user_version.to_string(),
-            version("user_db", "desktop").to_string()
-        );
-        let settings: String = user_db
-            .query_row(
-                "SELECT value FROM settings WHERE key = 'settings'",
-                [],
-                |row| row.get(0),
-            )
-            .unwrap();
-        let settings: serde_json::Value = serde_json::from_str(&settings).unwrap();
-        assert_eq!(
-            settings["version"].as_u64(),
-            Some(version("settings", "desktop"))
-        );
-        let catalogue = rusqlite::Connection::open_with_flags(
-            path("library_catalogue", "desktop"),
-            rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY,
-        )
-        .unwrap();
-        let schema: String = catalogue
-            .query_row(
-                "SELECT value FROM lidar_catalogue_meta WHERE key = 'schema_version'",
-                [],
-                |row| row.get(0),
-            )
-            .unwrap();
-        assert_eq!(schema, version("library_catalogue", "desktop").to_string());
-        drop((user_db, catalogue));
-        assert!(
-            files(dest).keys().all(|file| {
-                let name = file.to_string_lossy();
-                !name.ends_with("-wal") && !name.ends_with("-journal")
-            }),
-            "the writer leaves no SQLite sidecar"
-        );
     }
 
     #[test]
