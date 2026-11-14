@@ -4,8 +4,8 @@ name: Updater end to end
 # of the same commit, N-1 (9.0.0) and N (9.0.1), plus on NSIS a beta (9.0.2-beta.1) for leaving beta, with the `updater-e2e` feature pointing the updater at a local channel
 # host and the `e2e` feature letting the WebdriverIO harness drive them, signed with a key generated in the job. The
 # installed N-1 checks, downloads and installs N from channel files this job prepares and updater.spec.ts serves: on
-# the AppImage and the .deb (a polkit rule stands in for the password prompt) on ubuntu-latest, and NSIS on
-# windows-latest. Plain HTTP reaches the updater only through this job's overlay (install-identity-policy.test.ts
+# the AppImage and the .deb (a polkit rule stands in for the password prompt) on ubuntu-latest, and NSIS and the MSI
+# (msiexec /passive, relaunching through AUTOLAUNCHAPP; canopi-f47t.52.244) on windows-latest. Plain HTTP reaches the updater only through this job's overlay (install-identity-policy.test.ts
 # refuses it in tauri.conf.json). Build & Test calls it when the gate's updater area is selected (policy/gate/table.ts:
 # the update flow's files, the scripts it runs and the Tauri pins; design check AR3), a Release Candidate as a release
 # check.
@@ -44,6 +44,10 @@ jobs:
             artifact: canopi-x86_64-unknown-linux-gnu
           - os: windows-latest
             bundle: nsis
+            artifact: canopi-x86_64-pc-windows-msvc
+          # The stable Windows installer a user may have chosen; betas ship NSIS only (2.1-M27), so no beta build.
+          - os: windows-latest
+            bundle: msi
             artifact: canopi-x86_64-pc-windows-msvc
     defaults:
       run:
@@ -148,7 +152,7 @@ jobs:
           set -euo pipefail
           mkdir -p "$UPDATER_E2E_DIR" "$RUNNER_TEMP/channels"
           find "$RUNNER_TEMP/build-9.0.0" "$RUNNER_TEMP/build-9.0.1" -type f \
-            \( -name '*.AppImage' -o -name '*.deb' -o -name '*-setup.exe' -o -name '*.sig' \) -exec cp {} "$UPDATER_E2E_DIR/" \;
+            \( -name '*.AppImage' -o -name '*.deb' -o -name '*-setup.exe' -o -name '*.msi' -o -name '*.sig' \) -exec cp {} "$UPDATER_E2E_DIR/" \;
           base=http://127.0.0.1:47811
           python3 scripts/update_channel.py generate --version 9.0.1 --artifacts "$RUNNER_TEMP/build-9.0.1" \
             --base-url "$base" --out "$RUNNER_TEMP/channels/n"
@@ -212,7 +216,8 @@ jobs:
         timeout-minutes: 10
         run: |
           set -euo pipefail
-          installer="$(find "$RUNNER_TEMP/build-9.0.0" -type f \( -name '*.AppImage' -o -name '*.deb' -o -name '*-setup.exe' \) | head -n 1)"
+          installer="$(find "$RUNNER_TEMP/build-9.0.0" -type f \( -name '*.AppImage' -o -name '*.deb' -o -name '*-setup.exe' -o -name '*.msi' \) | head -n 1)"
+          test -n "$installer"
           case "${{ matrix.bundle }}" in
             appimage)
               mkdir -p "$RUNNER_TEMP/apps"
@@ -227,6 +232,10 @@ jobs:
               # The Release Candidate's install: its silent flag reaches NSIS unrewritten and the exit code is printed;
               # it prints the exe the NSIS uninstall entry names (canopi-desktop.exe, the cargo binary), a Windows path.
               echo "UPDATER_E2E_N1_SETUP=$(cygpath -w "$installer")" >> "$GITHUB_ENV"
+              app="$(python -I scripts/release_smoke.py install "$installer")" ;;
+            msi)
+              # msiexec /qn, per machine, as the Release Candidate's smoke installs it; an MSI writes no entry under
+              # the product name, so it prints the exe under Program Files.
               app="$(python -I scripts/release_smoke.py install "$installer")" ;;
           esac
           [ "$RUNNER_OS" = Windows ] || test -x "$app"
@@ -302,14 +311,15 @@ jobs:
           install_and_expect "$RUNNER_TEMP/build-9.0.2-beta.1" 9.0.2-beta.1
           install_and_expect "$RUNNER_TEMP/build-9.0.1" 9.0.1
 
-      # The audited starts and exits of Canopi and its update installer, in a folder the profile upload takes. Reading
-      # them: an N start (4688) exiting 0x1 at a medium label lost the e2e profile's environment; no N start after the
-      # installer's exit (4689) means its relaunch started nothing.
+      # The audited starts and exits of Canopi and its update installer (NSIS's setup, or msiexec with the MSI), in a
+      # folder the profile upload takes. Reading them: an N start (4688) exiting 0x1 at a medium label lost the e2e
+      # profile's environment; no N start after the installer's exit (4689) means its relaunch started nothing. A
+      # dispatch keeps them whatever the outcome: the MSI probe reads how AUTOLAUNCHAPP started N (canopi-f47t.52.244).
       - name: Keep the audited process starts and exits (Windows)
-        if: failure() && runner.os == 'Windows'
+        if: (failure() || github.event_name == 'workflow_dispatch') && runner.os == 'Windows'
         shell: pwsh
         run: |
-          $names = 'canopi-desktop.exe', 'Canopi-update-setup.exe'
+          $names = 'canopi-desktop.exe', 'Canopi-update-setup.exe', 'msiexec.exe'
           $dir = Join-Path $env:RUNNER_TEMP 'canopi-e2e-process-audit'
           New-Item -ItemType Directory -Force $dir | Out-Null
           Get-WinEvent -FilterHashtable @{ LogName = 'Security'; Id = 4688, 4689 } -ErrorAction SilentlyContinue |
@@ -327,7 +337,7 @@ jobs:
           $shot.Save((Join-Path $dir 'desktop.png'))
 
       - name: Upload the app profiles and logs
-        if: ${{ failure() }}
+        if: ${{ failure() || github.event_name == 'workflow_dispatch' }}
         uses: actions/upload-artifact@v7
         with:
           name: updater-e2e-${{ matrix.bundle }}
