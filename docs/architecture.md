@@ -87,5 +87,5 @@ Pre-2.0 data is refused or left unread, the user told once ([ADR 0021](adr/0021-
 
 - Designs: only the current format opens to edit; a newer one the format core reads opens read-only (2.1-M478); any other is refused unchanged with a typed `DesignLoadFailure` that says which.
 - Desktop user DB and Drafts: a database from before 2.0 is renamed `….before-2.0-<unix-seconds>` and Canopi starts fresh; older Drafts stay, unread; a newer database opens read-only through its frozen projection (2.1-M480); a damaged one is renamed `<file>.corrupt-<unix-seconds>`.
-- LiDAR library: an older or corrupt catalogue is set aside and rebuilt from the originals and their `meta.json`; a newer one opens read-only through its frozen projection (2.1-M480). Originals are never deleted by recovery.
+- LiDAR library: an older, corrupt or lost catalogue is rebuilt from the originals' `meta.json`, replacing it once committed; a newer one opens read-only (2.1-M480). Only an original marked released is ever deleted.
 - Web: independent browser-local records (drafts, settings, species activity, stamps); the 1.x record and older Drafts stay under their keys, unread; 2.1's Drafts and species lists are read, never written (2.1-M486, Q320).

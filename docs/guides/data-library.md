@@ -17,11 +17,12 @@ Boundaries for Canopi Desktop's store of LiDAR terrain rasters (imported and der
 
 ## Rules
 
-- One catalogue schema, `CATALOGUE_VERSION` (`catalogue.rs`), no migration ladder. Every original carries a complete `sources/<sha256>/meta.json` (`source_meta.rs`); an older or corrupt catalogue is set aside and rebuilt from them, ids kept, items re-prepared on Retry; an unopenable one is `Unavailable`, empty and read-only. Recovery never deletes an original. (`mod.rs` recovery tests, `recovery.rs`, `source_meta.rs` tests)
+- One catalogue schema, `CATALOGUE_VERSION` (`catalogue.rs`), no migration ladder. Every original carries a complete `sources/<sha256>/meta.json` (`source_meta.rs`); an older or corrupt catalogue, or a missing one beside unreleased originals, is rebuilt from them in a staging file that replaces it once committed, ids kept, items re-prepared on Retry; a failed rebuild leaves the old one for the next start. Recovery never deletes an original. (`recovery/failed_rebuild_tests.rs`)
+- Beside a newer Canopi's meta or an unreadable `sources/` entry, recovery writes nothing: `Unavailable`, empty, read-only; a newer meta is never rewritten (`source_meta/tests.rs`).
 - A newer catalogue (26 or later) opens `newer-read-only` through its frozen read projection (`catalogue_reader.rs`, 2.1-M480): each item lists by name and type, needing a newer Canopi, never drawn, placed, renamed or deleted (2.1-Q318), or is `Unavailable` when unreadable, never set aside. Recovery, janitor and prune skip; no file, directory or job row changes; a refused write settles `store_read_only` (2.1-M487, 2.1-M488). (`reader_release_tests.rs`)
 - How the library opened is health: `SubsystemHealth[library_catalogue]` (state, counts, no paths or reasons) in `failures/health.ts`; the notice row shows the read-only states, the Data library every non-ready one. An unreadable list keeps its rows, marked stale, and offers Try again (2.1-Q297); a cancelled import says so (2.1-Q298). (`health.rs`, `recovery.rs`, `library-store.test.ts`)
 - An import publishes one fixed item from one batch; listed order is source priority (first valid sample wins, NoData reveals the next). A published item never changes its sources. (`import.rs` tests)
-- Files first, then references: originals to `sources/<sha256>/original`, COGs to `assets/<sha256>/cog.tif` by idempotent rename, then one `BEGIN IMMEDIATE` transaction writes the rows; a crash leaves no item or a whole one. Cancel withdraws a running import: a first import's item goes, a Retry's is Failed again, its originals kept until Dismiss. Leased, a settling job, Dismiss and Delete free unclaimed files (Import, Retry and Dismiss wait); startup sweeps the rest. (`fixed_library_tests.rs`)
+- Files first, then references: originals to `sources/<sha256>/original`, COGs to `assets/<sha256>/cog.tif` by idempotent rename, then one `BEGIN IMMEDIATE` transaction writes the rows; a crash leaves no item or a whole one. Cancel withdraws a running import: a first import's item goes, a Retry's is Failed again, its originals kept until Dismiss. Leased, a settling job, Dismiss and Delete free unclaimed files (Import, Retry and Dismiss wait); startup sweeps the rest, an original only once its meta marks it released. (`fixed_library_tests.rs`)
 - A run publishes all outputs or none, only while every input is still at its pinned generation; superseded generations stay for history. Restart marks unfinished jobs failed (`analyses/mod.rs`, `recover_interrupted_jobs`) and recalculates nothing. (`analyses/tests.rs`; restart only in the `e2e_*` lanes)
 - Refresh and Retry are one operation (`lidar_rerun_analysis`): same item ids, new generation, so every Design sees the new result. Refresh is explicit; staleness (`InputUpdated`, `InputStale`, `RecipeUpdated`, `ToolUpdated`) is only shown. (`analyses/tests.rs`)
 - Quantities and units are declared at import, never inferred from a filename, band description or value range; identical bytes meaning different things are distinct items; derived quantities are not importable. (`import.rs` tests, `RasterQuantity::is_importable`)
@@ -61,12 +62,12 @@ Boundaries for Canopi Desktop's store of LiDAR terrain rasters (imported and der
 
 ## Where to look
 
-| Area | Module | Tests |
-|---|---|---|
-| Admission, import, publication | `admission.rs`, `import.rs`, `collection.rs`, `generation.rs` | inline tests, `fixed_library_tests.rs`, `e2e.rs` |
-| Catalogue, paths, sweep, recovery | `catalogue.rs`, `catalogue_reader.rs`, `paths.rs`, `mod.rs`, `recovery.rs`, `source_meta.rs` | inline tests |
-| Display | `display_cog.rs`, `rust_engine/warp.rs`, `maplibre/raster-display/`, `app/lidar/display.ts`, `item-types.ts` | `__tests__/raster-display-*`, `lidar-display`, `item-types` |
-| Site data, library, dialogs | `components/panels/lidar/`, `components/panels/analyze/` | `__tests__/lidar-site-data`, `lidar-data-dialogs`, `layer-panel` |
+| Area | Module |
+|---|---|
+| Admission, import, publication | `admission.rs`, `import.rs`, `collection.rs`, `generation.rs` |
+| Catalogue, paths, sweep, recovery | `catalogue.rs`, `catalogue_reader.rs`, `paths.rs`, `mod.rs`, `recovery.rs`, `source_meta.rs` |
+| Display | `display_cog.rs`, `rust_engine/warp.rs`, `maplibre/raster-display/`, `app/lidar/display.ts`, `item-types.ts` |
+| Site data, library, dialogs | `components/panels/lidar/`, `components/panels/analyze/` |
 
 ## Open decisions
 
