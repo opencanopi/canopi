@@ -362,15 +362,45 @@ pub fn is_released(paths: &LidarPaths, sha256: &str) -> bool {
         .is_some_and(|meta| meta.sha256 == sha256 && meta.items.is_empty())
 }
 
+/// The `version` a meta file declares, read without its other fields: none when there is no file, or it is not
+/// JSON with a numeric `version` (damage the rebuild lists under a generated name); a failing read is an error.
+pub fn stored_version(path: &Path) -> Result<Option<u64>, String> {
+    match std::fs::read_to_string(path) {
+        Ok(json) => Ok(declared_version(&json)),
+        Err(error)
+            if matches!(
+                error.kind(),
+                std::io::ErrorKind::NotFound | std::io::ErrorKind::InvalidData
+            ) =>
+        {
+            Ok(None)
+        }
+        Err(error) => Err(format!("Failed to read an original's meta: {error}")),
+    }
+}
+
+fn declared_version(json: &str) -> Option<u64> {
+    serde_json::from_str::<serde_json::Value>(json)
+        .ok()?
+        .get("version")?
+        .as_u64()
+}
+
 /// Write `meta` to `path` atomically; unchanged content is left alone.
 /// Returns whether the file changed.
 pub fn write(path: &Path, meta: &SourceMeta) -> Result<bool, String> {
     let json = serde_json::to_string_pretty(meta)
         .map_err(|e| format!("Failed to encode source meta: {e}"))?;
-    if let Ok(existing) = std::fs::read_to_string(path)
-        && existing == json
-    {
-        return Ok(false);
+    if let Ok(existing) = std::fs::read_to_string(path) {
+        if existing == json {
+            return Ok(false);
+        }
+        // Newer data is never written over (2.1-M480).
+        if declared_version(&existing).is_some_and(|version| version > u64::from(META_VERSION)) {
+            return Err(
+                "An original's meta was written by a newer Canopi; it is left as it is".to_string(),
+            );
+        }
     }
     let temporary = path.with_extension("json.tmp");
     std::fs::write(&temporary, json.as_bytes())

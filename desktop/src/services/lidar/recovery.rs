@@ -47,6 +47,41 @@ pub enum CatalogueState {
     /// unknown, so nothing is touched: no set-aside, rebuild or directory (2.1-M480, 2.1-M488).
     Unreadable(String),
     Corrupt(String),
+    /// A catalogue recovery would replace (missing, older or corrupt) beside originals it must not rebuild from: an
+    /// original's meta a newer Canopi wrote, or a `sources/` entry it cannot read. Nothing is touched, as for
+    /// `Unreadable` (newer data is never written, 2.1-M480; canopi-uidt).
+    Withheld(String),
+}
+
+impl CatalogueState {
+    /// Whether the library writes nothing in this state: no directory, display cache, recovery or sweep (2.1-M488).
+    pub fn writes_nothing(&self) -> bool {
+        matches!(
+            self,
+            Self::Newer(_) | Self::Unreadable(_) | Self::Withheld(_)
+        )
+    }
+}
+
+/// The catalogue's state, and whether recovery may act on it: `inspect`, then [`withhold_recovery`].
+pub fn inspect_library(paths: &LidarPaths) -> CatalogueState {
+    withhold_recovery(paths, inspect(&paths.catalogue_path()))
+}
+
+/// `state`, or `Withheld` when it would be recovered beside originals recovery must not rebuild from.
+pub fn withhold_recovery(paths: &LidarPaths, state: CatalogueState) -> CatalogueState {
+    match state {
+        CatalogueState::Missing | CatalogueState::Older(_) | CatalogueState::Corrupt(_) => {
+            match install::survey(paths) {
+                Ok(survey) if survey.newer => CatalogueState::Withheld(
+                    "An original's meta was written by a newer Canopi".to_string(),
+                ),
+                Ok(_) => state,
+                Err(reason) => CatalogueState::Withheld(reason),
+            }
+        }
+        other => other,
+    }
 }
 
 pub fn inspect(path: &Path) -> CatalogueState {
@@ -154,23 +189,28 @@ pub fn open_catalogue(
     state: CatalogueState,
 ) -> Result<OpenedCatalogue, String> {
     let path = paths.catalogue_path();
-    match state {
-        CatalogueState::Current => open_in_place(&path),
+    match withhold_recovery(paths, state) {
+        CatalogueState::Current => {
+            install::discard_staging(paths);
+            open_in_place(&path)
+        }
         // A lost catalogue beside originals is rebuilt from them: opened empty, it would list none of them again.
-        CatalogueState::Missing => match install::clear_interrupted_rebuild(paths)
-            .and_then(|()| install::holds_unreleased_originals(paths))
-        {
-            Ok(false) => open_in_place(&path),
-            Ok(true) => recover(paths, RecoveryReason::Missing),
-            Err(reason) => in_memory(LibraryOpenStatus::Unavailable { reason }),
-        },
+        CatalogueState::Missing => {
+            match install::clear_interrupted_rebuild(paths).and_then(|()| install::survey(paths)) {
+                Ok(survey) if !survey.unreleased => open_in_place(&path),
+                Ok(_) => recover(paths, RecoveryReason::Missing),
+                Err(reason) => in_memory(LibraryOpenStatus::Unavailable { reason }),
+            }
+        }
         CatalogueState::Older(version) => recover(paths, RecoveryReason::OlderVersion(version)),
         CatalogueState::Corrupt(reason) => recover(paths, RecoveryReason::Corrupt(reason)),
         CatalogueState::Newer(found) => in_memory(match catalogue::newer_items(&path) {
             Ok(items) => LibraryOpenStatus::NewerReadOnly { found, items },
             Err(reason) => LibraryOpenStatus::Unavailable { reason },
         }),
-        CatalogueState::Unreadable(reason) => in_memory(LibraryOpenStatus::Unavailable { reason }),
+        CatalogueState::Unreadable(reason) | CatalogueState::Withheld(reason) => {
+            in_memory(LibraryOpenStatus::Unavailable { reason })
+        }
     }
 }
 

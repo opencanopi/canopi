@@ -313,3 +313,218 @@ fn canopi_uidt_a_stop_during_a_rebuild_recovers_again_at_the_next_start() {
     );
     assert_originals_kept(&paths, "the next start");
 }
+
+/// Every directory (as `None`) and file (with its bytes) under the library root.
+fn library_files(paths: &LidarPaths) -> std::collections::BTreeMap<PathBuf, Option<Vec<u8>>> {
+    fn walk(dir: &Path, out: &mut std::collections::BTreeMap<PathBuf, Option<Vec<u8>>>) {
+        for entry in std::fs::read_dir(dir).unwrap() {
+            let path = entry.unwrap().path();
+            if path.is_dir() {
+                out.insert(path.clone(), None);
+                walk(&path, out);
+            } else {
+                out.insert(path.clone(), Some(std::fs::read(&path).unwrap()));
+            }
+        }
+    }
+    let mut out = std::collections::BTreeMap::new();
+    walk(paths.root(), &mut out);
+    out
+}
+
+const NEWER_META: &str =
+    r#"{"version":2,"sha256":"sha-a","a_newer_field":true,"items":[{"id":"lyr-a"}]}"#;
+
+/// A meta a newer Canopi wrote is data this one cannot read: recovery of a missing or corrupt catalogue beside it
+/// writes nothing (no set-aside, staging, catalogue or meta) and the library opens unavailable (2.1-M480).
+#[test]
+fn canopi_uidt_a_newer_meta_beside_a_missing_or_corrupt_catalogue_is_written_over_by_nothing() {
+    for (name, catalogue) in [
+        ("uidt-newer-missing", None),
+        ("uidt-newer-corrupt", Some(ANY_FILE_BUT_A_DATABASE)),
+    ] {
+        let (root, paths) = seeded(name, Vec::new());
+        std::fs::write(paths.source_meta("sha-a"), NEWER_META).unwrap();
+        if let Some(bytes) = catalogue {
+            std::fs::write(paths.catalogue_path(), bytes).unwrap();
+        }
+        let before = library_files(&paths);
+
+        let library = LidarLibrary::open(&root).expect(name);
+
+        assert!(
+            matches!(library.open_status(), LibraryOpenStatus::Unavailable { .. }),
+            "{name}: {:?}",
+            library.open_status()
+        );
+        drop(library);
+        assert!(
+            library_files(&paths) == before,
+            "{name}: nothing under the library changed"
+        );
+    }
+}
+
+/// No writer of a meta replaces one a newer Canopi wrote.
+#[test]
+fn canopi_uidt_a_newer_meta_is_never_rewritten() {
+    let (_root, paths) = seeded("uidt-newer-write", Vec::new());
+    std::fs::write(paths.source_meta("sha-a"), NEWER_META).unwrap();
+
+    let written = source_meta::write(
+        &paths.source_meta("sha-a"),
+        &meta_naming("sha-a", "lyr-a", Vec::new()),
+    );
+
+    assert!(written.is_err(), "{written:?}");
+    assert_eq!(
+        std::fs::read_to_string(paths.source_meta("sha-a")).unwrap(),
+        NEWER_META
+    );
+    assert!(source_meta::release(&paths, "sha-a").is_err());
+    assert_eq!(
+        std::fs::read_to_string(paths.source_meta("sha-a")).unwrap(),
+        NEWER_META
+    );
+}
+
+/// A `sources/` that cannot be listed beside no catalogue is no empty library: the library opens unavailable and
+/// writes nothing, no catalogue included.
+#[cfg(unix)]
+#[test]
+fn canopi_uidt_unlistable_sources_beside_no_catalogue_write_no_catalogue() {
+    use std::os::unix::fs::PermissionsExt;
+    let (root, paths) = seeded("uidt-unlistable-missing", Vec::new());
+    let before = library_files(&paths);
+    let sources = paths.root().join("sources");
+    std::fs::set_permissions(&sources, std::fs::Permissions::from_mode(0o300)).unwrap();
+    if std::fs::read_dir(&sources).is_ok() {
+        std::fs::set_permissions(&sources, std::fs::Permissions::from_mode(0o755)).unwrap();
+        eprintln!("skipped: permissions are not enforced for this user");
+        return;
+    }
+    let library = LidarLibrary::open(&root).expect("start");
+    std::fs::set_permissions(&sources, std::fs::Permissions::from_mode(0o755)).unwrap();
+
+    assert!(
+        matches!(library.open_status(), LibraryOpenStatus::Unavailable { .. }),
+        "{:?}",
+        library.open_status()
+    );
+    drop(library);
+    assert!(!paths.catalogue_path().exists(), "no catalogue is written");
+    assert!(
+        library_files(&paths) == before,
+        "nothing under the library changed"
+    );
+}
+
+/// An original folder whose contents cannot be read is no proof of an empty library either: one unreadable entry
+/// makes the library unavailable rather than answer "no originals".
+#[cfg(unix)]
+#[test]
+fn canopi_uidt_an_unreadable_original_folder_beside_no_catalogue_writes_no_catalogue() {
+    use std::os::unix::fs::PermissionsExt;
+    let (root, paths) = seeded("uidt-unreadable-entry", Vec::new());
+    let folder = paths.source_dir("sha-b");
+    std::fs::set_permissions(&folder, std::fs::Permissions::from_mode(0o000)).unwrap();
+    if std::fs::metadata(paths.source_original("sha-b")).is_ok() {
+        std::fs::set_permissions(&folder, std::fs::Permissions::from_mode(0o755)).unwrap();
+        eprintln!("skipped: permissions are not enforced for this user");
+        return;
+    }
+    // sha-a is the only readable original; with its meta marked released, a survey that skipped sha-b would see none.
+    source_meta::release(&paths, "sha-a").unwrap();
+    let library = LidarLibrary::open(&root).expect("start");
+    std::fs::set_permissions(&folder, std::fs::Permissions::from_mode(0o755)).unwrap();
+
+    assert!(
+        matches!(library.open_status(), LibraryOpenStatus::Unavailable { .. }),
+        "{:?}",
+        library.open_status()
+    );
+    drop(library);
+    assert!(!paths.catalogue_path().exists(), "no catalogue is written");
+    assert!(paths.source_original("sha-b").is_file());
+}
+
+/// An import that stopped after its original was renamed in and before it settled leaves the original listed in its
+/// job root: the next start frees it through the job's settlement, not the prune (which no longer deletes an
+/// unreleased original).
+#[test]
+fn canopi_uidt_a_crashed_import_frees_the_original_it_created_at_the_next_start() {
+    let (root, paths) = seeded("uidt-crashed-import", Vec::new());
+    drop(catalogue::open(&paths.catalogue_path()).unwrap());
+    seed_original(&paths, "sha-created", None);
+    std::fs::create_dir_all(paths.job_dir("imp-crashed")).unwrap();
+    std::fs::write(
+        paths.job_dir("imp-crashed").join("created-originals"),
+        "sha-created\n",
+    )
+    .unwrap();
+
+    let library = LidarLibrary::open(&root).unwrap();
+
+    assert_eq!(*library.open_status(), LibraryOpenStatus::Ready);
+    drop(library);
+    assert!(
+        !paths.source_dir("sha-created").exists(),
+        "the created original goes"
+    );
+    assert!(!paths.job_dir("imp-crashed").exists(), "its job root goes");
+    assert_originals_kept(&paths, "the next start");
+}
+
+/// Moving the rebuilt catalogue into place can fail after the old one was set aside (a scanner holding the fresh
+/// file): the old catalogue goes back to its place, so the next start recovers it again.
+#[test]
+fn canopi_uidt_a_rebuild_that_cannot_move_into_place_puts_the_old_catalogue_back() {
+    let (root, paths) = seeded("uidt-move-fails", Vec::new());
+    std::fs::write(paths.catalogue_path(), ANY_FILE_BUT_A_DATABASE).unwrap();
+
+    install::FAIL_MOVE_INTO_PLACE.with(|fail| fail.set(true));
+    let first = LidarLibrary::open(&root).expect("start 1");
+    install::FAIL_MOVE_INTO_PLACE.with(|fail| fail.set(false));
+
+    assert!(
+        matches!(first.open_status(), LibraryOpenStatus::Unavailable { .. }),
+        "start 1: {:?}",
+        first.open_status()
+    );
+    drop(first);
+    assert!(
+        catalogue_unchanged(&paths),
+        "the old catalogue is back in its place"
+    );
+    let aside: Vec<_> = std::fs::read_dir(paths.set_aside_dir())
+        .map(|entries| entries.flatten().map(|entry| entry.path()).collect())
+        .unwrap_or_default();
+    assert!(aside.is_empty(), "nothing stays set aside: {aside:?}");
+    assert!(
+        staging_left(&paths).is_empty(),
+        "{:?}",
+        staging_left(&paths)
+    );
+    assert_originals_kept(&paths, "start 1");
+
+    let second = LidarLibrary::open(&root).expect("start 2");
+    assert_recovered(&second, 1, 1, "start 2");
+}
+
+/// A staging folder an earlier start could not remove goes at the next start that finds a current catalogue.
+#[test]
+fn canopi_uidt_a_staging_folder_beside_a_current_catalogue_goes_at_the_next_start() {
+    let (root, paths) = seeded("uidt-staging-current", Vec::new());
+    drop(catalogue::open(&paths.catalogue_path()).unwrap());
+    let staging = paths.root().join(REBUILD_STAGING_DIR);
+    std::fs::create_dir_all(&staging).unwrap();
+    std::fs::write(staging.join("0.sqlite"), b"left behind").unwrap();
+
+    drop(LidarLibrary::open(&root).unwrap());
+
+    assert!(
+        staging_left(&paths).is_empty(),
+        "{:?}",
+        staging_left(&paths)
+    );
+}
