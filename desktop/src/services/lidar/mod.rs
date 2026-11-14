@@ -212,15 +212,19 @@ impl LidarLibrary {
     ///
     /// A bad catalogue never stops the app: an older or corrupt one is set
     /// aside and rebuilt from the originals (`recovery.rs`). A newer one is
-    /// listed read-only (`catalogue_reader.rs`) and the library writes nothing:
+    /// listed read-only (`catalogue_reader.rs`), one SQLite cannot read for a reason other
+    /// than damage is unavailable, and for either the library writes nothing:
     /// no directory, no display cache file, no recovery or sweep (2.1-M488).
     /// The display cache and the startup sweep are best effort too. Only the
     /// managed directories failing to exist is an error.
     pub fn open(app_data_dir: &std::path::Path) -> Result<Self, String> {
         let located = LidarPaths::locate(app_data_dir);
         let state = recovery::inspect(&located.catalogue_path());
-        let newer = matches!(state, recovery::CatalogueState::Newer(_));
-        let paths = if newer {
+        let writes_nothing = matches!(
+            state,
+            recovery::CatalogueState::Newer(_) | recovery::CatalogueState::Unreadable(_)
+        );
+        let paths = if writes_nothing {
             located
         } else {
             LidarPaths::open(app_data_dir)?
@@ -252,7 +256,7 @@ impl LidarLibrary {
                 "LiDAR catalogue could not be opened or rebuilt; the library is empty and read-only"
             ),
         }
-        let display_cache = if newer {
+        let display_cache = if writes_nothing {
             open_display_cache_in_memory()?
         } else {
             open_display_cache_or_recreate(&paths.display_cache_path())?
