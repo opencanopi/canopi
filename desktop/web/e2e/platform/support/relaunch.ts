@@ -1,11 +1,14 @@
 // What the updater end to end (updater.spec.ts) needs to see the update's relaunch: the running Canopi processes with
 // their argv as the process itself reads it, the session profile handed to a relaunch the installer starts outside the
-// harness's environment, and what to report when no relaunch shows up (CI triage round 4, canopi-f47t.52.228.15).
+// harness's environment, what to report when no relaunch shows up (CI triage round 4, canopi-f47t.52.228.15), and
+// what an MSI update must not leave behind (canopi-f47t.52.244).
 //
 // Windows: the elevated runner's NSIS installer relaunches through nsis_tauri_utils' RunAsUser, which takes the desktop
 // user's token and an environment built fresh from the user's profile, so the e2e build would start without
-// CANOPI_E2E_PROFILE and refuse to run. The harness writes the session's profile variables to HKCU\Environment, which
-// that environment block reads, just before the install, and removes them when the spec ends. The argv of a process is
+// CANOPI_E2E_PROFILE and refuse to run. The MSI relaunches from msiexec's AUTOLAUNCHAPP custom action, which Windows
+// Installer runs impersonating the user, outside the app's environment too. The harness writes the session's profile
+// variables to HKCU\Environment, which a user's fresh environment block reads, just before the install, and removes
+// them when the spec ends. The argv of a process is
 // its command line split by Windows' own CommandLineToArgvW, never a substring match: a split path still holds the
 // whole path as a substring (canopi-f47t.52.228.53).
 import { execFileSync } from 'node:child_process'
@@ -144,6 +147,36 @@ export function withdrawProfileFromRelaunch(): void {
   }
 }
 
+/** The update's file name for the MSI, as Canopi writes it before msiexec runs it (host/updater/install.rs). */
+const MSI_UPDATE = 'Canopi-update.msi'
+
+/**
+ * The msiexec processes still running the update's MSI (Windows; none elsewhere). msiexec's client stays until its
+ * install ends, so one still running well after N started is waiting on something on screen, such as the restart
+ * question `/promptrestart` asks when a file it replaced was in use.
+ */
+export function msiUpdateClients(): RunningProcess[] {
+  if (currentPlatform() !== 'windows') return []
+  return windowsProcesses(`Name='msiexec.exe'`)
+    .filter((running) => running.argv.some((arg) => basename(arg.replaceAll('\\', '/')) === MSI_UPDATE))
+}
+
+/**
+ * The file operations Windows holds for the next restart (the Session Manager's PendingFileRenameOperations) that name
+ * a file under `folder`: what an install leaves when it could not replace a file in use, and why it would ask for a
+ * restart. Windows only; none elsewhere.
+ */
+export function pendingRestartFiles(folder: string): string[] {
+  if (currentPlatform() !== 'windows') return []
+  const script = `$value = (Get-ItemProperty -LiteralPath 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Session Manager' -Name PendingFileRenameOperations -ErrorAction SilentlyContinue).PendingFileRenameOperations
+ConvertTo-Json -InputObject @($value | Where-Object { $_ }) -Compress`
+  const parsed = JSON.parse(powershell(script).trim() || '[]') as unknown
+  const entries = (Array.isArray(parsed) ? parsed : [parsed]).map(String)
+  const under = folder.toLowerCase().replaceAll('/', '\\').replace(/\\?$/u, '\\')
+  // Each entry is an NT path (\??\C:\...); the target of a delete is empty.
+  return entries.filter((entry) => entry.toLowerCase().replace(/^\\\?\?\\/u, '').startsWith(under))
+}
+
 /** One line of the report, or why it could not be read: the report must never hide the failure it explains. */
 function reportLine(label: string, read: () => string): string {
   try {
@@ -161,7 +194,7 @@ function reportLine(label: string, read: () => string): string {
 export function relaunchReport(root: string, installedVersion: () => string): string {
   const windows = currentPlatform() === 'windows'
   const processes = () => JSON.stringify(windows
-    ? windowsProcesses(`Name='${canopiName()}' OR Name LIKE '%setup%.exe' OR Name='explorer.exe'`)
+    ? windowsProcesses(`Name='${canopiName()}' OR Name LIKE '%setup%.exe' OR Name='msiexec.exe' OR Name='explorer.exe'`)
     : linuxProcesses(canopiName()))
   const lines = [
     reportLine('processes', processes),

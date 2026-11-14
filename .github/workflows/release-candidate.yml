@@ -615,7 +615,7 @@ jobs:
             echo "::notice::this installer declares no .canopi association (a 2.0.x stable fix): no open-design"
           fi
 
-  # The updater's end-to-end lane (plan Phase 0 F6) is a release check: N-1 to N on the AppImage, the .deb and NSIS.
+  # The updater's end-to-end lane (plan Phase 0 F6) is a release check: N-1 to N on the AppImage, the .deb, NSIS and the MSI.
   # A ref with no updater key (a 2.0.x stable fix) has no updater to check. A dry run never calls it: Build & Test calls
   # it for its own area, and the two calls would share the lane's group, one cancelling the other.
   updater-end-to-end:
