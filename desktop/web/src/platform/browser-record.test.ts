@@ -82,4 +82,10 @@ describe('browser records: the 2.1 settings and species-list records, read only'
     expect(read.state === 'current' && read.record.favorites).toEqual(many.slice(0, 50))
     expect(read.state === 'current' && read.record.recently_viewed).toEqual([])
   })
+
+  it('canopi-sr7m: reads a species-list record missing a list, or holding one that is not a list, with that list empty', () => {
+    const store = storage({ [SPECIES.key]: JSON.stringify({ version: 1, recently_viewed: { 'Malus domestica': '2026-12-01T10:00:00.000Z' } }) })
+    expect(readSpeciesListRecord(store)).toEqual({ state: 'current', record: { version: 1, favorites: [], recently_viewed: [] } })
+    expect(store.writes).toEqual([])
+  })
 })
