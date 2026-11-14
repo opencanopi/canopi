@@ -412,7 +412,7 @@ mod reader {
             (0, "newer_read_only", Some(first - 1), true, "pre-2.1"),
             (0, "refused_newer", None, false, "a refused Design"),
             (1, "refused_newer", None, false, "a refused Draft"),
-            (2, "refused_newer", Some(first), true, "a refused store"),
+            (2, "refused_newer", None, true, "a refused store"),
         ];
         for (index, status, version, fail, why) in cases {
             let mut health = read(&DESKTOP_STORES);
