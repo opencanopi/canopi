@@ -3,20 +3,14 @@
 //   "Read-only" and its popover that a newer Canopi saved it, with Update (2.1-Q317, Q336), Close is its only action
 //   (2.1-Q315), and it is never handed to the Draft
 //   store (contracts §11: a v10 Design never reaches the 2.0 store or persistence paths).
-// - R4 (canopi-f47t.52.239): a session over every frozen Web store form the rollback manifest lists writes no byte
-//   (contracts §11 Rollback harness, 2.1-M484). Each Web row's `path` is a seed dump, `{ localStorage?: {key: value},
-//   indexedDB?: [{ name, version, stores: [{ name, keyPath, records }] }] }`, written into the origin before the load.
-//
-// Written failing in commit 0 and marked expected-fail (`test.fail`): R1-6 removed the first marker; R4-2 (which
-// writes spec/rollback/manifest.json and its Web seed dumps) removes the second.
-import { existsSync, readFileSync } from 'node:fs'
+// A session over every frozen Web store form writes no byte (R4, canopi-f47t.52.239) is the rollback harness's own test,
+// e2e-rollback/reader.spec.ts, which the rollback lane runs against the reader release's bundle.
+import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import type { Page } from '@playwright/test'
 import { expect, test } from '../support/offline'
 
 const FIXTURE = fileURLToPath(new URL('../fixtures/canvas-base.canopi', import.meta.url))
-const ROLLBACK = fileURLToPath(new URL('../../../../spec/rollback/', import.meta.url))
-const DRAFT_DATABASE = 'canopi-drafts'
 
 /** A Design as 2.1 writes it: `.canopi` v10, with the plant `scale` renamed `canopy_spread_m` (2.1-Q314). */
 function v10Design(name: string): Buffer {
@@ -82,55 +76,4 @@ test('R1 canopi-f47t.52.270: reader release: a v10 Design opens read-only and sa
   await page.waitForTimeout(1_500)
 
   expect(await storageDump(page), 'a v10 Design writes no byte to browser storage, the device settings included').toEqual(before)
-})
-
-test.fail('R4 canopi-f47t.52.239: reader release: a session over every frozen 2.1 store fixture writes no byte (Web)', async ({ page }) => {
-  const manifestPath = `${ROLLBACK}manifest.json`
-  // Today there is no manifest: R4-2 writes it.
-  expect(existsSync(manifestPath), 'the rollback manifest exists').toBe(true)
-  const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as { forms: { store: string, edition: string, path: string }[] }
-  const forms = manifest.forms.filter((form) => form.edition === 'web')
-  for (const store of ['settings', 'web_drafts', 'web_species_lists']) {
-    expect(forms.some((form) => form.store === store), `the manifest lists a Web ${store} form`).toBe(true)
-  }
-
-  await page.goto('')
-  for (const form of forms) {
-    const seed = JSON.parse(readFileSync(`${ROLLBACK}${form.path}`, 'utf8')) as unknown
-    await page.evaluate(async (dump) => {
-      const { localStorage: local = {}, indexedDB: databases = [] } = dump as {
-        localStorage?: Record<string, string>,
-        indexedDB?: { name: string, version: number, stores: { name: string, keyPath: string, records: unknown[] }[] }[],
-      }
-      for (const [key, value] of Object.entries(local)) localStorage.setItem(key, value)
-      for (const database of databases) {
-        await new Promise<void>((resolve, reject) => {
-          const request = indexedDB.open(database.name, database.version)
-          request.onupgradeneeded = () => {
-            for (const store of database.stores) request.result.createObjectStore(store.name, { keyPath: store.keyPath })
-          }
-          request.onerror = () => reject(request.error)
-          request.onsuccess = () => {
-            const db = request.result
-            const tx = db.transaction(database.stores.map((store) => store.name), 'readwrite')
-            for (const store of database.stores) for (const record of store.records) tx.objectStore(store.name).put(record)
-            tx.oncomplete = () => { db.close(); resolve() }
-            tx.onerror = () => reject(tx.error)
-          }
-        })
-      }
-    }, seed)
-  }
-  const before = await storageDump(page)
-  await page.reload()
-
-  // One reader session: the start screen lists every store, each read-only, and the session ends.
-  await expect(page.locator('[data-start-screen]')).toBeVisible()
-  await expect(page.locator('[data-start-screen] li[data-read-only]').first(), 'the 2.1 Drafts are listed read-only').toBeVisible()
-  await page.reload()
-  await expect(page.locator('[data-start-screen]')).toBeVisible()
-
-  const after = await storageDump(page)
-  expect(after, 'the session writes no byte').toEqual(before)
-  expect((after as { databases: Record<string, unknown> }).databases, 'the Draft store is still there').toHaveProperty(DRAFT_DATABASE)
 })

@@ -341,7 +341,7 @@ const build = real.get('build.yml') ?? {}
 
 /** The changes job's lines turning on the lanes build.yml calls, each by its own area. */
 const FOLDED = 'if has real-app; then real_app=true; fi\nif has web-browsers; then web_browsers=true; fi\nif has updater; then updater=true; fi\n'
-  + 'if has release-build; then release_build=true; fi\n'
+  + 'if has rollback; then rollback=true; fi\nif has release-build; then release_build=true; fi\n'
 
 /** build.yml with the changes job's `diff` step's script replaced by `script`. */
 const withChanges = (script: string): Workflow => ({ ...build, jobs: { ...build.jobs, changes: { steps: [{ id: 'diff', run: script }] } } })
@@ -480,7 +480,7 @@ describe('selection parity (A5, AR2)', () => {
   it('canopi-f47t.52.228.54: every build.yml step is a gate call or a ci_setup or ci_only row (A5 (1))', () => {
     expect(inlineFaults(build)).toEqual([])
     // The lanes build.yml calls are held the same way, their rows keyed `<file> <job>`.
-    expect(calledLanes().sort()).toEqual(['desktop-real-app.yml', 'release-candidate.yml', 'updater-e2e.yml', 'web-edition-browsers.yml'])
+    expect(calledLanes().sort()).toEqual(['desktop-real-app.yml', 'release-candidate.yml', 'rollback.yml', 'updater-e2e.yml', 'web-edition-browsers.yml'])
     for (const file of calledLanes()) expect(inlineFaults(real.get(file) ?? {}, TABLE, file), file).toEqual([])
     const policy = real.get('web-edition-browsers.yml') ?? {}
     const unnamed = { ...policy, jobs: { 'a11y-policy': { steps: [{ run: 'npm ci' }] } } }

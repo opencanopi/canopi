@@ -41,6 +41,7 @@ Rules for Canopi agents. A rule that matters has a test; one without is marked (
 | Desktop real app | CI `build.yml real-app` |
 | Web Edition browsers and axe reports | CI `build.yml web-browsers`, then `cd desktop/web && npm run test:policies:a11y:self-test && npm run test:policies:a11y` |
 | Updater | CI `build.yml updater` |
+| Store readers and frozen store forms | CI `build.yml rollback` |
 | CI workflows (`.github/`) | `node policy/gate/cli.mjs actionlint` |
 | Script tests | `python3 -m unittest discover -s scripts` |
 | Docs | `python3 scripts/check_docs.py` and its `--drift origin/main` (validator changes: `python3 -m unittest scripts.test_check_docs`); `python3 scripts/check_playwright_pins.py` |

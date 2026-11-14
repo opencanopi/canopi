@@ -625,6 +625,16 @@ jobs:
     with:
       ref: ${{ needs.preflight.outputs.head_sha }}
 
+  # The rollback lane is a release check: the reader release's readers over every store form this commit writes. A dry
+  # run never calls it: Build & Test calls it for its own area, and the two calls would share the lane's group.
+  rollback:
+    needs: preflight
+    if: needs.preflight.outputs.dry_run != 'true'
+    uses: ./.github/workflows/rollback.yml
+    with:
+      candidate: ${{ needs.preflight.outputs.head_sha }}
+      branch: ${{ inputs.ref }}
+
   # The root Web Edition (web.projectcanopi.com) from the same commit, with the Web
   # catalog published beside the DB by scripts/publish-db-release.sh.
   web:
@@ -714,7 +724,7 @@ jobs:
 
   # Every lane before it passed or was skipped: a stable fix skips the updater lane, and still reaches its manifest.
   manifest:
-    needs: [preflight, build, linux-floor, smoke-linux, smoke-windows, updater-end-to-end, web]
+    needs: [preflight, build, linux-floor, smoke-linux, smoke-windows, updater-end-to-end, rollback, web]
     if: ${{ needs.preflight.outputs.dry_run != 'true' && !failure() && !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 15

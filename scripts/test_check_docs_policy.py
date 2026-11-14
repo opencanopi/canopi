@@ -185,8 +185,6 @@ class InventoryPhaseHolds(unittest.TestCase):
     `--phase-close` of that phase; a `process` state let the ToolHost owner test (2c), the Session scenarios and
     Draft-store suite (2b) and the D3 rollback test (4) pass their closes unbuilt."""
 
-    HANDED_OFF = {"adr-0026-the-rollback-lane-step-2"}
-
     def held(self, ids):
         registry = list_rules(ROOT)
         for row, phase in phase_rows():
@@ -197,16 +195,18 @@ class InventoryPhaseHolds(unittest.TestCase):
                 self.assertTrue(any(f": {row['id']} " in error for error in errors), f"--phase-close {phase} lets {row['id']} pass unbuilt")
 
     def test_a_row_quoting_an_unbuilt_check_for_a_phase_is_held_at_that_phase_close_canopi_f47t_52_228_8(self):
-        self.held({row["id"] for row, _ in phase_rows()} - self.HANDED_OFF)
+        self.held({row["id"] for row, _ in phase_rows()})
 
     def test_phase_0_closes_with_no_inventory_row_still_planned_for_it_canopi_f47t_52_228(self):
         """Seam 5 of the Phase 0 hand-off: F2 shipped its checks, but four rows still planned them for F2."""
         self.assertEqual(check_inventory(ROOT, phase_close="0", registry=list_rules(ROOT)), [])
 
-    def test_the_rollback_lane_is_held_at_step_2_0_4_close_canopi_f47t_52_228_30(self):
-        """The rollback lane is planned for Step 2.0.4 under bead canopi-f47t.52.239, so that close holds it."""
-        self.held(self.HANDED_OFF)
-
+    def test_the_rollback_lane_exists_so_the_step_2_0_4_close_passes_its_row_canopi_f47t_52_239(self):
+        """The rollback lane shipped in Step 2.0.4: its row names the workflow, which exists, so that close passes it."""
+        self.assertIn({"exists": {"check": ".github/workflows/rollback.yml"}}, [row["state"] for row, _ in phase_rows() if row["id"].startswith("adr-0026-the-rollback")])
+        self.assertTrue((ROOT / ".github/workflows/rollback.yml").is_file())
+        errors = check_inventory(ROOT, phase_close="2.0.4", registry=list_rules(ROOT))
+        self.assertFalse([error for error in errors if ": adr-0026-the-rollback-lane-step-2 " in error], errors)
 
 if __name__ == "__main__":
     unittest.main()
