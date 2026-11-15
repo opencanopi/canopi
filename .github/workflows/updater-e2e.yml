@@ -272,7 +272,11 @@ jobs:
           reg add HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System\Audit /v ProcessCreationIncludeCmdLine_Enabled /t REG_DWORD /d 1 /f
           if ($LASTEXITCODE) { throw "reg add exited $LASTEXITCODE" }
 
+      # A hang here (canopi-ong0) must end before the job's 60 minutes so the upload below keeps the profiles and logs;
+      # a pass takes a few minutes. On Windows a stuck process tree outlives the step's own timeout (a 2026-11-15 run
+      # held it 47 minutes against its 20), so `timeout` ends the spec from inside the step, then its processes.
       - name: Update N-1 to N
+        timeout-minutes: 20
         working-directory: desktop/web
         run: |
           set -euo pipefail
@@ -281,7 +285,12 @@ jobs:
             dbus-run-session -- xvfb-run -a -s '-screen 0 1400x900x24' bash -euo pipefail -c \
               "openbox & wm=\$!; sleep 2; kill -0 \"\$wm\"; npm run test:platform -- --spec $spec"
           else
-            npm run test:platform -- --spec "$spec"
+            s=0; timeout --kill-after=60 1080 npm run test:platform -- --spec "$spec" || s=$?
+            if [ "$s" = 124 ] || [ "$s" = 137 ]; then
+              echo "::error::the update spec hung (canopi-ong0); its processes are ended so the profiles and logs upload"
+              powershell -NoProfile -NonInteractive -Command '$app = [IO.Path]::GetFileNameWithoutExtension($env:CANOPI_E2E_APP); Get-Process | Where-Object { $_.ProcessName -in @($app, "msedgedriver", "node") } | Stop-Process -Force' || true
+            fi
+            exit "$s"
           fi
 
       # A user leaving beta runs the stable installer by hand over the newer beta (2.1-M64): the lane installs the
