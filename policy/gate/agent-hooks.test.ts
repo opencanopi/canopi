@@ -93,6 +93,10 @@ describe('the agent hooks over a planted checkout (canopi-f47t.52.228.10)', () =
   })
 
   describe('deny: the commands that skip or remove the commit gate, create a stash, or commit in the user\'s checkout', () => {
+    it('canopi-frfk: every refusal says nothing in the command ran, so a refused compound command is not half-trusted', () => {
+      for (const [command, cwd] of [['git commit --no-verify -m x && git switch main', undefined], ['git stash', undefined],
+        ['git commit -m x', at().main]] as const) expect(reasonOf(command, cwd), command).toMatch(/ Nothing in this command ran\.$/)
+    })
     it('canopi-f47t.52.228.10: --no-verify is refused', () => {
       for (const command of ['git commit --no-verify -m x', 'git commit -n -m x', 'git commit -anm x', 'git push --no-verify',
         'git merge --no-verify topic', 'git commit --no-veri -m x']) expect(verdict(command), command).toEqual(['deny', 'hook-no-verify'])

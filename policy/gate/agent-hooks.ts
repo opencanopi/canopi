@@ -53,7 +53,9 @@ interface Decision {
   readonly reason: string
 }
 type Verdict = Decision | undefined
-const deny = (rule: Rule): Decision => ({ decision: 'deny', reason: `[${RULE_ID(rule)}] ${REASONS[rule]}` })
+// A refusal stops the whole Bash call: every reason says so, since a refused `a && b` runs neither (canopi-frfk).
+const deny = (rule: Rule): Decision => ({ decision: 'deny',
+  reason: `[${RULE_ID(rule)}] ${REASONS[rule]}. Nothing in this command ran.` })
 
 // --- the scan ---------------------------------------------------------------------------------------------------------
 
