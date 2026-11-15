@@ -272,7 +272,10 @@ jobs:
           reg add HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System\Audit /v ProcessCreationIncludeCmdLine_Enabled /t REG_DWORD /d 1 /f
           if ($LASTEXITCODE) { throw "reg add exited $LASTEXITCODE" }
 
+      # A hang here (canopi-ong0) must end before the job's 60 minutes so the upload below keeps the profiles and logs;
+      # a pass takes a few minutes.
       - name: Update N-1 to N
+        timeout-minutes: 20
         working-directory: desktop/web
         run: |
           set -euo pipefail
