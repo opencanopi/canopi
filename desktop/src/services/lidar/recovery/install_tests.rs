@@ -5,9 +5,10 @@
 
 use super::super::LidarLibrary;
 use super::super::paths::CATALOGUE_FILE;
+#[cfg(unix)]
+use super::failed_rebuild_tests::{ANY_FILE_BUT_A_DATABASE, catalogue_unchanged};
 use super::failed_rebuild_tests::{
-    ANY_FILE_BUT_A_DATABASE, assert_originals_kept, assert_recovered, catalogue_unchanged,
-    item_count, seeded, staging_left,
+    assert_originals_kept, assert_recovered, item_count, seeded, staging_left,
 };
 use super::*;
 
