@@ -45,7 +45,6 @@
     "desktop/src/services/lidar/rust_engine/mod.rs": { "count": 1843 },
     "desktop/src/services/lidar/rust_engine/tiff.rs": { "count": 1004 },
     "desktop/src/services/lidar/rust_engine/warp.rs": { "count": 1346 },
-    "desktop/src/services/lidar/source_meta.rs": { "count": 624 },
     "desktop/src/services/plant_browser.rs": { "count": 1102 },
     "desktop/src/services/species_catalog_read/search.rs": { "count": 2068 },
     "desktop/web/e2e/canvas/phone-chrome.spec.ts": { "count": 1160 },

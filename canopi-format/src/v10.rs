@@ -260,6 +260,9 @@ pub fn read_schema() -> Option<&'static serde_json::Value> {
 const FROZEN_READ_SCHEMA: &str = include_str!("../spec/v10/read-schema.json");
 
 #[cfg(test)]
+mod read_types_tests;
+
+#[cfg(test)]
 mod tests {
     use super::read_schema;
 

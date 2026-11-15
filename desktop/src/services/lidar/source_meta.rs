@@ -355,15 +355,88 @@ pub fn release(paths: &LidarPaths, sha256: &str) -> Result<(), String> {
     write(&path, &released).map(|_| ())
 }
 
+/// Whether something marked this original released ([`release`]): its own meta reads and names no item. The only
+/// proof the startup sweep accepts before it deletes an original (canopi-uidt); a missing or unreadable meta is none.
+pub fn is_released(paths: &LidarPaths, sha256: &str) -> bool {
+    read(&paths.source_meta(sha256))
+        .is_some_and(|meta| meta.sha256 == sha256 && meta.items.is_empty())
+}
+
+/// What `sources/` holds, as a catalogue rebuild would read it (canopi-uidt).
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub struct Survey {
+    /// An original nothing marked released: what a missing catalogue would lose track of.
+    pub unreleased: bool,
+    /// A meta declaring a version newer than this Canopi reads.
+    pub newer: bool,
+}
+
+/// Survey `sources/`. Any entry, original or meta that cannot be read is an error: no proof of an empty library.
+pub fn survey(paths: &LidarPaths) -> Result<Survey, String> {
+    let unread = |error: std::io::Error| format!("Failed to read the library's originals: {error}");
+    let entries = match std::fs::read_dir(paths.root().join("sources")) {
+        Ok(entries) => entries,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(Survey::default()),
+        Err(error) => return Err(unread(error)),
+    };
+    let mut survey = Survey::default();
+    for entry in entries {
+        let entry = entry.map_err(unread)?;
+        if !std::fs::metadata(entry.path()).map_err(unread)?.is_dir() {
+            continue;
+        }
+        let sha256 = entry.file_name().to_string_lossy().into_owned();
+        let original = match std::fs::metadata(paths.source_original(&sha256)) {
+            Ok(metadata) => metadata.is_file(),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => false,
+            Err(error) => return Err(unread(error)),
+        };
+        let version = stored_version(&paths.source_meta(&sha256))?;
+        survey.newer |= version.is_some_and(|v| v > u64::from(META_VERSION));
+        survey.unreleased |= original && !is_released(paths, &sha256);
+    }
+    Ok(survey)
+}
+
+/// The `version` a meta file declares, read without its other fields: none when there is no file, or it is not
+/// JSON with a numeric `version` (damage the rebuild lists under a generated name); a failing read is an error.
+pub fn stored_version(path: &Path) -> Result<Option<u64>, String> {
+    match std::fs::read_to_string(path) {
+        Ok(json) => Ok(declared_version(&json)),
+        Err(error)
+            if matches!(
+                error.kind(),
+                std::io::ErrorKind::NotFound | std::io::ErrorKind::InvalidData
+            ) =>
+        {
+            Ok(None)
+        }
+        Err(error) => Err(format!("Failed to read an original's meta: {error}")),
+    }
+}
+
+fn declared_version(json: &str) -> Option<u64> {
+    serde_json::from_str::<serde_json::Value>(json)
+        .ok()?
+        .get("version")?
+        .as_u64()
+}
+
 /// Write `meta` to `path` atomically; unchanged content is left alone.
 /// Returns whether the file changed.
 pub fn write(path: &Path, meta: &SourceMeta) -> Result<bool, String> {
     let json = serde_json::to_string_pretty(meta)
         .map_err(|e| format!("Failed to encode source meta: {e}"))?;
-    if let Ok(existing) = std::fs::read_to_string(path)
-        && existing == json
-    {
-        return Ok(false);
+    if let Ok(existing) = std::fs::read_to_string(path) {
+        if existing == json {
+            return Ok(false);
+        }
+        // Newer data is never written over (2.1-M480).
+        if declared_version(&existing).is_some_and(|version| version > u64::from(META_VERSION)) {
+            return Err(
+                "An original's meta was written by a newer Canopi; it is left as it is".to_string(),
+            );
+        }
     }
     let temporary = path.with_extension("json.tmp");
     std::fs::write(&temporary, json.as_bytes())
@@ -466,159 +539,4 @@ pub(crate) mod test_support {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::super::analyses::test_support::seed_published_slope;
-    use super::super::catalogue;
-    use super::*;
-    use canopi_types::library::RasterQuantity;
-
-    fn fresh_catalogue() -> Connection {
-        let connection = Connection::open_in_memory().unwrap();
-        catalogue::create_schema(&connection).unwrap();
-        connection
-    }
-
-    /// The meta of a member records its item's name, quantity, units, the
-    /// full member order and every analysis defined over the item, including
-    /// one over a result of it.
-    #[test]
-    fn a_members_meta_carries_the_item_and_its_analyses() {
-        let connection = fresh_catalogue();
-        test_support::seed_published_item(
-            &connection,
-            "lyr-a",
-            "Orchard ground",
-            RasterQuantity::GroundElevation.key(),
-            "m",
-            &[("sha-1", "tile-1.tif"), ("sha-2", "tile-2.tif")],
-        );
-        seed_published_slope(
-            &connection,
-            "lyr-a",
-            "gen-lyr-a",
-            "adef-1",
-            "item-slope",
-            "dgen-1",
-            Some("Slope"),
-        );
-        // A second analysis over the slope result (a chain), and one over an
-        // unrelated item that must not appear.
-        test_support::seed_published_item(
-            &connection,
-            "lyr-b",
-            "Other",
-            RasterQuantity::GroundElevation.key(),
-            "m",
-            &[("sha-3", "b.tif")],
-        );
-        seed_published_slope(
-            &connection,
-            "item-slope",
-            "dgen-1",
-            "adef-2",
-            "item-chain",
-            "dgen-2",
-            None,
-        );
-        seed_published_slope(
-            &connection,
-            "lyr-b",
-            "gen-lyr-b",
-            "adef-3",
-            "item-other",
-            "dgen-3",
-            None,
-        );
-
-        let scratch = crate::test_scratch::TestScratch::new("canopi-source-meta-derive");
-        let paths = LidarPaths::open(&scratch).unwrap();
-        let metas = derive_all(&connection, &paths).unwrap();
-        assert_eq!(metas.len(), 3);
-        let second = metas.iter().find(|meta| meta.sha256 == "sha-2").unwrap();
-        assert_eq!(second.original_filename, "tile-2.tif");
-        assert_eq!(second.items.len(), 1);
-        let item = &second.items[0];
-        assert_eq!(item.name, "Orchard ground");
-        assert_eq!(item.quantity, RasterQuantity::GroundElevation.key());
-        assert_eq!(item.units, "m");
-        assert_eq!(item.members, vec!["sha-1", "sha-2"]);
-        let definitions: Vec<&str> = item
-            .analyses
-            .iter()
-            .map(|analysis| analysis.definition_id.as_str())
-            .collect();
-        assert_eq!(definitions, vec!["adef-1", "adef-2"]);
-        assert_eq!(item.analyses[0].items[0].name.as_deref(), Some("Slope"));
-        assert_eq!(item.analyses[0].inputs[0].item_id, "lyr-a");
-        let other = metas.iter().find(|meta| meta.sha256 == "sha-3").unwrap();
-        assert_eq!(other.items[0].analyses.len(), 1);
-        std::fs::remove_dir_all(&scratch).unwrap();
-    }
-
-    /// One original whose meta cannot be written keeps only its own meta
-    /// stale: every other original's meta is still rewritten, and the failure
-    /// is still returned, naming the original it hit.
-    #[test]
-    fn an_unwritable_meta_leaves_the_other_originals_rewritten() {
-        let connection = fresh_catalogue();
-        for (layer, sha) in [("lyr-a", "sha-1"), ("lyr-b", "sha-2"), ("lyr-c", "sha-3")] {
-            test_support::seed_published_item(
-                &connection,
-                layer,
-                layer,
-                RasterQuantity::GroundElevation.key(),
-                "m",
-                &[(sha, "tile.tif")],
-            );
-        }
-        let scratch = crate::test_scratch::TestScratch::new("canopi-source-meta-unwritable");
-        let paths = LidarPaths::open(&scratch).unwrap();
-        for sha in ["sha-1", "sha-2", "sha-3"] {
-            std::fs::create_dir_all(paths.source_dir(sha)).unwrap();
-            std::fs::write(paths.source_original(sha), b"tif").unwrap();
-        }
-        // A directory where sha-2's meta.json belongs: publishing it fails
-        // whoever runs the test, root included.
-        std::fs::create_dir_all(paths.source_meta("sha-2")).unwrap();
-
-        let error = refresh(&connection, &paths).unwrap_err();
-        assert!(error.contains("sha-2"), "{error}");
-        assert!(read(&paths.source_meta("sha-1")).is_some());
-        assert!(
-            read(&paths.source_meta("sha-3")).is_some(),
-            "an original after the failing one is still rewritten"
-        );
-        std::fs::remove_dir_all(&scratch).unwrap();
-    }
-
-    /// Writing is atomic and idempotent, and a meta of another version is not
-    /// trusted.
-    #[test]
-    fn meta_round_trips_and_an_unknown_version_reads_as_absent() {
-        let root = crate::test_scratch::TestScratch::new("canopi-source-meta");
-        std::fs::create_dir_all(&root).unwrap();
-        let path = root.join(META_FILE);
-        let meta = SourceMeta {
-            version: META_VERSION,
-            sha256: "abc".into(),
-            original_filename: "a.tif".into(),
-            size_bytes: 3,
-            imported_at: "1".into(),
-            items: Vec::new(),
-        };
-        assert!(write(&path, &meta).unwrap());
-        assert!(
-            !write(&path, &meta).unwrap(),
-            "unchanged content is not rewritten"
-        );
-        assert_eq!(read(&path), Some(meta.clone()));
-        assert!(!root.join("meta.json.tmp").exists());
-        let newer = SourceMeta {
-            version: META_VERSION + 1,
-            ..meta
-        };
-        std::fs::write(&path, serde_json::to_string(&newer).unwrap()).unwrap();
-        assert_eq!(read(&path), None);
-        std::fs::remove_dir_all(root).unwrap();
-    }
-}
+mod tests;

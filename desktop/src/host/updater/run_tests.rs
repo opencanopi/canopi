@@ -1,17 +1,13 @@
 //! A cancelled run that settles after a later op started its own run: the late settlement leaves
-//! the later run's place and offer alone. Each leader future is polled by hand, so the test picks
-//! when the cancelled run settles. And the link-only probe runs on the executor's Local class.
+//! the later run's place and offer alone. Each leader future is polled by hand and every answer the
+//! server gives waits on a gate, so the test, not a clock, picks when a run settles. And the
+//! link-only probe runs on the executor's Local class.
 //!
 //! Test code only (the inner attribute below); a module of its own so `tests.rs` keeps under the
 //! file-size limit.
 #![cfg(test)]
 
-use std::{
-    future::Future,
-    pin::{Pin, pin},
-    task::Poll,
-    time::Duration,
-};
+use std::{future::Future, pin::pin};
 
 use canopi_types::{
     failure::{Failure, FailureCode, Lane},
@@ -21,22 +17,14 @@ use canopi_types::{
 use super::{
     UpdaterHost,
     testkit::{
-        APPIMAGE, DEB, FAST, Offer, Route, channel_file, code, mock_app, run, scratch, sink,
+        APPIMAGE, DEB, FAST, Gate, Offer, Route, UNHURRIED, channel_file, code, mock_app, run,
+        scratch, sink, start,
     },
 };
 use crate::native_operation::{
     NativeOperationClass, NativeOperationClassLimits, NativeOperationExecutor,
     NativeOperationLimits,
 };
-
-/// Polls `future` once: it has accepted its op and is waiting on its run.
-async fn start<F: Future>(future: &mut Pin<&mut F>) {
-    std::future::poll_fn(|cx| {
-        assert!(future.as_mut().poll(cx).is_pending(), "the op is running");
-        Poll::Ready(())
-    })
-    .await;
-}
 
 /// `offer`'s channel file, its payload signed.
 fn signed_channel(offer: &Offer) -> Vec<u8> {
@@ -71,7 +59,9 @@ where
 
 /// canopi-f47t.52.228.15: a cancelled run that settles after a later op started its own run
 /// leaves that run in place, so a third op joins it (cancelling the later run cancels the third op)
-/// instead of starting a second run beside it.
+/// instead of starting a second run beside it. canopi-ubyr: the channel file and the payload wait on
+/// gates opened only once every run settled, so no answer can beat a cancel (a 400 ms delay did,
+/// under load, settling the later check `Ok`).
 #[test]
 fn a_cancelled_run_settling_late_leaves_the_later_run_joinable() {
     let offer = Offer::signed(APPIMAGE);
@@ -79,13 +69,13 @@ fn a_cancelled_run_settling_late_leaves_the_later_run_joinable() {
     let executor = NativeOperationExecutor::production();
     let host = UpdaterHost {
         appimage: Some(scratch("cancel-settles-late").join("Canopi.AppImage")),
-        ..offer.host(APPIMAGE, FAST)
+        ..offer.host(APPIMAGE, UNHURRIED)
     };
     let (host, app, executor) = (&host, app.handle(), &executor);
-    let slow = |path: &str, body: Vec<u8>| {
-        offer
-            .server
-            .route(path, Route::Slow(Duration::from_millis(400), body));
+    let gated = |path: &str, body: Vec<u8>| {
+        let gate = Gate::default();
+        offer.server.route(path, Route::Gated(gate.clone(), body));
+        gate
     };
     let check = |id| async move { host.check(app, executor, id).await.map(|_| ()) };
     let download = |id| async move {
@@ -94,18 +84,20 @@ fn a_cancelled_run_settling_late_leaves_the_later_run_joinable() {
     };
     let cancelled = FailureCode::Cancelled;
 
-    slow("/stable.json", signed_channel(&offer));
+    let channel_file = gated("/stable.json", signed_channel(&offer));
     let [b, c] = run(overlap(host, check, ["check-a", "check-b", "check-c"]));
     assert_eq!(code(b), cancelled);
     assert_eq!(code(c), cancelled, "the third check joined the later run");
 
+    channel_file.open();
     assert!(run(host.check(app, executor, "check-d")).unwrap().is_some());
-    slow("/payload", offer.payload.clone());
+    let payload = gated("/payload", offer.payload.clone());
     let [b, c] = run(overlap(
         host,
         download,
         ["download-a", "download-b", "download-c"],
     ));
+    payload.open();
     assert_eq!(code(b), cancelled);
     assert_eq!(
         code(c),
@@ -114,8 +106,11 @@ fn a_cancelled_run_settling_late_leaves_the_later_run_joinable() {
     );
     assert!(host.ops().staged.is_none());
 }
+
 /// canopi-f47t.52.228.15: a cancelled check that settles after a later check offered an update
-/// leaves the offer, so the download that follows has it.
+/// leaves the offer, so the download that follows has it. canopi-ubyr: the channel file waits on a
+/// gate opened after the cancel, so the cancelled check's answer comes after its cancel, which the
+/// check's race polls first.
 #[test]
 fn a_cancelled_check_settling_late_keeps_the_later_checks_offer() {
     let offer = Offer::signed(APPIMAGE);
@@ -123,17 +118,19 @@ fn a_cancelled_check_settling_late_keeps_the_later_checks_offer() {
     let executor = NativeOperationExecutor::production();
     let host = UpdaterHost {
         appimage: Some(scratch("late-check-offer").join("Canopi.AppImage")),
-        ..offer.host(APPIMAGE, FAST)
+        ..offer.host(APPIMAGE, UNHURRIED)
     };
+    let gate = Gate::default();
     offer.server.route(
         "/stable.json",
-        Route::Slow(Duration::from_millis(200), signed_channel(&offer)),
+        Route::Gated(gate.clone(), signed_channel(&offer)),
     );
 
     run(async {
         let mut run_a = pin!(host.check(app.handle(), &executor, "check-a"));
         start(&mut run_a).await;
         host.cancel("check-a");
+        gate.open();
         let b = host.check(app.handle(), &executor, "check-b").await;
         assert_eq!(b.unwrap().unwrap().version, "9.0.0");
         assert_eq!(code(run_a.await), FailureCode::Cancelled);
@@ -145,6 +142,190 @@ fn a_cancelled_check_settling_late_keeps_the_later_checks_offer() {
         Ok(UpdateDownload::Verified),
         "the later check's offer is still there"
     );
+}
+
+/// An executor whose Network class runs one op at a time.
+fn one_network_slot() -> NativeOperationExecutor {
+    let lane = NativeOperationClassLimits::new(8, 1);
+    NativeOperationExecutor::new(NativeOperationLimits::new(lane, lane, lane, lane, lane)).unwrap()
+}
+
+/// A Network op that, from its first poll, holds `executor`'s slot until the sender sends.
+fn hold_network(
+    executor: &NativeOperationExecutor,
+) -> (
+    impl Future<Output = Result<(), String>> + '_,
+    std::sync::mpsc::Sender<()>,
+) {
+    let (release, released) = std::sync::mpsc::channel::<()>();
+    let held = executor.run(NativeOperationClass::Network, "test.hold", move || {
+        released.recv().ok();
+        Ok(())
+    });
+    (held, release)
+}
+
+/// canopi-f47t.52.228.15: a cancelled run settles only after its queued closure gets a Network
+/// slot, so the user can press Check or Download again in between: the new op starts its own run
+/// and is not dragged into the cancelled one. canopi-ubyr: the slot is held until a channel
+/// releases it and each op is polled by hand, so the order is the test's, not a polling loop's.
+#[test]
+fn an_op_started_after_a_cancel_but_before_its_run_settled_runs_on_its_own() {
+    let offer = Offer::signed(APPIMAGE);
+    let app = mock_app(&offer.key.public_key());
+    let executor = one_network_slot();
+    let host = UpdaterHost {
+        appimage: Some(scratch("cancel-then-restart").join("Canopi.AppImage")),
+        ..offer.host(APPIMAGE, FAST)
+    };
+    let (host, app, executor) = (&host, app.handle(), &executor);
+    let op = |id: &'static str| async move {
+        if id.starts_with("check") {
+            host.check(app, executor, id).await.map(|_| ())
+        } else {
+            let (progress, _) = sink();
+            host.download(app, executor, id, progress).await.map(|_| ())
+        }
+    };
+    // Run A queues behind the held slot, is cancelled, then B starts; A runs only once released.
+    let restart = |a, b| {
+        run(async {
+            let (held, release) = hold_network(executor);
+            let mut held = pin!(held);
+            start(&mut held).await;
+            let mut run_a = pin!(op(a));
+            start(&mut run_a).await;
+            host.cancel(a);
+            let mut run_b = pin!(op(b));
+            start(&mut run_b).await;
+            release.send(()).unwrap();
+            let (held, a, b) = tokio::join!(held, run_a, run_b);
+            assert_eq!(held, Ok(()));
+            (a, b)
+        })
+    };
+
+    let (a, b) = restart("check-a", "check-b");
+    assert_eq!(code(a), FailureCode::Cancelled);
+    assert_eq!(
+        b,
+        Ok(()),
+        "the check started after the cancel runs on its own"
+    );
+    let (a, b) = restart("download-a", "download-b");
+    assert_eq!(code(a), FailureCode::Cancelled);
+    assert_eq!(
+        b,
+        Ok(()),
+        "the download started after the cancel runs on its own"
+    );
+    assert!(host.ops().staged.is_some());
+}
+
+/// canopi-ubyr: a check cancelled while it waits for a Network slot settles `cancelled` and never
+/// opens a connection. Its race polls the cancel first, as the download's does, so a cancel sent
+/// before the check's answer is read always wins; an unbiased race polled the request first, so a
+/// cancelled check could still open a connection (and could settle `Ok`, which the settle-read test
+/// covers).
+#[test]
+fn canopi_ubyr_a_check_cancelled_before_its_turn_opens_no_connection_and_settles_cancelled() {
+    let offer = Offer::signed(APPIMAGE);
+    let app = mock_app(&offer.key.public_key());
+    let executor = one_network_slot();
+    let host = offer.host(APPIMAGE, FAST);
+
+    // Sixteen rounds, so an unbiased race goes unseen one time in 65536.
+    for round in 0..16 {
+        let id = format!("check-{round}");
+        let settled = run(async {
+            let (held, release) = hold_network(&executor);
+            let mut held = pin!(held);
+            start(&mut held).await;
+            let mut check = pin!(host.check(app.handle(), &executor, &id));
+            start(&mut check).await;
+            host.cancel(&id);
+            release.send(()).unwrap();
+            let (held, settled) = tokio::join!(held, check);
+            assert_eq!(held, Ok(()));
+            settled
+        });
+        assert_eq!(code(settled), FailureCode::Cancelled, "{id}");
+    }
+    assert_eq!(
+        offer.server.hits(),
+        Vec::<String>::new(),
+        "no cancelled check reached the server"
+    );
+}
+
+/// canopi-ubyr: a cancel that reaches a check before it settles makes it settle `cancelled`, also
+/// when its answer is already in: the plugin can finish the request within the poll that last read
+/// the cancel, so the run reads its cancel again as it settles.
+#[test]
+fn canopi_ubyr_a_check_cancelled_after_its_answer_came_but_before_it_settled_settles_cancelled() {
+    let offer = Offer::signed(APPIMAGE);
+    let app = mock_app(&offer.key.public_key());
+    let executor = one_network_slot();
+    let host = offer.host(APPIMAGE, FAST);
+
+    let settled = run(async {
+        let mut check = pin!(host.check(app.handle(), &executor, "check"));
+        start(&mut check).await;
+        // The lane's one slot frees only once the check's closure is done, its answer in hand.
+        let after = executor.run(NativeOperationClass::Network, "test.after", || Ok(()));
+        assert_eq!(after.await, Ok(()));
+        host.cancel("check");
+        check.await
+    });
+
+    assert_eq!(code(settled), FailureCode::Cancelled);
+    assert_eq!(
+        offer.server.hits(),
+        ["/stable.json"],
+        "the answer came first"
+    );
+}
+
+/// canopi-ubyr: the same for a download: cancelled after its payload came but before it settled,
+/// it settles `cancelled` and stages nothing.
+#[test]
+fn canopi_ubyr_a_download_cancelled_after_its_payload_came_but_before_it_settled_stages_nothing() {
+    let offer = Offer::signed(APPIMAGE);
+    let app = mock_app(&offer.key.public_key());
+    let executor = one_network_slot();
+    let host = UpdaterHost {
+        appimage: Some(scratch("cancel-after-payload").join("Canopi.AppImage")),
+        ..offer.host(APPIMAGE, UNHURRIED)
+    };
+    run(host.check(app.handle(), &executor, "check"))
+        .unwrap()
+        .unwrap();
+    let gate = Gate::default();
+    offer.server.route(
+        "/payload",
+        Route::Gated(gate.clone(), offer.payload.clone()),
+    );
+
+    let (progress, _) = sink();
+    let settled = run(async {
+        let mut download = pin!(host.download(app.handle(), &executor, "download", progress));
+        // Polled until its transfer asked for the payload, which the gate holds back.
+        let mut requested = pin!(offer.server.requested("/payload"));
+        std::future::poll_fn(|cx| {
+            assert!(download.as_mut().poll(cx).is_pending(), "the download runs");
+            requested.as_mut().poll(cx)
+        })
+        .await;
+        gate.open();
+        // The lane's one slot frees only once the transfer's closure is done, the payload in hand.
+        let after = executor.run(NativeOperationClass::Network, "test.after", || Ok(()));
+        assert_eq!(after.await, Ok(()));
+        host.cancel("download");
+        download.await
+    });
+
+    assert_eq!(code(settled), FailureCode::Cancelled);
+    assert!(host.ops().staged.is_none(), "nothing is staged");
 }
 
 /// canopi-f47t.52.228: the link-only probe (a stat of every `PATH` folder for a `.deb`, an access

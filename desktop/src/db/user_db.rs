@@ -956,3 +956,6 @@ mod tests {
         assert_eq!(std::fs::read(path.with_file_name(file)).unwrap(), DAMAGED);
     }
 }
+
+#[cfg(test)]
+mod error_tests;

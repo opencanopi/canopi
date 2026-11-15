@@ -33,8 +33,15 @@ class FakeIndexedDb {
   readonly opens: string[] = []
   /** Opens never answer, as one queued behind another page's upgrade. */
   hold = false
-  /** Opens fail with this error. */
-  failOpen: Error | null = null
+  /** Opens fail with this error; `no error` fails one whose request holds none. */
+  failOpen: Error | 'no error' | null = null
+  /** Open error events the reader left unhandled (no `preventDefault`), which the engine would report to the page. */
+  unpreventedOpenErrors = 0
+  /**
+   * Read transactions fail: `request` as a request error does (the error event while `tx.error` is still null, then
+   * the abort with it), `abort` as an engine abort does (the abort alone).
+   */
+  failRead: { readonly as: 'request' | 'abort', readonly error: DOMException | null } | null = null
   /** Runs while a read transaction is still open. */
   duringRead: (() => void) | null = null
   /** Runs as a connection is asked for a transaction, before it checks that it is open. */
@@ -79,8 +86,8 @@ class FakeIndexedDb {
     const request: Record<string, unknown> & { onsuccess?: () => void, onerror?: (event: unknown) => void, onupgradeneeded?: (event: unknown) => void } = {}
     const answer = () => {
       if (this.failOpen) {
-        request.error = this.failOpen
-        request.onerror?.({ preventDefault() {} })
+        request.error = this.failOpen === 'no error' ? null : this.failOpen
+        this.fireOpenError(request)
         return
       }
       const existing = this.databases.get(name)
@@ -90,7 +97,7 @@ class FakeIndexedDb {
         request.onupgradeneeded?.({ oldVersion: 0, newVersion: version ?? 1 })
         if (aborted) {
           request.error = new DOMException('The upgrade was aborted', 'AbortError')
-          request.onerror?.({ preventDefault() {} })
+          this.fireOpenError(request)
           return
         }
         throw new Error('the reader let an open create a database')
@@ -100,6 +107,12 @@ class FakeIndexedDb {
     }
     queueMicrotask(() => (this.hold ? this.held.push(answer) : answer()))
     return request as unknown as IDBOpenDBRequest
+  }
+
+  private fireOpenError(request: { onerror?: (event: unknown) => void }): void {
+    let prevented = false
+    request.onerror?.({ preventDefault: () => { prevented = true } })
+    if (!prevented) this.unpreventedOpenErrors += 1
   }
 
   private connect(db: FakeDatabase): IDBDatabase {
@@ -121,7 +134,7 @@ class FakeIndexedDb {
   }
 
   private transaction(db: FakeDatabase, names: readonly string[]): IDBTransaction {
-    const tx: Record<string, unknown> & { oncomplete?: () => void } = {}
+    const tx: Record<string, unknown> & { oncomplete?: () => void, onerror?: () => void, onabort?: () => void } = { error: null }
     const requests: (() => void)[] = []
     const request = (read: () => unknown) => {
       const pending: Record<string, unknown> = {}
@@ -137,6 +150,13 @@ class FakeIndexedDb {
       }
     }
     queueMicrotask(() => {
+      const failRead = this.failRead
+      if (failRead) {
+        if (failRead.as === 'request') tx.onerror?.()
+        tx.error = failRead.error
+        tx.onabort?.()
+        return
+      }
       for (const run of requests) run()
       this.duringRead?.()
       if (!this.stallReads) queueMicrotask(() => tx.oncomplete?.())
@@ -272,6 +292,7 @@ describe('the 2.1 Draft store read half', () => {
 
     expect(await listing).toEqual({ drafts: [], hiddenIds: [], complete: false })
     expect(reports).toHaveLength(1)
+    expect((reports[0] as Error).message, 'the report names the store and the bound').toBe('Reading canopi-drafts took longer than 50 ms')
     vi.useRealTimers()
     idb.releaseHeld()
     await new Promise((resolve) => setTimeout(resolve, 0))
@@ -332,12 +353,14 @@ describe('the 2.1 Draft store read half', () => {
   it('R3 canopi-f47t.52.272: gives a Draft’s Design as 2.1 saved it, and null once 2.1 deleted it after the list', async () => {
     const idb = new FakeIndexedDb()
     idb.seed(FROZEN)
-    const { records } = reader(idb)
+    const { records, reports } = reader(idb)
     const saved = FROZEN.stores.drafts!.find((record) => record.id === 'draft-orchard')!.content
 
     expect(await records.content('draft-orchard')).toBe(saved)
     idb.databases.get(FROZEN.database)!.stores.get('drafts')!.delete('draft-orchard')
     expect(await records.content('draft-orchard')).toBeNull()
+    // A deleted Draft is no failed read: nothing is reported.
+    expect(reports).toEqual([])
   })
 
   it('R3 canopi-f47t.52.272: a Draft read that fails, aborts or runs late gives null with a report, so the open says so', async () => {
@@ -394,5 +417,140 @@ describe('the 2.1 Draft store read half', () => {
     expect(listing.drafts).toEqual([{ id: 'draft-odd', name: '', updatedAt: '' }])
     expect(listing.hiddenIds).toEqual(['draft-odd'])
     expect(await records.content('draft-odd')).toBeNull()
+  })
+
+  it('canopi-sr7m: databases() listing only other databases opens nothing, so the store is not looked for by an open', async () => {
+    const idb = new FakeIndexedDb()
+    idb.databases.set('another-app', { version: 1, stores: new Map() })
+    const { records } = reader(idb)
+
+    expect(await records.list()).toEqual({ drafts: [], hiddenIds: [], complete: true })
+    expect(idb.opens).toEqual([])
+  })
+
+  it('canopi-sr7m: an open error, the version-0 abort or a failure, is handled by the reader and never left to reach the page', async () => {
+    const absent = new FakeIndexedDb(false)
+    await reader(absent).records.list()
+    expect(absent.unpreventedOpenErrors, 'the version-0 abort').toBe(0)
+
+    const failing = new FakeIndexedDb()
+    failing.seed(FROZEN)
+    failing.failOpen = new DOMException('Unknown', 'UnknownError')
+    await reader(failing).records.list()
+    expect(failing.unpreventedOpenErrors, 'a failed open').toBe(0)
+  })
+
+  it('canopi-sr7m: an open that fails with no error of its own is reported as the store failing to open', async () => {
+    const idb = new FakeIndexedDb()
+    idb.seed(FROZEN)
+    idb.failOpen = 'no error'
+    const { records, reports } = reader(idb)
+
+    expect(await records.list()).toEqual({ drafts: [], hiddenIds: [], complete: false })
+    expect(reports.map((error) => (error as Error).message)).toEqual(['Opening canopi-drafts failed'])
+  })
+
+  it('canopi-sr7m: a store with no meta store lists its Drafts and hides the ids it holds', async () => {
+    const idb = new FakeIndexedDb()
+    idb.seed({ ...FROZEN, stores: { drafts: FROZEN.stores.drafts! } })
+    const { records, reports } = reader(idb)
+
+    const listing = await records.list()
+
+    expect(listing.drafts.map((draft) => draft.id)).toEqual(['draft-hedge', 'draft-orchard'])
+    expect(listing.hiddenIds).toEqual(['draft-hedge', 'draft-orchard'])
+    expect(listing.complete).toBe(true)
+    expect(reports).toEqual([])
+  })
+
+  /**
+   * A spec-stable sort may read only the comparator's answers above zero, as SpiderMonkey's does (it keeps the left item
+   * when comparefn(left, right) <= 0); V8's sort at this size reads only answers below zero. This stable insertion sort
+   * models SpiderMonkey, so the order holds in Firefox too.
+   */
+  const engineSort = Array.prototype.sort
+  function sortReadingPositiveAnswers<T>(this: T[], compare?: (a: T, b: T) => number): T[] {
+    // Only comparator sorts are modelled; any other sort running meanwhile keeps the engine's.
+    if (compare === undefined) return engineSort.call(this) as T[]
+    for (let i = 1; i < this.length; i += 1) {
+      for (let j = i; j > 0 && compare(this[j - 1]!, this[j]!) > 0; j -= 1) [this[j - 1], this[j]] = [this[j]!, this[j - 1]!]
+    }
+    return this
+  }
+
+  it.each([
+    ['the engine’s sort', false],
+    ['a spec-stable sort that reads only the comparator’s answers above zero, as SpiderMonkey’s', true],
+  ] as const)('canopi-sr7m: many Drafts list newest first, and Drafts saved at the same instant keep the store order by id (%s)', async (_, positiveOnly) => {
+    // getAll gives the records in key order; the instants are shuffled and repeat, as a user with many Drafts has.
+    const instants = Array.from({ length: 12 }, (_, day) => `2026-12-${String(day + 10).padStart(2, '0')}T00:00:00.000Z`)
+    const records = Array.from({ length: 120 }, (_, n) => ({
+      id: `draft-${String(n).padStart(3, '0')}`,
+      name: `Draft ${n}`,
+      updated_at: instants[(n * 7) % instants.length]!,
+      content: '{}',
+    }))
+    const expected = [...records]
+      .sort((a, b) => (a.updated_at === b.updated_at ? (a.id < b.id ? -1 : 1) : a.updated_at < b.updated_at ? 1 : -1))
+      .map((record) => ({ id: record.id, name: record.name, updatedAt: record.updated_at }))
+    const idb = new FakeIndexedDb()
+    idb.seed({ ...FROZEN, stores: { drafts: records } })
+    const { records: drafts } = reader(idb)
+
+    const sort = positiveOnly ? vi.spyOn(Array.prototype, 'sort').mockImplementation(sortReadingPositiveAnswers) : null
+    try {
+      expect((await drafts.list()).drafts).toEqual(expected)
+    } finally {
+      sort?.mockRestore()
+    }
+  })
+
+  it('canopi-sr7m: a move record whose copied ids hold a non-id hides only the ids', async () => {
+    const idb = new FakeIndexedDb()
+    idb.seed({ ...FROZEN, stores: { drafts: [], meta: [{ key: 'move', copiedIds: ['draft-moved-only', 7, null, { id: 'x' }] }] } })
+    const { records } = reader(idb)
+
+    expect((await records.list()).hiddenIds).toEqual(['draft-moved-only'])
+  })
+
+  const readError = new DOMException('The read failed', 'UnknownError')
+  const closedError = new DOMException('The connection was closed', 'AbortError')
+  it.each([
+    // The error event comes while tx.error is still null; the abort that follows carries the error.
+    ['a request error, then the abort', 'request', readError, 'Reading canopi-drafts failed'],
+    ['an engine abort with its error', 'abort', closedError, closedError],
+    ['an abort with no error', 'abort', null, 'Reading canopi-drafts was aborted'],
+  ] as const)('canopi-sr7m: a read transaction that fails (%s) settles at once, reported with what failed', async (_, as, error, reported) => {
+    // Real timers with a short bound: a read the failure did not end settles on the bound's report, which fails below.
+    const idb = new FakeIndexedDb()
+    idb.seed(FROZEN)
+    const { records, reports } = reader(idb, { timeoutMs: 50 })
+
+    idb.failRead = { as, error }
+    // Settled before any bound passes: the failure itself ends the read.
+    expect(await records.list()).toEqual({ drafts: [], hiddenIds: [], complete: false })
+    expect(await records.content('draft-orchard')).toBeNull()
+    expect(reports).toHaveLength(2)
+    for (const report of reports) {
+      if (typeof reported === 'string') {
+        expect(report).toBeInstanceOf(Error)
+        expect((report as Error).message).toBe(reported)
+      } else {
+        expect(report).toBe(reported)
+      }
+    }
+    expect(idb.connections.every((connection) => connection.closed)).toBe(true)
+  })
+
+  it('canopi-sr7m: a read that ends in time leaves no timer behind', async () => {
+    vi.useFakeTimers()
+    const idb = new FakeIndexedDb()
+    idb.seed(FROZEN)
+    const { records } = reader(idb, { timeoutMs: 50 })
+
+    await records.list()
+    await records.content('draft-orchard')
+
+    expect(vi.getTimerCount()).toBe(0)
   })
 })

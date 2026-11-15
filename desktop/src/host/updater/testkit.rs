@@ -15,10 +15,13 @@ use canopi_types::{
 use ed25519_dalek::{Signer as _, SigningKey};
 use std::{
     collections::HashMap,
+    future::Future,
     hash::{BuildHasher as _, RandomState},
     io::{BufRead as _, BufReader, Write as _},
     net::{SocketAddr, TcpListener, TcpStream},
-    sync::{Arc, Mutex},
+    pin::Pin,
+    sync::{Arc, Condvar, Mutex},
+    task::Poll,
     time::Duration,
 };
 
@@ -91,11 +94,30 @@ pub enum Route {
     Redirect(String),
     /// `200` announcing `total` bytes, sending `sent` of them, then nothing.
     Stall { total: usize, sent: usize },
-    /// `200` with this body, sent after this delay.
-    Slow(Duration, Vec<u8>),
+    /// `200` with this body, sent once the gate opens: the test, not a clock, picks when the
+    /// server answers.
+    Gated(Gate, Vec<u8>),
     /// `200` with this body in chunks and no `content-length`, so its size is known only as it
     /// arrives.
     Chunked(Vec<u8>),
+}
+
+/// A latch a test opens once; a [`Route::Gated`] answer waits for it.
+#[derive(Clone, Default)]
+pub struct Gate(Arc<(Mutex<bool>, Condvar)>);
+
+impl Gate {
+    /// Lets every waiting and later answer through.
+    pub fn open(&self) {
+        let (open, opened) = &*self.0;
+        *open.lock().unwrap() = true;
+        opened.notify_all();
+    }
+
+    fn wait(&self) {
+        let (open, opened) = &*self.0;
+        let _open = opened.wait_while(open.lock().unwrap(), |open| !*open);
+    }
 }
 
 /// A local HTTP/1.1 server; each connection answers one request from the route table.
@@ -103,7 +125,7 @@ pub enum Route {
 pub struct Server {
     address: SocketAddr,
     routes: Arc<Mutex<HashMap<String, Route>>>,
-    hits: Arc<Mutex<Vec<String>>>,
+    hits: Arc<tokio::sync::watch::Sender<Vec<String>>>,
 }
 
 impl Server {
@@ -113,7 +135,7 @@ impl Server {
         let server = Self {
             address: listener.local_addr().unwrap(),
             routes: Arc::default(),
-            hits: Arc::default(),
+            hits: Arc::new(tokio::sync::watch::Sender::new(Vec::new())),
         };
         let accepting = server.clone();
         std::thread::spawn(move || {
@@ -137,7 +159,15 @@ impl Server {
 
     /// The paths requested so far, in order.
     pub fn hits(&self) -> Vec<String> {
-        self.hits.lock().unwrap().clone()
+        self.hits.borrow().clone()
+    }
+
+    /// Settles once `path` has been requested.
+    pub async fn requested(&self, path: &str) {
+        let mut hits = self.hits.subscribe();
+        hits.wait_for(|hits| hits.iter().any(|hit| hit == path))
+            .await
+            .unwrap();
     }
 
     fn answer(&self, mut stream: TcpStream) {
@@ -155,12 +185,12 @@ impl Server {
             .nth(1)
             .unwrap_or("/")
             .to_owned();
-        self.hits.lock().unwrap().push(path.clone());
+        self.hits.send_modify(|hits| hits.push(path.clone()));
         let route = self.routes.lock().unwrap().get(&path).cloned();
         let _ = match route {
             Some(Route::Body(body)) => write_body(&mut stream, &body),
-            Some(Route::Slow(delay, body)) => {
-                std::thread::sleep(delay);
+            Some(Route::Gated(gate, body)) => {
+                gate.wait();
                 write_body(&mut stream, &body)
             }
             Some(Route::Chunked(body)) => write_chunked(&mut stream, &body),
@@ -282,6 +312,15 @@ pub const FAST: Limits = Limits {
     size_cap: 1 << 20,
 };
 
+/// Timeouts no test step comes near, for tests whose requests wait on a [`Gate`]: the gate and the
+/// cancels order those settlements, never a timer.
+pub const UNHURRIED: Limits = Limits {
+    check_timeout: Duration::from_secs(120),
+    connect_timeout: Duration::from_secs(120),
+    stall_timeout: Duration::from_secs(120),
+    ..FAST
+};
+
 /// A server offering 9.0.0 to `installation` with `payload`, signed by `key` for `signed_as`.
 pub struct Offer {
     pub key: TestKey,
@@ -324,6 +363,15 @@ impl Offer {
     pub fn host(&self, installation: Installation, limits: Limits) -> UpdaterHost {
         UpdaterHost::for_test(installation, limits, &self.server.url("/stable.json"))
     }
+}
+
+/// Polls `future` once: it has accepted its op and waits on its run.
+pub async fn start<F: Future>(future: &mut Pin<&mut F>) {
+    std::future::poll_fn(|cx| {
+        assert!(future.as_mut().poll(cx).is_pending(), "the op is running");
+        Poll::Ready(())
+    })
+    .await;
 }
 
 /// Runs `future` to its end on the app runtime.

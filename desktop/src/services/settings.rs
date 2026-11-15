@@ -325,6 +325,29 @@ mod tests {
         assert_eq!(persisted.locale, Locale::Fr);
     }
 
+    /// Each language Canopi speaks is a first launch's locale on a system set to it, whatever the region or case.
+    #[test]
+    fn first_launch_takes_every_supported_system_language() {
+        let languages = [
+            ("es_ES.UTF-8", Locale::Es),
+            ("pt-BR", Locale::Pt),
+            ("it_IT", Locale::It),
+            ("zh-Hans-CN", Locale::Zh),
+            ("de_DE", Locale::De),
+            ("ja_JP", Locale::Ja),
+            ("ko-KR", Locale::Ko),
+            ("NL_be", Locale::Nl),
+            ("ru_RU", Locale::Ru),
+        ];
+        for (system, locale) in languages {
+            let settings =
+                get_settings_with_locale(&test_user_db(), Some(system), "linux").unwrap();
+            assert_eq!(settings.locale, locale, "{system}");
+        }
+        let unknown = get_settings_with_locale(&test_user_db(), Some("sv_SE"), "linux").unwrap();
+        assert_eq!(unknown.locale, Locale::En);
+    }
+
     #[test]
     fn saves_settings_round_trip() {
         let user_db = test_user_db();
