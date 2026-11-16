@@ -2,12 +2,16 @@
 //
 // Phase 2 commit 0: 2.1-Q343's shared chords, written before 2a-2 builds them, so each case is expected to fail until
 // then (it.fails). Alt+Shift+N, Alt+Shift+W, Alt+Shift+1-9 and the palette on Alt+Shift+P work on both editions;
-// Desktop keeps Ctrl+N, Ctrl+W, Ctrl+1-9 and Ctrl+Shift+P as aliases. 2a-2 turns each it.fails into it.
+// Desktop keeps Ctrl+N, Ctrl+W, Ctrl+1-9 and Ctrl+Shift+P as aliases; Ctrl+K stays place search (a plain test, green
+// today, that no new chord may take). 2a-2 turns each it.fails into it. The reserved-chord table the decision checks
+// every chord against is 2a-2's to build; its policy test ("every shown chord is a routed chord") lands with it.
 
 import { signal } from '@preact/signals'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { TEST_KEY_PLATFORM } from '../../__tests__/support/key-router'
 import { DESKTOP_KEYMAP } from '../../commands/graph/shortcuts'
+import { closeCommandPalette, commandPaletteOpen } from '../shell/dialogs'
+import type { Panel } from '../shell/state'
 import { createBrowserShellCatalog, installWebKeyRouter } from '../../web/browser-shell-commands'
 import { installKeyRouter, type KeyRouterHandle } from './key-router'
 
@@ -16,6 +20,7 @@ let router: KeyRouterHandle | null = null
 afterEach(() => {
   router?.dispose()
   router = null
+  closeCommandPalette()
   document.body.replaceChildren()
 })
 
@@ -67,9 +72,16 @@ describe('2.1-Q343 shared chords', () => {
     expect(capabilities.newDesign).toHaveBeenCalledTimes(1)
     expect(press(altShift('w')).defaultPrevented, 'Alt+Shift+W is taken').toBe(true)
     expect(capabilities.closeDesign).toHaveBeenCalledTimes(1)
-    expect(press(altShift('1')).defaultPrevented, 'Alt+Shift+1 is taken').toBe(true)
-    expect(capabilities.navigate).toHaveBeenCalledWith('layers')
-    expect(press(altShift('p')).defaultPrevented, 'Alt+Shift+P opens the palette').toBe(true)
+    for (const digit of ['1', '2', '3', '4', '5', '6', '7', '8', '9']) {
+      expect(press(altShift(digit)).defaultPrevented, `Alt+Shift+${digit} is taken`).toBe(true)
+    }
+    // The digits follow the shared panel rows (Ctrl+1-9 on Desktop); Site data (2) and the Notebook (9) are Desktop
+    // panels, so on Web their chords are taken by greyed rows (2.1-Q358) and open nothing.
+    const opened: Panel[] = ['layers', 'species-key', 'plant-db', 'favorites', 'calendar', 'budget', 'consortium']
+    expect(capabilities.navigate.mock.calls.map(([panel]) => panel), 'Alt+Shift+1-9 open the panels').toEqual(opened)
+    expect(commandPaletteOpen.value).toBe(false)
+    expect(press(altShift('p')).defaultPrevented, 'Alt+Shift+P is taken').toBe(true)
+    expect(commandPaletteOpen.value, 'Alt+Shift+P opens the palette').toBe(true)
   })
 
   it.fails('Q343 (2a-2): on Desktop, the Alt+Shift chords run the same commands and the Ctrl chords stay as aliases', () => {
@@ -83,7 +95,16 @@ describe('2.1-Q343 shared chords', () => {
     press({ key: 'n', code: 'KeyN', ctrlKey: true })
     press({ key: 'w', code: 'KeyW', ctrlKey: true })
     press({ key: '1', code: 'Digit1', ctrlKey: true })
+    press({ key: '9', code: 'Digit9', ctrlKey: true })
     press({ key: 'P', code: 'KeyP', ctrlKey: true, shiftKey: true })
-    expect(ran, 'the Desktop aliases').toEqual(['file.new', 'file.close', 'nav.layers', 'help.commandPalette'])
+    expect(ran, 'the Desktop aliases').toEqual(['file.new', 'file.close', 'nav.layers', 'nav.designNotebook', 'help.commandPalette'])
+  })
+
+  it('Q343: on Desktop, Ctrl+K stays place search', () => {
+    const ran: string[] = []
+    router = desktopRouter(ran)
+
+    expect(press({ key: 'k', code: 'KeyK', ctrlKey: true }).defaultPrevented, 'Ctrl+K is taken').toBe(true)
+    expect(ran).toEqual(['view.searchPlace'])
   })
 })
