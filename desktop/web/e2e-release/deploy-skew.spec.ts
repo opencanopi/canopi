@@ -132,9 +132,8 @@ test('Q83, canopi-eon8.19: a release N-1 tab loads a lazy chunk, reads the catal
   await test.step('the New version notice shows and Reload loads N', async () => {
     // The watch reads the manifest on window focus, as when the user comes back to the tab.
     await page.evaluate(() => window.dispatchEvent(new Event('focus')))
-    // The tab runs N-1's markup: 2.0.3's shell row, or the one notice row from 2.0.4 (canopi-j28y; canopi-m4vt drops
-    // the first once 2.0.4 is the oldest N-1).
-    const notice = page.locator('[data-notice-row][data-notice-key="web.release"], [data-web-shell-notice][data-release]')
+    // The tab runs N-1's markup, the one notice row from 2.0.4 on (canopi-j28y; canopi-m4vt dropped 2.0.3's shell row).
+    const notice = page.locator('[data-notice-row][data-notice-key="web.release"]')
     await expect(notice).toContainText('New version')
     const entry = page.waitForResponse((response) => /\/assets\/web-[^/]+\.js$/.test(new URL(response.url()).pathname))
     await notice.getByRole('button', { name: 'Reload' }).click()
