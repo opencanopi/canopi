@@ -1,6 +1,6 @@
 # Module map and dependency direction
 
-Status: Accepted (2026-10-16, Canopi 2.1 target; built by the 2.1 foundation phases); amended 2026-10-17 (Q34 format core; Q45 pass; the module-map run, the clean sheet and the prototypes: ledger 2.1-Q47, 2.1-M4 to 2.1-M6, 2.1-M11, 2.1-M12, 2.1-M19, 2.1-Q122); amended 2026-10-17 (the reader release: 2.1-Q138, 2.1-M21); amended 2026-10-17 (the layer table's landing change rewrites the path lists: 2.1-M20); amended 2026-10-22 (the layer table's packages and editions, rule ids: 2.1-M185, 2.1-M189, 2.1-M191); amended 2026-10-27 (the layer table built: 2.1-M243 to 2.1-M250, 2.1-M255)
+Status: Accepted (2026-10-16, Canopi 2.1 target; built by the 2.1 foundation phases); amended 2026-10-17 (Q34 format core; Q45 pass; the module-map run, the clean sheet and the prototypes: ledger 2.1-Q47, 2.1-M4 to 2.1-M6, 2.1-M11, 2.1-M12, 2.1-M19, 2.1-Q122); amended 2026-10-17 (the reader release: 2.1-Q138, 2.1-M21); amended 2026-10-17 (path lists: 2.1-M20); amended 2026-10-22 (the layer table's packages and editions, rule ids: 2.1-M185, 2.1-M189, 2.1-M191); amended 2026-10-27 (the layer table built: 2.1-M243 to 2.1-M250, 2.1-M255); amended 2026-11-16 (2.1-M529)
 
 ## Context
 
@@ -56,5 +56,5 @@ In 2.0 the frontend has 37 of 40 areas in one cycle. The edition is picked three
 
 ## Checks
 
-- dependency-cruiser `layer-order`, `edition-roots`, `no-product-imports-a-test` and the package owner rules `tauri-only-in-native-host`, `ipc-only-in-desktop-adapters`, `pixi-only-in-renderers`, `maplibre-gl-only-in-maplibre` and `i18next-only-in-i18n` (Phase 0 ratchets generated from the layer table); `command-table-imports-no-feature`, `one-command-catalog` and `edition-ports-installed-only-by-roots` (Phase 2a, planned rows, 2.1-M223); `wasm-glue-only-in-adapter` per adapter, with its crate (Step 2.0.4, Phases N4, N5). Each id here is in `policy-tables-check --list-rules` (2.1-M189).
+- dependency-cruiser `layer-order`, `edition-roots`, `no-product-imports-a-test` and the package owner rules `tauri-only-in-native-host`, `ipc-only-in-desktop-adapters`, `pixi-only-in-renderers`, `maplibre-gl-only-in-maplibre` and `i18next-only-in-i18n` (Phase 0 ratchets from the layer table; `layer-order` covers the command table, 2.1-M529); `one-command-catalog` and `edition-ports-installed-only-by-roots` (Phase 2a, planned rows, 2.1-M223); `wasm-glue-only-in-adapter` per adapter, with its crate (Step 2.0.4, Phases N4, N5). Each id here is in `policy-tables-check --list-rules` (2.1-M189).
 - The Web build boundary check (exists), its facts from the layer table (F1a). The import, symbol and call boundaries the retired frontend architecture policy suite held are rules in `policy/rules.json` and `policy/primitives.json` (2.1-M250).
