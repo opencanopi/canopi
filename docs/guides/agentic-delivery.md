@@ -76,7 +76,7 @@ Beads ([commands](../workflow.md)). The main agent alone writes (`bd update --cl
 
 ## Models
 
-Opus at medium effort for every stage; Sonnet only for trivial checks; no other model. Auto-compaction at 300K tokens.
+Opus at medium effort for every stage; Sonnet only for trivial checks; Fable only as `fable-advisor`; no other model. Auto-compaction at 300K tokens.
 
 ## Tools
 
