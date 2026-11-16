@@ -8,26 +8,20 @@ import { render } from 'preact'
 import { act } from 'preact/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('../components/shared/TitleBar', () => ({ TitleBar: () => <div data-testid="title-bar" /> }))
-vi.mock('../components/shared/CommandPalette', () => ({ CommandPalette: () => null }))
-vi.mock('../components/shared/ProblemReportDialog', () => ({ ProblemReportDialog: () => null }))
-vi.mock('../components/panels/CanvasPanel', () => ({ CanvasPanel: () => <div data-testid="canvas-panel" /> }))
+// The map needs WebGL, which jsdom lacks; the layout classifier does not look at it.
+vi.mock('../components/panels/CanvasPanel', () => ({ CanvasPanel: () => null }))
 
 import { App, type DesktopUpdatePorts } from '../app'
 import { phoneLayout } from '../app/shell/phone-layout'
 
+/** A host with no update to offer and the launch check off: every port answers at once with nothing. */
+const nothing = () => Promise.resolve()
 const NO_UPDATES: DesktopUpdatePorts = {
   updater: {
-    checkForUpdate: () => Promise.resolve(null),
-    downloadUpdate: () => new Promise(() => {}),
-    installUpdate: () => Promise.resolve(),
-    cancelUpdate: () => Promise.resolve(),
-    restartAfterUpdate: () => Promise.resolve(),
-    getLaunchCheck: () => Promise.resolve(false),
+    checkForUpdate: () => Promise.resolve(null), downloadUpdate: () => new Promise(() => {}), installUpdate: nothing,
+    cancelUpdate: nothing, restartAfterUpdate: nothing, getLaunchCheck: () => Promise.resolve(false),
   },
-  setLaunchCheck: () => Promise.resolve(),
-  takeLaunchNotice: () => Promise.resolve(false),
-  mintOperationId: () => 'op',
+  setLaunchCheck: nothing, takeLaunchNotice: () => Promise.resolve(false), mintOperationId: () => 'op',
 }
 
 const container = document.createElement('div')
