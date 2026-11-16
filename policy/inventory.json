@@ -103,7 +103,7 @@
     {
       "id": "patch-settings-only-in-field-owners",
       "doc": "docs/adr/0024-ownership-and-lifecycle.md",
-      "quote": "dependency-cruiser `settings-no-upward` (Phase 2e) and ast-grep"
+      "quote": "ast-grep `patch-settings-only-in-field-owners` (ratchet from Phase 0, 0 at Phase 2e)"
     },
     {
       "id": "plant-highlight-only-in-canvas",
