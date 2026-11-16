@@ -120,6 +120,14 @@
    "owner": "MapLibre (L7)"
   },
   {
+   "path": "maplibre/camera-driver.ts",
+   "layer": "L1",
+   "rank": 3,
+   "edition": "both",
+   "area": "maplibre",
+   "note": "stays in maplibre/: the one MapLibre camera writer (ADR 0016) behind geo/view/'s camera-driver interface; 2m owns it. The design check's \"camera-driver.ts moves to geo/\" is canvas/runtime/view/camera-driver.ts"
+  },
+  {
    "path": "maplibre/raster-display/worker.ts",
    "layer": "L1",
    "rank": 3,
@@ -213,6 +221,16 @@
    "phase": "2a",
    "edition": "both",
    "area": "canvas"
+  },
+  {
+   "path": "canvas/runtime/view/",
+   "layer": "L2",
+   "rank": 3,
+   "destination": "geo/view/",
+   "phase": "2a",
+   "edition": "both",
+   "area": "canvas",
+   "note": "the view module (ADR 0022 L0 geo/, ADR 0016): view transform, camera maths, navigation policy, the camera-driver interface, frames and fit; it imports only @preact/signals, generated/ and the three geo/ moves. 2a-1 moves it; the MapLibre camera driver stays in maplibre/ (its row)"
   },
   {
    "path": "app/design-edit/document/",
@@ -576,7 +594,7 @@
    "phase": "2a",
    "edition": "both",
    "area": "app/consortium",
-   "note": "the time model and succession phases (ADR 0022 L0 planning/)"
+   "note": "the time model and succession phases (ADR 0022 L0 planning/). createDefaultConsortiumEntry calls target/ (L3), so it stays in L3: 2a-1 moves it into app/consortium/workflow.ts, its one caller, and planning/time-model.ts keeps the phases, strata and default phase and stratum"
   },
   {
    "path": "app/document-session/actions.ts",

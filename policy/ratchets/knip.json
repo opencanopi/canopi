@@ -174,7 +174,7 @@
     "desktop/web/src/target/index.ts: knip:types/TargetMapProjectionScene": { "count": 1 },
     "desktop/web/src/target/index.ts: knip:types/TargetSceneInput": { "count": 1 },
     "desktop/web/src/target/map-projection.ts: knip:exports/projectTargetResolutionToMapFeatures": { "count": 1 },
-    "desktop/web/src/types/design-object-kinds.ts: knip:files/file": { "count": 1, "bead": "canopi-f47t.52.222" },
+    "desktop/web/src/types/design-object-kinds.ts: knip:files/file": { "count": 1, "bead": "canopi-f47t.52.179" },
     "desktop/web/src/utils/species-search-normalization.ts: knip:exports/speciesSearchQueryTokens": { "count": 1 },
     "desktop/web/src/web/browser-app-data.ts: knip:exports/createBrowserAppDataStore": { "count": 1 },
     "desktop/web/src/web/browser-app-data.ts: knip:types/BrowserStorageAdapter": { "count": 1 },
