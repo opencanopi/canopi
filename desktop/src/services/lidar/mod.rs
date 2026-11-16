@@ -476,16 +476,7 @@ impl LidarLibrary {
             return Ok(());
         }
         {
-            let known: Vec<String> = {
-                let mut statement = connection
-                    .prepare("SELECT sha256 FROM lidar_sources")
-                    .map_err(|e| e.to_string())?;
-                statement
-                    .query_map([], |row| row.get::<_, String>(0))
-                    .map_err(|e| e.to_string())?
-                    .collect::<Result<_, _>>()
-                    .map_err(|e| e.to_string())?
-            };
+            let known = catalogue::source_sha256s(&connection)?;
             let transaction = connection
                 .unchecked_transaction()
                 .map_err(|e| e.to_string())?;

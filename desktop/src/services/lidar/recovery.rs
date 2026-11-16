@@ -397,11 +397,11 @@ fn insert_source(
 
 /// The authored facts of one source item.
 struct RecoveredItem<'a> {
-    pub layer_id: &'a str,
-    pub name: &'a str,
-    pub quantity: &'a str,
-    pub units: &'a str,
-    pub created_at: &'a str,
+    layer_id: &'a str,
+    name: &'a str,
+    quantity: &'a str,
+    units: &'a str,
+    created_at: &'a str,
 }
 
 fn insert_recovered_item(

@@ -2,8 +2,8 @@
 //!
 //! The rebuild restores every item a meta names into an empty catalogue, in one transaction, and lists each original
 //! no meta describes under a generated name. The startup relist (canopi-kc9q) restores into the current catalogue
-//! each item the catalogue lacks that the meta of an original no row claims names, one transaction per item: an
-//! empty current catalogue that 2.0.3 left behind its failed rebuild lists those originals again. It never lists an
+//! each item the catalogue lacks that the meta of an original no row claims names, one transaction per group of items
+//! over shared originals: an empty current catalogue that 2.0.3 left behind its failed rebuild lists those originals again. It never lists an
 //! original without a readable meta of its own (it could be a cancelled import's) and never rebuilds the whole
 //! catalogue, so a second start, or metas that disagree, write nothing more.
 //!
@@ -170,8 +170,13 @@ impl Restoration {
 }
 
 /// List again each item the catalogue lacks that the meta of an original no `lidar_sources` row claims names, with
-/// the analyses it carries (canopi-kc9q). One transaction per item: an item whose inserts or commit fail is rolled
-/// back whole and left, with its original and meta, for the next start; the failures come back together.
+/// the analyses it carries (canopi-kc9q). Items over a shared original, or named by one item's original's meta, list
+/// together in one transaction or not at all ([`groups`]): a group whose inserts or commit fail is rolled back whole
+/// and left, with its originals and metas, for the next start; the failures come back together.
+///
+/// Startup only, after `recover_interrupted_jobs` failed every job the previous run left running, so the
+/// `jobs_in_flight` guard is defensive, as in the other startup steps: a live caller would race an import's own
+/// `lidar_sources` and meta writes.
 pub(crate) fn relist_unlisted_originals(
     connection: &Connection,
     paths: &LidarPaths,
@@ -197,10 +202,7 @@ pub(crate) fn relist_unlisted_originals(
     {
         return Ok(());
     }
-    let claimed: HashSet<String> = source_meta::derive_all(connection, paths)?
-        .into_iter()
-        .map(|meta| meta.sha256)
-        .collect();
+    let claimed: HashSet<String> = catalogue::source_sha256s(connection)?.into_iter().collect();
     let metas: Vec<SourceMeta> = metas
         .into_iter()
         .filter(|meta| !claimed.contains(&meta.sha256))
@@ -222,13 +224,22 @@ pub(crate) fn relist_unlisted_originals(
     let now = now_iso();
     let mut restoration = Restoration::new(listed, defined);
     let (mut relisted, mut failures) = (0, Vec::new());
-    for item in &items {
+    for group in groups(&items, &metas) {
         let before = restoration.clone();
         let restored = (|| {
             let transaction = connection
                 .unchecked_transaction()
                 .map_err(|e| format!("Failed to start relisting an item: {e}"))?;
-            let restored = restoration.restore_item(&transaction, paths, &facts, item, &now)?;
+            let mut restored = 0;
+            for item in &group {
+                restored += usize::from(restoration.restore_item(
+                    &transaction,
+                    paths,
+                    &facts,
+                    item,
+                    &now,
+                )?);
+            }
             restoration.restore_ready_analyses(&transaction)?;
             transaction
                 .commit()
@@ -236,7 +247,7 @@ pub(crate) fn relist_unlisted_originals(
             Ok::<_, String>(restored)
         })();
         match restored {
-            Ok(restored) => relisted += usize::from(restored),
+            Ok(restored) => relisted += restored,
             Err(error) => {
                 restoration = before;
                 failures.push(error);
@@ -251,6 +262,54 @@ pub(crate) fn relist_unlisted_originals(
     } else {
         Err(failures.join("; "))
     }
+}
+
+/// `items` split into the groups that list together, each in creation order, the groups in the order of their first
+/// item. Two items join when they share a member or one's original's meta names the other. Listing part of a group
+/// would claim an original whose meta is a failed item's record; the meta refresh that ends the start then rewrites
+/// that meta from the catalogue, and the failed item, its record gone, would never list again.
+fn groups<'a>(items: &'a [ItemMeta], metas: &[SourceMeta]) -> Vec<Vec<&'a ItemMeta>> {
+    fn root(parent: &mut [usize], mut index: usize) -> usize {
+        while parent[index] != index {
+            parent[index] = parent[parent[index]];
+            index = parent[index];
+        }
+        index
+    }
+    let position: HashMap<&str, usize> = items
+        .iter()
+        .enumerate()
+        .map(|(index, item)| (item.id.as_str(), index))
+        .collect();
+    let mut touches: Vec<(&str, usize)> = Vec::new();
+    for (index, item) in items.iter().enumerate() {
+        touches.extend(item.members.iter().map(|sha256| (sha256.as_str(), index)));
+    }
+    for meta in metas {
+        for item in &meta.items {
+            if let Some(&index) = position.get(item.id.as_str()) {
+                touches.push((meta.sha256.as_str(), index));
+            }
+        }
+    }
+    let mut parent: Vec<usize> = (0..items.len()).collect();
+    let mut first_toucher: HashMap<&str, usize> = HashMap::new();
+    for (sha256, index) in touches {
+        let first = *first_toucher.entry(sha256).or_insert(index);
+        let (a, b) = (root(&mut parent, first), root(&mut parent, index));
+        parent[a.max(b)] = a.min(b);
+    }
+    let mut groups: Vec<Vec<&ItemMeta>> = Vec::new();
+    let mut slot: HashMap<usize, usize> = HashMap::new();
+    for (index, item) in items.iter().enumerate() {
+        let group = root(&mut parent, index);
+        let at = *slot.entry(group).or_insert_with(|| {
+            groups.push(Vec::new());
+            groups.len() - 1
+        });
+        groups[at].push(item);
+    }
+    groups
 }
 
 /// The item's quantity and units when they are still importable, else the ground-elevation default.

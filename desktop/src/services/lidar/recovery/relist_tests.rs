@@ -391,3 +391,68 @@ fn canopi_kc9q_an_item_whose_insert_fails_is_left_out_alone_and_the_others_list(
     drop(library);
     std::fs::remove_dir_all(root).unwrap();
 }
+
+/// An item whose analysis repeats one input key, so its definition insert fails.
+fn failing_item(id: &str, members: &[&str], created_at: &str) -> source_meta::ItemMeta {
+    let input = source_meta::AnalysisInputMeta {
+        input_key: "elevation".to_string(),
+        item_id: id.to_string(),
+    };
+    let mut repeated = analysis(
+        &format!("adef-{id}"),
+        &[],
+        &format!("item-{id}"),
+        created_at,
+    );
+    repeated.inputs = vec![input.clone(), input];
+    let mut item = meta("unused", id, members, vec![repeated]).items.remove(0);
+    item.created_at = created_at.to_string();
+    item
+}
+
+#[test]
+fn canopi_kc9q_an_item_whose_insert_fails_keeps_its_record_when_an_item_over_its_original_lists() {
+    // The failing item sorts first, then last: either way the item sharing its original waits with it.
+    for (case, failing_at, sharing_at) in [
+        ("first", "2026-01-01T00:00:00Z", "2026-01-02T00:00:00Z"),
+        ("last", "2026-01-03T00:00:00Z", "2026-01-02T00:00:00Z"),
+    ] {
+        let (root, paths) = hit_library(&format!("lidar-kc9q-shared-{case}"));
+        let failing = failing_item("lyr-h1", &["sha-s"], failing_at);
+        let mut sharing = meta("sha-t", "lyr-h2", &["sha-s", "sha-t"], Vec::new());
+        sharing.items[0].created_at = sharing_at.to_string();
+        let mut shared = meta("sha-s", "lyr-h2", &["sha-s", "sha-t"], Vec::new());
+        shared.items = vec![failing.clone(), sharing.items[0].clone()];
+        seed_original(&paths, "sha-s", Some(&shared));
+        seed_original(&paths, "sha-t", Some(&sharing));
+
+        let library = LidarLibrary::open(&root).unwrap();
+        assert_eq!(source_item_ids(&library), vec!["lyr-kept"], "{case}");
+        assert_eq!(source_rows(&library), vec!["sha-kept"], "{case}");
+        drop(library);
+        let named: Vec<String> = source_meta::read(&paths.source_meta("sha-s"))
+            .unwrap()
+            .items
+            .into_iter()
+            .map(|item| item.id)
+            .collect();
+        assert!(
+            named.contains(&"lyr-h1".to_string()),
+            "{case}: the shared original's meta still names the failed item: {named:?}"
+        );
+
+        // The failure is gone by a later start: both items list.
+        let mut repaired = failing;
+        repaired.analyses.clear();
+        shared.items[0] = repaired;
+        source_meta::write(&paths.source_meta("sha-s"), &shared).unwrap();
+        let library = LidarLibrary::open(&root).unwrap();
+        assert_eq!(
+            source_item_ids(&library),
+            vec!["lyr-h1", "lyr-h2", "lyr-kept"],
+            "{case}"
+        );
+        drop(library);
+        std::fs::remove_dir_all(root).unwrap();
+    }
+}
