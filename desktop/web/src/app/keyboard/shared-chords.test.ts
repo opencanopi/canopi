@@ -22,7 +22,7 @@ afterEach(() => {
 /** A keydown as Chromium on Linux sends it with Alt and Shift held (US layout: Shift turns a digit into its symbol). */
 function altShift(letterOrDigit: string): KeyboardEventInit {
   const digit = /^[1-9]$/u.test(letterOrDigit)
-  const symbol = '!@#$%^&*('[Number(letterOrDigit) - 1]
+  const symbol = '!@#$%^&*('.charAt(Number(letterOrDigit) - 1)
   return {
     key: digit ? symbol : letterOrDigit.toUpperCase(),
     code: digit ? `Digit${letterOrDigit}` : `Key${letterOrDigit.toUpperCase()}`,
