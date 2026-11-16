@@ -236,6 +236,46 @@ fn r2_canopi_f47t_52_271_a_queued_or_running_library_job_is_never_settled_interr
     assert!(before.iter().any(|(_, state, _)| state == "queued"));
 }
 
+/// canopi-kc9q's relist runs only on a library this release owns: an original no row of catalogue 26 claims, whose
+/// meta names an item, is neither listed nor written beside a newer catalogue.
+#[test]
+fn canopi_kc9q_an_unlisted_original_beside_catalogue_26_is_never_relisted_or_written() {
+    let root = data_folder("reader-release-catalogue-relist", CATALOGUE_26);
+    let lidar = paths::library_root(&root);
+    std::fs::create_dir_all(lidar.join("sources/sha-r")).unwrap();
+    std::fs::write(lidar.join("sources/sha-r/original"), b"tile").unwrap();
+    let meta = source_meta::SourceMeta {
+        version: source_meta::META_VERSION,
+        sha256: "sha-r".to_owned(),
+        original_filename: "relist.tif".to_owned(),
+        size_bytes: 4,
+        imported_at: "1".to_owned(),
+        items: vec![source_meta::ItemMeta {
+            id: "lyr-relist".to_owned(),
+            name: "Unlisted field".to_owned(),
+            quantity: RasterQuantity::GroundElevation.key().to_owned(),
+            units: "m".to_owned(),
+            created_at: "1".to_owned(),
+            members: vec!["sha-r".to_owned()],
+            analyses: Vec::new(),
+        }],
+    };
+    source_meta::write(&lidar.join("sources/sha-r/meta.json"), &meta).unwrap();
+    let before = files(&root);
+
+    let library = LidarLibrary::open(&root).expect("the app starts");
+
+    assert_eq!(
+        library.open_status().health(),
+        StoreOpenStatus::NewerReadOnly
+    );
+    let items = listed(&library);
+    assert_eq!(items.len(), 4, "only catalogue 26's own items: {items:?}");
+    assert!(items.iter().all(|item| item.id != "lyr-relist"));
+    drop(library);
+    assert_eq!(files(&root), before, "nothing is written");
+}
+
 #[test]
 fn r2_canopi_f47t_52_271_a_newer_catalogue_it_cannot_read_is_unavailable_and_never_set_aside() {
     // Version 99 without the read projection: the catalogue is newer but its items cannot be read.

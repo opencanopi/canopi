@@ -75,10 +75,6 @@
       "count": 2,
       "bead": "canopi-f47t.52.61"
     },
-    "desktop/src/services/lidar/recovery.rs": {
-      "count": 1,
-      "bead": "canopi-f47t.52.61"
-    },
     "desktop/src/services/lidar/rust_engine/cog.rs": {
       "count": 1,
       "bead": "canopi-f47t.52.61"

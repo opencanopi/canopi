@@ -22,11 +22,13 @@ use super::source_meta::{self, AnalysisMeta, SourceMeta};
 use canopi_types::failure::{FailureCode, LibraryReadOnlyReason};
 use canopi_types::health::StoreOpenStatus;
 use rusqlite::Connection;
-use std::collections::{BTreeSet, HashMap, HashSet};
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
 mod install;
+mod restore;
 use install::REBUILD_STAGING_DIR;
+pub(crate) use restore::relist_unlisted_originals;
 
 /// Directory under the library root that keeps catalogues set aside.
 pub const SET_ASIDE_DIR: &str = "lidar-library.set-aside";
@@ -318,103 +320,29 @@ pub struct RebuildReport {
     pub generated: usize,
 }
 
-/// Fill a fresh catalogue from the originals on disk.
+/// Fill a fresh catalogue from the originals on disk (`restore.rs`).
 ///
 /// Every published item known to a `meta.json` comes back with its name,
 /// quantity, units and member order and a failed import over its managed
 /// originals, ready for Retry. An original no meta names is listed as its own
 /// ground-elevation item under a generated name. Analyses come back as
 /// definitions with unpublished outputs, in dependency order.
-#[expect(
-    clippy::too_many_lines,
-    reason = "ratcheted before 2.1-M188; split when this function next changes"
-)]
 pub fn rebuild(connection: &Connection, paths: &LidarPaths) -> Result<RebuildReport, String> {
-    let sources_dir = paths.root().join("sources");
-    let mut names: Vec<String> = match std::fs::read_dir(&sources_dir) {
-        Ok(entries) => entries
-            .flatten()
-            .filter(|entry| entry.path().is_dir())
-            .map(|entry| entry.file_name().to_string_lossy().into_owned())
-            .collect(),
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Vec::new(),
-        Err(error) => return Err(format!("Failed to list {}: {error}", sources_dir.display())),
-    };
-    names.sort();
-    let mut metas: Vec<SourceMeta> = Vec::new();
-    let mut unknown: Vec<(String, u64)> = Vec::new();
-    for sha256 in names {
-        let original = paths.source_original(&sha256);
-        let Ok(metadata) = std::fs::metadata(&original) else {
-            continue;
-        };
-        if !metadata.is_file() {
-            continue;
-        }
-        match source_meta::read(&paths.source_meta(&sha256)) {
-            Some(meta) if meta.sha256 == sha256 => metas.push(meta),
-            _ => unknown.push((sha256, metadata.len())),
-        }
-    }
+    let restore::Originals { metas, unknown } = restore::scan(paths)?;
     let facts: HashMap<&str, &SourceMeta> = metas
         .iter()
         .map(|meta| (meta.sha256.as_str(), meta))
         .collect();
-    let items = source_meta::distinct_items(&metas);
     let now = now_iso();
 
     let transaction = connection
         .unchecked_transaction()
         .map_err(|e| format!("Failed to start the catalogue rebuild: {e}"))?;
     let mut report = RebuildReport::default();
-    let mut known_items: HashSet<String> = HashSet::new();
-    let mut analyses: Vec<AnalysisMeta> = Vec::new();
-    let mut seen_definitions: BTreeSet<String> = BTreeSet::new();
-    for item in &items {
-        let present: Vec<&str> = item
-            .members
-            .iter()
-            .map(String::as_str)
-            .filter(|sha256| paths.source_original(sha256).is_file())
-            .collect();
-        if present.is_empty() {
-            continue;
-        }
-        let (quantity, units) = admitted_quantity(&item.quantity, &item.units);
-        for sha256 in &present {
-            let (filename, size, imported_at) = match facts.get(sha256) {
-                Some(meta) => (
-                    meta.original_filename.clone(),
-                    meta.size_bytes,
-                    meta.imported_at.clone(),
-                ),
-                None => (
-                    "original".to_string(),
-                    std::fs::metadata(paths.source_original(sha256))
-                        .map(|m| m.len())
-                        .unwrap_or(0),
-                    now.clone(),
-                ),
-            };
-            insert_source(&transaction, sha256, &filename, size, &imported_at)?;
-        }
-        insert_recovered_item(
-            &transaction,
-            paths,
-            &item.id,
-            &item.name,
-            quantity,
-            &units,
-            &item.created_at,
-            &present,
-            &now,
-        )?;
-        known_items.insert(item.id.clone());
-        report.items += 1;
-        for analysis in &item.analyses {
-            if seen_definitions.insert(analysis.definition_id.clone()) {
-                analyses.push(analysis.clone());
-            }
+    let mut restoration = restore::Restoration::new(HashSet::new(), HashSet::new());
+    for item in &source_meta::distinct_items(&metas) {
+        if restoration.restore_item(&transaction, paths, &facts, item, &now)? {
+            report.items += 1;
         }
     }
     for (sha256, size) in &unknown {
@@ -423,58 +351,24 @@ pub fn rebuild(connection: &Connection, paths: &LidarPaths) -> Result<RebuildRep
         insert_recovered_item(
             &transaction,
             paths,
-            &id,
-            &generated_name(sha256),
-            DEFAULT_QUANTITY_KEY,
-            "m",
-            &now,
+            RecoveredItem {
+                layer_id: &id,
+                name: &generated_name(sha256),
+                quantity: DEFAULT_QUANTITY_KEY,
+                units: "m",
+                created_at: &now,
+            },
             &[sha256.as_str()],
             &now,
         )?;
-        known_items.insert(id);
+        restoration.record_generated(id);
         report.generated += 1;
     }
-
-    // Definitions in dependency order: one is recorded once every input it
-    // reads exists again, so a chain over a result comes back whole and a
-    // definition over a lost item is dropped rather than left dangling.
-    analyses
-        .sort_by(|a, b| (&a.created_at, &a.definition_id).cmp(&(&b.created_at, &b.definition_id)));
-    let mut pending: Vec<AnalysisMeta> = analyses;
-    loop {
-        let (ready, waiting): (Vec<_>, Vec<_>) = pending.into_iter().partition(|analysis| {
-            analysis
-                .inputs
-                .iter()
-                .all(|input| known_items.contains(&input.item_id))
-        });
-        if ready.is_empty() {
-            break;
-        }
-        for analysis in ready {
-            if insert_definition(&transaction, &analysis)? {
-                for item in &analysis.items {
-                    known_items.insert(item.id.clone());
-                }
-            }
-        }
-        pending = waiting;
-    }
+    restoration.restore_ready_analyses(&transaction)?;
     transaction
         .commit()
         .map_err(|e| format!("Failed to commit the catalogue rebuild: {e}"))?;
     Ok(report)
-}
-
-/// The item's quantity and units when they are still importable, else the
-/// ground-elevation default.
-fn admitted_quantity<'a>(quantity: &'a str, units: &str) -> (&'a str, String) {
-    match super::analyses::parse_quantity(quantity) {
-        Ok(parsed) if parsed.is_importable() && !units.trim().is_empty() => {
-            (quantity, units.to_string())
-        }
-        _ => (DEFAULT_QUANTITY_KEY, "m".to_string()),
-    }
 }
 
 fn generated_name(sha256: &str) -> String {
@@ -501,18 +395,19 @@ fn insert_source(
     Ok(())
 }
 
-#[expect(
-    clippy::too_many_arguments,
-    reason = "ratcheted before 2.1-M188; group the arguments when this function next changes"
-)]
+/// The authored facts of one source item.
+struct RecoveredItem<'a> {
+    pub layer_id: &'a str,
+    pub name: &'a str,
+    pub quantity: &'a str,
+    pub units: &'a str,
+    pub created_at: &'a str,
+}
+
 fn insert_recovered_item(
     connection: &Connection,
     paths: &LidarPaths,
-    layer_id: &str,
-    name: &str,
-    quantity: &str,
-    units: &str,
-    created_at: &str,
+    item: RecoveredItem<'_>,
     members: &[&str],
     now: &str,
 ) -> Result<(), String> {
@@ -520,7 +415,13 @@ fn insert_recovered_item(
         .execute(
             "INSERT INTO lidar_source_layers(id, name, item_kind, quantity, units, created_at)
              VALUES(?1, ?2, 'raster', ?3, ?4, ?5)",
-            rusqlite::params![layer_id, name, quantity, units, created_at],
+            rusqlite::params![
+                item.layer_id,
+                item.name,
+                item.quantity,
+                item.units,
+                item.created_at
+            ],
         )
         .map_err(|e| format!("Failed to record a recovered item: {e}"))?;
     let selection: Vec<PathBuf> = members
@@ -533,7 +434,7 @@ fn insert_recovered_item(
             // A failed import to retry; the Data library's banner says why.
             "INSERT INTO lidar_import_jobs(id, layer_id, state, request_json, created_at, updated_at)
              VALUES(?1, ?2, 'failed', ?3, ?4, ?4)",
-            rusqlite::params![new_id("imp"), layer_id, request, now],
+            rusqlite::params![new_id("imp"), item.layer_id, request, now],
         )
         .map_err(|e| format!("Failed to record a recovered import: {e}"))?;
     Ok(())
@@ -594,5 +495,7 @@ fn insert_definition(connection: &Connection, analysis: &AnalysisMeta) -> Result
 mod failed_rebuild_tests;
 #[cfg(test)]
 mod install_tests;
+#[cfg(test)]
+mod relist_tests;
 #[cfg(test)]
 mod tests;

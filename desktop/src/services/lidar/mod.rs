@@ -388,17 +388,20 @@ impl LidarLibrary {
         Ok(())
     }
 
-    /// Best-effort bounded cleanup at startup: job roots of settled jobs,
-    /// released originals, unregistered display derivatives, settled analysis
+    /// Best-effort bounded cleanup at startup: job roots of settled jobs, released originals, the items of
+    /// unlisted originals listed again (canopi-kc9q), unregistered display derivatives, settled analysis
     /// scratch, leftover engine output, unpublished chunk rows, unreferenced
     /// assets and the derivatives of assets and generations now gone. Each
     /// step that fails is logged and left for the next start; none stops the
     /// library.
     fn prune_transient_artifacts(&self) {
         type Step = fn(&LidarLibrary) -> Result<(), String>;
-        let steps: [(&str, Step); 8] = [
+        let steps: [(&str, Step); 9] = [
             ("settled job roots", Self::prune_settled_job_roots),
             ("released originals", Self::prune_released_originals),
+            ("unlisted originals", |library| {
+                recovery::relist_unlisted_originals(&*library.catalogue()?, &library.inner.paths)
+            }),
             // Display derivatives nobody registered, and interrupted writes,
             // can go now: no WebView reader exists before the library opens.
             (
