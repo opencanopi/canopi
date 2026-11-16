@@ -188,6 +188,33 @@
    "owner": "Scene"
   },
   {
+   "path": "canvas/session-plane.ts",
+   "layer": "L2",
+   "rank": 3,
+   "destination": "geo/session-plane.ts",
+   "phase": "2a",
+   "edition": "both",
+   "area": "canvas"
+  },
+  {
+   "path": "canvas/projection.ts",
+   "layer": "L2",
+   "rank": 3,
+   "destination": "geo/projection.ts",
+   "phase": "2a",
+   "edition": "both",
+   "area": "canvas"
+  },
+  {
+   "path": "canvas/workspace-camera-policy.ts",
+   "layer": "L2",
+   "rank": 3,
+   "destination": "geo/workspace-camera-policy.ts",
+   "phase": "2a",
+   "edition": "both",
+   "area": "canvas"
+  },
+  {
    "path": "app/design-edit/document/",
    "layer": "L2",
    "rank": 4,
@@ -366,6 +393,15 @@
    "area": "app/lidar"
   },
   {
+   "path": "app/data-library/",
+   "layer": "L3",
+   "phase": "2a",
+   "status": "new",
+   "edition": "desktop",
+   "area": "app/data-library",
+   "note": "app/lidar/ renamed, path only (2.1-M43); the Data library behind the file-access port in 2a-4 (2.1-M4, 2.1-M12)"
+  },
+  {
    "path": "app/map-layers/",
    "layer": "L3",
    "edition": "both",
@@ -532,6 +568,15 @@
    "phase": "2a",
    "edition": "both",
    "area": "app/timeline"
+  },
+  {
+   "path": "app/consortium/time-model.ts",
+   "layer": "L3",
+   "destination": "planning/time-model.ts",
+   "phase": "2a",
+   "edition": "both",
+   "area": "app/consortium",
+   "note": "the time model and succession phases (ADR 0022 L0 planning/)"
   },
   {
    "path": "app/document-session/actions.ts",
