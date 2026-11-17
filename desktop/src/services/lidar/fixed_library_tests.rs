@@ -782,7 +782,7 @@ fn rebuilt_item(root: &Path, members: &[(&Path, &str, &str)]) -> (LidarLibrary, 
             imported_at: "10".to_string(),
             items: vec![item.clone()],
         };
-        source_meta::write(&dir.join(source_meta::META_FILE), &meta).unwrap();
+        source_meta::write(&dir.join(paths::META_FILE), &meta).unwrap();
     }
     std::fs::write(lidar.join(paths::CATALOGUE_FILE), b"not a catalogue").unwrap();
     let library = attached_library(root);
@@ -1333,7 +1333,7 @@ fn cancelling_a_retry_puts_a_rebuilt_item_back_to_failed_and_a_rebuild_recovers_
     let kept = library.inner.paths.source_dir("sha-kept");
     let copied_source = copied.join("sources").join("sha-kept");
     std::fs::create_dir_all(&copied_source).unwrap();
-    for name in ["original", source_meta::META_FILE] {
+    for name in ["original", paths::META_FILE] {
         std::fs::copy(kept.join(name), copied_source.join(name)).unwrap();
     }
     drop(app);
@@ -1538,7 +1538,7 @@ fn dismissing_one_of_two_rebuilt_items_sharing_an_original_keeps_it() {
             member_of("lyr-second", "Second", "11"),
         ],
     };
-    source_meta::write(&dir.join(source_meta::META_FILE), &meta).unwrap();
+    source_meta::write(&dir.join(paths::META_FILE), &meta).unwrap();
     std::fs::write(lidar.join(paths::CATALOGUE_FILE), b"not a catalogue").unwrap();
     let library = attached_library(&root);
     assert!(matches!(
