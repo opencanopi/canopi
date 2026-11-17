@@ -14,6 +14,12 @@ use std::path::{Path, PathBuf};
 /// Catalogue file name inside the library root.
 pub const CATALOGUE_FILE: &str = "lidar-library.sqlite";
 
+/// Directory under the library root that keeps catalogues set aside (`recovery.rs`).
+pub const SET_ASIDE_DIR: &str = "lidar-library.set-aside";
+
+/// The derived record beside each original (`source_meta.rs`).
+pub const META_FILE: &str = "meta.json";
+
 /// Name prefix of an analysis job's scratch directory; the rest is its job id.
 pub const ANALYSIS_SCRATCH_PREFIX: &str = "scratch-analysis-";
 
@@ -96,12 +102,12 @@ impl LidarPaths {
     /// The derived record beside an original that a catalogue rebuild reads
     /// (`source_meta.rs`).
     pub fn source_meta(&self, sha256: &str) -> PathBuf {
-        self.source_dir(sha256).join(super::source_meta::META_FILE)
+        self.source_dir(sha256).join(META_FILE)
     }
 
     /// Catalogues an older or corrupt library left behind, kept byte for byte.
     pub fn set_aside_dir(&self) -> PathBuf {
-        self.root.join(super::recovery::SET_ASIDE_DIR)
+        self.root.join(SET_ASIDE_DIR)
     }
 
     /// Holds only per-job analysis scratch directories.

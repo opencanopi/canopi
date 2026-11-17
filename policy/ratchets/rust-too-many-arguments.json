@@ -13,7 +13,6 @@
     "desktop/src/services/lidar/generation.rs: clippy:clippy::too_many_arguments": { "count": 1 },
     "desktop/src/services/lidar/import.rs: clippy:clippy::too_many_arguments": { "count": 5 },
     "desktop/src/services/lidar/raster_assets.rs: clippy:clippy::too_many_arguments": { "count": 2 },
-    "desktop/src/services/lidar/recovery.rs: clippy:clippy::too_many_arguments": { "count": 1 },
     "desktop/src/services/lidar/rust_engine/cog.rs: clippy:clippy::too_many_arguments": { "count": 3 },
     "desktop/src/services/lidar/rust_engine/warp.rs: clippy:clippy::too_many_arguments": { "count": 2 }
   }
