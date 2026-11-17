@@ -2,6 +2,7 @@
 
 use super::super::analyses::test_support::seed_published_slope;
 use super::super::catalogue;
+use super::super::paths::META_FILE;
 use super::*;
 use canopi_types::library::RasterQuantity;
 

@@ -31,7 +31,6 @@
     "desktop/src/services/lidar/prepared_raster.rs: clippy:clippy::too_many_lines": { "count": 1 },
     "desktop/src/services/lidar/presentation.rs: clippy:clippy::too_many_lines": { "count": 1 },
     "desktop/src/services/lidar/raster_assets.rs: clippy:clippy::too_many_lines": { "count": 1 },
-    "desktop/src/services/lidar/recovery.rs: clippy:clippy::too_many_lines": { "count": 1 },
     "desktop/src/services/lidar/rust_engine/cog.rs: clippy:clippy::too_many_lines": { "count": 1 },
     "desktop/src/services/lidar/rust_engine/comparison.rs: clippy:clippy::too_many_lines": { "count": 3 },
     "desktop/src/services/lidar/rust_engine/mod.rs: clippy:clippy::too_many_lines": { "count": 1 },
