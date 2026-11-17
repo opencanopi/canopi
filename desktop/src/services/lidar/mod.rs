@@ -1426,7 +1426,7 @@ impl LidarLibrary {
              WHERE layer_id = ?1 AND request_json IS NOT NULL",
             layer_id,
         )? {
-            for path in parse_import_request(&request).unwrap_or_default() {
+            for path in source_meta::parse_import_request(&request).unwrap_or_default() {
                 let sha256 = path
                     .parent()
                     .and_then(|dir| dir.file_name())
@@ -2172,7 +2172,7 @@ fn saved_retry(connection: &Connection, layer_id: &str) -> Result<SavedRetry, St
         "this import was recorded before its selection was saved; choose the files again"
             .to_string()
     })?;
-    let paths = parse_import_request(&request)?;
+    let paths = source_meta::parse_import_request(&request)?;
     Ok(SavedRetry {
         latest_job,
         request,
@@ -2192,16 +2192,6 @@ pub(crate) fn import_request_json(paths: &[PathBuf]) -> Result<String, String> {
         .collect::<Result<_, _>>()?;
     serde_json::to_string(&serde_json::json!({ "paths": paths }))
         .map_err(|e| format!("Failed to save the import selection: {e}"))
-}
-
-fn parse_import_request(json: &str) -> Result<Vec<PathBuf>, String> {
-    #[derive(serde::Deserialize)]
-    struct Request {
-        paths: Vec<String>,
-    }
-    let request: Request = serde_json::from_str(json)
-        .map_err(|e| format!("The saved import selection is unreadable: {e}"))?;
-    Ok(request.paths.into_iter().map(PathBuf::from).collect())
 }
 
 fn parse_import_state(raw: &str) -> LidarImportJobState {
@@ -3008,7 +2998,7 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
         std::fs::write(dir.join("original"), format!("bytes of {sha256}")).unwrap();
         if let Some(meta) = meta {
-            source_meta::write(&dir.join(source_meta::META_FILE), meta).unwrap();
+            source_meta::write(&dir.join(paths::META_FILE), meta).unwrap();
         }
     }
 
@@ -3049,7 +3039,7 @@ mod tests {
     }
 
     fn set_aside_files(lidar: &std::path::Path) -> Vec<PathBuf> {
-        let mut files: Vec<PathBuf> = std::fs::read_dir(lidar.join(recovery::SET_ASIDE_DIR))
+        let mut files: Vec<PathBuf> = std::fs::read_dir(lidar.join(paths::SET_ASIDE_DIR))
             .map(|entries| entries.flatten().map(|entry| entry.path()).collect())
             .unwrap_or_default();
         files.sort();
@@ -3066,7 +3056,7 @@ mod tests {
                 |row| row.get(0),
             )
             .unwrap();
-        parse_import_request(&request).unwrap()
+        source_meta::parse_import_request(&request).unwrap()
     }
 
     /// An older catalogue is set aside byte for byte and rebuilt from the

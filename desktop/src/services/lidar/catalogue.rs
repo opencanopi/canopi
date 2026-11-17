@@ -4,7 +4,7 @@
 //! Transactions are short; raster computation never happens while a catalogue
 //! connection is held. All SQL uses prepared statements with placeholders.
 
-use rusqlite::{Connection, OptionalExtension};
+pub(crate) use rusqlite::{Connection, OptionalExtension as _};
 
 mod rows;
 pub use rows::{

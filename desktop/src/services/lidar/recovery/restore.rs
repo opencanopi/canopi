@@ -7,16 +7,40 @@
 //! original without a readable meta of its own (it could be a cancelled import's) and never rebuilds the whole
 //! catalogue, so a second start, or metas that disagree, write nothing more.
 //!
-//! The SQL stays with the catalogue's other recovery writes in `recovery.rs`; the reads go through the repository.
+//! The SQL stays with the catalogue's other recovery writes in `recovery.rs`, which passes them in ([`Inserts`]); the
+//! reads go through the repository. This module names nothing above it (`catalogue`, `paths`, `source_meta`), so it
+//! stays out of the `services::lidar` module cycle (`rust-scc`).
 
-use super::super::catalogue::{self, now_iso};
+use super::super::catalogue::{self, Connection, now_iso};
 use super::super::paths::LidarPaths;
 use super::super::source_meta::{self, AnalysisMeta, ItemMeta, SourceMeta};
-use super::{
-    Connection, DEFAULT_QUANTITY_KEY, RecoveredItem, insert_definition, insert_recovered_item,
-    insert_source,
-};
+use canopi_types::library::RasterQuantity;
 use std::collections::{HashMap, HashSet};
+
+/// Quantity of an original nothing describes: ground elevation in metres.
+pub(super) const DEFAULT_QUANTITY_KEY: &str = RasterQuantity::GroundElevation.key();
+
+/// The authored facts of one source item.
+pub(super) struct RecoveredItem<'a> {
+    pub layer_id: &'a str,
+    pub name: &'a str,
+    pub quantity: &'a str,
+    pub units: &'a str,
+    pub created_at: &'a str,
+}
+
+/// Records a source item over its members, with a failed import to retry; the last argument is now.
+type ItemInsert =
+    fn(&Connection, &LidarPaths, RecoveredItem<'_>, &[&str], &str) -> Result<(), String>;
+
+/// The catalogue writes a restoration makes, kept with their SQL in `recovery.rs`.
+pub(super) struct Inserts {
+    /// A `lidar_sources` row: sha256, original filename, size in bytes, import time.
+    pub source: fn(&Connection, &str, &str, u64, &str) -> Result<(), String>,
+    pub item: ItemInsert,
+    /// A definition with its inputs and unpublished outputs; false when an output quantity is unknown.
+    pub definition: fn(&Connection, &AnalysisMeta) -> Result<bool, String>,
+}
 
 /// What `sources/` holds: each original's own meta (its digest matches its folder), and each original without one,
 /// with its size, in folder order.
@@ -60,14 +84,20 @@ pub(super) fn scan(paths: &LidarPaths) -> Result<Originals, String> {
 /// Item and definition ids a catalogue holds, and the analyses restored items carry that wait for their inputs.
 #[derive(Clone)]
 pub(super) struct Restoration {
+    inserts: &'static Inserts,
     known_items: HashSet<String>,
     seen_definitions: HashSet<String>,
     pending: Vec<AnalysisMeta>,
 }
 
 impl Restoration {
-    pub fn new(known_items: HashSet<String>, known_definitions: HashSet<String>) -> Self {
+    pub fn new(
+        inserts: &'static Inserts,
+        known_items: HashSet<String>,
+        known_definitions: HashSet<String>,
+    ) -> Self {
         Self {
+            inserts,
             known_items,
             seen_definitions: known_definitions,
             pending: Vec::new(),
@@ -115,9 +145,9 @@ impl Restoration {
                     now.to_string(),
                 ),
             };
-            insert_source(connection, sha256, &filename, size, &imported_at)?;
+            (self.inserts.source)(connection, sha256, &filename, size, &imported_at)?;
         }
-        insert_recovered_item(
+        (self.inserts.item)(
             connection,
             paths,
             RecoveredItem {
@@ -159,7 +189,7 @@ impl Restoration {
                 return Ok(());
             }
             for analysis in ready {
-                if insert_definition(connection, &analysis)? {
+                if (self.inserts.definition)(connection, &analysis)? {
                     for item in &analysis.items {
                         self.known_items.insert(item.id.clone());
                     }
@@ -177,9 +207,10 @@ impl Restoration {
 /// Startup only, after `recover_interrupted_jobs` failed every job the previous run left running, so the
 /// `jobs_in_flight` guard is defensive, as in the other startup steps: a live caller would race an import's own
 /// `lidar_sources` and meta writes.
-pub(crate) fn relist_unlisted_originals(
+pub(super) fn relist_unlisted_originals(
     connection: &Connection,
     paths: &LidarPaths,
+    inserts: &'static Inserts,
 ) -> Result<(), String> {
     if catalogue::jobs_in_flight(connection)? {
         return Ok(());
@@ -222,7 +253,7 @@ pub(crate) fn relist_unlisted_originals(
         .map(|meta| (meta.sha256.as_str(), meta))
         .collect();
     let now = now_iso();
-    let mut restoration = Restoration::new(listed, defined);
+    let mut restoration = Restoration::new(inserts, listed, defined);
     let (mut relisted, mut failures) = (0, Vec::new());
     for group in groups(&items, &metas) {
         let before = restoration.clone();
@@ -314,8 +345,8 @@ fn groups<'a>(items: &'a [ItemMeta], metas: &[SourceMeta]) -> Vec<Vec<&'a ItemMe
 
 /// The item's quantity and units when they are still importable, else the ground-elevation default.
 fn admitted_quantity<'a>(quantity: &'a str, units: &str) -> (&'a str, String) {
-    match super::super::analyses::parse_quantity(quantity) {
-        Ok(parsed) if parsed.is_importable() && !units.trim().is_empty() => {
+    match RasterQuantity::from_key(quantity) {
+        Some(parsed) if parsed.is_importable() && !units.trim().is_empty() => {
             (quantity, units.to_string())
         }
         _ => (DEFAULT_QUANTITY_KEY, "m".to_string()),

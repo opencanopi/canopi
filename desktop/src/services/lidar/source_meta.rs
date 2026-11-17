@@ -20,9 +20,8 @@ use super::paths::LidarPaths;
 use rusqlite::{Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
-pub const META_FILE: &str = "meta.json";
 pub const META_VERSION: u32 = 1;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -192,7 +191,7 @@ fn unpublished_members(
     let Some(Some(request)) = request else {
         return Ok(None);
     };
-    let Ok(selection) = super::parse_import_request(&request) else {
+    let Ok(selection) = parse_import_request(&request) else {
         return Ok(None);
     };
     let mut members = Vec::with_capacity(selection.len());
@@ -454,6 +453,17 @@ pub fn read(path: &Path) -> Option<SourceMeta> {
     let json = std::fs::read_to_string(path).ok()?;
     let meta: SourceMeta = serde_json::from_str(&json).ok()?;
     (meta.version == META_VERSION).then_some(meta)
+}
+
+/// The paths an import's saved selection (`import_request_json`) names, in priority order.
+pub(crate) fn parse_import_request(json: &str) -> Result<Vec<PathBuf>, String> {
+    #[derive(Deserialize)]
+    struct Request {
+        paths: Vec<String>,
+    }
+    let request: Request = serde_json::from_str(json)
+        .map_err(|e| format!("The saved import selection is unreadable: {e}"))?;
+    Ok(request.paths.into_iter().map(PathBuf::from).collect())
 }
 
 /// Item metas across a set of source metas, one per item id, in creation order.

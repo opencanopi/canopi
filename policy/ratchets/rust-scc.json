@@ -38,73 +38,61 @@
       "count": 4
     },
     "services::lidar": {
-      "count": 23
+      "count": 19
     },
     "services::lidar::admission": {
-      "count": 23
+      "count": 19
     },
     "services::lidar::analyses": {
-      "count": 23
+      "count": 19
     },
     "services::lidar::analyses::terrain": {
-      "count": 23
+      "count": 19
     },
     "services::lidar::analyses::windowed": {
-      "count": 23
+      "count": 19
     },
     "services::lidar::collection": {
-      "count": 23
+      "count": 19
     },
     "services::lidar::coverage": {
-      "count": 23
+      "count": 19
     },
     "services::lidar::display_cog": {
-      "count": 23
+      "count": 19
     },
     "services::lidar::generation": {
-      "count": 23
+      "count": 19
     },
     "services::lidar::import": {
-      "count": 23
+      "count": 19
     },
     "services::lidar::inspection": {
-      "count": 23
-    },
-    "services::lidar::paths": {
-      "count": 23
-    },
-    "services::lidar::prepared_raster": {
-      "count": 23
+      "count": 19
     },
     "services::lidar::presentation": {
-      "count": 23
+      "count": 19
     },
     "services::lidar::raster_assets": {
-      "count": 23
+      "count": 19
     },
     "services::lidar::recovery": {
-      "count": 23
+      "count": 19
     },
     "services::lidar::rust_engine": {
-      "count": 23
+      "count": 19
     },
     "services::lidar::rust_engine::cog": {
-      "count": 23
+      "count": 19
     },
     "services::lidar::rust_engine::relief": {
-      "count": 23
+      "count": 19
     },
     "services::lidar::rust_engine::source": {
-      "count": 23
-    },
-    "services::lidar::rust_engine::tiff": {
-      "count": 23
+      "count": 19
     },
     "services::lidar::rust_engine::warp": {
-      "count": 23
-    },
-    "services::lidar::source_meta": {
-      "count": 23
+      "count": 19
     },
     "services::problem_report": {
       "count": 3

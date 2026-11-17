@@ -303,7 +303,7 @@ fn r2_canopi_f47t_52_271_a_newer_catalogue_it_cannot_read_is_unavailable_and_nev
     assert!(library.rename_item("lyr-n", "x").is_err());
     drop(library);
     assert_eq!(files(&root), before, "never set aside, rebuilt or swept");
-    assert!(!lidar.join(recovery::SET_ASIDE_DIR).exists());
+    assert!(!lidar.join(paths::SET_ASIDE_DIR).exists());
 }
 
 /// A later catalogue in rollback-journal mode, left by a crash mid-transaction, is readable only after SQLite rolls its
@@ -363,7 +363,7 @@ fn canopi_tavc_a_newer_catalogue_behind_a_hot_journal_is_unavailable_and_never_s
         "the catalogue and its journal keep every byte, and no folder is created"
     );
     assert!(
-        !lidar.join(recovery::SET_ASIDE_DIR).exists(),
+        !lidar.join(paths::SET_ASIDE_DIR).exists(),
         "nothing is set aside"
     );
 }

@@ -28,13 +28,14 @@ use std::path::{Path, PathBuf};
 mod install;
 mod restore;
 use install::REBUILD_STAGING_DIR;
-pub(crate) use restore::relist_unlisted_originals;
+use restore::{DEFAULT_QUANTITY_KEY, RecoveredItem};
 
-/// Directory under the library root that keeps catalogues set aside.
-pub const SET_ASIDE_DIR: &str = "lidar-library.set-aside";
-
-/// Quantity of an original nothing describes: ground elevation in metres.
-const DEFAULT_QUANTITY_KEY: &str = canopi_types::library::RasterQuantity::GroundElevation.key();
+/// The catalogue writes a restoration makes (`restore.rs`), with their SQL here.
+static INSERTS: restore::Inserts = restore::Inserts {
+    source: insert_source,
+    item: insert_recovered_item,
+    definition: insert_definition,
+};
 
 /// What the catalogue file at the library root is, before it is opened.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -339,7 +340,7 @@ pub fn rebuild(connection: &Connection, paths: &LidarPaths) -> Result<RebuildRep
         .unchecked_transaction()
         .map_err(|e| format!("Failed to start the catalogue rebuild: {e}"))?;
     let mut report = RebuildReport::default();
-    let mut restoration = restore::Restoration::new(HashSet::new(), HashSet::new());
+    let mut restoration = restore::Restoration::new(&INSERTS, HashSet::new(), HashSet::new());
     for item in &source_meta::distinct_items(&metas) {
         if restoration.restore_item(&transaction, paths, &facts, item, &now)? {
             report.items += 1;
@@ -393,15 +394,6 @@ fn insert_source(
         )
         .map_err(|e| format!("Failed to record a recovered source: {e}"))?;
     Ok(())
-}
-
-/// The authored facts of one source item.
-struct RecoveredItem<'a> {
-    layer_id: &'a str,
-    name: &'a str,
-    quantity: &'a str,
-    units: &'a str,
-    created_at: &'a str,
 }
 
 fn insert_recovered_item(
@@ -489,6 +481,14 @@ fn insert_definition(connection: &Connection, analysis: &AnalysisMeta) -> Result
             .map_err(|e| format!("Failed to record a recovered result: {e}"))?;
     }
     Ok(true)
+}
+
+/// List again the items of originals no row claims (`restore.rs`, canopi-kc9q).
+pub(crate) fn relist_unlisted_originals(
+    connection: &Connection,
+    paths: &LidarPaths,
+) -> Result<(), String> {
+    restore::relist_unlisted_originals(connection, paths, &INSERTS)
 }
 
 #[cfg(test)]
