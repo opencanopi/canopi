@@ -131,7 +131,7 @@ class WebCatalogArtifactContractTests(unittest.TestCase):
 
             with self.assertRaisesRegex(
                 contract.ContractInvariantError,
-                r"species_search_normalization_version.*expected 1.*found 999",
+                r"species_search_normalization_version.*expected 2.*found 999",
             ):
                 contract.compile_web_catalog_artifact(root=root)
 

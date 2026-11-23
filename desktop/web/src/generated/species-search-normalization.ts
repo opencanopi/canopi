@@ -12,8 +12,8 @@ export interface SpeciesSearchNormalizationCorpusCase {
   readonly admission: SpeciesSearchAdmission
 }
 
-export const SPECIES_SEARCH_NORMALIZATION_VERSION = 1 as const
-export const SPECIES_SEARCH_NORMALIZATION_FINGERPRINT = "f56b75f5303e00c8a80d46e1ae63f13d966b206bac7ca6cc8372f48e5828caf6" as const
+export const SPECIES_SEARCH_NORMALIZATION_VERSION = 2 as const
+export const SPECIES_SEARCH_NORMALIZATION_FINGERPRINT = "f00e21ce2c0fd69425f0710cbc7a009eb873ab6db6318670fa7963ca48e596bd" as const
 export const SPECIES_SEARCH_UNICODE_DATA_VERSION = "15.0.0" as const
 
 export const SPECIES_SEARCH_MINIMUM_ADMITTED_SCALAR_COUNT = 2 as const
@@ -1788,6 +1788,41 @@ export const SPECIES_SEARCH_TOKEN_SCALAR_RANGES = [
   [126635, 126651],
   [127232, 127244],
   [130032, 130041],
+  [131072, 173791],
+  [173824, 177977],
+  [177984, 178205],
+  [178208, 183969],
+  [183984, 191456],
+  [194560, 195101],
+  [196608, 201546],
+  [201552, 205743],
+] as const satisfies readonly (readonly [number, number])[]
+
+export const SPECIES_SEARCH_SINGLE_SCALAR_ADMITTED_SCALAR_RANGES = [
+  [12293, 12293],
+  [12295, 12295],
+  [12321, 12329],
+  [12344, 12347],
+  [12353, 12438],
+  [12445, 12447],
+  [12449, 12538],
+  [12541, 12543],
+  [12784, 12799],
+  [13312, 19903],
+  [19968, 40959],
+  [63744, 64109],
+  [64112, 64217],
+  [65382, 65391],
+  [65393, 65437],
+  [94179, 94179],
+  [110576, 110579],
+  [110581, 110587],
+  [110589, 110590],
+  [110592, 110882],
+  [110898, 110898],
+  [110928, 110930],
+  [110933, 110933],
+  [110948, 110951],
   [131072, 173791],
   [173824, 177977],
   [177984, 178205],
@@ -9154,6 +9189,54 @@ export const SPECIES_SEARCH_NORMALIZATION_CORPUS = [
     admission: "too-short",
   },
   {
+    name: "one-han-scalar",
+    input: " 栗 ",
+    normalizedText: "栗",
+    tokens: ["栗"],
+    queryTokens: ["栗"],
+    admission: "active-text",
+  },
+  {
+    name: "one-hiragana-scalar",
+    input: "か",
+    normalizedText: "か",
+    tokens: ["か"],
+    queryTokens: ["か"],
+    admission: "active-text",
+  },
+  {
+    name: "one-halfwidth-katakana-scalar",
+    input: "ｶ",
+    normalizedText: "カ",
+    tokens: ["カ"],
+    queryTokens: ["カ"],
+    admission: "active-text",
+  },
+  {
+    name: "one-han-scalar-in-compatibility-block",
+    input: "﨎",
+    normalizedText: "﨎",
+    tokens: ["﨎"],
+    queryTokens: ["﨎"],
+    admission: "active-text",
+  },
+  {
+    name: "one-greek-scalar",
+    input: "Ω",
+    normalizedText: "ω",
+    tokens: ["ω"],
+    queryTokens: [],
+    admission: "too-short",
+  },
+  {
+    name: "one-common-script-kana-mark",
+    input: "ー",
+    normalizedText: "ー",
+    tokens: ["ー"],
+    queryTokens: [],
+    admission: "too-short",
+  },
+  {
     name: "two-normalized-scalars",
     input: "Ér",
     normalizedText: "er",
@@ -9223,6 +9306,14 @@ export const SPECIES_SEARCH_NORMALIZATION_CORPUS = [
     normalizedText: "a b",
     tokens: ["a", "b"],
     queryTokens: ["a", "b"],
+    admission: "active-text",
+  },
+  {
+    name: "one-han-token-is-admitted-beside-a-short-latin-token",
+    input: "栗 a",
+    normalizedText: "栗 a",
+    tokens: ["栗", "a"],
+    queryTokens: ["栗"],
     admission: "active-text",
   },
 ] as const satisfies readonly SpeciesSearchNormalizationCorpusCase[]

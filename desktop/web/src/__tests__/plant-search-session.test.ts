@@ -259,6 +259,7 @@ describe('plant search session', () => {
     ['active text', 'apple', true],
     ['browse text', '', true],
     ['too-short text', 'a', false],
+    ['one Han character', '栗', true],
   ] as const)(
     'immediately supersedes an active request when scheduling %s',
     async (_label, nextText, dispatchesSuccessor) => {

@@ -15,6 +15,9 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 AUTHORITY_PATH = REPO_ROOT / "canopi-types/species-search-normalization.json"
 FACTS_FILENAME = "species-search-unicode-15.json"
 FACTS_PATH = REPO_ROOT / "canopi-types" / FACTS_FILENAME
+# Python's unicodedata has no Script property, so the scripts whose one character is an admitted query (2.1-Q369)
+# come from a verbatim excerpt of the pinned Unicode version's Scripts.txt.
+SCRIPTS_EXCERPT_PATH = REPO_ROOT / "scripts/species-search-scripts-15.txt"
 MAX_UNICODE_SCALAR = 0x10FFFF
 HANGUL_DECOMPOSITION = {
     "s_base": 0xAC00,
@@ -46,7 +49,24 @@ def scalar_ranges(predicate: Callable[[int], bool]) -> list[list[int]]:
     return ranges
 
 
-def compile_unicode_data(version: str) -> dict[str, object]:
+def script_scalars(version: str, scripts: list[str]) -> set[int]:
+    lines = SCRIPTS_EXCERPT_PATH.read_text(encoding="utf-8").splitlines()
+    if not lines or not lines[0].startswith(f"# Excerpt of Scripts-{version}.txt "):
+        raise RuntimeError(f"{SCRIPTS_EXCERPT_PATH} must be an excerpt of Scripts-{version}.txt")
+    scalars: set[int] = set()
+    seen: set[str] = set()
+    for data in (line.split("#", 1)[0].strip() for line in lines):
+        if data:
+            raw_range, script = (part.strip() for part in data.split(";"))
+            first, _, last = raw_range.partition("..")
+            scalars.update(range(int(first, 16), int(last or first, 16) + 1))
+            seen.add(script)
+    if seen != set(scripts):
+        raise RuntimeError(f"{SCRIPTS_EXCERPT_PATH} must list exactly the scripts {scripts}")
+    return scalars
+
+
+def compile_unicode_data(version: str, single_scalar_scripts: list[str]) -> dict[str, object]:
     if unicodedata.unidata_version != version:
         raise RuntimeError(
             "Species Search Unicode facts require Python Unicode data "
@@ -60,6 +80,10 @@ def compile_unicode_data(version: str) -> dict[str, object]:
     mark_ranges = scalar_ranges(lambda scalar: category(scalar).startswith("M"))
     token_ranges = scalar_ranges(
         lambda scalar: category(scalar).startswith(("L", "N"))
+    )
+    scripts = script_scalars(version, single_scalar_scripts)
+    single_scalar_ranges = scalar_ranges(
+        lambda scalar: scalar in scripts and category(scalar).startswith(("L", "N"))
     )
     hangul_end = (
         HANGUL_DECOMPOSITION["s_base"]
@@ -83,11 +107,12 @@ def compile_unicode_data(version: str) -> dict[str, object]:
                 lowercase_mappings.append([scalar, lowered])
 
     return {
-        "facts_format_version": 2,
+        "facts_format_version": 3,
         "unicode_data_version": version,
         "known_scalar_ranges": known_ranges,
         "mark_scalar_ranges": mark_ranges,
         "token_scalar_ranges": token_ranges,
+        "single_scalar_admitted_scalar_ranges": single_scalar_ranges,
         "hangul_decomposition": HANGUL_DECOMPOSITION,
         "compatibility_decomposition_mappings": compatibility_decomposition_mappings,
         "lowercase_mappings": lowercase_mappings,
@@ -115,7 +140,7 @@ def main() -> int:
     version = unicode_data.get("version")
     if not isinstance(version, str) or not version:
         raise RuntimeError("unicode_data.version must be nonempty text")
-    expected = compile_unicode_data(version)
+    expected = compile_unicode_data(version, raw["algorithm"]["single_scalar_admitted_scripts"])
     expected_reference = {
         "version": version,
         "facts_file": FACTS_FILENAME,

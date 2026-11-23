@@ -13,6 +13,7 @@ ignores:
   - "desktop/src/db/test_support.rs"
   - "desktop/src/db/plant_filter_fields.rs"
   - "desktop/src/db/schema_contract_generated.rs"
+  - "desktop/src/db/species_search_normalization/tests.rs"
   - "desktop/src/db/user_db/error_tests.rs"
   - "desktop/src/design/format/tests.rs"
   - "desktop/src/design/new_design_defaults.rs"
@@ -59,6 +60,7 @@ ignores:
   - "canopi-format/src/v10/read_types_tests.rs"
   - "canopi-format-wasm/src/tests.rs"
   - "bindings-gen/src/plan_support.rs"
+  - "bindings-gen/src/species_search_normalization/tests.rs"
 rule:
   all:
     - kind: call_expression

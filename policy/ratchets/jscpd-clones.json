@@ -9,7 +9,6 @@
   "keys": "name",
   "entries": {
     "bindings-gen/src/publication.rs <-> bindings-gen/src/publication.rs": { "count": 8 },
-    "bindings-gen/src/species_search_normalization.rs <-> bindings-gen/src/species_search_normalization.rs": { "count": 3 },
     "bindings-gen/src/species_search_normalization.rs <-> desktop/src/db/species_search_normalization.rs": { "count": 2 },
     "desktop/src/commands/export.rs <-> desktop/src/commands/export.rs": { "count": 1 },
     "desktop/src/commands/favorites.rs <-> desktop/src/commands/species.rs": { "count": 1 },

@@ -1,6 +1,6 @@
 {
   "contract_format_version": 1,
-  "normalization_version": 1,
+  "normalization_version": 2,
   "unicode_data": {
     "version": "15.0.0",
     "facts_file": "species-search-unicode-15.json"
@@ -28,6 +28,11 @@
       }
     ],
     "minimum_admitted_scalar_count": 2,
+    "single_scalar_admitted_scripts": [
+      "Han",
+      "Hiragana",
+      "Katakana"
+    ],
     "query_token_policy": "unique-admitted-or-all-when-active"
   },
   "corpus": [
@@ -79,6 +84,74 @@
       "normalized_text": "e",
       "tokens": [
         "e"
+      ],
+      "query_tokens": [],
+      "admission": "too-short"
+    },
+    {
+      "name": "one-han-scalar",
+      "input": " 栗 ",
+      "normalized_text": "栗",
+      "tokens": [
+        "栗"
+      ],
+      "query_tokens": [
+        "栗"
+      ],
+      "admission": "active-text"
+    },
+    {
+      "name": "one-hiragana-scalar",
+      "input": "か",
+      "normalized_text": "か",
+      "tokens": [
+        "か"
+      ],
+      "query_tokens": [
+        "か"
+      ],
+      "admission": "active-text"
+    },
+    {
+      "name": "one-halfwidth-katakana-scalar",
+      "input": "ｶ",
+      "normalized_text": "カ",
+      "tokens": [
+        "カ"
+      ],
+      "query_tokens": [
+        "カ"
+      ],
+      "admission": "active-text"
+    },
+    {
+      "name": "one-han-scalar-in-compatibility-block",
+      "input": "﨎",
+      "normalized_text": "﨎",
+      "tokens": [
+        "﨎"
+      ],
+      "query_tokens": [
+        "﨎"
+      ],
+      "admission": "active-text"
+    },
+    {
+      "name": "one-greek-scalar",
+      "input": "Ω",
+      "normalized_text": "ω",
+      "tokens": [
+        "ω"
+      ],
+      "query_tokens": [],
+      "admission": "too-short"
+    },
+    {
+      "name": "one-common-script-kana-mark",
+      "input": "ー",
+      "normalized_text": "ー",
+      "tokens": [
+        "ー"
       ],
       "query_tokens": [],
       "admission": "too-short"
@@ -206,6 +279,19 @@
       "query_tokens": [
         "a",
         "b"
+      ],
+      "admission": "active-text"
+    },
+    {
+      "name": "one-han-token-is-admitted-beside-a-short-latin-token",
+      "input": "栗 a",
+      "normalized_text": "栗 a",
+      "tokens": [
+        "栗",
+        "a"
+      ],
+      "query_tokens": [
+        "栗"
       ],
       "admission": "active-text"
     }

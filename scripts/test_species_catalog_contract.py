@@ -855,7 +855,7 @@ class ContractValidationTests(unittest.TestCase):
                 contract.project(contract.ProjectionTarget.RELEASE, root=root)
 
             self.assertIn(
-                "species_search_normalization_version: expected 1, found 999",
+                "species_search_normalization_version: expected 2, found 999",
                 str(raised.exception),
             )
 
