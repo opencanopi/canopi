@@ -2,13 +2,13 @@
 // Do not edit by hand.
 
 pub(crate) const EXPECTED_PLANT_SCHEMA_VERSION: i32 = 13;
-pub(crate) const SPECIES_SEARCH_NORMALIZATION_VERSION: u32 = 1;
+pub(crate) const SPECIES_SEARCH_NORMALIZATION_VERSION: u32 = 2;
 pub(crate) const SPECIES_SEARCH_NORMALIZATION_FINGERPRINT: &str =
-    "f56b75f5303e00c8a80d46e1ae63f13d966b206bac7ca6cc8372f48e5828caf6";
+    "f00e21ce2c0fd69425f0710cbc7a009eb873ab6db6318670fa7963ca48e596bd";
 #[cfg(test)]
 pub(crate) const MINIMUM_EXPORT_SCHEMA_VERSION: i32 = 14;
 pub(crate) const SPECIES_STORAGE_CONTRACT_FINGERPRINT: &str =
-    "d14b562039907fc477cd6a1f26759bcdff6ea07350b15817ef93fd0ce6ca0fa6";
+    "be01912eaccc5e8b916a4b810300afa35b8b3af09a5c47ddfb1127bdda90ec24";
 
 #[cfg(test)]
 #[rustfmt::skip]

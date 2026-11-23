@@ -37,7 +37,12 @@ class SpeciesSearchNormalizationTests(unittest.TestCase):
 
         self.assertEqual(
             authored,
-            unicode_facts.compile_unicode_data(authored["unicode_data_version"]),
+            unicode_facts.compile_unicode_data(
+                authored["unicode_data_version"],
+                json.loads(CONTRACT_PATH.read_text(encoding="utf-8"))["algorithm"][
+                    "single_scalar_admitted_scripts"
+                ],
+            ),
         )
         decompositions = dict(authored["compatibility_decomposition_mappings"])
         self.assertEqual(decompositions[0x1E030], "а")
@@ -88,19 +93,8 @@ class SpeciesSearchNormalizationTests(unittest.TestCase):
             generate_web_catalog.common_name_tokens,
         )
 
-    def test_python_admission_matches_the_authored_corpus(self):
+    def test_python_contract_pins_the_authored_version_and_fingerprint(self):
         contract = json.loads(CONTRACT_PATH.read_text(encoding="utf-8"))
-
-        for case in contract["corpus"]:
-            with self.subTest(case=case["name"]):
-                self.assertEqual(
-                    normalization.species_search_admission(case["input"]).value,
-                    case["admission"],
-                )
-                self.assertEqual(
-                    normalization.species_search_query_tokens(case["input"]),
-                    tuple(case["query_tokens"]),
-                )
 
         self.assertEqual(
             normalization.CONTRACT.version,

@@ -180,6 +180,8 @@ describe('DuckDB-WASM Species Catalog executable SQL', () => {
     { locale: 'en', text: 'pear', canonicalName: 'Pyrus communis', commonName: 'Pear', matchedName: 'Pear' },
     { locale: 'fr', text: 'arbre', canonicalName: 'Prunus armeniaca', commonName: 'Arbre fruitier', matchedName: 'Arbre fruitier' },
     { locale: 'fr', text: 'zz', canonicalName: 'Malus domestica', commonName: 'A', matchedName: 'zz' },
+    // One Han character is an admitted query (2.1-Q369), so it reaches the Web SQL.
+    { locale: 'fr', text: '杏', canonicalName: 'Prunus armeniaca', commonName: 'Arbre fruitier', matchedName: '杏' },
   ])('preserves $locale primary and alternate Common Name matches for $text', async ({
     locale, text, canonicalName, commonName, matchedName,
   }) => {
@@ -361,7 +363,8 @@ const FRENCH_NAME_VALUES = `(
     ('species-apple'::VARCHAR, 'fr'::VARCHAR, 'a'::VARCHAR, 'a'::VARCHAR, 'false'::VARCHAR, '0'::VARCHAR),
     ('species-apple'::VARCHAR, 'fr'::VARCHAR, 'A'::VARCHAR, 'a'::VARCHAR, 'false'::VARCHAR, '0'::VARCHAR),
     ('species-apple'::VARCHAR, 'fr'::VARCHAR, 'A'::VARCHAR, 'a'::VARCHAR, 'true'::VARCHAR, '5'::VARCHAR),
-    ('species-apricot'::VARCHAR, 'fr'::VARCHAR, 'Arbre fruitier'::VARCHAR, 'arbre fruitier'::VARCHAR, 'true'::VARCHAR, '0'::VARCHAR)
+    ('species-apricot'::VARCHAR, 'fr'::VARCHAR, 'Arbre fruitier'::VARCHAR, 'arbre fruitier'::VARCHAR, 'true'::VARCHAR, '0'::VARCHAR),
+    ('species-apricot'::VARCHAR, 'fr'::VARCHAR, '杏'::VARCHAR, '杏'::VARCHAR, 'false'::VARCHAR, '1'::VARCHAR)
   ) AS fixture(
     species_id,
     language,

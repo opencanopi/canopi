@@ -2,7 +2,7 @@
   "contract_format_version": 1,
   "schema_version": 13,
   "min_export_schema_version": 14,
-  "species_search_normalization_version": 1,
+  "species_search_normalization_version": 2,
   "prepared_artifact": {
     "source_export_sha256": "b6776c0851f8364ffbd63498d06940665f23121857b37ea5b6b6719d455e486d"
   },

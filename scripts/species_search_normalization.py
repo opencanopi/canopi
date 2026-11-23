@@ -46,8 +46,6 @@ class SpeciesSearchNormalizationContract:
     compatibility_decomposition_mappings: tuple[tuple[int, str], ...]
     lowercase_mappings: tuple[tuple[int, str], ...]
     case_folds: tuple[tuple[str, str], ...]
-    minimum_admitted_scalar_count: int
-    query_token_policy: str
 
 
 @dataclass(frozen=True)
@@ -139,6 +137,7 @@ def load_contract(
         "known_scalar_ranges",
         "mark_scalar_ranges",
         "token_scalar_ranges",
+        "single_scalar_admitted_scalar_ranges",
         "hangul_decomposition",
         "compatibility_decomposition_mappings",
         "lowercase_mappings",
@@ -153,8 +152,8 @@ def load_contract(
         raise RuntimeError(
             f"unicode facts: unknown property {unknown_facts_keys[0]!r}"
         )
-    if facts["facts_format_version"] != 2:
-        raise RuntimeError("unicode facts format version must equal 2")
+    if facts["facts_format_version"] != 3:
+        raise RuntimeError("unicode facts format version must equal 3")
     if facts["unicode_data_version"] != unicode_data_version:
         raise RuntimeError(
             "unicode facts version must equal the authored Unicode data version"
@@ -322,6 +321,7 @@ def load_contract(
         "token_character_classes",
         "case_folds",
         "minimum_admitted_scalar_count",
+        "single_scalar_admitted_scripts",
         "query_token_policy",
     }
     missing_algorithm_keys = sorted(expected_algorithm_keys - algorithm.keys())
@@ -338,6 +338,7 @@ def load_contract(
         "compatibility_decomposition": "NFKD",
         "stripped_general_categories": ["Mn", "Mc", "Me"],
         "token_character_classes": ["Letter", "Number", "Underscore"],
+        "single_scalar_admitted_scripts": ["Han", "Hiragana", "Katakana"],
         "query_token_policy": "unique-admitted-or-all-when-active",
     }
     for key, expected in expected_algorithm.items():
@@ -435,8 +436,6 @@ def load_contract(
         compatibility_decomposition_mappings=compatibility_decomposition_mappings,
         lowercase_mappings=lowercase_mappings,
         case_folds=tuple(case_folds),
-        minimum_admitted_scalar_count=minimum,
-        query_token_policy=algorithm["query_token_policy"],
     )
 
 
@@ -535,25 +534,3 @@ def common_name_tokens(name: str) -> list[tuple[str, int]]:
 
 def normalize_search_name(name: str) -> str:
     return normalize_species_search(name).text
-
-
-def species_search_admission(raw: str) -> SpeciesSearchAdmission:
-    scalar_count = normalize_species_search(raw).scalar_count
-    if scalar_count == 0:
-        return SpeciesSearchAdmission.BROWSE
-    if scalar_count < CONTRACT.minimum_admitted_scalar_count:
-        return SpeciesSearchAdmission.TOO_SHORT
-    return SpeciesSearchAdmission.ACTIVE_TEXT
-
-
-def species_search_query_tokens(raw: str) -> tuple[str, ...]:
-    normalized = normalize_species_search(raw)
-    if normalized.scalar_count < CONTRACT.minimum_admitted_scalar_count:
-        return ()
-    unique_tokens = tuple(dict.fromkeys(normalized.tokens))
-    admitted_tokens = tuple(
-        token
-        for token in unique_tokens
-        if len(token) >= CONTRACT.minimum_admitted_scalar_count
-    )
-    return admitted_tokens or unique_tokens

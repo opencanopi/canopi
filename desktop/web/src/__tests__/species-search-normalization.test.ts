@@ -11,7 +11,7 @@ import {
 
 describe('Species Search normalization', () => {
   it('matches the authored cross-runtime corpus', () => {
-    expect(SPECIES_SEARCH_NORMALIZATION_VERSION).toBe(1)
+    expect(SPECIES_SEARCH_NORMALIZATION_VERSION).toBe(2)
 
     for (const testCase of SPECIES_SEARCH_NORMALIZATION_CORPUS) {
       const normalized = normalizeSpeciesSearch(testCase.input)
@@ -22,5 +22,16 @@ describe('Species Search normalization', () => {
       expect(speciesSearchAdmission(testCase.input), `${testCase.name} admission`)
         .toBe(testCase.admission)
     }
+  })
+
+  it('admits one Han or kana character and keeps every other script at two', () => {
+    for (const query of ['栗', '桃', 'か', 'カ', 'ｶ', '々', '﨎']) {
+      expect(speciesSearchAdmission(query), query).toBe('active-text')
+    }
+    for (const query of ['É', 'Ω', 'я', 'ー', '1', '_']) {
+      expect(speciesSearchAdmission(query), query).toBe('too-short')
+    }
+    expect(speciesSearchQueryTokens('栗 a')).toEqual(['栗'])
+    expect(speciesSearchQueryTokens('a b')).toEqual(['a', 'b'])
   })
 })

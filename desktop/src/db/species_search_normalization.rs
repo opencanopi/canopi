@@ -35,6 +35,7 @@ struct UnicodeFacts {
     known_scalar_ranges: Vec<[u32; 2]>,
     mark_scalar_ranges: Vec<[u32; 2]>,
     token_scalar_ranges: Vec<[u32; 2]>,
+    single_scalar_admitted_scalar_ranges: Vec<[u32; 2]>,
     hangul_decomposition: HangulDecomposition,
     compatibility_decomposition_mappings: Vec<(u32, String)>,
     lowercase_mappings: Vec<(u32, String)>,
@@ -78,6 +79,7 @@ struct NormalizationAlgorithm {
     token_character_classes: Vec<String>,
     case_folds: Vec<CaseFold>,
     minimum_admitted_scalar_count: usize,
+    single_scalar_admitted_scripts: Vec<String>,
     query_token_policy: String,
 }
 
@@ -131,27 +133,13 @@ fn contract() -> &'static LoadedNormalizationContract {
     })
 }
 
-#[expect(
-    clippy::too_many_lines,
-    reason = "ratcheted before 2.1-M188; split when this function next changes"
-)]
-fn parse_contract(
-    source: &str,
-    unicode_facts_source: &str,
-) -> Result<LoadedNormalizationContract, String> {
-    let authority: NormalizationContract =
-        serde_json::from_str(source).map_err(|error| error.to_string())?;
-    let unicode_facts: UnicodeFacts =
-        serde_json::from_str(unicode_facts_source).map_err(|error| error.to_string())?;
-    if authority.contract_format_version != 1 {
-        return Err("contract format version must equal 1".to_owned());
-    }
-    if authority.normalization_version == 0 {
-        return Err("normalization version must be positive".to_owned());
-    }
+fn validate_unicode_facts(
+    authority: &NormalizationContract,
+    unicode_facts: &UnicodeFacts,
+) -> Result<(), String> {
     if authority.unicode_data.version.is_empty()
         || authority.unicode_data.facts_file != UNICODE_FACTS_FILENAME
-        || unicode_facts.facts_format_version != 2
+        || unicode_facts.facts_format_version != 3
         || unicode_facts.unicode_data_version != authority.unicode_data.version
     {
         return Err("Unicode facts do not match the normalization authority".to_owned());
@@ -159,6 +147,15 @@ fn parse_contract(
     validate_scalar_ranges("known", &unicode_facts.known_scalar_ranges)?;
     validate_scalar_ranges("mark", &unicode_facts.mark_scalar_ranges)?;
     validate_scalar_ranges("token", &unicode_facts.token_scalar_ranges)?;
+    validate_scalar_ranges(
+        "single-scalar admitted",
+        &unicode_facts.single_scalar_admitted_scalar_ranges,
+    )?;
+    for [start, end] in &unicode_facts.single_scalar_admitted_scalar_ranges {
+        if !scalar_range_is_covered(&unicode_facts.token_scalar_ranges, *start, *end) {
+            return Err("single-scalar admitted ranges must contain only token scalars".to_owned());
+        }
+    }
     for ranges in [
         &unicode_facts.mark_scalar_ranges,
         &unicode_facts.token_scalar_ranges,
@@ -201,6 +198,24 @@ fn parse_contract(
     {
         return Err("Hangul syllable range must contain only known scalars".to_owned());
     }
+    Ok(())
+}
+
+fn parse_contract(
+    source: &str,
+    unicode_facts_source: &str,
+) -> Result<LoadedNormalizationContract, String> {
+    let authority: NormalizationContract =
+        serde_json::from_str(source).map_err(|error| error.to_string())?;
+    let unicode_facts: UnicodeFacts =
+        serde_json::from_str(unicode_facts_source).map_err(|error| error.to_string())?;
+    if authority.contract_format_version != 1 {
+        return Err("contract format version must equal 1".to_owned());
+    }
+    if authority.normalization_version == 0 {
+        return Err("normalization version must be positive".to_owned());
+    }
+    validate_unicode_facts(&authority, &unicode_facts)?;
     let decomposition_by_scalar = validate_mappings(
         "compatibility decomposition",
         &unicode_facts.compatibility_decomposition_mappings,
@@ -215,6 +230,7 @@ fn parse_contract(
         || authority.algorithm.stripped_general_categories != ["Mn", "Mc", "Me"]
         || authority.algorithm.token_character_classes != ["Letter", "Number", "Underscore"]
         || authority.algorithm.minimum_admitted_scalar_count == 0
+        || authority.algorithm.single_scalar_admitted_scripts != ["Han", "Hiragana", "Katakana"]
         || authority.algorithm.query_token_policy != "unique-admitted-or-all-when-active"
     {
         return Err("normalization algorithm uses unsupported semantics".to_owned());
@@ -407,9 +423,30 @@ pub(crate) fn normalize_species_search(raw: &str) -> NormalizedSpeciesSearch {
     }
 }
 
+/// A token of the minimum length, or one Han or kana scalar (2.1-Q369).
+fn token_is_admitted(token: &str) -> bool {
+    let loaded = contract();
+    let scalar_count = token.chars().count();
+    scalar_count >= loaded.authority.algorithm.minimum_admitted_scalar_count
+        || (scalar_count == 1
+            && token.chars().next().is_some_and(|scalar| {
+                scalar_in_ranges(
+                    &loaded.unicode_facts.single_scalar_admitted_scalar_ranges,
+                    u32::from(scalar),
+                )
+            }))
+}
+
+fn query_is_admitted(normalized: &NormalizedSpeciesSearch) -> bool {
+    normalized.scalar_count >= contract().authority.algorithm.minimum_admitted_scalar_count
+        || normalized
+            .tokens
+            .iter()
+            .any(|token| token_is_admitted(token))
+}
+
 pub(crate) fn species_search_query_tokens(normalized: &NormalizedSpeciesSearch) -> Vec<String> {
-    let minimum = contract().authority.algorithm.minimum_admitted_scalar_count;
-    if normalized.scalar_count < minimum {
+    if !query_is_admitted(normalized) {
         return Vec::new();
     }
     let mut unique_tokens = Vec::new();
@@ -420,7 +457,7 @@ pub(crate) fn species_search_query_tokens(normalized: &NormalizedSpeciesSearch) 
     }
     let admitted_tokens = unique_tokens
         .iter()
-        .filter(|token| token.chars().count() >= minimum)
+        .filter(|token| token_is_admitted(token))
         .cloned()
         .collect::<Vec<_>>();
     if admitted_tokens.is_empty() {
@@ -431,12 +468,13 @@ pub(crate) fn species_search_query_tokens(normalized: &NormalizedSpeciesSearch) 
 }
 
 pub(crate) fn species_search_admission(raw: &str) -> SpeciesSearchAdmission {
-    match normalize_species_search(raw).scalar_count {
-        0 => SpeciesSearchAdmission::Browse,
-        count if count < contract().authority.algorithm.minimum_admitted_scalar_count => {
-            SpeciesSearchAdmission::TooShort
-        }
-        _ => SpeciesSearchAdmission::ActiveText,
+    let normalized = normalize_species_search(raw);
+    if normalized.scalar_count == 0 {
+        SpeciesSearchAdmission::Browse
+    } else if query_is_admitted(&normalized) {
+        SpeciesSearchAdmission::ActiveText
+    } else {
+        SpeciesSearchAdmission::TooShort
     }
 }
 
@@ -457,159 +495,4 @@ pub(crate) fn normalized_species_search_sql(expression: &str) -> String {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use sha2::{Digest, Sha256};
-
-    #[derive(Deserialize)]
-    struct CorpusContract {
-        corpus: Vec<CorpusCase>,
-    }
-
-    #[derive(Deserialize)]
-    struct CorpusCase {
-        name: String,
-        input: String,
-        normalized_text: String,
-        tokens: Vec<String>,
-        query_tokens: Vec<String>,
-        admission: String,
-    }
-
-    #[test]
-    fn authored_corpus_matches_rust_normalization_and_admission() {
-        let corpus: CorpusContract = serde_json::from_str(CONTRACT_SOURCE).unwrap();
-
-        for case in corpus.corpus {
-            let normalized = normalize_species_search(&case.input);
-            assert_eq!(normalized.text, case.normalized_text, "{} text", case.name);
-            assert_eq!(normalized.tokens, case.tokens, "{} tokens", case.name);
-            assert_eq!(
-                species_search_query_tokens(&normalized),
-                case.query_tokens,
-                "{} query tokens",
-                case.name
-            );
-
-            let admission = match case.admission.as_str() {
-                "browse" => SpeciesSearchAdmission::Browse,
-                "too-short" => SpeciesSearchAdmission::TooShort,
-                "active-text" => SpeciesSearchAdmission::ActiveText,
-                unexpected => panic!("unexpected corpus admission {unexpected:?}"),
-            };
-            assert_eq!(
-                species_search_admission(&case.input),
-                admission,
-                "{} admission",
-                case.name
-            );
-        }
-    }
-
-    #[test]
-    fn sqlite_normalization_function_uses_the_same_authority() {
-        let connection = Connection::open_in_memory().unwrap();
-        register_sqlite_function(&connection).unwrap();
-
-        let normalized: Option<String> = connection
-            .query_row(
-                "SELECT canopi_normalize_species_search(?1)",
-                [Some("Σίσυφος Straße")],
-                |row| row.get(0),
-            )
-            .unwrap();
-        assert_eq!(normalized.as_deref(), Some("σισυφοσ strasse"));
-
-        let normalized_null: Option<String> = connection
-            .query_row("SELECT canopi_normalize_species_search(NULL)", [], |row| {
-                row.get(0)
-            })
-            .unwrap();
-        assert_eq!(normalized_null, None);
-    }
-
-    #[test]
-    fn runtime_authority_parser_rejects_unknown_semantic_fields() {
-        let mut raw: serde_json::Value = serde_json::from_str(CONTRACT_SOURCE).unwrap();
-        raw["algorithm"]["accidental_new_rule"] = serde_json::json!(true);
-
-        let error = parse_contract(&serde_json::to_string(&raw).unwrap(), UNICODE_FACTS_SOURCE)
-            .unwrap_err();
-
-        assert!(
-            error.contains("unknown field `accidental_new_rule`"),
-            "{error}"
-        );
-    }
-
-    #[test]
-    fn runtime_authority_parser_rejects_nonstandard_hangul_facts() {
-        let mut raw_facts: serde_json::Value = serde_json::from_str(UNICODE_FACTS_SOURCE).unwrap();
-        raw_facts["hangul_decomposition"]["l_base"] = serde_json::json!(1);
-
-        let error = parse_contract(CONTRACT_SOURCE, &raw_facts.to_string()).unwrap_err();
-
-        assert!(error.contains("standard Hangul"), "{error}");
-    }
-
-    #[test]
-    fn runtime_authority_parser_rejects_property_ranges_outside_known_scalars() {
-        let mut raw_facts: serde_json::Value = serde_json::from_str(UNICODE_FACTS_SOURCE).unwrap();
-        raw_facts["mark_scalar_ranges"] = serde_json::json!([[0x10FFFF, 0x10FFFF]]);
-
-        let error = parse_contract(CONTRACT_SOURCE, &raw_facts.to_string()).unwrap_err();
-
-        assert!(error.contains("known scalars"), "{error}");
-    }
-
-    #[test]
-    fn runtime_authority_parser_rejects_property_range_spanning_unknown_gap() {
-        let mut raw_facts: serde_json::Value = serde_json::from_str(UNICODE_FACTS_SOURCE).unwrap();
-        raw_facts["mark_scalar_ranges"] = serde_json::json!([[887, 890]]);
-
-        let error = parse_contract(CONTRACT_SOURCE, &raw_facts.to_string()).unwrap_err();
-
-        assert!(error.contains("known scalars"), "{error}");
-    }
-
-    #[test]
-    fn runtime_authority_parser_requires_known_hangul_syllable_range() {
-        let mut raw_facts: serde_json::Value = serde_json::from_str(UNICODE_FACTS_SOURCE).unwrap();
-        for key in ["known_scalar_ranges", "token_scalar_ranges"] {
-            raw_facts[key]
-                .as_array_mut()
-                .unwrap()
-                .retain(|scalar_range| {
-                    let start = scalar_range[0].as_u64().unwrap();
-                    let end = scalar_range[1].as_u64().unwrap();
-                    !(start <= 0xAC00 && 0xAC00 <= end)
-                });
-        }
-
-        let error = parse_contract(CONTRACT_SOURCE, &raw_facts.to_string()).unwrap_err();
-
-        assert!(
-            error.contains("Hangul") && error.contains("known"),
-            "{error}"
-        );
-    }
-
-    #[test]
-    fn rust_and_python_compilers_fingerprint_the_same_canonical_json() {
-        let authority: serde_json::Value = serde_json::from_str(CONTRACT_SOURCE).unwrap();
-        let unicode_facts: serde_json::Value = serde_json::from_str(UNICODE_FACTS_SOURCE).unwrap();
-        let semantic_source = serde_json::json!({
-            "authority": authority,
-            "unicode_facts": unicode_facts,
-        });
-        let rust_fingerprint = format!(
-            "{:x}",
-            Sha256::digest(serde_json::to_vec(&semantic_source).unwrap())
-        );
-
-        assert_eq!(
-            rust_fingerprint,
-            crate::db::schema_contract::SPECIES_SEARCH_NORMALIZATION_FINGERPRINT
-        );
-    }
-}
+mod tests;

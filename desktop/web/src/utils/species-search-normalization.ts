@@ -6,6 +6,7 @@ import {
   SPECIES_SEARCH_LOWERCASE_MAPPINGS,
   SPECIES_SEARCH_MARK_SCALAR_RANGES,
   SPECIES_SEARCH_MINIMUM_ADMITTED_SCALAR_COUNT,
+  SPECIES_SEARCH_SINGLE_SCALAR_ADMITTED_SCALAR_RANGES,
   SPECIES_SEARCH_TOKEN_SCALAR_RANGES,
   type SpeciesSearchAdmission,
 } from '../generated/species-search-normalization'
@@ -107,21 +108,34 @@ export function normalizeSpeciesSearch(raw: string): NormalizedSpeciesSearch {
   }
 }
 
+/** A token of the minimum length, or one Han or kana scalar (2.1-Q369). */
+function tokenIsAdmitted(token: string): boolean {
+  const scalars = Array.from(token)
+  if (scalars.length >= SPECIES_SEARCH_MINIMUM_ADMITTED_SCALAR_COUNT) return true
+  return scalars.length === 1
+    && scalarInRanges(
+      SPECIES_SEARCH_SINGLE_SCALAR_ADMITTED_SCALAR_RANGES,
+      scalars[0]!.codePointAt(0)!,
+    )
+}
+
+function queryIsAdmitted(normalized: NormalizedSpeciesSearch): boolean {
+  return normalized.scalarCount >= SPECIES_SEARCH_MINIMUM_ADMITTED_SCALAR_COUNT
+    || normalized.tokens.some(tokenIsAdmitted)
+}
+
 export function speciesSearchAdmission(raw: string): SpeciesSearchAdmission {
-  const { scalarCount } = normalizeSpeciesSearch(raw)
-  if (scalarCount === 0) return 'browse'
-  if (scalarCount < SPECIES_SEARCH_MINIMUM_ADMITTED_SCALAR_COUNT) return 'too-short'
-  return 'active-text'
+  const normalized = normalizeSpeciesSearch(raw)
+  if (normalized.scalarCount === 0) return 'browse'
+  return queryIsAdmitted(normalized) ? 'active-text' : 'too-short'
 }
 
 export function speciesSearchQueryTokens(raw: string): readonly string[] {
   const normalized = normalizeSpeciesSearch(raw)
-  if (normalized.scalarCount < SPECIES_SEARCH_MINIMUM_ADMITTED_SCALAR_COUNT) return []
+  if (!queryIsAdmitted(normalized)) return []
 
   const uniqueTokens = [...new Set(normalized.tokens)]
-  const admittedTokens = uniqueTokens.filter(
-    (token) => Array.from(token).length >= SPECIES_SEARCH_MINIMUM_ADMITTED_SCALAR_COUNT,
-  )
+  const admittedTokens = uniqueTokens.filter(tokenIsAdmitted)
   return admittedTokens.length > 0 ? admittedTokens : uniqueTokens
 }
 
