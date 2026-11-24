@@ -93,10 +93,14 @@ describe('stacking order', () => {
   })
 
   it('layers dialogs, popups and full-window surfaces only through the scale tokens', () => {
+    const rawZ = (path: string, source: string) => parseCssDeclarations(path, source)
+      .filter((d) => d.property === 'z-index')
+      .map((d) => /^(\d+)(?:\s+!important)?$/i.exec(d.value)?.[1])
+      .filter((v): v is string => v !== undefined)
+      .map(Number)
+    expect(rawZ('planted.css', '.x { z-index: 50 !important; }')).toEqual([50])
     for (const [name, path] of Object.entries(FILES)) {
-      const raw = parseCssDeclarations(path, read(path))
-        .filter((d) => d.property === 'z-index' && /^\d+$/.test(d.value))
-        .map((d) => Number(d.value))
+      const raw = rawZ(path, read(path))
       // In-flow layers inside a surface may stay small; anything that competes
       // with dialogs must use a token.
       expect(raw.filter((value) => value > 40), name).toEqual([])

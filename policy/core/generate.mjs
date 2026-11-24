@@ -8,7 +8,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { keyPath } from './ratchets.mjs';
 import { loadTableRules } from './tables.mjs';
-import { AST_GREP_RULES, memberRefusals, ruleFileRefusals, ruleOutputs, ruleTestRefusals, rustScopeRefusals, sgconfigText, tsxTwinOutputs } from '../generate/ast-grep.mjs';
+import { AST_GREP_RULES, memberRefusals, ruleFileRefusals, ruleOutputs, ruleTestRefusals, rustScopeRefusals, sgconfigText, tsxOverlayRefusals, tsxTwinOutputs } from '../generate/ast-grep.mjs';
 import { bare, buildFacts, filesUnder, isObject, LAYER_TABLE, REPO_ROOT, rowFor, SRC, WEB } from '../generate/boundary-facts.mjs';
 import { graphRefusals, unlistedBuiltins } from '../generate/depcruise.mjs';
 import { knipConfig, knipIgnoreRefusals, knipText, policyKnipConfig, testonlyRefusals } from '../generate/knip.mjs';
@@ -200,7 +200,7 @@ export function generate(root = REPO_ROOT) {
   if (refusals.some((r) => r.code.startsWith('table-'))) return { refusals, outputs: {} };
   const rows = activeRows(root);
   const table = JSON.parse(fs.readFileSync(path.join(root, LAYER_TABLE), 'utf8'));
-  refusals.push(...ruleFileRefusals(root, rows), ...ruleTestRefusals(root), ...graphRefusals(root, rows), ...memberRefusals(root, rows), ...rustScopeRefusals(root), ...knipIgnoreRefusals(root, table), ...testonlyRefusals(root));
+  refusals.push(...ruleFileRefusals(root, rows), ...ruleTestRefusals(root), ...tsxOverlayRefusals(root), ...graphRefusals(root, rows), ...memberRefusals(root, rows), ...rustScopeRefusals(root), ...knipIgnoreRefusals(root, table), ...testonlyRefusals(root));
   if (refusals.length) return { refusals, outputs: {} };
   const rules = ruleOutputs(root, table, rows);
   const twins = tsxTwinOutputs(root, rules);

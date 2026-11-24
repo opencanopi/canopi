@@ -25,7 +25,7 @@ function scaleToken(name: string): number {
 }
 
 function ruleBody(path: string, selector: string): string {
-  const decls = parseCssDeclarations(`src/${path}`, readCssSource(path)).filter((d) => d.rule === selector)
+  const decls = parseCssDeclarations(`src/${path}`, readCssSource(path)).filter((d) => d.rule === selector && d.atRules.length === 0)
   if (decls.length === 0) throw new Error(`Missing ${selector} CSS rule in ${path}`)
   return decls.map((d) => `${d.property}: ${d.value};`).join('\n')
 }

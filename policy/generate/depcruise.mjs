@@ -12,8 +12,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { builtinModules } from 'node:module';
-import { LAYER_TABLE, POLICY_DIR, REPO_ROOT } from '../core/base.mjs';
+import { LAYER_TABLE, REPO_ROOT } from '../core/base.mjs';
 import { matchesGlob } from '../core/globs.mjs';
+import { loadTableRules } from '../core/tables.mjs';
 import { SRC, bare, escRe, filesUnder, isObject } from './boundary-facts.mjs';
 
 const LAYER_ORDER = ['L0', 'L1', 'L2', 'L3', 'L4', 'L5'];
@@ -30,7 +31,7 @@ const anyOf = (res) => res.filter(Boolean).join('|') || undefined;
 /** A graph spec's glob (relative to desktop/web/src, or a package specifier) as a regex body dependency-cruiser takes as
  * safe: `**` any path, `** /` any leading directories, `*` within a segment, `{a,b}` alternatives; undefined for other
  * glob syntax (graphRefusals refuses it). */
-export function globBody(glob) {
+function globBody(glob) {
   let out = '';
   for (let i = 0; i < glob.length; i++) {
     const c = glob[i];
@@ -51,7 +52,7 @@ const srcGlobsRe = (globs = []) => (globs.length ? `${under('src/')}(?:${globs.m
  * since Node 18 (`node:sea`, `node:sqlite`, `node:test`) exists only with the prefix, so this set is the same on every
  * Node the policy runs on, and the generated configs never change with the Node version (`generate --self-test` holds
  * the running Node's prefix-free built-ins to it). */
-export const NODE_BUILTINS = ['assert', 'async_hooks', 'buffer', 'child_process', 'cluster', 'console', 'constants', 'crypto',
+const NODE_BUILTINS = ['assert', 'async_hooks', 'buffer', 'child_process', 'cluster', 'console', 'constants', 'crypto',
   'dgram', 'diagnostics_channel', 'dns', 'domain', 'events', 'fs', 'http', 'http2', 'https', 'inspector', 'module', 'net', 'os',
   'path', 'perf_hooks', 'process', 'punycode', 'querystring', 'readline', 'repl', 'stream', 'string_decoder', 'sys', 'timers',
   'tls', 'trace_events', 'tty', 'url', 'util', 'v8', 'vm', 'wasi', 'worker_threads', 'zlib'];
@@ -69,7 +70,7 @@ const pkgGlobRe = (glob) => {
 const rulePackages = (rows) => [...new Set([...rows.values()].flatMap(graphSpecs).flatMap((g) => [...(g.packages ?? []), ...(g.packagesNot ?? [])]))]
   .sort().map((p) => pkgGlobRe(p).replace('(?:node_modules/)?', ''));
 /** A row's graph specs: `graph` is one spec or a list (one generated rule each, `<id>:<n>`). */
-export const graphSpecs = (row) => (row.graph === undefined ? [] : Array.isArray(row.graph) ? row.graph : [row.graph]);
+const graphSpecs = (row) => (row.graph === undefined ? [] : Array.isArray(row.graph) ? row.graph : [row.graph]);
 const GRAPH_KEYS = new Set(['from', 'fromNot', 'tests', 'to', 'toNot', 'typeOnlyTo', 'packages', 'packagesNot', 'aliases', 'reachable', 'runtime']);
 /** The module globs that must match a file: a source or an exemption naming nothing holds nothing; a forbidden target
  * (`to`) may name a module not written yet. */
@@ -306,25 +307,15 @@ function depcruiseConfigObjects(table, rows) {
   };
 }
 
-/** Active policy table rows (policy/*.json with a top-level `rules` array, status !== 'planned'), read synchronously. */
-function readActiveRows(root) {
-  const dir = path.join(root, POLICY_DIR);
-  const rows = new Map();
-  if (!fs.existsSync(dir)) return rows;
-  for (const name of fs.readdirSync(dir).filter((n) => n.endsWith('.json')).sort()) {
-    const doc = JSON.parse(fs.readFileSync(path.join(dir, name), 'utf8'));
-    if (!isObject(doc) || !Array.isArray(doc.rules)) continue;
-    for (const row of doc.rules) {
-      if (isObject(row) && typeof row.id === 'string' && row.status !== 'planned') rows.set(row.id, row);
-    }
-  }
-  return rows;
-}
-
 /** Loads one dependency-cruiser config ('desktop' | 'web' | 'policy') dynamically from layers.json and policy tables. */
 export function loadDepcruiseConfig(kind, root = REPO_ROOT) {
   const table = JSON.parse(fs.readFileSync(path.join(root, LAYER_TABLE), 'utf8'));
-  const configs = depcruiseConfigObjects(table, readActiveRows(root));
+  const tables = loadTableRules(root);
+  if (tables.refusals.length) {
+    throw new Error(tables.refusals.map((r) => `${r.code}: ${r.where}: ${r.message}`).join('\n'));
+  }
+  const rows = new Map([...tables.rules].map(([id, { row }]) => [id, row]));
+  const configs = depcruiseConfigObjects(table, rows);
   if (!(kind in configs)) throw new Error(`unknown dependency-cruiser config kind: ${kind}`);
   return configs[kind];
 }
