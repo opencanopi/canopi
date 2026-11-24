@@ -17,7 +17,7 @@ import { join, relative } from 'node:path'
 import { type Change, type ChangeReader, type DeletedCode, RETIRES, type Route, routeLoss } from './deletion-guard.ts'
 import { strip } from './ledger.ts'
 import { TABLE } from './table.ts'
-import { bodiesFor, byCodePoint, fills, type Finding, GuardRefusal, quoted, type Read, tests } from './test-reader.ts'
+import { bodiesFor, byCodePoint, fills, type Finding, GuardRefusal, isTestFile, quoted, type Read, tests } from './test-reader.ts'
 
 /** What the pass reads of the repository: git -M changes and files at a revision. */
 export interface RangeGit extends ChangeReader {
@@ -139,6 +139,17 @@ export async function vitestPass(git: RangeGit, mergeBase: string, head: string,
     const n = left.get(name) ?? 0
     if (n) left.set(name, n - 1)
     else free.push([lastPart(name), `${WEB}/${file}`])
+  }
+  // A Vitest test replaced by a test in another runner (such as a node:test under policy/**/*.test.mjs): vitest list
+  // never sees those files, so read their added titles statically so a quoted replacement there routes the loss.
+  for (const [status, old, now] of changes) {
+    if (status === 'D' || !isTestFile(now) || WEB_TEST.test(now)) continue
+    const baseTests = status === 'A' ? new Map() : tests(old, await git.show(mergeBase, old))
+    const headTests = tests(now, await git.show(head, now))
+    for (const [title, bodies] of headTests) {
+      const added = bodies.length - (baseTests.get(title)?.length ?? 0)
+      for (let i = 0; i < added; i += 1) free.push([title, now])
+    }
   }
   const retired = new Set([...text.matchAll(RETIRES)].map((match) => strip(match[1] ?? '')))
   const readBase: Read = (path) => git.show(mergeBase, path)
