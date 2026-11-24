@@ -1,0 +1,5 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "family": "locale-list-only-in-registry",
+  "entries": {}
+}

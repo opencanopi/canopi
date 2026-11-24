@@ -1,0 +1,71 @@
+# locale-list-only-in-registry (§18 R19, L6, contracts §14), Rust half: locale code lists and sys_locale calls
+# stay in the L6 locale registry (canopi-types/src/locale.rs; desktop/src/services/settings.rs passes [sys_locale]
+# into canopi_types::locale::match_locale).
+id: locale-list-only-in-registry.rs
+language: rs
+severity: error
+message: "locale-list-only-in-registry (§18 R19): locale lists and sys_locale belong only in canopi-types/src/locale.rs (and desktop/src/services/settings.rs for sys_locale). Owner canopi-types/src/locale.rs; example canopi-types/src/locale.rs"
+files:
+  - "{desktop,canopi-types,canopi-redact,canopi-support,canopi-format,canopi-format-wasm,bindings-gen}/src/**/*.rs"
+  - "policy/fixtures/rules/*/{desktop,canopi-types,canopi-redact,canopi-support,canopi-format,canopi-format-wasm,bindings-gen}/src/**/*.rs"
+ignores:
+  - "canopi-types/src/locale.rs"
+  - "desktop/src/services/settings.rs"
+  - "desktop/src/db/query_builder/translate_value.rs"
+  - "desktop/src/db/plant_filter_fields.rs"
+  - "desktop/src/db/schema_contract_generated.rs"
+  - "desktop/src/design/new_design_defaults.rs"
+  - "desktop/src/services/lidar/analysis_registry_generated.rs"
+  - "canopi-redact/src/table_generated.rs"
+  - "desktop/src/commands/design/tests.rs"
+  - "desktop/src/db/test_support.rs"
+  - "desktop/src/db/species_search_normalization/tests.rs"
+  - "desktop/src/db/user_db/error_tests.rs"
+  - "desktop/src/design/format/tests.rs"
+  - "desktop/src/host/dialogs/tests.rs"
+  - "desktop/src/logging/tests.rs"
+  - "desktop/src/module_layering/tests.rs"
+  - "desktop/src/native_command_policy/tests/**"
+  - "desktop/src/native_operation/tests.rs"
+  - "desktop/src/native_operation/tests/**"
+  - "desktop/src/services/lidar/analyses/tests/**"
+  - "desktop/src/services/lidar/catalogue/tests.rs"
+  - "desktop/src/services/lidar/fixed_library_tests.rs"
+  - "desktop/src/services/lidar/kindless_resolution_tests.rs"
+  - "desktop/src/services/lidar/reader_release_tests.rs"
+  - "desktop/src/services/lidar/recovery/failed_rebuild_tests.rs"
+  - "desktop/src/services/lidar/recovery/install_tests.rs"
+  - "desktop/src/services/lidar/recovery/relist_tests.rs"
+  - "desktop/src/services/lidar/recovery/tests.rs"
+  - "desktop/src/services/lidar/source_meta/tests.rs"
+  - "desktop/src/services/settings_reader_release_tests.rs"
+  - "desktop/src/services/problem_report/tests.rs"
+  - "desktop/src/services/species_catalog_read/test_support.rs"
+  - "canopi-types/src/design/tests.rs"
+  - "canopi-types/src/failure/tests.rs"
+  - "canopi-types/src/views/tests.rs"
+  - "canopi-redact/src/tests.rs"
+  - "canopi-format/src/read/tests.rs"
+  - "canopi-format/src/read/version_tests.rs"
+  - "canopi-format/src/schema/tests.rs"
+  - "canopi-format/src/v10/read_types_tests.rs"
+  - "canopi-format-wasm/src/tests.rs"
+  - "bindings-gen/src/plan_support.rs"
+  - "bindings-gen/src/species_search_normalization/tests.rs"
+rule:
+  all:
+    - any:
+        - pattern: sys_locale::$FN($$$ARGS)
+        - kind: array_expression
+          all:
+            - has: { kind: string_literal, regex: '^"fr"$' }
+            - has: { kind: string_literal, regex: '^"es"$' }
+    - not: { matches: test-code }
+utils:
+  test-code:
+    inside:
+      stopBy: end
+      follows:
+        kind: attribute_item
+        regex: '^#\[(cfg\((test|all\(test\b)|test\]|tokio::test)'
+        stopBy: { not: { any: [ { kind: attribute_item }, { kind: line_comment }, { kind: block_comment } ] } }

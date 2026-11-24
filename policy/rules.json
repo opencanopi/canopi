@@ -2457,17 +2457,23 @@
     },
     {
       "id": "locale-list-only-in-registry",
-      "tool": null,
-      "status": "planned",
+      "tool": "ast-grep",
+      "family": "locale-list-only-in-registry",
       "ledger": "2.1-M189",
       "adr": "0023",
-      "owner_today": "none",
-      "owner_target": {
-        "path": "desktop/src",
-        "phase": "2e",
-        "bead": "canopi-f47t.52.56"
-      },
-      "note": "§18 R19: locale lists and sys_locale only in the canopi-types registry, held by the consistency test; 1 today (desktop/src/services/settings.rs)"
+      "owner_today": "canopi-types/src/locale.rs",
+      "example": "canopi-types/src/locale.rs",
+      "note": "§18 R19: locale lists, endonyms and sys_locale only in the canopi-types L6 registry (desktop/src/services/settings.rs passes [sys_locale] to canopi_types::locale::match_locale); generated to TS in desktop/web/src/generated/locale-registry.ts",
+      "scope": [
+        "desktop/src/**",
+        "canopi-types/src/**",
+        "canopi-redact/src/**",
+        "canopi-support/src/**",
+        "canopi-format/src/**",
+        "canopi-format-wasm/src/**",
+        "bindings-gen/src/**",
+        "desktop/web/src/**"
+      ]
     },
     {
       "id": "wasm-bindgen-only-in-wasm-crates",

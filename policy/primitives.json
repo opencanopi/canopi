@@ -825,6 +825,10 @@
       "ledger": "2.1-M189",
       "adr": "0027",
       "owner_today": "desktop/src/db/query_builder",
+      "also_owners": [
+        "canopi-types/src/locale.rs",
+        "bindings-gen/src/locale_registry.rs"
+      ],
       "owner_target": {
         "path": "canopi-catalog/src/generated",
         "phase": "N4",

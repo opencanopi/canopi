@@ -3,7 +3,7 @@
 id: no-formatted-sql
 language: rs
 severity: error
-message: "no-formatted-sql (§18 R5): no SQL built by format!, write! or format_args! and no locale value_* column in any crate: queries come from the generated query builder. ADR 0027; owner desktop/src/db/query_builder; target canopi-catalog/src/generated (N4); example desktop/src/db/query_builder"
+message: "no-formatted-sql (§18 R5): no SQL built by format!, write! or format_args! and no locale value_* column in any crate: queries come from the generated query builder. ADR 0027; owner desktop/src/db/query_builder (also canopi-types/src/locale.rs, bindings-gen/src/locale_registry.rs); target canopi-catalog/src/generated (N4); example desktop/src/db/query_builder"
 files:
   - "{desktop,canopi-types,canopi-redact,canopi-support,canopi-format,canopi-format-wasm,bindings-gen}/src/**/*.rs"
   - "policy/fixtures/rules/*/{desktop,canopi-types,canopi-redact,canopi-support,canopi-format,canopi-format-wasm,bindings-gen}/src/**/*.rs"
@@ -11,6 +11,7 @@ ignores:
   - "desktop/src/commands/design/tests.rs"
   - "desktop/src/db/test_support.rs"
   - "desktop/src/db/plant_filter_fields.rs"
+  - "desktop/src/db/query_builder/translate_value.rs"
   - "desktop/src/db/schema_contract_generated.rs"
   - "desktop/src/db/species_search_normalization/tests.rs"
   - "desktop/src/db/user_db/error_tests.rs"
@@ -64,6 +65,10 @@ ignores:
   - "bindings-gen/src/species_search_normalization/tests.rs"
   - "desktop/src/db/query_builder/**"
   - "policy/fixtures/rules/*/desktop/src/db/query_builder/**"
+  - "canopi-types/src/locale.rs"
+  - "policy/fixtures/rules/*/canopi-types/src/locale.rs"
+  - "bindings-gen/src/locale_registry.rs"
+  - "policy/fixtures/rules/*/bindings-gen/src/locale_registry.rs"
 rule:
   all:
     - any:

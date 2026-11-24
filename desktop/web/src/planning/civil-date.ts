@@ -2,6 +2,8 @@
 // Owner of civil dates (date-only-in-civil-date, ADR 0028; §18 F13). Invariant: dates are
 // parsed and displayed only here; other modules hand it CivilDate values.
 
+import { LOCALE_WEEK_START_FALLBACK } from '../generated/locale-registry'
+
 export interface CivilDate {
   readonly year: number
   readonly month: number
@@ -11,12 +13,13 @@ export interface CivilDate {
 const CIVIL_DATE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/
 /**
  * First weekday (0 Sunday … 6 Saturday) by tag or language, for engines
- * without Intl week info (older WebKit). Matches CLDR for the app locales:
- * `pt` is Brazilian Portuguese and `zh` Simplified Chinese (China).
+ * without Intl week info (older WebKit). Generated from the L6 locale registry
+ * with regional overrides for `en-US` and `en-GB`.
  */
 const WEEK_START_FALLBACK: Readonly<Record<string, number>> = {
-  'en-US': 0, en: 0, pt: 0, ja: 0, ko: 0,
-  'en-GB': 1, fr: 1, de: 1, es: 1, it: 1, nl: 1, ru: 1, zh: 1,
+  ...LOCALE_WEEK_START_FALLBACK,
+  'en-US': 0,
+  'en-GB': 1,
 }
 
 export function parseCivilDate(value: string | null | undefined): CivilDate | null {

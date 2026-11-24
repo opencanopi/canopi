@@ -43,7 +43,6 @@
     "desktop/web/src/__tests__/format-count.test.ts": {  },
     "desktop/web/src/__tests__/geocoding-transport.test.ts": {  },
     "desktop/web/src/__tests__/geojson-codec.test.ts": {  },
-    "desktop/web/src/__tests__/i18n-completeness.test.ts": {  },
     "desktop/web/src/__tests__/i18n-copy.test.ts": {  },
     "desktop/web/src/__tests__/i18n-glossary.test.ts": {  },
     "desktop/web/src/__tests__/inspection-layout.test.ts": {  },

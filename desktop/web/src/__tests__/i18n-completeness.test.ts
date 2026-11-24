@@ -1,6 +1,8 @@
 import { readdirSync, readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
+import { LOCALE_REGISTRY, SUPPORTED_LOCALES } from '../generated/locale-registry'
+import { admitWebCatalogManifest, WebCatalogManifestError } from '../generated/web-catalog-artifact.mjs'
 import { t } from '../i18n'
 
 import en from '../i18n/en.json'
@@ -200,5 +202,58 @@ describe('plural forms', () => {
     const texts = new Map(leaves(english))
 
     expect([...COUNT_NEUTRAL].filter((key) => !INTERPOLATES_COUNT.test(texts.get(key) ?? ''))).toEqual([])
+  })
+})
+
+describe('locale registry consistency (contracts §14, L6)', () => {
+  it('matches schema-contract.json value_* columns, web catalog locales, src/i18n/*.json files, and Intl.PluralRules', () => {
+    const registryCodes = LOCALE_REGISTRY.map((entry) => entry.code)
+    expect(registryCodes).toEqual([...SUPPORTED_LOCALES])
+
+    const probeManifest = (candidateLocales: readonly string[]): readonly string[] => {
+      try {
+        admitWebCatalogManifest({
+          species_search_normalization: {},
+          source: {},
+          cloudflare_pages: {},
+          assets: {},
+          locales: candidateLocales,
+        })
+        return []
+      } catch (error) {
+        expect(error).toBeInstanceOf(WebCatalogManifestError)
+        return (error as WebCatalogManifestError).violations
+      }
+    }
+    expect(probeManifest(registryCodes)).not.toContain('locales: expected the compiled locale order')
+    expect(probeManifest([...registryCodes, 'xx'])).toContain('locales: expected the compiled locale order')
+
+    const i18nFiles = readdirSync(new URL('../i18n/', import.meta.url))
+      .filter((name) => name.endsWith('.json'))
+      .map((name) => name.slice(0, -'.json'.length))
+      .sort()
+    expect([...registryCodes].sort()).toEqual(i18nFiles)
+
+    const schemaContract = JSON.parse(
+      readFileSync(new URL('../../../../scripts/schema-contract.json', import.meta.url), 'utf8'),
+    ) as {
+      supporting_tables: {
+        name: string
+        columns: { name: string }[]
+      }[]
+    }
+    const translatedValuesTable = schemaContract.supporting_tables.find(
+      (table) => table.name === 'translated_values',
+    )
+    expect(translatedValuesTable).toBeDefined()
+    const schemaValueColumns = translatedValuesTable!.columns
+      .map((col) => col.name)
+      .filter((name) => name.startsWith('value_'))
+    expect(LOCALE_REGISTRY.map((entry) => entry.catalogColumn)).toEqual(schemaValueColumns)
+
+    for (const entry of LOCALE_REGISTRY) {
+      const intlPlurals = new Intl.PluralRules(entry.bcp47).resolvedOptions().pluralCategories
+      expect(entry.pluralCategories).toEqual(intlPlurals)
+    }
   })
 })

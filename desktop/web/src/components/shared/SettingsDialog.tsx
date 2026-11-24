@@ -35,21 +35,13 @@ import { Slider } from './Slider'
 import { WorkspaceDialog } from './WorkspaceDialog'
 import styles from './SettingsDialog.module.css'
 import type { LocaleKey } from '../../generated/locale-keys'
+import { LOCALE_REGISTRY } from '../../generated/locale-registry'
 
-/** Each language in its own name, so anyone can find theirs. */
-const LANGUAGE_ITEMS: DropdownItem<Locale>[] = [
-  { value: 'en', label: 'English' },
-  { value: 'fr', label: 'Français' },
-  { value: 'es', label: 'Español' },
-  { value: 'pt', label: 'Português' },
-  { value: 'it', label: 'Italiano' },
-  { value: 'de', label: 'Deutsch' },
-  { value: 'nl', label: 'Nederlands' },
-  { value: 'ru', label: 'Русский' },
-  { value: 'zh', label: '中文' },
-  { value: 'ja', label: '日本語' },
-  { value: 'ko', label: '한국어' },
-]
+/** Each language in its own name, so anyone can find theirs (from the L6 locale registry). */
+const LANGUAGE_ITEMS: DropdownItem<Locale>[] = LOCALE_REGISTRY.map((entry) => ({
+  value: entry.code,
+  label: entry.endonym,
+}))
 
 type SettingsSectionId = 'appearance' | 'map' | 'canvas' | 'new-designs' | 'keyboard' | 'files' | 'about'
 

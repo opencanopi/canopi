@@ -1,0 +1,16 @@
+id: locale-list-only-in-registry.rs
+valid:
+  - |
+    fn detect(tag: Option<&str>) -> Option<Locale> {
+        canopi_types::locale::match_locale(tag)
+    }
+  - |
+    #[cfg(test)]
+    mod tests {
+        fn t() { let _ = ["en", "fr", "es"]; }
+    }
+invalid:
+  - |
+    fn os_tag() -> Option<String> { sys_locale::get_locale() }
+  - |
+    const LOCALES: &[&str] = &["en", "fr", "es"];

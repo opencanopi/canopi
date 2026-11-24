@@ -2,6 +2,9 @@ import i18n, { type TOptions } from "i18next";
 import { effect } from "@preact/signals";
 import { locale } from "../app/settings/state";
 import type { LocaleKey } from "../generated/locale-keys";
+import { SUPPORTED_LOCALES } from "../generated/locale-registry";
+
+export { SUPPORTED_LOCALES };
 
 import en from "./en.json";
 import fr from "./fr.json";
@@ -14,9 +17,6 @@ import ja from "./ja.json";
 import ko from "./ko.json";
 import nl from "./nl.json";
 import ru from "./ru.json";
-
-/** Every interface language; the plant catalog carries names in each of them. */
-export const SUPPORTED_LOCALES = ["en", "fr", "es", "pt", "it", "zh", "de", "ja", "ko", "nl", "ru"] as const;
 
 i18n.init({
   lng: locale.value,

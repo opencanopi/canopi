@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { locale } from '../app/settings/state'
+import { matchLocale, matchLocaleOrDefault } from '../generated/locale-registry'
 import { openSetText, t } from '.'
 
 describe('typed translation keys', () => {
@@ -64,5 +65,21 @@ describe('typed translation keys', () => {
     expect(openSetText('filters.habit_', 'Tre')).toBe('Tre')
     // @ts-expect-error a closed union is a typed table lookup (Record<Union, LocaleKey>); this directive fails typecheck if openSetText takes it
     expect(openSetText('filters.habit_', closed)).toBe('Tree')
+  })
+})
+
+describe('locale registry matcher (contracts §14, 2.1-Q345)', () => {
+  it('matches the shared Rust/TS tag corpus identically', () => {
+    expect(matchLocale(['fr_FR'])).toBe('fr')
+    expect(matchLocale(['pt-BR'])).toBe('pt')
+    expect(matchLocale(['zh-Hant-TW'])).toBe('zh')
+    expect(matchLocale(['xx'])).toBeNull()
+    expect(matchLocale(['xx', 'pt-BR', 'fr_FR'])).toBe('pt')
+    expect(matchLocale(['EN-us'])).toBe('en')
+    expect(matchLocale(['de_DE.UTF-8'])).toBe('de')
+    expect(matchLocale(['', '   ', 'zz-ZZ'])).toBeNull()
+    expect(matchLocale([null, undefined, 'ja-JP'])).toBe('ja')
+    expect(matchLocaleOrDefault(['xx'])).toBe('en')
+    expect(matchLocaleOrDefault(['ja-JP'])).toBe('ja')
   })
 })

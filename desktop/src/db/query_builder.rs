@@ -9,7 +9,7 @@ mod relevance;
 mod species_catalog_filters;
 mod sql;
 mod text;
-
+mod translate_value;
 pub(crate) use crate::db::plant_filter_fields::{PlantFilterFieldKind, filter_field_kind};
 pub use builder::{SpeciesSearchPlan, SpeciesSearchPlanRequest};
 pub(crate) use columns::validated_column;
@@ -19,7 +19,7 @@ use cursor::{decode_cursor, encode_cursor};
 use pagination::BrowseKeyValue;
 pub use pagination::BrowsePosition;
 pub(crate) use projection::{species_list_common_name_join_sql, species_list_select_sql};
-
+pub(crate) use translate_value::translate_value_sql;
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -188,25 +188,7 @@ fn deserialize_settings(serialized: &str) -> Result<Settings, serde_json::Error>
 }
 
 fn detect_initial_locale(os_locale: Option<&str>) -> Option<Locale> {
-    let code = os_locale?
-        .split(['_', '-'])
-        .next()
-        .unwrap_or("en")
-        .to_lowercase();
-
-    match code.as_str() {
-        "fr" => Some(Locale::Fr),
-        "es" => Some(Locale::Es),
-        "pt" => Some(Locale::Pt),
-        "it" => Some(Locale::It),
-        "zh" => Some(Locale::Zh),
-        "de" => Some(Locale::De),
-        "ja" => Some(Locale::Ja),
-        "ko" => Some(Locale::Ko),
-        "nl" => Some(Locale::Nl),
-        "ru" => Some(Locale::Ru),
-        _ => None,
-    }
+    canopi_types::locale::match_locale(os_locale)
 }
 
 #[cfg(test)]

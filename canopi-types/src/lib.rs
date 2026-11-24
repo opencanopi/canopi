@@ -11,6 +11,7 @@ pub mod health;
 pub mod ids;
 pub mod library;
 pub mod lidar;
+pub mod locale;
 pub mod location;
 pub mod report;
 pub mod saved_object_stamps;

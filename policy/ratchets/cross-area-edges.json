@@ -1260,6 +1260,9 @@
       "count": 1,
       "bead": "canopi-f47t.52.213"
     },
+    "i18n -> generated": {
+      "count": 1
+    },
     "ipc -> app/contracts": {
       "count": 1,
       "bead": "canopi-f47t.52.213"
@@ -1288,6 +1291,9 @@
       "count": 1
     },
     "maplibre -> geo": {
+      "count": 1
+    },
+    "planning -> generated": {
       "count": 1
     },
     "platform -> failures": {

@@ -5,6 +5,7 @@ mod design_format;
 mod edition_capabilities;
 mod external_contracts;
 mod locale_keys;
+mod locale_registry;
 mod new_design_defaults;
 #[cfg(test)]
 mod plan_support;
@@ -30,6 +31,8 @@ const CONTRACTS_TS: &str = "desktop/web/src/generated/contracts.ts";
 const EDITION_CAPABILITIES_TS: &str = "desktop/web/src/generated/edition-capabilities.ts";
 const KNOWN_KEYS_TS: &str = "desktop/web/src/generated/known-canopi-keys.ts";
 const LOCALE_KEYS_TS: &str = "desktop/web/src/generated/locale-keys.ts";
+const LOCALE_REGISTRY_TS: &str = "desktop/web/src/generated/locale-registry.ts";
+const TRANSLATE_VALUE_RUST: &str = "desktop/src/db/query_builder/translate_value.rs";
 const DESIGN_FORMAT_TS: &str = "desktop/web/src/generated/canopi-design-format.ts";
 const SETTINGS_TS: &str = "desktop/web/src/generated/settings.ts";
 const STORE_CHAIN_TS: &str = "desktop/web/src/generated/store-chain.ts";
@@ -86,6 +89,7 @@ const EMITTERS: &[EmitterFn] = &[
     emit_analysis_registry,
     emit_redaction,
     emit_locale_keys,
+    emit_locale_registry,
 ];
 
 fn emit_contracts(_source_root: &Path) -> Result<Vec<EmittedArtifact>, Box<dyn Error>> {
@@ -196,6 +200,20 @@ fn emit_locale_keys(source_root: &Path) -> Result<Vec<EmittedArtifact>, Box<dyn 
         LOCALE_KEYS_TS,
         locale_keys::render_locale_keys(&source_root.join(locale_keys::EN_JSON))?,
     )])
+}
+
+fn emit_locale_registry(source_root: &Path) -> Result<Vec<EmittedArtifact>, Box<dyn Error>> {
+    Ok(vec![
+        EmittedArtifact::text(
+            LOCALE_REGISTRY_TS,
+            locale_registry::render_locale_registry_ts()?,
+        ),
+        EmittedArtifact::rust(
+            TRANSLATE_VALUE_RUST,
+            &locale_registry::render_translate_value_rust()?,
+            source_root,
+        )?,
+    ])
 }
 
 pub fn run_from_env() -> Result<(), Box<dyn Error>> {
