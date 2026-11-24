@@ -340,7 +340,7 @@ export function compare(doc, observed) {
     if (!isCount(observed)) return [refusal('observed-shape', where, 'the reporter gave no count for a count family')];
     if (observed > doc.count) return [refusal('rising', where, `${observed} sites, above the count ${doc.count}`)];
     if (observed < doc.count && !doc.ceilings) {
-      return [refusal('falling', where, `${observed} sites, below the count ${doc.count}; lower the count to ${observed}`)];
+      return [refusal('falling', where, `${observed} sites, below the count ${doc.count}; lower the count to ${observed} (node policy/check.mjs --update --family ${doc.family})`)];
     }
     return [];
   }
@@ -356,11 +356,11 @@ export function compare(doc, observed) {
     } else if (n > listedCount(entry)) {
       refusals.push(refusal('rising', where, `"${key}" has ${n} site(s), above its ${listedCount(entry)}`));
     } else if (n < listedCount(entry) && !doc.ceilings) {
-      refusals.push(refusal('falling', where, `"${key}" has ${n} site(s), below its ${listedCount(entry)}; lower the entry to ${n}`));
+      refusals.push(refusal('falling', where, `"${key}" has ${n} site(s), below its ${listedCount(entry)}; lower the entry to ${n} (node policy/check.mjs --update --family ${doc.family})`));
     }
   }
   for (const key of Object.keys(doc.entries)) {
-    if (!observed[key]) refusals.push(refusal('stale', where, `"${key}" no longer occurs; remove the entry`));
+    if (!observed[key]) refusals.push(refusal('stale', where, `"${key}" no longer occurs; remove the entry (node policy/check.mjs --update --family ${doc.family})`));
   }
   return refusals;
 }

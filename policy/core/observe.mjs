@@ -273,6 +273,21 @@ export async function checkPlanted(root = REPO_ROOT, lane = 'commit', only = [])
 }
 
 /**
+ * The families observed by `lane` (or `only`) with their scoped paths and a per-tool shared-scan cache map.
+ */
+export function observedFamilies(root, lane, only, families) {
+  const observes = observer(lane, only, families);
+  const files = listFiles(root).filter((f) => !f.startsWith(`${FIXTURES_DIR}/`));
+  const observed = [...families.values()].filter(({ doc }) => observes(doc)).map(({ file, doc }) => {
+    const inScope = (p) => !p.startsWith(`${FIXTURES_DIR}/`) && doc.scope.some((glob) => matchesGlob(p, glob));
+    return { file, doc, inScope, paths: files.filter(inScope) };
+  });
+  const unions = new Map();
+  for (const { doc, paths } of observed) unions.set(doc.tool, new Set([...unions.get(doc.tool) ?? [], ...paths]));
+  return { observed, unions };
+}
+
+/**
  * The default check: load every family and policy table, then hold each observed family (in `lane` alone, or the named
  * `families`) to its adapter's sites over the scope's files, planted fixtures left out.
  */
@@ -292,16 +307,9 @@ export async function checkRepo(root = REPO_ROOT, lane = 'commit', { phaseClose,
   const declared = new Set([...families.keys(), ...tables.rules.keys()]);
   if (!refusals.length) refusals.push(...plantedLayout(root, declared));
   refusals.push(...await unrunLanes(root, families, path.join(root, CASES_DIR)));
-  const observes = observer(lane, only, families);
-  const files = listFiles(root).filter((f) => !f.startsWith(`${FIXTURES_DIR}/`));
   // Each observed family's wall time in seconds, and the load and table checks before them (`setup`).
   // An adapter exporting `shared` scans the union of its observed families' paths once per run (ast-grep).
-  const observed = [...families.values()].filter(({ doc }) => observes(doc)).map(({ file, doc }) => {
-    const inScope = (p) => !p.startsWith(`${FIXTURES_DIR}/`) && doc.scope.some((glob) => matchesGlob(p, glob));
-    return { file, doc, inScope, paths: files.filter(inScope) };
-  });
-  const unions = new Map();
-  for (const { doc, paths } of observed) unions.set(doc.tool, new Set([...unions.get(doc.tool) ?? [], ...paths]));
+  const { observed, unions } = observedFamilies(root, lane, only, families);
   const sharing = new Map();
   const timings = { setup: (performance.now() - started) / 1000, families: {} };
   for (const { file, doc, inScope, paths } of observed) {

@@ -27,7 +27,7 @@ const flagValues = (args, flag) => args.flatMap((a, i) => (a === flag ? [args[i 
 export const laneArg = (args) => (flagValues(args, '--lane').length ? flagValues(args, '--lane')[0] : 'commit');
 /** The flags check.mjs reads, each with how many values may follow it. */
 const EQUALS_FLAGS = new Set(['--lane', '--family']);
-const FLAGS = { '--lane': 1, '--family': 1, '--phase-close': 1, '--self-test': 0, '--list-rules': 0, '--closed-beads': 0 };
+const FLAGS = { '--lane': 1, '--family': 1, '--phase-close': 1, '--self-test': 0, '--list-rules': 0, '--closed-beads': 0, '--update': 0 };
 
 /**
  * The lane a check.mjs command line runs, after refusing any argument no flag reads: a mistyped flag (`--help`) would
@@ -121,7 +121,7 @@ async function tableRuns(root) {
   for (const check of [...ran].map((id) => table?.checks?.[id])) {
     if (!check || check.ciOnly) continue;
     const args = checkerArgs(checkWords(root, check));
-    if (!args || args.some((a) => ['--list-rules', '--phase-close', '--closed-beads'].includes(a))) continue;
+    if (!args || args.some((a) => ['--list-rules', '--phase-close', '--closed-beads', '--update'].includes(a))) continue;
     const mode = args.includes('--self-test') ? 'self-test' : 'check';
     const families = familyArgs(args);
     if (!families.length) runs.add(`${mode} ${laneArg(args)}`);
