@@ -233,4 +233,14 @@ describe('two-tier gate execution (Stage 1 E1)', () => {
     const durations = JSON.parse(readFileSync(join(logs, 'durations.json'), 'utf8')) as { id: string, outcome: string }[]
     expect(durations.map((d) => [d.id, d.outcome])).toEqual([['clippy', 'passed'], ['typecheck', 'passed']])
   })
+
+  it('refuses a linked worktree with a broken .git gitdir link naming git worktree repair (Stage 1 E1)', () => {
+    const linked = join(repo.root, 'broken-wt')
+    git(repo.repo, 'worktree', 'add', '-q', '-b', 'broken', linked)
+    writeFileSync(join(linked, '.git'), 'gitdir: /nonexistent/moved/worktree/gitdir\n')
+    const run = repo.gate(['areas', '--base', repo.base], { cwd: linked })
+    expect(run.status).toBe(1)
+    expect(run.stderr).toContain('broken worktree git-link')
+    expect(run.stderr).toContain('git worktree repair')
+  })
 })

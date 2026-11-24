@@ -43,7 +43,7 @@ LINK = re.compile(r"\[[^\]\n]*\]\((<[^>\n]+>|[^\s)]+)(?:\s+\"[^\"]*\")?\)")
 REFERENCE = re.compile(r"^\s{0,3}\[[^\]]+\]:\s*(<[^>]+>|\S+)", re.MULTILINE)
 # The v2 documentation layout: anything else under docs/ is evidence or history
 # that belongs in bd or nowhere.
-DOCS_FILES = {"README.md", "architecture.md", "workflow.md", "review-checklist.md"}
+DOCS_FILES = {"README.md", "architecture.md", "quality-gates.md", "workflow.md", "review-checklist.md"}
 DOCS_DIRECTORIES = {"adr", "architecture", "decisions", "guides", "plans", "release-notes"}
 LINE_BUDGETS = {"AGENTS.md": 120, "README.md": 80, "CONTEXT.md": 250, "docs/README.md": 60, "docs/architecture.md": 160,
                 "docs/workflow.md": 100, "docs/review-checklist.md": 200}

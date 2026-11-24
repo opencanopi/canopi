@@ -534,6 +534,8 @@ class GateRowChecks(unittest.TestCase):
                 if name.is_file() and ".test." not in name.name: shutil.copy(name, root / sub / name.name)
         (root / "desktop/web").mkdir(parents=True)
         shutil.copy(ROOT / "desktop/web/package.json", root / "desktop/web/package.json")
+        (root / "AGENTS.md").write_text("# A\n\nSee [Quality gates](docs/quality-gates.md).\n", encoding="utf-8")
+        (root / "docs").mkdir(exist_ok=True)
         return subprocess.run(["node", "policy/gate/cli.mjs", "agents-rows"], cwd=root, check=True, capture_output=True,
                               text=True).stdout
 
@@ -542,19 +544,16 @@ class GateRowChecks(unittest.TestCase):
             root = Path(directory)
             rows = self.planted(root)
             row = next(line for line in rows.splitlines() if line.startswith("| Frontend |"))
-            (root / "AGENTS.md").write_text(f"# A\n\n## Quality gates\n\n{rows.replace(row, row[:-1] + '&& `npm run made-up-check` |')}\n",
-                                            encoding="utf-8")
-            errors = check(root)
-            self.assertTrue(any("policy/gate/table.ts" in e and "made-up-check" in e for e in errors), errors)
+            (root / "docs/quality-gates.md").write_text(f"# Quality gates\n\n{rows.replace(row, row[:-1] + '&& `npm run made-up-check` |')}\n", encoding="utf-8")
+            self.assertTrue(any("policy/gate/table.ts" in e and "made-up-check" in e for e in check(root)))
 
     def test_canopi_f47t_52_228_10_rows_equal_to_the_gate_table_pass_and_a_root_without_the_gate_checks_nothing(self):
         with TemporaryDirectory() as directory:
             root = Path(directory)
             rows = self.planted(root)
-            (root / "AGENTS.md").write_text(f"# A\n\n## Quality gates\n\n{rows}\nAfter.\n", encoding="utf-8")
+            (root / "docs/quality-gates.md").write_text(f"# Quality gates\n\n{rows}\nAfter.\n", encoding="utf-8")
             self.assertEqual([e for e in check(root) if "Quality gates" in e], [])
-            (root / "AGENTS.md").write_text("# A\n\nNo gates.\n", encoding="utf-8")
-            self.assertEqual([e for e in check(root) if "Quality gates" in e],
-                             ["AGENTS.md has no ## Quality gates table for policy/gate/table.ts's rows (2.1-M198)"])
+            (root / "docs/quality-gates.md").write_text("# A\n\nNo gates.\n", encoding="utf-8")
+            self.assertEqual([e for e in check(root) if "Quality gates" in e], ["docs/quality-gates.md has no # Quality gates table for policy/gate/table.ts's rows (2.1-M198, 2.1-Q342)"])
             shutil.rmtree(root / "policy")
             self.assertEqual([e for e in check(root) if "Quality gates" in e], [])

@@ -19,7 +19,7 @@ const USAGE = `usage: node policy/gate/cli.mjs affected (--base <rev> | --staged
        node policy/gate/cli.mjs bundle-summary <row log>
        node policy/gate/cli.mjs rollback-refs   (rollback.yml's resolve step; tag names on stdin)
        node policy/gate/cli.mjs rollback-fixtures check <dir> | snapshot <dir> <out> | compare <dir> <before> | plant <dir> <edition>
-       node policy/gate/cli.mjs agents-rows [--check]
+       node policy/gate/cli.mjs agents-rows [--check | --write]
        node policy/gate/cli.mjs commit-gate <mode> ...
        node policy/gate/cli.mjs agent-hook pre-tool-use|session-start|planted <command.json>...`
 
@@ -79,8 +79,12 @@ export async function main(ROOT: string, args: readonly string[]): Promise<numbe
     if (mode === 'rollback-refs' && !rest.length) return (await import('./rollback-refs.ts')).runRollbackRefs(readFileSync(0, 'utf8'), process.env)
     if (mode === 'rollback-fixtures') return (await import('./rollback-refs.ts')).runRollbackFixtures(rest, process.env)
     if (mode === 'agents-rows') {
-      const parsed = parse(rest, ['--check'], [])
-      if (!parsed) return usage()
+      const parsed = parse(rest, ['--check', '--write'], [])
+      if (!parsed || (parsed.seen.has('--check') && parsed.seen.has('--write'))) return usage()
+      if (parsed.seen.has('--write')) {
+        rows.writeGatesDoc(ROOT)
+        return 0
+      }
       if (!parsed.seen.has('--check')) {
         process.stdout.write(`${rows.rowsText()}\n`)
         return 0

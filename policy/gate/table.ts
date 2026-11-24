@@ -351,7 +351,7 @@ export const TABLE: Table = {
     },
     {
       name: 'lidar', label: 'LiDAR services',
-      row: 'the engine lane (CI job `{lidar-native}`) and the comparison lane ([data library](docs/guides/data-library.md))',
+      row: 'the engine lane (CI job `{lidar-native}`) and the comparison lane ([data library](guides/data-library.md))',
       patterns: [String.raw`^desktop/src/services/lidar/`],
       actions: ['install-linux-deps', 'build-geolibre-cli'],
       full: ['lidar-native', 'lidar-comparison'],
