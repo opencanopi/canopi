@@ -1,14 +1,6 @@
 """Exercise promotion through its CLI with a local GitHub boundary."""
-import hashlib
-import json
-import os
+import hashlib, json, os, shutil, subprocess, tempfile, unittest, zipfile
 from pathlib import Path
-import shutil
-import subprocess
-import tempfile
-import unittest
-import zipfile
-
 from scripts import update_channel
 from scripts.test_update_channel import Key
 
@@ -36,24 +28,16 @@ def candidate_manifest(payload):
 
 class PromotionTests(unittest.TestCase):
     def setUp(self):
-        self.temp = tempfile.TemporaryDirectory()
-        self.addCleanup(self.temp.cleanup)
-        self.root = Path(self.temp.name)
-        (self.root / "scripts").mkdir()
-        shutil.copy2(SOURCE / "promote-release.sh", self.root / "scripts")
-        shutil.copy2(SOURCE / "release_candidate_artifacts.py", self.root / "scripts")
-        shutil.copy2(SOURCE / "web_release_package.py", self.root / "scripts")
-        shutil.copy2(SOURCE / "update_channel.py", self.root / "scripts")
-        self.extra_files = {}
-        self.channel_files = {}
-        self.payload = b"candidate installer bytes"
+        self.temp = tempfile.TemporaryDirectory(); self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name); (self.root / "scripts").mkdir()
+        for name in ("promote-release.sh", "release_candidate_artifacts.py", "web_release_package.py", "update_channel.py"):
+            shutil.copy2(SOURCE / name, self.root / "scripts")
+        self.extra_files, self.channel_files, self.payload = {}, {}, b"candidate installer bytes"
         self.manifest = candidate_manifest(self.payload)
         self.local_dir = self.root / "cached packages"
         self.local_package = self.local_dir / "canopi-x86_64-unknown-linux-gnu/deb/canopi_1.1.1.deb"
         for name in [*PACKAGES, WEB]:
-            package = self.local_dir / name
-            package.parent.mkdir(parents=True, exist_ok=True)
-            package.write_bytes(self.payload)
+            package = self.local_dir / name; package.parent.mkdir(parents=True, exist_ok=True); package.write_bytes(self.payload)
         self.state = {
             "run": {"path": ".github/workflows/release-candidate.yml", "head_branch": "main", "status": "completed",
                     "conclusion": "success"},
@@ -89,17 +73,20 @@ elif args[0] == "release" and args[1] in ["create", "edit", "upload"]:
                 if path.suffix == ".txt": uploaded[path.name]["text"] = path.read_text()
         (root / "uploaded.json").write_text(json.dumps(uploaded))
 elif args[0] == "api":
-    endpoint = args[1]
-    if endpoint.endswith("/actions/runs/123/artifacts"):
-        print(json.dumps({"artifacts": [{"id": i, "name": name, "size_in_bytes": 100, "expired": False}
-            for i, name in state["artifacts"]]}))
-    elif endpoint.endswith("/actions/runs/123"):
+    endpoint = next(a for a in args[1:] if not a.startswith("-"))
+    path = endpoint.split("?", 1)[0]
+    if path.endswith("/actions/runs/123/artifacts"):
+        pages = state.get("artifact_pages") or [state["artifacts"]]
+        for page in pages:
+            print(json.dumps({"artifacts": [{"id": i, "name": name, "size_in_bytes": 100, "expired": False}
+                for i, name in page]}))
+    elif path.endswith("/actions/runs/123"):
         print(json.dumps(state["run"]))
-    elif "/actions/artifacts/" in endpoint:
-        sys.stdout.buffer.write((root / (endpoint.split("/")[-2] + ".zip")).read_bytes())
-    elif "/git/matching-refs/tags/" in endpoint:
+    elif "/actions/artifacts/" in path:
+        sys.stdout.buffer.write((root / (path.split("/")[-2] + ".zip")).read_bytes())
+    elif "/git/matching-refs/tags/" in path:
         print(json.dumps([] if state["tag_sha"] is None else [{"ref": "refs/tags/v1.1.1"}]))
-    elif "/commits/v1.1.1" in endpoint:
+    elif "/commits/v1.1.1" in path:
         print(state["tag_sha"])
     else: raise SystemExit("Unexpected API call: " + repr(args))
 else: raise SystemExit("Unexpected command: " + repr(args))
@@ -110,21 +97,17 @@ else: raise SystemExit("Unexpected command: " + repr(args))
         (self.root / "calls.jsonl").unlink(missing_ok=True)
         (self.root / "state.json").write_text(json.dumps(self.state))
         for artifact_id, artifact_name in ARTIFACTS:
-            if artifact_id == 2:
-                continue
+            if artifact_id == 2: continue
             with zipfile.ZipFile(self.root / f"{artifact_id}.zip", "w") as archive:
                 for name in [*PACKAGES, WEB]:
-                    if name.startswith(artifact_name + "/"):
-                        archive.writestr(name.removeprefix(artifact_name + "/"), self.payload)
+                    if name.startswith(artifact_name + "/"): archive.writestr(name.removeprefix(artifact_name + "/"), self.payload)
                 for name, content in self.extra_files.items():
-                    if name.startswith(artifact_name + "/"):
-                        archive.writestr(name.removeprefix(artifact_name + "/"), content)
+                    if name.startswith(artifact_name + "/"): archive.writestr(name.removeprefix(artifact_name + "/"), content)
                 archive.writestr("unlisted.exe", b"not in the candidate manifest")
         with zipfile.ZipFile(self.root / "2.zip", "w") as archive:
             archive.writestr("release-metadata.json", json.dumps(self.state["metadata"]))
             archive.writestr("SHA256SUMS.txt", self.manifest)
-            for name, document in self.channel_files.items():
-                archive.writestr(name, json.dumps(document))
+            for name, document in self.channel_files.items(): archive.writestr(name, json.dumps(document))
         local_args = ["--artifact-dir", str(artifact_dir)] if artifact_dir is not None else []
         return subprocess.run(["bash", str(self.root / "scripts/promote-release.sh"), "--run-id", "123", "--tag", tag,
                                "--title", "Canopi 1.1.1", "--repo", "example/canopi", *local_args],
@@ -167,8 +150,7 @@ else: raise SystemExit("Unexpected command: " + repr(args))
         self.assertEqual(set(checksums), {Path(name).name for name in PACKAGES} | set(PACKAGES.values()))
         for original, alias in PACKAGES.items():
             self.assertEqual(uploaded[Path(original).name]["sha256"], uploaded[alias]["sha256"])
-        for name, digest in checksums.items():
-            self.assertEqual(uploaded[name]["sha256"], digest)
+        for name, digest in checksums.items(): self.assertEqual(uploaded[name]["sha256"], digest)
         web = Path(WEB).name
         self.assertEqual(uploaded["WEB-RELEASE-SHA256SUMS.txt"]["text"], f"{uploaded[web]['sha256']}  {web}\n")
         self.assertEqual(uploaded[web]["sha256"], hashlib.sha256(self.payload).hexdigest())
@@ -516,6 +498,24 @@ else: raise SystemExit("Unexpected command: " + repr(args))
         for call in self.calls():
             if call[:1] == ["release"]:
                 self.assertEqual(call[2], "v1.1.1", call)
+
+    def test_canopi_7dryh_rerun_picks_latest_attempt_manifest_across_pages(self):
+        """Attempt-scoped and legacy rerun manifests on paginated API responses select only the latest attempt."""
+        incomplete = "\n".join(line for line in self.manifest.splitlines() if "x86_64-apple-darwin" not in line) + "\n"
+        with zipfile.ZipFile(self.root / "9.zip", "w") as archive:
+            archive.writestr("release-metadata.json", json.dumps(self.state["metadata"]))
+            archive.writestr("SHA256SUMS.txt", self.manifest)
+        for name_a, name_b in [("canopi-release-candidate-manifest-1", "canopi-release-candidate-manifest-2"),
+                               ("canopi-release-candidate-manifest", "canopi-release-candidate-manifest")]:
+            with self.subTest(name_a=name_a, name_b=name_b):
+                self.state["run"]["run_attempt"], self.manifest = 2, incomplete
+                self.state["artifact_pages"] = [[(1, "canopi-x86_64-unknown-linux-gnu"), (2, name_a)], [(9, name_b)]]
+                result = self.promote(artifact_dir=self.local_dir)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                api_calls = [c for c in self.calls() if c[0] == "api"]
+                self.assertTrue(any("--paginate" in c and "/artifacts?per_page=100" in " ".join(c) for c in api_calls))
+                downloads = [next(a for a in c[1:] if not a.startswith("-")) for c in api_calls if "/actions/artifacts/" in " ".join(c)]
+                self.assertEqual(downloads, ["repos/example/canopi/actions/artifacts/9/zip"])
 
 
 if __name__ == "__main__":
