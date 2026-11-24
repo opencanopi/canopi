@@ -8,6 +8,7 @@ import { REPO_ROOT, SCHEMA_FILE } from './base.mjs';
 import { diffRatchets } from './diff.mjs';
 import { git } from './exec.mjs';
 import { loadRatchets, REFUSALS } from './ratchets.mjs';
+import { phaseCloseRefusals } from './tables.mjs';
 
 test('canopi-f47t.52.228.54: no refusal text repeats a word back to back', () => {
   const doubled = Object.entries(REFUSALS)
@@ -88,4 +89,18 @@ test('canopi-uxyr: diffRatchets treats emptied derived file deletion as removed 
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }
+});
+
+test('canopi-0kjje: --phase-close 4 refuses beadless entries in non-standing violation families', () => {
+  const tables = { phases: ['2', '3', '4'], rules: new Map(), planned: new Map() };
+  const families = new Map([
+    ['unbeaded', { file: 'policy/ratchets/unbeaded.json', doc: { family: 'unbeaded', entries: { 'a.ts': { count: 1 } } } }],
+    ['standing-fam', { file: 'policy/ratchets/standing-fam.json', doc: { family: 'standing-fam', standing: true, entries: { 'b.ts': { count: 1 } } } }],
+    ['beaded-fam', { file: 'policy/ratchets/beaded-fam.json', doc: { family: 'beaded-fam', bead: 'canopi-a', entries: { 'c.ts': { count: 1 } } } }],
+  ]);
+  assert.deepEqual(phaseCloseRefusals(tables, '2', families), []);
+  const at4 = phaseCloseRefusals(tables, '4', families);
+  assert.equal(at4.length, 1);
+  assert.equal(at4[0].code, 'phase-close');
+  assert.match(at4[0].message, /unbeaded/);
 });

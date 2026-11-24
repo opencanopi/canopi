@@ -243,7 +243,7 @@ export function rowsOf(texts: readonly string[]): Set<string> {
 type Shape = 'budget' | 'floor' | 'ratchet'
 const shape = (doc: Json): Shape => ('budgets' in doc ? 'budget' : 'floors' in doc ? 'floor' : 'ratchet')
 const LOOSENING: Record<Shape, readonly string[]> = {
-  ratchet: ['added', 'raised', 'deleted'],
+  ratchet: ['added', 'raised', 'deleted', 'bead-stripped'],
   budget: ['raised', 'removed', 'deleted'],
   floor: ['lowered', 'removed', 'floor-globs', 'deleted'],
 }
@@ -300,6 +300,13 @@ export async function judgeFamilies(parent: string, tree: string, route: Route, 
           + `(entry bead: ${bead ?? 'none'}; 2.1-Q242)`])
       }
       continue
+    }
+    if (kind === 'added' && shape(doc) === 'ratchet' && doc['standing'] !== true && !doc['bead']) {
+      const entries = isObject(doc['entries']) ? doc['entries'] : {}
+      const entry = key !== undefined && isObject(entries[key]) ? entries[key] : {}
+      if (!entry['bead']) {
+        findings.push(['gate-loosening-authority', `${what} needs a bead on the entry or family (non-standing family; canopi-0kjje, 2.1-M78)`])
+      }
     }
     if ((kind === 'header' && !headerFree(baseHeader, headHeader, change.fields ?? [])) || LOOSENING[shape(doc)].includes(kind)) {
       const msg = kind === 'header'

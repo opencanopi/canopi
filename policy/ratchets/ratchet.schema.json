@@ -40,7 +40,7 @@
     },
     "count": { "type": "integer", "minimum": 0 },
     "bead": {
-      "description": "A ratchet family's open bead that pays down every entry without its own, or its count (canopi-f47t.52.257): the stopping rule reads each entry as empty, carrying an open bead or standing (2.1-M78). A family names a bead or standing, not both (ratchet-entry-has-bead).",
+      "description": "A ratchet family's open bead that pays down every entry without its own, or its count (canopi-f47t.52.257): the stopping rule reads each entry as empty, carrying an open bead or standing (2.1-M78). A family names a bead or standing, not both.",
       "type": "string",
       "pattern": "^canopi-[a-z0-9]+(\\.[0-9]+)*$"
     },

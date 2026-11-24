@@ -6,7 +6,7 @@ import { spawnSync } from 'node:child_process'
 import { accessSync, chmodSync, constants, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { ATTRIBUTION, GateRepo } from './commit-gate-repo.ts'
+import { ATTRIBUTION, GateRepo, OPEN_BEAD } from './commit-gate-repo.ts'
 import { cleanEnv, git, REPO_ROOT } from './planted-repo.ts'
 
 const HOOKS = ['pre-commit', 'commit-msg', 'pre-merge-commit']
@@ -189,7 +189,7 @@ describe('commit-msg through the real hook', () => {
   const raiseEntry = (key: string) => {
     const path = join(repo.linked, 'policy/ratchets/suppressions.json')
     const family = JSON.parse(readFileSync(path, 'utf8')) as { entries: Record<string, unknown> }
-    family.entries[key] = { count: 1 }
+    family.entries[key] = { count: 1, bead: OPEN_BEAD }
     writeFileSync(path, `${JSON.stringify(family, null, 2)}\n`)
     git(repo.linked, 'add', 'policy/ratchets/suppressions.json')
   }

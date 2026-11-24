@@ -5,7 +5,7 @@ import path from 'node:path';
 import { UPSTREAM_REGISTER } from '../beads.mjs';
 import { isObject, isRepoPath, POLICY_DIR, RATCHETS_DIR, refusal, REPO_ROOT, RULES_TABLE } from './base.mjs';
 import { listFiles } from './exec.mjs';
-import { DERIVED_TOOLS, loadRatchets } from './ratchets.mjs';
+import { DERIVED_TOOLS, loadRatchets, shapeOf } from './ratchets.mjs';
 
 // ---------------------------------------------------------------------------------------------------------------
 // Registry
@@ -147,6 +147,31 @@ export function plannedPins(root = REPO_ROOT) {
     .map((row) => ({ id: row.id, ...row.pin_test.planned }));
 }
 
+const beadlessEntryRefusals = (file, doc, phase) => Object.entries(doc.entries)
+  .filter(([, entry]) => !entry?.bead)
+  .map(([key]) => refusal('phase-close', file, `${key}: phase ${phase} closes with a beadless entry in ${doc.family}; pay it down or cite an open bead (2.1-M78)`));
+
+/** Stopping rule for one family (ADR 0028, 2.1-M78, canopi-0kjje). */
+function stoppingRuleForFamily(file, doc, phase) {
+  const kind = shapeOf(doc);
+  if (kind === 'budgets' || kind === 'floors') return [];
+  if (doc.bead !== undefined) {
+    return doc.standing === true ? [refusal('phase-close', file, `${doc.family}: names both bead and standing; choose one`)] : [];
+  }
+  if (doc.standing === true) return [];
+  if (kind === 'entries') return beadlessEntryRefusals(file, doc, phase);
+  return kind === 'count' && doc.count > 0
+    ? [refusal('phase-close', file, `${doc.family}: phase ${phase} closes with count ${doc.count} and no bead or standing mark (2.1-M78)`)]
+    : [];
+}
+
+/** Stopping rule (ADR 0028, 2.1-M78, canopi-0kjje): at Phase 4 close, every non-standing ratchet entry carries a bead. */
+function stoppingRuleRefusals(tables, at, families, phase) {
+  const stopAt = tables.phases.indexOf('4');
+  if (stopAt === -1 || at < stopAt) return [];
+  return [...families.values()].flatMap(({ file, doc }) => stoppingRuleForFamily(file, doc, phase));
+}
+
 /**
  * `--phase-close <phase>`: refuses each row, planned or not, whose owner_target phase is `phase` or earlier in
  * rules.json's order while its owner_today is not its owner_target path, or while it is still planned, so it would
@@ -180,6 +205,7 @@ export function phaseCloseRefusals(tables, phase, families = new Map(), pins = [
       refusals.push(refusal('phase-close', UPSTREAM_REGISTER, `${pin.id}: phase ${pin.phase} closes with its pin test still planned (${pin.bead}); write the pin or re-plan it with the bead that will`));
     }
   }
+  refusals.push(...stoppingRuleRefusals(tables, at, families, phase));
   return refusals;
 }
 

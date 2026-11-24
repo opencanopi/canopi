@@ -334,12 +334,12 @@ describe('pr and tree modes (2.1-M228; design check A3)', () => {
     const topic = repo.json('policy/ratchets/suppressions.json') as { entries: Record<string, unknown> }
     repo.git('checkout', '-q', 'main')
     const family = repo.json('policy/ratchets/suppressions.json') as { entries: Record<string, unknown> }
-    family.entries['desktop/web/src/other.ts: oxlint:no-console'] = { count: 1 }
+    family.entries['desktop/web/src/other.ts: oxlint:no-console'] = { count: 1, bead: OPEN_BEAD }
     repo.write({ 'policy/ratchets/suppressions.json': `${JSON.stringify(family, null, 2)}\n` })
     repo.commit(`feat: main's entry (${OPEN_BEAD}, ${Q_ROW})`)
     spawnSync('git', ['-c', 'core.hooksPath=/dev/null', 'merge', '-q', '--no-commit', 'topic'], { cwd: repo.path, env: cleanEnv() })
     Object.assign(family.entries, topic.entries)
-    if (extra) family.entries[extra] = { count: 1 }
+    if (extra) family.entries[extra] = { count: 1, bead: OPEN_BEAD }
     repo.write({ 'policy/ratchets/suppressions.json': `${JSON.stringify(family, null, 2)}\n` })
     if (!commit) return repo.git('add', '-A')
     return repo.commit("Merge branch 'topic'")

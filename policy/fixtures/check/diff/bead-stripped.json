@@ -1,0 +1,18 @@
+{
+  "about": "Removing an entry's bead in a non-standing family with no family bead is reported as bead-stripped (canopi-0kjje, 2.1-M78)",
+  "base": {
+    "policy/ratchets/sample.json": {
+      "version": 1, "family": "sample", "ledger": "2.1-M78", "tool": "oxlint",
+      "scope": ["src/**"], "lane": "commit", "keys": "path",
+      "entries": { "src/a.ts": { "count": 1, "bead": "canopi-a" } }
+    }
+  },
+  "head": {
+    "policy/ratchets/sample.json": {
+      "version": 1, "family": "sample", "ledger": "2.1-M78", "tool": "oxlint",
+      "scope": ["src/**"], "lane": "commit", "keys": "path",
+      "entries": { "src/a.ts": { "count": 1 } }
+    }
+  },
+  "expect": ["bead-stripped"]
+}

@@ -20,6 +20,7 @@ export const CHANGES = {
   lowered: 'an entry or count below its base value',
   removed: 'an entry gone at head that was not renamed',
   renamed: 'an entry moved by git -M or the layer table at the same or a lower count (2.1-M74)',
+  'bead-stripped': 'an entry whose bead was removed in a non-standing family without a family bead (canopi-0kjje, 2.1-M78)',
   'floor-globs': 'a floor family\'s include or exclusion patterns changed',
 };
 
@@ -116,8 +117,10 @@ async function layerMovesOf(root, reader, rev) {
 }
 
 /**
- * The header fields a change names; `standing` too, which takes a family's beadless entries out of
- * ratchet-entry-has-bead, and `ceilings`, which keeps a fixed site's headroom (a fall passes with nothing lowered).
+ * The header fields a change names; `standing` too (which exempts a family from the stopping rule), and `ceilings`,
+ * which keeps a fixed site's headroom (a fall passes with nothing lowered). A family `bead` is read like an entry bead:
+ * adding or changing it is no header change, while dropping it or flipping `standing` off while leaving beadless
+ * entries emits `bead-stripped` (canopi-0kjje, 2.1-M78).
  */
 const HEADER_FIELDS = ['version', 'family', 'ledger', 'tool', 'scope', 'lane', 'keys', 'select', 'standing', 'ceilings'];
 
@@ -163,8 +166,12 @@ export function diffFamilies(base, head, moves) {
     }
     if (!('entries' in now)) {
       if (now.count !== was.count) changes.push({ change: now.count > was.count ? 'raised' : 'lowered', family: stem, from: was.count, to: now.count });
+      if ((was.bead || was.standing === true) && !now.bead && now.standing !== true && now.count > 0) {
+        changes.push({ change: 'bead-stripped', family: stem, from: was.bead ?? 'standing' });
+      }
       continue;
     }
+    const lostFamilyCover = (was.bead || was.standing === true) && !now.bead && now.standing !== true;
     const renamedFrom = new Set();
     const movedTo = new Map(Object.keys(was.entries).filter((k) => !(k in now.entries))
       .map((k) => [moveKey(now.keys, k, moves), k]));
@@ -173,6 +180,9 @@ export function diffFamilies(base, head, moves) {
       if (key in was.entries) {
         const from = listedCount(was.entries[key]);
         if (to !== from) changes.push({ change: to > from ? 'raised' : 'lowered', family: stem, key, from, to });
+        if (!entry.bead && !now.bead && now.standing !== true && (was.entries[key].bead || lostFamilyCover)) {
+          changes.push({ change: 'bead-stripped', family: stem, key, from: was.entries[key].bead ?? was.bead ?? 'standing' });
+        }
         continue;
       }
       const oldKey = movedTo.get(key);

@@ -126,3 +126,27 @@ describe('a PR body line tied to its file (2.1-Q274)', () => {
       `rules.json#L3 loosens (${M_ROW})`, `loosens rules.json. (${M_ROW})`]) expect(only(line), line).toBe(line)
   })
 })
+
+describe('bead required on added entries and stripping a bead is refused (canopi-0kjje, 2.1-M78)', () => {
+  it('canopi-0kjje: refuses an added entry without a bead in a non-standing family even with message authority', () => {
+    const head = family((doc) => {
+      (doc['entries'] as Record<string, unknown>)['desktop/web/src/no-bead.ts: oxlint:no-console'] = { count: 1 }
+    }, `chore: add entry without bead (${OPEN_BEAD}, ${M_ROW})`)
+    const { status, out } = verdict(head)
+    expect(status, out).toBe(1)
+    expect(out).toContain('needs a bead on the entry or family')
+  })
+
+  it('canopi-0kjje: refuses stripping an entry bead without authority', () => {
+    const withBead = family((doc) => {
+      (doc['entries'] as Record<string, unknown>)['desktop/web/src/has-bead.ts: oxlint:no-console'] = { count: 1, bead: OPEN_BEAD }
+    }, `chore: add entry with bead (${OPEN_BEAD}, ${M_ROW})`)
+    repo.base = withBead
+    const stripped = family((doc) => {
+      (doc['entries'] as Record<string, unknown>)['desktop/web/src/has-bead.ts: oxlint:no-console'] = { count: 1 }
+    }, 'chore: strip bead from entry')
+    const { status, out } = verdict(stripped)
+    expect(status, out).toBe(1)
+    expect(out).toContain('bead-stripped')
+  })
+})
