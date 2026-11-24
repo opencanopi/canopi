@@ -185,65 +185,8 @@ pub(crate) fn available_bytes(directory: &Path) -> Result<u64, String> {
             return Ok(available);
         }
     }
-    platform_available_bytes(directory)
+    canopi_support::fs_space::available_space(directory)
         .map_err(|error| format!("Cannot verify free space on the data library's disk: {error}"))
-}
-
-/// `statvfs` fields differ in width across unix targets (`u32` on some, `u64`
-/// on others), so each one is widened losslessly through `Into` rather than
-/// cast: a cast could truncate, and `u64::from` is a useless conversion where
-/// the field is already `u64`.
-#[cfg(unix)]
-fn widen(value: impl Into<u64>) -> u64 {
-    value.into()
-}
-
-#[cfg(unix)]
-fn platform_available_bytes(directory: &Path) -> Result<u64, std::io::Error> {
-    use std::os::unix::ffi::OsStrExt as _;
-    let mut path = directory.as_os_str().as_bytes().to_vec();
-    path.push(0);
-    let mut stats = std::mem::MaybeUninit::<libc::statvfs>::uninit();
-    // SAFETY: `path` is a NUL-terminated byte string and `stats` is valid
-    // writable memory for one `statvfs`; the call is checked before use.
-    let status = unsafe { libc::statvfs(path.as_ptr().cast(), stats.as_mut_ptr()) };
-    if status != 0 {
-        return Err(std::io::Error::last_os_error());
-    }
-    // SAFETY: a zero return from `statvfs` initializes the whole struct.
-    let stats = unsafe { stats.assume_init() };
-    Ok(widen(stats.f_bavail).saturating_mul(widen(stats.f_frsize)))
-}
-
-#[cfg(windows)]
-fn platform_available_bytes(directory: &Path) -> Result<u64, std::io::Error> {
-    use std::os::windows::ffi::OsStrExt as _;
-    use windows_sys::Win32::Storage::FileSystem::GetDiskFreeSpaceExW;
-    let mut path: Vec<u16> = directory.as_os_str().encode_wide().collect();
-    path.push(0);
-    let mut available = 0u64;
-    // SAFETY: `path` is NUL-terminated and `available` is valid writable
-    // memory; the returned status is checked before the value is used.
-    let ok = unsafe {
-        GetDiskFreeSpaceExW(
-            path.as_ptr(),
-            &mut available,
-            std::ptr::null_mut(),
-            std::ptr::null_mut(),
-        )
-    };
-    if ok == 0 {
-        return Err(std::io::Error::last_os_error());
-    }
-    Ok(available)
-}
-
-#[cfg(not(any(unix, windows)))]
-fn platform_available_bytes(_directory: &Path) -> Result<u64, std::io::Error> {
-    Err(std::io::Error::new(
-        std::io::ErrorKind::Unsupported,
-        "this platform has no free-space facility",
-    ))
 }
 
 fn self_sources_dir(root: &Path) -> PathBuf {

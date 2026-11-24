@@ -3,7 +3,6 @@
   "family": "no-user-content-in-message",
   "entries": {
     "desktop/src/design/format.rs": { "count": 3, "bead": "canopi-ds03" },
-    "desktop/src/design/mod.rs": { "count": 2, "bead": "canopi-ds03" },
     "desktop/src/host/mod.rs": { "count": 1, "bead": "canopi-ds03" },
     "desktop/src/host/updater/launch.rs": { "count": 1, "bead": "canopi-ds03" },
     "desktop/src/host/updater/launch/nsis_round_trip.rs": { "count": 1, "bead": "canopi-ds03" },

@@ -103,7 +103,7 @@ sequenceDiagram
   participant Core as app/document-session/core/ (2.1) owner Session core
   participant Fmt as platform/design-core.worker.ts format worker
   participant DH as platform/design-home.desktop.ts (2.1) owner Draft store
-  participant Dur as canopi-support (2.1) publish_durably
+  participant Dur as canopi-support publish_durably
   participant WH as platform/design-home.browser.ts (2.1) owner Draft store
   Core->>Core: first edit of a new Design: mintDraftId(), rev plus one
   Core->>WH: markPending(id) on clean to dirty

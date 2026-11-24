@@ -3,7 +3,7 @@
 id: durable-write-only-in-publish
 language: rs
 severity: error
-message: "durable-write-only-in-publish (§18 R8): a file is written, renamed or copied into place (fs::write, rename, copy, File::create, OpenOptions, persist) only by publish_durably behind DurableFs; an interim site ratchet that 2b and N1 replace with clippy disallowed-methods in the change that builds the owner. ADR 0023; owner none; target canopi-support/src/durable.rs (2b); example none yet"
+message: "durable-write-only-in-publish (§18 R8): a file is written, renamed or copied into place (fs::write, rename, copy, File::create, OpenOptions, persist) only by publish_durably behind DurableFs; an interim site ratchet that 2b and N1 replace with clippy disallowed-methods in the change that builds the owner. ADR 0023; owner canopi-support/src/durable.rs; target canopi-support/src/durable.rs (2b); example canopi-support/src/durable.rs"
 # rust-scope: desktop/src
 files:
   - "desktop/src/**/*.rs"
@@ -63,6 +63,8 @@ ignores:
   - "canopi-format-wasm/src/tests.rs"
   - "bindings-gen/src/plan_support.rs"
   - "bindings-gen/src/species_search_normalization/tests.rs"
+  - "canopi-support/src/durable.rs"
+  - "policy/fixtures/rules/*/canopi-support/src/durable.rs"
 rule:
   all:
     - kind: call_expression

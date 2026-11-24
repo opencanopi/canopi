@@ -249,10 +249,12 @@ flowchart LR
   canopi_desktop["canopi-desktop: shell, commands, services, stores, catalog, LiDAR"]
   canopi_types["canopi-types: contract shapes"]
   canopi_redact["canopi-redact: Redactor, RedactedText (skeleton)"]
+  canopi_support["canopi-support: durable files"]
   canopi_format
   bindings_gen["bindings-gen: TS emitter"]
   canopi_desktop --> canopi_types
   canopi_desktop --> canopi_redact
+  canopi_desktop --> canopi_support
   canopi_desktop --> canopi_format
   canopi_format --> canopi_types
   canopi_types --> canopi_redact
@@ -274,7 +276,7 @@ flowchart BT
   types["canopi-types: shapes, DESIGN_FILE_FIELDS; failure, settings and quantity tables (2.1)"]:::target
   fmt["canopi-format: stored user work"]
   st["canopi-search-text (2.1): search normalisation"]:::target
-  sup["canopi-support (2.1): executor, durable files, http, process"]:::target
+  sup["canopi-support: durable files, hash, fs_space"]
   veg["canopi-vegetation (2.1): crown algorithms, roadmap"]:::target
   lib["canopi-library (2.1): Data library, owner library repository"]:::target
   cat["canopi-catalog (2.1): plant DB and search (E1 outcome B)"]:::target

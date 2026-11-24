@@ -366,6 +366,7 @@ Linked into the Desktop binary on its release targets (cargo-about over `desktop
 | `foreign-types-macros` | MIT OR Apache-2.0 | 958e28cd |
 | `foreign-types-shared` | MIT OR Apache-2.0 | 958e28cd |
 | `form_urlencoded` | MIT OR Apache-2.0 | 0ffddef9 |
+| `fs4` | MIT OR Apache-2.0 | 0ffddef9 |
 | `futures-channel` | MIT OR Apache-2.0 | 52b86d7c |
 | `futures-core` | MIT OR Apache-2.0 | 52b86d7c |
 | `futures-executor` | MIT OR Apache-2.0 | 52b86d7c |

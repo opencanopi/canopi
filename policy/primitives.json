@@ -1042,7 +1042,8 @@
       "tool": "ast-grep",
       "ledger": "2.1-M189",
       "adr": "0023",
-      "owner_today": "none",
+      "owner_today": "canopi-support/src/durable.rs",
+      "example": "canopi-support/src/durable.rs",
       "owner_target": {
         "path": "canopi-support/src/durable.rs",
         "phase": "2b"
@@ -1059,7 +1060,8 @@
       "tool": "ast-grep",
       "ledger": "2.1-M189",
       "adr": "0023",
-      "owner_today": "none",
+      "owner_today": "canopi-support/src/hash.rs",
+      "example": "canopi-support/src/hash.rs",
       "owner_target": {
         "path": "canopi-support/src/hash.rs",
         "phase": "N1",

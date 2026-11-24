@@ -460,6 +460,7 @@ dependencies = [
  "base64 0.22.1",
  "canopi-format",
  "canopi-redact",
+ "canopi-support",
  "canopi-types",
  "ed25519-dalek",
  "libc",
@@ -486,7 +487,6 @@ dependencies = [
  "tracing-subscriber",
  "ureq",
  "wbgeotiff",
- "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -517,6 +517,17 @@ dependencies = [
  "serde",
  "serde_json",
  "specta",
+]
+
+[[package]]
+name = "canopi-support"
+version = "2.1.0-beta.3"
+dependencies = [
+ "fs4",
+ "proptest",
+ "sha2",
+ "tempfile",
+ "tracing",
 ]
 
 [[package]]
@@ -1324,6 +1335,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "afa489199eaffb1211795df1c6236ce1ad0d41a6fa45250add73e3b02420f06e"
 dependencies = [
  "percent-encoding",
+]
+
+[[package]]
+name = "fs4"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7e72ed92b67c146290f88e9c89d60ca163ea417a446f61ffd7b72df3e7f1dfd5"
+dependencies = [
+ "rustix",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

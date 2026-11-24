@@ -332,9 +332,8 @@
       "doc": "docs/adr/0028-architecture-fitness-and-verification.md",
       "quote": "The fault-seam runs of the model-based suites, over `DurableFs` from Phase 2b's first native change",
       "state": {
-        "planned": {
-          "phase": "2b",
-          "bead": "canopi-f47t.52.72"
+        "exists": {
+          "check": "canopi-support/tests/interleaved_publish.rs"
         }
       }
     },

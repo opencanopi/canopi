@@ -3,8 +3,6 @@
   "family": "hash-only-in-support",
   "entries": {
     "bindings-gen/src/species_search_normalization.rs": { "count": 2, "bead": "canopi-f47t.52.190" },
-    "desktop/src/design/mod.rs": { "count": 2, "bead": "canopi-f47t.52.190" },
-    "desktop/src/image_cache.rs": { "count": 2, "bead": "canopi-f47t.52.190" },
     "desktop/src/services/lidar/grid.rs": { "count": 2, "bead": "canopi-f47t.52.190" },
     "desktop/src/services/lidar/import.rs": { "count": 3, "bead": "canopi-f47t.52.190" },
     "desktop/src/services/lidar/raster_assets.rs": { "count": 2, "bead": "canopi-f47t.52.190" },

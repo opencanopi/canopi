@@ -144,14 +144,14 @@ Source: ADR 0025; contracts §1, §3
 classDiagram
   class OpSpec {
     <<2.1>>
-    <<owner canopi-support (2.1)>>
+    <<owner canopi-support>>
     lane
     priority
     deadline
   }
   class Deadline {
     <<2.1>>
-    <<owner canopi-support (2.1)>>
+    <<owner canopi-support>>
     value or Unbounded
   }
   class CancelToken {

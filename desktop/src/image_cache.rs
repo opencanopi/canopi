@@ -1,4 +1,7 @@
-use sha2::{Digest, Sha256};
+use canopi_support::durable::{
+    OsDurableFs, Precondition, PublishSource, TargetLocks, publish_durably,
+};
+use canopi_support::hash;
 use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -25,8 +28,6 @@ const SPECIES_MEDIA_HOSTS: &[&str] = &[
     "commons.wikimedia.org",
     "upload.wikimedia.org",
 ];
-
-static NEXT_TEMP_ID: AtomicU64 = AtomicU64::new(0);
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ImageCacheError {
@@ -225,36 +226,21 @@ impl ImageCache {
     }
 
     fn write_bytes_atomically(path: &Path, bytes: &[u8]) -> Result<(), String> {
-        let tmp_path = Self::temp_path_for(path);
-        fs::write(&tmp_path, bytes).map_err(|e| format!("Failed to cache image: {e}"))?;
-
-        if matches!(fs::metadata(path), Ok(meta) if meta.is_file() && meta.len() == 0) {
-            fs::remove_file(path)
-                .map_err(|e| format!("Failed to clear stale cached image: {e}"))?;
-        }
-
-        if let Err(e) = fs::rename(&tmp_path, path) {
-            let _ = fs::remove_file(&tmp_path);
-            return Err(format!("Failed to finalize cached image: {e}"));
-        }
-
-        Ok(())
-    }
-
-    fn temp_path_for(path: &Path) -> PathBuf {
-        let unique = NEXT_TEMP_ID.fetch_add(1, Ordering::Relaxed);
-        let file_name = path
-            .file_name()
-            .and_then(|name| name.to_str())
-            .unwrap_or("image");
-        path.with_file_name(format!("{file_name}.tmp-{}-{unique}", std::process::id()))
+        publish_durably(
+            &OsDurableFs,
+            TargetLocks::global(),
+            PublishSource::Bytes(bytes),
+            path,
+            "image",
+            Precondition::Any,
+        )
+        .map(|_| ())
+        .map_err(|e| format!("Failed to cache image: {e}"))
     }
 
     /// Convert URL to a safe filename using SHA256 hash prefix + extension.
     fn url_to_filename(url: &str) -> String {
-        let mut hasher = Sha256::new();
-        hasher.update(url.as_bytes());
-        let hash = format!("{:x}", hasher.finalize());
+        let hash = hash::sha256_hex(url.as_bytes());
 
         let url_path = url.split('?').next().unwrap_or(url);
         let ext = url_path
@@ -353,7 +339,6 @@ mod tests {
     };
     use crate::test_scratch::TestScratch;
     use std::fs;
-    use std::path::PathBuf;
     use std::sync::{Arc, Barrier};
     use std::thread;
     use std::time::{Duration, Instant};
@@ -483,15 +468,6 @@ mod tests {
                 "Canopi/{} (+https://projectcanopi.com)",
                 env!("CARGO_PKG_VERSION")
             )
-        );
-    }
-
-    #[test]
-    fn temporary_paths_are_unique_without_reading_the_clock() {
-        let path = PathBuf::from("/cache/image.jpg");
-        assert_ne!(
-            ImageCache::temp_path_for(&path),
-            ImageCache::temp_path_for(&path)
         );
     }
 

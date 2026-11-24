@@ -1,7 +1,7 @@
 //! The report writer's behaviour: one zip, every section, a manifest of every other entry,
 //! nothing private, and the failure states of contracts §13.
 
-use super::{ProblemReportContext, create_problem_report, create_problem_report_with_writer};
+use super::{ProblemReportContext, create_problem_report, create_problem_report_with_fs};
 use crate::test_scratch::TestScratch;
 use canopi_redact::Redactor;
 use canopi_types::failure::{FailureCode, IoFailureKind};
@@ -369,13 +369,13 @@ fn a_report_root_that_cannot_be_created_fails_without_naming_its_path() {
 fn a_disk_full_write_settles_as_no_space_and_leaves_no_half_written_zip() {
     let scratch = TestScratch::new("problem-report-disk-full");
     let context = context(&scratch, None);
+    let fs = canopi_support::fault_fs::FaultFs::new();
+    fs.inject(
+        canopi_support::fault_fs::FaultOp::StageBytes,
+        canopi_support::fault_fs::FaultAction::IoError(std::io::ErrorKind::StorageFull),
+    );
 
-    let failure =
-        create_problem_report_with_writer(&request("Disk full"), &context, |file, bytes| {
-            std::io::Write::write_all(file, &bytes[..bytes.len() / 2])?;
-            Err(std::io::ErrorKind::StorageFull.into())
-        })
-        .unwrap_err();
+    let failure = create_problem_report_with_fs(&request("Disk full"), &context, &fs).unwrap_err();
 
     assert_eq!(
         failure.code,
@@ -385,7 +385,7 @@ fn a_disk_full_write_settles_as_no_space_and_leaves_no_half_written_zip() {
     );
     assert!(!failure.detail.unwrap().as_str().contains("Problem reports"));
     assert_eq!(
-        std::fs::read_dir(&context.reports_folder).unwrap().count(),
+        fs.volatile_files_in(&context.reports_folder).len(),
         0,
         "the partial zip is removed"
     );
