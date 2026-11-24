@@ -1,12 +1,13 @@
-// policy/gate/agents-rows.ts: AGENTS.md's Quality gates rows, rendered from the table (2.1-M198, 2.1-M226; design check
-// AR11). Each area's Run cell is its template with every `{id}` replaced by how the row writes that check, so the row
-// cannot name a check the gate does not run; `agents-rows --check` compares the rendered rows, in order, with the table
-// AGENTS.md shows, and scripts/check_docs.py runs it until the docs checker moves to Node (D1).
-import { existsSync, readFileSync } from 'node:fs'
-import { join } from 'node:path'
+// policy/gate/agents-rows.ts: Quality gates table rendered from policy/gate/table.ts to docs/quality-gates.md
+// (2.1-M198, 2.1-M226, 2.1-Q342; design check AR11). Each area's Run cell is its template with every `{id}` replaced
+// by how the row writes that check, so the row cannot name a check the gate does not run; `agents-rows --check`
+// compares the rendered rows with docs/quality-gates.md and verifies AGENTS.md links to it.
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
 import { TABLE, TABLE_FILE, type Table } from './table.ts'
 
-export const HEADING = '## Quality gates'
+export const GATES_DOC = 'docs/quality-gates.md'
+export const HEADING = '# Quality gates'
 
 export interface Row {
   readonly change: string
@@ -24,7 +25,7 @@ export function renderRows(table: Table = TABLE): Row[] {
   }))
 }
 
-/** The rows of AGENTS.md's Quality gates table, or undefined when it has none. */
+/** The rows of the Quality gates table, or undefined when the document has none. */
 export function agentsRows(text: string): Row[] | undefined {
   const at = text.indexOf(HEADING)
   if (at < 0) return undefined
@@ -38,24 +39,54 @@ export function agentsRows(text: string): Row[] | undefined {
 
 const shown = (row: Row | undefined) => (row ? `| ${row.change} | ${row.run} |` : 'no row')
 
-/** Each way AGENTS.md's rows at `root` differ from the rendered ones; none when they are equal. */
+/** Each way docs/quality-gates.md differs from the rendered document, or AGENTS.md lacks its link; none when equal. */
 export function agentsRowFaults(root: string, table: Table = TABLE): string[] {
-  const file = join(root, 'AGENTS.md')
-  const ours = agentsRows(existsSync(file) ? readFileSync(file, 'utf8') : '')
-  if (ours === undefined) return [`AGENTS.md has no ${HEADING} table for ${TABLE_FILE}'s rows (2.1-M198)`]
-  const theirs = renderRows(table)
+  const file = join(root, GATES_DOC)
+  const raw = existsSync(file) ? readFileSync(file, 'utf8') : ''
+  const ours = agentsRows(raw)
   const faults: string[] = []
-  for (let index = 0; index < Math.max(ours.length, theirs.length); index += 1) {
-    const agents = ours[index]
-    const rendered = theirs[index]
-    if (agents?.change !== rendered?.change || agents?.run !== rendered?.run) {
-      faults.push(`AGENTS.md: ${HEADING} row ${index + 1} differs from ${TABLE_FILE} (2.1-M198): AGENTS.md has `
-        + `${shown(agents)}, the table renders ${shown(rendered)}`)
+  if (ours === undefined) {
+    faults.push(`${GATES_DOC} has no ${HEADING} table for ${TABLE_FILE}'s rows (2.1-M198, 2.1-Q342)`)
+  } else {
+    const theirs = renderRows(table)
+    for (let index = 0; index < Math.max(ours.length, theirs.length); index += 1) {
+      const docRow = ours[index]
+      const rendered = theirs[index]
+      if (docRow?.change !== rendered?.change || docRow?.run !== rendered?.run) {
+        faults.push(`${GATES_DOC}: ${HEADING} row ${index + 1} differs from ${TABLE_FILE} (2.1-M198, 2.1-Q342): `
+          + `${GATES_DOC} has ${shown(docRow)}, the table renders ${shown(rendered)}`)
+      }
     }
+    if (!faults.length && raw !== renderDoc(table)) {
+      faults.push(`${GATES_DOC} header or footer differs from \`node policy/gate/cli.mjs agents-rows --write\` (2.1-Q342)`)
+    }
+  }
+  const agentsFile = join(root, 'AGENTS.md')
+  if (existsSync(agentsFile) && !readFileSync(agentsFile, 'utf8').includes(`(${GATES_DOC})`)) {
+    faults.push(`AGENTS.md does not link to ${GATES_DOC} (2.1-Q342)`)
   }
   return faults
 }
 
-/** The rendered rows as AGENTS.md writes them. */
+/** The rendered rows as markdown table text. */
 export const rowsText = (table: Table = TABLE) =>
   ['| Change | Run |', '|---|---|', ...renderRows(table).map(shown)].join('\n')
+
+/** The complete generated docs/quality-gates.md document (2.1-Q342). */
+export const renderDoc = (table: Table = TABLE) => [
+  `<!-- Generated from ${TABLE_FILE} by \`node policy/gate/cli.mjs agents-rows --write\` (2.1-Q342). Do not edit by hand. -->`,
+  '',
+  HEADING,
+  '',
+  rowsText(table),
+  '',
+  'Docs-only changes skip code gates; say so in the handoff.',
+  '',
+].join('\n')
+
+/** Writes the generated docs/quality-gates.md document under `root`. */
+export function writeGatesDoc(root: string, table: Table = TABLE): void {
+  const file = join(root, GATES_DOC)
+  mkdirSync(dirname(file), { recursive: true })
+  writeFileSync(file, renderDoc(table))
+}

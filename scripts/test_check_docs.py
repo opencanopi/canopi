@@ -523,8 +523,7 @@ if __name__ == "__main__":
 
 
 class GateRowChecks(unittest.TestCase):
-    """AGENTS.md's Quality gates rows against policy/gate/table.ts, which the docs checker runs as
-    `node policy/gate/cli.mjs agents-rows --check` (2.1-M198, 2.1-Q267)."""
+    """AGENTS.md's Quality gates rows against policy/gate/table.ts (`agents-rows --check`, 2.1-M198, 2.1-Q267)."""
 
     def planted(self, root):
         subprocess.run(["git", "init", "-q"], cwd=root, check=True)
@@ -532,29 +531,33 @@ class GateRowChecks(unittest.TestCase):
             (root / sub).mkdir(parents=True, exist_ok=True)
             for name in (ROOT / sub).iterdir():
                 if name.is_file() and ".test." not in name.name: shutil.copy(name, root / sub / name.name)
-        (root / "desktop/web").mkdir(parents=True)
+        (root / "desktop/web").mkdir(parents=True); (root / "docs").mkdir(exist_ok=True)
         shutil.copy(ROOT / "desktop/web/package.json", root / "desktop/web/package.json")
-        return subprocess.run(["node", "policy/gate/cli.mjs", "agents-rows"], cwd=root, check=True, capture_output=True,
-                              text=True).stdout
+        (root / "AGENTS.md").write_text("# A\n\nSee [Quality gates](docs/quality-gates.md).\n", encoding="utf-8")
+        return subprocess.run(["node", "policy/gate/cli.mjs", "agents-rows"], cwd=root, check=True, capture_output=True, text=True).stdout
 
     def test_canopi_f47t_52_228_10_agents_gate_rows_that_drift_from_the_gate_table_fail(self):
         with TemporaryDirectory() as directory:
-            root = Path(directory)
-            rows = self.planted(root)
+            root = Path(directory); rows = self.planted(root)
             row = next(line for line in rows.splitlines() if line.startswith("| Frontend |"))
-            (root / "AGENTS.md").write_text(f"# A\n\n## Quality gates\n\n{rows.replace(row, row[:-1] + '&& `npm run made-up-check` |')}\n",
-                                            encoding="utf-8")
-            errors = check(root)
-            self.assertTrue(any("policy/gate/table.ts" in e and "made-up-check" in e for e in errors), errors)
+            (root / "docs/quality-gates.md").write_text(f"# Quality gates\n\n{rows.replace(row, row[:-1] + '&& `npm run made-up-check` |')}\n", encoding="utf-8")
+            self.assertTrue(any("policy/gate/table.ts" in e and "made-up-check" in e for e in check(root)))
 
     def test_canopi_f47t_52_228_10_rows_equal_to_the_gate_table_pass_and_a_root_without_the_gate_checks_nothing(self):
         with TemporaryDirectory() as directory:
-            root = Path(directory)
-            rows = self.planted(root)
-            (root / "AGENTS.md").write_text(f"# A\n\n## Quality gates\n\n{rows}\nAfter.\n", encoding="utf-8")
+            root = Path(directory); rows = self.planted(root)
+            (root / "docs/quality-gates.md").write_text(f"# Quality gates\n\n{rows}\nAfter.\n", encoding="utf-8")
             self.assertEqual([e for e in check(root) if "Quality gates" in e], [])
-            (root / "AGENTS.md").write_text("# A\n\nNo gates.\n", encoding="utf-8")
-            self.assertEqual([e for e in check(root) if "Quality gates" in e],
-                             ["AGENTS.md has no ## Quality gates table for policy/gate/table.ts's rows (2.1-M198)"])
+            (root / "docs/quality-gates.md").write_text("# A\n\nNo gates.\n", encoding="utf-8")
+            self.assertEqual([e for e in check(root) if "Quality gates" in e], ["docs/quality-gates.md has no # Quality gates table for policy/gate/table.ts's rows (2.1-M198, 2.1-Q342)"])
             shutil.rmtree(root / "policy")
             self.assertEqual([e for e in check(root) if "Quality gates" in e], [])
+
+    def test_machine_specific_absolute_paths_fail(self):
+        with TemporaryDirectory() as directory:
+            root = Path(directory); (root / "docs").mkdir(); doc = root / "docs/README.md"
+            for bad in ("/media/alice/repo", "/home/bob/x", "/Users/carol/y", "C:/Users/carol/y", "file:///home/bob/x"):
+                doc.write_text(f"See `{bad}`.\n", encoding="utf-8")
+                self.assertTrue(any("machine-specific" in e for e in check_document(doc, root)), bad)
+            doc.write_text("See `https://example.com/home/page`, `/home/runner/work/canopi` and `$ROOT`.\n", encoding="utf-8")
+            self.assertEqual(check_document(doc, root), [])

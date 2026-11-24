@@ -5,7 +5,7 @@ import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { execute } from './run.ts'
+import { execute, resourceGroup } from './run.ts'
 import { TABLE } from './table.ts'
 import { cleanEnv, git, PLANTED_IMAGE, PlantedRepo, REPO_ROOT } from './planted-repo.ts'
 
@@ -71,7 +71,9 @@ describe('running (canopi-f47t.52.228.10)', () => {
     const { code, stderr, before } = await stopped('SIGINT')
     expect(code, stderr).toBe(130)
     expect(stderr).toContain('NOT GREEN: interrupted; 0 passed, 0 failed, the rest not run; nothing was written')
-    expect(repo.calls(), 'the check SIGINT stopped was the last to start').toEqual(['npm run typecheck offline=unset'])
+    expect(repo.calls()).toContain('npm run typecheck offline=unset')
+    expect(repo.calls().every((call) => call === 'npm run typecheck offline=unset' || call === 'npm run build:web:bundle offline=unset'),
+      'no check after the first in each Tier 2 group started').toBe(true)
     expect(git(repo.repo, 'status', '--porcelain', '--ignored')).toBe(before)
   })
 
@@ -91,7 +93,9 @@ describe('running (canopi-f47t.52.228.10)', () => {
     expect(code, stderr).toBe(143)
     expect(seconds, 'the check was stopped, not waited for').toBeLessThan(10)
     expect(stderr).toContain('NOT GREEN: interrupted (SIGTERM)')
-    expect(repo.calls(), 'no check started after it').toEqual(['npm run typecheck offline=unset'])
+    expect(repo.calls()).toContain('npm run typecheck offline=unset')
+    expect(repo.calls().every((call) => call === 'npm run typecheck offline=unset' || call === 'npm run build:web:bundle offline=unset'),
+      'no check after the first in each Tier 2 group started').toBe(true)
     const durations = JSON.parse(readFileSync(join(logs, 'durations.json'), 'utf8')) as { outcome: string }[]
     expect(durations.every((entry) => entry.outcome === 'not run')).toBe(true)
   })
@@ -209,5 +213,58 @@ describe('the pinned actionlint (canopi-f47t.52.228.15.1)', () => {
     const argv = readFileSync(log, 'utf8').trim().split(' ')
     expect(argv.slice(0, 2)).toEqual(['-config-file', '.github/actionlint.yaml'])
     expect(argv, 'the pinned tool alone decides: no runner-installed shellcheck').toContain('-shellcheck=')
+  })
+})
+
+describe('two-tier gate execution (Stage 1 E1)', () => {
+  it('fails fast on Tier 1 preflight checks before starting Tier 2 checks', async () => {
+    const marker = join(repo.root, 'tier2-ran')
+    const code = await execute(repo.repo, [
+      { id: 'typecheck', command: `${process.execPath} -e require("fs").writeFileSync(${JSON.stringify(marker)},"ran")` },
+      { id: 'fmt', command: `${process.execPath} -e process.exit(1)` },
+    ], undefined, [], false)
+    expect(code).toBe(1)
+    expect(() => readFileSync(marker)).toThrow()
+  })
+
+  it('runs independent Tier 2 resource groups (cargo, web) in parallel and records all durations', async () => {
+    // Barrier proves true overlap: clippy writes a.ready and waits for b.ready; typecheck writes b.ready and waits for a.ready.
+    // If executed serially, clippy would time out waiting for b.ready and fail.
+    const barrier = join(repo.root, 'barrier.mjs')
+    writeFileSync(barrier, "import { existsSync, writeFileSync } from 'node:fs'\n"
+      + "writeFileSync(process.argv[2], '1')\n"
+      + "const end = Date.now() + 4000\n"
+      + "while (!existsSync(process.argv[3])) { if (Date.now() > end) process.exit(2) }\n")
+    const a = join(repo.root, 'a.ready')
+    const b = join(repo.root, 'b.ready')
+    const logs = join(repo.root, 'logs')
+    const code = await execute(repo.repo, [
+      { id: 'clippy', command: `${process.execPath} ${barrier} ${a} ${b}`, cargo: true },
+      { id: 'typecheck', command: `${process.execPath} ${barrier} ${b} ${a}` },
+    ], undefined, [], false, process.env, logs)
+    expect(code).toBe(0)
+    const durations = JSON.parse(readFileSync(join(logs, 'durations.json'), 'utf8')) as { id: string, outcome: string }[]
+    expect(durations.map((d) => [d.id, d.outcome])).toEqual([['clippy', 'passed'], ['typecheck', 'passed']])
+    // One group failing still lets the other group finish and returns exit 1.
+    const logsFail = join(repo.root, 'logs-fail')
+    const failCode = await execute(repo.repo, [
+      { id: 'clippy', command: `${process.execPath} -e process.exit(1)`, cargo: true },
+      { id: 'typecheck', command: `${process.execPath} -e process.exit(0)` },
+    ], undefined, [], false, process.env, logsFail)
+    expect(failCode).toBe(1)
+    const failDurations = JSON.parse(readFileSync(join(logsFail, 'durations.json'), 'utf8')) as { id: string, outcome: string }[]
+    expect(failDurations.map((d) => [d.id, d.outcome])).toEqual([['clippy', 'failed'], ['typecheck', 'passed']])
+    // build-web invokes cargo wasm build, so it belongs to the serial cargo group alongside clippy/cov.
+    expect(resourceGroup({ id: 'build-web', ...TABLE.checks['build-web']! })).toBe('cargo')
+  })
+
+  it('refuses a linked worktree with a broken .git gitdir link naming git worktree repair (Stage 1 E1)', () => {
+    const linked = join(repo.root, 'broken-wt')
+    git(repo.repo, 'worktree', 'add', '-q', '-b', 'broken', linked)
+    writeFileSync(join(linked, '.git'), 'gitdir: /nonexistent/moved/worktree/gitdir\n')
+    const run = repo.gate(['areas', '--base', repo.base], { cwd: linked })
+    expect(run.status).toBe(1)
+    expect(run.stderr).toContain('broken worktree git-link')
+    expect(run.stderr).toContain('git worktree repair')
   })
 })

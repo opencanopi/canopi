@@ -37,8 +37,8 @@ function summary(log: string | undefined, env: Readonly<Record<string, string>> 
 
 describe('the bundle budgets summary (2.1-Q203)', () => {
   it('canopi-f47t.52.228.54: a failed bundle self-test is never reported as a bundle over budget', () => {
-    const selfTest = 'gate: cd desktop/web && npm run test:policies:bundle:self-test'
-    const bundle = 'gate: cd desktop/web && npm run test:policies:bundle'
+    const selfTest = 'gate: node policy/check.mjs --self-test --family bundle-size'
+    const bundle = 'gate: node policy/check.mjs --family bundle-size'
     expect(summary([selfTest, 'FAIL planted case', bundle, 'gate: GREEN', `gate: FAIL ${selfTest.slice(6)}`, ''].join('\n'))).toBe('')
     const over = summary([bundle, 'bundle-size: assets/index.js 900 kB over its 800 kB budget', 'gate: RED',
       `gate: FAIL ${bundle.slice(6)}`, ''].join('\n'))
@@ -51,12 +51,12 @@ describe('the bundle budgets summary (2.1-Q203)', () => {
     const row = frontend.find((candidate) => candidate.name === 'The Frontend row')?.run ?? ''
     expect(row).toContain('node policy/gate/cli.mjs full --area frontend 2>&1 | tee "$RUNNER_TEMP/frontend-row.log"')
     expect([step?.if, step?.run?.trim()]).toEqual(['failure()', 'node policy/gate/cli.mjs bundle-summary "$RUNNER_TEMP/frontend-row.log"'])
-    const bundle = 'gate: cd desktop/web && npm run test:policies:bundle'
+    const bundle = 'gate: node policy/check.mjs --family bundle-size'
     const over = summary([bundle, 'FAIL assets/x.js over budget', 'gate: cd desktop/web && npm run check:notices', 'notices: stale',
       `gate: FAIL ${bundle.slice(6)}`, ''].join('\n'))
     expect(over.split('```')[1]).toBe('\nFAIL assets/x.js over budget\n')
     expect(over).toContain('bd create --type=bug --priority=1 --title="Bundle size over budget at aaaaaaaaaaaa" '
-      + '--description="npm run test:policies:bundle failed in https://x/o/r/actions/runs/1; the refusals are in its step summary."')
+      + '--description="node policy/check.mjs --family bundle-size failed in https://x/o/r/actions/runs/1; the refusals are in its step summary."')
     // A row that failed before it wrote its log ran no bundle check; a runner with no step summary is refused.
     expect(summary(undefined)).toBe('')
     expect(summary('', { GITHUB_STEP_SUMMARY: '' })).toContain('exit 1: gate: bundle-summary writes to $GITHUB_STEP_SUMMARY, which is not set')

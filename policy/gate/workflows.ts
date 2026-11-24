@@ -365,7 +365,7 @@ function gateNeedFaults(where: string, step: Step, have: { node: boolean, npm: b
   if (!have.npm && checks.some((check) => needsPackages(check) || /check(_docs\.py|\.mjs)/.test(check.command))) {
     faults.push(`${where} runs no npm ci in desktop/web before ${what}`)
   }
-  if (clippy && !have.deps && checks.some((check) => check.cargo && check.command.includes('test:policies'))) {
+  if (clippy && !have.deps && checks.some((check) => check.cargo && /policy\/check\.mjs|test:policies/.test(check.command))) {
     faults.push(`${where} installs no Linux dependencies before ${what}'s clippy families`)
   }
   return faults

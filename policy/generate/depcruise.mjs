@@ -12,6 +12,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { builtinModules } from 'node:module';
+import { EDITION_PAIRS } from '../adapters/edition-pairs.mjs';
 import { LAYER_TABLE, REPO_ROOT } from '../core/base.mjs';
 import { matchesGlob } from '../core/globs.mjs';
 import { loadTableRules } from '../core/tables.mjs';
@@ -105,8 +106,9 @@ export function graphRefusals(root, rows) {
    }
   return refusals;
 }
-const DESKTOP_ADAPTER = '\\.desktop\\.tsx?$';
-const BROWSER_ADAPTER = '\\.browser\\.tsx?$';
+const adapterRe = (suffix) => `${escRe(suffix)}\\.tsx?$`;
+const DESKTOP_ADAPTER = adapterRe(EDITION_PAIRS.find((p) => p.edition === 'desktop').suffix);
+const BROWSER_ADAPTER = adapterRe(EDITION_PAIRS.find((p) => p.edition === 'browser').suffix);
 const RUNTIME_ONLY = ['type-only', 'type-import', 'dynamic-import'];
 const asArray = (v) => (Array.isArray(v) ? v : [v]);
 const level = (u) => LAYER_ORDER.indexOf(u.layer);
@@ -204,10 +206,17 @@ function depcruiseRules(table, rows) {
     const webRoot = srcRe(rowsAt((r) => r.layer === 'L5' && r.edition === 'web'));
     const allRoots = anyOf([desktopRoot, webRoot]);
     const gallery = anyOf((table.outside ?? []).filter((o) => o.edition === 'gallery').map((o) => `${under(bare(o.path))}${o.path.endsWith('/') ? '/' : '$'}`));
-    rule(desktop, roots, 'desktop-adapter-only-from-desktop-root', 'a .desktop.ts adapter is imported only by the Desktop root or another Desktop adapter',
-      { pathNot: notTest(desktopRoot, DESKTOP_ADAPTER) }, { path: DESKTOP_ADAPTER });
-    rule(desktop, roots, 'browser-adapter-only-from-web-root', 'a .browser.ts adapter is imported only by the Web root or another browser adapter',
-      { pathNot: notTest(webRoot, BROWSER_ADAPTER) }, { path: BROWSER_ADAPTER });
+    const pairMeta = {
+      desktop: { root: desktopRoot, rootLabel: 'the Desktop root', kindLabel: 'Desktop', target: 'desktop' },
+      browser: { root: webRoot, rootLabel: 'the Web root', kindLabel: 'browser', target: 'web' },
+    };
+    for (const pair of EDITION_PAIRS) {
+      const meta = pairMeta[pair.edition];
+      const re = adapterRe(pair.suffix);
+      rule(desktop, roots, `${pair.edition}-adapter-only-from-${meta.target}-root`,
+        `a ${pair.suffix}.ts adapter is imported only by ${meta.rootLabel} or another ${meta.kindLabel} adapter`,
+        { pathNot: notTest(meta.root, re) }, { path: re });
+    }
     rule(desktop, roots, 'no-cross-edition', 'Desktop root and adapters never import Web root or browser adapters (ADR 0005)',
       { path: anyOf([desktopRoot, DESKTOP_ADAPTER]), pathNot: notTest() }, { path: anyOf([webRoot, BROWSER_ADAPTER]) });
     rule(desktop, roots, 'nothing-imports-a-root', 'edition roots (L5) compose the app; nothing below imports them',

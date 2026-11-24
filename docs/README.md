@@ -5,13 +5,14 @@ Every document answers one of four questions. Start with the narrowest one for y
 | Question | Where |
 | --- | --- |
 | What must never change, and why? | [`AGENTS.md`](../AGENTS.md), [`architecture.md`](architecture.md), [`adr/`](adr/) |
+| Which checks run per changed area? | [`quality-gates.md`](quality-gates.md) |
 | Which diagram, owner and example for my change? | [`architecture/`](architecture/README.md) |
 | What did the user decide, and in whose words? | the release's decision ledger in [`decisions/`](decisions/2-1.md) |
 | What does the finished thing look like? | [`.interface-design/system.md`](../.interface-design/system.md), its pattern files and [boards](../.interface-design/boards/README.md), the UI gallery (`cd desktop/web && npm run dev:ui`) |
 | Where is this area's boundary? | one guide per area in [`guides/`](guides/) (see below) |
 | What changed for users? | [`release-notes/`](release-notes/), the in-app Getting started |
 
-Also: [`workflow.md`](workflow.md) for bead commands and triage labels; [`review-checklist.md`](review-checklist.md) for what to try before a release; [`plans/`](plans/) for agreed but unbuilt work (built plans, such as the canvas v2 plan behind ADRs 0015 to 0020, are in git: `git log --diff-filter=D -- docs/plans/`); [`CONTEXT.md`](../CONTEXT.md) for product vocabulary.
+Also: [`workflow.md`](workflow.md) for bead commands and triage labels; [`review-checklist.md`](review-checklist.md) for what to try before a release; [`plans/`](plans/) for agreed unbuilt work (built plans are in git: `git log --diff-filter=D -- docs/plans/`); [`CONTEXT.md`](../CONTEXT.md) for product vocabulary.
 
 The 2.1 foundation work behind ADRs [0022](adr/0022-module-map-and-dependency-direction.md) to [0030](adr/0030-edition-parity.md) starts at [`plans/2-1-foundations.md`](plans/2-1-foundations.md), with its [contracts](plans/2-1-foundations-contracts.md).
 

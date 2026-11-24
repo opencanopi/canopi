@@ -46,7 +46,7 @@ import { type Change, type DeletedCode, deletedCode, judge as judgeTests, rangeD
 import { vitestPass } from './deletion-guard-vitest.ts'
 import { splitLines } from './ledger.ts'
 import { TABLE } from './table.ts'
-import { type Finding, GuardRefusal, isTestFile } from './test-reader.ts'
+import { type Finding, GuardRefusal, isTestFile, unclosedQuoteLines } from './test-reader.ts'
 
 const ATTRIBUTION = /(?<![\p{L}\p{N}_])Claude(?![\p{L}\p{N}_])|noreply@anthropic\.com/gu
 const PR_SUBJECT = /\(#\d+\)\s*$|^Merge pull request #\d+ /u
@@ -222,21 +222,19 @@ const report = (label: string, findings: readonly Finding[]) => {
 /**
  * What a judgement covers. `commit`: the rules judged on each commit (attribution, a created family's ledger id, added
  * Python, new bead citations).
- * `change`: the families, guarded files, demotions and tests, judged on a change with its routes; pr mode judges them
- * once, on the net change from the merge base, each file routed by tiedRoutes (2.1-Q272, 2.1-Q274). `strict`: one
- * commit's message, whose stray Rewords-test lines are refused. `listed`: the files the Vitest pass judges alone.
+ * `change`: the families, guarded files, demotions and tests, judged on a change with its routes; both commit-msg and
+ * pr mode judge them once on the net change from the merge base, each file routed by tiedRoutes (2.1-Q272, 2.1-Q274,
+ * canopi-gjpq). `listed`: the files the Vitest pass judges alone.
  */
 interface Parts {
   readonly commit: boolean
   readonly change: boolean
-  readonly strict: boolean
   readonly listed?: ReadonlySet<string>
   /** The route of each changed file (judgeRange's tiedRoutes, 2.1-Q274); else the message routes every file. */
   readonly route?: Route
   /** The code the range's commits deleted (rangeDeletedCode); else the code this diff deletes. */
   readonly deleted?: DeletedCode
 }
-const WHOLE: Parts = { commit: true, change: true, strict: true }
 
 /** The rules judged on each commit: attribution, added Python and new bead citations. */
 async function commitRules(repo: Repo, first: string, tree: string, message: string, files: readonly Change[],
@@ -254,7 +252,7 @@ async function commitRules(repo: Repo, first: string, tree: string, message: str
 
 /** Findings for a commit of `tree` over `parents` (a merge judged on what differs from every one). */
 async function judge(repo: Repo, parentsIn: readonly string[], tree: string, message: string, auth: Authority,
-  parts: Parts = WHOLE): Promise<Finding[]> {
+  parts: Parts): Promise<Finding[]> {
   const parents = parentsIn.length ? parentsIn : [EMPTY_TREE]
   const first = parents[0] ?? EMPTY_TREE
   // diffRatchets names a change only where a family file or a derived-rule table changed, and refuses a layer table it cannot read.
@@ -298,7 +296,7 @@ async function judge(repo: Repo, parentsIn: readonly string[], tree: string, mes
   findings.push(...await judgeTests(contents, message, {
     // A test guards behaviour a user decided: a Q row, never an M row (2.1-Q272).
     authorised: (path) => auth.citesQ(route(path)), missingQ: (path) => auth.missingQ(route(path)),
-    strictRewords: parts.strict, ...(parts.listed ? { listed: parts.listed } : {}),
+    ...(parts.listed ? { listed: parts.listed } : {}),
     deletedCode: parts.deleted ?? (retires ? await deletedCode(files, read, (path) => repo.show(tree, path)) : new Map()),
     quarantined, beadOpen: (bead) => auth.beadOpen(bead), read,
     pyModules: retires && first !== EMPTY_TREE ? repo.pyModules(first) : new Set(),
@@ -306,23 +304,13 @@ async function judge(repo: Repo, parentsIn: readonly string[], tree: string, mes
   return findings
 }
 
-/** The committing git's argv says --amend (git takes `--am` as its prefix): true or false, undefined when unreadable. */
-function amending(): boolean | undefined {
-  // The entry may have run the gate again on the engines Node, so the committing git is the nearest non-node ancestor.
-  let pid = process.ppid
-  for (let depth = 0; depth < 4; depth += 1) {
-    let argv: string[]
-    let parent: number
-    try {
-      argv = readFileSync(`/proc/${pid}/cmdline`, 'utf8').split('\0')
-      parent = Number(readFileSync(`/proc/${pid}/stat`, 'utf8').replace(/^.*\)\s+\S+\s+/su, '').split(' ')[0])
-    } catch {
-      return undefined
-    }
-    if (!/(^|\/)node[\d.]*$/u.test(argv[0] ?? '')) return argv.some((arg) => arg.length >= 4 && '--amend'.startsWith(arg))
-    pid = parent
-  }
-  return undefined
+/** Reads `git log` records of `range` in topological reverse order. */
+function rangeCommits(repo: Repo, range: string): (RangeCommit & { readonly subject: string })[] {
+  return repo.ok(['log', '--reverse', '--topo-order', '--format=%H%x1f%P%x1f%s%x1f%B%x1e', range])
+    .split('\x1e').map((record) => record.replace(/^\n/u, '')).filter(Boolean).map((record) => {
+      const [rev = '', parents = '', subject = '', message = ''] = record.split('\x1f')
+      return { rev, parents: parents.split(' ').filter(Boolean), subject, message }
+    })
 }
 
 /** The local integration tip (branch.<branch>.canopiIntegration), or undefined. */
@@ -358,27 +346,43 @@ async function commitMsg(repo: Repo, file: string): Promise<number> {
     }
   }
   const message = messageText(repo, readFileSync(file, 'utf8'))
+  for (const { line, quote } of unclosedQuoteLines(message)) {
+    process.stderr.write(`commit gate: warning: line ${line} opens ${quote} without closing it on the same line (canopi-2ldj); `
+      + 'a wrapped quoted test title is not matched\n')
+  }
   const tree = repo.ok(['write-tree']).trim()
   const head = repo.verify('HEAD')
-  const merging = repo.verify('MERGE_HEAD')
-  const base = repo.ok(['merge-base', head ?? 'origin/main', 'origin/main']).trim()
-  const branch = head ? repo.ok(['rev-list', `${base}..${head}`]).split(/\s+/u).filter(Boolean) : []
-  const tip = integrationTip(repo)
-  const auth = await repo.authority(base, repo.beadBlobs([tree, ...branch, ...(tip ? [tip] : [])]))
-  let candidates: string[][]
-  if (merging && head) candidates = [[head, ...repo.ok(['rev-parse', 'MERGE_HEAD']).split(/\s+/u).filter(Boolean)]]
-  else if (!head) candidates = [[]]
-  else {
-    const before = repo.verify(`${head}^`)
-    const amend = amending()
-    candidates = amend ? [before ? [before] : []] : amend === false ? [[head]] : [[head], before ? [before] : []]
-  }
-  const findings: Finding[] = []
-  for (const parents of candidates) {
-    for (const finding of await judge(repo, parents, tree, message, auth)) {
-      if (!findings.some(([rule, text]) => rule === finding[0] && text === finding[1])) findings.push(finding)
+  const mergeHead = repo.verify('MERGE_HEAD')
+  const parents = [...(head ? [head] : []), ...(mergeHead ? [mergeHead] : [])]
+  const base = mergeHead && head
+    ? repo.ok(['merge-base', '--octopus', head, mergeHead, 'origin/main']).trim()
+    : repo.ok(['merge-base', head ?? 'origin/main', 'origin/main']).trim()
+  const seen = new Set<string>()
+  const prior: RangeCommit[] = []
+  for (const tipRev of parents) {
+    for (const c of rangeCommits(repo, `${base}..${tipRev}`)) {
+      if (!seen.has(c.rev)) { seen.add(c.rev); prior.push(c) }
     }
   }
+  const tip = integrationTip(repo)
+  const auth = await repo.authority(base, repo.beadBlobs([tree, ...prior.map(({ rev }) => rev), ...(tip ? [tip] : [])]))
+  // Per-message rules (attribution, added Python, new bead citations) run on the new commit; net-change rules
+  // (families, guarded files, demotions, tests) run on merge-base..write-tree with tiedRoutes over the branch commits
+  // plus the staged change (and MERGE_HEAD's commits on a merge), so local commit-msg and CI pr mode give one verdict
+  // without /proc amend sniffing (canopi-gjpq).
+  const stagedCommit: RangeCommit = { rev: tree, parents, message }
+  const commits = [...prior, stagedCommit]
+  const allText = commits.map((c) => c.message).join('\n\n')
+  const route = tiedRoutes((from, to) => repo.changed(from, to), base, tree, commits, undefined)
+  const deleted = new RegExp(RETIRES.source, 'mu').test(allText) ? await rangeDeletedCode(repo, base, commits) : new Map<string, boolean>()
+  const findings: Finding[] = mergeHead
+    // On a merge commit, compare write-tree against every parent ([HEAD, MERGE_HEAD]) with the merge message alone:
+    // authorised changes already in either parent pass, while an unauthorised change sneaked into conflict resolution fails.
+    ? await judge(repo, parents, tree, message, auth, { commit: true, change: true })
+    : [
+      ...await judge(repo, parents, tree, message, auth, { commit: true, change: false }),
+      ...await judge(repo, [base], tree, allText, auth, { commit: false, change: true, route, deleted }),
+    ]
   if (report('commit gate', findings)) {
     process.stderr.write('commit gate: refused; fix the commit or its message (the rules: policy/gate/commit-gate.ts)\n')
     return 1
@@ -411,7 +415,7 @@ async function judgeRange(repo: Repo, mergeBase: string, head: string, commits: 
   const deleted = new RegExp(RETIRES.source, 'mu').test(text) ? await rangeDeletedCode(repo, mergeBase, commits) : new Map<string, boolean>()
   const vitest = withVitest ? await vitestPass(repo, mergeBase, head, text, (path) => auth.citesQ(route(path)), deleted) : undefined
   const net = await judge(repo, [mergeBase], head, text, auth,
-    { commit: false, change: true, strict: false, route, deleted, ...(vitest ? { listed: vitest.listed } : {}) })
+    { commit: false, change: true, route, deleted, ...(vitest ? { listed: vitest.listed } : {}) })
   const range = report(`range ${mergeBase.slice(0, 9)}..${head.slice(0, 9)}`, net)
   process.stdout.write(tiedNote(net))
   for (const note of vitest?.notes ?? []) process.stdout.write(`${note}\n`)
@@ -425,11 +429,7 @@ async function judgeRange(repo: Repo, mergeBase: string, head: string, commits: 
 async function pr(repo: Repo, base: string, head: string, body: string | undefined, withVitest: boolean): Promise<number> {
   refuseShallow(repo, [base, head], [])
   // One read of every commit of the range: id, parents, subject and message.
-  const commits = repo.ok(['log', '--reverse', '--topo-order', '--format=%H%x1f%P%x1f%s%x1f%B%x1e', `${base}..${head}`])
-    .split('\x1e').map((record) => record.replace(/^\n/u, '')).filter(Boolean).map((record) => {
-      const [rev = '', parents = '', subject = '', message = ''] = record.split('\x1f')
-      return { rev, parents: parents.split(' ').filter(Boolean), subject, message }
-    })
+  const commits = rangeCommits(repo, `${base}..${head}`)
   const revs = commits.map(({ rev }) => rev)
   // Before the merge base, which a range cut by a shallow boundary has none of.
   refuseShallow(repo, [], revs)
@@ -456,7 +456,7 @@ async function pr(repo: Repo, base: string, head: string, body: string | undefin
     }
     const own = await ruleIds(rev)
     const findings = await judge(repo, parents, rev, message, auth,
-      { commit: true, change: false, strict: false })
+      { commit: true, change: false })
     failed = report(label, findings.filter(([rule]) => !baseRules || !own || baseRules.has(rule) || own.has(rule))) || failed
   }
   if (revs.length) failed = await judgeRange(repo, mergeBase, head, commits, body, withVitest, auth) || failed

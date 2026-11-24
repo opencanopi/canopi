@@ -1,23 +1,23 @@
-// policy/gate/deletion-guard-vitest.ts: the deletion guard's Vitest pass (2.1-M199, 2.1-Q224, 2.1-Q267, 2.1-Q272), which
-// CI's Commit gate job runs with `pr --vitest`. Vitest titles (.each rows, template literals) lost between the merge base
-// and head are read by `vitest list --staticParse=false` on each revision's whole tree (a test may read any file of it at
-// collection), linking the checkout's node_modules: the base lists each test file deleted, changed or renamed (its old
-// path), the head each one changed, renamed or added, so a move into any file passes. A file either side cannot list is
-// named in a note and left to the static reading; a file listed at both ends is judged here alone (one reading,
-// canopi-f47t.52.240). The PR is judged on its net change: a lost title takes its route through the deletion guard's
-// one loss router (routeLoss, canopi-f47t.52.228.51): a merge-base Q row cited by a commit that touched its file or on a
-// PR body line naming the file (2.1-Q274); or, from any commit message of the range or the PR body, Retires-test with
-// the code under test deleted by a commit of the range (rangeDeletedCode), or a test of documentation only (M329);
-// Rewords-test (a template pair names its rows) to a title head adds in the same file, or a fold into a title kept there
-// (M330); or a quoted title head adds (its own file first). No route counts assertions (2.1-Q272).
+// policy/gate/deletion-guard-vitest.ts: the deletion guard's Vitest pass (2.1-M199, 2.1-Q224, 2.1-Q267, 2.1-Q272,
+// canopi-jxlh), which CI's Commit gate job runs with `pr --vitest`. Vitest titles (.each rows, template literals) lost
+// between the merge base and head are read by `vitest list --staticParse=false` on each revision's whole tree (a test
+// may read any file of it at collection), linking the checkout's node_modules: the base lists each test file deleted,
+// changed or renamed (its old path), the head each one changed, renamed or added, so a move into any file passes. A
+// file either side cannot list is named in a note and left to the static reading; a file listed at both ends is judged
+// here alone (one reading, canopi-f47t.52.240). The PR is judged on its net change: a lost title takes its route
+// through the deletion guard's one loss router (routeLoss, canopi-f47t.52.228.51): a merge-base Q row cited by a commit
+// that touched its file or on a PR body line naming the file (2.1-Q274); or, from any commit message of the range or
+// the PR body, Retires-test with the code under test deleted by a commit of the range (rangeDeletedCode), or a test of
+// documentation only (M329); or a quoted title head adds (its own file first, or a quoted template whose rows it fills)
+// or keeps in the same file (a fold, canopi-jxlh). No route counts assertions (2.1-Q272).
 import { spawnSync } from 'node:child_process'
 import { existsSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, relative } from 'node:path'
-import { type Change, type ChangeReader, type DeletedCode, RETIRES, rewordPairs, type Route, routeLoss } from './deletion-guard.ts'
+import { type Change, type ChangeReader, type DeletedCode, RETIRES, type Route, routeLoss } from './deletion-guard.ts'
 import { strip } from './ledger.ts'
 import { TABLE } from './table.ts'
-import { bodiesFor, byCodePoint, type Finding, GuardRefusal, quoted, type Read, refill } from './test-reader.ts'
+import { bodiesFor, byCodePoint, fills, type Finding, GuardRefusal, quoted, type Read, tests } from './test-reader.ts'
 
 /** What the pass reads of the repository: git -M changes and files at a revision. */
 export interface RangeGit extends ChangeReader {
@@ -142,11 +142,18 @@ export async function vitestPass(git: RangeGit, mergeBase: string, head: string,
   }
   const retired = new Set([...text.matchAll(RETIRES)].map((match) => strip(match[1] ?? '')))
   const readBase: Read = (path) => git.show(mergeBase, path)
-  const route: Omit<Route, 'reword' | 'replacement'> = {
+  const route: Omit<Route, 'replacement'> = {
     authorised: false, retired, read: readBase, pyModules: new Set(),
     deletedCode: deleted,
   }
-  const pairs = rewordPairs(text, true)
+  const headQuotedTemplates = new Map<string, string[]>()
+  const templatesAt = async (rev: string, filePath: string) => [...tests(filePath, await git.show(rev, filePath)).keys()]
+    .filter((pattern) => quoted(pattern, text))
+  for (const [, p] of free) {
+    if (!headQuotedTemplates.has(p)) headQuotedTemplates.set(p, await templatesAt(head, p))
+  }
+  const isQuotedFree = ([t, p]: readonly [string, string]) => quoted(t, text)
+    || (headQuotedTemplates.get(p) ?? []).some((pattern) => fills(pattern, t))
   const findings: Finding[] = []
   // A loss whose own file holds a quoted replacement is routed first, then one whose own title is quoted where it moved
   // to, so a loss with neither never takes their quote (the static pass's pair does the same; canopi-f47t.52.36).
@@ -154,8 +161,8 @@ export async function vitestPass(git: RangeGit, mergeBase: string, head: string,
     const path = `${WEB}/${file}`
     const same = new Set([path, renamed.get(path) ?? path])
     const title = lastPart(name)
-    if (free.some(([t, p]) => same.has(p) && quoted(t, text))) return 0
-    return free.some(([t]) => t === title && quoted(t, text)) ? 1 : 2
+    if (free.some((entry) => same.has(entry[1]) && isQuotedFree(entry))) return 0
+    return free.some((entry) => entry[0] === title && isQuotedFree(entry)) ? 1 : 2
   }
   const ordered = [0, 1, 2].flatMap((r) => lost.filter((pair) => rank(pair) === r))
   for (const [name, file] of ordered) {
@@ -165,21 +172,18 @@ export async function vitestPass(git: RangeGit, mergeBase: string, head: string,
     const loss = { title, path, text: textAt, bodies: bodiesFor(path, textAt, title) }
     const same = new Set([path, renamed.get(path) ?? path])
     const to = renamed.get(path) ?? path
-    const targets = pairs.flatMap(([from, into]) => refill(from, into, title) ?? [])
-    let pick = free.findIndex(([t, p]) => targets.includes(t) && same.has(p))
+    let pick = -1
     let next: Route = authorised(path) ? { ...route, authorised: true } : route
-    if (next.authorised || retired.has(title)) pick = -1
-    else if (pick !== -1) {
-      next = { ...route, reword: { title: free[pick]?.[0] ?? '', sameFile: true } }
-    } else {
-      const headText = targets.length ? await git.show(head, to) : undefined
-      // A fold (M330): a title kept in the file, at the base and at head; no assertion count (2.1-Q272).
-      const kept = targets.find((t) => bodiesFor(path, textAt, t) && bodiesFor(to, headText, t))
-      if (kept !== undefined) next = { ...route, reword: { title: kept, sameFile: true } }
+    if (!next.authorised && !retired.has(title)) {
+      const named = free.flatMap((entry, i) => (isQuotedFree(entry) ? [i] : []))
+      pick = named.find((i) => same.has(free[i]?.[1] ?? '')) ?? named.find((i) => free[i]?.[0] === title) ?? named[0] ?? -1
+      if (pick !== -1) next = { ...route, replacement: free[pick]?.[0] ?? '' }
       else {
-        const named = free.flatMap(([t], i) => (quoted(t, text) ? [i] : []))
-        pick = named.find((i) => same.has(free[i]?.[1] ?? '')) ?? named.find((i) => free[i]?.[0] === title) ?? named[0] ?? -1
-        if (pick !== -1) next = { ...route, replacement: free[pick]?.[0] ?? '' }
+        // A fold (canopi-jxlh): a quoted title or template kept in the same file at both base and head.
+        const headText = await git.show(head, to)
+        const kept = [...tests(to, headText).keys()]
+          .find((pattern) => pattern !== title && quoted(pattern, text) && bodiesFor(path, textAt, pattern) && bodiesFor(to, headText, pattern))
+        if (kept !== undefined) next = { ...route, replacement: kept }
       }
     }
     const verdict = await routeLoss(loss, next)
@@ -194,7 +198,7 @@ export async function vitestPass(git: RangeGit, mergeBase: string, head: string,
     const near = free.find(([, p]) => same.has(p))?.[0]
     findings.push(near === undefined
       ? ['gate-test-deleted', `'${name}' (${file}) is gone at head with no route in the range's messages or the PR body`]
-      : ['gate-test-reworded', `'${title}' looks reworded to '${near}' (${file}): add Rewords-test: ${title} -> ${near}`])
+      : ['gate-test-deleted', `'${title}' looks reworded to '${near}' (${file}): quote '${near}' in the commit message`])
   }
   return { findings, notes, listed }
 }

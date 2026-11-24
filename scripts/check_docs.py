@@ -43,7 +43,7 @@ LINK = re.compile(r"\[[^\]\n]*\]\((<[^>\n]+>|[^\s)]+)(?:\s+\"[^\"]*\")?\)")
 REFERENCE = re.compile(r"^\s{0,3}\[[^\]]+\]:\s*(<[^>]+>|\S+)", re.MULTILINE)
 # The v2 documentation layout: anything else under docs/ is evidence or history
 # that belongs in bd or nowhere.
-DOCS_FILES = {"README.md", "architecture.md", "workflow.md", "review-checklist.md"}
+DOCS_FILES = {"README.md", "architecture.md", "quality-gates.md", "workflow.md", "review-checklist.md"}
 DOCS_DIRECTORIES = {"adr", "architecture", "decisions", "guides", "plans", "release-notes"}
 LINE_BUDGETS = {"AGENTS.md": 120, "README.md": 80, "CONTEXT.md": 250, "docs/README.md": 60, "docs/architecture.md": 160,
                 "docs/workflow.md": 100, "docs/review-checklist.md": 200}
@@ -76,6 +76,7 @@ PARAGRAPH_EXEMPT = ("docs/release-notes/", "docs/plans/onf-plugin-adaptation.md"
 COVERS = re.compile(r"^Covers:\s*(.*)$", re.MULTILINE)
 # A guide's backticked `file.ext::NAME` (a threat-model cell, ADR 0029) names a declaration in that file (2.1-M428).
 DECLARED = re.compile(r"`([\w./-]+\.\w+)::([A-Za-z_]\w*)`")
+MACHINE_PATH = re.compile(r"(?:file://|[A-Za-z]:|(?<![A-Za-z0-9_:/]))/(?:(?:media|Users)/[A-Za-z0-9._-]+|home/(?!runner/work\b)[A-Za-z0-9._-]+)")
 
 
 def covers(text):
@@ -121,6 +122,8 @@ def check_document(file, root):
         elif url.fragment and dest.suffix == ".md" and unquote(url.fragment) not in anchors(dest.read_text(encoding="utf-8")):
             errors.append(f"{relative}:{line}: missing heading {target}")
 
+    for number, line in enumerate(text.splitlines(), start=1):
+        if match := MACHINE_PATH.search(line): errors.append(f"{relative}:{number}: machine-specific absolute path {match[0]}")
     if not relative.startswith(PARAGRAPH_EXEMPT):
         for number, line in enumerate(prose(text).splitlines(), start=1):
             if len(line) > PARAGRAPH_BUDGET and not line.lstrip().startswith("|") and not REFERENCE.match(line):
@@ -160,13 +163,7 @@ def size_warnings(file, root):
     lines = len(text.splitlines())
     if budget is not None and lines > budget:
         warnings.append(f"{relative}: {lines} lines exceeds its {budget}-line budget")
-    byte_budget = BYTE_BUDGETS.get(relative)
-    if byte_budget is None and relative.startswith("docs/guides/"):
-        byte_budget = GUIDE_BYTE_BUDGET
-    if byte_budget is None and relative.startswith("docs/architecture/"):
-        byte_budget = MODEL_BYTE_BUDGET
-    if byte_budget is None and relative.startswith(".interface-design/patterns/"):
-        byte_budget = PATTERN_BYTE_BUDGET
+    byte_budget = BYTE_BUDGETS.get(relative) or (GUIDE_BYTE_BUDGET if relative.startswith("docs/guides/") else MODEL_BYTE_BUDGET if relative.startswith("docs/architecture/") else PATTERN_BYTE_BUDGET if relative.startswith(".interface-design/patterns/") else None)
     # The `Covers:` line is read by --drift, not prose, so it is outside the budget.
     size = len(re.sub(r"^Covers:.*\n\n?", "", text, flags=re.MULTILINE).encode("utf-8"))
     if byte_budget is not None and size > byte_budget:

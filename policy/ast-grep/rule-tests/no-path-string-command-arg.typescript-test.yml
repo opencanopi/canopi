@@ -1,0 +1,11 @@
+id: no-path-string-command-arg.typescript
+valid:
+  - |
+    export async function checkHealth(id: string): Promise<void> {}
+  - |
+    export interface LaunchTarget { readonly path: string; }
+invalid:
+  - |
+    export async function loadDesign(path: string): Promise<void> {}
+  - |
+    export async function updateInstall(designPath?: string): Promise<void> {}

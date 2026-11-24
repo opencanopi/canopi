@@ -2,7 +2,7 @@
 // ADR 0028 Agent enforcement; design check AR11, AR20). Each check has a stable id, the command it runs from its
 // directory (leading NAME=value words are its environment) and what it needs; each area maps its anchored path regexes
 // (never globs: picomatch through policy/check.mjs is the one glob engine) to its checks per lane, and renders its
-// AGENTS.md Quality gates row from a template whose `{id}` placeholders name its checks (agents-rows.ts). An area's
+// docs/quality-gates.md Quality gates row from a template whose `{id}` placeholders name its checks (agents-rows.ts). An area's
 // scans are the files its source-text tests read: they select those tests, never a check or a CI job. table-faults.ts
 // refuses a malformed table naming this file, before any plan is made.
 
@@ -123,18 +123,17 @@ export const TABLE: Table = {
     'platform-tests': { command: 'CI job platform-tests: the native tests on macOS and Windows', shown: 'build.yml platform-tests', ciOnly: true },
     'packaging': { command: 'CI job build: the Linux and Apple silicon installers', shown: 'build.yml build', ciOnly: true },
     'packaging-every-platform': { command: 'CI job build: every platform\'s installer', shown: 'build.yml build', ciOnly: true },
-    // The policy checker runs one lane per run, each through a package script that is that one command (design check
-    // AR8, amending 2.1-M223): lane-unrun reads these checks, so each lane's families and planted cases have a check and a
-    // self-test here. The push lane holds the clippy and cargo families, which build canopi-desktop: SKIP_DB (no catalog
-    // DB in CI).
-    'policy-check': web('npm run test:policies:check'),
-    'policy-self-test': web('npm run test:policies:self-test'),
-    'policy-check-push': web(`${SKIP_DB} npm run test:policies:push`, { cargo: true }),
-    'policy-self-test-push': web(`${SKIP_DB} npm run test:policies:push:self-test`, { cargo: true }),
-    'policy-bundle': web('npm run test:policies:bundle'),
-    'policy-self-test-bundle': web('npm run test:policies:bundle:self-test'),
-    'policy-a11y': web('npm run test:policies:a11y'),
-    'policy-self-test-a11y': web('npm run test:policies:a11y:self-test'),
+    // The policy checker runs one lane per run directly from the repo root (canopi-6a36; design check AR8, amending
+    // 2.1-M223): lane-unrun reads these commands straight off the table without parsing package.json. The push lane
+    // holds the clippy and cargo families, which build canopi-desktop: SKIP_DB (no catalog DB in CI).
+    'policy-check': { command: 'node policy/check.mjs' },
+    'policy-self-test': { command: 'node policy/check.mjs --self-test' },
+    'policy-check-push': { command: `${SKIP_DB} node policy/check.mjs --lane push`, cargo: true },
+    'policy-self-test-push': { command: `${SKIP_DB} node policy/check.mjs --self-test --lane push`, cargo: true },
+    'policy-bundle': { command: 'node policy/check.mjs --family bundle-size' },
+    'policy-self-test-bundle': { command: 'node policy/check.mjs --self-test --family bundle-size' },
+    'policy-a11y': { command: 'node policy/check.mjs --family axe' },
+    'policy-self-test-a11y': { command: 'node policy/check.mjs --self-test --family axe' },
     'policy-node-tests': web('npm run test:policies:node'),
     'policy-generate': web('npm run test:policies:generate'),
     'policy-generate-self-test': web('npm run test:policies:generate:self-test'),
@@ -184,8 +183,8 @@ export const TABLE: Table = {
     // the Commit gate runs it on every PR, so a scratch/ branch the pre-push hook let through unstamped never merges a
     // new marker (2.1-Q328, 2.1-Q329).
     'prepush-checks': { command: 'node policy/gate/cli.mjs prepush-checks --base origin/main' },
-    // The plan names the families a change's paths reach (CHEAP_FAMILIES) after `--`.
-    'cheap-families': web('npm run test:policies:family --'),
+    // The plan names the families a change's paths reach (CHEAP_FAMILIES) as `--family <id>` args (canopi-6a36).
+    'cheap-families': { command: 'node policy/check.mjs' },
     'actionlint': { command: 'node policy/gate/cli.mjs actionlint' },
     // Both builds' chunks parsed by the oldest engines in their pinned images: Debian 12's JavaScriptCore (A15) and the
     // engine floor's WebKit (desktop/web/engine-floor.ts, 2.1-M490).
@@ -215,7 +214,7 @@ export const TABLE: Table = {
   areas: ([
     {
       name: 'rust', label: 'Rust',
-      row: '`{cargo-locked}`; `{fmt}`; `{clippy}`; `{cov}` above its floor (it runs the workspace tests); `cd desktop/web && {policy-check-push}`; '
+      row: '`{cargo-locked}`; `{fmt}`; `{clippy}`; `{cov}` above its floor (it runs the workspace tests); `{policy-check-push}`; '
         + 'CI `{platform-tests}` and `{packaging}`',
       // Beyond the sources and manifests, what the Rust build and tests read: the desktop shell outside desktop/web (Tauri
       // config, capabilities, icons), the shared contracts and their generator, the scripts and fixtures Rust tests
@@ -260,9 +259,9 @@ export const TABLE: Table = {
     {
       // `^policy/` and the ast-grep config run the policy lane; the typecheck holds the gallery's project (DR17).
       name: 'frontend', label: 'Frontend',
-      row: '`cd desktop/web && {typecheck} && {coverage} && {policy-check} && {policy-node-tests} && '
+      row: '`cd desktop/web && {typecheck} && {coverage} && {policy-node-tests} && '
         + '{policy-generate} && {policy-generate-self-test} && {ast-grep-test} && {build} && {build-web} && '
-        + '{policy-bundle} && {notices}`; `{gate-coverage}`; `{oldest-engine}`',
+        + '{notices}`; `{policy-check}`; `{policy-bundle}`; `{gate-coverage}`; `{oldest-engine}`',
       // The notices' inputs select it too: Cargo.lock, whose crates THIRD_PARTY_NOTICES.md and third-party-notices.test.ts
       // name (17a86728d left them stale), and the npm lockfile; the affected lane runs check:notices for them alone.
       // And the crates the Web build compiles into the format worker's module (`build:format-wasm`, Step 2.0.4), whose
@@ -288,7 +287,7 @@ export const TABLE: Table = {
       // clippy.toml; cargo-deny reads deny.toml; agent-hooks runs policy/gate/agent-hooks.ts. A config edit that silences
       // a rule is caught only by these planted cases (planted-silent). A push adapter's change runs the push check too.
       name: 'policy-tooling', label: 'Policy tooling (`policy/`, an adapter\'s tool or config)',
-      row: '`cd desktop/web && {policy-self-test} && {policy-self-test-push} && {policy-check-push} && {policy-self-test-bundle}`',
+      row: '`{policy-self-test}`; `{policy-self-test-push}`; `{policy-check-push}`; `{policy-self-test-bundle}`',
       patterns: [String.raw`^policy/`, String.raw`^sgconfig\.yml$`, String.raw`^desktop/web/package(-lock)?\.json$`,
         String.raw`^desktop/web/tsconfig[^/]*\.json$`, String.raw`^(rust-toolchain|clippy|deny)\.toml$`,
         String.raw`^desktop/web/(\.oxlintrc\.json|knip\.json|\.dependency-cruiser[^/]*\.cjs)$`,
@@ -352,7 +351,7 @@ export const TABLE: Table = {
     },
     {
       name: 'lidar', label: 'LiDAR services',
-      row: 'the engine lane (CI job `{lidar-native}`) and the comparison lane ([data library](docs/guides/data-library.md))',
+      row: 'the engine lane (CI job `{lidar-native}`) and the comparison lane ([data library](guides/data-library.md))',
       patterns: [String.raw`^desktop/src/services/lidar/`],
       actions: ['install-linux-deps', 'build-geolibre-cli'],
       full: ['lidar-native', 'lidar-comparison'],
@@ -371,7 +370,7 @@ export const TABLE: Table = {
       // so the called workflow runs the pair after its browser jobs. Only the Web Edition, the gallery, the version About
       // shows (tauri.conf.json) and the policy checker that gates the axe reports reach the browsers.
       name: 'web-browsers', label: 'Web Edition browsers and axe reports',
-      row: 'CI `{web-browsers}`, then `cd desktop/web && {policy-self-test-a11y} && {policy-a11y}`',
+      row: 'CI `{web-browsers}`, then `{policy-self-test-a11y}`; `{policy-a11y}`',
       workflow: '.github/workflows/web-edition-browsers.yml',
       // The format worker's module instantiated in every engine: the crates it is built from (Step 2.0.4).
       patterns: [String.raw`^desktop/web/(?!.*\.md$)`, String.raw`^desktop/tauri\.conf\.json$`, String.raw`^policy/`,

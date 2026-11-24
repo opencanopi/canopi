@@ -44,9 +44,9 @@ flowchart LR
   web -->|"file input, download"| fs
 ```
 
-- No backend (2.1-Q71): every external system is a static host or a public service, and a problem report is a zip the user saves and sends; nothing leaves without a user action (2.1-Q74).
-- The Google key and the location reading never reach a Design, export, report or log (`map-error-redaction.test.ts`, `problem-report-diagnostics.test.ts`, `my-location-trust.test.ts`).
-- Both editions reach the same services; any difference is a row of the edition-capabilities table (ADR 0030, `edition-root-parity`, Phase 2a).
+- No backend (2.1-Q71): external systems are static hosts or public services; problem reports are local zips sent by the user (2.1-Q74).
+- Google key and location never reach Designs, exports, reports or logs (`map-error-redaction.test.ts`, `problem-report-diagnostics.test.ts`, `my-location-trust.test.ts`).
+- Both editions use the same services; differences are rows in edition-capabilities (ADR 0030, `edition-root-parity`, Phase 2a).
 
 ## Level 2: containers
 

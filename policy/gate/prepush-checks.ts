@@ -29,12 +29,45 @@ function markers(root: string, rev: string): string[] {
 }
 
 const text = (marker: string) => marker.replace(/^[^:]*:\d+:/u, '').trim()
+const location = (marker: string) => marker.replace(/^([^:]*:\d+):.*$/su, '$1')
+
+// Stage 1 E4: every non-exempt expected-fail marker title carries an owner (stream/phase/owner/upstream tag) plus
+// either a ledger ID (Q/M) or a bead ID (canopi-...). Playwright's in-body `test.fail()` has no title on its line.
+const HAS_ID = /\b(?:2\.1-)?[QM]\d+[a-z]?\b|\bcanopi-[a-z0-9]+(?:\.[0-9]+)*\b/u
+const HAS_ID_ALL = new RegExp(HAS_ID.source, 'gu')
+const HAS_OWNER = /\([A-Za-z0-9][A-Za-z0-9._/-]*\)|\b(?:owner\s*:\s*\S+|upstream\s+\S+)/iu
+const PLAYWRIGHT_IN_BODY = /\btest\.fail\(\s*(?:[^'"`\s)]|\))/u
+const WRAPPED_TITLE = /\b(?:it|test|describe)\.fails?\(\s*$/u
+
+function titleText(root: string, marker: string): string {
+  const body = text(marker)
+  if (!WRAPPED_TITLE.test(body)) return body
+  const match = /^([^:]+):(\d+):/u.exec(marker)
+  if (!match) return body
+  const run = spawnSync('git', ['show', `HEAD:${match[1]}`],
+    { cwd: root, encoding: 'utf8', env: Object.fromEntries(Object.entries(process.env).filter(([name]) => !name.startsWith('GIT_'))) })
+  if (run.status !== 0) return body
+  const next = run.stdout.split('\n')[Number(match[2])] ?? ''
+  return `${body} ${next.trim()}`
+}
+
+/** Non-exempt expected-fail markers at HEAD whose title lacks an owner or a ledger (Q/M) / bead ID (Stage 1 E4). */
+export function invalidMarkerTitles(root: string, exempt: ReadonlySet<string>): string[] {
+  return markers(root, 'HEAD').filter((marker) => {
+    if (exempt.has(location(marker))) return false
+    const body = titleText(root, marker)
+    if (PLAYWRIGHT_IN_BODY.test(body)) return false
+    if (!HAS_ID.test(body)) return true
+    const withoutIds = body.replace(HAS_ID_ALL, '')
+    return !HAS_OWNER.test(withoutIds)
+  }).sort()
+}
 
 /** The markers at HEAD whose text is on no marker line of `base` and whose `path:line` `exempt` does not hold, sorted. */
 export function addedMarkers(root: string, base: string, exempt: ReadonlySet<string>): string[] {
   const before = new Set(markers(root, base).map(text))
   return markers(root, 'HEAD').filter((marker) => !before.has(text(marker))
-    && !exempt.has(marker.replace(/^([^:]*:\d+):.*$/su, '$1'))).sort()
+    && !exempt.has(location(marker))).sort()
 }
 
 /** The marker check from `base`, printing PASS or FAIL: 0 when it passes. */
@@ -46,10 +79,14 @@ export function prepushChecks(root: string, base: string): number {
   }
   const exempt = new Set(listed.stdout.split('\n').filter((line) => line !== '').map((line) => line.split(' ')[0] ?? ''))
   const added = addedMarkers(root, base, exempt)
+  const invalid = invalidMarkerTitles(root, exempt)
   if (added.length) {
     process.stdout.write(`FAIL expected-fail markers added since the base:\n${added.join('\n')}\n`)
-    return 1
   }
+  if (invalid.length) {
+    process.stdout.write(`FAIL expected-fail marker titles must name an owner plus a ledger ID (Q/M) or bead ID:\n${invalid.join('\n')}\n`)
+  }
+  if (added.length || invalid.length) return 1
   process.stdout.write('PASS no expected-fail markers beyond those on the base\n')
   return 0
 }

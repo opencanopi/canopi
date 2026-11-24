@@ -2487,18 +2487,34 @@
       "note": "\u00a718 R20: wasm-bindgen only in the -wasm crates, each created in its phase (deny.toml [bans] wrappers over the native graph, where the -wasm crate's plain dependency is the one edge); canopi-format-wasm from Step 2.0.4 (canopi-f47t.52.270)"
     },
     {
+      "id": "edition-pairs",
+      "tool": "edition-pairs",
+      "ledger": "2.1-M522",
+      "adr": "0030",
+      "family": "edition-pairs",
+      "owner_today": "desktop/web/src/platform",
+      "example": "desktop/web/src/platform/problem-report.ts",
+      "note": "contracts \u00a722 (F3): every *.desktop.ts or *.browser.ts sits in platform/ beside a port with the same stem"
+    },
+    {
       "id": "no-path-string-command-arg",
-      "tool": null,
-      "status": "planned",
-      "ledger": "2.1-M189",
+      "tool": "ast-grep",
+      "family": "no-path-string-command-arg",
+      "ledger": "2.1-M522",
       "adr": "0023",
       "owner_today": "none",
+      "example": "desktop/src/commands/health.rs",
       "owner_target": {
         "path": "desktop/src",
         "phase": "N2",
         "bead": "canopi-f47t.52.47"
       },
-      "note": "\u00a718 R21: the generated command map carries no path: string except UserPath display fields, so app data paths and dirs:: stay in app_folders, the library paths and the Drafts directory; 36 / 10 today"
+      "scope": [
+        "desktop/src/commands/**/*.rs",
+        "desktop/web/src/ipc/**/*.ts"
+      ],
+      "keys": "path",
+      "note": "\u00a718 R21: #[tauri::command] and ipc/ wrappers carry no raw path string or PathBuf argument; grants replace them in 2b/N2 (2.1-M522)"
     },
     {
       "id": "tauri-crate-only-in-desktop",
@@ -2634,6 +2650,11 @@
       "ledger": "2.1-M196"
     },
     {
+      "id": "hook-bd-notes-overwrite",
+      "tool": "agent-hooks",
+      "ledger": "2.1-M196"
+    },
+    {
       "id": "hook-user-checkout-commit",
       "tool": "agent-hooks",
       "ledger": "2.1-M196"
@@ -2672,11 +2693,6 @@
       "id": "gate-test-loosened",
       "tool": "commit-gate",
       "ledger": "2.1-M199"
-    },
-    {
-      "id": "gate-test-reworded",
-      "tool": "commit-gate",
-      "ledger": "2.1-Q224"
     },
     {
       "id": "gate-absent-bead",

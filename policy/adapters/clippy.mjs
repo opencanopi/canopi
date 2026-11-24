@@ -392,7 +392,8 @@ function testExtents(src) {
 
 /**
  * Files that belong to an out-of-line `#[cfg(test)] mod name;` of a file of `files`, as a predicate: `<dir>/name.rs`,
- * `<dir>/name/mod.rs` and every file below `<dir>/name/` (native_command_policy's TestModuleFiles; #[path] unresolved).
+ * `<dir>/name/mod.rs`, every file below `<dir>/name/`, and `#[path = "..."]` targets (native_command_policy's
+ * TestModuleFiles; canopi-g8ip).
  */
 function testModuleFiles(root, files, read) {
   const named = new Set();
@@ -401,11 +402,24 @@ function testModuleFiles(root, files, read) {
     const src = read(file);
     if (!src.includes('cfg')) continue;
     const base = path.posix.basename(file);
-    const dir = ['mod.rs', 'lib.rs', 'main.rs'].includes(base) ? path.posix.dirname(file) : file.replace(/\.rs$/, '');
-    for (const a of lexRust(src).attributes) {
-      if (a.inner || !/^\s*cfg\s*\(\s*test\s*\)\s*$/.test(a.text)) continue;
-      const decl = /^\s*(?:pub(?:\([^)]*\))?\s+)?mod\s+([A-Za-z_][A-Za-z0-9_]*)\s*;/.exec(src.slice(a.end));
+    const fileDir = path.posix.dirname(file);
+    const dir = ['mod.rs', 'lib.rs', 'main.rs'].includes(base) ? fileDir : file.replace(/\.rs$/, '');
+    const outer = lexRust(src).attributes.filter((a) => !a.inner);
+    for (let i = 0; i < outer.length; i += 1) {
+      let j = i;
+      while (j + 1 < outer.length && /^\s*(?:\/\/[^\n]*\n\s*)*$/u.test(src.slice(outer[j].end, outer[j + 1].start))) j += 1;
+      const group = outer.slice(i, j + 1);
+      i = j;
+      if (!group.some((a) => /^\s*cfg\s*\(\s*test\s*\)\s*$/u.test(a.text))) continue;
+      const decl = /^\s*(?:pub(?:\([^)]*\))?\s+)?mod\s+([A-Za-z_][A-Za-z0-9_]*)\s*;/u.exec(src.slice(group.at(-1).end));
       if (!decl) continue;
+      const explicit = group.map((a) => /^\s*path\s*=\s*"([^"]+)"\s*$/u.exec(a.text)?.[1]).find(Boolean);
+      if (explicit) {
+        const resolved = path.posix.normalize(path.posix.join(fileDir === '.' ? '' : fileDir, explicit.replace(/\\/gu, '/')));
+        named.add(resolved);
+        if (resolved.endsWith('/mod.rs')) prefixes.push(`${path.posix.dirname(resolved)}/`);
+        continue;
+      }
       const child = path.posix.join(dir === '.' ? '' : dir, decl[1]);
       named.add(`${child}.rs`);
       prefixes.push(`${child}/`);

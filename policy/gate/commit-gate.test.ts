@@ -351,11 +351,11 @@ describe('pr and tree modes (2.1-M228; design check A3)', () => {
 
   it('canopi-f47t.52.240: an unauthorised change in a conflict resolution is refused when the merge is committed', () => {
     merge('desktop/web/src/sneaked.ts: oxlint:no-console', false)
+    repo.git('update-ref', 'refs/remotes/origin/main', repo.git('rev-parse', 'HEAD'))
     writeFileSync(join(repo.root, 'MSG'), "Merge branch 'topic'\n")
     const run = repo.gate(['commit-msg', join(repo.root, 'MSG')], { GITHUB_ACTIONS: '' })
     expect(run.status, run.stdout).toBe(1)
-    expect(run.stdout).toContain('gate-loosening-authority')
-    expect(run.stdout).toContain('sneaked.ts')
+    expect(run.stdout).toContain('gate-loosening-authority'); expect(run.stdout).toContain('sneaked.ts')
   })
 
   it('canopi-f47t.52.228.10: rebased commits are rechecked', () => {

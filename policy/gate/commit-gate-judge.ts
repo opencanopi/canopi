@@ -229,7 +229,7 @@ export function tiedRoutes(changed: (from: string, to: string) => readonly Chang
 
 /** The rules whose route tiedRoutes ties to the file they judge. */
 const TIED: ReadonlySet<string> = new Set(['gate-loosening-authority', 'gate-guarded-file', 'gate-inventory-demotion',
-  'gate-test-deleted', 'gate-test-reworded', 'gate-test-loosened'])
+  'gate-test-deleted', 'gate-test-loosened'])
 
 /** The line pr mode prints when a tied rule fails, so a route cited elsewhere in the range is explained; else ''. */
 export const tiedNote = (findings: readonly Finding[]): string => (findings.some(([rule]) => TIED.has(rule))

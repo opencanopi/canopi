@@ -337,7 +337,7 @@ flowchart LR
   RED --> DIAG
 ```
 
-Health is already the target's: `commands/health.rs` answers the `StoreId` map (`get_health`), `failures/health.ts` holds it with the TS adapters' writes, and `failures/health-notices.ts` tells each state once on the notice row.
+Health matches the target: `commands/health.rs` answers `StoreId` (`get_health`), `failures/health.ts` holds TS writes, and `failures/health-notices.ts` shows each state once.
 
 ### Store open status
 
@@ -361,6 +361,6 @@ stateDiagram-v2
   migrating --> unavailable
 ```
 
-- Owner: each store's runner on Desktop, each browser adapter on Web; one `SubsystemHealth` record from store id to status, read by `failures/ (2.1)`; the plant catalog row is read-only (ready or unavailable).
-- Invariant: opening never writes, per medium (ADR 0026); a refused or unavailable store is not written for the session; the Design stays saveable.
-- Test: a fixture per store from each release tag through the chain; the rollback lane.
+- Owner: each store's runner on Desktop, each browser adapter on Web; one `SubsystemHealth` record maps store ids to status for `failures/ (2.1)`; plant catalog is read-only (ready or unavailable).
+- Invariant: opening never writes (ADR 0026); refused or unavailable stores stay read-only for the session; the Design stays saveable.
+- Test: per-store fixtures from each release tag through the chain; rollback lane.

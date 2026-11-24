@@ -1,0 +1,17 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "family": "no-path-string-command-arg",
+  "bead": "canopi-f47t.52.47",
+  "entries": {
+    "desktop/src/commands/design.rs": { "count": 5 },
+    "desktop/src/commands/design_notebook.rs": { "count": 6 },
+    "desktop/src/commands/export.rs": { "count": 2 },
+    "desktop/src/commands/lidar.rs": { "count": 2 },
+    "desktop/src/commands/saved_object_stamps.rs": { "count": 2 },
+    "desktop/src/commands/update.rs": { "count": 2 },
+    "desktop/web/src/ipc/design.ts": { "count": 12 },
+    "desktop/web/src/ipc/export.ts": { "count": 1 },
+    "desktop/web/src/ipc/lidar.ts": { "count": 2 },
+    "desktop/web/src/ipc/update.ts": { "count": 2 }
+  }
+}

@@ -42,13 +42,13 @@ describe('a commit range through the gate (2.1-Q224)', () => {
     red(judged(FIRST_ONLY, 'test(frontend): drop one'), 'gate-test-deleted')
   })
 
-  it('canopi-f47t.52.228.10: a reworded title without Rewords-test is refused', () => {
-    red(judged(KEPT.replace('keeps the second behaviour', 'keeps behaviour two'), 'test(frontend): reword'), 'gate-test-reworded')
+  it('canopi-f47t.52.228.10: a reworded title without a quoted replacement is refused', () => {
+    red(judged(KEPT.replace('keeps the second behaviour', 'keeps behaviour two'), 'test(frontend): reword'), 'gate-test-deleted')
   })
 
-  it('canopi-f47t.52.228.10: a reworded title with Rewords-test passes', () => {
+  it('canopi-f47t.52.228.10: a reworded title with a quoted replacement passes', () => {
     green(judged(KEPT.replace('keeps the second behaviour', 'keeps behaviour two'),
-      'test(frontend): reword\n\nRewords-test: keeps the second behaviour -> keeps behaviour two'))
+      "test(frontend): reword\n\nReplacement: 'keeps behaviour two'."))
   })
 
   it('canopi-f47t.52.254: a title holding an escaped quote is read unescaped, so a trailer names it plainly', () => {
@@ -56,7 +56,7 @@ describe('a commit range through the gate (2.1-Q224)', () => {
     repo.write({ 'desktop/web/src/a.test.ts': escaped })
     repo.base = repo.commit('test(frontend): an escaped quote')
     green(judged(escaped.replace("behaviour\\'s order", "behaviour\\'s ordering"),
-      "test(frontend): reword\n\nRewords-test: keeps the second behaviour's order -> keeps the second behaviour's ordering"))
+      'test(frontend): reword\n\nReplacement: "keeps the second behaviour\'s ordering".'))
   })
 
   it('canopi-f47t.52.228.10: a removed expect in a kept test is refused', () => {
@@ -92,7 +92,8 @@ describe('a commit range through the gate (2.1-Q224)', () => {
       + "it('reads b', () => {\n  expect(b).toBe(1)\n})\n\nit('reads c', () => {\n  expect(c).toBe(2)\n})\n"
     const one = "import { expect, it } from 'vitest'\nimport { b } from './b'\n\nit('reads b', () => {\n  expect(b).toBe(1)\n})\n"
     repo.write({ 'desktop/web/src/b.ts': 'export const b = 1\nexport const c = 2\n', 'desktop/web/src/b.test.ts': both })
-    repo.commit('test(frontend): b and c')
+    const base = repo.commit('test(frontend): b and c')
+    repo.git('update-ref', 'refs/remotes/origin/main', base)
     const hook = (module: string) => {
       repo.write({ 'desktop/web/src/b.ts': module, 'desktop/web/src/b.test.ts': one })
       repo.git('add', '-A')
@@ -110,24 +111,24 @@ describe('a commit range through the gate (2.1-Q224)', () => {
 
   it('canopi-f47t.52.228.10: a reworded title moved to another file is refused', () => {
     const second = "import { expect, it } from 'vitest'\n\nit('keeps behaviour two', () => {\n  expect(3).toBe(3)\n})\n"
-    red(judged(FIRST_ONLY, 'test(frontend): reword\n\nRewords-test: keeps the second behaviour -> keeps behaviour two',
-      { 'desktop/web/src/b.test.ts': second }), 'gate-test-reworded')
+    red(judged(FIRST_ONLY, 'test(frontend): reword without quoting replacement',
+      { 'desktop/web/src/b.test.ts': second }), 'gate-test-deleted')
   })
 
-  it('canopi-f47t.52.240: Rewords-test folds a test into a kept one in its file with no assertion count; another file is refused (2.1-Q272)', () => {
-    const message = 'test(frontend): fold\n\nRewords-test: keeps the second behaviour -> keeps the first behaviour'
+  it('canopi-f47t.52.240: a quoted replacement folds a test into a kept one in its file with no assertion count; another file is refused (2.1-Q272)', () => {
+    const message = "test(frontend): fold into 'keeps the first behaviour'"
     green(judged(FIRST_ONLY, message))
     repo.at(repo.base)
     const other = "import { expect, it } from 'vitest'\n\nit('elsewhere', () => {\n  expect(0).toBe(0)\n})\n"
     repo.write({ 'desktop/web/src/b.test.ts': other })
     repo.base = repo.commit('test(frontend): elsewhere')
     red(judged(FIRST_ONLY, message.replace('keeps the first behaviour', 'elsewhere'),
-      { 'desktop/web/src/b.test.ts': other.replace('  expect(0)', '  expect(3).toBe(3)\n  expect(0)') }), 'gate-test-reworded')
+      { 'desktop/web/src/b.test.ts': other.replace('  expect(0)', '  expect(3).toBe(3)\n  expect(0)') }), 'gate-test-deleted')
   })
 
   it('canopi-f47t.52.240: a reworded title with fewer assertions routes, as a quoted title does (2.1-Q272)', () => {
     const text = KEPT.replace('keeps the first behaviour', 'keeps behaviour one').replace('  expect(2).toBe(2)\n', '')
-    green(judged(text, 'test(frontend): reword\n\nRewords-test: keeps the first behaviour -> keeps behaviour one'))
+    green(judged(text, "test(frontend): reword to 'keeps behaviour one'"))
   })
 
   it('canopi-f47t.52.240: a quoted replacement routes its deleted test whatever its assertions count (2.1-Q272)', () => {
@@ -213,7 +214,7 @@ describe('a commit range through the gate (2.1-Q224)', () => {
     const text = KEPT.replace('keeps the first behaviour', 'keeps behaviour').replace('  expect(2).toBe(2)\n', '')
       .replace('expect(1).toBe(1)', 'expect(1).toBeTruthy()').replace('expect(3).toBe(3)', 'expect(3).toBeTruthy()')
     let result = judged(text, 'test(frontend): keeps behaviour')
-    red(result, 'gate-test-reworded')
+    red(result, 'gate-test-deleted')
     expect(result[1]).toContain("gate-test-loosened: desktop/web/src/a.test.ts: 'keeps the second behaviour'")
     repo.at(repo.base)
     result = judged(text, "test(frontend): replace it\n\nThe new test 'keeps behaviour' holds it.")
@@ -347,7 +348,7 @@ describe('the code under test (contracts §12; 2.1-Q224)', () => {
 
 const judgeOne = async (message: string, old: string, now: string, files?: TestFile[]): Promise<Finding[]> =>
   judge(files ?? [['a.test.ts', 'a.test.ts', old, now]], message, {
-    authorised: () => false, strictRewords: true, deletedCode: new Map(), quarantined: new Map(), beadOpen: async () => true,
+    authorised: () => false, deletedCode: new Map(), quarantined: new Map(), beadOpen: async () => true,
     read: async () => undefined, pyModules: new Set(),
   })
 const rules = async (message: string, old: string, now: string) => [...new Set((await judgeOne(message, old, now)).map(([rule]) => rule))].sort()
@@ -358,7 +359,7 @@ describe('a quoted replacement (2.1-Q224)', () => {
   const NEW = "it('returns items', () => {\n  expect(a).toBeTruthy()\n})\nit('stays strict', () => {\n  expect(d).toBeTruthy()\n})\n"
 
   it('canopi-f47t.52.228.10: an added title appearing in the message is not a route for every change', async () => {
-    expect(await rules('test: returns items', OLD, NEW)).toEqual(['gate-test-loosened', 'gate-test-reworded'])
+    expect(await rules('test: returns items', OLD, NEW)).toEqual(['gate-test-deleted', 'gate-test-loosened'])
     expect(await rules("test: 'returns items' replaces both", OLD, NEW)).toContain('gate-test-loosened')
   })
 
@@ -366,16 +367,22 @@ describe('a quoted replacement (2.1-Q224)', () => {
     const old = "it('keeps order', () => {\n  expect(c).toBe(3)\n})\n"
     const now = "it('keeps the order of rows', () => {\n  expect(c).toBe(3)\n})\n"
     expect(await rules("test: the new test 'keeps the order of rows' holds it", old, now)).toEqual([])
-    expect(await rules('test: the new test keeps the order of rows', old, now)).toEqual(['gate-test-reworded'])
+    expect(await rules('test: the new test keeps the order of rows', old, now)).toEqual(['gate-test-deleted'])
     const two = `${old}it('keeps size', () => {\n  expect(e).toBe(5)\n})\n`
     expect(await rules("test: 'keeps the order of rows' holds it", two, now)).toEqual(['gate-test-deleted'])
   })
 
   it('canopi-f47t.52.228.54: quoting a test that exists already is refused saying only a test the change adds replaces one', async () => {
+    // canopi-jxlh: quoting a kept test in the SAME file routes a fold; quoting a kept test in ANOTHER file is refused.
     const old = "it('keeps order', () => {\n  expect(c).toBe(3)\n})\nit('keeps size', () => {\n  expect(e).toBe(5)\n})\n"
     const now = "it('keeps size', () => {\n  expect(e).toBe(5)\n})\n"
-    expect(await judgeOne("test: 'keeps size' holds it", old, now)).toEqual([['gate-test-deleted', "a.test.ts: 'keeps order' is deleted "
-      + "with no route: quote its replacement test's title (only a test the change adds replaces one: 'keeps size' exists already), "
+    expect(await judgeOne("test: 'keeps size' holds it", old, now)).toEqual([])
+    const other = "it('elsewhere', () => {\n  expect(1).toBe(1)\n})\n"
+    expect(await judgeOne("test: 'elsewhere' holds it", '', '', [
+      ['a.test.ts', 'a.test.ts', old, now],
+      ['b.test.ts', 'b.test.ts', other, other],
+    ])).toEqual([['gate-test-deleted', "a.test.ts: 'keeps order' is deleted "
+      + "with no route: quote its replacement test's title ('elsewhere' is kept in another file; a fold targets a kept test in the same file), "
       + 'cite a merge-base Q row, or add Retires-test: <title> — <why> and delete its code']])
   })
 
@@ -442,7 +449,7 @@ describe('test titles and bodies (canopi-f47t.52.228.54)', () => {
   it('canopi-f47t.52.228.54: an escaped-quote title is matched by the trailer that names it plainly', async () => {
     const old = "it('it\\'s kept', () => {\n  expect(1).toBe(1)\n})\n"
     const now = "it('it\\'s held', () => {\n  expect(1).toBe(1)\n})\n"
-    expect(await rules("test: reword\n\nRewords-test: it's kept -> it's held", old, now)).toEqual([])
+    expect(await rules('test: reword to "it\'s held"', old, now)).toEqual([])
   })
 })
 
@@ -454,7 +461,7 @@ describe('a title shared by two files (canopi-f47t.52.240)', () => {
   const x = "it('x', () => {\n  expect(3).toBe(3)\n})\n"
   const files: TestFile[] = [[A, A, renders, renders + other], [B, B, renders + x, x]]
   const judged = (listed?: ReadonlySet<string>) => judge(files, 'refactor(frontend): tidy', {
-    authorised: () => false, strictRewords: true, deletedCode: new Map(), quarantined: new Map(), beadOpen: async () => true,
+    authorised: () => false, deletedCode: new Map(), quarantined: new Map(), beadOpen: async () => true,
     read: async () => undefined, pyModules: new Set(), ...(listed ? { listed } : {}),
   })
 
@@ -473,7 +480,7 @@ describe('a retired twin beside an edited one (2.1-Q274, M388)', () => {
   const strict = "it('reads', () => {\n  expect(f()).toBe(3)\n  expect(f()).toBe(4)\n})\n"
   const loose = reads('expect(f()).toBeTruthy()')
   const judged = (old: string, now: string) => judge([[path, path, old, now]], 'refactor(frontend): drop g\n\nRetires-test: reads — gone', {
-    authorised: () => false, strictRewords: true, deletedCode: new Map([['desktop/web/src/c.ts', false]]), quarantined: new Map(),
+    authorised: () => false, deletedCode: new Map([['desktop/web/src/c.ts', false]]), quarantined: new Map(),
     beadOpen: async () => false, read: async () => undefined, pyModules: new Set(),
   })
 

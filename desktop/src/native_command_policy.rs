@@ -857,36 +857,86 @@ fn disallowed_method_paths(config: &str) -> Vec<(String, String)> {
         .collect()
 }
 
-/// Files that belong to an out-of-line `#[cfg(test)] mod name;`, and everything below them.
-/// `#[path]` modules are not resolved, so they are scanned as production.
+/// Files that belong to an out-of-line `#[cfg(test)] mod name;`, and everything below them,
+/// resolving `#[path = "..."]` attributes per Rust's module-path rules (canopi-g8ip).
 #[derive(Default)]
 pub(crate) struct TestModuleFiles {
     files: BTreeSet<String>,
     directories: Vec<String>,
 }
 
+fn path_attribute(attributes: &[Attribute]) -> Option<String> {
+    attributes.iter().find_map(|a| match &a.meta {
+        syn::Meta::NameValue(nv) if a.path().is_ident("path") => match &nv.value {
+            Expr::Lit(syn::ExprLit {
+                lit: syn::Lit::Str(s),
+                ..
+            }) => Some(s.value()),
+            _ => None,
+        },
+        _ => None,
+    })
+}
+
+fn join_module_path(base: &str, rel: &str) -> String {
+    let norm = rel.replace('\\', "/");
+    let mut parts: Vec<&str> = base.split('/').filter(|s| !s.is_empty()).collect();
+    for seg in norm.split('/') {
+        match seg {
+            "" | "." => {}
+            ".." => {
+                parts.pop();
+            }
+            other => parts.push(other),
+        }
+    }
+    parts.join("/")
+}
+
 impl TestModuleFiles {
     pub(crate) fn collect(&mut self, path: &str, items: &[Item]) {
+        let file_dir = path.rsplit_once('/').map_or("", |(p, _)| p);
         let directory = match path.rsplit_once('/') {
             Some((parent, "mod.rs" | "lib.rs" | "main.rs")) => parent.to_owned(),
             Some(_) | None => path.trim_end_matches(".rs").to_owned(),
         };
-        self.collect_in(&directory, items, false);
+        self.collect_in(file_dir, &directory, items, false, false);
     }
 
-    fn collect_in(&mut self, directory: &str, items: &[Item], inside_test: bool) {
+    fn collect_in(
+        &mut self,
+        file_dir: &str,
+        dir: &str,
+        items: &[Item],
+        in_test: bool,
+        inline: bool,
+    ) {
         for item in items {
-            let Item::Mod(module) = item else {
-                continue;
-            };
-            let is_test = inside_test || has_cfg_test_attribute(&module.attrs);
-            let child = format!("{directory}/{}", module.ident);
+            let Item::Mod(module) = item else { continue };
+            let is_test = in_test || has_cfg_test_attribute(&module.attrs);
+            let explicit = path_attribute(&module.attrs);
+            let base = if inline { dir } else { file_dir };
             match &module.content {
-                Some((_, inner)) => self.collect_in(&child, inner, is_test),
+                Some((_, inner)) => {
+                    let child = explicit.map_or_else(
+                        || format!("{dir}/{}", module.ident),
+                        |r| join_module_path(base, &r),
+                    );
+                    self.collect_in(file_dir, &child, inner, is_test, true);
+                }
                 None if is_test => {
-                    self.files.insert(format!("{child}.rs"));
-                    self.files.insert(format!("{child}/mod.rs"));
-                    self.directories.push(format!("{child}/"));
+                    if let Some(rel) = explicit {
+                        let resolved = join_module_path(base, &rel);
+                        if let Some(d) = resolved.strip_suffix("/mod.rs") {
+                            self.directories.push(format!("{d}/"));
+                        }
+                        self.files.insert(resolved);
+                    } else {
+                        let child = format!("{dir}/{}", module.ident);
+                        self.files.insert(format!("{child}.rs"));
+                        self.files.insert(format!("{child}/mod.rs"));
+                        self.directories.push(format!("{child}/"));
+                    }
                 }
                 None => {}
             }
@@ -1206,25 +1256,18 @@ mod tests {
     };
     use std::path::Path;
 
+    fn audit_one(name: &str, src: &str) -> Vec<String> {
+        let reg = format!("tauri::generate_handler![commands::fixture::{name}];");
+        audit_command_policy(&reg, &[("fixture", src)], &[], &[])
+    }
+
     #[test]
     fn unclassified_synchronous_command_fixture_is_rejected() {
-        let violations = audit_command_policy(
-            "tauri::generate_handler![commands::fixture::read_file];",
-            &[(
-                "fixture",
-                r#"
-                    #[tauri::command]
-                    pub fn read_file() -> Result<Vec<u8>, String> {
-                        std::fs::read("fixture").map_err(|error| error.to_string())
-                    }
-                "#,
-            )],
-            &[],
-            &[],
-        );
-
         assert_eq!(
-            violations,
+            audit_one(
+                "read_file",
+                "#[tauri::command] pub fn read_file() -> Result<Vec<u8>, String> { std::fs::read(\"fixture\").map_err(|e| e.to_string()) }",
+            ),
             ["unclassified synchronous command: commands::fixture::read_file"]
         );
     }
@@ -1286,18 +1329,11 @@ mod tests {
 
     #[test]
     fn async_command_fixture_requires_and_uses_the_managed_executor() {
-        let violations = audit_command_policy(
-            "tauri::generate_handler![commands::fixture::read_file];",
-            &[(
-                "fixture",
-                "#[tauri::command] pub async fn read_file() { ready().await; }",
-            )],
-            &[],
-            &[],
-        );
-
         assert_eq!(
-            violations,
+            audit_one(
+                "read_file",
+                "#[tauri::command] pub async fn read_file() { ready().await; }"
+            ),
             [
                 "async native command does not await managed executor work: commands::fixture::read_file",
                 "async native command does not route work through its executor: commands::fixture::read_file",
@@ -1308,18 +1344,11 @@ mod tests {
 
     #[test]
     fn async_command_cannot_accept_an_executor_without_awaiting_managed_work() {
-        let violations = audit_command_policy(
-            "tauri::generate_handler![commands::fixture::fake_async];",
-            &[(
-                "fixture",
-                "#[tauri::command] pub async fn fake_async(executor: State<'_, NativeOperationExecutor>) { let _ = executor; }",
-            )],
-            &[],
-            &[],
-        );
-
         assert_eq!(
-            violations,
+            audit_one(
+                "fake_async",
+                "#[tauri::command] pub async fn fake_async(executor: State<'_, NativeOperationExecutor>) { let _ = executor; }"
+            ),
             [
                 "async native command does not await managed executor work: commands::fixture::fake_async",
                 "async native command does not route work through its executor: commands::fixture::fake_async",
@@ -1329,18 +1358,11 @@ mod tests {
 
     #[test]
     fn awaiting_unrelated_work_does_not_make_an_async_command_executor_backed() {
-        let violations = audit_command_policy(
-            "tauri::generate_handler![commands::fixture::fake_async];",
-            &[(
-                "fixture",
-                "#[tauri::command] pub async fn fake_async(executor: State<'_, NativeOperationExecutor>) { let _ = executor; ready().await; }",
-            )],
-            &[],
-            &[],
-        );
-
         assert_eq!(
-            violations,
+            audit_one(
+                "fake_async",
+                "#[tauri::command] pub async fn fake_async(executor: State<'_, NativeOperationExecutor>) { let _ = executor; ready().await; }"
+            ),
             [
                 "async native command does not await managed executor work: commands::fixture::fake_async",
                 "async native command does not route work through its executor: commands::fixture::fake_async",
@@ -1350,26 +1372,11 @@ mod tests {
 
     #[test]
     fn executor_work_must_be_the_future_that_is_awaited() {
-        let violations = audit_command_policy(
-            "tauri::generate_handler![commands::fixture::fake_async];",
-            &[(
-                "fixture",
-                r#"
-                    #[tauri::command]
-                    pub async fn fake_async(
-                        executor: State<'_, NativeOperationExecutor>,
-                    ) {
-                        let _ = executor.run(NativeOperationClass::Local, "fake", || Ok(()));
-                        ready().await;
-                    }
-                "#,
-            )],
-            &[],
-            &[],
-        );
-
         assert_eq!(
-            violations,
+            audit_one(
+                "fake_async",
+                "#[tauri::command] pub async fn fake_async(executor: State<'_, NativeOperationExecutor>) { let _ = executor.run(NativeOperationClass::Local, \"fake\", || Ok(())); ready().await; }"
+            ),
             [
                 "async native command does not await managed executor work: commands::fixture::fake_async"
             ]
@@ -1557,60 +1564,67 @@ mod tests {
     }
 
     #[test]
+    fn canopi_g8ip_coverage_exclusion_resolves_path_attributes_on_test_modules() {
+        let tree: Vec<(String, String)> = [
+            (
+                "desktop/src/lib.rs",
+                "#[cfg(test)] #[path = \"custom/helper_tests.rs\"] mod helper; mod live;",
+            ),
+            ("desktop/src/custom/helper_tests.rs", ""),
+            (
+                "desktop/src/live.rs",
+                "#[path = \"live_extra_tests.rs\"] #[cfg(test)] mod extra;",
+            ),
+            ("desktop/src/live_extra_tests.rs", ""),
+            (
+                "desktop/src/services/mod.rs",
+                "#[cfg(test)] #[path = \"alt_suite/mod.rs\"] mod suite;",
+            ),
+            ("desktop/src/services/alt_suite/case.rs", ""),
+            ("desktop/src/services/alt_suite/mod.rs", ""),
+        ]
+        .into_iter()
+        .map(|(p, s)| (p.to_owned(), s.to_owned()))
+        .collect();
+        assert_eq!(
+            coverage_exclusion(&tree),
+            r"(^|/)(desktop/src/custom/helper_tests\.rs|desktop/src/live_extra_tests\.rs|desktop/src/services/alt_suite/case\.rs|desktop/src/services/alt_suite/mod\.rs)$"
+        );
+    }
+
+    #[test]
     fn comments_and_literals_cannot_manufacture_command_or_blocking_facts() {
         let violations = audit_command_policy(
             "tauri::generate_handler![commands::fixture::real];",
             &[(
                 "fixture",
-                r##"
-                    // #[tauri::command] pub fn commented_out() {}
-                    const TEXT: &str = r#"#[tauri::command] pub fn literal() { spawn_blocking(); }"#;
-                    #[tauri::command]
-                    pub async fn real(
-                        executor: tauri::State<'_, NativeOperationExecutor>,
-                    ) {
-                        executor.run(NativeOperationClass::Local, "real", || Ok(())).await;
-                    }
-                "##,
+                r##"// #[tauri::command] pub fn commented_out() {}
+const TEXT: &str = r#"#[tauri::command] pub fn literal() { spawn_blocking(); }"#;
+#[tauri::command] pub async fn real(executor: tauri::State<'_, NativeOperationExecutor>) {
+    executor.run(NativeOperationClass::Local, "real", || Ok(())).await;
+}"##,
             )],
             &[],
             &[],
         );
-
         assert!(violations.is_empty(), "{violations:?}");
     }
 
     #[test]
     fn filesystem_probe_before_executor_work_is_rejected() {
-        // The shape `get_cached_image_path` had: a cache-hit `fs::metadata` probe on the async
-        // runtime thread before the executor was reached.
         let violations = audit_command_policy(
             "tauri::generate_handler![commands::fixture::cached_path];",
             &[(
                 "fixture",
-                r#"
-                    #[tauri::command]
-                    pub async fn cached_path(
-                        cache: State<'_, ImageCache>,
-                        executor: State<'_, NativeOperationExecutor>,
-                        url: String,
-                    ) -> Result<String, String> {
-                        if let Some(path) = cache.cached_path_if_present(&url) {
-                            return Ok(path);
-                        }
-                        let cache = cache.inner().clone();
-                        executor
-                            .run(NativeOperationClass::Network, "fetch", move || {
-                                cache.fetch_and_cache(&url)
-                            })
-                            .await
-                    }
-                "#,
+                r#"#[tauri::command] pub async fn cached_path(cache: State<'_, ImageCache>, executor: State<'_, NativeOperationExecutor>, url: String) -> Result<String, String> {
+    if let Some(path) = cache.cached_path_if_present(&url) { return Ok(path); }
+    let cache = cache.inner().clone();
+    executor.run(NativeOperationClass::Network, "fetch", move || cache.fetch_and_cache(&url)).await
+}"#,
             )],
             &[],
             &[],
         );
-
         assert_eq!(
             violations,
             [
@@ -1625,23 +1639,16 @@ mod tests {
             "tauri::generate_handler![commands::fixture::derived];",
             &[(
                 "fixture",
-                r#"
-                    #[tauri::command]
-                    pub async fn derived(
-                        db: tauri::State<'_, PlantDb>,
-                        executor: State<'_, NativeOperationExecutor>,
-                    ) -> Result<(), String> {
-                        let db = db.inner().clone();
-                        let status = db.status();
-                        let _ = crate::services::probe(&db);
-                        helper_with_executor(executor.inner(), db.clone()).await
-                    }
-                "#,
+                r#"#[tauri::command] pub async fn derived(db: tauri::State<'_, PlantDb>, executor: State<'_, NativeOperationExecutor>) -> Result<(), String> {
+    let db = db.inner().clone();
+    let status = db.status();
+    let _ = crate::services::probe(&db);
+    helper_with_executor(executor.inner(), db.clone()).await
+}"#,
             )],
             &[],
             &[],
         );
-
         assert_eq!(
             violations,
             [
@@ -1669,21 +1676,14 @@ mod tests {
             "tauri::generate_handler![commands::fixture::cancel_aware];",
             &[(
                 "fixture",
-                r#"
-                    #[tauri::command]
-                    pub async fn cancel_aware(
-                        tokens: State<'_, Tokens>,
-                        executor: State<'_, NativeOperationExecutor>,
-                    ) -> Result<(), String> {
-                        let token = tokens.inner().begin_request();
-                        executor.run(NativeOperationClass::Catalog, "work", move || token.run()).await
-                    }
-                "#,
+                r#"#[tauri::command] pub async fn cancel_aware(tokens: State<'_, Tokens>, executor: State<'_, NativeOperationExecutor>) -> Result<(), String> {
+    let token = tokens.inner().begin_request();
+    executor.run(NativeOperationClass::Catalog, "work", move || token.run()).await
+}"#,
             )],
             &[],
             &allowance,
         );
-
         assert_eq!(
             violations,
             [

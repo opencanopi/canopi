@@ -6,26 +6,27 @@ How agents run Canopi work with the user-level `phased-agentic-delivery` skill, 
 
 ## Places
 
-Paths are relative to `/media/daylon/main_hdd/projects/canopi`; commands use them absolute.
+Paths are relative to the repository root (`$ROOT`, exported by `.rq-scratch/tools/env.sh`); commands use them absolute.
 
-- **User's checkout** (that root): read-only for agents. The user runs `cargo tauri dev` there; never pull, commit, stage, stash or push in it, and never touch its `target/` without asking.
-- **Integration worktree** `.rq-scratch/<step>` on an intent-named branch from `origin/main`. Before each merge or push: `git fetch`, then `git rebase --rebase-merges origin/main` if behind. Push to GitHub by URL once per step, after its pre-push review; Codeberg waits until the user says. Stable fixes: [release/2.0](native-and-release.md#stable-fixes). One agent at a time works there.
-- **Stream worktrees**: `.rq-scratch/tools/mkwt.sh <stream> [base]` makes `.rq-scratch/wt-<stream>` on `wt/<stream>` (base: the step's branch) with `npm ci`, the tracked hooks, the PDF fonts and a copy of the pinned plant DB, `.rq-scratch/shared-build/canopi-core.db` (refresh it when the pin changes).
-- **Build folders**: `CARGO_TARGET_DIR=.rq-scratch/targets/<stream>/target`, one per stream (the gate refuses `shared-build/target`, 2.1-M201); the last component must be `target`, or Tauri reads the installed app's resources.
-- **Scratch**: gate logs in `.rq-scratch/gate-logs/`, screenshots in `.rq-scratch/screenshots/<step>/` (kept), review profiles in `.rq-scratch/reference/<step>/` (removed at the step's close).
-- **Disk**: `.rq-scratch/tools/slot-check.sh [rust-streams]` before each slot and at each step's start and close. Its floor is 20 GB plus 10 GB per Rust stream building at once, and it reports the stray state agents leave (`--clean` removes stream targets with no worktree, the merge target's incremental cache and trial clones).
+- **User's checkout** (`$ROOT`): read-only for agents; never pull, commit, stage, stash, push or touch its `target/`.
+- **Integration worktree** `.rq-scratch/<step>` on an intent-named branch from `origin/main`. Before merging or pushing: `git fetch`, then `git rebase --rebase-merges origin/main` if behind. Push to GitHub by URL once per step after pre-push review; Codeberg waits for the user. Stable fixes: [release/2.0](native-and-release.md#stable-fixes). One agent at a time.
+- **Stream worktrees**: `.rq-scratch/tools/mkwt.sh <stream> [base]` creates `.rq-scratch/wt-<stream>` on `wt/<stream>` with `npm ci`, tracked hooks, PDF fonts and `.rq-scratch/shared-build/canopi-core.db` (refresh it when the pin changes).
+- **Environment and build folders**: `source .rq-scratch/tools/env.sh && canopi_use_node 24` and `CARGO_TARGET_DIR=$TARGETS/<stream>/target` (gate refuses `shared-build/target`, 2.1-M201; last component must be `target`).
+- **Team roles**: `Lead` = Main Developer (`.rq-scratch/wt-<stream>`); `Lead Developer` = Lead Reviewer & Integrator (merges into integration branch, all bead writes/exports); `Reviewer` = Critical-Point Reviewer. No attribution trailers in commits (`AGENTS.md`).
+- **Scratch**: gate logs `.rq-scratch/gate-logs/`, screenshots `.rq-scratch/screenshots/<step>/`, review profiles `.rq-scratch/reference/<step>/` (removed at step close).
+- **Disk**: `.rq-scratch/tools/slot-check.sh [rust-streams]` before each slot and at step start/close (20 GB floor + 10 GB per Rust stream; `--clean` removes stray targets/caches).
 
 ## Gates
 
-One gate, `node policy/gate/cli.mjs <lane>`: `policy/gate/table.ts` holds each area's checks per lane, and AGENTS.md's rows are rendered from it. Stream agents run every build or test as one `.rq-scratch/tools/in-wt.sh <chunk>[/web] <command>` (Node 24, the stream's target, nice 10 and idle I/O so the main agent's gates and merges come first, 2.1-Q330).
+One gate, `node policy/gate/cli.mjs <lane>`: `policy/gate/table.ts` holds each area's checks per lane, and [Quality gates](../quality-gates.md) is rendered from it. Stream agents run every build or test as one `.rq-scratch/tools/in-wt.sh <chunk>[/web] <command>` (Node 24, the stream's target, nice 10 and idle I/O so the main agent's gates and merges come first, 2.1-Q330).
 
 - **Lanes**: `commit` (the hooks; the shared-contracts check when its inputs change, 2.1-Q330), `affected --base <rev>`, `push --base <rev>` (CI's Linux mirror: full rows of the selected areas, every Commit gate check, `--vitest` included, then the expected-fail marker check), `full` (every area, e2e included).
 - **Who runs what** (2.1-Q272): build and fix agents stop at the commit hook plus the tests they touch and the source-text policy tests. The main agent runs the full gate before each CI probe and the push lane before each push. A command past an agent's foreground limit goes to the main agent.
 - **quiet-gates**: `BASE=<rev> .rq-scratch/tools/quiet-gates.sh <worktree> affected|push|full` runs `node policy/gate/cli.mjs <lane>` with its lock, disk floor, PATH, the stream's target and log capture; `ONLY=id,id` and `AREAS=a,b` pass `--only` and `--area`. Every lane ends `GATES GREEN|RED`. Exit 3: another run holds the worktree's lock, so wait on the pid it names, never on its log. A run whose HEAD or tracked files moved is red.
-- **Pre-push stamp**: `quiet-gates.sh <wt> push` writes HEAD's stamp only when the whole lane is green on a tree exactly HEAD, no untracked file (never with `--only`); the tracked pre-push hook refuses a pushed commit without one. Deletions, tags on `origin/main` and docs- or beads-only ranges pass, the last after their cheap lane. A ref under `scratch/` needs no stamp: CI on the step's draft PR decides (2.1-Q329). A change to CI or the Playwright setup needs no CI run before its push: the merge's required checks run it on the PR's head.
+- **Pre-push stamp**: `quiet-gates.sh <wt> push` writes HEAD's stamp only when the whole lane is green on a tree exactly HEAD, no untracked file (never with `--only`); the tracked pre-push hook refuses a pushed commit without one. Deletions, tags on `origin/main` and docs- or beads-only ranges pass, the last after their cheap lane. Mid-step pushes run the full gate, then plain `git push` to `scratch/<step>` (unstamped; CI on the step's draft PR decides, 2.1-Q329). A change to CI or the Playwright setup needs no CI run before its push: the merge's required checks run it on the PR's head.
 - **Known reds** are marked in the code (`test.fail()`, `it.fails`, owner and bead in the title), so the state travels with each branch; one added since the base fails the push lane unless the upstream register exempts it (2.1-M237).
 - **Net change** (2.1-Q272): the Commit gate judges test deletions, loosened tests and families, guarded files and demotions once per PR, on its net change, so a rule added in a branch never fails an earlier commit. A merge-base M row authorises an engineering loosening; capability grants and test deletions take a Q row (2.1-M387).
-- **Routes** (2.1-Q274): a route is tied to its file: the bead and row cited in a commit of the range that touched it (a merge: only what differs from every parent), or a PR body line naming it by whole path or by a base name no other changed file shares and that ends no other path; a partial path names nothing (2.1-M392). Quoted replacement titles and `Rewords-test` or `Retires-test` lines route from any message or the body (2.1-M393). A `Retires-test` line routes only a deletion; twins are judged against every choice of base twins (2.1-M391).
+- **Routes** (2.1-Q274): a route is tied to its file: the bead and row cited in a commit of the range that touched it (a merge: only what differs from every parent), or a PR body line naming it by whole path or by a base name no other changed file shares and that ends no other path; a partial path names nothing (2.1-M392). Quoted replacement titles and `Retires-test` lines route from any message or the body (2.1-M393). A `Retires-test` line routes only a deletion; twins are judged against every choice of base twins (2.1-M391).
 - **Dev tools** (cargo-deny, cargo-shear, the pinned actionlint): `.rq-scratch/tools/bin/bin`, on quiet-gates' PATH.
 - **Lockfile**: Node 24 everywhere; the merge regenerates `desktop/web/package-lock.json` with `npx -y npm@11.21.1 install`, never by hand (2.1-M220).
 - **Slots**: build agents per `free -g` available, one per 6 GiB above a 4 GiB reserve, at most 4 (8 CPUs), re-checked per slot, and at most one Rust and one frontend stream at once (2.1-Q330); under 8 GiB, `VITEST_WORKERS=2`.
@@ -82,8 +83,6 @@ Opus at medium effort for every stage; Sonnet only for trivial checks; Fable onl
 
 In `.rq-scratch/tools/` (a local git repo; commit tool edits there), besides those above: `journal.py <run>`, `wf-usage.py <run>...` (cost per stage), `imgdiff.py`, `near-zero-coverage.py <worktree>` (at each release close: every production file under 20 % lines kept with its reason, or tested).
 
-## Workflows and measured cost
+## Workflows
 
 Deterministic stages (merges, gates, the live instance, CI) are the main agent's commands; an agent only when one fails. When a usage limit stops agents, schedule no check-in to resume them: the user types "Resume". Never stop a running workflow on your own initiative; the user decides.
-
-Live bugs, guards and location: 682M input over 22 stage runs and 220 agents; build 42 %, reviews 39 %, fixes 10 %, usefulness 4 %.

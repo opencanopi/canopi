@@ -322,14 +322,37 @@ function filled(pattern: string, title: string): string[] | undefined {
 }
 
 /** Whether `title` is `pattern` or a row of it. */
-const fills = (pattern: string, title: string): boolean => filled(pattern, title) !== undefined
+export const fills = (pattern: string, title: string): boolean => filled(pattern, title) !== undefined
 
-/** The row of template `to` that `title`, a row of template `from`, becomes (`Rewords-test: <from> -> <to>`). */
-export function refill(from: string, to: string, title: string): string | undefined {
-  const values = filled(from, title)
-  if (!values) return undefined
-  let next = 0
-  return to.split(PLACEHOLDER).map((part, i) => (i % 2 ? values[next++] ?? part : part)).join('')
+/** The opening quote left unclosed on a single line, or undefined (skipping contractions/possessives like `it's`). */
+function unclosedQuoteOnLine(line: string): string | undefined {
+  let open: string | undefined
+  for (let j = 0; j < line.length; j += 1) {
+    const ch = line[j] ?? ''
+    if (ch === '\\' && open) { j += 1; continue }
+    const wordPrev = /[\p{L}\p{N}]/u.test(line[j - 1] ?? '')
+    const wordNext = /[\p{L}\p{N}]/u.test(line[j + 1] ?? '')
+    if (open) {
+      if (ch === open && !(ch === "'" && wordPrev && wordNext)) open = undefined
+    } else if (ch === '"' || ch === '`' || (ch === "'" && !wordPrev)) {
+      open = ch
+    }
+  }
+  return open
+}
+
+/** Lines of a commit message that open a quote (', " or `) and do not close it on the same line (canopi-2ldj). */
+export function unclosedQuoteLines(message: string): { readonly line: number, readonly quote: string }[] {
+  const unclosed: { readonly line: number, readonly quote: string }[] = []
+  let fenced = false
+  const lines = message.split(/\r?\n/u)
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i] ?? ''
+    if (/^\s*```/u.test(line)) { fenced = !fenced; continue }
+    const quote = fenced ? undefined : unclosedQuoteOnLine(line)
+    if (quote) unclosed.push({ line: i + 1, quote })
+  }
+  return unclosed
 }
 
 /** The bodies of the test `title` names in `text`: its own title, else a title pattern it fills. */

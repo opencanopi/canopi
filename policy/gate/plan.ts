@@ -23,6 +23,7 @@ import { basename, isAbsolute, join, posix, resolve } from 'node:path'
 import { readDerivedRows } from '../core/ratchets.mjs'
 import { commitLaneFamilies, reachedFamilies } from './families.ts'
 import { GateError } from './gate-error.ts'
+import { checkGitLink } from './git-link.ts'
 import { CHEAP_FAMILIES, display, POLICY_COMMIT, TABLE, WEB, type Area, type Check, type Table } from './table.ts'
 
 export { GateError }
@@ -78,6 +79,7 @@ const gitEnv = (env: NodeJS.ProcessEnv): NodeJS.ProcessEnv => {
 
 /** git on the checkout at `root`; a failure refuses. */
 export function git(root: string, args: readonly string[], env: NodeJS.ProcessEnv = process.env): string {
+  checkGitLink(root)
   const run = spawnSync('git', args, { cwd: root, encoding: 'utf8', env: gitEnv(env), maxBuffer: 256 * 1024 * 1024 })
   if (run.error) throw new GateError(`git ${args.join(' ')} failed: ${run.error.message}`)
   if (run.status !== 0) throw new GateError(`git ${args.join(' ')} failed: ${run.stderr.trim()}`)
