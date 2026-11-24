@@ -528,10 +528,10 @@ class GateRowChecks(unittest.TestCase):
 
     def planted(self, root):
         subprocess.run(["git", "init", "-q"], cwd=root, check=True)
-        for name in (ROOT / "policy/gate").iterdir():
-            if ".test." not in name.name:
-                (root / "policy/gate").mkdir(parents=True, exist_ok=True)
-                shutil.copy(name, root / "policy/gate" / name.name)
+        for sub in ("policy/gate", "policy/core"):
+            (root / sub).mkdir(parents=True, exist_ok=True)
+            for name in (ROOT / sub).iterdir():
+                if name.is_file() and ".test." not in name.name: shutil.copy(name, root / sub / name.name)
         (root / "desktop/web").mkdir(parents=True)
         shutil.copy(ROOT / "desktop/web/package.json", root / "desktop/web/package.json")
         return subprocess.run(["node", "policy/gate/cli.mjs", "agents-rows"], cwd=root, check=True, capture_output=True,
