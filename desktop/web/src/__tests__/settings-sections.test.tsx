@@ -112,6 +112,27 @@ describe('Settings sections', () => {
     expect(nav.querySelector('[aria-current="page"]')!.textContent).toBe('Keyboard')
     expect(dialog().querySelector('h3')!.textContent).toBe('Keyboard')
   })
+
+  it('lists every supported language in Latin, Cyrillic, CJK picker order', async () => {
+    await openSection('appearance')
+    const languageTrigger = dialog().querySelector<HTMLButtonElement>('button[aria-haspopup="listbox"]')!
+    await act(async () => { languageTrigger.click() })
+    const labels = [...document.body.querySelectorAll<HTMLElement>('[role="option"]')]
+      .map((option) => option.textContent?.trim())
+    expect(labels).toEqual([
+      'English',
+      'Français',
+      'Español',
+      'Português',
+      'Italiano',
+      'Deutsch',
+      'Nederlands',
+      'Русский',
+      '中文',
+      '日本語',
+      '한국어',
+    ])
+  })
 })
 
 describe('Settings › Map and imagery: the Google key', () => {

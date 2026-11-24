@@ -9,4 +9,8 @@ invalid:
   - |
     const locales = ['en', 'fr', 'es', 'de'] as const
   - |
+    const weekStart = { en: 0, fr: 1, es: 1, ru: 1 }
+  - |
+    const columns = { 'fr': 'value_fr', 'es': 'value_es' }
+  - |
     const label = 'Français'

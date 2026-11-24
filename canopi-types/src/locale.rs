@@ -80,6 +80,8 @@ pub struct LocaleSpec {
     pub week_start_fallback: WeekStart,
     /// Cardinal plural categories required for counted i18n strings.
     pub plural_categories: &'static [PluralCategory],
+    /// Display order in the Settings language picker (Latin, Cyrillic, CJK).
+    pub picker_rank: u8,
 }
 
 const PLURALS_ONE_OTHER: &[PluralCategory] = &[PluralCategory::One, PluralCategory::Other];
@@ -106,6 +108,7 @@ pub const LOCALES: &[LocaleSpec] = &[
         catalog_column: "value_en",
         week_start_fallback: WeekStart::Sunday,
         plural_categories: PLURALS_ONE_OTHER,
+        picker_rank: 0,
     },
     LocaleSpec {
         locale: Locale::Fr,
@@ -115,6 +118,7 @@ pub const LOCALES: &[LocaleSpec] = &[
         catalog_column: "value_fr",
         week_start_fallback: WeekStart::Monday,
         plural_categories: PLURALS_ONE_MANY_OTHER,
+        picker_rank: 1,
     },
     LocaleSpec {
         locale: Locale::Es,
@@ -124,6 +128,7 @@ pub const LOCALES: &[LocaleSpec] = &[
         catalog_column: "value_es",
         week_start_fallback: WeekStart::Monday,
         plural_categories: PLURALS_ONE_MANY_OTHER,
+        picker_rank: 2,
     },
     LocaleSpec {
         locale: Locale::Pt,
@@ -133,6 +138,7 @@ pub const LOCALES: &[LocaleSpec] = &[
         catalog_column: "value_pt",
         week_start_fallback: WeekStart::Sunday,
         plural_categories: PLURALS_ONE_MANY_OTHER,
+        picker_rank: 3,
     },
     LocaleSpec {
         locale: Locale::It,
@@ -142,6 +148,7 @@ pub const LOCALES: &[LocaleSpec] = &[
         catalog_column: "value_it",
         week_start_fallback: WeekStart::Monday,
         plural_categories: PLURALS_ONE_MANY_OTHER,
+        picker_rank: 4,
     },
     LocaleSpec {
         locale: Locale::Zh,
@@ -151,6 +158,7 @@ pub const LOCALES: &[LocaleSpec] = &[
         catalog_column: "value_zh",
         week_start_fallback: WeekStart::Monday,
         plural_categories: PLURALS_OTHER_ONLY,
+        picker_rank: 8,
     },
     LocaleSpec {
         locale: Locale::De,
@@ -160,6 +168,7 @@ pub const LOCALES: &[LocaleSpec] = &[
         catalog_column: "value_de",
         week_start_fallback: WeekStart::Monday,
         plural_categories: PLURALS_ONE_OTHER,
+        picker_rank: 5,
     },
     LocaleSpec {
         locale: Locale::Ja,
@@ -169,6 +178,7 @@ pub const LOCALES: &[LocaleSpec] = &[
         catalog_column: "value_ja",
         week_start_fallback: WeekStart::Sunday,
         plural_categories: PLURALS_OTHER_ONLY,
+        picker_rank: 9,
     },
     LocaleSpec {
         locale: Locale::Ko,
@@ -178,6 +188,7 @@ pub const LOCALES: &[LocaleSpec] = &[
         catalog_column: "value_ko",
         week_start_fallback: WeekStart::Sunday,
         plural_categories: PLURALS_OTHER_ONLY,
+        picker_rank: 10,
     },
     LocaleSpec {
         locale: Locale::Nl,
@@ -187,6 +198,7 @@ pub const LOCALES: &[LocaleSpec] = &[
         catalog_column: "value_nl",
         week_start_fallback: WeekStart::Monday,
         plural_categories: PLURALS_ONE_OTHER,
+        picker_rank: 6,
     },
     LocaleSpec {
         locale: Locale::Ru,
@@ -196,6 +208,7 @@ pub const LOCALES: &[LocaleSpec] = &[
         catalog_column: "value_ru",
         week_start_fallback: WeekStart::Monday,
         plural_categories: PLURALS_RUSSIAN,
+        picker_rank: 7,
     },
 ];
 
@@ -262,18 +275,37 @@ pub fn match_locale_or_default<'a>(tags: impl IntoIterator<Item = &'a str>) -> L
 mod tests {
     use std::collections::HashSet;
 
+    use serde::Deserialize;
+
     use super::{LOCALES, from_code, match_locale, match_locale_or_default, spec_for};
     use crate::settings::Locale;
+
+    #[derive(Deserialize)]
+    struct MatchCorpusCase {
+        tags: Vec<String>,
+        expected: Option<String>,
+    }
 
     #[test]
     fn registry_covers_every_locale_in_order_with_valid_metadata() {
         assert_eq!(LOCALES.len(), Locale::ALL.len());
         let mut codes = HashSet::new();
+        let mut ranks = HashSet::new();
         for (spec, expected) in LOCALES.iter().zip(Locale::ALL.iter()) {
             assert_eq!(spec.locale, *expected);
             assert_eq!(spec_for(*expected), spec);
             assert_eq!(from_code(spec.code), Some(*expected));
             assert!(codes.insert(spec.code), "duplicate code {}", spec.code);
+            assert!(
+                ranks.insert(spec.picker_rank),
+                "duplicate picker_rank {}",
+                spec.picker_rank
+            );
+            assert!(
+                usize::from(spec.picker_rank) < LOCALES.len(),
+                "picker_rank {} out of range",
+                spec.picker_rank
+            );
             assert_eq!(spec.catalog_column, format!("value_{}", spec.code));
             assert!(!spec.endonym.is_empty());
             assert!(!spec.bcp47.is_empty());
@@ -283,16 +315,25 @@ mod tests {
 
     #[test]
     fn match_locale_handles_shared_tag_corpus() {
-        // Shared §14 corpus mirrored in TS locale-registry tests.
-        assert_eq!(match_locale(["fr_FR"]), Some(Locale::Fr));
-        assert_eq!(match_locale(["pt-BR"]), Some(Locale::Pt));
-        assert_eq!(match_locale(["zh-Hant-TW"]), Some(Locale::Zh));
-        assert_eq!(match_locale(["xx"]), None);
-        assert_eq!(match_locale(["xx", "pt-BR", "fr_FR"]), Some(Locale::Pt));
-        assert_eq!(match_locale(["EN-us"]), Some(Locale::En));
-        assert_eq!(match_locale(["de_DE.UTF-8"]), Some(Locale::De));
-        assert_eq!(match_locale(["", "   ", "zz-ZZ"]), None);
-        assert_eq!(match_locale_or_default(["xx"]), Locale::En);
-        assert_eq!(match_locale_or_default(["ja-JP"]), Locale::Ja);
+        let cases: Vec<MatchCorpusCase> =
+            serde_json::from_str(include_str!("../fixtures/locale-match-corpus.json"))
+                .expect("locale-match-corpus.json must deserialize");
+        assert!(!cases.is_empty());
+        for case in &cases {
+            let expected = case.expected.as_deref().and_then(from_code);
+            let tags = case.tags.iter().map(String::as_str);
+            assert_eq!(
+                match_locale(tags.clone()),
+                expected,
+                "match_locale({:?})",
+                case.tags
+            );
+            assert_eq!(
+                match_locale_or_default(tags),
+                expected.unwrap_or(Locale::En),
+                "match_locale_or_default({:?})",
+                case.tags
+            );
+        }
     }
 }

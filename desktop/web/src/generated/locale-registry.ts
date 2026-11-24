@@ -12,6 +12,7 @@ export interface LocaleSpec {
   readonly catalogColumn: string
   readonly weekStartFallback: 0 | 1
   readonly pluralCategories: readonly PluralCategory[]
+  readonly pickerRank: number
 }
 
 export const LOCALE_REGISTRY: readonly LocaleSpec[] = [
@@ -22,6 +23,7 @@ export const LOCALE_REGISTRY: readonly LocaleSpec[] = [
     catalogColumn: 'value_en',
     weekStartFallback: 0,
     pluralCategories: ['one', 'other'],
+    pickerRank: 0,
   },
   {
     code: 'fr',
@@ -30,6 +32,7 @@ export const LOCALE_REGISTRY: readonly LocaleSpec[] = [
     catalogColumn: 'value_fr',
     weekStartFallback: 1,
     pluralCategories: ['one', 'many', 'other'],
+    pickerRank: 1,
   },
   {
     code: 'es',
@@ -38,6 +41,7 @@ export const LOCALE_REGISTRY: readonly LocaleSpec[] = [
     catalogColumn: 'value_es',
     weekStartFallback: 1,
     pluralCategories: ['one', 'many', 'other'],
+    pickerRank: 2,
   },
   {
     code: 'pt',
@@ -46,6 +50,7 @@ export const LOCALE_REGISTRY: readonly LocaleSpec[] = [
     catalogColumn: 'value_pt',
     weekStartFallback: 0,
     pluralCategories: ['one', 'many', 'other'],
+    pickerRank: 3,
   },
   {
     code: 'it',
@@ -54,6 +59,7 @@ export const LOCALE_REGISTRY: readonly LocaleSpec[] = [
     catalogColumn: 'value_it',
     weekStartFallback: 1,
     pluralCategories: ['one', 'many', 'other'],
+    pickerRank: 4,
   },
   {
     code: 'zh',
@@ -62,6 +68,7 @@ export const LOCALE_REGISTRY: readonly LocaleSpec[] = [
     catalogColumn: 'value_zh',
     weekStartFallback: 1,
     pluralCategories: ['other'],
+    pickerRank: 8,
   },
   {
     code: 'de',
@@ -70,6 +77,7 @@ export const LOCALE_REGISTRY: readonly LocaleSpec[] = [
     catalogColumn: 'value_de',
     weekStartFallback: 1,
     pluralCategories: ['one', 'other'],
+    pickerRank: 5,
   },
   {
     code: 'ja',
@@ -78,6 +86,7 @@ export const LOCALE_REGISTRY: readonly LocaleSpec[] = [
     catalogColumn: 'value_ja',
     weekStartFallback: 0,
     pluralCategories: ['other'],
+    pickerRank: 9,
   },
   {
     code: 'ko',
@@ -86,6 +95,7 @@ export const LOCALE_REGISTRY: readonly LocaleSpec[] = [
     catalogColumn: 'value_ko',
     weekStartFallback: 0,
     pluralCategories: ['other'],
+    pickerRank: 10,
   },
   {
     code: 'nl',
@@ -94,6 +104,7 @@ export const LOCALE_REGISTRY: readonly LocaleSpec[] = [
     catalogColumn: 'value_nl',
     weekStartFallback: 1,
     pluralCategories: ['one', 'other'],
+    pickerRank: 6,
   },
   {
     code: 'ru',
@@ -102,8 +113,11 @@ export const LOCALE_REGISTRY: readonly LocaleSpec[] = [
     catalogColumn: 'value_ru',
     weekStartFallback: 1,
     pluralCategories: ['one', 'few', 'many', 'other'],
+    pickerRank: 7,
   },
 ] as const
+
+export const LOCALE_PICKER_ORDER: readonly LocaleSpec[] = [LOCALE_REGISTRY[0]!, LOCALE_REGISTRY[1]!, LOCALE_REGISTRY[2]!, LOCALE_REGISTRY[3]!, LOCALE_REGISTRY[4]!, LOCALE_REGISTRY[6]!, LOCALE_REGISTRY[9]!, LOCALE_REGISTRY[10]!, LOCALE_REGISTRY[5]!, LOCALE_REGISTRY[7]!, LOCALE_REGISTRY[8]!] as const
 
 export const SUPPORTED_LOCALES = ['en', 'fr', 'es', 'pt', 'it', 'zh', 'de', 'ja', 'ko', 'nl', 'ru'] as const satisfies readonly Locale[]
 
@@ -139,7 +153,7 @@ export const LOCALE_WEEK_START_FALLBACK: Readonly<Record<Locale, 0 | 1>> = {
 export function matchLocale(tags: readonly (string | null | undefined)[]): Locale | null {
   for (const tag of tags) {
     if (!tag) continue
-    const primary = tag.trim().split(/[-_.]/)[0]?.toLowerCase() ?? ''
+    const primary = (tag.trim().split(/[-_.]/)[0] ?? '').replace(/[A-Z]/g, (ch) => ch.toLowerCase())
     if (Object.prototype.hasOwnProperty.call(LOCALE_BY_CODE, primary)) {
       return primary as Locale
     }

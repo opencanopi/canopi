@@ -60,6 +60,16 @@ rule:
           all:
             - has: { kind: string_literal, regex: '^"fr"$' }
             - has: { kind: string_literal, regex: '^"es"$' }
+        - kind: match_expression
+          all:
+            - has:
+                kind: match_pattern
+                has: { kind: string_literal, regex: '^"fr"$', stopBy: end }
+                stopBy: end
+            - has:
+                kind: match_pattern
+                has: { kind: string_literal, regex: '^"es"$', stopBy: end }
+                stopBy: end
     - not: { matches: test-code }
 utils:
   test-code:

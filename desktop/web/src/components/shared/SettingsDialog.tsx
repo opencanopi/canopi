@@ -35,10 +35,10 @@ import { Slider } from './Slider'
 import { WorkspaceDialog } from './WorkspaceDialog'
 import styles from './SettingsDialog.module.css'
 import type { LocaleKey } from '../../generated/locale-keys'
-import { LOCALE_REGISTRY } from '../../generated/locale-registry'
+import { LOCALE_PICKER_ORDER } from '../../generated/locale-registry'
 
-/** Each language in its own name, so anyone can find theirs (from the L6 locale registry). */
-const LANGUAGE_ITEMS: DropdownItem<Locale>[] = LOCALE_REGISTRY.map((entry) => ({
+/** Each language in its own name in picker order (Latin, Cyrillic, CJK; from the L6 locale registry). */
+const LANGUAGE_ITEMS: DropdownItem<Locale>[] = LOCALE_PICKER_ORDER.map((entry) => ({
   value: entry.code,
   label: entry.endonym,
 }))

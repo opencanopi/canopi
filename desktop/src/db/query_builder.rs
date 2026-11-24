@@ -10,6 +10,7 @@ mod species_catalog_filters;
 mod sql;
 mod text;
 mod translate_value;
+
 pub(crate) use crate::db::plant_filter_fields::{PlantFilterFieldKind, filter_field_kind};
 pub use builder::{SpeciesSearchPlan, SpeciesSearchPlanRequest};
 pub(crate) use columns::validated_column;
@@ -20,6 +21,7 @@ use pagination::BrowseKeyValue;
 pub use pagination::BrowsePosition;
 pub(crate) use projection::{species_list_common_name_join_sql, species_list_select_sql};
 pub(crate) use translate_value::translate_value_sql;
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -28,11 +30,9 @@ mod tests {
     };
     use rusqlite::types::Value;
     use std::collections::BTreeSet;
-
     fn default_filter() -> SpeciesFilter {
         SpeciesFilter::default()
     }
-
     fn request(
         text: Option<&str>,
         filters: SpeciesFilter,

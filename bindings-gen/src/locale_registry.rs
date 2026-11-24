@@ -33,6 +33,7 @@ pub(crate) fn render_locale_registry_ts() -> Result<String, Box<dyn Error>> {
         out,
         "  readonly pluralCategories: readonly PluralCategory[]"
     )?;
+    writeln!(out, "  readonly pickerRank: number")?;
     writeln!(out, "}}")?;
     writeln!(out)?;
     writeln!(
@@ -43,6 +44,18 @@ pub(crate) fn render_locale_registry_ts() -> Result<String, Box<dyn Error>> {
         write_ts_locale_spec(&mut out, spec)?;
     }
     writeln!(out, "] as const")?;
+    writeln!(out)?;
+    let mut picker_indices: Vec<usize> = (0..LOCALES.len()).collect();
+    picker_indices.sort_by_key(|&idx| LOCALES[idx].picker_rank);
+    let picker_items = picker_indices
+        .iter()
+        .map(|idx| format!("LOCALE_REGISTRY[{idx}]!"))
+        .collect::<Vec<_>>()
+        .join(", ");
+    writeln!(
+        out,
+        "export const LOCALE_PICKER_ORDER: readonly LocaleSpec[] = [{picker_items}] as const"
+    )?;
     writeln!(out)?;
     let codes = LOCALES
         .iter()
@@ -94,7 +107,7 @@ fn write_ts_locale_matcher(out: &mut String) -> Result<(), Box<dyn Error>> {
     writeln!(out, "    if (!tag) continue")?;
     writeln!(
         out,
-        "    const primary = tag.trim().split(/[-_.]/)[0]?.toLowerCase() ?? ''"
+        "    const primary = (tag.trim().split(/[-_.]/)[0] ?? '').replace(/[A-Z]/g, (ch) => ch.toLowerCase())"
     )?;
     writeln!(
         out,
@@ -138,6 +151,7 @@ fn write_ts_locale_spec(out: &mut String, spec: &LocaleSpec) -> Result<(), Box<d
         spec.week_start_fallback.js_day()
     )?;
     writeln!(out, "    pluralCategories: [{plurals}],")?;
+    writeln!(out, "    pickerRank: {},", spec.picker_rank)?;
     writeln!(out, "  }},")?;
     Ok(())
 }

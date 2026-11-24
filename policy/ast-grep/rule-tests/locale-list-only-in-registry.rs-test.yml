@@ -14,3 +14,11 @@ invalid:
     fn os_tag() -> Option<String> { sys_locale::get_locale() }
   - |
     const LOCALES: &[&str] = &["en", "fr", "es"];
+  - |
+    fn pick(code: &str) -> u8 {
+        match code {
+            "fr" => 1,
+            "es" => 2,
+            _ => 0,
+        }
+    }

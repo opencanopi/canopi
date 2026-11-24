@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { locale } from '../app/settings/state'
@@ -68,18 +69,22 @@ describe('typed translation keys', () => {
   })
 })
 
+interface MatchCorpusCase {
+  readonly tags: readonly string[]
+  readonly expected: string | null
+}
+
+const MATCH_CORPUS: readonly MatchCorpusCase[] = JSON.parse(
+  readFileSync(new URL('../../../../canopi-types/fixtures/locale-match-corpus.json', import.meta.url), 'utf8'),
+)
+
 describe('locale registry matcher (contracts §14, 2.1-Q345)', () => {
   it('matches the shared Rust/TS tag corpus identically', () => {
-    expect(matchLocale(['fr_FR'])).toBe('fr')
-    expect(matchLocale(['pt-BR'])).toBe('pt')
-    expect(matchLocale(['zh-Hant-TW'])).toBe('zh')
-    expect(matchLocale(['xx'])).toBeNull()
-    expect(matchLocale(['xx', 'pt-BR', 'fr_FR'])).toBe('pt')
-    expect(matchLocale(['EN-us'])).toBe('en')
-    expect(matchLocale(['de_DE.UTF-8'])).toBe('de')
-    expect(matchLocale(['', '   ', 'zz-ZZ'])).toBeNull()
+    expect(MATCH_CORPUS.length).toBeGreaterThan(0)
+    for (const testCase of MATCH_CORPUS) {
+      expect(matchLocale(testCase.tags), JSON.stringify(testCase.tags)).toBe(testCase.expected)
+      expect(matchLocaleOrDefault(testCase.tags), JSON.stringify(testCase.tags)).toBe(testCase.expected ?? 'en')
+    }
     expect(matchLocale([null, undefined, 'ja-JP'])).toBe('ja')
-    expect(matchLocaleOrDefault(['xx'])).toBe('en')
-    expect(matchLocaleOrDefault(['ja-JP'])).toBe('ja')
   })
 })
