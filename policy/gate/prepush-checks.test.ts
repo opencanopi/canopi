@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 import { git, PlantedRepo, REPO_ROOT } from './planted-repo.ts'
-import { addedMarkers } from './prepush-checks.ts'
+import { addedMarkers, invalidMarkerTitles } from './prepush-checks.ts'
 
 const repo = new PlantedRepo()
 afterAll(() => repo.cleanup())
@@ -95,5 +95,21 @@ describe('the pre-push lane\'s expected-fail marker check (canopi-f47t.52.228.54
     const run = repo.gate(['prepush-checks', '--base', base])
     expect(run.status).toBe(1)
     expect(run.stdout).toContain('FAIL policy/adapters/upstream-register.mjs markers exited 1')
+  })
+
+  it('Stage 1 E4: expected-fail marker titles require an owner plus a ledger ID (Q/M) or bead ID', () => {
+    commit({
+      ...register([]),
+      'desktop/web/src/app/ok.test.ts': [
+        "it.fails('Q344 (2a-3): desktop phone layout', () => {})",
+        "it.fails('[expected-fail owner: 2b, canopi-vgfg] pending migration', () => {})",
+        "it.fails('Q344: missing owner', () => {})",
+        "it.fails('(2a-3): missing id', () => {})",
+      ].join('\n') + '\n',
+    })
+    expect(invalidMarkerTitles(repo.repo, new Set())).toEqual([
+      "desktop/web/src/app/ok.test.ts:3:it.fails('Q344: missing owner', () => {})",
+      "desktop/web/src/app/ok.test.ts:4:it.fails('(2a-3): missing id', () => {})",
+    ])
   })
 })

@@ -43,6 +43,7 @@ const REASONS = {
     + `.rq-scratch/ instead, and update the checkout only by fetch and --ff-only; if it must, ${ASK_IN_CHAT}`,
   'hook-reset-hard': `git reset --hard in the user's checkout discards their work (2.1-M339); ${ASK_IN_CHAT}`,
   'hook-discard': `this discards uncommitted work in the user's checkout (2.1-M339); ${ASK_IN_CHAT}`,
+  'hook-bd-notes-overwrite': 'bd update --notes replaces a bead\'s notes instead of appending (canopi-vgfg); use --append-notes instead',
 } as const
 type Rule = keyof typeof REASONS
 // The stash refusal in the user's checkout is a hook-bare-stash site with its own reason.
@@ -391,6 +392,16 @@ function checkGit(words: readonly string[], husky: boolean, place: Place): Verdi
   return place.isUserCheckout(globals.target) ? inCheckout(sub, args) : undefined
 }
 
+/** Refuses `bd update ... --notes` (which overwrites existing notes) without `--append-notes` (canopi-vgfg). */
+function checkBd(words: readonly string[]): Verdict {
+  const args = words.slice(1)
+  const sub = args.find((a) => !a.startsWith('-'))
+  if (sub !== 'update') return undefined
+  const overwritesNotes = args.some((a) => a === '--notes' || a.startsWith('--notes='))
+  const appendsNotes = args.some((a) => a === '--append-notes' || a.startsWith('--append-notes='))
+  return overwritesNotes && !appendsNotes ? deny('hook-bd-notes-overwrite') : undefined
+}
+
 /**
  * The first refusal in a Bash command, else undefined. HUSKY= counts as the git command's own prefix assignment or an
  * `export HUSKY=` before it in the chain; a subshell's cd stays inside its parentheses.
@@ -411,6 +422,9 @@ function checkCommand(command: string, place: Place): Verdict {
     else if (program === 'cd' || program === 'pushd' || program === 'popd') place.move(program, words.slice(at + 1))
     else if (program === 'git') {
       const verdict = checkGit(words.slice(at), exported || husky(at), place)
+      if (verdict) return verdict
+    } else if (program === 'bd') {
+      const verdict = checkBd(words.slice(at))
       if (verdict) return verdict
     }
   }

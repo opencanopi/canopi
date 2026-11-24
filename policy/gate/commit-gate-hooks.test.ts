@@ -183,6 +183,16 @@ describe('the commit lane through pre-commit (2.1-Q205)', () => {
     expect(run.status).not.toBe(0)
     expect(repo.head()).toBe(head)
   })
+
+  it('pre-commit refuses a commit in the main checkout unless CANOPI_ALLOW_MAIN_CHECKOUT_COMMIT=1 is set', () => {
+    const head = repo.head(repo.path)
+    const refused = repo.commitIn(repo.path, { 'notes.txt': 'main\n' })
+    expect(refused.status).not.toBe(0)
+    expect(refused.stderr).toContain('refusing commit in the main checkout')
+    expect(repo.head(repo.path)).toBe(head)
+    const allowed = repo.commitIn(repo.path, { 'notes.txt': 'main\n' }, { CANOPI_ALLOW_MAIN_CHECKOUT_COMMIT: '1' })
+    expect(allowed.status, allowed.stderr).toBe(0)
+  })
 })
 
 describe('commit-msg through the real hook', () => {

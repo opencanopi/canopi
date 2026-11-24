@@ -2650,6 +2650,11 @@
       "ledger": "2.1-M196"
     },
     {
+      "id": "hook-bd-notes-overwrite",
+      "tool": "agent-hooks",
+      "ledger": "2.1-M196"
+    },
+    {
       "id": "hook-user-checkout-commit",
       "tool": "agent-hooks",
       "ledger": "2.1-M196"
