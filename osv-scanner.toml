@@ -35,3 +35,8 @@ reason = "W17: zbus_names: Unmaintained; zbus 5's name types, pulled on Linux by
 id = "RUSTSEC-2026-0372"
 ignoreUntil = 2027-04-27T00:00:00Z
 reason = "W17: zvariant_derive: Unmaintained; zbus 5's derive macros, pulled on Linux by tauri-plugin-opener and tauri-plugin-single-instance; retired with Tauri's Linux stack moving off it (the GTK4 move W17 tracks)."
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2026-0543"
+ignoreUntil = 2027-04-27T00:00:00Z
+reason = "W23: chrono: Unmaintained; never compiled or linked in Canopi (cargo tree --target all --all-features -i chrono is empty). Present in Cargo.lock solely as an unactivated weak optional dependency of serde_with (via tauri-utils) because Cargo records weak-dep targets in the lockfile."

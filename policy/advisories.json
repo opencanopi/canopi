@@ -50,6 +50,13 @@
       "reason": "Dev-only: pattern amplification from an attacker-controlled pattern; minimatch 5, 9 and 10 come through mocha, Stryker, glob, readdir-glob (archiver, WebdriverIO), jake/filelist and appium-ios-remotexpc on the tools' own trusted patterns; fixed only in minimatch 11.0.1, which no parent accepts.",
       "until": "2027-01-31",
       "upstream": "W20"
+    },
+    {
+      "id": "RUSTSEC-2026-0543",
+      "package": "chrono",
+      "reason": "Unmaintained; never compiled or linked in Canopi (cargo tree --target all --all-features -i chrono is empty). Present in Cargo.lock solely as an unactivated weak optional dependency of serde_with (via tauri-utils) because Cargo records weak-dep targets in the lockfile.",
+      "until": "2027-04-27",
+      "upstream": "W23"
     }
   ]
 }
