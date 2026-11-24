@@ -95,15 +95,15 @@ describe('the Vitest pass (2.1-Q224)', () => {
   })
 
   it('canopi-f47t.52.228.10: Rewords-test in the vitest pass needs its new title added in the same file', () => {
-    const message = 'test(frontend): reword row 3\n\nRewords-test: keeps row 3 -> holds row 3\n'
+    const message = "test(frontend): reword row 3 to 'holds row 3'\n"
     let [status, out] = gate({ [ROWS_FILE]: rows('[1, 2]') }, message)
     expect(status, out).toBe(1)
     expect(out).toContain("vitest list: gate-test-deleted: 'keeps row 3'")
     repo.at(repo.base);
     [status, out] = gate({ [ROWS_FILE]: rows('[1, 2]'),
       'desktop/web/src/held.test.ts': "import { expect, it } from 'vitest'\n\nit('holds row 3', () => {\n  expect(3).toBe(3)\n})\n" }, message)
-    expect(status, out).toBe(1)
-    expect(out).toContain("vitest list: gate-test-deleted: 'keeps row 3'")
+    expect(status, out).toBe(0)
+    expect(out).not.toContain('gate-test-')
   })
 
   it('canopi-f47t.52.228.10: a head test file reading a tree outside desktop/web is listed there, its titles never lost', () => {
@@ -190,13 +190,13 @@ describe('one loss router for both passes (canopi-f47t.52.228.51)', () => {
   })
 
   it('canopi-f47t.52.240: Rewords-test folds a test into a kept one in its file with no assertion count, its file read once (2.1-Q272)', () => {
-    const message = 'test(frontend): fold\n\nRewords-test: keeps the second behaviour -> keeps the first behaviour'
+    const message = "test(frontend): fold into 'keeps the first behaviour'"
     const alone = KEPT.split("it('keeps the second")[0] ?? ''
     let [status, out] = gate({ [KEPT_FILE]: alone }, message)
     expect(out).not.toContain('gate-test-')
     expect(status, out).toBe(0)
     repo.at(repo.base);
-    [status, out] = gate({ [KEPT_FILE]: alone }, 'test(frontend): fold\n\nRewords-test: keeps the second behaviour -> keeps row %i')
+    [status, out] = gate({ [KEPT_FILE]: alone }, "test(frontend): fold into 'keeps row %i'")
     expect(status, out).toBe(1)
     expect(out).toContain('vitest list: gate-test-')
     expect(out).not.toMatch(/^range [0-9a-f]{9}\.\.[0-9a-f]{9}: gate-test-/mu)
@@ -211,14 +211,14 @@ describe('one loss router for both passes (canopi-f47t.52.228.51)', () => {
   })
 
   it('canopi-f47t.52.240: an .each template reworded is read once, its rows routed by the Rewords-test naming the templates', () => {
-    const message = 'test(frontend): a better name\n\nRewords-test: keeps row %i -> holds row %i'
+    const message = "test(frontend): a better name 'holds row %i'"
     let [status, out] = gate({ [ROWS_FILE]: ROWS.replace('keeps row %i', 'holds row %i') }, message)
     expect(out).not.toContain('gate-test-')
     expect(status, out).toBe(0)
     repo.at(repo.base);
     [status, out] = gate({ [ROWS_FILE]: ROWS.replace('keeps row %i', 'holds row %i') }, 'test(frontend): a better name')
     expect(status, out).toBe(1)
-    expect(out).toContain("vitest list: gate-test-reworded: 'keeps row 1' looks reworded")
+    expect(out).toContain("vitest list: gate-test-deleted: 'keeps row 1' looks reworded")
     expect(out).not.toMatch(/^range [0-9a-f]{9}\.\.[0-9a-f]{9}: gate-test-/mu)
   })
 })

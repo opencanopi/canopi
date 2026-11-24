@@ -140,8 +140,7 @@ describe('a PR judged on its net change (2.1-Q272)', () => {
     repo.write({ [FILE]: KEPT.replace('keeps the second behaviour', 'keeps behaviour two') })
     repo.commit('test(frontend): a new name')
     repo.write({ [FILE]: KEPT.replace('keeps the second behaviour', 'holds behaviour two') })
-    const { status, out } = verdict(repo.commit('test(frontend): a better name\n\nRewords-test: keeps the second behaviour -> '
-      + 'keeps behaviour two\nRewords-test: keeps behaviour two -> holds behaviour two'))
+    const { status, out } = verdict(repo.commit("test(frontend): a better name 'holds behaviour two'"))
     expect(out).not.toContain('gate-test-')
     expect(status, out).toBe(0)
   })

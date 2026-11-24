@@ -6,7 +6,7 @@ import { spawnSync } from 'node:child_process'
 import { accessSync, chmodSync, constants, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { ATTRIBUTION, GateRepo, OPEN_BEAD } from './commit-gate-repo.ts'
+import { ATTRIBUTION, GateRepo, M_ROW, OPEN_BEAD } from './commit-gate-repo.ts'
 import { cleanEnv, git, REPO_ROOT } from './planted-repo.ts'
 
 const HOOKS = ['pre-commit', 'commit-msg', 'pre-merge-commit']
@@ -215,6 +215,27 @@ describe('commit-msg through the real hook', () => {
     run = commit('--amend', '-m', 'chore: the amend sneaks a raise in')
     expect(run.status, run.stdout + run.stderr).not.toBe(0)
     expect(run.stdout + run.stderr).toContain('y.ts')
+  })
+
+  it('canopi-gjpq: commit-msg judges net change so a route in an earlier branch commit passes the hook as it passes CI', () => {
+    raiseEntry('desktop/web/src/x.ts: oxlint:no-console')
+    let run = commit('-m', `feat: authorise suppression (${OPEN_BEAD}, ${M_ROW})`)
+    expect(run.status, run.stdout + run.stderr).toBe(0)
+    // A follow-up commit touching the same ratchet without repeating the route still passes via the earlier branch commit.
+    raiseEntry('desktop/web/src/z.ts: oxlint:no-console')
+    run = commit('-m', 'feat: follow-up in same file')
+    expect(run.status, run.stdout + run.stderr).toBe(0)
+  })
+
+  it('canopi-2ldj: commit-msg warns when a quote opened in a commit message is not closed on the same line', () => {
+    const wrapped = repo.commitIn(repo.linked, { 'docs/a.md': '# A\n\nWrapped.\n' }, {},
+      ['-m', "test: replaces 'wrapped title\ncontinued on next line'"])
+    expect(wrapped.status, wrapped.stderr).toBe(0)
+    expect(wrapped.stderr).toContain('canopi-2ldj')
+    const plain = repo.commitIn(repo.linked, { 'docs/a.md': '# A\n\nPlain.\n' }, {},
+      ['-m', "docs: it's fine when 'closed on one line'"])
+    expect(plain.status, plain.stderr).toBe(0)
+    expect(plain.stderr).not.toContain('canopi-2ldj')
   })
 
   it('canopi-f47t.52.228.54: unmounted: git commit -a in a fresh worktree with no install commits a docs change', () => {

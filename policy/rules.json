@@ -2690,11 +2690,6 @@
       "ledger": "2.1-M199"
     },
     {
-      "id": "gate-test-reworded",
-      "tool": "commit-gate",
-      "ledger": "2.1-Q224"
-    },
-    {
       "id": "gate-absent-bead",
       "tool": "commit-gate",
       "ledger": "2.1-M356"
