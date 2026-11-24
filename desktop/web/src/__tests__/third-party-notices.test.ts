@@ -431,7 +431,7 @@ describe('THIRD_PARTY_NOTICES.md', () => {
 
   // A lane is real only when a gate row runs it too, so the regeneration runs before a push and not first in CI.
   it('runs in the Frontend gate before a push (merge agent applies the gate row, canopi-f47t.52.228.11)', () => {
-    const frontendRow = read('AGENTS.md').split('\n').find(line => line.startsWith('| Frontend |'))
+    const frontendRow = read('docs/quality-gates.md').split('\n').find(line => line.startsWith('| Frontend |'))
     expect(frontendRow).toContain('npm run check:notices')
   })
 
