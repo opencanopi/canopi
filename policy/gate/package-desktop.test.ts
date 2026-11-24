@@ -21,7 +21,7 @@ interface Step {
   readonly with?: Readonly<Record<string, string | number | boolean>>, readonly env?: Readonly<Record<string, string>>
   readonly 'continue-on-error'?: unknown
 }
-interface Job { readonly steps?: readonly Step[], readonly strategy?: { readonly matrix?: { readonly include?: readonly Record<string, unknown>[] } } }
+interface Job { readonly if?: string, readonly steps?: readonly Step[], readonly strategy?: { readonly matrix?: { readonly include?: readonly Record<string, unknown>[] } } }
 interface Workflow { readonly jobs?: Readonly<Record<string, Job>> }
 
 const ACTION_DIR = '.github/actions/package-desktop'
@@ -92,10 +92,26 @@ describe('the package-desktop action (design check AR4)', () => {
     // Build & Test's own build uploads canopi-<target> in the same run: the dry run's names differ.
     expect(String(step?.with?.['artifact-name'])).toBe("${{ needs.preflight.outputs.dry_run == 'true' && 'dry-run-' || '' }}canopi-${{ matrix.target }}")
     expect(String(step?.with?.['retention-days'])).toBe("${{ needs.preflight.outputs.dry_run == 'true' && 1 || 30 }}")
-    // Nothing after the build runs in a call: no smoke, no Web package, no manifest.
+    // Nothing after the desktop build, its Debian 12 floor and Web e2e-release runs in a call: no desktop smoke, no
+    // updater, no manifest (2.1-M536).
     const jobs = flows.get('release-candidate.yml')?.jobs ?? {}
-    const after = Object.keys(jobs).filter((job) => !['preflight', 'build'].includes(job))
+    const after = Object.keys(jobs).filter((job) => !['preflight', 'build', 'linux-floor', 'web', 'e2e-release'].includes(job))
     expect(after.filter((job) => !String((jobs[job] as { if?: string }).if ?? '').includes("needs.preflight.outputs.dry_run != 'true'"))).toEqual([])
+  })
+
+  it('2.1-M536: a release-input change that skips Build & Test\'s build still starts the Linux packages on Debian 12 and refreshes main\'s release caches', () => {
+    // Build & Test skips its own build, and so its linux-floor, exactly when it calls the release build's dry run.
+    const build = flows.get('build.yml')?.jobs?.['build']
+    expect(build?.if).toContain("needs.changes.outputs.release_build != 'true'")
+    // The dry run's floor runs, on the dry run's own artifact name.
+    const floor = flows.get('release-candidate.yml')?.jobs?.['linux-floor']
+    expect(floor?.if ?? '').not.toContain('dry_run')
+    const download = (floor?.steps ?? []).find((step) => step.uses?.startsWith('actions/download-artifact'))
+    expect(String(download?.with?.['name'])).toBe("${{ needs.preflight.outputs.dry_run == 'true' && 'dry-run-' || '' }}canopi-x86_64-unknown-linux-gnu")
+    // A candidate never saves its caches; the dry run on a push to main saves them, as Build & Test's build did.
+    const setup = (jobOf('release-candidate.yml', 'build').steps ?? []).find((step) => step.uses?.endsWith('/.github/actions/setup-rust'))
+    expect(String(setup?.with?.['cache-save']))
+      .toBe("${{ needs.preflight.outputs.dry_run == 'true' && github.event_name == 'push' && github.ref == 'refs/heads/main' }}")
   })
 
   it('canopi-f47t.52.228.61: in a dry run, every job runs release tools from the change\'s commit, the preflight included', () => {
@@ -145,7 +161,7 @@ describe('the package-desktop action (design check AR4)', () => {
     expect(named).toEqual([1, 0, 0])
     const rows = jobOf('release-candidate.yml', 'build').strategy?.matrix?.include ?? []
     expect(Object.fromEntries(rows.map((row) => [row['os'], row['updater']])))
-      .toEqual({ 'ubuntu-latest': true, 'macos-15': false, 'macos-15-intel': false, 'windows-latest': true })
+      .toEqual({ 'ubuntu-26.04': true, 'macos-15': false, 'macos-15-intel': false, 'windows-2025': true })
     expect(String(packageStep('release-candidate.yml')?.with?.['updater'])).toBe("${{ matrix.updater && needs.preflight.outputs.updater == 'true' }}")
   })
 
@@ -353,10 +369,10 @@ describe('the platforms Build & Test packages (canopi-f47t.52.228.54)', () => {
   }
 
   it('canopi-f47t.52.228.54: a pull request never packages Intel macOS; a push to main and the release dry run do', () => {
-    expect(packaging(true, false)).toEqual({ matrix: ['ubuntu-latest', 'macos-15'], platforms: ['macos-15', 'windows-latest'], appimage: false })
-    expect(packaging(true, true)).toEqual({ matrix: ['ubuntu-latest', 'macos-15', 'windows-latest'], platforms: ['macos-15', 'windows-latest'], appimage: true })
-    const all = ['ubuntu-latest', 'macos-15', 'macos-15-intel', 'windows-latest']
-    expect(packaging(false, false)).toEqual({ matrix: all, platforms: ['macos-15', 'macos-15-intel', 'windows-latest'], appimage: true })
+    expect(packaging(true, false)).toEqual({ matrix: ['ubuntu-26.04', 'macos-15'], platforms: ['macos-15', 'windows-2025'], appimage: false })
+    expect(packaging(true, true)).toEqual({ matrix: ['ubuntu-26.04', 'macos-15', 'windows-2025'], platforms: ['macos-15', 'windows-2025'], appimage: true })
+    const all = ['ubuntu-26.04', 'macos-15', 'macos-15-intel', 'windows-2025']
+    expect(packaging(false, false)).toEqual({ matrix: all, platforms: ['macos-15', 'macos-15-intel', 'windows-2025'], appimage: true })
     // The release dry run packages all four, Intel included.
     const rows = jobOf('release-candidate.yml', 'build').strategy?.matrix?.include ?? []
     expect(rows.map((row) => row['os'])).toEqual(all)

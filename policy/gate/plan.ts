@@ -69,7 +69,7 @@ export function check(id: string, table: Table = TABLE): PlannedCheck {
   return { id, ...found }
 }
 
-const gitEnv = (env: NodeJS.ProcessEnv): NodeJS.ProcessEnv => {
+export const gitEnv = (env: NodeJS.ProcessEnv): NodeJS.ProcessEnv => {
   const clean: NodeJS.ProcessEnv = Object.fromEntries(Object.entries(env).filter(([name]) => !name.startsWith('GIT_')))
   const index = env['GIT_INDEX_FILE']
   if (index) clean['GIT_INDEX_FILE'] = isAbsolute(index) ? index : resolve(index)

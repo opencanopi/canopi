@@ -732,19 +732,19 @@ class LinuxBuildBaseTests(unittest.TestCase):
         self.assertIn(f"GLIBC_FLOOR={self.IMAGE_GLIBC[image]}\n", smoke)
 
     def test_canopi_eon8_14_6_build_jobs_run_the_row_image_and_key_caches_by_it(self):
+        setup_rust = self._read(".github/actions/setup-rust/action.yml")
+        # Every key names the OS the build runs on: a container's /etc/os-release, a runner's ImageOS (2.1-M535).
+        self.assertIn("shared-key: ${{ inputs.cache-key }}-${{ steps.os.outputs.os }}", setup_rust)
+        self.assertIn("/etc/os-release", setup_rust)
         for name, (_, job) in self._build_jobs().items():
             with self.subTest(workflow=name):
                 self.assertIn("    container: ${{ matrix.container }}\n", job)
                 self.assertIn(
-                    "shared-key: release-${{ matrix.target }}"
-                    "${{ matrix.container && format('-{0}', matrix.container) || '' }}",
+                    "cache-key: release-${{ matrix.target }}${{ matrix.container && format('-{0}', matrix.container) || '' }}",
                     job,
                 )
                 # The image has no curl: dependencies come before the toolchain.
-                self.assertLess(
-                    job.index("./.github/actions/install-linux-deps"),
-                    job.index("dtolnay/rust-toolchain"),
-                )
+                self.assertLess(job.index("./.github/actions/install-linux-deps"), job.index("/.github/actions/setup-rust"))
                 self.assertIn("./.github/actions/build-geolibre-cli", job)
         geolibre = self._read(".github/actions/build-geolibre-cli/action.yml")
         self.assertIn("/etc/os-release", geolibre)
@@ -758,7 +758,7 @@ class LinuxBuildBaseTests(unittest.TestCase):
             with self.subTest(workflow=name):
                 floor = self._job(workflow, "linux-floor")
                 self.assertIn("    container: debian:12\n", floor)
-                self.assertIn("name: canopi-x86_64-unknown-linux-gnu", floor)
+                self.assertRegex(floor, r"name: [^\n]*canopi-x86_64-unknown-linux-gnu\n")  # dry-run- too (2.1-M536)
                 self.assertIn(
                     "scripts/smoke-bundled-sidecar.sh x86_64-unknown-linux-gnu bundle",
                     floor,

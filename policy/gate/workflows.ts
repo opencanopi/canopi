@@ -21,6 +21,8 @@ export interface Step {
 export interface Job {
   readonly if?: string, readonly needs?: string | readonly string[], readonly steps?: readonly Step[]
   readonly outputs?: Readonly<Record<string, string>>, readonly uses?: string, readonly 'timeout-minutes'?: number | string
+  readonly 'runs-on'?: string | readonly string[]
+  readonly strategy?: { readonly matrix?: { readonly os?: readonly string[], readonly include?: readonly Record<string, unknown>[] } }
   readonly defaults?: { readonly run?: { readonly 'working-directory'?: string } }
 }
 export interface Workflow {
@@ -117,7 +119,7 @@ const rowsOf = (table: Table, file: string, job: string) => table.ci[file === 'b
 /** The actions a job sets up with, which judge nothing: what a CI step may use with no row (A5 (1)). */
 const SETUP_ACTIONS = new Set(['actions/checkout', 'actions/setup-node', 'actions/setup-python',
   'actions/download-artifact', 'dtolnay/rust-toolchain', 'Swatinem/rust-cache', 'taiki-e/install-action', './.github/actions/install-linux-deps',
-  './.github/actions/cargo-policy-tools'])
+  './.github/actions/cargo-policy-tools', './.github/actions/setup-frontend', './.github/actions/setup-rust'])
 const action = (uses: string) => uses.split('@')[0] ?? ''
 
 /**
@@ -295,16 +297,6 @@ function checkRun(word: string, ids: ReadonlySet<string>, table: Table): string[
   return word in table.checks ? [] : [`\`${word}\`, which may be an area's check,`]
 }
 
-/** What the local gate runs on: the engines Node major, rust-toolchain.toml's channel. */
-export interface Toolchain { readonly node: string, readonly rust: string }
-
-/** The repository's toolchain at `root`. */
-export function toolchain(root: string): Toolchain {
-  const engines = (JSON.parse(readFileSync(join(root, 'desktop/web/package.json'), 'utf8')) as { engines?: { node?: string } }).engines?.node
-  const rust = /^channel\s*=\s*"([^"]+)"/m.exec(readFileSync(join(root, 'rust-toolchain.toml'), 'utf8'))?.[1]
-  return { node: /(\d+)/.exec(engines ?? '')?.[1] ?? '?', rust: rust ?? '?' }
-}
-
 /** The table checks a gate call line runs: an area's full row, or `check <id>...`'s checks. */
 function called(run: string, table: Table): Check[] {
   const ids = [...run.matchAll(GATE_FULL)].flatMap((match) => table.areas.find((area) => area.name === match[1])?.full ?? [])
@@ -313,36 +305,43 @@ function called(run: string, table: Table): Check[] {
 }
 
 /**
- * Each way a job's setup is not the local gate's (A5 (5)), in every workflow and composite action (`steps` by file):
- * a Node other than the engines major, a Rust other than rust-toolchain.toml's or a Python not read from .python-version;
- * a gate call before the engines Node is set up (a runner's default Node cannot strip types); a check needing
- * desktop/web's packages (each test:policies script, the policy core under check.mjs and check_docs.py) with no npm ci
- * there before it; the push-lane clippy families with no Linux dependencies before them.
+ * Each way a job's setup is not the local gate's (A5 (5), canopi-s4ziq), in every workflow and composite action (`steps`
+ * by file): a Node not read from desktop/web/package.json, a Rust pinned by literal instead of rust-toolchain.toml or a
+ * Python not read from .python-version; a gate call before Node is set up (a runner's default Node cannot strip types);
+ * a check needing desktop/web's packages (each test:policies script, the policy core under check.mjs and check_docs.py)
+ * with no npm ci there before it; the push-lane clippy families with no Linux dependencies before them.
  */
-export function setupFaults(jobs: ReadonlyMap<string, { readonly steps: readonly Step[], readonly cwd?: string }>, tools: Toolchain,
+export function setupFaults(jobs: ReadonlyMap<string, { readonly steps: readonly Step[], readonly cwd?: string }>,
   clippy: boolean, table: Table = TABLE): string[] {
   const faults: string[] = []
   for (const [where, { steps, cwd }] of jobs) {
     const have = { node: false, npm: false, deps: false }
     for (const step of steps) {
-      faults.push(...versionFaults(where, step, tools))
-      have.node ||= (step.uses ?? '').startsWith('actions/setup-node@') && String(step.with?.['node-version'] ?? '') === tools.node
+      faults.push(...versionFaults(where, step))
+      have.node ||= setsUpNodeFromFile(step)
       have.deps ||= step.uses === './.github/actions/install-linux-deps'
       have.npm ||= installsWeb(step, cwd)
-      faults.push(...gateNeedFaults(where, step, have, tools, clippy, table))
+      faults.push(...gateNeedFaults(where, step, have, clippy, table))
     }
   }
   return faults
 }
 
-/** Each toolchain `step` sets up that is not the local gate's. */
-function versionFaults(where: string, step: Step, tools: Toolchain): string[] {
+/** Whether `step` sets up Node from desktop/web/package.json (directly or via setup-frontend). */
+const setsUpNodeFromFile = (step: Step) => step.uses === './.github/actions/setup-frontend'
+  || ((step.uses ?? '').startsWith('actions/setup-node@')
+    && step.with?.['node-version-file'] === 'desktop/web/package.json' && !('node-version' in (step.with ?? {})))
+
+/** Each toolchain `step` that pins a literal instead of reading its version file (canopi-s4ziq). */
+function versionFaults(where: string, step: Step): string[] {
   const uses = step.uses ?? ''
   const faults: string[] = []
-  const version = String(step.with?.['node-version'] ?? '')
-  if (uses.startsWith('actions/setup-node@') && version !== tools.node) faults.push(`${where} sets up Node ${version || '(none)'}, not the engines Node ${tools.node}`)
+  const node = step.with ?? {}
+  if (uses.startsWith('actions/setup-node@') && (node['node-version-file'] !== 'desktop/web/package.json' || 'node-version' in node)) {
+    faults.push(`${where} sets up a Node not read from desktop/web/package.json`)
+  }
   const rust = /^dtolnay\/rust-toolchain@(.+)$/.exec(uses)?.[1]
-  if (rust !== undefined && rust !== tools.rust) faults.push(`${where} installs Rust ${rust}, not rust-toolchain.toml's ${tools.rust}`)
+  if (rust !== undefined) faults.push(`${where} installs Rust ${rust} by literal instead of reading rust-toolchain.toml`)
   const python = step.with ?? {}
   if (uses.startsWith('actions/setup-python@') && (python['python-version-file'] !== '.python-version' || 'python-version' in python)) {
     faults.push(`${where} sets up a Python not read from .python-version`)
@@ -350,16 +349,17 @@ function versionFaults(where: string, step: Step, tools: Toolchain): string[] {
   return faults
 }
 
-/** Whether `step` installs desktop/web's packages: npm ci there, by --prefix or working directory. */
-const installsWeb = (step: Step, cwd: string | undefined) => /(^|\s)npm ci\b/.test(step.run ?? '')
-  && ((step.run ?? '').includes('--prefix desktop/web') || (step['working-directory'] ?? cwd) === 'desktop/web')
+/** Whether `step` installs desktop/web's packages: npm ci there, by --prefix, working directory, or setup-frontend. */
+const installsWeb = (step: Step, cwd: string | undefined) => (step.uses === './.github/actions/setup-frontend' && String(step.with?.['install'] ?? 'true') !== 'false')
+  || (/(^|\s)npm ci\b/.test(step.run ?? '')
+    && ((step.run ?? '').includes('--prefix desktop/web') || (step['working-directory'] ?? cwd) === 'desktop/web'))
 
 /** What a gate call `step` lacks from the setup before it (`have`). */
-function gateNeedFaults(where: string, step: Step, have: { node: boolean, npm: boolean, deps: boolean }, tools: Toolchain,
+function gateNeedFaults(where: string, step: Step, have: { node: boolean, npm: boolean, deps: boolean },
   clippy: boolean, table: Table): string[] {
   const run = step.run ?? ''
   if (!/node policy\/gate\/cli\.mjs /.test(run)) return []
-  const faults = have.node ? [] : [`${where} sets up no Node ${tools.node} before the gate`]
+  const faults = have.node ? [] : [`${where} sets up no Node from desktop/web/package.json before the gate`]
   const checks = called(run, table)
   const what = step.name ?? step.id ?? 'its gate call'
   if (!have.npm && checks.some((check) => needsPackages(check) || /check(_docs\.py|\.mjs)/.test(check.command))) {
@@ -382,6 +382,66 @@ export function setupJobs(all: ReadonlyMap<string, Workflow>, actions: ReadonlyM
   }
   for (const [file, steps] of actions) jobs.set(file, { steps })
   return jobs
+}
+
+/** Each unpinned `*-latest` runner image in a workflow's `runs-on`, matrix `os`, or dynamic matrix JSON (canopi-eht6). */
+export function runnerFaults(all: ReadonlyMap<string, Workflow>): string[] {
+  const faults: string[] = []
+  const check = (where: string, value: unknown) => {
+    const labels = Array.isArray(value) ? value : [value]
+    for (const label of labels) {
+      if (typeof label === 'string' && /-latest\b/.test(label)) faults.push(`${where} uses unpinned runner ${label}`)
+    }
+  }
+  for (const [file, flow] of all) {
+    for (const [name, job] of Object.entries(flow.jobs ?? {})) {
+      check(`${file} job ${name}`, job['runs-on'])
+      check(`${file} job ${name} matrix`, job.strategy?.matrix?.os)
+      for (const row of job.strategy?.matrix?.include ?? []) check(`${file} job ${name} matrix`, row['os'])
+      for (const step of job.steps ?? []) {
+        for (const match of (step.run ?? '').matchAll(/"os"\s*:\s*"([^"]*-latest)"/g)) {
+          faults.push(`${file} job ${name} matrix uses unpinned runner ${match[1]}`)
+        }
+      }
+    }
+  }
+  return faults
+}
+
+/**
+ * The local actions every tree a job may check out at its root carries: release/2.0 and every reader release since
+ * v2.1.0-beta.1. Any other local action is read from the job's own tree (2.1-M535).
+ */
+export const READER_ACTIONS: readonly string[] = ['build-geolibre-cli', 'install-linux-deps']
+
+/** Whether a checkout `ref` names only the run's own commit (the push's or the pull request's head). */
+const ownCommit = (ref: string) =>
+  ref.replace(/\$\{\{|\}\}|\|\||github\.event\.pull_request\.head\.sha|github\.sha|\s/g, '') === ''
+
+/**
+ * Each local action a job reads from a root that holds another tree: a checkout with a `ref` and no `path` puts the
+ * candidate's, a reader tag's or a stable fix's tree there, which may predate the action (2.1-M535). Such a job reads
+ * it from its tools checkout (`./release-tools/`, `./lane/`) instead.
+ */
+
+export function foreignTreeFaults(all: ReadonlyMap<string, Workflow>, carried: readonly string[] = READER_ACTIONS): string[] {
+  const faults: string[] = []
+  for (const [file, flow] of all) {
+    for (const [name, job] of Object.entries(flow.jobs ?? {})) {
+      let ref: unknown
+      for (const step of job.steps ?? []) {
+        if (step.uses?.startsWith('actions/checkout') && step.with?.['path'] === undefined) {
+          ref = step.with?.['ref']
+          if (typeof ref === 'string' && ownCommit(ref)) ref = undefined
+        }
+        const local = /^\.\/\.github\/actions\/([^/]+)/.exec(step.uses ?? '')?.[1]
+        if (ref !== undefined && local !== undefined && !carried.includes(local)) {
+          faults.push(`${file} job ${name} reads ./.github/actions/${local} from the tree at ${String(ref)}, which may lack it`)
+        }
+      }
+    }
+  }
+  return faults
 }
 
 /** The steps of each composite action under `root`/.github/actions, by its action.yml path. */

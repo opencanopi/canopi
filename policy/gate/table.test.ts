@@ -8,6 +8,7 @@ import { join, relative, resolve } from 'node:path'
 import type * as TS from 'typescript'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { display, POLICY_COMMIT, TABLE, type Check, type Table } from './table.ts'
+import { CI_CALLED_AREAS, CI_CODE_AREAS, ciAreasOutputs } from './ci-areas.ts'
 import { tableFaults } from './table-faults.ts'
 import { cleanEnv, git, PlantedRepo, REPO_ROOT } from './planted-repo.ts'
 import { type Job, readActions, readWorkflows, type Step, type Workflow } from './workflows.ts'
@@ -305,12 +306,9 @@ describe('the updater area (canopi-f47t.52.228)', () => {
     // The notice row's key the spec waits for is raised by a file the area selects.
     const key = spec.match(/data-notice-key="([^"]+)"/u)?.[1]
     expect(key && read('desktop/web/src/components/workspace/launch-notices.ts').includes(`'${key}'`), key).toBe(true)
-    // A push to main selects the lane by its area too, so a merge that skipped it is still caught: the changes job turns
-    // the updater output on by area outside its pull-request-only block.
-    const diff = read(BUILD)
-    const turnedOn = diff.indexOf('if has updater; then updater=true; fi')
-    expect(turnedOn).toBeGreaterThan(0)
-    expect(turnedOn).toBeLessThan(diff.indexOf('if [ "$PR_RUN" = true ]; then\n              rust=false'))
+    // A push to main selects the lane by its area too, so a merge that skipped it is still caught (canopi-tazgx).
+    expect(ciAreasOutputs(REPO_ROOT, undefined, 'push', ['desktop/src/host/updater/x.rs'])['updater']).toBe('true')
+    expect(ciAreasOutputs(REPO_ROOT, undefined, 'push', ['desktop/src/services/lidar/x.rs'])['updater']).toBe('false')
   })
 })
 
@@ -333,7 +331,7 @@ describe('the release build inputs (canopi-f47t.52.228.54)', () => {
     // The packaging matrix widens to every platform for a packaging input only; the dry run runs every platform itself.
     const changes = jobs(read(BUILD)).get('changes') ?? ''
     expect(changes).toContain('EVERY_PLATFORM: ${{ steps.diff.outputs.packaging }}')
-    expect(changes).toContain('if has release-build; then release_build=true; fi')
+    expect(ciAreasOutputs(REPO_ROOT, undefined, 'pull_request', ['scripts/release_smoke.py'])['release_build']).toBe('true')
   })
 
   it('canopi-f47t.52.228.61: a version bump, a channel or an updater key change runs the dry run on its own PR', () => {
@@ -388,12 +386,11 @@ function ciHomes(table: Table): Map<string, Set<string>> {
   const actions = readActions(REPO_ROOT)
   const build = all.get('build.yml')?.jobs ?? {}
   const changes = build['changes']
-  const script = (changes?.steps ?? []).map((step) => step.run ?? '').join('\n')
-  // A job reads a changes output, which names the diff step's flag that `has <area>` turns on.
+  const allFlags: Record<string, string> = { ...CI_CODE_AREAS, ...CI_CALLED_AREAS, supply_chain: 'supply-chain' }
+  // A job reads a changes output, which names the diff step's flag mapped in plan.ts (canopi-tazgx).
   const turnedOn = (output: string) => {
     const flag = /steps\.\w+\.outputs\.(\w+)/.exec(changes?.outputs?.[output] ?? '')?.[1]
-    return [...script.matchAll(/if ((?:has [a-z0-9-]+(?: \|\| )?)+); then ([a-z_]+)=true/g)].filter((match) => match[2] === flag)
-      .flatMap((match) => (match[1] ?? '').split(' || ').map((term) => term.replace('has ', '')))
+    return flag && flag in allFlags ? [allFlags[flag]!] : []
   }
   const homes = new Map<string, Set<string>>()
   for (const area of table.areas.filter((row) => !row.every)) {
@@ -434,7 +431,9 @@ describe('where an area\'s CI job lives (canopi-f47t.52.228.54)', () => {
       ? { ...area, patterns: area.patterns.filter((pattern) => !pattern.includes('github')) } : area)) }
     expect(ciHomeFaults(narrow)).toEqual([".github/workflows/build.yml holds the real-app area's CI job, but does not select it",
       ".github/workflows/desktop-real-app.yml holds the real-app area's CI job, but does not select it",
-      ".github/actions/install-linux-deps/action.yml holds the real-app area's CI job, but does not select it"])
+      ".github/actions/install-linux-deps/action.yml holds the real-app area's CI job, but does not select it",
+      ".github/actions/setup-rust/action.yml holds the real-app area's CI job, but does not select it",
+      ".github/actions/setup-frontend/action.yml holds the real-app area's CI job, but does not select it"])
     const stale = { ...TABLE, areas: TABLE.areas.map((area) => (area.name === 'web-browsers' ? { ...area, actions: ['osv-advisories'] } : area)) }
     expect(ciHomeFaults(stale)).toEqual(['the web-browsers area lists action osv-advisories, which none of its CI jobs runs'])
   })

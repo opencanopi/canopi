@@ -555,7 +555,7 @@ describe('the planted cases and the workflow (2.1-Q222)', () => {
     expect(text).toContain('name: Commit gate')
     expect(text).toContain('types: [opened, synchronize, reopened, edited]')
     expect(text).toContain('fetch-depth: 0')
-    expect(text).toContain('node-version: 24')
+    expect(text).toContain('./.github/actions/setup-frontend')
     expect(text).toMatch(/node policy\/gate\/cli\.mjs commit-gate pr "\$BASE" "\$HEAD" --body-env PR_BODY --vitest$/mu)
     expect(text).toMatch(/node policy\/gate\/cli\.mjs commit-gate tree "\$BEFORE" "\$AFTER"/u)
     const code = text.split('\n').filter((line) => !line.trimStart().startsWith('#')).join('\n')

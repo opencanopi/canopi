@@ -40,7 +40,7 @@ jobs:
       github.event_name != 'pull_request' ||
       github.event.pull_request.head.repo.full_name != github.repository ||
       github.head_ref != 'main'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
     permissions:
       contents: read
@@ -72,9 +72,9 @@ jobs:
         with:
           fetch-depth: 0
       # The gate's `areas` runs by Node's type stripping and needs no packages.
-      - uses: actions/setup-node@v7
+      - uses: ./.github/actions/setup-frontend
         with:
-          node-version: 24
+          install: 'false'
       # A push diffs from the head of the branch's last successful push run, not
       # from `before`: the previous push's run may have failed or still be running
       # beside this one, so a docs-only push would otherwise skip that push's
@@ -91,50 +91,12 @@ jobs:
               --event push --status success --limit 1 --json headSha --jq '.[0].headSha // ""')" || sha=""
           fi
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
-      # Only policy/gate/table.ts's areas select (design check AR2): `gate areas` names whether the change holds code and
-      # the areas it selects, and each area job below runs when its own area is selected. A push, and an unknown base,
-      # run everything.
+      # Only policy/gate/table.ts's areas select (design check AR2, canopi-tazgx): `gate areas --github-output`
+      # computes every changes output from the one area table (push/PR/unknown-base rules included).
       - id: diff
         env:
           BASE: ${{ steps.base.outputs.sha }}
-        run: |
-          set -euo pipefail
-          tests=""
-          flags="code rust frontend policy tauri contracts species packaging workflows real_app web_browsers updater rollback release_build supply_chain"
-          if [ -z "$BASE" ] || ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
-            for name in $flags; do declare "$name=true"; done
-            # advisories.yml scans every push to main; Build & Test scans a pull request's lockfile changes only.
-            supply_chain=$PR_RUN
-          else
-            sel="$(node policy/gate/cli.mjs areas --base "$BASE")"
-            has() { jq -e --arg a "$1" '.selected | index($a) != null' >/dev/null <<<"$sel"; }
-            code="$(jq -r '.code' <<<"$sel")"
-            rust=$code frontend=$code policy=$code tauri=$code contracts=$code species=$code packaging=$code workflows=$code
-            real_app=false web_browsers=false updater=false rollback=false release_build=false supply_chain=false
-            if has real-app; then real_app=true; fi
-            if has web-browsers; then web_browsers=true; fi
-            if has updater; then updater=true; fi
-            if has rollback; then rollback=true; fi
-            if has release-build; then release_build=true; fi
-            if [ "$PR_RUN" = true ]; then
-              rust=false frontend=false policy=false tauri=false contracts=false species=false packaging=false workflows=false
-              if has rust; then rust=true; fi
-              if has frontend; then frontend=true; fi
-              if has policy-tooling; then policy=true; fi
-              if has tauri-command; then tauri=true; fi
-              if has shared-contracts; then contracts=true; fi
-              if has species-catalog; then species=true; fi
-              if has packaging; then packaging=true; fi
-              if has workflows; then workflows=true; fi
-              if has supply-chain; then supply_chain=true; fi
-            fi
-            # When the frontend job is off, whose coverage run holds them, the vitest files the affected lane adds: the
-            # toolchain scanner and each test naming a changed file (a guide included), the always-run families for a
-            # code change.
-            if [ "$frontend" = false ]; then tests="$(jq -r '.tests | join(" ")' <<<"$sel")"; fi
-          fi
-          for name in $flags; do echo "$name=${!name}"; done >> "$GITHUB_OUTPUT"
-          echo "tests=$tests" >> "$GITHUB_OUTPUT"
+        run: node policy/gate/cli.mjs areas --base "$BASE" --event "$GITHUB_EVENT_NAME" --github-output >> "$GITHUB_OUTPUT"
       # PRs package Linux and Apple silicon, and Windows too when they change a packaging input (the gate's packaging
       # area); pushes to main and Release Candidate package all four. The Intel macOS build was Build & Test's long pole
       # on PRs (26.6 min measured 2026-11-04; the frontend job 18), so PRs never package Intel macOS: its unsigned dmg
@@ -156,10 +118,10 @@ jobs:
           # checks that the installer builds and its sidecar runs, so zlib is enough. Release Candidate keeps LZMA.
           if [ "$PR_RUN" = true ]; then windows_bundles="--bundles nsis --config .github/tauri-branch-nsis.json"; fi
           all='[
-            {"os": "ubuntu-latest", "container": "ubuntu:22.04", "target": "x86_64-unknown-linux-gnu", "bundle_args": "--bundles deb"},
+            {"os": "ubuntu-26.04", "container": "ubuntu:22.04", "target": "x86_64-unknown-linux-gnu", "bundle_args": "--bundles deb"},
             {"os": "macos-15", "target": "aarch64-apple-darwin", "bundle_args": ""},
             {"os": "macos-15-intel", "target": "x86_64-apple-darwin", "bundle_args": ""},
-            {"os": "windows-latest", "target": "x86_64-pc-windows-msvc", "bundle_args": "'"$windows_bundles"'"}
+            {"os": "windows-2025", "target": "x86_64-pc-windows-msvc", "bundle_args": "'"$windows_bundles"'"}
           ]'
           every=true
           if [ "$PR_RUN" = true ] && [ "$EVERY_PLATFORM" != true ]; then every=false; fi
@@ -167,12 +129,12 @@ jobs:
           # run here before any Release Candidate dispatch (2.1-M173).
           if [ "$every" = true ]; then all="$(jq -c 'map(if .container then .bundle_args = "--bundles deb appimage" else . end)' <<<"$all")"; fi
           filter='.'
-          if [ "$every" = false ]; then filter='map(select(.os == "ubuntu-latest" or .os == "macos-15"))'
+          if [ "$every" = false ]; then filter='map(select(.os == "ubuntu-26.04" or .os == "macos-15"))'
           elif [ "$PR_RUN" = true ]; then filter='map(select(.os != "macos-15-intel"))'; fi
           echo "matrix=$(jq -c "$filter" <<<"$all")" >> "$GITHUB_OUTPUT"
           # Native tests on Intel macOS (8 min, a scarce macOS runner) add little over Apple silicon on the same OS;
           # they run where Intel is packaged: on pushes, never on PRs.
-          platforms='[{"os": "macos-15", "target": "aarch64-apple-darwin"}, {"os": "macos-15-intel", "target": "x86_64-apple-darwin"}, {"os": "windows-latest", "target": "x86_64-pc-windows-msvc"}]'
+          platforms='[{"os": "macos-15", "target": "aarch64-apple-darwin"}, {"os": "macos-15-intel", "target": "x86_64-apple-darwin"}, {"os": "windows-2025", "target": "x86_64-pc-windows-msvc"}]'
           pfilter='.'
           if [ "$PR_RUN" = true ]; then pfilter='map(select(.os != "macos-15-intel"))'; fi
           echo "platforms=$(jq -c "$pfilter" <<<"$platforms")" >> "$GITHUB_OUTPUT"
@@ -182,7 +144,7 @@ jobs:
   # image tags (a README-only change can move one).
   docs:
     needs: changes
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
@@ -193,13 +155,7 @@ jobs:
           python-version-file: .python-version
       # The checker reads the rule registry through `node policy/check.mjs --list-rules`, whose glob engine is a
       # desktop/web package.
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24
-          cache: npm
-          cache-dependency-path: desktop/web/package-lock.json
-      - name: Install frontend deps
-        run: npm ci --prefix desktop/web --no-audit --no-fund
+      - uses: ./.github/actions/setup-frontend
       - name: The Docs row
         run: node policy/gate/cli.mjs full --area docs
 
@@ -209,20 +165,18 @@ jobs:
   rust:
     needs: changes
     if: needs.changes.outputs.rust == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 60
     env:
       CANOPI_SKIP_BUNDLED_DB: "1"
     steps:
       - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@1.97.1
+      - uses: ./.github/actions/setup-rust
         with:
-          components: rustfmt, clippy, llvm-tools-preview
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-        with:
-          shared-key: rust
-          cache-on-failure: false
-          save-if: ${{ env.SAVE_RUST_CACHE == 'true' }}
+          components: llvm-tools-preview
+          cache: 'true'
+          cache-key: rust-check
+          cache-save: ${{ env.SAVE_RUST_CACHE == 'true' }}
 
       - name: Install Linux dependencies
         uses: ./.github/actions/install-linux-deps
@@ -231,14 +185,7 @@ jobs:
         with:
           tool: cargo-llvm-cov
 
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24
-          cache: npm
-          cache-dependency-path: desktop/web/package-lock.json
-
-      - name: Install frontend deps
-        run: npm ci --prefix desktop/web
+      - uses: ./.github/actions/setup-frontend
 
       - uses: ./.github/actions/cargo-policy-tools
 
@@ -250,23 +197,22 @@ jobs:
   tauri-command:
     needs: changes
     if: needs.changes.outputs.tauri == 'true' && needs.changes.outputs.rust != 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 45
     env:
       CANOPI_SKIP_BUNDLED_DB: "1"
     steps:
       - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@1.97.1
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - uses: ./.github/actions/setup-rust
         with:
-          shared-key: tauri-command
-          cache-on-failure: false
-          save-if: ${{ env.SAVE_RUST_CACHE == 'true' }}
+          cache: 'true'
+          cache-key: rust-check
+          cache-save: ${{ env.SAVE_RUST_CACHE == 'true' }}
       - name: Install Linux dependencies
         uses: ./.github/actions/install-linux-deps
-      - uses: actions/setup-node@v7
+      - uses: ./.github/actions/setup-frontend
         with:
-          node-version: 24
+          install: 'false'
       - name: The A `#[tauri::command]` row
         run: node policy/gate/cli.mjs full --area tauri-command
 
@@ -276,30 +222,21 @@ jobs:
   policy-tooling:
     needs: changes
     if: needs.changes.outputs.policy == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 30
     env:
       CANOPI_SKIP_BUNDLED_DB: "1"
     steps:
       - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@1.97.1
+      - uses: ./.github/actions/setup-rust
         with:
-          components: clippy
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-        with:
-          shared-key: policy-tooling
-          cache-on-failure: false
-          save-if: ${{ env.SAVE_RUST_CACHE == 'true' }}
+          cache: 'true'
+          cache-key: rust-check
+          cache-save: ${{ env.SAVE_RUST_CACHE == 'true' }}
       # The push lane's clippy families build the workspace's GTK/WebKit crates.
       - name: Install Linux dependencies
         uses: ./.github/actions/install-linux-deps
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24
-          cache: npm
-          cache-dependency-path: desktop/web/package-lock.json
-      - name: Install frontend deps
-        run: npm ci --prefix desktop/web --no-audit --no-fund
+      - uses: ./.github/actions/setup-frontend
       - uses: ./.github/actions/cargo-policy-tools
       - name: The Policy tooling row
         run: node policy/gate/cli.mjs full --area policy-tooling
@@ -310,29 +247,22 @@ jobs:
   shared-contracts:
     needs: changes
     if: needs.changes.outputs.contracts == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 30
     env:
       CANOPI_SKIP_BUNDLED_DB: "1"
     steps:
       - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@1.97.1
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - uses: ./.github/actions/setup-rust
         with:
-          shared-key: shared-contracts
-          cache-on-failure: false
-          save-if: ${{ env.SAVE_RUST_CACHE == 'true' }}
+          cache: 'true'
+          cache-key: rust-check
+          cache-save: ${{ env.SAVE_RUST_CACHE == 'true' }}
       - uses: actions/setup-python@v7
         with:
           python-version-file: .python-version
       # The gate refuses a desktop/web check without desktop/web/node_modules.
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24
-          cache: npm
-          cache-dependency-path: desktop/web/package-lock.json
-      - name: Install frontend deps
-        run: npm ci --prefix desktop/web --no-audit --no-fund
+      - uses: ./.github/actions/setup-frontend
 
       - name: The Shared contracts row
         run: node policy/gate/cli.mjs full --area shared-contracts
@@ -341,16 +271,16 @@ jobs:
   species-catalog:
     needs: changes
     if: needs.changes.outputs.species == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
         with:
           python-version-file: .python-version
-      - uses: actions/setup-node@v7
+      - uses: ./.github/actions/setup-frontend
         with:
-          node-version: 24
+          install: 'false'
       - name: The Species catalog queries row
         run: node policy/gate/cli.mjs full --area species-catalog
 
@@ -360,7 +290,7 @@ jobs:
   workflows:
     needs: changes
     if: needs.changes.outputs.workflows == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
@@ -376,9 +306,9 @@ jobs:
           mkdir -p "$RUNNER_TEMP/actionlint"
           tar -xzf "$RUNNER_TEMP/actionlint.tar.gz" -C "$RUNNER_TEMP/actionlint" actionlint
           echo "CANOPI_ACTIONLINT=$RUNNER_TEMP/actionlint/actionlint" >> "$GITHUB_ENV"
-      - uses: actions/setup-node@v7
+      - uses: ./.github/actions/setup-frontend
         with:
-          node-version: 24
+          install: 'false'
       - name: The CI workflows row
         run: node policy/gate/cli.mjs full --area workflows
 
@@ -390,7 +320,7 @@ jobs:
   # from).
   scripts:
     needs: changes
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
@@ -399,13 +329,7 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version-file: .python-version
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24
-          cache: npm
-          cache-dependency-path: desktop/web/package-lock.json
-      - name: Install frontend deps
-        run: npm ci --prefix desktop/web
+      - uses: ./.github/actions/setup-frontend
       - name: The Script tests row
         run: node policy/gate/cli.mjs full --area scripts
       - name: The affected lane's vitest files
@@ -422,7 +346,7 @@ jobs:
   frontend:
     needs: changes
     if: needs.changes.outputs.frontend == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 45
     env:
       GH_TOKEN: ${{ github.token }}
@@ -430,13 +354,13 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
-          node-version: 24
+          node-version-file: desktop/web/package.json
           cache: npm
           cache-dependency-path: desktop/web/package-lock.json
       # The Web build compiles the format worker's module first (`npm run build:format-wasm`, Step 2.0.4): the wasm32
       # target, and the wasm-bindgen CLI at Cargo.lock's wasm-bindgen version, the one canopi-format-wasm/build-wasm.mjs
       # accepts.
-      - uses: dtolnay/rust-toolchain@1.97.1
+      - uses: ./.github/actions/setup-rust
         with:
           targets: wasm32-unknown-unknown
       # scripts/generate_notices.mjs's CARGO_ABOUT_VERSION (third-party-notices.test.ts keeps them equal).
@@ -505,12 +429,11 @@ jobs:
       CANOPI_SKIP_BUNDLED_DB: "1"
     steps:
       - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@1.97.1
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - uses: ./.github/actions/setup-rust
         with:
-          shared-key: lidar-native
-          cache-on-failure: false
-          save-if: ${{ env.SAVE_RUST_CACHE == 'true' }}
+          cache: 'true'
+          cache-key: rust-check
+          cache-save: ${{ env.SAVE_RUST_CACHE == 'true' }}
 
       - name: Install Linux dependencies
         uses: ./.github/actions/install-linux-deps
@@ -540,15 +463,12 @@ jobs:
       CANOPI_SKIP_BUNDLED_DB: "1"
     steps:
       - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@1.97.1
+      - uses: ./.github/actions/setup-rust
         with:
           targets: ${{ matrix.target }}
-          components: clippy
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-        with:
-          shared-key: platform-tests-${{ matrix.target }}
-          cache-on-failure: false
-          save-if: ${{ env.SAVE_RUST_CACHE == 'true' }}
+          cache: 'true'
+          cache-key: platform-tests-${{ matrix.target }}
+          cache-save: ${{ env.SAVE_RUST_CACHE == 'true' }}
 
       # lint-rust lints Linux only; Windows-only code (cfg(windows) paths, process and measurement helpers) is linted
       # here, on the Windows leg every Rust PR runs, not only a packaging PR's Windows build.
@@ -566,9 +486,11 @@ jobs:
   # Candidate keeps its own preflight gate.
   build:
     needs: changes
-    # Fork PRs package nothing.
+    # Fork PRs package nothing; skip when release-build already runs the 4-platform packaging matrix (Stage 1 E1), whose
+    # dry run then runs the Debian 12 floor and saves the release caches (2.1-M536).
     if: >-
       (needs.changes.outputs.rust == 'true' || needs.changes.outputs.packaging_inputs == 'true') &&
+      needs.changes.outputs.release_build != 'true' &&
       (github.event_name != 'pull_request' ||
       github.event.pull_request.head.repo.full_name == github.repository)
     timeout-minutes: 90
@@ -591,23 +513,14 @@ jobs:
       - name: Install Linux dependencies
         if: runner.os == 'Linux'
         uses: ./.github/actions/install-linux-deps
-      - uses: dtolnay/rust-toolchain@1.97.1
+      - uses: ./.github/actions/setup-rust
         with:
           targets: ${{ matrix.target }}
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-        with:
-          shared-key: release-${{ matrix.target }}${{ matrix.container && format('-{0}', matrix.container) || '' }}
-          cache-on-failure: false
-          save-if: ${{ env.SAVE_RUST_CACHE == 'true' }}
+          cache: 'true'
+          cache-key: release-${{ matrix.target }}${{ matrix.container && format('-{0}', matrix.container) || '' }}
+          cache-save: ${{ env.SAVE_RUST_CACHE == 'true' }}
 
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24
-          cache: npm
-          cache-dependency-path: desktop/web/package-lock.json
-
-      - name: Install frontend deps
-        run: npm ci --prefix desktop/web
+      - uses: ./.github/actions/setup-frontend
 
       # The sidecar must exist before `tauri build`: build.rs bundles it only
       # when desktop/binaries holds it for the target (the runner's host).
@@ -624,7 +537,7 @@ jobs:
   # packaging change the AppImage gets past the loader.
   linux-floor:
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     container: debian:12
     timeout-minutes: 15
     steps:
@@ -683,7 +596,7 @@ jobs:
   supply-chain:
     needs: changes
     if: needs.changes.outputs.supply_chain == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
@@ -711,7 +624,7 @@ jobs:
     name: Build & Test
     needs: [changes, docs, rust, tauri-command, policy-tooling, shared-contracts, species-catalog, workflows, scripts, frontend, lidar-native, platform-tests, build, linux-floor, real-app, web-browsers, updater, rollback, release-build, supply-chain]
     if: always()
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
     steps:
       - name: Every job passed or was skipped

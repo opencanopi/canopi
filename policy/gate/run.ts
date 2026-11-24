@@ -11,6 +11,7 @@ import { join } from 'node:path'
 import type { E2ePlan, PlannedCheck } from './plan.ts'
 import { GateError } from './plan.ts'
 import { display, needsPackages, TABLE, WEB, type Table } from './table.ts'
+import { sizeWorkers, vitestWorkers } from './vitest-workers.mjs'
 
 const log = (line: string) => process.stderr.write(`gate: ${line}\n`)
 /** The signals that end a run as cancelled: the terminal's interrupt, and `timeout`'s or a supervisor's stop. */
@@ -116,6 +117,8 @@ export async function execute(root: string, checks: readonly PlannedCheck[], e2e
   notes: readonly string[], staged: boolean, env: NodeJS.ProcessEnv = process.env, logDir?: string): Promise<number> {
   const base = checkEnv(env, staged)
   for (const note of notes) log(note)
+  const { workers, warning } = vitestWorkers(env)
+  if (warning) log(warning)
   const failed: string[] = []
   let passed = 0
   const durations: Duration[] = [...checks.map((planned) => ({ id: planned.id, command: display(planned), outcome: 'not run' as const,
@@ -143,7 +146,7 @@ export async function execute(root: string, checks: readonly PlannedCheck[], e2e
     return code
   }
   const runOne = async (index: number, planned: PlannedCheck): Promise<boolean> => {
-    const text = display(planned)
+    const text = sizeWorkers(display(planned).split(' '), workers).join(' ')
     if (planned.ciOnly) {
       log(`CI only: ${text}`)
       Object.assign(durations[index] ?? {}, { outcome: 'CI only' })
@@ -156,7 +159,7 @@ export async function execute(root: string, checks: readonly PlannedCheck[], e2e
       return false
     }
     const { env: extra, argv } = splitEnv(planned.command)
-    const code = await timed(index, () => run(text, argv, join(root, planned.cwd ?? ''), { ...base, ...extra }))
+    const code = await timed(index, () => run(text, sizeWorkers(argv, workers), join(root, planned.cwd ?? ''), { ...base, ...extra }))
     if (interrupted) return false
     if (code === 0) { passed += 1; return true }
     failed.push(text)

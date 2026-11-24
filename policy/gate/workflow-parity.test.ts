@@ -10,7 +10,7 @@ import { describe, expect, it } from 'vitest'
 import { REPO_ROOT } from './planted-repo.ts'
 import { TABLE, type Table } from './table.ts'
 import {
-  groupFaults, inlineFaults, readActions, readWorkflows, rowFaults, setupFaults, setupJobs, staleRowFaults, toolchain, triggerFaults,
+  foreignTreeFaults, groupFaults, inlineFaults, readActions, readWorkflows, rowFaults, runnerFaults, setupFaults, setupJobs, staleRowFaults, triggerFaults,
   triggers, type Job, type Step, type Workflow,
 } from './workflows.ts'
 
@@ -153,32 +153,82 @@ describe('every workflow is the table\'s (A5)', () => {
   })
 
   it('canopi-f47t.52.228.11: each job of every workflow sets up the local gate\'s toolchain and what its gate calls need before them (A5 (5))', () => {
-    const tools = toolchain(REPO_ROOT)
-    expect(tools.node).toBe('24')
-    expect(setupFaults(setupJobs(real, readActions(REPO_ROOT)), tools, CLIPPY)).toEqual([])
-    const node = (version: number): Step => ({ uses: 'actions/setup-node@v7', with: { 'node-version': version } })
+    expect(setupFaults(setupJobs(real, readActions(REPO_ROOT)), CLIPPY)).toEqual([])
+    const node: Step = { uses: './.github/actions/setup-frontend', with: { install: 'false' } }
+    const frontend: Step = { uses: './.github/actions/setup-frontend' }
     const deps: Step = { uses: './.github/actions/install-linux-deps' }
     const npm: Step = { run: 'npm ci --prefix desktop/web --no-audit --no-fund' }
     const row = (area: string): Step => ({ name: `The ${area} row`, run: `node policy/gate/cli.mjs full --area ${area}` })
+    expect(setupFaults(new Map([['frontend-composite', { steps: [frontend, row('docs')] }]]), true)).toEqual([])
     const planted = new Map<string, { steps: Step[], cwd?: string }>([
-      ['docs', { steps: [node(24), row('docs'), npm] }], ['late-deps', { steps: [node(24), npm, row('rust'), deps] }],
-      ['rust', { steps: [deps, node(24), npm, row('rust')] }], ['shared-contracts', { steps: [node(24), row('shared-contracts')] }],
+      ['docs', { steps: [node, row('docs'), npm] }], ['late-deps', { steps: [frontend, row('rust'), deps] }],
+      ['rust', { steps: [deps, frontend, row('rust')] }], ['shared-contracts', { steps: [node, row('shared-contracts')] }],
       ['changes', { steps: [{ run: 'node policy/gate/cli.mjs areas --base x' }] }],
       // The Commit gate's closed-bead check reads the policy core, whose glob engine is a desktop/web package.
-      ['beads', { steps: [node(24), { name: 'Closed beads', run: 'node policy/gate/cli.mjs check closed-beads' }] }],
+      ['beads', { steps: [node, { name: 'Closed beads', run: 'node policy/gate/cli.mjs check closed-beads' }] }],
       // A job whose default working directory is desktop/web installs there with a bare npm ci.
-      ['a11y', { steps: [node(24), { run: 'npm ci' }, row('web-browsers')], cwd: 'desktop/web' }],
-      ['versions', { steps: [node(22), { uses: 'dtolnay/rust-toolchain@1.96.0' }, { uses: 'actions/setup-python@v7', with: { 'python-version': '3.12' } }] }],
+      ['a11y', { steps: [node, { run: 'npm ci' }, row('web-browsers')], cwd: 'desktop/web' }],
+      ['versions', { steps: [{ uses: 'actions/setup-node@v7', with: { 'node-version': 24 } }, { uses: 'dtolnay/rust-toolchain@1.97.1' }, { uses: 'actions/setup-python@v7', with: { 'python-version': '3.12' } }] }],
     ])
-    expect(setupFaults(planted, tools, true)).toEqual([
+    expect(setupFaults(planted, true)).toEqual([
       'docs runs no npm ci in desktop/web before The docs row',
       'late-deps installs no Linux dependencies before The rust row\'s clippy families',
       'shared-contracts runs no npm ci in desktop/web before The shared-contracts row',
-      'changes sets up no Node 24 before the gate',
+      'changes sets up no Node from desktop/web/package.json before the gate',
       'beads runs no npm ci in desktop/web before Closed beads',
-      'versions sets up Node 22, not the engines Node 24',
-      `versions installs Rust 1.96.0, not rust-toolchain.toml's ${tools.rust}`,
+      'versions sets up a Node not read from desktop/web/package.json',
+      'versions installs Rust 1.97.1 by literal instead of reading rust-toolchain.toml',
       'versions sets up a Python not read from .python-version',
+    ])
+  })
+
+  it('canopi-eht6: every workflow pins named runner images and refuses *-latest', () => {
+    expect(runnerFaults(real)).toEqual([])
+    const planted = new Map<string, Workflow>([['unpinned.yml', {
+      jobs: {
+        a: { 'runs-on': 'ubuntu-latest' },
+        b: { 'runs-on': '${{ matrix.os }}', strategy: { matrix: { os: ['ubuntu-26.04', 'windows-latest'] } } },
+        c: { 'runs-on': 'ubuntu-26.04', steps: [{ run: 'echo \'[{"os": "macos-latest"}]\'' }] },
+      },
+    }]])
+    expect(runnerFaults(planted)).toEqual([
+      'unpinned.yml job a uses unpinned runner ubuntu-latest',
+      'unpinned.yml job b matrix uses unpinned runner windows-latest',
+      'unpinned.yml job c matrix uses unpinned runner macos-latest',
+    ])
+  })
+
+  it('2.1-M535: the GeoLibre sidecar workflow reads only, and its publish job alone writes the release, from main only', () => {
+    const sidecar = flow('geolibre-sidecar.yml') as Workflow & { permissions?: unknown }
+    expect(sidecar.permissions).toEqual({ contents: 'read' })
+    const jobs = (sidecar.jobs ?? {}) as Record<string, Job & { permissions?: unknown }>
+    expect(Object.entries(jobs).filter(([, entry]) => entry.permissions !== undefined).map(([name, entry]) => [name, entry.permissions]))
+      .toEqual([['publish', { contents: 'write' }]])
+    expect(jobs['publish']?.if).toBe("github.ref == 'refs/heads/main'")
+  })
+
+  it('2.1-M535: a job with another tree at its root reads the setup actions from its tools checkout, so a stable-fix candidate and a rollback run find them', () => {
+    expect(foreignTreeFaults(real)).toEqual([])
+    const planted = new Map<string, Workflow>([['foreign.yml', {
+      jobs: {
+        reader: { steps: [{ uses: 'actions/checkout@v7', with: { ref: '${{ needs.resolve.outputs.reader }}' } }, { uses: './.github/actions/setup-rust' }] },
+        tools: {
+          steps: [
+            { uses: 'actions/checkout@v7', with: { ref: '${{ inputs.ref }}' } },
+            { uses: 'actions/checkout@v7', with: { path: 'lane' } },
+            { uses: './lane/.github/actions/setup-frontend' },
+            { uses: './.github/actions/install-linux-deps' },
+            { uses: './.github/actions/setup-frontend' },
+          ],
+        },
+        own: {
+          steps: [{ uses: 'actions/checkout@v7', with: { ref: '${{ github.event.pull_request.head.sha || github.sha }}' } }, { uses: './.github/actions/setup-rust' }],
+        },
+      },
+    }]])
+    expect(foreignTreeFaults(planted)).toEqual([
+      'foreign.yml job reader reads ./.github/actions/setup-rust from the tree at ${{ needs.resolve.outputs.reader }}, which may lack it',
+      'foreign.yml job tools reads ./.github/actions/setup-frontend from the tree at ${{ inputs.ref }}, which may lack it',
     ])
   })
 })

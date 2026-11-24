@@ -10,7 +10,8 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it, onTestFinished } from 'vitest'
 import { PlantedRepo, REPO_ROOT } from './planted-repo.ts'
-import { areasJson, laneTests, planAffected, planFull, planPush } from './plan.ts'
+import { CI_CALLED_AREAS, CI_CODE_AREAS, ciAreasOutputs } from './ci-areas.ts'
+import { laneTests, planAffected, planFull, planPush } from './plan.ts'
 import { CI_SETUP, display, TABLE, type Table } from './table.ts'
 import {
   calledLanes, groupFaults, groupOf, inlineFaults, readActions, readWorkflows as workflows, triggers, type Job, type Step, type Workflow,
@@ -19,32 +20,38 @@ import {
 const GATE_FULL = /node policy\/gate\/cli\.mjs full --area ([a-z0-9-]+)/
 /** A shell line that selects by path regex: a grep -E over paths or a regex variable. */
 const PATH_REGEX = /\bgrep\b[^\n]*-[a-zA-Z]*E|^\s*[a-z_]*(?:paths|inputs)=/m
-/** `if has a || has b; then flag=true`: the areas that turn a changes output on. */
-const FLAG = /if ((?:has [a-z0-9-]+(?: \|\| )?)+); then ([a-z_]+)=true/g
+/** The one gate call build.yml's changes job uses to compute its outputs (canopi-tazgx). */
+const GATE_AREAS_OUT = /node policy\/gate\/cli\.mjs areas --base "\$BASE" --event "\$GITHUB_EVENT_NAME" --github-output >> "\$GITHUB_OUTPUT"/
+
+/** The single area-to-flag map from plan.ts, keyed by changes output name (canopi-tazgx). */
+function areaMapFor(build: Workflow): Map<string, Set<string>> {
+  const map = new Map<string, Set<string>>()
+  const all: Record<string, string> = { ...CI_CODE_AREAS, ...CI_CALLED_AREAS, supply_chain: 'supply-chain' }
+  const outputs = build.jobs?.['changes']?.outputs ?? {}
+  for (const [outName, expr] of Object.entries(outputs)) {
+    const stepOut = /steps\.diff\.outputs\.(\w+)/.exec(expr)?.[1]
+    if (stepOut && stepOut in all) map.set(outName, new Set([all[stepOut]!]))
+  }
+  return map
+}
 
 /**
- * Each way build.yml's selection is not the gate's (AR2): a changes-job step selecting by path regex; an area job whose
- * `if` reads a changes output that another area turns on (CI then runs that area's row for paths whose local lane
- * selects none of it, connections review 4a), or that no area turns on, or no output at all unless the affected lane
- * runs that area on every change too (`every`).
+ * Each way build.yml's selection is not the gate's (AR2, canopi-tazgx): a changes-job step selecting by path regex or
+ * not calling `gate areas --github-output`; an area job whose `if` reads a changes output that another area turns on
+ * (CI then runs that area's row for paths whose local lane selects none of it, connections review 4a), or that no area
+ * turns on, or no output at all unless the affected lane runs that area on every change too (`every`).
  */
 function selectionFaults(build: Workflow, table: Table = TABLE): string[] {
   const steps = build.jobs?.['changes']?.steps ?? []
   const faults = steps.filter((step) => PATH_REGEX.test(step.run ?? ''))
     .map((step) => `build.yml changes step ${step.id ?? step.name ?? '?'} selects by path regex: only gate areas select (AR2)`)
-  const on = turnedOn(steps.map((step) => step.run ?? '').join('\n'))
+  const script = steps.map((step) => step.run ?? '').join('\n')
+  if (!GATE_AREAS_OUT.test(script)) {
+    faults.push('build.yml changes job does not compute outputs via `node policy/gate/cli.mjs areas --base "$BASE" --event "$GITHUB_EVENT_NAME" --github-output >> "$GITHUB_OUTPUT"` (canopi-tazgx)')
+  }
+  const on = areaMapFor(build)
   for (const [name, job] of Object.entries(build.jobs ?? {})) faults.push(...jobFaults(name, job, on, table))
   return faults
-}
-
-/** The areas that turn each changes output on (`if has a || has b; then flag=true`). */
-function turnedOn(script: string): Map<string, Set<string>> {
-  const on = new Map<string, Set<string>>()
-  for (const match of script.matchAll(FLAG)) {
-    const areas = (match[1] ?? '').split(' || ').map((term) => term.replace('has ', ''))
-    on.set(match[2] ?? '', new Set([...on.get(match[2] ?? '') ?? [], ...areas]))
-  }
-  return on
 }
 
 /** An area job's faults: its `if` reads no area's output (unless the area runs on `every` change), one no area turns on,
@@ -175,21 +182,11 @@ function holds(condition: string | undefined, outputs: ReadonlyMap<string, strin
   return value === fail || at !== tokens.length ? undefined : value
 }
 
-/** The changes outputs whose all being false names the lane tests (`if [ "$a" = false ] && ...; then tests=...`). */
-const TESTS_WHEN = /^\s*if (.+?); then tests="\$\(jq -r '\.tests \| join\(" "\)'/m
-
-/** The changes job's outputs on a PR changing `paths`, from `gate areas` as its diff step reads it. */
+/** The changes job's outputs on a PR changing `paths`, directly from `ciAreasOutputs` (canopi-tazgx). */
 function prOutputs(build: Workflow, paths: readonly string[]): Map<string, string> {
   const changes = build.jobs?.['changes']
-  const selection = areasJson(REPO_ROOT, paths)
-  const script = (changes?.steps ?? []).map((step) => step.run ?? '').join('\n')
-  const on = turnedOn(script)
-  const flags = new Map<string, string>([['code', String(selection.code)]])
-  for (const [flag, areas] of on) flags.set(flag, String([...areas].some((area) => selection.selected.includes(area))))
-  const off = (TESTS_WHEN.exec(script)?.[1] ?? '').split('&&').map((term) => /^\s*\[ "\$(\w+)" = false \]\s*$/.exec(term)?.[1])
-  const named = off.length > 0 && off.every((flag) => flag !== undefined && flags.get(flag) === 'false')
-  flags.set('tests', named ? selection.tests.join(' ') : '')
-  flags.set('sha', 'base')
+  const raw = ciAreasOutputs(REPO_ROOT, undefined, 'pull_request', paths)
+  const flags = new Map<string, string>([...Object.entries(raw), ['sha', 'base']])
   return new Map(Object.entries(changes?.outputs ?? {})
     .map(([name, value]) => [name, flags.get(/steps\.\w+\.outputs\.(\w+)/.exec(value)?.[1] ?? '') ?? '']))
 }
@@ -253,7 +250,7 @@ function pushFaults(build: Workflow, probes: readonly string[], table: Table = T
 }
 
 /** The setup a Commit gate job may run besides its checks: these actions, and these lines. */
-const COMMIT_GATE_SETUP = { uses: /^actions\/(?:checkout|setup-node)@/, run: new Set(['npm ci --prefix desktop/web']) }
+const COMMIT_GATE_SETUP = { uses: /^(?:actions\/(?:checkout|setup-node)@|\.\/\.github\/actions\/setup-frontend$)/, run: new Set(['npm ci --prefix desktop/web']) }
 /** On a pull request, whether a job or step with this `if` runs; undefined for a condition reading more than the event. */
 const onPullRequest = (condition: string | undefined) =>
   ({ undefined: true, "github.event_name == 'pull_request'": true, "github.event_name == 'push'": false } as Record<string, boolean>)[String(condition)]
@@ -339,34 +336,38 @@ function buildAndTestFaults({ jobs = {} }: Workflow, frontendRow: readonly strin
 const real = workflows(join(REPO_ROOT, '.github/workflows'))
 const build = real.get('build.yml') ?? {}
 
-/** The changes job's lines turning on the lanes build.yml calls, each by its own area. */
-const FOLDED = 'if has real-app; then real_app=true; fi\nif has web-browsers; then web_browsers=true; fi\nif has updater; then updater=true; fi\n'
-  + 'if has rollback; then rollback=true; fi\nif has release-build; then release_build=true; fi\n'
-
 /** build.yml with the changes job's `diff` step's script replaced by `script`. */
-const withChanges = (script: string): Workflow => ({ ...build, jobs: { ...build.jobs, changes: { steps: [{ id: 'diff', run: script }] } } })
+const withChanges = (script: string): Workflow => ({ ...build, jobs: { ...build.jobs, changes: { ...build.jobs?.['changes'], steps: [{ id: 'diff', run: script }] } } })
 
 describe('selection parity (A5, AR2)', () => {
   it('canopi-f47t.52.228.54: build.yml selects only through the gate\'s areas', () => {
     expect(selectionFaults(build)).toEqual([])
+    // canopi-tazgx: verify push/PR/unknown-base rules in ciAreasOutputs directly.
+    const unknownPush = ciAreasOutputs(REPO_ROOT, '', 'push')
+    expect(unknownPush['rust']).toBe('true')
+    expect(unknownPush['supply_chain']).toBe('false')
+    expect(unknownPush['tests']).toBe('')
+    const unknownPr = ciAreasOutputs(REPO_ROOT, '', 'pull_request')
+    expect(unknownPr['supply_chain']).toBe('true')
+    const pushCode = ciAreasOutputs(REPO_ROOT, undefined, 'push', ['desktop/src/lib.rs'])
+    expect(pushCode['frontend']).toBe('true')
+    expect(pushCode['supply_chain']).toBe('false')
+    expect(pushCode['updater']).toBe('true')
+    expect(pushCode['release_build']).toBe('false')
   })
 
   it('canopi-f47t.52.228.54: a path regex in the changes job fails (connections review 4b)', () => {
     // 4b: rust_paths ended in ^policy/, so CI ran the push-lane families for a policy/ change that the local lane's
     // areas never sent there.
     const script = "rust_paths='\\.rs$|^policy/'\nif grep -qE \"$rust_paths\" <<<\"$changed\"; then rust=true; fi\n"
-      + 'if has rust; then rust=true; fi\nif has frontend; then frontend=true; fi\nif has policy-tooling; then policy=true; fi\n'
-      + 'if has tauri-command; then tauri=true; fi\nif has shared-contracts; then contracts=true; fi\nif has species-catalog; then species=true; fi\n'
-      + 'if has workflows; then workflows=true; fi\n' + FOLDED
+      + 'node policy/gate/cli.mjs areas --base "$BASE" --event "$GITHUB_EVENT_NAME" --github-output >> "$GITHUB_OUTPUT"\n'
     expect(selectionFaults(withChanges(script))).toEqual(['build.yml changes step diff selects by path regex: only gate areas select (AR2)'])
   })
 
   it('canopi-f47t.52.228.54: an area job turned on by another area fails (connections review 4a)', () => {
-    // 4a: web_rust_paths sent bootstrap.ts to the Rust job, whose row the tauri-command area (ipc/ only) never selects.
-    const script = 'if has rust || has tauri-command; then rust=true; fi\nif has frontend; then frontend=true; fi\n'
-      + 'if has policy-tooling; then policy=true; fi\nif has tauri-command; then tauri=true; fi\n'
-      + 'if has shared-contracts; then contracts=true; fi\nif has species-catalog; then species=true; fi\nif has workflows; then workflows=true; fi\n' + FOLDED
-    expect(selectionFaults(withChanges(script)))
+    // 4a: wiring an area job to another area's changes output runs its row when the local lane does not.
+    const wrongArea = { ...build, jobs: { ...build.jobs, rust: { ...build.jobs?.['rust'], if: "needs.changes.outputs.tauri == 'true'" } } }
+    expect(selectionFaults(wrongArea))
       .toEqual(['build.yml job rust runs the rust row when tauri-command is selected, whose local lane runs no rust row'])
     const always = { ...build, jobs: { ...build.jobs, frontend: { ...build.jobs?.['frontend'], if: "needs.changes.outputs.code == 'true'" } } }
     expect(selectionFaults(always)).toContain('build.yml job frontend reads changes output code, which no area turns on')
@@ -486,7 +487,6 @@ describe('selection parity (A5, AR2)', () => {
     const unnamed = { ...policy, jobs: { 'a11y-policy': { steps: [{ run: 'npm ci' }] } } }
     expect(inlineFaults(unnamed, TABLE, 'web-edition-browsers.yml')).toEqual([
       'web-edition-browsers.yml job a11y-policy step (unnamed) runs `npm ci`, which is no gate call and no ci_setup or ci_only row in policy/gate/table.ts (A5 (1))',
-      'policy/gate/table.ts ci row web-edition-browsers.yml a11y-policy/Install frontend deps names no step that job runs',
       'policy/gate/table.ts ci row web-edition-browsers.yml a11y-policy/Trust the workspace for the planted cases names no step that job runs'])
     // DR12: the lint job ran the Unicode facts and the spec type checks inline, which no local lane ran.
     const inline = { ...build, jobs: { ...build.jobs, lint: { steps: [{ name: 'Check facts', run: 'python3 scripts/x.py check' }] } } }
@@ -551,16 +551,13 @@ describe('selection parity (A5, AR2)', () => {
     }
     const narrow = { ...TABLE, paths: { ...TABLE.paths, policyGate: String.raw`^policy/` } }
     expect(laneTests(REPO_ROOT, ['.github/workflows/build.yml'], narrow)).not.toContain(suite)
-    // Lane tests named on rust=false too go unrun for a rust-only change, whose frontend job is off.
-    const diff = build.jobs?.['changes']?.steps?.find((step) => step.id === 'diff')?.run ?? ''
-    const late = { ...build, jobs: { ...build.jobs, changes: { ...build.jobs?.['changes'], steps: [{ id: 'diff',
-      run: diff.replace('if [ "$frontend" = false ]; then', 'if [ "$rust" = false ] && [ "$frontend" = false ]; then') }] } } }
-    expect(late.jobs.changes.steps[0]?.run).not.toBe(diff)
-    expect(pushFaults(late, ['desktop/src/x.rs'])).toEqual(['the pre-push lane runs vitest-lane for desktop/src/x.rs, which no CI job runs'])
-    // Lane tests named while the frontend job runs run twice, where the pre-push lane leaves them to its coverage run.
-    const twice = { ...build, jobs: { ...build.jobs, changes: { ...build.jobs?.['changes'], steps: [{ id: 'diff',
-      run: diff.replace('if [ "$frontend" = false ]; then', 'if [ "$species" = false ]; then') }] } } }
-    expect(pushFaults(twice, ['desktop/web/src/app/x.ts'])).toEqual(['CI runs vitest-lane for desktop/web/src/app/x.ts, which the pre-push lane does not'])
+    // Lane tests run for a rust-only change (frontend is false), and never when frontend is true (canopi-tazgx).
+    const rustOut = ciAreasOutputs(REPO_ROOT, undefined, 'pull_request', ['desktop/src/x.rs'])
+    expect(rustOut['frontend']).toBe('false')
+    expect(rustOut['tests']).not.toBe('')
+    const frontendOut = ciAreasOutputs(REPO_ROOT, undefined, 'pull_request', ['desktop/web/src/app/x.ts'])
+    expect(frontendOut['frontend']).toBe('true')
+    expect(frontendOut['tests']).toBe('')
   })
 
   it('makes Build & Test need every other job, run always, fail when one failed or was cancelled, and check bundle sizes after both builds (2.1-Q222, 2.1-M240)', () => {

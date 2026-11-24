@@ -7,6 +7,7 @@ import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { execute, resourceGroup } from './run.ts'
 import { TABLE } from './table.ts'
+import { vitestWorkers } from './vitest-workers.mjs'
 import { cleanEnv, git, PLANTED_IMAGE, PlantedRepo, REPO_ROOT } from './planted-repo.ts'
 
 let repo: PlantedRepo
@@ -266,5 +267,26 @@ describe('two-tier gate execution (Stage 1 E1)', () => {
     expect(run.status).toBe(1)
     expect(run.stderr).toContain('broken worktree git-link')
     expect(run.stderr).toContain('git worktree repair')
+  })
+})
+
+describe('memory-sized Vitest parallelism (canopi-hcv2)', () => {
+  it('canopi-hcv2: reads CANOPI_VITEST_WORKERS or VITEST_WORKERS with default 4 and applies it to coverage runs', () => {
+    expect(vitestWorkers({})).toEqual({ workers: 4, warning: '' })
+    expect(vitestWorkers({ VITEST_WORKERS: '2' }).workers).toBe(2)
+    expect(vitestWorkers({ CANOPI_VITEST_WORKERS: '3', VITEST_WORKERS: '2' }).workers).toBe(3)
+    // An empty variable is unset, so it never hides the other.
+    expect(vitestWorkers({ CANOPI_VITEST_WORKERS: '', VITEST_WORKERS: '2' }).workers).toBe(2)
+    // Out of range keeps 4 and says so.
+    expect(vitestWorkers({ VITEST_WORKERS: '0' })).toEqual({ workers: 4, warning: 'VITEST_WORKERS=0 is not a worker count from 1 to 16: Vitest runs 4 workers' })
+    expect(vitestWorkers({ VITEST_WORKERS: '99' }).workers).toBe(4)
+    const run = repo.gate(['full', '--area', 'frontend', '--only', 'coverage'], { env: { VITEST_WORKERS: '2' } })
+    expect(run.status, run.stderr).toBe(0)
+    expect(repo.calls()).toEqual(['npm run test:coverage -- --maxWorkers=2 --project web offline=unset'])
+    // The log names the count that runs, never the table's 4.
+    expect(run.stderr).toContain('--maxWorkers=2')
+    expect(run.stderr).not.toContain('--maxWorkers=4')
+    const warned = repo.gate(['full', '--area', 'frontend', '--only', 'coverage'], { env: { VITEST_WORKERS: 'many' } })
+    expect(warned.stderr).toContain('VITEST_WORKERS=many is not a worker count from 1 to 16: Vitest runs 4 workers')
   })
 })

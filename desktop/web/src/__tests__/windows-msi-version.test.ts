@@ -29,7 +29,7 @@ function windowsBundles(pr: boolean, version: string): string | undefined {
     })
     expect(result.status, result.stderr).toBe(0)
     const matrix = readFileSync(output, 'utf8').split('\n').find((line) => line.startsWith('matrix='))?.slice('matrix='.length)
-    return (JSON.parse(matrix ?? '[]') as { os: string, bundle_args: string }[]).find((row) => row.os === 'windows-latest')?.bundle_args
+    return (JSON.parse(matrix ?? '[]') as { os: string, bundle_args: string }[]).find((row) => row.os.startsWith('windows-'))?.bundle_args
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }

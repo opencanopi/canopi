@@ -148,20 +148,60 @@ if run.get("head_branch") != "main":
 PY
 
 log "Reading candidate artifacts from run $run_id in $repo"
-artifact_json="$(gh api "repos/$repo/actions/runs/$run_id/artifacts")"
+artifact_json="$(gh api --paginate "repos/$repo/actions/runs/$run_id/artifacts?per_page=100")"
 mapfile -t artifact_lines < <(
-  ARTIFACT_JSON="$artifact_json" python3 - <<'PY'
-import json
-import os
+  ARTIFACT_JSON="$artifact_json" python3 - "$tmpdir/run.json" <<'PY'
+import json, os, re, sys
+from pathlib import Path
 
-payload = json.loads(os.environ["ARTIFACT_JSON"])
-for artifact in payload.get("artifacts", []):
-    if artifact.get("expired"):
+run_attempt = json.loads(Path(sys.argv[1]).read_text()).get("run_attempt")
+raw, decoder, idx, artifacts = os.environ["ARTIFACT_JSON"], json.JSONDecoder(), 0, []
+while idx < len(raw):
+    while idx < len(raw) and raw[idx].isspace():
+        idx += 1
+    if idx >= len(raw):
+        break
+    page, idx = decoder.raw_decode(raw, idx)
+    artifacts.extend(page.get("artifacts", []) if isinstance(page, dict) else [])
+
+MANIFEST_RE = re.compile(r"^canopi-release-candidate-manifest(?:-(\d+))?$")
+manifests, latest_pkg = [], {}
+for art in artifacts:
+    if art.get("expired"):
         continue
-    print(f"{artifact['id']}\t{artifact['name']}\t{artifact['size_in_bytes']}")
+    m = MANIFEST_RE.fullmatch(art["name"])
+    if m:
+        manifests.append((int(m[1]) if m[1] else 0, int(art["id"]), art))
+    else:
+        prev = latest_pkg.get(art["name"])
+        if prev is None or int(art["id"]) > int(prev["id"]):
+            latest_pkg[art["name"]] = art
+
+# The run's latest attempt names its manifest by its number; a numbered manifest of an earlier attempt describes
+# packages that attempt built, so a latest attempt without one fails closed (canopi-7dryh). Unnumbered manifests come
+# from runs before attempt-scoped names, where the newest upload is the latest attempt's.
+chosen = None
+numbered = [row for row in manifests if row[0] > 0]
+exact = [row for row in numbered if run_attempt and row[0] == int(run_attempt)]
+if exact:
+    chosen = max(exact, key=lambda r: r[1])[2]
+elif numbered and run_attempt:
+    attempts = ", ".join(str(n) for n in sorted({row[0] for row in numbered}))
+    print(f"ERROR\tRun attempt {run_attempt} uploaded no canopi-release-candidate-manifest-{run_attempt} "
+          f"(attempts with a manifest: {attempts}); an earlier attempt's manifest is never promoted.")
+    sys.exit(0)
+elif manifests:
+    chosen = max(manifests, key=lambda r: (r[0], r[1]))[2]
+for art in ([chosen] if chosen else []) + list(latest_pkg.values()):
+    target = "canopi-release-candidate-manifest" if art is chosen else art["name"]
+    print(f"{art['id']}\t{target}\t{art['size_in_bytes']}")
 PY
 )
 
+if [[ "${artifact_lines[0]:-}" == ERROR$'\t'* ]]; then
+  echo "ERROR: ${artifact_lines[0]#ERROR$'\t'}" >&2
+  exit 1
+fi
 if [[ "${#artifact_lines[@]}" -eq 0 ]]; then
   echo "ERROR: No downloadable artifacts found for run $run_id." >&2
   exit 1

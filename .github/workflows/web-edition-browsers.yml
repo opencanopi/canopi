@@ -21,7 +21,7 @@ concurrency:
 jobs:
   browsers:
     name: ${{ matrix.suite }} ${{ matrix.engine }} ${{ matrix.shard }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     # One job ran canvas then gallery in both engines and passed 30 min on 2026-10-15 (canopi-a407);
     # split by suite, engine and shard (shards split tests, not files: fullyParallel), each job is
     # about a sixth of that.
@@ -56,14 +56,7 @@ jobs:
       - uses: actions/checkout@v7
 
       # Node 24 like every other job (package.json engines ^24.13.0), as in the image.
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24
-          cache: npm
-          cache-dependency-path: desktop/web/package-lock.json
-
-      - name: Install frontend deps
-        run: npm ci --no-audit --no-fund
+      - uses: ./.github/actions/setup-frontend
 
       # The Web build compiles the format worker's module first (`npm run build:format-wasm`, Step 2.0.4): the wasm32
       # target, and the wasm-bindgen CLI at Cargo.lock's wasm-bindgen version, the one build-wasm.mjs accepts. The
@@ -73,7 +66,7 @@ jobs:
         run: |
           timeout 3m apt-get -o Acquire::Retries=5 -o Acquire::http::Timeout=60 update -qq
           timeout 5m apt-get -o Acquire::Retries=5 -o Acquire::http::Timeout=60 install -y -qq --no-install-recommends gcc libc6-dev
-      - uses: dtolnay/rust-toolchain@1.97.1
+      - uses: ./.github/actions/setup-rust
         if: matrix.suite == 'canvas'
         with:
           targets: wasm32-unknown-unknown
@@ -153,7 +146,7 @@ jobs:
       matrix:
         include:
           - { engine: webkitgtk, os: ubuntu-22.04 }
-          - { engine: edge, os: windows-latest }
+          - { engine: edge, os: windows-2025 }
     defaults:
       run:
         shell: bash
@@ -171,10 +164,10 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 24
+          node-version-file: desktop/web/package.json
           cache: npm
           cache-dependency-path: desktop/web/package-lock.json
-      - uses: dtolnay/rust-toolchain@1.97.1
+      - uses: ./.github/actions/setup-rust
         with:
           targets: wasm32-unknown-unknown
       - uses: taiki-e/install-action@v2
@@ -238,7 +231,7 @@ jobs:
     # Runs whatever the browser jobs' outcome: a missing or partial report fails it closed (policy/adapters/axe.mjs),
     # naming the shards that did not pass their tests.
     if: ${{ !cancelled() }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 20
     # The pinned image has Playwright's Chromium, which runs axe-core over the planted page.
     container:
@@ -249,13 +242,7 @@ jobs:
         working-directory: desktop/web
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24
-          cache: npm
-          cache-dependency-path: desktop/web/package-lock.json
-      - name: Install frontend deps
-        run: npm ci --no-audit --no-fund
+      - uses: ./.github/actions/setup-frontend
       - name: Download every engine's axe reports
         uses: actions/download-artifact@v7
         with:

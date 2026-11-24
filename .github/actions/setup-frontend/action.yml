@@ -1,0 +1,24 @@
+name: Set up frontend toolchain
+description: >-
+  Install Node from desktop/web/package.json (engines.node) and optionally install
+  desktop/web dependencies via npm ci (canopi-s4ziq).
+
+inputs:
+  install:
+    description: Run npm ci in desktop/web
+    required: false
+    default: 'true'
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v7
+      with:
+        node-version-file: desktop/web/package.json
+        cache: ${{ inputs.install == 'true' && 'npm' || '' }}
+        cache-dependency-path: ${{ inputs.install == 'true' && 'desktop/web/package-lock.json' || '' }}
+
+    - name: Install frontend dependencies
+      if: inputs.install == 'true'
+      shell: bash
+      run: npm ci --prefix desktop/web --no-audit --no-fund
