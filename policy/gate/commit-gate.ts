@@ -375,10 +375,14 @@ async function commitMsg(repo: Repo, file: string): Promise<number> {
   const allText = commits.map((c) => c.message).join('\n\n')
   const route = tiedRoutes((from, to) => repo.changed(from, to), base, tree, commits, undefined)
   const deleted = new RegExp(RETIRES.source, 'mu').test(allText) ? await rangeDeletedCode(repo, base, commits) : new Map<string, boolean>()
-  const findings: Finding[] = [
-    ...await judge(repo, parents, tree, message, auth, { commit: true, change: false }),
-    ...await judge(repo, [base], tree, allText, auth, { commit: false, change: true, route, deleted }),
-  ]
+  const findings: Finding[] = mergeHead
+    // On a merge commit, compare write-tree against every parent ([HEAD, MERGE_HEAD]) with the merge message alone:
+    // authorised changes already in either parent pass, while an unauthorised change sneaked into conflict resolution fails.
+    ? await judge(repo, parents, tree, message, auth, { commit: true, change: true })
+    : [
+      ...await judge(repo, parents, tree, message, auth, { commit: true, change: false }),
+      ...await judge(repo, [base], tree, allText, auth, { commit: false, change: true, route, deleted }),
+    ]
   if (report('commit gate', findings)) {
     process.stderr.write('commit gate: refused; fix the commit or its message (the rules: policy/gate/commit-gate.ts)\n')
     return 1

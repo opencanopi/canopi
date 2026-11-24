@@ -95,9 +95,11 @@ export const PREFLIGHT_IDS: ReadonlySet<string> = new Set([
   'docs', 'docs-drift', 'playwright-pins', 'unicode-facts', 'actionlint',
 ])
 
-/** Resource group for Tier 2 parallel execution: checks in the same group run serially; distinct groups run in parallel. */
+/** Resource group for Tier 2 parallel execution: checks in the same group run serially; distinct groups run in parallel.
+ * `build-web` invokes `build:format-wasm` (`cargo build --target wasm32`) in CARGO_TARGET_DIR, so it stays in `cargo`
+ * without marking frontend-only stamps as Rust checks. */
 export function resourceGroup(check: PlannedCheck): 'cargo' | 'python' | 'web' {
-  if (check.cargo) return 'cargo'
+  if (check.cargo || check.id === 'build-web') return 'cargo'
   if (check.command.startsWith('python3 ')) return 'python'
   return 'web'
 }
