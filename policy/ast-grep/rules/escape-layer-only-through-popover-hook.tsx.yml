@@ -6,7 +6,6 @@ message: "Components register a popover Esc layer through usePopoverEscapeLayer;
 files:
   - "{desktop/web,policy/fixtures/rules/*}/src/components/**/*.tsx"
   - "{desktop/web,policy/fixtures/rules/*}/src/web/**/*.tsx"
-  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.tsx"
 ignores:
   - "{desktop/web,policy/fixtures/rules/*}/src/__tests__/**"
   - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"

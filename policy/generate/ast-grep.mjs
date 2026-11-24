@@ -8,6 +8,7 @@ import { HEADER, SRC, bare, escRe, filesUnder, rowFor } from './boundary-facts.m
 
 export const AST_GREP_RULES = 'policy/ast-grep/rules';
 export const AST_GREP_TESTS = 'policy/ast-grep/rule-tests';
+const AST_GREP_OVERLAYS = 'policy/ast-grep/tsx-overlays';
 
 /** sgconfig.yml: the one ast-grep project, its rules and its rule tests. */
 export const sgconfigText = () => `# ${HEADER}\nruleDirs:\n  - ${AST_GREP_RULES}\ntestConfigs:\n  - testDir: ${AST_GREP_TESTS}\n`;
@@ -240,5 +241,70 @@ export function memberRefusals(root, rows) {
     }
   }
   return refusals;
+}
+
+// TSX twin generation (canopi-ttg1, 2.1-M530): every *.typescript.yml rule whose `files:` holds a wildcard *.ts glob
+// is the single source for its *.tsx.yml twin and *.tsx-test.yml test, with optional JSX overlays under
+// policy/ast-grep/tsx-overlays/. generate.mjs --check fails on any drifted twin.
+const HAS_TS_GLOB = /^files:\n(?:[ \t]+-.*\n)*?[ \t]+-[ \t]*['"]?[^'"\n]*\*[^/'"\n]*\.ts['"]?[ \t]*$/mu;
+
+/** Translates one TypeScript ast-grep rule document to its TSX twin (id, language, and `files:` globs). */
+function tsDocToTsx(doc) {
+  return doc
+    .replace(/^(id:[ \t]*['"]?[^'".\s]+)\.typescript\b/mu, '$1.tsx')
+    .replace(/^language:[ \t]*typescript\b/mu, 'language: tsx')
+    .replace(/^files:\n(?:[ \t]+-.*\n)*/mu, (block) => block.replace(/\.ts(?=['"]|\s*$)/gmu, '.tsx'));
+}
+
+/** Merges an optional JSX overlay (`---` extra doc or `rule-any:` alternatives) into a generated TSX rule. */
+function applyRuleOverlay(tsxText, overlay) {
+  if (overlay.startsWith('---')) return `${tsxText.replace(/\n*$/u, '\n')}${overlay.replace(/\n*$/u, '\n')}`;
+  if (!overlay.startsWith('rule-any:')) return tsxText;
+  const items = overlay.replace(/^rule-any:\r?\n/u, '').replace(/\n*$/u, '\n');
+  if (/^rule:\n  any:\n/mu.test(tsxText)) return `${tsxText.replace(/\n*$/u, '\n')}${items}`;
+  return tsxText.replace(/(^|\n)rule:\n([\s\S]*?)\n*$/u, (_, lead, body) => {
+    const lines = body.split('\n');
+    const wrapped = [`    - ${lines[0].trimStart()}`, ...lines.slice(1).map((l) => (l ? `    ${l}` : l))].join('\n');
+    return `${lead}rule:\n  any:\n${wrapped}\n${items}`;
+  });
+}
+
+/** Merges an optional JSX test overlay (`valid:` / `invalid:` cases) into a generated TSX rule test. */
+function applyTestOverlay(tsxTest, overlay) {
+  const valid = /(?:^|\n)valid:\r?\n([\s\S]*?)(?=\r?\ninvalid:|$)/u.exec(overlay)?.[1]?.trimEnd();
+  const invalid = /(?:^|\n)invalid:\r?\n([\s\S]*)/u.exec(overlay)?.[1]?.trimEnd();
+  let out = tsxTest.replace(/\n*$/u, '\n');
+  if (valid) out = out.replace(/^invalid:/mu, `${valid}\ninvalid:`);
+  if (invalid) out = `${out}${invalid}\n`;
+  return out;
+}
+
+/**
+ * {path: text} for every generated *.tsx.yml rule and *.tsx-test.yml test derived from *.typescript.yml sources
+ * (using `generatedRules` when ruleOutputs() already updated the source's message/ignores).
+ */
+export function tsxTwinOutputs(root, generatedRules = {}) {
+  const outputs = {};
+  const rulesDir = path.join(root, AST_GREP_RULES);
+  for (const name of filesUnder(rulesDir).filter((n) => n.endsWith('.typescript.yml') && !n.includes('/')).sort()) {
+    const srcRel = `${AST_GREP_RULES}/${name}`;
+    const srcText = generatedRules[srcRel] ?? fs.readFileSync(path.join(root, srcRel), 'utf8');
+    if (!HAS_TS_GLOB.test(srcText)) continue;
+    const base = name.slice(0, -'.typescript.yml'.length);
+    const docs = srcText.split(/^(?=---[ \t]*$)/mu).map(tsDocToTsx);
+    let tsxText = docs.join('');
+    const ruleOverlayPath = path.join(root, AST_GREP_OVERLAYS, `${base}.yml`);
+    if (fs.existsSync(ruleOverlayPath)) tsxText = applyRuleOverlay(tsxText, fs.readFileSync(ruleOverlayPath, 'utf8'));
+    outputs[`${AST_GREP_RULES}/${base}.tsx.yml`] = tsxText;
+
+    const testSrc = path.join(root, AST_GREP_TESTS, `${base}.typescript-test.yml`);
+    if (fs.existsSync(testSrc)) {
+      let tsxTest = fs.readFileSync(testSrc, 'utf8').replace(/^(id:[ \t]*['"]?[^'".\s]+)\.typescript\b/mu, '$1.tsx');
+      const testOverlayPath = path.join(root, AST_GREP_OVERLAYS, `${base}-test.yml`);
+      if (fs.existsSync(testOverlayPath)) tsxTest = applyTestOverlay(tsxTest, fs.readFileSync(testOverlayPath, 'utf8'));
+      outputs[`${AST_GREP_TESTS}/${base}.tsx-test.yml`] = tsxTest;
+    }
+  }
+  return outputs;
 }
 

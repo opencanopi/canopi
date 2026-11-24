@@ -8,7 +8,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { keyPath } from './ratchets.mjs';
 import { loadTableRules } from './tables.mjs';
-import { AST_GREP_RULES, memberRefusals, ruleFileRefusals, ruleOutputs, ruleTestRefusals, rustScopeRefusals, sgconfigText } from '../generate/ast-grep.mjs';
+import { AST_GREP_RULES, memberRefusals, ruleFileRefusals, ruleOutputs, ruleTestRefusals, rustScopeRefusals, sgconfigText, tsxTwinOutputs } from '../generate/ast-grep.mjs';
 import { bare, buildFacts, filesUnder, isObject, LAYER_TABLE, REPO_ROOT, rowFor, SRC, WEB } from '../generate/boundary-facts.mjs';
 import { graphRefusals, unlistedBuiltins } from '../generate/depcruise.mjs';
 import { knipConfig, knipIgnoreRefusals, knipText, policyKnipConfig, testonlyRefusals } from '../generate/knip.mjs';
@@ -202,6 +202,9 @@ export function generate(root = REPO_ROOT) {
   const table = JSON.parse(fs.readFileSync(path.join(root, LAYER_TABLE), 'utf8'));
   refusals.push(...ruleFileRefusals(root, rows), ...ruleTestRefusals(root), ...graphRefusals(root, rows), ...memberRefusals(root, rows), ...rustScopeRefusals(root), ...knipIgnoreRefusals(root, table), ...testonlyRefusals(root));
   if (refusals.length) return { refusals, outputs: {} };
+  const rules = ruleOutputs(root, table, rows);
+  const twins = tsxTwinOutputs(root, rules);
+  const mergedRules = { ...rules, ...twins };
   return {
     refusals,
     outputs: {
@@ -210,8 +213,8 @@ export function generate(root = REPO_ROOT) {
       [OUTPUTS.knip]: knipConfig(table),
       [OUTPUTS.knipPlanted]: knipText({ entry: ['src/main.ts'], project: ['src/**'] }),
       [OUTPUTS.knipPolicy]: policyKnipConfig(table),
-      ...ruleOutputs(root, table, rows),
-      ...editionRuleOutputs(root, table),
+      ...mergedRules,
+      ...editionRuleOutputs(root, table, mergedRules),
     },
   };
 }
@@ -221,14 +224,15 @@ const RULE_ROOTS = '{desktop/web,policy/fixtures/rules/*}/';
 const NEVER_SITES = ['src/__tests__/**', 'src/**/__fixtures__/**', 'src/**/*.test.ts', 'src/**/*.test.tsx'];
 
 /** {path: text} for no-edition-check's rule files, each document's ignores regenerated from the layer table. */
-function editionRuleOutputs(root, table) {
+function editionRuleOutputs(root, table, generated = {}) {
   const exempt = table.layers.filter((r) => ['generated', 'platform'].includes(r.area) || (r.layer === 'L5' && r.edition !== 'both'));
   const ignores = [...NEVER_SITES, ...exempt.map((r) => `src/${r.path.endsWith('/') ? `${r.path}**` : r.path}`)];
   const block = `ignores:\n${ignores.map((g) => `  - ${JSON.stringify(`${RULE_ROOTS}${g}`)}`).join('\n')}\n`;
   const names = fs.existsSync(path.join(root, AST_GREP_RULES)) ? fs.readdirSync(path.join(root, AST_GREP_RULES)) : [];
   return Object.fromEntries(names.filter((n) => n.startsWith(`${EDITION_RULE}.`) && n.endsWith('.yml')).map((name) => {
     const rel = `${AST_GREP_RULES}/${name}`;
-    const docs = fs.readFileSync(path.join(root, rel), 'utf8').split(/^(?=---[ \t]*$)/mu)
+    const text = generated[rel] ?? fs.readFileSync(path.join(root, rel), 'utf8');
+    const docs = text.split(/^(?=---[ \t]*$)/mu)
       .map((doc) => doc.replace(/^ignores:\n(?:[ \t]+-.*\n)*/mu, '').replace(/^rule:/mu, `${block}rule:`));
     return [rel, docs.join('')];
   }));

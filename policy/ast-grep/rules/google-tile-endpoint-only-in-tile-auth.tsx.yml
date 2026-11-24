@@ -11,6 +11,7 @@ ignores:
   - "{desktop/web,policy/fixtures/rules/*}/src/__tests__/**"
   - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
   - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
+  - "{desktop/web,policy/fixtures/rules/*}/src/maplibre/basemap-tile-auth.ts"
 rule:
   kind: string_fragment
   regex: tile\.googleapis\.com

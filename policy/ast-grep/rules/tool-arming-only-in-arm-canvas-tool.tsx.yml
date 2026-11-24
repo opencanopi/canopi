@@ -27,6 +27,7 @@ files:
   - "{desktop/web,policy/fixtures/rules/*}/src/app/**/*.tsx"
   - "{desktop/web,policy/fixtures/rules/*}/src/components/**/*.tsx"
   - "{desktop/web,policy/fixtures/rules/*}/src/web/**/*.tsx"
+  - "{desktop/web,policy/fixtures/rules/*}/src/canvas/*-source.tsx"
 ignores:
   - "{desktop/web,policy/fixtures/rules/*}/src/__tests__/**"
   - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"

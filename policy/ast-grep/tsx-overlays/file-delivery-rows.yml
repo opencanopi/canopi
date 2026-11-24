@@ -1,0 +1,5 @@
+rule-any:
+    - kind: jsx_attribute
+      has:
+        kind: property_identifier
+        regex: ^download$
