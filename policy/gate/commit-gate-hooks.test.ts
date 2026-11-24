@@ -198,6 +198,7 @@ describe('the commit lane through pre-commit (2.1-Q205)', () => {
     const humanEnv = {
       CLAUDECODE: '', CLAUDE_CODE: '', CORAL_SESSION_ID: '', CORAL_DIR: '',
       CORAL_URL: '', ANTIGRAVITY_AGENT: '', AGY_SESSION: '', CODEX_CI: '',
+      GITHUB_ACTIONS: '', CI: '',
     }
     // Plain human shell (no agent env vars) is never blocked in the main checkout.
     const human = repo.commitIn(repo.path, { 'human.txt': 'ok\n' }, humanEnv)

@@ -221,4 +221,22 @@ describe('one loss router for both passes (canopi-f47t.52.228.51)', () => {
     expect(out).toContain("vitest list: gate-test-deleted: 'keeps row 1' looks reworded")
     expect(out).not.toMatch(/^range [0-9a-f]{9}\.\.[0-9a-f]{9}: gate-test-/mu)
   })
+
+  it('a vitest test replaced by a quoted node:test title under policy/ passes the vitest list pass', () => {
+    const nodeTest = "import test from 'node:test'\nimport assert from 'node:assert/strict'\n\ntest('holds row three in node:test', () => {\n  assert.equal(3, 3)\n})\n"
+    const [status, out] = gate(
+      { [ROWS_FILE]: rows('[1, 2]'), 'policy/adapters/row-three.test.mjs': nodeTest },
+      "test(policy): row three moves to policy node:test\n\nReplaces it with 'holds row three in node:test'.",
+    )
+    expect(out).not.toContain('gate-test-deleted')
+    expect(status, out).toBe(0)
+    // Quoting a title that was NOT added in the range still fails.
+    repo.at(repo.base)
+    const [badStatus, badOut] = gate(
+      { [ROWS_FILE]: rows('[1, 2]') },
+      "test(policy): row three moves to policy node:test\n\nReplaces it with 'holds row three in node:test'.",
+    )
+    expect(badStatus, badOut).toBe(1)
+    expect(badOut).toContain("vitest list: gate-test-deleted: 'keeps row 3'")
+  })
 })
