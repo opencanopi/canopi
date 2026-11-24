@@ -1,19 +1,6 @@
 {
   "$schema": "./ratchet.schema.json",
-  "version": 1,
   "family": "wall-clock-only-in-time",
-  "ledger": "2.1-M189",
-  "tool": "ast-grep",
-  "scope": [
-    "desktop/src/**",
-    "canopi-types/src/**",
-    "bindings-gen/src/**"
-  ],
-  "lane": "commit",
-  "keys": "path",
-  "select": [
-    "wall-clock-only-in-time"
-  ],
   "entries": {
     "desktop/src/commands/problem_report.rs": {
       "count": 2,

@@ -1,17 +1,6 @@
 {
   "$schema": "./ratchet.schema.json",
-  "version": 1,
   "family": "sql-only-in-repository",
-  "ledger": "2.1-M189",
-  "tool": "ast-grep",
-  "scope": [
-    "desktop/src/services/lidar/**"
-  ],
-  "lane": "commit",
-  "keys": "path",
-  "select": [
-    "sql-only-in-repository"
-  ],
   "entries": {
     "desktop/src/services/lidar/analyses/mod.rs": {
       "count": 27,

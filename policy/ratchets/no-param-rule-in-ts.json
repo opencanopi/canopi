@@ -1,17 +1,6 @@
 {
   "$schema": "./ratchet.schema.json",
-  "version": 1,
   "family": "no-param-rule-in-ts",
-  "ledger": "2.1-M189",
-  "tool": "ast-grep",
-  "scope": [
-    "desktop/web/src/**"
-  ],
-  "lane": "commit",
-  "keys": "path",
-  "select": [
-    "no-param-rule-in-ts"
-  ],
   "entries": {
     "desktop/web/src/app/analyses/model.ts": {
       "count": 5,

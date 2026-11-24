@@ -1,19 +1,6 @@
 {
   "$schema": "./ratchet.schema.json",
-  "version": 1,
   "family": "no-user-content-in-message",
-  "ledger": "2.1-M224",
-  "tool": "ast-grep",
-  "scope": [
-    "desktop/src/**",
-    "canopi-types/src/**",
-    "canopi-redact/src/**"
-  ],
-  "lane": "commit",
-  "keys": "path",
-  "select": [
-    "no-user-content-in-message"
-  ],
   "entries": {
     "desktop/src/design/format.rs": {
       "count": 3,

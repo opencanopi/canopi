@@ -1,17 +1,6 @@
 {
   "$schema": "./ratchet.schema.json",
-  "version": 1,
   "family": "raw-pointer-listener-only-in-reviewed-owners",
-  "ledger": "2.1-M186",
-  "tool": "ast-grep",
-  "scope": [
-    "desktop/web/src/**"
-  ],
-  "lane": "commit",
-  "keys": "path",
-  "select": [
-    "raw-pointer-listener-only-in-reviewed-owners"
-  ],
   "entries": {
     "desktop/web/src/app/keyboard/key-router.ts": {
       "count": 3

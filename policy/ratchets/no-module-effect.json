@@ -1,17 +1,6 @@
 {
   "$schema": "./ratchet.schema.json",
-  "version": 1,
   "family": "no-module-effect",
-  "ledger": "2.1-M189",
-  "tool": "ast-grep",
-  "scope": [
-    "desktop/web/src/**"
-  ],
-  "lane": "commit",
-  "keys": "path",
-  "select": [
-    "no-module-effect"
-  ],
   "entries": {
     "desktop/web/src/app/canvas-pdf/live.ts": {
       "count": 1,

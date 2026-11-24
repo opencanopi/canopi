@@ -20,6 +20,7 @@
 import { spawnSync } from 'node:child_process'
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { basename, isAbsolute, join, posix, resolve } from 'node:path'
+import { readDerivedRows } from '../core/ratchets.mjs'
 import { commitLaneFamilies, reachedFamilies } from './families.ts'
 import { GateError } from './gate-error.ts'
 import { CHEAP_FAMILIES, display, POLICY_COMMIT, TABLE, WEB, type Area, type Check, type Table } from './table.ts'
@@ -357,23 +358,19 @@ const lane = (id: string, command: string, extra: Partial<Check> = {}): PlannedC
 
 const escaped = (path: string) => `^${path.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`
 
-/**
- * `table` with each area naming a `ratchet` also selected by the files that ratchet lists (its entry keys), read from
- * `root` now: a missing or unreadable ratchet refuses, so a plan never silently drops the debt files (AR12).
- */
+/** `table` with each area naming a `ratchet` also selected by its listed files (AR12); missing or unreadable refuses. */
 export function withRatchetPaths(root: string, table: Table = TABLE): Table {
   if (!table.areas.some((area) => area.ratchet)) return table
+  const derived = readDerivedRows(root) as Map<string, unknown>
   return { ...table, areas: table.areas.map((area) => {
     if (!area.ratchet) return area
+    const full = join(root, area.ratchet)
     let entries: unknown
-    try {
-      entries = (JSON.parse(readFileSync(join(root, area.ratchet), 'utf8')) as { entries?: unknown }).entries
-    } catch {
-      entries = undefined
-    }
+    if (existsSync(full)) {
+      try { entries = (JSON.parse(readFileSync(full, 'utf8')) as { entries?: unknown }).entries } catch { entries = undefined }
+    } else if (derived.has(basename(area.ratchet, '.json'))) { entries = {} }
     if (!entries || typeof entries !== 'object') {
-      throw new GateError(`the ${area.name} area reads ${area.ratchet}, which is missing or unreadable: the gate refuses rather `
-        + 'than select too little')
+      throw new GateError(`the ${area.name} area reads ${area.ratchet}, which is missing or unreadable: the gate refuses rather than select too little`)
     }
     return { ...area, patterns: [...area.patterns, ...Object.keys(entries).map(escaped)] }
   }) }

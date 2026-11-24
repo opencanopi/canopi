@@ -1,17 +1,6 @@
 {
   "$schema": "./ratchet.schema.json",
-  "version": 1,
   "family": "no-currency-symbol-table",
-  "ledger": "2.1-M189",
-  "tool": "ast-grep",
-  "scope": [
-    "desktop/web/src/**"
-  ],
-  "lane": "commit",
-  "keys": "path",
-  "select": [
-    "no-currency-symbol-table"
-  ],
   "entries": {
     "desktop/web/src/app/contracts/canopi-design-schema-decoder.ts": {
       "count": 2,

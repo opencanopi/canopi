@@ -5,7 +5,7 @@ import path from 'node:path';
 import { openGitReader } from '../git.mjs';
 import { LAYER_TABLE, MODULE_ROOT, RATCHETS_DIR } from './base.mjs';
 import { git } from './exec.mjs';
-import { keyPath, layerMoves, layerMovesAt, listedCount, movePath, sameSet, shapeOf, withKeyPath } from './ratchets.mjs';
+import { DERIVED_TOOLS, derivedHeader, keyPath, layerMoves, layerMovesAt, listedCount, movePath, sameSet, shapeOf, withKeyPath } from './ratchets.mjs';
 
 /**
  * Every change a base-to-head diff of the family files can name; the commit gate (policy/gate/commit-gate-judge.ts)
@@ -38,10 +38,37 @@ export function gitRenames(root, baseRev, headRev) {
 const isFamilyFile = (f) => path.posix.dirname(f) === RATCHETS_DIR && f.endsWith('.json') && !f.endsWith('.schema.json');
 const NO_BLOB = /^0+$/u;
 
+const DERIVED_TABLES = ['policy/rules.json', 'policy/primitives.json'];
+
+/** Map(family -> derivedHeader) from policy/rules.json and policy/primitives.json at `rev` (working tree when omitted). */
+async function derivedHeadersOf(root, reader, rev) {
+  const headers = new Map();
+  for (const table of DERIVED_TABLES) {
+    let text;
+    if (rev) text = await reader.readAt(rev, table);
+    else if (fs.existsSync(path.join(root, table))) text = fs.readFileSync(path.join(root, table), 'utf8');
+    if (!text) continue;
+    let doc;
+    try { doc = JSON.parse(text); } catch { continue; }
+    for (const row of Array.isArray(doc?.rules) ? doc.rules : []) {
+      if (row && typeof row.id === 'string' && row.status !== 'planned' && DERIVED_TOOLS.has(row.tool) && typeof row.family === 'string') {
+        headers.set(row.family, derivedHeader(row));
+      }
+    }
+  }
+  return headers;
+}
+
+/** Merges a derived header into a shrunk family doc (no `version`), or synthesises an empty derived doc when absent. */
+function hydrate(doc, header) {
+  if (!doc) return header ? { ...header, entries: {} } : undefined;
+  return doc.version === undefined && header ? { ...header, ...doc } : doc;
+}
+
 /**
  * Family file stem -> parsed doc at `baseRev` and at `headRev` (the working tree when omitted), for only the family
- * files `git diff --raw` names (and, against the working tree, the untracked ones): a family file no diff names has no
- * change, so it is never read (2.1-M348). Blobs come through policy/git.mjs's one batch reader.
+ * files `git diff --raw` names (and, against the working tree, the untracked ones) plus any derived rule whose header
+ * changed in policy/rules.json or policy/primitives.json (2.1-M348, canopi-uxyr).
  */
 async function changedFamilies(root, reader, baseRev, headRev) {
   const raw = git(root, ['diff', '--raw', '-z', '--no-abbrev', '--no-renames', baseRev, ...(headRev ? [headRev] : []), '--', `${RATCHETS_DIR}/`]).split('\0');
@@ -55,14 +82,28 @@ async function changedFamilies(root, reader, baseRev, headRev) {
       if (isFamilyFile(file)) changed.push({ file, from: '0', to: '0' });
     }
   }
+  const baseDerived = await derivedHeadersOf(root, reader, baseRev);
+  const headDerived = await derivedHeadersOf(root, reader, headRev);
   const base = new Map();
   const head = new Map();
+  const seen = new Set();
   for (const { file, from, to } of changed) {
     const stem = path.posix.basename(file, '.json');
-    if (!NO_BLOB.test(from)) base.set(stem, JSON.parse(await reader.blob(from)));
-    if (headRev ? !NO_BLOB.test(to) : fs.existsSync(path.join(root, file))) {
-      head.set(stem, JSON.parse(headRev ? await reader.blob(to) : fs.readFileSync(path.join(root, file), 'utf8')));
-    }
+    seen.add(stem);
+    const rawBase = !NO_BLOB.test(from) ? JSON.parse(await reader.blob(from)) : undefined;
+    const rawHead = headRev
+      ? (!NO_BLOB.test(to) ? JSON.parse(await reader.blob(to)) : undefined)
+      : (fs.existsSync(path.join(root, file)) ? JSON.parse(fs.readFileSync(path.join(root, file), 'utf8')) : undefined);
+    const was = hydrate(rawBase, baseDerived.get(stem));
+    const now = hydrate(rawHead, headDerived.get(stem));
+    if (was) base.set(stem, was);
+    if (now) head.set(stem, now);
+  }
+  for (const [stem, wasHeader] of baseDerived) {
+    const nowHeader = headDerived.get(stem);
+    if (seen.has(stem) || !nowHeader || JSON.stringify(wasHeader) === JSON.stringify(nowHeader)) continue;
+    base.set(stem, { ...wasHeader, entries: {} });
+    head.set(stem, { ...nowHeader, entries: {} });
   }
   return { base, head };
 }
@@ -113,7 +154,7 @@ export function diffFamilies(base, head, moves) {
     if (!now) { changes.push({ change: 'deleted', family: stem }); continue; }
     const fields = HEADER_FIELDS.filter((f) => JSON.stringify(was[f]) !== JSON.stringify(now[f]));
     if (shapeOf(was) !== shapeOf(now)) fields.push('shape');
-    if (fields.length) changes.push({ change: 'header', family: stem, fields });
+    if (fields.length) changes.push({ change: 'header', family: stem, fields, from: was, to: now });
     // A header change hides nothing: only a new key kind or shape leaves no entries to compare.
     if (fields.includes('keys') || fields.includes('shape')) continue;
     if (shapeOf(now) === 'budgets' || shapeOf(now) === 'floors') {

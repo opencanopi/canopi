@@ -1,17 +1,6 @@
 {
   "$schema": "./ratchet.schema.json",
-  "version": 1,
   "family": "tool-id-literal-only-in-rows",
-  "ledger": "2.1-M189",
-  "tool": "ast-grep",
-  "scope": [
-    "desktop/web/src/**"
-  ],
-  "lane": "commit",
-  "keys": "path",
-  "select": [
-    "tool-id-literal-only-in-rows"
-  ],
   "entries": {
     "desktop/web/src/app/canvas-commands/index.ts": {
       "count": 1

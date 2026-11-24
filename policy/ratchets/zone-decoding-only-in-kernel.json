@@ -1,17 +1,6 @@
 {
   "$schema": "./ratchet.schema.json",
-  "version": 1,
   "family": "zone-decoding-only-in-kernel",
-  "ledger": "2.1-M189",
-  "tool": "ast-grep",
-  "scope": [
-    "desktop/web/src/**"
-  ],
-  "lane": "commit",
-  "keys": "path",
-  "select": [
-    "zone-decoding-only-in-kernel"
-  ],
   "entries": {
     "desktop/web/src/app/canvas-context-menu/entries.ts": {
       "count": 1,

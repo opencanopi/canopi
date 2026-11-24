@@ -3,7 +3,7 @@
 // observes.
 import fs from 'node:fs';
 import path from 'node:path';
-import { isObject, isRepoPath, LAYER_TABLE, RATCHETS_DIR, adapterFile, refusal, REPO_ROOT, RefusalError, SCHEMA_FILE } from './base.mjs';
+import { isObject, isRepoPath, LAYER_TABLE, POLICY_DIR, RATCHETS_DIR, adapterFile, refusal, REPO_ROOT, RefusalError, SCHEMA_FILE } from './base.mjs';
 import { listFiles } from './exec.mjs';
 import { matchesGlob } from './globs.mjs';
 import { SchemaKeywordError, validate } from './schema.mjs';
@@ -146,9 +146,55 @@ export function layerMovesAt(root) {
 }
 
 // ---------------------------------------------------------------------------------------------------------------
+// Derived families (canopi-uxyr, 2.1-M530): dependency-cruiser and ast-grep rules state their header once in
+// policy/rules.json or policy/primitives.json; loadRatchets builds the header in memory, and policy/ratchets/<family>.json
+// exists only when the family holds entries (shrunk to family + entries + optional bead/standing/ceilings).
+
+export const DERIVED_TOOLS = new Set(['dependency-cruiser', 'ast-grep']);
+const DEFAULT_SCOPE = ['desktop/web/src/**'];
+const DEFAULT_LANE = 'commit';
+
+/** The family header derived from an active dependency-cruiser or ast-grep policy table row. */
+export function derivedHeader(row) {
+  return {
+    version: 1,
+    family: row.family,
+    ledger: row.ledger,
+    tool: row.tool,
+    scope: row.scope ?? DEFAULT_SCOPE,
+    lane: row.lane ?? DEFAULT_LANE,
+    keys: row.tool === 'ast-grep' ? 'path' : 'name',
+    select: [row.id],
+  };
+}
+
+/** Map(family -> { table, row }) for active derived-tool rows in policy/*.json under `root`. */
+export function readDerivedRows(root = REPO_ROOT) {
+  const dir = path.join(root, POLICY_DIR);
+  const derived = new Map();
+  if (!fs.existsSync(dir)) return derived;
+  for (const name of fs.readdirSync(dir, { withFileTypes: true }).filter((e) => e.isFile() && e.name.endsWith('.json')).map((e) => e.name).sort()) {
+    const table = `${POLICY_DIR}/${name}`;
+    let doc;
+    try {
+      doc = JSON.parse(fs.readFileSync(path.join(root, table), 'utf8'));
+    } catch {
+      continue;
+    }
+    if (!isObject(doc) || !Array.isArray(doc.rules)) continue;
+    for (const row of doc.rules) {
+      if (isObject(row) && typeof row.id === 'string' && row.status !== 'planned' && DERIVED_TOOLS.has(row.tool) && typeof row.family === 'string') {
+        derived.set(row.family, { table, row });
+      }
+    }
+  }
+  return derived;
+}
+
+// ---------------------------------------------------------------------------------------------------------------
 // Loader
 
-/** Loads every family file under `root`/policy/ratchets/; returns { families: Map(family -> doc), refusals }. */
+/** Loads every family file under `root`/policy/ratchets/ plus derived families from policy tables; returns { families, refusals }. */
 export function loadRatchets(root = REPO_ROOT) {
   const refusals = [];
   const families = new Map();
@@ -165,9 +211,13 @@ export function loadRatchets(root = REPO_ROOT) {
     refusals.push(refusal(error.code, error.where, error.message));
   }
   const files = listFiles(root);
+  const derived = readDerivedRows(root);
+  const seenFiles = new Set();
   const names = fs.readdirSync(dir).filter((f) => f.endsWith('.json') && !f.endsWith('.schema.json')).sort();
   for (const name of names) {
     const file = `${RATCHETS_DIR}/${name}`;
+    const stem = path.basename(file, '.json');
+    seenFiles.add(stem);
     let doc;
     try {
       doc = JSON.parse(fs.readFileSync(path.join(root, file), 'utf8'));
@@ -187,9 +237,25 @@ export function loadRatchets(root = REPO_ROOT) {
       for (const e of errors) refusals.push(refusal('schema', file, e));
       continue;
     }
+    if (doc.version === undefined) {
+      const source = derived.get(doc.family);
+      if (!source) {
+        refusals.push(refusal('missing-rule', file, `derived family file "${doc.family}" has no active dependency-cruiser or ast-grep row in policy/rules.json or policy/primitives.json`));
+        continue;
+      }
+      doc = { ...derivedHeader(source.row), ...doc };
+    }
     const familyRefusals = checkFamily(file, doc, files);
     refusals.push(...familyRefusals);
     if (familyRefusals.length === 0) families.set(doc.family, { file, doc });
+  }
+  for (const [family, { row }] of derived) {
+    if (seenFiles.has(family) || families.has(family)) continue;
+    const file = `${RATCHETS_DIR}/${family}.json`;
+    const doc = { ...derivedHeader(row), entries: {} };
+    const familyRefusals = checkFamily(file, doc, files);
+    refusals.push(...familyRefusals);
+    if (familyRefusals.length === 0) families.set(family, { file, doc });
   }
   return { families, refusals };
 }

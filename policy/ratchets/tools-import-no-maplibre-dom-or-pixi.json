@@ -1,17 +1,6 @@
 {
   "$schema": "./ratchet.schema.json",
-  "version": 1,
   "family": "tools-import-no-maplibre-dom-or-pixi",
-  "ledger": "2.1-M186",
-  "tool": "dependency-cruiser",
-  "scope": [
-    "desktop/web/src/**"
-  ],
-  "lane": "commit",
-  "keys": "name",
-  "select": [
-    "tools-import-no-maplibre-dom-or-pixi"
-  ],
   "entries": {
     "canvas/runtime/tools/spatial-index.ts -> canvas/runtime/interaction-ports.ts": {
       "count": 1

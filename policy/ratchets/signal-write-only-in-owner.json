@@ -1,17 +1,6 @@
 {
   "$schema": "./ratchet.schema.json",
-  "version": 1,
   "family": "signal-write-only-in-owner",
-  "ledger": "2.1-M233",
-  "tool": "ast-grep",
-  "scope": [
-    "desktop/web/src/**"
-  ],
-  "lane": "commit",
-  "keys": "path",
-  "select": [
-    "signal-write-only-in-owner"
-  ],
   "entries": {
     "desktop/web/src/app/budget/workbench.ts": {
       "count": 14

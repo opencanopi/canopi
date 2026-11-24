@@ -1,17 +1,6 @@
 {
   "$schema": "./ratchet.schema.json",
-  "version": 1,
   "family": "console-only-in-sink",
-  "ledger": "2.1-M189",
-  "tool": "ast-grep",
-  "scope": [
-    "desktop/web/src/**"
-  ],
-  "lane": "commit",
-  "keys": "path",
-  "select": [
-    "console-only-in-sink"
-  ],
   "entries": {
     "desktop/web/src/app/budget/workbench.ts": {
       "count": 1,

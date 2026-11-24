@@ -1,19 +1,6 @@
 {
   "$schema": "./ratchet.schema.json",
-  "version": 1,
   "family": "tracing-warn-only-in-failure-logger",
-  "ledger": "2.1-M189",
-  "tool": "ast-grep",
-  "scope": [
-    "desktop/src/**",
-    "canopi-types/src/**",
-    "bindings-gen/src/**"
-  ],
-  "lane": "commit",
-  "keys": "path",
-  "select": [
-    "tracing-warn-only-in-failure-logger"
-  ],
   "entries": {
     "desktop/src/commands/lidar.rs": {
       "count": 1,

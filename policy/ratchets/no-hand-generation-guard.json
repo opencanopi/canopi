@@ -1,17 +1,6 @@
 {
   "$schema": "./ratchet.schema.json",
-  "version": 1,
   "family": "no-hand-generation-guard",
-  "ledger": "2.1-M189",
-  "tool": "ast-grep",
-  "scope": [
-    "desktop/web/src/**"
-  ],
-  "lane": "commit",
-  "keys": "path",
-  "select": [
-    "no-hand-generation-guard"
-  ],
   "entries": {
     "desktop/web/src/app/canvas-map-surface/workspace-activation.ts": {
       "count": 2,

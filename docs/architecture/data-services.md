@@ -252,7 +252,7 @@ flowchart LR
 
 - Owner: `app/settings/` (store states loading, ready with a notice, degraded); features write patches of one slice through `patchSettings`, and a patch policy says which feature writes which field. The port replaces today's `SettingsPlatformAdapter` whole-record load and save.
 - Invariant: the Google Maps key is a `secret` field, `Redacted<String>` in Rust, read only through `expose()`; its redaction names, report line and export exclusion are generated from the privacy column. A bad field resets alone, the original kept once as `settings.before-reset`; a degraded store is never written.
-- Tests: the settings fixture corpus through both runners; `settings-no-upward`; the `patchSettings` caller policy.
+- Tests: the settings fixture corpus through both runners; `layer-order`; the `patchSettings` caller policy.
 
 ### Object-action matrix and edition capabilities
 

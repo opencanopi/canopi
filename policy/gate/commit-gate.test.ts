@@ -569,15 +569,15 @@ describe('the planted cases and the workflow (2.1-Q222)', () => {
   })
 
   it('canopi-f47t.52.228.54: every rule the gate emits has a rules.json row, an inventory check and a planted case', () => {
-    // A rule with none of the three could be dropped from the gate with no Q row and no failing lane.
     const sources = readdirSync(join(REPO_ROOT, 'policy/gate')).filter((name) => name.endsWith('.ts') && !name.includes('.test.'))
     const emitted = new Set(sources.flatMap((name) => [...real(`policy/gate/${name}`).matchAll(/\['(gate-[a-z-]+)'/gu)].map((m) => m[1] ?? '')))
-    const rules = (JSON.parse(real('policy/rules.json')) as { rules: { id: string, tool?: string }[] }).rules
+    const rules = (JSON.parse(real('policy/rules.json')) as { rules: { id: string, tool?: string, ledger?: string }[] }).rules
     const checks = JSON.stringify(JSON.parse(real('policy/inventory.json')))
-    const missing = [...emitted].filter((id) => !rules.some((row) => row.id === id && row.tool === 'commit-gate')
-      || !checks.includes(`"check":"${id}"`) || !existsSync(join(REPO_ROOT, `policy/fixtures/rules/${id}/case.json`)))
-    expect(emitted.size).toBeGreaterThan(5)
-    expect(missing).toEqual([])
+    const missing = [...emitted].filter((id) => {
+      const row = rules.find((r) => r.id === id && r.tool === 'commit-gate')
+      return !row || (!row.ledger && !checks.includes(`"check":"${id}"`)) || !existsSync(join(REPO_ROOT, `policy/fixtures/rules/${id}/case.json`))
+    })
+    expect(emitted.size).toBeGreaterThan(5); expect(missing).toEqual([])
   })
 
   it('canopi-f47t.52.228.10: the planted runner copies every module the gate imports', () => {

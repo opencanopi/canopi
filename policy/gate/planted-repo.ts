@@ -59,11 +59,20 @@ export class PlantedRepo {
     for (const name of readdirSync(gate).filter((file) => !file.includes('.test.'))) {
       cpSync(join(gate, name), join(this.repo, 'policy/gate', name))
     }
+    const core = join(REPO_ROOT, 'policy/core')
+    for (const name of readdirSync(core).filter((file) => !file.includes('.test.'))) {
+      cpSync(join(core, name), join(this.repo, 'policy/core', name))
+    }
     this.write({
       'README.md': 'x\n',
       'AGENTS.md': 'Enforced by `cited.test.ts`.\n',
       'desktop/web/package.json': readFileSync(join(REPO_ROOT, 'desktop/web/package.json'), 'utf8'),
-      ...Object.fromEntries(['invoke-only-in-ipc', 'file-size', 'test-location', 'python-lines'].map((id) =>
+      'policy/primitives.json': `${JSON.stringify({
+        version: 1,
+        rules: [(JSON.parse(readFileSync(join(REPO_ROOT, 'policy/primitives.json'), 'utf8')) as { rules: { id: string }[] }).rules
+          .find((r) => r.id === 'invoke-only-in-ipc')],
+      }, null, 2)}\n`,
+      ...Object.fromEntries(['file-size', 'test-location', 'python-lines'].map((id) =>
         [`policy/ratchets/${id}.json`, readFileSync(join(REPO_ROOT, `policy/ratchets/${id}.json`), 'utf8')])),
       'desktop/web/package-lock.json': JSON.stringify({ packages: { 'node_modules/@playwright/test': { version: PLANTED_PLAYWRIGHT } } }),
       'desktop/web/src/__tests__/scan.test.ts': "import { readdirSync } from 'node:fs'\n",

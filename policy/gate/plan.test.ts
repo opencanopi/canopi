@@ -404,7 +404,7 @@ describe('affected selection (canopi-f47t.52.228.10)', () => {
 
   it('canopi-f47t.52.228.54: missing: an invoke-only-in-ipc ratchet missing at plan time makes areas refuse, never under-select', () => {
     const ratchet = 'policy/ratchets/invoke-only-in-ipc.json'
-    git(repo.repo, 'rm', '-q', ratchet)
+    git(repo.repo, 'rm', '-q', 'policy/primitives.json')
     repo.stage('desktop/web/src/app/x.ts')
     for (const args of [['areas', '--base', repo.base], ['affected', '--base', repo.base, '--print'], ['affected', '--staged', '--print']]) {
       const run = repo.gate(args)

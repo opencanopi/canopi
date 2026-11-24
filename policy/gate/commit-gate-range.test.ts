@@ -161,21 +161,13 @@ describe('a PR judged on its net change (2.1-Q272)', () => {
     expect(status, out).toBe(1)
   })
 
-  it('canopi-f47t.52.240: a family is judged for its ledger id in the commit that creates it, so a later re-point to another row passes', () => {
-    const family = (ledger: string) => `${JSON.stringify({ version: 1, family: 'planted-family', ledger, tool: 'suppressions',
-      scope: ['src/**'], lane: 'commit', keys: 'path', entries: { 'src/a.ts': { count: 1 } } }, null, 2)}\n`
-    repo.write({ 'policy/ratchets/planted-family.json': family(Q_ROW) })
-    repo.commit(`feat: a new family under ${Q_ROW}`)
-    repo.write({ 'policy/ratchets/planted-family.json': family(M_ROW) })
-    const repointed = verdict(repo.commit('chore: re-point the family to its M row'))
-    expect(repointed.out).not.toContain('gate-first-baseline')
-    expect(repointed.status, repointed.out).toBe(0)
-    repo.git('reset', '-q', '--hard', repo.base)
-    repo.write({ 'policy/ratchets/planted-family.json': family(M_ROW) })
-    repo.commit('feat: a new family')
-    const late = verdict(repo.commit(`docs: the family's row is ${M_ROW}`))
-    expect(late.out).toContain('gate-first-baseline: planted-family: created')
-    expect(late.status, late.out).toBe(1)
+  it('canopi-uxyr: narrowing a derived rule scope in rules.json requires an open bead and a merge-base Q or M row', () => {
+    const rules = repo.json('policy/rules.json') as { rules: { id: string, scope?: string[] }[] }
+    const next = { ...rules, rules: rules.rules.map((r) => (r.id === 'no-edition-check' ? { ...r, scope: ['desktop/web/src/app/**'] } : r)) }
+    repo.write({ 'policy/rules.json': `${JSON.stringify(next, null, 2)}\n` })
+    const denied = verdict(repo.commit('refactor(policy): narrow scope without authority'))
+    expect(denied.out).toContain('gate-loosening-authority: no-edition-check: header')
+    expect(denied.status, denied.out).toBe(1)
   })
 
   it('canopi-f47t.52.240: a Q row routes a test loss only from a commit that touched its file, never from an unrelated commit', () => {

@@ -1,17 +1,6 @@
 {
   "$schema": "./ratchet.schema.json",
-  "version": 1,
   "family": "single-lonlat-point-type",
-  "ledger": "2.1-M212",
-  "tool": "ast-grep",
-  "scope": [
-    "desktop/web/src/**"
-  ],
-  "lane": "commit",
-  "keys": "path",
-  "select": [
-    "single-lonlat-point-type"
-  ],
   "entries": {
     "desktop/web/src/app/canvas-map-surface/overlays.ts": {
       "count": 1

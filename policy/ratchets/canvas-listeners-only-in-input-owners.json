@@ -1,17 +1,6 @@
 {
   "$schema": "./ratchet.schema.json",
-  "version": 1,
   "family": "canvas-listeners-only-in-input-owners",
-  "ledger": "2.1-M186",
-  "tool": "ast-grep",
-  "scope": [
-    "desktop/web/src/**"
-  ],
-  "lane": "commit",
-  "keys": "path",
-  "select": [
-    "canvas-listeners-only-in-input-owners"
-  ],
   "entries": {
     "desktop/web/src/canvas/runtime/chrome/handle-layer.ts": {
       "count": 4

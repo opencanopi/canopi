@@ -1,17 +1,6 @@
 {
   "$schema": "./ratchet.schema.json",
-  "version": 1,
   "family": "no-private-field-cast-in-tests",
-  "ledger": "2.1-M20",
-  "tool": "ast-grep",
-  "scope": [
-    "desktop/web/src/**"
-  ],
-  "lane": "commit",
-  "keys": "path",
-  "select": [
-    "no-private-field-cast-in-tests"
-  ],
   "entries": {
     "desktop/web/src/__tests__/lidar-site-data.test.tsx": {
       "count": 2,

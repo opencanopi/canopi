@@ -1,17 +1,6 @@
 {
   "$schema": "./ratchet.schema.json",
-  "version": 1,
   "family": "no-src-read-outside-policies",
-  "ledger": "2.1-M20",
-  "tool": "ast-grep",
-  "scope": [
-    "desktop/web/src/**"
-  ],
-  "lane": "commit",
-  "keys": "path",
-  "select": [
-    "no-src-read-outside-policies"
-  ],
   "entries": {
     "desktop/web/src/__tests__/canvas-chrome-theme.test.ts": {
       "count": 1,

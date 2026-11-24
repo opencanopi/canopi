@@ -1,17 +1,6 @@
 {
   "$schema": "./ratchet.schema.json",
-  "version": 1,
   "family": "no-hand-rolled-projection",
-  "ledger": "2.1-M186",
-  "tool": "ast-grep",
-  "scope": [
-    "desktop/web/src/**"
-  ],
-  "lane": "commit",
-  "keys": "path",
-  "select": [
-    "no-hand-rolled-projection"
-  ],
   "entries": {
     "desktop/web/src/canvas/runtime/inspection-lens-drawing.ts": {
       "count": 3

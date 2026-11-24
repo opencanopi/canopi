@@ -1,17 +1,6 @@
 {
   "$schema": "./ratchet.schema.json",
-  "version": 1,
   "family": "bare-catch-names-reason",
-  "ledger": "2.1-M189",
-  "tool": "ast-grep",
-  "scope": [
-    "desktop/web/src/**"
-  ],
-  "lane": "commit",
-  "keys": "path",
-  "select": [
-    "bare-catch-names-reason"
-  ],
   "entries": {
     "desktop/web/src/app/budget/formatting.ts": {
       "count": 2,

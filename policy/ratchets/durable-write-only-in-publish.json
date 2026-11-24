@@ -1,17 +1,6 @@
 {
   "$schema": "./ratchet.schema.json",
-  "version": 1,
   "family": "durable-write-only-in-publish",
-  "ledger": "2.1-M189",
-  "tool": "ast-grep",
-  "scope": [
-    "desktop/src/**"
-  ],
-  "lane": "commit",
-  "keys": "path",
-  "select": [
-    "durable-write-only-in-publish"
-  ],
   "entries": {
     "desktop/src/db/mod.rs": {
       "count": 4

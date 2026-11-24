@@ -5,7 +5,7 @@ import path from 'node:path';
 import { UPSTREAM_REGISTER } from '../beads.mjs';
 import { isObject, isRepoPath, POLICY_DIR, RATCHETS_DIR, refusal, REPO_ROOT, RULES_TABLE } from './base.mjs';
 import { listFiles } from './exec.mjs';
-import { loadRatchets } from './ratchets.mjs';
+import { DERIVED_TOOLS, loadRatchets } from './ratchets.mjs';
 
 // ---------------------------------------------------------------------------------------------------------------
 // Registry
@@ -32,6 +32,12 @@ function checkRow(row, i, table, { root, files, phases }) {
   if ('family' in row && (typeof row.family !== 'string' || !RULE_ID.test(row.family))) {
     return [refusal('rules-table', table, `${at}: family names one family file, ${RATCHETS_DIR}/<family>.json`)];
   }
+  if ('scope' in row && (!Array.isArray(row.scope) || !row.scope.length || !row.scope.every((g) => typeof g === 'string' && g.length > 0))) {
+    return [refusal('rules-table', table, `${at}: scope is a non-empty array of globs`)];
+  }
+  if ('lane' in row && !['commit', 'push', 'ci'].includes(row.lane)) {
+    return [refusal('rules-table', table, `${at}: lane is commit, push or ci`)];
+  }
   const target = row.owner_target;
   if (target !== undefined && !(isObject(target) && typeof target.path === 'string' && typeof target.phase === 'string')) {
     return [refusal('rules-table', table, `${at}: owner_target is {path, phase, bead?}`)];
@@ -50,7 +56,7 @@ function checkRow(row, i, table, { root, files, phases }) {
   if (target && !phases.includes(target.phase)) {
     refusals.push(refusal('phase-label', table, `${row.id}: owner_target phase ${target.phase} is not one of ${RULES_TABLE}'s phases`));
   }
-  if (row.status !== 'planned' && row.family !== undefined && !fs.existsSync(path.join(root, RATCHETS_DIR, `${row.family}.json`))) {
+  if (row.status !== 'planned' && row.family !== undefined && !DERIVED_TOOLS.has(row.tool) && !fs.existsSync(path.join(root, RATCHETS_DIR, `${row.family}.json`))) {
     refusals.push(refusal('missing-rule', table, `rule ${row.id}${row.ledger ? ` (${row.ledger})` : ''} names family ${row.family}, and ${RATCHETS_DIR}/${row.family}.json is missing`));
   }
   return refusals;

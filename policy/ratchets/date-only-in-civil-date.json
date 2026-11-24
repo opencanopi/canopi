@@ -1,17 +1,6 @@
 {
   "$schema": "./ratchet.schema.json",
-  "version": 1,
   "family": "date-only-in-civil-date",
-  "ledger": "2.1-M189",
-  "tool": "ast-grep",
-  "scope": [
-    "desktop/web/src/**"
-  ],
-  "lane": "commit",
-  "keys": "path",
-  "select": [
-    "date-only-in-civil-date"
-  ],
   "entries": {
     "desktop/web/src/components/panels/CalendarPanel.tsx": {
       "count": 4,
