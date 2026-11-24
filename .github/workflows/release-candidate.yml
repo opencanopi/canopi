@@ -736,6 +736,7 @@ jobs:
           name: canopi-web-edition
           path: web-release-archive
       - name: Run e2e-release against the packaged Web Edition
+        shell: bash
         working-directory: desktop/web
         run: |
           set -euo pipefail
