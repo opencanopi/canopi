@@ -9,6 +9,7 @@ import { CASES_DIR, REPO_ROOT, RefusalError, RULES_TABLE, SCHEMA_FILE } from './
 import { CHANGES, diffRatchets } from './diff.mjs';
 import { exec, git, listFiles } from './exec.mjs';
 import { loadGlobEngine, matchesGlob } from './globs.mjs';
+import { lowerRepo } from './lower.mjs';
 import { checkPlanted, checkRepo, loadAdapter, observe, toolRefusal } from './observe.mjs';
 import { compare, loadRatchets, REFUSALS, sameSet } from './ratchets.mjs';
 import { listRules, NO_OWNER } from './tables.mjs';
@@ -269,6 +270,15 @@ const RUNNERS = {
     const root = materialise(kase.files ?? {}, kase.schema, kase);
     try {
       return loadRatchets(root).refusals.map((r) => r.code);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  },
+  async update(kase) {
+    const root = materialise(kase.files ?? {}, kase.schema, kase);
+    try {
+      const { updated, removed, refusals } = await lowerRepo(root, kase.lane ?? 'commit', { families: kase.families ?? [] });
+      return [...updated.map((f) => `updated:${f}`), ...removed.map((f) => `removed:${f}`), ...refusals.map((r) => r.code)];
     } finally {
       fs.rmSync(root, { recursive: true, force: true });
     }

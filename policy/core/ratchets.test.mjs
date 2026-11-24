@@ -8,7 +8,7 @@ import { REPO_ROOT, SCHEMA_FILE } from './base.mjs';
 import { diffRatchets } from './diff.mjs';
 import { git } from './exec.mjs';
 import { loadRatchets, REFUSALS } from './ratchets.mjs';
-import { phaseCloseRefusals } from './tables.mjs';
+import { beadlessReport, phaseCloseRefusals } from './tables.mjs';
 
 test('canopi-f47t.52.228.54: no refusal text repeats a word back to back', () => {
   const doubled = Object.entries(REFUSALS)
@@ -52,6 +52,15 @@ test('canopi-uxyr: loadRatchets derives headers from rules.json for empty and sh
     });
     assert.equal(families.get('shrunk-rule')?.doc.keys, 'name');
     assert.deepEqual(families.get('shrunk-rule')?.doc.entries, { 'a.ts -> b.ts': { count: 1 } });
+
+    // A full-header file for a derived-tool family is refused so header cannot diverge from rules.json.
+    write('policy/ratchets/empty-rule.json', {
+      version: 1, family: 'empty-rule', ledger: '2.1-M530', tool: 'ast-grep',
+      scope: ['desktop/web/src/**'], lane: 'push', keys: 'path', select: ['empty-rule'], entries: {},
+    });
+    git(root, ['add', '-A']);
+    const withFullHeader = loadRatchets(root);
+    assert.ok(withFullHeader.refusals.some((r) => r.code === 'schema' && r.where === 'policy/ratchets/empty-rule.json'));
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }
@@ -95,12 +104,16 @@ test('canopi-0kjje: --phase-close 4 refuses beadless entries in non-standing vio
   const tables = { phases: ['2', '3', '4'], rules: new Map(), planned: new Map() };
   const families = new Map([
     ['unbeaded', { file: 'policy/ratchets/unbeaded.json', doc: { family: 'unbeaded', entries: { 'a.ts': { count: 1 } } } }],
+    ['unbeaded-count', { file: 'policy/ratchets/unbeaded-count.json', doc: { family: 'unbeaded-count', count: 2 } }],
+    ['zero-count', { file: 'policy/ratchets/zero-count.json', doc: { family: 'zero-count', count: 0 } }],
     ['standing-fam', { file: 'policy/ratchets/standing-fam.json', doc: { family: 'standing-fam', standing: true, entries: { 'b.ts': { count: 1 } } } }],
     ['beaded-fam', { file: 'policy/ratchets/beaded-fam.json', doc: { family: 'beaded-fam', bead: 'canopi-a', entries: { 'c.ts': { count: 1 } } } }],
+    ['budget-fam', { file: 'policy/ratchets/budget-fam.json', doc: { family: 'budget-fam', budgets: { main: { ceiling: 10, tolerance: 0.1 } } } }],
+    ['floor-fam', { file: 'policy/ratchets/floor-fam.json', doc: { family: 'floor-fam', floors: { web: { floors: { lines: 80 } } } } }],
   ]);
   assert.deepEqual(phaseCloseRefusals(tables, '2', families), []);
   const at4 = phaseCloseRefusals(tables, '4', families);
-  assert.equal(at4.length, 1);
-  assert.equal(at4[0].code, 'phase-close');
-  assert.match(at4[0].message, /unbeaded/);
+  assert.deepEqual(at4.map((r) => r.where).sort(), ['policy/ratchets/unbeaded-count.json', 'policy/ratchets/unbeaded.json']);
+  assert.ok(at4.every((r) => r.code === 'phase-close'));
+  assert.deepEqual(beadlessReport(families).map((r) => r.where).sort(), ['policy/ratchets/unbeaded-count.json', 'policy/ratchets/unbeaded.json']);
 });

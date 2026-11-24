@@ -2,8 +2,6 @@
   "$schema": "./ratchet.schema.json",
   "family": "maplibre-listeners-only-on-abort-signals",
   "entries": {
-    "desktop/web/src/maplibre/satellite-provider-session.ts": {
-      "count": 1
-    }
+    "desktop/web/src/maplibre/satellite-provider-session.ts": { "count": 1 }
   }
 }

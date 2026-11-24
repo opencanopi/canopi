@@ -2,16 +2,8 @@
   "$schema": "./ratchet.schema.json",
   "family": "web-storage-only-in-adapters",
   "entries": {
-    "desktop/web/src/maplibre/raster-display/diagnostics.ts": {
-      "count": 1,
-      "bead": "canopi-f47t.52.50"
-    },
-    "desktop/web/src/utils/theme.ts": {
-      "count": 2
-    },
-    "desktop/web/src/web/browser-app-data.ts": {
-      "count": 6,
-      "bead": "canopi-f47t.52.50"
-    }
+    "desktop/web/src/maplibre/raster-display/diagnostics.ts": { "count": 1, "bead": "canopi-f47t.52.50" },
+    "desktop/web/src/utils/theme.ts": { "count": 2 },
+    "desktop/web/src/web/browser-app-data.ts": { "count": 6, "bead": "canopi-f47t.52.50" }
   }
 }

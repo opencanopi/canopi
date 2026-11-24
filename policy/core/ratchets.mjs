@@ -71,8 +71,22 @@ export function withKeyPath(kind, key, newPath) {
   return kind === 'path' ? newPath : key.replace(PATH_RULE, (_, _old, tool, rule) => `${newPath}: ${tool}:${rule}`);
 }
 
+function checkEntryKey(file, doc, key, present, allowEntryPathDrift) {
+  const p = keyPath(doc.keys, key);
+  if (p === undefined) {
+    return [refusal('key', file, `"${key}" is not a ${doc.keys} key${doc.keys === 'path-rule' ? ' (<path>: <tool>:<rule>)' : ''}`)];
+  }
+  if (p === null) return [];
+  if (!present.has(p)) {
+    return allowEntryPathDrift ? [] : [refusal('path-drift', file, `"${key}" names ${p}, which no longer exists; rename or remove the entry`)];
+  }
+  return doc.scope.some((glob) => matchesGlob(p, glob))
+    ? []
+    : [refusal('out-of-scope', file, `"${key}" is outside the scope ${doc.scope.join(', ')}`)];
+}
+
 /** Refusals for a schema-valid family: its file name, tool adapter, key grammar, path drift and scope. */
-function checkFamily(file, doc, files) {
+function checkFamily(file, doc, files, { allowEntryPathDrift = false } = {}) {
   const refusals = [];
   const stem = path.basename(file, '.json');
   if (doc.family !== stem) {
@@ -88,14 +102,7 @@ function checkFamily(file, doc, files) {
     }
   }
   for (const key of Object.keys(doc.entries ?? {})) {
-    const p = keyPath(doc.keys, key);
-    if (p === undefined) {
-      refusals.push(refusal('key', file, `"${key}" is not a ${doc.keys} key${doc.keys === 'path-rule' ? ' (<path>: <tool>:<rule>)' : ''}`));
-    } else if (p !== null && !present.has(p)) {
-      refusals.push(refusal('path-drift', file, `"${key}" names ${p}, which no longer exists; rename or remove the entry`));
-    } else if (p !== null && !doc.scope.some((glob) => matchesGlob(p, glob))) {
-      refusals.push(refusal('out-of-scope', file, `"${key}" is outside the scope ${doc.scope.join(', ')}`));
-    }
+    refusals.push(...checkEntryKey(file, doc, key, present, allowEntryPathDrift));
   }
   return refusals;
 }
@@ -194,8 +201,22 @@ export function readDerivedRows(root = REPO_ROOT) {
 // ---------------------------------------------------------------------------------------------------------------
 // Loader
 
+function resolveDerivedHeader(file, doc, derived) {
+  if (doc.version === undefined) {
+    const source = derived.get(doc.family);
+    if (!source) {
+      return { refusal: refusal('missing-rule', file, `derived family file "${doc.family}" has no active dependency-cruiser or ast-grep row in policy/rules.json or policy/primitives.json`) };
+    }
+    return { doc: { ...derivedHeader(source.row), ...doc } };
+  }
+  if (derived.has(doc.family)) {
+    return { refusal: refusal('schema', file, `derived family "${doc.family}" derives its header from policy/rules.json or policy/primitives.json; drop version and header fields from the ratchet file`) };
+  }
+  return { doc };
+}
+
 /** Loads every family file under `root`/policy/ratchets/ plus derived families from policy tables; returns { families, refusals }. */
-export function loadRatchets(root = REPO_ROOT) {
+export function loadRatchets(root = REPO_ROOT, { allowEntryPathDrift = false } = {}) {
   const refusals = [];
   const families = new Map();
   const dir = path.join(root, RATCHETS_DIR);
@@ -237,15 +258,13 @@ export function loadRatchets(root = REPO_ROOT) {
       for (const e of errors) refusals.push(refusal('schema', file, e));
       continue;
     }
-    if (doc.version === undefined) {
-      const source = derived.get(doc.family);
-      if (!source) {
-        refusals.push(refusal('missing-rule', file, `derived family file "${doc.family}" has no active dependency-cruiser or ast-grep row in policy/rules.json or policy/primitives.json`));
-        continue;
-      }
-      doc = { ...derivedHeader(source.row), ...doc };
+    const resolved = resolveDerivedHeader(file, doc, derived);
+    if (resolved.refusal) {
+      refusals.push(resolved.refusal);
+      continue;
     }
-    const familyRefusals = checkFamily(file, doc, files);
+    doc = resolved.doc;
+    const familyRefusals = checkFamily(file, doc, files, { allowEntryPathDrift });
     refusals.push(...familyRefusals);
     if (familyRefusals.length === 0) families.set(doc.family, { file, doc });
   }
@@ -253,7 +272,7 @@ export function loadRatchets(root = REPO_ROOT) {
     if (seenFiles.has(family) || families.has(family)) continue;
     const file = `${RATCHETS_DIR}/${family}.json`;
     const doc = { ...derivedHeader(row), entries: {} };
-    const familyRefusals = checkFamily(file, doc, files);
+    const familyRefusals = checkFamily(file, doc, files, { allowEntryPathDrift });
     refusals.push(...familyRefusals);
     if (familyRefusals.length === 0) families.set(family, { file, doc });
   }

@@ -274,9 +274,23 @@ export async function judgeFamilies(parent: string, tree: string, route: Route, 
   const created = new Set(files.filter(([status]) => status === 'A').map(([, , path]) => path))
   for (const change of changes) {
     const { family, change: kind, key } = change
-    if (kind === 'created') continue
     const file = `${RATCHETS}/${family}.json`
     const at = await load(tree, file)
+    if (kind === 'created') {
+      const createdDoc = isObject(at) ? at : {}
+      if (shape(createdDoc) === 'ratchet' && createdDoc['standing'] !== true && !createdDoc['bead']) {
+        if (isObject(createdDoc['entries'])) {
+          for (const [entryKey, raw] of Object.entries(createdDoc['entries'])) {
+            if (!(isObject(raw) && raw['bead'])) {
+              findings.push(['gate-loosening-authority', `${family}: created ${entryKey} needs a bead on the entry or family (non-standing family; canopi-0kjje, 2.1-M78)`])
+            }
+          }
+        } else if (typeof createdDoc['count'] === 'number' && createdDoc['count'] > 0) {
+          findings.push(['gate-loosening-authority', `${family}: created needs a bead on the family (non-standing count family; canopi-0kjje, 2.1-M78)`])
+        }
+      }
+      continue
+    }
     const before = await load(parent, file)
     const doc = isObject(at) && Object.keys(at).length ? at : isObject(before) && Object.keys(before).length ? before : {}
     const baseDoc = isObject(before) ? before : {}
@@ -299,6 +313,10 @@ export async function judgeFamilies(parent: string, tree: string, route: Route, 
         findings.push(['gate-loosening-authority', `${what} needs its own open bead with an assignee or owner `
           + `(entry bead: ${bead ?? 'none'}; 2.1-Q242)`])
       }
+      continue
+    }
+    if (kind === 'bead-stripped') {
+      findings.push(['gate-loosening-authority', `${what} strips a bead from a non-standing family; keep or replace the bead, or mark the family standing (canopi-0kjje, 2.1-M78)`])
       continue
     }
     if (kind === 'added' && shape(doc) === 'ratchet' && doc['standing'] !== true && !doc['bead']) {

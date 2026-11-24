@@ -2,11 +2,7 @@
   "$schema": "./ratchet.schema.json",
   "family": "google-key-urls-only-in-satellite-provider",
   "entries": {
-    "desktop/web/src/maplibre/satellite-provider-session.ts": {
-      "count": 4
-    },
-    "desktop/web/src/maplibre/satellite-provider.ts": {
-      "count": 2
-    }
+    "desktop/web/src/maplibre/satellite-provider-session.ts": { "count": 4 },
+    "desktop/web/src/maplibre/satellite-provider.ts": { "count": 2 }
   }
 }

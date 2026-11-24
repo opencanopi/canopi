@@ -2,14 +2,8 @@
   "$schema": "./ratchet.schema.json",
   "family": "no-reexport-only-types-module",
   "entries": {
-    "desktop/web/src/types/saved-object-stamps.ts": {
-      "count": 1
-    },
-    "desktop/web/src/types/settings.ts": {
-      "count": 1
-    },
-    "desktop/web/src/types/species.ts": {
-      "count": 1
-    }
+    "desktop/web/src/types/saved-object-stamps.ts": { "count": 1 },
+    "desktop/web/src/types/settings.ts": { "count": 1 },
+    "desktop/web/src/types/species.ts": { "count": 1 }
   }
 }

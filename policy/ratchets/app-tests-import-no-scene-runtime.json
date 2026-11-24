@@ -2,8 +2,6 @@
   "$schema": "./ratchet.schema.json",
   "family": "app-tests-import-no-scene-runtime",
   "entries": {
-    "__tests__/canvas-runtime-surfaces.test.ts -> canvas/runtime/scene-runtime.ts": {
-      "count": 1
-    }
+    "__tests__/canvas-runtime-surfaces.test.ts -> canvas/runtime/scene-runtime.ts": { "count": 1 }
   }
 }

@@ -2,8 +2,6 @@
   "$schema": "./ratchet.schema.json",
   "family": "no-document-surface-in-components",
   "entries": {
-    "desktop/web/src/components/canvas/InspectionLens.tsx": {
-      "count": 1
-    }
+    "desktop/web/src/components/canvas/InspectionLens.tsx": { "count": 1 }
   }
 }

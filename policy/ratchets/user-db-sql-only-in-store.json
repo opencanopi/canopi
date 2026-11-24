@@ -2,13 +2,7 @@
   "$schema": "./ratchet.schema.json",
   "family": "user-db-sql-only-in-store",
   "entries": {
-    "desktop/src/lib.rs": {
-      "count": 1,
-      "bead": "canopi-f47t.52.47"
-    },
-    "desktop/src/services/plant_browser.rs": {
-      "count": 1,
-      "bead": "canopi-f47t.52.47"
-    }
+    "desktop/src/lib.rs": { "count": 1, "bead": "canopi-f47t.52.47" },
+    "desktop/src/services/plant_browser.rs": { "count": 1, "bead": "canopi-f47t.52.47" }
   }
 }

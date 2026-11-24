@@ -2,8 +2,6 @@
   "$schema": "./ratchet.schema.json",
   "family": "google-key-only-in-reviewed-readers",
   "entries": {
-    "desktop/web/src/components/shared/SettingsGoogleKeyField.tsx": {
-      "count": 1
-    }
+    "desktop/web/src/components/shared/SettingsGoogleKeyField.tsx": { "count": 1 }
   }
 }

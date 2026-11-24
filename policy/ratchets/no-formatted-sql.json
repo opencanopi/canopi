@@ -2,33 +2,12 @@
   "$schema": "./ratchet.schema.json",
   "family": "no-formatted-sql",
   "entries": {
-    "desktop/src/services/lidar/catalogue.rs": {
-      "count": 11,
-      "bead": "canopi-f47t.52.190"
-    },
-    "desktop/src/services/species_catalog_read/common_names.rs": {
-      "count": 13,
-      "bead": "canopi-f47t.52.190"
-    },
-    "desktop/src/services/species_catalog_read/detail_projection.rs": {
-      "count": 2,
-      "bead": "canopi-f47t.52.190"
-    },
-    "desktop/src/services/species_catalog_read/filters.rs": {
-      "count": 3,
-      "bead": "canopi-f47t.52.190"
-    },
-    "desktop/src/services/species_catalog_read/flower.rs": {
-      "count": 2,
-      "bead": "canopi-f47t.52.190"
-    },
-    "desktop/src/services/species_catalog_read/habit.rs": {
-      "count": 1,
-      "bead": "canopi-f47t.52.190"
-    },
-    "desktop/src/services/species_catalog_read/list_items.rs": {
-      "count": 1,
-      "bead": "canopi-f47t.52.190"
-    }
+    "desktop/src/services/lidar/catalogue.rs": { "count": 11, "bead": "canopi-f47t.52.190" },
+    "desktop/src/services/species_catalog_read/common_names.rs": { "count": 13, "bead": "canopi-f47t.52.190" },
+    "desktop/src/services/species_catalog_read/detail_projection.rs": { "count": 2, "bead": "canopi-f47t.52.190" },
+    "desktop/src/services/species_catalog_read/filters.rs": { "count": 3, "bead": "canopi-f47t.52.190" },
+    "desktop/src/services/species_catalog_read/flower.rs": { "count": 2, "bead": "canopi-f47t.52.190" },
+    "desktop/src/services/species_catalog_read/habit.rs": { "count": 1, "bead": "canopi-f47t.52.190" },
+    "desktop/src/services/species_catalog_read/list_items.rs": { "count": 1, "bead": "canopi-f47t.52.190" }
   }
 }

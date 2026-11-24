@@ -2,14 +2,8 @@
   "$schema": "./ratchet.schema.json",
   "family": "scene-writes-only-in-authority",
   "entries": {
-    "desktop/web/src/canvas/runtime/scene-runtime/construction.ts": {
-      "count": 2
-    },
-    "desktop/web/src/canvas/runtime/scene-runtime/document.ts": {
-      "count": 1
-    },
-    "desktop/web/src/canvas/runtime/scene/store.ts": {
-      "count": 4
-    }
+    "desktop/web/src/canvas/runtime/scene-runtime/construction.ts": { "count": 2 },
+    "desktop/web/src/canvas/runtime/scene-runtime/document.ts": { "count": 1 },
+    "desktop/web/src/canvas/runtime/scene/store.ts": { "count": 4 }
   }
 }

@@ -2,8 +2,6 @@
   "$schema": "./ratchet.schema.json",
   "family": "design-edit-authority-registration-only-in-store",
   "entries": {
-    "desktop/web/src/app/document-session/store.ts": {
-      "count": 2
-    }
+    "desktop/web/src/app/document-session/store.ts": { "count": 2 }
   }
 }

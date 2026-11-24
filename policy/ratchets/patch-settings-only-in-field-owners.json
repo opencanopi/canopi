@@ -2,20 +2,10 @@
   "$schema": "./ratchet.schema.json",
   "family": "patch-settings-only-in-field-owners",
   "entries": {
-    "desktop/web/src/app/canvas-runtime/app-adapter.ts": {
-      "count": 1
-    },
-    "desktop/web/src/canvas/runtime/app-adapter.ts": {
-      "count": 2
-    },
-    "desktop/web/src/canvas/runtime/interaction-session.ts": {
-      "count": 3
-    },
-    "desktop/web/src/canvas/runtime/scene-runtime.ts": {
-      "count": 2
-    },
-    "desktop/web/src/canvas/runtime/tools/tool.ts": {
-      "count": 1
-    }
+    "desktop/web/src/app/canvas-runtime/app-adapter.ts": { "count": 1 },
+    "desktop/web/src/canvas/runtime/app-adapter.ts": { "count": 2 },
+    "desktop/web/src/canvas/runtime/interaction-session.ts": { "count": 3 },
+    "desktop/web/src/canvas/runtime/scene-runtime.ts": { "count": 2 },
+    "desktop/web/src/canvas/runtime/tools/tool.ts": { "count": 1 }
   }
 }

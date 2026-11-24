@@ -2,9 +2,6 @@
   "$schema": "./ratchet.schema.json",
   "family": "no-param-rule-in-ts",
   "entries": {
-    "desktop/web/src/app/analyses/model.ts": {
-      "count": 5,
-      "bead": "canopi-f47t.52.190"
-    }
+    "desktop/web/src/app/analyses/model.ts": { "count": 5, "bead": "canopi-f47t.52.190" }
   }
 }

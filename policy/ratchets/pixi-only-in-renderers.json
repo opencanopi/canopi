@@ -2,14 +2,8 @@
   "$schema": "./ratchet.schema.json",
   "family": "pixi-only-in-renderers",
   "entries": {
-    "maplibre/shared-scene-layer.ts -> node_modules/pixi.js/lib/filters/init.mjs": {
-      "count": 1
-    },
-    "maplibre/shared-scene-layer.ts -> node_modules/pixi.js/lib/index.d.ts": {
-      "count": 1
-    },
-    "maplibre/shared-scene-layer.ts -> node_modules/pixi.js/lib/unsafe-eval/init.mjs": {
-      "count": 1
-    }
+    "maplibre/shared-scene-layer.ts -> node_modules/pixi.js/lib/filters/init.mjs": { "count": 1 },
+    "maplibre/shared-scene-layer.ts -> node_modules/pixi.js/lib/index.d.ts": { "count": 1 },
+    "maplibre/shared-scene-layer.ts -> node_modules/pixi.js/lib/unsafe-eval/init.mjs": { "count": 1 }
   }
 }

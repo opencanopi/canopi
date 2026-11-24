@@ -2,8 +2,6 @@
   "$schema": "./ratchet.schema.json",
   "family": "tools-imported-only-by-session",
   "entries": {
-    "canvas/runtime/interaction-session.ts -> canvas/runtime/tools/tool-host.ts": {
-      "count": 1
-    }
+    "canvas/runtime/interaction-session.ts -> canvas/runtime/tools/tool-host.ts": { "count": 1 }
   }
 }

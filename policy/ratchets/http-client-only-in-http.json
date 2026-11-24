@@ -2,9 +2,6 @@
   "$schema": "./ratchet.schema.json",
   "family": "http-client-only-in-http",
   "entries": {
-    "desktop/src/image_cache.rs": {
-      "count": 4,
-      "bead": "canopi-f47t.52.190"
-    }
+    "desktop/src/image_cache.rs": { "count": 4, "bead": "canopi-f47t.52.190" }
   }
 }

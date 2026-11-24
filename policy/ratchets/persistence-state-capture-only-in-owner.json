@@ -2,8 +2,6 @@
   "$schema": "./ratchet.schema.json",
   "family": "persistence-state-capture-only-in-owner",
   "entries": {
-    "desktop/web/src/app/document-session/persistence.ts": {
-      "count": 3
-    }
+    "desktop/web/src/app/document-session/persistence.ts": { "count": 3 }
   }
 }

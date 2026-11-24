@@ -2,8 +2,6 @@
   "$schema": "./ratchet.schema.json",
   "family": "scene-runtime-only-in-workspace-composition",
   "entries": {
-    "app/canvas-map-surface/workspace-activation.ts -> canvas/runtime/scene-runtime.ts": {
-      "count": 1
-    }
+    "app/canvas-map-surface/workspace-activation.ts -> canvas/runtime/scene-runtime.ts": { "count": 1 }
   }
 }

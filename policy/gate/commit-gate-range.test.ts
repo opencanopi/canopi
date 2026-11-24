@@ -162,12 +162,25 @@ describe('a PR judged on its net change (2.1-Q272)', () => {
   })
 
   it('canopi-uxyr: narrowing a derived rule scope in rules.json requires an open bead and a merge-base Q or M row', () => {
-    const rules = repo.json('policy/rules.json') as { rules: { id: string, scope?: string[] }[] }
-    const next = { ...rules, rules: rules.rules.map((r) => (r.id === 'no-edition-check' ? { ...r, scope: ['desktop/web/src/app/**'] } : r)) }
-    repo.write({ 'policy/rules.json': `${JSON.stringify(next, null, 2)}\n` })
-    const denied = verdict(repo.commit('refactor(policy): narrow scope without authority'))
-    expect(denied.out).toContain('gate-loosening-authority: no-edition-check: header')
-    expect(denied.status, denied.out).toBe(1)
+    const rules = repo.json('policy/rules.json') as { rules: { id: string, scope?: string[], lane?: string }[] }
+    const narrowed = { ...rules, rules: rules.rules.map((r) => (r.id === 'no-edition-check' ? { ...r, scope: ['desktop/web/src/app/**'] } : r)) }
+    repo.write({ 'policy/rules.json': `${JSON.stringify(narrowed, null, 2)}\n` })
+    const deniedScope = verdict(repo.commit('refactor(policy): narrow scope without authority'))
+    expect(deniedScope.out).toContain('gate-loosening-authority: no-edition-check: header')
+    expect(deniedScope.status, deniedScope.out).toBe(1)
+
+    repo.at(repo.base)
+    const laterLane = { ...rules, rules: rules.rules.map((r) => (r.id === 'no-edition-check' ? { ...r, lane: 'push' } : r)) }
+    repo.write({ 'policy/rules.json': `${JSON.stringify(laterLane, null, 2)}\n` })
+    const deniedLane = verdict(repo.commit('refactor(policy): move to push lane without authority'))
+    expect(deniedLane.out).toContain('gate-loosening-authority: no-edition-check: header')
+    expect(deniedLane.status, deniedLane.out).toBe(1)
+
+    repo.at(repo.base)
+    repo.write({ 'policy/rules.json': `${JSON.stringify(narrowed, null, 2)}\n` })
+    const allowed = verdict(repo.commit(`refactor(policy): narrow scope with authority (${OPEN_BEAD}, ${M_ROW})`))
+    expect(allowed.out).not.toContain('gate-loosening-authority')
+    expect(allowed.status, allowed.out).toBe(0)
   })
 
   it('canopi-f47t.52.240: a Q row routes a test loss only from a commit that touched its file, never from an unrelated commit', () => {

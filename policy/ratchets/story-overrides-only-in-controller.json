@@ -2,8 +2,6 @@
   "$schema": "./ratchet.schema.json",
   "family": "story-overrides-only-in-controller",
   "entries": {
-    "desktop/web/src/app/story-presentation/overrides.ts": {
-      "count": 2
-    }
+    "desktop/web/src/app/story-presentation/overrides.ts": { "count": 2 }
   }
 }

@@ -189,6 +189,9 @@ export function diffFamilies(base, head, moves) {
       if (oldKey !== undefined && to <= listedCount(was.entries[oldKey])) {
         renamedFrom.add(oldKey);
         changes.push({ change: 'renamed', family: stem, key, from: oldKey, count: to });
+        if (!entry.bead && !now.bead && now.standing !== true && (was.entries[oldKey].bead || lostFamilyCover)) {
+          changes.push({ change: 'bead-stripped', family: stem, key, from: was.entries[oldKey].bead ?? was.bead ?? 'standing' });
+        }
       } else {
         changes.push({ change: 'added', family: stem, key, to });
       }

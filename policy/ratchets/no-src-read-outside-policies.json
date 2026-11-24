@@ -2,33 +2,12 @@
   "$schema": "./ratchet.schema.json",
   "family": "no-src-read-outside-policies",
   "entries": {
-    "desktop/web/src/__tests__/canvas-chrome-theme.test.ts": {
-      "count": 1,
-      "bead": "canopi-f47t.52.51"
-    },
-    "desktop/web/src/__tests__/canvas-pdf-dialog.test.tsx": {
-      "count": 1,
-      "bead": "canopi-f47t.52.228.39"
-    },
-    "desktop/web/src/__tests__/display-legend.test.tsx": {
-      "count": 1,
-      "bead": "canopi-f47t.52.228.39"
-    },
-    "desktop/web/src/__tests__/filter-strip.test.tsx": {
-      "count": 1,
-      "bead": "canopi-f47t.52.228.39"
-    },
-    "desktop/web/src/__tests__/plant-db-panel-detail.test.tsx": {
-      "count": 1,
-      "bead": "canopi-f47t.52.228.39"
-    },
-    "desktop/web/src/__tests__/saved-view-thumbnails.test.ts": {
-      "count": 2,
-      "bead": "canopi-f47t.52.228.39"
-    },
-    "desktop/web/src/canvas/runtime/scene-visuals.test.ts": {
-      "count": 1,
-      "bead": "canopi-f47t.52.51"
-    }
+    "desktop/web/src/__tests__/canvas-chrome-theme.test.ts": { "count": 1, "bead": "canopi-f47t.52.51" },
+    "desktop/web/src/__tests__/canvas-pdf-dialog.test.tsx": { "count": 1, "bead": "canopi-f47t.52.228.39" },
+    "desktop/web/src/__tests__/display-legend.test.tsx": { "count": 1, "bead": "canopi-f47t.52.228.39" },
+    "desktop/web/src/__tests__/filter-strip.test.tsx": { "count": 1, "bead": "canopi-f47t.52.228.39" },
+    "desktop/web/src/__tests__/plant-db-panel-detail.test.tsx": { "count": 1, "bead": "canopi-f47t.52.228.39" },
+    "desktop/web/src/__tests__/saved-view-thumbnails.test.ts": { "count": 2, "bead": "canopi-f47t.52.228.39" },
+    "desktop/web/src/canvas/runtime/scene-visuals.test.ts": { "count": 1, "bead": "canopi-f47t.52.51" }
   }
 }

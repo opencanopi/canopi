@@ -2,17 +2,9 @@
   "$schema": "./ratchet.schema.json",
   "family": "focus-only-in-layout-effect",
   "entries": {
-    "desktop/web/src/components/canvas-pdf/CanvasPdfDialog.tsx": {
-      "count": 1
-    },
-    "desktop/web/src/components/canvas/PlaceSearch.tsx": {
-      "count": 1
-    },
-    "desktop/web/src/components/panels/lidar/ProfileChart.tsx": {
-      "count": 1
-    },
-    "desktop/web/src/components/shared/StartScreen.tsx": {
-      "count": 2
-    }
+    "desktop/web/src/components/canvas-pdf/CanvasPdfDialog.tsx": { "count": 1 },
+    "desktop/web/src/components/canvas/PlaceSearch.tsx": { "count": 1 },
+    "desktop/web/src/components/panels/lidar/ProfileChart.tsx": { "count": 1 },
+    "desktop/web/src/components/shared/StartScreen.tsx": { "count": 2 }
   }
 }

@@ -144,9 +144,22 @@ describe('bead required on added entries and stripping a bead is refused (canopi
     repo.base = withBead
     const stripped = family((doc) => {
       (doc['entries'] as Record<string, unknown>)['desktop/web/src/has-bead.ts: oxlint:no-console'] = { count: 1 }
-    }, 'chore: strip bead from entry')
+    }, `chore: strip bead from entry (${OPEN_BEAD}, ${M_ROW})`)
     const { status, out } = verdict(stripped)
     expect(status, out).toBe(1)
     expect(out).toContain('bead-stripped')
+  })
+
+  it('canopi-0kjje: refuses a newly created non-standing family file with beadless entries or positive count', () => {
+    repo.write({
+      'policy/ratchets/new-unbeaded.json': JSON.stringify({
+        version: 1, family: 'new-unbeaded', ledger: '2.1-M78', tool: 'oxlint',
+        scope: ['desktop/web/src/**'], lane: 'commit', keys: 'path',
+        entries: { 'desktop/web/src/a.ts': { count: 1 } },
+      }, null, 2),
+    })
+    const { status, out } = verdict(repo.commit(`chore: add new family without bead (${OPEN_BEAD}, ${M_ROW})`))
+    expect(status, out).toBe(1)
+    expect(out).toContain('new-unbeaded: created desktop/web/src/a.ts needs a bead')
   })
 })

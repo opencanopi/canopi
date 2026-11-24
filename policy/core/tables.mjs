@@ -172,6 +172,9 @@ function stoppingRuleRefusals(tables, at, families, phase) {
   return [...families.values()].flatMap(({ file, doc }) => stoppingRuleForFamily(file, doc, phase));
 }
 
+/** Report mode for phase closes (canopi-0kjje, 2.1-M78): lists every beadless entry or count without failing. */
+export const beadlessReport = (families) => [...families.values()].flatMap(({ file, doc }) => stoppingRuleForFamily(file, doc, '4'));
+
 /**
  * `--phase-close <phase>`: refuses each row, planned or not, whose owner_target phase is `phase` or earlier in
  * rules.json's order while its owner_today is not its owner_target path, or while it is still planned, so it would

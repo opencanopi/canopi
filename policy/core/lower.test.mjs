@@ -121,4 +121,58 @@ test('canopi-hlewq: lowerRepo lowers counts and entries, deletes emptied derived
   assert.equal(commandLane(['--update', '--lane', 'push']), 'push');
   const second = await lowerRepo(root, 'commit', { families: ['derived-lower', 'count-lower'] });
   assert.deepEqual(second, { updated: [], removed: [], refusals: [] });
+  // Compact formatting preserves one-line entries so diffs stay small.
+  const text = fs.readFileSync(path.join(root, 'policy/ratchets/derived-lower.json'), 'utf8');
+  assert.match(text, /"desktop\/web\/src\/a\.ts": \{ "count": 1, "bead": "canopi-1" \}/);
+});
+
+test('canopi-hlewq: lowerRepo refuses to write on refused-site observation and prunes deleted-file entries despite unrelated drift', async () => {
+  const adapter = `
+    export function collect({ select }) {
+      const rule = select?.[0];
+      if (rule === 'refused-fam') return [{ rule: 'refused-fam', path: 'desktop/web/src/a.ts', refused: true, message: 'bad site' }];
+      return [{ rule: 'ok-fam', path: 'desktop/web/src/a.ts' }];
+    }
+  `;
+  const schema = fs.readFileSync(path.join(REPO_ROOT, SCHEMA_FILE), 'utf8');
+  const root = writtenRepo({
+    [SCHEMA_FILE]: schema,
+    'desktop/web/src/a.ts': 'export const a = 1;\n',
+    'policy/adapters/ast-grep.mjs': adapter,
+    'policy/rules.json': JSON.stringify({
+      version: 1,
+      phases: ['2'],
+      rules: [
+        { id: 'refused-fam', tool: 'ast-grep', ledger: '2.1-M530', family: 'refused-fam' },
+        { id: 'ok-fam', tool: 'ast-grep', ledger: '2.1-M530', family: 'ok-fam' },
+      ],
+    }, null, 2),
+    'policy/ratchets/refused-fam.json': JSON.stringify({
+      $schema: './ratchet.schema.json',
+      family: 'refused-fam',
+      entries: { 'desktop/web/src/a.ts': { count: 2 } },
+    }, null, 2),
+    'policy/ratchets/ok-fam.json': JSON.stringify({
+      $schema: './ratchet.schema.json',
+      family: 'ok-fam',
+      entries: { 'desktop/web/src/a.ts': { count: 2 }, 'desktop/web/src/deleted.ts': { count: 1 } },
+    }, null, 2),
+    'policy/ratchets/broken-other.json': '{ not json',
+  });
+
+  // Targeting ok-fam succeeds despite broken-other.json and prunes deleted.ts.
+  const okRes = await lowerRepo(root, 'commit', { families: ['ok-fam'] });
+  assert.deepEqual(okRes, { updated: ['policy/ratchets/ok-fam.json'], removed: [], refusals: [] });
+  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(root, 'policy/ratchets/ok-fam.json'), 'utf8')).entries, {
+    'desktop/web/src/a.ts': { count: 1 },
+  });
+
+  // refused-fam must NOT be lowered/deleted when observation has a refused-site.
+  const refRes = await lowerRepo(root, 'commit', { families: ['refused-fam'] });
+  assert.deepEqual(refRes.updated, []);
+  assert.deepEqual(refRes.removed, []);
+  assert.equal(refRes.refusals.some((r) => r.code === 'refused-site'), true);
+  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(root, 'policy/ratchets/refused-fam.json'), 'utf8')).entries, {
+    'desktop/web/src/a.ts': { count: 2 },
+  });
 });

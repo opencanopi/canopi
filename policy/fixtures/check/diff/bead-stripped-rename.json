@@ -1,0 +1,20 @@
+{
+  "about": "Renaming a file while dropping its entry bead is reported as bead-stripped alongside renamed (canopi-0kjje, 2.1-M78)",
+  "base": {
+    "src/a.ts": "export const a = 1;\n",
+    "policy/ratchets/sample.json": {
+      "version": 1, "family": "sample", "ledger": "2.1-M78", "tool": "oxlint",
+      "scope": ["src/**"], "lane": "commit", "keys": "path",
+      "entries": { "src/a.ts": { "count": 1, "bead": "canopi-a" } }
+    }
+  },
+  "moves": [["src/a.ts", "src/b.ts"]],
+  "head": {
+    "policy/ratchets/sample.json": {
+      "version": 1, "family": "sample", "ledger": "2.1-M78", "tool": "oxlint",
+      "scope": ["src/**"], "lane": "commit", "keys": "path",
+      "entries": { "src/b.ts": { "count": 1 } }
+    }
+  },
+  "expect": ["bead-stripped", "renamed"]
+}

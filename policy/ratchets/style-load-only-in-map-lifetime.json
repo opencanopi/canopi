@@ -2,21 +2,9 @@
   "$schema": "./ratchet.schema.json",
   "family": "style-load-only-in-map-lifetime",
   "entries": {
-    "desktop/web/src/app/canvas-map-surface/workspace-map-controls.ts": {
-      "count": 2,
-      "bead": "canopi-f47t.52.54"
-    },
-    "desktop/web/src/maplibre/raster-display/adapter.ts": {
-      "count": 1,
-      "bead": "canopi-f47t.52.54"
-    },
-    "desktop/web/src/maplibre/satellite-bind.ts": {
-      "count": 3,
-      "bead": "canopi-f47t.52.54"
-    },
-    "desktop/web/src/maplibre/view-snapshot-map.ts": {
-      "count": 1,
-      "bead": "canopi-f47t.52.54"
-    }
+    "desktop/web/src/app/canvas-map-surface/workspace-map-controls.ts": { "count": 2, "bead": "canopi-f47t.52.54" },
+    "desktop/web/src/maplibre/raster-display/adapter.ts": { "count": 1, "bead": "canopi-f47t.52.54" },
+    "desktop/web/src/maplibre/satellite-bind.ts": { "count": 3, "bead": "canopi-f47t.52.54" },
+    "desktop/web/src/maplibre/view-snapshot-map.ts": { "count": 1, "bead": "canopi-f47t.52.54" }
   }
 }

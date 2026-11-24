@@ -2,11 +2,7 @@
   "$schema": "./ratchet.schema.json",
   "family": "write-admission-only-in-persistence-adapters",
   "entries": {
-    "ipc/design.ts -> app/document-session/write-admission.ts": {
-      "count": 1
-    },
-    "web/browser-design-session.ts -> app/document-session/write-admission.ts": {
-      "count": 1
-    }
+    "ipc/design.ts -> app/document-session/write-admission.ts": { "count": 1 },
+    "web/browser-design-session.ts -> app/document-session/write-admission.ts": { "count": 1 }
   }
 }

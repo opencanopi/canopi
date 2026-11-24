@@ -2,8 +2,6 @@
   "$schema": "./ratchet.schema.json",
   "family": "view-transform-only-in-view-module",
   "entries": {
-    "desktop/web/src/canvas/runtime/inspection-lens.ts": {
-      "count": 2
-    }
+    "desktop/web/src/canvas/runtime/inspection-lens.ts": { "count": 2 }
   }
 }
