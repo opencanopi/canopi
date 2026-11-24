@@ -8,7 +8,8 @@ import { TABLE } from './table.ts'
 import { PlantedRepo, REPO_ROOT } from './planted-repo.ts'
 
 const agentsDoc = (link = true) => `# Agents\n\n## Quality gates\n\n${link ? `See [Quality gates](${GATES_DOC}).` : 'No link.'}\n`
-const gatesDoc = (rows: string) => `# Quality gates\n\n${rows}\n\nDocs-only changes skip code gates.\n`
+const gatesDoc = (rows: string) =>
+  `<!-- Generated from policy/gate/table.ts by \`node policy/gate/cli.mjs agents-rows --write\` (2.1-Q342). Do not edit by hand. -->\n\n# Quality gates\n\n${rows}\n\nDocs-only changes skip code gates; say so in the handoff.\n`
 
 describe('AGENTS.md rows (canopi-f47t.52.228.11)', () => {
   let repo: PlantedRepo

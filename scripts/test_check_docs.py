@@ -556,7 +556,8 @@ class GateRowChecks(unittest.TestCase):
     def test_machine_specific_absolute_paths_fail(self):
         with TemporaryDirectory() as directory:
             root = Path(directory); (root / "docs").mkdir(); doc = root / "docs/README.md"
-            doc.write_text("See `/media/alice/repo` and `/home/bob/x` and `/Users/carol/y`.\n", encoding="utf-8")
-            self.assertEqual(len([e for e in check_document(doc, root) if "machine-specific" in e]), 1)
-            doc.write_text("See `https://example.com/home/page` and `$CANOPI_ROOT`.\n", encoding="utf-8")
+            for bad in ("/media/alice/repo", "/home/bob/x", "/Users/carol/y", "C:/Users/carol/y", "file:///home/bob/x"):
+                doc.write_text(f"See `{bad}`.\n", encoding="utf-8")
+                self.assertTrue(any("machine-specific" in e for e in check_document(doc, root)), bad)
+            doc.write_text("See `https://example.com/home/page`, `/home/runner/work/canopi` and `$ROOT`.\n", encoding="utf-8")
             self.assertEqual(check_document(doc, root), [])

@@ -20,8 +20,12 @@ with open(os.environ["SHIM_LOG"], "a") as log:
     log.write("check_docs " + " ".join(sys.argv[1:]) + "\\n")
 `
 const CHECK_POLICY_STUB = `import { spawnSync } from 'node:child_process'
+import { appendFileSync } from 'node:fs'
 if (process.argv.includes('--closed-beads')) {
   process.exit(spawnSync(process.execPath, ['policy/check-real.mjs', ...process.argv.slice(2)], { stdio: 'inherit' }).status ?? 1)
+}
+if (process.env.SHIM_LOG) {
+  appendFileSync(process.env.SHIM_LOG, \`check.mjs \${process.argv.slice(2).join(' ')} offline=\${process.env.npm_config_offline ?? 'unset'}\\n\`)
 }
 `
 
@@ -171,15 +175,15 @@ describe('the commit lane through pre-commit (2.1-Q205)', () => {
     const started = Date.now()
     const run = repo.commitIn(repo.linked, { 'desktop/web/src/a.ts': 'export const a = 2\n' })
     expect(run.status, run.stderr).toBe(0)
-    // A12: the TS file runs typecheck offline (and cheap-families runs node policy/check.mjs --family file-size directly).
-    expect(repo.calls()).toEqual(['npm run typecheck offline=true'])
+    // A12: the TS file runs typecheck offline and cheap-families runs policy/check.mjs --family file-size.
+    expect(repo.calls()).toEqual(['npm run typecheck offline=true', 'check.mjs --family file-size offline=true'])
     expect(Date.now() - started).toBeLessThan(30_000)
   })
 
   it("canopi-f47t.52.228.10: the hook runs the gate table's commit lane", () => {
     const run = repo.commitIn(repo.linked, { 'desktop/src/lib.rs': 'fn main() {}\n' })
     expect(run.status, run.stderr).toBe(0)
-    expect(repo.calls()).toEqual(['cargo fmt --all -- --check offline=true', ...['node', 'generate', 'generate:self-test',
+    expect(repo.calls()).toEqual(['cargo fmt --all -- --check offline=true', 'check.mjs  offline=true', ...['node', 'generate', 'generate:self-test',
       'ast-grep'].map((script) => `npm run test:policies:${script} offline=true`)])
   })
 
@@ -191,12 +195,20 @@ describe('the commit lane through pre-commit (2.1-Q205)', () => {
   })
 
   it('pre-commit refuses a commit in the main checkout unless CANOPI_ALLOW_MAIN_CHECKOUT_COMMIT=1 is set', () => {
+    const humanEnv = {
+      CLAUDECODE: '', CLAUDE_CODE: '', CORAL_SESSION_ID: '', CORAL_DIR: '',
+      CORAL_URL: '', ANTIGRAVITY_AGENT: '', AGY_SESSION: '', CODEX_CI: '',
+    }
+    // Plain human shell (no agent env vars) is never blocked in the main checkout.
+    const human = repo.commitIn(repo.path, { 'human.txt': 'ok\n' }, humanEnv)
+    expect(human.status, human.stderr).toBe(0)
+    // An agent shell is refused in the main checkout unless explicitly opted in.
     const head = repo.head(repo.path)
-    const refused = repo.commitIn(repo.path, { 'notes.txt': 'main\n' })
+    const refused = repo.commitIn(repo.path, { 'notes.txt': 'main\n' }, { ...humanEnv, CLAUDECODE: '1' })
     expect(refused.status).not.toBe(0)
-    expect(refused.stderr).toContain('refusing commit in the main checkout')
+    expect(refused.stderr).toContain('refusing agent commit in the main checkout')
     expect(repo.head(repo.path)).toBe(head)
-    const allowed = repo.commitIn(repo.path, { 'notes.txt': 'main\n' }, { CANOPI_ALLOW_MAIN_CHECKOUT_COMMIT: '1' })
+    const allowed = repo.commitIn(repo.path, { 'notes.txt': 'main\n' }, { ...humanEnv, CLAUDECODE: '1', CANOPI_ALLOW_MAIN_CHECKOUT_COMMIT: '1' })
     expect(allowed.status, allowed.stderr).toBe(0)
   })
 })
@@ -241,6 +253,25 @@ describe('commit-msg through the real hook', () => {
     raiseEntry('desktop/web/src/z.ts: oxlint:no-console')
     run = commit('-m', 'feat: follow-up in same file')
     expect(run.status, run.stdout + run.stderr).toBe(0)
+  })
+
+  it('canopi-gjpq: commit-msg counts MERGE_HEAD commits so merging an authorised branch passes the hook', () => {
+    // Advance main with an authorised suppression raise, then merge origin/main into topic (--no-commit + commit).
+    const mainRatchet = join(repo.path, 'policy/ratchets/suppressions.json')
+    const family = JSON.parse(readFileSync(mainRatchet, 'utf8')) as { entries: Record<string, unknown> }
+    family.entries['desktop/web/src/from-main.ts: oxlint:no-console'] = { count: 1, bead: OPEN_BEAD }
+    writeFileSync(mainRatchet, `${JSON.stringify(family, null, 2)}\n`)
+    git(repo.path, 'add', 'policy/ratchets/suppressions.json')
+    const mainCommit = spawnSync('git', ['commit', '-q', '-m', `feat: main raise (${OPEN_BEAD}, ${M_ROW})`],
+      { cwd: repo.path, encoding: 'utf8', env: repo.hookEnv({ CANOPI_ALLOW_MAIN_CHECKOUT_COMMIT: '1' }) })
+    expect(mainCommit.status, mainCommit.stdout + mainCommit.stderr).toBe(0)
+    repo.git('update-ref', 'refs/remotes/origin/main', repo.head(repo.path))
+    // Make an unrelated commit on topic so the merge is a true two-parent merge.
+    const topicCommit = repo.commitIn(repo.linked, { 'docs/a.md': '# A\n\nTopic.\n' })
+    expect(topicCommit.status, topicCommit.stderr).toBe(0)
+    git(repo.linked, 'merge', '--no-commit', '--no-ff', 'origin/main')
+    const merged = commit('-m', 'merge: sync origin/main')
+    expect(merged.status, merged.stdout + merged.stderr).toBe(0)
   })
 
   it('canopi-2ldj: commit-msg warns when a quote opened in a commit message is not closed on the same line', () => {

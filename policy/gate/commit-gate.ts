@@ -352,20 +352,31 @@ async function commitMsg(repo: Repo, file: string): Promise<number> {
   }
   const tree = repo.ok(['write-tree']).trim()
   const head = repo.verify('HEAD')
-  const base = repo.ok(['merge-base', head ?? 'origin/main', 'origin/main']).trim()
-  const prior = head ? rangeCommits(repo, `${base}..${head}`) : []
+  const mergeHead = repo.verify('MERGE_HEAD')
+  const parents = [...(head ? [head] : []), ...(mergeHead ? [mergeHead] : [])]
+  const base = mergeHead && head
+    ? repo.ok(['merge-base', '--octopus', head, mergeHead, 'origin/main']).trim()
+    : repo.ok(['merge-base', head ?? 'origin/main', 'origin/main']).trim()
+  const seen = new Set<string>()
+  const prior: RangeCommit[] = []
+  for (const tipRev of parents) {
+    for (const c of rangeCommits(repo, `${base}..${tipRev}`)) {
+      if (!seen.has(c.rev)) { seen.add(c.rev); prior.push(c) }
+    }
+  }
   const tip = integrationTip(repo)
   const auth = await repo.authority(base, repo.beadBlobs([tree, ...prior.map(({ rev }) => rev), ...(tip ? [tip] : [])]))
   // Per-message rules (attribution, added Python, new bead citations) run on the new commit; net-change rules
   // (families, guarded files, demotions, tests) run on merge-base..write-tree with tiedRoutes over the branch commits
-  // plus the staged change, so local commit-msg and CI pr mode give one verdict without /proc amend sniffing (canopi-gjpq).
-  const stagedCommit: RangeCommit = { rev: tree, parents: head ? [head] : [], message }
+  // plus the staged change (and MERGE_HEAD's commits on a merge), so local commit-msg and CI pr mode give one verdict
+  // without /proc amend sniffing (canopi-gjpq).
+  const stagedCommit: RangeCommit = { rev: tree, parents, message }
   const commits = [...prior, stagedCommit]
   const allText = commits.map((c) => c.message).join('\n\n')
   const route = tiedRoutes((from, to) => repo.changed(from, to), base, tree, commits, undefined)
   const deleted = new RegExp(RETIRES.source, 'mu').test(allText) ? await rangeDeletedCode(repo, base, commits) : new Map<string, boolean>()
   const findings: Finding[] = [
-    ...await judge(repo, head ? [head] : [], tree, message, auth, { commit: true, change: false }),
+    ...await judge(repo, parents, tree, message, auth, { commit: true, change: false }),
     ...await judge(repo, [base], tree, allText, auth, { commit: false, change: true, route, deleted }),
   ]
   if (report('commit gate', findings)) {

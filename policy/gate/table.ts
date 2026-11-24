@@ -2,7 +2,7 @@
 // ADR 0028 Agent enforcement; design check AR11, AR20). Each check has a stable id, the command it runs from its
 // directory (leading NAME=value words are its environment) and what it needs; each area maps its anchored path regexes
 // (never globs: picomatch through policy/check.mjs is the one glob engine) to its checks per lane, and renders its
-// AGENTS.md Quality gates row from a template whose `{id}` placeholders name its checks (agents-rows.ts). An area's
+// docs/quality-gates.md Quality gates row from a template whose `{id}` placeholders name its checks (agents-rows.ts). An area's
 // scans are the files its source-text tests read: they select those tests, never a check or a CI job. table-faults.ts
 // refuses a malformed table naming this file, before any plan is made.
 
@@ -146,8 +146,9 @@ export const TABLE: Table = {
     'coverage': web('npm run test:coverage -- --maxWorkers=4 --project web'),
     'gate-coverage': { command: 'node policy/gate/cli.mjs gate-cov' },
     // The bundles alone: the row's typecheck runs before them, and `npm run build` would run it again (DR17).
+    // build-web runs `build:format-wasm` (`cargo build --target wasm32`) in CARGO_TARGET_DIR, so it stays in the cargo group.
     'build': web('npm run build:desktop:bundle'),
-    'build-web': web('npm run build:web:bundle'),
+    'build-web': web('npm run build:web:bundle', { cargo: true }),
     // check:notices regenerates the notices from both bundles and cargo-about 0.9.3, which must be on PATH (2.1-M239).
     'notices': web('npm run check:notices'),
     // The Species Search Unicode facts against the pinned Python's unicodedata (.python-version).

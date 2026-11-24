@@ -39,10 +39,11 @@ export function agentsRows(text: string): Row[] | undefined {
 
 const shown = (row: Row | undefined) => (row ? `| ${row.change} | ${row.run} |` : 'no row')
 
-/** Each way docs/quality-gates.md differs from the rendered rows, or AGENTS.md lacks its link; none when equal. */
+/** Each way docs/quality-gates.md differs from the rendered document, or AGENTS.md lacks its link; none when equal. */
 export function agentsRowFaults(root: string, table: Table = TABLE): string[] {
   const file = join(root, GATES_DOC)
-  const ours = agentsRows(existsSync(file) ? readFileSync(file, 'utf8') : '')
+  const raw = existsSync(file) ? readFileSync(file, 'utf8') : ''
+  const ours = agentsRows(raw)
   const faults: string[] = []
   if (ours === undefined) {
     faults.push(`${GATES_DOC} has no ${HEADING} table for ${TABLE_FILE}'s rows (2.1-M198, 2.1-Q342)`)
@@ -55,6 +56,9 @@ export function agentsRowFaults(root: string, table: Table = TABLE): string[] {
         faults.push(`${GATES_DOC}: ${HEADING} row ${index + 1} differs from ${TABLE_FILE} (2.1-M198, 2.1-Q342): `
           + `${GATES_DOC} has ${shown(docRow)}, the table renders ${shown(rendered)}`)
       }
+    }
+    if (!faults.length && raw !== renderDoc(table)) {
+      faults.push(`${GATES_DOC} header or footer differs from \`node policy/gate/cli.mjs agents-rows --write\` (2.1-Q342)`)
     }
   }
   const agentsFile = join(root, 'AGENTS.md')

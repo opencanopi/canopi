@@ -6,11 +6,11 @@ How agents run Canopi work with the user-level `phased-agentic-delivery` skill, 
 
 ## Places
 
-Paths are relative to the repository root (`$CANOPI_ROOT`, exported by `.rq-scratch/tools/env.sh`).
+Paths are relative to the repository root (`$ROOT`, exported by `.rq-scratch/tools/env.sh`); commands use them absolute.
 
-- **User's checkout** (`$CANOPI_ROOT`): read-only for agents; never pull, commit, stage, stash, push or touch its `target/`.
+- **User's checkout** (`$ROOT`): read-only for agents; never pull, commit, stage, stash, push or touch its `target/`.
 - **Integration worktree** `.rq-scratch/<step>` on an intent-named branch from `origin/main`. Before merging or pushing: `git fetch`, then `git rebase --rebase-merges origin/main` if behind. Push to GitHub by URL once per step after pre-push review; Codeberg waits for the user. Stable fixes: [release/2.0](native-and-release.md#stable-fixes). One agent at a time.
-- **Stream worktrees**: `.rq-scratch/tools/mkwt.sh <stream> [base]` creates `.rq-scratch/wt-<stream>` on `wt/<stream>` with `npm ci`, tracked hooks, PDF fonts and `.rq-scratch/shared-build/canopi-core.db`.
+- **Stream worktrees**: `.rq-scratch/tools/mkwt.sh <stream> [base]` creates `.rq-scratch/wt-<stream>` on `wt/<stream>` with `npm ci`, tracked hooks, PDF fonts and `.rq-scratch/shared-build/canopi-core.db` (refresh it when the pin changes).
 - **Environment and build folders**: `source .rq-scratch/tools/env.sh && canopi_use_node 24` and `CARGO_TARGET_DIR=$TARGETS/<stream>/target` (gate refuses `shared-build/target`, 2.1-M201; last component must be `target`).
 - **Team roles**: `Lead` = Main Developer (`.rq-scratch/wt-<stream>`); `Lead Developer` = Lead Reviewer & Integrator (merges into integration branch, all bead writes/exports); `Reviewer` = Critical-Point Reviewer. No attribution trailers in commits (`AGENTS.md`).
 - **Scratch**: gate logs `.rq-scratch/gate-logs/`, screenshots `.rq-scratch/screenshots/<step>/`, review profiles `.rq-scratch/reference/<step>/` (removed at step close).
@@ -18,7 +18,7 @@ Paths are relative to the repository root (`$CANOPI_ROOT`, exported by `.rq-scra
 
 ## Gates
 
-One gate, `node policy/gate/cli.mjs <lane>`: `policy/gate/table.ts` holds each area's checks per lane, and AGENTS.md's rows are rendered from it. Stream agents run every build or test as one `.rq-scratch/tools/in-wt.sh <chunk>[/web] <command>` (Node 24, the stream's target, nice 10 and idle I/O so the main agent's gates and merges come first, 2.1-Q330).
+One gate, `node policy/gate/cli.mjs <lane>`: `policy/gate/table.ts` holds each area's checks per lane, and [Quality gates](../quality-gates.md) is rendered from it. Stream agents run every build or test as one `.rq-scratch/tools/in-wt.sh <chunk>[/web] <command>` (Node 24, the stream's target, nice 10 and idle I/O so the main agent's gates and merges come first, 2.1-Q330).
 
 - **Lanes**: `commit` (the hooks; the shared-contracts check when its inputs change, 2.1-Q330), `affected --base <rev>`, `push --base <rev>` (CI's Linux mirror: full rows of the selected areas, every Commit gate check, `--vitest` included, then the expected-fail marker check), `full` (every area, e2e included).
 - **Who runs what** (2.1-Q272): build and fix agents stop at the commit hook plus the tests they touch and the source-text policy tests. The main agent runs the full gate before each CI probe and the push lane before each push. A command past an agent's foreground limit goes to the main agent.
@@ -83,8 +83,6 @@ Opus at medium effort for every stage; Sonnet only for trivial checks; Fable onl
 
 In `.rq-scratch/tools/` (a local git repo; commit tool edits there), besides those above: `journal.py <run>`, `wf-usage.py <run>...` (cost per stage), `imgdiff.py`, `near-zero-coverage.py <worktree>` (at each release close: every production file under 20 % lines kept with its reason, or tested).
 
-## Workflows and measured cost
+## Workflows
 
 Deterministic stages (merges, gates, the live instance, CI) are the main agent's commands; an agent only when one fails. When a usage limit stops agents, schedule no check-in to resume them: the user types "Resume". Never stop a running workflow on your own initiative; the user decides.
-
-Live bugs, guards and location: 682M input over 22 stage runs and 220 agents; build 42 %, reviews 39 %, fixes 10 %, usefulness 4 %.

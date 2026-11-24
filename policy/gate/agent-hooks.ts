@@ -392,10 +392,20 @@ function checkGit(words: readonly string[], husky: boolean, place: Place): Verdi
   return place.isUserCheckout(globals.target) ? inCheckout(sub, args) : undefined
 }
 
+/** Global `bd` flags that consume the following word as their value. */
+const BD_VALUE_FLAGS = new Set(['-C', '--db', '--actor', '--config', '-c', '--dolt-auto-commit', '--sandbox'])
+
 /** Refuses `bd update ... --notes` (which overwrites existing notes) without `--append-notes` (canopi-vgfg). */
 function checkBd(words: readonly string[]): Verdict {
   const args = words.slice(1)
-  const sub = args.find((a) => !a.startsWith('-'))
+  let sub: string | undefined
+  for (let i = 0; i < args.length; i += 1) {
+    const arg = args[i] ?? ''
+    if (BD_VALUE_FLAGS.has(arg)) { i += 1; continue }
+    if (arg.startsWith('-')) continue
+    sub = arg
+    break
+  }
   if (sub !== 'update') return undefined
   const overwritesNotes = args.some((a) => a === '--notes' || a.startsWith('--notes='))
   const appendsNotes = args.some((a) => a === '--append-notes' || a.startsWith('--append-notes='))

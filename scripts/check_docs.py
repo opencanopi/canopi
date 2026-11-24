@@ -76,7 +76,7 @@ PARAGRAPH_EXEMPT = ("docs/release-notes/", "docs/plans/onf-plugin-adaptation.md"
 COVERS = re.compile(r"^Covers:\s*(.*)$", re.MULTILINE)
 # A guide's backticked `file.ext::NAME` (a threat-model cell, ADR 0029) names a declaration in that file (2.1-M428).
 DECLARED = re.compile(r"`([\w./-]+\.\w+)::([A-Za-z_]\w*)`")
-MACHINE_PATH = re.compile(r"(?<![A-Za-z0-9_:/])/(?:media|home|Users)/[A-Za-z0-9._-]+")
+MACHINE_PATH = re.compile(r"(?:file://|[A-Za-z]:|(?<![A-Za-z0-9_:/]))/(?:(?:media|Users)/[A-Za-z0-9._-]+|home/(?!runner/work\b)[A-Za-z0-9._-]+)")
 
 
 def covers(text):

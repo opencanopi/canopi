@@ -103,13 +103,17 @@ describe('the pre-push lane\'s expected-fail marker check (canopi-f47t.52.228.54
       'desktop/web/src/app/ok.test.ts': [
         "it.fails('Q344 (2a-3): desktop phone layout', () => {})",
         "it.fails('[expected-fail owner: 2b, canopi-vgfg] pending migration', () => {})",
+        "it.fails(",
+        "  'Q344 (2a-3): wrapped title on next line', () => {})",
         "it.fails('Q344: missing owner', () => {})",
+        "it.fails('(2.1-Q340): id in parens is not an owner', () => {})",
         "it.fails('(2a-3): missing id', () => {})",
       ].join('\n') + '\n',
     })
     expect(invalidMarkerTitles(repo.repo, new Set())).toEqual([
-      "desktop/web/src/app/ok.test.ts:3:it.fails('Q344: missing owner', () => {})",
-      "desktop/web/src/app/ok.test.ts:4:it.fails('(2a-3): missing id', () => {})",
+      "desktop/web/src/app/ok.test.ts:5:it.fails('Q344: missing owner', () => {})",
+      "desktop/web/src/app/ok.test.ts:6:it.fails('(2.1-Q340): id in parens is not an owner', () => {})",
+      "desktop/web/src/app/ok.test.ts:7:it.fails('(2a-3): missing id', () => {})",
     ])
   })
 })
