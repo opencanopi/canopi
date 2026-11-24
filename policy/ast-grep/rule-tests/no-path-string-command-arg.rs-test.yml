@@ -1,0 +1,14 @@
+id: no-path-string-command-arg.rs
+valid:
+  - |
+    #[tauri::command]
+    pub fn health(id: String) -> Result<(), String> { Ok(()) }
+  - |
+    pub fn helper(path: String) -> String { path }
+invalid:
+  - |
+    #[tauri::command]
+    pub async fn save_design(path: String) -> Result<(), String> { Ok(()) }
+  - |
+    #[tauri::command]
+    pub fn update_restart(design_path: Option<PathBuf>) {}

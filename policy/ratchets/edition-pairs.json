@@ -1,0 +1,30 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "edition-pairs",
+  "ledger": "2.1-M522",
+  "bead": "canopi-f47t.52.45",
+  "tool": "edition-pairs",
+  "scope": ["desktop/web/src/**/*.{desktop,browser}.{ts,tsx}"],
+  "lane": "commit",
+  "keys": "path",
+  "entries": {
+    "desktop/web/src/app/budget/platform.browser.ts": {},
+    "desktop/web/src/app/budget/platform.desktop.ts": {},
+    "desktop/web/src/app/canvas-pdf/platform.browser.ts": {},
+    "desktop/web/src/app/canvas-pdf/platform.desktop.ts": {},
+    "desktop/web/src/app/community/catalog.browser.ts": {},
+    "desktop/web/src/app/design-template-import/workflow.browser.ts": {},
+    "desktop/web/src/app/geocoding/transport.browser.ts": {},
+    "desktop/web/src/app/geocoding/transport.desktop.ts": {},
+    "desktop/web/src/app/plant-browser/live.browser.ts": {},
+    "desktop/web/src/app/plant-browser/live.desktop.ts": {},
+    "desktop/web/src/maplibre/satellite-http.browser.ts": {},
+    "desktop/web/src/platform/draft-records.browser.ts": {},
+    "desktop/web/src/platform/geojson.desktop.ts": {},
+    "desktop/web/src/platform/open-failure.desktop.ts": {},
+    "desktop/web/src/platform/settings.browser.ts": {},
+    "desktop/web/src/platform/settings.desktop.ts": {},
+    "desktop/web/src/platform/updates.desktop.ts": {}
+  }
+}

@@ -1,0 +1,42 @@
+# no-path-string-command-arg (§18 R21, 2.1-M522), Rust half: #[tauri::command] functions take no raw filesystem path
+# string or PathBuf parameter; grants replace them in 2b/N2.
+id: no-path-string-command-arg.rs
+language: rs
+severity: error
+message: "no-path-string-command-arg (§18 R21): #[tauri::command] takes no path string or PathBuf arg; use a FileGrantId or domain id (2.1-M522). ADR 0023; owner none; example desktop/src/commands/health.rs"
+files:
+  - "{desktop,canopi-types,canopi-redact,canopi-format,canopi-format-wasm,bindings-gen}/src/**/*.rs"
+  - "policy/fixtures/rules/*/{desktop,canopi-types,canopi-redact,canopi-format,canopi-format-wasm,bindings-gen}/src/**/*.rs"
+ignores:
+  - "desktop/src/commands/design/tests.rs"
+rule:
+  all:
+    - kind: parameter
+    - has:
+        field: pattern
+        kind: identifier
+        regex: '(?i)(?:^|_)paths?$'
+    - has:
+        field: type
+        regex: '\b(?:String|PathBuf)\b'
+    - inside:
+        kind: function_item
+        stopBy: end
+        follows:
+          kind: attribute_item
+          regex: '^#\[tauri::command\b'
+          stopBy:
+            not:
+              any:
+                - kind: attribute_item
+                - kind: line_comment
+                - kind: block_comment
+    - not: { matches: test-code }
+utils:
+  test-code:
+    inside:
+      stopBy: end
+      follows:
+        kind: attribute_item
+        regex: '^#\[(cfg\((test|all\(test\b)|test\]|tokio::test)'
+        stopBy: { not: { any: [ { kind: attribute_item }, { kind: line_comment }, { kind: block_comment } ] } }
