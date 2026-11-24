@@ -96,4 +96,4 @@ Stable release notes keep the engine-floor phrases and Mac install text checked 
 
 No stable fix ships before the reader release (2.1-Q268): an urgent one is an early reader release from `main` (meeting Step 2.0.4 constraints, else ask the user).
 
-`release/2.0` cuts at the reader release tag. Until 2.1.0, stable fixes land by PR into `release/2.0` (every commit carries `Stable-fix: <bead>`) and reach `main` by PR **before** RC dispatch (naming the same bead in its trailer or in its subject when the fix landed on `main` first; 2.1-M215, 2.1-Q202). Run step 3 with `-f ref=release/2.0`; the reader release with the commit that closes Step 2.0.4.
+`release/2.0` cuts at the reader release tag. Until 2.1.0, stable fixes land by PR into `release/2.0` (every commit carries `Stable-fix: <bead>`) and reach `main` by their own PR before the next release cut from `main` (naming the same bead in its trailer or in its subject when the fix landed on `main` first; 2.1-M215, 2.1-Q202). A stable release runs step 3 with `-f ref=release/2.0`; the reader release with the commit that closes Step 2.0.4.

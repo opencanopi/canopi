@@ -94,7 +94,7 @@ describe('the Vitest pass (2.1-Q224)', () => {
     expect(status, out).toBe(0)
   })
 
-  it('canopi-f47t.52.228.10: Rewords-test in the vitest pass needs its new title added in the same file', () => {
+  it('canopi-f47t.52.228.10: a quoted replacement in the vitest pass needs its new title added in the commit', () => {
     const message = "test(frontend): reword row 3 to 'holds row 3'\n"
     let [status, out] = gate({ [ROWS_FILE]: rows('[1, 2]') }, message)
     expect(status, out).toBe(1)
@@ -189,7 +189,7 @@ describe('one loss router for both passes (canopi-f47t.52.228.51)', () => {
     expect(status, out).toBe(0)
   })
 
-  it('canopi-f47t.52.240: Rewords-test folds a test into a kept one in its file with no assertion count, its file read once (2.1-Q272)', () => {
+  it('canopi-f47t.52.240: a quoted replacement folds a test into a kept one in its file with no assertion count, its file read once (2.1-Q272)', () => {
     const message = "test(frontend): fold into 'keeps the first behaviour'"
     const alone = KEPT.split("it('keeps the second")[0] ?? ''
     let [status, out] = gate({ [KEPT_FILE]: alone }, message)
@@ -210,7 +210,7 @@ describe('one loss router for both passes (canopi-f47t.52.228.51)', () => {
     expect(status, out).toBe(0)
   })
 
-  it('canopi-f47t.52.240: an .each template reworded is read once, its rows routed by the Rewords-test naming the templates', () => {
+  it('canopi-f47t.52.240: an .each template reworded is read once, its rows routed by the quoted replacement template', () => {
     const message = "test(frontend): a better name 'holds row %i'"
     let [status, out] = gate({ [ROWS_FILE]: ROWS.replace('keeps row %i', 'holds row %i') }, message)
     expect(out).not.toContain('gate-test-')

@@ -42,11 +42,11 @@ describe('a commit range through the gate (2.1-Q224)', () => {
     red(judged(FIRST_ONLY, 'test(frontend): drop one'), 'gate-test-deleted')
   })
 
-  it('canopi-f47t.52.228.10: a reworded title without Rewords-test is refused', () => {
+  it('canopi-f47t.52.228.10: a reworded title without a quoted replacement is refused', () => {
     red(judged(KEPT.replace('keeps the second behaviour', 'keeps behaviour two'), 'test(frontend): reword'), 'gate-test-deleted')
   })
 
-  it('canopi-f47t.52.228.10: a reworded title with Rewords-test passes', () => {
+  it('canopi-f47t.52.228.10: a reworded title with a quoted replacement passes', () => {
     green(judged(KEPT.replace('keeps the second behaviour', 'keeps behaviour two'),
       "test(frontend): reword\n\nReplacement: 'keeps behaviour two'."))
   })
@@ -115,7 +115,7 @@ describe('a commit range through the gate (2.1-Q224)', () => {
       { 'desktop/web/src/b.test.ts': second }), 'gate-test-deleted')
   })
 
-  it('canopi-f47t.52.240: Rewords-test folds a test into a kept one in its file with no assertion count; another file is refused (2.1-Q272)', () => {
+  it('canopi-f47t.52.240: a quoted replacement folds a test into a kept one in its file with no assertion count; another file is refused (2.1-Q272)', () => {
     const message = "test(frontend): fold into 'keeps the first behaviour'"
     green(judged(FIRST_ONLY, message))
     repo.at(repo.base)

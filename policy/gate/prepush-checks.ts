@@ -33,7 +33,8 @@ const location = (marker: string) => marker.replace(/^([^:]*:\d+):.*$/su, '$1')
 
 // Stage 1 E4: every non-exempt expected-fail marker title carries an owner (stream/phase/owner/upstream tag) plus
 // either a ledger ID (Q/M) or a bead ID (canopi-...). Playwright's in-body `test.fail()` has no title on its line.
-const HAS_ID = /\b(?:2\.1-)?[QM]\d+[a-z]?\b|\bcanopi-[a-z0-9]+(?:\.[0-9]+)*\b/gu
+const HAS_ID = /\b(?:2\.1-)?[QM]\d+[a-z]?\b|\bcanopi-[a-z0-9]+(?:\.[0-9]+)*\b/u
+const HAS_ID_ALL = new RegExp(HAS_ID.source, 'gu')
 const HAS_OWNER = /\([A-Za-z0-9][A-Za-z0-9._/-]*\)|\b(?:owner\s*:\s*\S+|upstream\s+\S+)/iu
 const PLAYWRIGHT_IN_BODY = /\btest\.fail\(\s*(?:[^'"`\s)]|\))/u
 const WRAPPED_TITLE = /\b(?:it|test|describe)\.fails?\(\s*$/u
@@ -57,7 +58,7 @@ export function invalidMarkerTitles(root: string, exempt: ReadonlySet<string>): 
     const body = titleText(root, marker)
     if (PLAYWRIGHT_IN_BODY.test(body)) return false
     if (!HAS_ID.test(body)) return true
-    const withoutIds = body.replace(HAS_ID, '')
+    const withoutIds = body.replace(HAS_ID_ALL, '')
     return !HAS_OWNER.test(withoutIds)
   }).sort()
 }

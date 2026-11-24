@@ -71,6 +71,7 @@ describe('running (canopi-f47t.52.228.10)', () => {
     const { code, stderr, before } = await stopped('SIGINT')
     expect(code, stderr).toBe(130)
     expect(stderr).toContain('NOT GREEN: interrupted; 0 passed, 0 failed, the rest not run; nothing was written')
+    expect(repo.calls()).toContain('npm run typecheck offline=unset')
     expect(repo.calls().every((call) => call === 'npm run typecheck offline=unset' || call === 'npm run build:web:bundle offline=unset'),
       'no check after the first in each Tier 2 group started').toBe(true)
     expect(git(repo.repo, 'status', '--porcelain', '--ignored')).toBe(before)
@@ -92,6 +93,7 @@ describe('running (canopi-f47t.52.228.10)', () => {
     expect(code, stderr).toBe(143)
     expect(seconds, 'the check was stopped, not waited for').toBeLessThan(10)
     expect(stderr).toContain('NOT GREEN: interrupted (SIGTERM)')
+    expect(repo.calls()).toContain('npm run typecheck offline=unset')
     expect(repo.calls().every((call) => call === 'npm run typecheck offline=unset' || call === 'npm run build:web:bundle offline=unset'),
       'no check after the first in each Tier 2 group started').toBe(true)
     const durations = JSON.parse(readFileSync(join(logs, 'durations.json'), 'utf8')) as { outcome: string }[]
