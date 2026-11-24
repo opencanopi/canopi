@@ -367,6 +367,24 @@
       "report": "",
       "status": "open",
       "exit": "A uutils release sends SIGINT at the budget and SIGKILL only after --kill-after, and ubuntu-latest carries it: the fallback goes and this row closes."
+    },
+    {
+      "id": "W23",
+      "library": "serde_with (via tauri-utils)",
+      "pin": "serde_with 3.21.0, tauri-utils 2.10.2, chrono 0.4.44",
+      "what": "policy/advisories.json accepts RUSTSEC-2026-0543 (chrono unmaintained): chrono is never compiled or linked in Canopi (cargo tree --target all --all-features -i chrono is empty), appearing in Cargo.lock solely as an unactivated weak optional dependency (chrono_0_4?) of serde_with pulled by tauri-utils.",
+      "sites": [
+        {
+          "file": "policy/advisories.json",
+          "pointer": "/advisories/7/upstream"
+        }
+      ],
+      "pin_test": {
+        "tripwire": "advisories"
+      },
+      "report": "none: Cargo lockfile artifact for serde_with's disabled chrono_0_4? weak dep; tracked only",
+      "status": "open",
+      "exit": "tauri-utils drops serde_with, serde_with drops its optional chrono dependency, or Cargo/OSV stops flagging unactivated weak optional dependencies: OSV stops reporting RUSTSEC-2026-0543, policy/adapters/advisories.ts check fails the entry as stale, and the bump removes it from policy/advisories.json and regenerates osv-scanner.toml."
     }
   ]
 }
