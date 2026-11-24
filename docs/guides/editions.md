@@ -50,11 +50,11 @@ Install: `npm ci --prefix desktop/web`.
 
 | Host | Command | Address | Data |
 | --- | --- | --- | --- |
-| Desktop | root: `cargo tauri dev` | Vite on `localhost:1420` | real app data; catalog from `scripts/prepare-db.py` |
-| Web | `desktop/web/`: `npm run dev:web` | `localhost:1421/` | browser profile; the catalog needs `npm run generate:web-catalog` |
-| UI gallery | `desktop/web/`: `npm run dev:ui` | `127.0.0.1:1422` | memory fixtures ([README](../../desktop/web/ui-gallery/README.md)) |
+| Desktop | `cargo tauri dev` | `localhost:1420` | real app data; `scripts/prepare-db.py` |
+| Web | `npm run dev:web` (`desktop/web/`) | `localhost:1421/` | browser profile; `npm run generate:web-catalog` |
+| UI gallery | `npm run dev:ui` (`desktop/web/`) | `127.0.0.1:1422` | memory fixtures ([README](../../desktop/web/ui-gallery/README.md)) |
 
-`npm run check:editions` typechecks and builds both editions; no tests. The gallery's `edition=web` shows the phone layout in a phone-sized window (390×844, 844×390).
+`npm run check:editions` typechecks and builds both editions. Gallery `edition=web` previews phone layout (390×844, 844×390).
 
 ## Web publishing
 

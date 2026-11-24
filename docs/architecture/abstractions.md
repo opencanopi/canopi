@@ -2,11 +2,9 @@
 
 Answers which abstractions Canopi 2.1 keeps, what each owns and which file an agent copies. Rules: ADRs 0022 to 0030; the ADR wins on conflict.
 
-Two tests decide every row. One owner per concept: a second copy is a defect. One way per seam: a seam has one mechanism, and its canonical example is the shape to copy. An abstraction earns its place by a second implementation (Desktop and Web, or a fake with behaviour), a trust boundary, an inversion the layer order needs, or a roadmap consumer.
+Two tests decide every row: one owner per concept (a second copy is a defect) and one way per seam (copy its canonical example). An abstraction earns its place by a second implementation (Desktop and Web, or a fake with behaviour), a trust boundary, a layer-order inversion, or a roadmap consumer.
 
-Verdicts are keep, merge, split, cut, add or change, each with the [ledger](../decisions/2-1.md) row that decided it, or the ADR when this review kept the row as it was. Frontend paths are under `desktop/web/src/`; `(2.1)` marks a part not built at HEAD; an unmarked example is today's file. `scripts/check_docs.py` fails a mark on a built path and an unmarked missing path.
-
-An agent adding to a seam copies its canonical example; a new kind of seam adds its row here in the same change.
+Verdicts (keep, merge, split, cut, add, change) cite the [ledger](../decisions/2-1.md) row or ADR. Frontend paths are under `desktop/web/src/`; `(2.1)` marks unbuilt parts (`scripts/check_docs.py` checks marks). Copy the canonical example when adding to a seam; add a row for a new seam kind.
 
 ## IPC and failures
 

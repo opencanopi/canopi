@@ -47,29 +47,16 @@ Boundaries for Canopi Desktop's store of LiDAR terrain rasters (imported and der
 
 ## Environment and commands
 
-- GeoLibre CLI: `CANOPI_GEOLIBRE_BIN`, beside the executable, then `PATH` (`geolibre.rs` tests); built by `scripts/build-geolibre-cli.sh` and bundled as a Tauri sidecar ([native and release](native-and-release.md)).
-- Engine lane: the CI job `lidar-native` runs the ignored `services::lidar` tests but the `local fixture: ` ones (`ci_lane_policy::tests`).
-- Comparison lane (local; GDAL tools via `CANOPI_LIDAR_GDAL_BIN` or `PATH`; skips without them): `cargo test -p canopi-desktop --lib rust_engine::comparison -- --ignored --nocapture`.
-- Fixture lanes (local; no fixtures is not a pass): `CANOPI_LIDAR_E2E_FIXTURE=<IGN MNT GeoTIFF>`, `CANOPI_LIDAR_MNH_DIR=<IGN MNH tiles>`, then `cargo test -p canopi-desktop --lib -- --ignored --test-threads=1 --nocapture` (`e2e.rs`).
+- GeoLibre CLI: `CANOPI_GEOLIBRE_BIN`, beside the binary, then `PATH` (`geolibre.rs` tests); built by `scripts/build-geolibre-cli.sh` ([native and release](native-and-release.md)).
+- Engine lane (`lidar-native` CI): runs ignored `services::lidar` tests except `local fixture: ` (`ci_lane_policy::tests`).
+- Comparison lane (`CANOPI_LIDAR_GDAL_BIN` or `PATH`; skips without GDAL): `cargo test -p canopi-desktop --lib rust_engine::comparison -- --ignored --nocapture`.
+- Fixture lanes (missing fixtures is not a pass): set `CANOPI_LIDAR_E2E_FIXTURE` and `CANOPI_LIDAR_MNH_DIR`, run `cargo test -p canopi-desktop --lib -- --ignored --test-threads=1 --nocapture` (`e2e.rs`).
 
 ## Do not
 
-- Add a catalogue migration or a reader of an older catalogue; bump `CATALOGUE_VERSION` and let the rebuild carry the data.
-- Transform coordinates outside `crs.rs`, through `wbprojection`, or from the GeoLibre CLI's WGS84 output.
-- Store a library path, pixel or runtime URL in a `.canopi`, log or Problem Report.
+- Add a catalogue migration or older-catalogue reader; bump `CATALOGUE_VERSION` and let rebuild carry data.
+- Transform coordinates outside `crs.rs`, via `wbprojection`, or from GeoLibre CLI WGS84 output.
+- Store library paths, pixels or runtime URLs in `.canopi`, logs or Problem Reports.
 - Materialise a merged raster, union grid or absent-coordinate walk.
-- Read raster pixels in the poll, in offers or on `UserData`.
+- Read raster pixels in the poll, offers or on `UserData`.
 - Add an analysis by code alone: registry entry, one executor, locale keys ([AGENTS.md](../../AGENTS.md)).
-
-## Where to look
-
-| Area | Module |
-|---|---|
-| Admission, import, publication | `admission.rs`, `import.rs`, `collection.rs`, `generation.rs` |
-| Catalogue, paths, sweep, recovery | `catalogue.rs`, `catalogue_reader.rs`, `paths.rs`, `mod.rs`, `recovery.rs`, `source_meta.rs` |
-| Display | `display_cog.rs`, `rust_engine/warp.rs`, `maplibre/raster-display/`, `app/lidar/display.ts`, `item-types.ts` |
-| Site data, library, dialogs | `components/panels/lidar/`, `components/panels/analyze/` |
-
-## Open decisions
-
-None tracked.
