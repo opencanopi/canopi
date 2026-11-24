@@ -284,7 +284,7 @@ export const TABLE: Table = {
       // imports, which the gate's Vitest project never runs), and the adapters' inputs, each the tool or config an
       // adapter runs: ast-grep and suppressions read sgconfig.yml; oxlint, knip, jscpd, dependency-cruiser and tsc run
       // desktop/web's locked packages with its tsconfigs and their own configs (.oxlintrc.json, knip.json, the three
-      // .dependency-cruiser*.cjs, /.jscpd.json); osv-scanner reads osv-scanner.toml; clippy runs the pinned toolchain with
+      // dynamic .dependency-cruiser*.cjs loaders, /.jscpd.json); osv-scanner reads osv-scanner.toml; clippy runs the pinned toolchain with
       // clippy.toml; cargo-deny reads deny.toml; agent-hooks runs policy/gate/agent-hooks.ts. A config edit that silences
       // a rule is caught only by these planted cases (planted-silent). A push adapter's change runs the push check too.
       name: 'policy-tooling', label: 'Policy tooling (`policy/`, an adapter\'s tool or config)',

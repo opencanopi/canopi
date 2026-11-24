@@ -9,10 +9,12 @@
 // config; the mirror is an alternation, never an optional group, which dependency-cruiser refuses as an unsafe
 // expression. The policy config (2.1-M348) cruises policy/'s own ES modules: policy-imports-no-cli from the layer
 // table's policy section, its planted violations under policy/fixtures/rules/<id>/ cruised by the same regexes.
+import fs from 'node:fs';
 import path from 'node:path';
 import { builtinModules } from 'node:module';
+import { LAYER_TABLE, POLICY_DIR, REPO_ROOT } from '../core/base.mjs';
 import { matchesGlob } from '../core/globs.mjs';
-import { HEADER, SRC, bare, escRe, filesUnder, isObject } from './boundary-facts.mjs';
+import { SRC, bare, escRe, filesUnder, isObject } from './boundary-facts.mjs';
 
 const LAYER_ORDER = ['L0', 'L1', 'L2', 'L3', 'L4', 'L5'];
 const MIRROR = '\\.\\./\\.\\./policy/fixtures/rules/[^/]+/';
@@ -294,15 +296,37 @@ const policyOptions = () => ({
   combinedDependencies: false,
 });
 
-/** The Desktop, Web and policy config texts ({desktop, web, policy}) from the layer table and the active rows. */
-export function depcruiseConfigs(table, rows) {
+/** The Desktop, Web and policy config objects ({desktop, web, policy}) from the layer table and the active rows. */
+function depcruiseConfigObjects(table, rows) {
   const { desktop, web } = depcruiseRules(table, rows);
-  const cjs = (forbidden, options) => `// ${HEADER}\nmodule.exports = ${JSON.stringify({ forbidden, options }, null, 2)};\n`;
   return {
-    desktop: cjs(desktop, depcruiseOptions(table, rows, 'tsconfig.json', true)),
-    web: cjs(web, depcruiseOptions(table, rows, 'tsconfig.web-graph.json', false)),
-    policy: cjs(policyRules(table, rows), policyOptions()),
+    desktop: { forbidden: desktop, options: depcruiseOptions(table, rows, 'tsconfig.json', true) },
+    web: { forbidden: web, options: depcruiseOptions(table, rows, 'tsconfig.web-graph.json', false) },
+    policy: { forbidden: policyRules(table, rows), options: policyOptions() },
   };
+}
+
+/** Active policy table rows (policy/*.json with a top-level `rules` array, status !== 'planned'), read synchronously. */
+function readActiveRows(root) {
+  const dir = path.join(root, POLICY_DIR);
+  const rows = new Map();
+  if (!fs.existsSync(dir)) return rows;
+  for (const name of fs.readdirSync(dir).filter((n) => n.endsWith('.json')).sort()) {
+    const doc = JSON.parse(fs.readFileSync(path.join(dir, name), 'utf8'));
+    if (!isObject(doc) || !Array.isArray(doc.rules)) continue;
+    for (const row of doc.rules) {
+      if (isObject(row) && typeof row.id === 'string' && row.status !== 'planned') rows.set(row.id, row);
+    }
+  }
+  return rows;
+}
+
+/** Loads one dependency-cruiser config ('desktop' | 'web' | 'policy') dynamically from layers.json and policy tables. */
+export function loadDepcruiseConfig(kind, root = REPO_ROOT) {
+  const table = JSON.parse(fs.readFileSync(path.join(root, LAYER_TABLE), 'utf8'));
+  const configs = depcruiseConfigObjects(table, readActiveRows(root));
+  if (!(kind in configs)) throw new Error(`unknown dependency-cruiser config kind: ${kind}`);
+  return configs[kind];
 }
 
 /** The running Node's prefix-free built-ins NODE_BUILTINS lacks (the self-test fails on any). The running Node only
