@@ -4,13 +4,13 @@
 // the simulator's own GPU process crash, proven by its log and handled by the app (simulator-verdict.ts): that passes
 // as ENV, and the job prints the warning (phone-smoke.yml).
 import { execFile } from 'node:child_process'
-import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { readFileSync, writeFileSync } from 'node:fs'
 import { homedir, tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { promisify } from 'node:util'
 import { $, browser, expect } from '@wdio/globals'
 import { pollThroughBusy } from './busy-poll'
-import { CONTEXT_LOSS_ERROR, logStart, pageFailureVerdict, type DesignShell } from './simulator-verdict'
+import { CONTEXT_LOSS_ERROR, logStart, pageFailureVerdict, simulatorLog, type DesignShell } from './simulator-verdict'
 import { pollStartScreen } from './start-screen-wait'
 
 const APP_URL = process.env.CANOPI_E2E_APP_URL ?? 'http://localhost:4174/web.html'
@@ -177,33 +177,20 @@ async function designShell(): Promise<DesignShell> {
   }, tablet)
 }
 
-/**
- * The simulator's GPU and Safari log from the tap on (an earlier crash proves nothing about this one), read here
- * because the verdict depends on it (a step that greps it could pass on its own), and kept in the artifacts. A read
- * that fails gives no log, so the verdict is APP.
- */
-async function simulatorLog(since: Date): Promise<{ log: string, problem: string }> {
+/** The simulator log for the verdict (simulator-verdict.ts simulatorLog), read from the simulator this smoke drives. */
+async function readSimulatorLog(since: Date): Promise<{ log: string, problem: string }> {
   const udid = process.env.CANOPI_IOS_UDID
   if (!udid) return { log: '', problem: 'CANOPI_IOS_UDID is not set' }
-  try {
-    const { stdout } = await promisify(execFile)('xcrun', [
+  return simulatorLog({
+    show: async () => (await promisify(execFile)('xcrun', [
       'simctl', 'spawn', udid, 'log', 'show', '--start', logStart(since), '--style', 'compact',
       '--predicate', 'process CONTAINS "GPU" OR process CONTAINS "MobileSafari"',
-    ], { encoding: 'utf8', maxBuffer: 512 * 1024 * 1024, timeout: 120_000 })
-    writeFileSync(join(ARTIFACTS, 'simulator-gpu.log'), stdout)
-    return { log: stdout, problem: '' }
-  } catch (error) {
-    // Fallback when `simctl spawn ... log show` fails (canopi-f47t.52.261): read the simulator's system.log directly.
-    const fallback = join(homedir(), 'Library/Logs/CoreSimulator', udid, 'system.log')
-    if (existsSync(fallback)) {
-      try {
-        const log = readFileSync(fallback, 'utf8')
-        writeFileSync(join(ARTIFACTS, 'simulator-gpu.log'), log)
-        return { log, problem: `simctl log show failed (${messageOf(error)}); used system.log fallback` }
-      } catch { /* fall through to empty log */ }
-    }
-    return { log: '', problem: `the simulator log could not be read: ${messageOf(error)}` }
-  }
+    ], { encoding: 'utf8', maxBuffer: 512 * 1024 * 1024, timeout: 120_000 })).stdout,
+    systemLog: () => {
+      try { return readFileSync(join(homedir(), 'Library/Logs/CoreSimulator', udid, 'system.log'), 'utf8') } catch { return undefined }
+    },
+    save: (name, text) => writeFileSync(join(ARTIFACTS, name), text),
+  })
 }
 
 /**
@@ -220,7 +207,7 @@ async function contextLossVerdict(tappedAt: Date): Promise<void> {
     shell = await designShell()
   }
   const { errors } = await readProbe()
-  const { log, problem } = await simulatorLog(tappedAt)
+  const { log, problem } = await readSimulatorLog(tappedAt)
   const verdict = pageFailureVerdict(errors, log, shell)
   if (verdict.kind === 'APP') {
     throw new Error(`APP: New Design was clicked and ${verdict.reason} (file an app bead with it)${problem ? `; ${problem}` : ''}`)

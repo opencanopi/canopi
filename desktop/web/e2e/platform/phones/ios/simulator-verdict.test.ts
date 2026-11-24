@@ -2,7 +2,7 @@
 // it as a user would see it (F5 probe 8, run 40600121577): every other page error stays APP, and a missing map notice
 // or a log without the crash fails the smoke.
 import { describe, expect, it } from 'vitest'
-import { logStart, pageFailureVerdict, type DesignShell } from './simulator-verdict'
+import { logStart, pageFailureVerdict, simulatorLog, type DesignShell } from './simulator-verdict'
 
 const CONTEXT_LOSS = 'console.error: Shared workspace map failed: Error: MapLibre WebGL context was lost while preparing the shared workspace.'
 
@@ -78,5 +78,32 @@ describe('pageFailureVerdict', () => {
   it('reads the simulator log from the tap on, in the host\'s local time, so an earlier crash proves nothing (canopi-f47t.52.228.14)', () => {
     expect(logStart(new Date(2026, 9, 27, 23, 4, 5, 900))).toBe('2026-10-27 23:04:05')
     expect(logStart(new Date(2026, 0, 2, 3, 4, 5))).toBe('2026-01-02 03:04:05')
+  })
+})
+
+describe('simulatorLog', () => {
+  it('canopi-f47t.52.261: a failed log show judges no log, so an earlier crash in the whole system.log cannot pass an app failure as ENV', async () => {
+    const saved: Record<string, string> = {}
+    const read = await simulatorLog({
+      show: () => Promise.reject(new Error('simctl spawn failed')),
+      systemLog: () => PROBE_8_LOG,
+      save: (name, text) => { saved[name] = text },
+    })
+    expect(read.log).toBe('')
+    expect(read.problem).toBe('the simulator log could not be read: simctl spawn failed; system.log kept in the artifacts')
+    expect(saved).toEqual({ 'simulator-system.log': PROBE_8_LOG })
+    expect(pageFailureVerdict([CONTEXT_LOSS], read.log, SHELL).kind).toBe('APP')
+  })
+
+  it('judges and keeps the filtered log from the tap on when log show answers', async () => {
+    const saved: Record<string, string> = {}
+    const read = await simulatorLog({ show: () => Promise.resolve(PROBE_8_LOG), systemLog: () => undefined, save: (name, text) => { saved[name] = text } })
+    expect(read).toEqual({ log: PROBE_8_LOG, problem: '' })
+    expect(saved).toEqual({ 'simulator-gpu.log': PROBE_8_LOG })
+  })
+
+  it('names the failure alone when neither log can be read', async () => {
+    const read = await simulatorLog({ show: () => Promise.reject(new Error('no simctl')), systemLog: () => undefined, save: () => undefined })
+    expect(read).toEqual({ log: '', problem: 'the simulator log could not be read: no simctl' })
   })
 })
