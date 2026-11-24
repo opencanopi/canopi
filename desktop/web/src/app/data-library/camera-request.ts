@@ -1,4 +1,3 @@
-import { mapZoomToStageScale } from '../../geo/projection'
 import {
   currentCanvasQuerySurface,
   getCurrentCanvasViewportCommandSurface,
@@ -16,7 +15,7 @@ export function viewLidarCoverage(bounds: [number, number, number, number]): boo
   const viewport = getCurrentCanvasViewportCommandSurface()
   if (!plane || !localBounds || !viewport) return false
 
-  const maximumScale = mapZoomToStageScale(18, plane.origin.lat)
+  const maximumScale = plane.pixelsPerMetre(18).mean
   if (!Number.isFinite(maximumScale)) return false
 
   return viewport.focusTemporaryBounds(localBounds, {

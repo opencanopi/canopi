@@ -5,7 +5,8 @@
 // arithmetic (normalising, snapping, steps, shortest arcs).
 
 import type { ReadonlySignal } from '@preact/signals'
-import { MAPLIBRE_WORLD_TILE_SIZE, mapZoomToStageScale, mercatorToGeo } from '../projection'
+import { MAPLIBRE_WORLD_TILE_SIZE, mercatorToGeo } from '../projection'
+import { mapZoomToStageScale } from '../session-plane'
 import { WORKSPACE_MAP_MAX_ZOOM, WORKSPACE_MAP_MIN_ZOOM } from '../workspace-camera-policy'
 import type { ViewCamera, ViewScreen } from './types'
 

@@ -201,6 +201,16 @@ pub(crate) fn render_canopi_design_format() -> Result<String, Box<dyn std::error
     )?;
     writeln!(
         file,
+        "export const WGS84_SEMI_MAJOR_AXIS_M = {:?}",
+        canopi_types::design::WGS84_SEMI_MAJOR_AXIS_M,
+    )?;
+    writeln!(
+        file,
+        "export const WGS84_FLATTENING = {:?}",
+        canopi_types::design::WGS84_FLATTENING,
+    )?;
+    writeln!(
+        file,
         "export const FUTURE_CANOPI_FILE_VERSION_POLICY = {:?} as const\n",
         canopi_types::design::FUTURE_CANOPI_FILE_VERSION_POLICY,
     )?;

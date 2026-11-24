@@ -6,7 +6,6 @@
 // MapLibre does; a re-origin keeps the camera's ground and rebuilds the frame in the new plane.
 
 import { signal } from '@preact/signals'
-import { stageScaleToMapZoom } from '../projection'
 import type { SessionPlane } from '../session-plane'
 import type { CameraDriver, CameraDriverDeps, CameraDriverFailure, CameraMove } from './camera-driver'
 import { panCamera, rotateCameraAround, zoomCameraAround } from './camera-math'
@@ -46,7 +45,7 @@ export function createHeadlessCameraDriver(options: HeadlessCameraDriverOptions)
   const failure = signal<CameraDriverFailure | null>(null)
 
   let camera = constrained(validCamera(options.camera)
-    ?? { center: plane.origin, zoom: stageScaleToMapZoom(1, plane.origin.lat), bearingDeg: 0, pitchDeg: 0 })
+    ?? { center: plane.origin, zoom: plane.zoomForPixelsPerMetre(1), bearingDeg: 0, pitchDeg: 0 })
   let published = frameState()
   const frames = createDriverFrameSource(driverFrame(published, false))
 

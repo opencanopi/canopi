@@ -11,8 +11,7 @@ import { createTestView } from '../../__tests__/support/test-view'
 import { createMapLibreCameraDriver, type MapLibreCameraDriverMap } from '../../maplibre/camera-driver'
 import { LngLat as SourceLngLatClass } from 'maplibre-gl-source/geo/lng_lat.ts'
 import { MercatorTransform as SourceMercatorTransform } from 'maplibre-gl-source/geo/projection/mercator_transform.ts'
-import { mapZoomToStageScale } from '../projection'
-import { createSessionPlane, type SessionPlane } from '../session-plane'
+import { mapZoomToStageScale, createSessionPlane, type SessionPlane } from '../session-plane'
 import type { CameraMove } from './camera-driver'
 import { planarToViewCamera } from './camera-math'
 import { createNavigationPolicy } from './navigation-policy'
@@ -152,9 +151,10 @@ function mapOnTransform(screen: ViewScreen, start: ViewCamera):
 describe('camera contract', () => {
   it('headless and MercatorTransform agree for pan, zoom and rotate moves', () => {
     const starts = [
-      { origin: { lon: 2.3522, lat: 48.8566 }, zoom: 18, script: SCRIPT },
+      { origin: { lon: 0, lat: 0 }, zoom: 17, script: SCRIPT },
+      { origin: { lon: 2.3522, lat: 49 }, zoom: 18, script: SCRIPT },
       { origin: { lon: -70.65, lat: -33.45 }, zoom: 16.4, script: SCRIPT },
-      { origin: { lon: 151.2, lat: 60 }, zoom: 17.2, script: SCRIPT },
+      { origin: { lon: 151.2, lat: 65 }, zoom: 17.2, script: SCRIPT },
       { origin: { lon: 2.3522, lat: 48.8566 }, zoom: 18, script: CLAMP_SCRIPT, maxZoom: CLAMP_MAX_ZOOM },
     ]
     for (const start of starts) {

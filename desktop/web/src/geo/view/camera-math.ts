@@ -4,11 +4,11 @@
 // placement (a PlanarCamera: a fit's result, a test's viewport) into a ViewCamera through the session plane. Nothing here
 // constrains: the drivers pass every target through constrainCamera (navigation-policy.ts).
 
-import { geoToMercator, MAPLIBRE_WORLD_TILE_SIZE, mercatorToGeo, stageScaleToMapZoom } from '../projection'
-import type { SessionPlane } from '../session-plane'
+import { geoToMercator, MAPLIBRE_WORLD_TILE_SIZE, mercatorToGeo } from '../projection'
+import { conformalPoint, type ConformalPoint, type SessionPlane } from '../session-plane'
 import { bearingCosSin, normaliseBearing } from './navigation-policy'
 import type { GeoPoint } from '../../generated/contracts'
-import type { PlanarCamera, ScreenPoint, ViewCamera, ViewScreen, WorldPoint } from './types'
+import type { PlanarCamera, ScreenPoint, ViewCamera, ViewScreen } from './types'
 
 interface Vector { readonly x: number; readonly y: number }
 
@@ -44,19 +44,20 @@ export function screenToGeo(camera: ViewCamera, screen: ViewScreen, s: ScreenPoi
 /** The camera that shows a plane placement: the driver host's follow of a new plane keeps the placement through it. */
 export function planarToViewCamera(camera: PlanarCamera, screen: ViewScreen, plane: SessionPlane): ViewCamera {
   return {
-    center: plane.toGeo(placementCentre(camera, screen)),
-    zoom: stageScaleToMapZoom(camera.scale, plane.origin.lat),
+    center: plane.toGeo(plane.fromView(placementCentre(camera, screen))),
+    zoom: plane.zoomForPixelsPerMetre(camera.scale),
     bearingDeg: normaliseBearing(camera.bearingDeg),
     pitchDeg: 0,
   }
 }
 
-/** The plane point a placement shows at the screen centre. */
-export function placementCentre(camera: PlanarCamera, screen: ViewScreen): WorldPoint {
-  return screenToPlaneAxes({
+/** The conformal-frame point a placement shows at the screen centre. */
+export function placementCentre(camera: PlanarCamera, screen: ViewScreen): ConformalPoint {
+  const pt = screenToPlaneAxes({
     x: (screen.width / 2 - camera.x) / camera.scale,
     y: (screen.height / 2 - camera.y) / camera.scale,
   }, camera.bearingDeg)
+  return conformalPoint(pt.x, pt.y)
 }
 
 /** CSS px per Mercator unit at a zoom: MapLibre's worldSize. */

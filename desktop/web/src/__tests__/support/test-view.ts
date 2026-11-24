@@ -22,8 +22,7 @@ import type {
   ViewScreen,
   ViewTransform,
 } from '../../geo/view/types'
-import { stageScaleToMapZoom } from '../../geo/projection'
-import { createSessionPlane, type SessionPlane } from '../../geo/session-plane'
+import { conformalFixturePlaneForTests, type SessionPlane } from '../../geo/session-plane'
 
 export interface TestViewOptions {
   /** Default { width: 400, height: 300, devicePixelRatio: 1 }: the split files' camera today. */
@@ -59,12 +58,12 @@ export interface TestView {
 const DEFAULT_SCREEN: ViewScreen = { width: 400, height: 300, devicePixelRatio: 1 }
 
 export function createTestView(options: TestViewOptions = {}): TestView {
-  let plane = options.plane ?? createSessionPlane({ lon: 0, lat: 0 })
+  let plane = options.plane ?? conformalFixturePlaneForTests({ lon: 0, lat: 0 })
   const screen: ViewScreen = { ...DEFAULT_SCREEN, ...options.screen }
   const camera: ViewCamera = options.camera
     ? {
       center: options.camera.center ?? plane.origin,
-      zoom: options.camera.zoom ?? stageScaleToMapZoom(1, plane.origin.lat),
+      zoom: options.camera.zoom ?? plane.zoomForPixelsPerMetre(1),
       bearingDeg: options.camera.bearingDeg ?? 0,
       pitchDeg: 0,
     }

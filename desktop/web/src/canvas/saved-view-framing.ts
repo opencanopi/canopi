@@ -4,8 +4,7 @@
 // turned frame; going to a saved view, a story step, a thumbnail and opening a Design at the view it was saved with all fit that
 // ground into their window at the view's bearing with one rule.
 
-import { mapZoomToStageScale } from '../geo/projection'
-import { roundGeoDegrees, storedBearing, type GeographicView } from '../geo/session-plane'
+import { createSessionPlane, roundGeoDegrees, storedBearing, type GeographicView } from '../geo/session-plane'
 import { WORKSPACE_MAP_MAX_ZOOM, WORKSPACE_MAP_MIN_ZOOM } from '../geo/workspace-camera-policy'
 import { SAVED_VIEW_MAX_GROUND_SIZE_M, SAVED_VIEW_MAX_ZOOM } from '../generated/canopi-design-format'
 import type { SavedViewCamera } from '../generated/contracts'
@@ -67,5 +66,5 @@ export function savedViewZoom(camera: SavedViewCamera, window: WindowSize): numb
 
 /** Ground metres per CSS pixel at a stored camera's centre latitude and zoom: a size, never a position. */
 function groundMetresPerPixel(camera: Pick<SavedViewCamera, 'lat' | 'zoom'>): number {
-  return 1 / mapZoomToStageScale(camera.zoom, camera.lat)
+  return 1 / createSessionPlane({ lon: 0, lat: camera.lat }).pixelsPerMetre(camera.zoom).mean
 }

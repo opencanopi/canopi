@@ -191,9 +191,9 @@ describe('draft layer', () => {
     layer.setDraft(everyShape())
     layer.setView(at({ x: 100, y: 50 }, 10))
 
-    // The world container carries the placement; world shapes keep their metres.
     expect(global(layer.worldDraftRoot)).toEqual({ x: 100, y: 50 })
-    expect(layer.worldDraftRoot.scale.x).toBeCloseTo(10, 9)
+    layer.worldDraftRoot.updateLocalTransform()
+    expect(layer.worldDraftRoot.localTransform.a).toBeCloseTo(10, 9)
     const [polyline, polygon, quad, ellipse, zoneGhost, ...extraWorld] = layer.worldDraftRoot.children as Graphics[]
     const zoneOutline = zoneGhost!.children[1] as Graphics
     expect(extraWorld).toEqual([])

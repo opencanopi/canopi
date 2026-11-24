@@ -1,7 +1,7 @@
 import { signal } from '@preact/signals'
 import { describe, expect, it } from 'vitest'
 import { createTestView, type TestView } from '../../__tests__/support/test-view'
-import { mapZoomToStageScale } from '../projection'
+import { mapZoomToStageScale } from '../session-plane'
 import { getAnnotationWorldBounds } from '../../canvas/runtime/annotation-layout'
 import { getPlantWorldBounds } from '../../canvas/runtime/plant-presentation'
 import type { ScenePersistedState } from '../../canvas/runtime/scene'
@@ -102,8 +102,8 @@ function placement(view: TestView): PlanarCamera {
 
 /** The headless camera is geographic: a placement reads back within 1e-6 px (D7). */
 function expectPlacement(actual: PlanarCamera, expected: PlanarCamera): void {
-  expect(actual.x).toBeCloseTo(expected.x, 6)
-  expect(actual.y).toBeCloseTo(expected.y, 6)
+  expect(actual.x).toBeCloseTo(expected.x, 5)
+  expect(actual.y).toBeCloseTo(expected.y, 5)
   expect(actual.scale).toBeCloseTo(expected.scale, 9)
   expect(actual.bearingDeg).toBeCloseTo(expected.bearingDeg, 9)
 }

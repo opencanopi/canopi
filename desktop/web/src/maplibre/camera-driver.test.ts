@@ -3,7 +3,8 @@
 import { signal } from '@preact/signals'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createTestView, type TestView } from '../__tests__/support/test-view'
-import { geoToMercator, mapZoomToStageScale, mercatorToGeo, stageScaleToMapZoom } from '../geo/projection'
+import { geoToMercator, mercatorToGeo } from '../geo/projection'
+import { conformalFixturePlaneForTests, createSessionPlane, mapZoomToStageScale, type SessionPlane } from '../geo/session-plane'
 import type { ScenePersistedState } from '../canvas/runtime/scene'
 import type { CameraDriver, CameraDriverDeps } from '../geo/view/camera-driver'
 import { createCameraDriverHost } from '../geo/view/driver-host'
@@ -13,7 +14,6 @@ import { planarToViewCamera } from '../geo/view/camera-math'
 import type { GeoPoint } from '../generated/contracts'
 import type { PlanarCamera, ViewCamera, ViewFrame, ViewScreen } from '../geo/view/types'
 import { planarCameraOf } from '../geo/view/view-transform'
-import { createSessionPlane, type SessionPlane } from '../geo/session-plane'
 import { Camera as SourceCameraClass } from 'maplibre-gl-source/ui/camera.ts'
 import { createMapLibreCameraDriver, type MapLibreCameraDriverMap } from './camera-driver'
 import type { MapLibreLngLat, MapLibreTransformConstrain } from './loader'
@@ -503,7 +503,7 @@ describe('MapLibre camera driver', () => {
   // camera the plane gives for it), reaches the map as one explicit camera.
 
   it('a placement becomes the north-up camera over the plane point at the screen centre', () => {
-    const plane = createSessionPlane({ lon: -122.68, lat: 45.52 })
+    const plane = conformalFixturePlaneForTests({ lon: -122.68, lat: 45.52 })
     const map = new ConsistentMap({ center: plane.origin, zoom: 16 }, { width: 1000, height: 800 })
     const { driver, published } = attach(map, createNavigationPolicy(45.52, signal(false)), plane)
 
@@ -513,7 +513,7 @@ describe('MapLibre camera driver', () => {
     const [options] = map.jumpTo.mock.calls.at(-1)!
     expect(options.center[0]).toBeCloseTo(centre.lon, 8)
     expect(options.center[1]).toBeCloseTo(centre.lat, 8)
-    expect(options.zoom).toBeCloseTo(stageScaleToMapZoom(2, 45.52), 8)
+    expect(options.zoom).toBeCloseTo(createSessionPlane({ lon: 0, lat: 45.52 }).zoomForPixelsPerMetre(2), 8)
     expect(options.bearing).toBe(0)
     expect(published).toHaveLength(1)
     expect(published[0]!.view.camera.bearingDeg).toBe(0)
@@ -547,7 +547,7 @@ describe('MapLibre camera driver', () => {
   })
 
   it('the frame reads back the placed centre and the ground under the four corners', () => {
-    const plane = createSessionPlane({ lon: -122.68, lat: 45.52 })
+    const plane = conformalFixturePlaneForTests({ lon: -122.68, lat: 45.52 })
     const map = new ConsistentMap({ center: plane.origin, zoom: 16 }, { width: 1000, height: 800 })
     const { driver } = attach(map, createNavigationPolicy(45.52, signal(false)), plane)
 
@@ -967,7 +967,7 @@ describe('screen-lock validation', () => {
   }
 
   function canvasPixelOf(viewport: { x: number; y: number; scale: number }, point: { x: number; y: number }) {
-    return { x: viewport.x + point.x * viewport.scale, y: viewport.y + point.y * viewport.scale }
+    return { x: viewport.x + plane.toView(point).x * viewport.scale, y: viewport.y + plane.toView(point).y * viewport.scale }
   }
 
   /** Today's fit of the scene on a fresh screen, through the navigation (at bearing 0, today's CameraController fit). */

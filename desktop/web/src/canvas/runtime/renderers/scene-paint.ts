@@ -7,7 +7,7 @@
 
 // Production CSP rejects Pixi's generated functions; its shim avoids eval.
 import 'pixi.js/unsafe-eval'
-import { Matrix, TextStyle, type Container, type Graphics, type Text, type TextStyleOptions } from 'pixi.js'
+import { Container, TextStyle, type Graphics, type Text, type TextStyleOptions } from 'pixi.js'
 import { isSceneObjectGroupMemberTarget, type ScenePoint } from '../scene'
 import {
   getCanvasInteractionStrokeVisual,
@@ -19,12 +19,44 @@ import {
 import type { ViewTransform } from '../../../geo/view/types'
 import type { SceneRendererHoverState, SceneRendererSnapshot } from './scene-types'
 
-const affine = new Matrix()
+/**
+ * Pixi world root (ADR 0016, 2.1-M520): overrides `updateLocalTransform` to write the view's
+ * 2×3 general affine directly into `localTransform`, avoiding position/scale/rotation/skew
+ * decomposition so anisotropic WGS84 ground-metre affines stay exact on one transform path.
+ */
+export class WorldRootContainer extends Container {
+  private readonly affine: [number, number, number, number, number, number] = [1, 0, 0, 1, 0, 0]
+  private appliedTick = -1
 
-/** A world root's transform: the view's affine, so world shapes keep their metres (spec §1.5). One write per frame. */
-export function writeWorldAffine(root: Container, view: ViewTransform): void {
-  const values = view.planar.affine
-  root.setFromMatrix(affine.set(values[0], values[1], values[2], values[3], values[4], values[5]))
+  setAffine(values: readonly [number, number, number, number, number, number]): void {
+    this.affine[0] = values[0]
+    this.affine[1] = values[1]
+    this.affine[2] = values[2]
+    this.affine[3] = values[3]
+    this.affine[4] = values[4]
+    this.affine[5] = values[5]
+    this.appliedTick = -1
+    this.position.set(values[4], values[5])
+    this._onUpdate()
+  }
+
+  override updateLocalTransform(): void {
+    const tick = this._didContainerChangeTick
+    if (this.appliedTick === tick) return
+    this.appliedTick = tick
+    const lt = this.localTransform
+    lt.a = this.affine[0]
+    lt.b = this.affine[1]
+    lt.c = this.affine[2]
+    lt.d = this.affine[3]
+    lt.tx = this.affine[4]
+    lt.ty = this.affine[5]
+  }
+}
+
+/** A world root's transform: the view's general affine, so world shapes keep their ground metres (ADR 0016, 2.1-M520). */
+export function writeWorldAffine(root: WorldRootContainer, view: ViewTransform): void {
+  root.setAffine(view.planar.affine)
 }
 
 /** CSS px as world units at `pixelsPerMetre`: the scene's one rule for screen-weight strokes in a world root. */

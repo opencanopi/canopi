@@ -42,6 +42,7 @@ import {
   screenPxToWorldPx,
   toPixiColor,
   traceDashedPath,
+  WorldRootContainer,
   writeWorldAffine,
 } from './scene-paint'
 import type { SceneEditingAids, SceneRendererHoverState, SceneRendererSnapshot } from './scene-types'
@@ -64,7 +65,7 @@ export interface WorldLayers {
 }
 
 export function createWorldLayers(): WorldLayers {
-  const root = new Container()
+  const root = new WorldRootContainer()
   const editingAidsLayer = new Container()
   const zonesLayer = new Container()
   const measurementGuideLayer = new Container()

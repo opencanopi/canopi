@@ -31,7 +31,6 @@ import {
 import { SceneRuntimeMutationController } from './mutations'
 import { SceneRuntimeReoriginController } from './reorigin'
 import { DEFAULT_NEW_DESIGN_VIEW } from '../../../geo/session-plane'
-import { mapZoomToStageScale } from '../../../geo/projection'
 import { SceneRuntimePresentationController } from './presentation'
 import { SceneRuntimeRenderScheduler } from './render-scheduler'
 import {
@@ -129,10 +128,9 @@ export function createSceneRuntimeConstruction(
     return { lon: view.lon, lat: view.lat }
   })
   // Fitting an empty Design shows the new-Design overview: its centre is the plane origin.
-  const readEmptySceneScale = () => mapZoomToStageScale(
+  const readEmptySceneScale = () => sceneStore.sessionPlane.pixelsPerMetre(
     readEmptyDesignView().zoom,
-    sceneStore.sessionPlane.origin.lat,
-  )
+  ).mean
   // The runtime's one camera, on the Scene's plane: the policy takes that plane's latitude.
   const cameraHost = createCameraDriverHost({
     reducedMotion: appAdapter.reducedMotion ?? NO_REDUCED_MOTION,

@@ -12,7 +12,6 @@ import { planarToViewCamera } from './camera-math'
 import { createViewFrameSource } from './frame-source'
 import { createHeadlessCameraDriver } from './headless-driver'
 import { createNavigationPolicy, type NavigationPolicy } from './navigation-policy'
-import { stageScaleToMapZoom } from '../projection'
 import type { ScreenInsets, ViewCamera, ViewFrame, ViewScreen } from './types'
 import { planarCameraOf } from './view-transform'
 
@@ -62,7 +61,7 @@ export function createCameraDriverHost(options: CameraDriverHostOptions): Camera
     deps: driverDeps,
     plane: initialPlane,
     screen: options.screen ?? EMPTY_SCREEN,
-    camera: options.camera ?? { center: initialPlane.origin, zoom: stageScaleToMapZoom(1, initialPlane.origin.lat), bearingDeg: 0, pitchDeg: 0 },
+    camera: options.camera ?? { center: initialPlane.origin, zoom: initialPlane.zoomForPixelsPerMetre(1), bearingDeg: 0, pitchDeg: 0 },
     insets: options.insets,
   })
   let attached = false

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createTestView } from '../../__tests__/support/test-view'
-import { createSessionPlane, type SessionPlane } from '../session-plane'
+import { conformalFixturePlaneForTests, createSessionPlane, type SessionPlane } from '../session-plane'
 import type { ViewFrame, ViewTransform } from './types'
 import { planarCameraOf } from './view-transform'
 
@@ -41,15 +41,19 @@ describe('re-origin', () => {
       view.dispose()
     }
 
-    // The camera keeps its ground through lon/lat (D7): at bearing 0 the placement is today's reprojection within 1e-6 px (today's
-    // CameraController's reprojectViewport(first.transformTo(next)) from the same viewport, recorded at 52cbff10).
-    const view = createTestView({ plane: first, viewport: { x: -19_850.25, y: 5_100.5, scale: 1.25 } })
-    view.host.current().planeChanged(next)
+    // On a conformal fixture plane, the camera keeps its ground through lon/lat at bearing 0 within 1e-6 px.
+    const conformalFirst = conformalFixturePlaneForTests({ lon: 2.3522, lat: 48.8566 })
+    const conformalNext = conformalFixturePlaneForTests(conformalFirst.toGeo({ x: 20_000, y: -5_000 }))
+    const view = createTestView({ plane: conformalFirst, viewport: { x: -19_850.25, y: 5_100.5, scale: 1.25 } })
+    const groundBefore = groundUnder(view.view(), conformalFirst)
+    view.host.current().planeChanged(conformalNext)
     const placement = planarCameraOf(view.view())
-    expect(placement.x).toBeCloseTo(5149.750000000808, 6)
-    expect(placement.y).toBeCloseTo(-1149.4999999983747, 6)
-    expect(placement.scale).toBeCloseTo(1.2511237201432013, 9)
     expect(placement.bearingDeg).toBe(0)
+    expect(placement.scale).toBeCloseTo(1.25 * (conformalNext.pixelsPerMetre(0).mean / conformalFirst.pixelsPerMetre(0).mean), 6)
+    for (const [index, ground] of groundUnder(view.view(), conformalNext).entries()) {
+      expect(ground.lon).toBeCloseTo(groundBefore[index]!.lon, 9)
+      expect(ground.lat).toBeCloseTo(groundBefore[index]!.lat, 9)
+    }
     view.dispose()
   })
 

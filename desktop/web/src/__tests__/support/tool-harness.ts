@@ -7,7 +7,7 @@ import type { GeoPoint } from '../../generated/contracts'
 // the runtime's.
 import { signal, type ReadonlySignal } from '@preact/signals'
 import type { CanvasToolGuidance } from '../../canvas/session-state'
-import { createSessionPlane } from '../../geo/session-plane'
+import { conformalFixturePlaneForTests, createSessionPlane } from '../../geo/session-plane'
 import type { Gesture, MenuSource, NavigationSource, PressTarget } from '../../canvas/runtime/input/gestures'
 import { createInputRouter } from '../../canvas/runtime/input/input-router'
 import type { TargetClass } from '../../canvas/runtime/input/raw-input'
@@ -454,7 +454,7 @@ const ARROW_DIRECTIONS = {
 
 export function createToolHarness(options: ToolHarnessOptions = {}): ToolHarness {
   const view = createTestView({
-    plane: createSessionPlane({ lon: 0, lat: 0 }),
+    plane: conformalFixturePlaneForTests({ lon: 0, lat: 0 }),
     ...(options.viewport ? { viewport: options.viewport } : {}),
     ...(options.camera ? { camera: options.camera } : {}),
     ...(options.screen ? { screen: options.screen } : {}),

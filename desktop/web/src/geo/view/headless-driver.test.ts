@@ -1,8 +1,7 @@
 import { effect } from '@preact/signals'
 import { describe, expect, it } from 'vitest'
 import { createTestView, type TestView } from '../../__tests__/support/test-view'
-import { mapZoomToStageScale, stageScaleToMapZoom } from '../projection'
-import { createSessionPlane, type SessionPlane } from '../session-plane'
+import { mapZoomToStageScale, conformalFixturePlaneForTests, createSessionPlane, type SessionPlane } from '../session-plane'
 import type { CameraDriver, CameraMove } from './camera-driver'
 import { planarToViewCamera } from './camera-math'
 import type { PlanarCamera, ViewCamera, ViewFrame } from './types'
@@ -115,8 +114,8 @@ describe('headless camera driver', () => {
   })
 
   it('a still headless camera reproduces today\'s placement within 1e-6 px', () => {
-    const plane = createSessionPlane({ lon: 0, lat: 0 })
-    const next = createSessionPlane(plane.toGeo({ x: 12_500, y: -4_000 }))
+    const plane = conformalFixturePlaneForTests({ lon: 0, lat: 0 })
+    const next = conformalFixturePlaneForTests(plane.toGeo({ x: 12_500, y: -4_000 }))
     const place = (placement: Omit<PlanarCamera, 'bearingDeg'>) => (driver: CameraDriver) =>
       placeOn(driver, plane, { ...placement, bearingDeg: 0 })
     const steps: readonly Step[] = [
@@ -154,8 +153,8 @@ describe('headless camera driver', () => {
       [-67.74625, 216.6475, 1.2209999999999999, 1, 'site', SCREEN_400],
       [-67.74625, 216.6475, 1.2209999999999999, 0, 'site', SCREEN_400],
       [-74.04625, 91.75, 3.3, 1, 'site', SCREEN_400],
-      [200, 150, 1716.6895781438734, 1, 'site', SCREEN_400],
-      [200, 150, 1.2790334061860095e-05, 1, 'overview', SCREEN_400],
+      [200, 150, plane.pixelsPerMetre(27).mean, 1, 'site', SCREEN_400],
+      [200, 150, plane.pixelsPerMetre(0).mean, 1, 'overview', SCREEN_400],
       [31, -7, 0.05, 1, 'overview', SCREEN_400],
       [31, -7, 0.05, 0, 'overview', SCREEN_400],
       [-19, -57, 0.05, 1, 'overview', SCREEN_300],
@@ -243,12 +242,12 @@ describe('headless camera driver', () => {
 
   it('a camera placed at exactly the overview threshold is in site mode, though its scale reads back a hair under', () => {
     const plane = createSessionPlane({ lon: 13.405, lat: 52.52 })
-    const zoom = stageScaleToMapZoom(0.1, plane.origin.lat)
+    const zoom = createSessionPlane({ lon: 0, lat: plane.origin.lat }).zoomForPixelsPerMetre(0.1)
     const view = createTestView({ plane, camera: { zoom } })
     const frame = view.host.current().frames.viewFrame.peek()
     expect(frame.view.pixelsPerMetre).toBeLessThan(0.1)
     expect(frame.mode).toBe('site')
-    view.host.current().apply({ kind: 'set', target: { ...frame.view.camera, zoom: stageScaleToMapZoom(0.0999, plane.origin.lat) }, animation: 'none' })
+    view.host.current().apply({ kind: 'set', target: { ...frame.view.camera, zoom: createSessionPlane({ lon: 0, lat: plane.origin.lat }).zoomForPixelsPerMetre(0.0999) }, animation: 'none' })
     expect(view.host.current().frames.viewFrame.peek().mode).toBe('overview')
     view.dispose()
   })

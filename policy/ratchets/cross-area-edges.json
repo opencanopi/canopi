@@ -296,9 +296,6 @@
     "app/data-library -> generated": {
       "count": 1
     },
-    "app/data-library -> geo": {
-      "count": 1
-    },
     "app/data-library -> i18n": {
       "count": 1
     },
@@ -1254,6 +1251,10 @@
     },
     "failures -> generated": {
       "count": 1
+    },
+    "geo -> generated": {
+      "count": 1,
+      "bead": "canopi-f47t.52.213"
     },
     "i18n -> app/settings": {
       "count": 1,

@@ -31,6 +31,10 @@ pub const FUTURE_CANOPI_FILE_VERSION_POLICY: &str = "newer_read_only";
     reason = "undocumented before 2.1-Q217; document when this file is next touched"
 )]
 pub const WEB_MERCATOR_MAX_LATITUDE_DEG: f64 = 85.051_128_779_806_6;
+/// WGS84 ellipsoid semi-major axis in metres (ADR 0001, contracts §20).
+pub const WGS84_SEMI_MAJOR_AXIS_M: f64 = 6_378_137.0;
+/// WGS84 ellipsoid flattening `1 / 298.257223563` (ADR 0001, contracts §20).
+pub const WGS84_FLATTENING: f64 = 1.0 / 298.257_223_563;
 
 fn deserialize_json_u32<'de, D>(deserializer: D) -> Result<u32, D::Error>
 where

@@ -9,7 +9,7 @@
 // needs the user's word.
 
 import { afterEach, describe, expect, it } from 'vitest'
-import { stageScaleToMapZoom } from '../../../geo/projection'
+import { createSessionPlane } from '../../../geo/session-plane'
 import {
   createToolHarness,
   createToolSceneSource,
@@ -164,7 +164,7 @@ function setup(scale: number, bearingDeg: number) {
   const h = createToolHarness({
     scene: layout(scale),
     screen: { width: 1000, height: 1000 },
-    camera: { zoom: stageScaleToMapZoom(scale, 0), bearingDeg },
+    camera: { zoom: createSessionPlane({ lon: 0, lat: 0 }).zoomForPixelsPerMetre(scale), bearingDeg },
   })
   harnesses.push(h)
   const scene = createToolScene(createToolSceneSource(h.store, { pixelsPerMetre: () => h.view.view().pixelsPerMetre }))
@@ -261,7 +261,7 @@ describe('(canopi-qd2k) zones are picked by their outline only (user decision 20
     const h = createToolHarness({
       scene: { zones: [rectZone('pond', [centre, { x: radius, y: radius }], { zoneType: 'ellipse' })] },
       screen: { width: 1000, height: 1000 },
-      camera: { zoom: stageScaleToMapZoom(scale, 0), bearingDeg: 0 },
+      camera: { zoom: createSessionPlane({ lon: 0, lat: 0 }).zoomForPixelsPerMetre(scale), bearingDeg: 0 },
     })
     harnesses.push(h)
     expect(h.view.view().pixelsPerMetre).toBeCloseTo(scale, 6)
@@ -322,7 +322,7 @@ describe('(canopi-qd2k) zones are picked by their outline only (user decision 20
         ],
       },
       screen: { width: 1000, height: 1000 },
-      camera: { zoom: stageScaleToMapZoom(1, 0), bearingDeg: 0 },
+      camera: { zoom: createSessionPlane({ lon: 0, lat: 0 }).zoomForPixelsPerMetre(1), bearingDeg: 0 },
     })
     harnesses.push(h)
     const screen = h.view.view().worldToScreen({ x: -112, y: 0 })

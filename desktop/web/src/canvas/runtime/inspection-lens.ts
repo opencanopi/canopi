@@ -4,7 +4,6 @@ import type { CanvasQueryRevision } from './runtime'
 import type { SceneRendererSnapshot } from './renderers/scene-types'
 import type { SceneDesignObjectTarget } from './scene'
 import type { SessionPlane } from '../../geo/session-plane'
-import { stageScaleToMapZoom } from '../../geo/projection'
 import { canvasFonts, distinctCharacters } from './fonts/font-loading'
 import { drawInspectionLensScene } from './inspection-lens-drawing'
 import { getSceneLayerStyle } from './scene-visuals'
@@ -115,7 +114,7 @@ export class SceneCanvasInspectionOwner {
       const view = buildViewTransform({
         camera: {
           center: plane.toGeo(centre),
-          zoom: stageScaleToMapZoom(scale, plane.origin.lat),
+          zoom: plane.zoomForPixelsPerMetre(scale),
           bearingDeg: mainView.camera.bearingDeg,
           pitchDeg: 0,
         },

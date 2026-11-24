@@ -98,7 +98,7 @@ export function createViewNavigation(deps: ViewNavigationDeps): ViewNavigation {
   /** Shows a fit's placement: the camera that puts its centre at the screen centre, at its scale and bearing. */
   const place = (planar: PlanarCamera): void => {
     const { view } = frame()
-    jump(cameraCentredOn(view, placementCentre(planar, view.screen), planar.scale, planar.bearingDeg))
+    jump(cameraCentredOn(view, view.fromView(placementCentre(planar, view.screen)), planar.scale, planar.bearingDeg))
   }
 
   function screenCentre(): ScreenPoint {
@@ -109,7 +109,7 @@ export function createViewNavigation(deps: ViewNavigationDeps): ViewNavigation {
   function fitFrame(): FitFrame {
     const current = frame()
     const { view } = current
-    return { screen: view.screen, insets: current.insets, scaleBounds: current.scaleBounds, current: planarCameraOf(view) }
+    return { screen: view.screen, insets: current.insets, scaleBounds: current.scaleBounds, current: planarCameraOf(view), toView: view.toView }
   }
 
   /** A temporary focus's framing of `bounds` at the current bearing, or null when they cannot be framed. */
@@ -215,7 +215,7 @@ export function createViewNavigation(deps: ViewNavigationDeps): ViewNavigation {
       const fitted = fitScene(fitFrame(), extent, bearing)
       // A fit that kept another bearing turns about the screen centre: the same centre and scale at the opening bearing.
       const { view } = frame()
-      jump(cameraCentredOn(view, placementCentre(fitted, view.screen), fitted.scale, bearing))
+      jump(cameraCentredOn(view, view.fromView(placementCentre(fitted, view.screen)), fitted.scale, bearing))
     },
     showPlace(target, zoom, options) {
       if (![target.lon, target.lat, zoom].every(Number.isFinite)) return false
@@ -239,10 +239,13 @@ export function createViewNavigation(deps: ViewNavigationDeps): ViewNavigation {
       turnTo(nextStep(driver().bearingTarget(), direction, ROTATION_STEP_DEG))
     },
     turnToEdge(a, b) {
-      const dx = b.x - a.x
-      const dy = b.y - a.y
+      const { view } = frame()
+      const va = view.toView(a)
+      const vb = view.toView(b)
+      const dx = vb.x - va.x
+      const dy = vb.y - va.y
       if (![dx, dy].every(Number.isFinite) || (dx === 0 && dy === 0)) return
-      // At bearing β a plane vector turns counter-clockwise on screen by β, so a→b is level at atan2(dy, dx) and half a turn on.
+      // At bearing β a conformal vector turns counter-clockwise on screen by β, so a→b is level at atan2(dy, dx) and half a turn on.
       const along = normaliseBearing(Math.atan2(dy, dx) * 180 / Math.PI)
       const opposite = normaliseBearing(along + 180)
       const from = driver().bearingTarget()

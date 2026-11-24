@@ -14,7 +14,7 @@ vi.mock('../../../ipc/species', async (importOriginal) => ({
 import { geoAt } from '../../../__tests__/support/geo-design'
 import { CURRENT_CANOPI_FILE_VERSION } from '../../../generated/canopi-design-format'
 import type { CanopiFile } from '../../../types/design'
-import { stageScaleToMapZoom } from '../../../geo/projection'
+import { createSessionPlane } from '../../../geo/session-plane'
 import { AttachedInteractionMap } from '../../../__tests__/support/canvas-interaction-setup'
 import { placeOnHost } from '../../../__tests__/support/test-view'
 import { createMapLibreCameraDriver } from '../../../maplibre/camera-driver'
@@ -77,7 +77,7 @@ function todaysCapture(runtime: SceneCanvasRuntime) {
   const plane = runtime.querySurface.sessionPlane.peek()!
   const centre = plane.toGeo({ x: (width / 2 - viewport.x) / viewport.scale, y: (height / 2 - viewport.y) / viewport.scale })
   return {
-    view: { lon: centre.lon, lat: centre.lat, zoom: stageScaleToMapZoom(viewport.scale, plane.origin.lat) },
+    view: { lon: centre.lon, lat: centre.lat, zoom: createSessionPlane({ lon: 0, lat: plane.origin.lat }).zoomForPixelsPerMetre(viewport.scale) },
   }
 }
 

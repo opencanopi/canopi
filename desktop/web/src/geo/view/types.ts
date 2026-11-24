@@ -2,6 +2,7 @@
 
 import type { ReadonlySignal } from '@preact/signals'
 import type { GeoPoint } from '../../generated/contracts'
+import type { ConformalPoint } from '../session-plane'
 
 /** Session-plane metres: x east, y south (ADR 0001). */
 export interface WorldPoint { readonly x: number; readonly y: number }
@@ -87,7 +88,11 @@ export interface ViewTransform {
   /** Four projected corners, never two (rotation-handle anchor, menu anchor). */
   worldQuadToScreen(q: WorldQuad): readonly [ScreenPoint, ScreenPoint, ScreenPoint, ScreenPoint]
 
-  readonly pixelsPerMetre: number            // at the plane origin (zoom bands, policy)
+  readonly pixelsPerMetre: number            // geometric mean at the plane origin (zoom bands, policy)
+  /** Plane metres -> the camera's conformal (screen-similar) frame. */
+  toView(p: WorldPoint): ConformalPoint
+  /** Conformal frame -> plane metres. */
+  fromView(p: ConformalPoint): WorldPoint
   readonly northUp: boolean                  // angularDistanceToNorth(bearing) < 0.05° and pitch 0
 }
 

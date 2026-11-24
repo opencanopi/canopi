@@ -28,7 +28,7 @@ import {
 import type { DraftFill, DraftPresentation, DraftShape, DraftStroke } from '../tools/draft'
 import type { GhostEntity } from '../tools/tool'
 import type { ScreenPoint, ViewTransform, WorldPoint } from '../../../geo/view/types'
-import { pixiPaint, screenPxToWorldPx, traceDashedPath, writeWorldAffine } from './scene-paint'
+import { pixiPaint, screenPxToWorldPx, traceDashedPath, WorldRootContainer, writeWorldAffine } from './scene-paint'
 
 /** Where the scene draws the active tool's draft; mounted by pixi-scene.ts. */
 export interface DraftLayer {
@@ -101,7 +101,7 @@ const CHIP_SHADOW_HAIRLINE_PX = 0.25
 
 export function createDraftLayer(options: DraftLayerOptions): DraftLayer {
   const { createText, painters } = options
-  const world = new Container()
+  const world = new WorldRootContainer()
   const screen = new Container()
   let viewWidth = options.viewSize.width
   let viewHeight = options.viewSize.height

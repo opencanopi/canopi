@@ -5,9 +5,8 @@ import {
   PLANT_SYMBOL_IDS,
   serializeScenePersistedState,
 } from '../../canvas/runtime/scene'
-import { createSessionPlane } from '../../geo/session-plane'
+import { createSessionPlane, mapZoomToStageScale } from '../../geo/session-plane'
 import { PLANT_COLOR_PALETTE } from '../../canvas/plant-colors'
-import { mapZoomToStageScale } from '../../geo/projection'
 import reliefFixture from './assets/rust-display-relief.json'
 
 export const detail: SpeciesDetail = {

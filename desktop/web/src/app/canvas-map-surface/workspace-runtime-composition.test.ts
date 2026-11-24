@@ -18,7 +18,6 @@ import {
 } from '../../__tests__/support/canvas-runtime-surfaces'
 import { createTestCanvasQuerySurface } from '../../__tests__/support/canvas-query-surface'
 import { createSessionPlane, geographicViewOfCamera } from '../../geo/session-plane'
-import { stageScaleToMapZoom } from '../../geo/projection'
 import { createViewReadSurface, SETTLE_MS } from '../../geo/view/frame-source'
 import { createTestView } from '../../__tests__/support/test-view'
 import type {
@@ -254,7 +253,7 @@ describe('createWorkspaceRuntimeComposition', () => {
       const view = onViewSettled.mock.calls[0]![0]
       expect(view.lon).toBeCloseTo(centre.lon, 6)
       expect(view.lat).toBeCloseTo(centre.lat, 6)
-      expect(view.zoom).toBeCloseTo(stageScaleToMapZoom(2, SETTLE_PLANE.origin.lat), 6)
+      expect(view.zoom).toBeCloseTo(createSessionPlane({ lon: 0, lat: SETTLE_PLANE.origin.lat }).zoomForPixelsPerMetre(2), 6)
       vi.advanceTimersByTime(lastViewDelay * 4)
       expect(onViewSettled).toHaveBeenCalledOnce()
 

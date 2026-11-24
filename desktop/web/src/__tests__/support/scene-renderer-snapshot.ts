@@ -8,7 +8,7 @@ import { projectSceneSelectionEntityIds } from '../../canvas/runtime/scene-runti
 import type { ViewScreen, ViewTransform } from '../../geo/view/types'
 import { planarToViewCamera } from '../../geo/view/camera-math'
 import { buildViewTransform } from '../../geo/view/view-transform'
-import { createSessionPlane } from '../../geo/session-plane'
+import { conformalFixturePlaneForTests } from '../../geo/session-plane'
 
 export interface TestSceneRendererSnapshotOptions {
   readonly speciesFocus?: SceneRendererSnapshot['speciesFocus']
@@ -66,7 +66,7 @@ export function createTestRendererView(
   options: { readonly bearingDeg?: number; readonly screen?: Partial<ViewScreen> } = {},
 ): ViewTransform {
   const screen = { width: 400, height: 300, devicePixelRatio: 1, ...options.screen }
-  const plane = createSessionPlane({ lon: 0, lat: 0 })
+  const plane = conformalFixturePlaneForTests({ lon: 0, lat: 0 })
   return buildViewTransform({
     camera: planarToViewCamera({ ...viewport, bearingDeg: options.bearingDeg ?? 0 }, screen, plane),
     screen,

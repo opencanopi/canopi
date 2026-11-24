@@ -1,13 +1,11 @@
 // ---------------------------------------------------------------------------
-// Canonical canvas↔map projection seam.
+// Canonical canvas↔map Web Mercator projection math (ADR 0001, contracts §20).
 //
-// Canvas world coordinates are metres in the session plane (x east, y south),
-// a Mercator-anchored local frame so the canvas and map share one affine
-// surface. The origin is the session plane origin; see `session-plane.ts`.
+// Pure leaf module (projection-imports-nothing): holds Web Mercator formulas
+// and parameterised WGS84 ellipsoid radius formulas. The WGS84 constants and
+// the session plane live in `geo/session-plane.ts`.
 // ---------------------------------------------------------------------------
 
-const EARTH_RADIUS_METERS = 6371008.8
-const EARTH_CIRCUMFERENCE_METERS = 2 * Math.PI * EARTH_RADIUS_METERS
 const DEGREES_TO_RADIANS = Math.PI / 180
 /** MapLibre's world is 512 CSS pixels wide at zoom 0. */
 export const MAPLIBRE_WORLD_TILE_SIZE = 512
@@ -15,6 +13,33 @@ export const MAPLIBRE_WORLD_TILE_SIZE = 512
 export interface MapMercatorCoordinate {
   x: number
   y: number
+}
+
+/** WGS84 prime-vertical (N, east-west) and meridional (M, north-south) radii of curvature at a latitude. */
+export function wgs84Radii(
+  lat: number,
+  semiMajorAxisM: number,
+  flattening: number,
+): { readonly n: number; readonly m: number } {
+  const e2 = flattening * (2 - flattening)
+  const sin = Math.sin(lat * DEGREES_TO_RADIANS)
+  const w = 1 - e2 * sin * sin
+  const sqrtW = Math.sqrt(w)
+  return {
+    n: semiMajorAxisM / sqrtW,
+    m: (semiMajorAxisM * (1 - e2)) / (w * sqrtW),
+  }
+}
+
+/** WGS84 ground metres per Web Mercator unit along east-west (x) and north-south (y) at a latitude. */
+export function wgs84MetresPerMercatorAtLat(
+  lat: number,
+  semiMajorAxisM: number,
+  flattening: number,
+): { readonly x: number; readonly y: number } {
+  const { n, m } = wgs84Radii(lat, semiMajorAxisM, flattening)
+  const twoPiCos = 2 * Math.PI * Math.cos(lat * DEGREES_TO_RADIANS)
+  return { x: twoPiCos * n, y: twoPiCos * m }
 }
 
 function mercatorXfromLng(lng: number): number {
@@ -34,10 +59,6 @@ function latFromMercatorY(y: number): number {
   return 360 / Math.PI * Math.atan(Math.exp(y2 * Math.PI / 180)) - 90
 }
 
-export function mercatorUnitsPerMeterAtLat(lat: number): number {
-  return 1 / EARTH_CIRCUMFERENCE_METERS / Math.cos(lat * DEGREES_TO_RADIANS)
-}
-
 export function geoToMercator(lng: number, lat: number): MapMercatorCoordinate {
   return {
     x: mercatorXfromLng(lng),
@@ -50,21 +71,6 @@ export function mercatorToGeo(x: number, y: number): { lng: number; lat: number 
     lng: lngFromMercatorX(x),
     lat: latFromMercatorY(y),
   }
-}
-
-/**
- * Convert canvas viewport scale to a MapLibre zoom level using the same
- * Mercator world-size convention as MapLibre's transform (512px world at z=0).
- */
-export function stageScaleToMapZoom(stageScale: number, lat: number): number {
-  const mercatorUnitsPerMeter = mercatorUnitsPerMeterAtLat(lat)
-  const pixelsPerMercatorUnit = stageScale / mercatorUnitsPerMeter
-  return Math.log2(pixelsPerMercatorUnit / MAPLIBRE_WORLD_TILE_SIZE)
-}
-
-/** Exact inverse of stageScaleToMapZoom for a fixed anchor latitude. */
-export function mapZoomToStageScale(mapZoom: number, lat: number): number {
-  return MAPLIBRE_WORLD_TILE_SIZE * 2 ** mapZoom * mercatorUnitsPerMeterAtLat(lat)
 }
 
 /** Relative margin for scale thresholds: far below anything visible, far above a zoom round trip's error. */

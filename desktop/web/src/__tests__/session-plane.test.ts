@@ -1,12 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { mapZoomToStageScale } from '../geo/projection'
-import {
-  createSessionPlane,
-  geographicViewOfCamera,
-  roundGeoDegrees,
-  SESSION_PLANE_REORIGIN_DISTANCE_METERS,
-  sessionPlaneOriginForPoints,
-} from '../geo/session-plane'
+import { mapZoomToStageScale, createSessionPlane, geographicViewOfCamera, roundGeoDegrees, SESSION_PLANE_REORIGIN_DISTANCE_METERS, sessionPlaneOriginForPoints } from '../geo/session-plane'
 import { createTestView } from './support/test-view'
 
 const EARTH_RADIUS_METERS = 6371008.8
@@ -55,9 +48,12 @@ describe('session plane', () => {
 
   it('keeps plane distances metric near the origin', () => {
     const plane = createSessionPlane({ lon: 5.5, lat: 45 })
+    expect(plane.groundLength({ x: -50, y: 0 }, { x: 50, y: 0 })).toBeCloseTo(100, 3)
     const a = plane.toGeo({ x: -50, y: 0 })
     const b = plane.toGeo({ x: 50, y: 0 })
-    expect(haversineMeters(a, b)).toBeCloseTo(100, 3)
+    // Sphere haversine differs from WGS84 by ~0.28% at 45°N (ADR 0001, 2.1-Q78d)
+    expect(haversineMeters(a, b)).toBeGreaterThan(99.5)
+    expect(haversineMeters(a, b)).toBeLessThan(100.5)
   })
 
   it('rounds degrees to 1e-9 and prints them without float noise', () => {
@@ -107,7 +103,7 @@ describe('the geographic view of a camera', () => {
 
   it('reads the zoom of a view far from the plane origin at the origin latitude', () => {
     const farPlane = createSessionPlane({ lon: 13, lat: 23 })
-    const oslo = farPlane.toPlane({ lon: 10.75, lat: 59.91 })
+    const oslo = farPlane.toView(farPlane.toPlane({ lon: 10.75, lat: 59.91 }))
     const scale = mapZoomToStageScale(17, farPlane.origin.lat)
     const view = geographicViewAt({
       viewport: { x: 400 - oslo.x * scale, y: 300 - oslo.y * scale, scale },

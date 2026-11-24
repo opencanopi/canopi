@@ -1,0 +1,18 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "family": "scale-only-through-plane",
+  "entries": {
+    "desktop/web/src/app/data-library/import-coverage.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.189"
+    },
+    "desktop/web/src/app/my-location/follow.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.189"
+    },
+    "desktop/web/src/maplibre/user-location-overlay.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.189"
+    }
+  }
+}

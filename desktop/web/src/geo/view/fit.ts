@@ -6,6 +6,7 @@
 // (fit.test.ts holds the numbers).
 
 import { bearingCosSin, normaliseBearing } from './navigation-policy'
+import type { ConformalPoint } from '../session-plane'
 import type { PlanarCamera, SceneBounds, SceneExtent, ScreenInsets, TemporaryBoundsFocusOptions, WorldPoint } from './types'
 
 const FIT_PADDING = 0.1
@@ -34,6 +35,8 @@ export interface FitFrame {
   readonly scaleBounds: { readonly min: number; readonly max: number }
   /** The live placement: its scale seeds the extent loop, and it is kept when there is nothing to fit. */
   readonly current: PlanarCamera
+  /** Plane metres -> conformal frame that `PlanarCamera` places (identity when omitted). */
+  readonly toView?: (p: WorldPoint) => ConformalPoint
 }
 
 /** Extent of a point set along the screen axes at a bearing: across = right, down = down. */
@@ -66,6 +69,10 @@ function framingSpan(extent: number, before: number, after: number): { start: nu
   return { start: Math.min(Math.max(start, 0), extent - grown), size: grown }
 }
 
+function toViewPoints(frame: FitFrame, points: readonly WorldPoint[]): readonly WorldPoint[] {
+  return frame.toView ? points.map(frame.toView) : points
+}
+
 /**
  * Fit to Design at a bearing. Notes and default-mode plants are screen-sized, so the extent depends on the scale: the fit
  * recomputes it at each candidate scale until the scale changes by less than 0.01 % (at most 20 rounds; typically 2–3).
@@ -79,7 +86,7 @@ export function fitScene(frame: FitFrame, extent: SceneExtent, bearingDeg: numbe
   let bounds: OrientedExtent | null = null
   let scale = currentScale
   for (let round = 0; round < FIT_MAX_ROUNDS; round++) {
-    bounds = orientedExtent(extent.extentPoints(currentScale), bearing)
+    bounds = orientedExtent(toViewPoints(frame, extent.extentPoints(currentScale)), bearing)
     if (!bounds) return emptyScenePlacement(frame, extent.emptySceneScale, bearing)
 
     const contentWidth = Math.max(bounds.maxAcross - bounds.minAcross, 1)
@@ -139,12 +146,13 @@ export function fitTemporaryBounds(
   const availableHeight = height - Math.min(padding, height / 4) * 2
 
   const bearing = normaliseBearing(bearingDeg)
-  const box = orientedExtent([
+  const corners: readonly WorldPoint[] = [
     { x: minX, y: minY },
     { x: maxX, y: minY },
     { x: maxX, y: maxY },
     { x: minX, y: maxY },
-  ], bearing)!
+  ]
+  const box = orientedExtent(toViewPoints(frame, corners), bearing)!
   const scale = clampScale(Math.min(
     availableWidth / (box.maxAcross - box.minAcross),
     availableHeight / (box.maxDown - box.minDown),

@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { mapZoomToStageScale } from '../projection'
-import { createSessionPlane, type SessionPlane } from '../session-plane'
+import { mapZoomToStageScale, conformalFixturePlaneForTests, createSessionPlane, type SessionPlane } from '../session-plane'
 import { planarToViewCamera } from './camera-math'
 import type { PlanarCamera, ViewCamera, ViewScreen, WorldPoint } from './types'
 import { buildViewTransform, planarCameraOf } from './view-transform'
@@ -28,7 +27,7 @@ function expectNear(actual: WorldPoint, expected: WorldPoint, tolerance: number)
 
 describe('view transform', () => {
   it('round trips at bearing 0', () => {
-    const planes = [createSessionPlane({ lon: -122.68, lat: 45.52 }), createSessionPlane({ lon: 0, lat: 0 })]
+    const planes = [conformalFixturePlaneForTests({ lon: -122.68, lat: 45.52 }), conformalFixturePlaneForTests({ lon: 0, lat: 0 })]
     const placements = [
       { x: -200, y: -100, scale: 2 },
       { x: 0.3, y: 7.25, scale: 1 / 3 },
@@ -72,8 +71,9 @@ describe('view transform', () => {
       const { affine } = view.planar
 
       expect(affine.every(Number.isFinite)).toBe(true)
-      expect(Math.hypot(affine[0], affine[1])).toBeCloseTo(mapZoomToStageScale(27, 60), 9)
-      expect(view.pixelsPerMetre).toBeCloseTo(mapZoomToStageScale(27, 60), 9)
+      expect(Math.hypot(affine[0], affine[1])).toBeCloseTo(plane.pixelsPerMetre(27).x, 9)
+      expect(Math.hypot(affine[2], affine[3])).toBeCloseTo(plane.pixelsPerMetre(27).y, 9)
+      expect(view.pixelsPerMetre).toBeCloseTo(plane.pixelsPerMetre(27).mean, 9)
       const centre = view.screenToWorld({ x: 500, y: 400 })
       for (const point of [centre, { x: centre.x + 0.01, y: centre.y - 0.02 }, { x: centre.x - 0.1, y: centre.y + 0.07 }]) {
         const [a, b, c, d, tx, ty] = affine
@@ -85,7 +85,7 @@ describe('view transform', () => {
   })
 
   it('turns the plane counter-clockwise on screen, so the bearing points up', () => {
-    const plane = createSessionPlane({ lon: 0, lat: 0 })
+    const plane = conformalFixturePlaneForTests({ lon: 0, lat: 0 })
     const view = fromPlane({ x: 300, y: 200, scale: 4, bearingDeg: 90 }, plane)
 
     expectClose(view.worldToScreen({ x: 0, y: 0 }), { x: 300, y: 200 })
@@ -106,7 +106,7 @@ describe('view transform', () => {
   })
 
   it('the centre and the corners at bearing 0 are the viewport\'s', () => {
-    const plane = createSessionPlane({ lon: -122.68, lat: 45.52 })
+    const plane = conformalFixturePlaneForTests({ lon: -122.68, lat: 45.52 })
     const view = fromPlane({ x: -200, y: -100, scale: 2, bearingDeg: 0 }, plane)
 
     const centre = plane.toGeo({ x: 350, y: 250 })
@@ -173,7 +173,7 @@ describe('view transform', () => {
 // projection.ts's viewportCenterGeo and viewportCornerGeoPoints (deleted with canvas/maplibre-camera.ts at the end of 0A).
 describe('ViewTransform.camera center', () => {
   it('projects the viewport center from viewport state', () => {
-    const plane = createSessionPlane({ lon: -122.68, lat: 45.52 })
+    const plane = conformalFixturePlaneForTests({ lon: -122.68, lat: 45.52 })
     const view = fromPlane({ x: -200, y: -100, scale: 2, bearingDeg: 0 }, plane)
 
     const expected = plane.toGeo({ x: 350, y: 250 })

@@ -6,8 +6,7 @@ import type { ViewFrame } from '../../geo/view/types'
 import { planarCameraOf } from '../../geo/view/view-transform'
 import { roundGeoPosition } from './scene/geo-frame'
 import { effect } from '@preact/signals'
-import { stageScaleToMapZoom } from '../../geo/projection'
-import { DEFAULT_NEW_DESIGN_VIEW } from '../../geo/session-plane'
+import { createSessionPlane, DEFAULT_NEW_DESIGN_VIEW } from '../../geo/session-plane'
 import { getMapBackdropInk, type CanvasMapBackdrop } from './scene-visuals'
 import type { SceneRuntimePresentationController, ScenePresentationRefreshResult } from './scene-runtime/presentation'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -605,7 +604,7 @@ describe('scene canvas runtime', () => {
         expect(origin.x).toBeCloseTo(200, 6)
         expect(origin.y).toBeCloseTo(150, 6)
         const plane = runtime.querySurface.sessionPlane.value!
-        expect(stageScaleToMapZoom(view.pixelsPerMetre, plane.origin.lat)).toBeCloseTo(DEFAULT_NEW_DESIGN_VIEW.zoom, 6)
+        expect(createSessionPlane({ lon: 0, lat: plane.origin.lat }).zoomForPixelsPerMetre(view.pixelsPerMetre)).toBeCloseTo(DEFAULT_NEW_DESIGN_VIEW.zoom, 6)
         expect(frameOf(runtime).mode).toBe('overview')
       } finally {
         runtime.destroy()
@@ -1470,7 +1469,7 @@ describe('scene canvas runtime', () => {
     expect(runtime.commandSurface.viewport.showPlace(oslo, 17)).toBe(true)
 
     const scale = placementOf(runtime).scale
-    expect(stageScaleToMapZoom(scale, plane.origin.lat)).toBeCloseTo(17, 9)
+    expect(createSessionPlane({ lon: 0, lat: plane.origin.lat }).zoomForPixelsPerMetre(scale)).toBeCloseTo(17, 9)
     runtime.destroy()
   })
 
