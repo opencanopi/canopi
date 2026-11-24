@@ -361,6 +361,8 @@ jobs:
       # target, and the wasm-bindgen CLI at Cargo.lock's wasm-bindgen version, the one canopi-format-wasm/build-wasm.mjs
       # accepts.
       - uses: ./.github/actions/setup-rust
+        with:
+          targets: wasm32-unknown-unknown
       # scripts/generate_notices.mjs's CARGO_ABOUT_VERSION (third-party-notices.test.ts keeps them equal).
       - uses: taiki-e/install-action@v2
         with:

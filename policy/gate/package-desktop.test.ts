@@ -92,9 +92,9 @@ describe('the package-desktop action (design check AR4)', () => {
     // Build & Test's own build uploads canopi-<target> in the same run: the dry run's names differ.
     expect(String(step?.with?.['artifact-name'])).toBe("${{ needs.preflight.outputs.dry_run == 'true' && 'dry-run-' || '' }}canopi-${{ matrix.target }}")
     expect(String(step?.with?.['retention-days'])).toBe("${{ needs.preflight.outputs.dry_run == 'true' && 1 || 30 }}")
-    // Nothing after the build runs in a call: no smoke, no Web package, no manifest.
+    // Nothing after the desktop build and Web e2e-release runs in a call: no desktop smoke, no updater, no manifest.
     const jobs = flows.get('release-candidate.yml')?.jobs ?? {}
-    const after = Object.keys(jobs).filter((job) => !['preflight', 'build'].includes(job))
+    const after = Object.keys(jobs).filter((job) => !['preflight', 'build', 'web', 'e2e-release'].includes(job))
     expect(after.filter((job) => !String((jobs[job] as { if?: string }).if ?? '').includes("needs.preflight.outputs.dry_run != 'true'"))).toEqual([])
   })
 
@@ -145,7 +145,7 @@ describe('the package-desktop action (design check AR4)', () => {
     expect(named).toEqual([1, 0, 0])
     const rows = jobOf('release-candidate.yml', 'build').strategy?.matrix?.include ?? []
     expect(Object.fromEntries(rows.map((row) => [row['os'], row['updater']])))
-      .toEqual({ 'ubuntu-latest': true, 'macos-15': false, 'macos-15-intel': false, 'windows-latest': true })
+      .toEqual({ 'ubuntu-26.04': true, 'macos-15': false, 'macos-15-intel': false, 'windows-2025': true })
     expect(String(packageStep('release-candidate.yml')?.with?.['updater'])).toBe("${{ matrix.updater && needs.preflight.outputs.updater == 'true' }}")
   })
 
@@ -353,10 +353,10 @@ describe('the platforms Build & Test packages (canopi-f47t.52.228.54)', () => {
   }
 
   it('canopi-f47t.52.228.54: a pull request never packages Intel macOS; a push to main and the release dry run do', () => {
-    expect(packaging(true, false)).toEqual({ matrix: ['ubuntu-latest', 'macos-15'], platforms: ['macos-15', 'windows-latest'], appimage: false })
-    expect(packaging(true, true)).toEqual({ matrix: ['ubuntu-latest', 'macos-15', 'windows-latest'], platforms: ['macos-15', 'windows-latest'], appimage: true })
-    const all = ['ubuntu-latest', 'macos-15', 'macos-15-intel', 'windows-latest']
-    expect(packaging(false, false)).toEqual({ matrix: all, platforms: ['macos-15', 'macos-15-intel', 'windows-latest'], appimage: true })
+    expect(packaging(true, false)).toEqual({ matrix: ['ubuntu-26.04', 'macos-15'], platforms: ['macos-15', 'windows-2025'], appimage: false })
+    expect(packaging(true, true)).toEqual({ matrix: ['ubuntu-26.04', 'macos-15', 'windows-2025'], platforms: ['macos-15', 'windows-2025'], appimage: true })
+    const all = ['ubuntu-26.04', 'macos-15', 'macos-15-intel', 'windows-2025']
+    expect(packaging(false, false)).toEqual({ matrix: all, platforms: ['macos-15', 'macos-15-intel', 'windows-2025'], appimage: true })
     // The release dry run packages all four, Intel included.
     const rows = jobOf('release-candidate.yml', 'build').strategy?.matrix?.include ?? []
     expect(rows.map((row) => row['os'])).toEqual(all)

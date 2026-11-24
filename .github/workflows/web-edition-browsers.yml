@@ -68,6 +68,8 @@ jobs:
           timeout 5m apt-get -o Acquire::Retries=5 -o Acquire::http::Timeout=60 install -y -qq --no-install-recommends gcc libc6-dev
       - uses: ./.github/actions/setup-rust
         if: matrix.suite == 'canvas'
+        with:
+          targets: wasm32-unknown-unknown
       - uses: taiki-e/install-action@v2
         if: matrix.suite == 'canvas'
         with:
@@ -166,6 +168,8 @@ jobs:
           cache: npm
           cache-dependency-path: desktop/web/package-lock.json
       - uses: ./.github/actions/setup-rust
+        with:
+          targets: wasm32-unknown-unknown
       - uses: taiki-e/install-action@v2
         with:
           tool: wasm-bindgen@0.2.130

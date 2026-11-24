@@ -202,6 +202,8 @@ jobs:
           timeout 3m apt-get -o Acquire::Retries=5 -o Acquire::http::Timeout=60 update -qq
           timeout 5m apt-get -o Acquire::Retries=5 -o Acquire::http::Timeout=60 install -y -qq --no-install-recommends gcc libc6-dev
       - uses: ./.github/actions/setup-rust
+        with:
+          targets: wasm32-unknown-unknown
       # With no argument rustup installs what the reader tree's rust-toolchain.toml pins, its targets included.
       - name: Install the reader tree's Rust toolchain
         run: rustup toolchain install
