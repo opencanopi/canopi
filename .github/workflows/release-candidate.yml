@@ -626,10 +626,10 @@ jobs:
       branch: ${{ inputs.ref }}
 
   # The root Web Edition (web.projectcanopi.com) from the same commit, with the Web
-  # catalog published beside the DB by scripts/publish-db-release.sh.
+  # catalog published beside the DB by scripts/publish-db-release.sh. Runs on dry runs too so e2e-release exercises it
+  # on release-input PRs (canopi-ywes).
   web:
     needs: preflight
-    if: needs.preflight.outputs.dry_run != 'true'
     runs-on: ubuntu-26.04
     timeout-minutes: 30
     steps:
@@ -653,7 +653,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           ASSET_NAME: ${{ needs.preflight.outputs.web_catalog_asset_name }}
-          DB_RELEASE_TAG: ${{ inputs.db_release_tag }}
+          DB_RELEASE_TAG: ${{ needs.preflight.outputs.db_release_tag }}
         shell: bash
         run: |
           set -euo pipefail
@@ -687,7 +687,7 @@ jobs:
         id: archive
         env:
           HEAD_SHA: ${{ needs.preflight.outputs.head_sha }}
-          RELEASE_VERSION: ${{ inputs.release_version }}
+          RELEASE_VERSION: ${{ needs.preflight.outputs.release_version }}
         shell: bash
         run: |
           set -euo pipefail
@@ -710,10 +710,62 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+  # Exercise e2e-release against the packaged Web Edition archive on release-input PRs and RCs alike (canopi-ywes).
+  e2e-release:
+    needs: [preflight, web]
+    runs-on: ubuntu-26.04
+    container:
+      image: mcr.microsoft.com/playwright:v1.64.1-noble
+      options: --ipc=host
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.preflight.outputs.head_sha }}
+      - uses: ./.github/actions/setup-frontend
+      - uses: actions/download-artifact@v8
+        with:
+          name: canopi-web-edition
+          path: web-release-archive
+      - name: Run e2e-release against the packaged Web Edition
+        working-directory: desktop/web
+        run: |
+          set -euo pipefail
+          site="$RUNNER_TEMP/e2e-release-site"
+          mkdir -p "$site"
+          tar -xzf ../../web-release-archive/*.tar.gz -C "$site"
+          node -e '
+            const http = require("node:http"), fs = require("node:fs"), path = require("node:path");
+            const root = process.argv[1];
+            const mime = { ".html": "text/html", ".js": "text/javascript", ".mjs": "text/javascript", ".css": "text/css", ".wasm": "application/wasm", ".json": "application/json", ".parquet": "application/octet-stream", ".svg": "image/svg+xml", ".png": "image/png" };
+            http.createServer((req, res) => {
+              const urlPath = decodeURIComponent((req.url || "/").split("?")[0]);
+              const file = path.join(root, urlPath === "/" ? "index.html" : urlPath);
+              if (!file.startsWith(root) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) { res.writeHead(404); res.end(); return; }
+              const stat = fs.statSync(file);
+              const ct = mime[path.extname(file)] || "application/octet-stream";
+              const range = req.headers.range;
+              if (range) {
+                const m = /bytes=(\d+)-(\d*)/.exec(range);
+                const start = m ? Number(m[1]) : 0;
+                const end = m && m[2] ? Number(m[2]) : stat.size - 1;
+                res.writeHead(206, { "Content-Range": `bytes ${start}-${end}/${stat.size}`, "Accept-Ranges": "bytes", "Content-Length": end - start + 1, "Content-Type": ct });
+                fs.createReadStream(file, { start, end }).pipe(res);
+              } else {
+                res.writeHead(200, { "Accept-Ranges": "bytes", "Content-Length": stat.size, "Content-Type": ct });
+                fs.createReadStream(file).pipe(res);
+              }
+            }).listen(4175, "127.0.0.1");
+          ' "$site" > "$RUNNER_TEMP/e2e-release-server.log" 2>&1 &
+          srv=$!
+          trap 'kill "$srv" 2>/dev/null || true' EXIT
+          for _ in $(seq 30); do curl -fsS http://127.0.0.1:4175/ >/dev/null && break; sleep 1; done
+          CANOPI_WEB_RELEASE_URL=http://127.0.0.1:4175 npx playwright test --config e2e-release/playwright.config.ts
+
   # Every lane before it passed or was skipped: a stable fix skips the updater lane, and still reaches its manifest.
   # Refuse any failed or cancelled needed job (including a cancelled build leg, canopi-7dryh).
   manifest:
-    needs: [preflight, build, linux-floor, smoke-linux, smoke-windows, updater-end-to-end, rollback, web]
+    needs: [preflight, build, linux-floor, smoke-linux, smoke-windows, updater-end-to-end, rollback, web, e2e-release]
     if: ${{ needs.preflight.outputs.dry_run != 'true' && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && !cancelled() }}
     runs-on: ubuntu-26.04
     timeout-minutes: 15

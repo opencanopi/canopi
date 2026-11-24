@@ -91,50 +91,12 @@ jobs:
               --event push --status success --limit 1 --json headSha --jq '.[0].headSha // ""')" || sha=""
           fi
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
-      # Only policy/gate/table.ts's areas select (design check AR2): `gate areas` names whether the change holds code and
-      # the areas it selects, and each area job below runs when its own area is selected. A push, and an unknown base,
-      # run everything.
+      # Only policy/gate/table.ts's areas select (design check AR2, canopi-tazgx): `gate areas --github-output`
+      # computes every changes output from the one area table (push/PR/unknown-base rules included).
       - id: diff
         env:
           BASE: ${{ steps.base.outputs.sha }}
-        run: |
-          set -euo pipefail
-          tests=""
-          flags="code rust frontend policy tauri contracts species packaging workflows real_app web_browsers updater rollback release_build supply_chain"
-          if [ -z "$BASE" ] || ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
-            for name in $flags; do declare "$name=true"; done
-            # advisories.yml scans every push to main; Build & Test scans a pull request's lockfile changes only.
-            supply_chain=$PR_RUN
-          else
-            sel="$(node policy/gate/cli.mjs areas --base "$BASE")"
-            has() { jq -e --arg a "$1" '.selected | index($a) != null' >/dev/null <<<"$sel"; }
-            code="$(jq -r '.code' <<<"$sel")"
-            rust=$code frontend=$code policy=$code tauri=$code contracts=$code species=$code packaging=$code workflows=$code
-            real_app=false web_browsers=false updater=false rollback=false release_build=false supply_chain=false
-            if has real-app; then real_app=true; fi
-            if has web-browsers; then web_browsers=true; fi
-            if has updater; then updater=true; fi
-            if has rollback; then rollback=true; fi
-            if has release-build; then release_build=true; fi
-            if [ "$PR_RUN" = true ]; then
-              rust=false frontend=false policy=false tauri=false contracts=false species=false packaging=false workflows=false
-              if has rust; then rust=true; fi
-              if has frontend; then frontend=true; fi
-              if has policy-tooling; then policy=true; fi
-              if has tauri-command; then tauri=true; fi
-              if has shared-contracts; then contracts=true; fi
-              if has species-catalog; then species=true; fi
-              if has packaging; then packaging=true; fi
-              if has workflows; then workflows=true; fi
-              if has supply-chain; then supply_chain=true; fi
-            fi
-            # When the frontend job is off, whose coverage run holds them, the vitest files the affected lane adds: the
-            # toolchain scanner and each test naming a changed file (a guide included), the always-run families for a
-            # code change.
-            if [ "$frontend" = false ]; then tests="$(jq -r '.tests | join(" ")' <<<"$sel")"; fi
-          fi
-          for name in $flags; do echo "$name=${!name}"; done >> "$GITHUB_OUTPUT"
-          echo "tests=$tests" >> "$GITHUB_OUTPUT"
+        run: node policy/gate/cli.mjs areas --base "$BASE" --event "$GITHUB_EVENT_NAME" --github-output >> "$GITHUB_OUTPUT"
       # PRs package Linux and Apple silicon, and Windows too when they change a packaging input (the gate's packaging
       # area); pushes to main and Release Candidate package all four. The Intel macOS build was Build & Test's long pole
       # on PRs (26.6 min measured 2026-11-04; the frontend job 18), so PRs never package Intel macOS: its unsigned dmg
@@ -522,9 +484,10 @@ jobs:
   # Candidate keeps its own preflight gate.
   build:
     needs: changes
-    # Fork PRs package nothing.
+    # Fork PRs package nothing; skip when release-build already runs the 4-platform packaging matrix (Stage 1 E1).
     if: >-
       (needs.changes.outputs.rust == 'true' || needs.changes.outputs.packaging_inputs == 'true') &&
+      needs.changes.outputs.release_build != 'true' &&
       (github.event_name != 'pull_request' ||
       github.event.pull_request.head.repo.full_name == github.repository)
     timeout-minutes: 90

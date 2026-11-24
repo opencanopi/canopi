@@ -325,7 +325,8 @@ export const TABLE: Table = {
       row: 'CI `{release-build}`',
       workflow: '.github/workflows/release-candidate.yml',
       patterns: [String.raw`^\.github/tauri-release-updater\.json$`, String.raw`^scripts/release_smoke\.py$`,
-        String.raw`^desktop/tauri\.conf\.json$`, String.raw`^desktop/tauri\.macos\.conf\.json$`, String.raw`^\.github/workflows/(updater-e2e|rollback)\.yml$`],
+        String.raw`^desktop/tauri\.conf\.json$`, String.raw`^desktop/tauri\.macos\.conf\.json$`, String.raw`^\.github/workflows/(updater-e2e|rollback)\.yml$`,
+        String.raw`^desktop/web/e2e-release/`],
       actions: ['install-linux-deps', 'build-geolibre-cli', 'package-desktop', 'setup-rust', 'setup-frontend'],
       full: ['release-build'],
     },
@@ -503,6 +504,7 @@ export const TABLE: Table = {
     'release-candidate.yml smoke-linux': { '*': 'release-build' },
     'release-candidate.yml smoke-windows': { '*': 'release-build' },
     'release-candidate.yml web': { '*': 'release-build' },
+    'release-candidate.yml e2e-release': { '*': 'release-build' },
     'release-candidate.yml manifest': { '*': 'release-build' },
     // The workflows outside Build & Test: the Commit gate's steps are gate calls; each other one is its own lane, and
     // cache-prune.yml deletes superseded caches, judging nothing.

@@ -98,8 +98,15 @@ export async function main(ROOT: string, args: readonly string[]): Promise<numbe
       return base?.length === 1 ? (await import('./prepush-checks.ts')).prepushChecks(ROOT, base[0] ?? '') : usage()
     }
     if (mode === 'areas') {
-      const base = parse(rest, [], ['--base'])?.values.get('--base')
-      if (base?.length !== 1) return usage()
+      const parsedAreas = parse(rest, ['--github-output'], ['--base', '--event'])
+      const base = parsedAreas?.values.get('--base')
+      const event = parsedAreas?.values.get('--event')
+      if (!parsedAreas || base?.length !== 1 || (event?.length ?? 0) > 1) return usage()
+      if (parsedAreas.seen.has('--github-output')) {
+        const outputs = (await import('./ci-areas.ts')).ciAreasOutputs(ROOT, base[0], event?.[0] ?? 'pull_request')
+        process.stdout.write(`${Object.entries(outputs).map(([k, v]) => `${k}=${v}`).join('\n')}\n`)
+        return 0
+      }
       process.stdout.write(`${JSON.stringify(plan.areasJson(ROOT, plan.changed(ROOT, base[0], false)), null, 2)}\n`)
       return 0
     }
