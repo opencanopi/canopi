@@ -18,10 +18,6 @@
       "count": 1,
       "bead": "canopi-f47t.52.228.39"
     },
-    "desktop/web/src/__tests__/ipc-wrapper-usage.test.ts": {
-      "count": 1,
-      "bead": "canopi-f47t.52.228.40"
-    },
     "desktop/web/src/__tests__/plant-db-panel-detail.test.tsx": {
       "count": 1,
       "bead": "canopi-f47t.52.228.39"

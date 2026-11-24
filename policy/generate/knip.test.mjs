@@ -13,3 +13,10 @@ test('a tagged value export carries a name the test-only-exports-only-in-tests r
   assert.equal(typeof held, 'string');
   assert.deepEqual(regexes, [held, held]);
 });
+
+test('canopi-f47t.52.228.40: knip production graph covers src/ipc exports so unused IPC wrappers fail the knip ratchet', () => {
+  const knip = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, 'desktop/web/knip.json'), 'utf8'));
+  assert.ok(knip.project.includes('src/**!'));
+  assert.ok(!(knip.ignore ?? []).some((g) => g.includes('ipc')));
+  assert.ok(!(knip.entry ?? []).some((g) => g.includes('ipc')));
+});
