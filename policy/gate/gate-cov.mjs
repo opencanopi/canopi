@@ -14,6 +14,7 @@ import { spawn } from 'node:child_process'
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, matchesGlob, relative, sep } from 'node:path'
+import { vitestWorkers } from './vitest-workers.mjs'
 
 export const COVERAGE_FAMILY = 'policy/ratchets/coverage.json'
 export const TOOL = 'policy-gate'
@@ -54,9 +55,7 @@ export function gateCovPlan(root) {
  */
 export function vitestArgs(plan, reports, env = process.env) {
   const deep = (/** @type {string} */ glob) => `**/${glob}`
-  const raw = (env.CANOPI_VITEST_WORKERS ?? env.VITEST_WORKERS ?? '').trim()
-  const workers = /^[1-9]\d*$/.test(raw) && Number(raw) <= 16 ? Number(raw) : 4
-  return ['run', '--project', TOOL, `--maxWorkers=${workers}`, '--coverage', '--coverage.allowExternal', '--coverage.reporter=json',
+  return ['run', '--project', TOOL, `--maxWorkers=${vitestWorkers(env).workers}`, '--coverage', '--coverage.allowExternal', '--coverage.reporter=json',
     `--coverage.reportsDirectory=${reports}`, ...plan.include.map((g) => `--coverage.include=${deep(g)}`),
     ...plan.exclude.map((g) => `--coverage.exclude=${deep(g)}`),
     ...METRICS.map((m) => `--coverage.thresholds.${m}=0`)]
