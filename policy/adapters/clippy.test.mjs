@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { observeFamily } from '../core/observe.mjs';
 import { writtenRepo } from '../core/test-repo.mjs';
+import { rustTestAndGenerated } from '../generate/ast-grep.mjs';
 import * as clippy from './clippy.mjs';
 
 const SOURCE = [
@@ -74,4 +75,22 @@ test('canopi-f47t.52.240: a disallowed-methods family runs clippy even when no #
   const root = writtenRepo({ 'Cargo.toml': '[package]\nname = "planted"\n[workspace]\n', 'src/lib.rs': 'pub fn f() {}\n' });
   clippy.collect({ root, paths: ['src/lib.rs'], exec, select: ['clippy::disallowed_methods'] });
   assert.deepEqual(asked, [['clippy', '--manifest-path', 'Cargo.toml', '--workspace']]);
+});
+
+test('canopi-g8ip: #[path] attributes on #[cfg(test)] modules are excluded by clippy and ast-grep test walkers', () => {
+  const root = writtenRepo({
+    'Cargo.toml': '[workspace]\nmembers = ["crate"]\n',
+    'crate/Cargo.toml': '[package]\nname = "planted"\nversion = "0.1.0"\n',
+    'crate/src/lib.rs': '#[cfg(test)]\n#[path = "custom/alt_tests.rs"]\nmod alt;\n',
+    'crate/src/custom/alt_tests.rs': '#[expect(clippy::disallowed_methods, reason = "test only")]\nfn t() {}\n',
+  });
+  const exec = () => ({ status: 0, stdout: FINISHED, stderr: '' });
+  const sites = clippy.collect({
+    root,
+    paths: ['crate/src/lib.rs', 'crate/src/custom/alt_tests.rs'],
+    exec,
+    select: ['clippy::disallowed_methods'],
+  });
+  assert.deepEqual(sites, []);
+  assert.deepEqual(rustTestAndGenerated(root), ['crate/src/custom/alt_tests.rs']);
 });
