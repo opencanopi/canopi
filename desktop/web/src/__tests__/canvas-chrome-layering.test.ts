@@ -1,33 +1,33 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
+import { parseCssDeclarations } from './support/architecture/css-facts'
 
 function readCssSource(path: string): string {
   return readFileSync(`src/${path}`, 'utf8')
 }
 
 function classZIndex(path: string, className: string): number {
-  const source = readCssSource(path)
-  const rule = new RegExp(`\\.${className}\\s*\\{(?<body>[\\s\\S]*?)\\}`).exec(source)
-  if (!rule?.groups?.body) throw new Error(`Missing .${className} CSS rule in ${path}`)
-  const declaration = /z-index:\s*(?:(?<value>-?\d+)|var\((?<token>--z-[a-z-]+)\))\s*;/.exec(rule.groups.body)
-  if (declaration?.groups?.value) return Number.parseInt(declaration.groups.value, 10)
-  if (declaration?.groups?.token) return scaleToken(declaration.groups.token)
+  const decl = parseCssDeclarations(`src/${path}`, readCssSource(path))
+    .find((d) => d.rule === `.${className}` && d.property === 'z-index')
+  if (!decl) throw new Error(`Missing .${className} z-index declaration in ${path}`)
+  if (/^-?\d+$/.test(decl.value)) return Number.parseInt(decl.value, 10)
+  const token = /^var\((--z-[a-z-]+)\)$/.exec(decl.value)?.[1]
+  if (token) return scaleToken(token)
   throw new Error(`Missing .${className} z-index declaration`)
 }
 
 /** Resolves a stacking scale token from global.css. */
 function scaleToken(name: string): number {
-  const match = new RegExp(`${name}:\\s*(-?\\d+)`).exec(readCssSource('styles/global.css'))
-  if (!match?.[1]) throw new Error(`Missing ${name} in global.css`)
-  return Number.parseInt(match[1], 10)
+  const decl = parseCssDeclarations('src/styles/global.css', readCssSource('styles/global.css'))
+    .find((d) => d.property === name)
+  if (!decl || !/^-?\d+$/.test(decl.value)) throw new Error(`Missing ${name} in global.css`)
+  return Number.parseInt(decl.value, 10)
 }
 
 function ruleBody(path: string, selector: string): string {
-  const source = readCssSource(path)
-  const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  const rule = new RegExp(`(?:^|\\})\\s*${escaped}\\s*\\{(?<body>[^}]*)\\}`, 'm').exec(source)
-  if (!rule?.groups?.body) throw new Error(`Missing ${selector} CSS rule in ${path}`)
-  return rule.groups.body
+  const decls = parseCssDeclarations(`src/${path}`, readCssSource(path)).filter((d) => d.rule === selector)
+  if (decls.length === 0) throw new Error(`Missing ${selector} CSS rule in ${path}`)
+  return decls.map((d) => `${d.property}: ${d.value};`).join('\n')
 }
 
 describe('floating chrome layering', () => {

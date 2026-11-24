@@ -6,22 +6,21 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { CANVAS_CHROME_FONT_FAMILY } from '../canvas/chrome-fonts'
 import { createTextEntryHost } from '../canvas/runtime/chrome/text-entry-host'
+import { parseCssDeclarations } from './support/architecture/css-facts'
 import { createTestView } from './support/test-view'
 
-const GLOBAL_CSS = readFileSync('src/styles/global.css', 'utf8')
-const LIGHT_TOKENS = readDeclarations(GLOBAL_CSS, '\n:root {')
-const DARK_TOKENS = readDeclarations(GLOBAL_CSS, '\n[data-theme="dark"] {')
+const GLOBAL_DECLS = parseCssDeclarations('src/styles/global.css', readFileSync('src/styles/global.css', 'utf8'))
+const LIGHT_TOKENS = readDeclarations(':root')
+const DARK_TOKENS = readDeclarations('[data-theme="dark"]')
 
-function readDeclarations(css: string, opener: string): Map<string, string> {
-  const start = css.indexOf(opener)
-  if (start < 0) throw new Error(`Missing block ${opener.trim()}`)
-  const end = css.indexOf('\n}', start)
-  const block = css.slice(start + opener.length, end)
-    .replace(/\/\*[\s\S]*?\*\//g, '')
+function readDeclarations(selector: string): Map<string, string> {
   const declarations = new Map<string, string>()
-  for (const match of block.matchAll(/(--[\w-]+)\s*:\s*([^;]+);/g)) {
-    declarations.set(match[1]!, match[2]!.trim())
+  for (const decl of GLOBAL_DECLS) {
+    if (decl.rule === selector && decl.atRules.length === 0 && decl.property.startsWith('--')) {
+      declarations.set(decl.property, decl.value)
+    }
   }
+  if (declarations.size === 0) throw new Error(`Missing block ${selector}`)
   return declarations
 }
 

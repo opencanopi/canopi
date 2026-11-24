@@ -109,6 +109,7 @@
     "oxlint": "1.89.0",
     "oxlint-tsgolint": "7.0.2004",
     "picomatch": "4.0.7",
+    "postcss": "8.5.31",
     "rolldown": "~1.2.15",
     "rollup-plugin-license": "3.7.1",
     "typescript": "npm:@typescript/typescript6@^6.0.2",

@@ -6,6 +6,7 @@ import { h, render } from 'preact'
 import { act } from 'preact/test-utils'
 import { afterEach, describe, expect, it } from 'vitest'
 import { ButtonTooltip } from '../components/shared/ButtonTooltip'
+import { parseCssDeclarations } from './support/architecture/css-facts'
 
 // Popups portal to <body>, so only the z-index scale decides whether a menu
 // opened inside a dialog shows above it. A raw number here once put the
@@ -13,9 +14,9 @@ import { ButtonTooltip } from '../components/shared/ButtonTooltip'
 const read = (path: string) => readFileSync(new URL(path, import.meta.url), 'utf8')
 
 function token(css: string, name: string): number {
-  const match = new RegExp(`${name}:\\s*(\\d+)`).exec(css)
-  if (!match) throw new Error(`missing ${name}`)
-  return Number(match[1])
+  const decl = parseCssDeclarations('src/styles/global.css', css).find((d) => d.property === name)
+  if (!decl || !/^\d+$/.test(decl.value)) throw new Error(`missing ${name}`)
+  return Number(decl.value)
 }
 
 const FILES = {
@@ -93,8 +94,9 @@ describe('stacking order', () => {
 
   it('layers dialogs, popups and full-window surfaces only through the scale tokens', () => {
     for (const [name, path] of Object.entries(FILES)) {
-      const css = read(path)
-      const raw = [...css.matchAll(/z-index:\s*(\d+)/g)].map((match) => Number(match[1]))
+      const raw = parseCssDeclarations(path, read(path))
+        .filter((d) => d.property === 'z-index' && /^\d+$/.test(d.value))
+        .map((d) => Number(d.value))
       // In-flow layers inside a surface may stay small; anything that competes
       // with dialogs must use a token.
       expect(raw.filter((value) => value > 40), name).toEqual([])
