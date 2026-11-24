@@ -177,16 +177,31 @@ for art in artifacts:
         if prev is None or int(art["id"]) > int(prev["id"]):
             latest_pkg[art["name"]] = art
 
+# The run's latest attempt names its manifest by its number; a numbered manifest of an earlier attempt describes
+# packages that attempt built, so a latest attempt without one fails closed (canopi-7dryh). Unnumbered manifests come
+# from runs before attempt-scoped names, where the newest upload is the latest attempt's.
 chosen = None
-if manifests:
-    exact = [row for row in manifests if run_attempt and row[0] == int(run_attempt)]
-    chosen = max(exact or manifests, key=lambda r: (r[0], r[1]))[2]
+numbered = [row for row in manifests if row[0] > 0]
+exact = [row for row in numbered if run_attempt and row[0] == int(run_attempt)]
+if exact:
+    chosen = max(exact, key=lambda r: r[1])[2]
+elif numbered and run_attempt:
+    attempts = ", ".join(str(n) for n in sorted({row[0] for row in numbered}))
+    print(f"ERROR\tRun attempt {run_attempt} uploaded no canopi-release-candidate-manifest-{run_attempt} "
+          f"(attempts with a manifest: {attempts}); an earlier attempt's manifest is never promoted.")
+    sys.exit(0)
+elif manifests:
+    chosen = max(manifests, key=lambda r: (r[0], r[1]))[2]
 for art in ([chosen] if chosen else []) + list(latest_pkg.values()):
     target = "canopi-release-candidate-manifest" if art is chosen else art["name"]
     print(f"{art['id']}\t{target}\t{art['size_in_bytes']}")
 PY
 )
 
+if [[ "${artifact_lines[0]:-}" == ERROR$'\t'* ]]; then
+  echo "ERROR: ${artifact_lines[0]#ERROR$'\t'}" >&2
+  exit 1
+fi
 if [[ "${#artifact_lines[@]}" -eq 0 ]]; then
   echo "ERROR: No downloadable artifacts found for run $run_id." >&2
   exit 1

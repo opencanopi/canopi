@@ -517,6 +517,19 @@ else: raise SystemExit("Unexpected command: " + repr(args))
                 downloads = [next(a for a in c[1:] if not a.startswith("-")) for c in api_calls if "/actions/artifacts/" in " ".join(c)]
                 self.assertEqual(downloads, ["repos/example/canopi/actions/artifacts/9/zip"])
 
+    def test_canopi_7dryh_a_latest_attempt_without_its_manifest_fails_closed(self):
+        """An earlier attempt's numbered manifest is never promoted when the latest attempt uploaded none."""
+        self.state["run"]["run_attempt"] = 3
+        self.state["artifact_pages"] = [[(1, "canopi-x86_64-unknown-linux-gnu"), (2, "canopi-release-candidate-manifest-1")],
+                                        [(9, "canopi-release-candidate-manifest-2")]]
+        result = self.promote(artifact_dir=self.local_dir)
+        self.assertEqual(result.returncode, 1, result.stdout)
+        self.assertIn("Run attempt 3 uploaded no canopi-release-candidate-manifest-3 (attempts with a manifest: 1, 2)",
+                      result.stderr)
+        api_calls = [c for c in self.calls() if c[0] == "api"]
+        self.assertFalse([c for c in api_calls if "/actions/artifacts/" in " ".join(c)], "nothing is downloaded")
+        self.assertFalse([c for c in self.calls() if c[:1] == ["release"]], "no release is touched")
+
 
 if __name__ == "__main__":
     unittest.main()
