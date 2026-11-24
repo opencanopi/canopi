@@ -1,13 +1,6 @@
 {
   "$schema": "./ratchet.schema.json",
-  "version": 1,
   "family": "edition-roots",
-  "ledger": "2.1-M186",
-  "tool": "dependency-cruiser",
-  "scope": ["desktop/web/src/**", "desktop/web/ui-gallery/**"],
-  "lane": "commit",
-  "keys": "name",
-  "select": ["edition-roots"],
   "entries": {
     "app/budget/export.ts -> app/budget/platform.desktop.ts": { "count": 1 },
     "app/canvas-pdf/live.ts -> app/canvas-pdf/platform.desktop.ts": { "count": 1 },

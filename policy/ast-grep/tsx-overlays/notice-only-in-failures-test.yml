@@ -1,0 +1,8 @@
+valid:
+  - |
+    export const View = () => <ToastSlot />
+invalid:
+  - |
+    export const View = () => <Toast message="Saved" onDismiss={() => {}} />
+  - |
+    export const View = () => <Toast message="Saved">More</Toast>

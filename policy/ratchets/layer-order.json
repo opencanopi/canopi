@@ -1,13 +1,6 @@
 {
   "$schema": "./ratchet.schema.json",
-  "version": 1,
   "family": "layer-order",
-  "ledger": "2.1-M186",
-  "tool": "dependency-cruiser",
-  "scope": ["desktop/web/src/**"],
-  "lane": "commit",
-  "keys": "name",
-  "select": ["layer-order"],
   "entries": {
     "app/community/catalog.browser.ts -> web/static-design-templates.ts": { "count": 1 },
     "app/design-template-import/workflow.browser.ts -> web/browser-design-session.ts": { "count": 1 },

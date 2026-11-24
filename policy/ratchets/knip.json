@@ -4,7 +4,12 @@
   "family": "knip",
   "ledger": "2.1-E2",
   "tool": "knip",
-  "scope": ["desktop/web/src/**", "desktop/web/ui-gallery/**", "desktop/web/package.json", "policy/**"],
+  "scope": [
+    "desktop/web/src/**",
+    "desktop/web/ui-gallery/**",
+    "desktop/web/package.json",
+    "policy/**"
+  ],
   "lane": "commit",
   "keys": "path-rule",
   "bead": "canopi-f47t.52.12",
@@ -214,9 +219,6 @@
     "policy/generate/ast-grep.mjs: knip:exports/isPrimitiveRow": { "count": 1 },
     "policy/generate/ast-grep.mjs: knip:exports/primitiveMessage": { "count": 1 },
     "policy/generate/ast-grep.mjs: knip:exports/rustTestAndGenerated": { "count": 1 },
-    "policy/generate/depcruise.mjs: knip:exports/NODE_BUILTINS": { "count": 1 },
-    "policy/generate/depcruise.mjs: knip:exports/globBody": { "count": 1 },
-    "policy/generate/depcruise.mjs: knip:exports/graphSpecs": { "count": 1 },
     "policy/git.mjs: knip:exports/GitReadError": { "count": 1 },
     "policy/selection.mjs: knip:exports/laneArg": { "count": 1 }
   }

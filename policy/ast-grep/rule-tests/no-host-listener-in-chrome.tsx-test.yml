@@ -1,8 +1,0 @@
-id: no-host-listener-in-chrome.tsx
-valid:
-  - |
-    export const planted = 1
-invalid:
-  - |
-    declare const host: HTMLElement
-    host.addEventListener('pointerdown', () => {})

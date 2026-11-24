@@ -1,0 +1,3 @@
+invalid:
+  - |
+    export const link = <a href="https://tile.googleapis.com/v1/2dtiles">tiles</a>

@@ -1,13 +1,6 @@
 {
   "$schema": "./ratchet.schema.json",
-  "version": 1,
   "family": "ipc-only-in-desktop-adapters",
-  "ledger": "2.1-M143",
-  "tool": "dependency-cruiser",
-  "scope": ["desktop/web/src/**"],
-  "lane": "commit",
-  "keys": "name",
-  "select": ["ipc-only-in-desktop-adapters"],
   "entries": {
     "app.tsx -> ipc/settings.ts": { "count": 1 },
     "app/design-drafts/controller.ts -> ipc/design.ts": { "count": 1 },

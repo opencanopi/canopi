@@ -59,9 +59,11 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { closedBeadCheck } from './beads.mjs';
 import { CASES_DIR, REPO_ROOT, RefusalError } from './core/base.mjs';
+import { lowerRepo } from './core/lower.mjs';
 import { checkRepo } from './core/observe.mjs';
+import { loadRatchets } from './core/ratchets.mjs';
 import { selfTest } from './core/self-test.mjs';
-import { listRules } from './core/tables.mjs';
+import { beadlessReport, listRules } from './core/tables.mjs';
 import { commandLane, familyArgs, modeConflicts } from './selection.mjs';
 
 async function main(argv) {
@@ -84,6 +86,23 @@ async function main(argv) {
     const refusals = conflicts.length ? conflicts : closedBeadCheck();
     for (const r of refusals) console.error(`${r.code}: ${r.where}: ${r.message}`);
     console.log(`policy closed-bead check: ${refusals.length ? 'RED' : 'OK'}`);
+    return refusals.length ? 1 : 0;
+  }
+  if (argv.includes('--phase-close-report')) {
+    const { families, refusals } = loadRatchets();
+    for (const r of refusals) console.error(`${r.code}: ${r.where}: ${r.message}`);
+    if (refusals.length) return 1;
+    const items = beadlessReport(families);
+    for (const item of items) console.log(`${item.where}: ${item.message}`);
+    console.log(`policy phase-close report: ${items.length} beadless item(s)`);
+    return 0;
+  }
+  if (argv.includes('--update')) {
+    const { updated, removed, refusals } = await lowerRepo(REPO_ROOT, lane, { families: familyArgs(argv) });
+    for (const f of updated) console.log(`lowered ${f}`);
+    for (const f of removed) console.log(`removed ${f}`);
+    for (const r of refusals) console.error(`${r.code}: ${r.where}: ${r.message}`);
+    console.log(`policy update: ${updated.length} lowered, ${removed.length} removed, ${refusals.length ? 'RED' : 'OK'}`);
     return refusals.length ? 1 : 0;
   }
   const closeAt = argv.indexOf('--phase-close');

@@ -101,7 +101,7 @@ export class GateRepo {
 
   stageSuppression(): void {
     const family = this.json('policy/ratchets/suppressions.json') as { entries: Json }
-    family.entries['desktop/web/src/new.ts: oxlint:no-console'] = { count: 1 }
+    family.entries['desktop/web/src/new.ts: oxlint:no-console'] = { count: 1, bead: OPEN_BEAD }
     this.write({ 'policy/ratchets/suppressions.json': `${JSON.stringify(family, null, 2)}\n` })
     this.git('add', 'policy/ratchets/suppressions.json')
   }

@@ -1,0 +1,18 @@
+{
+  "about": "Removing a count family's bead while count > 0 is reported as bead-stripped (canopi-0kjje, 2.1-M78)",
+  "base": {
+    "policy/ratchets/sample.json": {
+      "version": 1, "family": "sample", "ledger": "2.1-M78", "tool": "oxlint",
+      "scope": ["src/**"], "lane": "commit", "keys": "path", "bead": "canopi-a",
+      "count": 3
+    }
+  },
+  "head": {
+    "policy/ratchets/sample.json": {
+      "version": 1, "family": "sample", "ledger": "2.1-M78", "tool": "oxlint",
+      "scope": ["src/**"], "lane": "commit", "keys": "path",
+      "count": 3
+    }
+  },
+  "expect": ["bead-stripped"]
+}

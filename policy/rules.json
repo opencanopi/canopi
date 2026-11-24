@@ -144,7 +144,11 @@
       "adr": "0022",
       "owner_today": "desktop/web/src/main.tsx",
       "example": "desktop/web/src/main.web.tsx",
-      "type_only": "counts"
+      "type_only": "counts",
+      "scope": [
+        "desktop/web/src/**",
+        "desktop/web/ui-gallery/**"
+      ]
     },
     {
       "id": "l3-feature-scc",
@@ -154,7 +158,10 @@
       "adr": "0022",
       "owner_today": "desktop/web/src/app",
       "example": "desktop/web/src/app/budget",
-      "type_only": "excluded"
+      "type_only": "excluded",
+      "scope": [
+        "desktop/web/src/app/**"
+      ]
     },
     {
       "id": "type-cycles",
@@ -175,7 +182,10 @@
       "owner_today": "policy/core",
       "example": "policy/core/observe.mjs",
       "type_only": "counts",
-      "note": "no policy module imports a CLI entry the layer table's policy section names, so the library stays in policy/core; policy modules form no import cycle"
+      "note": "no policy module imports a CLI entry the layer table's policy section names, so the library stays in policy/core; policy modules form no import cycle",
+      "scope": [
+        "policy/**"
+      ]
     },
     {
       "id": "no-product-imports-a-test",
@@ -185,7 +195,11 @@
       "adr": "0022",
       "owner_today": "desktop/web/src/__tests__",
       "example": "desktop/web/src/__tests__/support/design-session-state.ts",
-      "type_only": "counts"
+      "type_only": "counts",
+      "scope": [
+        "desktop/web/src/**",
+        "desktop/web/ui-gallery/**"
+      ]
     },
     {
       "id": "no-runtime-cycle",
@@ -256,18 +270,6 @@
       "owner_today": "policy/layers.json",
       "example": "desktop/web/src/commands/graph/catalog.ts",
       "note": "one presence entry per area pair joined by a runtime import in either edition's graph (type-only imports excluded, re-exports and dynamic imports counted) or a workspace path dependency; an area is a layer table row's area or a workspace crate; an entry with a bead is an edge a Phase 2 or 3 stream removes, one without is standing, and the target is the entries without a bead; a pair whose every module edge is a layer-order or edition-roots entry (both taken to 0 in Phase 2) is refused without a bead"
-    },
-    {
-      "id": "command-table-imports-no-feature",
-      "status": "planned",
-      "ledger": "2.1-M186",
-      "adr": "0022",
-      "owner_target": {
-        "path": "desktop/web/src/app/command-table",
-        "phase": "2a",
-        "bead": "canopi-f47t.52.73"
-      },
-      "note": "the command table imports no feature; generated from the layer table once app/command-table/ exists (2a)"
     },
     {
       "id": "one-command-catalog",
@@ -735,7 +737,7 @@
           "commands/**"
         ]
       },
-      "note": "The right-click menu runs only its request’s scene edits"
+      "note": "The right-click menu runs only its request\u2019s scene edits"
     },
     {
       "id": "design-edit-authority-only-in-core",
@@ -2283,7 +2285,12 @@
         "phase": "1a"
       },
       "example": "desktop/src/host/updater/failure.rs",
-      "note": "user content (a user path, a Design or file name) reaches a failure or log message only as a RedactedText or path field, never formatted into its free text (ADR 0025:60, plan C18); the Rust half counts a path's display() or to_string_lossy() inside format!, write!, panic!, a tracing or log macro or an Err (commit 0, 2.1-M416), lowered by 1a-c3 and, for the LiDAR sites, N1; the TypeScript half is planned for 2a (canopi-ds03)"
+      "note": "user content (a user path, a Design or file name) reaches a failure or log message only as a RedactedText or path field, never formatted into its free text (ADR 0025:60, plan C18); the Rust half counts a path's display() or to_string_lossy() inside format!, write!, panic!, a tracing or log macro or an Err (commit 0, 2.1-M416), lowered by 1a-c3 and, for the LiDAR sites, N1; the TypeScript half is planned for 2a (canopi-ds03)",
+      "scope": [
+        "desktop/src/**",
+        "canopi-types/src/**",
+        "canopi-redact/src/**"
+      ]
     },
     {
       "id": "text-match-on-native-error",
@@ -2293,7 +2300,12 @@
       "adr": "0025",
       "owner_today": "none",
       "example": "desktop/web/src/app/updates/state.ts",
-      "note": "a native or IPC failure is read by its typed code, never by matching its English text: a substring, prefix, suffix or regex test on an error or message value, or an equality between an error's message and English text; each site goes in the change that types its command (2.1-M41), and residual entries re-point to canopi-f47t.52.211 or the C04 beads at Phase 1's close (design check A21)"
+      "note": "a native or IPC failure is read by its typed code, never by matching its English text: a substring, prefix, suffix or regex test on an error or message value, or an equality between an error's message and English text; each site goes in the change that types its command (2.1-M41), and residual entries re-point to canopi-f47t.52.211 or the C04 beads at Phase 1's close (design check A21)",
+      "scope": [
+        "desktop/src/**",
+        "canopi-types/src/**",
+        "desktop/web/src/**"
+      ]
     },
     {
       "id": "signal-write-only-in-owner",
@@ -2316,16 +2328,6 @@
       "tool": "python-lines",
       "ledger": "2.1-Q261",
       "family": "python-lines"
-    },
-    {
-      "id": "ratchet-entry-has-bead",
-      "tool": "ratchet-entry-has-bead",
-      "ledger": "2.1-M78",
-      "family": "ratchet-entry-has-bead",
-      "adr": "0028",
-      "owner_today": "policy/adapters/ratchet-entry-has-bead.mjs",
-      "example": "policy/ratchets/cross-area-edges.json",
-      "note": "each ratchet entry carries an open bead (its own or its family's) or is standing; the family counts the rest per family and only shrinks, so a new beadless entry fails; budgets and floors are standing by kind; the stopping rule needs it empty (canopi-f47t.52.257)"
     },
     {
       "id": "file-size",
@@ -2364,7 +2366,12 @@
       "family": "rust-test-has-assertion",
       "owner_today": "none",
       "example": "desktop/src/native_operation/tests.rs",
-      "note": "a Rust test asserts what it names (assert*!, prop_assert*!, panic!, an assert_* helper or #[should_panic]); an unwrap-only test is assertion-free; replaces rustqual (2.1-Q218); today's tests are path entries"
+      "note": "a Rust test asserts what it names (assert*!, prop_assert*!, panic!, an assert_* helper or #[should_panic]); an unwrap-only test is assertion-free; replaces rustqual (2.1-Q218); today's tests are path entries",
+      "scope": [
+        "desktop/src/**",
+        "canopi-types/src/**",
+        "bindings-gen/src/**"
+      ]
     },
     {
       "id": "updater-plugin-only-in-updater",
@@ -2374,7 +2381,12 @@
       "family": "updater-plugin-only-in-updater",
       "owner_today": "desktop/src/host/updater/mod.rs",
       "example": "desktop/src/host/updater/mod.rs",
-      "note": "the updater plugin (tauri_plugin_updater) only in the updater module, desktop/src/host/updater/ (ADR 0023 Checks, contracts §3 Updater, Phase 0 F6); cargo-deny admits the crate only through canopi-desktop; at 0"
+      "note": "the updater plugin (tauri_plugin_updater) only in the updater module, desktop/src/host/updater/ (ADR 0023 Checks, contracts \u00a73 Updater, Phase 0 F6); cargo-deny admits the crate only through canopi-desktop; at 0",
+      "scope": [
+        "desktop/src/**",
+        "canopi-types/src/**",
+        "bindings-gen/src/**"
+      ]
     },
     {
       "id": "no-private-field-cast-in-tests",
@@ -2435,7 +2447,7 @@
         "phase": "N1",
         "bead": "canopi-f47t.52.190"
       },
-      "note": "§18 R3: a command reaches the executor only through a facade method with its OpSpec; native_command_policy::tests holds today's 81 executor calls in 10 command files until N1"
+      "note": "\u00a718 R3: a command reaches the executor only through a facade method with its OpSpec; native_command_policy::tests holds today's 81 executor calls in 10 command files until N1"
     },
     {
       "id": "rust-search-fold-only-in-search-text",
@@ -2448,7 +2460,7 @@
         "path": "desktop/src",
         "phase": "N4"
       },
-      "note": "§18 R18: Rust search folding only in canopi-search-text, held by the shared corpus run natively and through the page wasm; 6 implementations today (the TS half is search-fold-only-in-search-text)"
+      "note": "\u00a718 R18: Rust search folding only in canopi-search-text, held by the shared corpus run natively and through the page wasm; 6 implementations today (the TS half is search-fold-only-in-search-text)"
     },
     {
       "id": "locale-list-only-in-registry",
@@ -2462,7 +2474,7 @@
         "phase": "2a",
         "bead": "canopi-f47t.52.45"
       },
-      "note": "§18 R19: locale lists and sys_locale only in the canopi-types registry, held by the consistency test; 1 today"
+      "note": "\u00a718 R19: locale lists and sys_locale only in the canopi-types registry, held by the consistency test; 1 today"
     },
     {
       "id": "wasm-bindgen-only-in-wasm-crates",
@@ -2472,7 +2484,7 @@
       "family": "cargo-deny",
       "owner_today": "canopi-format-wasm/Cargo.toml",
       "example": "canopi-format-wasm/src/lib.rs",
-      "note": "§18 R20: wasm-bindgen only in the -wasm crates, each created in its phase (deny.toml [bans] wrappers over the native graph, where the -wasm crate's plain dependency is the one edge); canopi-format-wasm from Step 2.0.4 (canopi-f47t.52.270)"
+      "note": "\u00a718 R20: wasm-bindgen only in the -wasm crates, each created in its phase (deny.toml [bans] wrappers over the native graph, where the -wasm crate's plain dependency is the one edge); canopi-format-wasm from Step 2.0.4 (canopi-f47t.52.270)"
     },
     {
       "id": "no-path-string-command-arg",
@@ -2486,7 +2498,7 @@
         "phase": "N2",
         "bead": "canopi-f47t.52.47"
       },
-      "note": "§18 R21: the generated command map carries no path: string except UserPath display fields, so app data paths and dirs:: stay in app_folders, the library paths and the Drafts directory; 36 / 10 today"
+      "note": "\u00a718 R21: the generated command map carries no path: string except UserPath display fields, so app data paths and dirs:: stay in app_folders, the library paths and the Drafts directory; 36 / 10 today"
     },
     {
       "id": "tauri-crate-only-in-desktop",
@@ -2496,7 +2508,7 @@
       "family": "cargo-deny",
       "owner_today": "desktop/Cargo.toml",
       "example": "desktop/src/commands/health.rs",
-      "note": "§18 R1, the cargo-deny half of tauri-only-in-shell: the tauri crate only under canopi-desktop and its Tauri plugins (deny.toml [bans] wrappers, DR26), so a library crate split out at N1 cannot depend on it"
+      "note": "\u00a718 R1, the cargo-deny half of tauri-only-in-shell: the tauri crate only under canopi-desktop and its Tauri plugins (deny.toml [bans] wrappers, DR26), so a library crate split out at N1 cannot depend on it"
     },
     {
       "id": "format-crate-bans-native",
@@ -2506,7 +2518,7 @@
       "family": "format-crate-bans-native",
       "owner_today": "canopi-format/Cargo.toml",
       "example": "canopi-format-wasm/Cargo.toml",
-      "note": "§18 R7: canopi-format and canopi-format-wasm reach no tauri, tokio or rusqlite over normal and build edges, nor schemars, which the Web worker's module would carry (canopi-f47t.52.270) (design check F9: policy/adapters/cargo-tree.mjs reads each one's whole graph, since cargo-deny's [bans] wrappers judge only direct parents); from Step 2.0.4 (canopi-f47t.52.270)"
+      "note": "\u00a718 R7: canopi-format and canopi-format-wasm reach no tauri, tokio or rusqlite over normal and build edges, nor schemars, which the Web worker's module would carry (canopi-f47t.52.270) (design check F9: policy/adapters/cargo-tree.mjs reads each one's whole graph, since cargo-deny's [bans] wrappers judge only direct parents); from Step 2.0.4 (canopi-f47t.52.270)"
     },
     {
       "id": "catalog-store-only-in-desktop",
@@ -2520,7 +2532,7 @@
         "phase": "N2",
         "bead": "canopi-f47t.52.47"
       },
-      "note": "§18 R6: canopi-catalog and canopi-store meet only in canopi-desktop, no catalog-store edge (cargo-deny [bans] with the crates)"
+      "note": "\u00a718 R6: canopi-catalog and canopi-store meet only in canopi-desktop, no catalog-store edge (cargo-deny [bans] with the crates)"
     },
     {
       "id": "sha2-only-in-support",
@@ -2534,7 +2546,7 @@
         "phase": "N1",
         "bead": "canopi-f47t.52.190"
       },
-      "note": "§18 R10: sha2 and other hashers only through canopi-support's hash (cargo-deny [bans] wrappers, with the crate)"
+      "note": "\u00a718 R10: sha2 and other hashers only through canopi-support's hash (cargo-deny [bans] wrappers, with the crate)"
     },
     {
       "id": "no-attach-step",
@@ -2586,7 +2598,7 @@
       "family": "no-reexport-only-types-module",
       "owner_today": "none",
       "example": "desktop/web/src/app/settings/state.ts",
-      "note": "a types/ module whose every statement is an `export ... from` re-export is a shim hiding its generated owner (contracts §12, Q45 pass); 4 at the base, 0 at Phase 2's close"
+      "note": "a types/ module whose every statement is an `export ... from` re-export is a shim hiding its generated owner (contracts \u00a712, Q45 pass); 4 at the base, 0 at Phase 2's close"
     },
     {
       "id": "guarded-files",
@@ -2640,11 +2652,6 @@
       "id": "gate-loosening-authority",
       "tool": "commit-gate",
       "ledger": "2.1-M195"
-    },
-    {
-      "id": "gate-first-baseline",
-      "tool": "commit-gate",
-      "ledger": "2.1-M40"
     },
     {
       "id": "gate-guarded-file",
@@ -2704,7 +2711,11 @@
       "family": "locale-key-typing",
       "owner_today": "desktop/web/src/i18n/index.ts",
       "example": "desktop/web/src/app/planning-projection/timeline.ts",
-      "note": "t takes the generated LocaleKey union; a key built at run time is a typed table lookup (Record<Union, LocaleKey>) or a template over a closed union, a value from an open set goes through openSetText, whose key family is typed; a cast to LocaleKey and an isLocaleKey call outside i18n/index.ts are counted sites (design-check A30), and a key chosen by a count compared with 1 (a ternary inside t's arguments, or both branches reading a key with none passing count) is refused (APP-06, design-check 1b-c6); the baseline is policy/ratchets/locale-key-typing.json"
+      "note": "t takes the generated LocaleKey union; a key built at run time is a typed table lookup (Record<Union, LocaleKey>) or a template over a closed union, a value from an open set goes through openSetText, whose key family is typed; a cast to LocaleKey and an isLocaleKey call outside i18n/index.ts are counted sites (design-check A30), and a key chosen by a count compared with 1 (a ternary inside t's arguments, or both branches reading a key with none passing count) is refused (APP-06, design-check 1b-c6); the baseline is policy/ratchets/locale-key-typing.json",
+      "scope": [
+        "desktop/web/src/**",
+        "desktop/web/ui-gallery/**"
+      ]
     },
     {
       "id": "tsc-strict",

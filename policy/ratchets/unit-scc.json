@@ -1,13 +1,6 @@
 {
   "$schema": "./ratchet.schema.json",
-  "version": 1,
   "family": "unit-scc",
-  "ledger": "2.1-M224",
-  "tool": "dependency-cruiser",
-  "scope": ["desktop/web/src/**"],
-  "lane": "commit",
-  "keys": "name",
-  "select": ["unit-scc"],
   "bead": "canopi-f47t.52.213",
   "entries": {
     "app/analyses <-> app/lidar": { "count": 3 },

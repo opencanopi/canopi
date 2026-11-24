@@ -1,13 +1,6 @@
 {
   "$schema": "./ratchet.schema.json",
-  "version": 1,
   "family": "deep-imports",
-  "ledger": "2.1-M224",
-  "tool": "dependency-cruiser",
-  "scope": ["desktop/web/src/**"],
-  "lane": "commit",
-  "keys": "name",
-  "select": ["deep-imports"],
   "entries": {
     "app/canvas-commands/index.ts -> app/shell-commands/shortcut-text.ts": { "count": 1 },
     "app/canvas-context-menu/entries.ts -> app/canvas-commands/edit-availability.ts": { "count": 1 },

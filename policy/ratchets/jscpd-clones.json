@@ -4,7 +4,16 @@
   "family": "jscpd-clones",
   "ledger": "2.1-Q218",
   "tool": "jscpd",
-  "scope": ["desktop/web/src/**/*.{ts,tsx,js,mjs}", "desktop/web/e2e/**/*.{ts,tsx,js,mjs}", "desktop/web/scripts/**/*.{ts,tsx,js,mjs}", "desktop/src/**/*.rs", "canopi-types/src/**/*.rs", "bindings-gen/src/**/*.rs", "scripts/**/*.py", "policy/**/*.{ts,mjs}"],
+  "scope": [
+    "desktop/web/src/**/*.{ts,tsx,js,mjs}",
+    "desktop/web/e2e/**/*.{ts,tsx,js,mjs}",
+    "desktop/web/scripts/**/*.{ts,tsx,js,mjs}",
+    "desktop/src/**/*.rs",
+    "canopi-types/src/**/*.rs",
+    "bindings-gen/src/**/*.rs",
+    "scripts/**/*.py",
+    "policy/**/*.{ts,mjs}"
+  ],
   "lane": "commit",
   "keys": "name",
   "entries": {
@@ -85,7 +94,6 @@
     "desktop/web/src/__tests__/satellite-provider-binding.test.ts <-> desktop/web/src/__tests__/satellite-provider-binding.test.ts": { "count": 1 },
     "desktop/web/src/__tests__/saved-view-dialogs-focus.test.tsx <-> desktop/web/src/__tests__/saved-views-commands.test.tsx": { "count": 1 },
     "desktop/web/src/__tests__/story-presentation.test.tsx <-> desktop/web/src/__tests__/story-presentation.test.tsx": { "count": 1 },
-    "desktop/web/src/__tests__/support/architecture/css-facts.ts <-> desktop/web/src/__tests__/support/architecture/css-facts.ts": { "count": 1 },
     "desktop/web/src/__tests__/support/canvas-interaction-setup.ts <-> desktop/web/src/__tests__/support/canvas-interaction-setup.ts": { "count": 1 },
     "desktop/web/src/__tests__/support/in-memory-reduced-species-catalog.ts <-> desktop/web/src/web/duckdb-wasm-catalog.ts": { "count": 1 },
     "desktop/web/src/__tests__/tool-card.test.tsx <-> desktop/web/src/__tests__/tool-card.test.tsx": { "count": 1 },

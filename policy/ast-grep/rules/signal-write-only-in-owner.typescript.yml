@@ -121,6 +121,7 @@ rule:
     - kind: update_expression
       has: { field: argument, matches: value-target }
 ---
+# typescript-only: app/settings/ holds no .tsx files.
 id: signal-write-only-in-owner.typescript.settings
 language: typescript
 severity: error

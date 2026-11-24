@@ -3,7 +3,8 @@
     "check.mjs!",
     "generate.mjs!",
     "gate/cli.mjs!",
-    "adapters/*.{mjs,ts}!"
+    "adapters/*.{mjs,ts}!",
+    "generate/depcruise.mjs!"
   ],
   "project": [
     "**/*.{mjs,ts}!"

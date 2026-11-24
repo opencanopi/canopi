@@ -4,8 +4,13 @@
   "family": "oxlint",
   "ledger": "2.1-Q206",
   "tool": "oxlint",
-  "scope": ["desktop/web/src/**", "desktop/web/e2e/**", "desktop/web/scripts/**", "desktop/web/ui-gallery/**",
-    "policy/**"],
+  "scope": [
+    "desktop/web/src/**",
+    "desktop/web/e2e/**",
+    "desktop/web/scripts/**",
+    "desktop/web/ui-gallery/**",
+    "policy/**"
+  ],
   "lane": "commit",
   "keys": "path-rule",
   "bead": "canopi-f47t.52.218",
@@ -251,7 +256,6 @@
     "policy/adapters/clippy.mjs: oxlint:complexity": { "count": 4 },
     "policy/adapters/dependency-cruiser.mjs: oxlint:complexity": { "count": 1 },
     "policy/adapters/osv-scanner.mjs: oxlint:complexity": { "count": 1 },
-    "policy/adapters/ratchet-entry-has-bead.mjs: oxlint:complexity": { "count": 1 },
     "policy/adapters/scenario-owners.mjs: oxlint:complexity": { "count": 1 },
     "policy/adapters/suppressions.mjs: oxlint:complexity": { "count": 1 },
     "policy/adapters/upstream-register.mjs: oxlint:complexity": { "count": 2 },
@@ -268,7 +272,6 @@
     "policy/gate/plan.ts: oxlint:complexity": { "count": 1 },
     "policy/gate/plan.ts: oxlint:typescript/no-unnecessary-type-assertion": { "count": 1 },
     "policy/gate/run.ts: oxlint:complexity": { "count": 1 },
-    "policy/generate.mjs: oxlint:complexity": { "count": 2 },
     "policy/generate/depcruise.mjs: oxlint:complexity": { "count": 1 }
   }
 }

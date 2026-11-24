@@ -40,7 +40,7 @@ import { diffRatchets } from '../core/diff.mjs'
 import { openGitReader } from '../git.mjs'
 import {
   Authority, EMPTY_TREE, FLAKES, type FamilyChange, judgeAddedPython, judgeCitations, judgeDemotions, judgeFamilies,
-  judgeFirstBaseline, judgeGuarded, type LoadJson, type RangeCommit, RATCHETS, type Route, rowsOf, tiedNote, tiedRoutes,
+  judgeGuarded, type LoadJson, type RangeCommit, RATCHETS, type Route, rowsOf, tiedNote, tiedRoutes,
 } from './commit-gate-judge.ts'
 import { type Change, type DeletedCode, deletedCode, judge as judgeTests, rangeDeletedCode, RETIRES } from './deletion-guard.ts'
 import { vitestPass } from './deletion-guard-vitest.ts'
@@ -238,12 +238,11 @@ interface Parts {
 }
 const WHOLE: Parts = { commit: true, change: true, strict: true }
 
-/** The rules judged on each commit: attribution, a created family's ledger id, added Python and new bead citations. */
+/** The rules judged on each commit: attribution, added Python and new bead citations. */
 async function commitRules(repo: Repo, first: string, tree: string, message: string, files: readonly Change[],
-  changes: readonly FamilyChange[], auth: Authority): Promise<Finding[]> {
+  _changes: readonly FamilyChange[], auth: Authority): Promise<Finding[]> {
   const findings = [...message.matchAll(ATTRIBUTION)].slice(0, 1).map((match): Finding => ['gate-no-attribution',
     `the message names '${match[0]}': no attribution trailer, footer or tool name (AGENTS.md Commits; 2.1-M230)`])
-  findings.push(...await judgeFirstBaseline(tree, message, changes, repo.load))
   findings.push(...judgeAddedPython(files))
   const citing = []
   for (const [status, , now] of files) {
@@ -258,10 +257,10 @@ async function judge(repo: Repo, parentsIn: readonly string[], tree: string, mes
   parts: Parts = WHOLE): Promise<Finding[]> {
   const parents = parentsIn.length ? parentsIn : [EMPTY_TREE]
   const first = parents[0] ?? EMPTY_TREE
-  // diffRatchets names a change only where a family file changed, and refuses a layer table it cannot read: a diff
-  // touching neither skips it.
+  // diffRatchets names a change only where a family file or a derived-rule table changed, and refuses a layer table it cannot read.
   const families = async (from: string) => repo.changed(from, tree)
-    .some(([, old, now]) => [old, now].some((path) => path.startsWith(`${RATCHETS}/`) || path === LAYER_TABLE))
+    .some(([, old, now]) => [old, now].some((path) => path.startsWith(`${RATCHETS}/`) || path === LAYER_TABLE
+      || path === 'policy/rules.json' || path === 'policy/primitives.json'))
     ? await diffRatchets(repo.root, from, tree) as FamilyChange[] : []
   let changes = await families(first)
   let files = repo.changed(first, tree)

@@ -10,15 +10,7 @@
     "policy/adapters/dependency-cruiser.mjs": "export default (raw) => raw;\n",
     "src/a.ts": "",
     "policy/ratchets/layer-order.json": {
-      "version": 1,
       "family": "layer-order",
-      "ledger": "2.1-M186",
-      "tool": "dependency-cruiser",
-      "scope": [
-        "src/**"
-      ],
-      "lane": "commit",
-      "keys": "name",
       "entries": {
         "app/a -> app/b": {}
       }
@@ -30,7 +22,10 @@
           "id": "layer-order",
           "tool": "dependency-cruiser",
           "family": "layer-order",
-          "ledger": "2.1-M186"
+          "ledger": "2.1-M186",
+          "scope": [
+            "src/**"
+          ]
         },
         {
           "id": "deep-import",

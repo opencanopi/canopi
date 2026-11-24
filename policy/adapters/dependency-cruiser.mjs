@@ -1,7 +1,7 @@
 // policy/adapters/dependency-cruiser.mjs: dependency-cruiser's violations and graph families as sites (contracts §12;
 // 2.1-M58, 2.1-M186, 2.1-M224).
 //
-// Runs desktop/web's depcruise with both generated configs (policy/generate.mjs): the Desktop graph
+// Runs desktop/web's depcruise with both configs (loaded dynamically via policy/generate/depcruise.mjs): the Desktop graph
 // (.dependency-cruiser.cjs) and the Web graph (.dependency-cruiser.web.cjs, only the Web-only rules, AF27). A real
 // cruise covers src/ and ui-gallery/ whatever paths it is given and keeps the rule sites leaving those paths; a planted
 // one (every path under policy/fixtures/) cruises exactly its paths. Paths under policy/ (a planted one outside a src/
