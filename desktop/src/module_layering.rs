@@ -34,20 +34,12 @@ struct LayerException {
     reason: &'static str,
 }
 
-const LAYER_EXCEPTIONS: &[LayerException] = &[
-    LayerException {
-        path: "src/design/mod.rs",
-        name: "crate::services::lidar::grid::sha256_hex",
-        bead: "canopi-f47t.52.20",
-        reason: "the Design fingerprint shares the LiDAR grid's SHA-256 until it moves to a leaf hash module",
-    },
-    LayerException {
-        path: "src/services/health.rs",
-        name: "AppHealth",
-        bead: "canopi-f47t.52.20",
-        reason: "the startup health snapshot lives in the crate root until it moves to services/health.rs",
-    },
-];
+const LAYER_EXCEPTIONS: &[LayerException] = &[LayerException {
+    path: "src/services/health.rs",
+    name: "AppHealth",
+    bead: "canopi-f47t.52.20",
+    reason: "the startup health snapshot lives in the crate root until it moves to services/health.rs",
+}];
 
 /// A layer whose production files must not name a forbidden part of the crate.
 #[derive(Clone, Copy)]
