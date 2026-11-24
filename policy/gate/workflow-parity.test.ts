@@ -10,7 +10,7 @@ import { describe, expect, it } from 'vitest'
 import { REPO_ROOT } from './planted-repo.ts'
 import { TABLE, type Table } from './table.ts'
 import {
-  groupFaults, inlineFaults, readActions, readWorkflows, rowFaults, setupFaults, setupJobs, staleRowFaults, toolchain, triggerFaults,
+  groupFaults, inlineFaults, readActions, readWorkflows, rowFaults, runnerFaults, setupFaults, setupJobs, staleRowFaults, toolchain, triggerFaults,
   triggers, type Job, type Step, type Workflow,
 } from './workflows.ts'
 
@@ -179,6 +179,22 @@ describe('every workflow is the table\'s (A5)', () => {
       'versions sets up Node 22, not the engines Node 24',
       `versions installs Rust 1.96.0, not rust-toolchain.toml's ${tools.rust}`,
       'versions sets up a Python not read from .python-version',
+    ])
+  })
+
+  it('canopi-eht6: every workflow pins named runner images and refuses *-latest', () => {
+    expect(runnerFaults(real)).toEqual([])
+    const planted = new Map<string, Workflow>([['unpinned.yml', {
+      jobs: {
+        a: { 'runs-on': 'ubuntu-latest' },
+        b: { 'runs-on': '${{ matrix.os }}', strategy: { matrix: { os: ['ubuntu-26.04', 'windows-latest'] } } },
+        c: { 'runs-on': 'ubuntu-26.04', steps: [{ run: 'echo \'[{"os": "macos-latest"}]\'' }] },
+      },
+    }]])
+    expect(runnerFaults(planted)).toEqual([
+      'unpinned.yml job a uses unpinned runner ubuntu-latest',
+      'unpinned.yml job b matrix uses unpinned runner windows-latest',
+      'unpinned.yml job c matrix uses unpinned runner macos-latest',
     ])
   })
 })

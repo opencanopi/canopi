@@ -40,7 +40,7 @@ jobs:
       github.event_name != 'pull_request' ||
       github.event.pull_request.head.repo.full_name != github.repository ||
       github.head_ref != 'main'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
     permissions:
       contents: read
@@ -156,10 +156,10 @@ jobs:
           # checks that the installer builds and its sidecar runs, so zlib is enough. Release Candidate keeps LZMA.
           if [ "$PR_RUN" = true ]; then windows_bundles="--bundles nsis --config .github/tauri-branch-nsis.json"; fi
           all='[
-            {"os": "ubuntu-latest", "container": "ubuntu:22.04", "target": "x86_64-unknown-linux-gnu", "bundle_args": "--bundles deb"},
+            {"os": "ubuntu-26.04", "container": "ubuntu:22.04", "target": "x86_64-unknown-linux-gnu", "bundle_args": "--bundles deb"},
             {"os": "macos-15", "target": "aarch64-apple-darwin", "bundle_args": ""},
             {"os": "macos-15-intel", "target": "x86_64-apple-darwin", "bundle_args": ""},
-            {"os": "windows-latest", "target": "x86_64-pc-windows-msvc", "bundle_args": "'"$windows_bundles"'"}
+            {"os": "windows-2025", "target": "x86_64-pc-windows-msvc", "bundle_args": "'"$windows_bundles"'"}
           ]'
           every=true
           if [ "$PR_RUN" = true ] && [ "$EVERY_PLATFORM" != true ]; then every=false; fi
@@ -167,12 +167,12 @@ jobs:
           # run here before any Release Candidate dispatch (2.1-M173).
           if [ "$every" = true ]; then all="$(jq -c 'map(if .container then .bundle_args = "--bundles deb appimage" else . end)' <<<"$all")"; fi
           filter='.'
-          if [ "$every" = false ]; then filter='map(select(.os == "ubuntu-latest" or .os == "macos-15"))'
+          if [ "$every" = false ]; then filter='map(select(.os == "ubuntu-26.04" or .os == "macos-15"))'
           elif [ "$PR_RUN" = true ]; then filter='map(select(.os != "macos-15-intel"))'; fi
           echo "matrix=$(jq -c "$filter" <<<"$all")" >> "$GITHUB_OUTPUT"
           # Native tests on Intel macOS (8 min, a scarce macOS runner) add little over Apple silicon on the same OS;
           # they run where Intel is packaged: on pushes, never on PRs.
-          platforms='[{"os": "macos-15", "target": "aarch64-apple-darwin"}, {"os": "macos-15-intel", "target": "x86_64-apple-darwin"}, {"os": "windows-latest", "target": "x86_64-pc-windows-msvc"}]'
+          platforms='[{"os": "macos-15", "target": "aarch64-apple-darwin"}, {"os": "macos-15-intel", "target": "x86_64-apple-darwin"}, {"os": "windows-2025", "target": "x86_64-pc-windows-msvc"}]'
           pfilter='.'
           if [ "$PR_RUN" = true ]; then pfilter='map(select(.os != "macos-15-intel"))'; fi
           echo "platforms=$(jq -c "$pfilter" <<<"$platforms")" >> "$GITHUB_OUTPUT"
@@ -182,7 +182,7 @@ jobs:
   # image tags (a README-only change can move one).
   docs:
     needs: changes
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
@@ -209,7 +209,7 @@ jobs:
   rust:
     needs: changes
     if: needs.changes.outputs.rust == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 60
     env:
       CANOPI_SKIP_BUNDLED_DB: "1"
@@ -250,7 +250,7 @@ jobs:
   tauri-command:
     needs: changes
     if: needs.changes.outputs.tauri == 'true' && needs.changes.outputs.rust != 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 45
     env:
       CANOPI_SKIP_BUNDLED_DB: "1"
@@ -276,7 +276,7 @@ jobs:
   policy-tooling:
     needs: changes
     if: needs.changes.outputs.policy == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 30
     env:
       CANOPI_SKIP_BUNDLED_DB: "1"
@@ -310,7 +310,7 @@ jobs:
   shared-contracts:
     needs: changes
     if: needs.changes.outputs.contracts == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 30
     env:
       CANOPI_SKIP_BUNDLED_DB: "1"
@@ -341,7 +341,7 @@ jobs:
   species-catalog:
     needs: changes
     if: needs.changes.outputs.species == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
@@ -360,7 +360,7 @@ jobs:
   workflows:
     needs: changes
     if: needs.changes.outputs.workflows == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
@@ -390,7 +390,7 @@ jobs:
   # from).
   scripts:
     needs: changes
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
@@ -422,7 +422,7 @@ jobs:
   frontend:
     needs: changes
     if: needs.changes.outputs.frontend == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 45
     env:
       GH_TOKEN: ${{ github.token }}
@@ -624,7 +624,7 @@ jobs:
   # packaging change the AppImage gets past the loader.
   linux-floor:
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     container: debian:12
     timeout-minutes: 15
     steps:
@@ -683,7 +683,7 @@ jobs:
   supply-chain:
     needs: changes
     if: needs.changes.outputs.supply_chain == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
@@ -711,7 +711,7 @@ jobs:
     name: Build & Test
     needs: [changes, docs, rust, tauri-command, policy-tooling, shared-contracts, species-catalog, workflows, scripts, frontend, lidar-native, platform-tests, build, linux-floor, real-app, web-browsers, updater, rollback, release-build, supply-chain]
     if: always()
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
     steps:
       - name: Every job passed or was skipped

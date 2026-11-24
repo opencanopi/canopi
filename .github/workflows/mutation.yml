@@ -79,7 +79,7 @@ jobs:
       !((github.event.action == 'labeled' && github.event.label.name != 'mutation')
       || (github.event.action == 'synchronize' && !contains(github.event.pull_request.labels.*.name, 'mutation'))
       || ((github.event.action == 'opened' || github.event.action == 'reopened') && github.event.pull_request.draft))
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
     outputs:
       base: ${{ steps.plan.outputs.base }}
@@ -167,7 +167,7 @@ jobs:
     name: Stryker shard ${{ matrix.shard }}
     needs: plan
     if: needs.plan.outputs.stryker != '[]'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     # Non-blocking: a red run or a timeout leaves the workflow green.
     continue-on-error: true
     # The Mutate step stops at BUDGET (plus its 5-minute grace) so the report and upload steps run inside the job.
@@ -296,7 +296,7 @@ jobs:
     name: cargo-mutants ${{ matrix.crate }} ${{ matrix.shard }}
     needs: plan
     if: needs.plan.outputs.mutants != '[]'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     # Non-blocking: a red run or a timeout leaves the workflow green.
     continue-on-error: true
     # The Mutate step stops at BUDGET (plus its 5-minute grace) so the report and upload steps run inside the job.
@@ -410,7 +410,7 @@ jobs:
     name: Mutants measured
     needs: [plan, stryker, cargo-mutants]
     if: ${{ always() && github.event_name == 'workflow_dispatch' && needs.plan.result == 'success' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
     steps:
       - uses: actions/download-artifact@v8

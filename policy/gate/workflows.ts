@@ -21,6 +21,8 @@ export interface Step {
 export interface Job {
   readonly if?: string, readonly needs?: string | readonly string[], readonly steps?: readonly Step[]
   readonly outputs?: Readonly<Record<string, string>>, readonly uses?: string, readonly 'timeout-minutes'?: number | string
+  readonly 'runs-on'?: string | readonly string[]
+  readonly strategy?: { readonly matrix?: { readonly os?: readonly string[], readonly include?: readonly Record<string, unknown>[] } }
   readonly defaults?: { readonly run?: { readonly 'working-directory'?: string } }
 }
 export interface Workflow {
@@ -382,6 +384,30 @@ export function setupJobs(all: ReadonlyMap<string, Workflow>, actions: ReadonlyM
   }
   for (const [file, steps] of actions) jobs.set(file, { steps })
   return jobs
+}
+
+/** Each unpinned `*-latest` runner image in a workflow's `runs-on`, matrix `os`, or dynamic matrix JSON (canopi-eht6). */
+export function runnerFaults(all: ReadonlyMap<string, Workflow>): string[] {
+  const faults: string[] = []
+  const check = (where: string, value: unknown) => {
+    const labels = Array.isArray(value) ? value : [value]
+    for (const label of labels) {
+      if (typeof label === 'string' && /-latest\b/.test(label)) faults.push(`${where} uses unpinned runner ${label}`)
+    }
+  }
+  for (const [file, flow] of all) {
+    for (const [name, job] of Object.entries(flow.jobs ?? {})) {
+      check(`${file} job ${name}`, job['runs-on'])
+      check(`${file} job ${name} matrix`, job.strategy?.matrix?.os)
+      for (const row of job.strategy?.matrix?.include ?? []) check(`${file} job ${name} matrix`, row['os'])
+      for (const step of job.steps ?? []) {
+        for (const match of (step.run ?? '').matchAll(/"os"\s*:\s*"([^"]*-latest)"/g)) {
+          faults.push(`${file} job ${name} matrix uses unpinned runner ${match[1]}`)
+        }
+      }
+    }
+  }
+  return faults
 }
 
 /** The steps of each composite action under `root`/.github/actions, by its action.yml path. */

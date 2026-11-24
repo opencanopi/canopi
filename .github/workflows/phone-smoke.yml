@@ -50,7 +50,7 @@ jobs:
       (github.event_name != 'pull_request' ||
       github.event.pull_request.head.repo.full_name != github.repository ||
       github.head_ref != 'main')
-    runs-on: macos-latest
+    runs-on: macos-15
     timeout-minutes: 45
     strategy:
       fail-fast: false
@@ -265,7 +265,7 @@ jobs:
       (github.event_name != 'pull_request' ||
       github.event.pull_request.head.repo.full_name != github.repository ||
       github.head_ref != 'main')
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     outputs:
       repeats: ${{ steps.list.outputs.repeats }}
@@ -282,7 +282,7 @@ jobs:
   android:
     name: Android (Chrome, emulator) ${{ matrix.repeat }}
     needs: android-plan
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 60
     # Quarantined (2.1-Q273, Q242): about 1 in 10 runs loses the emulator after the tablet resize or Chrome's page
     # mid-tap (canopi-f47t.52.228.54.3, dispatch runs 42152729329 and 42158487224), so a red Android job never fails
@@ -358,7 +358,7 @@ jobs:
     name: Android repeats verdict
     needs: android
     if: ${{ always() && inputs.android_repeats > 0 }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     permissions:
       contents: read
@@ -382,7 +382,7 @@ jobs:
   snapshots:
     name: Record the screenshot baselines
     if: ${{ inputs.update_snapshots }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 60
     container:
       image: mcr.microsoft.com/playwright:v1.64.1-noble

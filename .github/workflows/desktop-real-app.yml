@@ -2,7 +2,7 @@ name: Desktop real app
 
 # The Desktop real-app suite (2.1-M213; ADR 0029 Platform matrix): plain WebdriverIO over tauri-driver 2.1.0 drives the
 # e2e build (`npm run build:e2e`, identifier com.canopi.e2e) with command mocking off, on the oldest WebKitGTK the Linux
-# packages support (ubuntu-22.04), the newest (ubuntu-latest) and WebView2 (windows-latest; 2.1-M154). A missing or
+# packages support (ubuntu-22.04), the newest (ubuntu-26.04) and WebView2 (windows-2025; 2.1-M154). A missing or
 # mismatched driver fails the job, never skips it; the job also fails unless the start-screen spec fails on a planted
 # broken page. Build & Test calls it when the gate's real-app area is selected (policy/gate/table.ts; design check AR3);
 # a dispatch runs it alone.
@@ -28,7 +28,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-22.04, ubuntu-latest, windows-latest]
+        os: [ubuntu-22.04, ubuntu-26.04, windows-2025]
     defaults:
       run:
         shell: bash
@@ -38,7 +38,7 @@ jobs:
       CANOPI_SKIP_BUNDLED_DB: "1"
       # build:e2e quotes its --config JSON for a POSIX shell; npm runs scripts in cmd.exe on Windows otherwise, and a
       # bare `bash` there could name WSL's.
-      npm_config_script_shell: ${{ matrix.os == 'windows-latest' && 'C:\Program Files\Git\bin\bash.exe' || 'bash' }}
+      npm_config_script_shell: ${{ matrix.os == 'windows-2025' && 'C:\Program Files\Git\bin\bash.exe' || 'bash' }}
     steps:
       - uses: actions/checkout@v7
 
@@ -53,7 +53,7 @@ jobs:
           packages: xvfb dbus dbus-x11 openbox xdotool xdg-utils file
 
       # WebKitWebDriver ships in webkit2gtk-driver up to Ubuntu 24.04 and in webkitgtk-webdriver from 26.04, which
-      # ubuntu-latest became in November 2026; the package lists are fresh from the step above.
+      # ubuntu-26.04 became in November 2026; the package lists are fresh from the step above.
       - name: Install the WebKit driver under this Ubuntu's package name
         if: runner.os == 'Linux'
         run: |

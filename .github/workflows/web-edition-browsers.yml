@@ -21,7 +21,7 @@ concurrency:
 jobs:
   browsers:
     name: ${{ matrix.suite }} ${{ matrix.engine }} ${{ matrix.shard }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     # One job ran canvas then gallery in both engines and passed 30 min on 2026-10-15 (canopi-a407);
     # split by suite, engine and shard (shards split tests, not files: fullyParallel), each job is
     # about a sixth of that.
@@ -153,7 +153,7 @@ jobs:
       matrix:
         include:
           - { engine: webkitgtk, os: ubuntu-22.04 }
-          - { engine: edge, os: windows-latest }
+          - { engine: edge, os: windows-2025 }
     defaults:
       run:
         shell: bash
@@ -238,7 +238,7 @@ jobs:
     # Runs whatever the browser jobs' outcome: a missing or partial report fails it closed (policy/adapters/axe.mjs),
     # naming the shards that did not pass their tests.
     if: ${{ !cancelled() }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 20
     # The pinned image has Playwright's Chromium, which runs axe-core over the planted page.
     container:

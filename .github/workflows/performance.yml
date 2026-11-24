@@ -36,7 +36,7 @@ permissions:
 jobs:
   perf:
     name: Perf lane (information)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     # Non-blocking: a red run or a timeout leaves the workflow green.
     continue-on-error: true
     # Locally (8 cores, load 25) the 16 tests took 7.4 min, the scripted pan and zoom 60 to 90 s a run in software WebGL.

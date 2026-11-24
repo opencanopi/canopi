@@ -4,8 +4,8 @@ name: Updater end to end
 # of the same commit, N-1 (9.0.0) and N (9.0.1), plus on NSIS a beta (9.0.2-beta.1) for leaving beta, with the `updater-e2e` feature pointing the updater at a local channel
 # host and the `e2e` feature letting the WebdriverIO harness drive them, signed with a key generated in the job. The
 # installed N-1 checks, downloads and installs N from channel files this job prepares and updater.spec.ts serves: on
-# the AppImage and the .deb (a polkit rule stands in for the password prompt) on ubuntu-latest, and NSIS and the MSI
-# (msiexec /passive, relaunching through AUTOLAUNCHAPP; canopi-f47t.52.244) on windows-latest. Plain HTTP reaches the updater only through this job's overlay (install-identity-policy.test.ts
+# the AppImage and the .deb (a polkit rule stands in for the password prompt) on ubuntu-26.04, and NSIS and the MSI
+# (msiexec /passive, relaunching through AUTOLAUNCHAPP; canopi-f47t.52.244) on windows-2025. Plain HTTP reaches the updater only through this job's overlay (install-identity-policy.test.ts
 # refuses it in tauri.conf.json). Build & Test calls it when the gate's updater area is selected (policy/gate/table.ts:
 # the update flow's files, the scripts it runs and the Tauri pins; design check AR3), a Release Candidate as a release
 # check.
@@ -36,17 +36,17 @@ jobs:
       matrix:
         include:
           # `artifact` is the release artifact's folder name, which update_channel.py generate keys payloads by.
-          - os: ubuntu-latest
+          - os: ubuntu-26.04
             bundle: appimage
             artifact: canopi-x86_64-unknown-linux-gnu
-          - os: ubuntu-latest
+          - os: ubuntu-26.04
             bundle: deb
             artifact: canopi-x86_64-unknown-linux-gnu
-          - os: windows-latest
+          - os: windows-2025
             bundle: nsis
             artifact: canopi-x86_64-pc-windows-msvc
           # The stable Windows installer a user may have chosen; betas ship NSIS only (2.1-M27), so no beta build.
-          - os: windows-latest
+          - os: windows-2025
             bundle: msi
             artifact: canopi-x86_64-pc-windows-msvc
     defaults:
@@ -58,7 +58,7 @@ jobs:
       UPDATER_E2E_PORT: "47811"
       UPDATER_E2E_BUNDLE: ${{ matrix.bundle }}
       UPDATER_E2E_DIR: ${{ github.workspace }}/updater-channel
-      npm_config_script_shell: ${{ matrix.os == 'windows-latest' && 'C:\Program Files\Git\bin\bash.exe' || 'bash' }}
+      npm_config_script_shell: ${{ matrix.os == 'windows-2025' && 'C:\Program Files\Git\bin\bash.exe' || 'bash' }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -74,7 +74,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           set -euo pipefail
-          # WebKitWebDriver's package is webkitgtk-webdriver from Ubuntu 26.04 (ubuntu-latest since November 2026).
+          # WebKitWebDriver's package is webkitgtk-webdriver from Ubuntu 26.04 (ubuntu-26.04 since November 2026).
           driver=webkit2gtk-driver
           apt-cache show webkit2gtk-driver 2>/dev/null | grep -q '^Version:' || driver=webkitgtk-webdriver
           timeout 10m sudo apt-get -o Acquire::Retries=5 -o Acquire::http::Timeout=60 install -y "$driver" xvfb dbus dbus-x11 openbox xdotool xdg-utils file pkexec
@@ -367,7 +367,7 @@ jobs:
   macos-probe:
     name: macOS self-update probe
     if: github.event_name == 'workflow_dispatch'
-    runs-on: macos-latest
+    runs-on: macos-15
     timeout-minutes: 60
     continue-on-error: true
     env:

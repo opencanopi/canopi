@@ -52,7 +52,7 @@ env:
 jobs:
   frontend:
     name: Frontend, random seeds
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7
@@ -82,7 +82,7 @@ jobs:
 
   planted:
     name: Frontend lane, planted order dependence
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
@@ -128,7 +128,7 @@ jobs:
   # One step serves the lane and its planted failure: the matrix entry names the crate and, for the planted one, the seed.
   proptest:
     name: ${{ matrix.name }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 60
     strategy:
       fail-fast: false

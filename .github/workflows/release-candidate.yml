@@ -37,7 +37,7 @@ env:
 
 jobs:
   preflight:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 15
     env:
       DRY_RUN: ${{ github.event_name != 'workflow_dispatch' }}
@@ -325,9 +325,9 @@ jobs:
       matrix:
         include:
           # Linux packages build on the oldest supported glibc (2.35): the
-          # image is also in the Rust cache keys, so no ubuntu-latest build
+          # image is also in the Rust cache keys, so no ubuntu-26.04 build
           # comes back from a cache (canopi-eon8.14.6).
-          - os: ubuntu-latest
+          - os: ubuntu-26.04
             container: ubuntu:22.04
             target: x86_64-unknown-linux-gnu
             bundle_args: --bundles deb appimage
@@ -342,7 +342,7 @@ jobs:
             target: x86_64-apple-darwin
             bundle_args: ""
             updater: false
-          - os: windows-latest
+          - os: windows-2025
             target: x86_64-pc-windows-msvc
             bundle_args: ""
             updater: true
@@ -447,7 +447,7 @@ jobs:
   linux-floor:
     needs: [preflight, build]
     if: needs.preflight.outputs.dry_run != 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     container: debian:12
     timeout-minutes: 15
     steps:
@@ -566,7 +566,7 @@ jobs:
     needs: [preflight, build]
     if: needs.preflight.outputs.dry_run != 'true'
     name: smoke ${{ matrix.installer }}
-    runs-on: windows-latest
+    runs-on: windows-2025
     timeout-minutes: 20
     strategy:
       fail-fast: false
@@ -640,7 +640,7 @@ jobs:
   web:
     needs: preflight
     if: needs.preflight.outputs.dry_run != 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
@@ -727,7 +727,7 @@ jobs:
   manifest:
     needs: [preflight, build, linux-floor, smoke-linux, smoke-windows, updater-end-to-end, rollback, web]
     if: ${{ needs.preflight.outputs.dry_run != 'true' && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && !cancelled() }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
