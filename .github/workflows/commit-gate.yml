@@ -32,13 +32,7 @@ jobs:
           fetch-depth: 0
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
       # Node 24 with its npm 11 (2.1-M220): the gate, its TypeScript reading of tests and vitest list.
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24
-          cache: npm
-          cache-dependency-path: desktop/web/package-lock.json
-      - name: Install frontend deps
-        run: npm ci --prefix desktop/web
+      - uses: ./.github/actions/setup-frontend
       # Build & Test reads a .beads-only change as docs and runs no policy check, so closing a bead a ratchet entry or
       # policy row cites is refused here, on the PR and on main (canopi-f47t.52.228), through the gate's table check.
       - name: No policy entry cites a closed bead

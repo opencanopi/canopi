@@ -54,7 +54,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 24
+          node-version-file: desktop/web/package.json
           cache: npm
           cache-dependency-path: desktop/web/package-lock.json
 
@@ -65,9 +65,7 @@ jobs:
         run: |
           timeout 3m apt-get -o Acquire::Retries=5 -o Acquire::http::Timeout=60 update -qq
           timeout 5m apt-get -o Acquire::Retries=5 -o Acquire::http::Timeout=60 install -y -qq --no-install-recommends gcc libc6-dev
-      - uses: dtolnay/rust-toolchain@1.97.1
-        with:
-          targets: wasm32-unknown-unknown
+      - uses: ./.github/actions/setup-rust
       - uses: taiki-e/install-action@v2
         with:
           tool: wasm-bindgen@0.2.130

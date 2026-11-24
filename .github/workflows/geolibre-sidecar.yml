@@ -1,0 +1,109 @@
+name: GeoLibre CLI sidecar
+# Prebuilds the pinned GeoLibre CLI sidecar once per scripts/build-geolibre-cli.sh REVISION
+# and publishes the platform binaries + SHA-256 checksums to a GitHub Release tag
+# `geolibre-cli-<REVISION>` so CI and Release Candidate jobs never hit a 28-minute cold build
+# (Stage 1 E2).
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - scripts/build-geolibre-cli.sh
+      - .github/workflows/geolibre-sidecar.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: geolibre-sidecar-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build sidecar (${{ matrix.target }})
+    runs-on: ${{ matrix.os }}
+    container: ${{ matrix.container || '' }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-26.04
+            container: ubuntu:22.04
+            target: x86_64-unknown-linux-gnu
+          - os: windows-2025
+            target: x86_64-pc-windows-msvc
+          - os: macos-15
+            target: aarch64-apple-darwin
+          - os: macos-15-intel
+            target: x86_64-apple-darwin
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install container base tools
+        if: matrix.container != ''
+        shell: bash
+        run: |
+          set -euo pipefail
+          export DEBIAN_FRONTEND=noninteractive
+          timeout 5m apt-get -o Acquire::Retries=5 -o Acquire::http::Timeout=60 update
+          timeout 5m apt-get -o Acquire::Retries=5 -o Acquire::http::Timeout=60 install -y --no-install-recommends ca-certificates curl git build-essential pkg-config libssl-dev
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain none
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+
+      - uses: ./.github/actions/setup-rust
+
+      - name: Build GeoLibre CLI sidecar
+        shell: bash
+        env:
+          GEOLIBRE_RUST_SRC: ${{ runner.temp }}/geolibre-rust
+          GEOLIBRE_TARGET_DIR: ${{ runner.temp }}/geolibre-target
+        run: |
+          set -euo pipefail
+          scripts/build-geolibre-cli.sh
+          triple="$(rustc -vV | sed -n 's/^host: //p')"
+          ext=""
+          case "$triple" in *windows*) ext=".exe" ;; esac
+          asset="geolibre-$triple$ext"
+          if command -v sha256sum >/dev/null 2>&1; then
+            (cd desktop/binaries && sha256sum "$asset" > "$asset.sha256")
+          else
+            (cd desktop/binaries && shasum -a 256 "$asset" > "$asset.sha256")
+          fi
+
+      - name: Upload sidecar artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: geolibre-sidecar-${{ matrix.target }}
+          path: desktop/binaries/geolibre-*
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    name: Publish sidecar release
+    needs: build
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v7
+        with:
+          pattern: geolibre-sidecar-*
+          merge-multiple: true
+          path: dist-sidecars
+      - name: Publish geolibre-cli release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          rev="$(sed -n 's/^REVISION=//p' scripts/build-geolibre-cli.sh | head -n1)"
+          tag="geolibre-cli-$rev"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" dist-sidecars/* --clobber
+          else
+            gh release create "$tag" dist-sidecars/* \
+              --title "GeoLibre CLI $rev" \
+              --notes "Prebuilt GeoLibre CLI sidecars for scripts/build-geolibre-cli.sh revision \`$rev\`." \
+              --prerelease
+          fi

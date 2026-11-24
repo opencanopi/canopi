@@ -253,7 +253,7 @@ function pushFaults(build: Workflow, probes: readonly string[], table: Table = T
 }
 
 /** The setup a Commit gate job may run besides its checks: these actions, and these lines. */
-const COMMIT_GATE_SETUP = { uses: /^actions\/(?:checkout|setup-node)@/, run: new Set(['npm ci --prefix desktop/web']) }
+const COMMIT_GATE_SETUP = { uses: /^(?:actions\/(?:checkout|setup-node)@|\.\/\.github\/actions\/setup-frontend$)/, run: new Set(['npm ci --prefix desktop/web']) }
 /** On a pull request, whether a job or step with this `if` runs; undefined for a condition reading more than the event. */
 const onPullRequest = (condition: string | undefined) =>
   ({ undefined: true, "github.event_name == 'pull_request'": true, "github.event_name == 'push'": false } as Record<string, boolean>)[String(condition)]
@@ -486,7 +486,6 @@ describe('selection parity (A5, AR2)', () => {
     const unnamed = { ...policy, jobs: { 'a11y-policy': { steps: [{ run: 'npm ci' }] } } }
     expect(inlineFaults(unnamed, TABLE, 'web-edition-browsers.yml')).toEqual([
       'web-edition-browsers.yml job a11y-policy step (unnamed) runs `npm ci`, which is no gate call and no ci_setup or ci_only row in policy/gate/table.ts (A5 (1))',
-      'policy/gate/table.ts ci row web-edition-browsers.yml a11y-policy/Install frontend deps names no step that job runs',
       'policy/gate/table.ts ci row web-edition-browsers.yml a11y-policy/Trust the workspace for the planted cases names no step that job runs'])
     // DR12: the lint job ran the Unicode facts and the spec type checks inline, which no local lane ran.
     const inline = { ...build, jobs: { ...build.jobs, lint: { steps: [{ name: 'Check facts', run: 'python3 scripts/x.py check' }] } } }

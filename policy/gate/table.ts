@@ -208,6 +208,8 @@ export const TABLE: Table = {
       ciOnly: true, on: ['pull_request', 'push', 'schedule'] },
     'update-channel': { command: 'CI workflow update-channel.yml: the update channels moved for a published release',
       shown: 'update-channel.yml', ciOnly: true, on: ['release', 'workflow_dispatch'] },
+    'geolibre-sidecar': { command: 'CI workflow geolibre-sidecar.yml: prebuild the pinned GeoLibre CLI sidecar assets per revision',
+      shown: 'geolibre-sidecar.yml', ciOnly: true, on: ['push', 'workflow_dispatch'] },
   },
   areas: ([
     {
@@ -222,7 +224,7 @@ export const TABLE: Table = {
         String.raw`^\.cargo/`, String.raw`^\.github/workflows/release-candidate\.yml$`, String.raw`^desktop/(?!web/)`,
         String.raw`^(canopi-types|bindings-gen)/`, String.raw`^desktop/web/src/maplibre/raster-display/fixtures/`,
         String.raw`^scripts/(build-geolibre-cli\.sh|schema-contract\.json|species_catalog_contract\.py|species_search_normalization\.py|web_catalog_artifact_contract\.py)$`],
-      actions: ['install-linux-deps', 'cargo-policy-tools', 'build-geolibre-cli', 'package-desktop'],
+      actions: ['install-linux-deps', 'cargo-policy-tools', 'build-geolibre-cli', 'package-desktop', 'setup-rust', 'setup-frontend'],
       full: ['cargo-locked', 'fmt', 'clippy', 'cov', 'policy-check-push', 'platform-tests', 'packaging'],
       affected: ['cargo-locked', 'fmt', 'clippy', 'cargo-test', 'policy-check-push'],
       commit: ['fmt', ...POLICY_COMMIT],
@@ -234,7 +236,7 @@ export const TABLE: Table = {
       // invokes one too, so it selects the area as well.
       patterns: [String.raw`^desktop/src/.*\.rs$`, String.raw`^desktop/web/src/ipc/`],
       ratchet: 'policy/ratchets/invoke-only-in-ipc.json',
-      actions: ['install-linux-deps'],
+      actions: ['install-linux-deps', 'setup-rust', 'setup-frontend'],
       full: ['native-command-policy'],
       coveredBy: ['cargo-test'],
     },
@@ -251,6 +253,7 @@ export const TABLE: Table = {
         String.raw`^desktop/web/src/generated/`, String.raw`^desktop/src/(db/plant_filter_fields|design/new_design_defaults|services/lidar/analysis_registry_generated)\.rs$`,
         String.raw`^scripts/(species_catalog_contract\.py|web_catalog_artifact_contract\.py|species_search_normalization\.py|schema-contract\.json)$`,
         String.raw`^rust-toolchain\.toml$`, String.raw`^scripts/species_search_unicode_facts\.py$`, String.raw`^\.python-version$`],
+      actions: ['setup-rust', 'setup-frontend'],
       full: ['check-types', 'unicode-facts'],
       commit: ['check-types'],
     },
@@ -269,7 +272,7 @@ export const TABLE: Table = {
       full: ['typecheck', 'coverage', ...POLICY_COMMIT, 'build', 'build-web', 'policy-bundle', 'notices', 'gate-coverage', 'oldest-engine'],
       affected: ['typecheck'],
       affectedWhen: { notices: NOTICES_INPUTS },
-      actions: ['install-linux-deps'],
+      actions: ['install-linux-deps', 'setup-rust'],
       commit: ['typecheck'],
       // What toolchain-typecheck.test.ts reads for a bare compiler run (2.1-Q205), beyond desktop/web.
       scans: [String.raw`^\.githooks/`, String.raw`^\.github/workflows/[^/]+\.ya?ml$`, String.raw`^scripts/.+\.(sh|py|mjs|js|ts)$`,
@@ -290,7 +293,7 @@ export const TABLE: Table = {
         String.raw`^desktop/web/tsconfig[^/]*\.json$`, String.raw`^(rust-toolchain|clippy|deny)\.toml$`,
         String.raw`^desktop/web/(\.oxlintrc\.json|knip\.json|\.dependency-cruiser[^/]*\.cjs)$`,
         String.raw`^(\.jscpd\.json|osv-scanner\.toml)$`],
-      actions: ['install-linux-deps', 'cargo-policy-tools'],
+      actions: ['install-linux-deps', 'cargo-policy-tools', 'setup-rust', 'setup-frontend'],
       full: ['policy-self-test', 'policy-self-test-push', 'policy-check-push', 'policy-self-test-bundle'],
     },
     {
@@ -304,7 +307,7 @@ export const TABLE: Table = {
         String.raw`^desktop/tauri[^/]*\.json$`, String.raw`^desktop/tauri\.conf`,
         String.raw`^scripts/(build-geolibre-cli\.sh|smoke-bundled-sidecar\.sh|check_windows_manifest\.py)$`,
         String.raw`^desktop/web/package[^/]*\.json$`, String.raw`^\.github/tauri-branch-nsis\.json$`],
-      actions: ['install-linux-deps', 'build-geolibre-cli', 'package-desktop'],
+      actions: ['install-linux-deps', 'build-geolibre-cli', 'package-desktop', 'setup-rust', 'setup-frontend'],
       full: ['packaging-every-platform'],
     },
     {
@@ -323,7 +326,7 @@ export const TABLE: Table = {
       workflow: '.github/workflows/release-candidate.yml',
       patterns: [String.raw`^\.github/tauri-release-updater\.json$`, String.raw`^scripts/release_smoke\.py$`,
         String.raw`^desktop/tauri\.conf\.json$`, String.raw`^desktop/tauri\.macos\.conf\.json$`, String.raw`^\.github/workflows/(updater-e2e|rollback)\.yml$`],
-      actions: ['install-linux-deps', 'build-geolibre-cli', 'package-desktop'],
+      actions: ['install-linux-deps', 'build-geolibre-cli', 'package-desktop', 'setup-rust', 'setup-frontend'],
       full: ['release-build'],
     },
     {
@@ -345,13 +348,14 @@ export const TABLE: Table = {
       patterns: [String.raw`^desktop/src/services/species_catalog`, String.raw`^desktop/src/db/`,
         String.raw`^scripts/(test_)?species_catalog_contract\.py$`, String.raw`^scripts/schema-contract\.json$`,
         String.raw`^canopi-types/plant-filter-fields\.json$`],
+      actions: ['setup-frontend'],
       full: ['species-contract', 'species-tests'],
     },
     {
       name: 'lidar', label: 'LiDAR services',
       row: 'the engine lane (CI job `{lidar-native}`) and the comparison lane ([data library](guides/data-library.md))',
       patterns: [String.raw`^desktop/src/services/lidar/`],
-      actions: ['install-linux-deps', 'build-geolibre-cli'],
+      actions: ['install-linux-deps', 'build-geolibre-cli', 'setup-rust'],
       full: ['lidar-native', 'lidar-comparison'],
     },
     {
@@ -359,7 +363,7 @@ export const TABLE: Table = {
       row: 'CI `{desktop-real-app}`',
       workflow: '.github/workflows/desktop-real-app.yml',
       patterns: [String.raw`^desktop/`, String.raw`^canopi-types/`, String.raw`^Cargo\.lock$`],
-      actions: ['install-linux-deps'],
+      actions: ['install-linux-deps', 'setup-rust', 'setup-frontend'],
       full: ['desktop-real-app'],
     },
     {
@@ -373,7 +377,7 @@ export const TABLE: Table = {
       // The format worker's module instantiated in every engine: the crates it is built from (Step 2.0.4).
       patterns: [String.raw`^desktop/web/(?!.*\.md$)`, String.raw`^desktop/tauri\.conf\.json$`, String.raw`^policy/`,
         String.raw`^canopi-(redact|format|format-wasm)/`],
-      actions: ['install-linux-deps'],
+      actions: ['install-linux-deps', 'setup-frontend', 'setup-rust'],
       full: ['web-browsers', 'policy-self-test-a11y', 'policy-a11y'],
     },
     {
@@ -395,7 +399,7 @@ export const TABLE: Table = {
         String.raw`^desktop/web/src/(app/shell/close-guard\.ts|app\.tsx|components/shared/(AboutCanopi|Settings)Dialog\.tsx)$`,
         String.raw`^desktop/web/src/(components/(shared/NoticeRow\.tsx|workspace/launch-notices\.ts)|failures/notices\.ts)$`,
         String.raw`^\.github/tauri-release-updater\.json$`],
-      actions: ['install-linux-deps'],
+      actions: ['install-linux-deps', 'setup-rust', 'setup-frontend'],
       full: ['updater-e2e'],
     },
     {
@@ -412,7 +416,7 @@ export const TABLE: Table = {
         String.raw`^desktop/tests/rollback_reader(\.rs$|/)`, String.raw`^spec/(rollback|web/frozen)/`,
         String.raw`^desktop/web/src/(platform/(browser-record|draft-records\.browser|settings\.browser)\.ts|web/browser-app-data\.ts|failures/health-presentation\.ts)$`,
         String.raw`^desktop/web/e2e-rollback/`, String.raw`^policy/gate/rollback-refs\.ts$`],
-      actions: ['install-linux-deps'],
+      actions: ['install-linux-deps', 'setup-frontend', 'setup-rust'],
       full: ['rollback'],
     },
     {
@@ -476,12 +480,7 @@ export const TABLE: Table = {
   },
   ci: {
     'changes': { base: CI_SETUP, diff: CI_SETUP, packaging: CI_SETUP },
-    'docs': { 'Install frontend deps': CI_SETUP },
-    'rust': { 'Install frontend deps': CI_SETUP },
-    'policy-tooling': { 'Install frontend deps': CI_SETUP },
-    'shared-contracts': { 'Install frontend deps': CI_SETUP },
     'workflows': { 'Install the pinned actionlint': CI_SETUP },
-    'scripts': { 'Install frontend deps': CI_SETUP },
     'frontend': { 'Install frontend deps and fetch the locked crates': CI_SETUP, 'Download and verify the Web catalog': CI_SETUP,
       'Package and verify the Web Edition as a release would': 'web-release' },
     'lidar-native': { '*': 'lidar-native' },
@@ -493,7 +492,7 @@ export const TABLE: Table = {
     'desktop-real-app.yml real-app': { '*': 'desktop-real-app' },
     'web-edition-browsers.yml browsers': { '*': 'web-browsers' },
     'web-edition-browsers.yml format-core-engines': { '*': 'web-browsers' },
-    'web-edition-browsers.yml a11y-policy': { 'Install frontend deps': CI_SETUP, 'Trust the workspace for the planted cases': CI_SETUP },
+    'web-edition-browsers.yml a11y-policy': { 'Trust the workspace for the planted cases': CI_SETUP },
     // The macOS self-update probe runs on a dispatch or a Release Candidate only, never called by build.yml (2.1-Q136).
     'updater-e2e.yml updater': { '*': 'updater-e2e' },
     'updater-e2e.yml macos-probe': { '*': 'updater-e2e' },
@@ -507,9 +506,10 @@ export const TABLE: Table = {
     'release-candidate.yml manifest': { '*': 'release-build' },
     // The workflows outside Build & Test: the Commit gate's steps are gate calls; each other one is its own lane, and
     // cache-prune.yml deletes superseded caches, judging nothing.
-    'commit-gate.yml gate': { 'Install frontend deps': CI_SETUP },
     'cache-prune.yml prune': { '*': CI_SETUP },
     'advisories.yml advisories': { '*': 'advisories' },
+    'geolibre-sidecar.yml build': { '*': 'geolibre-sidecar' },
+    'geolibre-sidecar.yml publish': { '*': 'geolibre-sidecar' },
     'mutation.yml plan': { '*': 'mutation' },
     'mutation.yml stryker': { '*': 'mutation' },
     'mutation.yml cargo-mutants': { '*': 'mutation' },

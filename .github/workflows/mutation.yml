@@ -92,7 +92,7 @@ jobs:
 
       # A diff run lists each changed crate's mutants to size its shards (no build: `--list` reads the sources).
       - if: github.event_name != 'workflow_dispatch'
-        uses: dtolnay/rust-toolchain@1.97.1
+        uses: ./.github/actions/setup-rust
       - if: github.event_name != 'workflow_dispatch'
         uses: taiki-e/install-action@v2
         with:
@@ -184,14 +184,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24
-          cache: npm
-          cache-dependency-path: desktop/web/package-lock.json
-
-      - name: Install frontend deps
-        run: npm ci --no-audit --no-fund
+      - uses: ./.github/actions/setup-frontend
 
       # Before the dry run, which transforms font-urls.ts's eager glob before vitest's globalSetup writes the fonts.
       - name: Write the PDF fonts
@@ -313,12 +306,11 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: dtolnay/rust-toolchain@1.97.1
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - uses: ./.github/actions/setup-rust
         with:
-          shared-key: mutants
-          cache-on-failure: false
-          save-if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+          cache: 'true'
+          cache-key: rust-check
+          cache-save: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
 
       - name: Install Linux dependencies
         uses: ./.github/actions/install-linux-deps

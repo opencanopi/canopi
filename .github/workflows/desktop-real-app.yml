@@ -63,21 +63,13 @@ jobs:
           timeout 10m sudo apt-get -o Acquire::Retries=5 -o Acquire::http::Timeout=60 install -y "$driver"
           echo "CANOPI_WEBKIT_DRIVER=$driver" >> "$GITHUB_ENV"
 
-      - uses: dtolnay/rust-toolchain@1.97.1
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - uses: ./.github/actions/setup-rust
         with:
-          shared-key: desktop-real-app-${{ matrix.os }}
-          cache-on-failure: false
-          save-if: ${{ github.ref == 'refs/heads/main' }}
+          cache: 'true'
+          cache-key: desktop-e2e
+          cache-save: ${{ github.ref == 'refs/heads/main' }}
 
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24
-          cache: npm
-          cache-dependency-path: desktop/web/package-lock.json
-
-      - name: Install frontend deps
-        run: npm ci --no-audit --no-fund
+      - uses: ./.github/actions/setup-frontend
 
       - name: Type-check the real-app suite
         run: npm run typecheck -- -p e2e/platform

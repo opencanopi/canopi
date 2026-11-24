@@ -370,24 +370,14 @@ jobs:
         if: runner.os == 'Linux'
         uses: ./.github/actions/install-linux-deps
 
-      - uses: dtolnay/rust-toolchain@1.97.1
+      - uses: ./.github/actions/setup-rust
         with:
           targets: ${{ matrix.target }}
+          cache: 'true'
+          cache-key: release-${{ matrix.target }}${{ matrix.container && format('-{0}', matrix.container) || '' }}
+          cache-save: 'false'
 
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-        with:
-          shared-key: release-${{ matrix.target }}${{ matrix.container && format('-{0}', matrix.container) || '' }}
-          cache-on-failure: false
-          save-if: false
-
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24
-          cache: npm
-          cache-dependency-path: desktop/web/package-lock.json
-
-      - name: Install frontend deps
-        run: npm ci --prefix desktop/web
+      - uses: ./.github/actions/setup-frontend
 
       # The sidecar must exist before `tauri build`: build.rs bundles it only
       # when desktop/binaries holds it for the target (the runner's host).
@@ -509,13 +499,13 @@ jobs:
           timeout 10m sudo apt-get -o Acquire::Retries=5 -o Acquire::http::Timeout=60 update
           timeout 10m sudo apt-get -o Acquire::Retries=5 -o Acquire::http::Timeout=60 install -y webkit2gtk-driver xvfb dbus dbus-x11 openbox libglib2.0-bin desktop-file-utils
 
-      - uses: dtolnay/rust-toolchain@1.97.1
+      - uses: ./.github/actions/setup-rust
       - name: Install tauri-driver 2.1.0
         run: cargo install tauri-driver --version 2.1.0 --locked
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 24
+          node-version-file: desktop/web/package.json
           cache: npm
           cache-dependency-path: release-tools/desktop/web/package-lock.json
 
@@ -655,7 +645,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 24
+          node-version-file: desktop/web/package.json
           cache: npm
           cache-dependency-path: desktop/web/package-lock.json
 
@@ -684,9 +674,7 @@ jobs:
 
       # The Web build compiles the format worker's module first (`npm run build:format-wasm`, Step 2.0.4): the wasm32
       # target, and the wasm-bindgen CLI at Cargo.lock's wasm-bindgen version, the one build-wasm.mjs accepts.
-      - uses: dtolnay/rust-toolchain@1.97.1
-        with:
-          targets: wasm32-unknown-unknown
+      - uses: ./.github/actions/setup-rust
       - uses: taiki-e/install-action@v2
         with:
           tool: wasm-bindgen@0.2.130

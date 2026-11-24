@@ -86,21 +86,13 @@ jobs:
           });
           RULE
 
-      - uses: dtolnay/rust-toolchain@1.97.1
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - uses: ./.github/actions/setup-rust
         with:
-          shared-key: updater-e2e-${{ matrix.os }}
-          cache-on-failure: false
-          save-if: ${{ github.ref == 'refs/heads/main' }}
+          cache: 'true'
+          cache-key: desktop-e2e
+          cache-save: ${{ github.ref == 'refs/heads/main' }}
 
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24
-          cache: npm
-          cache-dependency-path: desktop/web/package-lock.json
-
-      - name: Install frontend deps
-        run: npm ci --prefix desktop/web --no-audit --no-fund
+      - uses: ./.github/actions/setup-frontend
 
       - name: Install tauri-driver 2.1.0
         run: cargo install tauri-driver --version 2.1.0 --locked
@@ -378,21 +370,13 @@ jobs:
         with:
           ref: ${{ inputs.ref || github.sha }}
 
-      - uses: dtolnay/rust-toolchain@1.97.1
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - uses: ./.github/actions/setup-rust
         with:
-          shared-key: updater-macos-probe
-          cache-on-failure: false
-          save-if: ${{ github.ref == 'refs/heads/main' }}
+          cache: 'true'
+          cache-key: desktop-e2e
+          cache-save: ${{ github.ref == 'refs/heads/main' }}
 
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24
-          cache: npm
-          cache-dependency-path: desktop/web/package-lock.json
-
-      - name: Install frontend deps
-        run: npm ci --prefix desktop/web --no-audit --no-fund
+      - uses: ./.github/actions/setup-frontend
 
       # The key lives in the runner's temp folder for this job only; nothing uploads it.
       - name: Generate the job's updater key and the probe overlays

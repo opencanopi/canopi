@@ -40,16 +40,8 @@ jobs:
         working-directory: desktop/web
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24
-          cache: npm
-          cache-dependency-path: desktop/web/package-lock.json
-      - name: Install frontend deps
-        run: npm ci --no-audit --no-fund
-      - uses: dtolnay/rust-toolchain@1.97.1
-        with:
-          targets: wasm32-unknown-unknown
+      - uses: ./.github/actions/setup-frontend
+      - uses: ./.github/actions/setup-rust
       - uses: taiki-e/install-action@v2
         with:
           tool: wasm-bindgen@0.2.130

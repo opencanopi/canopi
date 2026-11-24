@@ -434,7 +434,9 @@ describe('where an area\'s CI job lives (canopi-f47t.52.228.54)', () => {
       ? { ...area, patterns: area.patterns.filter((pattern) => !pattern.includes('github')) } : area)) }
     expect(ciHomeFaults(narrow)).toEqual([".github/workflows/build.yml holds the real-app area's CI job, but does not select it",
       ".github/workflows/desktop-real-app.yml holds the real-app area's CI job, but does not select it",
-      ".github/actions/install-linux-deps/action.yml holds the real-app area's CI job, but does not select it"])
+      ".github/actions/install-linux-deps/action.yml holds the real-app area's CI job, but does not select it",
+      ".github/actions/setup-rust/action.yml holds the real-app area's CI job, but does not select it",
+      ".github/actions/setup-frontend/action.yml holds the real-app area's CI job, but does not select it"])
     const stale = { ...TABLE, areas: TABLE.areas.map((area) => (area.name === 'web-browsers' ? { ...area, actions: ['osv-advisories'] } : area)) }
     expect(ciHomeFaults(stale)).toEqual(['the web-browsers area lists action osv-advisories, which none of its CI jobs runs'])
   })

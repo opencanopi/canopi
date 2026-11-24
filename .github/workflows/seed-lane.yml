@@ -56,13 +56,7 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24
-          cache: npm
-          cache-dependency-path: desktop/web/package-lock.json
-      - name: Install frontend deps
-        run: npm ci --prefix desktop/web
+      - uses: ./.github/actions/setup-frontend
       # test:seed-lane picks CANOPI_TEST_SEED (shuffle order) and CANOPI_FC_SEED (fast-check) at random and prints them.
       - name: Whole suite from random seeds
         working-directory: desktop/web
@@ -86,13 +80,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24
-          cache: npm
-          cache-dependency-path: desktop/web/package-lock.json
-      - name: Install frontend deps
-        run: npm ci --prefix desktop/web
+      - uses: ./.github/actions/setup-frontend
       # policy/fixtures/seed-lane/order-dependent.test.ts fails in seed 3's order of its eight tests only. Vitest
       # passes no `--dir` to a project, so CANOPI_TEST_DIR is the web project's (vite.config.ts).
       - name: The lane fails a planted order-dependent test and prints its seed
@@ -144,13 +132,11 @@ jobs:
             planted: true
     steps:
       - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@1.97.1
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-        if: ${{ !matrix.planted }}
+      - uses: ./.github/actions/setup-rust
         with:
-          shared-key: test
-          cache-on-failure: false
-          save-if: false
+          cache: ${{ !matrix.planted }}
+          cache-key: rust-check
+          cache-save: 'false'
       - name: Install Linux dependencies
         if: ${{ !matrix.planted }}
         uses: ./.github/actions/install-linux-deps

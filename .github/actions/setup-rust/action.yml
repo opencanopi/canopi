@@ -1,0 +1,55 @@
+name: Set up Rust toolchain
+description: >-
+  Install the Rust toolchain pinned in rust-toolchain.toml, optional extra targets or
+  components, and optional consolidated Swatinem/rust-cache (canopi-s4ziq, Stage 1 E3).
+
+inputs:
+  targets:
+    description: Space-separated extra rustup targets to install
+    required: false
+    default: ''
+  components:
+    description: Space-separated extra rustup components to install
+    required: false
+    default: ''
+  cache:
+    description: Restore/save Cargo cache with Swatinem/rust-cache
+    required: false
+    default: 'false'
+  cache-key:
+    description: Consolidated shared-key for Swatinem/rust-cache
+    required: false
+    default: rust-check
+  cache-save:
+    description: Whether Swatinem/rust-cache saves on cache miss
+    required: false
+    default: 'true'
+
+runs:
+  using: composite
+  steps:
+    - name: Install Rust from rust-toolchain.toml
+      shell: bash
+      env:
+        EXTRA_TARGETS: ${{ inputs.targets }}
+        EXTRA_COMPONENTS: ${{ inputs.components }}
+      run: |
+        set -euo pipefail
+        rustup toolchain install
+        if [ -n "$EXTRA_TARGETS" ]; then
+          for target in $EXTRA_TARGETS; do
+            rustup target add "$target"
+          done
+        fi
+        if [ -n "$EXTRA_COMPONENTS" ]; then
+          for component in $EXTRA_COMPONENTS; do
+            rustup component add "$component"
+          done
+        fi
+
+    - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      if: inputs.cache == 'true'
+      with:
+        shared-key: ${{ inputs.cache-key }}
+        cache-on-failure: false
+        save-if: ${{ inputs.cache-save }}
