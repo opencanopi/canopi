@@ -732,19 +732,19 @@ class LinuxBuildBaseTests(unittest.TestCase):
         self.assertIn(f"GLIBC_FLOOR={self.IMAGE_GLIBC[image]}\n", smoke)
 
     def test_canopi_eon8_14_6_build_jobs_run_the_row_image_and_key_caches_by_it(self):
+        self.assertIn(
+            "shared-key: ${{ inputs.cache-key }}",
+            self._read(".github/actions/setup-rust/action.yml"),
+        )
         for name, (_, job) in self._build_jobs().items():
             with self.subTest(workflow=name):
                 self.assertIn("    container: ${{ matrix.container }}\n", job)
                 self.assertIn(
-                    "shared-key: release-${{ matrix.target }}"
-                    "${{ matrix.container && format('-{0}', matrix.container) || '' }}",
+                    "cache-key: release-${{ matrix.target }}${{ matrix.container && format('-{0}', matrix.container) || '' }}",
                     job,
                 )
                 # The image has no curl: dependencies come before the toolchain.
-                self.assertLess(
-                    job.index("./.github/actions/install-linux-deps"),
-                    job.index("dtolnay/rust-toolchain"),
-                )
+                self.assertLess(job.index("./.github/actions/install-linux-deps"), job.index("./.github/actions/setup-rust"))
                 self.assertIn("./.github/actions/build-geolibre-cli", job)
         geolibre = self._read(".github/actions/build-geolibre-cli/action.yml")
         self.assertIn("/etc/os-release", geolibre)

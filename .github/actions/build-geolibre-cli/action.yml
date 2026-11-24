@@ -13,7 +13,7 @@ runs:
     # key: a sidecar built on a newer glibc must never be restored into the
     # ubuntu:22.04 package build (canopi-eon8.14.6).
     - name: Read the build base and pinned revision
-      id: meta
+      id: base
       shell: bash
       run: |
         set -euo pipefail
@@ -33,15 +33,15 @@ runs:
       uses: actions/cache@v4
       with:
         path: desktop/binaries
-        key: geolibre-cli-${{ runner.os }}-${{ runner.arch }}-${{ steps.meta.outputs.image }}-${{ hashFiles('scripts/build-geolibre-cli.sh') }}
+        key: geolibre-cli-${{ runner.os }}-${{ runner.arch }}-${{ steps.base.outputs.image }}-${{ hashFiles('scripts/build-geolibre-cli.sh') }}
 
     - name: Download prebuilt GeoLibre CLI sidecar
       id: prebuilt
       if: steps.geolibre-cache.outputs.cache-hit != 'true'
       shell: bash
       env:
-        TAG: geolibre-cli-${{ steps.meta.outputs.revision }}
-        ASSET: ${{ steps.meta.outputs.asset }}
+        TAG: geolibre-cli-${{ steps.base.outputs.revision }}
+        ASSET: ${{ steps.base.outputs.asset }}
         REPO: ${{ github.repository }}
       run: |
         set -euo pipefail
@@ -80,6 +80,6 @@ runs:
       shell: bash
       run: |
         set -euo pipefail
-        sidecar="desktop/binaries/${{ steps.meta.outputs.asset }}"
+        sidecar="desktop/binaries/${{ steps.base.outputs.asset }}"
         test -x "$sidecar"
         "$sidecar" version
