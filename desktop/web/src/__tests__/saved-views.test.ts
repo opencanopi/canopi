@@ -31,7 +31,7 @@ import { setPlantLabels } from '../app/plant-display/actions'
 import { createDefaultMapLayers, mapLayers } from '../app/map-layers/state'
 import { currentDesign, designSessionStore } from '../app/document-session/store'
 import { createDefaultScenePersistedState } from '../canvas/runtime/scene'
-import { mapZoomToStageScale, createSessionPlane } from '../geo/session-plane'
+import { createSessionPlane } from '../geo/session-plane'
 import { setCurrentCanvasSession } from '../canvas/session'
 import type { CanopiFile, PlacedPlant, SavedView, Story } from '../types/design'
 import {
@@ -115,7 +115,7 @@ function visit(viewIds: string[]): Story {
 
 /** A map on a `screen` CSS px window (400 × 300 by default) whose centre shows the plane origin at zoom 18. */
 function mountCanvas(screen: WindowSize = { width: 400, height: 300 }) {
-  const scale = mapZoomToStageScale(18, TEST_GEO_ORIGIN.lat)
+  const scale = createSessionPlane({ lon: 0, lat: TEST_GEO_ORIGIN.lat }).pixelsPerMetre(18).mean
   const scene = createDefaultScenePersistedState()
   scene.layers = [
     { kind: 'layer', name: 'plants', visible: true, locked: false, opacity: 1 },

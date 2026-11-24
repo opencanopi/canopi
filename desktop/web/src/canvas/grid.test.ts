@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { createTestView } from '../__tests__/support/test-view'
 import { gridInterval } from './grid'
-import { mapZoomToStageScale, createSessionPlane } from '../geo/session-plane'
+import { createSessionPlane } from '../geo/session-plane'
 const NANTES = { lon: -1.5536, lat: 47.2184 }
 
 describe('gridInterval', () => {
   it('a camera placed at exactly 20 px/m shows the 1 m grid, though its scale reads back a hair under', () => {
-    const readBack = mapZoomToStageScale(createSessionPlane(NANTES).zoomForPixelsPerMetre(20), NANTES.lat)
+    const readBack = createSessionPlane({ lon: 0, lat: NANTES.lat }).pixelsPerMetre(createSessionPlane(NANTES).zoomForPixelsPerMetre(20)).mean
     expect(readBack).toBeLessThan(20)
     expect(gridInterval(readBack).interval).toBe(1)
     expect(gridInterval(20).interval).toBe(1)

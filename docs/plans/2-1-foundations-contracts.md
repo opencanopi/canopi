@@ -808,7 +808,7 @@ type PlanePoint = Brand<{ x: number; y: number }, 'PlanePoint'>;          // gro
 type ConformalPoint = Brand<{ x: number; y: number }, 'ConformalPoint'>;  // the camera's similarity frame
 interface SessionPlane {
   readonly anchor: GeoPoint;                       // the objects' bounds centre, or the view centre
-  readonly axisScale: { ax: number; ay: number }; // N0·cosφ0 and M0, per Mercator unit
+  readonly axisScale: { ax: number; ay: number }; // sqrt(N0/M0) and 1/ax (plane metres per conformal metre)
   toPlane(p: GeoPoint): PlanePoint; toGeoPoint(p: PlanePoint): GeoPoint;
   toView(p: PlanePoint): ConformalPoint; fromView(p: ConformalPoint): PlanePoint;
   pixelsPerMetre(zoom: number): { x: number; y: number; mean: number };

@@ -18,6 +18,8 @@ const STACK_BADGE_PADDING_PX = 5
 export interface PlantPresentationContext {
   /** The view's scale: screen sizes in CSS px turn into metres with it. */
   pixelsPerMetre: number
+  /** Local ground-metre scale at a plant's position (through `SessionPlane.groundScaleAt`, 2.1-M520). */
+  pixelsPerMetreAt?: (point: ScenePoint) => number
   plants?: readonly ScenePlantEntity[]
   speciesCache: ReadonlyMap<string, SpeciesCacheEntry>
   plantSpeciesSymbols?: Readonly<Record<string, string>>
@@ -25,7 +27,7 @@ export interface PlantPresentationContext {
 }
 
 /** What a plant's footprint (its bounds, hit radius and drawn radius) reads: the scale and the plants that set its spacing. */
-type PlantFootprintContext = Pick<PlantPresentationContext, 'plants' | 'pixelsPerMetre'>
+type PlantFootprintContext = Pick<PlantPresentationContext, 'plants' | 'pixelsPerMetre' | 'pixelsPerMetreAt'>
 
 export interface PlantPresentationEntry {
   plant: ScenePlantEntity
@@ -72,10 +74,11 @@ export function buildPlantPresentationEntries(
   return plants.map((plant) => {
     const spacing = nearestPlantSpacing(spacingFrom, plant.position)
     const selected = selectedPlantIds.has(plant.id)
+    const localScale = context.pixelsPerMetreAt ? context.pixelsPerMetreAt(plant.position) : context.pixelsPerMetre
     return {
       plant,
       spacing,
-      ...plantSizeAt(spacing, context.pixelsPerMetre),
+      ...plantSizeAt(spacing, localScale),
       color: resolveDisplayedPlantColor(resolvePlantBaseColor(plant, context.speciesCache), plant.canonicalName, getCanvasPlantDisplay()),
       symbol: resolvePlantSymbolForPlant(plant, context.plantSpeciesSymbols ?? {}),
       stackPriority: getStackPriority(plant, selected),
@@ -180,7 +183,8 @@ const LONE_PLANT_MIN_RADIUS_PX = 2
 
 function resolvePlantRadiusWorld(plant: ScenePlantEntity, context: PlantFootprintContext): number {
   const spacing = context.plants ? nearestPlantSpacing(context.plants, plant.position) : Infinity
-  return plantSizeAt(spacing, context.pixelsPerMetre).radiusWorld
+  const localScale = context.pixelsPerMetreAt ? context.pixelsPerMetreAt(plant.position) : context.pixelsPerMetre
+  return plantSizeAt(spacing, localScale).radiusWorld
 }
 
 /** The drawn size at a scale; the dot switch reads the drawn radius, so a glyph's shape and size change together. */

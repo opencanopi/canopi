@@ -1,8 +1,11 @@
 // ---------------------------------------------------------------------------
-// Session plane: the runtime's local WGS84 ground-metre frame for the open Design.
+// Owner of the session plane and scale-only-through-plane (ADR 0001, ADR 0016,
+// contracts §20): the runtime's local WGS84 ground-metre frame for the open Design.
 //
-// Files store WGS84 lon/lat; tools, snapping, measurements, hit testing and
-// PDF layout work in WGS84 ground metres (ADR 0001, ADR 0016, contracts §20).
+// Invariants: files store WGS84 lon/lat; tools, snapping, measurements, hit
+// testing and PDF layout work in WGS84 ground metres. All zoom/latitude scale
+// conversions go through this module (`pixelsPerMetre`, `zoomForPixelsPerMetre`,
+// `groundScaleAt`, `groundLength`, `groundArea`).
 // The plane is Web Mercator scaled per-axis at its anchor by the WGS84 radii
 // (east-west by 2π·N0·cosφ0, north-south by 2π·M0·cosφ0), so a plane metre is
 // a true ground metre at the anchor in every direction and the plane stays an
@@ -23,8 +26,6 @@ import {
 
 declare const planePointBrand: unique symbol
 declare const conformalPointBrand: unique symbol
-declare const metresBrand: unique symbol
-declare const squareMetresBrand: unique symbol
 
 /** Ground metres in the session plane (x east, y south). Distinct from `ConformalPoint` at compile time. */
 export interface PlanePoint {
@@ -41,12 +42,6 @@ export interface ConformalPoint {
   readonly [conformalPointBrand]: 'ConformalPoint'
   readonly [planePointBrand]?: never
 }
-
-/** True ground length in WGS84 metres (`groundLength`). */
-type Metres = number & { readonly [metresBrand]: 'Metres' }
-
-/** True ground area in WGS84 square metres (`groundArea`). */
-type SquareMetres = number & { readonly [squareMetresBrand]: 'SquareMetres' }
 
 /** Brand a raw `{ x, y }` pair as a `ConformalPoint` (used by `geo/view/` placement maths). */
 export function conformalPoint(x: number, y: number): ConformalPoint {
@@ -75,20 +70,13 @@ export interface SessionPlane {
   pixelsPerMetre(zoom: number): { readonly x: number; readonly y: number; readonly mean: number }
   /** Exact inverse of `pixelsPerMetre(zoom).mean`. */
   zoomForPixelsPerMetre(meanPixelsPerMetre: number): number
-  /** True WGS84 ground length between two plane points (< 1 ppm vs Vincenty over a 10 km site). */
-  groundLength(a: PlanePoint, b: PlanePoint): Metres
-  /** True WGS84 ground area of a simple polygon ring in plane metres (< 1 ppm over a 10 km site). */
-  groundArea(ring: readonly PlanePoint[]): SquareMetres
+  /** True WGS84 ground length in metres between two plane points (< 1 ppm vs Vincenty over a 10 km site). */
+  groundLength(a: PlanePoint, b: PlanePoint): number
+  /** True WGS84 ground area in square metres of a simple polygon ring in plane metres (< 1 ppm over a 10 km site). */
+  groundArea(ring: readonly PlanePoint[]): number
   /** Local ground metres per plane metre at `point`, per axis (`{ x: 1, y: 1 }` at the anchor). */
   groundScaleAt(point: PlanePoint): { readonly x: number; readonly y: number }
   needsReorigin(viewCentre: PlanePoint): boolean
-}
-
-/** Geometric-mean CSS px per WGS84 ground metre at a MapLibre zoom and latitude. */
-export function mapZoomToStageScale(mapZoom: number, lat: number): number {
-  const { x, y } = wgs84MetresPerMercatorAtLat(lat, WGS84_SEMI_MAJOR_AXIS_M, WGS84_FLATTENING)
-  const conformalMetresPerMerc = Math.sqrt(x * y)
-  return (MAPLIBRE_WORLD_TILE_SIZE * 2 ** mapZoom) / conformalMetresPerMerc
 }
 
 /** A geographic camera: the view centre, its MapLibre zoom and its bearing (degrees clockwise from north). */
@@ -163,13 +151,17 @@ function buildSessionPlane(origin: GeoPoint, conformal: boolean): SessionPlane {
   const groundScaleAt = (point: PlanePoint): { readonly x: number; readonly y: number } => {
     const lat = toGeo(point).lat
     const local = wgs84MetresPerMercatorAtLat(lat, WGS84_SEMI_MAJOR_AXIS_M, WGS84_FLATTENING)
+    if (conformal) {
+      const ratio = Math.sqrt(local.x * local.y) / conformalMetresPerMerc
+      return { x: ratio, y: ratio }
+    }
     return { x: local.x / mercToPlaneX, y: local.y / mercToPlaneY }
   }
 
-  const groundLength = (a: PlanePoint, b: PlanePoint): Metres => {
+  const groundLength = (a: PlanePoint, b: PlanePoint): number => {
     const dx = b.x - a.x
     const dy = b.y - a.y
-    if (dx === 0 && dy === 0) return 0 as Metres
+    if (dx === 0 && dy === 0) return 0
     const mid: PlanePoint = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }
     const s0 = groundScaleAt(a)
     const s1 = groundScaleAt(mid)
@@ -177,12 +169,12 @@ function buildSessionPlane(origin: GeoPoint, conformal: boolean): SessionPlane {
     const d0 = Math.hypot(dx * s0.x, dy * s0.y)
     const d1 = Math.hypot(dx * s1.x, dy * s1.y)
     const d2 = Math.hypot(dx * s2.x, dy * s2.y)
-    return ((d0 + 4 * d1 + d2) / 6) as Metres
+    return (d0 + 4 * d1 + d2) / 6
   }
 
-  const groundArea = (ring: readonly PlanePoint[]): SquareMetres => {
+  const groundArea = (ring: readonly PlanePoint[]): number => {
     const count = ring.length
-    if (count < 3) return 0 as SquareMetres
+    if (count < 3) return 0
     let cx = 0
     let cy = 0
     for (let i = 0; i < count; i++) {
@@ -203,7 +195,7 @@ function buildSessionPlane(origin: GeoPoint, conformal: boolean): SessionPlane {
       const jacobian = (m01.x * m01.y + m12.x * m12.y + m20.x * m20.y) / 3
       signedArea += planeTri * jacobian
     }
-    return Math.abs(signedArea) as SquareMetres
+    return Math.abs(signedArea)
   }
 
   return Object.freeze({

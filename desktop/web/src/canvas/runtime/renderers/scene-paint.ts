@@ -36,8 +36,10 @@ export class WorldRootContainer extends Container {
     this.affine[4] = values[4]
     this.affine[5] = values[5]
     this.appliedTick = -1
+    // Public ObservablePoint.set triggers Pixi's dirty tick even when tx/ty are unchanged,
+    // keeping getGlobalPosition() consistent without touching private Container internals.
+    this.position.set(values[4] + 1, values[5])
     this.position.set(values[4], values[5])
-    this._onUpdate()
   }
 
   override updateLocalTransform(): void {

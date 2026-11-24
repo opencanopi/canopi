@@ -25,6 +25,7 @@ import {
   resolveZoneVisual,
 } from './scene-visuals'
 import type { ViewTransform } from '../../geo/view/types'
+import { pixelsPerMetreAt } from '../../geo/view/view-transform'
 import { getRectangularZoneCorners } from './zone-geometry'
 import { getCanvasColor } from '../theme-refresh'
 
@@ -175,30 +176,32 @@ function drawPlants(
   const entries = buildPlantPresentationEntries(visiblePlants, {
     plants: scene.plants,
     pixelsPerMetre: scale,
+    pixelsPerMetreAt: (point) => pixelsPerMetreAt(view, point),
     speciesCache,
     plantSpeciesSymbols: scene.plantSpeciesSymbols,
   }, new Set())
   const stackCounts = plantStackCounts(entries)
-  // Plant glyphs are side-view pictograms: on a lens turned with the map they stay upright on screen (spec §4.8, §4.13).
-  const uprightRad = (view.camera.bearingDeg * Math.PI) / 180
-  const turned = uprightRad !== 0
-  /** Undoes the view's turn about a plant: what follows is drawn level at worldToScreen(position), still in metres. */
-  const upright = ({ x, y }: { readonly x: number; readonly y: number }) => {
+  // Plant glyphs and hover rings are screen-upright isotropic marks (2.1-M520, spec §4.8, §4.13):
+  // draw them in screen-upright pixel space at worldToScreen(position) so neither bearing nor
+  // anisotropic WGS84 plane stretch distorts the pictogram or circle.
+  const upright = (position: { readonly x: number; readonly y: number }) => {
+    const screen = view.worldToScreen(position)
     target.save()
-    target.translate(x, y)
-    target.rotate(uprightRad)
-    target.translate(-x, -y)
+    target.setTransform(dpr, 0, 0, dpr, 0, 0)
+    target.translate(screen.x, screen.y)
+    target.scale(scale, scale)
+    target.translate(-position.x, -position.y)
   }
   for (const entry of entries) {
-    if (turned) upright(entry.plant.position)
+    upright(entry.plant.position)
     drawPlantSymbolGlyph(target, entry, scale)
-    if (turned) target.restore()
+    target.restore()
   }
 
   // The hover ring sits above every symbol, as on the map.
   const hovered = hoveredPlantId === null ? undefined : entries.find((entry) => entry.plant.id === hoveredPlantId)
   if (hovered) {
-    if (turned) upright(hovered.plant.position)
+    upright(hovered.plant.position)
     const ring = getCanvasInteractionStrokeVisual('hover')
     target.beginPath()
     target.arc(hovered.plant.position.x, hovered.plant.position.y, hovered.radiusWorld * 1.4, 0, Math.PI * 2)
@@ -209,7 +212,7 @@ function drawPlants(
     target.strokeStyle = ring.color
     target.lineWidth = ring.widthPx / scale
     target.stroke()
-    if (turned) target.restore()
+    target.restore()
   }
 
   if (scratch) {

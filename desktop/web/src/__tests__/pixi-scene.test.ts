@@ -30,13 +30,23 @@ vi.mock('pixi.js', () => {
     filterArea: unknown = null
     sortableChildren = false
     parent: MockContainer | null = null
-    position = { set: vi.fn() }
+    position = {
+      x: 0, y: 0,
+      set: vi.fn((x: number, y = x) => { this.position.x = x; this.position.y = y; this._didContainerChangeTick += 1 }),
+    }
     scale = { set: vi.fn() }
-    /** The last affine written with setFromMatrix, [a, b, c, d, tx, ty]. */
-    matrix: number[] | null = null
-    setFromMatrix = vi.fn((matrix: MockMatrix) => {
-      this.matrix = [matrix.a, matrix.b, matrix.c, matrix.d, matrix.tx, matrix.ty]
-    })
+    localTransform = { a: 1, b: 0, c: 0, d: 1, tx: 0, ty: 0 }
+    _didContainerChangeTick = 0
+    updateLocalTransform(): void {}
+    private legacyMatrix: number[] | null = null
+    get matrix(): number[] | null {
+      if (this.legacyMatrix) return this.legacyMatrix
+      if (this._didContainerChangeTick === 0) return null
+      this.updateLocalTransform()
+      const lt = this.localTransform
+      return [lt.a, lt.b, lt.c, lt.d, lt.tx, lt.ty]
+    }
+    setFromMatrix = vi.fn((m: MockMatrix) => { this.legacyMatrix = [m.a, m.b, m.c, m.d, m.tx, m.ty] })
     addChild(...children: unknown[]) {
       for (const child of children as Array<{ parent?: MockContainer | null }>) {
         if (child.parent) child.parent.children = child.parent.children.filter((entry) => entry !== child)
@@ -45,12 +55,8 @@ vi.mock('pixi.js', () => {
       this.children.push(...children)
       return children[0]
     }
-    removeChildren = vi.fn(() => {
-      this.children = []
-    })
-    constructor() {
-      state.containers.push(this)
-    }
+    removeChildren = vi.fn(() => { this.children = [] })
+    constructor() { state.containers.push(this) }
   }
 
   class MockGraphicsContext {
@@ -84,18 +90,11 @@ vi.mock('pixi.js', () => {
   class MockAlphaFilter {
     alpha: number
     destroy = vi.fn()
-    constructor(public readonly options: { alpha: number }) {
-      this.alpha = options.alpha
-    }
+    constructor(public readonly options: { alpha: number }) { this.alpha = options.alpha }
   }
 
   class MockMatrix {
-    a = 1
-    b = 0
-    c = 0
-    d = 1
-    tx = 0
-    ty = 0
+    a = 1; b = 0; c = 0; d = 1; tx = 0; ty = 0
     set(a: number, b: number, c: number, d: number, tx: number, ty: number) {
       Object.assign(this, { a, b, c, d, tx, ty })
       return this

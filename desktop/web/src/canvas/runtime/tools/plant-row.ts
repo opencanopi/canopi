@@ -253,8 +253,13 @@ export function createPlantRowTool(): CanvasTool {
     const dots = dotHandles(DRAFT_OWNER, draggedPath(path), (a, b) => tool.view.screenDistance(a, b), size, () => '')
     if (!dots.some((dot) => tool.view.screenDistance(dot.anchor, anchor) <= size.midpointRadiusPx)) return null
     const { right, down } = tool.view.screenAxesInWorld()
-    const x = tangent.x * right.x + tangent.y * right.y
-    const y = tangent.x * down.x + tangent.y * down.y
+    const det = right.x * down.y - right.y * down.x
+    const x = Math.abs(det) > 1e-12
+      ? (tangent.x * down.y - tangent.y * down.x) / det
+      : tangent.x * right.x + tangent.y * right.y
+    const y = Math.abs(det) > 1e-12
+      ? (right.x * tangent.y - right.y * tangent.x) / det
+      : tangent.x * down.x + tangent.y * down.y
     const length = Math.hypot(x, y)
     if (!(length > 0)) return null
     // The normal on the screen's upper side, so the chip reads above a level curve.
@@ -425,12 +430,8 @@ export function createPlantRowTool(): CanvasTool {
       isLastDraftPoint: role === 'point' && !path.closed && index === lastIndex,
     })
     switch (intent) {
-      case 'finish':
-        finish()
-        return
-      case 'delete':
-        deletePoint(index)
-        return
+      case 'finish': finish(); return
+      case 'delete': deletePoint(index); return
       case 'move':
         // The picked plant never moves while a new row is drawn: from 3 points a press on it closes the loop.
         if (index === 0) {
@@ -814,8 +815,7 @@ export function createPlantRowTool(): CanvasTool {
     canRedoTransient: () => source !== null,
     deactivate() {
       clear()
-      ctx?.effects.setDraft(null)
-      ctx?.effects.setHandles([])
+      ctx?.effects.setDraft(null); ctx?.effects.setHandles([])
       ctx = null
     },
   }

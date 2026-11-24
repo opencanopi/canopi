@@ -4,7 +4,7 @@ import { signal } from '@preact/signals'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createTestView, type TestView } from '../__tests__/support/test-view'
 import { geoToMercator, mercatorToGeo } from '../geo/projection'
-import { conformalFixturePlaneForTests, createSessionPlane, mapZoomToStageScale, type SessionPlane } from '../geo/session-plane'
+import { conformalFixturePlaneForTests, createSessionPlane, type SessionPlane } from '../geo/session-plane'
 import type { ScenePersistedState } from '../canvas/runtime/scene'
 import type { CameraDriver, CameraDriverDeps } from '../geo/view/camera-driver'
 import { createCameraDriverHost } from '../geo/view/driver-host'
@@ -600,8 +600,8 @@ describe('MapLibre camera driver', () => {
     const { driver } = attach(map, createNavigationPolicy(80, signal(false)), plane)
 
     const frame = driver.frames.viewFrame.peek()
-    expect(frame.view.pixelsPerMetre).toBe(mapZoomToStageScale(27, 80))
-    expect(frame.scaleBounds.max).toBe(mapZoomToStageScale(27, 80))
+    expect(frame.view.pixelsPerMetre).toBe(createSessionPlane({ lon: 0, lat: 80 }).pixelsPerMetre(27).mean)
+    expect(frame.scaleBounds.max).toBe(createSessionPlane({ lon: 0, lat: 80 }).pixelsPerMetre(27).mean)
     expect(frame.mode).toBe('site')
   })
 
@@ -908,7 +908,7 @@ describe('the runtime camera on an attached map', () => {
       expect(ground.lon).toBeCloseTo(groundAtCentre.lon, 9)
       expect(ground.lat).toBeCloseTo(groundAtCentre.lat, 9)
       // The new latitude's scale bounds.
-      expect(after.scaleBounds.max).toBeCloseTo(mapZoomToStageScale(27, next.origin.lat), 6)
+      expect(after.scaleBounds.max).toBeCloseTo(createSessionPlane({ lon: 0, lat: next.origin.lat }).pixelsPerMetre(27).mean, 6)
     } finally {
       camera.host.dispose()
     }
@@ -938,7 +938,7 @@ describe('the runtime camera on an attached map', () => {
       const landed = camera.host.frames.viewFrame.peek()
       expect(landed.view.camera.zoom).toBeCloseTo(17, 9)
       // The landed frame carries the new latitude's scale bounds and is expressed in the new plane.
-      expect(landed.scaleBounds.max).toBeCloseTo(mapZoomToStageScale(27, next.origin.lat), 6)
+      expect(landed.scaleBounds.max).toBeCloseTo(createSessionPlane({ lon: 0, lat: next.origin.lat }).pixelsPerMetre(27).mean, 6)
       const originPx = landed.view.worldToScreen({ x: 0, y: 0 })
       const shown = map.unproject([originPx.x, originPx.y])
       expect(shown.lng).toBeCloseTo(next.origin.lon, 9)

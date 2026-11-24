@@ -13,16 +13,6 @@ import { createTestView } from './support/test-view'
 const LOCATION = { lat: 48.8566, lon: 2.3522 }
 const MAPLIBRE_WORLD_TILE_SIZE = 512
 
-function projectWorldToCanvasScreen(
-  viewport: { x: number; y: number; scale: number },
-  world: { x: number; y: number },
-) {
-  return {
-    x: viewport.x + world.x * viewport.scale,
-    y: viewport.y + world.y * viewport.scale,
-  }
-}
-
 function projectGeoToMapScreen(
   lng: number,
   lat: number,
@@ -317,7 +307,8 @@ describe('projectTargetsToMapFeatures', () => {
     const screenSize = { width: 1200, height: 800 }
     // The map camera the canvas viewport corresponds to, on the session plane at the Design's location.
     const view = createTestView({ screen: screenSize, viewport, plane: createSessionPlane(LOCATION) })
-    const { camera } = view.view()
+    const transform = view.view()
+    const { camera } = transform
     view.dispose()
     const result = projectTargetsToMapFeatures(
       [{ kind: 'placed_plant', plant_id: 'plant-2' }],
@@ -334,7 +325,7 @@ describe('projectTargetsToMapFeatures', () => {
     const mapScreen = coordinates
       ? projectGeoToMapScreen(coordinates[0], coordinates[1], camera, screenSize)
       : null
-    const canvasScreen = projectWorldToCanvasScreen(viewport, plant!.position)
+    const canvasScreen = transform.worldToScreen(plant!.position)
 
     expect(mapScreen).not.toBeNull()
     expect(mapScreen!.x).toBeCloseTo(canvasScreen.x, 6)

@@ -1,7 +1,7 @@
 import { signal } from '@preact/signals'
 import { describe, expect, it } from 'vitest'
 import { createTestView, type TestView } from '../../__tests__/support/test-view'
-import { mapZoomToStageScale } from '../session-plane'
+import { createSessionPlane } from '../session-plane'
 import { getAnnotationWorldBounds } from '../../canvas/runtime/annotation-layout'
 import { getPlantWorldBounds } from '../../canvas/runtime/plant-presentation'
 import type { ScenePersistedState } from '../../canvas/runtime/scene'
@@ -11,9 +11,9 @@ import { createNavigationPolicy } from './navigation-policy'
 import type { PlanarCamera, SceneExtent, ViewFrame, WorldPoint } from './types'
 import { planarCameraOf } from './view-transform'
 
-const EQUATOR_MAX_SCALE = mapZoomToStageScale(27, 0)
+const EQUATOR_MAX_SCALE = createSessionPlane({ lon: 0, lat: 0 }).pixelsPerMetre(27).mean
 /** The world floor of a 1000 × 800 screen at every bearing (spec §4.14): its diagonal is one world. */
-const WIDE_FLOOR_SCALE = mapZoomToStageScale(Math.log2(Math.hypot(1000, 800) / 512), 0)
+const WIDE_FLOOR_SCALE = createSessionPlane({ lon: 0, lat: 0 }).pixelsPerMetre(Math.log2(Math.hypot(1000, 800) / 512)).mean
 
 function createScene(): ScenePersistedState {
   return {

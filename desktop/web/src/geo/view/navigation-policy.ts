@@ -6,7 +6,7 @@
 
 import type { ReadonlySignal } from '@preact/signals'
 import { MAPLIBRE_WORLD_TILE_SIZE, mercatorToGeo } from '../projection'
-import { mapZoomToStageScale } from '../session-plane'
+import { createSessionPlane } from '../session-plane'
 import { WORKSPACE_MAP_MAX_ZOOM, WORKSPACE_MAP_MIN_ZOOM } from '../workspace-camera-policy'
 import type { ViewCamera, ViewScreen } from './types'
 
@@ -79,9 +79,10 @@ export function worldZoomFloor(screen: ViewScreen): number {
  */
 export function scaleBoundsAt(screen: ViewScreen, policy: NavigationPolicy): { readonly min: number; readonly max: number } {
   const minZoom = Math.min(policy.maxZoom, Math.max(policy.minZoom, worldZoomFloor(screen)))
+  const plane = createSessionPlane({ lon: 0, lat: policy.referenceLatitudeDeg })
   return Object.freeze({
-    min: mapZoomToStageScale(minZoom, policy.referenceLatitudeDeg),
-    max: mapZoomToStageScale(policy.maxZoom, policy.referenceLatitudeDeg),
+    min: plane.pixelsPerMetre(minZoom).mean,
+    max: plane.pixelsPerMetre(policy.maxZoom).mean,
   })
 }
 

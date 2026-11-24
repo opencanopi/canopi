@@ -1,7 +1,7 @@
 import { signal } from '@preact/signals'
 import { describe, expect, it } from 'vitest'
 import { createTestView } from '../../__tests__/support/test-view'
-import { createSessionPlane, type SessionPlane, mapZoomToStageScale } from '../session-plane'
+import { createSessionPlane, type SessionPlane } from '../session-plane'
 import { WORKSPACE_MAP_MAX_ZOOM, WORKSPACE_MAP_MIN_ZOOM } from '../workspace-camera-policy'
 import type { CameraDriver, CameraDriverFailure } from './camera-driver'
 import { createCameraDriverHost } from './driver-host'
@@ -166,8 +166,8 @@ describe('camera driver host', () => {
     const expectBoundsAt = (lat: number) => {
       // A 400 x 300 screen at bearing 0: the single-world floor does not bite, so the bounds are the zoom range at `lat`.
       const { scaleBounds } = host.frames.viewFrame.peek()
-      expect(scaleBounds.min / mapZoomToStageScale(WORKSPACE_MAP_MIN_ZOOM, lat)).toBeCloseTo(1, 6)
-      expect(scaleBounds.max / mapZoomToStageScale(WORKSPACE_MAP_MAX_ZOOM, lat)).toBeCloseTo(1, 6)
+      expect(scaleBounds.min / createSessionPlane({ lon: 0, lat: lat }).pixelsPerMetre(WORKSPACE_MAP_MIN_ZOOM).mean).toBeCloseTo(1, 6)
+      expect(scaleBounds.max / createSessionPlane({ lon: 0, lat: lat }).pixelsPerMetre(WORKSPACE_MAP_MAX_ZOOM).mean).toBeCloseTo(1, 6)
     }
     expectBoundsAt(48.85)
     expect(host.driverDeps.policy().referenceLatitudeDeg).toBe(48.85)

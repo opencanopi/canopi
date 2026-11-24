@@ -252,7 +252,12 @@
       "tool": "ast-grep",
       "ledger": "2.1-M189",
       "adr": "0028",
-      "owner_today": "desktop/web/src/geo",
+      "owner_today": "desktop/web/src/geo/session-plane.ts",
+      "owner_target": {
+        "path": "desktop/web/src/geo/session-plane.ts",
+        "phase": "2m",
+        "bead": "canopi-f47t.52.189"
+      },
       "example": "desktop/web/src/geo/session-plane.ts",
       "note": "ground scale (Earth radii, latitude scale, zoom to pixels per metre, shown lengths and areas) only through the session plane (activated in 2m-1)"
     },

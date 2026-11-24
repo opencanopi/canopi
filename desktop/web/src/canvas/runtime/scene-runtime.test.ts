@@ -358,6 +358,10 @@ function authoringOffset(runtime: SceneCanvasRuntime): { x: number; y: number } 
   return plane ? plane.toPlane(FIXTURE_ORIGIN) : { x: 0, y: 0 }
 }
 
+function screenOf(runtime: SceneCanvasRuntime, x: number, y: number): { x: number; y: number } {
+  return runtime.cameraHost.frames.viewFrame.peek().view.worldToScreen(planeAt(runtime, x, y))
+}
+
 function setInteractionViewport(
   runtime: SceneCanvasRuntime,
   viewport: { x: number; y: number; scale: number } = { x: 0, y: 0, scale: 1 },
@@ -3295,12 +3299,12 @@ describe('scene canvas runtime', () => {
     setInteractionViewport(runtime)
     runtime.commandSurface.tools.setTool('measurement-guide')
 
-    events.pointerDown({ x: 10, y: 10 })
-    events.pointerMove({ x: 40, y: 10 })
+    events.pointerDown(screenOf(runtime, 10, 10))
+    events.pointerMove(screenOf(runtime, 40, 10))
 
     expect(draftLabelTexts(renderer)).toEqual(['30 m'])
 
-    events.pointerUp({ x: 40, y: 10 })
+    events.pointerUp(screenOf(runtime, 40, 10))
 
     const created = runtime.querySurface.getSceneSnapshot().measurementGuides
     expect(created).toHaveLength(1)
@@ -3402,16 +3406,16 @@ describe('scene canvas runtime', () => {
     setInteractionViewport(runtime)
     runtime.commandSurface.tools.setTool('select')
 
-    clickAt(events, { x: 25, y: 10 })
+    clickAt(events, screenOf(runtime, 25, 10))
 
     expect(currentCanvasSelection.value).toEqual(new Set(['measurement-guide-1']))
     expect(runtime.querySurface.getDesignObjectSelection().editableTargets).toEqual([
       { kind: 'measurement-guide', id: 'measurement-guide-1' },
     ])
 
-    events.pointerDown({ x: 25, y: 10 })
-    events.pointerMove({ x: 35, y: 20 })
-    events.pointerUp({ x: 35, y: 20 })
+    events.pointerDown(screenOf(runtime, 25, 10))
+    events.pointerMove(screenOf(runtime, 35, 20))
+    events.pointerUp(screenOf(runtime, 35, 20))
 
     expect(runtime.querySurface.getSceneSnapshot().measurementGuides).toEqual([{
       kind: 'measurement-guide',
@@ -3631,9 +3635,9 @@ describe('scene canvas runtime', () => {
     setInteractionViewport(runtime)
     runtime.commandSurface.tools.setTool('polygon')
 
-    events.pointerDown({ x: 10, y: 10 })
-    events.pointerDown({ x: 60, y: 10 })
-    events.pointerMove({ x: 60, y: 50 })
+    events.pointerDown(screenOf(runtime, 10, 10))
+    events.pointerDown(screenOf(runtime, 60, 10))
+    events.pointerMove(screenOf(runtime, 60, 50))
 
     expect(runtime.commandSurface.history.canUndo.value).toBe(true)
     expect(runtime.commandSurface.history.canRedo.value).toBe(false)
@@ -3827,15 +3831,11 @@ describe('scene canvas runtime', () => {
       'Malus domestica': activeLocale === 'fr' ? 'Pommier' : 'Apple',
     }))
 
-    const runtime = new SceneCanvasRuntime({
-      appAdapter: createDesktopCanvasRuntimeAppAdapter(),
-    })
+    const runtime = new SceneCanvasRuntime({ appAdapter: createDesktopCanvasRuntimeAppAdapter() })
     runtime.documentSurface.loadDocument(makeFile())
     runtime.commandSurface.sceneEdits.selectAll()
-
     locale.value = 'fr'
     await runtime.commandSurface.plantPresentation.ensureSpeciesCacheEntries(['Malus domestica'], 'fr')
-
     expect(getCommonNames).toHaveBeenCalledWith(['Malus domestica'], 'fr')
     expect(runtime.querySurface.getLocalizedCommonNames().get('Malus domestica')).toBe('Pommier')
     expect(runtime.querySurface.getSelectedPlantColorContext().singleSpeciesCommonName).toBe('Pommier')

@@ -23,19 +23,27 @@ export function applyToolConstraint(constraint: ToolConstraint, point: WorldPoin
 function constrainDirection(origin: WorldPoint, point: WorldPoint, stepDeg: number, axes: ScreenAxes): WorldPoint {
   const dx = point.x - origin.x
   const dy = point.y - origin.y
-  // Screen-axis coordinates of origin → point.
-  const across = dx * axes.right.x + dy * axes.right.y
-  const down = dx * axes.down.x + dy * axes.down.y
-  const length = Math.hypot(across, down)
-  if (length <= 0.000001) return { ...origin }
+  const worldLength = Math.hypot(dx, dy)
+  if (worldLength <= 0.000001) return { ...origin }
+  // Dual basis of (right, down): exact screen-axis coordinates even when non-orthogonal under anisotropic affine.
+  const det = axes.right.x * axes.down.y - axes.right.y * axes.down.x
+  const across = Math.abs(det) > 1e-12
+    ? (dx * axes.down.y - dy * axes.down.x) / det
+    : dx * axes.right.x + dy * axes.right.y
+  const down = Math.abs(det) > 1e-12
+    ? (axes.right.x * dy - axes.right.y * dx) / det
+    : dx * axes.down.x + dy * axes.down.y
+  if (Math.hypot(across, down) <= 0.000001) return { ...origin }
 
   const step = Math.PI / (180 / stepDeg)
   const angle = Math.round(Math.atan2(down, across) / step) * step
-  const alongRight = Math.cos(angle) * length
-  const alongDown = Math.sin(angle) * length
+  const rayX = Math.cos(angle) * axes.right.x + Math.sin(angle) * axes.down.x
+  const rayY = Math.cos(angle) * axes.right.y + Math.sin(angle) * axes.down.y
+  const rayLen = Math.hypot(rayX, rayY)
+  if (!(rayLen > 0)) return { ...origin }
   return {
-    x: origin.x + alongRight * axes.right.x + alongDown * axes.down.x,
-    y: origin.y + alongRight * axes.right.y + alongDown * axes.down.y,
+    x: origin.x + (rayX / rayLen) * worldLength,
+    y: origin.y + (rayY / rayLen) * worldLength,
   }
 }
 

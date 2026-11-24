@@ -47,8 +47,13 @@ export function bandSelection(ctx: ToolContext, band: Band, end: WorldPoint): Sc
 
 /** The box with `a` and `b` as opposite corners, its sides along the screen's axes (the world's at bearing 0). */
 function screenAlignedQuad(view: ToolView, a: WorldPoint, b: WorldPoint): WorldQuad {
-  const { right } = view.screenAxesInWorld()
-  const across = (b.x - a.x) * right.x + (b.y - a.y) * right.y
+  const { right, down } = view.screenAxesInWorld()
+  // Screen axes are non-orthogonal in plane metres under an anisotropic WGS84 affine; solve the 2x2 basis
+  // b - a = across * right + along * down so the quad's edges map strictly horizontal/vertical on screen.
+  const det = right.x * down.y - right.y * down.x
+  const across = Math.abs(det) > 1e-12
+    ? ((b.x - a.x) * down.y - (b.y - a.y) * down.x) / det
+    : (b.x - a.x) * right.x + (b.y - a.y) * right.y
   return [
     a,
     { x: a.x + right.x * across, y: a.y + right.y * across },

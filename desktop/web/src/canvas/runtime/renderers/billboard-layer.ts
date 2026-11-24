@@ -48,6 +48,7 @@ import {
 } from '../scene-visuals'
 import type { PlantNameLabel } from '../selection-labels'
 import type { ViewTransform } from '../../../geo/view/types'
+import { pixelsPerMetreAt } from '../../../geo/view/view-transform'
 import { LabelAdmission, type AdmittedLabels } from './label-admission'
 import {
   casedStroke,
@@ -195,7 +196,7 @@ export function createBillboardLayer(options: BillboardLayerOptions): BillboardL
         snapshot = next
         labels.setScene(next)
         shared.cache.beginGeneration()
-        buildPlants(createText, plants, next, view.pixelsPerMetre)
+        buildPlants(createText, plants, next, view)
         buildNotes(createText, notes, next, view.pixelsPerMetre)
         buildMeasurementLabels(createText, measurementLabels, next)
       }
@@ -424,7 +425,7 @@ function buildPlants(
   createText: () => Text,
   plants: PlantGraphics,
   snapshot: SceneRendererSnapshot,
-  pixelsPerMetre: number,
+  view: ViewTransform,
 ): void {
   const { layers, overlay, shared, graphicsById, ringById, badgeById, badgeTextById, visibleIds } = plants
   const scenePlants = snapshot.scene.plants
@@ -464,7 +465,8 @@ function buildPlants(
   })
   layers.setDimmed(anyDimmed)
   const entries = measurePixiSceneWork('plantEntries', () => buildPlantPresentationEntries(scenePlants, {
-    pixelsPerMetre,
+    pixelsPerMetre: view.pixelsPerMetre,
+    pixelsPerMetreAt: (point) => pixelsPerMetreAt(view, point),
     speciesCache: snapshot.speciesCache,
     plantSpeciesSymbols: snapshot.scene.plantSpeciesSymbols,
   }, snapshot.selectedPlantIds))
@@ -528,7 +530,7 @@ function buildPlants(
   plants.built = {
     positions: scenePlants.map((plant) => plant.position),
     entries,
-    scale: pixelsPerMetre,
+    scale: view.pixelsPerMetre,
     ringById: rings,
     stackCounts,
     badgeColor: toPixiColor(getStackBadgeBackgroundColor()),
@@ -962,7 +964,6 @@ function syncNameLabels<L extends NameLabel>(
   }
   const projected = projection.project(view, labels.map((label) => label.anchor))
   labels.forEach((label, index) => {
-    textByKey.get(keyOf(label))!
-      .position.set(projected[index * 2]! + label.offsetPx.x, projected[index * 2 + 1]! + label.offsetPx.y)
+    textByKey.get(keyOf(label))!.position.set(projected[index * 2]! + label.offsetPx.x, projected[index * 2 + 1]! + label.offsetPx.y)
   })
 }

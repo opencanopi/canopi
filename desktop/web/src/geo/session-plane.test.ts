@@ -224,7 +224,28 @@ describe('true-metres real-path seams (renderer and input)', () => {
         expect(Math.hypot(projected.x - expected.x, projected.y - expected.y)).toBeLessThan(1e-6)
       }
 
-      // Also verify createWorldLayers uses WorldRootContainer
+      // Also verify createWorldLayers uses WorldRootContainer and updates cleanly on a second affine
+      const view2 = buildViewTransform({
+        camera: { center: { lon: 2.352, lat: lat + 0.001 }, zoom: 18, bearingDeg: 112, pitchDeg: 0 },
+        screen: { width: 1280, height: 800, devicePixelRatio: 1 },
+        plane,
+        planeRevision: 1,
+      })
+      writeWorldAffine(root, view2)
+      root.updateLocalTransform()
+      expect([
+        root.localTransform.a,
+        root.localTransform.b,
+        root.localTransform.c,
+        root.localTransform.d,
+        root.localTransform.tx,
+        root.localTransform.ty,
+      ]).toEqual([...view2.planar.affine])
+      const wp2 = { x: 42, y: -19 }
+      const expected2 = view2.worldToScreen(wp2)
+      const projected2 = root.toGlobal(wp2)
+      expect(Math.hypot(projected2.x - expected2.x, projected2.y - expected2.y)).toBeLessThan(1e-6)
+
       const layers = createWorldLayers()
       layers.present(view)
       expect(layers.root).toBeInstanceOf(WorldRootContainer)
@@ -232,6 +253,26 @@ describe('true-metres real-path seams (renderer and input)', () => {
       expect(layers.root.localTransform.a).toBe(a)
       expect(layers.root.localTransform.d).toBe(d)
       stage.destroy({ children: true })
+    }
+  })
+
+  it('groundArea handles concave L-shapes and both CW/CCW windings at 49° and 65°', () => {
+    for (const lat of [49, 65]) {
+      const plane = createSessionPlane({ lon: 2.35, lat })
+      // 100 m × 100 m square with a 40 m × 50 m corner cutout -> 8000 m²
+      const ccw: PlanePoint[] = [
+        planePoint(0, 0),
+        planePoint(100, 0),
+        planePoint(100, 50),
+        planePoint(60, 50),
+        planePoint(60, 100),
+        planePoint(0, 100),
+      ]
+      const cw = [...ccw].reverse()
+      const areaCcw = plane.groundArea(ccw)
+      const areaCw = plane.groundArea(cw)
+      expect(Math.abs(areaCcw - areaCw)).toBeLessThan(1e-9)
+      expect(Math.abs(areaCcw - 8000) / 8000).toBeLessThan(1e-4)
     }
   })
 

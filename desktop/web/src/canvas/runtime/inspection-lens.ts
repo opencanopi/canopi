@@ -210,13 +210,10 @@ export class SceneCanvasInspectionOwner {
       panByScreen: (deltaPx) => {
         const scale = state.peek()?.scale
         if (released || !scale || !lensView || !Number.isFinite(deltaPx.x) || !Number.isFinite(deltaPx.y)) return
-        // Along the lens's own screen, which turns with the main map: its screen axes in the plane, at the painted scale.
-        const { right, down } = lensView.screenAxesInWorld()
+        // Move through the lens's own affine so turned/anisotropic views pan with exact screen pixel displacement.
         const centre = livePoint() ?? canvasCenter()
-        setPoint({
-          x: centre.x + (right.x * deltaPx.x + down.x * deltaPx.y) / scale,
-          y: centre.y + (right.y * deltaPx.x + down.y * deltaPx.y) / scale,
-        })
+        const screen = lensView.worldToScreen(centre)
+        setPoint(lensView.screenToWorld({ x: screen.x + deltaPx.x, y: screen.y + deltaPx.y }))
         schedule()
       },
       zoomBy: (factor) => {

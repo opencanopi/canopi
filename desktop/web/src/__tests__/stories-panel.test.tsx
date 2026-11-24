@@ -19,7 +19,7 @@ import { installWebKeyRouter } from '../editions/web/browser-shell-commands'
 import { installDesktopKeys } from './support/desktop-key-router'
 import { pressKey } from './support/key-router'
 import { currentDesign, designSessionStore } from '../app/document-session/store'
-import { mapZoomToStageScale, createSessionPlane } from '../geo/session-plane'
+import { createSessionPlane } from '../geo/session-plane'
 import { setCurrentCanvasSession } from '../canvas/session'
 import { locale } from '../app/settings/state'
 import type { CanopiFile, SavedView, Story, StoryStep } from '../types/design'
@@ -80,7 +80,7 @@ let container: HTMLDivElement
 let showCamera: ReturnType<typeof vi.fn<(camera: ViewCamera, options?: { readonly motion?: 'fly' | 'jump' }) => void>>
 
 function mountMap(): void {
-  const scale = mapZoomToStageScale(18, TEST_GEO_ORIGIN.lat)
+  const scale = createSessionPlane({ lon: 0, lat: TEST_GEO_ORIGIN.lat }).pixelsPerMetre(18).mean
   const queries = createTestCanvasQuerySurface({
     placement: { x: 200, y: 150, scale },
     sessionPlane: createSessionPlane(TEST_GEO_ORIGIN),

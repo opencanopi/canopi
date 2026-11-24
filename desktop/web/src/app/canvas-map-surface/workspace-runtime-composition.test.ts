@@ -249,7 +249,7 @@ describe('createWorkspaceRuntimeComposition', () => {
 
       expect(onViewSettled).toHaveBeenCalledOnce()
       const { width, height } = fixture.view.view().screen
-      const centre = SETTLE_PLANE.toGeo({ x: (width / 2 - 30) / 2, y: (height / 2 - 5) / 2 })
+      const centre = SETTLE_PLANE.toGeo(fixture.view.view().screenToWorld({ x: width / 2, y: height / 2 }))
       const view = onViewSettled.mock.calls[0]![0]
       expect(view.lon).toBeCloseTo(centre.lon, 6)
       expect(view.lat).toBeCloseTo(centre.lat, 6)

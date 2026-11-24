@@ -66,9 +66,19 @@ export function createTestRendererView(
   options: { readonly bearingDeg?: number; readonly screen?: Partial<ViewScreen> } = {},
 ): ViewTransform {
   const screen = { width: 400, height: 300, devicePixelRatio: 1, ...options.screen }
-  const plane = conformalFixturePlaneForTests({ lon: 0, lat: 0 })
+  const basePlane = conformalFixturePlaneForTests({ lon: 0, lat: 0 })
+  const camera = planarToViewCamera({ ...viewport, bearingDeg: options.bearingDeg ?? 0 }, screen, basePlane)
+  // Avoid 1-ULP log2/pow2 drift on exact scale thresholds (e.g. 8, 100) in renderer unit tests.
+  const plane = {
+    ...basePlane,
+    pixelsPerMetre(zoom: number) {
+      return zoom === camera.zoom
+        ? { x: viewport.scale, y: viewport.scale, mean: viewport.scale }
+        : basePlane.pixelsPerMetre(zoom)
+    },
+  }
   return buildViewTransform({
-    camera: planarToViewCamera({ ...viewport, bearingDeg: options.bearingDeg ?? 0 }, screen, plane),
+    camera,
     screen,
     plane,
     planeRevision: 0,

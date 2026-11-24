@@ -38,7 +38,8 @@ export function wgs84MetresPerMercatorAtLat(
   flattening: number,
 ): { readonly x: number; readonly y: number } {
   const { n, m } = wgs84Radii(lat, semiMajorAxisM, flattening)
-  const twoPiCos = 2 * Math.PI * Math.cos(lat * DEGREES_TO_RADIANS)
+  const phi = lat * DEGREES_TO_RADIANS
+  const twoPiCos = 2 * Math.PI * Math.cos(phi)
   return { x: twoPiCos * n, y: twoPiCos * m }
 }
 

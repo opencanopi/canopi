@@ -149,12 +149,16 @@ export function createDraftLayer(options: DraftLayerOptions): DraftLayer {
 
   function positionUpright(at: ViewTransform): void {
     at.projectAnchors(anchors, anchorsOnScreen, upright.length)
-    const bearingRad = (at.camera.bearingDeg * Math.PI) / 180
+    const [wa, wb, wc, wd] = at.planar.affine
     upright.forEach((part, index) => {
       const x = anchorsOnScreen[index * 2]! + part.offset.x
       const y = anchorsOnScreen[index * 2 + 1]! + part.offset.y
       part.node.position.set(part.snap ? Math.round(x) : x, part.snap ? Math.round(y) : y)
-      if (part.turn !== null) part.node.rotation = part.turn - bearingRad
+      if (part.turn !== null) {
+        const cosT = Math.cos(part.turn)
+        const sinT = Math.sin(part.turn)
+        part.node.rotation = Math.atan2(wb * cosT + wd * sinT, wa * cosT + wc * sinT)
+      }
     })
   }
 

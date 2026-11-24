@@ -138,8 +138,10 @@ function frameOf(runtime: SceneCanvasRuntime): ViewFrame {
 
 /** Centres the view on a session-plane point at the given scale. */
 function centreViewOn(runtime: SceneCanvasRuntime, point: { x: number; y: number }, scale = 1): void {
-  placeOnHost(runtime.cameraHost, runtime.querySurface.sessionPlane.peek()!,
-    { x: SCREEN.width / 2 - point.x * scale, y: SCREEN.height / 2 - point.y * scale, scale })
+  const plane = runtime.querySurface.sessionPlane.peek()!
+  const viewPoint = plane.toView(point)
+  placeOnHost(runtime.cameraHost, plane,
+    { x: SCREEN.width / 2 - viewPoint.x * scale, y: SCREEN.height / 2 - viewPoint.y * scale, scale })
 }
 
 function sceneEdits(runtime: SceneCanvasRuntime): SceneEditCoordinator {

@@ -11,7 +11,7 @@ import { createTestView } from '../../__tests__/support/test-view'
 import { createMapLibreCameraDriver, type MapLibreCameraDriverMap } from '../../maplibre/camera-driver'
 import { LngLat as SourceLngLatClass } from 'maplibre-gl-source/geo/lng_lat.ts'
 import { MercatorTransform as SourceMercatorTransform } from 'maplibre-gl-source/geo/projection/mercator_transform.ts'
-import { mapZoomToStageScale, createSessionPlane, type SessionPlane } from '../session-plane'
+import { createSessionPlane, type SessionPlane } from '../session-plane'
 import type { CameraMove } from './camera-driver'
 import { planarToViewCamera } from './camera-math'
 import { createNavigationPolicy } from './navigation-policy'
@@ -159,7 +159,7 @@ describe('camera contract', () => {
     ]
     for (const start of starts) {
       const plane = createSessionPlane(start.origin)
-      const scale = mapZoomToStageScale(start.zoom, plane.origin.lat)
+      const scale = createSessionPlane({ lon: 0, lat: plane.origin.lat }).pixelsPerMetre(start.zoom).mean
       const viewport = { x: SCREEN.width / 2 - 25 * scale, y: SCREEN.height / 2 + 12 * scale, scale }
       const headless = createTestView({ screen: SCREEN, plane, maxZoom: start.maxZoom, viewport })
       const shown = mapOnTransform(SCREEN, planarToViewCamera({ ...viewport, bearingDeg: 0 }, SCREEN, plane))

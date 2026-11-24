@@ -181,8 +181,9 @@ it('a drag on the preview pans the lens, through the real lens owner', async () 
   vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null)
   document.body.appendChild(root)
   const camera = createTestView({ screen: { width: 800, height: 600 }, viewport: { x: 100, y: 0, scale: 6 } })
+  const plane = createSessionPlane({ lon: 0, lat: 0 })
   const owner = new SceneCanvasInspectionOwner({ frames: camera.frames, revision: { scene: signal(0), plantNames: signal(0), transientHistory: signal(0) },
-    readSessionPlane: () => createSessionPlane({ lon: 0, lat: 0 }),
+    readSessionPlane: () => plane,
     getSnapshot: () => createTestSceneRendererSnapshot(), setHoveredTarget() {} })
   let view: CanvasInspectionHandle | null = null
   setCurrentCanvasSession(createTestCanvasRuntimeSurfaces({
@@ -204,7 +205,7 @@ it('a drag on the preview pans the lens, through the real lens owner', async () 
   }
   await act(async () => { pointer(frame, 'pointerdown', 100); pointer(document, 'pointermove', 70); vi.advanceTimersByTime(20) })
   // Dragging 30 px right moves the inspected ground 30 px left of the lens's screen at bearing 0.
-  expect(view!.state.value!.point.x).toBeCloseTo(before.x + 30 / scale, 9)
+  expect(view!.state.value!.point.x).toBeCloseTo(before.x + (30 / scale) * plane.axisScale.ax, 9)
   expect(view!.state.value!.point.y).toBeCloseTo(before.y, 9)
   await act(async () => { pointer(document, 'pointerup', 70) })
   owner.dispose()

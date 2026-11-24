@@ -10,7 +10,7 @@ import { writeSavedObjectStampDragData } from '../canvas/saved-object-stamp-sour
 import { currentCanvasLockedMoveNotice, currentCanvasSelection } from '../canvas/session-state'
 import { snapToGridEnabled } from '../app/canvas-settings/signals'
 import { createMapLibreCameraDriver } from '../maplibre/camera-driver'
-import { createSessionPlane } from '../geo/session-plane'
+import { conformalFixturePlaneForTests } from '../geo/session-plane'
 import type { SceneStore, ScenePoint } from '../canvas/runtime/scene'
 import {
   createSceneInteractionSession,
@@ -453,7 +453,7 @@ describe('SceneInteractionSession', () => {
   })
 
   it('routes navigation through an attached MapLibre camera while tool drags change only the Scene and detach restores fallback navigation', () => {
-    const plane = createSessionPlane({ lat: 48.8566, lon: 2.3522 })
+    const plane = conformalFixturePlaneForTests({ lat: 48.8566, lon: 2.3522 })
     const attachedView = createTestView({ plane })
     const map = new AttachedInteractionMap()
     const driver = createMapLibreCameraDriver(map, plane, attachedView.host.driverDeps)

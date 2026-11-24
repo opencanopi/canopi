@@ -1422,9 +1422,13 @@ export function createToolHost(deps: ToolHostDeps): ToolHost {
     if (deps.scene.selection().length === 0) return 'pass'
     const { right, down } = frame().view.screenAxesInWorld()
     const step = large ? NUDGE_LARGE_STEP_M : NUDGE_STEP_M
+    const rawX = right.x * direction.x + down.x * direction.y
+    const rawY = right.y * direction.x + down.y * direction.y
+    const rawLen = Math.hypot(rawX, rawY)
+    const scaleStep = rawLen > 1e-12 ? step / rawLen : 0
     const delta = {
-      x: (right.x * direction.x + down.x * direction.y) * step + 0,
-      y: (right.y * direction.x + down.y * direction.y) * step + 0,
+      x: rawX * scaleStep + 0,
+      y: rawY * scaleStep + 0,
     }
     if (!deps.nudge.nudgeSelected(delta)) return 'refused'
     nudging = true
@@ -1684,20 +1688,18 @@ function insideScreen(at: ScreenPoint, screen: ViewScreen): boolean {
 }
 
 function clampToScreen(at: ScreenPoint, screen: ViewScreen): ScreenPoint {
-  return {
-    x: Math.min(Math.max(at.x, 0), screen.width),
-    y: Math.min(Math.max(at.y, 0), screen.height),
-  }
+  return { x: Math.min(Math.max(at.x, 0), screen.width), y: Math.min(Math.max(at.y, 0), screen.height) }
 }
 
-/** A screen-aligned rectangle from two world corners (ToolView.screenAlignedRect). */
+/** A ground rectangle aligned to `view.camera.bearingDeg` with `a` and `b` as opposite corners (ToolView.screenAlignedRect). */
 function screenAlignedRect(
-  view: ViewTransform,
-  a: WorldPoint,
-  b: WorldPoint,
-  options: { readonly square?: boolean } = {},
+  view: ViewTransform, a: WorldPoint, b: WorldPoint, options: { readonly square?: boolean } = {},
 ): { readonly center: WorldPoint; readonly width: number; readonly height: number; readonly rotationDeg: number } {
-  const { right, down } = view.screenAxesInWorld()
+  // Orthonormal ground axes at bearingDeg keep opposite corners on `a` and `b` under anisotropic WGS84 affines.
+  const rotationDeg = view.camera.bearingDeg
+  const rad = (rotationDeg * Math.PI) / 180
+  const right = { x: Math.cos(rad), y: Math.sin(rad) }
+  const down = { x: 0 - right.y, y: right.x }
   let across = (b.x - a.x) * right.x + (b.y - a.y) * right.y
   let along = (b.x - a.x) * down.x + (b.y - a.y) * down.y
   if (options.square) {
@@ -1705,15 +1707,9 @@ function screenAlignedRect(
     across = (across < 0 ? -1 : 1) * side
     along = (along < 0 ? -1 : 1) * side
   }
-  const rotationDeg = view.camera.bearingDeg
   return {
-    center: {
-      x: a.x + (right.x * across + down.x * along) / 2,
-      y: a.y + (right.y * across + down.y * along) / 2,
-    },
-    width: Math.abs(across),
-    height: Math.abs(along),
-    rotationDeg,
+    center: { x: a.x + (right.x * across + down.x * along) / 2, y: a.y + (right.y * across + down.y * along) / 2 },
+    width: Math.abs(across), height: Math.abs(along), rotationDeg,
   }
 }
 

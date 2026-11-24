@@ -70,12 +70,19 @@ function outwardNormalPx(dots: EdgeDots, labelId: string, interiorLeft: boolean)
   const start = corners[index]
   const end = corners[(index + 1) % corners.length]
   if (!start || !end) return null
-  // The outside is the side away from the interior; both turn together under any axis convention.
+  // Map the edge direction through the dual basis of (right, down), then turn 90° in screen space so the normal
+  // stays strictly perpendicular to the drawn edge under an anisotropic affine.
   const dx = end.x - start.x
   const dy = end.y - start.y
-  const outward = interiorLeft ? { x: dy, y: -dx } : { x: -dy, y: dx }
-  const x = outward.x * screenAxes.right.x + outward.y * screenAxes.right.y
-  const y = outward.x * screenAxes.down.x + outward.y * screenAxes.down.y
+  const det = screenAxes.right.x * screenAxes.down.y - screenAxes.right.y * screenAxes.down.x
+  const edgeX = Math.abs(det) > 1e-12
+    ? (dx * screenAxes.down.y - dy * screenAxes.down.x) / det
+    : dx * screenAxes.right.x + dy * screenAxes.right.y
+  const edgeY = Math.abs(det) > 1e-12
+    ? (screenAxes.right.x * dy - screenAxes.right.y * dx) / det
+    : dx * screenAxes.down.x + dy * screenAxes.down.y
+  const x = interiorLeft ? edgeY : -edgeY
+  const y = interiorLeft ? -edgeX : edgeX
   const length = Math.hypot(x, y)
   return length > 0 ? { x: x / length, y: y / length } : null
 }

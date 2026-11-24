@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { afterEach, describe, expect, it } from 'vitest'
-import { mapZoomToStageScale, createSessionPlane, type SessionPlane } from '../geo/session-plane'
+import { createSessionPlane, type SessionPlane } from '../geo/session-plane'
 import { setCurrentCanvasSession } from '../canvas/session'
 import { createDefaultScenePersistedState } from '../canvas/runtime/scene'
 import type { PlanarCamera } from '../geo/view/types'
@@ -88,7 +88,7 @@ describe('LiDAR workspace camera navigation', () => {
     expectSamePlacement(planarCameraOf(view.view()), before)
     // The bookmark is spent: a second Return to Design frames the Design.
     expect(viewDesignLocation()).toBe(true)
-    const scaleAtMapZoom18 = mapZoomToStageScale(18, plane.origin.lat)
+    const scaleAtMapZoom18 = createSessionPlane({ lon: 0, lat: plane.origin.lat }).pixelsPerMetre(18).mean
     expect(scaleAtMapZoom18).toBeGreaterThan(0.1)
     expect(createSessionPlane({ lon: 0, lat: plane.origin.lat }).zoomForPixelsPerMetre(scaleAtMapZoom18)).toBeCloseTo(18, 12)
   })

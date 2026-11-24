@@ -3,7 +3,7 @@
 import { signal } from '@preact/signals'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { SceneCanvasInspectionOwner } from '../canvas/runtime/inspection-lens'
-import { createSessionPlane } from '../geo/session-plane'
+import { conformalFixturePlaneForTests, createSessionPlane } from '../geo/session-plane'
 import { createTestSceneRendererSnapshot } from './support/scene-renderer-snapshot'
 import { createTestView } from './support/test-view'
 import './support/camera-tolerance'
@@ -13,7 +13,7 @@ afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.useRealTimers(
 /** The 100 m start frame the camera used to place on an 800 x 600 screen: the lens tests read it. */
 const START = { screen: { width: 800, height: 600 }, viewport: { x: 100, y: 0, scale: 6 } }
 /** The plane the test views use by default. */
-const TEST_PLANE = createSessionPlane({ lon: 0, lat: 0 })
+const TEST_PLANE = conformalFixturePlaneForTests({ lon: 0, lat: 0 })
 /** A camera with no screen yet. */
 const UNSIZED = { screen: { width: 0, height: 0 } }
 

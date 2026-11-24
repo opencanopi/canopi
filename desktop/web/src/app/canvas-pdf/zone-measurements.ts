@@ -56,7 +56,8 @@ export function zoneMeasurements(zones: readonly PrintZone[], planZones: readonl
       } else {
         const direction = (e: ZoneDimension) => ({ x: (e.end.x - e.start.x) / e.metres, y: (e.end.y - e.start.y) / e.metres })
         const dot = (a: ZoneDimension, b: ZoneDimension) => { const u = direction(a), v = direction(b); return u.x * v.x + u.y * v.y }
-        const parallel = Math.cos(3 * Math.PI / 180)
+        const parallelAngleRad = (3 * Math.PI) / 180
+        const parallel = Math.cos(parallelAngleRad)
         // A bed end joins longer, opposing sides. Tiny notches are not bed widths.
         widths = geometry.kind === 'line' ? [] : edges.filter((e, i) => {
           const before = edges[(i + edges.length - 1) % edges.length]!, after = edges[(i + 1) % edges.length]!

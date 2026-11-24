@@ -5,7 +5,7 @@ import {
   PLANT_SYMBOL_IDS,
   serializeScenePersistedState,
 } from '../../canvas/runtime/scene'
-import { createSessionPlane, mapZoomToStageScale } from '../../geo/session-plane'
+import { createSessionPlane } from '../../geo/session-plane'
 import { PLANT_COLOR_PALETTE } from '../../canvas/plant-colors'
 import reliefFixture from './assets/rust-display-relief.json'
 
@@ -231,7 +231,7 @@ const STORY_VIEW_SCREEN = { width: 1280, height: 800 }
 
 function storyView(id: string, name: string, origin: { lon: number; lat: number }, offset: [number, number], zoom: number, species: string[], background: SavedView['visible_layers']['background'] = { kind: 'none' }, bearing = 0): SavedView {
   const lat = origin.lat + offset[1]
-  const pixelsPerMetre = mapZoomToStageScale(zoom, lat)
+  const pixelsPerMetre = createSessionPlane({ lon: 0, lat }).pixelsPerMetre(zoom).mean
   return {
     id, name,
     camera: {

@@ -12,7 +12,7 @@ import {
 import { createSharedMapSceneLayer, type SharedMapSceneLayer, type SharedMapSceneLayerOptions } from './shared-scene-layer'
 import { createTestSceneRendererSnapshot } from '../__tests__/support/scene-renderer-snapshot'
 import type { ViewTransform } from '../geo/view/types'
-import { createSessionPlane } from '../geo/session-plane'
+import { conformalPoint, createSessionPlane } from '../geo/session-plane'
 import { describeSavedViewSnapshot, VIEW_SNAPSHOT_THUMBNAIL } from '../app/saved-views/snapshot'
 import { createDefaultMapLayers } from '../app/map-layers/state'
 import type { SavedView } from '../generated/contracts'
@@ -332,10 +332,10 @@ describe('view snapshot map', () => {
     const right = { x: Math.cos(radians), y: Math.sin(radians) }
     const down = { x: -Math.sin(radians), y: Math.cos(radians) }
     const corners = [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([across, along]) => {
-      const point = plane.toGeo({
-        x: across! * ground.width / 2 * right.x + along! * ground.height / 2 * down.x,
-        y: across! * ground.width / 2 * right.y + along! * ground.height / 2 * down.y,
-      })
+      const point = plane.toGeo(plane.fromView(conformalPoint(
+        across! * ground.width / 2 * right.x + along! * ground.height / 2 * down.x,
+        across! * ground.width / 2 * right.y + along! * ground.height / 2 * down.y,
+      )))
       return map.project({ lng: point.lon, lat: point.lat })
     })
     for (const corner of corners) {

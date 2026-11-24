@@ -3,7 +3,7 @@ import { persistLastView } from '../app/canvas-map-surface/last-view'
 import { resetSettingsProjectionForTests } from '../app/settings/projection'
 import { lastView } from '../app/settings/state'
 import { createDefaultScenePersistedState, SceneStore } from '../canvas/runtime/scene'
-import { DEFAULT_NEW_DESIGN_VIEW, mapZoomToStageScale } from '../geo/session-plane'
+import { DEFAULT_NEW_DESIGN_VIEW, createSessionPlane } from '../geo/session-plane'
 import { CURRENT_CANOPI_FILE_VERSION } from '../generated/canopi-design-format'
 import type { CanopiFile } from '../types/design'
 import { createTestView } from './support/test-view'
@@ -65,7 +65,7 @@ describe('new Design view', () => {
   it('fits an empty Design to the plane origin at the requested scale', () => {
     const camera = createTestView(START)
     const { scaleBounds } = camera.frames.viewFrame.peek()
-    const scale = mapZoomToStageScale(17, 47.2184)
+    const scale = createSessionPlane({ lon: 0, lat: 47.2184 }).pixelsPerMetre(17).mean
     camera.setScene(createDefaultScenePersistedState(), { emptySceneScale: scale })
     camera.navigation.zoomToFit()
     const viewport = camera.viewport()

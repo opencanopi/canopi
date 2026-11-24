@@ -3,8 +3,27 @@
 // Owns the one ViewTransform (ADR 0016): the world-to-screen general affine every reader projects with, its inverse,
 // quads, bulk anchors and ground resolution, built from a geographic camera (both drivers' truth) and the WGS84
 // per-axis session plane.
+//
+// Audited similarity-site inventory (2m-1, 2.1-Q78d, 2.1-M519, 2.1-M520):
+// - World geometry roots (Pixi): `canvas/runtime/renderers/scene-paint.ts` (`WorldRootContainer` overriding
+//   `updateLocalTransform`), `world-layers.ts`, `draft-layer.ts` -> general 2x3 affine `[wa, wb, wc, wd, tx, ty]`.
+// - View projection / inverse / framing / navigation: `geo/view/{view-transform,camera-math,fit,navigation,
+//   navigation-policy,driver-host,headless-driver}.ts` -> affine & `toView`/`fromView` + `SessionPlane`.
+// - Screen-aligned tool geometry (non-orthogonal screen axes in plane metres): `tools/tool-host.ts`
+//   (`screenAlignedRect` orthonormal ground axes at bearingDeg; `nudge` normalised), `tools/select/band.ts`,
+//   `tools/select/selection-hull.ts`, `tools/constraints.ts`, `tools/plant-row.ts`, `tools/measure-labels.ts`,
+//   `canvas/runtime/inspection-lens.ts` -> dual-basis 2x2 inverse or `worldToScreen`/`screenToWorld`.
+// - Ground-sized screen-upright marks (`2.1-M520`): `canvas/runtime/renderers/billboard-layer.ts` and
+//   `canvas/runtime/plant-presentation.ts` (sized via `view.metresPerPixelAt(p)` -> `plane.groundScaleAt(p)`),
+//   `canvas/runtime/inspection-lens-drawing.ts` (drawn in screen-upright pixel space, zero affine stretch),
+//   `canvas/runtime/renderers/draft-layer.ts` (upright turns mapped through linear affine `[wa, wb, wc, wd]`).
+// - Pixel-sized chrome / strokes / handles: `scene-paint.ts` (`screenPxToWorldPx`), `billboard-layer.ts` labels/badges,
+//   `canvas/saved-view-framing.ts`, `app/data-library/camera-request.ts`, `canvas/runtime/scene-runtime/construction.ts`.
+// - Remaining non-2m-1 latitude-scale sites ratcheted under `scale-only-through-plane` (`canopi-f47t.52.189`, 2m-2):
+//   `app/data-library/import-coverage.ts`, `app/my-location/follow.ts`, `maplibre/user-location-overlay.ts`.
+// - `trueNorthAt`: confirmed absent (0 sites, 2.1-M519).
 
-import { conformalPoint, mapZoomToStageScale, type ConformalPoint, type SessionPlane } from '../session-plane'
+import { conformalPoint, type ConformalPoint, type SessionPlane } from '../session-plane'
 import { angularDistanceToNorth, bearingCosSin } from './navigation-policy'
 import type {
   PlanarCamera,
@@ -100,8 +119,8 @@ function affineTransform(
       }
     },
     metresPerPixelAt(p?: WorldPoint): number {
-      const latitude = p ? plane.toGeo(p).lat : camera.center.lat
-      return 1 / mapZoomToStageScale(camera.zoom, latitude)
+      const groundScale = plane.groundScaleAt(p ?? plane.toPlane(camera.center))
+      return Math.sqrt(groundScale.x * groundScale.y) / scale
     },
     screenDistance(from: WorldPoint, to: WorldPoint): number {
       return Math.hypot((to.x - from.x) / ax, (to.y - from.y) / ay) * scale
@@ -125,4 +144,9 @@ function affineTransform(
     fromView: (p: ConformalPoint): WorldPoint => plane.fromView(p),
     northUp: angularDistanceToNorth(camera.bearingDeg) < NORTH_UP_TOLERANCE_DEG && camera.pitchDeg === 0,
   })
+}
+
+/** Local CSS pixels per true WGS84 ground metre at `point` (reciprocal of `view.metresPerPixelAt(point)`). */
+export function pixelsPerMetreAt(view: Pick<ViewTransform, 'metresPerPixelAt'>, point: WorldPoint): number {
+  return 1 / view.metresPerPixelAt(point)
 }

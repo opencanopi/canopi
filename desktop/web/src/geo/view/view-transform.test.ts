@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { mapZoomToStageScale, conformalFixturePlaneForTests, createSessionPlane, type SessionPlane } from '../session-plane'
+import { conformalFixturePlaneForTests, createSessionPlane, type SessionPlane } from '../session-plane'
 import { planarToViewCamera } from './camera-math'
 import type { PlanarCamera, ViewCamera, ViewScreen, WorldPoint } from './types'
 import { buildViewTransform, planarCameraOf } from './view-transform'
@@ -112,7 +112,7 @@ describe('view transform', () => {
     const centre = plane.toGeo({ x: 350, y: 250 })
     expect(view.camera.center.lon).toBeCloseTo(centre.lon, 10)
     expect(view.camera.center.lat).toBeCloseTo(centre.lat, 10)
-    expect(view.camera.zoom).toBeCloseTo(Math.log2(mapZoomToStageScale(0, 45.52) ** -1 * 2), 12)
+    expect(view.camera.zoom).toBeCloseTo(Math.log2(createSessionPlane({ lon: 0, lat: 45.52 }).pixelsPerMetre(0).mean ** -1 * 2), 12)
     view.visibleWorldQuad().forEach((corner, index) => expectClose(corner, [
       { x: 100, y: 50 }, { x: 600, y: 50 }, { x: 600, y: 450 }, { x: 100, y: 450 },
     ][index]!))
@@ -130,7 +130,7 @@ describe('view transform', () => {
     expect(view.metresPerPixelAt({ x: 0, y: 0 })).toBeCloseTo(1 / 5, 12)
     const north = view.metresPerPixelAt({ x: 0, y: -100_000 })
     expect(north).toBeLessThan(1 / 5)
-    expect(north).toBeCloseTo(1 / mapZoomToStageScale(view.camera.zoom, plane.toGeo({ x: 0, y: -100_000 }).lat), 12)
+    expect(north).toBeCloseTo(1 / createSessionPlane({ lon: 0, lat: plane.toGeo({ x: 0, y: -100_000 }).lat }).pixelsPerMetre(view.camera.zoom).mean, 12)
   })
 
   it('projectAnchors writes what worldToScreen returns', () => {

@@ -87,7 +87,6 @@
     "desktop/web/src/__tests__/scene-history-checkpoint.test.ts": {  },
     "desktop/web/src/__tests__/selection-labels.test.ts": {  },
     "desktop/web/src/__tests__/serializer-plant-species-colors.test.ts": {  },
-    "desktop/web/src/__tests__/session-plane.test.ts": {  },
     "desktop/web/src/__tests__/shared-controls.test.tsx": {  },
     "desktop/web/src/__tests__/shell-close-guard.test.ts": {  },
     "desktop/web/src/__tests__/shell-command-catalog.test.ts": {  },

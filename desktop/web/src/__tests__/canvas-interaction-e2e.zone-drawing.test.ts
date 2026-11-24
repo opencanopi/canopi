@@ -967,8 +967,7 @@ describe('SceneInteractionSession', () => {
       events.pointerUp(corner, { button: 0 })
     }
     const previous = store.sessionPlane
-    // The viewport is 1 px per metre at the origin, so screen (10, 10) is plane (10, 10).
-    const corners = [previous.toGeo({ x: 10, y: 10 }), previous.toGeo({ x: 60, y: 10 }), previous.toGeo({ x: 60, y: 50 })]
+    const corners = [{ x: 10, y: 10 }, { x: 60, y: 10 }, { x: 60, y: 50 }].map((pt) => previous.toGeo(view.view().screenToWorld(pt)))
 
     // The view's centre is 20 km east: the draft holds the plane.
     view.navigation.panByPx({ x: -20_000, y: 0 })

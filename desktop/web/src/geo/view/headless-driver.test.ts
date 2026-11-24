@@ -1,14 +1,14 @@
 import { effect } from '@preact/signals'
 import { describe, expect, it } from 'vitest'
 import { createTestView, type TestView } from '../../__tests__/support/test-view'
-import { mapZoomToStageScale, conformalFixturePlaneForTests, createSessionPlane, type SessionPlane } from '../session-plane'
+import { conformalFixturePlaneForTests, createSessionPlane, type SessionPlane } from '../session-plane'
 import type { CameraDriver, CameraMove } from './camera-driver'
 import { planarToViewCamera } from './camera-math'
 import type { PlanarCamera, ViewCamera, ViewFrame } from './types'
 import { planarCameraOf } from './view-transform'
 
-const EQUATOR_MIN_SCALE = mapZoomToStageScale(0, 0)
-const EQUATOR_MAX_SCALE = mapZoomToStageScale(27, 0)
+const EQUATOR_MIN_SCALE = createSessionPlane({ lon: 0, lat: 0 }).pixelsPerMetre(0).mean
+const EQUATOR_MAX_SCALE = createSessionPlane({ lon: 0, lat: 0 }).pixelsPerMetre(27).mean
 const WORLD_POINTS = [{ x: 0, y: 0 }, { x: 13.25, y: -7.5 }, { x: -350, y: 1200 }, { x: 1e4, y: -3e3 }]
 const SCREEN_POINTS = [{ x: 0, y: 0 }, { x: 140, y: 110 }, { x: 399.5, y: 3 }, { x: 1000, y: 800 }]
 
