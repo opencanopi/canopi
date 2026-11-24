@@ -17,6 +17,15 @@ on:
         required: false
         type: string
   workflow_dispatch:
+    inputs:
+      windows_runner:
+        description: Windows runner image for A/B testing updater hangs (canopi-ong0)
+        required: false
+        default: windows-2025
+        type: choice
+        options:
+          - windows-2025
+          - windows-2022
 
 # Its own literal group: a called workflow's github.workflow is its caller's name, whose group it would share.
 concurrency:
@@ -30,7 +39,8 @@ jobs:
   updater:
     name: updater ${{ matrix.bundle }}
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 60
+    # 25 min on Windows so a hung/lost runner fails fast instead of holding a slot for 60 min (canopi-ong0, Stage 1 E1).
+    timeout-minutes: ${{ startsWith(matrix.os, 'windows-') && 25 || 60 }}
     strategy:
       fail-fast: false
       matrix:
@@ -42,11 +52,11 @@ jobs:
           - os: ubuntu-26.04
             bundle: deb
             artifact: canopi-x86_64-unknown-linux-gnu
-          - os: windows-2025
+          - os: ${{ inputs.windows_runner || 'windows-2025' }}
             bundle: nsis
             artifact: canopi-x86_64-pc-windows-msvc
           # The stable Windows installer a user may have chosen; betas ship NSIS only (2.1-M27), so no beta build.
-          - os: windows-2025
+          - os: ${{ inputs.windows_runner || 'windows-2025' }}
             bundle: msi
             artifact: canopi-x86_64-pc-windows-msvc
     defaults:
@@ -58,7 +68,7 @@ jobs:
       UPDATER_E2E_PORT: "47811"
       UPDATER_E2E_BUNDLE: ${{ matrix.bundle }}
       UPDATER_E2E_DIR: ${{ github.workspace }}/updater-channel
-      npm_config_script_shell: ${{ matrix.os == 'windows-2025' && 'C:\Program Files\Git\bin\bash.exe' || 'bash' }}
+      npm_config_script_shell: ${{ startsWith(matrix.os, 'windows-') && 'C:\Program Files\Git\bin\bash.exe' || 'bash' }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -277,7 +287,18 @@ jobs:
             dbus-run-session -- xvfb-run -a -s '-screen 0 1400x900x24' bash -euo pipefail -c \
               "openbox & wm=\$!; sleep 2; kill -0 \"\$wm\"; npm run test:platform -- --spec $spec"
           else
-            s=0; timeout --kill-after=60 1080 npm run test:platform -- --spec "$spec" || s=$?
+            # Stream live process/log heartbeat to stdout every 30 s so diagnostics survive runner loss (canopi-ong0).
+            (
+              while sleep 30; do
+                echo "[ong0-heartbeat $(date -u +%H:%M:%SZ)] processes:"
+                powershell -NoProfile -NonInteractive -Command \
+                  'Get-Process | Where-Object { $_.ProcessName -match "canopi|msedgedriver|msiexec|tauri-driver|node" } | Select-Object Id,ProcessName,@{N="WS_MB";E={[math]::Round($_.WorkingSet64/1MB,1)}} | Format-Table -AutoSize | Out-String -Width 160' 2>/dev/null || true
+              done
+            ) &
+            hb_pid=$!
+            trap 'kill "$hb_pid" 2>/dev/null || true' EXIT
+            s=0; timeout --kill-after=60 900 npm run test:platform -- --spec "$spec" || s=$?
+            kill "$hb_pid" 2>/dev/null || true
             if [ "$s" = 124 ] || [ "$s" = 137 ]; then
               echo "::error::the update spec hung (canopi-ong0); its processes are ended so the profiles and logs upload"
               powershell -NoProfile -NonInteractive -Command '$app = [IO.Path]::GetFileNameWithoutExtension($env:CANOPI_E2E_APP); Get-Process | Where-Object { $_.ProcessName -in @($app, "msedgedriver", "node") } | Stop-Process -Force' || true

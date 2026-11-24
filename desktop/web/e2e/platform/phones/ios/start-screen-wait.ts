@@ -41,3 +41,42 @@ export async function waitForStartScreen(
     }
   }
 }
+
+/**
+ * Single-shot poll loop for the start screen (canopi-5kel): unlike wdio's `waitForDisplayed`, which stops sending
+ * lookups after a 30 s Safari debugger timeout, this issues a fresh single-shot probe after every busy-debugger error
+ * until `deadline` ms elapses. Preserves the exact planted-page message ("the start screen was not displayed") when the
+ * page answers `false` until the deadline.
+ */
+export async function pollStartScreen(
+  probe: () => Promise<boolean>,
+  page: string,
+  deadline: number,
+  options: { interval?: number, clock?: () => number, sleep?: (ms: number) => Promise<void> } = {},
+): Promise<void> {
+  const interval = options.interval ?? 1_000
+  const clock = options.clock ?? (() => performance.now())
+  const sleep = options.sleep ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)))
+  const start = clock()
+  const seconds = Math.round(deadline / 1000)
+  let answered = false
+  let lastBusy: Error | undefined
+  for (;;) {
+    try {
+      const shown = await probe()
+      answered = true
+      if (shown) return
+    } catch (error) {
+      if (!(error instanceof Error) || !isBusyDebugger(error)) throw error
+      lastBusy = error
+    }
+    const left = deadline - (clock() - start)
+    if (left <= 0) {
+      if (!answered && lastBusy) {
+        throw new Error(`Safari answered no element lookup for ${seconds} s after opening ${page}: the page stayed busy`, { cause: lastBusy })
+      }
+      throw new Error(`the start screen was not displayed ${seconds} s after opening ${page}`)
+    }
+    if (answered) await sleep(Math.min(interval, left))
+  }
+}

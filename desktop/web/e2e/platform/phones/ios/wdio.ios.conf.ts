@@ -62,7 +62,7 @@ export const config: WebdriverIO.Config = {
   hostname: '127.0.0.1',
   port: Number(process.env.CANOPI_E2E_DRIVER_PORT ?? 4723),
   capabilities: [safari],
-  logLevel: 'warn',
+  logLevel: (process.env.CANOPI_WDIO_LOG_LEVEL as WebdriverIO.Config['logLevel']) ?? 'warn',
   bail: 0,
   waitforTimeout: 20_000,
   // Session creation launches WebDriverAgent and Safari in the simulator, which takes minutes on the hosted runner.

@@ -4,14 +4,14 @@
 // the simulator's own GPU process crash, proven by its log and handled by the app (simulator-verdict.ts): that passes
 // as ENV, and the job prints the warning (phone-smoke.yml).
 import { execFile } from 'node:child_process'
-import { writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { homedir, tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { promisify } from 'node:util'
 import { $, browser, expect } from '@wdio/globals'
 import { pollThroughBusy } from './busy-poll'
 import { CONTEXT_LOSS_ERROR, logStart, pageFailureVerdict, type DesignShell } from './simulator-verdict'
-import { waitForStartScreen } from './start-screen-wait'
+import { pollStartScreen } from './start-screen-wait'
 
 const APP_URL = process.env.CANOPI_E2E_APP_URL ?? 'http://localhost:4174/web.html'
 const tablet = (process.env.CANOPI_IOS_DEVICE ?? '').startsWith('iPad')
@@ -193,6 +193,15 @@ async function simulatorLog(since: Date): Promise<{ log: string, problem: string
     writeFileSync(join(ARTIFACTS, 'simulator-gpu.log'), stdout)
     return { log: stdout, problem: '' }
   } catch (error) {
+    // Fallback when `simctl spawn ... log show` fails (canopi-f47t.52.261): read the simulator's system.log directly.
+    const fallback = join(homedir(), 'Library/Logs/CoreSimulator', udid, 'system.log')
+    if (existsSync(fallback)) {
+      try {
+        const log = readFileSync(fallback, 'utf8')
+        writeFileSync(join(ARTIFACTS, 'simulator-gpu.log'), log)
+        return { log, problem: `simctl log show failed (${messageOf(error)}); used system.log fallback` }
+      } catch { /* fall through to empty log */ }
+    }
     return { log: '', problem: `the simulator log could not be read: ${messageOf(error)}` }
   }
 }
@@ -230,11 +239,12 @@ describe(`the Web Edition in Safari on an ${tablet ? 'iPad' : 'iPhone'}`, () => 
     const page = process.env.CANOPI_E2E_PLANTED_PAGE ?? APP_URL
     await browser.url(page)
     const startScreen = $('[data-start-screen]')
-    // The lane's planted-page step requires "the start screen was not displayed", printed only for wdio's own wait
-    // timeout (the page loaded and never showed the start screen). A debugger busy with the loading page is asked again
-    // until the deadline (canopi-f47t.52.261); any other error, such as a session that died during the wait
-    // (WebDriverAgent crash, invalid session id, ECONNRESET), is rethrown unchanged and fails that step.
-    await waitForStartScreen((timeout) => startScreen.waitForDisplayed({ timeout }), page, 90_000)
+    // Single-shot poll loop (canopi-5kel): retries immediately after a 30 s Safari debugger timeout instead of letting
+    // wdio's waitForDisplayed stall until 90 s; preserves "the start screen was not displayed" for the planted-page step.
+    await pollStartScreen(() => browser.execute(() => {
+      const el = document.querySelector('[data-start-screen]')
+      return el !== null && el.getClientRects().length > 0 && getComputedStyle(el).visibility !== 'hidden'
+    }), page, 90_000)
     await expect(startScreen.$('h1')).toHaveText('Canopi')
     expect(await overflow()).toBeLessThanOrEqual(0)
 

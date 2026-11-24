@@ -179,7 +179,9 @@ jobs:
           for _ in $(seq 60); do curl -fsS http://127.0.0.1:4723/status > /dev/null && exit 0; sleep 1; done
           echo "::error::Appium did not answer on port 4723"; exit 1
       # No retry anywhere in the lane: a session that fails to start, even once, fails the job (plan:181).
-      - run: npm run test:ios
+      - env:
+          CANOPI_WDIO_LOG_LEVEL: info
+        run: npm run test:ios
       # The smoke passes on the simulator's GPU process crash only with the proof it read itself from the simulator log
       # (e2e/platform/phones/ios/simulator-verdict.ts, F5 probe 8); it writes that ENV verdict here, and the job shows
       # it as a warning and keeps the logs.
