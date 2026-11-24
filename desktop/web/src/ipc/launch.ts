@@ -1,4 +1,4 @@
-import { invokeCommand } from './transport'
+import { invokeTyped, mintOperationId } from './transport'
 import { listen } from '@tauri-apps/api/event'
 
 /**
@@ -15,7 +15,7 @@ const PENDING_OPEN_EVENT = 'launch:pending-open'
 
 /** Takes the pending launch file, once: the pull empties the slot. */
 export async function takePendingOpen(): Promise<PendingOpen | null> {
-  return invokeCommand('take_pending_open')
+  return invokeTyped('take_pending_open', undefined, mintOperationId('s'))
 }
 
 /**

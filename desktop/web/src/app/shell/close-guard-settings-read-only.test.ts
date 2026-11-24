@@ -22,7 +22,7 @@ vi.mock('../document-session/save-problem', () => ({ requestSaveProblemDecision:
 
 const { flushBeforeExit } = await import('./close-guard')
 const { installSettingsProjection, mutateSettingsProjection, resetSettingsProjectionForTests } = await import('../settings/projection')
-const { createDesktopSettingsPlatformAdapter } = await import('../../platform/settings.desktop')
+const { createDesktopSettingsPlatformAdapter } = await import('../../editions/desktop/settings')
 const { getSettings, setSettings } = await import('../../ipc/settings')
 const { resetFrontendDiagnosticsForTests, ringEntries } = await import('../../failures/ring')
 const { snapToGridEnabled } = await import('../canvas-settings/signals')

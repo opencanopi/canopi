@@ -11,7 +11,7 @@ import { createRecentFilesController } from '../../app/recent-files'
 import { openKeyboardShortcutsDialog, openSettingsDialog } from '../../app/shell/dialogs'
 import { openProblemReportDialog } from '../../app/problem-report/submission'
 import { formatShortcut } from '../../app/shell-commands/shortcut-text'
-import type { RecentDesignPreview } from '../../types/design'
+import type { RecentDesignPreview } from '../../generated/contracts'
 import { StartScreen } from './StartScreen'
 import { SlotToast } from './ToastSlot'
 

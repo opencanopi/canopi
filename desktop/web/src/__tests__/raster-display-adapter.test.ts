@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { WORKSPACE_MAP_MAX_ZOOM } from '../canvas/workspace-camera-policy'
+import { WORKSPACE_MAP_MAX_ZOOM } from '../geo/workspace-camera-policy'
 import { createRasterDisplay, tileIsRelevant, type RasterDisplayLayer } from '../maplibre/raster-display/adapter'
 import { RasterWorkerPool } from '../maplibre/raster-display/pool'
 import { inProcessLane, serveRasterFixtures, type InProcessLane } from './support/raster-lane'

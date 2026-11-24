@@ -1,6 +1,6 @@
 import type { SceneStateReader } from '../scene'
-import type { ViewFrame } from '../view/types'
-import { planarCameraOf } from '../view/view-transform'
+import type { ViewFrame } from '../../../geo/view/types'
+import { planarCameraOf } from '../../../geo/view/view-transform'
 import type { SceneCommandAdmission, SceneRuntimeEditCoordinator } from './transactions'
 
 interface SceneRuntimeReoriginOptions {

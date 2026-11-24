@@ -3,9 +3,9 @@ import { LayerPanel, type SiteDataSummary } from '../canvas/LayerPanel'
 import { readCanvasLayerPresentation } from '../../app/canvas-layer-presentation/presentation'
 import { LAYER_PANEL_ACTIONS } from '../../app/canvas-layer-presentation/panel-actions'
 import { currentDesign } from '../../app/document-session/store'
-import { setSiteDataShown } from '../../app/lidar/actions'
-import { openSiteDataPanel } from '../../app/lidar/library-navigation'
-import { installLidarLibraryObserver, isMissing, readCurrentLidarPresentation } from '../../app/lidar/library-store'
+import { setSiteDataShown } from '../../app/data-library/actions'
+import { openSiteDataPanel } from '../../app/data-library/library-navigation'
+import { installLidarLibraryObserver, isMissing, readCurrentLidarPresentation } from '../../app/data-library/library-store'
 import { appCommandGraphPanelProjection } from '../../commands/registry'
 import { t } from '../../i18n'
 
@@ -23,7 +23,7 @@ function desktopSiteDataSummary(): SiteDataSummary {
   const items = readCurrentLidarPresentation()
   const command = appCommandGraphPanelProjection.value.design.find((candidate) => candidate.panel === 'site-data')
   return {
-    edition: 'desktop',
+    kind: 'available',
     count: items.length,
     // `shown` folds the own eye with the summary eye; while the library is loading an entry counts by its own eye.
     shown: items.filter((item) => item.shown && !isMissing(item)).length,

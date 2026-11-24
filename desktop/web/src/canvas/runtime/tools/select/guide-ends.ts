@@ -10,7 +10,7 @@ import { createMeasurementGuideDraftMeasurements } from '../../measurement-guide
 import type { CanvasDesignObjectSelectionModel } from '../../runtime'
 import { singleEditableTarget } from '../../scene-runtime/selection'
 import type { SceneMeasurementGuideEntity, ScenePersistedState } from '../../scene/types'
-import type { WorldPoint } from '../../view/types'
+import type { WorldPoint } from '../../../../geo/view/types'
 import type { DraftShape, ToolHandle } from '../draft'
 import { measureLabelShapes } from '../measure-labels'
 import type { ToolContext } from '../tool'

@@ -6,13 +6,13 @@ import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath, URL } from "node:url";
-import { resolveWebEditionDevHtmlUrl } from "./src/web/dev-entry";
+import { resolveWebEditionDevHtmlUrl } from "./src/editions/web/dev-entry";
+import { GALLERY_PORT } from "./e2e/support/ports";
 import { admitWebCatalogManifest } from "./src/generated/web-catalog-artifact.mjs";
 // The engine floor's one source (canopi-4kfl, 2.1-M490): both editions' scripts, pre-bundled dependencies and styles.
 import { ENGINE_FLOOR_BROWSERS, ENGINE_FLOOR_TARGET } from "./engine-floor";
 // The coverage floors' one home (2.1-M217): policy/check.mjs holds this config's loaded values to the same family.
 import coverageFamily from "../../policy/ratchets/coverage.json";
-
 const tauriConfigPath = fileURLToPath(new URL('../tauri.conf.json', import.meta.url));
 // The generated Web plant catalog (`npm run generate:web-catalog`, git-ignored); a test may point elsewhere.
 const WEB_CATALOG_INPUT_ENV = "CANOPI_WEB_CATALOG_INPUT";
@@ -56,29 +56,21 @@ const WEB_ONLY_ENV = "CANOPI_VITEST_WEB_ONLY";
 // Every test's one timeout, in every run and project (canopi-f47t.52.240): long enough for a policy-gate case running the
 // real CLI in a planted repository on a loaded machine; a command line passes none.
 const TEST_TIMEOUT_MS = 120_000;
-
-export default defineConfig(({ mode }) => {
+export default defineConfig(({ command, mode }) => {
   const isWebEdition = mode === 'web';
-  const platformAdapter = fileURLToPath(new URL(
-    isWebEdition ? './src/platform/browser.ts' : './src/platform/desktop.ts',
-    import.meta.url,
-  ));
-  const speciesCatalogLiveAdapter = fileURLToPath(new URL(
-    isWebEdition
-      ? './src/app/plant-browser/live.browser.ts'
-      : './src/app/plant-browser/live.desktop.ts',
-    import.meta.url,
-  ));
+  const isGallery = mode === 'gallery';
+  const isBuild = command === 'build';
   // Only the Web build reads the generated catalog: a stale one never breaks Desktop, dev or tests (review F1).
   const webCatalog = isWebEdition ? readWebCatalog(process.env[WEB_CATALOG_INPUT_ENV] ?? DEFAULT_WEB_CATALOG_INPUT) : null;
   const thirdPartyNotices = thirdPartyNoticesPlugins(isWebEdition ? "web" : "desktop");
   const testDir = process.env[TEST_DIR_ENV];
   return {
-    cacheDir: isWebEdition ? "node_modules/.vite-web" : "node_modules/.vite-desktop",
+    cacheDir: isGallery ? "node_modules/.vite-ui-gallery" : isWebEdition ? "node_modules/.vite-web" : "node_modules/.vite-desktop",
     plugins: [
       preact(),
       pdfFontsPlugin(),
       webEditionDevEntryPlugin(isWebEdition),
+      galleryDevEntryPlugin(isGallery, isBuild),
       webCatalogPlugin(webCatalog),
       mapLibreSourceClassFieldsPlugin(),
       initialStylesheetOrderPlugin(),
@@ -94,15 +86,6 @@ export default defineConfig(({ mode }) => {
     publicDir: false,
     // The catalog directory, relative to the base: read by src/web/duckdb-wasm-catalog.ts.
     define: { __CANOPI_WEB_CATALOG_PATH__: JSON.stringify(webCatalog?.path ?? "assets/catalog/none/") },
-    resolve: {
-      alias: {
-        '#platform': platformAdapter,
-        '#canvas-pdf-platform': fileURLToPath(new URL(isWebEdition ? './src/app/canvas-pdf/platform.browser.ts' : './src/app/canvas-pdf/platform.desktop.ts', import.meta.url)),
-        '#budget-export-platform': fileURLToPath(new URL(isWebEdition ? './src/app/budget/platform.browser.ts' : './src/app/budget/platform.desktop.ts', import.meta.url)),
-        '#geocoding-transport': fileURLToPath(new URL(isWebEdition ? './src/app/geocoding/transport.browser.ts' : './src/app/geocoding/transport.desktop.ts', import.meta.url)),
-        '#species-catalog-live': speciesCatalogLiveAdapter,
-      },
-    },
     optimizeDeps: {
       // The WASM decoder packages resolve their .wasm files relative to their
       // own module URL; pre-bundling would move them away from those files.
@@ -110,7 +93,7 @@ export default defineConfig(({ mode }) => {
       // Lazily imported by the PDF export; discovering them at runtime makes Vite
       // re-optimize and reload the page mid-session.
       include: ['pdfkit', 'fontkit'],
-      rolldownOptions: { transform: { target: [...ENGINE_FLOOR_TARGET] } },
+      rolldownOptions: { transform: { target: isGallery ? 'es2022' : [...ENGINE_FLOOR_TARGET] } },
     },
     worker: {
       // The raster decode lane imports geotiff codecs dynamically.
@@ -120,7 +103,8 @@ export default defineConfig(({ mode }) => {
       rolldownOptions: { output: { ...ASCII_OUTPUT, ...(isWebEdition ? WEB_HASHED_NAMES : {}) } },
     },
     server: {
-      port: isWebEdition ? 1421 : 1420,
+      ...(isGallery ? { host: "127.0.0.1" } : {}),
+      port: isGallery ? GALLERY_PORT : isWebEdition ? 1421 : 1420,
       strictPort: true,
       fs: {
         allow: [
@@ -205,12 +189,10 @@ export default defineConfig(({ mode }) => {
     },
   };
 });
-
 interface BundledPackage {
   readonly name: string;
   readonly license: string | null;
 }
-
 /**
  * The notices file in both editions (2.1-Q221, 2.1-M239): rollup-plugin-license reads the packages of every app chunk
  * and, through `worker`, of every worker bundle from Rolldown's module graph. After the bundle, the list goes to
@@ -500,6 +482,21 @@ function vendorChunk(id: string): string | null {
   const row = VENDOR_CHUNK_ROWS.find(({ pattern }) => pattern === "*" || packages.some((pkg) =>
     pattern.endsWith("/") ? pkg.startsWith(pattern) : pkg === pattern || pkg.startsWith(`${pattern}/`)));
   return row?.chunk ?? null;
+}
+
+function galleryDevEntryPlugin(enabled: boolean, isBuild: boolean): Plugin {
+  return {
+    name: "canopi-gallery-dev-entry",
+    configureServer(server) {
+      if (!enabled) return;
+      server.middlewares.use((req, _res, next) => {
+        const url = req.url ? new URL(req.url, "http://canopi.local") : null;
+        if (url && (url.pathname === "/" || url.pathname === "/index.html")) req.url = `/gallery.html${url.search}`;
+        next();
+      });
+    },
+    buildStart() { if (enabled && isBuild) throw new Error("The UI gallery is development-only."); },
+  };
 }
 
 function webEditionDevEntryPlugin(enabled: boolean): Plugin {

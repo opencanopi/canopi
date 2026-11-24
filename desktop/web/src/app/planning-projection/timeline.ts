@@ -1,4 +1,4 @@
-import type { PlacedPlant } from '../../types/design'
+import type { PlacedPlant } from '../../generated/contracts'
 import type { PlantSymbolId } from '../../canvas/runtime/scene'
 import { isEnglishFallbackName, type SpeciesKeyEntry } from '../../canvas/runtime/species-key'
 import type { LocaleKey } from '../../generated/locale-keys'

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { rectZone, sceneStoreWith } from '../../../__tests__/support/tool-harness'
 import type { SceneZoneEntity } from '../scene'
-import type { WorldPoint } from '../view/types'
+import type { WorldPoint } from '../../../geo/view/types'
 import {
   createEllipticalZoneMeasurements,
   createLinearZoneMeasurements,

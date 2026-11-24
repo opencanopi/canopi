@@ -11,9 +11,9 @@ import type { KeyRouterHandle } from '../../app/keyboard/key-router'
 import { createCanvasKeyboardPort } from '../../canvas/runtime/keyboard-port'
 import type { ToolHost } from '../../canvas/runtime/interaction-ports'
 import type { CanvasKeyboardPort } from '../../canvas/runtime/runtime'
-import { createViewReadSurface } from '../../canvas/runtime/view/frame-source'
+import { createViewReadSurface } from '../../geo/view/frame-source'
 import { setCurrentCanvasSession } from '../../canvas/session'
-import { createSessionPlane } from '../../canvas/session-plane'
+import { createSessionPlane } from '../../geo/session-plane'
 import { createTestCanvasQuerySurface } from '../../__tests__/support/canvas-query-surface'
 import {
   createTestCanvasCommandSurface,

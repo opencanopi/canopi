@@ -10,7 +10,7 @@ import { InspectionLens } from '../components/canvas/InspectionLens'
 import { createTestCanvasDocumentSurface, createTestCanvasRuntimeSurfaces } from './support/canvas-runtime-surfaces'
 import { createTestCanvasQuerySurface } from './support/canvas-query-surface'
 import { SceneCanvasInspectionOwner } from '../canvas/runtime/inspection-lens'
-import { createSessionPlane } from '../canvas/session-plane'
+import { createSessionPlane } from '../geo/session-plane'
 import { createTestSceneRendererSnapshot } from './support/scene-renderer-snapshot'
 import { createTestView } from './support/test-view'
 

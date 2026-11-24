@@ -39,7 +39,7 @@ Verdicts (keep, merge, split, cut, add, change) cite the [ledger](../decisions/2
 |---|---|---|---|---|---|
 | `DurableFs`, `publish_durably`, `remove_durably` | durable publish and remove with a `Precondition` | `canopi-support` (2.1) | Fault implementation; crash and disk full | `desktop/src/design/mod.rs` | change (M111) |
 | Write vocabulary | admission, write lane, target lock (`TargetLocks`), Busy | Session core write lane; target locks in `canopi-support` (2.1) | Two homes today | `app/document-session/write-admission.ts` | change (M111) |
-| Store migration chain | `FLOOR`, `STEPS`, `CURRENT` per store | pure chain in `canopi-types` (2.1); TS runner in `platform/` | Every store change | `platform/settings.browser.ts` | change: synchronous steps, staged moves (M157) |
+| Store migration chain | `FLOOR`, `STEPS`, `CURRENT` per store | pure chain in `canopi-types` (2.1); TS runner in `platform/` | Every store change | `editions/web/settings.ts` | change: synchronous steps, staged moves (M157) |
 | Fault seams | `DurableFs`, Draft `IDBFactory`, the library worker's OPFS pool | each store adapter | Model suites inject faults | `desktop/src/design/mod.rs` | add a third seam (M110, M151) |
 | `DesignHomeStore` and `DesignHome` | where a Design lives; `HomeVersion` SHA-256; write results | `platform/design-home.ts` (2.1) | Desktop and Web; merge | `app/document-session/continuous-save.ts` | change (M117, Q165) |
 | Draft records | Drafts on Web | `platform/draft-records.browser.ts`; `desktop/src/design/drafts.rs` | Untrusted record | `web/browser-app-data.ts` | change: internal seam, not a port (M117) |
@@ -54,7 +54,7 @@ Verdicts (keep, merge, split, cut, add, change) cite the [ledger](../decisions/2
 |---|---|---|---|---|---|
 | Format core | read checks, chain, writer, admission, builder, stamp chain | `canopi-format` | Native and wasm; hostile files | `canopi-format/src/read.rs` | keep (ADR 0026) |
 | Design-core port | decode, encode, new, Draft envelope | `platform/design-core.ts` (Web read view built in 2.0.4; decode and encode 2.1) | One worker adapter; fake | `ipc/design.ts` | change: worker on both editions, raw bytes (M154, M156) |
-| Design-core worker | worker union loading, ready, load-failed, poisoned | `platform/design-core.worker.ts` | Isolates untrusted bytes; one core on both editions | `platform/browser.ts` | change (M148) |
+| Design-core worker | worker union loading, ready, load-failed, poisoned | `platform/design-core.worker.ts` | Isolates untrusted bytes; one core on both editions | `editions/web/boot.ts` | change (M148) |
 | Canonical encode | byte-identical encode of one Design | `canopi-format` | `HomeVersion`, Draft move verify, lost-ack adoption | `desktop/src/design/format.rs` | add (M156) |
 | Spec emitter | frozen generated format spec | `canopi-format/spec/` (2.1) | Every format change; rollback lane | `scripts/schema-contract.json` | keep (ADR 0026) |
 | `DESIGN_FILE_FIELDS` | one owner per Design field: Scene, Document or Format | `canopi-types/src/design.rs` | Exclusive authorities | the owner | change (M121) |
@@ -77,7 +77,7 @@ Verdicts (keep, merge, split, cut, add, change) cite the [ledger](../decisions/2
 | Document references | kept and marked when the object goes | `app/design-edit/` | Print, planning, merge | `app/design-edit/views.ts` | add (M120) |
 | Serial lanes | serialisation only in named owners | core write lane, settings, `app/record-workbench/` (2.1), sampler lanes, display admission | Four queues today | `app/mutation-queue.ts` | change (M118) |
 | App lifecycle port | close, hide, focus lost, show, `release-waiting` | `platform/app-lifecycle.ts` (2.1) | Desktop and Web page events | `app/shell/close-guard.ts` | add (M98, M116) |
-| App scope | `installAppLifetime(ports)`, reverse disposal | edition roots | One app scope for two bootstraps | `platform/desktop.ts` | keep (ADR 0024) |
+| App scope | `installAppLifetime(ports)`, reverse disposal | edition roots | One app scope for two bootstraps | `editions/desktop/boot.ts` | keep (ADR 0024) |
 
 ## Canvas and map
 
@@ -89,25 +89,25 @@ Verdicts (keep, merge, split, cut, add, change) cite the [ledger](../decisions/2
 | MapPorts and fake map | the MapLibre surface each consumer uses | `maplibre/` | Fake with behaviour | `maplibre/loader.ts` | change (M145) |
 | Workspace map contribution | a map layer source, gated by capability | `app/canvas-map-surface/workspace-map-contributions.ts` | Hydrology, crowns, LiDAR layers | the owner | keep (ADR 0027) |
 | `CanvasRuntimeAppAdapter` | what the canvas asks of the app | `canvas/runtime/` | Inversion | `canvas/runtime/interaction-ports.ts` | keep (ADR 0022) |
-| `CameraDriver` | camera, headless or MapLibre | `canvas/runtime/view/camera-driver.ts` | Runs while the map is unavailable | the owner | keep (ADR 0001) |
+| `CameraDriver` | camera, headless or MapLibre | `geo/view/camera-driver.ts` | Runs while the map is unavailable | the owner | keep (ADR 0001) |
 | Raster pool lanes | worker tasks; in-process lane | `maplibre/raster-display/pool.ts` | Real worker and test lane | the owner | keep (ADR 0024) |
 | ToolHost and map input | active tool, armed source, `tools.arm(id, source, request?)` handle | `canvas/runtime/tools/tool-host.ts` | Map pick for forms | the owner | change (M147) |
-| Session plane | plane maths; `trueNorthAt` for plane consumers | `geo/session-plane.ts` (2.1) | Earth model, one owner | `canvas/session-plane.ts` | change (M124) |
+| Session plane | plane maths; `trueNorthAt` for plane consumers | `geo/session-plane.ts` | Earth model, one owner | `geo/session-plane.ts` | change (M124) |
 | Web Mercator | Web Mercator maths per language | `geo/web-mercator.ts` (2.1) | Hot path in Rust and TS | `maplibre/` | keep (ADR 0001) |
 
 ## Settings and editions
 
 | Abstraction | Concept owned | Owner | Why it exists | Canonical example | Verdict |
 |---|---|---|---|---|---|
-| Settings field table and chain | shape, steps, privacy, `DefaultSpec`, `DeviceSignals` | `canopi-types` (2.1); `bindings-gen/src/settings_chain.rs` (2.1) | Two runners from one table | `platform/settings.browser.ts` | change (M138, Q169) |
+| Settings field table and chain | shape, steps, privacy, `DefaultSpec`, `DeviceSignals` | `canopi-types` (2.1); `bindings-gen/src/settings_chain.rs` (2.1) | Two runners from one table | `editions/web/settings.ts` | change (M138, Q169) |
 | `patchSettings` and slices | settings writes; the map-layer slice | `app/settings/` | One writer path | `app/settings/state.ts` | change: settings own map layers (M137) |
-| Settings store port | settings persistence | `platform/settings.ts` (2.1) | Desktop and Web | `platform/settings.desktop.ts` | keep (ADR 0022) |
+| Settings store port | settings persistence | `platform/settings.ts` | Desktop and Web | `editions/desktop/settings.ts` | keep (ADR 0022) |
 | Window state | Desktop window geometry | Desktop host in `canopi-desktop` | Outside settings and reports | `desktop/src/lib.rs` | change (M135) |
-| Quantity table | units and display per quantity; scale | `canopi-types` (2.1) | Metric and US customary; analyses | `app/lidar/item-types.ts` | change (M125, Q167) |
+| Quantity table | units and display per quantity; scale | `canopi-types` (2.1) | Metric and US customary; analyses | `app/data-library/item-types.ts` | change (M125, Q167) |
 | Number display | number, unit, byte, money text | `utils/format.ts` (2.1) | 36 files format by hand | `utils/format-count.ts` | keep (ADR 0027) |
-| `EditionPorts` | every port binding of one root | `platform/edition-ports.ts` (2.1) | Desktop, Web and gallery roots | `platform/desktop.ts` | change (M139) |
-| Edition-capability table | the only allowed edition differences | `canopi-types/edition-capabilities.json` (2.1) | Web parity | `web/browser-shell-commands.ts` | change: gate and adapter rows, set by edition plus OS (M136, M164) |
-| Gallery root | Desktop adapters over a fake transport; library transcripts | `editions/gallery/` (2.1) | Fake transport | `ui-gallery/memory-backend.ts` | change (M143, M139) |
+| `EditionPorts` | every port binding of one root | `platform/edition-ports.ts` | Desktop, Web and gallery roots | `editions/desktop/boot.ts` | change (M139) |
+| Edition-capability table | the only allowed edition differences | `canopi-types/edition-capabilities.json` | Web parity | `editions/web/browser-shell-commands.ts` | change: gate and adapter rows, set by edition plus OS (M136, M164) |
+| Gallery root | Desktop adapters over a fake transport; library transcripts | `editions/gallery/` | Fake transport | `editions/gallery/command-adapter.ts` | change (M143, M139) |
 | Species reader | catalog query, supersede by `AbortSignal` | `platform/species-reader.ts` (2.1) or `catalog/` (2.1) | Two E1 outcomes | `ipc/species.ts` | change (M133) |
 | Geocoding transport | page fetch on Web, `geocoder_fetch` on Desktop | `platform/geocoding.ts` (2.1) | Two transports, host allowlist | `app/geocoding/transport.desktop.ts` | change (M142) |
 | Page rules | search folding and analysis parameter rules in the page | `platform/page-rules.ts` (2.1) over `canopi-page-rules-wasm` (2.1) | Six folds today | `utils/normalize-search.ts` | change (M104) |
@@ -143,7 +143,7 @@ Verdicts (keep, merge, split, cut, add, change) cite the [ledger](../decisions/2
 | Whole-grid engine | global terrain compute; a const halo or a parameter-derived halo under a named ceiling | chosen at N0 | Runs in the Web worker too; sunlight's shadow reach | `desktop/src/services/lidar/geolibre.rs` | change (M134, M166) |
 | Solar position | sun azimuth and altitude from a UTC instant and WGS84 lon/lat | the engines layer (2.1) | One time basis for the timed overlay and every sunlight analysis | none yet | add (M167) |
 | Canopy layer cast | crowns as a semi-transparent volume beside the surface model | the sun engine adapter (2.1) | Leafless crowns, crown base, no wall at the trunk | none yet | add (M168) |
-| Design crowns resolver | `DesignCrownSet` (2.1) or `not-ready`; the one crown-model function | an L3 module of the sunlight release (2.1) | The only join of Scene, catalog and Document for crowns | `app/lidar/import-coverage.ts` (settled Scene read) | add (M169) |
+| Design crowns resolver | `DesignCrownSet` (2.1) or `not-ready`; the one crown-model function | an L3 module of the sunlight release (2.1) | The only join of Scene, catalog and Document for crowns | `app/data-library/import-coverage.ts` (settled Scene read) | add (M169) |
 | Analysis parameter rules | `ParamInput`, `ParamError`, `check_request` | `canopi-types` (2.1) | Two validators today | `canopi-types/src/analysis_registry.rs` | change (M104, Q167) |
 | Importer list | importers and accepted formats | `canopi-library` (2.1) | Point clouds, vectors | `desktop/src/services/lidar/import.rs` | keep (ADR 0027) |
 
@@ -155,7 +155,7 @@ Verdicts (keep, merge, split, cut, add, change) cite the [ledger](../decisions/2
 | Origin table | allowed origins; both CSPs | `policy/origins.json` (2.1) | Trust boundary | `desktop/tauri.conf.json` | add (M102) |
 | Service worker | offline, skew caches, kill-switch, `keep_catalog` | service worker (2.1) | Offline Drafts, deploy skew | `scripts/web_release.py` | change (M99, M100) |
 | Catalog manifest | content-named, carried by the page bundle | `scripts/web_release.py` | A tab reads its own release's catalog | the owner | change (M101) |
-| Release waiting | `release-waiting{source}`, flush, then `applyRelease()` | `platform/app-lifecycle.ts` (2.1) | One Reload owner | `web/browser-release-watch.ts` (manifest source, 2.0.3) | add (M98) |
+| Release waiting | `release-waiting{source}`, flush, then `applyRelease()` | `platform/app-lifecycle.ts` (2.1) | One Reload owner | `editions/web/browser-release-watch.ts` (manifest source, 2.0.3) | add (M98) |
 | Updater | check and download inside the Network lane; `UpdateState` in `app/updates/` (2.1) | `desktop/src/host/updater/` (2.1) | Signed artifacts | the owner | add (M96, M97, Q163, Q164) |
 | Build-time config patch | Desktop config, CSP generated from the origin table | `desktop/build.rs` | Generator for Desktop | the owner | keep (M102) |
 

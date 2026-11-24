@@ -10,8 +10,8 @@
 import type { ToolHost } from './interaction-ports'
 import type { Modifiers, ToolId } from './interaction-types'
 import type { CanvasEscapeLayer, CanvasKeyboardPort, CanvasKeyCommand, CanvasKeyState, CanvasKeyVerdict } from './runtime'
-import type { ViewNavigation } from './view/navigation'
-import type { ScreenPoint } from './view/types'
+import type { ViewNavigation } from '../../geo/view/navigation'
+import type { ScreenPoint } from '../../geo/view/types'
 
 /** Arrow-key pan steps with nothing selected, in screen pixels. */
 const ARROW_PAN_STEP_PX = 64

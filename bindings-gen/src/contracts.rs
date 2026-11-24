@@ -56,6 +56,17 @@ pub(crate) fn contract_types() -> TypeCollection {
         .register::<canopi_types::health::StoreNotice>()
         .register::<canopi_types::health::StoreOpenStatus>()
         .register::<canopi_types::health::SubsystemHealth>()
+        .register::<canopi_types::ids::AnnotationId>()
+        .register::<canopi_types::ids::DraftId>()
+        .register::<canopi_types::ids::GroupId>()
+        .register::<canopi_types::ids::LayerId>()
+        .register::<canopi_types::ids::LibraryItemId>()
+        .register::<canopi_types::ids::NotebookSectionId>()
+        .register::<canopi_types::ids::PlantId>()
+        .register::<canopi_types::ids::SavedViewId>()
+        .register::<canopi_types::ids::StampId>()
+        .register::<canopi_types::ids::StoryId>()
+        .register::<canopi_types::ids::ZoneId>()
         .register::<canopi_types::library::AnalysisInputBinding>()
         .register::<canopi_types::library::AnalysisJobState>()
         .register::<canopi_types::library::AnalysisOffer>()
@@ -160,7 +171,21 @@ pub(crate) fn contract_types() -> TypeCollection {
 }
 
 /// The newtypes rendered as branded strings.
-const BRANDED_STRINGS: [&str; 2] = ["OperationId", "RedactedText"];
+const BRANDED_STRINGS: [&str; 13] = [
+    "AnnotationId",
+    "DraftId",
+    "GroupId",
+    "LayerId",
+    "LibraryItemId",
+    "NotebookSectionId",
+    "OperationId",
+    "PlantId",
+    "RedactedText",
+    "SavedViewId",
+    "StampId",
+    "StoryId",
+    "ZoneId",
+];
 
 pub(crate) fn render_typescript_contracts() -> Result<String, Box<dyn std::error::Error>> {
     let types = contract_types();

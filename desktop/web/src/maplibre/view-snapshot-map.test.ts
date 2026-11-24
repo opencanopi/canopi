@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { geoToMercator, mercatorToGeo } from '../canvas/projection'
+import { geoToMercator, mercatorToGeo } from '../geo/projection'
 import type { MapLibreMapConstructorOptions } from './loader'
 import {
   mountMapBackground,
@@ -11,11 +11,11 @@ import {
 } from './map-background'
 import { createSharedMapSceneLayer, type SharedMapSceneLayer, type SharedMapSceneLayerOptions } from './shared-scene-layer'
 import { createTestSceneRendererSnapshot } from '../__tests__/support/scene-renderer-snapshot'
-import type { ViewTransform } from '../canvas/runtime/view/types'
-import { createSessionPlane } from '../canvas/session-plane'
+import type { ViewTransform } from '../geo/view/types'
+import { createSessionPlane } from '../geo/session-plane'
 import { describeSavedViewSnapshot, VIEW_SNAPSHOT_THUMBNAIL } from '../app/saved-views/snapshot'
 import { createDefaultMapLayers } from '../app/map-layers/state'
-import type { SavedView } from '../types/design'
+import type { SavedView } from '../generated/contracts'
 import { createTestCanvasQuerySurface } from '../__tests__/support/canvas-query-surface'
 import { groundSizeShown } from '../__tests__/support/saved-view-frame'
 import {

@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   BASEMAP_HTTP_MAX_BODY_BYTES,
   createBrowserSatelliteHttp,
-} from '../maplibre/satellite-http.browser'
+} from '../maplibre/satellite-http'
 
 const SECRET = 'fake-recognizable-key'
 const URL_WITH_SECRET = `https://tile.googleapis.com/v1/createSession?key=${SECRET}`

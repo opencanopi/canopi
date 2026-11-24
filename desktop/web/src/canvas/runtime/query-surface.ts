@@ -1,8 +1,8 @@
 import { buildCanvasPrintSnapshot } from './print-snapshot'
 import { getCanvasPlantNameLabels } from './automatic-detail'
 import { isPlantLayerShown } from './scene-visuals'
-import { isWorkspaceOverviewScale } from '../workspace-camera-policy'
-import type { PlacedPlant } from '../../types/design'
+import { isWorkspaceOverviewScale } from '../../geo/workspace-camera-policy'
+import type { PlacedPlant } from '../../generated/contracts'
 import type { SelectedPlantColorContext } from '../plant-color-context'
 import type { SelectedPlantSymbolContext } from '../plant-symbol-context'
 import type {
@@ -24,10 +24,10 @@ import type { SceneRuntimeMutationController } from './scene-runtime/mutations'
 import type { SceneRuntimePresentationController } from './scene-runtime/presentation'
 import { EMPTY_SELECTION_MODEL, getDesignObjectSelectionModel } from './scene-runtime/selection'
 import type { SettledSceneReader } from './scene-runtime/transactions'
-import { createViewReadSurface } from './view/frame-source'
-import type { ViewReadSurface } from './view/read-surface'
-import type { ViewFrameSource } from './view/types'
-import type { SpeciesCacheEntry } from './species-cache'
+import { createViewReadSurface } from '../../geo/view/frame-source'
+import type { ViewReadSurface } from '../../geo/view/read-surface'
+import type { ViewFrameSource } from '../../geo/view/types'
+import type { SpeciesCacheEntry } from './presentation-data'
 
 type PointerWorldListener = (point: PointerWorld | null) => void
 

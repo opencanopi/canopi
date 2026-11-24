@@ -14,13 +14,13 @@ import type {
   CanvasRuntimeSurfaces,
 } from '../canvas/runtime/runtime'
 import { createDefaultScenePersistedState } from '../canvas/runtime/scene'
-import { createSessionPlane, type SessionPlane } from '../canvas/session-plane'
+import { createSessionPlane, type SessionPlane } from '../geo/session-plane'
 import { TEST_GEO_ORIGIN } from './support/geo-design'
 import { createTestViewReadSurface } from './support/canvas-query-surface'
 import { createTestCanvasKeyboardPort } from './support/canvas-runtime-surfaces'
 import { createBrowserAppDataStore, type BrowserStorageAdapter } from '../web/browser-app-data'
 import { createBrowserDesignSessionController, type BrowserDesignFileAdapter } from '../web/browser-design-session'
-import { WebCanvasWorkspace } from '../web/WebCanvasWorkspace'
+import { WebCanvasWorkspace } from '../editions/web/WebCanvasWorkspace'
 import { unmount } from './support/unmount'
 
 // The floating chrome has its own tests; here it only marks where the workspace mounts it.

@@ -74,7 +74,7 @@
         "components/panels/Panels.module.css",
         "main.tsx",
         "main.web.tsx",
-        "desktop/web/ui-gallery/main.tsx",
+        "desktop/web/src/editions/gallery/main.tsx",
         "desktop/web/package.json",
         "desktop/web/package-lock.json",
         "desktop/web/vite.config.ts",

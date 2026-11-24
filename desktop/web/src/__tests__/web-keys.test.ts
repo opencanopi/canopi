@@ -13,7 +13,7 @@ import {
   createBrowserShellCatalog,
   installWebKeyRouter,
   type BrowserShellCatalog,
-} from '../web/browser-shell-commands'
+} from '../editions/web/browser-shell-commands'
 import type { KeyRouterHandle } from '../app/keyboard/key-router'
 import { answerSaveProblem, requestSaveProblemDecision } from '../app/document-session/save-problem'
 import { registerPlantFinder } from '../app/plant-finder/focus'

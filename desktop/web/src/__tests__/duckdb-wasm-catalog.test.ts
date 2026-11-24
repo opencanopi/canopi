@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { createEmptySpeciesFilter } from '../app/plant-browser'
 import { SPECIES_SEARCH_NORMALIZATION_CORPUS } from '../generated/species-search-normalization'
-import { createDuckDbReducedSpeciesCatalogReader } from '../web/duckdb-wasm-catalog'
+import { createDuckDbReducedSpeciesCatalogReader } from '../editions/web/duckdb-wasm-catalog'
 import type { SpeciesSearchRequest } from '../types/species'
 import { validWebCatalogManifest } from './fixtures/web-catalog-manifest'
 

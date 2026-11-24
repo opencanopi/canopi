@@ -12,17 +12,11 @@ pub use rows::{
     GenerationRow, ImportJobRow, LayerRow,
 };
 
-/// The only catalogue shape this binary reads (Canopi v2).
-///
-/// There is no migration ladder: an older or corrupt catalogue is set aside
-/// and rebuilt from the originals (`recovery.rs`, ADR 0021), and a newer one
-/// is refused so an older binary never writes rows it does not understand.
+/// The only catalogue shape this binary reads (Canopi v2). Older/corrupt catalogues are set aside
+/// and rebuilt (`recovery.rs`, ADR 0021); newer ones are refused.
 pub const CATALOGUE_VERSION: i32 = 25;
 
-/// Open (or create) the catalogue at `path`.
-///
-/// Fails when the file carries any other schema version; `recovery::open_catalogue`
-/// is the caller that turns that into a rebuild or a refusal.
+/// Open (or create) the catalogue at `path`; fails on any unsupported schema version.
 pub fn open(path: &std::path::Path) -> Result<Connection, String> {
     let connection = Connection::open(path)
         .map_err(|e| format!("Failed to open LiDAR catalogue {}: {e}", path.display()))?;
@@ -34,7 +28,11 @@ pub fn open(path: &std::path::Path) -> Result<Connection, String> {
         .map_err(|e| format!("Failed to enable foreign keys: {e}"))?;
     match schema_version(&connection).map_err(UnreadCatalogue::into_reason)? {
         None => create_schema(&connection)?,
-        Some(CATALOGUE_VERSION) => {}
+        Some(v)
+            if canopi_types::store_chain::is_current_version(
+                canopi_types::health::StoreId::LibraryCatalogue,
+                v,
+            ) => {}
         Some(other) => {
             return Err(format!(
                 "LiDAR catalogue schema version {other} is not supported (expected {CATALOGUE_VERSION})"

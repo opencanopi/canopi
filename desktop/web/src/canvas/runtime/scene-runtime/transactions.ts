@@ -1,6 +1,6 @@
+import type { GeoPoint } from '../../../generated/contracts'
 import { batch, computed, signal, type ReadonlySignal } from '@preact/signals'
-import type { GeoPosition, SessionPlane } from '../../session-plane'
-
+import type { SessionPlane } from '../../../geo/session-plane'
 import type { CanopiFile } from '../../../types/design'
 import { collectCanvasRuntimeErrors, throwCanvasRuntimeCleanupErrors } from '../cleanup'
 import {
@@ -218,7 +218,7 @@ export class SceneRuntimeEditCoordinator implements SceneRuntimeAuthority {
    * and nothing is dirtied or recorded; the camera follows through the plane
    * effect. When not settled it does nothing.
    */
-  reoriginSessionPlane(origin: GeoPosition): void {
+  reoriginSessionPlane(origin: GeoPoint): void {
     if (
       this._persistenceDisposed
       || this._active

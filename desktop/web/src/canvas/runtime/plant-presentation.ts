@@ -2,7 +2,7 @@ import { normalizeHexColor } from '../plant-colors'
 import { getStratumColor, isDotScale } from '../plants'
 import { resolvePlantSymbolForPlant, type PlantSymbolId } from './scene/plant-symbols'
 import type { ScenePlantEntity, ScenePoint } from './scene/types'
-import type { SpeciesCacheEntry } from './species-cache'
+import type { SpeciesCacheEntry } from './presentation-data'
 import { nearestPlantSpacing } from '../plant-spacing'
 import { getCanvasPlantDisplay, resolveDisplayedPlantColor, type PlantDisplay } from './plant-display'
 

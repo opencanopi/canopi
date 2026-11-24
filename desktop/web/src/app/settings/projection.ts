@@ -9,7 +9,6 @@ import { FALLBACK_PLANT_SPACING_INTERVAL_M } from '../../canvas/plant-spacing-in
 import { clampPlantSymbolScale } from '../../canvas/runtime/plant-display'
 import { mapLayers, mapLayersEqual, normalizeMapLayers, type MapLayersState } from '../map-layers/state'
 import { snapToGridEnabled } from '../canvas-settings/signals'
-import { sidePanelWidth } from '../shell/state'
 import {
   DEFAULT_SAVED_STAMPS_FRAME_HEIGHT,
   MIN_FAVORITES_FRAME_HEIGHT,
@@ -21,13 +20,14 @@ import {
   satelliteSource,
   savedStampsFrameHeight,
   scrollWheel,
+  sidePanelWidth,
   singleKeyShortcuts,
   theme,
   toolNamesVisible,
   usedCanvasTools,
   type NewDesignDefaults,
 } from './state'
-import { withFirstRunSettings, type SettingsPlatformAdapter } from './platform-adapter'
+import { withFirstRunSettings, type SettingsPlatformAdapter } from '../../platform/settings'
 
 export type SettingsPersistMode = 'immediate' | 'queued' | 'none'
 

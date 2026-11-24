@@ -7,8 +7,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 const invoke = vi.fn()
 vi.mock('@tauri-apps/api/core', () => ({ invoke: (...args: unknown[]) => invoke(...args) }))
 
-const display = await import('../app/lidar/display')
-const { libraryItems } = await import('../app/lidar/library-items')
+const display = await import('../app/data-library/display')
+const { libraryItems } = await import('../app/data-library/library-items')
 const { librarySnapshot, sourceItem } = await import('./support/library-fixtures')
 const { LibraryPreview } = await import('../components/panels/lidar/LibraryPreview')
 

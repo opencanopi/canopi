@@ -8,8 +8,8 @@ it('writes the prepared bytes after the host Save dialog chooses a PDF destinati
   const result = await createPdfDelivery().save(new Uint8Array([1, 2, 3]), 'Garden: plan', new AbortController().signal)
   expect(result).toBe('saved')
   expect(invoke.mock.calls).toEqual([
-    ['pick_save', { kind: 'pdf-export', stem: 'Garden_ plan' }],
-    ['save_canvas_pdf', { data: [1, 2, 3], path: '/chosen/garden.pdf' }],
+    ['pick_save', { kind: 'pdf-export', stem: 'Garden_ plan', operation: expect.stringMatching(/^u-/) }],
+    ['save_canvas_pdf', { data: [1, 2, 3], path: '/chosen/garden.pdf', operation: expect.stringMatching(/^u-/) }],
   ])
 })
 it('does not write when the dialog is cancelled or the captured session becomes stale', async () => {

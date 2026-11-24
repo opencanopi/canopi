@@ -9,13 +9,15 @@ import { IpcFailure, isCancelledFailure } from '../failures/ipc-failure'
 import { failureNoticesForTests, installFailureHooks, reportFailure, resetFailureNoticesForTests } from '../failures/report'
 import { resetFrontendDiagnosticsForTests, ringEntries } from '../failures/ring'
 
+import type { CommandName } from '../generated/command-map'
+
 const invoke = vi.hoisted(() => vi.fn())
 vi.mock('@tauri-apps/api/core', () => ({ invoke, Channel: class {} }))
 
-const { invokeCommand } = await import('./transport')
+const { invokeTyped, mintOperationId } = await import('./transport')
 
-async function rejected(command: string): Promise<IpcFailure> {
-  const settled = await invokeCommand(command).then(
+async function rejected(command: CommandName): Promise<IpcFailure> {
+  const settled = await invokeTyped(command, undefined as never, mintOperationId('u')).then(
     () => { throw new Error(`${command} resolved`) },
     (error: unknown) => error,
   )
@@ -50,9 +52,10 @@ describe('IPC transport', () => {
   })
 
   it('a command that answers resolves with its reply and records nothing', async () => {
+    const op = mintOperationId('u')
     invoke.mockResolvedValueOnce({ rows: 3 })
-    await expect(invokeCommand('get_saved_object_stamps', { limit: 3 })).resolves.toEqual({ rows: 3 })
-    expect(invoke).toHaveBeenCalledWith('get_saved_object_stamps', { limit: 3 })
+    await expect(invokeTyped('get_saved_object_stamps', undefined, op)).resolves.toEqual({ rows: 3 })
+    expect(invoke).toHaveBeenCalledWith('get_saved_object_stamps', { operation: op })
     expect(ringEntries()).toEqual([])
   })
 
@@ -64,7 +67,8 @@ describe('IPC transport', () => {
 
     // 2.1-M41's matchers read the text byte for byte.
     expect(settled.message).toBe(native)
-    expect(settled.failure).toMatchObject({ code: { kind: 'internal' }, user_may_retry: false, op: 'ipc.load_design', operation: null })
+    expect(settled.failure).toMatchObject({ code: { kind: 'internal' }, user_may_retry: false, op: 'ipc.load_design' })
+    expect(settled.failure.operation).toMatch(/^u-/)
     const entries = ringEntries()
     expect(entries).toHaveLength(1)
     expect(entries[0]).toMatchObject({ origin: 'native', source: 'ipc.load_design', code: { kind: 'internal' }, surfaced: false })
@@ -83,7 +87,7 @@ describe('IPC transport', () => {
   it('a catalogue Failure keeps its code, op and native detail, recorded once', async () => {
     invoke.mockRejectedValueOnce(UNAVAILABLE)
     const settled = await rejected('lidar_list_library')
-    expect(settled.failure).toBe(UNAVAILABLE)
+    expect(settled.failure).toMatchObject({ ...UNAVAILABLE, operation: expect.stringMatching(/^u-/) })
     expect(ringEntries()).toEqual([
       expect.objectContaining({ origin: 'native', source: 'library.list', code: { kind: 'unavailable' }, detail: UNAVAILABLE.detail }),
     ])
@@ -92,7 +96,7 @@ describe('IPC transport', () => {
   it('a typed refusal not yet on the catalogue reaches its caller unchanged, for its surface to word', async () => {
     const refusal = { kind: 'newer_version', message: 'written by Canopi 9.0' }
     invoke.mockRejectedValueOnce(refusal)
-    await expect(invokeCommand('load_design', { path: 'plan.canopi' })).rejects.toBe(refusal)
+    await expect(invokeTyped('load_design', { path: 'plan.canopi' }, mintOperationId('u'))).rejects.toBe(refusal)
     expect(ringEntries()).toEqual([])
   })
 
@@ -131,7 +135,7 @@ describe('IPC transport', () => {
 
   it('canopi-f47t.52.271: a user DB or settings write refused as read-only settles store_read_only for its store, never recorded', async () => {
     // Native refuses every write on a newer-read-only user DB with this bare text (desktop/src/db/user_db.rs).
-    const userDbWrites = [
+    const userDbWrites: readonly CommandName[] = [
       'create_notebook_section', 'add_design_reference_to_notebook', 'rename_notebook_section', 'delete_notebook_section',
       'move_design_reference_to_section', 'relocate_design_reference', 'remove_design_reference',
       'reorder_notebook_sections', 'reorder_design_references', 'create_saved_object_stamp', 'rename_saved_object_stamp',
@@ -158,7 +162,10 @@ describe('IPC transport', () => {
 
   it('canopi-f47t.52.271: a Data library write refused on a newer catalogue settles store_read_only{library_catalogue}, never recorded', async () => {
     // The library refuses each write through `ensure_writable` with this bare text (desktop/src/services/lidar/recovery.rs).
-    for (const command of ['lidar_rename_item', 'lidar_delete_item', 'lidar_dismiss_import', 'lidar_create_analysis', 'lidar_rerun_analysis']) {
+    const libraryWrites: readonly CommandName[] = [
+      'lidar_rename_item', 'lidar_delete_item', 'lidar_dismiss_import', 'lidar_create_analysis', 'lidar_rerun_analysis',
+    ]
+    for (const command of libraryWrites) {
       invoke.mockRejectedValueOnce('store_read_only')
       expect((await rejected(command)).failure.code, command).toEqual({ kind: 'store_read_only', store: 'library_catalogue' })
     }
@@ -217,5 +224,48 @@ describe('IPC transport', () => {
     expect(isCancelledFailure(new Error('Dialog cancelled'))).toBe(false)
     reportFailure(settled, { shown: 'notice' })
     expect(failureNoticesForTests().notices).toMatchObject([{ source: 'ipc.export_file', message: 'failure.internal' }])
+  })
+
+  it('canopi-f47t.52.70 (2.1-M411): invokeTyped carries the same branded OperationId across transport and into typed & untyped failures', async () => {
+    const op = mintOperationId('u')
+    expect(op).toMatch(/^u-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/)
+    expect(mintOperationId('s')).toMatch(/^s-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/)
+
+    invoke.mockResolvedValueOnce({ ok: true })
+    await invokeTyped('get_settings', undefined, op)
+    expect(invoke).toHaveBeenLastCalledWith('get_settings', { operation: op })
+
+    // Typed wire Failure without an operation gets the caller's OperationId stamped onto it (2.1-M411).
+    invoke.mockRejectedValueOnce(UNAVAILABLE)
+    let caughtTyped: unknown
+    try {
+      await invokeTyped('show_app_folder', { folder: 'drafts' }, op)
+    } catch (error) {
+      caughtTyped = error
+    }
+    expect(caughtTyped).toBeInstanceOf(IpcFailure)
+    expect((caughtTyped as IpcFailure).failure.code).toEqual({ kind: 'unavailable' })
+    expect((caughtTyped as IpcFailure).failure.operation).toBe(op)
+
+    // Untyped rejection also carries the same OperationId.
+    invoke.mockRejectedValueOnce(new Error('disk full'))
+    let caughtUntyped: unknown
+    try {
+      await invokeTyped('remove_recent_design', { path: '/tmp/a.canopi' }, op)
+    } catch (error) {
+      caughtUntyped = error
+    }
+    expect(caughtUntyped).toBeInstanceOf(IpcFailure)
+    expect((caughtUntyped as IpcFailure).failure.operation).toBe(op)
+
+    // Compile-time checks: wrong arg shape, invalid enum literal, and unknown command are rejected.
+    if (false as boolean) {
+      // @ts-expect-error save_design requires `content` in addition to `path`
+      await invokeTyped('save_design', { path: '/tmp/a.canopi' }, op)
+      // @ts-expect-error show_app_folder rejects unknown AppFolder literal
+      await invokeTyped('show_app_folder', { folder: 'unknown_folder' }, op)
+      // @ts-expect-error unknown command name is rejected
+      await invokeTyped('not_a_real_command', undefined, op)
+    }
   })
 })

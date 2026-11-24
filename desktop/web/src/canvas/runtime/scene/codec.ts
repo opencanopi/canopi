@@ -2,6 +2,8 @@
 // Owner of the CanopiFile serializer (no-canopifile-literal, ADR 0026; §18 F28) until 2b's
 // platform/design-core.ts. Invariant: production code builds a CanopiFile only here and in the generated defaults.
 
+import type { GeoPoint } from '../../../generated/contracts'
+
 import { allocateSpeciesCodes } from '../species-key'
 import type {
   Annotation,
@@ -18,9 +20,8 @@ import {
   createSessionPlane,
   DEFAULT_NEW_DESIGN_VIEW,
   sessionPlaneOriginForPoints,
-  type GeoPosition,
   type SessionPlane,
-} from '../../session-plane'
+} from '../../../geo/session-plane'
 import {
   hydrateGeoEllipse,
   hydrateGeoPoint,
@@ -53,8 +54,8 @@ export interface SceneHydration {
 }
 
 // Every stored lon/lat of a Design, used to centre its session plane.
-export function designGeoPositions(file: CanopiFile): GeoPosition[] {
-  const positions: GeoPosition[] = []
+export function designGeoPositions(file: CanopiFile): GeoPoint[] {
+  const positions: GeoPoint[] = []
   for (const plant of file.plants) positions.push(plant.position)
   for (const zone of file.zones) positions.push(...zone.points)
   for (const annotation of file.annotations ?? []) positions.push(annotation.position)
@@ -66,7 +67,7 @@ export function designGeoPositions(file: CanopiFile): GeoPosition[] {
 // `emptyOrigin` for a Design without objects) and hydrates plane metres.
 export function hydrateSceneFromDesign(
   file: CanopiFile,
-  emptyOrigin: GeoPosition = DEFAULT_NEW_DESIGN_VIEW,
+  emptyOrigin: GeoPoint = DEFAULT_NEW_DESIGN_VIEW,
 ): SceneHydration {
   const plane = createSessionPlane(sessionPlaneOriginForPoints(designGeoPositions(file), emptyOrigin))
   return { persisted: hydrateScenePersistedStateInFrame(file, plane), plane }

@@ -3,7 +3,7 @@
 id: no-free-world-to-screen-export.tsx
 language: tsx
 severity: error
-message: "P3 no module exports a free worldToScreen or screenToWorld; owner desktop/web/src/canvas/runtime/view; example desktop/web/src/app.tsx"
+message: "P3 no module exports a free worldToScreen or screenToWorld; owner desktop/web/src/geo/view; example desktop/web/src/app.tsx"
 files:
   - "{desktop/web,policy/fixtures/rules/*}/src/**/*.tsx"
 ignores:

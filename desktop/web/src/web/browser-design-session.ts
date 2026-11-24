@@ -23,8 +23,7 @@ import { NEW_DESIGN_LAYER_DEFAULTS } from "../generated/new-design-defaults";
 import {
   browserAppDataStore, BrowserDraftChangedError, type BrowserAppDataStore, type BrowserAppDataWriteResult, type BrowserDraftSummary,
 } from "./browser-app-data";
-import type { BrowserShellDesignIdentity } from "./browser-shell-commands";
-import { browserDraftPersistence } from "./browser-draft-persistence";
+import { browserDraftPersistence, type BrowserShellDesignIdentity } from "./browser-draft-persistence";
 import { createBrowserNewerDrafts, type BrowserNewerDraftRecords } from "./browser-newer-drafts";
 import { presentBrowserDraftDownloadFailure, presentBrowserDraftOpenFailure, presentBrowserDraftUncheckedNotice, withdrawBrowserDraftUncheckedNotice } from "./browser-notices";
 import { downloadBrowserTextFile, pickBrowserTextFile } from "./browser-text-files";

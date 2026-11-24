@@ -97,19 +97,26 @@ pub fn inspect(path: &Path) -> CatalogueState {
         // opened but never created; that is an empty library, not damage.
         Ok(None) if metadata.len() == 0 => CatalogueState::Missing,
         Ok(None) => CatalogueState::Corrupt("the file has no catalogue version".to_string()),
-        Ok(Some(version)) if version == catalogue::CATALOGUE_VERSION => {
-            match catalogue::quick_check(path) {
+        Ok(Some(version)) if version < 0 => CatalogueState::Older(version),
+        Ok(Some(version)) => match canopi_types::store_chain::admit_version(
+            canopi_types::store_chain::LIBRARY_CATALOGUE_FLOOR,
+            Some(version as u32),
+        ) {
+            canopi_types::store_chain::StoredForm::Current => match catalogue::quick_check(path) {
                 Ok(()) => CatalogueState::Current,
                 Err(catalogue::UnreadCatalogue::Unavailable(reason)) => {
                     CatalogueState::Unreadable(reason)
                 }
                 Err(catalogue::UnreadCatalogue::Damaged(reason)) => CatalogueState::Corrupt(reason),
+            },
+            canopi_types::store_chain::StoredForm::PreFloor { .. }
+            | canopi_types::store_chain::StoredForm::Upgradable { .. }
+            | canopi_types::store_chain::StoredForm::Missing => CatalogueState::Older(version),
+            canopi_types::store_chain::StoredForm::NewerReadOnly { .. }
+            | canopi_types::store_chain::StoredForm::RefusedNewer { .. } => {
+                CatalogueState::Newer(version)
             }
-        }
-        Ok(Some(version)) if version < catalogue::CATALOGUE_VERSION => {
-            CatalogueState::Older(version)
-        }
-        Ok(Some(version)) => CatalogueState::Newer(version),
+        },
     }
 }
 

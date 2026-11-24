@@ -1705,7 +1705,7 @@ describe('WorkspaceMapControls Google satellite', () => {
         maxZoomRects: [{ north: 90, south: -90, east: 180, west: -180, maxZoom: 20 }],
       }), { status: 200, headers: { 'content-type': 'application/json' } })
     }) as unknown as typeof fetch)
-    const { googleMapsApiKey, satelliteSource } = await import('../../app/settings/state')
+    const { googleMapsApiKey, satelliteSource } = await import('../settings/state')
     satelliteSource.value = 'google_key'
     googleMapsApiKey.value = 'fake-canvas-google-key'
 
@@ -1762,7 +1762,7 @@ describe('WorkspaceMapControls Google satellite', () => {
   })
 
   it('shows Google keyless imagery without a session request when no key is set', async () => {
-    const { googleMapsApiKey, satelliteSource } = await import('../../app/settings/state')
+    const { googleMapsApiKey, satelliteSource } = await import('../settings/state')
     googleMapsApiKey.value = null
     satelliteSource.value = 'free'
     const { controls, maps } = createControls({
@@ -1801,7 +1801,7 @@ describe('WorkspaceMapControls Google satellite', () => {
       return serveOpenFreeMapStyle()
     })
     const requested = () => styleFetch.mock.calls.map(([url]) => String(url))
-    const { googleMapsApiKey, satelliteSource } = await import('../../app/settings/state')
+    const { googleMapsApiKey, satelliteSource } = await import('../settings/state')
     googleMapsApiKey.value = null
     satelliteSource.value = 'free'
     try {

@@ -1,7 +1,6 @@
 import { designLoadFailureMessageKey, designLoadFailureOf } from '../contracts/canopi-design-errors'
 import type { LocaleKey } from '../../generated/locale-keys'
-import type { FailureCode } from '../../generated/contracts'
-import type { DesignLoadFailureKind } from '../../types/design'
+import type { DesignLoadFailureKind, FailureCode } from '../../generated/contracts'
 import { reportFailure } from '../../failures/report'
 import { failureOf } from '../../failures/ipc-failure'
 

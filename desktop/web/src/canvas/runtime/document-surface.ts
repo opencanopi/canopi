@@ -1,7 +1,7 @@
 import type { ReadonlySignal } from '@preact/signals'
 import type { CanopiFile, SavedViewCamera } from '../../types/design'
 import { savedViewCameraOf, savedViewZoom } from '../saved-view-framing'
-import { geographicViewOfCamera } from '../session-plane'
+import { geographicViewOfCamera } from '../../geo/session-plane'
 import {
   CanvasAuthorityBusyError,
   CanvasDocumentReplacementNotAdmittedError,
@@ -16,9 +16,9 @@ import type { SceneRuntimeRenderScheduler } from './scene-runtime/render-schedul
 import { runCanvasRuntimeCleanups } from './cleanup'
 import type { CanvasInspectionHandle } from '../inspection'
 import type { SceneCanvasInspectionOwner } from './inspection-lens'
-import type { CameraDriverHost } from './view/camera-driver'
-import type { ViewNavigation } from './view/navigation'
-import type { ViewCamera } from './view/types'
+import type { CameraDriverHost } from '../../geo/view/camera-driver'
+import type { ViewNavigation } from '../../geo/view/navigation'
+import type { ViewCamera } from '../../geo/view/types'
 
 interface SceneCanvasDocumentSurfaceOptions {
   readonly inspection: Pick<SceneCanvasInspectionOwner, 'mount' | 'reset' | 'dispose'>

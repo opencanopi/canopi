@@ -149,19 +149,29 @@ pub(super) fn schema_version(conn: &Connection) -> Result<i32, UserDbInitError> 
 /// [`UserDbInitError::NewerSchemaVersion`]; neither is modified. Both
 /// accepted paths end in the same integrity check.
 pub(super) fn initialize_connection(conn: &Connection) -> Result<(), UserDbInitError> {
+    let floor = canopi_types::store_chain::USER_DB_FLOOR;
     let version = schema_version(conn)?;
     match version {
         0 if has_tables(conn)? => {
             return Err(UserDbInitError::OlderSchemaVersion { found: 0 });
         }
-        0 | CURRENT_USER_DB_VERSION => {}
-        found if found > CURRENT_USER_DB_VERSION => {
-            return Err(UserDbInitError::NewerSchemaVersion {
-                found,
-                supported: CURRENT_USER_DB_VERSION,
-            });
-        }
-        found => return Err(UserDbInitError::OlderSchemaVersion { found }),
+        0 => {}
+        found if found < 0 => return Err(UserDbInitError::OlderSchemaVersion { found }),
+        found => match canopi_types::store_chain::admit_version(floor, Some(found as u32)) {
+            canopi_types::store_chain::StoredForm::Current => {}
+            canopi_types::store_chain::StoredForm::NewerReadOnly { .. }
+            | canopi_types::store_chain::StoredForm::RefusedNewer { .. } => {
+                return Err(UserDbInitError::NewerSchemaVersion {
+                    found,
+                    supported: floor.current as i32,
+                });
+            }
+            canopi_types::store_chain::StoredForm::PreFloor { .. }
+            | canopi_types::store_chain::StoredForm::Upgradable { .. }
+            | canopi_types::store_chain::StoredForm::Missing => {
+                return Err(UserDbInitError::OlderSchemaVersion { found });
+            }
+        },
     }
     conn.pragma_update(None, "foreign_keys", true)
         .map_err(UserDbInitError::ConfigureForeignKeys)?;

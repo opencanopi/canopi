@@ -11,7 +11,7 @@ import { resolvePlantDisplayColor } from './runtime/plant-presentation'
 import type { SceneRendererSnapshot } from './runtime/renderers/scene-types'
 import { createDetachedCanvasRuntimeAppAdapter } from './runtime/app-adapter'
 import { SceneCanvasRuntime } from './runtime/scene-runtime'
-import type { SpeciesCacheEntry } from './runtime/species-cache'
+import type { SpeciesCacheEntry } from './runtime/presentation-data'
 
 describe('pinned plant name legend through the runtime', () => {
   // A20: a plant carries no stratum; the canvas colours one without its own colour from the species catalog entries

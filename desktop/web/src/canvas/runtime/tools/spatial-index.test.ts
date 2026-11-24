@@ -9,7 +9,7 @@ import {
 } from '../../../__tests__/support/tool-harness'
 import { buildPlantPresentationEntries } from '../plant-presentation'
 import type { SceneStore } from '../scene'
-import type { WorldPoint, WorldQuad } from '../view/types'
+import type { WorldPoint, WorldQuad } from '../../../geo/view/types'
 import { hitTestTopLevel, hitTestVisibleTopLevel } from './hit-testing'
 import { createToolScene } from './spatial-index'
 

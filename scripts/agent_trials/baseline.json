@@ -6,7 +6,7 @@
       "area_count": 8,
       "areas": {
         "app/lidar": [
-          "desktop/web/src/app/lidar/item-types.ts"
+          "desktop/web/src/app/data-library/item-types.ts"
         ],
         "bindings-gen": [
           "bindings-gen/src/analysis_registry.rs"
@@ -72,7 +72,7 @@
           "added": 16,
           "removed": 0
         },
-        "desktop/web/src/app/lidar/item-types.ts": {
+        "desktop/web/src/app/data-library/item-types.ts": {
           "added": 25,
           "removed": 3
         },
@@ -148,8 +148,8 @@
         "Cargo.toml",
         "__tests__/item-types.test.ts",
         "__tests__/lidar-data-dialogs.test.tsx",
-        "app/lidar/item-types.ts",
-        "app/lidar/profile.ts",
+        "app/data-library/item-types.ts",
+        "app/data-library/profile.ts",
         "bindings-gen/src/analysis_registry.rs",
         "common-types/analysis-registry.json",
         "common-types/src/design.rs",
@@ -162,9 +162,9 @@
         "desktop/src/services/lidar/mod.rs",
         "desktop/src/services/lidar/recovery.rs",
         "desktop/web/src/__tests__/i18n-copy.test.ts",
-        "desktop/web/src/app/lidar/display-legend.ts",
-        "desktop/web/src/app/lidar/item-types.ts",
-        "desktop/web/src/app/lidar/value-format.ts",
+        "desktop/web/src/app/data-library/display-legend.ts",
+        "desktop/web/src/app/data-library/item-types.ts",
+        "desktop/web/src/app/data-library/value-format.ts",
         "docs/adr/0027-extension-points-and-exports.md",
         "docs/guides/data-library.md"
       ],
@@ -252,7 +252,7 @@
       "area_count": 8,
       "areas": {
         "app/lidar": [
-          "desktop/web/src/app/lidar/item-types.ts"
+          "desktop/web/src/app/data-library/item-types.ts"
         ],
         "bindings-gen": [
           "bindings-gen/src/analysis_registry.rs"
@@ -313,7 +313,7 @@
           "added": 15,
           "removed": 0
         },
-        "desktop/web/src/app/lidar/item-types.ts": {
+        "desktop/web/src/app/data-library/item-types.ts": {
           "added": 20,
           "removed": 1
         },
@@ -395,7 +395,7 @@
         "desktop/src/services/lidar/recovery.rs",
         "desktop/web/package.json",
         "desktop/web/src/__tests__/i18n-copy.test.ts",
-        "desktop/web/src/app/lidar/item-types.ts",
+        "desktop/web/src/app/data-library/item-types.ts",
         "docs/plans/2-1-foundations-contracts.md",
         "docs/plans/analysis-registry-and-hydrology.md",
         "src/__tests__/item-types.test.ts",
@@ -1838,12 +1838,12 @@
       "area_count": 10,
       "areas": {
         "app/lidar": [
-          "desktop/web/src/app/lidar/actions.ts",
-          "desktop/web/src/app/lidar/item-types.ts",
-          "desktop/web/src/app/lidar/library-items.ts",
-          "desktop/web/src/app/lidar/library-navigation.ts",
-          "desktop/web/src/app/lidar/library-store.ts",
-          "desktop/web/src/app/lidar/lidar-failures.ts"
+          "desktop/web/src/app/data-library/actions.ts",
+          "desktop/web/src/app/data-library/item-types.ts",
+          "desktop/web/src/app/data-library/library-items.ts",
+          "desktop/web/src/app/data-library/library-navigation.ts",
+          "desktop/web/src/app/data-library/library-store.ts",
+          "desktop/web/src/app/data-library/lidar-failures.ts"
         ],
         "bindings-gen": [
           "bindings-gen/src/contracts.rs"
@@ -1946,27 +1946,27 @@
           "added": 201,
           "removed": 0
         },
-        "desktop/web/src/app/lidar/actions.ts": {
+        "desktop/web/src/app/data-library/actions.ts": {
           "added": 20,
           "removed": 1
         },
-        "desktop/web/src/app/lidar/item-types.ts": {
+        "desktop/web/src/app/data-library/item-types.ts": {
           "added": 33,
           "removed": 7
         },
-        "desktop/web/src/app/lidar/library-items.ts": {
+        "desktop/web/src/app/data-library/library-items.ts": {
           "added": 1,
           "removed": 1
         },
-        "desktop/web/src/app/lidar/library-navigation.ts": {
+        "desktop/web/src/app/data-library/library-navigation.ts": {
           "added": 16,
           "removed": 1
         },
-        "desktop/web/src/app/lidar/library-store.ts": {
+        "desktop/web/src/app/data-library/library-store.ts": {
           "added": 4,
           "removed": 4
         },
-        "desktop/web/src/app/lidar/lidar-failures.ts": {
+        "desktop/web/src/app/data-library/lidar-failures.ts": {
           "added": 4,
           "removed": 0
         },
@@ -2082,11 +2082,11 @@
         "__tests__/i18n-completeness.test.ts",
         "analyses/mod.rs",
         "analyses/tests.rs",
-        "app/lidar/actions.ts",
-        "app/lidar/display.ts",
-        "app/lidar/item-types.ts",
-        "app/lidar/library-items.ts",
-        "app/lidar/library-store.ts",
+        "app/data-library/actions.ts",
+        "app/data-library/display.ts",
+        "app/data-library/item-types.ts",
+        "app/data-library/library-items.ts",
+        "app/data-library/library-store.ts",
         "bindings-gen/src/contracts.rs",
         "common-types/src/library.rs",
         "common-types/src/lidar.rs",
@@ -2101,7 +2101,7 @@
         "desktop/web/package.json",
         "desktop/web/src/app/geojson/codec.ts",
         "desktop/web/src/app/geojson/workflow.ts",
-        "desktop/web/src/app/lidar/lidar-failures.ts",
+        "desktop/web/src/app/data-library/lidar-failures.ts",
         "docs.log",
         "docs/README.md",
         "docs/adr/0026-stored-data-after-2-0.md",
@@ -2129,7 +2129,7 @@
         "support/library-fixtures.ts",
         "test_scratch.rs",
         "ui-gallery/memory-backend.ts",
-        "web/src/app/lidar/library-navigation.ts",
+        "web/src/app/data-library/library-navigation.ts",
         "web/src/components/panels/lidar/ImportDataDialog.tsx"
       ],
       "gate_failures": 0,
@@ -2223,10 +2223,10 @@
       "area_count": 9,
       "areas": {
         "app/lidar": [
-          "desktop/web/src/app/lidar/actions.ts",
-          "desktop/web/src/app/lidar/item-types.ts",
-          "desktop/web/src/app/lidar/library-store.ts",
-          "desktop/web/src/app/lidar/lidar-failures.ts"
+          "desktop/web/src/app/data-library/actions.ts",
+          "desktop/web/src/app/data-library/item-types.ts",
+          "desktop/web/src/app/data-library/library-store.ts",
+          "desktop/web/src/app/data-library/lidar-failures.ts"
         ],
         "canopi-desktop": [
           "desktop/src/commands/lidar.rs",
@@ -2326,19 +2326,19 @@
           "added": 14,
           "removed": 0
         },
-        "desktop/web/src/app/lidar/actions.ts": {
+        "desktop/web/src/app/data-library/actions.ts": {
           "added": 26,
           "removed": 0
         },
-        "desktop/web/src/app/lidar/item-types.ts": {
+        "desktop/web/src/app/data-library/item-types.ts": {
           "added": 17,
           "removed": 7
         },
-        "desktop/web/src/app/lidar/library-store.ts": {
+        "desktop/web/src/app/data-library/library-store.ts": {
           "added": 8,
           "removed": 3
         },
-        "desktop/web/src/app/lidar/lidar-failures.ts": {
+        "desktop/web/src/app/data-library/lidar-failures.ts": {
           "added": 3,
           "removed": 0
         },
@@ -2446,11 +2446,11 @@
         "desktop/src/services/lidar/presentation.rs",
         "desktop/src/services/lidar/source_meta.rs",
         "desktop/src/test_scratch.rs",
-        "desktop/web/src/app/lidar/actions.ts",
-        "desktop/web/src/app/lidar/item-types.ts",
-        "desktop/web/src/app/lidar/library-items.ts",
-        "desktop/web/src/app/lidar/library-navigation.ts",
-        "desktop/web/src/app/lidar/lidar-failures.ts",
+        "desktop/web/src/app/data-library/actions.ts",
+        "desktop/web/src/app/data-library/item-types.ts",
+        "desktop/web/src/app/data-library/library-items.ts",
+        "desktop/web/src/app/data-library/library-navigation.ts",
+        "desktop/web/src/app/data-library/lidar-failures.ts",
         "desktop/web/src/commands/graph/catalog.ts",
         "desktop/web/src/components/panels/lidar/DataDialogs.tsx",
         "desktop/web/src/components/panels/lidar/DataLibraryView.tsx",
@@ -2463,10 +2463,10 @@
         "src/__tests__/lidar-failures.test.ts",
         "src/__tests__/lidar-library-health.test.tsx",
         "src/__tests__/support/library-fixtures.ts",
-        "src/app/lidar/actions.ts",
-        "src/app/lidar/display.ts",
-        "src/app/lidar/library-store.ts",
-        "src/app/lidar/workflow.ts",
+        "src/app/data-library/actions.ts",
+        "src/app/data-library/display.ts",
+        "src/app/data-library/library-store.ts",
+        "src/app/data-library/workflow.ts",
         "src/components/panels/lidar/DataLibraryView.tsx",
         "src/components/panels/lidar/ItemDetails.tsx",
         "src/components/panels/lidar/LibraryPreview.tsx",

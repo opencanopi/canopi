@@ -1,6 +1,5 @@
 import { signal, type Signal } from '@preact/signals'
-import { convertFileSrc } from '@tauri-apps/api/core'
-import { getCachedImagePath, getSpeciesImages } from '../../ipc/species'
+import { getCachedImagePath, getSpeciesImages, resolveAssetUrl } from '../../ipc/species'
 import type { SpeciesImage } from '../../types/species'
 
 export interface PlantMediaController {
@@ -22,7 +21,7 @@ export interface PlantMediaController {
 interface CreatePlantMediaControllerOptions {
   loadImages?: typeof getSpeciesImages
   loadCachedImagePath?: typeof getCachedImagePath
-  toAssetUrl?: typeof convertFileSrc
+  toAssetUrl?: (path: string) => string
 }
 
 export function createPlantMediaController(
@@ -30,7 +29,7 @@ export function createPlantMediaController(
 ): PlantMediaController {
   const loadImages = options.loadImages ?? getSpeciesImages
   const loadCachedImagePath = options.loadCachedImagePath ?? getCachedImagePath
-  const toAssetUrl = options.toAssetUrl ?? convertFileSrc
+  const toAssetUrl = options.toAssetUrl ?? ((localFile: string) => resolveAssetUrl(localFile) ?? localFile)
 
   const images = signal<SpeciesImage[]>([])
   const currentIndex = signal(0)

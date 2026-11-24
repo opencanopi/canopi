@@ -22,7 +22,7 @@ import { locale } from '../app/settings/state'
 import { StartScreen } from '../components/shared/StartScreen'
 import { WelcomeScreen } from '../components/shared/WelcomeScreen'
 import type * as IpcDesignModule from '../ipc/design'
-import type { DesignDraftSummary, RecentDesignSummary } from '../types/design'
+import type { DesignDraftSummary, RecentDesignSummary } from '../generated/contracts'
 
 let container: HTMLDivElement
 

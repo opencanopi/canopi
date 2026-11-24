@@ -1,8 +1,8 @@
-import { invokeCommand } from './transport'
+import { invokeTyped, mintOperationId } from './transport'
 import type { GeoResult } from '../generated/contracts'
 
 export type { GeoResult }
 
 export async function geocodeAddress(query: string): Promise<GeoResult[]> {
-  return invokeCommand('geocode_address', { query })
+  return invokeTyped('geocode_address', { query }, mintOperationId('u'))
 }

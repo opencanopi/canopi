@@ -25,7 +25,7 @@ import {
 import { currentDesign } from '../../app/document-session/store'
 import { presentStory } from '../../app/story-presentation'
 import { t } from '../../i18n'
-import type { SavedView, Story, StoryStep } from '../../types/design'
+import type { SavedView, Story, StoryStep } from '../../generated/contracts'
 import { ActionMenu, type ActionMenuEntry } from '../shared/ActionMenu'
 import { ButtonTooltip } from '../shared/ButtonTooltip'
 import { ControlIcon } from '../shared/ControlIcon'

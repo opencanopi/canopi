@@ -23,7 +23,7 @@ import {
   createWorkspaceMapLibreMap,
   type WorkspaceMapSnapshot,
 } from '../../maplibre/workspace-map'
-import type { ViewScreen } from '../../canvas/runtime/view/types'
+import type { ViewScreen } from '../../geo/view/types'
 import {
   createMapLayerStackDescriptors,
   reconcileMapLayerStack,

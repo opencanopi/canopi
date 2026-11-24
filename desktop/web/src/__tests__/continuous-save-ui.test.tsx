@@ -18,7 +18,7 @@ import { SaveStatusLabel } from '../components/shared/SaveStatusLabel'
 import { createDesignSessionStore } from '../app/document-session/store'
 import { createBrowserAppDataStore } from '../web/browser-app-data'
 import { createBrowserDesignSessionController } from '../web/browser-design-session'
-import { WebWelcomeScreen } from '../web/WebWelcomeScreen'
+import { WebWelcomeScreen } from '../editions/web/WebWelcomeScreen'
 import { beforePaint } from './support/before-paint'
 import type { CanopiFile } from '../types/design'
 

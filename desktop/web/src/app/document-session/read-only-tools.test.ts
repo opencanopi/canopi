@@ -11,7 +11,7 @@
 import { signal } from '@preact/signals'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { isCatalogCommandDisabled, type AppCommandId } from '../../commands/graph/catalog'
-import { createBrowserShellCatalog } from '../../web/browser-shell-commands'
+import { createBrowserShellCatalog } from '../../editions/web/browser-shell-commands'
 import {
   createTestCanvasCommandSurface,
   createTestCanvasKeyboardPort,

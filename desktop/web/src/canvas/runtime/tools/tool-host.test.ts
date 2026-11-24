@@ -28,7 +28,7 @@ import type { CanvasContextMenuCommands, CanvasContextMenuRequest } from '../app
 import type { CanvasDropPayload, ToolHandleId, ToolId } from '../interaction-types'
 import type { SceneDesignObjectTarget } from '../scene/design-object-targets'
 import type { SceneEditCoordinator, SceneEditTransaction } from '../scene-runtime/transactions'
-import type { WorldPoint } from '../view/types'
+import type { WorldPoint } from '../../../geo/view/types'
 import { getRectangularZoneCorners } from '../zone-geometry'
 import { applyToolConstraint } from './constraints'
 import type { DraftPresentation, DraftShape, ToolHandle } from './draft'

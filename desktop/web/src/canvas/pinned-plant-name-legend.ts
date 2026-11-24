@@ -2,7 +2,7 @@ import { resolvePlantSymbolForPlant, type PlantSymbolId, type ScenePersistedStat
 import type { PlantDisplay } from './runtime/plant-display'
 import { resolvePlantDisplayColor } from './runtime/plant-presentation'
 import { isPlantLayerShown } from './runtime/scene-visuals'
-import type { SpeciesCacheEntry } from './runtime/species-cache'
+import type { SpeciesCacheEntry } from './runtime/presentation-data'
 
 export interface PinnedPlantNameLegendEntry {
   readonly label: string

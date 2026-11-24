@@ -1,31 +1,16 @@
 import type * as Contracts from '../generated/contracts'
 
 export type Layer = Contracts.Layer
-export type GeoPoint = Contracts.GeoPoint
 export type Zone = Contracts.Zone
 export type Annotation = Contracts.Annotation
 export type MeasurementGuide = Contracts.MeasurementGuide
 export type ObjectGroup = Contracts.ObjectGroup
-export type PanelTarget = Contracts.PanelTarget
-export type SpeciesPanelTarget = Contracts.SpeciesPanelTarget
-export type TimelineAction = Contracts.TimelineAction
-export type BudgetItem = Contracts.BudgetItem
 export type DesignSummary = Contracts.DesignSummary
-export type RecentDesignPreview = Contracts.RecentDesignPreview
-export type RecentDesignUnreadableReason = Contracts.RecentDesignUnreadableReason
-export type RecentDesignSummary = Contracts.RecentDesignSummary
-export type DesignSketch = Contracts.DesignSketch
 export type DesignNotebookEntry = Contracts.DesignNotebookEntry
 export type DesignNotebookSection = Contracts.DesignNotebookSection
 export type DesignNotebookSnapshot = Contracts.DesignNotebookSnapshot
-export type DesignDraftSummary = Contracts.DesignDraftSummary
-export type DesignSaveOutcome = Contracts.DesignSaveOutcome
-export type DesignLoadFailure = Contracts.DesignLoadFailure
-export type DesignLoadFailureKind = Contracts.DesignLoadFailureKind
-export type Consortium = Contracts.Consortium
 export type SavedView = Contracts.SavedView
 export type SavedViewCamera = Contracts.SavedViewCamera
-export type SavedViewBackground = Contracts.SavedViewBackground
 export type SavedViewObject = Contracts.SavedViewObject
 export type RichTextBlock = Contracts.RichTextBlock
 export type RichTextSpan = Contracts.RichTextSpan

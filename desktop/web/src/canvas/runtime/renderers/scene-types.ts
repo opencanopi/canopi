@@ -1,7 +1,7 @@
 import type { SpeciesFocus } from '../species-key'
 import type { ScenePersistedState } from '../scene'
 import type { DraftPresentation } from '../tools/draft'
-import type { SpeciesCacheEntry } from '../species-cache'
+import type { SpeciesCacheEntry } from '../presentation-data'
 import type { PlantLabelMode } from '../plant-display'
 
 export type SceneRendererHoverState =

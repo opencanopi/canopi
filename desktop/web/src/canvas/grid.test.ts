@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { createTestView } from '../__tests__/support/test-view'
 import { gridInterval } from './grid'
-import { mapZoomToStageScale, stageScaleToMapZoom } from './projection'
-import { createSessionPlane } from './session-plane'
+import { mapZoomToStageScale, stageScaleToMapZoom } from '../geo/projection'
+import { createSessionPlane } from '../geo/session-plane'
 
 const NANTES = { lon: -1.5536, lat: 47.2184 }
 

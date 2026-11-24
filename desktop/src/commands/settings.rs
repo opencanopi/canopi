@@ -2,8 +2,18 @@ use crate::{
     db::UserDb,
     native_operation::{NativeOperationClass, NativeOperationExecutor},
 };
-use canopi_types::settings::Settings;
+use canopi_types::{
+    failure::{Failure, FailureCode, ops},
+    health::StoreId,
+    settings::Settings,
+};
 use tauri::State;
+
+/// Keys readable through the opaque settings-row command (Stage 2 E1, ADR 0024, 2.1-M206).
+const ALLOWED_READ_SETTING_KEYS: &[&str] = &["settings", "updater.check_at_launch"];
+/// Only the updater launch-check key is writable through the opaque settings-row command (2.1-M206):
+/// the `"settings"` record must go through `set_settings` validation and set-aside.
+const UPDATER_CHECK_AT_LAUNCH_KEY: &str = "updater.check_at_launch";
 
 #[tauri::command]
 pub async fn get_settings(
@@ -20,6 +30,94 @@ pub async fn set_settings(
     settings: Settings,
 ) -> Result<(), String> {
     set_settings_with_executor(executor.inner(), user_db.inner().clone(), settings).await
+}
+
+/// Reads an opaque string row from the `settings` key-value table (Stage 2 E1, ADR 0024).
+#[tauri::command]
+pub async fn get_setting_row(
+    executor: State<'_, NativeOperationExecutor>,
+    user_db: State<'_, UserDb>,
+    key: String,
+) -> Result<Option<String>, Failure> {
+    get_setting_row_with_executor(executor.inner(), user_db.inner().clone(), key).await
+}
+
+/// Writes an opaque string row to the `settings` key-value table, refusing when settings are
+/// read-only (Stage 2 E1, ADR 0024, 2.1-M487).
+#[tauri::command]
+pub async fn set_setting_row(
+    executor: State<'_, NativeOperationExecutor>,
+    user_db: State<'_, UserDb>,
+    key: String,
+    value: String,
+) -> Result<(), Failure> {
+    set_setting_row_with_executor(executor.inner(), user_db.inner().clone(), key, value).await
+}
+
+async fn get_setting_row_with_executor(
+    executor: &NativeOperationExecutor,
+    user_db: UserDb,
+    key: String,
+) -> Result<Option<String>, Failure> {
+    if !ALLOWED_READ_SETTING_KEYS.contains(&key.as_str()) {
+        return Err(Failure::new(FailureCode::Invalid, ops::SETTINGS_GET_ROW)
+            .with_english("the requested setting row key is not allowlisted"));
+    }
+    executor
+        .run_typed(
+            NativeOperationClass::UserData,
+            ops::SETTINGS_GET_ROW,
+            move || {
+                let conn = user_db.acquire();
+                crate::db::user_db::get_setting(&conn, &key).map_err(|_| {
+                    Failure::new(FailureCode::Internal, ops::SETTINGS_GET_ROW)
+                        .with_english("the setting row could not be read")
+                })
+            },
+        )
+        .await
+}
+
+async fn set_setting_row_with_executor(
+    executor: &NativeOperationExecutor,
+    user_db: UserDb,
+    key: String,
+    value: String,
+) -> Result<(), Failure> {
+    if key != UPDATER_CHECK_AT_LAUNCH_KEY || (value != "true" && value != "false") {
+        return Err(Failure::new(FailureCode::Invalid, ops::SETTINGS_SET_ROW)
+            .with_english("only updater.check_at_launch boolean values may be written"));
+    }
+    executor
+        .run_typed(
+            NativeOperationClass::UserData,
+            ops::SETTINGS_SET_ROW,
+            move || {
+                if crate::services::settings::record_is_newer(&user_db) {
+                    return Err(Failure::new(
+                        FailureCode::StoreReadOnly {
+                            store: StoreId::Settings,
+                        },
+                        ops::SETTINGS_SET_ROW,
+                    )
+                    .with_english("the settings refuse writes for this session"));
+                }
+                let conn = user_db.acquire_writable().ok_or_else(|| {
+                    Failure::new(
+                        FailureCode::StoreReadOnly {
+                            store: StoreId::Settings,
+                        },
+                        ops::SETTINGS_SET_ROW,
+                    )
+                    .with_english("the settings refuse writes for this session")
+                })?;
+                crate::db::user_db::set_setting(&conn, &key, &value).map_err(|_| {
+                    Failure::new(FailureCode::Internal, ops::SETTINGS_SET_ROW)
+                        .with_english("the setting row could not be written")
+                })
+            },
+        )
+        .await
 }
 
 async fn get_settings_with_executor(
@@ -171,6 +269,117 @@ mod tests {
 
             release_tx.send(()).unwrap();
             blocker.await.unwrap().unwrap();
+        });
+    }
+
+    #[test]
+    fn setting_row_reads_and_writes_opaque_values_and_refuses_under_newer_settings_record() {
+        use super::{get_setting_row_with_executor, set_setting_row_with_executor};
+        use canopi_types::{failure::FailureCode, health::StoreId};
+        tauri::async_runtime::block_on(async {
+            let executor = NativeOperationExecutor::production();
+            let user_db = test_user_db();
+            assert_eq!(
+                get_setting_row_with_executor(
+                    &executor,
+                    user_db.clone(),
+                    "updater.check_at_launch".to_owned(),
+                )
+                .await
+                .unwrap(),
+                None
+            );
+            set_setting_row_with_executor(
+                &executor,
+                user_db.clone(),
+                "updater.check_at_launch".to_owned(),
+                "false".to_owned(),
+            )
+            .await
+            .unwrap();
+            assert_eq!(
+                get_setting_row_with_executor(
+                    &executor,
+                    user_db.clone(),
+                    "updater.check_at_launch".to_owned(),
+                )
+                .await
+                .unwrap(),
+                Some("false".to_owned())
+            );
+
+            // Under settings record 2, raw row writes are refused with StoreReadOnly{Settings}
+            // while reads still return the raw JSON row for TS parsing (Stage 2 E1, 2.1-M480).
+            let record = r#"{"version":2,"check_updates_at_launch":false}"#;
+            crate::db::user_db::set_setting(&user_db.acquire(), "settings", record).unwrap();
+            assert_eq!(
+                get_setting_row_with_executor(&executor, user_db.clone(), "settings".to_owned(),)
+                    .await
+                    .unwrap(),
+                Some(record.to_owned())
+            );
+            let refused = set_setting_row_with_executor(
+                &executor,
+                user_db.clone(),
+                "updater.check_at_launch".to_owned(),
+                "true".to_owned(),
+            )
+            .await
+            .unwrap_err();
+            assert_eq!(
+                refused.code,
+                FailureCode::StoreReadOnly {
+                    store: StoreId::Settings
+                }
+            );
+            assert_eq!(refused.op, canopi_types::failure::ops::SETTINGS_SET_ROW);
+        });
+    }
+
+    #[test]
+    fn setting_row_refuses_non_allowlisted_keys_and_non_boolean_values() {
+        use super::{get_setting_row_with_executor, set_setting_row_with_executor};
+        use canopi_types::failure::{FailureCode, ops};
+        tauri::async_runtime::block_on(async {
+            let executor = NativeOperationExecutor::production();
+            let user_db = test_user_db();
+
+            // Writing directly to "settings" or "settings.set-aside" is refused (2.1-M206).
+            for forbidden_key in ["settings", "settings.set-aside", "arbitrary.key"] {
+                let err = set_setting_row_with_executor(
+                    &executor,
+                    user_db.clone(),
+                    forbidden_key.to_owned(),
+                    "true".to_owned(),
+                )
+                .await
+                .unwrap_err();
+                assert_eq!(err.code, FailureCode::Invalid);
+                assert_eq!(err.op, ops::SETTINGS_SET_ROW);
+            }
+
+            // Non-boolean values for updater.check_at_launch are refused.
+            let bad_val = set_setting_row_with_executor(
+                &executor,
+                user_db.clone(),
+                "updater.check_at_launch".to_owned(),
+                "yes".to_owned(),
+            )
+            .await
+            .unwrap_err();
+            assert_eq!(bad_val.code, FailureCode::Invalid);
+            assert_eq!(bad_val.op, ops::SETTINGS_SET_ROW);
+
+            // Reading non-allowlisted keys is refused.
+            let bad_read = get_setting_row_with_executor(
+                &executor,
+                user_db.clone(),
+                "settings.set-aside".to_owned(),
+            )
+            .await
+            .unwrap_err();
+            assert_eq!(bad_read.code, FailureCode::Invalid);
+            assert_eq!(bad_read.op, ops::SETTINGS_GET_ROW);
         });
     }
 }

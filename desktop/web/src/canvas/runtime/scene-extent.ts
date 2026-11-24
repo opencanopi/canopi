@@ -10,7 +10,7 @@ import { getCanvasDetailLayout } from './automatic-detail'
 import { getPlantWorldBounds, type PlantPresentationContext } from './plant-presentation'
 import type { SceneDesignObjectTarget, ScenePersistedState, SceneZoneEntity } from './scene'
 import { resolveSceneObjectGroupMembers } from './scene/group-members'
-import type { WorldPoint } from './view/types'
+import type { WorldPoint } from '../../geo/view/types'
 import { getRectangularZoneCorners, getZoneWorldBounds } from './zone-geometry'
 
 /** Sides of the polygon drawn around a disc or an ellipse: it holds the shape and overshoots it by under 0.5 %. */

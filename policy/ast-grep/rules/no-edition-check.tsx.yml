@@ -24,14 +24,15 @@ ignores:
   - "{desktop/web,policy/fixtures/rules/*}/src/platform/**"
   - "{desktop/web,policy/fixtures/rules/*}/src/platform/design-core.worker.ts"
   - "{desktop/web,policy/fixtures/rules/*}/src/platform/desktop-host.ts"
-  - "{desktop/web,policy/fixtures/rules/*}/src/main.tsx"
-  - "{desktop/web,policy/fixtures/rules/*}/src/main.web.tsx"
   - "{desktop/web,policy/fixtures/rules/*}/src/web/**"
-  - "{desktop/web,policy/fixtures/rules/*}/src/web/dev-entry.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/editions/web/dev-entry.ts"
   - "{desktop/web,policy/fixtures/rules/*}/src/web/browser-design-sources.ts"
   - "{desktop/web,policy/fixtures/rules/*}/src/editions/desktop/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/editions/desktop/main.tsx"
   - "{desktop/web,policy/fixtures/rules/*}/src/editions/web/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/editions/web/main.tsx"
   - "{desktop/web,policy/fixtures/rules/*}/src/editions/gallery/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/editions/gallery/main.tsx"
 rule:
   any:
     - kind: string
@@ -65,14 +66,15 @@ ignores:
   - "{desktop/web,policy/fixtures/rules/*}/src/platform/**"
   - "{desktop/web,policy/fixtures/rules/*}/src/platform/design-core.worker.ts"
   - "{desktop/web,policy/fixtures/rules/*}/src/platform/desktop-host.ts"
-  - "{desktop/web,policy/fixtures/rules/*}/src/main.tsx"
-  - "{desktop/web,policy/fixtures/rules/*}/src/main.web.tsx"
   - "{desktop/web,policy/fixtures/rules/*}/src/web/**"
-  - "{desktop/web,policy/fixtures/rules/*}/src/web/dev-entry.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/editions/web/dev-entry.ts"
   - "{desktop/web,policy/fixtures/rules/*}/src/web/browser-design-sources.ts"
   - "{desktop/web,policy/fixtures/rules/*}/src/editions/desktop/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/editions/desktop/main.tsx"
   - "{desktop/web,policy/fixtures/rules/*}/src/editions/web/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/editions/web/main.tsx"
   - "{desktop/web,policy/fixtures/rules/*}/src/editions/gallery/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/editions/gallery/main.tsx"
 rule:
   all:
     - any:

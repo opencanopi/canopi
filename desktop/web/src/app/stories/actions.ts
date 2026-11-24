@@ -1,6 +1,6 @@
 import { computed, signal, type ReadonlySignal } from '@preact/signals'
 import { t } from '../../i18n'
-import type { RichTextBlock, Story, StoryImage, StoryStep } from '../../types/design'
+import type { RichTextBlock, Story, StoryImage, StoryStep } from '../../generated/contracts'
 import { createUuid } from '../../utils/ids'
 import {
   addSavedView,

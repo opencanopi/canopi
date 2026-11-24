@@ -5,10 +5,10 @@ import type {
   ScenePersistedState,
 } from '../../canvas/runtime/scene'
 import { projectSceneSelectionEntityIds } from '../../canvas/runtime/scene-runtime/selection'
-import type { ViewScreen, ViewTransform } from '../../canvas/runtime/view/types'
-import { planarToViewCamera } from '../../canvas/runtime/view/camera-math'
-import { buildViewTransform } from '../../canvas/runtime/view/view-transform'
-import { createSessionPlane } from '../../canvas/session-plane'
+import type { ViewScreen, ViewTransform } from '../../geo/view/types'
+import { planarToViewCamera } from '../../geo/view/camera-math'
+import { buildViewTransform } from '../../geo/view/view-transform'
+import { createSessionPlane } from '../../geo/session-plane'
 
 export interface TestSceneRendererSnapshotOptions {
   readonly speciesFocus?: SceneRendererSnapshot['speciesFocus']

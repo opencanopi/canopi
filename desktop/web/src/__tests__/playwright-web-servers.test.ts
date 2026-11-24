@@ -9,7 +9,8 @@ async function e2eOrigins() {
   const config = await import('../../playwright.config')
   const gallery = await import('../../e2e/support/gallery')
   const persistence = await import('../../e2e/support/storage-persistence')
-  const galleryVite = (await import('../../ui-gallery/vite.config')).default
+  const viteConfig = (await import('../../vite.config')).default
+  const galleryVite = typeof viteConfig === 'function' ? await viteConfig({ command: 'serve', mode: 'gallery' }) : viteConfig
   const projectURL = (name: string) => config.default.projects?.find((project) => project.name === name)?.use?.baseURL
   return {
     servers: config.webServersFor(['node', 'playwright', 'test']).map((server) => new URL(server.url).port),

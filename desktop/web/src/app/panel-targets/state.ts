@@ -1,5 +1,5 @@
 import { signal } from '@preact/signals'
-import type { PanelTarget } from '../../types/design'
+import type { PanelTarget } from '../../generated/contracts'
 
 export type PanelTargetPresentationOrigin = 'timeline' | 'budget' | 'consortium' | 'species-detail'
 

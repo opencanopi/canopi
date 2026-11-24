@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { computePlantSpacingCount, computePlantSpacingPositions } from '../plant-spacing-sequence'
-import type { WorldPoint } from '../runtime/view/types'
+import type { WorldPoint } from '../../geo/view/types'
 import type { PathPoints } from './curve'
 import { plantAlongPath, type PathSpacing } from './spacing'
 

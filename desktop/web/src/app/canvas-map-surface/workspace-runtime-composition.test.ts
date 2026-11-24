@@ -17,9 +17,9 @@ import {
   createTestCanvasRuntimeSurfaces,
 } from '../../__tests__/support/canvas-runtime-surfaces'
 import { createTestCanvasQuerySurface } from '../../__tests__/support/canvas-query-surface'
-import { createSessionPlane, geographicViewOfCamera } from '../../canvas/session-plane'
-import { stageScaleToMapZoom } from '../../canvas/projection'
-import { createViewReadSurface, SETTLE_MS } from '../../canvas/runtime/view/frame-source'
+import { createSessionPlane, geographicViewOfCamera } from '../../geo/session-plane'
+import { stageScaleToMapZoom } from '../../geo/projection'
+import { createViewReadSurface, SETTLE_MS } from '../../geo/view/frame-source'
 import { createTestView } from '../../__tests__/support/test-view'
 import type {
   WorkspaceActivationOptions,

@@ -40,6 +40,9 @@ export const savedStampsFrameHeight = signal<number>(
   DEFAULT_SETTINGS.saved_stamps_frame_height ?? DEFAULT_SAVED_STAMPS_FRAME_HEIGHT,
 )
 
+/** Sidebar width in pixels. null = no explicit user resize, so the shell uses the responsive first-use default. */
+export const sidePanelWidth = signal<number | null>(DEFAULT_SETTINGS.side_panel_width)
+
 /** Canvas tools used at least once on this device; the tool rail shows names until all are used. */
 export const usedCanvasTools = signal<readonly string[]>(DEFAULT_SETTINGS.used_canvas_tools)
 

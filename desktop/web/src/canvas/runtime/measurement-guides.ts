@@ -1,5 +1,5 @@
 import type { SceneMeasurementGuideEntity, ScenePoint } from './scene'
-import type { ViewTransform } from './view/types'
+import type { ViewTransform } from '../../geo/view/types'
 import { formatMetricDistance, type ZoneMeasurementLabel } from './zone-measurements'
 
 export const MEASUREMENT_GUIDE_DASH_PX = 6

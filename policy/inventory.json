@@ -397,7 +397,7 @@
       "state": {
         "planned": {
           "phase": "2a",
-          "bead": "canopi-f47t.52.45"
+          "bead": "canopi-f47t.52.185"
         }
       }
     },
@@ -406,9 +406,8 @@
       "doc": "docs/adr/0030-edition-parity.md",
       "quote": "`edition-root-parity` (to be created by Phase 2a):",
       "state": {
-        "planned": {
-          "phase": "2a",
-          "bead": "canopi-f47t.52.185"
+        "exists": {
+          "check": "edition-root-parity"
         }
       }
     },
@@ -475,7 +474,7 @@
     {
       "id": "guide-data-library-styles-and-dispatch-on-the",
       "doc": "docs/guides/data-library.md",
-      "quote": "Styles and `displayVariant` dispatch on the quantity in `app/lidar/item-types.ts`, the only module",
+      "quote": "Styles and `displayVariant` dispatch on the quantity in `app/data-library/item-types.ts`, the only module",
       "state": {
         "exists": {
           "check": "desktop/web/src/__tests__/item-types.test.ts"
@@ -545,7 +544,7 @@
     {
       "id": "guide-design-document-positions-write-rounded-to-1e",
       "doc": "docs/guides/design-document.md",
-      "quote": "Positions write rounded to 1e-9 degree, latitude clamped to \u00b185.051128779, longitude clamped to",
+      "quote": "Positions write rounded to 1e-9 degree, latitude clamped to ±85.051128779, longitude clamped to",
       "state": {
         "exists": {
           "check": "desktop/web/src/__tests__/geolocated-design-codec.test.ts"
@@ -846,7 +845,7 @@
     {
       "id": "guide-editions-web-layers-site-data-row",
       "doc": "docs/guides/editions.md",
-      "quote": "Web Layers' Site data row reads \"N terrain or height layers in this Design \u00b7 Needs Canopi Desktop\",",
+      "quote": "Web Layers' Site data row reads \"N terrain or height layers in this Design · Needs Canopi Desktop\",",
       "state": {
         "exists": {
           "check": "desktop/web/src/__tests__/web-layers-panel.test.tsx"
@@ -1062,7 +1061,7 @@
       "quote": "Exact camera sync:",
       "state": {
         "exists": {
-          "check": "desktop/web/src/canvas/runtime/view/view-transform.test.ts"
+          "check": "desktop/web/src/geo/view/view-transform.test.ts"
         }
       }
     },
@@ -1375,7 +1374,7 @@
     {
       "id": "guide-pdf-export-splitting-partitions-a-sheet-along",
       "doc": "docs/guides/pdf-export.md",
-      "quote": "Splitting partitions a sheet along its longest ground axis to about 120 positions per part (2\u201332",
+      "quote": "Splitting partitions a sheet along its longest ground axis to about 120 positions per part (2–32",
       "state": {
         "exists": {
           "check": "desktop/web/src/__tests__/canvas-pdf-field-proposal.test.ts"
@@ -1467,7 +1466,7 @@
     {
       "id": "guide-species-catalog-never-order-a-browse-by",
       "doc": "docs/guides/species-catalog.md",
-      "quote": "Never order a browse by an expression over the whole table or page with `OR \u2026 IS NULL` cursors:",
+      "quote": "Never order a browse by an expression over the whole table or page with `OR … IS NULL` cursors:",
       "state": "advice"
     },
     {
@@ -1536,7 +1535,7 @@
     {
       "id": "guide-ui-glossary-buttons-that-open-a-picker",
       "doc": "docs/guides/ui-glossary.md",
-      "quote": "Buttons that open a picker or dialog end with one ellipsis character (\"Import stamps\u2026\");",
+      "quote": "Buttons that open a picker or dialog end with one ellipsis character (\"Import stamps…\");",
       "state": "advice"
     },
     {
@@ -1774,7 +1773,7 @@
     },
     {
       "id": "notice-module-browser-release-watch",
-      "doc": "desktop/web/src/web/browser-release-watch.ts",
+      "doc": "desktop/web/src/editions/web/browser-release-watch.ts",
       "quote": "const notice = signal<BrowserReleaseWaiting | null>(null);",
       "state": {
         "planned": {

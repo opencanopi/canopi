@@ -4,7 +4,7 @@ import {
   getBudgetSpeciesTarget,
   speciesBudgetTarget,
 } from '../target'
-import type { BudgetItem } from '../types/design'
+import type { BudgetItem } from '../generated/contracts'
 
 function makeBudgetItem(overrides: Partial<BudgetItem> = {}): BudgetItem {
   return {

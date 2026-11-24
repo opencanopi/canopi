@@ -133,7 +133,7 @@ vi.mock('../canvas/session', () => ({
   setCurrentCanvasTool: (name: string) => mockCanvasSession.currentToolCommandSurface.value?.setTool(name),
 }))
 
-import { WebSpeciesCatalogPanel } from '../web/WebSpeciesCatalogPanel'
+import { WebSpeciesCatalogPanel } from '../editions/web/WebSpeciesCatalogPanel'
 import type * as PlantBrowserWorkbenchModule from '../app/plant-browser/workbench'
 import type * as PlantFilterModelModule from '../app/plant-browser/plant-filter-model'
 import type { SpeciesCatalogDetailView } from '../app/plant-browser/workbench'

@@ -54,7 +54,7 @@ vi.mock('../app/design-edit/lidar', async (importOriginal) => ({
   upsertLidarEntry: upsertMock,
 }))
 
-vi.mock('../app/lidar/library-store', async () => {
+vi.mock('../app/data-library/library-store', async () => {
   const { signal: makeSignal } = await import('@preact/signals')
   return {
     ensureLidarPolling: ensurePollingMock,
@@ -97,8 +97,8 @@ import {
   pendingAttachments,
   reconcileEntryNames,
   settleResultAttachments,
-} from '../app/lidar/actions'
-import { lidarStatusMessage } from '../app/lidar/library-store'
+} from '../app/data-library/actions'
+import { lidarStatusMessage } from '../app/data-library/library-store'
 import { recentFrontendDiagnostics } from '../app/problem-report/diagnostics'
 import { resetFrontendDiagnosticsForTests } from '../failures/ring'
 import { locale } from '../app/settings/state'

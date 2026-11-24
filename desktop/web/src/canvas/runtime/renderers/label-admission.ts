@@ -1,7 +1,7 @@
 import { getCanvasPlantNameLabels } from '../automatic-detail'
 import { isPlantLayerShown } from '../scene-visuals'
 import { projectScenePlantLabels, type PlantNameLabel, type SelectionLabel } from '../selection-labels'
-import { zoomBandOf } from '../view/frame-source'
+import { zoomBandOf } from '../../../geo/view/frame-source'
 import type { SceneRendererSnapshot } from './scene-types'
 
 /** The labels the scene draws: a single selection's name and the admitted plant names, each at an offset from its anchor. */

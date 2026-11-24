@@ -3,15 +3,15 @@ import type { CanvasInspectionHandle, CanvasInspectionState, InspectionPoint } f
 import type { CanvasQueryRevision } from './runtime'
 import type { SceneRendererSnapshot } from './renderers/scene-types'
 import type { SceneDesignObjectTarget } from './scene'
-import type { SessionPlane } from '../session-plane'
-import { stageScaleToMapZoom } from '../projection'
+import type { SessionPlane } from '../../geo/session-plane'
+import { stageScaleToMapZoom } from '../../geo/projection'
 import { canvasFonts, distinctCharacters } from './fonts/font-loading'
 import { drawInspectionLensScene } from './inspection-lens-drawing'
 import { getSceneLayerStyle } from './scene-visuals'
 import { inspectionLayout, inspectionScale } from './inspection-layout'
 import { runCanvasRuntimeCleanups } from './cleanup'
-import { buildViewTransform } from './view/view-transform'
-import type { ViewFrameSource, ViewTransform, WorldQuad } from './view/types'
+import { buildViewTransform } from '../../geo/view/view-transform'
+import type { ViewFrameSource, ViewTransform, WorldQuad } from '../../geo/view/types'
 
 /** 100 % lens zoom: 20 px per metre, the main map's zoom reference. */
 const LENS_ZOOM_REFERENCE_PIXELS_PER_METRE = 20

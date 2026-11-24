@@ -11,11 +11,18 @@ import { CURRENT_CANOPI_FILE_VERSION } from '../../../generated/canopi-design-fo
 import { geoAt } from '../../../__tests__/support/geo-design'
 import { SceneStore } from '../scene'
 import { CanvasPlantLabelResolver } from '../plant-labels'
-import { CanvasSpeciesCache } from '../species-cache'
+import { CanvasSpeciesCache, installSpeciesCacheLoader } from '../../../app/canvas-runtime/species-cache'
 import { createDetachedCanvasPlantLabelSource } from '../presentation-data'
 import { SceneRuntimePresentationController } from './presentation'
 import { projectScenePlantLabels } from '../selection-labels'
 import { getCommonNames, getFlowerColorBatch, getSpeciesBatch } from '../../../ipc/species'
+import { isPlantDbUnavailableError } from '../../../ipc/plant-db-errors'
+
+installSpeciesCacheLoader({
+  getSpeciesBatch,
+  getFlowerColorBatch,
+  isPlantDbUnavailableError,
+})
 
 function makeFile(): CanopiFile {
   return {

@@ -8,7 +8,7 @@ import {
 } from '../../../__tests__/support/tool-harness'
 import type { SceneDesignObjectTarget } from '../scene/design-object-targets'
 import { roundGeoPosition } from '../scene/geo-frame'
-import type { WorldPoint } from '../view/types'
+import type { WorldPoint } from '../../../geo/view/types'
 import type { DraftShape } from './draft'
 import { createMeasurementGuideTool } from './measurement-guide'
 import { createPolygonTool } from './polygon'

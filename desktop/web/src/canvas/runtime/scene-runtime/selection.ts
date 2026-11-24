@@ -1,6 +1,6 @@
 import { getCanvasDetailLayout } from '../automatic-detail'
 import { getAnnotationFontEpoch, getAnnotationVisualWorldBounds, getRevealedAnnotationId } from '../annotation-layout'
-import type { SceneBounds } from '../view/types'
+import type { SceneBounds } from '../../../geo/view/types'
 import {
   getPlantWorldBounds,
   type PlantPresentationContext,

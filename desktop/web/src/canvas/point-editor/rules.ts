@@ -6,7 +6,7 @@
 // modules and types (policy rule point-editor-imports-only-pure).
 
 import type { PointerKind } from '../runtime/interaction-types'
-import type { WorldPoint } from '../runtime/view/types'
+import type { WorldPoint } from '../../geo/view/types'
 
 /** A press this close to the first point, on screen, closes the shape: a finger's within half ADR 0010's 44 px target. */
 export const CLOSE_DISTANCE_PX: Readonly<Record<PointerKind, number>> = Object.freeze({ mouse: 8, pen: 8, touch: 22 })

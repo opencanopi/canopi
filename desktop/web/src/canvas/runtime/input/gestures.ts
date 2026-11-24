@@ -1,7 +1,7 @@
 // canvas/runtime/input/gestures.ts
 
 import type { CancelReason, CanvasDropPayload, Modifiers, PointerKind, ToolHandleId } from '../interaction-types'
-import type { ScreenPoint } from '../view/types'
+import type { ScreenPoint } from '../../../geo/view/types'
 import type { TargetClass } from './raw-input'
 
 export type NavigationSource =

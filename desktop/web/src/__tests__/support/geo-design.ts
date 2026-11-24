@@ -1,21 +1,22 @@
-import { createSessionPlane, roundGeoDegrees, type GeoPosition } from '../../canvas/session-plane'
+import type { GeoPoint } from '../../generated/contracts'
+import { createSessionPlane, roundGeoDegrees } from '../../geo/session-plane'
 import { hydrateSceneFromDesign } from '../../canvas/runtime/scene'
 import type { CanopiFile } from '../../types/design'
 
 /** Test-only authoring origin; production never converts metre fixtures. */
-export const TEST_GEO_ORIGIN: GeoPosition = Object.freeze({ lon: 13, lat: 23 })
+export const TEST_GEO_ORIGIN: GeoPoint = Object.freeze({ lon: 13, lat: 23 })
 
 /**
  * Authors a lon/lat position from local metres (x east, y south) around `origin`.
  * Use it to write fixtures that read like the old metre ones.
  */
-export function geoAt(x: number, y: number, origin: GeoPosition = TEST_GEO_ORIGIN): { lon: number; lat: number } {
+export function geoAt(x: number, y: number, origin: GeoPoint = TEST_GEO_ORIGIN): { lon: number; lat: number } {
   const geo = createSessionPlane(origin).toGeo({ x, y })
   return { lon: geo.lon, lat: geo.lat }
 }
 
 /** geoAt on the 1e-9 degree grid Canopi writes, for fixtures a save must write back unchanged. */
-export function storedGeoAt(x: number, y: number, origin: GeoPosition = TEST_GEO_ORIGIN): { lon: number; lat: number } {
+export function storedGeoAt(x: number, y: number, origin: GeoPoint = TEST_GEO_ORIGIN): { lon: number; lat: number } {
   const geo = geoAt(x, y, origin)
   return { lon: roundGeoDegrees(geo.lon), lat: roundGeoDegrees(geo.lat) }
 }

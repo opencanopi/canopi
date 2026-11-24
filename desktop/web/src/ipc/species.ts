@@ -1,4 +1,5 @@
-import { invokeCommand } from './transport';
+import { invokeTyped, mintOperationId } from './transport';
+export { resolveAssetUrl } from '../types/command-transport';
 import type {
   SpeciesListItem,
   SpeciesDetail,
@@ -16,29 +17,29 @@ import type {
 export async function searchSpecies(
   request: SpeciesSearchRequest,
 ): Promise<PaginatedResult<SpeciesListItem>> {
-  return invokeCommand('search_species', { request });
+  return invokeTyped('search_species', { request }, mintOperationId('u'));
 }
 
 export async function supersedeSpeciesSearch(): Promise<void> {
-  return invokeCommand('supersede_species_search');
+  return invokeTyped('supersede_species_search', undefined, mintOperationId('u'));
 }
 
 export async function getSpeciesDetail(
   canonicalName: string,
   locale = 'en',
 ): Promise<SpeciesDetail> {
-  return invokeCommand('get_species_detail', { canonicalName, locale });
+  return invokeTyped('get_species_detail', { canonicalName, locale }, mintOperationId('u'));
 }
 
 export async function getFilterOptions(): Promise<FilterOptions> {
-  return invokeCommand('get_filter_options');
+  return invokeTyped('get_filter_options', undefined, mintOperationId('u'));
 }
 
 export async function getDynamicFilterOptions(
   fields: string[],
   locale: string,
 ): Promise<DynamicFilterOptions[]> {
-  return invokeCommand('get_dynamic_filter_options', { fields, locale });
+  return invokeTyped('get_dynamic_filter_options', { fields, locale }, mintOperationId('u'));
 }
 
 /** Batch lookup: returns canonical_name → common_name map for the given locale. */
@@ -46,12 +47,12 @@ export async function getCommonNames(
   canonicalNames: string[],
   locale: string,
 ): Promise<Record<string, string>> {
-  return invokeCommand('get_common_names', { canonicalNames, locale });
+  return invokeTyped('get_common_names', { canonicalNames, locale }, mintOperationId('u'));
 }
 
 /** Batch lookup: returns canonical_name → catalog habit (`Tree`, `Shrub`, ...) where the catalog has one. */
 export async function getSpeciesHabits(canonicalNames: string[]): Promise<Record<string, string>> {
-  return invokeCommand('get_species_habits', { canonicalNames });
+  return invokeTyped('get_species_habits', { canonicalNames }, mintOperationId('u'));
 }
 
 /** Batch-fetch full detail records for multiple species. */
@@ -59,13 +60,13 @@ export async function getSpeciesBatch(
   canonicalNames: string[],
   locale: string,
 ): Promise<SpeciesDetail[]> {
-  return invokeCommand('get_species_batch', { canonicalNames, locale });
+  return invokeTyped('get_species_batch', { canonicalNames, locale }, mintOperationId('u'));
 }
 
 export async function getFlowerColorBatch(
   canonicalNames: string[],
 ): Promise<FlowerColorResolution[]> {
-  return invokeCommand('get_flower_color_batch', { canonicalNames });
+  return invokeTyped('get_flower_color_batch', { canonicalNames }, mintOperationId('u'));
 }
 
 /** Returns all common names for a species in the given locale. */
@@ -73,17 +74,17 @@ export async function getLocaleCommonNames(
   canonicalName: string,
   locale: string,
 ): Promise<CommonNameEntry[]> {
-  return invokeCommand('get_locale_common_names', { canonicalName, locale });
+  return invokeTyped('get_locale_common_names', { canonicalName, locale }, mintOperationId('u'));
 }
 
 /** Returns images for a species by canonical name. */
 export async function getSpeciesImages(
   canonicalName: string,
 ): Promise<SpeciesImage[]> {
-  return invokeCommand('get_species_images', { canonicalName });
+  return invokeTyped('get_species_images', { canonicalName }, mintOperationId('u'));
 }
 
 /** Ensures an image is cached locally and returns the cache file path. */
 export async function getCachedImagePath(url: string): Promise<string> {
-  return invokeCommand('get_cached_image_path', { url });
+  return invokeTyped('get_cached_image_path', { url }, mintOperationId('u'));
 }

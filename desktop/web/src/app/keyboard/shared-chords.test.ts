@@ -12,7 +12,7 @@ import { TEST_KEY_PLATFORM } from '../../__tests__/support/key-router'
 import { DESKTOP_KEYMAP } from '../../commands/graph/shortcuts'
 import { closeCommandPalette, commandPaletteOpen } from '../shell/dialogs'
 import type { Panel } from '../shell/state'
-import { createBrowserShellCatalog, installWebKeyRouter } from '../../web/browser-shell-commands'
+import { createBrowserShellCatalog, installWebKeyRouter } from '../../editions/web/browser-shell-commands'
 import { installKeyRouter, type KeyRouterHandle } from './key-router'
 
 let router: KeyRouterHandle | null = null

@@ -29,7 +29,7 @@ import {
   type SettingsProjectionInstallation,
 } from '../app/settings/projection'
 import { resetStoreHealthForTests, storeStatus } from '../failures/health'
-import { createBrowserSettingsPlatformAdapter } from '../platform/settings.browser'
+import { createBrowserSettingsPlatformAdapter } from '../editions/web/settings'
 import { createBrowserAppDataStore, type BrowserStorageAdapter } from '../web/browser-app-data'
 
 const FAKE_KEY = 'FAKE-GOOGLE-KEY-never-log-me-42'

@@ -6,7 +6,7 @@ import { consortiumTarget, speciesBudgetTarget, speciesTarget } from '../../../t
 import { SceneStore } from './store'
 import { createDefaultScenePersistedState, createDefaultSceneSessionState } from './defaults'
 import { serializeScenePersistedState } from './codec'
-import { createSessionPlane } from '../../session-plane'
+import { createSessionPlane } from '../../../geo/session-plane'
 import { createScenePatchCommand } from '../scene-commands'
 
 const TEST_FRAME_ORIGIN = { lon: 13, lat: 23 }

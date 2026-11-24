@@ -7,7 +7,7 @@
 // canvas/grid.ts keeps the arithmetic, which the drawn grid reads too, so the grid lines are the snap lattice.
 
 import { gridInterval, snapToGrid } from '../../grid'
-import type { WorldPoint } from '../view/types'
+import type { WorldPoint } from '../../../geo/view/types'
 
 /** Which snapping the settings turn on (Snap to grid). */
 export interface SnapSettings {

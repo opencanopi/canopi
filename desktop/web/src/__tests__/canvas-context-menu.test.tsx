@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { createRef, render } from 'preact'
-import { profileLineMenu } from '../app/lidar/profile'
+import { profileLineMenu } from '../app/data-library/profile'
 import { act } from 'preact/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { CanvasContextMenu } from '../components/canvas/CanvasContextMenu'

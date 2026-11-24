@@ -15,7 +15,7 @@ vi.mock('../ipc/species', async (importOriginal) => ({
 import type { CanvasRuntimeAppAdapter } from '../canvas/runtime/app-adapter'
 import type { CanvasRuntimeSurfaces } from '../canvas/runtime/runtime'
 import { setCurrentCanvasSession } from '../canvas/session'
-import { createBrowserCanvasRuntimeAppAdapter } from '../web/browser-canvas-runtime'
+import { createBrowserCanvasRuntimeAppAdapter } from '../editions/web/browser-canvas-runtime'
 import { createDesktopCanvasRuntimeAppAdapter } from '../app/canvas-runtime/desktop-adapter'
 import { canvasContextMenuRequest } from '../app/canvas-context-menu/state'
 import { buildCanvasContextMenuEntries } from '../app/canvas-context-menu/entries'

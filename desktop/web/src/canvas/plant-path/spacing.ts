@@ -10,7 +10,7 @@
 // the count, as the preview's 250 discs do. Pure: it imports only the curve, the straight-row maths and types (P54).
 
 import { computePlantSpacingCount, computePlantSpacingPositions } from '../plant-spacing-sequence'
-import type { WorldPoint } from '../runtime/view/types'
+import type { WorldPoint } from '../../geo/view/types'
 import { flattenPath, lerpAt, type FlatPath, type PathPoints } from './curve'
 
 /** How a row is spaced: a plant every `metres`, or `count` plants in all. */

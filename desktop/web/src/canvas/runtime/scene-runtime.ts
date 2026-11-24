@@ -34,7 +34,7 @@ import type {
 import type { SceneCanvasQuerySurface } from './query-surface'
 import { targets, speciesTarget } from '../../target'
 import { runCanvasRuntimeCleanups, throwCanvasRuntimeCleanupErrors } from './cleanup'
-import type { CameraDriverHost } from './view/camera-driver'
+import type { CameraDriverHost } from '../../geo/view/camera-driver'
 import type { SceneRenderTarget } from './renderers/scene-types'
 
 export type SceneCanvasRuntimeOptions = SceneRuntimeConstructionOptions

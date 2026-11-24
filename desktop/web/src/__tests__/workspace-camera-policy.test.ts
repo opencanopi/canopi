@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { mapZoomToStageScale, stageScaleToMapZoom } from '../canvas/projection'
+import { mapZoomToStageScale, stageScaleToMapZoom } from '../geo/projection'
 import {
   isWorkspaceOverviewScale,
   WORKSPACE_OVERVIEW_SCALE_THRESHOLD,
-} from '../canvas/workspace-camera-policy'
+} from '../geo/workspace-camera-policy'
 
 describe('workspace camera policy', () => {
   it('a scale placed at exactly the overview threshold is not overview, though it reads back a hair under', () => {

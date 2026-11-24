@@ -5,7 +5,7 @@ import {
   type ToolHarness,
   type ToolHarnessOptions,
 } from '../../../__tests__/support/tool-harness'
-import type { ScreenPoint, WorldPoint } from '../view/types'
+import type { ScreenPoint, WorldPoint } from '../../../geo/view/types'
 import { getEllipticalZonePolygon, getRectangularZoneCorners } from '../zone-geometry'
 import type { DraftShape } from './draft'
 import { createMeasurementGuideTool } from './measurement-guide'

@@ -2,10 +2,17 @@
   "$schema": "./ratchet.schema.json",
   "family": "tauri-only-in-native-host",
   "entries": {
-    "app/lidar/display.ts -> node_modules/@tauri-apps/api/core.js": { "count": 1 },
-    "app/plant-detail/media-controller.ts -> node_modules/@tauri-apps/api/core.js": { "count": 1 },
-    "app/shell/close-guard.ts -> node_modules/@tauri-apps/api/window.js": { "count": 1 },
-    "app/shell/window-actions.ts -> node_modules/@tauri-apps/api/window.js": { "count": 1 },
-    "commands/graph/catalog.ts -> node_modules/@tauri-apps/api/window.js": { "count": 1 }
+    "app/data-library/display.ts -> node_modules/@tauri-apps/api/core.js": {
+      "count": 1
+    },
+    "app/shell/close-guard.ts -> node_modules/@tauri-apps/api/window.js": {
+      "count": 1
+    },
+    "app/shell/window-actions.ts -> node_modules/@tauri-apps/api/window.js": {
+      "count": 1
+    },
+    "commands/graph/catalog.ts -> node_modules/@tauri-apps/api/window.js": {
+      "count": 1
+    }
   }
 }

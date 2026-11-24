@@ -22,7 +22,7 @@ import {
 } from '../../scene-runtime/selection-rotation'
 import type { SceneEditTransaction } from '../../scene-runtime/transactions'
 import type { ScenePersistedState } from '../../scene/types'
-import type { WorldPoint } from '../../view/types'
+import type { WorldPoint } from '../../../../geo/view/types'
 import type { ToolHandle } from '../draft'
 import type { ToolConstraint, ToolContext, ToolPoint, ToolScene, ToolView } from '../tool'
 import type { HandleSize } from './handle-size'

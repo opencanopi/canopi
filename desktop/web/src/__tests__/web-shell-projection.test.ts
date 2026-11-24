@@ -7,7 +7,7 @@ import {
   createBrowserShellCatalog,
   createBrowserShellCommandProjection,
   type BrowserShellCapabilities,
-} from '../web/browser-shell-commands'
+} from '../editions/web/browser-shell-commands'
 import type * as BudgetExportModule from '../app/budget/export'
 
 const budgetExport = vi.hoisted(() => ({ exportCurrentBudgetCsv: vi.fn(async () => undefined) }))

@@ -12,7 +12,7 @@ import {
   ROUND_PLANT_SYMBOL_RADIUS,
   tracePlantSymbolContours,
 } from './plant-symbol-recipes'
-import type { SpeciesCacheEntry } from './species-cache'
+import type { SpeciesCacheEntry } from './presentation-data'
 import type { ScenePersistedState, SceneZoneEntity } from './scene'
 import {
   getCanvasInteractionStrokeVisual,
@@ -24,7 +24,7 @@ import {
   OVERLAY_CASING_EXTRA_PX,
   resolveZoneVisual,
 } from './scene-visuals'
-import type { ViewTransform } from './view/types'
+import type { ViewTransform } from '../../geo/view/types'
 import { getRectangularZoneCorners } from './zone-geometry'
 import { getCanvasColor } from '../theme-refresh'
 

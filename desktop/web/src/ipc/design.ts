@@ -1,15 +1,17 @@
-import { invokeCommand } from './transport'
+import { invokeTyped, mintOperationId } from './transport'
 import type {
   CanopiFile,
-  DesignDraftSummary,
   DesignNotebookSection,
   DesignNotebookSnapshot,
-  DesignSaveOutcome,
   DesignSummary,
   LoadedDesign,
-  RecentDesignSummary,
 } from '../types/design'
-import type { ReadOnlyDesign } from '../generated/contracts'
+import type {
+  DesignDraftSummary,
+  DesignSaveOutcome,
+  ReadOnlyDesign,
+  RecentDesignSummary,
+} from '../generated/contracts'
 import { encodeCanopiDesign } from '../app/contracts/canopi-design-wire'
 import { DesignHomeConflictError } from '../app/document-session/continuous-save'
 import {
@@ -99,11 +101,11 @@ async function saveDesign(
   content: CanopiFile,
   expectedFingerprint: string | null,
 ): Promise<DesignSaveOutcome> {
-  return invokeCommand('save_design', {
+  return invokeTyped('save_design', {
     path,
     content: encodeCanopiDesign(content),
     expectedFingerprint,
-  })
+  }, mintOperationId('u'))
 }
 
 /**
@@ -112,11 +114,11 @@ async function saveDesign(
  * Rejects with a `DesignLoadFailure` (`app/contracts/canopi-design-errors.ts`).
  */
 export async function loadDesign(path: string): Promise<LoadedDesign | ReadOnlyDesign> {
-  return invokeCommand('load_design', { path })
+  return invokeTyped('load_design', { path }, mintOperationId('u'))
 }
 
 async function saveDesignDraft(id: string, content: CanopiFile): Promise<void> {
-  return invokeCommand('save_design_draft', { id, content: encodeCanopiDesign(content) })
+  return invokeTyped('save_design_draft', { id, content: encodeCanopiDesign(content) }, mintOperationId('u'))
 }
 
 /**
@@ -124,25 +126,25 @@ async function saveDesignDraft(id: string, content: CanopiFile): Promise<void> {
  * Rejects with a `DesignLoadFailure` (`app/contracts/canopi-design-errors.ts`).
  */
 export async function loadDesignDraft(id: string): Promise<CanopiFile | ReadOnlyDesign> {
-  return invokeCommand('load_design_draft', { id })
+  return invokeTyped('load_design_draft', { id }, mintOperationId('u'))
 }
 
 export async function listDesignDrafts(): Promise<DesignDraftSummary[]> {
-  return invokeCommand('list_design_drafts')
+  return invokeTyped('list_design_drafts', undefined, mintOperationId('u'))
 }
 
 export async function deleteDesignDraft(id: string): Promise<void> {
-  return invokeCommand('delete_design_draft', { id })
+  return invokeTyped('delete_design_draft', { id }, mintOperationId('u'))
 }
 
 /** Create a new empty design with default layers. */
 export async function newDesign(): Promise<CanopiFile> {
-  return invokeCommand('new_design')
+  return invokeTyped('new_design', undefined, mintOperationId('u'))
 }
 
 /** Get recently opened files list. */
 export async function getRecentFiles(): Promise<DesignSummary[]> {
-  return invokeCommand('get_recent_files')
+  return invokeTyped('get_recent_files', undefined, mintOperationId('u'))
 }
 
 /**
@@ -150,48 +152,48 @@ export async function getRecentFiles(): Promise<DesignSummary[]> {
  * the listed files. Paths not on the list are skipped.
  */
 export async function getRecentDesignPreviews(paths: readonly string[]): Promise<RecentDesignSummary[]> {
-  return invokeCommand('get_recent_design_previews', { paths })
+  return invokeTyped('get_recent_design_previews', { paths }, mintOperationId('u'))
 }
 
 /** Start › Recent Designs › Remove from list; the file is untouched. */
 export async function removeRecentDesign(path: string): Promise<void> {
-  return invokeCommand('remove_recent_design', { path })
+  return invokeTyped('remove_recent_design', { path }, mintOperationId('u'))
 }
 
 /** Start › Recent Designs › Show in folder. */
 export async function showRecentDesignInFolder(path: string): Promise<void> {
-  return invokeCommand('show_recent_design_in_folder', { path })
+  return invokeTyped('show_recent_design_in_folder', { path }, mintOperationId('u'))
 }
 
 /** Get saved Design references plus user-owned Notebook Section organization. */
 export async function getDesignNotebook(): Promise<DesignNotebookSnapshot> {
-  return invokeCommand('get_design_notebook')
+  return invokeTyped('get_design_notebook', undefined, mintOperationId('u'))
 }
 
 export async function createNotebookSection(name: string): Promise<DesignNotebookSection> {
-  return invokeCommand('create_notebook_section', { name })
+  return invokeTyped('create_notebook_section', { name }, mintOperationId('u'))
 }
 
 export async function addDesignReferenceToNotebook(
   path: string,
   content: CanopiFile,
 ): Promise<void> {
-  return invokeCommand('add_design_reference_to_notebook', { path, content })
+  return invokeTyped('add_design_reference_to_notebook', { path, content }, mintOperationId('u'))
 }
 
 export async function renameNotebookSection(sectionId: string, name: string): Promise<void> {
-  return invokeCommand('rename_notebook_section', { sectionId, name })
+  return invokeTyped('rename_notebook_section', { sectionId, name }, mintOperationId('u'))
 }
 
 export async function deleteNotebookSection(sectionId: string): Promise<void> {
-  return invokeCommand('delete_notebook_section', { sectionId })
+  return invokeTyped('delete_notebook_section', { sectionId }, mintOperationId('u'))
 }
 
 export async function moveDesignReferenceToSection(
   path: string,
   sectionId: string | null,
 ): Promise<void> {
-  return invokeCommand('move_design_reference_to_section', { path, sectionId })
+  return invokeTyped('move_design_reference_to_section', { path, sectionId }, mintOperationId('u'))
 }
 
 export async function relocateDesignReference(
@@ -199,17 +201,17 @@ export async function relocateDesignReference(
   sectionId: string | null,
   paths: string[],
 ): Promise<void> {
-  return invokeCommand('relocate_design_reference', { path, sectionId, paths })
+  return invokeTyped('relocate_design_reference', { path, sectionId, paths }, mintOperationId('u'))
 }
 
 export async function removeDesignReference(path: string): Promise<void> {
-  return invokeCommand('remove_design_reference', { path })
+  return invokeTyped('remove_design_reference', { path }, mintOperationId('u'))
 }
 
 export async function reorderNotebookSections(sectionIds: string[]): Promise<void> {
-  return invokeCommand('reorder_notebook_sections', { sectionIds })
+  return invokeTyped('reorder_notebook_sections', { sectionIds }, mintOperationId('u'))
 }
 
 export async function reorderDesignReferences(paths: string[]): Promise<void> {
-  return invokeCommand('reorder_design_references', { paths })
+  return invokeTyped('reorder_design_references', { paths }, mintOperationId('u'))
 }

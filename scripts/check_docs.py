@@ -426,7 +426,7 @@ def check_model(file, root, names=None, crates=None):
 
 
 def documents(root):
-    files = [root / p for p in ("AGENTS.md", "CONTEXT.md", "README.md", "desktop/web/ui-gallery/README.md", ".beads/README.md")]
+    files = [root / p for p in ("AGENTS.md", "CONTEXT.md", "README.md", "desktop/web/src/editions/gallery/README.md", ".beads/README.md")]
     for directory in ("docs", ".interface-design"):
         files.extend((root / directory).rglob("*.md"))
     return [file for file in sorted(set(files)) if file.is_file()]

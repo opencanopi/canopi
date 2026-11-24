@@ -34,8 +34,8 @@
     "app/plant-browser/",
     "canopi-types/src/library.rs",
     "app/analyses/model.ts",
-    "app/lidar/item-types.ts",
-    "app/lidar/sampler.ts",
+    "app/data-library/item-types.ts",
+    "app/data-library/sampler.ts",
     "app/map-selection/summary.ts",
     "i18n/"
   ],
@@ -77,18 +77,18 @@
         "app/analyses/model.ts",
         "app/analyses/registry.ts",
         "components/panels/analyze/AnalyzeDialog.tsx",
-        "app/lidar/item-types.ts",
-        "app/lidar/display-legend.ts",
+        "app/data-library/item-types.ts",
+        "app/data-library/display-legend.ts",
         "components/panels/lidar/RasterDisplayControls.tsx",
-        "app/lidar/value-format.ts",
-        "app/lidar/sampler.ts",
+        "app/data-library/value-format.ts",
+        "app/data-library/sampler.ts",
         "desktop/src/services/lidar/inspection.rs",
         "app/design-edit/lidar.ts",
         "i18n/",
         "desktop/src/services/lidar/analyses/tests.rs",
         "__tests__/item-types.test.ts",
-        "app/lidar/value-format.test.ts",
-        "app/lidar/display-legend.test.ts"
+        "app/data-library/value-format.test.ts",
+        "app/data-library/display-legend.test.ts"
       ],
       "count": 34
     }

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { createEmptySpeciesFilter, createSpeciesCatalogWorkbench } from '../app/plant-browser'
 import { createBrowserAppDataStore, type BrowserStorageAdapter } from '../web/browser-app-data'
-import { createReducedSpeciesCatalogAdapters } from '../web/reduced-species-catalog'
+import { createReducedSpeciesCatalogAdapters } from '../editions/web/reduced-species-catalog'
 import {
   createInMemoryReducedSpeciesCatalogReader,
   type ReducedSpeciesCatalogData,

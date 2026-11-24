@@ -8,7 +8,7 @@ import { Container, Text, Ticker, WebGLRenderer, type WebGLOptions } from 'pixi.
 import type { CustomLayerInterface, CustomRenderMethodInput } from 'maplibre-gl'
 import { createPixiScenePresentation, type PixiScenePresentation } from '../canvas/runtime/renderers/pixi-scene'
 import type { SceneRendererSnapshot, SceneRenderTarget } from '../canvas/runtime/renderers/scene-types'
-import type { ViewFrameSource, ViewTransform } from '../canvas/runtime/view/types'
+import type { ViewFrameSource, ViewTransform } from '../geo/view/types'
 
 /** The one production custom layer which all map-owned raster bands sit below. */
 export const MAPLIBRE_SHARED_SCENE_LAYER_ID = 'canopi-shared-scene'

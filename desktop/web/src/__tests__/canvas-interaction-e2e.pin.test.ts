@@ -18,7 +18,7 @@ import type { ScenePoint, SceneStore } from '../canvas/runtime/scene'
 import type { SceneInteractionSession, SceneInteractionSessionDeps } from '../canvas/runtime/interaction-session'
 import { createAppCanvasRuntimeAppAdapter } from '../app/canvas-runtime/app-adapter'
 import { createDesktopCanvasRuntimeAppAdapter } from '../app/canvas-runtime/desktop-adapter'
-import { endSiteDataTransients, pin, profileLine } from '../app/lidar/site-transients'
+import { endSiteDataTransients, pin, profileLine } from '../app/data-library/site-transients'
 import { selectPanel, sidePanel } from '../app/shell/state'
 import { setCurrentCanvasSession } from '../canvas/session'
 import {

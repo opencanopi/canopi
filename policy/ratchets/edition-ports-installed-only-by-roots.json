@@ -1,0 +1,5 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "family": "edition-ports-installed-only-by-roots",
+  "entries": {}
+}

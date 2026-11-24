@@ -12,7 +12,7 @@
     "desktop/src/services/export.rs",
     "app/geojson/codec.ts",
     "ipc/lidar.ts",
-    "app/lidar/",
+    "app/data-library/",
     "components/panels/lidar/",
     "components/shared/ControlIcon.tsx"
   ],

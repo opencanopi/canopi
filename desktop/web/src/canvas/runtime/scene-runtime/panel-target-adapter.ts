@@ -1,4 +1,4 @@
-import type { PanelTarget } from '../../../types/design'
+import type { PanelTarget } from '../../../generated/contracts'
 
 export interface SceneRuntimePanelTargetAdapter {
   readPanelOriginTargets(): readonly PanelTarget[]

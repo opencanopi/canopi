@@ -17,7 +17,7 @@ import { CANVAS_CHROME_FONT_FAMILY } from '../../chrome-fonts'
 import { runCanvasRuntimeCleanups } from '../cleanup'
 import type { ToolHandleId } from '../interaction-types'
 import type { ToolHandle } from '../tools/draft'
-import type { ViewFrame, ViewFrameSource } from '../view/types'
+import type { ViewFrame, ViewFrameSource } from '../../../geo/view/types'
 
 export interface HandleLayerOptions {
   readonly container: HTMLElement

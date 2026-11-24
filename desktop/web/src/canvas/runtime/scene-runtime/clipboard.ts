@@ -7,7 +7,7 @@ import type {
   ScenePoint,
   SceneZoneEntity,
 } from '../scene'
-import type { SessionPlane } from '../../session-plane'
+import type { SessionPlane } from '../../../geo/session-plane'
 import type { SceneSelectionTarget } from './selection'
 import type { SceneArrangementTemplate } from './arrangement-placement'
 import { resolveSceneObjectGroupMembers } from '../scene'

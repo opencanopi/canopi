@@ -34,7 +34,7 @@ vi.mock('maplibre-gl', () => ({
 }))
 
 const acceptanceHttp = vi.hoisted(() => ({ request: vi.fn() }))
-vi.mock('../maplibre/satellite-http.browser', () => ({
+vi.mock('../maplibre/satellite-http', () => ({
   createBrowserSatelliteHttp: () => ({ request: acceptanceHttp.request }),
 }))
 

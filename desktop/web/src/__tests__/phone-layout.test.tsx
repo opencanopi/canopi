@@ -27,7 +27,7 @@ import { activePanel, navigateTo, selectPanel, sidePanel, type SidePanel } from 
 import { locale } from '../app/settings/state'
 import type { PanelRailCommand } from '../components/shared/PanelRail'
 import { PHONE_SHEET_TABS, PhoneSheet } from '../components/shared/PhoneSheet'
-import { browserPhoneSheetTabs } from '../web/browser-shell-commands'
+import { browserPhoneSheetTabs } from '../editions/web/browser-shell-commands'
 import {
   WorkspaceComposition,
   type WorkspacePanelProjection,

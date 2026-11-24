@@ -3,11 +3,11 @@ import type { TargetMapProjectionScene } from '../target'
 import { MANUAL_TARGET, speciesTarget, targetIdentity, projectTargetsToMapFeatures } from '../target'
 
 const NONE_TARGET = { kind: 'none' } as const
-import { geoToMercator } from '../canvas/projection'
-import type { ViewCamera } from '../canvas/runtime/view/types'
-import { createSessionPlane } from '../canvas/session-plane'
+import { geoToMercator } from '../geo/projection'
+import type { ViewCamera } from '../geo/view/types'
+import { createSessionPlane } from '../geo/session-plane'
 import { projectTargetResolutionToMapFeatures } from '../target/map-projection'
-import type { PanelTarget } from '../types/design'
+import type { PanelTarget } from '../generated/contracts'
 import { createTestView } from './support/test-view'
 
 const LOCATION = { lat: 48.8566, lon: 2.3522 }

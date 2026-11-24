@@ -33,7 +33,7 @@ import { createUpdateController, type UpdateController, type UpdaterPort } from 
 import { AboutCanopiDialog, AboutUpdates } from '../components/shared/AboutCanopiDialog'
 import { LaunchCheckSwitch, SettingsDialog } from '../components/shared/SettingsDialog'
 import type { UpdateDownload, UpdaterFailure, UpdateOffer, UpdateOs, UpdateProgress } from '../generated/contracts'
-import { WebApp } from '../web/WebApp'
+import { WebApp } from '../editions/web/WebApp'
 import { unmount } from './support/unmount'
 
 const OFFER: UpdateOffer = { version: '2.1.0', date: '2026-11-02', notes_url: 'https://github.com/opencanopi/canopi/releases/tag/v2.1.0' }

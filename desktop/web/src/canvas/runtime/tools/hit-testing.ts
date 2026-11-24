@@ -25,7 +25,7 @@ import {
   sceneObjectGroupMemberLayerName,
   sceneTargetKey,
 } from '../scene'
-import type { SpeciesCacheEntry } from '../species-cache'
+import type { SpeciesCacheEntry } from '../presentation-data'
 import {
   getEllipticalZonePolygon,
   getRectangularZoneCorners,

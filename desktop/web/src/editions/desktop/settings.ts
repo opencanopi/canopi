@@ -1,0 +1,36 @@
+// editions/desktop/settings.ts
+//
+// Desktop settings record adapter over ipc/settings.ts (tauri-only-in-native-host, ADR 0022; §18 F2).
+// Invariant: Tauri is reached only through ipc/ and editions/desktop/.
+
+import type { SettingsPlatformAdapter } from '../../platform/settings'
+import { getSettings, setSettings } from '../../ipc/settings'
+import type { Settings } from '../../types/settings'
+
+export interface DesktopSettingsPlatformAdapterDeps {
+  readonly getSettings: () => Promise<Settings>
+  readonly setSettings: (settings: Settings) => Promise<void>
+}
+
+const DEFAULT_DEPS: DesktopSettingsPlatformAdapterDeps = {
+  getSettings,
+  setSettings,
+}
+
+export function createDesktopSettingsPlatformAdapter(
+  deps: DesktopSettingsPlatformAdapterDeps = DEFAULT_DEPS,
+): SettingsPlatformAdapter {
+  return {
+    load: deps.getSettings,
+    save: deps.setSettings,
+  }
+}
+
+export const desktopSettingsPlatformAdapter = createDesktopSettingsPlatformAdapter()
+
+/**
+ * The host's subsystem health query, which platform/desktop.ts hands bootstrapShell beside this settings adapter: the
+ * shell's two host reads at start come from this one Desktop adapter (ipc/ is imported only by ipc/ and the *.desktop.ts
+ * adapters, 2.1-M143). The host's dismissal of a one-time store notice goes to the Desktop root through main.tsx.
+ */
+export { getHealth as loadDesktopHealth, dismissStoreNoticeOnHost } from '../../ipc/health'

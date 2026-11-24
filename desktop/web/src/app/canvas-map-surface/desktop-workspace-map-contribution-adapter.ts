@@ -1,10 +1,10 @@
 import { designSessionStore } from '../document-session/store'
 import { mapTerrainStateOf } from '../map-layers/state'
 import { presentedMapLayers, storyPresentationOverrides } from '../story-presentation/overrides'
-import { readCurrentLidarPresentation } from '../lidar/library-store'
-import { lidarDisplayDescriptors, lidarDisplayLayers } from '../lidar/display'
-import { pin, profileLine } from '../lidar/site-transients'
-import { profileHover } from '../lidar/profile'
+import { readCurrentLidarPresentation } from '../data-library/library-store'
+import { lidarDisplayDescriptors, lidarDisplayLayers } from '../data-library/display'
+import { pin, profileLine } from '../data-library/site-transients'
+import { profileHover } from '../data-library/profile'
 import type { SiteMapOverlay } from '../../maplibre/site-overlay'
 import { theme } from '../settings/state'
 import { loadMapLibreTerrainSupport } from '../../maplibre/terrain-loader'
@@ -28,14 +28,14 @@ export function createDesktopWorkspaceMapContributionAdapter(): WorkspaceMapCont
   }
 }
 
-/** The profile chart's hover point in [lon, lat], or null; the UI gallery, which stands in for Desktop, reads it too. */
-export function readSiteHover(): readonly [number, number] | null {
+/** The profile chart's hover point in [lon, lat], or null. */
+function readSiteHover(): readonly [number, number] | null {
   const hover = profileHover.value
   return hover ? [hover.lon, hover.lat] : null
 }
 
-/** The Site data pin and profile line in [lon, lat], or null with neither; the UI gallery reads it too. */
-export function readSiteMapOverlay(): SiteMapOverlay | null {
+/** The Site data pin and profile line in [lon, lat], or null with neither. */
+function readSiteMapOverlay(): SiteMapOverlay | null {
   const point = pin.value
   const line = profileLine.value
   if (!point && !line) return null

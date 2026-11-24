@@ -10,7 +10,7 @@ import {
 } from '../../../__tests__/support/tool-harness'
 import type { SceneArrangementTemplate } from '../scene-runtime/arrangement-placement'
 import type { ScenePersistedState, ScenePlantEntity } from '../scene/types'
-import type { WorldPoint } from '../view/types'
+import type { WorldPoint } from '../../../geo/view/types'
 import type { DraftShape } from './draft'
 import type { CanvasTool } from './tool'
 import '../../../__tests__/support/camera-tolerance'

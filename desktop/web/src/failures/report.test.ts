@@ -3,7 +3,7 @@
 // reported, window hooks that survive a second bootstrap (HMR) with one entry per error, and a sink that never throws.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { OperationId, RedactedText } from '../generated/contracts'
-import { invokeCommand } from '../ipc/transport'
+import { invokeTyped, mintOperationId } from '../ipc/transport'
 import { IpcFailure } from './ipc-failure'
 import { dismissNotice } from './notices'
 import { failureLogger, failureNoticesForTests, installFailureHooks, reportFailure, resetFailureNoticesForTests } from './report'
@@ -36,7 +36,7 @@ describe('failure sink: one entry per settlement', () => {
     dispose = installFailureHooks({ storage: 'disk' }, window)
 
     // Through the real transport and Tauri core, only the webview's internals stubbed.
-    const settled = await invokeCommand('lidar_list_library').catch((error: unknown) => error)
+    const settled = await invokeTyped('lidar_list_library', undefined, mintOperationId('u')).catch((error: unknown) => error)
 
     expect(settled).toBeInstanceOf(IpcFailure)
     expect((settled as IpcFailure).message).toBe(native)
@@ -56,7 +56,7 @@ describe('failure sink: one entry per settlement', () => {
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined)
     dispose = installFailureHooks({ storage: 'disk' }, window)
 
-    const settled = await invokeCommand('set_settings').catch((error: unknown) => error)
+    const settled = await invokeTyped('set_settings', undefined as never, mintOperationId('u')).catch((error: unknown) => error)
     failureLogger('document-session')('Failed to dispose Design Session lifecycle:', settled)
 
     expect(ringEntries()).toEqual([expect.objectContaining({ origin: 'native', source: 'ipc.set_settings' })])

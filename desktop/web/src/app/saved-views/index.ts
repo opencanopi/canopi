@@ -32,3 +32,4 @@ export {
   VIEW_SNAPSHOT_THUMBNAIL,
   type SavedViewSnapshot,
 } from './snapshot'
+export { composeSavedView } from './model'

@@ -1,16 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { isPlantDbUnavailableError } from '../ipc/plant-db-errors'
+import { CanvasSpeciesCache, installSpeciesCacheLoader } from '../app/canvas-runtime/species-cache'
 
 const mocks = vi.hoisted(() => ({
   getSpeciesBatch: vi.fn(async () => []),
   getFlowerColorBatch: vi.fn(async () => []),
 }))
-
-vi.mock('../ipc/species', () => ({
-  getSpeciesBatch: mocks.getSpeciesBatch,
-  getFlowerColorBatch: mocks.getFlowerColorBatch,
-}))
-
-import { CanvasSpeciesCache } from '../canvas/runtime/species-cache'
 
 describe('CanvasSpeciesCache', () => {
   beforeEach(() => {
@@ -18,6 +13,11 @@ describe('CanvasSpeciesCache', () => {
     mocks.getFlowerColorBatch.mockReset()
     mocks.getSpeciesBatch.mockResolvedValue([] as any)
     mocks.getFlowerColorBatch.mockResolvedValue([] as any)
+    installSpeciesCacheLoader({
+      getSpeciesBatch: mocks.getSpeciesBatch,
+      getFlowerColorBatch: mocks.getFlowerColorBatch,
+      isPlantDbUnavailableError,
+    })
   })
 
   it('loads missing entries once and stores resolved flower color fields', async () => {

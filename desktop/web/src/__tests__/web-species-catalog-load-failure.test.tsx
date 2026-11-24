@@ -9,7 +9,7 @@ import { act } from 'preact/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type * as DiagnosticsModule from '../app/problem-report/diagnostics'
 import type * as PlantBrowserModule from '../app/plant-browser'
-import type { createBrowserSpeciesCatalogRuntime } from '../app/plant-browser/browser-runtime'
+import type { createBrowserSpeciesCatalogRuntime } from '../editions/web/species-catalog-runtime'
 
 const LOAD_FAILED = 'The plant catalog couldn’t load.'
 
@@ -44,9 +44,9 @@ describe('Web plant catalog load failure', () => {
     vi.resetModules()
     diagnostics = await import('../app/problem-report/diagnostics')
     await import('../failures/ring').then((ring) => ring.resetFrontendDiagnosticsForTests())
-    const { createBrowserSpeciesCatalogRuntime } = await import('../app/plant-browser/browser-runtime')
+    const { createBrowserSpeciesCatalogRuntime } = await import('../editions/web/species-catalog-runtime')
     const { createBrowserAppDataStore } = await import('../web/browser-app-data')
-    const { createDuckDbReducedSpeciesCatalogReader } = await import('../web/duckdb-wasm-catalog')
+    const { createDuckDbReducedSpeciesCatalogReader } = await import('../editions/web/duckdb-wasm-catalog')
     runtime = createBrowserSpeciesCatalogRuntime({
       appDataStore: createBrowserAppDataStore({ storage: memoryStorage() }),
       reader: createDuckDbReducedSpeciesCatalogReader(catalogBaseUrl ? { catalogBaseUrl } : {}),
@@ -55,7 +55,7 @@ describe('Web plant catalog load failure', () => {
       ...await vi.importActual<typeof PlantBrowserModule>('../app/plant-browser'),
       speciesCatalogWorkbench: runtime.workbench,
     }))
-    const { WebSpeciesCatalogPanel } = await import('../web/WebSpeciesCatalogPanel')
+    const { WebSpeciesCatalogPanel } = await import('../editions/web/WebSpeciesCatalogPanel')
     await act(async () => { render(<WebSpeciesCatalogPanel mode={mode} />, container) })
     return fetch
   }

@@ -4,10 +4,8 @@ import {
   cancelUpdate,
   checkForUpdate,
   downloadUpdate,
-  getLaunchCheck,
   installUpdate,
   restartAfterUpdate,
-  setLaunchCheck,
   takeUpdateLaunchNotice,
 } from './update'
 
@@ -65,8 +63,10 @@ describe('the updater wire (canopi-f47t.52.228.15, 2.1-M241)', () => {
     }
     invoke.mockRejectedValueOnce(failure)
 
-    // The transport's settlement carries the host's failure as it came (design check F15).
-    await expect(downloadUpdate('download-1', () => undefined)).rejects.toHaveProperty('failure', failure)
+    // The transport's settlement carries the host's failure as it came (design check F15) stamped with the caller's OperationId.
+    await expect(downloadUpdate('download-1', () => undefined)).rejects.toMatchObject({
+      failure: { ...failure, operation: expect.stringMatching(/^u-/) },
+    })
   })
 
   // The cancel names the operation it stops, so one sent right after its op starts still stops it when it reaches
@@ -79,25 +79,21 @@ describe('the updater wire (canopi-f47t.52.228.15, 2.1-M241)', () => {
     await restartAfterUpdate(null)
 
     expect(invoke.mock.calls).toEqual([
-      ['update_install', { designPath: '/home/garden.canopi' }],
-      ['update_install', { designPath: null }],
+      ['update_install', { designPath: '/home/garden.canopi', operation: expect.stringMatching(/^u-/) }],
+      ['update_install', { designPath: null, operation: expect.stringMatching(/^u-/) }],
       ['update_cancel', { operation: 'download-1' }],
-      ['update_restart', { designPath: '/home/garden.canopi' }],
-      ['update_restart', { designPath: null }],
+      ['update_restart', { designPath: '/home/garden.canopi', operation: expect.stringMatching(/^u-/) }],
+      ['update_restart', { designPath: null, operation: expect.stringMatching(/^u-/) }],
     ])
   })
 
-  it('reads and writes the launch check, and takes the launch notice', async () => {
-    invoke.mockResolvedValueOnce(true).mockResolvedValueOnce(undefined).mockResolvedValueOnce(false)
+  it('takes the launch notice', async () => {
+    invoke.mockResolvedValueOnce(false)
 
-    await expect(getLaunchCheck()).resolves.toBe(true)
-    await setLaunchCheck(false)
     await expect(takeUpdateLaunchNotice()).resolves.toBe(false)
 
     expect(invoke.mock.calls).toEqual([
-      ['update_launch_check_get'],
-      ['update_launch_check_set', { on: false }],
-      ['update_take_launch_notice'],
+      ['update_take_launch_notice', { operation: expect.stringMatching(/^s-/) }],
     ])
   })
 })

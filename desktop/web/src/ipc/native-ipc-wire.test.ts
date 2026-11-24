@@ -29,17 +29,20 @@ describe('native IPC wire format', () => {
 
     await searchSpecies(request)
 
-    expect(invoke).toHaveBeenCalledWith('search_species', { request })
+    expect(invoke).toHaveBeenCalledWith('search_species', { request, operation: expect.stringMatching(/^u-/) })
   })
 
   it('names the app folder and Recent Design commands and their arguments', async () => {
     await getAppFolders()
-    expect(invoke).toHaveBeenLastCalledWith('get_app_folders')
+    expect(invoke).toHaveBeenLastCalledWith('get_app_folders', { operation: expect.stringMatching(/^u-/) })
     await showAppFolder('data_library')
-    expect(invoke).toHaveBeenLastCalledWith('show_app_folder', { folder: 'data_library' })
+    expect(invoke).toHaveBeenLastCalledWith('show_app_folder', {
+      folder: 'data_library',
+      operation: expect.stringMatching(/^u-/),
+    })
     await removeRecentDesign('/designs/a.canopi')
-    expect(invoke).toHaveBeenLastCalledWith('remove_recent_design', { path: '/designs/a.canopi' })
+    expect(invoke).toHaveBeenLastCalledWith('remove_recent_design', { path: '/designs/a.canopi', operation: expect.stringMatching(/^u-/) })
     await showRecentDesignInFolder('/designs/a.canopi')
-    expect(invoke).toHaveBeenLastCalledWith('show_recent_design_in_folder', { path: '/designs/a.canopi' })
+    expect(invoke).toHaveBeenLastCalledWith('show_recent_design_in_folder', { path: '/designs/a.canopi', operation: expect.stringMatching(/^u-/) })
   })
 })

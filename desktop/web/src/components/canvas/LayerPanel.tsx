@@ -75,7 +75,7 @@ export interface LayerPanelActions {
  */
 export type SiteDataSummary =
   | {
-      readonly edition: 'desktop'
+      readonly kind: 'available'
       readonly count: number
       /** Entries not missing whose own eye is on, while the summary eye is on. */
       readonly shown: number
@@ -86,7 +86,7 @@ export type SiteDataSummary =
       setVisible(visible: boolean): void
       open(): void
     }
-  | { readonly edition: 'web'; readonly count: number }
+  | { readonly kind: 'needs-desktop'; readonly count: number }
 
 /** Background sources are proper names, the same in every language. */
 const BACKGROUND_SOURCES = { satellite: 'Google', basemap: 'OpenFreeMap' } as const
@@ -147,7 +147,7 @@ function SiteDataGlyph() {
 
 function SiteDataSummaryRow({ summary }: { readonly summary: SiteDataSummary }) {
   const name = t('canvas.layers.siteData')
-  if (summary.edition === 'web') {
+  if (summary.kind === 'needs-desktop') {
     if (summary.count === 0) return null
     return (
       <section className={`${styles.section} ${styles.summary}`} aria-label={name}>

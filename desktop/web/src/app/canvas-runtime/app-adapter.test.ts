@@ -6,7 +6,7 @@ import type {
   CanvasRuntimeSavedObjectStampAdapter,
 } from '../../canvas/runtime/app-adapter'
 import { CanvasPlantLabelResolver } from '../../canvas/runtime/plant-labels'
-import { CanvasSpeciesCache } from '../../canvas/runtime/species-cache'
+import { CanvasSpeciesCache } from './species-cache'
 import { t } from '../../i18n'
 import type { Settings } from '../../types/settings'
 import { gridVisible } from '../canvas-settings/signals'

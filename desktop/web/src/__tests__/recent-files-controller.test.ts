@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { createRecentFilesController } from '../app/recent-files'
-import type { RecentDesignSummary } from '../types/design'
+import type { RecentDesignSummary } from '../generated/contracts'
 
 vi.mock('../ipc/design', () => ({
   getRecentFiles: vi.fn(),

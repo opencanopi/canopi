@@ -1,13 +1,13 @@
+import type { GeoPoint } from '../../generated/contracts'
 // __tests__/support/tool-harness.ts  (test support)
 //
 // The ToolHarness (spec §1.8): how tool and ToolHost tests build a scene and the ToolScene over it, and drive a real
 // ToolHost with gesture scripts (below). Scenes are real SceneStores in session-plane metres; the scene source reads the
 // frame scale, the species cache and the localised names through injected functions, as interaction-session.ts passes
 // the runtime's.
-
 import { signal, type ReadonlySignal } from '@preact/signals'
 import type { CanvasToolGuidance } from '../../canvas/session-state'
-import { createSessionPlane, type GeoPosition } from '../../canvas/session-plane'
+import { createSessionPlane } from '../../geo/session-plane'
 import type { Gesture, MenuSource, NavigationSource, PressTarget } from '../../canvas/runtime/input/gestures'
 import { createInputRouter } from '../../canvas/runtime/input/input-router'
 import type { TargetClass } from '../../canvas/runtime/input/raw-input'
@@ -66,7 +66,7 @@ import type {
   ToolSource,
 } from '../../canvas/runtime/tools/tool'
 import { createToolHost, createToolScene } from '../../canvas/runtime/tools/tool-host'
-import type { ScreenPoint, ViewCamera, ViewScreen, WorldPoint } from '../../canvas/runtime/view/types'
+import type { ScreenPoint, ViewCamera, ViewScreen, WorldPoint } from '../../geo/view/types'
 import { createRecordingRenderer, type RecordingRenderer } from './recording-renderer'
 import { createTestView, type TestView } from './test-view'
 
@@ -427,7 +427,7 @@ export interface ToolHarness {
   /** A window blur: the recogniser ends the live session, then the session calls interrupted. */
   blur(): void
   /** A re-origin: the camera moves into the plane at `origin`, keeping its ground (the host sees the plane change). */
-  reorigin(origin: GeoPosition): void
+  reorigin(origin: GeoPoint): void
   /** Runs the host's manual clock: its due timers (double-click windows, the nudge series). */
   advance(ms: number): void
   /** Edit › Undo on the scene's history (not the transient history). */

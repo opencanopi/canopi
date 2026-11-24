@@ -20,7 +20,7 @@ import type * as IpcSpeciesModule from '../ipc/species'
 
 describe('Desktop species catalog workbench', () => {
   it('reads catalog habits in batches the native lookup accepts', async () => {
-    const { speciesCatalogWorkbench } = await import('../app/plant-browser/live.desktop')
+    const { speciesCatalogWorkbench } = await import('../editions/desktop/species-catalog')
     const names = Array.from({ length: 1201 }, (_, index) => `Species ${index}`)
 
     const habits = await speciesCatalogWorkbench.resolveHabits(names)
@@ -30,7 +30,7 @@ describe('Desktop species catalog workbench', () => {
   })
 
   it('reads common names in batches the native lookup accepts', async () => {
-    const { speciesCatalogWorkbench } = await import('../app/plant-browser/live.desktop')
+    const { speciesCatalogWorkbench } = await import('../editions/desktop/species-catalog')
     const names = Array.from({ length: 701 }, (_, index) => `Species ${index}`)
 
     const common = await speciesCatalogWorkbench.resolveCommonNames(names, 'fr')
@@ -42,7 +42,7 @@ describe('Desktop species catalog workbench', () => {
 
   // The plant DB health gate is the adapter's: the transport is a plain IPC wrapper.
   it('answers nothing over IPC while the plant DB is missing or corrupt', async () => {
-    const { speciesCatalogWorkbench } = await import('../app/plant-browser/live.desktop')
+    const { speciesCatalogWorkbench } = await import('../editions/desktop/species-catalog')
     applyHealthSnapshot({
       plant_catalog: { status: { kind: 'unavailable', code: { kind: 'plant_db_unavailable', cause: 'open_failed' } }, notice: null },
     })

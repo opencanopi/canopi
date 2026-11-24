@@ -2,7 +2,7 @@ import {
   CURRENT_CANOPI_FILE_VERSION,
   type CanopiDesignIngestionErrorKind,
 } from '../../generated/canopi-design-format'
-import type { DesignLoadFailure, DesignLoadFailureKind } from '../../types/design'
+import type { DesignLoadFailure, DesignLoadFailureKind } from '../../generated/contracts'
 import type { LocaleKey } from '../../generated/locale-keys'
 
 export class CanopiDesignIngestionError extends Error {

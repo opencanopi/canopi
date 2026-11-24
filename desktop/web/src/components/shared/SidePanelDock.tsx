@@ -1,7 +1,7 @@
 import type { ComponentChildren } from 'preact'
 import { useFocusRegion } from './useFocusRegion'
 import { useLayoutEffect, useRef, useState } from 'preact/hooks'
-import { sidePanelWidth } from '../../app/shell/state'
+import { sidePanelWidth } from '../../app/settings/state'
 import { commitSidePanelWidth } from '../../app/shell/controller'
 import { DOCK_KEY_REGION } from '../../app/keyboard/target-class'
 import { t } from '../../i18n'

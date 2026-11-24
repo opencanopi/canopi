@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('../ipc/export', () => ({
   exportFile: vi.fn().mockResolvedValue(undefined),
@@ -16,7 +16,11 @@ import { createTestCanvasQuerySurface } from './support/canvas-query-surface'
 import { createTestCanvasRuntimeSurfaces } from './support/canvas-runtime-surfaces'
 import { deliverBudgetCsv as deliverBrowserBudgetCsv } from '../app/budget/platform.browser'
 
-afterEach(() => vi.restoreAllMocks())
+import { installEditionPorts } from '../platform/edition-ports'
+import { createTestEditionPorts } from './support/test-edition-ports'
+let disposePorts: (() => void) | null = null
+beforeEach(() => { disposePorts = installEditionPorts(createTestEditionPorts()) })
+afterEach(() => { disposePorts?.(); disposePorts = null; vi.restoreAllMocks() })
 
 describe('budget export', () => {
   it('exports the expected csv filename and row content through the app boundary', async () => {

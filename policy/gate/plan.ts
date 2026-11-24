@@ -209,7 +209,7 @@ export function reaching(root: string, modules: readonly string[]): string[] {
   if (!isFile(cruiser)) throw new GateError(`${WEB}/node_modules/.bin/depcruise is missing: run npm ci in ${WEB}`)
   const reach = `^(?:${modules.map(escape).join('|')})$`
   const run = spawnSync(cruiser, ['--config', '.dependency-cruiser.web.cjs', '--output-type', 'json', '--reaches', reach,
-    'src', 'ui-gallery'], { cwd: join(root, WEB), encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 })
+    'src'], { cwd: join(root, WEB), encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 })
   try {
     const sources = (JSON.parse(run.stdout) as { modules: { source: string }[] }).modules.map((module) => module.source)
     return [...new Set(sources)].filter((source) => !modules.includes(source)).sort()
@@ -473,7 +473,7 @@ function planLane(root: string, paths: readonly string[], mode: 'commit' | 'affe
       if (covering.length && covering.every((text) => text !== display(planned) && selected.has(text))) continue
       checks.push(planned)
     }
-    if (area.name === 'frontend' && paths.some((path) => path.startsWith(`${WEB}/ui-gallery/`))) checks.push(of('typecheck'))
+    if (area.name === 'frontend' && paths.some((path) => path.startsWith(`${WEB}/src/editions/gallery/`) || path === `${WEB}/gallery.html`)) checks.push(of('typecheck'))
   }
   const docs = docsOnly(paths, table)
   let e2e: E2ePlan | undefined

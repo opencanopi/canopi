@@ -18,7 +18,7 @@
 
 import { CLOSE_DISTANCE_PX, isSamePoint } from '../../point-editor/rules'
 import type { ToolId } from '../interaction-types'
-import type { WorldPoint } from '../view/types'
+import type { WorldPoint } from '../../../geo/view/types'
 import { createPolygonalZoneDraftMeasurements } from '../zone-measurements'
 import type { DraftShape, DraftStroke } from './draft'
 import { measureLabelShapes } from './measure-labels'

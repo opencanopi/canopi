@@ -1,4 +1,14 @@
 import { computed, signal, type ReadonlySignal } from "@preact/signals";
+import type { DesignSaveStatus } from "../app/document-session/continuous-save";
+import type { ReadOnlyOrigin } from "../app/document-session/store";
+
+export interface BrowserShellDesignIdentity {
+  readonly name: string;
+  readonly saveStatus: DesignSaveStatus;
+  readonly saveFailureReason: string | null;
+  /** Why a read-only Design is read-only; its save status popover says so (2.1-Q336). */
+  readonly readOnlyOrigin?: ReadOnlyOrigin | undefined;
+}
 
 /**
  * Asks the browser to keep this origin's storage, so it does not clear the Web Edition's Drafts to free space

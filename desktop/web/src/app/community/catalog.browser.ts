@@ -1,5 +1,5 @@
 import type { TemplateMeta } from '../../types/community'
-import { WEB_STATIC_DESIGN_TEMPLATES } from '../../web/static-design-templates'
+import { WEB_STATIC_DESIGN_TEMPLATES } from '../design-template-import/static-design-templates'
 
 export interface StaticDesignTemplateCatalog {
   hasConfiguredStaticDesignTemplates(): boolean

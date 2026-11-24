@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest'
 
 import { snapToGridEnabled } from '../app/canvas-settings/signals'
-import { sidePanelWidth } from '../app/shell/state'
 import {
   DEFAULT_SAVED_STAMPS_FRAME_HEIGHT,
   locale,
   plantSpacingIntervalM,
   savedStampsFrameHeight,
   scrollWheel,
+  sidePanelWidth,
   singleKeyShortcuts,
   theme,
 } from '../app/settings/state'

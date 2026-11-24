@@ -19,7 +19,7 @@ let cssModuleFactsCache: ReturnType<typeof discoverCssModuleFacts> | null = null
 
 /** Every CSS Module's declarations, parsed once per run for all the policies below. */
 function cssModuleFacts(): ReturnType<typeof discoverCssModuleFacts> {
-  cssModuleFactsCache ??= discoverCssModuleFacts('src')
+  cssModuleFactsCache ??= discoverCssModuleFacts('src').filter((fact) => !fact.path.startsWith('src/editions/gallery/'))
   return cssModuleFactsCache
 }
 
@@ -190,7 +190,7 @@ describe('CSS module policy facts', () => {
     expect(paths).toEqual([...paths].sort())
     expect(paths).toContain('src/App.module.css')
     expect(paths).toContain('src/components/plant-detail/PlantDetail.module.css')
-    expect(paths).toContain('src/web/WebSpeciesCatalogPanel.module.css')
+    expect(paths).toContain('src/editions/web/WebSpeciesCatalogPanel.module.css')
     expect(paths.length).toBeGreaterThan(21)
     expect(files.every(({ path, declarations }) =>
       declarations.every((declaration) => declaration.path === path),

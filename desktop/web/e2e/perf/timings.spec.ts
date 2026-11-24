@@ -10,7 +10,7 @@
 import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { Page, TestInfo } from '@playwright/test'
-import { createSessionPlane } from '../../src/canvas/session-plane'
+import { createSessionPlane } from '../../src/geo/session-plane'
 import { designMap, expectCanvasDrawn, seedPointingDevice } from '../support/canvas'
 import { expect, test } from '../support/offline'
 

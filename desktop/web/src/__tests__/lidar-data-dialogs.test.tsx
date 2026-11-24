@@ -31,15 +31,15 @@ vi.mock('../app/shell/modal-layer', () => ({
   registerModalInertRegion: () => () => {},
 }))
 
-vi.mock('../app/lidar/actions', () => actions)
+vi.mock('../app/data-library/actions', () => actions)
 
 const coverage = vi.hoisted(() => ({ check: vi.fn().mockResolvedValue(null) }))
-vi.mock('../app/lidar/import-coverage', () => ({ checkImportCoverage: coverage.check, coverageCanvas: () => null }))
+vi.mock('../app/data-library/import-coverage', () => ({ checkImportCoverage: coverage.check, coverageCanvas: () => null }))
 
-vi.mock('../app/lidar/library-store', async () => {
+vi.mock('../app/data-library/library-store', async () => {
   const { signal } = await import('@preact/signals')
   return {
-    ...(await vi.importActual<typeof LibraryStoreModule>('../app/lidar/library-store')),
+    ...(await vi.importActual<typeof LibraryStoreModule>('../app/data-library/library-store')),
     installLidarLibraryObserver: () => () => {},
     lidarLibrary: signal<LibrarySnapshot | null>(null),
     lidarStatusMessage: signal<string | null>(null),
@@ -62,17 +62,17 @@ vi.mock('../components/panels/lidar/LibraryPreview', () => ({
 }))
 
 import { DataDialogs } from '../components/panels/lidar/DataDialogs'
-import { lidarLibrary } from '../app/lidar/library-store'
+import { lidarLibrary } from '../app/data-library/library-store'
 import { designSessionStore } from '../app/document-session/store'
-import { analyzeItem, dataDialog, libraryView, openDataLibrary } from '../app/lidar/library-navigation'
-import { siteDataViewFor } from '../app/lidar/site-data-view'
+import { analyzeItem, dataDialog, libraryView, openDataLibrary } from '../app/data-library/library-navigation'
+import { siteDataViewFor } from '../app/data-library/site-data-view'
 import { sidePanel } from '../app/shell/state'
 import { locale } from '../app/settings/state'
 import { openLayerRow } from '../app/canvas-layer-presentation/open-row'
 import { dropdownTrigger } from './support/dropdown-trigger'
 import { formatDiskSize } from '../components/panels/lidar/item-text'
 import { hoveredTooltip } from './support/tooltip'
-import type * as LibraryStoreModule from '../app/lidar/library-store'
+import type * as LibraryStoreModule from '../app/data-library/library-store'
 
 function layer(id: string, name: string, overrides: Partial<LibraryItemSummary> = {}): LibraryItemSummary {
   return sourceItem(id, name, { resolution_m: 0.5, value_range: [1, 2], ...overrides })

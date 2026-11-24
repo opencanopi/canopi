@@ -1,6 +1,5 @@
 import { signal, batch, effect } from "@preact/signals";
 import { currentDesign, designSessionStore } from "../document-session/store";
-import { DEFAULT_SETTINGS } from "../../generated/settings";
 import { phoneToolOptions } from "./phone-layout";
 
 export type Panel = "plant-db" | "canvas" | "favorites" | "templates" | "design-notebook" | "species-key" | "layers" | "site-data" | "calendar" | "budget" | "consortium" | "stories";
@@ -26,10 +25,6 @@ export const sidePanel = signal<SidePanel | null>(null);
 effect(() => {
   if (currentDesign.value === null && sidePanel.peek() !== "plant-db") sidePanel.value = null;
 });
-
-// Sidebar width in pixels. null = no explicit user resize, so the shell uses
-// the responsive first-use default.
-export const sidePanelWidth = signal<number | null>(DEFAULT_SETTINGS.side_panel_width);
 
 /**
  * Select a panel without applying the command-layer toggle behavior. Every route that shows a panel comes here, so on a

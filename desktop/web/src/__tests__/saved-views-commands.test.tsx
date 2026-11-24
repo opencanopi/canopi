@@ -19,12 +19,12 @@ import {
 import { currentDesign } from '../app/document-session/store'
 import { workspaceCanvasCommandProjection } from '../app/workspace-commands/canvas-actions'
 import { setCurrentCanvasSession } from '../canvas/session'
-import { createSessionPlane } from '../canvas/session-plane'
+import { createSessionPlane } from '../geo/session-plane'
 import { SavedViewDialogs } from '../components/shared/SavedViewDialogs'
 import {
   createBrowserShellCatalog,
   createBrowserShellCommandProjection,
-} from '../web/browser-shell-commands'
+} from '../editions/web/browser-shell-commands'
 import type { CanopiFile, SavedView, Story } from '../types/design'
 import {
   createTestCanvasCommandSurface,

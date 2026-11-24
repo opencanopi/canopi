@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from 'preact/hooks'
 import { useSignal } from '@preact/signals'
-import type { PanelTarget, TimelineAction } from '../../types/design'
+import type { PanelTarget, TimelineAction } from '../../generated/contracts'
 import { MANUAL_TARGET, targetIdentity } from '../../target'
 import { createUuid } from '../../utils/ids'
 import {
@@ -30,7 +30,7 @@ import {
   localToday,
   parseCivilDate,
   startOfCivilMonth,
-} from './civil-date'
+} from '../../planning/civil-date'
 
 const calendarTargetPresentation = createPanelTargetPresentationController('timeline')
 

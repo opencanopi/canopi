@@ -1,5 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { DynamicFilterOptions, SpeciesListItem } from '../types/species'
+import { installSpeciesCatalogWorkbench as __installCatalog } from '../app/plant-browser'
+import { speciesCatalogWorkbench as __desktopCatalog } from '../editions/desktop/species-catalog'
+__installCatalog(__desktopCatalog)
 
 const mocks = vi.hoisted(() => ({
   searchSpecies: vi.fn(async () => ({
@@ -92,7 +95,7 @@ describe('Species Catalog Workbench lifecycle', () => {
   })
 
   it('starts searches on mount and stops after dispose', async () => {
-    const plantDb = await import('../app/plant-browser')
+    const plantDb = await import('../app/plant-browser'); plantDb.installSpeciesCatalogWorkbench((await import('../editions/desktop/species-catalog')).speciesCatalogWorkbench)
     const dispose = plantDb.speciesCatalogWorkbench.mount()
 
     await flushMicrotasks()
@@ -108,7 +111,7 @@ describe('Species Catalog Workbench lifecycle', () => {
 
   it('routes active-to-too-short search supersession through the desktop IPC adapter', async () => {
     vi.useFakeTimers()
-    const plantDb = await import('../app/plant-browser')
+    const plantDb = await import('../app/plant-browser'); plantDb.installSpeciesCatalogWorkbench((await import('../editions/desktop/species-catalog')).speciesCatalogWorkbench)
     const activeSearch = deferred<Awaited<ReturnType<typeof mocks.searchSpecies>>>()
     const dispose = plantDb.speciesCatalogWorkbench.mount()
     await flushMicrotasks()
@@ -129,7 +132,7 @@ describe('Species Catalog Workbench lifecycle', () => {
   })
 
   it('surfaces explicit unavailable errors when search short-circuits in degraded mode', async () => {
-    const plantDb = await import('../app/plant-browser')
+    const plantDb = await import('../app/plant-browser'); plantDb.installSpeciesCatalogWorkbench((await import('../editions/desktop/species-catalog')).speciesCatalogWorkbench)
     ;(mocks.searchSpecies as ReturnType<typeof vi.fn>)
       .mockRejectedValueOnce(new Error('Plant database unavailable: bundled plant database is missing'))
 
@@ -145,7 +148,7 @@ describe('Species Catalog Workbench lifecycle', () => {
   })
 
   it('increments result-set revision on first-page searches but not pagination appends', async () => {
-    const plantDb = await import('../app/plant-browser')
+    const plantDb = await import('../app/plant-browser'); plantDb.installSpeciesCatalogWorkbench((await import('../editions/desktop/species-catalog')).speciesCatalogWorkbench)
     ;(mocks.searchSpecies as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
       items: [],
       next_cursor: 'offset:50',
@@ -169,7 +172,7 @@ describe('Species Catalog Workbench lifecycle', () => {
   })
 
   it('caches dynamic filter options per locale', async () => {
-    const plantDb = await import('../app/plant-browser')
+    const plantDb = await import('../app/plant-browser'); plantDb.installSpeciesCatalogWorkbench((await import('../editions/desktop/species-catalog')).speciesCatalogWorkbench)
     const appState = await import('../app/settings/state')
     const englishOptions: DynamicFilterOptions[] = [
       {
@@ -208,7 +211,7 @@ describe('Species Catalog Workbench lifecycle', () => {
   })
 
   it('deduplicates concurrent dynamic option requests for the same locale and field', async () => {
-    const plantDb = await import('../app/plant-browser')
+    const plantDb = await import('../app/plant-browser'); plantDb.installSpeciesCatalogWorkbench((await import('../editions/desktop/species-catalog')).speciesCatalogWorkbench)
     const appState = await import('../app/settings/state')
     let resolveRequest!: (value: DynamicFilterOptions[]) => void
     const request = new Promise<DynamicFilterOptions[]>((resolve) => {
@@ -241,7 +244,7 @@ describe('Species Catalog Workbench lifecycle', () => {
   })
 
   it('records a field-level error when IPC returns no options for a requested field', async () => {
-    const plantDb = await import('../app/plant-browser')
+    const plantDb = await import('../app/plant-browser'); plantDb.installSpeciesCatalogWorkbench((await import('../editions/desktop/species-catalog')).speciesCatalogWorkbench)
     const appState = await import('../app/settings/state')
     vi.spyOn(console, 'error').mockImplementation(() => {})
 
@@ -257,7 +260,7 @@ describe('Species Catalog Workbench lifecycle', () => {
   })
 
   it('clears field-level errors after a successful retry', async () => {
-    const plantDb = await import('../app/plant-browser')
+    const plantDb = await import('../app/plant-browser'); plantDb.installSpeciesCatalogWorkbench((await import('../editions/desktop/species-catalog')).speciesCatalogWorkbench)
     const appState = await import('../app/settings/state')
     vi.spyOn(console, 'error').mockImplementation(() => {})
 
@@ -285,7 +288,7 @@ describe('Species Catalog Workbench lifecycle', () => {
   })
 
   it('records thrown IPC errors per field', async () => {
-    const plantDb = await import('../app/plant-browser')
+    const plantDb = await import('../app/plant-browser'); plantDb.installSpeciesCatalogWorkbench((await import('../editions/desktop/species-catalog')).speciesCatalogWorkbench)
     const appState = await import('../app/settings/state')
     vi.spyOn(console, 'error').mockImplementation(() => {})
 
@@ -300,7 +303,7 @@ describe('Species Catalog Workbench lifecycle', () => {
   })
 
   it('preserves the first-page total estimate when loading more results', async () => {
-    const plantDb = await import('../app/plant-browser')
+    const plantDb = await import('../app/plant-browser'); plantDb.installSpeciesCatalogWorkbench((await import('../editions/desktop/species-catalog')).speciesCatalogWorkbench)
 
     ;(mocks.searchSpecies as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
       items: [],
@@ -333,7 +336,7 @@ describe('Species Catalog Workbench lifecycle', () => {
   })
 
   it('loads favorite items into both detail and badge state', async () => {
-    const plantDb = await import('../app/plant-browser')
+    const plantDb = await import('../app/plant-browser'); plantDb.installSpeciesCatalogWorkbench((await import('../editions/desktop/species-catalog')).speciesCatalogWorkbench)
 
     ;(mocks.getFavorites as ReturnType<typeof vi.fn>).mockResolvedValueOnce([
       makePlant('Malus domestica', true),
@@ -348,7 +351,7 @@ describe('Species Catalog Workbench lifecycle', () => {
   })
 
   it('exposes selection and favorites through the Species Catalog Workbench', async () => {
-    const plantDb = await import('../app/plant-browser')
+    const plantDb = await import('../app/plant-browser'); plantDb.installSpeciesCatalogWorkbench((await import('../editions/desktop/species-catalog')).speciesCatalogWorkbench)
 
     plantDb.speciesCatalogWorkbench.selectSpecies('Malus domestica')
     ;(mocks.getFavorites as ReturnType<typeof vi.fn>).mockResolvedValueOnce([
@@ -365,7 +368,7 @@ describe('Species Catalog Workbench lifecycle', () => {
   })
 
   it('ignores stale favorite-item responses after a locale switch', async () => {
-    const plantDb = await import('../app/plant-browser')
+    const plantDb = await import('../app/plant-browser'); plantDb.installSpeciesCatalogWorkbench((await import('../editions/desktop/species-catalog')).speciesCatalogWorkbench)
     const appState = await import('../app/settings/state')
     const english = deferred<SpeciesListItem[]>()
     const french = deferred<SpeciesListItem[]>()
@@ -399,7 +402,7 @@ describe('Species Catalog Workbench lifecycle', () => {
   })
 
   it('does not let a stale favorites reload overwrite an optimistic toggle', async () => {
-    const plantDb = await import('../app/plant-browser')
+    const plantDb = await import('../app/plant-browser'); plantDb.installSpeciesCatalogWorkbench((await import('../editions/desktop/species-catalog')).speciesCatalogWorkbench)
     const pendingFavorites = deferred<SpeciesListItem[]>()
 
     ;(mocks.searchSpecies as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
@@ -432,7 +435,7 @@ describe('Species Catalog Workbench lifecycle', () => {
   })
 
   it('ignores stale sidebar list responses after a locale switch', async () => {
-    const plantDb = await import('../app/plant-browser')
+    const plantDb = await import('../app/plant-browser'); plantDb.installSpeciesCatalogWorkbench((await import('../editions/desktop/species-catalog')).speciesCatalogWorkbench)
     const appState = await import('../app/settings/state')
     const englishFavorites = deferred<SpeciesListItem[]>()
     const englishRecent = deferred<SpeciesListItem[]>()

@@ -5,7 +5,7 @@ const navigation = vi.hoisted(() => ({
   openDataLibrary: vi.fn(),
 }))
 
-vi.mock('../app/lidar/library-navigation', async (importOriginal) => ({
+vi.mock('../app/data-library/library-navigation', async (importOriginal) => ({
   ...await importOriginal<typeof LibraryNavigationModule>(),
   ...navigation,
 }))
@@ -28,7 +28,7 @@ vi.mock('../app/budget/export', async (importOriginal) => ({
 import { DESKTOP_SHELL_COMMAND_CATALOG } from '../commands/graph/catalog'
 import type { ShellCommandState } from '../app/shell-commands'
 import { t } from '../i18n'
-import type * as LibraryNavigationModule from '../app/lidar/library-navigation'
+import type * as LibraryNavigationModule from '../app/data-library/library-navigation'
 import type * as DocumentSessionActionsModule from '../app/document-session/actions'
 import type * as BudgetExportModule from '../app/budget/export'
 

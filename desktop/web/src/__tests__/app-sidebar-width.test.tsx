@@ -15,8 +15,8 @@ vi.mock('../app/shell/controller', () => ({ commitSidePanelWidth: vi.fn() }))
 
 import { App, type DesktopUpdatePorts } from '../app'
 import { commitSidePanelWidth } from '../app/shell/controller'
-import { activePanel, sidePanel, sidePanelWidth } from '../app/shell/state'
-import { locale } from '../app/settings/state'
+import { activePanel, sidePanel } from '../app/shell/state'
+import { locale, sidePanelWidth } from '../app/settings/state'
 
 /** A host with no update to offer and the launch check off. */
 const NO_UPDATES: DesktopUpdatePorts = {

@@ -6,7 +6,7 @@
 // ToolEffects.finishProfile and arms Select, since site and design work interleave. It never selects, edits the Design
 // or pins. Its draft is the rubber band, a disc per point and one length chip per segment (tools/measure-labels.ts).
 
-import type { WorldPoint } from '../view/types'
+import type { WorldPoint } from '../../../geo/view/types'
 import { createPolylineDraftMeasurements } from '../zone-measurements'
 import type { DraftShape } from './draft'
 import { measureLabelShapes } from './measure-labels'

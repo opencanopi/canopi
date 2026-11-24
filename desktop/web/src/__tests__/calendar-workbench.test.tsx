@@ -1,3 +1,4 @@
+import type { TimelineAction } from '../generated/contracts'
 // @vitest-environment jsdom
 
 import { render } from 'preact'
@@ -12,7 +13,7 @@ import { calendarAddRequest, requestCalendarAdd } from '../app/timeline/calendar
 import { setCurrentCanvasSession } from '../canvas/session'
 import { setCanvasSelection } from '../canvas/session-state'
 import { MANUAL_TARGET, speciesTarget } from '../target'
-import type { CanopiFile, TimelineAction } from '../types/design'
+import type { CanopiFile } from '../types/design'
 import {
   currentDesign,
   designSessionFixture,

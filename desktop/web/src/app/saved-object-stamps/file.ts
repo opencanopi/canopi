@@ -11,7 +11,7 @@ import {
 } from '../../canvas/runtime/scene'
 import { getZoneWorldBounds } from '../../canvas/runtime/zone-geometry'
 import { CURRENT_CANOPI_FILE_VERSION } from '../../generated/canopi-design-format'
-import { createSessionPlane, sessionPlaneOriginForPoints, type SessionPlane } from '../../canvas/session-plane'
+import { createSessionPlane, sessionPlaneOriginForPoints, type SessionPlane } from '../../geo/session-plane'
 import { t } from '../../i18n'
 
 // A stamp is a relative arrangement in metres. Its portable `.canopi` file

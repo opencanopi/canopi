@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { GestureOutcome, InputRouterDeps, ToolHost } from '../interaction-ports'
 import type { ToolHandleId } from '../interaction-types'
-import type { RotationSession } from '../view/read-surface'
+import type { RotationSession } from '../../../geo/view/read-surface'
 import type { Gesture } from './gestures'
 import { createInputRouter } from './input-router'
 

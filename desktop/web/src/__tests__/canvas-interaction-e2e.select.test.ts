@@ -10,7 +10,7 @@ import { writeSavedObjectStampDragData } from '../canvas/saved-object-stamp-sour
 import { currentCanvasLockedMoveNotice, currentCanvasSelection } from '../canvas/session-state'
 import { snapToGridEnabled } from '../app/canvas-settings/signals'
 import { createMapLibreCameraDriver } from '../maplibre/camera-driver'
-import { createSessionPlane } from '../canvas/session-plane'
+import { createSessionPlane } from '../geo/session-plane'
 import type { SceneStore, ScenePoint } from '../canvas/runtime/scene'
 import {
   createSceneInteractionSession,
@@ -18,7 +18,7 @@ import {
   type SceneInteractionSessionDeps,
 } from '../canvas/runtime/interaction-session'
 import type { CanvasDesignObjectSelectionModel } from '../canvas/runtime/runtime'
-import type { ViewFrameSource } from '../canvas/runtime/view/types'
+import type { ViewFrameSource } from '../geo/view/types'
 import type {
   SceneCommandAdmission,
   SettledSceneReader,

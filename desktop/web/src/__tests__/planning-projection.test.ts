@@ -9,7 +9,7 @@ import { buildConsortiumPlanningProjection } from '../app/planning-projection/co
 import { buildTimelineSpeciesOptions } from '../app/planning-projection/timeline'
 import { speciesDisplayNames } from '../canvas/runtime/species-key'
 import { MANUAL_TARGET, speciesBudgetTarget, speciesTarget } from '../target'
-import type { BudgetItem, Consortium, PlacedPlant, TimelineAction } from '../types/design'
+import type { BudgetItem, Consortium, PlacedPlant, TimelineAction } from '../generated/contracts'
 
 function makePlant(canonicalName: string, commonName: string | null = null): PlacedPlant {
   return {

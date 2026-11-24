@@ -10,7 +10,7 @@ import { createDesktopWorkspaceMapContributionAdapter } from './desktop-workspac
 import { createTestCanvasQuerySurface } from '../../__tests__/support/canvas-query-surface'
 import { designSessionStore } from '../document-session/store'
 import { activePanel, selectPanel, sidePanel } from '../shell/state'
-import { endSiteDataTransients, setPin, setProfileLine } from '../lidar/site-transients'
+import { endSiteDataTransients, setPin, setProfileLine } from '../data-library/site-transients'
 import type { CanopiFile } from '../../types/design'
 import { signal } from '@preact/signals'
 import { createWorkspaceRuntimeComposition } from './workspace-runtime-composition'

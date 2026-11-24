@@ -12,8 +12,8 @@ import { problemReportDialogOpen } from '../../app/problem-report/state'
 import { beforePaint, holdAfterPaint } from '../../__tests__/support/before-paint'
 import { replaceCurrentDesignState } from '../../__tests__/support/design-session-state'
 import { designSessionStore } from '../../app/document-session/store'
-import { desktopProblemReport } from '../../platform/problem-report.desktop'
-import { createBrowserProblemReportWriter, type BrowserProblemReportWriter } from '../../platform/problem-report.browser'
+import { desktopProblemReport } from '../../editions/desktop/problem-report'
+import { createBrowserProblemReportWriter, type BrowserProblemReportWriter } from '../../editions/web/problem-report'
 import en from '../../i18n/en.json'
 import type { CanopiFile } from '../../types/design'
 import { ProblemReportDialog } from './ProblemReportDialog'
@@ -268,11 +268,12 @@ describe('ProblemReportDialog', () => {
     })
     await send()
 
-    // The frontend sends its own sections; the report is one zip with no summary file (2.1-Q277). The empty ring sends
-    // no text, so the native writer marks it empty (canopi-f47t.52.36).
+    // The frontend sends its own sections (including TS-supplied settings_summary); the report is one zip with no
+    // summary file (2.1-Q277). The empty ring sends no text, so the native writer marks it empty (canopi-f47t.52.36).
     expect(mocks.createProblemReport).toHaveBeenCalledWith({
       sections: [
         { id: 'description', text: 'Canvas froze after placing a species' },
+        { id: 'settings_summary', text: expect.any(String) },
       ],
       current_design: null,
     })

@@ -1,7 +1,7 @@
 // canvas/runtime/input/raw-input.ts  (PointerKind, Modifiers, ToolId, ToolHandleId, CanvasDropPayload come from ../interaction-types.ts, §1.2a)
 
 import type { CanvasDropPayload, Modifiers, PointerKind, ToolHandleId, ToolId } from '../interaction-types'
-import type { ScreenPoint } from '../view/types'
+import type { ScreenPoint } from '../../../geo/view/types'
 import type { InputPlatform } from './platform'
 import type { PointerSession, TouchPair } from './recognise'
 import type { Thresholds } from './thresholds'

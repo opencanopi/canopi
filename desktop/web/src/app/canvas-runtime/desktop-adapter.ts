@@ -1,17 +1,16 @@
 import type { CanvasRuntimeAppAdapter } from '../../canvas/runtime/app-adapter'
 import { CanvasPlantLabelResolver } from '../../canvas/runtime/plant-labels'
-import { CanvasSpeciesCache } from '../../canvas/runtime/species-cache'
+import { CanvasSpeciesCache } from './species-cache'
 import { speciesCatalogWorkbench } from '../plant-browser'
-import { finishSiteProfile } from '../lidar/profile'
-import { pinSiteDataPoint } from '../lidar/site-values'
+import { finishSiteProfile } from '../data-library/profile'
+import { pinSiteDataPoint } from '../data-library/site-values'
 import { savedObjectStampWorkbench } from '../saved-object-stamps'
 import { createAppCanvasRuntimeAppAdapter, type CanvasRuntimeAppCapabilities } from './app-adapter'
 
 /**
- * Site data is Desktop's: a tap no tool uses pins, and Profile's finished line is profiled. The UI gallery, which stands
- * in for Desktop, hands its canvas the same two.
+ * Site data is Desktop's: a tap no tool uses pins, and Profile's finished line is profiled.
  */
-export const DESKTOP_SITE_DATA_CAPABILITIES: Pick<CanvasRuntimeAppCapabilities, 'pinAt' | 'finishProfile'> = Object.freeze({
+const DESKTOP_SITE_DATA_CAPABILITIES: Pick<CanvasRuntimeAppCapabilities, 'pinAt' | 'finishProfile'> = Object.freeze({
   pinAt: pinSiteDataPoint,
   finishProfile: finishSiteProfile,
 })

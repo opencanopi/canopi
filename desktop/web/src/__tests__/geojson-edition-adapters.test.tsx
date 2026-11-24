@@ -15,12 +15,13 @@ vi.mock('@tauri-apps/api/core', () => ({ invoke: tauri.invoke }))
 vi.mock('@tauri-apps/plugin-dialog', () => ({ message: tauri.message }))
 
 import { desktopGeoJsonFiles } from '../ipc/geojson'
-import { presentDesktopGeoJsonNotice } from '../platform/geojson.desktop'
-import { browserGeoJsonFiles } from '../web/browser-geojson'
+import { desktopGeoJsonWorkflow, presentDesktopGeoJsonNotice } from '../editions/desktop/geojson'
+import { installGeoJsonWorkflow } from '../app/geojson/workflow'
+import { browserGeoJsonFiles } from '../editions/web/browser-geojson'
 import { presentBrowserGeoJsonNotice } from '../web/browser-notices'
 import { notices, resetNoticesForTests } from '../failures/notices'
 import { t } from '../i18n'
-import { BrowserAppShell } from '../web/BrowserAppShell'
+import { BrowserAppShell } from '../editions/web/BrowserAppShell'
 import { appCommandGraphChromeProjection } from '../commands/registry'
 import { setCurrentCanvasSession } from '../canvas/session'
 import { createTestCanvasRuntimeSurfaces } from './support/canvas-runtime-surfaces'
@@ -65,7 +66,7 @@ describe('Desktop GeoJSON file adapter', () => {
     tauri.invoke.mockResolvedValue(source)
 
     await expect(desktopGeoJsonFiles.pickGeoJsonFile()).resolves.toEqual(source)
-    expect(tauri.invoke.mock.calls).toEqual([['pick_geojson_file']])
+    expect(tauri.invoke.mock.calls).toEqual([['pick_geojson_file', { operation: expect.stringMatching(/^u-/) }]])
   })
 
   it('returns null when the native open dialog is cancelled', async () => {
@@ -84,9 +85,9 @@ describe('Desktop GeoJSON file adapter', () => {
     await expect(desktopGeoJsonFiles.writeGeoJsonFile('{}', 'Site.geojson')).resolves.toBe('cancelled')
 
     expect(tauri.invoke.mock.calls).toEqual([
-      ['pick_save', { kind: 'geojson-export', stem: 'Site.geojson' }],
-      ['export_file', { data: '{}', path: '/tmp/site.geojson' }],
-      ['pick_save', { kind: 'geojson-export', stem: 'Site.geojson' }],
+      ['pick_save', { kind: 'geojson-export', stem: 'Site.geojson', operation: expect.stringMatching(/^u-/) }],
+      ['export_file', { data: '{}', path: '/tmp/site.geojson', operation: expect.stringMatching(/^u-/) }],
+      ['pick_save', { kind: 'geojson-export', stem: 'Site.geojson', operation: expect.stringMatching(/^u-/) }],
     ])
   })
 
@@ -106,6 +107,17 @@ describe('Desktop GeoJSON file adapter', () => {
 })
 
 describe('Desktop App Command Graph GeoJSON commands', () => {
+  let restoreGeoJsonWorkflow: (() => void) | null = null
+
+  beforeEach(() => {
+    restoreGeoJsonWorkflow = installGeoJsonWorkflow(desktopGeoJsonWorkflow)
+  })
+
+  afterEach(() => {
+    restoreGeoJsonWorkflow?.()
+    restoreGeoJsonWorkflow = null
+  })
+
   it('lists GeoJSON import and export in the File menu, enabled with a mounted Design', () => {
     const fileMenuIds = () => flattenMenuActions([appCommandGraphChromeProjection.value.menus
       .find((menu) => menu.id === 'file')!])
@@ -135,7 +147,7 @@ describe('Desktop App Command Graph GeoJSON commands', () => {
       .find((command) => command.id === 'file.importGeoJson')!
       .action()
     await vi.waitFor(() => expect(tauri.invoke).toHaveBeenCalledOnce())
-    expect(tauri.invoke).toHaveBeenCalledWith('pick_geojson_file')
+    expect(tauri.invoke).toHaveBeenCalledWith('pick_geojson_file', { operation: expect.stringMatching(/^u-/) })
   })
 })
 

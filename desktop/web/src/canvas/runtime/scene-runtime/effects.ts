@@ -1,7 +1,7 @@
 import { effect } from '@preact/signals'
 import type { CanvasRuntimePlantDisplayAdapter, CanvasRuntimeSettingsAdapter } from '../app-adapter'
 import type { PlantDisplay } from '../plant-display'
-import type { ViewFrameSource } from '../view/types'
+import type { ViewFrameSource } from '../../../geo/view/types'
 import type { CanvasMapBackdrop } from '../scene-visuals'
 import {
   runCanvasRuntimeCleanups,

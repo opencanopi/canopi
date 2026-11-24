@@ -1,3 +1,4 @@
+import type { GeoPoint } from '../../../generated/contracts'
 import { signal, type ReadonlySignal, type Signal } from '@preact/signals'
 import type {
   CanopiFile,
@@ -15,7 +16,7 @@ import {
   serializeScenePersistedState,
 } from './codec'
 import { ScenePlaneReprojector } from './geo-frame'
-import { createSessionPlane, DEFAULT_NEW_DESIGN_VIEW, type GeoPosition, type SessionPlane } from '../../session-plane'
+import { createSessionPlane, DEFAULT_NEW_DESIGN_VIEW, type SessionPlane } from '../../../geo/session-plane'
 import {
   createDefaultScenePersistedState,
   createDefaultSceneSessionState,
@@ -57,10 +58,10 @@ export class SceneStore {
   private _persisted: ScenePersistedState
   private _session: SceneSessionState
   private readonly _plane: Signal<SessionPlane>
-  private readonly _resolveEmptyOrigin: () => GeoPosition
+  private readonly _resolveEmptyOrigin: () => GeoPoint
 
   /** `emptyOrigin` places the session plane of a Design without objects; a Design loads through hydrate. */
-  constructor(emptyOrigin: () => GeoPosition = () => DEFAULT_NEW_DESIGN_VIEW) {
+  constructor(emptyOrigin: () => GeoPoint = () => DEFAULT_NEW_DESIGN_VIEW) {
     this._resolveEmptyOrigin = emptyOrigin
     this._persisted = freezeInDev(createDefaultScenePersistedState())
     this._plane = signal(createSessionPlane(this._resolveEmptyOrigin()))
@@ -102,7 +103,7 @@ export class SceneStore {
    * Starts a re-origin at `origin`; commitReorigin moves the scene, and the caller re-projects history with the same
    * reprojector.
    */
-  beginReorigin(origin: GeoPosition): ScenePlaneReprojector {
+  beginReorigin(origin: GeoPoint): ScenePlaneReprojector {
     return new ScenePlaneReprojector(this.sessionPlane, origin)
   }
 

@@ -31,7 +31,7 @@ import { cruise } from './dependency-cruiser.mjs';
 const RULE = 'cross-area-edges';
 const CWD = 'desktop/web';
 const CONFIGS = ['.dependency-cruiser.cjs', '.dependency-cruiser.web.cjs'];
-const REAL_ROOTS = ['src', 'ui-gallery'];
+const REAL_ROOTS = ['src'];
 const FIXTURES = 'policy/fixtures/';
 const LAYER_TABLE = 'policy/layers.json';
 const MIRROR = /^(?:\.\.\/\.\.\/policy\/fixtures\/rules\/[^/]+\/)?src\//u;
@@ -65,7 +65,7 @@ function moduleSites(root, reports) {
     fail(`no readable ${LAYER_TABLE}`);
   }
   const rows = (table.layers ?? []).filter((r) => typeof r?.path === 'string');
-  const isTest = (rel) => /\.(?:test|spec)\.tsx?$/u.test(rel) || rowFor(rows, rel)?.layer === 'test';
+  const isTest = (rel) => /\.(?:test|spec)\.tsx?$/u.test(rel) || rowFor(rows, rel)?.layer === 'test' || rowFor(rows, rel)?.edition === 'gallery';
   const sites = [];
   const unplaced = new Map();
   const areaOf = (rel, source) => {

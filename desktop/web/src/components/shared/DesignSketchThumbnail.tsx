@@ -1,4 +1,4 @@
-import type { DesignSketch } from '../../types/design'
+import type { DesignSketch } from '../../generated/contracts'
 import styles from './DesignSketchThumbnail.module.css'
 
 /** Margin around the Design's objects, as a share of the sketch's longer side. */

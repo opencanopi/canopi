@@ -6,7 +6,7 @@
 
 import { describe, expect, it, vi } from 'vitest'
 import { t } from '../../i18n'
-import { createBrowserShellCatalog } from '../../web/browser-shell-commands'
+import { createBrowserShellCatalog } from '../../editions/web/browser-shell-commands'
 import { projectShellCommandCatalog, type ShellCommandState } from './index'
 
 const STATE: ShellCommandState = { hasDesign: true, revertAvailable: false, activePanel: 'canvas', sidePanel: null }

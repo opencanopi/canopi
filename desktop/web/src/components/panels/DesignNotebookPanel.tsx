@@ -2,12 +2,12 @@ import type { ComponentChildren } from 'preact'
 import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks'
 import { t } from '../../i18n'
 import { locale } from '../../app/settings/state'
-import { formatInstantInList } from '../../app/timeline/civil-date'
+import { formatInstantInList } from '../../planning/civil-date'
 import {
   designNotebookWorkbench,
   type DesignNotebookWorkbench,
 } from '../../app/design-notebook'
-import type { DesignNotebookEntry, DesignNotebookSection } from '../../types/design'
+import type { DesignNotebookEntry, DesignNotebookSection } from '../../generated/contracts'
 import { DockPanelHeader } from '../shared/DockPanelHeader'
 import styles from './DesignNotebookPanel.module.css'
 import { usePointerReorder } from '../shared/usePointerReorder'

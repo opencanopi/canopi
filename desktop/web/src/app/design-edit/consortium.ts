@@ -1,4 +1,4 @@
-import type { Consortium } from '../../types/design'
+import type { Consortium } from '../../generated/contracts'
 import { getConsortiumCanonicalName } from '../../target'
 import { editDesignArray } from './core'
 

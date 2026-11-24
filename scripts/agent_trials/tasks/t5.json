@@ -7,7 +7,7 @@
     "canopi-types/src/settings.rs",
     "app/settings/",
     "components/shared/SettingsDialog.tsx",
-    "platform/settings.browser.ts",
+    "editions/web/settings.ts",
     "app/canvas-runtime/app-adapter.ts",
     "canvas/runtime/renderers/label-admission.ts"
   ],

@@ -13,7 +13,7 @@ import { createPixiScenePresentation, type PixiScenePresentation } from '../canv
 import type { ScenePlantEntity } from '../canvas/runtime/scene'
 import { SceneRuntimeRenderScheduler } from '../canvas/runtime/scene-runtime/render-scheduler'
 import { getCanvasTextOpacity } from '../canvas/runtime/text-visibility'
-import { SETTLE_MS } from '../canvas/runtime/view/frame-source'
+import { SETTLE_MS } from '../geo/view/frame-source'
 import type { DraftPresentation } from '../canvas/runtime/tools/draft'
 import { createTestSceneRendererSnapshot } from './support/scene-renderer-snapshot'
 import { createTestView, type TestView } from './support/test-view'

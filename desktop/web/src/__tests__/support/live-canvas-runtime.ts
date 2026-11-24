@@ -1,7 +1,7 @@
 import { SceneCanvasRuntime, type SceneCanvasRuntimeOptions } from '../../canvas/runtime/scene-runtime'
 import type { CanvasRuntimeSurfaces } from '../../canvas/runtime/runtime'
 import { createForwardingCanvasKeyboardPort } from '../../canvas/runtime/keyboard-port'
-import type { CameraDriverHost } from '../../canvas/runtime/view/camera-driver'
+import type { CameraDriverHost } from '../../geo/view/camera-driver'
 
 export interface TestCanvasRuntimeHostOptions extends SceneCanvasRuntimeOptions {
   /** The map's size in CSS px: the runtime is resized to it before init, as the map container reports its size. */

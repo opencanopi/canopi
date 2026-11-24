@@ -2,7 +2,12 @@
   "$schema": "./ratchet.schema.json",
   "family": "date-only-in-civil-date",
   "entries": {
-    "desktop/web/src/components/panels/CalendarPanel.tsx": { "count": 4, "bead": "canopi-f47t.52.189" },
-    "desktop/web/src/maplibre/satellite-http.browser.ts": { "count": 1 }
+    "desktop/web/src/components/panels/CalendarPanel.tsx": {
+      "count": 4,
+      "bead": "canopi-f47t.52.189"
+    },
+    "desktop/web/src/maplibre/satellite-http.ts": {
+      "count": 1
+    }
   }
 }

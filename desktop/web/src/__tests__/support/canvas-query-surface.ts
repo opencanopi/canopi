@@ -11,14 +11,14 @@ import type {
   CanvasQuerySurface,
 } from '../../canvas/runtime/runtime'
 import type { PointerWorld } from '../../canvas/runtime/interaction-ports'
-import type { PlacedPlant } from '../../types/design'
-import type { SpeciesCacheEntry } from '../../canvas/runtime/species-cache'
-import { createViewReadSurface } from '../../canvas/runtime/view/frame-source'
-import type { ViewReadSurface } from '../../canvas/runtime/view/read-surface'
-import type { ViewFrame, ViewFrameSource, ViewScreen } from '../../canvas/runtime/view/types'
-import { planarToViewCamera } from '../../canvas/runtime/view/camera-math'
-import { buildViewTransform } from '../../canvas/runtime/view/view-transform'
-import { createSessionPlane, type SessionPlane } from '../../canvas/session-plane'
+import type { PlacedPlant } from '../../generated/contracts'
+import type { SpeciesCacheEntry } from '../../canvas/runtime/presentation-data'
+import { createViewReadSurface } from '../../geo/view/frame-source'
+import type { ViewReadSurface } from '../../geo/view/read-surface'
+import type { ViewFrame, ViewFrameSource, ViewScreen } from '../../geo/view/types'
+import { planarToViewCamera } from '../../geo/view/camera-math'
+import { buildViewTransform } from '../../geo/view/view-transform'
+import { createSessionPlane, type SessionPlane } from '../../geo/session-plane'
 import { TEST_GEO_ORIGIN } from './geo-design'
 
 /** A bearing-0 placement in today's terms: screen = world × scale + { x, y }. */

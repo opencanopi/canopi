@@ -142,12 +142,11 @@
       "ledger": "2.1-M186",
       "family": "edition-roots",
       "adr": "0022",
-      "owner_today": "desktop/web/src/main.tsx",
-      "example": "desktop/web/src/main.web.tsx",
+      "owner_today": "desktop/web/src/editions/desktop/main.tsx",
+      "example": "desktop/web/src/editions/web/main.tsx",
       "type_only": "counts",
       "scope": [
-        "desktop/web/src/**",
-        "desktop/web/ui-gallery/**"
+        "desktop/web/src/**"
       ]
     },
     {
@@ -197,8 +196,7 @@
       "example": "desktop/web/src/__tests__/support/design-session-state.ts",
       "type_only": "counts",
       "scope": [
-        "desktop/web/src/**",
-        "desktop/web/ui-gallery/**"
+        "desktop/web/src/**"
       ]
     },
     {
@@ -238,7 +236,7 @@
       "family": "knip",
       "adr": "0028",
       "owner_today": "desktop/web/knip.json",
-      "example": "desktop/web/src/main.tsx",
+      "example": "desktop/web/src/editions/desktop/main.tsx",
       "note": "knip --production over both edition graphs; a new unused file, export, type or dependency fails, a kept entry names its bead; an exported type used only in its own file's exported signatures is not unused (2.1-Q215)"
     },
     {
@@ -285,15 +283,13 @@
     },
     {
       "id": "edition-ports-installed-only-by-roots",
-      "status": "planned",
+      "tool": "ast-grep",
       "ledger": "2.1-M186",
+      "family": "edition-ports-installed-only-by-roots",
       "adr": "0022",
-      "owner_target": {
-        "path": "desktop/web/src/editions",
-        "phase": "2a",
-        "bead": "canopi-f47t.52.45"
-      },
-      "note": "only an edition root installs its EditionPorts record (2a)"
+      "owner_today": "desktop/web/src/editions",
+      "example": "desktop/web/src/editions/desktop/boot.ts",
+      "note": "only an edition root installs its EditionPorts record or desktop workspace runtime composition (2a)"
     },
     {
       "id": "app-tests-import-no-scene-runtime",
@@ -322,12 +318,12 @@
       "ledger": "2.1-M186",
       "family": "browser-app-shell-imports-no-command-state",
       "adr": "0022",
-      "owner_today": "desktop/web/src/web/BrowserAppShell.tsx",
-      "example": "desktop/web/src/web/BrowserAppShell.tsx",
+      "owner_today": "desktop/web/src/editions/web/BrowserAppShell.tsx",
+      "example": "desktop/web/src/editions/web/BrowserAppShell.tsx",
       "type_only": "counts",
       "graph": {
         "from": [
-          "web/BrowserAppShell.tsx"
+          "editions/web/BrowserAppShell.tsx"
         ],
         "to": [
           "app/shell/state.ts",
@@ -344,12 +340,12 @@
       "ledger": "2.1-M186",
       "family": "browser-canvas-runtime-imports-no-app-policy",
       "adr": "0022",
-      "owner_today": "desktop/web/src/web/browser-canvas-runtime.ts",
-      "example": "desktop/web/src/web/browser-canvas-runtime.ts",
+      "owner_today": "desktop/web/src/editions/web/browser-canvas-runtime.ts",
+      "example": "desktop/web/src/editions/web/browser-canvas-runtime.ts",
       "type_only": "counts",
       "graph": {
         "from": [
-          "web/browser-canvas-runtime.ts"
+          "editions/web/browser-canvas-runtime.ts"
         ],
         "to": [
           "ipc/**",
@@ -377,7 +373,7 @@
           "web/browser-design-session.ts"
         ],
         "to": [
-          "web/BrowserAppShell.tsx"
+          "editions/web/BrowserAppShell.tsx"
         ]
       },
       "note": "Browser Design Session stays independent of shell components"
@@ -388,12 +384,12 @@
       "ledger": "2.1-M186",
       "family": "browser-workspace-imports-no-desktop",
       "adr": "0022",
-      "owner_today": "desktop/web/src/web/browser-workspace-runtime.ts",
-      "example": "desktop/web/src/web/browser-workspace-runtime.ts",
+      "owner_today": "desktop/web/src/editions/web/browser-workspace-runtime.ts",
+      "example": "desktop/web/src/editions/web/browser-workspace-runtime.ts",
       "type_only": "counts",
       "graph": {
         "from": [
-          "web/browser-workspace-runtime.ts"
+          "editions/web/browser-workspace-runtime.ts"
         ],
         "to": [
           "ipc/**",
@@ -401,7 +397,7 @@
           "app/canvas-map-surface/desktop-workspace-runtime.ts",
           "app/canvas-map-surface/desktop-workspace-map-contribution-adapter.ts",
           "maplibre/raster-display/**",
-          "app/lidar/**"
+          "app/data-library/**"
         ],
         "packages": [
           "@tauri-apps/**"
@@ -415,21 +411,21 @@
       "ledger": "2.1-M186",
       "family": "browser-workspace-reaches-no-desktop",
       "adr": "0022",
-      "owner_today": "desktop/web/src/web/browser-workspace-runtime.ts",
-      "example": "desktop/web/src/web/browser-workspace-runtime.ts",
+      "owner_today": "desktop/web/src/editions/web/browser-workspace-runtime.ts",
+      "example": "desktop/web/src/editions/web/browser-workspace-runtime.ts",
       "type_only": "excluded",
       "graph": {
         "from": [
-          "web/browser-workspace-runtime.ts",
-          "web/browser-workspace-map-contribution-adapter.ts",
+          "editions/web/browser-workspace-runtime.ts",
+          "editions/web/browser-workspace-map-contribution-adapter.ts",
           "app/canvas-map-surface/workspace-map-contributions.ts"
         ],
         "to": [
           "ipc/**",
           "app/canvas-map-surface/desktop-workspace-map-contribution-adapter.ts",
           "maplibre/raster-display/**",
-          "app/lidar/library-store.ts",
-          "app/lidar/display.ts"
+          "app/data-library/library-store.ts",
+          "app/data-library/display.ts"
         ],
         "packages": [
           "@tauri-apps/**"
@@ -497,7 +493,7 @@
           "web/**",
           "ipc/**",
           "canvas/runtime/plant-labels.ts",
-          "canvas/runtime/species-cache.ts",
+          "app/canvas-runtime/species-cache.ts",
           "app/saved-object-stamps/**",
           "app/canvas-runtime/desktop-adapter.ts"
         ],
@@ -612,12 +608,12 @@
       "ledger": "2.1-M186",
       "family": "command-graph-only-through-registry",
       "adr": "0022",
-      "owner_today": "desktop/web/src/platform/desktop.ts",
-      "example": "desktop/web/src/platform/desktop.ts",
+      "owner_today": "desktop/web/src/editions/desktop/boot.ts",
+      "example": "desktop/web/src/editions/desktop/boot.ts",
       "type_only": "counts",
       "graph": {
         "from": [
-          "platform/desktop.ts",
+          "editions/desktop/main.tsx",
           "components/shared/MenuBar.tsx",
           "components/shared/TitleBar.tsx",
           "components/panels/DesktopPanelRail.tsx",
@@ -737,7 +733,7 @@
           "commands/**"
         ]
       },
-      "note": "The right-click menu runs only its request\u2019s scene edits"
+      "note": "The right-click menu runs only its request’s scene edits"
     },
     {
       "id": "design-edit-authority-only-in-core",
@@ -785,15 +781,15 @@
       "ledger": "2.1-M186",
       "family": "desktop-reaches-no-web-only-modules",
       "adr": "0022",
-      "owner_today": "desktop/web/src/main.tsx",
-      "example": "desktop/web/src/main.tsx",
+      "owner_today": "desktop/web/src/editions/desktop/main.tsx",
+      "example": "desktop/web/src/editions/desktop/main.tsx",
       "type_only": "excluded",
       "graph": [
         {
           "from": [
-            "main.tsx",
+            "editions/desktop/main.tsx",
             "app.tsx",
-            "platform/desktop.ts"
+            "editions/desktop/main.tsx"
           ],
           "to": [
             "web/browser-draft-persistence.ts"
@@ -803,12 +799,12 @@
         },
         {
           "from": [
-            "main.tsx",
+            "editions/desktop/main.tsx",
             "app.tsx",
-            "platform/desktop.ts"
+            "editions/desktop/main.tsx"
           ],
           "to": [
-            "web/browser-release-watch.ts"
+            "editions/web/browser-release-watch.ts"
           ],
           "reachable": true,
           "runtime": true
@@ -855,7 +851,7 @@
         "to": [
           "canvas/session.ts",
           "app/document-session/store.ts",
-          "app/consortium/time-model.ts"
+          "planning/time-model.ts"
         ],
         "packages": [
           "@preact/signals"
@@ -899,14 +895,14 @@
           "canvas/runtime/scene/**",
           "canvas/runtime/renderers/**",
           "canvas/runtime/chrome/**",
-          "canvas/runtime/view/**",
+          "geo/view/**",
           "app/**"
         ],
         "toNot": [
-          "canvas/runtime/view/navigation-policy.ts"
+          "geo/view/navigation-policy.ts"
         ],
         "typeOnlyTo": [
-          "canvas/runtime/view/**"
+          "geo/view/**"
         ]
       },
       "note": "P43 the input core stays camera-free and app-free"
@@ -960,12 +956,12 @@
       "ledger": "2.1-M186",
       "family": "lidar-design-edit-only-in-lidar-actions",
       "adr": "0022",
-      "owner_today": "desktop/web/src/app/lidar/actions.ts",
-      "example": "desktop/web/src/app/lidar/actions.ts",
+      "owner_today": "desktop/web/src/app/data-library/actions.ts",
+      "example": "desktop/web/src/app/data-library/actions.ts",
       "type_only": "counts",
       "graph": {
         "fromNot": [
-          "app/lidar/actions.ts"
+          "app/data-library/actions.ts"
         ],
         "to": [
           "app/design-edit/lidar.ts"
@@ -1006,7 +1002,7 @@
           "app/canvas-map-surface/**",
           "app/canvas-runtime/**",
           "app/panel-targets/**",
-          "web/browser-workspace-map-contribution-adapter.ts"
+          "editions/web/browser-workspace-map-contribution-adapter.ts"
         ],
         "to": [
           "app/story-presentation/controller.ts",
@@ -1250,7 +1246,7 @@
           "canvas/plant-spacing-sequence.ts"
         ],
         "typeOnlyTo": [
-          "canvas/runtime/view/types.ts",
+          "geo/view/types.ts",
           "canvas/runtime/tools/draft.ts",
           "canvas/runtime/tools/select/handle-size.ts",
           "canvas/runtime/interaction-types.ts",
@@ -1308,12 +1304,12 @@
       "ledger": "2.1-M186",
       "family": "projection-imports-nothing",
       "adr": "0022",
-      "owner_today": "desktop/web/src/canvas/projection.ts",
-      "example": "desktop/web/src/canvas/projection.ts",
+      "owner_today": "desktop/web/src/geo/projection.ts",
+      "example": "desktop/web/src/geo/projection.ts",
       "type_only": "counts",
       "graph": {
         "from": [
-          "canvas/projection.ts"
+          "geo/projection.ts"
         ],
         "to": [
           "**"
@@ -1358,7 +1354,7 @@
         ],
         "to": [
           "canvas/runtime/plant-labels.ts",
-          "canvas/runtime/species-cache.ts"
+          "app/canvas-runtime/species-cache.ts"
         ]
       },
       "note": "Canvas Runtime presentation data stays behind the App Adapter"
@@ -1575,7 +1571,7 @@
           "maplibre/**",
           "app/**",
           "components/**",
-          "canvas/runtime/view/**",
+          "geo/view/**",
           "canvas/runtime/input/**",
           "canvas/runtime/renderers/**",
           "canvas/runtime/chrome/**",
@@ -1587,7 +1583,7 @@
           "@preact/signals"
         ],
         "typeOnlyTo": [
-          "canvas/runtime/view/types.ts"
+          "geo/view/types.ts"
         ]
       },
       "note": "P5 tools import no MapLibre, DOM or Pixi"
@@ -1642,21 +1638,21 @@
       "ledger": "2.1-M186",
       "family": "view-imports-only-pure-modules",
       "adr": "0022",
-      "owner_today": "desktop/web/src/canvas/runtime/view",
-      "example": "desktop/web/src/canvas/runtime/view/camera-driver.ts",
+      "owner_today": "desktop/web/src/geo/view",
+      "example": "desktop/web/src/geo/view/camera-driver.ts",
       "type_only": "counts",
       "graph": {
         "from": [
-          "canvas/runtime/view/**"
+          "geo/view/**"
         ],
         "to": [
           "**"
         ],
         "toNot": [
-          "canvas/runtime/view/**",
-          "canvas/projection.ts",
-          "canvas/session-plane.ts",
-          "canvas/workspace-camera-policy.ts"
+          "geo/view/**",
+          "geo/projection.ts",
+          "geo/session-plane.ts",
+          "geo/workspace-camera-policy.ts"
         ],
         "typeOnlyTo": [
           "canvas/runtime/scene/types.ts",
@@ -1684,12 +1680,12 @@
           "web/**"
         ],
         "to": [
-          "canvas/runtime/view/**"
+          "geo/view/**"
         ],
         "typeOnlyTo": [
-          "canvas/runtime/view/read-surface.ts",
-          "canvas/runtime/view/types.ts",
-          "canvas/runtime/view/camera-driver.ts"
+          "geo/view/read-surface.ts",
+          "geo/view/types.ts",
+          "geo/view/camera-driver.ts"
         ]
       },
       "note": "P10 the app, components and Web import view types only"
@@ -1701,7 +1697,7 @@
       "family": "web-imports-no-desktop-modules",
       "adr": "0022",
       "owner_today": "desktop/web/src/web",
-      "example": "desktop/web/src/web/BrowserAppShell.tsx",
+      "example": "desktop/web/src/editions/web/BrowserAppShell.tsx",
       "type_only": "counts",
       "graph": {
         "from": [
@@ -1736,7 +1732,7 @@
       "family": "web-imports-no-settings-projection",
       "adr": "0022",
       "owner_today": "desktop/web/src/web",
-      "example": "desktop/web/src/web/BrowserAppShell.tsx",
+      "example": "desktop/web/src/editions/web/BrowserAppShell.tsx",
       "type_only": "counts",
       "graph": {
         "from": [
@@ -1754,12 +1750,12 @@
       "ledger": "2.1-M186",
       "family": "web-species-panel-imports-no-plant-detail",
       "adr": "0022",
-      "owner_today": "desktop/web/src/web/WebSpeciesCatalogPanel.tsx",
-      "example": "desktop/web/src/web/WebSpeciesCatalogPanel.tsx",
+      "owner_today": "desktop/web/src/editions/web/WebSpeciesCatalogPanel.tsx",
+      "example": "desktop/web/src/editions/web/WebSpeciesCatalogPanel.tsx",
       "type_only": "counts",
       "graph": {
         "from": [
-          "web/WebSpeciesCatalogPanel.tsx"
+          "editions/web/WebSpeciesCatalogPanel.tsx"
         ],
         "to": [
           "components/plant-detail/**",
@@ -2020,7 +2016,7 @@
       "ledger": "2.1-M186",
       "family": "view-transform-only-in-view-module",
       "adr": "0022",
-      "owner_today": "desktop/web/src/canvas/runtime/view",
+      "owner_today": "desktop/web/src/geo/view",
       "example": "desktop/web/src/canvas/runtime/inspection-lens.ts",
       "note": "P3 only the view module and the lens build a view transform"
     },
@@ -2050,7 +2046,7 @@
       "ledger": "2.1-M186",
       "family": "no-map-projection",
       "adr": "0022",
-      "owner_today": "desktop/web/src/canvas/runtime/view",
+      "owner_today": "desktop/web/src/geo/view",
       "example": "desktop/web/src/app.tsx",
       "note": "P2 nobody projects through MapLibre"
     },
@@ -2170,7 +2166,7 @@
       "ledger": "2.1-M186",
       "family": "no-free-world-to-screen-export",
       "adr": "0022",
-      "owner_today": "desktop/web/src/canvas/runtime/view",
+      "owner_today": "desktop/web/src/geo/view",
       "example": "desktop/web/src/app.tsx",
       "note": "P3 no module exports a free worldToScreen or screenToWorld"
     },
@@ -2220,7 +2216,7 @@
       "ledger": "2.1-M186",
       "family": "no-hand-rolled-projection",
       "adr": "0022",
-      "owner_today": "desktop/web/src/canvas/runtime/view",
+      "owner_today": "desktop/web/src/geo/view",
       "example": "desktop/web/src/canvas/runtime/inspection-lens-drawing.ts",
       "note": "no hand-rolled projection outside the view module; the reviewed entries are sizes, never positions (P3b)"
     },
@@ -2240,8 +2236,8 @@
       "ledger": "2.1-M186",
       "family": "preload-error-only-in-release-watch",
       "adr": "0022",
-      "owner_today": "desktop/web/src/web/browser-release-watch.ts",
-      "example": "desktop/web/src/web/browser-release-watch.ts",
+      "owner_today": "desktop/web/src/editions/web/browser-release-watch.ts",
+      "example": "desktop/web/src/editions/web/browser-release-watch.ts",
       "note": "only the release watch names vite:preloadError (M179)"
     },
     {
@@ -2250,8 +2246,8 @@
       "ledger": "2.1-M186",
       "family": "raster-quantity-literal-only-in-item-types",
       "adr": "0022",
-      "owner_today": "desktop/web/src/app/lidar/item-types.ts",
-      "example": "desktop/web/src/app/lidar/item-types.ts",
+      "owner_today": "desktop/web/src/app/data-library/item-types.ts",
+      "example": "desktop/web/src/app/data-library/item-types.ts",
       "note": "item-types.ts is the one place that spells a RasterQuantity member (canopi-f47t.42)"
     },
     {
@@ -2381,7 +2377,7 @@
       "family": "updater-plugin-only-in-updater",
       "owner_today": "desktop/src/host/updater/mod.rs",
       "example": "desktop/src/host/updater/mod.rs",
-      "note": "the updater plugin (tauri_plugin_updater) only in the updater module, desktop/src/host/updater/ (ADR 0023 Checks, contracts \u00a73 Updater, Phase 0 F6); cargo-deny admits the crate only through canopi-desktop; at 0",
+      "note": "the updater plugin (tauri_plugin_updater) only in the updater module, desktop/src/host/updater/ (ADR 0023 Checks, contracts §3 Updater, Phase 0 F6); cargo-deny admits the crate only through canopi-desktop; at 0",
       "scope": [
         "desktop/src/**",
         "canopi-types/src/**",
@@ -2410,15 +2406,12 @@
     },
     {
       "id": "edition-root-parity",
-      "status": "planned",
+      "tool": "edition-root-parity",
       "ledger": "2.1-M211",
+      "family": "edition-root-parity",
       "adr": "0030",
-      "owner_today": "none",
-      "owner_target": {
-        "path": "desktop/web/src/editions",
-        "phase": "2a",
-        "bead": "canopi-f47t.52.45"
-      },
+      "owner_today": "desktop/web/src/editions",
+      "example": "desktop/web/src/__tests__/edition-root-parity.test.ts",
       "note": "the two edition roots' commands, FileDelivery rows, map contributions, panels, settings slices and keymap are equal but where a capability row names the difference (ADR 0030 Checks, Phase 2a)"
     },
     {
@@ -2447,7 +2440,7 @@
         "phase": "N1",
         "bead": "canopi-f47t.52.190"
       },
-      "note": "\u00a718 R3: a command reaches the executor only through a facade method with its OpSpec; native_command_policy::tests holds today's 81 executor calls in 10 command files until N1"
+      "note": "§18 R3: a command reaches the executor only through a facade method with its OpSpec; native_command_policy::tests holds today's 81 executor calls in 10 command files until N1"
     },
     {
       "id": "rust-search-fold-only-in-search-text",
@@ -2460,7 +2453,7 @@
         "path": "desktop/src",
         "phase": "N4"
       },
-      "note": "\u00a718 R18: Rust search folding only in canopi-search-text, held by the shared corpus run natively and through the page wasm; 6 implementations today (the TS half is search-fold-only-in-search-text)"
+      "note": "§18 R18: Rust search folding only in canopi-search-text, held by the shared corpus run natively and through the page wasm; 6 implementations today (the TS half is search-fold-only-in-search-text)"
     },
     {
       "id": "locale-list-only-in-registry",
@@ -2471,10 +2464,10 @@
       "owner_today": "none",
       "owner_target": {
         "path": "desktop/src",
-        "phase": "2a",
-        "bead": "canopi-f47t.52.45"
+        "phase": "2e",
+        "bead": "canopi-f47t.52.56"
       },
-      "note": "\u00a718 R19: locale lists and sys_locale only in the canopi-types registry, held by the consistency test; 1 today"
+      "note": "§18 R19: locale lists and sys_locale only in the canopi-types registry, held by the consistency test; 1 today (desktop/src/services/settings.rs)"
     },
     {
       "id": "wasm-bindgen-only-in-wasm-crates",
@@ -2484,7 +2477,7 @@
       "family": "cargo-deny",
       "owner_today": "canopi-format-wasm/Cargo.toml",
       "example": "canopi-format-wasm/src/lib.rs",
-      "note": "\u00a718 R20: wasm-bindgen only in the -wasm crates, each created in its phase (deny.toml [bans] wrappers over the native graph, where the -wasm crate's plain dependency is the one edge); canopi-format-wasm from Step 2.0.4 (canopi-f47t.52.270)"
+      "note": "§18 R20: wasm-bindgen only in the -wasm crates, each created in its phase (deny.toml [bans] wrappers over the native graph, where the -wasm crate's plain dependency is the one edge); canopi-format-wasm from Step 2.0.4 (canopi-f47t.52.270)"
     },
     {
       "id": "edition-pairs",
@@ -2494,7 +2487,7 @@
       "family": "edition-pairs",
       "owner_today": "desktop/web/src/platform",
       "example": "desktop/web/src/platform/problem-report.ts",
-      "note": "contracts \u00a722 (F3): every *.desktop.ts or *.browser.ts sits in platform/ beside a port with the same stem"
+      "note": "contracts §22 (F3): every *.desktop.ts or *.browser.ts sits in platform/ beside a port with the same stem"
     },
     {
       "id": "no-path-string-command-arg",
@@ -2514,7 +2507,7 @@
         "desktop/web/src/ipc/**/*.ts"
       ],
       "keys": "path",
-      "note": "\u00a718 R21: #[tauri::command] and ipc/ wrappers carry no raw path string or PathBuf argument; grants replace them in 2b/N2 (2.1-M522)"
+      "note": "§18 R21: #[tauri::command] and ipc/ wrappers carry no raw path string or PathBuf argument; grants replace them in 2b/N2 (2.1-M522)"
     },
     {
       "id": "tauri-crate-only-in-desktop",
@@ -2524,7 +2517,7 @@
       "family": "cargo-deny",
       "owner_today": "desktop/Cargo.toml",
       "example": "desktop/src/commands/health.rs",
-      "note": "\u00a718 R1, the cargo-deny half of tauri-only-in-shell: the tauri crate only under canopi-desktop and its Tauri plugins (deny.toml [bans] wrappers, DR26), so a library crate split out at N1 cannot depend on it"
+      "note": "§18 R1, the cargo-deny half of tauri-only-in-shell: the tauri crate only under canopi-desktop and its Tauri plugins (deny.toml [bans] wrappers, DR26), so a library crate split out at N1 cannot depend on it"
     },
     {
       "id": "format-crate-bans-native",
@@ -2534,7 +2527,7 @@
       "family": "format-crate-bans-native",
       "owner_today": "canopi-format/Cargo.toml",
       "example": "canopi-format-wasm/Cargo.toml",
-      "note": "\u00a718 R7: canopi-format and canopi-format-wasm reach no tauri, tokio or rusqlite over normal and build edges, nor schemars, which the Web worker's module would carry (canopi-f47t.52.270) (design check F9: policy/adapters/cargo-tree.mjs reads each one's whole graph, since cargo-deny's [bans] wrappers judge only direct parents); from Step 2.0.4 (canopi-f47t.52.270)"
+      "note": "§18 R7: canopi-format and canopi-format-wasm reach no tauri, tokio or rusqlite over normal and build edges, nor schemars, which the Web worker's module would carry (canopi-f47t.52.270) (design check F9: policy/adapters/cargo-tree.mjs reads each one's whole graph, since cargo-deny's [bans] wrappers judge only direct parents); from Step 2.0.4 (canopi-f47t.52.270)"
     },
     {
       "id": "catalog-store-only-in-desktop",
@@ -2548,7 +2541,7 @@
         "phase": "N2",
         "bead": "canopi-f47t.52.47"
       },
-      "note": "\u00a718 R6: canopi-catalog and canopi-store meet only in canopi-desktop, no catalog-store edge (cargo-deny [bans] with the crates)"
+      "note": "§18 R6: canopi-catalog and canopi-store meet only in canopi-desktop, no catalog-store edge (cargo-deny [bans] with the crates)"
     },
     {
       "id": "sha2-only-in-support",
@@ -2562,7 +2555,7 @@
         "phase": "N1",
         "bead": "canopi-f47t.52.190"
       },
-      "note": "\u00a718 R10: sha2 and other hashers only through canopi-support's hash (cargo-deny [bans] wrappers, with the crate)"
+      "note": "§18 R10: sha2 and other hashers only through canopi-support's hash (cargo-deny [bans] wrappers, with the crate)"
     },
     {
       "id": "no-attach-step",
@@ -2602,7 +2595,7 @@
       "owner_target": {
         "path": "desktop/web/src/editions",
         "phase": "2a",
-        "bead": "canopi-f47t.52.45"
+        "bead": "canopi-f47t.52.185"
       },
       "example": "desktop/web/src/app/workspace-commands/capabilities.ts",
       "note": "no edition test in feature code: an edition literal, the build-edition constant or a native-host global, or a presence branch on a Desktop-meaning optional prop; only the edition roots and platform adapters know the edition (ADR 0030 Checks, 2.1-Q239); path: count sites, 40 in 21 files at the base, 0 at Phase 2's close"
@@ -2614,7 +2607,7 @@
       "family": "no-reexport-only-types-module",
       "owner_today": "none",
       "example": "desktop/web/src/app/settings/state.ts",
-      "note": "a types/ module whose every statement is an `export ... from` re-export is a shim hiding its generated owner (contracts \u00a712, Q45 pass); 4 at the base, 0 at Phase 2's close"
+      "note": "a types/ module whose every statement is an `export ... from` re-export is a shim hiding its generated owner (contracts §12, Q45 pass); 4 at the base, 0 at Phase 2's close"
     },
     {
       "id": "guarded-files",
@@ -2729,8 +2722,22 @@
       "example": "desktop/web/src/app/planning-projection/timeline.ts",
       "note": "t takes the generated LocaleKey union; a key built at run time is a typed table lookup (Record<Union, LocaleKey>) or a template over a closed union, a value from an open set goes through openSetText, whose key family is typed; a cast to LocaleKey and an isLocaleKey call outside i18n/index.ts are counted sites (design-check A30), and a key chosen by a count compared with 1 (a ternary inside t's arguments, or both branches reading a key with none passing count) is refused (APP-06, design-check 1b-c6); the baseline is policy/ratchets/locale-key-typing.json",
       "scope": [
-        "desktop/web/src/**",
-        "desktop/web/ui-gallery/**"
+        "desktop/web/src/**"
+      ]
+    },
+    {
+      "id": "no-rust-settings-parsing",
+      "tool": "ast-grep",
+      "ledger": "2.1-M518",
+      "adr": "0024",
+      "family": "no-rust-settings-parsing",
+      "owner_today": "desktop/web/src/app/settings/state.ts",
+      "example": "desktop/src/services/settings.rs",
+      "note": "Rust code outside the settings store boundary never parses or reads typed settings fields (Stage 2 E1, ADR 0024); existing sites in problem_report.rs and host/updater/launch.rs are ratcheted until 2e-2 makes record 2 opaque; the baseline is policy/ratchets/no-rust-settings-parsing.json",
+      "scope": [
+        "desktop/src/**",
+        "canopi-types/src/**",
+        "bindings-gen/src/**"
       ]
     },
     {

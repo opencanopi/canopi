@@ -2,20 +2,20 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { LidarDisplayDescriptor } from '../ipc/lidar'
-import type { LidarPresentationItem } from '../app/lidar/library-store'
+import type { LidarPresentationItem } from '../app/data-library/library-store'
 
 const invoke = vi.fn()
 vi.mock('@tauri-apps/api/core', () => ({ invoke: (...args: unknown[]) => invoke(...args) }))
 const requestCutOutlierRange = vi.fn()
 const cutRanges = new Map<string, readonly [number, number]>()
-vi.mock('../app/lidar/display-range', () => ({
+vi.mock('../app/data-library/display-range', () => ({
   requestCutOutlierRange: (...args: unknown[]) => requestCutOutlierRange(...args),
   cutOutlierRange: (key: string) => cutRanges.get(key) ?? null,
   resetCutOutlierRanges: () => cutRanges.clear(),
 }))
 
-const display = await import('../app/lidar/display')
-const { lidarLibrary } = await import('../app/lidar/library-store')
+const display = await import('../app/data-library/display')
+const { lidarLibrary } = await import('../app/data-library/library-store')
 const { setStoryPresentationOverrides } = await import('../app/story-presentation/overrides')
 const { designSessionFixture } = await import('./support/design-session-state')
 const { createDefaultMapLayers } = await import('../app/map-layers/state')
@@ -199,6 +199,7 @@ describe('LiDAR display descriptor requests', () => {
     expect(invoke).toHaveBeenCalledTimes(2)
     expect(invoke).toHaveBeenCalledWith('lidar_display_descriptor', {
       request: { kind: 'Source', entity_id: 'lyr-1', expected_generation_id: 'gen-2', retry: false, relief: false },
+      operation: expect.stringMatching(/^u-/),
     })
   })
 
@@ -230,6 +231,7 @@ describe('LiDAR display descriptor requests', () => {
       // The ground elevation draws Relief, its default.
       expect(invoke).toHaveBeenCalledWith('lidar_display_descriptor', {
         request: { kind: 'Source', entity_id: 'lyr-1', expected_generation_id: 'gen-2', retry: false, relief: true },
+        operation: expect.stringMatching(/^u-/),
       })
     } finally {
       setStoryPresentationOverrides(null)
@@ -323,7 +325,7 @@ describe('LiDAR display descriptor requests', () => {
     const { h, render } = await import('preact')
     const { act } = await import('preact/test-utils')
     const { LibraryPreview } = await import('../components/panels/lidar/LibraryPreview')
-    const { libraryItems } = await import('../app/lidar/library-items')
+    const { libraryItems } = await import('../app/data-library/library-items')
     const [preview] = libraryItems(librarySnapshot([sourceItem('lyr-1', 'Orchard terrain', { generation_id: 'gen-2' })]))
     const host = document.createElement('div')
     try {
@@ -331,6 +333,7 @@ describe('LiDAR display descriptor requests', () => {
       await vi.advanceTimersByTimeAsync(0)
       expect(invoke).toHaveBeenCalledWith('lidar_display_descriptor', {
         request: { kind: 'Source', entity_id: 'lyr-1', expected_generation_id: 'gen-2', retry: false, relief: true },
+        operation: expect.stringMatching(/^u-/),
       })
     } finally {
       render(null, host)
@@ -413,6 +416,7 @@ describe('LiDAR display descriptor refusals', () => {
     // The re-ask is no Retry of a failed preparation.
     expect(invoke).toHaveBeenLastCalledWith('lidar_display_descriptor', {
       request: { kind: 'Source', entity_id: 'lyr-1', expected_generation_id: 'gen-2', retry: false, relief: true },
+      operation: expect.stringMatching(/^u-/),
     })
     expect(recentFrontendDiagnostics()).toEqual([
       expect.objectContaining({ source: 'ipc.lidar_display_descriptor', message: 'Native user-data operations are busy; try again' }),

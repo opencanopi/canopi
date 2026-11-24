@@ -1,5 +1,5 @@
 import { effect } from '@preact/signals'
-import { createPdfDelivery } from '#canvas-pdf-platform'
+import { editionPorts, hasEditionPorts, type PdfDeliveryPort } from '../../platform/edition-ports'
 import { currentCanvasQuerySurface } from '../../canvas/session'
 import { designSessionStore } from '../document-session/store'
 import { speciesCatalogWorkbench } from '../plant-browser'
@@ -36,7 +36,7 @@ export const canvasPdf = createPdfWorkflow({
   resolveDisplayNames: (names, language) => speciesCatalogWorkbench.resolveDisplayNames(names, language),
   resolveHabits: (names) => speciesCatalogWorkbench.resolveHabits(names),
   prepare: async (input, signal, progress) => (await import('./job')).preparePdfJob(input, pdfFontUrls(), signal, progress),
-  delivery: createPdfDelivery(),
+  delivery: createLazyPdfDelivery(),
   labels: () => ({ notes: t('pdf.notes'), observations: t('pdf.observations'), keyAndNotes: t('pdf.keyAndNotes'), overview: t('pdf.overview'), plants: t('pdf.plants'), actualSize: t('pdf.actualSize'),
     detail: t('pdf.detail'), measurementSummary: t('pdf.measurementSummary'), zone: t('pdf.zone'), longSide: t('pdf.longSide'), width: t('pdf.width'), guides: t('pdf.guides'),
     metres: t('pdf.metres'), diameters: t('pdf.diameters'), outerSides: t('pdf.outerSides'), quantity: t('pdf.quantity'), species: t('pdf.species'), plantKey: t('pdf.plantKey'),
@@ -61,4 +61,19 @@ const normalise = (deg: number) => ((deg % 360) + 360) % 360
 function symbolNames(): Record<string, string> {
   return Object.fromEntries(PLANT_SYMBOL_IDS.map(symbol => [symbol, t(`canvas.plantSymbol.names.${symbol}`)]))
 }
+function createLazyPdfDelivery(): PdfDeliveryPort {
+  let cached: PdfDeliveryPort | null = null
+  return {
+    save(bytes, name, signal) {
+      cached ??= editionPorts().canvasPdfDelivery()
+      return cached.save(bytes, name, signal)
+    },
+    dispose() {
+      cached?.dispose()
+      cached = null
+      void hasEditionPorts()
+    },
+  }
+}
+
 if (import.meta.hot) import.meta.hot.dispose(() => { disposeObservation(); canvasPdf.dispose() })

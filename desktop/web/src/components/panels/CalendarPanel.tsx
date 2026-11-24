@@ -13,7 +13,7 @@ import {
   compareCivilDates,
   startOfCivilMonth,
   type CivilDate,
-} from '../../app/timeline/civil-date'
+} from '../../planning/civil-date'
 import { ACTION_TYPES, ACTION_TYPE_LABEL_KEYS, missingZoneLabel, type CalendarDayProjection, type CalendarPlanningAction, type CalendarTargetLabel } from '../../app/planning-projection'
 import type { CalendarCompletionFilter, CalendarDisplay } from '../../app/planning-view/state'
 import { t } from '../../i18n'

@@ -6,7 +6,7 @@ import {
 } from './support/design-session-state'
 import { moveConsortiumEntry } from '../app/design-edit'
 import { consortiumTarget } from '../target'
-import type { Consortium } from '../types/design'
+import type { Consortium } from '../generated/contracts'
 
 function consortium(canonicalName: string, overrides: Partial<Omit<Consortium, 'target'>> = {}): Consortium {
   return {

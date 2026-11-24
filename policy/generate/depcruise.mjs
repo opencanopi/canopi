@@ -2,7 +2,7 @@
 // tables' active rows (contracts §12, §18; ADR 0022 Checks; 2.1-M185, 2.1-M218; Phase 0 F1a, split from
 // policy/generate.mjs by 2.1-Q243).
 //
-// The Desktop config (tsconfig.json) and the Web config (tsconfig.web-graph.json, holding only the Web-only rules so no
+// The Desktop config (tsconfig.json) and the Web config (tsconfig.json, holding only the Web-only rules so no
 // id is reported from both graphs, AF27). A rule is generated only for an active row (a planned row generates none)
 // and names its id, or `<id>:<sub>`, its ADR, owner and canonical example from that row. Every path regex also admits
 // the planted mirror, policy/fixtures/rules/<id>/src/<module path>, so a planted violation runs through the real
@@ -181,9 +181,10 @@ function depcruiseRules(table, rows) {
 
   const ipc = rows.get('ipc-only-in-desktop-adapters');
   const ipcPaths = rowsAt((r) => r.area === 'ipc');
+  const desktopRootPaths = rowsAt((r) => r.area === 'editions/desktop');
   if (ipc && ipcPaths.length) {
-    rule(desktop, ipc, '', 'ipc/ is imported only by ipc/ and the *.desktop.ts adapters (2.1-M143)',
-      { pathNot: notTest(srcRe(ipcPaths), DESKTOP_ADAPTER) }, { path: srcRe(ipcPaths) });
+    rule(desktop, ipc, '', 'ipc/ is imported only by ipc/, editions/desktop/ and the *.desktop.ts adapters (2.1-M143)',
+      { pathNot: notTest(srcRe([...ipcPaths, ...desktopRootPaths]), DESKTOP_ADAPTER) }, { path: srcRe(ipcPaths) });
   }
 
   const tests = rows.get('no-product-imports-a-test');
@@ -205,7 +206,7 @@ function depcruiseRules(table, rows) {
     const desktopRoot = srcRe(rowsAt((r) => r.layer === 'L5' && r.edition === 'desktop'));
     const webRoot = srcRe(rowsAt((r) => r.layer === 'L5' && r.edition === 'web'));
     const allRoots = anyOf([desktopRoot, webRoot]);
-    const gallery = anyOf((table.outside ?? []).filter((o) => o.edition === 'gallery').map((o) => `${under(bare(o.path))}${o.path.endsWith('/') ? '/' : '$'}`));
+    const gallery = srcRe(rowsAt((r) => r.layer === 'L5' && r.edition === 'gallery'));
     const pairMeta = {
       desktop: { root: desktopRoot, rootLabel: 'the Desktop root', kindLabel: 'Desktop', target: 'desktop' },
       browser: { root: webRoot, rootLabel: 'the Web root', kindLabel: 'browser', target: 'web' },
@@ -225,9 +226,9 @@ function depcruiseRules(table, rows) {
       { pathNot: notTest() }, { dependencyTypes: ['aliased-tsconfig-paths'], pathNot: '^node_modules/' });
     if (gallery) {
       rule(desktop, roots, 'no-src-imports-gallery', 'no src module imports the gallery edition root (contracts §13)',
-        { path: under('src/'), pathNot: notTest() }, { path: gallery });
-      rule(desktop, roots, 'gallery-imports-no-native', 'gallery files import no ipc/, @tauri-apps/* or .desktop.ts module directly (aliased specifiers wait for editions/gallery/, 2a)',
-        { path: gallery }, { path: anyOf([srcRe(ipcPaths), '^node_modules/@tauri-apps/', DESKTOP_ADAPTER]), dependencyTypesNot: ['aliased-tsconfig-paths', 'aliased'] });
+        { path: under('src/'), pathNot: notTest(gallery) }, { path: gallery });
+      rule(desktop, roots, 'gallery-imports-no-native', 'gallery files reach no ipc/, @tauri-apps/* or .desktop.ts module (contracts §13)',
+        { path: gallery, pathNot: notTest() }, { path: anyOf([srcRe(ipcPaths), '^node_modules/@tauri-apps/', DESKTOP_ADAPTER]), reachable: true });
     }
     const webEntries = srcRe(rowsAt((r) => r.layer === 'L5' && r.edition === 'web' && r.entry));
     const desktopOnly = anyOf([srcRe(rowsAt((r) => r.edition === 'desktop')), DESKTOP_ADAPTER,
@@ -268,7 +269,7 @@ const depcruiseOptions = (table, rows, tsConfig, typeOnlyEdges) => ({
   doNotFollow: { path: '^node_modules/' },
   // A named package's bare specifier too, whether a package row or a rule's graph spec names it: the one a planted
   // fixture, unable to resolve packages, leaves unresolved; and the Node built-ins a rule names, which resolve bare.
-  includeOnly: [...new Set(['^src/', '^ui-gallery/', '^node_modules/', '^node:', `^${MIRROR}`,
+  includeOnly: [...new Set(['^src/', '^node_modules/', '^node:', `^${MIRROR}`,
     ...(table.packages ?? []).filter((p) => p.pattern !== '*').map((p) => pkgRe(p.pattern).replace('(?:node_modules/)?', '')),
     ...rulePackages(rows)])],
   exclude: { path: ['\\.css$', '\\.svg$'] },
@@ -311,7 +312,7 @@ function depcruiseConfigObjects(table, rows) {
   const { desktop, web } = depcruiseRules(table, rows);
   return {
     desktop: { forbidden: desktop, options: depcruiseOptions(table, rows, 'tsconfig.json', true) },
-    web: { forbidden: web, options: depcruiseOptions(table, rows, 'tsconfig.web-graph.json', false) },
+    web: { forbidden: web, options: depcruiseOptions(table, rows, 'tsconfig.json', false) },
     policy: { forbidden: policyRules(table, rows), options: policyOptions() },
   };
 }

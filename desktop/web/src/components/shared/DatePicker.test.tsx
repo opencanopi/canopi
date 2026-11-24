@@ -3,7 +3,7 @@
 import { render } from 'preact'
 import { act } from 'preact/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { civilWeekStartDay } from '../../app/timeline/civil-date'
+import { civilWeekStartDay } from '../../planning/civil-date'
 import { unmount } from '../../__tests__/support/unmount'
 import { DatePicker } from './DatePicker'
 import { locale } from '../../app/settings/state'

@@ -16,7 +16,7 @@ import {
 import type { SceneEditTransaction } from '../../scene-runtime/transactions'
 import type { SceneDesignObjectTarget } from '../../scene/design-object-targets'
 import type { ScenePersistedState } from '../../scene/types'
-import type { WorldPoint } from '../../view/types'
+import type { WorldPoint } from '../../../../geo/view/types'
 import type { DraftPresentation } from '../draft'
 import { plantDragDistanceGuideShapes } from '../distance-guides'
 import type { ToolContext, ToolPoint } from '../tool'

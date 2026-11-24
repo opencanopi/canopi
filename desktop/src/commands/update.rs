@@ -11,7 +11,6 @@ use canopi_types::{
 use tauri::{AppHandle, Runtime, State, ipc::Channel};
 
 use crate::{
-    db::UserDb,
     host::updater::{self, ProgressSink, UpdaterHost},
     native_operation::NativeOperationExecutor,
 };
@@ -69,25 +68,6 @@ pub fn update_cancel(updater: State<'_, UpdaterHost>, operation: String) {
 #[tauri::command(async)]
 pub fn update_restart<R: Runtime>(app: AppHandle<R>, design_path: Option<PathBuf>) {
     updater::restart(&app, design_path)
-}
-
-/// Whether Canopi checks for an update at launch.
-#[tauri::command]
-pub async fn update_launch_check_get(
-    executor: State<'_, NativeOperationExecutor>,
-    user_db: State<'_, UserDb>,
-) -> Result<bool, Failure> {
-    updater::launch_check_get(executor.inner(), user_db.inner().clone()).await
-}
-
-/// Stores whether Canopi checks for an update at launch.
-#[tauri::command]
-pub async fn update_launch_check_set(
-    executor: State<'_, NativeOperationExecutor>,
-    user_db: State<'_, UserDb>,
-    on: bool,
-) -> Result<(), Failure> {
-    updater::launch_check_set(executor.inner(), user_db.inner().clone(), on).await
 }
 
 /// Whether this launch follows a Windows update that did not install; true once.

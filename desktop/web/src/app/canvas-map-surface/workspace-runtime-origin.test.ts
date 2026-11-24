@@ -3,7 +3,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { createDetachedCanvasRuntimeAppAdapter } from '../../canvas/runtime/app-adapter'
 import { createDetachedSceneRuntimePanelTargetAdapter } from '../../canvas/runtime/scene-runtime/panel-target-adapter'
-import { createSessionPlane, DEFAULT_NEW_DESIGN_VIEW } from '../../canvas/session-plane'
+import { createSessionPlane, DEFAULT_NEW_DESIGN_VIEW } from '../../geo/session-plane'
 import type { SharedMapSceneRendererComposition } from '../../maplibre/shared-scene-renderer'
 import type { WorkspaceActivationOptions } from './workspace-activation'
 import type { WorkspaceGenerationLifecycle } from './workspace-generation-reconciler'

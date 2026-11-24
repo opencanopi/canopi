@@ -3,7 +3,7 @@
 import { render } from 'preact'
 import { act } from 'preact/test-utils'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { WebLayersPanel } from '../web/WebLayersPanel'
+import { WebLayersPanel } from '../editions/web/WebLayersPanel'
 import { createDefaultMapLayers, mapLayers } from '../app/map-layers/state'
 import { locale } from '../app/settings/state'
 import { setCurrentCanvasSession } from '../canvas/session'

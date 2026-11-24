@@ -298,7 +298,7 @@ describe('affected selection (canopi-f47t.52.228.10)', () => {
   })
 
   it('canopi-f47t.52.228.10: the gallery runs the root typecheck and the gallery e2e', () => {
-    repo.stage('desktop/web/ui-gallery/main.tsx')
+    repo.stage('desktop/web/src/editions/gallery/main.tsx')
     const printed = repo.printed(['affected', '--base', repo.base])
     const checks = printed.checks.map((check) => check.command)
     expect(checks).toContain(TYPECHECK)

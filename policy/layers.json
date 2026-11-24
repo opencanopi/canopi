@@ -36,14 +36,6 @@
    "note": "the start-up guard: a classic script vite.config.ts builds and loads before the entry module; the app imports only its types (2.1-M489)"
   },
   {
-   "path": "utils/theme.ts",
-   "layer": "L0",
-   "destination": "app/settings/theme.ts",
-   "phase": "2a",
-   "edition": "both",
-   "area": "utils"
-  },
-  {
    "path": "styles/",
    "layer": "L0",
    "edition": "both",
@@ -74,7 +66,6 @@
    "path": "geo/",
    "layer": "L0",
    "phase": "2a",
-   "status": "new",
    "edition": "both",
    "area": "geo"
   },
@@ -82,7 +73,6 @@
    "path": "planning/",
    "layer": "L0",
    "phase": "2a",
-   "status": "new",
    "edition": "both",
    "area": "planning"
   },
@@ -194,43 +184,6 @@
    "edition": "both",
    "area": "canvas",
    "owner": "Scene"
-  },
-  {
-   "path": "canvas/session-plane.ts",
-   "layer": "L2",
-   "rank": 3,
-   "destination": "geo/session-plane.ts",
-   "phase": "2a",
-   "edition": "both",
-   "area": "canvas"
-  },
-  {
-   "path": "canvas/projection.ts",
-   "layer": "L2",
-   "rank": 3,
-   "destination": "geo/projection.ts",
-   "phase": "2a",
-   "edition": "both",
-   "area": "canvas"
-  },
-  {
-   "path": "canvas/workspace-camera-policy.ts",
-   "layer": "L2",
-   "rank": 3,
-   "destination": "geo/workspace-camera-policy.ts",
-   "phase": "2a",
-   "edition": "both",
-   "area": "canvas"
-  },
-  {
-   "path": "canvas/runtime/view/",
-   "layer": "L2",
-   "rank": 3,
-   "destination": "geo/view/",
-   "phase": "2a",
-   "edition": "both",
-   "area": "canvas",
-   "note": "the view module (ADR 0022 L0 geo/, ADR 0016): view transform, camera maths, navigation policy, the camera-driver interface, frames and fit; it imports only @preact/signals, generated/ and the three geo/ moves. 2a-1 moves it; the MapLibre camera driver stays in maplibre/ (its row)"
   },
   {
    "path": "app/design-edit/document/",
@@ -403,18 +356,9 @@
    "area": "app/keyboard"
   },
   {
-   "path": "app/lidar/",
-   "layer": "L3",
-   "destination": "app/data-library/",
-   "phase": "2a",
-   "edition": "desktop",
-   "area": "app/lidar"
-  },
-  {
    "path": "app/data-library/",
    "layer": "L3",
    "phase": "2a",
-   "status": "new",
    "edition": "desktop",
    "area": "app/data-library",
    "note": "app/lidar/ renamed, path only (2.1-M43); the Data library behind the file-access port in 2a-4 (2.1-M4, 2.1-M12)"
@@ -571,30 +515,13 @@
    "edition": "desktop",
    "area": "app/updates",
    "owner": "UpdateState",
-   "note": "the Desktop updater's state and controller (contracts §3, 2.1-M208); it takes ipc/update.ts as a port from the Desktop root, so it imports no ipc/ module"
+   "note": "the Desktop updater's state and controller (contracts \u00a73, 2.1-M208); it takes ipc/update.ts as a port from the Desktop root, so it imports no ipc/ module"
   },
   {
    "path": "app/workspace-commands/",
    "layer": "L3",
    "edition": "both",
    "area": "app/workspace-commands"
-  },
-  {
-   "path": "app/timeline/civil-date.ts",
-   "layer": "L3",
-   "destination": "planning/civil-date.ts",
-   "phase": "2a",
-   "edition": "both",
-   "area": "app/timeline"
-  },
-  {
-   "path": "app/consortium/time-model.ts",
-   "layer": "L3",
-   "destination": "planning/time-model.ts",
-   "phase": "2a",
-   "edition": "both",
-   "area": "app/consortium",
-   "note": "the time model and succession phases (ADR 0022 L0 planning/). createDefaultConsortiumEntry calls target/ (L3), so it stays in L3: 2a-1 moves it into app/consortium/workflow.ts, its one caller, and planning/time-model.ts keeps the phases, strata and default phase and stratum"
   },
   {
    "path": "app/document-session/actions.ts",
@@ -701,22 +628,6 @@
    "area": "app-shell"
   },
   {
-   "path": "main.tsx",
-   "layer": "L5",
-   "edition": "desktop",
-   "entry": true,
-   "area": "desktop-root",
-   "note": "the Desktop root until editions/desktop/ (2a)"
-  },
-  {
-   "path": "main.web.tsx",
-   "layer": "L5",
-   "edition": "web",
-   "entry": true,
-   "area": "web-root",
-   "note": "the Web root until editions/web/ (2a)"
-  },
-  {
    "path": "web/",
    "layer": "L5",
    "phase": "2a",
@@ -725,11 +636,11 @@
    "note": "splits in 2a into adapters beside their ports, editions/web/ and the Session core (ADR 0022:22); no single destination"
   },
   {
-   "path": "web/dev-entry.ts",
+   "path": "editions/web/dev-entry.ts",
    "layer": "L5",
    "edition": "web",
    "entry": true,
-   "area": "web-root"
+   "area": "editions/web"
   },
   {
    "path": "web/browser-design-sources.ts",
@@ -744,24 +655,45 @@
    "path": "editions/desktop/",
    "layer": "L5",
    "phase": "2a",
-   "status": "new",
    "edition": "desktop",
+   "area": "editions/desktop"
+  },
+  {
+   "path": "editions/desktop/main.tsx",
+   "layer": "L5",
+   "phase": "2a",
+   "edition": "desktop",
+   "entry": true,
    "area": "editions/desktop"
   },
   {
    "path": "editions/web/",
    "layer": "L5",
    "phase": "2a",
-   "status": "new",
    "edition": "web",
+   "area": "editions/web"
+  },
+  {
+   "path": "editions/web/main.tsx",
+   "layer": "L5",
+   "phase": "2a",
+   "edition": "web",
+   "entry": true,
    "area": "editions/web"
   },
   {
    "path": "editions/gallery/",
    "layer": "L5",
    "phase": "2a",
-   "status": "new",
    "edition": "gallery",
+   "area": "editions/gallery"
+  },
+  {
+   "path": "editions/gallery/main.tsx",
+   "layer": "L5",
+   "phase": "2a",
+   "edition": "gallery",
+   "entry": true,
    "area": "editions/gallery"
   },
   {
@@ -774,16 +706,10 @@
    "path": "maplibre/raster-display/fixtures/",
    "layer": "test",
    "edition": "both",
-   "note": "recorded raster test data; the gallery imports three of them, named entries of no-product-imports-a-test until 2a (canopi-f47t.52.71)"
+   "note": "recorded raster test data"
   }
  ],
  "outside": [
-  {
-   "path": "ui-gallery/",
-   "edition": "gallery",
-   "entry": true,
-   "role": "the gallery edition root until editions/gallery/ (2a); imports a Web root file and three test fixtures"
-  },
   {
    "path": "vite.config.ts",
    "edition": "both",
@@ -791,7 +717,11 @@
   }
  ],
  "policy": {
-  "cli": ["check.mjs", "generate.mjs", "gate/cli.mjs"],
+  "cli": [
+   "check.mjs",
+   "generate.mjs",
+   "gate/cli.mjs"
+  ],
   "role": "the policy tooling's command-line entries, relative to policy/: argv and main only, their library in policy/core (2.1-M348); policy-imports-no-cli forbids a policy module importing one, and a policy import cycle"
  },
  "packages": [
@@ -877,8 +807,7 @@
    "pattern": "@tauri-apps/",
    "owner": [
     "ipc/",
-    "platform/*.desktop.ts",
-    "platform/desktop.ts"
+    "editions/desktop/"
    ],
    "chunk": "tauri",
    "editions": [

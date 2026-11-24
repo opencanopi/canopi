@@ -1,8 +1,8 @@
 import type { SubsystemHealth } from "../../generated/contracts";
 import { applyHealthSnapshot } from "../../failures/health";
 import { reportFailure } from "../../failures/report";
-import { initTheme } from "../../utils/theme";
-import type { SettingsPlatformAdapter } from "../settings/platform-adapter";
+import { initTheme } from "../settings/theme";
+import type { SettingsPlatformAdapter } from "../../platform/settings";
 import { installSettingsProjection } from "../settings/projection";
 
 export interface ShellBootstrap {

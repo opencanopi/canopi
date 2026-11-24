@@ -23,12 +23,12 @@ use syn::{
 };
 
 #[derive(Clone, Copy)]
-struct SyncCommandAllowance {
-    path: &'static str,
+pub(crate) struct SyncCommandAllowance {
+    pub(crate) path: &'static str,
     reason: &'static str,
 }
 
-const SYNC_COMMAND_ALLOWLIST: &[SyncCommandAllowance] = &[
+pub(crate) const SYNC_COMMAND_ALLOWLIST: &[SyncCommandAllowance] = &[
     SyncCommandAllowance {
         path: "commands::design::new_design",
         reason: "constructs bounded generated defaults and a timestamp without external I/O",
@@ -68,7 +68,7 @@ const SYNC_COMMAND_ALLOWLIST: &[SyncCommandAllowance] = &[
 /// filesystem, SQLite or network touch, belongs inside the `executor.run(...)` closure.
 #[derive(Clone, Copy)]
 struct StateAccessAllowance {
-    path: &'static str,
+    pub(crate) path: &'static str,
     operation: &'static str,
     reason: &'static str,
 }
@@ -391,7 +391,7 @@ fn parse_command_facts(module: &str, source: &str) -> Result<Vec<CommandFact>, S
     Ok(facts)
 }
 
-fn parse_command_registry(source: &str) -> Result<Vec<String>, String> {
+pub(crate) fn parse_command_registry(source: &str) -> Result<Vec<String>, String> {
     let file = syn::parse_file(source)
         .map_err(|error| format!("failed to parse native command registry source: {error}"))?;
     let mut visitor = CommandRegistryVisitor::default();
@@ -990,7 +990,8 @@ fn invoked_command_names(source: &str) -> Vec<String> {
     while let Some(offset) = source[search..].find("invoke") {
         let start = search + offset;
         search = start + "invoke".len();
-        search += "Command".len() * usize::from(source[search..].starts_with("Command"));
+        search += "Command".len() * usize::from(source[search..].starts_with("Command"))
+            + "Typed".len() * usize::from(source[search..].starts_with("Typed"));
         if start > 0 && is_identifier_byte(bytes[start - 1]) {
             continue;
         }
@@ -1256,6 +1257,7 @@ mod tests {
     };
     use std::path::Path;
 
+    mod commands_parity;
     fn audit_one(name: &str, src: &str) -> Vec<String> {
         let reg = format!("tauri::generate_handler![commands::fixture::{name}];");
         audit_command_policy(&reg, &[("fixture", src)], &[], &[])

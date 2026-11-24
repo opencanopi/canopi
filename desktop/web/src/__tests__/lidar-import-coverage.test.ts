@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 const coverage = vi.hoisted(() => ({ read: vi.fn() }))
 vi.mock('../ipc/lidar', () => ({ lidarImportCoverage: coverage.read }))
 
-import { checkImportCoverage, compareCoverage, coverageCanvas, designGroundBox } from '../app/lidar/import-coverage'
+import { checkImportCoverage, compareCoverage, coverageCanvas, designGroundBox } from '../app/data-library/import-coverage'
 import { setCurrentCanvasSession } from '../canvas/session'
 import { createTestCanvasQuerySurface } from './support/canvas-query-surface'
 import { createTestCanvasRuntimeSurfaces } from './support/canvas-runtime-surfaces'

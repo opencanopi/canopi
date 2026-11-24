@@ -1,0 +1,37 @@
+{
+  "description": "Shared Rust<->TS version admission parity vectors for STORE_FLOORS and admit_version (Stage 2 Item 9, ADR 0026).",
+  "bounded": {
+    "store": "user_db",
+    "min_readable": 2,
+    "current": 9,
+    "max_readable": 10,
+    "cases": [
+      { "found": null, "expected": { "kind": "missing" } },
+      { "found": 1, "expected": { "kind": "pre_floor", "version": 1, "min_readable": 2 } },
+      { "found": 2, "expected": { "kind": "upgradable", "from": 2 } },
+      { "found": 8, "expected": { "kind": "upgradable", "from": 8 } },
+      { "found": 9, "expected": { "kind": "current" } },
+      { "found": 10, "expected": { "kind": "newer_read_only", "version": 10 } },
+      { "found": 11, "expected": { "kind": "refused_newer", "version": 11, "max_supported": 10 } }
+    ]
+  },
+  "stores": [
+    { "store": "user_db", "found": null, "expected": { "kind": "missing" } },
+    { "store": "user_db", "found": 8, "expected": { "kind": "pre_floor", "version": 8, "min_readable": 9 } },
+    { "store": "user_db", "found": 9, "expected": { "kind": "current" } },
+    { "store": "user_db", "found": 10, "expected": { "kind": "newer_read_only", "version": 10 } },
+    { "store": "user_db", "found": 999, "expected": { "kind": "newer_read_only", "version": 999 } },
+    { "store": "settings", "found": 0, "expected": { "kind": "pre_floor", "version": 0, "min_readable": 1 } },
+    { "store": "settings", "found": 1, "expected": { "kind": "current" } },
+    { "store": "settings", "found": 2, "expected": { "kind": "newer_read_only", "version": 2 } },
+    { "store": "library_catalogue", "found": 24, "expected": { "kind": "pre_floor", "version": 24, "min_readable": 25 } },
+    { "store": "library_catalogue", "found": 25, "expected": { "kind": "current" } },
+    { "store": "library_catalogue", "found": 26, "expected": { "kind": "newer_read_only", "version": 26 } },
+    { "store": "web_drafts", "found": 3, "expected": { "kind": "pre_floor", "version": 3, "min_readable": 4 } },
+    { "store": "web_drafts", "found": 4, "expected": { "kind": "current" } },
+    { "store": "web_drafts", "found": 5, "expected": { "kind": "newer_read_only", "version": 5 } },
+    { "store": "web_species_lists", "found": 0, "expected": { "kind": "pre_floor", "version": 0, "min_readable": 1 } },
+    { "store": "web_species_lists", "found": 1, "expected": { "kind": "current" } },
+    { "store": "web_species_lists", "found": 2, "expected": { "kind": "newer_read_only", "version": 2 } }
+  ]
+}

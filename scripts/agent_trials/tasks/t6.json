@@ -9,7 +9,7 @@
     "scripts/generate-web-catalog.py",
     "scripts/web_catalog_artifact_contract.py",
     "canopi-types/web-species-catalog-artifact.json",
-    "web/duckdb-wasm-catalog.ts"
+    "editions/web/duckdb-wasm-catalog.ts"
   ],
   "start": {
     "baseline": "a699e290b744114c20f6e67720540414044d46f0",

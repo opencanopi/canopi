@@ -31,8 +31,8 @@ describe('the Design dialogs go through the host (canopi-f47t.52.228.14, 2.1-M81
 
     await expect(openDesignDialog()).resolves.toEqual({ design: loaded, path: '/designs/orchard.canopi' })
     expect(invoke.mock.calls).toEqual([
-      ['pick_open', { kind: 'design-open' }],
-      ['load_design', { path: '/designs/orchard.canopi' }],
+      ['pick_open', { kind: 'design-open', operation: expect.stringMatching(/^u-/) }],
+      ['load_design', { path: '/designs/orchard.canopi', operation: expect.stringMatching(/^u-/) }],
     ])
   })
 
@@ -53,14 +53,14 @@ describe('the Design dialogs go through the host (canopi-f47t.52.228.14, 2.1-M81
     await expect(selectDesignSavePath({ currentPath, suggestedName: 'Hedgerow' })).resolves.toBe(
       '/designs/chosen.canopi',
     )
-    expect(invoke).toHaveBeenCalledWith('pick_save', { kind: 'design-save', stem })
+    expect(invoke).toHaveBeenCalledWith('pick_save', { kind: 'design-save', stem, operation: expect.stringMatching(/^u-/) })
   })
 
   it('a cancelled Save throws the cancel the save flow expects', async () => {
     invoke.mockResolvedValueOnce({ kind: 'cancelled' })
 
     await expect(selectDesignSavePath({ currentPath: null, suggestedName: '' })).rejects.toSatisfy(isCancelledFailure)
-    expect(invoke).toHaveBeenCalledWith('pick_save', { kind: 'design-save', stem: 'Untitled' })
+    expect(invoke).toHaveBeenCalledWith('pick_save', { kind: 'design-save', stem: 'Untitled', operation: expect.stringMatching(/^u-/) })
   })
 })
 
@@ -96,6 +96,7 @@ describe('native Design IPC wire format', () => {
         future_top_level: { keep: true },
       }),
       expectedFingerprint: 'fp-1',
+      operation: expect.stringMatching(/^u-/),
     })
     expect(invokedContent()).not.toHaveProperty('extra')
     expect(onWritten).toHaveBeenCalledWith('fp-2')
@@ -145,6 +146,7 @@ describe('native Design IPC wire format', () => {
       content: expect.objectContaining({
         future_top_level: { keep: true },
       }),
+      operation: expect.stringMatching(/^u-/),
     })
     expect(invokedContent()).not.toHaveProperty('extra')
   })
@@ -157,10 +159,10 @@ describe('native Design IPC wire format', () => {
     await deleteDesignDraft('draft-id')
 
     expect(invoke.mock.calls).toEqual([
-      ['load_design', { path: '/designs/garden.canopi' }],
-      ['load_design_draft', { id: 'draft-id' }],
-      ['list_design_drafts'],
-      ['delete_design_draft', { id: 'draft-id' }],
+      ['load_design', { path: '/designs/garden.canopi', operation: expect.stringMatching(/^u-/) }],
+      ['load_design_draft', { id: 'draft-id', operation: expect.stringMatching(/^u-/) }],
+      ['list_design_drafts', { operation: expect.stringMatching(/^u-/) }],
+      ['delete_design_draft', { id: 'draft-id', operation: expect.stringMatching(/^u-/) }],
     ])
   })
 
@@ -174,12 +176,13 @@ describe('native Design IPC wire format', () => {
     invoke.mockResolvedValueOnce({ kind: 'picked', path: '/stamps/tree.canopi' })
     await exportSavedObjectStampFile(content, 'tree.canopi')
 
-    expect(invoke).toHaveBeenCalledWith('pick_save', { kind: 'stamp-export', stem: 'tree.canopi' })
+    expect(invoke).toHaveBeenCalledWith('pick_save', { kind: 'stamp-export', stem: 'tree.canopi', operation: expect.stringMatching(/^u-/) })
     expect(invoke).toHaveBeenCalledWith('export_saved_object_stamp_canopi_file', {
       path: '/stamps/tree.canopi',
       content: expect.objectContaining({
         future_top_level: { keep: true },
       }),
+      operation: expect.stringMatching(/^u-/),
     })
     expect(invokedContent()).not.toHaveProperty('extra')
   })

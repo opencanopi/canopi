@@ -3,7 +3,7 @@ import { activePanel, sidePanel } from '../app/shell/state'
 import {
   parseGallerySurface,
   selectGalleryPanel,
-} from '../../ui-gallery/surface-routing'
+} from '../editions/gallery/surface-routing'
 
 beforeEach(() => {
   activePanel.value = 'canvas'

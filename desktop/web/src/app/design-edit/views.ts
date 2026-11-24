@@ -1,4 +1,4 @@
-import type { SavedView, StoryStep } from '../../types/design'
+import type { SavedView, StoryStep } from '../../generated/contracts'
 import { editCurrentDesign, readCurrentDesign } from './core'
 import { editWithinImageLimit, parkStepsAwaitingView, takeStepsAwaitingView, type StoryEditOutcome } from './stories'
 

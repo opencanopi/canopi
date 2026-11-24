@@ -1,5 +1,5 @@
 import { isSpeciesTarget, speciesTarget } from './identity'
-import type { BudgetItem, Consortium, PanelTarget, SpeciesPanelTarget } from '../types/design'
+import type { BudgetItem, Consortium, PanelTarget, SpeciesPanelTarget } from '../generated/contracts'
 
 export function consortiumTarget(canonicalName: string): SpeciesPanelTarget {
   return speciesTarget(canonicalName)

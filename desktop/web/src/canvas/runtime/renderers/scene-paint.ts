@@ -16,7 +16,7 @@ import {
   type CanvasInteractionStrokeVisual,
   type CanvasInteractionVisualState,
 } from '../scene-visuals'
-import type { ViewTransform } from '../view/types'
+import type { ViewTransform } from '../../../geo/view/types'
 import type { SceneRendererHoverState, SceneRendererSnapshot } from './scene-types'
 
 const affine = new Matrix()

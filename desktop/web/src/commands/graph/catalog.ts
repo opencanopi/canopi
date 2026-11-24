@@ -18,7 +18,7 @@ import {
 import { formatShortcut } from '../../app/shell-commands/shortcut-text'
 import { singleKeyShortcuts } from '../../app/settings/state'
 import { currentDesign } from '../../app/document-session/store'
-import { desktopGeoJsonWorkflow as desktopGeoJson } from '../../platform/geojson.desktop'
+import { activeGeoJsonWorkflow as desktopGeoJson } from '../../app/geojson/workflow'
 import {
   closeDesign,
   designRevertAvailable,
@@ -33,8 +33,8 @@ import { activePanel, navigateTo, sidePanel, type Panel } from '../../app/shell/
 import { openProblemReportDialog } from '../../app/problem-report/submission'
 import { reportFailure } from '../../failures/report'
 import { exportCurrentBudgetCsv } from '../../app/budget/export'
-import { beginDataImport, openDataLibrary } from '../../app/lidar/library-navigation'
-import { armProfile, profileAvailable } from '../../app/lidar/profile'
+import { beginDataImport, openDataLibrary } from '../../app/data-library/library-navigation'
+import { armProfile, profileAvailable } from '../../app/data-library/profile'
 import { createWorkspaceShellCapabilities, designChangeable } from '../../app/workspace-commands/capabilities'
 import {
   readWorkspaceCanvasProjectionState,

@@ -1,7 +1,7 @@
 // The current-view seam shared by saved views and stories: whether views can
 // be shown, what the map shows now as a view, and going to a view (camera only).
 
-import { geographicViewOfCamera } from '../../canvas/session-plane'
+import { geographicViewOfCamera } from '../../geo/session-plane'
 import {
   currentCanvasQuerySurface,
   getCurrentCanvasCommandSurface,

@@ -18,6 +18,7 @@ const ipc = vi.hoisted(() => ({
   getSpeciesHabits: vi.fn(async (): Promise<Record<string, string>> => ({})),
   getSpeciesImages: vi.fn(async (): Promise<SpeciesImage[]> => []),
   getCachedImagePath: vi.fn(async (url: string) => `/cache/${encodeURIComponent(url)}`),
+  resolveAssetUrl: vi.fn((path: string) => `asset://${path}`),
 }))
 const workbench = vi.hoisted(() => ({
   selectedCanonicalName: { value: null as string | null },
@@ -29,7 +30,6 @@ const inDesign = vi.hoisted(() => ({ species: new Map<string, CatalogDesignSpeci
 const mapActions = vi.hoisted(() => ({ selectSpeciesPlants: vi.fn(), zoomToSpeciesPlants: vi.fn(() => true), showSpeciesDetailOnMap: vi.fn(), clearSpeciesDetailOnMap: vi.fn() }))
 
 vi.mock('../ipc/species', () => ipc)
-vi.mock('@tauri-apps/api/core', () => ({ convertFileSrc: (path: string) => `asset://${path}` }))
 vi.mock('../app/plant-browser', async () => {
   // The detail's "(en)" title comes from the catalog's one projection, here over the mocked lookup.
   const { composeSpeciesDisplayNames } = await vi.importActual<typeof PlantBrowserWorkbenchModule>('../app/plant-browser/workbench')

@@ -173,7 +173,7 @@ type ShellCommandDescriptor = {
 const file = (section: number, submenu?: ShellSubmenuId): ShellCommandMenuPlacement => ({ id: 'file', section, submenu })
 const panel = (panelId: Panel, group: ShellPanelGroup, order: number) => ({ panel: panelId, group, order })
 
-const SHELL_COMMAND_DESCRIPTORS: readonly ShellCommandDescriptor[] = [
+export const SHELL_COMMAND_DESCRIPTORS: readonly ShellCommandDescriptor[] = [
   { capabilityId: 'newDesign', id: 'file.new', labelKey: 'menu.file.new', shortcut: 'Ctrl+N', palette: true, menu: file(0) },
   { capabilityId: 'openDesign', id: 'file.open', labelKey: 'menu.file.open', shortcut: 'Ctrl+O', palette: true, menu: file(0) },
   { capabilityId: 'openCanopi', id: 'file.openCanopi', labelKey: 'webShell.openCanopi', shortcut: 'Ctrl+O', palette: true, menu: file(0) },

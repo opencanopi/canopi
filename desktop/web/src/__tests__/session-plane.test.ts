@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { mapZoomToStageScale } from '../canvas/projection'
+import { mapZoomToStageScale } from '../geo/projection'
 import {
   createSessionPlane,
   geographicViewOfCamera,
   roundGeoDegrees,
   SESSION_PLANE_REORIGIN_DISTANCE_METERS,
   sessionPlaneOriginForPoints,
-} from '../canvas/session-plane'
+} from '../geo/session-plane'
 import { createTestView } from './support/test-view'
 
 const EARTH_RADIUS_METERS = 6371008.8

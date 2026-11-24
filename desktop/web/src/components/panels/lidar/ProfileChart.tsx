@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks'
 import type { JSX, Ref, TargetedPointerEvent } from 'preact'
-import { buildProfilePlot, curveStyle, distanceTicks, indexAtX, type PlotArea } from '../../../app/lidar/profile-chart'
+import { buildProfilePlot, curveStyle, distanceTicks, indexAtX, type PlotArea } from '../../../app/data-library/profile-chart'
 import {
   profileCopyText,
   profileCursor,
@@ -9,10 +9,10 @@ import {
   siteProfile,
   type ProfileCurve,
   type SiteProfile,
-} from '../../../app/lidar/profile'
-import { unitSuffix } from '../../../app/lidar/item-types'
-import { formatRowValue } from '../../../app/lidar/value-format'
-import { clearProfile } from '../../../app/lidar/site-transients'
+} from '../../../app/data-library/profile'
+import { unitSuffix } from '../../../app/data-library/item-types'
+import { formatRowValue } from '../../../app/data-library/value-format'
+import { clearProfile } from '../../../app/data-library/site-transients'
 import { formatLength } from '../../../app/map-selection/zone-label'
 import { locale } from '../../../app/settings/state'
 import { t } from '../../../i18n'

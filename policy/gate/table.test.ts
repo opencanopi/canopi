@@ -110,7 +110,7 @@ describe('the table (canopi-f47t.52.228.10)', () => {
     expect(frontend.full.indexOf('typecheck')).toBeLessThan(frontend.full.indexOf('build'))
     for (const lane of [frontend.full, frontend.affected ?? [], frontend.commit ?? []]) {
       const projects = checksOf(lane).flatMap((check) => tscProjects(check.command))
-      expect(projects, lane.join(' ')).toContain('ui-gallery/tsconfig.json')
+      expect(projects, lane.join(' ')).toContain('tsconfig.json')
       expect(projects.filter((project, index) => projects.indexOf(project) !== index), lane.join(' ')).toEqual([])
     }
   })

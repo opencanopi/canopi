@@ -1,5 +1,4 @@
-//! The updater's launch side: the launch-check key row (2.1-Q164, 2.1-M206) through its
-//! `services::settings` helper, and the exits into the updated Canopi (2.1-M209): the Linux
+//! The updater's launch side: the exits into the updated Canopi (2.1-M209): the Linux
 //! restart and the Windows installer start, each after the bounded write drain (2.1-M82), each
 //! relaunching with the open Design (`restart_args`).
 
@@ -8,73 +7,11 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use canopi_types::{
-    failure::{Failure, FailureCode},
-    health::StoreId,
-    update::UpdateOp,
-};
 use tauri::{AppHandle, Manager as _, Runtime};
 
-use super::failure;
-use crate::{
-    db::UserDb,
-    native_operation::{
-        EXIT_DRAIN_DEADLINE, ExitDrain, NativeOperationClass, NativeOperationExecutor,
-    },
-    services::settings,
+use crate::native_operation::{
+    EXIT_DRAIN_DEADLINE, ExitDrain, NativeOperationClass, NativeOperationExecutor,
 };
-
-fn row_failure(_: String) -> Failure {
-    failure::failure(
-        UpdateOp::Check,
-        FailureCode::Internal,
-        "the launch check setting could not be read or written",
-    )
-}
-
-/// A refused switch is the silent `store_read_only{settings}`: the settings' one notice already says changes are not
-/// saved (2.1-M487).
-fn write_failure(error: settings::SettingsWriteError) -> Failure {
-    match error {
-        settings::SettingsWriteError::ReadOnly => failure::failure(
-            UpdateOp::Check,
-            FailureCode::StoreReadOnly {
-                store: StoreId::Settings,
-            },
-            "the settings refuse writes for this session",
-        ),
-        settings::SettingsWriteError::Failed(text) => row_failure(text),
-    }
-}
-
-/// Whether Canopi checks for an update at launch; a missing row reads on.
-pub async fn launch_check_get(
-    executor: &NativeOperationExecutor,
-    user_db: UserDb,
-) -> Result<bool, Failure> {
-    executor
-        .run_typed(
-            NativeOperationClass::UserData,
-            UpdateOp::Check.op(),
-            move || settings::updater_check_at_launch(&user_db).map_err(row_failure),
-        )
-        .await
-}
-
-/// Stores whether Canopi checks for an update at launch.
-pub async fn launch_check_set(
-    executor: &NativeOperationExecutor,
-    user_db: UserDb,
-    on: bool,
-) -> Result<(), Failure> {
-    executor
-        .run_typed(
-            NativeOperationClass::UserData,
-            UpdateOp::Check.op(),
-            move || settings::set_updater_check_at_launch(&user_db, on).map_err(write_failure),
-        )
-        .await
-}
 
 /// The relaunch's arguments, on Linux and Windows alike: the binary, then the Design path alone
 /// (no flag; the launch parser opens it), or nothing for a Draft, which restarts to the start
@@ -260,16 +197,11 @@ mod nsis_round_trip;
 
 #[cfg(test)]
 mod tests {
-    use super::{
-        InstallerCommand, launch_check_get, launch_check_set, prepare_restart, restart_args,
-        start_installer_after_drain,
-    };
+    use super::{InstallerCommand, prepare_restart, restart_args, start_installer_after_drain};
     use crate::{
-        db::UserDb,
         host::updater::testkit::{mock_app, run},
         native_operation::{NativeOperationClass, NativeOperationExecutor},
     };
-    use rusqlite::Connection;
     use std::{ffi::OsString, path::PathBuf, sync::mpsc, time::Duration};
     use tauri::Manager as _;
 
@@ -521,41 +453,6 @@ mod tests {
             (started, refused, saved_after),
             (Ok((true, Some(true))), Ok(true), Ok(()))
         );
-    }
-
-    #[test]
-    fn the_launch_check_reads_on_until_switched_off_through_the_executor() {
-        let executor = NativeOperationExecutor::production();
-        let user_db = UserDb::initialize(Connection::open_in_memory().unwrap()).unwrap();
-
-        assert!(run(launch_check_get(&executor, user_db.clone())).unwrap());
-        run(launch_check_set(&executor, user_db.clone(), false)).unwrap();
-        assert!(!run(launch_check_get(&executor, user_db)).unwrap());
-    }
-
-    /// Under settings record 2 the launch check reads the record's `check_updates_at_launch` and its switch is refused
-    /// with the silent `store_read_only{settings}`, writing no row (2.1-M480, 2.1-Q320).
-    #[test]
-    fn r2_canopi_f47t_52_271_under_settings_record_2_the_launch_check_reads_its_field_and_refuses_the_switch()
-     {
-        use canopi_types::{failure::FailureCode, health::StoreId};
-        let executor = NativeOperationExecutor::production();
-        let user_db = UserDb::initialize(Connection::open_in_memory().unwrap()).unwrap();
-        let record = r#"{"version":2,"check_updates_at_launch":false}"#;
-        crate::db::user_db::set_setting(&user_db.acquire(), "settings", record).unwrap();
-
-        assert!(!run(launch_check_get(&executor, user_db.clone())).unwrap());
-        let refused = run(launch_check_set(&executor, user_db.clone(), true)).unwrap_err();
-
-        assert_eq!(
-            refused.code,
-            FailureCode::StoreReadOnly {
-                store: StoreId::Settings
-            }
-        );
-        let conn = user_db.acquire();
-        let row = crate::db::user_db::get_setting(&conn, "updater.check_at_launch").unwrap();
-        assert_eq!(row, None, "no launch-check row written");
     }
 
     #[test]

@@ -1,4 +1,4 @@
-import type { PanelTarget, PlacedPlant, TimelineAction } from '../../types/design'
+import type { PanelTarget, PlacedPlant, TimelineAction } from '../../generated/contracts'
 import { normalizeSearchText } from '../../utils/normalize-search'
 import type { CalendarCompletionFilter } from '../planning-view/state'
 import { missingZoneLabel } from '../map-selection/zone-label'
@@ -13,7 +13,7 @@ import {
   parseCivilDate,
   startOfCivilMonth,
   type CivilDate,
-} from '../timeline/civil-date'
+} from '../../planning/civil-date'
 
 export interface CalendarTargetLabel {
   readonly target: PanelTarget

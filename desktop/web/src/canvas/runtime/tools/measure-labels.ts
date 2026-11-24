@@ -9,7 +9,7 @@
 import type { SceneDesignObjectSelection } from '../scene/design-object-targets'
 import { isSceneObjectGroupMemberTarget } from '../scene/group-members'
 import type { ScenePersistedState } from '../scene/types'
-import type { ScreenPoint, WorldPoint, WorldVector } from '../view/types'
+import type { ScreenPoint, WorldPoint, WorldVector } from '../../../geo/view/types'
 import { getRectangularZoneCorners, polygonArea } from '../zone-geometry'
 import {
   createEllipticalZoneMeasurements,

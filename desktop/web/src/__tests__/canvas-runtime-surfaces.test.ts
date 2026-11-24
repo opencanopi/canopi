@@ -15,7 +15,7 @@ import {
   createDefaultScenePersistedState,
   serializeScenePersistedState,
 } from '../canvas/runtime/scene'
-import { createSessionPlane, DEFAULT_NEW_DESIGN_VIEW } from '../canvas/session-plane'
+import { createSessionPlane, DEFAULT_NEW_DESIGN_VIEW } from '../geo/session-plane'
 import type {
   CanvasCommandSurface,
   CanvasDocumentSurface,

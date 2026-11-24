@@ -5,7 +5,7 @@ import {
   createBrowserShellCommandProjection,
   type BrowserShellCapabilities,
   type BrowserShellChromeProjection,
-} from '../../web/browser-shell-commands'
+} from '../../editions/web/browser-shell-commands'
 
 /** A Web Edition shell projection from plain test inputs. */
 export function projectBrowserShellForTest({

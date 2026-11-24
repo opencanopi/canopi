@@ -41,8 +41,8 @@ import { storyPresentationHidesEditingAids } from '../story-presentation/overrid
 import type { UserLocationReading } from '../../maplibre/user-location-overlay'
 import type { WorkspaceMapContributionAdapter, WorkspaceMapContributionSnapshot } from './workspace-map-contribution-adapter'
 import type { MapLibreCanvasSurfaceState } from '../../maplibre/canvas-surface-state'
-import { DEFAULT_NEW_DESIGN_VIEW, geographicViewOfCamera, type GeographicView } from '../../canvas/session-plane'
-import type { CameraDriverHost } from '../../canvas/runtime/view/camera-driver'
+import { DEFAULT_NEW_DESIGN_VIEW, geographicViewOfCamera, type GeographicView } from '../../geo/session-plane'
+import type { CameraDriverHost } from '../../geo/view/camera-driver'
 import type { SceneRenderTarget } from '../../canvas/runtime/renderers/scene-types'
 
 export type WorkspaceRuntimeStartOutcome = WorkspaceActivationOutcome | 'no-design'

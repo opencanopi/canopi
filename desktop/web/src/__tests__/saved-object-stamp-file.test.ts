@@ -8,7 +8,7 @@ import {
 import type { CanopiFile } from '../types/design'
 import { CURRENT_CANOPI_FILE_VERSION } from '../generated/canopi-design-format'
 import { roundGeoPosition } from '../canvas/runtime/scene'
-import { createSessionPlane } from '../canvas/session-plane'
+import { createSessionPlane } from '../geo/session-plane'
 import { geoAt } from './support/geo-design'
 import { locale } from '../app/settings/state'
 

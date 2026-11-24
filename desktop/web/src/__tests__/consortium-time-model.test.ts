@@ -1,3 +1,4 @@
+import { createDefaultConsortiumEntryForTests } from '../app/consortium/workflow'
 import { describe, expect, it } from 'vitest'
 import {
   CONSORTIUM_STRATA,
@@ -6,8 +7,7 @@ import {
   DEFAULT_CONSORTIUM_START_PHASE,
   DEFAULT_CONSORTIUM_STRATUM,
   SUCCESSION_PHASE_COUNT,
-  createDefaultConsortiumEntry,
-} from '../app/consortium/time-model'
+} from '../planning/time-model'
 import { getConsortiumCanonicalName } from '../target'
 
 describe('Consortium time model', () => {
@@ -34,7 +34,7 @@ describe('Consortium time model', () => {
   })
 
   it('creates default Consortium entries for newly placed species', () => {
-    const entry = createDefaultConsortiumEntry('Quercus robur')
+    const entry = createDefaultConsortiumEntryForTests('Quercus robur')
 
     expect(getConsortiumCanonicalName(entry)).toBe('Quercus robur')
     expect(entry.stratum).toBe(DEFAULT_CONSORTIUM_STRATUM)

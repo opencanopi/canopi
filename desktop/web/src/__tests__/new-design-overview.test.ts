@@ -7,7 +7,7 @@ import { createDesignSessionReplacement } from '../app/document-session/replacem
 import { createDesignSessionStore } from '../app/document-session/store'
 import { resetSettingsProjectionForTests } from '../app/settings/projection'
 import { lastView } from '../app/settings/state'
-import { geographicViewOfCamera } from '../canvas/session-plane'
+import { geographicViewOfCamera } from '../geo/session-plane'
 import { CURRENT_CANOPI_FILE_VERSION } from '../generated/canopi-design-format'
 import type { CanopiFile } from '../types/design'
 import { createLiveTestCanvasRuntimeHost, type CanvasRuntimeHost } from './support/live-canvas-runtime'

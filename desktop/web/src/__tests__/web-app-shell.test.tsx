@@ -10,7 +10,7 @@ const workspaceCanvasLifecycle = vi.hoisted(() => ({
   unmounted: vi.fn(),
 }))
 
-vi.mock('../web/WebCanvasWorkspace', async () => {
+vi.mock('../editions/web/WebCanvasWorkspace', async () => {
   const { useEffect, useState } = await import('preact/hooks')
   return {
     WebCanvasWorkspace: () => {
@@ -38,10 +38,10 @@ import {
 import type { Settings } from '../types/settings'
 import { createBrowserAppDataStore, type BrowserStorageAdapter } from '../web/browser-app-data'
 import { createBrowserDesignSessionController, type BrowserDesignFileAdapter } from '../web/browser-design-session'
-import { BrowserAppShell } from '../web/BrowserAppShell'
+import { BrowserAppShell } from '../editions/web/BrowserAppShell'
 import { phoneLayout } from '../app/shell/phone-layout'
 import { requestPlaceSearchFocus } from '../app/geocoding/place-search-ui'
-import { WebApp } from '../web/WebApp'
+import { WebApp } from '../editions/web/WebApp'
 import { unmount } from './support/unmount'
 import { createBrowserDraftPersistence } from '../web/browser-draft-persistence'
 import { t } from '../i18n'

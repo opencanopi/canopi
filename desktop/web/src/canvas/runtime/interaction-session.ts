@@ -59,10 +59,10 @@ import type {
 } from './runtime'
 import { isSceneLayerEditable, type SceneDesignObjectSelection, type SceneDesignObjectTarget, type ScenePoint, type SceneStateReader } from './scene'
 import type { SceneCommandAdmission, SceneEditCoordinator, SettledSceneReader } from './scene-runtime/transactions'
-import type { SpeciesCacheEntry } from './species-cache'
+import type { SpeciesCacheEntry } from './presentation-data'
 import { createContextMenuPort, createToolHost, createToolScene } from './tools/tool-host'
-import type { ViewNavigation } from './view/navigation'
-import type { ViewFrame, ViewFrameSource } from './view/types'
+import type { ViewNavigation } from '../../geo/view/navigation'
+import type { ViewFrame, ViewFrameSource } from '../../geo/view/types'
 
 /** Attributes the session sets on the map host and restores when it ends. */
 const HOST_ATTRIBUTES = ['tabindex', 'role', 'aria-label', 'aria-describedby'] as const

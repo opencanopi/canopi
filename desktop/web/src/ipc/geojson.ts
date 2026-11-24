@@ -3,7 +3,7 @@
 // is a GeoJsonWriteOutcome value, returned only when the save dialog is dismissed; ast-grep skips this file, so a
 // hand-written cancel guard added here goes uncounted and belongs to the catalogue's CancelToken instead.
 
-import { invokeCommand } from './transport'
+import { invokeTyped, mintOperationId } from './transport'
 import { failureOf } from '../failures/ipc-failure'
 import type {
   GeoJsonFileAdapter,
@@ -20,7 +20,7 @@ export const desktopGeoJsonFiles: GeoJsonFileAdapter = {
   // code) after the host brought the open one forward, so it settles as the pick cancel and import shows no
   // notice (2.1-Q284).
   async pickGeoJsonFile(): Promise<GeoJsonSourceFile | null> {
-    return invokeCommand<GeoJsonSourceFile | null>('pick_geojson_file').catch((error: unknown) => {
+    return invokeTyped('pick_geojson_file', undefined, mintOperationId('u')).catch((error: unknown) => {
       if (failureOf(error)?.code.kind === 'dialog_already_open') return null
       throw error
     })
@@ -29,7 +29,7 @@ export const desktopGeoJsonFiles: GeoJsonFileAdapter = {
   async writeGeoJsonFile(text: string, fileName: string): Promise<GeoJsonWriteOutcome> {
     const outcome = await pickSave('geojson-export', fileName)
     if (outcome.kind === 'cancelled') return 'cancelled'
-    await invokeCommand('export_file', { data: text, path: outcome.path })
+    await invokeTyped('export_file', { data: text, path: outcome.path }, mintOperationId('u'))
     return 'written'
   },
 }

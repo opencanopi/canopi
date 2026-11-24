@@ -5,10 +5,10 @@ import {
   createDetachedCanvasSpeciesPresentationCache,
   type CanvasPlantLabelSource,
   type CanvasSpeciesPresentationCache,
+  type SpeciesCacheEntry,
 } from '../presentation-data'
 import type { SceneEditingAids, SceneRendererHoverTarget, SceneRendererSnapshot } from '../renderers/scene-types'
 import type { PlantLabelMode } from '../plant-display'
-import type { SpeciesCacheEntry } from '../species-cache'
 import type {
   SceneDesignObjectTarget,
   ScenePersistedState,

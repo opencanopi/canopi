@@ -22,7 +22,7 @@
 
 import type { CancelReason, PointerKind, ToolHandleId, ToolId } from '../interaction-types'
 import type { DraftPresentation, ToolHandle } from './draft'
-import type { WorldPoint, WorldQuad, WorldVector } from '../view/types'
+import type { WorldPoint, WorldQuad, WorldVector } from '../../../geo/view/types'
 import type { ScenePersistedState, ScenePlantEntity, SceneLayerEntity } from '../scene/types'
 import type { SceneDesignObjectSelection, SceneDesignObjectTarget } from '../scene/design-object-targets'
 import type { SceneEditCoordinator } from '../scene-runtime/transactions'

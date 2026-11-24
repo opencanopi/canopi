@@ -19,7 +19,7 @@ import {
   type SaveViewDialogRequest,
 } from '../../app/saved-views'
 import { t } from '../../i18n'
-import type { SavedView } from '../../types/design'
+import type { SavedView } from '../../generated/contracts'
 import { SavedViewThumbnail } from './SavedViewThumbnail'
 import { SlotToast } from './ToastSlot'
 import { WorkspaceDialog } from './WorkspaceDialog'

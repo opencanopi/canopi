@@ -5,7 +5,7 @@ import {
   targetIdentity,
   type TargetSceneInput,
 } from '../target'
-import type { PanelTarget } from '../types/design'
+import type { PanelTarget } from '../generated/contracts'
 
 const NONE_TARGET = { kind: 'none' } as const
 

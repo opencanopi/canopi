@@ -3,12 +3,12 @@
 # The forms are those the repository shows: an interface or object type literal with numeric `lon` (or `lng`) and
 # `lat` properties, and a type alias named Lon/LngLat... for a `[number, number]` tuple. No name is exempt: a
 # GeoJSON wire position (maplibre/site-overlay.ts) is written inline as `readonly [number, number]`, never aliased.
-# GeoPosition (canvas/session-plane.ts) stays an entry until 2a deletes it.
+# GeoPosition (geo/session-plane.ts) stays an entry until 2a deletes it.
 # message and ignores: generated from policy/primitives.json.
 id: single-lonlat-point-type.tsx
 language: tsx
 severity: error
-message: "single-lonlat-point-type (§18 F39): no {lon, lat} or [lon, lat] point type but the generated GeoPoint; a GeoJSON wire position is written inline as readonly [number, number], never aliased. ADR 0028; owner desktop/web/src/generated/contracts.ts; example desktop/web/src/canvas/runtime/view/camera-math.ts"
+message: "single-lonlat-point-type (§18 F39): no {lon, lat} or [lon, lat] point type but the generated GeoPoint; a GeoJSON wire position is written inline as readonly [number, number], never aliased. ADR 0028; owner desktop/web/src/generated/contracts.ts; example desktop/web/src/geo/view/camera-math.ts"
 files:
   - "{desktop/web,policy/fixtures/rules/*}/src/**/*.tsx"
   - "policy/fixtures/rules/single-lonlat-point-type/*.tsx"
@@ -18,6 +18,7 @@ ignores:
   - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
   - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
   - "{desktop/web,policy/fixtures/rules/*}/src/generated/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/editions/gallery/**"
   - "{desktop/web,policy/fixtures/rules/*}/src/generated/contracts.ts"
 rule:
   any:

@@ -75,6 +75,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::settings::get_settings,
             commands::settings::set_settings,
+            commands::settings::get_setting_row,
+            commands::settings::set_setting_row,
             commands::species::search_species,
             commands::species::supersede_species_search,
             commands::species::get_species_detail,
@@ -131,8 +133,6 @@ pub fn run() {
             commands::update::update_install,
             commands::update::update_cancel,
             commands::update::update_restart,
-            commands::update::update_launch_check_get,
-            commands::update::update_launch_check_set,
             commands::update::update_take_launch_notice,
             commands::problem_report::create_problem_report,
             commands::problem_report::show_problem_report_folder,

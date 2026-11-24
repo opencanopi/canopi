@@ -453,10 +453,10 @@ export const TABLE: Table = {
     docsOnly: String.raw`^(\.beads/|docs/|\.interface-design/)|\.md$`,
     notDocs: String.raw`(^|/)THIRD_PARTY_NOTICES\.md$`,
     docsValidator: String.raw`^scripts/(test_)?check_docs[a-z_]*\.py$`,
-    webModule: String.raw`^desktop/web/((?:src|ui-gallery)/.*\.(?:tsx?|css))$`,
+    webModule: String.raw`^desktop/web/(src/.*\.(?:tsx?|css))$`,
     spec: String.raw`^desktop/web/(e2e/.*\.spec\.ts)$`,
     e2eCanvas: String.raw`^desktop/web/src/(styles/|app/shell/visible-map-area\.ts$)`,
-    e2eGallery: String.raw`^desktop/web/(src/components/|ui-gallery/)`,
+    e2eGallery: String.raw`^desktop/web/(src/(?:components|editions/gallery)/|gallery\.html$)`,
     // The gate's own files and tests: all of policy/ (the gate, the modules it imports, the adapters, ratchets, schema
     // and layers it judges with, and the cases its tests read; a planted repository copies the tree), the hooks and all of
     // .github/ (ci-parity.test.ts reads every workflow and install-linux-deps, package-desktop.test.ts the package action

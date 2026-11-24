@@ -3,24 +3,24 @@ import { currentDesign, designSessionStore } from '../../../app/document-session
 import {
   attachmentFailure, cancelAnalysisJob, cancelLibraryImport, dismissAttachmentFailure, moveReferenceTo,
   pendingAttachments, removeFromDesign, rerunAnalysis, setLidarEntryVisibility, setSiteDataShown,
-} from '../../../app/lidar/actions'
-import { siteDataLines, type SiteDataLine } from '../../../app/lidar/analysis-groups'
+} from '../../../app/data-library/actions'
+import { siteDataLines, type SiteDataLine } from '../../../app/data-library/analysis-groups'
 import { analysisTitle } from '../../../app/analyses/registry'
-import { viewDesignLocation, viewLidarCoverage } from '../../../app/lidar/camera-request'
-import { lidarDisplayStyle, readLidarEntryDisplay } from '../../../app/lidar/display'
-import { formatRasterRange, legendGradient } from '../../../app/lidar/display-legend'
-import { itemTypeLabel } from '../../../app/lidar/item-types'
-import { beginDataImport, openDataLibrary } from '../../../app/lidar/library-navigation'
+import { viewDesignLocation, viewLidarCoverage } from '../../../app/data-library/camera-request'
+import { lidarDisplayStyle, readLidarEntryDisplay } from '../../../app/data-library/display'
+import { formatRasterRange, legendGradient } from '../../../app/data-library/display-legend'
+import { itemTypeLabel } from '../../../app/data-library/item-types'
+import { beginDataImport, openDataLibrary } from '../../../app/data-library/library-navigation'
 import {
   isMissing, libraryItemName, noteImportCancel,
   lidarLibrary, readCurrentLidarPresentation, type LidarMissingReason, type LidarPresentationItem,
-} from '../../../app/lidar/library-store'
+} from '../../../app/data-library/library-store'
 import {
   filterKeepingAncestors, referenceRows, siblingMoveOrders, siblingNeighbour, siblingUnits, type ReferenceRow,
-} from '../../../app/lidar/reference-tree'
-import type { SiteDataView } from '../../../app/lidar/site-data-view'
-import { siteValues } from '../../../app/lidar/site-values'
-import { formatRowValue } from '../../../app/lidar/value-format'
+} from '../../../app/data-library/reference-tree'
+import type { SiteDataView } from '../../../app/data-library/site-data-view'
+import { siteValues } from '../../../app/data-library/site-values'
+import { formatRowValue } from '../../../app/data-library/value-format'
 import { locale } from '../../../app/settings/state'
 import type { LibraryItemSummary } from '../../../generated/contracts'
 import { t } from '../../../i18n'

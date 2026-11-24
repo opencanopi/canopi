@@ -24,8 +24,8 @@
 import type { RasterPoolClient, RasterTileRequest, RasterWorkerPool } from './pool'
 import { rasterWorkerPool } from './pool'
 import { recordRaster } from './diagnostics'
-import { mercatorToGeo } from '../../canvas/projection'
-import { WORKSPACE_MAP_MAX_ZOOM } from '../../canvas/workspace-camera-policy'
+import { mercatorToGeo } from '../../geo/projection'
+import { WORKSPACE_MAP_MAX_ZOOM } from '../../geo/workspace-camera-policy'
 import type * as MaplibreGlRasterModule from 'maplibre-gl-raster'
 
 type RasterModule = typeof MaplibreGlRasterModule

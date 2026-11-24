@@ -92,9 +92,10 @@ function primitiveIgnores(root, row, table) {
     if (!layer?.destination) return [];
     return [`${SRC}/${bare(layer.destination)}${inSrc.slice(bare(layer.path).length)}`];
   });
-  // Generated code (the layer table's area generated rows, knip's ignore too) is held at its source: never a site.
+  // Generated code and the dev-only gallery root (previously outside src/ at ui-gallery/) are never primitive sites.
   const generated = table.layers.filter((r) => r.area === 'generated' && r.status !== 'new').map((r) => `${RULE_ROOTS}src/${r.path.endsWith('/') ? `${r.path}**` : r.path}`);
-  return [...TEST_IGNORES.map((g) => `${RULE_ROOTS}${g}`), ...generated, ...[...new Set([...owners, ...moved])].map(glob)];
+  const gallery = table.layers.filter((r) => r.edition === 'gallery' && !r.entry && r.status !== 'new').map((r) => `${RULE_ROOTS}src/${r.path.endsWith('/') ? `${r.path}**` : r.path}`);
+  return [...TEST_IGNORES.map((g) => `${RULE_ROOTS}${g}`), ...generated, ...gallery, ...[...new Set([...owners, ...moved])].map(glob)];
 }
 
 // A Rust rule file (language rust or rs) is rooted at the repository, not desktop/web: its generated `files` names

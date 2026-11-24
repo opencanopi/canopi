@@ -7,7 +7,7 @@ import { CURRENT_CANOPI_FILE_VERSION } from '../../generated/canopi-design-forma
 import { getStratumColor } from '../plants'
 import { createDetachedCanvasRuntimeAppAdapter } from './app-adapter'
 import { SceneCanvasRuntime } from './scene-runtime'
-import type { SpeciesCacheEntry } from './species-cache'
+import type { SpeciesCacheEntry } from './presentation-data'
 
 it('the species key shows an opened plant\'s stratum colour once the catalog loads', async () => {
   // A saved plant carries no stratum: the key takes its colour from the species catalog, as the canvas does.

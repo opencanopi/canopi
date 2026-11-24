@@ -7,7 +7,7 @@ import {
   type ToolHarness,
 } from '../../../../__tests__/support/tool-harness'
 import type { ToolHandleId } from '../../interaction-types'
-import type { ScreenPoint, WorldPoint } from '../../view/types'
+import type { ScreenPoint, WorldPoint } from '../../../../geo/view/types'
 import '../../../../__tests__/support/camera-tolerance'
 
 /** Calls of Select's midpoint-dot query (reshape.ts zoneEdgeMidpoints), counted through the real function. */

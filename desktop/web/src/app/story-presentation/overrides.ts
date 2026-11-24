@@ -1,6 +1,6 @@
 import { computed, signal, type ReadonlySignal } from '@preact/signals'
 import type { PlantLabelMode } from '../../canvas/runtime/plant-display'
-import type { PanelTarget } from '../../types/design'
+import type { PanelTarget } from '../../generated/contracts'
 import { mapLayers, type MapLayersState } from '../map-layers/state'
 
 // What the map shows while a story is presented, laid over the user's own

@@ -55,8 +55,8 @@ fn r2_canopi_f47t_52_271_settings_record_2_applies_its_known_fields_and_is_never
     let read_back = serde_json::to_value(&read).unwrap();
     assert_eq!(read_back, known, "every known field applies");
     assert!(
-        !settings::updater_check_at_launch(&user_db).unwrap(),
-        "the launch check reads record 2's field"
+        settings::record_is_newer(&user_db),
+        "record 2 is recognized as newer"
     );
     assert_eq!(settings_rows(&user_db), before, "reading writes no row");
 
@@ -67,7 +67,10 @@ fn r2_canopi_f47t_52_271_settings_record_2_applies_its_known_fields_and_is_never
         Err(REFUSED.to_owned()),
         "a settings change is refused, applied for the session only (2.1-Q320)"
     );
-    assert!(settings::set_updater_check_at_launch(&user_db, true).is_err());
+    assert!(
+        settings::record_is_newer(&user_db),
+        "record 2 remains newer after refused write"
+    );
     assert_eq!(settings_rows(&user_db), before, "never written");
     let reread = settings::get_settings(&user_db).unwrap();
     assert_eq!(reread.theme, Theme::Dark, "the change was not saved");
@@ -87,7 +90,7 @@ fn r2_canopi_f47t_52_271_an_unparseable_settings_record_inside_a_user_db_10_read
     let read = settings::get_settings(&user_db).expect("defaults, not a failure");
 
     assert_eq!(read.theme, Theme::Light, "the defaults");
-    assert!(settings::updater_check_at_launch(&user_db).unwrap());
+    assert!(!settings::record_is_newer(&user_db));
     drop(user_db);
     assert_eq!(
         user_db_files(&path),

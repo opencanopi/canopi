@@ -6,7 +6,7 @@
 // apply it to the event being handled.
 
 import type { GestureOutcome, InputRouter, InputRouterDeps } from '../interaction-ports'
-import type { RotationSession } from '../view/read-surface'
+import type { RotationSession } from '../../../geo/view/read-surface'
 import type { Gesture } from './gestures'
 
 const NOTHING: GestureOutcome = Object.freeze({})

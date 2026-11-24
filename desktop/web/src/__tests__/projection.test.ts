@@ -4,7 +4,7 @@
  * Plane-to-geographic conversion is the session plane's (session-plane.test.ts).
  */
 import { describe, it, expect } from 'vitest'
-import { stageScaleToMapZoom } from '../canvas/projection'
+import { stageScaleToMapZoom } from '../geo/projection'
 
 // ---------------------------------------------------------------------------
 // stageScaleToMapZoom

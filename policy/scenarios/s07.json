@@ -52,7 +52,7 @@
         "platform/",
         "app/shell/",
         "app/canvas-pdf/platform.desktop.ts",
-        "app/lidar/",
+        "app/data-library/",
         "app/plant-detail/media-controller.ts",
         "commands/graph/catalog.ts",
         "desktop/web/vite.config.ts",

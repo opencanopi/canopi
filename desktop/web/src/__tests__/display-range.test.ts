@@ -22,7 +22,7 @@ vi.mock('../maplibre/raster-display/pool', () => ({
   }),
 }))
 
-const { cutOutlierRange, requestCutOutlierRange, resetCutOutlierRanges } = await import('../app/lidar/display-range')
+const { cutOutlierRange, requestCutOutlierRange, resetCutOutlierRanges } = await import('../app/data-library/display-range')
 
 function stats(min: number, max: number, percentile2: number, percentile98: number, pixels = 1280): RasterBandStatistics {
   // 128 equal bins (cog-tiler's and maplibre-gl-raster's count), so the merged 2–98 % range is predictable.

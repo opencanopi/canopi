@@ -12,9 +12,9 @@
       "owner_target": {
         "path": "desktop/web/src/ipc",
         "phase": "2b",
-        "bead": "canopi-f47t.52.45"
+        "bead": "canopi-f47t.52.48"
       },
-      "example": "desktop/web/src/platform/settings.desktop.ts",
+      "example": "desktop/web/src/editions/desktop/settings.ts",
       "adr": "0022",
       "type_only": "counts"
     },
@@ -28,9 +28,9 @@
       "owner_target": {
         "path": "desktop/web/src/platform",
         "phase": "2b",
-        "bead": "canopi-f47t.52.45"
+        "bead": "canopi-f47t.52.48"
       },
-      "example": "desktop/web/src/platform/settings.desktop.ts",
+      "example": "desktop/web/src/editions/desktop/settings.ts",
       "adr": "0022",
       "type_only": "counts"
     },
@@ -44,7 +44,7 @@
       "owner_target": {
         "path": "desktop/web/src/canvas/runtime/renderers",
         "phase": "2a",
-        "bead": "canopi-f47t.52.45"
+        "bead": "canopi-f47t.52.213"
       },
       "example": "desktop/web/src/canvas/runtime/renderers/pixi-scene.ts",
       "adr": "0022",
@@ -169,7 +169,7 @@
       },
       "exceptions": [
         "desktop/web/src/web/browser-app-data.ts",
-        "desktop/web/src/utils/theme.ts"
+        "desktop/web/src/app/settings/theme.ts"
       ],
       "note": "localStorage and sessionStorage only in the browser record adapter (exceptions: the pending-write marker, the first-paint theme key)"
     },
@@ -193,7 +193,7 @@
       "owner_today": "desktop/web/src/app/document-session/continuous-save.ts",
       "also_owners": [
         "desktop/web/src/app/settings",
-        "desktop/web/src/app/lidar/sampler.ts"
+        "desktop/web/src/app/data-library/sampler.ts"
       ],
       "owner_target": {
         "path": "desktop/web/src/app/document-session/core",
@@ -210,14 +210,9 @@
       "tool": "ast-grep",
       "ledger": "2.1-M189",
       "adr": "0025",
-      "status": "planned",
       "owner_today": "none",
-      "owner_target": {
-        "path": "desktop/web/src/failures",
-        "phase": "2a",
-        "bead": "canopi-f47t.52.70"
-      },
-      "note": "no correlation or sequence field in Failure, ring entries or log fields but operation, job_id and item_id; Phase 1 built Failure and the ring with an optional operation, and 2a's invoke<K> and its minters make it required, with this rule (2.1-M411)"
+      "example": "desktop/web/src/failures/ring.ts",
+      "note": "no correlation or sequence field in Failure, ring entries or log fields but operation, job_id and item_id; 2a's invokeTyped and its minters carry OperationId (2.1-M411, canopi-f47t.52.70)"
     },
     {
       "id": "wasm-glue-only-in-adapter",
@@ -274,7 +269,7 @@
       "ledger": "2.1-M212",
       "adr": "0028",
       "owner_today": "desktop/web/src/generated/contracts.ts",
-      "example": "desktop/web/src/canvas/runtime/view/camera-math.ts",
+      "example": "desktop/web/src/geo/view/camera-math.ts",
       "note": "no {lon, lat} or [lon, lat] point type but the generated GeoPoint; a GeoJSON wire position is written inline as readonly [number, number], never aliased"
     },
     {
@@ -396,15 +391,15 @@
       "tool": "ast-grep",
       "ledger": "2.1-M189",
       "adr": "0028",
-      "owner_today": "desktop/web/src/app/timeline/civil-date.ts",
+      "owner_today": "desktop/web/src/planning/civil-date.ts",
       "owner_target": {
-        "path": "desktop/web/src/app/timeline/civil-date.ts",
+        "path": "desktop/web/src/planning/civil-date.ts",
         "phase": "1b"
       },
-      "example": "desktop/web/src/app/timeline/civil-date.ts",
+      "example": "desktop/web/src/planning/civil-date.ts",
       "note": "dates are parsed (new Date with an argument, Date.parse) and displayed (toLocaleDateString, toLocaleTimeString, Intl.DateTimeFormat) only by the civil date owner (exceptions: satellite-http's Retry-After HTTP-date header parse, not display, design check F7)",
       "exceptions": [
-        "desktop/web/src/maplibre/satellite-http.browser.ts"
+        "desktop/web/src/maplibre/satellite-http.ts"
       ]
     },
     {
@@ -432,9 +427,9 @@
       "owner_today": "desktop/web/src/app/geocoding/transport.browser.ts",
       "also_owners": [
         "desktop/web/src/maplibre/openfreemap-basemap.ts",
-        "desktop/web/src/web/duckdb-wasm-catalog.ts",
+        "desktop/web/src/editions/web/duckdb-wasm-catalog.ts",
         "desktop/web/src/app/canvas-pdf/text.ts",
-        "desktop/web/src/web/browser-release-watch.ts",
+        "desktop/web/src/editions/web/browser-release-watch.ts",
         "desktop/web/src/platform/design-core.worker.ts"
       ],
       "owner_target": {
@@ -454,7 +449,7 @@
       "adr": "0028",
       "owner_today": "desktop/web/src/maplibre/raster-display/pool.ts",
       "also_owners": [
-        "desktop/web/src/web/duckdb-wasm-catalog.ts",
+        "desktop/web/src/editions/web/duckdb-wasm-catalog.ts",
         "desktop/web/src/app/canvas-pdf/job.ts",
         "desktop/web/src/maplibre/loader.ts",
         "desktop/web/src/platform/design-core.ts"
@@ -697,7 +692,7 @@
       "adr": "0030",
       "owner_today": "none",
       "owner_target": {
-        "path": "desktop/web/src/app/lidar",
+        "path": "desktop/web/src/app/data-library",
         "phase": "N3",
         "bead": "canopi-f47t.52.65"
       },

@@ -25,8 +25,8 @@ import type {
   ToolSettingsPort,
   ToolSource,
 } from './tools/tool'
-import type { ViewNavigation } from './view/navigation'
-import type { ScreenPoint, ViewFrameSource, WorldPoint } from './view/types'
+import type { ViewNavigation } from '../../geo/view/navigation'
+import type { ScreenPoint, ViewFrameSource, WorldPoint } from '../../geo/view/types'
 
 /** What a route answers for the event being handled; the source applies it. Every field optional; {} changes nothing. */
 export interface GestureOutcome {

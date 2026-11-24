@@ -36,9 +36,6 @@ pub fn set_settings(user_db: &UserDb, settings: Settings) -> Result<(), String> 
 /// The first record `version` a newer Canopi writes; record 1 carries none.
 const NEWER_RECORD_VERSION: u64 = 2;
 
-/// Record 2's launch-check field (2.1-M480).
-const CHECK_UPDATES_AT_LAUNCH_FIELD: &str = "check_updates_at_launch";
-
 /// The settings row as this build reads it.
 enum StoredSettings {
     /// No row: a first run.
@@ -102,25 +99,6 @@ pub(crate) fn record_is_newer(user_db: &UserDb) -> bool {
     matches!(read_stored(row), Ok(StoredSettings::Newer(_)))
 }
 
-/// The launch check's own user-DB key row (2.1-Q164, 2.1-M206): read and written only by the
-/// updater, never a field of the settings record, so a whole-record `set_settings` leaves it
-/// alone. Interim until 2e moves it (2.1-Q239, canopi-f47t.52.56).
-const UPDATER_CHECK_AT_LAUNCH_KEY: &str = "updater.check_at_launch";
-
-/// Whether the updater checks at launch: record 2's field under a newer record, else the key row; missing or
-/// unreadable reads on.
-pub fn updater_check_at_launch(user_db: &UserDb) -> Result<bool, String> {
-    let conn = user_db.acquire();
-    if let StoredSettings::Newer(record) = read_stored(db::user_db::get_setting(&conn, "settings"))?
-    {
-        let field = record.get(CHECK_UPDATES_AT_LAUNCH_FIELD);
-        return Ok(field.and_then(Value::as_bool).unwrap_or(true));
-    }
-    let stored = db::user_db::get_setting(&conn, UPDATER_CHECK_AT_LAUNCH_KEY)
-        .map_err(|e| format!("Failed to read the launch check setting: {e}"))?;
-    Ok(stored.as_deref() != Some("false"))
-}
-
 /// A settings write that did not land.
 #[derive(Debug, PartialEq, Eq)]
 pub enum SettingsWriteError {
@@ -138,22 +116,6 @@ impl From<SettingsWriteError> for String {
             SettingsWriteError::Failed(text) => text,
         }
     }
-}
-
-/// Stores whether the updater checks at launch; refused under a newer record, whose own field holds it.
-pub fn set_updater_check_at_launch(user_db: &UserDb, on: bool) -> Result<(), SettingsWriteError> {
-    let conn = user_db
-        .acquire_writable()
-        .ok_or(SettingsWriteError::ReadOnly)?;
-    refuse_newer(db::user_db::get_setting(&conn, "settings"))?;
-    db::user_db::set_setting(
-        &conn,
-        UPDATER_CHECK_AT_LAUNCH_KEY,
-        if on { "true" } else { "false" },
-    )
-    .map_err(|e| {
-        SettingsWriteError::Failed(format!("Failed to save the launch check setting: {e}"))
-    })
 }
 
 /// Settings key that keeps the last settings record this build refused.
@@ -249,10 +211,7 @@ fn detect_initial_locale(os_locale: Option<&str>) -> Option<Locale> {
 
 #[cfg(test)]
 mod tests {
-    use super::{
-        get_settings_with_locale, set_settings, set_updater_check_at_launch,
-        updater_check_at_launch,
-    };
+    use super::{get_settings_with_locale, set_settings};
     use crate::db::UserDb;
     use canopi_types::settings::{BasemapStyle, Locale, ScrollWheel, Settings, Theme};
     use rusqlite::Connection;
@@ -388,24 +347,37 @@ mod tests {
     #[test]
     fn a_2_0_3_whole_settings_record_write_leaves_the_launch_check_row() {
         let user_db = test_user_db();
-        assert!(
-            updater_check_at_launch(&user_db).unwrap(),
-            "a missing row reads on"
+        assert_eq!(
+            stored_setting(&user_db, "updater.check_at_launch"),
+            None,
+            "a missing row is absent"
         );
         set_settings(&user_db, Settings::default()).unwrap();
-        set_updater_check_at_launch(&user_db, false).unwrap();
+        {
+            let conn = user_db.acquire_writable().unwrap();
+            crate::db::user_db::set_setting(&conn, "updater.check_at_launch", "false").unwrap();
+        }
 
         store_raw_settings(&user_db, SETTINGS_RECORD_2_0_3);
 
-        assert!(!updater_check_at_launch(&user_db).unwrap());
+        assert_eq!(
+            stored_setting(&user_db, "updater.check_at_launch").as_deref(),
+            Some("false")
+        );
         assert_eq!(
             get_settings_with_locale(&user_db, Some("en_US"), "linux")
                 .unwrap()
                 .theme,
             Theme::Dark
         );
-        set_updater_check_at_launch(&user_db, true).unwrap();
-        assert!(updater_check_at_launch(&user_db).unwrap());
+        {
+            let conn = user_db.acquire_writable().unwrap();
+            crate::db::user_db::set_setting(&conn, "updater.check_at_launch", "true").unwrap();
+        }
+        assert_eq!(
+            stored_setting(&user_db, "updater.check_at_launch").as_deref(),
+            Some("true")
+        );
     }
 
     fn stored_keys(record: &str) -> Vec<String> {
@@ -500,7 +472,7 @@ mod tests {
             (Theme::Light, BasemapStyle::Liberty, None)
         );
         assert_eq!(read.scroll_wheel, ScrollWheel::Zoom, "the field's default");
-        assert!(updater_check_at_launch(&user_db).unwrap());
+        assert!(super::record_is_newer(&user_db));
         assert_eq!(all_rows(&user_db), before, "nothing set aside or written");
     }
 
@@ -515,10 +487,7 @@ mod tests {
             set_settings(&user_db, Settings::default()),
             Err("store_read_only".to_owned())
         );
-        assert_eq!(
-            set_updater_check_at_launch(&user_db, false),
-            Err(super::SettingsWriteError::ReadOnly)
-        );
+        assert_eq!(stored_setting(&user_db, "updater.check_at_launch"), None);
         assert_eq!(all_rows(&user_db), before);
         let starred = crate::services::plant_browser::toggle_favorite(&user_db, "Malus".into());
         assert!(
@@ -527,24 +496,16 @@ mod tests {
         );
     }
 
-    /// Record 1, with no version or `version` 1, reads strictly and is written as before, the launch check on its row.
+    /// Record 1, with no version or `version` 1, reads strictly and is written as before.
     #[test]
     fn r2_canopi_f47t_52_271_settings_record_1_is_unchanged() {
         let user_db = test_user_db();
         store_raw_settings(&user_db, r#"{"version":1,"theme":"sepia"}"#);
         get_settings_with_locale(&user_db, None, "linux").unwrap();
         assert!(stored_setting(&user_db, super::SET_ASIDE_SETTINGS_KEY).is_some());
+        assert!(!super::record_is_newer(&user_db));
+        assert_eq!(stored_setting(&user_db, "updater.check_at_launch"), None);
 
-        store_raw_settings(
-            &user_db,
-            r#"{"theme":"dark","check_updates_at_launch":false}"#,
-        );
-        assert!(
-            updater_check_at_launch(&user_db).unwrap(),
-            "record 1 has no such field"
-        );
-        set_updater_check_at_launch(&user_db, false).unwrap();
-        assert!(!updater_check_at_launch(&user_db).unwrap());
         set_settings(&user_db, Settings::default()).unwrap();
         assert!(
             !stored_setting(&user_db, "settings")

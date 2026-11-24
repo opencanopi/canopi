@@ -14,8 +14,8 @@ import {
 } from '../../maplibre/shared-scene-layer'
 import type { SharedMapSceneRendererComposition } from '../../maplibre/shared-scene-renderer'
 import { createMapLibreCameraDriver, type MapLibreCameraDriverMap } from '../../maplibre/camera-driver'
-import type { CameraDriverFailure, CameraDriverHost } from '../../canvas/runtime/view/camera-driver'
-import { createSessionPlane } from '../../canvas/session-plane'
+import type { CameraDriverFailure, CameraDriverHost } from '../../geo/view/camera-driver'
+import { createSessionPlane } from '../../geo/session-plane'
 
 /**
  * `map-unavailable`: WebGL2 or MapLibre could not start or failed later. No

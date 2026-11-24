@@ -47,7 +47,7 @@ const CWD = 'desktop/web';
 const BIN = 'node_modules/.bin/depcruise';
 const CONFIGS = ['.dependency-cruiser.cjs', '.dependency-cruiser.web.cjs'];
 const POLICY_CONFIG = '.dependency-cruiser.policy.cjs';
-const REAL_ROOTS = ['src', 'ui-gallery'];
+const REAL_ROOTS = ['src'];
 const FIXTURES = 'policy/fixtures/';
 /** policy/'s own modules, planted ones outside a src/ mirror included: the policy graph's (2.1-M348). */
 const isPolicyPath = (p) => p.startsWith('policy/') && !/^policy\/fixtures\/rules\/[^/]+\/src\//u.test(p);

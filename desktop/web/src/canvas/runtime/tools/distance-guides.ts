@@ -6,7 +6,7 @@
 // and the stamps draw their own guide with ToolScene.nearestPlant, which keeps the scene order on a tie instead.
 
 import type { ScenePlantEntity } from '../scene/types'
-import type { ScreenPoint, WorldPoint } from '../view/types'
+import type { ScreenPoint, WorldPoint } from '../../../geo/view/types'
 import { formatMetricDistance } from '../zone-measurements'
 import type { DraftShape, DraftStroke } from './draft'
 import type { ToolScene } from './tool'

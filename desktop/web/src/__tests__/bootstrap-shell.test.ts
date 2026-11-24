@@ -77,13 +77,15 @@ vi.mock("../app/geocoding/place-search-session", () => ({
 
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: mocks.invoke,
+  convertFileSrc: (path: string) => path,
 }));
 
 vi.mock("../commands/registry", () => ({
   installDesktopKeyRouter: mocks.installDesktopKeyRouter,
+  DESKTOP_SHELL_COMMAND_CATALOG: [],
 }));
 
-vi.mock("../utils/theme", () => ({
+vi.mock("../app/settings/theme", () => ({
   initTheme: mocks.initTheme,
 }));
 
@@ -96,11 +98,11 @@ vi.mock("../app/shell/close-guard", () => ({
   registerCloseGuard: mocks.registerCloseGuard,
 }));
 
-vi.mock("../platform/settings.browser", () => ({
+vi.mock("../editions/web/settings", () => ({
   browserSettingsPlatformAdapter: mocks.browserSettingsAdapter,
 }));
 
-vi.mock("../platform/settings.desktop", () => ({
+vi.mock("../editions/desktop/settings", () => ({
   desktopSettingsPlatformAdapter: mocks.desktopSettingsAdapter,
   // The real health query, through the mocked @tauri-apps/api/core invoke.
   loadDesktopHealth: async () => (await import("../ipc/health")).getHealth(),
@@ -153,7 +155,7 @@ describe("settings platform bootstrap", () => {
   });
 
   it("replaces the Browser settings and theme lifecycle on repeated bootstrap", async () => {
-    const { bootstrapPlatform } = await import("../platform/browser");
+    const { bootWebEdition: bootstrapPlatform } = await import("../editions/web/boot");
 
     bootstrapPlatform();
     bootstrapPlatform();
@@ -172,7 +174,7 @@ describe("settings platform bootstrap", () => {
   });
 
   it("owns the Web Design Session lifetime: restores the newest Draft, then saves continuously", async () => {
-    const { bootstrapPlatform } = await import("../platform/browser");
+    const { bootWebEdition: bootstrapPlatform } = await import("../editions/web/boot");
 
     bootstrapPlatform();
 
@@ -211,7 +213,7 @@ describe("settings platform bootstrap", () => {
   // The notice holds locale keys (failures/notices.ts), so raised at once it reads in the user's locale once it loads.
   it("tells once that browser data from before Canopi 2.0 was not opened, at launch, ahead of any later notice", async () => {
     mocks.takeEarlierDataNotice.mockReturnValue(true);
-    const { bootstrapPlatform } = await import("../platform/browser");
+    const { bootWebEdition: bootstrapPlatform } = await import("../editions/web/boot");
 
     bootstrapPlatform();
 
@@ -221,7 +223,7 @@ describe("settings platform bootstrap", () => {
   });
 
   it("says nothing when no browser data from before Canopi 2.0 was found", async () => {
-    const { bootstrapPlatform } = await import("../platform/browser");
+    const { bootWebEdition: bootstrapPlatform } = await import("../editions/web/boot");
 
     bootstrapPlatform();
     await new Promise((resolve) => setTimeout(resolve, 0));
@@ -238,7 +240,7 @@ describe("settings platform bootstrap", () => {
     Object.defineProperty(globalThis.navigator, "storage", { configurable: true, value: storage });
     try {
       const { browserDraftPersistence, canKeepDrafts } = await import("../web/browser-draft-persistence");
-      const { bootstrapPlatform } = await import("../platform/browser");
+      const { bootWebEdition: bootstrapPlatform } = await import("../editions/web/boot");
 
       bootstrapPlatform();
       await vi.waitFor(() => expect(browserDraftPersistence.view.value.state).toBe("not-kept"));
@@ -262,7 +264,7 @@ describe("settings platform bootstrap", () => {
     Object.defineProperty(globalThis.navigator, "storage", { configurable: true, value: storage });
     try {
       const { browserDraftPersistence, canKeepDrafts } = await import("../web/browser-draft-persistence");
-      const { bootstrapPlatform } = await import("../platform/browser");
+      const { bootWebEdition: bootstrapPlatform } = await import("../editions/web/boot");
 
       bootstrapPlatform();
       await vi.waitFor(() => expect(browserDraftPersistence.view.value.state).toBe("not-kept"));
@@ -285,7 +287,7 @@ describe("settings platform bootstrap", () => {
     Object.defineProperty(globalThis.navigator, "storage", { configurable: true, value: storage });
     try {
       const { browserDraftPersistence } = await import("../web/browser-draft-persistence");
-      const { bootstrapPlatform } = await import("../platform/browser");
+      const { bootWebEdition: bootstrapPlatform } = await import("../editions/web/boot");
 
       bootstrapPlatform();
       mocks.listedNewerDrafts.mockReturnValue([{ id: "draft-1", name: "Orchard in 2.1", updatedAt: "2026-12-01T00:00:00.000Z" }]);
@@ -307,7 +309,7 @@ describe("settings platform bootstrap", () => {
     Object.defineProperty(globalThis.navigator, "storage", { configurable: true, value: { persisted: vi.fn(async () => false), persist: vi.fn(async () => false) } });
     try {
       const { browserDraftPersistence } = await import("../web/browser-draft-persistence");
-      const { bootstrapPlatform } = await import("../platform/browser");
+      const { bootWebEdition: bootstrapPlatform } = await import("../editions/web/boot");
 
       bootstrapPlatform();
       await vi.waitFor(() => expect(browserDraftPersistence.view.value.state).toBe("not-kept"));
@@ -321,7 +323,7 @@ describe("settings platform bootstrap", () => {
     const error = new Error("storage unavailable");
     mocks.launch.mockRejectedValue(error);
     const logError = vi.spyOn(console, "error").mockImplementation(() => {});
-    const { bootstrapPlatform } = await import("../platform/browser");
+    const { bootWebEdition: bootstrapPlatform } = await import("../editions/web/boot");
 
     bootstrapPlatform();
 
@@ -338,7 +340,7 @@ describe("settings platform bootstrap", () => {
       .mockReturnValueOnce({ ready: firstReady, dispose: mocks.disposeSettings })
       .mockReturnValueOnce({ ready: Promise.resolve(), dispose: mocks.disposeSettings });
     const logError = vi.spyOn(console, "error").mockImplementation(() => {});
-    const { bootstrapPlatform } = await import("../platform/browser");
+    const { bootWebEdition: bootstrapPlatform } = await import("../editions/web/boot");
 
     bootstrapPlatform();
     bootstrapPlatform();
@@ -350,7 +352,9 @@ describe("settings platform bootstrap", () => {
 
   for (const edition of ["desktop", "browser"] as const) {
     it(`bootstrapPlatform installs the failure hooks once; dispose or HMR removes them (${edition}, canopi-f47t.52.36)`, async () => {
-      const platform = await import(`../platform/${edition}.ts`) as { bootstrapPlatform(): void };
+      const platform = edition === 'desktop'
+        ? { bootstrapPlatform: (await import('../editions/desktop/boot')).bootDesktopEdition }
+        : { bootstrapPlatform: (await import('../editions/web/boot')).bootWebEdition };
       const ring = await import("../failures/ring");
       ring.resetFrontendDiagnosticsForTests();
       platform.bootstrapPlatform();
@@ -360,7 +364,9 @@ describe("settings platform bootstrap", () => {
 
       // A hot reload brings fresh module copies: the new install removes the old copy's listeners.
       vi.resetModules();
-      const reloaded = await import(`../platform/${edition}.ts`) as { bootstrapPlatform(): void };
+      const reloaded = edition === 'desktop'
+        ? { bootstrapPlatform: (await import('../editions/desktop/boot')).bootDesktopEdition }
+        : { bootstrapPlatform: (await import('../editions/web/boot')).bootWebEdition };
       const reloadedRing = await import("../failures/ring");
       reloaded.bootstrapPlatform();
       window.dispatchEvent(new ErrorEvent("error", { error: new Error("second fault"), message: "second fault" }));
@@ -377,7 +383,7 @@ describe("settings platform bootstrap", () => {
   }
 
   it("replaces the Desktop shell lifecycle while preserving the close guard", async () => {
-    const { bootstrapPlatform } = await import("../platform/desktop");
+    const { bootDesktopEdition: bootstrapPlatform } = await import("../editions/desktop/boot");
     const { installKeyRouter } = await import("../app/keyboard/key-router");
     const { subscribePendingOpen, takePendingOpen } = await import("../ipc/launch");
 
@@ -426,7 +432,7 @@ describe("settings platform bootstrap", () => {
       mocks.installSettingsProjection.mock.invocationCallOrder[0]!,
     );
     expect(mocks.invoke).toHaveBeenCalledOnce();
-    expect(mocks.invoke).toHaveBeenCalledWith("get_health");
+    expect(mocks.invoke).toHaveBeenCalledWith("get_health", { operation: expect.stringMatching(/^s-/) });
     // The boot snapshot feeds the one health model (failures/health.ts) its readers share.
     expect(health.plantCatalogCause()).toBe("missing");
     expect(health.storeStatus("library_catalogue")).toEqual({ kind: "recovered", items: 2, generated: 1 });

@@ -8,7 +8,7 @@ import {
   type ToolHarnessOptions,
 } from '../../../__tests__/support/tool-harness'
 import type { SceneDesignObjectTarget } from '../scene/design-object-targets'
-import type { WorldPoint } from '../view/types'
+import type { WorldPoint } from '../../../geo/view/types'
 import type { DraftShape } from './draft'
 import { createProfileLineTool } from './profile-line'
 import '../../../__tests__/support/camera-tolerance'

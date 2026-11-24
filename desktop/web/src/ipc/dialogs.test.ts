@@ -28,14 +28,14 @@ describe('the host dialog wire (canopi-f47t.52.228.14, 2.1-M81)', () => {
       kind: 'picked',
       paths: ['/data/a.tif', '/data/b.tiff'],
     })
-    expect(invoke).toHaveBeenCalledWith('pick_open', { kind: 'lidar-geotiff-import' })
+    expect(invoke).toHaveBeenCalledWith('pick_open', { kind: 'lidar-geotiff-import', operation: expect.stringMatching(/^u-/) })
   })
 
   it('asks pick_save for the kind and the stem, and returns a cancel as an outcome', async () => {
     invoke.mockResolvedValueOnce({ kind: 'cancelled' })
 
     await expect(pickSave('pdf-export', 'Garden')).resolves.toEqual({ kind: 'cancelled' })
-    expect(invoke).toHaveBeenCalledWith('pick_save', { kind: 'pdf-export', stem: 'Garden' })
+    expect(invoke).toHaveBeenCalledWith('pick_save', { kind: 'pdf-export', stem: 'Garden', operation: expect.stringMatching(/^u-/) })
   })
 
   it('settles a second dialog the host brought forward as a cancel, so no caller shows a notice (canopi-f47t.52.35, 2.1-Q284)', async () => {
@@ -50,7 +50,9 @@ describe('the host dialog wire (canopi-f47t.52.228.14, 2.1-M81)', () => {
     const failure = internal('dialog.pick_open')
     invoke.mockRejectedValueOnce(failure)
 
-    await expect(pickOpen('design-open')).rejects.toHaveProperty('failure', failure)
+    await expect(pickOpen('design-open')).rejects.toMatchObject({
+      failure: { ...failure, operation: expect.stringMatching(/^u-/) },
+    })
   })
 })
 
@@ -64,7 +66,7 @@ describe('a typed dialog rejection reaching a 2.0 caller (canopi-f47t.52.35)', (
     const { exportFile } = await import('./export')
     const { desktopGeoJsonFiles } = await import('./geojson')
     const stamps = await import('./saved-object-stamps')
-    const { chooseImportFiles } = await import('../app/lidar/actions')
+    const { chooseImportFiles } = await import('../app/data-library/actions')
     const { createPdfDelivery } = await import('../app/canvas-pdf/platform.desktop')
     const callers: [string, () => Promise<unknown>][] = [
       ['dialog.pick_open', () => openDesignDialog()],
@@ -79,7 +81,9 @@ describe('a typed dialog rejection reaching a 2.0 caller (canopi-f47t.52.35)', (
     for (const [op, call] of callers) {
       const failure = internal(op)
       invoke.mockRejectedValueOnce(failure)
-      await expect(call()).rejects.toHaveProperty('failure', failure)
+      await expect(call()).rejects.toMatchObject({
+        failure: { ...failure, operation: expect.stringMatching(/^u-/) },
+      })
     }
     expect(invoke).toHaveBeenCalledTimes(callers.length)
   })

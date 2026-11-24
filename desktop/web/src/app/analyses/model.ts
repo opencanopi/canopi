@@ -14,6 +14,7 @@ import type {
   ParamValue,
   Provenance,
 } from '../../generated/contracts'
+import type { EditionCapabilitySet } from '../../generated/edition-capabilities'
 import type { LocaleKey } from '../../generated/locale-keys'
 
 /**
@@ -25,8 +26,6 @@ import type { LocaleKey } from '../../generated/locale-keys'
  * explain itself inline; the native side validates every request again and
  * stays authoritative.
  */
-
-type Edition = 'desktop' | 'web'
 
 /** Why an analysis cannot run from one item, native or frontend. */
 export type AnalysisAvailability =
@@ -48,7 +47,7 @@ interface ExistingResult {
 }
 
 export interface AnalysisContext {
-  readonly edition: Edition
+  readonly capabilities: EditionCapabilitySet
   /** Every derived item in the library. */
   readonly results: readonly ExistingResult[]
   /** Item ids the current Design references. */
@@ -129,7 +128,7 @@ export function entryAvailability(
   form: AnalysisForm,
   locale: string,
 ): AnalysisAvailability | null {
-  if (context.edition === 'web') return { reason: 'NeedsDesktop' }
+  if (!context.capabilities.has('site-data-below-limit')) return { reason: 'NeedsDesktop' }
   const offer = subject.offers.find((candidate) => candidate.analysis_id === entry.id)
   // An entry native does not offer cannot be run from this snapshot.
   if (!offer) return { reason: 'NotReady' }

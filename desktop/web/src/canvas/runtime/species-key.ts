@@ -3,7 +3,7 @@ import type { ScenePersistedState } from './scene/types'
 import { resolvePlantBaseColor } from './plant-presentation'
 import { normalizeHexColor } from '../plant-colors'
 import { getStratumColor } from '../plants'
-import type { SpeciesCacheEntry } from './species-cache'
+import type { SpeciesCacheEntry } from './presentation-data'
 
 /** A species' symbol and colour on the map. */
 export interface SpeciesAppearance {

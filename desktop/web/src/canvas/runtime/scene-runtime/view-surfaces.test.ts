@@ -1,3 +1,4 @@
+import type { GeoPoint } from '../../../generated/contracts'
 // @vitest-environment jsdom
 
 import { describe, expect, it, vi } from 'vitest'
@@ -13,12 +14,11 @@ vi.mock('../../../ipc/species', async (importOriginal) => ({
 import { geoAt } from '../../../__tests__/support/geo-design'
 import { CURRENT_CANOPI_FILE_VERSION } from '../../../generated/canopi-design-format'
 import type { CanopiFile } from '../../../types/design'
-import { stageScaleToMapZoom } from '../../projection'
-import type { GeoPosition } from '../../session-plane'
+import { stageScaleToMapZoom } from '../../../geo/projection'
 import { AttachedInteractionMap } from '../../../__tests__/support/canvas-interaction-setup'
 import { placeOnHost } from '../../../__tests__/support/test-view'
 import { createMapLibreCameraDriver } from '../../../maplibre/camera-driver'
-import { planarCameraOf } from '../view/view-transform'
+import { planarCameraOf } from '../../../geo/view/view-transform'
 import { SceneCanvasRuntime } from '../scene-runtime'
 import type * as IpcSpeciesModule from '../../../ipc/species'
 
@@ -26,7 +26,7 @@ const SCREEN = { width: 400, height: 300 }
 
 type DesignZone = CanopiFile['zones'][number]
 
-function bedAt(origin: GeoPosition): DesignZone {
+function bedAt(origin: GeoPoint): DesignZone {
   return {
     id: 'bed', name: 'bed', zone_type: 'rect', rotation: 0,
     points: [geoAt(0, 0, origin), geoAt(8, 0, origin), geoAt(8, 6, origin), geoAt(0, 6, origin)],
@@ -34,7 +34,7 @@ function bedAt(origin: GeoPosition): DesignZone {
   }
 }
 
-function designAt(origin: GeoPosition, name: string, zones: readonly DesignZone[] = [bedAt(origin)]): CanopiFile {
+function designAt(origin: GeoPoint, name: string, zones: readonly DesignZone[] = [bedAt(origin)]): CanopiFile {
   return {
     version: CURRENT_CANOPI_FILE_VERSION,
     name,

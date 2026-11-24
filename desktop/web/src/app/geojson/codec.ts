@@ -25,13 +25,13 @@ import type {
   ObjectGroup,
   PlacedPlant,
   Zone,
-} from '../../types/design'
+} from '../../generated/contracts'
 import { WEB_MERCATOR_MAX_LATITUDE_DEG } from '../../generated/canopi-design-format'
 import {
   createSessionPlane,
   roundGeoDegrees,
   type PlanePoint,
-} from '../../canvas/session-plane'
+} from '../../geo/session-plane'
 import {
   getEllipticalZonePolygon,
   getRectangularZoneCorners,

@@ -21,7 +21,6 @@ use canopi_types::health::SubsystemHealth;
 use canopi_types::library::LibrarySnapshot;
 use canopi_types::report::ReportSectionId;
 use canopi_types::sensitive::UserPath;
-use canopi_types::settings::Settings;
 use canopi_types::support::{ProblemReportRequest, ProblemReportResult};
 use std::collections::BTreeSet;
 use std::io::Write as _;
@@ -46,10 +45,11 @@ const NAME_SUFFIX: &str = ".zip";
 const MAX_SAME_SECOND: usize = 100;
 
 /// The sections the frontend fills; Desktop fills every other but the Design.
-const FRONTEND_SECTIONS: [ReportSectionId; 3] = [
+const FRONTEND_SECTIONS: [ReportSectionId; 4] = [
     ReportSectionId::Description,
     ReportSectionId::FrontendRing,
     ReportSectionId::OriginatingFailure,
+    ReportSectionId::SettingsSummary,
 ];
 
 /// What the native sections read, gathered by the command.
@@ -64,7 +64,6 @@ pub struct ProblemReportContext {
     /// The webview's version, read by the shell (`tauri::webview_version`, 2.1-M82); `None` when it
     /// could not be read. A plain value, so this module names no tauri path.
     pub webview_version: Option<String>,
-    pub settings: Result<Settings, String>,
     pub health: SubsystemHealth,
     /// The last native failure settlements (`logging::recent_failures`).
     pub settlements: Vec<SettledFailure>,

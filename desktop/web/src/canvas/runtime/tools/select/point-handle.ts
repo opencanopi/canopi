@@ -7,7 +7,7 @@
 
 import type { SceneEditTransaction } from '../../scene-runtime/transactions'
 import type { ScenePersistedState } from '../../scene/types'
-import type { WorldPoint } from '../../view/types'
+import type { WorldPoint } from '../../../../geo/view/types'
 import type { ToolContext, ToolPoint } from '../tool'
 
 /** What a point handle edits: one object, reshaped from its state at the press. */

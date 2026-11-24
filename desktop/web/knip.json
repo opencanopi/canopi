@@ -1,10 +1,10 @@
 {
   "entry": [
     "src/maplibre/raster-display/worker.ts!",
-    "src/main.tsx!",
-    "src/main.web.tsx!",
-    "src/web/dev-entry.ts!",
-    "ui-gallery/**!"
+    "src/editions/web/dev-entry.ts!",
+    "src/editions/desktop/main.tsx!",
+    "src/editions/web/main.tsx!",
+    "src/editions/gallery/main.tsx!"
   ],
   "project": [
     "src/**!"

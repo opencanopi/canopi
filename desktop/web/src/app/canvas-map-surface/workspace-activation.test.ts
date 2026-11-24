@@ -11,7 +11,7 @@ import {
   type WorkspaceActivationRuntime,
 } from './workspace-activation'
 import { createTestView } from '../../__tests__/support/test-view'
-import { planarCameraOf } from '../../canvas/runtime/view/view-transform'
+import { planarCameraOf } from '../../geo/view/view-transform'
 import { SceneCanvasRuntime } from '../../canvas/runtime/scene-runtime'
 import {
   MAPLIBRE_SHARED_SCENE_LAYER_ID,
@@ -23,8 +23,8 @@ import { createSharedMapSceneRendererComposition, type SharedMapSceneRendererCom
 import { WorkspaceGenerationReconciler } from './workspace-generation-reconciler'
 import type { MapBackgroundPresentation } from '../../maplibre/map-background'
 import { geoToScreen } from '../../__tests__/support/geo-to-screen'
-import { screenToGeo } from '../../canvas/runtime/view/camera-math'
-import type { ViewCamera } from '../../canvas/runtime/view/types'
+import { screenToGeo } from '../../geo/view/camera-math'
+import type { ViewCamera } from '../../geo/view/types'
 import { createDetachedCanvasRuntimeAppAdapter } from '../../canvas/runtime/app-adapter'
 import { createCanvasDocumentReplacementToken } from '../../canvas/runtime/runtime'
 import { createDetachedSceneRuntimePanelTargetAdapter } from '../../canvas/runtime/scene-runtime/panel-target-adapter'

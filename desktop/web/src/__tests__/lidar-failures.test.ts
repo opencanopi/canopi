@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { LidarImportRefusal, LidarImportRefusalReason } from '../generated/contracts'
-import { lidarFailureMessage } from '../app/lidar/lidar-failures'
+import { lidarFailureMessage } from '../app/data-library/lidar-failures'
 import { lidarListLibrary } from '../ipc/lidar'
 
 // Only Tauri's invoke is stubbed: a rejected command goes through the real transport, sink and ring.

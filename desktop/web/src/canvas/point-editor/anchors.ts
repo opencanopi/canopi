@@ -7,7 +7,7 @@
 // Every function returns a new path or draft and never changes its argument. Pure: types only (P54).
 
 import type { PathPoint, PathPoints } from '../plant-path/curve'
-import type { WorldPoint } from '../runtime/view/types'
+import type { WorldPoint } from '../../geo/view/types'
 
 /** The fewest points a path keeps: 3 on a loop, 2 on an open path. */
 function minimumPoints(path: PathPoints): number {

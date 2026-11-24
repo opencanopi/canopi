@@ -8,7 +8,7 @@
 // of the one before collapse into it. Only +, -, *, / and Math.sqrt touch the coordinates, all correctly rounded in every
 // engine, so V8 and JavaScriptCore flatten a path to the same bits. Pure: it imports only types (P54).
 
-import type { WorldPoint } from '../runtime/view/types'
+import type { WorldPoint } from '../../geo/view/types'
 
 /** One point of a path: where it is, and whether the curve breaks there. */
 export interface PathPoint {

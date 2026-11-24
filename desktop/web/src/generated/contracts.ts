@@ -81,6 +81,9 @@ export type Annotation = {
 	rotation: number | null,
 };
 
+// Identifier of a text annotation in a Design scene.
+export type AnnotationId = string & { readonly __brand: "AnnotationId" };
+
 // Settings › Files and data: a folder Canopi keeps in its app data.
 export type AppFolder = "drafts" | "data_library";
 
@@ -300,6 +303,9 @@ export type DialogKind =
 // Data library › Import: one or more GeoTIFF files.
 "lidar-geotiff-import";
 
+// Identifier of a Design draft record.
+export type DraftId = string & { readonly __brand: "DraftId" };
+
 export type DynamicFilter = {
 	field: string,
 	op: FilterOp,
@@ -494,6 +500,9 @@ export type GeoResult = {
 	lon: number,
 };
 
+// Identifier of an object group in a Design scene.
+export type GroupId = string & { readonly __brand: "GroupId" };
+
 // Why a file operation failed (contracts §2 `io.kind`).
 export type IoFailureKind =
 // Nothing at the path.
@@ -536,6 +545,9 @@ export type Layer = {
 	opacity: number,
 };
 
+// Identifier of a scene layer in a Design.
+export type LayerId = string & { readonly __brand: "LayerId" };
+
 // What deleting one item would affect.
 export type LibraryDeleteImpact = {
 	/**
@@ -558,6 +570,9 @@ export type LibraryEngines = {
 	 */
 	geolibre: LidarEngineStatus,
 };
+
+// Identifier of a Data library item.
+export type LibraryItemId = string & { readonly __brand: "LibraryItemId" };
 
 // The kind of one Data library item, stored in `library_items.kind` from catalogue 26.
 export type LibraryItemKind =
@@ -949,6 +964,9 @@ export type NetworkFailureKind =
 // The payload is larger than its cap.
 "too_large";
 
+// Identifier of a Design Notebook section.
+export type NotebookSectionId = string & { readonly __brand: "NotebookSectionId" };
+
 export type ObjectGroup = {
 	id: string,
 	locked: boolean,
@@ -1036,6 +1054,9 @@ export type PlantDbStatus =
 "missing" |
 // The file was found but could not be opened or admitted.
 "corrupt";
+
+// Identifier of a placed plant in a Design scene.
+export type PlantId = string & { readonly __brand: "PlantId" };
 
 export type PlantLabels = "none" | "codes" | "names";
 
@@ -1374,6 +1395,9 @@ export type SavedViewHighlight = {
 	objects: SavedViewObject[],
 };
 
+// Identifier of a saved view in a Design.
+export type SavedViewId = string & { readonly __brand: "SavedViewId" };
+
 export type SavedViewLayers = {
 	background: SavedViewBackground,
 	terrain: SavedViewTerrain,
@@ -1710,6 +1734,9 @@ export type StaleReason =
 // A different engine build is installed.
 { reason: "ToolUpdated"; from: string; to: string };
 
+// Identifier of a saved object stamp.
+export type StampId = string & { readonly __brand: "StampId" };
+
 // One store's entry in `SubsystemHealth`.
 export type StoreHealth = {
 	// How the store opened.
@@ -1790,6 +1817,9 @@ export type Story = {
 	name: string,
 	steps: StoryStep[],
 };
+
+// Identifier of a story in a Design.
+export type StoryId = string & { readonly __brand: "StoryId" };
 
 export type StoryImage = {
 	src: string,
@@ -1923,6 +1953,9 @@ export type Zone = {
 	fill_color: string | null,
 	notes: string | null,
 };
+
+// Identifier of a zone in a Design scene.
+export type ZoneId = string & { readonly __brand: "ZoneId" };
 
 export const REPORT_SECTIONS: readonly ReportSection[] = [
   {

@@ -47,7 +47,7 @@ Model: current
 
 ```mermaid
 sequenceDiagram
-  participant UI as app/lidar/library-store.ts
+  participant UI as app/data-library/library-store.ts
   participant IPC as ipc/lidar.ts
   participant CMD as desktop/src/commands/lidar.rs
   participant LIB as services/lidar/mod.rs
@@ -111,7 +111,7 @@ Source: ADR 0027 file-access rule; contracts §1, §7, §8, §9; 2.1-Q99, 2.1-Q1
 
 ```mermaid
 sequenceDiagram
-  participant UI as app/data-library/ (2.1)
+  participant UI as app/data-library/
   participant RT as canvas/runtime/ read-only query, owner Scene
   participant H as host file dialog returning a grant (2.1)
   participant F as canopi-library facade (2.1)
@@ -189,9 +189,9 @@ sequenceDiagram
   participant CMD as desktop/src/commands/
   participant IPC as ipc/
   participant PDB as ipc/plant-db-errors.ts
-  participant LF as app/lidar/lidar-failures.ts
+  participant LF as app/data-library/lidar-failures.ts
   participant DG as app/problem-report/diagnostics.ts
-  participant OF as platform/open-failure.desktop.ts
+  participant OF as editions/desktop/open-failure.ts
   EX-->>CMD: Err(String), busy as English text
   CMD-->>IPC: promise rejects with a string, 65 of 71 commands
   IPC->>PDB: plant DB prefix match
@@ -200,7 +200,7 @@ sequenceDiagram
   IPC->>OF: DesignLoadFailure, native message dialog
 ```
 
-- Deleted by Phase 1 codes and Phase 3 N1 and N2 (2.1-M41): the busy regex in `app/lidar/display.ts`, the prefix matcher and `From<String>`.
+- Deleted by Phase 1 codes and Phase 3 N1 and N2 (2.1-M41): the busy regex in `app/data-library/display.ts`, the prefix matcher and `From<String>`.
 
 ### Update per channel and platform
 

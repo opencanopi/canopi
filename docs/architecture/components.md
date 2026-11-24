@@ -64,7 +64,7 @@ flowchart TB
     upd["Updater in the Rust host (2.1)"]:::target
   end
   subgraph webview["Webview, owner edition root"]
-    root["editions/desktop/ (2.1)"]:::target
+    root["editions/desktop/"]:::target
     app["Shared app, desktop/web/src/"]
     rw["maplibre/raster-display/worker.ts"]
     pw["app/canvas-pdf/worker.ts"]
@@ -104,7 +104,7 @@ Source: ADR 0022 Canopi Rust on Web, ADR 0029 Static Web serving, contracts §11
 flowchart TB
   classDef target stroke-dasharray: 4 3
   subgraph page["Page, owner edition root"]
-    root["editions/web/ (2.1)"]:::target
+    root["editions/web/"]:::target
     app["Shared app, desktop/web/src/"]
     st["platform/page-rules.ts (2.1): page-rules wasm in the page"]:::target
   end
@@ -149,9 +149,9 @@ Source: ADR 0022 Layers, 2.1-Q1, 2.1-M20
 flowchart TB
   classDef target stroke-dasharray: 4 3
   subgraph L5["L5 edition roots"]
-    ed["editions/desktop/ (2.1)"]:::target
-    ew["editions/web/ (2.1)"]:::target
-    eg["editions/gallery/ (2.1)"]:::target
+    ed["editions/desktop/"]:::target
+    ew["editions/web/"]:::target
+    eg["editions/gallery/"]
   end
   subgraph L4["L4 surfaces, an error boundary each"]
     comp["components/"]
@@ -160,7 +160,7 @@ flowchart TB
   subgraph L3["L3 features, acyclic, panels never import each other"]
     feat["other app/ features"]
     dedit["app/design-edit/ Document writers"]
-    dlib["app/data-library/ (2.1)"]:::target
+    dlib["app/data-library/"]:::target
     sc["app/shell-commands/"]
   end
   subgraph L2["L2 runtimes, ranked"]
@@ -182,8 +182,8 @@ flowchart TB
     i18n["i18n/, owner active locale"]
     utils["utils/"]
     sty["styles/ and assets/"]
-    geo["geo/ (2.1)"]:::target
-    plan["planning/ (2.1)"]:::target
+    geo["geo/"]:::target
+    plan["planning/"]:::target
   end
   L5 --> L4
   L4 --> L3
@@ -213,16 +213,16 @@ flowchart LR
   vite["desktop/web/vite.config.ts: five aliases"]
   md["main.tsx"]
   mw["main.web.tsx"]
-  pd["platform/desktop.ts"]
-  pb["platform/browser.ts"]
-  wa["web/WebApp.tsx"]
+  pd["editions/desktop/boot.ts"]
+  pb["editions/web/boot.ts"]
+  wa["editions/web/WebApp.tsx"]
   ds["app/document-session/state-machine.ts"]
   bs["web/browser-design-session.ts"]
   kd["commands/registry.ts: Desktop key router"]
-  kw["web/browser-shell-commands.ts: Web key router"]
+  kw["editions/web/browser-shell-commands.ts: Web key router"]
   al["Four feature aliases: species catalog, PDF, budget CSV, geocoding"]
   lp["components/panels/LayersPanel.tsx: edition prop"]
-  wl["web/WebLayersPanel.tsx: edition prop"]
+  wl["editions/web/WebLayersPanel.tsx: edition prop"]
   vite --> pd
   vite --> pb
   vite --> al
@@ -320,13 +320,13 @@ Source: ADR 0022 Ports, ADR 0024, ADR 0030, contracts §4, §13, §16
 ```mermaid
 flowchart LR
   classDef target stroke-dasharray: 4 3
-  ed["editions/desktop/ (2.1)"]:::target
-  ew["editions/web/ (2.1)"]:::target
+  ed["editions/desktop/"]:::target
+  ew["editions/web/"]:::target
   da["Desktop adapters in platform/ over ipc/ (2.1)"]:::target
   wa["Browser adapters in platform/: storage and workers (2.1)"]:::target
   gal["editions/gallery (2.1): browser adapters over memory, fakes, transcript library"]:::target
-  cap["generated/edition-capabilities.ts from canopi-types/edition-capabilities.json (2.1)"]:::target
-  ep["platform/edition-ports.ts (2.1): EditionPorts, installed once"]:::target
+  cap["generated/edition-capabilities.ts from canopi-types/edition-capabilities.json"]
+  ep["platform/edition-ports.ts: EditionPorts, installed once"]
   host["canvas-host.ts (2.1): one mountCanvasHost"]:::target
   core["app/document-session/core/ (2.1), owner Session core"]:::target
   feat["L3 features and L4 surfaces"]
@@ -350,7 +350,7 @@ flowchart LR
 | FileDelivery | `platform/file-delivery.ts` (2.1) | dialog and native write | download | L12 |
 | File access | `platform/file-access.ts` (2.1) | host dialogs with `pickOpen`, `pickHomeTarget`, `convertFileSrc` | file input | L9 |
 | App lifecycle | not named | close and exit requests, update install | visibility, page hide and show, version change | ADR 0024 |
-| Settings store | `platform/settings.ts` (2.1) | user DB settings row | localStorage record | L16 |
+| Settings store | `platform/settings.ts` | user DB settings row | localStorage record | L16 |
 | Data library | `platform/library.ts` (2.1) | library commands (N3) | library worker over SQLite on OPFS (N5) | L21 |
 | Species reader | not named | native catalog commands | DuckDB reader | L20, while two remain (2.1-E1) |
 | Saved stamps, Design Notebook | not named | user DB | browser record | L21 |

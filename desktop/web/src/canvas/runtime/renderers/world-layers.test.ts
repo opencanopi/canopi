@@ -7,8 +7,8 @@ import { createTestRendererView, createTestSceneRendererSnapshot } from '../../.
 import { gridInterval } from '../../grid'
 import { getMapBackdropInk } from '../scene-visuals'
 import { snapWorldPoint } from '../tools/snapping'
-import { bandCentreScale, zoomBandOf } from '../view/frame-source'
-import type { ViewTransform, WorldPoint } from '../view/types'
+import { bandCentreScale, zoomBandOf } from '../../../geo/view/frame-source'
+import type { ViewTransform, WorldPoint } from '../../../geo/view/types'
 import type { SceneEditingAids } from './scene-types'
 import { createWorldLayers } from './world-layers'
 

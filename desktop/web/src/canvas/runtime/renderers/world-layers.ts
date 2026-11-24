@@ -27,8 +27,8 @@ import {
   getSceneLayerStyle,
   resolveZoneVisual,
 } from '../scene-visuals'
-import { bandCentreScale, zoomBandOf } from '../view/frame-source'
-import type { SceneBounds, ViewTransform } from '../view/types'
+import { bandCentreScale, zoomBandOf } from '../../../geo/view/frame-source'
+import type { SceneBounds, ViewTransform } from '../../../geo/view/types'
 import { getEllipticalZonePolygon, getRectangularZoneCorners } from '../zone-geometry'
 import {
   cssColorAlpha,

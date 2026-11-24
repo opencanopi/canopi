@@ -85,6 +85,30 @@ export interface GeoJsonWorkflow {
   exportGeoJson(): Promise<GeoJsonExportOutcome>
 }
 
+const UNAVAILABLE_GEOJSON_WORKFLOW: GeoJsonWorkflow = {
+  isAvailable: () => false,
+  importGeoJson: async () => ({ status: 'unavailable' }),
+  exportGeoJson: async () => ({ status: 'unavailable' }),
+}
+
+const geoJsonWorkflowSlot: { current: GeoJsonWorkflow } = { current: UNAVAILABLE_GEOJSON_WORKFLOW }
+
+/** Installs the active edition's GeoJSON workflow (called by L5 edition roots). */
+export function installGeoJsonWorkflow(workflow: GeoJsonWorkflow): () => void {
+  const previous = geoJsonWorkflowSlot.current
+  geoJsonWorkflowSlot.current = workflow
+  return () => {
+    if (geoJsonWorkflowSlot.current === workflow) geoJsonWorkflowSlot.current = previous
+  }
+}
+
+/** Lazy facade over the installed GeoJSON workflow. */
+export const activeGeoJsonWorkflow: GeoJsonWorkflow = {
+  isAvailable: () => geoJsonWorkflowSlot.current.isAvailable(),
+  importGeoJson: () => geoJsonWorkflowSlot.current.importGeoJson(),
+  exportGeoJson: () => geoJsonWorkflowSlot.current.exportGeoJson(),
+}
+
 function readCurrentGeoJsonCanvas(): GeoJsonCanvas | null {
   const session = getCurrentCanvasSession()
   return session ? { commands: session.commands, queries: session.queries } : null

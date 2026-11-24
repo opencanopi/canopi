@@ -15,7 +15,7 @@ import type { BrowserDraftPersistence } from '../web/browser-draft-persistence'
 
 type BrowserDraftPersistenceView = BrowserDraftPersistence['view']['value']
 import { notices, resetNoticesForTests } from '../failures/notices'
-import { WebWelcomeScreen } from '../web/WebWelcomeScreen'
+import { WebWelcomeScreen } from '../editions/web/WebWelcomeScreen'
 
 // The Web welcome screen's persistence line and per-Draft Download a copy (2.1-Q82, Q190, Q193, Q194; rows L2, L5, L19).
 

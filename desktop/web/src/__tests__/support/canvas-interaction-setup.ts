@@ -31,8 +31,8 @@ import { installKeyRouter, type KeyRouterHandle } from '../../app/keyboard/key-r
 import { CANVAS_KEYMAP_ROWS } from '../../app/keyboard/keymap'
 import { TEST_KEY_PLATFORM } from './key-router'
 import { t } from '../../i18n'
-import { planarToViewCamera, screenToGeo } from '../../canvas/runtime/view/camera-math'
-import { createSessionPlane } from '../../canvas/session-plane'
+import { planarToViewCamera, screenToGeo } from '../../geo/view/camera-math'
+import { createSessionPlane } from '../../geo/session-plane'
 import type { MapLibreCameraDriverMap } from '../../maplibre/camera-driver'
 import { createTestView, type TestView } from './test-view'
 import {

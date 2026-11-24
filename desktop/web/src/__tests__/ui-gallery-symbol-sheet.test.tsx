@@ -2,9 +2,9 @@
 
 import { render } from 'preact'
 import { afterEach, describe, expect, it } from 'vitest'
-import { GALLERY_SURFACES, parseGallerySurface } from '../../ui-gallery/surface-routing'
-import { PlantSymbolSheet } from '../../ui-gallery/PlantSymbolSheet'
-import { designFixture } from '../../ui-gallery/fixtures'
+import { GALLERY_SURFACES, parseGallerySurface } from '../editions/gallery/surface-routing'
+import { PlantSymbolSheet } from '../editions/gallery/PlantSymbolSheet'
+import { designFixture } from '../editions/gallery/fixtures'
 import { PLANT_SYMBOL_IDS } from '../canvas/runtime/scene'
 import { PLANT_SYMBOL_FAMILIES } from '../canvas/runtime/plant-symbol-recipes'
 

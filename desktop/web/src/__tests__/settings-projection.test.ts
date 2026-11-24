@@ -5,11 +5,11 @@ import type { Settings, Theme } from '../types/settings'
 import type { SettingsProjectionInstallation } from '../app/settings/projection'
 import { snapToGridEnabled } from '../app/canvas-settings/signals'
 import { createDefaultMapLayers, mapLayers } from '../app/map-layers/state'
-import { sidePanelWidth } from '../app/shell/state'
 import {
   locale,
   plantSpacingIntervalM,
   savedStampsFrameHeight,
+  sidePanelWidth,
   theme,
   googleMapsApiKey,
   lastView,

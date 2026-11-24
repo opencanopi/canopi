@@ -1,5 +1,5 @@
 import { isAllowedRichTextLink } from '../contracts/views-admission'
-import type { RichTextBlock, RichTextSpan } from '../../types/design'
+import type { RichTextBlock, RichTextSpan } from '../../generated/contracts'
 
 // Portable rich text (`RichTextBlock`) for story steps: paragraphs and bullet
 // lists of spans that are bold, italic or links. Nothing here keeps HTML: an

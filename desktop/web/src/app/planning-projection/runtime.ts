@@ -5,7 +5,7 @@ import { buildSpeciesKey, speciesDisplayNames, type SpeciesKeyEntry } from '../.
 import { locale } from '../settings/state'
 import { DEFAULT_BUDGET_CURRENCY } from '../contracts/document'
 import { currentDesign, designName } from '../document-session/store'
-import type { BudgetItem, Consortium, PlacedPlant, TimelineAction } from '../../types/design'
+import type { BudgetItem, Consortium, PlacedPlant, TimelineAction } from '../../generated/contracts'
 import { buildBudgetPlanningProjection, type BudgetPlanningProjection } from './budget'
 import { buildConsortiumPlanningProjection, type ConsortiumPlanningProjection } from './consortium'
 import { buildTimelineSpeciesOptions, type TimelineSpeciesOption } from './timeline'

@@ -44,7 +44,7 @@ use tokio::sync::watch;
 use crate::native_operation::{NativeOperationClass, NativeOperationExecutor};
 use channel::{Channel, Endpoints, Installation};
 
-pub use launch::{launch_check_get, launch_check_set, restart};
+pub use launch::restart;
 pub use transfer::ProgressSink;
 
 /// The plugin, registered by [`super::register`]; its settings are `tauri.conf.json`'s

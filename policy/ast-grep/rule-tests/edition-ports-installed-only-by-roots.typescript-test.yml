@@ -1,0 +1,12 @@
+id: edition-ports-installed-only-by-roots.typescript
+valid:
+  - |
+    import { editionPorts } from '../platform/edition-ports'
+    export const read = () => editionPorts()
+invalid:
+  - |
+    import { installEditionPorts } from '../platform/edition-ports'
+    installEditionPorts(ports)
+  - |
+    import { installDesktopWorkspaceRuntimeComposition } from '../app/canvas-map-surface/desktop-workspace-runtime'
+    installDesktopWorkspaceRuntimeComposition(factory)

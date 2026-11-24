@@ -1,3 +1,4 @@
+import { capabilitiesForEdition } from '../generated/edition-capabilities'
 import { describe, expect, it } from 'vitest'
 import type { AnalysisEntry, AnalysisGroup } from '../generated/analysis-registry'
 import { ANALYSIS_GROUPS, ANALYSIS_REGISTRY } from '../generated/analysis-registry'
@@ -80,7 +81,7 @@ function subject(offers: AnalysisOffer[] = [
 }
 
 function context(overrides: Partial<AnalysisContext> = {}): AnalysisContext {
-  return { edition: 'desktop', results: [], inDesign: new Set(), ...overrides }
+  return { capabilities: capabilitiesForEdition('desktop', 'linux'), results: [], inDesign: new Set(), ...overrides }
 }
 
 function provenance(overrides: Partial<Provenance> = {}): Provenance {
@@ -109,7 +110,7 @@ describe('Analyze dialog model', () => {
   })
 
   it('refuses every entry on Web, and an entry native did not offer', () => {
-    expect(analysisOptions(subject(), context({ edition: 'web' }), 'en', REGISTRY, GROUPS)
+    expect(analysisOptions(subject(), context({ capabilities: capabilitiesForEdition('web', 'linux') }), 'en', REGISTRY, GROUPS)
       .flatMap((group) => group.options.map((option) => option.unavailable)))
       .toEqual([{ reason: 'NeedsDesktop' }, { reason: 'NeedsDesktop' }])
     expect(analysisOptions(subject([]), context(), 'en', REGISTRY, GROUPS)[0]!.options[0]!.unavailable)

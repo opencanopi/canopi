@@ -11,7 +11,7 @@
     "no-app-cycle @ desktop/web/src/app/canvas-commands/edit-availability.ts [app/canvas-commands/edit-availability.ts -> app/canvas-commands/index.ts] x1",
     "utils-below-app @ desktop/web/src/utils/theme.ts [utils/theme.ts -> app/settings/projection.ts] x1",
     "utils-below-app @ desktop/web/src/utils/theme.ts [utils/theme.ts -> app/settings/state.ts] x1",
-    "$ desktop/web/node_modules/.bin/depcruise --config .dependency-cruiser.cjs --output-type json src ui-gallery",
-    "$ desktop/web/node_modules/.bin/depcruise --config .dependency-cruiser.web.cjs --output-type json src ui-gallery"
+    "$ desktop/web/node_modules/.bin/depcruise --config .dependency-cruiser.cjs --output-type json src",
+    "$ desktop/web/node_modules/.bin/depcruise --config .dependency-cruiser.web.cjs --output-type json src"
   ]
 }

@@ -10,17 +10,17 @@ import type {
   PlacedPlant,
   Zone,
 } from '../../types/design'
-import type { SessionPlane } from '../session-plane'
+import type { SessionPlane } from '../../geo/session-plane'
 import type { SelectedPlantColorContext } from '../plant-color-context'
 import type { SelectedPlantSymbolContext } from '../plant-symbol-context'
 import type { PlantSymbolId, SceneDesignObjectTarget, ScenePoint, ScenePersistedState } from './scene'
-import type { SceneBounds, ViewTransform } from './view/types'
+import type { SceneBounds, ViewTransform } from '../../geo/view/types'
 import type { PlantLabelMode } from './plant-display'
 import type { SceneRendererSnapshot } from './renderers/scene-types'
 import type { PointerWorld } from './interaction-ports'
 import type { Modifiers, ToolId } from './interaction-types'
-import type { ViewCommandSurface, ViewReadSurface } from './view/read-surface'
-import type { SpeciesCacheEntry } from './species-cache'
+import type { ViewCommandSurface, ViewReadSurface } from '../../geo/view/read-surface'
+import type { SpeciesCacheEntry } from './presentation-data'
 
 export interface CanvasRuntimeDocumentMetadata {
   name: string

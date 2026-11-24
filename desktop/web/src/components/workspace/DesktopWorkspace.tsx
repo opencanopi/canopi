@@ -1,6 +1,6 @@
 import { Suspense } from 'preact/compat'
 import { retryableLazy } from '../../failures/lazy'
-import { closeDataDialog, closeDataLibrary, dataDialog, libraryView } from '../../app/lidar/library-navigation'
+import { closeDataDialog, closeDataLibrary, dataDialog, libraryView } from '../../app/data-library/library-navigation'
 import { SurfaceBoundary } from '../shared/SurfaceBoundary'
 import { appCommandGraphPanelProjection } from '../../commands/registry'
 import { CanvasPanel } from '../panels/CanvasPanel'

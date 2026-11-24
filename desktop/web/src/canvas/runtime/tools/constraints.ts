@@ -5,7 +5,7 @@
 // a pivot so that the angle since the press is a step multiple (relative steps, bearing-independent). At bearing 0 the
 // screen axes are the world axes.
 
-import type { WorldPoint, WorldVector } from '../view/types'
+import type { WorldPoint, WorldVector } from '../../../geo/view/types'
 import type { ToolConstraint } from './tool'
 
 /** Unit world vectors of screen-right and screen-down (ToolView.screenAxesInWorld). */

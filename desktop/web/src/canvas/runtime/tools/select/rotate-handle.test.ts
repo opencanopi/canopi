@@ -8,7 +8,7 @@ import {
   type ToolHarness,
   type ToolHarnessOptions,
 } from '../../../../__tests__/support/tool-harness'
-import type { ScreenPoint } from '../../view/types'
+import type { ScreenPoint } from '../../../../geo/view/types'
 import { getEllipticalZonePolygon, getRectangularZoneCorners } from '../../zone-geometry'
 import { createToolScene } from '../spatial-index'
 import { ROTATE_HANDLE_ID, rotationReadout } from './rotate-handle'

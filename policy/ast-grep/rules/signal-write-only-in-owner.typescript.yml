@@ -23,6 +23,7 @@ message: "a signal is written only by the module that declares it: another modul
 files:
   - "{desktop/web,policy/fixtures/rules/*}/src/**/*.ts"
 ignores:
+  - "{desktop/web,policy/fixtures/rules/*}/src/editions/gallery/**"
   - "{desktop/web,policy/fixtures/rules/*}/src/__tests__/**"
   - "{desktop/web,policy/fixtures/rules/*}/src/**/__fixtures__/**"
   - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
@@ -129,6 +130,7 @@ message: "a signal is written only by the module that declares it: another modul
 files:
   - "{desktop/web,policy/fixtures/rules/*}/src/app/settings/**/*.ts"
 ignores:
+  - "{desktop/web,policy/fixtures/rules/*}/src/editions/gallery/**"
   - "{desktop/web,policy/fixtures/rules/*}/src/__tests__/**"
   - "{desktop/web,policy/fixtures/rules/*}/src/**/__fixtures__/**"
   - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"

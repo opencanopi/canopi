@@ -8,7 +8,7 @@
     "bindings-gen/src/analysis_registry.rs",
     "desktop/src/services/lidar/mod.rs",
     "desktop/src/services/lidar/recovery.rs",
-    "app/lidar/item-types.ts",
+    "app/data-library/item-types.ts",
     "components/panels/lidar/ImportDataDialog.tsx"
   ],
   "start": {

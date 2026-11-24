@@ -35,7 +35,7 @@ describe('floating chrome layering', () => {
     // The last background layer is the surface, so the map never shows through the tint.
     const onSurface = /background:\s*linear-gradient\(var\(--color-danger-bg\),\s*var\(--color-danger-bg\)\),\s*var\(--color-surface\)\s*;/
     // The Web shell keeps no notice row of its own: its notices are the one notice row's (2.1-Q290).
-    expect(readCssSource('web/BrowserAppShell.module.css')).not.toMatch(/\.notice\b/)
+    expect(readCssSource('editions/web/BrowserAppShell.module.css')).not.toMatch(/\.notice\b/)
     // The one notice row (Desktop's foot, Web's title-bar row) lays its error and warning tints on the surface too.
     expect(ruleBody('components/shared/NoticeRow.module.css', '.row [data-notice-tone="error"]')).toMatch(onSurface)
     expect(ruleBody('components/shared/NoticeRow.module.css', '.row [data-notice-tone="warning"]'))
@@ -48,7 +48,7 @@ describe('floating chrome layering', () => {
   it('stacks the Web notice row under the title bar and phone search card and over the phone sheet', () => {
     const notice = classZIndex('components/shared/NoticeRow.module.css', 'belowTitleBar')
     expect(classZIndex('components/shared/WorkspaceTitleBar.module.css', 'titleBar')).toBeGreaterThan(notice)
-    expect(classZIndex('web/BrowserAppShell.module.css', 'phoneSearch')).toBeGreaterThan(notice)
+    expect(classZIndex('editions/web/BrowserAppShell.module.css', 'phoneSearch')).toBeGreaterThan(notice)
     expect(notice).toBeGreaterThan(classZIndex('components/shared/PhoneSheet.module.css', 'sheet'))
     expect(readCssSource('components/shared/NoticeRow.module.css')).toMatch(/\.belowTitleBar\s*\{[^}]*z-index:\s*var\(--z-shell-notice\)/)
   })

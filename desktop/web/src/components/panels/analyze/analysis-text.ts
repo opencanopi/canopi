@@ -2,7 +2,7 @@ import type { AnalysisEntry } from '../../../generated/analysis-registry'
 import type { AnalysisParamValue, StaleReason } from '../../../generated/contracts'
 import type { AnalysisAvailability, ParamError } from '../../../app/analyses/model'
 import { formatLocaleNumber, paramUnitSuffix } from '../../../app/analyses/model'
-import { itemTypeLabel, unitSuffix } from '../../../app/lidar/item-types'
+import { itemTypeLabel, unitSuffix } from '../../../app/data-library/item-types'
 import { t } from '../../../i18n'
 
 /**

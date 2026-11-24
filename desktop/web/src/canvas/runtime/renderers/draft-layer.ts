@@ -27,7 +27,7 @@ import {
 } from '../scene-visuals'
 import type { DraftFill, DraftPresentation, DraftShape, DraftStroke } from '../tools/draft'
 import type { GhostEntity } from '../tools/tool'
-import type { ScreenPoint, ViewTransform, WorldPoint } from '../view/types'
+import type { ScreenPoint, ViewTransform, WorldPoint } from '../../../geo/view/types'
 import { pixiPaint, screenPxToWorldPx, traceDashedPath, writeWorldAffine } from './scene-paint'
 
 /** Where the scene draws the active tool's draft; mounted by pixi-scene.ts. */

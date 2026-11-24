@@ -7,7 +7,7 @@ import {
   type ViewSnapshotMap,
   type ViewSnapshotRequest,
 } from '../../maplibre/view-snapshot-map'
-import type { SavedView } from '../../types/design'
+import type { SavedView } from '../../generated/contracts'
 import { locale } from '../settings/state'
 import { readSatelliteConfig } from '../settings/satellite-config'
 import { mapLayers, type MapLayersState } from '../map-layers/state'

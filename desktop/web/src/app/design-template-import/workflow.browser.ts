@@ -3,7 +3,7 @@ import { decodeCanopiDesign } from '../contracts/design-ingestion'
 import {
   browserDesignSessionController,
 } from '../../web/browser-design-session'
-import { WEB_STATIC_DESIGN_TEMPLATE_ASSET_ORIGINS } from '../../web/static-design-templates'
+import { WEB_STATIC_DESIGN_TEMPLATE_ASSET_ORIGINS } from './static-design-templates'
 import {
   createDesignTemplateImportCoordinator,
 } from './coordinator'

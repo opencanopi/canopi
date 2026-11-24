@@ -4,10 +4,10 @@
 // where those corners land in another window at the camera going to the view shows. Both views are test views (the production
 // camera host) over one session plane at the view's centre, so the plane's metres are the ground's there.
 
-import { mapZoomToStageScale } from '../../canvas/projection'
-import type { ScreenPoint, ViewCamera } from '../../canvas/runtime/view/types'
-import { createSessionPlane } from '../../canvas/session-plane'
-import type { SavedView } from '../../types/design'
+import { mapZoomToStageScale } from '../../geo/projection'
+import type { ScreenPoint, ViewCamera } from '../../geo/view/types'
+import { createSessionPlane } from '../../geo/session-plane'
+import type { SavedView } from '../../generated/contracts'
 import { createTestView } from './test-view'
 
 type SavedViewCamera = SavedView['camera']

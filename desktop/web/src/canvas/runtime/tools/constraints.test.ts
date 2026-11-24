@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { WorldPoint } from '../view/types'
+import type { WorldPoint } from '../../../geo/view/types'
 import { applyToolConstraint } from './constraints'
 
 const WORLD_AXES = { right: { x: 1, y: 0 }, down: { x: 0, y: 1 } } as const

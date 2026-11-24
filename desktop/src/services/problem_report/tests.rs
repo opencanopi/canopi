@@ -7,7 +7,6 @@ use canopi_redact::Redactor;
 use canopi_types::failure::{FailureCode, IoFailureKind};
 use canopi_types::library::LibrarySnapshot;
 use canopi_types::report::{MANIFEST_FILE, REPORT_SECTIONS, ReportSectionId};
-use canopi_types::settings::Settings;
 use canopi_types::support::{ProblemReportRequest, ReportSectionText};
 use serde_json::Value;
 use std::path::{Path, PathBuf};
@@ -25,7 +24,6 @@ fn context(scratch: &TestScratch, log_dir: Option<PathBuf>) -> ProblemReportCont
         app_version: "0.5.0".to_owned(),
         target: "test-os/test-arch".to_owned(),
         webview_version: None,
-        settings: Ok(Settings::default()),
         health: crate::services::health::all_ready(),
         settlements: Vec::new(),
         library: Ok(LibrarySnapshot {
@@ -115,15 +113,13 @@ fn a_report_is_one_zip_in_the_problem_reports_folder_named_by_its_file_name() {
     );
     let mut context = context(&scratch, Some(log_dir));
     context.webview_version = Some("2.44.0".to_owned());
-    context.settings = Ok(Settings {
-        plant_spacing_interval_m: 0.75,
-        // A recognizable fake credential: the settings hand list must never carry it.
-        google_maps_api_key: Some("FAKE-GOOGLE-MAPS-KEY-DO-NOT-EXPORT".to_owned()),
-        ..Settings::default()
-    });
 
-    let result =
-        create_problem_report(&request("Canvas froze after placing a species"), &context).unwrap();
+    let mut req = request("Canvas froze after placing a species");
+    req.sections.push(ReportSectionText {
+        id: ReportSectionId::SettingsSummary,
+        text: Redactor::generic().redact(r#"{"plant_spacing_interval_m":0.75}"#),
+    });
+    let result = create_problem_report(&req, &context).unwrap();
 
     assert_eq!(
         result.file_name, FIRST_NAME,
@@ -179,7 +175,6 @@ fn problem_report_always_carries_every_section() {
     let scratch = TestScratch::new("problem-report-every-section");
     // No log folder, no settings, no library and no frontend section: each still has its entry.
     let mut context = context(&scratch, None);
-    context.settings = Err("the settings store is closed".to_owned());
     context.library = Err("the library is closed".to_owned());
     context.library_disk_bytes = Err("the library is closed".to_owned());
     let empty = ProblemReportRequest {
@@ -200,7 +195,7 @@ fn problem_report_always_carries_every_section() {
     );
     assert_eq!(files, expected);
     assert_eq!(status_of(&entries, "description.txt"), "empty");
-    assert_eq!(status_of(&entries, "settings.json"), "unreadable");
+    assert_eq!(status_of(&entries, "settings.json"), "empty");
     assert_eq!(status_of(&entries, "jobs.json"), "unreadable");
     assert_eq!(status_of(&entries, "queues.json"), "not_collected");
     assert!(entry(&entries, "queues.json").contains("not collected before Phase 3"));

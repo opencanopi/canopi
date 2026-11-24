@@ -1,5 +1,5 @@
 import { targets } from '../../target'
-import type { TimelineAction } from '../../types/design'
+import type { TimelineAction } from '../../generated/contracts'
 
 export function applyTimelineActionPatch(
   timeline: readonly TimelineAction[],

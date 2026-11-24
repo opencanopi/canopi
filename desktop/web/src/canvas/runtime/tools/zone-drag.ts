@@ -15,7 +15,7 @@ import type { ToolId } from '../interaction-types'
 import type { SceneDesignObjectTarget } from '../scene/design-object-targets'
 import type { ScenePersistedState } from '../scene/types'
 import type { SceneEditTransaction } from '../scene-runtime/transactions'
-import type { WorldPoint } from '../view/types'
+import type { WorldPoint } from '../../../geo/view/types'
 import {
   createEllipticalZoneMeasurements,
   createLinearZoneMeasurements,

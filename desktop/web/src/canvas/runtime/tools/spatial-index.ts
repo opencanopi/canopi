@@ -13,7 +13,7 @@
 import type { ToolSceneSource } from '../interaction-ports'
 import { buildPlantPresentationEntries, type PlantPresentationContext } from '../plant-presentation'
 import type { ScenePersistedState, ScenePlantEntity } from '../scene/types'
-import type { WorldPoint, WorldQuad } from '../view/types'
+import type { WorldPoint, WorldQuad } from '../../../geo/view/types'
 import { hitTestTopLevel, hitTestVisibleTopLevel, hitZoneEdge, queryQuadTopLevel } from './hit-testing'
 import type { HitFilter, HitTarget, ToolScene } from './tool'
 

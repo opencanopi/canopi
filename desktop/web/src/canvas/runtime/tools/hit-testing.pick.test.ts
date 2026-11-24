@@ -9,7 +9,7 @@
 // needs the user's word.
 
 import { afterEach, describe, expect, it } from 'vitest'
-import { stageScaleToMapZoom } from '../../projection'
+import { stageScaleToMapZoom } from '../../../geo/projection'
 import {
   createToolHarness,
   createToolSceneSource,
@@ -22,7 +22,7 @@ import {
 import type { PointerKind } from '../interaction-types'
 import type { ScenePersistedState, ScenePoint, SceneZoneEntity } from '../scene'
 import { sceneTargetKey, type SceneDesignObjectTarget } from '../scene/design-object-targets'
-import type { ScreenPoint } from '../view/types'
+import type { ScreenPoint } from '../../../geo/view/types'
 import { PICK_TOLERANCE_PX } from './hit-testing'
 import { contextMenuTargetAt, createToolScene } from './tool-host'
 

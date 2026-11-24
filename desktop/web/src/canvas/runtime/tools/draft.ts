@@ -1,7 +1,7 @@
 // canvas/runtime/tools/draft.ts  (world-space presentations)
 
 import type { ToolHandleId } from '../interaction-types'
-import type { ScreenPoint, WorldPoint, WorldQuad } from '../view/types'
+import type { ScreenPoint, WorldPoint, WorldQuad } from '../../../geo/view/types'
 import type { GhostEntity } from './tool'
 
 export type DraftShape =

@@ -1,0 +1,39 @@
+# no-rust-settings-parsing (Stage 2 E1, ADR 0024): Rust code outside the settings store boundary
+# never parses or reads typed settings fields; settings fields are owned by the one TS runner and
+# passed as opaque/TS facts.
+id: no-rust-settings-parsing
+language: rs
+severity: error
+message: "Rust code outside the settings store boundary (desktop/src/services/settings.rs) must not parse or read settings fields (Stage 2 E1, ADR 0024); pass facts from TypeScript (owner desktop/web/src/app/settings/state.ts)"
+files:
+  - "{desktop,canopi-types,canopi-redact,canopi-format,canopi-format-wasm,bindings-gen}/src/**/*.rs"
+  - "policy/fixtures/rules/*/{desktop,canopi-types,canopi-redact,canopi-format,canopi-format-wasm,bindings-gen}/src/**/*.rs"
+ignores:
+  - "desktop/src/services/settings.rs"
+  - "desktop/src/services/settings_reader_release_tests.rs"
+  - "desktop/src/commands/settings.rs"
+  - "desktop/src/reader_session.rs"
+  - "desktop/src/module_layering/tests.rs"
+rule:
+  any:
+    - kind: call_expression
+      has:
+        field: function
+        any:
+          - kind: identifier
+            regex: ^get_settings$
+          - kind: scoped_identifier
+            has:
+              field: name
+              kind: identifier
+              regex: ^get_settings$
+    - kind: field_expression
+      all:
+        - has:
+            field: value
+            kind: identifier
+            regex: ^settings$
+        - has:
+            field: field
+            kind: field_identifier
+            regex: ^(locale|theme|basemap_style|basemap_visible|satellite_visible|contour_visible|hillshade_visible|plant_spacing_interval_m|google_maps_api_key|check_updates_at_launch)$

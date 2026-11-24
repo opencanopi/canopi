@@ -1,4 +1,5 @@
-import { createSessionPlane, type GeoPosition } from '../canvas/session-plane'
+import type { GeoPoint, PanelTarget } from '../generated/contracts'
+import { createSessionPlane } from '../geo/session-plane'
 import type { SceneZoneEntity } from '../canvas/runtime/scene'
 import {
   getEllipticalZonePolygon,
@@ -13,7 +14,6 @@ import {
   type TargetScenePoint,
   type TargetZoneRef,
 } from './identity'
-import type { PanelTarget } from '../types/design'
 
 type TargetMapProjectionPoint = TargetScenePoint
 
@@ -83,7 +83,7 @@ function isTargetSceneIndex(
 /** The resolved Targets' map features; a plant without a position, or a zone with too few points, has none. */
 export function projectTargetResolutionToMapFeatures(
   resolution: TargetResolution,
-  location: GeoPosition,
+  location: GeoPoint,
 ): readonly TargetMapFeature[] {
   const features: TargetMapFeature[] = []
   const plane = createSessionPlane(location)
@@ -155,7 +155,7 @@ export function projectTargetResolutionToMapFeatures(
 export function projectTargetsToMapFeatures(
   values: readonly PanelTarget[],
   scene: TargetMapProjectionScene | TargetSceneIndex,
-  location: GeoPosition,
+  location: GeoPoint,
 ): readonly TargetMapFeature[] {
   const index = isTargetSceneIndex(scene) ? scene : indexTargetScene(scene)
   return projectTargetResolutionToMapFeatures(resolveTargetsInScene(values, index), location)

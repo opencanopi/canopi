@@ -1,5 +1,4 @@
 // @vitest-environment jsdom
-
 import { render } from 'preact'
 import { act } from 'preact/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
@@ -37,6 +36,9 @@ import type * as SiteOnboardingStateModule from '../app/site-onboarding/state'
 import type * as SavedObjectStampsModule from '../ipc/saved-object-stamps'
 import type { SavedObjectStamp } from '../types/saved-object-stamps'
 import { savedObjectStampWorkbench } from '../app/saved-object-stamps'
+import { installSpeciesCatalogWorkbench as __installCatalog } from '../app/plant-browser'
+import { speciesCatalogWorkbench as __desktopCatalog } from '../editions/desktop/species-catalog'
+__installCatalog(__desktopCatalog)
 
 const locating = vi.hoisted(() => ({ open: null as null | { value: boolean } }))
 vi.mock('../app/site-onboarding/state', async (importOriginal) => {

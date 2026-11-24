@@ -3,10 +3,10 @@
 import { render } from 'preact'
 import { act } from 'preact/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { LidarPresentationItem } from '../app/lidar/library-store'
+import type { LidarPresentationItem } from '../app/data-library/library-store'
 
 const setLidarEntryDisplay = vi.hoisted(() => vi.fn())
-vi.mock('../app/lidar/actions', () => ({ setLidarEntryDisplay }))
+vi.mock('../app/data-library/actions', () => ({ setLidarEntryDisplay }))
 
 import { RasterDisplayControls } from '../components/panels/lidar/RasterDisplayControls'
 import { locale } from '../app/settings/state'

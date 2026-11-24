@@ -11,7 +11,7 @@
 
 import { isSceneDesignObjectLocked } from '../../scene/locks'
 import { sceneTargetKey, type SceneDesignObjectTarget } from '../../scene/design-object-targets'
-import type { WorldPoint, WorldQuad } from '../../view/types'
+import type { WorldPoint, WorldQuad } from '../../../../geo/view/types'
 import type { DraftPresentation } from '../draft'
 import type { ToolContext, ToolView } from '../tool'
 

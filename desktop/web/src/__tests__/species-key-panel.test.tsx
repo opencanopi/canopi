@@ -6,7 +6,7 @@ import { render } from 'preact'
 import { act } from 'preact/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { SpeciesKeyPanel } from '../components/panels/SpeciesKeyPanel'
-import { speciesCatalogWorkbench } from '../app/plant-browser'
+import { speciesCatalogWorkbench, installSpeciesCatalogWorkbench as __installCatalog } from '../app/plant-browser'
 import { SpeciesFocusChip } from '../components/canvas/SpeciesFocusChip'
 import {
   createTestCanvasCommandSurface,
@@ -36,6 +36,8 @@ import { mapLayers } from '../app/map-layers/state'
 import { setPlantLabels } from '../app/plant-display/actions'
 import { PLANT_LABELS_CHIP_MS, PlantLabelsChip } from '../components/canvas/PlantLabelsChip'
 import { NO_STRATUM_DISPLAY_COLOR, STRATUM_DISPLAY_COLORS } from '../canvas/runtime/plant-display'
+import { speciesCatalogWorkbench as __desktopCatalog } from '../editions/desktop/species-catalog'
+__installCatalog(__desktopCatalog)
 
 const plants = [
   { id: 'apple-1', canonicalName: 'Malus domestica', commonName: 'Pommier cultivé', x: 0 },

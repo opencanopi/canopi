@@ -8,6 +8,7 @@ export type {
   MenuDefinition,
   MenuEntry,
 } from './projections'
+export { DESKTOP_SHELL_COMMAND_CATALOG } from './catalog'
 export {
   createDesktopCommandSink,
   DESKTOP_KEYMAP,

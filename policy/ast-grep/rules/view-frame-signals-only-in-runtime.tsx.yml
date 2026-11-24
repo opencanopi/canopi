@@ -11,6 +11,7 @@ ignores:
   - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
   - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
   - "{desktop/web,policy/fixtures/rules/*}/src/canvas/runtime/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/geo/view/**"
   - "{desktop/web,policy/fixtures/rules/*}/src/maplibre/**"
 rule:
   any:

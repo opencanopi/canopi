@@ -4,7 +4,6 @@
   "entries": {
     "bindings-gen/src/analysis_registry.rs": { "count": 2 },
     "bindings-gen/src/design_format.rs": { "count": 1 },
-    "bindings-gen/src/publication.rs": { "count": 1 },
     "desktop/src/db/user_db.rs": { "count": 2 },
     "desktop/src/design/mod.rs": { "count": 1 },
     "desktop/src/services/lidar/rust_engine/comparison.rs": { "count": 1 },

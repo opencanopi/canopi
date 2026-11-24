@@ -1,10 +1,20 @@
 import { effect } from '@preact/signals'
 import { currentCanvasQuerySurface } from '../../canvas/session'
-import { getConsortiumCanonicalName } from '../../target'
+import { consortiumTarget, getConsortiumCanonicalName } from '../../target'
 import { reconcileCurrentDesign } from '../design-edit'
 import { currentDesign } from '../document-session/store'
 import type { DesignSessionWorkflow } from '../document-session/workflow-runner'
-import { createDefaultConsortiumEntry } from './time-model'
+import type { Consortium } from '../../generated/contracts'
+import { DEFAULT_CONSORTIUM_END_PHASE, DEFAULT_CONSORTIUM_START_PHASE, DEFAULT_CONSORTIUM_STRATUM } from '../../planning/time-model'
+
+function createDefaultConsortiumEntry(canonicalName: string): Consortium {
+  return {
+    target: consortiumTarget(canonicalName),
+    stratum: DEFAULT_CONSORTIUM_STRATUM,
+    start_phase: DEFAULT_CONSORTIUM_START_PHASE,
+    end_phase: DEFAULT_CONSORTIUM_END_PHASE,
+  }
+}
 
 let disposer: (() => void) | null = null
 
@@ -63,4 +73,11 @@ if (import.meta.hot) {
   import.meta.hot.dispose(() => {
     disposeConsortiumSync()
   })
+}
+
+/** @testonly */
+export function createDefaultConsortiumEntryForTests(
+  canonicalName: string,
+): ReturnType<typeof createDefaultConsortiumEntry> {
+  return createDefaultConsortiumEntry(canonicalName)
 }

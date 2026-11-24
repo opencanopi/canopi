@@ -16,7 +16,7 @@ describe("settings bootstrap theme lifecycle", () => {
   it("returns a disposer that stops theme synchronization", async () => {
     localStorage.setItem("canopi:first-paint-theme", "dark");
     const { theme } = await import("../app/settings/state");
-    const { initTheme } = await import("../utils/theme");
+    const { initTheme } = await import("../app/settings/theme");
 
     const dispose = initTheme();
 
@@ -37,7 +37,7 @@ describe("settings bootstrap theme lifecycle", () => {
     vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
       throw cacheError;
     });
-    const { initTheme } = await import("../utils/theme");
+    const { initTheme } = await import("../app/settings/theme");
 
     expect(() => initTheme()).not.toThrow();
     expect(document.documentElement.getAttribute("data-theme")).toBe("light");
@@ -49,7 +49,7 @@ describe("settings bootstrap theme lifecycle", () => {
     const { browserAppDataStore } = await import("../web/browser-app-data");
     browserAppDataStore.saveSettings({ locale: "fr", theme: "dark" });
     const { locale, theme } = await import("../app/settings/state");
-    const { bootstrapPlatform } = await import("../platform/browser");
+    const { bootWebEdition: bootstrapPlatform } = await import("../editions/web/boot");
 
     bootstrapPlatform();
 
@@ -62,7 +62,7 @@ describe("settings bootstrap theme lifecycle", () => {
     // Canopi 1.x cached its theme under "canopi-theme"; 2.0 starts fresh and never touches 1.x data (ADR 0021).
     localStorage.setItem("canopi-theme", "dark");
     const { theme } = await import("../app/settings/state");
-    const { initTheme } = await import("../utils/theme");
+    const { initTheme } = await import("../app/settings/theme");
 
     initTheme();
     expect(document.documentElement.getAttribute("data-theme"), "the 1.x cache is not read").toBe("light");

@@ -3,7 +3,7 @@
 import { signal } from '@preact/signals'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { SceneCanvasInspectionOwner } from '../canvas/runtime/inspection-lens'
-import { createSessionPlane } from '../canvas/session-plane'
+import { createSessionPlane } from '../geo/session-plane'
 import { createTestSceneRendererSnapshot } from './support/scene-renderer-snapshot'
 import { createTestView } from './support/test-view'
 import './support/camera-tolerance'

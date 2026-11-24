@@ -6,8 +6,8 @@ import {
   SETTINGS_THEMES,
 } from '../generated/settings'
 import type { Settings } from '../types/settings'
-import { createDesktopSettingsPlatformAdapter } from '../platform/settings.desktop'
-import { createBrowserSettingsPlatformAdapter } from '../platform/settings.browser'
+import { createDesktopSettingsPlatformAdapter } from '../editions/desktop/settings'
+import { createBrowserSettingsPlatformAdapter } from '../editions/web/settings'
 import {
   createBrowserAppDataStore,
   type BrowserStorageAdapter,

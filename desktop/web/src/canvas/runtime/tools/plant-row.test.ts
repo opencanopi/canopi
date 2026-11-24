@@ -9,7 +9,7 @@ import {
 import type { CanvasPlantRowGuidance } from '../../session-state'
 import type { ToolHandleId } from '../interaction-types'
 import type { ScenePlantEntity } from '../scene/types'
-import type { ScreenPoint, WorldPoint } from '../view/types'
+import type { ScreenPoint, WorldPoint } from '../../../geo/view/types'
 import type { DraftShape } from './draft'
 import { createPlantRowTool } from './plant-row'
 import type { CanvasTool, ToolSettingsPort } from './tool'

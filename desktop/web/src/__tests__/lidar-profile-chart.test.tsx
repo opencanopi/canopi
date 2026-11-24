@@ -12,7 +12,7 @@ import type { LidarSamplePointsRequest, LidarSampleSeries } from '../generated/c
 import { librarySnapshot, sourceItem } from './support/library-fixtures'
 
 const plotting = vi.hoisted(() => ({ builds: 0 }))
-vi.mock('../app/lidar/profile-chart', async (importOriginal) => {
+vi.mock('../app/data-library/profile-chart', async (importOriginal) => {
   const actual = await importOriginal<typeof ProfileChartModule>()
   return {
     ...actual,
@@ -48,16 +48,16 @@ vi.mock('../app/document-session/store', async () => {
 })
 
 import { ProfileChart } from '../components/panels/lidar/ProfileChart'
-import { lidarLibrary } from '../app/lidar/library-store'
-import { profileCopyText, profileHover, setProfileCursor, siteProfile } from '../app/lidar/profile'
-import { endSiteDataTransients, profileLine, setProfileLine } from '../app/lidar/site-transients'
-import { siteSampler } from '../app/lidar/sampler'
+import { lidarLibrary } from '../app/data-library/library-store'
+import { profileCopyText, profileHover, setProfileCursor, siteProfile } from '../app/data-library/profile'
+import { endSiteDataTransients, profileLine, setProfileLine } from '../app/data-library/site-transients'
+import { siteSampler } from '../app/data-library/sampler'
 import { activePanel, selectPanel, sidePanel } from '../app/shell/state'
 import { setCurrentCanvasSession } from '../canvas/session'
-import { createSessionPlane } from '../canvas/session-plane'
+import { createSessionPlane } from '../geo/session-plane'
 import type { CanvasRuntimeSurfaces } from '../canvas/runtime/runtime'
 import { t } from '../i18n'
-import type * as ProfileChartModule from '../app/lidar/profile-chart'
+import type * as ProfileChartModule from '../app/data-library/profile-chart'
 
 const PLANE = createSessionPlane({ lon: 2.35, lat: 48.85 })
 const at = (x: number, y: number) => PLANE.toGeo({ x, y })

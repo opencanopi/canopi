@@ -71,7 +71,7 @@ const GALLERY_SERVER: WebServer = {
   // (node_modules/.vite-ui-gallery removed) Vite optimised every dependency before the first page
   // answered and reloaded no page: 24 passed with --repeat-each=3 in both engines in the pinned image
   // (2026-10-08), so ui-gallery/vite.config.ts needs no optimizeDeps.include.
-  command: 'npx vite --config ui-gallery/vite.config.ts',
+  command: 'npx vite --mode gallery',
   url: `http://127.0.0.1:${GALLERY_PORT}/`,
   reuseExistingServer: !isCI,
   timeout: 120_000,

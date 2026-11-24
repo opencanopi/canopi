@@ -22,11 +22,6 @@
     "noUncheckedIndexedAccess": true,
     "types": ["vite/client"],
     "paths": {
-      "#canvas-pdf-platform": ["./src/app/canvas-pdf/platform.desktop.ts"],
-      "#budget-export-platform": ["./src/app/budget/platform.desktop.ts"],
-      "#geocoding-transport": ["./src/app/geocoding/transport.desktop.ts"],
-      "#platform": ["./src/platform/desktop.ts"],
-      "#species-catalog-live": ["./src/app/plant-browser/live.desktop.ts"],
       "react": ["./node_modules/preact/compat/"],
       "react-dom": ["./node_modules/preact/compat/"]
     }

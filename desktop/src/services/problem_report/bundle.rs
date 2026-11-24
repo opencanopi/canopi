@@ -41,7 +41,8 @@ pub(super) fn report_zip(
             },
             ReportSectionId::Description
             | ReportSectionId::FrontendRing
-            | ReportSectionId::OriginatingFailure => frontend_section(request, row.id),
+            | ReportSectionId::OriginatingFailure
+            | ReportSectionId::SettingsSummary => frontend_section(request, row.id),
             native => {
                 let (status, text) = native_section(native, context, created_at, redactor);
                 (status, redactor.redact(&text).as_str().as_bytes().to_vec())
@@ -115,19 +116,6 @@ fn native_section(
         },
         ReportSectionId::LibraryDisk => match &context.library_disk_bytes {
             Ok(bytes) => included(json!({"bytes": bytes, "janitor": NOT_COLLECTED_NOTE})),
-            Err(error) => unreadable(error),
-        },
-        ReportSectionId::SettingsSummary => match &context.settings {
-            Ok(settings) => included(json!({
-                "locale": settings.locale,
-                "theme": settings.theme,
-                "basemap_style": settings.basemap_style,
-                "basemap_visible": settings.basemap_visible,
-                "satellite_visible": settings.satellite_visible,
-                "contour_visible": settings.contour_visible,
-                "hillshade_visible": settings.hillshade_visible,
-                "plant_spacing_interval_m": settings.plant_spacing_interval_m,
-            })),
             Err(error) => unreadable(error),
         },
         ReportSectionId::LogTail => log_tail(context, redactor),

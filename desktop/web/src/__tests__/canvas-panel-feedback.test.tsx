@@ -10,8 +10,8 @@ import { storyPresentationActive } from '../app/story-presentation'
 import { t } from '../i18n'
 import { CanvasPanel } from '../components/panels/CanvasPanel'
 import { PresentedMapNotice } from '../components/canvas/MapNotice'
-import { WebCanvasWorkspace } from '../web/WebCanvasWorkspace'
-import { profileLineMenu } from '../app/lidar/profile'
+import { WebCanvasWorkspace } from '../editions/web/WebCanvasWorkspace'
+import { profileLineMenu } from '../app/data-library/profile'
 import {
   IDLE_MAPLIBRE_CANVAS_SURFACE_STATE,
   type MapLibreCanvasSurfaceState,

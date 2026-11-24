@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { filterLibraryItems, libraryItems, selectionAfter, suggestedItemName } from '../app/lidar/library-items'
+import { filterLibraryItems, libraryItems, selectionAfter, suggestedItemName } from '../app/data-library/library-items'
 import { locale } from '../app/settings/state'
 import { librarySnapshot as snapshot, slopeItem, sourceItem } from './support/library-fixtures'
 

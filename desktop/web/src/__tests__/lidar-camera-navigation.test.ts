@@ -4,17 +4,17 @@ import { afterEach, describe, expect, it } from 'vitest'
 import {
   mapZoomToStageScale,
   stageScaleToMapZoom,
-} from '../canvas/projection'
+} from '../geo/projection'
 import { setCurrentCanvasSession } from '../canvas/session'
 import { createDefaultScenePersistedState } from '../canvas/runtime/scene'
-import type { PlanarCamera } from '../canvas/runtime/view/types'
-import { planarCameraOf } from '../canvas/runtime/view/view-transform'
-import { createSessionPlane, type SessionPlane } from '../canvas/session-plane'
+import type { PlanarCamera } from '../geo/view/types'
+import { planarCameraOf } from '../geo/view/view-transform'
+import { createSessionPlane, type SessionPlane } from '../geo/session-plane'
 import {
   lidarBoundsToLocalWorld,
   viewDesignLocation,
   viewLidarCoverage,
-} from '../app/lidar/camera-request'
+} from '../app/data-library/camera-request'
 import {
   createTestCanvasCommandSurface,
   createTestCanvasRuntimeSurfaces,

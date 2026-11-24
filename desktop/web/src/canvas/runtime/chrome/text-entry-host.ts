@@ -15,7 +15,7 @@
 import { CANVAS_CHROME_FONT_FAMILY } from '../../chrome-fonts'
 import type { CanvasFocusPort } from '../app-adapter'
 import type { TextEntryRequest } from '../tools/tool'
-import type { ViewFrame, ViewFrameSource } from '../view/types'
+import type { ViewFrame, ViewFrameSource } from '../../../geo/view/types'
 import type { LocaleKey } from '../../../generated/locale-keys'
 
 export interface TextEntryHostOptions {

@@ -1,4 +1,4 @@
-import type { PanelTarget, TimelineAction } from '../../types/design'
+import type { PanelTarget, TimelineAction } from '../../generated/contracts'
 import { editDesignArray } from './core'
 import { applyTimelineActionPatch } from '../timeline/model'
 

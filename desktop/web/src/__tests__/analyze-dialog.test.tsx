@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { capabilitiesForEdition } from '../generated/edition-capabilities'
 
 import { render } from 'preact'
 import { act } from 'preact/test-utils'
@@ -88,7 +89,7 @@ function mount(options: {
   sourceId?: string
   sourceFixed?: boolean
 } = {}): void {
-  const context: AnalysisContext = { edition: 'desktop', results: [], inDesign: new Set(), ...options.context }
+  const context: AnalysisContext = { capabilities: capabilitiesForEdition('desktop', 'linux'), results: [], inDesign: new Set(), ...options.context }
   const sources = options.sources ?? [{ id: 'ground', name: 'Ground', offers: options.offers ?? OFFERS }]
   act(() => {
     render(
@@ -212,7 +213,7 @@ describe('Analyze dialog', () => {
         <AnalyzeDialog
           sources={[{ id: 'ground', name: 'Ground', offers: OFFERS }]}
           sourceId="ground"
-          context={{ edition: 'desktop', results: [], inDesign: new Set() }}
+          context={{ capabilities: capabilitiesForEdition('desktop', 'linux'), results: [], inDesign: new Set() }}
           canAddToDesign
           initialAnalysisId="hydrology.flow"
           busy={false}
@@ -298,7 +299,7 @@ describe('Analyze dialog', () => {
   })
 
   it('says every analysis needs Desktop on Web', () => {
-    mount({ context: { edition: 'web' } })
+    mount({ context: { capabilities: capabilitiesForEdition('web', 'linux') } })
     expect(container.querySelectorAll('[class*="reason"]')).toHaveLength(2)
     expect(container.textContent).toContain('Needs Canopi Desktop.')
   })

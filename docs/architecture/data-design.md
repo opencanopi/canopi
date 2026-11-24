@@ -112,7 +112,7 @@ flowchart LR
   file["GeoPoint lon/lat WGS84 in .canopi"]
   core["canopi-format decode and admission"]
   codec["canvas/runtime/scene/codec.ts hydrate"]
-  plane["geo/session-plane.ts (2.1) SessionPlane, Earth model owner"]
+  plane["geo/session-plane.ts SessionPlane, Earth model owner"]
   scene["ScenePersistedState in ground metres, Scene"]
   frame["canvas/runtime/scene/geo-frame.ts write-back at 1e-9 deg"]
   view["ConformalPoint (2.1) camera similarity"]
@@ -131,7 +131,7 @@ flowchart LR
   class core,plane,view,measure,fmt,north target
 ```
 
-- Owner: `geo/session-plane.ts` (2.1), today `canvas/session-plane.ts`, is the one Earth model. A plane metre is a WGS84 ground metre at the anchor (Web Mercator scaled by N cosφ east and M north), x east, y south, north-aligned at any bearing; the radii come from `canopi-types`.
+- Owner: `geo/session-plane.ts`, today `geo/session-plane.ts`, is the one Earth model. A plane metre is a WGS84 ground metre at the anchor (Web Mercator scaled by N cosφ east and M north), x east, y south, north-aligned at any bearing; the radii come from `canopi-types`.
 - Invariant: stored lon/lat is the only authority. The anchor is the objects' bounds centre or the view centre and is never stored; re-origin builds a new plane and re-hydrates; write-back rounds to 1e-9 degrees idempotently. Every shown length and area is `groundLength` or `groundArea`.
 - Tests: `geolocated-design-codec.test.ts`; in the target `scale-only-through-plane`, the 1e-6 px landing and the 1 ppm Vincenty checks of contracts §20.
 

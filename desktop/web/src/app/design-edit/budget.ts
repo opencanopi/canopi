@@ -1,4 +1,4 @@
-import type { BudgetItem } from '../../types/design'
+import type { BudgetItem } from '../../generated/contracts'
 import { getBudgetSpeciesTarget, targets, speciesBudgetTarget } from '../../target'
 import { DEFAULT_BUDGET_CURRENCY } from '../contracts/document'
 import { editCurrentDesign } from './core'

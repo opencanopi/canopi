@@ -1,5 +1,5 @@
 import type { ReadonlySignal } from '@preact/signals'
-import type { WorldPoint } from './runtime/view/types'
+import type { WorldPoint } from '../geo/view/types'
 
 export interface InspectionPoint { readonly x: number; readonly y: number }
 export interface InspectionLabel extends InspectionPoint {

@@ -15,14 +15,14 @@ import type { DraftPresentation, DraftShape } from '../tools/draft'
 import { geoAt } from '../../../__tests__/support/geo-design'
 import { CURRENT_CANOPI_FILE_VERSION } from '../../../generated/canopi-design-format'
 import type { CanopiFile } from '../../../types/design'
-import { createSessionPlane, type SessionPlane } from '../../session-plane'
+import { createSessionPlane, type SessionPlane } from '../../../geo/session-plane'
 import { createTestView, placeOnHost } from '../../../__tests__/support/test-view'
 import { createDetachedCanvasRuntimeAppAdapter } from '../app-adapter'
 import { SceneCanvasRuntime } from '../scene-runtime'
 import { SceneRuntimeReoriginController } from './reorigin'
 import type { SceneCommandAdmission, SceneEditCoordinator } from './transactions'
-import type { ViewFrame } from '../view/types'
-import { planarCameraOf } from '../view/view-transform'
+import type { ViewFrame } from '../../../geo/view/types'
+import { planarCameraOf } from '../../../geo/view/view-transform'
 
 function makeFile(): CanopiFile {
   return {

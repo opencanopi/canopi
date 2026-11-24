@@ -1,6 +1,6 @@
-import { formatRasterMetres } from '../../../app/lidar/display-legend'
-import { itemTypeLabel } from '../../../app/lidar/item-types'
-import type { LibraryItem } from '../../../app/lidar/library-items'
+import { formatRasterMetres } from '../../../app/data-library/display-legend'
+import { itemTypeLabel } from '../../../app/data-library/item-types'
+import type { LibraryItem } from '../../../app/data-library/library-items'
 import { locale } from '../../../app/settings/state'
 import { t } from '../../../i18n'
 

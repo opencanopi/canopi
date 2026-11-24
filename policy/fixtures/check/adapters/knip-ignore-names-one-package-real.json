@@ -4,7 +4,7 @@
   "real": true,
   "files": {
     "desktop/web/package.json": "{ \"name\": \"luma-pins\", \"private\": true, \"type\": \"module\", \"dependencies\": { \"@fontsource/literata\": \"5.3.0\", \"@luma.gl/core\": \"9.4.1\", \"@luma.gl/webgl\": \"9.4.1\" } }\n",
-    "desktop/web/src/main.tsx": "export {};\n"
+    "desktop/web/src/editions/desktop/main.tsx": "export {};\n"
   },
   "copy": {
     "desktop/web/knip.json": "desktop/web/knip.json"

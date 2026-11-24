@@ -3,7 +3,7 @@
 import { signal } from '@preact/signals'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { GeoPoint } from '../../generated/contracts'
-import type { ViewCamera } from '../../canvas/runtime/view/types'
+import type { ViewCamera } from '../../geo/view/types'
 import type { FollowView } from './follow'
 import type { CanopiFile } from '../../types/design'
 import { designSessionStore } from '../document-session/store'

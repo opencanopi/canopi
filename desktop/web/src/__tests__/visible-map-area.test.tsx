@@ -32,7 +32,7 @@ import {
   type CanvasPlantRowGuidance,
 } from '../canvas/session-state'
 import type { CanvasInspectionHandle } from '../canvas/inspection'
-import { framingRect } from '../canvas/runtime/view/fit'
+import { framingRect } from '../geo/view/fit'
 import type { ScenePersistedState } from '../canvas/runtime/scene'
 import { plantFinderMapMatches, zoomToPlantFinderMatches } from '../app/plant-finder/map-matches'
 import { CURRENT_CANOPI_FILE_VERSION } from '../generated/canopi-design-format'

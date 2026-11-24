@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { PathPoints } from '../plant-path/curve'
 import { handleSizeFor } from '../runtime/tools/select/handle-size'
-import type { WorldPoint } from '../runtime/view/types'
+import type { WorldPoint } from '../../geo/view/types'
 import type { ToolHandleId } from '../runtime/interaction-types'
 import { dotHandle, dotHandles, dotsWithRoom, parsePointHandle, pointHandles } from './layout'
 

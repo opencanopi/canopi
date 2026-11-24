@@ -10,8 +10,8 @@ import {
   kindRamps,
   profileRole,
   unitSuffix,
-} from '../app/lidar/item-types'
-import { formatLegendValue, formatRasterMetres, formatRasterRange } from '../app/lidar/display-legend'
+} from '../app/data-library/item-types'
+import { formatLegendValue, formatRasterMetres, formatRasterRange } from '../app/data-library/display-legend'
 import { locale } from '../app/settings/state'
 
 const raster = (quantity: RasterQuantity) => ({ kind: 'Raster' as const, quantity })

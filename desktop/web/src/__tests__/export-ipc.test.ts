@@ -19,8 +19,8 @@ describe('text export IPC', () => {
     )
 
     expect(invoke.mock.calls).toEqual([
-      ['pick_save', { kind: 'budget-csv-export', stem: 'orchard-budget.csv' }],
-      ['export_file', { data: 'Species,Quantity', path: '/tmp/orchard-budget.csv' }],
+      ['pick_save', { kind: 'budget-csv-export', stem: 'orchard-budget.csv', operation: expect.stringMatching(/^u-/) }],
+      ['export_file', { data: 'Species,Quantity', path: '/tmp/orchard-budget.csv', operation: expect.stringMatching(/^u-/) }],
     ])
   })
 

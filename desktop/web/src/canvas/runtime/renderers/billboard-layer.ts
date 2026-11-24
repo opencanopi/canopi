@@ -47,7 +47,7 @@ import {
   type CanvasInteractionVisualState,
 } from '../scene-visuals'
 import type { PlantNameLabel } from '../selection-labels'
-import type { ViewTransform } from '../view/types'
+import type { ViewTransform } from '../../../geo/view/types'
 import { LabelAdmission, type AdmittedLabels } from './label-admission'
 import {
   casedStroke,

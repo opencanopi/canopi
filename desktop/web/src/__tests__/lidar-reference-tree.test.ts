@@ -6,7 +6,7 @@ import {
   siblingMoveOrders,
   siblingNeighbour,
   treeRows,
-} from '../app/lidar/reference-tree'
+} from '../app/data-library/reference-tree'
 
 const node = (id: string, order: number, parentId: string | null = null) => ({ id, order, parentId })
 

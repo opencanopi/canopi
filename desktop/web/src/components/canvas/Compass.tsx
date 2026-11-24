@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'preact/hooks'
 import type { CanvasToolbarActionCommand } from '../../app/canvas-commands'
 import { ESCAPE_PRIORITY, registerEscapeLayer } from '../../app/keyboard/escape-chain'
-import type { RotationSession } from '../../canvas/runtime/view/read-surface'
+import type { RotationSession } from '../../geo/view/read-surface'
 import { DEFAULT_THRESHOLDS } from '../../canvas/runtime/input/thresholds'
 import { currentCanvasQuerySurface, currentCanvasViewportCommandSurface } from '../../canvas/session'
 import { t } from '../../i18n'

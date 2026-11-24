@@ -4,16 +4,16 @@ import { currentDesign } from '../../../app/document-session/store'
 import {
   addToDesign, cancelAnalysisJob, cancelLibraryImport, deleteLibraryItem, dismissLibraryImport, fetchDeleteImpact,
   fetchLibraryDiskUsage, renameLibraryItem, rerunAnalysis, retryLibraryImport, showDataLibraryFolder,
-} from '../../../app/lidar/actions'
+} from '../../../app/data-library/actions'
 import { findAnalysis } from '../../../app/analyses/registry'
 import {
   filterLibraryItems, libraryItems, selectionAfter, takenItemNames, type LibraryItem, type LibrarySort,
   type LibraryTypeFilter,
-} from '../../../app/lidar/library-items'
+} from '../../../app/data-library/library-items'
 import {
   installLidarLibraryObserver, lidarLibrary, lidarLibraryStale, lidarStatusMessage, noteImportCancel,
-} from '../../../app/lidar/library-store'
-import { analyzeItem, beginDataImport, closeDataLibrary, revealInSiteData } from '../../../app/lidar/library-navigation'
+} from '../../../app/data-library/library-store'
+import { analyzeItem, beginDataImport, closeDataLibrary, revealInSiteData } from '../../../app/data-library/library-navigation'
 import { storeStatus } from '../../../failures/health'
 import { locale } from '../../../app/settings/state'
 import { ANALYSIS_GROUPS } from '../../../generated/analysis-registry'

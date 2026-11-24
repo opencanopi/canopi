@@ -1,6 +1,6 @@
 # Editions
 
-Covers: `desktop/web/src/web/`, `desktop/web/src/platform/`, `desktop/web/src/main.web.tsx`, `desktop/web/ui-gallery/`, `desktop/web/web.html`, `scripts/web_release.py`
+Covers: `desktop/web/src/web/`, `desktop/web/src/platform/`, `desktop/web/src/editions/web/main.tsx`, `desktop/web/src/editions/gallery/`, `desktop/web/web.html`, `scripts/web_release.py`
 
 ## Purpose
 
@@ -8,8 +8,8 @@ One frontend ships as a Desktop edition (Tauri), a Web edition (static bundle) a
 
 ## Authorities and boundaries
 
-- Entries: `main.tsx` with `index.html` (Desktop) and `main.web.tsx` with `web.html` (Web). The codec, scene runtime, workbenches, Design Edit and `WorkspaceComposition` are shared; `DesktopWorkspace.tsx` and `web/WebWorkspace.tsx` bind the edition's capabilities.
-- Every edition difference is a compile-time alias or an injected capability. The only aliases are Web's, each a `*.desktop.ts` / `*.browser.ts` pair.
+- Entries: `editions/desktop/main.tsx` (`index.html`), `editions/web/main.tsx` (`web.html`), `editions/gallery/main.tsx` (`gallery.html`). Shared: codec, scene runtime, workbenches, Design Edit, `WorkspaceComposition`; `DesktopWorkspace.tsx` and `web/WebWorkspace.tsx` bind edition capabilities.
+- Every edition difference is an injected capability/port (`platform/edition-ports.ts`) or a `*.desktop.ts` / `*.browser.ts` adapter wired at the edition root.
 
 - Commands: `app/shell-commands/index.ts` owns the neutral ids; the Desktop graph and `web/browser-shell-commands.ts` declare what their edition supports. Web has no Recent Designs, Design Notebook, updater or native window controls, and drops the shortcuts a browser keeps (`BROWSER_RESERVED_SHORTCUTS`).
 - Web data: `web/browser-app-data.ts` owns four localStorage records (Drafts, Settings, Species activity, Saved Object Stamps) and one per-tab sessionStorage record, the Draft or none the tab had open at a release reload (session state, 2.1-Q189). Drafts are the Web Design home; a downloaded `.canopi` is an export. `web/browser-draft-persistence.ts` asks the browser to keep them, at most once per launch (2.1-Q82, Q191, M180): first visits by New or Open, existing users by Keep my drafts (Q198), never without a reason on screen (`web-draft-persistence.test.ts`, `draft-persistence.spec.ts`).
@@ -52,7 +52,7 @@ Install: `npm ci --prefix desktop/web`.
 | --- | --- | --- | --- |
 | Desktop | `cargo tauri dev` | `localhost:1420` | real app data; `scripts/prepare-db.py` |
 | Web | `npm run dev:web` (`desktop/web/`) | `localhost:1421/` | browser profile; `npm run generate:web-catalog` |
-| UI gallery | `npm run dev:ui` (`desktop/web/`) | `127.0.0.1:1422` | memory fixtures ([README](../../desktop/web/ui-gallery/README.md)) |
+| UI gallery | `npm run dev:ui` (`desktop/web/`) | `127.0.0.1:1422` | memory fixtures ([README](../../desktop/web/src/editions/gallery/README.md)) |
 
 `npm run check:editions` typechecks and builds both editions. Gallery `edition=web` previews phone layout (390×844, 844×390).
 

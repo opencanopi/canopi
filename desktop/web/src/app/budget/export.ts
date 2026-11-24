@@ -1,4 +1,4 @@
-import { deliverBudgetCsv } from '#budget-export-platform'
+import { editionPorts } from '../../platform/edition-ports'
 import { isCancelledFailure } from '../../failures/ipc-failure'
 import { t } from '../../i18n'
 import { escapeBudgetCsvField } from './formatting'
@@ -38,7 +38,7 @@ export async function exportBudgetCsv(
   }
   csvRows.push(`${escapeBudgetCsvField(t('canvas.budget.grandTotal'))},,,${options.grandTotal.toFixed(2)},`)
 
-  await deliverBudgetCsv(
+  await editionPorts().budgetExportDelivery(
     csvRows.join('\n'),
     `${options.designName || 'budget'}-budget.csv`,
   )

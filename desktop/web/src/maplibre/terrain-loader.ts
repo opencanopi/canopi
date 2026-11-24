@@ -2,7 +2,7 @@ import {
   DEM_ENCODING,
   DEM_MAX_ZOOM,
   DEM_TILES_URL,
-} from '../canvas/contours'
+} from './contours'
 import type { MapLibreApi } from './loader'
 import type { TerrainProtocolSupport } from './terrain'
 

@@ -14,7 +14,7 @@ import type { CanvasDesignObjectSelectionModel } from '../../runtime'
 import { resolveSceneObjectGroupMembers } from '../../scene/group-members'
 import type { SceneDesignObjectTarget } from '../../scene/design-object-targets'
 import type { SceneZoneEntity } from '../../scene/types'
-import type { WorldPoint, WorldQuad, WorldVector } from '../../view/types'
+import type { WorldPoint, WorldQuad, WorldVector } from '../../../../geo/view/types'
 import { getRectangularZoneCorners } from '../../zone-geometry'
 import type { ToolScene, ToolView } from '../tool'
 

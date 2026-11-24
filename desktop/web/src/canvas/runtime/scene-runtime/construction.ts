@@ -30,8 +30,8 @@ import {
 } from './panel-target-adapter'
 import { SceneRuntimeMutationController } from './mutations'
 import { SceneRuntimeReoriginController } from './reorigin'
-import { DEFAULT_NEW_DESIGN_VIEW } from '../../session-plane'
-import { mapZoomToStageScale } from '../../projection'
+import { DEFAULT_NEW_DESIGN_VIEW } from '../../../geo/session-plane'
+import { mapZoomToStageScale } from '../../../geo/projection'
 import { SceneRuntimePresentationController } from './presentation'
 import { SceneRuntimeRenderScheduler } from './render-scheduler'
 import {
@@ -43,10 +43,10 @@ import {
 import { runCanvasRuntimeCleanups } from '../cleanup'
 import { getRevealedAnnotationId } from '../annotation-layout'
 import { sceneExtentPoints, selectionExtentPoints } from '../scene-extent'
-import { createViewNavigation, type ViewNavigation } from '../view/navigation'
-import type { CameraDriverHost } from '../view/camera-driver'
-import { createCameraDriverHost } from '../view/driver-host'
-import type { ViewFrameSource } from '../view/types'
+import { createViewNavigation, type ViewNavigation } from '../../../geo/view/navigation'
+import type { CameraDriverHost } from '../../../geo/view/camera-driver'
+import { createCameraDriverHost } from '../../../geo/view/driver-host'
+import type { ViewFrameSource } from '../../../geo/view/types'
 
 /** A detached runtime has no platform preference: it flies. */
 const NO_REDUCED_MOTION: ReadonlySignal<boolean> = signal(false)

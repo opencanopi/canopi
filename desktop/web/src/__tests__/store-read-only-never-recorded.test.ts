@@ -7,7 +7,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { installFailureHooks } from '../failures/report'
 import { resetFrontendDiagnosticsForTests, ringEntries } from '../failures/ring'
-import { renameLibraryItem } from '../app/lidar/actions'
+import { renameLibraryItem } from '../app/data-library/actions'
 import { createSavedObjectStampWorkbench } from '../app/saved-object-stamps/workbench'
 
 const invoke = vi.hoisted(() => vi.fn())
@@ -29,7 +29,11 @@ describe('a write refused by a read-only store', () => {
   it('canopi-f47t.52.271: a Data library rename refused on a newer catalogue, told inline, is never recorded', async () => {
     await expect(renameLibraryItem('item-1', 'Renamed')).rejects.toThrow()
 
-    expect(invoke).toHaveBeenCalledWith('lidar_rename_item', { itemId: 'item-1', name: 'Renamed' })
+    expect(invoke).toHaveBeenCalledWith('lidar_rename_item', {
+      itemId: 'item-1',
+      name: 'Renamed',
+      operation: expect.stringMatching(/^u-/),
+    })
     expect(ringEntries()).toEqual([])
   })
 

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { planarCameraOf } from '../../canvas/runtime/view/view-transform'
-import type { ViewFrame } from '../../canvas/runtime/view/types'
+import { planarCameraOf } from '../../geo/view/view-transform'
+import type { ViewFrame } from '../../geo/view/types'
 import { createTestView } from './test-view'
 
 describe('createTestView', () => {

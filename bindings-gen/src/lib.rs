@@ -1,6 +1,8 @@
 mod analysis_registry;
+mod command_map;
 mod contracts;
 mod design_format;
+mod edition_capabilities;
 mod external_contracts;
 mod locale_keys;
 mod new_design_defaults;
@@ -11,10 +13,12 @@ mod publication;
 mod redaction;
 mod settings;
 mod species_search_normalization;
+mod store_chain;
 mod type_manifest;
 
 use external_contracts::{ExternalContractRenderer, PythonContractRenderer};
-use publication::{AdmissionMode, GenerationPlan, acquire_generation_admission};
+use publication::GenerationPlan;
+use std::error::Error;
 use std::ffi::OsString;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -23,10 +27,12 @@ use std::process::{Command, Stdio};
 const ANALYSIS_REGISTRY_TS: &str = "desktop/web/src/generated/analysis-registry.ts";
 const ANALYSIS_REGISTRY_RUST: &str = "desktop/src/services/lidar/analysis_registry_generated.rs";
 const CONTRACTS_TS: &str = "desktop/web/src/generated/contracts.ts";
+const EDITION_CAPABILITIES_TS: &str = "desktop/web/src/generated/edition-capabilities.ts";
 const KNOWN_KEYS_TS: &str = "desktop/web/src/generated/known-canopi-keys.ts";
 const LOCALE_KEYS_TS: &str = "desktop/web/src/generated/locale-keys.ts";
 const DESIGN_FORMAT_TS: &str = "desktop/web/src/generated/canopi-design-format.ts";
 const SETTINGS_TS: &str = "desktop/web/src/generated/settings.ts";
+const STORE_CHAIN_TS: &str = "desktop/web/src/generated/store-chain.ts";
 const NEW_DESIGN_DEFAULTS_TS: &str = "desktop/web/src/generated/new-design-defaults.ts";
 const NEW_DESIGN_DEFAULTS_RUST: &str = "desktop/src/design/new_design_defaults.rs";
 const PLANT_FILTER_TS: &str = "desktop/web/src/generated/plant-filter-fields.ts";
@@ -39,7 +45,160 @@ const SPECIES_SEARCH_NORMALIZATION_TS: &str =
 const WEB_CATALOG_MODULE: &str = "desktop/web/src/generated/web-catalog-artifact.mjs";
 const WEB_CATALOG_DECLARATION: &str = "desktop/web/src/generated/web-catalog-artifact.d.mts";
 
-pub fn run_from_env() -> Result<(), Box<dyn std::error::Error>> {
+struct EmittedArtifact {
+    relative_path: &'static str,
+    contents: Vec<u8>,
+}
+
+impl EmittedArtifact {
+    fn text(relative_path: &'static str, contents: String) -> Self {
+        Self {
+            relative_path,
+            contents: contents.into_bytes(),
+        }
+    }
+
+    fn rust(
+        relative_path: &'static str,
+        source: &str,
+        source_root: &Path,
+    ) -> Result<Self, Box<dyn Error>> {
+        Ok(Self {
+            relative_path,
+            contents: format_rust_source(source, source_root)?,
+        })
+    }
+}
+
+type EmitterFn = fn(&Path) -> Result<Vec<EmittedArtifact>, Box<dyn Error>>;
+
+/// Static emitter list (2a-1): every native code generator registers here once.
+const EMITTERS: &[EmitterFn] = &[
+    emit_contracts,
+    emit_design_format,
+    emit_settings,
+    emit_store_chain,
+    emit_edition_capabilities,
+    emit_command_map,
+    emit_new_design_defaults,
+    emit_plant_filter,
+    emit_species_search_normalization,
+    emit_analysis_registry,
+    emit_redaction,
+    emit_locale_keys,
+];
+
+fn emit_contracts(_source_root: &Path) -> Result<Vec<EmittedArtifact>, Box<dyn Error>> {
+    Ok(vec![
+        EmittedArtifact::text(CONTRACTS_TS, contracts::render_typescript_contracts()?),
+        EmittedArtifact::text(
+            TYPE_MANIFEST_JSON,
+            type_manifest::render_type_manifest(&contracts::contract_types())?,
+        ),
+    ])
+}
+
+fn emit_design_format(source_root: &Path) -> Result<Vec<EmittedArtifact>, Box<dyn Error>> {
+    design_format::validate_canopi_design_conformance(
+        &source_root.join("canopi-types/canopi-design-conformance.json"),
+    )?;
+    Ok(vec![
+        EmittedArtifact::text(KNOWN_KEYS_TS, design_format::render_known_canopi_keys()?),
+        EmittedArtifact::text(
+            DESIGN_FORMAT_TS,
+            design_format::render_canopi_design_format()?,
+        ),
+    ])
+}
+
+fn emit_settings(_source_root: &Path) -> Result<Vec<EmittedArtifact>, Box<dyn Error>> {
+    Ok(vec![EmittedArtifact::text(
+        SETTINGS_TS,
+        settings::render_settings_runtime()?,
+    )])
+}
+
+fn emit_command_map(_source_root: &Path) -> Result<Vec<EmittedArtifact>, Box<dyn Error>> {
+    Ok(vec![EmittedArtifact::text(
+        command_map::COMMAND_MAP_OUTPUT,
+        command_map::render_typescript_command_map(),
+    )])
+}
+
+fn emit_store_chain(_source_root: &Path) -> Result<Vec<EmittedArtifact>, Box<dyn Error>> {
+    Ok(vec![EmittedArtifact::text(
+        STORE_CHAIN_TS,
+        store_chain::render_store_chain_ts()?,
+    )])
+}
+
+fn emit_edition_capabilities(source_root: &Path) -> Result<Vec<EmittedArtifact>, Box<dyn Error>> {
+    Ok(vec![EmittedArtifact::text(
+        EDITION_CAPABILITIES_TS,
+        edition_capabilities::render_edition_capabilities_ts(
+            &source_root.join(edition_capabilities::EDITION_CAPABILITIES_JSON),
+        )?,
+    )])
+}
+
+fn emit_new_design_defaults(source_root: &Path) -> Result<Vec<EmittedArtifact>, Box<dyn Error>> {
+    let rendered = new_design_defaults::render_new_design_defaults(
+        &source_root.join("canopi-types/canopi-new-design-defaults.json"),
+    )?;
+    Ok(vec![
+        EmittedArtifact::text(NEW_DESIGN_DEFAULTS_TS, rendered.typescript),
+        EmittedArtifact::rust(NEW_DESIGN_DEFAULTS_RUST, &rendered.rust, source_root)?,
+    ])
+}
+
+fn emit_plant_filter(source_root: &Path) -> Result<Vec<EmittedArtifact>, Box<dyn Error>> {
+    let (ts, rust) = plant_filter::render_plant_filter_adapters(
+        &source_root.join("canopi-types/plant-filter-fields.json"),
+    )?;
+    Ok(vec![
+        EmittedArtifact::text(PLANT_FILTER_TS, ts),
+        EmittedArtifact::rust(PLANT_FILTER_RUST, &rust, source_root)?,
+    ])
+}
+
+fn emit_species_search_normalization(
+    source_root: &Path,
+) -> Result<Vec<EmittedArtifact>, Box<dyn Error>> {
+    Ok(vec![EmittedArtifact::text(
+        SPECIES_SEARCH_NORMALIZATION_TS,
+        species_search_normalization::render_typescript_adapter(
+            &source_root.join("canopi-types/species-search-normalization.json"),
+        )?,
+    )])
+}
+
+fn emit_analysis_registry(source_root: &Path) -> Result<Vec<EmittedArtifact>, Box<dyn Error>> {
+    let (ts, rust) = analysis_registry::render_analysis_registry(
+        &source_root.join("canopi-types/analysis-registry.json"),
+    )?;
+    Ok(vec![
+        EmittedArtifact::text(ANALYSIS_REGISTRY_TS, ts),
+        EmittedArtifact::rust(ANALYSIS_REGISTRY_RUST, &rust, source_root)?,
+    ])
+}
+
+fn emit_redaction(source_root: &Path) -> Result<Vec<EmittedArtifact>, Box<dyn Error>> {
+    let (ts, rust) =
+        redaction::render_redaction_table(&source_root.join(redaction::REDACTION_JSON))?;
+    Ok(vec![
+        EmittedArtifact::text(REDACTION_TS, ts),
+        EmittedArtifact::rust(REDACTION_RUST, &rust, source_root)?,
+    ])
+}
+
+fn emit_locale_keys(source_root: &Path) -> Result<Vec<EmittedArtifact>, Box<dyn Error>> {
+    Ok(vec![EmittedArtifact::text(
+        LOCALE_KEYS_TS,
+        locale_keys::render_locale_keys(&source_root.join(locale_keys::EN_JSON))?,
+    )])
+}
+
+pub fn run_from_env() -> Result<(), Box<dyn Error>> {
     let mode = GenerationMode::from_args(std::env::args().skip(1))?;
     let repo_root = repository_root(std::env::var_os("CARGO_MANIFEST_DIR"))?;
     execute_generation(&repo_root, &repo_root, &PythonContractRenderer, mode)
@@ -51,9 +210,7 @@ pub fn run_from_env() -> Result<(), Box<dyn std::error::Error>> {
 /// worktrees and cargo does not rebuild a workspace member whose source only
 /// moved (canopi-f47t.52.264). The compiled path is the fallback for a binary
 /// run directly.
-fn repository_root(
-    runtime_manifest_dir: Option<OsString>,
-) -> Result<PathBuf, Box<dyn std::error::Error>> {
+fn repository_root(runtime_manifest_dir: Option<OsString>) -> Result<PathBuf, Box<dyn Error>> {
     let manifest_dir = runtime_manifest_dir
         .filter(|dir| !dir.is_empty())
         .map_or_else(|| PathBuf::from(env!("CARGO_MANIFEST_DIR")), PathBuf::from);
@@ -70,21 +227,12 @@ enum GenerationMode {
 }
 
 impl GenerationMode {
-    fn from_args(
-        args: impl IntoIterator<Item = String>,
-    ) -> Result<Self, Box<dyn std::error::Error>> {
+    fn from_args(args: impl IntoIterator<Item = String>) -> Result<Self, Box<dyn Error>> {
         let args = args.into_iter().collect::<Vec<_>>();
         match args.as_slice() {
             [] => Ok(Self::Write),
             [flag] if flag == "--check" => Ok(Self::Check),
             _ => Err("usage: bindings-gen [--check]".into()),
-        }
-    }
-
-    fn admission(self) -> AdmissionMode {
-        match self {
-            Self::Write => AdmissionMode::Publish,
-            Self::Check => AdmissionMode::Check,
         }
     }
 }
@@ -94,8 +242,7 @@ fn execute_generation(
     destination_root: &Path,
     external: &impl ExternalContractRenderer,
     mode: GenerationMode,
-) -> Result<(), Box<dyn std::error::Error>> {
-    let admission = acquire_generation_admission(destination_root, mode.admission())?;
+) -> Result<(), Box<dyn Error>> {
     external.validate_species_catalog(source_root)?;
     let mut plan = compile_native_plan(source_root, destination_root)?;
     let web_catalog = external.render_web_catalog(source_root)?;
@@ -108,8 +255,8 @@ fn execute_generation(
         web_catalog.declaration,
     )?;
     match mode {
-        GenerationMode::Write => plan.publish_admitted(admission)?,
-        GenerationMode::Check => plan.check_admitted(admission)?,
+        GenerationMode::Write => plan.publish()?,
+        GenerationMode::Check => plan.check()?,
     }
     Ok(())
 }
@@ -117,85 +264,20 @@ fn execute_generation(
 fn compile_native_plan(
     source_root: &Path,
     destination_root: &Path,
-) -> Result<GenerationPlan, Box<dyn std::error::Error>> {
-    design_format::validate_canopi_design_conformance(
-        &source_root.join("canopi-types/canopi-design-conformance.json"),
-    )?;
-    let new_design_defaults = new_design_defaults::render_new_design_defaults(
-        &source_root.join("canopi-types/canopi-new-design-defaults.json"),
-    )?;
-    let new_design_defaults_rust = format_rust_source(&new_design_defaults.rust, source_root)?;
-    let (plant_filter_ts, plant_filter_rust) = plant_filter::render_plant_filter_adapters(
-        &source_root.join("canopi-types/plant-filter-fields.json"),
-    )?;
-    let species_search_normalization_ts = species_search_normalization::render_typescript_adapter(
-        &source_root.join("canopi-types/species-search-normalization.json"),
-    )?;
-    let plant_filter_rust = format_rust_source(&plant_filter_rust, source_root)?;
-    let (analysis_registry_ts, analysis_registry_rust) =
-        analysis_registry::render_analysis_registry(
-            &source_root.join("canopi-types/analysis-registry.json"),
-        )?;
-    let analysis_registry_rust = format_rust_source(&analysis_registry_rust, source_root)?;
-    let (redaction_ts, redaction_rust) =
-        redaction::render_redaction_table(&source_root.join(redaction::REDACTION_JSON))?;
-    let redaction_rust = format_rust_source(&redaction_rust, source_root)?;
+) -> Result<GenerationPlan, Box<dyn Error>> {
     let mut plan = GenerationPlan::new(destination_root);
-    plan.add(
-        destination_root.join(CONTRACTS_TS),
-        contracts::render_typescript_contracts()?,
-    )?;
-    plan.add(
-        destination_root.join(TYPE_MANIFEST_JSON),
-        type_manifest::render_type_manifest(&contracts::contract_types())?,
-    )?;
-    plan.add(
-        destination_root.join(KNOWN_KEYS_TS),
-        design_format::render_known_canopi_keys()?,
-    )?;
-    plan.add(
-        destination_root.join(DESIGN_FORMAT_TS),
-        design_format::render_canopi_design_format()?,
-    )?;
-    plan.add(
-        destination_root.join(SETTINGS_TS),
-        settings::render_settings_runtime()?,
-    )?;
-    plan.add(
-        destination_root.join(NEW_DESIGN_DEFAULTS_TS),
-        new_design_defaults.typescript,
-    )?;
-    plan.add(
-        destination_root.join(NEW_DESIGN_DEFAULTS_RUST),
-        new_design_defaults_rust,
-    )?;
-    plan.add(destination_root.join(PLANT_FILTER_TS), plant_filter_ts)?;
-    plan.add(destination_root.join(PLANT_FILTER_RUST), plant_filter_rust)?;
-    plan.add(
-        destination_root.join(SPECIES_SEARCH_NORMALIZATION_TS),
-        species_search_normalization_ts,
-    )?;
-    plan.add(
-        destination_root.join(ANALYSIS_REGISTRY_TS),
-        analysis_registry_ts,
-    )?;
-    plan.add(
-        destination_root.join(ANALYSIS_REGISTRY_RUST),
-        analysis_registry_rust,
-    )?;
-    plan.add(destination_root.join(REDACTION_TS), redaction_ts)?;
-    plan.add(destination_root.join(REDACTION_RUST), redaction_rust)?;
-    plan.add(
-        destination_root.join(LOCALE_KEYS_TS),
-        locale_keys::render_locale_keys(&source_root.join(locale_keys::EN_JSON))?,
-    )?;
+    for emitter in EMITTERS {
+        for artifact in emitter(source_root)? {
+            plan.add(
+                destination_root.join(artifact.relative_path),
+                artifact.contents,
+            )?;
+        }
+    }
     Ok(plan)
 }
 
-fn format_rust_source(
-    source: &str,
-    repo_root: &Path,
-) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+fn format_rust_source(source: &str, repo_root: &Path) -> Result<Vec<u8>, Box<dyn Error>> {
     let mut child = Command::new("rustfmt")
         .args(["--edition", "2024", "--emit", "stdout"])
         .current_dir(repo_root)
@@ -226,17 +308,16 @@ fn format_rust_source(
 #[cfg(test)]
 mod tests {
     use super::{
-        AdmissionMode, GenerationMode, LOCALE_KEYS_TS, TYPE_MANIFEST_JSON,
-        acquire_generation_admission, execute_generation, repository_root,
+        EDITION_CAPABILITIES_TS, GenerationMode, LOCALE_KEYS_TS, STORE_CHAIN_TS,
+        TYPE_MANIFEST_JSON, execute_generation, repository_root,
     };
     use crate::locale_keys::EN_JSON;
     use crate::plan_support::{
-        AdmissionLifetimeProbe, LateFailure, StallBeforePublication, TempRoot,
-        assert_sentinels_unchanged, fixture_source_root, generate_fixed, repo_root,
-        serialize_generation_runs, write_sentinels,
+        LateFailure, TempRoot, assert_sentinels_unchanged, fixture_source_root, generate_fixed,
+        repo_root, write_sentinels,
     };
     use std::fs;
-    use std::path::{Path, PathBuf};
+    use std::path::Path;
 
     /// canopi-f47t.52.264: one Rust target serves several worktrees, and cargo
     /// does not rebuild a workspace member whose source moved, so a binary
@@ -254,7 +335,6 @@ mod tests {
 
     #[test]
     fn late_renderer_failure_leaves_every_destination_unchanged() {
-        let _generation_run = serialize_generation_runs();
         let destination = TempRoot::new();
         write_sentinels(&destination.0);
 
@@ -275,62 +355,7 @@ mod tests {
     }
 
     #[test]
-    fn generation_admission_is_held_through_external_rendering() {
-        let _generation_run = serialize_generation_runs();
-        let source_root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
-        let destination = TempRoot::new();
-        let renderer = AdmissionLifetimeProbe {
-            admission: destination.0.join("target/bindings-gen-publication.lock"),
-        };
-        write_sentinels(&destination.0);
-
-        let error = execute_generation(
-            source_root,
-            &destination.0,
-            &renderer,
-            GenerationMode::Write,
-        )
-        .expect_err("the renderer probe stops generation after checking admission");
-
-        assert!(
-            error
-                .to_string()
-                .contains("forced renderer failure after admission probe")
-        );
-        assert_sentinels_unchanged(&destination.0);
-        let _released = acquire_generation_admission(&destination.0, AdmissionMode::Publish)
-            .expect("renderer failure must release generation admission");
-    }
-
-    #[test]
-    fn drift_check_admission_is_held_through_external_rendering() {
-        let _generation_run = serialize_generation_runs();
-        let source_root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
-        let destination = TempRoot::new();
-        let renderer = AdmissionLifetimeProbe {
-            admission: destination.0.join("target/bindings-gen-publication.lock"),
-        };
-
-        let error = execute_generation(
-            source_root,
-            &destination.0,
-            &renderer,
-            GenerationMode::Check,
-        )
-        .expect_err("the renderer probe stops checking after testing admission");
-
-        assert!(
-            error
-                .to_string()
-                .contains("forced renderer failure after admission probe")
-        );
-        let _released = acquire_generation_admission(&destination.0, AdmissionMode::Publish)
-            .expect("renderer failure must release drift-check admission");
-    }
-
-    #[test]
     fn generation_publishes_the_type_manifest_of_the_contract_types() {
-        let _generation_run = serialize_generation_runs();
         let source = fixture_source_root(r#"{"about": {"title": "About"}}"#);
         let destination = TempRoot::new();
         write_sentinels(&destination.0);
@@ -341,12 +366,13 @@ mod tests {
             crate::type_manifest::render_type_manifest(&crate::contracts::contract_types())
                 .unwrap();
         assert_eq!(published, expected);
+        assert!(destination.0.join(STORE_CHAIN_TS).is_file());
+        assert!(destination.0.join(EDITION_CAPABILITIES_TS).is_file());
         generate_fixed(&source.0, &destination.0, GenerationMode::Check).unwrap();
     }
 
     #[test]
     fn drift_check_names_locale_keys_when_english_gains_a_key() {
-        let _generation_run = serialize_generation_runs();
         let source = fixture_source_root(r#"{"about": {"title": "About"}}"#);
         let destination = TempRoot::new();
         write_sentinels(&destination.0);
@@ -365,89 +391,5 @@ mod tests {
         );
         assert!(message.contains(LOCALE_KEYS_TS), "{message}");
         assert_eq!(message.matches("\n- ").count(), 1, "{message}");
-    }
-
-    #[cfg(unix)]
-    #[test]
-    fn read_only_destination_leaves_no_partial_locale_keys() {
-        use crate::plan_support::DESTINATIONS;
-        use std::os::unix::fs::PermissionsExt;
-        let _generation_run = serialize_generation_runs();
-        let destination = TempRoot::new();
-        let generated = destination.0.join(LOCALE_KEYS_TS);
-        let generated = generated.parent().unwrap();
-        fs::create_dir_all(generated).unwrap();
-        fs::set_permissions(generated, fs::Permissions::from_mode(0o555)).unwrap();
-
-        let result = generate_fixed(repo_root(), &destination.0, GenerationMode::Write);
-        let left = fs::read_dir(generated).unwrap().count();
-        fs::set_permissions(generated, fs::Permissions::from_mode(0o755)).unwrap();
-
-        assert!(result.is_err(), "a read-only destination refuses");
-        assert_eq!(left, 0, "no partial or staged file is left");
-        for relative in DESTINATIONS {
-            assert!(!destination.0.join(relative).exists(), "{relative}");
-        }
-    }
-
-    /// The child process `interrupted_generation_leaves_every_destination_unchanged` interrupts.
-    const INTERRUPTED_DESTINATION: &str = "CANOPI_BINDINGS_GEN_INTERRUPTED_DESTINATION";
-
-    #[test]
-    #[ignore = "the child half of interrupted_generation_leaves_every_destination_unchanged"]
-    fn interrupted_generation_child() {
-        let Some(destination) = std::env::var_os(INTERRUPTED_DESTINATION) else {
-            return;
-        };
-        let destination = PathBuf::from(destination);
-        let renderer = StallBeforePublication {
-            ready: destination.join("ready"),
-        };
-        let _ = execute_generation(repo_root(), &destination, &renderer, GenerationMode::Write);
-        panic!("the parent interrupts generation while it stalls before publication");
-    }
-
-    // A crash inside publication itself leaves the in-progress marker, which refuses the next run:
-    // publication.rs's interrupted_publication_marker_blocks_a_new_publication.
-    #[cfg(unix)]
-    #[test]
-    fn interrupted_generation_leaves_every_destination_unchanged() {
-        use std::os::unix::process::ExitStatusExt;
-        use std::process::{Command, Stdio};
-        use std::time::{Duration, Instant};
-        let _generation_run = serialize_generation_runs();
-        let destination = TempRoot::new();
-        write_sentinels(&destination.0);
-        let mut child = Command::new(std::env::current_exe().unwrap())
-            .args([
-                "--exact",
-                "tests::interrupted_generation_child",
-                "--ignored",
-            ])
-            .env(INTERRUPTED_DESTINATION, &destination.0)
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .spawn()
-            .unwrap();
-        let deadline = Instant::now() + Duration::from_secs(120);
-        while !destination.0.join("ready").exists() {
-            if Instant::now() > deadline || child.try_wait().unwrap().is_some() {
-                let _ = child.kill();
-                panic!("the child never reached publication");
-            }
-            std::thread::sleep(Duration::from_millis(20));
-        }
-
-        let sent = Command::new("kill")
-            .args(["-INT", &child.id().to_string()])
-            .status()
-            .unwrap();
-        let status = child.wait().unwrap();
-
-        assert!(sent.success());
-        assert_eq!(status.signal(), Some(2), "{status:?}");
-        assert_sentinels_unchanged(&destination.0);
-        let _released = acquire_generation_admission(&destination.0, AdmissionMode::Publish)
-            .expect("an interrupted generation leaves the admission lock free");
     }
 }

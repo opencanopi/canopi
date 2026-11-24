@@ -1,4 +1,4 @@
-import type { SceneBounds } from '../view/types'
+import type { SceneBounds } from '../../../geo/view/types'
 import { degreesToRadians, pointsBounds, rotatePointAround } from '../zone-geometry'
 import type { CanvasDesignObjectSelectionModel } from '../runtime'
 import {
