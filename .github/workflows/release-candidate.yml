@@ -317,8 +317,10 @@ jobs:
 
   build:
     needs: preflight
-    # Its Rust caches are restored, never saved: a target the dispatching ref
-    # has not packaged builds cold (the Windows app build alone took 26 minutes).
+    # A candidate restores its Rust caches and never saves them: a target the
+    # dispatching ref has not packaged builds cold (the Windows app build alone
+    # took 26 minutes). Build & Test's dry run on a push to main saves them, as
+    # its own build would have (2.1-M536).
     timeout-minutes: 60
     strategy:
       fail-fast: false
@@ -370,14 +372,14 @@ jobs:
         if: runner.os == 'Linux'
         uses: ./.github/actions/install-linux-deps
 
-      - uses: ./.github/actions/setup-rust
+      - uses: ./release-tools/.github/actions/setup-rust
         with:
           targets: ${{ matrix.target }}
           cache: 'true'
           cache-key: release-${{ matrix.target }}${{ matrix.container && format('-{0}', matrix.container) || '' }}
-          cache-save: 'false'
+          cache-save: ${{ needs.preflight.outputs.dry_run == 'true' && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
 
-      - uses: ./.github/actions/setup-frontend
+      - uses: ./release-tools/.github/actions/setup-frontend
 
       # The sidecar must exist before `tauri build`: build.rs bundles it only
       # when desktop/binaries holds it for the target (the runner's host).
@@ -434,9 +436,9 @@ jobs:
   # The Linux packages start on Debian 12 (glibc 2.36, the oldest supported
   # with Ubuntu 22.04): the sidecar runs from the unpacked .deb and AppImage,
   # and the AppImage gets past the loader on the libraries every desktop has.
+  # It runs in Build & Test's dry run too, which skips Build & Test's own build and floor (2.1-M536).
   linux-floor:
     needs: [preflight, build]
-    if: needs.preflight.outputs.dry_run != 'true'
     runs-on: ubuntu-26.04
     container: debian:12
     timeout-minutes: 15
@@ -455,7 +457,7 @@ jobs:
 
       - uses: actions/download-artifact@v8
         with:
-          name: canopi-x86_64-unknown-linux-gnu
+          name: ${{ needs.preflight.outputs.dry_run == 'true' && 'dry-run-' || '' }}canopi-x86_64-unknown-linux-gnu
           path: bundle
 
       - name: Packaged binaries start on Debian 12
@@ -499,7 +501,7 @@ jobs:
           timeout 10m sudo apt-get -o Acquire::Retries=5 -o Acquire::http::Timeout=60 update
           timeout 10m sudo apt-get -o Acquire::Retries=5 -o Acquire::http::Timeout=60 install -y webkit2gtk-driver xvfb dbus dbus-x11 openbox libglib2.0-bin desktop-file-utils
 
-      - uses: ./.github/actions/setup-rust
+      - uses: ./release-tools/.github/actions/setup-rust
       - name: Install tauri-driver 2.1.0
         run: cargo install tauri-driver --version 2.1.0 --locked
 
@@ -674,7 +676,7 @@ jobs:
 
       # The Web build compiles the format worker's module first (`npm run build:format-wasm`, Step 2.0.4): the wasm32
       # target, and the wasm-bindgen CLI at Cargo.lock's wasm-bindgen version, the one build-wasm.mjs accepts.
-      - uses: ./.github/actions/setup-rust
+      - uses: ./release-tools/.github/actions/setup-rust
         with:
           targets: wasm32-unknown-unknown
       - uses: taiki-e/install-action@v2
@@ -724,7 +726,11 @@ jobs:
       - uses: actions/checkout@v7
         with:
           ref: ${{ needs.preflight.outputs.head_sha }}
-      - uses: ./.github/actions/setup-frontend
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.preflight.outputs.tools_sha }}
+          path: release-tools
+      - uses: ./release-tools/.github/actions/setup-frontend
       - uses: actions/download-artifact@v8
         with:
           name: canopi-web-edition

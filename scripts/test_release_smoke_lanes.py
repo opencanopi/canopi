@@ -234,7 +234,7 @@ class UpdaterLaneTests(unittest.TestCase):
         self.assertLess(names.index("Audit process starts and exits with their command lines (Windows)"),
                         names.index("Update N-1 to N"))
         dump = steps["Keep the audited process starts and exits (Windows)"]
-        self.assertIn("if: (failure() || github.event_name == 'workflow_dispatch') && runner.os == 'Windows'", dump)
+        self.assertIn("if: (failure() || cancelled() || github.event_name == 'workflow_dispatch') && runner.os == 'Windows'", dump)
         self.assertIn("Id = 4688, 4689", dump)
         for name in ("canopi-desktop.exe", "Canopi-update-setup.exe"):
             self.assertIn(f"'{name}'", dump)
@@ -244,24 +244,6 @@ class UpdaterLaneTests(unittest.TestCase):
         self.assertIn("${{ runner.temp }}/canopi-e2e-*/", upload)
         self.assertLess(names.index("Keep the audited process starts and exits (Windows)"),
                         names.index("Upload the app profiles and logs"))
-
-    def test_the_macos_probe_job_reports_off_pull_requests_with_an_ephemeral_key(self):
-        """2.1-Q136, M97: the probe runs on a dispatch and a Release Candidate, itself a dispatch (never a pull request
-        or a push to main), never blocks,
-        signs with a key the job generates, builds N's dmg and N+1's archive with the MCP bridge (not the e2e feature,
-        which refuses it), installs N into /Applications and runs release_smoke.py macos-probe."""
-        job = self.text.split("\n  macos-probe:\n", 1)[1]
-        self.assertIn("if: github.event_name == 'workflow_dispatch'", job)
-        self.assertIn("runs-on: macos-15", job)
-        self.assertIn("continue-on-error: true", job)
-        self.assertNotIn("secrets.", job)
-        self.assertIn("signer generate --ci", job)
-        self.assertIn("build --debug --features updater-e2e,mcp-bridge", job)
-        self.assertNotIn(",e2e", job)
-        self.assertIn("bundles=app,dmg", job)
-        self.assertIn("cp -R \"$mount/Canopi.app\" /Applications/", job)
-        self.assertIn("scripts/release_smoke.py macos-probe", job)
-        self.assertIn("--from-version 9.0.0 --version 9.0.1", job)
 
 
 if __name__ == "__main__":

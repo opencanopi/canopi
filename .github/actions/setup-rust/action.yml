@@ -35,7 +35,17 @@ runs:
         EXTRA_COMPONENTS: ${{ inputs.components }}
       run: |
         set -euo pipefail
-        rustup toolchain install
+        # A bare container (ubuntu:22.04 for the Linux packages) has no rustup: bootstrap it with no toolchain, so
+        # rust-toolchain.toml alone names the one installed. install-linux-deps brings curl there.
+        if ! command -v rustup > /dev/null 2>&1; then
+          curl --proto '=https' --tlsv1.2 --retry 3 -sSf https://sh.rustup.rs \
+            | sh -s -- -y --no-modify-path --profile minimal --default-toolchain none
+          cargo_bin="${CARGO_HOME:-$HOME/.cargo}/bin"
+          echo "$cargo_bin" >> "$GITHUB_PATH"
+          export PATH="$cargo_bin:$PATH"
+        fi
+        # A runner's preinstalled rustup is never upgraded mid-job.
+        rustup toolchain install --no-self-update
         if [ -n "$EXTRA_TARGETS" ]; then
           for target in $EXTRA_TARGETS; do
             rustup target add "$target"
@@ -47,9 +57,22 @@ runs:
           done
         fi
 
+    # The OS the build runs on joins every cache key: Swatinem's own key has no image version, so an ubuntu-22.04
+    # (glibc floor) or ubuntu-24.04 job would otherwise restore a target/ built on ubuntu-26.04 that cargo calls fresh.
+    # A container job reads its image's /etc/os-release, a hosted runner its ImageOS (2.1-M535).
+    - name: Read the build OS for the cache key
+      if: inputs.cache == 'true'
+      id: os
+      shell: bash
+      run: |
+        set -euo pipefail
+        os="${ImageOS:-$RUNNER_OS}"
+        if [ -r /etc/os-release ]; then os="$(. /etc/os-release && echo "$ID-$VERSION_ID")"; fi
+        echo "os=$os-$RUNNER_ARCH" >> "$GITHUB_OUTPUT"
+
     - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
       if: inputs.cache == 'true'
       with:
-        shared-key: ${{ inputs.cache-key }}
+        shared-key: ${{ inputs.cache-key }}-${{ steps.os.outputs.os }}
         cache-on-failure: false
         save-if: ${{ inputs.cache-save }}

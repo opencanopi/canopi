@@ -119,15 +119,16 @@ jobs:
       CANOPI_SKIP_BUNDLED_DB: "1"
       CARGO_TERM_COLOR: always
     steps:
-      # The reader tree at the root, so its toolchain file and its local actions are the ones used; this run's tree,
-      # whose fixture checks judge the readers, under lane/.
+      # The reader tree at the root, so its toolchain file and its install-linux-deps are the ones used; this run's
+      # tree, whose fixture checks judge the readers, under lane/. Setup actions come from lane/: no reader release has
+      # them (2.1-M535).
       - uses: actions/checkout@v7
         with:
           ref: ${{ needs.resolve.outputs.reader }}
       - uses: actions/checkout@v7
         with:
           path: lane
-      - uses: ./.github/actions/setup-frontend
+      - uses: ./lane/.github/actions/setup-frontend
         with:
           install: 'false'
       - name: Install the reader tree's Rust toolchain
@@ -201,7 +202,7 @@ jobs:
         run: |
           timeout 3m apt-get -o Acquire::Retries=5 -o Acquire::http::Timeout=60 update -qq
           timeout 5m apt-get -o Acquire::Retries=5 -o Acquire::http::Timeout=60 install -y -qq --no-install-recommends gcc libc6-dev
-      - uses: ./.github/actions/setup-rust
+      - uses: ./lane/.github/actions/setup-rust
         with:
           targets: wasm32-unknown-unknown
       # With no argument rustup installs what the reader tree's rust-toolchain.toml pins, its targets included.

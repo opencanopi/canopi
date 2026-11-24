@@ -12,8 +12,9 @@ on:
       - .github/workflows/geolibre-sidecar.yml
   workflow_dispatch:
 
+# Builds read only; the publish job alone writes the release, and only from main (2.1-M535).
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: geolibre-sidecar-${{ github.ref }}
@@ -41,6 +42,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      # setup-rust bootstraps rustup in the bare image.
       - name: Install container base tools
         if: matrix.container != ''
         shell: bash
@@ -49,8 +51,6 @@ jobs:
           export DEBIAN_FRONTEND=noninteractive
           timeout 5m apt-get -o Acquire::Retries=5 -o Acquire::http::Timeout=60 update
           timeout 5m apt-get -o Acquire::Retries=5 -o Acquire::http::Timeout=60 install -y --no-install-recommends ca-certificates curl git build-essential pkg-config libssl-dev
-          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain none
-          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
 
       - uses: ./.github/actions/setup-rust
 
@@ -83,6 +83,9 @@ jobs:
   publish:
     name: Publish sidecar release
     needs: build
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
     runs-on: ubuntu-26.04
     timeout-minutes: 10
     steps:

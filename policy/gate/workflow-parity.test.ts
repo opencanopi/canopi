@@ -10,7 +10,7 @@ import { describe, expect, it } from 'vitest'
 import { REPO_ROOT } from './planted-repo.ts'
 import { TABLE, type Table } from './table.ts'
 import {
-  groupFaults, inlineFaults, readActions, readWorkflows, rowFaults, runnerFaults, setupFaults, setupJobs, staleRowFaults, triggerFaults,
+  foreignTreeFaults, groupFaults, inlineFaults, readActions, readWorkflows, rowFaults, runnerFaults, setupFaults, setupJobs, staleRowFaults, triggerFaults,
   triggers, type Job, type Step, type Workflow,
 } from './workflows.ts'
 
@@ -195,6 +195,40 @@ describe('every workflow is the table\'s (A5)', () => {
       'unpinned.yml job a uses unpinned runner ubuntu-latest',
       'unpinned.yml job b matrix uses unpinned runner windows-latest',
       'unpinned.yml job c matrix uses unpinned runner macos-latest',
+    ])
+  })
+
+  it('2.1-M535: the GeoLibre sidecar workflow reads only, and its publish job alone writes the release, from main only', () => {
+    const sidecar = flow('geolibre-sidecar.yml') as Workflow & { permissions?: unknown }
+    expect(sidecar.permissions).toEqual({ contents: 'read' })
+    const jobs = (sidecar.jobs ?? {}) as Record<string, Job & { permissions?: unknown }>
+    expect(Object.entries(jobs).filter(([, entry]) => entry.permissions !== undefined).map(([name, entry]) => [name, entry.permissions]))
+      .toEqual([['publish', { contents: 'write' }]])
+    expect(jobs['publish']?.if).toBe("github.ref == 'refs/heads/main'")
+  })
+
+  it('2.1-M535: a job with another tree at its root reads the setup actions from its tools checkout, so a stable-fix candidate and a rollback run find them', () => {
+    expect(foreignTreeFaults(real)).toEqual([])
+    const planted = new Map<string, Workflow>([['foreign.yml', {
+      jobs: {
+        reader: { steps: [{ uses: 'actions/checkout@v7', with: { ref: '${{ needs.resolve.outputs.reader }}' } }, { uses: './.github/actions/setup-rust' }] },
+        tools: {
+          steps: [
+            { uses: 'actions/checkout@v7', with: { ref: '${{ inputs.ref }}' } },
+            { uses: 'actions/checkout@v7', with: { path: 'lane' } },
+            { uses: './lane/.github/actions/setup-frontend' },
+            { uses: './.github/actions/install-linux-deps' },
+            { uses: './.github/actions/setup-frontend' },
+          ],
+        },
+        own: {
+          steps: [{ uses: 'actions/checkout@v7', with: { ref: '${{ github.event.pull_request.head.sha || github.sha }}' } }, { uses: './.github/actions/setup-rust' }],
+        },
+      },
+    }]])
+    expect(foreignTreeFaults(planted)).toEqual([
+      'foreign.yml job reader reads ./.github/actions/setup-rust from the tree at ${{ needs.resolve.outputs.reader }}, which may lack it',
+      'foreign.yml job tools reads ./.github/actions/setup-frontend from the tree at ${{ inputs.ref }}, which may lack it',
     ])
   })
 })

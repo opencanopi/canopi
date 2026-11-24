@@ -39,8 +39,10 @@ jobs:
   updater:
     name: updater ${{ matrix.bundle }}
     runs-on: ${{ matrix.os }}
-    # 25 min on Windows so a hung/lost runner fails fast instead of holding a slot for 60 min (canopi-ong0, Stage 1 E1).
-    timeout-minutes: ${{ startsWith(matrix.os, 'windows-') && 25 || 60 }}
+    # Every step that can hang ends itself (Install N-1, Update N-1 to N, Leaving beta: 40 minutes at most), so the job's
+    # limit is the untimed builds' cold worst case on top: a job timeout would cancel the steps that keep the profiles
+    # and logs, which also run on a cancellation (canopi-ong0).
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
@@ -73,6 +75,10 @@ jobs:
       - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.ref || github.sha }}
+      # This workflow's own commit, whose setup actions a Release Candidate's release/2.0 tree lacks (2.1-M535).
+      - uses: actions/checkout@v7
+        with:
+          path: lane
 
       - name: Install Linux dependencies
         if: runner.os == 'Linux'
@@ -96,13 +102,13 @@ jobs:
           });
           RULE
 
-      - uses: ./.github/actions/setup-rust
+      - uses: ./lane/.github/actions/setup-rust
         with:
           cache: 'true'
           cache-key: desktop-e2e
           cache-save: ${{ github.ref == 'refs/heads/main' }}
 
-      - uses: ./.github/actions/setup-frontend
+      - uses: ./lane/.github/actions/setup-frontend
 
       - name: Install tauri-driver 2.1.0
         run: cargo install tauri-driver --version 2.1.0 --locked
@@ -276,7 +282,8 @@ jobs:
 
       # A hang here (canopi-ong0) must end before the job's 60 minutes so the upload below keeps the profiles and logs;
       # a pass takes a few minutes. On Windows a stuck process tree outlives the step's own timeout (a 2026-11-15 run
-      # held it 47 minutes against its 20), so `timeout` ends the spec from inside the step, then its processes.
+      # held it 47 minutes against its 20), so `timeout` ends the spec from inside the step after 16 minutes, then its
+      # processes.
       - name: Update N-1 to N
         timeout-minutes: 20
         working-directory: desktop/web
@@ -287,12 +294,13 @@ jobs:
             dbus-run-session -- xvfb-run -a -s '-screen 0 1400x900x24' bash -euo pipefail -c \
               "openbox & wm=\$!; sleep 2; kill -0 \"\$wm\"; npm run test:platform -- --spec $spec"
           else
-            # Stream live process/log heartbeat to stdout every 30 s so diagnostics survive runner loss (canopi-ong0).
+            # Every 30 s the job log gets the processes the hang may involve, the runner's own included (canopi-ong0):
+            # what the log holds up to a runner loss stays readable; the runner's Worker writes it, so a loss ends it.
             (
               while sleep 30; do
                 echo "[ong0-heartbeat $(date -u +%H:%M:%SZ)] processes:"
                 powershell -NoProfile -NonInteractive -Command \
-                  'Get-Process | Where-Object { $_.ProcessName -match "canopi|msedgedriver|msiexec|tauri-driver|node" } | Select-Object Id,ProcessName,@{N="WS_MB";E={[math]::Round($_.WorkingSet64/1MB,1)}} | Format-Table -AutoSize | Out-String -Width 160' 2>/dev/null || true
+                  'Get-Process | Where-Object { $_.ProcessName -match "canopi|msedgedriver|msiexec|tauri-driver|node|Runner\.Worker|Runner\.Listener" } | Select-Object Id,ProcessName,@{N="WS_MB";E={[math]::Round($_.WorkingSet64/1MB,1)}} | Format-Table -AutoSize | Out-String -Width 160' 2>/dev/null || true
               done
             ) &
             hb_pid=$!
@@ -338,7 +346,7 @@ jobs:
       # profile's environment; no N start after the installer's exit (4689) means its relaunch started nothing. A
       # dispatch keeps them whatever the outcome: the MSI probe reads how AUTOLAUNCHAPP started N (canopi-f47t.52.244).
       - name: Keep the audited process starts and exits (Windows)
-        if: (failure() || github.event_name == 'workflow_dispatch') && runner.os == 'Windows'
+        if: (failure() || cancelled() || github.event_name == 'workflow_dispatch') && runner.os == 'Windows'
         shell: pwsh
         run: |
           $names = 'canopi-desktop.exe', 'Canopi-update-setup.exe', 'msiexec.exe'
@@ -362,7 +370,7 @@ jobs:
           Start-Sleep -Seconds 3
 
       - name: Upload the app profiles and logs
-        if: ${{ failure() || github.event_name == 'workflow_dispatch' }}
+        if: ${{ failure() || cancelled() || github.event_name == 'workflow_dispatch' }}
         uses: actions/upload-artifact@v7
         with:
           name: updater-e2e-${{ matrix.bundle }}
@@ -390,14 +398,18 @@ jobs:
       - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.ref || github.sha }}
+      # This workflow's own commit, whose setup actions a Release Candidate's release/2.0 tree lacks (2.1-M535).
+      - uses: actions/checkout@v7
+        with:
+          path: lane
 
-      - uses: ./.github/actions/setup-rust
+      - uses: ./lane/.github/actions/setup-rust
         with:
           cache: 'true'
           cache-key: desktop-e2e
           cache-save: ${{ github.ref == 'refs/heads/main' }}
 
-      - uses: ./.github/actions/setup-frontend
+      - uses: ./lane/.github/actions/setup-frontend
 
       # The key lives in the runner's temp folder for this job only; nothing uploads it.
       - name: Generate the job's updater key and the probe overlays

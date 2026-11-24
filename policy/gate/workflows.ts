@@ -408,6 +408,42 @@ export function runnerFaults(all: ReadonlyMap<string, Workflow>): string[] {
   return faults
 }
 
+/**
+ * The local actions every tree a job may check out at its root carries: release/2.0 and every reader release since
+ * v2.1.0-beta.1. Any other local action is read from the job's own tree (2.1-M535).
+ */
+export const READER_ACTIONS: readonly string[] = ['build-geolibre-cli', 'install-linux-deps']
+
+/** Whether a checkout `ref` names only the run's own commit (the push's or the pull request's head). */
+const ownCommit = (ref: string) =>
+  ref.replace(/\$\{\{|\}\}|\|\||github\.event\.pull_request\.head\.sha|github\.sha|\s/g, '') === ''
+
+/**
+ * Each local action a job reads from a root that holds another tree: a checkout with a `ref` and no `path` puts the
+ * candidate's, a reader tag's or a stable fix's tree there, which may predate the action (2.1-M535). Such a job reads
+ * it from its tools checkout (`./release-tools/`, `./lane/`) instead.
+ */
+
+export function foreignTreeFaults(all: ReadonlyMap<string, Workflow>, carried: readonly string[] = READER_ACTIONS): string[] {
+  const faults: string[] = []
+  for (const [file, flow] of all) {
+    for (const [name, job] of Object.entries(flow.jobs ?? {})) {
+      let ref: unknown
+      for (const step of job.steps ?? []) {
+        if (step.uses?.startsWith('actions/checkout') && step.with?.['path'] === undefined) {
+          ref = step.with?.['ref']
+          if (typeof ref === 'string' && ownCommit(ref)) ref = undefined
+        }
+        const local = /^\.\/\.github\/actions\/([^/]+)/.exec(step.uses ?? '')?.[1]
+        if (ref !== undefined && local !== undefined && !carried.includes(local)) {
+          faults.push(`${file} job ${name} reads ./.github/actions/${local} from the tree at ${String(ref)}, which may lack it`)
+        }
+      }
+    }
+  }
+  return faults
+}
+
 /** The steps of each composite action under `root`/.github/actions, by its action.yml path. */
 export function readActions(root: string): Map<string, readonly Step[]> {
   const dir = join(root, '.github/actions')

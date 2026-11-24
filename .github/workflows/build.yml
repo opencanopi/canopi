@@ -486,7 +486,8 @@ jobs:
   # Candidate keeps its own preflight gate.
   build:
     needs: changes
-    # Fork PRs package nothing; skip when release-build already runs the 4-platform packaging matrix (Stage 1 E1).
+    # Fork PRs package nothing; skip when release-build already runs the 4-platform packaging matrix (Stage 1 E1), whose
+    # dry run then runs the Debian 12 floor and saves the release caches (2.1-M536).
     if: >-
       (needs.changes.outputs.rust == 'true' || needs.changes.outputs.packaging_inputs == 'true') &&
       needs.changes.outputs.release_build != 'true' &&
