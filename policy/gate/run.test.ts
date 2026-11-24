@@ -211,3 +211,26 @@ describe('the pinned actionlint (canopi-f47t.52.228.15.1)', () => {
     expect(argv, 'the pinned tool alone decides: no runner-installed shellcheck').toContain('-shellcheck=')
   })
 })
+
+describe('two-tier gate execution (Stage 1 E1)', () => {
+  it('fails fast on Tier 1 preflight checks before starting Tier 2 checks', async () => {
+    const marker = join(repo.root, 'tier2-ran')
+    const code = await execute(repo.repo, [
+      { id: 'typecheck', command: `${process.execPath} -e require("fs").writeFileSync(${JSON.stringify(marker)},"ran")` },
+      { id: 'fmt', command: `${process.execPath} -e process.exit(1)` },
+    ], undefined, [], false)
+    expect(code).toBe(1)
+    expect(() => readFileSync(marker)).toThrow()
+  })
+
+  it('runs independent Tier 2 resource groups (cargo, web) in parallel and records all durations', async () => {
+    const logs = join(repo.root, 'logs')
+    const code = await execute(repo.repo, [
+      { id: 'clippy', command: `${process.execPath} -e setTimeout(process.exit,50,0)`, cargo: true },
+      { id: 'typecheck', command: `${process.execPath} -e setTimeout(process.exit,50,0)` },
+    ], undefined, [], false, process.env, logs)
+    expect(code).toBe(0)
+    const durations = JSON.parse(readFileSync(join(logs, 'durations.json'), 'utf8')) as { id: string, outcome: string }[]
+    expect(durations.map((d) => [d.id, d.outcome])).toEqual([['clippy', 'passed'], ['typecheck', 'passed']])
+  })
+})

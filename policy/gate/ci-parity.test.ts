@@ -329,7 +329,7 @@ function buildAndTestFaults({ jobs = {} }: Workflow, frontendRow: readonly strin
     faults.push('build-and-test passes when a job it needs failed or was cancelled')
   }
   const last = (script: string) => Math.max(-1, ...frontendRow.flatMap((run, index) => (runsScript(run, script) ? [index] : [])))
-  const bundle = frontendRow.findIndex((run) => runsScript(run, 'test:policies:bundle'))
+  const bundle = frontendRow.findIndex((run) => runsScript(run, 'test:policies:bundle') || /\bpolicy\/check\.mjs\b.*--family\s+bundle-size\b/.test(run))
   if (bundle < 0) faults.push('the frontend row runs no test:policies:bundle')
   else if (bundle < last('build:desktop:bundle') || bundle < last('build:web:bundle')) faults.push('the frontend row checks bundle sizes before both builds')
   if (last('build:desktop:bundle') < 0 || last('build:web:bundle') < 0) faults.push('the frontend row does not build both editions')

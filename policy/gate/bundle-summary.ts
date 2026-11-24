@@ -18,7 +18,7 @@ export function bundleSummary(log: string, env: NodeJS.ProcessEnv): string {
   const refusals = (end < 0 ? after : after.slice(0, end)).filter((line) => /^([a-z-]+: |FAIL )/.test(line))
   const run = `${env['GITHUB_SERVER_URL'] ?? ''}/${env['GITHUB_REPOSITORY'] ?? ''}/actions/runs/${env['GITHUB_RUN_ID'] ?? ''}`
   const bead = `bd create --type=bug --priority=1 --title="Bundle size over budget at ${(env['GITHUB_SHA'] ?? '').slice(0, 12)}" `
-    + `--description="npm run test:policies:bundle failed in ${run}; the refusals are in its step summary."`
+    + `--description="${command} failed in ${run}; the refusals are in its step summary."`
   return ['### Bundle size budgets failed', '```', ...refusals, '```', 'File the bead:', '```', bead, '```', ''].join('\n')
 }
 

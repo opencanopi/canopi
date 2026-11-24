@@ -5,9 +5,8 @@
 // waits on the push lane's Rust toolchain, and a push run never repeats the commit lane. With `--family <id>`
 // (repeatable) it observes only the named families, each in its own lane. Each lane in use has a check in the gate table
 // (policy/gate/table.ts) that an area runs, check and self-test, or the default check refuses it (`lane-unrun`); a later lane
-// that only families use is also run by checks naming each of its families by `--family`. A table command is one
-// program and its arguments, never a shell line, and the package script an `npm run` check names is credited only when
-// it is one command, so a credited run is always the one whose status the gate reads.
+// that only families use is also run by checks naming each of its families by `--family`. Table checker-lane checks
+// invoke `node policy/check.mjs` directly (canopi-6a36), so no package.json script parsing is needed.
 import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -76,30 +75,10 @@ export function observer(lane, families, loaded) {
 const ENV_ASSIGNMENT = /^[A-Za-z_][A-Za-z0-9_]*=\S*$/u;
 
 /** A command's arguments to policy/check.mjs when its program, after env assignments, is `node` running the checker. */
-function checkerArgs(words) {
-  const at = words.findIndex((w) => !ENV_ASSIGNMENT.test(w));
-  return words[at] === 'node' && words[at + 1]?.endsWith('policy/check.mjs') ? words.slice(at + 2) : null;
-}
-
-/** Anything that lets a shell line run, skip or discard a command other than its one program: never credited. */
-const SHELL = /[|&;<>()`$\n#'"\\]/u;
-
-/**
- * The words a table check runs: its command, or for `npm run <script>` (after env assignments) the script it names in
- * the check directory's package.json when that script is one command with no shell syntax (a chain, pipe, redirection,
- * expansion or quote is credited with nothing, so a credited checker run is always the script's exit status).
- */
-function checkWords(root, check) {
+function checkerArgs(check) {
   const words = String(check?.command ?? '').split(/\s+/u).filter(Boolean);
   const at = words.findIndex((w) => !ENV_ASSIGNMENT.test(w));
-  if (words[at] !== 'npm' || words[at + 1] !== 'run' || words.length !== at + 3) return words;
-  let script;
-  try {
-    script = JSON.parse(fs.readFileSync(path.join(root, check.cwd ?? '', 'package.json'), 'utf8')).scripts?.[words[at + 2]];
-  } catch {
-    return [];
-  }
-  return typeof script === 'string' && !SHELL.test(script) ? script.split(/\s+/u).filter(Boolean) : [];
+  return words[at] === 'node' && words[at + 1]?.endsWith('policy/check.mjs') ? words.slice(at + 2) : null;
 }
 
 /**
@@ -120,7 +99,7 @@ async function tableRuns(root) {
   const ran = new Set((table?.areas ?? []).flatMap((area) => [...area?.full ?? [], ...area?.affected ?? [], ...area?.commit ?? []]));
   for (const check of [...ran].map((id) => table?.checks?.[id])) {
     if (!check || check.ciOnly) continue;
-    const args = checkerArgs(checkWords(root, check));
+    const args = checkerArgs(check);
     if (!args || args.some((a) => ['--list-rules', '--phase-close', '--phase-close-report', '--closed-beads', '--update'].includes(a))) continue;
     const mode = args.includes('--self-test') ? 'self-test' : 'check';
     const families = familyArgs(args);

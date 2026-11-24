@@ -66,6 +66,7 @@ export class PlantedRepo {
     this.write({
       'README.md': 'x\n',
       'AGENTS.md': 'Enforced by `cited.test.ts`.\n',
+      'policy/check.mjs': '// stub policy/check.mjs for gate execution tests\n',
       'desktop/web/package.json': readFileSync(join(REPO_ROOT, 'desktop/web/package.json'), 'utf8'),
       'policy/primitives.json': `${JSON.stringify({
         version: 1,

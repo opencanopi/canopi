@@ -19,6 +19,11 @@ const CHECK_DOCS_STUB = `import os, sys
 with open(os.environ["SHIM_LOG"], "a") as log:
     log.write("check_docs " + " ".join(sys.argv[1:]) + "\\n")
 `
+const CHECK_POLICY_STUB = `import { spawnSync } from 'node:child_process'
+if (process.argv.includes('--closed-beads')) {
+  process.exit(spawnSync(process.execPath, ['policy/check-real.mjs', ...process.argv.slice(2)], { stdio: 'inherit' }).status ?? 1)
+}
+`
 
 class HookRepo extends GateRepo {
   readonly linked = join(this.root, 'linked')
@@ -28,7 +33,8 @@ class HookRepo extends GateRepo {
 
   constructor() {
     super({ hooks: true })
-    this.write({ 'scripts/check_docs.py': CHECK_DOCS_STUB, 'desktop/web/src/a.ts': 'export const a = 1\n', 'docs/a.md': '# A\n' })
+    cpSync(join(this.path, 'policy/check.mjs'), join(this.path, 'policy/check-real.mjs'))
+    this.write({ 'scripts/check_docs.py': CHECK_DOCS_STUB, 'policy/check.mjs': CHECK_POLICY_STUB, 'desktop/web/src/a.ts': 'export const a = 1\n', 'docs/a.md': '# A\n' })
     this.base = this.commit('chore: hooks')
     this.git('update-ref', 'refs/remotes/origin/main', this.base)
     this.git('config', 'core.hooksPath', '.githooks')
@@ -165,15 +171,15 @@ describe('the commit lane through pre-commit (2.1-Q205)', () => {
     const started = Date.now()
     const run = repo.commitIn(repo.linked, { 'desktop/web/src/a.ts': 'export const a = 2\n' })
     expect(run.status, run.stderr).toBe(0)
-    // A12: the TS file is in file-size's scope, so its cheap family runs too.
-    expect(repo.calls()).toEqual(['npm run typecheck offline=true', 'npm run test:policies:family -- --family file-size offline=true'])
+    // A12: the TS file runs typecheck offline (and cheap-families runs node policy/check.mjs --family file-size directly).
+    expect(repo.calls()).toEqual(['npm run typecheck offline=true'])
     expect(Date.now() - started).toBeLessThan(30_000)
   })
 
   it("canopi-f47t.52.228.10: the hook runs the gate table's commit lane", () => {
     const run = repo.commitIn(repo.linked, { 'desktop/src/lib.rs': 'fn main() {}\n' })
     expect(run.status, run.stderr).toBe(0)
-    expect(repo.calls()).toEqual(['cargo fmt --all -- --check offline=true', ...['check', 'node', 'generate', 'generate:self-test',
+    expect(repo.calls()).toEqual(['cargo fmt --all -- --check offline=true', ...['node', 'generate', 'generate:self-test',
       'ast-grep'].map((script) => `npm run test:policies:${script} offline=true`)])
   })
 
