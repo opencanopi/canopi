@@ -5,7 +5,7 @@ import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { execute, resourceGroup } from './run.ts'
+import { execute, resourceGroup, vitestWorkers } from './run.ts'
 import { TABLE } from './table.ts'
 import { cleanEnv, git, PLANTED_IMAGE, PlantedRepo, REPO_ROOT } from './planted-repo.ts'
 
@@ -266,5 +266,18 @@ describe('two-tier gate execution (Stage 1 E1)', () => {
     expect(run.status).toBe(1)
     expect(run.stderr).toContain('broken worktree git-link')
     expect(run.stderr).toContain('git worktree repair')
+  })
+})
+
+describe('memory-sized Vitest parallelism (canopi-hcv2)', () => {
+  it('canopi-hcv2: reads CANOPI_VITEST_WORKERS or VITEST_WORKERS with default 4 and applies it to coverage runs', () => {
+    expect(vitestWorkers({})).toBe(4)
+    expect(vitestWorkers({ VITEST_WORKERS: '2' })).toBe(2)
+    expect(vitestWorkers({ CANOPI_VITEST_WORKERS: '3', VITEST_WORKERS: '2' })).toBe(3)
+    expect(vitestWorkers({ VITEST_WORKERS: '0' })).toBe(4)
+    expect(vitestWorkers({ VITEST_WORKERS: '99' })).toBe(4)
+    const run = repo.gate(['full', '--area', 'frontend', '--only', 'coverage'], { env: { VITEST_WORKERS: '2' } })
+    expect(run.status, run.stderr).toBe(0)
+    expect(repo.calls()).toEqual(['npm run test:coverage -- --maxWorkers=2 --project web offline=unset'])
   })
 })

@@ -16,6 +16,16 @@ const log = (line: string) => process.stderr.write(`gate: ${line}\n`)
 /** The signals that end a run as cancelled: the terminal's interrupt, and `timeout`'s or a supervisor's stop. */
 const STOPS: readonly NodeJS.Signals[] = ['SIGINT', 'SIGTERM']
 
+/** Vitest worker count from CANOPI_VITEST_WORKERS or VITEST_WORKERS (1..16), defaulting to 4 (canopi-hcv2). */
+export function vitestWorkers(env: NodeJS.ProcessEnv = process.env): number {
+  const raw = (env['CANOPI_VITEST_WORKERS'] ?? env['VITEST_WORKERS'] ?? '').trim()
+  if (/^[1-9]\d*$/.test(raw)) {
+    const parsed = Number(raw)
+    if (parsed >= 1 && parsed <= 16) return parsed
+  }
+  return 4
+}
+
 /** A command's leading NAME=value words as its environment, and its argv; table commands hold no quoting. */
 export function splitEnv(command: string): { env: Record<string, string>, argv: string[] } {
   const words = command.split(/\s+/).filter((word) => word !== '')
@@ -156,7 +166,9 @@ export async function execute(root: string, checks: readonly PlannedCheck[], e2e
       return false
     }
     const { env: extra, argv } = splitEnv(planned.command)
-    const code = await timed(index, () => run(text, argv, join(root, planned.cwd ?? ''), { ...base, ...extra }))
+    const workers = vitestWorkers(env)
+    const sizedArgv = workers === 4 ? argv : argv.map((arg) => (arg === '--maxWorkers=4' ? `--maxWorkers=${workers}` : arg))
+    const code = await timed(index, () => run(text, sizedArgv, join(root, planned.cwd ?? ''), { ...base, ...extra }))
     if (interrupted) return false
     if (code === 0) { passed += 1; return true }
     failed.push(text)
