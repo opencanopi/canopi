@@ -3,10 +3,16 @@
 //!
 //! Models separate **volatile** (page cache / un-fsynced writes and directory
 //! entries) and **durable** (on-disk state committed by `sync_file` / `sync_dir`)
-//! layers. Calling [`FaultFs::crash`] or injecting [`FaultAction::Crash`] drops
-//! or corrupts unsynced volatile state according to [`CrashMode`], letting tests
-//! verify that [`crate::durable::publish_durably`] never leaves a torn or
-//! half-written target after a power cut at any step.
+//! layers. Calling [`FaultFs::crash`] or injecting [`FaultAction::CrashBefore`]
+//! / [`FaultAction::CrashAfter`] drops or corrupts unsynced volatile state
+//! according to [`CrashMode`], letting tests verify that
+//! [`crate::durable::publish_durably`] never leaves a torn or half-written
+//! target after a power cut at any step.
+//!
+//! Note: `FaultFs` is keyed by normalized path (not inode numbers). Calling
+//! `sync_file` on an already-durable path updates the volatile entry's durable
+//! payload; directory entries are committed to `durable` on `sync_dir`, which
+//! is sufficient for modeling `publish_durably` and `remove_durably`.
 
 use std::collections::{BTreeMap, VecDeque};
 use std::io;
@@ -15,6 +21,7 @@ use std::sync::Mutex;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use crate::durable::{DurableError, DurableFs, EntryKind, PublishOptions};
+use crate::fault_fs_ops::{apply_crash, apply_io_fault, normalize_key, persist_noclobber_fallback};
 use crate::hash;
 
 static NEXT_FAULT_TEMP_ID: AtomicU64 = AtomicU64::new(0);
@@ -28,6 +35,9 @@ pub enum FaultOp {
     SyncFile,
     RenameReplace,
     PersistNoclobber,
+    /// Second step of the FAT32/exFAT no-clobber fallback (atomic rename of
+    /// staged file over the empty `create_new` placeholder).
+    NoclobberFallbackReplace,
     SyncDir,
     RemoveFile,
     AvailableSpace,
@@ -66,7 +76,7 @@ pub enum FaultAction {
 }
 
 #[derive(Debug, Clone)]
-enum Inode {
+pub(crate) enum Inode {
     File {
         volatile: Vec<u8>,
         durable: Option<Vec<u8>>,
@@ -76,21 +86,21 @@ enum Inode {
 }
 
 #[derive(Debug, Default)]
-struct FsState {
+pub(crate) struct FsState {
     /// Normalized path -> volatile entry.
-    volatile: BTreeMap<PathBuf, Inode>,
+    pub(crate) volatile: BTreeMap<PathBuf, Inode>,
     /// Normalized path -> durable entry (updated on `sync_file` / `sync_dir`).
-    durable: BTreeMap<PathBuf, Inode>,
+    pub(crate) durable: BTreeMap<PathBuf, Inode>,
     /// Pending faults per operation (FIFO queue).
-    faults: BTreeMap<FaultOp, VecDeque<FaultAction>>,
+    pub(crate) faults: BTreeMap<FaultOp, VecDeque<FaultAction>>,
     /// Simulated free disk bytes.
-    available_bytes: u64,
+    pub(crate) available_bytes: u64,
     /// Read-only filesystem flag.
-    read_only: bool,
+    pub(crate) read_only: bool,
     /// Case-insensitive path normalization flag.
-    case_insensitive: bool,
+    pub(crate) case_insensitive: bool,
     /// Operation call log for assertions.
-    trace: Vec<FaultOp>,
+    pub(crate) trace: Vec<FaultOp>,
 }
 
 /// In-memory crash-consistent filesystem fault injector implementing [`DurableFs`].
@@ -210,7 +220,7 @@ impl FaultFs {
             .unwrap_or_else(std::sync::PoisonError::into_inner)
     }
 
-    fn take_fault(state: &mut FsState, op: FaultOp) -> Option<FaultAction> {
+    pub(crate) fn take_fault(state: &mut FsState, op: FaultOp) -> Option<FaultAction> {
         state.trace.push(op);
         state.faults.get_mut(&op).and_then(VecDeque::pop_front)
     }
@@ -414,21 +424,28 @@ impl DurableFs for FaultFs {
             )));
         }
         let fault = Self::take_fault(&mut state, FaultOp::PersistNoclobber);
-        match fault {
+        let fallback_mode = match fault {
             Some(FaultAction::AlreadyExists) => return Err(DurableError::AlreadyExists),
-            Some(FaultAction::NoclobberFallback) => {
-                // Exercises the FAT32/exFAT verified-copy path in memory.
-            }
+            Some(FaultAction::NoclobberFallback) => true,
             Some(action) if !matches!(action, FaultAction::CrashAfter(_)) => {
                 return Err(DurableError::Io(apply_io_fault(&mut state, action)));
             }
-            _ => {}
-        }
+            _ => false,
+        };
         let src_key = normalize_key(src, state.case_insensitive);
         let dest_key = normalize_key(dest, state.case_insensitive);
         if state.volatile.contains_key(&dest_key) {
             return Err(DurableError::AlreadyExists);
         }
+        if fallback_mode {
+            return persist_noclobber_fallback(
+                &mut state,
+                &src_key,
+                &dest_key,
+                expected_fingerprint,
+            );
+        }
+
         let inode = state
             .volatile
             .remove(&src_key)
@@ -451,6 +468,31 @@ impl DurableFs for FaultFs {
             )));
         }
         Ok(())
+    }
+
+    fn sweep_role_sidecars(&self, parent: &Path, role: &str) {
+        let mut state = self.lock_state();
+        if state.read_only {
+            return;
+        }
+        let parent_key = normalize_key(parent, state.case_insensitive);
+        let suffix = format!(".{role}");
+        let to_remove: Vec<PathBuf> = state
+            .volatile
+            .iter()
+            .filter_map(|(path, inode)| {
+                if !matches!(inode, Inode::File { .. })
+                    || path.parent() != Some(parent_key.as_path())
+                {
+                    return None;
+                }
+                let name = path.file_name()?.to_str()?;
+                (name.starts_with(".canopi-") && name.ends_with(&suffix)).then(|| path.clone())
+            })
+            .collect();
+        for path in to_remove {
+            state.volatile.remove(&path);
+        }
     }
 
     fn sync_dir(&self, dir: &Path) -> io::Result<()> {
@@ -522,69 +564,5 @@ impl DurableFs for FaultFs {
             return Err(apply_io_fault(&mut state, action));
         }
         Ok(state.available_bytes)
-    }
-}
-
-fn apply_io_fault(state: &mut FsState, action: FaultAction) -> io::Error {
-    match action {
-        FaultAction::IoError(kind) => io::Error::new(kind, "injected fault"),
-        FaultAction::TargetBusy => io::Error::new(io::ErrorKind::ResourceBusy, "target busy"),
-        FaultAction::AlreadyExists => {
-            io::Error::new(io::ErrorKind::AlreadyExists, "already exists")
-        }
-        FaultAction::NoclobberFallback => {
-            io::Error::new(io::ErrorKind::Unsupported, "noclobber unsupported")
-        }
-        FaultAction::CrashBefore(mode) | FaultAction::CrashAfter(mode) => {
-            apply_crash(state, mode);
-            io::Error::new(io::ErrorKind::Interrupted, "simulated crash")
-        }
-    }
-}
-
-fn apply_crash(state: &mut FsState, mode: CrashMode) {
-    let mut recovered = BTreeMap::new();
-    for (path, inode) in &state.durable {
-        match inode {
-            Inode::Dir => {
-                recovered.insert(path.clone(), Inode::Dir);
-            }
-            Inode::File {
-                volatile,
-                durable,
-                synced,
-            } => {
-                let bytes = if *synced {
-                    durable.clone().unwrap_or_else(|| volatile.clone())
-                } else {
-                    match mode {
-                        CrashMode::DropUnsynced => match durable {
-                            Some(prev) => prev.clone(),
-                            None => continue,
-                        },
-                        CrashMode::ZeroUnsynced => vec![0u8; volatile.len()],
-                        CrashMode::TruncateUnsynced => volatile[..volatile.len() / 2].to_vec(),
-                    }
-                };
-                recovered.insert(
-                    path.clone(),
-                    Inode::File {
-                        volatile: bytes.clone(),
-                        durable: Some(bytes),
-                        synced: true,
-                    },
-                );
-            }
-        }
-    }
-    state.durable = recovered.clone();
-    state.volatile = recovered;
-}
-
-fn normalize_key(path: &Path, case_insensitive: bool) -> PathBuf {
-    if case_insensitive {
-        PathBuf::from(path.to_string_lossy().to_lowercase())
-    } else {
-        path.to_path_buf()
     }
 }

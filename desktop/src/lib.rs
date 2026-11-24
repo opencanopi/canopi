@@ -24,6 +24,7 @@ mod native_operation;
 #[doc(hidden)]
 pub mod reader_session;
 mod services;
+pub(crate) mod target_locks;
 #[cfg(test)]
 mod test_scratch;
 use canopi_types::failure::{Failure, FailureCode, IoFailureKind, PlantCatalogCause};

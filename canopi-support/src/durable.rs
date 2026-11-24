@@ -9,7 +9,7 @@ use std::time::Duration;
 use crate::durable_locks::parent_dir;
 use crate::hash;
 
-pub use crate::durable_locks::TargetLocks;
+pub use crate::durable_locks::{TargetLocks, detect_case_insensitive_volume};
 pub use crate::durable_os::{OsDurableFs, probe_noclobber_support};
 
 /// Filesystem entry classification returned by [`DurableFs::entry_kind`].
@@ -22,6 +22,9 @@ pub enum EntryKind {
 
 /// Precondition checked atomically inside [`TargetLocks`] before publishing or
 /// removing a target.
+///
+/// Variant names refine 2.1-M111's `None` / `Fingerprint` / `Absent` to avoid
+/// shadowing `Option::None` (ADR 0023, 2.1-M545).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Precondition {
     /// Unconditional overwrite (or create if absent).
@@ -80,6 +83,10 @@ pub struct PublishOptions {
     /// Copy permissions from the existing target onto the replacement before
     /// renaming (used by AppImage in-place replacement).
     pub preserve_target_permissions: bool,
+    /// Remove leftover `.canopi-*.<role>` sidecars in the target's folder under
+    /// the target lock before staging (used by AppImage in-place replacement so
+    /// a crashed update does not leave ~100 MB behind).
+    pub sweep_stale_sidecars: bool,
     /// Retry policy for busy/sharing-violation renames.
     pub retry_policy: RenameRetryPolicy,
 }
@@ -214,6 +221,20 @@ pub trait DurableFs: Send + Sync {
     /// Flush a file's contents and metadata to stable storage.
     fn sync_file(&self, path: &Path) -> io::Result<()>;
 
+    /// Flush a newly staged temporary file before publishing.
+    ///
+    /// [`OsDurableFs`] syncs on the open writing handle inside `stage_bytes`
+    /// before applying preserved (possibly read-only) target permissions, so
+    /// its override is a no-op; [`crate::fault_fs::FaultFs`] uses the default
+    /// so `FaultOp::SyncFile` remains an injectable hook point.
+    fn sync_staged(&self, path: &Path) -> io::Result<()> {
+        self.sync_file(path)
+    }
+
+    /// Best-effort cleanup of leftover `.canopi-*.<role>` temporary files in
+    /// `parent` before staging a new file for `role`.
+    fn sweep_role_sidecars(&self, _parent: &Path, _role: &str) {}
+
     /// Atomically replace `dest` with `src` (same directory).
     fn rename_replace(&self, src: &Path, dest: &Path) -> io::Result<()>;
 
@@ -284,11 +305,14 @@ pub fn publish_durably_unlocked(
 ) -> Result<PublishOutcome, DurableError> {
     check_precondition(fs, target, &precondition)?;
     let parent = parent_dir(target);
+    if options.sweep_stale_sidecars {
+        fs.sweep_role_sidecars(parent, role);
+    }
     let (staged_path, owns_staged, fingerprint) = match source {
         PublishSource::Bytes(bytes) => {
             let preserve_from = options.preserve_target_permissions.then_some(target);
             let temp = fs.stage_bytes(parent, role, bytes, options, preserve_from)?;
-            if let Err(error) = fs.sync_file(&temp) {
+            if let Err(error) = fs.sync_staged(&temp) {
                 cleanup_temp(fs, &temp);
                 return Err(DurableError::Io(error));
             }
@@ -316,6 +340,10 @@ pub fn publish_durably_unlocked(
         return Err(error);
     }
 
+    // Deliberate exception: once the rename/persist has succeeded, failing the
+    // publish because the parent directory fsync failed would leave the caller
+    // holding a stale fingerprint and trigger false conflicts on the next save.
+    // Log the warning and settle Ok (tested in `interleaved_publish.rs`).
     if let Err(error) = fs.sync_dir(parent) {
         tracing::warn!(
             "Could not sync the folder after publishing a file ({:?})",
@@ -360,6 +388,7 @@ pub fn write_private_new(
     let options = PublishOptions {
         unix_mode: Some(0o600),
         preserve_target_permissions: false,
+        sweep_stale_sidecars: false,
         retry_policy: RenameRetryPolicy::default(),
     };
     publish_durably_with_options(

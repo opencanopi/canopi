@@ -17,7 +17,7 @@
 
 use canopi_redact::{NamedFolder, Redactor};
 use canopi_support::durable::{
-    DurableError, DurableFs, OsDurableFs, Precondition, PublishSource, TargetLocks, publish_durably,
+    DurableError, DurableFs, OsDurableFs, Precondition, PublishSource, publish_durably,
 };
 use canopi_types::failure::{Failure, FailureCode, IoFailureKind};
 use canopi_types::health::SubsystemHealth;
@@ -138,7 +138,7 @@ fn publish_unique(
         let path = folder.join(name);
         match publish_durably(
             fs,
-            TargetLocks::global(),
+            crate::target_locks::temporary_target_locks(),
             PublishSource::Bytes(bytes),
             &path,
             "report",

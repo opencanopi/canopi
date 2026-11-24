@@ -186,7 +186,7 @@ pub(crate) fn move_aside(
 ) -> std::io::Result<PathBuf> {
     canopi_support::durable::move_aside_durably(
         &canopi_support::durable::OsDurableFs,
-        canopi_support::durable::TargetLocks::global(),
+        crate::target_locks::temporary_target_locks(),
         path,
         candidates,
         companions,

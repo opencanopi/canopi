@@ -13,5 +13,6 @@ pub mod durable;
 mod durable_locks;
 mod durable_os;
 pub mod fault_fs;
+mod fault_fs_ops;
 pub mod fs_space;
 pub mod hash;

@@ -18,12 +18,10 @@
 use std::collections::BTreeSet;
 use std::io;
 use std::path::{Path, PathBuf};
-use std::sync::Barrier;
 
 use canopi_support::durable::{
-    DurableError, DurableFs, NoclobberSupport, OsDurableFs, Precondition, PublishOptions,
-    PublishSource, RenameRetryPolicy, TargetLocks, move_aside_durably, probe_noclobber_support,
-    publish_durably, publish_durably_with_options, remove_durably, write_private_new,
+    DurableError, DurableFs, Precondition, PublishOptions, PublishSource, RenameRetryPolicy,
+    TargetLocks, publish_durably_with_options, remove_durably,
 };
 use canopi_support::fault_fs::{CrashMode, FaultAction, FaultFs, FaultOp};
 use canopi_support::hash::sha256_hex;
@@ -65,6 +63,13 @@ enum Step {
         variant: usize,
         payload: Vec<u8>,
         op: FaultOp,
+        mode: CrashMode,
+    },
+    PublishNotExistsWithCrash {
+        variant: usize,
+        payload: Vec<u8>,
+        fallback: bool,
+        crash_before_replace: bool,
         mode: CrashMode,
     },
     RemoveAny {
@@ -133,6 +138,22 @@ fn step_strategy() -> impl Strategy<Value = Step> {
                 op,
                 mode,
             }),
+        (
+            0usize..3,
+            payload_strategy(),
+            any::<bool>(),
+            any::<bool>(),
+            crash_mode_strategy()
+        )
+            .prop_map(|(variant, payload, fallback, crash_before_replace, mode)| {
+                Step::PublishNotExistsWithCrash {
+                    variant,
+                    payload,
+                    fallback,
+                    crash_before_replace,
+                    mode,
+                }
+            }),
         (0usize..3).prop_map(|variant| Step::RemoveAny { variant }),
     ]
 }
@@ -145,6 +166,7 @@ fn fast_options() -> PublishOptions {
     PublishOptions {
         unix_mode: None,
         preserve_target_permissions: false,
+        sweep_stale_sidecars: false,
         retry_policy: RenameRetryPolicy::immediate(3),
     }
 }
@@ -185,7 +207,8 @@ fn run_step(
         Step::PublishWithTransientBusy { .. }
         | Step::PublishWithExhaustedBusy { .. }
         | Step::PublishWithDiskFull { .. }
-        | Step::PublishWithCrash { .. } => {
+        | Step::PublishWithCrash { .. }
+        | Step::PublishNotExistsWithCrash { .. } => {
             run_fault_publish_step(fs, locks, step, &opts, model)?;
         }
         Step::RemoveAny { variant } => {
@@ -220,6 +243,10 @@ fn run_basic_publish_step(
                 opts,
             );
             prop_assert!(outcome.is_ok(), "PublishAny failed: {outcome:?}");
+            // Ok-means-durable property: an acknowledged publish with no fault
+            // injected must already be durable on stable storage.
+            let durable = fs.durable_bytes(&target);
+            prop_assert_eq!(durable.as_ref(), Some(payload));
             model.admitted.insert(payload.clone());
             model.current = Some(payload.clone());
         }
@@ -239,6 +266,8 @@ fn run_basic_publish_step(
                 prop_assert!(matches!(outcome, Err(DurableError::AlreadyExists)));
             } else {
                 prop_assert!(outcome.is_ok(), "PublishNotExists failed: {outcome:?}");
+                let durable = fs.durable_bytes(&target);
+                prop_assert_eq!(durable.as_ref(), Some(payload));
                 model.admitted.insert(payload.clone());
                 model.current = Some(payload.clone());
             }
@@ -260,6 +289,8 @@ fn run_basic_publish_step(
             );
             if model.current.is_some() {
                 prop_assert!(outcome.is_ok(), "PublishCasCurrent failed: {outcome:?}");
+                let durable = fs.durable_bytes(&target);
+                prop_assert_eq!(durable.as_ref(), Some(payload));
                 model.admitted.insert(payload.clone());
                 model.current = Some(payload.clone());
             } else {
@@ -365,35 +396,111 @@ fn run_fault_publish_step(
             );
             assert_no_temp_sidecars(fs, dir)?;
         }
-        Step::PublishWithCrash {
-            variant,
-            payload,
-            op,
-            mode,
-        } => {
-            let target = target_for(*variant);
-            model.admitted.insert(payload.clone());
-            fs.inject(*op, FaultAction::CrashAfter(*mode));
-            let _ = publish_durably_with_options(
-                fs,
-                locks,
-                PublishSource::Bytes(payload),
-                &target,
-                "tmp",
-                Precondition::Any,
-                opts,
-            );
-            let post_crash = fs.durable_bytes(&target);
-            if let Some(ref bytes) = post_crash {
-                prop_assert!(
-                    model.admitted.contains(bytes),
-                    "torn or unknown bytes after crash ({op:?}, {mode:?}): len={}",
-                    bytes.len()
-                );
-            }
-            model.current = post_crash;
+        Step::PublishWithCrash { .. } => {
+            run_crash_step(fs, locks, step, opts, model)?;
+        }
+        Step::PublishNotExistsWithCrash { .. } => {
+            run_noclobber_crash_step(fs, locks, step, opts, model)?;
         }
         _ => {}
+    }
+    Ok(())
+}
+
+fn run_crash_step(
+    fs: &FaultFs,
+    locks: &TargetLocks,
+    step: &Step,
+    opts: &PublishOptions,
+    model: &mut ModelState,
+) -> Result<(), proptest::test_runner::TestCaseError> {
+    let Step::PublishWithCrash {
+        variant,
+        payload,
+        op,
+        mode,
+    } = step
+    else {
+        return Ok(());
+    };
+    let target = target_for(*variant);
+    model.admitted.insert(payload.clone());
+    fs.inject(*op, FaultAction::CrashAfter(*mode));
+    let _ = publish_durably_with_options(
+        fs,
+        locks,
+        PublishSource::Bytes(payload),
+        &target,
+        "tmp",
+        Precondition::Any,
+        opts,
+    );
+    let post_crash = fs.durable_bytes(&target);
+    if let Some(ref bytes) = post_crash {
+        prop_assert!(
+            model.admitted.contains(bytes),
+            "torn or unknown bytes after crash ({op:?}, {mode:?}): len={}",
+            bytes.len()
+        );
+    }
+    model.current = post_crash;
+    Ok(())
+}
+
+fn run_noclobber_crash_step(
+    fs: &FaultFs,
+    locks: &TargetLocks,
+    step: &Step,
+    opts: &PublishOptions,
+    model: &mut ModelState,
+) -> Result<(), proptest::test_runner::TestCaseError> {
+    let Step::PublishNotExistsWithCrash {
+        variant,
+        payload,
+        fallback,
+        crash_before_replace,
+        mode,
+    } = step
+    else {
+        return Ok(());
+    };
+    let target = target_for(*variant);
+    let existed = model.current.is_some();
+    if !existed {
+        model.admitted.insert(payload.clone());
+        if *fallback {
+            fs.inject(FaultOp::PersistNoclobber, FaultAction::NoclobberFallback);
+            let action = if *crash_before_replace {
+                FaultAction::CrashBefore(*mode)
+            } else {
+                FaultAction::CrashAfter(*mode)
+            };
+            fs.inject(FaultOp::NoclobberFallbackReplace, action);
+        } else {
+            fs.inject(FaultOp::PersistNoclobber, FaultAction::CrashAfter(*mode));
+        }
+    }
+    let outcome = publish_durably_with_options(
+        fs,
+        locks,
+        PublishSource::Bytes(payload),
+        &target,
+        "tmp",
+        Precondition::NotExists,
+        opts,
+    );
+    if existed {
+        prop_assert!(matches!(outcome, Err(DurableError::AlreadyExists)));
+    } else {
+        let post_crash = fs.durable_bytes(&target);
+        if let Some(ref bytes) = post_crash {
+            prop_assert!(
+                model.admitted.contains(bytes),
+                "torn or partial bytes after noclobber crash: len={}",
+                bytes.len()
+            );
+        }
+        model.current = post_crash;
     }
     Ok(())
 }
@@ -420,175 +527,4 @@ proptest! {
             run_step(&fs, &locks, step, &mut model)?;
         }
     }
-}
-
-#[test]
-fn case_folded_target_locks_collapse_case_variants() {
-    let locks = TargetLocks::with_case_folding(true);
-    let a = locks.lock_key(Path::new("/tmp/Garden.canopi"));
-    let b = locks.lock_key(Path::new("/tmp/garden.canopi"));
-    let c = locks.lock_key(Path::new("/tmp/GARDEN.CANOPI"));
-    assert_eq!(a, b);
-    assert_eq!(b, c);
-}
-
-#[test]
-fn os_durable_fs_noclobber_race_admits_exactly_one_writer() {
-    let Ok(dir) = tempfile::tempdir() else {
-        return;
-    };
-    let target = dir.path().join("report.zip");
-    let locks = TargetLocks::new();
-    let barrier = Barrier::new(4);
-    #[expect(
-        clippy::disallowed_methods,
-        reason = "multi-threaded race test drives concurrent publishes"
-    )]
-    let winners: usize = std::thread::scope(|scope| {
-        let handles: Vec<_> = (0u8..4)
-            .map(|id| {
-                let target_ref = &target;
-                let locks_ref = &locks;
-                let barrier_ref = &barrier;
-                scope.spawn(move || {
-                    let payload = vec![id + 1; 128];
-                    barrier_ref.wait();
-                    publish_durably(
-                        &OsDurableFs,
-                        locks_ref,
-                        PublishSource::Bytes(&payload),
-                        target_ref,
-                        "nc",
-                        Precondition::NotExists,
-                    )
-                    .is_ok()
-                })
-            })
-            .collect();
-        handles
-            .into_iter()
-            .filter_map(|h| h.join().ok())
-            .filter(|&won| won)
-            .count()
-    });
-    assert_eq!(winners, 1, "exactly one no-clobber writer must win");
-    let bytes = std::fs::read(&target).ok();
-    assert!(
-        bytes
-            .as_ref()
-            .is_some_and(|b| b.len() == 128 && b.iter().all(|x| *x == b[0]))
-    );
-}
-
-#[test]
-fn os_durable_fs_cas_race_admits_exactly_one_writer() {
-    let Ok(dir) = tempfile::tempdir() else {
-        return;
-    };
-    let target = dir.path().join("design.canopi");
-    let locks = TargetLocks::new();
-    let initial = b"{\"version\":9}";
-    let init_fp = sha256_hex(initial);
-    let seeded = publish_durably(
-        &OsDurableFs,
-        &locks,
-        PublishSource::Bytes(initial),
-        &target,
-        "init",
-        Precondition::Any,
-    );
-    assert!(seeded.is_ok());
-
-    let barrier = Barrier::new(4);
-    #[expect(
-        clippy::disallowed_methods,
-        reason = "multi-threaded race test drives concurrent publishes"
-    )]
-    let (ok_count, conflict_count, unexpected_count) = std::thread::scope(|scope| {
-        let handles: Vec<_> = (0u8..4)
-            .map(|id| {
-                let target_ref = &target;
-                let locks_ref = &locks;
-                let barrier_ref = &barrier;
-                let fp = init_fp.clone();
-                scope.spawn(move || {
-                    let payload = format!("{{\"winner\":{id}}}");
-                    barrier_ref.wait();
-                    publish_durably(
-                        &OsDurableFs,
-                        locks_ref,
-                        PublishSource::Bytes(payload.as_bytes()),
-                        target_ref,
-                        "cas",
-                        Precondition::MatchesFingerprint(fp),
-                    )
-                })
-            })
-            .collect();
-        let mut ok = 0usize;
-        let mut conflict = 0usize;
-        let mut unexpected = 0usize;
-        for handle in handles {
-            match handle.join() {
-                Ok(Ok(_)) => ok += 1,
-                Ok(Err(DurableError::Conflict { .. })) => conflict += 1,
-                _ => unexpected += 1,
-            }
-        }
-        (ok, conflict, unexpected)
-    });
-    assert_eq!(unexpected_count, 0);
-    assert_eq!(ok_count, 1);
-    assert_eq!(conflict_count, 3);
-}
-
-#[test]
-fn os_durable_fs_probe_noclobber_and_private_write_work() {
-    let Ok(dir) = tempfile::tempdir() else {
-        return;
-    };
-    let support = probe_noclobber_support(dir.path()).ok();
-    assert!(matches!(
-        support,
-        Some(NoclobberSupport::Supported | NoclobberSupport::FallbackVerifiedCopy)
-    ));
-
-    let locks = TargetLocks::new();
-    let private_file = dir.path().join("pkg.deb");
-    let first = write_private_new(&OsDurableFs, &locks, &private_file, b"secret-pkg");
-    assert!(first.is_ok());
-    let second = write_private_new(&OsDurableFs, &locks, &private_file, b"overwrite");
-    assert!(matches!(second, Err(DurableError::AlreadyExists)));
-    assert_eq!(
-        std::fs::read(&private_file).ok().as_deref(),
-        Some(b"secret-pkg".as_slice())
-    );
-}
-
-#[test]
-fn fault_fs_move_aside_rolls_back_on_companion_failure() {
-    let fs = FaultFs::new();
-    let locks = TargetLocks::new();
-    let dir = Path::new("/data");
-    fs.seed_dir(dir);
-    let main_db = dir.join("user.db");
-    let wal = dir.join("user.db-wal");
-    fs.seed_durable_file(&main_db, b"main");
-    fs.seed_durable_file(&wal, b"wal");
-
-    let aside_base = dir.join("user.db.corrupt-1");
-    fs.seed_dir(&dir.join("user.db.corrupt-1-wal"));
-    let result = move_aside_durably(
-        &fs,
-        &locks,
-        &main_db,
-        std::iter::once(aside_base),
-        &["-wal"],
-    );
-    assert!(matches!(result, Err(ref e) if e.kind() == io::ErrorKind::AlreadyExists));
-    assert_eq!(
-        fs.read_bytes(&main_db).ok().as_deref(),
-        Some(b"main".as_slice())
-    );
-    assert_eq!(fs.read_bytes(&wal).ok().as_deref(), Some(b"wal".as_slice()));
 }

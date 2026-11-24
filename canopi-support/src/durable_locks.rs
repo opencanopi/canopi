@@ -3,26 +3,40 @@
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex, OnceLock, Weak};
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Arc, Mutex, Weak};
 
-static GLOBAL_TARGET_LOCKS: OnceLock<TargetLocks> = OnceLock::new();
+static NEXT_CASE_PROBE_ID: AtomicU64 = AtomicU64::new(0);
 
 /// Per-target mutual exclusion table (ADR 0023, contracts §11).
 ///
 /// Serializes precondition checks and publishes for the same target path. On
 /// case-insensitive volumes, keys are case-folded so `Garden.canopi` and
 /// `garden.canopi` take the same lock.
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct TargetLocks {
     registry: Mutex<HashMap<PathBuf, Weak<Mutex<()>>>>,
     case_fold_override: Option<bool>,
+    volume_probe: fn(&Path) -> bool,
     volume_case_cache: Mutex<HashMap<PathBuf, bool>>,
 }
 
+impl Default for TargetLocks {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl TargetLocks {
-    /// Create a new owned lock table that auto-detects volume case-sensitivity.
+    /// Create a new owned lock table that auto-detects volume case-sensitivity
+    /// by probing each target directory once.
     pub fn new() -> Self {
-        Self::default()
+        Self {
+            registry: Mutex::new(HashMap::new()),
+            case_fold_override: None,
+            volume_probe: detect_case_insensitive_volume,
+            volume_case_cache: Mutex::new(HashMap::new()),
+        }
     }
 
     /// Create an owned lock table with an explicit case-folding mode (used by
@@ -32,14 +46,21 @@ impl TargetLocks {
         Self {
             registry: Mutex::new(HashMap::new()),
             case_fold_override: Some(case_insensitive),
+            volume_probe: detect_case_insensitive_volume,
             volume_case_cache: Mutex::new(HashMap::new()),
         }
     }
 
-    /// Process-wide default lock table for call sites not yet wired with an
-    /// owned store instance.
-    pub fn global() -> &'static Self {
-        GLOBAL_TARGET_LOCKS.get_or_init(Self::new)
+    /// Create an owned lock table using a custom volume case-sensitivity probe
+    /// (used by tests to verify caching and probe-driven folding without
+    /// mounting a FAT32/exFAT volume).
+    pub fn with_volume_probe(probe: fn(&Path) -> bool) -> Self {
+        Self {
+            registry: Mutex::new(HashMap::new()),
+            case_fold_override: None,
+            volume_probe: probe,
+            volume_case_cache: Mutex::new(HashMap::new()),
+        }
     }
 
     /// Compute the normalized lock key for `target` (case-folded when its
@@ -97,7 +118,7 @@ impl TargetLocks {
         if let Some(&cached) = cache.get(canonical_parent) {
             return cached;
         }
-        let detected = detect_case_insensitive_volume(canonical_parent);
+        let detected = (self.volume_probe)(canonical_parent);
         cache.insert(canonical_parent.to_path_buf(), detected);
         detected
     }
@@ -123,53 +144,62 @@ fn fold_path(path: &Path) -> PathBuf {
     PathBuf::from(path.to_string_lossy().to_lowercase())
 }
 
+/// Probe whether `dir` resides on a case-insensitive volume by creating a
+/// lowercase probe file and stating its uppercase sibling.
+///
+/// If the probe cannot run (for example, a read-only or not-yet-created
+/// folder), defaults to `true` (case folding): folding on a case-sensitive
+/// volume only serializes more writes than necessary, which is safe, whereas
+/// missing a case-insensitive volume risks lost updates.
 #[cfg(windows)]
-fn detect_case_insensitive_volume(_dir: &Path) -> bool {
+pub fn detect_case_insensitive_volume(_dir: &Path) -> bool {
     true
 }
 
+/// Probe whether `dir` resides on a case-insensitive volume by creating a
+/// lowercase probe file and stating its uppercase sibling.
+///
+/// If the probe cannot run (for example, a read-only or not-yet-created
+/// folder), defaults to `true` (case folding): folding on a case-sensitive
+/// volume only serializes more writes than necessary, which is safe, whereas
+/// missing a case-insensitive volume risks lost updates.
 #[cfg(not(windows))]
-fn detect_case_insensitive_volume(dir: &Path) -> bool {
-    let Ok(entries) = std::fs::read_dir(dir) else {
-        return cfg!(target_os = "macos");
+pub fn detect_case_insensitive_volume(dir: &Path) -> bool {
+    let pid = std::process::id();
+    let id = NEXT_CASE_PROBE_ID.fetch_add(1, Ordering::Relaxed);
+    let lower_name = format!(".canopi-case-probe-{pid:x}-{id:x}-a");
+    let upper_name = lower_name.to_ascii_uppercase();
+    let lower_path = dir.join(&lower_name);
+    let upper_path = dir.join(&upper_name);
+
+    let Ok(file) = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&lower_path)
+    else {
+        return true;
     };
-    for entry in entries.flatten() {
-        let name = entry.file_name();
-        let Some(text) = name.to_str() else {
-            continue;
-        };
-        let flipped: String = text
-            .chars()
-            .map(|c| {
-                if c.is_ascii_lowercase() {
-                    c.to_ascii_uppercase()
-                } else if c.is_ascii_uppercase() {
-                    c.to_ascii_lowercase()
-                } else {
-                    c
-                }
-            })
-            .collect();
-        if flipped == text {
-            continue;
-        }
-        let other = dir.join(&flipped);
-        if let (Ok(a), Ok(b)) = (
-            std::fs::symlink_metadata(entry.path()),
-            std::fs::symlink_metadata(&other),
-        ) {
+    drop(file);
+
+    let result = match (
+        std::fs::symlink_metadata(&lower_path),
+        std::fs::symlink_metadata(&upper_path),
+    ) {
+        (Ok(a), Ok(b)) => {
             #[cfg(unix)]
             {
                 use std::os::unix::fs::MetadataExt as _;
-                return a.dev() == b.dev() && a.ino() == b.ino();
+                a.dev() == b.dev() && a.ino() == b.ino()
             }
             #[cfg(not(unix))]
             {
                 let _ = (a, b);
-                return true;
+                true
             }
         }
-        return false;
-    }
-    cfg!(target_os = "macos")
+        (Ok(_), Err(err)) if err.kind() == std::io::ErrorKind::NotFound => false,
+        _ => true,
+    };
+    let _ = std::fs::remove_file(&lower_path);
+    result
 }

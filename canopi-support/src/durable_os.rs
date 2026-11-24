@@ -7,7 +7,6 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use crate::durable::{DurableError, DurableFs, EntryKind, NoclobberSupport, PublishOptions};
-use crate::durable_locks::parent_dir;
 use crate::fs_space;
 use crate::hash;
 
@@ -70,7 +69,7 @@ impl DurableFs for OsDurableFs {
             std::os::unix::fs::OpenOptionsExt::mode(&mut open, mode);
         }
         let mut file = open.open(&temporary)?;
-        if let Err(error) = file.write_all(bytes) {
+        if let Err(error) = file.write_all(bytes).and_then(|()| file.sync_all()) {
             drop(file);
             let _ = std::fs::remove_file(&temporary);
             return Err(error);
@@ -94,6 +93,31 @@ impl DurableFs for OsDurableFs {
             .write(true)
             .open(path)?
             .sync_all()
+    }
+
+    fn sync_staged(&self, _path: &Path) -> io::Result<()> {
+        // `OsDurableFs::stage_bytes` already synced on the open writing handle
+        // before applying preserved (possibly read-only) target permissions.
+        Ok(())
+    }
+
+    fn sweep_role_sidecars(&self, parent: &Path, role: &str) {
+        let suffix = format!(".{role}");
+        let Ok(entries) = std::fs::read_dir(parent) else {
+            return;
+        };
+        for entry in entries.flatten() {
+            let name = entry.file_name();
+            let Some(text) = name.to_str() else {
+                continue;
+            };
+            if text.starts_with(".canopi-")
+                && text.ends_with(&suffix)
+                && entry.file_type().is_ok_and(|ft| ft.is_file())
+            {
+                let _ = std::fs::remove_file(entry.path());
+            }
+        }
     }
 
     fn rename_replace(&self, src: &Path, dest: &Path) -> io::Result<()> {
@@ -159,40 +183,21 @@ fn os_persist_noclobber(
     expected_fingerprint: Option<&str>,
     unix_mode: Option<u32>,
 ) -> Result<(), DurableError> {
-    let parent = parent_dir(dest);
-    let mut temp = tempfile::Builder::new()
-        .prefix(".canopi-nc-")
-        .tempfile_in(parent)?;
-    #[cfg(unix)]
-    if let Some(mode) = unix_mode {
-        use std::os::unix::fs::PermissionsExt as _;
-        std::fs::set_permissions(temp.path(), std::fs::Permissions::from_mode(mode))?;
-    }
-    #[cfg(not(unix))]
-    let _ = unix_mode;
-
-    let mut reader = std::fs::File::open(src)?;
-    io::copy(&mut reader, temp.as_file_mut())?;
-    temp.as_file().sync_all()?;
-    drop(reader);
-
-    match temp.persist_noclobber(dest) {
-        Ok(_file) => {
-            let _ = std::fs::remove_file(src);
-            Ok(())
-        }
+    // Persist the already-staged and synced file directly without a second copy.
+    let temp_path = tempfile::TempPath::try_from_path(src)?;
+    match temp_path.persist_noclobber(dest) {
+        Ok(()) => Ok(()),
         Err(persist_err) if persist_err.error.kind() == io::ErrorKind::AlreadyExists => {
-            drop(persist_err.file);
+            // Keep `src` so the caller's cleanup (or StagedFile owner) stays consistent.
+            let _ = persist_err.path.keep();
             Err(DurableError::AlreadyExists)
         }
         Err(persist_err) if is_noclobber_unsupported(&persist_err.error, dest) => {
-            drop(persist_err.file);
-            os_fallback_verified_noclobber(src, dest, expected_fingerprint, unix_mode)?;
-            let _ = std::fs::remove_file(src);
-            Ok(())
+            let _ = persist_err.path.keep();
+            os_fallback_atomic_noclobber(src, dest, expected_fingerprint, unix_mode)
         }
         Err(persist_err) => {
-            drop(persist_err.file);
+            let _ = persist_err.path.keep();
             Err(DurableError::Io(persist_err.error))
         }
     }
@@ -202,13 +207,24 @@ fn is_noclobber_unsupported(error: &io::Error, dest: &Path) -> bool {
     if dest.exists() {
         return false;
     }
-    matches!(
-        error.kind(),
-        io::ErrorKind::Unsupported | io::ErrorKind::PermissionDenied
-    ) || matches!(error.raw_os_error(), Some(1 | 18 | 38 | 95))
+    if error.kind() == io::ErrorKind::Unsupported {
+        return true;
+    }
+    #[cfg(unix)]
+    {
+        // EPERM (1, e.g. FAT32/exFAT link refusal), EXDEV (18), ENOSYS (38), EOPNOTSUPP (95).
+        if matches!(error.raw_os_error(), Some(1 | 18 | 38 | 95)) {
+            return true;
+        }
+    }
+    false
 }
 
-fn os_fallback_verified_noclobber(
+/// Atomic FAT32/exFAT no-clobber fallback: claim `dest` exclusively with an
+/// empty `create_new` placeholder, then `rename` the already-synced `src` over
+/// it so partial payload bytes never appear under `dest`, and verify the final
+/// fingerprint.
+fn os_fallback_atomic_noclobber(
     src: &Path,
     dest: &Path,
     expected_fingerprint: Option<&str>,
@@ -232,20 +248,16 @@ fn os_fallback_verified_noclobber(
     #[cfg(not(unix))]
     let _ = unix_mode;
 
-    let mut out = match open.open(dest) {
+    let placeholder = match open.open(dest) {
         Ok(file) => file,
         Err(error) if error.kind() == io::ErrorKind::AlreadyExists => {
             return Err(DurableError::AlreadyExists);
         }
         Err(error) => return Err(DurableError::Io(error)),
     };
-    let write_res: io::Result<()> = (|| {
-        let mut reader = std::fs::File::open(src)?;
-        io::copy(&mut reader, &mut out)?;
-        out.sync_all()
-    })();
-    drop(out);
-    if let Err(error) = write_res {
+    drop(placeholder);
+
+    if let Err(error) = std::fs::rename(src, dest) {
         let _ = std::fs::remove_file(dest);
         return Err(DurableError::Io(error));
     }

@@ -5,7 +5,7 @@ mod new_design_defaults;
 pub(crate) mod preview;
 mod schema_admission;
 use canopi_support::durable::{
-    DurableError, OsDurableFs, Precondition, PublishOptions, PublishSource, TargetLocks,
+    DurableError, OsDurableFs, Precondition, PublishOptions, PublishSource,
     publish_durably_unlocked, sync_existing_file, sync_parent_directory as support_sync_parent_dir,
 };
 use canopi_support::hash;
@@ -45,7 +45,7 @@ pub(crate) fn sync_parent_directory(path: &Path) -> std::io::Result<()> {
 /// Run one write operation at a time for a process-local storage resource,
 /// case-folded on case-insensitive volumes via [`TargetLocks`].
 fn with_write_admission<T>(resource: &Path, operation: impl FnOnce() -> T) -> T {
-    TargetLocks::global().with_lock(resource, operation)
+    crate::target_locks::temporary_target_locks().with_lock(resource, operation)
 }
 
 /// Fingerprint of a Design file's exact bytes: lowercase hex SHA-256.

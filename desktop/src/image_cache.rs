@@ -104,6 +104,8 @@ pub struct ImageCache {
     tracked_size: Arc<AtomicU64>,
     /// Paths currently being fetched and atomically published.
     in_flight: Arc<(Mutex<HashSet<PathBuf>>, Condvar)>,
+    /// Owned per-target lock table for durable image publishing (ADR 0023).
+    target_locks: Arc<TargetLocks>,
 }
 
 impl ImageCache {
@@ -125,6 +127,7 @@ impl ImageCache {
             cache_dir,
             tracked_size: Arc::new(AtomicU64::new(initial_size)),
             in_flight: Arc::new((Mutex::new(HashSet::new()), Condvar::new())),
+            target_locks: Arc::new(TargetLocks::new()),
         })
     }
 
@@ -151,7 +154,8 @@ impl ImageCache {
 
         // The frontend expects a path that exists, so a failed write is surfaced.
         let byte_len = bytes.len() as u64;
-        Self::write_bytes_atomically(&path, &bytes).map_err(ImageCacheError::Store)?;
+        self.write_bytes_atomically(&path, &bytes)
+            .map_err(ImageCacheError::Store)?;
         self.tracked_size.fetch_add(byte_len, Ordering::Relaxed);
         self.evict_if_needed();
 
@@ -225,10 +229,10 @@ impl ImageCache {
         }
     }
 
-    fn write_bytes_atomically(path: &Path, bytes: &[u8]) -> Result<(), String> {
+    fn write_bytes_atomically(&self, path: &Path, bytes: &[u8]) -> Result<(), String> {
         publish_durably(
             &OsDurableFs,
-            TargetLocks::global(),
+            &self.target_locks,
             PublishSource::Bytes(bytes),
             path,
             "image",
@@ -489,10 +493,12 @@ mod tests {
     #[test]
     fn write_bytes_atomically_replaces_stale_zero_byte_file() {
         let temp_dir = TestDir::new();
+        let cache = ImageCache::new(&temp_dir.path).expect("create cache");
         let path = temp_dir.path.join("stale.jpg");
         fs::write(&path, b"").expect("seed zero-byte cached image");
 
-        ImageCache::write_bytes_atomically(&path, b"fresh-bytes")
+        cache
+            .write_bytes_atomically(&path, b"fresh-bytes")
             .expect("zero-byte cached image should be replaced");
 
         assert_eq!(fs::read(&path).expect("read cached image"), b"fresh-bytes");
@@ -518,7 +524,8 @@ mod tests {
                 .expect("writer should acquire slot");
             writer_barrier.wait();
             thread::sleep(Duration::from_millis(75));
-            ImageCache::write_bytes_atomically(&writer_path, b"cached-bytes")
+            writer_cache
+                .write_bytes_atomically(&writer_path, b"cached-bytes")
                 .expect("writer should publish cached bytes");
             drop(write_guard);
         });

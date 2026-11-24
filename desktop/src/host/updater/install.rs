@@ -217,7 +217,7 @@ fn private_folder(parent: &Path) -> std::io::Result<PathBuf> {
 fn write_private(file: &Path, bytes: &[u8]) -> std::io::Result<()> {
     canopi_support::durable::write_private_new(
         &canopi_support::durable::OsDurableFs,
-        canopi_support::durable::TargetLocks::global(),
+        crate::target_locks::temporary_target_locks(),
         file,
         bytes,
     )
@@ -252,22 +252,26 @@ fn install_appimage(
     replace_whole(appimage, bytes).map_err(|error| failure::install_io(installation, &error))
 }
 
-/// Replaces `target` by `bytes` with its permissions kept: a sibling file written, synced and
-/// renamed over it, the folder synced so the rename itself survives a power cut. Any failure
-/// removes the sibling and leaves `target` untouched.
+/// Replaces `target` by `bytes` with its permissions kept: any leftover `.canopi-*.update`
+/// sibling from a crashed install is swept under the target lock first, then a new sibling is
+/// written, synced on its writing handle, chmodded to match `target`, and renamed over `target`,
+/// with the folder synced so the rename itself survives a power cut. Any failure removes the
+/// sibling and leaves `target` untouched.
 fn replace_whole(target: &Path, bytes: &[u8]) -> std::io::Result<()> {
-    let not_found = || std::io::Error::from(std::io::ErrorKind::NotFound);
-    let _folder = target.parent().ok_or_else(not_found)?;
-    let _name = target.file_name().ok_or_else(not_found)?;
-    let _existing = std::fs::metadata(target)?;
+    // Require an existing file in a parent folder before staging.
+    if target.parent().is_none() || target.file_name().is_none() {
+        return Err(std::io::Error::from(std::io::ErrorKind::NotFound));
+    }
+    std::fs::metadata(target)?;
     let options = canopi_support::durable::PublishOptions {
         unix_mode: Some(0o600),
         preserve_target_permissions: true,
+        sweep_stale_sidecars: true,
         retry_policy: canopi_support::durable::RenameRetryPolicy::default(),
     };
     canopi_support::durable::publish_durably_with_options(
         &canopi_support::durable::OsDurableFs,
-        canopi_support::durable::TargetLocks::global(),
+        crate::target_locks::temporary_target_locks(),
         canopi_support::durable::PublishSource::Bytes(bytes),
         target,
         "update",
@@ -369,7 +373,7 @@ fn write_marker(marker: &Path, version: &str) -> Result<(), Failure> {
     }
     canopi_support::durable::publish_durably(
         &canopi_support::durable::OsDurableFs,
-        canopi_support::durable::TargetLocks::global(),
+        crate::target_locks::temporary_target_locks(),
         canopi_support::durable::PublishSource::Bytes(text.as_bytes()),
         marker,
         "marker",
