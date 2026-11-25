@@ -14,6 +14,9 @@ export const RICH_TEXT_LINK_SCHEMES = ["https:","http:","mailto:"] as const
 export const STORY_IMAGE_DATA_TYPES = ["image/png","image/jpeg","image/webp","image/gif"] as const
 export const STORY_IMAGE_MAX_BYTES = 1048576
 export const STORY_IMAGES_MAX_TOTAL_BYTES = 10485760
+export const STAMP_PAYLOAD_FLOOR = 2
+export const STAMP_PAYLOAD_CURRENT = 3
+export const MAX_STAMP_PAYLOAD_BYTES = 2097152
 
 export const CANOPI_DESIGN_INGESTION_ERROR_KINDS = [
   "invalid_version",

@@ -1,0 +1,662 @@
+{
+  "$defs": {
+    "PanelTarget": {
+      "oneOf": [
+        {
+          "properties": {
+            "kind": {
+              "const": "placed_plant",
+              "type": "string"
+            },
+            "plant_id": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "plant_id"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "canonical_name": {
+              "type": "string"
+            },
+            "kind": {
+              "const": "species",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "canonical_name"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "zone",
+              "type": "string"
+            },
+            "zone_id": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "zone_id"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "manual",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "none",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "StampAnnotation": {
+      "additionalProperties": true,
+      "description": "One annotation inside a v3 saved-stamp payload.",
+      "properties": {
+        "annotation_type": {
+          "description": "Annotation kind (`text`, etc.).",
+          "type": "string"
+        },
+        "font_size": {
+          "description": "Font size in points (> 0).",
+          "format": "double",
+          "type": "number"
+        },
+        "id": {
+          "description": "Annotation id within the stamp.",
+          "type": "string"
+        },
+        "locked": {
+          "default": false,
+          "description": "Whether the annotation is locked.",
+          "type": "boolean"
+        },
+        "position": {
+          "$ref": "#/$defs/StampPoint",
+          "description": "Relative metre position."
+        },
+        "rotation_deg": {
+          "default": null,
+          "description": "Optional clockwise rotation in degrees.",
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "text": {
+          "description": "Annotation text.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "annotation_type",
+        "position",
+        "text",
+        "font_size"
+      ],
+      "type": "object"
+    },
+    "StampBudgetLine": {
+      "additionalProperties": true,
+      "description": "Species unit cost carried inside a v3 stamp (`2.1-Q155`).",
+      "properties": {
+        "canonical_name": {
+          "description": "Canonical species name.",
+          "type": "string"
+        },
+        "unit_cost": {
+          "description": "Unit cost in the destination Design's currency.",
+          "format": "double",
+          "type": "number"
+        }
+      },
+      "required": [
+        "canonical_name",
+        "unit_cost"
+      ],
+      "type": "object"
+    },
+    "StampCareAction": {
+      "additionalProperties": true,
+      "description": "Care action carried inside a v3 stamp (`2.1-Q155`, `2.1-Q36`).",
+      "properties": {
+        "action_type": {
+          "description": "Action type.",
+          "type": "string"
+        },
+        "description": {
+          "description": "Action description.",
+          "type": "string"
+        },
+        "id": {
+          "description": "Care action id within the stamp.",
+          "type": "string"
+        },
+        "offset_days": {
+          "default": null,
+          "description": "Optional day offset from placement (v10 `TimelineAction.offset_days` addition).",
+          "format": "int32",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "recurrence": {
+          "default": null,
+          "description": "Optional recurrence rule.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "targets": {
+          "default": [],
+          "description": "Target references remapped at placement.",
+          "items": {
+            "$ref": "#/$defs/PanelTarget"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "action_type",
+        "description"
+      ],
+      "type": "object"
+    },
+    "StampConsortium": {
+      "additionalProperties": true,
+      "description": "Species consortium entry carried inside a v3 stamp (`2.1-Q155`).",
+      "properties": {
+        "canonical_name": {
+          "description": "Canonical species name.",
+          "type": "string"
+        },
+        "end_phase": {
+          "description": "End phase.",
+          "format": "int32",
+          "type": "integer"
+        },
+        "start_phase": {
+          "description": "Start phase.",
+          "format": "int32",
+          "type": "integer"
+        },
+        "stratum": {
+          "description": "Stratum name.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "canonical_name",
+        "stratum",
+        "start_phase",
+        "end_phase"
+      ],
+      "type": "object"
+    },
+    "StampGroup": {
+      "additionalProperties": true,
+      "description": "One object group inside a v3 saved-stamp payload.",
+      "properties": {
+        "id": {
+          "description": "Group id within the stamp.",
+          "type": "string"
+        },
+        "locked": {
+          "default": false,
+          "description": "Whether the group is locked.",
+          "type": "boolean"
+        },
+        "members": {
+          "description": "Group members.",
+          "items": {
+            "$ref": "#/$defs/StampGroupMember"
+          },
+          "type": "array"
+        },
+        "name": {
+          "default": null,
+          "description": "Optional group name.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "members"
+      ],
+      "type": "object"
+    },
+    "StampGroupMember": {
+      "description": "Member reference inside a v3 stamp group.",
+      "oneOf": [
+        {
+          "description": "Plant member.",
+          "properties": {
+            "id": {
+              "description": "Referenced plant id.",
+              "type": "string"
+            },
+            "kind": {
+              "const": "plant",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "id"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "Zone member.",
+          "properties": {
+            "id": {
+              "description": "Referenced zone id.",
+              "type": "string"
+            },
+            "kind": {
+              "const": "zone",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "id"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "Annotation member.",
+          "properties": {
+            "id": {
+              "description": "Referenced annotation id.",
+              "type": "string"
+            },
+            "kind": {
+              "const": "annotation",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "id"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "Measurement guide member (`2.1-Q154`).",
+          "properties": {
+            "id": {
+              "description": "Referenced guide id.",
+              "type": "string"
+            },
+            "kind": {
+              "const": "measurement_guide",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "id"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "StampGuide": {
+      "additionalProperties": true,
+      "description": "One measurement guide inside a v3 saved-stamp payload (`2.1-M88`).",
+      "properties": {
+        "end": {
+          "$ref": "#/$defs/StampPoint",
+          "description": "End point in relative metres."
+        },
+        "id": {
+          "description": "Measurement guide id within the stamp.",
+          "type": "string"
+        },
+        "locked": {
+          "default": false,
+          "description": "Whether the guide is locked.",
+          "type": "boolean"
+        },
+        "start": {
+          "$ref": "#/$defs/StampPoint",
+          "description": "Start point in relative metres."
+        }
+      },
+      "required": [
+        "id",
+        "start",
+        "end"
+      ],
+      "type": "object"
+    },
+    "StampPlant": {
+      "additionalProperties": true,
+      "description": "One placed plant inside a v3 saved-stamp payload.",
+      "properties": {
+        "canonical_name": {
+          "description": "Botanical species name.",
+          "type": "string"
+        },
+        "canopy_spread_m": {
+          "default": null,
+          "description": "Optional canopy spread in metres (> 0).",
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "color": {
+          "default": null,
+          "description": "Optional colour override.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "common_name": {
+          "default": null,
+          "description": "Optional common name.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "id": {
+          "description": "Plant id within the stamp.",
+          "type": "string"
+        },
+        "locked": {
+          "default": false,
+          "description": "Whether the plant is locked.",
+          "type": "boolean"
+        },
+        "notes": {
+          "default": null,
+          "description": "Optional notes.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "pinned_name": {
+          "default": false,
+          "description": "Whether the plant's name label is pinned.",
+          "type": "boolean"
+        },
+        "position": {
+          "$ref": "#/$defs/StampPoint",
+          "description": "Relative metre position."
+        },
+        "rotation_deg": {
+          "default": null,
+          "description": "Optional clockwise rotation in degrees.",
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "symbol": {
+          "default": null,
+          "description": "Optional symbol override.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "canonical_name",
+        "position"
+      ],
+      "type": "object"
+    },
+    "StampPoint": {
+      "description": "Relative metre point in a saved-stamp arrangement (ADR 0001).",
+      "properties": {
+        "x": {
+          "description": "East offset in ground metres from the stamp anchor.",
+          "format": "double",
+          "type": "number"
+        },
+        "y": {
+          "description": "North offset in ground metres from the stamp anchor.",
+          "format": "double",
+          "type": "number"
+        }
+      },
+      "required": [
+        "x",
+        "y"
+      ],
+      "type": "object"
+    },
+    "StampZone": {
+      "additionalProperties": true,
+      "description": "One zone inside a v3 saved-stamp payload.",
+      "properties": {
+        "fill_color": {
+          "default": null,
+          "description": "Optional fill colour.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "id": {
+          "description": "Zone id within the stamp.",
+          "type": "string"
+        },
+        "locked": {
+          "default": false,
+          "description": "Whether the zone is locked.",
+          "type": "boolean"
+        },
+        "name": {
+          "default": null,
+          "description": "Optional zone name.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "notes": {
+          "default": null,
+          "description": "Optional notes.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "opacity": {
+          "default": null,
+          "description": "Optional combined opacity in `[0, 1]` (v10 addition).",
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "points": {
+          "description": "Relative metre vertices.",
+          "items": {
+            "$ref": "#/$defs/StampPoint"
+          },
+          "type": "array"
+        },
+        "rotation_deg": {
+          "default": 0.0,
+          "description": "Clockwise rotation in degrees.",
+          "format": "double",
+          "type": "number"
+        },
+        "stroke_color": {
+          "default": null,
+          "description": "Optional stroke colour (v10 addition).",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "zone_type": {
+          "description": "Zone geometry kind.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "zone_type",
+        "points"
+      ],
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": true,
+  "description": "Saved Object Stamp payload v3 (contracts §11; `2.1-M88`, `2.1-Q155`).\n\nUses snake_case keys (unlike v2's camelCase) and carries `extra` extension bags (`2.1-Q69`).",
+  "properties": {
+    "anchor": {
+      "$ref": "#/$defs/StampPoint",
+      "description": "Relative anchor point in metres."
+    },
+    "annotations": {
+      "default": [],
+      "description": "Annotations.",
+      "items": {
+        "$ref": "#/$defs/StampAnnotation"
+      },
+      "type": "array"
+    },
+    "budget": {
+      "default": [],
+      "description": "Species unit-cost lines (`2.1-Q155`).",
+      "items": {
+        "$ref": "#/$defs/StampBudgetLine"
+      },
+      "type": "array"
+    },
+    "consortiums": {
+      "default": [],
+      "description": "Species consortium strata (`2.1-Q155`).",
+      "items": {
+        "$ref": "#/$defs/StampConsortium"
+      },
+      "type": "array"
+    },
+    "groups": {
+      "default": [],
+      "description": "Object groups.",
+      "items": {
+        "$ref": "#/$defs/StampGroup"
+      },
+      "type": "array"
+    },
+    "measurement_guides": {
+      "default": [],
+      "description": "Measurement guides (`2.1-M88`).",
+      "items": {
+        "$ref": "#/$defs/StampGuide"
+      },
+      "type": "array"
+    },
+    "plant_species_codes": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "default": {},
+      "description": "Species code overrides (`2.1-Q155`).",
+      "type": "object"
+    },
+    "plant_species_colors": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "default": {},
+      "description": "Species colour overrides (`2.1-Q155`).",
+      "type": "object"
+    },
+    "plant_species_symbols": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "default": {},
+      "description": "Species symbol overrides (`2.1-Q155`).",
+      "type": "object"
+    },
+    "plants": {
+      "default": [],
+      "description": "Placed plants.",
+      "items": {
+        "$ref": "#/$defs/StampPlant"
+      },
+      "type": "array"
+    },
+    "timeline": {
+      "default": [],
+      "description": "Care actions with relative offset / recurrence (`2.1-Q155`).",
+      "items": {
+        "$ref": "#/$defs/StampCareAction"
+      },
+      "type": "array"
+    },
+    "version": {
+      "description": "Payload version (`3`).",
+      "format": "uint32",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "zones": {
+      "default": [],
+      "description": "Zones.",
+      "items": {
+        "$ref": "#/$defs/StampZone"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "version",
+    "anchor"
+  ],
+  "title": "SavedObjectStampPayload",
+  "type": "object"
+}

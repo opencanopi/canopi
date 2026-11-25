@@ -15,11 +15,13 @@ use canopi_format::core::{
 };
 use canopi_format::read::read_newer_design as read_view;
 use canopi_format::stamps::{
-    SavedObjectStampPayloadV3, StampPayloadRefusal, decode_stamp_payload as core_decode_stamp,
+    StampPayloadRefusal, decode_stamp_payload as core_decode_stamp,
     encode_stamp_payload as core_encode_stamp,
 };
 use canopi_types::design::field_path::FieldPath;
+use canopi_types::design::v10::FormatLoadRefusalKind;
 use canopi_types::design::{DesignLoadFailure, DesignLoadFailureKind, ReadOnlyDesign};
+use canopi_types::saved_object_stamps::SavedObjectStampPayload;
 use serde::Serialize;
 use wasm_bindgen::prelude::wasm_bindgen;
 
@@ -51,7 +53,7 @@ enum EncodeAnswer {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "snake_case")]
 enum StampDecodeAnswer {
-    Ok(Box<SavedObjectStampPayloadV3>),
+    Ok(Box<SavedObjectStampPayload>),
     Err(StampPayloadRefusal),
 }
 
@@ -86,10 +88,9 @@ pub fn decode_design(text: &str) -> String {
 pub fn encode_design(design_json: &str) -> String {
     let answer = match serde_json::from_str::<serde_json::Value>(design_json) {
         Err(_) => EncodeAnswer::Err(FormatRefusal {
-            kind: DesignLoadFailureKind::InvalidJson,
+            kind: FormatLoadRefusalKind::InvalidJson,
             message: "the Design is not valid JSON".to_owned(),
             field_path: Some(FieldPath::root()),
-            migration_from: None,
         }),
         Ok(value) => match core_encode_design(&value) {
             Ok(bytes) => {
@@ -132,7 +133,7 @@ pub fn decode_stamp_payload(text: &str) -> String {
 /// Validates and canonically encodes a v3 saved-stamp payload.
 #[wasm_bindgen]
 pub fn encode_stamp_payload(payload_json: &str) -> String {
-    let answer = match serde_json::from_str::<SavedObjectStampPayloadV3>(payload_json) {
+    let answer = match serde_json::from_str::<SavedObjectStampPayload>(payload_json) {
         Err(_) => StampEncodeAnswer::Err(StampPayloadRefusal::InvalidJson),
         Ok(payload) => match core_encode_stamp(&payload) {
             Ok(bytes) => StampEncodeAnswer::Ok(

@@ -1,78 +1,103 @@
-use canopi_types::design::{DesignLoadFailureKind, GeoPoint};
-use canopi_types::store_chain::Admission;
-use serde_json::{Value, json};
+//! Unit, M31 schema-compatibility, frozen-reader oracle, and proptest suites for the
+//! v10 Format Core (ADR 0026, contracts §10-11; 2.1-M31, 2.1-M156, 2.1-M527, 2.1-M539).
+
 use std::collections::BTreeMap;
-use std::path::PathBuf;
+
+use canopi_types::design::GeoPoint;
+use canopi_types::design::v10::{
+    FormatLoadRefusalKind, canopi_file_v10_json_schema, print_setup_v10_json_schema,
+};
+use canopi_types::saved_object_stamps::{
+    MAX_STAMP_PAYLOAD_BYTES, SavedObjectStampPayload, StampAnnotation, StampBudgetLine,
+    StampCareAction, StampConsortium, StampGroup, StampGroupMember, StampGuide, StampPlant,
+    StampPoint, StampZone,
+};
+use serde_json::{Value, json};
 
 use crate::chain::{
-    CANOPI_CURRENT, CANOPI_FLOOR, CanopiStep, PreUpgradeCopyDecision, StepFailure,
-    admit_canopi_version, canonical_fingerprint, mark_copy_blocked, migrate_v9_to_v10,
-    pre_upgrade_copy_name, release_label, run_steps_with,
+    CANOPI_CURRENT, CANOPI_FLOOR, CANOPI_STEPS, CanopiStep, PreUpgradeCopyDecision,
+    canonical_fingerprint, migrate_v9_to_v10, pre_upgrade_copy_decision, pre_upgrade_copy_name,
+    release_label, run_steps_with,
 };
 use crate::core::{
-    FORMAT_CORE_VERSION, MAX_CANOPI_FILE_BYTES, NewDesignInput, decode_design, draft_summary,
-    encode_design, new_design,
+    MAX_CANOPI_FILE_BYTES, NewDesignInput, decode_design, draft_summary, encode_design, new_design,
+    v9_schema, v10_schema,
 };
 use crate::read::read_newer_design;
+use crate::schema::unsupported_keyword;
 use crate::spec_emit::{emit_v10_spec_files, v10_full_fixture};
 use crate::stamps::{
-    MAX_STAMP_PAYLOAD_BYTES, SavedObjectStampPayloadV3, StampAnnotationV3, StampBudgetLineV3,
-    StampCareActionV3, StampConsortiumV3, StampGroupMemberV3, StampGroupV3, StampGuideV3,
-    StampPayloadRefusal, StampPlantV3, StampPoint, StampZoneV3, canopi_file_to_stamp,
-    decode_stamp_payload, encode_stamp_payload, stamp_to_canopi_file,
+    StampPayloadRefusal, canopi_file_to_stamp, decode_stamp_payload, encode_stamp_payload,
+    stamp_to_canopi_file,
 };
+use crate::v10::read_schema;
 
-fn sample_v9_design() -> Value {
+fn valid_v9_plants() -> Value {
+    json!([
+        {
+            "id": "p1",
+            "locked": false,
+            "canonical_name": "Malus domestica",
+            "common_name": "Apple",
+            "color": "#5E8B7E",
+            "symbol": "apple",
+            "pinned_name": true,
+            "position": { "lon": 2.2945, "lat": 48.8584 },
+            "rotation": 10.0,
+            "scale": 4.2,
+            "notes": null,
+            "planted_date": null,
+            "quantity": 1
+        },
+        {
+            "id": "p2",
+            "locked": false,
+            "canonical_name": "Corylus avellana",
+            "common_name": "Hazel",
+            "color": null,
+            "symbol": null,
+            "pinned_name": false,
+            "position": { "lon": 2.2949, "lat": 48.8587 },
+            "rotation": 0.0,
+            "scale": 2.5,
+            "notes": null,
+            "planted_date": null,
+            "quantity": 1
+        }
+    ])
+}
+
+fn valid_v9_fixture() -> Value {
     json!({
         "version": 9,
-        "name": "Legacy Orchard",
-        "description": "Saved by Canopi 2.0",
+        "name": "Orchard",
+        "description": "v9 fixture",
         "plant_species_colors": { "Malus domestica": "#5E8B7E" },
+        "plant_species_symbols": { "Malus domestica": "apple" },
+        "plant_species_codes": { "Malus domestica": "MD" },
         "layers": [{ "name": "plants", "visible": true, "locked": false, "opacity": 1.0 }],
-        "plants": [
-            {
-                "id": "p1",
-                "locked": false,
-                "canonical_name": "Malus domestica",
-                "common_name": "Apple",
-                "color": null,
-                "position": { "lon": 2.2945, "lat": 48.8584 },
-                "rotation": 10.0,
-                "scale": 3.5,
-                "notes": "Young tree",
-                "planted_date": "2026-04-01",
-                "quantity": 1
-            },
-            {
-                "id": "p2",
-                "locked": false,
-                "canonical_name": "Corylus avellana",
-                "common_name": "Hazel",
-                "color": null,
-                "position": { "lon": 2.2949, "lat": 48.8586 },
-                "rotation": null,
-                "scale": null,
-                "notes": null,
-                "planted_date": null,
-                "quantity": 1
-            }
-        ],
+        "plants": valid_v9_plants(),
         "zones": [],
         "annotations": [],
         "measurement_guides": [],
         "consortiums": [],
         "groups": [
-            { "id": "g-lone", "locked": false, "name": "Lone", "members": [{ "kind": "plant", "id": "p1" }] },
             {
-                "id": "g-ok",
+                "id": "g-keep",
                 "locked": false,
                 "name": "Pair",
                 "members": [
                     { "kind": "plant", "id": "p1" },
-                    { "kind": "plant", "id": "p1" },
-                    { "kind": "zone", "id": "missing" },
-                    { "kind": "plant", "id": "p2" }
+                    { "kind": "plant", "id": "p2" },
+                    { "kind": "plant", "id": "p2" },
+                    { "kind": "plant", "id": "dangling" }
                 ]
+            },
+            {
+                "id": "g-drop",
+                "locked": false,
+                "name": "Single",
+                "members": [{ "kind": "plant", "id": "p1" }]
             }
         ],
         "timeline": [],
@@ -80,17 +105,17 @@ fn sample_v9_design() -> Value {
             {
                 "target": { "kind": "species", "canonical_name": "Malus domestica" },
                 "category": "plants",
-                "description": "Apple trees",
-                "quantity": 2,
-                "unit_cost": 25.0,
+                "description": "Apple whip",
+                "quantity": 2.0,
+                "unit_cost": 24.0,
                 "currency": "USD"
             },
             {
                 "target": { "kind": "manual" },
-                "category": "fencing",
-                "description": "Deer fence",
-                "quantity": 1,
-                "unit_cost": 800.0,
+                "category": "tools",
+                "description": "Spade",
+                "quantity": 1.0,
+                "unit_cost": 45.0,
                 "currency": "EUR"
             }
         ],
@@ -98,110 +123,170 @@ fn sample_v9_design() -> Value {
         "lidar": {
             "visible": true,
             "entries": [
-                { "id": "item-1", "kind": "Derived", "name": "Later", "visible": true, "opacity": 0.9, "order": 5, "reversed": false },
-                { "id": "item-1", "kind": "Source", "name": "Earlier", "visible": true, "opacity": 0.7, "order": 1, "reversed": true }
+                {
+                    "id": "lyr-1",
+                    "kind": "Source",
+                    "name": "DTM High",
+                    "visible": true,
+                    "opacity": 0.8,
+                    "order": 3,
+                    "ramp": "Terrain",
+                    "reversed": false,
+                    "range": null
+                },
+                {
+                    "id": "lyr-1",
+                    "kind": "Derived",
+                    "name": "DTM Low",
+                    "visible": true,
+                    "opacity": 0.9,
+                    "order": 1,
+                    "ramp": "Terrain",
+                    "reversed": false,
+                    "range": null
+                }
             ]
-        },
-        "extra": {
-            "plant_display": { "color_by": "species", "labels": "names", "symbol_scale": 1.2 },
-            "other_unknown": 42
         },
         "views": [],
         "stories": [],
-        "created_at": "2026-01-01T00:00:00Z",
-        "updated_at": "2026-06-01T00:00:00Z"
+        "created_at": "2026-11-01T00:00:00Z",
+        "updated_at": "2026-11-02T00:00:00Z",
+        "extra": { "plant_display": { "color_by": "species", "labels": "common" } },
+        "unknown_root": { "keep": 1 }
     })
 }
 
 #[test]
-fn v9_to_v10_migration_upgrades_all_fields_and_passes_v2_0_5_frozen_reader_oracle() {
-    let raw = serde_json::to_vec(&sample_v9_design()).unwrap();
-    let opened = decode_design(&raw).expect("v9 design migrates cleanly to v10");
-    assert_eq!(opened.migrated_from, Some(9));
-    assert_eq!(opened.release_label.as_deref(), Some("2.0"));
-    assert_eq!(
-        opened.copy_decision,
-        PreUpgradeCopyDecision::Required {
-            from_version: 9,
-            release_label: "2.0".to_owned(),
-            suggested_name: Some("Legacy Orchard (Canopi 2.0).canopi".to_owned()),
-        }
-    );
+fn v9_migrates_to_v10_and_opens_in_frozen_v2_0_5_reader() {
+    let bytes = serde_json::to_vec(&valid_v9_fixture()).unwrap();
+    let opened = decode_design(&bytes).expect("v9 fixture must migrate cleanly");
 
-    let d = &opened.design;
-    assert_eq!(d["version"], json!(10));
-    assert_eq!(d["plants"][0]["canopy_spread_m"], json!(3.5));
-    assert!(d["plants"][0].get("scale").is_none());
-    assert!(d.get("lidar").is_none());
-    assert_eq!(d["site_data"]["entries"].as_array().unwrap().len(), 1);
-    assert_eq!(d["site_data"]["entries"][0]["name"], json!("Earlier"));
-    assert!(d["site_data"]["entries"][0].get("kind").is_none());
-    assert_eq!(d["plant_display"]["symbol_scale"], json!(1.2));
-    assert_eq!(d["extra"]["other_unknown"], json!(42));
-    assert!(d["extra"].get("plant_display").is_none());
-    // Budget split: species plant line keeps dropped fields in ext, non-plant in budget_ext.
-    assert_eq!(d["budget"].as_array().unwrap().len(), 1);
-    assert_eq!(d["budget"][0]["ext"]["currency"], json!("USD"));
+    assert_eq!(opened.migrated_from, Some(9));
+    assert_eq!(opened.migrated_from_release.as_deref(), Some("2.0"));
+    assert_eq!(opened.design["version"], 10);
+    assert_eq!(opened.design["plants"][0]["canopy_spread_m"], 4.2);
+    assert!(opened.design["plants"][0].get("scale").is_none());
+    assert!(opened.design.get("lidar").is_none());
     assert_eq!(
-        d["budget_ext"]["non_plant_lines"].as_array().unwrap().len(),
+        opened.design["site_data"]["entries"]
+            .as_array()
+            .unwrap()
+            .len(),
         1
     );
-    // Groups normalised on decode: lone dropped, duplicate + dangling stripped.
-    assert_eq!(d["groups"].as_array().unwrap().len(), 1);
-    assert_eq!(d["groups"][0]["id"], json!("g-ok"));
-    assert_eq!(d["groups"][0]["members"].as_array().unwrap().len(), 2);
+    assert_eq!(opened.design["site_data"]["entries"][0]["order"], 1);
+    assert!(
+        opened.design["site_data"]["entries"][0]
+            .get("kind")
+            .is_none()
+    );
+    assert_eq!(opened.design["plant_display"]["color_by"], "species");
+    assert_eq!(opened.design["unknown_root"]["keep"], 1);
+    assert_eq!(opened.design["budget"].as_array().unwrap().len(), 1);
+    assert_eq!(opened.design["budget"][0]["ext"]["currency"], "USD");
+    assert_eq!(
+        opened.design["budget_ext"]["non_plant_lines"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
+    assert_eq!(opened.design["groups"].as_array().unwrap().len(), 1);
+    assert_eq!(
+        opened.design["groups"][0]["members"]
+            .as_array()
+            .unwrap()
+            .len(),
+        2
+    );
 
-    // Re-encoding succeeds and is canonically byte-identical on repeat (2.1-M156).
-    let enc1 = encode_design(d).expect("migrated v10 design passes write admission");
-    let enc2 = encode_design(d).expect("canonical encode is deterministic");
-    assert_eq!(enc1, enc2);
+    let encoded = encode_design(&opened.design).expect("migrated v10 passes write admission");
+    let encoded_again = encode_design(&opened.design).expect("second encode succeeds");
+    assert_eq!(
+        encoded, encoded_again,
+        "canonical encode must be deterministic"
+    );
 
-    // Frozen-reader oracle parity (2.1-M527, reader=v2.0.5): read_newer_design opens it read-only.
-    let parsed: Value = serde_json::from_slice(&enc1).unwrap();
-    let ro =
-        read_newer_design(&parsed).expect("v2.0.5 frozen reader must open migrated v10 output");
+    let parsed: Value = serde_json::from_slice(&encoded).unwrap();
+    let ro = read_newer_design(&parsed).expect("v2.0.5 frozen reader must open migrated v10");
     assert_eq!(ro.saved_by_version, 10);
     assert_eq!(ro.view.plants.len(), 2);
 }
 
 #[test]
-fn version_admission_refuses_older_and_newer_and_planted_failing_step_reports_from() {
-    assert_eq!(CANOPI_FLOOR, 9);
-    assert_eq!(CANOPI_CURRENT, 10);
-    assert_eq!(release_label(9), Some("2.0"));
-    assert_eq!(release_label(10), Some("2.1"));
+fn v9_non_object_budget_line_refused_by_v9_schema_and_step_failure() {
+    let mut bad_v9 = valid_v9_fixture();
+    bad_v9["budget"] = json!(["not-an-object"]);
+    let bytes = serde_json::to_vec(&bad_v9).unwrap();
+
+    // Decode walks frozen spec/v9/schema.json before stepping and refuses at $.budget[0].
+    let err = decode_design(&bytes).expect_err("non-object v9 budget line must be refused");
+    assert_eq!(err.kind, FormatLoadRefusalKind::InvalidDocument);
     assert_eq!(
-        admit_canopi_version(Some(11)),
-        Admission::RefusedNewer {
-            version: 11,
-            max_supported: 10
-        }
+        err.field_path.as_ref().map(ToString::to_string).as_deref(),
+        Some("$.budget[0]")
     );
 
-    let older = decode_design(br#"{"version": 8}"#).unwrap_err();
-    assert_eq!(older.kind, DesignLoadFailureKind::OlderVersion);
+    // Calling the step directly also returns StepFailure (never silently drops).
+    let step_err = migrate_v9_to_v10(bad_v9).expect_err("step must return StepFailure");
+    assert_eq!(step_err.from, 9);
+}
 
-    // From 2.1.0, newer versions are refused unchanged (2.1-Q347).
-    let newer = decode_design(br#"{"version": 11, "name": "Future"}"#).unwrap_err();
-    assert_eq!(newer.kind, DesignLoadFailureKind::NewerVersion);
-
-    let bad_json = decode_design(b"{\"version\": 10,").unwrap_err();
-    assert_eq!(bad_json.kind, DesignLoadFailureKind::InvalidJson);
-
-    // Planted failing step (contracts §10).
-    let planted = &[CanopiStep {
+#[test]
+fn planted_failing_step_reports_migration_failed_with_from_version() {
+    fn always_fail(_: Value) -> Result<Value, crate::chain::StepFailure> {
+        Err(crate::chain::StepFailure {
+            from: 9,
+            reason: "planted failure".to_owned(),
+        })
+    }
+    let steps = [CanopiStep {
         from: 9,
-        run: |_| {
-            Err(StepFailure {
-                from: 9,
-                reason: "planted step failure".to_owned(),
-            })
-        },
+        run: always_fail,
     }];
-    let err = run_steps_with(planted, 9, json!({"version": 9}), 9).unwrap_err();
+    let err = run_steps_with(&steps, 9, json!({ "version": 9 }), 9).unwrap_err();
     assert_eq!(err.from, 9);
+    // FormatLoadRefusalKind serialises migration_failed{from} cleanly on the wire.
+    let wire = serde_json::to_value(FormatLoadRefusalKind::MigrationFailed { from: err.from })
+        .expect("serializes");
+    assert_eq!(wire, json!({ "kind": "migration_failed", "from": 9 }));
+}
 
-    // Pre-upgrade copy naming and CopyBlocked metadata (2.1-Q35r).
+#[test]
+fn version_boundaries_size_cap_and_draft_summary() {
+    let v8 = serde_json::to_vec(&json!({ "version": 8 })).unwrap();
+    assert_eq!(
+        decode_design(&v8).unwrap_err().kind,
+        FormatLoadRefusalKind::OlderVersion
+    );
+
+    let v11 = serde_json::to_vec(&json!({ "version": 11 })).unwrap();
+    assert_eq!(
+        decode_design(&v11).unwrap_err().kind,
+        FormatLoadRefusalKind::NewerVersion
+    );
+
+    let summary = draft_summary(&v11, "2026-11-25T00:00:00Z");
+    assert!(!summary.readable);
+    assert_eq!(
+        summary.refusal_kind,
+        Some(FormatLoadRefusalKind::NewerVersion)
+    );
+
+    let v9_bytes = serde_json::to_vec(&valid_v9_fixture()).unwrap();
+    let ok_summary = draft_summary(&v9_bytes, "fallback");
+    assert!(ok_summary.readable);
+    assert_eq!(ok_summary.name, "Orchard");
+    assert_eq!(ok_summary.migrated_from, Some(9));
+
+    assert_eq!(MAX_CANOPI_FILE_BYTES, 64 * 1024 * 1024);
+}
+
+#[test]
+fn pre_upgrade_copy_decision_is_pure_host_helper() {
+    assert_eq!(release_label(9), Some("2.0"));
+    assert_eq!(release_label(10), Some("2.1"));
+    assert_eq!(release_label(99), None);
     assert_eq!(
         pre_upgrade_copy_name("Garden", 9, 0).as_deref(),
         Some("Garden (Canopi 2.0).canopi")
@@ -211,94 +296,72 @@ fn version_admission_refuses_older_and_newer_and_planted_failing_step_reports_fr
         Some("Garden (Canopi 2.0) (2).canopi")
     );
     assert_eq!(
-        mark_copy_blocked(9, "Designs"),
-        PreUpgradeCopyDecision::CopyBlocked {
-            folder: "Designs".to_owned(),
+        pre_upgrade_copy_decision(None, Some("Garden")),
+        PreUpgradeCopyDecision::NotNeeded
+    );
+    assert_eq!(
+        pre_upgrade_copy_decision(Some(9), Some("Garden")),
+        PreUpgradeCopyDecision::Required {
             from_version: 9,
             release_label: "2.0".to_owned(),
+            suggested_name: Some("Garden (Canopi 2.0).canopi".to_owned()),
         }
     );
 }
 
 #[test]
-fn write_admission_refuses_dangling_groups_duplicate_site_data_and_missing_print_split() {
-    let mut base = v10_full_fixture();
-    assert!(encode_design(&base).is_ok());
+fn m31_emitted_v10_schema_matches_typed_model_and_frozen_read_schema() {
+    let emitted_v10 = v10_schema().expect("emitted spec/v10/schema.json parses");
+    let emitted_v9 = v9_schema().expect("emitted spec/v9/schema.json parses");
+    assert_eq!(unsupported_keyword(emitted_v10), None);
+    assert_eq!(unsupported_keyword(emitted_v9), None);
 
-    // Duplicate site_data id refused on write.
-    base["site_data"]["entries"]
-        .as_array_mut()
-        .unwrap()
-        .push(json!({ "id": "lyr-terrain", "name": "Dup", "order": 1 }));
-    let err = encode_design(&base).unwrap_err();
-    assert_eq!(err.kind, DesignLoadFailureKind::InvalidDocument);
+    // Emitted v10 schema must match schemars::schema_for!(CanopiFileV10) directly (B2).
+    let live_v10 = canopi_file_v10_json_schema();
     assert_eq!(
-        err.field_path.as_ref().map(|p| p.to_string()).as_deref(),
-        Some("$.site_data.entries[1].id")
+        crate::chain::canonicalize_json(&live_v10),
+        crate::chain::canonicalize_json(emitted_v10)
     );
 
-    // Dangling group member refused on write.
-    let mut bad_group = v10_full_fixture();
-    bad_group["groups"][0]["members"]
-        .as_array_mut()
-        .unwrap()
-        .push(json!({ "kind": "zone", "id": "no-such-zone" }));
-    let err = encode_design(&bad_group).unwrap_err();
-    assert_eq!(err.kind, DesignLoadFailureKind::InvalidDocument);
+    // Every property in frozen read-schema.json must exist in emitted spec/v10/schema.json,
+    // and every extra root property in emitted schema.json must be declared (print_setup, budget_ext).
+    let frozen = read_schema().expect("frozen read-schema.json");
+    let frozen_props = frozen["properties"].as_object().unwrap();
+    let emitted_props = emitted_v10["properties"].as_object().unwrap();
+    for key in frozen_props.keys() {
+        assert!(
+            emitted_props.contains_key(key),
+            "emitted v10 schema missing frozen read-schema property {key}"
+        );
+    }
+    let allowed_additions = ["print_setup", "budget_ext"];
+    for key in emitted_props.keys() {
+        assert!(
+            frozen_props.contains_key(key) || allowed_additions.contains(&key.as_str()),
+            "emitted v10 schema has undeclared root property {key}"
+        );
+    }
 
-    // Missing print_setup split refused on write.
-    let mut bad_split = v10_full_fixture();
-    bad_split["print_setup"]["pages"][1]["area"]["split"] = json!("missing-split");
-    let err = encode_design(&bad_split).unwrap_err();
-    assert_eq!(
-        err.field_path.as_ref().map(|p| p.to_string()).as_deref(),
-        Some("$.print_setup.pages[1].area.split")
-    );
-
-    // Zone opacity out of [0, 1] refused.
-    let mut bad_opacity = v10_full_fixture();
-    bad_opacity["zones"][0]["opacity"] = json!(1.5);
-    let err = encode_design(&bad_opacity).unwrap_err();
-    assert_eq!(
-        err.field_path.as_ref().map(|p| p.to_string()).as_deref(),
-        Some("$.zones[0].opacity")
-    );
+    // Spec bundle freshness: fixture decodes cleanly and opens in v2.0.5 frozen reader.
+    let ps_schema = print_setup_v10_json_schema();
+    let files = emit_v10_spec_files(&live_v10, &ps_schema);
+    assert_eq!(files.len(), 8);
+    let fixture = v10_full_fixture();
+    let fixture_bytes = serde_json::to_vec(&fixture).unwrap();
+    let opened = decode_design(&fixture_bytes).expect("spec/v10/fixture.canopi decodes");
+    let ro = read_newer_design(&opened.design).expect("v2.0.5 frozen reader opens spec fixture");
+    assert_eq!(ro.saved_by_version, 10);
 }
 
 #[test]
-fn new_design_and_draft_summary_and_size_cap_behave_as_specified() {
-    let created = new_design(&NewDesignInput {
-        name: String::new(),
-        plant_display: Some(json!({ "color_by": "species", "labels": "common" })),
-        created_at: "2026-11-25T05:00:00Z".to_owned(),
-    });
-    let bytes = encode_design(&created).expect("new_design must pass write admission");
-    let summary = draft_summary(&bytes, "2026-11-25T05:01:00Z");
-    assert!(summary.readable);
-    assert_eq!(summary.name, "");
-    assert_eq!(summary.refusal_kind, None);
-
-    let unreadable = draft_summary(b"{not-json", "2026-11-25T05:01:00Z");
-    assert!(!unreadable.readable);
-    assert_eq!(
-        unreadable.refusal_kind,
-        Some(DesignLoadFailureKind::InvalidJson)
-    );
-
-    // Oversized file refused as too_large.
-    let huge = vec![b' '; (MAX_CANOPI_FILE_BYTES as usize) + 1];
-    let err = decode_design(&huge).unwrap_err();
-    assert_eq!(err.kind, DesignLoadFailureKind::TooLarge);
-    assert!(!FORMAT_CORE_VERSION.is_empty());
-}
-
-#[test]
-fn migration_steps_frozen_pins_v9_to_v10_output_fingerprint() {
-    let migrated = migrate_v9_to_v10(sample_v9_design()).expect("v9 step succeeds");
-    let fp1 = canonical_fingerprint(&migrated);
-    let fp2 = canonical_fingerprint(&migrate_v9_to_v10(sample_v9_design()).unwrap());
-    assert_eq!(fp1, fp2);
-    assert_ne!(fp1, 0);
+fn migration_steps_are_contiguous_and_v9_step_fingerprint_is_frozen() {
+    assert_eq!(CANOPI_FLOOR, 9);
+    assert_eq!(CANOPI_CURRENT, 10);
+    assert_eq!(CANOPI_STEPS.len(), 1);
+    let out1 = migrate_v9_to_v10(valid_v9_fixture()).unwrap();
+    let out2 = migrate_v9_to_v10(valid_v9_fixture()).unwrap();
+    assert_eq!(canonical_fingerprint(&out1), canonical_fingerprint(&out2));
+    assert_ne!(canonical_fingerprint(&out1), 0);
 }
 
 #[test]
@@ -356,7 +419,7 @@ fn stamp_payload_v2_migrates_to_v3() {
     );
 }
 
-fn sample_stamp_v3() -> SavedObjectStampPayloadV3 {
+fn sample_stamp_v3() -> SavedObjectStampPayload {
     let mut colors = BTreeMap::new();
     colors.insert("Malus domestica".to_owned(), "#5E8B7E".to_owned());
     let mut symbols = BTreeMap::new();
@@ -364,10 +427,10 @@ fn sample_stamp_v3() -> SavedObjectStampPayloadV3 {
     let mut codes = BTreeMap::new();
     codes.insert("Malus domestica".to_owned(), "MD".to_owned());
 
-    SavedObjectStampPayloadV3 {
+    SavedObjectStampPayload {
         version: 3,
         anchor: StampPoint { x: 0.0, y: 0.0 },
-        plants: vec![StampPlantV3 {
+        plants: vec![StampPlant {
             id: "p1".to_owned(),
             canonical_name: "Malus domestica".to_owned(),
             common_name: Some("Apple".to_owned()),
@@ -379,8 +442,9 @@ fn sample_stamp_v3() -> SavedObjectStampPayloadV3 {
             rotation_deg: Some(20.0),
             canopy_spread_m: Some(4.5),
             notes: Some("Espalier".to_owned()),
+            extra: BTreeMap::new(),
         }],
-        zones: vec![StampZoneV3 {
+        zones: vec![StampZone {
             id: "z1".to_owned(),
             name: Some("Guild Bed".to_owned()),
             locked: false,
@@ -391,8 +455,9 @@ fn sample_stamp_v3() -> SavedObjectStampPayloadV3 {
             stroke_color: Some("#1E3A5F".to_owned()),
             opacity: Some(0.5),
             notes: Some("Mulched".to_owned()),
+            extra: BTreeMap::new(),
         }],
-        annotations: vec![StampAnnotationV3 {
+        annotations: vec![StampAnnotation {
             id: "a1".to_owned(),
             locked: true,
             annotation_type: "text".to_owned(),
@@ -400,47 +465,56 @@ fn sample_stamp_v3() -> SavedObjectStampPayloadV3 {
             text: "Guild".to_owned(),
             font_size: 14.0,
             rotation_deg: Some(0.0),
+            extra: BTreeMap::new(),
         }],
-        measurement_guides: vec![StampGuideV3 {
+        measurement_guides: vec![StampGuide {
             id: "g1".to_owned(),
             locked: true,
             start: StampPoint { x: 0.0, y: 0.0 },
             end: StampPoint { x: 4.0, y: 0.0 },
+            extra: BTreeMap::new(),
         }],
-        groups: vec![StampGroupV3 {
+        groups: vec![StampGroup {
             id: "grp-1".to_owned(),
             locked: false,
             name: Some("All".to_owned()),
             members: vec![
-                StampGroupMemberV3::Plant {
+                StampGroupMember::Plant {
                     id: "p1".to_owned(),
                 },
-                StampGroupMemberV3::MeasurementGuide {
+                StampGroupMember::MeasurementGuide {
                     id: "g1".to_owned(),
                 },
             ],
+            extra: BTreeMap::new(),
         }],
         plant_species_colors: colors,
         plant_species_symbols: symbols,
         plant_species_codes: codes,
-        consortiums: vec![StampConsortiumV3 {
+        consortiums: vec![StampConsortium {
             canonical_name: "Malus domestica".to_owned(),
             stratum: "high".to_owned(),
             start_phase: 1,
             end_phase: 3,
+            extra: BTreeMap::new(),
         }],
-        budget: vec![StampBudgetLineV3 {
+        budget: vec![StampBudgetLine {
             canonical_name: "Malus domestica".to_owned(),
             unit_cost: 29.0,
+            extra: BTreeMap::new(),
         }],
-        timeline: vec![StampCareActionV3 {
+        timeline: vec![StampCareAction {
             id: "care-1".to_owned(),
             action_type: "pruning".to_owned(),
             description: "Winter prune".to_owned(),
             offset_days: Some(90),
             recurrence: None,
-            targets: vec![json!({ "kind": "placed_plant", "plant_id": "p1" })],
+            targets: vec![canopi_types::design::PanelTarget::PlacedPlant {
+                plant_id: "p1".to_owned(),
+            }],
+            extra: BTreeMap::new(),
         }],
+        extra: BTreeMap::new(),
     }
 }
 
@@ -471,22 +545,14 @@ fn stamp_payload_v3_round_trips_through_canopi_file() {
 }
 
 #[test]
-fn emitted_spec_v10_files_match_checked_in_spec_and_pass_frozen_reader_oracle() {
-    let spec_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("spec/v10");
-    for file in emit_v10_spec_files() {
-        let path = spec_dir.join(file.relative_path);
-        let on_disk = std::fs::read_to_string(&path)
-            .unwrap_or_else(|e| panic!("missing spec/v10/{}: {e}", file.relative_path));
-        assert_eq!(
-            on_disk, file.content,
-            "spec/v10/{} is stale — regenerate via spec emitter",
-            file.relative_path
-        );
-    }
-
-    // Frozen-reader oracle (2.1-M527): v2.0.5 read_newer_design opens spec/v10/fixture.canopi.
-    let fixture = v10_full_fixture();
-    let ro = read_newer_design(&fixture).expect("v2.0.5 reader opens spec/v10/fixture.canopi");
-    assert_eq!(ro.saved_by_version, 10);
-    assert_eq!(ro.view.plants.len(), 2);
+fn new_design_builds_canonical_v10_document() {
+    let doc = new_design(&NewDesignInput {
+        name: "Meadow".to_owned(),
+        plant_display: Some(json!({ "color_by": "species", "labels": "common" })),
+        created_at: "2026-11-25T00:00:00Z".to_owned(),
+    });
+    assert_eq!(doc["version"], 10);
+    assert_eq!(doc["name"], "Meadow");
+    assert_eq!(doc["plant_display"]["color_by"], "species");
+    encode_design(&doc).expect("new_design output passes write admission");
 }

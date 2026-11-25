@@ -6,7 +6,6 @@
 
 pub mod chain;
 pub mod core;
-mod core_validate;
 pub mod read;
 pub mod schema;
 pub mod spec_emit;
@@ -14,5 +13,7 @@ mod stamp_canopi;
 pub mod stamps;
 pub mod v10;
 
+#[cfg(test)]
+mod conformance_tests;
 #[cfg(test)]
 mod core_tests;

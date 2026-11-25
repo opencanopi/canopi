@@ -1,25 +1,24 @@
-//! Bidirectional conversion between [`SavedObjectStampPayloadV3`] and v10 `.canopi` stamp files
+//! Bidirectional conversion between [`SavedObjectStampPayload`] and v10 `.canopi` stamp files
 //! (2.1-Q155, 2.1-M88).
 
 use std::collections::BTreeMap;
 
 use canopi_types::design::{DEFAULT_BUDGET_CURRENCY, GeoPoint};
+use canopi_types::saved_object_stamps::{
+    STAMP_PAYLOAD_CURRENT, SavedObjectStampPayload, StampAnnotation, StampBudgetLine,
+    StampCareAction, StampConsortium, StampGroup, StampGuide, StampPlant, StampPoint, StampZone,
+};
 use serde_json::{Map, Value, json};
 
 use crate::chain::{CANOPI_CURRENT, canonicalize_json};
-use crate::stamps::{
-    STAMP_PAYLOAD_CURRENT, SavedObjectStampPayloadV3, StampAnnotationV3, StampBudgetLineV3,
-    StampCareActionV3, StampConsortiumV3, StampGroupV3, StampGuideV3, StampPayloadRefusal,
-    StampPlantV3, StampPoint, StampZoneV3, validate_stamp_payload,
-};
+use crate::stamps::{StampPayloadRefusal, validate_stamp_payload};
 
-// Local tangent plane metre <-> WGS84 conversion (ADR 0001).
 const METRES_PER_DEG_LAT: f64 = 111_319.490_793_273_58;
 
 /// Maps a v3 stamp payload to a v10 `.canopi` stamp file centred at `origin` (2.1-Q155, 2.1-M88).
 #[must_use]
 pub fn stamp_to_canopi_file(
-    payload: &SavedObjectStampPayloadV3,
+    payload: &SavedObjectStampPayload,
     name: &str,
     origin: GeoPoint,
 ) -> Value {
@@ -51,7 +50,7 @@ pub fn stamp_to_canopi_file(
     }))
 }
 
-/// Converts a v10 `.canopi` stamp file back into a [`SavedObjectStampPayloadV3`] anchored at `origin`.
+/// Converts a v10 `.canopi` stamp file back into a [`SavedObjectStampPayload`] anchored at `origin`.
 ///
 /// # Errors
 ///
@@ -59,12 +58,12 @@ pub fn stamp_to_canopi_file(
 pub fn canopi_file_to_stamp(
     design: &Value,
     origin: GeoPoint,
-) -> Result<SavedObjectStampPayloadV3, StampPayloadRefusal> {
-    let groups: Vec<StampGroupV3> =
+) -> Result<SavedObjectStampPayload, StampPayloadRefusal> {
+    let groups: Vec<StampGroup> =
         serde_json::from_value(design.get("groups").cloned().unwrap_or_else(|| json!([])))
             .unwrap_or_default();
 
-    let payload = SavedObjectStampPayloadV3 {
+    let payload = SavedObjectStampPayload {
         version: STAMP_PAYLOAD_CURRENT,
         anchor: StampPoint { x: 0.0, y: 0.0 },
         plants: decode_plants(design, origin)?,
@@ -78,12 +77,13 @@ pub fn canopi_file_to_stamp(
         consortiums: decode_consortiums(design),
         budget: decode_budget(design),
         timeline: decode_timeline(design),
+        extra: BTreeMap::new(),
     };
     validate_stamp_payload(&payload)?;
     Ok(payload)
 }
 
-fn encode_plants(plants: &[StampPlantV3], to_geo: &impl Fn(StampPoint) -> Value) -> Vec<Value> {
+fn encode_plants(plants: &[StampPlant], to_geo: &impl Fn(StampPoint) -> Value) -> Vec<Value> {
     plants
         .iter()
         .map(|p| {
@@ -106,7 +106,7 @@ fn encode_plants(plants: &[StampPlantV3], to_geo: &impl Fn(StampPoint) -> Value)
         .collect()
 }
 
-fn encode_zones(zones: &[StampZoneV3], to_geo: &impl Fn(StampPoint) -> Value) -> Vec<Value> {
+fn encode_zones(zones: &[StampZone], to_geo: &impl Fn(StampPoint) -> Value) -> Vec<Value> {
     zones
         .iter()
         .map(|z| {
@@ -134,7 +134,7 @@ fn encode_zones(zones: &[StampZoneV3], to_geo: &impl Fn(StampPoint) -> Value) ->
 }
 
 fn encode_annotations(
-    annotations: &[StampAnnotationV3],
+    annotations: &[StampAnnotation],
     to_geo: &impl Fn(StampPoint) -> Value,
 ) -> Vec<Value> {
     annotations
@@ -153,7 +153,7 @@ fn encode_annotations(
         .collect()
 }
 
-fn encode_guides(guides: &[StampGuideV3], to_geo: &impl Fn(StampPoint) -> Value) -> Vec<Value> {
+fn encode_guides(guides: &[StampGuide], to_geo: &impl Fn(StampPoint) -> Value) -> Vec<Value> {
     guides
         .iter()
         .map(|g| {
@@ -167,7 +167,7 @@ fn encode_guides(guides: &[StampGuideV3], to_geo: &impl Fn(StampPoint) -> Value)
         .collect()
 }
 
-fn encode_consortiums(consortiums: &[StampConsortiumV3]) -> Vec<Value> {
+fn encode_consortiums(consortiums: &[StampConsortium]) -> Vec<Value> {
     consortiums
         .iter()
         .map(|c| {
@@ -181,7 +181,7 @@ fn encode_consortiums(consortiums: &[StampConsortiumV3]) -> Vec<Value> {
         .collect()
 }
 
-fn encode_budget(budget: &[StampBudgetLineV3]) -> Vec<Value> {
+fn encode_budget(budget: &[StampBudgetLine]) -> Vec<Value> {
     budget
         .iter()
         .map(|b| {
@@ -193,7 +193,7 @@ fn encode_budget(budget: &[StampBudgetLineV3]) -> Vec<Value> {
         .collect()
 }
 
-fn encode_timeline(timeline: &[StampCareActionV3]) -> Vec<Value> {
+fn encode_timeline(timeline: &[StampCareAction]) -> Vec<Value> {
     timeline
         .iter()
         .enumerate()
@@ -202,14 +202,14 @@ fn encode_timeline(timeline: &[StampCareActionV3]) -> Vec<Value> {
             obj.insert("id".to_owned(), json!(t.id));
             obj.insert("action_type".to_owned(), json!(t.action_type));
             obj.insert("description".to_owned(), json!(t.description));
-            obj.insert("targets".to_owned(), Value::Array(t.targets.clone()));
+            obj.insert("targets".to_owned(), json!(t.targets));
             obj.insert("completed".to_owned(), json!(false));
             obj.insert("order".to_owned(), json!(order));
             if let Some(offset) = t.offset_days {
                 obj.insert("offset_days".to_owned(), json!(offset));
             }
             if let Some(rec) = &t.recurrence {
-                obj.insert("recurrence".to_owned(), rec.clone());
+                obj.insert("recurrence".to_owned(), json!(rec));
             }
             Value::Object(obj)
         })
@@ -235,10 +235,7 @@ fn from_geo(
     }
 }
 
-fn decode_plants(
-    design: &Value,
-    origin: GeoPoint,
-) -> Result<Vec<StampPlantV3>, StampPayloadRefusal> {
+fn decode_plants(design: &Value, origin: GeoPoint) -> Result<Vec<StampPlant>, StampPayloadRefusal> {
     let mut plants = Vec::new();
     for (i, p) in design["plants"]
         .as_array()
@@ -246,7 +243,7 @@ fn decode_plants(
         .flatten()
         .enumerate()
     {
-        plants.push(StampPlantV3 {
+        plants.push(StampPlant {
             id: p["id"].as_str().unwrap_or("").to_owned(),
             canonical_name: p["canonical_name"].as_str().unwrap_or("").to_owned(),
             common_name: p["common_name"].as_str().map(ToOwned::to_owned),
@@ -262,12 +259,13 @@ fn decode_plants(
             rotation_deg: p["rotation"].as_f64(),
             canopy_spread_m: p["canopy_spread_m"].as_f64(),
             notes: p["notes"].as_str().map(ToOwned::to_owned),
+            extra: BTreeMap::new(),
         });
     }
     Ok(plants)
 }
 
-fn decode_zones(design: &Value, origin: GeoPoint) -> Result<Vec<StampZoneV3>, StampPayloadRefusal> {
+fn decode_zones(design: &Value, origin: GeoPoint) -> Result<Vec<StampZone>, StampPayloadRefusal> {
     let mut zones = Vec::new();
     for (i, z) in design["zones"].as_array().into_iter().flatten().enumerate() {
         let mut pts = Vec::new();
@@ -278,7 +276,7 @@ fn decode_zones(design: &Value, origin: GeoPoint) -> Result<Vec<StampZoneV3>, St
                 &format!("$.zones[{i}].points[{pi}]"),
             )?);
         }
-        zones.push(StampZoneV3 {
+        zones.push(StampZone {
             id: z["id"].as_str().unwrap_or("").to_owned(),
             name: z["name"].as_str().map(ToOwned::to_owned),
             locked: z["locked"].as_bool().unwrap_or(false),
@@ -289,6 +287,7 @@ fn decode_zones(design: &Value, origin: GeoPoint) -> Result<Vec<StampZoneV3>, St
             stroke_color: z["stroke_color"].as_str().map(ToOwned::to_owned),
             opacity: z["opacity"].as_f64(),
             notes: z["notes"].as_str().map(ToOwned::to_owned),
+            extra: BTreeMap::new(),
         });
     }
     Ok(zones)
@@ -297,7 +296,7 @@ fn decode_zones(design: &Value, origin: GeoPoint) -> Result<Vec<StampZoneV3>, St
 fn decode_annotations(
     design: &Value,
     origin: GeoPoint,
-) -> Result<Vec<StampAnnotationV3>, StampPayloadRefusal> {
+) -> Result<Vec<StampAnnotation>, StampPayloadRefusal> {
     let mut annotations = Vec::new();
     for (i, a) in design["annotations"]
         .as_array()
@@ -305,7 +304,7 @@ fn decode_annotations(
         .flatten()
         .enumerate()
     {
-        annotations.push(StampAnnotationV3 {
+        annotations.push(StampAnnotation {
             id: a["id"].as_str().unwrap_or("").to_owned(),
             locked: a["locked"].as_bool().unwrap_or(false),
             annotation_type: a["annotation_type"].as_str().unwrap_or("text").to_owned(),
@@ -317,15 +316,13 @@ fn decode_annotations(
             text: a["text"].as_str().unwrap_or("").to_owned(),
             font_size: a["font_size"].as_f64().unwrap_or(14.0),
             rotation_deg: a["rotation"].as_f64(),
+            extra: BTreeMap::new(),
         });
     }
     Ok(annotations)
 }
 
-fn decode_guides(
-    design: &Value,
-    origin: GeoPoint,
-) -> Result<Vec<StampGuideV3>, StampPayloadRefusal> {
+fn decode_guides(design: &Value, origin: GeoPoint) -> Result<Vec<StampGuide>, StampPayloadRefusal> {
     let mut guides = Vec::new();
     for (i, g) in design["measurement_guides"]
         .as_array()
@@ -333,7 +330,7 @@ fn decode_guides(
         .flatten()
         .enumerate()
     {
-        guides.push(StampGuideV3 {
+        guides.push(StampGuide {
             id: g["id"].as_str().unwrap_or("").to_owned(),
             locked: g["locked"].as_bool().unwrap_or(false),
             start: from_geo(
@@ -346,55 +343,59 @@ fn decode_guides(
                 g.get("end"),
                 &format!("$.measurement_guides[{i}].end"),
             )?,
+            extra: BTreeMap::new(),
         });
     }
     Ok(guides)
 }
 
-fn decode_consortiums(design: &Value) -> Vec<StampConsortiumV3> {
+fn decode_consortiums(design: &Value) -> Vec<StampConsortium> {
     design["consortiums"]
         .as_array()
         .into_iter()
         .flatten()
         .filter_map(|c| {
             let name = c["target"]["canonical_name"].as_str()?;
-            Some(StampConsortiumV3 {
+            Some(StampConsortium {
                 canonical_name: name.to_owned(),
                 stratum: c["stratum"].as_str().unwrap_or("").to_owned(),
                 start_phase: c["start_phase"].as_i64().unwrap_or(0) as i32,
                 end_phase: c["end_phase"].as_i64().unwrap_or(0) as i32,
+                extra: BTreeMap::new(),
             })
         })
         .collect()
 }
 
-fn decode_budget(design: &Value) -> Vec<StampBudgetLineV3> {
+fn decode_budget(design: &Value) -> Vec<StampBudgetLine> {
     design["budget"]
         .as_array()
         .into_iter()
         .flatten()
         .filter_map(|b| {
             let name = b["target"]["canonical_name"].as_str()?;
-            Some(StampBudgetLineV3 {
+            Some(StampBudgetLine {
                 canonical_name: name.to_owned(),
                 unit_cost: b["unit_cost"].as_f64().unwrap_or(0.0),
+                extra: BTreeMap::new(),
             })
         })
         .collect()
 }
 
-fn decode_timeline(design: &Value) -> Vec<StampCareActionV3> {
+fn decode_timeline(design: &Value) -> Vec<StampCareAction> {
     design["timeline"]
         .as_array()
         .into_iter()
         .flatten()
-        .map(|t| StampCareActionV3 {
+        .map(|t| StampCareAction {
             id: t["id"].as_str().unwrap_or("").to_owned(),
             action_type: t["action_type"].as_str().unwrap_or("").to_owned(),
             description: t["description"].as_str().unwrap_or("").to_owned(),
             offset_days: t["offset_days"].as_i64().map(|v| v as i32),
-            recurrence: t.get("recurrence").filter(|v| !v.is_null()).cloned(),
-            targets: t["targets"].as_array().cloned().unwrap_or_default(),
+            recurrence: t["recurrence"].as_str().map(ToOwned::to_owned),
+            targets: serde_json::from_value(t["targets"].clone()).unwrap_or_default(),
+            extra: BTreeMap::new(),
         })
         .collect()
 }

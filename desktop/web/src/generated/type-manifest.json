@@ -1,5 +1,20 @@
 [
   {
+    "name": "AlongPageM",
+    "fields": [
+      {
+        "name": "right_m",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "down_m",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
     "name": "AnalysisInputBinding",
     "fields": [
       {
@@ -155,6 +170,51 @@
     ]
   },
   {
+    "name": "AnnotationV10",
+    "fields": [
+      {
+        "name": "id",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "locked",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "annotation_type",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "position",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "text",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "font_size",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "rotation",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "extra",
+        "flatten": true,
+        "skip": true
+      }
+    ]
+  },
+  {
     "name": "AppFolderLocations",
     "fields": [
       {
@@ -166,6 +226,21 @@
         "name": "data_library",
         "flatten": false,
         "skip": false
+      }
+    ]
+  },
+  {
+    "name": "BudgetExtV10",
+    "fields": [
+      {
+        "name": "non_plant_lines",
+        "flatten": false,
+        "skip": true
+      },
+      {
+        "name": "extra",
+        "flatten": true,
+        "skip": true
       }
     ]
   },
@@ -201,6 +276,51 @@
         "name": "currency",
         "flatten": false,
         "skip": false
+      }
+    ]
+  },
+  {
+    "name": "BudgetLineV10",
+    "fields": [
+      {
+        "name": "target",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "unit_cost",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "ext",
+        "flatten": false,
+        "skip": true
+      },
+      {
+        "name": "extra",
+        "flatten": true,
+        "skip": true
+      }
+    ]
+  },
+  {
+    "name": "BudgetTargetV10",
+    "fields": [
+      {
+        "name": "kind",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "canonical_name",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "extra",
+        "flatten": true,
+        "skip": true
       }
     ]
   },
@@ -289,6 +409,141 @@
       },
       {
         "name": "lidar",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "views",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "stories",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "map_view",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "created_at",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "updated_at",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "extra",
+        "flatten": true,
+        "skip": true
+      }
+    ]
+  },
+  {
+    "name": "CanopiFileV10",
+    "fields": [
+      {
+        "name": "version",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "name",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "description",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "plant_species_colors",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "plant_species_symbols",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "plant_species_codes",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "layers",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "plants",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "zones",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "annotations",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "measurement_guides",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "consortiums",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "groups",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "timeline",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "budget",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "budget_currency",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "budget_ext",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "site_data",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "plant_display",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "print_setup",
         "flatten": false,
         "skip": false
       },
@@ -1395,6 +1650,36 @@
     ]
   },
   {
+    "name": "MeasurementGuideV10",
+    "fields": [
+      {
+        "name": "id",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "locked",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "start",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "end",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "extra",
+        "flatten": true,
+        "skip": true
+      }
+    ]
+  },
+  {
     "name": "ObjectGroup",
     "fields": [
       {
@@ -1416,6 +1701,36 @@
         "name": "members",
         "flatten": false,
         "skip": false
+      }
+    ]
+  },
+  {
+    "name": "ObjectGroupV10",
+    "fields": [
+      {
+        "name": "id",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "locked",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "name",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "members",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "extra",
+        "flatten": true,
+        "skip": true
       }
     ]
   },
@@ -1506,6 +1821,241 @@
         "name": "quantity",
         "flatten": false,
         "skip": false
+      }
+    ]
+  },
+  {
+    "name": "PlacedPlantV10",
+    "fields": [
+      {
+        "name": "id",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "locked",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "canonical_name",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "common_name",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "color",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "symbol",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "pinned_name",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "position",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "rotation",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "canopy_spread_m",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "notes",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "planted_date",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "quantity",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "extra",
+        "flatten": true,
+        "skip": true
+      }
+    ]
+  },
+  {
+    "name": "PlantDisplayV10",
+    "fields": [
+      {
+        "name": "color_by",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "labels",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "symbol_scale",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "outline",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "extra",
+        "flatten": true,
+        "skip": true
+      }
+    ]
+  },
+  {
+    "name": "PrintBoxFallback",
+    "fields": [
+      {
+        "name": "centre",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "size",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "PrintFramingV10",
+    "fields": [
+      {
+        "name": "paper",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "orientation",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "extra",
+        "flatten": true,
+        "skip": true
+      }
+    ]
+  },
+  {
+    "name": "PrintPageV10",
+    "fields": [
+      {
+        "name": "id",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "name",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "area",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "framing",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "scale",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "extra",
+        "flatten": true,
+        "skip": true
+      }
+    ]
+  },
+  {
+    "name": "PrintSetupV10",
+    "fields": [
+      {
+        "name": "splits",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "pages",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "extra",
+        "flatten": true,
+        "skip": true
+      }
+    ]
+  },
+  {
+    "name": "PrintSizeM",
+    "fields": [
+      {
+        "name": "width_m",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "height_m",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "PrintSplitV10",
+    "fields": [
+      {
+        "name": "id",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "pivot",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "angle_deg",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "extra",
+        "flatten": true,
+        "skip": true
       }
     ]
   },
@@ -1880,6 +2430,81 @@
     ]
   },
   {
+    "name": "SavedObjectStampPayload",
+    "fields": [
+      {
+        "name": "version",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "anchor",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "plants",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "zones",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "annotations",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "measurement_guides",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "groups",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "plant_species_colors",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "plant_species_symbols",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "plant_species_codes",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "consortiums",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "budget",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "timeline",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "extra",
+        "flatten": true,
+        "skip": true
+      }
+    ]
+  },
+  {
     "name": "SavedView",
     "fields": [
       {
@@ -2161,6 +2786,76 @@
         "name": "new_design_labels",
         "flatten": false,
         "skip": false
+      }
+    ]
+  },
+  {
+    "name": "SiteDataEntryV10",
+    "fields": [
+      {
+        "name": "id",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "name",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "visible",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "opacity",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "order",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "ramp",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "reversed",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "range",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "extra",
+        "flatten": true,
+        "skip": true
+      }
+    ]
+  },
+  {
+    "name": "SiteDataSectionV10",
+    "fields": [
+      {
+        "name": "visible",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "entries",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "extra",
+        "flatten": true,
+        "skip": true
       }
     ]
   },
@@ -3200,6 +3895,341 @@
     ]
   },
   {
+    "name": "StampAnnotation",
+    "fields": [
+      {
+        "name": "id",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "locked",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "annotation_type",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "position",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "text",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "font_size",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "rotation_deg",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "extra",
+        "flatten": true,
+        "skip": true
+      }
+    ]
+  },
+  {
+    "name": "StampBudgetLine",
+    "fields": [
+      {
+        "name": "canonical_name",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "unit_cost",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "extra",
+        "flatten": true,
+        "skip": true
+      }
+    ]
+  },
+  {
+    "name": "StampCareAction",
+    "fields": [
+      {
+        "name": "id",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "action_type",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "description",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "offset_days",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "recurrence",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "targets",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "extra",
+        "flatten": true,
+        "skip": true
+      }
+    ]
+  },
+  {
+    "name": "StampConsortium",
+    "fields": [
+      {
+        "name": "canonical_name",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "stratum",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "start_phase",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "end_phase",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "extra",
+        "flatten": true,
+        "skip": true
+      }
+    ]
+  },
+  {
+    "name": "StampGroup",
+    "fields": [
+      {
+        "name": "id",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "locked",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "name",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "members",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "extra",
+        "flatten": true,
+        "skip": true
+      }
+    ]
+  },
+  {
+    "name": "StampGuide",
+    "fields": [
+      {
+        "name": "id",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "locked",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "start",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "end",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "extra",
+        "flatten": true,
+        "skip": true
+      }
+    ]
+  },
+  {
+    "name": "StampPlant",
+    "fields": [
+      {
+        "name": "id",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "canonical_name",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "common_name",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "color",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "symbol",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "pinned_name",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "locked",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "position",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "rotation_deg",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "canopy_spread_m",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "notes",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "extra",
+        "flatten": true,
+        "skip": true
+      }
+    ]
+  },
+  {
+    "name": "StampPoint",
+    "fields": [
+      {
+        "name": "x",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "y",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "StampZone",
+    "fields": [
+      {
+        "name": "id",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "name",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "locked",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "zone_type",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "points",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "rotation_deg",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "fill_color",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "stroke_color",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "opacity",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "notes",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "extra",
+        "flatten": true,
+        "skip": true
+      }
+    ]
+  },
+  {
     "name": "StoreHealth",
     "fields": [
       {
@@ -3335,6 +4365,71 @@
     ]
   },
   {
+    "name": "TimelineActionV10",
+    "fields": [
+      {
+        "name": "id",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "action_type",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "description",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "start_date",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "end_date",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "offset_days",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "recurrence",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "targets",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "depends_on",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "completed",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "order",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "extra",
+        "flatten": true,
+        "skip": true
+      }
+    ]
+  },
+  {
     "name": "ToolProvenance",
     "fields": [
       {
@@ -3436,6 +4531,66 @@
         "name": "notes",
         "flatten": false,
         "skip": false
+      }
+    ]
+  },
+  {
+    "name": "ZoneV10",
+    "fields": [
+      {
+        "name": "id",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "name",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "locked",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "zone_type",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "points",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "rotation",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "fill_color",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "stroke_color",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "opacity",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "notes",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "extra",
+        "flatten": true,
+        "skip": true
       }
     ]
   }

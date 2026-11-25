@@ -49,6 +49,7 @@ const SPECIES_SEARCH_NORMALIZATION_TS: &str =
     "desktop/web/src/generated/species-search-normalization.ts";
 const WEB_CATALOG_MODULE: &str = "desktop/web/src/generated/web-catalog-artifact.mjs";
 const WEB_CATALOG_DECLARATION: &str = "desktop/web/src/generated/web-catalog-artifact.d.mts";
+const V9_SPEC_SCHEMA_JSON: &str = "canopi-format/spec/v9/schema.json";
 const V10_SPEC_SCHEMA_JSON: &str = "canopi-format/spec/v10/schema.json";
 const V10_SPEC_FIELDS_JSON: &str = "canopi-format/spec/v10/fields.json";
 const V10_SPEC_DEFAULTS_JSON: &str = "canopi-format/spec/v10/defaults.json";
@@ -58,6 +59,8 @@ const V10_SPEC_ADDITION_PRINT_SETUP: &str = "canopi-format/spec/v10/additions/pr
 const V10_SPEC_ADDITION_ZONE_STYLE: &str = "canopi-format/spec/v10/additions/zone_style.json";
 const V10_SPEC_ADDITION_TIMELINE_OFFSET: &str =
     "canopi-format/spec/v10/additions/timeline_offset.json";
+const STAMP_V2_SPEC_SCHEMA_JSON: &str = "canopi-format/spec/stamps/v2/schema.json";
+const STAMP_V3_SPEC_SCHEMA_JSON: &str = "canopi-format/spec/stamps/v3/schema.json";
 
 struct EmittedArtifact {
     relative_path: &'static str,
@@ -106,6 +109,16 @@ const EMITTERS: &[EmitterFn] = &[
 ];
 
 fn emit_v10_spec(_source_root: &Path) -> Result<Vec<EmittedArtifact>, Box<dyn Error>> {
+    let v9_schema = canopi_types::design::canopi_file_json_schema();
+    let v10_schema = canopi_types::design::v10::canopi_file_v10_json_schema();
+    let print_setup_schema = canopi_types::design::v10::print_setup_v10_json_schema();
+    let stamp_v2_schema = canopi_types::saved_object_stamps::stamp_payload_v2_json_schema();
+    let stamp_v3_schema = canopi_types::saved_object_stamps::stamp_payload_v3_json_schema();
+
+    if let Some(bad) = canopi_format::schema::unsupported_keyword(&v10_schema) {
+        return Err(format!("v10 schema uses unsupported keyword: {bad}").into());
+    }
+
     let paths: &[(&str, &'static str)] = &[
         ("schema.json", V10_SPEC_SCHEMA_JSON),
         ("fields.json", V10_SPEC_FIELDS_JSON),
@@ -119,8 +132,12 @@ fn emit_v10_spec(_source_root: &Path) -> Result<Vec<EmittedArtifact>, Box<dyn Er
             V10_SPEC_ADDITION_TIMELINE_OFFSET,
         ),
     ];
-    let emitted = canopi_format::spec_emit::emit_v10_spec_files();
-    let mut out = Vec::with_capacity(emitted.len());
+    let emitted = canopi_format::spec_emit::emit_v10_spec_files(&v10_schema, &print_setup_schema);
+    let mut out = Vec::with_capacity(emitted.len() + 3);
+    out.push(EmittedArtifact::text(
+        V9_SPEC_SCHEMA_JSON,
+        canopi_format::spec_emit::pretty_canonical_json(&v9_schema),
+    ));
     for file in emitted {
         let dest = paths
             .iter()
@@ -129,6 +146,14 @@ fn emit_v10_spec(_source_root: &Path) -> Result<Vec<EmittedArtifact>, Box<dyn Er
             .ok_or_else(|| format!("unmapped v10 spec file: {}", file.relative_path))?;
         out.push(EmittedArtifact::text(dest, file.content));
     }
+    out.push(EmittedArtifact::text(
+        STAMP_V2_SPEC_SCHEMA_JSON,
+        canopi_format::spec_emit::pretty_canonical_json(&stamp_v2_schema),
+    ));
+    out.push(EmittedArtifact::text(
+        STAMP_V3_SPEC_SCHEMA_JSON,
+        canopi_format::spec_emit::pretty_canonical_json(&stamp_v3_schema),
+    ));
     Ok(out)
 }
 

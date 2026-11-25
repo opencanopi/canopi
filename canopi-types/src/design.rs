@@ -7,7 +7,12 @@ use specta::Type;
 
 mod admission;
 pub mod field_path;
-pub use admission::{admit_design_identities_and_ranges, validate_design_geometry};
+pub mod v10;
+mod v10_print;
+pub use admission::{
+    V10AdmissionMode, admit_design_identities_and_ranges, admit_design_v10,
+    normalise_v10_on_decode, validate_design_geometry,
+};
 
 #[expect(
     missing_docs,
@@ -643,7 +648,7 @@ pub struct Consortium {
 }
 
 #[cfg_attr(feature = "design-schema", derive(schemars::JsonSchema))]
-#[derive(Debug, Clone, Default, Serialize, Deserialize, Type)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, Type)]
 #[serde(tag = "kind")]
 #[expect(
     missing_docs,

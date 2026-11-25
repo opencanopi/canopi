@@ -209,8 +209,8 @@ pub fn migrate_v9_to_v10(mut value: Value) -> Result<Value, StepFailure> {
     migrate_plants(root)?;
     migrate_site_data(root);
     migrate_plant_display(root);
-    migrate_budget(root);
-    normalise_groups_value(root);
+    migrate_budget(root)?;
+    normalise_groups_v9_step(root);
 
     Ok(value)
 }
@@ -298,7 +298,7 @@ fn migrate_plant_display(root: &mut Map<String, Value>) {
     }
 }
 
-fn migrate_budget(root: &mut Map<String, Value>) {
+fn migrate_budget(root: &mut Map<String, Value>) -> Result<(), StepFailure> {
     let design_currency = root
         .get("budget_currency")
         .and_then(Value::as_str)
@@ -309,13 +309,16 @@ fn migrate_budget(root: &mut Map<String, Value>) {
         root.insert("budget_currency".to_owned(), json!(design_currency));
     }
     let Some(budget) = root.get_mut("budget").and_then(Value::as_array_mut) else {
-        return;
+        return Ok(());
     };
     let mut plant_lines = Vec::new();
     let mut non_plant_lines = Vec::new();
     for line in budget.drain(..) {
         let Some(mut obj) = line.as_object().cloned() else {
-            continue;
+            return Err(StepFailure {
+                from: 9,
+                reason: "budget line is not a JSON object".to_owned(),
+            });
         };
         let target_kind = obj
             .get("target")
@@ -359,11 +362,12 @@ fn migrate_budget(root: &mut Map<String, Value>) {
             json!({ "non_plant_lines": non_plant_lines }),
         );
     }
+    Ok(())
 }
 
-/// Normalises `groups` on a JSON `.canopi` root in place: removes dangling or duplicate
-/// members and drops groups with fewer than two remaining members (contracts §10).
-pub(crate) fn normalise_groups_value(root: &mut Map<String, Value>) {
+// Frozen group normaliser private to the v9->v10 migration step so live decode changes
+// cannot silently alter the frozen step output (ADR 0026).
+fn normalise_groups_v9_step(root: &mut Map<String, Value>) {
     let plant_ids = collect_ids(root.get("plants"));
     let zone_ids = collect_ids(root.get("zones"));
     let annotation_ids = collect_ids(root.get("annotations"));

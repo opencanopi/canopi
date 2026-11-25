@@ -1,24 +1,28 @@
 //! The `.canopi` v10 Format Core (ADR 0026, contracts §10; 2.1-Q34, 2.1-Q347,
 //! 2.1-M156, 2.1-M539, canopi-gjs3).
 //!
-//! One decode/encode/admission choke point shared natively on Desktop and via
-//! `canopi-format-wasm` on Web. Every write passes schema + semantic write
-//! admission and emits canonical sorted-key JSON (`2.1-M156`).
+//! One decode/encode/admission choke point built directly on the typed [`CanopiFileV10`]
+//! model and [`canopi_types::design::admit_design_v10`], shared natively on Desktop and via
+//! `canopi-format-wasm` on Web. Every v9 input is validated against the frozen
+//! `spec/v9/schema.json` before stepping; every v10 value is validated against the emitted
+//! `spec/v10/schema.json` and typed admission; every write emits canonical sorted-key JSON.
+
+use std::sync::OnceLock;
 
 use canopi_types::design::field_path::{FieldPath, Refusal};
-use canopi_types::design::{DEFAULT_BUDGET_CURRENCY, DesignLoadFailureKind};
+use canopi_types::design::v10::{CanopiFileV10, FormatLoadRefusalKind};
+use canopi_types::design::{
+    DEFAULT_BUDGET_CURRENCY, V10AdmissionMode, admit_design_v10, normalise_v10_on_decode,
+};
 use canopi_types::store_chain::Admission;
 use serde::{Deserialize, Serialize};
-use serde_json::{Map, Value, json};
+use serde_json::{Value, json};
 
 use crate::chain::{
-    CANOPI_CURRENT, PreUpgradeCopyDecision, admit_canopi_version, canonical_json_string,
-    canonicalize_json, normalise_groups_value, pre_upgrade_copy_decision, release_label,
+    CANOPI_CURRENT, admit_canopi_version, canonical_json_string, canonicalize_json, release_label,
     run_migration_steps,
 };
-use crate::core_validate::{AdmissionMode, admit_design, dedup_site_data_on_decode};
 use crate::schema::admit_schema;
-use crate::v10::read_schema;
 
 /// Maximum `.canopi` file size admitted by the Format Core (64 MiB, matches Desktop `format.rs`).
 pub const MAX_CANOPI_FILE_BYTES: u64 = 64 * 1024 * 1024;
@@ -26,216 +30,257 @@ pub const MAX_CANOPI_FILE_BYTES: u64 = 64 * 1024 * 1024;
 /// Crate version reported by the Format Core (contracts §10).
 pub const FORMAT_CORE_VERSION: &str = env!("CARGO_PKG_VERSION");
 
+/// Frozen v9 `.canopi` schema validated before running the v9→v10 step (contracts §10 `:424`).
+#[must_use]
+pub fn v9_schema() -> Option<&'static Value> {
+    static SCHEMA: OnceLock<Option<Value>> = OnceLock::new();
+    SCHEMA
+        .get_or_init(|| serde_json::from_str(include_str!("../spec/v9/schema.json")).ok())
+        .as_ref()
+}
+
+/// Full emitted v10 `.canopi` schema walked by decode and write admission (`2.1-M31`).
+#[must_use]
+pub fn v10_schema() -> Option<&'static Value> {
+    static SCHEMA: OnceLock<Option<Value>> = OnceLock::new();
+    SCHEMA
+        .get_or_init(|| serde_json::from_str(include_str!("../spec/v10/schema.json")).ok())
+        .as_ref()
+}
+
 /// Outcome of decoding a `.canopi` file through the v10 Format Core.
+///
+/// Pure format output only: the host adapter (which knows the home kind and file stem)
+/// calls [`crate::chain::pre_upgrade_copy_decision`] when `migrated_from` is `Some(_)`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct OpenedDesign {
     /// Admitted, canonicalised v10 `.canopi` JSON object.
     pub design: Value,
-    /// Original format version when migrated forward (e.g. `Some(9)`), or `None` when already v10.
+    /// Present when the input was migrated from an earlier format version (e.g. `Some(9)`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub migrated_from: Option<u32>,
-    /// Frozen release label for `migrated_from` (e.g. `Some("2.0")`).
-    pub release_label: Option<String>,
-    /// Pre-upgrade backup decision metadata for Desktop file/Draft homes (2.1-Q35r, 2.1-Q348).
-    pub copy_decision: PreUpgradeCopyDecision,
+    /// Frozen release label for `migrated_from` (e.g. `Some("2.0")`), from [`release_label`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub migrated_from_release: Option<String>,
 }
 
-/// Typed refusal returned by [`decode_design`] and [`encode_design`] (contracts §10, canopi-cyqd).
+/// Structured refusal returned by the Format Core on decode or encode failure.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct FormatRefusal {
-    /// Failure kind mapped to user-facing copy.
-    pub kind: DesignLoadFailureKind,
-    /// Redacted English diagnostic naming what was expected (never a file value).
+    /// Structured refusal kind (`migration_failed{from}`, `newer_version`, `invalid_document`, etc.).
+    pub kind: FormatLoadRefusalKind,
+    /// Diagnostic message (never contains user file values or paths, `2.1-Q286`).
     pub message: String,
-    /// Leaf field path in the Design where admission failed.
-    pub field_path: Option<FieldPath>,
-    /// Populated when a migration step failed (`design_load{migration_failed{from}}`).
+    /// Optional leaf field path for diagnostics and Problem Reports.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub migration_from: Option<u32>,
+    pub field_path: Option<FieldPath>,
 }
 
 impl FormatRefusal {
-    pub(crate) fn invalid_document(path: FieldPath, expected: impl Into<String>) -> Self {
+    fn invalid_document(path: FieldPath, expected: impl Into<String>) -> Self {
         let refusal = Refusal::new(path, expected);
         Self {
-            kind: DesignLoadFailureKind::InvalidDocument,
+            kind: FormatLoadRefusalKind::InvalidDocument,
             message: refusal.to_string(),
             field_path: Some(refusal.field_path),
-            migration_from: None,
+        }
+    }
+
+    fn from_refusal(refusal: Refusal) -> Self {
+        Self {
+            kind: FormatLoadRefusalKind::InvalidDocument,
+            message: refusal.to_string(),
+            field_path: Some(refusal.field_path),
         }
     }
 }
 
-/// Input to [`new_design`] (contracts §10: carries `plant_display` defaults from settings).
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// Input to [`new_design`] carrying settings-derived `plant_display` defaults (contracts §10).
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct NewDesignInput {
-    /// Initial Design name (unnamed Designs store `""`, contracts §4).
+    /// Initial Design name (empty for Untitled).
     #[serde(default)]
     pub name: String,
-    /// Optional `plant_display` defaults from Settings › New Designs.
+    /// Optional `plant_display` defaults from Settings.
     #[serde(default)]
     pub plant_display: Option<Value>,
-    /// ISO 8601 creation timestamp supplied by the caller's injected clock.
+    /// ISO-8601 creation/update timestamp supplied by the host clock.
+    #[serde(default)]
     pub created_at: String,
 }
 
-/// Summary derived from raw Draft bytes by [`draft_summary`] (contracts §4, §10).
+/// Summary outcome for a Draft listing row (contracts §10).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DraftSummaryOutcome {
-    /// Stored Design name (empty when unnamed or unreadable).
+    /// Design name (empty if unreadable).
     pub name: String,
-    /// Last-updated timestamp passed in from the store record.
+    /// Last updated timestamp (from file if readable, else caller fallback).
     pub updated_at: String,
-    /// `true` when the Draft decodes cleanly through the v10 Format Core.
+    /// True when the Draft opens cleanly through the Format Core.
     pub readable: bool,
-    /// Failure kind when `readable == false` (unreadable Drafts are listed, never hidden).
+    /// Refusal kind when `readable` is false (listed as unreadable, never hidden).
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub refusal_kind: Option<DesignLoadFailureKind>,
-    /// Original format version when the Draft is a v9 Draft pending migration on first edit.
+    pub refusal_kind: Option<FormatLoadRefusalKind>,
+    /// Source version when the Draft will migrate on open.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub migrated_from: Option<u32>,
 }
 
-/// Decodes raw `.canopi` bytes through size cap, JSON parse, `store_chain::admit_form_version`,
-/// v9→v10 migration, frozen v10 schema walk, and semantic admission (contracts §10).
+/// Decodes raw `.canopi` bytes through size cap, JSON parse, version admission,
+/// frozen v9 schema walk + pure v9→v10 migration step (when applicable), full v10 schema walk,
+/// typed [`CanopiFileV10`] decode + normalisation, and single typed [`admit_design_v10`].
 ///
 /// # Errors
 ///
-/// Returns [`FormatRefusal`] with `too_large`, `invalid_json`, `older_version`,
-/// `newer_version`, or `invalid_document`.
+/// Returns [`FormatRefusal`] with `FormatLoadRefusalKind::TooLarge`, `InvalidJson`,
+/// `OlderVersion`, `NewerVersion`, `MigrationFailed { from }`, or `InvalidDocument`.
 pub fn decode_design(bytes: &[u8]) -> Result<OpenedDesign, FormatRefusal> {
     if bytes.len() as u64 > MAX_CANOPI_FILE_BYTES {
         return Err(FormatRefusal {
-            kind: DesignLoadFailureKind::TooLarge,
-            message: "the Design exceeds the maximum readable size".to_owned(),
-            field_path: Some(FieldPath::root()),
-            migration_from: None,
+            kind: FormatLoadRefusalKind::TooLarge,
+            message: format!("file exceeds {MAX_CANOPI_FILE_BYTES} bytes"),
+            field_path: None,
         });
     }
-    let mut value: Value = serde_json::from_slice(bytes).map_err(|_| FormatRefusal {
-        kind: DesignLoadFailureKind::InvalidJson,
-        message: "the Design is not valid JSON".to_owned(),
-        field_path: Some(FieldPath::root()),
-        migration_from: None,
+    let raw: Value = serde_json::from_slice(bytes).map_err(|_| FormatRefusal {
+        kind: FormatLoadRefusalKind::InvalidJson,
+        message: "expected valid JSON".to_owned(),
+        field_path: None,
     })?;
-
-    let version = read_integer_version(&value)?;
-    let migrated_from = match admit_canopi_version(Some(version)) {
-        Admission::Absent => {
-            return Err(FormatRefusal::invalid_document(
-                FieldPath::root().field("version"),
-                "expected a format version",
-            ));
-        }
-        Admission::BeforeFloor { .. } => {
-            return Err(FormatRefusal {
-                kind: DesignLoadFailureKind::OlderVersion,
-                message: "the Design was saved by an older Canopi version".to_owned(),
-                field_path: Some(FieldPath::root().field("version")),
-                migration_from: None,
-            });
-        }
-        Admission::RefusedNewer { .. } | Admission::NewerReadable { .. } => {
-            return Err(FormatRefusal {
-                kind: DesignLoadFailureKind::NewerVersion,
-                message: "the Design was saved by a newer Canopi version".to_owned(),
-                field_path: Some(FieldPath::root().field("version")),
-                migration_from: None,
-            });
-        }
-        Admission::Migratable { from } => {
-            value = run_migration_steps(value, from).map_err(|err| FormatRefusal {
-                kind: DesignLoadFailureKind::InvalidDocument,
-                message: format!("migration from v{} failed: {}", err.from, err.reason),
-                field_path: Some(FieldPath::root()),
-                migration_from: Some(err.from),
-            })?;
-            Some(from)
-        }
-        Admission::Current => None,
-    };
-
-    admit_v10_value(&value, AdmissionMode::Decode)?;
-    if let Some(root) = value.as_object_mut() {
-        normalise_groups_value(root);
-        dedup_site_data_on_decode(root);
-    }
-
-    let design = canonicalize_json(&value);
-    let stem = design
-        .get("name")
-        .and_then(Value::as_str)
-        .filter(|s| !s.trim().is_empty());
-    let copy_decision = pre_upgrade_copy_decision(migrated_from, stem);
-    let label = migrated_from.and_then(release_label).map(ToOwned::to_owned);
-
-    Ok(OpenedDesign {
-        design,
-        migrated_from,
-        release_label: label,
-        copy_decision,
-    })
+    decode_design_value(raw)
 }
 
-/// Validates a v10 `.canopi` JSON value under strict write admission (`canopi-gjs3`)
-/// and encodes it canonically with sorted keys (`2.1-M156`).
+/// Decodes a parsed JSON value through the v10 Format Core.
 ///
 /// # Errors
 ///
-/// Returns [`FormatRefusal`] naming the first offending field path if write admission fails.
+/// Returns [`FormatRefusal`] on version, schema, migration, or semantic admission failure.
+pub fn decode_design_value(raw: Value) -> Result<OpenedDesign, FormatRefusal> {
+    let version = read_integer_version(&raw)?;
+    let (migrated_from, candidate) = match admit_canopi_version(Some(version)) {
+        Admission::Absent | Admission::BeforeFloor { .. } => {
+            return Err(FormatRefusal {
+                kind: FormatLoadRefusalKind::OlderVersion,
+                message: format!("format version {version} is older than Canopi 2.0"),
+                field_path: Some(FieldPath::root().field("version")),
+            });
+        }
+        Admission::NewerReadable { .. } | Admission::RefusedNewer { .. } => {
+            return Err(FormatRefusal {
+                kind: FormatLoadRefusalKind::NewerVersion,
+                message: format!("format version {version} is newer than Canopi 2.1"),
+                field_path: Some(FieldPath::root().field("version")),
+            });
+        }
+        Admission::Migratable { from } => {
+            // Contracts §10 :424: validate step input against the frozen vN-1 schema before stepping.
+            if from == 9 {
+                let schema_v9 = v9_schema().ok_or_else(|| {
+                    FormatRefusal::invalid_document(FieldPath::root(), "a valid frozen v9 schema")
+                })?;
+                admit_schema(&raw, schema_v9).map_err(FormatRefusal::from_refusal)?;
+            }
+            let migrated = run_migration_steps(raw, from).map_err(|step_err| FormatRefusal {
+                kind: FormatLoadRefusalKind::MigrationFailed {
+                    from: step_err.from,
+                },
+                message: format!(
+                    "migration from v{} failed: {}",
+                    step_err.from, step_err.reason
+                ),
+                field_path: Some(FieldPath::root()),
+            })?;
+            (Some(from), migrated)
+        }
+        Admission::Current => (None, raw),
+    };
+
+    let mut typed = parse_and_admit_v10(&candidate, V10AdmissionMode::Decode)?;
+    normalise_v10_on_decode(&mut typed);
+    let canonical = serde_json::to_value(&typed)
+        .map(|v| canonicalize_json(&v))
+        .map_err(|_| {
+            FormatRefusal::invalid_document(FieldPath::root(), "serialisable v10 CanopiFile")
+        })?;
+
+    Ok(OpenedDesign {
+        design: canonical,
+        migrated_from,
+        migrated_from_release: migrated_from.and_then(release_label).map(ToOwned::to_owned),
+    })
+}
+
+/// Validates and canonically encodes a v10 `.canopi` Design (`canopi-gjs3`, `2.1-M156`).
+///
+/// Write admission refuses non-v10 versions, dangling/duplicate/<2 group members,
+/// duplicate `site_data` entry ids, invalid `print_setup` split references, and files > 64 MiB.
+///
+/// # Errors
+///
+/// Returns [`FormatRefusal`] on version, schema, semantic, or size-cap failure.
 pub fn encode_design(design: &Value) -> Result<Vec<u8>, FormatRefusal> {
     let version = read_integer_version(design)?;
     if version != CANOPI_CURRENT {
         return Err(FormatRefusal::invalid_document(
             FieldPath::root().field("version"),
-            format!("expected current format version {CANOPI_CURRENT}"),
+            format!("expected current format version {CANOPI_CURRENT} on write"),
         ));
     }
-    admit_v10_value(design, AdmissionMode::Write)?;
-    let bytes = canonical_json_string(design).into_bytes();
+    let typed = parse_and_admit_v10(design, V10AdmissionMode::Write)?;
+    let value = serde_json::to_value(&typed).map_err(|_| {
+        FormatRefusal::invalid_document(FieldPath::root(), "serialisable v10 CanopiFile")
+    })?;
+    let bytes = canonical_json_string(&value).into_bytes();
     if bytes.len() as u64 > MAX_CANOPI_FILE_BYTES {
         return Err(FormatRefusal {
-            kind: DesignLoadFailureKind::TooLarge,
-            message: "the encoded Design exceeds the maximum size".to_owned(),
-            field_path: Some(FieldPath::root()),
-            migration_from: None,
+            kind: FormatLoadRefusalKind::TooLarge,
+            message: format!("encoded file exceeds {MAX_CANOPI_FILE_BYTES} bytes"),
+            field_path: None,
         });
     }
     Ok(bytes)
 }
 
-/// Constructs a valid canonical v10 Design from [`NewDesignInput`] (contracts §10).
+/// Builds a canonical new v10 `.canopi` Design document from [`NewDesignInput`].
 #[must_use]
 pub fn new_design(input: &NewDesignInput) -> Value {
-    let mut root = Map::new();
-    root.insert("version".to_owned(), json!(CANOPI_CURRENT));
-    root.insert("name".to_owned(), json!(input.name));
-    root.insert("description".to_owned(), Value::Null);
-    root.insert("plant_species_colors".to_owned(), json!({}));
-    root.insert("plant_species_symbols".to_owned(), json!({}));
-    root.insert("plant_species_codes".to_owned(), json!({}));
-    root.insert("layers".to_owned(), json!([]));
-    root.insert("plants".to_owned(), json!([]));
-    root.insert("zones".to_owned(), json!([]));
-    root.insert("annotations".to_owned(), json!([]));
-    root.insert("measurement_guides".to_owned(), json!([]));
-    root.insert("consortiums".to_owned(), json!([]));
-    root.insert("groups".to_owned(), json!([]));
-    root.insert("timeline".to_owned(), json!([]));
-    root.insert("budget".to_owned(), json!([]));
-    root.insert("budget_currency".to_owned(), json!(DEFAULT_BUDGET_CURRENCY));
-    if let Some(display) = &input.plant_display
-        && !display.is_null()
-    {
-        root.insert("plant_display".to_owned(), display.clone());
-    }
-    root.insert("views".to_owned(), json!([]));
-    root.insert("stories".to_owned(), json!([]));
-    root.insert("created_at".to_owned(), json!(input.created_at));
-    root.insert("updated_at".to_owned(), json!(input.created_at));
-    canonicalize_json(&Value::Object(root))
+    let plant_display = input
+        .plant_display
+        .as_ref()
+        .filter(|v| !v.is_null())
+        .and_then(|v| serde_json::from_value(v.clone()).ok());
+    let file = CanopiFileV10 {
+        version: CANOPI_CURRENT,
+        name: input.name.clone(),
+        description: None,
+        plant_species_colors: Default::default(),
+        plant_species_symbols: Default::default(),
+        plant_species_codes: Default::default(),
+        layers: Vec::new(),
+        plants: Vec::new(),
+        zones: Vec::new(),
+        annotations: Vec::new(),
+        measurement_guides: Vec::new(),
+        consortiums: Vec::new(),
+        groups: Vec::new(),
+        timeline: Vec::new(),
+        budget: Vec::new(),
+        budget_currency: DEFAULT_BUDGET_CURRENCY.to_owned(),
+        budget_ext: None,
+        site_data: None,
+        plant_display,
+        print_setup: None,
+        views: Vec::new(),
+        stories: Vec::new(),
+        map_view: None,
+        created_at: input.created_at.clone(),
+        updated_at: input.created_at.clone(),
+        extra: Default::default(),
+    };
+    canonicalize_json(&serde_json::to_value(file).unwrap_or_else(|_| json!({})))
 }
 
-/// Derives a Draft's list summary by decoding its raw bytes (contracts §4, §10).
+/// Summarises raw Draft bytes for listing through the one decode choke point (contracts §10).
 #[must_use]
 pub fn draft_summary(bytes: &[u8], updated_at: &str) -> DraftSummaryOutcome {
     match decode_design(bytes) {
@@ -246,7 +291,13 @@ pub fn draft_summary(bytes: &[u8], updated_at: &str) -> DraftSummaryOutcome {
                 .and_then(Value::as_str)
                 .unwrap_or("")
                 .to_owned(),
-            updated_at: updated_at.to_owned(),
+            updated_at: opened
+                .design
+                .get("updated_at")
+                .and_then(Value::as_str)
+                .filter(|s| !s.is_empty())
+                .unwrap_or(updated_at)
+                .to_owned(),
             readable: true,
             refusal_kind: None,
             migrated_from: opened.migrated_from,
@@ -287,15 +338,20 @@ fn read_integer_version(value: &Value) -> Result<u32, FormatRefusal> {
     ))
 }
 
-fn admit_v10_value(value: &Value, mode: AdmissionMode) -> Result<(), FormatRefusal> {
-    let schema = read_schema().ok_or_else(|| {
-        FormatRefusal::invalid_document(FieldPath::root(), "a valid frozen v10 schema")
+fn parse_and_admit_v10(
+    value: &Value,
+    mode: V10AdmissionMode,
+) -> Result<CanopiFileV10, FormatRefusal> {
+    let schema = v10_schema().ok_or_else(|| {
+        FormatRefusal::invalid_document(FieldPath::root(), "a valid emitted v10 schema")
     })?;
-    admit_schema(value, schema).map_err(|refusal| FormatRefusal {
-        kind: DesignLoadFailureKind::InvalidDocument,
-        message: refusal.to_string(),
-        field_path: Some(refusal.field_path),
-        migration_from: None,
+    admit_schema(value, schema).map_err(FormatRefusal::from_refusal)?;
+    let mut typed: CanopiFileV10 = serde_json::from_value(value.clone()).map_err(|_| {
+        FormatRefusal::invalid_document(FieldPath::root(), "a valid v10 CanopiFile")
     })?;
-    admit_design(value, mode)
+    if mode == V10AdmissionMode::Decode {
+        normalise_v10_on_decode(&mut typed);
+    }
+    admit_design_v10(&typed, mode).map_err(FormatRefusal::from_refusal)?;
+    Ok(typed)
 }

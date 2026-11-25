@@ -10,18 +10,307 @@
   ],
   "optional": true,
   "schema": {
+    "$defs": {
+      "AlongPageM": {
+        "properties": {
+          "down_m": {
+            "format": "double",
+            "type": "number"
+          },
+          "right_m": {
+            "format": "double",
+            "type": "number"
+          }
+        },
+        "required": [
+          "right_m",
+          "down_m"
+        ],
+        "type": "object"
+      },
+      "GeoPoint": {
+        "properties": {
+          "lat": {
+            "format": "double",
+            "maximum": 85.0511287798066,
+            "minimum": -85.0511287798066,
+            "type": "number"
+          },
+          "lon": {
+            "format": "double",
+            "maximum": 180.0,
+            "minimum": -180.0,
+            "type": "number"
+          }
+        },
+        "required": [
+          "lon",
+          "lat"
+        ],
+        "type": "object"
+      },
+      "PrintAreaV10": {
+        "oneOf": [
+          {
+            "properties": {
+              "angle_deg": {
+                "format": "double",
+                "type": "number"
+              },
+              "centre": {
+                "$ref": "#/$defs/GeoPoint"
+              },
+              "kind": {
+                "const": "box",
+                "type": "string"
+              },
+              "size": {
+                "$ref": "#/$defs/PrintSizeM"
+              }
+            },
+            "required": [
+              "kind",
+              "centre",
+              "size",
+              "angle_deg"
+            ],
+            "type": "object"
+          },
+          {
+            "properties": {
+              "angle_deg": {
+                "format": "double",
+                "type": "number"
+              },
+              "fallback": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/PrintBoxFallback"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "kind": {
+                "const": "whole_design",
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "angle_deg"
+            ],
+            "type": "object"
+          },
+          {
+            "properties": {
+              "along_page": {
+                "$ref": "#/$defs/AlongPageM"
+              },
+              "kind": {
+                "const": "split_sheet",
+                "type": "string"
+              },
+              "size": {
+                "$ref": "#/$defs/PrintSizeM"
+              },
+              "split": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "split",
+              "along_page",
+              "size"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "PrintBoxFallback": {
+        "properties": {
+          "centre": {
+            "$ref": "#/$defs/GeoPoint"
+          },
+          "size": {
+            "$ref": "#/$defs/PrintSizeM"
+          }
+        },
+        "required": [
+          "centre",
+          "size"
+        ],
+        "type": "object"
+      },
+      "PrintFramingV10": {
+        "additionalProperties": true,
+        "properties": {
+          "orientation": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "paper": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "type": "object"
+      },
+      "PrintPageV10": {
+        "additionalProperties": true,
+        "properties": {
+          "area": {
+            "$ref": "#/$defs/PrintAreaV10"
+          },
+          "framing": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/PrintFramingV10"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "scale": {
+            "$ref": "#/$defs/PrintScaleV10"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "area",
+          "scale"
+        ],
+        "type": "object"
+      },
+      "PrintScaleV10": {
+        "oneOf": [
+          {
+            "properties": {
+              "kind": {
+                "const": "fit",
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind"
+            ],
+            "type": "object"
+          },
+          {
+            "properties": {
+              "denominator": {
+                "format": "uint32",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "kind": {
+                "const": "ratio",
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "denominator"
+            ],
+            "type": "object"
+          },
+          {
+            "properties": {
+              "feet": {
+                "format": "double",
+                "type": "number"
+              },
+              "inches": {
+                "format": "double",
+                "type": "number"
+              },
+              "kind": {
+                "const": "customary",
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "inches",
+              "feet"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "PrintSizeM": {
+        "properties": {
+          "height_m": {
+            "format": "double",
+            "type": "number"
+          },
+          "width_m": {
+            "format": "double",
+            "type": "number"
+          }
+        },
+        "required": [
+          "width_m",
+          "height_m"
+        ],
+        "type": "object"
+      },
+      "PrintSplitV10": {
+        "additionalProperties": true,
+        "properties": {
+          "angle_deg": {
+            "format": "double",
+            "type": "number"
+          },
+          "id": {
+            "type": "string"
+          },
+          "pivot": {
+            "$ref": "#/$defs/GeoPoint"
+          }
+        },
+        "required": [
+          "id",
+          "pivot",
+          "angle_deg"
+        ],
+        "type": "object"
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "additionalProperties": true,
     "properties": {
       "pages": {
+        "default": [],
+        "items": {
+          "$ref": "#/$defs/PrintPageV10"
+        },
         "type": "array"
       },
       "splits": {
+        "default": [],
+        "items": {
+          "$ref": "#/$defs/PrintSplitV10"
+        },
         "type": "array"
       }
     },
-    "type": [
-      "object",
-      "null"
-    ]
+    "title": "PrintSetupV10",
+    "type": "object"
   },
   "target": "$.print_setup"
 }

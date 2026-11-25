@@ -171,6 +171,10 @@
           "angle_deg": 0.0,
           "kind": "whole_design"
         },
+        "framing": {
+          "orientation": "landscape",
+          "paper": "A4"
+        },
         "id": "page-1",
         "name": "Overview",
         "scale": {

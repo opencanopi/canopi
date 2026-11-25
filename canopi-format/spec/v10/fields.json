@@ -3,7 +3,7 @@
   "fields": [
     {
       "key": "version",
-      "owner": "format",
+      "owner": "scene",
       "required": true
     },
     {
@@ -113,17 +113,17 @@
     },
     {
       "key": "map_view",
-      "owner": "format",
+      "owner": "scene",
       "required": false
     },
     {
       "key": "created_at",
-      "owner": "format",
+      "owner": "document",
       "required": false
     },
     {
       "key": "updated_at",
-      "owner": "format",
+      "owner": "scene",
       "required": false
     }
   ],

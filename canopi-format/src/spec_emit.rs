@@ -1,20 +1,15 @@
 //! Deterministic emitter for `canopi-format/spec/v10/` and `spec/v10/additions/`
 //! (contracts §10, ADR 0026; 2.1-Q7, 2.1-Q36, 2.1-M31, 2.1-M94, 2.1-M161, 2.1-Q355).
 //!
-//! Emits the full v10 spec bundle alongside the frozen `spec/v10/read-schema.json`
-//! from Step 2.0.4:
-//! - `schema.json`: full v10 schema (strictly compatible with `read-schema.json` + `additions/`)
-//! - `fields.json`: v10 root fields, owners, defaults, and frozen `release_label` table
-//! - `defaults.json`: canonical new-Design v10 defaults
-//! - `fixture.canopi`: full v10 fixture covering every field with non-default values + unknown root key
-//! - `expected.json`: canonical decoded output of `fixture.canopi`
-//! - `additions/{print_setup,zone_style,timeline_offset}.json`: post-freeze v10 optional additions
+//! Emits the full v10 spec bundle directly from the typed v10 Rust definitions
+//! (`CanopiFileV10`, `DESIGN_FILE_FIELDS_V10`, `PrintSetupV10`) alongside the frozen
+//! `spec/v10/read-schema.json` from Step 2.0.4 so the M31 compatibility check is real.
 
+use canopi_types::design::v10::DESIGN_FILE_FIELDS_V10;
 use serde_json::{Value, json};
 
 use crate::chain::{CANOPI_CURRENT, CANOPI_FLOOR, canonicalize_json, release_label};
 use crate::core::{NewDesignInput, decode_design, new_design};
-use crate::v10::read_schema;
 
 /// One emitted file under `canopi-format/spec/v10/`.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -26,10 +21,13 @@ pub struct EmittedSpecFile {
 }
 
 /// Returns every file emitted under `canopi-format/spec/v10/` in deterministic order.
+///
+/// `v10_schema` is generated directly from `canopi_types::design::v10::CanopiFileV10`
+/// and `print_setup_schema` directly from `PrintSetupV10` (`2.1-M31`, `2.1-M161`).
 #[must_use]
-pub fn emit_v10_spec_files() -> Vec<EmittedSpecFile> {
+pub fn emit_v10_spec_files(v10_schema: &Value, print_setup_schema: &Value) -> Vec<EmittedSpecFile> {
     let fixture = v10_full_fixture();
-    let fixture_bytes = pretty_json(&fixture);
+    let fixture_bytes = pretty_canonical_json(&fixture);
     let expected = decode_design(fixture_bytes.as_bytes())
         .map(|opened| opened.design)
         .unwrap_or_else(|_| fixture.clone());
@@ -37,15 +35,15 @@ pub fn emit_v10_spec_files() -> Vec<EmittedSpecFile> {
     vec![
         EmittedSpecFile {
             relative_path: "schema.json",
-            content: pretty_json(&v10_full_schema()),
+            content: pretty_canonical_json(v10_schema),
         },
         EmittedSpecFile {
             relative_path: "fields.json",
-            content: pretty_json(&v10_fields_table()),
+            content: pretty_canonical_json(&v10_fields_table()),
         },
         EmittedSpecFile {
             relative_path: "defaults.json",
-            content: pretty_json(&new_design(&NewDesignInput {
+            content: pretty_canonical_json(&new_design(&NewDesignInput {
                 name: String::new(),
                 plant_display: None,
                 created_at: String::new(),
@@ -57,80 +55,37 @@ pub fn emit_v10_spec_files() -> Vec<EmittedSpecFile> {
         },
         EmittedSpecFile {
             relative_path: "expected.json",
-            content: pretty_json(&expected),
+            content: pretty_canonical_json(&expected),
         },
         EmittedSpecFile {
             relative_path: "additions/print_setup.json",
-            content: pretty_json(&addition_print_setup()),
+            content: pretty_canonical_json(&addition_print_setup(print_setup_schema)),
         },
         EmittedSpecFile {
             relative_path: "additions/zone_style.json",
-            content: pretty_json(&addition_zone_style()),
+            content: pretty_canonical_json(&addition_zone_style()),
         },
         EmittedSpecFile {
             relative_path: "additions/timeline_offset.json",
-            content: pretty_json(&addition_timeline_offset()),
+            content: pretty_canonical_json(&addition_timeline_offset()),
         },
     ]
 }
 
-/// Builds the full v10 schema from the frozen `read-schema.json` plus declared `additions/`
-/// so the emitted schema stays strictly compatible with the frozen reader schema (2.1-M31).
-#[must_use]
-pub fn v10_full_schema() -> Value {
-    let mut schema = read_schema()
-        .cloned()
-        .unwrap_or_else(|| json!({ "type": "object", "properties": {} }));
-    if let Some(props) = schema.get_mut("properties").and_then(Value::as_object_mut) {
-        props.insert(
-            "print_setup".to_owned(),
-            json!({
-                "description": "Optional PDF print setup (v10 addition, 2.1-Q36, 2.1-M90, 2.1-M161).",
-                "type": ["object", "null"],
-                "default": null
-            }),
-        );
-        props.insert(
-            "budget_ext".to_owned(),
-            json!({
-                "description": "Optional non-plant budget extension bag preserved by v9->v10 (2.1-Q162, 2.1-M491).",
-                "type": ["object", "null"],
-                "default": null
-            }),
-        );
-    }
-    if let Some(defs) = schema.get_mut("$defs").and_then(Value::as_object_mut) {
-        if let Some(zone_props) = defs
-            .get_mut("Zone")
-            .and_then(|z| z.get_mut("properties"))
-            .and_then(Value::as_object_mut)
-        {
-            zone_props.insert(
-                "stroke_color".to_owned(),
-                json!({ "type": ["string", "null"], "default": null }),
-            );
-            zone_props.insert(
-                "opacity".to_owned(),
-                json!({ "type": ["number", "null"], "minimum": 0.0, "maximum": 1.0, "default": null }),
-            );
-        }
-        if let Some(tl_props) = defs
-            .get_mut("TimelineAction")
-            .and_then(|t| t.get_mut("properties"))
-            .and_then(Value::as_object_mut)
-        {
-            tl_props.insert(
-                "offset_days".to_owned(),
-                json!({ "type": ["integer", "null"], "default": null }),
-            );
-        }
-    }
-    canonicalize_json(&schema)
-}
-
-/// Builds `spec/v10/fields.json`: v10 field ownership table and frozen release labels.
+/// Builds `spec/v10/fields.json` directly from [`DESIGN_FILE_FIELDS_V10`] and frozen `release_label`.
 #[must_use]
 pub fn v10_fields_table() -> Value {
+    let fields: Vec<Value> = DESIGN_FILE_FIELDS_V10
+        .iter()
+        .filter(|f| f.key != "extra")
+        .map(|f| {
+            json!({
+                "key": f.key,
+                "owner": f.owner.as_str(),
+                "required": f.key == "version",
+            })
+        })
+        .collect();
     canonicalize_json(&json!({
         "floor": CANOPI_FLOOR,
         "current": CANOPI_CURRENT,
@@ -138,39 +93,13 @@ pub fn v10_fields_table() -> Value {
             "9": release_label(9),
             "10": release_label(10),
         },
-        "fields": [
-            { "key": "version", "owner": "format", "required": true },
-            { "key": "name", "owner": "document", "required": false },
-            { "key": "description", "owner": "document", "required": false },
-            { "key": "plant_species_colors", "owner": "scene", "required": false },
-            { "key": "plant_species_symbols", "owner": "scene", "required": false },
-            { "key": "plant_species_codes", "owner": "scene", "required": false },
-            { "key": "layers", "owner": "scene", "required": false },
-            { "key": "plants", "owner": "scene", "required": false },
-            { "key": "zones", "owner": "scene", "required": false },
-            { "key": "annotations", "owner": "scene", "required": false },
-            { "key": "measurement_guides", "owner": "scene", "required": false },
-            { "key": "consortiums", "owner": "document", "required": false },
-            { "key": "groups", "owner": "scene", "required": false },
-            { "key": "timeline", "owner": "document", "required": false },
-            { "key": "budget", "owner": "document", "required": false },
-            { "key": "budget_currency", "owner": "document", "required": false },
-            { "key": "budget_ext", "owner": "document", "required": false },
-            { "key": "site_data", "owner": "document", "required": false },
-            { "key": "plant_display", "owner": "document", "required": false },
-            { "key": "print_setup", "owner": "document", "required": false },
-            { "key": "views", "owner": "document", "required": false },
-            { "key": "stories", "owner": "document", "required": false },
-            { "key": "map_view", "owner": "format", "required": false },
-            { "key": "created_at", "owner": "format", "required": false },
-            { "key": "updated_at", "owner": "format", "required": false }
-        ]
+        "fields": fields,
     }))
 }
 
-/// Full v10 fixture covering every field with non-default values, every nested struct filled,
-/// v10 additions (`print_setup`, zone `stroke_color`/`opacity`, timeline `offset_days`), and one
-/// unknown root key (contracts §10).
+/// Full v10 fixture covering every `DESIGN_FILE_FIELDS_V10` key with non-default values, every
+/// nested struct filled, v10 additions (`print_setup` per M161, zone `stroke_color`/`opacity`,
+/// timeline `offset_days`), and one unknown root key (contracts §10).
 #[must_use]
 pub fn v10_full_fixture() -> Value {
     let mut root = serde_json::Map::new();
@@ -200,6 +129,15 @@ pub fn v10_full_fixture() -> Value {
         json!({ "preserved": true }),
     );
     canonicalize_json(&Value::Object(root))
+}
+
+/// Formats any JSON value in canonical sorted-key pretty-printed form with a trailing newline.
+#[must_use]
+pub fn pretty_canonical_json(value: &Value) -> String {
+    let mut s = serde_json::to_string_pretty(&canonicalize_json(value))
+        .unwrap_or_else(|_| String::from("{}"));
+    s.push('\n');
+    s
 }
 
 fn merge_object(dst: &mut serde_json::Map<String, Value>, src: Value) {
@@ -382,6 +320,7 @@ fn fixture_print_and_views() -> Value {
                     "id": "page-1",
                     "name": "Overview",
                     "area": { "kind": "whole_design", "angle_deg": 0.0 },
+                    "framing": { "paper": "A4", "orientation": "landscape" },
                     "scale": { "kind": "fit" }
                 },
                 {
@@ -432,20 +371,14 @@ fn fixture_print_and_views() -> Value {
     })
 }
 
-fn addition_print_setup() -> Value {
+fn addition_print_setup(print_setup_schema: &Value) -> Value {
     canonicalize_json(&json!({
         "addition": "print_setup",
         "ledger": ["2.1-Q36", "2.1-M90", "2.1-M94", "2.1-M161", "2.1-Q356"],
         "target": "$.print_setup",
         "optional": true,
         "ignored_by_reader_release": true,
-        "schema": {
-            "type": ["object", "null"],
-            "properties": {
-                "splits": { "type": "array" },
-                "pages": { "type": "array" }
-            }
-        }
+        "schema": print_setup_schema
     }))
 }
 
@@ -472,11 +405,4 @@ fn addition_timeline_offset() -> Value {
         "ignored_by_reader_release": true,
         "schema": { "type": ["integer", "null"], "default": null }
     }))
-}
-
-fn pretty_json(value: &Value) -> String {
-    let mut s = serde_json::to_string_pretty(&canonicalize_json(value))
-        .unwrap_or_else(|_| String::from("{}"));
-    s.push('\n');
-    s
 }

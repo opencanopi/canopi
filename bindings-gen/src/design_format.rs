@@ -241,8 +241,23 @@ pub(crate) fn render_canopi_design_format() -> Result<String, Box<dyn std::error
     )?;
     writeln!(
         file,
-        "export const STORY_IMAGES_MAX_TOTAL_BYTES = {}\n",
+        "export const STORY_IMAGES_MAX_TOTAL_BYTES = {}",
         canopi_types::views::STORY_IMAGES_MAX_TOTAL_BYTES,
+    )?;
+    writeln!(
+        file,
+        "export const STAMP_PAYLOAD_FLOOR = {}",
+        canopi_types::saved_object_stamps::STAMP_PAYLOAD_FLOOR,
+    )?;
+    writeln!(
+        file,
+        "export const STAMP_PAYLOAD_CURRENT = {}",
+        canopi_types::saved_object_stamps::STAMP_PAYLOAD_CURRENT,
+    )?;
+    writeln!(
+        file,
+        "export const MAX_STAMP_PAYLOAD_BYTES = {}\n",
+        canopi_types::saved_object_stamps::MAX_STAMP_PAYLOAD_BYTES,
     )?;
     file.push_str("export const CANOPI_DESIGN_INGESTION_ERROR_KINDS = [\n");
     for kind in canopi_types::design::CanopiDesignIngestionErrorKind::ALL {
