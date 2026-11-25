@@ -2133,6 +2133,12 @@ export type Settings = {
 	 */
 	last_view: LastView | null,
 	/**
+	 *  Last opened Design home (`draft:<id>` or `file:<recent_id>`) used to
+	 *  reopen on Desktop launch (`2.1-Q127`, `2.1-M523`). Never holds a raw
+	 *  filesystem path or ephemeral `FileGrantId`.
+	 */
+	last_open_home?: string | null,
+	/**
 	 *  Canvas tools used at least once on this device. The tool rail shows
 	 *  names and keys until every tool is in this list.
 	 */

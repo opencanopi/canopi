@@ -3168,6 +3168,11 @@
         "skip": false
       },
       {
+        "name": "last_open_home",
+        "flatten": false,
+        "skip": false
+      },
+      {
         "name": "used_canvas_tools",
         "flatten": false,
         "skip": false

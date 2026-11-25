@@ -13,7 +13,6 @@
   "keys": "name",
   "standing": true,
   "entries": {
-    "app-shell -> app/document-session": { "count": 1 },
     "app-shell -> app/shell": { "count": 1 },
     "app-shell -> app/updates": { "count": 1 },
     "app-shell -> canvas": { "count": 1 },

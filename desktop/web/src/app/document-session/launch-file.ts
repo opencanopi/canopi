@@ -27,7 +27,7 @@ type LaunchIntent =
   | { readonly kind: 'last_open'; readonly home: LastOpenHome }
 
 /** Consumer seam for the `last_open_home` settings row (wired to 2e-1's settings row per A27). */
-interface LastOpenHomePort {
+export interface LastOpenHomePort {
   read(): Promise<LastOpenHome | null>
   clear(): Promise<void>
   resolveFilePath?(recentId: string): Promise<string | null>

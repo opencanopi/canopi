@@ -43,8 +43,8 @@ const MIN_SIDE_PANEL_WIDTH = 320
 const MIN_PLANT_SYMBOL_SCALE = 0.5
 const MAX_PLANT_SYMBOL_SCALE = 2.0
 
-/** Full TS settings values: the 27 v1 wire fields plus 2.1's `unit_system`, `last_open_home`, and `launch_check`. */
-export interface SettingsValues extends Settings {
+/** Full TS settings values: the 28 v1 wire fields (including `last_open_home`) plus `unit_system` and `launch_check`. */
+export interface SettingsValues extends Omit<Settings, 'last_open_home'> {
   unit_system: UnitSystem
   last_open_home: string | null
   launch_check: boolean
@@ -104,7 +104,9 @@ function f<K extends SettingsFieldKey>(
   defaultSpec?: DefaultSpec<SettingsValues[K]>,
   capability?: EditionCapability,
 ): SettingsFieldDescriptor<K> {
-  const def = defaultSpec ?? ({ kind: 'static', value: DEFAULT_SETTINGS[key as keyof Settings] } as DefaultSpec<SettingsValues[K]>)
+  const def =
+    defaultSpec ??
+    ({ kind: 'static', value: DEFAULT_SETTINGS[key as keyof typeof DEFAULT_SETTINGS] } as DefaultSpec<SettingsValues[K]>)
   return capability ? { key, slice, capability, privacy, defaultSpec: def, kind } : { key, slice, privacy, defaultSpec: def, kind }
 }
 
@@ -155,4 +157,6 @@ export const SETTINGS_FIELDS = [
 ] as const satisfies readonly SettingsFieldDescriptor[]
 
 /** Keys belonging to the v1 Rust `Settings` wire struct (until 2e-2 moves Desktop to opaque record 2). */
-export const SETTINGS_V1_WIRE_KEYS: readonly (keyof Settings)[] = Object.keys(DEFAULT_SETTINGS) as Array<keyof Settings>
+export const SETTINGS_V1_WIRE_KEYS: readonly (keyof Settings)[] = Array.from(
+  new Set([...(Object.keys(DEFAULT_SETTINGS) as Array<keyof Settings>), 'last_open_home']),
+)

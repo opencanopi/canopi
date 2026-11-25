@@ -43,8 +43,27 @@ describe('settings platform adapters', () => {
 
     expect(getSettings).toHaveBeenCalledOnce()
     expect(setSettings).toHaveBeenCalledOnce()
-    const { unit_system: _u, last_open_home: _h, launch_check: _l, ...expectedWire } = loaded
+    const { unit_system: _u, launch_check: _l, ...expectedWire } = loaded
     expect(setSettings).toHaveBeenCalledWith(expectedWire)
+  })
+
+  it('persists last_open_home durably across Desktop adapter relaunch (2b-4, 2.1-Q127)', async () => {
+    let stored: Settings = settings({ last_open_home: null })
+    const first = createDesktopSettingsPlatformAdapter({
+      getSettings: async () => stored,
+      setSettings: async (next) => { stored = next },
+      env: () => ({ languages: ['en-GB'], region: 'GB' }),
+    })
+    await first.load()
+    await first.save(settings({ last_open_home: 'draft:draft-reopen-1' }))
+
+    const relaunched = createDesktopSettingsPlatformAdapter({
+      getSettings: async () => stored,
+      setSettings: async (next) => { stored = next },
+      env: () => ({ languages: ['en-GB'], region: 'GB' }),
+    })
+    const reloaded = await relaunched.load()
+    expect(reloaded.last_open_home).toBe('draft:draft-reopen-1')
   })
 
   it('loads the generated Rust default when browser settings are absent', async () => {

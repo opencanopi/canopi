@@ -232,7 +232,7 @@ export function diffSettingsPatch(
   return patch
 }
 
-/** Projects `SettingsValues` to the 27-field v1 wire `Settings` object (Desktop IPC until 2e-2). */
+/** Projects `SettingsValues` to the 28-field v1 wire `Settings` object (Desktop IPC until 2e-2). */
 function toV1WireSettings(values: Readonly<SettingsValues>): Settings {
   const wire: Record<string, unknown> = {}
   for (const key of SETTINGS_V1_WIRE_KEYS) {
@@ -242,7 +242,7 @@ function toV1WireSettings(values: Readonly<SettingsValues>): Settings {
   return wire as unknown as Settings
 }
 
-const V1_EXTRA_KEYS = ['unit_system', 'last_open_home', 'launch_check'] as const
+const V1_EXTRA_KEYS = ['unit_system', 'launch_check'] as const
 
 /** Bridges a v1 wire `Settings` host transport to `SettingsPlatformAdapter` through the field-table interpreter. */
 export function createV1WireSettingsAdapter(deps: {

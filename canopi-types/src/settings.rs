@@ -75,6 +75,11 @@ pub struct Settings {
     /// The camera view last shown on a Design, on this device: a new or empty
     /// Design opens at its centre, zoomed out and north up.
     pub last_view: Option<LastView>,
+    /// Last opened Design home (`draft:<id>` or `file:<recent_id>`) used to
+    /// reopen on Desktop launch (`2.1-Q127`, `2.1-M523`). Never holds a raw
+    /// filesystem path or ephemeral `FileGrantId`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_open_home: Option<String>,
     /// Canvas tools used at least once on this device. The tool rail shows
     /// names and keys until every tool is in this list.
     pub used_canvas_tools: Vec<String>,
@@ -159,6 +164,7 @@ impl std::fmt::Debug for Settings {
             soften_background,
             plant_spacing_interval_m,
             last_view,
+            last_open_home,
             used_canvas_tools,
             tool_names_visible,
             single_key_shortcuts,
@@ -191,6 +197,7 @@ impl std::fmt::Debug for Settings {
             .field("soften_background", soften_background)
             .field("plant_spacing_interval_m", plant_spacing_interval_m)
             .field("last_view", last_view)
+            .field("last_open_home", last_open_home)
             .field("used_canvas_tools", used_canvas_tools)
             .field("tool_names_visible", tool_names_visible)
             .field("single_key_shortcuts", single_key_shortcuts)
@@ -225,6 +232,7 @@ impl Default for Settings {
             soften_background: false,
             plant_spacing_interval_m: default_plant_spacing_interval_m(),
             last_view: None,
+            last_open_home: None,
             used_canvas_tools: Vec::new(),
             tool_names_visible: None,
             single_key_shortcuts: true,

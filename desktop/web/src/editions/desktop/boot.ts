@@ -5,9 +5,12 @@ import { bootstrapShell, type ShellBootstrap } from "../../app/shell/bootstrap";
 import { registerCloseGuard, type CloseGuardLifetime } from "../../app/shell/close-guard";
 import { disposeLidarWorkflow, installLidarWorkflow } from "../../app/data-library/workflow";
 import { disposeLidarDisplayDescriptors, installLidarDisplayDescriptors } from "../../app/data-library/display";
-import { installDesignContinuousSave } from "../../app/document-session/transition";
+import { designContinuousSave, installDesignContinuousSave } from "../../app/document-session/transition";
+import { currentDesign, designPath } from "../../app/document-session/store";
 import { installLaunchFile } from "../../app/document-session/launch-file";
+import { getRecentFiles } from "../../ipc/design";
 import { subscribePendingOpen, takePendingOpen } from "../../ipc/launch";
+import { createDesktopLastOpenHomePort, installDesktopLastOpenHomeWriter } from "./last-open-home";
 import { installPlaceSearchSession } from "../../app/geocoding/place-search-session";
 import { installToolRailLearning } from "../../app/tool-rail/learning";
 import { focusOwner } from "../../app/keyboard/focus-owner";
@@ -81,7 +84,20 @@ export function bootDesktopEdition(): () => void {
   const shellBootstrap: ShellBootstrap = bootstrapShell(desktopSettingsPlatformAdapter, loadDesktopHealth);
   registerDesignOpenFailurePresenter(presentDesktopDesignOpenFailure);
   const disposeContinuousSave = installDesignContinuousSave();
-  const disposeLaunchFile = installLaunchFile({ take: takePendingOpen, subscribe: subscribePendingOpen });
+  const disposeLastOpenHomeWriter = installDesktopLastOpenHomeWriter({
+    currentDesign,
+    designPath,
+    saveStatus: designContinuousSave.status,
+    readHome: () => designContinuousSave.readHome(),
+  });
+  const disposeLaunchFile = installLaunchFile({
+    take: takePendingOpen,
+    subscribe: subscribePendingOpen,
+    lastOpenHome: createDesktopLastOpenHomePort({
+      settingsReady: shellBootstrap.ready,
+      getRecentFiles,
+    }),
+  });
   const disposePlaceSearchSession = installPlaceSearchSession();
   const disposeToolRailLearning = installToolRailLearning();
   setShortcutPlatform(platform);
@@ -103,6 +119,7 @@ export function bootDesktopEdition(): () => void {
     disposeToolRailLearning();
     keyRouter.dispose();
     disposeLaunchFile();
+    disposeLastOpenHomeWriter();
     disposeContinuousSave();
     registerDesignOpenFailurePresenter(null);
     shellBootstrap.dispose();
