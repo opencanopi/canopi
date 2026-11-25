@@ -26,57 +26,44 @@ const DESKTOP_ONLY_PANEL_GATES: Readonly<Record<string, EditionCapabilityId>> = 
   'design-notebook': 'design-notebook',
 }
 
-function gateEntry(
-  id: string,
-  gates: Readonly<Record<string, EditionCapabilityId>>,
-): EditionManifestEntry {
-  const gatedBy = gates[id]
-  return gatedBy ? { id, gatedBy } : { id }
-}
-
-const desktopCommands: readonly EditionManifestEntry[] = [
-  ...DESKTOP_SHELL_COMMAND_CATALOG.map((cmd) => gateEntry(cmd.id, DESKTOP_ONLY_COMMAND_GATES)),
-]
-
-const desktopPanels: readonly EditionManifestEntry[] = [
-  ...DESKTOP_SHELL_COMMAND_CATALOG
-    .filter((cmd) => cmd.panel !== undefined)
-    .map((cmd) => gateEntry(cmd.panel!.panel, DESKTOP_ONLY_PANEL_GATES)),
-]
+const e = (id: string, gatedBy?: EditionCapabilityId): EditionManifestEntry =>
+  gatedBy ? { id, gatedBy } : { id }
 
 export const DESKTOP_EDITION_MANIFEST: EditionManifest = {
-  commands: desktopCommands,
+  commands: DESKTOP_SHELL_COMMAND_CATALOG.map((cmd) => e(cmd.id, DESKTOP_ONLY_COMMAND_GATES[cmd.id])),
   fileDelivery: [
-    { id: 'file.save', gatedBy: 'file-home' },
-    { id: 'file.saveAs', gatedBy: 'save-as-path' },
-    { id: 'file.exportCanvasPdf' },
-    { id: 'file.exportBudgetCsv' },
-    { id: 'file.exportGeoJson' },
-    { id: 'help.reportProblem' },
+    e('file.save', 'file-home'),
+    e('file.saveAs', 'save-as-path'),
+    e('file.exportCanvasPdf'),
+    e('file.exportBudgetCsv'),
+    e('file.exportGeoJson'),
+    e('help.reportProblem'),
   ],
   mapContributions: [
-    { id: 'basemap' },
-    { id: 'satellite' },
-    { id: 'contours' },
-    { id: 'hillshade' },
-    { id: 'scene' },
-    { id: 'my-location' },
-    { id: 'site-data-rasters', gatedBy: 'site-data-below-limit' },
+    e('basemap'),
+    e('satellite'),
+    e('contours'),
+    e('hillshade'),
+    e('scene'),
+    e('my-location'),
+    e('site-data-rasters', 'site-data-below-limit'),
   ],
-  panels: desktopPanels,
+  panels: DESKTOP_SHELL_COMMAND_CATALOG
+    .filter((cmd) => cmd.panel !== undefined)
+    .map((cmd) => e(cmd.panel!.panel, DESKTOP_ONLY_PANEL_GATES[cmd.panel!.panel])),
   settingsSlices: [
-    { id: 'locale' },
-    { id: 'theme' },
-    { id: 'map-and-imagery' },
-    { id: 'canvas-preferences' },
-    { id: 'keyboard-shortcuts' },
-    { id: 'files-and-data', gatedBy: 'file-home' },
-    { id: 'updates', gatedBy: 'app-updater' },
+    e('locale'),
+    e('theme'),
+    e('map-and-imagery'),
+    e('canvas-preferences'),
+    e('keyboard-shortcuts'),
+    e('files-and-data', 'file-home'),
+    e('updates', 'app-updater'),
   ],
   keymap: [
-    { id: 'shared-editing-chords' },
-    { id: 'shared-navigation-chords' },
-    { id: 'shared-view-chords' },
-    { id: 'desktop-browser-reserved-chords', gatedBy: 'desktop-browser-reserved-chords' },
+    e('shared-editing-chords'),
+    e('shared-navigation-chords'),
+    e('shared-view-chords'),
+    e('desktop-browser-reserved-chords', 'desktop-browser-reserved-chords'),
   ],
 }

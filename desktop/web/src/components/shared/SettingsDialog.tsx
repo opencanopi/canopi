@@ -114,24 +114,30 @@ function SettingsDialogContent({ folders, updates }: { readonly folders?: Settin
 const setSetting = <K extends keyof SettingsProjectionDraft>(key: K, value: SettingsProjectionDraft[K]): void => {
   mutateSettingsProjection((settings) => { settings[key] = value })
 }
+const opt = <T extends string>(value: T, labelKey: LocaleKey) => ({ value, label: t(labelKey) })
+
+function SettingField({ label, hint, children }: { readonly label: LocaleKey, readonly hint?: LocaleKey, readonly children: ComponentChildren }) {
+  return (
+    <div className={styles.field}>
+      <span className={styles.label}>{t(label)}</span>
+      {children}
+      {hint && <span className={styles.hint}>{t(hint)}</span>}
+    </div>
+  )
+}
 
 function AppearanceSection() {
   const currentLanguage = LANGUAGE_ITEMS.find((item) => item.value === locale.value)
   return <>
-    <div className={styles.field}>
-      <span className={styles.label}>{t('settings.theme')}</span>
+    <SettingField label="settings.theme">
       <SegmentedControl<Theme>
         label={t('settings.theme')}
         value={theme.value}
-        options={[
-          { value: 'light', label: t('theme.light') },
-          { value: 'dark', label: t('theme.dark') },
-        ]}
+        options={[opt('light', 'theme.light'), opt('dark', 'theme.dark')]}
         onChange={(next) => setSetting('theme', next)}
       />
-    </div>
-    <div className={styles.field}>
-      <span className={styles.label}>{t('settings.language')}</span>
+    </SettingField>
+    <SettingField label="settings.language">
       <Dropdown<Locale>
         trigger={currentLanguage?.label ?? locale.value}
         items={LANGUAGE_ITEMS}
@@ -141,7 +147,7 @@ function AppearanceSection() {
         floating
         onChange={(next) => setSetting('locale', next)}
       />
-    </div>
+    </SettingField>
     <Switch
       label={t('settings.toolNames')}
       hint={t('settings.toolNamesHint')}
@@ -156,8 +162,7 @@ function MapSection() {
   return <>
     <SettingsGoogleKeyField />
     <div className={styles.rule} />
-    <div className={styles.field}>
-      <span className={styles.label}>{t('settings.mapStyle')}</span>
+    <SettingField label="settings.mapStyle">
       <Dropdown<BasemapStyle>
         trigger={t(`canvas.basemap.styles.${style}`)}
         items={SETTINGS_BASEMAP_STYLES.map((value) => ({ value, label: t(`canvas.basemap.styles.${value}`) }))}
@@ -167,7 +172,7 @@ function MapSection() {
         floating
         onChange={setBasemapStyle}
       />
-    </div>
+    </SettingField>
     <Switch
       label={t('speciesKey.softenBackground')}
       hint={t('speciesKey.softenBackgroundHint')}
@@ -183,21 +188,16 @@ function MapSection() {
  * the pointer. Trackpad (`pan`): two fingers pan and a pinch zooms. The Select tool card follows it.
  */
 function CanvasSection() {
-  return <>
-    <div className={styles.field}>
-      <span className={styles.label}>{t('settings.pointingDevice')}</span>
+  return (
+    <SettingField label="settings.pointingDevice" hint="settings.pointingDeviceHint">
       <SegmentedControl<ScrollWheel>
         label={t('settings.pointingDevice')}
         value={scrollWheel.value}
-        options={[
-          { value: 'zoom', label: t('settings.pointingDeviceMouse') },
-          { value: 'pan', label: t('settings.pointingDeviceTrackpad') },
-        ]}
+        options={[opt('zoom', 'settings.pointingDeviceMouse'), opt('pan', 'settings.pointingDeviceTrackpad')]}
         onChange={(next) => setSetting('scrollWheel', next)}
       />
-      <span className={styles.hint}>{t('settings.pointingDeviceHint')}</span>
-    </div>
-  </>
+    </SettingField>
+  )
 }
 
 function setNewDesignDefault(change: Partial<NewDesignDefaults>, persist: SettingsPersistMode = 'immediate'): void {
@@ -227,19 +227,14 @@ function NewDesignsSection() {
       // Slider-driven, so persistence is queued rather than written per step.
       onInput={(percent) => setNewDesignDefault({ symbolScale: percent / 100 }, 'queued')}
     />
-    <div className={styles.field}>
-      <span className={styles.label}>{t('speciesKey.labels')}</span>
+    <SettingField label="speciesKey.labels">
       <SegmentedControl<PlantLabels>
         label={t('speciesKey.labels')}
         value={defaults.labels}
-        options={[
-          { value: 'none', label: t('speciesKey.labelsNone') },
-          { value: 'codes', label: t('speciesKey.labelsCodes') },
-          { value: 'names', label: t('speciesKey.labelsNames') },
-        ]}
+        options={[opt('none', 'speciesKey.labelsNone'), opt('codes', 'speciesKey.labelsCodes'), opt('names', 'speciesKey.labelsNames')]}
         onChange={(labels) => setNewDesignDefault({ labels })}
       />
-    </div>
+    </SettingField>
   </>
 }
 

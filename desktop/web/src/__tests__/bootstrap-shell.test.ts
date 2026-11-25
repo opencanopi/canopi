@@ -409,7 +409,15 @@ describe("settings platform bootstrap", () => {
     expect(mocks.disposeToolRailLearning).toHaveBeenCalledOnce();
     // The Design file a launch names (2.1-M214): read from the launch IPC, replaced with the platform lifetime.
     expect(mocks.installLaunchFile).toHaveBeenCalledTimes(2);
-    expect(mocks.installLaunchFile).toHaveBeenLastCalledWith({ take: takePendingOpen, subscribe: subscribePendingOpen });
+    expect(mocks.installLaunchFile).toHaveBeenLastCalledWith({
+      take: takePendingOpen,
+      subscribe: subscribePendingOpen,
+      lastOpenHome: expect.objectContaining({
+        read: expect.any(Function),
+        clear: expect.any(Function),
+        resolveFilePath: expect.any(Function),
+      }),
+    });
     expect(mocks.disposeLaunchFile).toHaveBeenCalledOnce();
     expect(mocks.disposeSettings).toHaveBeenCalledOnce();
     expect(mocks.disposeTheme).toHaveBeenCalledOnce();

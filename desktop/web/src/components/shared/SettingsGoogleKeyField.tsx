@@ -44,6 +44,12 @@ export function SettingsGoogleKeyField() {
     setStatus('saved')
   }
 
+  const removeButton = (
+    <button type="button" className={styles.ghostButton} onClick={removeKey}>
+      {t('settings.removeKey')}
+    </button>
+  )
+
   return (
     <>
       <div className={styles.field}>
@@ -68,9 +74,7 @@ export function SettingsGoogleKeyField() {
       {source === 'free' && stored && (
         <div className={styles.keyRow}>
           <span className={styles.hint}>{t('settings.googleKeyKept')}</span>
-          <button type="button" className={styles.ghostButton} onClick={removeKey}>
-            {t('settings.removeKey')}
-          </button>
+          {removeButton}
         </div>
       )}
       {source === 'google_key' && (
@@ -111,11 +115,7 @@ export function SettingsGoogleKeyField() {
               {t('settings.showKey')}
             </button>
             {canSave && <button type="submit" className={styles.primaryButton}>{t('settings.saveKey')}</button>}
-            {stored && (
-              <button type="button" className={styles.ghostButton} onClick={removeKey}>
-                {t('settings.removeKey')}
-              </button>
-            )}
+            {stored && removeButton}
           </div>
           <span className={styles.hint} id={`${id}-note`}>
             {stored ? `${t('settings.googleKeyStoredNote')} ${t('settings.googleKeyLocal')}` : t('settings.googleKeyLocal')}

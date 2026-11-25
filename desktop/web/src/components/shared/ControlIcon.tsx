@@ -3,6 +3,9 @@
 
 const dot = (x: number, y: number, r = 1.35) => `M${x + r} ${y}a${r} ${r} 0 1 1-${2 * r} 0 ${r} ${r} 0 0 1 ${2 * r} 0z`
 
+const STAR = 'M10 2.2l2.4 4.9 5.4.8-3.9 3.8.9 5.4-4.8-2.5-4.8 2.5.9-5.4-3.9-3.8 5.4-.8z'
+const CIRCLE = 'M17 10a7 7 0 1 1-14 0 7 7 0 0 1 14 0z'
+
 const STROKED = {
   'chevron-down': 'M5 8l5 5 5-5',
   'chevron-right': 'M8 5l5 5-5 5',
@@ -11,10 +14,10 @@ const STROKED = {
   close: 'M5 5l10 10M15 5L5 15',
   search: 'M9 15a6 6 0 1 0 0-12 6 6 0 0 0 0 12zM17 17l-3.8-3.8',
   alert: 'M10 3.5l7.5 13h-15zM10 8.5v3.5M10 14.5h.01',
-  info: 'M17 10a7 7 0 1 1-14 0 7 7 0 0 1 14 0zM10 9v5M10 6.5h.01',
-  clock: 'M17 10a7 7 0 1 1-14 0 7 7 0 0 1 14 0zM10 6v4l2.5 2.5',
+  info: `${CIRCLE}M10 9v5M10 6.5h.01`,
+  clock: `${CIRCLE}M10 6v4l2.5 2.5`,
   draft: 'M5 2.5h6.5L15 6v11.5H5zM11.5 2.5V6H15M7.5 10.5h5M7.5 13.5h3',
-  help: 'M17 10a7 7 0 1 1-14 0 7 7 0 0 1 14 0zM7.8 7.8a2.3 2.3 0 0 1 4.4.8c0 1.6-2.2 2-2.2 3.3M10 14.4h.01',
+  help: `${CIRCLE}M7.8 7.8a2.3 2.3 0 0 1 4.4.8c0 1.6-2.2 2-2.2 3.3M10 14.4h.01`,
   gear: 'M10 12.6a2.6 2.6 0 1 0 0-5.2 2.6 2.6 0 0 0 0 5.2zM8.6 2.6h2.8l.4 2 1.7 1 1.9-.7 1.4 2.4-1.5 1.4v2l1.5 1.4-1.4 2.4-1.9-.7-1.7 1-.4 2H8.6l-.4-2-1.7-1-1.9.7-1.4-2.4 1.5-1.4v-2L3.2 7.3l1.4-2.4 1.9.7 1.7-1z',
   'folder-open': 'M2.5 15.5v-10h5L9 7h6.5v2M2.5 15.5l2.5-6.5h13l-2.5 6.5z',
   plus: 'M10 4v12M4 10h12',
@@ -39,13 +42,13 @@ const STROKED = {
   'window-minimize': 'M5 10h10',
   'window-maximize': 'M5 5h10v10H5z',
   // The outline of the filled star (favourite off).
-  'star-outline': 'M10 2.2l2.4 4.9 5.4.8-3.9 3.8.9 5.4-4.8-2.5-4.8 2.5.9-5.4-3.9-3.8 5.4-.8z',
+  'star-outline': STAR,
 } as const
 
 const FILLED = {
   more: dot(5, 10) + dot(10, 10) + dot(15, 10),
   grip: dot(7.5, 5, 1.2) + dot(12.5, 5, 1.2) + dot(7.5, 10, 1.2) + dot(12.5, 10, 1.2) + dot(7.5, 15, 1.2) + dot(12.5, 15, 1.2),
-  star: 'M10 2.2l2.4 4.9 5.4.8-3.9 3.8.9 5.4-4.8-2.5-4.8 2.5.9-5.4-3.9-3.8 5.4-.8z',
+  star: STAR,
 } as const
 
 export type ControlIconName = keyof typeof STROKED | keyof typeof FILLED

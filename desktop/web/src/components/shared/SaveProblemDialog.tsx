@@ -113,10 +113,11 @@ function SaveProblemDialogContent({ request, lastFocused }: {
         data-save-problem={request.kind}
         onKeyDown={(event) => {
           if (event.key === 'Tab') trapTabWithToasts(tabStops(), event)
-          if (event.key !== 'Escape') return
-          event.preventDefault()
-          event.stopPropagation()
-          answerSaveProblem('cancel')
+          else if (event.key === 'Escape') {
+            event.preventDefault()
+            event.stopPropagation()
+            answerSaveProblem('cancel')
+          }
         }}
       >
         <h2 id="save-problem-title" className={styles.title}>{title}</h2>
@@ -140,18 +141,59 @@ function SaveProblemDialogContent({ request, lastFocused }: {
   )
 }
 
+function act(choice: SaveProblemChoice, label: string, tone: DialogAction['tone']): DialogAction {
+  return { choice, label, tone }
+}
+
+function describeFlushFailed(
+  request: Extract<SaveProblemRequest, { kind: 'flush-failed' }>,
+  cancel: DialogAction,
+): { readonly title: string; readonly message: string; readonly actions: readonly DialogAction[] } {
+  const title = t('saveProblem.flushFailedTitle')
+  const retry = act('retry', t('saveProblem.retry'), 'primary')
+  if (request.purpose === 'reload') {
+    // A Web release reload (2.1-Q83, Q188): Download a copy keeps the unwritten Design before the page reloads.
+    const saveCopy = act('save-copy', t('webShell.downloadCopy'), request.conflict ? 'primary' : 'neutral')
+    const discard = act('discard', t('saveProblem.discardAndReload'), 'danger')
+    return {
+      title,
+      message: t(request.conflict ? 'saveProblem.tabConflictReloadMessage' : 'saveProblem.flushFailedReloadMessage'),
+      actions: request.conflict ? [saveCopy, discard, cancel] : [retry, saveCopy, discard, cancel],
+    }
+  }
+  const discard = act(
+    'discard',
+    t(request.purpose === 'close' ? 'saveProblem.closeWithoutSaving'
+      : request.purpose === 'app-reload' ? 'saveProblem.discardAndReload' : 'saveProblem.discard'),
+    'danger',
+  )
+  if (request.conflict) {
+    return {
+      title,
+      message: t(request.where === 'another-tab' ? 'saveProblem.tabConflictPendingMessage' : 'saveProblem.conflictPendingMessage'),
+      actions: [cancel, discard],
+    }
+  }
+  return {
+    title,
+    message: t(request.purpose === 'close' ? 'saveProblem.flushFailedCloseMessage'
+      : request.purpose === 'app-reload' ? 'saveProblem.flushFailedAppReloadMessage' : 'saveProblem.flushFailedMessage'),
+    actions: [retry, discard, cancel],
+  }
+}
+
 function describe(request: SaveProblemRequest): {
   readonly title: string
   readonly message: string
   readonly actions: readonly DialogAction[]
 } {
-  const cancel: DialogAction = { choice: 'cancel', label: t('canvas.file.cancel'), tone: 'neutral' }
+  const cancel = act('cancel', t('canvas.file.cancel'), 'neutral')
   if (request.kind === 'revert') {
     // Cancel first: it takes focus, so Enter never discards changes by accident.
     return {
       title: t('saveProblem.revertTitle'),
       message: t('saveProblem.revertMessage'),
-      actions: [cancel, { choice: 'revert', label: t('saveProblem.revertConfirm'), tone: 'danger' }],
+      actions: [cancel, act('revert', t('saveProblem.revertConfirm'), 'danger')],
     }
   }
   if (request.kind === 'settings-failed') {
@@ -163,82 +205,32 @@ function describe(request: SaveProblemRequest): {
     return {
       title: t('saveProblem.settingsFailedTitle'),
       message: t(message),
-      actions: [
-        { choice: 'retry', label: t('saveProblem.retry'), tone: 'primary' },
-        { choice: 'discard', label: t(reload ? 'saveProblem.settingsReloadAnyway' : 'saveProblem.settingsCloseAnyway'), tone: 'danger' },
-        cancel,
-      ],
+      actions: [act('retry', t('saveProblem.retry'), 'primary'), act('discard', t(reload ? 'saveProblem.settingsReloadAnyway' : 'saveProblem.settingsCloseAnyway'), 'danger'), cancel],
     }
   }
-  if (request.kind === 'flush-failed' && request.purpose === 'reload') {
-    // A Web release reload (2.1-Q83, Q188): Download a copy keeps the unwritten Design before the page reloads.
-    const saveCopy: DialogAction = { choice: 'save-copy', label: t('webShell.downloadCopy'), tone: request.conflict ? 'primary' : 'neutral' }
-    const discard: DialogAction = { choice: 'discard', label: t('saveProblem.discardAndReload'), tone: 'danger' }
-    return request.conflict
-      ? {
-        title: t('saveProblem.flushFailedTitle'),
-        message: t('saveProblem.tabConflictReloadMessage'),
-        actions: [saveCopy, discard, cancel],
-      }
-      : {
-        title: t('saveProblem.flushFailedTitle'),
-        message: t('saveProblem.flushFailedReloadMessage'),
-        actions: [{ choice: 'retry', label: t('saveProblem.retry'), tone: 'primary' }, saveCopy, discard, cancel],
-      }
-  }
-  if (request.kind === 'flush-failed') {
-    const discard: DialogAction = {
-      choice: 'discard',
-      label: t(request.purpose === 'close' ? 'saveProblem.closeWithoutSaving'
-        : request.purpose === 'app-reload' ? 'saveProblem.discardAndReload' : 'saveProblem.discard'),
-      tone: 'danger',
-    }
-    if (request.conflict) {
-      return {
-        title: t('saveProblem.flushFailedTitle'),
-        message: t(request.where === 'another-tab'
-          ? 'saveProblem.tabConflictPendingMessage'
-          : 'saveProblem.conflictPendingMessage'),
-        actions: [cancel, discard],
-      }
-    }
-    return {
-      title: t('saveProblem.flushFailedTitle'),
-      message: t(request.purpose === 'close' ? 'saveProblem.flushFailedCloseMessage'
-        : request.purpose === 'app-reload' ? 'saveProblem.flushFailedAppReloadMessage' : 'saveProblem.flushFailedMessage'),
-      actions: [{ choice: 'retry', label: t('saveProblem.retry'), tone: 'primary' }, discard, cancel],
-    }
-  }
+  if (request.kind === 'flush-failed') return describeFlushFailed(request, cancel)
   if (request.where === 'another-tab') {
     // A browser Draft another tab wrote: keep this tab's version or reload that one.
     return {
       title: t('saveProblem.tabConflictTitle'),
       message: t('saveProblem.tabConflictMessage'),
-      actions: [
-        { choice: 'keep-mine', label: t('saveProblem.keepMine'), tone: 'primary' },
-        { choice: 'use-file', label: t('saveProblem.useOtherTab'), tone: 'danger' },
-        cancel,
-      ],
+      actions: [act('keep-mine', t('saveProblem.keepMine'), 'primary'), act('use-file', t('saveProblem.useOtherTab'), 'danger'), cancel],
     }
   }
   if (request.fileGone) {
     return {
       title: t('saveProblem.fileGoneTitle'),
       message: t('saveProblem.fileGoneMessage'),
-      actions: [
-        { choice: 'save-copy', label: t('saveProblem.saveElsewhere'), tone: 'primary' },
-        { choice: 'keep-mine', label: t('saveProblem.keepMine'), tone: 'neutral' },
-        cancel,
-      ],
+      actions: [act('save-copy', t('saveProblem.saveElsewhere'), 'primary'), act('keep-mine', t('saveProblem.keepMine'), 'neutral'), cancel],
     }
   }
   return {
     title: t('saveProblem.conflictTitle'),
     message: t('saveProblem.conflictMessage'),
     actions: [
-      { choice: 'keep-mine', label: t('saveProblem.keepMine'), tone: 'primary' },
-      { choice: 'use-file', label: t('saveProblem.useFile'), tone: 'danger' },
-      { choice: 'save-copy', label: t('saveProblem.saveCopy'), tone: 'neutral' },
+      act('keep-mine', t('saveProblem.keepMine'), 'primary'),
+      act('use-file', t('saveProblem.useFile'), 'danger'),
+      act('save-copy', t('saveProblem.saveCopy'), 'neutral'),
       cancel,
     ],
   }

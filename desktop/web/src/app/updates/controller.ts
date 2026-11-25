@@ -150,10 +150,7 @@ export function createUpdateController(options: UpdateControllerOptions): Update
   }
 
   const check = async (): Promise<void> => {
-    if (state.value.kind === 'checking' && running) {
-      await running
-      return
-    }
+    if (state.value.kind === 'checking' && running) return void (await running)
     await startCheck()
   }
 
@@ -190,25 +187,20 @@ export function createUpdateController(options: UpdateControllerOptions): Update
   }
 
   const download = async (): Promise<void> => {
-    if (state.value.kind === 'downloading' && running) {
-      await running
-      return
-    }
-    if (state.value.kind !== 'available') return
-    await runDownload()
+    if (state.value.kind === 'downloading' && running) return void (await running)
+    if (state.value.kind === 'available') await runDownload()
   }
 
   const retry = async (): Promise<void> => {
-    if (!canRetry.value || offer.value === null) return
-    await runDownload()
+    if (canRetry.value && offer.value !== null) await runDownload()
   }
 
   const cancel = (): void => {
-    const id = operation
-    if (id === null) return
-    void updater.cancelUpdate(id).catch(() => {
-      // The op settled before the cancel reached the host: its own result stands.
-    })
+    if (operation !== null) {
+      void updater.cancelUpdate(operation).catch(() => {
+        // The op settled before the cancel reached the host: its own result stands.
+      })
+    }
   }
 
   /**

@@ -83,7 +83,7 @@ async function openFrom(
   if (intent.kind === 'file') {
     if (intent.several) multiOpenNotice.value = nextNoticeId++
     if (!DESIGN_FILE.test(intent.path)) {
-      presentDesignOpenFailure(new Error('a launch file that is not a .canopi Design'))
+      presentDesignOpenFailure(new Error('not a .canopi Design'))
       return false
     }
     try {
@@ -102,20 +102,16 @@ async function openFrom(
       await openDesignDraft(intent.home.id, { presentFailure: false })
       return true
     }
-    const resolvedPath = lastOpenHome?.resolveFilePath
-      ? await lastOpenHome.resolveFilePath(intent.home.recent_id)
-      : null
-    if (!resolvedPath) {
-      await lastOpenHome?.clear()
-      return false
+    const resolvedPath = await lastOpenHome?.resolveFilePath?.(intent.home.recent_id)
+    if (resolvedPath) {
+      await openDesignFromPath(resolvedPath, { presentFailure: false, deferWhenDetached: false })
+      return true
     }
-    await openDesignFromPath(resolvedPath, { presentFailure: false, deferWhenDetached: false })
-    return true
   } catch {
     // Reopening last_open_home falls back quietly to the start screen when missing or unreadable.
-    await lastOpenHome?.clear()
-    return false
   }
+  await lastOpenHome?.clear()
+  return false
 }
 
 /** Starts pulling launch intents at boot and forwarded files from `source`; returns the dispose. */

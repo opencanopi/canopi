@@ -13,32 +13,19 @@ import type { LastOpenHomePort } from '../../app/document-session/launch-file'
 import { flushSettingsProjection, mutateSettingsProjection } from '../../app/settings/projection'
 import { lastOpenHome } from '../../app/settings/state'
 
-const DRAFT_PREFIX = 'draft:'
-const FILE_PREFIX = 'file:'
-
-/** Deterministic opaque Recent Designs identifier derived from a file path (no raw path persisted). */
 async function recentIdForPath(path: string): Promise<string> {
-  const bytes = new TextEncoder().encode(path)
-  const digest = await globalThis.crypto.subtle.digest('SHA-256', bytes)
+  const digest = await globalThis.crypto.subtle.digest('SHA-256', new TextEncoder().encode(path))
   return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('')
 }
 
-/** Encodes a typed `LastOpenHome` into the settings row's opaque string representation. */
-function encodeLastOpenHome(home: LastOpenHome): string {
-  return home.kind === 'draft' ? `${DRAFT_PREFIX}${home.id}` : `${FILE_PREFIX}${home.recent_id}`
-}
-
-/** Decodes a persisted `last_open_home` string into a typed `LastOpenHome`, or `null` if invalid. */
 function decodeLastOpenHome(raw: string | null | undefined): LastOpenHome | null {
   if (!raw) return null
-  if (raw.startsWith(DRAFT_PREFIX)) {
-    const id = raw.slice(DRAFT_PREFIX.length).trim()
-    return id ? { kind: 'draft', id: id as DraftId } : null
-  }
-  if (raw.startsWith(FILE_PREFIX)) {
-    const recentId = raw.slice(FILE_PREFIX.length).trim()
-    return recentId ? { kind: 'file', recent_id: recentId } : null
-  }
+  const colon = raw.indexOf(':')
+  const value = colon > 0 ? raw.slice(colon + 1).trim() : ''
+  if (!value) return null
+  const kind = raw.slice(0, colon)
+  if (kind === 'draft') return { kind: 'draft', id: value as DraftId }
+  if (kind === 'file') return { kind: 'file', recent_id: value }
   return null
 }
 
@@ -122,13 +109,13 @@ export function installDesktopLastOpenHomeWriter(
     if (!home) return
 
     if (home.kind === 'draft') {
-      persistEncoded(encodeLastOpenHome({ kind: 'draft', id: home.id as DraftId }))
+      persistEncoded(`draft:${home.id}`)
       return
     }
 
     void recentIdForPath(home.path).then((recentId) => {
       if (disposed || token !== sequence) return
-      persistEncoded(encodeLastOpenHome({ kind: 'file', recent_id: recentId }))
+      persistEncoded(`file:${recentId}`)
     })
   })
 

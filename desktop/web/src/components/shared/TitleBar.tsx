@@ -76,15 +76,15 @@ export function TitleBar() {
       onMouseDown={handleMouseDown}
       windowControls={(
         <>
-          <button type="button" className={styles.iconButton} onClick={() => void minimizeAppWindow()} aria-label={t('window.minimize')} tabIndex={-1}>
-            <ControlIcon name="window-minimize" />
-          </button>
-          <button type="button" className={styles.iconButton} onClick={() => void toggleMaximizeAppWindow()} aria-label={t('window.maximize')} tabIndex={-1}>
-            <ControlIcon name="window-maximize" />
-          </button>
-          <button type="button" className={styles.iconButton} onClick={() => void closeAppWindow()} aria-label={t('window.close')} tabIndex={-1}>
-            <ControlIcon name="close" />
-          </button>
+          {([
+            [minimizeAppWindow, 'window.minimize', 'window-minimize'],
+            [toggleMaximizeAppWindow, 'window.maximize', 'window-maximize'],
+            [closeAppWindow, 'window.close', 'close'],
+          ] as const).map(([run, label, icon]) => (
+            <button key={icon} type="button" className={styles.iconButton} onClick={() => void run()} aria-label={t(label)} tabIndex={-1}>
+              <ControlIcon name={icon} />
+            </button>
+          ))}
         </>
       )}
     />

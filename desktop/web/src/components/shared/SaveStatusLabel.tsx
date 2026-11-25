@@ -1,4 +1,4 @@
-import type { RefObject } from 'preact'
+import type { ComponentChildren, RefObject } from 'preact'
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'preact/hooks'
 import type { DesignSaveStatus } from '../../app/document-session/continuous-save'
 import { saveProblem, type SaveConflictSource } from '../../app/document-session/save-problem'
@@ -83,14 +83,12 @@ export function SaveStatusLabel({
   const statusRef = useRef<HTMLSpanElement>(null)
   return (
     <span ref={statusRef} className={styles.status} data-save-status={status} tabIndex={draftAction.style === 'link' ? -1 : undefined}>
-      {status === 'saved' && (
+      {(status === 'saved' || status === 'saving') && (
         <span className={styles.text} role="status">
-          <ControlIcon name="check" /><span className={styles.label}>{t('saveStatus.saved')}</span>
-        </span>
-      )}
-      {status === 'saving' && (
-        <span className={styles.text} role="status">
-          <ControlIcon name="clock" /><span className={styles.label} aria-hidden="true">{t('saveStatus.saving')}</span>
+          <ControlIcon name={status === 'saved' ? 'check' : 'clock'} />
+          <span className={styles.label} aria-hidden={status === 'saving' ? 'true' : undefined}>
+            {t(status === 'saved' ? 'saveStatus.saved' : 'saveStatus.saving')}
+          </span>
         </span>
       )}
       {status === 'draft' && (
@@ -131,6 +129,44 @@ export function SaveStatusLabel({
 }
 
 /** The may-be-cleared warning as a trigger and its popover, on the Details… pattern (2.1-Q198). */
+function StatusPopover({
+  popover,
+  titleId,
+  descriptionId,
+  title,
+  onClose,
+  dataAttr,
+  children,
+}: {
+  readonly popover: RefObject<HTMLDivElement | null>
+  readonly titleId: string
+  readonly descriptionId: string
+  readonly title: string
+  onClose(): void
+  readonly dataAttr?: boolean
+  readonly children: ComponentChildren
+}) {
+  return (
+    <div
+      ref={popover}
+      className={styles.popover}
+      role="dialog"
+      aria-labelledby={titleId}
+      aria-describedby={descriptionId}
+      {...(dataAttr ? { 'data-draft-warning-popover': true } : {})}
+      onKeyDown={(event) => {
+        if (event.key !== 'Escape') return
+        event.preventDefault()
+        event.stopPropagation()
+        onClose()
+      }}
+    >
+      <h2 className={styles.popoverTitle} id={titleId}>{title}</h2>
+      {children}
+    </div>
+  )
+}
+
 function DraftWarningDetails({ warning, draftAction, fallbackFocus }: {
   readonly warning: DraftWarning
   readonly draftAction: SaveStatusAction
@@ -196,21 +232,7 @@ function DraftWarningDetails({ warning, draftAction, fallbackFocus }: {
         </button>}
       </span>
       {open && (
-        <div
-          ref={popover}
-          className={styles.popover}
-          role="dialog"
-          aria-labelledby={titleId}
-          aria-describedby={descriptionId}
-          data-draft-warning-popover
-          onKeyDown={(event) => {
-            if (event.key !== 'Escape') return
-            event.preventDefault()
-            event.stopPropagation()
-            close()
-          }}
-        >
-          <h2 className={styles.popoverTitle} id={titleId}>{warning.label}</h2>
+        <StatusPopover popover={popover} titleId={titleId} descriptionId={descriptionId} title={warning.label} onClose={close} dataAttr>
           <p className={styles.popoverText} id={descriptionId} data-notice={warning.detailsId}>{warning.details}</p>
           <div className={styles.popoverActions}>
             <button type="button" className={styles.action} onClick={() => { close(); draftAction.run() }}>
@@ -222,7 +244,7 @@ function DraftWarningDetails({ warning, draftAction, fallbackFocus }: {
               </button>
             )}
           </div>
-        </div>
+        </StatusPopover>
       )}
     </span>
   )
@@ -233,25 +255,29 @@ function DraftWarningDetails({ warning, draftAction, fallbackFocus }: {
  * "Read-only"; the label opens a popover that says why by origin: a newer Canopi saved it, with Update, or the browser's
  * storage could not be checked (Q334), where updating does not help and it offers File's Download a copy instead.
  */
-function ReadOnlyDesignDetails({ origin, onUpdate, keepCopy }: {
-  readonly origin: ReadOnlyOrigin
-  readonly onUpdate: (() => void) | undefined
-  readonly keepCopy: SaveStatusAction
-}) {
+function useDetailsPopover() {
   const [open, setOpen] = useState(false)
   const trigger = useRef<HTMLButtonElement>(null)
   const popover = useRef<HTMLDivElement>(null)
   const titleId = useId()
   const descriptionId = useId()
   usePopover(trigger, popover, open, setOpen)
-  const action = origin === 'newer-version'
-    ? (onUpdate ? { label: t('readOnlyDesign.update'), run: onUpdate } : null)
-    : keepCopy
-
-  function close(): void {
+  const close = () => {
     setOpen(false)
     trigger.current?.focus()
   }
+  return [open, setOpen, trigger, popover, titleId, descriptionId, close] as const
+}
+
+function ReadOnlyDesignDetails({ origin, onUpdate, keepCopy }: {
+  readonly origin: ReadOnlyOrigin
+  readonly onUpdate: (() => void) | undefined
+  readonly keepCopy: SaveStatusAction
+}) {
+  const [open, setOpen, trigger, popover, titleId, descriptionId, close] = useDetailsPopover()
+  const action = origin === 'newer-version'
+    ? (onUpdate ? { label: t('readOnlyDesign.update'), run: onUpdate } : null)
+    : keepCopy
 
   return (
     <span className={styles.detailsAnchor} data-preserve-overlays="true">
@@ -268,22 +294,13 @@ function ReadOnlyDesignDetails({ origin, onUpdate, keepCopy }: {
         </button>
       </span>
       {open && (
-        <div
-          ref={popover}
-          className={styles.popover}
-          role="dialog"
-          aria-labelledby={titleId}
-          aria-describedby={descriptionId}
-          onKeyDown={(event) => {
-            if (event.key !== 'Escape') return
-            event.preventDefault()
-            event.stopPropagation()
-            close()
-          }}
+        <StatusPopover
+          popover={popover}
+          titleId={titleId}
+          descriptionId={descriptionId}
+          title={t(origin === 'newer-version' ? 'readOnlyDesign.status' : 'readOnlyDesign.label')}
+          onClose={close}
         >
-          <h2 className={styles.popoverTitle} id={titleId}>
-            {t(origin === 'newer-version' ? 'readOnlyDesign.status' : 'readOnlyDesign.label')}
-          </h2>
           <p className={styles.popoverText} id={descriptionId}>
             {t(origin === 'newer-version' ? 'readOnlyDesign.details' : 'webStorage.uncheckedReadOnly')}
           </p>
@@ -294,7 +311,7 @@ function ReadOnlyDesignDetails({ origin, onUpdate, keepCopy }: {
               </button>
             </div>
           )}
-        </div>
+        </StatusPopover>
       )}
     </span>
   )
@@ -305,17 +322,7 @@ function SaveFailureDetails({ reason, onRetry, saveElsewhere }: {
   onRetry(): void
   readonly saveElsewhere: SaveStatusAction
 }) {
-  const [open, setOpen] = useState(false)
-  const trigger = useRef<HTMLButtonElement>(null)
-  const popover = useRef<HTMLDivElement>(null)
-  const titleId = useId()
-  const descriptionId = useId()
-  usePopover(trigger, popover, open, setOpen)
-
-  function close(): void {
-    setOpen(false)
-    trigger.current?.focus()
-  }
+  const [open, setOpen, trigger, popover, titleId, descriptionId, close] = useDetailsPopover()
 
   return (
     <span className={styles.detailsAnchor} data-preserve-overlays="true">
@@ -330,20 +337,7 @@ function SaveFailureDetails({ reason, onRetry, saveElsewhere }: {
         {t('saveStatus.details')}
       </button>
       {open && (
-        <div
-          ref={popover}
-          className={styles.popover}
-          role="dialog"
-          aria-labelledby={titleId}
-          aria-describedby={descriptionId}
-          onKeyDown={(event) => {
-            if (event.key !== 'Escape') return
-            event.preventDefault()
-            event.stopPropagation()
-            close()
-          }}
-        >
-          <h2 className={styles.popoverTitle} id={titleId}>{t('saveStatus.detailsTitle')}</h2>
+        <StatusPopover popover={popover} titleId={titleId} descriptionId={descriptionId} title={t('saveStatus.detailsTitle')} onClose={close}>
           <div className={styles.popoverDescription} id={descriptionId}>
             <p className={styles.popoverText}>
               {reason ? t('saveStatus.detailsReason', { reason }) : t('saveStatus.detailsUnknown')}
@@ -358,7 +352,7 @@ function SaveFailureDetails({ reason, onRetry, saveElsewhere }: {
               {t('saveStatus.retry')}
             </button>
           </div>
-        </div>
+        </StatusPopover>
       )}
     </span>
   )
@@ -386,13 +380,13 @@ function usePopover(
       const target = event.target as Node | null
       if (target && !inside(target)) setOpen(false)
     }
-    const focusLeft = (event: FocusEvent) => {
-      const next = event.relatedTarget as Node | null
+    const focusLeft = (event: Event) => {
+      const next = (event as FocusEvent).relatedTarget as Node | null
       if (next && !inside(next)) setOpen(false)
     }
+    const triggerElement = trigger.current
     document.addEventListener('pointerup', outside)
     element?.addEventListener('focusout', focusLeft)
-    const triggerElement = trigger.current
     triggerElement?.addEventListener('focusout', focusLeft)
     const stopSaveProblem = saveProblem.subscribe((request) => { if (request) setOpen(false) })
     return () => {

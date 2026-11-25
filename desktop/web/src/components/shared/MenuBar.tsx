@@ -140,26 +140,23 @@ export function MenuBar({ menus: fullMenus, label, compactLabel, onMenuOpen }: M
     entry.action()
   }
 
-  function handleMenuKeyDown(event: KeyboardEvent, menu: MenuDefinition): void {
-    const items = rootItems(event.currentTarget as HTMLElement)
+  function focusListKey(event: KeyboardEvent, items: readonly HTMLButtonElement[], stopProp: boolean): boolean {
     const index = items.indexOf(document.activeElement as HTMLButtonElement)
+    const target = event.key === 'ArrowDown' ? items[wrapNext(index, items.length)]
+      : event.key === 'ArrowUp' ? items[wrapPrev(index < 0 ? 0 : index, items.length)]
+      : event.key === 'Home' ? items[0]
+      : event.key === 'End' ? items.at(-1)
+      : undefined
+    if (!target && event.key !== 'ArrowDown' && event.key !== 'ArrowUp' && event.key !== 'Home' && event.key !== 'End') return false
+    event.preventDefault()
+    if (stopProp) event.stopPropagation()
+    focusMenuItem(target)
+    return true
+  }
+
+  function handleMenuKeyDown(event: KeyboardEvent, menu: MenuDefinition): void {
+    if (focusListKey(event, rootItems(event.currentTarget as HTMLElement), false)) return
     switch (event.key) {
-      case 'ArrowDown':
-        event.preventDefault()
-        focusMenuItem(items[wrapNext(index, items.length)])
-        break
-      case 'ArrowUp':
-        event.preventDefault()
-        focusMenuItem(items[wrapPrev(index < 0 ? 0 : index, items.length)])
-        break
-      case 'Home':
-        event.preventDefault()
-        focusMenuItem(items[0])
-        break
-      case 'End':
-        event.preventDefault()
-        focusMenuItem(items.at(-1))
-        break
       case 'ArrowLeft':
         event.preventDefault()
         moveToSiblingMenu(menu.id, -1)
@@ -189,20 +186,15 @@ export function MenuBar({ menus: fullMenus, label, compactLabel, onMenuOpen }: M
 
   function handleSubmenuKeyDown(event: KeyboardEvent, submenuId: string): void {
     const items = Array.from((event.currentTarget as HTMLElement).querySelectorAll<HTMLButtonElement>('button'))
-    const index = items.indexOf(document.activeElement as HTMLButtonElement)
-    const stop = () => { event.preventDefault(); event.stopPropagation() }
-    switch (event.key) {
-      case 'ArrowDown': stop(); focusMenuItem(items[wrapNext(index, items.length)]); break
-      case 'ArrowUp': stop(); focusMenuItem(items[wrapPrev(index < 0 ? 0 : index, items.length)]); break
-      case 'Home': stop(); focusMenuItem(items[0]); break
-      case 'End': stop(); focusMenuItem(items.at(-1)); break
-      case 'ArrowLeft':
-      case 'Escape':
-        stop()
-        openSubmenuId.value = null
-        submenuTriggerRefs.current.get(submenuId)?.focus()
-        break
-      case 'ArrowRight': stop(); break
+    if (focusListKey(event, items, true)) return
+    if (event.key === 'ArrowLeft' || event.key === 'Escape') {
+      event.preventDefault()
+      event.stopPropagation()
+      openSubmenuId.value = null
+      submenuTriggerRefs.current.get(submenuId)?.focus()
+    } else if (event.key === 'ArrowRight') {
+      event.preventDefault()
+      event.stopPropagation()
     }
   }
 
@@ -301,13 +293,17 @@ export function MenuBar({ menus: fullMenus, label, compactLabel, onMenuOpen }: M
     element.dataset.side = rootBounds.right + 4 + size.width <= window.innerWidth - VIEWPORT_MARGIN_PX ? 'right' : 'left'
   }
 
+  const bindMap = <T extends HTMLElement>(map: Map<string, T>, id: string) => (el: T | null) => {
+    if (el) map.set(id, el)
+    else map.delete(id)
+  }
+
   function renderSubmenuPopup(entry: Extract<MenuEntry, { type: 'submenu' }>, inline: boolean) {
     const submenuCheckable = entry.items.some((item) => item.check)
     return (
       <div
         ref={(element) => {
-          if (element) submenuRefs.current.set(entry.id, element)
-          else submenuRefs.current.delete(entry.id)
+          bindMap(submenuRefs.current, entry.id)(element)
           if (!inline) placeSubmenu(element, entry.id)
         }}
         className={`${styles.menu} ${styles.submenu}`}
@@ -327,10 +323,7 @@ export function MenuBar({ menus: fullMenus, label, compactLabel, onMenuOpen }: M
     return (
       <div key={entry.id} className={styles.submenuWrap} onMouseEnter={() => { if (!entry.disabled) openSubmenuId.value = entry.id }}>
         <button
-          ref={(element) => {
-            if (element) submenuTriggerRefs.current.set(entry.id, element)
-            else submenuTriggerRefs.current.delete(entry.id)
-          }}
+          ref={bindMap(submenuTriggerRefs.current, entry.id)}
           className={styles.item}
           role="menuitem"
           type="button"
@@ -366,16 +359,12 @@ export function MenuBar({ menus: fullMenus, label, compactLabel, onMenuOpen }: M
 
   function renderRootMenu(menu: MenuDefinition, compact: boolean) {
     const key = compact ? 'compact' : menu.id
-    {
-      const isOpen = openMenuId.value === key
-      const checkable = menu.items.some((entry) => entry.type === 'action' && entry.check !== undefined)
-      return (
-        <div key={key} className={`${styles.menuGroup} ${compact ? styles.compactGroup : styles.fullGroup}`}>
-          <button
-            ref={(element) => {
-              if (element) triggerRefs.current.set(key, element)
-              else triggerRefs.current.delete(key)
-            }}
+    const isOpen = openMenuId.value === key
+    const checkable = menu.items.some((entry) => entry.type === 'action' && entry.check !== undefined)
+    return (
+      <div key={key} className={`${styles.menuGroup} ${compact ? styles.compactGroup : styles.fullGroup}`}>
+        <button
+          ref={bindMap(triggerRefs.current, key)}
             className={styles.trigger}
             type="button"
             role="menuitem"
@@ -413,16 +402,15 @@ export function MenuBar({ menus: fullMenus, label, compactLabel, onMenuOpen }: M
               >
                 {menu.items.map((entry, index) => renderEntry(entry, index, checkable, compact))}
               </div>
-              {!compact && menu.items.map((entry) => (
-                entry.type === 'submenu' && !entry.disabled && openSubmenuId.value === entry.id
-                  ? renderSubmenuPopup(entry, false)
-                  : null
-              ))}
-            </div>
-          )}
+          {!compact && menu.items.map((entry) => (
+            entry.type === 'submenu' && !entry.disabled && openSubmenuId.value === entry.id
+              ? renderSubmenuPopup(entry, false)
+              : null
+          ))}
         </div>
-      )
-    }
+      )}
+    </div>
+    )
   }
 }
 

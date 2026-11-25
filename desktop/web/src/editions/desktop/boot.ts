@@ -55,51 +55,33 @@ let disposeDesktopRoot: (() => void) | null = null;
 export function bootDesktopEdition(): () => void {
   disposeDesktopRoot?.();
 
-  // Window error hooks first so a failure during bootstrap reaches the ring (ADR 0025).
-  const disposeFailureHooks = installFailureHooks({ storage: "disk" }, window);
-  const disposeAssetUrlResolver = installNativeAssetUrlResolver();
+  const disposers: Array<() => void> = [
+    // Window error hooks first so a failure during bootstrap reaches the ring (ADR 0025).
+    installFailureHooks({ storage: "disk" }, window),
+    installNativeAssetUrlResolver(),
+  ];
   const platform = detectPlatform(navigator, window as unknown as { readonly GestureEvent?: unknown });
-  const disposePorts = installEditionPorts({
-    capabilities: capabilitiesForEdition("desktop", runtimeOsFromPlatform(platform)),
-    manifest: DESKTOP_EDITION_MANIFEST,
-    settings: desktopSettingsPlatformAdapter,
-    problemReport: desktopProblemReport,
-    geocoding: desktopGeocodingTransport,
-    canvasPdfDelivery: createDesktopPdfDelivery,
-    budgetExportDelivery: deliverDesktopBudgetCsv,
-    designHome: desktopHomePort,
-  });
-  const disposeCatalog = installSpeciesCatalogWorkbench(desktopSpeciesCatalogWorkbench);
-  const disposeSpeciesCacheLoader = installSpeciesCacheLoader({
-    getSpeciesBatch,
-    getFlowerColorBatch,
-    isPlantDbUnavailableError,
-  });
-  const disposeGeoJsonWorkflow = installGeoJsonWorkflow(desktopGeoJsonWorkflow);
-  const disposeCanvasHost = installCanvasHostRuntime(createDesktopCanvasHostRuntime);
+  disposers.push(
+    installEditionPorts({
+      capabilities: capabilitiesForEdition("desktop", runtimeOsFromPlatform(platform)),
+      manifest: DESKTOP_EDITION_MANIFEST,
+      settings: desktopSettingsPlatformAdapter,
+      problemReport: desktopProblemReport,
+      geocoding: desktopGeocodingTransport,
+      canvasPdfDelivery: createDesktopPdfDelivery,
+      budgetExportDelivery: deliverDesktopBudgetCsv,
+      designHome: desktopHomePort,
+    }),
+    installSpeciesCatalogWorkbench(desktopSpeciesCatalogWorkbench),
+    installSpeciesCacheLoader({ getSpeciesBatch, getFlowerColorBatch, isPlantDbUnavailableError }),
+    installGeoJsonWorkflow(desktopGeoJsonWorkflow),
+    installCanvasHostRuntime(createDesktopCanvasHostRuntime),
+  );
   installProblemReportPort(desktopProblemReport);
-
   installLidarWorkflow();
   installLidarDisplayDescriptors();
   const shellBootstrap: ShellBootstrap = bootstrapShell(desktopSettingsPlatformAdapter, loadDesktopHealth);
   registerDesignOpenFailurePresenter(presentDesktopDesignOpenFailure);
-  const disposeContinuousSave = installDesignContinuousSave();
-  const disposeLastOpenHomeWriter = installDesktopLastOpenHomeWriter({
-    currentDesign,
-    designPath,
-    saveStatus: designContinuousSave.status,
-    readHome: () => designContinuousSave.readHome(),
-  });
-  const disposeLaunchFile = installLaunchFile({
-    take: takePendingOpen,
-    subscribe: subscribePendingOpen,
-    lastOpenHome: createDesktopLastOpenHomePort({
-      settingsReady: shellBootstrap.ready,
-      getRecentFiles,
-    }),
-  });
-  const disposePlaceSearchSession = installPlaceSearchSession();
-  const disposeToolRailLearning = installToolRailLearning();
   setShortcutPlatform(platform);
   const keyRouter = installDesktopKeyRouter(installKeyRouter, {
     target: window,
@@ -110,26 +92,31 @@ export function bootDesktopEdition(): () => void {
     document,
   });
   const closeGuardLifetime: CloseGuardLifetime = registerCloseGuard();
+  disposers.push(
+    () => shellBootstrap.dispose(),
+    () => registerDesignOpenFailurePresenter(null),
+    installDesignContinuousSave(),
+    installDesktopLastOpenHomeWriter({
+      currentDesign,
+      designPath,
+      saveStatus: designContinuousSave.status,
+      readHome: () => designContinuousSave.readHome(),
+    }),
+    installLaunchFile({
+      take: takePendingOpen,
+      subscribe: subscribePendingOpen,
+      lastOpenHome: createDesktopLastOpenHomePort({ settingsReady: shellBootstrap.ready, getRecentFiles }),
+    }),
+    () => keyRouter.dispose(),
+    installToolRailLearning(),
+    installPlaceSearchSession(),
+    () => closeGuardLifetime.dispose(),
+    disposeLidarDisplayDescriptors,
+    disposeLidarWorkflow,
+  );
 
   const dispose = () => {
-    disposeLidarWorkflow();
-    disposeLidarDisplayDescriptors();
-    closeGuardLifetime.dispose();
-    disposePlaceSearchSession();
-    disposeToolRailLearning();
-    keyRouter.dispose();
-    disposeLaunchFile();
-    disposeLastOpenHomeWriter();
-    disposeContinuousSave();
-    registerDesignOpenFailurePresenter(null);
-    shellBootstrap.dispose();
-    disposeCatalog();
-    disposeSpeciesCacheLoader();
-    disposeGeoJsonWorkflow();
-    disposeCanvasHost();
-    disposePorts();
-    disposeAssetUrlResolver();
-    disposeFailureHooks();
+    disposers.slice().reverse().forEach((fn) => fn());
   };
   disposeDesktopRoot = dispose;
   return dispose;
