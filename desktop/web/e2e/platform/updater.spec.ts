@@ -257,6 +257,8 @@ async function launchCheckSwitch(): Promise<ReturnType<typeof $>> {
 
 describe('the updater, from an installed N-1 to N', () => {
   let current = ''
+  let preRestartPids = new Set<number>()
+  let preRestartLastOpened: string | null = null
 
   before(async () => {
     if (CHANNELS === '' || BUNDLE === '') throw new Error('UPDATER_E2E_DIR and UPDATER_E2E_BUNDLE name the lane\'s channel files and installer')
@@ -474,6 +476,11 @@ describe('the updater, from an installed N-1 to N', () => {
     await openAbout()
     // Windows: the installer relaunches N with an environment built from the user's profile; it must find this one.
     handProfileToRelaunch(currentProfile())
+    // Capture N-1's pids and Second garden's recent_files.last_opened before restart so the next test proves a new
+    // process started (not a lingering N-1) and actually reopened the Design (advancing SQLite's 1 s datetime('now')).
+    preRestartPids = new Set(canopiProcesses().map((running) => running.pid))
+    preRestartLastOpened = resolvedLastOpenHome(currentProfile()).lastOpened
+    await new Promise((tick) => setTimeout(tick, 1_100))
     await press('Install and restart')
     // Continuous save may write the edit 1.5 s after it; either way the file the relaunch opens must hold it: the
     // update path flushes before the installer starts. An installer run by hand has its own test above.
@@ -486,10 +493,10 @@ describe('the updater, from an installed N-1 to N', () => {
    * Reads durable `last_open_home` from a snapshot copy of the profile's `user.db` (so we never contend with the
    * running Canopi's WAL lock) and resolves a `file:<sha256>` token against `recent_files` (2.1-Q127, 2.1-M523).
    */
-  function resolvedLastOpenHome(profileRoot: string): { lastOpenHome: string | null, resolvedPath: string | null, resolvedName: string | null } {
+  function resolvedLastOpenHome(profileRoot: string): { lastOpenHome: string | null, resolvedPath: string | null, resolvedName: string | null, lastOpened: string | null } {
     const store = storeFiles(appFolders(profileRoot), 'user.db')
     const sourceDb = store.find((file) => basename(file) === 'user.db')
-    if (sourceDb === undefined) return { lastOpenHome: null, resolvedPath: null, resolvedName: null }
+    if (sourceDb === undefined) return { lastOpenHome: null, resolvedPath: null, resolvedName: null, lastOpened: null }
     const snapshotDir = mkdtempSync(join(tmpdir(), 'canopi-updater-db-'))
     try {
       for (const file of store) copyFileSync(file, join(snapshotDir, basename(file)))
@@ -498,11 +505,11 @@ describe('the updater, from an installed N-1 to N', () => {
         const settingsRow = db.prepare("SELECT value FROM settings WHERE key = 'settings'").get() as { value?: string } | undefined
         const parsed = settingsRow?.value ? JSON.parse(settingsRow.value) as { last_open_home?: string | null } : null
         const token = typeof parsed?.last_open_home === 'string' ? parsed.last_open_home : null
-        if (!token || !token.startsWith('file:')) return { lastOpenHome: token, resolvedPath: null, resolvedName: null }
+        if (!token || !token.startsWith('file:')) return { lastOpenHome: token, resolvedPath: null, resolvedName: null, lastOpened: null }
         const recentId = token.slice('file:'.length)
-        const recent = db.prepare('SELECT path, name FROM recent_files').all() as { path: string, name: string }[]
+        const recent = db.prepare('SELECT path, name, last_opened FROM recent_files').all() as { path: string, name: string, last_opened: string }[]
         const match = recent.find((row) => createHash('sha256').update(row.path, 'utf8').digest('hex') === recentId)
-        return { lastOpenHome: token, resolvedPath: match?.path ?? null, resolvedName: match?.name ?? null }
+        return { lastOpenHome: token, resolvedPath: match?.path ?? null, resolvedName: match?.name ?? null, lastOpened: match?.last_opened ?? null }
       } finally {
         db.close()
       }
@@ -514,9 +521,9 @@ describe('the updater, from an installed N-1 to N', () => {
   it('restarts into N as the primary instance with the current Design', async () => {
     // Without the update test's Design there is no home the relaunch must reopen.
     if (current === '') throw new Error('no current Design: the update install test did not reach the restart')
-    // Exactly [exe] with no Design path argument: launch reopens the current Design via durable last_open_home
-    // (2.1-Q127, 2.1-M523, canopi-f47t.52.189).
-    const relaunched = () => canopiProcesses().filter(relaunchedCleanly)
+    // Exactly [exe] with no Design path argument, and a new pid (excluding N-1's): launch reopens the current Design
+    // via durable last_open_home (2.1-Q127, 2.1-M523, canopi-f47t.52.189).
+    const relaunched = () => canopiProcesses().filter((running) => !preRestartPids.has(running.pid) && relaunchedCleanly(running))
     // One budget for every wait below, kept under mocha's 180 s test timeout (wdio.desktop.conf.ts) so a slow wait
     // fails with its own message and report instead of mocha's bare timeout.
     const deadline = Date.now() + 165_000
@@ -544,16 +551,17 @@ describe('the updater, from an installed N-1 to N', () => {
     // And it is N: a relaunch of an N-1 the install left in place would pass every check above.
     expect(installedVersion()).toBe(announcedN().version)
     // N reopens Second garden.canopi (renamed to Updated garden) through durable last_open_home rather than argv
-    // (2.1-Q127, 2.1-M523): a failed reopen would clear last_open_home and fall back to the Start screen.
+    // (2.1-Q127, 2.1-M523): openDesignFromPath upserts recent_files.last_opened, proving the reopen actually ran.
     const expectedFile = basename(current)
     try {
       await browser.waitUntil(() => {
         const home = resolvedLastOpenHome(currentProfile())
-        return home.resolvedPath !== null && basename(home.resolvedPath) === expectedFile && home.resolvedName === 'Updated garden'
+        const reopened = home.lastOpened !== null && (preRestartLastOpened === null || home.lastOpened > preRestartLastOpened)
+        return reopened && home.resolvedPath !== null && basename(home.resolvedPath) === expectedFile && home.resolvedName === 'Updated garden'
       }, { timeout: Math.max(deadline - Date.now(), 1_000) })
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error)
-      throw new Error(`the relaunched Canopi did not keep last_open_home on ${expectedFile} / Updated garden (${reason}): ${JSON.stringify(resolvedLastOpenHome(currentProfile()))}`)
+      throw new Error(`the relaunched Canopi did not reopen ${expectedFile} / Updated garden via last_open_home (before=${String(preRestartLastOpened)}, ${reason}): ${JSON.stringify(resolvedLastOpenHome(currentProfile()))}`)
     }
   })
 
