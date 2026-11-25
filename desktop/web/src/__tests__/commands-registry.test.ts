@@ -4,11 +4,8 @@ import { afterEach, beforeEach, describe, expect, expectTypeOf, it, vi } from 'v
 import { signal } from '@preact/signals'
 import { currentCanvasSelection, currentCanvasTool } from '../canvas/session-state'
 import { activePanel, sidePanel } from '../app/shell/state'
-import {
-  gridVisible,
-  snapToGridEnabled,
-} from '../app/canvas-settings/signals'
-import { singleKeyShortcuts, theme } from '../app/settings/state'
+import { gridVisible } from '../app/canvas-settings/signals'
+import { singleKeyShortcuts, theme, snapToGridEnabled } from '../app/settings/state'
 import { setCurrentCanvasSession } from '../canvas/session'
 import { designSessionFixture, resetDirtyBaselines } from './support/design-session-state'
 import * as documentActions from '../app/document-session/actions'

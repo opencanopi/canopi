@@ -9,7 +9,6 @@ import { resetFrontendDiagnosticsForTests, ringEntries } from '../../failures/ri
 import { createBrowserSettingsPlatformAdapter } from '../../editions/web/settings'
 import type { Settings } from '../../types/settings'
 import { createBrowserAppDataStore, type BrowserStorageAdapter } from '../../web/browser-app-data'
-import { snapToGridEnabled } from '../canvas-settings/signals'
 import {
   flushSettingsProjection,
   installSettingsProjection,
@@ -18,7 +17,7 @@ import {
   retrySettingsLoad,
   type SettingsProjectionInstallation,
 } from './projection'
-import { scrollWheel, theme } from './state'
+import { scrollWheel, theme, snapToGridEnabled } from './state'
 
 const SETTINGS_KEY = 'canopi:web-app-data:v3:settings'
 

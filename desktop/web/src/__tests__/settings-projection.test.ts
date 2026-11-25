@@ -1,31 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-
 import type { BasemapStyle } from '../generated/contracts'
 import type { Settings, Theme } from '../types/settings'
 import type { SettingsProjectionInstallation } from '../app/settings/projection'
-import { snapToGridEnabled } from '../app/canvas-settings/signals'
 import { createDefaultMapLayers, mapLayers } from '../app/map-layers/state'
 import {
-  locale,
-  plantSpacingIntervalM,
-  savedStampsFrameHeight,
-  sidePanelWidth,
-  theme,
-  googleMapsApiKey,
-  lastView,
-  newDesignDefaults,
-  satelliteSource,
-  activeGoogleMapsApiKey,
-  scrollWheel,
-  singleKeyShortcuts,
+  activeGoogleMapsApiKey, googleMapsApiKey, lastView, locale, newDesignDefaults,
+  plantSpacingIntervalM, satelliteSource, savedStampsFrameHeight, scrollWheel,
+  sidePanelWidth, singleKeyShortcuts, snapToGridEnabled, theme,
 } from '../app/settings/state'
 import {
-  flushSettingsProjection,
-  hydrateSettingsProjectionForTests,
-  installSettingsProjection,
-  mutateSettingsProjection,
-  resetSettingsProjectionForTests,
-  snapshotSettingsProjection,
+  flushSettingsProjection, hydrateSettingsProjectionForTests, installSettingsProjection,
+  mutateSettingsProjection, resetSettingsProjectionForTests, snapshotSettingsProjection,
 } from '../app/settings/projection'
 
 function baseSettings(overrides: Partial<Settings> = {}): Settings {
@@ -192,6 +177,9 @@ describe('settings projection', () => {
     expect(snapshotSettingsProjection()).toEqual({
       locale: 'de',
       theme: 'dark',
+      unit_system: 'metric',
+      last_open_home: null,
+      launch_check: true,
       snap_to_grid: true,
       side_panel_width: 440,
       saved_stamps_frame_height: 260,

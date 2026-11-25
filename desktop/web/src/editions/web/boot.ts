@@ -3,7 +3,7 @@
  */
 import { installPlaceSearchSession } from "../../app/geocoding/place-search-session";
 import { installToolRailLearning } from "../../app/tool-rail/learning";
-import { installSettingsProjection } from "../../app/settings/projection";
+import { installSettingsProjection, readSettingsReportSummary } from "../../app/settings/projection";
 import { initTheme } from "../../app/settings/theme";
 import { registerDesignOpenFailurePresenter } from "../../app/document-session/open-failure";
 import { browserDesignSessionController } from "../../web/browser-design-session";
@@ -27,7 +27,6 @@ import { speciesCatalogWorkbench as browserSpeciesCatalogWorkbench } from "./spe
 import { createBrowserProblemReportWriter } from "./problem-report";
 import { CANOPI_VERSION } from "../../app/about/metadata";
 import { storeHealth } from "../../failures/health";
-import { locale, plantSpacingIntervalM, theme } from "../../app/settings/state";
 import { isNewerReadView } from "../../app/document-session/store";
 import { installCanvasHostRuntime } from "../../app/canvas-map-surface/use-canvas-host";
 import { createBrowserCanvasHostRuntime } from "./browser-workspace-runtime";
@@ -42,7 +41,7 @@ export function bootWebEdition(): () => void {
   const problemReportWriter = createBrowserProblemReportWriter({
     build: () => ({ app: "Canopi", version: CANOPI_VERSION }),
     health: () => storeHealth.peek(),
-    settings: () => ({ locale: locale.peek(), theme: theme.peek(), plant_spacing_interval_m: plantSpacingIntervalM.peek() }),
+    settings: readSettingsReportSummary,
     currentDesign: () => (isNewerReadView(browserDesignSessionController.readDesignIdentity()?.readOnlyOrigin) ? null : browserDesignSessionController.currentDesignText()),
   });
   const disposePorts = installEditionPorts({

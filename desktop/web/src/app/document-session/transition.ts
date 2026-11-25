@@ -1,10 +1,8 @@
 import type { CanvasDocumentSurface } from "../../canvas/runtime/runtime";
 import { failureLogger } from "../../failures/report";
 import * as designIpc from "../../ipc/design";
-import {
-  applyNewDesignBackground,
-  withNewDesignDisplay,
-} from "../settings/new-design-defaults";
+import { applyNewDesignBackground } from "../settings/new-design-defaults";
+import { withNewDesignDisplay } from "./replacement";
 import {
   createDesignSessionStateMachine,
   type DocumentTransitionResult,

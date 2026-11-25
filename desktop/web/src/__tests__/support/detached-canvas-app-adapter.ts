@@ -1,5 +1,5 @@
 import type { CanopiFile } from '../../types/design'
-import { FALLBACK_PLANT_SPACING_INTERVAL_M } from '../../canvas/plant-spacing-interval'
+import { DEFAULT_SETTINGS } from '../../generated/settings'
 import type {
   CanvasRuntimeAppAdapter,
   CanvasRuntimeDocumentCompositionInput,
@@ -15,7 +15,7 @@ import {
 export function createDetachedCanvasRuntimeAppAdapter(): CanvasRuntimeAppAdapter {
   let gridVisible = false
   let snapToGrid = false
-  let plantSpacingIntervalM = FALLBACK_PLANT_SPACING_INTERVAL_M
+  let plantSpacingIntervalM: number = DEFAULT_SETTINGS.plant_spacing_interval_m
 
   return {
     cleanState: {

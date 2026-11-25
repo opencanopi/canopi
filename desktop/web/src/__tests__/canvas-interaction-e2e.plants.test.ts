@@ -15,8 +15,7 @@ import {
   setCanvasToolGuidance,
   type CanvasToolGuidance,
 } from '../canvas/session-state'
-import { snapToGridEnabled } from '../app/canvas-settings/signals'
-import { plantSpacingIntervalM } from '../app/settings/state'
+import { plantSpacingIntervalM, snapToGridEnabled } from '../app/settings/state'
 import { SceneStore, type ScenePoint } from '../canvas/runtime/scene'
 import type {
   SceneInteractionSession,

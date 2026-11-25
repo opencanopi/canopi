@@ -1,4 +1,4 @@
-export const FALLBACK_PLANT_SPACING_INTERVAL_M = 0.5
+const FALLBACK_PLANT_SPACING_INTERVAL_M = 0.5
 
 export type PlantSpacingIntervalParseResult =
   | { valid: true; meters: number }

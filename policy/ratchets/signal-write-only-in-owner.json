@@ -11,7 +11,6 @@
     "desktop/web/src/app/panel-targets/presentation.ts": { "count": 9 },
     "desktop/web/src/app/plant-finder/map-matches.ts": { "count": 1 },
     "desktop/web/src/app/problem-report/submission.ts": { "count": 1 },
-    "desktop/web/src/app/settings/projection.ts": { "count": 2 },
     "desktop/web/src/app/shell/state.ts": { "count": 1 },
     "desktop/web/src/app/timeline/calendar-workbench.ts": { "count": 14 },
     "desktop/web/src/canvas/runtime/scene-runtime/scene-sync.ts": { "count": 2 },

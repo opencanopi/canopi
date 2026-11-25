@@ -20,7 +20,7 @@ import { createDesktopCanvasRuntimeAppAdapter } from '../app/canvas-runtime/desk
 import { armProfile } from '../app/data-library/profile'
 import { endSiteDataTransients, pin, profileLine } from '../app/data-library/site-transients'
 import { selectPanel, sidePanel } from '../app/shell/state'
-import { snapToGridEnabled } from '../app/canvas-settings/signals'
+import { snapToGridEnabled } from '../app/settings/state'
 import { currentCanvasTool } from '../canvas/session-state'
 import { setCurrentCanvasSession } from '../canvas/session'
 import {

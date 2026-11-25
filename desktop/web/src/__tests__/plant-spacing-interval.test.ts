@@ -1,11 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import {
-  FALLBACK_PLANT_SPACING_INTERVAL_M,
   formatPlantSpacingIntervalInput,
   parsePlantRowCountInput,
   parsePlantSpacingIntervalInput,
 } from '../canvas/plant-spacing-interval'
+import { DEFAULT_SETTINGS } from '../generated/settings'
 import { createPlantRowTool } from '../canvas/runtime/tools/plant-row'
 import { createToolHarness, plantEntity, useStubTools, type ToolHarness } from './support/tool-harness'
 
@@ -36,7 +36,7 @@ function rowLengthChip(lengthM: number): string | undefined {
 
 describe('Plant Spacing interval parsing', () => {
   it('accepts positive finite metric distances and normalizes them to meters', () => {
-    expect(FALLBACK_PLANT_SPACING_INTERVAL_M).toBe(0.5)
+    expect(DEFAULT_SETTINGS.plant_spacing_interval_m).toBe(0.5)
     expect(parsePlantSpacingIntervalInput('0.5')).toEqual({ valid: true, meters: 0.5 })
     expect(parsePlantSpacingIntervalInput('0.5m')).toEqual({ valid: true, meters: 0.5 })
     expect(parsePlantSpacingIntervalInput('50cm')).toEqual({ valid: true, meters: 0.5 })
@@ -54,7 +54,7 @@ describe('Plant Spacing interval parsing', () => {
   })
 
   it('formats the fallback and stored meter values for the compact HUD input', () => {
-    expect(formatPlantSpacingIntervalInput(FALLBACK_PLANT_SPACING_INTERVAL_M)).toBe('50 cm')
+    expect(formatPlantSpacingIntervalInput(DEFAULT_SETTINGS.plant_spacing_interval_m)).toBe('50 cm')
     expect(formatPlantSpacingIntervalInput(1.5)).toBe('1.5 m')
     expect(formatPlantSpacingIntervalInput(0.25)).toBe('25 cm')
     expect(formatPlantSpacingIntervalInput(0)).toBe('50 cm')

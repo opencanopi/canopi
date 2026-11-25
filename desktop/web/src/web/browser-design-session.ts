@@ -4,7 +4,7 @@ import { DEFAULT_BUDGET_CURRENCY } from "../app/contracts/document";
 import type { DesignTemplateEnvelope } from "../app/design-template-import/types";
 import { createContinuousSave, DesignHomeConflictError, type ContinuousSave, type DesignHome, type HomeWriteOutcome } from "../app/document-session/continuous-save";
 import {
-  createCloseDesignReplacement, createDesignSessionReplacement, type DesignSessionPendingCanvasReplacementIdentity, type ResolvedDesignReplacement,
+  createCloseDesignReplacement, createDesignSessionReplacement, withNewDesignDisplay, type DesignSessionPendingCanvasReplacementIdentity, type ResolvedDesignReplacement,
 } from "../app/document-session/replacement";
 import { presentDesignOpenFailure } from "../app/document-session/open-failure";
 import { requestSaveProblemDecision } from "../app/document-session/save-problem";
@@ -16,7 +16,7 @@ import { prepareDesignWriteDestination, prepareSynchronousDesignWriteDestination
 import { CanvasAuthorityBusyError, type CanvasDocumentSurface } from "../canvas/runtime/runtime";
 import type { CanopiFile } from "../types/design";
 import { signal, type ReadonlySignal } from "@preact/signals";
-import { applyNewDesignBackground, withNewDesignDisplay } from "../app/settings/new-design-defaults";
+import { applyNewDesignBackground } from "../app/settings/new-design-defaults";
 import { CURRENT_CANOPI_FILE_VERSION } from "../generated/canopi-design-format";
 import type { ReadOnlyDesign } from "../generated/contracts";
 import { NEW_DESIGN_LAYER_DEFAULTS } from "../generated/new-design-defaults";

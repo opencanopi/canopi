@@ -25,8 +25,7 @@ import {
   createTestCanvasKeyboardPort,
 } from './canvas-runtime-surfaces'
 import { createTestCanvasQuerySurface } from './canvas-query-surface'
-import { snapToGridEnabled } from '../../app/canvas-settings/signals'
-import { plantSpacingIntervalM, singleKeyShortcuts } from '../../app/settings/state'
+import { plantSpacingIntervalM, singleKeyShortcuts, snapToGridEnabled } from '../../app/settings/state'
 import { installKeyRouter, type KeyRouterHandle } from '../../app/keyboard/key-router'
 import { CANVAS_KEYMAP_ROWS } from '../../app/keyboard/keymap'
 import { TEST_KEY_PLATFORM } from './key-router'

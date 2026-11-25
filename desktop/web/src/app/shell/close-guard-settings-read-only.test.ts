@@ -25,7 +25,7 @@ const { installSettingsProjection, mutateSettingsProjection, resetSettingsProjec
 const { createDesktopSettingsPlatformAdapter } = await import('../../editions/desktop/settings')
 const { getSettings, setSettings } = await import('../../ipc/settings')
 const { resetFrontendDiagnosticsForTests, ringEntries } = await import('../../failures/ring')
-const { snapToGridEnabled } = await import('../canvas-settings/signals')
+const { snapToGridEnabled } = await import('../settings/state')
 
 let dispose: () => void = () => undefined
 

@@ -13,7 +13,8 @@ import {
   normalizeLoadedDocument,
   normalizeNewDocument,
 } from "../contracts/document";
-import { PLANT_DISPLAY_EXTRA_KEY } from "../design-edit/plant-display";
+import { PLANT_DISPLAY_EXTRA_KEY, withPlantDisplayOptions } from "../design-edit/plant-display";
+import { newDesignDefaults, type NewDesignDefaults } from "../settings/state";
 import {
   EDITING_DESIGN_SESSION,
   type DesignSessionKind,
@@ -437,4 +438,18 @@ function normalizeReplacement(input: ResolvedDesignReplacement): CanopiFile {
 function finishCanvasHydration(canvas: CanvasDocumentSurface): void {
   canvas.showCanvasChrome();
   canvas.zoomToFit();
+}
+
+/**
+ * Settings › New Designs, applied once, to a Design being created: its symbol
+ * size and labels. An existing Design keeps its own display options.
+ */
+export function withNewDesignDisplay(
+  file: CanopiFile,
+  defaults: NewDesignDefaults = newDesignDefaults.peek(),
+): CanopiFile {
+  return withPlantDisplayOptions(file, {
+    symbolScale: defaults.symbolScale,
+    labels: defaults.labels,
+  });
 }

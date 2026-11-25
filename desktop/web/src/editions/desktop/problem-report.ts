@@ -10,7 +10,7 @@ import { createProblemReport, showProblemReportFolder } from '../../ipc/problem-
 import type { ProblemReportRequest, RedactedText } from '../../generated/contracts'
 import type { EditionSections, ProblemReport, ProblemReportPort } from '../../platform/problem-report'
 import { buildCurrentDesignProblemReportAttachment } from '../../app/problem-report/attachments'
-import { locale, plantSpacingIntervalM, theme } from '../../app/settings/state'
+import { readSettingsReportSummary } from '../../app/settings/projection'
 
 /** Desktop: the native command fills host sections; settings_summary is supplied as TS facts (Stage 2 E1, ADR 0024). */
 const NATIVE_SECTIONS: EditionSections = {
@@ -21,11 +21,7 @@ const NATIVE_SECTIONS: EditionSections = {
   jobs: 'native',
   library_disk: 'native',
   log_tail: 'native',
-  settings_summary: () => ({
-    locale: locale.peek(),
-    theme: theme.peek(),
-    plant_spacing_interval_m: plantSpacingIntervalM.peek(),
-  }),
+  settings_summary: readSettingsReportSummary,
 }
 
 /**

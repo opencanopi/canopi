@@ -1,44 +1,67 @@
 import { batch } from '@preact/signals'
 import type { LastView, SatelliteSource, ScrollWheel } from '../../generated/contracts'
+import type { UnitSystem } from '../../generated/quantity-table'
 import { readFailureCode, readWithRetry } from '../../failures/store-read'
 import { storeHealth, writeStoreHealth } from '../../failures/health'
 import { reportFailure } from '../../failures/report'
-import { WEB_MERCATOR_MAX_LATITUDE_DEG } from '../../generated/canopi-design-format'
 import type { Locale, Settings, Theme } from '../../types/settings'
-import { FALLBACK_PLANT_SPACING_INTERVAL_M } from '../../canvas/plant-spacing-interval'
-import { clampPlantSymbolScale } from '../../canvas/runtime/plant-display'
-import { mapLayers, mapLayersEqual, normalizeMapLayers, type MapLayersState } from '../map-layers/state'
-import { snapToGridEnabled } from '../canvas-settings/signals'
+import {
+  withFirstRunSettings,
+  type SettingsPlatformAdapter,
+} from '../../platform/settings'
 import {
   DEFAULT_SAVED_STAMPS_FRAME_HEIGHT,
+  DEFAULT_SETTINGS_VALUES,
+  MAX_PLANT_SYMBOL_SCALE,
   MIN_FAVORITES_FRAME_HEIGHT,
+  MIN_PLANT_SYMBOL_SCALE,
+  MIN_SIDE_PANEL_WIDTH,
+  type SettingsValues,
+} from './field-table'
+import {
+  buildSettingsReportSummary,
+  decodeSettingsRecord,
+  diffSettingsPatch,
+  normalizeSettingsValues,
+  settingsValuesEqual,
+} from './interpreter'
+import {
   googleMapsApiKey,
+  lastOpenHome,
   lastView,
+  launchCheck,
   locale,
+  mapLayers,
+  mapLayersEqual,
   newDesignDefaults,
+  normalizeMapLayers,
   plantSpacingIntervalM,
   satelliteSource,
   savedStampsFrameHeight,
   scrollWheel,
   sidePanelWidth,
   singleKeyShortcuts,
+  snapToGridEnabled,
   theme,
   toolNamesVisible,
+  unitSystem,
   usedCanvasTools,
+  type MapLayersState,
   type NewDesignDefaults,
 } from './state'
-import { withFirstRunSettings, type SettingsPlatformAdapter } from '../../platform/settings'
 
 export type SettingsPersistMode = 'immediate' | 'queued' | 'none'
 
 export interface SettingsProjectionDraft {
   locale: Locale
   theme: Theme
+  unitSystem: UnitSystem
   googleMapsApiKey: string | null
   satelliteSource: SatelliteSource
   snapToGrid: boolean
   plantSpacingIntervalM: number
   lastView: LastView | null
+  lastOpenHome: string | null
   sidePanel: { width: number | null }
   savedStamps: { frameHeight: number }
   mapLayers: MapLayersState
@@ -49,6 +72,7 @@ export interface SettingsProjectionDraft {
   singleKeyShortcuts: boolean
   scrollWheel: ScrollWheel
   newDesigns: NewDesignDefaults
+  launchCheck: boolean
 }
 
 interface MutateSettingsProjectionOptions {
@@ -61,13 +85,18 @@ export interface SettingsProjectionInstallation {
   dispose(): void
 }
 
+interface NormalizedLoad {
+  readonly settings: SettingsValues
+  readonly resetFields: readonly string[]
+}
+
 interface ActiveSettingsProjection {
   readonly adapter: SettingsPlatformAdapter
   disposed: boolean
   retiring: boolean
-  durable: Settings | null
-  requested: Settings | null
-  saving: Settings | null
+  durable: SettingsValues | null
+  requested: SettingsValues | null
+  saving: SettingsValues | null
   queuedPersistTimer: ReturnType<typeof globalThis.setTimeout> | null
   drainPromise: Promise<void> | null
   draining: boolean
@@ -75,34 +104,39 @@ interface ActiveSettingsProjection {
   persistenceError: unknown | null
   /** A save refused as `store_read_only`: changes apply for the session, never written, logged or asked (2.1-Q320). */
   writesRefused: boolean
-  pendingHydrationPatch: Partial<Settings>
+  pendingHydrationPatch: Partial<SettingsValues>
   pendingHydrationPersistence: boolean
-  readonly fallback: Settings
+  readonly fallback: SettingsValues
   readonly retired: Promise<void>
   readonly resolveRetired: () => void
   ready: Promise<void> | null
   /** The first or a Try again read in flight; a press joins it, so one read lands and applies the session's changes. */
   retrying: Promise<boolean> | null
+  unsubscribeExternal: (() => void) | null
 }
 
 interface PendingHydrationIntent {
-  readonly fallback: Settings
-  readonly patch: Partial<Settings>
+  readonly fallback: SettingsValues
+  readonly patch: Partial<SettingsValues>
   readonly persist: boolean
 }
 
 const DEFAULT_QUEUED_PERSIST_DELAY_MS = 160
 const SETTINGS_LOAD_RETRY_DELAYS_MS: readonly number[] = [100, 400] // SET-05: a busy store gets two more reads
-const MIN_SIDE_PANEL_WIDTH = 320
 
-let sourceSettings: Settings | null = null
+let sourceSettings: SettingsValues | null = null
 let activeSettingsProjection: ActiveSettingsProjection | null = null
 let pendingSettingsRetirement: Promise<void> | null = null
 let pendingHydrationIntent: PendingHydrationIntent | null = null
 
-function normalizePositiveMeters(value: number, fallback: number): number {
-  if (!Number.isFinite(value) || value <= 0) return fallback
-  return value
+function trimmedKey(value: string | null): string | null {
+  const key = value?.trim()
+  return key ? key : null
+}
+
+function normalizeFrameHeight(value: number | null): number {
+  if (value === null || !Number.isFinite(value)) return DEFAULT_SAVED_STAMPS_FRAME_HEIGHT
+  return Math.max(MIN_FAVORITES_FRAME_HEIGHT, Math.round(value))
 }
 
 function normalizeSidePanelWidth(value: number | null): number | null {
@@ -110,114 +144,42 @@ function normalizeSidePanelWidth(value: number | null): number | null {
   return Math.max(MIN_SIDE_PANEL_WIDTH, Math.round(value))
 }
 
-function normalizeSavedStampsFrameHeight(value: number | null): number {
-  if (value === null || !Number.isFinite(value)) return DEFAULT_SAVED_STAMPS_FRAME_HEIGHT
-  return Math.max(MIN_FAVORITES_FRAME_HEIGHT, Math.round(value))
-}
-
-function normalizeTheme(value: Theme): Theme {
-  return value === 'dark' ? 'dark' : 'light'
+function clampSymbolScale(value: number): number {
+  if (!Number.isFinite(value)) return DEFAULT_SETTINGS_VALUES.new_design_symbol_scale
+  return Math.min(MAX_PLANT_SYMBOL_SCALE, Math.max(MIN_PLANT_SYMBOL_SCALE, value))
 }
 
 function createDraftFromProjection(): SettingsProjectionDraft {
   return {
     locale: locale.value,
     theme: theme.value,
+    unitSystem: unitSystem.value,
     googleMapsApiKey: googleMapsApiKey.value,
     satelliteSource: satelliteSource.value,
     snapToGrid: snapToGridEnabled.value,
     plantSpacingIntervalM: plantSpacingIntervalM.value,
     lastView: lastView.value,
-    sidePanel: {
-      width: sidePanelWidth.value,
-    },
-    savedStamps: {
-      frameHeight: savedStampsFrameHeight.value,
-    },
+    lastOpenHome: lastOpenHome.value,
+    sidePanel: { width: sidePanelWidth.value },
+    savedStamps: { frameHeight: savedStampsFrameHeight.value },
     mapLayers: mapLayers.value,
-    toolRail: {
-      usedTools: usedCanvasTools.value,
-      namesVisible: toolNamesVisible.value,
-    },
+    toolRail: { usedTools: usedCanvasTools.value, namesVisible: toolNamesVisible.value },
     singleKeyShortcuts: singleKeyShortcuts.value,
     scrollWheel: scrollWheel.value,
     newDesigns: newDesignDefaults.value,
+    launchCheck: launchCheck.value,
   }
 }
 
-/**
- * The key as persisted: trimmed, and empty means absent.
- *
- * Trimming happens on the explicit save path only, so an in-progress edit
- * is never rewritten while the user is still typing it.
- */
-function trimmedKey(value: string | null): string | null {
-  const key = value?.trim()
-  return key ? key : null
-}
-
-function normalizeDraft(draft: SettingsProjectionDraft): SettingsProjectionDraft {
-  return {
-    locale: draft.locale,
-    theme: normalizeTheme(draft.theme),
-    // The key is stored exactly as typed; the explicit save action is what
-    // trims it, so partial editing never silently rewrites the credential.
-    googleMapsApiKey: draft.googleMapsApiKey,
-    satelliteSource: draft.satelliteSource === 'google_key' ? 'google_key' : 'free',
-    snapToGrid: draft.snapToGrid,
-    plantSpacingIntervalM: normalizePositiveMeters(
-      draft.plantSpacingIntervalM,
-      FALLBACK_PLANT_SPACING_INTERVAL_M,
-    ),
-    lastView: normalizeLastView(draft.lastView),
-    sidePanel: {
-      width: normalizeSidePanelWidth(draft.sidePanel.width),
-    },
-    savedStamps: {
-      frameHeight: normalizeSavedStampsFrameHeight(draft.savedStamps.frameHeight),
-    },
-    mapLayers: normalizeMapLayers(draft.mapLayers),
-    toolRail: {
-      usedTools: [...new Set(draft.toolRail.usedTools)],
-      namesVisible: draft.toolRail.namesVisible,
-    },
-    singleKeyShortcuts: draft.singleKeyShortcuts,
-    scrollWheel: draft.scrollWheel === 'pan' ? 'pan' : 'zoom',
-    newDesigns: {
-      satellite: draft.newDesigns.satellite,
-      symbolScale: clampPlantSymbolScale(draft.newDesigns.symbolScale),
-      labels: draft.newDesigns.labels,
-    },
-  }
-}
-
-function applyDraftToProjection(draft: SettingsProjectionDraft): void {
-  batch(() => {
-    locale.value = draft.locale
-    theme.value = draft.theme
-    googleMapsApiKey.value = draft.googleMapsApiKey
-    satelliteSource.value = draft.satelliteSource
-    snapToGridEnabled.value = draft.snapToGrid
-    plantSpacingIntervalM.value = draft.plantSpacingIntervalM
-    if (!sameLastView(lastView.value, draft.lastView)) lastView.value = draft.lastView
-    sidePanelWidth.value = draft.sidePanel.width
-    savedStampsFrameHeight.value = draft.savedStamps.frameHeight
-    if (!mapLayersEqual(mapLayers.value, draft.mapLayers)) mapLayers.value = draft.mapLayers
-    if (!sameStrings(usedCanvasTools.value, draft.toolRail.usedTools)) usedCanvasTools.value = draft.toolRail.usedTools
-    toolNamesVisible.value = draft.toolRail.namesVisible
-    singleKeyShortcuts.value = draft.singleKeyShortcuts
-    scrollWheel.value = draft.scrollWheel
-    if (!sameNewDesignDefaults(newDesignDefaults.value, draft.newDesigns)) newDesignDefaults.value = draft.newDesigns
-  })
-}
-
-function settingsFromDraft(draft: SettingsProjectionDraft): Settings {
+function valuesFromDraft(draft: SettingsProjectionDraft): SettingsValues {
   return {
     locale: draft.locale,
     theme: draft.theme,
+    unit_system: draft.unitSystem,
     snap_to_grid: draft.snapToGrid,
     plant_spacing_interval_m: draft.plantSpacingIntervalM,
     last_view: draft.lastView,
+    last_open_home: draft.lastOpenHome,
     side_panel_width: draft.sidePanel.width,
     saved_stamps_frame_height: draft.savedStamps.frameHeight,
     basemap_style: draft.mapLayers.basemap.style,
@@ -240,21 +202,46 @@ function settingsFromDraft(draft: SettingsProjectionDraft): Settings {
     new_design_satellite: draft.newDesigns.satellite,
     new_design_symbol_scale: draft.newDesigns.symbolScale,
     new_design_labels: draft.newDesigns.labels,
+    launch_check: draft.launchCheck,
+  }
+}
+
+function normalizeDraft(draft: SettingsProjectionDraft): SettingsProjectionDraft {
+  const normalizedLayers = normalizeMapLayers(draft.mapLayers)
+  // Normalize via the single settings field table, preserving untrimmed in-progress key edits.
+  const norm = normalizeSettingsValues({
+    ...valuesFromDraft({ ...draft, mapLayers: normalizedLayers }),
+    side_panel_width: normalizeSidePanelWidth(draft.sidePanel.width),
+    saved_stamps_frame_height: normalizeFrameHeight(draft.savedStamps.frameHeight),
+    new_design_symbol_scale: clampSymbolScale(draft.newDesigns.symbolScale),
+  })
+  return {
+    locale: norm.locale,
+    theme: norm.theme,
+    unitSystem: norm.unit_system,
+    googleMapsApiKey: draft.googleMapsApiKey,
+    satelliteSource: draft.satelliteSource === 'google_key' ? 'google_key' : 'free',
+    snapToGrid: norm.snap_to_grid,
+    plantSpacingIntervalM: norm.plant_spacing_interval_m,
+    lastView: norm.last_view,
+    lastOpenHome: norm.last_open_home,
+    sidePanel: { width: norm.side_panel_width },
+    savedStamps: { frameHeight: norm.saved_stamps_frame_height ?? DEFAULT_SAVED_STAMPS_FRAME_HEIGHT },
+    mapLayers: normalizedLayers,
+    toolRail: { usedTools: norm.used_canvas_tools, namesVisible: norm.tool_names_visible },
+    singleKeyShortcuts: norm.single_key_shortcuts,
+    scrollWheel: norm.scroll_wheel,
+    newDesigns: {
+      satellite: norm.new_design_satellite,
+      symbolScale: norm.new_design_symbol_scale,
+      labels: norm.new_design_labels,
+    },
+    launchCheck: norm.launch_check,
   }
 }
 
 function sameNewDesignDefaults(left: NewDesignDefaults, right: NewDesignDefaults): boolean {
-  return left.satellite === right.satellite
-    && left.symbolScale === right.symbolScale
-    && left.labels === right.labels
-}
-
-function normalizeLastView(view: LastView | null): LastView | null {
-  if (!view) return null
-  const { lon, lat, zoom } = view
-  if (![lon, lat, zoom].every(Number.isFinite)) return null
-  if (lon < -180 || lon > 180 || Math.abs(lat) > WEB_MERCATOR_MAX_LATITUDE_DEG) return null
-  return { lon, lat, zoom }
+  return left.satellite === right.satellite && left.symbolScale === right.symbolScale && left.labels === right.labels
 }
 
 function sameLastView(left: LastView | null | undefined, right: LastView | null | undefined): boolean {
@@ -266,77 +253,74 @@ function sameStrings(left: readonly string[], right: readonly string[]): boolean
   return left.length === right.length && left.every((value, index) => value === right[index])
 }
 
-function settingsEqual(left: Settings, right: Settings): boolean {
-  const leftKeys = Object.keys(left) as Array<keyof Settings>
-  if (leftKeys.length !== Object.keys(right).length) return false
-
-  return leftKeys.every((key) => (
-    Object.prototype.hasOwnProperty.call(right, key)
-    && sameSettingValue(key, left, right)
-  ))
+function applyDraftToProjection(draft: SettingsProjectionDraft): void {
+  batch(() => {
+    locale.value = draft.locale
+    theme.value = draft.theme
+    unitSystem.value = draft.unitSystem
+    googleMapsApiKey.value = draft.googleMapsApiKey
+    satelliteSource.value = draft.satelliteSource
+    snapToGridEnabled.value = draft.snapToGrid
+    plantSpacingIntervalM.value = draft.plantSpacingIntervalM
+    if (!sameLastView(lastView.value, draft.lastView)) lastView.value = draft.lastView
+    lastOpenHome.value = draft.lastOpenHome
+    sidePanelWidth.value = draft.sidePanel.width
+    savedStampsFrameHeight.value = draft.savedStamps.frameHeight
+    if (!mapLayersEqual(mapLayers.value, draft.mapLayers)) mapLayers.value = draft.mapLayers
+    if (!sameStrings(usedCanvasTools.value, draft.toolRail.usedTools)) usedCanvasTools.value = draft.toolRail.usedTools
+    toolNamesVisible.value = draft.toolRail.namesVisible
+    singleKeyShortcuts.value = draft.singleKeyShortcuts
+    scrollWheel.value = draft.scrollWheel
+    if (!sameNewDesignDefaults(newDesignDefaults.value, draft.newDesigns)) newDesignDefaults.value = draft.newDesigns
+    launchCheck.value = draft.launchCheck
+  })
 }
 
-function sameSettingValue(key: keyof Settings, left: Settings, right: Settings): boolean {
-  if (key === 'last_view') return sameLastView(left.last_view, right.last_view)
-  if (key === 'used_canvas_tools') return sameStrings(left.used_canvas_tools, right.used_canvas_tools)
-  return Object.is(left[key], right[key])
+function currentSettingsSnapshot(): SettingsValues {
+  return valuesFromDraft(normalizeDraft(createDraftFromProjection()))
 }
 
-function currentSettingsSnapshot(): Settings {
-  return settingsFromDraft(normalizeDraft(createDraftFromProjection()))
-}
-
-function projectSettingsToSignals(settings: Settings): Settings {
+function projectSettingsToSignals(settings: Partial<SettingsValues> & Settings): SettingsValues {
+  const full = normalizeSettingsValues(settings)
   const draft = normalizeDraft({
-    locale: settings.locale,
-    theme: settings.theme,
-    googleMapsApiKey: settings.google_maps_api_key ?? null,
+    locale: full.locale,
+    theme: full.theme,
+    unitSystem: full.unit_system,
+    googleMapsApiKey: full.google_maps_api_key ?? null,
     // A record from before the choice existed uses a saved key.
-    satelliteSource: settings.satellite_source ?? (trimmedKey(settings.google_maps_api_key ?? null) ? 'google_key' : 'free'),
-    snapToGrid: settings.snap_to_grid,
-    plantSpacingIntervalM: settings.plant_spacing_interval_m,
-    lastView: settings.last_view ?? null,
-    sidePanel: {
-      width: settings.side_panel_width,
-    },
-    savedStamps: {
-      frameHeight: normalizeSavedStampsFrameHeight(settings.saved_stamps_frame_height),
-    },
+    satelliteSource: full.satellite_source ?? (trimmedKey(full.google_maps_api_key ?? null) ? 'google_key' : 'free'),
+    snapToGrid: full.snap_to_grid,
+    plantSpacingIntervalM: full.plant_spacing_interval_m,
+    lastView: full.last_view ?? null,
+    lastOpenHome: full.last_open_home,
+    sidePanel: { width: full.side_panel_width },
+    savedStamps: { frameHeight: normalizeFrameHeight(full.saved_stamps_frame_height) },
     mapLayers: {
-      basemap: {
-        style: settings.basemap_style,
-        visible: settings.basemap_visible,
-        opacity: settings.basemap_opacity,
-      },
-      satellite: {
-        visible: settings.satellite_visible,
-        opacity: settings.satellite_opacity,
-      },
-      contours: {
-        visible: settings.contour_visible,
-        opacity: settings.contour_opacity,
-        intervalMeters: settings.contour_interval,
-      },
-      hillshade: {
-        visible: settings.hillshade_visible,
-        opacity: settings.hillshade_opacity,
-      },
-      softenBackground: settings.soften_background,
+      basemap: { style: full.basemap_style, visible: full.basemap_visible, opacity: full.basemap_opacity },
+      satellite: { visible: full.satellite_visible, opacity: full.satellite_opacity },
+      contours: { visible: full.contour_visible, opacity: full.contour_opacity, intervalMeters: settings.contour_interval },
+      hillshade: { visible: full.hillshade_visible, opacity: full.hillshade_opacity },
+      softenBackground: full.soften_background,
     },
-    toolRail: {
-      usedTools: settings.used_canvas_tools,
-      namesVisible: settings.tool_names_visible ?? null,
-    },
-    singleKeyShortcuts: settings.single_key_shortcuts,
-    scrollWheel: settings.scroll_wheel,
+    toolRail: { usedTools: full.used_canvas_tools, namesVisible: full.tool_names_visible ?? null },
+    singleKeyShortcuts: full.single_key_shortcuts,
+    scrollWheel: full.scroll_wheel,
     newDesigns: {
-      satellite: settings.new_design_satellite,
-      symbolScale: settings.new_design_symbol_scale,
-      labels: settings.new_design_labels,
+      satellite: full.new_design_satellite,
+      symbolScale: full.new_design_symbol_scale,
+      labels: full.new_design_labels,
     },
+    launchCheck: full.launch_check,
   })
   applyDraftToProjection(draft)
-  return settingsFromDraft(draft)
+  return valuesFromDraft(draft)
+}
+
+function unpackLoadOutcome(projection: ActiveSettingsProjection, outcome: Settings): NormalizedLoad {
+  const decoded = decodeSettingsRecord({ ...outcome })
+  const adapterResets = projection.adapter.takeResetFields?.() ?? []
+  const mergedReset = new Set<string>([...adapterResets, ...decoded.resetFields])
+  return { settings: decoded.values, resetFields: [...mergedReset] }
 }
 
 function clearQueuedPersist(projection: ActiveSettingsProjection | null): void {
@@ -348,11 +332,16 @@ function clearQueuedPersist(projection: ActiveSettingsProjection | null): void {
 async function drainPersistence(projection: ActiveSettingsProjection): Promise<void> {
   while (!projection.disposed && projection.requested) {
     const next = projection.requested
+    const patch = projection.durable ? diffSettingsPatch(projection.durable, next) : { ...next }
     projection.requested = null
     projection.saving = next
 
     try {
-      await projection.adapter.save(next)
+      if (projection.adapter.savePatch) {
+        await projection.adapter.savePatch(patch, next)
+      } else {
+        await projection.adapter.save(next)
+      }
     } catch (error) {
       projection.saving = null
       if (readFailureCode(error).kind === 'store_read_only') {
@@ -369,7 +358,7 @@ async function drainPersistence(projection: ActiveSettingsProjection): Promise<v
     if (projection.disposed) return
     projection.durable = next
     projection.saving = null
-    if (projection.requested && settingsEqual(projection.requested, next)) {
+    if (projection.requested && settingsValuesEqual(projection.requested, next)) {
       projection.requested = null
     }
   }
@@ -396,20 +385,13 @@ function ensurePersistenceDrain(projection: ActiveSettingsProjection): void {
   void drainPromise.then(finishDrain, finishDrain)
 }
 
-function admitPersistenceSnapshot(
-  projection: ActiveSettingsProjection,
-  settings: Settings,
-): void {
+function admitPersistenceSnapshot(projection: ActiveSettingsProjection, settings: SettingsValues): void {
   // A record that could not be read is never written over (SET-05, 2.1-Q67): only a read record admits a write.
   if (projection.disposed || projection.retiring || !projection.durable || projection.writesRefused) return
   projection.retryBlocked = false
   projection.persistenceError = null
 
-  if (
-    !projection.saving
-    && projection.durable
-    && settingsEqual(settings, projection.durable)
-  ) {
+  if (!projection.saving && projection.durable && settingsValuesEqual(settings, projection.durable)) {
     projection.requested = null
     return
   }
@@ -420,7 +402,6 @@ function admitPersistenceSnapshot(
 
 async function waitForPersistence(projection: ActiveSettingsProjection): Promise<void> {
   while (projection.draining) await (projection.drainPromise ?? Promise.resolve())
-
   if (projection.retryBlocked) {
     throw projection.persistenceError ?? new Error('Failed to persist settings')
   }
@@ -431,12 +412,8 @@ function persistProjection(mode: SettingsPersistMode, delayMs = DEFAULT_QUEUED_P
   const projection = activeSettingsProjection
   if (!projection || projection.disposed || !projection.durable) return
 
-  const updated = snapshotSettingsProjection()
-  if (
-    !projection.saving
-    && !projection.requested
-    && settingsEqual(updated, projection.durable)
-  ) {
+  const updated = currentSettingsSnapshot()
+  if (!projection.saving && !projection.requested && settingsValuesEqual(updated, projection.durable)) {
     clearQueuedPersist(projection)
     return
   }
@@ -457,8 +434,7 @@ function persistProjection(mode: SettingsPersistMode, delayMs = DEFAULT_QUEUED_P
       || !projection.durable
     ) return
 
-    const queued = snapshotSettingsProjection()
-    admitPersistenceSnapshot(projection, queued)
+    admitPersistenceSnapshot(projection, currentSettingsSnapshot())
   }, delayMs)
 }
 
@@ -478,14 +454,10 @@ function handOffFailedRetirement(projection: ActiveSettingsProjection): void {
   const successor = activeSettingsProjection
   if (successor && successor !== projection && !successor.disposed && !successor.retiring) {
     if (!successor.durable) {
-      successor.pendingHydrationPatch = {
-        ...desired,
-        ...successor.pendingHydrationPatch,
-      }
+      successor.pendingHydrationPatch = { ...desired, ...successor.pendingHydrationPatch }
       successor.pendingHydrationPersistence = true
       return
     }
-
     admitPersistenceSnapshot(successor, currentSettingsSnapshot())
     return
   }
@@ -493,19 +465,14 @@ function handOffFailedRetirement(projection: ActiveSettingsProjection): void {
   const pending = pendingHydrationIntent
   pendingHydrationIntent = {
     fallback: pending?.fallback ?? desired,
-    patch: {
-      ...desired,
-      ...pending?.patch,
-    },
+    patch: { ...desired, ...pending?.patch },
     persist: true,
   }
 }
 
 function trackSettingsRetirement(retirement: Promise<void>): void {
   const previous = pendingSettingsRetirement
-  const tracked = previous
-    ? Promise.all([previous, retirement]).then(() => undefined)
-    : retirement
+  const tracked = previous ? Promise.all([previous, retirement]).then(() => undefined) : retirement
   pendingSettingsRetirement = tracked
   void tracked.then(() => {
     if (pendingSettingsRetirement === tracked) pendingSettingsRetirement = null
@@ -515,6 +482,8 @@ function trackSettingsRetirement(retirement: Promise<void>): void {
 function retireSettingsProjection(projection: ActiveSettingsProjection): void {
   if (projection.disposed || projection.retiring) return
 
+  projection.unsubscribeExternal?.()
+  projection.unsubscribeExternal = null
   preservePendingHydrationIntent(projection)
   clearQueuedPersist(projection)
   if (activeSettingsProjection === projection && projection.durable && sourceSettings) {
@@ -549,11 +518,12 @@ function isPromiseLike(value: unknown): value is PromiseLike<unknown> {
     && typeof (value as PromiseLike<unknown>).then === 'function'
 }
 
-function applyLoadedSettings(
-  projection: ActiveSettingsProjection,
-  settings: Settings,
-): void {
-  if (activeSettingsProjection !== projection || projection.retiring || projection.disposed) return
+function isCurrentProjection(projection: ActiveSettingsProjection): boolean {
+  return activeSettingsProjection === projection && !projection.retiring && !projection.disposed
+}
+
+function applyLoadedSettings(projection: ActiveSettingsProjection, settings: SettingsValues): void {
+  if (!isCurrentProjection(projection)) return
 
   clearQueuedPersist(projection)
   const durable = projectSettingsToSignals(settings)
@@ -571,33 +541,37 @@ function applyLoadedSettings(
 
   const desired = projectSettingsToSignals({ ...durable, ...pendingPatch })
   sourceSettings = durable
-  if (shouldPersist && !settingsEqual(desired, durable)) admitPersistenceSnapshot(projection, desired)
+  if (shouldPersist && !settingsValuesEqual(desired, durable)) admitPersistenceSnapshot(projection, desired)
 }
 
-function isCurrentProjection(projection: ActiveSettingsProjection): boolean {
-  return activeSettingsProjection === projection && !projection.retiring && !projection.disposed
-}
-
-// A settled read makes settings ready, but never over the newer_read_only the adapter or host reported (2.1-Q320).
-function admitLoadedSettings(projection: ActiveSettingsProjection, settings: Settings): void {
+// A settled read makes settings ready, raising `fields_reset` when any field had to be reset (2.1-Q54),
+// never overwriting a `newer_read_only` status the adapter reported (2.1-Q320).
+function admitLoadedSettings(projection: ActiveSettingsProjection, outcome: Settings): void {
+  const { settings, resetFields } = unpackLoadOutcome(projection, outcome)
   applyLoadedSettings(projection, settings)
   if (!isCurrentProjection(projection) || storeHealth.peek().settings?.status.kind === 'newer_read_only') return
-  writeStoreHealth('settings', { status: { kind: 'ready' }, notice: null })
+  writeStoreHealth('settings', {
+    status: { kind: 'ready' },
+    notice: resetFields.length > 0 ? 'fields_reset' : null,
+  })
 }
 
-/**
- * Reads the record, again after each pause of `delays` (SET-05, 2.1-Q67, 2.1-Q295); after the last the session runs on
- * the defaults and the platform's first run (2.1-Q309) with `durable` null, so every change stays in memory, never
- * written over the record (2.1-M473), and the health model says `settings` is unavailable, told once with Try again.
- */
-function readSettings(projection: ActiveSettingsProjection, first: Promise<Settings>, delays: readonly number[]) {
+function readSettings(
+  projection: ActiveSettingsProjection,
+  first: Promise<Settings>,
+  delays: readonly number[],
+) {
   const current = () => isCurrentProjection(projection)
   return readWithRetry(first, () => projection.adapter.load(), delays, current).then(
-    (settings) => admitLoadedSettings(projection, settings),
+    (outcome) => admitLoadedSettings(projection, outcome),
     (error: unknown) => {
       if (current()) {
-        const firstRun = withFirstRunSettings(projection.adapter, currentSettingsSnapshot(), projection.pendingHydrationPatch)
-        if (firstRun) projectSettingsToSignals(firstRun)
+        const firstRun = withFirstRunSettings(
+          projection.adapter,
+          currentSettingsSnapshot() as unknown as Record<string, unknown>,
+          projection.pendingHydrationPatch as Readonly<Record<string, unknown>>,
+        )
+        if (firstRun) projectSettingsToSignals(firstRun as unknown as SettingsValues)
         sourceSettings = projection.fallback
         const code = readFailureCode(error)
         reportFailure(error, { shown: 'none', source: 'settings.load', code })
@@ -608,7 +582,6 @@ function readSettings(projection: ActiveSettingsProjection, first: Promise<Setti
   )
 }
 
-/** The first read answers synchronously when the adapter does, so hydration can be immediate. */
 function loadSettingsProjection(projection: ActiveSettingsProjection): void | Promise<void> {
   if (!isCurrentProjection(projection)) return
   let loaded: Settings | Promise<Settings>
@@ -617,7 +590,7 @@ function loadSettingsProjection(projection: ActiveSettingsProjection): void | Pr
   return readSettings(projection, Promise.resolve(loaded), SETTINGS_LOAD_RETRY_DELAYS_MS)
 }
 
-/** Try again (2.1-Q295): once read, the session's changes are applied over the record and saved; resolves false when the read failed again. */
+/** Try again (2.1-Q295): once read, the session's changes are applied over the record and saved; resolves false on failure. */
 export function retrySettingsLoad(): Promise<boolean> {
   const projection = activeSettingsProjection
   if (!projection || projection.durable || !isCurrentProjection(projection)) return Promise.resolve(true)
@@ -636,7 +609,8 @@ export function installSettingsProjection(
 
   const inheritedIntent = pendingHydrationIntent
   pendingHydrationIntent = null
-  const fallback = inheritedIntent?.fallback ?? { ...currentSettingsSnapshot(), ...adapter.firstRunSettings?.() }
+  const fallback = inheritedIntent?.fallback
+    ?? normalizeSettingsValues({ ...currentSettingsSnapshot(), ...(adapter.firstRunSettings?.() as Partial<SettingsValues>) })
   let resolveRetired!: () => void
   const retired = new Promise<void>((resolve) => { resolveRetired = resolve })
 
@@ -660,9 +634,17 @@ export function installSettingsProjection(
     resolveRetired,
     ready: null,
     retrying: null,
+    unsubscribeExternal: null,
   }
   activeSettingsProjection = projection
   sourceSettings = null
+
+  if (adapter.subscribe) {
+    projection.unsubscribeExternal = adapter.subscribe(() => {
+      if (!isCurrentProjection(projection) || !projection.durable || projection.saving || projection.requested) return
+      void Promise.resolve(loadSettingsProjection(projection)).catch(() => undefined)
+    })
+  }
 
   const retirement = pendingSettingsRetirement
   const loaded = retirement
@@ -678,7 +660,7 @@ export function installSettingsProjection(
   }
 }
 
-/** @testonly */ export function hydrateSettingsProjectionForTests(settings: Settings): void {
+/** @testonly */ export function hydrateSettingsProjectionForTests(settings: Settings & Partial<SettingsValues>): void {
   const projection = activeSettingsProjection
   clearQueuedPersist(projection)
   const normalizedSettings = projectSettingsToSignals(settings)
@@ -694,14 +676,19 @@ export function installSettingsProjection(
 }
 
 export function primeThemeProjectionFromFirstPaintCache(cachedTheme: Theme): void {
-  theme.value = normalizeTheme(cachedTheme)
+  theme.value = cachedTheme === 'dark' ? 'dark' : 'light'
 }
 
-export function snapshotSettingsProjection(): Settings {
+export function snapshotSettingsProjection(): SettingsValues {
   if (!sourceSettings) {
     throw new Error('Cannot snapshot settings before settings bootstrap')
   }
   return currentSettingsSnapshot()
+}
+
+/** Builds the live problem-report `settings_summary` strictly from `privacy: 'reported'` fields (ADR 0024). */
+export function readSettingsReportSummary(): Record<string, unknown> {
+  return buildSettingsReportSummary(valuesFromDraft(createDraftFromProjection()))
 }
 
 export function mutateSettingsProjection(
@@ -709,22 +696,19 @@ export function mutateSettingsProjection(
   options: MutateSettingsProjectionOptions = {},
 ): void {
   const draft = createDraftFromProjection()
-  const before = settingsFromDraft(normalizeDraft(draft))
+  const before = valuesFromDraft(normalizeDraft(draft))
   mutate(draft)
   const normalized = normalizeDraft(draft)
   applyDraftToProjection(normalized)
   const persistMode = options.persist ?? 'immediate'
   const projection = activeSettingsProjection
   if (projection && !projection.durable && persistMode !== 'none') {
-    const updated = settingsFromDraft(normalized)
-    let changed = false
-    for (const key of Object.keys(updated) as Array<keyof Settings>) {
-      if (!sameSettingValue(key, before, updated)) {
-        ;(projection.pendingHydrationPatch as Record<string, unknown>)[key] = updated[key]
-        changed = true
-      }
+    const updated = valuesFromDraft(normalized)
+    const patch = diffSettingsPatch(before, updated)
+    if (Object.keys(patch).length > 0) {
+      projection.pendingHydrationPatch = { ...projection.pendingHydrationPatch, ...patch }
+      projection.pendingHydrationPersistence = true
     }
-    if (changed) projection.pendingHydrationPersistence = true
     return
   }
 
@@ -760,7 +744,7 @@ export async function flushSettingsProjection(): Promise<void> {
       || projection.saving !== null
       || projection.requested !== null
       || !projection.durable
-      || !settingsEqual(latest, projection.durable)
+      || !settingsValuesEqual(latest, projection.durable)
     ) continue
     return
   }
@@ -768,6 +752,8 @@ export async function flushSettingsProjection(): Promise<void> {
 
 /** @testonly */ export function resetSettingsProjectionForTests(): void {
   if (activeSettingsProjection) {
+    activeSettingsProjection.unsubscribeExternal?.()
+    activeSettingsProjection.unsubscribeExternal = null
     activeSettingsProjection.disposed = true
     activeSettingsProjection.resolveRetired()
     clearQueuedPersist(activeSettingsProjection)

@@ -5,7 +5,7 @@
     { "id": "raster-display", "sides": ["createFakeMap()", "the real layer manager, pool and worker"], "planned": { "phase": "2d", "bead": "canopi-f47t.52.54" } },
     { "id": "session-ports", "sides": ["the Desktop adapter", "the Web adapter"], "planned": { "phase": "2b", "bead": "canopi-f47t.52.48" } },
     { "id": "design-home-store-draft-records", "sides": ["Desktop files and Drafts with the DurableFs fault implementation", "IndexedDB in Chromium, WebKit and Firefox"], "planned": { "phase": "2b", "bead": "canopi-f47t.52.50" } },
-    { "id": "settings-store", "sides": ["the Desktop runner", "the Web runner"], "planned": { "phase": "2e", "bead": "canopi-f47t.52.56" } },
+    { "id": "settings-store", "sides": ["the Desktop runner", "the Web runner"], "test": "desktop/web/src/app/settings/settings-store.suite.test.ts" },
     { "id": "stamp-store", "sides": ["the user DB", "the Web browser record"], "planned": { "phase": "N2", "bead": "canopi-f47t.52.62" } },
     { "id": "design-notebook-store", "sides": ["the user DB", "the Web browser record"], "planned": { "phase": "N2", "bead": "canopi-f47t.52.62" } },
     { "id": "catalog-reader", "sides": ["the real DuckDB reader", "the native catalog commands"], "planned": { "phase": "N4", "bead": "canopi-f47t.52.68" } },

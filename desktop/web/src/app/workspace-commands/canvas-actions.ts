@@ -8,7 +8,7 @@ import {
   type CanvasEditAction,
   type CanvasViewAction,
 } from '../canvas-commands'
-import { gridVisible, snapToGridEnabled } from '../canvas-settings/signals'
+import { gridVisible } from '../canvas-settings/signals'
 import { requestPlaceSearchFocus } from '../geocoding/place-search-ui'
 import { cyclePlantLabels } from '../plant-display/actions'
 import {
@@ -24,7 +24,7 @@ import { selectionCommandAvailability } from '../../canvas/runtime/interaction/c
 import { openRotateSelectionDialog } from '../rotate-selection/state'
 import { sceneHasLockedDesignObjects } from '../../canvas/runtime/scene'
 import { t } from '../../i18n'
-import { singleKeyShortcuts } from '../settings/state'
+import { singleKeyShortcuts, snapToGridEnabled } from '../settings/state'
 import { armCanvasTool } from '../keyboard/arming'
 import { designShownReadOnly } from '../shell/state'
 

@@ -7,7 +7,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { selectPlantStampSource } from '../canvas/plant-stamp-source'
 import { currentCanvasSelection } from '../canvas/session-state'
-import { snapToGridEnabled } from '../app/canvas-settings/signals'
+import { snapToGridEnabled } from '../app/settings/state'
 import type { SceneStore, ScenePoint } from '../canvas/runtime/scene'
 import type {
   SceneInteractionSession,

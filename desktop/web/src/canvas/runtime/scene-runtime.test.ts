@@ -31,9 +31,6 @@ vi.mock('../../app/plant-browser', async (importOriginal) => {
     },
   }
 })
-import {
-  snapToGridEnabled,
-} from '../../app/canvas-settings/signals'
 import { plantColorMenuOpen } from '../plant-color-menu-state'
 import { clearPlantStampSource, readPlantStampSource, selectPlantStampSource } from '../plant-stamp-source'
 import { clearSavedObjectStampSource, selectSavedObjectStampSource } from '../saved-object-stamp-source'
@@ -50,7 +47,7 @@ import { canvasContextMenuRequest } from '../../app/canvas-context-menu/state'
 import { buildCanvasContextMenuEntries, type CanvasContextMenuCommand } from '../../app/canvas-context-menu/entries'
 import { createDesktopCanvasRuntimeAppAdapter } from '../../app/canvas-runtime/desktop-adapter'
 import { createAppSceneRuntimePanelTargetAdapter } from '../../app/canvas-runtime/panel-target-adapter'
-import { locale, plantSpacingIntervalM } from '../../app/settings/state'
+import { locale, plantSpacingIntervalM, snapToGridEnabled } from '../../app/settings/state'
 import type { CanopiFile } from '../../types/design'
 import { CURRENT_CANOPI_FILE_VERSION } from '../../generated/canopi-design-format'
 import { geoAt } from '../../__tests__/support/geo-design'

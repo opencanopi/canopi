@@ -27,26 +27,20 @@ const EARLIER_KEYS: readonly string[] = [
 /** Set once the user has been told that the 1.x data was left in place. */
 const KEPT_IN_PLACE_NOTICE_KEY = "canopi:web-app-data:before-2.0-kept-in-place-notice";
 const STORAGE_KEYS = {
-  drafts: "canopi:web-app-data:v3:drafts",
-  settings: "canopi:web-app-data:v3:settings",
-  species: "canopi:web-app-data:v3:species",
-  stamps: "canopi:web-app-data:v3:saved-object-stamps",
+  drafts: "canopi:web-app-data:v3:drafts", settings: "canopi:web-app-data:v3:settings",
+  species: "canopi:web-app-data:v3:species", stamps: "canopi:web-app-data:v3:saved-object-stamps",
 } as const;
-/**
- * The Draft this tab had open when it reloaded for a new release (2.1-Q189): per-tab session state in sessionStorage,
- * read once by the next launch. It holds only a Draft id and is no user-work store, so it has no record version.
- */
+/** Exported for other-tab `storage` event matching (ADR 0024). */
+export const SETTINGS_STORAGE_KEY = STORAGE_KEYS.settings;
+/** One-shot backup of the raw settings record before per-field reset (E2, ADR 0026, 2.1-Q54); never read by the app. */
+const SETTINGS_BEFORE_RESET_KEY = "canopi:web-app-data:settings.before-reset";
+/** Per-tab release-reload Draft id in sessionStorage (2.1-Q189); not a user-work store, so no record version. */
 const RELOAD_HOME_KEY = "canopi:web-session:reload-home";
 
-/** What a tab had open at its release reload: its Draft's id, or null for none (the start screen). */
-interface BrowserReloadHome {
-  readonly draft: string | null;
-}
+interface BrowserReloadHome { readonly draft: string | null; }
 
 export interface BrowserStorageAdapter {
-  getItem(key: string): string | null;
-  setItem(key: string, value: string): void;
-  removeItem(key: string): void;
+  getItem(key: string): string | null; setItem(key: string, value: string): void; removeItem(key: string): void;
 }
 
 /** Reads 2.1's species-list record (platform/browser-record.ts `readSpeciesListRecord`). */
@@ -186,8 +180,13 @@ export interface BrowserAppDataStore {
   listDrafts(): readonly BrowserDraftSummary[];
   loadDraft(id: string): CanopiFile | null;
   deleteDraft(id: string): BrowserAppDataWriteResult<null>;
-  saveSettings(settings: Record<string, unknown>): BrowserAppDataWriteResult<Record<string, unknown>>;
+  saveSettings(
+    settings: Record<string, unknown>,
+    patch?: Readonly<Record<string, unknown>>,
+  ): BrowserAppDataWriteResult<Record<string, unknown>>;
   loadSettings(): Record<string, unknown> | null;
+  /** Keeps the raw settings record once as `settings.before-reset` before per-field reset (E2, 2.1-Q54). */
+  saveSettingsBeforeReset(raw: Readonly<Record<string, unknown>>): void;
   setFavoriteSpecies(canonicalNames: readonly string[]): BrowserAppDataWriteResult<readonly string[]>;
   listFavoriteSpecies(): readonly string[];
   recordRecentlyViewedSpecies(canonicalName: string, limit?: number): BrowserAppDataWriteResult<readonly string[]>;
@@ -303,8 +302,20 @@ export function createBrowserAppDataStore({
       });
     },
 
-    saveSettings(settings) {
-      return writePartition(PARTITIONS.settings, () => ({ next: { version: RECORD_VERSION, settings: { ...settings } }, value: { ...settings } }));
+    saveSettings(settings, patch) {
+      return writePartition(PARTITIONS.settings, (current) => {
+        // Patch writes preserve unknown keys already stored on disk (ADR 0026).
+        const merged = { ...(current.settings ?? {}), ...(patch ?? settings) };
+        return { next: { version: RECORD_VERSION, settings: merged }, value: merged };
+      });
+    },
+
+    saveSettingsBeforeReset(raw) {
+      try {
+        storage.setItem(SETTINGS_BEFORE_RESET_KEY, JSON.stringify({ ...raw }));
+      } catch {
+        // Best-effort secret backup: storage quota or lockdown must never block opening settings.
+      }
     },
 
     loadSettings() {
@@ -576,26 +587,15 @@ function decodeDraftFiles(value: unknown): {
 }
 
 function defineOwn(target: Record<string, unknown>, key: string, value: unknown): void {
-  Object.defineProperty(target, key, {
-    configurable: true,
-    enumerable: true,
-    value,
-    writable: true,
-  });
+  Object.defineProperty(target, key, { configurable: true, enumerable: true, value, writable: true });
 }
 
 function isDraftSummary(value: unknown): value is BrowserDraftSummary {
-  return isRecord(value)
-    && typeof value.id === "string"
-    && typeof value.name === "string"
-    && typeof value.updatedAt === "string";
+  return isRecord(value) && typeof value.id === "string" && typeof value.name === "string" && typeof value.updatedAt === "string";
 }
 
 function isSavedObjectStampRecord(value: unknown): value is BrowserSavedObjectStampRecord {
-  return isRecord(value)
-    && typeof value.id === "string"
-    && typeof value.name === "string"
-    && Object.prototype.hasOwnProperty.call(value, "payload");
+  return isRecord(value) && typeof value.id === "string" && typeof value.name === "string" && Object.prototype.hasOwnProperty.call(value, "payload");
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -616,9 +616,7 @@ function uniqueStrings(values: readonly unknown[]): readonly string[] {
 }
 
 function draftIdFor(name: string): string {
-  const slug = name.toLowerCase().trim()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
+  const slug = name.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
   return `draft-${slug || "untitled"}`;
 }
 
