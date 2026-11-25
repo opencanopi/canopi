@@ -28,7 +28,6 @@ const GRANT_PREFIX: &str = "grant:";
 const DRAFTS_DIR: &str = "drafts";
 const BEFORE_V10_DIR: &str = "before-v10";
 const DRAFT_EXTENSION: &str = "canopi";
-const PRE_UPGRADE_TAG: &str = " (before 2.1)";
 const MAX_PRE_UPGRADE_COPY_ATTEMPTS: u32 = 1000;
 
 /// Typed refusal when a path cannot be minted into a [`FileGrantId`].
@@ -396,19 +395,16 @@ impl<F: DurableFs> DesktopHomeStore<F> {
                     .unwrap_or("folder")
                     .to_owned();
                 let previous_bytes = self.fs.read_bytes(path).map_err(|_| folder_name.clone())?;
+                let from_version = detect_previous_format_version(&previous_bytes);
                 let stem = path
                     .file_stem()
                     .and_then(|s| s.to_str())
                     .unwrap_or("design");
-                let ext = path
-                    .extension()
-                    .and_then(|e| e.to_str())
-                    .unwrap_or(DRAFT_EXTENSION);
-                for attempt in 1..=MAX_PRE_UPGRADE_COPY_ATTEMPTS {
-                    let candidate_name = if attempt == 1 {
-                        format!("{stem}{PRE_UPGRADE_TAG}.{ext}")
-                    } else {
-                        format!("{stem}{PRE_UPGRADE_TAG} {attempt}.{ext}")
+                for attempt in 0..MAX_PRE_UPGRADE_COPY_ATTEMPTS {
+                    let Some(candidate_name) =
+                        canopi_format::chain::pre_upgrade_copy_name(stem, from_version, attempt)
+                    else {
+                        return Err(folder_name);
                     };
                     let candidate = parent.join(candidate_name);
                     // Publishing to `candidate` without taking `candidate`'s own target lock is
@@ -457,6 +453,20 @@ impl<F: DurableFs> DesktopHomeStore<F> {
             }
         }
     }
+}
+
+/// Reads the integer `"version"` field from a prior `.canopi` payload so the pre-upgrade copy
+/// name uses `canopi-format`'s frozen [`canopi_format::chain::release_label`] table (contracts §10).
+///
+/// Unparseable bytes or missing/unrecognised versions intentionally fall back to
+/// [`canopi_format::chain::CANOPI_FLOOR`] (`(Canopi 2.0)`): today every pre-v10 Design home is v9.
+fn detect_previous_format_version(bytes: &[u8]) -> u32 {
+    serde_json::from_slice::<serde_json::Value>(bytes)
+        .ok()
+        .and_then(|v| v.get("version").and_then(serde_json::Value::as_u64))
+        .and_then(|v| u32::try_from(v).ok())
+        .filter(|&v| canopi_format::chain::release_label(v).is_some())
+        .unwrap_or(canopi_format::chain::CANOPI_FLOOR)
 }
 
 fn failure_from_io(error: &io::Error) -> Failure {

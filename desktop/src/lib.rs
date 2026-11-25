@@ -24,6 +24,7 @@ mod native_operation;
 #[doc(hidden)]
 pub mod reader_session;
 mod services;
+pub use {native_operation::NativeOperationExecutor, services::design_core};
 pub(crate) mod target_locks;
 #[cfg(test)]
 mod test_scratch;

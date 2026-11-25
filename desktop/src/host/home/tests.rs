@@ -120,9 +120,9 @@ fn conflict_wins_over_pre_upgrade_copy_and_copies_never_overwrite() {
             current: Some(v9_hash.clone()),
         }
     );
-    assert!(!designs.join("garden (before 2.1).canopi").exists());
+    assert!(!designs.join("garden (Canopi 2.0).canopi").exists());
 
-    // Valid expected version with keep_previous=true -> creates backup then publishes.
+    // Valid expected version with keep_previous=true -> creates backup named from frozen release_label(9).
     let v10 = b"{\"version\":10}";
     let HomeWrite::Written { version: v10_hash } =
         store.write(grant.as_str(), v10, Some(&v9_hash), true)
@@ -130,27 +130,34 @@ fn conflict_wins_over_pre_upgrade_copy_and_copies_never_overwrite() {
         panic!("expected Written with keep_previous");
     };
     assert_eq!(
-        std::fs::read(designs.join("garden (before 2.1).canopi")).unwrap(),
+        std::fs::read(designs.join("garden (Canopi 2.0).canopi")).unwrap(),
         v9
     );
 
-    // Second keep_previous picks next free name and never overwrites first backup.
+    // Pre-existing v9 backup is never overwritten: a second v9 upgrade picks `(2)`.
+    let v9_other = b"{\"version\":9,\"other\":true}";
+    let HomeWrite::Written {
+        version: v9_other_hash,
+    } = store.write(grant.as_str(), v9_other, Some(&v10_hash), false)
+    else {
+        panic!("reset to v9");
+    };
     assert!(matches!(
         store.write(
             grant.as_str(),
             b"{\"version\":10,\"edit\":2}",
-            Some(&v10_hash),
+            Some(&v9_other_hash),
             true
         ),
         HomeWrite::Written { .. }
     ));
     assert_eq!(
-        std::fs::read(designs.join("garden (before 2.1).canopi")).unwrap(),
+        std::fs::read(designs.join("garden (Canopi 2.0).canopi")).unwrap(),
         v9
     );
     assert_eq!(
-        std::fs::read(designs.join("garden (before 2.1) 2.canopi")).unwrap(),
-        v10
+        std::fs::read(designs.join("garden (Canopi 2.0) (2).canopi")).unwrap(),
+        v9_other
     );
 
     // Draft keep_previous preserves v9 once under drafts/before-v10/<id>.canopi.
@@ -452,4 +459,107 @@ fn home_write_sweeps_stale_home_sidecars_without_touching_live_files_or_other_ro
         "sibling live files must remain untouched"
     );
     assert_eq!(std::fs::read(&target).unwrap(), payload);
+}
+
+#[test]
+fn q348_draft_first_edit_keeps_v9_backup_once_unlisted_with_no_launch_sweep() {
+    let root = TestScratch::new("q348-draft-backup");
+    let app_data = root.join("app-data");
+    let grants = Arc::new(FileGrantRegistry::default());
+    let store = DesktopHomeStore::production(&app_data, Arc::clone(&grants));
+    let drafts = crate::design::drafts::DesignDrafts::new(&app_data);
+
+    // Seed a real v9 Draft; opening/reading/listing performs NO launch sweep.
+    let v9_design = crate::design::format::create_new_design("Orchard v9", "2026-10-01T00:00:00Z");
+    let v9_bytes = crate::design::format::encode_design(&v9_design).unwrap();
+    let HomeWrite::Written { version: v9_hash } = store.write("orchard-v9", &v9_bytes, None, false)
+    else {
+        panic!("seed v9 draft");
+    };
+
+    assert_eq!(
+        store.read("orchard-v9"),
+        HomeRead::Present {
+            bytes: v9_bytes.clone(),
+            version: v9_hash.clone(),
+        }
+    );
+    assert_eq!(drafts.list().unwrap().len(), 1);
+    assert!(
+        !app_data.join("drafts/before-v10").exists(),
+        "reading or listing a v9 Draft must not create before-v10/ (no launch sweep)"
+    );
+
+    // First v10 edit with keep_previous=true writes the v9 backup once, unlisted.
+    let opened = canopi_format::core::decode_design(&v9_bytes).unwrap();
+    let v10_first = canopi_format::core::encode_design(&opened.design).unwrap();
+    let HomeWrite::Written {
+        version: v10_hash_1,
+    } = store.write("orchard-v9", &v10_first, Some(&v9_hash), true)
+    else {
+        panic!("expected Written on first v10 edit");
+    };
+    let backup_path = app_data.join("drafts/before-v10/orchard-v9.canopi");
+    assert_eq!(std::fs::read(&backup_path).unwrap(), v9_bytes);
+    assert_eq!(
+        std::fs::read(app_data.join("drafts/orchard-v9.canopi")).unwrap(),
+        v10_first
+    );
+
+    // Backup under drafts/before-v10/ is never listed as a Draft.
+    let listed_ids: Vec<String> = drafts.list().unwrap().into_iter().map(|d| d.id).collect();
+    assert_eq!(listed_ids, ["orchard-v9"]);
+
+    // Second write with keep_previous=true is idempotent: original v9 backup stays untouched.
+    let mut second_doc = opened.design.clone();
+    second_doc["name"] = serde_json::json!("Orchard v10 edit 2");
+    let v10_second = canopi_format::core::encode_design(&second_doc).unwrap();
+    assert!(matches!(
+        store.write("orchard-v9", &v10_second, Some(&v10_hash_1), true),
+        HomeWrite::Written { .. }
+    ));
+    assert_eq!(
+        std::fs::read(&backup_path).unwrap(),
+        v9_bytes,
+        "write-once v9 backup must not be overwritten by subsequent edits"
+    );
+}
+
+#[test]
+fn q348_draft_backup_failure_returns_copy_blocked_and_preserves_v9_draft() {
+    let root = TestScratch::new("q348-draft-fault");
+    let drafts_dir = root.join("drafts");
+    let grants = Arc::new(FileGrantRegistry::default());
+    let store = DesktopHomeStore::with_fs(
+        drafts_dir.clone(),
+        Arc::clone(&grants),
+        Arc::new(TargetLocks::new()),
+        FaultFs::new(),
+    );
+
+    let v9_bytes = b"{\"version\":9,\"name\":\"Safe Draft\"}";
+    let HomeWrite::Written { version: v9_hash } = store.write("safe-draft", v9_bytes, None, false)
+    else {
+        panic!("seed v9 draft");
+    };
+
+    // Inject failure during before-v10 backup write -> CopyBlocked, original v9 Draft untouched.
+    store.fs.inject(
+        FaultOp::StageBytes,
+        FaultAction::IoError(io::ErrorKind::PermissionDenied),
+    );
+    assert_eq!(
+        store.write("safe-draft", b"{\"version\":10}", Some(&v9_hash), true),
+        HomeWrite::CopyBlocked {
+            folder: "before-v10".to_owned(),
+        }
+    );
+    assert_eq!(
+        store.read("safe-draft"),
+        HomeRead::Present {
+            bytes: v9_bytes.to_vec(),
+            version: v9_hash,
+        }
+    );
+    assert!(!drafts_dir.join("before-v10/safe-draft.canopi").exists());
 }
