@@ -1,6 +1,7 @@
 import {
   PANEL_DESCRIPTORS,
   resolveDisplayedShortcut,
+  SHELL_COMMAND_REQUIRES,
   type Panel,
   type PanelDescriptor,
   type PanelGroup,
@@ -223,29 +224,29 @@ const PANEL_SHELL_DESCRIPTORS: readonly ShellCommandDescriptor[] = PANEL_DESCRIP
   }) as ShellCommandDescriptor,
 )
 
-export const SHELL_COMMAND_DESCRIPTORS: readonly ShellCommandDescriptor[] = [
+const RAW_SHELL_COMMAND_DESCRIPTORS: readonly ShellCommandDescriptor[] = [
   { capabilityId: 'newDesign', id: 'file.new', labelKey: 'menu.file.new', shortcuts: ['Alt+Shift+N', 'Ctrl+N'], palette: true, menu: file(0) },
-  { capabilityId: 'openDesign', id: 'file.open', labelKey: 'menu.file.open', shortcut: 'Ctrl+O', requires: ['file-home'], palette: true, menu: file(0) },
+  { capabilityId: 'openDesign', id: 'file.open', labelKey: 'menu.file.open', shortcut: 'Ctrl+O', palette: true, menu: file(0) },
   { capabilityId: 'openCanopi', id: 'file.openCanopi', labelKey: 'webShell.openCanopi', shortcut: 'Ctrl+O', palette: true, menu: file(0) },
   { capabilityId: 'renameDesign', id: 'file.rename', labelKey: 'menu.file.rename', shortcut: 'F2', palette: true, menu: file(1) },
-  { capabilityId: 'saveDesign', id: 'file.save', labelKey: 'menu.file.save', shortcut: 'Ctrl+S', requires: ['file-home'], palette: true, menu: file(1) },
-  { capabilityId: 'saveDesignAs', id: 'file.saveAs', labelKey: 'menu.file.saveAs', shortcut: 'Ctrl+Shift+S', requires: ['file-home'], palette: true, menu: file(1) },
+  { capabilityId: 'saveDesign', id: 'file.save', labelKey: 'menu.file.save', shortcut: 'Ctrl+S', palette: true, menu: file(1) },
+  { capabilityId: 'saveDesignAs', id: 'file.saveAs', labelKey: 'menu.file.saveAs', shortcut: 'Ctrl+Shift+S', palette: true, menu: file(1) },
   { capabilityId: 'downloadCanopi', id: 'file.downloadCanopi', labelKey: 'webShell.downloadCanopi', shortcut: 'Ctrl+S', palette: true, menu: file(1) },
   { capabilityId: 'revertDesign', id: 'file.revert', labelKey: 'menu.file.revert', palette: true, menu: file(1) },
   // File's imports, flat (U49 Q8): terrain or height data, GeoJSON, then the Data library.
-  { capabilityId: 'addData', id: 'file.addData', labelKey: 'menu.file.addData', requires: ['site-data-below-limit'], palette: true, menu: file(2) },
+  { capabilityId: 'addData', id: 'file.addData', labelKey: 'menu.file.addData', palette: true, menu: file(2) },
   { capabilityId: 'importGeoJson', id: 'file.importGeoJson', labelKey: 'geojson.import', palette: true, menu: file(2) },
-  { capabilityId: 'openDataLibrary', id: 'file.dataLibrary', labelKey: 'canvas.lidar.layers.openLibrary', requires: ['site-data-below-limit'], palette: true, menu: file(2) },
+  { capabilityId: 'openDataLibrary', id: 'file.dataLibrary', labelKey: 'canvas.lidar.layers.openLibrary', palette: true, menu: file(2) },
   { capabilityId: 'exportCanvasPdf', id: 'file.exportCanvasPdf', labelKey: 'menu.file.exportPlantingPlan', shortcut: 'Ctrl+P', palette: true, menu: file(2, 'export') },
   { capabilityId: 'exportGeoJson', id: 'file.exportGeoJson', labelKey: 'menu.file.exportGeoJson', palette: true, menu: file(2, 'export') },
   { capabilityId: 'exportBudgetCsv', id: 'file.exportBudgetCsv', labelKey: 'menu.file.exportBudgetCsv', palette: true, menu: file(2, 'export') },
   { capabilityId: 'openSettings', id: 'app.settings', labelKey: 'menu.file.settings', shortcut: 'Ctrl+,', palette: true, menu: file(3) },
   { capabilityId: 'findPlants', id: 'edit.findPlants', labelKey: 'menu.edit.findPlants', shortcut: 'Ctrl+F', palette: true, menu: { id: 'edit', section: 0 } },
   { capabilityId: 'closeDesign', id: 'file.close', labelKey: 'menu.file.close', shortcuts: ['Alt+Shift+W', 'Ctrl+W'], palette: true, menu: file(4) },
-  { capabilityId: 'exitApp', id: 'file.exit', labelKey: 'menu.file.exit', shortcut: 'Ctrl+Q', requires: ['quit-app'], palette: false, menu: file(4) },
+  { capabilityId: 'exitApp', id: 'file.exit', labelKey: 'menu.file.exit', shortcut: 'Ctrl+Q', palette: false, menu: file(4) },
   ...PANEL_SHELL_DESCRIPTORS,
   // Desktop's palette arms Profile; it has no shortcut and no menu or rail place (spec §1.10).
-  { capabilityId: 'startProfile', id: 'siteData.profile', labelKey: 'siteData.profile', requires: ['site-data-below-limit'], palette: true },
+  { capabilityId: 'startProfile', id: 'siteData.profile', labelKey: 'siteData.profile', palette: true },
   { capabilityId: 'saveCurrentView', id: 'view.saveCurrentView', labelKey: 'menu.view.saveCurrentView', palette: true, menu: { id: 'view', section: 2 } },
   { capabilityId: 'manageViews', id: 'view.manageViews', labelKey: 'menu.view.manageViews', palette: true, menu: { id: 'view', section: 2 } },
   { capabilityId: 'toggleToolNames', id: 'view.toggleToolNames', labelKey: 'menu.view.toolNames', palette: true, check: 'checkbox', menu: { id: 'view', section: 0 } },
@@ -260,6 +261,11 @@ export const SHELL_COMMAND_DESCRIPTORS: readonly ShellCommandDescriptor[] = [
   { capabilityId: 'reportProblem', id: 'help.reportProblem', labelKey: 'menu.help.reportProblem', palette: true, menu: { id: 'help', section: 1 } },
   { capabilityId: 'aboutCanopi', id: 'help.aboutCanopi', labelKey: 'menu.help.aboutCanopi', palette: true, menu: { id: 'help', section: 1 } },
 ]
+
+export const SHELL_COMMAND_DESCRIPTORS: readonly ShellCommandDescriptor[] = RAW_SHELL_COMMAND_DESCRIPTORS.map((d) => {
+  const req = d.requires ?? SHELL_COMMAND_REQUIRES[d.id]
+  return req ? { ...d, requires: req } : d
+})
 
 const MENU_LABEL_KEYS: Record<ShellMenuId, LocaleKey> = {
   file: 'menu.file',

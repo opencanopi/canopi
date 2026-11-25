@@ -51,6 +51,17 @@ export type ShellCommandId =
   | 'help.reportProblem'
   | 'help.aboutCanopi'
 
+/** Single source of truth for non-panel shell command capability gates (contracts §21, 2.1-M164). */
+export const SHELL_COMMAND_REQUIRES: Readonly<Partial<Record<ShellCommandId, readonly EditionCapabilityId[]>>> = {
+  'file.open': ['file-home'],
+  'file.save': ['file-home'],
+  'file.saveAs': ['save-as-path'],
+  'file.exit': ['quit-app'],
+  'file.addData': ['site-data-below-limit'],
+  'file.dataLibrary': ['site-data-below-limit'],
+  'siteData.profile': ['site-data-below-limit'],
+}
+
 /** Localised Instead note key for a lacking capability set (2.1-M163, 2.1-Q358). */
 export function insteadNoteKeyFor(lacking: readonly EditionCapabilityId[]): LocaleKey | undefined {
   return lacking.length > 0 ? 'editionCapability.needsDesktop' : undefined
