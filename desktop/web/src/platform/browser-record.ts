@@ -17,7 +17,7 @@ export const SETTINGS_RECORD_KEY = 'canopi:web-app-data:v4:settings'
  * 2.1 Web settings record floor (2.1-M486): the v4 key holds record 2 while `STORE_FLOORS.settings` stays at 1
  * until 2e-2 migrates Desktop settings to record 2; maxReadable is still inherited from `STORE_FLOORS.settings`.
  */
-const WEB_SETTINGS_V4_FLOOR: StoreFloor = {
+export const WEB_SETTINGS_V4_FLOOR: StoreFloor = {
   ...requireStoreFloor('settings'),
   minReadable: 2,
   current: 2,

@@ -42,6 +42,7 @@ import {
   lastOpenHome,
   launchCheck,
   locale,
+  scrollWheel,
   theme,
   unitSystem,
 } from './state'
@@ -301,15 +302,42 @@ describe('settings-store shared suite (Desktop and Web runners)', () => {
     installation.dispose()
   })
 
-  it('Web runner: Q345 first-run locale matcher picks browser language without writing locale to storage', async () => {
-    const harness = createRunnerHarness('Web', null, { languages: ['fr-FR', 'en-US'], os: 'mac' })
-    const installation = installSettingsProjection(harness.adapter)
-    await installation.ready
+  it('Web runner: Q345/Q169 first-run stamp persists locale, unit_system, and mac scroll_wheel across relaunch and language change', async () => {
+    const harness = createRunnerHarness('Web', null, { languages: ['fr-FR', 'en-US'], region: 'FR', os: 'mac' })
+    const first = installSettingsProjection(harness.adapter)
+    await first.ready
+    await flushSettingsProjection()
 
     expect(locale.value).toBe('fr')
     expect(unitSystem.value).toBe('metric')
-    expect(harness.readStoredV4Raw()).not.toHaveProperty('locale')
-    installation.dispose()
+    expect(scrollWheel.value).toBe('pan')
+    expect(harness.readStoredV4Raw()).toMatchObject({
+      version: 2,
+      locale: 'fr',
+      unit_system: 'metric',
+      scroll_wheel: 'pan',
+    })
+    first.dispose()
+
+    // Second launch in the same environment preserves locale, unit_system, and scroll_wheel.
+    const store2 = createBrowserAppDataStore({ storage: harness.storage!, session: memoryStorage() })
+    const adapter2 = createBrowserSettingsPlatformAdapter(store2, () => ({ languages: ['fr-FR', 'en-US'], region: 'FR', os: 'mac' }))
+    const second = installSettingsProjection(adapter2)
+    await second.ready
+    expect(locale.value).toBe('fr')
+    expect(unitSystem.value).toBe('metric')
+    expect(scrollWheel.value).toBe('pan')
+    second.dispose()
+
+    // Third launch after a browser language/OS change keeps all three stamped values.
+    const store3 = createBrowserAppDataStore({ storage: harness.storage!, session: memoryStorage() })
+    const adapter3 = createBrowserSettingsPlatformAdapter(store3, () => ({ languages: ['en-US'], region: 'US', os: 'linux' }))
+    const third = installSettingsProjection(adapter3)
+    await third.ready
+    expect(locale.value).toBe('fr')
+    expect(unitSystem.value).toBe('metric')
+    expect(scrollWheel.value).toBe('pan')
+    third.dispose()
   })
 })
 

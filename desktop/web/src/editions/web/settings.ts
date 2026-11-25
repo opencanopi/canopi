@@ -9,9 +9,9 @@ import { writeStoreHealth } from '../../failures/health'
 import {
   readSettingsRecord,
   SETTINGS_RECORD_KEY,
+  WEB_SETTINGS_V4_FLOOR,
   writeSettingsRecord,
 } from '../../platform/browser-record'
-import { requireStoreFloor } from '../../platform/store-chain'
 import { detectPlatform, type InputPlatform } from '../../canvas/runtime/input/platform'
 import {
   decodeSettingsRecord,
@@ -30,9 +30,8 @@ import type { StoreFloor } from '../../generated/store-chain'
  * inheriting `maxReadable` from `generated/store-chain.ts`.
  */
 const WEB_SETTINGS_V1_TO_V2_FLOOR: StoreFloor = {
-  ...requireStoreFloor('settings'),
+  ...WEB_SETTINGS_V4_FLOOR,
   minReadable: 1,
-  current: 2,
   stepCount: 1,
 }
 
@@ -134,7 +133,8 @@ export function createBrowserSettingsPlatformAdapter(
           WEB_SETTINGS_V1_TO_V2_STEPS,
           env,
         )
-        if (migrated.kind === 'current') recordToDecode = migrated.value
+        if (migrated.kind !== 'current') throw new StoreUnreadableError('settings', { kind: 'invalid' })
+        recordToDecode = migrated.value
       }
 
       const decoded = decodeSettingsRecord(recordToDecode, env)
@@ -159,8 +159,8 @@ export function createBrowserSettingsPlatformAdapter(
         store.saveSettings({ ...decoded.values }, buildResetPatch(decoded.resetFields, decoded.values))
       }
 
-      // 2.1-Q169: on a true first run, stamp `unit_system` once so a later browser language change keeps it.
-      pendingFirstRunStamp = loaded.source === 'absent' ? { unit_system: decoded.values.unit_system } : null
+      // 2.1-Q169, 2.1-Q345: on a true first run, stamp the full host-dependent patch (locale, unit_system, scroll_wheel) once.
+      pendingFirstRunStamp = loaded.source === 'absent' ? resolveHostFirstRunPatch(env) : null
       return decoded.values
     },
     takeResetFields: () => {
