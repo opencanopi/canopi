@@ -447,7 +447,7 @@ test('R3 canopi-f47t.52.272: settings record 2 applies its known fields from its
   await page.goto('')
   await seedLocalStorage(page, {
     [V3_SETTINGS_KEY]: JSON.stringify({ version: 3, settings: { locale: 'en', theme: 'light' } }),
-    [settings.key]: JSON.stringify(settings.record),
+    [settings.key]: JSON.stringify({ ...settings.record, basemap_style: 'liberty' }),
   })
   const before = await storesDump(page)
 
@@ -464,7 +464,7 @@ test('R3 canopi-f47t.52.272: settings record 2 applies its known fields from its
 test('R3 canopi-f47t.52.272: a setting changed under settings a newer Canopi saved applies for the session, is never written, and the notice names settings', async ({ page }) => {
   const settings = frozenRecord('settings')
   await page.goto('')
-  await seedLocalStorage(page, { [settings.key]: JSON.stringify(settings.record) })
+  await seedLocalStorage(page, { [settings.key]: JSON.stringify({ ...settings.record, version: 3 }) })
   const before = await storesDump(page)
   await page.reload()
   await expectNotice(page, SETTINGS_READ_ONLY, german('notice.dismiss'))
@@ -479,7 +479,7 @@ test('R3 canopi-f47t.52.272: a setting changed under settings a newer Canopi sav
   expect(await storesDump(page), 'the change is never written').toEqual(before)
 
   await page.reload()
-  await expect(page.locator('html'), 'a reload reads the 2.1 record again').toHaveAttribute('data-theme', 'dark')
+  await expect(page.locator('html'), 'a reload reads the newer record again').toHaveAttribute('data-theme', 'dark')
   await expectNotice(page, SETTINGS_READ_ONLY, german('notice.dismiss'))
   expect(await storesDump(page)).toEqual(before)
 })

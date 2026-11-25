@@ -14,13 +14,15 @@
 // in a state a later test cannot start from, starts it again on the same profile in a new session (`relaunch`).
 import { execFileSync, spawn } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { appendFileSync, chmodSync, copyFileSync, cpSync, createReadStream, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { appendFileSync, chmodSync, copyFileSync, cpSync, createReadStream, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { createServer, type Server } from 'node:http'
+import { tmpdir } from 'node:os'
 import { basename, dirname, join } from 'node:path'
+import { DatabaseSync } from 'node:sqlite'
 import { $, $$, browser, expect } from '@wdio/globals'
 import { answerNextDialog, appFolders, currentPlatform, currentProfile, designFile, launchForAttach, openDesignButton, renameOpenDesign, savedName, waitForOpenDesign } from './support/app'
 import { logOutput } from './support/process-log'
-import { canopiProcesses, handProfileToRelaunch, msiUpdateClients, pendingRestartFiles, pendingUpdateMarkers, relaunchedWith, relaunchReport, withdrawProfileFromRelaunch } from './support/relaunch'
+import { canopiProcesses, handProfileToRelaunch, msiUpdateClients, pendingRestartFiles, pendingUpdateMarkers, relaunchedCleanly, relaunchReport, withdrawProfileFromRelaunch } from './support/relaunch'
 
 const PORT = Number(process.env.UPDATER_E2E_PORT ?? '47811')
 const CHANNELS = process.env.UPDATER_E2E_DIR ?? ''
@@ -480,12 +482,41 @@ describe('the updater, from an installed N-1 to N', () => {
     current = second
   })
 
+  /**
+   * Reads durable `last_open_home` from a snapshot copy of the profile's `user.db` (so we never contend with the
+   * running Canopi's WAL lock) and resolves a `file:<sha256>` token against `recent_files` (2.1-Q127, 2.1-M523).
+   */
+  function resolvedLastOpenHome(profileRoot: string): { lastOpenHome: string | null, resolvedPath: string | null, resolvedName: string | null } {
+    const store = storeFiles(appFolders(profileRoot), 'user.db')
+    const sourceDb = store.find((file) => basename(file) === 'user.db')
+    if (sourceDb === undefined) return { lastOpenHome: null, resolvedPath: null, resolvedName: null }
+    const snapshotDir = mkdtempSync(join(tmpdir(), 'canopi-updater-db-'))
+    try {
+      for (const file of store) copyFileSync(file, join(snapshotDir, basename(file)))
+      const db = new DatabaseSync(join(snapshotDir, 'user.db'))
+      try {
+        const settingsRow = db.prepare("SELECT value FROM settings WHERE key = 'settings'").get() as { value?: string } | undefined
+        const parsed = settingsRow?.value ? JSON.parse(settingsRow.value) as { last_open_home?: string | null } : null
+        const token = typeof parsed?.last_open_home === 'string' ? parsed.last_open_home : null
+        if (!token || !token.startsWith('file:')) return { lastOpenHome: token, resolvedPath: null, resolvedName: null }
+        const recentId = token.slice('file:'.length)
+        const recent = db.prepare('SELECT path, name FROM recent_files').all() as { path: string, name: string }[]
+        const match = recent.find((row) => createHash('sha256').update(row.path, 'utf8').digest('hex') === recentId)
+        return { lastOpenHome: token, resolvedPath: match?.path ?? null, resolvedName: match?.name ?? null }
+      } finally {
+        db.close()
+      }
+    } finally {
+      rmSync(snapshotDir, { recursive: true, force: true })
+    }
+  }
+
   it('restarts into N as the primary instance with the current Design', async () => {
-    // Without the update test's Design there is no path the relaunch must carry.
+    // Without the update test's Design there is no home the relaunch must reopen.
     if (current === '') throw new Error('no current Design: the update install test did not reach the restart')
-    // Exactly [exe, current] as the process reads its argv: a path split at its space still holds the whole path as a
-    // substring of the command line (canopi-f47t.52.228.53).
-    const relaunched = () => canopiProcesses().filter((running) => relaunchedWith(running, current))
+    // Exactly [exe] with no Design path argument: launch reopens the current Design via durable last_open_home
+    // (2.1-Q127, 2.1-M523, canopi-f47t.52.189).
+    const relaunched = () => canopiProcesses().filter(relaunchedCleanly)
     // One budget for every wait below, kept under mocha's 180 s test timeout (wdio.desktop.conf.ts) so a slow wait
     // fails with its own message and report instead of mocha's bare timeout.
     const deadline = Date.now() + 165_000
@@ -493,7 +524,7 @@ describe('the updater, from an installed N-1 to N', () => {
       await browser.waitUntil(() => relaunched().length > 0, { timeout: 110_000 })
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error)
-      throw new Error(`no relaunched Canopi with argv [exe, ${current}] (${reason})\n${relaunchReport(currentProfile(), installedVersion)}`)
+      throw new Error(`no relaunched Canopi with argv [exe] (${reason})\n${relaunchReport(currentProfile(), installedVersion)}`)
     }
     // A relaunch that only forwarded to a lingering instance would exit; the primary stays.
     await new Promise((settle) => setTimeout(settle, 5_000))
@@ -512,6 +543,18 @@ describe('the updater, from an installed N-1 to N', () => {
     expect(pendingUpdateMarkers(currentProfile())).toEqual([])
     // And it is N: a relaunch of an N-1 the install left in place would pass every check above.
     expect(installedVersion()).toBe(announcedN().version)
+    // N reopens Second garden.canopi (renamed to Updated garden) through durable last_open_home rather than argv
+    // (2.1-Q127, 2.1-M523): a failed reopen would clear last_open_home and fall back to the Start screen.
+    const expectedFile = basename(current)
+    try {
+      await browser.waitUntil(() => {
+        const home = resolvedLastOpenHome(currentProfile())
+        return home.resolvedPath !== null && basename(home.resolvedPath) === expectedFile && home.resolvedName === 'Updated garden'
+      }, { timeout: Math.max(deadline - Date.now(), 1_000) })
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error)
+      throw new Error(`the relaunched Canopi did not keep last_open_home on ${expectedFile} / Updated garden (${reason}): ${JSON.stringify(resolvedLastOpenHome(currentProfile()))}`)
+    }
   })
 
   // msiexec runs with /promptrestart: had Canopi still held a file the MSI replaces, Windows Installer would queue the
