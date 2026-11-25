@@ -21,8 +21,8 @@ pub struct DesignDrafts {
 }
 
 /// A draft id is `[a-z0-9-]{1,64}`, so it can only name a file directly
-/// inside the drafts store.
-fn is_valid_draft_id(id: &str) -> bool {
+/// inside the drafts store (single validator pinned by A29).
+pub(crate) fn is_valid_draft_id(id: &str) -> bool {
     !id.is_empty()
         && id.len() <= MAX_DRAFT_ID_LEN
         && id

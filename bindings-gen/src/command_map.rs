@@ -24,6 +24,7 @@ import type {
   DesignSummary,
   DialogKind,
   DynamicFilterOptions,
+  FileGrantId,
   FilterOptions,
   FlowerColorResolution,
   GeoResult,
@@ -70,6 +71,7 @@ export interface GeoJsonSource {
 export interface PendingOpen {
   readonly path: string
   readonly several: boolean
+  readonly grant?: FileGrantId
 }
 
 export type CommandSyncKind = 'async' | 'bounded_sync'

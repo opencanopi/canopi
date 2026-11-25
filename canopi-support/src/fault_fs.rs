@@ -268,6 +268,19 @@ impl DurableFs for FaultFs {
         }))
     }
 
+    fn file_len(&self, path: &Path) -> io::Result<Option<u64>> {
+        let state = self.lock_state();
+        let key = normalize_key(path, state.case_insensitive);
+        match state.volatile.get(&key) {
+            Some(Inode::File { volatile, .. }) => Ok(Some(volatile.len() as u64)),
+            Some(Inode::Dir) => Err(io::Error::new(
+                io::ErrorKind::IsADirectory,
+                "is a directory",
+            )),
+            None => Ok(None),
+        }
+    }
+
     fn create_dir_all(&self, path: &Path) -> io::Result<()> {
         let mut state = self.lock_state();
         if state.read_only {

@@ -6,6 +6,7 @@
 //! to the frontend.
 
 use std::collections::HashMap;
+use std::fmt;
 use std::io;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -20,18 +21,43 @@ use canopi_types::design_home::{HomeRead, HomeWrite};
 use canopi_types::failure::{Failure, FailureCode, IoFailureKind, ops};
 use canopi_types::ids::{FileGrantId, HomeVersion};
 
+use crate::design::drafts::is_valid_draft_id;
 use crate::design::format::MAX_CANOPI_FILE_BYTES;
 
 const GRANT_PREFIX: &str = "grant:";
 const DRAFTS_DIR: &str = "drafts";
 const BEFORE_V10_DIR: &str = "before-v10";
 const DRAFT_EXTENSION: &str = "canopi";
-const MAX_DRAFT_ID_LEN: usize = 64;
 const PRE_UPGRADE_TAG: &str = " (before 2.1)";
 const MAX_PRE_UPGRADE_COPY_ATTEMPTS: u32 = 1000;
 
+/// Typed refusal when a path cannot be minted into a [`FileGrantId`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GrantError {
+    /// The target path has no parent directory component.
+    MissingParent,
+    /// The target path has no final file name component.
+    MissingFileName,
+}
+
+impl fmt::Display for GrantError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::MissingParent => f.write_str("file grant target has no parent directory"),
+            Self::MissingFileName => f.write_str("file grant target has no file name"),
+        }
+    }
+}
+
+impl std::error::Error for GrantError {}
+
 /// Canonical identity of a granted Design file: canonical parent directory + exact file name
 /// (never the inode; contracts §4, ADR 0027).
+///
+/// When `std::fs::canonicalize` fails (for instance, a Save target whose parent folder does not
+/// exist yet), the key falls back to the uncanonicalised parent path. A later pick after that
+/// folder exists and canonicalises cleanly will mint a second grant id for the canonical parent,
+/// which is safe because both grants still lock the same target via `TargetLocks`.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 struct GrantTargetKey {
     parent: PathBuf,
@@ -62,15 +88,17 @@ impl FileGrantRegistry {
     }
 
     /// Mints or reuses the [`FileGrantId`] for `path`.
-    pub fn grant(&self, path: &Path) -> Result<FileGrantId, String> {
+    pub fn grant(&self, path: &Path) -> Result<FileGrantId, GrantError> {
         let parent = path
             .parent()
             .filter(|dir| !dir.as_os_str().is_empty())
-            .ok_or_else(|| "file grant target has no parent directory".to_owned())?;
+            .ok_or(GrantError::MissingParent)?;
         let file_name = path
             .file_name()
-            .ok_or_else(|| "file grant target has no file name".to_owned())?
+            .ok_or(GrantError::MissingFileName)?
             .to_os_string();
+        // Fall back to the non-canonical parent if the folder does not exist yet (see
+        // `GrantTargetKey`); a later successful canonicalisation mints a fresh grant id.
         let canonical_parent =
             std::fs::canonicalize(parent).unwrap_or_else(|_| parent.to_path_buf());
         let resolved_path = canonical_parent.join(&file_name);
@@ -101,16 +129,6 @@ impl FileGrantRegistry {
     }
 }
 
-/// Validates a `DraftId`: `[a-z0-9-]{1,64}` so it can only name a direct child of `drafts/`.
-#[must_use]
-pub fn is_valid_draft_id(id: &str) -> bool {
-    !id.is_empty()
-        && id.len() <= MAX_DRAFT_ID_LEN
-        && id
-            .bytes()
-            .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'-')
-}
-
 enum ResolvedHome {
     File(PathBuf),
     Draft { id: String, path: PathBuf },
@@ -126,12 +144,16 @@ pub struct DesktopHomeStore<F: DurableFs = OsDurableFs> {
 
 impl DesktopHomeStore<OsDurableFs> {
     /// Production Desktop home store under `{app_data_dir}/drafts` backed by [`OsDurableFs`].
+    ///
+    /// Shares [`crate::target_locks::temporary_target_locks`] with the legacy Design and Draft
+    /// writers so concurrent writes to the same target serialize (contracts §11; removed in I5
+    /// bead `canopi-f47t.52.189.1` once owned stores replace every legacy writer).
     #[must_use]
     pub fn production(app_data_dir: &Path, grants: Arc<FileGrantRegistry>) -> Self {
         Self::with_fs(
             app_data_dir.join(DRAFTS_DIR),
             grants,
-            Arc::new(TargetLocks::new()),
+            Arc::clone(crate::target_locks::temporary_target_locks()),
             OsDurableFs,
         )
     }
@@ -189,6 +211,21 @@ impl<F: DurableFs> DesktopHomeStore<F> {
         let path = match &resolved {
             ResolvedHome::File(path) | ResolvedHome::Draft { path, .. } => path.as_path(),
         };
+        // Check metadata length before loading bytes so an oversized file is never buffered whole.
+        match self.fs.file_len(path) {
+            Ok(None) => return HomeRead::Absent,
+            Ok(Some(len)) if len > MAX_CANOPI_FILE_BYTES => {
+                return HomeRead::Unreadable {
+                    reason: "design exceeds the maximum readable size".to_owned(),
+                };
+            }
+            Ok(Some(_)) => {}
+            Err(error) => {
+                return HomeRead::Unreadable {
+                    reason: format!("failed to read design home: {}", error.kind()),
+                };
+            }
+        }
         match self.fs.read_bytes(path) {
             Ok(bytes) => {
                 if bytes.len() as u64 > MAX_CANOPI_FILE_BYTES {
@@ -370,6 +407,10 @@ impl<F: DurableFs> DesktopHomeStore<F> {
                         format!("{stem}{PRE_UPGRADE_TAG} {attempt}.{ext}")
                     };
                     let candidate = parent.join(candidate_name);
+                    // Publishing to `candidate` without taking `candidate`'s own target lock is
+                    // safe: `Precondition::NotExists` (`persist_noclobber`) atomically refuses
+                    // to overwrite if a concurrent writer claims the same name, and the loop
+                    // advances to the next numbered suffix.
                     match publish_durably_unlocked(
                         &self.fs,
                         PublishSource::Bytes(&previous_bytes),

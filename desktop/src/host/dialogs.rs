@@ -27,7 +27,9 @@ use std::sync::{Arc, Mutex, PoisonError};
 
 use canopi_types::dialog::{DialogKind, DialogPurpose, PickOpenOutcome, PickSaveOutcome};
 use canopi_types::failure::{Failure, FailureCode, ops};
+use canopi_types::ids::FileGrantId;
 
+use crate::host::home::FileGrantRegistry;
 use crate::native_operation::{ExecutorError, NativeOperationClass, NativeOperationExecutor};
 
 /// What the host asks of the system dialog.
@@ -228,10 +230,12 @@ impl HostDialogs {
     }
 }
 
-/// Show `kind`'s Open dialog in `window`: the chosen paths, one unless the kind allows several.
+/// Show `kind`'s Open dialog in `window`: the chosen paths, one unless the kind allows several,
+/// with host-issued [`FileGrantId`]s minted for Design picks (2b-4).
 pub async fn pick_open(
     executor: &NativeOperationExecutor,
     dialogs: &HostDialogs,
+    grants: &Arc<FileGrantRegistry>,
     window: &str,
     kind: DialogKind,
 ) -> Result<PickOpenOutcome, Failure> {
@@ -249,19 +253,39 @@ pub async fn pick_open(
     if paths.is_empty() {
         return Ok(PickOpenOutcome::Cancelled);
     }
+    let minted = if kind == DialogKind::DesignOpen {
+        let registry = Arc::clone(grants);
+        let to_grant = paths.clone();
+        executor
+            .run_typed(NativeOperationClass::Local, OP, move || {
+                to_grant
+                    .iter()
+                    .map(|path| registry.grant(path))
+                    .collect::<Result<Vec<FileGrantId>, _>>()
+                    .map_err(|_| Failure::new(FailureCode::Invalid, OP))
+            })
+            .await?
+    } else {
+        Vec::new()
+    };
     let paths = paths
         .into_iter()
         .map(path_text)
         .collect::<Option<Vec<_>>>()
         .ok_or_else(|| Failure::new(FailureCode::Internal, OP))?;
-    Ok(PickOpenOutcome::Picked { paths })
+    Ok(PickOpenOutcome::Picked {
+        paths,
+        grants: minted,
+    })
 }
 
 /// Show `kind`'s Save dialog in `window`, suggesting `stem` with the kind's extension; the
-/// chosen path gets the kind's first extension when it has none of the kind's.
+/// chosen path gets the kind's first extension when it has none of the kind's, and a Design
+/// save target receives a host-issued [`FileGrantId`] (2b-4).
 pub async fn pick_save(
     executor: &NativeOperationExecutor,
     dialogs: &HostDialogs,
+    grants: &Arc<FileGrantRegistry>,
     window: &str,
     kind: DialogKind,
     stem: &str,
@@ -279,8 +303,25 @@ pub async fn pick_save(
     let Some(path) = picked.and_then(|paths| paths.into_iter().next()) else {
         return Ok(PickSaveOutcome::Cancelled);
     };
+    let resolved = with_extension(kind, path);
+    let grant = if kind == DialogKind::DesignSave {
+        let registry = Arc::clone(grants);
+        let target = resolved.clone();
+        Some(
+            executor
+                .run_typed(NativeOperationClass::Local, OP, move || {
+                    registry
+                        .grant(&target)
+                        .map_err(|_| Failure::new(FailureCode::Invalid, OP))
+                })
+                .await?,
+        )
+    } else {
+        None
+    };
     Ok(PickSaveOutcome::Picked {
-        path: path_text(with_extension(kind, path)).ok_or_else(not_unicode)?,
+        path: path_text(resolved).ok_or_else(not_unicode)?,
+        grant,
     })
 }
 

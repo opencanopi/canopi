@@ -28,6 +28,14 @@ impl DurableFs for OsDurableFs {
         std::fs::read(path)
     }
 
+    fn file_len(&self, path: &Path) -> io::Result<Option<u64>> {
+        match std::fs::metadata(path) {
+            Ok(meta) => Ok(Some(meta.len())),
+            Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(None),
+            Err(error) => Err(error),
+        }
+    }
+
     fn fingerprint_file(&self, path: &Path) -> io::Result<Option<String>> {
         hash::sha256_file(path)
     }

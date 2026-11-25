@@ -20,8 +20,12 @@ pub mod updater;
 /// the dialogs' state with this build's picker (made once the app exists) and the window hook that settles a destroyed window's pick as cancelled.
 /// `lib.rs` only calls this.
 pub fn register<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder<R> {
+    let file_grants = std::sync::Arc::new(home::FileGrantRegistry::default());
     builder
-        .manage(launch::PendingOpenSlot::first_launch())
+        .manage(launch::PendingOpenSlot::first_launch_with_grants(
+            &file_grants,
+        ))
+        .manage(file_grants)
         .plugin(single_instance::plugin())
         .plugin(tauri_plugin_dialog::init())
         .plugin(dialogs::plugin())

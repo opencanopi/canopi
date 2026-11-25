@@ -1,16 +1,14 @@
 //! Durable file publishing, removal, and target locking behind [`DurableFs`]
 //! (ADR 0023, ADR 0026, contracts §11, 2.1-M541).
 
-use std::fmt;
-use std::io;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
+use std::{fmt, io};
 
 use crate::durable_locks::parent_dir;
-use crate::hash;
-
 pub use crate::durable_locks::{TargetLocks, detect_case_insensitive_volume};
 pub use crate::durable_os::{OsDurableFs, probe_noclobber_support};
+use crate::hash;
 
 /// Filesystem entry classification returned by [`DurableFs::entry_kind`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -20,11 +18,8 @@ pub enum EntryKind {
     Other,
 }
 
-/// Precondition checked atomically inside [`TargetLocks`] before publishing or
-/// removing a target.
-///
-/// Variant names refine 2.1-M111's `None` / `Fingerprint` / `Absent` to avoid
-/// shadowing `Option::None` (ADR 0023, 2.1-M545).
+/// Precondition checked atomically inside [`TargetLocks`] before publishing or removing a target.
+/// Variant names refine 2.1-M111's `None` / `Fingerprint` / `Absent` to avoid shadowing `Option::None` (ADR 0023, 2.1-M545).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Precondition {
     /// Unconditional overwrite (or create if absent).
@@ -191,6 +186,9 @@ impl From<io::Error> for DurableError {
 pub trait DurableFs: Send + Sync {
     /// Read the complete bytes of `path`.
     fn read_bytes(&self, path: &Path) -> io::Result<Vec<u8>>;
+
+    /// Byte length of `path` from metadata without reading its contents, or `Ok(None)` if absent.
+    fn file_len(&self, path: &Path) -> io::Result<Option<u64>>;
 
     /// Streamed lowercase hex SHA-256 of `path`, or `Ok(None)` if absent.
     fn fingerprint_file(&self, path: &Path) -> io::Result<Option<String>>;

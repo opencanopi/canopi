@@ -108,9 +108,11 @@ fn open_folder(
     app: &tauri::App<tauri::test::MockRuntime>,
     label: &str,
 ) -> Option<std::path::PathBuf> {
+    let grants = std::sync::Arc::new(crate::host::home::FileGrantRegistry::default());
     tauri::async_runtime::block_on(crate::host::dialogs::pick_open(
         app.state::<NativeOperationExecutor>().inner(),
         app.state::<crate::host::dialogs::HostDialogs>().inner(),
+        &grants,
         label,
         canopi_types::dialog::DialogKind::DesignOpen,
     ))

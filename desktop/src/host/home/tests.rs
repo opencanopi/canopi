@@ -1,4 +1,5 @@
 use std::io;
+use std::path::Path;
 use std::sync::Arc;
 
 use canopi_support::durable::TargetLocks;
@@ -7,7 +8,7 @@ use canopi_support::hash;
 use canopi_types::design_home::{HomeRead, HomeWrite};
 use canopi_types::ids::HomeVersion;
 
-use super::{DesktopHomeStore, FileGrantRegistry};
+use super::{DesktopHomeStore, FileGrantRegistry, GrantError, MAX_CANOPI_FILE_BYTES};
 use crate::test_scratch::TestScratch;
 
 #[test]
@@ -228,6 +229,189 @@ fn fault_fs_unwritable_copy_blocks_publish_and_rename_failure_preserves_previous
         HomeRead::Present {
             bytes: v1.to_vec(),
             version: v1_hash,
+        }
+    );
+}
+
+#[test]
+fn concurrent_home_write_and_legacy_design_write_serialize_on_shared_target_lock() {
+    use std::sync::mpsc;
+    use std::time::Duration;
+
+    let root = TestScratch::new("home-shared-lock");
+    let designs = root.join("designs");
+    std::fs::create_dir_all(&designs).unwrap();
+    let file_path = designs.join("shared.canopi");
+
+    let grants = Arc::new(FileGrantRegistry::default());
+    let grant = grants.grant(&file_path).unwrap();
+    let store = Arc::new(DesktopHomeStore::production(
+        root.path(),
+        Arc::clone(&grants),
+    ));
+
+    // Seed initial file via home store.
+    let v0 = b"{\"version\":9,\"step\":0}";
+    let HomeWrite::Written { version: v0_hash } = store.write(grant.as_str(), v0, None, false)
+    else {
+        panic!("seed write");
+    };
+
+    // Hold the legacy design write lock on the exact same target path, then launch a concurrent
+    // DesktopHomeStore::production write and prove it blocks until the legacy lock releases.
+    let (locked_tx, locked_rx) = mpsc::channel();
+    let (release_tx, release_rx) = mpsc::channel();
+    let (done_tx, done_rx) = mpsc::channel();
+
+    let legacy_path = file_path.clone();
+    let legacy_handle = std::thread::spawn(move || {
+        crate::target_locks::temporary_target_locks().with_lock(&legacy_path, || {
+            locked_tx.send(()).unwrap();
+            release_rx.recv().unwrap();
+            std::fs::write(&legacy_path, b"{\"version\":9,\"step\":1}").unwrap();
+        });
+    });
+
+    locked_rx.recv().unwrap();
+
+    let home_store = Arc::clone(&store);
+    let home_grant = grant.clone();
+    let expected = v0_hash.clone();
+    let home_handle = std::thread::spawn(move || {
+        let outcome = home_store.write(
+            home_grant.as_str(),
+            b"{\"version\":9,\"step\":2}",
+            Some(&expected),
+            false,
+        );
+        done_tx.send(outcome).unwrap();
+    });
+
+    // While legacy holds the shared target lock, DesktopHomeStore::write must not finish.
+    assert!(
+        done_rx.recv_timeout(Duration::from_millis(80)).is_err(),
+        "DesktopHomeStore::write bypassed the shared TargetLocks"
+    );
+
+    // Release the legacy writer: home_write now acquires the lock, sees step 1 on disk, and
+    // settles as Conflict with step 1's fingerprint rather than clobbering it.
+    release_tx.send(()).unwrap();
+    legacy_handle.join().unwrap();
+    let outcome = done_rx.recv_timeout(Duration::from_secs(5)).unwrap();
+    home_handle.join().unwrap();
+
+    let step1_hash = HomeVersion::new(canopi_support::hash::sha256_hex(
+        b"{\"version\":9,\"step\":1}",
+    ));
+    assert_eq!(
+        outcome,
+        HomeWrite::Conflict {
+            current: Some(step1_hash),
+        }
+    );
+    assert_eq!(
+        std::fs::read(&file_path).unwrap(),
+        b"{\"version\":9,\"step\":1}"
+    );
+}
+
+#[test]
+fn real_commands_mint_file_grants_and_round_trip_home_read_and_home_write() {
+    use tauri::Manager as _;
+
+    let root = TestScratch::new("home-real-commands");
+    let designs = root.join("designs");
+    std::fs::create_dir_all(&designs).unwrap();
+    let launched_path = designs.join("launched.canopi");
+    let initial = b"{\"version\":9,\"origin\":\"launch\"}";
+    std::fs::write(&launched_path, initial).unwrap();
+
+    let grants = Arc::new(FileGrantRegistry::default());
+    let store = Arc::new(DesktopHomeStore::production(
+        root.path(),
+        Arc::clone(&grants),
+    ));
+    let app = tauri::test::mock_builder()
+        .manage(crate::native_operation::NativeOperationExecutor::production())
+        .manage(crate::host::launch::PendingOpenSlot::default())
+        .manage(Arc::clone(&grants))
+        .manage(Arc::clone(&store))
+        .build(tauri::test::mock_context(tauri::test::noop_assets()))
+        .expect("mock app builds");
+
+    // Forward a launch file through on_second_launch -> take_pending_open mints a grant.
+    crate::host::launch::on_second_launch(
+        app.handle(),
+        vec!["canopi".into(), launched_path.to_str().unwrap().to_owned()],
+        designs.to_str().unwrap().to_owned(),
+    );
+    let pending = crate::commands::host::take_pending_open(app.state()).expect("pending open");
+    let grant = pending.grant.expect("minted file grant on launch");
+
+    // Read through the real async `home_read` command using the minted grant.
+    let read_outcome = tauri::async_runtime::block_on(crate::commands::host::home_read(
+        app.state(),
+        app.state(),
+        grant.as_str().to_owned(),
+    ))
+    .expect("home_read command");
+    let HomeRead::Present { bytes, version } = read_outcome else {
+        panic!("expected Present, got {read_outcome:?}");
+    };
+    assert_eq!(bytes, initial);
+
+    // Write an update through the real async `home_write` command using the same grant.
+    let updated = b"{\"version\":10,\"origin\":\"home_write\"}";
+    let write_outcome = tauri::async_runtime::block_on(crate::commands::host::home_write(
+        app.state(),
+        app.state(),
+        grant.as_str().to_owned(),
+        updated.to_vec(),
+        Some(version),
+        Some(false),
+    ))
+    .expect("home_write command");
+    let HomeWrite::Written {
+        version: updated_version,
+    } = write_outcome
+    else {
+        panic!("expected Written, got {write_outcome:?}");
+    };
+    assert_eq!(
+        updated_version,
+        HomeVersion::new(canopi_support::hash::sha256_hex(updated))
+    );
+    assert_eq!(std::fs::read(&launched_path).unwrap(), updated);
+}
+
+#[test]
+fn grant_rejects_missing_parent_or_filename_with_typed_error_and_oversized_file_refused_from_metadata()
+ {
+    let grants = Arc::new(FileGrantRegistry::default());
+    assert_eq!(
+        grants.grant(Path::new("orphan.canopi")),
+        Err(GrantError::MissingParent)
+    );
+    assert_eq!(
+        grants.grant(Path::new("/designs/..")),
+        Err(GrantError::MissingFileName)
+    );
+
+    // Nit 1: metadata length check refuses oversized files before reading bytes into memory.
+    let root = TestScratch::new("home-oversized");
+    let designs = root.join("designs");
+    std::fs::create_dir_all(&designs).unwrap();
+    let huge = designs.join("huge.canopi");
+    let file = std::fs::File::create(&huge).unwrap();
+    file.set_len(MAX_CANOPI_FILE_BYTES + 1).unwrap();
+    drop(file);
+
+    let grant = grants.grant(&huge).unwrap();
+    let store = DesktopHomeStore::production(root.path(), Arc::clone(&grants));
+    assert_eq!(
+        store.read(grant.as_str()),
+        HomeRead::Unreadable {
+            reason: "design exceeds the maximum readable size".to_owned(),
         }
     );
 }

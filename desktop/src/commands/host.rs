@@ -5,7 +5,7 @@ use canopi_types::ids::HomeVersion;
 use tauri::State;
 
 use crate::host::dialogs::{self, HostDialogs};
-use crate::host::home::DesktopHomeStore;
+use crate::host::home::{DesktopHomeStore, FileGrantRegistry};
 use crate::host::launch::{PendingOpen, PendingOpenSlot};
 use crate::native_operation::{NativeOperationClass, NativeOperationExecutor};
 
@@ -80,9 +80,17 @@ pub async fn pick_open<R: tauri::Runtime>(
     window: tauri::WebviewWindow<R>,
     executor: State<'_, NativeOperationExecutor>,
     dialogs: State<'_, HostDialogs>,
+    grants: State<'_, std::sync::Arc<FileGrantRegistry>>,
     kind: DialogKind,
 ) -> Result<PickOpenOutcome, Failure> {
-    dialogs::pick_open(executor.inner(), dialogs.inner(), window.label(), kind).await
+    dialogs::pick_open(
+        executor.inner(),
+        dialogs.inner(),
+        grants.inner(),
+        window.label(),
+        kind,
+    )
+    .await
 }
 
 /// Show `kind`'s Save dialog in the calling window, suggesting `stem`: the chosen path with the
@@ -92,12 +100,14 @@ pub async fn pick_save<R: tauri::Runtime>(
     window: tauri::WebviewWindow<R>,
     executor: State<'_, NativeOperationExecutor>,
     dialogs: State<'_, HostDialogs>,
+    grants: State<'_, std::sync::Arc<FileGrantRegistry>>,
     kind: DialogKind,
     stem: String,
 ) -> Result<PickSaveOutcome, Failure> {
     dialogs::pick_save(
         executor.inner(),
         dialogs.inner(),
+        grants.inner(),
         window.label(),
         kind,
         &stem,

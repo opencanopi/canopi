@@ -5,9 +5,12 @@ import { listen } from '@tauri-apps/api/event'
  * The Design file a launch asked Canopi to open (`host::launch::PendingOpen`, 2.1-M214): an absolute path, and whether
  * the launch named several files, of which only this first one opens (2.1-Q228).
  */
+import type { FileGrantId } from '../generated/contracts'
+
 interface PendingOpen {
   readonly path: string
   readonly several: boolean
+  readonly grant?: FileGrantId
 }
 
 /** The event a later launch with a file emits; it carries nothing, the slot is pulled. */

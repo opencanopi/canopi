@@ -4,13 +4,7 @@
 //! helpers.
 
 use super::*;
-use crate::native_operation::{
-    NativeOperationClassLimits, NativeOperationExecutor, NativeOperationLimits,
-};
-use canopi_types::dialog::{DialogKind, PickOpenOutcome, PickSaveOutcome};
-use canopi_types::failure::{Failure, FailureCode, ops};
-use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex, PoisonError};
+use crate::native_operation::{NativeOperationClassLimits, NativeOperationLimits};
 use std::time::{Duration, Instant};
 
 /// Holds each dialog until the test answers it, and records each window brought forward.
@@ -68,44 +62,47 @@ fn executor() -> NativeOperationExecutor {
 struct Host {
     executor: NativeOperationExecutor,
     dialogs: Arc<HostDialogs>,
+    grants: Arc<FileGrantRegistry>,
     picker: Arc<HeldPicker>,
 }
+
+type PickJoin<T> = tauri::async_runtime::JoinHandle<Result<T, Failure>>;
 
 impl Host {
     fn new() -> Self {
         let picker = Arc::new(HeldPicker::default());
-        let held: Arc<dyn Picker> = picker.clone();
+        let mut host = Self::with_picker(picker.clone());
+        host.picker = picker;
+        host
+    }
+
+    fn with_picker(shown: Arc<dyn Picker>) -> Self {
         Self {
             executor: executor(),
-            dialogs: Arc::new(HostDialogs::new(held)),
-            picker,
+            dialogs: Arc::new(HostDialogs::new(shown)),
+            grants: Arc::new(FileGrantRegistry::default()),
+            picker: Arc::new(HeldPicker::default()),
         }
     }
 
-    fn open(
-        &self,
-        window: &'static str,
-        kind: DialogKind,
-    ) -> tauri::async_runtime::JoinHandle<Result<PickOpenOutcome, Failure>> {
-        let (executor, dialogs) = self.parts();
+    fn open(&self, window: &'static str, kind: DialogKind) -> PickJoin<PickOpenOutcome> {
+        let (ex, dlg, gr) = (
+            self.executor.clone(),
+            self.dialogs.clone(),
+            self.grants.clone(),
+        );
+        tauri::async_runtime::spawn(async move { pick_open(&ex, &dlg, &gr, window, kind).await })
+    }
+
+    fn save(&self, kind: DialogKind, stem: &'static str) -> PickJoin<PickSaveOutcome> {
+        let (ex, dlg, gr) = (
+            self.executor.clone(),
+            self.dialogs.clone(),
+            self.grants.clone(),
+        );
         tauri::async_runtime::spawn(
-            async move { pick_open(&executor, &dialogs, window, kind).await },
+            async move { pick_save(&ex, &dlg, &gr, "main", kind, stem).await },
         )
-    }
-
-    fn save(
-        &self,
-        kind: DialogKind,
-        stem: &'static str,
-    ) -> tauri::async_runtime::JoinHandle<Result<PickSaveOutcome, Failure>> {
-        let (executor, dialogs) = self.parts();
-        tauri::async_runtime::spawn(async move {
-            pick_save(&executor, &dialogs, "main", kind, stem).await
-        })
-    }
-
-    fn parts(&self) -> (NativeOperationExecutor, Arc<HostDialogs>) {
-        (self.executor.clone(), Arc::clone(&self.dialogs))
     }
 }
 
@@ -118,9 +115,10 @@ fn settle<T>(handle: tauri::async_runtime::JoinHandle<T>) -> T {
     .expect("the pick task ends")
 }
 
-fn picked(path: &Path) -> PickOpenOutcome {
+fn picked_with_grant(grants: &FileGrantRegistry, path: &Path) -> PickOpenOutcome {
     PickOpenOutcome::Picked {
         paths: vec![path.display().to_string()],
+        grants: vec![grants.grant(path).expect("minted grant")],
     }
 }
 
@@ -140,9 +138,11 @@ fn canopi_f47t_52_228_14_a_file_picked_through_the_host_dialogs_is_refused_over_
     use tauri::Manager as _;
     let picker = Arc::new(HeldPicker::default());
     let held: Arc<dyn Picker> = picker.clone();
+    let grants = Arc::new(FileGrantRegistry::default());
     let app = tauri::test::mock_builder()
         .manage(executor())
         .manage(HostDialogs::new(held))
+        .manage(Arc::clone(&grants))
         .build(tauri::generate_context!(test = true))
         .expect("the mock app builds from the real configuration");
     let window = tauri::WebviewWindowBuilder::new(&app, "main", tauri::WebviewUrl::default())
@@ -168,10 +168,12 @@ fn canopi_f47t_52_228_14_a_file_picked_through_the_host_dialogs_is_refused_over_
         window.clone(),
         app.state(),
         app.state(),
+        app.state(),
         DialogKind::DesignOpen,
     ));
     let saved = tauri::async_runtime::block_on(crate::commands::host::pick_save(
         window,
+        app.state(),
         app.state(),
         app.state(),
         DialogKind::DesignSave,
@@ -179,11 +181,12 @@ fn canopi_f47t_52_228_14_a_file_picked_through_the_host_dialogs_is_refused_over_
     ));
     answers.join().expect("the picks are answered");
 
-    assert_eq!(opened, Ok(picked(&garden)));
+    assert_eq!(opened, Ok(picked_with_grant(&grants, &garden)));
     assert_eq!(
         saved,
         Ok(PickSaveOutcome::Picked {
-            path: copy.display().to_string()
+            path: copy.display().to_string(),
+            grant: Some(grants.grant(&copy).expect("saved grant")),
         })
     );
     assert!(!scope.is_allowed(&garden), "the opened file is served");
@@ -209,6 +212,7 @@ fn canopi_f47t_52_228_14_a_second_pick_in_the_same_window_is_refused() {
         tauri::async_runtime::block_on(pick_save(
             &host.executor,
             &host.dialogs,
+            &host.grants,
             "main",
             DialogKind::DesignSave,
             "copy",
@@ -242,7 +246,7 @@ fn canopi_f47t_52_228_14_a_second_pick_in_the_same_window_is_refused() {
     assert_eq!(recorded.len(), 1, "{logs}");
     assert!(recorded[0].contains(" INFO "), "{logs}");
     assert_eq!(settle(other), Ok(PickOpenOutcome::Cancelled));
-    assert_eq!(settle(first), Ok(picked(&garden)));
+    assert_eq!(settle(first), Ok(picked_with_grant(&host.grants, &garden)));
     let again = host.open("main", DialogKind::DesignOpen);
     host.picker.answer(2, None);
     assert_eq!(settle(again), Ok(PickOpenOutcome::Cancelled));
@@ -265,7 +269,7 @@ fn canopi_f47t_52_228_14_a_destroyed_window_settles_cancelled_and_drops_the_late
     host.picker.answer(1, Some(vec![garden.clone()]));
 
     assert_eq!(settle(first), Ok(PickOpenOutcome::Cancelled));
-    assert_eq!(settle(later), Ok(picked(&garden)));
+    assert_eq!(settle(later), Ok(picked_with_grant(&host.grants, &garden)));
     assert!(lock_held(&host.picker.brought_forward).is_empty());
 }
 
@@ -318,10 +322,13 @@ fn canopi_f47t_52_228_14_a_save_appends_the_kinds_first_extension_when_missing()
             Some(suggested)
         );
         host.picker.answer(index, Some(vec![absolute(&[chosen])]));
-        let path = absolute(&[written]).display().to_string();
+        let written_path = absolute(&[written]);
+        let path = written_path.display().to_string();
+        let grant = (kind == DialogKind::DesignSave)
+            .then(|| host.grants.grant(&written_path).expect("saved grant"));
         assert_eq!(
             settle(save),
-            Ok(PickSaveOutcome::Picked { path }),
+            Ok(PickSaveOutcome::Picked { path, grant }),
             "{kind:?}"
         );
     }
@@ -364,17 +371,26 @@ fn canopi_f47t_52_228_14_the_open_dialog_starts_in_the_current_designs_folder() 
 #[test]
 fn canopi_f47t_52_228_14_each_command_takes_only_its_own_kinds() {
     let host = Host::new();
-    let (executor, dialogs) = host.parts();
+    let (ex, dlg, gr) = (&host.executor, &host.dialogs, &host.grants);
     tauri::async_runtime::block_on(async {
         let invalid = |op| Failure::new(FailureCode::Invalid, op);
-        let open = pick_open(&executor, &dialogs, "main", DialogKind::PdfExport);
-        assert_eq!(open.await, Err(invalid(ops::DIALOG_PICK_OPEN)));
-        let host_read = pick_open(&executor, &dialogs, "main", DialogKind::GeojsonImport);
-        assert_eq!(host_read.await, Err(invalid(ops::DIALOG_PICK_OPEN)));
-        let save = pick_save(&executor, &dialogs, "main", DialogKind::DesignOpen, "x");
-        assert_eq!(save.await, Err(invalid(ops::DIALOG_PICK_SAVE)));
-        let read = pick_host_read(&executor, &dialogs, "main", DialogKind::StampImport);
-        assert!(read.await.is_err());
+        assert_eq!(
+            pick_open(ex, dlg, gr, "main", DialogKind::PdfExport).await,
+            Err(invalid(ops::DIALOG_PICK_OPEN))
+        );
+        assert_eq!(
+            pick_open(ex, dlg, gr, "main", DialogKind::GeojsonImport).await,
+            Err(invalid(ops::DIALOG_PICK_OPEN))
+        );
+        assert_eq!(
+            pick_save(ex, dlg, gr, "main", DialogKind::DesignOpen, "x").await,
+            Err(invalid(ops::DIALOG_PICK_SAVE))
+        );
+        assert!(
+            pick_host_read(ex, dlg, "main", DialogKind::StampImport)
+                .await
+                .is_err()
+        );
     });
     assert!(
         lock_held(&host.picker.held).is_empty(),
@@ -395,15 +411,21 @@ fn canopi_f47t_52_228_14_only_a_multiple_kind_returns_several_paths() {
     host.picker.answer(2, Some(Vec::new()));
 
     let both = vec![a.display().to_string(), b.display().to_string()];
-    assert_eq!(settle(lidar), Ok(PickOpenOutcome::Picked { paths: both }));
-    assert_eq!(settle(design), Ok(picked(&a)));
+    assert_eq!(
+        settle(lidar),
+        Ok(PickOpenOutcome::Picked {
+            paths: both,
+            grants: Vec::new(),
+        })
+    );
+    assert_eq!(settle(design), Ok(picked_with_grant(&host.grants, &a)));
     assert_eq!(settle(empty), Ok(PickOpenOutcome::Cancelled));
 }
 
 #[test]
 fn canopi_f47t_52_228_14_the_geojson_host_read_keeps_the_path_in_the_host() {
     let host = Host::new();
-    let (executor, dialogs) = host.parts();
+    let (executor, dialogs) = (host.executor.clone(), Arc::clone(&host.dialogs));
     let read = tauri::async_runtime::spawn(async move {
         pick_host_read(&executor, &dialogs, "main", DialogKind::GeojsonImport).await
     });
@@ -517,12 +539,7 @@ impl Picker for FailsFirstPicker {
 #[test]
 fn canopi_f47t_52_228_14_a_dialog_that_fails_to_open_frees_the_window_for_the_next_pick() {
     let picker = Arc::new(FailsFirstPicker::default());
-    let shown: Arc<dyn Picker> = picker.clone();
-    let host = Host {
-        executor: executor(),
-        dialogs: Arc::new(HostDialogs::new(shown)),
-        picker: Arc::new(HeldPicker::default()),
-    };
+    let host = Host::with_picker(picker.clone());
 
     let failed = settle(host.open("main", DialogKind::DesignOpen));
     let next = host.open("main", DialogKind::DesignOpen);
@@ -533,7 +550,7 @@ fn canopi_f47t_52_228_14_a_dialog_that_fails_to_open_frees_the_window_for_the_ne
         failed,
         Err(Failure::new(FailureCode::Panicked, ops::DIALOG_PICK_OPEN))
     );
-    assert_eq!(settle(next), Ok(picked(&garden)));
+    assert_eq!(settle(next), Ok(picked_with_grant(&host.grants, &garden)));
 }
 
 /// One problem report names one settlement under one op: a pick the executor settles keeps
@@ -541,12 +558,7 @@ fn canopi_f47t_52_228_14_a_dialog_that_fails_to_open_frees_the_window_for_the_ne
 #[test]
 fn canopi_f47t_52_36_a_settled_pick_keeps_its_ring_entry_under_the_commands_op() {
     let picker = Arc::new(FailsFirstPicker::default());
-    let shown: Arc<dyn Picker> = picker.clone();
-    let host = Host {
-        executor: executor(),
-        dialogs: Arc::new(HostDialogs::new(shown)),
-        picker: Arc::new(HeldPicker::default()),
-    };
+    let host = Host::with_picker(picker);
 
     let failed = settle(host.save(DialogKind::DesignSave, "Orchard")).expect_err("panicked");
 

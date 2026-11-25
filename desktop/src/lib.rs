@@ -174,12 +174,14 @@ pub fn run() {
             let data_dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&data_dir)?;
             app.manage(design::drafts::DesignDrafts::new(&data_dir));
-            let file_grants = std::sync::Arc::new(host::home::FileGrantRegistry::default());
+            let file_grants = std::sync::Arc::clone(
+                app.state::<std::sync::Arc<host::home::FileGrantRegistry>>()
+                    .inner(),
+            );
             app.manage(std::sync::Arc::new(host::home::DesktopHomeStore::production(
                 &data_dir,
-                std::sync::Arc::clone(&file_grants),
+                file_grants,
             )));
-            app.manage(file_grants);
             app.manage(services::recent_design_previews::RecentDesignPreviews::default());
             let (user_db, user_stores) = match services::health::open_stores(&data_dir) {
                 Ok(opened) => opened,

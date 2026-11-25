@@ -1358,7 +1358,9 @@ export type PickOpenOutcome =
 // The chosen files: exactly one unless the kind allows several.
 { kind: "picked";
 // Absolute paths, in the order the dialog gave them.
-paths: string[] };
+paths: string[];
+// Host-issued file grants for picked Design files (`home_read` / `home_write`, 2b-4).
+grants?: FileGrantId[] };
 
 // What a host Save dialog answered.
 export type PickSaveOutcome =
@@ -1367,7 +1369,9 @@ export type PickSaveOutcome =
 // The chosen file, ending in one of the kind's extensions.
 { kind: "picked";
 // The absolute path.
-path: string };
+path: string;
+// Host-issued file grant for a Design save target (`home_read` / `home_write`, 2b-4).
+grant?: FileGrantId | null };
 
 export type PlacedPlant = {
 	id: string,
