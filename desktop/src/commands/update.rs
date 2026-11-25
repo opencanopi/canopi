@@ -2,7 +2,7 @@
 //! check, download and install run on the native executor. The webview holds no `updater:*`
 //! permission (2.1-Q240); these commands are the only way in.
 
-use std::{path::PathBuf, sync::Arc};
+use std::sync::Arc;
 
 use canopi_types::{
     failure::Failure,
@@ -44,16 +44,15 @@ pub async fn update_download<R: Runtime>(
     UpdaterHost::download(updater.inner(), &app, executor.inner(), &operation, sink).await
 }
 
-/// Installs the verified update; every failure leaves the Design open. `design_path` is the
-/// Design open now, the one the Windows installer relaunches with (none for a Draft).
+/// Installs the verified update; every failure leaves the Design open (2.1-M523: launch reopens
+/// the last open home, so no Design path is passed to the installer).
 #[tauri::command]
 pub async fn update_install<R: Runtime>(
     app: AppHandle<R>,
     executor: State<'_, NativeOperationExecutor>,
     updater: State<'_, UpdaterHost>,
-    design_path: Option<PathBuf>,
 ) -> Result<(), Failure> {
-    UpdaterHost::install(updater.inner(), &app, executor.inner(), design_path).await
+    UpdaterHost::install(updater.inner(), &app, executor.inner()).await
 }
 
 /// Cancels the check or download `operation` names, even one that has not reached the host yet:
@@ -63,11 +62,11 @@ pub fn update_cancel(updater: State<'_, UpdaterHost>, operation: String) {
     updater.cancel(&operation);
 }
 
-/// Restarts into the updated Canopi with `design_path` open, or to the start screen for a Draft.
-/// Runs off the main thread.
+/// Restarts into the updated Canopi with no Design path argument; launch reopens the last open
+/// home (2.1-Q127, 2.1-M523). Runs off the main thread.
 #[tauri::command(async)]
-pub fn update_restart<R: Runtime>(app: AppHandle<R>, design_path: Option<PathBuf>) {
-    updater::restart(&app, design_path)
+pub fn update_restart<R: Runtime>(app: AppHandle<R>) {
+    updater::restart(&app)
 }
 
 /// Whether this launch follows a Windows update that did not install; true once.

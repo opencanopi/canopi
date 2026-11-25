@@ -128,13 +128,15 @@ commands! {
     get_health => "commands::health::get_health": BoundedSync () -> "SubsystemHealth",
     dismiss_store_notice => "commands::health::dismiss_store_notice": BoundedSync (store: "StoreId") -> "void",
     take_pending_open => "commands::host::take_pending_open": BoundedSync () -> "PendingOpen | null",
+    home_read => "commands::host::home_read": Async (key: "string") -> "HomeRead",
+    home_write => "commands::host::home_write": Async (key: "string", bytes: "readonly number[]", expected? opt: "HomeVersion | null", keepPrevious? opt: "boolean | null") -> "HomeWrite",
     pick_open => "commands::host::pick_open": Async (kind: "DialogKind") -> "PickOpenOutcome",
     pick_save => "commands::host::pick_save": Async (kind: "DialogKind", stem: "string") -> "PickSaveOutcome",
     update_check => "commands::update::update_check": Async (operation: "string") -> "UpdateOffer | null",
     update_download => "commands::update::update_download": Async (operation: "string", progress: "unknown") -> "UpdateDownload",
-    update_install => "commands::update::update_install": Async (designPath? opt: "string | null") -> "void",
+    update_install => "commands::update::update_install": Async () -> "void",
     update_cancel => "commands::update::update_cancel": BoundedSync (operation: "string") -> "void",
-    update_restart => "commands::update::update_restart": BoundedSync (designPath? opt: "string | null") -> "void",
+    update_restart => "commands::update::update_restart": BoundedSync () -> "void",
     update_take_launch_notice => "commands::update::update_take_launch_notice": Async () -> "boolean",
     create_problem_report => "commands::problem_report::create_problem_report": Async (request: "ProblemReportRequest") -> "ProblemReportResult",
     show_problem_report_folder => "commands::problem_report::show_problem_report_folder": Async (fileName: "string") -> "void",
@@ -177,6 +179,6 @@ mod tests {
                 row.name
             );
         }
-        assert_eq!(names.len(), 83);
+        assert_eq!(names.len(), 85);
     }
 }

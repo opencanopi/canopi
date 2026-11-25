@@ -53,6 +53,14 @@ branded_id!(
     DraftId
 );
 branded_id!(
+    /// Opaque host-issued grant naming a Design file without exposing its filesystem path (ADR 0027).
+    FileGrantId
+);
+branded_id!(
+    /// Compare-and-swap version token of a Design home (SHA-256 hex on files and Desktop Drafts).
+    HomeVersion
+);
+branded_id!(
     /// Identifier of a placed plant in a Design scene.
     PlantId
 );
@@ -97,7 +105,9 @@ branded_id!(
 pub const BRANDED_ID_TYPE_NAMES: &[&str] = &[
     "AnnotationId",
     "DraftId",
+    "FileGrantId",
     "GroupId",
+    "HomeVersion",
     "LayerId",
     "LibraryItemId",
     "NotebookSectionId",

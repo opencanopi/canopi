@@ -577,6 +577,9 @@ export type FailureSource =
 // A store read as newer-read-only, on both editions (2.1-M487).
 "read_only_store";
 
+// Opaque host-issued grant naming a Design file without exposing its filesystem path (ADR 0027).
+export type FileGrantId = string;
+
 export type FilterOp = "Equals" | "In" | "Gte" | "Lte" | "Between" | "IsTrue";
 
 export type FilterOptions = {
@@ -687,6 +690,43 @@ export type GeoResult = {
 // Identifier of an object group in a Design scene.
 export type GroupId = string & { readonly __brand: "GroupId" };
 
+// Result of reading a Design home (file grant or Draft id) through `home_read`.
+export type HomeRead =
+// The home exists and its exact bytes were read alongside its SHA-256 `version`.
+{ kind: "present";
+// Exact `.canopi` bytes on disk.
+bytes: number[];
+// Lowercase hex SHA-256 digest of `bytes`.
+version: HomeVersion } |
+// No file exists yet for this home.
+{ kind: "absent" } |
+// The home could not be read (invalid key, over size cap, or I/O failure).
+{ kind: "unreadable";
+// Redacted reason suitable for diagnostics; never a raw user path.
+reason: string };
+
+// Compare-and-swap version token of a Design home (SHA-256 hex on files and Desktop Drafts).
+export type HomeVersion = string;
+
+// Result of durably writing a Design home through `home_write`.
+export type HomeWrite =
+// Bytes were published durably; `version` is their lowercase hex SHA-256 digest.
+{ kind: "written";
+// Lowercase hex SHA-256 digest of the published bytes.
+version: HomeVersion } |
+// Compare-and-swap precondition failed; nothing was overwritten.
+{ kind: "conflict";
+// Current version on disk (`None` if the file disappeared).
+current: HomeVersion | null } |
+// The requested pre-upgrade copy (`keep_previous`) could not be created; nothing was published (2.1-Q35r).
+{ kind: "copy_blocked";
+// Display name of the unwritable folder (never full raw user path in logs).
+folder: string } |
+// The write failed for a non-conflict, non-copy-blocked reason.
+{ kind: "failed";
+// Structured catalogue failure.
+failure: Failure };
+
 // Why a file operation failed (contracts §2 `io.kind`).
 export type IoFailureKind =
 // Nothing at the path.
@@ -714,6 +754,22 @@ export type Lane =
 "local" |
 // HTTP.
 "network";
+
+/**
+ *  Persistent last-open-home record stored in the settings field table (contracts §4, 2.1-M523, A27).
+ *
+ *  Never stores a filesystem path or ephemeral `FileGrantId`: file homes are stored by their
+ *  Recent Designs entry id, which the Desktop host resolves into a fresh grant on launch.
+ */
+export type LastOpenHome =
+// A saved Design file identified by its Recent Designs entry id (2.1-M49).
+{ kind: "file";
+// Stable Recent Designs entry identifier.
+recent_id: string } |
+// An untitled Draft identified by its `DraftId`.
+{ kind: "draft";
+// Stable Draft identifier.
+id: DraftId };
 
 // A geographic camera position: WGS84 centre and MapLibre zoom.
 export type LastView = {

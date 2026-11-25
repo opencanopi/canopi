@@ -10,7 +10,7 @@ Source: ADR 0024, contracts §4, 2.1-Q66, 2.1-Q68, 2.1-Q127, 2.1-M85
 ```mermaid
 sequenceDiagram
   participant Root as editions/desktop/ (2.1) owner edition root
-  participant Home as platform/design-home.ts (2.1) DesignHomeStore, with FileAccess pickers
+  participant Home as platform/design-home.ts DesignHomeStore, with FileAccess pickers
   participant Core as app/document-session/core/ (2.1) owner Session core
   participant Fmt as platform/design-core.worker.ts format worker
   participant Scene as canvas/runtime/scene-runtime/ owner Scene

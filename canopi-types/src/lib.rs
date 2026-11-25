@@ -5,6 +5,7 @@
 pub mod analysis_registry;
 pub mod commands;
 pub mod design;
+pub mod design_home;
 pub mod dialog;
 pub mod failure;
 pub mod health;

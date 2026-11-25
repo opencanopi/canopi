@@ -8,10 +8,8 @@
     "desktop/src/commands/export.rs": { "count": 2 },
     "desktop/src/commands/lidar.rs": { "count": 2 },
     "desktop/src/commands/saved_object_stamps.rs": { "count": 2 },
-    "desktop/src/commands/update.rs": { "count": 2 },
     "desktop/web/src/ipc/design.ts": { "count": 12 },
     "desktop/web/src/ipc/export.ts": { "count": 1 },
-    "desktop/web/src/ipc/lidar.ts": { "count": 2 },
-    "desktop/web/src/ipc/update.ts": { "count": 2 }
+    "desktop/web/src/ipc/lidar.ts": { "count": 2 }
   }
 }

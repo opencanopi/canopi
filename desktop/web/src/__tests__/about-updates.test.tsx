@@ -102,7 +102,6 @@ function controllerFor(port: UpdaterPort, platform: UpdateOs = 'linux', exit: 'p
     flushBeforeExit: () => Promise.resolve(exit),
     holdCloseUntilSettled: () => () => false,
     mintOperationId: () => `op-${++id}`,
-    currentDesignPath: () => null,
   })
 }
 
@@ -212,7 +211,6 @@ describe('About › Updates', () => {
       flushBeforeExit: () => flush.promise,
       holdCloseUntilSettled: () => () => false,
       mintOperationId: () => 'op-exit',
-      currentDesignPath: () => null,
     })
     await showAbout(controller)
     await press(action())

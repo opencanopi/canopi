@@ -205,7 +205,7 @@ stateDiagram-v2
   unreadable --> absent: deleteDraft from the Drafts list
 ```
 
-- Owner: one Draft store per edition behind `platform/design-home.ts` (2.1); only the Session core mints ids and writes.
+- Owner: one Draft store per edition behind `platform/design-home.ts`; only the Session core mints ids and writes.
 - `deleteDraft` refuses the open Design's Draft on both editions; a Web open from bytes stays absent until an edit.
 - Held by the Draft-store suite in Chromium, WebKit and Firefox and scenario cases 1, 2, 12, 13 and 16.
 

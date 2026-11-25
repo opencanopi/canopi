@@ -18,6 +18,7 @@ ignores:
   - "desktop/src/design/format/tests.rs"
   - "desktop/src/design/new_design_defaults.rs"
   - "desktop/src/host/dialogs/tests.rs"
+  - "desktop/src/host/home/tests.rs"
   - "desktop/src/ci_lane_policy.rs"
   - "desktop/src/module_layering.rs"
   - "desktop/src/module_layering/**"

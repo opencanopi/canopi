@@ -321,6 +321,8 @@ pub mod ops {
     pub const SETTINGS_GET_ROW: &str = "settings.get_row";
     /// User origin: writing an allowlisted opaque settings row (Stage 2 E1, ADR 0024).
     pub const SETTINGS_SET_ROW: &str = "settings.set_row";
+    /// User origin: writing a Design home through `home_write` (contracts §4, ADR 0027).
+    pub const HOME_WRITE: &str = "home.write";
 
     /// Every op constant.
     pub const ALL: &[&str] = &[
@@ -340,6 +342,7 @@ pub mod ops {
         APP_RUN,
         SETTINGS_GET_ROW,
         SETTINGS_SET_ROW,
+        HOME_WRITE,
     ];
 }
 

@@ -59,7 +59,6 @@ describe("the update's exit blocks Design edits", () => {
       flushBeforeExit,
       holdCloseUntilSettled,
       mintOperationId: () => "op",
-      currentDesignPath: () => null,
     });
     const unbind = blockEditsWhile(updater.exiting);
     await updater.check().then(() => updater.download());

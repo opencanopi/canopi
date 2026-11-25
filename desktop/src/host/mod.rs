@@ -10,6 +10,7 @@
 
 pub mod dialogs;
 pub mod exit;
+pub mod home;
 pub mod launch;
 pub mod single_instance;
 pub mod updater;

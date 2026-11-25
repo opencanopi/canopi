@@ -21,7 +21,6 @@ import { raiseLaunchNotices, raiseUpdateNotice, raiseUpdateNotInstalledNotice, w
 import { installStoreNotices } from "./components/workspace/store-notices";
 import { createUpdateController, type UpdateController, type UpdaterPort } from "./app/updates/controller";
 import { blockEditsWhile, flushBeforeExit, holdCloseUntilSettled, reloadAfterExitFlush as reloadThroughExitFlush } from "./app/shell/close-guard";
-import { designPath } from "./app/document-session/store";
 import type { StoreId, UpdateOs } from "./generated/contracts";
 import updaterEndpoints from "../../updater-endpoints.json";
 
@@ -61,7 +60,6 @@ function useDesktopUpdates(ports: DesktopUpdatePorts): { readonly controller: Up
     flushBeforeExit,
     holdCloseUntilSettled,
     mintOperationId: ports.mintOperationId,
-    currentDesignPath: () => designPath.peek(),
     onUpdateAvailable: raiseUpdateNotice,
   }));
   // No Design edit is accepted from the update's close request until Canopi exits: the exit flush has run.

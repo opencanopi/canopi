@@ -12,10 +12,10 @@ import { canTransition, offersRetry, type UpdateState } from './state'
 export interface UpdaterPort {
   checkForUpdate(operation: string): Promise<UpdateOffer | null>
   downloadUpdate(operation: string, onProgress: (progress: UpdateProgress) => void): Promise<UpdateDownload>
-  /** `designPath` is the Design the Windows installer relaunches with (null: a Draft or the start screen, plan:194). */
-  installUpdate(designPath: string | null): Promise<void>
+  /** Installs the verified update (2.1-M523: no Design path; launch reopens the last open home). */
+  installUpdate(): Promise<void>
   cancelUpdate(operation: string): Promise<void>
-  restartAfterUpdate(designPath: string | null): Promise<void>
+  restartAfterUpdate(): Promise<void>
   getLaunchCheck(): Promise<boolean>
 }
 
@@ -33,8 +33,6 @@ interface UpdateControllerOptions {
   readonly holdCloseUntilSettled: (kind: 'install' | 'exit', run: Promise<'proceed' | 'cancel'>) => () => boolean
   /** A fresh operation id per check or download, the one its cancel names (utils/ids.ts createUuid, from the root). */
   readonly mintOperationId: () => string
-  /** The open Design's path when the install or the restart runs; null for a Draft or the start screen. */
-  readonly currentDesignPath: () => string | null
   /** The launch check found an update: the root shows the one notice that opens About (2.1-Q164, M211). */
   readonly onUpdateAvailable?: (offer: UpdateOffer) => void
 }
@@ -218,21 +216,21 @@ export function createUpdateController(options: UpdateControllerOptions): Update
    * window close meanwhile joins it rather than flushing beside it and destroying the window first; cancel when the
    * user keeps Canopi open at the flush.
    */
-  const runExit = (exit: (designPath: string | null) => Promise<void>): Promise<'proceed' | 'cancel'> => {
+  const runExit = (exit: () => Promise<void>): Promise<'proceed' | 'cancel'> => {
     const run = (async () => {
       if ((await options.flushBeforeExit('update')) === 'cancel') return 'cancel' as const
-      await exit(options.currentDesignPath())
+      await exit()
       return 'proceed' as const
     })()
     options.holdCloseUntilSettled('exit', run)
     return run
   }
 
-  /** The one close request, then the restart into the Design open at that moment (Linux, 2.1-M209). */
+  /** The one close request, then the restart with no Design path argument (Linux, 2.1-M209, 2.1-M523). */
   const restart = async (): Promise<void> => {
     if (!move({ kind: 'close_requested' })) return
     try {
-      if ((await runExit((designPath) => updater.restartAfterUpdate(designPath))) === 'cancel') move({ kind: 'installed' })
+      if ((await runExit(() => updater.restartAfterUpdate())) === 'cancel') move({ kind: 'installed' })
     } catch {
       // The restart did not run: the update stays installed and About offers "Restart to finish updating" again.
       move({ kind: 'installed' })
@@ -241,7 +239,7 @@ export function createUpdateController(options: UpdateControllerOptions): Update
 
   /** Runs the host's install with every window close held until it settles; answers whether a close waited. */
   const runInstall = async (): Promise<{ readonly installed: boolean, readonly closeWaited: boolean }> => {
-    const installing = updater.installUpdate(options.currentDesignPath())
+    const installing = updater.installUpdate()
     const closeWaited = options.holdCloseUntilSettled('install', installing.then(() => 'proceed' as const, () => 'proceed' as const))
     try {
       await installing
@@ -258,7 +256,7 @@ export function createUpdateController(options: UpdateControllerOptions): Update
       // The installer quits Canopi, so the close request comes first; Cancel installs nothing (2.1-Q234, M209).
       move({ kind: 'close_requested' })
       try {
-        if ((await runExit((designPath) => updater.installUpdate(designPath))) === 'cancel') move({ kind: 'verified' })
+        if ((await runExit(() => updater.installUpdate())) === 'cancel') move({ kind: 'verified' })
       } catch (error) {
         settleFailure(error, 'updater.install')
       }

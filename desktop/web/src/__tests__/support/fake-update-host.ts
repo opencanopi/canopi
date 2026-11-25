@@ -51,15 +51,11 @@ export interface FakeUpdateHost {
   readonly settlements: string[]
   readonly closeLog: CloseEvent[]
   readonly installs: string[]
-  /** The Design path each install was given, the one the Windows installer relaunches with. */
-  readonly installedWith: (string | null)[]
-  readonly restarts: (string | null)[]
+  readonly restarts: number[]
   readonly order: string[]
   readonly calls: { check: number, download: number }
   readonly writtenAt: { install?: string[], restart?: string[] }
   edit(change: string): void
-  /** The open Design's path; the test switches it between Designs. */
-  designPath: string | null
 }
 
 export const OFFER: UpdateOffer = { version: '2.1.0', date: '2026-11-02', notes_url: 'https://github.com/canopi/canopi/releases/tag/v2.1.0' }
@@ -84,7 +80,6 @@ export interface HostScript {
   readonly holdFlush?: boolean
   readonly settingsSaveable?: boolean
   readonly designOpen?: boolean
-  readonly designPath?: string | null
   /** The user's answers to the close guard's questions, in order. */
   readonly answers?: readonly SaveProblemChoice[]
 }
@@ -94,8 +89,7 @@ export function fakeHost(script: HostScript = {}): FakeUpdateHost & { releaseDow
   const settlements: string[] = []
   const closeLog: CloseEvent[] = []
   const installs: string[] = []
-  const installedWith: (string | null)[] = []
-  const restarts: (string | null)[] = []
+  const restarts: number[] = []
   const order: string[] = []
   const calls = { check: 0, download: 0 }
   const unsaved: string[] = []
@@ -158,9 +152,8 @@ export function fakeHost(script: HostScript = {}): FakeUpdateHost & { releaseDow
       cancelRequested = true
       return Promise.resolve()
     },
-    installUpdate: (designPath) => {
+    installUpdate: () => {
       const result = script.install ?? { ok: true, value: null }
-      installedWith.push(designPath)
       if (result.ok) installs.push(OFFER.version)
       order.push('install')
       writtenAt.install = [...written]
@@ -169,8 +162,8 @@ export function fakeHost(script: HostScript = {}): FakeUpdateHost & { releaseDow
         releaseInstall = () => { settle('updater.install', result).then(() => resolve(), reject) }
       })
     },
-    restartAfterUpdate: (designPath) => {
-      restarts.push(designPath)
+    restartAfterUpdate: () => {
+      restarts.push(restarts.length + 1)
       order.push('restart')
       writtenAt.restart = [...written]
       return Promise.resolve()
@@ -178,9 +171,8 @@ export function fakeHost(script: HostScript = {}): FakeUpdateHost & { releaseDow
     getLaunchCheck: () => Promise.resolve(script.launchCheck ?? true),
   }
   const host = {
-    updater, staged, settlements, closeLog, installs, installedWith, restarts, order, calls, writtenAt,
+    updater, staged, settlements, closeLog, installs, restarts, order, calls, writtenAt,
     edit: (change: string) => { unsaved.push(change) },
-    designPath: script.designPath === undefined ? '/designs/a.canopi' : script.designPath,
     releaseDownload: () => releaseDownload(),
     releaseInstall: () => releaseInstall(),
     releaseFlush: () => releaseFlush(),
@@ -198,7 +190,6 @@ export function startUpdater(
     flushBeforeExit,
     holdCloseUntilSettled,
     mintOperationId: createUuid,
-    currentDesignPath: () => host.designPath,
     ...(options.onUpdateAvailable ? { onUpdateAvailable: options.onUpdateAvailable } : {}),
   })
 }

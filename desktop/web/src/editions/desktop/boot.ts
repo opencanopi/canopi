@@ -25,6 +25,7 @@ import { desktopProblemReport } from "./problem-report";
 import { installFailureHooks } from "../../failures/report";
 import { capabilitiesForEdition, type RuntimeOs } from "../../generated/edition-capabilities";
 import { installEditionPorts } from "../../platform/edition-ports";
+import { desktopHomePort } from "./design-home";
 import { DESKTOP_EDITION_MANIFEST } from "./manifest";
 import { geocodingTransport as desktopGeocodingTransport } from "../../app/geocoding/transport.desktop";
 import { createPdfDelivery as createDesktopPdfDelivery } from "../../app/canvas-pdf/platform.desktop";
@@ -63,6 +64,7 @@ export function bootDesktopEdition(): () => void {
     geocoding: desktopGeocodingTransport,
     canvasPdfDelivery: createDesktopPdfDelivery,
     budgetExportDelivery: deliverDesktopBudgetCsv,
+    designHome: desktopHomePort,
   });
   const disposeCatalog = installSpeciesCatalogWorkbench(desktopSpeciesCatalogWorkbench);
   const disposeSpeciesCacheLoader = installSpeciesCacheLoader({

@@ -357,9 +357,9 @@ describe('Desktop updater controller', () => {
       const seen: string[] = []
       const press = async (name: 'download' | 'retry' | 'install') => {
         const from = updater.state.value.kind
-        const before = host.calls.download + host.installedWith.length
+        const before = host.calls.download + host.installs.length
         await updater[name]()
-        if (host.calls.download + host.installedWith.length > before) seen.push(`${name} from ${from}`)
+        if (host.calls.download + host.installs.length > before) seen.push(`${name} from ${from}`)
       }
       for (const name of ['download', 'retry', 'install'] as const) await press(name)
       await updater.check()
@@ -385,31 +385,30 @@ describe('Desktop updater controller', () => {
     expect(updater.state.value).toEqual({ kind: 'link_only', url })
   })
 
-  it('on Linux the update installs, then the close request flushes and restarts into the Design open at that moment', async () => {
-    const host = fakeHost({ designPath: '/designs/a.canopi' })
+  it('on Linux the update installs, then the close request flushes and restarts without a Design path (2.1-M523)', async () => {
+    const host = fakeHost()
     const updater = startUpdater(host, { platform: 'linux' })
 
     await updater.check()
     await updater.download()
-    host.designPath = '/designs/b.canopi'
     await updater.install()
 
     expect({ order: host.order, restarts: host.restarts, state: updater.state.value.kind }).toEqual({
       order: ['install', 'design-flushed', 'restart'],
-      restarts: ['/designs/b.canopi'],
+      restarts: [1],
       state: 'close_requested',
     })
   })
 
   it('on Linux a Draft restarts with no Design path', async () => {
-    const host = fakeHost({ designPath: null, designOpen: false })
+    const host = fakeHost({ designOpen: false })
     const updater = startUpdater(host, { platform: 'linux' })
 
     await updater.check()
     await updater.download()
     await updater.install()
 
-    expect(host.restarts).toEqual([null])
+    expect(host.restarts).toEqual([1])
   })
 
   it('on Linux a close cancelled after the install shows Restart to finish updating and the update stays installed', async () => {
@@ -424,7 +423,7 @@ describe('Desktop updater controller', () => {
 
     expect({ afterCancel, restarts: host.restarts }).toEqual({
       afterCancel: { state: { kind: 'installed' }, installs: [OFFER.version], restarts: [] },
-      restarts: ['/designs/a.canopi'],
+      restarts: [1],
     })
   })
 
@@ -442,20 +441,14 @@ describe('Desktop updater controller', () => {
     })
   })
 
-  // plan:194: launched with A and switched to B, the relaunch reopens B. The Windows installer relaunches Canopi, so
-  // the install is given the Design open when it starts, as the Linux restart is; a Draft gives none.
-  it('on Windows the installer is given the Design open at that moment, none for a Draft (canopi-f47t.52.228.15)', async () => {
-    const installedWith = async (designPath: string | null): Promise<(string | null)[]> => {
-      const host = fakeHost({ designPath: '/designs/a.canopi' })
-      const updater = startUpdater(host, { platform: 'windows' })
-      await updater.check().then(() => updater.download())
-      host.designPath = designPath
-      await updater.install()
-      return host.installedWith
-    }
+  // 2.1-M523: launch reopens the last open home from settings, so Windows install takes no Design path.
+  it('on Windows the installer runs without a Design path argument (2.1-M523)', async () => {
+    const host = fakeHost()
+    const updater = startUpdater(host, { platform: 'windows' })
+    await updater.check().then(() => updater.download())
+    await updater.install()
 
-    expect({ design: await installedWith('/designs/b.canopi'), draft: await installedWith(null) })
-      .toEqual({ design: ['/designs/b.canopi'], draft: [null] })
+    expect(host.installs).toEqual([OFFER.version])
   })
 
   it('on Windows an installer that cannot launch after the close dialog settles failed with the Design open', async () => {

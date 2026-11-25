@@ -13,42 +13,32 @@ use crate::native_operation::{
     EXIT_DRAIN_DEADLINE, ExitDrain, NativeOperationClass, NativeOperationExecutor,
 };
 
-/// The relaunch's arguments, on Linux and Windows alike: the binary, then the Design path alone
-/// (no flag; the launch parser opens it), or nothing for a Draft, which restarts to the start
-/// screen. Never the launch's own arguments: launched with A and switched to B, the relaunch
-/// reopens B (plan:194).
-fn restart_args(current: &[OsString], design_path: Option<PathBuf>) -> Vec<OsString> {
-    current
-        .first()
-        .cloned()
-        .into_iter()
-        .chain(design_path.map(PathBuf::into_os_string))
-        .collect()
+/// The relaunch's arguments: the binary alone, with no Design path or prior launch arguments
+/// because launch reopens the last open home from settings (2.1-Q127, 2.1-M523).
+fn restart_args(current: &[OsString]) -> Vec<OsString> {
+    current.first().cloned().into_iter().collect()
 }
 
-/// The Windows relaunch's arguments, the installer's to pass after the binary: [`restart_args`]
-/// without the binary.
-pub(super) fn relaunch_args(current: &[OsString], design_path: Option<PathBuf>) -> Vec<OsString> {
-    restart_args(current, design_path)
-        .into_iter()
-        .skip(1)
-        .collect()
+/// The Windows relaunch's arguments after the binary: always empty because launch reopens the
+/// last open home from settings (2.1-Q127, 2.1-M523).
+pub(super) fn relaunch_args() -> Vec<OsString> {
+    Vec::new()
 }
 
-/// Restarts into the updated Canopi with the open Design. Called off the main thread (the
-/// restart probe's finding).
-pub fn restart<R: Runtime>(app: &AppHandle<R>, design_path: Option<PathBuf>) -> ! {
-    let env = prepare_restart(app, design_path);
+/// Restarts into the updated Canopi with no Design path argument (2.1-M523). Called off the main
+/// thread (the restart probe's finding).
+pub fn restart<R: Runtime>(app: &AppHandle<R>) -> ! {
+    let env = prepare_restart(app);
     tauri::process::restart(&env)
 }
 
 /// Everything before the relaunch: the writes in flight drained (`tauri::process::restart` ends
 /// the process without the exit event's drain), the single-instance name released so the relaunch
 /// is the primary instance, Tauri's exit cleanup run; answers the relaunch's environment.
-fn prepare_restart<R: Runtime>(app: &AppHandle<R>, design_path: Option<PathBuf>) -> tauri::Env {
+fn prepare_restart<R: Runtime>(app: &AppHandle<R>) -> tauri::Env {
     crate::host::exit::flush_writes_before_exit(app);
     let mut env = app.env();
-    env.args_os = restart_args(&env.args_os, design_path);
+    env.args_os = restart_args(&env.args_os);
     crate::host::single_instance::release(app);
     app.cleanup_before_exit();
     env
@@ -226,64 +216,44 @@ mod tests {
         landed
     }
 
-    /// canopi-f47t.52.228.15, plan:194: the install's relaunch reopens the Design `update_install`
-    /// names (the one open when Install was pressed), never the launch's own file; a Draft relaunches
-    /// to the start screen.
+    /// 2.1-M523: the install's relaunch passes no Design path (launch reopens the last open home).
     #[test]
-    fn the_install_relaunches_with_the_design_update_install_names() {
+    fn the_install_relaunches_without_a_design_path() {
         use crate::host::updater::{
             UpdaterHost,
             testkit::{APPIMAGE, FAST},
         };
         let app = mock_app("unused");
         let host = UpdaterHost::for_test(APPIMAGE, FAST, "http://127.0.0.1:9/stable.json");
-        let b = PathBuf::from("/home/gardener/My Gardens/B.canopi");
 
-        assert_eq!(
-            host.install_context(app.handle(), Some(b.clone())).relaunch,
-            [OsString::from(b)]
-        );
-        assert!(host.install_context(app.handle(), None).relaunch.is_empty());
+        assert!(host.install_context(app.handle()).relaunch.is_empty());
     }
 
-    /// canopi-f47t.52.228.15, plan:194: launched with A and switched to B, the Windows relaunch
-    /// reopens B, from the Linux restart's own arguments; a Draft relaunches to the start screen.
-    /// canopi-f47t.52.228.53: the NSIS value is wrapped in the backticks `GetOptions` strips.
+    /// 2.1-M523: Windows installers relaunch with no Design path argument (bare `/ARGS` on NSIS,
+    /// empty `LAUNCHAPPARGS` on MSI), while `installer_command` still escapes explicit args.
     #[test]
-    fn the_windows_installer_relaunches_the_open_design_as_the_linux_restart_does() {
+    fn the_windows_installer_relaunches_without_a_design_path() {
         use canopi_types::update::UpdateBundle;
-        let current: Vec<OsString> = ["C:\\Canopi\\Canopi.exe", "C:\\Gardens\\A.canopi"]
-            .map(OsString::from)
-            .to_vec();
-        let b = Some(PathBuf::from("C:\\My Gardens\\B.canopi"));
         let installer = PathBuf::from("C:\\Temp\\canopi-update-1\\Canopi-update-setup.exe");
         let package = PathBuf::from("C:\\Temp\\canopi-update-1\\Canopi-update.msi");
-        let nsis = |design| {
-            super::installer_command(
-                UpdateBundle::Nsis,
-                &installer,
-                &super::relaunch_args(&current, design),
-                None,
-            )
-        };
+        let nsis = super::installer_command(
+            UpdateBundle::Nsis,
+            &installer,
+            &super::relaunch_args(),
+            None,
+        );
         let msi = super::installer_command(
             UpdateBundle::Msi,
             &package,
-            &super::relaunch_args(&current, b.clone()),
+            &super::relaunch_args(),
             Some(std::ffi::OsStr::new("C:\\Windows")),
         );
 
         assert_eq!(
-            (nsis(b.clone()), nsis(None), msi),
+            (nsis, msi),
             (
                 InstallerCommand {
-                    program: installer.clone(),
-                    parameters: OsString::from(
-                        "/P /UPDATE /R /ARGS `\"C:\\My Gardens\\B.canopi\"`",
-                    ),
-                },
-                InstallerCommand {
-                    program: installer.clone(),
+                    program: installer,
                     parameters: OsString::from("/P /UPDATE /R /ARGS"),
                 },
                 InstallerCommand {
@@ -291,7 +261,7 @@ mod tests {
                         .join("System32")
                         .join("msiexec.exe"),
                     parameters: OsString::from(
-                        "/i \"C:\\Temp\\canopi-update-1\\Canopi-update.msi\" /passive /promptrestart AUTOLAUNCHAPP=True LAUNCHAPPARGS=\"\"\"C:\\My Gardens\\B.canopi\"\"\"",
+                        "/i \"C:\\Temp\\canopi-update-1\\Canopi-update.msi\" /passive /promptrestart AUTOLAUNCHAPP=True LAUNCHAPPARGS=\"\"",
                     ),
                 },
             )
@@ -347,7 +317,7 @@ mod tests {
             .build(context)
             .expect("the mock app builds");
         let host = UpdaterHost::for_test(APPIMAGE, FAST, "http://127.0.0.1:9/stable.json");
-        let marker = host.install_context(app.handle(), None).marker.unwrap();
+        let marker = host.install_context(app.handle()).marker.unwrap();
         assert!(!marker.exists(), "{}", marker.display());
 
         assert_eq!(
@@ -401,12 +371,9 @@ mod tests {
         app.manage(executor.clone());
         let landed = write_in_flight(&executor);
 
-        let env = prepare_restart(app.handle(), Some(PathBuf::from("/home/g/b.canopi")));
+        let env = prepare_restart(app.handle());
 
-        assert_eq!(
-            (landed.try_recv(), env.args_os.last().cloned()),
-            (Ok(()), Some(OsString::from("/home/g/b.canopi")))
-        );
+        assert_eq!((landed.try_recv(), env.args_os.len()), (Ok(()), 1));
     }
 
     /// canopi-f47t.52.228.15: the Windows installer ends Canopi as it starts, so a write in
@@ -456,16 +423,12 @@ mod tests {
     }
 
     #[test]
-    fn the_relaunch_names_the_design_path_alone_and_a_draft_names_nothing() {
+    fn the_relaunch_passes_the_binary_alone_and_drops_prior_args() {
         let current: Vec<OsString> = ["/opt/canopi/canopi", "--flag", "/old.canopi"]
             .map(OsString::from)
             .to_vec();
         assert_eq!(
-            restart_args(&current, Some(PathBuf::from("/home/g/garden.canopi"))),
-            ["/opt/canopi/canopi", "/home/g/garden.canopi"].map(OsString::from)
-        );
-        assert_eq!(
-            restart_args(&current, None),
+            restart_args(&current),
             ["/opt/canopi/canopi"].map(OsString::from)
         );
     }

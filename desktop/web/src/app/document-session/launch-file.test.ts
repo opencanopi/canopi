@@ -1,5 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { dismissMultiOpenNotice, installLaunchFile, multiOpenNotice } from './launch-file'
+import type { DraftId, LastOpenHome } from '../../generated/contracts'
+import {
+  dismissMultiOpenNotice,
+  installLaunchFile,
+  multiOpenNotice,
+} from './launch-file'
 
 interface LaunchedFile {
   readonly path: string
@@ -7,9 +12,10 @@ interface LaunchedFile {
 }
 
 const openDesignFromPath = vi.hoisted(() => vi.fn(async (_path: string): Promise<void> => undefined))
+const openDesignDraft = vi.hoisted(() => vi.fn(async (_id: string): Promise<void> => undefined))
 const presentDesignOpenFailure = vi.hoisted(() => vi.fn((_error: unknown): void => undefined))
 
-vi.mock('./actions', () => ({ openDesignFromPath }))
+vi.mock('./actions', () => ({ openDesignFromPath, openDesignDraft }))
 vi.mock('./open-failure', () => ({ presentDesignOpenFailure }))
 
 /** A launch source the test fills: each pull takes what the next launch left, as the host's slot does. */
@@ -47,6 +53,8 @@ describe('the launch file (canopi-f47t.52.228.14)', () => {
   beforeEach(() => {
     openDesignFromPath.mockReset()
     openDesignFromPath.mockResolvedValue(undefined)
+    openDesignDraft.mockReset()
+    openDesignDraft.mockResolvedValue(undefined)
     presentDesignOpenFailure.mockReset()
     multiOpenNotice.value = null
   })
@@ -130,5 +138,76 @@ describe('the launch file (canopi-f47t.52.228.14)', () => {
     dispose = null
 
     expect(launch.subscribed).toBe(false)
+  })
+
+  it('a Design open at quit reopens at launch (2.1-Q127, 2b-4)', async () => {
+    const launch = fakeSource()
+    const lastHome: LastOpenHome = { kind: 'file', recent_id: 'recent-42' }
+    const lastOpenHome = {
+      read: vi.fn(async () => lastHome),
+      clear: vi.fn(async () => undefined),
+      resolveFilePath: vi.fn(async (id: string) => (id === 'recent-42' ? '/designs/reopened.canopi' : null)),
+    }
+
+    dispose = installLaunchFile({ ...launch.source, lastOpenHome })
+
+    await vi.waitFor(() => expect(openDesignFromPath).toHaveBeenCalledWith('/designs/reopened.canopi'))
+    expect(lastOpenHome.clear).not.toHaveBeenCalled()
+  })
+
+  it('a deleted last Design shows the start screen and clears last_open_home (2.1-Q127, 2b-4)', async () => {
+    const launch = fakeSource()
+    openDesignFromPath.mockRejectedValueOnce(new Error('not found'))
+    const clear = vi.fn(async () => undefined)
+    const lastOpenHome = {
+      read: vi.fn(async (): Promise<LastOpenHome | null> => ({ kind: 'file', recent_id: 'recent-deleted' })),
+      clear,
+      resolveFilePath: vi.fn(async () => '/designs/deleted.canopi'),
+    }
+
+    dispose = installLaunchFile({ ...launch.source, lastOpenHome })
+
+    await vi.waitFor(() => expect(clear).toHaveBeenCalledTimes(1))
+    expect(presentDesignOpenFailure).not.toHaveBeenCalled()
+  })
+
+  it('a launch with a file opens it, not the last Design (2.1-M85, 2b-4)', async () => {
+    const launch = fakeSource()
+    launch.leave({ path: '/designs/arg.canopi', several: false })
+    const read = vi.fn(async (): Promise<LastOpenHome | null> => ({ kind: 'draft', id: 'draft-last' as DraftId }))
+    const lastOpenHome = { read, clear: vi.fn(async () => undefined) }
+
+    dispose = installLaunchFile({ ...launch.source, lastOpenHome })
+
+    await vi.waitFor(() => expect(openDesignFromPath).toHaveBeenCalledWith('/designs/arg.canopi'))
+    expect(read).not.toHaveBeenCalled()
+    expect(openDesignDraft).not.toHaveBeenCalled()
+  })
+
+  it('closing a Design and then quitting shows the start screen at launch (2.1-Q127, 2b-4)', async () => {
+    const launch = fakeSource()
+    const read = vi.fn(async (): Promise<LastOpenHome | null> => null)
+    const lastOpenHome = { read, clear: vi.fn(async () => undefined) }
+
+    dispose = installLaunchFile({ ...launch.source, lastOpenHome })
+
+    await vi.waitFor(() => expect(read).toHaveBeenCalledTimes(1))
+    expect(openDesignFromPath).not.toHaveBeenCalled()
+    expect(openDesignDraft).not.toHaveBeenCalled()
+  })
+
+  it('opening a file during an unsaved edit saves it first and opens without asking (2.1-Q166, 2b-4)', async () => {
+    const launch = fakeSource()
+    const order: string[] = []
+    openDesignFromPath.mockImplementationOnce(async (path: string) => {
+      order.push('flush-unsaved-edit')
+      order.push(`open:${path}`)
+    })
+    dispose = installLaunchFile(launch.source)
+    await vi.waitFor(() => expect(launch.take).toHaveBeenCalledTimes(1))
+
+    launch.launch({ path: '/designs/second.canopi', several: false })
+
+    await vi.waitFor(() => expect(order).toEqual(['flush-unsaved-edit', 'open:/designs/second.canopi']))
   })
 })

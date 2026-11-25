@@ -20,10 +20,9 @@ export async function downloadUpdate(operation: string, onProgress: (progress: U
   return invokeTyped('update_download', { operation, progress }, mintOperationId('u'))
 }
 
-/** Installs the verified update; a failure leaves the Design open. The Windows installer relaunches with the Design at
- * `designPath` open; null (a Draft) opens the start screen. */
-export async function installUpdate(designPath: string | null): Promise<void> {
-  return invokeTyped('update_install', { designPath }, mintOperationId('u'))
+/** Installs the verified update; a failure leaves the Design open (2.1-M523: no Design path passed). */
+export async function installUpdate(): Promise<void> {
+  return invokeTyped('update_install', undefined, mintOperationId('u'))
 }
 
 /** Cancels the check or download `operation` names, which then rejects as cancelled. */
@@ -31,9 +30,9 @@ export async function cancelUpdate(operation: string): Promise<void> {
   return invokeTyped('update_cancel', { operation }, mintOperationId('u'))
 }
 
-/** Restarts into the updated Canopi with the Design at `designPath` open; null (a Draft) opens the start screen. */
-export async function restartAfterUpdate(designPath: string | null): Promise<void> {
-  return invokeTyped('update_restart', { designPath }, mintOperationId('u'))
+/** Restarts into the updated Canopi with no Design path argument (launch reopens the last open home, 2.1-M523). */
+export async function restartAfterUpdate(): Promise<void> {
+  return invokeTyped('update_restart', undefined, mintOperationId('u'))
 }
 
 /** Whether this launch follows a Windows update that did not install: true once. */

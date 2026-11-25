@@ -17,6 +17,9 @@ import type {
   FilterOptions,
   FlowerColorResolution,
   GeoResult,
+  HomeRead,
+  HomeVersion,
+  HomeWrite,
   LibraryDeleteImpact,
   LibrarySnapshot,
   LidarDisplayDescriptor,
@@ -115,6 +118,8 @@ export const COMMAND_NAMES = [
   'get_health',
   'dismiss_store_notice',
   'take_pending_open',
+  'home_read',
+  'home_write',
   'pick_open',
   'pick_save',
   'update_check',
@@ -203,13 +208,15 @@ export type CommandMap = {
   readonly 'get_health': { readonly args: undefined; readonly reply: SubsystemHealth }
   readonly 'dismiss_store_notice': { readonly args: { readonly store: StoreId }; readonly reply: void }
   readonly 'take_pending_open': { readonly args: undefined; readonly reply: PendingOpen | null }
+  readonly 'home_read': { readonly args: { readonly key: string }; readonly reply: HomeRead }
+  readonly 'home_write': { readonly args: { readonly key: string; readonly bytes: readonly number[]; readonly expected?: HomeVersion | null; readonly keepPrevious?: boolean | null }; readonly reply: HomeWrite }
   readonly 'pick_open': { readonly args: { readonly kind: DialogKind }; readonly reply: PickOpenOutcome }
   readonly 'pick_save': { readonly args: { readonly kind: DialogKind; readonly stem: string }; readonly reply: PickSaveOutcome }
   readonly 'update_check': { readonly args: { readonly operation: string }; readonly reply: UpdateOffer | null }
   readonly 'update_download': { readonly args: { readonly operation: string; readonly progress: unknown }; readonly reply: UpdateDownload }
-  readonly 'update_install': { readonly args: { readonly designPath?: string | null }; readonly reply: void }
+  readonly 'update_install': { readonly args: undefined; readonly reply: void }
   readonly 'update_cancel': { readonly args: { readonly operation: string }; readonly reply: void }
-  readonly 'update_restart': { readonly args: { readonly designPath?: string | null }; readonly reply: void }
+  readonly 'update_restart': { readonly args: undefined; readonly reply: void }
   readonly 'update_take_launch_notice': { readonly args: undefined; readonly reply: boolean }
   readonly 'create_problem_report': { readonly args: { readonly request: ProblemReportRequest }; readonly reply: ProblemReportResult }
   readonly 'show_problem_report_folder': { readonly args: { readonly fileName: string }; readonly reply: void }
@@ -306,6 +313,8 @@ export const COMMAND_SYNC_KINDS: Readonly<Record<CommandName, CommandSyncKind>> 
   'get_health': 'bounded_sync',
   'dismiss_store_notice': 'bounded_sync',
   'take_pending_open': 'bounded_sync',
+  'home_read': 'async',
+  'home_write': 'async',
   'pick_open': 'async',
   'pick_save': 'async',
   'update_check': 'async',
