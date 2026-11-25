@@ -25,7 +25,7 @@ import { createDesignSessionStateMachine, type DesignSessionStateMachine } from 
 import { createDesignSessionStore, designSessionStore, type PersistenceCapableDesignSessionStore } from './store'
 import { createAppCanvasRuntimeAppAdapter } from '../canvas-runtime/app-adapter'
 import type { CanvasDocumentSurface } from '../../canvas/runtime/runtime'
-import { createDetachedCanvasRuntimeAppAdapter } from '../../canvas/runtime/app-adapter'
+import { createDetachedCanvasRuntimeAppAdapter } from '../../__tests__/support/detached-canvas-app-adapter'
 import { SceneCanvasRuntime } from '../../canvas/runtime/scene-runtime'
 import type { ReadOnlyDesign } from '../../generated/contracts'
 import type { CanopiFile } from '../../types/design'

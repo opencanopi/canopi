@@ -137,9 +137,6 @@
     "desktop/web/src/app/document-session/actions.ts": {
       "count": 1
     },
-    "desktop/web/src/app/document-session/lifecycle.ts": {
-      "count": 1
-    },
     "desktop/web/src/app/document-session/state-machine.ts": {
       "count": 3
     },

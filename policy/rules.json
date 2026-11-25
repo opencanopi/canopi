@@ -289,7 +289,66 @@
       "adr": "0022",
       "owner_today": "desktop/web/src/editions",
       "example": "desktop/web/src/editions/desktop/boot.ts",
-      "note": "only an edition root installs its EditionPorts record or desktop workspace runtime composition (2a)"
+      "note": "only an edition root installs its EditionPorts record or CanvasHost runtime factory (2a, 2b-2)"
+    },
+    {
+      "id": "canvas-host-lifecycle-only-in-canvas-host",
+      "tool": "ast-grep",
+      "ledger": "2.1-M144",
+      "family": "canvas-host-lifecycle-only-in-canvas-host",
+      "adr": "0024",
+      "owner_today": "desktop/web/src/app/canvas-map-surface/canvas-host.ts",
+      "example": "desktop/web/src/app/canvas-map-surface/canvas-host.ts",
+      "note": "only canvas-host.ts acquires the canvas runtime lease, publishes the canvas session, or calls attachScene/detachScene (§5, 2b-2)"
+    },
+    {
+      "id": "mount-canvas-host-only-in-use-canvas-host",
+      "tool": "ast-grep",
+      "ledger": "2.1-M144",
+      "family": "mount-canvas-host-only-in-use-canvas-host",
+      "adr": "0024",
+      "owner_today": "desktop/web/src/app/canvas-map-surface/use-canvas-host.ts",
+      "example": "desktop/web/src/app/canvas-map-surface/use-canvas-host.ts",
+      "note": "only use-canvas-host.ts calls mountCanvasHost in production (§5, 2b-2)"
+    },
+    {
+      "id": "surface-or-map-state-only-in-host-and-lifetime",
+      "tool": "ast-grep",
+      "ledger": "2.1-M144",
+      "family": "surface-or-map-state-only-in-host-and-lifetime",
+      "adr": "0024",
+      "owner_today": "desktop/web/src/app/canvas-map-surface/canvas-host.ts",
+      "example": "desktop/web/src/app/canvas-map-surface/canvas-host.ts",
+      "note": "no useState or signal holds CanvasSurfaceState or MapLifetimeState outside canvas-host.ts and map-lifetime.ts (§5, 2b-2)"
+    },
+    {
+      "id": "data-map-active-only-from-map-surface-visibility",
+      "tool": "ast-grep",
+      "ledger": "2.1-M144",
+      "family": "data-map-active-only-from-map-surface-visibility",
+      "adr": "0024",
+      "owner_today": "desktop/web/src/components/panels/CanvasPanel.tsx",
+      "example": "desktop/web/src/components/panels/CanvasPanel.tsx",
+      "note": "data-map-active is derived only from mapSurfaceVisible (§5, Q26, 2b-2)"
+    },
+    {
+      "id": "components-import-no-map-lifetime",
+      "tool": "dependency-cruiser",
+      "ledger": "2.1-M144",
+      "family": "components-import-no-map-lifetime",
+      "adr": "0024",
+      "owner_today": "desktop/web/src/components",
+      "example": "desktop/web/src/components/panels/CanvasPanel.tsx",
+      "type_only": "counts",
+      "graph": {
+        "from": [
+          "components/**"
+        ],
+        "to": [
+          "maplibre/map-lifetime.ts"
+        ]
+      },
+      "note": "components/ never imports maplibre/map-lifetime.ts directly (§5, 2b-2)"
     },
     {
       "id": "app-tests-import-no-scene-runtime",
@@ -706,7 +765,7 @@
           "app/consortium/workflow.ts"
         ],
         "to": [
-          "app/document-session/lifecycle.ts",
+          "app/canvas-map-surface/canvas-host.ts",
           "app/document-session/state-machine.ts",
           "app/document-session/workflows.ts"
         ]
@@ -760,12 +819,12 @@
       "ledger": "2.1-M186",
       "family": "design-lifecycle-imports-no-runtime-internals",
       "adr": "0022",
-      "owner_today": "desktop/web/src/app/document-session/lifecycle.ts",
-      "example": "desktop/web/src/app/document-session/lifecycle.ts",
+      "owner_today": "desktop/web/src/app/canvas-map-surface/canvas-host.ts",
+      "example": "desktop/web/src/app/canvas-map-surface/canvas-host.ts",
       "type_only": "counts",
       "graph": {
         "from": [
-          "app/document-session/lifecycle.ts"
+          "app/canvas-map-surface/canvas-host.ts"
         ],
         "to": [
           "canvas/runtime/scene-runtime.ts",
@@ -818,12 +877,12 @@
       "ledger": "2.1-M186",
       "family": "document-hook-imports-no-runtime-internals",
       "adr": "0022",
-      "owner_today": "desktop/web/src/app/document-session/use-canvas-document-session.ts",
-      "example": "desktop/web/src/app/document-session/use-canvas-document-session.ts",
+      "owner_today": "desktop/web/src/app/canvas-map-surface/use-canvas-host.ts",
+      "example": "desktop/web/src/app/canvas-map-surface/use-canvas-host.ts",
       "type_only": "counts",
       "graph": {
         "from": [
-          "app/document-session/use-canvas-document-session.ts"
+          "app/canvas-map-surface/use-canvas-host.ts"
         ],
         "to": [
           "canvas/runtime/scene-runtime.ts",
@@ -1712,7 +1771,6 @@
           "components/canvas/DisplayLegend.tsx",
           "app/design-notebook/**",
           "app/document-session/actions.ts",
-          "app/document-session/lifecycle.ts",
           "app/document-session/transition.ts",
           "app/document-session/state-machine.ts",
           "app/problem-report/attachments.ts",

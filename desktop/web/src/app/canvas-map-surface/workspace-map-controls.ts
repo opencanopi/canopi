@@ -17,7 +17,7 @@ import { OPENFREEMAP_LAYER_PREFIX, OPENFREEMAP_SOURCE_PREFIX } from '../../mapli
 import { mapErrorResourceId } from '../../maplibre/map-error-owner'
 import { redact, redactError } from '../../failures/redact'
 import { reportMapError, reportMapSourceFailure } from '../../maplibre/map-errors'
-import { UNAVAILABLE_MAPLIBRE_CANVAS_SURFACE_STATE } from '../../maplibre/canvas-surface-state'
+import type { MapFailureCause, MapLifetimeState } from '../../maplibre/map-lifetime'
 import { readSatelliteConfig } from '../settings/satellite-config'
 import {
   createWorkspaceMapLibreMap,
@@ -80,6 +80,7 @@ export class WorkspaceMapControls implements WorkspaceActivationMapControls {
   private readonly surface: MapLibreSurface
   private readonly logError: (message?: unknown, ...optionalParams: unknown[]) => void
   private attempt: WorkspaceMapAttempt | null = null
+  private attemptCount = 0
   private attributionCompact: boolean | null = null
 
   constructor(private readonly options: WorkspaceActivationMapControlsOptions) {
@@ -97,16 +98,19 @@ export class WorkspaceMapControls implements WorkspaceActivationMapControls {
     } else {
       this.releaseAttempt(previous)
     }
+    const attemptNumber = ++this.attemptCount
     if (!(this.options.canCreateWebGL2Context ?? canCreateWebGL2Context)()) {
-      // No map attempt exists to publish its failure, so publish it here.
-      this.publishUnavailable()
+      // No map attempt exists to publish its failure, so emit it here.
+      this.emitMapLifetime({ kind: 'failed', attempt: attemptNumber, cause: 'no-webgl2' })
       return Promise.reject(new WorkspaceWebGL2UnavailableError())
     }
+    this.emitMapLifetime({ kind: 'creating', attempt: attemptNumber })
 
     return new Promise<WorkspaceActivationMap>((resolve, reject) => {
       const attempt: WorkspaceMapAttempt = {
         contributions: new WorkspaceMapContributions({
           ...this.options.contributions,
+          attempt: attemptNumber,
           logError: this.logError,
           onFailure: (error) => this.failAttempt(attempt, error),
         }),
@@ -185,7 +189,7 @@ export class WorkspaceMapControls implements WorkspaceActivationMapControls {
               this.rejectAttempt(attempt, error)
               return
             }
-            this.failAttempt(attempt, error)
+            this.failAttempt(attempt, error, 'context-lost')
           }
           const handleStyleLoad = () => {
             if (!isLive()) return
@@ -310,9 +314,9 @@ export class WorkspaceMapControls implements WorkspaceActivationMapControls {
     attempt.contributions.restack()
   }
 
-  private publishUnavailable(): void {
+  private emitMapLifetime(state: MapLifetimeState): void {
     try {
-      this.options.contributions.onStateChange?.(UNAVAILABLE_MAPLIBRE_CANVAS_SURFACE_STATE)
+      this.options.contributions.onMapLifetimeChange?.(state)
     } catch (observerError) {
       this.logError('Map state observer failed:', observerError)
     }
@@ -352,13 +356,13 @@ export class WorkspaceMapControls implements WorkspaceActivationMapControls {
     }
   }
 
-  private failAttempt(attempt: WorkspaceMapAttempt, error: unknown): void {
+  private failAttempt(attempt: WorkspaceMapAttempt, error: unknown, cause: MapFailureCause = 'engine-start'): void {
     if (attempt.released || attempt.failureReported) return
     attempt.failureReported = true
     attempt.pendingPresentationSync = false
     const failure = mapError(error)
     attempt.pendingFailure = failure
-    attempt.contributions.dispose(failure)
+    attempt.contributions.dispose(failure, cause)
     if (!attempt.settled) {
       this.rejectAttempt(attempt, failure)
       return

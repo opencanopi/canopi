@@ -4,7 +4,8 @@
 import 'pixi.js/unsafe-eval'
 import { Container, Text } from 'pixi.js'
 import { describe, expect, it, vi } from 'vitest'
-import { SceneCanvasRuntime } from './scene-runtime'
+import { createTestSceneCanvasRuntime } from '../../__tests__/support/detached-canvas-app-adapter'
+import type { SceneCanvasRuntime } from './scene-runtime'
 import { createPixiScenePresentation } from './renderers/pixi-scene'
 import { createSharedMapSceneRendererComposition } from '../../maplibre/shared-scene-renderer'
 import type { SharedMapSceneMap, SharedPixiRenderer } from '../../maplibre/shared-scene-layer'
@@ -87,7 +88,7 @@ function layerOptions(runtime: SceneCanvasRuntime) {
 
 describe('SceneCanvasRuntime and the shared map scene layer', () => {
   it('a map layer connected after the runtime drew presents the Scene in its first frame, and a pan only repaints', async () => {
-    const runtime = new SceneCanvasRuntime()
+    const runtime = createTestSceneCanvasRuntime()
     runtime.documentSurface.loadDocument(orchard())
     const container = createContainer()
     await runtime.init(container)
@@ -124,7 +125,7 @@ describe('SceneCanvasRuntime and the shared map scene layer', () => {
   })
 
   it('a pan or a container resize asks the layer for exactly one repaint', async () => {
-    const runtime = new SceneCanvasRuntime()
+    const runtime = createTestSceneCanvasRuntime()
     runtime.documentSurface.loadDocument(orchard())
     const container = createContainer()
     await runtime.init(container)
@@ -151,7 +152,7 @@ describe('SceneCanvasRuntime and the shared map scene layer', () => {
   })
 
   it('a Design switch presents the new Design once its new layer has drawn it, not when the layer is created', async () => {
-    const runtime = new SceneCanvasRuntime()
+    const runtime = createTestSceneCanvasRuntime()
     runtime.documentSurface.loadDocument(orchard())
     const container = createContainer()
     const composition = createSharedMapSceneRendererComposition((target) => runtime.connectRenderTarget(target))
@@ -200,7 +201,7 @@ describe('SceneCanvasRuntime and the shared map scene layer', () => {
   })
 
   it('a layer whose disposal fails leaves the slot: the new Design waits for a live layer to draw it', async () => {
-    const runtime = new SceneCanvasRuntime()
+    const runtime = createTestSceneCanvasRuntime()
     runtime.documentSurface.loadDocument(orchard())
     const container = createContainer()
     const composition = createSharedMapSceneRendererComposition((target) => runtime.connectRenderTarget(target))
@@ -224,7 +225,7 @@ describe('SceneCanvasRuntime and the shared map scene layer', () => {
   })
 
   it('closing the Design leaves the start screen idle: no layer is awaited, so the map is not busy', async () => {
-    const runtime = new SceneCanvasRuntime()
+    const runtime = createTestSceneCanvasRuntime()
     runtime.documentSurface.loadDocument(orchard())
     const container = createContainer()
     const composition = createSharedMapSceneRendererComposition((target) => runtime.connectRenderTarget(target))

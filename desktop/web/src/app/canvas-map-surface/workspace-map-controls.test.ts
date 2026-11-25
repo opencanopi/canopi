@@ -4,17 +4,9 @@ import { createDefaultScenePersistedState } from '../../canvas/runtime/scene'
 import type { WorkspaceMapContributionSnapshot } from './workspace-map-contribution-adapter'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { MapLibreSurface } from '../../maplibre/surface'
-import type {
-  MapLibreApi,
-  MapLibreMapConstructorOptions,
-  MapLibreMapInstance,
-} from '../../maplibre/loader'
+import type { MapLibreApi, MapLibreMapConstructorOptions, MapLibreMapInstance } from '../../maplibre/loader'
 import type { WorkspaceMapSnapshot } from '../../maplibre/workspace-map'
-import {
-  MAPLIBRE_BASEMAP_BACKGROUND_LAYER_ID,
-  MAPLIBRE_SATELLITE_LAYER_ID,
-  MAPLIBRE_SATELLITE_SOURCE_ID,
-} from '../../maplibre/config'
+import { MAPLIBRE_BASEMAP_BACKGROUND_LAYER_ID, MAPLIBRE_SATELLITE_LAYER_ID, MAPLIBRE_SATELLITE_SOURCE_ID } from '../../maplibre/config'
 import type { MapBackgroundPresentation } from '../../maplibre/map-background'
 import { OPENFREEMAP_BASEMAPS } from '../../maplibre/openfreemap-basemap'
 import { GOOGLE_SESSION_TILES } from '../../maplibre/basemap-tile-auth'
@@ -23,8 +15,12 @@ import { MAPLIBRE_SHARED_SCENE_LAYER_ID } from '../../maplibre/shared-scene-laye
 import { WorkspaceMapControls } from './workspace-map-controls'
 import { ringEntries } from '../../failures/ring'
 import { getMapNoticeReadModel } from './map-notice'
-import type { MapLibreCanvasSurfaceState } from '../../maplibre/canvas-surface-state'
+import type { MapLifetimeState } from '../../maplibre/map-lifetime'
 import { t } from '../../i18n'
+
+function readyLayers(state: MapLifetimeState | undefined) {
+  return state?.kind === 'ready' ? state.layers : undefined
+}
 
 type MapListener = (event?: unknown) => void
 
@@ -73,14 +69,8 @@ class FakeMap implements MapLibreMapInstance {
   })
   readonly listeners = new Map<string, Set<MapListener>>()
 
-  constructor(
-    readonly options: MapLibreMapConstructorOptions,
-    webgl2: WebGL2RenderingContext | null = {} as WebGL2RenderingContext,
-  ) {
-    Object.defineProperty(this.canvas, 'getContext', {
-      configurable: true,
-      value: vi.fn((type: string) => type === 'webgl2' ? webgl2 : null),
-    })
+  constructor(readonly options: MapLibreMapConstructorOptions, webgl2: WebGL2RenderingContext | null = {} as WebGL2RenderingContext) {
+    Object.defineProperty(this.canvas, 'getContext', { configurable: true, value: vi.fn((type: string) => type === 'webgl2' ? webgl2 : null) })
   }
 
   on(type: 'load' | 'style.load' | 'error' | 'sourcedata' | 'move' | 'moveend' | 'resize' | 'webglcontextlost' | 'webglcontextrestored', listener: MapListener): void {
@@ -88,7 +78,6 @@ class FakeMap implements MapLibreMapInstance {
     listeners.add(listener)
     this.listeners.set(type, listeners)
   }
-
   off(type: 'load' | 'style.load' | 'error' | 'sourcedata' | 'move' | 'moveend' | 'resize' | 'webglcontextlost' | 'webglcontextrestored', listener: MapListener): void {
     this.listeners.get(type)?.delete(listener)
   }
@@ -109,15 +98,9 @@ class FakeAttributionControl {
   constructor(readonly options?: { compact?: boolean; customAttribution?: string | string[] }) {}
 }
 
-function createApi(
-  maps: FakeMap[],
-  webgl2: WebGL2RenderingContext | null = {} as WebGL2RenderingContext,
-): MapLibreApi {
+function createApi(maps: FakeMap[], webgl2: WebGL2RenderingContext | null = {} as WebGL2RenderingContext): MapLibreApi {
   class TestMap extends FakeMap {
-    constructor(options: MapLibreMapConstructorOptions) {
-      super(options, webgl2)
-      maps.push(this)
-    }
+    constructor(options: MapLibreMapConstructorOptions) { super(options, webgl2); maps.push(this) }
   }
   return { Map: TestMap, addProtocol: vi.fn(), AttributionControl: FakeAttributionControl } as unknown as MapLibreApi
 }
@@ -127,9 +110,7 @@ const OPENFREEMAP_STYLE = {
   version: 8,
   glyphs: 'https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf',
   sprite: 'https://tiles.openfreemap.org/sprites/ofm_f384/ofm',
-  sources: {
-    openmaptiles: { type: 'vector', url: 'https://tiles.openfreemap.org/planet' },
-  },
+  sources: { openmaptiles: { type: 'vector', url: 'https://tiles.openfreemap.org/planet' } },
   layers: [
     { id: 'background', type: 'background', paint: { 'background-color': '#f8f4f0' } },
     { id: 'water', type: 'fill', source: 'openmaptiles', 'source-layer': 'water', paint: { 'fill-color': '#9ec8e0', 'fill-opacity': 0.8 } },
@@ -139,10 +120,7 @@ const OPENFREEMAP_STYLE = {
 const OPENFREEMAP_LAYER_IDS = ['ofm:background', 'ofm:water', 'ofm:place-label']
 
 function serveOpenFreeMapStyle(): Response {
-  return new Response(
-    JSON.stringify(OPENFREEMAP_STYLE),
-    { status: 200, headers: { 'content-type': 'application/json' } },
-  )
+  return new Response(JSON.stringify(OPENFREEMAP_STYLE), { status: 200, headers: { 'content-type': 'application/json' } })
 }
 
 const styleFetch = vi.fn(async (_url: string | URL | Request) => serveOpenFreeMapStyle())
@@ -152,37 +130,22 @@ function background(
   satellite: Partial<MapBackgroundPresentation['satellite']> = {},
   locale = 'en',
 ): MapBackgroundPresentation {
-  return {
-    basemap: { style: 'liberty', visible: false, opacity: 0.4, ...basemap },
-    satellite: { visible: false, opacity: 0.4, ...satellite },
-    locale,
-  }
+  return { basemap: { style: 'liberty', visible: false, opacity: 0.4, ...basemap }, satellite: { visible: false, opacity: 0.4, ...satellite }, locale }
 }
 
 /** Keyless Google imagery is ready synchronously, so the band lands at admission. */
-function satelliteOn(opacity = 0.4): MapBackgroundPresentation {
-  return background({}, { visible: true, opacity })
-}
-
-function hidden(opacity = 0.4): MapBackgroundPresentation {
-  return background({ opacity }, { opacity })
-}
-
-function basemapOn(
-  basemap: Partial<MapBackgroundPresentation['basemap']> = {},
-  locale = 'en',
-): MapBackgroundPresentation {
+function satelliteOn(opacity = 0.4): MapBackgroundPresentation { return background({}, { visible: true, opacity }) }
+function hidden(opacity = 0.4): MapBackgroundPresentation { return background({ opacity }, { opacity }) }
+function basemapOn(basemap: Partial<MapBackgroundPresentation['basemap']> = {}, locale = 'en'): MapBackgroundPresentation {
   return background({ visible: true, ...basemap }, {}, locale)
 }
 
 function hasOpenFreeMapBasemap(map: FakeMap): boolean {
-  return OPENFREEMAP_LAYER_IDS.every((id) => map.getLayer(id) !== undefined)
-    && map.getSource('ofm-openmaptiles') !== undefined
+  return OPENFREEMAP_LAYER_IDS.every((id) => map.getLayer(id) !== undefined) && map.getSource('ofm-openmaptiles') !== undefined
 }
 
 function hasAnyOpenFreeMapLayer(map: FakeMap): boolean {
-  return [...map.layers.keys()].some((id) => id.startsWith('ofm:'))
-    || [...map.sources.keys()].some((id) => id.startsWith('ofm-'))
+  return [...map.layers.keys()].some((id) => id.startsWith('ofm:')) || [...map.sources.keys()].some((id) => id.startsWith('ofm-'))
 }
 
 function createControls(options: {
@@ -398,7 +361,7 @@ describe('WorkspaceMapControls', () => {
   ] as const)('releases the map after %s rollback cannot %s', async (kind, removeMethod) => {
     const states = vi.fn()
     const { controls, maps } = createControls({ contributions: {
-      onStateChange: states,
+      onMapLifetimeChange: states,
       loadTerrainSupport: async () => ({ sharedDemProtocolUrl: 'dem://tiles', contourProtocolUrl: () => 'contour://tiles' }),
     } })
     const acquisition = controls.createMap(new AbortController().signal)
@@ -428,7 +391,7 @@ describe('WorkspaceMapControls', () => {
     controls.updateMapContributions(input)
     await vi.waitFor(() => expect(failure).toHaveBeenCalledExactlyOnceWith(cleanup))
     expect(map.remove).toHaveBeenCalledOnce()
-    expect(states.mock.lastCall?.[0]).toMatchObject({ status: 'error' })
+    expect(states.mock.lastCall?.[0]).toMatchObject({ kind: 'failed' })
     const mutations = map.addSource.mock.calls.length
     controls.updateMapContributions(input)
     expect(map.addSource).toHaveBeenCalledTimes(mutations)
@@ -437,7 +400,7 @@ describe('WorkspaceMapControls', () => {
   it('admits the map when a Target overlay fails during initial contribution work', async () => {
     const states = vi.fn()
     const logError = vi.fn()
-    const { controls, maps } = createControls({ contributions: { onStateChange: states }, logError })
+    const { controls, maps } = createControls({ contributions: { onMapLifetimeChange: states }, logError })
     const acquisition = controls.createMap(new AbortController().signal)
     controls.updateMapContributions(targetContribution(controls.sessionIdentity))
     const map = await waitForMap(maps)
@@ -450,14 +413,14 @@ describe('WorkspaceMapControls', () => {
     map.emit('style.load')
     await expect(acquisition).resolves.toBe(map)
     expect(map.remove).not.toHaveBeenCalled()
-    expect(states.mock.lastCall?.[0]).toMatchObject({ status: 'ready', layerSkipped: true })
+    expect(readyLayers(states.mock.lastCall?.[0])?.get('library:skipped')).toEqual({ kind: 'skipped', reason: 'layer-skipped' })
     expect([...map.layers.keys()].some((id) => id.startsWith('panel-target-'))).toBe(false)
     expect(logError).toHaveBeenCalledWith('Skipped a map overlay that failed to sync:', error)
   })
 
   it.each(['addSource', 'addLayer'] as const)('keeps the map admitted and editable when a live Target overlay %s throws', async (method) => {
     const states = vi.fn()
-    const { controls, maps } = createControls({ contributions: { onStateChange: states }, logError: vi.fn() })
+    const { controls, maps } = createControls({ contributions: { onMapLifetimeChange: states }, logError: vi.fn() })
     const acquisition = controls.createMap(new AbortController().signal)
     const map = await waitForMap(maps)
     map.emit('style.load')
@@ -481,7 +444,7 @@ describe('WorkspaceMapControls', () => {
     controls.updateMapContributions(targetContribution(controls.sessionIdentity))
     expect(failure).not.toHaveBeenCalled()
     expect(map.remove).not.toHaveBeenCalled()
-    expect(states.mock.lastCall?.[0]).toMatchObject({ status: 'ready', layerSkipped: true })
+    expect(readyLayers(states.mock.lastCall?.[0])?.get('library:skipped')).toEqual({ kind: 'skipped', reason: 'layer-skipped' })
     // The background band keeps working.
     controls.updateBackgroundPresentation(satelliteOn(0.7))
     expect(map.setPaintProperty).toHaveBeenLastCalledWith(MAPLIBRE_SATELLITE_LAYER_ID, 'raster-opacity', 0.7)
@@ -491,7 +454,7 @@ describe('WorkspaceMapControls', () => {
   it('keeps the map admitted when MapLibre rejects an overlay source specification', async () => {
     const states = vi.fn()
     const logError = vi.fn()
-    const { controls, maps } = createControls({ contributions: { onStateChange: states }, logError })
+    const { controls, maps } = createControls({ contributions: { onMapLifetimeChange: states }, logError })
     const acquisition = controls.createMap(new AbortController().signal)
     const map = await waitForMap(maps)
     map.emit('style.load')
@@ -515,7 +478,7 @@ describe('WorkspaceMapControls', () => {
     controls.updateMapContributions(targetContribution(controls.sessionIdentity))
     expect(failure).not.toHaveBeenCalled()
     expect(map.remove).not.toHaveBeenCalled()
-    expect(states.mock.lastCall?.[0]).toMatchObject({ status: 'ready', layerSkipped: true })
+    expect(readyLayers(states.mock.lastCall?.[0])?.get('library:skipped')).toEqual({ kind: 'skipped', reason: 'layer-skipped' })
   })
 
   it.each([
@@ -557,7 +520,7 @@ describe('WorkspaceMapControls', () => {
     const states = vi.fn()
     const error = new Error(`${stage} failed`)
     const { controls, maps } = createControls({
-      contributions: { onStateChange: states },
+      contributions: { onMapLifetimeChange: states },
       ...(stage === 'loader' ? { load: async () => { throw error } } : {}),
       ...(stage === 'constructor' ? { load: async () => ({ Map: class { constructor() { throw error } } as never, addProtocol: vi.fn() }) } : {}),
       ...(stage === 'webgl' ? { webgl2: null } : {}),
@@ -566,54 +529,54 @@ describe('WorkspaceMapControls', () => {
     const rejection = expect(acquisition).rejects.toThrow(stage === 'webgl' ? 'WebGL2' : error.message)
     if (stage === 'pre-admission') (await waitForMap(maps)).emit('error', { error })
     await rejection
-    expect(states.mock.lastCall?.[0]).toMatchObject({ status: 'error' })
+    expect(states.mock.lastCall?.[0]).toMatchObject({ kind: 'failed' })
   })
 
   it('keeps an ordinary acquisition abort idle', async () => {
     const states = vi.fn()
-    const { controls, maps } = createControls({ contributions: { onStateChange: states } })
+    const { controls, maps } = createControls({ contributions: { onMapLifetimeChange: states } })
     const abort = new AbortController()
     const acquisition = controls.createMap(abort.signal)
     await waitForMap(maps)
     const rejected = expect(acquisition).rejects.toMatchObject({ name: 'AbortError' })
     abort.abort()
     await rejected
-    expect(states.mock.lastCall?.[0]).toMatchObject({ status: 'idle' })
+    expect(states.mock.lastCall?.[0]).toEqual({ kind: 'released' })
   })
 
   it.each(['loader rejected', new DOMException('access denied', 'SecurityError'), new DOMException('loader cancelled internally', 'AbortError')])(
     'preserves a non-Error acquisition failure message: %s', async (error) => {
       const states = vi.fn()
       const { controls } = createControls({
-        contributions: { onStateChange: states },
+        contributions: { onMapLifetimeChange: states },
         load: async () => { throw error },
       })
       const abort = new AbortController()
       await expect(controls.createMap(abort.signal)).rejects.toBe(error)
       expect(abort.signal.aborted).toBe(false)
       expect(states.mock.lastCall?.[0]).toMatchObject({
-        status: 'error',
+        kind: 'failed',
       })
     },
   )
 
   it.each([new Error('shared renderer failed'), new DOMException('renderer cancelled internally', 'AbortError')])('retains an external camera or shared-renderer failure on final map release: %s', async (error) => {
     const states = vi.fn()
-    const { controls, maps } = createControls({ contributions: { onStateChange: states } })
+    const { controls, maps } = createControls({ contributions: { onMapLifetimeChange: states } })
     const acquisition = controls.createMap(new AbortController().signal)
     const map = await waitForMap(maps)
     map.emit('style.load')
     const admitted = await acquisition
     controls.releaseMap(admitted, error)
     controls.releaseMap(admitted)
-    expect(states.mock.lastCall?.[0]).toMatchObject({ status: 'error' })
+    expect(states.mock.lastCall?.[0]).toMatchObject({ kind: 'failed' })
     expect(map.remove).toHaveBeenCalledOnce()
   })
 
   it('clears contribution layers and listeners before removing the map once', async () => {
     const states = vi.fn()
     const { controls, maps, observers } = createControls({
-      contributions: { onStateChange: states },
+      contributions: { onMapLifetimeChange: states },
     })
     const acquisition = controls.createMap(new AbortController().signal)
     const input: WorkspaceMapContributionSnapshot = {
@@ -630,7 +593,7 @@ describe('WorkspaceMapControls', () => {
     expect(maps).toHaveLength(1)
     map.remove.mockImplementation(() => {
       expect([...map.listeners.values()].every((listeners) => listeners.size === 0)).toBe(true)
-      expect(states.mock.lastCall?.[0].status).toBe('idle')
+      expect(states.mock.lastCall?.[0].kind).toBe('released')
     })
     controls.releaseMap(admitted)
     controls.releaseMap(admitted)
@@ -1132,18 +1095,18 @@ describe('WorkspaceMapControls', () => {
     const states = vi.fn()
     const { controls, maps } = createControls({
       canCreateWebGL2Context: () => false,
-      contributions: { onStateChange: states },
+      contributions: { onMapLifetimeChange: states },
     })
 
     await expect(controls.createMap(new AbortController().signal)).rejects.toThrow('WebGL2 is unavailable')
 
     expect(maps).toEqual([])
-    expect(states).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ status: 'error' }))
+    expect(states).toHaveBeenCalledExactlyOnceWith({ kind: 'failed', attempt: 1, cause: 'no-webgl2' })
   })
 
   it('publishes a lost context as a map error', async () => {
-    const states: MapLibreCanvasSurfaceState[] = []
-    const { controls, maps } = createControls({ contributions: { onStateChange: (state) => states.push(state) } })
+    const states: MapLifetimeState[] = []
+    const { controls, maps } = createControls({ contributions: { onMapLifetimeChange: (state) => states.push(state) } })
     const acquisition = controls.createMap(new AbortController().signal)
     const map = await waitForMap(maps)
     map.emit('style.load')
@@ -1152,7 +1115,7 @@ describe('WorkspaceMapControls', () => {
 
     map.emit('webglcontextlost')
 
-    expect(states.at(-1)).toMatchObject({ status: 'error' })
+    expect(states.at(-1)).toMatchObject({ kind: 'failed', cause: 'context-lost' })
   })
 
   it('does not ask a browser without the WebGL2 interface to create a context', async () => {
@@ -1471,10 +1434,10 @@ describe('WorkspaceMapControls OpenFreeMap basemap', () => {
     // A loaded style stays cached for the session, so this uses the one style no earlier test loads.
     styleFetch.mockImplementationOnce(async () => new Response('unavailable', { status: 503 }))
     const logError = vi.fn()
-    const states: MapLibreCanvasSurfaceState[] = []
+    const states: MapLifetimeState[] = []
     const { controls, maps } = createControls({
       background: basemapOn({ style: 'dark' }),
-      contributions: { onStateChange: (state) => states.push(state) },
+      contributions: { onMapLifetimeChange: (state) => states.push(state) },
       logError,
     })
     const acquisition = controls.createMap(new AbortController().signal)
@@ -1485,13 +1448,18 @@ describe('WorkspaceMapControls OpenFreeMap basemap', () => {
     const reportFailure = vi.fn()
     controls.watchFailure(admitted, reportFailure)
 
-    await vi.waitFor(() => expect(states.at(-1)?.basemapStatus).toBe('failed'))
-    expect(states.at(-1)?.status).toBe('ready')
+    await vi.waitFor(() => expect(readyLayers(states.at(-1))?.get('background')).toEqual({ kind: 'failed', reason: 'basemap' }))
+    expect(states.at(-1)?.kind).toBe('ready')
     expect(logError).toHaveBeenCalledWith(
       'Map basemap style failed to load:',
       expect.objectContaining({ message: expect.stringContaining('503') }),
     )
-    const notice = getMapNoticeReadModel({ hasDesign: true, mapVisible: true, mapSurface: states.at(-1)!, t })
+    const notice = getMapNoticeReadModel({
+      hasDesign: true,
+      mapVisible: true,
+      surface: { kind: 'map', map: states.at(-1)!, retry: 'withheld' },
+      t,
+    })
     expect(notice).toMatchObject({
       visible: true,
       tone: 'error',
@@ -1506,12 +1474,22 @@ describe('WorkspaceMapControls OpenFreeMap basemap', () => {
     controls.retryBasemap()
 
     // Retry shows the download running and withdraws the button until it settles.
-    expect(states.at(-1)?.basemapStatus).toBe('loading')
-    expect(getMapNoticeReadModel({ hasDesign: true, mapVisible: true, mapSurface: states.at(-1)!, t }))
+    expect(readyLayers(states.at(-1))?.get('background')).toEqual({ kind: 'loading' })
+    expect(getMapNoticeReadModel({
+      hasDesign: true,
+      mapVisible: true,
+      surface: { kind: 'map', map: states.at(-1)!, retry: 'withheld' },
+      t,
+    }))
       .toMatchObject({ visible: true, tone: 'loading', retry: false })
-    await vi.waitFor(() => expect(states.at(-1)?.basemapStatus).toBe('ok'))
+    await vi.waitFor(() => expect(readyLayers(states.at(-1))?.get('background')).toEqual({ kind: 'ready' }))
     expect(hasOpenFreeMapBasemap(map)).toBe(true)
-    expect(getMapNoticeReadModel({ hasDesign: true, mapVisible: true, mapSurface: states.at(-1)!, t }).visible).toBe(false)
+    expect(getMapNoticeReadModel({
+      hasDesign: true,
+      mapVisible: true,
+      surface: { kind: 'map', map: states.at(-1)!, retry: 'withheld' },
+      t,
+    }).visible).toBe(false)
     expect(map.remove).not.toHaveBeenCalled()
   })
 
@@ -1534,10 +1512,10 @@ describe('WorkspaceMapControls OpenFreeMap basemap', () => {
   ])('shows the basemap notice, not a map failure, when the cached basemap style\'s %s fails offline, and Retry installs it again', async (_resource, event) => {
     const logged = vi.spyOn(console, 'error').mockImplementation(() => {})
     try {
-      const states: MapLibreCanvasSurfaceState[] = []
+      const states: MapLifetimeState[] = []
       const { controls, maps } = createControls({
         background: basemapOn(),
-        contributions: { onStateChange: (state) => states.push(state) },
+        contributions: { onMapLifetimeChange: (state) => states.push(state) },
       })
       const acquisition = controls.createMap(new AbortController().signal)
       const map = await waitForMap(maps)
@@ -1546,15 +1524,21 @@ describe('WorkspaceMapControls OpenFreeMap basemap', () => {
       controls.updateMapContributions(targetContribution(controls.sessionIdentity))
       const reportFailure = vi.fn()
       controls.watchFailure(admitted, reportFailure)
-      await vi.waitFor(() => expect(states.at(-1)?.basemapStatus).toBe('ok'))
+      await vi.waitFor(() => expect(hasOpenFreeMapBasemap(map)).toBe(true))
+      expect(readyLayers(states.at(-1))?.get('background')).toEqual({ kind: 'ready' })
       expect(map.setSprite).toHaveBeenCalledTimes(1)
 
       map.emit('error', event)
 
       expect(reportFailure).not.toHaveBeenCalled()
       expect(map.remove).not.toHaveBeenCalled()
-      expect(states.at(-1)).toMatchObject({ status: 'ready', basemapStatus: 'failed' })
-      expect(getMapNoticeReadModel({ hasDesign: true, mapVisible: true, mapSurface: states.at(-1)!, t })).toMatchObject({
+      expect(readyLayers(states.at(-1))?.get('background')).toEqual({ kind: 'failed', reason: 'basemap' })
+      expect(getMapNoticeReadModel({
+        hasDesign: true,
+        mapVisible: true,
+        surface: { kind: 'map', map: states.at(-1)!, retry: 'withheld' },
+        t,
+      })).toMatchObject({
         visible: true,
         tone: 'error',
         statusText: 'Basemap couldn’t load. Check your connection.',
@@ -1565,7 +1549,7 @@ describe('WorkspaceMapControls OpenFreeMap basemap', () => {
       controls.retryBasemap()
 
       // Retry downloads the basemap's sprite and TileJSON again by installing it afresh.
-      await vi.waitFor(() => expect(states.at(-1)?.basemapStatus).toBe('ok'))
+      await vi.waitFor(() => expect(readyLayers(states.at(-1))?.get('background')).toEqual({ kind: 'ready' }))
       expect(map.setSprite).toHaveBeenCalledTimes(2)
       expect(hasOpenFreeMapBasemap(map)).toBe(true)
       expect(reportFailure).not.toHaveBeenCalled()
@@ -1578,24 +1562,25 @@ describe('WorkspaceMapControls OpenFreeMap basemap', () => {
   it('keeps a failed basemap resource quiet until Retry: a presentation change does not download it again', async () => {
     const logged = vi.spyOn(console, 'error').mockImplementation(() => {})
     try {
-      const states: MapLibreCanvasSurfaceState[] = []
+      const states: MapLifetimeState[] = []
       const { controls, maps } = createControls({
         background: basemapOn(),
-        contributions: { onStateChange: (state) => states.push(state) },
+        contributions: { onMapLifetimeChange: (state) => states.push(state) },
       })
       const acquisition = controls.createMap(new AbortController().signal)
       const map = await waitForMap(maps)
       map.emit('style.load')
       await acquisition
       controls.updateMapContributions(targetContribution(controls.sessionIdentity))
-      await vi.waitFor(() => expect(states.at(-1)?.basemapStatus).toBe('ok'))
+      await vi.waitFor(() => expect(hasOpenFreeMapBasemap(map)).toBe(true))
+      expect(readyLayers(states.at(-1))?.get('background')).toEqual({ kind: 'ready' })
       map.emit('error', { type: 'error', error: offlineRequest('https://tiles.openfreemap.org/sprites/ofm_f384/ofm.json') })
 
       controls.updateBackgroundPresentation(basemapOn({ opacity: 0.7 }))
       await new Promise((resolve) => setTimeout(resolve, 0))
 
       expect(map.setSprite).toHaveBeenCalledTimes(1)
-      expect(states.at(-1)?.basemapStatus).toBe('failed')
+      expect(readyLayers(states.at(-1))?.get('background')).toEqual({ kind: 'failed', reason: 'basemap' })
     } finally {
       logged.mockRestore()
     }
@@ -1603,10 +1588,10 @@ describe('WorkspaceMapControls OpenFreeMap basemap', () => {
 
   it('keeps a single basemap tile failure passive: no notice, the map keeps drawing', async () => {
     const logError = vi.fn()
-    const states: MapLibreCanvasSurfaceState[] = []
+    const states: MapLifetimeState[] = []
     const { controls, maps } = createControls({
       background: basemapOn(),
-      contributions: { onStateChange: (state) => states.push(state) },
+      contributions: { onMapLifetimeChange: (state) => states.push(state) },
       logError,
     })
     const acquisition = controls.createMap(new AbortController().signal)
@@ -1614,7 +1599,8 @@ describe('WorkspaceMapControls OpenFreeMap basemap', () => {
     map.emit('style.load')
     const admitted = await acquisition
     controls.updateMapContributions(targetContribution(controls.sessionIdentity))
-    await vi.waitFor(() => expect(states.at(-1)?.basemapStatus).toBe('ok'))
+    await vi.waitFor(() => expect(hasOpenFreeMapBasemap(map)).toBe(true))
+    expect(readyLayers(states.at(-1))?.get('background')).toEqual({ kind: 'ready' })
     const reportFailure = vi.fn()
     controls.watchFailure(admitted, reportFailure)
 
@@ -1626,7 +1612,7 @@ describe('WorkspaceMapControls OpenFreeMap basemap', () => {
     })
 
     expect(reportFailure).not.toHaveBeenCalled()
-    expect(states.at(-1)?.basemapStatus).toBe('ok')
+    expect(readyLayers(states.at(-1))?.get('background')).toEqual({ kind: 'ready' })
     expect(ringEntries().at(-1)).toMatchObject({ code: { kind: 'tile_source_failed', layer: 'ofm-openmaptiles' }, surfaced: false })
   })
 

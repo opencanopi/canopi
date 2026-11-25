@@ -5,10 +5,10 @@ import {
   MAPLIBRE_SATELLITE_LAYER_ID,
 } from './config'
 import type { BasemapTileAuth } from './basemap-tile-auth'
-import type { MapLibreBasemapStatus } from './canvas-surface-state'
 import {
   OPENFREEMAP_LAYER_PREFIX,
   VectorBasemap,
+  type MapLibreBasemapStatus,
   type VectorBasemapMap,
   type VectorStyleDocument,
 } from './openfreemap-basemap'

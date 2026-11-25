@@ -69,7 +69,7 @@ Verdicts (keep, merge, split, cut, add, change) cite the [ledger](../decisions/2
 |---|---|---|---|---|---|
 | Session core | Design lifecycle, home, save state, last-open home, read-only view | `app/document-session/core/` (2.1) | Merges two hand-written machines | `app/document-session/state-machine.ts` | change (M116) |
 | Pending question | close or replace question held by the core; answer in | Session core | One state-out, command-in way | `app/document-session/save-problem.ts` | change: Session state, `core.answer` (M162) |
-| Design scope, `latest()` | per-Design lifetime | `types/design-scope.ts` (2.1) | About 30 hand resets today | `app/document-session/lifecycle.ts` | keep (ADR 0024, M118) |
+| Design scope, `latest()` | per-Design lifetime | `types/design-scope.ts` (2.1) | About 30 hand resets today | `app/canvas-map-surface/canvas-host.ts` | keep (ADR 0024, M118) |
 | One history | `core.document`, staged `core.compound`, tool history first | Session core | One Undo order; PDF editor, merge | `canvas/runtime/scene-runtime/transactions.ts` | change (M114, M115, M158) |
 | Print workspace entry | one amendable entry per PDF workspace session | Session core | PDF editor | `app/canvas-pdf/workflow.ts` | change: coalesce key sealed by any other entry (M160) |
 | Undo toast | a view of the one history | Session core | No second Undo path | `app/saved-views/` | change: view of `newestUndoable` (M159, Q172) |
@@ -83,8 +83,8 @@ Verdicts (keep, merge, split, cut, add, change) cite the [ledger](../decisions/2
 
 | Abstraction | Concept owned | Owner | Why it exists | Canonical example | Verdict |
 |---|---|---|---|---|---|
-| Map lifetime | `MapLifetimeState`, layer slots, `LayerStatus` | `maplibre/map-lifetime.ts` (2.1) | Three constructors today | `maplibre/workspace-map.ts` | change (M144) |
-| Canvas host | lease and `CanvasSurfaceState`; `mountCanvasHost` | `app/canvas-map-surface/canvas-host.ts` (2.1) | Three hosts today | `components/panels/CanvasPanel.tsx` | change (M144) |
+| Map lifetime | `MapLifetimeState`, layer slots, `LayerStatus` | `maplibre/map-lifetime.ts` | Three constructors today | `maplibre/workspace-map.ts` | change (M144) |
+| Canvas host | lease and `CanvasSurfaceState`; `mountCanvasHost` | `app/canvas-map-surface/canvas-host.ts` | One host for Desktop, Web and gallery | `components/panels/CanvasPanel.tsx` | keep (M144) |
 | `ScenePainter` | the scene the map hosts; `presentFor` | `maplibre/` | Inversion: `maplibre/` sits below `canvas/` | `maplibre/shared-scene-layer.ts` | change (M145) |
 | MapPorts and fake map | the MapLibre surface each consumer uses | `maplibre/` | Fake with behaviour | `maplibre/loader.ts` | change (M145) |
 | Workspace map contribution | a map layer source, gated by capability | `app/canvas-map-surface/workspace-map-contributions.ts` | Hydrology, crowns, LiDAR layers | the owner | keep (ADR 0027) |

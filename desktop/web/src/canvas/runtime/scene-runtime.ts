@@ -32,7 +32,7 @@ import type {
   CanvasQuerySurface,
 } from './runtime'
 import type { SceneCanvasQuerySurface } from './query-surface'
-import { targets, speciesTarget } from '../../target'
+import { targets } from '../../target'
 import { runCanvasRuntimeCleanups, throwCanvasRuntimeCleanupErrors } from './cleanup'
 import type { CameraDriverHost } from '../../geo/view/camera-driver'
 import type { SceneRenderTarget } from './renderers/scene-types'
@@ -46,13 +46,12 @@ export class SceneCanvasRuntime {
   /** The Design's canvas chrome shows (document surface): the grid draws only while it does. */
   private _chromeShown = false
 
-  constructor(options: SceneCanvasRuntimeOptions = {}) {
+  constructor(options: SceneCanvasRuntimeOptions) {
     this._construction = createSceneRuntimeConstruction(options, {
       resolveHighlightedTargets: (scene) => this._resolveHighlightedTargets(scene),
       incrementPlantNamesRevision: () => this._incrementPlantNamesRevision(),
       setSelection: (targets) => this._setSelection(targets),
       prepareForDocumentReplacement: () => this._prepareForDocumentReplacement(),
-      syncHoveredCanvasTargets: (target) => this._syncHoveredCanvasTargets(target),
       syncCanvasSignalsFromScene: () => this._syncCanvasSignalsFromScene(),
       invalidate: () => this._invalidate(),
       incrementSceneRevision: () => this._incrementSceneRevision(),
@@ -353,14 +352,6 @@ export class SceneCanvasRuntime {
     ], 'Scene Canvas document replacement preparation failed')
   }
 
-  private _syncHoveredCanvasTargets(target: SceneDesignObjectTarget | null): void {
-    const plant = target?.kind === 'plant'
-      ? this._sceneState.persisted.plants.find((entry) => entry.id === target.id)
-      : null
-    const targets = plant ? [speciesTarget(plant.canonicalName)] : []
-    this._panelTargetAdapter.setCanvasHoverTargets(targets)
-  }
-
   private _setHoveredTarget(
     target: SceneDesignObjectTarget | null,
     options: { invalidate?: boolean } = {},
@@ -368,11 +359,9 @@ export class SceneCanvasRuntime {
     const invalidate = options.invalidate ?? true
     const current = this._sceneState.session.hoveredTarget
     if (current === null ? target === null : target !== null && sceneTargetKey(current) === sceneTargetKey(target)) {
-      this._syncHoveredCanvasTargets(target)
       return
     }
     this._sceneSession.setHoveredTarget(target)
-    this._syncHoveredCanvasTargets(target)
     if (invalidate) this._invalidate()
   }
 

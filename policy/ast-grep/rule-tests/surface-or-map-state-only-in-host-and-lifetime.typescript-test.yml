@@ -1,0 +1,12 @@
+id: surface-or-map-state-only-in-host-and-lifetime.typescript
+valid:
+  - |
+    const open = signal<boolean>(false)
+    const [count, setCount] = useState(0)
+invalid:
+  - |
+    const s = signal<CanvasSurfaceState>(IDLE_CANVAS_SURFACE_STATE)
+  - |
+    const m = signal<MapLifetimeState | null>(null)
+  - |
+    const [state, setState] = useState<CanvasSurfaceState>(IDLE_CANVAS_SURFACE_STATE)

@@ -1,9 +1,6 @@
 import type { SpeciesFocus } from '../species-key'
 import { effect, signal, untracked, type ReadonlySignal, type Signal } from '@preact/signals'
-import {
-  createDetachedCanvasRuntimeAppAdapter,
-  type CanvasRuntimeAppAdapter,
-} from '../app-adapter'
+import type { CanvasRuntimeAppAdapter } from '../app-adapter'
 import { createSceneCanvasCommandSurface } from '../command-surface'
 import { createSceneCanvasDocumentSurface, type SceneCanvasDocumentSurface } from '../document-surface'
 import { createSceneCanvasQuerySurface, type SceneCanvasQuerySurface } from '../query-surface'
@@ -53,7 +50,7 @@ const NO_REDUCED_MOTION: ReadonlySignal<boolean> = signal(false)
 const NEW_DESIGN_OVERVIEW_MAX_ZOOM = 5
 
 export interface SceneRuntimeConstructionOptions {
-  appAdapter?: CanvasRuntimeAppAdapter
+  appAdapter: CanvasRuntimeAppAdapter
   targetPresentation?: SceneRuntimePanelTargetAdapter
 }
 
@@ -64,7 +61,6 @@ export interface SceneRuntimeConstructionCallbacks {
   readonly incrementPlantNamesRevision: () => void
   readonly setSelection: (targets: Iterable<SceneDesignObjectTarget>) => void
   readonly prepareForDocumentReplacement: () => void
-  readonly syncHoveredCanvasTargets: (target: SceneDesignObjectTarget | null) => void
   readonly syncCanvasSignalsFromScene: () => void
   readonly invalidate: () => void
   readonly incrementSceneRevision: () => void
@@ -116,7 +112,10 @@ export function createSceneRuntimeConstruction(
   options: SceneRuntimeConstructionOptions,
   callbacks: SceneRuntimeConstructionCallbacks,
 ): SceneRuntimeConstruction {
-  const appAdapter = options.appAdapter ?? createDetachedCanvasRuntimeAppAdapter()
+  const { appAdapter } = options
+  if (!appAdapter) {
+    throw new Error('SceneCanvasRuntime requires an appAdapter.')
+  }
   // A new or empty Design opens at the last view's centre, zoomed out to at most country level, so "Where is your site?"
   // appears over an overview, never at the previous Design's site scale; the world default without a last view.
   const readEmptyDesignView = () => {
@@ -227,7 +226,6 @@ export function createSceneRuntimeConstruction(
   const documents = new SceneRuntimeDocumentBridge({
     authority: sceneEdits,
     prepareForDocumentReplacement: callbacks.prepareForDocumentReplacement,
-    clearHoveredTargets: () => callbacks.syncHoveredCanvasTargets(null),
     clearPanelOriginTargets: () => panelTargetAdapter.clearPanelOriginTargets(),
     composeDocumentForSave: (input) => appAdapter.document.composeDocumentForSave(input),
   })

@@ -404,7 +404,6 @@ describe('SceneInteractionSession', () => {
   it('finishes edit cleanup and listener removal when capture release throws', () => {
     events.dispose()
     events = createSceneInteractionEventHarness(container, {
-      trackListeners: true,
       pointerCapture: { releaseThrows: new Error('capture release failed') },
     })
     store.updatePersisted((draft) => {
@@ -422,9 +421,21 @@ describe('SceneInteractionSession', () => {
     expect(onSceneEditCommit).toHaveBeenCalledOnce()
     expect(events.pointerCapture.releaseCalls).toHaveBeenCalledWith(23)
     expect(() => session.dispose()).not.toThrow()
-    // The source's press listener and the selection-drag guard's.
-    expect(events.listenerLog?.containerRemoves('pointerdown')).toHaveLength(2)
-    expect(events.listenerLog?.windowRemoves('pointermove')).toHaveLength(1)
+
+    const positionAfterDispose = { ...store.persisted.plants[0]!.position }
+    events.pointerCapture.setCalls.mockClear()
+    onSceneEditCommit.mockClear()
+    const errors = captureWindowErrors(() => {
+      events.pointerMove(screen({ x: 35, y: 45 }))
+      events.pointerDown(screen({ x: 35, y: 45 }), { pointerId: 24 })
+      events.pointerMove(screen({ x: 55, y: 65 }), { pointerId: 24, target: window })
+      events.windowBlur()
+    })
+    expect(errors).toEqual([])
+    expect(document.querySelector('[data-hover-tooltip]')).toBeNull()
+    expect(store.persisted.plants[0]?.position).toEqual(positionAfterDispose)
+    expect(onSceneEditCommit).not.toHaveBeenCalled()
+    expect(events.pointerCapture.setCalls).not.toHaveBeenCalled()
   })
 
   it.each([

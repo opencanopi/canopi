@@ -29,6 +29,8 @@ import { CANOPI_VERSION } from "../../app/about/metadata";
 import { storeHealth } from "../../failures/health";
 import { locale, plantSpacingIntervalM, theme } from "../../app/settings/state";
 import { isNewerReadView } from "../../app/document-session/store";
+import { installCanvasHostRuntime } from "../../app/canvas-map-surface/use-canvas-host";
+import { createBrowserCanvasHostRuntime } from "./browser-workspace-runtime";
 
 let disposeWebRoot: (() => void) | null = null;
 
@@ -53,6 +55,7 @@ export function bootWebEdition(): () => void {
     budgetExportDelivery: deliverBrowserBudgetCsv,
   });
   const disposeCatalog = installSpeciesCatalogWorkbench(browserSpeciesCatalogWorkbench);
+  const disposeCanvasHost = installCanvasHostRuntime(() => createBrowserCanvasHostRuntime(browserDesignSessionController));
 
   const disposeTheme = initTheme();
   const settingsInstallation = installSettingsProjection(browserSettingsPlatformAdapter);
@@ -96,6 +99,7 @@ export function bootWebEdition(): () => void {
     settingsInstallation.dispose();
     disposeTheme();
     disposeCatalog();
+    disposeCanvasHost();
     disposePorts();
     problemReportWriter.dispose();
     disposeFailureHooks();

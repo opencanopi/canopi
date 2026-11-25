@@ -8,5 +8,5 @@ invalid:
     import { installEditionPorts } from '../platform/edition-ports'
     installEditionPorts(ports)
   - |
-    import { installDesktopWorkspaceRuntimeComposition } from '../app/canvas-map-surface/desktop-workspace-runtime'
-    installDesktopWorkspaceRuntimeComposition(factory)
+    import { installCanvasHostRuntime } from '../app/canvas-map-surface/use-canvas-host'
+    installCanvasHostRuntime(factory)

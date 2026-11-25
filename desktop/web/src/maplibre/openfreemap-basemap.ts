@@ -3,8 +3,13 @@
 // the basemap style is fetched only here, from the origin table's origins.
 
 import type { BasemapStyle } from '../generated/contracts'
-import type { MapLibreBasemapStatus } from './canvas-surface-state'
 import { mapErrorResourceId } from './map-error-owner'
+
+/**
+ * The background band's download status (maplibre/map-background.ts): Satellite's while it is on, else the
+ * OpenFreeMap Basemap's; `failed` until Retry, a new download, or the row is hidden.
+ */
+export type MapLibreBasemapStatus = 'idle' | 'loading' | 'ok' | 'failed'
 
 /*
  * OpenFreeMap style presets adapted from GeoLibre

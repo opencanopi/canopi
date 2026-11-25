@@ -1,0 +1,18 @@
+id: canvas-host-lifecycle-only-in-canvas-host.typescript
+valid:
+  - |
+    export const core = {
+      attachScene() { return 'attached' as const },
+      detachScene() {},
+    }
+invalid:
+  - |
+    import { acquireCanvasRuntimeLifecycle } from './lifecycle-owner'
+    void acquireCanvasRuntimeLifecycle(async () => {})
+  - |
+    import { setCurrentCanvasSession } from './session'
+    setCurrentCanvasSession(null)
+  - |
+    void core.attachScene(documents)
+  - |
+    core.detachScene()

@@ -1,6 +1,5 @@
 export {
   MANUAL_TARGET,
-  isSpeciesTarget,
   speciesTarget,
   targetIdentity,
 } from './identity'

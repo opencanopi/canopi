@@ -261,9 +261,9 @@ stateDiagram-v2
 
 ### Map surface lifetime
 
-Model: target
+Model: current
 Source: ADR 0024 Canvas surface, ADR 0004, contracts §6
-Enum: maplibre/map-lifetime.ts::MapLifetimeState (2.1)
+Enum: maplibre/map-lifetime.ts::MapLifetimeState
 
 ```mermaid
 stateDiagram-v2
@@ -279,12 +279,12 @@ stateDiagram-v2
   note right of ready: layers: LayerStatus per slot
 ```
 
-- Owner: `maplibre/map-lifetime.ts` (2.1), one per map, the snapshot map included. Held by `style-load-only-in-map-lifetime` and the map-lifetime model harness (F4).
+- Owner: `maplibre/map-lifetime.ts`, one per map, the snapshot map included. Held by `style-load-only-in-map-lifetime` and the map-lifetime model harness (F4).
 
-### Canvas surface (2.1)
+### Canvas surface
 
-Model: target
-Enum: app/canvas-map-surface/canvas-host.ts::CanvasSurfaceState (2.1)
+Model: current
+Enum: app/canvas-map-surface/canvas-host.ts::CanvasSurfaceState
 
 ```mermaid
 stateDiagram-v2
@@ -299,23 +299,6 @@ stateDiagram-v2
 ```
 
 - Computed by `composeSurface(lease, mapState)`; Retry offered only when the map failed, cleanup settled and the runtime alive.
-
-### Map surface at HEAD
-
-Model: current
-Enum: maplibre/canvas-surface-state.ts::MapLibreCanvasSurfaceStatus
-
-```mermaid
-stateDiagram-v2
-  [*] --> idle
-  idle --> loading: contributions mount
-  loading --> ready: style loaded
-  loading --> error: map unavailable
-  ready --> error: disposed with failure
-  error --> loading: Retry
-```
-
-- Published by `app/canvas-map-surface/workspace-map-contributions.ts`, beside `WorkspaceActivationOutcome` and the controls' admission states; the map lifetime absorbs all three.
 
 ### Design-core worker
 

@@ -3,7 +3,7 @@
 import { signal } from '@preact/signals'
 import { describe, expect, it, vi } from 'vitest'
 import { mapAttributionFolded } from '../shell/visible-map-area'
-import { createDetachedCanvasRuntimeAppAdapter } from '../../canvas/runtime/app-adapter'
+import { createDetachedCanvasRuntimeAppAdapter } from '../../__tests__/support/detached-canvas-app-adapter'
 import { CanvasRuntimeCleanupError } from '../../canvas/runtime/cleanup'
 import { createDetachedSceneRuntimePanelTargetAdapter } from '../../canvas/runtime/scene-runtime/panel-target-adapter'
 import type { SceneCanvasRuntimeOptions } from '../../canvas/runtime/scene-runtime'
@@ -395,11 +395,9 @@ function compositionFixture(options: CompositionFixtureOptions) {
     activate: vi.fn(options.activate ?? (async () => 'shared-ready' as const)),
     teardown: vi.fn(options.teardown ?? (async () => {})),
     retry: vi.fn(() => false),
-    canRetry: vi.fn(() => false),
     updateMapContributions: vi.fn(),
     updateBackgroundPresentation: vi.fn(),
   } satisfies WorkspaceGenerationLifecycle & {
-    canRetry(): boolean
     updateMapContributions(snapshot: WorkspaceMapContributionSnapshot | null): void
     updateBackgroundPresentation(presentation: MapBackgroundPresentation): void
   }

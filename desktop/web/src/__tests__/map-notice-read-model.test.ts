@@ -1,14 +1,23 @@
 import { afterEach, describe, expect, it } from 'vitest'
+import type { CanvasSurfaceState } from '../app/canvas-map-surface/canvas-host'
 import { getMapNoticeReadModel } from '../app/canvas-map-surface/map-notice'
 import { createDefaultMapLayers, mapLayers } from '../app/map-layers/state'
-import type { MapLibreCanvasSurfaceState } from '../maplibre/canvas-surface-state'
+import type { LayerSlotId, LayerStatus } from '../maplibre/map-lifetime'
 
-const READY_MAP_STATE: MapLibreCanvasSurfaceState = {
-  status: 'ready',
-  terrainStatus: 'idle',
-  layerSkipped: false,
-  basemapStatus: 'idle',
-  retryable: false,
+function readySurface(layers: ReadonlyArray<readonly [LayerSlotId, LayerStatus]> = []): CanvasSurfaceState {
+  return {
+    kind: 'map',
+    map: { kind: 'ready', attempt: 1, layers: new Map(layers) },
+    retry: 'withheld',
+  }
+}
+
+function failedMapSurface(retry: 'offered' | 'withheld' | 'never'): CanvasSurfaceState {
+  return {
+    kind: 'map',
+    map: { kind: 'failed', attempt: 1, cause: retry === 'never' ? 'no-webgl2' : 'context-lost' },
+    retry,
+  }
 }
 
 function translate(key: string): string {
@@ -31,7 +40,7 @@ describe('Map Notice read model', () => {
     expect(getMapNoticeReadModel({
       hasDesign: true,
       mapVisible: true,
-      mapSurface: { ...READY_MAP_STATE, status: 'loading' },
+      surface: { kind: 'map', map: { kind: 'creating', attempt: 1 }, retry: 'withheld' },
       t: translate,
     })).toEqual({
       visible: true,
@@ -46,7 +55,7 @@ describe('Map Notice read model', () => {
     expect(getMapNoticeReadModel({
       hasDesign: true,
       mapVisible: true,
-      mapSurface: { ...READY_MAP_STATE, status: 'error' },
+      surface: failedMapSurface('never'),
       t: translate,
     })).toEqual({
       visible: true,
@@ -61,7 +70,7 @@ describe('Map Notice read model', () => {
     expect(getMapNoticeReadModel({
       hasDesign: true,
       mapVisible: true,
-      mapSurface: { ...READY_MAP_STATE, status: 'error', retryable: true, basemapStatus: 'failed' },
+      surface: failedMapSurface('offered'),
       t: translate,
     })).toEqual({
       visible: true,
@@ -73,11 +82,14 @@ describe('Map Notice read model', () => {
   })
 
   it('reports a failed basemap with Retry, below a map failure and above a skipped layer', () => {
-    const failed = { ...READY_MAP_STATE, basemapStatus: 'failed' as const }
     expect(getMapNoticeReadModel({
       hasDesign: true,
       mapVisible: true,
-      mapSurface: { ...failed, layerSkipped: true, terrainStatus: 'error' },
+      surface: readySurface([
+        ['background', { kind: 'failed', reason: 'basemap' }],
+        ['terrain', { kind: 'failed', reason: 'terrain' }],
+        ['library:skipped', { kind: 'skipped', reason: 'layer-skipped' }],
+      ]),
       t: translate,
     })).toEqual({
       visible: true,
@@ -89,7 +101,7 @@ describe('Map Notice read model', () => {
     expect(getMapNoticeReadModel({
       hasDesign: true,
       mapVisible: true,
-      mapSurface: { ...failed, status: 'error' },
+      surface: failedMapSurface('never'),
       t: translate,
     })).toMatchObject({ statusText: 'Map unavailable', retry: false })
   })
@@ -101,7 +113,7 @@ describe('Map Notice read model', () => {
     expect(getMapNoticeReadModel({
       hasDesign: true,
       mapVisible: true,
-      mapSurface: { ...READY_MAP_STATE, basemapStatus: 'failed' },
+      surface: readySurface([['background', { kind: 'failed', reason: 'basemap' }]]),
       t: translate,
     })).toEqual({
       visible: true,
@@ -114,7 +126,7 @@ describe('Map Notice read model', () => {
     expect(getMapNoticeReadModel({
       hasDesign: true,
       mapVisible: true,
-      mapSurface: { ...READY_MAP_STATE, basemapStatus: 'loading' },
+      surface: readySurface([['background', { kind: 'loading' }]]),
       t: translate,
     })).toMatchObject({ statusText: 'Loading', tone: 'loading', retry: false })
   })
@@ -123,7 +135,10 @@ describe('Map Notice read model', () => {
     expect(getMapNoticeReadModel({
       hasDesign: true,
       mapVisible: true,
-      mapSurface: { ...READY_MAP_STATE, basemapStatus: 'loading', layerSkipped: true },
+      surface: readySurface([
+        ['background', { kind: 'loading' }],
+        ['library:skipped', { kind: 'skipped', reason: 'layer-skipped' }],
+      ]),
       t: translate,
     })).toEqual({
       visible: true,
@@ -138,10 +153,7 @@ describe('Map Notice read model', () => {
     expect(getMapNoticeReadModel({
       hasDesign: true,
       mapVisible: true,
-      mapSurface: {
-        ...READY_MAP_STATE,
-        terrainStatus: 'error',
-      },
+      surface: readySurface([['terrain', { kind: 'failed', reason: 'terrain' }]]),
       t: translate,
     })).toEqual({
       visible: true,
@@ -156,7 +168,7 @@ describe('Map Notice read model', () => {
     expect(getMapNoticeReadModel({
       hasDesign: true,
       mapVisible: true,
-      mapSurface: { ...READY_MAP_STATE, layerSkipped: true },
+      surface: readySurface([['library:skipped', { kind: 'skipped', reason: 'layer-skipped' }]]),
       t: translate,
     })).toEqual({
       visible: true,
@@ -171,7 +183,7 @@ describe('Map Notice read model', () => {
     expect(getMapNoticeReadModel({
       hasDesign: true,
       mapVisible: true,
-      mapSurface: READY_MAP_STATE,
+      surface: readySurface([['background', { kind: 'ready' }]]),
       t: translate,
     })).toEqual({
       visible: false,
@@ -186,7 +198,7 @@ describe('Map Notice read model', () => {
     expect(getMapNoticeReadModel({
       hasDesign: false,
       mapVisible: true,
-      mapSurface: { ...READY_MAP_STATE, status: 'error' },
+      surface: failedMapSurface('never'),
       t: translate,
     })).toMatchObject({ visible: false, mapSurfaceVisible: false, statusText: '' })
   })
@@ -195,7 +207,7 @@ describe('Map Notice read model', () => {
     expect(getMapNoticeReadModel({
       hasDesign: true,
       mapVisible: false,
-      mapSurface: { ...READY_MAP_STATE, status: 'error', retryable: true },
+      surface: failedMapSurface('offered'),
       t: translate,
     })).toEqual({
       visible: true,
@@ -207,7 +219,7 @@ describe('Map Notice read model', () => {
     expect(getMapNoticeReadModel({
       hasDesign: true,
       mapVisible: false,
-      mapSurface: { ...READY_MAP_STATE, status: 'error' },
+      surface: failedMapSurface('never'),
       t: translate,
     })).toMatchObject({ visible: true, statusText: 'Map unavailable', retry: false })
   })
@@ -216,7 +228,7 @@ describe('Map Notice read model', () => {
     expect(getMapNoticeReadModel({
       hasDesign: true,
       mapVisible: false,
-      mapSurface: { ...READY_MAP_STATE, status: 'loading' },
+      surface: { kind: 'map', map: { kind: 'creating', attempt: 1 }, retry: 'withheld' },
       t: translate,
     })).toMatchObject({ visible: false, mapSurfaceVisible: false, statusText: '' })
   })

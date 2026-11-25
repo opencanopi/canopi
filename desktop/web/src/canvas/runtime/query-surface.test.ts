@@ -13,7 +13,8 @@ import {
   createSceneInteractionEventHarness,
   type SceneInteractionEventHarness,
 } from '../../__tests__/support/canvas-interaction-events'
-import { SceneCanvasRuntime } from './scene-runtime'
+import { createTestSceneCanvasRuntime } from '../../__tests__/support/detached-canvas-app-adapter'
+import type { SceneCanvasRuntime } from './scene-runtime'
 import type { PointerWorld } from './interaction-ports'
 import type * as IpcSpeciesModule from '../../ipc/species'
 
@@ -25,7 +26,7 @@ afterEach(() => {
 })
 
 async function mountedRuntime(): Promise<{ runtime: SceneCanvasRuntime, container: HTMLDivElement, events: SceneInteractionEventHarness }> {
-  const runtime = new SceneCanvasRuntime()
+  const runtime = createTestSceneCanvasRuntime()
   runtime.connectRenderTarget({ setSnapshot: vi.fn(), setDraft: vi.fn(), requestRender: vi.fn() })
   const container = document.createElement('div')
   document.body.appendChild(container)

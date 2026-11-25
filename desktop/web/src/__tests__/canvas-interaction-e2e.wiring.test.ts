@@ -164,8 +164,6 @@ describe('SceneInteractionSession', () => {
   })
 
   it('continues Session teardown after one owned resource fails', () => {
-    events.dispose()
-    events = createSceneInteractionEventHarness(container, { trackListeners: true })
     store.updatePersisted((draft) => {
       draft.plants = [makePlant('plant-1', 'Malus domestica', { x: 300, y: 250 })]
     })
@@ -184,13 +182,20 @@ describe('SceneInteractionSession', () => {
 
     expect(() => session.dispose()).toThrow('story observer disconnect failed')
 
-    // The source's press listener and the selection-drag guard's.
-    expect(events.listenerLog?.containerRemoves('pointerdown')).toHaveLength(2)
-    expect(events.listenerLog?.containerRemoves('pointermove')).toHaveLength(1)
-    expect(events.listenerLog?.windowRemoves('blur')).toHaveLength(1)
     expect(document.querySelector('[data-hover-tooltip]')).toBeNull()
     expect(container.querySelector('[data-canvas-handle-layer]')).toBeNull()
     expect(container.hasAttribute('tabindex')).toBe(false)
+    events.pointerCapture.setCalls.mockClear()
+    const errors = captureWindowErrors(() => {
+      events.pointerMove({ x: 300, y: 250 })
+      events.pointerDown({ x: 300, y: 250 })
+      events.pointerMove({ x: 320, y: 270 }, { target: window })
+      events.windowBlur()
+    })
+    expect(errors).toEqual([])
+    expect(document.querySelector('[data-hover-tooltip]')).toBeNull()
+    expect(store.persisted.plants[0]?.position).toEqual({ x: 300, y: 250 })
+    expect(events.pointerCapture.setCalls).not.toHaveBeenCalled()
     expect(() => session.dispose()).not.toThrow()
     disconnect.mockRestore()
   })

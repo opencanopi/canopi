@@ -23,11 +23,7 @@ import { StoryPresenter } from '../../components/stories/StoryPresenter'
 import { notebookWorkbench } from './notebook-fixture'
 import { WebSpeciesCatalogPanel, WebSpeciesKeyPanel } from '../web/WebSpeciesCatalogPanel'
 import { WebLayersPanel } from '../web/WebLayersPanel'
-import {
-  activePanel,
-  navigateTo,
-  sidePanel,
-} from '../../app/shell/state'
+import { activePanel, navigateTo, sidePanel } from '../../app/shell/state'
 import { plantColorMenuOpen } from '../../canvas/plant-color-menu-state'
 import { plantSymbolMenuOpen } from '../../canvas/plant-symbol-menu-state'
 import { applyHealthSnapshot } from '../../failures/health'
@@ -42,17 +38,11 @@ import { createDesktopCanvasRuntimeAppAdapter } from '../../app/canvas-runtime/d
 import { createAppCanvasRuntimeAppAdapter } from '../../app/canvas-runtime/app-adapter'
 import { createAppSceneRuntimePanelTargetAdapter } from '../../app/canvas-runtime/panel-target-adapter'
 import { createDesktopWorkspaceMapContributionAdapter } from '../../app/canvas-map-surface/desktop-workspace-map-contribution-adapter'
-import { installDesktopWorkspaceRuntimeComposition } from '../../app/canvas-map-surface/desktop-workspace-runtime'
-import {
-  readWorkspaceActivationSnapshot,
-  readWorkspaceBackgroundPresentation,
-} from '../../app/canvas-map-surface/workspace-activation-snapshot'
+import { createDesktopCanvasHostCore } from '../../app/canvas-map-surface/desktop-workspace-runtime'
+import { installCanvasHostRuntime } from '../../app/canvas-map-surface/use-canvas-host'
+import { readWorkspaceActivationSnapshot, readWorkspaceBackgroundPresentation } from '../../app/canvas-map-surface/workspace-activation-snapshot'
 import { readWorkspaceMapContributions } from '../../app/canvas-map-surface/workspace-map-contribution-adapter'
-import {
-  createWorkspaceRuntimeComposition,
-  type WorkspaceRuntimeComposition,
-  type WorkspaceRuntimeMountOptions,
-} from '../../app/canvas-map-surface/workspace-runtime-composition'
+import { createWorkspaceRuntimeComposition, type WorkspaceRuntimeComposition, type WorkspaceRuntimeMountOptions } from '../../app/canvas-map-surface/workspace-runtime-composition'
 import { mapLayers, type MapLayersState } from '../../app/map-layers/state'
 import { installLidarDisplayDescriptors } from '../../app/data-library/display'
 import { installLidarLibraryObserver } from '../../app/data-library/library-store'
@@ -72,12 +62,7 @@ import { PlantSymbolSheet } from './PlantSymbolSheet'
 import { GalleryViewSnapshots } from './GalleryViewSnapshots'
 import { readPlanningViewState } from '../../app/planning-view/state'
 import { appCommandGraphChromeProjection, appCommandGraphPanelProjection } from '../../commands/registry'
-import {
-  createBrowserShellCapabilities,
-  createBrowserShellCatalog,
-  browserPhoneSheetTabs,
-  createBrowserShellCommandProjection,
-} from '../web/browser-shell-commands'
+import { createBrowserShellCapabilities, createBrowserShellCatalog, browserPhoneSheetTabs, createBrowserShellCommandProjection } from '../web/browser-shell-commands'
 import { workspaceCanvasCommandProjection } from '../../app/workspace-commands/canvas-actions'
 import { keyboardShortcutsDialogOpen } from '../../app/shell/dialogs'
 import { TitleBar } from '../../components/shared/TitleBar'
@@ -90,21 +75,8 @@ import { NoticeRow } from '../../components/shared/NoticeRow'
 import { ToastSlot } from '../../components/shared/ToastSlot'
 import { BrowserAppShell } from '../web/BrowserAppShell'
 import { WebCanvasWorkspace, WebPhoneBar } from '../web/WebWorkspace'
-import {
-  WorkspaceComposition,
-  WorkspaceDialogs,
-  type WorkspacePanelProjection,
-  type WorkspaceSurfaces,
-} from '../../components/workspace/WorkspaceComposition'
-import {
-  GALLERY_LOCATION_STATES,
-  GALLERY_SURFACES,
-  parseGalleryLocationState,
-  parseGallerySurface,
-  selectGalleryPanel,
-  type GalleryLocationState,
-  type GallerySurface,
-} from './surface-routing'
+import { WorkspaceComposition, WorkspaceDialogs, type WorkspacePanelProjection, type WorkspaceSurfaces } from '../../components/workspace/WorkspaceComposition'
+import { GALLERY_LOCATION_STATES, GALLERY_SURFACES, parseGalleryLocationState, parseGallerySurface, selectGalleryPanel, type GalleryLocationState, type GallerySurface } from './surface-routing'
 
 /** Show my location in each state the `location` surface reviews; one component per state, so a re-render keeps it. */
 const GALLERY_LOCATION_BUTTONS = new Map<GalleryLocationState, FunctionComponent<{ readonly className: string | undefined }>>(
@@ -160,7 +132,7 @@ if (edition === 'desktop' && fixtureState === 'lidar-raster') {
   installLidarDisplayDescriptors((path) => path)
 }
 
-installDesktopWorkspaceRuntimeComposition((options: WorkspaceRuntimeMountOptions): WorkspaceRuntimeComposition => {
+function createGalleryDesktopRuntime(options: WorkspaceRuntimeMountOptions): WorkspaceRuntimeComposition {
   const baseContributions = createDesktopWorkspaceMapContributionAdapter()
   const baseCreateRasterDisplay = baseContributions.createRasterDisplay
   return createWorkspaceRuntimeComposition({
@@ -198,7 +170,7 @@ installDesktopWorkspaceRuntimeComposition((options: WorkspaceRuntimeMountOptions
       readMapLayers: readOfflineMapLayers,
     }),
   })
-})
+}
 
 function createGalleryWebRuntime(options: WorkspaceRuntimeMountOptions): WorkspaceRuntimeComposition {
   return createWorkspaceRuntimeComposition({
@@ -234,15 +206,39 @@ const galleryWebController = {
     return () => {}
   },
 } as unknown as NonNullable<Parameters<typeof WebCanvasWorkspace>[0]['controller']>
+const initial = parseGallerySurface(params.get('surface'))
+const selectedSurface = signal<GallerySurface>(initial)
+installCanvasHostRuntime(() => {
+  if (edition === 'web' || selectedSurface.peek() === 'location') {
+    let detach: (() => void) | null = null
+    return {
+      core: {
+        attachScene(documents) {
+          detach = galleryWebController.attachCanvasSession(documents)
+          return 'attached'
+        },
+        detachScene() {
+          const fn = detach
+          if (!fn) return
+          fn()
+          detach = null
+        },
+      },
+      createComposition: createGalleryWebRuntime,
+    }
+  }
+  return {
+    core: createDesktopCanvasHostCore(),
+    createComposition: createGalleryDesktopRuntime,
+  }
+})
 installEditionPorts(createGalleryEditionPorts(edition))
 const galleryAppFolders: AppFolderLocations = {
   drafts: '/gallery/drafts',
   data_library: '/gallery/data-library',
 }
-const initial = parseGallerySurface(params.get('surface'))
 /** `open=<id>`: the Site data item opened under its row, or the item the Data library selects. */
 const openItem = params.get('open')
-const selectedSurface = signal<GallerySurface>(initial)
 const galleryCanvasReady = signal(false)
 const file = designFixture(fixtureState)
 // `session=read-only`: the Design opens as one a newer Canopi saved (2.1-Q317), its save status "Read-only" (Q336).
@@ -431,7 +427,6 @@ function GalleryCanvasWorkspace() {
     return (
       <WebCanvasWorkspace
         controller={galleryWebController}
-        createRuntimeComposition={createGalleryWebRuntime}
         {...(locationButton ? { myLocation: locationButton } : {})}
       />
     )
@@ -564,25 +559,11 @@ function showGalleryDataSurface(next: GallerySurface): void {
   if (next === 'site-data' && openItem && currentDesign.peek()) showInSiteData(openItem)
 }
 
-function GalleryLayersSurface() {
-  return <LayersPanel />
-}
-
-function GallerySiteDataSurface() {
-  return <SiteDataPanel />
-}
-
-function GalleryNotebookSurface() {
-  return <DesignNotebookPanel workbench={notebookWorkbench} />
-}
-
-function WebCatalogSurface() {
-  return <WebSpeciesCatalogPanel mode="catalog" />
-}
-
-function WebFavoritesSurface() {
-  return <WebSpeciesCatalogPanel mode="favorites" />
-}
+function GalleryLayersSurface() { return <LayersPanel /> }
+function GallerySiteDataSurface() { return <SiteDataPanel /> }
+function GalleryNotebookSurface() { return <DesignNotebookPanel workbench={notebookWorkbench} /> }
+function WebCatalogSurface() { return <WebSpeciesCatalogPanel mode="catalog" /> }
+function WebFavoritesSurface() { return <WebSpeciesCatalogPanel mode="favorites" /> }
 
 function editionUrl(nextEdition: 'desktop' | 'web'): string {
   const url = new URL(location.href)

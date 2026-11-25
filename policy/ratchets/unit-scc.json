@@ -3,311 +3,75 @@
   "family": "unit-scc",
   "bead": "canopi-f47t.52.182",
   "entries": {
-    "app/analyses <-> app/data-library": {
-      "count": 3
-    },
-    "app/analyses <-> i18n": {
-      "count": 1
-    },
-    "app/canvas-map-surface <-> app/canvas-runtime": {
-      "count": 2
-    },
-    "app/canvas-map-surface <-> app/data-library": {
-      "count": 4
-    },
-    "app/canvas-map-surface <-> app/document-session": {
-      "count": 3
-    },
-    "app/canvas-map-surface <-> app/map-layers": {
-      "count": 5
-    },
-    "app/canvas-map-surface <-> app/panel-targets": {
-      "count": 1
-    },
-    "app/canvas-map-surface <-> app/settings": {
-      "count": 4
-    },
-    "app/canvas-map-surface <-> app/shell": {
-      "count": 1
-    },
-    "app/canvas-map-surface <-> app/story-presentation": {
-      "count": 4
-    },
-    "app/canvas-runtime <-> app/data-library": {
-      "count": 2
-    },
-    "app/canvas-runtime <-> app/document-session": {
-      "count": 1
-    },
-    "app/canvas-runtime <-> app/keyboard": {
-      "count": 1
-    },
-    "app/canvas-runtime <-> app/map-layers": {
-      "count": 1
-    },
-    "app/canvas-runtime <-> app/panel-targets": {
-      "count": 1
-    },
-    "app/canvas-runtime <-> app/plant-browser": {
-      "count": 1
-    },
-    "app/canvas-runtime <-> app/plant-display": {
-      "count": 1
-    },
-    "app/canvas-runtime <-> app/saved-object-stamps": {
-      "count": 1
-    },
-    "app/canvas-runtime <-> app/settings": {
-      "count": 2
-    },
-    "app/canvas-runtime <-> app/story-presentation": {
-      "count": 1
-    },
-    "app/canvas-runtime <-> i18n": {
-      "count": 1
-    },
-    "app/consortium <-> app/design-edit": {
-      "count": 2
-    },
-    "app/consortium <-> app/document-session": {
-      "count": 3
-    },
-    "app/consortium <-> app/panel-targets": {
-      "count": 1
-    },
-    "app/consortium <-> app/planning-projection": {
-      "count": 1
-    },
-    "app/consortium <-> app/planning-view": {
-      "count": 1
-    },
-    "app/consortium <-> app/plant-finder": {
-      "count": 3
-    },
-    "app/data-library <-> app/design-edit": {
-      "count": 1
-    },
-    "app/data-library <-> app/document-session": {
-      "count": 6
-    },
-    "app/data-library <-> app/keyboard": {
-      "count": 2
-    },
-    "app/data-library <-> app/settings": {
-      "count": 1
-    },
-    "app/data-library <-> app/shell": {
-      "count": 5
-    },
-    "app/data-library <-> app/story-presentation": {
-      "count": 1
-    },
-    "app/data-library <-> i18n": {
-      "count": 3
-    },
-    "app/data-library <-> ipc": {
-      "count": 7
-    },
-    "app/design-edit <-> app/document-session": {
-      "count": 3
-    },
-    "app/design-edit <-> app/plant-display": {
-      "count": 2
-    },
-    "app/design-edit <-> app/saved-views": {
-      "count": 2
-    },
-    "app/design-edit <-> app/settings": {
-      "count": 1
-    },
-    "app/design-edit <-> app/timeline": {
-      "count": 2
-    },
-    "app/document-session <-> app/planning-projection": {
-      "count": 1
-    },
-    "app/document-session <-> app/planning-view": {
-      "count": 1
-    },
-    "app/document-session <-> app/plant-display": {
-      "count": 3
-    },
-    "app/document-session <-> app/plant-finder": {
-      "count": 1
-    },
-    "app/document-session <-> app/saved-views": {
-      "count": 3
-    },
-    "app/document-session <-> app/settings": {
-      "count": 2
-    },
-    "app/document-session <-> app/shell": {
-      "count": 4
-    },
-    "app/document-session <-> app/story-presentation": {
-      "count": 1
-    },
-    "app/document-session <-> app/timeline": {
-      "count": 2
-    },
-    "app/document-session <-> ipc": {
-      "count": 4
-    },
-    "app/keyboard <-> app/saved-object-stamps": {
-      "count": 1
-    },
-    "app/keyboard <-> app/shell": {
-      "count": 2
-    },
-    "app/keyboard <-> app/story-presentation": {
-      "count": 1
-    },
-    "app/map-layers <-> app/saved-views": {
-      "count": 5
-    },
-    "app/map-layers <-> app/settings": {
-      "count": 3
-    },
-    "app/map-layers <-> app/story-presentation": {
-      "count": 3
-    },
-    "app/map-selection <-> app/planning-projection": {
-      "count": 3
-    },
-    "app/map-selection <-> i18n": {
-      "count": 2
-    },
-    "app/panel-targets <-> app/plant-finder": {
-      "count": 1
-    },
-    "app/panel-targets <-> app/story-presentation": {
-      "count": 1
-    },
-    "app/panel-targets <-> app/timeline": {
-      "count": 1
-    },
-    "app/planning-projection <-> app/settings": {
-      "count": 1
-    },
-    "app/planning-projection <-> app/timeline": {
-      "count": 1
-    },
-    "app/planning-view <-> app/plant-finder": {
-      "count": 1
-    },
-    "app/planning-view <-> app/timeline": {
-      "count": 1
-    },
-    "app/plant-browser <-> app/plant-finder": {
-      "count": 2
-    },
-    "app/plant-browser <-> app/settings": {
-      "count": 1
-    },
-    "app/plant-display <-> app/plant-finder": {
-      "count": 1
-    },
-    "app/plant-display <-> app/saved-views": {
-      "count": 2
-    },
-    "app/plant-display <-> i18n": {
-      "count": 2
-    },
-    "app/plant-finder <-> app/settings": {
-      "count": 1
-    },
-    "app/plant-finder <-> i18n": {
-      "count": 1
-    },
-    "app/saved-object-stamps <-> i18n": {
-      "count": 1
-    },
-    "app/saved-object-stamps <-> ipc": {
-      "count": 1
-    },
-    "app/saved-views <-> app/settings": {
-      "count": 3
-    },
-    "app/saved-views <-> app/story-presentation": {
-      "count": 2
-    },
-    "app/saved-views <-> i18n": {
-      "count": 2
-    },
-    "app/settings <-> app/shell": {
-      "count": 4
-    },
-    "app/settings <-> i18n": {
-      "count": 1
-    },
-    "app/shell <-> app/timeline": {
-      "count": 1
-    },
-    "canvas (top) <-> canvas/plant-path": {
-      "count": 1
-    },
-    "canvas (top) <-> canvas/runtime": {
-      "count": 26
-    },
-    "canvas (top) <-> canvas/runtime/chrome": {
-      "count": 3
-    },
-    "canvas (top) <-> canvas/runtime/input": {
-      "count": 2
-    },
-    "canvas (top) <-> canvas/runtime/scene": {
-      "count": 1
-    },
-    "canvas (top) <-> canvas/runtime/scene-runtime": {
-      "count": 4
-    },
-    "canvas (top) <-> canvas/runtime/tools": {
-      "count": 4
-    },
-    "canvas/plant-path <-> canvas/point-editor": {
-      "count": 1
-    },
-    "canvas/plant-path <-> canvas/runtime/tools": {
-      "count": 2
-    },
-    "canvas/point-editor <-> canvas/runtime/tools": {
-      "count": 7
-    },
-    "canvas/runtime <-> canvas/runtime/chrome": {
-      "count": 4
-    },
-    "canvas/runtime <-> canvas/runtime/input": {
-      "count": 6
-    },
-    "canvas/runtime <-> canvas/runtime/scene": {
-      "count": 10
-    },
-    "canvas/runtime <-> canvas/runtime/scene-runtime": {
-      "count": 31
-    },
-    "canvas/runtime <-> canvas/runtime/tools": {
-      "count": 24
-    },
-    "canvas/runtime <-> target": {
-      "count": 2
-    },
-    "canvas/runtime/interaction <-> canvas/runtime/scene-runtime": {
-      "count": 1
-    },
-    "canvas/runtime/interaction <-> canvas/runtime/tools": {
-      "count": 1
-    },
-    "canvas/runtime/scene <-> canvas/runtime/scene-runtime": {
-      "count": 10
-    },
-    "canvas/runtime/scene <-> canvas/runtime/tools": {
-      "count": 17
-    },
-    "canvas/runtime/scene-runtime <-> canvas/runtime/tools": {
-      "count": 11
-    },
-    "components/canvas <-> components/shared": {
-      "count": 51
-    }
+    "app/consortium <-> app/design-edit": { "count": 2 },
+    "app/consortium <-> app/document-session": { "count": 3 },
+    "app/consortium <-> app/panel-targets": { "count": 1 },
+    "app/consortium <-> app/planning-projection": { "count": 1 },
+    "app/consortium <-> app/planning-view": { "count": 1 },
+    "app/consortium <-> app/plant-finder": { "count": 3 },
+    "app/design-edit <-> app/document-session": { "count": 3 },
+    "app/design-edit <-> app/plant-display": { "count": 2 },
+    "app/design-edit <-> app/saved-views": { "count": 2 },
+    "app/design-edit <-> app/settings": { "count": 1 },
+    "app/design-edit <-> app/timeline": { "count": 2 },
+    "app/document-session <-> app/planning-projection": { "count": 1 },
+    "app/document-session <-> app/planning-view": { "count": 1 },
+    "app/document-session <-> app/plant-display": { "count": 3 },
+    "app/document-session <-> app/plant-finder": { "count": 1 },
+    "app/document-session <-> app/saved-views": { "count": 3 },
+    "app/document-session <-> app/settings": { "count": 1 },
+    "app/document-session <-> app/shell": { "count": 4 },
+    "app/document-session <-> app/story-presentation": { "count": 1 },
+    "app/document-session <-> app/timeline": { "count": 2 },
+    "app/document-session <-> ipc": { "count": 4 },
+    "app/keyboard <-> app/shell": { "count": 2 },
+    "app/keyboard <-> app/story-presentation": { "count": 1 },
+    "app/map-layers <-> app/saved-views": { "count": 5 },
+    "app/map-layers <-> app/settings": { "count": 3 },
+    "app/map-layers <-> app/story-presentation": { "count": 3 },
+    "app/map-selection <-> app/planning-projection": { "count": 3 },
+    "app/map-selection <-> i18n": { "count": 2 },
+    "app/panel-targets <-> app/plant-finder": { "count": 1 },
+    "app/panel-targets <-> app/story-presentation": { "count": 1 },
+    "app/panel-targets <-> app/timeline": { "count": 1 },
+    "app/planning-projection <-> app/settings": { "count": 1 },
+    "app/planning-projection <-> app/timeline": { "count": 1 },
+    "app/planning-view <-> app/plant-finder": { "count": 1 },
+    "app/planning-view <-> app/timeline": { "count": 1 },
+    "app/plant-browser <-> app/plant-finder": { "count": 2 },
+    "app/plant-browser <-> app/settings": { "count": 1 },
+    "app/plant-display <-> app/plant-finder": { "count": 1 },
+    "app/plant-display <-> app/saved-views": { "count": 2 },
+    "app/plant-display <-> i18n": { "count": 2 },
+    "app/plant-finder <-> app/settings": { "count": 1 },
+    "app/plant-finder <-> i18n": { "count": 1 },
+    "app/saved-views <-> app/settings": { "count": 3 },
+    "app/saved-views <-> app/story-presentation": { "count": 2 },
+    "app/saved-views <-> i18n": { "count": 2 },
+    "app/settings <-> app/shell": { "count": 4 },
+    "app/settings <-> i18n": { "count": 1 },
+    "app/shell <-> app/timeline": { "count": 1 },
+    "canvas (top) <-> canvas/plant-path": { "count": 1 },
+    "canvas (top) <-> canvas/runtime": { "count": 25 },
+    "canvas (top) <-> canvas/runtime/chrome": { "count": 3 },
+    "canvas (top) <-> canvas/runtime/input": { "count": 2 },
+    "canvas (top) <-> canvas/runtime/scene": { "count": 1 },
+    "canvas (top) <-> canvas/runtime/scene-runtime": { "count": 4 },
+    "canvas (top) <-> canvas/runtime/tools": { "count": 4 },
+    "canvas/plant-path <-> canvas/point-editor": { "count": 1 },
+    "canvas/plant-path <-> canvas/runtime/tools": { "count": 2 },
+    "canvas/point-editor <-> canvas/runtime/tools": { "count": 7 },
+    "canvas/runtime <-> canvas/runtime/chrome": { "count": 4 },
+    "canvas/runtime <-> canvas/runtime/input": { "count": 6 },
+    "canvas/runtime <-> canvas/runtime/scene": { "count": 10 },
+    "canvas/runtime <-> canvas/runtime/scene-runtime": { "count": 30 },
+    "canvas/runtime <-> canvas/runtime/tools": { "count": 24 },
+    "canvas/runtime <-> target": { "count": 2 },
+    "canvas/runtime/interaction <-> canvas/runtime/scene-runtime": { "count": 1 },
+    "canvas/runtime/interaction <-> canvas/runtime/tools": { "count": 1 },
+    "canvas/runtime/scene <-> canvas/runtime/scene-runtime": { "count": 10 },
+    "canvas/runtime/scene <-> canvas/runtime/tools": { "count": 17 },
+    "canvas/runtime/scene-runtime <-> canvas/runtime/tools": { "count": 11 },
+    "components/canvas <-> components/shared": { "count": 51 }
   }
 }

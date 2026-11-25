@@ -40,7 +40,7 @@ import { mapAttributionFolded } from '../shell/visible-map-area'
 import { storyPresentationHidesEditingAids } from '../story-presentation/overrides'
 import type { UserLocationReading } from '../../maplibre/user-location-overlay'
 import type { WorkspaceMapContributionAdapter, WorkspaceMapContributionSnapshot } from './workspace-map-contribution-adapter'
-import type { MapLibreCanvasSurfaceState } from '../../maplibre/canvas-surface-state'
+import { createMapLifetimeSlot, type MapLifetimeHandle } from '../../maplibre/map-lifetime'
 import { DEFAULT_NEW_DESIGN_VIEW, geographicViewOfCamera, type GeographicView } from '../../geo/session-plane'
 import type { CameraDriverHost } from '../../geo/view/camera-driver'
 import type { SceneRenderTarget } from '../../canvas/runtime/renderers/scene-types'
@@ -49,13 +49,8 @@ export type WorkspaceRuntimeStartOutcome = WorkspaceActivationOutcome | 'no-desi
 
 export interface WorkspaceRuntimeComposition {
   readonly surfaces: CanvasRuntimeSurfaces
+  readonly mapLifetime: MapLifetimeHandle
   start(): Promise<WorkspaceRuntimeStartOutcome>
-  /**
-   * The map notice's Retry: rebuilds a map that stopped drawing, keeping the Scene, view, selection and
-   * undo, or downloads a basemap that couldn't load again. It can be pressed any number of times; nothing
-   * retries on its own (ADR 0004).
-   */
-  retryMap(): void
   dispose(): Promise<void>
 }
 
@@ -66,8 +61,9 @@ export interface WorkspaceRuntimeComposition {
  */
 export interface WorkspaceRuntimeMountOptions {
   readonly container: HTMLElement
-  readonly onMapStateChange?: (state: MapLibreCanvasSurfaceState) => void
   readonly onFailure?: (error: unknown) => void
+  readonly onRuntimeDestroyed?: () => void
+  readonly onMapFailureStateChange?: (state: 'none' | 'handling' | 'settled') => void
 }
 
 /** The geographic view a settled camera shows, for the app's last-view setting. */
@@ -81,8 +77,9 @@ export interface WorkspaceRuntimeCompositionOptions {
   readonly appAdapter: CanvasRuntimeAppAdapter
   readonly targetPresentation: SceneRuntimePanelTargetAdapter
   readonly mapContributions: WorkspaceMapContributionAdapter
-  readonly onMapStateChange?: (state: MapLibreCanvasSurfaceState) => void
   readonly onFailure?: (error: unknown) => void
+  readonly onRuntimeDestroyed?: () => void
+  readonly onMapFailureStateChange?: (state: 'none' | 'handling' | 'settled') => void
   readonly readSnapshot?: (
     readInitialCenter: () => { readonly lat: number; readonly lon: number },
   ) => WorkspaceActivationSnapshot | null
@@ -110,8 +107,6 @@ interface WorkspaceCompositionRuntime extends WorkspaceActivationRuntime {
 interface WorkspaceCompositionLifecycle extends WorkspaceGenerationLifecycle {
   updateBackgroundPresentation(presentation: MapBackgroundPresentation): void
   updateMapContributions(snapshot: WorkspaceMapContributionSnapshot | null): void
-  /** Whether a Retry could rebuild an unavailable map (WorkspaceActivationCoordinator.canRetry). */
-  canRetry(): boolean
 }
 
 /** Constructor-only test seam. Production callers use the default cohesive assembly. */
@@ -144,15 +139,16 @@ export function createWorkspaceRuntimeComposition(
     targetPresentation: options.targetPresentation,
   })
   const rendererComposition = dependencies.createRendererComposition((target) => runtime.connectRenderTarget(target))
-  // The one writer of `retryable`: a map error offers Retry only while the workspace could rebuild the map.
-  // The controls' own state is kept, so Retry appears once the workspace allows it (a failure settled).
-  let mapState: MapLibreCanvasSurfaceState | null = null
-  const publishMapState = (state: MapLibreCanvasSurfaceState) => {
-    mapState = state
-    options.onMapStateChange?.({ ...state, retryable: state.status === 'error' && workspace.canRetry() })
-  }
   const siteHover = options.mapContributions.readSiteHover ? createContributionFeed<readonly [number, number]>() : null
   const userLocation = options.mapContributions.readUserLocation ? createContributionFeed<UserLocationReading>() : null
+  let disposeResult: Promise<void> | null = null
+  const mapSlot = createMapLifetimeSlot({
+    restart: () => (disposeResult ? false : reconciler.retry()),
+    retryLayer: (slot) => {
+      if (!disposeResult && slot === 'background') controls.retryBasemap()
+    },
+    release: () => {},
+  })
   const controls = dependencies.createControls({
     container: options.container,
     // The map container's resizes reach the live camera driver's setScreen: the driver is the map's one resize owner (both maps
@@ -165,15 +161,14 @@ export function createWorkspaceRuntimeComposition(
       createRasterDisplay: options.mapContributions.createRasterDisplay,
       siteHover: siteHover ?? undefined,
       userLocation: userLocation ?? undefined,
-      onStateChange: publishMapState,
+      userLocationOverlay: options.mapContributions.userLocationOverlay,
+      onMapLifetimeChange: (next) => mapSlot.setState(next),
     },
   })
   // Read without subscribing: the camera and scene layer call this per frame.
   const readOrigin = () => {
-    const plane = runtime.querySurface.sessionPlane.peek()
-    return plane
-      ? { lat: plane.origin.lat, lon: plane.origin.lon }
-      : { lat: DEFAULT_NEW_DESIGN_VIEW.lat, lon: DEFAULT_NEW_DESIGN_VIEW.lon }
+    const origin = runtime.querySurface.sessionPlane.peek()?.origin ?? DEFAULT_NEW_DESIGN_VIEW
+    return { lat: origin.lat, lon: origin.lon }
   }
   const workspace = dependencies.createWorkspace({
     container: options.container,
@@ -182,10 +177,8 @@ export function createWorkspaceRuntimeComposition(
     composition: rendererComposition,
     map: controls,
     readOrigin,
-    // A map error's Retry follows the workspace: offered once a failure settles, withdrawn once it can no longer rebuild.
-    onRetryAvailabilityChange: () => {
-      if (mapState?.status === 'error') publishMapState(mapState)
-    },
+    ...(options.onMapFailureStateChange ? { onMapFailureStateChange: options.onMapFailureStateChange } : {}),
+    ...(options.onRuntimeDestroyed ? { onRuntimeDestroyed: options.onRuntimeDestroyed } : {}),
   })
   const reconciler = new WorkspaceGenerationReconciler({
     workspace,
@@ -207,11 +200,7 @@ export function createWorkspaceRuntimeComposition(
   }
   let startResult: Promise<WorkspaceRuntimeStartOutcome> | null = null
   let cancelledStartResult: Promise<WorkspaceRuntimeStartOutcome> | null = null
-  let disposeResult: Promise<void> | null = null
-  let disposePresentationEffect: (() => void) | null = null
-  let disposeSettleEffect: (() => void) | null = null
-  let disposeSiteHoverEffect: (() => void) | null = null
-  let disposeUserLocationEffect: (() => void) | null = null
+  const effectDisposers: Array<() => void> = []
   let settleTimer: ReturnType<typeof setTimeout> | null = null
   const clearSettleTimer = () => {
     if (settleTimer !== null) clearTimeout(settleTimer)
@@ -219,6 +208,7 @@ export function createWorkspaceRuntimeComposition(
   }
   return {
     surfaces,
+    mapLifetime: mapSlot.handle,
     start() {
       if (disposeResult) {
         cancelledStartResult ??= Promise.resolve('cancelled')
@@ -232,7 +222,7 @@ export function createWorkspaceRuntimeComposition(
       try {
         if (options.onViewSettled) {
           const onViewSettled = options.onViewSettled
-          disposeSettleEffect = dependencies.installEffect(() => {
+          effectDisposers.push(dependencies.installEffect(() => {
             const camera = runtime.querySurface.view.settledCamera.value
             const plane = runtime.querySurface.sessionPlane.value
             clearSettleTimer()
@@ -244,28 +234,28 @@ export function createWorkspaceRuntimeComposition(
               if (!documents.hasLoadedDocument() || options.appAdapter.isReadOnly()) return
               onViewSettled(geographicViewOfCamera(camera))
             }, WORKSPACE_VIEW_SETTLE_MS)
-          })
+          }))
         }
         // The chart hover changes at scrub rate: its own effect feeds the map's hover source, never the contributions read.
         const readSiteHover = options.mapContributions.readSiteHover
         if (siteHover && readSiteHover) {
-          disposeSiteHoverEffect = dependencies.installEffect(() => siteHover.publish(readSiteHover()))
+          effectDisposers.push(dependencies.installEffect(() => siteHover.publish(readSiteHover())))
         }
         // The device location, at fix rate, on its own feed: a story presentation hides it (it shows the story's map only, Q12).
         const readUserLocation = options.mapContributions.readUserLocation
         if (userLocation && readUserLocation) {
-          disposeUserLocationEffect = dependencies.installEffect(() => {
+          effectDisposers.push(dependencies.installEffect(() => {
             userLocation.publish(storyPresentationHidesEditingAids.value ? null : readUserLocation())
-          })
+          }))
         }
-        disposePresentationEffect = dependencies.installEffect(() => {
+        effectDisposers.push(dependencies.installEffect(() => {
           workspace.updateMapContributions(options.mapContributions.read(runtime.querySurface))
           workspace.updateBackgroundPresentation(
             (options.readBackgroundPresentation ?? readWorkspaceBackgroundPresentation)(),
           )
           // Whether the map credits fold into their (i) button: the visible map area decides.
           controls.setAttributionCompact(mapAttributionFolded.value)
-        })
+        }))
         void reconciler.reconcileInitialGeneration().then(
           resolveStart,
           (error: unknown) => {
@@ -279,37 +269,22 @@ export function createWorkspaceRuntimeComposition(
       }
       return startResult
     },
-    retryMap() {
-      if (disposeResult) return
-      if (mapState?.status !== 'error') {
-        controls.retryBasemap()
-        return
-      }
-      // A refused Retry that can never succeed withdraws the button.
-      if (!reconciler.retry()) publishMapState(mapState)
-    },
     dispose() {
       if (disposeResult) return disposeResult
+      mapSlot.handle.release()
       let resolveDispose!: () => void
       let rejectDispose!: (error: unknown) => void
       disposeResult = new Promise<void>((resolve, reject) => {
         resolveDispose = resolve
         rejectDispose = reject
       })
-      const presentationEffect = disposePresentationEffect
-      const settleEffect = disposeSettleEffect
-      const siteHoverEffect = disposeSiteHoverEffect
-      const userLocationEffect = disposeUserLocationEffect
-      disposePresentationEffect = null
-      disposeSettleEffect = null
-      disposeSiteHoverEffect = null
-      disposeUserLocationEffect = null
+      const disposers = effectDisposers.splice(0)
       clearSettleTimer()
       void (async () => {
         const errors: unknown[] = []
-        for (const disposeEffect of [settleEffect, siteHoverEffect, userLocationEffect, presentationEffect]) {
+        for (const disposeEffect of disposers) {
           try {
-            disposeEffect?.()
+            disposeEffect()
           } catch (error) {
             errors.push(error)
           }

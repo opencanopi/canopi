@@ -39,7 +39,6 @@ import { clearPlantStampSource, readPlantStampSource, selectPlantStampSource } f
 import { clearSavedObjectStampSource, selectSavedObjectStampSource } from '../saved-object-stamp-source'
 import { currentCanvasTool, currentCanvasToolGuidance, currentCanvasSelection } from '../session-state'
 import {
-  hoveredCanvasTargets,
   hoveredPanelTargets,
   selectedPanelTargetOrigin,
   selectedPanelTargets,
@@ -70,9 +69,12 @@ import {
 } from './scene-runtime/transactions'
 import {
   createDetachedCanvasRuntimeAppAdapter,
-  type CanvasRuntimeAppAdapter,
-  type CanvasRuntimeDocumentCompositionInput,
-  type CanvasRuntimeSettingsAdapter,
+  createTestSceneCanvasRuntime,
+} from '../../__tests__/support/detached-canvas-app-adapter'
+import type {
+  CanvasRuntimeAppAdapter,
+  CanvasRuntimeDocumentCompositionInput,
+  CanvasRuntimeSettingsAdapter,
 } from './app-adapter'
 import { getCommonNames } from '../../ipc/species'
 
@@ -334,9 +336,9 @@ function createRuntimeContainer(): HTMLDivElement {
 const stubbedRenderers = new WeakMap<SceneCanvasRuntime, RendererStub>()
 
 /** A runtime whose target slot holds one renderer stub, which initRuntimeWithStubbedRenderer returns. */
-function stubbedRuntime(options: ConstructorParameters<typeof SceneCanvasRuntime>[0] = {}): SceneCanvasRuntime {
+function stubbedRuntime(options: Partial<ConstructorParameters<typeof SceneCanvasRuntime>[0]> = {}): SceneCanvasRuntime {
   const renderer = createRendererStub()
-  const runtime = new SceneCanvasRuntime(options)
+  const runtime = createTestSceneCanvasRuntime(options)
   runtime.connectRenderTarget(renderer)
   stubbedRenderers.set(runtime, renderer)
   return runtime
@@ -498,13 +500,9 @@ function composeTestDocumentForSave({
 
 function createPanelTargetAdapterProbe(initialTargets: readonly PanelTarget[] = []) {
   let panelOriginTargets = initialTargets
-  let canvasHoverTargets: readonly PanelTarget[] = []
   const subscribers = new Set<() => void>()
   const adapter: SceneRuntimePanelTargetAdapter = {
     readPanelOriginTargets: () => panelOriginTargets,
-    setCanvasHoverTargets: (targets) => {
-      canvasHoverTargets = [...targets]
-    },
     clearPanelOriginTargets: () => {
       panelOriginTargets = []
       subscribers.forEach((notify) => notify())
@@ -521,9 +519,6 @@ function createPanelTargetAdapterProbe(initialTargets: readonly PanelTarget[] = 
       panelOriginTargets = targets
       subscribers.forEach((notify) => notify())
     },
-    get canvasHoverTargets() {
-      return canvasHoverTargets
-    },
     get panelOriginTargets() {
       return panelOriginTargets
     },
@@ -539,7 +534,6 @@ describe('scene canvas runtime', () => {
     clearPlantStampSource()
     clearSavedObjectStampSource()
     snapToGridEnabled.value = false
-    hoveredCanvasTargets.value = []
     hoveredPanelTargets.value = []
     selectedPanelTargetOrigin.value = null
     selectedPanelTargets.value = []
@@ -1176,7 +1170,7 @@ describe('scene canvas runtime', () => {
   })
 
   it('blocks history while a long-lived Scene Edit owns the Scene', () => {
-    const runtime = new SceneCanvasRuntime()
+    const runtime = createTestSceneCanvasRuntime()
     runtime.documentSurface.loadDocument(fileWithOnlyPlants('plant-1'))
     const sceneEdits = (runtime as unknown as { _sceneCommands: SceneEditCoordinator })._sceneCommands
     sceneEdits.run('move-before-drag', (tx) => {
@@ -1203,7 +1197,7 @@ describe('scene canvas runtime', () => {
   })
 
   it('renames a zone as one undoable edit that keeps its id', () => {
-    const runtime = new SceneCanvasRuntime()
+    const runtime = createTestSceneCanvasRuntime()
     runtime.documentSurface.loadDocument(makeFile())
     const edits = runtime.commandSurface.sceneEdits
     const zone = () => runtime.querySurface.getSceneSnapshot().zones[0]!
@@ -1228,7 +1222,7 @@ describe('scene canvas runtime', () => {
   it('does not rename a zone inside a locked group', () => {
     const file = makeFile()
     file.groups = [{ id: 'group-1', name: null, locked: true, members: [{ kind: 'zone', id: 'zone-1' }] }]
-    const runtime = new SceneCanvasRuntime()
+    const runtime = createTestSceneCanvasRuntime()
     runtime.documentSurface.loadDocument(file)
     expect(runtime.commandSurface.sceneEdits.renameZone('zone-1', 'North bed')).toBe(false)
     expect(runtime.querySurface.getSceneSnapshot().zones[0]!.name).toBeNull()
@@ -1242,7 +1236,7 @@ describe('scene canvas runtime', () => {
       { ...file, zones: [{ ...file.zones[0]!, locked: true }] },
       { ...file, layers: file.layers.map((layer) => layer.name === 'zones' ? { ...layer, locked: true } : layer) },
     ]) {
-      const runtime = new SceneCanvasRuntime()
+      const runtime = createTestSceneCanvasRuntime()
       runtime.documentSurface.loadDocument(locked)
       expect(runtime.commandSurface.sceneEdits.renameZone('zone-1', 'North bed')).toBe(false)
       expect(runtime.querySurface.getSceneSnapshot().zones[0]!.name).toBeNull()
@@ -1251,7 +1245,7 @@ describe('scene canvas runtime', () => {
   })
 
   it('captures print content only after an edit settles without changing history or dirty state', () => {
-    const runtime = new SceneCanvasRuntime()
+    const runtime = createTestSceneCanvasRuntime()
     runtime.documentSurface.loadDocument(fileWithOnlyPlants('plant-1'))
     const sceneEdits = (runtime as unknown as { _sceneCommands: SceneEditCoordinator })._sceneCommands
     const before = runtime.querySurface.getSceneSnapshot()
@@ -1270,7 +1264,7 @@ describe('scene canvas runtime', () => {
   })
 
   it('captures a saved view scene without selection or session changes, and not during an edit', () => {
-    const runtime = new SceneCanvasRuntime()
+    const runtime = createTestSceneCanvasRuntime()
     runtime.documentSurface.loadDocument(fileWithOnlyPlants('plant-1'))
     runtime.commandSurface.sceneEdits.selectAll()
     const selection = runtime.querySurface.getSelection()
@@ -1305,7 +1299,7 @@ describe('scene canvas runtime', () => {
   })
 
   it('presents only a story step’s layers, without selection or measurement guides, and changes nothing in the Scene', () => {
-    const runtime = new SceneCanvasRuntime()
+    const runtime = createTestSceneCanvasRuntime()
     runtime.documentSurface.loadDocument(fileWithOnlyPlants('plant-1'))
     const sceneEdits = (runtime as unknown as { _sceneCommands: SceneEditCoordinator })._sceneCommands
     sceneEdits.run('guide-add', (tx) => {
@@ -1343,7 +1337,7 @@ describe('scene canvas runtime', () => {
   })
 
   it('canopi-rg4q: a presented story step rings its plants on the canvas, and a view capture rings none', () => {
-    const runtime = new SceneCanvasRuntime({ targetPresentation: createAppSceneRuntimePanelTargetAdapter() })
+    const runtime = createTestSceneCanvasRuntime({ targetPresentation: createAppSceneRuntimePanelTargetAdapter() })
     runtime.documentSurface.loadDocument(fileWithOnlyPlants('plant-1', 'plant-2'))
     const layerNames = runtime.querySurface.getSceneSnapshot().layers.map((layer) => layer.name)
     const presentation = (runtime as unknown as { _presentation: SceneRuntimePresentationController })._presentation
@@ -1443,7 +1437,7 @@ describe('scene canvas runtime', () => {
   })
 
   it('shows a searched place by moving only the view', () => {
-    const runtime = new SceneCanvasRuntime()
+    const runtime = createTestSceneCanvasRuntime()
     runtime.documentSurface.loadDocument(fileWithOnlyPlants('plant-1'))
     const scene = runtime.querySurface.getSceneSnapshot()
     const plane = runtime.querySurface.sessionPlane.value!
@@ -1462,7 +1456,7 @@ describe('scene canvas runtime', () => {
   })
 
   it('shows a place far from the plane origin at the MapLibre zoom it asked for', () => {
-    const runtime = new SceneCanvasRuntime()
+    const runtime = createTestSceneCanvasRuntime()
     runtime.documentSurface.loadDocument(fileWithOnlyPlants('plant-1'))
     const plane = runtime.querySurface.sessionPlane.value!
     const oslo = { lon: 10.75, lat: plane.origin.lat + 11 }
@@ -1475,7 +1469,7 @@ describe('scene canvas runtime', () => {
   })
 
   it('asks the camera to fly to a place only for fly motion', () => {
-    const runtime = new SceneCanvasRuntime()
+    const runtime = createTestSceneCanvasRuntime()
     runtime.documentSurface.loadDocument(fileWithOnlyPlants('plant-1'))
     const apply = vi.spyOn(runtime.cameraHost.current(), 'apply')
     const place = runtime.querySurface.sessionPlane.value!.toGeo({ x: 40, y: 10 })
@@ -1488,7 +1482,7 @@ describe('scene canvas runtime', () => {
   })
 
   it('an undo whose render publication throws keeps its step through the public command surface', () => {
-    const runtime = new SceneCanvasRuntime()
+    const runtime = createTestSceneCanvasRuntime()
     runtime.documentSurface.loadDocument(fileWithOnlyPlants('plant-1'))
     const sceneEdits = (runtime as unknown as { _sceneCommands: SceneEditCoordinator })._sceneCommands
     sceneEdits.run('move-before-undo', (tx) => {
@@ -1517,7 +1511,7 @@ describe('scene canvas runtime', () => {
   })
 
   it('admits whole Scene commands only while the Scene is settled', () => {
-    const runtime = new SceneCanvasRuntime()
+    const runtime = createTestSceneCanvasRuntime()
     const file = fileWithOnlyPlants('plant-1', 'plant-2')
     file.plant_species_colors['Malus domestica'] = '#335577'
     runtime.documentSurface.loadDocument(file)
@@ -1561,7 +1555,7 @@ describe('scene canvas runtime', () => {
   })
 
   it('blocks spatial command mutations in overview while preserving read and layer roles', () => {
-    const runtime = new SceneCanvasRuntime()
+    const runtime = createTestSceneCanvasRuntime()
     runtime.documentSurface.loadDocument(fileWithOnlyPlants('plant-1', 'plant-2'))
     runtime.commandSurface.sceneEdits.selectAll()
     runtime.commandSurface.sceneEdits.copy()
@@ -1674,7 +1668,7 @@ describe('scene canvas runtime', () => {
   })
 
   it('groups, duplicates, and deletes grouped scene entities', () => {
-    const runtime = new SceneCanvasRuntime()
+    const runtime = createTestSceneCanvasRuntime()
     runtime.documentSurface.loadDocument(fileWithOnlyPlants('plant-1', 'plant-2'))
 
     runtime.commandSurface.sceneEdits.selectAll()
@@ -1702,7 +1696,7 @@ describe('scene canvas runtime', () => {
   })
 
   it('selectAll prefers top-level group ids and skips locked items', () => {
-    const runtime = new SceneCanvasRuntime()
+    const runtime = createTestSceneCanvasRuntime()
     const file = makeFile()
     file.groups = [
       {
@@ -1726,7 +1720,7 @@ describe('scene canvas runtime', () => {
   })
 
   it('keeps Species focus separate from selection, history and saved content, and resets on replacement', () => {
-    const runtime = new SceneCanvasRuntime()
+    const runtime = createTestSceneCanvasRuntime()
     runtime.documentSurface.loadDocument(fileWithGroupedPair())
     runtime.commandSurface.sceneEdits.selectAll()
     const selection = runtime.querySurface.getSelection()
@@ -1749,7 +1743,7 @@ describe('scene canvas runtime', () => {
   })
 
   it('applies selected plant colors through grouped selection', () => {
-    const runtime = new SceneCanvasRuntime()
+    const runtime = createTestSceneCanvasRuntime()
     runtime.documentSurface.loadDocument(fileWithGroupedPair())
     runtime.commandSurface.sceneEdits.selectAll()
 
@@ -1764,7 +1758,7 @@ describe('scene canvas runtime', () => {
   })
 
   it('applies selected plant symbols through grouped selection', () => {
-    const runtime = new SceneCanvasRuntime()
+    const runtime = createTestSceneCanvasRuntime()
     runtime.documentSurface.loadDocument(fileWithGroupedPair())
     runtime.commandSurface.sceneEdits.selectAll()
 
@@ -1780,7 +1774,7 @@ describe('scene canvas runtime', () => {
   })
 
   it('sets species plant symbols through undoable scene history', () => {
-    const runtime = new SceneCanvasRuntime()
+    const runtime = createTestSceneCanvasRuntime()
     runtime.documentSurface.loadDocument(fileWithGroupedPair())
 
     const changed = runtime.commandSurface.plantPresentation.setPlantSymbolForSpecies('Malus domestica', 'canopy')
@@ -1966,7 +1960,7 @@ describe('scene canvas runtime', () => {
   })
 
   it('publishes current cache changes with one scene invalidation', async () => {
-    const runtime = new SceneCanvasRuntime()
+    const runtime = createTestSceneCanvasRuntime()
     runtime.documentSurface.loadDocument(makeFile())
     const invalidate = vi.spyOn(runtime as any, '_invalidate')
 
@@ -1988,7 +1982,7 @@ describe('scene canvas runtime', () => {
   })
 
   it('derives selected plant context from scene session, not the mirror signal', () => {
-    const runtime = new SceneCanvasRuntime()
+    const runtime = createTestSceneCanvasRuntime()
     runtime.documentSurface.loadDocument(fileWithOnlyPlants('plant-1'))
 
     runtime.commandSurface.sceneEdits.selectAll()
@@ -1998,7 +1992,7 @@ describe('scene canvas runtime', () => {
   })
 
   it('keeps runtime-backed selection authoritative over the mirror signal', () => {
-    const runtime = new SceneCanvasRuntime()
+    const runtime = createTestSceneCanvasRuntime()
     runtime.documentSurface.loadDocument(fileWithOnlyPlants('plant-1'))
 
     runtime.commandSurface.sceneEdits.selectAll()
@@ -2028,7 +2022,7 @@ describe('scene canvas runtime', () => {
     const file = makeFile()
     file.plants[0] = { ...file.plants[0]!, id: 'shared-id' }
     file.zones[0] = { ...file.zones[0]!, id: 'shared-id' }
-    const runtime = new SceneCanvasRuntime()
+    const runtime = createTestSceneCanvasRuntime()
     runtime.documentSurface.loadDocument(file)
     const sceneEdits = (runtime as unknown as { _sceneCommands: SceneEditCoordinator })._sceneCommands
     const publications: string[][] = []
@@ -2055,7 +2049,7 @@ describe('scene canvas runtime', () => {
     const file = makeFile()
     file.plants[0] = { ...file.plants[0]!, id: 'shared-id' }
     file.zones[0] = { ...file.zones[0]!, id: 'shared-id' }
-    const runtime = new SceneCanvasRuntime()
+    const runtime = createTestSceneCanvasRuntime()
     runtime.documentSurface.loadDocument(file)
     const sceneEdits = (runtime as unknown as { _sceneCommands: SceneEditCoordinator })._sceneCommands
     const plant = plantTarget('shared-id')
@@ -2079,7 +2073,7 @@ describe('scene canvas runtime', () => {
   })
 
   it('keeps document replacement behind settled Scene admission', () => {
-    const runtime = new SceneCanvasRuntime()
+    const runtime = createTestSceneCanvasRuntime()
     runtime.documentSurface.loadDocument(fileWithOnlyPlants('plant-1'))
     const sceneEdits = (runtime as unknown as { _sceneCommands: SceneEditCoordinator })._sceneCommands
     const active = sceneEdits.begin('interaction-drag')
@@ -2120,13 +2114,12 @@ describe('scene canvas runtime', () => {
     let failPanelTargetCleanup = false
     const targetPresentation: SceneRuntimePanelTargetAdapter = {
       readPanelOriginTargets: () => [],
-      setCanvasHoverTargets: () => {},
       clearPanelOriginTargets: () => {
         if (failPanelTargetCleanup) throw new Error('panel target cleanup failed')
       },
       subscribePanelOriginTargetChanges: () => () => {},
     }
-    const runtime = new SceneCanvasRuntime({ targetPresentation })
+    const runtime = createTestSceneCanvasRuntime({ targetPresentation })
     runtime.documentSurface.loadDocument(fileWithOnlyPlants('plant-1'))
     runtime.commandSurface.sceneEdits.selectAll()
     expect(runtime.querySurface.getSelection()).toEqual([plantTarget('plant-1')])
@@ -2177,21 +2170,39 @@ describe('scene canvas runtime', () => {
 
   it('rolls back Session listeners and the renderer mount when the initial render fails', async () => {
     const container = createRuntimeContainer()
-    const events = createSceneInteractionEventHarness(container, { trackListeners: true })
+    const events = createSceneInteractionEventHarness(container)
     const renderer = createRendererStub()
     renderer.setSnapshot.mockImplementation(() => {
       throw new Error('initial render failed')
     })
-    const runtime = new SceneCanvasRuntime()
+    const runtime = createTestSceneCanvasRuntime()
     runtime.connectRenderTarget(renderer)
+    runtime.documentSurface.loadDocument(fileWithOnlyPlants('plant-1'))
 
     await expect(runtime.init(container)).rejects.toThrow('initial render failed')
 
-    // The source's press listener and the selection-drag guard's.
-    expect(events.listenerLog?.containerRemoves('pointerdown')).toHaveLength(2)
-    expect(events.listenerLog?.containerRemoves('pointermove')).toHaveLength(1)
-    expect(events.listenerLog?.windowRemoves('blur')).toHaveLength(1)
+    const plantScreen = screenOf(runtime, 10, 10)
+    const positionBefore = { ...runtime.querySurface.getSceneSnapshot().plants[0]!.position }
+    events.pointerCapture.setCalls.mockClear()
+    const windowErrors: unknown[] = []
+    const onWindowError = (event: ErrorEvent): void => {
+      windowErrors.push(event.error)
+      event.preventDefault()
+    }
+    window.addEventListener('error', onWindowError)
+    try {
+      events.pointerMove(plantScreen)
+      events.pointerDown(plantScreen)
+      events.pointerMove({ x: plantScreen.x + 20, y: plantScreen.y + 20 }, { target: window })
+      events.windowBlur()
+    } finally {
+      window.removeEventListener('error', onWindowError)
+    }
+
+    expect(windowErrors).toEqual([])
     expect(document.querySelector('[data-hover-tooltip]')).toBeNull()
+    expect(runtime.querySurface.getSceneSnapshot().plants[0]?.position).toEqual(positionBefore)
+    expect(events.pointerCapture.setCalls).not.toHaveBeenCalled()
     expect((runtime as any)._rendering.container).toBeNull()
     events.dispose()
     runtime.destroy()
@@ -2437,7 +2448,7 @@ describe('scene canvas runtime', () => {
   })
 
   it('describes editable top-level Design Object selection with visual bounds', () => {
-    const runtime = new SceneCanvasRuntime()
+    const runtime = createTestSceneCanvasRuntime()
     runtime.documentSurface.loadDocument(fileWithOnlyZone())
 
     runtime.commandSurface.sceneEdits.selectAll()
@@ -2462,7 +2473,7 @@ describe('scene canvas runtime', () => {
   })
 
   it('describes selected Design Objects blocked by locked Layers', () => {
-    const runtime = new SceneCanvasRuntime()
+    const runtime = createTestSceneCanvasRuntime()
     runtime.documentSurface.loadDocument(fileWithOnlyZone())
     runtime.commandSurface.sceneEdits.selectAll()
 
@@ -2623,7 +2634,7 @@ describe('scene canvas runtime', () => {
     runtime.destroy()
   })
 
-  it('uses the injected panel target adapter for highlights and canvas-origin hover', async () => {
+  it('uses the injected panel target adapter for highlights', async () => {
     const panelTargetProbe = createPanelTargetAdapterProbe()
     const runtime = stubbedRuntime({ targetPresentation: panelTargetProbe.adapter })
     runtime.documentSurface.loadDocument(makeFile())
@@ -2638,9 +2649,6 @@ describe('scene canvas runtime', () => {
 
     const snapshot = renderer.setSnapshot.mock.calls[renderer.setSnapshot.mock.calls.length - 1]?.[0]
     expect(snapshot?.highlightedPlantIds).toEqual(new Set(['plant-1', 'plant-2']))
-
-    ;(runtime as any)._interaction._deps.setHoveredTarget(plantTarget('plant-1'))
-    expect(panelTargetProbe.canvasHoverTargets).toEqual([speciesTarget('Malus domestica')])
 
     panelTargetProbe.setPanelOriginTargets([{ kind: 'zone', zone_id: 'zone-1' }])
     runtime.documentSurface.replaceDocument(
@@ -2676,7 +2684,7 @@ describe('scene canvas runtime', () => {
   })
 
   it('stales existing persistence receipts and rejects new capture after destroy', () => {
-    const runtime = new SceneCanvasRuntime()
+    const runtime = createTestSceneCanvasRuntime()
     const file = fileWithOnlyPlants('plant-1')
     runtime.documentSurface.loadDocument(file)
     const capture = runtime.documentSurface.captureForPersistence({ name: file.name }, file)
@@ -2732,7 +2740,7 @@ describe('scene canvas runtime', () => {
   })
 
   it('preserves document-owned fields when serializing with the detached runtime adapter', () => {
-    const runtime = new SceneCanvasRuntime()
+    const runtime = createTestSceneCanvasRuntime()
     const file = {
       ...makeFile(),
       description: 'Loaded description',
@@ -2794,7 +2802,7 @@ describe('scene canvas runtime', () => {
   })
 
   it('saves unedited loaded positions back on the 1e-9° grid in detached composition', () => {
-    const runtime = new SceneCanvasRuntime()
+    const runtime = createTestSceneCanvasRuntime()
     const file = makeFile()
     runtime.documentSurface.loadDocument(file)
 
@@ -2807,44 +2815,6 @@ describe('scene canvas runtime', () => {
       .toEqual(file.plants.map((plant) => roundGeoPosition(plant.position)))
     expect(serialized.zones.map((zone) => zone.points))
       .toEqual(file.zones.map((zone) => zone.points.map(roundGeoPosition)))
-  })
-
-  it('publishes canvas-origin species hover targets without mutating selection', async () => {
-    const cleanState = createCleanStateAdapterProbe()
-    const runtime = createRuntimeWithAppPanelTargets(cleanState.adapter)
-    runtime.documentSurface.loadDocument(makeFile())
-    cleanState.setCanvasClean.mockClear()
-    await initRuntimeWithStubbedRenderer(runtime)
-
-    ;(runtime as any)._interaction._deps.setHoveredTarget(plantTarget('plant-1'))
-
-    expect(hoveredCanvasTargets.value).toEqual([speciesTarget('Malus domestica')])
-    expect(runtime.querySurface.getSelection().length).toBe(0)
-    expect(currentCanvasSelection.value.size).toBe(0)
-    expect(cleanState.setCanvasClean).not.toHaveBeenCalledWith(false)
-
-    ;(runtime as any)._interaction._deps.setHoveredTarget(null)
-
-    expect(hoveredCanvasTargets.value).toEqual([])
-    expect(runtime.querySurface.getSelection().length).toBe(0)
-    expect(currentCanvasSelection.value.size).toBe(0)
-    expect(cleanState.setCanvasClean).not.toHaveBeenCalledWith(false)
-    runtime.destroy()
-  })
-
-  it('clears canvas-origin hover during destroy without rendering into a disposing renderer', async () => {
-    const runtime = createRuntimeWithAppPanelTargets()
-    runtime.documentSurface.loadDocument(makeFile())
-    const { renderer } = await initRuntimeWithStubbedRenderer(runtime)
-
-    ;(runtime as any)._interaction._deps.setHoveredTarget(plantTarget('plant-1'))
-    expect(hoveredCanvasTargets.value).toEqual([speciesTarget('Malus domestica')])
-
-    renderer.setSnapshot.mockClear()
-    runtime.destroy()
-
-    expect(hoveredCanvasTargets.value).toEqual([])
-    expect(renderer.setSnapshot).not.toHaveBeenCalled()
   })
 
   it('asks the target for a repaint on a zoom and publishes no snapshot', async () => {
@@ -3189,7 +3159,7 @@ describe('scene canvas runtime', () => {
   })
 
   it('mounts the renderer and editing again after a map failure, keeping the Scene, view, selection and undo', async () => {
-    const runtime = new SceneCanvasRuntime()
+    const runtime = createTestSceneCanvasRuntime()
     runtime.connectRenderTarget(createRendererStub())
     const container = createRuntimeContainer()
     await runtime.init(container)
@@ -3238,7 +3208,7 @@ describe('scene canvas runtime', () => {
   })
 
   it('a runtime mounts synchronously and draws on its first frame', async () => {
-    const runtime = new SceneCanvasRuntime()
+    const runtime = createTestSceneCanvasRuntime()
     const target = createRendererStub()
     runtime.connectRenderTarget(target)
     runtime.documentSurface.loadDocument(fileWithOnlyPlants('plant-1'))
@@ -3543,7 +3513,7 @@ describe('scene canvas runtime', () => {
   })
 
   it('keeps Measurement Guides out of Object Groups', () => {
-    const runtime = new SceneCanvasRuntime()
+    const runtime = createTestSceneCanvasRuntime()
     const file = fileWithMeasurementGuide()
     file.plants = [makeFile().plants[0]!]
     file.zones = [makeFile().zones[0]!]
@@ -3654,7 +3624,7 @@ describe('scene canvas runtime', () => {
   })
 
   it('invalidates the scene after select-all and lock mutations', () => {
-    const runtime = new SceneCanvasRuntime()
+    const runtime = createTestSceneCanvasRuntime()
     runtime.documentSurface.loadDocument(makeFile())
     const invalidate = vi.spyOn(runtime as any, '_invalidate')
 

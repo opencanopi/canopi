@@ -9,7 +9,8 @@ import {
   currentCanvasTool,
   setCurrentCanvasSession,
 } from '../canvas/session'
-import { SceneCanvasRuntime } from '../canvas/runtime/scene-runtime'
+import { createTestSceneCanvasRuntime } from './support/detached-canvas-app-adapter'
+import type { SceneCanvasRuntime } from '../canvas/runtime/scene-runtime'
 import { createForwardingCanvasKeyboardPort } from '../canvas/runtime/keyboard-port'
 import {
   createDefaultScenePersistedState,
@@ -206,7 +207,7 @@ describe('canvas runtime surfaces', () => {
   })
 
   it('publishes explicit facades instead of the mounted runtime', () => {
-    const runtime = new SceneCanvasRuntime()
+    const runtime = createTestSceneCanvasRuntime()
     const surfaces = createCanvasRuntimeSurfaces(runtime)
 
     try {
@@ -224,7 +225,7 @@ describe('canvas runtime surfaces', () => {
   })
 
   it('routes representative command, query, and document behavior through role surfaces', () => {
-    const runtime = new SceneCanvasRuntime()
+    const runtime = createTestSceneCanvasRuntime()
     const surfaces = createCanvasRuntimeSurfaces(runtime)
     const file = serializeScenePersistedState(createDefaultScenePersistedState(), createSessionPlane(DEFAULT_NEW_DESIGN_VIEW))
 
@@ -284,7 +285,7 @@ describe('canvas runtime surfaces', () => {
   })
 
   it('reports whether a runtime has loaded a document without caller monkey-patching', () => {
-    const runtime = new SceneCanvasRuntime()
+    const runtime = createTestSceneCanvasRuntime()
     const surfaces = createCanvasRuntimeSurfaces(runtime)
     const file = serializeScenePersistedState(createDefaultScenePersistedState(), createSessionPlane(DEFAULT_NEW_DESIGN_VIEW))
 
@@ -298,7 +299,7 @@ describe('canvas runtime surfaces', () => {
   })
 
   it('offers Undo and Redo only once the Scene is settled: an open edit greys both, and they come back when it ends', () => {
-    const runtime = new SceneCanvasRuntime()
+    const runtime = createTestSceneCanvasRuntime()
     const { commands, documents } = createCanvasRuntimeSurfaces(runtime)
     try {
       documents.loadDocument(twoApples())
@@ -322,7 +323,7 @@ describe('canvas runtime surfaces', () => {
   })
 
   it('canopi-knon: label coverage counts no plants while Plants is at opacity 0', async () => {
-    const runtime = new SceneCanvasRuntime()
+    const runtime = createTestSceneCanvasRuntime()
     runtime.connectRenderTarget({ setSnapshot: vi.fn(), setDraft: vi.fn(), requestRender: vi.fn() })
     const container = document.createElement('div')
     document.body.appendChild(container)

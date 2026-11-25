@@ -8,7 +8,7 @@
     "desktop/web/src/app/community/controller.ts": { "count": 16 },
     "desktop/web/src/app/consortium/dock-workbench.ts": { "count": 12 },
     "desktop/web/src/app/data-library/actions.ts": { "count": 2 },
-    "desktop/web/src/app/panel-targets/presentation.ts": { "count": 11 },
+    "desktop/web/src/app/panel-targets/presentation.ts": { "count": 9 },
     "desktop/web/src/app/plant-finder/map-matches.ts": { "count": 1 },
     "desktop/web/src/app/problem-report/submission.ts": { "count": 1 },
     "desktop/web/src/app/settings/projection.ts": { "count": 2 },

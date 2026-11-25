@@ -5,7 +5,8 @@
 // it.fails into it.
 
 import { afterEach, describe, expect, it } from 'vitest'
-import { SceneCanvasRuntime } from '../../canvas/runtime/scene-runtime'
+import { createTestSceneCanvasRuntime } from '../../__tests__/support/detached-canvas-app-adapter'
+import type { SceneCanvasRuntime } from '../../canvas/runtime/scene-runtime'
 import { CURRENT_CANOPI_FILE_VERSION } from '../../generated/canopi-design-format'
 import type { CanopiFile, SavedView } from '../../types/design'
 import { geoAt, TEST_GEO_ORIGIN } from '../../__tests__/support/geo-design'
@@ -45,7 +46,7 @@ function design(): CanopiFile {
 
 describe('2.1-Q352 saved view thumbnails', () => {
   it.fails('Q352 (2d-3): a saved view thumbnail draws the view highlighted plant', () => {
-    const runtime = new SceneCanvasRuntime()
+    const runtime = createTestSceneCanvasRuntime()
     runtimes.push(runtime)
     runtime.documentSurface.loadDocument(design())
     const request = describeSavedViewSnapshot(VIEW, VIEW_SNAPSHOT_THUMBNAIL, {

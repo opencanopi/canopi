@@ -93,8 +93,10 @@ export interface WorkspaceActivationOptions {
   readonly map: WorkspaceActivationMapControls
   /** Live session plane origin of the runtime's open Design. */
   readonly readOrigin: () => { readonly lat: number; readonly lon: number }
-  /** Called when `canRetry()` may have changed, so a Retry already on screen can be withdrawn. */
-  readonly onRetryAvailabilityChange?: () => void
+  /** Reports map-failure handling transitions so the host's composeSurface updates Retry availability. */
+  readonly onMapFailureStateChange?: (state: 'none' | 'handling' | 'settled') => void
+  /** Reports when the scene runtime is destroyed (Retry is never offered afterwards). */
+  readonly onRuntimeDestroyed?: () => void
 }
 
 interface ActivationGeneration {
@@ -380,6 +382,7 @@ export class WorkspaceActivationCoordinator {
       })
     }
     this.mapUnavailable = false
+    this.notifyMapFailureState('none')
     return true
   }
 
@@ -516,6 +519,7 @@ export class WorkspaceActivationCoordinator {
 
     // Install the failure fence before invoking composition, runtime, or
     // cleanup code. Those boundaries may synchronously report another failure.
+    this.notifyMapFailureState('handling')
     current.failure = Promise.resolve().then(() => {
       if (!this.isCurrent(current)) return 'cancelled'
       current.terminalMapFailure = error
@@ -528,9 +532,7 @@ export class WorkspaceActivationCoordinator {
     })
     const settle = () => {
       current.failureSettled = true
-      // A Retry withheld while the failure was handled can now be offered, also when a Design
-      // replacement retired this generation meanwhile (the observer only recomputes canRetry()).
-      this.notifyRetryAvailability()
+      this.notifyMapFailureState('settled')
     }
     void current.failure.then(settle, settle)
     return current.failure
@@ -588,14 +590,13 @@ export class WorkspaceActivationCoordinator {
   private markMapUnavailable(cause: unknown): void {
     this.mapUnavailable = true
     if (cause instanceof WorkspaceWebGL2UnavailableError) this.webGL2Missing = true
-    this.notifyRetryAvailability()
   }
 
-  private notifyRetryAvailability(): void {
+  private notifyMapFailureState(state: 'none' | 'handling' | 'settled'): void {
     try {
-      this.options.onRetryAvailabilityChange?.()
+      this.options.onMapFailureStateChange?.(state)
     } catch (error) {
-      reportMapError('Shared workspace Retry availability observer failed:', error)
+      reportMapError('Shared workspace map-failure state observer failed:', error)
     }
   }
 
@@ -805,21 +806,19 @@ export class WorkspaceActivationCoordinator {
     } catch (error) {
       errors.push(error)
     }
-    this.notifyRetryAvailability()
-  }
-
-  private releaseStaleMap(map: WorkspaceActivationMap): void {
     try {
-      this.options.map.releaseMap(map)
+      this.options.onRuntimeDestroyed?.()
     } catch (error) {
-      reportMapError('Failed to release stale MapLibre workspace map:', error)
+      reportMapError('Shared workspace runtime-destroyed observer failed:', error)
     }
   }
 
-  /** The runtime's one camera. */
-  private cameraHost(): CameraDriverHost {
-    return this.options.camera
+  private releaseStaleMap(map: WorkspaceActivationMap): void {
+    try { this.options.map.releaseMap(map) }
+    catch (error) { reportMapError('Failed to release stale MapLibre workspace map:', error) }
   }
+
+  private cameraHost(): CameraDriverHost { return this.options.camera }
 
   private isCurrent(current: ActivationGeneration): boolean {
     return !current.cancelled && this.active === current && this.generation === current.id
@@ -827,6 +826,4 @@ export class WorkspaceActivationCoordinator {
 }
 
 /** A turned camera is never a failure: the map is unavailable only when its driver fails. */
-function cameraFailureError(failure: CameraDriverFailure): Error {
-  return new Error(failure.message)
-}
+function cameraFailureError(failure: CameraDriverFailure): Error { return new Error(failure.message) }

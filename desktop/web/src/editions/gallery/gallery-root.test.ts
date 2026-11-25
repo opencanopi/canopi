@@ -2,6 +2,8 @@
 import { readdirSync, readFileSync } from 'node:fs'
 import { join, relative, resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { h, render } from 'preact'
+import { useRef } from 'preact/hooks'
 import { activePanel } from '../../app/shell/state'
 import {
   GALLERY_LOCATION_STATES,
@@ -16,11 +18,8 @@ import { installSpeciesCatalogWorkbench, speciesCatalogWorkbench } from '../../a
 import { notebookWorkbench } from './notebook-fixture'
 import { designFixture } from './fixtures'
 import { createGalleryEditionPorts } from './ports'
-import {
-  createDesktopWorkspaceRuntimeComposition,
-  installDesktopWorkspaceRuntimeComposition,
-} from '../../app/canvas-map-surface/desktop-workspace-runtime'
-import type { WorkspaceRuntimeComposition, WorkspaceRuntimeMountOptions } from '../../app/canvas-map-surface/workspace-runtime-composition'
+import { installCanvasHostRuntime, useCanvasHost } from '../../app/canvas-map-surface/use-canvas-host'
+import type { CanvasHostRuntimeBinding } from '../../app/canvas-map-surface/use-canvas-host'
 
 describe('gallery root helpers (canopi-f47t.52.233)', () => {
   it('parses gallery surfaces and location states and selects panels', () => {
@@ -134,9 +133,28 @@ describe('gallery root helpers (canopi-f47t.52.233)', () => {
     pdf.dispose()
     await desktopPorts.budgetExportDelivery('{}', 'budget.csv')
 
-    const sentinel = {} as WorkspaceRuntimeComposition
-    const uninstall = installDesktopWorkspaceRuntimeComposition(() => sentinel)
-    expect(createDesktopWorkspaceRuntimeComposition({} as WorkspaceRuntimeMountOptions)).toBe(sentinel)
+    const sentinel = {} as CanvasHostRuntimeBinding
+    const uninstall = installCanvasHostRuntime(() => sentinel)
+    expect(typeof uninstall).toBe('function')
     uninstall()
+
+    const host = document.createElement('div')
+    document.body.appendChild(host)
+    let caught: unknown = null
+    function UninstalledProbe() {
+      const ref = useRef<HTMLDivElement>(null)
+      useCanvasHost(ref)
+      return h('div', { ref })
+    }
+    try {
+      render(h(UninstalledProbe, null), host)
+    } catch (error) {
+      caught = error
+    } finally {
+      render(null, host)
+      host.remove()
+    }
+    expect(caught).toBeInstanceOf(Error)
+    expect((caught as Error).message).toContain('Canvas host runtime is not installed')
   })
 })

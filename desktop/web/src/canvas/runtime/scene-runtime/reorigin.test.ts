@@ -17,7 +17,7 @@ import { CURRENT_CANOPI_FILE_VERSION } from '../../../generated/canopi-design-fo
 import type { CanopiFile } from '../../../types/design'
 import { createSessionPlane, type SessionPlane } from '../../../geo/session-plane'
 import { createTestView, placeOnHost } from '../../../__tests__/support/test-view'
-import { createDetachedCanvasRuntimeAppAdapter } from '../app-adapter'
+import { createDetachedCanvasRuntimeAppAdapter } from '../../../__tests__/support/detached-canvas-app-adapter'
 import { SceneCanvasRuntime } from '../scene-runtime'
 import { SceneRuntimeReoriginController } from './reorigin'
 import type { SceneCommandAdmission, SceneEditCoordinator } from './transactions'

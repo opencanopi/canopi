@@ -2,7 +2,7 @@ import type { CanvasQuerySurface } from '../../canvas/runtime/runtime'
 import { canvasPaintRevision } from '../../canvas/theme-refresh'
 import type { DesignSessionStore } from '../document-session/store'
 import { readPanelTargetOverlaySnapshot } from '../panel-targets/presentation'
-import type { MapLibreApi } from '../../maplibre/loader'
+import type { MapLibreApi, MapLibreMapInstance } from '../../maplibre/loader'
 import type { TerrainLayerState, TerrainProtocolSupport } from '../../maplibre/terrain'
 import type { RasterDisplay, RasterDisplayLayer, RasterDisplayMap, RasterDisplayOptions } from '../../maplibre/raster-display/adapter'
 import type { CanvasMapSurfaceOverlaySnapshot } from './overlays'
@@ -14,6 +14,11 @@ export interface WorkspaceMapContributionSnapshot {
   readonly lidar: readonly Readonly<RasterDisplayLayer>[]
   readonly terrain: TerrainLayerState
   readonly overlays: CanvasMapSurfaceOverlaySnapshot
+}
+
+export interface UserLocationOverlayPort {
+  sync(map: MapLibreMapInstance, reading: UserLocationReading | null): void
+  clear(map: MapLibreMapInstance): void
 }
 
 export interface WorkspaceMapContributionAdapter {
@@ -39,6 +44,8 @@ export interface WorkspaceMapContributionAdapter {
    * so the adapter factories keep their signatures and an edition without location (Desktop in 2.0) leaves it undefined.
    */
   readonly readUserLocation?: () => UserLocationReading | null
+  /** Web only: draws/clears the device location overlay so Desktop does not bundle geolocation drawing code. */
+  readonly userLocationOverlay?: UserLocationOverlayPort
 }
 
 /** What an edition adds to the shared contributions: its LiDAR band and terrain, and Desktop's Site data pin and line. */

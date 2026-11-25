@@ -6,6 +6,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { WorkspaceMapContributions } from '../app/canvas-map-surface/workspace-map-contributions'
+import { USER_LOCATION_OVERLAY_PORT } from '../app/canvas-map-surface/user-location-overlay-port'
 import type { WorkspaceMapContributionSnapshot } from '../app/canvas-map-surface/workspace-map-contribution-adapter'
 import { createDefaultScenePersistedState } from '../canvas/runtime/scene'
 import type { MapLibreApi, MapLibreMapInstance } from '../maplibre/loader'
@@ -86,7 +87,7 @@ describe('a location reading never reaches a log', () => {
     const spies = (['log', 'info', 'warn', 'error', 'debug', 'trace'] as const)
       .map((method) => vi.spyOn(console, method).mockImplementation(() => {}))
     const map = new FailingSetDataMap()
-    const contributions = new WorkspaceMapContributions({ onFailure: () => {} })
+    const contributions = new WorkspaceMapContributions({ onFailure: () => {}, userLocationOverlay: USER_LOCATION_OVERLAY_PORT })
     contributions.attach({ map, maplibre: {} as MapLibreApi, lifetime: { on() {}, off() {}, addCleanup() {} }, isCurrent: () => true })
     contributions.update(emptySnapshot())
     contributions.admitStyle()

@@ -4,6 +4,7 @@ import {
   readWorkspaceMapContributions,
   type WorkspaceMapContributionAdapter,
 } from '../../app/canvas-map-surface/workspace-map-contribution-adapter'
+import { USER_LOCATION_OVERLAY_PORT } from '../../app/canvas-map-surface/user-location-overlay-port'
 
 /**
  * The Web Edition holds no local data: no LiDAR layers, no terrain and no Site data pin or line. It alone shows the
@@ -24,5 +25,6 @@ export function createBrowserWorkspaceMapContributionAdapter(
   return {
     read: (runtime) => readWorkspaceMapContributions(runtime, store, () => WEB_CONTRIBUTIONS),
     readUserLocation: () => myLocation.reading.value,
+    userLocationOverlay: USER_LOCATION_OVERLAY_PORT,
   }
 }

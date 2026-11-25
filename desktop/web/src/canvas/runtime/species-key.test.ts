@@ -5,7 +5,7 @@ import { buildSpeciesKey } from './species-key'
 import { geoAt } from '../../__tests__/support/geo-design'
 import { CURRENT_CANOPI_FILE_VERSION } from '../../generated/canopi-design-format'
 import { getStratumColor } from '../plants'
-import { createDetachedCanvasRuntimeAppAdapter } from './app-adapter'
+import { createDetachedCanvasRuntimeAppAdapter } from '../../__tests__/support/detached-canvas-app-adapter'
 import { SceneCanvasRuntime } from './scene-runtime'
 import type { SpeciesCacheEntry } from './presentation-data'
 

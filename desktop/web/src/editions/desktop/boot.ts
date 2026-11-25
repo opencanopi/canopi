@@ -37,6 +37,8 @@ import { desktopGeoJsonWorkflow } from "./geojson";
 import { getFlowerColorBatch, getSpeciesBatch } from "../../ipc/species";
 import { installNativeAssetUrlResolver } from "../../ipc/transport";
 import { isPlantDbUnavailableError } from "../../ipc/plant-db-errors";
+import { createDesktopCanvasHostRuntime } from "../../app/canvas-map-surface/desktop-workspace-runtime";
+import { installCanvasHostRuntime } from "../../app/canvas-map-surface/use-canvas-host";
 
 function runtimeOsFromPlatform(platform: ReturnType<typeof detectPlatform>): RuntimeOs {
   if (platform.os === "mac") return "macos";
@@ -69,6 +71,7 @@ export function bootDesktopEdition(): () => void {
     isPlantDbUnavailableError,
   });
   const disposeGeoJsonWorkflow = installGeoJsonWorkflow(desktopGeoJsonWorkflow);
+  const disposeCanvasHost = installCanvasHostRuntime(createDesktopCanvasHostRuntime);
   installProblemReportPort(desktopProblemReport);
 
   installLidarWorkflow();
@@ -104,6 +107,7 @@ export function bootDesktopEdition(): () => void {
     disposeCatalog();
     disposeSpeciesCacheLoader();
     disposeGeoJsonWorkflow();
+    disposeCanvasHost();
     disposePorts();
     disposeAssetUrlResolver();
     disposeFailureHooks();

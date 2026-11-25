@@ -9,7 +9,7 @@ import type {
 } from '../../app/canvas-map-surface/workspace-runtime-composition'
 import type { DesignSessionStore } from '../../app/document-session/store'
 import { createSessionPlane } from '../../geo/session-plane'
-import { createBrowserWorkspaceRuntimeComposition } from './browser-workspace-runtime'
+import { createBrowserCanvasHostRuntime } from './browser-workspace-runtime'
 import type * as WorkspaceRuntimeCompositionModule from '../../app/canvas-map-surface/workspace-runtime-composition'
 
 const workspaceMocks = vi.hoisted(() => ({
@@ -36,9 +36,14 @@ describe('browser workspace runtime composition', () => {
     const composition = {} as WorkspaceRuntimeComposition
     workspaceMocks.createComposition.mockReturnValue(composition)
 
-    const result = createBrowserWorkspaceRuntimeComposition({
-      container: document.createElement('div'),
+    const result = createBrowserCanvasHostRuntime(
+      { attachCanvasSession: () => () => {} },
       store,
+    ).createComposition({
+      container: document.createElement('div'),
+      onFailure: () => {},
+      onRuntimeDestroyed: () => {},
+      onMapFailureStateChange: () => {},
     })
 
     expect(result).toBe(composition)

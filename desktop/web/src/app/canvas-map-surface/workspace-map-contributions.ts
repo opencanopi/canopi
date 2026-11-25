@@ -2,11 +2,13 @@ import { reportMapError } from '../../maplibre/map-errors'
 import type { MapLibreSurfaceContext } from '../../maplibre/surface'
 import type { MapLibreMapInstance } from '../../maplibre/loader'
 import {
-  IDLE_MAPLIBRE_CANVAS_SURFACE_STATE,
-  mapLibreCanvasSurfaceStateEquals,
-  type MapLibreBasemapStatus,
-  type MapLibreCanvasSurfaceState,
-} from '../../maplibre/canvas-surface-state'
+  mapLifetimeStateEquals,
+  type LayerSlotId,
+  type LayerStatus,
+  type MapFailureCause,
+  type MapLifetimeState,
+} from '../../maplibre/map-lifetime'
+import type { MapLibreBasemapStatus } from '../../maplibre/openfreemap-basemap'
 import { applyTerrainPaintUpdates, classifyTerrainSync, clearTerrain, rebuildTerrain } from '../../maplibre/terrain-sync'
 import {
   TERRAIN_CONTOUR_LAYER_IDS,
@@ -27,14 +29,9 @@ import {
   type CanvasMapSurfaceOverlaySnapshot,
 } from './overlays'
 import { siteMapOverlayIds, type SiteMapOverlay } from '../../maplibre/site-overlay'
-import {
-  clearUserLocationOverlay,
-  syncUserLocationOverlay,
-  userLocationOverlayIds,
-  type UserLocationReading,
-} from '../../maplibre/user-location-overlay'
+import { userLocationOverlayIds, type UserLocationReading } from '../../maplibre/user-location-overlay'
 import { createMapLayerStackDescriptors, reconcileMapLayerStack } from '../map-layers/bands'
-import type { WorkspaceMapContributionAdapter, WorkspaceMapContributionSnapshot } from './workspace-map-contribution-adapter'
+import type { UserLocationOverlayPort, WorkspaceMapContributionAdapter, WorkspaceMapContributionSnapshot } from './workspace-map-contribution-adapter'
 
 /**
  * A value the composition reads outside the contributions read (the profile chart's hover, the user location); a map's
@@ -51,9 +48,11 @@ export interface WorkspaceMapContributionsOptions {
   readonly siteHover?: ContributionFeed<readonly [number, number] | null>
   /** Web only: the device location, drawn by one setData outside the drain like the chart hover (canopi-f47t.53). */
   readonly userLocation?: ContributionFeed<UserLocationReading | null>
+  readonly userLocationOverlay?: UserLocationOverlayPort
   readonly loadTerrainSupport?: WorkspaceMapContributionAdapter['loadTerrainSupport']
   readonly createRasterDisplay?: WorkspaceMapContributionAdapter['createRasterDisplay']
-  readonly onStateChange?: (state: MapLibreCanvasSurfaceState) => void
+  readonly attempt?: number
+  readonly onMapLifetimeChange?: (state: MapLifetimeState) => void
   readonly logError?: (message?: unknown, ...args: unknown[]) => void
 }
 
@@ -61,7 +60,10 @@ export interface WorkspaceMapContributionsOptions {
 export class WorkspaceMapContributions {
   private snapshot: WorkspaceMapContributionSnapshot | null = null
   private context: MapLibreSurfaceContext<MapLibreMapInstance> | null = null
-  private state = IDLE_MAPLIBRE_CANVAS_SURFACE_STATE
+  private lifetimeState: MapLifetimeState
+  private basemapStatus: MapLibreBasemapStatus = 'idle'
+  private terrainStatus: 'idle' | 'loading' | 'ready' | 'error' = 'idle'
+  private ready = false
   /** Map-lifetime owner of the upstream raster renderer (Desktop only). */
   private raster: RasterDisplay | null = null
   private terrain: TerrainLayerState | null = null
@@ -93,7 +95,9 @@ export class WorkspaceMapContributions {
   /** The layer the rasters were last told to draw beneath (`syncRaster`). */
   private rasterAnchor: string | undefined = undefined
 
-  constructor(private readonly options: WorkspaceMapContributionsOptions) {}
+  constructor(private readonly options: WorkspaceMapContributionsOptions) {
+    this.lifetimeState = { kind: 'creating', attempt: options.attempt ?? 1 }
+  }
 
   attach(context: MapLibreSurfaceContext<MapLibreMapInstance>): void {
     if (this.disposed) return
@@ -107,7 +111,7 @@ export class WorkspaceMapContributions {
     this.unsubscribeSiteHover = this.options.siteHover?.subscribe((hover) => this.setSiteHover(hover)) ?? null
     this.userLocation = this.options.userLocation?.current() ?? null
     this.unsubscribeUserLocation = this.options.userLocation?.subscribe((reading) => this.setUserLocation(reading)) ?? null
-    this.publishState({ ...IDLE_MAPLIBRE_CANVAS_SURFACE_STATE, status: 'loading' })
+    this.emitLifetime({ kind: 'admitted', attempt: this.attempt() })
   }
 
   /**
@@ -214,12 +218,14 @@ export class WorkspaceMapContributions {
   /** The Basemap's download status, kept until the map goes. */
   setBasemapStatus(basemapStatus: MapLibreBasemapStatus): void {
     if (this.disposed) return
-    this.publishState({ ...this.state, basemapStatus })
+    this.basemapStatus = basemapStatus
+    if (this.ready) this.emitReady()
   }
 
-  dispose(error?: unknown): void {
+  dispose(error?: unknown, failureCause: MapFailureCause = 'engine-start'): void {
     if (this.disposed) return
     this.disposed = true
+    this.ready = false
     this.unsubscribeSiteHover?.()
     this.unsubscribeSiteHover = null
     this.unsubscribeUserLocation?.()
@@ -228,16 +234,17 @@ export class WorkspaceMapContributions {
     this.revision += 1
     this.terrainGeneration += 1
     this.snapshot = null
-    this.publishState({
-      ...IDLE_MAPLIBRE_CANVAS_SURFACE_STATE,
-      status: error ? 'error' : 'idle',
-    })
+    this.emitLifetime(
+      error
+        ? { kind: 'failed', attempt: this.attempt(), cause: failureCause }
+        : { kind: 'released' },
+    )
     this.clear()
     // Map-lifetime teardown: the manager's layers, sources, protocol and
     // listeners go, and its worker client rejects queued and in-flight work.
     const raster = this.raster
     this.raster = null
-    this.attempt('Failed to dispose the raster display:', () => raster?.dispose())
+    this.attemptCall('Failed to dispose the raster display:', () => raster?.dispose())
     this.context = null
   }
 
@@ -254,7 +261,10 @@ export class WorkspaceMapContributions {
         const snapshot = this.snapshot
         const revision = this.revision
         if (!snapshot) {
-          this.publishState(IDLE_MAPLIBRE_CANVAS_SURFACE_STATE)
+          this.ready = false
+          this.basemapStatus = 'idle'
+          this.terrainStatus = 'idle'
+          this.emitLifetime({ kind: 'admitted', attempt: this.attempt() })
           this.clear()
           continue
         }
@@ -267,7 +277,8 @@ export class WorkspaceMapContributions {
           this.syncSiteHover(map)
           this.syncUserLocation(map)
           this.reconcileOrder(map, snapshot)
-          this.publishState({ ...this.state, status: 'ready', layerSkipped: this.layerSkipped() })
+          this.ready = true
+          this.emitReady()
           if (!this.current(revision)) continue
           void this.syncTerrain(map, snapshot, revision)
         } catch (error) {
@@ -358,16 +369,18 @@ export class WorkspaceMapContributions {
       if (error === STALE_CONTRIBUTION) throw error
       this.siteFailed(siteKey(site), error)
       clearCanvasMapSurfaceSiteOverlay(map)
-      this.publishState({ ...this.state, layerSkipped: this.layerSkipped() })
+      if (this.ready) this.emitReady()
     }
   }
 
   /** Draws the reading; a write that fails, by throwing or by a MapLibre error event during it, is rolled back. */
   private syncUserLocation(map: MapLibreMapInstance): void {
+    const overlay = this.options.userLocationOverlay
+    if (!overlay) return
     this.syncingUserLocation = true
     this.userLocationRejected = false
     try {
-      syncUserLocationOverlay(map, this.userLocation)
+      overlay.sync(map, this.userLocation)
     } catch (error) {
       if (error === STALE_CONTRIBUTION) throw error
       this.userLocationFailed()
@@ -375,7 +388,7 @@ export class WorkspaceMapContributions {
       this.syncingUserLocation = false
     }
     // A rollback that cannot remove the partial dot escapes to the hard failure path, as the other overlays' do.
-    if (this.userLocationRejected) clearUserLocationOverlay(map)
+    if (this.userLocationRejected) overlay.clear(map)
   }
 
   /** Logs that the dot failed, once per map, never with the error: it can echo the reading. */
@@ -385,10 +398,9 @@ export class WorkspaceMapContributions {
     this.userLocationFailureLogged = true
     ;(this.options.logError ?? reportMapError)('Skipped the user location map overlay that failed to draw.')
   }
-
   private clearUserLocation(): void {
-    const revision = this.revision
-    if (this.context) this.attempt('Failed to clear the user location map overlay:', () => clearUserLocationOverlay(this.guardedMap(revision)))
+    const overlay = this.options.userLocationOverlay
+    if (this.context && overlay) this.attemptCall('Failed to clear the user location map overlay:', () => overlay.clear(this.guardedMap(this.revision)))
   }
 
   private siteFailed(key: string, error: unknown): void {
@@ -430,7 +442,8 @@ export class WorkspaceMapContributions {
         applyTerrainPaintUpdates(map, next)
         this.terrain = next
       } else if (mode === 'rebuild') {
-        this.publishState({ ...this.state, terrainStatus: 'loading' })
+        this.terrainStatus = 'loading'
+        if (this.ready) this.emitReady()
         if (!current()) return
         if (!this.options.loadTerrainSupport) throw new Error('Terrain support is unavailable in this workspace.')
         const support = await this.options.loadTerrainSupport(this.context!.maplibre)
@@ -456,7 +469,10 @@ export class WorkspaceMapContributions {
         return
       }
     }
-    if (current()) this.publishState({ ...this.state, terrainStatus: this.terrain ? 'ready' : 'idle' })
+    if (current()) {
+      this.terrainStatus = this.terrain ? 'ready' : 'idle'
+      if (this.ready) this.emitReady()
+    }
   }
 
   private fail(error: unknown): void {
@@ -482,7 +498,8 @@ export class WorkspaceMapContributions {
     }
     if (!this.current(revision)) return
     this.terrain = null
-    this.publishState({ ...this.state, terrainStatus: 'error' })
+    this.terrainStatus = 'error'
+    if (this.ready) this.emitReady()
     this.log('Failed to sync terrain layers:', error)
   }
 
@@ -501,26 +518,22 @@ export class WorkspaceMapContributions {
     const revision = this.revision
     const map = this.context && this.guardedMap(revision, true)
     if (map) {
-      this.attempt('Failed to clear map target overlays:', () => clearCanvasMapSurfaceOverlays(map))
-      this.attempt('Failed to clear the Site data map overlay:', () => clearCanvasMapSurfaceSiteOverlay(map))
-      this.attempt('Failed to clear the user location map overlay:', () => clearUserLocationOverlay(map))
-      this.attempt('Failed to clear map terrain:', () => clearTerrain(map))
-      this.attempt('Failed to clear map rasters:', () => this.raster?.sync([], undefined))
+      this.attemptCall('Failed to clear map target overlays:', () => clearCanvasMapSurfaceOverlays(map))
+      this.attemptCall('Failed to clear the Site data map overlay:', () => clearCanvasMapSurfaceSiteOverlay(map))
+      this.attemptCall('Failed to clear the user location map overlay:', () => this.options.userLocationOverlay?.clear(map))
+      this.attemptCall('Failed to clear map terrain:', () => clearTerrain(map))
+      this.attemptCall('Failed to clear map rasters:', () => this.raster?.sync([], undefined))
     }
     if (this.revision !== revision) return
     this.terrain = null
     this.terrainTouched = false
   }
 
-  private current(revision: number): boolean {
-    return this.live() && this.revision === revision
-  }
+  private current(revision: number): boolean { return this.live() && this.revision === revision }
 
   private guardedMap(revision: number, cleanup = false): MapLibreMapInstance {
     const ownedMap = this.context!.map
-    const current = () => cleanup
-      ? this.context?.map === ownedMap && this.revision === revision
-      : this.current(revision)
+    const current = () => cleanup ? this.context?.map === ownedMap && this.revision === revision : this.current(revision)
     return new Proxy(ownedMap, {
       get: (map, property) => {
         const value = Reflect.get(map, property)
@@ -535,61 +548,48 @@ export class WorkspaceMapContributions {
     })
   }
 
-  private publishState(state: MapLibreCanvasSurfaceState): void {
-    if (mapLibreCanvasSurfaceStateEquals(this.state, state)) return
-    this.state = state
-    this.attempt('Map contribution state observer failed:', () => this.options.onStateChange?.(state))
+  private attempt(): number { return this.options.attempt ?? 1 }
+
+  private emitReady(): void {
+    const layers = new Map<LayerSlotId, LayerStatus>()
+    layers.set('background', this.basemapStatus === 'loading' ? { kind: 'loading' } : this.basemapStatus === 'failed' ? { kind: 'failed', reason: 'basemap' } : { kind: 'ready' })
+    if (this.terrainStatus === 'loading') layers.set('terrain', { kind: 'loading' })
+    else if (this.terrainStatus === 'error') layers.set('terrain', { kind: 'failed', reason: 'terrain' })
+    else if (this.terrainStatus === 'ready') layers.set('terrain', { kind: 'ready' })
+    if (this.layerSkipped()) layers.set('library:skipped', { kind: 'skipped', reason: 'layer-skipped' })
+    this.emitLifetime({ kind: 'ready', attempt: this.attempt(), layers })
   }
 
-  private attempt(message: string, run: () => void): void {
-    try { run() } catch (error) { if (error !== STALE_CONTRIBUTION) this.log(message, error) }
+  private emitLifetime(next: MapLifetimeState): void {
+    if (mapLifetimeStateEquals(this.lifetimeState, next)) return
+    this.lifetimeState = next
+    this.attemptCall('Map contribution state observer failed:', () => this.options.onMapLifetimeChange?.(next))
   }
-
-  private log(message: string, error: unknown): void {
-    (this.options.logError ?? reportMapError)(message, error)
-  }
+  private attemptCall(message: string, run: () => void): void { try { run() } catch (error) { if (error !== STALE_CONTRIBUTION) this.log(message, error) } }
+  private log(message: string, error: unknown): void { (this.options.logError ?? reportMapError)(message, error) }
 }
 
 /** The first Canopi layer above the LiDAR band now on the map: the rasters draw beneath it. */
 function rasterAnchor(map: MapLibreMapInstance): string | undefined {
   const order = map.getLayersOrder()
-  return createMapLayerStackDescriptors([])
-    .filter((descriptor) => descriptor.band !== 'basemap')
-    .map((descriptor) => descriptor.id)
-    .find((id) => order.includes(id))
+  return createMapLayerStackDescriptors([]).filter((d) => d.band !== 'basemap').map((d) => d.id).find((id) => order.includes(id))
 }
 
 const STALE_CONTRIBUTION = Symbol('stale-map-contribution')
 const PANEL_TARGET_PREFIX = 'panel-target-'
 const TERRAIN_DEM_IDS = new Set<string>([TERRAIN_DEM_SOURCE_ID, TERRAIN_HILLSHADE_LAYER_ID])
 const TERRAIN_CONTOUR_IDS = new Set<string>([TERRAIN_CONTOUR_SOURCE_ID, ...TERRAIN_CONTOUR_LAYER_IDS])
-const SITE_OVERLAY_IDS = (() => {
-  const ids = siteMapOverlayIds()
-  return new Set<string>([ids.sourceId, ...ids.layerIds, ids.hover.sourceId, ...ids.hover.layerIds])
-})()
-
-const USER_LOCATION_IDS = (() => {
-  const ids = userLocationOverlayIds()
-  return new Set<string>([ids.sourceId, ...ids.layerIds])
-})()
+const SITE_OVERLAY_IDS = (() => { const ids = siteMapOverlayIds(); return new Set<string>([ids.sourceId, ...ids.layerIds, ids.hover.sourceId, ...ids.hover.layerIds]) })()
+const USER_LOCATION_IDS = (() => { const ids = userLocationOverlayIds(); return new Set<string>([ids.sourceId, ...ids.layerIds]) })()
 
 /** Late errors from a contribution this owner already removed stay passive. */
 function isContributionResource(id: string): boolean {
   // upstream: W5
-  return /^mlrcog\d+-/.test(id)
-    || TERRAIN_DEM_IDS.has(id)
-    || TERRAIN_CONTOUR_IDS.has(id)
-    || id.startsWith(PANEL_TARGET_PREFIX)
-    || SITE_OVERLAY_IDS.has(id)
-    || USER_LOCATION_IDS.has(id)
+  return /^mlrcog\d+-/.test(id) || TERRAIN_DEM_IDS.has(id) || TERRAIN_CONTOUR_IDS.has(id) || id.startsWith(PANEL_TARGET_PREFIX) || SITE_OVERLAY_IDS.has(id) || USER_LOCATION_IDS.has(id)
 }
 
 /** Identity of the Target set an overlay draws; geometry is re-read on each sync. */
-function overlayKey(overlays: CanvasMapSurfaceOverlaySnapshot): string {
-  return JSON.stringify([overlays.hoveredTargets, overlays.selectedTargets])
-}
+function overlayKey(overlays: CanvasMapSurfaceOverlaySnapshot): string { return JSON.stringify([overlays.hoveredTargets, overlays.selectedTargets]) }
 
 /** Identity of the pin and line a site overlay draws. */
-function siteKey(site: SiteMapOverlay | null): string {
-  return JSON.stringify(site)
-}
+function siteKey(site: SiteMapOverlay | null): string { return JSON.stringify(site) }

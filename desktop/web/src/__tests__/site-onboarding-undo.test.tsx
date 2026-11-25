@@ -3,6 +3,9 @@
 import { render } from 'preact'
 import { act } from 'preact/test-utils'
 import { afterEach, describe, expect, it } from 'vitest'
+import { installCanvasHostRuntime } from '../app/canvas-map-surface/use-canvas-host'
+import { createBrowserCanvasHostRuntime } from '../editions/web/browser-workspace-runtime'
+import { createMapLifetimeSlot } from '../maplibre/map-lifetime'
 import type { WorkspaceRuntimeComposition } from '../app/canvas-map-surface/workspace-runtime-composition'
 import { encodeCanopiDesign } from '../app/contracts/canopi-design-wire'
 import { createDesignSessionStoreTestFixture, designSessionStore } from '../app/document-session/store'
@@ -43,10 +46,14 @@ describe('Where is your site? and Undo on the Web Edition', () => {
     container = document.createElement('div')
     document.body.appendChild(container)
     const host = createLiveTestCanvasRuntimeHost({ appAdapter: createBrowserCanvasRuntimeAppAdapter() })
+    const mapSlot = createMapLifetimeSlot(
+      { restart: () => false, retryLayer: () => {}, release: () => {} },
+      { kind: 'ready', attempt: 1, layers: new Map() },
+    )
     const composition: WorkspaceRuntimeComposition = {
       surfaces: host.surfaces,
+      mapLifetime: mapSlot.handle,
       start: async () => 'shared-ready',
-      retryMap: () => undefined,
       dispose: () => host.destroy(),
     }
     const controller = createBrowserDesignSessionController({
@@ -57,15 +64,23 @@ describe('Where is your site? and Undo on the Web Edition', () => {
       },
       now: () => new Date('2026-09-29T12:00:00.000Z'),
     })
+    const uninstallCanvasHost = installCanvasHostRuntime(() => ({
+      core: createBrowserCanvasHostRuntime(controller).core,
+      createComposition: () => composition,
+    }))
     keys = installWebKeyRouter({
       catalog: [],
       readState: () => ({ hasDesign: true, revertAvailable: false, activePanel: 'canvas', sidePanel: null }),
     })
 
-    await act(async () => {
-      render(<WebCanvasWorkspace controller={controller} createRuntimeComposition={() => composition} />, container)
-      await flushMicrotasks()
-    })
+    try {
+      await act(async () => {
+        render(<WebCanvasWorkspace controller={controller} />, container)
+        await flushMicrotasks()
+      })
+    } finally {
+      uninstallCanvasHost()
+    }
     await flushMicrotasks()
     expect(currentCanvasSession.value).toBe(host.surfaces)
 

@@ -13,6 +13,7 @@ import { geoAt } from '../../__tests__/support/geo-design'
 import { placeOnHost } from '../../__tests__/support/test-view'
 import type { WorkspaceMapContributionSnapshot } from '../../app/canvas-map-surface/workspace-map-contribution-adapter'
 import { SceneCanvasRuntime } from '../../canvas/runtime/scene-runtime'
+import { createDetachedCanvasRuntimeAppAdapter } from '../../__tests__/support/detached-canvas-app-adapter'
 import { SETTLE_MS } from '../../geo/view/frame-source'
 import { CURRENT_CANOPI_FILE_VERSION } from '../../generated/canopi-design-format'
 import type { CanopiFile } from '../../types/design'
@@ -62,7 +63,7 @@ function cameraOf(runtime: SceneCanvasRuntime) {
 describe('browser workspace map contribution reads', () => {
   it('re-read on a settled camera or a mode change, never on a camera frame alone', () => {
     vi.useFakeTimers()
-    const runtime = new SceneCanvasRuntime()
+    const runtime = new SceneCanvasRuntime({ appAdapter: createDetachedCanvasRuntimeAppAdapter() })
     try {
       runtime.documentSurface.loadDocument(design())
       runtime.documentSurface.resize(400, 300)

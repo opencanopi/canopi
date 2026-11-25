@@ -106,7 +106,7 @@
     "desktop/web/src/__tests__/zoom-controls.test.tsx <-> desktop/web/src/__tests__/zoom-controls.test.tsx": { "count": 1 },
     "desktop/web/src/app/canvas-map-surface/workspace-activation.test.ts <-> desktop/web/src/app/canvas-map-surface/workspace-map-controls.test.ts": { "count": 1 },
     "desktop/web/src/app/canvas-map-surface/workspace-generation-reconciler.test.ts <-> desktop/web/src/app/canvas-map-surface/workspace-generation-reconciler.test.ts": { "count": 1 },
-    "desktop/web/src/app/canvas-map-surface/workspace-map-contributions.test.ts <-> desktop/web/src/app/canvas-map-surface/workspace-map-contributions.test.ts": { "count": 2 },
+    "desktop/web/src/app/canvas-map-surface/workspace-map-contributions.test.ts <-> desktop/web/src/app/canvas-map-surface/workspace-map-contributions.test.ts": { "count": 1 },
     "desktop/web/src/app/canvas-map-surface/workspace-map-controls.test.ts <-> desktop/web/src/app/canvas-map-surface/workspace-map-controls.test.ts": { "count": 1 },
     "desktop/web/src/app/keyboard/keymap.test.ts <-> desktop/web/src/app/keyboard/keymap.test.ts": { "count": 1 },
     "desktop/web/src/app/my-location/follow.test.ts <-> desktop/web/src/maplibre/camera-driver.test.ts": { "count": 1 },

@@ -52,7 +52,6 @@
     "desktop/web/src/__tests__/map-error-owner.test.ts": {  },
     "desktop/web/src/__tests__/maplibre-config.test.ts": {  },
     "desktop/web/src/__tests__/maplibre-loader.test.ts": {  },
-    "desktop/web/src/__tests__/maplibre-surface-state.test.ts": {  },
     "desktop/web/src/__tests__/maplibre-surface.test.ts": {  },
     "desktop/web/src/__tests__/openfreemap-basemap.test.ts": {  },
     "desktop/web/src/__tests__/panel-target-resolution.test.ts": {  },

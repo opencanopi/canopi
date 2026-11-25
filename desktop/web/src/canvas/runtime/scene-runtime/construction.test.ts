@@ -17,7 +17,7 @@ import { geoAt } from '../../../__tests__/support/geo-design'
 import { placeOnHost } from '../../../__tests__/support/test-view'
 import { CURRENT_CANOPI_FILE_VERSION } from '../../../generated/canopi-design-format'
 import type { CanopiFile } from '../../../types/design'
-import { createDetachedCanvasRuntimeAppAdapter } from '../app-adapter'
+import { createDetachedCanvasRuntimeAppAdapter } from '../../../__tests__/support/detached-canvas-app-adapter'
 import { SceneCanvasRuntime } from '../scene-runtime'
 
 const SCREEN = { width: 400, height: 300 }
@@ -115,5 +115,9 @@ describe('the runtime construction (canopi-f47t.52.270)', () => {
 
   it('the detached app adapter answers that no Design is read-only', () => {
     expect(createDetachedCanvasRuntimeAppAdapter().isReadOnly?.()).toBe(false)
+  })
+
+  it('refuses construction without an appAdapter', () => {
+    expect(() => new SceneCanvasRuntime({} as never)).toThrow('SceneCanvasRuntime requires an appAdapter.')
   })
 })

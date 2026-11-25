@@ -19,7 +19,8 @@ import { AttachedInteractionMap } from '../../../__tests__/support/canvas-intera
 import { placeOnHost } from '../../../__tests__/support/test-view'
 import { createMapLibreCameraDriver } from '../../../maplibre/camera-driver'
 import { planarCameraOf } from '../../../geo/view/view-transform'
-import { SceneCanvasRuntime } from '../scene-runtime'
+import { createTestSceneCanvasRuntime } from '../../../__tests__/support/detached-canvas-app-adapter'
+import type { SceneCanvasRuntime } from '../scene-runtime'
 import type * as IpcSpeciesModule from '../../../ipc/species'
 
 const SCREEN = { width: 400, height: 300 }
@@ -83,7 +84,7 @@ function todaysCapture(runtime: SceneCanvasRuntime) {
 
 describe('the runtime view surfaces', () => {
   it('capture the Design\'s ground on a headless runtime, before and after a hydration replaces the plane', () => {
-    const runtime = new SceneCanvasRuntime()
+    const runtime = createTestSceneCanvasRuntime()
     try {
       runtime.documentSurface.loadDocument(designAt({ lon: 2.35, lat: 48.85 }, 'Paris'))
       runtime.documentSurface.resize(SCREEN.width, SCREEN.height)
@@ -111,7 +112,7 @@ describe('the runtime view surfaces', () => {
   })
 
   it('follow every Scene plane change on the runtime\'s camera until it is destroyed', async () => {
-    const runtime = new SceneCanvasRuntime()
+    const runtime = createTestSceneCanvasRuntime()
     const { frames } = runtime.cameraHost
     try {
       runtime.documentSurface.loadDocument(designAt({ lon: 2.35, lat: 48.85 }, 'Paris'))
@@ -150,7 +151,7 @@ describe('the runtime view surfaces', () => {
   })
 
   it('a Design loaded while the map is attached frames in the Design\'s plane', () => {
-    const runtime = new SceneCanvasRuntime()
+    const runtime = createTestSceneCanvasRuntime()
     const map = new AttachedInteractionMap()
     try {
       runtime.documentSurface.loadDocument(designAt({ lon: 2.35, lat: 48.85 }, 'Paris'))
@@ -175,7 +176,7 @@ describe('the runtime view surfaces', () => {
   })
 
   it('show a camera and fit the selection through the runtime\'s camera', () => {
-    const runtime = new SceneCanvasRuntime()
+    const runtime = createTestSceneCanvasRuntime()
     try {
       const origin = { lon: 2.35, lat: 48.85 }
       runtime.documentSurface.loadDocument(designAt(origin, 'Paris'))
@@ -209,7 +210,7 @@ describe('the runtime view surfaces', () => {
   })
 
   it('fit the selection\'s own outline at the bearing, never its world-axis box', () => {
-    const runtime = new SceneCanvasRuntime()
+    const runtime = createTestSceneCanvasRuntime()
     try {
       const origin = { lon: 2.35, lat: 48.85 }
       // A path 28 m long and 1.4 m wide, along the south-east diagonal.
@@ -249,7 +250,7 @@ describe('the runtime view surfaces', () => {
   it('put the inspection lens on the ground under the screen at the live bearing', () => {
     vi.useFakeTimers()
     const getContext = vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null)
-    const runtime = new SceneCanvasRuntime()
+    const runtime = createTestSceneCanvasRuntime()
     try {
       const origin = { lon: 2.35, lat: 48.85 }
       runtime.documentSurface.loadDocument(designAt(origin, 'Paris'))

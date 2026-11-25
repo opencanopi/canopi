@@ -1,7 +1,6 @@
 import type { ReadonlySignal } from '@preact/signals'
 import type { CanopiFile } from '../../types/design'
 import type { PointAction } from '../point-editor/rules'
-import { FALLBACK_PLANT_SPACING_INTERVAL_M } from '../plant-spacing-interval'
 import type {
   CanvasPlantLabelSource,
   CanvasSpeciesPresentationCache,
@@ -218,81 +217,4 @@ export interface CanvasRuntimeAppAdapter {
 /** How a tool's focus request (ToolEffects.requestFocus) leaves the runtime. The FocusOwner implements it. */
 export interface CanvasFocusPort {
   focusMap(): void
-}
-
-export function createDetachedCanvasRuntimeAppAdapter(): CanvasRuntimeAppAdapter {
-  let gridVisible = false
-  let snapToGrid = false
-  let plantSpacingIntervalM = FALLBACK_PLANT_SPACING_INTERVAL_M
-
-  return {
-    cleanState: {
-      setCanvasClean: () => {},
-    },
-    document: {
-      composeDocumentForSave: composeDetachedCanvasDocument,
-    },
-    translate: detachedCanvasRuntimeTranslator,
-    isReadOnly: () => false,
-    settings: {
-      readLocale: () => 'en',
-      readChromeOverlay: () => ({ gridVisible }),
-      readSnapToGridEnabled: () => snapToGrid,
-      readScrollWheel: () => 'zoom',
-      readPlantSpacingIntervalMeters: () => plantSpacingIntervalM,
-      commitPlantSpacingIntervalMeters: (meters) => {
-        plantSpacingIntervalM = meters
-      },
-      toggleGridVisible: () => {
-        gridVisible = !gridVisible
-      },
-      toggleSnapToGrid: () => {
-        snapToGrid = !snapToGrid
-      },
-      subscribeTheme: subscribeImmediately,
-      subscribeLocale: subscribeImmediately,
-      subscribeChromeOverlay: subscribeImmediately,
-      subscribeMapBackdrop: (onChange) => {
-        onChange('basemap')
-        return () => {}
-      },
-    },
-  }
-}
-
-function detachedCanvasRuntimeTranslator(
-  key: string,
-  options?: Readonly<Record<string, unknown>>,
-): string {
-  return typeof options?.defaultValue === 'string' ? options.defaultValue : key
-}
-
-function subscribeImmediately(onChange: () => void): () => void {
-  onChange()
-  return () => {}
-}
-
-function composeDetachedCanvasDocument({
-  metadata,
-  document,
-  canvas,
-}: CanvasRuntimeDocumentCompositionInput): CanopiFile {
-  return {
-    ...document,
-    ...canvas,
-    name: metadata.name,
-    description: metadata.description ?? document.description ?? null,
-    consortiums: document.consortiums,
-    timeline: document.timeline,
-    budget: document.budget,
-    budget_currency: document.budget_currency,
-    created_at: document.created_at,
-    extra: normalizeDetachedExtra(document.extra),
-  }
-}
-
-/** The Design's `extra`, all of it Design Edit's: the scene owns no `extra` key. */
-function normalizeDetachedExtra(extra: CanopiFile['extra']): Record<string, unknown> {
-  if (!extra || typeof extra !== 'object' || Array.isArray(extra)) return {}
-  return { ...extra }
 }

@@ -9,7 +9,7 @@ import { getStratumColor } from './plants'
 import { DEFAULT_PLANT_DISPLAY } from './runtime/plant-display'
 import { resolvePlantDisplayColor } from './runtime/plant-presentation'
 import type { SceneRendererSnapshot } from './runtime/renderers/scene-types'
-import { createDetachedCanvasRuntimeAppAdapter } from './runtime/app-adapter'
+import { createDetachedCanvasRuntimeAppAdapter } from '../__tests__/support/detached-canvas-app-adapter'
 import { SceneCanvasRuntime } from './runtime/scene-runtime'
 import type { SpeciesCacheEntry } from './runtime/presentation-data'
 

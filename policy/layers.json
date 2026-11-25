@@ -530,12 +530,6 @@
    "area": "app/document-session"
   },
   {
-   "path": "app/document-session/lifecycle.ts",
-   "layer": "L3",
-   "edition": "desktop",
-   "area": "app/document-session"
-  },
-  {
    "path": "app/document-session/transition.ts",
    "layer": "L3",
    "edition": "desktop",
