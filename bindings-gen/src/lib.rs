@@ -11,6 +11,7 @@ mod new_design_defaults;
 mod plan_support;
 mod plant_filter;
 mod publication;
+mod quantity_table;
 mod redaction;
 mod settings;
 mod species_search_normalization;
@@ -32,6 +33,7 @@ const EDITION_CAPABILITIES_TS: &str = "desktop/web/src/generated/edition-capabil
 const KNOWN_KEYS_TS: &str = "desktop/web/src/generated/known-canopi-keys.ts";
 const LOCALE_KEYS_TS: &str = "desktop/web/src/generated/locale-keys.ts";
 const LOCALE_REGISTRY_TS: &str = "desktop/web/src/generated/locale-registry.ts";
+const QUANTITY_TABLE_TS: &str = "desktop/web/src/generated/quantity-table.ts";
 const TRANSLATE_VALUE_RUST: &str = "desktop/src/db/query_builder/translate_value.rs";
 const DESIGN_FORMAT_TS: &str = "desktop/web/src/generated/canopi-design-format.ts";
 const SETTINGS_TS: &str = "desktop/web/src/generated/settings.ts";
@@ -90,6 +92,7 @@ const EMITTERS: &[EmitterFn] = &[
     emit_redaction,
     emit_locale_keys,
     emit_locale_registry,
+    emit_quantity_table,
 ];
 
 fn emit_contracts(_source_root: &Path) -> Result<Vec<EmittedArtifact>, Box<dyn Error>> {
@@ -214,6 +217,13 @@ fn emit_locale_registry(source_root: &Path) -> Result<Vec<EmittedArtifact>, Box<
             source_root,
         )?,
     ])
+}
+
+fn emit_quantity_table(_source_root: &Path) -> Result<Vec<EmittedArtifact>, Box<dyn Error>> {
+    Ok(vec![EmittedArtifact::text(
+        QUANTITY_TABLE_TS,
+        quantity_table::render_quantity_table_ts()?,
+    )])
 }
 
 pub fn run_from_env() -> Result<(), Box<dyn Error>> {

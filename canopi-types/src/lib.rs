@@ -13,6 +13,7 @@ pub mod library;
 pub mod lidar;
 pub mod locale;
 pub mod location;
+pub mod quantity;
 pub mod report;
 pub mod saved_object_stamps;
 pub mod sensitive;
