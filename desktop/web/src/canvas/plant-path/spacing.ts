@@ -10,7 +10,7 @@
 // the count, as the preview's 250 discs do. Pure: it imports only the curve, the straight-row maths and types (P54).
 
 import { computePlantSpacingCount, computePlantSpacingPositions } from '../plant-spacing-sequence'
-import type { WorldPoint } from '../../geo/view/types'
+import type { GroundMeasure, WorldPoint } from '../../geo/view/types'
 import { flattenPath, lerpAt, type FlatPath, type PathPoints } from './curve'
 
 /** How a row is spaced: a plant every `metres`, or `count` plants in all. */
@@ -36,14 +36,18 @@ const MIN_LOOP_GAPS = 3
 
 const NOTHING: PathPlanting = Object.freeze({ count: 0, effectiveSpacingM: 0, lengthM: 0, positions: () => [] })
 
-/** The row along `path` from its first point, spaced as `spacing` says. */
-export function plantAlongPath(path: PathPoints, spacing: PathSpacing): PathPlanting {
+/** The row along `path` from its first point, spaced as `spacing` says (true WGS84 ground metres when `measure` is given). */
+export function plantAlongPath(
+  path: PathPoints,
+  spacing: PathSpacing,
+  measure?: Pick<GroundMeasure, 'groundLength'>,
+): PathPlanting {
   const [first, second] = path.points
   if (!first) return NOTHING
   if (!path.closed && path.points.length === 2 && second && spacing.kind === 'interval') {
-    return straightRow(first.position, second.position, spacing.metres)
+    return straightRow(first.position, second.position, spacing.metres, measure)
   }
-  const flat = flattenPath(path)
+  const flat = flattenPath(path, measure)
   const lengthM = flat.lengths[flat.lengths.length - 1] ?? 0
   const gaps = gapsOf(flat, lengthM, spacing)
   if (gaps === null) return { ...NOTHING, lengthM }
@@ -56,14 +60,39 @@ export function plantAlongPath(path: PathPoints, spacing: PathSpacing): PathPlan
   }
 }
 
-/** The straight row: today's maths, unchanged. */
-function straightRow(start: WorldPoint, end: WorldPoint, metres: number): PathPlanting {
-  const count = computePlantSpacingCount(start, end, metres)
+/** The straight row: ground length through `measure` when provided, exact Euclidean fallback otherwise. */
+function straightRow(
+  start: WorldPoint,
+  end: WorldPoint,
+  metres: number,
+  measure?: Pick<GroundMeasure, 'groundLength'>,
+): PathPlanting {
+  if (!measure) {
+    const count = computePlantSpacingCount(start, end, metres)
+    return {
+      count,
+      effectiveSpacingM: count > 0 ? metres : 0,
+      lengthM: Math.hypot(end.x - start.x, end.y - start.y),
+      positions: (limit) => computePlantSpacingPositions(start, end, metres, limit === undefined ? {} : { limit }),
+    }
+  }
+  const lengthM = measure.groundLength(start, end)
+  const count = Number.isFinite(metres) && metres > 0 && lengthM > EXACT_END_M
+    ? Math.floor((lengthM + EXACT_END_M) / metres)
+    : 0
   return {
     count,
     effectiveSpacingM: count > 0 ? metres : 0,
-    lengthM: Math.hypot(end.x - start.x, end.y - start.y),
-    positions: (limit) => computePlantSpacingPositions(start, end, metres, limit === undefined ? {} : { limit }),
+    lengthM,
+    positions(limit) {
+      const made = limit === undefined ? count : Number.isFinite(limit) && limit > 0 ? Math.min(count, Math.floor(limit)) : 0
+      const out: WorldPoint[] = []
+      for (let index = 1; index <= made; index += 1) {
+        const t = Math.min(1, (metres * index) / lengthM)
+        out.push({ x: start.x + (end.x - start.x) * t, y: start.y + (end.y - start.y) * t })
+      }
+      return out
+    },
   }
 }
 

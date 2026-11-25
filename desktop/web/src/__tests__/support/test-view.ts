@@ -22,7 +22,7 @@ import type {
   ViewScreen,
   ViewTransform,
 } from '../../geo/view/types'
-import { conformalFixturePlaneForTests, type SessionPlane } from '../../geo/session-plane'
+import { createSessionPlane, type SessionPlane } from '../../geo/session-plane'
 
 export interface TestViewOptions {
   /** Default { width: 400, height: 300, devicePixelRatio: 1 }: the split files' camera today. */
@@ -58,7 +58,7 @@ export interface TestView {
 const DEFAULT_SCREEN: ViewScreen = { width: 400, height: 300, devicePixelRatio: 1 }
 
 export function createTestView(options: TestViewOptions = {}): TestView {
-  let plane = options.plane ?? conformalFixturePlaneForTests({ lon: 0, lat: 0 })
+  let plane = options.plane ?? createSessionPlane({ lon: 0, lat: 0 })
   const screen: ViewScreen = { ...DEFAULT_SCREEN, ...options.screen }
   const camera: ViewCamera = options.camera
     ? {

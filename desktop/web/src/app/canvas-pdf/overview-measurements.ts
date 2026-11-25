@@ -17,7 +17,8 @@ export function groupedGuides(zones: readonly ZoneMeasurements[], guides: Canvas
 /** Zone rows and guide values paginate before they reach the printable footer. */
 export function overviewMeasurements(zones: readonly ZoneMeasurements[], guides: CanvasPrintSnapshot['measurements'],
   geometry: (index: number) => PrintBounds, text: PdfTextEngine, locale: string, labels: PdfLabels,
-  guideValues: readonly string[] = []): PdfOperation[][] {
+  guideValues: readonly string[] = [],
+  groundDistance: (a: CanvasPrintSnapshot['measurements'][number]['start'], b: CanvasPrintSnapshot['measurements'][number]['end']) => number = (a, b) => Math.hypot(b.x - a.x, b.y - a.y)): PdfOperation[][] {
   const pages: PdfOperation[][] = []
   const number = new Intl.NumberFormat(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
   const compact = new Intl.NumberFormat(locale, { maximumFractionDigits: 2 }), homes = groupedGuides(zones, guides)
@@ -42,7 +43,7 @@ export function overviewMeasurements(zones: readonly ZoneMeasurements[], guides:
   for (const item of [...zones].sort((a, b) => Number(a.diameter) - Number(b.diameter) || a.reference.localeCompare(b.reference, 'en', { numeric: true }))) {
     const counts = new Map<number, number>()
     for (const guide of guides.filter(g => homes.get(g.id) === item.reference)) {
-      const value = Math.round(Math.hypot(guide.end.x - guide.start.x, guide.end.y - guide.start.y) * 100) / 100
+      const value = Math.round(groundDistance(guide.start, guide.end) * 100) / 100
       counts.set(value, (counts.get(value) ?? 0) + 1)
     }
     const values = [...counts].sort((a, b) => a[0] - b[0]).map(([n, count]) => compact.format(n) + (count > 1 ? ` ×${count}` : '')).join(' · ') || '—'

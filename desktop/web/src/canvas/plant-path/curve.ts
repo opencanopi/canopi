@@ -8,7 +8,7 @@
 // of the one before collapse into it. Only +, -, *, / and Math.sqrt touch the coordinates, all correctly rounded in every
 // engine, so V8 and JavaScriptCore flatten a path to the same bits. Pure: it imports only types (P54).
 
-import type { WorldPoint } from '../../geo/view/types'
+import type { GroundMeasure, WorldPoint } from '../../geo/view/types'
 
 /** One point of a path: where it is, and whether the curve breaks there. */
 export interface PathPoint {
@@ -38,7 +38,7 @@ const SAMPLES_PER_SEGMENT = 64
 const COLLAPSE_M = 1e-6
 
 /** The path as a polyline through every point, its curve flattened. */
-export function flattenPath(path: PathPoints): FlatPath {
+export function flattenPath(path: PathPoints, measure?: Pick<GroundMeasure, 'groundLength'>): FlatPath {
   const { unique, map } = collapse(path)
   const closed = path.closed && unique.length >= 3
   const segments = closed ? unique.length : unique.length - 1
@@ -57,7 +57,7 @@ export function flattenPath(path: PathPoints): FlatPath {
     // A loop's points that collapsed into its first point end it, as does the closing segment's end.
     segmentStarts.push(closed && index > 0 && point === 0 ? loopEnd : uniqueVertex[point]!)
   }
-  return { vertices, lengths: cumulativeLengths(vertices), segmentStarts, closed }
+  return { vertices, lengths: cumulativeLengths(vertices, measure), segmentStarts, closed }
 }
 
 /** The point `distance` metres along a flattened path, clamped to its ends. */
@@ -205,14 +205,14 @@ function mix(a: WorldPoint, b: WorldPoint, wa: number, wb: number): WorldPoint {
   return { x: a.x * wa + b.x * wb, y: a.y * wa + b.y * wb }
 }
 
-function cumulativeLengths(vertices: readonly WorldPoint[]): number[] {
+function cumulativeLengths(vertices: readonly WorldPoint[], measure?: Pick<GroundMeasure, 'groundLength'>): number[] {
   const lengths: number[] = []
   let total = 0
   for (let index = 0; index < vertices.length; index += 1) {
     if (index > 0) {
-      const dx = vertices[index]!.x - vertices[index - 1]!.x
-      const dy = vertices[index]!.y - vertices[index - 1]!.y
-      total += Math.sqrt(dx * dx + dy * dy)
+      const a = vertices[index - 1]!
+      const b = vertices[index]!
+      total += measure ? measure.groundLength(a, b) : Math.sqrt((b.x - a.x) ** 2 + (b.y - a.y) ** 2)
     }
     lengths.push(total)
   }

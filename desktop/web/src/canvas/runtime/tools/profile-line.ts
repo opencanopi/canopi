@@ -6,6 +6,7 @@
 // ToolEffects.finishProfile and arms Select, since site and design work interleave. It never selects, edits the Design
 // or pins. Its draft is the rubber band, a disc per point and one length chip per segment (tools/measure-labels.ts).
 
+import type { GroundMeasure } from '../../../geo/session-plane'
 import type { WorldPoint } from '../../../geo/view/types'
 import { createPolylineDraftMeasurements } from '../zone-measurements'
 import type { DraftShape } from './draft'
@@ -29,12 +30,17 @@ const PROFILE_LINE: VertexPathSpec = {
   },
 }
 
-function profileDraftShapes(points: readonly WorldPoint[], active: WorldPoint | null, view: ToolView): DraftShape[] {
+function profileDraftShapes(
+  points: readonly WorldPoint[],
+  active: WorldPoint | null,
+  view: ToolView,
+  groundMeasure?: GroundMeasure,
+): DraftShape[] {
   const band = active ? [...points, active] : points
   const shapes: DraftShape[] = []
   if (band.length >= 2) shapes.push({ kind: 'polyline', points: band, style: DRAFT_STROKE })
   for (const center of points) shapes.push({ kind: 'circle-px', center, ...VERTEX_MARKER })
-  const chips = createPolylineDraftMeasurements(points, active)
+  const chips = createPolylineDraftMeasurements(points, active, groundMeasure)
   shapes.push(...measureLabelShapes(chips, (a, b) => view.screenDistance(a, b)))
   return shapes
 }

@@ -26,7 +26,6 @@ import type { SceneRendererHoverState, SceneRendererSnapshot } from './scene-typ
  */
 export class WorldRootContainer extends Container {
   private readonly affine: [number, number, number, number, number, number] = [1, 0, 0, 1, 0, 0]
-  private appliedTick = -1
 
   setAffine(values: readonly [number, number, number, number, number, number]): void {
     this.affine[0] = values[0]
@@ -35,17 +34,13 @@ export class WorldRootContainer extends Container {
     this.affine[3] = values[3]
     this.affine[4] = values[4]
     this.affine[5] = values[5]
-    this.appliedTick = -1
-    // Public ObservablePoint.set triggers Pixi's dirty tick even when tx/ty are unchanged,
+    // Public ObservablePoint.set marks the container dirty even when tx/ty are unchanged,
     // keeping getGlobalPosition() consistent without touching private Container internals.
     this.position.set(values[4] + 1, values[5])
     this.position.set(values[4], values[5])
   }
 
   override updateLocalTransform(): void {
-    const tick = this._didContainerChangeTick
-    if (this.appliedTick === tick) return
-    this.appliedTick = tick
     const lt = this.localTransform
     lt.a = this.affine[0]
     lt.b = this.affine[1]

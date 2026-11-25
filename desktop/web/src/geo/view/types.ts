@@ -2,7 +2,8 @@
 
 import type { ReadonlySignal } from '@preact/signals'
 import type { GeoPoint } from '../../generated/contracts'
-import type { ConformalPoint } from '../session-plane'
+import type { ConformalPoint, GroundMeasure } from '../session-plane'
+export type { GroundMeasure }
 
 /** Session-plane metres: x east, y south (ADR 0001). */
 export interface WorldPoint { readonly x: number; readonly y: number }
@@ -82,6 +83,10 @@ export interface ViewTransform {
   screenDistance(a: WorldPoint, b: WorldPoint): number
   /** Unit world vectors of screen-right and screen-down: one pair for the whole plane (the camera has no pitch). */
   screenAxesInWorld(): { readonly right: WorldVector; readonly down: WorldVector }
+  /** Linear part of `worldToScreen`: maps a world-metre delta to its exact CSS-pixel delta at any bearing/anisotropy. */
+  worldDeltaToScreen(delta: WorldVector): ScreenPoint
+  /** Exact inverse of `worldDeltaToScreen`: maps a CSS-pixel delta to its world-metre delta. */
+  screenDeltaToWorld(delta: ScreenPoint): WorldVector
 
   /** The ground under the whole screen's corners; framing inside the insets is fit.ts's framingRect. */
   visibleWorldQuad(): WorldQuad

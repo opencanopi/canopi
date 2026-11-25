@@ -107,7 +107,8 @@ export function getPlantWorldBounds(
 
 /** The drawn radius plus the interaction padding, in CSS px. */
 function plantHitRadiusPx(plant: ScenePlantEntity, context: PlantFootprintContext): number {
-  return resolvePlantRadiusWorld(plant, context) * context.pixelsPerMetre + 4
+  const localScale = context.pixelsPerMetreAt ? context.pixelsPerMetreAt(plant.position) : context.pixelsPerMetre
+  return resolvePlantRadiusWorld(plant, context) * localScale + 4
 }
 
 export function hitTestPlant(
@@ -115,7 +116,8 @@ export function hitTestPlant(
   point: ScenePoint,
   context: PlantFootprintContext,
 ): boolean {
-  const radiusWorld = plantHitRadiusPx(plant, context) / Math.max(context.pixelsPerMetre, 0.001)
+  const localScale = context.pixelsPerMetreAt ? context.pixelsPerMetreAt(plant.position) : context.pixelsPerMetre
+  const radiusWorld = plantHitRadiusPx(plant, context) / Math.max(localScale, 0.001)
   const dx = point.x - plant.position.x
   const dy = point.y - plant.position.y
   return dx * dx + dy * dy <= radiusWorld * radiusWorld

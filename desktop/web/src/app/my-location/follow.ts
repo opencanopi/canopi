@@ -8,6 +8,7 @@
 // activation and the start of a story presentation end it explicitly. The session (session.ts) owns the mode.
 import { effect, type ReadonlySignal } from '@preact/signals'
 import type { GeoPoint } from '../../generated/contracts'
+import { createSessionPlane } from '../../geo/session-plane'
 import type { ViewCamera } from '../../geo/view/types'
 import { PLACE_SEARCH_ZOOM } from '../geocoding/place-search-ui'
 
@@ -108,9 +109,8 @@ export function startCameraFollow(options: CameraFollowOptions): CameraFollow {
 
 /** Whether the camera's centre is within the tolerance of `centre`, in screen pixels at the camera's zoom. */
 function near(camera: ViewCamera, centre: GeoPoint): boolean {
-  // Web Mercator at 512 px tiles: x is linear in longitude, y stretches by 1 / cos(latitude) for a short step.
-  const degreesPerPixel = 360 / (512 * 2 ** camera.zoom)
-  const dx = (camera.center.lon - centre.lon) / degreesPerPixel
-  const dy = (camera.center.lat - centre.lat) / (degreesPerPixel * Math.cos(centre.lat * Math.PI / 180))
-  return Math.hypot(dx, dy) <= FOLLOW_TOLERANCE_PX
+  const plane = createSessionPlane(centre)
+  const delta = plane.toPlane(camera.center)
+  const ppm = plane.pixelsPerMetre(camera.zoom)
+  return Math.hypot(delta.x * ppm.x, delta.y * ppm.y) <= FOLLOW_TOLERANCE_PX
 }

@@ -2,6 +2,7 @@
 // Owner of the zone kernel (zone-decoding-only-in-kernel, ADR 0024; §18 F33). Invariant: a
 // zone shape is decoded only here; callers ask it for outlines, measures and paths.
 
+import { groundPolylineLength, type GroundMeasure, type Metres, type SquareMetres } from '../../geo/session-plane'
 import type { ScenePoint, SceneZoneEntity } from './scene'
 
 export interface ZoneWorldBounds {
@@ -72,27 +73,44 @@ export function getEllipticalZonePolygon(zone: SceneZoneEntity, segmentCount = 4
   return points
 }
 
-/** A zone's area and perimeter in the session plane's metres. */
+/** A zone's area and perimeter in true ground metres. */
 export interface ZoneMeasure {
   /** Null for a line zone, which encloses nothing. */
-  readonly areaM2: number | null
+  readonly areaM2: SquareMetres | null
   /** The distance around the zone; a line zone's length. */
-  readonly perimeterM: number
+  readonly perimeterM: Metres
 }
 
-/** Pure: a zone's area and perimeter (Ramanujan's approximation for an ellipse); null without enough points. */
-export function measureZone(zone: SceneZoneEntity): ZoneMeasure | null {
+/** Pure: a zone's true WGS84 ground area and perimeter (Ramanujan II for an ellipse); null without enough points. */
+export function measureZone(zone: SceneZoneEntity, measure: GroundMeasure): ZoneMeasure | null {
   if (zone.zoneType === 'ellipse') {
     if (zone.points.length < 2) return null
-    const a = Math.abs(zone.points[1]!.x)
-    const b = Math.abs(zone.points[1]!.y)
-    return { areaM2: Math.PI * a * b, perimeterM: Math.PI * (3 * (a + b) - Math.sqrt((3 * a + b) * (a + 3 * b))) }
+    const center = zone.points[0]!
+    const rx = Math.abs(zone.points[1]!.x)
+    const ry = Math.abs(zone.points[1]!.y)
+    const s = measure.groundScaleAt(center)
+    const rad = degreesToRadians(zone.rotationDeg)
+    const cos = Math.cos(rad)
+    const sin = Math.sin(rad)
+    const a = Math.hypot(rx * cos * s.x, rx * sin * s.y)
+    const b = Math.hypot(-ry * sin * s.x, ry * cos * s.y)
+    const sum = a + b
+    const h = sum > 0 ? ((a - b) / sum) ** 2 : 0
+    return {
+      areaM2: (Math.PI * rx * ry * s.x * s.y) as SquareMetres,
+      perimeterM: (Math.PI * sum * (1 + (3 * h) / (10 + Math.sqrt(4 - 3 * h)))) as Metres,
+    }
   }
   const points = zone.zoneType === 'rect' ? getRectangularZoneCorners(zone) : zone.points
   if (!points || points.length < 2) return null
-  if (zone.zoneType === 'line') return { areaM2: null, perimeterM: pathLength(points, false) }
+  if (zone.zoneType === 'line') {
+    return { areaM2: null, perimeterM: groundPolylineLength(measure, points, false) }
+  }
   if (points.length < 3) return null
-  return { areaM2: Math.abs(polygonArea(points)), perimeterM: pathLength(points, true) }
+  return {
+    areaM2: measure.groundArea(points),
+    perimeterM: groundPolylineLength(measure, points, true),
+  }
 }
 
 /** The shoelace area of a closed polygon, signed by its winding. */
@@ -104,17 +122,6 @@ export function polygonArea(points: readonly ScenePoint[]): number {
     twiceArea += current.x * next.y - next.x * current.y
   }
   return twiceArea / 2
-}
-
-function pathLength(points: readonly ScenePoint[], closed: boolean): number {
-  let length = 0
-  const segments = closed ? points.length : points.length - 1
-  for (let index = 0; index < segments; index += 1) {
-    const start = points[index]!
-    const end = points[(index + 1) % points.length]!
-    length += Math.hypot(end.x - start.x, end.y - start.y)
-  }
-  return length
 }
 
 /** A point turned about a centre, with near-zero values snapped to 0. */

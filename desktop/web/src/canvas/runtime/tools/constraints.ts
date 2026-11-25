@@ -5,14 +5,12 @@
 // a pivot so that the angle since the press is a step multiple (relative steps, bearing-independent). At bearing 0 the
 // screen axes are the world axes.
 
-import type { WorldPoint, WorldVector } from '../../../geo/view/types'
+import type { WorldPoint } from '../../../geo/view/types'
+import { screenCoordsToWorldDelta, worldDeltaToScreenCoords, type ScreenBasis } from './screen-basis'
 import type { ToolConstraint } from './tool'
 
-/** Unit world vectors of screen-right and screen-down (ToolView.screenAxesInWorld). */
-export interface ScreenAxes {
-  readonly right: WorldVector
-  readonly down: WorldVector
-}
+/** Unit world vectors of screen-right and screen-down, optionally paired with the view's exact linear affine maps. */
+export type ScreenAxes = ScreenBasis
 
 /** The point under `constraint`, against the screen axes the host passes (world axes at bearing 0). */
 export function applyToolConstraint(constraint: ToolConstraint, point: WorldPoint, axes: ScreenAxes): WorldPoint {
@@ -25,25 +23,17 @@ function constrainDirection(origin: WorldPoint, point: WorldPoint, stepDeg: numb
   const dy = point.y - origin.y
   const worldLength = Math.hypot(dx, dy)
   if (worldLength <= 0.000001) return { ...origin }
-  // Dual basis of (right, down): exact screen-axis coordinates even when non-orthogonal under anisotropic affine.
-  const det = axes.right.x * axes.down.y - axes.right.y * axes.down.x
-  const across = Math.abs(det) > 1e-12
-    ? (dx * axes.down.y - dy * axes.down.x) / det
-    : dx * axes.right.x + dy * axes.right.y
-  const down = Math.abs(det) > 1e-12
-    ? (axes.right.x * dy - axes.right.y * dx) / det
-    : dx * axes.down.x + dy * axes.down.y
-  if (Math.hypot(across, down) <= 0.000001) return { ...origin }
+  const screenDelta = worldDeltaToScreenCoords(axes, { x: dx, y: dy })
+  if (Math.hypot(screenDelta.x, screenDelta.y) <= 0.000001) return { ...origin }
 
   const step = Math.PI / (180 / stepDeg)
-  const angle = Math.round(Math.atan2(down, across) / step) * step
-  const rayX = Math.cos(angle) * axes.right.x + Math.sin(angle) * axes.down.x
-  const rayY = Math.cos(angle) * axes.right.y + Math.sin(angle) * axes.down.y
-  const rayLen = Math.hypot(rayX, rayY)
+  const angle = Math.round(Math.atan2(screenDelta.y, screenDelta.x) / step) * step
+  const ray = screenCoordsToWorldDelta(axes, { x: Math.cos(angle), y: Math.sin(angle) })
+  const rayLen = Math.hypot(ray.x, ray.y)
   if (!(rayLen > 0)) return { ...origin }
   return {
-    x: origin.x + (rayX / rayLen) * worldLength,
-    y: origin.y + (rayY / rayLen) * worldLength,
+    x: origin.x + (ray.x / rayLen) * worldLength,
+    y: origin.y + (ray.y / rayLen) * worldLength,
   }
 }
 

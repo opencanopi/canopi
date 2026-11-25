@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { conformalFixturePlaneForTests } from '../../geo/session-plane'
 import { planarCameraOf } from '../../geo/view/view-transform'
 import type { ViewFrame } from '../../geo/view/types'
 import { createTestView } from './test-view'
@@ -9,7 +10,7 @@ describe('createTestView', () => {
   })
 
   it('setViewport at bearing 0 places world points within 1e-6 of CameraController', () => {
-    const view = createTestView()
+    const view = createTestView({ plane: conformalFixturePlaneForTests({ lon: 0, lat: 0 }) })
     const worldPoints = [{ x: 0, y: 0 }, { x: 20, y: 30 }, { x: -12.5, y: 7.25 }, { x: 1e4, y: -3e3 }]
     const screenPoints = [{ x: 0, y: 0 }, { x: 140, y: 110 }, { x: 400, y: 300 }, { x: 33.3, y: -8 }]
 

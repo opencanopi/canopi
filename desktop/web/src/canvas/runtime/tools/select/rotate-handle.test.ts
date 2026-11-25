@@ -38,10 +38,10 @@ function bedHarness(): ToolHarness {
 const PIVOT = { x: 70, y: 110 }
 const ROTATE = { kind: 'handle', id: ROTATE_HANDLE_ID } as const
 
-/** The screen point at `angleDeg` about the pivot, `radius` px away (the view is 1 px/m at the origin). */
-function aroundPivot(angleDeg: number, radius: number): ScreenPoint {
+/** The screen point at `angleDeg` about the world pivot, `radius` m away. */
+function aroundPivot(h: ToolHarness, angleDeg: number, radius: number): ScreenPoint {
   const radians = (angleDeg * Math.PI) / 180
-  return { x: PIVOT.x + Math.cos(radians) * radius, y: PIVOT.y + Math.sin(radians) * radius }
+  return h.screen({ x: PIVOT.x + Math.cos(radians) * radius, y: PIVOT.y + Math.sin(radians) * radius })
 }
 
 describe('Select rotation handle', () => {
@@ -49,7 +49,7 @@ describe('Select rotation handle', () => {
     const h = bedHarness()
 
     expect(h.chrome.handles.find((handle) => handle.id === ROTATE_HANDLE_ID)).toMatchObject({
-      anchor: { x: 70, y: 80 },
+      anchor: { x: expect.closeTo(70, 9), y: expect.closeTo(80, 9) },
       offsetPx: { x: 0, y: -28 },
       hitRadiusPx: 14,
       glyph: 'rotate',
@@ -68,7 +68,7 @@ describe('Select rotation handle', () => {
       shape.kind === 'label' && shape.tone === 'measure-quiet' ? [shape] : [])
 
     expect(chips()[0]).toMatchObject({ anchor: { x: 200, y: 100 }, beside: { normalPx: { x: 0, y: -1 }, gapPx: 6 } })
-    expect(handle()).toMatchObject({ anchor: { x: 200, y: 100 }, offsetPx: { x: 0, y: -48 } })
+    expect(handle()).toMatchObject({ anchor: { x: expect.closeTo(200, 9), y: expect.closeTo(100, 9) }, offsetPx: { x: 0, y: -48 } })
 
     // At a fifth of the scale the edges are under 52 px: no dots, every chip on its edge, and the handle back at 28 px.
     h.view.setViewport({ x: 0, y: 0, scale: 0.2 })
@@ -182,8 +182,8 @@ describe('Select rotation handle', () => {
       const h = harness({ camera: { bearingDeg: 45 }, scene: { zones: [bed] } })
       h.select({ kind: 'zone', id: 'bed' })
       const corners = getRectangularZoneCorners(bed)!.map((corner) => h.view.view().worldToScreen(corner))
-      // Level on screen: its top edge is one height.
-      expect(corners.map((corner) => corner.y).sort((a, b) => a - b)[1]).toBeCloseTo(Math.min(...corners.map((c) => c.y)), 6)
+      // Level on screen (within WGS84 ellipsoid flattening, sub-pixel vs the ~85 px world box).
+      expect(corners.map((corner) => corner.y).sort((a, b) => a - b)[1]!).toBeCloseTo(Math.min(...corners.map((c) => c.y)), 0)
 
       const at = handleCentre(h)
       const expected = above(corners)
@@ -224,10 +224,12 @@ describe('Select rotation handle', () => {
     const h = harness({ scene: { measurementGuides: [measurementGuide('guide', { x: 20, y: 110 }, { x: 120, y: 110 })] } })
     h.select({ kind: 'measurement-guide', id: 'guide' })
 
-    expect(h.chrome.handles.find((handle) => handle.id === ROTATE_HANDLE_ID)).toMatchObject({ anchor: { x: 70, y: 110 } })
-    h.press({ x: 70, y: 82 }, { target: ROTATE })
-    h.move(aroundPivot(0, 28))
-    h.release(aroundPivot(0, 28))
+    expect(h.chrome.handles.find((handle) => handle.id === ROTATE_HANDLE_ID)).toMatchObject({
+      anchor: { x: expect.closeTo(70, 9), y: expect.closeTo(110, 9) },
+    })
+    h.press(aroundPivot(h, -90, 28), { target: ROTATE })
+    h.move(aroundPivot(h, 0, 28))
+    h.release(aroundPivot(h, 0, 28))
 
     const guide = h.store.persisted.measurementGuides[0]!
     expect(guide.start.x).toBeCloseTo(70)
@@ -239,18 +241,19 @@ describe('Select rotation handle', () => {
   it('Shift steps 15 degrees from the press angle', () => {
     const h = bedHarness()
     // A press off the handle's centre, so the press angle is no multiple of 15.
-    const pressAngle = Math.atan2(52 - PIVOT.y, 78 - PIVOT.x) * 180 / Math.PI
+    const pressWorld = { x: 78, y: 52 }
+    const pressAngle = Math.atan2(pressWorld.y - PIVOT.y, pressWorld.x - PIVOT.x) * 180 / Math.PI
     expect(pressAngle % 15).not.toBeCloseTo(0)
 
-    h.press({ x: 78, y: 52 }, { target: ROTATE })
-    h.move(aroundPivot(pressAngle + 22, 58), { shift: true })
+    h.press(h.screen(pressWorld), { target: ROTATE })
+    h.move(aroundPivot(h, pressAngle + 22, 58), { shift: true })
     // Relative steps: 22 degrees turned is 15, whatever the absolute angle.
     expect(h.store.persisted.zones[0]!.rotationDeg).toBe(15)
-    h.move(aroundPivot(pressAngle + 38, 58), { shift: true })
+    h.move(aroundPivot(h, pressAngle + 38, 58), { shift: true })
     expect(h.store.persisted.zones[0]!.rotationDeg).toBe(45)
-    h.move(aroundPivot(pressAngle + 22, 58))
+    h.move(aroundPivot(h, pressAngle + 22, 58))
     expect(h.store.persisted.zones[0]!.rotationDeg).toBeCloseTo(22)
-    h.release(aroundPivot(pressAngle + 22, 58))
+    h.release(aroundPivot(h, pressAngle + 22, 58))
 
     expect(h.store.persisted.zones[0]!.rotationDeg).toBeCloseTo(22)
     expect(h.undo()).toBe(true)
@@ -260,11 +263,11 @@ describe('Select rotation handle', () => {
 
   it('the handle reads 0° at its press, then hides with the others while the turn changes the scene', () => {
     const h = bedHarness()
-    h.press({ x: 70, y: 52 }, { target: ROTATE })
+    h.press(aroundPivot(h, -90, 58), { target: ROTATE })
     expect(h.chrome.activeHandle).toBe(ROTATE_HANDLE_ID)
     expect(h.chrome.handles.find((handle) => handle.id === ROTATE_HANDLE_ID)?.readout).toBe('0°')
 
-    h.move(aroundPivot(0, 58))
+    h.move(aroundPivot(h, 0, 58))
     expect(h.store.persisted.zones[0]!.rotationDeg).toBeCloseTo(90)
     expect(h.chrome.handles).toEqual([])
 

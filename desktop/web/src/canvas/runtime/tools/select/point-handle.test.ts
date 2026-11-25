@@ -64,7 +64,7 @@ describe.each(cases)('$label point handle drags', ({ handle, start, create, sele
     return created
   }
 
-  function pressHandle(h: ToolHarness, at: ScreenPoint = start): void {
+  function pressHandle(h: ToolHarness, at: ScreenPoint = h.screen(start)): void {
     h.press(at, { target: { kind: 'handle', id: handle } })
   }
 
@@ -98,10 +98,10 @@ describe.each(cases)('$label point handle drags', ({ handle, start, create, sele
     const h = harness()
 
     pressHandle(h)
-    h.move({ x: 80, y: 60 })
-    h.release({ x: 90, y: 70 })
+    h.move(h.screen({ x: 80, y: 60 }))
+    h.release(h.screen({ x: 90, y: 70 }))
 
-    expect(draggedPoint(h)).toEqual({ x: 90, y: 70 })
+    expect(draggedPoint(h)).toEqual({ x: expect.closeTo(90, 9), y: expect.closeTo(70, 9) })
     expect(h.history.canUndo.value).toBe(true)
     expect(h.undo()).toBe(true)
     expect(draggedPoint(h)).toEqual(start)
@@ -112,8 +112,8 @@ describe.each(cases)('$label point handle drags', ({ handle, start, create, sele
     const h = harness()
 
     pressHandle(h)
-    h.move({ x: 90, y: 70 })
-    expect(draggedPoint(h)).toEqual({ x: 90, y: 70 })
+    h.move(h.screen({ x: 90, y: 70 }))
+    expect(draggedPoint(h)).toEqual({ x: expect.closeTo(90, 9), y: expect.closeTo(70, 9) })
     h.cancel('pointercancel')
 
     expect(draggedPoint(h)).toEqual(start)
@@ -125,8 +125,8 @@ describe.each(cases)('$label point handle drags', ({ handle, start, create, sele
     const h = harness()
 
     pressHandle(h)
-    h.move({ x: 90, y: 70 })
-    expect(draggedPoint(h)).toEqual({ x: 90, y: 70 })
+    h.move(h.screen({ x: 90, y: 70 }))
+    expect(draggedPoint(h)).toEqual({ x: expect.closeTo(90, 9), y: expect.closeTo(70, 9) })
     h.dispose()
     harnesses.splice(harnesses.indexOf(h), 1)
 
@@ -308,11 +308,12 @@ describe('polygon corners (spec §3.2, U33: every corner route)', () => {
 
   it('double-click a polygon edge adds a corner', () => {
     const h = polygonHarness()
+    const edge = h.screen({ x: 130, y: 201 })
 
-    h.click({ x: 130, y: 201 })
+    h.click(edge)
     expect(corners(h)).toEqual(SQUARE)
-    h.click({ x: 130, y: 201 }, { clickCount: 2 })
-    expect(corners(h)).toEqual([SQUARE[0], SQUARE[1], SQUARE[2], { x: 130, y: 200 }, SQUARE[3]])
+    h.click(edge, { clickCount: 2 })
+    expect(corners(h)).toEqual([SQUARE[0], SQUARE[1], SQUARE[2], { x: expect.closeTo(130, 9), y: 200 }, SQUARE[3]])
     expect(h.store.session.selectedTargets).toEqual([POLY])
 
     h.undo()
@@ -331,10 +332,11 @@ describe('polygon corners (spec §3.2, U33: every corner route)', () => {
       draft.layers = draft.layers.map((layer) => (layer.name === 'plants' ? { ...layer, locked: true } : layer))
     })
     h.select(POLY)
+    const edge = h.screen({ x: 130, y: 201 })
 
-    h.click({ x: 130, y: 201 })
-    h.click({ x: 130, y: 201 }, { clickCount: 2 })
-    expect(corners(h)).toEqual([SQUARE[0], SQUARE[1], SQUARE[2], { x: 130, y: 200 }, SQUARE[3]])
+    h.click(edge)
+    h.click(edge, { clickCount: 2 })
+    expect(corners(h)).toEqual([SQUARE[0], SQUARE[1], SQUARE[2], { x: expect.closeTo(130, 9), y: 200 }, SQUARE[3]])
     expect(h.store.session.selectedTargets).toEqual([POLY])
   })
 
@@ -379,16 +381,26 @@ describe('polygon corners (spec §3.2, U33: every corner route)', () => {
 
   it('a corner dragged out and back to its press is not selected; only a still press selects it (U40)', () => {
     const h = polygonHarness()
-    const at = h.chrome.handles.find((entry) => entry.id === vertex(1))!.anchor
+    const at = h.screen(h.chrome.handles.find((entry) => entry.id === vertex(1))!.anchor)
 
     h.press(at, { target: { kind: 'handle', id: vertex(1) } })
     h.move({ x: at.x + 30, y: at.y })
     h.move(at)
     h.release(at)
 
-    expect(corners(h)).toEqual(SQUARE)
+    expect(corners(h)).toEqual([
+      SQUARE[0],
+      { x: expect.closeTo(SQUARE[1]!.x, 9), y: expect.closeTo(SQUARE[1]!.y, 9) },
+      SQUARE[2],
+      SQUARE[3],
+    ])
     expect(h.chrome.activeHandle).toBeNull()
     expect(h.host.command({ kind: 'delete-handle' })).toBe('pass')
-    expect(corners(h)).toEqual(SQUARE)
+    expect(corners(h)).toEqual([
+      SQUARE[0],
+      { x: expect.closeTo(SQUARE[1]!.x, 9), y: expect.closeTo(SQUARE[1]!.y, 9) },
+      SQUARE[2],
+      SQUARE[3],
+    ])
   })
 })

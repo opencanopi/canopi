@@ -198,7 +198,7 @@ function mountPresentation(container: HTMLElement, dpr = 1) {
   return Object.assign(presentation, { stage: stage as unknown as { children: Array<{ matrix: number[] | null }> } })
 }
 
-/** The view that places the plane as `viewport` did: screen = world × scale + { x, y }, bearing 0. */
+/** The test view placing the real lat-0 session plane via `PlanarCamera` at bearing 0. */
 function view(viewport: { x: number; y: number; scale: number }): ViewTransform {
   return createTestRendererView(viewport)
 }
@@ -222,14 +222,11 @@ describe('createPixiScenePresentation', () => {
       renderer.present({ ...panned, projectAnchors })
       expect(add).not.toHaveBeenCalled()
       expect(projectAnchors).toHaveBeenCalled()
-      expect(renderer.stage.children[0]!.matrix).toEqual([100, 0, 0, 100, 10, 20])
+      expect(renderer.stage.children[0]!.matrix).toEqual([...panned.planar.affine])
       const [pannedX, pannedY] = text.position.set.mock.calls.at(-1)!
       expect(pannedX).toBeCloseTo(x + 10, 3)
       expect(pannedY).toBeCloseTo(y + 20, 3)
-    } finally {
-      add.mockRestore()
-      renderer.dispose()
-    }
+    } finally { add.mockRestore(); renderer.dispose() }
   })
   it('keeps world geometry warm during pan and refreshes screen-weight strokes on zoom', async () => {
     const pixi = await import('pixi.js') as unknown as {
@@ -243,12 +240,14 @@ describe('createPixiScenePresentation', () => {
     } }))
     const graphics = pixi.__pixiMockState.graphics
     graphics.forEach(g => g.clear.mockClear())
-    renderer.present(view({ x: 10, y: 20, scale: 30 }))
+    const panned = view({ x: 10, y: 20, scale: 30 })
+    renderer.present(panned)
     graphics.forEach(g => expect(g.clear).not.toHaveBeenCalled())
-    expect(renderer.stage.children[0]!.matrix).toEqual([30, 0, 0, 30, 10, 20])
-    renderer.present(view({ x: 10, y: 20, scale: 60 }))
+    expect(renderer.stage.children[0]!.matrix).toEqual([...panned.planar.affine])
+    const zoomed = view({ x: 10, y: 20, scale: 60 })
+    renderer.present(zoomed)
     graphics.forEach(g => expect(g.clear).toHaveBeenCalledOnce())
-    expect(renderer.stage.children[0]!.matrix).toEqual([60, 0, 0, 60, 10, 20])
+    expect(renderer.stage.children[0]!.matrix).toEqual([...zoomed.planar.affine])
     renderer.dispose()
   })
   it('skips offscreen plant paths and restores them with current appearance on re-entry', async () => {
@@ -335,17 +334,10 @@ describe('createPixiScenePresentation', () => {
     renderer.dispose()
   })
   it('shares exact botanical geometry, refreshes it for zoom and colour, and rings interaction apart', async () => {
-    const pixi = await import('pixi.js') as unknown as {
-      __pixiMockState: {
-        graphics: Array<{
-          clear: ReturnType<typeof vi.fn>
-          context: unknown
-          position: { set: ReturnType<typeof vi.fn> }
-          bezierCurveTo: ReturnType<typeof vi.fn>
-        }>
-        graphicsContexts: Array<{ bezierCurveTo: ReturnType<typeof vi.fn>; destroy: ReturnType<typeof vi.fn>; ownerCount: number }>
-      }
-    }
+    const pixi = await import('pixi.js') as unknown as { __pixiMockState: {
+      graphics: Array<{ clear: ReturnType<typeof vi.fn>; context: unknown; position: { set: ReturnType<typeof vi.fn> }; bezierCurveTo: ReturnType<typeof vi.fn> }>
+      graphicsContexts: Array<{ bezierCurveTo: ReturnType<typeof vi.fn>; destroy: ReturnType<typeof vi.fn>; ownerCount: number }>
+    } }
     const renderer = mountPresentation(document.createElement('div'))
     const snapshot = createTestSceneRendererSnapshot({ scene: { plants: [
       // Half a metre apart: 30, 60 and 90 px/m draw three sizes (6.3, 12.6 and the 14 px cap).
@@ -362,10 +354,14 @@ describe('createPixiScenePresentation', () => {
     expect((sharedContext as { ownerCount: number }).ownerCount).toBe(2)
     firstPlant!.clear.mockClear()
     secondPlant!.clear.mockClear()
-    renderer.present(view({ x: 10, y: 20, scale: 30 }))
+    const panned = view({ x: 10, y: 20, scale: 30 })
+    renderer.present(panned)
     expect(firstPlant!.clear).not.toHaveBeenCalled()
     expect(secondPlant!.clear).not.toHaveBeenCalled()
-    expect(firstPlant!.position.set).toHaveBeenLastCalledWith(40, 50)
+    const firstAt = panned.worldToScreen(snapshot.scene.plants[0]!.position)
+    const [lastX, lastY] = firstPlant!.position.set.mock.calls.at(-1)!
+    expect(lastX).toBeCloseTo(firstAt.x, 4)
+    expect(lastY).toBeCloseTo(firstAt.y, 4)
     expect(firstPlant!.context).toBe(sharedContext)
     renderer.present(view({ x: 10, y: 20, scale: 30 }), { ...snapshot, selectedPlantIds: new Set(['b']) })
     // Selection rings the plant in its own graphic; the symbol geometry stays shared.
@@ -629,12 +625,15 @@ describe('createPixiScenePresentation', () => {
       }
     }
     const renderer = mountPresentation(document.createElement('div'), 1.5)
-    renderer.present(view({ x: -9900, y: -9900, scale: 1000 }), createRendererSnapshot({
-      plants: [createPlant({ id: 'a', symbol: 'round' }), createPlant({ id: 'b', symbol: 'round' })],
+    const v = view({ x: -9900, y: -9900, scale: 1000 })
+    const plantA = createPlant({ id: 'a', symbol: 'round' })
+    renderer.present(v, createRendererSnapshot({
+      plants: [plantA, createPlant({ id: 'b', symbol: 'round' })],
     }))
     const glyph = pixi.__pixiMockState.graphics.find(graphics => graphics.circle.mock.calls.some(([x, y, radius]) => x === 0 && y === 0 && Math.abs(radius - 14 * ROUND_PLANT_SYMBOL_RADIUS) < 0.13))!
     expect(glyph).toBeDefined()
-    expect(glyph.position.set).toHaveBeenLastCalledWith(100, 100)
+    const glyphAt = v.worldToScreen(plantA.position)
+    expect(glyph.position.set).toHaveBeenLastCalledWith(glyphAt.x, glyphAt.y)
     // Stack counts keep the 12 px type floor on a badge sized for them.
     expect(pixi.__pixiMockState.texts.find((text) => text.text === '2')?.style.options.fontSize).toBeGreaterThanOrEqual(12)
     const badgeRects = pixi.__pixiMockState.graphics.flatMap((graphics) => graphics.roundRect.mock.calls)
@@ -829,17 +828,12 @@ describe('createPixiScenePresentation', () => {
     const renderer = mountPresentation(host)
 
     const snapshot = createRendererSnapshot({
-      measurementGuides: [{
-        kind: 'measurement-guide',
-        id: 'guide-1',
-        locked: false,
-        start: { x: 40, y: 10 },
-        end: { x: 10, y: 40 },
-      }],
+      measurementGuides: [{ kind: 'measurement-guide', id: 'guide-1', locked: false, start: { x: 40, y: 10 }, end: { x: 10, y: 40 } }],
       layers: [{ kind: 'layer', name: 'measurement-guides', visible: true, locked: false, opacity: 1 }],
     })
 
-    renderer.present(view({ x: 0, y: 0, scale: 2 }), snapshot)
+    const v = view({ x: 0, y: 0, scale: 2 })
+    renderer.present(v, snapshot)
 
     const guideGraphic = pixi.__pixiMockState.graphics.find((graphics) =>
       graphics.moveTo.mock.calls.some(([x, y]) => x === 40 && y === 10)
@@ -851,14 +845,14 @@ describe('createPixiScenePresentation', () => {
     expect(guideGraphic?.stroke.mock.calls[0]?.[0]).toMatchObject({ color: 0x14100a, width: 3.5 / band, alpha: .6 })
     expect(guideGraphic?.stroke.mock.calls[1]?.[0]).toMatchObject({ color: 0xfff3d6, width: 1.5 / band, alpha: 1 })
     const label = pixi.__pixiMockState.texts.find((text) => text.text === '42 m')
-    const expectedLabelPoint = {
-      x: 50 - MEASUREMENT_GUIDE_LABEL_OFFSET_PX * Math.SQRT1_2,
-      y: 50 - MEASUREMENT_GUIDE_LABEL_OFFSET_PX * Math.SQRT1_2,
-    }
+    const startAt = v.worldToScreen({ x: 40, y: 10 }), endAt = v.worldToScreen({ x: 10, y: 40 }), midAt = v.worldToScreen({ x: 25, y: 25 })
+    let expectedAngle = Math.atan2(endAt.y - startAt.y, endAt.x - startAt.x)
+    if (expectedAngle > Math.PI / 2) expectedAngle -= Math.PI
+    if (expectedAngle < -Math.PI / 2) expectedAngle += Math.PI
     const labelPositionCall = label?.position.set.mock.calls[0]
-    expect(labelPositionCall?.[0]).toBeCloseTo(expectedLabelPoint.x)
-    expect(labelPositionCall?.[1]).toBeCloseTo(expectedLabelPoint.y)
-    expect(label?.rotation).toBeCloseTo(-Math.PI / 4)
+    expect(labelPositionCall?.[0]).toBeCloseTo(midAt.x + Math.sin(expectedAngle) * MEASUREMENT_GUIDE_LABEL_OFFSET_PX)
+    expect(labelPositionCall?.[1]).toBeCloseTo(midAt.y - Math.cos(expectedAngle) * MEASUREMENT_GUIDE_LABEL_OFFSET_PX)
+    expect(label?.rotation).toBeCloseTo(expectedAngle)
 
     // Selecting the guide changes its stroke, never the label's ink, which follows the map backdrop.
     const backdropInk = (label?.style as { options: { fill: number } }).options.fill
@@ -977,10 +971,12 @@ describe('createPixiScenePresentation', () => {
       },
     })
 
-    renderer.present(view({ x: 10, y: 20, scale: 2 }), snapshot)
+    const v = view({ x: 10, y: 20, scale: 2 })
+    renderer.present(v, snapshot)
 
     const annotationText = pixi.__pixiMockState.texts.find((text) => text.text === 'Hello')
-    expect(annotationText?.position.set).toHaveBeenCalledWith(60, 90)
+    const at = v.worldToScreen({ x: 25, y: 35 })
+    expect(annotationText?.position.set).toHaveBeenCalledWith(at.x, at.y)
     expect(annotationText?.rotation).toBeCloseTo(Math.PI / 2)
     renderer.dispose()
   })
@@ -1306,26 +1302,19 @@ describe('createPixiScenePresentation', () => {
 
   it('a draft set on the presentation is drawn and cleared', () => {
     interface MockNode {
-      children: MockNode[]
-      matrix: number[] | null
-      moveTo: ReturnType<typeof vi.fn>
-      lineTo: ReturnType<typeof vi.fn>
-      stroke: ReturnType<typeof vi.fn>
-      destroy: ReturnType<typeof vi.fn>
+      children: MockNode[]; matrix: number[] | null
+      moveTo: ReturnType<typeof vi.fn>; lineTo: ReturnType<typeof vi.fn>; stroke: ReturnType<typeof vi.fn>; destroy: ReturnType<typeof vi.fn>
     }
     const stage = new Container()
-    const renderer = createPixiScenePresentation({
-      stage,
-      createText: () => new Text({ resolution: 2 }),
-      viewSize: { width: 400, height: 300 },
-    })
+    const renderer = createPixiScenePresentation({ stage, createText: () => new Text({ resolution: 2 }), viewSize: { width: 400, height: 300 } })
     // Drafts draw over plants, notes and every label: the world and billboard draft roots, the last two stage children.
     const children = (stage as unknown as MockNode).children
     expect(children).toHaveLength(4)
     const [draftWorld, draftScreen] = children.slice(-2) as [MockNode, MockNode]
 
-    renderer.present(view({ x: 5, y: 6, scale: 10 }), createRendererSnapshot())
-    expect(draftWorld.matrix).toEqual([10, 0, 0, 10, 5, 6])
+    const v1 = view({ x: 5, y: 6, scale: 10 })
+    renderer.present(v1, createRendererSnapshot())
+    expect(draftWorld.matrix).toEqual([...v1.planar.affine])
     renderer.setDraft({ shapes: [{ kind: 'polyline', points: [{ x: 1, y: 2 }, { x: 3, y: 2 }], style: { token: 'draft', widthPx: 2 } }] })
     const [line] = draftWorld.children
     expect(line).toBeDefined()
@@ -1335,8 +1324,9 @@ describe('createPixiScenePresentation', () => {
     expect(line!.stroke.mock.calls.map(([style]) => style.width)).toEqual([0.4, 0.2])
     expect(draftScreen.children).toEqual([])
 
-    renderer.present(view({ x: 15, y: 16, scale: 10 }))
-    expect(draftWorld.matrix).toEqual([10, 0, 0, 10, 15, 16])
+    const v2 = view({ x: 15, y: 16, scale: 10 })
+    renderer.present(v2)
+    expect(draftWorld.matrix).toEqual([...v2.planar.affine])
     expect(draftWorld.children).toEqual([line])
 
     renderer.setDraft(null)

@@ -36,17 +36,20 @@ export function distanceGuideShapes(
 
 /** The move-drag's guides from `active` (one of `dragged`) to the nearest plants outside `dragged`. */
 export function plantDragDistanceGuideShapes(
-  scene: Pick<ToolScene, 'persisted'>,
+  scene: Pick<ToolScene, 'persisted' | 'groundMeasure'>,
   active: ScenePlantEntity,
   dragged: ReadonlySet<string>,
 ): DraftShape[] {
   const { layers, plants } = scene.persisted
   if (!dragged.has(active.id) || layers.find((layer) => layer.name === 'plants')?.visible === false) return []
+  const measure = scene.groundMeasure
   return plants
     .filter((plant) => !dragged.has(plant.id))
     .map((plant) => ({
       plant,
-      distanceM: Math.hypot(plant.position.x - active.position.x, plant.position.y - active.position.y),
+      distanceM: measure
+        ? measure.groundLength(active.position, plant.position)
+        : Math.hypot(plant.position.x - active.position.x, plant.position.y - active.position.y),
     }))
     .sort((left, right) => left.distanceM - right.distanceM || left.plant.id.localeCompare(right.plant.id))
     .slice(0, DRAG_DISTANCE_GUIDES)

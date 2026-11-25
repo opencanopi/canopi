@@ -132,7 +132,7 @@ function profileSamples(line: readonly GeoPoint[], plane: SessionPlane, finestRe
   for (let index = 1; index < vertices.length; index += 1) {
     const a = vertices[index - 1]!
     const b = vertices[index]!
-    cumulative.push(cumulative[index - 1]! + Math.hypot(b.x - a.x, b.y - a.y))
+    cumulative.push(cumulative[index - 1]! + plane.groundLength(a, b))
   }
   const lengthM = cumulative[cumulative.length - 1]!
   const floor = lengthM / (PROFILE_MAX_POINTS - 1)
@@ -190,7 +190,7 @@ function profileSteepest(
     if (run < shortest && start > 0) break
     if (a === null || a === undefined || b === null || b === undefined || run <= 0) continue
     const percent = (Math.abs(b - a) / run) * 100
-    if (!best || percent > best.percent) best = { percent, index: Math.round((start + end) / 2), runM: run }
+    if (!best || percent > best.percent + Math.max(1e-12, Math.abs(best.percent) * 1e-12)) best = { percent, index: Math.round((start + end) / 2), runM: run }
   }
   return best
 }

@@ -25,7 +25,7 @@ const FIXTURE = fileURLToPath(new URL('../fixtures/canvas-base.canopi', import.m
 const RECT_EDGE: Point = { x: 321, y: 286 }
 const APPLE: Point = { x: 363, y: 266 }
 const GROUND: Point = { x: 560, y: 590 }
-const RECT_ZONE_CHIP = 'Rectangle zone · 112 m² · 44 m'
+const RECT_ZONE_CHIP = 'Rectangle zone · 112 m² · 44.1 m'
 const EMPTY_MAP_MENU = 'Canvas edit commands'
 
 test.use({ viewport: { width: 1024, height: 768 } })

@@ -14,13 +14,14 @@
 //   `tools/select/selection-hull.ts`, `tools/constraints.ts`, `tools/plant-row.ts`, `tools/measure-labels.ts`,
 //   `canvas/runtime/inspection-lens.ts` -> dual-basis 2x2 inverse or `worldToScreen`/`screenToWorld`.
 // - Ground-sized screen-upright marks (`2.1-M520`): `canvas/runtime/renderers/billboard-layer.ts` and
-//   `canvas/runtime/plant-presentation.ts` (sized via `view.metresPerPixelAt(p)` -> `plane.groundScaleAt(p)`),
+//   `canvas/runtime/plant-presentation.ts` (sized & hit-tested via `pixelsPerMetreAt(view, p)` -> `plane.groundScaleAt(p)`),
 //   `canvas/runtime/inspection-lens-drawing.ts` (drawn in screen-upright pixel space, zero affine stretch),
-//   `canvas/runtime/renderers/draft-layer.ts` (upright turns mapped through linear affine `[wa, wb, wc, wd]`).
+//   `canvas/runtime/renderers/draft-layer.ts` & `billboard-layer.ts` (upright turns & note text/outline rotation mapped
+//   through `screenAngleForWorldAngle` using linear affine `[wa, wb, wc, wd]`).
 // - Pixel-sized chrome / strokes / handles: `scene-paint.ts` (`screenPxToWorldPx`), `billboard-layer.ts` labels/badges,
 //   `canvas/saved-view-framing.ts`, `app/data-library/camera-request.ts`, `canvas/runtime/scene-runtime/construction.ts`.
-// - Remaining non-2m-1 latitude-scale sites ratcheted under `scale-only-through-plane` (`canopi-f47t.52.189`, 2m-2):
-//   `app/data-library/import-coverage.ts`, `app/my-location/follow.ts`, `maplibre/user-location-overlay.ts`.
+// - `scale-only-through-plane` (`canopi-f47t.52.189`): 0 remaining sites (`import-coverage.ts`, `follow.ts`,
+//   `user-location-overlay.ts` all routed through `createSessionPlane` in 2m-2).
 // - `trueNorthAt`: confirmed absent (0 sites, 2.1-M519).
 
 import { conformalPoint, type ConformalPoint, type SessionPlane } from '../session-plane'
@@ -95,6 +96,15 @@ function affineTransform(
     const down = (s.y - ty) / scale
     return plane.fromView(conformalPoint(cos * across - sin * down, sin * across + cos * down))
   }
+  const worldDeltaToScreen = (delta: WorldVector): ScreenPoint => ({
+    x: wa * delta.x + wc * delta.y,
+    y: wb * delta.x + wd * delta.y,
+  })
+  const screenDeltaToWorld = (delta: ScreenPoint): WorldVector => {
+    const across = delta.x / scale
+    const down = delta.y / scale
+    return plane.fromView(conformalPoint(cos * across - sin * down, sin * across + cos * down))
+  }
   const isotropic = ax === 1 && ay === 1
   const axes = Object.freeze({
     right: isotropic ? Object.freeze<WorldVector>({ x: cos, y: sin }) : unitVector(cos * ax, sin * ay),
@@ -128,6 +138,8 @@ function affineTransform(
     screenAxesInWorld(): { readonly right: WorldVector; readonly down: WorldVector } {
       return axes
     },
+    worldDeltaToScreen,
+    screenDeltaToWorld,
     visibleWorldQuad(): WorldQuad {
       return [
         screenToWorld({ x: 0, y: 0 }),
@@ -149,4 +161,12 @@ function affineTransform(
 /** Local CSS pixels per true WGS84 ground metre at `point` (reciprocal of `view.metresPerPixelAt(point)`). */
 export function pixelsPerMetreAt(view: Pick<ViewTransform, 'metresPerPixelAt'>, point: WorldPoint): number {
   return 1 / view.metresPerPixelAt(point)
+}
+
+/** Screen angle (radians) of a world-plane direction `worldAngleRad` under `view`'s linear affine. */
+export function screenAngleForWorldAngle(view: Pick<ViewTransform, 'planar'>, worldAngleRad: number): number {
+  const [wa, wb, wc, wd] = view.planar.affine
+  const cos = Math.cos(worldAngleRad)
+  const sin = Math.sin(worldAngleRad)
+  return Math.atan2(wb * cos + wd * sin, wa * cos + wc * sin)
 }

@@ -35,16 +35,16 @@ describe('Select move-drag', () => {
     })
     h.select(plant('a'), plant('b'))
 
-    h.press({ x: 50, y: 50 })
+    h.press(h.screen({ x: 50, y: 50 }))
     // Handles and the passive hover give way to the move, whose one Scene Edit opens at the press.
     expect(h.record.guidance.at(-1)).toMatchObject({ gesture: false })
-    h.move({ x: 60, y: 55 })
-    h.move({ x: 70, y: 65 })
+    h.move(h.screen({ x: 60, y: 55 }))
+    h.move(h.screen({ x: 70, y: 65 }))
     h.release()
 
     expect(h.store.persisted.plants.map((entry) => entry.position)).toEqual([
-      { x: 70, y: 65 },
-      { x: 100, y: 65 },
+      { x: expect.closeTo(70, 9), y: expect.closeTo(65, 9) },
+      { x: expect.closeTo(100, 9), y: expect.closeTo(65, 9) },
       { x: 300, y: 250 },
     ])
     expect(h.store.session.selectedTargets).toEqual([plant('a'), plant('b')])

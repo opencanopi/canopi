@@ -55,6 +55,7 @@ describe('SceneInteractionSession', () => {
     () => ({ events }),
   )
   const { openContextMenu, openContextMenuFromKeyboard } = fixture
+  const world = (at: ScenePoint) => testView.view().screenToWorld(at)
 
   beforeEach(() => {
     renderer = createRecordingRenderer()
@@ -123,7 +124,7 @@ describe('SceneInteractionSession', () => {
     openContextMenu({ x: 200, y: 180 })
     contextMenuCommand('paste').run()
 
-    expect(pasteAt).toHaveBeenCalledWith({ x: 200, y: 180 })
+    expect(pasteAt).toHaveBeenCalledWith(world({ x: 200, y: 180 }))
     expect(store.persisted.zones).toHaveLength(0)
     expect(draftBand()).not.toBeNull()
     session.dispose()
@@ -191,23 +192,25 @@ describe('SceneInteractionSession', () => {
     expect(unrelatedResult).toBe(false)
     events.pointerUp({ x: 40, y: 60 })
 
+    const start = world({ x: 10, y: 20 })
+    const end = world({ x: 40, y: 60 })
     expect(unrelatedEdit).not.toHaveBeenCalled()
     if (tool === 'rectangle') {
       expect(store.persisted.zones).toHaveLength(1)
       expect(store.persisted.zones[0]).toMatchObject({
         zoneType: 'rect',
         points: [
-          { x: 10, y: 20 },
-          { x: 40, y: 20 },
-          { x: 40, y: 60 },
-          { x: 10, y: 60 },
+          { x: start.x, y: start.y },
+          { x: end.x, y: start.y },
+          { x: end.x, y: end.y },
+          { x: start.x, y: end.y },
         ],
       })
     } else {
       expect(store.persisted.measurementGuides).toEqual([
         expect.objectContaining({
-          start: { x: 10, y: 20 },
-          end: { x: 40, y: 60 },
+          start,
+          end,
         }),
       ])
     }
@@ -417,10 +420,12 @@ describe('SceneInteractionSession', () => {
     const session = createTestSession(deps)
     session.setTool('line')
 
+    const start = world({ x: 10, y: 20 })
+    const end = world({ x: 40, y: 60 })
     events.pointerDown({ x: 10, y: 20 }, { button: 0 })
     events.pointerMove({ x: 40, y: 60 }, { button: 0 })
 
-    expect(draftOutline()).toMatchObject({ kind: 'polyline', points: [{ x: 10, y: 20 }, { x: 40, y: 60 }] })
+    expect(draftOutline()).toMatchObject({ kind: 'polyline', points: [start, end] })
 
     events.pointerUp({ x: 40, y: 60 }, { button: 0 })
 
@@ -428,18 +433,15 @@ describe('SceneInteractionSession', () => {
     expect(store.persisted.zones[0]).toMatchObject({
       zoneType: 'line',
       rotationDeg: 0,
-      points: [
-        { x: 10, y: 20 },
-        { x: 40, y: 60 },
-      ],
+      points: [start, end],
     })
     expect(store.toCanopiFile().zones[0]).toMatchObject({
       zone_type: 'line',
       rotation: 0,
       locked: false,
       points: [
-        storedGeo(store, { x: 10, y: 20 }),
-        storedGeo(store, { x: 40, y: 60 }),
+        storedGeo(store, start),
+        storedGeo(store, end),
       ],
     })
     expect(onSceneEditCommit).toHaveBeenCalledWith('interaction-line')
@@ -531,10 +533,13 @@ describe('SceneInteractionSession', () => {
     const session = createTestSession(deps)
     session.setTool('ellipse')
 
+    const start = world({ x: 10, y: 20 }), end = world({ x: 70, y: 100 })
+    const center = { x: (start.x + end.x) / 2, y: (start.y + end.y) / 2 }
+    const radiusX = Math.abs(end.x - start.x) / 2, radiusY = Math.abs(end.y - start.y) / 2
     events.pointerDown({ x: 10, y: 20 }, { button: 0 })
     events.pointerMove({ x: 70, y: 100 }, { button: 0 })
 
-    expect(draftOutline()).toMatchObject({ kind: 'ellipse', center: { x: 40, y: 60 }, radiusX: 30, radiusY: 40 })
+    expect(draftOutline()).toMatchObject({ kind: 'ellipse', center, radiusX, radiusY })
 
     events.pointerUp({ x: 70, y: 100 }, { button: 0 })
 
@@ -542,20 +547,14 @@ describe('SceneInteractionSession', () => {
     expect(store.persisted.zones[0]).toMatchObject({
       zoneType: 'ellipse',
       rotationDeg: 0,
-      points: [
-        { x: 40, y: 60 },
-        { x: 30, y: 40 },
-      ],
+      points: [center, { x: radiusX, y: radiusY }],
     })
     expect(store.toCanopiFile().zones[0]).toMatchObject({
       zone_type: 'ellipse',
       rotation: 0,
       locked: false,
       // Files store the opposite corners of the unrotated bounding box.
-      points: [
-        storedGeo(store, { x: 10, y: 20 }),
-        storedGeo(store, { x: 70, y: 100 }),
-      ],
+      points: [storedGeo(store, start), storedGeo(store, end)],
     })
     expect(onSceneEditCommit).toHaveBeenCalledWith('interaction-ellipse')
     expect(deps.setSelection).toHaveBeenCalledTimes(1)
@@ -587,6 +586,8 @@ describe('SceneInteractionSession', () => {
     const session = createTestSession(deps)
     session.setTool('ellipse')
 
+    const start = world({ x: 110, y: 90 })
+    const end = world({ x: 10, y: 10 })
     events.pointerDown({ x: 110, y: 90 }, { button: 0 })
     events.pointerMove({ x: 10, y: 10 }, { button: 0 })
     events.pointerUp({ x: 10, y: 10 }, { button: 0 })
@@ -594,10 +595,7 @@ describe('SceneInteractionSession', () => {
     expect(store.persisted.zones[0]).toMatchObject({
       zoneType: 'ellipse',
       rotationDeg: 0,
-      points: [
-        { x: 60, y: 50 },
-        { x: 50, y: 40 },
-      ],
+      points: [{ x: (start.x + end.x) / 2, y: (start.y + end.y) / 2 }, { x: Math.abs(end.x - start.x) / 2, y: Math.abs(end.y - start.y) / 2 }],
     })
     session.dispose()
   })
@@ -778,11 +776,7 @@ describe('SceneInteractionSession', () => {
     expect(store.persisted.zones[0]).toMatchObject({
       zoneType: 'polygon',
       rotationDeg: 0,
-      points: [
-        { x: 10, y: 10 },
-        { x: 60, y: 10 },
-        { x: 60, y: 50 },
-      ],
+      points: [world({ x: 10, y: 10 }), world({ x: 60, y: 10 }), world({ x: 60, y: 50 })],
     })
     expect(onSceneEditCommit).toHaveBeenCalledWith('interaction-polygon')
     session.dispose()
@@ -798,7 +792,7 @@ describe('SceneInteractionSession', () => {
     events.pointerDown({ x: 60, y: 50 }, { button: 0, detail: 1 })
     events.pointerDown({ x: 60, y: 50 }, { button: 0, detail: 2 })
     expect(store.persisted.zones).toHaveLength(1)
-    expect(store.persisted.zones[0]!.points).toEqual([{ x: 10, y: 10 }, { x: 60, y: 10 }, { x: 60, y: 50 }])
+    expect(store.persisted.zones[0]!.points).toEqual([world({ x: 10, y: 10 }), world({ x: 60, y: 10 }), world({ x: 60, y: 50 })])
 
     events.pointerDown({ x: 110, y: 10 }, { button: 0, detail: 1 })
     events.pointerDown({ x: 160, y: 10 }, { button: 0, detail: 1 })
@@ -807,7 +801,7 @@ describe('SceneInteractionSession', () => {
     expect(contextMenuItemIds()[0]).toBe('finish-shape')
     contextMenuCommand('finish-shape').run()
     expect(store.persisted.zones).toHaveLength(2)
-    expect(store.persisted.zones[1]!.points).toEqual([{ x: 110, y: 10 }, { x: 160, y: 10 }, { x: 160, y: 50 }])
+    expect(store.persisted.zones[1]!.points).toEqual([world({ x: 110, y: 10 }), world({ x: 160, y: 10 }), world({ x: 160, y: 50 })])
     session.dispose()
   })
 
@@ -826,7 +820,7 @@ describe('SceneInteractionSession', () => {
     events.pointerUp({ x: 60, y: 50 }, { button: 0 })
 
     expect(store.persisted.zones).toHaveLength(1)
-    expect(store.persisted.zones[0]!.points).toEqual([{ x: 10, y: 10 }, { x: 60, y: 10 }, { x: 60, y: 50 }])
+    expect(store.persisted.zones[0]!.points).toEqual([world({ x: 10, y: 10 }), world({ x: 60, y: 10 }), world({ x: 60, y: 50 })])
     session.dispose()
   })
 
@@ -1007,12 +1001,12 @@ describe('SceneInteractionSession', () => {
     expect(session.canUndoTransientHistory()).toBe(true)
     expect(session.undoTransientHistory()).toBe(true)
 
-    expect(draftBand()).toEqual([{ x: 10, y: 10 }, { x: 60, y: 50 }])
+    expect(draftBand()).toEqual([world({ x: 10, y: 10 }), world({ x: 60, y: 50 })])
     expect(session.canRedoTransientHistory()).toBe(true)
 
     expect(session.redoTransientHistory()).toBe(true)
 
-    expect(draftBand()).toEqual([{ x: 10, y: 10 }, { x: 60, y: 10 }, { x: 60, y: 50 }])
+    expect(draftBand()).toEqual([world({ x: 10, y: 10 }), world({ x: 60, y: 10 }), world({ x: 60, y: 50 })])
     expect(store.persisted.zones).toHaveLength(0)
     expect(onSceneEditCommit).not.toHaveBeenCalled()
     session.dispose()
@@ -1033,7 +1027,7 @@ describe('SceneInteractionSession', () => {
 
     expect(session.redoTransientHistory()).toBe(true)
 
-    expect(draftBand()).toEqual([{ x: 10, y: 10 }, { x: 10, y: 10 }])
+    expect(draftBand()).toEqual([world({ x: 10, y: 10 }), world({ x: 10, y: 10 })])
     expect(store.persisted.zones).toHaveLength(0)
     expect(onSceneEditCommit).not.toHaveBeenCalled()
     session.dispose()
@@ -1115,11 +1109,7 @@ describe('SceneInteractionSession', () => {
     expect(store.persisted.zones[0]).toMatchObject({
       zoneType: 'polygon',
       rotationDeg: 0,
-      points: [
-        { x: 10, y: 10 },
-        { x: 60, y: 10 },
-        { x: 60, y: 50 },
-      ],
+      points: [world({ x: 10, y: 10 }), world({ x: 60, y: 10 }), world({ x: 60, y: 50 })],
     })
     expect(session.canRedoTransientHistory()).toBe(false)
     expect(onSceneEditCommit).toHaveBeenCalledWith('interaction-polygon')
@@ -1359,11 +1349,12 @@ describe('SceneInteractionSession', () => {
     events.pointerDown({ x: 60, y: 50 })
     events.keyDown({ key: 'Enter' })
 
+    const p1 = world({ x: 10, y: 10 }), p2 = world({ x: 60, y: 14 }), p3 = world({ x: 60, y: 50 })
     const [first, second, third] = store.persisted.zones[0]!.points
-    expect(first).toEqual({ x: 10, y: 10 })
-    expect(second!.y).toBeCloseTo(10)
-    expect(second!.x).toBeCloseTo(Math.hypot(50, 4) + 10)
-    expect(third).toEqual({ x: 60, y: 50 })
+    expect(first).toEqual(p1)
+    expect(second!.y).toBeCloseTo(p1.y)
+    expect(second!.x).toBeCloseTo(Math.hypot(p2.x - p1.x, p2.y - p1.y) + p1.x)
+    expect(third).toEqual(p3)
     session.dispose()
   })
 })

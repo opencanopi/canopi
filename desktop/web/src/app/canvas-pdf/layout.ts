@@ -1,4 +1,5 @@
-import type { CanvasPrintSnapshot, PrintBounds } from '../../canvas/print'
+import type { CanvasPrintSnapshot, PrintBounds, PrintPoint } from '../../canvas/print'
+import { createSessionPlane } from '../../geo/session-plane'
 import type { PdfTextEngine } from './text'
 import { MM, PRINT, fitOverview, textOp, pathOp, rectPath } from './page-drawing'
 import { moveCoverage, zoomCoverage, fitArea } from './coverage'
@@ -42,12 +43,15 @@ export function buildPdfPlan(input: PdfInput, setup: PdfSetup, text: PdfTextEngi
 function buildPages(original: PdfInput, setup: PdfSetup, text: PdfTextEngine, labels: PdfLabels, options: PdfLayoutOptions): PdfPlan {
   // One frame per plan: everything below runs in it, and page grounds are in its metres.
   const frame = pageFrame(layoutAngle(setup, original))
+  const sessionPlane = original.canvas.planeOrigin ? createSessionPlane(original.canvas.planeOrigin) : null
+  const groundDistance = (a: PrintPoint, b: PrintPoint): number =>
+    sessionPlane ? sessionPlane.groundLength(frame.fromFrame(a), frame.fromFrame(b)) : Math.hypot(b.x - a.x, b.y - a.y)
   const input = { ...original, canvas: turnSnapshot(original.canvas, frame) }
   const offsetOf = (view?: PdfPageView) => view?.offset && frame.toFrame(view.offset)
   const selected = { ...input, canvas: printableCanvas(input.canvas, setup.layers, setup.plantColors) }
   // E, N, P and M are allocated once, from the unturned plan, so a code names the same object at every angle.
   const plan = printableCanvas(original.canvas, setup.layers)
-  const dimensions = zoneMeasurements(selected.canvas.zones, plan.zones)
+  const dimensions = zoneMeasurements(selected.canvas.zones, plan.zones, groundDistance)
   const details: PdfPage[] = []
   const empty = !(setup.areas?.length || selected.canvas.plants.length || selected.canvas.zones.length || selected.canvas.annotations.length || selected.canvas.measurements.length)
   const asPages = (id: string, geometry: Geometry, ground: PrintBounds, scale: number, drawing: FieldDrawing, areaName?: string): PdfPage[] => {
@@ -120,7 +124,7 @@ function buildPages(original: PdfInput, setup: PdfSetup, text: PdfTextEngine, la
             height: geometry.height - geometry.bodyTop! - 20 * MM }
           const leftWidth = keyFrame.x - 16 * MM
           const shifted = { ...geometry, keyFrame, frame: { ...geometry.frame, x: 10 * MM + (leftWidth - geometry.frame.width) / 2 } }
-          const drawing = drawField(visible, shifted.frame, ground, pointsPerMeter, { id, ...shifted, reserved: [keyFrame], summary }, text, references)
+          const drawing = drawField(visible, shifted.frame, ground, pointsPerMeter, { id, ...shifted, reserved: [keyFrame], summary }, text, references, groundDistance)
           const candidate = asPages(id, shifted, ground, pointsPerMeter, drawing, area.name)
           if (candidate.length === 1) { integrated = candidate; break }
         }
@@ -130,13 +134,13 @@ function buildPages(original: PdfInput, setup: PdfSetup, text: PdfTextEngine, la
             const available = keyFrame.y - 6 * MM - geometry.bodyTop!
             if (available < geometry.frame.height + 8 * MM) continue
             const shifted = { ...geometry, keyFrame, frame: { ...geometry.frame, y: geometry.bodyTop! + (available - geometry.frame.height) / 2 } }
-            const drawing = drawField(visible, shifted.frame, ground, pointsPerMeter, { id, ...shifted, reserved: [keyFrame], summary }, text, references)
+            const drawing = drawField(visible, shifted.frame, ground, pointsPerMeter, { id, ...shifted, reserved: [keyFrame], summary }, text, references, groundDistance)
             const candidate = asPages(id, shifted, ground, pointsPerMeter, drawing, area.name)
             if (candidate.length === 1) { integrated = candidate; break }
           }
         }
         local = integrated ?? asPages(id, geometry, ground, pointsPerMeter,
-          drawField(visible, geometry.frame, ground, pointsPerMeter, { id, ...geometry, summary }, text, references), area.name)
+          drawField(visible, geometry.frame, ground, pointsPerMeter, { id, ...geometry, summary }, text, references, groundDistance), area.name)
       }
       const glyphs = new Set(local.flatMap(p => p.operations.flatMap(op => op.kind === 'text' ? op.line.runs.flatMap(r => r.glyphs.map(g => g.key)) : [])))
       options.retain?.(id, { key, pages: local, outlines: Object.fromEntries([...glyphs].map(key => [key, text.outlines[key]!])) })
@@ -163,10 +167,10 @@ function buildPages(original: PdfInput, setup: PdfSetup, text: PdfTextEngine, la
   }).sort((a, b) => b.pointsPerMeter - a.pointsPerMeter)
   const fitted = fits[0]!, overviewFit = moveCoverage(zoomCoverage(fitted, setup.views?.overview?.zoom), offsetOf(setup.views?.overview))
   const visible = visibleFieldCanvas(overviewInput.canvas, overviewFit.ground)
-  const readableChain = readableOverviewChain(chain, fitted.geometry.frame, overviewFit.ground, overviewFit.pointsPerMeter, text, input.locale)
+  const readableChain = readableOverviewChain(chain, fitted.geometry.frame, overviewFit.ground, overviewFit.pointsPerMeter, text, input.locale, groundDistance)
   const drawing = drawOverview({ ...selected, canvas: visible }, fitted.geometry.frame, overviewFit.ground, overviewFit.pointsPerMeter, text,
-    new Map([...guideHomes, ...readableChain.map(g => [g.id, 'chain'] as const)]), true, dimensions, measurementReferences(plan))
-  drawing.operations.push(...drawOverviewGuideChain(readableChain, fitted.geometry.frame, overviewFit.ground, overviewFit.pointsPerMeter, text, input.locale, labels.guides, selected.canvas.layers.find(l => l.name === 'measurement-guides')?.opacity ?? 1))
+    new Map([...guideHomes, ...readableChain.map(g => [g.id, 'chain'] as const)]), true, dimensions, measurementReferences(plan), groundDistance)
+  drawing.operations.push(...drawOverviewGuideChain(readableChain, fitted.geometry.frame, overviewFit.ground, overviewFit.pointsPerMeter, text, input.locale, labels.guides, selected.canvas.layers.find(l => l.name === 'measurement-guides')?.opacity ?? 1, groundDistance))
   const summaryFrame = { x: fitted.geometry.frame.x + fitted.geometry.frame.width + 6 * MM, y: fitted.geometry.frame.y,
     width: 108 * MM, height: fitted.geometry.height - fitted.geometry.frame.y - 20 * MM }
   const summaryGeometry = (index: number) => {
@@ -177,7 +181,7 @@ function buildPages(original: PdfInput, setup: PdfSetup, text: PdfTextEngine, la
   }
   const guideValues = drawing.notes.filter(n => n.kind === 'distance').map(n => `${n.reference} · ${n.text}`)
   const summaryPages = hasSummary || guideValues.length ? overviewMeasurements(dimensions, selected.canvas.measurements,
-    index => hasSummary && index === 0 ? summaryFrame : summaryGeometry(index - (hasSummary ? 1 : 0)).frame, text, input.locale, labels, guideValues) : []
+    index => hasSummary && index === 0 ? summaryFrame : summaryGeometry(index - (hasSummary ? 1 : 0)).frame, text, input.locale, labels, guideValues, groundDistance) : []
   if (hasSummary) drawing.operations.push(...summaryPages[0] ?? [])
   const overviewContinuations: PdfPage[] = summaryPages.slice(hasSummary ? 1 : 0).map((operations, i) => ({ ...summaryGeometry(i),
     id: `overview:legend:${i}`, sourceId: 'overview', kind: 'legend', number: 0, operations, legend: [],
@@ -216,11 +220,15 @@ function buildPages(original: PdfInput, setup: PdfSetup, text: PdfTextEngine, la
       const y = page.height - 12 * MM
       operations.push(pathOp(`M${10 * MM} ${y} h${50 * MM} M${10 * MM} ${y - 2} v4 M${60 * MM} ${y - 2} v4`, PRINT.ink, null, .25 * MM))
       operations.push(textOp(text.line('50 mm', 7), 10 * MM, page.height - 6 * MM, 7))
-      if (showScale) operations.push(...groundScale(page, input.locale, text, labels.north, northAngleDeg))
+      const pageCenter = { x: page.ground.x + page.ground.width / 2, y: page.ground.y + page.ground.height / 2 }
+      const scaleFactor = groundDistance(pageCenter, { x: pageCenter.x + 1, y: pageCenter.y })
+      if (showScale) operations.push(...groundScale(page, input.locale, text, labels.north, northAngleDeg, scaleFactor))
       const reminder = text.line(`${labels.actualSize} · ${setup.paper}`, 7.5)
       operations.push(textOp(reminder, page.width - 10 * MM - reminder.width, page.height - 8.5 * MM, 7.5))
     } else if (page.kind === 'detail') {
-      operations.push(...detailFurniture(page, input, labels, setup.paper, text, showScale, northAngleDeg))
+      const pageCenter = { x: page.ground.x + page.ground.width / 2, y: page.ground.y + page.ground.height / 2 }
+      const scaleFactor = groundDistance(pageCenter, { x: pageCenter.x + 1, y: pageCenter.y })
+      operations.push(...detailFurniture(page, input, labels, setup.paper, text, showScale, northAngleDeg, scaleFactor))
       if (page.continuationIds?.[0]) links.push({ bounds: { x: 8 * MM, y: 8 * MM, width: 13 * MM, height: 11 * MM }, target: `page:${page.continuationIds[0]}` })
     } else {
       const source = byId.get(page.sourceId!)!
@@ -242,7 +250,7 @@ function buildPages(original: PdfInput, setup: PdfSetup, text: PdfTextEngine, la
     return { geometry, ...fitOverview(selected, geometry.frame, extents.length ? extents : empty ? [{ x: -5, y: -5, width: 10, height: 10 }] : []) }
   }).sort((a, b) => b.pointsPerMeter - a.pointsPerMeter)
   const picker = pickerFits[0]!
-  const pickerDrawing = drawOverview(selected, picker.geometry.frame, picker.ground, picker.pointsPerMeter, text)
+  const pickerDrawing = drawOverview(selected, picker.geometry.frame, picker.ground, picker.pointsPerMeter, text, new Map(), false, [], new Map(), groundDistance)
   const pickerPage: PdfPage = { id: 'overview', kind: 'overview', number: 1, ...picker.geometry, ...pickerDrawing, ground: picker.ground, pointsPerMeter: picker.pointsPerMeter }
   return { pages: finalized, pickerPage, angleDeg: frame.angleDeg, outlines: text.outlines, blocked: empty ? 'empty' : null }
 }

@@ -10,6 +10,7 @@ import { fileURLToPath } from 'node:url'
 import { inflateSync } from 'node:zlib'
 import type { Page } from '@playwright/test'
 import { bearing, designMap, expectCanvasDrawn, pressMod, seedPointingDevice } from '../support/canvas'
+import { nextFrames } from '../support/layout'
 import { expect, test } from '../support/offline'
 
 const BASE_FIXTURE_PATH = fileURLToPath(new URL('../fixtures/canvas-base.canopi', import.meta.url))
@@ -259,6 +260,8 @@ test.describe('true ground metres alignment across latitudes (2.1-Q78d, 2.1-M520
       for (let i = 0; i < 3; i++) await page.keyboard.press('Shift+ArrowRight')
       await expect.poll(async () => await bearing(page)).toBe(45)
       await expectCanvasDrawn(page)
+      // Software WebGL (CI WebKit) can lag one composite behind the bearing signal; let 2 rAFs flush.
+      await nextFrames(page)
 
       // 1. Project all 4 WGS84 corners with real MapLibre `map.project(corner)`.
       const projected = await projectCornersWithMapLibre(page, corners)

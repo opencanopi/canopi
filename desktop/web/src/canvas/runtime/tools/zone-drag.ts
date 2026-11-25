@@ -22,6 +22,7 @@ import {
   createRectangularZoneMeasurements,
   type ZoneMeasurementLabel,
 } from '../zone-measurements'
+import type { GroundMeasure } from '../../../geo/session-plane'
 import type { DraftFill, DraftShape, DraftStroke } from './draft'
 import { measureLabelShapes } from './measure-labels'
 import type { CanvasTool, SceneLayerKind, ToolContext, ToolGesture, ToolPoint, ToolReply, ToolView } from './tool'
@@ -47,7 +48,7 @@ export interface DragShapeSpec {
    *  `square` is Shift on a 'square' tool. */
   shape(start: WorldPoint, end: WorldPoint, view: ToolView, square: boolean): DraftShape
   /** Its measurements; none for a shape too small to measure (the press's zero-size shape). */
-  measure(start: WorldPoint, end: WorldPoint, view: ToolView, square: boolean): readonly ZoneMeasurementLabel[]
+  measure(start: WorldPoint, end: WorldPoint, view: ToolView, square: boolean, groundMeasure?: GroundMeasure): readonly ZoneMeasurementLabel[]
   /** The edit a release at `end` makes, returning the object to select; null when the shape is too small to keep. */
   place(
     start: WorldPoint,
@@ -76,7 +77,7 @@ const ZONE_DRAGS: Readonly<Record<ZoneDragKind, DragShapeSpec>> = {
     shift: 'direction',
     editType: 'interaction-line',
     shape: (start, end) => ({ kind: 'polyline', points: [start, end], style: DRAFT_STROKE }),
-    measure: createLinearZoneMeasurements,
+    measure: (start, end, _view, _square, groundMeasure) => createLinearZoneMeasurements(start, end, groundMeasure),
     place: (start, end) => (draft) => zoneTarget(appendLineZoneToDraft(draft, start, end)),
   },
   rectangle: {
@@ -90,9 +91,9 @@ const ZONE_DRAGS: Readonly<Record<ZoneDragKind, DragShapeSpec>> = {
       style: DRAFT_STROKE,
       fill: ZONE_DRAFT_FILL,
     }),
-    measure(start, end, view, square) {
+    measure(start, end, view, square, groundMeasure) {
       const box = view.screenAlignedRect(start, end, { square })
-      return isTooSmall(box) ? [] : createRectangularZoneMeasurements(boxCorners(box))
+      return isTooSmall(box) ? [] : createRectangularZoneMeasurements(boxCorners(box), groundMeasure)
     },
     place(start, end, view, square) {
       const box = view.screenAlignedRect(start, end, { square })
@@ -117,9 +118,9 @@ const ZONE_DRAGS: Readonly<Record<ZoneDragKind, DragShapeSpec>> = {
         fill: ZONE_DRAFT_FILL,
       }
     },
-    measure(start, end, view, square) {
+    measure(start, end, view, square, groundMeasure) {
       const box = view.screenAlignedRect(start, end, { square })
-      return createEllipticalZoneMeasurements(box.center, { x: box.width / 2, y: box.height / 2 }, box.rotationDeg)
+      return createEllipticalZoneMeasurements(box.center, { x: box.width / 2, y: box.height / 2 }, box.rotationDeg, groundMeasure)
     },
     place(start, end, view, square) {
       const box = view.screenAlignedRect(start, end, { square })
@@ -162,8 +163,8 @@ export function createDragShapeTool(spec: DragShapeSpec): CanvasTool {
   }
 
   function draw(current: ActiveDrag): void {
-    const { view, effects } = context()
-    const measured = spec.measure(current.start, current.end, view, current.square)
+    const { scene, view, effects } = context()
+    const measured = spec.measure(current.start, current.end, view, current.square, scene.groundMeasure)
     const chips = measureLabelShapes(measured, (a, b) => view.screenDistance(a, b))
     effects.setDraft({ shapes: [spec.shape(current.start, current.end, view, current.square), ...chips] })
     drawn = true

@@ -43,7 +43,7 @@ describe('Measure tool', () => {
     h.drag({ x: 10, y: 20 }, { x: 40, y: 60 })
 
     expect(h.store.persisted.measurementGuides).toEqual([
-      expect.objectContaining({ start: { x: 10, y: 20 }, end: { x: 40, y: 60 } }),
+      expect.objectContaining({ start: h.world({ x: 10, y: 20 }), end: h.world({ x: 40, y: 60 }) }),
     ])
     const guide = h.store.persisted.measurementGuides[0]!
     expect(h.store.session.selectedTargets).toEqual([{ kind: 'measurement-guide', id: guide.id }])
@@ -54,17 +54,21 @@ describe('Measure tool', () => {
 
   it('the draft is a stroke with its length chip', () => {
     const h = harness()
+    const startScreen = h.screen({ x: 10, y: 20 })
+    const endScreen = h.screen({ x: 40, y: 60 })
+    const start = h.world(startScreen)
+    const end = h.world(endScreen)
 
-    h.press({ x: 10, y: 20 })
+    h.press(startScreen)
     expect(h.renderer.lastDraft()).toEqual({
-      shapes: [{ kind: 'polyline', points: [{ x: 10, y: 20 }, { x: 10, y: 20 }], style: { token: 'draft', widthPx: 2 } }],
+      shapes: [{ kind: 'polyline', points: [start, start], style: { token: 'draft', widthPx: 2 } }],
     })
-    h.move({ x: 40, y: 60 })
+    h.move(endScreen)
 
     expect(h.renderer.lastDraft()).toEqual({
       shapes: [
-        { kind: 'polyline', points: [{ x: 10, y: 20 }, { x: 40, y: 60 }], style: { token: 'draft', widthPx: 2 } },
-        { kind: 'label', anchor: { x: 25, y: 40 }, offsetPx: { x: 0, y: 0 }, text: '50 m', tone: 'measure-quiet' },
+        { kind: 'polyline', points: [start, end], style: { token: 'draft', widthPx: 2 } },
+        { kind: 'label', anchor: { x: (start.x + end.x) / 2, y: (start.y + end.y) / 2 }, offsetPx: { x: 0, y: 0 }, text: '50 m', tone: 'measure-quiet' },
       ],
     })
     expect(h.store.persisted.measurementGuides).toEqual([])

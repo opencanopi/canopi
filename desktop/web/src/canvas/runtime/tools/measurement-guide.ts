@@ -16,7 +16,7 @@ export function createMeasurementGuideTool(): CanvasTool {
     shift: 'direction',
     editType: 'interaction-measurement-guide',
     shape: (start, end) => ({ kind: 'polyline', points: [start, end], style: DRAFT_STROKE }),
-    measure: createMeasurementGuideDraftMeasurements,
+    measure: (start, end, _view, _square, groundMeasure) => createMeasurementGuideDraftMeasurements(start, end, groundMeasure),
     place: (start, end) => (draft) => {
       const id = appendMeasurementGuideToDraft(draft, start, end)
       return id ? { kind: 'measurement-guide', id } : null

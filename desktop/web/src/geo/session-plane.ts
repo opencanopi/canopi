@@ -26,6 +26,14 @@ import {
 
 declare const planePointBrand: unique symbol
 declare const conformalPointBrand: unique symbol
+declare const metresBrand: unique symbol
+declare const squareMetresBrand: unique symbol
+
+/** Ground length in true WGS84 metres (`SessionPlane.groundLength`, contracts §20). */
+export type Metres = number & { readonly [metresBrand]: true }
+
+/** Ground area in true WGS84 square metres (`SessionPlane.groundArea`, contracts §20). */
+export type SquareMetres = number & { readonly [squareMetresBrand]: true }
 
 /** Ground metres in the session plane (x east, y south). Distinct from `ConformalPoint` at compile time. */
 export interface PlanePoint {
@@ -71,12 +79,29 @@ export interface SessionPlane {
   /** Exact inverse of `pixelsPerMetre(zoom).mean`. */
   zoomForPixelsPerMetre(meanPixelsPerMetre: number): number
   /** True WGS84 ground length in metres between two plane points (< 1 ppm vs Vincenty over a 10 km site). */
-  groundLength(a: PlanePoint, b: PlanePoint): number
+  groundLength(a: PlanePoint, b: PlanePoint): Metres
   /** True WGS84 ground area in square metres of a simple polygon ring in plane metres (< 1 ppm over a 10 km site). */
-  groundArea(ring: readonly PlanePoint[]): number
+  groundArea(ring: readonly PlanePoint[]): SquareMetres
   /** Local ground metres per plane metre at `point`, per axis (`{ x: 1, y: 1 }` at the anchor). */
   groundScaleAt(point: PlanePoint): { readonly x: number; readonly y: number }
   needsReorigin(viewCentre: PlanePoint): boolean
+}
+
+/** Ground-metre measurement subset of `SessionPlane` (contracts §20), passed to runtime, tools, summary and PDF. */
+export type GroundMeasure = Pick<SessionPlane, 'groundLength' | 'groundArea' | 'groundScaleAt'>
+
+/** True WGS84 ground length of an open or closed polyline through `measure.groundLength`. */
+export function groundPolylineLength(
+  measure: Pick<GroundMeasure, 'groundLength'>,
+  points: readonly PlanePoint[],
+  closed: boolean,
+): Metres {
+  let total = 0
+  const segments = closed ? points.length : points.length - 1
+  for (let index = 0; index < segments; index += 1) {
+    total += measure.groundLength(points[index]!, points[(index + 1) % points.length]!)
+  }
+  return total as Metres
 }
 
 /** A geographic camera: the view centre, its MapLibre zoom and its bearing (degrees clockwise from north). */
@@ -158,10 +183,10 @@ function buildSessionPlane(origin: GeoPoint, conformal: boolean): SessionPlane {
     return { x: local.x / mercToPlaneX, y: local.y / mercToPlaneY }
   }
 
-  const groundLength = (a: PlanePoint, b: PlanePoint): number => {
+  const groundLength = (a: PlanePoint, b: PlanePoint): Metres => {
     const dx = b.x - a.x
     const dy = b.y - a.y
-    if (dx === 0 && dy === 0) return 0
+    if (dx === 0 && dy === 0) return 0 as Metres
     const mid: PlanePoint = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }
     const s0 = groundScaleAt(a)
     const s1 = groundScaleAt(mid)
@@ -169,12 +194,12 @@ function buildSessionPlane(origin: GeoPoint, conformal: boolean): SessionPlane {
     const d0 = Math.hypot(dx * s0.x, dy * s0.y)
     const d1 = Math.hypot(dx * s1.x, dy * s1.y)
     const d2 = Math.hypot(dx * s2.x, dy * s2.y)
-    return (d0 + 4 * d1 + d2) / 6
+    return ((d0 + 4 * d1 + d2) / 6) as Metres
   }
 
-  const groundArea = (ring: readonly PlanePoint[]): number => {
+  const groundArea = (ring: readonly PlanePoint[]): SquareMetres => {
     const count = ring.length
-    if (count < 3) return 0
+    if (count < 3) return 0 as SquareMetres
     let cx = 0
     let cy = 0
     for (let i = 0; i < count; i++) {
@@ -195,7 +220,7 @@ function buildSessionPlane(origin: GeoPoint, conformal: boolean): SessionPlane {
       const jacobian = (m01.x * m01.y + m12.x * m12.y + m20.x * m20.y) / 3
       signedArea += planeTri * jacobian
     }
-    return Math.abs(signedArea)
+    return Math.abs(signedArea) as SquareMetres
   }
 
   return Object.freeze({

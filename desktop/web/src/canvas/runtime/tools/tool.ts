@@ -22,7 +22,8 @@
 
 import type { CancelReason, PointerKind, ToolHandleId, ToolId } from '../interaction-types'
 import type { DraftPresentation, ToolHandle } from './draft'
-import type { WorldPoint, WorldQuad, WorldVector } from '../../../geo/view/types'
+import type { GroundMeasure } from '../../../geo/session-plane'
+import type { ScreenPoint, WorldPoint, WorldQuad, WorldVector } from '../../../geo/view/types'
 import type { ScenePersistedState, ScenePlantEntity, SceneLayerEntity } from '../scene/types'
 import type { SceneDesignObjectSelection, SceneDesignObjectTarget } from '../scene/design-object-targets'
 import type { SceneEditCoordinator } from '../scene-runtime/transactions'
@@ -156,7 +157,11 @@ export interface ToolView {
   metresPerPixelAt(p: WorldPoint): number
   screenDistance(a: WorldPoint, b: WorldPoint): number
   screenAxesInWorld(): { readonly right: WorldVector; readonly down: WorldVector }
-  /** Screen-aligned rectangle from two world corners: rotationDeg = the bearing (in [0, 360)). Shift's square and circle use `square`. */
+  /** Linear part of `worldToScreen`: maps a world-metre delta to its exact CSS-pixel delta at any bearing/anisotropy. */
+  worldDeltaToScreen(delta: WorldVector): ScreenPoint
+  /** Exact inverse of `worldDeltaToScreen`: maps a CSS-pixel delta to its world-metre delta. */
+  screenDeltaToWorld(delta: ScreenPoint): WorldVector
+  /** True ground rectangle at the view's bearing from two world corners: rotationDeg = the bearing (in [0, 360)). Shift's square and circle use `square`. */
   screenAlignedRect(a: WorldPoint, b: WorldPoint, options?: { readonly square?: boolean }):
     { readonly center: WorldPoint; readonly width: number; readonly height: number; readonly rotationDeg: number }
 }
@@ -165,6 +170,8 @@ export interface ToolView {
 /** Read-only scene queries: in 0B a façade over today's linear hit tests at the frame's pixelsPerMetre (the index comes later). */
 export interface ToolScene {
   readonly persisted: Readonly<ScenePersistedState>
+  /** True WGS84 ground measure for the open Design's session plane (contracts §20). */
+  readonly groundMeasure?: GroundMeasure
   hitAt(world: WorldPoint, filter: HitFilter): HitTarget | null
   hitInQuad(quad: WorldQuad): readonly HitTarget[]
   nearestPlant(world: WorldPoint): { readonly plant: ScenePlantEntity; readonly distanceM: number } | null

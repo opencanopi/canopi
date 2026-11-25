@@ -73,6 +73,7 @@ export function turnSnapshot(snapshot: CanvasPrintSnapshot, frame: PageFrame): C
   if (!frame.angleDeg) return snapshot
   const turn = frame.toFrame
   return {
+    ...(snapshot.planeOrigin ? { planeOrigin: snapshot.planeOrigin } : {}),
     layers: snapshot.layers,
     plants: snapshot.plants.map(plant => ({ ...plant, position: turn(plant.position) })),
     zones: snapshot.zones.map(zone => turnZone(zone, frame)),

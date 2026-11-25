@@ -148,6 +148,7 @@ export class SceneRuntimePresentationController {
       hoveredCanonicalName: hoveredPlant?.canonicalName ?? null,
       hoverTarget: getRendererHoverTarget(scene, session.hoveredTarget),
       ...this._editingAids ? { editingAids: this._editingAids } : {},
+      groundMeasure: this._sceneStore.sessionPlane,
     }
   }
 
@@ -202,6 +203,7 @@ export class SceneRuntimePresentationController {
       hoveredCanonicalName: null,
       hoverTarget: null,
       ...request.plantLabels ? { plantLabels: request.plantLabels } : {},
+      groundMeasure: this._sceneStore.sessionPlane,
     }
   }
 

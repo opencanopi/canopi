@@ -7,12 +7,9 @@
 import { describe, expect, it, vi } from 'vitest'
 import { t } from '../i18n'
 import { modKeyName } from '../app/shell-commands/shortcut-text'
-import type { SceneStore } from '../canvas/runtime/scene'
+import type { ScenePoint, SceneStore } from '../canvas/runtime/scene'
 import { currentCanvasSelection } from '../canvas/session-state'
-import type {
-  SceneInteractionSession,
-  SceneInteractionSessionDeps,
-} from '../canvas/runtime/interaction-session'
+import type { SceneInteractionSession, SceneInteractionSessionDeps } from '../canvas/runtime/interaction-session'
 import { createRecordingRenderer } from './support/recording-renderer'
 import type { SceneInteractionEventHarness } from './support/canvas-interaction-events'
 import type { TestView } from './support/test-view'
@@ -46,6 +43,9 @@ describe('SceneInteractionSession', () => {
     () => ({ events }),
   )
 
+  const world = (at: ScenePoint) => testView.view().screenToWorld(at)
+  const screen = (at: ScenePoint) => testView.view().worldToScreen(at)
+
   it('aborts an active Rotation Handle drag on Escape without creating history', () => {
     store.updatePersisted((draft) => {
       draft.zones = [makeRectZone('zone-1', [
@@ -65,17 +65,15 @@ describe('SceneInteractionSession', () => {
     session.refreshMeasurements()
 
     const handle = rotationHandle(container)!
-    const start = {
-      x: Number.parseFloat(handle.style.left) + 14,
-      y: Number.parseFloat(handle.style.top) + 14,
-    }
+    const start = { x: Number.parseFloat(handle.style.left) + 14, y: Number.parseFloat(handle.style.top) + 14 }
 
+    const east = screen({ x: 128, y: 110 })
     events.pointerDown(start, { button: 0, target: handle })
-    events.pointerMove({ x: 128, y: 110 }, { button: 0 })
+    events.pointerMove(east, { button: 0 })
     expect(store.persisted.zones[0]?.rotationDeg).toBeCloseTo(90)
 
     events.keyDown({ key: 'Escape', code: 'Escape' })
-    events.pointerUp({ x: 128, y: 110 }, { button: 0 })
+    events.pointerUp(east, { button: 0 })
 
     expect(store.persisted.zones[0]?.rotationDeg).toBe(0)
     expect(onSceneEditCommit).not.toHaveBeenCalled()
@@ -93,7 +91,7 @@ describe('SceneInteractionSession', () => {
     const request = contextMenuHost.current!
     expect(request.selection).toBeNull()
     expect(request.anchor).toEqual({ left: 200, top: 150, right: 200, bottom: 150 })
-    expect(request.world).toEqual({ x: 200, y: 150 })
+    expect(request.world).toEqual(world({ x: 200, y: 150 }))
     session.dispose()
   })
 

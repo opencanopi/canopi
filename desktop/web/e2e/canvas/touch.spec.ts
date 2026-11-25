@@ -42,7 +42,7 @@ const PHONE: Layout = {
   apple: { x: 114, y: 330 },
 }
 
-const RECT_ZONE_CHIP = 'Rectangle zone · 112 m² · 44 m'
+const RECT_ZONE_CHIP = 'Rectangle zone · 112 m² · 44.1 m'
 
 async function openBaseFixture(page: Page, layout: Layout): Promise<void> {
   await page.setViewportSize(layout.viewport)

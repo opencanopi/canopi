@@ -17,7 +17,8 @@ import { protectZoneInk } from './zone-ink'
  * in place prints its code from `measurementCodes` (measurementReferences), the one its detail page prints.
  */
 export function drawOverview(input: PdfInput, frame: PrintBounds, ground: PrintBounds, scale: number, text: PdfTextEngine, grouped: ReadonlyMap<string, string> = new Map(), labels = false, zones: readonly ZoneMeasurements[] = [],
-  measurementCodes: ReadonlyMap<string, string> = new Map()): FieldDrawing {
+  measurementCodes: ReadonlyMap<string, string> = new Map(),
+  groundDistance: (a: PrintPoint, b: PrintPoint) => number = (a, b) => Math.hypot(b.x - a.x, b.y - a.y)): FieldDrawing {
   const canvas = input.canvas
   const drawing: FieldDrawing = { operations: [], links: [], destinations: [], legend: [], notes: [], identifiedPlants: [],
     annotationIds: labels ? [] : canvas.annotations.map(n => n.id), measurementIds: canvas.measurements.map(g => g.id), pageReferences: [] }
@@ -30,7 +31,7 @@ export function drawOverview(input: PdfInput, frame: PrintBounds, ground: PrintB
     const q = project(p.position), r = Math.max(.42, Math.min(1, paperPlantRadius(canvas.plants, p, scale) / MM))
     space.mark(p.id, { x: q.x - r, y: q.y - r, width: r * 2, height: r * 2 })
   }
-  const dimensions = labels ? fieldDimensions(canvas.measurements.filter(g => !grouped.has(g.id) && contains(ground, g.start) && contains(ground, g.end)), project, space, input.locale, 7.5) : []
+  const dimensions = labels ? fieldDimensions(canvas.measurements.filter(g => !grouped.has(g.id) && contains(ground, g.start) && contains(ground, g.end)), project, space, input.locale, 7.5, groundDistance) : []
   const dimensionIds = new Set(dimensions.map(d => d.guide.id))
   // Canvas annotation sizes are screen pixels. A fixed reference scale keeps
   // overview text proportional to artwork instead of expanding over dense beds.
@@ -51,7 +52,7 @@ export function drawOverview(input: PdfInput, frame: PrintBounds, ground: PrintB
       const dx = (b.y - a.y) / length * .6 * MM, dy = (a.x - b.x) / length * .6 * MM
       for (const p of [a, b]) operations.push({ ...pathOp(`M${p.x - dx} ${p.y - dy} L${p.x + dx} ${p.y + dy}`, '#656058', null, .15 * MM), opacity: opacity('measurement-guides') })
     }
-    const value = new Intl.NumberFormat(input.locale, { maximumFractionDigits: 2 }).format(Math.hypot(guide.end.x - guide.start.x, guide.end.y - guide.start.y))
+    const value = new Intl.NumberFormat(input.locale, { maximumFractionDigits: 2 }).format(groundDistance(guide.start, guide.end))
     if (!grouped.has(guide.id) && !labels) operations.push(textOp(text.line(`${value} m`, 10 * textScale), (a.x + b.x) / 2, (a.y + b.y) / 2 - textScale, 10 * textScale, 0, opacity('measurement-guides')))
   }
   for (const d of dimensions) {
@@ -71,7 +72,7 @@ export function drawOverview(input: PdfInput, frame: PrintBounds, ground: PrintB
         operations.push(textOp(label.lines[0]!, (label.bounds.x + label.inset) * MM, (label.bounds.y + label.baseline) * MM, 7.5, 0, opacity('measurement-guides')))
       }
       drawing.notes.push({ id: guide.id, reference, position, kind: 'distance',
-        text: `${n.format(Math.hypot(guide.end.x - guide.start.x, guide.end.y - guide.start.y))} m · (${n.format(guide.start.x)}, ${n.format(guide.start.y)}) — (${n.format(guide.end.x)}, ${n.format(guide.end.y)})` })
+        text: `${n.format(groundDistance(guide.start, guide.end))} m · (${n.format(guide.start.x)}, ${n.format(guide.start.y)}) — (${n.format(guide.end.x)}, ${n.format(guide.end.y)})` })
     }
   }
   for (const plant of canvas.plants) {

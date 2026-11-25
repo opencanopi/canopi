@@ -75,8 +75,9 @@ describe('the text-entry host', () => {
     expect(textarea.hasAttribute('data-canvas-text-entry')).toBe(true)
     expect(textarea.placeholder).toBe('t:canvas.textNote.placeholder')
     expect(textarea.getAttribute('aria-label')).toBe('t:canvas.tools.text')
-    expectScreenPx(textarea.style.left, 65)
-    expectScreenPx(textarea.style.top, 87)
+    const at = view.view().worldToScreen(NEW_NOTE.anchor)
+    expectScreenPx(textarea.style.left, at.x)
+    expectScreenPx(textarea.style.top, at.y)
     // A new note's default 16 px, at 1.25 em, as the note is drawn: one empty line, at the 120 px minimum until the text
     // grows past it.
     expect(textarea.style.fontSize).toBe('16px')
@@ -214,8 +215,9 @@ describe('the text-entry host', () => {
     expect(textarea.value).toBe('Pond edge\nwet')
     expect(textarea.dataset.preserveOverlays).toBe('true')
     expect(textarea.hasAttribute('data-canvas-text-entry')).toBe(true)
-    expectScreenPx(textarea.style.left, 25)
-    expectScreenPx(textarea.style.top, 47)
+    const at = view.view().worldToScreen(NOTE.anchor)
+    expectScreenPx(textarea.style.left, at.x)
+    expectScreenPx(textarea.style.top, at.y)
     expect(textarea.style.fontSize).toBe('20px')
     expect(textarea.style.lineHeight).toBe('1.25')
     // The width is the browser's measure, at least 120 px.
@@ -235,8 +237,9 @@ describe('the text-entry host', () => {
 
     view.setViewport({ x: 100, y: 50, scale: 1 })
 
-    expectScreenPx(entry()!.style.left, 130)
-    expectScreenPx(entry()!.style.top, 90)
+    const at = view.view().worldToScreen(NEW_NOTE.anchor)
+    expectScreenPx(entry()!.style.left, at.x)
+    expectScreenPx(entry()!.style.top, at.y)
   })
 
   it('Enter submits the text: a closed entry returns focus to the map, a kept one stays the same field', async () => {
@@ -461,12 +464,13 @@ describe('the text-entry host', () => {
     entries.open(NEW_NOTE, submit)
     const textarea = entry()!
 
+    const beforeLeft = view.view().worldToScreen(NEW_NOTE.anchor).x
     entries.dispose()
     host = null
     view.setViewport({ x: 100, y: 50, scale: 1 })
 
     expect(submit).not.toHaveBeenCalled()
     expect(textarea.isConnected).toBe(false)
-    expectScreenPx(textarea.style.left, 65)
+    expectScreenPx(textarea.style.left, beforeLeft)
   })
 })

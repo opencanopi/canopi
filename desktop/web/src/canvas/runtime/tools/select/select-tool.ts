@@ -252,7 +252,7 @@ export function createSelectTool(): CanvasTool {
       else if (current.kind === 'guide-end') {
         current.drag.move(g.point)
         const guide = current.drag.current
-        const shapes = guide ? guideLengthShapes(guide, (a, b) => c.view.screenDistance(a, b)) : []
+        const shapes = guide ? guideLengthShapes(guide, (a, b) => c.view.screenDistance(a, b), c.scene.groundMeasure) : []
         c.effects.setDraft(shapes.length > 0 ? { shapes } : null)
       }
       // The host re-emits a live handle drag on a camera frame: a zoom under a still pointer turns nothing, so no scene

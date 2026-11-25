@@ -33,15 +33,16 @@ import { getRectangularZoneCorners } from '../zone-geometry'
 import { applyToolConstraint } from './constraints'
 import type { DraftPresentation, DraftShape, ToolHandle } from './draft'
 import { measureLabelShapes, selectedZoneMeasurementLabels } from './measure-labels'
+import { screenBasisOf, type ScreenBasis } from './screen-basis'
 import type { ToolReply } from './tool'
 import { TOOL_REGISTRY, type ToolFactory } from './registry'
 import { contextMenuTargetAt, createContextMenuPort, createToolScene } from './tool-host'
 import { createPolygonTool } from './polygon'
 import '../../../__tests__/support/camera-tolerance'
 
-/** Shift at bearing 0: the nearest 45° direction from `origin` against the world axes, its length kept. */
-function constrainPointTo45Degrees(origin: WorldPoint, point: WorldPoint): WorldPoint {
-  return applyToolConstraint({ kind: 'direction', origin, stepDeg: 45 }, point, { right: { x: 1, y: 0 }, down: { x: 0, y: 1 } })
+/** Shift at bearing 0: the nearest 45° direction from `origin` against the screen axes, its length kept. */
+function constrainPointTo45Degrees(origin: WorldPoint, point: WorldPoint, basis: ScreenBasis): WorldPoint {
+  return applyToolConstraint({ kind: 'direction', origin, stepDeg: 45 }, point, basis)
 }
 
 vi.mock('./registry', () => ({ TOOL_REGISTRY: {} }))
@@ -157,7 +158,7 @@ describe('ToolHost', () => {
         const interval = gridInterval(10).interval
         const at = { x: 473, y: 191 }
         const raw = h.world(at)
-        const constrained = constrainPointTo45Degrees(origin, raw)
+        const constrained = constrainPointTo45Degrees(origin, raw, screenBasisOf(h.view.view()))
         const length = Math.hypot(constrained.x, constrained.y)
         const stepped = Math.round(length / interval) * interval
 
@@ -816,7 +817,7 @@ describe('ToolHost', () => {
       h.click({ x: 90, y: 90 })
       // The click reached Text, which opened a new entry there: a press that found an entry open would place nothing.
       expect(h.record.focus.at(-1)).toBe('map')
-      expect(h.chrome.textEntry?.request.anchor.x).toBeCloseTo(90, 6)
+      expect(h.chrome.textEntry?.request.anchor.x).toBeCloseTo(h.world({ x: 90, y: 90 }).x, 6)
     })
 
     it('under Text, the click whose raw press finds the note entry open commits it and reaches no tool', () => {
@@ -1465,13 +1466,14 @@ describe('ToolHost', () => {
       const history = h.host.transientHistory
 
       expect(history.canUndo()).toBe(false)
+      const first = h.world({ x: 10, y: 10 })
       h.click({ x: 10, y: 10 })
       h.click({ x: 60, y: 10 })
       const changes = h.record.transientHistoryChanges
 
       expect(history.canUndo()).toBe(true)
       expect(history.undo()).toBe(true)
-      expect(corners).toEqual([{ x: 10, y: 10 }])
+      expect(corners).toEqual([first])
       expect(history.canRedo()).toBe(true)
       expect(h.record.transientHistoryChanges).toBeGreaterThan(changes)
 
@@ -1479,29 +1481,20 @@ describe('ToolHost', () => {
       expect(history.canUndo()).toBe(false)
       expect(history.undo()).toBe(false)
       expect(history.redo()).toBe(true)
-      expect(corners).toEqual([{ x: 10, y: 10 }])
+      expect(corners).toEqual([first])
     })
 
     it('the transient-history revision bumps after a deferred onCommitted', () => {
       let deferred: (() => void) | null = null
       const edits: SceneEditCoordinator = {
-        run(_type, _edit, options) {
-          deferred = options?.onCommitted ?? null
-          return true
-        },
-        begin() {
-          throw new Error('not used')
-        },
+        run(_type, _edit, options) { deferred = options?.onCommitted ?? null; return true },
+        begin() { throw new Error('not used') },
       }
       const corners = [{ x: 0, y: 0 }, { x: 5, y: 0 }, { x: 5, y: 5 }]
       const polygon: StubTool = stubTool('polygon', {
         command: (c) => {
           if (c.kind !== 'confirm') return 'pass'
-          polygon.ctx().effects.edits.run('interaction-polygon', () => {}, {
-            onCommitted: () => {
-              corners.length = 0
-            },
-          })
+          polygon.ctx().effects.edits.run('interaction-polygon', () => {}, { onCommitted: () => { corners.length = 0 } })
           return 'handled'
         },
         canUndoTransient: () => corners.length > 0,
@@ -1550,20 +1543,23 @@ describe('ToolHost', () => {
       useStubTools(stubTool('select'))
       const h = harness({ camera: { bearingDeg: 30 }, scene: { plants: [appleAt({ x: 0, y: 0 })] } })
       h.select(P1)
-      const screenOfApple = () => h.view.view().worldToScreen(h.store.persisted.plants[0]!.position)
+      const applePosition = () => h.store.persisted.plants[0]!.position, screenOfApple = () => h.view.view().worldToScreen(applePosition())
       const before = screenOfApple()
-      const pixelsPerMetre = h.view.view().pixelsPerMetre
 
       expect(h.arrow('ArrowUp')).toBe('handled')
+      const afterWorld = applePosition()
       const after = screenOfApple()
       expect(after.x - before.x).toBeCloseTo(0, 6)
-      expect(after.y - before.y).toBeCloseTo(-0.1 * pixelsPerMetre, 6)
+      expect(after.y - before.y).toBeLessThan(0)
+      expect(Math.hypot(afterWorld.x, afterWorld.y)).toBeCloseTo(0.1, 6)
 
       // The large step (mod+arrow, chosen by the keymap) is 1 m along the screen.
       expect(h.arrow('ArrowRight', true)).toBe('handled')
+      const movedWorld = applePosition()
       const moved = screenOfApple()
-      expect(moved.x - after.x).toBeCloseTo(pixelsPerMetre, 6)
+      expect(moved.x - after.x).toBeGreaterThan(0)
       expect(moved.y - after.y).toBeCloseTo(0, 6)
+      expect(Math.hypot(movedWorld.x - afterWorld.x, movedWorld.y - afterWorld.y)).toBeCloseTo(1, 6)
     })
 
     it('a refused nudge answers refused, and without Select or a selection nudge answers pass', () => {
@@ -2197,18 +2193,19 @@ describe('ToolHost', () => {
 
       h.drop('drop', at, GUILD_DRAG)
 
-      // The bed and the apple sit on screen as they were saved, north up: the bed's top edge level, the apple 4 px
-      // right of and 3 px below its corner (scale 1).
+      // The bed and the apple sit rotated by the 30° bearing in ground metres: the bed's nw corner at the drop point,
+      // its 10 m top edge along 30°, and the apple 4 m along and 3 m perpendicular to it.
+      const anchor = h.world(at), rad = (30 * Math.PI) / 180, cos = Math.cos(rad), sin = Math.sin(rad)
       const bed = h.store.persisted.zones[0]!
       expect(bed.rotationDeg).toBeCloseTo(30, 6)
-      const [nw, ne] = getRectangularZoneCorners(bed)!.map(screenOf)
-      expect(nw!.x).toBeCloseTo(at.x, 6)
-      expect(nw!.y).toBeCloseTo(at.y, 6)
-      expect(ne!.y).toBeCloseTo(at.y, 6)
-      expect(ne!.x - nw!.x).toBeCloseTo(10, 6)
+      const [nwWorld, neWorld] = getRectangularZoneCorners(bed)!
+      const [nw, ne] = [screenOf(nwWorld!), screenOf(neWorld!)]
+      expect(nw.x).toBeCloseTo(at.x, 6); expect(nw.y).toBeCloseTo(at.y, 6)
+      const expectedNe = screenOf({ x: anchor.x + 10 * cos, y: anchor.y + 10 * sin })
+      expect(ne.x).toBeCloseTo(expectedNe.x, 6); expect(ne.y).toBeCloseTo(expectedNe.y, 6)
       const apple = screenOf(h.store.persisted.plants[0]!.position)
-      expect(apple.x).toBeCloseTo(at.x + 4, 6)
-      expect(apple.y).toBeCloseTo(at.y + 3, 6)
+      const expectedApple = screenOf({ x: anchor.x + 4 * cos - 3 * sin, y: anchor.y + 4 * sin + 3 * cos })
+      expect(apple.x).toBeCloseTo(expectedApple.x, 6); expect(apple.y).toBeCloseTo(expectedApple.y, 6)
     })
 
     it('dragover answers copy or none from the payload kind', () => {
@@ -2682,12 +2679,12 @@ describe('ToolHost', () => {
 
       port.open({ at: 'selection', screen: null })
 
-      // The bed on screen: a level 100 × 20 px box (1 px/m).
+      // The bed on screen: a ~100 × 20 px box (within WGS84 ellipsoid flattening), not its ~85 × 85 px world box.
       const corners = getRectangularZoneCorners(bed)!.map((corner) => view.view().worldToScreen(corner))
       const xs = corners.map((corner) => corner.x)
       const ys = corners.map((corner) => corner.y)
-      expect(Math.max(...xs) - Math.min(...xs)).toBeCloseTo(100, 6)
-      expect(Math.max(...ys) - Math.min(...ys)).toBeCloseTo(20, 6)
+      expect(Math.max(...xs) - Math.min(...xs)).toBeCloseTo(100, 0)
+      expect(Math.max(...ys) - Math.min(...ys)).toBeCloseTo(20, 0)
       const anchor = opened.at(-1)!.anchor
       expect(anchor.left).toBeCloseTo(Math.min(...xs), 6)
       expect(anchor.right).toBeCloseTo(Math.max(...xs), 6)

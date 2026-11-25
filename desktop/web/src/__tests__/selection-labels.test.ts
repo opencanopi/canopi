@@ -45,39 +45,45 @@ describe('selection labels', () => {
 
   it('computes one label for a single selected unpinned plant', () => {
     const plants = [createPlant({ id: 'a', position: { x: 10, y: 20 } })]
+    const viewport = createViewport({ scale: 1 })
+    const anchor = createTestRendererView(viewport).worldToScreen({ x: 10, y: 20 })
     const result = computeSelectionLabels(
       plants,
       new Set(['a']),
-      createViewport({ scale: 1 }).scale,
+      viewport.scale,
       new Map(),
     )
     expect(result).toHaveLength(1)
     expect(result[0]!.canonicalName).toBe('Malus domestica')
-    expect(landing(result[0]!, createViewport({ scale: 1 })).x).toBeCloseTo(10, 6)
+    expect(landing(result[0]!, viewport).x).toBeCloseTo(anchor.x, 6)
   })
 
   it('places a selected plant label below the glyph at low zoom', () => {
+    const viewport = createViewport({ scale: 1 })
+    const anchor = createTestRendererView(viewport).worldToScreen({ x: 10, y: 20 })
     const result = computeSelectionLabels(
       [createPlant({ id: 'a', position: { x: 10, y: 20 } })],
       new Set(['a']),
-      createViewport({ scale: 1 }).scale,
+      viewport.scale,
       new Map(),
     )
 
-    expect(landing(result[0]!, createViewport({ scale: 1 })).x).toBeCloseTo(10, 6)
-    expect(landing(result[0]!, createViewport({ scale: 1 })).y).toBeCloseTo(25, 2)
+    expect(landing(result[0]!, viewport).x).toBeCloseTo(anchor.x, 6)
+    expect(landing(result[0]!, viewport).y).toBeCloseTo(anchor.y + 5, 2)
   })
 
   it('hangs the selected plant label 2 px under its symbol at high zoom', () => {
+    const viewport = createViewport({ scale: 1000 })
+    const anchor = createTestRendererView(viewport).worldToScreen({ x: 10, y: 20 })
     const result = computeSelectionLabels(
       [createPlant({ id: 'a', position: { x: 10, y: 20 } })],
       new Set(['a']),
-      createViewport({ scale: 1000 }).scale,
+      viewport.scale,
       new Map(),
     )
 
-    expect(landing(result[0]!, createViewport({ scale: 1000 })).x).toBeCloseTo(10000, 5)
-    expect(landing(result[0]!, createViewport({ scale: 1000 })).y).toBeCloseTo(20016, 2)
+    expect(landing(result[0]!, viewport).x).toBeCloseTo(anchor.x, 5)
+    expect(landing(result[0]!, viewport).y).toBeCloseTo(anchor.y + 16, 2)
   })
 
   it('returns empty array when multiple plants are selected', () => {

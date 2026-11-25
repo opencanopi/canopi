@@ -48,6 +48,8 @@ describe('SceneInteractionSession: touch', () => {
     vi.useRealTimers()
   })
 
+  const world = (at: ScenePoint) => testView.view().screenToWorld(at)
+
   function createTestSession(deps: SceneInteractionSessionDeps): SceneInteractionSession {
     return fixture.createTestSession({ ...deps, renderer })
   }
@@ -90,7 +92,7 @@ describe('SceneInteractionSession: touch', () => {
     touchUp({ x: 103, y: 104 })
 
     expect(store.persisted.plants).toHaveLength(1)
-    expect(store.persisted.plants[0]!.position).toEqual({ x: 100, y: 100 })
+    expect(store.persisted.plants[0]!.position).toEqual(world({ x: 100, y: 100 }))
     session.dispose()
   })
 
@@ -104,7 +106,7 @@ describe('SceneInteractionSession: touch', () => {
     touchMove({ x: 112, y: 100 })
     touchUp({ x: 112, y: 100 })
 
-    expect(store.persisted.plants.map((plant) => plant.position)).toEqual([{ x: 100, y: 100 }])
+    expect(store.persisted.plants.map((plant) => plant.position)).toEqual([world({ x: 100, y: 100 })])
     session.dispose()
   })
 
@@ -187,7 +189,7 @@ describe('SceneInteractionSession: touch', () => {
     tap({ x: 120, y: 120 }, 2300)
 
     expect(store.persisted.zones).toHaveLength(1)
-    expect(store.persisted.zones[0]!.points).toEqual([{ x: 20, y: 20 }, { x: 120, y: 20 }, { x: 120, y: 100 }])
+    expect(store.persisted.zones[0]!.points).toEqual([world({ x: 20, y: 20 }), world({ x: 120, y: 20 }), world({ x: 120, y: 100 })])
     session.dispose()
   })
 
@@ -241,7 +243,7 @@ describe('SceneInteractionSession: touch', () => {
     vi.advanceTimersByTime(499)
     expect(contextMenuHost.current).toBeNull()
     vi.advanceTimersByTime(101)
-    expect(contextMenuHost.current?.world).toEqual({ x: 100, y: 100 })
+    expect(contextMenuHost.current?.world).toEqual(world({ x: 100, y: 100 }))
     touchMove({ x: 104, y: 100 })
     touchUp({ x: 104, y: 100 })
 

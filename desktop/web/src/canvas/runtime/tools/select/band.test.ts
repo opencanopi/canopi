@@ -46,7 +46,7 @@ describe('Select band', () => {
     expect(h.renderer.lastDraft()).toEqual({
       shapes: [{
         kind: 'quad',
-        corners: [{ x: 20, y: 20 }, { x: 60, y: 20 }, { x: 60, y: 60 }, { x: 20, y: 60 }],
+        corners: [{ x: 20, y: 20 }, { x: 60, y: 20 }, { x: 60, y: 60 }, { x: 20, y: 60 }].map((at) => h.world(at)),
         style: { token: 'selection', widthPx: 2 },
         fill: { token: 'selection-fill' },
       }],

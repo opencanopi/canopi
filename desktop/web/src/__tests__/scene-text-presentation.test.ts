@@ -23,6 +23,7 @@ import { createBillboardLayer } from '../canvas/runtime/renderers/billboard-laye
 import { getDesignObjectSelectionModel } from '../canvas/runtime/scene-runtime/selection'
 import { projectScenePlantLabels } from '../canvas/runtime/selection-labels'
 import { selectionScreenHull } from '../canvas/runtime/tools/select/selection-hull'
+import { createTestView } from './support/test-view'
 import type { ToolScene } from '../canvas/runtime/tools/tool'
 import { createTestRendererView, createTestSceneRendererSnapshot } from './support/scene-renderer-snapshot'
 import { createZoomCalibrationScene } from './support/zoom-calibration-scenes'
@@ -90,17 +91,23 @@ function widthsRead(scene: ScenePersistedState) {
     revealedAnnotationId: note.id,
     plantContext: { pixelsPerMetre: SCALE, speciesCache: new Map(), localizedCommonNames: new Map() },
   })
+  const testView = createTestView({ screen: { width: 800, height: 600 }, viewport: { x: 0, y: 0, scale: SCALE } })
+  const view = testView.view()
   const hull = selectionScreenHull({ persisted: scene, selection: () => selection } as unknown as ToolScene, model, {
-    metresPerPixelAt: () => 1 / SCALE,
-    screenAxesInWorld: () => ({ right: { x: 1, y: 0 }, down: { x: 0, y: 1 } }),
+    metresPerPixelAt: (at) => view.metresPerPixelAt(at),
+    screenAxesInWorld: () => view.screenAxesInWorld(),
+    worldDeltaToScreen: (delta) => view.worldDeltaToScreen(delta),
+    screenDeltaToWorld: (delta) => view.screenDeltaToWorld(delta),
   })!
   const px = (value: number) => Math.round(value * 1000) / 1000
-  return {
+  const result = {
     frame: px(getAnnotationPresentation(note, SCALE, true).textFrame.widthPx),
     detail: px(getCanvasDetailLayout(scene, SCALE).bounds[0]!.width - 4),
     selection: px((model.bounds!.maxX - model.bounds!.minX) * SCALE),
     hull: px((hull[1].x - hull[0].x) * SCALE),
   }
+  testView.dispose()
+  return result
 }
 
 describe('scene text presentation', () => {

@@ -7,7 +7,7 @@
 // Shared fakes, helpers and fixture: support/canvas-interaction-setup.ts.
 import { describe, expect, it, vi } from 'vitest'
 import { t } from '../i18n'
-import type { SceneStore } from '../canvas/runtime/scene'
+import type { ScenePoint, SceneStore } from '../canvas/runtime/scene'
 import { SceneHistory } from '../canvas/runtime/scene-history'
 import { SceneRuntimeEditCoordinator } from '../canvas/runtime/scene-runtime/transactions'
 import type { SceneInteractionEventHarness } from './support/canvas-interaction-events'
@@ -36,6 +36,8 @@ describe('SceneInteractionSession', () => {
     () => ({ events }),
   )
 
+  const world = (at: ScenePoint) => testView.view().screenToWorld(at)
+
   /** The host's text entry: a new note's field, or a note's in-place editor. */
   function noteEntry(): HTMLTextAreaElement | null {
     return container.querySelector<HTMLTextAreaElement>('textarea[data-canvas-text-entry]')
@@ -55,7 +57,7 @@ describe('SceneInteractionSession', () => {
     expect(store.persisted.annotations).toHaveLength(1)
     expect(store.persisted.annotations[0]).toMatchObject({
       annotationType: 'text',
-      position: { x: 24, y: 32 },
+      position: world({ x: 24, y: 32 }),
       text: 'Guild note',
     })
     expect(onSceneEditCommit).toHaveBeenCalledWith('interaction-text')
@@ -90,7 +92,7 @@ describe('SceneInteractionSession', () => {
     expect(store.persisted.annotations).toEqual([
       expect.objectContaining({
         annotationType: 'text',
-        position: { x: 24, y: 32 },
+        position: world({ x: 24, y: 32 }),
         text: 'Deferred guild note',
       }),
     ])
@@ -150,7 +152,7 @@ describe('SceneInteractionSession', () => {
 
     expect(store.persisted.annotations).toHaveLength(1)
     expect(store.persisted.annotations[0]).toMatchObject({
-      position: { x: 24, y: 32 },
+      position: world({ x: 24, y: 32 }),
       text: 'Blurred note',
     })
     expect(onSceneEditCommit).toHaveBeenCalledWith('interaction-text')
@@ -171,7 +173,7 @@ describe('SceneInteractionSession', () => {
 
     events.pointerDown({ x: 80, y: 90 }, { button: 0 })
     events.pointerUp({ x: 80, y: 90 }, { button: 0 })
-    expect(store.persisted.annotations).toEqual([expect.objectContaining({ position: { x: 24, y: 32 }, text: 'Left behind' })])
+    expect(store.persisted.annotations).toEqual([expect.objectContaining({ position: world({ x: 24, y: 32 }), text: 'Left behind' })])
     expect(container.querySelector('textarea')).toBeNull()
 
     events.pointerDown({ x: 80, y: 90 }, { button: 0 })
@@ -202,7 +204,7 @@ describe('SceneInteractionSession', () => {
 
     events.pointerDown({ x: 80, y: 90 }, { button: 0 })
     events.pointerUp({ x: 80, y: 90 }, { button: 0 })
-    expect(store.persisted.annotations).toEqual([expect.objectContaining({ position: { x: 24, y: 32 }, text: 'Busy note' })])
+    expect(store.persisted.annotations).toEqual([expect.objectContaining({ position: world({ x: 24, y: 32 }), text: 'Busy note' })])
     expect(container.querySelector('textarea')).toBeNull()
 
     events.pointerDown({ x: 80, y: 90 }, { button: 0 })

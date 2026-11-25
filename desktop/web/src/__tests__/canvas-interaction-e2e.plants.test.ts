@@ -17,7 +17,7 @@ import {
 } from '../canvas/session-state'
 import { snapToGridEnabled } from '../app/canvas-settings/signals'
 import { plantSpacingIntervalM } from '../app/settings/state'
-import { SceneStore } from '../canvas/runtime/scene'
+import { SceneStore, type ScenePoint } from '../canvas/runtime/scene'
 import type {
   SceneInteractionSession,
   SceneInteractionSessionDeps,
@@ -63,6 +63,10 @@ describe('SceneInteractionSession', () => {
     },
     () => ({ events }),
   )
+
+  const world = (at: ScenePoint) => testView.view().screenToWorld(at)
+  const screen = (at: ScenePoint) => testView.view().worldToScreen(at)
+  const closePoint = (p: ScenePoint, digits = 5) => ({ x: expect.closeTo(p.x, digits), y: expect.closeTo(p.y, digits) })
 
   beforeEach(() => {
     drafts = createRecordingRenderer()
@@ -489,8 +493,9 @@ describe('SceneInteractionSession', () => {
 
     events.pointerMove({ x: 60, y: 30 }, { button: 0 })
     const guideEnd = draftShapes('polyline')[0]?.points.at(-1)
-    expect(guideEnd?.x).toBeCloseTo(60, 6)
-    expect(guideEnd?.y).toBeCloseTo(30, 6)
+    const expectedEnd = world({ x: 60, y: 30 })
+    expect(guideEnd?.x).toBeCloseTo(expectedEnd.x, 6)
+    expect(guideEnd?.y).toBeCloseTo(expectedEnd.y, 6)
     events.pointerUp({ x: 60, y: 30 }, { button: 0 })
     session.dispose()
   })
@@ -730,10 +735,10 @@ describe('SceneInteractionSession', () => {
     const deps = createInteractionDeps(container, store, testView)
     const session = createTestSession(deps)
     session.setTool('plant-spacing')
-    events.pointerDown({ x: 20, y: 40 }, { button: 0 })
-    events.pointerUp({ x: 20, y: 40 }, { button: 0 })
-    events.pointerDown({ x: 100, y: 40 }, { button: 0 })
-    events.pointerUp({ x: 100, y: 40 }, { button: 0 })
+    events.pointerDown(screen({ x: 2, y: 4 }), { button: 0 })
+    events.pointerUp(screen({ x: 2, y: 4 }), { button: 0 })
+    events.pointerDown(screen({ x: 10, y: 4 }), { button: 0 })
+    events.pointerUp(screen({ x: 10, y: 4 }), { button: 0 })
     expect(store.persisted.plants).toHaveLength(1)
 
     const card = toolCard()!
@@ -746,7 +751,7 @@ describe('SceneInteractionSession', () => {
     expect(plantSpacingIntervalM.value, 'a count never becomes the device interval').toBe(2)
 
     toolCard()!.querySelector<HTMLButtonElement>('[data-plant-row-finish]')!.click()
-    expect(store.persisted.plants.slice(1).map((plant) => plant.position)).toEqual([{ x: 6, y: 4 }, { x: 10, y: 4 }])
+    expect(store.persisted.plants.slice(1).map((plant) => plant.position)).toEqual([closePoint({ x: 6, y: 4 }), closePoint({ x: 10, y: 4 })])
     expect(toolCard()!.querySelector('[data-plant-row-finish]')).toBeNull()
     session.dispose()
   })
@@ -762,7 +767,7 @@ describe('SceneInteractionSession', () => {
     })
     const session = createTestSession(createInteractionDeps(container, store, testView, overrides))
     session.setTool('plant-spacing')
-    for (const at of [{ x: 20, y: 40 }, { x: 80, y: 40 }, { x: 140, y: 80 }, { x: 200, y: 40 }]) {
+    for (const at of [{ x: 2, y: 4 }, { x: 8, y: 4 }, { x: 14, y: 8 }, { x: 20, y: 4 }].map(screen)) {
       events.pointerDown(at, { button: 0 })
       events.pointerUp(at, { button: 0 })
     }
@@ -810,13 +815,14 @@ describe('SceneInteractionSession', () => {
       .some((guide) => guide.points.some((point) => Math.abs(point.x - x) < 1e-6 && Math.abs(point.y - y) < 1e-6))
     expect(guideThrough(8, 4) && guideThrough(14, 8) && guideThrough(20, 4)).toBe(true)
 
-    for (const [key, at, remaining] of [['Delete', { x: 80, y: 40 }, 3], ['Backspace', { x: 140, y: 80 }, 2]] as const) {
+    for (const [key, pt, remaining] of [['Delete', { x: 8, y: 4 }, 3], ['Backspace', { x: 14, y: 8 }, 2]] as const) {
+      const at = screen(pt)
       events.pointerDown(at, { button: 2, target: draftPoint(1) })
       events.pointerUp(at, { button: 2 })
       expect(menu.item('delete-point'), 'the point menu').not.toBeNull()
       events.keyDown({ key, code: key, cancelable: true, target: document.activeElement! })
       expect(points(), `${key} removes one point`).toBe(remaining)
-      expect(guideThrough(at.x / 10, at.y / 10), `${key} removes the menu's point`).toBe(false)
+      expect(guideThrough(pt.x, pt.y), `${key} removes the menu's point`).toBe(false)
       expect(guideThrough(20, 4), `${key} keeps the last point`).toBe(true)
       expect(menu.isOpen(), `${key} closes the point menu`).toBe(false)
       expect(document.activeElement, 'focus goes back to the map').toBe(container)
@@ -838,16 +844,18 @@ describe('SceneInteractionSession', () => {
     const deps = createInteractionDeps(container, store, testView, { onSceneEditCommit: (type) => edits.push(type) })
     const session = createTestSession(deps)
     session.setTool('plant-spacing')
-    events.pointerDown({ x: 20, y: 40 }, { button: 0 })
-    events.pointerUp({ x: 20, y: 40 }, { button: 0 })
-    events.pointerDown({ x: 80, y: 40 }, { button: 0 })
-    events.pointerUp({ x: 80, y: 40 }, { button: 0 })
+    events.pointerDown(screen({ x: 2, y: 4 }), { button: 0 })
+    events.pointerUp(screen({ x: 2, y: 4 }), { button: 0 })
+    events.pointerDown(screen({ x: 8, y: 4 }), { button: 0 })
+    events.pointerUp(screen({ x: 8, y: 4 }), { button: 0 })
     events.keyDown({ key: 'Enter' })
 
     expect(edits).toEqual(['interaction-plant-spacing'])
     const plants = store.persisted.plants
     expect(plants.map((plant) => plant.id).slice(0, 2)).toEqual(['other', 'source'])
-    expect(plants.slice(1).map((plant) => plant.position)).toEqual([{ x: 2, y: 4 }, { x: 4, y: 4 }, { x: 6, y: 4 }, { x: 8, y: 4 }])
+    expect(plants.slice(1).map((plant) => plant.position)).toEqual([
+      closePoint({ x: 2, y: 4 }), closePoint({ x: 4, y: 4 }), closePoint({ x: 6, y: 4 }), closePoint({ x: 8, y: 4 }),
+    ])
     const added = plants.slice(2).map((plant) => plant.id)
     expect(new Set(added).size).toBe(3)
     expect(added.some((id) => id === 'other' || id === 'source')).toBe(false)
@@ -875,35 +883,22 @@ describe('SceneInteractionSession', () => {
     testView.setViewport({ x: 0, y: 0, scale: 10 })
     store.updatePersisted((draft) => {
       draft.plants = [{
-        kind: 'plant',
-        locked: false,
-        id: 'source',
-        canonicalName: 'Malus domestica',
-        commonName: 'Apple',
-        color: null,
-        canopySpreadM: 2,
-        position: { x: 2, y: 4 },
-        rotationDeg: null,
-        notes: null,
-        plantedDate: null,
-        quantity: 1,
+        kind: 'plant', locked: false, id: 'source', canonicalName: 'Malus domestica', commonName: 'Apple',
+        color: null, canopySpreadM: 2, position: { x: 2, y: 4 }, rotationDeg: null, notes: null, plantedDate: null, quantity: 1,
       }]
     })
     const deps = createInteractionDeps(container, store, testView)
     const session = createTestSession(deps)
     session.setTool('plant-spacing')
-    events.pointerDown({ x: 20, y: 40 }, { button: 0 })
-    events.pointerMove({ x: 51, y: 40 }, { button: 0 })
+    events.pointerDown(screen({ x: 2, y: 4 }), { button: 0 })
+    events.pointerMove(screen({ x: 5.1, y: 4 }), { button: 0 })
 
     expect(draftShapes('ghost')).toHaveLength(2)
 
     // The press adds the row's second point; Enter plants it (U58).
-    events.pointerDown({ x: 51, y: 40 }, { button: 0 })
+    events.pointerDown(screen({ x: 5.1, y: 4 }), { button: 0 })
     events.keyDown({ key: 'Enter' })
-    expect(store.persisted.plants.slice(1).map((plant) => plant.position)).toEqual([
-      { x: 4, y: 4 },
-      { x: 6, y: 4 },
-    ])
+    expect(store.persisted.plants.slice(1).map((plant) => plant.position)).toEqual([closePoint({ x: 4, y: 4 }), closePoint({ x: 6, y: 4 })])
     session.dispose()
   })
 
@@ -930,8 +925,8 @@ describe('SceneInteractionSession', () => {
     const deps = createInteractionDeps(container, store, testView)
     const session = createTestSession(deps)
     session.setTool('plant-spacing')
-    events.pointerDown({ x: 40, y: 40 }, { button: 0 })
-    events.pointerMove({ x: 71, y: 52 }, { button: 0, shiftKey: true })
+    events.pointerDown(screen({ x: 4, y: 4 }), { button: 0 })
+    events.pointerMove(screen({ x: 7.1, y: 5.2 }), { button: 0, shiftKey: true })
 
     // Constrain first, then the length: level with the source, a whole number of grid intervals long.
     const interval = gridInterval(10).interval
@@ -939,10 +934,10 @@ describe('SceneInteractionSession', () => {
     const xs = Array.from({ length: Math.round(end - 4) }, (_, index) => 5 + index)
     expect(draftShapes('ghost')).toHaveLength(xs.length)
 
-    events.pointerDown({ x: 71, y: 52 }, { button: 0, shiftKey: true })
+    events.pointerDown(screen({ x: 7.1, y: 5.2 }), { button: 0, shiftKey: true })
     events.keyDown({ key: 'Enter' })
-    expect(store.persisted.plants.slice(1).map((plant) => plant.position.y)).toEqual(xs.map(() => 4))
-    expect(store.persisted.plants.slice(1).map((plant) => plant.position.x)).toEqual(xs)
+    expect(store.persisted.plants.slice(1).map((plant) => plant.position.y)).toEqual(xs.map(() => expect.closeTo(4, 5)))
+    expect(store.persisted.plants.slice(1).map((plant) => plant.position.x)).toEqual(xs.map((x) => expect.closeTo(x, 5)))
     session.dispose()
   })
 
@@ -967,17 +962,17 @@ describe('SceneInteractionSession', () => {
     const deps = createInteractionDeps(container, store, testView)
     const session = createTestSession(deps)
     session.setTool('plant-spacing')
-    events.pointerDown({ x: 20, y: 30 }, { button: 0 })
-    events.pointerMove({ x: 500, y: 30 }, { button: 0 })
+    const sourceScreen = screen({ x: 20, y: 30 })
+    const clampedWorld = world({ x: 400, y: sourceScreen.y })
+    events.pointerDown(sourceScreen, { button: 0 })
+    events.pointerMove({ x: 500, y: sourceScreen.y }, { button: 0 })
 
-    expect(rowLength()).toBe('380 m')
+    expect(rowLength()).toBe(`${Math.round(clampedWorld.x - 20)} m`)
 
-    events.pointerDown({ x: 500, y: 30 }, { button: 0 })
+    events.pointerDown({ x: 500, y: sourceScreen.y }, { button: 0 })
     events.keyDown({ key: 'Enter' })
     expect(store.persisted.plants.slice(1).map((plant) => plant.position)).toEqual([
-      { x: 120, y: 30 },
-      { x: 220, y: 30 },
-      { x: 320, y: 30 },
+      closePoint({ x: 120, y: 30 }, 2), closePoint({ x: 220, y: 30 }, 2), closePoint({ x: 320, y: 30 }, 2),
     ])
     session.dispose()
   })
@@ -1003,8 +998,9 @@ describe('SceneInteractionSession', () => {
     const deps = createInteractionDeps(container, store, testView)
     const session = createTestSession(deps)
     session.setTool('plant-spacing')
-    events.pointerDown({ x: 20, y: 30 }, { button: 0 })
-    events.pointerMove({ x: 26, y: 30 }, { button: 0 })
+    const targetScreen = screen({ x: 26, y: 30 })
+    events.pointerDown(screen({ x: 20, y: 30 }), { button: 0 })
+    events.pointerMove(targetScreen, { button: 0 })
     const guideOnScreen = (): number => {
       const [start, end] = draftShapes('polyline')[0]!.points
       const a = testView.view().worldToScreen(start!)
@@ -1015,7 +1011,7 @@ describe('SceneInteractionSession', () => {
     const draftsBefore = drafts.drafts.length
 
     // At the still pointer, where the host's re-emit and today's world-fixed endpoint agree (plan §1, exception 1).
-    events.wheel({ x: 26, y: 30 }, { deltaY: -120, ctrlKey: true })
+    events.wheel(targetScreen, { deltaY: -120, ctrlKey: true })
 
     expect(drafts.drafts.length).toBeGreaterThan(draftsBefore)
     expect(rowLength()).toBe('6 m')
@@ -1168,18 +1164,16 @@ describe('SceneInteractionSession', () => {
     const session = createTestSession(deps)
     session.setTool('plant-spacing')
 
-    events.pointerDown({ x: 20, y: 30 }, { button: 0 })
+    events.pointerDown(screen({ x: 20, y: 30 }), { button: 0 })
     const input = spacingInput()!
-    events.pointerMove({ x: 26, y: 30 }, { button: 0 })
+    events.pointerMove(screen({ x: 26, y: 30 }), { button: 0 })
     expect(document.activeElement).not.toBe(input)
-    events.pointerUp({ x: 26, y: 30 }, { button: 0 })
+    events.pointerUp(screen({ x: 26, y: 30 }), { button: 0 })
 
     expect(onSceneEditCommit).toHaveBeenCalledWith('interaction-plant-spacing')
     expect(store.persisted.plants).toHaveLength(4)
     expect(store.persisted.plants.slice(1).map((plant) => plant.position)).toEqual([
-      { x: 22, y: 30 },
-      { x: 24, y: 30 },
-      { x: 26, y: 30 },
+      closePoint({ x: 22, y: 30 }, 4), closePoint({ x: 24, y: 30 }, 4), closePoint({ x: 26, y: 30 }, 4),
     ])
     session.dispose()
   })
@@ -1333,7 +1327,7 @@ describe('SceneInteractionSession', () => {
       events.pointerUp({ x: 140, y: 100 }, { button: 0 })
 
       expect(store.persisted.plants.find((plant) => plant.id === droppedPlant!.id)?.position)
-        .toEqual({ x: 140, y: 100 })
+        .toEqual(closePoint(world({ x: 140, y: 100 })))
       expect(store.persisted.plants).toHaveLength(2)
     } finally {
       focusSpy.mockRestore()
@@ -1444,7 +1438,7 @@ describe('SceneInteractionSession', () => {
       await Promise.resolve()
 
       expect(store.persisted.plants).toHaveLength(1)
-      expect(store.persisted.plants[0]).toMatchObject({ canonicalName: 'Malus domestica', position: { x: 120, y: 80 } })
+      expect(store.persisted.plants[0]).toMatchObject({ canonicalName: 'Malus domestica', position: world({ x: 120, y: 80 }) })
       expect(store.session.selectedTargets).toEqual([plantTarget(store.persisted.plants[0]!.id)])
       expect(published.at(-1)?.speciesPrompts).toBe(0)
 
@@ -1464,7 +1458,7 @@ describe('SceneInteractionSession', () => {
       contextMenuCommand('place-plants-here').run()
 
       expect(store.persisted.plants).toHaveLength(1)
-      expect(store.persisted.plants[0]!.position).toEqual({ x: 60, y: 40 })
+      expect(store.persisted.plants[0]!.position).toEqual(world({ x: 60, y: 40 }))
       session.dispose()
     })
 

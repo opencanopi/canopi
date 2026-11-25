@@ -177,7 +177,7 @@ describe('headless camera driver', () => {
     view.dispose()
 
     // A larger screen: every scale above its single-world floor reads back as today's (from today's 1000 × 800 initial frame).
-    const wide = createTestView({ screen: { width: 1000, height: 800 }, viewport: { x: 100, y: 0, scale: 8 } })
+    const wide = createTestView({ plane, screen: { width: 1000, height: 800 }, viewport: { x: 100, y: 0, scale: 8 } })
     const wideDriver = wide.host.current()
     const wideToday: ReadonlyArray<readonly [number, number, number]> = [
       [117.25, -3.5, 8],

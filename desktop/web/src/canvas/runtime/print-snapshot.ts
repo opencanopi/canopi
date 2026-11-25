@@ -1,3 +1,4 @@
+import type { SessionPlane } from '../../geo/session-plane'
 import type { CanvasPrintSnapshot, PrintMarkPath, PrintZone } from '../print'
 import { resolvePlantDisplayColor, type PlantPresentationContext } from './plant-presentation'
 import { resolvePlantSymbolForPlant, type ScenePersistedState } from './scene'
@@ -8,8 +9,10 @@ import { zoneDisplayName } from './zone-identity'
 export function buildCanvasPrintSnapshot(
   scene: ScenePersistedState,
   context: PlantPresentationContext,
+  plane?: Pick<SessionPlane, 'origin'>,
 ): CanvasPrintSnapshot {
   return {
+    ...(plane ? { planeOrigin: { lon: plane.origin.lon, lat: plane.origin.lat } } : {}),
     layers: scene.layers.map(({ name, visible, opacity }) => ({ name, visible, opacity })),
     plants: scene.plants.map((plant) => {
       const symbol = resolvePlantSymbolForPlant(plant, scene.plantSpeciesSymbols)

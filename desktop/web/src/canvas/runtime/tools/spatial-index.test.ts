@@ -167,13 +167,16 @@ describe('ToolScene over today\'s hit tests', () => {
     const store = sceneStoreWith({
       plants: [
         plantEntity('b', 'Malus domestica', { x: 3, y: 4 }),
-        plantEntity('a', 'Malus domestica', { x: -3, y: -4 }),
+        plantEntity('a', 'Malus domestica', { x: -3, y: 4 }),
         plantEntity('c', 'Malus domestica', { x: 10, y: 0 }),
       ],
     })
     const scene = createToolScene(createToolSceneSource(store))
 
-    expect(scene.nearestPlant({ x: 0, y: 0 })).toEqual({ plant: store.persisted.plants[0], distanceM: 5 })
+    expect(scene.nearestPlant({ x: 0, y: 0 })).toEqual({
+      plant: store.persisted.plants[0],
+      distanceM: store.sessionPlane.groundLength({ x: 0, y: 0 }, { x: 3, y: 4 }),
+    })
 
     store.updatePersisted((draft) => {
       draft.layers = draft.layers.map((layer) => layer.name === 'plants' ? { ...layer, visible: false } : layer)

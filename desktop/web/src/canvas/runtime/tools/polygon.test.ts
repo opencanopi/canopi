@@ -68,7 +68,8 @@ describe('Polygon tool', () => {
     expect(h.host.command({ kind: 'confirm' })).toBe('handled')
     expect(h.store.persisted.zones).toEqual([])
     h.click({ x: 60, y: 50 })
-    expect(cornerMarkers(h)).toEqual([{ x: 10, y: 10 }, { x: 60, y: 10 }, { x: 60, y: 50 }])
+    const corners = [h.world({ x: 10, y: 10 }), h.world({ x: 60, y: 10 }), h.world({ x: 60, y: 50 })]
+    expect(cornerMarkers(h)).toEqual(corners)
 
     expect(h.host.command({ kind: 'confirm' })).toBe('handled')
 
@@ -77,9 +78,9 @@ describe('Polygon tool', () => {
     expect(zone).toMatchObject({
       zoneType: 'polygon',
       rotationDeg: 0,
-      points: [{ x: 10, y: 10 }, { x: 60, y: 10 }, { x: 60, y: 50 }],
+      points: corners,
     })
-    const stored = [{ x: 10, y: 10 }, { x: 60, y: 10 }, { x: 60, y: 50 }]
+    const stored = corners
       .map((point) => roundGeoPosition(h.store.sessionPlane.toGeo(point)))
     expect(h.store.toCanopiFile().zones[0]).toMatchObject({ zone_type: 'polygon', rotation: 0, locked: false, points: stored })
     // One Scene Edit selects the new zone, in one selection write; the draft goes and the zone's own chips show.
@@ -100,14 +101,14 @@ describe('Polygon tool', () => {
     h.click({ x: 10, y: 10 })
     h.click({ x: 60, y: 10 })
     h.click({ x: 60, y: 10 }, { clickCount: 2 })
-    expect(cornerMarkers(h)).toEqual([{ x: 10, y: 10 }, { x: 60, y: 10 }])
+    expect(cornerMarkers(h)).toEqual([h.world({ x: 10, y: 10 }), h.world({ x: 60, y: 10 })])
     expect(h.store.persisted.zones).toEqual([])
 
     // The first press of the double-click adds the third corner; its second finishes instead of adding one.
     h.click({ x: 60, y: 50 })
     h.click({ x: 60, y: 50 }, { clickCount: 2 })
     expect(h.store.persisted.zones).toHaveLength(1)
-    expect(h.store.persisted.zones[0]!.points).toEqual([{ x: 10, y: 10 }, { x: 60, y: 10 }, { x: 60, y: 50 }])
+    expect(h.store.persisted.zones[0]!.points).toEqual([h.world({ x: 10, y: 10 }), h.world({ x: 60, y: 10 }), h.world({ x: 60, y: 50 })])
     expect(cornerMarkers(h)).toEqual([])
   })
 
@@ -139,7 +140,7 @@ describe('Polygon tool', () => {
     const finishShape = h.record.menus.at(-1)?.finishShape
     expect(finishShape).toBeTypeOf('function')
     finishShape!()
-    expect(h.store.persisted.zones[0]!.points).toEqual([{ x: 10, y: 10 }, { x: 60, y: 10 }, { x: 60, y: 50 }])
+    expect(h.store.persisted.zones[0]!.points).toEqual([h.world({ x: 10, y: 10 }), h.world({ x: 60, y: 10 }), h.world({ x: 60, y: 50 })])
     expect(cornerMarkers(h)).toEqual([])
   })
 
@@ -152,7 +153,7 @@ describe('Polygon tool', () => {
     const finishShape = h.record.menus.at(-1)?.finishShape
     expect(finishShape).toBeTypeOf('function')
     finishShape!()
-    expect(h.store.persisted.zones[0]!.points).toEqual([{ x: 10, y: 10 }, { x: 60, y: 10 }, { x: 60, y: 50 }])
+    expect(h.store.persisted.zones[0]!.points).toEqual([h.world({ x: 10, y: 10 }), h.world({ x: 60, y: 10 }), h.world({ x: 60, y: 50 })])
   })
 
   it('Backspace removes the last corner', () => {
@@ -161,12 +162,12 @@ describe('Polygon tool', () => {
     h.click({ x: 10, y: 10 })
     h.click({ x: 60, y: 10 })
     h.hover({ x: 60, y: 50 })
-    expect(band(h)).toEqual([{ x: 10, y: 10 }, { x: 60, y: 10 }, { x: 60, y: 50 }])
+    expect(band(h)).toEqual([h.world({ x: 10, y: 10 }), h.world({ x: 60, y: 10 }), h.world({ x: 60, y: 50 })])
 
     expect(h.host.command({ kind: 'remove-last' })).toBe('handled')
 
-    expect(band(h)).toEqual([{ x: 10, y: 10 }, { x: 60, y: 50 }])
-    expect(cornerMarkers(h)).toEqual([{ x: 10, y: 10 }])
+    expect(band(h)).toEqual([h.world({ x: 10, y: 10 }), h.world({ x: 60, y: 50 })])
+    expect(cornerMarkers(h)).toEqual([h.world({ x: 10, y: 10 })])
     expect(h.host.transientHistory.canRedo()).toBe(true)
     expect(h.store.persisted.zones).toEqual([])
     expect(h.history.canUndo.peek()).toBe(false)
@@ -182,12 +183,12 @@ describe('Polygon tool', () => {
 
     h.drag({ x: 10, y: 10 }, { x: 60, y: 40 })
 
-    expect(cornerMarkers(h)).toEqual([{ x: 10, y: 10 }])
-    expect(band(h)).toEqual([{ x: 10, y: 10 }, { x: 60, y: 40 }])
+    expect(cornerMarkers(h)).toEqual([h.world({ x: 10, y: 10 })])
+    expect(band(h)).toEqual([h.world({ x: 10, y: 10 }), h.world({ x: 60, y: 40 })])
 
     h.click({ x: 90, y: 10 })
     h.drag({ x: 90, y: 60 }, { x: 20, y: 60 })
-    expect(cornerMarkers(h)).toEqual([{ x: 10, y: 10 }, { x: 90, y: 10 }, { x: 90, y: 60 }])
+    expect(cornerMarkers(h)).toEqual([h.world({ x: 10, y: 10 }), h.world({ x: 90, y: 10 }), h.world({ x: 90, y: 60 })])
     expect(h.store.persisted.zones).toEqual([])
   })
 
@@ -220,7 +221,7 @@ describe('Polygon tool', () => {
 
     h.click({ x: 112, y: 112 }, { pointer: 'touch' })
     expect(h.store.persisted.zones.map((zone) => zone.points)).toEqual([
-      [{ x: 100, y: 100 }, { x: 200, y: 100 }, { x: 200, y: 200 }, { x: 118, y: 100 }],
+      [h.world({ x: 100, y: 100 }), h.world({ x: 200, y: 100 }), h.world({ x: 200, y: 200 }), h.world({ x: 118, y: 100 })],
     ])
   })
 
@@ -232,33 +233,33 @@ describe('Polygon tool', () => {
     h.host.command({ kind: 'remove-last' })
     expect(h.host.transientHistory.canRedo()).toBe(true)
     h.click({ x: 104, y: 96 }, { mods: { alt: true } })
-    expect(cornerMarkers(h)).toEqual([{ x: 10, y: 10 }, { x: 100, y: 10 }])
+    expect(cornerMarkers(h)).toEqual([h.world({ x: 10, y: 10 }), h.world({ x: 100, y: 10 })])
     expect(h.host.transientHistory.canRedo()).toBe(false)
     h.click({ x: 100, y: 100 })
     h.click({ x: 10, y: 100 })
 
     // On the first corner Alt deletes it rather than closing the zone.
     h.click({ x: 12, y: 12 }, { mods: { alt: true } })
-    expect(cornerMarkers(h)).toEqual([{ x: 100, y: 10 }, { x: 100, y: 100 }, { x: 10, y: 100 }])
+    expect(cornerMarkers(h)).toEqual([h.world({ x: 100, y: 10 }), h.world({ x: 100, y: 100 }), h.world({ x: 10, y: 100 })])
     expect(h.store.persisted.zones).toEqual([])
     expect(h.history.canUndo.peek()).toBe(false)
 
     // Closing on the first corner still works.
     h.click({ x: 98, y: 12 })
-    expect(h.store.persisted.zones.map((zone) => zone.points)).toEqual([[{ x: 100, y: 10 }, { x: 100, y: 100 }, { x: 10, y: 100 }]])
+    expect(h.store.persisted.zones.map((zone) => zone.points)).toEqual([[h.world({ x: 100, y: 10 }), h.world({ x: 100, y: 100 }), h.world({ x: 10, y: 100 })]])
   })
 
   it('a plain click or a finger\'s tap near a placed corner other than the first adds a corner there', () => {
     const h = harness()
     for (const at of [{ x: 10, y: 10 }, { x: 100, y: 10 }, { x: 100, y: 100 }]) h.click(at)
     h.click({ x: 96, y: 14 })
-    expect(cornerMarkers(h)).toEqual([{ x: 10, y: 10 }, { x: 100, y: 10 }, { x: 100, y: 100 }, { x: 96, y: 14 }])
+    expect(cornerMarkers(h)).toEqual([h.world({ x: 10, y: 10 }), h.world({ x: 100, y: 10 }), h.world({ x: 100, y: 100 }), h.world({ x: 96, y: 14 })])
 
     const touch = harness()
     touch.click({ x: 100, y: 100 }, { pointer: 'touch' })
     touch.click({ x: 200, y: 100 }, { pointer: 'touch' })
     touch.click({ x: 215, y: 112 }, { pointer: 'touch' })
-    expect(cornerMarkers(touch)).toEqual([{ x: 100, y: 100 }, { x: 200, y: 100 }, { x: 215, y: 112 }])
+    expect(cornerMarkers(touch)).toEqual([touch.world({ x: 100, y: 100 }), touch.world({ x: 200, y: 100 }), touch.world({ x: 215, y: 112 })])
   })
 
   it('a Shift corner keeps the new edge on 45° from the last corner', () => {
@@ -267,9 +268,11 @@ describe('Polygon tool', () => {
     h.click({ x: 10, y: 10 })
     h.click({ x: 60, y: 14 }, { mods: { shift: true } })
 
+    const first = h.world({ x: 10, y: 10 })
+    const rawEnd = h.world({ x: 60, y: 14 })
     const second = cornerMarkers(h)[1]!
-    expect(second.y).toBeCloseTo(10)
-    expect(second.x).toBeCloseTo(Math.hypot(50, 4) + 10)
+    expect(second.y).toBeCloseTo(first.y, 6)
+    expect(second.x).toBeCloseTo(first.x + Math.hypot(rawEnd.x - first.x, rawEnd.y - first.y), 6)
   })
 
   it('Shift keeps 45 degrees on screen at 30', () => {
@@ -279,9 +282,13 @@ describe('Polygon tool', () => {
     // 50 px right and 4 px down on screen: Shift turns the edge level on screen, not level with the world.
     h.click({ x: 150, y: 104 }, { mods: { shift: true } })
 
-    const [first, second] = cornerMarkers(h).map((corner) => h.view.view().worldToScreen(corner))
-    expect(second!.y).toBeCloseTo(first!.y, 6)
-    expect(second!.x - first!.x).toBeCloseTo(Math.hypot(50, 4), 6)
+    const [firstWorld, secondWorld] = cornerMarkers(h)
+    const [first, second] = [h.screen(firstWorld!), h.screen(secondWorld!)]
+    const rawEnd = h.world({ x: 150, y: 104 })
+    expect(second.y).toBeCloseTo(first.y, 6)
+    expect(second.x).toBeGreaterThan(first.x)
+    expect(Math.hypot(secondWorld!.x - firstWorld!.x, secondWorld!.y - firstWorld!.y))
+      .toBeCloseTo(Math.hypot(rawEnd.x - firstWorld!.x, rawEnd.y - firstWorld!.y), 6)
   })
 
   it('a key zoom with the pointer off the map re-culls the edge chips', () => {
@@ -303,17 +310,21 @@ describe('Polygon tool', () => {
 
   it('draws a fill-only polygon of the corners, the rubber band, a disc per corner and its chips', () => {
     const h = harness()
+    const s1 = h.screen({ x: 10, y: 10 })
+    const s2 = h.screen({ x: 60, y: 10 })
+    const s3 = h.screen({ x: 60, y: 50 })
+    const s4 = h.screen({ x: 10, y: 50 })
 
-    h.click({ x: 10, y: 10 })
-    h.click({ x: 60, y: 10 })
-    h.click({ x: 60, y: 50 })
-    h.hover({ x: 10, y: 50 })
+    h.click(s1)
+    h.click(s2)
+    h.click(s3)
+    h.hover(s4)
 
-    const corners = [{ x: 10, y: 10 }, { x: 60, y: 10 }, { x: 60, y: 50 }]
+    const corners = [h.world(s1), h.world(s2), h.world(s3)]
     const draft = shapes(h)
     expect(draft.slice(0, 5)).toEqual([
       { kind: 'polygon', points: corners, style: { token: 'draft', widthPx: 0 }, fill: { token: 'draft-fill' } },
-      { kind: 'polyline', points: [...corners, { x: 10, y: 50 }], style: { token: 'draft', widthPx: 2 } },
+      { kind: 'polyline', points: [...corners, h.world(s4)], style: { token: 'draft', widthPx: 2 } },
       ...corners.map((center) => ({ kind: 'circle-px', center, radiusPx: 1.75, style: { token: 'draft', widthPx: 3.5 } })),
     ])
     const chips = draft.slice(5)
@@ -335,12 +346,12 @@ describe('Polygon tool', () => {
 
     h.click({ x: 10, y: 10 })
     h.hover({ x: 150, y: 150 })
-    expect(band(h)).toEqual([{ x: 10, y: 10 }, { x: 150, y: 150 }])
+    expect(band(h)).toEqual([h.world({ x: 10, y: 10 }), h.world({ x: 150, y: 150 })])
     expect(h.record.hovers.at(-1)).toBeNull()
 
     // Leaving the map keeps the draft.
     h.leave()
-    expect(band(h)).toEqual([{ x: 10, y: 10 }, { x: 150, y: 150 }])
+    expect(band(h)).toEqual([h.world({ x: 10, y: 10 }), h.world({ x: 150, y: 150 })])
   })
 
   it('the first corner clears the selection without an undo step', () => {
@@ -363,15 +374,15 @@ describe('Polygon tool', () => {
     h.click({ x: 60, y: 10 })
     h.click({ x: 60, y: 50 })
     expect(h.host.command({ kind: 'escape' })).toBe('handled')
-    expect(cornerMarkers(h)).toEqual([{ x: 10, y: 10 }, { x: 60, y: 10 }])
+    expect(cornerMarkers(h)).toEqual([h.world({ x: 10, y: 10 }), h.world({ x: 60, y: 10 })])
     expect(h.host.transientHistory.canRedo()).toBe(true)
     // Ctrl+Shift+Z restores the corner Esc removed.
     expect(h.host.command({ kind: 'redo-transient' })).toBe('handled')
-    expect(cornerMarkers(h)).toEqual([{ x: 10, y: 10 }, { x: 60, y: 10 }, { x: 60, y: 50 }])
+    expect(cornerMarkers(h)).toEqual([h.world({ x: 10, y: 10 }), h.world({ x: 60, y: 10 }), h.world({ x: 60, y: 50 })])
 
     expect(h.host.command({ kind: 'escape' })).toBe('handled')
     expect(h.host.command({ kind: 'escape' })).toBe('handled')
-    expect(cornerMarkers(h)).toEqual([{ x: 10, y: 10 }])
+    expect(cornerMarkers(h)).toEqual([h.world({ x: 10, y: 10 })])
     expect(h.host.activeToolHasEscapeTransient()).toBe(true)
     expect(h.host.command({ kind: 'escape' })).toBe('handled')
     expect(h.renderer.lastDraft()).toBeNull()
@@ -400,13 +411,13 @@ describe('Polygon tool', () => {
     expect(h.host.transientHistory.undo()).toBe(true)
     expect(h.renderer.lastDraft()).toBeNull()
     expect(h.host.transientHistory.redo()).toBe(true)
-    expect(band(h)).toEqual([{ x: 10, y: 10 }, { x: 10, y: 10 }])
+    expect(band(h)).toEqual([h.world({ x: 10, y: 10 }), h.world({ x: 10, y: 10 })])
 
     h.click({ x: 60, y: 10 })
     expect(h.host.transientHistory.undo()).toBe(true)
     h.click({ x: 60, y: 50 })
     expect(h.host.transientHistory.canRedo()).toBe(false)
-    expect(cornerMarkers(h)).toEqual([{ x: 10, y: 10 }, { x: 60, y: 50 }])
+    expect(cornerMarkers(h)).toEqual([h.world({ x: 10, y: 10 }), h.world({ x: 60, y: 50 })])
   })
 
   it('a window blur keeps the draft; overview and a tool change drop it', () => {
@@ -437,7 +448,7 @@ describe('Polygon tool', () => {
     h.click({ x: 60, y: 10 })
     expect(h.host.transientHistory.undo()).toBe(true)
     h.blur()
-    expect(cornerMarkers(h)).toEqual([{ x: 10, y: 10 }])
+    expect(cornerMarkers(h)).toEqual([h.world({ x: 10, y: 10 })])
     expect(h.host.transientHistory.canRedo()).toBe(true)
 
     // No corner left: today kept the draft only while it had corners (hasPolygonDraft), so the redo goes.

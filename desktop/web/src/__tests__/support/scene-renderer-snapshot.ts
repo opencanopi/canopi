@@ -8,7 +8,7 @@ import { projectSceneSelectionEntityIds } from '../../canvas/runtime/scene-runti
 import type { ViewScreen, ViewTransform } from '../../geo/view/types'
 import { planarToViewCamera } from '../../geo/view/camera-math'
 import { buildViewTransform } from '../../geo/view/view-transform'
-import { conformalFixturePlaneForTests } from '../../geo/session-plane'
+import { createSessionPlane } from '../../geo/session-plane'
 
 export interface TestSceneRendererSnapshotOptions {
   readonly speciesFocus?: SceneRendererSnapshot['speciesFocus']
@@ -58,22 +58,22 @@ export function createTestSceneRendererSnapshot(
 }
 
 /**
- * A renderer test's view: the plane placed as today's viewport places it (screen = world × scale + { x, y } at bearing 0),
- * turned by `bearingDeg` about the screen origin, on a 400 × 300 screen unless given.
+ * A renderer test's view: a real WGS84 session plane at (0, 0) placed by `PlanarCamera`
+ * and turned by `bearingDeg` about the screen origin, on a 400 × 300 screen unless given.
  */
 export function createTestRendererView(
   viewport: { readonly x: number; readonly y: number; readonly scale: number },
   options: { readonly bearingDeg?: number; readonly screen?: Partial<ViewScreen> } = {},
 ): ViewTransform {
   const screen = { width: 400, height: 300, devicePixelRatio: 1, ...options.screen }
-  const basePlane = conformalFixturePlaneForTests({ lon: 0, lat: 0 })
+  const basePlane = createSessionPlane({ lon: 0, lat: 0 })
   const camera = planarToViewCamera({ ...viewport, bearingDeg: options.bearingDeg ?? 0 }, screen, basePlane)
   // Avoid 1-ULP log2/pow2 drift on exact scale thresholds (e.g. 8, 100) in renderer unit tests.
   const plane = {
     ...basePlane,
     pixelsPerMetre(zoom: number) {
       return zoom === camera.zoom
-        ? { x: viewport.scale, y: viewport.scale, mean: viewport.scale }
+        ? { x: viewport.scale / basePlane.axisScale.ax, y: viewport.scale / basePlane.axisScale.ay, mean: viewport.scale }
         : basePlane.pixelsPerMetre(zoom)
     },
   }

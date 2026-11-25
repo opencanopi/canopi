@@ -18,6 +18,7 @@
 
 import { CLOSE_DISTANCE_PX, isSamePoint } from '../../point-editor/rules'
 import type { ToolId } from '../interaction-types'
+import type { GroundMeasure } from '../../../geo/session-plane'
 import type { WorldPoint } from '../../../geo/view/types'
 import { createPolygonalZoneDraftMeasurements } from '../zone-measurements'
 import type { DraftShape, DraftStroke } from './draft'
@@ -43,7 +44,7 @@ export interface VertexPathSpec {
   /** The first point is about to be placed (Polygon clears the selection). */
   onFirstPoint?(ctx: ToolContext): void
   /** The draft of the placed points and the rubber band's end (the pointer, or the last point placed). */
-  draft(points: readonly WorldPoint[], active: WorldPoint | null, view: ToolView): DraftShape[]
+  draft(points: readonly WorldPoint[], active: WorldPoint | null, view: ToolView, groundMeasure?: GroundMeasure): DraftShape[]
   /** Finishes a path of `minPoints` or more; `done` drops the draft (now, or when an edit commits). */
   finish(points: readonly WorldPoint[], ctx: ToolContext, done: () => void): void
 }
@@ -98,7 +99,7 @@ export function createVertexPathTool(spec: VertexPathSpec): CanvasTool {
   }
 
   function redraw(): void {
-    const { effects, view } = context()
+    const { effects, scene, view } = context()
     effects.setGuidance({ gesture: points.length > 0 })
     if (points.length === 0) {
       if (!drawn) return
@@ -107,7 +108,7 @@ export function createVertexPathTool(spec: VertexPathSpec): CanvasTool {
       return
     }
     drawn = true
-    effects.setDraft({ shapes: spec.draft(points, active, view) })
+    effects.setDraft({ shapes: spec.draft(points, active, view, scene.groundMeasure) })
   }
 
   function press(point: ToolPoint, clickCount: number): void {
@@ -291,13 +292,18 @@ export function createVertexPathTool(spec: VertexPathSpec): CanvasTool {
   }
 }
 
-function polygonDraftShapes(corners: readonly WorldPoint[], active: WorldPoint | null, view: ToolView): DraftShape[] {
+function polygonDraftShapes(
+  corners: readonly WorldPoint[],
+  active: WorldPoint | null,
+  view: ToolView,
+  groundMeasure?: GroundMeasure,
+): DraftShape[] {
   const shapes: DraftShape[] = []
   if (corners.length >= 3) shapes.push({ kind: 'polygon', points: corners, style: FILL_ONLY, fill: ZONE_DRAFT_FILL })
   const band = active ? [...corners, active] : corners
   if (band.length >= 2) shapes.push({ kind: 'polyline', points: band, style: DRAFT_STROKE })
   for (const center of corners) shapes.push({ kind: 'circle-px', center, ...VERTEX_MARKER })
-  const chips = createPolygonalZoneDraftMeasurements(corners, active)
+  const chips = createPolygonalZoneDraftMeasurements(corners, active, groundMeasure)
   shapes.push(...measureLabelShapes(chips, (a, b) => view.screenDistance(a, b)))
   return shapes
 }

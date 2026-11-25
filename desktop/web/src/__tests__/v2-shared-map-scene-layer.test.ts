@@ -120,9 +120,10 @@ describe('createSharedMapSceneLayer', () => {
     const map = createMap(canvas)
     const renderer = createRenderer()
     const presentation = { dispose: vi.fn(), resize: vi.fn(), present: vi.fn(), setDraft: vi.fn() }
+    const camera = createFrames()
     const adapter = createSharedMapSceneLayer({
       id: 'v2-scene',
-      frames: createFrames().frames,
+      frames: camera.frames,
       createRenderer: () => renderer,
       createStage: () => ({ destroy: vi.fn() }) as never,
       createPresentation: () => presentation,
@@ -141,7 +142,7 @@ describe('createSharedMapSceneLayer', () => {
     adapter.layer.render(gl, {} as never)
 
     expect(presentation.present).toHaveBeenCalledOnce()
-    expect(presentation.present.mock.calls[0]![0].planar.affine).toEqual([4, 0, 0, 4, 40, 30])
+    expect(presentation.present.mock.calls[0]![0].planar.affine).toEqual(camera.view().planar.affine)
     expect(presentation.present.mock.calls[0]![1]).toBe(snapshot)
     expect(renderer.render).toHaveBeenCalledWith(expect.objectContaining({ clear: false }))
     expect(renderer.resetState).toHaveBeenCalledOnce()

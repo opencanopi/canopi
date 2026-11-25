@@ -26,7 +26,11 @@ export function insideZone(zone: PrintZone, point: PrintPoint): boolean {
  * index for index, unturned: E codes follow their plan order (top, then left, then name), so a code names the same
  * zone at every Map orientation.
  */
-export function zoneMeasurements(zones: readonly PrintZone[], planZones: readonly PrintZone[] = zones): ZoneMeasurements[] {
+export function zoneMeasurements(
+  zones: readonly PrintZone[],
+  planZones: readonly PrintZone[] = zones,
+  groundDistance: (a: PrintPoint, b: PrintPoint) => number = (a, b) => Math.hypot(b.x - a.x, b.y - a.y),
+): ZoneMeasurements[] {
   const ellipses = zones.map((_, i) => i).filter(i => zones[i]!.geometry.kind === 'ellipse').sort((a, b) => {
     const p = planZones[a]!.bounds, q = planZones[b]!.bounds
     return p.y - q.y || p.x - q.x || (zones[a]!.name ?? '').localeCompare(zones[b]!.name ?? '')
@@ -45,7 +49,7 @@ export function zoneMeasurements(zones: readonly PrintZone[], planZones: readonl
       if (points.length < 2) return []
       const edges = points.slice(0, geometry.kind === 'line' ? -1 : undefined).map((start, i) => {
         const end = points[(i + 1) % points.length]!
-        return { id: `${reference}:${i}`, start, end, metres: Math.hypot(end.x - start.x, end.y - start.y) }
+        return { id: `${reference}:${i}`, start, end, metres: groundDistance(start, end) }
       })
       const distinct = (values: number[]) => [...values].sort((a, b) => a - b).filter((n, i, all) => !i || Math.abs(n - all[i - 1]!) >= .005)
       let lengths: ZoneDimension[], widths: ZoneDimension[] = []
@@ -98,8 +102,10 @@ export function zoneMeasurements(zones: readonly PrintZone[], planZones: readonl
     const { center, radii, rotation } = geometry, angle = rotation * Math.PI / 180
     const dimensions = [{ x: radii.x, y: 0 }, { x: 0, y: radii.y }].map((p, i) => {
       const dx = p.x * Math.cos(angle) - p.y * Math.sin(angle), dy = p.x * Math.sin(angle) + p.y * Math.cos(angle)
-      return { id: `${reference}:${i}`, start: { x: center.x - dx, y: center.y - dy }, end: { x: center.x + dx, y: center.y + dy }, metres: 2 * Math.hypot(dx, dy) }
+      const start = { x: center.x - dx, y: center.y - dy }
+      const end = { x: center.x + dx, y: center.y + dy }
+      return { id: `${reference}:${i}`, start, end, metres: groundDistance(start, end) }
     })
-    return [{ zone, reference, lengths: [2 * radii.x], widths: [2 * radii.y], dimensions, diameter: true }]
+    return [{ zone, reference, lengths: [dimensions[0]!.metres], widths: [dimensions[1]!.metres], dimensions, diameter: true }]
   })
 }

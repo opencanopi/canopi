@@ -20,7 +20,7 @@ test.use({ draftsKept: true })
 const NEUTRAL = { x: 800, y: 450 }
 /** A point on the left edge of the fixture's rectangle zone (14 m x 8 m) at the opening camera. */
 const RECT_ZONE_EDGE = { x: 367, y: 300 }
-const RECT_ZONE_CHIP = 'Rectangle zone · 112 m² · 44 m'
+const RECT_ZONE_CHIP = 'Rectangle zone · 112 m² · 44.1 m'
 /** The Apple (Malus domestica) inside the rectangle zone, at the opening camera. */
 const APPLE = { x: 430, y: 273 }
 

@@ -10,7 +10,8 @@ import { buildBudgetPlanningProjection, type BudgetPlanningProjection } from './
 import { buildConsortiumPlanningProjection, type ConsortiumPlanningProjection } from './consortium'
 import { buildTimelineSpeciesOptions, type TimelineSpeciesOption } from './timeline'
 import { buildCalendarPlanningProjection, type CalendarPlanningProjection, type PlanningZoneOption } from './calendar'
-import { zoneLabel } from '../map-selection/zone-label'
+import { zoneLabel, zoneTypeLabel } from '../map-selection/zone-label'
+import { zoneDisplayName } from '../../canvas/runtime/zone-identity'
 import type { CalendarCompletionFilter } from '../planning-view/state'
 
 const EMPTY_PLANTS: readonly PlacedPlant[] = []
@@ -67,7 +68,13 @@ function readPlanningProjectionCanvasSnapshot(
     speciesKey: session
       ? buildSpeciesKey(session.getSceneSnapshot(), session.getSpeciesCache(), localizedNames, englishFallbackNames)
       : [],
-    zones: session?.getSceneSnapshot().zones.map((zone) => ({ id: zone.id, label: zoneLabel(zone, activeLocale) })) ?? [],
+    zones: (() => {
+      const plane = session?.sessionPlane.peek() ?? null
+      return session?.getSceneSnapshot().zones.map((zone) => ({
+        id: zone.id,
+        label: plane ? zoneLabel(zone, activeLocale, plane) : (zoneDisplayName(zone) ?? zoneTypeLabel(zone.zoneType)),
+      })) ?? []
+    })(),
     selectedPlantIds: session?.getSelectedPlantColorContext().plantIds ?? [],
   }
 }

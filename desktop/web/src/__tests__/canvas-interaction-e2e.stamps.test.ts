@@ -18,7 +18,7 @@ import { setCurrentCanvasSession } from '../canvas/session'
 import { createTestCanvasCommandSurface, createTestCanvasRuntimeSurfaces } from './support/canvas-runtime-surfaces'
 import type { CanvasToolGuidance } from '../canvas/session-state'
 import type { DraftPresentation } from '../canvas/runtime/tools/draft'
-import type { SceneStore } from '../canvas/runtime/scene'
+import type { ScenePoint, SceneStore } from '../canvas/runtime/scene'
 import { singleKeyShortcuts } from '../app/settings/state'
 import type { SceneInteractionEventHarness } from './support/canvas-interaction-events'
 import type { TestView } from './support/test-view'
@@ -40,6 +40,9 @@ describe('SceneInteractionSession', () => {
     },
     () => ({ events }),
   )
+
+  const world = (at: ScenePoint) => testView.view().screenToWorld(at)
+  const screen = (at: ScenePoint) => testView.view().worldToScreen(at)
 
   /** A panel drag event over the map at a container point, carrying `data` (by default nothing of ours). */
   function dispatchDrag(type: 'dragover' | 'dragleave' | 'drop', at: { x: number, y: number }, data?: (transfer: DragDataLike) => void): void {
@@ -123,7 +126,7 @@ describe('SceneInteractionSession', () => {
     events.pointerDown({ x: 100, y: 100 }, { button: 0 })
     events.pointerUp({ x: 100, y: 100 }, { button: 0 })
 
-    expect(store.persisted.plants.map((plant) => plant.position)).toEqual([{ x: 100, y: 100 }])
+    expect(store.persisted.plants.map((plant) => plant.position)).toEqual([world({ x: 100, y: 100 })])
     expect(setTool).toHaveBeenCalledWith('select')
     expect(readSavedObjectStampSource()).toBeNull()
     events.pointerDown({ x: 150, y: 150 }, { button: 0 })
@@ -164,17 +167,17 @@ describe('SceneInteractionSession', () => {
     })
     session.setTool('saved-object-stamp')
     events.pointerMove({ x: 100, y: 100 }, { buttons: 0 })
-    expect(ghostAnchor()).toEqual({ x: 100, y: 100 })
+    expect(ghostAnchor()).toEqual(world({ x: 100, y: 100 }))
 
     try {
       // Another saved stamp dragged from Favorites: its ghost, the host's drop preview, takes the held stamp's place, as
       // today's one preview element.
       dispatchDrag('dragover', { x: 60, y: 60 }, (transfer) => writeSavedObjectStampDragData(transfer, PEAR_STAMP))
-      expect(ghosts()).toEqual([{ at: [{ x: 60, y: 60 }], plants: ['Pyrus communis'] }])
+      expect(ghosts()).toEqual([{ at: [world({ x: 60, y: 60 })], plants: ['Pyrus communis'] }])
       dispatchDrag('dragleave', { x: 60, y: 60 })
       expect(drafts.at(-1)).toBeNull()
       events.pointerMove({ x: 120, y: 120 }, { buttons: 0 })
-      expect(ghostAnchor()).toEqual({ x: 120, y: 120 })
+      expect(ghostAnchor()).toEqual(world({ x: 120, y: 120 }))
 
       // A drop that places nothing leaves the stamp armed: the next move shows its ghost again too.
       dispatchDrag('dragover', { x: 60, y: 60 })
@@ -183,10 +186,10 @@ describe('SceneInteractionSession', () => {
       expect(drafts.at(-1)).toBeNull()
       expect(store.persisted.plants).toHaveLength(0)
       events.pointerMove({ x: 140, y: 140 }, { buttons: 0 })
-      expect(ghostAnchor()).toEqual({ x: 140, y: 140 })
+      expect(ghostAnchor()).toEqual(world({ x: 140, y: 140 }))
       events.pointerDown({ x: 140, y: 140 }, { button: 0 })
       events.pointerUp({ x: 140, y: 140 }, { button: 0 })
-      expect(store.persisted.plants.map((plant) => plant.position)).toEqual([{ x: 140, y: 140 }])
+      expect(store.persisted.plants.map((plant) => plant.position)).toEqual([world({ x: 140, y: 140 })])
     } finally {
       clearSavedObjectStampDragSource()
       session.dispose()
@@ -221,10 +224,11 @@ describe('SceneInteractionSession', () => {
     events.pointerMove({ x: 100, y: 100 }, { buttons: 0 })
     events.keyDown({ key: ']', target: container })
     // The apple saved 10 m east of the anchor turns 15° about the pointer.
+    const anchor = world({ x: 100, y: 100 })
     const turned = ghost()!
     expect(turned.map(({ name }) => name)).toEqual(['Malus domestica'])
-    expect(turned[0]!.at.x).toBeCloseTo(100 + 10 * Math.cos(Math.PI / 12), 6)
-    expect(turned[0]!.at.y).toBeCloseTo(100 + 10 * Math.sin(Math.PI / 12), 6)
+    expect(turned[0]!.at.x).toBeCloseTo(anchor.x + 10 * Math.cos(Math.PI / 12), 6)
+    expect(turned[0]!.at.y).toBeCloseTo(anchor.y + 10 * Math.sin(Math.PI / 12), 6)
     expect(published.at(-1)?.stampRotationDeg).toBe(15)
 
     // Favorites' click: arming writes the read model, then arms the tool again (the session's setTool runs the cancellation).
@@ -236,7 +240,7 @@ describe('SceneInteractionSession', () => {
     expect(ghost()).toBeNull()
 
     events.pointerMove({ x: 120, y: 120 }, { buttons: 0 })
-    expect(ghost()).toEqual([{ name: 'Pyrus communis', at: { x: 120, y: 120 } }])
+    expect(ghost()).toEqual([{ name: 'Pyrus communis', at: world({ x: 120, y: 120 }) }])
     expect(published.at(-1)?.stampRotationDeg).toBe(0)
     session.dispose()
   })
@@ -283,7 +287,7 @@ describe('SceneInteractionSession', () => {
           notes: null, plantedDate: null, quantity: 1,
         }]
       })
-      events.pointerDown({ x: 54, y: 63 }, { button: 0 })
+      events.pointerDown(screen({ x: 54, y: 63 }), { button: 0 })
       const held = events.keyDown({ key: ']', target: container })
       expect(held.defaultPrevented).toBe(true)
       expect(angle()).toBe(15)
@@ -296,8 +300,9 @@ describe('SceneInteractionSession', () => {
 
       for (let turn = 0; turn < 5; turn += 1) events.keyDown({ key: ']', target: container })
       // The sampled plant was picked 4 m east and 3 m south of its centre; at 90° that offset turns too.
-      events.pointerDown({ x: 100, y: 120 }, { button: 0 })
-      expect(store.persisted.plants[1]?.position).toEqual({ x: 103, y: 116 })
+      events.pointerDown(screen({ x: 100, y: 120 }), { button: 0 })
+      expect(store.persisted.plants[1]?.position.x).toBeCloseTo(103, 6)
+      expect(store.persisted.plants[1]?.position.y).toBeCloseTo(116, 6)
       session.dispose()
     })
 

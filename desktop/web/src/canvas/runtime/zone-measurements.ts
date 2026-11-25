@@ -1,3 +1,4 @@
+import type { GroundMeasure } from '../../geo/session-plane'
 import type { ScenePoint } from './scene'
 import { degreesToRadians, polygonArea, rotatePointAround } from './zone-geometry'
 
@@ -16,14 +17,21 @@ export function createEllipticalZoneMeasurements(
   center: ScenePoint,
   radii: ScenePoint,
   rotationDeg: number,
+  measure?: GroundMeasure,
 ): ZoneMeasurementLabel[] {
-  const width = Math.abs(radii.x) * 2
-  const height = Math.abs(radii.y) * 2
+  const rx = Math.abs(radii.x)
+  const ry = Math.abs(radii.y)
+  const radians = degreesToRadians(rotationDeg)
+  const scale = measure?.groundScaleAt(center)
+  const cos = Math.cos(radians)
+  const sin = Math.sin(radians)
+  const width = (scale ? Math.hypot(rx * cos * scale.x, rx * sin * scale.y) : rx) * 2
+  const height = (scale ? Math.hypot(-ry * sin * scale.x, ry * cos * scale.y) : ry) * 2
   if (width < 0.5 || height < 0.5) return []
 
-  const radians = degreesToRadians(rotationDeg)
-  const widthPosition = rotatePointAround({ x: center.x, y: center.y - Math.abs(radii.y) }, center, radians)
-  const heightPosition = rotatePointAround({ x: center.x + Math.abs(radii.x), y: center.y }, center, radians)
+  const widthPosition = rotatePointAround({ x: center.x, y: center.y - ry }, center, radians)
+  const heightPosition = rotatePointAround({ x: center.x + rx, y: center.y }, center, radians)
+  const area = Math.PI * rx * ry * (scale ? scale.x * scale.y : 1)
 
   return [
     {
@@ -41,32 +49,40 @@ export function createEllipticalZoneMeasurements(
     {
       id: 'area',
       kind: 'area',
-      text: formatMetricArea(Math.PI * Math.abs(radii.x) * Math.abs(radii.y)),
+      text: formatMetricArea(area),
       worldPosition: center,
     },
   ]
 }
 
-export function createRectangularZoneMeasurements(points: readonly ScenePoint[]): ZoneMeasurementLabel[] {
+export function createRectangularZoneMeasurements(
+  points: readonly ScenePoint[],
+  measure?: GroundMeasure,
+): ZoneMeasurementLabel[] {
   if (points.length < 4) return []
   const corners = points.slice(0, 4)
-  return createPolygonalZoneMeasurements(corners)
+  return createPolygonalZoneMeasurements(corners, measure)
 }
 
-export function createLinearZoneMeasurements(start: ScenePoint, end: ScenePoint): ZoneMeasurementLabel[] {
-  if (distance(start, end) < 0.5) return []
-  return [createEdgeLabel('edge-0', start, end)]
+export function createLinearZoneMeasurements(
+  start: ScenePoint,
+  end: ScenePoint,
+  measure?: GroundMeasure,
+): ZoneMeasurementLabel[] {
+  if (segmentLength(start, end, measure) < 0.5) return []
+  return [createEdgeLabel('edge-0', start, end, measure)]
 }
 
 /** An open line while it is drawn (Profile): one edge per segment, the last one to the pointer. */
 export function createPolylineDraftMeasurements(
   vertices: readonly ScenePoint[],
   activePoint: ScenePoint | null,
+  measure?: GroundMeasure,
 ): ZoneMeasurementLabel[] {
   const previewPoints = draftPreviewPoints(vertices, activePoint)
   const labels: ZoneMeasurementLabel[] = []
   for (let index = 0; index < previewPoints.length - 1; index += 1) {
-    labels.push(createEdgeLabel(`edge-${index}`, previewPoints[index]!, previewPoints[index + 1]!))
+    labels.push(createEdgeLabel(`edge-${index}`, previewPoints[index]!, previewPoints[index + 1]!, measure))
   }
   return labels
 }
@@ -75,14 +91,15 @@ export function createPolylineDraftMeasurements(
 export function createPolygonalZoneDraftMeasurements(
   vertices: readonly ScenePoint[],
   activePoint: ScenePoint | null,
+  measure?: GroundMeasure,
 ): ZoneMeasurementLabel[] {
   const previewPoints = draftPreviewPoints(vertices, activePoint)
-  const labels = createPolylineDraftMeasurements(vertices, activePoint)
+  const labels = createPolylineDraftMeasurements(vertices, activePoint, measure)
 
   if (previewPoints.length >= 3) {
-    const area = Math.abs(polygonArea(previewPoints))
+    const area = measure ? measure.groundArea(previewPoints) : Math.abs(polygonArea(previewPoints))
     if (area >= 0.25) {
-      labels.push(createEdgeLabel('edge-closing', previewPoints[previewPoints.length - 1]!, previewPoints[0]!))
+      labels.push(createEdgeLabel('edge-closing', previewPoints[previewPoints.length - 1]!, previewPoints[0]!, measure))
       labels.push({
         id: 'area',
         kind: 'area',
@@ -103,14 +120,17 @@ function draftPreviewPoints(vertices: readonly ScenePoint[], activePoint: SceneP
 }
 
 /** A closed polygon's edges and area; none under 0.25 m². */
-export function createPolygonalZoneMeasurements(points: readonly ScenePoint[]): ZoneMeasurementLabel[] {
+export function createPolygonalZoneMeasurements(
+  points: readonly ScenePoint[],
+  measure?: GroundMeasure,
+): ZoneMeasurementLabel[] {
   if (points.length < 3) return []
-  const area = Math.abs(polygonArea(points))
+  const area = measure ? measure.groundArea(points) : Math.abs(polygonArea(points))
   if (area < 0.25) return []
 
   const labels: ZoneMeasurementLabel[] = []
   for (let index = 0; index < points.length; index += 1) {
-    labels.push(createEdgeLabel(`edge-${index}`, points[index]!, points[(index + 1) % points.length]!))
+    labels.push(createEdgeLabel(`edge-${index}`, points[index]!, points[(index + 1) % points.length]!, measure))
   }
 
   labels.push({
@@ -123,11 +143,16 @@ export function createPolygonalZoneMeasurements(points: readonly ScenePoint[]): 
   return labels
 }
 
-function createEdgeLabel(id: string, start: ScenePoint, end: ScenePoint): ZoneMeasurementLabel {
+function createEdgeLabel(
+  id: string,
+  start: ScenePoint,
+  end: ScenePoint,
+  measure?: GroundMeasure,
+): ZoneMeasurementLabel {
   return {
     id,
     kind: 'edge',
-    text: formatMetricDistance(distance(start, end)),
+    text: formatMetricDistance(segmentLength(start, end, measure)),
     worldPosition: midpoint(start, end),
     worldStart: start,
     worldEnd: end,
@@ -147,8 +172,8 @@ export function formatMetricArea(value: number): string {
   return `${formatMetricNumber(squareMeters)} m²`
 }
 
-function distance(a: ScenePoint, b: ScenePoint): number {
-  return Math.hypot(b.x - a.x, b.y - a.y)
+function segmentLength(a: ScenePoint, b: ScenePoint, measure?: GroundMeasure): number {
+  return measure ? measure.groundLength(a, b) : Math.hypot(b.x - a.x, b.y - a.y)
 }
 
 function midpoint(a: ScenePoint, b: ScenePoint): ScenePoint {

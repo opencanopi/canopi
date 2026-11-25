@@ -35,8 +35,8 @@ export interface FitFrame {
   readonly scaleBounds: { readonly min: number; readonly max: number }
   /** The live placement: its scale seeds the extent loop, and it is kept when there is nothing to fit. */
   readonly current: PlanarCamera
-  /** Plane metres -> conformal frame that `PlanarCamera` places (identity when omitted). */
-  readonly toView?: (p: WorldPoint) => ConformalPoint
+  /** Plane metres -> conformal frame that `PlanarCamera` places. */
+  readonly toView: (p: WorldPoint) => ConformalPoint
 }
 
 /** Extent of a point set along the screen axes at a bearing: across = right, down = down. */
@@ -70,7 +70,7 @@ function framingSpan(extent: number, before: number, after: number): { start: nu
 }
 
 function toViewPoints(frame: FitFrame, points: readonly WorldPoint[]): readonly WorldPoint[] {
-  return frame.toView ? points.map(frame.toView) : points
+  return points.map(frame.toView)
 }
 
 /**

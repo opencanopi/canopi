@@ -167,6 +167,9 @@
     "app/canvas-pdf -> generated": {
       "count": 1
     },
+    "app/canvas-pdf -> geo": {
+      "count": 1
+    },
     "app/canvas-pdf -> i18n": {
       "count": 1
     },
@@ -294,6 +297,9 @@
       "count": 1
     },
     "app/data-library -> generated": {
+      "count": 1
+    },
+    "app/data-library -> geo": {
       "count": 1
     },
     "app/data-library -> i18n": {
@@ -454,6 +460,9 @@
       "count": 1
     },
     "app/my-location -> canvas": {
+      "count": 1
+    },
+    "app/my-location -> geo": {
       "count": 1
     },
     "app/panel-targets -> app/story-presentation": {

@@ -7,7 +7,7 @@ import type { GeoPoint } from '../../generated/contracts'
 // the runtime's.
 import { signal, type ReadonlySignal } from '@preact/signals'
 import type { CanvasToolGuidance } from '../../canvas/session-state'
-import { conformalFixturePlaneForTests, createSessionPlane } from '../../geo/session-plane'
+import { createSessionPlane } from '../../geo/session-plane'
 import type { Gesture, MenuSource, NavigationSource, PressTarget } from '../../canvas/runtime/input/gestures'
 import { createInputRouter } from '../../canvas/runtime/input/input-router'
 import type { TargetClass } from '../../canvas/runtime/input/raw-input'
@@ -399,8 +399,9 @@ export interface ToolHarness {
   readonly menuOpen: boolean
   /** Settings › Canvas snapping, read by the host at each point. */
   snapping: SnapSettings
-  /** The world point under a screen point of the current frame. */
+  /** The world point under a screen point, and the screen point of a world point, in the current frame. */
   world(at: ScreenPoint): WorldPoint
+  screen(at: WorldPoint): ScreenPoint
   /** Arms a tool as the session does: its tool signal, then ToolHost.setTool. */
   arm(id: ToolId, source?: ToolSource | null): void
   select(...targets: SceneDesignObjectTarget[]): void
@@ -454,7 +455,7 @@ const ARROW_DIRECTIONS = {
 
 export function createToolHarness(options: ToolHarnessOptions = {}): ToolHarness {
   const view = createTestView({
-    plane: conformalFixturePlaneForTests({ lon: 0, lat: 0 }),
+    plane: createSessionPlane({ lon: 0, lat: 0 }),
     ...(options.viewport ? { viewport: options.viewport } : {}),
     ...(options.camera ? { camera: options.camera } : {}),
     ...(options.screen ? { screen: options.screen } : {}),
@@ -663,9 +664,8 @@ export function createToolHarness(options: ToolHarnessOptions = {}): ToolHarness
     set snapping(next) {
       snapping = next
     },
-    world(at) {
-      return view.view().screenToWorld(at)
-    },
+    world: (at) => view.view().screenToWorld(at),
+    screen: (at) => view.view().worldToScreen(at),
     arm(id, source = null) {
       toolState.value = id
       host.setTool(id, source)

@@ -1,5 +1,6 @@
 import { currentCanvasQuerySurface, getCurrentCanvasSession } from '../../canvas/session'
 import type { CanvasDesignObjects } from '../../canvas/runtime/runtime'
+import { createSessionPlane } from '../../geo/session-plane'
 import { lidarImportCoverage } from '../../ipc/lidar'
 
 /** WGS84 `[west, south, east, north]`. */
@@ -8,14 +9,11 @@ export type GroundBox = readonly [number, number, number, number]
 /**
  * Import › "Covers your site": how the chosen files lie against the Design.
  * `covers` holds the whole Design, `partial` part of it, `apart` none of it.
- * Sizes and distances are approximate ground metres.
+ * Sizes and distances are true WGS84 ground metres through `SessionPlane`.
  */
 export type ImportCoverage =
   | { readonly kind: 'covers' | 'partial'; readonly widthM: number; readonly heightM: number }
   | { readonly kind: 'apart'; readonly distanceM: number }
-
-const METRES_PER_DEGREE_LAT = 110_540
-const METRES_PER_DEGREE_LON_AT_EQUATOR = 111_320
 
 /** The box around the Design's plants, zones, notes and measurement guides; null while it has none. */
 export function designGroundBox(objects: CanvasDesignObjects): GroundBox | null {
@@ -40,17 +38,29 @@ export function designGroundBox(objects: CanvasDesignObjects): GroundBox | null 
 export function compareCoverage(files: GroundBox, design: GroundBox): ImportCoverage {
   const [fw, fs, fe, fn] = files
   const [dw, ds, de, dn] = design
-  const lonMetres = METRES_PER_DEGREE_LON_AT_EQUATOR * Math.cos((((fs + fn) / 2) * Math.PI) / 180)
+  const midLon = (fw + fe) / 2
+  const midLat = (fs + fn) / 2
+  const plane = createSessionPlane({ lon: midLon, lat: midLat })
   const gapLon = Math.max(0, fw - de, dw - fe)
   const gapLat = Math.max(0, fs - dn, ds - fn)
   if (gapLon > 0 || gapLat > 0) {
-    return { kind: 'apart', distanceM: Math.hypot(gapLon * lonMetres, gapLat * METRES_PER_DEGREE_LAT) }
+    const fileLon = fw > de ? fw : dw > fe ? fe : midLon
+    const designLon = fw > de ? de : dw > fe ? dw : midLon
+    const fileLat = fs > dn ? fs : ds > fn ? fn : midLat
+    const designLat = fs > dn ? dn : ds > fn ? ds : midLat
+    return {
+      kind: 'apart',
+      distanceM: plane.groundLength(
+        plane.toPlane({ lon: fileLon, lat: fileLat }),
+        plane.toPlane({ lon: designLon, lat: designLat }),
+      ),
+    }
   }
   const covers = fw <= dw && fs <= ds && fe >= de && fn >= dn
   return {
     kind: covers ? 'covers' : 'partial',
-    widthM: (fe - fw) * lonMetres,
-    heightM: (fn - fs) * METRES_PER_DEGREE_LAT,
+    widthM: plane.groundLength(plane.toPlane({ lon: fw, lat: midLat }), plane.toPlane({ lon: fe, lat: midLat })),
+    heightM: plane.groundLength(plane.toPlane({ lon: midLon, lat: fs }), plane.toPlane({ lon: midLon, lat: fn })),
   }
 }
 

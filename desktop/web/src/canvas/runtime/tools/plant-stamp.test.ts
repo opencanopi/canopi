@@ -77,7 +77,7 @@ describe('Place plants tool', () => {
       commonName: 'Apple',
       color: '#C44230',
       symbol: 'canopy',
-      position: { x: 50, y: 70 },
+      position: h.world({ x: 50, y: 70 }),
     })
     expect(h.store.session.selectedTargets).toEqual([{ kind: 'plant', id: h.store.persisted.plants[0]!.id }])
     expect(h.history.canUndo.value).toBe(true)
@@ -187,9 +187,10 @@ describe('Place plants tool', () => {
       })
       const before = h.store.persisted
 
-      expect(h.hover({ x: 130, y: 140 })).toEqual({})
+      const pointer = h.screen({ x: 13, y: 14 })
+      expect(h.hover(pointer)).toEqual({})
 
-      const at: WorldPoint = { x: 13, y: 14 }
+      const at: WorldPoint = h.world(pointer)
       expect(ghostPlant(h)).toMatchObject({ canonicalName: 'Malus domestica', position: at })
       expect(shapesOf(h, 'ghost')[0]).toMatchObject({ opacity: 0.85, entity: { mark: 'symbol' } })
       expect(shapesOf(h, 'ellipse')).toEqual([{
@@ -198,7 +199,7 @@ describe('Place plants tool', () => {
       expect(shapesOf(h, 'polyline')).toEqual([{ kind: 'polyline', points: [at, { x: 10, y: 10 }], style: { token: 'draft', widthPx: 1.5, dash: [4, 4] } }])
       const radiusPx = uncrowdedRadiusPx(APPLE, 10)
       expect(shapesOf(h, 'label')).toEqual([
-        { kind: 'label', anchor: { x: 13, y: 11 }, offsetPx: { x: 0, y: 0 }, text: 'Mature width up to 6 m', tone: 'hint' },
+        { kind: 'label', anchor: { x: at.x, y: at.y - 3 }, offsetPx: { x: 0, y: 0 }, text: 'Mature width up to 6 m', tone: 'hint' },
         { kind: 'label', anchor: at, offsetPx: { x: 0, y: Math.max(radiusPx, 6) + 16 }, text: '5 m to Pear', tone: 'measure' },
       ])
       // The guide and the ring under the symbol, the labels on top.
@@ -275,7 +276,7 @@ describe('Place plants tool', () => {
       // P while Place plants is armed: the host cancels the transient interaction, and the tool stays.
       h.arm('plant-stamp', { kind: 'species', species: APPLE })
 
-      expect(ghostPlant(h)).toMatchObject({ position: { x: 13, y: 14 } })
+      expect(ghostPlant(h)).toMatchObject({ position: h.world({ x: 130, y: 140 }) })
     })
 
     it('hides on entering overview, and shows nothing on the way back until the next hover', () => {

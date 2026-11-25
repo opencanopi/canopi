@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { sceneExtentPoints } from '../../canvas/runtime/scene-extent'
 import type { SceneAnnotationEntity, ScenePersistedState } from '../../canvas/runtime/scene'
+import { createSessionPlane } from '../session-plane'
 import { fitScene, fitTemporaryBounds, framingRect, type FitFrame } from './fit'
 import type { PlanarCamera, SceneBounds, ScreenInsets, WorldPoint } from './types'
+
+const PLANE = createSessionPlane({ lon: 0, lat: 0 })
 
 /** Plants sized without species data, as the renderer sizes a plant whose species is not cached. */
 const PLANTS = { pixelsPerMetre: 1, speciesCache: new Map() }
@@ -61,7 +64,7 @@ const TODAY_SCALE_BOUNDS = { min: 1.2790334061860095e-05, max: 1716.689578143873
 /** The fit frame of today's CameraController placed at `placement` on a screen. */
 function fitFrame(width: number, height: number, placement: Placement, insets?: ScreenInsets): FitFrame {
   const [x, y, scale] = placement
-  return { screen: { width, height }, insets, scaleBounds: TODAY_SCALE_BOUNDS, current: { x, y, scale, bearingDeg: 0 } }
+  return { screen: { width, height }, insets, scaleBounds: TODAY_SCALE_BOUNDS, current: { x, y, scale, bearingDeg: 0 }, toView: PLANE.toView }
 }
 
 /** Checks a fit's placement against a tolerant golden literal (precision 6: close, not bit for bit). */
@@ -91,87 +94,27 @@ function worldAxisBox(points: readonly WorldPoint[]): SceneBounds | null {
 
 function orientedSpan(points: readonly WorldPoint[], bearingDeg: number): { width: number; height: number } {
   const radians = bearingDeg * Math.PI / 180
-  const across = points.map(({ x, y }) => x * Math.cos(radians) + y * Math.sin(radians))
-  const down = points.map(({ x, y }) => -x * Math.sin(radians) + y * Math.cos(radians))
+  const projected = points.map(PLANE.toView)
+  const across = projected.map(({ x, y }) => x * Math.cos(radians) + y * Math.sin(radians))
+  const down = projected.map(({ x, y }) => -x * Math.sin(radians) + y * Math.cos(radians))
   return { width: Math.max(...across) - Math.min(...across), height: Math.max(...down) - Math.min(...down) }
 }
 
 function screenOf(camera: PlanarCamera, point: WorldPoint): WorldPoint {
+  const v = PLANE.toView(point)
   const radians = camera.bearingDeg * Math.PI / 180
   return {
-    x: (point.x * Math.cos(radians) + point.y * Math.sin(radians)) * camera.scale + camera.x,
-    y: (-point.x * Math.sin(radians) + point.y * Math.cos(radians)) * camera.scale + camera.y,
+    x: (v.x * Math.cos(radians) + v.y * Math.sin(radians)) * camera.scale + camera.x,
+    y: (-v.x * Math.sin(radians) + v.y * Math.cos(radians)) * camera.scale + camera.y,
   }
 }
 
 describe('fit', () => {
-  it('at bearing 0 the fit matches today\'s fitCameraViewport for plants, zones and notes', () => {
-    // Today's fitCameraViewport (canvas/runtime/camera.ts:520-565 at 52cbff10) on a 1000 × 800 CameraController placed at
-    // { x: 3, y: -7, scale }, recorded for each design, each insets case and each starting scale (0.05, 1, 14, 1000). Chrome
-    // that leaves too little room no longer frames the whole screen (the short axis grows around its free band, below).
-    // Designs with plants were recorded again when symbols grew to a 14 px radius (canopi-uabc).
+  it('at bearing 0 the fit frames plants, zones and notes inside the framing rect with 10 % padding', () => {
     const insetCases: Array<ScreenInsets | undefined> = [
       undefined,
       { top: 40, right: 300, bottom: 20, left: 60 },
     ]
-    const today: Record<string, readonly (readonly Placement[])[]> = {
-      'all': [
-        [ // no insets
-          [327.1734993374752, 200.3195879678066, 6.193388749658539],
-          [327.1734993374752, 200.3195879678066, 6.193388749658539],
-          [327.1734993374752, 200.3195879678066, 6.193388749658539],
-          [327.1734993374752, 200.3195879678066, 6.193388749658539],
-        ],
-        [ // chrome
-          [269.3910395759841, 256.341398670717, 3.9637687997814655],
-          [269.3910395759841, 256.341398670717, 3.9637687997814655],
-          [269.3910395759841, 256.341398670717, 3.9637687997814655],
-          [269.3910395759841, 256.341398670717, 3.9637687997814655],
-        ],
-      ],
-      'no plants': [
-        [ // no insets
-          [271.47728966793363, 198.0146817718866, 6.304944763472309],
-          [271.476958405845, 198.01485284368036, 6.304953902997952],
-          [271.47188231986644, 198.017474257852, 6.305093952280857],
-          [271.47188231986644, 198.017474257852, 6.305093952280857],
-        ],
-        [ // chrome
-          [215.03031704518497, 244.20965236488703, 4.551515852259248],
-          [215.03031704518497, 244.20965236488703, 4.551515852259248],
-          [215.03031704518497, 244.20965236488703, 4.551515852259248],
-          [215.03031704518497, 244.20965236488703, 4.551515852259248],
-        ],
-      ],
-      'notes only': [
-        [ // no insets
-          [343.03594653398034, 179.26222820168357, 6.617481880112239],
-          [343.0360919207757, 179.26237245264457, 6.617491496842971],
-          [343.0384228560109, 179.26468517744837, 6.617645678496559],
-          [343.03976333604425, 179.2660151849813, 6.617734345665422],
-        ],
-        [ // chrome
-          [237.31291361701997, 210.67782562578083, 5.665645680850998],
-          [237.31351043413198, 210.67845462420772, 5.665675521706599],
-          [237.3163285609853, 210.6814247088816, 5.665816428049265],
-          [237.3150856468813, 210.68011477489944, 5.665754282344065],
-        ],
-      ],
-      'no notes': [
-        [ // no insets
-          [327.1734993374752, 260.76580163698816, 6.193388749658539],
-          [327.1734993374752, 260.76580163698816, 6.193388749658539],
-          [327.1734993374752, 260.76580163698816, 6.193388749658539],
-          [327.1734993374752, 260.76580163698816, 6.193388749658539],
-        ],
-        [ // chrome
-          [269.3910395759841, 320.8901130476724, 3.9637687997814655],
-          [269.3910395759841, 320.8901130476724, 3.9637687997814655],
-          [269.3910395759841, 320.8901130476724, 3.9637687997814655],
-          [269.3910395759841, 320.8901130476724, 3.9637687997814655],
-        ],
-      ],
-    }
     const designs: Record<string, ScenePersistedState> = {
       'all': scene(),
       'no plants': { ...scene(), plants: [] },
@@ -179,13 +122,23 @@ describe('fit', () => {
       'no notes': { ...scene(), annotations: [] },
     }
     for (const [name, design] of Object.entries(designs)) {
-      insetCases.forEach((insets, insetCase) => {
-        [0.05, 1, 14, 1000].forEach((scale, start) => {
+      for (const insets of insetCases) {
+        const rect = framingRect({ width: 1000, height: 800 }, insets)
+        for (const scale of [0.05, 1, 14, 1000]) {
           const frame = fitFrame(1000, 800, [3, -7, scale], insets)
-
-          expectPlacement(fitScene(frame, { extentPoints: sceneExtentPoints(design, PLANTS), emptySceneScale: 0 }, 0), today[name]![insetCase]![start]!)
-        })
-      })
+          const extentPoints = sceneExtentPoints(design, PLANTS)
+          const fitted = fitScene(frame, { extentPoints, emptySceneScale: 0 }, 0)
+          expect(fitted.bearingDeg, `${name} start=${scale}`).toBe(0)
+          const pts = extentPoints(fitted.scale)
+          const span = orientedSpan(pts, 0)
+          const fill = Math.max(span.width * fitted.scale / rect.width, span.height * fitted.scale / rect.height)
+          expect(fill, `${name} start=${scale}`).toBeCloseTo(0.8, 3)
+          const xs = pts.map((p) => screenOf(fitted, p).x)
+          const ys = pts.map((p) => screenOf(fitted, p).y)
+          expect((Math.min(...xs) + Math.max(...xs)) / 2, `${name} cx`).toBeCloseTo(rect.x + rect.width / 2, 1)
+          expect((Math.min(...ys) + Math.max(...ys)) / 2, `${name} cy`).toBeCloseTo(rect.y + rect.height / 2, 1)
+        }
+      }
     }
 
     // An empty scene: today's placement under a zero empty-scene scale, else that scale (clamped) about the screen centre.
@@ -231,7 +184,7 @@ describe('fit', () => {
     }
   })
 
-  it('at bearing 0 temporary focus matches today\'s fitTemporaryBoundsViewport', () => {
+  it('at bearing 0 temporary focus centres and pads the box inside the framing rect and refuses invalid options', () => {
     const boxes = [
       { minX: 0, minY: 0, maxX: 100, maxY: 50 },
       { minX: 0, minY: 0, maxX: 0.001, maxY: 0.001 },
@@ -239,30 +192,30 @@ describe('fit', () => {
       { minX: 1, minY: 0, maxX: 1, maxY: 10 },
     ]
     const options = [{ paddingCssPx: 48 }, { paddingCssPx: 48, maximumScale: 2 }, { paddingCssPx: 201 }, { paddingCssPx: -1 }, { paddingCssPx: 0, maximumScale: 1e-9 }]
-    // Today's fitTemporaryBoundsViewport (canvas/runtime/camera.ts:585-629 at 52cbff10) on a 400 × 300 CameraController placed
-    // at { x: 10, y: 20, scale: 2 }, recorded for each insets case, box and option; null where it refused.
-    const today: readonly (readonly (readonly (Placement | null)[])[])[] = [
-      [ // no insets
-        [[48, 74, 3.04], [100, 100, 2], null, null, null],
-        [[199.14165521092806, 149.14165521092806, 1716.6895781438734], [199.999, 149.999, 2], null, null, null],
-        [[276, -401, 76], [202, 135.5, 2], null, null, null],
-        [null, null, null, null, null],
-      ],
-      [ // chrome
-        [[88, 79, 2.44], [110, 90, 2], null, null, null],
-        [[209.14165521092806, 139.14165521092806, 1716.6895781438734], [209.999, 139.999, 2], null, null, null],
-        [[271, -302.25, 61], [212, 125.5, 2], null, null, null],
-        [null, null, null, null, null],
-      ],
-    ]
-    ;[undefined, { top: 10, right: 20, bottom: 30, left: 40 }].forEach((insets, insetCase) => {
+    for (const insets of [undefined, { top: 10, right: 20, bottom: 30, left: 40 }]) {
       const frame = fitFrame(400, 300, [10, 20, 2], insets)
+      const rect = framingRect({ width: 400, height: 300 }, insets)
       boxes.forEach((box, boxIndex) => {
         options.forEach((option, optionIndex) => {
-          expectPlacement(fitTemporaryBounds(frame, box, option, 0), today[insetCase]![boxIndex]![optionIndex]!)
+          const result = fitTemporaryBounds(frame, box, option, 0)
+          const shouldRefuse = boxIndex === 3 || optionIndex >= 2
+          if (shouldRefuse) {
+            expect(result).toBeNull()
+            return
+          }
+          expect(result).not.toBeNull()
+          const tl = screenOf(result!, { x: box.minX, y: box.minY })
+          const br = screenOf(result!, { x: box.maxX, y: box.maxY })
+          expect((tl.x + br.x) / 2).toBeCloseTo(rect.x + rect.width / 2, 6)
+          expect((tl.y + br.y) / 2).toBeCloseTo(rect.y + rect.height / 2, 6)
+          expect(tl.x).toBeGreaterThanOrEqual(rect.x + option.paddingCssPx - 1e-6)
+          expect(br.x).toBeLessThanOrEqual(rect.x + rect.width - option.paddingCssPx + 1e-6)
+          expect(tl.y).toBeGreaterThanOrEqual(rect.y + option.paddingCssPx - 1e-6)
+          expect(br.y).toBeLessThanOrEqual(rect.y + rect.height - option.paddingCssPx + 1e-6)
+          if (option.maximumScale !== undefined) expect(result!.scale).toBeLessThanOrEqual(option.maximumScale + 1e-9)
         })
       })
-    })
+    }
     expect(fitTemporaryBounds(fitFrame(0, 0, [0, 0, 1]), boxes[0]!, options[0]!, 0)).toBeNull()
   })
 
@@ -273,7 +226,7 @@ describe('fit', () => {
     const turned = fitTemporaryBounds(frame, box, { paddingCssPx: 10 }, 90)!
 
     // At 90° the 100 m side runs down the screen: the 280 px of height limit the scale.
-    expect(turned.scale).toBeCloseTo(280 / 100, 12)
+    expect(turned.scale).toBeCloseTo(280 / PLANE.toView({ x: 100, y: 0 }).x, 12)
     expect(turned.bearingDeg).toBe(90)
     const centre = screenOf(turned, { x: 50, y: 10 })
     expect(centre.x).toBeCloseTo(200, 9)
@@ -327,7 +280,7 @@ describe('fit', () => {
     for (const paddingCssPx of [72, 48]) {
       const focused = fitTemporaryBounds(frame, box, { paddingCssPx }, 0)
       expect(focused, `padding ${paddingCssPx}`).not.toBeNull()
-      expect(focused!.scale * 10).toBeCloseTo(60, 9)
+      expect(screenOf(focused!, { x: 0, y: 10 }).y - screenOf(focused!, { x: 0, y: 0 }).y).toBeCloseTo(60, 9)
       for (const corner of [{ x: 0, y: 0 }, { x: 10, y: 10 }]) {
         const onScreen = screenOf(focused!, corner)
         expect(onScreen.y).toBeGreaterThanOrEqual(361 - 1e-6)
@@ -336,10 +289,10 @@ describe('fit', () => {
     }
     // A band of 120 to 144 px, never grown, frames too: its 130 px keep 65 for the box.
     const band = fitTemporaryBounds(fitFrame(390, 844, [0, 0, 1], { top: 357, right: 0, bottom: 357, left: 0 }), box, { paddingCssPx: 72 }, 0)
-    expect(band!.scale * 10).toBeCloseTo(65, 9)
+    expect(screenOf(band!, { x: 0, y: 10 }).y - screenOf(band!, { x: 0, y: 0 }).y).toBeCloseTo(65, 9)
     // The full padding stays where the axis holds it: 246 of the 390 px width.
     const wide = fitTemporaryBounds(frame, { minX: 0, minY: 0, maxX: 100, maxY: 1 }, { paddingCssPx: 72 }, 0)
-    expect(wide!.scale * 100).toBeCloseTo(246, 9)
+    expect(screenOf(wide!, { x: 100, y: 0 }).x - screenOf(wide!, { x: 0, y: 0 }).x).toBeCloseTo(246, 9)
     // Padding the screen itself cannot hold is still refused.
     expect(fitTemporaryBounds(frame, box, { paddingCssPx: 195 }, 0)).toBeNull()
   })

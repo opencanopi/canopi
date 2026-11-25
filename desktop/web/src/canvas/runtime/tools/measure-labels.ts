@@ -9,7 +9,8 @@
 import type { SceneDesignObjectSelection } from '../scene/design-object-targets'
 import { isSceneObjectGroupMemberTarget } from '../scene/group-members'
 import type { ScenePersistedState } from '../scene/types'
-import type { ScreenPoint, WorldPoint, WorldVector } from '../../../geo/view/types'
+import type { GroundMeasure } from '../../../geo/session-plane'
+import type { ScreenPoint, WorldPoint } from '../../../geo/view/types'
 import { getRectangularZoneCorners, polygonArea } from '../zone-geometry'
 import {
   createEllipticalZoneMeasurements,
@@ -19,6 +20,7 @@ import {
   type ZoneMeasurementLabel,
 } from '../zone-measurements'
 import type { DraftShape } from './draft'
+import { worldDeltaToScreenCoords, type ScreenBasis } from './screen-basis'
 
 /** An edge chip needs this much edge on screen. */
 const MIN_EDGE_LABEL_PX = 36
@@ -32,7 +34,7 @@ const NO_OFFSET = Object.freeze({ x: 0, y: 0 })
 export interface EdgeDots {
   readonly corners: readonly WorldPoint[]
   readonly edges: ReadonlySet<number>
-  readonly screenAxes: { readonly right: WorldVector; readonly down: WorldVector }
+  readonly screenAxes: ScreenBasis
 }
 
 /** The chips of `labels`, centred on their points, an edge with a dot in `dots` beside it; `screenDistance` is
@@ -70,19 +72,9 @@ function outwardNormalPx(dots: EdgeDots, labelId: string, interiorLeft: boolean)
   const start = corners[index]
   const end = corners[(index + 1) % corners.length]
   if (!start || !end) return null
-  // Map the edge direction through the dual basis of (right, down), then turn 90° in screen space so the normal
-  // stays strictly perpendicular to the drawn edge under an anisotropic affine.
-  const dx = end.x - start.x
-  const dy = end.y - start.y
-  const det = screenAxes.right.x * screenAxes.down.y - screenAxes.right.y * screenAxes.down.x
-  const edgeX = Math.abs(det) > 1e-12
-    ? (dx * screenAxes.down.y - dy * screenAxes.down.x) / det
-    : dx * screenAxes.right.x + dy * screenAxes.right.y
-  const edgeY = Math.abs(det) > 1e-12
-    ? (screenAxes.right.x * dy - screenAxes.right.y * dx) / det
-    : dx * screenAxes.down.x + dy * screenAxes.down.y
-  const x = interiorLeft ? edgeY : -edgeY
-  const y = interiorLeft ? -edgeX : edgeX
+  const screenEdge = worldDeltaToScreenCoords(screenAxes, { x: end.x - start.x, y: end.y - start.y })
+  const x = interiorLeft ? screenEdge.y : -screenEdge.y
+  const y = interiorLeft ? -screenEdge.x : screenEdge.x
   const length = Math.hypot(x, y)
   return length > 0 ? { x: x / length, y: y / length } : null
 }
@@ -94,6 +86,7 @@ function outwardNormalPx(dots: EdgeDots, labelId: string, interiorLeft: boolean)
 export function selectedZoneMeasurementLabels(
   scene: Readonly<ScenePersistedState>,
   selection: SceneDesignObjectSelection,
+  measure?: GroundMeasure,
 ): ZoneMeasurementLabel[] {
   if (selection.length !== 1) return []
   const target = selection[0]!
@@ -104,12 +97,12 @@ export function selectedZoneMeasurementLabels(
   if (!zone) return []
 
   if (zone.zoneType === 'ellipse' && zone.points.length >= 2) {
-    return createEllipticalZoneMeasurements(zone.points[0]!, zone.points[1]!, zone.rotationDeg)
+    return createEllipticalZoneMeasurements(zone.points[0]!, zone.points[1]!, zone.rotationDeg, measure)
   }
   if (zone.zoneType === 'line' && zone.points.length >= 2) {
-    return createLinearZoneMeasurements(zone.points[0]!, zone.points[1]!)
+    return createLinearZoneMeasurements(zone.points[0]!, zone.points[1]!, measure)
   }
-  if (zone.zoneType === 'polygon') return createPolygonalZoneMeasurements(zone.points)
+  if (zone.zoneType === 'polygon') return createPolygonalZoneMeasurements(zone.points, measure)
   if (zone.zoneType !== 'rect') return []
-  return createRectangularZoneMeasurements(getRectangularZoneCorners(zone) ?? zone.points)
+  return createRectangularZoneMeasurements(getRectangularZoneCorners(zone) ?? zone.points, measure)
 }

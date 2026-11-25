@@ -36,6 +36,7 @@ import { EMPTY_SELECTION_MODEL } from '../scene-runtime/selection'
 import type { SceneEditCoordinator, SceneEditRunOptions, SceneEditTransaction } from '../scene-runtime/transactions'
 import type { ScreenPoint, ViewFrame, ViewScreen, ViewTransform, WorldPoint } from '../../../geo/view/types'
 import { applyToolConstraint, type ScreenAxes } from './constraints'
+import { screenBasisOf } from './screen-basis'
 import type { DraftPresentation, DraftShape, ToolHandle } from './draft'
 import { measureLabelShapes, selectedZoneMeasurementLabels, type EdgeDots } from './measure-labels'
 import { zoneEdgeSegment } from './hit-testing'
@@ -254,6 +255,8 @@ export function createToolHost(deps: ToolHostDeps): ToolHost {
     metresPerPixelAt: (p) => frame().view.metresPerPixelAt(p),
     screenDistance: (a, b) => frame().view.screenDistance(a, b),
     screenAxesInWorld: () => frame().view.screenAxesInWorld(),
+    worldDeltaToScreen: (delta) => frame().view.worldDeltaToScreen(delta),
+    screenDeltaToWorld: (delta) => frame().view.screenDeltaToWorld(delta),
     screenAlignedRect: (a, b, options) => screenAlignedRect(frame().view, a, b, options),
   }
 
@@ -505,7 +508,7 @@ export function createToolHost(deps: ToolHostDeps): ToolHost {
     const constraint = modifiers.constrain ? activeTool.constraint?.() ?? null : null
     if (!constraint) return { world, free, constrained: world, snapped: free, modifiers, pointer }
     // Shift's steps turn against the screen axes (spec §4.7), which are the world's at bearing 0, bit for bit.
-    const axes: ScreenAxes = frame().view.screenAxesInWorld()
+    const axes: ScreenAxes = screenBasisOf(frame().view)
     const constrained = applyToolConstraint(constraint, world, axes)
     if (constraint.kind === 'rotation-delta') {
       return { world, free, constrained, snapped: constrained, modifiers, pointer }
@@ -542,7 +545,7 @@ export function createToolHost(deps: ToolHostDeps): ToolHost {
   function decorationShapes(): DraftShape[] {
     if (zoneDraftHidesChips()) return []
     const selection = deps.scene.selection()
-    const labels = selectedZoneMeasurementLabels(deps.scene.persisted, selection)
+    const labels = selectedZoneMeasurementLabels(deps.scene.persisted, selection, deps.scene.groundMeasure)
     if (labels.length === 0) return []
     const view = frame().view
     return measureLabelShapes(labels, (a, b) => view.screenDistance(a, b), shownEdgeDots(selection[0]!.id, view))
@@ -554,7 +557,7 @@ export function createToolHost(deps: ToolHostDeps): ToolHost {
     const edges = new Set(shownHandles().flatMap((handle) =>
       handle.glyph === 'midpoint' && handle.id.startsWith(prefix) ? [Number(handle.id.slice(prefix.length))] : []))
     const zone = edges.size > 0 ? deps.scene.persisted.zones.find((entry) => entry.id === zoneId) : undefined
-    return zone ? { corners: zone.points, edges, screenAxes: view.screenAxesInWorld() } : undefined
+    return zone ? { corners: zone.points, edges, screenAxes: screenBasisOf(view) } : undefined
   }
 
   function zoneDraftHidesChips(): boolean {

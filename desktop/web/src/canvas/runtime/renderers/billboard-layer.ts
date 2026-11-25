@@ -48,7 +48,7 @@ import {
 } from '../scene-visuals'
 import type { PlantNameLabel } from '../selection-labels'
 import type { ViewTransform } from '../../../geo/view/types'
-import { pixelsPerMetreAt } from '../../../geo/view/view-transform'
+import { pixelsPerMetreAt, screenAngleForWorldAngle } from '../../../geo/view/view-transform'
 import { LabelAdmission, type AdmittedLabels } from './label-admission'
 import {
   casedStroke,
@@ -542,9 +542,8 @@ function placePlants(plants: PlantGraphics, viewSize: { width: number; height: n
   const { built, visibleIds } = plants
   if (!built) return
   if (built.scale !== view.pixelsPerMetre) {
-    const scale = view.pixelsPerMetre
-    built.entries = measurePixiSceneWork('plantEntries', () => built.entries.map((entry) => rescalePlantEntry(entry, scale)))
-    built.scale = scale
+    built.entries = measurePixiSceneWork('plantEntries', () => built.entries.map((e) => rescalePlantEntry(e, pixelsPerMetreAt(view, e.plant.position))))
+    built.scale = view.pixelsPerMetre
   }
   // Includes the largest symbolic footprint, interaction ring and stack badge.
   const margin = 32
@@ -800,17 +799,13 @@ function placeNotes(notes: NoteGraphics, view: ViewTransform): void {
     const detail = getCanvasDetailLayout(built.snapshot.scene, pixelsPerMetre)
     for (const note of built.notes) presentNote(notes, built, note, pixelsPerMetre, detail.annotationIds.has(note.annotation.id))
   }
-  const bearingRad = (view.camera.bearingDeg * Math.PI) / 180
   for (const { annotation, text } of built.notes) {
-    const origin = view.worldToScreen(annotation.position)
+    const origin = view.worldToScreen(annotation.position), noteRad = ((annotation.rotationDeg ?? 0) * Math.PI) / 180, screenRad = screenAngleForWorldAngle(view, noteRad)
     text.position.set(origin.x, origin.y)
-    text.rotation = noteTextRotation(annotation, view.camera.bearingDeg)
+    text.rotation = screenRad
     notes.markerById.get(annotation.id)!.position.set(origin.x, origin.y)
     const outline = notes.outlineById.get(annotation.id)
-    if (outline) {
-      outline.position.set(origin.x, origin.y)
-      outline.rotation = -bearingRad
-    }
+    if (outline) { outline.position.set(origin.x, origin.y); outline.rotation = screenRad - noteRad }
   }
 }
 
@@ -848,7 +843,7 @@ function presentNote(notes: NoteGraphics, built: BuiltNotes, note: BuiltNote, pi
   outlineGraphics.visible = true
 }
 
-/** A note's text and style; the caller places it at the note's screen point and turns it (`noteTextRotation`). */
+/** A note's text and style; the caller places it at the note's screen point and turns it (`screenAngleForWorldAngle`). */
 export function styleAnnotationText(text: Text, annotation: SceneAnnotationEntity, lineHeightPx: number): void {
   text.text = annotation.text
   setTextStyle(text, {
@@ -891,7 +886,7 @@ function buildMeasurementLabels(createText: () => Text, labels: MeasurementLabel
   const built: Array<{ readonly guide: SceneMeasurementGuideEntity; readonly text: Text }> = []
   if (style.visible) {
     for (const guide of snapshot.scene.measurementGuides) {
-      const presentation = createMeasurementGuidePresentation(guide)
+      const presentation = createMeasurementGuidePresentation(guide, snapshot.groundMeasure)
       if (!presentation) continue
       let text = labelById.get(guide.id)
       if (!text) {

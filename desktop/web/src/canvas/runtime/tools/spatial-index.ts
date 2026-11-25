@@ -28,6 +28,9 @@ export function createToolScene(source: ToolSceneSource): ToolScene {
     get persisted() {
       return persisted()
     },
+    get groundMeasure() {
+      return source.store.sessionPlane
+    },
     hitAt(world: WorldPoint, filter: HitFilter): HitTarget | null {
       if (filter.zoneEdge) {
         const edge = hitZoneEdge(
@@ -69,9 +72,10 @@ export function createToolScene(source: ToolSceneSource): ToolScene {
     nearestPlant(world: WorldPoint) {
       const scene = persisted()
       if (scene.layers.find((layer) => layer.name === 'plants')?.visible === false) return null
+      const plane = source.store.sessionPlane
       let best: { plant: ScenePlantEntity; distanceM: number } | null = null
       for (const plant of scene.plants) {
-        const distanceM = Math.hypot(plant.position.x - world.x, plant.position.y - world.y)
+        const distanceM = plane.groundLength(plant.position, world)
         if (!best || distanceM < best.distanceM) best = { plant, distanceM }
       }
       return best

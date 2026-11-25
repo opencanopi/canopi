@@ -531,19 +531,19 @@ describe('visible map area', () => {
     const camera = createTestView({ screen: { width: 1280, height: 800 }, viewport: { x: 240, y: 0, scale: 8 } })
     camera.navigation.setFramingInsets(insets)
     expect(camera.navigation.focusTemporaryBounds({ minX: 0, minY: 0, maxX: 10, maxY: 10 }, { paddingCssPx: 72 })).toBe(true)
-    const viewport = camera.viewport()
+    const focusedView = camera.view()
+    const focusedCentre = focusedView.worldToScreen({ x: 5, y: 5 })
     // The bounds' centre lands on the visible area's centre, not the window's.
-    expect(5 * viewport.scale + viewport.x).toBeCloseTo(236 + 588 / 2)
-    expect(5 * viewport.scale + viewport.y).toBeCloseTo(60 + 684 / 2)
+    expect(focusedCentre.x).toBeCloseTo(236 + 588 / 2)
+    expect(focusedCentre.y).toBeCloseTo(60 + 684 / 2)
     // And the whole bounds fits between the rails and the dock.
-    expect(10 * viewport.scale + viewport.x).toBeLessThanOrEqual(1280 - 456 - 72 + 1e-6)
-    expect(viewport.x).toBeGreaterThanOrEqual(236 + 72 - 1e-6)
+    expect(focusedView.worldToScreen({ x: 10, y: 5 }).x).toBeLessThanOrEqual(1280 - 456 - 72 + 1e-6)
+    expect(focusedView.worldToScreen({ x: 0, y: 5 }).x).toBeGreaterThanOrEqual(236 + 72 - 1e-6)
 
     const scene = emptyScene({ x: 0, y: 0 }, { x: 40, y: 20 })
     camera.setScene(scene)
     camera.navigation.zoomToFit()
-    const fitted = camera.viewport()
-    const centre = { x: 20 * fitted.scale + fitted.x, y: 10 * fitted.scale + fitted.y }
+    const centre = camera.view().worldToScreen({ x: 20, y: 10 })
     expect(centre.x).toBeCloseTo(236 + 588 / 2, 0)
     expect(centre.y).toBeCloseTo(60 + 684 / 2, 0)
   })

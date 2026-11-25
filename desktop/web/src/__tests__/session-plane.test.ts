@@ -4,6 +4,7 @@ import { buildViewTransform } from '../geo/view/view-transform'
 import { bandDraft } from '../canvas/runtime/tools/select/band'
 import { applyToolConstraint } from '../canvas/runtime/tools/constraints'
 import { measureLabelShapes } from '../canvas/runtime/tools/measure-labels'
+import { screenBasisOf } from '../canvas/runtime/tools/screen-basis'
 import type { ToolView } from '../canvas/runtime/tools/tool'
 import { createTestView } from './support/test-view'
 
@@ -136,8 +137,11 @@ describe('turned views under anisotropic WGS84 affine (2m-1 R2)', () => {
         metresPerPixelAt: (p) => view.metresPerPixelAt(p),
         screenDistance: (a, b) => view.screenDistance(a, b),
         screenAxesInWorld: () => view.screenAxesInWorld(),
+        worldDeltaToScreen: (d) => view.worldDeltaToScreen(d),
+        screenDeltaToWorld: (d) => view.screenDeltaToWorld(d),
         screenAlignedRect: () => ({ center: { x: 0, y: 0 }, width: 0, height: 0, rotationDeg: 0 }),
       }
+      const basis = screenBasisOf(view)
 
       const startScreen = { x: 100, y: 100 }
       const endScreen = { x: 900, y: 700 }
@@ -163,7 +167,7 @@ describe('turned views under anisotropic WGS84 affine (2m-1 R2)', () => {
       // 2. Shift direction constraint preserves exact ground length along screen-right
       const origin = { x: 0, y: 0 }
       const raw = { x: 10, y: 9.8 }
-      const constrained = applyToolConstraint({ kind: 'direction', origin, stepDeg: 45 }, raw, view.screenAxesInWorld())
+      const constrained = applyToolConstraint({ kind: 'direction', origin, stepDeg: 45 }, raw, basis)
       expect(Math.hypot(constrained.x - origin.x, constrained.y - origin.y)).toBeCloseTo(Math.hypot(raw.x, raw.y), 9)
 
       // 3. Outward edge normal in measure-labels is strictly perpendicular to the drawn edge on screen
@@ -171,7 +175,7 @@ describe('turned views under anisotropic WGS84 affine (2m-1 R2)', () => {
       const labels = measureLabelShapes(
         [{ id: 'edge-0', kind: 'edge', text: '50 m', worldPosition: { x: 25, y: 0 }, worldStart: poly[0]!, worldEnd: poly[1]! }],
         (a, b) => view.screenDistance(a, b),
-        { corners: poly, edges: new Set([0]), screenAxes: view.screenAxesInWorld() },
+        { corners: poly, edges: new Set([0]), screenAxes: basis },
       )
       const label = labels[0]
       expect(label?.kind).toBe('label')

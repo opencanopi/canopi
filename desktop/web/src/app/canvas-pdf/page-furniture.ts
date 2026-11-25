@@ -3,7 +3,7 @@ import type { PdfInput, PdfLabels, PdfOperation, PdfPage, PdfPaper } from './typ
 import type { PdfTextEngine } from './text'
 import { MM, PRINT, drawMark, pathOp, textOp } from './page-drawing'
 
-export function detailFurniture(page: PdfPage, input: PdfInput, labels: PdfLabels, paper: PdfPaper, text: PdfTextEngine, showScale: boolean, northAngleDeg: number): PdfOperation[] {
+export function detailFurniture(page: PdfPage, input: PdfInput, labels: PdfLabels, paper: PdfPaper, text: PdfTextEngine, showScale: boolean, northAngleDeg: number, groundScaleFactor = 1): PdfOperation[] {
   const operations: PdfOperation[] = [], margin = 10 * MM
   const emit = (value: string, x: number, y: number, size: number, right = false) => {
     const line = text.line(value, size)
@@ -19,7 +19,7 @@ export function detailFurniture(page: PdfPage, input: PdfInput, labels: PdfLabel
   operations.push(pathOp(`M${margin} ${page.height - 16 * MM} h${page.width - 2 * margin}`, '#d8d2c8', null, .2 * MM))
   emit(identity, margin, y + 1.5 * MM, 8)
   emit(`${labels.actualSize} · ${paper}`, page.width - margin, y + 1.5 * MM, 7.5, true)
-  if (showScale) operations.push(...groundScale(page, input.locale, text, labels.north, northAngleDeg))
+  if (showScale) operations.push(...groundScale(page, input.locale, text, labels.north, northAngleDeg, groundScaleFactor))
   return operations
 }
 
@@ -27,16 +27,17 @@ export function detailFurniture(page: PdfPage, input: PdfInput, labels: PdfLabel
  * Ground scale bar centred in the footer, with a north arrow to its right pointing to true north: `northAngleDeg` is the
  * arrow's clockwise turn on paper, minus the layout angle (0 on North up pages). Its letter sits beyond the tip, level.
  */
-export function groundScale(page: Pick<PdfPage, 'width' | 'height' | 'pointsPerMeter'>, locale: string, text: PdfTextEngine, north = 'N', northAngleDeg = 0): PdfOperation[] {
+export function groundScale(page: Pick<PdfPage, 'width' | 'height' | 'pointsPerMeter'>, locale: string, text: PdfTextEngine, north = 'N', northAngleDeg = 0, groundScaleFactor = 1): PdfOperation[] {
   const operations: PdfOperation[] = [], y = page.height - 10 * MM
   const emit = (value: string, x: number, y: number, size: number, right = false, strong = false) => {
     const line = text.line(value, size, strong)
     operations.push(textOp(line, right ? x - line.width : x, y, size))
     return line
   }
-  const wanted = 35 * MM / page.pointsPerMeter, magnitude = 10 ** Math.floor(Math.log10(wanted))
+  const pointsPerGroundMeter = page.pointsPerMeter / groundScaleFactor
+  const wanted = 35 * MM / pointsPerGroundMeter, magnitude = 10 ** Math.floor(Math.log10(wanted))
   const metres = [1, 2, 5].map(n => n * magnitude).filter(n => n <= wanted).pop() ?? magnitude
-  const length = metres * page.pointsPerMeter, x = (page.width - length) / 2
+  const length = metres * pointsPerGroundMeter, x = (page.width - length) / 2
   operations.push(pathOp(`M${x} ${y + MM} h${length} M${x} ${y} v${2 * MM} M${x + length / 2} ${y} v${2 * MM} M${x + length} ${y} v${2 * MM}`, PRINT.ink, null, .2 * MM))
   emit('0', x, y - MM, 7)
   emit(`${new Intl.NumberFormat(locale, { maximumSignificantDigits: 4 }).format(metres)} m`, x + length, y - MM, 7, true)

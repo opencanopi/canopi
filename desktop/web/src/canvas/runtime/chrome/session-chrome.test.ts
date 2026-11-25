@@ -78,15 +78,16 @@ describe('the session\'s chrome', () => {
 
     session.setTool('rectangle')
     const handle = drawnHandle()!
+    const cornerAt = testView.view().worldToScreen(CORNER.anchor)
     expect(handle.getAttribute('aria-label')).toBe('Zone control point 1')
-    expectScreenPx(handle.dataset.canvasHandleScreenX, 40)
-    expectScreenPx(handle.dataset.canvasHandleScreenY, 60)
+    expectScreenPx(handle.dataset.canvasHandleScreenX, cornerAt.x)
+    expectScreenPx(handle.dataset.canvasHandleScreenY, cornerAt.y)
 
-    events.pointerDown({ x: 40, y: 60 }, { target: handle })
+    events.pointerDown(cornerAt, { target: handle })
     expect(rectangle.last('handle-drag')?.handle).toBe(CORNER.id)
     expect(drawnHandle()!.dataset.canvasHandleActive).toBe('true')
 
-    events.pointerUp({ x: 40, y: 60 })
+    events.pointerUp(cornerAt)
     expect(drawnHandle()!.dataset.canvasHandleActive).toBeUndefined()
 
     session.setTool('ellipse')
@@ -137,7 +138,7 @@ describe('the session\'s chrome', () => {
     events.pointerDown({ x: 30, y: 40 })
     events.pointerUp({ x: 30, y: 40 })
     const entry = container.querySelector<HTMLTextAreaElement>('textarea[data-canvas-text-entry]')!
-    expectScreenPx(entry.style.left, 30)
+    expectScreenPx(entry.style.left, testView.view().worldToScreen(note.anchor).x)
     expect(entry.placeholder).toBe('en:canvas.textNote.placeholder')
     await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
     expect(document.activeElement).toBe(entry)

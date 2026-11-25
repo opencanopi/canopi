@@ -117,13 +117,22 @@ describe('the points a profile reads: step and cap', () => {
 
   it('walks a bent line in session-plane metres, so its length is the canvas chips\' sum', () => {
     const { calls, owner } = profileOf([at(0, 0), at(30, 0), at(30, 40)], [source('mnt', 'elevation', { resolutionM: 1 })])
-    expect(lengthOf(owner.profile.value)).toBeCloseTo(70, 6)
+    const leg1 = PLANE.groundLength({ x: 0, y: 0 }, { x: 30, y: 0 })
+    const leg2 = PLANE.groundLength({ x: 30, y: 0 }, { x: 30, y: 40 })
+    const expectedLength = leg1 + leg2
+    expect(lengthOf(owner.profile.value)).toBeCloseTo(expectedLength, 6)
     const points = planePoints(calls[0]!.request)
-    expect(points).toHaveLength(71)
-    expect(points[30]!.x).toBeCloseTo(30, 6)
-    expect(points[30]!.y).toBeCloseTo(0, 6)
-    expect(points[50]!.x).toBeCloseTo(30, 6)
-    expect(points[50]!.y).toBeCloseTo(20, 6)
+    expect(points).toHaveLength(Math.ceil(expectedLength / 1 - 1e-6) + 1)
+    expect(points[0]!.x).toBeCloseTo(0, 6)
+    expect(points[0]!.y).toBeCloseTo(0, 6)
+    // Corner at (30, 0) lies at cumulative distance leg1: sample before sits on y=0, sample after on x=30.
+    const beforeCorner = Math.floor(leg1 / (expectedLength / (points.length - 1)))
+    expect(points[beforeCorner]!.y).toBeCloseTo(0, 6)
+    expect(points[beforeCorner]!.x).toBeLessThan(30)
+    expect(points[beforeCorner + 1]!.x).toBeCloseTo(30, 6)
+    expect(points[beforeCorner + 1]!.y).toBeGreaterThan(0)
+    expect(points.at(-1)!.x).toBeCloseTo(30, 6)
+    expect(points.at(-1)!.y).toBeCloseTo(40, 6)
   })
 })
 
@@ -314,7 +323,8 @@ describe('createSiteProfile: request key, batches and stale answers', () => {
 
   it('a line with no curve keeps its length and asks for a layer; no line is no profile', () => {
     const { calls, owner, lineSignal } = profileOf([at(0, 0), at(30, 40)], [])
-    expect(owner.profile.value).toEqual({ status: 'needs-layer', lengthM: expect.closeTo(50, 6) })
+    const expectedLength = PLANE.groundLength({ x: 0, y: 0 }, { x: 30, y: 40 })
+    expect(owner.profile.value).toEqual({ status: 'needs-layer', lengthM: expect.closeTo(expectedLength, 6) })
     expect(calls).toHaveLength(0)
     lineSignal.value = null
     expect(owner.profile.value).toEqual({ status: 'none' })

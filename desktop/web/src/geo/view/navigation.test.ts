@@ -1,7 +1,7 @@
 import { signal } from '@preact/signals'
 import { describe, expect, it } from 'vitest'
 import { createTestView, type TestView } from '../../__tests__/support/test-view'
-import { createSessionPlane } from '../session-plane'
+import { conformalFixturePlaneForTests, createSessionPlane, type SessionPlane } from '../session-plane'
 import { getAnnotationWorldBounds } from '../../canvas/runtime/annotation-layout'
 import { getPlantWorldBounds } from '../../canvas/runtime/plant-presentation'
 import type { ScenePersistedState } from '../../canvas/runtime/scene'
@@ -86,8 +86,8 @@ function boundsOf(scene: ScenePersistedState, emptySceneScale = 0): SceneExtent 
   }
 }
 
-function sceneView(width: number, height: number, scene: ScenePersistedState, viewport?: { x: number; y: number; scale: number }): TestView {
-  const view = createTestView({ screen: { width, height }, viewport })
+function sceneView(width: number, height: number, scene: ScenePersistedState, viewport?: { x: number; y: number; scale: number }, plane?: SessionPlane): TestView {
+  const view = createTestView({ screen: { width, height }, viewport, plane })
   view.setScene(scene, boundsOf(scene))
   return view
 }
@@ -180,11 +180,12 @@ describe('view navigation', () => {
   })
 
   it('returns ordinary content with the existing fit policy', () => {
+    const plane = conformalFixturePlaneForTests({ lon: 0, lat: 0 })
     const scene = createScene()
-    const expectedView = sceneView(1000, 800, scene, { x: 100, y: 0, scale: 8 })
+    const expectedView = sceneView(1000, 800, scene, { x: 100, y: 0, scale: 8 }, plane)
     expectedView.navigation.zoomToFit()
     const expected = placement(expectedView)
-    const view = sceneView(1000, 800, scene, { x: 0, y: 0, scale: 0.01 })
+    const view = sceneView(1000, 800, scene, { x: 0, y: 0, scale: 0.01 }, plane)
 
     view.navigation.returnToDesign()
 
@@ -198,12 +199,7 @@ describe('view navigation', () => {
 
   it('keeps Fit to content global while Return restores a usable site view', () => {
     const scene = createScene()
-    scene.zones[0]!.points = [
-      { x: -5_000_000, y: -5_000_000 },
-      { x: 5_000_000, y: -5_000_000 },
-      { x: 5_000_000, y: 5_000_000 },
-      { x: -5_000_000, y: 5_000_000 },
-    ]
+    scene.zones[0]!.points = [{ x: -5_000_000, y: -5_000_000 }, { x: 5_000_000, y: -5_000_000 }, { x: 5_000_000, y: 5_000_000 }, { x: -5_000_000, y: 5_000_000 }]
     const view = sceneView(1000, 800, scene, { x: 100, y: 0, scale: 8 })
 
     view.navigation.zoomToFit()
@@ -217,11 +213,12 @@ describe('view navigation', () => {
 
   it('returns to a fit that reads back as site scale, even just below 0.1 px/m', () => {
     // A 1000 × 800 fit pads 10 % a side: 800 px across the content. Content this wide fits within read-back tolerance below 0.1 px/m.
+    const plane = createSessionPlane({ lon: 0, lat: 0 })
     const scale = 0.1 * (1 - 1e-10)
-    const across = 800 / scale
+    const across = (800 / scale) * plane.axisScale.ax
     const extent: SceneExtent = { emptySceneScale: 0, extentPoints: () => [{ x: 0, y: 0 }, { x: across, y: 1 }] }
     const scene = createScene()
-    const view = createTestView({ screen: { width: 1000, height: 800 }, viewport: { x: 100, y: 0, scale: 8 } })
+    const view = createTestView({ plane, screen: { width: 1000, height: 800 }, viewport: { x: 100, y: 0, scale: 8 } })
     view.setScene(scene, extent)
 
     view.navigation.returnToDesign()
@@ -249,19 +246,17 @@ describe('view navigation', () => {
     const view = createTestView({ viewport: { x: 10, y: 20, scale: 2 } })
     const before = placement(view)
 
-    expect(view.navigation.focusTemporaryBounds(
-      { minX: 0, minY: 0, maxX: 100, maxY: 50 },
-      { paddingCssPx: 48, maximumScale: 5 },
-    )).toBe(true)
+    expect(view.navigation.focusTemporaryBounds({ minX: 0, minY: 0, maxX: 100, maxY: 50 }, { paddingCssPx: 48, maximumScale: 5 })).toBe(true)
     const afterFirstFocus = placement(view)
-    expectPlacement(afterFirstFocus, { x: 48, y: 74, scale: 3.04, bearingDeg: 0 })
+    const focusedView = view.view()
+    const focusCentre = focusedView.worldToScreen({ x: 50, y: 25 })
+    expect(focusCentre.x).toBeCloseTo(200, 5); expect(focusCentre.y).toBeCloseTo(150, 5)
+    expect(focusedView.worldToScreen({ x: 0, y: 25 }).x).toBeCloseTo(48, 5)
+    expect(focusedView.worldToScreen({ x: 100, y: 25 }).x).toBeCloseTo(352, 5)
     expect(afterFirstFocus).not.toEqual(before)
 
     // A chained focus keeps the bookmark the first one took: a return lands on the view before the first focus.
-    expect(view.navigation.focusTemporaryBounds(
-      { minX: 300, minY: 100, maxX: 350, maxY: 150 },
-      { paddingCssPx: 48, maximumScale: 5 },
-    )).toBe(true)
+    expect(view.navigation.focusTemporaryBounds({ minX: 300, minY: 100, maxX: 350, maxY: 150 }, { paddingCssPx: 48, maximumScale: 5 })).toBe(true)
     expect(view.navigation.returnFromTemporaryFocus()).toBe(true)
     expectPlacement(placement(view), before)
     const returnedRevision = frameOf(view).revision
@@ -344,23 +339,14 @@ describe('view navigation', () => {
 
   it('rejects invalid temporary bounds without publishing a frame', () => {
     const view = createTestView({ screen: { width: 0, height: 0 } })
-    expect(view.navigation.focusTemporaryBounds(
-      { minX: 0, minY: 0, maxX: 10, maxY: 10 },
-      { paddingCssPx: 0 },
-    )).toBe(false)
+    expect(view.navigation.focusTemporaryBounds({ minX: 0, minY: 0, maxX: 10, maxY: 10 }, { paddingCssPx: 0 })).toBe(false)
     expect(frameOf(view).revision).toBe(0)
 
     view.host.current().setScreen({ width: 400, height: 300, devicePixelRatio: 1 })
     const revision = frameOf(view).revision
 
-    expect(view.navigation.focusTemporaryBounds(
-      { minX: 1, minY: 0, maxX: 1, maxY: 10 },
-      { paddingCssPx: 48 },
-    )).toBe(false)
-    expect(view.navigation.focusTemporaryBounds(
-      { minX: 0, minY: 0, maxX: 10, maxY: 10 },
-      { paddingCssPx: 201 },
-    )).toBe(false)
+    expect(view.navigation.focusTemporaryBounds({ minX: 1, minY: 0, maxX: 1, maxY: 10 }, { paddingCssPx: 48 })).toBe(false)
+    expect(view.navigation.focusTemporaryBounds({ minX: 0, minY: 0, maxX: 10, maxY: 10 }, { paddingCssPx: 201 })).toBe(false)
     expect(frameOf(view).revision).toBe(revision)
     view.dispose()
   })
@@ -369,14 +355,11 @@ describe('view navigation', () => {
     const view = createTestView()
 
     view.navigation.focusTemporaryBounds({ minX: 0, minY: 0, maxX: 0.001, maxY: 0.001 }, { paddingCssPx: 48 })
-    expectPlacement(placement(view), {
-      x: 200 - 0.0005 * EQUATOR_MAX_SCALE,
-      y: 150 - 0.0005 * EQUATOR_MAX_SCALE,
-      scale: EQUATOR_MAX_SCALE,
-      bearingDeg: 0,
-    })
+    expect(view.view().pixelsPerMetre).toBeCloseTo(EQUATOR_MAX_SCALE, 9)
+    expect(view.view().worldToScreen({ x: 0.0005, y: 0.0005 })).toEqual({ x: expect.closeTo(200, 5), y: expect.closeTo(150, 5) })
     view.navigation.focusTemporaryBounds({ minX: 0, minY: 0, maxX: 1, maxY: 1 }, { paddingCssPx: 48, maximumScale: 2 })
-    expectPlacement(placement(view), { x: 199, y: 149, scale: 2, bearingDeg: 0 })
+    expect(view.view().pixelsPerMetre).toBeCloseTo(2, 9)
+    expect(view.view().worldToScreen({ x: 0.5, y: 0.5 })).toEqual({ x: expect.closeTo(200, 5), y: expect.closeTo(150, 5) })
     view.dispose()
   })
 
@@ -458,7 +441,7 @@ describe('view navigation', () => {
     scene.annotations = [{ kind: 'annotation', id: 'sign', annotationType: 'text', locked: false,
       position: { x: -20, y: 70 }, text: 'Gate', fontSize: 16, rotationDeg: null }]
     const insets = { top: 40, right: 300, bottom: 20, left: 60 }
-    const view = sceneView(1000, 800, scene, { x: 3, y: -7, scale: 2 })
+    const view = sceneView(1000, 800, scene, { x: 3, y: -7, scale: 2 }, conformalFixturePlaneForTests({ lon: 0, lat: 0 }))
     view.navigation.setFramingInsets(insets)
     // Today's CameraController after the same calls on the same screen, placement and insets (zoomToFit, zoomIn and zoomOut twice,
     // zoomAroundScreenPoint about the centre, panBy, focusTemporaryBounds, returnFromTemporaryFocus, returnToDesign),
@@ -588,10 +571,10 @@ describe('view navigation', () => {
   it('turns an edge level on screen by the smaller turn, at once', () => {
     const view = createTestView()
 
-    // An edge running south-east: level at 45° or at 225°; from north, 45° is the smaller turn.
+    // An edge running south-east: level at ~45° or ~225°; from north, the smaller turn is ~45° and levels the edge on screen.
     view.navigation.turnToEdge({ x: 0, y: 0 }, { x: 10, y: 10 })
     const turned = view.view()
-    expect(turned.camera.bearingDeg).toBeCloseTo(45, 9)
+    expect(turned.camera.bearingDeg).toBeCloseTo(45, 0)
     const a = turned.worldToScreen({ x: 0, y: 0 })
     const b = turned.worldToScreen({ x: 10, y: 10 })
     expect(b.y - a.y).toBeCloseTo(0, 9)
@@ -601,11 +584,14 @@ describe('view navigation', () => {
   it('turnToEdge 3 degrees off horizontal ends at 3', () => {
     const view = createTestView()
     const rad = 3 * Math.PI / 180
+    const end = { x: 10 * Math.cos(rad), y: 10 * Math.sin(rad) }
 
     // An explicit target is never snapped to north, however close it is (spec §4.4).
-    view.navigation.turnToEdge({ x: 0, y: 0 }, { x: 10 * Math.cos(rad), y: 10 * Math.sin(rad) })
+    view.navigation.turnToEdge({ x: 0, y: 0 }, end)
 
-    expect(view.view().camera.bearingDeg).toBeCloseTo(3, 9)
+    const turned = view.view()
+    expect(turned.camera.bearingDeg).toBeCloseTo(3, 1)
+    expect(turned.worldToScreen(end).y - turned.worldToScreen({ x: 0, y: 0 }).y).toBeCloseTo(0, 9)
     view.dispose()
   })
 
@@ -722,8 +708,13 @@ describe('view navigation', () => {
 
     navigation.zoomToSelection()
 
-    // 100 × 50 m inside 80 % of the screen: 8 px/m, centred.
-    expectPlacement(placement(view), { x: 500 - 60 * 8, y: 400 - 35 * 8, scale: 8, bearingDeg: 0 })
+    // 100 × 50 m inside 80 % of the screen: centred and filling the 800 px width.
+    const fitted = view.view()
+    const centre = fitted.worldToScreen({ x: 60, y: 35 })
+    expect(centre.x).toBeCloseTo(500, 5)
+    expect(centre.y).toBeCloseTo(400, 5)
+    expect(fitted.worldToScreen({ x: 110, y: 35 }).x - fitted.worldToScreen({ x: 10, y: 35 }).x).toBeCloseTo(800, 5)
+    expect(fitted.camera.bearingDeg).toBe(0)
     view.dispose()
   })
 })

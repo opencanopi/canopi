@@ -39,7 +39,7 @@ describe('Import coverage', () => {
     expect(covers.kind).toBe('covers')
     if (covers.kind !== 'apart') {
       expect(covers.widthM).toBeCloseTo(1518, -1)
-      expect(covers.heightM).toBeCloseTo(2211, -1)
+      expect(covers.heightM).toBeCloseTo(2223, -1)
     }
     expect(compareCoverage([0.101, 46.99, 0.11, 47.01], design).kind).toBe('partial')
     const apart = compareCoverage([0.2, 47, 0.21, 47.002], design)

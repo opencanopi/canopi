@@ -1,6 +1,7 @@
 import type { SceneZoneEntity } from '../../canvas/runtime/scene'
 import { measureZone } from '../../canvas/runtime/zone-geometry'
 import { zoneDisplayName } from '../../canvas/runtime/zone-identity'
+import type { GroundMeasure } from '../../geo/view/types'
 import { t } from '../../i18n'
 import type { LocaleKey } from '../../generated/locale-keys'
 
@@ -21,13 +22,13 @@ export function zoneTypeLabel(zoneType: string): string {
  * size ("Rectangle zone · 120 m²", "Line zone · 50 m"). The interface never
  * shows a zone's id.
  */
-export function zoneLabel(zone: SceneZoneEntity, activeLocale: string): string {
+export function zoneLabel(zone: SceneZoneEntity, activeLocale: string, measure: GroundMeasure): string {
   const name = zoneDisplayName(zone)
   if (name !== null) return name
-  const measure = measureZone(zone)
-  const size = measure === null
+  const measured = measureZone(zone, measure)
+  const size = measured === null
     ? null
-    : measure.areaM2 === null ? formatLength(measure.perimeterM, activeLocale) : formatArea(measure.areaM2, activeLocale)
+    : measured.areaM2 === null ? formatLength(measured.perimeterM, activeLocale) : formatArea(measured.areaM2, activeLocale)
   const type = zoneTypeLabel(zone.zoneType)
   return size === null ? type : `${type} · ${size}`
 }

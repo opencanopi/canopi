@@ -5,7 +5,7 @@
 // sends pointerdown detail 0, as WebKitGTK does (and Chromium for touch), so the recogniser counts a double-click or a
 // finger's double tap itself. On Desktop the finished line becomes the Site data profile in lon/lat. Shared fakes,
 // helpers and fixture: support/canvas-interaction-setup.ts.
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('../ipc/species', async (importOriginal) => ({
   ...await importOriginal<typeof IpcSpeciesModule>(),
@@ -20,6 +20,7 @@ import { createDesktopCanvasRuntimeAppAdapter } from '../app/canvas-runtime/desk
 import { armProfile } from '../app/data-library/profile'
 import { endSiteDataTransients, pin, profileLine } from '../app/data-library/site-transients'
 import { selectPanel, sidePanel } from '../app/shell/state'
+import { snapToGridEnabled } from '../app/canvas-settings/signals'
 import { currentCanvasTool } from '../canvas/session-state'
 import { setCurrentCanvasSession } from '../canvas/session'
 import {
@@ -151,7 +152,12 @@ describe('Desktop: a drawn profile line becomes the Site data profile', () => {
   const harnesses: SceneInteractionEventHarness[] = []
   const hosts: CanvasRuntimeHost[] = []
 
+  beforeEach(() => {
+    snapToGridEnabled.value = false
+  })
+
   afterEach(async () => {
+    snapToGridEnabled.value = false
     endSiteDataTransients()
     setCurrentCanvasSession(null)
     sidePanel.value = null
