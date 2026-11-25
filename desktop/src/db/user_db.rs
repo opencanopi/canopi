@@ -285,6 +285,7 @@ pub fn get_setting(conn: &Connection, key: &str) -> Result<Option<String>, rusql
     .optional()
 }
 
+#[cfg(test)]
 pub fn set_setting(conn: &Connection, key: &str, value: &str) -> Result<(), rusqlite::Error> {
     conn.execute(
         "INSERT INTO settings (key, value) VALUES (?1, ?2)

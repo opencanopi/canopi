@@ -52,7 +52,7 @@ pub fn read_session(data_dir: &Path, designs: &[PathBuf]) -> Result<Vec<StoreRea
         .map(|(store, status)| health_read(store, status))
         .collect::<Result<_, _>>()?;
 
-    services::settings::get_settings(&user_db)?;
+    services::settings::DesktopSettingsStore::new(data_dir, user_db.clone()).get_settings()?;
     services::design_files::get_recent_files(&user_db)?;
     library.library_snapshot()?;
 

@@ -78,20 +78,15 @@ pub(crate) fn open_stores(
     data_dir: &std::path::Path,
 ) -> Result<(crate::db::UserDb, [(StoreId, StoreHealth); 2]), crate::db::UserDbInitError> {
     let (user_db, health) = crate::db::UserDb::open(data_dir.join("user.db"))?;
-    let mut settings = settings_entry(&health);
-    if settings.status == StoreOpenStatus::Ready && super::settings::record_is_newer(&user_db) {
-        settings.status = StoreOpenStatus::NewerReadOnly;
-    }
+    let settings = super::settings::inspect_settings_health(data_dir, &user_db, &health);
     Ok((
         user_db,
         [(StoreId::UserDb, health), (StoreId::Settings, settings)],
     ))
 }
 
-/// The settings record's entry: it lives in the user DB, so it shares the user DB's access (newer
-/// read-only, unavailable); a damaged or rebuilt user DB is the user DB's own one-time event, named
-/// once by its entry, and the settings record lives in the fresh database, so it is ready. A ready
-/// user DB holding a newer settings record makes the settings alone newer-read-only (A16).
+/// Helper used by tests to check legacy fallback mapping when `settings.json` is absent.
+#[cfg(test)]
 fn settings_entry(user_db: &StoreHealth) -> StoreHealth {
     let status = match &user_db.status {
         StoreOpenStatus::SetAsideDamaged { .. } | StoreOpenStatus::Recovered { .. } => {
@@ -237,8 +232,12 @@ mod tests {
         use StoreOpenStatus::{NewerReadOnly, Ready};
 
         assert_eq!(
-            entries(r#"{"version":2,"theme":"dark"}"#),
+            entries(r#"{"version":3,"theme":"dark"}"#),
             [(StoreId::UserDb, Ready), (StoreId::Settings, NewerReadOnly)]
+        );
+        assert_eq!(
+            entries(r#"{"version":2,"theme":"dark"}"#),
+            [(StoreId::UserDb, Ready), (StoreId::Settings, Ready)]
         );
         assert_eq!(
             entries(r#"{"theme":"dark"}"#),

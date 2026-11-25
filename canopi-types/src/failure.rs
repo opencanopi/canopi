@@ -317,10 +317,10 @@ pub mod ops {
     pub const IMAGE_CACHE_OPEN: &str = "image_cache.open";
     /// System origin: the Tauri application's run loop.
     pub const APP_RUN: &str = "app.run";
-    /// User origin: reading an allowlisted opaque settings row (Stage 2 E1, ADR 0024).
-    pub const SETTINGS_GET_ROW: &str = "settings.get_row";
-    /// User origin: writing an allowlisted opaque settings row (Stage 2 E1, ADR 0024).
-    pub const SETTINGS_SET_ROW: &str = "settings.set_row";
+    /// User origin: reading the Desktop settings record 2 (`settings.json`, 2e-2, ADR 0024/0026).
+    pub const SETTINGS_GET_RECORD: &str = "settings.get_record";
+    /// User origin: patching the Desktop settings record 2 (`settings.json`, 2e-2, ADR 0024/0026).
+    pub const SETTINGS_PATCH_RECORD: &str = "settings.patch_record";
     /// User origin: writing a Design home through `home_write` (contracts §4, ADR 0027).
     pub const HOME_WRITE: &str = "home.write";
 
@@ -340,8 +340,8 @@ pub mod ops {
         PLANT_CATALOG_OPEN,
         IMAGE_CACHE_OPEN,
         APP_RUN,
-        SETTINGS_GET_ROW,
-        SETTINGS_SET_ROW,
+        SETTINGS_GET_RECORD,
+        SETTINGS_PATCH_RECORD,
         HOME_WRITE,
     ];
 }

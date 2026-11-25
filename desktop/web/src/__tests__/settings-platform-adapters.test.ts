@@ -4,7 +4,6 @@ import {
   SETTINGS_LOCALES,
   SETTINGS_THEMES,
 } from '../generated/settings'
-import type { Settings } from '../types/settings'
 import type { SettingsValues } from '../app/settings/field-table'
 import { decodeSettingsRecord } from '../app/settings/interpreter'
 import { createDesktopSettingsPlatformAdapter } from '../editions/desktop/settings'
@@ -28,42 +27,66 @@ function rawSettings(overrides: Partial<SettingsValues> = {}): Record<string, un
 }
 
 describe('settings platform adapters', () => {
-  it('delegates Desktop settings load and save to the injected transport', async () => {
-    const loaded = settings({ locale: 'fr' })
-    const getSettings = vi.fn(async () => loaded)
-    const setSettings = vi.fn(async (_settings: Settings) => undefined)
+  it('delegates Desktop settings load and save to the injected record 2 transport', async () => {
+    const loaded = settings({ locale: 'fr', unit_system: 'us_customary', launch_check: false })
+    const getSettingsRecord = vi.fn(async () => ({
+      record: { version: 2, ...loaded },
+      reset_fields: [] as readonly string[],
+      newer_read_only: false,
+    }))
+    const patchSettingsRecord = vi.fn(async (_patch: Record<string, unknown>) => undefined)
     const adapter = createDesktopSettingsPlatformAdapter({
-      getSettings,
-      setSettings,
+      getSettingsRecord,
+      patchSettingsRecord,
       env: () => ({ languages: ['en-GB'], region: 'GB' }),
     })
 
     await expect(adapter.load()).resolves.toEqual(loaded)
     await expect(adapter.save(loaded)).resolves.toBeUndefined()
 
-    expect(getSettings).toHaveBeenCalledOnce()
-    expect(setSettings).toHaveBeenCalledOnce()
-    const { unit_system: _u, launch_check: _l, ...expectedWire } = loaded
-    expect(setSettings).toHaveBeenCalledWith(expectedWire)
+    expect(getSettingsRecord).toHaveBeenCalledOnce()
+    expect(patchSettingsRecord).toHaveBeenCalledOnce()
+    expect(patchSettingsRecord).toHaveBeenCalledWith(loaded)
   })
 
-  it('persists last_open_home durably across Desktop adapter relaunch (2b-4, 2.1-Q127)', async () => {
-    let stored: Settings = settings({ last_open_home: null })
-    const first = createDesktopSettingsPlatformAdapter({
-      getSettings: async () => stored,
-      setSettings: async (next) => { stored = next },
+  it('persists unit_system, launch_check, last_open_home, and unknown keys durably across Desktop relaunch (2e-2, #409 N4)', async () => {
+    let stored: Record<string, unknown> = {
+      version: 2,
+      ...settings({ last_open_home: null, unit_system: 'metric', launch_check: true }),
+      future_setting: 'kept',
+    }
+    const deps = {
+      getSettingsRecord: async () => ({
+        record: { ...stored },
+        reset_fields: [] as readonly string[],
+        newer_read_only: false,
+      }),
+      patchSettingsRecord: async (patch: Record<string, unknown>) => {
+        stored = { ...stored, ...patch, version: 2 }
+      },
       env: () => ({ languages: ['en-GB'], region: 'GB' }),
-    })
+    }
+    const first = createDesktopSettingsPlatformAdapter(deps)
     await first.load()
-    await first.save(settings({ last_open_home: 'draft:draft-reopen-1' }))
+    await first.savePatch?.(
+      {
+        unit_system: 'us_customary',
+        launch_check: false,
+        last_open_home: 'draft:draft-reopen-1',
+      },
+      settings({
+        unit_system: 'us_customary',
+        launch_check: false,
+        last_open_home: 'draft:draft-reopen-1',
+      }),
+    )
 
-    const relaunched = createDesktopSettingsPlatformAdapter({
-      getSettings: async () => stored,
-      setSettings: async (next) => { stored = next },
-      env: () => ({ languages: ['en-GB'], region: 'GB' }),
-    })
-    const reloaded = await relaunched.load()
+    const relaunched = createDesktopSettingsPlatformAdapter(deps)
+    const reloaded = (await relaunched.load()) as SettingsValues
+    expect(reloaded.unit_system).toBe('us_customary')
+    expect(reloaded.launch_check).toBe(false)
     expect(reloaded.last_open_home).toBe('draft:draft-reopen-1')
+    expect(stored.future_setting).toBe('kept')
   })
 
   it('loads the generated Rust default when browser settings are absent', async () => {

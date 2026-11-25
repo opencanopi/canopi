@@ -155,8 +155,3 @@ export const SETTINGS_FIELDS = [
   f('new_design_labels', N, R, en(SETTINGS_PLANT_LABELS)),
   f('launch_check', 'updates', R, BOOL, s(true), 'app-updater'),
 ] as const satisfies readonly SettingsFieldDescriptor[]
-
-/** Keys belonging to the v1 Rust `Settings` wire struct (until 2e-2 moves Desktop to opaque record 2). */
-export const SETTINGS_V1_WIRE_KEYS: readonly (keyof Settings)[] = Array.from(
-  new Set([...(Object.keys(DEFAULT_SETTINGS) as Array<keyof Settings>), 'last_open_home']),
-)

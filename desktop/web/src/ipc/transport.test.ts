@@ -147,17 +147,23 @@ describe('IPC transport', () => {
       expect(settled.failure.code, command).toEqual({ kind: 'store_read_only', store: 'user_db' })
       expect(settled.message).toBe('store_read_only')
     }
-    invoke.mockRejectedValueOnce('store_read_only')
-    expect((await rejected('set_settings')).failure.code).toEqual({ kind: 'store_read_only', store: 'settings' })
+    invoke.mockRejectedValueOnce({
+      code: { kind: 'store_read_only', store: 'settings' },
+      user_may_retry: false,
+      op: 'settings.patch_record',
+      operation: 'u-1',
+    })
+    expect((await rejected('patch_settings_record')).failure.code).toEqual({
+      kind: 'store_read_only',
+      store: 'settings',
+    })
     expect(ringEntries()).toEqual([])
     // Any other text from those commands, or the refusal text from another command, stays a recorded internal.
     invoke.mockRejectedValueOnce('Failed to toggle favorite: disk I/O error')
     expect((await rejected('toggle_favorite')).failure.code).toEqual({ kind: 'internal' })
-    invoke.mockRejectedValueOnce('Failed to save settings: disk I/O error')
-    expect((await rejected('set_settings')).failure.code).toEqual({ kind: 'internal' })
     invoke.mockRejectedValueOnce('store_read_only')
     expect((await rejected('get_species_detail')).failure.code).toEqual({ kind: 'internal' })
-    expect(ringEntries()).toHaveLength(3)
+    expect(ringEntries()).toHaveLength(2)
   })
 
   it('canopi-f47t.52.271: a Data library write refused on a newer catalogue settles store_read_only{library_catalogue}, never recorded', async () => {
@@ -195,25 +201,25 @@ describe('IPC transport', () => {
 
   it('canopi-f47t.52.36: a busy display re-asked for 30 minutes: ring keeps older entries', async () => {
     invoke.mockRejectedValueOnce('stale lock under /home/ana/.local/share/canopi')
-    await rejected('get_settings')
+    await rejected('get_settings_record')
     // The display store re-asks a busy descriptor every 30 s at most: 60 refusals in 30 minutes.
     for (let ask = 0; ask < 60; ask += 1) {
       invoke.mockRejectedValueOnce('Native library operations are busy; try again')
       await rejected('lidar_display_descriptor')
     }
     const entries = ringEntries()
-    expect(entries.map((entry) => entry.source)).toEqual(['ipc.get_settings', 'ipc.lidar_display_descriptor'])
+    expect(entries.map((entry) => entry.source)).toEqual(['ipc.get_settings_record', 'ipc.lidar_display_descriptor'])
     expect(entries[1]).toMatchObject({ code: { kind: 'internal' }, count: 60 })
     expect(entries[0]).toMatchObject({ count: 1 })
   })
 
   it('a never-awaited rejection: the unhandledrejection hook adds no second entry', async () => {
     invoke.mockRejectedValueOnce('stale lock under /home/ana/.local/share/canopi')
-    const settled = await rejected('get_settings')
+    const settled = await rejected('get_settings_record')
     raiseUnhandledRejection(settled)
     const entries = ringEntries()
     expect(entries).toHaveLength(1)
-    expect(entries[0]).toMatchObject({ source: 'ipc.get_settings' })
+    expect(entries[0]).toMatchObject({ source: 'ipc.get_settings_record' })
   })
 
   it('[1b-c2 canopi-f47t.52.172] canopi-f47t.52.172: an error whose text contains cancelled shows its message', async () => {
@@ -232,8 +238,8 @@ describe('IPC transport', () => {
     expect(mintOperationId('s')).toMatch(/^s-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/)
 
     invoke.mockResolvedValueOnce({ ok: true })
-    await invokeTyped('get_settings', undefined, op)
-    expect(invoke).toHaveBeenLastCalledWith('get_settings', { operation: op })
+    await invokeTyped('get_settings_record', undefined, op)
+    expect(invoke).toHaveBeenLastCalledWith('get_settings_record', { operation: op })
 
     // Typed wire Failure without an operation gets the caller's OperationId stamped onto it (2.1-M411).
     invoke.mockRejectedValueOnce(UNAVAILABLE)

@@ -74,10 +74,8 @@ pub fn run() {
     let context = host::e2e_context(context);
     let app = builder
         .invoke_handler(tauri::generate_handler![
-            commands::settings::get_settings,
-            commands::settings::set_settings,
-            commands::settings::get_setting_row,
-            commands::settings::set_setting_row,
+            commands::settings::get_settings_record,
+            commands::settings::patch_settings_record,
             commands::species::search_species,
             commands::species::supersede_species_search,
             commands::species::get_species_detail,
@@ -164,7 +162,8 @@ pub fn run() {
             // Logging: a log folder that cannot be opened logs to stderr, never stops startup.
             logging::init(app.path().app_log_dir().ok().as_deref());
             tracing::info!("Canopi starting");
-            build_main_window(app.handle())?;
+            let main_window = build_main_window(app.handle())?;
+            host::window_state::restore_and_show_main_window(&main_window);
 
             let native_executor = native_operation::NativeOperationExecutor::production();
             app.manage(native_executor.clone());
@@ -196,8 +195,8 @@ pub fn run() {
                     return Err(format!("Failed to initialize user DB: {error}").into());
                 }
             };
+            app.manage(services::settings::DesktopSettingsStore::new(&data_dir, user_db.clone()));
             app.manage(user_db);
-
             tracing::info!("User DB initialized");
 
             // LiDAR library (dedicated catalogue, managed raster assets). A bad
@@ -319,6 +318,7 @@ fn build_main_window<R: tauri::Runtime>(
     let origins = AppOrigins::new(tauri::is_dev(), app.config().build.dev_url.as_ref());
     let window_origins = origins.clone();
     host::e2e_window(tauri::WebviewWindowBuilder::from_config(app, &config)?)
+        .visible(false)
         .on_navigation(move |url| follow_navigation(url, &origins, open_link_in_system))
         .on_new_window(move |url, _features| {
             follow_new_window(&url, &window_origins, open_link_in_system);

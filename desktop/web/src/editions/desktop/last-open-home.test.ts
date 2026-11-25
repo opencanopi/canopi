@@ -66,17 +66,22 @@ function sampleDesign(name: string): CanopiFile {
 
 function createPersistentDesktopWireStore(initial: Partial<Settings> = {}) {
   const defaults = decodeSettingsRecord(null).values
-  let stored: Settings = {
-    ...(defaults as unknown as Settings),
+  let stored: Record<string, unknown> = {
+    version: 2,
+    ...defaults,
     ...initial,
   }
   return {
-    read: () => stored,
+    read: () => stored as unknown as Settings,
     createAdapter: () =>
       createDesktopSettingsPlatformAdapter({
-        getSettings: async () => ({ ...stored }),
-        setSettings: async (next) => {
-          stored = { ...next }
+        getSettingsRecord: async () => ({
+          record: { ...stored },
+          reset_fields: [],
+          newer_read_only: false,
+        }),
+        patchSettingsRecord: async (patch) => {
+          stored = { ...stored, ...patch, version: 2 }
         },
         env: () => ({ languages: ['en-GB'], region: 'GB' }),
       }),

@@ -44,11 +44,13 @@ fn store_settings(user_db: &UserDb, record: &str) {
 #[test]
 fn r2_canopi_f47t_52_271_settings_record_2_applies_its_known_fields_and_is_never_written() {
     let user_db = user_db();
-    store_settings(&user_db, SETTINGS_RECORD_2);
+    // In 2.1 (2e-2), record 2 is current and version 3+ is newer-read-only (SETTINGS_CHAIN.current() == 2).
+    let record_v3 = SETTINGS_RECORD_2.replacen("\"version\": 2", "\"version\": 3", 1);
+    store_settings(&user_db, &record_v3);
     let before = settings_rows(&user_db);
 
-    let read = settings::get_settings(&user_db).expect("settings record 2 is read");
-    let mut known: serde_json::Value = serde_json::from_str(SETTINGS_RECORD_2).unwrap();
+    let read = settings::get_settings(&user_db).expect("newer settings record is read");
+    let mut known: serde_json::Value = serde_json::from_str(&record_v3).unwrap();
     let newer_only = ["version", "check_updates_at_launch", "unit_system"];
     let fields = known.as_object_mut().unwrap();
     fields.retain(|key, _| !newer_only.contains(&key.as_str()));
@@ -56,7 +58,7 @@ fn r2_canopi_f47t_52_271_settings_record_2_applies_its_known_fields_and_is_never
     assert_eq!(read_back, known, "every known field applies");
     assert!(
         settings::record_is_newer(&user_db),
-        "record 2 is recognized as newer"
+        "record 3 is recognized as newer"
     );
     assert_eq!(settings_rows(&user_db), before, "reading writes no row");
 
@@ -69,7 +71,7 @@ fn r2_canopi_f47t_52_271_settings_record_2_applies_its_known_fields_and_is_never
     );
     assert!(
         settings::record_is_newer(&user_db),
-        "record 2 remains newer after refused write"
+        "record 3 remains newer after refused write"
     );
     assert_eq!(settings_rows(&user_db), before, "never written");
     let reread = settings::get_settings(&user_db).unwrap();

@@ -56,10 +56,10 @@ describe('failure sink: one entry per settlement', () => {
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined)
     dispose = installFailureHooks({ storage: 'disk' }, window)
 
-    const settled = await invokeTyped('set_settings', undefined as never, mintOperationId('u')).catch((error: unknown) => error)
+    const settled = await invokeTyped('patch_settings_record', undefined as never, mintOperationId('u')).catch((error: unknown) => error)
     failureLogger('document-session')('Failed to dispose Design Session lifecycle:', settled)
 
-    expect(ringEntries()).toEqual([expect.objectContaining({ origin: 'native', source: 'ipc.set_settings' })])
+    expect(ringEntries()).toEqual([expect.objectContaining({ origin: 'native', source: 'ipc.patch_settings_record' })])
     // The logger still writes its console line in the owner's shape.
     expect(consoleError).toHaveBeenCalledWith('Failed to dispose Design Session lifecycle:', settled)
     consoleError.mockRestore()

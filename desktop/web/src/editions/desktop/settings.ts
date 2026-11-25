@@ -1,24 +1,56 @@
 // editions/desktop/settings.ts
 //
-// Desktop settings record adapter over ipc/settings.ts (tauri-only-in-native-host, ADR 0022; §18 F2).
+// Desktop settings record 2 adapter over ipc/settings.ts (tauri-only-in-native-host, ADR 0022; §18 F2).
 // Invariant: Tauri is reached only through ipc/ and editions/desktop/.
-// Runs through the same TS settings field-table interpreter as Web (ADR 0026, 2.1-M518).
+// Runs through the same TS settings field-table interpreter as Web (ADR 0024, ADR 0026, 2.1-M518).
 
 import type { SettingsPlatformAdapter } from '../../platform/settings'
-import { getSettings, setSettings } from '../../ipc/settings'
-import type { Settings } from '../../types/settings'
-import { createV1WireSettingsAdapter, type SettingsFirstRunEnv } from '../../app/settings/interpreter'
+import {
+  getSettingsRecord,
+  patchSettingsRecord,
+  type SettingsRecordSnapshot,
+} from '../../ipc/settings'
+import {
+  decodeSettingsRecord,
+  regionFromLanguages,
+  resolveHostFirstRunPatch,
+  type SettingsFirstRunEnv,
+} from '../../app/settings/interpreter'
 
 export interface DesktopSettingsPlatformAdapterDeps {
-  readonly getSettings: () => Promise<Settings>
-  readonly setSettings: (settings: Settings) => Promise<void>
+  readonly getSettingsRecord: () => Promise<SettingsRecordSnapshot>
+  readonly patchSettingsRecord: (patch: Record<string, unknown>) => Promise<void>
   readonly env?: () => SettingsFirstRunEnv
 }
 
+function detectDesktopEnv(): SettingsFirstRunEnv {
+  const languages = typeof navigator !== 'undefined'
+    ? (navigator.languages?.length ? navigator.languages : (navigator.language ? [navigator.language] : []))
+    : []
+  return { languages, region: regionFromLanguages(languages) }
+}
+
 export function createDesktopSettingsPlatformAdapter(
-  deps: DesktopSettingsPlatformAdapterDeps = { getSettings, setSettings },
+  deps: DesktopSettingsPlatformAdapterDeps = { getSettingsRecord, patchSettingsRecord },
 ): SettingsPlatformAdapter {
-  return createV1WireSettingsAdapter(deps)
+  const readEnv = deps.env ?? detectDesktopEnv
+  let lastResetFields: string[] = []
+  return {
+    load: async () => {
+      const snapshot = await deps.getSettingsRecord()
+      const decoded = decodeSettingsRecord(snapshot.record, readEnv())
+      lastResetFields = Array.from(new Set([...snapshot.reset_fields, ...decoded.resetFields]))
+      return decoded.values
+    },
+    takeResetFields: () => lastResetFields.splice(0),
+    save: async (settings) => {
+      await deps.patchSettingsRecord({ ...settings })
+    },
+    savePatch: async (patch) => {
+      await deps.patchSettingsRecord({ ...patch })
+    },
+    firstRunSettings: () => resolveHostFirstRunPatch(readEnv()),
+  }
 }
 
 export const desktopSettingsPlatformAdapter = createDesktopSettingsPlatformAdapter()

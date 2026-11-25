@@ -32,6 +32,8 @@ serde_json = "1"
 tauri = { version = "2.12.4", features = ["protocol-asset"] }
 tauri-plugin-dialog = "2.8.3"
 tauri-plugin-single-instance = "2.5.4"
+# Window geometry persistence (2.1-Q144, 2.1-Q367, 2.1-M135); named only in `host/window_state.rs`.
+tauri-plugin-window-state = "2.5.0"
 # External links (https, mailto) leave the app webview for the system browser
 # or mail client; called from Rust only (`services/external_links.rs`).
 tauri-plugin-opener = "2.7.2"

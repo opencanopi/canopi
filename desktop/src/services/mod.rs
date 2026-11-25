@@ -14,5 +14,6 @@ pub mod saved_object_stamps;
 pub mod settings;
 #[cfg(test)]
 mod settings_reader_release_tests;
+mod settings_record;
 pub mod species_catalog;
 pub(crate) mod species_catalog_read;

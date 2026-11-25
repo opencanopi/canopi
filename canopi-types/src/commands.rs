@@ -75,10 +75,8 @@ macro_rules! commands {
 }
 
 commands! {
-    get_settings => "commands::settings::get_settings": Async () -> "Settings",
-    set_settings => "commands::settings::set_settings": Async (settings: "Settings") -> "void",
-    get_setting_row => "commands::settings::get_setting_row": Async (key: "string") -> "string | null",
-    set_setting_row => "commands::settings::set_setting_row": Async (key: "string", value: "string") -> "void",
+    get_settings_record => "commands::settings::get_settings_record": Async () -> "{ readonly record: Record<string, unknown>; readonly reset_fields: readonly string[]; readonly newer_read_only: boolean }",
+    patch_settings_record => "commands::settings::patch_settings_record": Async (patch: "Record<string, unknown>") -> "void",
     search_species => "commands::species::search_species": Async (request: "SpeciesSearchRequest") -> "PaginatedResult<SpeciesListItem>",
     supersede_species_search => "commands::species::supersede_species_search": BoundedSync () -> "void",
     get_species_detail => "commands::species::get_species_detail": Async (canonicalName: "string", locale: "string") -> "SpeciesDetail",
@@ -179,6 +177,6 @@ mod tests {
                 row.name
             );
         }
-        assert_eq!(names.len(), 85);
+        assert_eq!(names.len(), 83);
     }
 }

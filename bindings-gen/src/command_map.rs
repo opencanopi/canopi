@@ -52,7 +52,6 @@ import type {
   ReadOnlyDesign,
   RecentDesignSummary,
   SavedObjectStamp,
-  Settings,
   SpeciesDetail,
   SpeciesImage,
   SpeciesListItem,

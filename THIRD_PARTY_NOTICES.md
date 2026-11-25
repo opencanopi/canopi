@@ -583,6 +583,7 @@ Linked into the Desktop binary on its release targets (cargo-about over `desktop
 | `tauri-plugin-opener` | Apache-2.0 OR MIT | 0ffddef9 |
 | `tauri-plugin-single-instance` | Apache-2.0 OR MIT | 0ffddef9 |
 | `tauri-plugin-updater` | Apache-2.0 OR MIT | 0ffddef9 |
+| `tauri-plugin-window-state` | Apache-2.0 OR MIT | 0ffddef9 |
 | `tauri-runtime` | Apache-2.0 OR MIT | 0ffddef9 |
 | `tauri-runtime-wry` | Apache-2.0 OR MIT | 0ffddef9 |
 | `tauri-utils` | Apache-2.0 OR MIT | 0ffddef9 |

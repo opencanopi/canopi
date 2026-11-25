@@ -12,28 +12,30 @@ import {
   restartAfterUpdate,
   takeUpdateLaunchNotice,
 } from '../../ipc/update'
-import { getSettingRow, setSettingRow } from '../../ipc/settings'
+import {
+  getSettingsRecord,
+  patchSettingsRecord,
+  type SettingsRecordSnapshot,
+} from '../../ipc/settings'
 import { createUuid } from '../../utils/ids'
 
-const UPDATER_CHECK_AT_LAUNCH_KEY = 'updater.check_at_launch'
-
 /**
- * Reads whether Desktop checks for updates at launch from the allowlisted `updater.check_at_launch`
- * key row (Stage 2 E1, ADR 0024, 2.1-M538; missing defaults to true; 2e folds into settings record 2).
+ * Reads whether Desktop checks for updates at launch from settings record 2 (`launch_check`,
+ * folded from legacy `updater.check_at_launch` on migration in 2e-2; missing defaults to true).
  */
 async function getLaunchCheck(
-  readRow: (key: string) => Promise<string | null> = getSettingRow,
+  readRecord: () => Promise<SettingsRecordSnapshot> = getSettingsRecord,
 ): Promise<boolean> {
-  const stored = await readRow(UPDATER_CHECK_AT_LAUNCH_KEY)
-  return stored !== 'false'
+  const snapshot = await readRecord()
+  return snapshot.record.launch_check !== false
 }
 
-/** Stores whether Desktop checks for updates at launch via the opaque settings row command. */
+/** Stores whether Desktop checks for updates at launch in settings record 2 (`launch_check`). */
 async function setLaunchCheck(
   on: boolean,
-  writeRow: (key: string, value: string) => Promise<void> = setSettingRow,
+  writePatch: (patch: Record<string, unknown>) => Promise<void> = patchSettingsRecord,
 ): Promise<void> {
-  await writeRow(UPDATER_CHECK_AT_LAUNCH_KEY, on ? 'true' : 'false')
+  await writePatch({ launch_check: on })
 }
 
 // Shaped as app/updates' UpdaterPort, checked where main.tsx passes it to App (platform imports no app/ type).
@@ -46,7 +48,7 @@ const updater = {
   getLaunchCheck: () => getLaunchCheck(),
 }
 
-/** The host's update commands, the launch-check key row's writer, the Windows next-launch marker and the op-id minter. */
+/** The host's update commands, the launch-check writer, the Windows next-launch marker and the op-id minter. */
 export const desktopUpdatePorts = {
   updater,
   setLaunchCheck: (on: boolean) => setLaunchCheck(on),

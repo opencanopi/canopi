@@ -42,7 +42,6 @@ import type {
   ReadOnlyDesign,
   RecentDesignSummary,
   SavedObjectStamp,
-  Settings,
   SpeciesDetail,
   SpeciesImage,
   SpeciesListItem,
@@ -67,10 +66,8 @@ export interface PendingOpen {
 export type CommandSyncKind = 'async' | 'bounded_sync'
 
 export const COMMAND_NAMES = [
-  'get_settings',
-  'set_settings',
-  'get_setting_row',
-  'set_setting_row',
+  'get_settings_record',
+  'patch_settings_record',
   'search_species',
   'supersede_species_search',
   'get_species_detail',
@@ -157,10 +154,8 @@ export const COMMAND_NAMES = [
 export type CommandName = (typeof COMMAND_NAMES)[number]
 
 export type CommandMap = {
-  readonly 'get_settings': { readonly args: undefined; readonly reply: Settings }
-  readonly 'set_settings': { readonly args: { readonly settings: Settings }; readonly reply: void }
-  readonly 'get_setting_row': { readonly args: { readonly key: string }; readonly reply: string | null }
-  readonly 'set_setting_row': { readonly args: { readonly key: string; readonly value: string }; readonly reply: void }
+  readonly 'get_settings_record': { readonly args: undefined; readonly reply: { readonly record: Record<string, unknown>; readonly reset_fields: readonly string[]; readonly newer_read_only: boolean } }
+  readonly 'patch_settings_record': { readonly args: { readonly patch: Record<string, unknown> }; readonly reply: void }
   readonly 'search_species': { readonly args: { readonly request: SpeciesSearchRequest }; readonly reply: PaginatedResult<SpeciesListItem> }
   readonly 'supersede_species_search': { readonly args: undefined; readonly reply: void }
   readonly 'get_species_detail': { readonly args: { readonly canonicalName: string; readonly locale: string }; readonly reply: SpeciesDetail }
@@ -262,10 +257,8 @@ export function createTypedInvoke(raw: RawCommandInvoker) {
 }
 
 export const COMMAND_SYNC_KINDS: Readonly<Record<CommandName, CommandSyncKind>> = {
-  'get_settings': 'async',
-  'set_settings': 'async',
-  'get_setting_row': 'async',
-  'set_setting_row': 'async',
+  'get_settings_record': 'async',
+  'patch_settings_record': 'async',
   'search_species': 'async',
   'supersede_species_search': 'bounded_sync',
   'get_species_detail': 'async',

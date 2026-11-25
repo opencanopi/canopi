@@ -14,6 +14,7 @@ pub mod home;
 pub mod launch;
 pub mod single_instance;
 pub mod updater;
+pub mod window_state;
 
 /// The host's part of the builder: the pending-open slot, holding this launch's own file before
 /// any forwarded launch can arrive, then the single-instance plugin first and the dialog plugin,
@@ -27,6 +28,7 @@ pub fn register<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder
         ))
         .manage(file_grants)
         .plugin(single_instance::plugin())
+        .plugin(window_state::plugin())
         .plugin(tauri_plugin_dialog::init())
         .plugin(dialogs::plugin())
         .plugin(updater::plugin())

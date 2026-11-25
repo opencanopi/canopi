@@ -120,20 +120,36 @@ function createRunnerHarness(
   }
 
   let stored: Record<string, unknown> = initialRecord
-    ? { ...initialRecord }
-    : { ...DEFAULT_SETTINGS, ...(env.languages ? { locale: decodeSettingsRecord(null, env).values.locale } : {}) }
-  const adapter = createDesktopSettingsPlatformAdapter({
-    getSettings: async () => stored as unknown as typeof DEFAULT_SETTINGS,
-    setSettings: async (next) => { stored = { ...stored, ...next } },
-    env: () => env,
-  })
+    ? { version: 2, ...initialRecord }
+    : { version: 2, ...decodeSettingsRecord(null, env).values }
+  let beforeReset: Record<string, unknown> | null = null
+  const makeDesktopAdapter = () =>
+    createDesktopSettingsPlatformAdapter({
+      getSettingsRecord: async () => {
+        const decoded = decodeSettingsRecord(stored, env)
+        if (decoded.resetFields.length > 0) {
+          if (beforeReset === null) beforeReset = { ...stored }
+          stored = { ...stored, ...decoded.values, version: 2 }
+        }
+        return {
+          record: { ...stored },
+          reset_fields: [...decoded.resetFields],
+          newer_read_only: false,
+        }
+      },
+      patchSettingsRecord: async (patch) => {
+        stored = { ...stored, ...patch, version: 2 }
+      },
+      env: () => env,
+    })
+  const adapter = makeDesktopAdapter()
   return {
     edition,
     adapter,
     storage: null,
     readStoredV4Raw: () => ({ ...stored }),
     readStoredV3Raw: () => null,
-    readBeforeResetRaw: () => null,
+    readBeforeResetRaw: () => (beforeReset ? { ...beforeReset } : null),
   }
 }
 
@@ -171,17 +187,15 @@ describe('settings-store shared suite (Desktop and Web runners)', () => {
       expect(notice?.params?.fields).toContain('last_open_home')
       expect(notice?.params?.fields).toContain('launch_check')
 
-      if (edition === 'Web') {
-        expect(harness.readBeforeResetRaw()).toMatchObject(BAD_FIELD_CORPUS)
-        expect(harness.readStoredV4Raw()).toMatchObject({
-          version: 2,
-          theme: 'dark',
-          locale: 'en',
-          unit_system: 'metric',
-          last_open_home: null,
-          launch_check: true,
-        })
-      }
+      expect(harness.readBeforeResetRaw()).toMatchObject(BAD_FIELD_CORPUS)
+      expect(harness.readStoredV4Raw()).toMatchObject({
+        version: 2,
+        theme: 'dark',
+        locale: 'en',
+        unit_system: 'metric',
+        last_open_home: null,
+        launch_check: true,
+      })
       installation.dispose()
     },
   )
@@ -208,7 +222,7 @@ describe('settings-store shared suite (Desktop and Web runners)', () => {
   })
 
   it.each(['Desktop', 'Web'] as const)(
-    '%s runner: derives unit_system from region and updates last_open_home + launch_check in-session (2.1-Q120, Q169, M523; Desktop durability in 2e-2)',
+    '%s runner: derives unit_system from region and persists last_open_home + launch_check (2.1-Q120, Q169, M523, 2e-2)',
     async (edition) => {
       const usHarness = createRunnerHarness(edition, null, { languages: ['en-US'], region: 'US', os: 'linux' })
       const usInstall = installSettingsProjection(usHarness.adapter)
@@ -222,6 +236,12 @@ describe('settings-store shared suite (Desktop and Web runners)', () => {
       await flushSettingsProjection()
       expect(lastOpenHome.value).toBe('home:orchard-north')
       expect(launchCheck.value).toBe(false)
+      expect(usHarness.readStoredV4Raw()).toMatchObject({
+        version: 2,
+        unit_system: 'us_customary',
+        last_open_home: 'home:orchard-north',
+        launch_check: false,
+      })
       usInstall.dispose()
 
       const frHarness = createRunnerHarness(edition, null, { languages: ['fr-FR'], region: 'FR', os: 'linux' })

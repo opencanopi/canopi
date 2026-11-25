@@ -23,20 +23,27 @@ vi.mock('../document-session/save-problem', () => ({ requestSaveProblemDecision:
 const { flushBeforeExit } = await import('./close-guard')
 const { installSettingsProjection, mutateSettingsProjection, resetSettingsProjectionForTests } = await import('../settings/projection')
 const { createDesktopSettingsPlatformAdapter } = await import('../../editions/desktop/settings')
-const { getSettings, setSettings } = await import('../../ipc/settings')
+const { getSettingsRecord, patchSettingsRecord } = await import('../../ipc/settings')
 const { resetFrontendDiagnosticsForTests, ringEntries } = await import('../../failures/ring')
 const { snapToGridEnabled } = await import('../settings/state')
 
 let dispose: () => void = () => undefined
 
-async function installDesktopSettings(saveRejection: string): Promise<void> {
-  // Native rejects a String command with bare text, as Tauri hands it on.
+async function installDesktopSettings(saveRejection: unknown): Promise<void> {
   mocks.invoke.mockImplementation((command: string) => {
-    if (command === 'get_settings') return Promise.resolve({ ...DEFAULT_SETTINGS, snap_to_grid: false })
-    if (command === 'set_settings') return Promise.reject(saveRejection)
+    if (command === 'get_settings_record') {
+      return Promise.resolve({
+        record: { version: 2, ...DEFAULT_SETTINGS, snap_to_grid: false },
+        reset_fields: [],
+        newer_read_only: false,
+      })
+    }
+    if (command === 'patch_settings_record') return Promise.reject(saveRejection)
     return Promise.reject(new Error(`unexpected command ${command}`))
   })
-  const installation = installSettingsProjection(createDesktopSettingsPlatformAdapter({ getSettings, setSettings }))
+  const installation = installSettingsProjection(
+    createDesktopSettingsPlatformAdapter({ getSettingsRecord, patchSettingsRecord }),
+  )
   dispose = installation.dispose
   await installation.ready
 }
@@ -59,7 +66,13 @@ afterEach(() => {
 describe('Desktop settings refused as read-only', () => {
   it('canopi-f47t.52.271: a settings change on a newer-read-only user DB applies for the session; closing asks nothing', async () => {
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined)
-    await installDesktopSettings('store_read_only')
+    await installDesktopSettings({
+      code: { kind: 'store_read_only', store: 'settings' },
+      user_may_retry: false,
+      op: 'settings.patch_record',
+      operation: null,
+      detail: 'the settings refuse writes for this session',
+    })
 
     mutateSettingsProjection((draft) => { draft.snapToGrid = true })
     const answers = [await flushBeforeExit('update'), await flushBeforeExit('reload'), await flushBeforeExit('update')]
@@ -72,7 +85,7 @@ describe('Desktop settings refused as read-only', () => {
     expect(ringEntries()).toEqual([])
     expect(consoleError).not.toHaveBeenCalled()
     // The first refusal says the store refuses writes; later changes are never sent.
-    expect(mocks.invoke.mock.calls.filter(([command]) => command === 'set_settings')).toHaveLength(1)
+    expect(mocks.invoke.mock.calls.filter(([command]) => command === 'patch_settings_record')).toHaveLength(1)
   })
 
   it('canopi-f47t.52.271: any other settings save failure still asks Retry, Close anyway or Cancel', async () => {

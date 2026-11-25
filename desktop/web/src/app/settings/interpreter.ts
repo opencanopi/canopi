@@ -15,11 +15,8 @@ import { defaultUnitSystemForRegion } from '../../generated/quantity-table'
 import { DEFAULT_SETTINGS } from '../../generated/settings'
 import type { StoreFloor } from '../../generated/store-chain'
 import { runStoreChain, type ChainResult, type ChainStep } from '../../platform/store-chain'
-import type { SettingsPlatformAdapter } from '../../platform/settings'
-import type { Settings } from '../../types/settings'
 import {
   SETTINGS_FIELDS,
-  SETTINGS_V1_WIRE_KEYS,
   type DefaultSpec,
   type SettingsFieldDescriptor,
   type SettingsFieldKey,
@@ -40,14 +37,6 @@ export interface SettingsFirstRunEnv {
 export interface DecodedSettingsRecord {
   readonly values: SettingsValues
   readonly resetFields: readonly SettingsFieldKey[]
-}
-
-/** Reads browser/host languages and region from `navigator` when available. */
-function detectHostEnv(): SettingsFirstRunEnv {
-  const languages = typeof navigator !== 'undefined'
-    ? (navigator.languages?.length ? navigator.languages : (navigator.language ? [navigator.language] : []))
-    : []
-  return { languages, region: regionFromLanguages(languages) }
 }
 
 /** Extracts an ISO 3166-1 alpha-2 region subtag from the first BCP-47 tag carrying one (e.g. `en-US` -> `US`). */
@@ -230,48 +219,6 @@ export function diffSettingsPatch(
     }
   }
   return patch
-}
-
-/** Projects `SettingsValues` to the 28-field v1 wire `Settings` object (Desktop IPC until 2e-2). */
-function toV1WireSettings(values: Readonly<SettingsValues>): Settings {
-  const wire: Record<string, unknown> = {}
-  for (const key of SETTINGS_V1_WIRE_KEYS) {
-    const value = values[key]
-    wire[key] = Array.isArray(value) ? [...value] : value
-  }
-  return wire as unknown as Settings
-}
-
-const V1_EXTRA_KEYS = ['unit_system', 'launch_check'] as const
-
-/** Bridges a v1 wire `Settings` host transport to `SettingsPlatformAdapter` through the field-table interpreter. */
-export function createV1WireSettingsAdapter(deps: {
-  readonly getSettings: () => Promise<Settings>
-  readonly setSettings: (settings: Settings) => Promise<void>
-  readonly env?: () => SettingsFirstRunEnv
-}): SettingsPlatformAdapter {
-  const readEnv = deps.env ?? detectHostEnv
-  const cachedExtras: Record<string, unknown> = {}
-  let lastResetFields: string[] = []
-  const mirrorAndSave = async (source: object, full: SettingsValues) => {
-    const rec = source as Record<string, unknown>
-    for (const k of V1_EXTRA_KEYS) if (rec[k] !== undefined) cachedExtras[k] = rec[k]
-    await deps.setSettings(toV1WireSettings(full))
-  }
-  return {
-    load: async () => {
-      const decoded = decodeSettingsRecord(
-        { ...(await deps.getSettings() as unknown as Record<string, unknown>), ...cachedExtras },
-        readEnv(),
-      )
-      lastResetFields = [...decoded.resetFields]
-      return decoded.values
-    },
-    takeResetFields: () => lastResetFields.splice(0),
-    save: (settings) => mirrorAndSave(settings, settings as SettingsValues),
-    savePatch: (patch, settings) => mirrorAndSave(patch, settings as SettingsValues),
-    firstRunSettings: () => resolveHostFirstRunPatch(readEnv()),
-  }
 }
 
 /**
