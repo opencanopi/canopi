@@ -102,18 +102,18 @@ pub fn inspect(path: &Path) -> CatalogueState {
             canopi_types::store_chain::LIBRARY_CATALOGUE_FLOOR,
             Some(version as u32),
         ) {
-            canopi_types::store_chain::StoredForm::Current => match catalogue::quick_check(path) {
+            canopi_types::store_chain::Admission::Current => match catalogue::quick_check(path) {
                 Ok(()) => CatalogueState::Current,
                 Err(catalogue::UnreadCatalogue::Unavailable(reason)) => {
                     CatalogueState::Unreadable(reason)
                 }
                 Err(catalogue::UnreadCatalogue::Damaged(reason)) => CatalogueState::Corrupt(reason),
             },
-            canopi_types::store_chain::StoredForm::PreFloor { .. }
-            | canopi_types::store_chain::StoredForm::Upgradable { .. }
-            | canopi_types::store_chain::StoredForm::Missing => CatalogueState::Older(version),
-            canopi_types::store_chain::StoredForm::NewerReadOnly { .. }
-            | canopi_types::store_chain::StoredForm::RefusedNewer { .. } => {
+            canopi_types::store_chain::Admission::BeforeFloor { .. }
+            | canopi_types::store_chain::Admission::Migratable { .. }
+            | canopi_types::store_chain::Admission::Absent => CatalogueState::Older(version),
+            canopi_types::store_chain::Admission::NewerReadable { .. }
+            | canopi_types::store_chain::Admission::RefusedNewer { .. } => {
                 CatalogueState::Newer(version)
             }
         },

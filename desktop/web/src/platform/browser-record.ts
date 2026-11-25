@@ -102,7 +102,7 @@ function readVersioned<T>(
     value as Record<string, unknown>,
     [],
   )
-  if (outcome.kind === 'pre_floor' || outcome.kind === 'missing' || outcome.kind === 'refused_newer') {
+  if (outcome.kind === 'before_floor' || outcome.kind === 'absent' || outcome.kind === 'refused_newer') {
     return { state: 'unreadable', raw }
   }
   const record = decode(outcome.value, outcome.version)

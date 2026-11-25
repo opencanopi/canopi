@@ -158,17 +158,17 @@ pub(super) fn initialize_connection(conn: &Connection) -> Result<(), UserDbInitE
         0 => {}
         found if found < 0 => return Err(UserDbInitError::OlderSchemaVersion { found }),
         found => match canopi_types::store_chain::admit_version(floor, Some(found as u32)) {
-            canopi_types::store_chain::StoredForm::Current => {}
-            canopi_types::store_chain::StoredForm::NewerReadOnly { .. }
-            | canopi_types::store_chain::StoredForm::RefusedNewer { .. } => {
+            canopi_types::store_chain::Admission::Current => {}
+            canopi_types::store_chain::Admission::NewerReadable { .. }
+            | canopi_types::store_chain::Admission::RefusedNewer { .. } => {
                 return Err(UserDbInitError::NewerSchemaVersion {
                     found,
                     supported: floor.current as i32,
                 });
             }
-            canopi_types::store_chain::StoredForm::PreFloor { .. }
-            | canopi_types::store_chain::StoredForm::Upgradable { .. }
-            | canopi_types::store_chain::StoredForm::Missing => {
+            canopi_types::store_chain::Admission::BeforeFloor { .. }
+            | canopi_types::store_chain::Admission::Migratable { .. }
+            | canopi_types::store_chain::Admission::Absent => {
                 return Err(UserDbInitError::OlderSchemaVersion { found });
             }
         },

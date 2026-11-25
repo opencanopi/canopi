@@ -1,12 +1,24 @@
 /**
  * platform/store-chain.ts: Thin synchronous store-chain step runner over the generated
- * `canopi-types::store_chain` floor table (Stage 2 Item 9; ADR 0023, ADR 0026, 2.1-M540).
+ * `canopi-types::store_chain` floor table (Stage 2 Item 9; contracts §11, ADR 0023,
+ * ADR 0026, 2.1-M157, 2.1-M540).
  */
 import { admitStoreVersion, STORE_FLOORS, type StoreFloor } from '../generated/store-chain'
 import type { StoreId } from '../generated/contracts'
 
-/** Rejects `PromiseLike` return values at compile time so an `async` step cannot compile (contracts §11). */
-type SyncValue<T> = T extends PromiseLike<unknown> ? never : T
+const STEP_DONE = Symbol('canopi.store-chain.step-done')
+
+/**
+ * Branded synchronous step output (contracts §11, 2.1-M157).
+ *
+ * Only the `done` callback provided by `runStoreChain` can mint a `StepDone<T>`.
+ * Because `Promise<StepDone<T>>` never carries the brand, an `async` step fails
+ * TypeScript compilation for every `T`, including `unknown` and `any`.
+ */
+interface StepDone<T> {
+  readonly [STEP_DONE]: true
+  readonly value: T
+}
 
 /** Runtime error thrown when a step returns a thenable (`step-returned-thenable`, contracts §11). */
 class StepReturnedThenableError extends Error {
@@ -22,20 +34,19 @@ class StepReturnedThenableError extends Error {
   }
 }
 
-/** One synchronous migration step from `from` to `to = from + 1`. */
+/** One synchronous migration step advancing a store from `from` to `from + 1`. */
 export interface ChainStep<T> {
   readonly from: number
-  readonly to: number
-  run(value: T): SyncValue<T>
+  run(value: T, done: (value: T) => StepDone<T>): StepDone<T>
 }
 
-/** Result of running a synchronous store-chain upgrade over an initial value. */
-export type StepDone<T> =
+/** Result of running a synchronous store-chain upgrade over an initial value (contracts §11). */
+export type ChainResult<T> =
+  | { readonly kind: 'absent' }
+  | { readonly kind: 'before_floor'; readonly version: number; readonly minReadable: number }
   | { readonly kind: 'current'; readonly version: number; readonly value: T; readonly stepsRun: number }
-  | { readonly kind: 'missing' }
-  | { readonly kind: 'newer_read_only'; readonly version: number; readonly value: T }
+  | { readonly kind: 'newer_readable'; readonly version: number; readonly value: T }
   | { readonly kind: 'refused_newer'; readonly version: number; readonly maxSupported: number }
-  | { readonly kind: 'pre_floor'; readonly version: number; readonly minReadable: number }
 
 function isThenable(value: unknown): boolean {
   return (typeof value === 'object' || typeof value === 'function')
@@ -43,9 +54,38 @@ function isThenable(value: unknown): boolean {
     && typeof (value as { then?: unknown }).then === 'function'
 }
 
+function isBrandedStepDone<T>(value: unknown): value is StepDone<T> {
+  return typeof value === 'object'
+    && value !== null
+    && (value as Record<PropertyKey, unknown>)[STEP_DONE] === true
+}
+
+function validateSteps<T>(floor: StoreFloor, steps: readonly ChainStep<T>[]): void {
+  const expectedSteps = floor.current - floor.minReadable
+  if (expectedSteps < 0 || floor.stepCount !== expectedSteps) {
+    throw new Error(
+      `store-chain: inconsistent floor for ${floor.store} (minReadable=${floor.minReadable}, current=${floor.current}, stepCount=${floor.stepCount})`,
+    )
+  }
+  if (steps.length !== expectedSteps) {
+    throw new Error(
+      `store-chain: ${floor.store} requires ${expectedSteps} step(s) for v${floor.minReadable}..v${floor.current}, got ${steps.length}`,
+    )
+  }
+  for (let i = 0; i < steps.length; i += 1) {
+    const expectedFrom = floor.minReadable + i
+    if (steps[i]!.from !== expectedFrom) {
+      throw new Error(
+        `store-chain: ${floor.store} step[${i}] must migrate from v${expectedFrom}, got v${steps[i]!.from}`,
+      )
+    }
+  }
+}
+
 /**
- * Classifies `version` against `floor` and, when `upgradable`, applies each matching
- * step synchronously in ascending order until `floor.current` is reached.
+ * Validates `steps` against `floor` (`current === minReadable + steps.length`, contiguous
+ * `from -> from + 1`), classifies `version`, and when `migratable` applies each step
+ * synchronously in order up to `floor.current`.
  *
  * Rejects any runtime thenable with `StepReturnedThenableError` (`step-returned-thenable`)
  * so IndexedDB `onupgradeneeded` transactions can never auto-commit mid-migration.
@@ -55,28 +95,37 @@ export function runStoreChain<T>(
   version: number | null,
   value: T,
   steps: readonly ChainStep<T>[],
-): StepDone<T> {
-  const form = admitStoreVersion(floor, version)
-  if (form.kind === 'missing') return form
-  if (form.kind === 'current') return { kind: 'current', version: floor.current, value, stepsRun: 0 }
-  if (form.kind === 'newer_read_only') return { kind: 'newer_read_only', version: form.version, value }
-  if (form.kind === 'refused_newer') return form
-  if (form.kind === 'pre_floor') return form
+): ChainResult<T> {
+  validateSteps(floor, steps)
 
-  let currentVersion = form.from
+  const admission = admitStoreVersion(floor, version)
+  if (admission.kind === 'absent') return admission
+  if (admission.kind === 'before_floor') return admission
+  if (admission.kind === 'current') return { kind: 'current', version: floor.current, value, stepsRun: 0 }
+  if (admission.kind === 'newer_readable') return { kind: 'newer_readable', version: admission.version, value }
+  if (admission.kind === 'refused_newer') return admission
+
+  let currentVersion = admission.from
   let currentValue = value
   let stepsRun = 0
-  while (currentVersion < floor.current) {
-    const step = steps.find((candidate) => candidate.from === currentVersion)
-    if (!step || step.to <= currentVersion || step.to > floor.current) {
-      throw new Error(`store-chain: missing or invalid step from v${currentVersion} toward v${floor.current} for ${floor.store}`)
+  const startIndex = currentVersion - floor.minReadable
+  for (let i = startIndex; i < steps.length; i += 1) {
+    const step = steps[i]!
+    const done = (nextValue: T): StepDone<T> => {
+      if (isThenable(nextValue)) {
+        throw new StepReturnedThenableError(floor.store, currentVersion)
+      }
+      return { [STEP_DONE]: true, value: nextValue }
     }
-    const nextValue = step.run(currentValue)
-    if (isThenable(nextValue)) {
+    const output = step.run(currentValue, done)
+    if (isThenable(output)) {
       throw new StepReturnedThenableError(floor.store, currentVersion)
     }
-    currentValue = nextValue
-    currentVersion = step.to
+    if (!isBrandedStepDone<T>(output)) {
+      throw new Error(`store-chain: step at v${currentVersion} for ${floor.store} did not return done(value)`)
+    }
+    currentValue = output.value
+    currentVersion += 1
     stepsRun += 1
   }
   return { kind: 'current', version: currentVersion, value: currentValue, stepsRun }

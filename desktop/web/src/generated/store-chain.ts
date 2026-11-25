@@ -2,15 +2,15 @@
 // Do not edit it by hand.
 import type { StoreId } from './contracts'
 
-export type FormId = "canopi_file" | "user_db" | "saved_stamp_payload" | "settings" | "library_catalogue" | "source_meta" | "web_drafts" | "web_species_lists" | "web_legacy_container"
+export type StoredForm = "canopi_file" | "user_db" | "saved_stamp_payload" | "settings" | "library_catalogue" | "source_meta" | "web_drafts" | "web_species_lists" | "web_legacy_container"
 
 export interface FormSpec {
-  readonly form: FormId
+  readonly form: StoredForm
   readonly store: StoreId | null
   readonly floor: number
 }
 
-export const FORM_SPECS: Readonly<Record<FormId, FormSpec>> = {
+export const FORM_SPECS: Readonly<Record<StoredForm, FormSpec>> = {
   "canopi_file": { form: "canopi_file", store: null, floor: 9 },
   "user_db": { form: "user_db", store: "user_db", floor: 9 },
   "saved_stamp_payload": { form: "saved_stamp_payload", store: null, floor: 2 },
@@ -26,30 +26,31 @@ export interface StoreFloor {
   readonly store: StoreId
   readonly minReadable: number
   readonly current: number
+  readonly stepCount: number
   readonly maxReadable: number | null
 }
 
-export type StoredForm =
-  | { readonly kind: 'missing' }
+export type Admission =
+  | { readonly kind: 'absent' }
+  | { readonly kind: 'before_floor'; readonly version: number; readonly minReadable: number }
   | { readonly kind: 'current' }
-  | { readonly kind: 'upgradable'; readonly from: number }
-  | { readonly kind: 'newer_read_only'; readonly version: number }
+  | { readonly kind: 'migratable'; readonly from: number }
+  | { readonly kind: 'newer_readable'; readonly version: number }
   | { readonly kind: 'refused_newer'; readonly version: number; readonly maxSupported: number }
-  | { readonly kind: 'pre_floor'; readonly version: number; readonly minReadable: number }
 
 export const STORE_FLOORS: Readonly<Partial<Record<StoreId, StoreFloor>>> = {
-  "user_db": { store: "user_db", minReadable: 9, current: 9, maxReadable: null },
-  "settings": { store: "settings", minReadable: 1, current: 1, maxReadable: null },
-  "library_catalogue": { store: "library_catalogue", minReadable: 25, current: 25, maxReadable: null },
-  "web_drafts": { store: "web_drafts", minReadable: 4, current: 4, maxReadable: null },
-  "web_species_lists": { store: "web_species_lists", minReadable: 1, current: 1, maxReadable: null },
+  "user_db": { store: "user_db", minReadable: 9, current: 9, stepCount: 0, maxReadable: null },
+  "settings": { store: "settings", minReadable: 1, current: 1, stepCount: 0, maxReadable: null },
+  "library_catalogue": { store: "library_catalogue", minReadable: 25, current: 25, stepCount: 0, maxReadable: null },
+  "web_drafts": { store: "web_drafts", minReadable: 4, current: 4, stepCount: 0, maxReadable: null },
+  "web_species_lists": { store: "web_species_lists", minReadable: 1, current: 1, stepCount: 0, maxReadable: null },
 } as const
 
-export function admitStoreVersion(floor: StoreFloor, version: number | null): StoredForm {
-  if (version === null) return { kind: 'missing' }
-  if (version < floor.minReadable) return { kind: 'pre_floor', version, minReadable: floor.minReadable }
-  if (version < floor.current) return { kind: 'upgradable', from: version }
+export function admitStoreVersion(floor: StoreFloor, version: number | null): Admission {
+  if (version === null) return { kind: 'absent' }
+  if (version < floor.minReadable) return { kind: 'before_floor', version, minReadable: floor.minReadable }
+  if (version < floor.current) return { kind: 'migratable', from: version }
   if (version === floor.current) return { kind: 'current' }
-  if (floor.maxReadable === null || version <= floor.maxReadable) return { kind: 'newer_read_only', version }
+  if (floor.maxReadable === null || version <= floor.maxReadable) return { kind: 'newer_readable', version }
   return { kind: 'refused_newer', version, maxSupported: floor.maxReadable }
 }

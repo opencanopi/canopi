@@ -1,5 +1,5 @@
-//! Emits `desktop/web/src/generated/store-chain.ts` from `canopi_types::store_chain::STORE_FLOORS`
-//! (Stage 2 Item 9; ADR 0023, ADR 0026).
+//! Emits `desktop/web/src/generated/store-chain.ts` from `canopi_types::store_chain`
+//! (Stage 2 Item 9; contracts §11, ADR 0023, ADR 0026, 2.1-M485, 2.1-M540).
 
 use canopi_types::store_chain::{FORM_SPECS, STORE_FLOORS};
 use std::error::Error;
@@ -19,27 +19,28 @@ pub(crate) fn render_store_chain_ts() -> Result<String, Box<dyn Error>> {
     writeln!(out, "  readonly store: StoreId")?;
     writeln!(out, "  readonly minReadable: number")?;
     writeln!(out, "  readonly current: number")?;
+    writeln!(out, "  readonly stepCount: number")?;
     writeln!(out, "  readonly maxReadable: number | null")?;
     writeln!(out, "}}")?;
     writeln!(out)?;
-    writeln!(out, "export type StoredForm =")?;
-    writeln!(out, "  | {{ readonly kind: 'missing' }}")?;
+    writeln!(out, "export type Admission =")?;
+    writeln!(out, "  | {{ readonly kind: 'absent' }}")?;
+    writeln!(
+        out,
+        "  | {{ readonly kind: 'before_floor'; readonly version: number; readonly minReadable: number }}"
+    )?;
     writeln!(out, "  | {{ readonly kind: 'current' }}")?;
     writeln!(
         out,
-        "  | {{ readonly kind: 'upgradable'; readonly from: number }}"
+        "  | {{ readonly kind: 'migratable'; readonly from: number }}"
     )?;
     writeln!(
         out,
-        "  | {{ readonly kind: 'newer_read_only'; readonly version: number }}"
+        "  | {{ readonly kind: 'newer_readable'; readonly version: number }}"
     )?;
     writeln!(
         out,
         "  | {{ readonly kind: 'refused_newer'; readonly version: number; readonly maxSupported: number }}"
-    )?;
-    writeln!(
-        out,
-        "  | {{ readonly kind: 'pre_floor'; readonly version: number; readonly minReadable: number }}"
     )?;
     writeln!(out)?;
     writeln!(
@@ -54,24 +55,26 @@ pub(crate) fn render_store_chain_ts() -> Result<String, Box<dyn Error>> {
         };
         writeln!(
             out,
-            "  {key}: {{ store: {key}, minReadable: {}, current: {}, maxReadable: {max_readable} }},",
-            row.min_readable, row.current
+            "  {key}: {{ store: {key}, minReadable: {}, current: {}, stepCount: {}, maxReadable: {max_readable} }},",
+            row.min_readable,
+            row.current,
+            row.step_count()
         )?;
     }
     writeln!(out, "}} as const")?;
     writeln!(out)?;
     writeln!(
         out,
-        "export function admitStoreVersion(floor: StoreFloor, version: number | null): StoredForm {{"
+        "export function admitStoreVersion(floor: StoreFloor, version: number | null): Admission {{"
     )?;
-    writeln!(out, "  if (version === null) return {{ kind: 'missing' }}")?;
+    writeln!(out, "  if (version === null) return {{ kind: 'absent' }}")?;
     writeln!(
         out,
-        "  if (version < floor.minReadable) return {{ kind: 'pre_floor', version, minReadable: floor.minReadable }}"
+        "  if (version < floor.minReadable) return {{ kind: 'before_floor', version, minReadable: floor.minReadable }}"
     )?;
     writeln!(
         out,
-        "  if (version < floor.current) return {{ kind: 'upgradable', from: version }}"
+        "  if (version < floor.current) return {{ kind: 'migratable', from: version }}"
     )?;
     writeln!(
         out,
@@ -79,7 +82,7 @@ pub(crate) fn render_store_chain_ts() -> Result<String, Box<dyn Error>> {
     )?;
     writeln!(
         out,
-        "  if (floor.maxReadable === null || version <= floor.maxReadable) return {{ kind: 'newer_read_only', version }}"
+        "  if (floor.maxReadable === null || version <= floor.maxReadable) return {{ kind: 'newer_readable', version }}"
     )?;
     writeln!(
         out,
@@ -95,17 +98,17 @@ fn write_form_specs_ts(out: &mut String) -> Result<(), Box<dyn Error>> {
         .map(|spec| serde_json::to_string(&spec.form))
         .collect::<Result<Vec<_>, _>>()?
         .join(" | ");
-    writeln!(out, "export type FormId = {form_union}")?;
+    writeln!(out, "export type StoredForm = {form_union}")?;
     writeln!(out)?;
     writeln!(out, "export interface FormSpec {{")?;
-    writeln!(out, "  readonly form: FormId")?;
+    writeln!(out, "  readonly form: StoredForm")?;
     writeln!(out, "  readonly store: StoreId | null")?;
     writeln!(out, "  readonly floor: number")?;
     writeln!(out, "}}")?;
     writeln!(out)?;
     writeln!(
         out,
-        "export const FORM_SPECS: Readonly<Record<FormId, FormSpec>> = {{"
+        "export const FORM_SPECS: Readonly<Record<StoredForm, FormSpec>> = {{"
     )?;
     for spec in FORM_SPECS {
         let key = serde_json::to_string(&spec.form)?;

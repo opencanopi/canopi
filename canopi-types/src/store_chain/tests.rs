@@ -2,32 +2,29 @@ use super::*;
 
 #[test]
 fn admit_version_classifies_every_boundary() {
-    let bounded = StoreFloor {
-        store: StoreId::UserDb,
-        min_readable: 2,
-        current: 9,
-        max_readable: Some(10),
-    };
-    assert_eq!(admit_version(bounded, None), StoredForm::Missing);
+    let bounded = StoreFloor::from_steps(StoreId::UserDb, 2, 7, Some(10));
+    assert_eq!(bounded.current, 9);
+    assert_eq!(bounded.step_count(), 7);
+    assert_eq!(admit_version(bounded, None), Admission::Absent);
     assert_eq!(
         admit_version(bounded, Some(1)),
-        StoredForm::PreFloor {
+        Admission::BeforeFloor {
             version: 1,
             min_readable: 2
         }
     );
     assert_eq!(
         admit_version(bounded, Some(2)),
-        StoredForm::Upgradable { from: 2 }
+        Admission::Migratable { from: 2 }
     );
-    assert_eq!(admit_version(bounded, Some(9)), StoredForm::Current);
+    assert_eq!(admit_version(bounded, Some(9)), Admission::Current);
     assert_eq!(
         admit_version(bounded, Some(10)),
-        StoredForm::NewerReadOnly { version: 10 }
+        Admission::NewerReadable { version: 10 }
     );
     assert_eq!(
         admit_version(bounded, Some(11)),
-        StoredForm::RefusedNewer {
+        Admission::RefusedNewer {
             version: 11,
             max_supported: 10
         }
@@ -37,22 +34,22 @@ fn admit_version_classifies_every_boundary() {
     assert_eq!(unbounded.min_readable, 9);
     assert_eq!(unbounded.current, 9);
     assert_eq!(unbounded.max_readable, None);
-    assert_eq!(admit_version(unbounded, None), StoredForm::Missing);
+    assert_eq!(admit_version(unbounded, None), Admission::Absent);
     assert_eq!(
         admit_version(unbounded, Some(8)),
-        StoredForm::PreFloor {
+        Admission::BeforeFloor {
             version: 8,
             min_readable: 9
         }
     );
-    assert_eq!(admit_version(unbounded, Some(9)), StoredForm::Current);
+    assert_eq!(admit_version(unbounded, Some(9)), Admission::Current);
     assert_eq!(
         admit_version(unbounded, Some(10)),
-        StoredForm::NewerReadOnly { version: 10 }
+        Admission::NewerReadable { version: 10 }
     );
     assert_eq!(
         admit_version(unbounded, Some(999)),
-        StoredForm::NewerReadOnly { version: 999 }
+        Admission::NewerReadable { version: 999 }
     );
 }
 
@@ -61,7 +58,7 @@ fn admit_version_matches_shared_parity_fixture() {
     #[derive(Deserialize)]
     struct ParityCase {
         found: Option<u32>,
-        expected: StoredForm,
+        expected: Admission,
     }
     #[derive(Deserialize)]
     struct BoundedFixture {
@@ -75,7 +72,7 @@ fn admit_version_matches_shared_parity_fixture() {
     struct StoreCase {
         store: StoreId,
         found: Option<u32>,
-        expected: StoredForm,
+        expected: Admission,
     }
     #[derive(Deserialize)]
     struct ParityFixture {
@@ -86,12 +83,12 @@ fn admit_version_matches_shared_parity_fixture() {
     let fixture: ParityFixture =
         serde_json::from_str(include_str!("../../fixtures/store-chain-parity.json"))
             .expect("store-chain-parity.json must deserialize");
-    let bounded = StoreFloor {
-        store: fixture.bounded.store,
-        min_readable: fixture.bounded.min_readable,
-        current: fixture.bounded.current,
-        max_readable: fixture.bounded.max_readable,
-    };
+    let bounded = StoreFloor::from_steps(
+        fixture.bounded.store,
+        fixture.bounded.min_readable,
+        fixture.bounded.current - fixture.bounded.min_readable,
+        fixture.bounded.max_readable,
+    );
     for case in &fixture.bounded.cases {
         assert_eq!(admit_version(bounded, case.found), case.expected);
     }
@@ -161,26 +158,29 @@ fn chain_derives_current_validates_steps_and_runs_upgrades() {
         steps: STEPS,
         reads_newer_up_to: Some(4),
     };
+    const _: () = CHAIN.assert_valid();
+
     assert!(CHAIN.is_valid());
     assert_eq!(CHAIN.current(), 3);
-    assert_eq!(CHAIN.admit(Some(1)), StoredForm::Upgradable { from: 1 });
-    assert_eq!(CHAIN.admit(Some(3)), StoredForm::Current);
+    assert_eq!(CHAIN.store_floor().step_count(), 2);
+    assert_eq!(CHAIN.admit(Some(1)), Admission::Migratable { from: 1 });
+    assert_eq!(CHAIN.admit(Some(3)), Admission::Current);
     assert_eq!(
         CHAIN.admit(Some(4)),
-        StoredForm::NewerReadOnly { version: 4 }
+        Admission::NewerReadable { version: 4 }
     );
     assert_eq!(
         CHAIN.admit(Some(5)),
-        StoredForm::RefusedNewer {
+        Admission::RefusedNewer {
             version: 5,
             max_supported: 4
         }
     );
 
-    assert_eq!(CHAIN.run(None, vec![]), Ok(ChainOutcome::Missing));
+    assert_eq!(CHAIN.run(None, vec![]), Ok(ChainOutcome::Absent));
     assert_eq!(
         CHAIN.run(Some(0), vec![]),
-        Ok(ChainOutcome::PreFloor {
+        Ok(ChainOutcome::BeforeFloor {
             version: 0,
             min_readable: 1
         })
@@ -211,7 +211,7 @@ fn chain_derives_current_validates_steps_and_runs_upgrades() {
     );
     assert_eq!(
         CHAIN.run(Some(4), vec!["v4"]),
-        Ok(ChainOutcome::NewerReadOnly {
+        Ok(ChainOutcome::NewerReadable {
             version: 4,
             value: vec!["v4"],
         })
@@ -243,6 +243,7 @@ fn chain_reports_step_errors_and_invalid_step_tables() {
         steps: FAILING,
         reads_newer_up_to: None,
     };
+    const _: () = FAIL_CHAIN.assert_valid();
     assert_eq!(
         FAIL_CHAIN.run(Some(1), 0),
         Err(StepError {

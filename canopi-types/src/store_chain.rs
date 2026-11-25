@@ -1,108 +1,14 @@
-//! Single home for stored-data chain floors and version admission (Stage 2 Item 9;
-//! ADR 0023, ADR 0026). `bindings-gen` emits the TypeScript table from [`STORE_FLOORS`];
-//! `platform/store-chain.ts` holds only the thin synchronous step runner.
+//! Single home for stored-data forms, chain floors, and version admission
+//! (Stage 2 Item 9; contracts §11, ADR 0023, ADR 0026, 2.1-M157, 2.1-M485, 2.1-M540).
+//!
+//! `bindings-gen` emits the TypeScript tables and admission helper from [`FORM_SPECS`]
+//! and [`STORE_FLOORS`]; `platform/store-chain.ts` holds only the thin synchronous step runner.
 
 use crate::health::StoreId;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
-/// The version bounds a store recognises at open time.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
-pub struct StoreFloor {
-    /// Store identifier from `canopi_types::health::StoreId`.
-    pub store: StoreId,
-    /// Lowest stored version this build can read or migrate from.
-    pub min_readable: u32,
-    /// Current schema/record version written by this build.
-    pub current: u32,
-    /// Highest stored version this build may read read-only (`None` = unbounded per 2.1-M480).
-    pub max_readable: Option<u32>,
-}
-
-/// How an existing store's version compares to this build's [`StoreFloor`].
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
-#[serde(tag = "kind", rename_all = "snake_case")]
-pub enum StoredForm {
-    /// No store exists yet; caller initializes at `current`.
-    Missing,
-    /// Stored version equals `current`.
-    Current,
-    /// Stored version is older than `current` and within `[min_readable, current)`.
-    Upgradable {
-        /// Stored version found on disk or in browser storage.
-        from: u32,
-    },
-    /// Stored version is newer than `current` but readable read-only (`<= max_readable`).
-    NewerReadOnly {
-        /// Stored version found.
-        version: u32,
-    },
-    /// Stored version is newer than `max_readable` and must be refused untouched.
-    RefusedNewer {
-        /// Stored version found.
-        version: u32,
-        /// Highest version this build recognises.
-        max_supported: u32,
-    },
-    /// Stored version is below `min_readable` (pre-2.0 or unrecognised legacy form).
-    PreFloor {
-        /// Stored version found.
-        version: u32,
-        /// Minimum version this build migrates from.
-        min_readable: u32,
-    },
-}
-
-/// Version floor for `user.db` (`PRAGMA user_version`, contracts §11, 2.1-M480).
-pub const USER_DB_FLOOR: StoreFloor = StoreFloor {
-    store: StoreId::UserDb,
-    min_readable: 9,
-    current: 9,
-    max_readable: None,
-};
-
-/// Version floor for the settings record (contracts §11, 2.1-M480).
-pub const SETTINGS_FLOOR: StoreFloor = StoreFloor {
-    store: StoreId::Settings,
-    min_readable: 1,
-    current: 1,
-    max_readable: None,
-};
-
-/// Version floor for the Data library catalogue (`catalogue.sqlite`, contracts §11).
-pub const LIBRARY_CATALOGUE_FLOOR: StoreFloor = StoreFloor {
-    store: StoreId::LibraryCatalogue,
-    min_readable: 25,
-    current: 25,
-    max_readable: None,
-};
-
-/// Version floor for Web Drafts IndexedDB store (contracts §11, 2.1-M486).
-pub const WEB_DRAFTS_FLOOR: StoreFloor = StoreFloor {
-    store: StoreId::WebDrafts,
-    min_readable: 4,
-    current: 4,
-    max_readable: None,
-};
-
-/// Version floor for Web species-list record (contracts §11, 2.1-M486).
-pub const WEB_SPECIES_LISTS_FLOOR: StoreFloor = StoreFloor {
-    store: StoreId::WebSpeciesLists,
-    min_readable: 1,
-    current: 1,
-    max_readable: None,
-};
-
-/// The version floors for every versioned store (contracts §11, ADR 0026, 2.1-M480, 2.1-M486).
-pub const STORE_FLOORS: &[StoreFloor] = &[
-    USER_DB_FLOOR,
-    SETTINGS_FLOOR,
-    LIBRARY_CATALOGUE_FLOOR,
-    WEB_DRAFTS_FLOOR,
-    WEB_SPECIES_LISTS_FLOOR,
-];
-
-/// Closed table of every versioned stored form in Canopi (contracts §11, 2.1-M485).
+/// Closed table of every versioned stored form in Canopi (contracts §11, 2.1-M485, 2.1-M540).
 ///
 /// Forms with a `SubsystemHealth` entry map to `Some(StoreId)`; document/payload/legacy
 /// forms without a top-level health row map to `None`.
@@ -110,7 +16,7 @@ pub const STORE_FLOORS: &[StoreFloor] = &[
     Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, Type,
 )]
 #[serde(rename_all = "snake_case")]
-pub enum FormId {
+pub enum StoredForm {
     /// `.canopi` Design, Draft, and stamp files (`canopi-format`, floor 9).
     CanopiFile,
     /// Desktop `user.db` SQLite database (floor 9).
@@ -134,58 +40,181 @@ pub enum FormId {
 /// Metadata row for one entry in the closed [`FORM_SPECS`] table (contracts §11, 2.1-M485).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
 pub struct FormSpec {
-    /// Form identifier.
-    pub form: FormId,
+    /// Stored form identifier.
+    pub form: StoredForm,
     /// Associated `SubsystemHealth` store key, or `None` when the form has no health row.
     pub store: Option<StoreId>,
     /// Lowest stored version this release line recognises (ADR 0026).
     pub floor: u32,
 }
 
+/// The version bounds a store recognises at open time.
+///
+/// `current` is always derived as `min_readable + step_count` via [`StoreFloor::from_steps`]
+/// so a version bump cannot exist without its migration steps (contracts §11, 2.1-M157).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
+pub struct StoreFloor {
+    /// Store identifier from `canopi_types::health::StoreId`.
+    pub store: StoreId,
+    /// Lowest stored version this build can read or migrate from.
+    pub min_readable: u32,
+    /// Current schema/record version written by this build (`min_readable + step_count`).
+    pub current: u32,
+    /// Highest stored version this build may read read-only (`None` = unbounded per 2.1-M480).
+    pub max_readable: Option<u32>,
+}
+
+impl StoreFloor {
+    /// Builds a [`StoreFloor`] deriving `current = floor + step_count` (contracts §11, 2.1-M157).
+    #[must_use]
+    pub const fn from_steps(
+        store: StoreId,
+        floor: u32,
+        step_count: u32,
+        max_readable: Option<u32>,
+    ) -> Self {
+        let current = floor + step_count;
+        if let Some(max) = max_readable {
+            assert!(max >= current, "max_readable must be >= current");
+        }
+        Self {
+            store,
+            min_readable: floor,
+            current,
+            max_readable,
+        }
+    }
+
+    /// Number of frozen migration steps between `min_readable` and `current`.
+    #[must_use]
+    pub const fn step_count(&self) -> u32 {
+        self.current - self.min_readable
+    }
+}
+
+/// How an existing store's version compares to this build's [`StoreFloor`] (contracts §11).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum Admission {
+    /// No store exists yet; caller initializes at `current`.
+    Absent,
+    /// Stored version is below `min_readable` (pre-2.0 or unrecognised legacy form).
+    BeforeFloor {
+        /// Stored version found.
+        version: u32,
+        /// Minimum version this build migrates from.
+        min_readable: u32,
+    },
+    /// Stored version equals `current`.
+    Current,
+    /// Stored version is older than `current` and within `[min_readable, current)`.
+    Migratable {
+        /// Stored version found on disk or in browser storage.
+        from: u32,
+    },
+    /// Stored version is newer than `current` but readable read-only (`<= max_readable`).
+    NewerReadable {
+        /// Stored version found.
+        version: u32,
+    },
+    /// Stored version is newer than `max_readable` and must be refused untouched.
+    RefusedNewer {
+        /// Stored version found.
+        version: u32,
+        /// Highest version this build recognises.
+        max_supported: u32,
+    },
+}
+
+/// Version floor for `user.db` (`PRAGMA user_version`, contracts §11, 2.1-M480).
+/// Bumping `current` requires adding a frozen step to the store's [`Chain`] (2.1-M157).
+pub const USER_DB_FLOOR: StoreFloor = StoreFloor::from_steps(StoreId::UserDb, 9, 0, None);
+
+/// Version floor for the settings record (contracts §11, 2.1-M480).
+/// Bumping `current` requires adding a frozen step to the store's [`Chain`] (2.1-M157).
+pub const SETTINGS_FLOOR: StoreFloor = StoreFloor::from_steps(StoreId::Settings, 1, 0, None);
+
+/// Version floor for the Data library catalogue (`catalogue.sqlite`, contracts §11).
+/// Bumping `current` requires adding a frozen step to the store's [`Chain`] (2.1-M157).
+pub const LIBRARY_CATALOGUE_FLOOR: StoreFloor =
+    StoreFloor::from_steps(StoreId::LibraryCatalogue, 25, 0, None);
+
+/// Version floor for Web Drafts IndexedDB store (contracts §11, 2.1-M486).
+/// Bumping `current` requires adding a frozen step to the store's [`Chain`] (2.1-M157).
+pub const WEB_DRAFTS_FLOOR: StoreFloor = StoreFloor::from_steps(StoreId::WebDrafts, 4, 0, None);
+
+/// Version floor for Web species-list record (contracts §11, 2.1-M486).
+/// Bumping `current` requires adding a frozen step to the store's [`Chain`] (2.1-M157).
+pub const WEB_SPECIES_LISTS_FLOOR: StoreFloor =
+    StoreFloor::from_steps(StoreId::WebSpeciesLists, 1, 0, None);
+
+/// The version floors for every versioned store (contracts §11, ADR 0026, 2.1-M480, 2.1-M486).
+pub const STORE_FLOORS: &[StoreFloor] = &[
+    USER_DB_FLOOR,
+    SETTINGS_FLOOR,
+    LIBRARY_CATALOGUE_FLOOR,
+    WEB_DRAFTS_FLOOR,
+    WEB_SPECIES_LISTS_FLOOR,
+];
+
+// Compile-time guard (2.1-M157): until a store declares a `Chain` with frozen steps,
+// its `current` cannot drift above `min_readable` without adding steps through a `Chain`.
+const _: () = {
+    let mut i = 0;
+    while i < STORE_FLOORS.len() {
+        let row = STORE_FLOORS[i];
+        assert!(
+            row.current == row.min_readable,
+            "store current version must be bumped by adding frozen steps to its Chain"
+        );
+        i += 1;
+    }
+};
+
 /// Every versioned stored form and its floor (contracts §11, ADR 0026, 2.1-M485).
 pub const FORM_SPECS: &[FormSpec] = &[
     FormSpec {
-        form: FormId::CanopiFile,
+        form: StoredForm::CanopiFile,
         store: None,
         floor: 9,
     },
     FormSpec {
-        form: FormId::UserDb,
+        form: StoredForm::UserDb,
         store: Some(StoreId::UserDb),
         floor: USER_DB_FLOOR.min_readable,
     },
     FormSpec {
-        form: FormId::SavedStampPayload,
+        form: StoredForm::SavedStampPayload,
         store: None,
         floor: 2,
     },
     FormSpec {
-        form: FormId::Settings,
+        form: StoredForm::Settings,
         store: Some(StoreId::Settings),
         floor: SETTINGS_FLOOR.min_readable,
     },
     FormSpec {
-        form: FormId::LibraryCatalogue,
+        form: StoredForm::LibraryCatalogue,
         store: Some(StoreId::LibraryCatalogue),
         floor: LIBRARY_CATALOGUE_FLOOR.min_readable,
     },
     FormSpec {
-        form: FormId::SourceMeta,
+        form: StoredForm::SourceMeta,
         store: None,
         floor: 1,
     },
     FormSpec {
-        form: FormId::WebDrafts,
+        form: StoredForm::WebDrafts,
         store: Some(StoreId::WebDrafts),
         floor: WEB_DRAFTS_FLOOR.min_readable,
     },
     FormSpec {
-        form: FormId::WebSpeciesLists,
+        form: StoredForm::WebSpeciesLists,
         store: Some(StoreId::WebSpeciesLists),
         floor: WEB_SPECIES_LISTS_FLOOR.min_readable,
     },
     FormSpec {
-        form: FormId::WebLegacyContainer,
+        form: StoredForm::WebLegacyContainer,
         store: None,
         floor: 3,
     },
@@ -193,17 +222,17 @@ pub const FORM_SPECS: &[FormSpec] = &[
 
 /// Returns the [`FormSpec`] for `form`.
 #[must_use]
-pub const fn form_spec(form: FormId) -> &'static FormSpec {
+pub const fn form_spec(form: StoredForm) -> &'static FormSpec {
     let idx = match form {
-        FormId::CanopiFile => 0,
-        FormId::UserDb => 1,
-        FormId::SavedStampPayload => 2,
-        FormId::Settings => 3,
-        FormId::LibraryCatalogue => 4,
-        FormId::SourceMeta => 5,
-        FormId::WebDrafts => 6,
-        FormId::WebSpeciesLists => 7,
-        FormId::WebLegacyContainer => 8,
+        StoredForm::CanopiFile => 0,
+        StoredForm::UserDb => 1,
+        StoredForm::SavedStampPayload => 2,
+        StoredForm::Settings => 3,
+        StoredForm::LibraryCatalogue => 4,
+        StoredForm::SourceMeta => 5,
+        StoredForm::WebDrafts => 6,
+        StoredForm::WebSpeciesLists => 7,
+        StoredForm::WebLegacyContainer => 8,
     };
     &FORM_SPECS[idx]
 }
@@ -229,7 +258,7 @@ pub struct StepError<E> {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ChainOutcome<T> {
     /// No store exists yet; caller initializes at `current`.
-    Missing,
+    Absent,
     /// Store is at `current` (either already current or upgraded via `steps_run` steps).
     Current {
         /// Final version (`chain.current()`).
@@ -240,7 +269,7 @@ pub enum ChainOutcome<T> {
         steps_run: usize,
     },
     /// Store is newer than `current` but within `reads_newer_up_to` (read-only).
-    NewerReadOnly {
+    NewerReadable {
         /// Stored version found.
         version: u32,
         /// Original value untouched.
@@ -254,7 +283,7 @@ pub enum ChainOutcome<T> {
         max_supported: u32,
     },
     /// Store is below `floor` (pre-2.0 or unrecognised legacy form).
-    PreFloor {
+    BeforeFloor {
         /// Stored version found.
         version: u32,
         /// Minimum version this chain migrates from.
@@ -263,6 +292,10 @@ pub enum ChainOutcome<T> {
 }
 
 /// Declarative store migration chain where `current() = floor + steps.len()` (contracts §11, 2.1-M157, 2.1-M540).
+///
+/// Consumed by Rust store migrators (2e-2 settings record 2, N1 `user.db` steps). Call
+/// `const _: () = CHAIN.assert_valid();` beside every static chain so non-contiguous steps
+/// fail at compile time.
 pub struct Chain<'a, T, E> {
     /// Store identifier from `canopi_types::health::StoreId`.
     pub store: StoreId,
@@ -275,27 +308,33 @@ pub struct Chain<'a, T, E> {
 }
 
 impl<T, E> Chain<'_, T, E> {
-    /// Current version written by this chain (`floor + steps.len()`).
+    /// Number of migration steps as `u32`.
     #[must_use]
-    pub const fn current(&self) -> u32 {
+    pub const fn step_count(&self) -> u32 {
         let mut count: u32 = 0;
         let mut idx = 0;
         while idx < self.steps.len() {
             count += 1;
             idx += 1;
         }
-        self.floor + count
+        count
     }
 
-    /// Derived [`StoreFloor`] for admission checks.
+    /// Current version written by this chain (`floor + steps.len()`).
+    #[must_use]
+    pub const fn current(&self) -> u32 {
+        self.floor + self.step_count()
+    }
+
+    /// Derived [`StoreFloor`] for admission checks (`current = floor + steps.len()`).
     #[must_use]
     pub const fn store_floor(&self) -> StoreFloor {
-        StoreFloor {
-            store: self.store,
-            min_readable: self.floor,
-            current: self.current(),
-            max_readable: self.reads_newer_up_to,
-        }
+        StoreFloor::from_steps(
+            self.store,
+            self.floor,
+            self.step_count(),
+            self.reads_newer_up_to,
+        )
     }
 
     /// Returns `true` iff every step has `steps[i].from == floor + i` and `reads_newer_up_to`
@@ -317,43 +356,50 @@ impl<T, E> Chain<'_, T, E> {
         }
     }
 
+    /// Compile-time and runtime invariant check for a [`Chain`].
+    ///
+    /// Invoke inside `const _: () = CHAIN.assert_valid();` beside every declared chain.
+    pub const fn assert_valid(&self) {
+        assert!(
+            self.is_valid(),
+            "store chain steps must be contiguous from floor and reads_newer_up_to >= current"
+        );
+    }
+
     /// Classifies an optional stored version against this chain.
     #[must_use]
-    pub fn admit(&self, version: Option<u32>) -> StoredForm {
+    pub fn admit(&self, version: Option<u32>) -> Admission {
         admit_version(self.store_floor(), version)
     }
 
-    /// Classifies `version` and, when upgradable, runs each step in order up to `current()`.
+    /// Classifies `version` and, when migratable, runs each step in order up to `current()`.
     pub fn run(&self, version: Option<u32>, mut value: T) -> Result<ChainOutcome<T>, StepError<E>> {
-        debug_assert!(
-            self.is_valid(),
-            "store chain steps must be contiguous from floor"
-        );
+        self.assert_valid();
         match self.admit(version) {
-            StoredForm::Missing => Ok(ChainOutcome::Missing),
-            StoredForm::Current => Ok(ChainOutcome::Current {
+            Admission::Absent => Ok(ChainOutcome::Absent),
+            Admission::Current => Ok(ChainOutcome::Current {
                 version: self.current(),
                 value,
                 steps_run: 0,
             }),
-            StoredForm::NewerReadOnly { version } => {
-                Ok(ChainOutcome::NewerReadOnly { version, value })
+            Admission::NewerReadable { version } => {
+                Ok(ChainOutcome::NewerReadable { version, value })
             }
-            StoredForm::RefusedNewer {
+            Admission::RefusedNewer {
                 version,
                 max_supported,
             } => Ok(ChainOutcome::RefusedNewer {
                 version,
                 max_supported,
             }),
-            StoredForm::PreFloor {
+            Admission::BeforeFloor {
                 version,
                 min_readable,
-            } => Ok(ChainOutcome::PreFloor {
+            } => Ok(ChainOutcome::BeforeFloor {
                 version,
                 min_readable,
             }),
-            StoredForm::Upgradable { from } => {
+            Admission::Migratable { from } => {
                 let start_index = (from - self.floor) as usize;
                 let mut steps_run = 0;
                 for step in &self.steps[start_index..] {
@@ -379,32 +425,32 @@ pub fn floor_for(store: StoreId) -> Option<StoreFloor> {
     STORE_FLOORS.iter().copied().find(|row| row.store == store)
 }
 
-/// Returns true iff `found` is non-negative and [`admit_version`] classifies it as [`StoredForm::Current`].
+/// Returns true iff `found` is non-negative and [`admit_version`] classifies it as [`Admission::Current`].
 pub fn is_current_version(store: StoreId, found: i32) -> bool {
     let (Some(floor), Ok(version)) = (floor_for(store), u32::try_from(found)) else {
         return false;
     };
-    admit_version(floor, Some(version)) == StoredForm::Current
+    admit_version(floor, Some(version)) == Admission::Current
 }
 
 /// Classifies an optional stored version against `floor`.
-pub fn admit_version(floor: StoreFloor, version: Option<u32>) -> StoredForm {
+pub fn admit_version(floor: StoreFloor, version: Option<u32>) -> Admission {
     let Some(version) = version else {
-        return StoredForm::Missing;
+        return Admission::Absent;
     };
     if version < floor.min_readable {
-        StoredForm::PreFloor {
+        Admission::BeforeFloor {
             version,
             min_readable: floor.min_readable,
         }
     } else if version < floor.current {
-        StoredForm::Upgradable { from: version }
+        Admission::Migratable { from: version }
     } else if version == floor.current {
-        StoredForm::Current
+        Admission::Current
     } else if floor.max_readable.is_none_or(|max| version <= max) {
-        StoredForm::NewerReadOnly { version }
+        Admission::NewerReadable { version }
     } else {
-        StoredForm::RefusedNewer {
+        Admission::RefusedNewer {
             version,
             max_supported: floor.max_readable.unwrap_or(floor.current),
         }
