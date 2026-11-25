@@ -1,8 +1,7 @@
-import { computed, signal, type ReadonlySignal } from '@preact/signals'
+import { computed, signal } from '@preact/signals'
 import type { BasemapStyle, LastView, Locale, PlantLabels, SatelliteSource, ScrollWheel, Theme } from '../../generated/contracts'
 import type { UnitSystem } from '../../generated/quantity-table'
 import { DEFAULT_SETTINGS, SETTINGS_BASEMAP_STYLES } from '../../generated/settings'
-import type { LayerSlotId, LayerStatus } from '../../maplibre/map-lifetime'
 import { DEFAULT_SAVED_STAMPS_FRAME_HEIGHT, MIN_FAVORITES_FRAME_HEIGHT } from './field-table'
 
 export { MIN_FAVORITES_FRAME_HEIGHT }
@@ -199,18 +198,4 @@ export function mapTerrainStateOf(state: MapLayersState) {
     hillshadeVisible: state.hillshade.visible,
     hillshadeOpacity: state.hillshade.opacity,
   }
-}
-
-export interface CanvasMapLayerStatusHost {
-  readonly layers: ReadonlySignal<ReadonlyMap<LayerSlotId, LayerStatus> | null>
-  retryLayer(slot: LayerSlotId): void
-}
-
-const mapLayerStatusHost = signal<CanvasMapLayerStatusHost | null>(null)
-
-export const layerStatus = {
-  get: (): CanvasMapLayerStatusHost | null => mapLayerStatusHost.value,
-  set(host: CanvasMapLayerStatusHost | null, onlyIf?: CanvasMapLayerStatusHost): void {
-    if (!onlyIf || mapLayerStatusHost.peek() === onlyIf) mapLayerStatusHost.value = host
-  },
 }

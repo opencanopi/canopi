@@ -1,38 +1,31 @@
 /**
- * Canopi raster display adapter: one upstream `LayerManager` per live map.
+ * Canopi raster display adapter: MapLibre `addProtocol` over the shared
+ * `cog-tiler-wasm` worker pool (2.1-M543, ADR 0004).
  *
- * This is the only owner of `maplibre-gl-raster` objects. It selects the
- * `cog-tiler-wasm` engine and injects Canopi collaborators through the public
- * `LayerManagerDeps` seam:
- *
- * - `loadCogTiler` returns a client of the shared worker pool, so decoding,
- *   reprojection and colorizing run off the UI thread;
- * - `loadMosaic` resolves an in-memory ordered asset list for a multi-source
- *   library item, instead of fetching a manifest;
- * - `computeAutoStats` is refused: the library supplies one layer-wide stretch,
- *   so speculative main-thread statistics never run.
+ * Each live map registers its own protocol (`canopi-raster-<n>`), adds one
+ * MapLibre raster source (`maxzoom: 22`, 2.1-M553) and raster layer per visible
+ * library item, and serves PNG tile `ArrayBuffer`s decoded off the UI thread by `RasterWorkerPool`. Multi-asset items composite
+ * intersecting COGs in order (first listed on top, `paintUnder`) before
+ * encoding to PNG.
  *
  * Layer identity is caller-owned and must change with the displayed immutable
  * generation, so a stale tile can never be served for newer data under the
- * same MapLibre source. Opacity is a paint change; visibility, style and asset
- * changes rebuild only the affected layer. The display holds one worker source
- * per URL, open exactly while a layer on the map reads that URL (see
- * `displaySources`). `dispose()` destroys the manager (its MapLibre layers,
- * sources, protocol and listeners) and releases the pool client, which rejects
- * queued work and closes worker sources.
+ * same MapLibre source. Opacity is a paint-only change; style changes (ramp,
+ * reverse, rescale) replace the source with a new revision while keeping open
+ * worker sources; asset changes replace the layer and release any URLs no
+ * remaining layer reads. `dispose()` removes owned layers and sources,
+ * unregisters the protocol, and releases the pool client.
  */
+import type { AddProtocolAction } from 'maplibre-gl'
+import type { MapLibreApi } from '../loader'
 import type { RasterPoolClient, RasterTileRequest, RasterWorkerPool } from './pool'
+import type { RasterRenderOptions } from './protocol'
 import { rasterWorkerPool } from './pool'
 import { recordRaster } from './diagnostics'
+import { RASTER_DISPLAY_SOURCE_PREFIX } from '../map-error-owner'
 import { reportMapSourceFailure } from '../map-errors'
 import type { LayerStatus } from '../map-lifetime'
 import { mercatorToGeo } from '../../geo/projection'
-import { WORKSPACE_MAP_MAX_ZOOM } from '../../geo/workspace-camera-policy'
-import type * as MaplibreGlRasterModule from 'maplibre-gl-raster'
-
-type RasterModule = typeof MaplibreGlRasterModule
-type LayerManager = InstanceType<RasterModule['LayerManager']>
-type LayerManagerMap = ConstructorParameters<RasterModule['LayerManager']>[0]
 
 type RasterBounds = readonly [west: number, south: number, east: number, north: number]
 
@@ -58,122 +51,137 @@ export interface RasterDisplayLayer {
 }
 
 export interface RasterDisplayOptions {
-  /** The engine added, replaced or removed map layers after an async load. */
+  /** MapLibre protocol registration API (`addProtocol` / `removeProtocol`). */
+  readonly maplibre: Pick<MapLibreApi, 'addProtocol' | 'removeProtocol'>
+  /** The adapter added, replaced or removed map layers. */
   readonly onLayersChanged?: () => void
   /** Per-layer status changes (`LayerStatus`, null when the layer is removed; MAP-02). */
   readonly onLayerStatus?: (id: string, status: LayerStatus | null) => void
-  readonly loadRasterModule?: () => Promise<RasterModule>
   readonly pool?: RasterWorkerPool
 }
 
-/** Map surface the adapter reads for viewport relevance. */
+/** Map surface the adapter reads and mutates for raster sources and layers. */
 export interface RasterDisplayMap {
   getBounds?(): { getWest(): number; getSouth(): number; getEast(): number; getNorth(): number }
   getZoom?(): number
   getLayersOrder?(): string[]
   getLayer?(id: string): unknown
-  isStyleLoaded?(): boolean
-  on?(type: 'idle' | 'sourcedata', listener: () => void): void
-  off?(type: 'idle' | 'sourcedata', listener: () => void): void
+  addSource?(id: string, source: Record<string, unknown>): void
+  getSource?(id: string): unknown
+  removeSource?(id: string): void
+  addLayer?(layer: Record<string, unknown>, beforeId?: string): void
+  removeLayer?(id: string): void
+  moveLayer?(id: string, beforeId?: string): void
+  setPaintProperty?(layerId: string, name: string, value: unknown): void
 }
 
 export interface RasterDisplay {
   /** Replace the desired layers, bottom first, placed beneath `beforeId`. */
   sync(layers: readonly RasterDisplayLayer[], beforeId: string | undefined): void
-  /** Layer ids the manager currently owns, bottom first. */
+  /** Layer ids the adapter currently owns, bottom first. */
   layerIds(): string[]
   /** Retries a single failed raster layer on the live map (MAP-02). */
   retryLayer?(id: string): void
   dispose(): void
 }
 
-const MOSAIC_SCHEME = 'canopi-display-mosaic'
-
 /**
- * The deepest tile zoom MapLibre asks a raster source for: the engine adds its
- * sources without a maxzoom, so MapLibre's raster default applies and closer
- * camera zooms overscale these tiles.
+ * Fixed MapLibre raster source maxzoom (2.1-M553 refining 2.1-M543):
+ * preserves base's z22 resolution and W9 overzoom; layer `maxzoom` stays
+ * omitted so MapLibre overscales cleanly through WORKSPACE_MAP_MAX_ZOOM.
  */
 const MAPLIBRE_RASTER_SOURCE_MAX_ZOOM = 22
 
 /**
- * Layer zoom range: upstream defaults a layer's maxZoom to 24 and MapLibre hides
- * a layer at `zoom >= maxzoom`, while the camera reaches WORKSPACE_MAP_MAX_ZOOM.
- * Finite, so the style stays serialisable.
+ * Layer minzoom: maxzoom is omitted on the layer (source-only maxzoom,
+ * 2.1-M543 / 2.1-M553) so MapLibre keeps the layer visible and overscales tiles
+ * at all camera zooms through WORKSPACE_MAP_MAX_ZOOM.
  */
 const LAYER_MIN_ZOOM = 0
-const LAYER_MAX_ZOOM = WORKSPACE_MAP_MAX_ZOOM + 1
+
+const TILE_SIZE = 256
+
+/** Minimal valid 1×1 transparent RGBA PNG returned for empty or out-of-bounds tiles. */
+const EMPTY_PNG_BYTES = new Uint8Array([
+  0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+  0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52,
+  0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
+  0x08, 0x06, 0x00, 0x00, 0x00, 0x1f, 0x15, 0xc4,
+  0x89, 0x00, 0x00, 0x00, 0x0a, 0x49, 0x44, 0x41,
+  0x54, 0x78, 0x9c, 0x63, 0x00, 0x01, 0x00, 0x00,
+  0x05, 0x00, 0x01, 0x0d, 0x0a, 0x2d, 0xb4, 0x00,
+  0x00, 0x00, 0x00, 0x49, 0x45, 0x4e, 0x44, 0xae,
+  0x42, 0x60, 0x82,
+])
+
+function emptyPngBuffer(): ArrayBuffer {
+  return EMPTY_PNG_BYTES.slice().buffer
+}
+
+function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
+  if (bytes.byteOffset === 0 && bytes.byteLength === bytes.buffer.byteLength && bytes.buffer instanceof ArrayBuffer) {
+    return bytes.buffer
+  }
+  return bytes.slice().buffer
+}
+
+function abortError(message = 'Raster tile request aborted'): Error {
+  const error = new Error(message)
+  error.name = 'AbortError'
+  return error
+}
+
+function isAbortError(error: unknown): boolean {
+  return error instanceof Error && error.name === 'AbortError'
+}
 
 interface Applied {
   readonly layer: RasterDisplayLayer
   readonly styleKey: string
   readonly sourceKey: string
+  readonly revision: number
+  readonly openToken: number
+  readonly sourceId: string
+}
+
+const protocolSequence = { next: 0 }
+
+function nextProtocolName(): string {
+  protocolSequence.next += 1
+  return `canopi-raster-${protocolSequence.next}`
 }
 
 export function createRasterDisplay(
   map: RasterDisplayMap,
-  options: RasterDisplayOptions = {},
+  options: RasterDisplayOptions,
 ): RasterDisplay {
+  const protocol = nextProtocolName()
   const client = (options.pool ?? rasterWorkerPool()).acquire()
   client.setRelevance((tile) => tileIsRelevant(map, tile))
-  const mosaics = new Map<string, RasterDisplayLayer>()
   /** URLs the layers on the map read; only these have worker sources. */
   let readUrls = new Set<string>()
   const sources = displaySources(client, (url) => readUrls.has(url))
   const applied = new Map<string, Applied>()
   const states = new Map<string, LayerStatus>()
-  let manager: LayerManager | null = null
+  const reportedTileFailure = new Set<string>()
   let desired: readonly RasterDisplayLayer[] = []
   let desiredBeforeId: string | undefined
+  let revisionSequence = 0
+  let openTokenSequence = 0
   let disposed = false
-  let nudging = false
-
-  /**
-   * The engine gates its first map mutation on `isStyleLoaded()`, which is
-   * false while any source (the basemap) is still loading, and then waits for
-   * a style event that a settled style never emits. Until every desired layer
-   * reaches the map, re-apply once the style reports loaded. The re-apply waits for the event's own task to finish:
-   * MapLibre fires 'sourcedata' synchronously inside the engine's restyle (between removing a layer's source and adding
-   * it again), and re-entering the engine there adds the source twice ("Source … already exists").
-   */
-  // upstream: W4
-  let nudgeQueued = false
-  const nudge = () => {
-    if (nudgeQueued) return
-    nudgeQueued = true
-    queueMicrotask(() => {
-      nudgeQueued = false
-      nudgeNow()
-    })
-  }
-  const nudgeNow = () => {
-    if (disposed || !manager) return stopNudging()
-    const missing = desired.some((layer) => applied.has(layer.id) && map.getLayer?.(layer.id) == null)
-    if (!missing) return stopNudging()
-    if (!map.isStyleLoaded?.()) return
-    const first = desired.find((layer) => applied.has(layer.id) && map.getLayer?.(layer.id) == null)
-    if (first) manager.setState(first.id, {})
-  }
-  const startNudging = () => {
-    if (nudging || !map.on || !map.getLayer) return
-    nudging = true
-    map.on('idle', nudge)
-    map.on('sourcedata', nudge)
-  }
-  function stopNudging(): void {
-    if (!nudging) return
-    nudging = false
-    map.off?.('idle', nudge)
-    map.off?.('sourcedata', nudge)
-  }
 
   const setState = (id: string, next: LayerStatus, error?: Error) => {
     const label = desired.find((layer) => layer.id === id)?.name
       ?? applied.get(id)?.layer.name
-      ?? mosaics.get(id)?.name
     const status: LayerStatus = next.kind === 'failed' && label ? { ...next, label } : next
     const prev = states.get(id)
-    if (prev && prev.kind === status.kind && (status.kind !== 'failed' || (prev.kind === 'failed' && prev.reason === status.reason && prev.label === status.label))) return
+    if (
+      prev
+      && prev.kind === status.kind
+      && (status.kind !== 'failed' || (prev.kind === 'failed' && prev.reason === status.reason && prev.label === status.label))
+    ) {
+      return
+    }
     states.set(id, status)
     const diagKind = status.kind === 'failed' ? 'layer-error' : status.kind === 'ready' ? 'layer-ready' : 'layer-loading'
     recordRaster({ kind: diagKind, id, detail: error?.message })
@@ -183,96 +191,199 @@ export function createRasterDisplay(
     options.onLayerStatus?.(id, status)
   }
 
-  const load = options.loadRasterModule ?? (() => import('maplibre-gl-raster'))
-  void load().then((module) => {
-    if (disposed) return
-    // upstream: W2
-    // upstream: W6 (no loadGeoTIFF here: the engine reads COG headers on the UI thread)
-    // The published declaration types `loadCogTiler` through a symbol the
-    // pinned `cog-tiler-wasm` does not export, so the deps are cast once here.
-    const deps = {
-      loadCogTiler: async () => sources.module,
-      loadMosaic: async (url: string) => mosaicFor(mosaics, url),
-      computeAutoStats: () => Promise.reject(new Error('display statistics come from the library')),
-    }
-    manager = new module.LayerManager(map as unknown as LayerManagerMap, { engine: 'cog-tiler-wasm' }, deps as never)
-    manager.on('rasterchange', (event) => {
-      recordRaster({ kind: 'rasterchange', id: event.layerId, detail: map.getLayersOrder?.().filter((id) => id.startsWith('lidar-')).join(',') })
-      if (!event.layerId) return
-      const layer = manager?.getLayer(event.layerId)
-      if (!layer) return
-      if (layer.error) setState(event.layerId, { kind: 'failed', reason: 'raster-failed' }, layer.error)
-      else if (!layer.loading) setState(event.layerId, { kind: 'ready' })
-      options.onLayersChanged?.()
-    })
-    manager.on('error', (event) => {
-      if (event.layerId) {
-        setState(event.layerId, { kind: 'failed', reason: 'raster-failed' }, event.error)
-      }
-    })
-    reconcile()
-  }, (error: unknown) => {
-    if (disposed) return
-    const err = error instanceof Error ? error : new Error(String(error))
-    for (const layer of desired) setState(layer.id, { kind: 'failed', reason: 'module-load' }, err)
-  })
+  const checkAborted = (signal: AbortSignal) => {
+    if (disposed || signal.aborted) throw abortError()
+  }
 
-  function reconcile(): void {
-    const current = manager
-    if (!current || disposed) return
-    const wanted = new Map(desired.map((layer) => [layer.id, layer]))
+  async function renderSingleAsset(
+    url: string,
+    z: number,
+    x: number,
+    y: number,
+    render: RasterRenderOptions,
+    signal: AbortSignal,
+  ): Promise<ArrayBuffer> {
+    const source = await sources.open(url)
+    checkAborted(signal)
+    const png = await source.renderTilePNG(z, x, y, render)
+    checkAborted(signal)
+    return png.byteLength > 0 ? toArrayBuffer(png) : emptyPngBuffer()
+  }
+
+  async function renderMosaic(
+    hitting: readonly RasterDisplayAsset[],
+    z: number,
+    x: number,
+    y: number,
+    render: RasterRenderOptions,
+    signal: AbortSignal,
+  ): Promise<ArrayBuffer> {
+    const opened = await Promise.all(hitting.map((asset) => sources.open(asset.url)))
+    checkAborted(signal)
+    const composite = new Uint8ClampedArray(TILE_SIZE * TILE_SIZE * 4)
+    let anyOpaque = false
+    for (const source of opened) {
+      const rgba = await source.renderTileRGBA(z, x, y, render)
+      checkAborted(signal)
+      if (!rgba?.length) continue
+      const result = paintUnder(composite, rgba)
+      if (result.painted) anyOpaque = true
+      if (result.complete) break
+    }
+    if (!anyOpaque) return emptyPngBuffer()
+    const png = await client.rgbaToPng(composite, TILE_SIZE, TILE_SIZE)
+    checkAborted(signal)
+    return png.byteLength > 0 ? toArrayBuffer(png) : emptyPngBuffer()
+  }
+
+  const handleTile: AddProtocolAction = async (params, abortController) => {
+    const { signal } = abortController
+    checkAborted(signal)
+    const parsed = parseTileUrl(protocol, params.url)
+    const entry = parsed ? applied.get(parsed.layerId) : undefined
+    if (!parsed || !entry || entry.revision !== parsed.revision) return { data: emptyPngBuffer() }
+    if (states.get(parsed.layerId)?.kind === 'failed') return { data: emptyPngBuffer() }
+
+    const tileBounds = tileBoundsLonLat(parsed.z, parsed.x, parsed.y)
+    const hitting = entry.layer.assets.filter((asset) => bboxIntersects(asset.bbox, tileBounds))
+    if (hitting.length === 0 || hitting.every((asset) => sources.hasFailed(asset.url))) {
+      return { data: emptyPngBuffer() }
+    }
+
+    const render = renderOptionsFor(entry.layer)
+    try {
+      const data = hitting.length === 1
+        ? await renderSingleAsset(hitting[0]!.url, parsed.z, parsed.x, parsed.y, render, signal)
+        : await renderMosaic(hitting, parsed.z, parsed.x, parsed.y, render, signal)
+      return { data }
+    } catch (error) {
+      if (disposed || signal.aborted || isAbortError(error)) throw abortError()
+      // Open failures are already reported once on the layer by addLayerEntry;
+      // avoid spamming per-tile errors while panning/zooming over a failed COG.
+      if (states.get(parsed.layerId)?.kind === 'failed' || hitting.some((asset) => sources.hasFailed(asset.url))) {
+        return { data: emptyPngBuffer() }
+      }
+      // Match base per-tile behaviour: log the tile failure once per layer open and draw
+      // a transparent tile rather than permanently marking a healthy layer failed from one bad tile.
+      const err = error instanceof Error ? error : new Error(String(error))
+      recordRaster({ kind: 'layer-error', id: parsed.layerId, detail: err.message })
+      const reportKey = `${parsed.layerId}:${entry.openToken}`
+      if (!reportedTileFailure.has(reportKey)) {
+        reportedTileFailure.add(reportKey)
+        reportMapSourceFailure('Raster display tile failed:', { sourceId: parsed.layerId, error: err })
+      }
+      return { data: emptyPngBuffer() }
+    }
+  }
+
+  options.maplibre.addProtocol(protocol, handleTile)
+
+  function tileUrlFor(layerId: string, revision: number): string {
+    return `${protocol}://${encodeURIComponent(layerId)}/${revision}/{z}/{x}/{y}`
+  }
+
+  function removeFromMap(layerId: string, sourceId: string): void {
+    if (map.getLayer?.(layerId)) map.removeLayer?.(layerId)
+    if (map.getSource?.(sourceId)) map.removeSource?.(sourceId)
+  }
+
+  function addToMap(layer: RasterDisplayLayer, sourceId: string, revision: number): void {
+    if (!map.addSource || !map.addLayer) return
+    map.addSource(sourceId, {
+      type: 'raster',
+      tiles: [tileUrlFor(layer.id, revision)],
+      tileSize: TILE_SIZE,
+      bounds: [...layer.bounds],
+      minzoom: 0,
+      maxzoom: MAPLIBRE_RASTER_SOURCE_MAX_ZOOM,
+    })
+    const anchor = desiredBeforeId && map.getLayer?.(desiredBeforeId) ? desiredBeforeId : undefined
+    map.addLayer({
+      id: layer.id,
+      type: 'raster',
+      source: sourceId,
+      minzoom: LAYER_MIN_ZOOM,
+      paint: {
+        'raster-opacity': layer.opacity,
+        'raster-fade-duration': 0,
+      },
+    }, anchor)
+  }
+
+  function removeStaleLayers(wanted: Map<string, RasterDisplayLayer>): void {
     const removedUrls = new Set<string>()
-    for (const id of [...applied.keys()]) {
+    for (const [id, previous] of [...applied.entries()]) {
       const next = wanted.get(id)
-      const previous = applied.get(id)!
       if (next && previous.sourceKey === sourceKey(next)) continue
-      current.removeRaster(id)
+      removeFromMap(id, previous.sourceId)
       recordRaster({ kind: 'remove', id })
       for (const asset of previous.layer.assets) removedUrls.add(asset.url)
+      reportedTileFailure.delete(`${id}:${previous.openToken}`)
       applied.delete(id)
-      mosaics.delete(id)
       if (states.delete(id)) options.onLayerStatus?.(id, null)
     }
-    // Every desired layer is on the map once this pass ends. The engine only
-    // forgets a dropped layer's COG proxies; close the worker sources no layer
-    // reads any more.
     readUrls = new Set(desired.flatMap((layer) => layer.assets.map((asset) => asset.url)))
     const unread = [...removedUrls].filter((url) => !readUrls.has(url))
     if (unread.length > 0) sources.release(unread)
-    desired.forEach((layer, index) => {
-      const previous = applied.get(layer.id)
-      const styleKey = styleKeyOf(layer)
-      if (!previous) {
-        const url = layer.assets.length === 1
-          ? layer.assets[0]!.url
-          : registerMosaic(mosaics, layer)
-        setState(layer.id, { kind: 'loading' })
-        recordRaster({ kind: 'add', id: layer.id, detail: `${layer.assets.length} asset(s)` })
-        applied.set(layer.id, { layer, styleKey, sourceKey: sourceKey(layer) })
-        current.addRaster(url, {
-          id: layer.id,
-          name: layer.name,
-          zoomTo: false,
-          beforeId: desiredBeforeId,
-          state: stateFor(layer),
-        }).catch((error: unknown) => {
-          if (disposed || applied.get(layer.id)?.layer !== layer) return
-          const err = error instanceof Error ? error : new Error(String(error))
-          setState(layer.id, { kind: 'failed', reason: 'raster-failed' }, err)
-        })
-      } else {
-        if (previous.styleKey !== styleKey) {
-          current.setState(layer.id, stateFor(layer))
-        } else if (previous.layer.opacity !== layer.opacity) {
-          current.setState(layer.id, { opacity: layer.opacity })
-        }
-        applied.set(layer.id, { layer, styleKey, sourceKey: previous.sourceKey })
-        current.setBeforeId(layer.id, desiredBeforeId ?? null)
-      }
-      const order = current.getLayers().findIndex((candidate) => candidate.id === layer.id)
-      if (order !== index && order >= 0) current.reorder(layer.id, index)
+  }
+
+  function addLayerEntry(layer: RasterDisplayLayer, styleKey: string): void {
+    const revision = ++revisionSequence
+    const openToken = ++openTokenSequence
+    const sourceId = `${RASTER_DISPLAY_SOURCE_PREFIX}${layer.id}-r${revision}`
+    setState(layer.id, { kind: 'loading' })
+    recordRaster({ kind: 'add', id: layer.id, detail: `${layer.assets.length} asset(s)` })
+    applied.set(layer.id, { layer, styleKey, sourceKey: sourceKey(layer), revision, openToken, sourceId })
+    addToMap(layer, sourceId, revision)
+    void Promise.all(layer.assets.map((asset) => sources.open(asset.url))).then(() => {
+      if (disposed || applied.get(layer.id)?.openToken !== openToken) return
+      setState(layer.id, { kind: 'ready' })
+      options.onLayersChanged?.()
+    }, (error: unknown) => {
+      if (disposed || applied.get(layer.id)?.openToken !== openToken || isAbortError(error)) return
+      const err = error instanceof Error ? error : new Error(String(error))
+      setState(layer.id, { kind: 'failed', reason: 'raster-failed' }, err)
     })
-    if (desired.length > 0) startNudging()
+  }
+
+  function syncLayer(layer: RasterDisplayLayer): void {
+    const previous = applied.get(layer.id)
+    const styleKey = styleKeyOf(layer)
+    if (!previous) {
+      addLayerEntry(layer, styleKey)
+      return
+    }
+    if (previous.styleKey !== styleKey) {
+      const revision = ++revisionSequence
+      const sourceId = `${RASTER_DISPLAY_SOURCE_PREFIX}${layer.id}-r${revision}`
+      removeFromMap(layer.id, previous.sourceId)
+      applied.set(layer.id, {
+        layer,
+        styleKey,
+        sourceKey: previous.sourceKey,
+        revision,
+        openToken: previous.openToken,
+        sourceId,
+      })
+      addToMap(layer, sourceId, revision)
+      return
+    }
+    if (previous.layer.opacity !== layer.opacity && map.getLayer?.(layer.id)) {
+      map.setPaintProperty?.(layer.id, 'raster-opacity', layer.opacity)
+    }
+    applied.set(layer.id, { ...previous, layer })
+  }
+
+  function reconcile(): void {
+    if (disposed) return
+    removeStaleLayers(new Map(desired.map((layer) => [layer.id, layer])))
+    for (const layer of desired) syncLayer(layer)
+    if (map.moveLayer) {
+      const anchor = desiredBeforeId && map.getLayer?.(desiredBeforeId) ? desiredBeforeId : undefined
+      for (const layer of desired) {
+        if (map.getLayer?.(layer.id)) map.moveLayer(layer.id, anchor)
+      }
+    }
     options.onLayersChanged?.()
   }
 
@@ -285,26 +396,28 @@ export function createRasterDisplay(
       reconcile()
     },
     layerIds() {
-      return manager ? manager.getLayers().map((layer) => layer.id) : []
+      return desired.filter((layer) => applied.has(layer.id)).map((layer) => layer.id)
     },
     retryLayer(id) {
-      if (disposed || !manager || !applied.has(id)) return
-      manager.removeRaster(id)
+      if (disposed) return
+      const previous = applied.get(id)
+      if (!previous) return
+      removeFromMap(id, previous.sourceId)
+      sources.clearFailed(previous.layer.assets.map((asset) => asset.url))
+      reportedTileFailure.delete(`${id}:${previous.openToken}`)
       applied.delete(id)
-      mosaics.delete(id)
       states.delete(id)
       reconcile()
     },
     dispose() {
       if (disposed) return
       disposed = true
-      stopNudging()
       try {
-        manager?.destroy()
+        for (const [id, entry] of applied) removeFromMap(id, entry.sourceId)
       } finally {
-        manager = null
+        options.maplibre.removeProtocol?.(protocol)
         applied.clear()
-        mosaics.clear()
+        reportedTileFailure.clear()
         readUrls = new Set()
         states.clear()
         client.dispose()
@@ -313,20 +426,12 @@ export function createRasterDisplay(
   }
 }
 
-function stateFor(layer: RasterDisplayLayer) {
+function renderOptionsFor(layer: RasterDisplayLayer): RasterRenderOptions {
   return {
-    mode: 'single' as const,
-    bands: [1],
+    bidx: [1],
     colormap: layer.colormap,
     reversed: layer.reversed,
-    rescale: [[layer.rescale[0], layer.rescale[1]]] as [number, number][],
-    // Each derivative carries its own validity tag; one override value could
-    // not describe sources with different NoData markers.
-    nodata: 'auto' as const,
-    opacity: layer.opacity,
-    visible: true,
-    minZoom: LAYER_MIN_ZOOM,
-    maxZoom: LAYER_MAX_ZOOM,
+    rescale: [[layer.rescale[0], layer.rescale[1]]],
   }
 }
 
@@ -338,76 +443,100 @@ function sourceKey(layer: RasterDisplayLayer): string {
   return JSON.stringify(layer.assets.map((asset) => asset.url))
 }
 
-function registerMosaic(mosaics: Map<string, RasterDisplayLayer>, layer: RasterDisplayLayer): string {
-  mosaics.set(layer.id, layer)
-  return `${MOSAIC_SCHEME}://layer/${encodeURIComponent(layer.id)}.json`
+function parseTileUrl(protocol: string, url: string): { layerId: string; revision: number; z: number; x: number; y: number } | null {
+  const prefix = `${protocol}://`
+  if (!url.startsWith(prefix)) return null
+  const parts = url.slice(prefix.length).split('/')
+  if (parts.length !== 5) return null
+  const layerId = decodeURIComponent(parts[0]!)
+  const revision = Number(parts[1])
+  const z = Number(parts[2])
+  const x = Number(parts[3])
+  const y = Number(parts[4])
+  if (!Number.isInteger(revision) || !Number.isInteger(z) || !Number.isInteger(x) || !Number.isInteger(y)) return null
+  return { layerId, revision, z, x, y }
+}
+
+function tileBoundsLonLat(z: number, x: number, y: number): RasterBounds {
+  const n = 2 ** z
+  const { lng: west, lat: north } = mercatorToGeo(x / n, y / n)
+  const { lng: east, lat: south } = mercatorToGeo((x + 1) / n, (y + 1) / n)
+  return [west, south, east, north]
+}
+
+function bboxIntersects(a: RasterBounds, b: RasterBounds): boolean {
+  return a[0] <= b[2] && a[2] >= b[0] && a[1] <= b[3] && a[3] >= b[1]
+}
+
+/**
+ * Composites `src` underneath `dst`: fills only fully transparent destination
+ * pixels, so the first asset listed keeps every pixel two assets cover.
+ */
+function paintUnder(dst: Uint8ClampedArray, src: Uint8Array | Uint8ClampedArray): { complete: boolean; painted: boolean } {
+  let complete = true
+  let painted = false
+  for (let i = 3; i < dst.length; i += 4) {
+    if (dst[i] !== 0) continue
+    if (src[i] === 0) {
+      complete = false
+      continue
+    }
+    dst[i - 3] = src[i - 3]!
+    dst[i - 2] = src[i - 2]!
+    dst[i - 1] = src[i - 1]!
+    dst[i] = src[i]!
+    painted = true
+  }
+  return { complete, painted }
+}
+
+/** @testonly */
+export function paintUnderForTests(
+  dst: Uint8ClampedArray,
+  src: Uint8Array | Uint8ClampedArray,
+): { complete: boolean; painted: boolean } {
+  return paintUnder(dst, src)
 }
 
 /**
  * The display's worker sources: one per URL, opened while `isRead(url)`.
- *
- * `module` is the cog-tiler client the engine loads. Its proxies look up their
- * URL's current source at each render instead of holding one handle, because
- * the engine keeps proxies past their layer: maplibre-gl-raster 0.14.15's
- * `CogTilerEngine._assetSources` (RasterControl chunk, `_openAsset`) caches a
- * mosaic's asset proxies by URL until `destroy()` and reuses them when a mosaic
- * is added again (canopi-ana9, pinned by ana9-mosaic-release.test.ts). A kept
- * proxy whose URL no layer reads renders nothing; once a layer reads the URL
- * again, its next render reopens the source. Layers sharing a URL share its
- * source, so showing and hiding one never opens a second.
+ * Layers sharing a URL share its source, so showing and hiding one never opens
+ * a second.
  */
-// upstream: W1
 function displaySources(client: RasterPoolClient, isRead: (url: string) => boolean) {
   const open = new Map<string, ReturnType<RasterPoolClient['openCog']>>()
-  const sourceFor = (url: string): ReturnType<RasterPoolClient['openCog']> => {
-    if (!isRead(url)) {
-      const error = new Error('Raster source is released')
-      error.name = 'AbortError'
-      return Promise.reject(error)
-    }
+  const failed = new Set<string>()
+  const openUrl = (url: string): ReturnType<RasterPoolClient['openCog']> => {
+    if (!isRead(url)) return Promise.reject(abortError('Raster source is released'))
     let opened = open.get(url)
     if (!opened) {
       const opening = client.openCog(url)
       opening.catch(() => {
-        if (open.get(url) === opening) open.delete(url)
+        if (open.get(url) === opening) failed.add(url)
       })
       open.set(url, opening)
       opened = opening
     }
     return opened
   }
-  const module: RasterPoolClient = {
-    ...client,
-    async openCog(url) {
-      const source = await sourceFor(url)
-      return {
-        boundsLonLat: source.boundsLonLat,
-        renderTilePNG: async (z, x, y, render) => (await sourceFor(url)).renderTilePNG(z, x, y, render),
-        renderTileRGBA: async (z, x, y, render) => (await sourceFor(url)).renderTileRGBA(z, x, y, render),
+  return {
+    open: openUrl,
+    hasFailed: (url: string) => failed.has(url),
+    /** Forget failed opens so an explicit Retry can reopen these URLs. */
+    clearFailed(urls: readonly string[]) {
+      for (const url of urls) {
+        if (!failed.delete(url)) continue
+        open.delete(url)
       }
     },
-  }
-  return {
-    module,
     /** Close the sources of URLs no layer reads any more. */
     release(urls: readonly string[]) {
-      for (const url of urls) open.delete(url)
+      for (const url of urls) {
+        open.delete(url)
+        failed.delete(url)
+      }
       client.releaseSources(urls)
     },
-  }
-}
-
-function mosaicFor(mosaics: Map<string, RasterDisplayLayer>, url: string) {
-  const match = url.match(new RegExp(`^${MOSAIC_SCHEME}://layer/(.+)\\.json$`))
-  const layer = match ? mosaics.get(decodeURIComponent(match[1]!)) : undefined
-  if (!layer) throw new Error(`Unknown display mosaic ${url}`)
-  const [west, south, east, north] = layer.bounds
-  return {
-    kind: 'mosaicjson' as const,
-    assets: layer.assets.map((asset) => ({ url: asset.url, bbox: [...asset.bbox] as [number, number, number, number] })),
-    bounds: { west, south, east, north },
-    minzoom: null,
-    maxzoom: null,
   }
 }
 
@@ -423,9 +552,8 @@ export function tileIsRelevant(map: RasterDisplayMap, tile: RasterTileRequest): 
   // Past the source's deepest tile zoom MapLibre keeps asking for those tiles.
   const zoom = Math.min(cameraZoom, MAPLIBRE_RASTER_SOURCE_MAX_ZOOM)
   if (tile.z < Math.floor(zoom) - 2 || tile.z > Math.ceil(zoom) + 1) return false
+  const [tileWest, tileSouth, tileEast, tileNorth] = tileBoundsLonLat(tile.z, tile.x, tile.y)
   const n = 2 ** tile.z
-  const { lng: tileWest, lat: tileNorth } = mercatorToGeo(tile.x / n, tile.y / n)
-  const { lng: tileEast, lat: tileSouth } = mercatorToGeo((tile.x + 1) / n, (tile.y + 1) / n)
   const padX = 360 / n
   const padY = Math.max(tileNorth - tileSouth, 1e-9)
   const west = bounds.getWest() - padX

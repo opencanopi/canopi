@@ -10,24 +10,23 @@ import { acquireCanvasRuntimeLifecycle } from '../../canvas/runtime/lifecycle-ow
 import type { CanvasDocumentSurface } from '../../canvas/runtime/runtime'
 import { getCurrentCanvasSession, setCurrentCanvasSession } from '../../canvas/session'
 import type { LayerSlotId, MapLifetimeHandle, MapLifetimeState } from '../../maplibre/map-lifetime'
-import { layerStatus, type CanvasMapLayerStatusHost } from '../settings/state'
+import {
+  clearCurrentCanvasHostView,
+  IDLE_CANVAS_SURFACE_STATE,
+  setCurrentCanvasHostView,
+  type CanvasHostView,
+  type CanvasSurfaceState,
+  type CanvasUnavailableCause,
+  type MapRetryAvailability,
+} from './host-view'
 import type { WorkspaceRuntimeComposition } from './workspace-runtime-composition'
+
+export { IDLE_CANVAS_SURFACE_STATE, type CanvasHostView, type CanvasSurfaceState }
 
 /** The element MapLibre and the scene draw into; the only element measured. */
 interface CanvasHostElements {
   readonly container: HTMLElement
 }
-
-type CanvasUnavailableCause = 'runtime-failed' | 'start-cancelled' | 'runtime-destroyed'
-
-type MapRetryAvailability = 'offered' | 'withheld' | 'never'
-
-export type CanvasSurfaceState =
-  | { readonly kind: 'idle' }
-  | { readonly kind: 'starting' }
-  | { readonly kind: 'unavailable', readonly cause: CanvasUnavailableCause }
-  | { readonly kind: 'map', readonly map: MapLifetimeState, readonly retry: MapRetryAvailability }
-  | { readonly kind: 'releasing' }
 
 type CanvasHostStartState =
   | { readonly kind: 'starting' }
@@ -83,18 +82,9 @@ export interface CanvasHostDeps {
   readonly reportFailure: (error: unknown, info: CanvasHostFailureInfo) => void
 }
 
-export interface CanvasHostView {
-  readonly surface: ReadonlySignal<CanvasSurfaceState>
-  readonly ready: ReadonlySignal<boolean>
-  retryMap(): boolean
-  retryLayer(slot: LayerSlotId): void
-}
-
 export interface CanvasHostHandle extends CanvasHostView {
   dispose(): Promise<void>
 }
-
-export const IDLE_CANVAS_SURFACE_STATE: CanvasSurfaceState = Object.freeze({ kind: 'idle' })
 
 /**
  * Pure, exhaustive projection of the host lease and the map lifetime state into the one surface state
@@ -374,15 +364,6 @@ export function mountCanvasHost(
     return current.kind === 'held' ? current.map : null
   }
 
-  const layers = computed(() => {
-    const current = surface.value
-    return current.kind === 'map' && current.map.kind === 'ready' ? current.map.layers : null
-  })
-  const statusHost: CanvasMapLayerStatusHost = {
-    layers,
-    retryLayer: (slot) => heldMap()?.retryLayer(slot),
-  }
-
   const handle: CanvasHostHandle = {
     surface,
     ready,
@@ -395,7 +376,7 @@ export function mountCanvasHost(
       heldMap()?.retryLayer(slot)
     },
     dispose(): Promise<void> {
-      layerStatus.set(null, statusHost)
+      clearCurrentCanvasHostView(handle)
       if (!disposePromise) {
         cancelled = true
         disposePromise = release(false)
@@ -403,6 +384,6 @@ export function mountCanvasHost(
       return disposePromise
     },
   }
-  layerStatus.set(statusHost)
+  setCurrentCanvasHostView(handle)
   return handle
 }

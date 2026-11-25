@@ -280,8 +280,8 @@ describe('Web Edition build configuration', () => {
       webForbiddenPackages: string[]
       webForbiddenChunks: string[]
     }
-    expect(facts.webForbiddenPackages).toEqual(expect.arrayContaining(['@tauri-apps', 'maplibre-gl-raster']))
-    expect(facts.webForbiddenChunks).toEqual(expect.arrayContaining(['tauri', 'raster-display']))
+    expect(facts.webForbiddenPackages).toEqual(expect.arrayContaining(['@tauri-apps', 'cog-tiler-wasm']))
+    expect(facts.webForbiddenChunks).toEqual(expect.arrayContaining(['tauri']))
     const { scanWebBuild } = await import(SCANNER_URL.href) as { scanWebBuild(distRoot: string): string[] }
     const dist = mkdtempSync(join(tmpdir(), 'canopi-web-facts-'))
     try {

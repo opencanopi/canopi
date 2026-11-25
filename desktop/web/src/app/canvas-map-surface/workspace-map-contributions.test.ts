@@ -343,7 +343,7 @@ describe('WorkspaceMapContributions', () => {
     expect(f.states.at(-1)?.kind).toBe('ready')
     expect(f.map.getLayer('panel-target-hover-zones-fill')).toBeTruthy()
     expect(f.logError).toHaveBeenCalled()
-    expect(f.manager.handleMapError({ sourceId: 'mlrcog0-src-lidar-a', error: new Error('tile') })).toBe(true)
+    expect(f.manager.handleMapError({ sourceId: 'canopi-raster-src-lidar-a-r1', error: new Error('tile') })).toBe(true)
     expect(f.failure).not.toHaveBeenCalled()
   })
 
@@ -462,7 +462,7 @@ describe('WorkspaceMapContributions', () => {
     f.manager.admitStyle()
     f.manager.update(null)
     const published = f.states.length
-    expect(f.manager.handleMapError({ sourceId: 'mlrcog0-src-lidar-a' })).toBe(true)
+    expect(f.manager.handleMapError({ sourceId: 'canopi-raster-src-lidar-a-r1' })).toBe(true)
     expect(f.manager.handleMapError({ sourceId: 'terrain-dem' })).toBe(true)
     expect(f.states).toHaveLength(published)
     expect(f.states.at(-1)?.kind).toBe('admitted')

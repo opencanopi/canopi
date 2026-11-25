@@ -25,7 +25,7 @@ vi.mock('../maplibre/raster-display/pool', () => ({
 const { cutOutlierRange, requestCutOutlierRange, resetCutOutlierRanges } = await import('../app/data-library/display-range')
 
 function stats(min: number, max: number, percentile2: number, percentile98: number, pixels = 1280): RasterBandStatistics {
-  // 128 equal bins (cog-tiler's and maplibre-gl-raster's count), so the merged 2–98 % range is predictable.
+  // 128 equal bins (cog-tiler's count), so the merged 2–98 % range is predictable.
   return { min, max, percentile2, percentile98, histogram: Array.from({ length: 128 }, () => 10), pixels }
 }
 

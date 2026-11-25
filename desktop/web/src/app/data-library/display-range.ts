@@ -138,9 +138,8 @@ function visibleArea(bbox: Bounds, above: readonly { bbox: Bounds, cover: number
  * The 2–98 % range of several assets pooled, each sample counting for the ground it covers (`groundPerSample`: the
  * ground the asset shows over the pixels of the overview read), so an asset of 512² pixels or more weighs by its
  * size, not by the 512² samples every such read holds. Each asset keeps its own resolution: its cumulative count is
- * known at its bin edges, its 2 % and 98 % points and its ends, and runs linearly between them. maplibre-gl-raster's
- * `mergeBandStats` rebins every asset onto 128 bins over the union instead, so one spike in one asset coarsens every
- * asset to 1/128 of the spike's span.
+ * known at its bin edges, its 2 % and 98 % points and its ends, and runs linearly between them, avoiding the coarsening
+ * of naive 128-bin rebinning over the union when one asset has a spike.
  */
 function mosaicRange(assets: readonly { statistics: RasterBandStatistics, groundPerSample: number }[]): Range {
   const curves = assets.map(({ statistics, groundPerSample }) => ({ curve: cumulativeCurve(statistics), weight: groundPerSample }))

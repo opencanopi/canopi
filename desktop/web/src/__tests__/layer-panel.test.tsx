@@ -16,7 +16,8 @@ import { lidarLibrary } from '../app/data-library/library-store'
 import type { CanopiFile } from '../types/design'
 import { librarySnapshot, sourceItem } from './support/library-fixtures'
 import { createDefaultMapLayers, mapLayers } from '../app/map-layers/state'
-import { googleMapsApiKey, layerStatus, locale } from '../app/settings/state'
+import { googleMapsApiKey, locale } from '../app/settings/state'
+import { setCurrentCanvasHostView, type CanvasSurfaceState } from '../app/canvas-map-surface/host-view'
 import type { Settings } from '../types/settings'
 import {
   currentDesign,
@@ -565,34 +566,26 @@ describe('LayerPanel', () => {
   it('MAP-02 (2.1-Q351): shows failed library rows with the item name, no dead eye or open controls, and working Retry', async () => {
     const retryLayer = vi.fn()
     const rawId = 'lidar-result-1111-gen1-relief'
-    const layers = signal<ReadonlyMap<LayerSlotId, LayerStatus> | null>(
-      new Map<LayerSlotId, LayerStatus>([
-        ['background', { kind: 'ready' }],
-        [`library:${rawId}`, { kind: 'failed', reason: 'raster', label: 'North DEM' }],
-      ]),
-    )
-    layerStatus.set({ layers, retryLayer })
+    const layers = new Map<LayerSlotId, LayerStatus>([
+      ['background', { kind: 'ready' }],
+      [`library:${rawId}`, { kind: 'failed', reason: 'raster', label: 'North DEM' }],
+    ])
+    const surface = signal<CanvasSurfaceState>({ kind: 'map', map: { kind: 'ready', attempt: 1, layers }, retry: 'withheld' })
+    setCurrentCanvasHostView({ surface, ready: signal(true), retryMap: () => false, retryLayer })
     try {
-      await act(async () => {
-        render(<LayerPanel />, container)
-      })
-      const listItems = Array.from(container.querySelectorAll('[role="listitem"]'))
-      const libRow = listItems.find((el) => el.textContent?.includes('North DEM'))
+      await act(async () => { render(<LayerPanel />, container) })
+      const libRow = Array.from(container.querySelectorAll('[role="listitem"]')).find((el) => el.textContent?.includes('North DEM'))
       expect(libRow).toBeTruthy()
       expect(libRow?.textContent).not.toContain(rawId)
       expect(libRow?.querySelector('[data-layer-failed]')).toBeTruthy()
       expect(libRow?.querySelector('button[aria-pressed]')).toBeNull()
       expect(libRow?.querySelector('button[aria-expanded]')).toBeNull()
-
-      const retryButton = Array.from(libRow?.querySelectorAll('button') ?? [])
-        .find((button) => button.textContent?.trim() === 'Retry')
+      const retryButton = Array.from(libRow?.querySelectorAll('button') ?? []).find((button) => button.textContent?.trim() === 'Retry')
       expect(retryButton).toBeTruthy()
-      await act(async () => {
-        retryButton?.click()
-      })
+      await act(async () => { retryButton?.click() })
       expect(retryLayer).toHaveBeenCalledWith(`library:${rawId}`)
     } finally {
-      layerStatus.set(null)
+      setCurrentCanvasHostView(null)
     }
   })
 })

@@ -2,6 +2,7 @@ import { useEffect } from 'preact/hooks'
 import { LayerPanel, type SiteDataSummary } from '../canvas/LayerPanel'
 import { readCanvasLayerPresentation } from '../../app/canvas-layer-presentation/presentation'
 import { LAYER_PANEL_ACTIONS } from '../../app/canvas-layer-presentation/panel-actions'
+import { readCurrentCanvasLayerStatuses, retryCurrentCanvasLayer } from '../../app/canvas-map-surface/host-view'
 import { currentDesign } from '../../app/document-session/store'
 import { setSiteDataShown } from '../../app/data-library/actions'
 import { openSiteDataPanel } from '../../app/data-library/library-navigation'
@@ -16,7 +17,8 @@ import { t } from '../../i18n'
  */
 export function LayersPanel() {
   useEffect(() => installLidarLibraryObserver(), [])
-  return <LayerPanel rows={readCanvasLayerPresentation().rows} actions={LAYER_PANEL_ACTIONS} siteData={desktopSiteDataSummary()} />
+  const actions = { ...LAYER_PANEL_ACTIONS, retryLayer: retryCurrentCanvasLayer }
+  return <LayerPanel rows={readCanvasLayerPresentation(readCurrentCanvasLayerStatuses()).rows} actions={actions} siteData={desktopSiteDataSummary()} />
 }
 
 function desktopSiteDataSummary(): SiteDataSummary {

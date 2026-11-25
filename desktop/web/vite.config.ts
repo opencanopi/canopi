@@ -470,10 +470,9 @@ const VENDOR_CHUNK_ROWS = (JSON.parse(readFileSync(new URL("./build-facts.genera
 }).chunkRows;
 
 /**
- * The named chunk of a node_modules module, the first package row matching any package on its path winning (a package
- * nested in maplibre-gl-raster's node_modules joins raster-display; a row ending in "/" is a scope or directory, any
- * other names one package; "*" every package). One group whose name is this function: a module's dependencies join its
- * chunk unless they name their own, as on Rollup.
+ * The named chunk of a node_modules module, the first package row matching any package on its path winning (a row
+ * ending in "/" is a scope or directory, any other names one package; "*" every package). One group whose name is
+ * this function: a module's dependencies join its chunk unless they name their own, as on Rollup.
  */
 function vendorChunk(id: string): string | null {
   const packages = id.replaceAll("\\", "/").split("node_modules/").slice(1);

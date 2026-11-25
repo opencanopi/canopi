@@ -87,14 +87,14 @@ describe('the built chunk check', () => {
 
   it('canopi-72fm: names a top-level await on the entry\'s static graph, in either edition, and passes one only loaded on demand', () => {
     // A top-level await anywhere the entry imports statically delays the app's mount past the load event, where the
-    // start-up guard shows over a working app (canopi-72fm: the LZW codec's WASM init rode in raster-display).
-    const awaiting = (code: string) => soundDesktop().map((chunk) => (chunk.name === 'raster-display' ? { ...chunk, code } : chunk))
+    // start-up guard shows over a working app (canopi-72fm).
+    const awaiting = (code: string) => soundDesktop().map((chunk) => (chunk.name === 'maplibre-gl' ? { ...chunk, code } : chunk))
     const desktop = plantBuild('dist', awaiting('await async function(){}();export const d=1;'))
     expect(builtChunkViolations(desktop.dist, desktop.options))
-      .toEqual(['dist: assets/raster-display-c.js runs a top-level await on the entry\'s static graph, so the app would mount after the load event'])
+      .toEqual(['dist: assets/maplibre-gl-c.js runs a top-level await on the entry\'s static graph, so the app would mount after the load event'])
     const forAwait = plantBuild('dist-web', awaiting('for await (const x of []) {}'))
     expect(builtChunkViolations(forAwait.dist, forAwait.options))
-      .toEqual(['dist-web: assets/raster-display-c.js runs a top-level await on the entry\'s static graph, so the app would mount after the load event'])
+      .toEqual(['dist-web: assets/maplibre-gl-c.js runs a top-level await on the entry\'s static graph, so the app would mount after the load event'])
     const inFunctions = plantBuild('dist', awaiting('export async function f(){await 1}const g=async()=>{for await (const x of []);};class C{async m(){await 1}}'))
     expect(builtChunkViolations(inFunctions.dist, inFunctions.options)).toEqual([])
     const lazy = plantBuild('dist', [...soundDesktop(), { fileName: 'assets/lzw-d.js', name: 'lzw', isEntry: false, packages: [], code: 'await 1;' }])

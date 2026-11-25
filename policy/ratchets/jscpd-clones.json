@@ -86,7 +86,6 @@
     "desktop/web/src/__tests__/raster-display-adapter.test.ts <-> desktop/web/src/__tests__/raster-display-adapter.test.ts": { "count": 1 },
     "desktop/web/src/__tests__/raster-display-adapter.test.ts <-> desktop/web/src/maplibre/raster-display/ana9-mosaic-release.test.ts": { "count": 1 },
     "desktop/web/src/__tests__/raster-display-overzoom.test.ts <-> desktop/web/src/maplibre/raster-display/ana9-mosaic-release.test.ts": { "count": 1 },
-    "desktop/web/src/__tests__/raster-display-overzoom.test.ts <-> desktop/web/src/maplibre/raster-display/display-seams.test.ts": { "count": 1 },
     "desktop/web/src/__tests__/raster-display-overzoom.test.ts <-> desktop/web/src/maplibre/raster-display/rust-display-cog.test.ts": { "count": 1 },
     "desktop/web/src/__tests__/review-provider-regressions.test.ts <-> desktop/web/src/__tests__/review-provider-regressions.test.ts": { "count": 3 },
     "desktop/web/src/__tests__/review-provider-regressions.test.ts <-> desktop/web/src/__tests__/satellite-provider-session.test.ts": { "count": 1 },

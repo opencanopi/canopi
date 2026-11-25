@@ -5,7 +5,7 @@ import { mapLifetimeStateEquals, type LayerSlotId, type LayerStatus, type MapFai
 import type { MapLibreBasemapStatus } from '../../maplibre/openfreemap-basemap'
 import { applyTerrainPaintUpdates, classifyTerrainSync, clearTerrain, rebuildTerrain } from '../../maplibre/terrain-sync'
 import { TERRAIN_CONTOUR_LAYER_IDS, TERRAIN_CONTOUR_SOURCE_ID, TERRAIN_DEM_SOURCE_ID, TERRAIN_HILLSHADE_LAYER_ID, type TerrainLayerState } from '../../maplibre/terrain'
-import { mapErrorResourceId } from '../../maplibre/map-error-owner'
+import { mapErrorResourceId, RASTER_DISPLAY_SOURCE_PREFIX } from '../../maplibre/map-error-owner'
 import type { RasterDisplay, RasterDisplayLayer } from '../../maplibre/raster-display/adapter'
 import { clearCanvasMapSurfaceOverlays, clearCanvasMapSurfaceSiteHover, clearCanvasMapSurfaceSiteOverlay, syncCanvasMapSurfaceOverlays, syncCanvasMapSurfaceSiteHover, syncCanvasMapSurfaceSiteOverlay, type CanvasMapSurfaceOverlaySnapshot } from './overlays'
 import { siteMapOverlayIds, type SiteMapOverlay } from '../../maplibre/site-overlay'
@@ -86,6 +86,7 @@ export class WorkspaceMapContributions {
     // The raster renderer adds its layers asynchronously after its module and
     // headers load; each change re-establishes the semantic band order.
     this.raster = this.options.createRasterDisplay?.(context.map, {
+      maplibre: context.maplibre,
       onLayersChanged: () => this.restack(),
       onLayerStatus: (id, status) => {
         if (this.disposed) return
@@ -160,10 +161,9 @@ export class WorkspaceMapContributions {
   handleMapError(event: unknown): boolean {
     const id = mapErrorResourceId(event)
     if (id === null || !this.live()) return id !== null && isContributionResource(id)
-    // upstream: W5
-    if (/^mlrcog\d+-src-/.test(id) || this.raster?.layerIds().includes(id)) {
-      // The upstream renderer draws a failed tile as transparent and keeps the
-      // rest of the band; a source error is passive display degradation.
+    if (id.startsWith(RASTER_DISPLAY_SOURCE_PREFIX) || this.raster?.layerIds().includes(id)) {
+      // A raster tile or source error is passive display degradation; the
+      // adapter records failed LayerStatus for its Layers row with Retry.
       this.log('Passive shared workspace raster error:', event)
       return true
     }
@@ -585,8 +585,7 @@ const USER_LOCATION_IDS = (() => { const ids = userLocationOverlayIds(); return 
 
 /** Late errors from a contribution this owner already removed stay passive. */
 function isContributionResource(id: string): boolean {
-  // upstream: W5
-  return /^mlrcog\d+-/.test(id) || TERRAIN_DEM_IDS.has(id) || TERRAIN_CONTOUR_IDS.has(id) || id.startsWith(PANEL_TARGET_PREFIX) || SITE_OVERLAY_IDS.has(id) || USER_LOCATION_IDS.has(id)
+  return id.startsWith(RASTER_DISPLAY_SOURCE_PREFIX) || TERRAIN_DEM_IDS.has(id) || TERRAIN_CONTOUR_IDS.has(id) || id.startsWith(PANEL_TARGET_PREFIX) || SITE_OVERLAY_IDS.has(id) || USER_LOCATION_IDS.has(id)
 }
 
 /** Identity of the Target set an overlay draws; geometry is re-read on each sync. */

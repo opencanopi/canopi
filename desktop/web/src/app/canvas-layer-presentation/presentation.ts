@@ -1,6 +1,6 @@
 import { NEW_DESIGN_LAYER_DEFAULTS } from '../../generated/new-design-defaults'
 import { openLayerRow } from './open-row'
-import { googleMapsApiKey, layerStatus, mapLayers } from '../settings/state'
+import { googleMapsApiKey, mapLayers } from '../settings/state'
 import {
   setMapLayerOpacity,
   setMapLayerVisible,
@@ -71,13 +71,14 @@ export interface CanvasLayerPresentation {
  * for a layer's eye, lock and opacity; before a scene exists they show the New
  * Design defaults.
  */
-export function readCanvasLayerPresentation(): CanvasLayerPresentation {
+export function readCanvasLayerPresentation(
+  layerStatuses?: ReadonlyMap<string, { readonly kind: string; readonly label?: string }> | null,
+): CanvasLayerPresentation {
   const runtime = currentCanvasQuerySurface.value
   void runtime?.revision.scene.value
   const scene = runtime?.getSceneSnapshot()
   const open = openLayerRow.value
   const layers = mapLayers.value
-  const layerStatuses = layerStatus.get()?.layers.value
   const terrainFailed = layerStatuses?.get('terrain')?.kind === 'failed'
 
   const mapRow = (

@@ -6,12 +6,11 @@ import {
   setCanvasLayerPresentationVisibility,
 } from './presentation'
 import { saveGoogleMapsApiKey, setBasemapStyle, setMapBackground, setSoftenBackground } from '../map-layers/actions'
-import type { LayerSlotId } from '../../maplibre/map-lifetime'
-import { layerStatus } from '../settings/state'
 
 /**
  * Layer actions shared by both editions' Layers panels. Edition-neutral:
- * Desktop-only LiDAR wiring stays in the Desktop Layers panel.
+ * Desktop-only LiDAR wiring stays in the Desktop Layers panel; layer Retry
+ * is supplied by each panel from `app/canvas-map-surface/host-view`.
  */
 export const LAYER_PANEL_ACTIONS = {
   open: toggleLayerRow,
@@ -23,5 +22,4 @@ export const LAYER_PANEL_ACTIONS = {
   saveGoogleKey: saveGoogleMapsApiKey,
   background: setMapBackground,
   softenBackground: setSoftenBackground,
-  retryLayer: (slot: LayerSlotId) => layerStatus.get()?.retryLayer(slot),
 } as const

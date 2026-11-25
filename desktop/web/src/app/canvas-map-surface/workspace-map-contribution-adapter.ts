@@ -26,12 +26,12 @@ export interface WorkspaceMapContributionAdapter {
   readonly loadTerrainSupport?: (maplibre: MapLibreApi) => Promise<TerrainProtocolSupport>
   /**
    * Create the map-lifetime raster display for this edition. Desktop renders
-   * library data through the upstream renderer; an edition without local data
-   * leaves the hook undefined and never loads the renderer.
+   * library data through MapLibre `addProtocol` over the cog-tiler worker pool;
+   * an edition without local data leaves the hook undefined and never loads it.
    */
   readonly createRasterDisplay?: (
     map: RasterDisplayMap,
-    options: Pick<RasterDisplayOptions, 'onLayersChanged' | 'onLayerStatus'>,
+    options: Pick<RasterDisplayOptions, 'maplibre' | 'onLayersChanged' | 'onLayerStatus'>,
   ) => RasterDisplay
   /**
    * Desktop only: the profile chart's hover point in [lon, lat]. It changes at scrub rate, so it is the one exception to

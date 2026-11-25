@@ -80,6 +80,17 @@ export async function renderedRasterTiles(page: Page): Promise<number> {
  */
 export async function settledRaster(page: Page, capture: () => Promise<Buffer>, after: number): Promise<Buffer> {
   await expect.poll(() => renderedRasterTiles(page), { timeout: 20_000, message: 'the renderer renders tiles' }).toBeGreaterThan(after)
+  await page.evaluate(() => new Promise<void>((resolve) => {
+    const map = (window as {
+      __galleryRasterMap?: { loaded?(): boolean; once?(event: string, fn: () => void): void }
+    }).__galleryRasterMap
+    const done = () => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+    if (!map || map.loaded?.() || !map.once) {
+      done()
+      return
+    }
+    map.once('idle', done)
+  }))
   let drawn = await capture()
   await expect.poll(async () => {
     const next = await capture()

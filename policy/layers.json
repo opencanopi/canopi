@@ -719,64 +719,12 @@
  },
  "packages": [
   {
-   "pattern": "maplibre-gl-raster",
+   "pattern": "cog-tiler-wasm",
    "lowest_layer": "L1",
-   "chunk": "raster-display",
    "editions": [
     "desktop"
    ],
    "note": "Desktop only: the Web build carries no raster display (check-web-build-boundaries.mjs)"
-  },
-  {
-   "pattern": "@deck.gl/",
-   "lowest_layer": "L1",
-   "chunk": "raster-display",
-   "editions": [
-    "desktop"
-   ],
-   "note": "maplibre-gl-raster's dependency"
-  },
-  {
-   "pattern": "@luma.gl/webgl",
-   "lowest_layer": "L1",
-   "chunk": "raster-display",
-   "editions": [
-    "desktop"
-   ],
-   "reason": "a runtime dependency of @deck.gl/core, pinned and never imported by name; knip counts the other luma pins used as deck.gl peers (knip ignoreDependencies)"
-  },
-  {
-   "pattern": "@luma.gl/",
-   "lowest_layer": "L1",
-   "chunk": "raster-display",
-   "editions": [
-    "desktop"
-   ],
-   "note": "deck.gl's peer dependencies"
-  },
-  {
-   "pattern": "@developmentseed/",
-   "lowest_layer": "L1",
-   "chunk": "raster-display",
-   "editions": [
-    "desktop"
-   ]
-  },
-  {
-   "pattern": "@math.gl/",
-   "lowest_layer": "L1",
-   "chunk": "raster-display",
-   "editions": [
-    "desktop"
-   ]
-  },
-  {
-   "pattern": "@loaders.gl/",
-   "lowest_layer": "L1",
-   "chunk": "raster-display",
-   "editions": [
-    "desktop"
-   ]
   },
   {
    "pattern": "canopi-raster-display",

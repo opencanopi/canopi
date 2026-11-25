@@ -99,8 +99,11 @@ describe('a PR judged on its net change (2.1-Q272)', () => {
     repo.commit(`docs: settle the budget (${M_ROW})`)
     const lower = () => {
       const doc = repo.json('policy/ratchets/bundle-size.json') as { budgets: Record<string, { ceiling: number }> }
-      const entry = doc.budgets['desktop chunk: Notice']
-      if (entry) entry.ceiling -= 6
+      const key = Object.keys(doc.budgets)[0]
+      expect(key, 'bundle-size.json must contain at least one budget entry').toBeDefined()
+      const entry = key ? doc.budgets[key] : undefined
+      expect(entry, `budget entry ${key} must exist`).toBeDefined()
+      entry!.ceiling -= 6
       repo.write({ 'policy/ratchets/bundle-size.json': `${JSON.stringify(doc, null, 2)}\n` })
     }
     lower()

@@ -484,7 +484,7 @@ describe('WorkspaceMapControls', () => {
   it.each([
     ['terrain source', { sourceId: 'terrain-dem', error: new Error('dem tile failed') }],
     ['terrain layer', { error: new Error('layers.hillshade-layer.paint.hillshade-exaggeration: number expected') }],
-    ['raster tile', { sourceId: 'mlrcog0-src-lidar-a', error: new Error('tile failed') }],
+    ['raster tile', { sourceId: 'canopi-raster-src-lidar-a-r1', error: new Error('tile failed') }],
     ['basemap layer', { error: new Error('layers.ofm:water.paint.fill-color: color expected') }],
   ] as const)('keeps the map admitted for an optional %s error', async (_name, event) => {
     const { controls, maps } = createControls({ logError: vi.fn() })

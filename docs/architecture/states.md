@@ -284,7 +284,7 @@ stateDiagram-v2
 ### Canvas surface
 
 Model: current
-Enum: app/canvas-map-surface/canvas-host.ts::CanvasSurfaceState
+Enum: app/canvas-map-surface/host-view.ts::CanvasSurfaceState
 
 ```mermaid
 stateDiagram-v2

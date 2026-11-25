@@ -8,6 +8,9 @@
  * (`sources.<id>: unknown property "id"`, `Layer "<id>" already exists`).
  * An event that names no resource returns null and stays a core failure.
  */
+/** Source id prefix for Desktop raster display sources so map error routing owns them without regex hacks. */
+export const RASTER_DISPLAY_SOURCE_PREFIX = 'canopi-raster-src-'
+
 export function mapErrorResourceId(event: unknown): string | null {
   if (typeof event !== 'object' || event === null) return null
   const record = event as Record<string, unknown>

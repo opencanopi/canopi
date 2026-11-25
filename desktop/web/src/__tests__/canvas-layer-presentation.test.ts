@@ -4,7 +4,12 @@ import { signal } from '@preact/signals'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { mapLayers } from '../app/map-layers/state'
-import { LAYER_PANEL_ACTIONS } from '../app/canvas-layer-presentation/panel-actions'
+import {
+  readCurrentCanvasLayerStatuses,
+  retryCurrentCanvasLayer,
+  setCurrentCanvasHostView,
+  type CanvasSurfaceState,
+} from '../app/canvas-map-surface/host-view'
 import { openLayerRow, toggleLayerRow } from '../app/canvas-layer-presentation/open-row'
 import type { LayerSlotId, LayerStatus } from '../maplibre/map-lifetime'
 import { NEW_DESIGN_LAYER_DEFAULTS } from '../generated/new-design-defaults'
@@ -16,7 +21,7 @@ import {
   setCanvasLayerPresentationVisibility,
 } from '../app/canvas-layer-presentation/presentation'
 import { flushSettingsProjection, hydrateSettingsProjectionForTests } from '../app/settings/projection'
-import { googleMapsApiKey, layerStatus, locale } from '../app/settings/state'
+import { googleMapsApiKey, locale } from '../app/settings/state'
 import { setCurrentCanvasSession } from '../canvas/session'
 import { designSessionFixture } from './support/design-session-state'
 import { createTestCanvasQuerySurface } from './support/canvas-query-surface'
@@ -324,15 +329,14 @@ describe('Canvas Layer Presentation', () => {
 
   it('MAP-02 (2.1-Q351): marks failed terrain rows with Retry and routes Retry to the active map host', () => {
     const retryLayer = vi.fn()
-    const layers = signal<ReadonlyMap<LayerSlotId, LayerStatus> | null>(
-      new Map<LayerSlotId, LayerStatus>([
-        ['background', { kind: 'ready' }],
-        ['terrain', { kind: 'failed', reason: 'terrain' }],
-      ]),
-    )
-    layerStatus.set({ layers, retryLayer })
+    const layers = new Map<LayerSlotId, LayerStatus>([
+      ['background', { kind: 'ready' }],
+      ['terrain', { kind: 'failed', reason: 'terrain' }],
+    ])
+    const surface = signal<CanvasSurfaceState>({ kind: 'map', map: { kind: 'ready', attempt: 1, layers }, retry: 'withheld' })
+    setCurrentCanvasHostView({ surface, ready: signal(true), retryMap: () => false, retryLayer })
     try {
-      const rows = readCanvasLayerPresentation().rows
+      const rows = readCanvasLayerPresentation(readCurrentCanvasLayerStatuses()).rows
       const contours = rows.find((row) => row.id === 'contours')
       const hillshade = rows.find((row) => row.id === 'hillshade')
       const basemap = rows.find((row) => row.id === 'basemap')
@@ -343,27 +347,26 @@ describe('Canvas Layer Presentation', () => {
       expect(hillshade?.retrySlot).toBe('terrain')
       expect(basemap?.failed).toBeUndefined()
 
-      LAYER_PANEL_ACTIONS.retryLayer('terrain')
+      retryCurrentCanvasLayer('terrain')
       expect(retryLayer).toHaveBeenCalledWith('terrain')
     } finally {
-      layerStatus.set(null)
+      setCurrentCanvasHostView(null)
     }
   })
 
   it('MAP-02 (2.1-Q351): maps failed library raster statuses onto Layers rows using the item name and Retry', () => {
     const retryLayer = vi.fn()
     const rawId = 'lidar-result-1111-gen1-relief'
-    const layers = signal<ReadonlyMap<LayerSlotId, LayerStatus> | null>(
-      new Map<LayerSlotId, LayerStatus>([
-        ['background', { kind: 'ready' }],
-        [`library:${rawId}`, { kind: 'failed', reason: 'raster', label: 'North DEM' }],
-        ['library:ok-layer', { kind: 'ready' }],
-        ['library:skipped', { kind: 'skipped', reason: 'layer-skipped' }],
-      ]),
-    )
-    layerStatus.set({ layers, retryLayer })
+    const layers = new Map<LayerSlotId, LayerStatus>([
+      ['background', { kind: 'ready' }],
+      [`library:${rawId}`, { kind: 'failed', reason: 'raster', label: 'North DEM' }],
+      ['library:ok-layer', { kind: 'ready' }],
+      ['library:skipped', { kind: 'skipped', reason: 'layer-skipped' }],
+    ])
+    const surface = signal<CanvasSurfaceState>({ kind: 'map', map: { kind: 'ready', attempt: 1, layers }, retry: 'withheld' })
+    setCurrentCanvasHostView({ surface, ready: signal(true), retryMap: () => false, retryLayer })
     try {
-      const rows = readCanvasLayerPresentation().rows
+      const rows = readCanvasLayerPresentation(readCurrentCanvasLayerStatuses()).rows
       const failedLib = rows.find((row) => row.id === `library:${rawId}`)
       expect(failedLib).toBeDefined()
       expect(failedLib?.label).toBe('North DEM')
@@ -373,10 +376,10 @@ describe('Canvas Layer Presentation', () => {
       expect(rows.find((row) => row.id === 'library:ok-layer')).toBeUndefined()
       expect(rows.find((row) => row.id === 'library:skipped')).toBeUndefined()
 
-      LAYER_PANEL_ACTIONS.retryLayer(`library:${rawId}`)
+      retryCurrentCanvasLayer(`library:${rawId}`)
       expect(retryLayer).toHaveBeenCalledWith(`library:${rawId}`)
     } finally {
-      layerStatus.set(null)
+      setCurrentCanvasHostView(null)
     }
   })
 })
