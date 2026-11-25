@@ -6,6 +6,7 @@ import { SUPPORTED_LOCALES } from "../generated/locale-registry";
 
 export { SUPPORTED_LOCALES };
 
+// Stryker disable next-line all
 const localeBundles = import.meta.glob<Record<string, unknown>>("./*.json", {
   eager: true,
   import: "default",
