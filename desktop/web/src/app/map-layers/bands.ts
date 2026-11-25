@@ -2,7 +2,7 @@ import {
   MAPLIBRE_BASEMAP_BACKGROUND_LAYER_ID,
   MAPLIBRE_SATELLITE_LAYER_ID,
 } from '../../maplibre/config'
-import { MAPLIBRE_SHARED_SCENE_LAYER_ID } from '../../maplibre/shared-scene-layer'
+import { MAPLIBRE_SHARED_SCENE_LAYER_ID } from '../../maplibre/scene-host-layer'
 import { panelTargetMapOverlayIds } from '../../maplibre/panel-target-overlay-sync'
 import { siteMapOverlayIds } from '../../maplibre/site-overlay'
 import { userLocationOverlayIds } from '../../maplibre/user-location-overlay'

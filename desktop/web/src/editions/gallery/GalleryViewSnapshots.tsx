@@ -11,7 +11,9 @@ import {
 import { locale, mapLayers, type MapLayersState } from '../../app/settings/state'
 import { readSatelliteConfig } from '../../app/settings/satellite-config'
 import { currentCanvasQuerySurface } from '../../canvas/session'
+import { createPixiScenePainter } from '../../canvas/runtime/renderers/pixi-scene-painter'
 import { geographicViewOfCamera } from '../../geo/session-plane'
+import { createSceneHostLayer } from '../../maplibre/scene-host-layer'
 import { createViewSnapshotMap } from '../../maplibre/view-snapshot-map'
 import type { SavedView } from '../../generated/contracts'
 import styles from './gallery.module.css'
@@ -61,7 +63,11 @@ export function GalleryViewSnapshots({ ready, tiles }: { readonly ready: boolean
       if (views.length > 0) {
         // The same captures on a map whose drawing buffer is preserved, to
         // compare their cost with reading inside the frame's task.
-        const preserving = createViewSnapshotMap({ readSatelliteConfig, preserveDrawingBuffer: true })
+        const preserving = createViewSnapshotMap({
+          readSatelliteConfig,
+          createSceneLayer: (layerOptions) => createSceneHostLayer({ ...layerOptions, painter: createPixiScenePainter() }),
+          preserveDrawingBuffer: true,
+        })
         try {
           for (const view of views.filter((entry) => entry.id !== SHORT_TIMEOUT_VIEW)) {
             push(await capture(view.name, 'preserve-buffer', () => {

@@ -30,24 +30,9 @@ function LayerIcon({ id }: { id: string }) {
 
 function LockIcon({ locked }: { locked: boolean }) {
   return (
-    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-      <rect x="4" y="7" width="8" height="6.2" rx="1.2" stroke="currentColor" stroke-width="1.3" />
-      {locked ? (
-        <path
-          d="M5.8 7V5.4C5.8 4.1 6.8 3.1 8 3.1C9.2 3.1 10.2 4.1 10.2 5.4V7"
-          stroke="currentColor"
-          stroke-width="1.3"
-          stroke-linecap="round"
-        />
-      ) : (
-        <path
-          d="M5.8 7V5.4C5.8 4.1 6.8 3.1 8 3.1C9 3.1 9.8 3.8 10.1 4.7"
-          stroke="currentColor"
-          stroke-width="1.3"
-          stroke-linecap="round"
-        />
-      )}
-      <path d="M8 9.2V11" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" />
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" aria-hidden="true">
+      <rect x="4" y="7" width="8" height="6.2" rx="1.2" />
+      <path d={`M8 9.2V11M5.8 7V5.4C5.8 4.1 6.8 3.1 8 3.1${locked ? 'C9.2 3.1 10.2 4.1 10.2 5.4V7' : 'C9 3.1 9.8 3.8 10.1 4.7'}`} />
     </svg>
   )
 }
@@ -65,6 +50,8 @@ export interface LayerPanelActions {
   background(choice: MapBackground): void
   /** Soften background: dims the chosen background under the Design. */
   softenBackground(soften: boolean): void
+  /** Retries a single failed non-background layer from its Layers row (MAP-02, 2.1-Q351). */
+  retryLayer?(slot: NonNullable<CanvasLayerPresentationRow['retrySlot']>): void
 }
 
 /**
@@ -126,7 +113,10 @@ export function LayerPanel({ rows, actions, siteData }: {
             <div className={styles.groupHeading}><h3 id="layers-map">{t('canvas.layers.map')}</h3></div>
             {terrain.length > 0 && (
               <div role="list">
-                {terrain.map((row) => <LayerRow key={row.id} row={row} actions={actions} caption={terrainCaption(row)} />)}
+                {terrain.map((row) => {
+                  const caption = terrainCaption(row)
+                  return <LayerRow key={row.id} row={row} actions={actions} {...(caption !== undefined ? { caption } : {})} />
+                })}
               </div>
             )}
             {background.length > 0 && <>
@@ -246,7 +236,8 @@ function BackgroundChoice({ rows, actions }: {
 }
 
 /** Contour lines and hillshading say which elevation they are drawn from. */
-function terrainCaption(row: CanvasLayerPresentationRow): string {
+function terrainCaption(row: CanvasLayerPresentationRow): string | undefined {
+  if (row.detail.type === 'library') return undefined
   if (row.detail.type === 'contours') {
     return row.detail.contourIntervalMeters > 0
       ? t('canvas.terrain.contoursEvery', {
@@ -266,58 +257,70 @@ function LayerRow({ row, actions, caption }: {
   readonly actions: LayerPanelActions
   readonly caption?: string
 }) {
+  const isLibrary = row.detail.type === 'library'
   const lockLabel = row.locked ? t('canvas.layers.unlockLayer') : t('canvas.layers.lockLayer')
   const eyeLabel = t(row.visible ? 'canvas.lidar.layers.hide' : 'canvas.lidar.layers.show', { name: row.label })
   const item = useRef<HTMLDivElement>(null)
   useEffect(() => {
     if (row.open) item.current?.scrollIntoView?.({ block: 'nearest' })
   }, [row.open])
+  const labelContent = <>
+    {isLibrary ? <SiteDataGlyph /> : <LayerIcon id={row.id} />}
+    <span className={styles.nameText}>
+      <span>{row.label}</span>
+      {row.failed ? (
+        <small className={styles.failedCaption} data-layer-failed>{t('canvas.layers.layerFailed')}</small>
+      ) : (
+        caption && <small className={styles.caption}>{caption}</small>
+      )}
+    </span>
+    {row.count !== undefined && <span className={styles.count}>{formatCount(row.count, locale.value)}</span>}
+  </>
   return (
-    <div
-      ref={item}
-      role="listitem"
-      className={styles.item}
-    >
+    <div ref={item} role="listitem" className={styles.item}>
       <div
         className={`${layerRow.row} ${styles.layerRow}`}
         data-hidden={row.visible ? 'false' : 'true'}
         data-locked={row.locked ? 'true' : 'false'}
       >
-        <button
-          type="button"
-          className={layerRow.eye}
-          aria-label={eyeLabel}
-          aria-pressed={row.visible}
-          onClick={() => {
-            actions.visibility(row.id, !row.visible)
-          }}
-        >
-          <LayerVisibilityIcon open={row.visible} />
-          <ButtonTooltip label={eyeLabel} side="right" />
-        </button>
-        <button
-          type="button"
-          className={`${layerRow.name} ${styles.layerName}`}
-          aria-expanded={row.open}
-          title={row.label}
-          onClick={() => actions.open(row.id)}
-        >
-          <LayerIcon id={row.id} />
-          <span className={styles.nameText}>
-            <span>{row.label}</span>
-            {caption && <small className={styles.caption}>{caption}</small>}
-          </span>
-          {row.count !== undefined && <span className={styles.count}>{formatCount(row.count, locale.value)}</span>}
-        </button>
-        {row.canLock ? (
+        {isLibrary ? (
+          <span className={styles.lockSlot} aria-hidden="true" />
+        ) : (
+          <button
+            type="button"
+            className={layerRow.eye}
+            aria-label={eyeLabel}
+            aria-pressed={row.visible}
+            onClick={() => actions.visibility(row.id, !row.visible)}
+          >
+            <LayerVisibilityIcon open={row.visible} />
+            <ButtonTooltip label={eyeLabel} side="right" />
+          </button>
+        )}
+        {isLibrary ? (
+          <div className={`${layerRow.name} ${styles.layerName}`} title={row.label}>{labelContent}</div>
+        ) : (
+          <button
+            type="button"
+            className={`${layerRow.name} ${styles.layerName}`}
+            aria-expanded={row.open}
+            title={row.label}
+            onClick={() => actions.open(row.id)}
+          >
+            {labelContent}
+          </button>
+        )}
+        {row.failed && row.retrySlot ? (
+          <button type="button" className={styles.retryBtn} onClick={() => actions.retryLayer?.(row.retrySlot!)}>
+            {t('canvas.layers.retryMap')}
+          </button>
+        ) : row.canLock ? (
           <button
             type="button"
             className={styles.lockBtn}
             aria-label={`${lockLabel}: ${row.label}`}
             aria-pressed={row.locked}
-            onClick={() => {
-              actions.locked(row.id, !row.locked)
-            }}
+            onClick={() => actions.locked(row.id, !row.locked)}
           >
             <LockIcon locked={row.locked} />
             <ButtonTooltip label={lockLabel} side="left" />
@@ -326,7 +329,7 @@ function LayerRow({ row, actions, caption }: {
           <span className={styles.lockSlot} aria-hidden="true" />
         )}
       </div>
-      {row.open && <LayerDetail row={row} actions={actions} />}
+      {row.open && !isLibrary && <LayerDetail row={row} actions={actions} />}
     </div>
   )
 }
@@ -340,9 +343,10 @@ function LayerDetail({ row, actions }: { row: CanvasLayerPresentationRow; action
     case 'contours':
       return <ContourLayerDetail row={row} detail={row.detail} actions={actions} />
     case 'hillshade':
-      return <HillshadeLayerDetail row={row} actions={actions} />
     case 'scene':
-      return <SceneLayerDetail row={row} actions={actions} />
+      return <div className={styles.layerDetail}><OpacitySlider actions={actions} row={row} /></div>
+    case 'library':
+      return null
   }
 }
 
@@ -475,25 +479,6 @@ function ContourLayerDetail({ row, detail, actions }: {
           }}
         />
       </div>
-    </div>
-  )
-}
-
-function HillshadeLayerDetail({ row, actions }: {
-  actions: LayerPanelActions
-  row: CanvasLayerPresentationRow
-}) {
-  return (
-    <div className={styles.layerDetail}>
-      <OpacitySlider actions={actions} row={row} />
-    </div>
-  )
-}
-
-function SceneLayerDetail({ row, actions }: { row: CanvasLayerPresentationRow; actions: LayerPanelActions }) {
-  return (
-    <div className={styles.layerDetail}>
-      <OpacitySlider actions={actions} row={row} />
     </div>
   )
 }

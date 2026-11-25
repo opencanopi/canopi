@@ -13,6 +13,7 @@ export async function pageBundle(source: string, dir: string, globalName: string
     input: entry,
     platform: 'browser',
     logLevel: 'warn',
+    transform: { define: { 'import.meta.env.DEV': 'false', 'import.meta.env': '{}' } },
     plugins: [{
       name: 'canopi-page-bundle-entry',
       resolveId: (id) => (id === entry ? entry : null),

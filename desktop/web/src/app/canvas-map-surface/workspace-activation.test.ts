@@ -11,10 +11,12 @@ import { createTestView } from '../../__tests__/support/test-view'
 import { planarCameraOf } from '../../geo/view/view-transform'
 import { SceneCanvasRuntime } from '../../canvas/runtime/scene-runtime'
 import {
-  MAPLIBRE_SHARED_SCENE_LAYER_ID, type SharedMapSceneLayer,
-  type SharedMapSceneLayerOptions, type SharedPixiRenderer,
-} from '../../maplibre/shared-scene-layer'
-import { createSharedMapSceneRendererComposition, type SharedMapSceneRendererComposition } from '../../maplibre/shared-scene-renderer'
+  createSceneHostLayer, MAPLIBRE_SHARED_SCENE_LAYER_ID,
+  type ScenePainter,
+} from '../../maplibre/scene-host-layer'
+import type { PixiSceneHostLayer, SceneLayerFactory } from './scene-layer-factory'
+import type { SceneRendererSnapshot, SceneRenderTarget } from '../../canvas/runtime/renderers/scene-types'
+import type { DraftPresentation } from '../../canvas/runtime/tools/draft'
 import { WorkspaceGenerationReconciler } from './workspace-generation-reconciler'
 import type { MapBackgroundPresentation } from '../../maplibre/map-background'
 import { geoToScreen } from '../../__tests__/support/geo-to-screen'
@@ -141,14 +143,14 @@ function createComposition(options: {
   dispose?: () => Promise<void>
   directDispose?: () => Promise<void>
 } = {}) {
-  let phase: SharedMapSceneLayer['diagnostics']['phase'] = 'new'
+  let phase: PixiSceneHostLayer['phase'] = 'new'
   const dispose = options.directDispose
     ? vi.fn(options.directDispose)
     : vi.fn(async () => {
       await options.dispose?.()
       phase = 'disposed'
     })
-  const layer: SharedMapSceneLayer = {
+  const layer: PixiSceneHostLayer = {
     layer: {
       id: MAPLIBRE_SHARED_SCENE_LAYER_ID, type: 'custom', renderingMode: '2d',
       onAdd: () => {
@@ -157,25 +159,30 @@ function createComposition(options: {
       },
       render: () => {},
     },
-    get diagnostics() {
-      return { phase, sceneSyncCount: 0 }
+    get phase() {
+      return phase
     },
     initialize: vi.fn(async () => {
       await options.initialize?.()
       phase = 'initialized'
     }),
-    setSnapshot: vi.fn(), dispose,
+    setSnapshot: vi.fn(),
+    setDraft: vi.fn(),
+    requestRender: vi.fn(),
+    presentFor: vi.fn(async () => undefined),
+    hasPresented: vi.fn(() => true),
+    dispose,
   }
   const composition = {
     createLayer: vi.fn(() => layer),
-  } satisfies SharedMapSceneRendererComposition
+  } satisfies SceneLayerFactory
   return { composition, layer, dispose }
 }
 
 function createCoordinator(input: {
   map?: FakeMap
   createMap?: WorkspaceActivationMapControls['createMap']
-  composition?: SharedMapSceneRendererComposition
+  composition?: SceneLayerFactory
   runtime?: ReturnType<typeof createRuntime>
   context?: WebGL2RenderingContext | null
   unwatchFailure?: () => void
@@ -452,7 +459,7 @@ describe('WorkspaceActivationCoordinator', () => {
     const firstDisposal = deferred<void>()
     const first = createComposition({ dispose: () => firstDisposal.promise })
     const second = createComposition()
-    const composition: SharedMapSceneRendererComposition = {
+    const composition: SceneLayerFactory = {
       createLayer: vi.fn()
         .mockReturnValueOnce(first.layer)
         .mockReturnValue(second.layer),
@@ -491,7 +498,7 @@ describe('WorkspaceActivationCoordinator', () => {
     await expect(coordinator.activate()).resolves.toBe('shared-ready')
 
     expect(map.addLayer).toHaveBeenCalledExactlyOnceWith(composed.layer.layer)
-    expect(composed.layer.diagnostics.phase).toBe('attached')
+    expect(composed.layer.phase).toBe('attached')
     const reconcile = vi.mocked(mapControls.reconcileLayerStack)
     expect(reconcile).toHaveBeenCalledExactlyOnceWith(map)
     expect(map.addLayer.mock.invocationCallOrder[0]).toBeLessThan(reconcile.mock.invocationCallOrder[0]!)
@@ -508,7 +515,7 @@ describe('WorkspaceActivationCoordinator', () => {
     firstMap.remove.mockImplementation(() => { events.push('map-release') })
     const first = createComposition({ dispose: async () => { events.push('layer-dispose') } })
     const second = createComposition()
-    const composition: SharedMapSceneRendererComposition = {
+    const composition: SceneLayerFactory = {
       createLayer: vi.fn()
         .mockReturnValueOnce(first.layer)
         .mockReturnValueOnce(second.layer),
@@ -567,7 +574,7 @@ describe('WorkspaceActivationCoordinator', () => {
     const maps = [new FakeMap(), new FakeMap()]
     const first = createComposition()
     const second = createComposition()
-    const composition: SharedMapSceneRendererComposition = {
+    const composition: SceneLayerFactory = {
       createLayer: vi.fn()
         .mockReturnValueOnce(first.layer)
         .mockReturnValueOnce(second.layer),
@@ -590,7 +597,7 @@ describe('WorkspaceActivationCoordinator', () => {
     const maps = [new FakeMap(), new FakeMap()]
     const first = createComposition()
     const second = createComposition()
-    const composition: SharedMapSceneRendererComposition = {
+    const composition: SceneLayerFactory = {
       createLayer: vi.fn()
         .mockReturnValueOnce(first.layer)
         .mockReturnValueOnce(second.layer),
@@ -992,7 +999,7 @@ describe('WorkspaceActivationCoordinator', () => {
     })
     const watcherDisposer = vi.fn()
     const subscriptionDisposer = vi.fn()
-    const composition: SharedMapSceneRendererComposition = boundary === 'layer creation'
+    const composition: SceneLayerFactory = boundary === 'layer creation'
       ? {
         ...layer.composition,
         createLayer: vi.fn(() => {
@@ -1046,7 +1053,7 @@ describe('WorkspaceActivationCoordinator', () => {
     const layerDisposal = deferred<void>()
     const first = createComposition({ dispose: () => layerDisposal.promise })
     const successor = createComposition()
-    const composition: SharedMapSceneRendererComposition = {
+    const composition: SceneLayerFactory = {
       createLayer: vi.fn().mockReturnValueOnce(first.layer).mockReturnValueOnce(successor.layer),
     }
     const maps = [new FakeMap(), new FakeMap()]
@@ -1247,7 +1254,7 @@ describe('WorkspaceActivationCoordinator', () => {
     const firstDisposal = deferred<void>()
     const first = createComposition({ dispose: () => firstDisposal.promise })
     const newest = createComposition()
-    const composition: SharedMapSceneRendererComposition = {
+    const composition: SceneLayerFactory = {
       createLayer: vi.fn()
         .mockReturnValueOnce(first.layer)
         .mockReturnValue(newest.layer),
@@ -1353,7 +1360,7 @@ describe('WorkspaceActivationCoordinator', () => {
     const maps = [firstMap, recoveredMap]
     const first = createComposition()
     const recovered = createComposition()
-    const composition: SharedMapSceneRendererComposition = {
+    const composition: SceneLayerFactory = {
       createLayer: vi.fn()
         .mockReturnValueOnce(first.layer)
         .mockReturnValueOnce(recovered.layer),
@@ -1653,22 +1660,13 @@ describe('WorkspaceActivationCoordinator', () => {
   it('uses a real SceneCanvasRuntime and shared composition without adding a runtime canvas', async () => {
     const map = new FakeMap()
     const runtime = new SceneCanvasRuntime({ appAdapter: createDetachedCanvasRuntimeAppAdapter() })
-    const composition = createSharedMapSceneRendererComposition((target) => runtime.connectRenderTarget(target))
     runtime.documentSurface.resize(400, 300)
     const camera = runtime.cameraHost
     const container = document.createElement('div')
     Object.defineProperties(container, { clientWidth: { value: 400 }, clientHeight: { value: 300 } })
-    const renderer: SharedPixiRenderer = {
-      init: vi.fn(async () => {}), render: vi.fn(), resize: vi.fn(), resetState: vi.fn(),
-      destroy: vi.fn(), context: { extensions: {} },
-    }
     const coordinator = new WorkspaceActivationCoordinator({
       container, runtime, camera,
-      composition: withLayerFactories(composition, {
-        createRenderer: () => renderer,
-        createStage: () => ({ destroy: vi.fn() }) as never,
-        createPresentation: () => ({ dispose() {}, resize() {}, present() {}, setDraft() {} }),
-      }),
+      composition: createNoopSceneLayerFactory((target) => runtime.connectRenderTarget(target)),
       map: {
         createMap: async () => map as unknown as WorkspaceActivationMap,
         releaseMap: () => map.remove(),
@@ -1694,16 +1692,8 @@ describe('WorkspaceActivationCoordinator', () => {
     const map = new FakeMap()
     const runtime = new SceneCanvasRuntime({ appAdapter: createDetachedCanvasRuntimeAppAdapter() })
     const destroyRuntime = vi.spyOn(runtime, 'destroy')
-    const shared = createSharedMapSceneRendererComposition((target) => runtime.connectRenderTarget(target))
-    const layers = withLayerFactories(shared, {
-      createRenderer: () => ({
-        init: vi.fn(async () => {}), render: vi.fn(), resize: vi.fn(), resetState: vi.fn(),
-        destroy: vi.fn(), context: { extensions: {} },
-      }),
-      createStage: () => ({ destroy: vi.fn() }) as never,
-      createPresentation: () => ({ dispose() {}, resize() {}, present() {}, setDraft() {} }),
-    })
-    let layer!: SharedMapSceneLayer
+    const layers = createNoopSceneLayerFactory((target) => runtime.connectRenderTarget(target))
+    let layer!: PixiSceneHostLayer
     let signal!: AbortSignal
     const releaseMap = vi.fn(() => map.remove())
     const coordinator = new WorkspaceActivationCoordinator({
@@ -1731,14 +1721,14 @@ describe('WorkspaceActivationCoordinator', () => {
     map.addLayer.mockImplementation((spec) => {
       addLayer(spec)
       teardown = coordinator.teardown()
-      inside = { phase: layer.diagnostics.phase, aborted: signal.aborted }
+      inside = { phase: layer.phase, aborted: signal.aborted }
     })
 
     await expect(coordinator.activate(createActivationSnapshot())).resolves.toBe('cancelled')
 
     expect(inside).toEqual({ phase: 'disposing', aborted: true })
     await expect(teardown).resolves.toBeUndefined()
-    expect(layer.diagnostics.phase).toBe('disposed')
+    expect(layer.phase).toBe('disposed')
     expect(releaseMap).toHaveBeenCalledOnce()
     expect(destroyRuntime).toHaveBeenCalledOnce()
   })
@@ -1764,16 +1754,24 @@ class MovableFakeMap extends FakeMap {
   })
 }
 
-/**
- * The production composition with a real SceneCanvasRuntime, coordinator and renderer composition; only MapLibre
- * (the map controls) and Pixi (the layer's renderer) are fakes. Each map reports failures like the real controls.
- */
-/** The renderer composition with the layer's Pixi factories replaced, as jsdom has no WebGL. */
-function withLayerFactories(
-  composition: SharedMapSceneRendererComposition,
-  factories: Pick<SharedMapSceneLayerOptions, 'createRenderer' | 'createStage' | 'createPresentation'>,
-): SharedMapSceneRendererComposition {
-  return { createLayer: (options) => composition.createLayer({ ...options, ...factories }) }
+/** A real SceneHostLayer factory with a jsdom-safe noop ScenePainter. */
+function createNoopSceneLayerFactory(connect: (target: SceneRenderTarget) => () => void): SceneLayerFactory {
+  return {
+    createLayer: (options) => {
+      const painter: ScenePainter<SceneRendererSnapshot, DraftPresentation | null> = {
+        async init() {},
+        resize() {},
+        paint() {},
+        setDraft() {},
+        dispose() {},
+      }
+      return createSceneHostLayer({
+        ...options,
+        painter,
+        onAttached: (layer) => connect(layer),
+      })
+    },
+  }
 }
 
 function realComposition(options: {
@@ -1790,10 +1788,6 @@ function realComposition(options: {
   let runtime: SceneCanvasRuntime | null = null
   const container = document.createElement('div')
   Object.defineProperties(container, { clientWidth: { value: 400 }, clientHeight: { value: 300 } })
-  const pixi: SharedPixiRenderer = {
-    init: vi.fn(async () => {}), render: vi.fn(), resize: vi.fn(), resetState: vi.fn(),
-    destroy: vi.fn(), context: { extensions: {} },
-  }
   const composition = createWorkspaceRuntimeComposition({
     container,
     appAdapter: createDetachedCanvasRuntimeAppAdapter(),
@@ -1806,20 +1800,14 @@ function realComposition(options: {
     onRuntimeDestroyed: () => { destroyed = true },
     readSnapshot: () => createActivationSnapshot(),
   }, {
+    createRendererComposition: (connect) => createNoopSceneLayerFactory(connect),
     createRuntime: (runtimeOptions) => {
       runtime = new SceneCanvasRuntime(runtimeOptions)
       if (options.failRuntimeInit) vi.spyOn(runtime, 'init').mockRejectedValue(new Error('renderer init failed'))
       if (options.runtimeInit) vi.spyOn(runtime, 'init').mockReturnValue(options.runtimeInit)
       return runtime
     },
-    createWorkspace: (workspaceOptions) => new WorkspaceActivationCoordinator({
-      ...workspaceOptions,
-      composition: withLayerFactories(workspaceOptions.composition, {
-        createRenderer: () => pixi,
-        createStage: () => ({ destroy: vi.fn() }) as never,
-        createPresentation: () => ({ dispose() {}, resize() {}, present() {}, setDraft() {} }),
-      }),
-    }),
+    createWorkspace: (workspaceOptions) => new WorkspaceActivationCoordinator(workspaceOptions),
     createControls: (controlOptions) => ({
       createMap: async () => {
         const map = new MovableFakeMap()

@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 
+import { signal } from '@preact/signals'
 import { render } from 'preact'
 import { act } from 'preact/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -15,7 +16,7 @@ import { lidarLibrary } from '../app/data-library/library-store'
 import type { CanopiFile } from '../types/design'
 import { librarySnapshot, sourceItem } from './support/library-fixtures'
 import { createDefaultMapLayers, mapLayers } from '../app/map-layers/state'
-import { googleMapsApiKey, locale } from '../app/settings/state'
+import { googleMapsApiKey, layerStatus, locale } from '../app/settings/state'
 import type { Settings } from '../types/settings'
 import {
   currentDesign,
@@ -28,6 +29,7 @@ import {
   resetSettingsProjectionForTests,
 } from '../app/settings/projection'
 import { setCurrentCanvasSession } from '../canvas/session'
+import type { LayerSlotId, LayerStatus } from '../maplibre/map-lifetime'
 import { createTestCanvasQuerySurface } from './support/canvas-query-surface'
 import {
   createTestCanvasCommandSurface,
@@ -558,5 +560,39 @@ describe('LayerPanel', () => {
       hillshade_visible: true,
       hillshade_opacity: 0.3,
     }))
+  })
+
+  it('MAP-02 (2.1-Q351): shows failed library rows with the item name, no dead eye or open controls, and working Retry', async () => {
+    const retryLayer = vi.fn()
+    const rawId = 'lidar-result-1111-gen1-relief'
+    const layers = signal<ReadonlyMap<LayerSlotId, LayerStatus> | null>(
+      new Map<LayerSlotId, LayerStatus>([
+        ['background', { kind: 'ready' }],
+        [`library:${rawId}`, { kind: 'failed', reason: 'raster', label: 'North DEM' }],
+      ]),
+    )
+    layerStatus.set({ layers, retryLayer })
+    try {
+      await act(async () => {
+        render(<LayerPanel />, container)
+      })
+      const listItems = Array.from(container.querySelectorAll('[role="listitem"]'))
+      const libRow = listItems.find((el) => el.textContent?.includes('North DEM'))
+      expect(libRow).toBeTruthy()
+      expect(libRow?.textContent).not.toContain(rawId)
+      expect(libRow?.querySelector('[data-layer-failed]')).toBeTruthy()
+      expect(libRow?.querySelector('button[aria-pressed]')).toBeNull()
+      expect(libRow?.querySelector('button[aria-expanded]')).toBeNull()
+
+      const retryButton = Array.from(libRow?.querySelectorAll('button') ?? [])
+        .find((button) => button.textContent?.trim() === 'Retry')
+      expect(retryButton).toBeTruthy()
+      await act(async () => {
+        retryButton?.click()
+      })
+      expect(retryLayer).toHaveBeenCalledWith(`library:${rawId}`)
+    } finally {
+      layerStatus.set(null)
+    }
   })
 })

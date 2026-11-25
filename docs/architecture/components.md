@@ -200,7 +200,7 @@ flowchart TB
 ```
 
 - A layer imports only layers below; inside L1 and L2 a directory imports only lower ranks, and equal ranks import none of each other. One owner: `policy/layers.json`, which generates the dependency-cruiser `layer-order` and `edition-roots` rules.
-- `maplibre/` imports nothing from `canvas/`; it hosts a scene through `maplibre/scene-host-layer.ts` (2.1). `app/command-table/` (2.1) imports no feature.
+- `maplibre/` imports nothing from `canvas/`; it hosts a scene through `maplibre/scene-host-layer.ts`. `app/command-table/` (2.1) imports no feature.
 - Every top-level path has one layer or a named destination in `policy/layers.json`; `target/` is L3: it imports `canvas/` (L2), and its importers in `canvas/` and `maplibre/` are `layer-order` entries (finding COMP-F01, 2.1-M244).
 
 ### Edition selection at HEAD
@@ -357,7 +357,7 @@ flowchart LR
 | Data library | `platform/library.ts` (2.1) | library commands (N3) | library worker over SQLite on OPFS (N5) | L21 |
 | Species reader | not named | native catalog commands | DuckDB reader | L20, while two remain (2.1-E1) |
 | Saved stamps, Design Notebook | not named | user DB | browser record | L21 |
-| Scene host layer | `maplibre/scene-host-layer.ts` (2.1) | the Pixi layer on both | the same | L8; the caller hands the factory |
+| Scene host layer | `maplibre/scene-host-layer.ts` | the Pixi layer on both | the same | L8; the caller hands the factory |
 
 - Only the roots build and install `EditionPorts` (2.1); feature code reads a capability from its set, never the edition (`edition-ports-installed-only-by-roots`, `no-edition-check`). Fields and their files: contracts §22.
 - Every port's contract suite runs against both editions' adapters (ADR 0028, contracts §13).

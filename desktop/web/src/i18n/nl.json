@@ -360,7 +360,9 @@
       "siteDataWeb_one": "{{count, number}} terrein- of hoogtelaag in dit ontwerp · Vereist Canopi Desktop",
       "siteDataWeb_few": "{{count, number}} terrein- of hoogtelagen in dit ontwerp · Vereist Canopi Desktop",
       "siteDataWeb_many": "{{count, number}} terrein- of hoogtelagen in dit ontwerp · Vereist Canopi Desktop",
-      "siteDataWeb_other": "{{count, number}} terrein- of hoogtelagen in dit ontwerp · Vereist Canopi Desktop"
+      "siteDataWeb_other": "{{count, number}} terrein- of hoogtelagen in dit ontwerp · Vereist Canopi Desktop",
+      "webgl2Unavailable": "WebGL2 is niet beschikbaar op dit apparaat. Canopi heeft WebGL2 nodig om de kaart te tekenen.",
+      "layerFailed": "Kon niet worden geladen"
     },
     "timeline": {
       "actionType": "Actietype",

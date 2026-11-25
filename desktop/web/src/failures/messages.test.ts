@@ -32,6 +32,8 @@ const EXAMPLES: { readonly [K in Kind]: readonly CodeOf<K>[] } = {
   network: NETWORK.map((network) => ({ kind: 'network', network })),
   invalid: [{ kind: 'invalid' }],
   internal: [{ kind: 'internal' }],
+  map_unavailable: [{ kind: 'map_unavailable' }],
+  webgl2_unavailable: [{ kind: 'webgl2_unavailable' }],
   style_failed: [{ kind: 'style_failed' }],
   tile_source_failed: [{ kind: 'tile_source_failed', layer: 'satellite' }],
   update_signature_refused: [{ kind: 'update_signature_refused' }],

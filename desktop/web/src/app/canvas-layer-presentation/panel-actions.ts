@@ -6,6 +6,8 @@ import {
   setCanvasLayerPresentationVisibility,
 } from './presentation'
 import { saveGoogleMapsApiKey, setBasemapStyle, setMapBackground, setSoftenBackground } from '../map-layers/actions'
+import type { LayerSlotId } from '../../maplibre/map-lifetime'
+import { layerStatus } from '../settings/state'
 
 /**
  * Layer actions shared by both editions' Layers panels. Edition-neutral:
@@ -21,4 +23,5 @@ export const LAYER_PANEL_ACTIONS = {
   saveGoogleKey: saveGoogleMapsApiKey,
   background: setMapBackground,
   softenBackground: setSoftenBackground,
+  retryLayer: (slot: LayerSlotId) => layerStatus.get()?.retryLayer(slot),
 } as const

@@ -85,7 +85,7 @@ Verdicts (keep, merge, split, cut, add, change) cite the [ledger](../decisions/2
 |---|---|---|---|---|---|
 | Map lifetime | `MapLifetimeState`, layer slots, `LayerStatus` | `maplibre/map-lifetime.ts` | Three constructors today | `maplibre/workspace-map.ts` | change (M144) |
 | Canvas host | lease and `CanvasSurfaceState`; `mountCanvasHost` | `app/canvas-map-surface/canvas-host.ts` | One host for Desktop, Web and gallery | `components/panels/CanvasPanel.tsx` | keep (M144) |
-| `ScenePainter` | the scene the map hosts; `presentFor` | `maplibre/` | Inversion: `maplibre/` sits below `canvas/` | `maplibre/shared-scene-layer.ts` | change (M145) |
+| `ScenePainter` | the scene the map hosts; `presentFor` | `maplibre/` | Inversion: `maplibre/` sits below `canvas/` | `maplibre/scene-host-layer.ts` | change (M145) |
 | MapPorts and fake map | the MapLibre surface each consumer uses | `maplibre/` | Fake with behaviour | `maplibre/loader.ts` | change (M145) |
 | Workspace map contribution | a map layer source, gated by capability | `app/canvas-map-surface/workspace-map-contributions.ts` | Hydrology, crowns, LiDAR layers | the owner | keep (ADR 0027) |
 | `CanvasRuntimeAppAdapter` | what the canvas asks of the app | `canvas/runtime/` | Inversion | `canvas/runtime/interaction-ports.ts` | keep (ADR 0022) |

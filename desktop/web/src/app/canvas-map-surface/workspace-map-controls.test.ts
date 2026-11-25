@@ -11,7 +11,7 @@ import type { MapBackgroundPresentation } from '../../maplibre/map-background'
 import { OPENFREEMAP_BASEMAPS } from '../../maplibre/openfreemap-basemap'
 import { GOOGLE_SESSION_TILES } from '../../maplibre/basemap-tile-auth'
 import { GOOGLE_KEYLESS_TILES } from '../../maplibre/satellite-provider'
-import { MAPLIBRE_SHARED_SCENE_LAYER_ID } from '../../maplibre/shared-scene-layer'
+import { MAPLIBRE_SHARED_SCENE_LAYER_ID } from '../../maplibre/scene-host-layer'
 import { WorkspaceMapControls } from './workspace-map-controls'
 import { ringEntries } from '../../failures/ring'
 import { getMapNoticeReadModel } from './map-notice'
@@ -1021,7 +1021,7 @@ describe('WorkspaceMapControls', () => {
     await expect(acquisition).resolves.toBe(map)
     expect(map.remove).not.toHaveBeenCalled()
     expect(logError).toHaveBeenCalledWith(
-      'Passive MapLibre workspace basemap error:',
+      'MapLibre workspace basemap resource failed to load:',
       `source ${MAPLIBRE_SATELLITE_SOURCE_ID} · tile request failed immediately`,
     )
     logError.mockRestore()
@@ -1268,7 +1268,7 @@ describe('WorkspaceMapControls', () => {
     map.emit('error', event)
     expect(map.remove).not.toHaveBeenCalled()
     expect(logError).toHaveBeenCalledWith(
-      'Passive MapLibre workspace basemap error:',
+      'MapLibre workspace basemap resource failed to load:',
       `source ${MAPLIBRE_SATELLITE_SOURCE_ID} · tile unavailable`,
     )
     logError.mockRestore()
@@ -1290,7 +1290,7 @@ describe('WorkspaceMapControls', () => {
 
     expect(map.remove).not.toHaveBeenCalled()
     expect(reportFailure).not.toHaveBeenCalled()
-    expect(logError).toHaveBeenCalledWith('Passive MapLibre workspace basemap error:', 'source ofm-openmaptiles · vector tile unavailable')
+    expect(logError).toHaveBeenCalledWith('MapLibre workspace basemap resource failed to load:', 'source ofm-openmaptiles · vector tile unavailable')
     expect(ringEntries().at(-1)).toMatchObject({ code: { kind: 'tile_source_failed', layer: 'ofm-openmaptiles' } })
     logError.mockRestore()
   })
@@ -1813,5 +1813,18 @@ describe('WorkspaceMapControls Google satellite', () => {
       googleMapsApiKey.value = null
       satelliteSource.value = 'free'
     }
+  })
+
+  it('MAP-03: reports pre-admission failures (no WebGL2 context after create, onCreateError) to the failure ring', async () => {
+    const { resetFrontendDiagnosticsForTests, ringEntries } = await import('../../failures/ring')
+    resetFrontendDiagnosticsForTests()
+    const { controls: noGlControls, maps: noGlMaps } = createControls({ webgl2: null })
+    await expect(noGlControls.createMap(new AbortController().signal)).rejects.toThrow(/WebGL2/)
+    expect(noGlMaps).toHaveLength(1)
+    expect(ringEntries().some((entry) => entry.code.kind === 'webgl2_unavailable')).toBe(true)
+    resetFrontendDiagnosticsForTests()
+    const { controls: createErrControls } = createControls({ load: async () => { throw new Error('constructor failed') } })
+    await expect(createErrControls.createMap(new AbortController().signal)).rejects.toThrow('constructor failed')
+    expect(ringEntries().some((entry) => entry.code.kind === 'map_unavailable')).toBe(true)
   })
 })

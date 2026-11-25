@@ -78,6 +78,10 @@ pub enum FailureCode {
     Invalid,
     /// A fault in Canopi itself.
     Internal,
+    /// The map engine could not start or stopped drawing (contracts §2, §6).
+    MapUnavailable,
+    /// WebGL2 is unavailable on this device; Retry is never offered (contracts §2, §6).
+    Webgl2Unavailable,
     /// The map style failed to load; silent until 2d's map status (2.1-Q300).
     StyleFailed,
     /// A map tile source failed; silent until 2d's map status (2.1-Q300).
@@ -224,6 +228,8 @@ catalogue! {
         NativeService, retry: true, silent: false, Warn;
     Invalid => "invalid", NativeService, retry: false, silent: false, Warn;
     Internal => "internal", NativeService, retry: false, silent: false, Error;
+    MapUnavailable => "map_unavailable", Map, retry: true, silent: false, Error;
+    Webgl2Unavailable => "webgl2_unavailable", Map, retry: false, silent: false, Error;
     StyleFailed => "style_failed", Map, retry: true, silent: true, Warn;
     TileSourceFailed { layer: "satellite".to_owned() } => "tile_source_failed",
         Map, retry: true, silent: true, Warn;

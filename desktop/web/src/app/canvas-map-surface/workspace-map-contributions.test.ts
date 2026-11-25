@@ -18,7 +18,7 @@ import { createWorkspaceRuntimeComposition } from './workspace-runtime-compositi
 import { createDetachedCanvasRuntimeAppAdapter } from '../../__tests__/support/detached-canvas-app-adapter'
 import { createDetachedSceneRuntimePanelTargetAdapter } from '../../canvas/runtime/scene-runtime/panel-target-adapter'
 import { createTestCanvasRuntimeSurfaces } from '../../__tests__/support/canvas-runtime-surfaces'
-import type { SharedMapSceneRendererComposition } from '../../maplibre/shared-scene-renderer'
+import type { SceneLayerFactory } from './scene-layer-factory'
 import type { WorkspaceMapContributionSnapshot } from './workspace-map-contribution-adapter'
 import type { RasterDisplay, RasterDisplayLayer } from '../../maplibre/raster-display/adapter'
 import type { SiteMapOverlay } from '../../maplibre/site-overlay'
@@ -193,7 +193,7 @@ function createFeedComposition(
     mapContributions,
     readSnapshot: () => null,
   }, {
-    createRendererComposition: () => ({}) as SharedMapSceneRendererComposition,
+    createRendererComposition: () => ({}) as SceneLayerFactory,
     createRuntime: () => ({
       cameraHost: {} as never, commandSurface: surfaces.commands, querySurface: surfaces.queries,
       documentSurface: surfaces.documents, init: vi.fn(), unmountRenderer: vi.fn(), remountRenderer: vi.fn(),

@@ -360,7 +360,9 @@
       "siteDataWeb_one": "{{count, number}} livello di terreno o altezza in questo progetto · Richiede Canopi Desktop",
       "siteDataWeb_few": "{{count, number}} livelli di terreno o altezza in questo progetto · Richiede Canopi Desktop",
       "siteDataWeb_many": "{{count, number}} livelli di terreno o altezza in questo progetto · Richiede Canopi Desktop",
-      "siteDataWeb_other": "{{count, number}} livelli di terreno o altezza in questo progetto · Richiede Canopi Desktop"
+      "siteDataWeb_other": "{{count, number}} livelli di terreno o altezza in questo progetto · Richiede Canopi Desktop",
+      "webgl2Unavailable": "WebGL2 non è disponibile su questo dispositivo. Canopi richiede WebGL2 per disegnare la mappa.",
+      "layerFailed": "Impossibile caricare"
     },
     "timeline": {
       "actionType": "Tipo di azione",

@@ -9,10 +9,10 @@ import {
 import type { MapBackgroundPresentation } from '../../maplibre/map-background'
 import {
   MAPLIBRE_SHARED_SCENE_LAYER_ID,
-  type SharedMapSceneLayer,
-  type SharedMapSceneMap,
-} from '../../maplibre/shared-scene-layer'
-import type { SharedMapSceneRendererComposition } from '../../maplibre/shared-scene-renderer'
+  type SceneHostMap,
+} from '../../maplibre/scene-host-layer'
+import type { LayerSlotId } from '../../maplibre/map-lifetime'
+import type { PixiSceneHostLayer, SceneLayerFactory } from './scene-layer-factory'
 import { createMapLibreCameraDriver, type MapLibreCameraDriverMap } from '../../maplibre/camera-driver'
 import type { CameraDriverFailure, CameraDriverHost } from '../../geo/view/camera-driver'
 import { createSessionPlane } from '../../geo/session-plane'
@@ -66,6 +66,8 @@ export interface WorkspaceActivationMapControls {
   setAttributionCompact(compact: boolean): void
   /** The user's Retry for a Basemap that couldn't load: downloads it again on the live map. */
   retryBasemap(): void
+  /** The user's Retry for any failed layer slot on the live map (MAP-02). */
+  retryLayer?(slot: LayerSlotId): void
   /** Puts the shared scene layer in its band, above the basemap and LiDAR; called once, after the layer is added. */
   reconcileLayerStack(map: WorkspaceActivationMap): void
   /** Map/context failures that happen outside the custom layer. */
@@ -89,7 +91,7 @@ export interface WorkspaceActivationOptions {
   readonly runtime: WorkspaceActivationRuntime | SceneCanvasRuntime
   /** The runtime's one camera: the activation attaches each map to it as a camera driver (spec §1.1 Attachment). */
   readonly camera: CameraDriverHost
-  readonly composition: SharedMapSceneRendererComposition
+  readonly composition: SceneLayerFactory
   readonly map: WorkspaceActivationMapControls
   /** Live session plane origin of the runtime's open Design. */
   readonly readOrigin: () => { readonly lat: number; readonly lon: number }
@@ -104,7 +106,7 @@ interface ActivationGeneration {
   readonly snapshot: WorkspaceActivationSnapshot
   presentation: MapBackgroundPresentation
   map: WorkspaceActivationMap | null
-  layer: SharedMapSceneLayer | null
+  layer: PixiSceneHostLayer | null
   unwatchFailure: (() => void) | null
   unsubscribeCameraFailure: (() => void) | null
   cameraAttached: boolean
@@ -231,7 +233,7 @@ export class WorkspaceActivationCoordinator {
       if (!context) throw new Error('MapLibre did not expose a WebGL2 context for shared rendering.')
 
       const finishLayerCreation = this.beginSetup(current)
-      let layer: SharedMapSceneLayer
+      let layer: PixiSceneHostLayer
       try {
         layer = this.options.composition.createLayer({
           id: MAPLIBRE_SHARED_SCENE_LAYER_ID,
@@ -247,7 +249,7 @@ export class WorkspaceActivationCoordinator {
       current.layer = layer
       finishLayerCreation()
       if (!this.isCurrent(current)) return 'cancelled'
-      await layer.initialize(map as unknown as SharedMapSceneMap, context)
+      await layer.initialize(map as unknown as SceneHostMap, context)
       if (!this.isCurrent(current)) return 'cancelled'
       if (current.failure) return current.failure
 
@@ -780,11 +782,11 @@ export class WorkspaceActivationCoordinator {
   private addSharedSceneLayer(
     current: ActivationGeneration,
     map: WorkspaceActivationMap,
-    layer: SharedMapSceneLayer,
+    layer: PixiSceneHostLayer,
   ): void {
     map.addLayer(layer.layer as unknown as Record<string, unknown>)
     if (!this.isCurrent(current)) return
-    if (layer.diagnostics.phase !== 'attached') {
+    if (layer.phase !== 'attached') {
       throw new Error('MapLibre did not attach the initialized shared scene layer.')
     }
   }

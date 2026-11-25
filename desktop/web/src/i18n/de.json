@@ -360,7 +360,9 @@
       "siteDataWeb_one": "{{count, number}} Gelände- oder Höhenebene in diesem Design · Benötigt Canopi Desktop",
       "siteDataWeb_few": "{{count, number}} Gelände- oder Höhenebenen in diesem Design · Benötigt Canopi Desktop",
       "siteDataWeb_many": "{{count, number}} Gelände- oder Höhenebenen in diesem Design · Benötigt Canopi Desktop",
-      "siteDataWeb_other": "{{count, number}} Gelände- oder Höhenebenen in diesem Design · Benötigt Canopi Desktop"
+      "siteDataWeb_other": "{{count, number}} Gelände- oder Höhenebenen in diesem Design · Benötigt Canopi Desktop",
+      "webgl2Unavailable": "WebGL2 ist auf diesem Gerät nicht verfügbar. Canopi benötigt WebGL2 zum Zeichnen der Karte.",
+      "layerFailed": "Konnte nicht geladen werden"
     },
     "timeline": {
       "actionType": "Aktionstyp",

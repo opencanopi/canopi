@@ -392,9 +392,6 @@
     "desktop/web/src/maplibre/satellite-http.ts": {
       "count": 1
     },
-    "desktop/web/src/maplibre/shared-scene-layer.ts": {
-      "count": 1
-    },
     "desktop/web/src/maplibre/view-snapshot-map.test.ts": {
       "count": 1
     },

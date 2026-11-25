@@ -1,5 +1,8 @@
 import { currentCanvasQuerySurface } from '../../canvas/session'
 import type { CanvasQuerySurface } from '../../canvas/runtime/runtime'
+import { createPixiScenePainter } from '../../canvas/runtime/renderers/pixi-scene-painter'
+import type { SceneRendererSnapshot } from '../../canvas/runtime/renderers/scene-types'
+import { createSceneHostLayer } from '../../maplibre/scene-host-layer'
 import {
   createViewSnapshotMap,
   type ViewSnapshotCapture,
@@ -53,7 +56,7 @@ export function describeSavedViewSnapshot(
   view: SavedView,
   options: SavedViewSnapshotOptions,
   context: SavedViewSnapshotContext,
-): ViewSnapshotRequest | null {
+): ViewSnapshotRequest<SceneRendererSnapshot> | null {
   const plane = context.queries.sessionPlane.peek()
   if (!plane) return null
   const visibleLayerNames = [...view.visible_layers.scene_layers]
@@ -99,7 +102,7 @@ export function savedViewPresentedLabels(view: Pick<SavedView, 'labels'>): Plant
   return view.labels ?? currentPlantDisplay.peek().labels
 }
 
-let owner: ViewSnapshotMap | null = null
+let owner: ViewSnapshotMap<SceneRendererSnapshot> | null = null
 
 /**
  * Captures a saved view of the open Design as an image, off-screen: the
@@ -120,7 +123,10 @@ export async function captureSavedViewSnapshot(
     plantLabels: savedViewPresentedLabels(view),
   })
   if (!request) return null
-  owner ??= createViewSnapshotMap({ readSatelliteConfig })
+  owner ??= createViewSnapshotMap({
+    readSatelliteConfig,
+    createSceneLayer: (layerOptions) => createSceneHostLayer({ ...layerOptions, painter: createPixiScenePainter() }),
+  })
   return owner.capture(request)
 }
 

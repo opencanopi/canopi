@@ -10,7 +10,7 @@ import type { SceneCanvasRuntimeOptions } from '../../canvas/runtime/scene-runti
 import type { CanvasDocumentSurface } from '../../canvas/runtime/runtime'
 import type { WorkspaceMapContributionSnapshot, WorkspaceMapContributionAdapter } from './workspace-map-contribution-adapter'
 import type { MapBackgroundPresentation } from '../../maplibre/map-background'
-import type { SharedMapSceneRendererComposition } from '../../maplibre/shared-scene-renderer'
+import type { SceneLayerFactory } from './scene-layer-factory'
 import type { SceneRenderTarget } from '../../canvas/runtime/renderers/scene-types'
 import {
   createTestCanvasDocumentSurface,
@@ -377,7 +377,7 @@ function compositionFixture(options: CompositionFixtureOptions) {
   }
   const rendererComposition = {
     createLayer: vi.fn(),
-  } as unknown as SharedMapSceneRendererComposition
+  } as unknown as SceneLayerFactory
   const createRendererComposition = vi.fn((_connect: (target: SceneRenderTarget) => () => void) => rendererComposition)
   const controls = {
     createMap: vi.fn(),

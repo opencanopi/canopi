@@ -2,23 +2,66 @@
 
 // Production CSP rejects Pixi's generated functions; its shim avoids eval.
 import 'pixi.js/unsafe-eval'
-import { Container, Text } from 'pixi.js'
+import type * as PixiModule from 'pixi.js'
+import type { Container } from 'pixi.js'
 import { describe, expect, it, vi } from 'vitest'
 import { createTestSceneCanvasRuntime } from '../../__tests__/support/detached-canvas-app-adapter'
+import { createFakeMap } from '../../__tests__/support/fake-map'
 import type { SceneCanvasRuntime } from './scene-runtime'
-import { createPixiScenePresentation } from './renderers/pixi-scene'
-import { createSharedMapSceneRendererComposition } from '../../maplibre/shared-scene-renderer'
-import type { SharedMapSceneMap, SharedPixiRenderer } from '../../maplibre/shared-scene-layer'
+import { createPixiScenePainter } from './renderers/pixi-scene-painter'
+import { createSceneHostLayer } from '../../maplibre/scene-host-layer'
+import type { SceneRenderTarget } from './renderers/scene-types'
 import { CURRENT_CANOPI_FILE_VERSION } from '../../generated/canopi-design-format'
 import type { CanopiFile } from '../../types/design'
 
-/** jsdom has no 2D canvas to measure text with. */
-class MeasuredText extends Text {
-  override get width(): number { return 40 }
-  override set width(_value: number) {}
-  override get height(): number { return 16 }
-  override set height(_value: number) {}
+interface FakePixiRenderer {
+  init: ReturnType<typeof vi.fn<(opts?: unknown) => Promise<void>>>
+  render: ReturnType<typeof vi.fn<(opts: { readonly container: Container; readonly clear: false }) => void>>
+  resize: ReturnType<typeof vi.fn>
+  resetState: ReturnType<typeof vi.fn>
+  destroy: ReturnType<typeof vi.fn>
+  context: { extensions: { loseContext?: { loseContext: ReturnType<typeof vi.fn> } } }
 }
+
+const pixiHarness = vi.hoisted(() => ({
+  nextRenderer: null as (() => FakePixiRenderer) | null,
+}))
+
+vi.mock('pixi.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof PixiModule>()
+  /** jsdom has no 2D canvas to measure text with. */
+  class MeasuredText extends actual.Text {
+    override get width(): number { return 40 }
+    override set width(_value: number) {}
+    override get height(): number { return 16 }
+    override set height(_value: number) {}
+  }
+  class FakeWebGLRenderer {
+    readonly init: FakePixiRenderer['init']
+    readonly render: FakePixiRenderer['render']
+    readonly resize: FakePixiRenderer['resize']
+    readonly resetState: FakePixiRenderer['resetState']
+    readonly destroy: FakePixiRenderer['destroy']
+    readonly context: FakePixiRenderer['context']
+    constructor() {
+      const stub = pixiHarness.nextRenderer?.() ?? {
+        init: vi.fn(async () => {}),
+        render: vi.fn(),
+        resize: vi.fn(),
+        resetState: vi.fn(),
+        destroy: vi.fn(),
+        context: { extensions: { loseContext: { loseContext: vi.fn() } } },
+      }
+      this.init = stub.init
+      this.render = stub.render
+      this.resize = stub.resize
+      this.resetState = stub.resetState
+      this.destroy = stub.destroy
+      this.context = stub.context
+    }
+  }
+  return { ...actual, Text: MeasuredText, WebGLRenderer: FakeWebGLRenderer }
+})
 
 function createContainer(): HTMLElement {
   const container = document.createElement('div')
@@ -56,19 +99,18 @@ function orchard(): CanopiFile {
 
 /** MapLibre's canvas and repaint request, 800 × 600 CSS px at density 1. */
 function createMap() {
-  const canvas = document.createElement('canvas')
-  Object.defineProperties(canvas, {
-    clientWidth: { value: 800 }, clientHeight: { value: 600 },
-    width: { value: 800, writable: true }, height: { value: 600, writable: true },
-  })
-  return { getCanvas: () => canvas, triggerRepaint: vi.fn<() => void>() } satisfies SharedMapSceneMap
+  return createFakeMap({ width: 800, height: 600, dpr: 1 })
 }
 
-/** Pixi's WebGL renderer, which jsdom cannot start; the stage and the presentation are Pixi's own. */
-function createPixiRenderer(): SharedPixiRenderer {
+/** Pixi's WebGL renderer, which jsdom cannot start; the painter, stage and presentation are production code. */
+function createPixiRenderer(): FakePixiRenderer {
   return {
-    init: vi.fn(async () => {}), render: vi.fn(), resize: vi.fn(), resetState: vi.fn(),
-    destroy: vi.fn(), context: { extensions: { loseContext: { loseContext: vi.fn() } } },
+    init: vi.fn(async (_opts?: unknown) => {}),
+    render: vi.fn(),
+    resize: vi.fn(),
+    resetState: vi.fn(),
+    destroy: vi.fn(),
+    context: { extensions: { loseContext: { loseContext: vi.fn() } } },
   }
 }
 
@@ -76,14 +118,36 @@ function nextFrame(): Promise<void> {
   return new Promise((resolve) => requestAnimationFrame(() => resolve()))
 }
 
-/** The shared scene layer's id, camera frames and a Pixi presentation that measures text without a canvas. */
-function layerOptions(runtime: SceneCanvasRuntime) {
-  return {
+/** Builds a real SceneHostLayer backed by the production createPixiScenePainter(). */
+function createJsdomLayer(
+  runtime: SceneCanvasRuntime,
+  opts: { pixi?: FakePixiRenderer; onSnapshotPainted?: () => void } = {},
+) {
+  const pixi = opts.pixi ?? createPixiRenderer()
+  const inner = createPixiScenePainter()
+  const painter = {
+    async init(surface: Parameters<typeof inner.init>[0]) {
+      pixiHarness.nextRenderer = () => pixi
+      try {
+        await inner.init(surface)
+      } finally {
+        pixiHarness.nextRenderer = null
+      }
+    },
+    resize: (size: Parameters<typeof inner.resize>[0]) => inner.resize(size),
+    paint: (frame: Parameters<typeof inner.paint>[0]) => {
+      inner.paint(frame)
+      if (frame.snapshot !== undefined) opts.onSnapshotPainted?.()
+    },
+    setDraft: (draft: Parameters<typeof inner.setDraft>[0]) => inner.setDraft(draft),
+    dispose: () => inner.dispose(),
+  }
+  return createSceneHostLayer({
     id: 'canopi-shared-scene',
     frames: runtime.cameraHost.frames,
-    createPresentation: (input: Parameters<typeof createPixiScenePresentation>[0]) =>
-      createPixiScenePresentation({ ...input, createText: () => new MeasuredText() }),
-  }
+    painter,
+    onAttached: (target: SceneRenderTarget) => runtime.connectRenderTarget(target),
+  })
 }
 
 describe('SceneCanvasRuntime and the shared map scene layer', () => {
@@ -95,18 +159,18 @@ describe('SceneCanvasRuntime and the shared map scene layer', () => {
     expect(container.querySelector('canvas'), 'MapLibre owns the only surface').toBeNull()
 
     // As a Design switch or a Retry builds a new map and layer: the slot replays the drawn Scene to it.
-    const composition = createSharedMapSceneRendererComposition((target) => runtime.connectRenderTarget(target))
-    const stage = new Container()
     const pixi = createPixiRenderer()
     const map = createMap()
     const gl = {} as WebGL2RenderingContext
-    const layer = composition.createLayer({ ...layerOptions(runtime), createRenderer: () => pixi, createStage: () => stage })
+    let snapshotPaints = 0
+    const layer = createJsdomLayer(runtime, { pixi, onSnapshotPainted: () => { snapshotPaints += 1 } })
     await layer.initialize(map, gl)
     layer.layer.onAdd!(map as never, gl)
     layer.layer.render(gl, {} as never)
 
-    expect(layer.diagnostics.sceneSyncCount).toBe(1)
+    expect(snapshotPaints).toBe(1)
     expect(pixi.render).toHaveBeenCalledOnce()
+    const stage = pixi.render.mock.calls[0]![0].container
     const [worldRoot, billboardRoot] = stage.children
     expect(billboardRoot!.children.length, 'the apple tree is drawn').toBeGreaterThan(0)
 
@@ -115,7 +179,7 @@ describe('SceneCanvasRuntime and the shared map scene layer', () => {
     runtime.cameraHost.current().apply({ kind: 'pan-by', deltaPx: { x: 30, y: -20 } })
     expect(map.triggerRepaint).toHaveBeenCalled()
     layer.layer.render(gl, {} as never)
-    expect(layer.diagnostics.sceneSyncCount).toBe(1)
+    expect(snapshotPaints).toBe(1)
     worldRoot!.updateLocalTransform()
     const view = runtime.cameraHost.frames.viewFrame.peek().view
     expect(worldRoot!.localTransform.tx).toBeCloseTo(view.planar.affine[4], 6)
@@ -129,10 +193,9 @@ describe('SceneCanvasRuntime and the shared map scene layer', () => {
     runtime.documentSurface.loadDocument(orchard())
     const container = createContainer()
     await runtime.init(container)
-    const composition = createSharedMapSceneRendererComposition((target) => runtime.connectRenderTarget(target))
     const map = createMap()
     const gl = {} as WebGL2RenderingContext
-    const layer = composition.createLayer({ ...layerOptions(runtime), createRenderer: createPixiRenderer })
+    const layer = createJsdomLayer(runtime)
     await layer.initialize(map, gl)
     layer.layer.onAdd!(map as never, gl)
     layer.layer.render(gl, {} as never)
@@ -155,10 +218,9 @@ describe('SceneCanvasRuntime and the shared map scene layer', () => {
     const runtime = createTestSceneCanvasRuntime()
     runtime.documentSurface.loadDocument(orchard())
     const container = createContainer()
-    const composition = createSharedMapSceneRendererComposition((target) => runtime.connectRenderTarget(target))
     const gl = {} as WebGL2RenderingContext
     const oldMap = createMap()
-    const old = composition.createLayer({ ...layerOptions(runtime), createRenderer: createPixiRenderer })
+    const old = createJsdomLayer(runtime)
     await old.initialize(oldMap, gl)
     old.layer.onAdd!(oldMap as never, gl)
     await runtime.init(container)
@@ -177,10 +239,11 @@ describe('SceneCanvasRuntime and the shared map scene layer', () => {
     const map = createMap()
     // MapLibre draws its custom layers in the animation frame a repaint request asks for.
     map.triggerRepaint.mockImplementation(() => { requestAnimationFrame(() => layer.layer.render(gl, {} as never)) })
-    const layer = composition.createLayer({ ...layerOptions(runtime), createRenderer: () => pixi })
+    let snapshotPaints = 0
+    const layer = createJsdomLayer(runtime, { pixi, onSnapshotPainted: () => { snapshotPaints += 1 } })
     const drawsWhenPresented: number[] = []
     const stopWatching = runtime.documentSurface.presented.subscribe((presented) => {
-      if (presented) drawsWhenPresented.push(layer.diagnostics.sceneSyncCount)
+      if (presented) drawsWhenPresented.push(snapshotPaints)
     })
     const initialized = layer.initialize(map, gl)
     await nextFrame()
@@ -204,12 +267,11 @@ describe('SceneCanvasRuntime and the shared map scene layer', () => {
     const runtime = createTestSceneCanvasRuntime()
     runtime.documentSurface.loadDocument(orchard())
     const container = createContainer()
-    const composition = createSharedMapSceneRendererComposition((target) => runtime.connectRenderTarget(target))
     const gl = {} as WebGL2RenderingContext
     const oldMap = createMap()
     // Pixi's teardown throws, as on a lost or never-initialized WebGL context.
     const pixi = { ...createPixiRenderer(), destroy: vi.fn(() => { throw new Error('context lost') }) }
-    const old = composition.createLayer({ ...layerOptions(runtime), createRenderer: () => pixi })
+    const old = createJsdomLayer(runtime, { pixi })
     await old.initialize(oldMap, gl)
     old.layer.onAdd!(oldMap as never, gl)
     await runtime.init(container)
@@ -228,10 +290,9 @@ describe('SceneCanvasRuntime and the shared map scene layer', () => {
     const runtime = createTestSceneCanvasRuntime()
     runtime.documentSurface.loadDocument(orchard())
     const container = createContainer()
-    const composition = createSharedMapSceneRendererComposition((target) => runtime.connectRenderTarget(target))
     const map = createMap()
     const gl = {} as WebGL2RenderingContext
-    const layer = composition.createLayer({ ...layerOptions(runtime), createRenderer: createPixiRenderer })
+    const layer = createJsdomLayer(runtime)
     await layer.initialize(map, gl)
     layer.layer.onAdd!(map as never, gl)
     await runtime.init(container)

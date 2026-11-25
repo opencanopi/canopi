@@ -24,6 +24,8 @@
 import type { RasterPoolClient, RasterTileRequest, RasterWorkerPool } from './pool'
 import { rasterWorkerPool } from './pool'
 import { recordRaster } from './diagnostics'
+import { reportMapSourceFailure } from '../map-errors'
+import type { LayerStatus } from '../map-lifetime'
 import { mercatorToGeo } from '../../geo/projection'
 import { WORKSPACE_MAP_MAX_ZOOM } from '../../geo/workspace-camera-policy'
 import type * as MaplibreGlRasterModule from 'maplibre-gl-raster'
@@ -55,11 +57,11 @@ export interface RasterDisplayLayer {
   readonly reversed: boolean
 }
 
-type RasterDisplayLayerState = 'loading' | 'ready' | 'error'
-
 export interface RasterDisplayOptions {
   /** The engine added, replaced or removed map layers after an async load. */
   readonly onLayersChanged?: () => void
+  /** Per-layer status changes (`LayerStatus`, null when the layer is removed; MAP-02). */
+  readonly onLayerStatus?: (id: string, status: LayerStatus | null) => void
   readonly loadRasterModule?: () => Promise<RasterModule>
   readonly pool?: RasterWorkerPool
 }
@@ -80,6 +82,8 @@ export interface RasterDisplay {
   sync(layers: readonly RasterDisplayLayer[], beforeId: string | undefined): void
   /** Layer ids the manager currently owns, bottom first. */
   layerIds(): string[]
+  /** Retries a single failed raster layer on the live map (MAP-02). */
+  retryLayer?(id: string): void
   dispose(): void
 }
 
@@ -117,7 +121,7 @@ export function createRasterDisplay(
   let readUrls = new Set<string>()
   const sources = displaySources(client, (url) => readUrls.has(url))
   const applied = new Map<string, Applied>()
-  const states = new Map<string, RasterDisplayLayerState>()
+  const states = new Map<string, LayerStatus>()
   let manager: LayerManager | null = null
   let desired: readonly RasterDisplayLayer[] = []
   let desiredBeforeId: string | undefined
@@ -163,10 +167,20 @@ export function createRasterDisplay(
     map.off?.('sourcedata', nudge)
   }
 
-  const setState = (id: string, next: RasterDisplayLayerState, error?: Error) => {
-    if (states.get(id) === next) return
-    states.set(id, next)
-    recordRaster({ kind: `layer-${next}`, id, detail: error?.message })
+  const setState = (id: string, next: LayerStatus, error?: Error) => {
+    const label = desired.find((layer) => layer.id === id)?.name
+      ?? applied.get(id)?.layer.name
+      ?? mosaics.get(id)?.name
+    const status: LayerStatus = next.kind === 'failed' && label ? { ...next, label } : next
+    const prev = states.get(id)
+    if (prev && prev.kind === status.kind && (status.kind !== 'failed' || (prev.kind === 'failed' && prev.reason === status.reason && prev.label === status.label))) return
+    states.set(id, status)
+    const diagKind = status.kind === 'failed' ? 'layer-error' : status.kind === 'ready' ? 'layer-ready' : 'layer-loading'
+    recordRaster({ kind: diagKind, id, detail: error?.message })
+    if (status.kind === 'failed') {
+      reportMapSourceFailure('Raster display layer failed:', { sourceId: id, error: error ?? new Error(status.reason) })
+    }
+    options.onLayerStatus?.(id, status)
   }
 
   const load = options.loadRasterModule ?? (() => import('maplibre-gl-raster'))
@@ -187,17 +201,20 @@ export function createRasterDisplay(
       if (!event.layerId) return
       const layer = manager?.getLayer(event.layerId)
       if (!layer) return
-      if (layer.error) setState(event.layerId, 'error', layer.error)
-      else if (!layer.loading) setState(event.layerId, 'ready')
+      if (layer.error) setState(event.layerId, { kind: 'failed', reason: 'raster-failed' }, layer.error)
+      else if (!layer.loading) setState(event.layerId, { kind: 'ready' })
       options.onLayersChanged?.()
     })
     manager.on('error', (event) => {
-      if (event.layerId) setState(event.layerId, 'error', event.error)
+      if (event.layerId) {
+        setState(event.layerId, { kind: 'failed', reason: 'raster-failed' }, event.error)
+      }
     })
     reconcile()
   }, (error: unknown) => {
     if (disposed) return
-    for (const layer of desired) setState(layer.id, 'error', error instanceof Error ? error : new Error(String(error)))
+    const err = error instanceof Error ? error : new Error(String(error))
+    for (const layer of desired) setState(layer.id, { kind: 'failed', reason: 'module-load' }, err)
   })
 
   function reconcile(): void {
@@ -214,7 +231,7 @@ export function createRasterDisplay(
       for (const asset of previous.layer.assets) removedUrls.add(asset.url)
       applied.delete(id)
       mosaics.delete(id)
-      states.delete(id)
+      if (states.delete(id)) options.onLayerStatus?.(id, null)
     }
     // Every desired layer is on the map once this pass ends. The engine only
     // forgets a dropped layer's COG proxies; close the worker sources no layer
@@ -229,7 +246,7 @@ export function createRasterDisplay(
         const url = layer.assets.length === 1
           ? layer.assets[0]!.url
           : registerMosaic(mosaics, layer)
-        setState(layer.id, 'loading')
+        setState(layer.id, { kind: 'loading' })
         recordRaster({ kind: 'add', id: layer.id, detail: `${layer.assets.length} asset(s)` })
         applied.set(layer.id, { layer, styleKey, sourceKey: sourceKey(layer) })
         current.addRaster(url, {
@@ -240,7 +257,8 @@ export function createRasterDisplay(
           state: stateFor(layer),
         }).catch((error: unknown) => {
           if (disposed || applied.get(layer.id)?.layer !== layer) return
-          setState(layer.id, 'error', error instanceof Error ? error : new Error(String(error)))
+          const err = error instanceof Error ? error : new Error(String(error))
+          setState(layer.id, { kind: 'failed', reason: 'raster-failed' }, err)
         })
       } else {
         if (previous.styleKey !== styleKey) {
@@ -268,6 +286,14 @@ export function createRasterDisplay(
     },
     layerIds() {
       return manager ? manager.getLayers().map((layer) => layer.id) : []
+    },
+    retryLayer(id) {
+      if (disposed || !manager || !applied.has(id)) return
+      manager.removeRaster(id)
+      applied.delete(id)
+      mosaics.delete(id)
+      states.delete(id)
+      reconcile()
     },
     dispose() {
       if (disposed) return

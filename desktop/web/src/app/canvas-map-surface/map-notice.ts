@@ -58,12 +58,14 @@ function readSurfaceNotice(
   if (surface.kind === 'unavailable') return notice('canvas.layers.mapUnavailable', 'error')
   if (surface.kind !== 'map') return mapVisible ? notice('canvas.layers.basemapLoading', 'loading') : null
   if (surface.map.kind === 'failed') {
+    if (surface.map.cause === 'no-webgl2') return notice('canvas.layers.webgl2Unavailable', 'error')
     return surface.retry === 'offered'
       ? notice('canvas.layers.mapStopped', 'error', true)
       : notice('canvas.layers.mapUnavailable', 'error')
   }
   if (!mapVisible) return null
   if (surface.map.kind !== 'ready') return notice('canvas.layers.basemapLoading', 'loading')
+  // The map notice is for the background only; other layers show failures on their Layers row with Retry (2.1-Q351).
   const background = surface.map.layers.get('background')
   if (background?.kind === 'failed') {
     // One sentence for a rejected Google key and a lost connection: the provider keeps no cause (canopi-k94s).
@@ -71,10 +73,5 @@ function readSurfaceNotice(
     return notice(satellite ? 'canvas.layers.satelliteFailed' : 'canvas.layers.basemapFailed', 'error', true)
   }
   if (background?.kind === 'loading') return notice('canvas.layers.basemapLoading', 'loading')
-  for (const [slot, status] of surface.map.layers) {
-    if (slot !== 'background' && (status.kind === 'failed' || status.kind === 'skipped')) {
-      return notice('canvas.layers.layerSkipped', 'ready')
-    }
-  }
   return null
 }

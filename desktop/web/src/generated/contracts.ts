@@ -506,6 +506,10 @@ network: NetworkFailureKind } |
 { kind: "invalid" } |
 // A fault in Canopi itself.
 { kind: "internal" } |
+// The map engine could not start or stopped drawing (contracts §2, §6).
+{ kind: "map_unavailable" } |
+// WebGL2 is unavailable on this device; Retry is never offered (contracts §2, §6).
+{ kind: "webgl2_unavailable" } |
 // The map style failed to load; silent until 2d's map status (2.1-Q300).
 { kind: "style_failed" } |
 // A map tile source failed; silent until 2d's map status (2.1-Q300).
@@ -3043,6 +3047,12 @@ export const FAILURE_CATALOGUE: { readonly [K in FailureCode["kind"]]: FailureRo
     "silent": false,
     "level": "warn"
   },
+  "map_unavailable": {
+    "source": "map",
+    "user_may_retry": true,
+    "silent": false,
+    "level": "error"
+  },
   "network": {
     "source": "native_service",
     "user_may_retry": true,
@@ -3126,6 +3136,12 @@ export const FAILURE_CATALOGUE: { readonly [K in FailureCode["kind"]]: FailureRo
     "user_may_retry": false,
     "silent": false,
     "level": "warn"
+  },
+  "webgl2_unavailable": {
+    "source": "map",
+    "user_may_retry": false,
+    "silent": false,
+    "level": "error"
   }
 }
 

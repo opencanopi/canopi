@@ -11,7 +11,7 @@ export type LayerSlotId = 'background' | 'terrain' | `library:${string}`
 export type LayerStatus =
   | { readonly kind: 'loading' }
   | { readonly kind: 'ready' }
-  | { readonly kind: 'failed'; readonly reason: string }
+  | { readonly kind: 'failed'; readonly reason: string; readonly label?: string }
   | { readonly kind: 'skipped'; readonly reason: string }
 
 export type MapFailureCause = 'no-webgl2' | 'engine-start' | 'style' | 'context-lost'
@@ -40,7 +40,10 @@ export interface MapLifetimeHandle {
 function layerStatusEquals(left: LayerStatus | undefined, right: LayerStatus | undefined): boolean {
   if (left === right) return true
   if (!left || !right || left.kind !== right.kind) return false
-  return (left.kind !== 'failed' && left.kind !== 'skipped') || left.reason === (right as typeof left).reason
+  if (left.kind === 'failed' && right.kind === 'failed') {
+    return left.reason === right.reason && left.label === right.label
+  }
+  return left.kind !== 'skipped' || left.reason === (right as typeof left).reason
 }
 
 export function mapLifetimeStateEquals(left: MapLifetimeState, right: MapLifetimeState): boolean {

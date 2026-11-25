@@ -360,7 +360,9 @@
       "siteDataWeb_one": "{{count, number}} слой рельефа или высоты в этом проекте · Нужен Canopi Desktop",
       "siteDataWeb_few": "{{count, number}} слоя рельефа или высоты в этом проекте · Нужен Canopi Desktop",
       "siteDataWeb_many": "{{count, number}} слоёв рельефа или высоты в этом проекте · Нужен Canopi Desktop",
-      "siteDataWeb_other": "{{count, number}} слоя рельефа или высоты в этом проекте · Нужен Canopi Desktop"
+      "siteDataWeb_other": "{{count, number}} слоя рельефа или высоты в этом проекте · Нужен Canopi Desktop",
+      "webgl2Unavailable": "WebGL2 недоступен на этом устройстве. Canopi требуется WebGL2 для отрисовки карты.",
+      "layerFailed": "Не удалось загрузить"
     },
     "timeline": {
       "actionType": "Тип действия",

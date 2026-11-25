@@ -31,7 +31,7 @@ export interface WorkspaceMapContributionAdapter {
    */
   readonly createRasterDisplay?: (
     map: RasterDisplayMap,
-    options: Pick<RasterDisplayOptions, 'onLayersChanged'>,
+    options: Pick<RasterDisplayOptions, 'onLayersChanged' | 'onLayerStatus'>,
   ) => RasterDisplay
   /**
    * Desktop only: the profile chart's hover point in [lon, lat]. It changes at scrub rate, so it is the one exception to

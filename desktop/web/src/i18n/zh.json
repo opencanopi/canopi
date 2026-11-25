@@ -360,7 +360,9 @@
       "siteDataWeb_one": "此设计中有 {{count, number}} 个地形或高度图层 · 需要 Canopi Desktop",
       "siteDataWeb_few": "此设计中有 {{count, number}} 个地形或高度图层 · 需要 Canopi Desktop",
       "siteDataWeb_many": "此设计中有 {{count, number}} 个地形或高度图层 · 需要 Canopi Desktop",
-      "siteDataWeb_other": "此设计中有 {{count, number}} 个地形或高度图层 · 需要 Canopi Desktop"
+      "siteDataWeb_other": "此设计中有 {{count, number}} 个地形或高度图层 · 需要 Canopi Desktop",
+      "webgl2Unavailable": "此设备不支持 WebGL2。Canopi 需要 WebGL2 来绘制地图。",
+      "layerFailed": "无法加载"
     },
     "timeline": {
       "actionType": "任务类型",

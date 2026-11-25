@@ -3,10 +3,13 @@ import type { BasemapStyle } from '../generated/contracts'
 import {
   MAPLIBRE_BASEMAP_BACKGROUND_LAYER_ID,
   MAPLIBRE_SATELLITE_LAYER_ID,
+  MAPLIBRE_SATELLITE_SOURCE_ID,
 } from './config'
+import { mapErrorResourceId } from './map-error-owner'
 import type { BasemapTileAuth } from './basemap-tile-auth'
 import {
   OPENFREEMAP_LAYER_PREFIX,
+  OPENFREEMAP_SOURCE_PREFIX,
   VectorBasemap,
   type MapLibreBasemapStatus,
   type VectorBasemapMap,
@@ -141,13 +144,17 @@ export function mountMapBackground(options: MapBackgroundOptions): MapBackground
   // The one status owner: the Basemap's and Satellite's states, reported as one derived status (canopi-k94s).
   let vectorStatus: MapLibreBasemapStatus = 'idle'
   let satelliteState: SatelliteState['state'] = 'idle'
+  let satelliteTileFailed = false
+  let consecutiveSatelliteTileErrors = 0
   let reportedStatus: MapLibreBasemapStatus = 'idle'
   // While apply() runs, the Basemap and Satellite pass through states the band never shows (the Basemap hidden under
   // Satellite, Satellite not yet mounted): the status is reported once apply() is done.
   let applying = false
   const reportStatus = () => {
     if (applying || disposed) return
-    const next = presentation?.satellite.visible ? satelliteStatus(satelliteState) : vectorStatus
+    const next = presentation?.satellite.visible
+      ? (satelliteTileFailed ? 'failed' : satelliteStatus(satelliteState))
+      : vectorStatus
     if (next === reportedStatus) return
     reportedStatus = next
     options.onBasemapStatus?.(next)
@@ -163,7 +170,17 @@ export function mountMapBackground(options: MapBackgroundOptions): MapBackground
   })
   // MapLibre is idle only once the Basemap's sprite request has settled (VectorBasemap.claimResourceError).
   const onIdle = () => vector.noteMapIdle()
+  // A successful Satellite tile clears any prior tile-failure notice and resets the consecutive error counter (2.1-Q350, canopi-m6sm).
+  const onSourceData = (event?: unknown) => {
+    if (disposed || !isSatelliteTileSuccessEvent(event)) return
+    consecutiveSatelliteTileErrors = 0
+    if (satelliteTileFailed) {
+      satelliteTileFailed = false
+      reportStatus()
+    }
+  }
   options.lifetime.on('idle', onIdle)
+  options.lifetime.on('sourcedata', onSourceData)
   let presentation: MapBackgroundPresentation | null = null
   let satellite: SatelliteMountHandle | null = null
   let disposed = false
@@ -177,6 +194,8 @@ export function mountMapBackground(options: MapBackgroundOptions): MapBackground
     satellite?.dispose()
     satellite = null
     satelliteState = 'idle'
+    satelliteTileFailed = false
+    consecutiveSatelliteTileErrors = 0
     attribution.setSatelliteCredit('')
   }
 
@@ -257,6 +276,10 @@ export function mountMapBackground(options: MapBackgroundOptions): MapBackground
       if (disposed) return
       untracked(() => {
         vector.discardFailedResources()
+        // Keyless Satellite tile failures (canopi-m6sm): remount the source so MapLibre re-requests tiles.
+        if (satelliteTileFailed) {
+          releaseSatellite()
+        }
         show(next)
         // Satellite that couldn't load starts over with a new Google session. Imagery that is showing or loading is
         // left alone: a saved-view capture retries on every frame and must not blank it.
@@ -264,7 +287,34 @@ export function mountMapBackground(options: MapBackgroundOptions): MapBackground
       })
     },
     claimMapError(event) {
-      return !disposed && vector.claimResourceError(event)
+      if (disposed) return false
+      if (vector.claimResourceError(event)) return true
+      const id = mapErrorResourceId(event)
+      if (id === MAPLIBRE_SATELLITE_SOURCE_ID || id === MAPLIBRE_SATELLITE_LAYER_ID) {
+        if (presentation?.satellite.visible) {
+          const status = readMapErrorStatus(event)
+          // 404/204 means no imagery exists at this tile (blank, not a failure; 2.1-Q350).
+          if (status === 404 || status === 204) return true
+          const isNetworkError = status === 0 || (typeof navigator !== 'undefined' && navigator.onLine === false)
+          if (isNetworkError) {
+            consecutiveSatelliteTileErrors = SATELLITE_TILE_ERROR_THRESHOLD
+          } else {
+            consecutiveSatelliteTileErrors += 1
+          }
+          if (!satelliteTileFailed && consecutiveSatelliteTileErrors >= SATELLITE_TILE_ERROR_THRESHOLD) {
+            satelliteTileFailed = true
+            reportStatus()
+          }
+        }
+        return true
+      }
+      if (
+        id === MAPLIBRE_BASEMAP_BACKGROUND_LAYER_ID
+        || (id !== null && (id.startsWith(OPENFREEMAP_LAYER_PREFIX) || id.startsWith(OPENFREEMAP_SOURCE_PREFIX)))
+      ) {
+        return true
+      }
+      return false
     },
     isApplied() {
       if (disposed || !presentation || !readiness.isReady()) return false
@@ -281,6 +331,7 @@ export function mountMapBackground(options: MapBackgroundOptions): MapBackground
       if (disposed) return
       disposed = true
       options.lifetime.off('idle', onIdle)
+      options.lifetime.off('sourcedata', onSourceData)
       cancelReadyWait?.()
       cancelReadyWait = null
       releaseSatellite()
@@ -374,4 +425,27 @@ function createAttributionOwner(maplibre: unknown, map: MapBackgroundMap) {
 
 function unitInterval(value: number): number {
   return Number.isFinite(value) ? Math.min(1, Math.max(0, value)) : 0
+}
+
+/** Consecutive non-404/204 Satellite tile errors before reporting Satellite as failed (2.1-Q350, canopi-m6sm). */
+const SATELLITE_TILE_ERROR_THRESHOLD = 3
+
+function readMapErrorStatus(event: unknown): number | null {
+  if (!event || typeof event !== 'object') return null
+  const record = event as { status?: unknown; error?: { status?: unknown } }
+  if (typeof record.error?.status === 'number') return record.error.status
+  if (typeof record.status === 'number') return record.status
+  return null
+}
+
+function isSatelliteTileSuccessEvent(event: unknown): boolean {
+  if (!event || typeof event !== 'object') return false
+  const record = event as {
+    sourceId?: unknown
+    tile?: unknown
+    isSourceLoaded?: unknown
+    sourceDataType?: unknown
+  }
+  if (record.sourceId !== MAPLIBRE_SATELLITE_SOURCE_ID) return false
+  return record.tile != null || (record.isSourceLoaded === true && record.sourceDataType !== 'metadata')
 }

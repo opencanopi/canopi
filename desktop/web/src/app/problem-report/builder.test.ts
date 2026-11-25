@@ -233,4 +233,22 @@ describe('problem report builder', () => {
     expect(text(report, 'frontend_ring')).toContain('$.plants[0].position')
     expect(JSON.parse(text(report, 'originating_failure')).detail).toContain('$.plants[0].position')
   })
+
+  it('MAP-03: map and layer failures reach the problem report frontend_ring with redacted detail', () => {
+    const report = buildProblemReport(input({
+      ring: [
+        { level: 'error', source: 'map', code: { kind: 'webgl2_unavailable' }, message: 'WebGL2 is unavailable', timestamp_ms: 1, count: 1 },
+        { level: 'error', source: 'map', code: { kind: 'map_unavailable' }, message: 'Context lost', timestamp_ms: 2, count: 1 },
+        { level: 'warn', source: 'map', code: { kind: 'tile_source_failed', layer: 'terrain-dem' }, message: 'Terrain tile failed', timestamp_ms: 3, count: 1 },
+        { level: 'warn', source: 'map', code: { kind: 'style_failed' }, message: 'Style failed', timestamp_ms: 4, count: 1 },
+      ],
+    }))
+    const ringJson = JSON.parse(text(report, 'frontend_ring')) as Array<{ code: { kind: string; layer?: string } }>
+    expect(ringJson.map((entry) => entry.code)).toEqual([
+      { kind: 'webgl2_unavailable' },
+      { kind: 'map_unavailable' },
+      { kind: 'tile_source_failed', layer: 'terrain-dem' },
+      { kind: 'style_failed' },
+    ])
+  })
 })

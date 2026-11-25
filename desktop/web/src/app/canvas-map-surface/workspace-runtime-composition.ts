@@ -16,9 +16,9 @@ import {
   type SceneCanvasRuntimeOptions,
 } from '../../canvas/runtime/scene-runtime'
 import {
-  createSharedMapSceneRendererComposition,
-  type SharedMapSceneRendererComposition,
-} from '../../maplibre/shared-scene-renderer'
+  createSceneLayerFactory,
+  type SceneLayerFactory,
+} from './scene-layer-factory'
 import type { MapBackgroundPresentation } from '../../maplibre/map-background'
 import type {
   WorkspaceActivationOptions,
@@ -113,7 +113,7 @@ interface WorkspaceCompositionLifecycle extends WorkspaceGenerationLifecycle {
 interface WorkspaceRuntimeCompositionDependencies {
   readonly createRendererComposition: (
     connect: (target: SceneRenderTarget) => () => void,
-  ) => SharedMapSceneRendererComposition
+  ) => SceneLayerFactory
   readonly createRuntime: (options: SceneCanvasRuntimeOptions) => WorkspaceCompositionRuntime
   readonly createControls: (options: ConstructorParameters<typeof WorkspaceMapControls>[0]) => WorkspaceActivationMapControls
   readonly createWorkspace: (options: WorkspaceActivationOptions) => WorkspaceCompositionLifecycle
@@ -121,7 +121,7 @@ interface WorkspaceRuntimeCompositionDependencies {
 }
 
 const DEFAULT_DEPENDENCIES: WorkspaceRuntimeCompositionDependencies = {
-  createRendererComposition: createSharedMapSceneRendererComposition,
+  createRendererComposition: createSceneLayerFactory,
   createRuntime: (options) => new SceneCanvasRuntime(options),
   createControls: (options) => new WorkspaceMapControls(options),
   createWorkspace: (options) => new WorkspaceActivationCoordinator(options),
@@ -145,7 +145,9 @@ export function createWorkspaceRuntimeComposition(
   const mapSlot = createMapLifetimeSlot({
     restart: () => (disposeResult ? false : reconciler.retry()),
     retryLayer: (slot) => {
-      if (!disposeResult && slot === 'background') controls.retryBasemap()
+      if (disposeResult) return
+      if (controls.retryLayer) controls.retryLayer(slot)
+      else if (slot === 'background') controls.retryBasemap()
     },
     release: () => {},
   })

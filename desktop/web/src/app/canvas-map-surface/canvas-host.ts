@@ -10,6 +10,7 @@ import { acquireCanvasRuntimeLifecycle } from '../../canvas/runtime/lifecycle-ow
 import type { CanvasDocumentSurface } from '../../canvas/runtime/runtime'
 import { getCurrentCanvasSession, setCurrentCanvasSession } from '../../canvas/session'
 import type { LayerSlotId, MapLifetimeHandle, MapLifetimeState } from '../../maplibre/map-lifetime'
+import { layerStatus, type CanvasMapLayerStatusHost } from '../settings/state'
 import type { WorkspaceRuntimeComposition } from './workspace-runtime-composition'
 
 /** The element MapLibre and the scene draw into; the only element measured. */
@@ -373,7 +374,16 @@ export function mountCanvasHost(
     return current.kind === 'held' ? current.map : null
   }
 
-  return {
+  const layers = computed(() => {
+    const current = surface.value
+    return current.kind === 'map' && current.map.kind === 'ready' ? current.map.layers : null
+  })
+  const statusHost: CanvasMapLayerStatusHost = {
+    layers,
+    retryLayer: (slot) => heldMap()?.retryLayer(slot),
+  }
+
+  const handle: CanvasHostHandle = {
     surface,
     ready,
     retryMap(): boolean {
@@ -385,6 +395,7 @@ export function mountCanvasHost(
       heldMap()?.retryLayer(slot)
     },
     dispose(): Promise<void> {
+      layerStatus.set(null, statusHost)
       if (!disposePromise) {
         cancelled = true
         disposePromise = release(false)
@@ -392,4 +403,6 @@ export function mountCanvasHost(
       return disposePromise
     },
   }
+  layerStatus.set(statusHost)
+  return handle
 }

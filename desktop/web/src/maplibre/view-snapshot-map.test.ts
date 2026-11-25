@@ -9,7 +9,7 @@ import {
   type MapBackgroundOptions,
   type MapBackgroundPresentation,
 } from './map-background'
-import { createSharedMapSceneLayer, type SharedMapSceneLayer, type SharedMapSceneLayerOptions } from './shared-scene-layer'
+import { createSceneHostLayer, type SceneHostLayer, type SceneHostLayerOptions } from './scene-host-layer'
 import { createTestSceneRendererSnapshot } from '../__tests__/support/scene-renderer-snapshot'
 import type { ViewTransform } from '../geo/view/types'
 import { conformalPoint, createSessionPlane } from '../geo/session-plane'
@@ -52,6 +52,9 @@ class FakeMap {
   redraws = 0
   removed = false
 
+  readonly gl = {} as WebGL2RenderingContext
+  private repaintQueued = false
+
   constructor(readonly options: MapLibreMapConstructorOptions) {
     FakeMap.instances.push(this)
     this.center = (options.center ?? [0, 0]) as [number, number]
@@ -59,7 +62,7 @@ class FakeMap {
     this.bearing = options.bearing ?? 0
     this.canvas = document.createElement('canvas')
     Object.defineProperties(this.canvas, {
-      getContext: { configurable: true, value: (type: string) => (type === 'webgl2' ? ({} as WebGL2RenderingContext) : null) },
+      getContext: { configurable: true, value: (type: string) => (type === 'webgl2' ? this.gl : null) },
       clientWidth: { get: () => this.cssWidth },
       clientHeight: { get: () => this.cssHeight },
     })
@@ -115,15 +118,25 @@ class FakeMap {
   loaded(): boolean { return true }
   isStyleLoaded(): boolean { return true }
   areTilesLoaded(): boolean { return this.tilesLoaded }
+  /** Renders custom layers and fires `render` then `idle` synchronously, as MapLibre `_render` does. */
+  renderFrame(): void {
+    for (const layer of this.layers.values()) (layer.render as ((gl: WebGL2RenderingContext, i: unknown) => void) | undefined)?.(this.gl, {})
+    this.fire('render'); this.fire('idle')
+  }
   triggerRepaint(): void {
-    if (FakeMap.autoIdle) queueMicrotask(() => this.fire('idle'))
+    if (!FakeMap.autoIdle || this.repaintQueued) return
+    this.repaintQueued = true
+    queueMicrotask(() => { this.repaintQueued = false; this.renderFrame() })
   }
   getCanvas(): HTMLCanvasElement { return this.canvas }
   getPitch(): number { return 0 }
   getCenter(): { lng: number; lat: number } { return { lng: this.center[0], lat: this.center[1] } }
   getZoom(): number { return this.zoom }
   getBearing(): number { return this.bearing }
-  addLayer(layer: Record<string, unknown>): void { this.layers.set(String(layer.id), layer) }
+  addLayer(layer: Record<string, unknown>): void {
+    this.layers.set(String(layer.id), layer)
+    ;(layer.onAdd as ((m: unknown, gl: WebGL2RenderingContext) => void) | undefined)?.(this, this.gl)
+  }
   getLayer(id: string): unknown { return this.layers.get(id) }
   /** Web Mercator at 512-pixel tiles, like MapLibre. */
   project(point: { lng: number; lat: number }): { x: number; y: number } {
@@ -151,27 +164,28 @@ class FakeMap {
   }
 }
 
-interface FakeLayer extends SharedMapSceneLayer {
-  readonly options: SharedMapSceneLayerOptions
+interface FakeLayer extends SceneHostLayer<unknown, never> {
+  readonly options: Omit<SceneHostLayerOptions<unknown, never>, 'painter'>
   readonly snapshots: unknown[]
 }
 
 let layers: FakeLayer[] = []
 let backgrounds: (MapBackgroundHandle & { presentations: MapBackgroundPresentation[]; disposed: boolean; applied: boolean; options: MapBackgroundOptions })[] = []
 
-function createFakeLayer(options: SharedMapSceneLayerOptions): FakeLayer {
-  let sceneSyncCount = 0
+function createFakeLayer(options: Omit<SceneHostLayerOptions<unknown, never>, 'painter'>): FakeLayer {
   const snapshots: unknown[] = []
+  let resolvePresent: (() => void) | null = null
+  let pendingView: ViewTransform | null = null
+  let presentedView: ViewTransform | null = null
   const layer: FakeLayer = {
-    options,
-    snapshots,
+    options, snapshots, phase: 'attached',
     layer: { id: options.id, type: 'custom', render: () => undefined },
-    get diagnostics() { return { sceneSyncCount } as SharedMapSceneLayer['diagnostics'] },
     initialize: vi.fn(async () => undefined),
-    setSnapshot(snapshot) {
-      snapshots.push(snapshot)
-      sceneSyncCount += 1
-    },
+    setSnapshot(snapshot) { snapshots.push(snapshot); presentedView = pendingView; resolvePresent?.(); resolvePresent = null },
+    setDraft() {},
+    requestRender() {},
+    presentFor(view) { pendingView = view; presentedView = null; return new Promise<void>((resolve) => { resolvePresent = resolve }) },
+    hasPresented: (view) => presentedView === view,
     dispose: vi.fn(async () => undefined),
   }
   layers.push(layer)
@@ -180,17 +194,11 @@ function createFakeLayer(options: SharedMapSceneLayerOptions): FakeLayer {
 
 function createFakeBackground(options: MapBackgroundOptions) {
   const handle = {
-    options,
-    presentations: [] as MapBackgroundPresentation[],
-    disposed: false,
-    applied: true,
+    options, presentations: [] as MapBackgroundPresentation[], disposed: false, applied: true,
     update(presentation: MapBackgroundPresentation) { handle.presentations.push(presentation) },
     retry(presentation: MapBackgroundPresentation) { handle.presentations.push(presentation) },
-    claimMapError: () => false,
-    restore: () => undefined,
-    isApplied: () => handle.applied,
-    setAttributionCompact: () => undefined,
-    dispose() { handle.disposed = true },
+    claimMapError: () => false, restore: () => undefined, isApplied: () => handle.applied,
+    setAttributionCompact: () => undefined, dispose() { handle.disposed = true },
   }
   backgrounds.push(handle)
   return handle
@@ -352,39 +360,16 @@ describe('view snapshot map', () => {
 
   // Live check 7b: a reused snapshot map drew every later thumbnail's scene at the first capture's centre, zoom and bearing.
   it('moves the real scene layer to each capture\'s view when the snapshot map is reused', async () => {
-    const gl = {} as WebGL2RenderingContext
-    /** MapLibre as the real scene layer meets it: one context, onAdd on addLayer, and a render on every repaint request. */
-    class RenderingMap extends FakeMap {
-      constructor(options: MapLibreMapConstructorOptions) {
-        super(options)
-        Object.defineProperty(this.canvas, 'getContext', { value: (type: string) => (type === 'webgl2' ? gl : null) })
-      }
-      override addLayer(layer: Record<string, unknown>): void {
-        super.addLayer(layer)
-        ;(layer as { onAdd?: (map: unknown, context: WebGL2RenderingContext) => void }).onAdd?.(this, gl)
-      }
-      override triggerRepaint(): void {
-        for (const layer of this.layers.values()) {
-          (layer as { render?: (context: WebGL2RenderingContext, input: unknown) => void }).render?.(gl, {})
-        }
-        super.triggerRepaint()
-      }
-    }
     const present = vi.fn((_view: ViewTransform) => undefined)
     const owner = createOwner({
-      loadMapLibre: async () => ({ Map: RenderingMap as unknown as new (options: MapLibreMapConstructorOptions) => unknown }),
-      createSceneLayer: (options) => createSharedMapSceneLayer({
+      createSceneLayer: (options) => createSceneHostLayer({
         ...options,
-        createRenderer: () => ({
+        painter: {
           init: async () => undefined,
-          render: () => undefined,
           resize: () => undefined,
-          resetState: () => undefined,
-          destroy: () => undefined,
-          context: { extensions: {} },
-        }),
-        createStage: () => ({ destroy: () => undefined }) as never,
-        createPresentation: () => ({ dispose: () => undefined, resize: () => undefined, present, setDraft: () => undefined }),
+          paint: (frame) => { present(frame.view) },
+          dispose: () => undefined,
+        },
       }),
     })
 
@@ -670,7 +655,7 @@ describe('view snapshot map', () => {
     const owner = createOwner({
       createSceneLayer: (options) => {
         const layer = createFakeLayer(options)
-        ;(layer as { initialize: SharedMapSceneLayer['initialize'] }).initialize = async () => { throw new Error('no pixi') }
+        ;(layer as { initialize: SceneHostLayer<unknown, never>['initialize'] }).initialize = async () => { throw new Error('no pixi') }
         return layer
       },
     })
@@ -738,8 +723,7 @@ describe('view snapshot map', () => {
   })
 
   it('fails a capture when the forced redraw throws', async () => {
-    vi.useFakeTimers()
-    FakeMap.autoIdle = false
+    vi.useFakeTimers(); FakeMap.autoIdle = false
     const owner = createOwner()
     const pending = owner.capture(request({ timeoutMs: 10 }))
     const settled = pending.catch((error: unknown) => error)
@@ -752,12 +736,27 @@ describe('view snapshot map', () => {
 
   it('reports a teardown failure once and still removes the container', async () => {
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined)
-    const owner = createOwner()
-    await owner.capture(request())
+    const owner = createOwner(); await owner.capture(request())
     const map = FakeMap.instances[0]!
     map.remove = () => { throw new Error('remove failed') }
     await owner.dispose()
-    expect(consoleError).toHaveBeenCalledTimes(1)
-    expect(map.options.container.isConnected).toBe(false)
+    expect(consoleError).toHaveBeenCalledTimes(1); expect(map.options.container.isConnected).toBe(false)
+  })
+
+  it('reads synchronously on the single frame that presents the scene when render and idle fire together', async () => {
+    vi.useFakeTimers(); FakeMap.autoIdle = false
+    const paints: unknown[] = []
+    const owner = createOwner({
+      createSceneLayer: (options) => createSceneHostLayer({
+        ...options,
+        painter: { async init() {}, resize() {}, paint(frame) { paints.push(frame) }, dispose() {} },
+      }),
+    })
+    const pending = owner.capture(request({ timeoutMs: 8_000 }))
+    await vi.waitFor(() => expect(FakeMap.instances[0]?.listenerCount('idle')).toBe(1))
+    FakeMap.instances[0]!.renderFrame()
+    const result = await pending
+    expect(result.missingTiles).toBe(false); expect(paints).toHaveLength(1); expect(FakeMap.instances[0]!.redraws).toBe(0)
+    await owner.dispose()
   })
 })

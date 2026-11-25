@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { createDetachedCanvasRuntimeAppAdapter } from '../../__tests__/support/detached-canvas-app-adapter'
 import { createDetachedSceneRuntimePanelTargetAdapter } from '../../canvas/runtime/scene-runtime/panel-target-adapter'
 import { createSessionPlane, DEFAULT_NEW_DESIGN_VIEW } from '../../geo/session-plane'
-import type { SharedMapSceneRendererComposition } from '../../maplibre/shared-scene-renderer'
+import type { SceneLayerFactory } from './scene-layer-factory'
 import type { WorkspaceActivationOptions } from './workspace-activation'
 import type { WorkspaceGenerationLifecycle } from './workspace-generation-reconciler'
 import { createWorkspaceRuntimeComposition } from './workspace-runtime-composition'
@@ -57,7 +57,7 @@ describe('workspace runtime composition origin effect', () => {
         locale: 'en',
       }),
     }, {
-      createRendererComposition: () => ({ createLayer: vi.fn() }) as unknown as SharedMapSceneRendererComposition,
+      createRendererComposition: () => ({ createLayer: vi.fn() }) as unknown as SceneLayerFactory,
       createRuntime: () => runtime,
       createControls: () => ({
         createMap: vi.fn(),

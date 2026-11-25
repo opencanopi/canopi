@@ -232,7 +232,7 @@ describe('CanvasPanel basemap feedback', () => {
     expect(container.querySelector('[data-map-active="true"]')).toBeTruthy()
   })
 
-  it('shows a map failure with a fixed message and never the engine text', async () => {
+  it('shows a WebGL2-unavailable map failure with a fixed message and no Retry', async () => {
     designSessionFixture.file = demoDesign()
     mockSurface.value = failedSurface('never')
 
@@ -241,7 +241,7 @@ describe('CanvasPanel basemap feedback', () => {
     })
 
     const status = container.querySelector('[role="status"]')
-    expect(status?.textContent).toBe('Map unavailable')
+    expect(status?.textContent).toBe('WebGL2 is unavailable on this device. Canopi needs WebGL2 to draw the map.')
     expect(container.querySelector('button')).toBeNull()
   })
 
@@ -282,7 +282,7 @@ describe('CanvasPanel basemap feedback', () => {
     expect(document.activeElement).toBe(map)
   })
 
-  it('surfaces terrain degradation as a skipped layer while keeping the basemap ready', async () => {
+  it('keeps the map notice hidden when terrain fails (shown on its Layers row instead; 2.1-Q351)', async () => {
     designSessionFixture.file = demoDesign()
     mockSurface.value = readySurface([['terrain', { kind: 'failed', reason: 'terrain' }]])
 
@@ -290,8 +290,7 @@ describe('CanvasPanel basemap feedback', () => {
       render(<CanvasPanel />, container)
     })
 
-    const status = container.querySelector('[role="status"]')
-    expect(status?.textContent).toBe('A map layer couldn’t be shown')
+    expect(container.querySelector('[data-map-notice]')).toBeNull()
     expect(container.querySelector('[data-map-active="true"]')).toBeTruthy()
   })
 

@@ -360,7 +360,9 @@
       "siteDataWeb_one": "{{count, number}} terrain or height layer in this Design · Needs Canopi Desktop",
       "siteDataWeb_few": "{{count, number}} terrain or height layers in this Design · Needs Canopi Desktop",
       "siteDataWeb_many": "{{count, number}} terrain or height layers in this Design · Needs Canopi Desktop",
-      "siteDataWeb_other": "{{count, number}} terrain or height layers in this Design · Needs Canopi Desktop"
+      "siteDataWeb_other": "{{count, number}} terrain or height layers in this Design · Needs Canopi Desktop",
+      "webgl2Unavailable": "WebGL2 is unavailable on this device. Canopi needs WebGL2 to draw the map.",
+      "layerFailed": "Couldn’t load"
     },
     "timeline": {
       "actionType": "Action type",

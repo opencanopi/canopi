@@ -360,7 +360,9 @@
       "siteDataWeb_one": "このデザインに地形または高さのレイヤーが {{count, number}} 個 · Canopi Desktop が必要",
       "siteDataWeb_few": "このデザインに地形または高さのレイヤーが {{count, number}} 個 · Canopi Desktop が必要",
       "siteDataWeb_many": "このデザインに地形または高さのレイヤーが {{count, number}} 個 · Canopi Desktop が必要",
-      "siteDataWeb_other": "このデザインに地形または高さのレイヤーが {{count, number}} 個 · Canopi Desktop が必要"
+      "siteDataWeb_other": "このデザインに地形または高さのレイヤーが {{count, number}} 個 · Canopi Desktop が必要",
+      "webgl2Unavailable": "このデバイスではWebGL2を利用できません。地図の描画にはWebGL2が必要です。",
+      "layerFailed": "読み込めませんでした"
     },
     "timeline": {
       "actionType": "作業の種類",

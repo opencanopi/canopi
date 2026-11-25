@@ -79,6 +79,8 @@ const MESSAGE_BY_CODE: { readonly [K in Kind]: MessageRule<K> } = {
   network: (code) => NETWORK_MESSAGES[code.network],
   invalid: 'failure.internal',
   internal: 'failure.internal',
+  map_unavailable: 'canvas.layers.mapUnavailable',
+  webgl2_unavailable: 'canvas.layers.webgl2Unavailable',
   // Recorded only until 2d's map status (2.1-Q300).
   style_failed: SILENT,
   tile_source_failed: SILENT,

@@ -23,6 +23,7 @@ function failedMapSurface(retry: 'offered' | 'withheld' | 'never'): CanvasSurfac
 function translate(key: string): string {
   return {
     'canvas.layers.mapUnavailable': 'Map unavailable',
+    'canvas.layers.webgl2Unavailable': 'WebGL2 is unavailable on this device. Canopi needs WebGL2 to draw the map.',
     'canvas.layers.basemapLoading': 'Loading',
     'canvas.layers.layerSkipped': 'A map layer couldn’t be shown',
     'canvas.layers.basemapFailed': 'Basemap couldn’t load. Check your connection.',
@@ -51,7 +52,7 @@ describe('Map Notice read model', () => {
     })
   })
 
-  it('reports a map failure with a fixed message, never the engine text', () => {
+  it('reports a WebGL2-unavailable map failure with a fixed message and no Retry', () => {
     expect(getMapNoticeReadModel({
       hasDesign: true,
       mapVisible: true,
@@ -61,7 +62,7 @@ describe('Map Notice read model', () => {
       visible: true,
       mapSurfaceVisible: true,
       tone: 'error',
-      statusText: 'Map unavailable',
+      statusText: 'WebGL2 is unavailable on this device. Canopi needs WebGL2 to draw the map.',
       retry: false,
     })
   })
@@ -103,7 +104,10 @@ describe('Map Notice read model', () => {
       mapVisible: true,
       surface: failedMapSurface('never'),
       t: translate,
-    })).toMatchObject({ statusText: 'Map unavailable', retry: false })
+    })).toMatchObject({
+      statusText: 'WebGL2 is unavailable on this device. Canopi needs WebGL2 to draw the map.',
+      retry: false,
+    })
   })
 
   // canopi-k94s: one sentence for a rejected key and a lost connection, with the Basemap's Retry.
@@ -149,32 +153,33 @@ describe('Map Notice read model', () => {
     })
   })
 
-  it('reports a terrain failure as a skipped layer, never the engine text', () => {
+  // 2.1-Q351: the map notice is for the background only; non-background layer failures show on their Layers row with Retry.
+  it('hides the map notice for a failed terrain layer (shown on its Layers row instead; 2.1-Q351)', () => {
     expect(getMapNoticeReadModel({
       hasDesign: true,
       mapVisible: true,
       surface: readySurface([['terrain', { kind: 'failed', reason: 'terrain' }]]),
       t: translate,
     })).toEqual({
-      visible: true,
+      visible: false,
       mapSurfaceVisible: true,
       tone: 'ready',
-      statusText: 'A map layer couldn’t be shown',
+      statusText: '',
       retry: false,
     })
   })
 
-  it('reports a skipped optional layer as a quiet ready notice', () => {
+  it('hides the map notice for a skipped non-background layer (2.1-Q351)', () => {
     expect(getMapNoticeReadModel({
       hasDesign: true,
       mapVisible: true,
       surface: readySurface([['library:skipped', { kind: 'skipped', reason: 'layer-skipped' }]]),
       t: translate,
     })).toEqual({
-      visible: true,
+      visible: false,
       mapSurfaceVisible: true,
       tone: 'ready',
-      statusText: 'A map layer couldn’t be shown',
+      statusText: '',
       retry: false,
     })
   })
@@ -221,7 +226,11 @@ describe('Map Notice read model', () => {
       mapVisible: false,
       surface: failedMapSurface('never'),
       t: translate,
-    })).toMatchObject({ visible: true, statusText: 'Map unavailable', retry: false })
+    })).toMatchObject({
+      visible: true,
+      statusText: 'WebGL2 is unavailable on this device. Canopi needs WebGL2 to draw the map.',
+      retry: false,
+    })
   })
 
   it('hides without a visible map layer', () => {

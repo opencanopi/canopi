@@ -2,21 +2,41 @@
   "$schema": "./ratchet.schema.json",
   "family": "layer-order",
   "entries": {
-    "app/design-template-import/workflow.browser.ts -> web/browser-design-session.ts": { "count": 1 },
-    "canvas/runtime/scene-runtime.ts -> target/index.ts": { "count": 1 },
-    "i18n/index.ts -> app/settings/state.ts": { "count": 1 },
-    "ipc/design.ts -> app/contracts/canopi-design-wire.ts": { "count": 1 },
-    "ipc/design.ts -> app/document-session/continuous-save.ts": { "count": 1 },
-    "ipc/design.ts -> app/document-session/write-admission.ts": { "count": 1 },
-    "ipc/geojson.ts -> app/geojson/workflow.ts": { "count": 1 },
-    "maplibre/panel-target-overlays.ts -> canvas/runtime/scene-visuals.ts": { "count": 1 },
-    "maplibre/panel-target-overlays.ts -> target/index.ts": { "count": 1 },
-    "maplibre/shared-scene-layer.ts -> canvas/runtime/renderers/pixi-scene.ts": { "count": 1 },
-    "maplibre/shared-scene-layer.ts -> canvas/runtime/renderers/scene-types.ts": { "count": 1 },
-    "maplibre/shared-scene-renderer.ts -> canvas/runtime/renderers/scene-types.ts": { "count": 1 },
-    "maplibre/site-overlay.ts -> canvas/runtime/scene-visuals.ts": { "count": 1 },
-    "maplibre/user-location-overlay.ts -> canvas/runtime/scene-visuals.ts": { "count": 1 },
-    "maplibre/view-snapshot-map.ts -> canvas/runtime/renderers/scene-types.ts": { "count": 1 },
-    "vite-env.d.ts -> node_modules/vite/client.d.ts": { "count": 1 }
+    "app/design-template-import/workflow.browser.ts -> web/browser-design-session.ts": {
+      "count": 1
+    },
+    "canvas/runtime/scene-runtime.ts -> target/index.ts": {
+      "count": 1
+    },
+    "i18n/index.ts -> app/settings/state.ts": {
+      "count": 1
+    },
+    "ipc/design.ts -> app/contracts/canopi-design-wire.ts": {
+      "count": 1
+    },
+    "ipc/design.ts -> app/document-session/continuous-save.ts": {
+      "count": 1
+    },
+    "ipc/design.ts -> app/document-session/write-admission.ts": {
+      "count": 1
+    },
+    "ipc/geojson.ts -> app/geojson/workflow.ts": {
+      "count": 1
+    },
+    "maplibre/panel-target-overlays.ts -> canvas/runtime/scene-visuals.ts": {
+      "count": 1
+    },
+    "maplibre/panel-target-overlays.ts -> target/index.ts": {
+      "count": 1
+    },
+    "maplibre/site-overlay.ts -> canvas/runtime/scene-visuals.ts": {
+      "count": 1
+    },
+    "maplibre/user-location-overlay.ts -> canvas/runtime/scene-visuals.ts": {
+      "count": 1
+    },
+    "vite-env.d.ts -> node_modules/vite/client.d.ts": {
+      "count": 1
+    }
   }
 }

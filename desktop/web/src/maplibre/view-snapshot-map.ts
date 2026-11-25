@@ -1,6 +1,6 @@
 import { signal } from '@preact/signals'
+import type { CustomLayerInterface } from 'maplibre-gl'
 import { reportMapError } from './map-errors'
-import type { SceneRendererSnapshot } from '../canvas/runtime/renderers/scene-types'
 import type { CameraDriver } from '../geo/view/camera-driver'
 import { createNavigationPolicy, type NavigationPolicy } from '../geo/view/navigation-policy'
 import type { ViewTransform } from '../geo/view/types'
@@ -18,12 +18,11 @@ import {
   type MapBackgroundOptions,
   type MapBackgroundPresentation,
 } from './map-background'
-import {
-  createSharedMapSceneLayer,
-  type SharedMapSceneLayer,
-  type SharedMapSceneLayerOptions,
-  type SharedMapSceneMap,
-} from './shared-scene-layer'
+import type {
+  SceneHostLayer,
+  SceneHostLayerOptions,
+  SceneHostMap,
+} from './scene-host-layer'
 
 /** The custom layer id on the snapshot map; the workspace map uses its own. */
 export const VIEW_SNAPSHOT_SCENE_LAYER_ID = 'canopi-snapshot-scene'
@@ -46,16 +45,16 @@ interface ViewSnapshotCamera {
   readonly bearing: number
 }
 
-interface ViewSnapshotScene {
+interface ViewSnapshotScene<Snapshot = unknown> {
   /** Session plane origin that the scene's metres are measured from. */
   readonly origin: { readonly lat: number; readonly lon: number }
   /** Scene state at the snapshot's view (its own driver's frame). Throwing fails the capture. */
-  build(view: ViewTransform): SceneRendererSnapshot
+  build(view: ViewTransform): Snapshot
 }
 
 export type ViewSnapshotImageType = 'image/png' | 'image/jpeg' | 'image/webp'
 
-export interface ViewSnapshotRequest {
+export interface ViewSnapshotRequest<Snapshot = unknown> {
   readonly camera: ViewSnapshotCamera
   /** CSS pixels; the image is `width * pixelRatio` device pixels wide. */
   readonly width: number
@@ -63,7 +62,7 @@ export interface ViewSnapshotRequest {
   /** Defaults to 1. A change of ratio replaces the off-screen map. */
   readonly pixelRatio?: number
   readonly background: MapBackgroundPresentation
-  readonly scene: ViewSnapshotScene
+  readonly scene: ViewSnapshotScene<Snapshot>
   /** How long to wait for the background and its tiles before reading anyway. */
   readonly timeoutMs: number
   readonly type?: ViewSnapshotImageType
@@ -103,14 +102,14 @@ interface ViewSnapshotFrame {
 }
 
 /** What the snapshot owner needs from a MapLibre map; its camera driver moves and resizes it. */
-interface ViewSnapshotMapLibreMap extends SharedMapSceneMap, MapLibreCameraDriverMap {
+interface ViewSnapshotMapLibreMap extends SceneHostMap, MapLibreCameraDriverMap {
   redraw(): void
   remove(): void
   on(type: string, listener: (event?: unknown) => void): void
   off(type: string, listener: (event?: unknown) => void): void
   loaded(): boolean
   areTilesLoaded(): boolean
-  addLayer(layer: Record<string, unknown>, beforeId?: string): void
+  addLayer(layer: CustomLayerInterface | Record<string, unknown>, beforeId?: string): void
   getLayer(id: string): unknown
 }
 
@@ -118,12 +117,17 @@ interface ViewSnapshotMapLibre {
   readonly Map: new (options: MapLibreMapConstructorOptions) => unknown
 }
 
-export interface ViewSnapshotMapOptions {
+type ViewSnapshotSceneLayerFactory<Snapshot = unknown> = (
+  options: Omit<SceneHostLayerOptions<Snapshot, never>, 'painter'>,
+) => SceneHostLayer<Snapshot, never>
+
+export interface ViewSnapshotMapOptions<Snapshot = unknown> {
   /** The Satellite configuration the background band reads (`readSatelliteConfig`); required, like the band's. */
   readonly readSatelliteConfig: () => SatelliteConfig
+  /** Builds the off-screen map's scene host layer (the caller supplies the Pixi painter factory; contracts §6). */
+  readonly createSceneLayer: ViewSnapshotSceneLayerFactory<Snapshot>
   readonly loadMapLibre?: () => Promise<ViewSnapshotMapLibre>
   readonly mountBackground?: (options: MapBackgroundOptions) => MapBackgroundHandle
-  readonly createSceneLayer?: (options: SharedMapSceneLayerOptions) => SharedMapSceneLayer
   /** Copies the map canvas; runs inside the frame's task. */
   readonly readFrame?: (canvas: HTMLCanvasElement) => ViewSnapshotFrame
   readonly document?: Document
@@ -139,8 +143,8 @@ export interface ViewSnapshotMapOptions {
  * The one owner of the off-screen snapshot map: a hidden MapLibre map with the production background band and its own
  * shared scene layer. It never touches the visible workspace map or any session state. Captures run one at a time.
  */
-export interface ViewSnapshotMap {
-  capture(request: ViewSnapshotRequest): Promise<ViewSnapshotCapture>
+export interface ViewSnapshotMap<Snapshot = unknown> {
+  capture(request: ViewSnapshotRequest<Snapshot>): Promise<ViewSnapshotCapture>
   /** Releases the map and its WebGL context; later captures reject. */
   dispose(): Promise<void>
 }
@@ -151,7 +155,7 @@ interface SnapshotView {
   policy: NavigationPolicy
 }
 
-interface SnapshotInstance {
+interface SnapshotInstance<Snapshot = unknown> {
   readonly container: HTMLElement
   readonly map: ViewSnapshotMapLibreMap
   readonly view: SnapshotView
@@ -161,7 +165,7 @@ interface SnapshotInstance {
   readonly pixelRatio: number
   readonly teardown: AbortController
   background: MapBackgroundHandle | null
-  sceneLayer: SharedMapSceneLayer | null
+  sceneLayer: SceneHostLayer<Snapshot, never> | null
   width: number
   height: number
   broken: Error | null
@@ -177,18 +181,18 @@ class ViewSnapshotAbortError extends Error {
   }
 }
 
-export function createViewSnapshotMap(options: ViewSnapshotMapOptions): ViewSnapshotMap {
+export function createViewSnapshotMap<Snapshot = unknown>(options: ViewSnapshotMapOptions<Snapshot>): ViewSnapshotMap<Snapshot> {
   const loadMapLibre = options.loadMapLibre ?? (loadMapLibreModule as () => Promise<ViewSnapshotMapLibre>)
   const mountBackground = options.mountBackground ?? mountMapBackground
-  const createSceneLayer = options.createSceneLayer ?? createSharedMapSceneLayer
+  const createSceneLayer = options.createSceneLayer
   const readFrame = options.readFrame ?? readCanvasFrame
   const idleReleaseMs = options.idleReleaseMs ?? VIEW_SNAPSHOT_IDLE_RELEASE_MS
   const setupTimeoutMs = options.setupTimeoutMs ?? VIEW_SNAPSHOT_SETUP_TIMEOUT_MS
   const encodeTimeoutMs = options.encodeTimeoutMs ?? VIEW_SNAPSHOT_ENCODE_TIMEOUT_MS
   const now = options.now ?? (() => performance.now())
-  let instance: SnapshotInstance | null = null
+  let instance: SnapshotInstance<Snapshot> | null = null
   /** A map still loading; dispose aborts it so its load wait cannot hang. */
-  let creating: SnapshotInstance | null = null
+  let creating: SnapshotInstance<Snapshot> | null = null
   let queue: Promise<unknown> = Promise.resolve()
   let pending = 0
   let releaseTimer: ReturnType<typeof setTimeout> | null = null
@@ -218,7 +222,7 @@ export function createViewSnapshotMap(options: ViewSnapshotMapOptions): ViewSnap
     if (current) await teardownInstance(current, setupTimeoutMs)
   }
 
-  async function createInstance(request: ViewSnapshotRequest, pixelRatio: number): Promise<SnapshotInstance> {
+  async function createInstance(request: ViewSnapshotRequest<Snapshot>, pixelRatio: number): Promise<SnapshotInstance<Snapshot>> {
     const doc = options.document ?? document
     const maplibre = await loadMapLibre()
     const container = doc.createElement('div')
@@ -264,7 +268,7 @@ export function createViewSnapshotMap(options: ViewSnapshotMapOptions): ViewSnap
       container.remove()
       throw error
     }
-    const created: SnapshotInstance = {
+    const created: SnapshotInstance<Snapshot> = {
       container,
       map,
       view: snapshotView(request.scene.origin),
@@ -327,7 +331,7 @@ export function createViewSnapshotMap(options: ViewSnapshotMapOptions): ViewSnap
       created.sceneLayer = sceneLayer
       await bounded(sceneLayer.initialize(map, context), setupTimeoutMs, 'The snapshot scene did not initialize in time.')
       if (created.broken) throw created.broken
-      map.addLayer(sceneLayer.layer as unknown as Record<string, unknown>)
+      map.addLayer(sceneLayer.layer)
       if (!map.getLayer(VIEW_SNAPSHOT_SCENE_LAYER_ID)) throw new Error('The snapshot map did not attach its scene layer.')
     } catch (error) {
       await teardownInstance(created, setupTimeoutMs)
@@ -338,7 +342,7 @@ export function createViewSnapshotMap(options: ViewSnapshotMapOptions): ViewSnap
     return created
   }
 
-  async function runCapture(request: ViewSnapshotRequest): Promise<ViewSnapshotCapture> {
+  async function runCapture(request: ViewSnapshotRequest<Snapshot>): Promise<ViewSnapshotCapture> {
     const startedAt = now()
     const pixelRatio = request.pixelRatio ?? 1
     throwIfAborted(request.signal)
@@ -393,15 +397,20 @@ export function createViewSnapshotMap(options: ViewSnapshotMapOptions): ViewSnap
     }
     // No Retry button here: each capture is one, so a Basemap that failed while offline downloads again (ADR 0004).
     background.retry(request.background)
-    const scenePresentedBefore = sceneLayer.diagnostics.sceneSyncCount
-    sceneLayer.setSnapshot(request.scene.build(driver.frames.viewFrame.peek().view))
+    const targetView = driver.frames.viewFrame.peek().view
+    const presentWait = sceneLayer.presentFor(targetView).catch((error: unknown) => {
+      current.broken ??= error instanceof Error ? error : new Error(String(error))
+    })
+    sceneLayer.setSnapshot(request.scene.build(targetView))
 
     // A failed background will not arrive before the timeout: the frame is read without it.
+    // Read presented state synchronously: MapLibre fires `render` and `idle` inside one `_render` call,
+    // before `presentWait` microtasks run.
     const complete = () => (background.isApplied() || current.basemapFailed)
       && map.loaded()
       && map.areTilesLoaded()
-      && sceneLayer.diagnostics.sceneSyncCount > scenePresentedBefore
-    const settled = await waitForFrame(current, complete, request)
+      && sceneLayer.hasPresented(targetView)
+    const settled = await waitForFrame(current, complete, request, presentWait)
     const settleMs = now() - settleStartedAt
     if (current.broken) throw current.broken
 
@@ -430,9 +439,10 @@ export function createViewSnapshotMap(options: ViewSnapshotMapOptions): ViewSnap
    * valid there, so no `preserveDrawingBuffer` is needed.
    */
   function waitForFrame(
-    current: SnapshotInstance,
+    current: SnapshotInstance<Snapshot>,
     complete: () => boolean,
-    request: ViewSnapshotRequest,
+    request: ViewSnapshotRequest<Snapshot>,
+    presentWait: Promise<void>,
   ): Promise<{ frame: ViewSnapshotFrame; timedOut: boolean; readMs: number }> {
     const { map } = current
     return new Promise((resolve, reject) => {
@@ -462,6 +472,9 @@ export function createViewSnapshotMap(options: ViewSnapshotMapOptions): ViewSnap
       const onIdle = () => {
         if (complete()) read(false)
       }
+      void presentWait.then(() => {
+        if (!finished && current.broken) read(false)
+      })
       const onTimeout = () => {
         if (finished) return
         try {
@@ -524,7 +537,7 @@ export function createViewSnapshotMap(options: ViewSnapshotMapOptions): ViewSnap
   }
 }
 
-async function teardownInstance(instance: SnapshotInstance, timeoutMs: number): Promise<void> {
+async function teardownInstance<Snapshot>(instance: SnapshotInstance<Snapshot>, timeoutMs: number): Promise<void> {
   if (!instance.teardown.signal.aborted) instance.teardown.abort()
   const errors: unknown[] = []
   try {
@@ -536,25 +549,13 @@ async function teardownInstance(instance: SnapshotInstance, timeoutMs: number): 
     errors.push(error)
   }
   instance.sceneLayer = null
-  try {
-    instance.background?.dispose()
-  } catch (error) {
-    errors.push(error)
-  }
+  try { instance.background?.dispose() } catch (error) { errors.push(error) }
   instance.background = null
-  try {
-    instance.driver?.dispose()
-  } catch (error) {
-    errors.push(error)
-  }
+  try { instance.driver?.dispose() } catch (error) { errors.push(error) }
   instance.driver = null
   instance.tileAuth.clear()
   instance.releaseListeners()
-  try {
-    instance.map.remove()
-  } catch (error) {
-    errors.push(error)
-  }
+  try { instance.map.remove() } catch (error) { errors.push(error) }
   instance.container.remove()
   if (errors.length > 0) reportMapError('View snapshot map teardown failed:', errors[0])
 }
@@ -564,9 +565,7 @@ function validateRequest(request: ViewSnapshotRequest): string | null {
   if (!Number.isFinite(ratio) || ratio <= 0 || ratio > 4) return 'Snapshot pixel ratio must be in (0, 4].'
   for (const side of [request.width, request.height]) {
     if (!Number.isInteger(side) || side < 1) return 'Snapshot size must be whole positive CSS pixels.'
-    if (Math.round(side * ratio) > VIEW_SNAPSHOT_MAX_DEVICE_PIXELS) {
-      return `Snapshot sides are limited to ${VIEW_SNAPSHOT_MAX_DEVICE_PIXELS} device pixels.`
-    }
+    if (Math.round(side * ratio) > VIEW_SNAPSHOT_MAX_DEVICE_PIXELS) return `Snapshot sides are limited to ${VIEW_SNAPSHOT_MAX_DEVICE_PIXELS} device pixels.`
   }
   const { lon, lat, zoom, bearing } = request.camera
   if (![lon, lat, zoom, bearing].every(Number.isFinite)) return 'Snapshot camera must be finite.'
@@ -575,31 +574,19 @@ function validateRequest(request: ViewSnapshotRequest): string | null {
 }
 
 function snapshotView(origin: { readonly lat: number; readonly lon: number }): SnapshotView {
-  return {
-    plane: createSessionPlane(origin),
-    policy: createNavigationPolicy(origin.lat, VIEW_SNAPSHOT_REDUCED_MOTION),
-  }
+  return { plane: createSessionPlane(origin), policy: createNavigationPolicy(origin.lat, VIEW_SNAPSHOT_REDUCED_MOTION) }
 }
 
 /** `work`, or a rejection with `message` after `timeoutMs`; the timer never outlives the work. */
 function bounded<T>(work: Promise<T>, timeoutMs: number, message: string): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined
-  const expired = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => reject(new Error(message)), timeoutMs)
-  })
+  const expired = new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error(message)), timeoutMs) })
   return Promise.race([work, expired]).finally(() => clearTimeout(timer))
 }
 
-function throwIfAborted(signal: AbortSignal | undefined): void {
-  if (signal?.aborted) throw new ViewSnapshotAbortError()
-}
+function throwIfAborted(signal: AbortSignal | undefined): void { if (signal?.aborted) throw new ViewSnapshotAbortError() }
 
-function waitForEvent(
-  map: ViewSnapshotMapLibreMap,
-  type: string,
-  teardown: AbortSignal,
-  signal: AbortSignal | undefined,
-): Promise<void> {
+function waitForEvent(map: ViewSnapshotMapLibreMap, type: string, teardown: AbortSignal, signal: AbortSignal | undefined): Promise<void> {
   return new Promise((resolve, reject) => {
     const cleanup = () => {
       map.off(type, onEvent)
@@ -609,10 +596,7 @@ function waitForEvent(
     const onEvent = () => { cleanup(); resolve() }
     const onTeardown = () => { cleanup(); reject(new Error('The snapshot map was released while loading.')) }
     const onAbort = () => { cleanup(); reject(new ViewSnapshotAbortError()) }
-    if (signal?.aborted) {
-      reject(new ViewSnapshotAbortError())
-      return
-    }
+    if (signal?.aborted) { reject(new ViewSnapshotAbortError()); return }
     map.on(type, onEvent)
     teardown.addEventListener('abort', onTeardown, { once: true })
     signal?.addEventListener('abort', onAbort, { once: true })

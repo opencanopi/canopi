@@ -360,7 +360,9 @@
       "siteDataWeb_one": "이 디자인의 지형 또는 높이 레이어 {{count, number}}개 · Canopi Desktop 필요",
       "siteDataWeb_few": "이 디자인의 지형 또는 높이 레이어 {{count, number}}개 · Canopi Desktop 필요",
       "siteDataWeb_many": "이 디자인의 지형 또는 높이 레이어 {{count, number}}개 · Canopi Desktop 필요",
-      "siteDataWeb_other": "이 디자인의 지형 또는 높이 레이어 {{count, number}}개 · Canopi Desktop 필요"
+      "siteDataWeb_other": "이 디자인의 지형 또는 높이 레이어 {{count, number}}개 · Canopi Desktop 필요",
+      "webgl2Unavailable": "이 기기에서 WebGL2를 사용할 수 없습니다. 지도를 그리려면 WebGL2가 필요합니다.",
+      "layerFailed": "불러올 수 없습니다"
     },
     "timeline": {
       "actionType": "작업 유형",

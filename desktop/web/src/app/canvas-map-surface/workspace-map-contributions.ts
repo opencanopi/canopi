@@ -1,33 +1,13 @@
-import { reportMapError } from '../../maplibre/map-errors'
+import { reportMapError, reportMapSourceFailure } from '../../maplibre/map-errors'
 import type { MapLibreSurfaceContext } from '../../maplibre/surface'
 import type { MapLibreMapInstance } from '../../maplibre/loader'
-import {
-  mapLifetimeStateEquals,
-  type LayerSlotId,
-  type LayerStatus,
-  type MapFailureCause,
-  type MapLifetimeState,
-} from '../../maplibre/map-lifetime'
+import { mapLifetimeStateEquals, type LayerSlotId, type LayerStatus, type MapFailureCause, type MapLifetimeState } from '../../maplibre/map-lifetime'
 import type { MapLibreBasemapStatus } from '../../maplibre/openfreemap-basemap'
 import { applyTerrainPaintUpdates, classifyTerrainSync, clearTerrain, rebuildTerrain } from '../../maplibre/terrain-sync'
-import {
-  TERRAIN_CONTOUR_LAYER_IDS,
-  TERRAIN_CONTOUR_SOURCE_ID,
-  TERRAIN_DEM_SOURCE_ID,
-  TERRAIN_HILLSHADE_LAYER_ID,
-  type TerrainLayerState,
-} from '../../maplibre/terrain'
+import { TERRAIN_CONTOUR_LAYER_IDS, TERRAIN_CONTOUR_SOURCE_ID, TERRAIN_DEM_SOURCE_ID, TERRAIN_HILLSHADE_LAYER_ID, type TerrainLayerState } from '../../maplibre/terrain'
 import { mapErrorResourceId } from '../../maplibre/map-error-owner'
 import type { RasterDisplay, RasterDisplayLayer } from '../../maplibre/raster-display/adapter'
-import {
-  clearCanvasMapSurfaceOverlays,
-  clearCanvasMapSurfaceSiteHover,
-  clearCanvasMapSurfaceSiteOverlay,
-  syncCanvasMapSurfaceOverlays,
-  syncCanvasMapSurfaceSiteHover,
-  syncCanvasMapSurfaceSiteOverlay,
-  type CanvasMapSurfaceOverlaySnapshot,
-} from './overlays'
+import { clearCanvasMapSurfaceOverlays, clearCanvasMapSurfaceSiteHover, clearCanvasMapSurfaceSiteOverlay, syncCanvasMapSurfaceOverlays, syncCanvasMapSurfaceSiteHover, syncCanvasMapSurfaceSiteOverlay, type CanvasMapSurfaceOverlaySnapshot } from './overlays'
 import { siteMapOverlayIds, type SiteMapOverlay } from '../../maplibre/site-overlay'
 import { userLocationOverlayIds, type UserLocationReading } from '../../maplibre/user-location-overlay'
 import { createMapLayerStackDescriptors, reconcileMapLayerStack } from '../map-layers/bands'
@@ -61,8 +41,9 @@ export class WorkspaceMapContributions {
   private snapshot: WorkspaceMapContributionSnapshot | null = null
   private context: MapLibreSurfaceContext<MapLibreMapInstance> | null = null
   private lifetimeState: MapLifetimeState
-  private basemapStatus: MapLibreBasemapStatus = 'idle'
-  private terrainStatus: 'idle' | 'loading' | 'ready' | 'error' = 'idle'
+  private backgroundStatus: LayerStatus | null = null
+  private terrainLayerStatus: LayerStatus | null = null
+  private readonly rasterStatuses = new Map<string, LayerStatus>()
   private ready = false
   /** Map-lifetime owner of the upstream raster renderer (Desktop only). */
   private raster: RasterDisplay | null = null
@@ -106,6 +87,12 @@ export class WorkspaceMapContributions {
     // headers load; each change re-establishes the semantic band order.
     this.raster = this.options.createRasterDisplay?.(context.map, {
       onLayersChanged: () => this.restack(),
+      onLayerStatus: (id, status) => {
+        if (this.disposed) return
+        if (status === null) this.rasterStatuses.delete(id)
+        else this.rasterStatuses.set(id, status)
+        if (this.ready) this.emitReady()
+      },
     }) ?? null
     this.siteHover = this.options.siteHover?.current() ?? null
     this.unsubscribeSiteHover = this.options.siteHover?.subscribe((hover) => this.setSiteHover(hover)) ?? null
@@ -152,8 +139,7 @@ export class WorkspaceMapContributions {
       this.terrainUnavailable = false
     }
     this.snapshot = snapshot
-    this.revision += 1
-    this.terrainGeneration += 1
+    this.advanceRevision()
     this.dirty = true
     this.drain()
   }
@@ -186,8 +172,7 @@ export class WorkspaceMapContributions {
         ? this.snapshot?.terrain.hillshadeVisible
         : this.snapshot?.terrain.contoursVisible
       if (!enabled) return true
-      this.revision += 1
-      this.terrainGeneration += 1
+      this.advanceRevision()
       this.terrainUnavailable = true
       this.terrainFailed(event)
       return true
@@ -218,8 +203,21 @@ export class WorkspaceMapContributions {
   /** The Basemap's download status, kept until the map goes. */
   setBasemapStatus(basemapStatus: MapLibreBasemapStatus): void {
     if (this.disposed) return
-    this.basemapStatus = basemapStatus
+    this.backgroundStatus = basemapStatus === 'loading' ? { kind: 'loading' } : basemapStatus === 'failed' ? { kind: 'failed', reason: 'basemap' } : { kind: 'ready' }
     if (this.ready) this.emitReady()
+  }
+
+  /** Retries a single failed non-background layer slot (`terrain` or `library:<id>`; MAP-02). */
+  retryLayer(slot: LayerSlotId): void {
+    if (!this.live() || !this.styleReady) return
+    if (slot === 'terrain') {
+      this.terrainUnavailable = false; this.terrain = null; this.terrainLayerStatus = { kind: 'loading' }
+      this.advanceRevision(); this.dirty = true
+      if (this.ready) this.emitReady()
+      this.drain()
+      return
+    }
+    if (slot.startsWith('library:')) this.raster?.retryLayer?.(slot.slice('library:'.length))
   }
 
   dispose(error?: unknown, failureCause: MapFailureCause = 'engine-start'): void {
@@ -231,14 +229,9 @@ export class WorkspaceMapContributions {
     this.unsubscribeUserLocation?.()
     this.unsubscribeUserLocation = null
     this.userLocation = null
-    this.revision += 1
-    this.terrainGeneration += 1
+    this.advanceRevision()
     this.snapshot = null
-    this.emitLifetime(
-      error
-        ? { kind: 'failed', attempt: this.attempt(), cause: failureCause }
-        : { kind: 'released' },
-    )
+    this.emitLifetime(error ? { kind: 'failed', attempt: this.attempt(), cause: failureCause } : { kind: 'released' })
     this.clear()
     // Map-lifetime teardown: the manager's layers, sources, protocol and
     // listeners go, and its worker client rejects queued and in-flight work.
@@ -262,8 +255,9 @@ export class WorkspaceMapContributions {
         const revision = this.revision
         if (!snapshot) {
           this.ready = false
-          this.basemapStatus = 'idle'
-          this.terrainStatus = 'idle'
+          this.backgroundStatus = null
+          this.terrainLayerStatus = null
+          this.rasterStatuses.clear()
           this.emitLifetime({ kind: 'admitted', attempt: this.attempt() })
           this.clear()
           continue
@@ -442,7 +436,7 @@ export class WorkspaceMapContributions {
         applyTerrainPaintUpdates(map, next)
         this.terrain = next
       } else if (mode === 'rebuild') {
-        this.terrainStatus = 'loading'
+        this.terrainLayerStatus = { kind: 'loading' }
         if (this.ready) this.emitReady()
         if (!current()) return
         if (!this.options.loadTerrainSupport) throw new Error('Terrain support is unavailable in this workspace.')
@@ -470,7 +464,7 @@ export class WorkspaceMapContributions {
       }
     }
     if (current()) {
-      this.terrainStatus = this.terrain ? 'ready' : 'idle'
+      this.terrainLayerStatus = this.terrain ? { kind: 'ready' } : null
       if (this.ready) this.emitReady()
     }
   }
@@ -498,8 +492,9 @@ export class WorkspaceMapContributions {
     }
     if (!this.current(revision)) return
     this.terrain = null
-    this.terrainStatus = 'error'
+    this.terrainLayerStatus = { kind: 'failed', reason: 'terrain' }
     if (this.ready) this.emitReady()
+    reportMapSourceFailure('Terrain layer failed:', { sourceId: TERRAIN_DEM_SOURCE_ID, error })
     this.log('Failed to sync terrain layers:', error)
   }
 
@@ -529,6 +524,11 @@ export class WorkspaceMapContributions {
     this.terrainTouched = false
   }
 
+  private advanceRevision(): void {
+    this.revision += 1
+    this.terrainGeneration += 1
+  }
+
   private current(revision: number): boolean { return this.live() && this.revision === revision }
 
   private guardedMap(revision: number, cleanup = false): MapLibreMapInstance {
@@ -552,10 +552,11 @@ export class WorkspaceMapContributions {
 
   private emitReady(): void {
     const layers = new Map<LayerSlotId, LayerStatus>()
-    layers.set('background', this.basemapStatus === 'loading' ? { kind: 'loading' } : this.basemapStatus === 'failed' ? { kind: 'failed', reason: 'basemap' } : { kind: 'ready' })
-    if (this.terrainStatus === 'loading') layers.set('terrain', { kind: 'loading' })
-    else if (this.terrainStatus === 'error') layers.set('terrain', { kind: 'failed', reason: 'terrain' })
-    else if (this.terrainStatus === 'ready') layers.set('terrain', { kind: 'ready' })
+    layers.set('background', this.backgroundStatus ?? { kind: 'ready' })
+    if (this.terrainLayerStatus) layers.set('terrain', this.terrainLayerStatus)
+    for (const [id, status] of this.rasterStatuses) {
+      layers.set(`library:${id}`, status)
+    }
     if (this.layerSkipped()) layers.set('library:skipped', { kind: 'skipped', reason: 'layer-skipped' })
     this.emitLifetime({ kind: 'ready', attempt: this.attempt(), layers })
   }
