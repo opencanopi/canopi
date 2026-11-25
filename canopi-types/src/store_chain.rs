@@ -126,7 +126,7 @@ pub enum Admission {
     },
 }
 
-/// Frozen settings record migration steps (contracts §11, 2.1-M157, 2.1-M518, 2.1-M547):
+/// Frozen settings record migration steps (contracts §11, 2.1-M157, 2.1-M518, 2.1-M550):
 /// step 1 -> 2 introduces record 2 (`unit_system`, `last_open_home`, `launch_check`).
 const SETTINGS_STEPS: &[Step<(), ()>] = &[Step { from: 1, run: Ok }];
 

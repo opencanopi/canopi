@@ -1,12 +1,12 @@
 //! The Desktop settings store (`settings.json` + write-once `settings.before-reset.json`,
-//! `2e-2`, ADR 0024, ADR 0026, `2.1-Q373`, `2.1-M547`).
+//! `2e-2`, ADR 0024, ADR 0026, `2.1-Q373`, `2.1-M550`).
 //!
 //! - **File authority.** Record 2 (`"version": 2`) lives in `data_dir/settings.json`, published
 //!   exclusively through `canopi_support::durable::publish_durably`.
 //! - **Migrate-once from SQLite.** When `settings.json` is absent, Desktop reads the legacy v2.0
 //!   `settings` and `updater.check_at_launch` rows from `user.db` (read-only), folds them into
 //!   record 2, and writes `settings.json` durably while leaving SQLite rows untouched for
-//!   emergency rollback to v2.0.5 (`2.1-Q373`, `2.1-M547`). Once `settings.json` exists, it
+//!   emergency rollback to v2.0.5 (`2.1-Q373`, `2.1-M550`). Once `settings.json` exists, it
 //!   always wins on re-upgrade.
 //! - **Per-field reset.** Malformed individual fields reset only those fields, keeping every
 //!   valid field (including `google_maps_api_key`) and unknown keys intact, writing the original

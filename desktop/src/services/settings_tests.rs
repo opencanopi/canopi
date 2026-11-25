@@ -59,7 +59,7 @@ fn first_launch_creates_settings_json_v2_with_os_locale_region_and_pointing_devi
     assert_eq!(reread.record["scroll_wheel"], "pan");
 }
 
-/// 2.1-Q373 / 2.1-M547: migrate-once from SQLite `settings` + `updater.check_at_launch`
+/// 2.1-Q373 / 2.1-M550: migrate-once from SQLite `settings` + `updater.check_at_launch`
 /// folds into `settings.json` v2, leaves SQLite rows byte-identical, and `settings.json`
 /// wins on re-upgrade even if SQLite was edited during a rollback to v2.0.5.
 #[test]
