@@ -9,7 +9,7 @@ use canopi_types::design::v10::DESIGN_FILE_FIELDS_V10;
 use serde_json::{Value, json};
 
 use crate::chain::{CANOPI_CURRENT, CANOPI_FLOOR, canonicalize_json, release_label};
-use crate::core::{NewDesignInput, decode_design, new_design};
+use crate::core::{NewDesignInput, new_design};
 
 /// One emitted file under `canopi-format/spec/v10/`.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -24,13 +24,11 @@ pub struct EmittedSpecFile {
 ///
 /// `v10_schema` is generated directly from `canopi_types::design::v10::CanopiFileV10`
 /// and `print_setup_schema` directly from `PrintSetupV10` (`2.1-M31`, `2.1-M161`).
+/// `expected.json` is intentionally NOT emitted here — it is a hand-written golden checked by tests.
 #[must_use]
 pub fn emit_v10_spec_files(v10_schema: &Value, print_setup_schema: &Value) -> Vec<EmittedSpecFile> {
     let fixture = v10_full_fixture();
     let fixture_bytes = pretty_canonical_json(&fixture);
-    let expected = decode_design(fixture_bytes.as_bytes())
-        .map(|opened| opened.design)
-        .unwrap_or_else(|_| fixture.clone());
 
     vec![
         EmittedSpecFile {
@@ -54,20 +52,16 @@ pub fn emit_v10_spec_files(v10_schema: &Value, print_setup_schema: &Value) -> Ve
             content: fixture_bytes,
         },
         EmittedSpecFile {
-            relative_path: "expected.json",
-            content: pretty_canonical_json(&expected),
-        },
-        EmittedSpecFile {
             relative_path: "additions/print_setup.json",
             content: pretty_canonical_json(&addition_print_setup(print_setup_schema)),
         },
         EmittedSpecFile {
             relative_path: "additions/zone_style.json",
-            content: pretty_canonical_json(&addition_zone_style()),
+            content: pretty_canonical_json(&addition_zone_style(v10_schema)),
         },
         EmittedSpecFile {
             relative_path: "additions/timeline_offset.json",
-            content: pretty_canonical_json(&addition_timeline_offset()),
+            content: pretty_canonical_json(&addition_timeline_offset(v10_schema)),
         },
     ]
 }
@@ -154,7 +148,7 @@ fn fixture_scene_fields() -> Value {
         "plant_species_symbols": { "Malus domestica": "apple" },
         "plant_species_codes": { "Malus domestica": "MD" },
         "layers": [
-            { "name": "zones", "visible": true, "locked": false, "opacity": 0.75 },
+            { "name": "zones", "visible": true, "locked": false, "opacity": 0.75, "future_layer_flag": true },
             { "name": "plants", "visible": true, "locked": false, "opacity": 1.0 }
         ],
         "plants": [
@@ -166,7 +160,7 @@ fn fixture_scene_fields() -> Value {
                 "color": "#5E8B7E",
                 "symbol": "apple",
                 "pinned_name": true,
-                "position": { "lon": 2.2945, "lat": 48.8584 },
+                "position": { "lon": 2.2945, "lat": 48.8584, "future_point_crs_note": "wgs84" },
                 "rotation": 15.0,
                 "canopy_spread_m": 4.5,
                 "notes": "Grafted on MM106",
@@ -329,8 +323,8 @@ fn fixture_print_and_views() -> Value {
                     "area": {
                         "kind": "split_sheet",
                         "split": "split-1",
-                        "along_page": { "right_m": 0.0, "down_m": 0.0 },
-                        "size": { "width_m": 50.0, "height_m": 35.0 }
+                        "along_page": { "right_m": 0.0, "down_m": 0.0, "future_offset_meta": 1 },
+                        "size": { "width_m": 50.0, "height_m": 35.0, "future_size_meta": "m" }
                     },
                     "scale": { "kind": "ratio", "denominator": 200 }
                 }
@@ -340,12 +334,14 @@ fn fixture_print_and_views() -> Value {
             {
                 "id": "view-1",
                 "name": "South slope",
+                "future_view_key": "keep",
                 "camera": {
                     "lon": 2.2945,
                     "lat": 48.8584,
                     "zoom": 19.0,
                     "bearing": 15.0,
-                    "ground_size_m": { "width": 100.0, "height": 70.0 }
+                    "ground_size_m": { "width": 100.0, "height": 70.0 },
+                    "future_camera_key": 42
                 },
                 "visible_layers": {
                     "background": { "kind": "satellite" },
@@ -363,8 +359,9 @@ fn fixture_print_and_views() -> Value {
             {
                 "id": "story-1",
                 "name": "Site walk",
+                "future_story_key": true,
                 "steps": [
-                    { "id": "step-1", "view_id": "view-1", "title": "Overview" }
+                    { "id": "step-1", "view_id": "view-1", "title": "Overview", "future_step_key": "keep" }
                 ]
             }
         ]
@@ -382,7 +379,8 @@ fn addition_print_setup(print_setup_schema: &Value) -> Value {
     }))
 }
 
-fn addition_zone_style() -> Value {
+fn addition_zone_style(v10_schema: &Value) -> Value {
+    let zone_props = &v10_schema["$defs"]["ZoneV10"]["properties"];
     canonicalize_json(&json!({
         "addition": "zone_style",
         "ledger": ["2.1-Q36", "2.1-M94", "2.1-Q355"],
@@ -390,19 +388,20 @@ fn addition_zone_style() -> Value {
         "optional": true,
         "ignored_by_reader_release": true,
         "properties": {
-            "stroke_color": { "type": ["string", "null"], "default": null },
-            "opacity": { "type": ["number", "null"], "minimum": 0.0, "maximum": 1.0, "default": null }
+            "stroke_color": zone_props["stroke_color"],
+            "opacity": zone_props["opacity"]
         }
     }))
 }
 
-fn addition_timeline_offset() -> Value {
+fn addition_timeline_offset(v10_schema: &Value) -> Value {
+    let offset_schema = &v10_schema["$defs"]["TimelineActionV10"]["properties"]["offset_days"];
     canonicalize_json(&json!({
         "addition": "timeline_offset",
         "ledger": ["2.1-Q36", "2.1-M94", "2.1-Q155"],
         "target": "$.timeline[*].offset_days",
         "optional": true,
         "ignored_by_reader_release": true,
-        "schema": { "type": ["integer", "null"], "default": null }
+        "schema": offset_schema
     }))
 }

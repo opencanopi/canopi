@@ -208,7 +208,6 @@ pub fn migrate_v9_to_v10(mut value: Value) -> Result<Value, StepFailure> {
     root.insert("version".to_owned(), json!(10));
     migrate_plants(root)?;
     migrate_site_data(root);
-    migrate_plant_display(root);
     migrate_budget(root)?;
     normalise_groups_v9_step(root);
 
@@ -279,22 +278,6 @@ fn migrate_site_data(root: &mut Map<String, Value>) {
     }
     for (_, entry) in unkeyed {
         entries.push(entry);
-    }
-}
-
-fn migrate_plant_display(root: &mut Map<String, Value>) {
-    let mut extracted = None;
-    if let Some(extra) = root.get_mut("extra").and_then(Value::as_object_mut) {
-        extracted = extra.remove("plant_display");
-        if extra.is_empty() {
-            root.remove("extra");
-        }
-    }
-    if let Some(display) = extracted
-        && !display.is_null()
-        && !root.contains_key("plant_display")
-    {
-        root.insert("plant_display".to_owned(), display);
     }
 }
 

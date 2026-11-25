@@ -90,7 +90,7 @@ pub fn encode_design(design_json: &str) -> String {
         Err(_) => EncodeAnswer::Err(FormatRefusal {
             kind: FormatLoadRefusalKind::InvalidJson,
             message: "the Design is not valid JSON".to_owned(),
-            field_path: Some(FieldPath::root()),
+            field_path: Some(FieldPath::root().to_string()),
         }),
         Ok(value) => match core_encode_design(&value) {
             Ok(bytes) => {

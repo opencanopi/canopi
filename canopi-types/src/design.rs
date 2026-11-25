@@ -8,7 +8,10 @@ use specta::Type;
 mod admission;
 pub mod field_path;
 pub mod v10;
+mod v10_io;
+mod v10_nested;
 mod v10_print;
+mod v10_views;
 pub use admission::{
     V10AdmissionMode, admit_design_identities_and_ranges, admit_design_v10,
     normalise_v10_on_decode, validate_design_geometry,
@@ -680,7 +683,7 @@ pub struct SpeciesPanelTarget {
 }
 
 #[cfg_attr(feature = "design-schema", derive(schemars::JsonSchema))]
-#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
 #[expect(
     missing_docs,
     reason = "undocumented before 2.1-Q217; document when this file is next touched"

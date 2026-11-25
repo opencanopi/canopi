@@ -9,8 +9,9 @@
 
 use std::sync::OnceLock;
 
-use canopi_types::design::field_path::{FieldPath, Refusal};
-use canopi_types::design::v10::{CanopiFileV10, FormatLoadRefusalKind};
+use canopi_types::design::field_path::FieldPath;
+use canopi_types::design::v10::CanopiFileV10;
+pub use canopi_types::design::v10::{DraftSummaryOutcome, FormatLoadRefusalKind, FormatRefusal};
 use canopi_types::design::{
     DEFAULT_BUDGET_CURRENCY, V10AdmissionMode, admit_design_v10, normalise_v10_on_decode,
 };
@@ -19,8 +20,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
 use crate::chain::{
-    CANOPI_CURRENT, admit_canopi_version, canonical_json_string, canonicalize_json, release_label,
-    run_migration_steps,
+    CANOPI_CURRENT, CANOPI_FLOOR, CANOPI_STEPS, CanopiStep, admit_canopi_version,
+    canonical_json_string, canonicalize_json, release_label, run_steps_with,
 };
 use crate::schema::admit_schema;
 
@@ -64,37 +65,6 @@ pub struct OpenedDesign {
     pub migrated_from_release: Option<String>,
 }
 
-/// Structured refusal returned by the Format Core on decode or encode failure.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-pub struct FormatRefusal {
-    /// Structured refusal kind (`migration_failed{from}`, `newer_version`, `invalid_document`, etc.).
-    pub kind: FormatLoadRefusalKind,
-    /// Diagnostic message (never contains user file values or paths, `2.1-Q286`).
-    pub message: String,
-    /// Optional leaf field path for diagnostics and Problem Reports.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub field_path: Option<FieldPath>,
-}
-
-impl FormatRefusal {
-    fn invalid_document(path: FieldPath, expected: impl Into<String>) -> Self {
-        let refusal = Refusal::new(path, expected);
-        Self {
-            kind: FormatLoadRefusalKind::InvalidDocument,
-            message: refusal.to_string(),
-            field_path: Some(refusal.field_path),
-        }
-    }
-
-    fn from_refusal(refusal: Refusal) -> Self {
-        Self {
-            kind: FormatLoadRefusalKind::InvalidDocument,
-            message: refusal.to_string(),
-            field_path: Some(refusal.field_path),
-        }
-    }
-}
-
 /// Input to [`new_design`] carrying settings-derived `plant_display` defaults (contracts §10).
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct NewDesignInput {
@@ -107,23 +77,6 @@ pub struct NewDesignInput {
     /// ISO-8601 creation/update timestamp supplied by the host clock.
     #[serde(default)]
     pub created_at: String,
-}
-
-/// Summary outcome for a Draft listing row (contracts §10).
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct DraftSummaryOutcome {
-    /// Design name (empty if unreadable).
-    pub name: String,
-    /// Last updated timestamp (from file if readable, else caller fallback).
-    pub updated_at: String,
-    /// True when the Draft opens cleanly through the Format Core.
-    pub readable: bool,
-    /// Refusal kind when `readable` is false (listed as unreadable, never hidden).
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub refusal_kind: Option<FormatLoadRefusalKind>,
-    /// Source version when the Draft will migrate on open.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub migrated_from: Option<u32>,
 }
 
 /// Decodes raw `.canopi` bytes through size cap, JSON parse, version admission,
@@ -156,20 +109,34 @@ pub fn decode_design(bytes: &[u8]) -> Result<OpenedDesign, FormatRefusal> {
 ///
 /// Returns [`FormatRefusal`] on version, schema, migration, or semantic admission failure.
 pub fn decode_design_value(raw: Value) -> Result<OpenedDesign, FormatRefusal> {
+    decode_design_value_with_steps(raw, CANOPI_STEPS, CANOPI_FLOOR)
+}
+
+/// Decodes a parsed JSON value using a caller-supplied migration step slice (enables end-to-end
+/// testing of `FormatLoadRefusalKind::MigrationFailed { from }` through decode admission).
+///
+/// # Errors
+///
+/// Returns [`FormatRefusal`] on version, schema, migration, or semantic admission failure.
+pub fn decode_design_value_with_steps(
+    raw: Value,
+    steps: &[CanopiStep],
+    floor: u32,
+) -> Result<OpenedDesign, FormatRefusal> {
     let version = read_integer_version(&raw)?;
     let (migrated_from, candidate) = match admit_canopi_version(Some(version)) {
         Admission::Absent | Admission::BeforeFloor { .. } => {
             return Err(FormatRefusal {
                 kind: FormatLoadRefusalKind::OlderVersion,
                 message: format!("format version {version} is older than Canopi 2.0"),
-                field_path: Some(FieldPath::root().field("version")),
+                field_path: Some(FieldPath::root().field("version").to_string()),
             });
         }
         Admission::NewerReadable { .. } | Admission::RefusedNewer { .. } => {
             return Err(FormatRefusal {
                 kind: FormatLoadRefusalKind::NewerVersion,
                 message: format!("format version {version} is newer than Canopi 2.1"),
-                field_path: Some(FieldPath::root().field("version")),
+                field_path: Some(FieldPath::root().field("version").to_string()),
             });
         }
         Admission::Migratable { from } => {
@@ -180,23 +147,23 @@ pub fn decode_design_value(raw: Value) -> Result<OpenedDesign, FormatRefusal> {
                 })?;
                 admit_schema(&raw, schema_v9).map_err(FormatRefusal::from_refusal)?;
             }
-            let migrated = run_migration_steps(raw, from).map_err(|step_err| FormatRefusal {
-                kind: FormatLoadRefusalKind::MigrationFailed {
-                    from: step_err.from,
-                },
-                message: format!(
-                    "migration from v{} failed: {}",
-                    step_err.from, step_err.reason
-                ),
-                field_path: Some(FieldPath::root()),
-            })?;
+            let migrated =
+                run_steps_with(steps, floor, raw, from).map_err(|step_err| FormatRefusal {
+                    kind: FormatLoadRefusalKind::MigrationFailed {
+                        from: step_err.from,
+                    },
+                    message: format!(
+                        "migration from v{} failed: {}",
+                        step_err.from, step_err.reason
+                    ),
+                    field_path: Some(FieldPath::root().to_string()),
+                })?;
             (Some(from), migrated)
         }
         Admission::Current => (None, raw),
     };
 
-    let mut typed = parse_and_admit_v10(&candidate, V10AdmissionMode::Decode)?;
-    normalise_v10_on_decode(&mut typed);
+    let typed = parse_and_admit_v10(&candidate, V10AdmissionMode::Decode)?;
     let canonical = serde_json::to_value(&typed)
         .map(|v| canonicalize_json(&v))
         .map_err(|_| {

@@ -92,19 +92,19 @@ export type Annotation = {
 // Identifier of a text annotation in a Design scene.
 export type AnnotationId = string & { readonly __brand: "AnnotationId" };
 
-// Annotation in v10 with extension bag (`2.1-Q69`).
+// Annotation in v10 with M481 defaults and Q69 extension bag (`2.1-Q69`, `2.1-M481`).
 export type AnnotationV10 = {
 	// Stable object id.
 	id: string,
 	// Whether editing is locked.
 	locked?: boolean,
-	// Annotation type (`text`, etc.).
+	// Annotation type (default `"text"`).
 	annotation_type: string,
 	// WGS84 anchor position.
-	position: GeoPoint,
+	position: GeoPointV10,
 	// Annotation text.
 	text?: string,
-	// Font size in points (> 0).
+	// Font size in points (> 0; default `16.0`, matching `read-schema.json`).
 	font_size: number,
 	// Optional clockwise rotation in degrees.
 	rotation?: number | null,
@@ -193,7 +193,7 @@ export type CanopiFileV10 = {
 	// Per-species short code overrides keyed by canonical species name.
 	plant_species_codes?: { [key in string]: string },
 	// Scene layer visibility, lock, and opacity state.
-	layers?: Layer[],
+	layers?: LayerV10[],
 	// Placed plants in WGS84 coordinates.
 	plants?: PlacedPlantV10[],
 	// Zones in WGS84 coordinates.
@@ -203,7 +203,7 @@ export type CanopiFileV10 = {
 	// Measurement guides in WGS84 coordinates.
 	measurement_guides?: MeasurementGuideV10[],
 	// Plant consortiums.
-	consortiums?: Consortium[],
+	consortiums?: ConsortiumV10[],
 	// Named object groups (plants, zones, annotations, measurement guides).
 	groups?: ObjectGroupV10[],
 	// Planned timeline care actions.
@@ -216,16 +216,16 @@ export type CanopiFileV10 = {
 	budget_ext?: BudgetExtV10 | null,
 	// Optional Site data presentation section (v9 `lidar`, `2.1-Q314`, `2.1-M493`).
 	site_data?: SiteDataSectionV10 | null,
-	// Optional typed plant display preferences (promoted from v9 `extra.plant_display`, `2.1-Q69`).
+	// Optional typed plant display preferences (`2.1-Q69`, `2.1-M482`).
 	plant_display?: PlantDisplayV10 | null,
 	// Optional PDF print setup (v10 addition, `2.1-Q36`, `2.1-M90`, `2.1-M161`).
 	print_setup?: PrintSetupV10 | null,
 	// Named saved map views.
-	views?: SavedView[],
+	views?: SavedViewV10[],
 	// Ordered presentations of saved views.
-	stories?: Story[],
+	stories?: StoryV10[],
 	// Last saved camera view.
-	map_view?: SavedViewCamera | null,
+	map_view?: SavedViewCameraV10 | null,
 	// ISO-8601 creation timestamp.
 	created_at?: string,
 	// ISO-8601 last-update timestamp.
@@ -241,6 +241,18 @@ export type Consortium = {
 	target: SpeciesPanelTarget,
 	stratum: string,
 	start_phase: number,
+	end_phase: number,
+};
+
+// Consortium row in v10 with M481 defaults and Q69 extension bag.
+export type ConsortiumV10 = {
+	// Target species.
+	target: SpeciesPanelTargetV10,
+	// Stratum name (default `"unassigned"`).
+	stratum: string,
+	// Start phase (default `0`).
+	start_phase?: number,
+	// End phase (default `2`).
 	end_phase: number,
 };
 
@@ -404,6 +416,20 @@ export type DialogKind =
 
 // Identifier of a Design draft record.
 export type DraftId = string & { readonly __brand: "DraftId" };
+
+// Summary outcome for a Draft listing row (`contracts.md` §10).
+export type DraftSummaryOutcome = {
+	// Design name (empty if unreadable).
+	name: string,
+	// Last updated timestamp (from file if readable, else caller fallback).
+	updated_at: string,
+	// True when the Draft opens cleanly through the Format Core.
+	readable: boolean,
+	// Refusal kind when `readable` is false (listed as unreadable, never hidden).
+	refusal_kind?: FormatLoadRefusalKind | null,
+	// Source version when the Draft will migrate on open.
+	migrated_from?: number | null,
+};
 
 export type DynamicFilter = {
 	field: string,
@@ -574,11 +600,25 @@ export type FlowerColorResolution = {
 	source: string,
 };
 
+// Wire answer envelope returned by `canopi-format-wasm` `decode_design`.
+export type FormatDecodeAnswer =
+// Successful decode outcome.
+{ ok: OpenedDesignContract } |
+// Structured refusal.
+{ err: FormatRefusal };
+
+// Wire answer envelope returned by `canopi-format-wasm` `encode_design`.
+export type FormatEncodeAnswer =
+// Canonical sorted-key JSON string.
+{ ok: string } |
+// Structured refusal.
+{ err: FormatRefusal };
+
 /**
  *  Structured refusal kind returned by the v10 Format Core (`contracts.md` §2 `:67`, §10 `:423`).
  *
- *  Tagged on the wire as `{"kind":"migration_failed","from":9}` for failed migration steps, and
- *  `{"kind":"<variant>"}` for all other refusals.
+ *  Flattened into [`FormatRefusal`] so the wire shape is `{"kind":"migration_failed","from":9,"message":...}`
+ *  rather than a nested `{"kind":{"kind":...}}`.
  */
 export type FormatLoadRefusalKind =
 // File exceeded the 64 MiB admission cap.
@@ -596,6 +636,21 @@ from: number } |
 // Schema or semantic admission refused the document.
 { kind: "invalid_document" };
 
+/**
+ *  Structured refusal returned by the Format Core on decode or encode failure.
+ *
+ *  Serialises flat on the wire: `{"kind":"older_version","message":"...","field_path":"$.version"}`
+ *  or `{"kind":"migration_failed","from":9,"message":"...","field_path":"$"}`.
+ */
+export type FormatRefusal =
+// Flattened refusal kind (`kind`, plus `from` when `kind == "migration_failed"`).
+(FormatLoadRefusalKind) & {
+	// Diagnostic message (never contains user file values or paths, `2.1-Q286`).
+	message: string,
+	// Optional leaf field path for diagnostics and Problem Reports.
+	field_path?: string | null,
+};
+
 export type Freshness = { state: "Current" } | { state: "Stale"; reasons: StaleReason[] };
 
 /**
@@ -612,6 +667,14 @@ export type FrontendDiagnosticLevel =
 
 export type GeoPoint = {
 	lon: number,
+	lat: number,
+};
+
+// WGS84 point in v10 with Q69 extension bag (`2.1-Q69`).
+export type GeoPointV10 = {
+	// Longitude in degrees `[-180, 180]`.
+	lon: number,
+	// Latitude in degrees `[-85.0511287798066, 85.0511287798066]`.
 	lat: number,
 };
 
@@ -668,6 +731,18 @@ export type Layer = {
 
 // Identifier of a scene layer in a Design.
 export type LayerId = string & { readonly __brand: "LayerId" };
+
+// Design layer in v10 with M481 defaults and Q69 extension bag.
+export type LayerV10 = {
+	// Layer name.
+	name: string,
+	// Whether the layer is visible (default `true`).
+	visible: boolean,
+	// Whether the layer is locked (default `false`).
+	locked?: boolean,
+	// Layer opacity in `[0, 1]` (default `1.0`).
+	opacity: number,
+};
 
 // What deleting one item would affect.
 export type LibraryDeleteImpact = {
@@ -794,6 +869,19 @@ export type LibrarySnapshot = {
 };
 
 export type LidarColourRange = { mode: "Data" } | { mode: "CutOutliers" } | { mode: "Custom"; min: number; max: number };
+
+// LiDAR colour range in v10 with Q69 extension bags on every variant.
+export type LidarColourRangeV10 =
+// Full data range.
+{ mode: "Data" } |
+// Trimmed outlier range.
+{ mode: "CutOutliers" } |
+// Explicit min/max range.
+{ mode: "Custom";
+// Minimum value.
+min: number;
+// Maximum value.
+max: number };
 
 // One display derivative file, in the entity's source-priority order.
 export type LidarDisplayAsset = {
@@ -1079,9 +1167,9 @@ export type MeasurementGuideV10 = {
 	// Whether editing is locked.
 	locked?: boolean,
 	// WGS84 start point.
-	start: GeoPoint,
+	start: GeoPointV10,
 	// WGS84 end point.
-	end: GeoPoint,
+	end: GeoPointV10,
 };
 
 // Why a network request failed (contracts §2 `network.kind`).
@@ -1097,6 +1185,16 @@ export type NetworkFailureKind =
 // The payload is larger than its cap.
 "too_large";
 
+// Input to `new_design` carrying settings-derived `plant_display` defaults (`contracts.md` §10).
+export type NewDesignInputContract = {
+	// Initial Design name (empty for Untitled).
+	name?: string,
+	// Optional `plant_display` defaults from Settings.
+	plant_display?: PlantDisplayV10 | null,
+	// ISO-8601 creation/update timestamp supplied by the host clock.
+	created_at?: string,
+};
+
 // Identifier of a Design Notebook section.
 export type NotebookSectionId = string & { readonly __brand: "NotebookSectionId" };
 
@@ -1109,7 +1207,7 @@ export type ObjectGroup = {
 
 export type ObjectGroupMember = { kind: "plant"; id: string } | { kind: "zone"; id: string } | { kind: "annotation"; id: string };
 
-// Group member in v10, including `measurement_guide` (`2.1-Q154`, `2.1-M94`).
+// Group member in v10, including `measurement_guide` and Q69 extension bags (`2.1-Q154`, `2.1-M94`).
 export type ObjectGroupMemberV10 =
 // Plant member by id.
 { kind: "plant";
@@ -1141,6 +1239,21 @@ export type ObjectGroupV10 = {
 };
 
 /**
+ *  Wire contract for the Format Core's `decode_design` outcome (`contracts.md` §10).
+ *
+ *  Pure format output only: the host adapter computes any pre-upgrade copy decision when
+ *  `migrated_from` is `Some(_)`.
+ */
+export type OpenedDesignContract = {
+	// Admitted, canonicalised v10 `.canopi` Design.
+	design: CanopiFileV10,
+	// Present when the input was migrated from an earlier format version (e.g. `Some(9)`).
+	migrated_from?: number | null,
+	// Frozen release label for `migrated_from` (e.g. `Some("2.0")`).
+	migrated_from_release?: string | null,
+};
+
+/**
  *  The user action or system work a settlement belongs to: `u-` or `s-`
  *  (user or system origin) before a lowercase hyphenated uuid v4, opaque and
  *  never logged raw (2.1-M420): its `Debug` shows the origin only. A branded
@@ -1156,6 +1269,25 @@ export type PaginatedResult<T> = {
 };
 
 export type PanelTarget = { kind: "placed_plant"; plant_id: string } | { kind: "species"; canonical_name: string } | { kind: "zone"; zone_id: string } | { kind: "manual" } | { kind: "none" };
+
+// Panel target in v10 with Q69 extension bags on every variant.
+export type PanelTargetV10 =
+// Targets a placed plant by id.
+{ kind: "placed_plant";
+// Plant id.
+plant_id: string } |
+// Targets a species by canonical name.
+{ kind: "species";
+// Canonical species name.
+canonical_name: string } |
+// Targets a zone by id.
+{ kind: "zone";
+// Zone id.
+zone_id: string } |
+// Manual target.
+{ kind: "manual" } |
+// Untargeted.
+{ kind: "none" };
 
 /**
  *  One typed parameter value, in the units the registry declares (metres, m²,
@@ -1214,7 +1346,7 @@ export type PlacedPlantV10 = {
 	// Whether the plant's label is pinned visible.
 	pinned_name?: boolean,
 	// WGS84 position.
-	position: GeoPoint,
+	position: GeoPointV10,
 	// Optional clockwise rotation in degrees.
 	rotation?: number | null,
 	// Canopy spread in metres (> 0, replaces v9 `scale`).
@@ -1255,6 +1387,10 @@ export type PlantDisplayV10 = {
 	color_by?: string | null,
 	// Open string naming label mode.
 	labels?: string | null,
+	// Optional single-colour hex value.
+	one_color?: string | null,
+	// Optional per-stratum colour overrides.
+	stratum_colors?: { [key in string]: string } | null,
 	// Optional symbol scale multiplier.
 	symbol_scale?: number | null,
 	// Optional outline toggle.
@@ -1271,7 +1407,7 @@ export type PrintAreaV10 =
 // Explicit rotated box centred at `centre` using `centre`'s ground scale.
 { kind: "box";
 // WGS84 box centre.
-centre: GeoPoint;
+centre: GeoPointV10;
 // Ground dimensions in metres.
 size: PrintSizeM;
 // Clockwise rotation in degrees.
@@ -1294,7 +1430,7 @@ size: PrintSizeM };
 // Fallback box used by `WholeDesign` when a Design has no placed geometry (`2.1-M161`).
 export type PrintBoxFallback = {
 	// Fallback WGS84 centre.
-	centre: GeoPoint,
+	centre: GeoPointV10,
 	// Fallback ground dimensions in metres.
 	size: PrintSizeM,
 };
@@ -1357,7 +1493,7 @@ export type PrintSplitV10 = {
 	// Stable split id referenced by `PrintAreaV10::SplitSheet.split`.
 	id: string,
 	// WGS84 pivot position whose ground scale sizes every sheet in the split.
-	pivot: GeoPoint,
+	pivot: GeoPointV10,
 	// Clockwise angle in degrees.
 	angle_deg: number,
 };
@@ -1635,8 +1771,25 @@ export type ReportSectionText = {
 
 export type RichTextBlock = { kind: "paragraph"; spans: RichTextSpan[] } | { kind: "bullets"; items: RichTextListItem[] };
 
+// Portable rich text block in v10 with M481 defaults and Q69 extension bags.
+export type RichTextBlockV10 =
+// Paragraph of inline spans.
+{ kind: "paragraph";
+// Inline spans (default empty).
+spans?: RichTextSpanV10[] } |
+// Bulleted list.
+{ kind: "bullets";
+// List items (default empty).
+items?: RichTextListItemV10[] };
+
 export type RichTextListItem = {
 	spans: RichTextSpan[],
+};
+
+// Rich text list item in v10 with M481 default and Q69 bag.
+export type RichTextListItemV10 = {
+	// Inline spans (default empty).
+	spans?: RichTextSpanV10[],
 };
 
 export type RichTextSpan = {
@@ -1644,6 +1797,18 @@ export type RichTextSpan = {
 	bold?: boolean,
 	italic?: boolean,
 	link: string | null,
+};
+
+// Rich text span in v10 with M481 defaults and Q69 bag.
+export type RichTextSpanV10 = {
+	// Run text (default `""`).
+	text?: string,
+	// Bold mark (default `false`).
+	bold?: boolean,
+	// Italic mark (default `false`).
+	italic?: boolean,
+	// Optional link URI.
+	link?: string | null,
 };
 
 /**
@@ -1714,6 +1879,17 @@ export type SavedView = {
 
 export type SavedViewBackground = { kind: "basemap"; style: string } | { kind: "satellite" } | { kind: "none" };
 
+// Map background band in a v10 saved view with Q69 extension bags.
+export type SavedViewBackgroundV10 =
+// OpenFreeMap basemap style.
+{ kind: "basemap";
+// Basemap style id.
+style: string } |
+// Satellite imagery.
+{ kind: "satellite" } |
+// No background.
+{ kind: "none" };
+
 export type SavedViewCamera = {
 	lon: number,
 	lat: number,
@@ -1722,14 +1898,44 @@ export type SavedViewCamera = {
 	ground_size_m: SavedViewGroundSize,
 };
 
+// Saved view camera in v10 with M481 defaults (`bearing` defaults to `0.0`) and Q69 bag.
+export type SavedViewCameraV10 = {
+	// Longitude in degrees.
+	lon: number,
+	// Latitude in degrees.
+	lat: number,
+	// MapLibre zoom level.
+	zoom: number,
+	// Degrees clockwise from north (default `0.0`).
+	bearing?: number,
+	// Framed ground size in metres.
+	ground_size_m: SavedViewGroundSizeV10,
+};
+
 export type SavedViewGroundSize = {
 	width: number,
+	height: number,
+};
+
+// Framed ground size in metres with Q69 extension bag.
+export type SavedViewGroundSizeV10 = {
+	// Ground width in metres.
+	width: number,
+	// Ground height in metres.
 	height: number,
 };
 
 export type SavedViewHighlight = {
 	species: string[],
 	objects: SavedViewObject[],
+};
+
+// Highlighted species and objects in a v10 saved view with M481 defaults and Q69 bag.
+export type SavedViewHighlightV10 = {
+	// Canonical species names (default empty).
+	species?: string[],
+	// Highlighted object references (default empty).
+	objects?: SavedViewObjectV10[],
 };
 
 // Identifier of a saved view in a Design.
@@ -1742,11 +1948,74 @@ export type SavedViewLayers = {
 	site_data: string[],
 };
 
+// Visible layers band in a v10 saved view with M481 defaults and Q69 bag.
+export type SavedViewLayersV10 = {
+	// Map background (default `none`).
+	background?: SavedViewBackgroundV10,
+	// Terrain overlays (default false/false).
+	terrain?: SavedViewTerrainV10,
+	// Scene layer names (default all four standard layers).
+	scene_layers: string[],
+	// Site data entry ids (default empty).
+	site_data?: string[],
+};
+
 export type SavedViewObject = { kind: "plant"; id: string } | { kind: "zone"; id: string } | { kind: "annotation"; id: string } | { kind: "measurement_guide"; id: string } | { kind: "group"; id: string };
+
+// Highlighted object reference in a v10 saved view with Q69 extension bags.
+export type SavedViewObjectV10 =
+// Plant id.
+{ kind: "plant";
+// Object id.
+id: string } |
+// Zone id.
+{ kind: "zone";
+// Object id.
+id: string } |
+// Annotation id.
+{ kind: "annotation";
+// Object id.
+id: string } |
+// Measurement guide id.
+{ kind: "measurement_guide";
+// Object id.
+id: string } |
+// Group id.
+{ kind: "group";
+// Object id.
+id: string };
 
 export type SavedViewTerrain = {
 	contours: boolean,
 	hillshade: boolean,
+};
+
+// Terrain overlays in a v10 saved view with M481 defaults and Q69 bag.
+export type SavedViewTerrainV10 = {
+	// Whether contour lines are shown (default `false`).
+	contours?: boolean,
+	// Whether hillshade is shown (default `false`).
+	hillshade?: boolean,
+};
+
+// Saved view in v10 with M481 defaults and Q69 extension bag.
+export type SavedViewV10 = {
+	// Stable view id.
+	id: string,
+	// Display name (default `""`).
+	name?: string,
+	// Saved camera framing.
+	camera: SavedViewCameraV10,
+	// Visible layers in this view (default all standard layers).
+	visible_layers?: SavedViewLayersV10,
+	// Highlighted species and objects (default empty).
+	highlighted?: SavedViewHighlightV10,
+	// Optional view title.
+	title?: string | null,
+	// Rich text blocks.
+	text?: RichTextBlockV10[],
+	// Optional plant label override.
+	labels?: PlantLabels | null,
 };
 
 /**
@@ -1852,7 +2121,7 @@ export type SiteDataEntryV10 = {
 	// Whether the colour ramp is reversed.
 	reversed?: boolean,
 	// Optional colour range.
-	range?: LidarColourRange | null,
+	range?: LidarColourRangeV10 | null,
 };
 
 // Site data presentation section in v10 (v9 `lidar`, `2.1-Q314`, `2.1-M493`).
@@ -2072,6 +2341,14 @@ export type SpeciesPanelTarget = {
 };
 
 export type SpeciesPanelTargetKind = "species";
+
+// Species panel target in v10 with Q69 extension bag.
+export type SpeciesPanelTargetV10 = {
+	// Target kind (`"species"`).
+	kind: SpeciesPanelTargetKind,
+	// Canonical species name.
+	canonical_name: string,
+};
 
 export type SpeciesSearchRequest = {
 	text: string,
@@ -2346,12 +2623,44 @@ export type StoryImage = {
 	alt?: string,
 };
 
+// Story image in v10 with M481 defaults and Q69 bag.
+export type StoryImageV10 = {
+	// Image `https:` URL or `data:image/` URI.
+	src: string,
+	// Alternative text (default `""`).
+	alt?: string,
+};
+
 export type StoryStep = {
 	id: string,
 	view_id: string,
 	title: string,
 	text?: RichTextBlock[],
 	images?: StoryImage[],
+};
+
+// Story step in v10 with M481 defaults and Q69 bag.
+export type StoryStepV10 = {
+	// Stable step id.
+	id: string,
+	// Referenced `SavedViewV10::id`.
+	view_id: string,
+	// Step title (default `""`).
+	title?: string,
+	// Rich text blocks (default empty).
+	text?: RichTextBlockV10[],
+	// Attached images (default empty).
+	images?: StoryImageV10[],
+};
+
+// Story in v10 with M481 defaults and Q69 bag.
+export type StoryV10 = {
+	// Stable story id.
+	id: string,
+	// Story name (default `""`).
+	name?: string,
+	// Ordered steps (default empty).
+	steps?: StoryStepV10[],
 };
 
 /**
@@ -2376,11 +2685,11 @@ export type TimelineAction = {
 	order: number,
 };
 
-// Timeline care action in v10 with optional `offset_days` addition (`2.1-Q36`, `2.1-Q155`).
+// Timeline care action in v10 with M481 defaults and optional `offset_days` addition (`2.1-Q36`, `2.1-Q155`).
 export type TimelineActionV10 = {
 	// Stable action id.
 	id: string,
-	// Action kind (`planting`, `pruning`, etc.).
+	// Action kind (default `"other"`).
 	action_type: string,
 	// Action description.
 	description?: string,
@@ -2393,7 +2702,7 @@ export type TimelineActionV10 = {
 	// Optional recurrence rule.
 	recurrence?: string | null,
 	// Referenced targets (default `[manual]`).
-	targets: PanelTarget[],
+	targets: PanelTargetV10[],
 	// Optional dependency action ids.
 	depends_on?: string[] | null,
 	// Completion state.
@@ -2514,7 +2823,7 @@ export type ZoneV10 = {
 	// Zone geometry type (`polygon`, `line`, `rectangle`, `ellipse`).
 	zone_type: string,
 	// WGS84 vertices or bounding corners.
-	points: GeoPoint[],
+	points: GeoPointV10[],
 	// Clockwise rotation in degrees.
 	rotation?: number,
 	// Optional fill colour.

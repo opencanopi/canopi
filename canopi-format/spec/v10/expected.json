@@ -74,6 +74,7 @@
   ],
   "layers": [
     {
+      "future_layer_flag": true,
       "locked": false,
       "name": "zones",
       "opacity": 0.75,
@@ -114,7 +115,9 @@
   "plant_display": {
     "color_by": "species",
     "labels": "common",
+    "one_color": null,
     "outline": true,
+    "stratum_colors": null,
     "symbol_scale": 1.15
   },
   "plant_species_codes": {
@@ -138,6 +141,7 @@
       "pinned_name": true,
       "planted_date": "2026-11-15",
       "position": {
+        "future_point_crs_note": "wgs84",
         "lat": 48.8584,
         "lon": 2.2945
       },
@@ -185,10 +189,12 @@
         "area": {
           "along_page": {
             "down_m": 0.0,
+            "future_offset_meta": 1,
             "right_m": 0.0
           },
           "kind": "split_sheet",
           "size": {
+            "future_size_meta": "m",
             "height_m": 35.0,
             "width_m": 50.0
           },
@@ -234,10 +240,12 @@
   },
   "stories": [
     {
+      "future_story_key": true,
       "id": "story-1",
       "name": "Site walk",
       "steps": [
         {
+          "future_step_key": "keep",
           "id": "step-1",
           "images": [],
           "text": [],
@@ -273,6 +281,7 @@
     {
       "camera": {
         "bearing": 15.0,
+        "future_camera_key": 42,
         "ground_size_m": {
           "height": 70.0,
           "width": 100.0
@@ -281,6 +290,7 @@
         "lon": 2.2945,
         "zoom": 19.0
       },
+      "future_view_key": "keep",
       "highlighted": {
         "objects": [
           {

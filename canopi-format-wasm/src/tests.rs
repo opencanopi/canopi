@@ -133,7 +133,7 @@ fn wrapper_parity_decode_corpus_matches_expected_kinds_and_paths() {
                 );
             }
             (Some((exp_kind, exp_path)), Err(refusal)) => {
-                assert_eq!(wrapped["err"]["kind"]["kind"], exp_kind, "case {id}");
+                assert_eq!(wrapped["err"]["kind"], exp_kind, "case {id}");
                 assert_eq!(wrapped["err"]["field_path"].as_str(), exp_path, "case {id}");
                 assert_eq!(
                     wrapped["err"],

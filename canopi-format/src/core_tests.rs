@@ -17,188 +17,37 @@ use serde_json::{Value, json};
 use crate::chain::{
     CANOPI_CURRENT, CANOPI_FLOOR, CANOPI_STEPS, CanopiStep, PreUpgradeCopyDecision,
     canonical_fingerprint, migrate_v9_to_v10, pre_upgrade_copy_decision, pre_upgrade_copy_name,
-    release_label, run_steps_with,
+    release_label,
 };
 use crate::core::{
-    MAX_CANOPI_FILE_BYTES, NewDesignInput, decode_design, draft_summary, encode_design, new_design,
-    v9_schema, v10_schema,
+    MAX_CANOPI_FILE_BYTES, NewDesignInput, decode_design, decode_design_value_with_steps,
+    draft_summary, encode_design, new_design, v9_schema, v10_schema,
 };
 use crate::read::read_newer_design;
 use crate::schema::unsupported_keyword;
-use crate::spec_emit::{emit_v10_spec_files, v10_full_fixture};
+use crate::spec_emit::emit_v10_spec_files;
 use crate::stamps::{
     StampPayloadRefusal, canopi_file_to_stamp, decode_stamp_payload, encode_stamp_payload,
-    stamp_to_canopi_file,
+    stamp_to_canopi_file, stamp_v2_schema,
 };
 use crate::v10::read_schema;
 
-fn valid_v9_plants() -> Value {
-    json!([
-        {
-            "id": "p1",
-            "locked": false,
-            "canonical_name": "Malus domestica",
-            "common_name": "Apple",
-            "color": "#5E8B7E",
-            "symbol": "apple",
-            "pinned_name": true,
-            "position": { "lon": 2.2945, "lat": 48.8584 },
-            "rotation": 10.0,
-            "scale": 4.2,
-            "notes": null,
-            "planted_date": null,
-            "quantity": 1
-        },
-        {
-            "id": "p2",
-            "locked": false,
-            "canonical_name": "Corylus avellana",
-            "common_name": "Hazel",
-            "color": null,
-            "symbol": null,
-            "pinned_name": false,
-            "position": { "lon": 2.2949, "lat": 48.8587 },
-            "rotation": 0.0,
-            "scale": 2.5,
-            "notes": null,
-            "planted_date": null,
-            "quantity": 1
-        }
-    ])
-}
-
 fn valid_v9_fixture() -> Value {
-    json!({
-        "version": 9,
-        "name": "Orchard",
-        "description": "v9 fixture",
-        "plant_species_colors": { "Malus domestica": "#5E8B7E" },
-        "plant_species_symbols": { "Malus domestica": "apple" },
-        "plant_species_codes": { "Malus domestica": "MD" },
-        "layers": [{ "name": "plants", "visible": true, "locked": false, "opacity": 1.0 }],
-        "plants": valid_v9_plants(),
-        "zones": [],
-        "annotations": [],
-        "measurement_guides": [],
-        "consortiums": [],
-        "groups": [
-            {
-                "id": "g-keep",
-                "locked": false,
-                "name": "Pair",
-                "members": [
-                    { "kind": "plant", "id": "p1" },
-                    { "kind": "plant", "id": "p2" },
-                    { "kind": "plant", "id": "p2" },
-                    { "kind": "plant", "id": "dangling" }
-                ]
-            },
-            {
-                "id": "g-drop",
-                "locked": false,
-                "name": "Single",
-                "members": [{ "kind": "plant", "id": "p1" }]
-            }
-        ],
-        "timeline": [],
-        "budget": [
-            {
-                "target": { "kind": "species", "canonical_name": "Malus domestica" },
-                "category": "plants",
-                "description": "Apple whip",
-                "quantity": 2.0,
-                "unit_cost": 24.0,
-                "currency": "USD"
-            },
-            {
-                "target": { "kind": "manual" },
-                "category": "tools",
-                "description": "Spade",
-                "quantity": 1.0,
-                "unit_cost": 45.0,
-                "currency": "EUR"
-            }
-        ],
-        "budget_currency": "EUR",
-        "lidar": {
-            "visible": true,
-            "entries": [
-                {
-                    "id": "lyr-1",
-                    "kind": "Source",
-                    "name": "DTM High",
-                    "visible": true,
-                    "opacity": 0.8,
-                    "order": 3,
-                    "ramp": "Terrain",
-                    "reversed": false,
-                    "range": null
-                },
-                {
-                    "id": "lyr-1",
-                    "kind": "Derived",
-                    "name": "DTM Low",
-                    "visible": true,
-                    "opacity": 0.9,
-                    "order": 1,
-                    "ramp": "Terrain",
-                    "reversed": false,
-                    "range": null
-                }
-            ]
-        },
-        "views": [],
-        "stories": [],
-        "created_at": "2026-11-01T00:00:00Z",
-        "updated_at": "2026-11-02T00:00:00Z",
-        "extra": { "plant_display": { "color_by": "species", "labels": "common" } },
-        "unknown_root": { "keep": 1 }
-    })
+    serde_json::from_str(include_str!("../spec/v9/fixture.canopi")).expect("frozen v9 fixture")
 }
 
 #[test]
-fn v9_migrates_to_v10_and_opens_in_frozen_v2_0_5_reader() {
-    let bytes = serde_json::to_vec(&valid_v9_fixture()).unwrap();
-    let opened = decode_design(&bytes).expect("v9 fixture must migrate cleanly");
+fn v9_frozen_fixture_migrates_to_hand_written_golden_and_opens_in_frozen_v2_0_5_reader() {
+    let opened = decode_design(include_bytes!("../spec/v9/fixture.canopi"))
+        .expect("frozen v9 fixture must migrate cleanly");
 
     assert_eq!(opened.migrated_from, Some(9));
     assert_eq!(opened.migrated_from_release.as_deref(), Some("2.0"));
-    assert_eq!(opened.design["version"], 10);
-    assert_eq!(opened.design["plants"][0]["canopy_spread_m"], 4.2);
-    assert!(opened.design["plants"][0].get("scale").is_none());
-    assert!(opened.design.get("lidar").is_none());
-    assert_eq!(
-        opened.design["site_data"]["entries"]
-            .as_array()
-            .unwrap()
-            .len(),
-        1
-    );
-    assert_eq!(opened.design["site_data"]["entries"][0]["order"], 1);
-    assert!(
-        opened.design["site_data"]["entries"][0]
-            .get("kind")
-            .is_none()
-    );
-    assert_eq!(opened.design["plant_display"]["color_by"], "species");
-    assert_eq!(opened.design["unknown_root"]["keep"], 1);
-    assert_eq!(opened.design["budget"].as_array().unwrap().len(), 1);
-    assert_eq!(opened.design["budget"][0]["ext"]["currency"], "USD");
-    assert_eq!(
-        opened.design["budget_ext"]["non_plant_lines"]
-            .as_array()
-            .unwrap()
-            .len(),
-        1
-    );
-    assert_eq!(opened.design["groups"].as_array().unwrap().len(), 1);
-    assert_eq!(
-        opened.design["groups"][0]["members"]
-            .as_array()
-            .unwrap()
-            .len(),
-        2
-    );
+
+    // B9: compare migrated output byte-for-byte against the hand-written golden.
+    let expected: Value =
+        serde_json::from_str(include_str!("../spec/v9/expected_v10.json")).unwrap();
+    assert_eq!(opened.design, expected);
 
     let encoded = encode_design(&opened.design).expect("migrated v10 passes write admission");
     let encoded_again = encode_design(&opened.design).expect("second encode succeeds");
@@ -222,10 +71,7 @@ fn v9_non_object_budget_line_refused_by_v9_schema_and_step_failure() {
     // Decode walks frozen spec/v9/schema.json before stepping and refuses at $.budget[0].
     let err = decode_design(&bytes).expect_err("non-object v9 budget line must be refused");
     assert_eq!(err.kind, FormatLoadRefusalKind::InvalidDocument);
-    assert_eq!(
-        err.field_path.as_ref().map(ToString::to_string).as_deref(),
-        Some("$.budget[0]")
-    );
+    assert_eq!(err.field_path.as_deref(), Some("$.budget[0]"));
 
     // Calling the step directly also returns StepFailure (never silently drops).
     let step_err = migrate_v9_to_v10(bad_v9).expect_err("step must return StepFailure");
@@ -233,7 +79,7 @@ fn v9_non_object_budget_line_refused_by_v9_schema_and_step_failure() {
 }
 
 #[test]
-fn planted_failing_step_reports_migration_failed_with_from_version() {
+fn planted_failing_step_reports_flat_migration_failed_end_to_end() {
     fn always_fail(_: Value) -> Result<Value, crate::chain::StepFailure> {
         Err(crate::chain::StepFailure {
             from: 9,
@@ -244,12 +90,17 @@ fn planted_failing_step_reports_migration_failed_with_from_version() {
         from: 9,
         run: always_fail,
     }];
-    let err = run_steps_with(&steps, 9, json!({ "version": 9 }), 9).unwrap_err();
-    assert_eq!(err.from, 9);
-    // FormatLoadRefusalKind serialises migration_failed{from} cleanly on the wire.
-    let wire = serde_json::to_value(FormatLoadRefusalKind::MigrationFailed { from: err.from })
-        .expect("serializes");
-    assert_eq!(wire, json!({ "kind": "migration_failed", "from": 9 }));
+    let refusal = decode_design_value_with_steps(valid_v9_fixture(), &steps, 9)
+        .expect_err("planted failing step must refuse decode");
+    assert_eq!(
+        refusal.kind,
+        FormatLoadRefusalKind::MigrationFailed { from: 9 }
+    );
+    // B10: FormatRefusal serialises flat on the wire (no nested {"kind":{"kind":...}}).
+    let wire = serde_json::to_value(&refusal).expect("serializes");
+    assert_eq!(wire["kind"], "migration_failed");
+    assert_eq!(wire["from"], 9);
+    assert_eq!(wire["field_path"], "$");
 }
 
 #[test]
@@ -276,7 +127,7 @@ fn version_boundaries_size_cap_and_draft_summary() {
     let v9_bytes = serde_json::to_vec(&valid_v9_fixture()).unwrap();
     let ok_summary = draft_summary(&v9_bytes, "fallback");
     assert!(ok_summary.readable);
-    assert_eq!(ok_summary.name, "Orchard");
+    assert_eq!(ok_summary.name, "Frozen v9 Orchard");
     assert_eq!(ok_summary.migrated_from, Some(9));
 
     assert_eq!(MAX_CANOPI_FILE_BYTES, 64 * 1024 * 1024);
@@ -309,12 +160,90 @@ fn pre_upgrade_copy_decision_is_pure_host_helper() {
     );
 }
 
+fn resolve_schema_node<'a>(root: &'a Value, node: &'a Value) -> &'a Value {
+    if let Some(ref_path) = node.get("$ref").and_then(Value::as_str)
+        && let Some(def_name) = ref_path.strip_prefix("#/$defs/")
+    {
+        return &root["$defs"][def_name];
+    }
+    node
+}
+
+fn assert_schema_compat(
+    read_root: &Value,
+    emitted_root: &Value,
+    read_node: &Value,
+    emitted_node: &Value,
+    path: &str,
+) {
+    let r = resolve_schema_node(read_root, read_node);
+    let e = resolve_schema_node(emitted_root, emitted_node);
+    if let (Some(r_props), Some(e_props)) = (
+        r.get("properties").and_then(Value::as_object),
+        e.get("properties").and_then(Value::as_object),
+    ) {
+        let r_req: Vec<&str> = r["required"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter_map(Value::as_str)
+            .collect();
+        for req_key in e["required"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter_map(Value::as_str)
+        {
+            assert!(
+                r_req.contains(&req_key),
+                "B8/M481 violation at {path}: emitted schema requires '{req_key}' which frozen read-schema marks optional"
+            );
+        }
+        for (k, r_sub) in r_props {
+            let e_sub = e_props
+                .get(k)
+                .unwrap_or_else(|| panic!("emitted v10 schema missing property {path}.{k}"));
+            assert_schema_compat(
+                read_root,
+                emitted_root,
+                r_sub,
+                e_sub,
+                &format!("{path}.{k}"),
+            );
+        }
+    }
+    if let (Some(r_items), Some(e_items)) = (r.get("items"), e.get("items")) {
+        assert_schema_compat(
+            read_root,
+            emitted_root,
+            r_items,
+            e_items,
+            &format!("{path}[]"),
+        );
+    }
+    if let (Some(r_any), Some(e_any)) = (
+        r.get("anyOf").and_then(Value::as_array),
+        e.get("anyOf").and_then(Value::as_array),
+    ) {
+        for r_branch in r_any
+            .iter()
+            .filter(|b| b.get("type") != Some(&json!("null")))
+        {
+            if let Some(e_branch) = e_any.iter().find(|b| b.get("type") != Some(&json!("null"))) {
+                assert_schema_compat(read_root, emitted_root, r_branch, e_branch, path);
+            }
+        }
+    }
+}
+
 #[test]
-fn m31_emitted_v10_schema_matches_typed_model_and_frozen_read_schema() {
+fn m31_emitted_v10_schema_matches_typed_model_and_frozen_read_schema_deeply() {
     let emitted_v10 = v10_schema().expect("emitted spec/v10/schema.json parses");
-    let emitted_v9 = v9_schema().expect("emitted spec/v9/schema.json parses");
+    let frozen_v9 = v9_schema().expect("frozen spec/v9/schema.json parses");
+    let frozen_stamp_v2 = stamp_v2_schema().expect("frozen spec/stamps/v2/schema.json parses");
     assert_eq!(unsupported_keyword(emitted_v10), None);
-    assert_eq!(unsupported_keyword(emitted_v9), None);
+    assert_eq!(unsupported_keyword(frozen_v9), None);
+    assert_eq!(unsupported_keyword(frozen_stamp_v2), None);
 
     // Emitted v10 schema must match schemars::schema_for!(CanopiFileV10) directly (B2).
     let live_v10 = canopi_file_v10_json_schema();
@@ -323,17 +252,11 @@ fn m31_emitted_v10_schema_matches_typed_model_and_frozen_read_schema() {
         crate::chain::canonicalize_json(emitted_v10)
     );
 
-    // Every property in frozen read-schema.json must exist in emitted spec/v10/schema.json,
-    // and every extra root property in emitted schema.json must be declared (print_setup, budget_ext).
+    // Deep B8/M31/M481 compatibility check across root and every nested definition.
     let frozen = read_schema().expect("frozen read-schema.json");
+    assert_schema_compat(frozen, emitted_v10, frozen, emitted_v10, "$");
     let frozen_props = frozen["properties"].as_object().unwrap();
     let emitted_props = emitted_v10["properties"].as_object().unwrap();
-    for key in frozen_props.keys() {
-        assert!(
-            emitted_props.contains_key(key),
-            "emitted v10 schema missing frozen read-schema property {key}"
-        );
-    }
     let allowed_additions = ["print_setup", "budget_ext"];
     for key in emitted_props.keys() {
         assert!(
@@ -342,26 +265,52 @@ fn m31_emitted_v10_schema_matches_typed_model_and_frozen_read_schema() {
         );
     }
 
-    // Spec bundle freshness: fixture decodes cleanly and opens in v2.0.5 frozen reader.
+    // M481 behavioral probe: decode both read-fixture.canopi and a minimal identity-only file.
+    decode_design(include_bytes!("../spec/v10/read-fixture.canopi"))
+        .expect("2.1 decode must accept frozen read-fixture.canopi");
+    let minimal_identity_only = json!({
+        "version": 10,
+        "layers": [{ "name": "plants" }],
+        "annotations": [{ "id": "a1", "position": { "lon": 2.0, "lat": 48.0 } }],
+        "consortiums": [{ "target": { "kind": "species", "canonical_name": "Malus domestica" } }],
+        "timeline": [{ "id": "t1" }],
+        "views": [{
+            "id": "v1",
+            "camera": { "lon": 2.0, "lat": 48.0, "zoom": 15.0, "ground_size_m": { "width": 100.0, "height": 80.0 } },
+            "text": [{ "kind": "paragraph", "spans": [{}] }, { "kind": "bullets", "items": [{}] }]
+        }],
+        "stories": [{ "id": "s1", "steps": [{ "id": "st1", "view_id": "v1" }] }]
+    });
+    decode_design(&serde_json::to_vec(&minimal_identity_only).unwrap())
+        .expect("2.1 decode must accept minimal M481 identity-only v10 file");
+
+    // B9: spec/v10/fixture.canopi decodes byte-for-byte to hand-written spec/v10/expected.json.
     let ps_schema = print_setup_v10_json_schema();
     let files = emit_v10_spec_files(&live_v10, &ps_schema);
-    assert_eq!(files.len(), 8);
-    let fixture = v10_full_fixture();
-    let fixture_bytes = serde_json::to_vec(&fixture).unwrap();
-    let opened = decode_design(&fixture_bytes).expect("spec/v10/fixture.canopi decodes");
+    assert_eq!(files.len(), 7);
+    let opened = decode_design(include_bytes!("../spec/v10/fixture.canopi"))
+        .expect("spec/v10/fixture.canopi decodes");
+    let expected: Value = serde_json::from_str(include_str!("../spec/v10/expected.json")).unwrap();
+    assert_eq!(opened.design, expected);
     let ro = read_newer_design(&opened.design).expect("v2.0.5 frozen reader opens spec fixture");
     assert_eq!(ro.saved_by_version, 10);
 }
 
 #[test]
-fn migration_steps_are_contiguous_and_v9_step_fingerprint_is_frozen() {
+fn frozen_historical_schemas_and_migration_chain_are_pinned() {
     assert_eq!(CANOPI_FLOOR, 9);
     assert_eq!(CANOPI_CURRENT, 10);
     assert_eq!(CANOPI_STEPS.len(), 1);
-    let out1 = migrate_v9_to_v10(valid_v9_fixture()).unwrap();
-    let out2 = migrate_v9_to_v10(valid_v9_fixture()).unwrap();
-    assert_eq!(canonical_fingerprint(&out1), canonical_fingerprint(&out2));
-    assert_ne!(canonical_fingerprint(&out1), 0);
+    let v9_fp = canonical_fingerprint(v9_schema().expect("frozen v9 schema"));
+    let stamp_v2_fp = canonical_fingerprint(stamp_v2_schema().expect("frozen stamp v2 schema"));
+    assert_eq!(
+        v9_fp, 1_402_960_563_917_306_534,
+        "frozen spec/v9/schema.json changed"
+    );
+    assert_eq!(
+        stamp_v2_fp, 2_874_861_502_608_891_289,
+        "frozen spec/stamps/v2/schema.json changed"
+    );
 }
 
 #[test]
@@ -417,6 +366,13 @@ fn stamp_payload_v2_migrates_to_v3() {
             limit: MAX_STAMP_PAYLOAD_BYTES
         }
     );
+    // N5: malformed v2 stamp payload is refused by the frozen v2 schema walk before stepping.
+    let bad_v2 =
+        json!({ "version": 2, "anchor": { "x": 0.0, "y": 0.0 }, "plants": ["not-an-object"] });
+    assert!(matches!(
+        decode_stamp_payload(&serde_json::to_vec(&bad_v2).unwrap()),
+        Err(StampPayloadRefusal::InvalidPayload { field_path, .. }) if field_path == "$.plants[0]"
+    ));
 }
 
 fn sample_stamp_v3() -> SavedObjectStampPayload {

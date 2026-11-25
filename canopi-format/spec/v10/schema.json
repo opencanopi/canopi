@@ -1,6 +1,7 @@
 {
   "$defs": {
     "AlongPageM": {
+      "additionalProperties": true,
       "properties": {
         "down_m": {
           "format": "double",
@@ -21,10 +22,11 @@
       "additionalProperties": true,
       "properties": {
         "annotation_type": {
+          "default": "text",
           "type": "string"
         },
         "font_size": {
-          "default": 14.0,
+          "default": 16.0,
           "format": "double",
           "type": "number"
         },
@@ -36,7 +38,7 @@
           "type": "boolean"
         },
         "position": {
-          "$ref": "#/$defs/GeoPoint"
+          "$ref": "#/$defs/GeoPointV10"
         },
         "rotation": {
           "default": null,
@@ -53,7 +55,6 @@
       },
       "required": [
         "id",
-        "annotation_type",
         "position"
       ],
       "type": "object"
@@ -105,34 +106,36 @@
       ],
       "type": "object"
     },
-    "Consortium": {
+    "ConsortiumV10": {
+      "additionalProperties": true,
       "properties": {
         "end_phase": {
+          "default": 2,
           "format": "uint32",
           "minimum": 0,
           "type": "integer"
         },
         "start_phase": {
+          "default": 0,
           "format": "uint32",
           "minimum": 0,
           "type": "integer"
         },
         "stratum": {
+          "default": "unassigned",
           "type": "string"
         },
         "target": {
-          "$ref": "#/$defs/SpeciesPanelTarget"
+          "$ref": "#/$defs/SpeciesPanelTargetV10"
         }
       },
       "required": [
-        "target",
-        "stratum",
-        "start_phase",
-        "end_phase"
+        "target"
       ],
       "type": "object"
     },
-    "GeoPoint": {
+    "GeoPointV10": {
+      "additionalProperties": true,
       "properties": {
         "lat": {
           "format": "double",
@@ -153,33 +156,35 @@
       ],
       "type": "object"
     },
-    "Layer": {
+    "LayerV10": {
+      "additionalProperties": true,
       "properties": {
         "locked": {
+          "default": false,
           "type": "boolean"
         },
         "name": {
           "type": "string"
         },
         "opacity": {
+          "default": 1.0,
           "format": "float",
           "type": "number"
         },
         "visible": {
+          "default": true,
           "type": "boolean"
         }
       },
       "required": [
-        "name",
-        "visible",
-        "locked",
-        "opacity"
+        "name"
       ],
       "type": "object"
     },
-    "LidarColourRange": {
+    "LidarColourRangeV10": {
       "oneOf": [
         {
+          "additionalProperties": true,
           "properties": {
             "mode": {
               "const": "Data",
@@ -192,6 +197,7 @@
           "type": "object"
         },
         {
+          "additionalProperties": true,
           "properties": {
             "mode": {
               "const": "CutOutliers",
@@ -204,6 +210,7 @@
           "type": "object"
         },
         {
+          "additionalProperties": true,
           "properties": {
             "max": {
               "format": "double",
@@ -231,7 +238,7 @@
       "additionalProperties": true,
       "properties": {
         "end": {
-          "$ref": "#/$defs/GeoPoint"
+          "$ref": "#/$defs/GeoPointV10"
         },
         "id": {
           "type": "string"
@@ -241,7 +248,7 @@
           "type": "boolean"
         },
         "start": {
-          "$ref": "#/$defs/GeoPoint"
+          "$ref": "#/$defs/GeoPointV10"
         }
       },
       "required": [
@@ -254,6 +261,7 @@
     "ObjectGroupMemberV10": {
       "oneOf": [
         {
+          "additionalProperties": true,
           "properties": {
             "id": {
               "type": "string"
@@ -270,6 +278,7 @@
           "type": "object"
         },
         {
+          "additionalProperties": true,
           "properties": {
             "id": {
               "type": "string"
@@ -286,6 +295,7 @@
           "type": "object"
         },
         {
+          "additionalProperties": true,
           "properties": {
             "id": {
               "type": "string"
@@ -302,6 +312,7 @@
           "type": "object"
         },
         {
+          "additionalProperties": true,
           "properties": {
             "id": {
               "type": "string"
@@ -349,9 +360,10 @@
       ],
       "type": "object"
     },
-    "PanelTarget": {
+    "PanelTargetV10": {
       "oneOf": [
         {
+          "additionalProperties": true,
           "properties": {
             "kind": {
               "const": "placed_plant",
@@ -368,6 +380,7 @@
           "type": "object"
         },
         {
+          "additionalProperties": true,
           "properties": {
             "canonical_name": {
               "type": "string"
@@ -384,6 +397,7 @@
           "type": "object"
         },
         {
+          "additionalProperties": true,
           "properties": {
             "kind": {
               "const": "zone",
@@ -400,6 +414,7 @@
           "type": "object"
         },
         {
+          "additionalProperties": true,
           "properties": {
             "kind": {
               "const": "manual",
@@ -412,6 +427,7 @@
           "type": "object"
         },
         {
+          "additionalProperties": true,
           "properties": {
             "kind": {
               "const": "none",
@@ -479,7 +495,7 @@
           ]
         },
         "position": {
-          "$ref": "#/$defs/GeoPoint"
+          "$ref": "#/$defs/GeoPointV10"
         },
         "quantity": {
           "default": null,
@@ -530,10 +546,27 @@
             "null"
           ]
         },
+        "one_color": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "outline": {
           "default": null,
           "type": [
             "boolean",
+            "null"
+          ]
+        },
+        "stratum_colors": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": null,
+          "type": [
+            "object",
             "null"
           ]
         },
@@ -559,13 +592,14 @@
     "PrintAreaV10": {
       "oneOf": [
         {
+          "additionalProperties": true,
           "properties": {
             "angle_deg": {
               "format": "double",
               "type": "number"
             },
             "centre": {
-              "$ref": "#/$defs/GeoPoint"
+              "$ref": "#/$defs/GeoPointV10"
             },
             "kind": {
               "const": "box",
@@ -584,6 +618,7 @@
           "type": "object"
         },
         {
+          "additionalProperties": true,
           "properties": {
             "angle_deg": {
               "format": "double",
@@ -611,6 +646,7 @@
           "type": "object"
         },
         {
+          "additionalProperties": true,
           "properties": {
             "along_page": {
               "$ref": "#/$defs/AlongPageM"
@@ -637,9 +673,10 @@
       ]
     },
     "PrintBoxFallback": {
+      "additionalProperties": true,
       "properties": {
         "centre": {
-          "$ref": "#/$defs/GeoPoint"
+          "$ref": "#/$defs/GeoPointV10"
         },
         "size": {
           "$ref": "#/$defs/PrintSizeM"
@@ -706,6 +743,7 @@
     "PrintScaleV10": {
       "oneOf": [
         {
+          "additionalProperties": true,
           "properties": {
             "kind": {
               "const": "fit",
@@ -718,6 +756,7 @@
           "type": "object"
         },
         {
+          "additionalProperties": true,
           "properties": {
             "denominator": {
               "format": "uint32",
@@ -736,6 +775,7 @@
           "type": "object"
         },
         {
+          "additionalProperties": true,
           "properties": {
             "feet": {
               "format": "double",
@@ -780,6 +820,7 @@
       "type": "object"
     },
     "PrintSizeM": {
+      "additionalProperties": true,
       "properties": {
         "height_m": {
           "format": "double",
@@ -807,7 +848,7 @@
           "type": "string"
         },
         "pivot": {
-          "$ref": "#/$defs/GeoPoint"
+          "$ref": "#/$defs/GeoPointV10"
         }
       },
       "required": [
@@ -817,32 +858,35 @@
       ],
       "type": "object"
     },
-    "RichTextBlock": {
+    "RichTextBlockV10": {
       "oneOf": [
         {
+          "additionalProperties": true,
           "properties": {
             "kind": {
               "const": "paragraph",
               "type": "string"
             },
             "spans": {
+              "default": [],
               "items": {
-                "$ref": "#/$defs/RichTextSpan"
+                "$ref": "#/$defs/RichTextSpanV10"
               },
               "type": "array"
             }
           },
           "required": [
-            "kind",
-            "spans"
+            "kind"
           ],
           "type": "object"
         },
         {
+          "additionalProperties": true,
           "properties": {
             "items": {
+              "default": [],
               "items": {
-                "$ref": "#/$defs/RichTextListItem"
+                "$ref": "#/$defs/RichTextListItemV10"
               },
               "type": "array"
             },
@@ -852,28 +896,27 @@
             }
           },
           "required": [
-            "kind",
-            "items"
+            "kind"
           ],
           "type": "object"
         }
       ]
     },
-    "RichTextListItem": {
+    "RichTextListItemV10": {
+      "additionalProperties": true,
       "properties": {
         "spans": {
+          "default": [],
           "items": {
-            "$ref": "#/$defs/RichTextSpan"
+            "$ref": "#/$defs/RichTextSpanV10"
           },
           "type": "array"
         }
       },
-      "required": [
-        "spans"
-      ],
       "type": "object"
     },
-    "RichTextSpan": {
+    "RichTextSpanV10": {
+      "additionalProperties": true,
       "properties": {
         "bold": {
           "default": false,
@@ -891,69 +934,16 @@
           ]
         },
         "text": {
+          "default": "",
           "type": "string"
         }
       },
-      "required": [
-        "text"
-      ],
       "type": "object"
     },
-    "SavedView": {
-      "properties": {
-        "camera": {
-          "$ref": "#/$defs/SavedViewCamera"
-        },
-        "highlighted": {
-          "$ref": "#/$defs/SavedViewHighlight"
-        },
-        "id": {
-          "type": "string"
-        },
-        "labels": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/PlantLabels"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null
-        },
-        "name": {
-          "type": "string"
-        },
-        "text": {
-          "default": [],
-          "items": {
-            "$ref": "#/$defs/RichTextBlock"
-          },
-          "type": "array"
-        },
-        "title": {
-          "default": null,
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "visible_layers": {
-          "$ref": "#/$defs/SavedViewLayers"
-        }
-      },
-      "required": [
-        "id",
-        "name",
-        "camera",
-        "visible_layers",
-        "highlighted"
-      ],
-      "type": "object"
-    },
-    "SavedViewBackground": {
+    "SavedViewBackgroundV10": {
       "oneOf": [
         {
+          "additionalProperties": true,
           "properties": {
             "kind": {
               "const": "basemap",
@@ -970,6 +960,7 @@
           "type": "object"
         },
         {
+          "additionalProperties": true,
           "properties": {
             "kind": {
               "const": "satellite",
@@ -982,6 +973,7 @@
           "type": "object"
         },
         {
+          "additionalProperties": true,
           "properties": {
             "kind": {
               "const": "none",
@@ -995,16 +987,18 @@
         }
       ]
     },
-    "SavedViewCamera": {
+    "SavedViewCameraV10": {
+      "additionalProperties": true,
       "properties": {
         "bearing": {
+          "default": 0.0,
           "format": "double",
           "maximum": 360.0,
           "minimum": 0.0,
           "type": "number"
         },
         "ground_size_m": {
-          "$ref": "#/$defs/SavedViewGroundSize"
+          "$ref": "#/$defs/SavedViewGroundSizeV10"
         },
         "lat": {
           "format": "double",
@@ -1029,12 +1023,12 @@
         "lon",
         "lat",
         "zoom",
-        "bearing",
         "ground_size_m"
       ],
       "type": "object"
     },
-    "SavedViewGroundSize": {
+    "SavedViewGroundSizeV10": {
+      "additionalProperties": true,
       "properties": {
         "height": {
           "format": "double",
@@ -1055,59 +1049,68 @@
       ],
       "type": "object"
     },
-    "SavedViewHighlight": {
+    "SavedViewHighlightV10": {
+      "additionalProperties": true,
       "properties": {
         "objects": {
+          "default": [],
           "items": {
-            "$ref": "#/$defs/SavedViewObject"
+            "$ref": "#/$defs/SavedViewObjectV10"
           },
           "type": "array"
         },
         "species": {
+          "default": [],
           "items": {
             "type": "string"
           },
           "type": "array"
         }
       },
-      "required": [
-        "species",
-        "objects"
-      ],
       "type": "object"
     },
-    "SavedViewLayers": {
+    "SavedViewLayersV10": {
+      "additionalProperties": true,
       "properties": {
         "background": {
-          "$ref": "#/$defs/SavedViewBackground"
+          "$ref": "#/$defs/SavedViewBackgroundV10",
+          "default": {
+            "kind": "none"
+          }
         },
         "scene_layers": {
+          "default": [
+            "zones",
+            "plants",
+            "measurement-guides",
+            "annotations"
+          ],
           "items": {
             "type": "string"
           },
           "type": "array"
         },
         "site_data": {
+          "default": [],
           "items": {
             "type": "string"
           },
           "type": "array"
         },
         "terrain": {
-          "$ref": "#/$defs/SavedViewTerrain"
+          "$ref": "#/$defs/SavedViewTerrainV10",
+          "default": {
+            "contours": false,
+            "hillshade": false
+          }
         }
       },
-      "required": [
-        "background",
-        "terrain",
-        "scene_layers",
-        "site_data"
-      ],
       "type": "object"
     },
-    "SavedViewObject": {
+    "SavedViewObjectV10": {
       "oneOf": [
         {
+          "additionalProperties": true,
           "properties": {
             "id": {
               "type": "string"
@@ -1124,6 +1127,7 @@
           "type": "object"
         },
         {
+          "additionalProperties": true,
           "properties": {
             "id": {
               "type": "string"
@@ -1140,6 +1144,7 @@
           "type": "object"
         },
         {
+          "additionalProperties": true,
           "properties": {
             "id": {
               "type": "string"
@@ -1156,6 +1161,7 @@
           "type": "object"
         },
         {
+          "additionalProperties": true,
           "properties": {
             "id": {
               "type": "string"
@@ -1172,6 +1178,7 @@
           "type": "object"
         },
         {
+          "additionalProperties": true,
           "properties": {
             "id": {
               "type": "string"
@@ -1189,18 +1196,88 @@
         }
       ]
     },
-    "SavedViewTerrain": {
+    "SavedViewTerrainV10": {
+      "additionalProperties": true,
       "properties": {
         "contours": {
+          "default": false,
           "type": "boolean"
         },
         "hillshade": {
+          "default": false,
           "type": "boolean"
         }
       },
+      "type": "object"
+    },
+    "SavedViewV10": {
+      "additionalProperties": true,
+      "properties": {
+        "camera": {
+          "$ref": "#/$defs/SavedViewCameraV10"
+        },
+        "highlighted": {
+          "$ref": "#/$defs/SavedViewHighlightV10",
+          "default": {
+            "objects": [],
+            "species": []
+          }
+        },
+        "id": {
+          "type": "string"
+        },
+        "labels": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PlantLabels"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "name": {
+          "default": "",
+          "type": "string"
+        },
+        "text": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/RichTextBlockV10"
+          },
+          "type": "array"
+        },
+        "title": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "visible_layers": {
+          "$ref": "#/$defs/SavedViewLayersV10",
+          "default": {
+            "background": {
+              "kind": "none"
+            },
+            "scene_layers": [
+              "zones",
+              "plants",
+              "measurement-guides",
+              "annotations"
+            ],
+            "site_data": [],
+            "terrain": {
+              "contours": false,
+              "hillshade": false
+            }
+          }
+        }
+      },
       "required": [
-        "contours",
-        "hillshade"
+        "id",
+        "camera"
       ],
       "type": "object"
     },
@@ -1234,7 +1311,7 @@
         "range": {
           "anyOf": [
             {
-              "$ref": "#/$defs/LidarColourRange"
+              "$ref": "#/$defs/LidarColourRangeV10"
             },
             {
               "type": "null"
@@ -1274,7 +1351,14 @@
       },
       "type": "object"
     },
-    "SpeciesPanelTarget": {
+    "SpeciesPanelTargetKind": {
+      "enum": [
+        "species"
+      ],
+      "type": "string"
+    },
+    "SpeciesPanelTargetV10": {
+      "additionalProperties": true,
       "properties": {
         "canonical_name": {
           "type": "string"
@@ -1289,35 +1373,8 @@
       ],
       "type": "object"
     },
-    "SpeciesPanelTargetKind": {
-      "enum": [
-        "species"
-      ],
-      "type": "string"
-    },
-    "Story": {
-      "properties": {
-        "id": {
-          "type": "string"
-        },
-        "name": {
-          "type": "string"
-        },
-        "steps": {
-          "items": {
-            "$ref": "#/$defs/StoryStep"
-          },
-          "type": "array"
-        }
-      },
-      "required": [
-        "id",
-        "name",
-        "steps"
-      ],
-      "type": "object"
-    },
-    "StoryImage": {
+    "StoryImageV10": {
+      "additionalProperties": true,
       "properties": {
         "alt": {
           "default": "",
@@ -1332,7 +1389,8 @@
       ],
       "type": "object"
     },
-    "StoryStep": {
+    "StoryStepV10": {
+      "additionalProperties": true,
       "properties": {
         "id": {
           "type": "string"
@@ -1340,18 +1398,19 @@
         "images": {
           "default": [],
           "items": {
-            "$ref": "#/$defs/StoryImage"
+            "$ref": "#/$defs/StoryImageV10"
           },
           "type": "array"
         },
         "text": {
           "default": [],
           "items": {
-            "$ref": "#/$defs/RichTextBlock"
+            "$ref": "#/$defs/RichTextBlockV10"
           },
           "type": "array"
         },
         "title": {
+          "default": "",
           "type": "string"
         },
         "view_id": {
@@ -1360,8 +1419,30 @@
       },
       "required": [
         "id",
-        "view_id",
-        "title"
+        "view_id"
+      ],
+      "type": "object"
+    },
+    "StoryV10": {
+      "additionalProperties": true,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "default": "",
+          "type": "string"
+        },
+        "steps": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/StoryStepV10"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "id"
       ],
       "type": "object"
     },
@@ -1369,6 +1450,7 @@
       "additionalProperties": true,
       "properties": {
         "action_type": {
+          "default": "other",
           "type": "string"
         },
         "completed": {
@@ -1432,14 +1514,13 @@
             }
           ],
           "items": {
-            "$ref": "#/$defs/PanelTarget"
+            "$ref": "#/$defs/PanelTargetV10"
           },
           "type": "array"
         }
       },
       "required": [
-        "id",
-        "action_type"
+        "id"
       ],
       "type": "object"
     },
@@ -1483,7 +1564,7 @@
         },
         "points": {
           "items": {
-            "$ref": "#/$defs/GeoPoint"
+            "$ref": "#/$defs/GeoPointV10"
           },
           "type": "array"
         },
@@ -1544,7 +1625,7 @@
     "consortiums": {
       "default": [],
       "items": {
-        "$ref": "#/$defs/Consortium"
+        "$ref": "#/$defs/ConsortiumV10"
       },
       "type": "array"
     },
@@ -1569,14 +1650,14 @@
     "layers": {
       "default": [],
       "items": {
-        "$ref": "#/$defs/Layer"
+        "$ref": "#/$defs/LayerV10"
       },
       "type": "array"
     },
     "map_view": {
       "anyOf": [
         {
-          "$ref": "#/$defs/SavedViewCamera"
+          "$ref": "#/$defs/SavedViewCameraV10"
         },
         {
           "type": "null"
@@ -1655,7 +1736,7 @@
     "stories": {
       "default": [],
       "items": {
-        "$ref": "#/$defs/Story"
+        "$ref": "#/$defs/StoryV10"
       },
       "type": "array"
     },
@@ -1678,7 +1759,7 @@
     "views": {
       "default": [],
       "items": {
-        "$ref": "#/$defs/SavedView"
+        "$ref": "#/$defs/SavedViewV10"
       },
       "type": "array"
     },

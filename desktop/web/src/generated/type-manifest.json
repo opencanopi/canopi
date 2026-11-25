@@ -11,6 +11,11 @@
         "name": "down_m",
         "flatten": false,
         "skip": false
+      },
+      {
+        "name": "extra",
+        "flatten": true,
+        "skip": true
       }
     ]
   },
@@ -620,6 +625,36 @@
     ]
   },
   {
+    "name": "ConsortiumV10",
+    "fields": [
+      {
+        "name": "target",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "stratum",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "start_phase",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "end_phase",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "extra",
+        "flatten": true,
+        "skip": true
+      }
+    ]
+  },
+  {
     "name": "DesignDraftSummary",
     "fields": [
       {
@@ -830,6 +865,36 @@
     ]
   },
   {
+    "name": "DraftSummaryOutcome",
+    "fields": [
+      {
+        "name": "name",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "updated_at",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "readable",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "refusal_kind",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "migrated_from",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
     "name": "DynamicFilter",
     "fields": [
       {
@@ -980,6 +1045,26 @@
     ]
   },
   {
+    "name": "FormatRefusal",
+    "fields": [
+      {
+        "name": "kind",
+        "flatten": true,
+        "skip": false
+      },
+      {
+        "name": "message",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "field_path",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
     "name": "GeoPoint",
     "fields": [
       {
@@ -991,6 +1076,26 @@
         "name": "lat",
         "flatten": false,
         "skip": false
+      }
+    ]
+  },
+  {
+    "name": "GeoPointV10",
+    "fields": [
+      {
+        "name": "lon",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "lat",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "extra",
+        "flatten": true,
+        "skip": true
       }
     ]
   },
@@ -1056,6 +1161,36 @@
         "name": "opacity",
         "flatten": false,
         "skip": false
+      }
+    ]
+  },
+  {
+    "name": "LayerV10",
+    "fields": [
+      {
+        "name": "name",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "visible",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "locked",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "opacity",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "extra",
+        "flatten": true,
+        "skip": true
       }
     ]
   },
@@ -1680,6 +1815,26 @@
     ]
   },
   {
+    "name": "NewDesignInputContract",
+    "fields": [
+      {
+        "name": "name",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "plant_display",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "created_at",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
     "name": "ObjectGroup",
     "fields": [
       {
@@ -1731,6 +1886,26 @@
         "name": "extra",
         "flatten": true,
         "skip": true
+      }
+    ]
+  },
+  {
+    "name": "OpenedDesignContract",
+    "fields": [
+      {
+        "name": "design",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "migrated_from",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "migrated_from_release",
+        "flatten": false,
+        "skip": false
       }
     ]
   },
@@ -1913,6 +2088,16 @@
         "skip": false
       },
       {
+        "name": "one_color",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "stratum_colors",
+        "flatten": false,
+        "skip": false
+      },
+      {
         "name": "symbol_scale",
         "flatten": false,
         "skip": false
@@ -1941,6 +2126,11 @@
         "name": "size",
         "flatten": false,
         "skip": false
+      },
+      {
+        "name": "extra",
+        "flatten": true,
+        "skip": true
       }
     ]
   },
@@ -2031,6 +2221,11 @@
         "name": "height_m",
         "flatten": false,
         "skip": false
+      },
+      {
+        "name": "extra",
+        "flatten": true,
+        "skip": true
       }
     ]
   },
@@ -2365,6 +2560,21 @@
     ]
   },
   {
+    "name": "RichTextListItemV10",
+    "fields": [
+      {
+        "name": "spans",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "extra",
+        "flatten": true,
+        "skip": true
+      }
+    ]
+  },
+  {
     "name": "RichTextSpan",
     "fields": [
       {
@@ -2386,6 +2596,36 @@
         "name": "link",
         "flatten": false,
         "skip": false
+      }
+    ]
+  },
+  {
+    "name": "RichTextSpanV10",
+    "fields": [
+      {
+        "name": "text",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "bold",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "italic",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "link",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "extra",
+        "flatten": true,
+        "skip": true
       }
     ]
   },
@@ -2580,6 +2820,41 @@
     ]
   },
   {
+    "name": "SavedViewCameraV10",
+    "fields": [
+      {
+        "name": "lon",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "lat",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "zoom",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "bearing",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "ground_size_m",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "extra",
+        "flatten": true,
+        "skip": true
+      }
+    ]
+  },
+  {
     "name": "SavedViewGroundSize",
     "fields": [
       {
@@ -2595,6 +2870,26 @@
     ]
   },
   {
+    "name": "SavedViewGroundSizeV10",
+    "fields": [
+      {
+        "name": "width",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "height",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "extra",
+        "flatten": true,
+        "skip": true
+      }
+    ]
+  },
+  {
     "name": "SavedViewHighlight",
     "fields": [
       {
@@ -2606,6 +2901,26 @@
         "name": "objects",
         "flatten": false,
         "skip": false
+      }
+    ]
+  },
+  {
+    "name": "SavedViewHighlightV10",
+    "fields": [
+      {
+        "name": "species",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "objects",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "extra",
+        "flatten": true,
+        "skip": true
       }
     ]
   },
@@ -2635,6 +2950,36 @@
     ]
   },
   {
+    "name": "SavedViewLayersV10",
+    "fields": [
+      {
+        "name": "background",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "terrain",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "scene_layers",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "site_data",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "extra",
+        "flatten": true,
+        "skip": true
+      }
+    ]
+  },
+  {
     "name": "SavedViewTerrain",
     "fields": [
       {
@@ -2646,6 +2991,76 @@
         "name": "hillshade",
         "flatten": false,
         "skip": false
+      }
+    ]
+  },
+  {
+    "name": "SavedViewTerrainV10",
+    "fields": [
+      {
+        "name": "contours",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "hillshade",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "extra",
+        "flatten": true,
+        "skip": true
+      }
+    ]
+  },
+  {
+    "name": "SavedViewV10",
+    "fields": [
+      {
+        "name": "id",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "name",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "camera",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "visible_layers",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "highlighted",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "title",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "text",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "labels",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "extra",
+        "flatten": true,
+        "skip": true
       }
     ]
   },
@@ -3840,6 +4255,26 @@
     ]
   },
   {
+    "name": "SpeciesPanelTargetV10",
+    "fields": [
+      {
+        "name": "kind",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "canonical_name",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "extra",
+        "flatten": true,
+        "skip": true
+      }
+    ]
+  },
+  {
     "name": "SpeciesSearchRequest",
     "fields": [
       {
@@ -4280,6 +4715,26 @@
     ]
   },
   {
+    "name": "StoryImageV10",
+    "fields": [
+      {
+        "name": "src",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "alt",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "extra",
+        "flatten": true,
+        "skip": true
+      }
+    ]
+  },
+  {
     "name": "StoryStep",
     "fields": [
       {
@@ -4306,6 +4761,66 @@
         "name": "images",
         "flatten": false,
         "skip": false
+      }
+    ]
+  },
+  {
+    "name": "StoryStepV10",
+    "fields": [
+      {
+        "name": "id",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "view_id",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "title",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "text",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "images",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "extra",
+        "flatten": true,
+        "skip": true
+      }
+    ]
+  },
+  {
+    "name": "StoryV10",
+    "fields": [
+      {
+        "name": "id",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "name",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "steps",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "extra",
+        "flatten": true,
+        "skip": true
       }
     ]
   },

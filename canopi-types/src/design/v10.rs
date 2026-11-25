@@ -12,12 +12,27 @@ use serde::{Deserialize, Serialize};
 use specta::Type;
 
 use crate::design::{
-    Consortium, DesignFileField, DesignFileFieldOwner, GeoPoint, Layer, PanelTarget,
-    default_budget_currency, deserialize_json_i32, deserialize_json_u32,
-    deserialize_optional_json_u32,
+    DesignFileField, DesignFileFieldOwner, default_budget_currency, deserialize_json_i32,
+    deserialize_json_u32, deserialize_optional_json_u32,
 };
-use crate::lidar::LidarColourRange;
-use crate::views::{SavedView, SavedViewCamera, Story};
+
+pub use super::v10_io::{
+    DraftSummaryOutcome, FormatDecodeAnswer, FormatEncodeAnswer, FormatLoadRefusalKind,
+    FormatRefusal, NewDesignInputContract, OpenedDesignContract,
+};
+pub use super::v10_nested::{
+    ConsortiumV10, GeoPointV10, LayerV10, LidarColourRangeV10, PanelTargetV10,
+    SpeciesPanelTargetV10,
+};
+pub use super::v10_print::{
+    AlongPageM, PrintAreaV10, PrintBoxFallback, PrintFramingV10, PrintPageV10, PrintScaleV10,
+    PrintSetupV10, PrintSizeM, PrintSplitV10,
+};
+pub use super::v10_views::{
+    RichTextBlockV10, RichTextListItemV10, RichTextSpanV10, SavedViewBackgroundV10,
+    SavedViewCameraV10, SavedViewGroundSizeV10, SavedViewHighlightV10, SavedViewLayersV10,
+    SavedViewObjectV10, SavedViewTerrainV10, SavedViewV10, StoryImageV10, StoryStepV10, StoryV10,
+};
 
 /// Format version written by Canopi 2.1's Format Core.
 pub const CANOPI_V10_VERSION: u32 = 10;
@@ -27,6 +42,8 @@ const fn v10_field(key: &'static str, owner: DesignFileFieldOwner) -> DesignFile
 }
 
 /// Every v10 root field and its authority owner (`2.1-M31`, contracts §10).
+///
+/// Root `"extra"` is reserved and refused (matching v9 `format.rs` and v2.0.5 read admission).
 pub const DESIGN_FILE_FIELDS_V10: &[DesignFileField] = &[
     v10_field("version", DesignFileFieldOwner::Scene),
     v10_field("name", DesignFileFieldOwner::Document),
@@ -53,32 +70,7 @@ pub const DESIGN_FILE_FIELDS_V10: &[DesignFileField] = &[
     v10_field("map_view", DesignFileFieldOwner::Scene),
     v10_field("created_at", DesignFileFieldOwner::Document),
     v10_field("updated_at", DesignFileFieldOwner::Scene),
-    v10_field("extra", DesignFileFieldOwner::Document),
 ];
-
-/// Structured refusal kind returned by the v10 Format Core (`contracts.md` §2 `:67`, §10 `:423`).
-///
-/// Tagged on the wire as `{"kind":"migration_failed","from":9}` for failed migration steps, and
-/// `{"kind":"<variant>"}` for all other refusals.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
-#[serde(tag = "kind", rename_all = "snake_case")]
-pub enum FormatLoadRefusalKind {
-    /// File exceeded the 64 MiB admission cap.
-    TooLarge,
-    /// Input bytes were not valid UTF-8 JSON.
-    InvalidJson,
-    /// Format version is below the 2.0 floor (v9).
-    OlderVersion,
-    /// Format version is above the highest version this build writes (v10; `2.1-Q347`).
-    NewerVersion,
-    /// A pure migration step failed on its input (`design_load{migration_failed{from}}`).
-    MigrationFailed {
-        /// The format version the failing step was migrating from.
-        from: u32,
-    },
-    /// Schema or semantic admission refused the document.
-    InvalidDocument,
-}
 
 /// Typed v10 `.canopi` Design document (contracts §10, 2.1-M481, 2.1-M482).
 #[cfg_attr(feature = "design-schema", derive(schemars::JsonSchema))]
@@ -104,7 +96,7 @@ pub struct CanopiFileV10 {
     pub plant_species_codes: BTreeMap<String, String>,
     /// Scene layer visibility, lock, and opacity state.
     #[serde(default)]
-    pub layers: Vec<Layer>,
+    pub layers: Vec<LayerV10>,
     /// Placed plants in WGS84 coordinates.
     #[serde(default)]
     pub plants: Vec<PlacedPlantV10>,
@@ -119,7 +111,7 @@ pub struct CanopiFileV10 {
     pub measurement_guides: Vec<MeasurementGuideV10>,
     /// Plant consortiums.
     #[serde(default)]
-    pub consortiums: Vec<Consortium>,
+    pub consortiums: Vec<ConsortiumV10>,
     /// Named object groups (plants, zones, annotations, measurement guides).
     #[serde(default)]
     pub groups: Vec<ObjectGroupV10>,
@@ -138,7 +130,7 @@ pub struct CanopiFileV10 {
     /// Optional Site data presentation section (v9 `lidar`, `2.1-Q314`, `2.1-M493`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub site_data: Option<SiteDataSectionV10>,
-    /// Optional typed plant display preferences (promoted from v9 `extra.plant_display`, `2.1-Q69`).
+    /// Optional typed plant display preferences (`2.1-Q69`, `2.1-M482`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub plant_display: Option<PlantDisplayV10>,
     /// Optional PDF print setup (v10 addition, `2.1-Q36`, `2.1-M90`, `2.1-M161`).
@@ -146,13 +138,13 @@ pub struct CanopiFileV10 {
     pub print_setup: Option<PrintSetupV10>,
     /// Named saved map views.
     #[serde(default)]
-    pub views: Vec<SavedView>,
+    pub views: Vec<SavedViewV10>,
     /// Ordered presentations of saved views.
     #[serde(default)]
-    pub stories: Vec<Story>,
+    pub stories: Vec<StoryV10>,
     /// Last saved camera view.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub map_view: Option<SavedViewCamera>,
+    pub map_view: Option<SavedViewCameraV10>,
     /// ISO-8601 creation timestamp.
     #[serde(default)]
     pub created_at: String,
@@ -189,7 +181,7 @@ pub struct PlacedPlantV10 {
     #[serde(default)]
     pub pinned_name: bool,
     /// WGS84 position.
-    pub position: GeoPoint,
+    pub position: GeoPointV10,
     /// Optional clockwise rotation in degrees.
     #[serde(default)]
     pub rotation: Option<f64>,
@@ -226,7 +218,7 @@ pub struct ZoneV10 {
     /// Zone geometry type (`polygon`, `line`, `rectangle`, `ellipse`).
     pub zone_type: String,
     /// WGS84 vertices or bounding corners.
-    pub points: Vec<GeoPoint>,
+    pub points: Vec<GeoPointV10>,
     /// Clockwise rotation in degrees.
     #[serde(default)]
     pub rotation: f64,
@@ -248,7 +240,7 @@ pub struct ZoneV10 {
     pub extra: BTreeMap<String, serde_json::Value>,
 }
 
-/// Annotation in v10 with extension bag (`2.1-Q69`).
+/// Annotation in v10 with M481 defaults and Q69 extension bag (`2.1-Q69`, `2.1-M481`).
 #[cfg_attr(feature = "design-schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct AnnotationV10 {
@@ -257,14 +249,15 @@ pub struct AnnotationV10 {
     /// Whether editing is locked.
     #[serde(default)]
     pub locked: bool,
-    /// Annotation type (`text`, etc.).
+    /// Annotation type (default `"text"`).
+    #[serde(default = "default_annotation_type")]
     pub annotation_type: String,
     /// WGS84 anchor position.
-    pub position: GeoPoint,
+    pub position: GeoPointV10,
     /// Annotation text.
     #[serde(default)]
     pub text: String,
-    /// Font size in points (> 0).
+    /// Font size in points (> 0; default `16.0`, matching `read-schema.json`).
     #[serde(default = "default_font_size")]
     pub font_size: f64,
     /// Optional clockwise rotation in degrees.
@@ -286,40 +279,69 @@ pub struct MeasurementGuideV10 {
     #[serde(default)]
     pub locked: bool,
     /// WGS84 start point.
-    pub start: GeoPoint,
+    pub start: GeoPointV10,
     /// WGS84 end point.
-    pub end: GeoPoint,
+    pub end: GeoPointV10,
     /// Extension bag for unknown measurement guide keys (`2.1-Q69`).
     #[serde(flatten)]
     #[specta(skip)]
     pub extra: BTreeMap<String, serde_json::Value>,
 }
 
-/// Group member in v10, including `measurement_guide` (`2.1-Q154`, `2.1-M94`).
+/// Group member in v10, including `measurement_guide` and Q69 extension bags (`2.1-Q154`, `2.1-M94`).
 #[cfg_attr(feature = "design-schema", derive(schemars::JsonSchema))]
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Type)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum ObjectGroupMemberV10 {
     /// Plant member by id.
     Plant {
         /// Referenced plant id.
         id: String,
+        /// Extension bag (`2.1-Q69`).
+        #[serde(flatten)]
+        #[specta(skip)]
+        extra: BTreeMap<String, serde_json::Value>,
     },
     /// Zone member by id.
     Zone {
         /// Referenced zone id.
         id: String,
+        /// Extension bag (`2.1-Q69`).
+        #[serde(flatten)]
+        #[specta(skip)]
+        extra: BTreeMap<String, serde_json::Value>,
     },
     /// Annotation member by id.
     Annotation {
         /// Referenced annotation id.
         id: String,
+        /// Extension bag (`2.1-Q69`).
+        #[serde(flatten)]
+        #[specta(skip)]
+        extra: BTreeMap<String, serde_json::Value>,
     },
     /// Measurement guide member by id (`2.1-Q154`).
     MeasurementGuide {
         /// Referenced measurement guide id.
         id: String,
+        /// Extension bag (`2.1-Q69`).
+        #[serde(flatten)]
+        #[specta(skip)]
+        extra: BTreeMap<String, serde_json::Value>,
     },
+}
+
+impl ObjectGroupMemberV10 {
+    /// Returns the `(kind, id)` identity tuple used for deduplication.
+    #[must_use]
+    pub fn identity(&self) -> (&'static str, &str) {
+        match self {
+            Self::Plant { id, .. } => ("plant", id.as_str()),
+            Self::Zone { id, .. } => ("zone", id.as_str()),
+            Self::Annotation { id, .. } => ("annotation", id.as_str()),
+            Self::MeasurementGuide { id, .. } => ("measurement_guide", id.as_str()),
+        }
+    }
 }
 
 /// Named group of objects in v10 (`2.1-Q154`).
@@ -343,13 +365,14 @@ pub struct ObjectGroupV10 {
     pub extra: BTreeMap<String, serde_json::Value>,
 }
 
-/// Timeline care action in v10 with optional `offset_days` addition (`2.1-Q36`, `2.1-Q155`).
+/// Timeline care action in v10 with M481 defaults and optional `offset_days` addition (`2.1-Q36`, `2.1-Q155`).
 #[cfg_attr(feature = "design-schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct TimelineActionV10 {
     /// Stable action id.
     pub id: String,
-    /// Action kind (`planting`, `pruning`, etc.).
+    /// Action kind (default `"other"`).
+    #[serde(default = "default_action_type")]
     pub action_type: String,
     /// Action description.
     #[serde(default)]
@@ -368,7 +391,7 @@ pub struct TimelineActionV10 {
     pub recurrence: Option<String>,
     /// Referenced targets (default `[manual]`).
     #[serde(default = "default_manual_targets_v10")]
-    pub targets: Vec<PanelTarget>,
+    pub targets: Vec<PanelTargetV10>,
     /// Optional dependency action ids.
     #[serde(default)]
     pub depends_on: Option<Vec<String>>,
@@ -473,7 +496,7 @@ pub struct SiteDataEntryV10 {
     pub reversed: bool,
     /// Optional colour range.
     #[serde(default)]
-    pub range: Option<LidarColourRange>,
+    pub range: Option<LidarColourRangeV10>,
     /// Extension bag for unknown entry keys (`2.1-Q69`).
     #[serde(flatten)]
     #[specta(skip)]
@@ -490,6 +513,12 @@ pub struct PlantDisplayV10 {
     /// Open string naming label mode.
     #[serde(default)]
     pub labels: Option<String>,
+    /// Optional single-colour hex value.
+    #[serde(default)]
+    pub one_color: Option<String>,
+    /// Optional per-stratum colour overrides.
+    #[serde(default)]
+    pub stratum_colors: Option<BTreeMap<String, String>>,
     /// Optional symbol scale multiplier.
     #[serde(default)]
     pub symbol_scale: Option<f64>,
@@ -501,11 +530,6 @@ pub struct PlantDisplayV10 {
     #[specta(skip)]
     pub extra: BTreeMap<String, serde_json::Value>,
 }
-
-pub use super::v10_print::{
-    AlongPageM, PrintAreaV10, PrintBoxFallback, PrintFramingV10, PrintPageV10, PrintScaleV10,
-    PrintSetupV10, PrintSizeM, PrintSplitV10,
-};
 
 /// Emits the full v10 JSON Schema directly from [`CanopiFileV10`] (`2.1-M31`), stripped of
 /// doc-only `description` keys so every keyword stays within [`crate::design::CANOPI_SCHEMA_KEYWORDS`].
@@ -527,33 +551,18 @@ pub fn print_setup_v10_json_schema() -> serde_json::Value {
 }
 
 #[cfg(feature = "design-schema")]
-fn strip_schema_descriptions(value: &mut serde_json::Value) {
-    match value {
-        serde_json::Value::Object(map) => {
-            map.remove("description");
-            for (key, v) in map.iter_mut() {
-                if key == "properties" || key == "$defs" || key == "definitions" {
-                    if let serde_json::Value::Object(entries) = v {
-                        for entry in entries.values_mut() {
-                            strip_schema_descriptions(entry);
-                        }
-                    }
-                } else {
-                    strip_schema_descriptions(v);
-                }
-            }
-        }
-        serde_json::Value::Array(items) => {
-            for item in items {
-                strip_schema_descriptions(item);
-            }
-        }
-        _ => {}
-    }
+pub(crate) use super::v10_io::strip_schema_descriptions;
+
+fn default_annotation_type() -> String {
+    "text".to_owned()
+}
+
+fn default_action_type() -> String {
+    "other".to_owned()
 }
 
 fn default_font_size() -> f64 {
-    14.0
+    16.0
 }
 
 fn default_true() -> bool {
@@ -564,6 +573,8 @@ fn default_opaque() -> f32 {
     1.0
 }
 
-fn default_manual_targets_v10() -> Vec<PanelTarget> {
-    vec![PanelTarget::Manual]
+fn default_manual_targets_v10() -> Vec<PanelTargetV10> {
+    vec![PanelTargetV10::Manual {
+        extra: BTreeMap::new(),
+    }]
 }

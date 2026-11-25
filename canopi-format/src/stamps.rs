@@ -7,6 +7,7 @@
 //! `max_readable = Some(3)` so newer payloads settle [`StampPayloadRefusal::NeedsNewer`].
 
 use std::collections::BTreeMap;
+use std::sync::OnceLock;
 
 use canopi_types::saved_object_stamps::{
     MAX_STAMP_PAYLOAD_BYTES, STAMP_PAYLOAD_CURRENT, STAMP_PAYLOAD_FLOOR, SavedObjectStampPayload,
@@ -17,6 +18,16 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
 use crate::chain::canonical_json_string;
+use crate::schema::admit_schema;
+
+/// Frozen v2 saved-stamp payload schema walked before stepping v2→v3 (`contracts.md` §10 `:424`).
+#[must_use]
+pub fn stamp_v2_schema() -> Option<&'static Value> {
+    static SCHEMA: OnceLock<Option<Value>> = OnceLock::new();
+    SCHEMA
+        .get_or_init(|| serde_json::from_str(include_str!("../spec/stamps/v2/schema.json")).ok())
+        .as_ref()
+}
 
 pub use crate::stamp_canopi::{canopi_file_to_stamp, stamp_to_canopi_file};
 pub use canopi_types::saved_object_stamps::{
@@ -89,6 +100,16 @@ pub fn decode_stamp_payload(bytes: &[u8]) -> Result<SavedObjectStampPayload, Sta
             Err(StampPayloadRefusal::NeedsNewer { version })
         }
         Admission::Migratable { from: 2 } => {
+            // Contracts §10 :424: validate v2 stamp input against the frozen v2 schema before stepping.
+            let schema_v2 =
+                stamp_v2_schema().ok_or_else(|| StampPayloadRefusal::InvalidPayload {
+                    field_path: "$".to_owned(),
+                    message: "frozen v2 stamp schema unavailable".to_owned(),
+                })?;
+            admit_schema(&raw, schema_v2).map_err(|r| StampPayloadRefusal::InvalidPayload {
+                field_path: r.field_path.to_string(),
+                message: r.to_string(),
+            })?;
             let migrated = migrate_stamp_v2_to_v3(&raw)?;
             validate_stamp_payload(&migrated)?;
             Ok(migrated)

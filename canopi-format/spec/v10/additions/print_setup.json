@@ -12,6 +12,7 @@
   "schema": {
     "$defs": {
       "AlongPageM": {
+        "additionalProperties": true,
         "properties": {
           "down_m": {
             "format": "double",
@@ -28,7 +29,8 @@
         ],
         "type": "object"
       },
-      "GeoPoint": {
+      "GeoPointV10": {
+        "additionalProperties": true,
         "properties": {
           "lat": {
             "format": "double",
@@ -52,13 +54,14 @@
       "PrintAreaV10": {
         "oneOf": [
           {
+            "additionalProperties": true,
             "properties": {
               "angle_deg": {
                 "format": "double",
                 "type": "number"
               },
               "centre": {
-                "$ref": "#/$defs/GeoPoint"
+                "$ref": "#/$defs/GeoPointV10"
               },
               "kind": {
                 "const": "box",
@@ -77,6 +80,7 @@
             "type": "object"
           },
           {
+            "additionalProperties": true,
             "properties": {
               "angle_deg": {
                 "format": "double",
@@ -104,6 +108,7 @@
             "type": "object"
           },
           {
+            "additionalProperties": true,
             "properties": {
               "along_page": {
                 "$ref": "#/$defs/AlongPageM"
@@ -130,9 +135,10 @@
         ]
       },
       "PrintBoxFallback": {
+        "additionalProperties": true,
         "properties": {
           "centre": {
-            "$ref": "#/$defs/GeoPoint"
+            "$ref": "#/$defs/GeoPointV10"
           },
           "size": {
             "$ref": "#/$defs/PrintSizeM"
@@ -199,6 +205,7 @@
       "PrintScaleV10": {
         "oneOf": [
           {
+            "additionalProperties": true,
             "properties": {
               "kind": {
                 "const": "fit",
@@ -211,6 +218,7 @@
             "type": "object"
           },
           {
+            "additionalProperties": true,
             "properties": {
               "denominator": {
                 "format": "uint32",
@@ -229,6 +237,7 @@
             "type": "object"
           },
           {
+            "additionalProperties": true,
             "properties": {
               "feet": {
                 "format": "double",
@@ -253,6 +262,7 @@
         ]
       },
       "PrintSizeM": {
+        "additionalProperties": true,
         "properties": {
           "height_m": {
             "format": "double",
@@ -280,7 +290,7 @@
             "type": "string"
           },
           "pivot": {
-            "$ref": "#/$defs/GeoPoint"
+            "$ref": "#/$defs/GeoPointV10"
           }
         },
         "required": [

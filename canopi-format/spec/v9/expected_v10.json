@@ -1,0 +1,144 @@
+{
+  "annotations": [],
+  "budget": [
+    {
+      "ext": {
+        "category": "plants",
+        "currency": "USD",
+        "description": "Apple whip",
+        "quantity": 2.0
+      },
+      "target": {
+        "canonical_name": "Malus domestica",
+        "kind": "species"
+      },
+      "unit_cost": 24.0
+    }
+  ],
+  "budget_currency": "EUR",
+  "budget_ext": {
+    "non_plant_lines": [
+      {
+        "category": "tools",
+        "currency": "EUR",
+        "description": "Spade",
+        "quantity": 1.0,
+        "target": {
+          "kind": "manual"
+        },
+        "unit_cost": 45.0
+      }
+    ]
+  },
+  "consortiums": [
+    {
+      "end_phase": 3,
+      "start_phase": 1,
+      "stratum": "high",
+      "target": {
+        "canonical_name": "Malus domestica",
+        "kind": "species"
+      }
+    }
+  ],
+  "created_at": "2026-11-01T00:00:00Z",
+  "description": "Frozen v9 fixture for v9->v10 step golden test",
+  "groups": [
+    {
+      "id": "g-keep",
+      "locked": false,
+      "members": [
+        {
+          "id": "p1",
+          "kind": "plant"
+        },
+        {
+          "id": "p2",
+          "kind": "plant"
+        }
+      ],
+      "name": "Pair"
+    }
+  ],
+  "layers": [
+    {
+      "locked": false,
+      "name": "plants",
+      "opacity": 1.0,
+      "visible": true
+    }
+  ],
+  "measurement_guides": [],
+  "name": "Frozen v9 Orchard",
+  "plant_species_codes": {
+    "Malus domestica": "MD"
+  },
+  "plant_species_colors": {
+    "Malus domestica": "#5E8B7E"
+  },
+  "plant_species_symbols": {
+    "Malus domestica": "apple"
+  },
+  "plants": [
+    {
+      "canonical_name": "Malus domestica",
+      "canopy_spread_m": 4.2,
+      "color": "#5E8B7E",
+      "common_name": "Apple",
+      "id": "p1",
+      "locked": false,
+      "notes": null,
+      "pinned_name": true,
+      "planted_date": null,
+      "position": {
+        "lat": 48.8584,
+        "lon": 2.2945
+      },
+      "quantity": 1,
+      "rotation": 10.0,
+      "symbol": "apple"
+    },
+    {
+      "canonical_name": "Corylus avellana",
+      "canopy_spread_m": 2.5,
+      "color": null,
+      "common_name": "Hazel",
+      "id": "p2",
+      "locked": false,
+      "notes": null,
+      "pinned_name": false,
+      "planted_date": null,
+      "position": {
+        "lat": 48.8587,
+        "lon": 2.2949
+      },
+      "quantity": 1,
+      "rotation": 0.0,
+      "symbol": null
+    }
+  ],
+  "site_data": {
+    "entries": [
+      {
+        "id": "lyr-1",
+        "name": "DTM Low",
+        "opacity": 0.5,
+        "order": 1,
+        "ramp": "Terrain",
+        "range": null,
+        "reversed": false,
+        "visible": true
+      }
+    ],
+    "visible": true
+  },
+  "stories": [],
+  "timeline": [],
+  "unknown_root": {
+    "keep": 1
+  },
+  "updated_at": "2026-11-02T00:00:00Z",
+  "version": 10,
+  "views": [],
+  "zones": []
+}

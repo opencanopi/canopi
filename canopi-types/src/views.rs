@@ -350,7 +350,7 @@ pub fn validate_map_view(map_view: Option<&SavedViewCamera>) -> Result<(), Refus
 
 /// A camera's leaf at fault, in the schema's sorted field order; its ground size as a whole,
 /// as the Web names it.
-fn validate_camera(camera: &SavedViewCamera, path: &FieldPath) -> Result<(), Refusal> {
+pub(crate) fn validate_camera(camera: &SavedViewCamera, path: &FieldPath) -> Result<(), Refusal> {
     let in_range =
         |value: f64, min: f64, max: f64| value.is_finite() && (min..=max).contains(&value);
     if !in_range(camera.bearing, 0.0, 360.0) {

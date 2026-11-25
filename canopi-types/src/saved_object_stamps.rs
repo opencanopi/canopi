@@ -428,9 +428,13 @@ pub fn stamp_payload_v2_json_schema() -> serde_json::Value {
     serde_json::to_value(schemars::schema_for!(SavedObjectStampPayloadV2)).unwrap_or_default()
 }
 
-/// Emits the v3 saved-stamp payload JSON Schema (`contracts.md` §11).
+/// Emits the v3 saved-stamp payload JSON Schema (`contracts.md` §11), stripped of doc-only
+/// `description` keys so every keyword stays within `CANOPI_SCHEMA_KEYWORDS`.
 #[cfg(feature = "design-schema")]
 #[must_use]
 pub fn stamp_payload_v3_json_schema() -> serde_json::Value {
-    serde_json::to_value(schemars::schema_for!(SavedObjectStampPayload)).unwrap_or_default()
+    let mut schema =
+        serde_json::to_value(schemars::schema_for!(SavedObjectStampPayload)).unwrap_or_default();
+    crate::design::v10::strip_schema_descriptions(&mut schema);
+    schema
 }

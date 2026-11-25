@@ -5,7 +5,7 @@
 use std::collections::{HashMap, HashSet};
 
 use super::field_path::{FieldPath, Refusal};
-use super::v10::{CanopiFileV10, ObjectGroupMemberV10, PrintAreaV10, PrintScaleV10};
+use super::v10::{CanopiFileV10, GeoPointV10, LidarColourRangeV10, ObjectGroupMemberV10};
 use super::{CanopiFile, GeoPoint, WEB_MERCATOR_MAX_LATITUDE_DEG};
 
 /// Check every persisted position of an admitted Design. Serde accepts any
@@ -203,10 +203,10 @@ impl<'a> MemberIdSets<'a> {
 
     fn contains(&self, member: &ObjectGroupMemberV10) -> bool {
         match member {
-            ObjectGroupMemberV10::Plant { id } => self.plants.contains(id.as_str()),
-            ObjectGroupMemberV10::Zone { id } => self.zones.contains(id.as_str()),
-            ObjectGroupMemberV10::Annotation { id } => self.annotations.contains(id.as_str()),
-            ObjectGroupMemberV10::MeasurementGuide { id } => self.guides.contains(id.as_str()),
+            ObjectGroupMemberV10::Plant { id, .. } => self.plants.contains(id.as_str()),
+            ObjectGroupMemberV10::Zone { id, .. } => self.zones.contains(id.as_str()),
+            ObjectGroupMemberV10::Annotation { id, .. } => self.annotations.contains(id.as_str()),
+            ObjectGroupMemberV10::MeasurementGuide { id, .. } => self.guides.contains(id.as_str()),
         }
     }
 }
@@ -220,9 +220,10 @@ pub fn normalise_v10_on_decode(file: &mut CanopiFileV10) {
         let ids = MemberIdSets::from_file(file);
         groups.retain_mut(|group| {
             let mut seen = HashSet::new();
-            group
-                .members
-                .retain(|member| ids.contains(member) && seen.insert(member.clone()));
+            group.members.retain(|member| {
+                let (kind, id) = member.identity();
+                ids.contains(member) && seen.insert((kind, id.to_owned()))
+            });
             group.members.len() >= 2
         });
     }
@@ -244,15 +245,47 @@ pub fn normalise_v10_on_decode(file: &mut CanopiFileV10) {
     }
 }
 
+pub(super) fn check_point_v10(point: &GeoPointV10, path: &FieldPath) -> Result<(), Refusal> {
+    check_point(
+        &GeoPoint {
+            lon: point.lon,
+            lat: point.lat,
+        },
+        path,
+    )
+}
+
 /// The single typed admission rule set for v10 `.canopi` Designs (`ADR 0026`, `canopi-gjs3`),
 /// sharing [`check_point`] and [`check_unique_ids`] with v9 admission.
 pub fn admit_design_v10(file: &CanopiFileV10, mode: V10AdmissionMode) -> Result<(), Refusal> {
     let root = FieldPath::root();
+    if file.extra.contains_key("extra") {
+        return Err(Refusal::new(
+            root.field("extra"),
+            "reserved root field 'extra' is not allowed",
+        ));
+    }
     admit_v10_scene_objects(file, &root)?;
     admit_v10_groups(file, &root, mode)?;
     admit_v10_site_data(file, &root, mode)?;
     admit_v10_budget(file, &root)?;
-    admit_v10_print_setup(file, &root)?;
+    if let Some(setup) = &file.print_setup {
+        super::v10_print::admit_print_setup(setup, &root)?;
+    }
+    let v9_views: Vec<_> = file
+        .views
+        .iter()
+        .map(super::v10::SavedViewV10::to_v9)
+        .collect();
+    let v9_stories: Vec<_> = file
+        .stories
+        .iter()
+        .map(super::v10::StoryV10::to_v9)
+        .collect();
+    crate::views::validate_views_and_stories(&v9_views, &v9_stories)?;
+    if let Some(camera) = &file.map_view {
+        crate::views::validate_camera(&camera.to_v9(), &root.field("map_view"))?;
+    }
     Ok(())
 }
 
@@ -260,7 +293,7 @@ fn admit_v10_scene_objects(file: &CanopiFileV10, root: &FieldPath) -> Result<(),
     check_unique_ids("plants", file.plants.iter().map(|p| p.id.as_str()))?;
     for (i, plant) in file.plants.iter().enumerate() {
         let p = root.field("plants").index(i);
-        check_point(&plant.position, &p.field("position"))?;
+        check_point_v10(&plant.position, &p.field("position"))?;
         if plant
             .canopy_spread_m
             .is_some_and(|s| !(s.is_finite() && s > 0.0))
@@ -279,7 +312,7 @@ fn admit_v10_scene_objects(file: &CanopiFileV10, root: &FieldPath) -> Result<(),
     for (i, zone) in file.zones.iter().enumerate() {
         let z = root.field("zones").index(i);
         for (pi, pt) in zone.points.iter().enumerate() {
-            check_point(pt, &z.field("points").index(pi))?;
+            check_point_v10(pt, &z.field("points").index(pi))?;
         }
         if !zone.rotation.is_finite() {
             return Err(Refusal::new(z.field("rotation"), FINITE));
@@ -298,7 +331,7 @@ fn admit_v10_scene_objects(file: &CanopiFileV10, root: &FieldPath) -> Result<(),
     )?;
     for (i, ann) in file.annotations.iter().enumerate() {
         let a = root.field("annotations").index(i);
-        check_point(&ann.position, &a.field("position"))?;
+        check_point_v10(&ann.position, &a.field("position"))?;
         if !(ann.font_size.is_finite() && ann.font_size > 0.0) {
             return Err(Refusal::new(
                 a.field("font_size"),
@@ -316,8 +349,8 @@ fn admit_v10_scene_objects(file: &CanopiFileV10, root: &FieldPath) -> Result<(),
     )?;
     for (i, guide) in file.measurement_guides.iter().enumerate() {
         let g = root.field("measurement_guides").index(i);
-        check_point(&guide.start, &g.field("start"))?;
-        check_point(&guide.end, &g.field("end"))?;
+        check_point_v10(&guide.start, &g.field("start"))?;
+        check_point_v10(&guide.end, &g.field("end"))?;
     }
 
     for (i, layer) in file.layers.iter().enumerate() {
@@ -356,7 +389,7 @@ fn admit_v10_groups(
             if !ids.contains(member) {
                 return Err(Refusal::new(mpath, "expected an existing object id"));
             }
-            if !seen.insert(member) {
+            if !seen.insert(member.identity()) {
                 return Err(Refusal::new(mpath, "expected unique group members"));
             }
         }
@@ -390,7 +423,7 @@ fn admit_v10_site_data(
         if !(entry.opacity.is_finite() && (0.0..=1.0).contains(&entry.opacity)) {
             return Err(Refusal::new(e.field("opacity"), UNIT_INTERVAL));
         }
-        if let Some(crate::lidar::LidarColourRange::Custom { min, max }) = entry.range
+        if let Some(LidarColourRangeV10::Custom { min, max, .. }) = &entry.range
             && !(min.is_finite() && max.is_finite() && min < max)
         {
             return Err(Refusal::new(
@@ -422,130 +455,6 @@ fn admit_v10_budget(file: &CanopiFileV10, root: &FieldPath) -> Result<(), Refusa
                 "expected a non-empty canonical_name for species budget line",
             ));
         }
-    }
-    Ok(())
-}
-
-fn admit_v10_print_setup(file: &CanopiFileV10, root: &FieldPath) -> Result<(), Refusal> {
-    let Some(setup) = &file.print_setup else {
-        return Ok(());
-    };
-    let ps = root.field("print_setup");
-    let mut split_ids = HashSet::new();
-    for (i, split) in setup.splits.iter().enumerate() {
-        let sp = ps.field("splits").index(i);
-        if split.id.is_empty() {
-            return Err(Refusal::new(sp.field("id"), "expected a non-empty id"));
-        }
-        if !split_ids.insert(split.id.as_str()) {
-            return Err(Refusal::new(sp.field("id"), "expected a unique id"));
-        }
-        check_point(&split.pivot, &sp.field("pivot"))?;
-        if !split.angle_deg.is_finite() {
-            return Err(Refusal::new(sp.field("angle_deg"), FINITE));
-        }
-    }
-    let mut page_ids = HashSet::new();
-    for (i, page) in setup.pages.iter().enumerate() {
-        let pp = ps.field("pages").index(i);
-        admit_v10_print_page(page, &pp, &split_ids, &mut page_ids)?;
-    }
-    Ok(())
-}
-
-fn admit_v10_print_page<'a>(
-    page: &'a super::v10::PrintPageV10,
-    pp: &FieldPath,
-    split_ids: &HashSet<&str>,
-    page_ids: &mut HashSet<&'a str>,
-) -> Result<(), Refusal> {
-    if page.id.is_empty() {
-        return Err(Refusal::new(pp.field("id"), "expected a non-empty id"));
-    }
-    if !page_ids.insert(page.id.as_str()) {
-        return Err(Refusal::new(pp.field("id"), "expected a unique id"));
-    }
-    match &page.area {
-        PrintAreaV10::Box {
-            centre,
-            size,
-            angle_deg,
-        } => {
-            check_point(centre, &pp.field("area").field("centre"))?;
-            if !(size.width_m.is_finite() && size.width_m > 0.0) {
-                return Err(Refusal::new(
-                    pp.field("area").field("size").field("width_m"),
-                    "expected a finite number above 0",
-                ));
-            }
-            if !(size.height_m.is_finite() && size.height_m > 0.0) {
-                return Err(Refusal::new(
-                    pp.field("area").field("size").field("height_m"),
-                    "expected a finite number above 0",
-                ));
-            }
-            if !angle_deg.is_finite() {
-                return Err(Refusal::new(pp.field("area").field("angle_deg"), FINITE));
-            }
-        }
-        PrintAreaV10::WholeDesign {
-            angle_deg,
-            fallback,
-        } => {
-            if !angle_deg.is_finite() {
-                return Err(Refusal::new(pp.field("area").field("angle_deg"), FINITE));
-            }
-            if let Some(fb) = fallback {
-                check_point(
-                    &fb.centre,
-                    &pp.field("area").field("fallback").field("centre"),
-                )?;
-            }
-        }
-        PrintAreaV10::SplitSheet {
-            split,
-            along_page,
-            size,
-        } => {
-            if !split_ids.contains(split.as_str()) {
-                return Err(Refusal::new(
-                    pp.field("area").field("split"),
-                    "expected an existing print_setup split id",
-                ));
-            }
-            if !(along_page.right_m.is_finite() && along_page.down_m.is_finite()) {
-                return Err(Refusal::new(pp.field("area").field("along_page"), FINITE));
-            }
-            if !(size.width_m.is_finite()
-                && size.width_m > 0.0
-                && size.height_m.is_finite()
-                && size.height_m > 0.0)
-            {
-                return Err(Refusal::new(
-                    pp.field("area").field("size"),
-                    "expected positive finite dimensions",
-                ));
-            }
-        }
-    }
-    match page.scale {
-        PrintScaleV10::Fit => {}
-        PrintScaleV10::Ratio { denominator: 0 } => {
-            return Err(Refusal::new(
-                pp.field("scale").field("denominator"),
-                "expected a positive denominator",
-            ));
-        }
-        PrintScaleV10::Ratio { .. } => {}
-        PrintScaleV10::Customary { inches, feet }
-            if !(inches.is_finite() && inches > 0.0 && feet.is_finite() && feet > 0.0) =>
-        {
-            return Err(Refusal::new(
-                pp.field("scale"),
-                "expected positive finite customary scale values",
-            ));
-        }
-        PrintScaleV10::Customary { .. } => {}
     }
     Ok(())
 }

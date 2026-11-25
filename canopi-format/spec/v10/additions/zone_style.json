@@ -9,16 +9,13 @@
   "optional": true,
   "properties": {
     "opacity": {
-      "default": null,
-      "maximum": 1.0,
-      "minimum": 0.0,
+      "format": "double",
       "type": [
         "number",
         "null"
       ]
     },
     "stroke_color": {
-      "default": null,
       "type": [
         "string",
         "null"

@@ -275,7 +275,7 @@
     "app/workspace-commands -> app/tool-rail": { "count": 1 },
     "app/workspace-commands -> canvas": { "count": 1 },
     "app/workspace-commands -> i18n": { "count": 1 },
-    "bindings-gen -> canopi-format": { "count": 1, "bead": "canopi-f47t.52.208", "ledger": "2.1-Q7" },
+    "bindings-gen -> canopi-format": { "count": 1, "bead": "canopi-f47t.52.208" },
     "bindings-gen -> canopi-types": { "count": 1 },
     "canopi-desktop -> canopi-format": { "count": 1 },
     "canopi-desktop -> canopi-redact": { "count": 1 },

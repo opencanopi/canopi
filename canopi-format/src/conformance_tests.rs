@@ -4,10 +4,9 @@
 
 use std::collections::BTreeMap;
 
-use canopi_types::design::GeoPoint;
 use canopi_types::design::v10::{
-    CanopiFileV10, FormatLoadRefusalKind, PlacedPlantV10, PrintAreaV10, PrintPageV10,
-    PrintScaleV10, PrintSetupV10, PrintSizeM, PrintSplitV10, ZoneV10,
+    CanopiFileV10, FormatLoadRefusalKind, GeoPointV10, LayerV10, PlacedPlantV10, PrintAreaV10,
+    PrintPageV10, PrintScaleV10, PrintSetupV10, PrintSizeM, PrintSplitV10, ZoneV10,
 };
 use proptest::prelude::*;
 use serde_json::{Value, json};
@@ -314,11 +313,64 @@ fn print_and_misc_rows() -> Vec<CorpusRow> {
     ]
 }
 
+fn extra_and_unknown_key_rows() -> Vec<CorpusRow> {
+    vec![
+        CorpusRow {
+            id: "s2-root-extra-refused-on-decode",
+            op: Op::Decode,
+            input: json!({ "version": 10, "extra": { "foo": 1 } }),
+            expected: Expected::Refused {
+                kind: FormatLoadRefusalKind::InvalidDocument,
+                field_path: Some("$.extra"),
+            },
+            check: None,
+        },
+        CorpusRow {
+            id: "s2-root-extra-refused-on-write",
+            op: Op::Encode,
+            input: json!({ "version": 10, "extra": { "foo": 1 } }),
+            expected: Expected::Refused {
+                kind: FormatLoadRefusalKind::InvalidDocument,
+                field_path: Some("$.extra"),
+            },
+            check: None,
+        },
+        CorpusRow {
+            id: "b7-q69-nested-unknown-keys-survive-round-trip",
+            op: Op::Decode,
+            input: serde_json::from_str(include_str!("../spec/v10/fixture.canopi")).unwrap(),
+            expected: Expected::Accepted,
+            check: Some(|d| {
+                let reencoded = encode_design(d).expect("round-trip encode succeeds");
+                let rt: Value = serde_json::from_slice(&reencoded).unwrap();
+                assert_eq!(rt["layers"][0]["future_layer_flag"], true);
+                assert_eq!(
+                    rt["plants"][0]["position"]["future_point_crs_note"],
+                    "wgs84"
+                );
+                assert_eq!(rt["views"][0]["future_view_key"], "keep");
+                assert_eq!(rt["views"][0]["camera"]["future_camera_key"], 42);
+                assert_eq!(rt["stories"][0]["future_story_key"], true);
+                assert_eq!(rt["stories"][0]["steps"][0]["future_step_key"], "keep");
+                assert_eq!(
+                    rt["print_setup"]["pages"][1]["area"]["along_page"]["future_offset_meta"],
+                    1
+                );
+                assert_eq!(
+                    rt["print_setup"]["pages"][1]["area"]["size"]["future_size_meta"],
+                    "m"
+                );
+            }),
+        },
+    ]
+}
+
 #[test]
 fn v10_conformance_corpus_matches_expected_outcomes() {
     let mut rows = site_data_rows();
     rows.extend(group_rows());
     rows.extend(print_and_misc_rows());
+    rows.extend(extra_and_unknown_key_rows());
 
     for row in rows {
         match row.op {
@@ -332,12 +384,7 @@ fn v10_conformance_corpus_matches_expected_outcomes() {
                     }
                     (Expected::Refused { kind, field_path }, Err(err)) => {
                         assert_eq!(err.kind, *kind, "case {}", row.id);
-                        assert_eq!(
-                            err.field_path.as_ref().map(ToString::to_string).as_deref(),
-                            *field_path,
-                            "case {}",
-                            row.id
-                        );
+                        assert_eq!(err.field_path.as_deref(), *field_path, "case {}", row.id);
                     }
                     (expected, actual) => {
                         panic!(
@@ -351,12 +398,7 @@ fn v10_conformance_corpus_matches_expected_outcomes() {
                 (Expected::Accepted, Ok(_)) => {}
                 (Expected::Refused { kind, field_path }, Err(err)) => {
                     assert_eq!(err.kind, *kind, "case {}", row.id);
-                    assert_eq!(
-                        err.field_path.as_ref().map(ToString::to_string).as_deref(),
-                        *field_path,
-                        "case {}",
-                        row.id
-                    );
+                    assert_eq!(err.field_path.as_deref(), *field_path, "case {}", row.id);
                 }
                 (expected, actual) => {
                     panic!(
@@ -369,24 +411,35 @@ fn v10_conformance_corpus_matches_expected_outcomes() {
     }
 }
 
-fn arb_geo_point() -> impl Strategy<Value = GeoPoint> {
+fn arb_geo_point() -> impl Strategy<Value = GeoPointV10> {
     (
         -179_000_000i64..179_000_000i64,
         -84_000_000i64..84_000_000i64,
+        prop::bool::ANY,
     )
-        .prop_map(|(lon, lat)| GeoPoint {
-            lon: lon as f64 / 1_000_000.0,
-            lat: lat as f64 / 1_000_000.0,
+        .prop_map(|(lon, lat, with_ext)| {
+            let mut extra = BTreeMap::new();
+            if with_ext {
+                extra.insert("future_pt_tag".to_owned(), json!(1));
+            }
+            GeoPointV10 {
+                lon: lon as f64 / 1_000_000.0,
+                lat: lat as f64 / 1_000_000.0,
+                extra,
+            }
         })
 }
 
 fn sample_print_setup() -> PrintSetupV10 {
+    let mut size_ext = BTreeMap::new();
+    size_ext.insert("future_size_tag".to_owned(), json!("m"));
     PrintSetupV10 {
         splits: vec![PrintSplitV10 {
             id: "sp-1".to_owned(),
-            pivot: GeoPoint {
+            pivot: GeoPointV10 {
                 lon: 2.0,
                 lat: 48.0,
+                extra: BTreeMap::new(),
             },
             angle_deg: 0.0,
             extra: BTreeMap::new(),
@@ -395,18 +448,23 @@ fn sample_print_setup() -> PrintSetupV10 {
             id: "pg-1".to_owned(),
             name: "Sheet 1".to_owned(),
             area: PrintAreaV10::Box {
-                centre: GeoPoint {
+                centre: GeoPointV10 {
                     lon: 2.0,
                     lat: 48.0,
+                    extra: BTreeMap::new(),
                 },
                 size: PrintSizeM {
                     width_m: 50.0,
                     height_m: 35.0,
+                    extra: size_ext,
                 },
                 angle_deg: 0.0,
+                extra: BTreeMap::new(),
             },
             framing: None,
-            scale: PrintScaleV10::Fit,
+            scale: PrintScaleV10::Fit {
+                extra: BTreeMap::new(),
+            },
             extra: BTreeMap::new(),
         }],
         extra: BTreeMap::new(),
@@ -478,7 +536,13 @@ fn arb_v10_design() -> impl Strategy<Value = Value> {
                 plant_species_colors: BTreeMap::new(),
                 plant_species_symbols: BTreeMap::new(),
                 plant_species_codes: BTreeMap::new(),
-                layers: Vec::new(),
+                layers: vec![LayerV10 {
+                    name: "plants".to_owned(),
+                    visible: true,
+                    locked: false,
+                    opacity: 1.0,
+                    extra: BTreeMap::from([("future_layer_tag".to_owned(), json!(true))]),
+                }],
                 plants: plant_structs,
                 zones: zone_structs,
                 annotations: Vec::new(),

@@ -8,7 +8,7 @@
   ],
   "optional": true,
   "schema": {
-    "default": null,
+    "format": "int32",
     "type": [
       "integer",
       "null"

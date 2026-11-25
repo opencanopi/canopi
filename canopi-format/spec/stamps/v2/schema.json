@@ -1,28 +1,22 @@
 {
   "$defs": {
     "StampAnnotationV2": {
-      "description": "Legacy v2 saved-stamp annotation shape (camelCase, Canopi 2.0).",
       "properties": {
         "annotationType": {
-          "description": "Annotation type.",
           "type": "string"
         },
         "fontSize": {
-          "description": "Font size in points.",
           "format": "double",
           "type": "number"
         },
         "id": {
-          "description": "Annotation id.",
           "type": "string"
         },
         "position": {
-          "$ref": "#/$defs/StampPoint",
-          "description": "Relative metre position."
+          "$ref": "#/$defs/StampPoint"
         },
         "rotationDeg": {
           "default": null,
-          "description": "Optional rotation in degrees.",
           "format": "double",
           "type": [
             "number",
@@ -30,7 +24,6 @@
           ]
         },
         "text": {
-          "description": "Text content.",
           "type": "string"
         }
       },
@@ -44,15 +37,12 @@
       "type": "object"
     },
     "StampPlantV2": {
-      "description": "Legacy v2 saved-stamp plant shape (camelCase, Canopi 2.0) used to emit the frozen v2 schema.",
       "properties": {
         "canonicalName": {
-          "description": "Botanical species name.",
           "type": "string"
         },
         "color": {
           "default": null,
-          "description": "Optional colour.",
           "type": [
             "string",
             "null"
@@ -60,23 +50,19 @@
         },
         "commonName": {
           "default": null,
-          "description": "Optional common name.",
           "type": [
             "string",
             "null"
           ]
         },
         "id": {
-          "description": "Plant id.",
           "type": "string"
         },
         "position": {
-          "$ref": "#/$defs/StampPoint",
-          "description": "Relative metre position."
+          "$ref": "#/$defs/StampPoint"
         },
         "rotationDeg": {
           "default": null,
-          "description": "Optional rotation in degrees.",
           "format": "double",
           "type": [
             "number",
@@ -85,7 +71,6 @@
         },
         "scale": {
           "default": null,
-          "description": "Optional scale (renamed to `canopy_spread_m` in v3).",
           "format": "double",
           "type": [
             "number",
@@ -94,7 +79,6 @@
         },
         "symbol": {
           "default": null,
-          "description": "Optional symbol.",
           "type": [
             "string",
             "null"
@@ -109,15 +93,12 @@
       "type": "object"
     },
     "StampPoint": {
-      "description": "Relative metre point in a saved-stamp arrangement (ADR 0001).",
       "properties": {
         "x": {
-          "description": "East offset in ground metres from the stamp anchor.",
           "format": "double",
           "type": "number"
         },
         "y": {
-          "description": "North offset in ground metres from the stamp anchor.",
           "format": "double",
           "type": "number"
         }
@@ -129,30 +110,25 @@
       "type": "object"
     },
     "StampZoneV2": {
-      "description": "Legacy v2 saved-stamp zone shape (camelCase, Canopi 2.0).",
       "properties": {
         "fillColor": {
           "default": null,
-          "description": "Optional fill colour.",
           "type": [
             "string",
             "null"
           ]
         },
         "id": {
-          "description": "Zone id.",
           "type": "string"
         },
         "name": {
           "default": null,
-          "description": "Optional zone name.",
           "type": [
             "string",
             "null"
           ]
         },
         "points": {
-          "description": "Relative metre points.",
           "items": {
             "$ref": "#/$defs/StampPoint"
           },
@@ -160,12 +136,10 @@
         },
         "rotationDeg": {
           "default": 0.0,
-          "description": "Rotation in degrees.",
           "format": "double",
           "type": "number"
         },
         "zoneType": {
-          "description": "Zone type.",
           "type": "string"
         }
       },
@@ -178,15 +152,12 @@
     }
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "description": "Legacy v2 saved-stamp payload shape (camelCase, Canopi 2.0) used to emit `spec/stamps/v2/schema.json`.",
   "properties": {
     "anchor": {
-      "$ref": "#/$defs/StampPoint",
-      "description": "Relative anchor point."
+      "$ref": "#/$defs/StampPoint"
     },
     "annotations": {
       "default": [],
-      "description": "Annotations.",
       "items": {
         "$ref": "#/$defs/StampAnnotationV2"
       },
@@ -194,27 +165,23 @@
     },
     "groups": {
       "default": [],
-      "description": "Object groups.",
       "items": true,
       "type": "array"
     },
     "plants": {
       "default": [],
-      "description": "Placed plants.",
       "items": {
         "$ref": "#/$defs/StampPlantV2"
       },
       "type": "array"
     },
     "version": {
-      "description": "Payload version (`2`).",
       "format": "uint32",
       "minimum": 0,
       "type": "integer"
     },
     "zones": {
       "default": [],
-      "description": "Zones.",
       "items": {
         "$ref": "#/$defs/StampZoneV2"
       },
