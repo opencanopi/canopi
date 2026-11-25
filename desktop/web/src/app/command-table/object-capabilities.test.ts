@@ -1,6 +1,6 @@
 // app/command-table/object-capabilities.test.ts
 // Five matrix test families (contracts §21; 2.1-Q147, 2.1-M86, 2.1-M163, 2.1-M164, 2.1-Q365).
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { selectionCommandAvailability } from '../../canvas/runtime/interaction/contextual-selection-actions'
@@ -137,14 +137,28 @@ describe('object-action capability matrix (contracts §21, 2.1-Q147)', () => {
     }
   })
 
-  it('Reasons: every gap cell cites an open bead in .beads/issues.jsonl and every decision cell cites a real ledger row or ADR', () => {
+  it('Reasons: every gap cell cites an open bead in .beads/issues.jsonl and every decision cell cites an active ledger row or real ADR file', () => {
     const openBeads = new Set<string>()
     for (const line of readFileSync(resolve(REPO_ROOT, '.beads/issues.jsonl'), 'utf8').split('\n')) {
       if (!line.trim()) continue
       const parsed = JSON.parse(line) as { id: string; status: string }
-      if (parsed.status === 'open') openBeads.add(parsed.id)
+      if (parsed.status !== 'closed' && parsed.status !== 'tombstone') openBeads.add(parsed.id)
     }
-    const ledger = readFileSync(resolve(REPO_ROOT, 'docs/decisions/2-1.md'), 'utf8')
+
+    const activeLedgerRows = new Set<string>()
+    for (const line of readFileSync(resolve(REPO_ROOT, 'docs/decisions/2-1.md'), 'utf8').split('\n')) {
+      if (!line.startsWith('| 2.1-')) continue
+      const cols = line.split('|').map((c) => c.trim())
+      const id = cols[1]
+      const supersedesCol = cols[5] ?? ''
+      if (id && !/\bsuperseded by\b/i.test(supersedesCol)) activeLedgerRows.add(id)
+    }
+
+    const adrIds = new Set<string>()
+    for (const file of readdirSync(resolve(REPO_ROOT, 'docs/adr'))) {
+      const m = /^(\d{4})-/.exec(file)
+      if (m) adrIds.add(`ADR ${m[1]}`)
+    }
 
     for (const kind of Object.keys(CAPABILITY_MATRIX) as ObjectKind[]) {
       for (const { id: cap } of CAPABILITIES) {
@@ -152,14 +166,32 @@ describe('object-action capability matrix (contracts §21, 2.1-Q147)', () => {
         if ('gap' in cell) {
           expect(openBeads.has(cell.gap), `${kind}.${cap} gap '${cell.gap}' is not an open bead`).toBe(true)
         } else if ('decision' in cell) {
-          const valid = cell.decision.startsWith('ADR ') || ledger.includes(cell.decision)
-          expect(valid, `${kind}.${cap} decision '${cell.decision}' not found in ledger or ADRs`).toBe(true)
+          const valid = adrIds.has(cell.decision) || activeLedgerRows.has(cell.decision)
+          expect(valid, `${kind}.${cap} decision '${cell.decision}' is missing or superseded`).toBe(true)
         }
       }
     }
   })
 
-  it('Behaviour: commandApplicability delegates to selectionCommandAvailability as the single runtime predicate', () => {
+  it('Ratchet: every gap cell in CAPABILITY_MATRIX matches policy/ratchets/object-capability-gaps.json 1:1', () => {
+    const ratchet = JSON.parse(
+      readFileSync(resolve(REPO_ROOT, 'policy/ratchets/object-capability-gaps.json'), 'utf8'),
+    ) as { entries: Record<string, { count: number; bead: string }> }
+
+    const matrixGaps = new Map<string, string>()
+    for (const kind of Object.keys(CAPABILITY_MATRIX) as ObjectKind[]) {
+      for (const { id: cap } of CAPABILITIES) {
+        const cell = CAPABILITY_MATRIX[kind][cap]
+        if ('gap' in cell) matrixGaps.set(`${kind}:${cap}`, cell.gap)
+      }
+    }
+    expect(Object.keys(ratchet.entries).sort()).toEqual([...matrixGaps.keys()].sort())
+    for (const [key, bead] of matrixGaps) {
+      expect(ratchet.entries[key]?.bead, `ratchet bead mismatch for ${key}`).toBe(bead)
+    }
+  })
+
+  it('Behaviour: every yes cell names at least one command or tool and commandApplicability delegates to selectionCommandAvailability', () => {
     const desktopCaps = [...capabilitiesForEdition('desktop', 'linux')]
     const webCaps = [...capabilitiesForEdition('web', 'linux')]
     const baseCtx: CommandContext = {
@@ -176,6 +208,23 @@ describe('object-action capability matrix (contracts §21, 2.1-Q147)', () => {
       canUndo: true,
       canRedo: false,
     }
+
+    // Walk every 'yes' cell in the 28x57 matrix and verify its `via` rows evaluate cleanly on Desktop.
+    let yesCount = 0
+    for (const kind of Object.keys(CAPABILITY_MATRIX) as ObjectKind[]) {
+      const kindRow = OBJECT_KIND_ROWS[kind]
+      for (const { id: cap } of CAPABILITIES) {
+        const cell = CAPABILITY_MATRIX[kind][cap]
+        if (cell.state !== 'yes') continue
+        yesCount += 1
+        expect(cell.via.length, `${kind}.${cap} 'yes' cell has empty via`).toBeGreaterThan(0)
+        for (const cmdId of cell.via) {
+          const reqs = [...(kindRow.requires ?? []), ...(COMMAND_REQUIRES[cmdId] ?? [])]
+          expect(commandApplicability({ id: cmdId, requires: reqs }, baseCtx)).toBe('enabled')
+        }
+      }
+    }
+    expect(yesCount).toBeGreaterThan(200)
 
     const saveAsStampRow = {
       id: 'canvas.saveSelectionAsStamp',

@@ -93,10 +93,10 @@ describe('Panel rail', () => {
       'Stories',
     ])
     expect(container.querySelectorAll('[role="separator"]')).toHaveLength(1)
-    expect(panelButton('Layers').getAttribute('aria-keyshortcuts')).toBe('Control+1 Meta+1')
-    expect(panelButton('Site data').getAttribute('aria-keyshortcuts')).toBe('Control+2 Meta+2')
-    expect(panelButton('Plants in this Design').getAttribute('aria-keyshortcuts')).toBe('Control+3 Meta+3')
-    expect(hoveredTooltip(panelButton('Design notebook')!)?.textContent).toContain('Ctrl 9')
+    expect(panelButton('Layers').getAttribute('aria-keyshortcuts')).toBe('Alt+Shift+1')
+    expect(panelButton('Site data').getAttribute('aria-keyshortcuts')).toBe('Alt+Shift+2')
+    expect(panelButton('Plants in this Design').getAttribute('aria-keyshortcuts')).toBe('Alt+Shift+3')
+    expect(hoveredTooltip(panelButton('Design notebook')!)?.textContent).toContain('Alt Shift 9')
     expect(panelButton('Stories').hasAttribute('aria-keyshortcuts')).toBe(false)
   })
 
@@ -293,7 +293,7 @@ describe('Panel rail', () => {
         expect.stringContaining('Design notebook'),
         expect.stringContaining('Stories'),
       ])
-      expect(items[4]!.getAttribute('aria-keyshortcuts')).toBe('Control+9 Meta+9')
+      expect(items[4]!.getAttribute('aria-keyshortcuts')).toBe('Alt+Shift+9')
 
       await act(async () => {
         items[2]!.dispatchEvent(new MouseEvent('click', { bubbles: true }))

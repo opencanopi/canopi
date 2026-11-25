@@ -160,6 +160,9 @@ describe('Web Edition Browser App Shell', () => {
       'file.new', 'file.openCanopi', 'file.rename', 'file.downloadCanopi',
       'file.revert', 'file.importGeoJson', 'file.dataLibrary', 'app.settings', 'file.close',
     ])
+    const dataLibBtn = container.querySelector('button[data-command-id="file.dataLibrary"]')
+    expect(dataLibBtn?.getAttribute('aria-disabled')).toBe('true')
+    expect(dataLibBtn?.querySelector('[data-testid="menu-item-note"]')?.textContent).toBe('Needs Canopi Desktop')
     expect(container.textContent).toContain('Open a .canopi file…')
     expect(container.textContent).toContain('Download a copy')
     expect(container.textContent).not.toContain('Quit')

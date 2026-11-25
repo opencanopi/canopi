@@ -1,8 +1,7 @@
-// Phase 2 commit 0: 2.1-Q358, written before 2a-2 builds it (it.fails until then). Web's menus follow M163: a command
-// Web lacks (the Data library, Desktop only) stays in the menu bar and the palette greyed, with its note (the row's
-// Instead text), instead of vanishing. 2a-2 turns it.fails into it (2c-1 owns the right-click side, which leaves a
-// lacking command out). The projected command has no note field yet: `note` is this test's name for it, which 2a-2
-// may rename with the test.
+// 2.1-Q358 (applied M163, contracts §21): Web's menus follow M163 — a command
+// Web lacks (the Data library, Desktop only) stays in the menu bar and the
+// palette greyed, with its localised Instead note, instead of vanishing.
+// 2c-1 owns the right-click context menu side, which leaves lacking commands out.
 
 import { describe, expect, it, vi } from 'vitest'
 import { t } from '../../i18n'

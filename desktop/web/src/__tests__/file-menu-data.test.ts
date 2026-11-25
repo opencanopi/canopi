@@ -70,7 +70,7 @@ describe('File menu (Desktop)', () => {
       expect(command(id).isExecutionDisabled({ ...withDesign, hasDesign: false }), id).toBe(true)
       command(id).execute()
     }
-    expect(command('file.close').shortcut).toBe('Ctrl+W')
+    expect(command('file.close').shortcut).toBe('Alt+Shift+W')
     expect(fileActions.closeDesign).toHaveBeenCalledOnce()
     expect(fileActions.exportCurrentBudgetCsv).toHaveBeenCalledOnce()
   })

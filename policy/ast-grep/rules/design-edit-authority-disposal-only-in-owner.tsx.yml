@@ -18,4 +18,4 @@ rule:
     - kind: type_identifier
     - kind: shorthand_property_identifier
     - kind: shorthand_property_identifier_pattern
-  regex: ^(disposeDesignEditAuthority)$
+  regex: ^(disposeDefaultDesignEditAuthority)$

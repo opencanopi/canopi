@@ -360,6 +360,11 @@ describe("settings platform bootstrap", () => {
       ring.resetFrontendDiagnosticsForTests();
       platform.bootstrapPlatform();
       platform.bootstrapPlatform();
+      await vi.waitFor(async () => {
+        const { DESIGN_SESSION_WORKFLOWS } = await import("../app/document-session/workflows");
+        const { consortiumSyncWorkflow } = await import("../app/consortium/workflow");
+        expect(DESIGN_SESSION_WORKFLOWS).toContain(consortiumSyncWorkflow);
+      });
       window.dispatchEvent(new ErrorEvent("error", { error: new Error("first fault"), message: "first fault" }));
       expect(ring.ringEntries().filter((entry) => entry.source === "window.error")).toHaveLength(1);
 

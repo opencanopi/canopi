@@ -45,17 +45,37 @@ export interface PanelDescriptor {
   readonly requires?: readonly EditionCapabilityId[]
 }
 
+function row(
+  panel: Panel,
+  commandId: PanelDescriptor['commandId'],
+  labelKey: LocaleKey,
+  group: PanelGroup,
+  order: number,
+  digit?: number,
+  requires?: readonly EditionCapabilityId[],
+): PanelDescriptor {
+  return {
+    panel,
+    commandId,
+    labelKey,
+    group,
+    order,
+    ...(digit !== undefined ? { shortcuts: [`Alt+Shift+${digit}`, `Ctrl+${digit}`] } : {}),
+    ...(requires ? { requires } : {}),
+  }
+}
+
 export const PANEL_DESCRIPTORS: readonly PanelDescriptor[] = [
-  { panel: 'canvas', commandId: 'nav.canvas', labelKey: 'panelRail.canvas', group: 'primary', order: 0 },
-  { panel: 'templates', commandId: 'nav.templates', labelKey: 'worldMap.title', group: 'primary', order: 1 },
-  { panel: 'layers', commandId: 'nav.layers', labelKey: 'panelRail.layers', group: 'design', order: 0, shortcuts: ['Ctrl+1', 'Alt+Shift+1'] },
-  { panel: 'site-data', commandId: 'nav.siteData', labelKey: 'canvas.layers.siteData', group: 'design', order: 1, shortcuts: ['Ctrl+2', 'Alt+Shift+2'], requires: ['site-data-below-limit'] },
-  { panel: 'species-key', commandId: 'nav.speciesKey', labelKey: 'panelRail.plants', group: 'design', order: 2, shortcuts: ['Ctrl+3', 'Alt+Shift+3'] },
-  { panel: 'plant-db', commandId: 'nav.plantDb', labelKey: 'panelRail.catalog', group: 'design', order: 3, shortcuts: ['Ctrl+4', 'Alt+Shift+4'] },
-  { panel: 'favorites', commandId: 'nav.favorites', labelKey: 'panelRail.favorites', group: 'design', order: 4, shortcuts: ['Ctrl+5', 'Alt+Shift+5'] },
-  { panel: 'calendar', commandId: 'nav.calendar', labelKey: 'panelRail.calendar', group: 'planning', order: 0, shortcuts: ['Ctrl+6', 'Alt+Shift+6'] },
-  { panel: 'budget', commandId: 'nav.budget', labelKey: 'panelRail.budget', group: 'planning', order: 1, shortcuts: ['Ctrl+7', 'Alt+Shift+7'] },
-  { panel: 'consortium', commandId: 'nav.consortium', labelKey: 'panelRail.consortium', group: 'planning', order: 2, shortcuts: ['Ctrl+8', 'Alt+Shift+8'] },
-  { panel: 'design-notebook', commandId: 'nav.designNotebook', labelKey: 'panelRail.notebook', group: 'planning', order: 3, shortcuts: ['Ctrl+9', 'Alt+Shift+9'], requires: ['design-notebook'] },
-  { panel: 'stories', commandId: 'nav.stories', labelKey: 'panelRail.stories', group: 'planning', order: 4 },
+  row('canvas', 'nav.canvas', 'panelRail.canvas', 'primary', 0),
+  row('templates', 'nav.templates', 'worldMap.title', 'primary', 1),
+  row('layers', 'nav.layers', 'panelRail.layers', 'design', 0, 1),
+  row('site-data', 'nav.siteData', 'canvas.layers.siteData', 'design', 1, 2, ['site-data-below-limit']),
+  row('species-key', 'nav.speciesKey', 'panelRail.plants', 'design', 2, 3),
+  row('plant-db', 'nav.plantDb', 'panelRail.catalog', 'design', 3, 4),
+  row('favorites', 'nav.favorites', 'panelRail.favorites', 'design', 4, 5),
+  row('calendar', 'nav.calendar', 'panelRail.calendar', 'planning', 0, 6),
+  row('budget', 'nav.budget', 'panelRail.budget', 'planning', 1, 7),
+  row('consortium', 'nav.consortium', 'panelRail.consortium', 'planning', 2, 8),
+  row('design-notebook', 'nav.designNotebook', 'panelRail.notebook', 'planning', 3, 9, ['design-notebook']),
+  row('stories', 'nav.stories', 'panelRail.stories', 'planning', 4),
 ]

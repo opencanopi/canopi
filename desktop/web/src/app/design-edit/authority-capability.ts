@@ -12,6 +12,7 @@ export interface DesignEditAuthorityCapability {
   renameDesign(name: string): boolean
 }
 
+const NO_AUTHORITY = 'Design Session store has no Design Edit authority'
 const authorities = new WeakMap<object, DesignEditAuthorityCapability>()
 const authorityDisposers = new WeakMap<object, () => void>()
 const defaultOwnerHolder: { current: object | null } = { current: null }
@@ -32,15 +33,13 @@ export function registerDesignEditAuthorityCapability(
 
 function getAuthority(owner: object): DesignEditAuthorityCapability {
   const authority = authorities.get(owner)
-  if (!authority) {
-    throw new Error('Design Session store has no Design Edit authority')
-  }
+  if (!authority) throw new Error(NO_AUTHORITY)
   return authority
 }
 
 function disposeAuthority(owner: object): void {
   const dispose = authorityDisposers.get(owner)
-  if (!dispose) throw new Error('Design Session store has no Design Edit authority')
+  if (!dispose) throw new Error(NO_AUTHORITY)
   dispose()
 }
 
@@ -52,9 +51,7 @@ export function designEditAuthorityCapabilityForTests(
 }
 
 export function defaultDesignEditAuthority(): DesignEditAuthorityCapability {
-  if (!defaultOwnerHolder.current) {
-    throw new Error('Design Session store has no Design Edit authority')
-  }
+  if (!defaultOwnerHolder.current) throw new Error(NO_AUTHORITY)
   return getAuthority(defaultOwnerHolder.current)
 }
 

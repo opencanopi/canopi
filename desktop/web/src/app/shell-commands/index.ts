@@ -86,8 +86,8 @@ interface ShellCommandCapability {
   isChecked?(): boolean
   /** Edition capabilities missing for this command (2.1-M163, 2.1-Q358). */
   readonly lacking?: readonly EditionCapabilityId[]
-  /** User-facing Instead note shown on greyed lacking commands in menus and the palette. */
-  readonly note?: string
+  /** Localised Instead note key shown on greyed lacking commands in menus and the palette. */
+  readonly noteKey?: LocaleKey
 }
 
 export type ShellCommandCapabilities = Partial<
@@ -114,8 +114,8 @@ export interface ShellCommandCatalogEntry<
   readonly requires?: readonly EditionCapabilityId[]
   /** Capabilities lacked by the active edition, if any (2.1-Q358). */
   readonly lacking?: readonly EditionCapabilityId[]
-  /** User-facing note shown when the command is greyed for a lacking capability. */
-  readonly note?: string
+  /** Localised note key shown when the command is greyed for a lacking capability. */
+  readonly noteKey?: LocaleKey
   readonly palette: boolean
   readonly check?: 'checkbox' | 'radio'
   readonly menu?: ShellCommandMenuPlacement
@@ -196,50 +196,40 @@ type ShellCommandDescriptor = {
 }[ShellCommandCapabilityId]
 
 const file = (section: number, submenu?: ShellSubmenuId): ShellCommandMenuPlacement => ({ id: 'file', section, submenu })
-const PANEL_DESCRIPTOR_BY_PANEL = new Map<Panel, PanelDescriptor>(
-  PANEL_DESCRIPTORS.map((desc) => [desc.panel, desc]),
-)
-
-function panelRow<Capability extends ShellCommandCapabilityId>(
-  capabilityId: Capability,
-  id: ShellCommandIdForCapability<Capability>,
-  panelId: Panel,
-): ShellCommandDescriptor {
-  const desc = PANEL_DESCRIPTOR_BY_PANEL.get(panelId)
-  if (!desc) throw new Error(`Missing PanelDescriptor for '${panelId}'`)
-  return {
-    capabilityId,
-    id,
-    labelKey: desc.labelKey,
-    ...(desc.shortcuts?.[0] ? { shortcut: desc.shortcuts[0], shortcuts: desc.shortcuts } : {}),
-    ...(desc.requires ? { requires: desc.requires } : {}),
-    palette: desc.group !== 'primary',
-    panel: { panel: desc.panel, group: desc.group, order: desc.order },
-  } as ShellCommandDescriptor
+const PANEL_CAP_ID: Record<Panel, ShellCommandCapabilityId> = {
+  canvas: 'navigateCanvas',
+  templates: 'navigateTemplates',
+  layers: 'navigateLayers',
+  'site-data': 'navigateSiteData',
+  'species-key': 'navigateSpeciesKey',
+  'plant-db': 'navigatePlantDatabase',
+  favorites: 'navigateFavorites',
+  calendar: 'navigateCalendar',
+  budget: 'navigateBudget',
+  consortium: 'navigateConsortium',
+  'design-notebook': 'navigateDesignNotebook',
+  stories: 'navigateStories',
 }
 
-const PANEL_SHELL_DESCRIPTORS: readonly ShellCommandDescriptor[] = [
-  panelRow('navigateCanvas', 'nav.canvas', 'canvas'),
-  panelRow('navigateTemplates', 'nav.templates', 'templates'),
-  panelRow('navigateLayers', 'nav.layers', 'layers'),
-  panelRow('navigateSiteData', 'nav.siteData', 'site-data'),
-  panelRow('navigateSpeciesKey', 'nav.speciesKey', 'species-key'),
-  panelRow('navigatePlantDatabase', 'nav.plantDb', 'plant-db'),
-  panelRow('navigateFavorites', 'nav.favorites', 'favorites'),
-  panelRow('navigateCalendar', 'nav.calendar', 'calendar'),
-  panelRow('navigateBudget', 'nav.budget', 'budget'),
-  panelRow('navigateConsortium', 'nav.consortium', 'consortium'),
-  panelRow('navigateDesignNotebook', 'nav.designNotebook', 'design-notebook'),
-  panelRow('navigateStories', 'nav.stories', 'stories'),
-]
+const PANEL_SHELL_DESCRIPTORS: readonly ShellCommandDescriptor[] = PANEL_DESCRIPTORS.map(
+  (d: PanelDescriptor) => ({
+    capabilityId: PANEL_CAP_ID[d.panel],
+    id: d.commandId,
+    labelKey: d.labelKey,
+    ...(d.shortcuts ? { shortcut: d.shortcuts[0], shortcuts: d.shortcuts } : {}),
+    ...(d.requires ? { requires: d.requires } : {}),
+    palette: d.group !== 'primary',
+    panel: { panel: d.panel, group: d.group, order: d.order },
+  }) as ShellCommandDescriptor,
+)
 
 export const SHELL_COMMAND_DESCRIPTORS: readonly ShellCommandDescriptor[] = [
-  { capabilityId: 'newDesign', id: 'file.new', labelKey: 'menu.file.new', shortcut: 'Ctrl+N', shortcuts: ['Ctrl+N', 'Alt+Shift+N'], palette: true, menu: file(0) },
-  { capabilityId: 'openDesign', id: 'file.open', labelKey: 'menu.file.open', shortcut: 'Ctrl+O', palette: true, menu: file(0) },
+  { capabilityId: 'newDesign', id: 'file.new', labelKey: 'menu.file.new', shortcuts: ['Alt+Shift+N', 'Ctrl+N'], palette: true, menu: file(0) },
+  { capabilityId: 'openDesign', id: 'file.open', labelKey: 'menu.file.open', shortcut: 'Ctrl+O', requires: ['file-home'], palette: true, menu: file(0) },
   { capabilityId: 'openCanopi', id: 'file.openCanopi', labelKey: 'webShell.openCanopi', shortcut: 'Ctrl+O', palette: true, menu: file(0) },
   { capabilityId: 'renameDesign', id: 'file.rename', labelKey: 'menu.file.rename', shortcut: 'F2', palette: true, menu: file(1) },
-  { capabilityId: 'saveDesign', id: 'file.save', labelKey: 'menu.file.save', shortcut: 'Ctrl+S', palette: true, menu: file(1) },
-  { capabilityId: 'saveDesignAs', id: 'file.saveAs', labelKey: 'menu.file.saveAs', shortcut: 'Ctrl+Shift+S', palette: true, menu: file(1) },
+  { capabilityId: 'saveDesign', id: 'file.save', labelKey: 'menu.file.save', shortcut: 'Ctrl+S', requires: ['file-home'], palette: true, menu: file(1) },
+  { capabilityId: 'saveDesignAs', id: 'file.saveAs', labelKey: 'menu.file.saveAs', shortcut: 'Ctrl+Shift+S', requires: ['file-home'], palette: true, menu: file(1) },
   { capabilityId: 'downloadCanopi', id: 'file.downloadCanopi', labelKey: 'webShell.downloadCanopi', shortcut: 'Ctrl+S', palette: true, menu: file(1) },
   { capabilityId: 'revertDesign', id: 'file.revert', labelKey: 'menu.file.revert', palette: true, menu: file(1) },
   // File's imports, flat (U49 Q8): terrain or height data, GeoJSON, then the Data library.
@@ -251,7 +241,7 @@ export const SHELL_COMMAND_DESCRIPTORS: readonly ShellCommandDescriptor[] = [
   { capabilityId: 'exportBudgetCsv', id: 'file.exportBudgetCsv', labelKey: 'menu.file.exportBudgetCsv', palette: true, menu: file(2, 'export') },
   { capabilityId: 'openSettings', id: 'app.settings', labelKey: 'menu.file.settings', shortcut: 'Ctrl+,', palette: true, menu: file(3) },
   { capabilityId: 'findPlants', id: 'edit.findPlants', labelKey: 'menu.edit.findPlants', shortcut: 'Ctrl+F', palette: true, menu: { id: 'edit', section: 0 } },
-  { capabilityId: 'closeDesign', id: 'file.close', labelKey: 'menu.file.close', shortcut: 'Ctrl+W', shortcuts: ['Ctrl+W', 'Alt+Shift+W'], palette: true, menu: file(4) },
+  { capabilityId: 'closeDesign', id: 'file.close', labelKey: 'menu.file.close', shortcuts: ['Alt+Shift+W', 'Ctrl+W'], palette: true, menu: file(4) },
   { capabilityId: 'exitApp', id: 'file.exit', labelKey: 'menu.file.exit', shortcut: 'Ctrl+Q', requires: ['quit-app'], palette: false, menu: file(4) },
   ...PANEL_SHELL_DESCRIPTORS,
   // Desktop's palette arms Profile; it has no shortcut and no menu or rail place (spec §1.10).
@@ -264,7 +254,7 @@ export const SHELL_COMMAND_DESCRIPTORS: readonly ShellCommandDescriptor[] = [
   { capabilityId: 'showNoBackground', id: 'view.backgroundNone', labelKey: 'menu.view.backgroundNone', palette: true, check: 'radio', menu: { id: 'view', section: 1, submenu: 'background' } },
   { capabilityId: 'toggleTheme', id: 'view.toggleTheme', labelKey: 'menu.view.darkTheme', palette: true, check: 'checkbox', menu: { id: 'view', section: 1 } },
   // Not listed in the palette it opens; its shortcut is discoverable in Help and the F1 list (2.1-Q132, Q343).
-  { capabilityId: 'showCommandPalette', id: 'help.commandPalette', labelKey: 'menu.help.commandPalette', shortcut: 'Ctrl+Shift+P', shortcuts: ['Ctrl+Shift+P', 'Alt+Shift+P'], palette: false, menu: { id: 'help', section: 0 } },
+  { capabilityId: 'showCommandPalette', id: 'help.commandPalette', labelKey: 'menu.help.commandPalette', shortcuts: ['Alt+Shift+P', 'Ctrl+Shift+P'], palette: false, menu: { id: 'help', section: 0 } },
   { capabilityId: 'showShortcuts', id: 'help.shortcuts', labelKey: 'menu.help.shortcuts', shortcut: 'F1', palette: true, menu: { id: 'help', section: 0 } },
   { capabilityId: 'gettingStarted', id: 'help.gettingStarted', labelKey: 'menu.help.gettingStarted', palette: true, menu: { id: 'help', section: 0 } },
   { capabilityId: 'reportProblem', id: 'help.reportProblem', labelKey: 'menu.help.reportProblem', palette: true, menu: { id: 'help', section: 1 } },
@@ -289,11 +279,14 @@ export function composeShellCommandCatalog<
     const capability = capabilities[descriptor.capabilityId]
     if (!capability) return []
     const lacking = capability.lacking
-    const note = capability.note
+    const noteKey = capability.noteKey
     return [{
       ...descriptor,
+      ...(descriptor.shortcut === undefined && descriptor.shortcuts?.[0]
+        ? { shortcut: descriptor.shortcuts[0] }
+        : {}),
       ...(lacking && lacking.length > 0 ? { lacking } : {}),
-      ...(note ? { note } : {}),
+      ...(noteKey ? { noteKey } : {}),
       execute: () => capability.execute(),
       isExecutionDisabled: (state: ShellCommandState) =>
         (lacking && lacking.length > 0) || (capability.isExecutionDisabled?.(state) ?? false),
@@ -328,7 +321,7 @@ export function projectShellCommandCatalog<Id extends ShellCommandId>(
       shortcut: shortcut ? formatShortcut(shortcut, translate) : undefined,
       ariaShortcut: shortcut ? ariaKeyShortcuts(shortcut) : undefined,
       disabled,
-      ...(command.note ? { note: command.note } : {}),
+      ...(command.noteKey ? { note: translate(command.noteKey) } : {}),
       active: command.panel ? isPanelCommandActive(command.panel, state) : undefined,
       checked: command.isChecked(),
       check: command.check,

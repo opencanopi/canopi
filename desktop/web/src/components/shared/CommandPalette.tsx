@@ -116,6 +116,9 @@ function CommandPaletteDialog() {
                 aria-disabled={cmd.disabled()}
               >
                 <span>{cmd.label()}</span>
+                {cmd.note && (
+                  <span className={styles.note} data-testid="palette-item-note">{cmd.note}</span>
+                )}
                 {cmd.shortcut && (
                   <span className={styles.shortcut}>{cmd.shortcut}</span>
                 )}

@@ -2554,6 +2554,16 @@
       "note": "contracts §22 (F3): every *.desktop.ts or *.browser.ts sits in platform/ beside a port with the same stem"
     },
     {
+      "id": "object-capability-gaps",
+      "tool": "object-capability-gaps",
+      "ledger": "2.1-M86",
+      "adr": "0022",
+      "family": "object-capability-gaps",
+      "owner_today": "desktop/web/src/app/command-table/object-capabilities.ts",
+      "example": "desktop/web/src/app/command-table/object-capabilities.ts",
+      "note": "contracts §21:877: named per-entry gap ratchet over the 28x57 object-capability matrix"
+    },
+    {
       "id": "no-path-string-command-arg",
       "tool": "ast-grep",
       "family": "no-path-string-command-arg",

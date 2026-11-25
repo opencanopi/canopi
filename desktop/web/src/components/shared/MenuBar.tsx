@@ -257,6 +257,7 @@ export function MenuBar({ menus: fullMenus, label, compactLabel, onMenuOpen }: M
         )}
         {entry.thumbnail && <MenuThumbnail thumbnail={entry.thumbnail} />}
         <span className={styles.itemLabel}>{entry.label}</span>
+        {entry.note && <span className={styles.itemNote} data-testid="menu-item-note">{entry.note}</span>}
         {entry.shortcut && <span className={styles.itemShortcut} aria-hidden="true">{entry.shortcut}</span>}
       </button>
     )

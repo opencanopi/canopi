@@ -795,6 +795,7 @@ export type LocaleKey =
   | "drafts.intro"
   | "drafts.neverSaved"
   | "drafts.title"
+  | "editionCapability.needsDesktop"
   | "failure.addressRefused"
   | "failure.busy"
   | "failure.connection"

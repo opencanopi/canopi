@@ -36,6 +36,7 @@ interface Command {
   id: AppCommandId
   label: () => string
   shortcut?: string
+  note?: string
   disabled: () => boolean
   action: () => void
 }

@@ -5,5 +5,5 @@ valid:
     export const planted = 1
 invalid:
   - |
-    declare const disposeDesignEditAuthority: unknown
-    export const planted = disposeDesignEditAuthority
+    declare const disposeDefaultDesignEditAuthority: unknown
+    export const planted = disposeDefaultDesignEditAuthority

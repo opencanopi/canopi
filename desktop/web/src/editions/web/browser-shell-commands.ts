@@ -1,6 +1,6 @@
 import { canvasPdf, canExportCanvasPdf } from '../../app/canvas-pdf/live'
 import { closeCommandPalette, commandPaletteOpen, openCommandPalette } from '../../app/shell/dialogs'
-import { BROWSER_RESERVED_CHORDS, insteadNoteFor } from '../../app/command-table'
+import { BROWSER_RESERVED_CHORDS, insteadNoteKeyFor } from '../../app/command-table'
 import { navigateTo, type Panel, type SidePanel } from '../../app/shell/state'
 import { designSessionStore } from '../../app/document-session/store'
 import {
@@ -167,11 +167,11 @@ export function createBrowserShellCatalog(
     isExecutionDisabled: needsDesign,
   })
   const lackingCommand = (capability: 'site-data-below-limit' | 'design-notebook') => {
-    const note = insteadNoteFor([capability])
+    const noteKey = insteadNoteKeyFor([capability])
     return {
       execute: () => {},
       lacking: [capability] as const,
-      ...(note ? { note } : {}),
+      ...(noteKey ? { noteKey } : {}),
     }
   }
   return composeShellCommandCatalog({

@@ -1,12 +1,10 @@
 // app/command-table/commands.ts  (L2 rank 2, pure)
 //
-// Shell command ids and user-facing `Instead` note lookup for lacking edition
-// capabilities (contracts §21, 2.1-M163, 2.1-Q358).
+// Shell command ids and localised `Instead` note key lookup for lacking
+// edition capabilities (contracts §21, 2.1-M163, 2.1-Q358).
 
-import {
-  EDITION_CAPABILITIES,
-  type EditionCapabilityId,
-} from '../../generated/edition-capabilities'
+import type { EditionCapabilityId } from '../../generated/edition-capabilities'
+import type { LocaleKey } from '../../generated/locale-keys'
 
 export type ShellCommandId =
   | 'file.new'
@@ -53,11 +51,7 @@ export type ShellCommandId =
   | 'help.reportProblem'
   | 'help.aboutCanopi'
 
-/** User-facing Instead note for a lacking capability set (2.1-M163, 2.1-Q358). */
-export function insteadNoteFor(lacking: readonly EditionCapabilityId[]): string | undefined {
-  for (const id of lacking) {
-    const instead = EDITION_CAPABILITIES.find((row) => row.id === id)?.instead
-    if (instead && instead !== 'none' && instead !== 'none needed') return instead
-  }
-  return lacking.length > 0 ? 'Needs Canopi Desktop' : undefined
+/** Localised Instead note key for a lacking capability set (2.1-M163, 2.1-Q358). */
+export function insteadNoteKeyFor(lacking: readonly EditionCapabilityId[]): LocaleKey | undefined {
+  return lacking.length > 0 ? 'editionCapability.needsDesktop' : undefined
 }
