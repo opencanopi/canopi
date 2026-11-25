@@ -1,0 +1,27 @@
+{
+  "addition": "print_setup",
+  "ignored_by_reader_release": true,
+  "ledger": [
+    "2.1-Q36",
+    "2.1-M90",
+    "2.1-M94",
+    "2.1-M161",
+    "2.1-Q356"
+  ],
+  "optional": true,
+  "schema": {
+    "properties": {
+      "pages": {
+        "type": "array"
+      },
+      "splits": {
+        "type": "array"
+      }
+    },
+    "type": [
+      "object",
+      "null"
+    ]
+  },
+  "target": "$.print_setup"
+}

@@ -1,13 +1,18 @@
-//! The `.canopi` format crate (ADR 0026; contracts §18 R7, F28): the one place a
-//! `.canopi` file is decoded, read natively by the Desktop host and on Web
-//! through `canopi-format-wasm` in the format worker (2.1-M476).
-//!
-//! Step 2.0.4 builds its read half: the schema walker ([`schema`]), which the
-//! Desktop v9 decode in `desktop/src/design/format.rs` calls until 2b moves that
-//! decode here, and the read admission of a version 10 or later file ([`read`])
-//! by the v10 read shape ([`v10`]) into the read-only view.
+//! The `.canopi` format crate (ADR 0026; contracts §10, §11, §18 R7, F28):
+//! the one place a `.canopi` file or saved-stamp payload is decoded, migrated,
+//! admitted and canonically encoded — natively on Desktop and via
+//! `canopi-format-wasm` on Web (2.1-M476, 2.1-M539).
 #![deny(missing_docs)]
 
+pub mod chain;
+pub mod core;
+mod core_validate;
 pub mod read;
 pub mod schema;
+pub mod spec_emit;
+mod stamp_canopi;
+pub mod stamps;
 pub mod v10;
+
+#[cfg(test)]
+mod core_tests;

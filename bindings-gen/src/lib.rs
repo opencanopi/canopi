@@ -49,6 +49,15 @@ const SPECIES_SEARCH_NORMALIZATION_TS: &str =
     "desktop/web/src/generated/species-search-normalization.ts";
 const WEB_CATALOG_MODULE: &str = "desktop/web/src/generated/web-catalog-artifact.mjs";
 const WEB_CATALOG_DECLARATION: &str = "desktop/web/src/generated/web-catalog-artifact.d.mts";
+const V10_SPEC_SCHEMA_JSON: &str = "canopi-format/spec/v10/schema.json";
+const V10_SPEC_FIELDS_JSON: &str = "canopi-format/spec/v10/fields.json";
+const V10_SPEC_DEFAULTS_JSON: &str = "canopi-format/spec/v10/defaults.json";
+const V10_SPEC_FIXTURE_CANOPI: &str = "canopi-format/spec/v10/fixture.canopi";
+const V10_SPEC_EXPECTED_JSON: &str = "canopi-format/spec/v10/expected.json";
+const V10_SPEC_ADDITION_PRINT_SETUP: &str = "canopi-format/spec/v10/additions/print_setup.json";
+const V10_SPEC_ADDITION_ZONE_STYLE: &str = "canopi-format/spec/v10/additions/zone_style.json";
+const V10_SPEC_ADDITION_TIMELINE_OFFSET: &str =
+    "canopi-format/spec/v10/additions/timeline_offset.json";
 
 struct EmittedArtifact {
     relative_path: &'static str,
@@ -93,7 +102,35 @@ const EMITTERS: &[EmitterFn] = &[
     emit_locale_keys,
     emit_locale_registry,
     emit_quantity_table,
+    emit_v10_spec,
 ];
+
+fn emit_v10_spec(_source_root: &Path) -> Result<Vec<EmittedArtifact>, Box<dyn Error>> {
+    let paths: &[(&str, &'static str)] = &[
+        ("schema.json", V10_SPEC_SCHEMA_JSON),
+        ("fields.json", V10_SPEC_FIELDS_JSON),
+        ("defaults.json", V10_SPEC_DEFAULTS_JSON),
+        ("fixture.canopi", V10_SPEC_FIXTURE_CANOPI),
+        ("expected.json", V10_SPEC_EXPECTED_JSON),
+        ("additions/print_setup.json", V10_SPEC_ADDITION_PRINT_SETUP),
+        ("additions/zone_style.json", V10_SPEC_ADDITION_ZONE_STYLE),
+        (
+            "additions/timeline_offset.json",
+            V10_SPEC_ADDITION_TIMELINE_OFFSET,
+        ),
+    ];
+    let emitted = canopi_format::spec_emit::emit_v10_spec_files();
+    let mut out = Vec::with_capacity(emitted.len());
+    for file in emitted {
+        let dest = paths
+            .iter()
+            .find(|(rel, _)| *rel == file.relative_path)
+            .map(|(_, dst)| *dst)
+            .ok_or_else(|| format!("unmapped v10 spec file: {}", file.relative_path))?;
+        out.push(EmittedArtifact::text(dest, file.content));
+    }
+    Ok(out)
+}
 
 fn emit_contracts(_source_root: &Path) -> Result<Vec<EmittedArtifact>, Box<dyn Error>> {
     Ok(vec![

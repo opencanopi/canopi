@@ -433,28 +433,48 @@ pub fn is_current_version(store: StoreId, found: i32) -> bool {
     admit_version(floor, Some(version)) == Admission::Current
 }
 
-/// Classifies an optional stored version against `floor`.
-pub fn admit_version(floor: StoreFloor, version: Option<u32>) -> Admission {
+/// Classifies an optional stored version against raw form bounds `(min_readable, current,
+/// max_readable)` without requiring a [`StoreId`] (reconciles contracts §10 `.canopi` and
+/// `SavedStampPayload` admission with [`Admission`]; 2.1-M485, 2.1-Q347).
+#[must_use]
+pub const fn admit_form_version(
+    min_readable: u32,
+    current: u32,
+    max_readable: Option<u32>,
+    version: Option<u32>,
+) -> Admission {
     let Some(version) = version else {
         return Admission::Absent;
     };
-    if version < floor.min_readable {
+    if version < min_readable {
         Admission::BeforeFloor {
             version,
-            min_readable: floor.min_readable,
+            min_readable,
         }
-    } else if version < floor.current {
+    } else if version < current {
         Admission::Migratable { from: version }
-    } else if version == floor.current {
+    } else if version == current {
         Admission::Current
-    } else if floor.max_readable.is_none_or(|max| version <= max) {
-        Admission::NewerReadable { version }
     } else {
-        Admission::RefusedNewer {
-            version,
-            max_supported: floor.max_readable.unwrap_or(floor.current),
+        match max_readable {
+            None => Admission::NewerReadable { version },
+            Some(max) if version <= max => Admission::NewerReadable { version },
+            Some(max) => Admission::RefusedNewer {
+                version,
+                max_supported: max,
+            },
         }
     }
+}
+
+/// Classifies an optional stored version against `floor`.
+pub fn admit_version(floor: StoreFloor, version: Option<u32>) -> Admission {
+    admit_form_version(
+        floor.min_readable,
+        floor.current,
+        floor.max_readable,
+        version,
+    )
 }
 
 #[cfg(test)]

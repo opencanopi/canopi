@@ -261,3 +261,55 @@ fn chain_reports_step_errors_and_invalid_step_tables() {
     };
     assert!(!BAD_CHAIN.is_valid());
 }
+
+#[test]
+fn admit_form_version_handles_storeless_canopi_and_stamp_forms() {
+    // `.canopi` v10 (2.1-Q347): max_readable = Some(10) refuses v11+ as RefusedNewer.
+    assert_eq!(admit_form_version(9, 10, Some(10), None), Admission::Absent);
+    assert_eq!(
+        admit_form_version(9, 10, Some(10), Some(8)),
+        Admission::BeforeFloor {
+            version: 8,
+            min_readable: 9,
+        }
+    );
+    assert_eq!(
+        admit_form_version(9, 10, Some(10), Some(9)),
+        Admission::Migratable { from: 9 }
+    );
+    assert_eq!(
+        admit_form_version(9, 10, Some(10), Some(10)),
+        Admission::Current
+    );
+    assert_eq!(
+        admit_form_version(9, 10, Some(10), Some(11)),
+        Admission::RefusedNewer {
+            version: 11,
+            max_supported: 10,
+        }
+    );
+
+    // SavedStampPayload v3: floor 2, current 3, max_readable = Some(3).
+    assert_eq!(
+        admit_form_version(2, 3, Some(3), Some(1)),
+        Admission::BeforeFloor {
+            version: 1,
+            min_readable: 2,
+        }
+    );
+    assert_eq!(
+        admit_form_version(2, 3, Some(3), Some(2)),
+        Admission::Migratable { from: 2 }
+    );
+    assert_eq!(
+        admit_form_version(2, 3, Some(3), Some(3)),
+        Admission::Current
+    );
+    assert_eq!(
+        admit_form_version(2, 3, Some(3), Some(4)),
+        Admission::RefusedNewer {
+            version: 4,
+            max_supported: 3,
+        }
+    );
+}

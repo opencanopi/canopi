@@ -57,6 +57,7 @@ ignores:
   - "canopi-types/src/views/tests.rs"
   - "canopi-redact/src/tests.rs"
   - "canopi-redact/src/table_generated.rs"
+  - "canopi-format/src/core_tests.rs"
   - "canopi-format/src/read/tests.rs"
   - "canopi-format/src/read/version_tests.rs"
   - "canopi-format/src/schema/tests.rs"

@@ -251,7 +251,7 @@ flowchart LR
   canopi_redact["canopi-redact: Redactor, RedactedText (skeleton)"]
   canopi_support["canopi-support: durable files"]
   canopi_format
-  bindings_gen["bindings-gen: TS emitter"]
+  bindings_gen["bindings-gen: emitter"]
   canopi_desktop --> canopi_types
   canopi_desktop --> canopi_redact
   canopi_desktop --> canopi_support
@@ -261,9 +261,10 @@ flowchart LR
   canopi_format_wasm --> canopi_types
   canopi_format_wasm --> canopi_format
   bindings_gen --> canopi_types
+  bindings_gen --> canopi_format
 ```
 
-- One crate holds the shell and every service; the split below replaces it from Phase 1 (1.0's rename, then 1a) to Phase 3 N2.
+- One crate holds the shell and services; the split below runs Phase 1 to 3 N2.
 
 ### Rust crates
 

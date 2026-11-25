@@ -1,0 +1,18 @@
+{
+  "addition": "timeline_offset",
+  "ignored_by_reader_release": true,
+  "ledger": [
+    "2.1-Q36",
+    "2.1-M94",
+    "2.1-Q155"
+  ],
+  "optional": true,
+  "schema": {
+    "default": null,
+    "type": [
+      "integer",
+      "null"
+    ]
+  },
+  "target": "$.timeline[*].offset_days"
+}
