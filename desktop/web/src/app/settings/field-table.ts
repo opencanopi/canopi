@@ -9,14 +9,7 @@
  * derives defaults, decoding, per-field reset, normalization, equality, patch
  * diffs, and the problem-report settings summary from this table.
  */
-import type {
-  BasemapStyle,
-  LastView,
-  PlantLabels,
-  SatelliteSource,
-  Settings,
-  Theme,
-} from '../../generated/contracts'
+import type { Settings } from '../../generated/contracts'
 import type { EditionCapabilityId as EditionCapability } from '../../generated/edition-capabilities'
 import type { UnitSystem } from '../../generated/quantity-table'
 import {
@@ -46,9 +39,9 @@ const SETTINGS_UNIT_SYSTEMS = ['metric', 'us_customary'] as const satisfies read
 
 export const DEFAULT_SAVED_STAMPS_FRAME_HEIGHT = 220
 export const MIN_FAVORITES_FRAME_HEIGHT = 120
-export const MIN_SIDE_PANEL_WIDTH = 320
-export const MIN_PLANT_SYMBOL_SCALE = 0.5
-export const MAX_PLANT_SYMBOL_SCALE = 2.0
+const MIN_SIDE_PANEL_WIDTH = 320
+const MIN_PLANT_SYMBOL_SCALE = 0.5
+const MAX_PLANT_SYMBOL_SCALE = 2.0
 
 /** Full TS settings values: the 27 v1 wire fields plus 2.1's `unit_system`, `last_open_home`, and `launch_check`. */
 export interface SettingsValues extends Settings {
@@ -58,14 +51,6 @@ export interface SettingsValues extends Settings {
 }
 
 export type SettingsFieldKey = keyof SettingsValues
-
-export const DEFAULT_SETTINGS_VALUES: Readonly<SettingsValues> = {
-  ...DEFAULT_SETTINGS,
-  used_canvas_tools: [...DEFAULT_SETTINGS.used_canvas_tools],
-  unit_system: 'metric',
-  last_open_home: null,
-  launch_check: true,
-}
 
 export type DefaultSpec<T> =
   | { readonly kind: 'static'; readonly value: T }
@@ -115,50 +100,58 @@ function f<K extends SettingsFieldKey>(
   key: K,
   slice: SettingsSliceId,
   privacy: SettingsPrivacy,
-  defaultSpec: DefaultSpec<SettingsValues[K]>,
   kind: SettingsValueKind,
+  defaultSpec?: DefaultSpec<SettingsValues[K]>,
   capability?: EditionCapability,
 ): SettingsFieldDescriptor<K> {
-  return capability ? { key, slice, capability, privacy, defaultSpec, kind } : { key, slice, privacy, defaultSpec, kind }
+  const def = defaultSpec ?? ({ kind: 'static', value: DEFAULT_SETTINGS[key as keyof Settings] } as DefaultSpec<SettingsValues[K]>)
+  return capability ? { key, slice, capability, privacy, defaultSpec: def, kind } : { key, slice, privacy, defaultSpec: def, kind }
 }
 
 const s = <T>(value: T): DefaultSpec<T> => ({ kind: 'static', value })
+const en = (values: readonly string[]): SettingsValueKind => ({ type: 'enum', values })
+const nu32 = (min: number): SettingsValueKind => ({ type: 'nullable_u32', min, round: true })
 const BOOL: SettingsValueKind = { type: 'boolean' }
 const OPACITY: SettingsValueKind = { type: 'finite_number', min: 0, max: 1, clamp: true }
-const D = DEFAULT_SETTINGS
+const R: SettingsPrivacy = 'reported'
+const O: SettingsPrivacy = 'omitted'
+const M: SettingsSliceId = 'map-and-imagery'
+const W: SettingsSliceId = 'workspace'
+const C: SettingsSliceId = 'canvas-preferences'
+const N: SettingsSliceId = 'new-designs'
 
 /** Exhaustive ordered table of every settings field (ADR 0024, 2.1-M518). */
 export const SETTINGS_FIELDS = [
-  f('locale', 'locale', 'reported', { kind: 'first_language' }, { type: 'enum', values: SETTINGS_LOCALES }),
-  f('theme', 'theme', 'reported', s(D.theme as Theme), { type: 'enum', values: SETTINGS_THEMES }),
-  f('unit_system', 'units', 'reported', { kind: 'from_region' }, { type: 'enum', values: SETTINGS_UNIT_SYSTEMS }),
-  f('snap_to_grid', 'canvas-preferences', 'reported', s(D.snap_to_grid), BOOL),
-  f('side_panel_width', 'workspace', 'omitted', s(D.side_panel_width), { type: 'nullable_u32', min: MIN_SIDE_PANEL_WIDTH, round: true }),
-  f('saved_stamps_frame_height', 'workspace', 'omitted', s(D.saved_stamps_frame_height), { type: 'nullable_u32', min: MIN_FAVORITES_FRAME_HEIGHT, round: true }),
-  f('basemap_style', 'map-and-imagery', 'reported', s(D.basemap_style as BasemapStyle), { type: 'enum', values: SETTINGS_BASEMAP_STYLES }),
-  f('basemap_visible', 'map-and-imagery', 'reported', s(D.basemap_visible), BOOL),
-  f('basemap_opacity', 'map-and-imagery', 'omitted', s(D.basemap_opacity), OPACITY),
-  f('satellite_visible', 'map-and-imagery', 'reported', s(D.satellite_visible), BOOL),
-  f('satellite_opacity', 'map-and-imagery', 'omitted', s(D.satellite_opacity), OPACITY),
-  f('google_maps_api_key', 'map-and-imagery', 'secret', s(D.google_maps_api_key), { type: 'nullable_string', trimOnSave: true }),
-  f('satellite_source', 'map-and-imagery', 'reported', s(D.satellite_source as SatelliteSource | null), { type: 'nullable_enum', values: SETTINGS_SATELLITE_SOURCES }),
-  f('contour_visible', 'map-and-imagery', 'reported', s(D.contour_visible), BOOL),
-  f('contour_opacity', 'map-and-imagery', 'omitted', s(D.contour_opacity), OPACITY),
-  f('contour_interval', 'map-and-imagery', 'omitted', s(D.contour_interval), { type: 'u32' }),
-  f('hillshade_visible', 'map-and-imagery', 'reported', s(D.hillshade_visible), BOOL),
-  f('hillshade_opacity', 'map-and-imagery', 'omitted', s(D.hillshade_opacity), OPACITY),
-  f('soften_background', 'map-and-imagery', 'reported', s(D.soften_background), BOOL),
-  f('plant_spacing_interval_m', 'canvas-preferences', 'reported', s(D.plant_spacing_interval_m), { type: 'finite_number', exclusiveMin: 0 }),
-  f('last_view', 'workspace', 'omitted', s(D.last_view as LastView | null), { type: 'last_view' }),
-  f('last_open_home', 'workspace', 'omitted', s(null), { type: 'nullable_string', nonEmpty: true }),
-  f('used_canvas_tools', 'workspace', 'omitted', s([] as string[]), { type: 'string_array' }),
-  f('tool_names_visible', 'workspace', 'omitted', s(D.tool_names_visible), { type: 'nullable_boolean' }),
-  f('single_key_shortcuts', 'keyboard-shortcuts', 'reported', s(D.single_key_shortcuts), BOOL),
-  f('scroll_wheel', 'canvas-preferences', 'reported', { kind: 'from_os_scroll_wheel' }, { type: 'enum', values: SETTINGS_SCROLL_WHEELS }),
-  f('new_design_satellite', 'new-designs', 'reported', s(D.new_design_satellite), BOOL),
-  f('new_design_symbol_scale', 'new-designs', 'reported', s(D.new_design_symbol_scale), { type: 'finite_number', min: MIN_PLANT_SYMBOL_SCALE, max: MAX_PLANT_SYMBOL_SCALE, clamp: true }),
-  f('new_design_labels', 'new-designs', 'reported', s(D.new_design_labels as PlantLabels), { type: 'enum', values: SETTINGS_PLANT_LABELS }),
-  f('launch_check', 'updates', 'reported', s(true), BOOL, 'app-updater'),
+  f('locale', 'locale', R, en(SETTINGS_LOCALES), { kind: 'first_language' }),
+  f('theme', 'theme', R, en(SETTINGS_THEMES)),
+  f('unit_system', 'units', R, en(SETTINGS_UNIT_SYSTEMS), { kind: 'from_region' }),
+  f('snap_to_grid', C, R, BOOL),
+  f('side_panel_width', W, O, nu32(MIN_SIDE_PANEL_WIDTH)),
+  f('saved_stamps_frame_height', W, O, nu32(MIN_FAVORITES_FRAME_HEIGHT)),
+  f('basemap_style', M, R, en(SETTINGS_BASEMAP_STYLES)),
+  f('basemap_visible', M, R, BOOL),
+  f('basemap_opacity', M, O, OPACITY),
+  f('satellite_visible', M, R, BOOL),
+  f('satellite_opacity', M, O, OPACITY),
+  f('google_maps_api_key', M, 'secret', { type: 'nullable_string', trimOnSave: true }),
+  f('satellite_source', M, R, { type: 'nullable_enum', values: SETTINGS_SATELLITE_SOURCES }),
+  f('contour_visible', M, R, BOOL),
+  f('contour_opacity', M, O, OPACITY),
+  f('contour_interval', M, O, { type: 'u32' }),
+  f('hillshade_visible', M, R, BOOL),
+  f('hillshade_opacity', M, O, OPACITY),
+  f('soften_background', M, R, BOOL),
+  f('plant_spacing_interval_m', C, R, { type: 'finite_number', exclusiveMin: 0 }),
+  f('last_view', W, O, { type: 'last_view' }),
+  f('last_open_home', W, O, { type: 'nullable_string', nonEmpty: true }, s(null)),
+  f('used_canvas_tools', W, O, { type: 'string_array' }, s([] as string[])),
+  f('tool_names_visible', W, O, { type: 'nullable_boolean' }),
+  f('single_key_shortcuts', 'keyboard-shortcuts', R, BOOL),
+  f('scroll_wheel', C, R, en(SETTINGS_SCROLL_WHEELS), { kind: 'from_os_scroll_wheel' }),
+  f('new_design_satellite', N, R, BOOL),
+  f('new_design_symbol_scale', N, R, { type: 'finite_number', min: MIN_PLANT_SYMBOL_SCALE, max: MAX_PLANT_SYMBOL_SCALE, clamp: true }),
+  f('new_design_labels', N, R, en(SETTINGS_PLANT_LABELS)),
+  f('launch_check', 'updates', R, BOOL, s(true), 'app-updater'),
 ] as const satisfies readonly SettingsFieldDescriptor[]
 
 /** Keys belonging to the v1 Rust `Settings` wire struct (until 2e-2 moves Desktop to opaque record 2). */

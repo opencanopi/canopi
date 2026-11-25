@@ -16,6 +16,11 @@ export interface SettingsPlatformAdapter {
    */
   takeResetFields?(): readonly string[]
   /**
+   * One-time first-run fields to stamp durably on first launch (e.g. `unit_system` from region,
+   * 2.1-Q169), cleared once read so `projection.ts` writes them once without locking other defaults.
+   */
+  takeFirstRunStamp?(): Readonly<Record<string, unknown>> | null
+  /**
    * What a new profile on this host starts with over the host-independent defaults (2.1-Q309: Trackpad on a Mac,
    * 2.1-Q345: browser language, 2.1-Q169: region unit system), for a session whose record cannot be read; the
    * projection holds it in memory and writes nothing (2.1-M473). An adapter with no host-specific first run omits it.

@@ -8,7 +8,7 @@ import {
 } from '../../canvas/session'
 import type { CanopiFile, SavedView } from '../../types/design'
 import { currentDesign } from '../document-session/store'
-import { mapLayers } from '../map-layers/state'
+import { mapLayers } from '../settings/state'
 import { currentPlantDisplay } from '../plant-display/state'
 import { savedViewZoom } from '../../canvas/saved-view-framing'
 import { composeSavedView } from './model'

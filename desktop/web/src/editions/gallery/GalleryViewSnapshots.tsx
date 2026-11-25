@@ -8,9 +8,8 @@ import {
   VIEW_SNAPSHOT_THUMBNAIL,
   type SavedViewSnapshot,
 } from '../../app/saved-views'
-import { mapLayers, type MapLayersState } from '../../app/map-layers/state'
+import { locale, mapLayers, type MapLayersState } from '../../app/settings/state'
 import { readSatelliteConfig } from '../../app/settings/satellite-config'
-import { locale } from '../../app/settings/state'
 import { currentCanvasQuerySurface } from '../../canvas/session'
 import { geographicViewOfCamera } from '../../geo/session-plane'
 import { createViewSnapshotMap } from '../../maplibre/view-snapshot-map'

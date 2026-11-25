@@ -3,10 +3,10 @@ import { useEffect, useId, useState } from 'preact/hooks'
 import { openAboutCanopiDialog } from '../../app/about/state'
 import { CANOPI_VERSION } from '../../app/about/metadata'
 import { setBasemapStyle, setSoftenBackground } from '../../app/map-layers/actions'
-import { mapLayers } from '../../app/map-layers/state'
-import { mutateSettingsProjection, type SettingsPersistMode } from '../../app/settings/projection'
+import { mutateSettingsProjection, type SettingsPersistMode, type SettingsProjectionDraft } from '../../app/settings/projection'
 import {
   locale,
+  mapLayers,
   newDesignDefaults,
   scrollWheel,
   singleKeyShortcuts,
@@ -45,14 +45,14 @@ const LANGUAGE_ITEMS: DropdownItem<Locale>[] = LOCALE_PICKER_ORDER.map((entry) =
 
 type SettingsSectionId = 'appearance' | 'map' | 'canvas' | 'new-designs' | 'keyboard' | 'files' | 'about'
 
-const SECTIONS: readonly { readonly id: SettingsSectionId; readonly icon: ControlIconName; readonly labelKey: LocaleKey }[] = [
-  { id: 'appearance', icon: 'sun', labelKey: 'settings.appearance' },
-  { id: 'map', icon: 'image', labelKey: 'settings.mapAndImagery' },
-  { id: 'canvas', icon: 'fit', labelKey: 'settings.canvas' },
-  { id: 'new-designs', icon: 'plus', labelKey: 'settings.newDesigns' },
-  { id: 'keyboard', icon: 'keyboard', labelKey: 'settings.keyboard' },
-  { id: 'files', icon: 'folder-open', labelKey: 'settings.filesAndData' },
-  { id: 'about', icon: 'info', labelKey: 'settings.about' },
+const SECTIONS: readonly (readonly [SettingsSectionId, ControlIconName, LocaleKey])[] = [
+  ['appearance', 'sun', 'settings.appearance'],
+  ['map', 'image', 'settings.mapAndImagery'],
+  ['canvas', 'fit', 'settings.canvas'],
+  ['new-designs', 'plus', 'settings.newDesigns'],
+  ['keyboard', 'keyboard', 'settings.keyboard'],
+  ['files', 'folder-open', 'settings.filesAndData'],
+  ['about', 'info', 'settings.about'],
 ]
 
 /**
@@ -77,27 +77,27 @@ export function SettingsDialog({ folders, updates }: { readonly folders?: Settin
 function SettingsDialogContent({ folders, updates }: { readonly folders?: SettingsFoldersAdapter, readonly updates?: ComponentChildren }) {
   const [active, setActive] = useState<SettingsSectionId>('appearance')
   const id = useId()
-  const section = SECTIONS.find((candidate) => candidate.id === active)!
+  const section = SECTIONS.find(([sid]) => sid === active)!
   return (
     <WorkspaceDialog title={t('settings.title')} onClose={closeSettingsDialog} wide>
       <div className={styles.layout}>
         <nav className={styles.nav} aria-label={t('settings.sections')}>
-          {SECTIONS.map((candidate) => (
+          {SECTIONS.map(([sid, icon, labelKey]) => (
             <button
-              key={candidate.id}
+              key={sid}
               type="button"
               className={styles.navItem}
-              aria-current={candidate.id === active ? 'page' : undefined}
-              data-settings-section={candidate.id}
-              onClick={() => setActive(candidate.id)}
+              aria-current={sid === active ? 'page' : undefined}
+              data-settings-section={sid}
+              onClick={() => setActive(sid)}
             >
-              <ControlIcon name={candidate.icon} size={18} />
-              {t(candidate.labelKey)}
+              <ControlIcon name={icon} size={18} />
+              {t(labelKey)}
             </button>
           ))}
         </nav>
         <section className={styles.section} aria-labelledby={`${id}-heading`}>
-          <h3 className={styles.heading} id={`${id}-heading`}>{t(section.labelKey)}</h3>
+          <h3 className={styles.heading} id={`${id}-heading`}>{t(section[2])}</h3>
           {active === 'appearance' && <AppearanceSection />}
           {active === 'map' && <MapSection />}
           {active === 'canvas' && <CanvasSection />}
@@ -109,6 +109,10 @@ function SettingsDialogContent({ folders, updates }: { readonly folders?: Settin
       </div>
     </WorkspaceDialog>
   )
+}
+
+const setSetting = <K extends keyof SettingsProjectionDraft>(key: K, value: SettingsProjectionDraft[K]): void => {
+  mutateSettingsProjection((settings) => { settings[key] = value })
 }
 
 function AppearanceSection() {
@@ -123,7 +127,7 @@ function AppearanceSection() {
           { value: 'light', label: t('theme.light') },
           { value: 'dark', label: t('theme.dark') },
         ]}
-        onChange={(next) => mutateSettingsProjection((settings) => { settings.theme = next }, { persist: 'immediate' })}
+        onChange={(next) => setSetting('theme', next)}
       />
     </div>
     <div className={styles.field}>
@@ -135,7 +139,7 @@ function AppearanceSection() {
         ariaLabel={t('settings.language')}
         preserveOverlays
         floating
-        onChange={(next) => mutateSettingsProjection((settings) => { settings.locale = next }, { persist: 'immediate' })}
+        onChange={(next) => setSetting('locale', next)}
       />
     </div>
     <Switch
@@ -189,7 +193,7 @@ function CanvasSection() {
           { value: 'zoom', label: t('settings.pointingDeviceMouse') },
           { value: 'pan', label: t('settings.pointingDeviceTrackpad') },
         ]}
-        onChange={(next) => mutateSettingsProjection((settings) => { settings.scrollWheel = next }, { persist: 'immediate' })}
+        onChange={(next) => setSetting('scrollWheel', next)}
       />
       <span className={styles.hint}>{t('settings.pointingDeviceHint')}</span>
     </div>
@@ -245,7 +249,7 @@ function KeyboardSection() {
       label={t('settings.singleKeyShortcuts')}
       hint={t('settings.singleKeyShortcutsHint', { mod: modKeyName(t) })}
       checked={singleKeyShortcuts.value}
-      onChange={(checked) => mutateSettingsProjection((settings) => { settings.singleKeyShortcuts = checked }, { persist: 'immediate' })}
+      onChange={(checked) => setSetting('singleKeyShortcuts', checked)}
     />
     <p className={styles.hint}>{t('settings.remapLater')}</p>
     <div>
@@ -263,11 +267,6 @@ function KeyboardSection() {
   </>
 }
 
-type FolderState =
-  | { readonly status: 'loading' }
-  | { readonly status: 'ready'; readonly locations: AppFolderLocations }
-  | { readonly status: 'failed' }
-
 /**
  * Favourites belong to this computer or this browser, never to a Design (2.1-Q312), so the note shows whatever the
  * folders do; export and import wait for a second request (canopi-13lh).
@@ -282,41 +281,41 @@ function FilesSection({ folders }: { readonly folders?: SettingsFoldersAdapter }
 }
 
 function AppFolders({ folders }: { readonly folders: SettingsFoldersAdapter }) {
-  const [state, setState] = useState<FolderState>({ status: 'loading' })
+  const [locations, setLocations] = useState<AppFolderLocations | null | false>(null)
   const [failed, setFailed] = useState<AppFolder | null>(null)
 
   useEffect(() => {
     let live = true
     folders.load().then(
-      (locations) => { if (live) setState({ status: 'ready', locations }) },
+      (next) => { if (live) setLocations(next) },
       // The reason may name a path; it stays out of logs.
-      () => { if (live) setState({ status: 'failed' }) },
+      () => { if (live) setLocations(false) },
     )
     return () => { live = false }
   }, [folders])
 
-  if (state.status === 'loading') return <p className={styles.hint} role="status">{t('settings.filesLoading')}</p>
-  if (state.status === 'failed') return <p className={styles.status} role="alert">{t('settings.filesUnavailable')}</p>
+  if (locations === null) return <p className={styles.hint} role="status">{t('settings.filesLoading')}</p>
+  if (locations === false) return <p className={styles.status} role="alert">{t('settings.filesUnavailable')}</p>
 
-  const rows: readonly { readonly folder: AppFolder; readonly label: string; readonly hint: string; readonly path: string }[] = [
-    { folder: 'drafts', label: t('drafts.title'), hint: t('settings.draftsHint'), path: state.locations.drafts },
-    { folder: 'data_library', label: t('settings.dataLibrary'), hint: t('settings.dataLibraryHint'), path: state.locations.data_library },
+  const rows: readonly (readonly [AppFolder, LocaleKey, LocaleKey])[] = [
+    ['drafts', 'drafts.title', 'settings.draftsHint'],
+    ['data_library', 'settings.dataLibrary', 'settings.dataLibraryHint'],
   ]
   return <>
     <p className={styles.intro}>{t('settings.filesIntro')}</p>
-    {rows.map((row) => (
-      <div key={row.folder} className={styles.folder} data-app-folder={row.folder}>
+    {rows.map(([folder, label, hint]) => (
+      <div key={folder} className={styles.folder} data-app-folder={folder}>
         <div className={styles.folderText}>
-          <span className={styles.label}>{row.label}</span>
-          <span className={styles.hint}>{row.hint}</span>
-          <span className={styles.path}>{row.path}</span>
+          <span className={styles.label}>{t(label)}</span>
+          <span className={styles.hint}>{t(hint)}</span>
+          <span className={styles.path}>{locations[folder]}</span>
         </div>
         <button
           type="button"
           className={styles.button}
           onClick={() => {
             setFailed(null)
-            folders.show(row.folder).catch(() => setFailed(row.folder))
+            folders.show(folder).catch(() => setFailed(folder))
           }}
         >
           {t('settings.showInFolder')}

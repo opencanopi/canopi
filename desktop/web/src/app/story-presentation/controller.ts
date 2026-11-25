@@ -4,14 +4,15 @@ import type { PlantLabelMode } from '../../canvas/runtime/plant-display'
 import type { ViewCamera } from '../../geo/view/types'
 import type { PanelTarget, SavedView, Story, StoryStep } from '../../generated/contracts'
 import { currentDesign, designSessionStore } from '../document-session/store'
-import { mapLayers, type MapLayersState } from '../map-layers/state'
 import { goToSavedView } from '../saved-views/current-view'
 import { savedViewPresentedLabels } from '../saved-views/snapshot'
 import { mapLayersOfView } from '../map-layers/background-presentation'
 import { focusOwner } from '../keyboard/focus-owner'
 import {
+  mapLayers,
   setStoryPresentationHidesEditingAids,
   setStoryPresentationOverrides,
+  type MapLayersState,
   type StoryPresentationOverrides,
 } from './overrides'
 

@@ -6,6 +6,7 @@ import type { ComponentChildren } from "preact";
 import { CANOPI_VERSION } from "../../app/about/metadata";
 import { isNewerReadView } from "../../app/document-session/store";
 import { installProblemReportPort } from "../../app/problem-report/submission";
+import { capabilitiesForEdition } from "../../generated/edition-capabilities";
 import { readSettingsReportSummary } from "../../app/settings/projection";
 import { openProblemReport, ProblemReportDialog } from "../../components/shared/ProblemReportDialog";
 import { SaveProblemDialog } from "../../components/shared/SaveProblemDialog";
@@ -26,7 +27,7 @@ export function installWebProblemReport(session: ReportSession = browserDesignSe
   const writer = createBrowserProblemReportWriter({
     build: () => ({ app: "Canopi", version: CANOPI_VERSION }),
     health: () => storeHealth.peek(),
-    settings: readSettingsReportSummary,
+    settings: () => readSettingsReportSummary(capabilitiesForEdition("web", "linux")),
     currentDesign: () => (isNewerReadView(session.readDesignIdentity()?.readOnlyOrigin) ? null : session.currentDesignText()),
   });
   const uninstall = installProblemReportPort(writer);

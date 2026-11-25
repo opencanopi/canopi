@@ -92,7 +92,6 @@
     "desktop/web/src/app/saved-views/thumbnails.ts: knip:exports/createSavedViewThumbnailCache": { "count": 1 },
     "desktop/web/src/app/saved-views/thumbnails.ts: knip:types/SavedViewThumbnailCache": { "count": 1 },
     "desktop/web/src/app/saved-views/thumbnails.ts: knip:types/SavedViewThumbnailCacheOptions": { "count": 1 },
-    "desktop/web/src/app/settings/projection.ts: knip:exports/snapshotSettingsProjection": { "count": 1 },
     "desktop/web/src/app/shell/phone-layout.ts: knip:exports/classifyPhoneLayout": { "count": 1 },
     "desktop/web/src/app/shell/visible-map-area.ts: knip:exports/measureBottomBandRoom": { "count": 1 },
     "desktop/web/src/app/shell/visible-map-area.ts: knip:exports/measureBottomCoverOver": { "count": 1 },

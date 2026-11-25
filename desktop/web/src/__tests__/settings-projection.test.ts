@@ -4,14 +4,51 @@ import type { Settings, Theme } from '../types/settings'
 import type { SettingsProjectionInstallation } from '../app/settings/projection'
 import { createDefaultMapLayers, mapLayers } from '../app/map-layers/state'
 import {
-  activeGoogleMapsApiKey, googleMapsApiKey, lastView, locale, newDesignDefaults,
+  activeGoogleMapsApiKey, googleMapsApiKey, lastOpenHome, lastView, launchCheck, locale, newDesignDefaults,
   plantSpacingIntervalM, satelliteSource, savedStampsFrameHeight, scrollWheel,
-  sidePanelWidth, singleKeyShortcuts, snapToGridEnabled, theme,
+  sidePanelWidth, singleKeyShortcuts, snapToGridEnabled, theme, toolNamesVisible, unitSystem, usedCanvasTools,
 } from '../app/settings/state'
 import {
   flushSettingsProjection, hydrateSettingsProjectionForTests, installSettingsProjection,
-  mutateSettingsProjection, resetSettingsProjectionForTests, snapshotSettingsProjection,
+  mutateSettingsProjection, resetSettingsProjectionForTests,
 } from '../app/settings/projection'
+
+function snapshotSettingsProjection() {
+  const layers = mapLayers.peek()
+  const nd = newDesignDefaults.peek()
+  return {
+    locale: locale.peek(),
+    theme: theme.peek(),
+    unit_system: unitSystem.peek(),
+    snap_to_grid: snapToGridEnabled.peek(),
+    side_panel_width: sidePanelWidth.peek(),
+    saved_stamps_frame_height: savedStampsFrameHeight.peek(),
+    basemap_style: layers.basemap.style,
+    basemap_visible: layers.basemap.visible,
+    basemap_opacity: layers.basemap.opacity,
+    satellite_visible: layers.satellite.visible,
+    satellite_opacity: layers.satellite.opacity,
+    google_maps_api_key: googleMapsApiKey.peek()?.trim() || null,
+    satellite_source: satelliteSource.peek(),
+    contour_visible: layers.contours.visible,
+    contour_opacity: layers.contours.opacity,
+    contour_interval: layers.contours.intervalMeters,
+    hillshade_visible: layers.hillshade.visible,
+    hillshade_opacity: layers.hillshade.opacity,
+    soften_background: layers.softenBackground,
+    plant_spacing_interval_m: plantSpacingIntervalM.peek(),
+    last_view: lastView.peek(),
+    last_open_home: lastOpenHome.peek(),
+    used_canvas_tools: [...usedCanvasTools.peek()],
+    tool_names_visible: toolNamesVisible.peek(),
+    single_key_shortcuts: singleKeyShortcuts.peek(),
+    scroll_wheel: scrollWheel.peek(),
+    new_design_satellite: nd.satellite,
+    new_design_symbol_scale: nd.symbolScale,
+    new_design_labels: nd.labels,
+    launch_check: launchCheck.peek(),
+  }
+}
 
 function baseSettings(overrides: Partial<Settings> = {}): Settings {
   return {
@@ -670,145 +707,35 @@ describe('settings projection', () => {
     expect(saveSettings).toHaveBeenLastCalledWith(expect.objectContaining({ locale: 'de' }))
   })
 
-  it('settles pending writes before a replacement adapter loads', async () => {
+  it('canopi-f47t.52.13: HMR flush-and-drop fires a best-effort flush and drops the old projection without blocking or handing off to a replacement', async () => {
     installation.dispose()
     resetSettingsProjectionForTests()
-    let stored = baseSettings()
-    const firstSave = deferred<void>()
-    const oldSave = vi.fn(async (settings: Settings) => {
-      if (oldSave.mock.calls.length === 1) await firstSave.promise
-      stored = settings
-    })
+    const stored = baseSettings()
+    const oldSave = vi.fn(async (_settings: Settings) => {})
     installation = installSettingsProjection({
       load: () => stored,
       save: oldSave,
     })
 
-    mutateSettingsProjection((settings) => { settings.locale = 'fr' }, { persist: 'immediate' })
     mutateSettingsProjection((settings) => { settings.theme = 'dark' }, { persist: 'queued', delayMs: 250 })
+    expect(oldSave).not.toHaveBeenCalled()
 
-    const replacementLoad = vi.fn(() => stored)
+    const replacementLoad = vi.fn(() => baseSettings({ locale: 'de' }))
+    const replacementSave = vi.fn(async (_settings: Settings) => {})
     const replacement = installSettingsProjection({
       load: replacementLoad,
-      save: saveSettings,
+      save: replacementSave,
     })
     installation = replacement
-
-    expect(replacementLoad).not.toHaveBeenCalled()
-    expect(oldSave).toHaveBeenCalledTimes(1)
-
-    firstSave.resolve()
     await replacement.ready
 
-    expect(oldSave).toHaveBeenCalledTimes(2)
+    // The retiring projection flushed its queued change once, and the replacement loaded immediately with no hand-off.
+    expect(oldSave).toHaveBeenCalledOnce()
+    expect(oldSave).toHaveBeenCalledWith(expect.objectContaining({ theme: 'dark' }))
     expect(replacementLoad).toHaveBeenCalledOnce()
-    expect(locale.value).toBe('fr')
-    expect(theme.value).toBe('dark')
-  })
-
-  it('hands a failed predecessor write to the replacement adapter', async () => {
-    installation.dispose()
-    resetSettingsProjectionForTests()
-    const saveFailure = deferred<void>()
-    const error = new Error('old settings storage unavailable')
-    const logError = vi.spyOn(console, 'error').mockImplementation(() => {})
-    const stored = baseSettings()
-    installation = installSettingsProjection({
-      load: () => stored,
-      save: () => saveFailure.promise,
-    })
-
-    mutateSettingsProjection((settings) => { settings.locale = 'fr' }, { persist: 'immediate' })
-
-    const replacementSave = vi.fn(async (_settings: Settings): Promise<void> => {})
-    const replacement = installSettingsProjection({
-      load: () => stored,
-      save: replacementSave,
-    })
-    installation = replacement
-
-    saveFailure.reject(error)
-    await replacement.ready
-    await vi.waitFor(() => expect(replacementSave).toHaveBeenCalledOnce())
-
-    expect(locale.value).toBe('fr')
-    expect(replacementSave).toHaveBeenCalledWith(expect.objectContaining({ locale: 'fr' }))
-    expect(logError).toHaveBeenCalledWith('Failed to persist settings:', error)
-    logError.mockRestore()
-  })
-
-  it('2.1-Q67: a handed-off change is kept in memory, never written, when the replacement load also fails', async () => {
-    installation.dispose()
-    resetSettingsProjectionForTests()
-    const predecessorSave = deferred<void>()
-    const predecessorError = new Error('old settings storage unavailable')
-    const replacementLoadError = new Error('replacement settings unavailable')
-    const logError = vi.spyOn(console, 'error').mockImplementation(() => {})
-    installation = installSettingsProjection({
-      load: () => baseSettings(),
-      save: () => predecessorSave.promise,
-    })
-
-    mutateSettingsProjection((settings) => { settings.locale = 'fr' }, { persist: 'immediate' })
-
-    const replacementSave = vi.fn(async (_settings: Settings): Promise<void> => {})
-    const replacement = installSettingsProjection({
-      load: () => Promise.reject(replacementLoadError),
-      save: replacementSave,
-    })
-    installation = replacement
-
-    predecessorSave.reject(predecessorError)
-    await settleLoadFailure(replacement, replacementLoadError)
-    await flushSettingsProjection()
-
-    expect(locale.value).toBe('fr')
     expect(replacementSave).not.toHaveBeenCalled()
-    logError.mockRestore()
-  })
-
-  it('keeps flush pending until a replacement adapter is durable', async () => {
-    installation.dispose()
-    resetSettingsProjectionForTests()
-    let stored = baseSettings()
-    const oldSaveSettlement = deferred<void>()
-    installation = installSettingsProjection({
-      load: () => stored,
-      save: async (settings) => {
-        await oldSaveSettlement.promise
-        stored = settings
-      },
-    })
-
-    mutateSettingsProjection((settings) => { settings.locale = 'fr' }, { persist: 'immediate' })
-    let flushed = false
-    const flush = flushSettingsProjection().then(() => {
-      flushed = true
-    })
-
-    const replacementSaveSettlement = deferred<void>()
-    const replacementSave = vi.fn(() => replacementSaveSettlement.promise)
-    const replacement = installSettingsProjection({
-      load: () => stored,
-      save: replacementSave,
-    })
-    installation = replacement
-    mutateSettingsProjection((settings) => { settings.theme = 'dark' }, { persist: 'immediate' })
-
-    oldSaveSettlement.resolve()
-    await replacement.ready
-    await vi.waitFor(() => expect(replacementSave).toHaveBeenCalledOnce())
-
-    expect(flushed).toBe(false)
-
-    replacementSaveSettlement.resolve()
-    await flush
-
-    expect(flushed).toBe(true)
-    expect(replacementSave).toHaveBeenCalledWith(expect.objectContaining({
-      locale: 'fr',
-      theme: 'dark',
-    }))
+    expect(locale.value).toBe('de')
+    expect(theme.value).toBe('light')
   })
 
   it('extends an in-flight flush to include a newer queued mutation', async () => {

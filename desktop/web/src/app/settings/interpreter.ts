@@ -8,12 +8,14 @@
  * `SettingsStep` chains through `platform/store-chain.ts`.
  */
 import type { LastView } from '../../generated/contracts'
+import type { EditionCapabilitySet } from '../../generated/edition-capabilities'
 import { WEB_MERCATOR_MAX_LATITUDE_DEG } from '../../generated/canopi-design-format'
 import { matchLocaleOrDefault } from '../../generated/locale-registry'
 import { defaultUnitSystemForRegion } from '../../generated/quantity-table'
 import { DEFAULT_SETTINGS } from '../../generated/settings'
 import type { StoreFloor } from '../../generated/store-chain'
 import { runStoreChain, type ChainResult, type ChainStep } from '../../platform/store-chain'
+import type { SettingsPlatformAdapter } from '../../platform/settings'
 import type { Settings } from '../../types/settings'
 import {
   SETTINGS_FIELDS,
@@ -38,6 +40,14 @@ export interface SettingsFirstRunEnv {
 export interface DecodedSettingsRecord {
   readonly values: SettingsValues
   readonly resetFields: readonly SettingsFieldKey[]
+}
+
+/** Reads browser/host languages and region from `navigator` when available. */
+function detectHostEnv(): SettingsFirstRunEnv {
+  const languages = typeof navigator !== 'undefined'
+    ? (navigator.languages?.length ? navigator.languages : (navigator.language ? [navigator.language] : []))
+    : []
+  return { languages, region: regionFromLanguages(languages) }
 }
 
 /** Extracts an ISO 3166-1 alpha-2 region subtag from the first BCP-47 tag carrying one (e.g. `en-US` -> `US`). */
@@ -84,96 +94,60 @@ function isU32(value: unknown): value is number {
   return typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= MAX_U32
 }
 
-function normalizeLastViewValue(value: unknown): { ok: true; value: LastView | null } | { ok: false } {
-  if (value === null) return { ok: true, value: null }
-  if (typeof value !== 'object' || Array.isArray(value)) return { ok: false }
-  const { lon, lat, zoom } = value as Record<string, unknown>
-  if (typeof lon !== 'number' || typeof lat !== 'number' || typeof zoom !== 'number') return { ok: false }
-  if (![lon, lat, zoom].every(Number.isFinite)) return { ok: false }
-  if (lon < -180 || lon > 180 || Math.abs(lat) > WEB_MERCATOR_MAX_LATITUDE_DEG) return { ok: false }
-  return { ok: true, value: { lon, lat, zoom } }
-}
+const BAD = Symbol()
 
-type FieldCheckResult = { ok: true; value: unknown } | { ok: false }
-
-function validateFiniteNumber(
-  raw: unknown,
-  spec: Extract<SettingsValueKind, { readonly type: 'finite_number' }>,
-): FieldCheckResult {
-  if (typeof raw !== 'number' || !Number.isFinite(raw)) return { ok: false }
-  if (spec.exclusiveMin !== undefined && raw <= spec.exclusiveMin) return { ok: false }
-  let next = raw
+function validateFinite(raw: unknown, spec: Extract<SettingsValueKind, { readonly type: 'finite_number' }>): unknown {
+  if (typeof raw !== 'number' || !Number.isFinite(raw)) return BAD
+  if (spec.exclusiveMin !== undefined && raw <= spec.exclusiveMin) return BAD
   if (spec.clamp) {
+    let next = raw
     if (spec.min !== undefined) next = Math.max(spec.min, next)
     if (spec.max !== undefined) next = Math.min(spec.max, next)
-    return { ok: true, value: next }
+    return next
   }
-  if (spec.min !== undefined && next < spec.min) return { ok: false }
-  if (spec.max !== undefined && next > spec.max) return { ok: false }
-  return { ok: true, value: next }
+  return (spec.min !== undefined && raw < spec.min) || (spec.max !== undefined && raw > spec.max) ? BAD : raw
 }
 
-function validateNullableU32(
-  raw: unknown,
-  spec: Extract<SettingsValueKind, { readonly type: 'nullable_u32' }>,
-): FieldCheckResult {
-  if (raw === null) return { ok: true, value: null }
-  if (!isU32(raw)) return { ok: false }
-  const rounded = spec.round ? Math.round(raw) : raw
-  return { ok: true, value: spec.min !== undefined ? Math.max(spec.min, rounded) : rounded }
+function validateLastView(raw: unknown): unknown {
+  if (raw === null) return null
+  if (typeof raw !== 'object' || Array.isArray(raw)) return BAD
+  const { lon, lat, zoom } = raw as Record<string, unknown>
+  return typeof lon === 'number' && typeof lat === 'number' && typeof zoom === 'number'
+    && Number.isFinite(lon) && Number.isFinite(lat) && Number.isFinite(zoom)
+    && lon >= -180 && lon <= 180 && Math.abs(lat) <= WEB_MERCATOR_MAX_LATITUDE_DEG
+    ? { lon, lat, zoom } : BAD
 }
 
-function validateNullableString(
-  raw: unknown,
-  spec: Extract<SettingsValueKind, { readonly type: 'nullable_string' }>,
-): FieldCheckResult {
-  if (raw === null) return { ok: true, value: null }
-  if (typeof raw !== 'string') return { ok: false }
-  if (spec.nonEmpty) {
-    const trimmed = raw.trim()
-    return trimmed.length > 0 ? { ok: true, value: trimmed } : { ok: false }
-  }
-  return { ok: true, value: raw }
+function validateStringList(raw: unknown): unknown {
+  return Array.isArray(raw) && raw.every((x): x is string => typeof x === 'string') ? [...new Set(raw)] : BAD
 }
 
-function validateStringArray(raw: unknown): FieldCheckResult {
-  if (!Array.isArray(raw)) return { ok: false }
-  const filtered: string[] = []
-  const seen = new Set<string>()
-  for (const item of raw) {
-    if (typeof item !== 'string') return { ok: false }
-    if (!seen.has(item)) {
-      seen.add(item)
-      filtered.push(item)
-    }
-  }
-  return { ok: true, value: filtered }
+const VALIDATORS: {
+  readonly [K in SettingsValueKind['type']]: (raw: unknown, spec: Extract<SettingsValueKind, { readonly type: K }>) => unknown
+} = {
+  enum: (raw, s) => (typeof raw === 'string' && s.values.includes(raw) ? raw : BAD),
+  nullable_enum: (raw, s) => (raw === null || (typeof raw === 'string' && s.values.includes(raw)) ? raw : BAD),
+  boolean: (raw) => (typeof raw === 'boolean' ? raw : BAD),
+  nullable_boolean: (raw) => (raw === null || typeof raw === 'boolean' ? raw : BAD),
+  finite_number: validateFinite,
+  u32: (raw) => (isU32(raw) ? raw : BAD),
+  nullable_u32: (raw, s) => {
+    if (raw === null) return null
+    if (!isU32(raw)) return BAD
+    const rounded = s.round ? Math.round(raw) : raw
+    return s.min !== undefined ? Math.max(s.min, rounded) : rounded
+  },
+  nullable_string: (raw, s) => {
+    if (raw === null) return null
+    if (typeof raw !== 'string') return BAD
+    return s.nonEmpty ? (raw.trim() || BAD) : raw
+  },
+  last_view: validateLastView,
+  string_array: validateStringList,
 }
 
-function validateFieldValue(raw: unknown, spec: SettingsValueKind): FieldCheckResult {
-  switch (spec.type) {
-    case 'enum':
-      return typeof raw === 'string' && spec.values.includes(raw) ? { ok: true, value: raw } : { ok: false }
-    case 'nullable_enum':
-      if (raw === null) return { ok: true, value: null }
-      return typeof raw === 'string' && spec.values.includes(raw) ? { ok: true, value: raw } : { ok: false }
-    case 'boolean':
-      return typeof raw === 'boolean' ? { ok: true, value: raw } : { ok: false }
-    case 'nullable_boolean':
-      return raw === null || typeof raw === 'boolean' ? { ok: true, value: raw } : { ok: false }
-    case 'finite_number':
-      return validateFiniteNumber(raw, spec)
-    case 'u32':
-      return isU32(raw) ? { ok: true, value: raw } : { ok: false }
-    case 'nullable_u32':
-      return validateNullableU32(raw, spec)
-    case 'nullable_string':
-      return validateNullableString(raw, spec)
-    case 'last_view':
-      return normalizeLastViewValue(raw)
-    case 'string_array':
-      return validateStringArray(raw)
-  }
+function validateFieldValue(raw: unknown, spec: SettingsValueKind): unknown {
+  return (VALIDATORS[spec.type] as (r: unknown, s: SettingsValueKind) => unknown)(raw, spec)
 }
 
 /**
@@ -197,8 +171,8 @@ export function decodeSettingsRecord(
       continue
     }
     const checked = validateFieldValue(raw[descriptor.key], descriptor.kind)
-    if (checked.ok) {
-      out[descriptor.key] = checked.value
+    if (checked !== BAD) {
+      out[descriptor.key] = checked
     } else {
       out[descriptor.key] = fallback
       resetFields.push(descriptor.key)
@@ -216,18 +190,7 @@ export function normalizeSettingsValues(
   input: Readonly<Partial<SettingsValues>>,
   env: SettingsFirstRunEnv = {},
 ): SettingsValues {
-  const out: Record<string, unknown> = {}
-  for (const descriptor of SETTINGS_FIELDS) {
-    const raw = input[descriptor.key]
-    const fallback = resolveDefault(descriptor.defaultSpec, env, false)
-    if (raw === undefined) {
-      out[descriptor.key] = fallback
-      continue
-    }
-    const checked = validateFieldValue(raw, descriptor.kind)
-    out[descriptor.key] = checked.ok ? checked.value : fallback
-  }
-  return out as unknown as SettingsValues
+  return decodeSettingsRecord(input, env).values
 }
 
 function sameFieldValue(descriptor: SettingsFieldDescriptor, left: unknown, right: unknown): boolean {
@@ -270,7 +233,7 @@ export function diffSettingsPatch(
 }
 
 /** Projects `SettingsValues` to the 27-field v1 wire `Settings` object (Desktop IPC until 2e-2). */
-export function toV1WireSettings(values: Readonly<SettingsValues>): Settings {
+function toV1WireSettings(values: Readonly<SettingsValues>): Settings {
   const wire: Record<string, unknown> = {}
   for (const key of SETTINGS_V1_WIRE_KEYS) {
     const value = values[key]
@@ -279,15 +242,51 @@ export function toV1WireSettings(values: Readonly<SettingsValues>): Settings {
   return wire as unknown as Settings
 }
 
+const V1_EXTRA_KEYS = ['unit_system', 'last_open_home', 'launch_check'] as const
+
+/** Bridges a v1 wire `Settings` host transport to `SettingsPlatformAdapter` through the field-table interpreter. */
+export function createV1WireSettingsAdapter(deps: {
+  readonly getSettings: () => Promise<Settings>
+  readonly setSettings: (settings: Settings) => Promise<void>
+  readonly env?: () => SettingsFirstRunEnv
+}): SettingsPlatformAdapter {
+  const readEnv = deps.env ?? detectHostEnv
+  const cachedExtras: Record<string, unknown> = {}
+  let lastResetFields: string[] = []
+  const mirrorAndSave = async (source: object, full: SettingsValues) => {
+    const rec = source as Record<string, unknown>
+    for (const k of V1_EXTRA_KEYS) if (rec[k] !== undefined) cachedExtras[k] = rec[k]
+    await deps.setSettings(toV1WireSettings(full))
+  }
+  return {
+    load: async () => {
+      const decoded = decodeSettingsRecord(
+        { ...(await deps.getSettings() as unknown as Record<string, unknown>), ...cachedExtras },
+        readEnv(),
+      )
+      lastResetFields = [...decoded.resetFields]
+      return decoded.values
+    },
+    takeResetFields: () => lastResetFields.splice(0),
+    save: (settings) => mirrorAndSave(settings, settings as SettingsValues),
+    savePatch: (patch, settings) => mirrorAndSave(patch, settings as SettingsValues),
+    firstRunSettings: () => resolveHostFirstRunPatch(readEnv()),
+  }
+}
+
 /**
  * Builds the Problem Report `settings_summary` object strictly from fields whose
- * `privacy` column is `'reported'`. Neither `'secret'` nor `'omitted'` fields can
- * ever enter the returned object.
+ * `privacy` column is `'reported'` and whose optional `capability` is active.
+ * Neither `'secret'` nor `'omitted'` fields can ever enter the returned object.
  */
-export function buildSettingsReportSummary(values: Readonly<SettingsValues>): Record<string, unknown> {
+export function buildSettingsReportSummary(
+  values: Readonly<SettingsValues>,
+  capabilities?: EditionCapabilitySet,
+): Record<string, unknown> {
   const summary: Record<string, unknown> = {}
   for (const descriptor of SETTINGS_FIELDS) {
     if (descriptor.privacy !== 'reported') continue
+    if (descriptor.capability && capabilities && !capabilities.has(descriptor.capability)) continue
     summary[descriptor.key] = values[descriptor.key]
   }
   return summary

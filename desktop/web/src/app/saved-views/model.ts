@@ -3,7 +3,7 @@ import type { GeographicView } from '../../geo/session-plane'
 import { savedViewCameraOf } from '../../canvas/saved-view-framing'
 import type { CanopiFile, SavedView, SavedViewObject } from '../../types/design'
 import type { PlantLabelMode } from '../../canvas/runtime/plant-display'
-import type { MapLayersState } from '../map-layers/state'
+import type { MapLayersState } from '../settings/state'
 import { viewMapLayersOf } from '../map-layers/background-presentation'
 
 export interface SavedViewCaptureInput {

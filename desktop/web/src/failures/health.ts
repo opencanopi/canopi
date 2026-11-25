@@ -15,6 +15,7 @@ import type {
 } from '../generated/contracts'
 
 const health = signal<SubsystemHealth>({})
+const resetFieldsByStore = new Map<StoreId, readonly string[]>()
 
 const OPENING: StoreOpenStatus = { kind: 'opening' }
 
@@ -27,14 +28,22 @@ export function applyHealthSnapshot(snapshot: SubsystemHealth): void {
 }
 
 /** One store's entry, written by the store's own adapter (a Web record, the settings projection) or a native push. */
-export function writeStoreHealth(store: StoreId, entry: StoreHealth): void {
+export function writeStoreHealth(store: StoreId, entry: StoreHealth, resetFields?: readonly string[]): void {
+  if (entry.notice === 'fields_reset' && resetFields?.length) resetFieldsByStore.set(store, [...resetFields])
+  else if (entry.notice !== 'fields_reset') resetFieldsByStore.delete(store)
   const current = health.peek()[store]
   if (current && sameEntry(current, entry)) return
   health.value = { ...health.peek(), [store]: entry }
 }
 
+/** Comma-separated field names carried by a `fields_reset` notice for `store`, or `''` when none. */
+export function storeResetFieldsText(store: StoreId): string {
+  return (resetFieldsByStore.get(store) ?? []).join(', ')
+}
+
 /** Clears a store's one-time notice once the user dismissed it; its status stays. */
 export function dismissStoreNotice(store: StoreId): void {
+  resetFieldsByStore.delete(store)
   const current = health.peek()[store]
   if (!current || current.notice === null) return
   health.value = { ...health.peek(), [store]: { ...current, notice: null } }
@@ -57,5 +66,6 @@ function sameEntry(left: StoreHealth, right: StoreHealth): boolean {
 
 /** @testonly */
 export function resetStoreHealthForTests(): void {
+  resetFieldsByStore.clear()
   health.value = {}
 }

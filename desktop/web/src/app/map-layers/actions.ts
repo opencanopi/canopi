@@ -1,6 +1,6 @@
 import type { BasemapStyle, SatelliteSource } from '../../generated/contracts'
 import { mutateSettingsProjection, type SettingsPersistMode } from '../settings/projection'
-import { normalizeMapLayers, type MapBackground, type MapLayersState } from './state'
+import { normalizeMapLayers, type MapBackground, type MapLayersState } from '../settings/state'
 
 export type MapLayerId = 'basemap' | 'satellite' | 'contours' | 'hillshade'
 

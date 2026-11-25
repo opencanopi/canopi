@@ -212,6 +212,8 @@ export interface BrowserAppDataStore {
   openSpeciesLists(read: SpeciesListReader): void;
   /** Runs a browser-record read over this store's storage (platform/browser-record.ts); it throws as the storage does. */
   readRecord<T>(read: (storage: BrowserStorageAdapter) => T): T;
+  /** Runs a browser-record write over this store's storage (platform/browser-record.ts). */
+  writeRecord(write: (storage: BrowserStorageAdapter) => void): BrowserAppDataWriteResult<void>;
 }
 
 export function createBrowserAppDataStore({
@@ -311,11 +313,8 @@ export function createBrowserAppDataStore({
     },
 
     saveSettingsBeforeReset(raw) {
-      try {
-        storage.setItem(SETTINGS_BEFORE_RESET_KEY, JSON.stringify({ ...raw }));
-      } catch {
-        // Best-effort secret backup: storage quota or lockdown must never block opening settings.
-      }
+      // Write-once best-effort backup (ADR 0026): a second reset never overwrites the original copy, and quota errors never block open.
+      try { if (storage.getItem(SETTINGS_BEFORE_RESET_KEY) === null) storage.setItem(SETTINGS_BEFORE_RESET_KEY, JSON.stringify({ ...raw })); } catch { /* best-effort */ }
     },
 
     loadSettings() {
@@ -394,8 +393,9 @@ export function createBrowserAppDataStore({
       readPartition(PARTITIONS.species);
     },
 
-    readRecord(read) {
-      return read(storage);
+    readRecord(read) { return read(storage); },
+    writeRecord(write) {
+      try { write(storage); return { ok: true, value: undefined }; } catch (error) { return { ok: false, error }; }
     },
   };
 }

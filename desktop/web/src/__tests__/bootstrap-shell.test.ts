@@ -91,6 +91,7 @@ vi.mock("../app/settings/theme", () => ({
 
 vi.mock("../app/settings/projection", () => ({
   installSettingsProjection: mocks.installSettingsProjection,
+  readSettingsReportSummary: () => ({}),
   retrySettingsLoad: async () => false,
 }));
 

@@ -5,7 +5,8 @@ import {
   SETTINGS_THEMES,
 } from '../generated/settings'
 import type { Settings } from '../types/settings'
-import { DEFAULT_SETTINGS_VALUES, type SettingsValues } from '../app/settings/field-table'
+import type { SettingsValues } from '../app/settings/field-table'
+import { decodeSettingsRecord } from '../app/settings/interpreter'
 import { createDesktopSettingsPlatformAdapter } from '../editions/desktop/settings'
 import { createBrowserSettingsPlatformAdapter } from '../editions/web/settings'
 import {
@@ -13,9 +14,11 @@ import {
   type BrowserStorageAdapter,
 } from '../web/browser-app-data'
 
+const DEFAULT_SETTINGS_VALUES = decodeSettingsRecord(null).values
+
 function settings(overrides: Partial<SettingsValues> = {}): SettingsValues {
   return {
-    ...DEFAULT_SETTINGS_VALUES,
+    ...decodeSettingsRecord(null).values,
     ...overrides,
   }
 }
@@ -40,7 +43,8 @@ describe('settings platform adapters', () => {
 
     expect(getSettings).toHaveBeenCalledOnce()
     expect(setSettings).toHaveBeenCalledOnce()
-    expect(setSettings).toHaveBeenCalledWith(expect.objectContaining({ locale: 'fr' }))
+    const { unit_system: _u, last_open_home: _h, launch_check: _l, ...expectedWire } = loaded
+    expect(setSettings).toHaveBeenCalledWith(expectedWire)
   })
 
   it('loads the generated Rust default when browser settings are absent', async () => {
@@ -213,7 +217,7 @@ describe('settings platform adapters', () => {
       name: 'Orchard pair',
       payload: { plants: 2 },
     }])
-    expect(store.loadSettings()).toEqual(settings({ locale: 'nl' }))
+    expect(await adapter.load()).toEqual(settings({ locale: 'nl' }))
   })
 })
 

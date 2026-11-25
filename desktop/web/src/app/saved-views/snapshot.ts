@@ -8,9 +8,8 @@ import {
   type ViewSnapshotRequest,
 } from '../../maplibre/view-snapshot-map'
 import type { SavedView } from '../../generated/contracts'
-import { locale } from '../settings/state'
+import { locale, mapLayers, type MapLayersState } from '../settings/state'
 import { readSatelliteConfig } from '../settings/satellite-config'
-import { mapLayers, type MapLayersState } from '../map-layers/state'
 import { backgroundPresentationOf, mapLayersOfView } from '../map-layers/background-presentation'
 import { currentPlantDisplay } from '../plant-display/state'
 import type { PlantLabelMode } from '../../canvas/runtime/plant-display'

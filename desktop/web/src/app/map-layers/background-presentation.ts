@@ -1,7 +1,7 @@
 import type { BasemapStyle, SavedView, SavedViewBackground } from '../../generated/contracts'
 import { SETTINGS_BASEMAP_STYLES } from '../../generated/settings'
 import { captureMapBackgroundPresentation, type MapBackgroundPresentation } from '../../maplibre/map-background'
-import { effectiveBackgroundOpacity, mapBackgroundOf, type MapLayersState } from './state'
+import { effectiveBackgroundOpacity, mapBackgroundOf, type MapLayersState } from '../settings/state'
 
 // The one translation between a saved view and the map layers, in both
 // directions, and the one reading of map layers as the background band. A

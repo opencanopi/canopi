@@ -3,7 +3,8 @@
 import { render } from 'preact'
 import { act } from 'preact/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { locale, singleKeyShortcuts, theme, toolNamesVisible, usedCanvasTools } from '../app/settings/state'
+import { locale, mapBackgroundOf, mapLayers, singleKeyShortcuts, theme, toolNamesVisible, usedCanvasTools } from '../app/settings/state'
+import { createDefaultMapLayers } from '../app/map-layers/state'
 import {
   closeKeyboardShortcutsDialog,
   closeSettingsDialog,
@@ -13,7 +14,6 @@ import {
   settingsDialogOpen,
 } from '../app/shell/dialogs'
 import { createWorkspaceShellCapabilities } from '../app/workspace-commands/capabilities'
-import { mapLayers, createDefaultMapLayers, mapBackgroundOf } from '../app/map-layers/state'
 import { aboutCanopiDialogOpen } from '../app/about/state'
 import { designRenameRequest } from '../app/shell/requests'
 import { sidePanel } from '../app/shell/state'

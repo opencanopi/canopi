@@ -1,5 +1,5 @@
 import type { CanvasSurfaceState } from './canvas-host'
-import { mapBackgroundOf } from '../map-layers/state'
+import { mapBackgroundOf } from '../settings/state'
 import { presentedMapLayers } from '../story-presentation/overrides'
 import type { LocaleKey } from '../../generated/locale-keys'
 

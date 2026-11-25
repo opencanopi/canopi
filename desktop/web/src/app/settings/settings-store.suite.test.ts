@@ -1,11 +1,14 @@
 /**
  * settings-store.suite.test.ts: Shared behavioural suite for the settings store
  * across both the Desktop runner and the Web runner (`policy/suites.json` id: `settings-store`;
- * ADR 0024, ADR 0026, ADR 0030; 2.1-M518, 2.1-M523, 2.1-Q54, 2.1-Q120, 2.1-Q164, 2.1-Q169, 2.1-Q345).
+ * ADR 0024, ADR 0026, ADR 0030; 2.1-M518, 2.1-M523, 2.1-Q54, 2.1-Q83, 2.1-Q120, 2.1-Q164, 2.1-Q169, 2.1-Q345, 2.1-Q361).
  */
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { resetStoreHealthForTests, storeHealth } from '../../failures/health'
+import { noticeForStore } from '../../failures/health-presentation'
+import { capabilitiesForEdition } from '../../generated/edition-capabilities'
 import { DEFAULT_SETTINGS } from '../../generated/settings'
+import { SETTINGS_RECORD_KEY } from '../../platform/browser-record'
 import type { SettingsPlatformAdapter } from '../../platform/settings'
 import { createDesktopSettingsPlatformAdapter } from '../../editions/desktop/settings'
 import { createBrowserSettingsPlatformAdapter } from '../../editions/web/settings'
@@ -15,7 +18,6 @@ import {
   type BrowserStorageAdapter,
 } from '../../web/browser-app-data'
 import {
-  DEFAULT_SETTINGS_VALUES,
   SETTINGS_FIELDS,
   type SettingsValues,
 } from './field-table'
@@ -35,8 +37,6 @@ import {
   readSettingsReportSummary,
   resetSettingsProjectionForTests,
 } from './projection'
-
-const SETTINGS_BEFORE_RESET_KEY = 'canopi:web-app-data:settings.before-reset'
 import {
   googleMapsApiKey,
   lastOpenHome,
@@ -46,94 +46,94 @@ import {
   unitSystem,
 } from './state'
 
-function createMemoryStorage(): BrowserStorageAdapter & { readonly map: Map<string, string> } {
-  const map = new Map<string, string>()
+const SETTINGS_BEFORE_RESET_KEY = 'canopi:web-app-data:settings.before-reset'
+
+function memoryStorage(initial: Record<string, string> = {}): BrowserStorageAdapter {
+  const map = new Map<string, string>(Object.entries(initial))
   return {
-    map,
     getItem: (key) => map.get(key) ?? null,
     setItem: (key, value) => { map.set(key, value) },
     removeItem: (key) => { map.delete(key) },
   }
 }
 
-interface RunnerHarness {
-  readonly name: 'Desktop' | 'Web'
+/** Shared corpus of valid + malformed fields exercised by both Desktop and Web runners. */
+const BAD_FIELD_CORPUS: Record<string, unknown> = {
+  locale: 'xx-invalid',
+  theme: 'dark',
+  unit_system: 'furlongs',
+  snap_to_grid: true,
+  basemap_style: 'unknown-style',
+  basemap_opacity: 'not-a-number',
+  plant_spacing_interval_m: -5,
+  google_maps_api_key: 'AIzaSy-secret-kept-intact',
+  last_open_home: '   ',
+  launch_check: 'yes',
+}
+
+interface SettingsRunnerHarness {
+  readonly edition: 'Desktop' | 'Web'
   readonly adapter: SettingsPlatformAdapter
-  readonly readStoredRaw: () => Record<string, unknown> | null
-  readonly readBeforeResetRaw: () => Record<string, unknown> | null
+  readonly storage: BrowserStorageAdapter | null
+  readStoredV4Raw(): Record<string, unknown> | null
+  readStoredV3Raw(): Record<string, unknown> | null
+  readBeforeResetRaw(): Record<string, unknown> | null
 }
 
 function createRunnerHarness(
   edition: 'Desktop' | 'Web',
-  initial: Record<string, unknown> | null,
+  initialRecord: Record<string, unknown> | null,
   env: SettingsFirstRunEnv = { languages: ['en-GB'], region: 'GB', os: 'linux' },
-): RunnerHarness {
+  initialKey: 'v4' | 'v3' = 'v4',
+): SettingsRunnerHarness {
   if (edition === 'Web') {
-    const storage = createMemoryStorage()
-    if (initial !== null) {
-      storage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify({ version: 3, settings: initial }))
+    const initial: Record<string, string> = {}
+    if (initialRecord !== null) {
+      if (initialKey === 'v4') {
+        initial[SETTINGS_RECORD_KEY] = JSON.stringify({ version: 2, ...initialRecord })
+      } else {
+        initial[SETTINGS_STORAGE_KEY] = JSON.stringify({ version: 3, settings: initialRecord })
+      }
     }
-    const store = createBrowserAppDataStore({ storage })
+    const storage = memoryStorage(initial)
+    const store = createBrowserAppDataStore({ storage, session: memoryStorage() })
     const adapter = createBrowserSettingsPlatformAdapter(store, () => env)
     return {
-      name: 'Web',
+      edition,
       adapter,
-      readStoredRaw: () => store.loadSettings(),
+      storage,
+      readStoredV4Raw: () => {
+        const text = storage.getItem(SETTINGS_RECORD_KEY)
+        return text ? (JSON.parse(text) as Record<string, unknown>) : null
+      },
+      readStoredV3Raw: () => {
+        const text = storage.getItem(SETTINGS_STORAGE_KEY)
+        if (!text) return null
+        return (JSON.parse(text) as { settings?: Record<string, unknown> | null }).settings ?? null
+      },
       readBeforeResetRaw: () => {
-        const raw = storage.getItem(SETTINGS_BEFORE_RESET_KEY)
-        return raw ? (JSON.parse(raw) as Record<string, unknown>) : null
+        const text = storage.getItem(SETTINGS_BEFORE_RESET_KEY)
+        return text ? (JSON.parse(text) as Record<string, unknown>) : null
       },
     }
   }
 
-  let stored: Record<string, unknown> = initial
-    ? { ...DEFAULT_SETTINGS, ...initial }
+  let stored: Record<string, unknown> = initialRecord
+    ? { ...initialRecord }
     : { ...DEFAULT_SETTINGS, ...(env.languages ? { locale: decodeSettingsRecord(null, env).values.locale } : {}) }
   const adapter = createDesktopSettingsPlatformAdapter({
-    getSettings: async () => ({ ...stored } as unknown as SettingsValues),
+    getSettings: async () => stored as unknown as typeof DEFAULT_SETTINGS,
     setSettings: async (next) => { stored = { ...stored, ...next } },
     env: () => env,
   })
   return {
-    name: 'Desktop',
+    edition,
     adapter,
-    readStoredRaw: () => ({ ...stored }),
+    storage: null,
+    readStoredV4Raw: () => ({ ...stored }),
+    readStoredV3Raw: () => null,
     readBeforeResetRaw: () => null,
   }
-}
-
-/** One bad value per field type in `SETTINGS_FIELDS`, plus a valid secret key that must survive reset. */
-const BAD_FIELD_CORPUS: Readonly<Record<string, unknown>> = {
-  locale: 'xx-invalid',
-  theme: 'sepia',
-  unit_system: 'furlongs',
-  snap_to_grid: 'yes',
-  side_panel_width: -50,
-  saved_stamps_frame_height: 3.14,
-  basemap_style: 'paper',
-  basemap_visible: 1,
-  basemap_opacity: Number.NaN,
-  satellite_visible: 'on',
-  satellite_opacity: 'full',
-  google_maps_api_key: 'AIza-keep-this-key-intact',
-  satellite_source: 'bing',
-  contour_visible: 0,
-  contour_opacity: null,
-  contour_interval: -10,
-  hillshade_visible: 'no',
-  hillshade_opacity: Number.POSITIVE_INFINITY,
-  soften_background: 2,
-  plant_spacing_interval_m: 0,
-  last_view: { lon: 250, lat: 10, zoom: 5 },
-  last_open_home: '   ',
-  used_canvas_tools: [1, 2],
-  tool_names_visible: 'always',
-  single_key_shortcuts: 1,
-  scroll_wheel: 'spin',
-  new_design_satellite: 'true',
-  new_design_symbol_scale: 'big',
-  new_design_labels: 'everything',
-  launch_check: 'never',
 }
 
 afterEach(() => {
@@ -141,36 +141,73 @@ afterEach(() => {
   resetStoreHealthForTests()
 })
 
-describe('settings-store shared suite (Desktop & Web runners)', () => {
+describe('settings-store shared suite (Desktop and Web runners)', () => {
   it.each(['Desktop', 'Web'] as const)(
-    '%s runner: resets only malformed fields, preserves valid secret key, and raises fields_reset notice (2.1-Q54)',
+    '%s runner: resets only malformed fields, keeps valid ones, and raises fields_reset naming the fields (2.1-Q54, Q361)',
     async (edition) => {
       const harness = createRunnerHarness(edition, BAD_FIELD_CORPUS)
       const installation = installSettingsProjection(harness.adapter)
       await installation.ready
 
-      // Valid secret key survived the per-field reset intact.
-      expect(googleMapsApiKey.value).toBe('AIza-keep-this-key-intact')
-      // Malformed fields fell back to defaults.
-      expect(locale.value).toBe(DEFAULT_SETTINGS.locale)
-      expect(theme.value).toBe(DEFAULT_SETTINGS.theme)
+      expect(theme.value).toBe('dark')
+      expect(googleMapsApiKey.value).toBe('AIzaSy-secret-kept-intact')
+      expect(locale.value).toBe('en')
       expect(unitSystem.value).toBe('metric')
       expect(lastOpenHome.value).toBeNull()
       expect(launchCheck.value).toBe(true)
-      // Store health carries the one-time fields_reset notice.
+
       expect(storeHealth.value.settings).toEqual({
         status: { kind: 'ready' },
         notice: 'fields_reset',
       })
+      const [notice] = noticeForStore('settings', storeHealth.value.settings!, {
+        report: null,
+        update: null,
+        dismissNotice: () => {},
+      })
+      expect(notice?.params?.fields).toContain('locale')
+      expect(notice?.params?.fields).toContain('unit_system')
+      expect(notice?.params?.fields).toContain('last_open_home')
+      expect(notice?.params?.fields).toContain('launch_check')
+
       if (edition === 'Web') {
-        expect(harness.readBeforeResetRaw()).toEqual(JSON.parse(JSON.stringify(BAD_FIELD_CORPUS)))
+        expect(harness.readBeforeResetRaw()).toMatchObject(BAD_FIELD_CORPUS)
+        expect(harness.readStoredV4Raw()).toMatchObject({
+          version: 2,
+          theme: 'dark',
+          locale: 'en',
+          unit_system: 'metric',
+          last_open_home: null,
+          launch_check: true,
+        })
       }
       installation.dispose()
     },
   )
 
+  it('Web runner: two loads of a bad record keep one before-reset copy, repair storage on load 1, and raise fields_reset once (ADR 0026)', async () => {
+    const harness = createRunnerHarness('Web', BAD_FIELD_CORPUS)
+    const first = installSettingsProjection(harness.adapter)
+    await first.ready
+    expect(storeHealth.value.settings?.notice).toBe('fields_reset')
+    const firstBackup = harness.readBeforeResetRaw()
+    expect(firstBackup).toMatchObject(BAD_FIELD_CORPUS)
+    first.dispose()
+
+    // Second load on the same storage sees the repaired v4 record: no second notice, original backup untouched.
+    resetStoreHealthForTests()
+    const store2 = createBrowserAppDataStore({ storage: harness.storage!, session: memoryStorage() })
+    const adapter2 = createBrowserSettingsPlatformAdapter(store2, () => ({ languages: ['en-GB'], region: 'GB', os: 'linux' }))
+    const second = installSettingsProjection(adapter2)
+    await second.ready
+
+    expect(storeHealth.value.settings).toEqual({ status: { kind: 'ready' }, notice: null })
+    expect(harness.readBeforeResetRaw()).toEqual(firstBackup)
+    second.dispose()
+  })
+
   it.each(['Desktop', 'Web'] as const)(
-    '%s runner: stamps unit_system from region (US -> us_customary, FR -> metric) and persists last_open_home + launch_check (2.1-Q120, Q169, M523)',
+    '%s runner: derives unit_system from region and updates last_open_home + launch_check in-session (2.1-Q120, Q169, M523; Desktop durability in 2e-2)',
     async (edition) => {
       const usHarness = createRunnerHarness(edition, null, { languages: ['en-US'], region: 'US', os: 'linux' })
       const usInstall = installSettingsProjection(usHarness.adapter)
@@ -195,7 +232,53 @@ describe('settings-store shared suite (Desktop & Web runners)', () => {
     },
   )
 
-  it('Web runner: patch writes preserve unknown keys already stored on disk (ADR 0026)', async () => {
+  it('Web runner: Q169 stamps unit_system once on first run so a later browser language change preserves it', async () => {
+    const harness = createRunnerHarness('Web', null, { languages: ['en-US'], region: 'US', os: 'linux' })
+    const first = installSettingsProjection(harness.adapter)
+    await first.ready
+    await flushSettingsProjection()
+
+    expect(unitSystem.value).toBe('us_customary')
+    expect(harness.readStoredV4Raw()).toMatchObject({ version: 2, unit_system: 'us_customary' })
+    first.dispose()
+
+    // Second launch in French keeps the stamped US customary unit system.
+    const store2 = createBrowserAppDataStore({ storage: harness.storage!, session: memoryStorage() })
+    const adapter2 = createBrowserSettingsPlatformAdapter(store2, () => ({ languages: ['fr-FR'], region: 'FR', os: 'linux' }))
+    const second = installSettingsProjection(adapter2)
+    await second.ready
+    expect(unitSystem.value).toBe('us_customary')
+    second.dispose()
+  })
+
+  it('Web runner: upgrades a 2.0 v3:settings record into v4:settings record 2 via the frozen v1->v2 step without touching v3 (ADR 0026, Q83)', async () => {
+    const harness = createRunnerHarness(
+      'Web',
+      { locale: 'de', theme: 'dark', satellite_provider: 'eox' },
+      { languages: ['en-US'], region: 'US', os: 'linux' },
+      'v3',
+    )
+    const installation = installSettingsProjection(harness.adapter)
+    await installation.ready
+
+    expect(locale.value).toBe('de')
+    expect(theme.value).toBe('dark')
+    expect(unitSystem.value).toBe('us_customary')
+    expect(harness.readStoredV4Raw()).toMatchObject({
+      version: 2,
+      locale: 'de',
+      theme: 'dark',
+      unit_system: 'us_customary',
+      last_open_home: null,
+      launch_check: true,
+    })
+    expect(harness.readStoredV4Raw()).not.toHaveProperty('satellite_provider')
+    // 2.0 rollback record under v3:settings is untouched.
+    expect(harness.readStoredV3Raw()).toEqual({ locale: 'de', theme: 'dark', satellite_provider: 'eox' })
+    installation.dispose()
+  })
+
+  it('Web runner: patch writes to v4:settings preserve unknown keys already stored on disk (ADR 0026)', async () => {
     const harness = createRunnerHarness('Web', {
       locale: 'en',
       theme: 'light',
@@ -210,53 +293,59 @@ describe('settings-store shared suite (Desktop & Web runners)', () => {
     await flushSettingsProjection()
 
     expect(theme.value).toBe('dark')
-    expect(harness.readStoredRaw()).toMatchObject({
+    expect(harness.readStoredV4Raw()).toMatchObject({
+      version: 2,
       theme: 'dark',
       future_setting_v99: { nested: true },
     })
     installation.dispose()
   })
 
-  it('Web runner: Q345 first-run locale matcher picks browser language without writing storage', async () => {
+  it('Web runner: Q345 first-run locale matcher picks browser language without writing locale to storage', async () => {
     const harness = createRunnerHarness('Web', null, { languages: ['fr-FR', 'en-US'], os: 'mac' })
     const installation = installSettingsProjection(harness.adapter)
     await installation.ready
 
     expect(locale.value).toBe('fr')
     expect(unitSystem.value).toBe('metric')
-    // First run never writes until the user changes a setting (2.1-M473).
-    expect(harness.readStoredRaw()).toBeNull()
+    expect(harness.readStoredV4Raw()).not.toHaveProperty('locale')
     installation.dispose()
   })
 })
 
-describe('settings field table privacy, patch diff, and store-chain migration (2.1-M518, M540)', () => {
-  it('declares an explicit privacy classification on every field and excludes secret/omitted fields from problem reports', () => {
-    expect(SETTINGS_FIELDS.length).toBe(Object.keys(DEFAULT_SETTINGS_VALUES).length)
+describe('settings field table privacy, capability filtering, patch diff, and store-chain migration (2.1-M518, M540)', () => {
+  it('canopi-f47t.52.173: declares privacy on every field, excludes secret/omitted fields, and respects edition capabilities in live problem reports', () => {
+    const defaults = decodeSettingsRecord(null).values
+    expect(SETTINGS_FIELDS.length).toBe(Object.keys(defaults).length)
     for (const descriptor of SETTINGS_FIELDS) {
       expect(['secret', 'reported', 'omitted']).toContain(descriptor.privacy)
     }
 
     const withSecret: SettingsValues = {
-      ...DEFAULT_SETTINGS_VALUES,
+      ...defaults,
       google_maps_api_key: 'AIzaSy-SUPER-SECRET-KEY',
       last_view: { lon: 2.35, lat: 48.85, zoom: 16 },
       last_open_home: 'home:private-farm',
     }
-    const summary = buildSettingsReportSummary(withSecret)
-    expect(summary).not.toHaveProperty('google_maps_api_key')
-    expect(summary).not.toHaveProperty('last_view')
-    expect(summary).not.toHaveProperty('last_open_home')
-    expect(JSON.stringify(summary)).not.toContain('AIzaSy-SUPER-SECRET-KEY')
-    expect(summary).toMatchObject({
+    const desktopSummary = buildSettingsReportSummary(withSecret, capabilitiesForEdition('desktop', 'linux'))
+    expect(desktopSummary).not.toHaveProperty('google_maps_api_key')
+    expect(desktopSummary).not.toHaveProperty('last_view')
+    expect(desktopSummary).not.toHaveProperty('last_open_home')
+    expect(JSON.stringify(desktopSummary)).not.toContain('AIzaSy-SUPER-SECRET-KEY')
+    expect(desktopSummary).toMatchObject({
       locale: 'en',
       theme: 'light',
       unit_system: 'metric',
       launch_check: true,
     })
 
-    const liveSummary = readSettingsReportSummary()
-    expect(liveSummary).not.toHaveProperty('google_maps_api_key')
+    // Web lacks `app-updater`, so `launch_check` is omitted from Web's report summary.
+    const webSummary = buildSettingsReportSummary(withSecret, capabilitiesForEdition('web', 'linux'))
+    expect(webSummary).not.toHaveProperty('launch_check')
+
+    const liveWebSummary = readSettingsReportSummary(capabilitiesForEdition('web', 'linux'))
+    expect(liveWebSummary).not.toHaveProperty('google_maps_api_key')
+    expect(liveWebSummary).not.toHaveProperty('launch_check')
   })
 
   it('extracts region subtags and computes minimal changed-field patches', () => {
@@ -291,7 +380,7 @@ describe('settings field table privacy, patch diff, and store-chain migration (2
         ],
       },
     ]
-    const floor = { store: 'settings' as const, minReadable: 1, current: 3, maxReadable: 3, stepCount: 2 }
+    const floor = { store: 'settings' as const, minReadable: 1, current: 3, maxReadable: null, stepCount: 2 }
     const result = runSettingsMigrationChain(
       floor,
       1,
@@ -311,5 +400,33 @@ describe('settings field table privacy, patch diff, and store-chain migration (2
         launch_check: true,
       },
     })
+  })
+
+  it('N7: ignores cross-tab storage events while a queued persist timer is pending', async () => {
+    vi.useFakeTimers()
+    try {
+      const listeners: Array<() => void> = []
+      const load = vi.fn().mockResolvedValue({ ...DEFAULT_SETTINGS })
+      const savePatch = vi.fn().mockResolvedValue(undefined)
+      const installation = installSettingsProjection({
+        load,
+        save: vi.fn().mockResolvedValue(undefined),
+        savePatch,
+        subscribe: (cb) => { listeners.push(cb); return () => { listeners.length = 0 } },
+      })
+      await installation.ready
+      expect(load).toHaveBeenCalledTimes(1)
+
+      mutateSettingsProjection((draft) => { draft.theme = 'dark' }, { persist: 'queued', delayMs: 160 })
+      for (const cb of listeners) cb()
+      expect(load).toHaveBeenCalledTimes(1)
+      expect(theme.peek()).toBe('dark')
+
+      await vi.advanceTimersByTimeAsync(160)
+      expect(savePatch).toHaveBeenCalledTimes(1)
+      installation.dispose()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })

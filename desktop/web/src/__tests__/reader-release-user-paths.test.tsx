@@ -77,7 +77,7 @@ describe('reader release on Web: records from their 2.1 keys', () => {
     // A 2.0 tab's record beside the record 2.1 wrote: the 2.1 key is the user's latest choice.
     localStorage.setItem(V3_SETTINGS_KEY, JSON.stringify({ version: 3, settings: { locale: 'fr', theme: 'light' } }))
     localStorage.setItem(V4_SETTINGS_KEY, JSON.stringify({
-      version: 2,
+      version: 3,
       locale: 'de',
       theme: 'dark',
       snap_to_grid: true,

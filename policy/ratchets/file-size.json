@@ -254,9 +254,6 @@
     "desktop/web/src/app/plant-browser/workbench.ts": {
       "count": 902
     },
-    "desktop/web/src/app/settings/projection.ts": {
-      "count": 780
-    },
     "desktop/web/src/canvas/runtime/input/dom-input-source.test.ts": {
       "count": 1068
     },

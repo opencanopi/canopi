@@ -6,14 +6,14 @@ import {
   setMapLayerOpacity,
   setMapLayerVisible,
 } from '../app/map-layers/actions'
+import { createDefaultMapLayers } from '../app/map-layers/state'
 import {
-  createDefaultMapLayers,
   hasVisibleMapLayer,
   mapBackgroundOf,
   mapLayers,
   normalizeMapLayers,
   type MapLayersState,
-} from '../app/map-layers/state'
+} from '../app/settings/state'
 import {
   installSettingsProjection,
   resetSettingsProjectionForTests,

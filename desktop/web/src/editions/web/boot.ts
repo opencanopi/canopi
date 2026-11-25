@@ -41,7 +41,7 @@ export function bootWebEdition(): () => void {
   const problemReportWriter = createBrowserProblemReportWriter({
     build: () => ({ app: "Canopi", version: CANOPI_VERSION }),
     health: () => storeHealth.peek(),
-    settings: readSettingsReportSummary,
+    settings: () => readSettingsReportSummary(capabilitiesForEdition("web", "linux")),
     currentDesign: () => (isNewerReadView(browserDesignSessionController.readDesignIdentity()?.readOnlyOrigin) ? null : browserDesignSessionController.currentDesignText()),
   });
   const disposePorts = installEditionPorts({

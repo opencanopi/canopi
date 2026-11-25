@@ -1,6 +1,6 @@
 import { designSessionStore, type DesignSessionStore } from '../document-session/store'
 import { locale } from '../settings/state'
-import type { MapLayersState } from '../map-layers/state'
+import type { MapLayersState } from '../settings/state'
 import { backgroundPresentationOf } from '../map-layers/background-presentation'
 import { presentedMapLayers } from '../story-presentation/overrides'
 import type { MapBackgroundPresentation } from '../../maplibre/map-background'

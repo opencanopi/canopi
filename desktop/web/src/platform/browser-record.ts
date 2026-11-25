@@ -12,7 +12,7 @@ import type { StoreFloor } from '../generated/store-chain'
 import { requireStoreFloor, runStoreChain } from './store-chain'
 
 /** The 2.1 Web settings record's key; the 2.0 record stays under the v3 key for 2.0 tabs (ADR 0026 Rollback). */
-const SETTINGS_RECORD_KEY = 'canopi:web-app-data:v4:settings'
+export const SETTINGS_RECORD_KEY = 'canopi:web-app-data:v4:settings'
 /**
  * 2.1 Web settings record floor (2.1-M486): the v4 key holds record 2 while `STORE_FLOORS.settings` stays at 1
  * until 2e-2 migrates Desktop settings to record 2; maxReadable is still inherited from `STORE_FLOORS.settings`.
@@ -66,6 +66,11 @@ export type SettingsRecord = Readonly<Record<string, unknown>> & { readonly vers
 /** Reads the 2.1 settings record; writes nothing. */
 export function readSettingsRecord(storage: BrowserStorage): RecordRead<SettingsRecord> {
   return readVersioned(storage, WEB_SETTINGS_V4_FLOOR, SETTINGS_RECORD_KEY, (value, version) => ({ ...value, version }))
+}
+
+/** Writes the 2.1 settings record (version 2) under its dedicated v4 key (ADR 0026, 2.1-Q83). */
+export function writeSettingsRecord(storage: BrowserStorage, record: Readonly<Record<string, unknown>>): void {
+  storage.setItem(SETTINGS_RECORD_KEY, JSON.stringify({ ...record, version: WEB_SETTINGS_V4_FLOOR.current }))
 }
 
 /** Reads the 2.1 species-list record; writes nothing. */

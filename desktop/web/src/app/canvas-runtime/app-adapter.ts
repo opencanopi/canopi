@@ -5,11 +5,20 @@ import type {
   CanvasRuntimeSavedObjectStampAdapter,
 } from '../../canvas/runtime/app-adapter'
 import type { CanvasMapBackdrop } from '../../canvas/runtime/scene-visuals'
-import { effectiveBackgroundOpacity, mapBackgroundOf, type MapLayersState } from '../map-layers/state'
+import {
+  effectiveBackgroundOpacity,
+  lastView,
+  locale,
+  mapBackgroundOf,
+  plantSpacingIntervalM,
+  scrollWheel,
+  snapToGridEnabled,
+  theme,
+  type MapLayersState,
+} from '../settings/state'
 import { presentedMapLayers, storyPresentationHidesEditingAids, storyPresentationOverrides } from '../story-presentation/overrides'
 import { gridVisible } from '../canvas-settings/signals'
 import { mutateSettingsProjection } from '../settings/projection'
-import { lastView, locale, plantSpacingIntervalM, scrollWheel, theme, snapToGridEnabled } from '../settings/state'
 import { composeDocumentForSave } from '../contracts/document'
 import { designSessionStore, setCanvasClean } from '../document-session/store'
 import { closeCanvasContextMenu, openCanvasContextMenu } from '../canvas-context-menu/state'

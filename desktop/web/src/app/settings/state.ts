@@ -2,9 +2,9 @@ import { computed, signal } from '@preact/signals'
 import type { BasemapStyle, LastView, Locale, PlantLabels, SatelliteSource, ScrollWheel, Theme } from '../../generated/contracts'
 import type { UnitSystem } from '../../generated/quantity-table'
 import { DEFAULT_SETTINGS, SETTINGS_BASEMAP_STYLES } from '../../generated/settings'
+import { DEFAULT_SAVED_STAMPS_FRAME_HEIGHT, MIN_FAVORITES_FRAME_HEIGHT } from './field-table'
 
-const DEFAULT_SAVED_STAMPS_FRAME_HEIGHT = 220
-export const MIN_FAVORITES_FRAME_HEIGHT = 120
+export { MIN_FAVORITES_FRAME_HEIGHT }
 
 export const locale = signal<Locale>(DEFAULT_SETTINGS.locale)
 export const theme = signal<Theme>(DEFAULT_SETTINGS.theme)
@@ -144,7 +144,7 @@ export function normalizeMapLayers(state: MapLayersState): MapLayersState {
   })
 }
 
-export function createDefaultMapLayers(): MapLayersState {
+function createDefaultMapLayers(): MapLayersState {
   return normalizeMapLayers({
     basemap: {
       style: DEFAULT_SETTINGS.basemap_style,
@@ -168,18 +168,34 @@ export function createDefaultMapLayers(): MapLayersState {
   })
 }
 
-export function mapLayersEqual(left: MapLayersState, right: MapLayersState): boolean {
-  return left.basemap.style === right.basemap.style
-    && left.basemap.visible === right.basemap.visible
-    && left.basemap.opacity === right.basemap.opacity
-    && left.satellite.visible === right.satellite.visible
-    && left.satellite.opacity === right.satellite.opacity
-    && left.contours.visible === right.contours.visible
-    && left.contours.opacity === right.contours.opacity
-    && left.contours.intervalMeters === right.contours.intervalMeters
-    && left.hillshade.visible === right.hillshade.visible
-    && left.hillshade.opacity === right.hillshade.opacity
-    && left.softenBackground === right.softenBackground
+export const mapLayers = signal<MapLayersState>(createDefaultMapLayers())
+
+const SOFTENED_BACKGROUND_OPACITY_FACTOR = 0.4
+
+/** The opacity the background band is drawn with: its own, dimmed when softened. */
+export function effectiveBackgroundOpacity(state: MapLayersState, layer: 'basemap' | 'satellite'): number {
+  return state[layer].opacity * (state.softenBackground ? SOFTENED_BACKGROUND_OPACITY_FACTOR : 1)
 }
 
-export const mapLayers = signal<MapLayersState>(createDefaultMapLayers())
+/** Which layer paints the background band: Satellite hides the Basemap. */
+export type MapBackground = 'satellite' | 'basemap' | 'none'
+
+export function mapBackgroundOf(state: MapLayersState): MapBackground {
+  if (state.satellite.visible) return 'satellite'
+  return state.basemap.visible ? 'basemap' : 'none'
+}
+
+export function hasVisibleMapLayer(state: MapLayersState): boolean {
+  return mapBackgroundOf(state) !== 'none' || state.contours.visible || state.hillshade.visible
+}
+
+/** Contours and Hillshade in the shape the terrain contribution consumes. */
+export function mapTerrainStateOf(state: MapLayersState) {
+  return {
+    contoursVisible: state.contours.visible,
+    contoursOpacity: state.contours.opacity,
+    contourIntervalMeters: state.contours.intervalMeters,
+    hillshadeVisible: state.hillshade.visible,
+    hillshadeOpacity: state.hillshade.opacity,
+  }
+}

@@ -1,7 +1,6 @@
 import { NEW_DESIGN_LAYER_DEFAULTS } from '../../generated/new-design-defaults'
 import { openLayerRow } from './open-row'
-import { googleMapsApiKey } from '../settings/state'
-import { mapLayers } from '../map-layers/state'
+import { googleMapsApiKey, mapLayers } from '../settings/state'
 import {
   setMapLayerOpacity,
   setMapLayerVisible,

@@ -234,7 +234,7 @@ describe('Web settings load failures', () => {
 
   it('R3 canopi-f47t.52.272: settings record 2 a newer Canopi saved loads and stays newer_read_only, never ready (2.1-Q320)', async () => {
     const storage = memoryStorage({
-      'canopi:web-app-data:v4:settings': JSON.stringify({ version: 2, theme: 'dark', snap_to_grid: true }),
+      'canopi:web-app-data:v4:settings': JSON.stringify({ version: 3, theme: 'dark', snap_to_grid: true }),
     })
     const adapter = createBrowserSettingsPlatformAdapter(createBrowserAppDataStore({ storage, session: memoryStorage() }))
     await install(adapter.load, adapter.save)

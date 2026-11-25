@@ -7,14 +7,7 @@
 import type { SettingsPlatformAdapter } from '../../platform/settings'
 import { getSettings, setSettings } from '../../ipc/settings'
 import type { Settings } from '../../types/settings'
-import {
-  decodeSettingsRecord,
-  regionFromLanguages,
-  resolveHostFirstRunPatch,
-  toV1WireSettings,
-  type SettingsFirstRunEnv,
-} from '../../app/settings/interpreter'
-import type { SettingsValues } from '../../app/settings/field-table'
+import { createV1WireSettingsAdapter, type SettingsFirstRunEnv } from '../../app/settings/interpreter'
 
 export interface DesktopSettingsPlatformAdapterDeps {
   readonly getSettings: () => Promise<Settings>
@@ -22,57 +15,10 @@ export interface DesktopSettingsPlatformAdapterDeps {
   readonly env?: () => SettingsFirstRunEnv
 }
 
-function detectDesktopEnv(): SettingsFirstRunEnv {
-  const languages = typeof navigator !== 'undefined'
-    ? (Array.isArray(navigator.languages) && navigator.languages.length > 0
-        ? navigator.languages
-        : (navigator.language ? [navigator.language] : []))
-    : []
-  return { languages, region: regionFromLanguages(languages) }
-}
-
-const DEFAULT_DEPS: DesktopSettingsPlatformAdapterDeps = {
-  getSettings,
-  setSettings,
-}
-
 export function createDesktopSettingsPlatformAdapter(
-  deps: DesktopSettingsPlatformAdapterDeps = DEFAULT_DEPS,
+  deps: DesktopSettingsPlatformAdapterDeps = { getSettings, setSettings },
 ): SettingsPlatformAdapter {
-  const readEnv = deps.env ?? detectDesktopEnv
-  // Local mirror for 2.1 fields (`unit_system`, `last_open_home`, `launch_check`) until 2e-2 moves Desktop to record 2.
-  let cachedExtras: Partial<Pick<SettingsValues, 'unit_system' | 'last_open_home' | 'launch_check'>> = {}
-  let lastResetFields: readonly string[] = []
-
-  return {
-    load: async (): Promise<SettingsValues> => {
-      const raw = await deps.getSettings()
-      const merged: Record<string, unknown> = { ...(raw as unknown as Record<string, unknown>), ...cachedExtras }
-      const decoded = decodeSettingsRecord(merged, readEnv())
-      lastResetFields = decoded.resetFields
-      return decoded.values
-    },
-    takeResetFields: () => {
-      const taken = lastResetFields
-      lastResetFields = []
-      return taken
-    },
-    save: async (settings) => {
-      const source = settings as Partial<SettingsValues>
-      if (source.unit_system !== undefined) cachedExtras = { ...cachedExtras, unit_system: source.unit_system }
-      if (source.last_open_home !== undefined) cachedExtras = { ...cachedExtras, last_open_home: source.last_open_home }
-      if (source.launch_check !== undefined) cachedExtras = { ...cachedExtras, launch_check: source.launch_check }
-      await deps.setSettings(toV1WireSettings(settings as SettingsValues))
-    },
-    savePatch: async (patch, settings) => {
-      const source = patch as Partial<SettingsValues>
-      if (source.unit_system !== undefined) cachedExtras = { ...cachedExtras, unit_system: source.unit_system }
-      if (source.last_open_home !== undefined) cachedExtras = { ...cachedExtras, last_open_home: source.last_open_home }
-      if (source.launch_check !== undefined) cachedExtras = { ...cachedExtras, launch_check: source.launch_check }
-      await deps.setSettings(toV1WireSettings(settings as SettingsValues))
-    },
-    firstRunSettings: () => resolveHostFirstRunPatch(readEnv()),
-  }
+  return createV1WireSettingsAdapter(deps)
 }
 
 export const desktopSettingsPlatformAdapter = createDesktopSettingsPlatformAdapter()

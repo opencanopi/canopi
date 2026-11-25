@@ -8,10 +8,7 @@ import { newDesignDefaults, type NewDesignDefaults } from './state'
  */
 export function applyNewDesignBackground(defaults: NewDesignDefaults = newDesignDefaults.peek()): void {
   if (!defaults.satellite) return
-  mutateSettingsProjection((settings) => {
-    settings.mapLayers = {
-      ...settings.mapLayers,
-      satellite: { ...settings.mapLayers.satellite, visible: true },
-    }
-  }, { persist: 'immediate' })
+  mutateSettingsProjection((s) => {
+    s.mapLayers = { ...s.mapLayers, satellite: { ...s.mapLayers.satellite, visible: true } }
+  })
 }
