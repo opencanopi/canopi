@@ -57,7 +57,7 @@ describe('platform/store-chain (Stage 2 Item 9)', () => {
 
   it('matches Rust STORE_FLOORS bounds (2.1-M480, 2.1-M486)', () => {
     expect(STORE_FLOORS.user_db).toEqual({ store: 'user_db', minReadable: 9, current: 9, stepCount: 0, maxReadable: null })
-    expect(STORE_FLOORS.settings).toEqual({ store: 'settings', minReadable: 1, current: 1, stepCount: 0, maxReadable: null })
+    expect(STORE_FLOORS.settings).toEqual({ store: 'settings', minReadable: 1, current: 2, stepCount: 1, maxReadable: null })
     expect(STORE_FLOORS.library_catalogue).toEqual({ store: 'library_catalogue', minReadable: 25, current: 25, stepCount: 0, maxReadable: null })
     expect(STORE_FLOORS.web_drafts).toEqual({ store: 'web_drafts', minReadable: 4, current: 4, stepCount: 0, maxReadable: null })
     expect(STORE_FLOORS.web_species_lists).toEqual({ store: 'web_species_lists', minReadable: 1, current: 1, stepCount: 0, maxReadable: null })

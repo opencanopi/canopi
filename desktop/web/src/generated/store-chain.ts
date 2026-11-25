@@ -40,7 +40,7 @@ export type Admission =
 
 export const STORE_FLOORS: Readonly<Partial<Record<StoreId, StoreFloor>>> = {
   "user_db": { store: "user_db", minReadable: 9, current: 9, stepCount: 0, maxReadable: null },
-  "settings": { store: "settings", minReadable: 1, current: 1, stepCount: 0, maxReadable: null },
+  "settings": { store: "settings", minReadable: 1, current: 2, stepCount: 1, maxReadable: null },
   "library_catalogue": { store: "library_catalogue", minReadable: 25, current: 25, stepCount: 0, maxReadable: null },
   "web_drafts": { store: "web_drafts", minReadable: 4, current: 4, stepCount: 0, maxReadable: null },
   "web_species_lists": { store: "web_species_lists", minReadable: 1, current: 1, stepCount: 0, maxReadable: null },

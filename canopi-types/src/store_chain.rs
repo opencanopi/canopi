@@ -126,13 +126,25 @@ pub enum Admission {
     },
 }
 
+/// Frozen settings record migration steps (contracts §11, 2.1-M157, 2.1-M518, 2.1-M547):
+/// step 1 -> 2 introduces record 2 (`unit_system`, `last_open_home`, `launch_check`).
+const SETTINGS_STEPS: &[Step<(), ()>] = &[Step { from: 1, run: Ok }];
+
+/// Declarative store chain for settings record 2 (floor 1, current 2, unbounded newer-readable per 2.1-M480).
+pub const SETTINGS_CHAIN: Chain<'static, (), ()> = Chain {
+    store: StoreId::Settings,
+    floor: 1,
+    steps: SETTINGS_STEPS,
+    reads_newer_up_to: None,
+};
+const _: () = SETTINGS_CHAIN.assert_valid();
+
 /// Version floor for `user.db` (`PRAGMA user_version`, contracts §11, 2.1-M480).
 /// Bumping `current` requires adding a frozen step to the store's [`Chain`] (2.1-M157).
 pub const USER_DB_FLOOR: StoreFloor = StoreFloor::from_steps(StoreId::UserDb, 9, 0, None);
 
-/// Version floor for the settings record (contracts §11, 2.1-M480).
-/// Bumping `current` requires adding a frozen step to the store's [`Chain`] (2.1-M157).
-pub const SETTINGS_FLOOR: StoreFloor = StoreFloor::from_steps(StoreId::Settings, 1, 0, None);
+/// Version floor for the settings record, derived from [`SETTINGS_CHAIN`] (contracts §11, 2.1-M157, 2.1-M480).
+pub const SETTINGS_FLOOR: StoreFloor = SETTINGS_CHAIN.store_floor();
 
 /// Version floor for the Data library catalogue (`catalogue.sqlite`, contracts §11).
 /// Bumping `current` requires adding a frozen step to the store's [`Chain`] (2.1-M157).
@@ -157,16 +169,28 @@ pub const STORE_FLOORS: &[StoreFloor] = &[
     WEB_SPECIES_LISTS_FLOOR,
 ];
 
-// Compile-time guard (2.1-M157): until a store declares a `Chain` with frozen steps,
-// its `current` cannot drift above `min_readable` without adding steps through a `Chain`.
+// Compile-time guard (2.1-M157): stores with a declared `Chain` must equal `CHAIN.store_floor()`,
+// and unchained stores cannot drift `current` above `min_readable` without adding steps through a `Chain`.
 const _: () = {
+    let settings_expected = SETTINGS_CHAIN.store_floor();
     let mut i = 0;
     while i < STORE_FLOORS.len() {
         let row = STORE_FLOORS[i];
-        assert!(
-            row.current == row.min_readable,
-            "store current version must be bumped by adding frozen steps to its Chain"
-        );
+        match row.store {
+            StoreId::Settings => {
+                assert!(
+                    row.min_readable == settings_expected.min_readable
+                        && row.current == settings_expected.current,
+                    "SETTINGS_FLOOR must match SETTINGS_CHAIN.store_floor()"
+                );
+            }
+            _ => {
+                assert!(
+                    row.current == row.min_readable,
+                    "store current version must be bumped by adding frozen steps to its Chain"
+                );
+            }
+        }
         i += 1;
     }
 };

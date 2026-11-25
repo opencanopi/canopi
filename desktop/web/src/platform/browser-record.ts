@@ -8,20 +8,11 @@
 // imports them (2b, 2e, N2 export what they import); the record runner, the quota mapping and the `storage`-event
 // change come with the write half (2b).
 
-import type { StoreFloor } from '../generated/store-chain'
-import { requireStoreFloor, runStoreChain } from './store-chain'
+import { admitStoreVersion, type StoreFloor } from '../generated/store-chain'
+import { requireStoreFloor } from './store-chain'
 
 /** The 2.1 Web settings record's key; the 2.0 record stays under the v3 key for 2.0 tabs (ADR 0026 Rollback). */
 export const SETTINGS_RECORD_KEY = 'canopi:web-app-data:v4:settings'
-/**
- * 2.1 Web settings record floor (2.1-M486): the v4 key holds record 2 while `STORE_FLOORS.settings` stays at 1
- * until 2e-2 migrates Desktop settings to record 2; maxReadable is still inherited from `STORE_FLOORS.settings`.
- */
-export const WEB_SETTINGS_V4_FLOOR: StoreFloor = {
-  ...requireStoreFloor('settings'),
-  minReadable: 2,
-  current: 2,
-}
 /** The 2.1 Web species-list record's key (favourites and recently viewed, contracts §19 ED-25). */
 const SPECIES_LIST_RECORD_KEY = 'canopi:web-app-data:v4:species'
 /** At most this many entries in each species list. */
@@ -65,12 +56,12 @@ export type SettingsRecord = Readonly<Record<string, unknown>> & { readonly vers
 
 /** Reads the 2.1 settings record; writes nothing. */
 export function readSettingsRecord(storage: BrowserStorage): RecordRead<SettingsRecord> {
-  return readVersioned(storage, WEB_SETTINGS_V4_FLOOR, SETTINGS_RECORD_KEY, (value, version) => ({ ...value, version }))
+  return readVersioned(storage, requireStoreFloor('settings'), SETTINGS_RECORD_KEY, (value, version) => ({ ...value, version }))
 }
 
 /** Writes the 2.1 settings record (version 2) under its dedicated v4 key (ADR 0026, 2.1-Q83). */
 export function writeSettingsRecord(storage: BrowserStorage, record: Readonly<Record<string, unknown>>): void {
-  storage.setItem(SETTINGS_RECORD_KEY, JSON.stringify({ ...record, version: WEB_SETTINGS_V4_FLOOR.current }))
+  storage.setItem(SETTINGS_RECORD_KEY, JSON.stringify({ ...record, version: requireStoreFloor('settings').current }))
 }
 
 /** Reads the 2.1 species-list record; writes nothing. */
@@ -99,19 +90,16 @@ function readVersioned<T>(
   }
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return { state: 'unreadable', raw }
   const { version } = value as Record<string, unknown>
-  // A version below the frozen one was never written under this key.
-  if (typeof version !== 'number' || !Number.isInteger(version)) return { state: 'unreadable', raw }
-  const outcome = runStoreChain(
-    floor,
-    version,
-    value as Record<string, unknown>,
-    [],
-  )
-  if (outcome.kind === 'before_floor' || outcome.kind === 'absent' || outcome.kind === 'refused_newer') {
+  // A version below the current frozen one was never written under this key.
+  if (typeof version !== 'number' || !Number.isInteger(version) || version < floor.current) {
     return { state: 'unreadable', raw }
   }
-  const record = decode(outcome.value, outcome.version)
-  return outcome.kind === 'current' ? { state: 'current', record } : { state: 'newer', version: outcome.version, record }
+  const outcome = admitStoreVersion(floor, version)
+  if (outcome.kind !== 'current' && outcome.kind !== 'newer_readable') {
+    return { state: 'unreadable', raw }
+  }
+  const record = decode(value as Record<string, unknown>, version)
+  return outcome.kind === 'current' ? { state: 'current', record } : { state: 'newer', version, record }
 }
 
 function speciesEntries(value: unknown): SpeciesListEntry[] {

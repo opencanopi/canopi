@@ -9,9 +9,9 @@ import { writeStoreHealth } from '../../failures/health'
 import {
   readSettingsRecord,
   SETTINGS_RECORD_KEY,
-  WEB_SETTINGS_V4_FLOOR,
   writeSettingsRecord,
 } from '../../platform/browser-record'
+import { requireStoreFloor } from '../../platform/store-chain'
 import { detectPlatform, type InputPlatform } from '../../canvas/runtime/input/platform'
 import {
   decodeSettingsRecord,
@@ -22,18 +22,6 @@ import {
   type SettingsVersionStep,
 } from '../../app/settings/interpreter'
 import type { SettingsValues } from '../../app/settings/field-table'
-import type { StoreFloor } from '../../generated/store-chain'
-
-/**
- * Frozen v1 -> v2 Web settings chain (ADR 0026:16, 2.1-Q83, 2.1-M540):
- * upgrades a 2.0 `v3:settings` record into the 2.1 `v4:settings` record 2 while
- * inheriting `maxReadable` from `generated/store-chain.ts`.
- */
-const WEB_SETTINGS_V1_TO_V2_FLOOR: StoreFloor = {
-  ...WEB_SETTINGS_V4_FLOOR,
-  minReadable: 1,
-  stepCount: 1,
-}
 
 const WEB_SETTINGS_V1_TO_V2_STEPS: readonly SettingsVersionStep[] = [
   {
@@ -127,7 +115,7 @@ export function createBrowserSettingsPlatformAdapter(
 
       if (loaded.source === 'v3' && loaded.stored !== null) {
         const migrated = runSettingsMigrationChain(
-          WEB_SETTINGS_V1_TO_V2_FLOOR,
+          requireStoreFloor('settings'),
           1,
           loaded.stored,
           WEB_SETTINGS_V1_TO_V2_STEPS,
