@@ -415,3 +415,41 @@ fn grant_rejects_missing_parent_or_filename_with_typed_error_and_oversized_file_
         }
     );
 }
+
+#[test]
+fn home_write_sweeps_stale_home_sidecars_without_touching_live_files_or_other_roles() {
+    let root = TestScratch::new("home-sidecar-sweep");
+    let designs = root.join("designs");
+    std::fs::create_dir_all(&designs).unwrap();
+    let target = designs.join("garden.canopi");
+    let sibling_live = designs.join("other.canopi");
+    let stale_home_sidecar = designs.join(".canopi-deadbeef-1.home");
+    let other_role_sidecar = designs.join(".canopi-deadbeef-2.backup");
+    std::fs::write(&sibling_live, b"{\"version\":10,\"name\":\"Other\"}").unwrap();
+    std::fs::write(&stale_home_sidecar, b"partial-stale-home").unwrap();
+    std::fs::write(&other_role_sidecar, b"other-role-sidecar").unwrap();
+
+    let grants = Arc::new(FileGrantRegistry::default());
+    let grant = grants.grant(&target).unwrap();
+    let store = DesktopHomeStore::production(root.path(), Arc::clone(&grants));
+
+    let payload = b"{\"version\":10,\"name\":\"Garden\"}";
+    let HomeWrite::Written { .. } = store.write(grant.as_str(), payload, None, false) else {
+        panic!("expected Written");
+    };
+
+    assert!(
+        !stale_home_sidecar.exists(),
+        "stale .home sidecar must be swept"
+    );
+    assert!(
+        other_role_sidecar.exists(),
+        "sidecars belonging to other roles must not be swept"
+    );
+    assert_eq!(
+        std::fs::read(&sibling_live).unwrap(),
+        b"{\"version\":10,\"name\":\"Other\"}",
+        "sibling live files must remain untouched"
+    );
+    assert_eq!(std::fs::read(&target).unwrap(), payload);
+}

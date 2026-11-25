@@ -336,13 +336,17 @@ impl<F: DurableFs> DesktopHomeStore<F> {
             };
         }
 
+        let publish_options = PublishOptions {
+            sweep_stale_sidecars: true,
+            ..PublishOptions::default()
+        };
         match publish_durably_unlocked(
             &self.fs,
             PublishSource::Bytes(bytes),
             path,
             "home",
             precondition,
-            &PublishOptions::default(),
+            &publish_options,
         ) {
             Ok(outcome) => {
                 let version = outcome
