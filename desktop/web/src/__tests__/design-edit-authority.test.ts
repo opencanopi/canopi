@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { disposeDesignEditAuthority } from '../app/design-edit/authority-capability'
+import { disposeDesignEditAuthorityForTests } from '../app/design-edit/authority-capability'
 import { createDesignSessionPersistence } from '../app/document-session/persistence'
 import { captureDesignSessionPersistenceState } from '../app/document-session/persistence-capability'
 import {
@@ -60,7 +60,7 @@ describe('Design Edit authority', () => {
     const guard = persistence.beginReplacementGuard().guard
     const pendingWrite = persistence.beginBrowserDownload()
 
-    disposeDesignEditAuthority(store)
+    disposeDesignEditAuthorityForTests(store)
 
     expect(store.readCurrentDesign()).toBe(original)
     expect(capture.isCurrent()).toBe(false)

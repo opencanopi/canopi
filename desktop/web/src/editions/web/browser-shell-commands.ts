@@ -1,4 +1,6 @@
 import { canvasPdf, canExportCanvasPdf } from '../../app/canvas-pdf/live'
+import { closeCommandPalette, commandPaletteOpen, openCommandPalette } from '../../app/shell/dialogs'
+import { BROWSER_RESERVED_CHORDS, insteadNoteFor } from '../../app/command-table'
 import { navigateTo, type Panel, type SidePanel } from '../../app/shell/state'
 import { designSessionStore } from '../../app/document-session/store'
 import {
@@ -37,6 +39,7 @@ export const BROWSER_SHELL_CAPABILITY_IDS = [
   'renameDesign',
   'downloadCanopi',
   'revertDesign',
+  'openDataLibrary',
   'importGeoJson',
   'exportCanvasPdf',
   'exportGeoJson',
@@ -49,18 +52,21 @@ export const BROWSER_SHELL_CAPABILITY_IDS = [
   'navigateCanvas',
   'navigateTemplates',
   'navigateLayers',
+  'navigateSiteData',
   'navigateSpeciesKey',
   'navigatePlantDatabase',
   'navigateFavorites',
   'navigateCalendar',
   'navigateBudget',
   'navigateConsortium',
+  'navigateDesignNotebook',
   'navigateStories',
   'toggleToolNames',
   'showSatellite',
   'showMap',
   'showNoBackground',
   'toggleTheme',
+  'showCommandPalette',
   'showShortcuts',
   'gettingStarted',
   'reportProblem',
@@ -114,23 +120,10 @@ export interface BrowserDesignShellCommands {
 }
 
 /**
- * A browser keeps these for itself (new window, tab switching), so the Web
- * Edition neither shows nor listens for them.
+ * A browser keeps these for itself (new window, tab switching, private window), so the Web
+ * Edition neither shows nor listens for them (2.1-Q117, 2.1-Q132, 2.1-Q343).
  */
-const BROWSER_RESERVED_SHORTCUTS: ReadonlySet<string> = new Set([
-  'Ctrl+N',
-  'Ctrl+Q',
-  'Ctrl+W',
-  'Ctrl+1',
-  'Ctrl+2',
-  'Ctrl+3',
-  'Ctrl+4',
-  'Ctrl+5',
-  'Ctrl+6',
-  'Ctrl+7',
-  'Ctrl+8',
-  'Ctrl+9',
-])
+const BROWSER_RESERVED_SHORTCUTS = BROWSER_RESERVED_CHORDS
 
 export function createBrowserShellCapabilities(
   commands: BrowserDesignShellCommands,
@@ -173,6 +166,14 @@ export function createBrowserShellCatalog(
     execute: () => capabilities.navigate(panel),
     isExecutionDisabled: needsDesign,
   })
+  const lackingCommand = (capability: 'site-data-below-limit' | 'design-notebook') => {
+    const note = insteadNoteFor([capability])
+    return {
+      execute: () => {},
+      lacking: [capability] as const,
+      ...(note ? { note } : {}),
+    }
+  }
   return composeShellCommandCatalog({
     ...createWorkspaceShellCapabilities(),
     newDesign: { execute: () => capabilities.newDesign() },
@@ -187,6 +188,7 @@ export function createBrowserShellCatalog(
       execute: () => capabilities.revertDesign(),
       isExecutionDisabled: (state) => needsChangeable(state) || !state.revertAvailable,
     },
+    openDataLibrary: lackingCommand('site-data-below-limit'),
     importGeoJson: {
       execute: () => capabilities.importGeoJson(),
       isExecutionDisabled: (state) => needsChangeable(state) || !canvasReady(),
@@ -212,13 +214,16 @@ export function createBrowserShellCatalog(
       ? { navigateTemplates: { execute: () => capabilities.navigate('templates') } }
       : {}),
     navigateLayers: designPanel('layers'),
+    navigateSiteData: lackingCommand('site-data-below-limit'),
     navigateSpeciesKey: designPanel('species-key'),
     navigatePlantDatabase: { execute: () => capabilities.navigate('plant-db') },
     navigateFavorites: { execute: () => capabilities.navigate('favorites') },
     navigateCalendar: designPanel('calendar'),
     navigateBudget: designPanel('budget'),
     navigateConsortium: designPanel('consortium'),
+    navigateDesignNotebook: lackingCommand('design-notebook'),
     navigateStories: designPanel('stories'),
+    showCommandPalette: { execute: openCommandPalette },
     // A Web report is one zip, downloaded (2.1-Q60, Q283).
     reportProblem: { execute: openProblemReportDialog },
   })
@@ -276,8 +281,16 @@ export function installWebKeyRouter(
 ): KeyRouterHandle {
   activeKeyRouter?.dispose()
   setShortcutPlatform(platform)
+  const isModalOpen = () => saveProblem.peek() !== null || savedViewDialogOpen.peek() || modalLayerOpen.peek()
   const commands: CommandSink = {
     run(command) {
+      if (command === 'help.commandPalette') {
+        if (commandPaletteOpen.peek()) {
+          closeCommandPalette()
+          return true
+        }
+        if (isModalOpen()) return false
+      }
       const entry = shell.catalog.find((candidate) => candidate.id === command)
       if (entry) {
         if (!entry.isExecutionDisabled(shell.readState())) entry.execute()
@@ -294,7 +307,7 @@ export function installWebKeyRouter(
     canvas: currentCanvasKeyboardPort,
     singleKeys: singleKeyShortcuts,
     focus: focusOwner,
-    isModalOpen: () => saveProblem.peek() !== null || savedViewDialogOpen.peek() || modalLayerOpen.peek(),
+    isModalOpen,
     platform,
     document,
   })

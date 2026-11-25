@@ -165,7 +165,7 @@ flowchart TB
   end
   subgraph L2["L2 runtimes, ranked"]
     set["1 app/settings/, owner settings"]
-    cmd["2 app/command-table/ (2.1)"]:::target
+    cmd["2 app/command-table/"]
     can["3 canvas/, owner Scene"]
     doc["4 app/design-edit/document/ (2.1), owner Document"]:::target
     core["5 app/document-session/core/ (2.1), owner Session core"]:::target

@@ -61,7 +61,7 @@ Verdicts (keep, merge, split, cut, add, change) cite the [ledger](../decisions/2
 | `GeoPoint` | lon/lat in files and TS | `canopi-format` | ADR 0001 | `canopi-types/src/design.rs` | change (M123) |
 | Print setup | pages as box, whole design or split sheet; splits by pivot | Document | PDF editor | `app/canvas-pdf/layout.ts` | change (M122, M161) |
 | Stamp file | v3 payload mapped field by field; codes reallocated when taken | Document; Session core places it | Stamps, merge | `canvas/saved-object-stamp-payload.ts` | change (M122, Q168) |
-| Object kind rows | `ObjectOwner`, `Backing`, `ObjectKindRow`, `ownerOf` | `app/command-table/object-capabilities.ts` (2.1) | Print, planning, merge | `canopi-types/src/design.rs` | change (M126) |
+| Object kind rows | `ObjectOwner`, `Backing`, `ObjectKindRow`, `ownerOf` | `app/command-table/object-capabilities.ts` | Print, planning, merge | `canopi-types/src/design.rs` | change (M126) |
 
 ## Session and history
 
@@ -117,9 +117,9 @@ Verdicts (keep, merge, split, cut, add, change) cite the [ledger](../decisions/2
 
 | Abstraction | Concept owned | Owner | Why it exists | Canonical example | Verdict |
 |---|---|---|---|---|---|
-| Command table | commands, tool rows, keys, placement, availability | `app/command-table/tools.ts` (2.1) and siblings | Four catalogs today | `app/canvas-commands/index.ts` | change (M146) |
+| Command table | commands, tool rows, keys, placement, availability | `app/command-table/tools.ts` and siblings | Four catalogs today | `app/canvas-commands/index.ts` | change (M146) |
 | Context-menu items | menu items as command rows; the owner keeps menu state | `app/canvas-context-menu/state.ts` | Second vocabulary today | `app/canvas-context-menu/entries.ts` | change: projection with lacking (M163, Q170) |
-| Object-action matrix | object kind by action, `via` tool ids, kind `requires` | `app/command-table/object-capabilities.ts` (2.1) | Print, planning, merge | `app/command-table/` (2.1) | change (M126) |
+| Object-action matrix | object kind by action, `via` tool ids, kind `requires` | `app/command-table/object-capabilities.ts` | Print, planning, merge | `app/command-table/` | change (M126) |
 | Key router and keymap | shortcuts and chord text from the keys column; Esc order | `app/keyboard/key-router.ts`, `app/keyboard/escape-chain.ts` | One router on both roots | `app/keyboard/key-router.ts` | keep (ADR 0020) |
 | Modal layer | what is modal; the one modal query reads it | `app/shell/modal-layer.ts` | Two `isModalOpen` copies today | the owner | keep (M146) |
 

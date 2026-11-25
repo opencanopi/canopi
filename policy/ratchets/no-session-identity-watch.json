@@ -2,117 +2,32 @@
   "$schema": "./ratchet.schema.json",
   "family": "no-session-identity-watch",
   "entries": {
-    "desktop/web/src/app/budget/price-request.ts": {
-      "count": 1,
-      "bead": "canopi-f47t.52.48"
-    },
-    "desktop/web/src/app/budget/workbench.ts": {
-      "count": 8,
-      "bead": "canopi-f47t.52.48"
-    },
-    "desktop/web/src/app/canvas-map-surface/workspace-activation-snapshot.ts": {
-      "count": 1,
-      "bead": "canopi-f47t.52.48"
-    },
-    "desktop/web/src/app/canvas-map-surface/workspace-activation.ts": {
-      "count": 4,
-      "bead": "canopi-f47t.52.48"
-    },
-    "desktop/web/src/app/canvas-map-surface/workspace-generation-reconciler.ts": {
-      "count": 2,
-      "bead": "canopi-f47t.52.48"
-    },
-    "desktop/web/src/app/canvas-map-surface/workspace-map-contribution-adapter.ts": {
-      "count": 1,
-      "bead": "canopi-f47t.52.48"
-    },
-    "desktop/web/src/app/canvas-pdf/live.ts": {
-      "count": 3,
-      "bead": "canopi-f47t.52.48"
-    },
-    "desktop/web/src/app/consortium/dock-workbench.ts": {
-      "count": 5,
-      "bead": "canopi-f47t.52.48"
-    },
-    "desktop/web/src/app/data-library/actions.ts": {
-      "count": 5,
-      "bead": "canopi-f47t.52.48"
-    },
-    "desktop/web/src/app/data-library/sampler.ts": {
-      "count": 1,
-      "bead": "canopi-f47t.52.48"
-    },
-    "desktop/web/src/app/data-library/site-data-view.ts": {
-      "count": 2,
-      "bead": "canopi-f47t.52.48"
-    },
-    "desktop/web/src/app/data-library/site-transients.ts": {
-      "count": 2,
-      "bead": "canopi-f47t.52.48"
-    },
-    "desktop/web/src/app/data-library/workflow.ts": {
-      "count": 1,
-      "bead": "canopi-f47t.52.48"
-    },
-    "desktop/web/src/app/design-edit/core.ts": {
-      "count": 1,
-      "bead": "canopi-f47t.52.48"
-    },
-    "desktop/web/src/app/geocoding/place-search-session.ts": {
-      "count": 2,
-      "bead": "canopi-f47t.52.48"
-    },
-    "desktop/web/src/app/geojson/workflow.ts": {
-      "count": 1,
-      "bead": "canopi-f47t.52.48"
-    },
-    "desktop/web/src/app/my-location/session.ts": {
-      "count": 1,
-      "bead": "canopi-f47t.52.48"
-    },
-    "desktop/web/src/app/planning-view/state.ts": {
-      "count": 3,
-      "bead": "canopi-f47t.52.48"
-    },
-    "desktop/web/src/app/saved-views/dialogs.ts": {
-      "count": 2,
-      "bead": "canopi-f47t.52.48"
-    },
-    "desktop/web/src/app/saved-views/thumbnails.ts": {
-      "count": 1,
-      "bead": "canopi-f47t.52.48"
-    },
-    "desktop/web/src/app/site-onboarding/state.ts": {
-      "count": 2,
-      "bead": "canopi-f47t.52.48"
-    },
-    "desktop/web/src/app/stories/actions.ts": {
-      "count": 2,
-      "bead": "canopi-f47t.52.48"
-    },
-    "desktop/web/src/app/story-presentation/controller.ts": {
-      "count": 3,
-      "bead": "canopi-f47t.52.48"
-    },
-    "desktop/web/src/app/timeline/calendar-request.ts": {
-      "count": 1,
-      "bead": "canopi-f47t.52.48"
-    },
-    "desktop/web/src/app/timeline/calendar-workbench.ts": {
-      "count": 10,
-      "bead": "canopi-f47t.52.48"
-    },
-    "desktop/web/src/components/panels/FavoritesPanel.tsx": {
-      "count": 1,
-      "bead": "canopi-f47t.52.48"
-    },
-    "desktop/web/src/components/panels/lidar/SiteData.tsx": {
-      "count": 1,
-      "bead": "canopi-f47t.52.48"
-    },
-    "desktop/web/src/components/panels/lidar/SiteDataPanel.tsx": {
-      "count": 1,
-      "bead": "canopi-f47t.52.48"
-    }
+    "desktop/web/src/app/budget/price-request.ts": { "count": 1, "bead": "canopi-f47t.52.48" },
+    "desktop/web/src/app/budget/workbench.ts": { "count": 8, "bead": "canopi-f47t.52.48" },
+    "desktop/web/src/app/canvas-map-surface/workspace-activation-snapshot.ts": { "count": 1, "bead": "canopi-f47t.52.48" },
+    "desktop/web/src/app/canvas-map-surface/workspace-activation.ts": { "count": 4, "bead": "canopi-f47t.52.48" },
+    "desktop/web/src/app/canvas-map-surface/workspace-generation-reconciler.ts": { "count": 2, "bead": "canopi-f47t.52.48" },
+    "desktop/web/src/app/canvas-map-surface/workspace-map-contribution-adapter.ts": { "count": 1, "bead": "canopi-f47t.52.48" },
+    "desktop/web/src/app/canvas-pdf/live.ts": { "count": 3, "bead": "canopi-f47t.52.48" },
+    "desktop/web/src/app/consortium/dock-workbench.ts": { "count": 5, "bead": "canopi-f47t.52.48" },
+    "desktop/web/src/app/data-library/actions.ts": { "count": 5, "bead": "canopi-f47t.52.48" },
+    "desktop/web/src/app/data-library/sampler.ts": { "count": 1, "bead": "canopi-f47t.52.48" },
+    "desktop/web/src/app/data-library/site-data-view.ts": { "count": 2, "bead": "canopi-f47t.52.48" },
+    "desktop/web/src/app/data-library/site-transients.ts": { "count": 2, "bead": "canopi-f47t.52.48" },
+    "desktop/web/src/app/data-library/workflow.ts": { "count": 1, "bead": "canopi-f47t.52.48" },
+    "desktop/web/src/app/geocoding/place-search-session.ts": { "count": 2, "bead": "canopi-f47t.52.48" },
+    "desktop/web/src/app/geojson/workflow.ts": { "count": 1, "bead": "canopi-f47t.52.48" },
+    "desktop/web/src/app/my-location/session.ts": { "count": 1, "bead": "canopi-f47t.52.48" },
+    "desktop/web/src/app/planning-view/state.ts": { "count": 3, "bead": "canopi-f47t.52.48" },
+    "desktop/web/src/app/saved-views/dialogs.ts": { "count": 2, "bead": "canopi-f47t.52.48" },
+    "desktop/web/src/app/saved-views/thumbnails.ts": { "count": 1, "bead": "canopi-f47t.52.48" },
+    "desktop/web/src/app/site-onboarding/state.ts": { "count": 2, "bead": "canopi-f47t.52.48" },
+    "desktop/web/src/app/stories/actions.ts": { "count": 2, "bead": "canopi-f47t.52.48" },
+    "desktop/web/src/app/story-presentation/controller.ts": { "count": 3, "bead": "canopi-f47t.52.48" },
+    "desktop/web/src/app/timeline/calendar-request.ts": { "count": 1, "bead": "canopi-f47t.52.48" },
+    "desktop/web/src/app/timeline/calendar-workbench.ts": { "count": 10, "bead": "canopi-f47t.52.48" },
+    "desktop/web/src/components/panels/FavoritesPanel.tsx": { "count": 1, "bead": "canopi-f47t.52.48" },
+    "desktop/web/src/components/panels/lidar/SiteData.tsx": { "count": 1, "bead": "canopi-f47t.52.48" },
+    "desktop/web/src/components/panels/lidar/SiteDataPanel.tsx": { "count": 1, "bead": "canopi-f47t.52.48" }
   }
 }

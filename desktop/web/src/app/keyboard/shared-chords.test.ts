@@ -57,7 +57,7 @@ function desktopRouter(ran: string[]): KeyRouterHandle {
 }
 
 describe('2.1-Q343 shared chords', () => {
-  it.fails('Q343 (2a-2): on Web, Alt+Shift+N, Alt+Shift+W, Alt+Shift+1-9 and Alt+Shift+P run New, Close, the panels and the palette', () => {
+  it('Q343 (2a-2): on Web, Alt+Shift+N, Alt+Shift+W, Alt+Shift+1-9 and Alt+Shift+P run New, Close, the panels and the palette', () => {
     const capabilities = {
       newDesign: vi.fn(), openCanopi: vi.fn(), downloadCanopi: vi.fn(), revertDesign: vi.fn(),
       importGeoJson: vi.fn(), exportGeoJson: vi.fn(), exportBudgetCsv: vi.fn(), closeDesign: vi.fn(), navigate: vi.fn(),
@@ -84,7 +84,7 @@ describe('2.1-Q343 shared chords', () => {
     expect(commandPaletteOpen.value, 'Alt+Shift+P opens the palette').toBe(true)
   })
 
-  it.fails('Q343 (2a-2): on Desktop, the Alt+Shift chords run the same commands and the Ctrl chords stay as aliases', () => {
+  it('Q343 (2a-2): on Desktop, the Alt+Shift chords run the same commands and the Ctrl chords stay as aliases', () => {
     const ran: string[] = []
     router = desktopRouter(ran)
 

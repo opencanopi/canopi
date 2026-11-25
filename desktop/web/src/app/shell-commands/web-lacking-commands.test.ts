@@ -16,7 +16,7 @@ function noteOf(command: unknown): unknown {
 }
 
 describe('2.1-Q358 commands Web lacks', () => {
-  it.fails('Q358 (2a-2): Web shows Open Data library greyed with its note in the File menu and the palette, not left out', () => {
+  it('Q358 (2a-2): Web shows Open Data library greyed with its note in the File menu and the palette, not left out', () => {
     const catalog = createBrowserShellCatalog({
       newDesign: vi.fn(), openCanopi: vi.fn(), downloadCanopi: vi.fn(), revertDesign: vi.fn(),
       importGeoJson: vi.fn(), exportGeoJson: vi.fn(), exportBudgetCsv: vi.fn(), closeDesign: vi.fn(), navigate: vi.fn(),

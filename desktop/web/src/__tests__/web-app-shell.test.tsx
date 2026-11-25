@@ -157,14 +157,8 @@ describe('Web Edition Browser App Shell', () => {
       menuTrigger(container, 'file').click()
     })
     expect(openMenuCommandIds(container)).toEqual([
-      'file.new',
-      'file.openCanopi',
-      'file.rename',
-      'file.downloadCanopi',
-      'file.revert',
-      'file.importGeoJson',
-      'app.settings',
-      'file.close',
+      'file.new', 'file.openCanopi', 'file.rename', 'file.downloadCanopi',
+      'file.revert', 'file.importGeoJson', 'file.dataLibrary', 'app.settings', 'file.close',
     ])
     expect(container.textContent).toContain('Open a .canopi file…')
     expect(container.textContent).toContain('Download a copy')
@@ -209,14 +203,8 @@ describe('Web Edition Browser App Shell', () => {
     })
 
     expect(openMenuCommandIds(container)).toEqual([
-      'file.new',
-      'file.openCanopi',
-      'file.rename',
-      'file.downloadCanopi',
-      'file.revert',
-      'file.importGeoJson',
-      'app.settings',
-      'file.close',
+      'file.new', 'file.openCanopi', 'file.rename', 'file.downloadCanopi',
+      'file.revert', 'file.importGeoJson', 'file.dataLibrary', 'app.settings', 'file.close',
     ])
   })
 
@@ -229,14 +217,8 @@ describe('Web Edition Browser App Shell', () => {
       menuTrigger(container, 'file').click()
     })
     expect(openMenuCommandIds(container)).toEqual([
-      'file.new',
-      'file.openCanopi',
-      'file.rename',
-      'file.downloadCanopi',
-      'file.revert',
-      'file.importGeoJson',
-      'app.settings',
-      'file.close',
+      'file.new', 'file.openCanopi', 'file.rename', 'file.downloadCanopi',
+      'file.revert', 'file.importGeoJson', 'file.dataLibrary', 'app.settings', 'file.close',
     ])
 
     await act(async () => {

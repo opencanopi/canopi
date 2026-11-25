@@ -11,7 +11,7 @@ import {
   DesignPersistenceBusyError,
   DesignPersistenceSettlementError,
 } from '../app/document-session/persistence'
-import { disposeDesignEditAuthority } from '../app/design-edit/authority-capability'
+import { disposeDesignEditAuthorityForTests } from '../app/design-edit/authority-capability'
 import {
   prepareDesignWriteDestination,
   prepareSynchronousDesignWriteDestination,
@@ -127,7 +127,7 @@ describe('purpose-aware Design persistence operations', () => {
     const guard = persistence.beginReplacementGuard().guard
     expect(guard?.isCurrent()).toBe(true)
 
-    disposeDesignEditAuthority(operationStore)
+    disposeDesignEditAuthorityForTests(operationStore)
 
     expect(guard?.isCurrent()).toBe(false)
   })

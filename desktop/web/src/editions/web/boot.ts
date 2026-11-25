@@ -6,6 +6,8 @@ import { installToolRailLearning } from "../../app/tool-rail/learning";
 import { installSettingsProjection, readSettingsReportSummary } from "../../app/settings/projection";
 import { initTheme } from "../../app/settings/theme";
 import { registerDesignOpenFailurePresenter } from "../../app/document-session/open-failure";
+import { registerDesignSessionWorkflow } from "../../app/document-session/workflows";
+import { consortiumSyncWorkflow } from "../../app/consortium/workflow";
 import { browserDesignSessionController } from "../../web/browser-design-session";
 import { presentBrowserDesignOpenFailure, raiseEarlierDataNotice } from "../../web/browser-notices";
 import { browserAppDataStore } from "../../web/browser-app-data";
@@ -35,6 +37,7 @@ let disposeWebRoot: (() => void) | null = null;
 
 export function bootWebEdition(): () => void {
   disposeWebRoot?.();
+  registerDesignSessionWorkflow(consortiumSyncWorkflow);
 
   // Window error hooks first so a failure during bootstrap reaches the ring (ADR 0025).
   const disposeFailureHooks = installFailureHooks({ storage: "device" }, window);

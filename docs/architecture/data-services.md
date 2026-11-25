@@ -261,9 +261,9 @@ Source: ADR 0022, ADR 0030; contracts §21; 2.1-Q147, 2.1-M86, 2.1-M164
 
 ```mermaid
 flowchart LR
-  OCM["app/command-table/object-capabilities.ts (2.1): rows id, backing: Backing; OBJECT_KINDS with requires x CAPABILITIES; cellOn adds lacking"]:::target
-  OWNR["ownerOf(row) -> ObjectOwner: scene, document, data-library, map-layer-store, stamp-store, tool-session (2.1)"]:::target
-  CMD[app/command-table/ descriptors and availability (2.1)]:::target
+  OCM["app/command-table/object-capabilities.ts: rows id, backing: Backing; OBJECT_KINDS with requires x CAPABILITIES; cellOn adds lacking"]
+  OWNR["ownerOf(row) -> ObjectOwner: scene, document, data-library, map-layer-store, stamp-store, tool-session"]
+  CMD[app/command-table/ descriptors and availability]
   ECJ[canopi-types/edition-capabilities.json: guarded rows]
   ECR[canopi-types EditionCapability, Rust (2.1)]:::target
   ECT[generated/edition-capabilities.ts: gate and adapter rows; set by edition plus OS]

@@ -9,7 +9,8 @@ import type { EditionCapabilityId } from '../../generated/edition-capabilities'
 import type { EditionManifest, EditionManifestEntry } from '../../platform/edition-manifest'
 import { BROWSER_SHELL_CAPABILITY_IDS } from './browser-shell-commands'
 
-const webCapabilitySet = new Set<string>(BROWSER_SHELL_CAPABILITY_IDS)
+const WEB_LACKING_CAPABILITY_IDS = new Set<string>(['openDataLibrary', 'navigateSiteData', 'navigateDesignNotebook'])
+const webCapabilitySet = new Set<string>(BROWSER_SHELL_CAPABILITY_IDS.filter((id) => !WEB_LACKING_CAPABILITY_IDS.has(id)))
 const webDescriptors = SHELL_COMMAND_DESCRIPTORS.filter((d) => webCapabilitySet.has(d.capabilityId))
 
 const WEB_INSTEAD_OF_COMMANDS: Readonly<Record<string, EditionCapabilityId>> = {

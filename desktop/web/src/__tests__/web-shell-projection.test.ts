@@ -79,6 +79,7 @@ describe('Web Edition shell projection', () => {
       'file.downloadCanopi',
       'file.revert',
       'file.importGeoJson',
+      'file.dataLibrary',
       'file.exportCanvasPdf',
       'file.exportGeoJson',
       'file.exportBudgetCsv',
@@ -114,10 +115,11 @@ describe('Web Edition shell projection', () => {
     expect(flattenMenuActions([tools]).map((item) => item.id).slice(0, 2)).toEqual(['canvas.tool.select', 'canvas.tool.hand'])
   })
 
-  it('does not show shortcuts a browser keeps for itself', () => {
+  it('shows browser-safe Alt+Shift chords instead of browser-reserved Ctrl chords (2.1-Q343)', () => {
     const projection = project(capabilities())
-    expect(projection.commands.get('file.new')?.shortcut).toBeUndefined()
-    expect(projection.commands.get('nav.layers')?.shortcut).toBeUndefined()
+    expect(projection.commands.get('file.new')?.shortcut).toBe('Alt Shift N')
+    expect(projection.commands.get('nav.layers')?.shortcut).toBe('Alt Shift 1')
+    expect(projection.commands.get('help.commandPalette')?.shortcut).toBe('Alt Shift P')
     expect(projection.commands.get('file.openCanopi')?.shortcut).toBe('Ctrl O')
     expect(projection.commands.get('help.shortcuts')?.shortcut).toBe('F1')
   })
@@ -139,7 +141,7 @@ describe('Web Edition shell projection', () => {
     expect(revertDesign).toHaveBeenCalledOnce()
   })
 
-  it('offers Close Design without Ctrl W (the browser closes the tab with it) and routes it to the controller', async () => {
+  it('offers Close Design with Alt Shift W (not Ctrl W) and routes it to the controller (2.1-Q343)', async () => {
     const closeDesign = vi.fn(async () => true)
     const caps = createBrowserShellCapabilities({
       newDesign: vi.fn(async () => undefined),
@@ -151,7 +153,7 @@ describe('Web Edition shell projection', () => {
 
     expect(project(caps, { hasDesign: false }).commands.get('file.close')?.disabled).toBe(true)
     const close = project(caps).commands.get('file.close')!
-    expect(close.shortcut).toBeUndefined()
+    expect(close.shortcut).toBe('Alt Shift W')
     expect(close.label).toBe('Close Design')
     close.action()
     await Promise.resolve()

@@ -136,8 +136,13 @@ describe('App Command Graph shell catalog', () => {
     })
 
     expect(projection.commands.get('view.toggleTheme')).toMatchObject({ check: 'checkbox', checked: true })
-    expect(projection.commands.get('file.new')?.shortcut).toBeUndefined()
+    expect(projection.commands.get('file.new')?.shortcut).toBe('shortcutKeys.alt shortcutKeys.shift N')
     expect(projection.commands.get('nav.layers')?.shortcut).toBe('Ctrl 1')
     expect(projection.commands.get('file.new')?.checked).toBeUndefined()
+
+    const hiddenProjection = projectShellCommandCatalog(catalog, state, (key) => key === 'shortcutKeys.ctrl' ? 'Ctrl' : key, {
+      unavailableShortcuts: new Set(['Ctrl+N', 'Alt+Shift+N']),
+    })
+    expect(hiddenProjection.commands.get('file.new')?.shortcut).toBeUndefined()
   })
 })

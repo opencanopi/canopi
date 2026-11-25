@@ -18,7 +18,6 @@ const DESKTOP_ONLY_COMMAND_GATES: Readonly<Record<string, EditionCapabilityId>> 
   'nav.siteData': 'site-data-below-limit',
   'nav.designNotebook': 'design-notebook',
   'siteData.profile': 'site-data-below-limit',
-  'help.commandPalette': 'desktop-browser-reserved-chords',
 }
 
 const DESKTOP_ONLY_PANEL_GATES: Readonly<Record<string, EditionCapabilityId>> = {

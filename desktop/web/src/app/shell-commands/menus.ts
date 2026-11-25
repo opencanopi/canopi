@@ -27,6 +27,8 @@ export interface MenuAction {
   readonly shortcut?: string
   readonly ariaShortcut?: string
   readonly disabled: boolean
+  /** User-facing note when disabled for a lacking edition capability (2.1-Q358). */
+  readonly note?: string
   /** Set on checkable items; they render as `menuitemcheckbox` or `menuitemradio`. */
   readonly checked?: boolean
   readonly check?: 'checkbox' | 'radio'
@@ -49,6 +51,8 @@ interface MenuSubmenu {
   readonly shortcut?: string
   readonly ariaShortcut?: string
   readonly disabled: boolean
+  /** User-facing note when disabled for a lacking edition capability (2.1-Q358). */
+  readonly note?: string
   readonly items: readonly MenuAction[]
 }
 
@@ -247,6 +251,7 @@ function shellAction(command: ProjectedShellCommand): MenuAction {
     shortcut: command.shortcut,
     ariaShortcut: command.ariaShortcut,
     disabled: command.disabled,
+    ...(command.note ? { note: command.note } : {}),
     ...(command.check ? { check: command.check, checked: command.checked ?? false } : {}),
     action: () => command.action(),
   }

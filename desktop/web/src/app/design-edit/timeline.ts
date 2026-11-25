@@ -1,6 +1,6 @@
 import type { PanelTarget, TimelineAction } from '../../generated/contracts'
 import { editDesignArray } from './core'
-import { applyTimelineActionPatch } from '../timeline/model'
+import { applyTimelineActionPatch } from '../../planning/timeline-model'
 
 export interface CalendarActionFormData {
   readonly action_type: string

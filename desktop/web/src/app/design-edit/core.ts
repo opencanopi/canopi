@@ -1,38 +1,38 @@
 import type { CanopiFile } from '../../types/design'
-import { designSessionStore } from '../document-session/store'
 import {
-  designEditAuthorityCapability,
-  disposeDesignEditAuthority,
+  defaultDesignEditAuthority,
+  disposeDefaultDesignEditAuthority,
 } from './authority-capability'
 
 export function editCurrentDesign(
   updater: (design: CanopiFile) => CanopiFile,
 ): CanopiFile | null {
-  return designEditAuthorityCapability(designSessionStore).editCommitted(updater)
+  return defaultDesignEditAuthority().editCommitted(updater)
 }
 
 /** The open Design as committed, for a command that decides before it edits. */
 export function readCurrentDesign(): CanopiFile | null {
-  return designSessionStore.currentDesign.peek()
+  return defaultDesignEditAuthority().readCommitted()
 }
 
 /** The open Design session's identity; session-only Design Edit state keys on it and goes with it. */
 export function currentDesignSessionKey(): object {
-  return designSessionStore.sessionIdentity.peek()
+  return defaultDesignEditAuthority().readSessionIdentity()
 }
 
 export function reconcileCurrentDesign(
   updater: (design: CanopiFile) => CanopiFile,
 ): CanopiFile | null {
-  return designEditAuthorityCapability(designSessionStore).reconcileCommitted(updater)
+  return defaultDesignEditAuthority().reconcileCommitted(updater)
 }
 
 export function setDesignName(name: string): void {
   const nextName = name.trim()
   if (nextName.length === 0) return
-  if (nextName === designSessionStore.readDesignName()) return
+  const authority = defaultDesignEditAuthority()
+  if (nextName === authority.readDesignName()) return
 
-  designSessionStore.renameCurrentDesign(nextName)
+  authority.renameDesign(nextName)
 }
 
 export function editDesignArray<K extends keyof CanopiFile>(
@@ -47,6 +47,6 @@ export function editDesignArray<K extends keyof CanopiFile>(
 
 if (import.meta.hot) {
   import.meta.hot.dispose(() => {
-    disposeDesignEditAuthority(designSessionStore)
+    disposeDefaultDesignEditAuthority()
   })
 }

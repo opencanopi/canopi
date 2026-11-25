@@ -7,6 +7,8 @@ import { disposeLidarWorkflow, installLidarWorkflow } from "../../app/data-libra
 import { disposeLidarDisplayDescriptors, installLidarDisplayDescriptors } from "../../app/data-library/display";
 import { designContinuousSave, installDesignContinuousSave } from "../../app/document-session/transition";
 import { currentDesign, designPath } from "../../app/document-session/store";
+import { registerDesignSessionWorkflow } from "../../app/document-session/workflows";
+import { consortiumSyncWorkflow } from "../../app/consortium/workflow";
 import { installLaunchFile } from "../../app/document-session/launch-file";
 import { getRecentFiles } from "../../ipc/design";
 import { subscribePendingOpen, takePendingOpen } from "../../ipc/launch";
@@ -54,6 +56,7 @@ let disposeDesktopRoot: (() => void) | null = null;
 
 export function bootDesktopEdition(): () => void {
   disposeDesktopRoot?.();
+  registerDesignSessionWorkflow(consortiumSyncWorkflow);
 
   const disposers: Array<() => void> = [
     // Window error hooks first so a failure during bootstrap reaches the ring (ADR 0025).

@@ -126,6 +126,7 @@ const testFixtures = new WeakMap<object, DesignSessionStoreTestFixture>()
 
 export function createDesignSessionStore(
   initial: Partial<DesignSessionIdentity> = {},
+  isDefault = false,
 ): PersistenceCapableDesignSessionStore {
   const currentDesign = signal<CanopiFile | null>(initial.file ?? null)
   const designPath = signal<string | null>(initial.path ?? null)
@@ -341,8 +342,13 @@ export function createDesignSessionStore(
         if (readOnly()) return
         signals.nonCanvasRevision.value += 1
       },
+      readCommitted: () => signals.currentDesign.peek(),
+      readSessionIdentity: () => sessionIdentity.peek(),
+      readDesignName: () => signals.designName.value,
+      renameDesign: (name) => store.renameCurrentDesign(name),
     },
     rolloverDesignEditAuthority,
+    isDefault,
   )
 
   registerDesignSessionPersistenceCapability(store, () => {
@@ -496,7 +502,7 @@ export function createDesignSessionStoreTestFixture(
   return fixture
 }
 
-export const designSessionStore: PersistenceCapableDesignSessionStore = createDesignSessionStore()
+export const designSessionStore: PersistenceCapableDesignSessionStore = createDesignSessionStore({}, true)
 
 export const currentDesign = designSessionStore.currentDesign
 export const designPath = designSessionStore.designPath
