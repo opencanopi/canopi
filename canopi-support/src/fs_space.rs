@@ -8,15 +8,22 @@ use std::path::Path;
 
 /// Free bytes available to this process on the filesystem holding `directory`.
 ///
+/// Fails with [`io::ErrorKind::NotFound`] when `directory` does not exist on
+/// every platform (on Windows, `fs4::available_space` calls `GetVolumePathNameW`,
+/// which resolves missing leaf paths up to the volume root unless existence is
+/// checked first).
+///
 /// This is a measurement, not a reservation: another process can consume the
 /// space immediately afterwards, so callers still propagate ordinary write errors.
 pub fn available_space(directory: &Path) -> io::Result<u64> {
+    let _ = std::fs::metadata(directory)?;
     fs4::available_space(directory)
 }
 
 #[cfg(test)]
 mod tests {
     use super::available_space;
+    use std::io;
 
     #[test]
     fn available_space_reports_positive_bytes_for_existing_dir() {
@@ -34,7 +41,8 @@ mod tests {
         assert!(dir.is_some());
         if let Some(dir) = dir {
             let missing = dir.path().join("does-not-exist");
-            assert!(available_space(&missing).is_err());
+            let err = available_space(&missing).expect_err("missing dir must fail");
+            assert_eq!(err.kind(), io::ErrorKind::NotFound);
         }
     }
 }
