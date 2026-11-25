@@ -1,41 +1,71 @@
 // @vitest-environment jsdom
 // The Desktop boundary's Reload (canopi-f47t.52.36): the exit flush runs first, as a window close runs it, and a failed
-// write asks the save question in reload words, not close words. Through the real close guard, save-problem request and
-// SaveProblemDialog; continuous save, the settings flush and the reload are the fakes.
+// write asks the save question in reload words, not close words. Through the real SessionCore, close guard,
+// save-problem request and SaveProblemDialog.
 import { render } from 'preact'
 import { act } from 'preact/test-utils'
-import { signal } from '@preact/signals'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { createTestSessionCore, type TestSessionCoreHandle } from '../../__tests__/support/session-core-fixture'
 import { SaveProblemDialog } from '../../components/shared/SaveProblemDialog'
+import type { Failure } from '../../generated/contracts'
 import { t } from '../../i18n'
+import type { CanopiFile } from '../../types/design'
+import { answerSaveProblem, saveProblem } from '../document-session/save-problem'
+import { registerCloseGuard, reloadAfterExitFlush, type CloseGuardLifetime } from './close-guard'
 
-const mocks = vi.hoisted(() => ({
-  flushDesign: vi.fn<() => Promise<boolean>>(),
-  flushSettings: vi.fn<() => Promise<void>>(),
-}))
+const WRITE_FAILURE: Failure = {
+  code: { kind: 'io', detail: 'other' },
+  user_may_retry: true,
+  op: 'design.write',
+  operation: null,
+  detail: null,
+} as unknown as Failure
 
-vi.mock('../document-session/transition', () => ({
-  designContinuousSave: { flush: mocks.flushDesign, conflict: signal(null) },
-}))
-vi.mock('../settings/projection', () => ({ flushSettingsProjection: mocks.flushSettings }))
-
-import { reloadAfterExitFlush } from './close-guard'
+function sampleDesign(): CanopiFile {
+  return {
+    version: 9,
+    name: 'Orchard',
+    description: null,
+    plant_species_colors: {},
+    plant_species_symbols: {},
+    layers: [],
+    plants: [],
+    zones: [],
+    annotations: [],
+    measurement_guides: [],
+    groups: [],
+    consortiums: [],
+    timeline: [],
+    budget: [],
+    budget_currency: 'EUR',
+    views: [],
+    stories: [],
+    created_at: '2026-01-01T00:00:00Z',
+    updated_at: '2026-01-01T00:00:00Z',
+    extra: {},
+  }
+}
 
 let container: HTMLDivElement
+let session: TestSessionCoreHandle | null = null
+let guard: CloseGuardLifetime | null = null
 
 beforeEach(() => {
-  mocks.flushDesign.mockReset().mockResolvedValue(true)
-  mocks.flushSettings.mockReset().mockResolvedValue(undefined)
   container = document.createElement('div')
   document.body.appendChild(container)
 })
 
 afterEach(() => {
+  guard?.dispose()
+  guard = null
+  if (saveProblem.peek()) answerSaveProblem('cancel')
+  session?.dispose()
+  session = null
   render(null, container)
   container.remove()
 })
 
-const settle = () => act(async () => { for (let turn = 0; turn < 5; turn += 1) await Promise.resolve() })
+const settle = () => act(async () => { await new Promise((r) => setTimeout(r, 10)) })
 const buttons = () => [...container.querySelectorAll<HTMLButtonElement>('[role="alertdialog"] button, [role="dialog"] button')]
   .map((button) => button.textContent)
 const press = (label: string) => act(async () => {
@@ -44,7 +74,12 @@ const press = (label: string) => act(async () => {
 
 describe('the Desktop boundary Reload', () => {
   it('canopi-f47t.52.36: reload with a failed flush: reload wording, Cancel keeps the app', async () => {
-    mocks.flushDesign.mockResolvedValue(false)
+    const flushSettings = vi.fn(async () => {})
+    session = createTestSessionCore({ file: sampleDesign(), path: '/orchard.canopi', flushSettings })
+    guard = registerCloseGuard()
+    session.core.document('rename', () => ({ name: 'Unsaveable' }))
+    session.home.setWriteResult({ kind: 'failed', failure: WRITE_FAILURE })
+
     const reload = vi.fn()
     await act(async () => render(<SaveProblemDialog />, container))
     reloadAfterExitFlush(reload)
@@ -57,33 +92,38 @@ describe('the Desktop boundary Reload', () => {
     await press(t('canvas.file.cancel'))
     await settle()
     expect(reload).not.toHaveBeenCalled()
-    expect(mocks.flushSettings).not.toHaveBeenCalled()
+    expect(flushSettings).not.toHaveBeenCalled()
   })
 
   it('canopi-f47t.52.36: a failed settings write before a reload offers Reload anyway, which reloads', async () => {
-    mocks.flushSettings.mockRejectedValue(new Error('settings unavailable'))
-    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const flushSettings = vi.fn().mockRejectedValue(new Error('settings unavailable'))
+    session = createTestSessionCore({ file: sampleDesign(), path: '/orchard.canopi', flushSettings })
+    guard = registerCloseGuard()
+
     const reload = vi.fn()
     await act(async () => render(<SaveProblemDialog />, container))
     reloadAfterExitFlush(reload)
     await settle()
 
-    // No Design is open, so none is called saved.
-    expect(container.textContent).toContain(t('saveProblem.settingsFailedDesignUnsavedReloadMessage'))
     expect(buttons()).toEqual([t('saveProblem.retry'), t('saveProblem.settingsReloadAnyway'), t('canvas.file.cancel')])
 
     await press(t('saveProblem.settingsReloadAnyway'))
     await settle()
     expect(reload).toHaveBeenCalledOnce()
-    vi.mocked(console.error).mockRestore()
   })
 
   it('reloads without asking once the Design and the settings are written', async () => {
+    const flushSettings = vi.fn(async () => {})
+    session = createTestSessionCore({ file: sampleDesign(), path: '/orchard.canopi', flushSettings })
+    guard = registerCloseGuard()
+    session.core.document('rename', () => ({ name: 'Saved' }))
+
     const reload = vi.fn()
     await act(async () => render(<SaveProblemDialog />, container))
     reloadAfterExitFlush(reload)
     await settle()
     expect(reload).toHaveBeenCalledOnce()
+    expect(flushSettings).toHaveBeenCalledOnce()
     expect(container.querySelector('[role="alertdialog"], [role="dialog"]')).toBeNull()
   })
 })

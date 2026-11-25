@@ -18,21 +18,21 @@ export function addTimelineAction(action: Omit<TimelineAction, 'order'>): void {
       if (existing.order > maxOrder) maxOrder = existing.order
     }
     return [...timeline, { ...action, order: maxOrder + 1 }]
-  })
+  }, 'timeline.add')
 }
 
 export function updateTimelineAction(
   actionId: string,
   patch: Partial<TimelineAction>,
 ): void {
-  editDesignArray('timeline', (timeline) => applyTimelineActionPatch(timeline, actionId, patch))
+  editDesignArray('timeline', (timeline) => applyTimelineActionPatch(timeline, actionId, patch), 'timeline.update')
 }
 
 export function deleteTimelineAction(actionId: string): void {
   editDesignArray('timeline', (timeline) => {
     if (!timeline.some((action) => action.id === actionId)) return timeline
     return timeline.filter((action) => action.id !== actionId)
-  })
+  }, 'timeline.delete')
 }
 
 export function createCalendarActionFromFormData(

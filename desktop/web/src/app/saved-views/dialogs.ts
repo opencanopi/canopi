@@ -1,11 +1,7 @@
 import { computed, signal, type ReadonlySignal } from '@preact/signals'
 import { t } from '../../i18n'
-import {
-  deleteSavedView,
-  renameSavedView,
-  restoreSavedView,
-  type SavedViewDeletion,
-} from '../design-edit'
+import { renameSavedView } from '../design-edit'
+import { getLiveSessionCore } from '../document-session/live-core'
 import { currentDesign, designSessionStore } from '../document-session/store'
 import { defaultSavedViewName, saveCurrentView } from './actions'
 import { canShowSavedViews, currentSavedViews } from './current-view'
@@ -77,10 +73,10 @@ export interface SavedViewDeleteConfirmation {
 const deleteConfirmationState = signal<Fenced<SavedViewDeleteConfirmation> | null>(null)
 export const savedViewDeleteConfirmation = fenced(deleteConfirmationState)
 
-interface SavedViewUndo {
+export interface SavedViewUndo {
   readonly message: string
   /** Null for a notice that offers no Undo, such as images that do not fit. */
-  readonly deletion: SavedViewDeletion | null
+  readonly undo: (() => void) | null
 }
 
 const undoState = signal<Fenced<SavedViewUndo> | null>(null)
@@ -120,14 +116,7 @@ export function cancelDeleteView(): void {
 export function undoDeleteView(): void {
   const undo = savedViewUndo.peek()
   undoState.value = null
-  if (!undo?.deletion) return
-  // The view's steps may bring back more images than the Design can still hold.
-  if (restoreSavedView(undo.deletion) === 'images-do-not-fit') {
-    undoState.value = {
-      session: currentSession(),
-      value: { deletion: null, message: t('stories.imagesDoNotFit') },
-    }
-  }
+  undo?.undo?.()
 }
 
 /** Dismisses the toast; given the toast being dismissed, only while it still shows. */
@@ -137,11 +126,41 @@ export function dismissDeleteViewUndo(toast?: SavedViewUndo): void {
 }
 
 function deleteView(id: string): void {
-  const deletion = deleteSavedView(id)
-  if (!deletion) return
+  const core = getLiveSessionCore()
+  const open = core?.currentDesign.peek()
+  if (!core || !open) return
+  const target = (open.document.views ?? []).find((view) => view.id === id)
+  if (!target) return
+  const viewName = target.name
+  const entryId = core.document(
+    t('savedViews.deleted', { name: viewName }),
+    (doc) => {
+      const views = doc.views ?? []
+      if (!views.some((view) => view.id === id)) return null
+      const stories = doc.stories ?? []
+      let removedAnyStep = false
+      const nextStories = stories.map((story) => {
+        const steps = story.steps.filter((step) => step.view_id !== id)
+        if (steps.length === story.steps.length) return story
+        removedAnyStep = true
+        return { ...story, steps }
+      })
+      return removedAnyStep
+        ? { views: views.filter((view) => view.id !== id), stories: nextStories }
+        : { views: views.filter((view) => view.id !== id) }
+    },
+    { isDelete: true },
+  )
+  if (!entryId) return
   undoState.value = {
     session: currentSession(),
-    value: { deletion, message: t('savedViews.deleted', { name: deletion.view.name }) },
+    value: {
+      message: t('savedViews.deleted', { name: viewName }),
+      undo: () => {
+        if (core.newestUndoable.peek()?.id !== entryId) return
+        core.undo({ expect: entryId })
+      },
+    },
   }
 }
 

@@ -19,7 +19,6 @@ import {
   type SceneSessionWriter,
   type SceneStateReader,
 } from '../scene'
-import { SceneHistory } from '../scene-history'
 import { SceneRuntimeDocumentBridge } from './document'
 import {
   createDetachedSceneRuntimePanelTargetAdapter,
@@ -145,12 +144,9 @@ export function createSceneRuntimeConstruction(
     plantNames: plantNamesQueryRevision,
     transientHistory: transientHistoryRevision,
   }
-  const history = new SceneHistory({
-    reportCleanState: (clean) => appAdapter.cleanState.setCanvasClean(clean),
-  })
   const sceneEdits = new SceneRuntimeEditCoordinator({
     sceneStore,
-    history,
+    ...(appAdapter.sceneSession ? { sceneSession: appAdapter.sceneSession } : {}),
     setSelection: callbacks.setSelection,
     incrementSceneRevision: callbacks.incrementSceneRevision,
     syncCanvasSignalsFromScene: callbacks.syncCanvasSignalsFromScene,

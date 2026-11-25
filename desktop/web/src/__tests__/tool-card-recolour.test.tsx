@@ -9,10 +9,11 @@ import { ToolCard } from '../components/canvas/ToolCard'
 import { clearPlantStampSource, selectPlantStampSource } from '../canvas/plant-stamp-source'
 import { createSceneCanvasQuerySurface } from '../canvas/runtime/query-surface'
 import { SceneStore } from '../canvas/runtime/scene'
-import { SceneHistory } from '../canvas/runtime/scene-history'
 import { SceneRuntimeMutationController } from '../canvas/runtime/scene-runtime/mutations'
 import { SceneRuntimePresentationController } from '../canvas/runtime/scene-runtime/presentation'
-import { SceneRuntimeEditCoordinator } from '../canvas/runtime/scene-runtime/transactions'
+import {
+  SceneRuntimeEditCoordinator,
+} from '../canvas/runtime/scene-runtime/transactions'
 import { setCurrentCanvasSession } from '../canvas/session'
 import { IDLE_CANVAS_TOOL_GUIDANCE, setCanvasTool, setCanvasToolGuidance } from '../canvas/session-state'
 import {
@@ -40,7 +41,7 @@ function runtimeOverOneApple() {
   const revision = { scene: signal(0), plantNames: signal(0), transientHistory: signal(0) }
   const camera = createTestView()
   const edits = new SceneRuntimeEditCoordinator({
-    sceneStore: store, history: new SceneHistory(),
+    sceneStore: store,
     setSelection: (targets) => { store.setSelection(targets) },
     incrementSceneRevision: () => { revision.scene.value += 1 },
     syncCanvasSignalsFromScene: () => {}, invalidate: () => {},

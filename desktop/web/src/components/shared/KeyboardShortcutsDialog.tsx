@@ -1,4 +1,5 @@
 import type { MenuDefinition } from '../../app/shell-commands/menus'
+export type { MenuDefinition }
 import { flattenMenuActions } from '../../app/shell-commands/menus'
 import { useLayoutEffect, useRef } from 'preact/hooks'
 import {

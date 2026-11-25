@@ -11,7 +11,8 @@ import {
 import { SceneStore } from './scene'
 
 function createTestDocumentSurface(
-  documents: Parameters<typeof createSceneCanvasDocumentSurface>[0]['documents'],
+  documents: Partial<Parameters<typeof createSceneCanvasDocumentSurface>[0]['documents']> &
+    Pick<Parameters<typeof createSceneCanvasDocumentSurface>[0]['documents'], 'loadDocument' | 'replaceDocument' | 'captureForPersistence'>,
   renderingOverrides: Partial<
     Parameters<typeof createSceneCanvasDocumentSurface>[0]['rendering']
   > & { invalidate?: () => void } = {},
@@ -27,7 +28,11 @@ function createTestDocumentSurface(
   } as Parameters<typeof createSceneCanvasDocumentSurface>[0]['rendering']
   return createSceneCanvasDocumentSurface({
     inspection: { mount: () => { throw new Error('Inspection is not used by this fixture.') }, reset: () => {}, dispose: () => {} },
-    documents,
+    documents: {
+      serializeSceneFields: vi.fn(() => ({})),
+      replaySceneCommand: vi.fn(() => true),
+      ...documents,
+    },
     cameraHost: camera.host,
     viewNavigation: camera.navigation,
     rendering,
@@ -97,6 +102,8 @@ describe('Scene Canvas document surface lifecycle', () => {
           isCurrent: () => true,
           acknowledgeSaved: () => 'applied',
         })),
+        serializeSceneFields: vi.fn(() => ({})),
+        replaySceneCommand: vi.fn(() => true),
       },
       cameraHost: camera.host,
       viewNavigation: camera.navigation,

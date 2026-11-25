@@ -86,6 +86,7 @@ pub(crate) fn contract_types() -> TypeCollection {
         .register::<canopi_types::design::v10::SiteDataSectionV10>()
         .register::<canopi_types::design::v10::SiteDataEntryV10>()
         .register::<canopi_types::design::v10::PlantDisplayV10>()
+        .register::<canopi_types::design_home::FileHomeGrant>()
         .register::<canopi_types::design_home::HomeRead>()
         .register::<canopi_types::design_home::HomeWrite>()
         .register::<canopi_types::design_home::LastOpenHome>()

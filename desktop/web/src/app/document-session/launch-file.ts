@@ -1,5 +1,5 @@
 import { signal } from '@preact/signals'
-import type { LastOpenHome } from '../../generated/contracts'
+import type { FileGrantId, LastOpenHome } from '../../generated/contracts'
 import { openDesignDraft, openDesignFromPath } from './actions'
 import { presentDesignOpenFailure } from './open-failure'
 
@@ -19,18 +19,34 @@ interface LaunchedFile {
   readonly path: string
   /** The launch named several files; only this first one opens (2.1-Q228). */
   readonly several: boolean
+  readonly grant?: FileGrantId
+  readonly display_name?: string
+  readonly recent_id?: string
+}
+
+export interface ResolvedFileHome {
+  readonly grant: FileGrantId
+  readonly displayName: string
+  readonly recentId: string
 }
 
 /** Source resolved by `launchIntent()` or forwarded by a second instance. */
 type LaunchIntent =
-  | { readonly kind: 'file'; readonly path: string; readonly several: boolean }
+  | {
+      readonly kind: 'file'
+      readonly path: string
+      readonly several: boolean
+      readonly grant?: FileGrantId
+      readonly displayName?: string
+      readonly recentId?: string
+    }
   | { readonly kind: 'last_open'; readonly home: LastOpenHome }
 
 /** Consumer seam for the `last_open_home` settings row (wired to 2e-1's settings row per A27). */
 export interface LastOpenHomePort {
   read(): Promise<LastOpenHome | null>
   clear(): Promise<void>
-  resolveFilePath?(recentId: string): Promise<string | null>
+  resolveFileHome(recentId: string): Promise<ResolvedFileHome | null>
 }
 
 interface LaunchFileSource {
@@ -62,7 +78,14 @@ const DESIGN_FILE = /\.canopi$/i
 async function launchIntent(source: Pick<LaunchFileSource, 'take' | 'lastOpenHome'>): Promise<LaunchIntent | null> {
   const launched = await source.take()
   if (launched) {
-    return { kind: 'file', path: launched.path, several: launched.several }
+    return {
+      kind: 'file',
+      path: launched.path,
+      several: launched.several,
+      ...(launched.grant ? { grant: launched.grant } : {}),
+      ...(launched.display_name ? { displayName: launched.display_name } : {}),
+      ...(launched.recent_id ? { recentId: launched.recent_id } : {}),
+    }
   }
   if (!source.lastOpenHome) return null
   const lastHome = await source.lastOpenHome.read()
@@ -86,8 +109,16 @@ async function openFrom(
       presentDesignOpenFailure(new Error('not a .canopi Design'))
       return false
     }
+    if (!intent.grant) {
+      presentDesignOpenFailure(new Error('missing file grant for launch'))
+      return false
+    }
     try {
-      await openDesignFromPath(intent.path)
+      await openDesignFromPath(intent.grant, {
+        grant: intent.grant,
+        ...(intent.displayName ? { displayName: intent.displayName } : {}),
+        ...(intent.recentId ? { recentId: intent.recentId } : {}),
+      })
       return true
     } catch {
       // The open path has already shown the failure to the user.
@@ -102,9 +133,14 @@ async function openFrom(
       await openDesignDraft(intent.home.id, { presentFailure: false })
       return true
     }
-    const resolvedPath = await lastOpenHome?.resolveFilePath?.(intent.home.recent_id)
-    if (resolvedPath) {
-      await openDesignFromPath(resolvedPath, { presentFailure: false, deferWhenDetached: false })
+    const resolvedHome = await lastOpenHome?.resolveFileHome(intent.home.recent_id)
+    if (resolvedHome) {
+      await openDesignFromPath(resolvedHome.grant, {
+        presentFailure: false,
+        grant: resolvedHome.grant,
+        displayName: resolvedHome.displayName,
+        recentId: resolvedHome.recentId,
+      })
       return true
     }
   } catch {
@@ -132,7 +168,17 @@ export function installLaunchFile(source: LaunchFileSource): () => void {
     enqueue(async () => {
       const launched = await source.take()
       if (!disposed && launched) {
-        await openFrom({ kind: 'file', path: launched.path, several: launched.several }, source.lastOpenHome)
+        await openFrom(
+          {
+            kind: 'file',
+            path: launched.path,
+            several: launched.several,
+            ...(launched.grant ? { grant: launched.grant } : {}),
+            ...(launched.display_name ? { displayName: launched.display_name } : {}),
+            ...(launched.recent_id ? { recentId: launched.recent_id } : {}),
+          },
+          source.lastOpenHome,
+        )
       }
     })
   }

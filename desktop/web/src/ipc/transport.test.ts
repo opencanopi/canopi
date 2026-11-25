@@ -63,15 +63,15 @@ describe('IPC transport', () => {
     const native = 'Failed to read \\\\nas\\gardens\\plan.canopi and /home/ana/Secret Garden/plan.canopi: permission denied'
     invoke.mockRejectedValueOnce(native)
 
-    const settled = await rejected('load_design')
+    const settled = await rejected('home_read')
 
     // 2.1-M41's matchers read the text byte for byte.
     expect(settled.message).toBe(native)
-    expect(settled.failure).toMatchObject({ code: { kind: 'internal' }, user_may_retry: false, op: 'ipc.load_design' })
+    expect(settled.failure).toMatchObject({ code: { kind: 'internal' }, user_may_retry: false, op: 'ipc.home_read' })
     expect(settled.failure.operation).toMatch(/^u-/)
     const entries = ringEntries()
     expect(entries).toHaveLength(1)
-    expect(entries[0]).toMatchObject({ origin: 'native', source: 'ipc.load_design', code: { kind: 'internal' }, surfaced: false })
+    expect(entries[0]).toMatchObject({ origin: 'native', source: 'ipc.home_read', code: { kind: 'internal' }, surfaced: false })
     const stored = JSON.stringify(entries)
     expect(stored).not.toMatch(/nas|gardens|\/home\/ana|Secret Garden/)
     expect(stored).toContain('permission denied')
@@ -96,7 +96,7 @@ describe('IPC transport', () => {
   it('a typed refusal not yet on the catalogue reaches its caller unchanged, for its surface to word', async () => {
     const refusal = { kind: 'newer_version', message: 'written by Canopi 9.0' }
     invoke.mockRejectedValueOnce(refusal)
-    await expect(invokeTyped('load_design', { path: 'plan.canopi' }, mintOperationId('u'))).rejects.toBe(refusal)
+    await expect(invokeTyped('read_newer_design', { text: '{}' }, mintOperationId('u'))).rejects.toBe(refusal)
     expect(ringEntries()).toEqual([])
   })
 
@@ -266,8 +266,8 @@ describe('IPC transport', () => {
 
     // Compile-time checks: wrong arg shape, invalid enum literal, and unknown command are rejected.
     if (false as boolean) {
-      // @ts-expect-error save_design requires `content` in addition to `path`
-      await invokeTyped('save_design', { path: '/tmp/a.canopi' }, op)
+      // @ts-expect-error home_write requires `bytes` in addition to `key`
+      await invokeTyped('home_write', { key: 'grant:1' }, op)
       // @ts-expect-error show_app_folder rejects unknown AppFolder literal
       await invokeTyped('show_app_folder', { folder: 'unknown_folder' }, op)
       // @ts-expect-error unknown command name is rejected

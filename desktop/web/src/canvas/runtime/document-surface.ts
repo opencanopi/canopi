@@ -11,6 +11,7 @@ import {
   type CanvasPersistenceCapture,
   type CanvasRuntimeDocumentMetadata,
 } from './runtime'
+import type { SceneCommand } from './scene-commands'
 import type { SceneRuntimeDocumentBridge } from './scene-runtime/document'
 import type { SceneRuntimeRenderScheduler } from './scene-runtime/render-scheduler'
 import { runCanvasRuntimeCleanups } from './cleanup'
@@ -24,7 +25,7 @@ interface SceneCanvasDocumentSurfaceOptions {
   readonly inspection: Pick<SceneCanvasInspectionOwner, 'mount' | 'reset' | 'dispose'>
   readonly documents: Pick<
     SceneRuntimeDocumentBridge,
-    'loadDocument' | 'replaceDocument' | 'captureForPersistence'
+    'loadDocument' | 'replaceDocument' | 'captureForPersistence' | 'serializeSceneFields' | 'replaySceneCommand'
   >
   /** The runtime's camera: a resize reaches its live driver; a save reads its live frame. */
   readonly cameraHost: Pick<CameraDriverHost, 'current' | 'frames'>
@@ -192,6 +193,17 @@ class SceneCanvasDocumentRole implements SceneCanvasDocumentSurface {
       throw new CanvasAuthorityBusyError('document-settlement')
     }
     return this.options.documents.captureForPersistence(metadata, doc, this._mapViewForSave())
+  }
+
+  serializeSceneFields(): Partial<CanopiFile> {
+    if (this._documentState === 'settling') {
+      throw new CanvasAuthorityBusyError('document-settlement')
+    }
+    return this.options.documents.serializeSceneFields(this._mapViewForSave())
+  }
+
+  replaySceneCommand(command: SceneCommand, direction: 'undo' | 'redo'): boolean {
+    return this.options.documents.replaySceneCommand(command, direction)
   }
 
   /** The camera takes the new screen; its frame repaints the layer, which MapLibre has already resized. */

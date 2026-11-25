@@ -11,6 +11,8 @@ interface PendingOpen {
   readonly path: string
   readonly several: boolean
   readonly grant?: FileGrantId
+  readonly display_name?: string
+  readonly recent_id?: string
 }
 
 /** The event a later launch with a file emits; it carries nothing, the slot is pulled. */

@@ -11,7 +11,6 @@ import { openProblemReportDialog, problemReportSubmission } from '../../app/prob
 import { problemReportDialogOpen } from '../../app/problem-report/state'
 import { beforePaint, holdAfterPaint } from '../../__tests__/support/before-paint'
 import { replaceCurrentDesignState } from '../../__tests__/support/design-session-state'
-import { designSessionStore } from '../../app/document-session/store'
 import { desktopProblemReport } from '../../editions/desktop/problem-report'
 import { createBrowserProblemReportWriter, type BrowserProblemReportWriter } from '../../editions/web/problem-report'
 import en from '../../i18n/en.json'
@@ -306,7 +305,7 @@ describe('ProblemReportDialog', () => {
 
   it('canopi-v4kj: the Design row is left out for a Design a newer Canopi saved, open read-only, and kept for a storage-unchecked Draft', async () => {
     const designRow = () => container.querySelector('input[name="current_design"]')
-    designSessionStore.replaceCurrentDesignState(makeDesign(), null, 'Secret Orchard', { kind: 'read-only', origin: 'newer-version', savedByVersion: 10 })
+    replaceCurrentDesignState(makeDesign(), null, 'Secret Orchard', { kind: 'read-only', origin: 'newer-version', savedByVersion: 10 })
     await show()
     expect(designRow()).toBeNull()
     expect(container.textContent).not.toContain('Include current Design')
@@ -316,7 +315,7 @@ describe('ProblemReportDialog', () => {
     render(null, container)
     problemReportSubmission.close()
     openProblemReportDialog()
-    designSessionStore.replaceCurrentDesignState(makeDesign(), null, 'Secret Orchard', { kind: 'read-only', origin: 'storage-unchecked' })
+    replaceCurrentDesignState(makeDesign(), null, 'Secret Orchard', { kind: 'read-only', origin: 'storage-unchecked' })
     await show()
     expect(designRow()).not.toBeNull()
 
@@ -334,7 +333,7 @@ describe('ProblemReportDialog', () => {
       checkbox.dispatchEvent(new Event('change', { bubbles: true }))
     })
     await act(async () => {
-      designSessionStore.replaceCurrentDesignState(makeDesign(), null, 'Orchard 2.1', { kind: 'read-only', origin: 'newer-version', savedByVersion: 10 })
+      replaceCurrentDesignState(makeDesign(), null, 'Orchard 2.1', { kind: 'read-only', origin: 'newer-version', savedByVersion: 10 })
     })
     expect(container.querySelector('input[name="current_design"]')).toBeNull()
     await send()

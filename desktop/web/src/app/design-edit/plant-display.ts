@@ -21,7 +21,7 @@ import { DESIGN_EDIT_EXTRA_KEYS, readExtra, reportExtraRepair, withExtra } from 
  * Design Edit data (continuous save, never undoable) and never changes a
  * stored plant colour. The key is absent while every option is the default.
  */
-export const PLANT_DISPLAY_EXTRA_KEY = DESIGN_EDIT_EXTRA_KEYS.plantDisplay
+const PLANT_DISPLAY_EXTRA_KEY = DESIGN_EDIT_EXTRA_KEYS.plantDisplay
 
 export interface PlantDisplayOptions {
   readonly colorBy: PlantColorMode
@@ -135,5 +135,5 @@ export function resetStratumDisplayColors(): void {
 }
 
 function editPlantDisplay(change: (current: PlantDisplayOptions) => Partial<PlantDisplayOptions>): void {
-  editCurrentDesign((design) => withPlantDisplayOptions(design, change(readPlantDisplayOptions(design))))
+  editCurrentDesign((design) => withPlantDisplayOptions(design, change(readPlantDisplayOptions(design))), 'plantDisplay.edit')
 }

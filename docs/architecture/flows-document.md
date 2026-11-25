@@ -183,8 +183,8 @@ sequenceDiagram
   participant Chain as canopi-format owner .canopi chain
   participant DH as platform/design-home.desktop.ts (2.1) file home
   participant Ask as save status (2.1) reads core state
-  participant Old as app/document-session/state-machine.ts 2.0.4 Desktop
-  participant OldWeb as web/browser-design-session.ts 2.0.4 Web
+  participant Old as app/document-session/core/session-core.ts Desktop
+  participant OldWeb as editions/web/web-session.ts Web
   participant Wasm as canopi-format-wasm decode only
   Core->>Chain: decode(bytes): cap, JSON, version, Admission
   alt BeforeFloor or Newer
@@ -213,27 +213,24 @@ sequenceDiagram
 - Invariant: a step is pure and frozen; a failing step leaves the file unchanged and lists such a Draft as unreadable; the reader release writes no byte.
 - Tests: `migration_steps_frozen`; contracts §4 scenario 12; "reader release: a v10 Design opens read-only and says a newer Canopi saved it".
 
-### Today: two session machines and the close-guard loop
+### Session core and the close-guard dialog adapter
 
 Model: current
 
 ```mermaid
 sequenceDiagram
   participant Guard as app/shell/close-guard.ts
+  participant Core as app/document-session/core/session-core.ts
+  participant Lane as app/document-session/core/write-lane.ts
   participant Set as app/settings/projection.ts
-  participant Desk as app/document-session/state-machine.ts Desktop
-  participant Web as web/browser-design-session.ts Web
-  participant Save as app/document-session/continuous-save.ts
   participant Ask as app/document-session/save-problem.ts
-  Guard->>Set: flushSettingsProjection() first
-  Set-->>Guard: a throw keeps the window open, nobody asked
-  loop until flushed, discarded or cancelled
-    Guard->>Save: flush()
-    Guard->>Ask: requestSaveProblemDecision flush-failed close
+  Core->>Lane: flushNow() on close, replace, blur or hide
+  alt flush failed
+    Core->>Guard: state closing/replacing with question
+    Guard->>Ask: requestSaveProblemDecision
+    Ask-->>Core: core.answer(id, retry|discard|cancel)
   end
-  Desk->>Save: flushBeforeReplacement, its own retry loop
-  Web->>Save: flushBeforeReplacement, a third loop
-  Web->>Save: flush on visibilitychange and pagehide, settings never flushed
+  Core->>Set: flushSettings() before close
 ```
 
-- Replaced by the Session core in Phase 2b; deleted with `web/browser-design-session.ts` and the state machine.
+- Single Session core in `app/document-session/core/`; `close-guard.ts` is the dialog adapter only.

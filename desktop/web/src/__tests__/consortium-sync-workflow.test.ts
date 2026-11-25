@@ -2,13 +2,12 @@
 
 import { beforeEach, afterEach, describe, expect, it } from 'vitest'
 import {
+  designDirty,
   designSessionFixture,
   currentDesign,
-  nonCanvasRevision,
 } from './support/design-session-state'
 import { setCurrentCanvasSession } from '../canvas/session'
-import { consortiumSyncWorkflow } from '../app/consortium/workflow'
-import { createDesignSessionWorkflowRunner } from '../app/document-session/workflow-runner'
+import { installConsortiumSync } from '../app/consortium/workflow'
 import type { CanopiFile, PlacedPlant } from '../types/design'
 import { consortiumTarget, getConsortiumCanonicalName } from '../target'
 import { createTestCanvasQuerySurface } from './support/canvas-query-surface'
@@ -61,17 +60,17 @@ function mountQuerySurface(session: ReturnType<typeof mockSession>): void {
 }
 
 describe('consortium-sync-workflow', () => {
-  let workflowRunner: ReturnType<typeof createDesignSessionWorkflowRunner>
+  let dispose: (() => void) | null = null
 
   beforeEach(() => {
-    designSessionFixture.nonCanvasRevision = 0
     designSessionFixture.file = null
     setCurrentCanvasSession(null)
-    workflowRunner = createDesignSessionWorkflowRunner([consortiumSyncWorkflow])
+    dispose = null
   })
 
   afterEach(() => {
-    workflowRunner.dispose()
+    dispose?.()
+    dispose = null
     setCurrentCanvasSession(null)
   })
 
@@ -81,7 +80,7 @@ describe('consortium-sync-workflow', () => {
     designSessionFixture.file = makeDesign()
     mountQuerySurface(session)
 
-    workflowRunner.install()
+    dispose = installConsortiumSync()
     session.bumpSceneRevision()
 
     const consortiums = currentDesign.value!.consortiums
@@ -101,7 +100,7 @@ describe('consortium-sync-workflow', () => {
     const session = mockSession([makePlant('Quercus robur')])
     mountQuerySurface(session)
 
-    workflowRunner.install()
+    dispose = installConsortiumSync()
     session.bumpSceneRevision()
 
     const consortiums = currentDesign.value!.consortiums
@@ -114,10 +113,10 @@ describe('consortium-sync-workflow', () => {
     designSessionFixture.file = makeDesign()
     mountQuerySurface(session)
 
-    workflowRunner.install()
+    dispose = installConsortiumSync()
     session.bumpSceneRevision()
 
-    expect(nonCanvasRevision.value).toBe(0)
+    expect(designDirty.value).toBe(false)
   })
 
   it('retries skipped derivation when Scene admission settles without a Scene revision', () => {
@@ -127,7 +126,7 @@ describe('consortium-sync-workflow', () => {
     designSessionFixture.file = makeDesign()
     mountQuerySurface(session)
 
-    workflowRunner.install()
+    dispose = installConsortiumSync()
     expect(currentDesign.value!.consortiums).toEqual([])
 
     session.setSettled(true)
@@ -145,7 +144,7 @@ describe('consortium-sync-workflow', () => {
     const session = mockSession(plants)
     mountQuerySurface(session)
 
-    workflowRunner.install()
+    dispose = installConsortiumSync()
     // First tick — names match existing consortiums
     session.bumpSceneRevision()
     const snapshotAfterFirst = currentDesign.value
@@ -161,9 +160,9 @@ describe('consortium-sync-workflow', () => {
     designSessionFixture.file = makeDesign()
     mountQuerySurface(session)
 
-    workflowRunner.install()
-    workflowRunner.dispose()
-    workflowRunner.dispose()
+    dispose = installConsortiumSync()
+    dispose()
+    dispose()
 
     session.setSettled(true)
     session.bumpSceneRevision()

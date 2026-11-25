@@ -2,8 +2,8 @@
 // read view, never the user's file, so the attachment is never its re-encode; a storage-unchecked read-only Draft and an
 // editing Design attach as today. The session is applied as the Design session's load result applies it.
 import { afterEach, describe, expect, it } from 'vitest'
-import { draftLoadResultOf, loadResultOf, type DocumentTransitionLoadResult } from '../document-session/load-result'
 import { designSessionStore } from '../document-session/store'
+import { clearCurrentDesignState, replaceCurrentDesignState } from '../../__tests__/support/design-session-state'
 import type { CanopiFile } from '../../types/design'
 import { buildCurrentDesignProblemReportAttachment } from './attachments'
 
@@ -29,27 +29,31 @@ function makeFile(name: string): CanopiFile {
   }
 }
 
-function apply(result: DocumentTransitionLoadResult): void {
-  designSessionStore.replaceCurrentDesignState(result.file, result.path, result.name, result.session)
-}
-
-afterEach(() => designSessionStore.clearCurrentDesign())
+afterEach(() => clearCurrentDesignState())
 
 describe('the Desktop Design attachment', () => {
   it('canopi-v4kj: a Design or Draft a newer Canopi saved, open read-only, is never attached re-encoded', () => {
-    apply(loadResultOf({ view: makeFile('Orchard 2.1'), saved_by_version: 10 }, '/designs/orchard.canopi'))
+    replaceCurrentDesignState(makeFile('Orchard 2.1'), '/designs/orchard.canopi', 'Orchard 2.1', {
+      kind: 'read-only',
+      origin: 'newer-version',
+      savedByVersion: 10,
+    })
     expect(designSessionStore.sessionKind.value).toEqual({ kind: 'read-only', origin: 'newer-version', savedByVersion: 10 })
     expect(buildCurrentDesignProblemReportAttachment()).toBeNull()
 
-    apply(draftLoadResultOf({ view: makeFile('Hedge 2.1'), saved_by_version: 10 }, 'draft-hedge'))
+    replaceCurrentDesignState(makeFile('Hedge 2.1'), null, 'Hedge 2.1', {
+      kind: 'read-only',
+      origin: 'newer-version',
+      savedByVersion: 10,
+    })
     expect(buildCurrentDesignProblemReportAttachment()).toBeNull()
   })
 
   it('canopi-v4kj: an editing Design and a storage-unchecked read-only Draft still attach', () => {
-    apply(loadResultOf({ file: makeFile('Orchard'), fingerprint: 'fp' }, '/designs/orchard.canopi'))
+    replaceCurrentDesignState(makeFile('Orchard'), '/designs/orchard.canopi', 'Orchard')
     expect(buildCurrentDesignProblemReportAttachment()).toContain('"name": "Orchard"')
 
-    designSessionStore.replaceCurrentDesignState(makeFile('Hedge as 2.0 left it'), null, 'Hedge as 2.0 left it', { kind: 'read-only', origin: 'storage-unchecked' })
+    replaceCurrentDesignState(makeFile('Hedge as 2.0 left it'), null, 'Hedge as 2.0 left it', { kind: 'read-only', origin: 'storage-unchecked' })
     expect(buildCurrentDesignProblemReportAttachment()).toContain('"name": "Hedge as 2.0 left it"')
   })
 })

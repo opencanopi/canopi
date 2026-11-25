@@ -19,6 +19,7 @@ import {
   renameStory,
   type StoryImageDecoder,
   requestDeleteStep,
+  requestDeleteStory,
   selectedStep,
   selectStep,
   stepsShowingView,
@@ -26,9 +27,11 @@ import {
   undoStoryDelete,
   useCurrentViewForStep,
 } from '../app/stories'
-import { currentDesign, designSessionStore } from '../app/document-session/store'
+import { createJsonSessionCodec, createSessionCore, installLiveSessionCore } from '../app/document-session/live-core'
+import { currentDesign } from '../app/document-session/store'
 import type { CanopiFile, RichTextBlock, SavedView, Story } from '../types/design'
-import { replaceCurrentDesignState } from './support/design-session-state'
+import { clearCurrentDesignState, replaceCurrentDesignState } from './support/design-session-state'
+import { createTestEditionPorts } from './support/test-edition-ports'
 import { hoveredTooltip } from './support/tooltip'
 
 const span = (text: string, marks: { bold?: boolean; italic?: boolean; link?: string | null } = {}) => ({
@@ -372,8 +375,51 @@ describe('story actions', () => {
     expect(goToStepView('visit', 'missing')).toBe(false)
     renameStory('visit', 'Tour')
     expect(currentDesign.value!.stories![0]!.name).toBe('Tour')
-    designSessionStore.clearCurrentDesign()
+    clearCurrentDesignState()
     expect(createStory()).toBeNull()
+  })
+
+  it('routes story and step delete Undo through unified SessionCore history when a live core is installed', async () => {
+    const ports = createTestEditionPorts()
+    const core = createSessionCore({
+      designHome: {
+        read: async () => ({ kind: 'absent' }),
+        write: async () => ({ kind: 'written', version: 'v1' }),
+        listDrafts: async () => [],
+        deleteDraft: async () => ({ ok: true }),
+        onVersionChange: () => () => {},
+      },
+      fileAccess: ports.fileAccess,
+      lifecycle: ports.appLifecycle,
+      codec: createJsonSessionCodec(),
+      settings: { readLastOpenHome: async () => null, writeLastOpenHome: async () => {} },
+      newDesignFactory: () => ({
+        version: 9, name: 'Stories', description: null, plant_species_colors: {},
+        layers: [], plants: [], zones: [], annotations: [], consortiums: [], groups: [],
+        timeline: [], budget: [], budget_currency: 'EUR', views: [view('v1'), view('v2')], stories: [STORY],
+        created_at: '', updated_at: '', extra: {},
+      }),
+    })
+    const dispose = installLiveSessionCore(core)
+    try {
+      await core.createNew()
+
+      requestDeleteStep('visit', 'b')
+      expect(core.currentDesign.value?.document.stories?.[0]?.steps.map((s) => s.id)).toEqual(['a', 'c'])
+      expect(core.newestUndoable.value?.isDelete).toBe(true)
+      undoStoryDelete()
+      expect(core.currentDesign.value?.document.stories?.[0]?.steps.map((s) => s.id)).toEqual(['a', 'b', 'c'])
+      expect(core.canUndo.value).toBe(false)
+
+      requestDeleteStory('visit')
+      expect(core.currentDesign.value?.document.stories).toEqual([])
+      expect(core.newestUndoable.value?.isDelete).toBe(true)
+      undoStoryDelete()
+      expect(core.currentDesign.value?.document.stories?.map((s) => s.id)).toEqual(['visit'])
+      expect(core.canUndo.value).toBe(false)
+    } finally {
+      dispose()
+    }
   })
 })
 

@@ -2,89 +2,25 @@
   "$schema": "./ratchet.schema.json",
   "family": "edition-roots",
   "entries": {
-    "app/community/controller.ts -> app/community/catalog.browser.ts": {
-      "count": 1
-    },
-    "app/community/controller.ts -> app/design-template-import/workflow.browser.ts": {
-      "count": 1
-    },
-    "app/design-template-import/workflow.browser.ts -> web/browser-design-session.ts": {
-      "count": 1
-    },
-    "app/geocoding/transport.desktop.ts -> app/geocoding/transport.browser.ts": {
-      "count": 1
-    },
-    "editions/gallery/main.tsx -> editions/web/BrowserAppShell.tsx": {
-      "count": 1,
-      "bead": "canopi-f47t.52.48"
-    },
-    "editions/gallery/main.tsx -> editions/web/WebLayersPanel.tsx": {
-      "count": 1,
-      "bead": "canopi-f47t.52.48"
-    },
-    "editions/gallery/main.tsx -> editions/web/WebSpeciesCatalogPanel.tsx": {
-      "count": 1,
-      "bead": "canopi-f47t.52.48"
-    },
-    "editions/gallery/main.tsx -> editions/web/WebWorkspace.tsx": {
-      "count": 1,
-      "bead": "canopi-f47t.52.48"
-    },
-    "editions/gallery/main.tsx -> editions/web/browser-shell-commands.ts": {
-      "count": 1,
-      "bead": "canopi-f47t.52.48"
-    },
-    "editions/gallery/main.tsx -> ipc/design.ts": {
-      "count": 1,
-      "bead": "canopi-f47t.52.48"
-    },
-    "editions/gallery/main.tsx -> ipc/dialogs.ts": {
-      "count": 1,
-      "bead": "canopi-f47t.52.48"
-    },
-    "editions/gallery/main.tsx -> ipc/lidar.ts": {
-      "count": 1,
-      "bead": "canopi-f47t.52.48"
-    },
-    "editions/gallery/main.tsx -> ipc/saved-object-stamps.ts": {
-      "count": 1,
-      "bead": "canopi-f47t.52.48"
-    },
-    "editions/gallery/main.tsx -> ipc/settings.ts": {
-      "count": 1,
-      "bead": "canopi-f47t.52.48"
-    },
-    "editions/gallery/main.tsx -> ipc/species.ts": {
-      "count": 1,
-      "bead": "canopi-f47t.52.48"
-    },
-    "editions/gallery/main.tsx -> ipc/transport.ts": {
-      "count": 1,
-      "bead": "canopi-f47t.52.48"
-    },
-    "editions/gallery/main.tsx -> node_modules/@tauri-apps/api/core.js": {
-      "count": 1,
-      "bead": "canopi-f47t.52.48"
-    },
-    "editions/gallery/main.tsx -> node_modules/@tauri-apps/api/window.js": {
-      "count": 1,
-      "bead": "canopi-f47t.52.48"
-    },
-    "editions/gallery/notebook-fixture.ts -> ipc/design.ts": {
-      "count": 1,
-      "bead": "canopi-f47t.52.48"
-    },
-    "editions/gallery/notebook-fixture.ts -> ipc/dialogs.ts": {
-      "count": 1,
-      "bead": "canopi-f47t.52.48"
-    },
-    "editions/gallery/notebook-fixture.ts -> ipc/transport.ts": {
-      "count": 1,
-      "bead": "canopi-f47t.52.48"
-    },
-    "editions/gallery/notebook-fixture.ts -> node_modules/@tauri-apps/api/core.js": {
-      "count": 1,
-      "bead": "canopi-f47t.52.48"
-    }
+    "app/community/controller.ts -> app/community/catalog.browser.ts": { "count": 1 },
+    "app/community/controller.ts -> app/design-template-import/workflow.browser.ts": { "count": 1 },
+    "app/geocoding/transport.desktop.ts -> app/geocoding/transport.browser.ts": { "count": 1 },
+    "editions/gallery/main.tsx -> editions/web/BrowserAppShell.tsx": { "count": 1, "bead": "canopi-f47t.52.48" },
+    "editions/gallery/main.tsx -> editions/web/WebLayersPanel.tsx": { "count": 1, "bead": "canopi-f47t.52.48" },
+    "editions/gallery/main.tsx -> editions/web/WebSpeciesCatalogPanel.tsx": { "count": 1, "bead": "canopi-f47t.52.48" },
+    "editions/gallery/main.tsx -> editions/web/WebWorkspace.tsx": { "count": 1, "bead": "canopi-f47t.52.48" },
+    "editions/gallery/main.tsx -> editions/web/browser-shell-commands.ts": { "count": 1, "bead": "canopi-f47t.52.48" },
+    "editions/gallery/main.tsx -> ipc/design.ts": { "count": 1, "bead": "canopi-f47t.52.48" },
+    "editions/gallery/main.tsx -> ipc/dialogs.ts": { "count": 1, "bead": "canopi-f47t.52.48" },
+    "editions/gallery/main.tsx -> ipc/lidar.ts": { "count": 1, "bead": "canopi-f47t.52.48" },
+    "editions/gallery/main.tsx -> ipc/saved-object-stamps.ts": { "count": 1, "bead": "canopi-f47t.52.48" },
+    "editions/gallery/main.tsx -> ipc/settings.ts": { "count": 1, "bead": "canopi-f47t.52.48" },
+    "editions/gallery/main.tsx -> ipc/species.ts": { "count": 1, "bead": "canopi-f47t.52.48" },
+    "editions/gallery/main.tsx -> ipc/transport.ts": { "count": 1, "bead": "canopi-f47t.52.48" },
+    "editions/gallery/main.tsx -> node_modules/@tauri-apps/api/core.js": { "count": 1, "bead": "canopi-f47t.52.48" },
+    "editions/gallery/main.tsx -> node_modules/@tauri-apps/api/window.js": { "count": 1, "bead": "canopi-f47t.52.48" },
+    "editions/gallery/notebook-fixture.ts -> ipc/design.ts": { "count": 1, "bead": "canopi-f47t.52.48" },
+    "editions/gallery/notebook-fixture.ts -> ipc/transport.ts": { "count": 1, "bead": "canopi-f47t.52.48" },
+    "editions/gallery/notebook-fixture.ts -> node_modules/@tauri-apps/api/core.js": { "count": 1, "bead": "canopi-f47t.52.48" }
   }
 }

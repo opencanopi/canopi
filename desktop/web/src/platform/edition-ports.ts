@@ -7,8 +7,11 @@
  * `installEditionPorts(ports)` (using its returned dispose callback).
  */
 import type { EditionCapabilitySet } from '../generated/edition-capabilities'
-import type { DesktopHomePort } from './design-home'
+import type { AppLifecyclePort } from './app-lifecycle'
+import type { DesignCore } from './design-core'
+import type { DesignHomeStore, DesktopHomePort } from './design-home'
 import type { EditionManifest } from './edition-manifest'
+import type { FileAccessPort } from './file-access'
 import type { ProblemReportPort } from './problem-report'
 import type { SettingsPlatformAdapter } from './settings'
 
@@ -39,7 +42,10 @@ export interface EditionPorts {
   readonly geocoding: GeocodingTransportPort
   readonly canvasPdfDelivery: () => PdfDeliveryPort
   readonly budgetExportDelivery: BudgetExportDeliveryPort
-  readonly designHome?: DesktopHomePort
+  readonly designHome: DesignHomeStore | DesktopHomePort
+  readonly fileAccess: FileAccessPort
+  readonly appLifecycle: AppLifecyclePort
+  readonly designCore: DesignCore
 }
 
 let activePorts: EditionPorts | null = null

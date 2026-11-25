@@ -299,7 +299,7 @@
       "adr": "0024",
       "owner_today": "desktop/web/src/app/canvas-map-surface/canvas-host.ts",
       "example": "desktop/web/src/app/canvas-map-surface/canvas-host.ts",
-      "note": "only canvas-host.ts acquires the canvas runtime lease, publishes the canvas session, or calls attachScene/detachScene (§5, 2b-2)"
+      "note": "only canvas-host.ts acquires the canvas runtime lease, publishes the canvas session, or calls attachScene/detachScene (\u00a75, 2b-2)"
     },
     {
       "id": "mount-canvas-host-only-in-use-canvas-host",
@@ -309,7 +309,7 @@
       "adr": "0024",
       "owner_today": "desktop/web/src/app/canvas-map-surface/use-canvas-host.ts",
       "example": "desktop/web/src/app/canvas-map-surface/use-canvas-host.ts",
-      "note": "only use-canvas-host.ts calls mountCanvasHost in production (§5, 2b-2)"
+      "note": "only use-canvas-host.ts calls mountCanvasHost in production (\u00a75, 2b-2)"
     },
     {
       "id": "surface-or-map-state-only-in-host-and-lifetime",
@@ -319,7 +319,7 @@
       "adr": "0024",
       "owner_today": "desktop/web/src/app/canvas-map-surface/canvas-host.ts",
       "example": "desktop/web/src/app/canvas-map-surface/canvas-host.ts",
-      "note": "no useState or signal holds CanvasSurfaceState or MapLifetimeState outside canvas-host.ts and map-lifetime.ts (§5, 2b-2)"
+      "note": "no useState or signal holds CanvasSurfaceState or MapLifetimeState outside canvas-host.ts and map-lifetime.ts (\u00a75, 2b-2)"
     },
     {
       "id": "data-map-active-only-from-map-surface-visibility",
@@ -329,7 +329,7 @@
       "adr": "0024",
       "owner_today": "desktop/web/src/components/panels/CanvasPanel.tsx",
       "example": "desktop/web/src/components/panels/CanvasPanel.tsx",
-      "note": "data-map-active is derived only from mapSurfaceVisible (§5, Q26, 2b-2)"
+      "note": "data-map-active is derived only from mapSurfaceVisible (\u00a75, Q26, 2b-2)"
     },
     {
       "id": "components-import-no-map-lifetime",
@@ -348,7 +348,7 @@
           "maplibre/map-lifetime.ts"
         ]
       },
-      "note": "components/ never imports maplibre/map-lifetime.ts directly (§5, 2b-2)"
+      "note": "components/ never imports maplibre/map-lifetime.ts directly (\u00a75, 2b-2)"
     },
     {
       "id": "app-tests-import-no-scene-runtime",
@@ -388,7 +388,7 @@
           "app/shell/state.ts",
           "app/shell-commands/**",
           "commands/**",
-          "web/browser-design-session.ts"
+          "editions/web/web-session.ts"
         ]
       },
       "note": "Browser App Shell consumes caller-ready command projections"
@@ -424,12 +424,12 @@
       "ledger": "2.1-M186",
       "family": "browser-design-session-imports-no-shell",
       "adr": "0022",
-      "owner_today": "desktop/web/src/web/browser-design-session.ts",
-      "example": "desktop/web/src/web/browser-design-session.ts",
+      "owner_today": "desktop/web/src/editions/web/web-session.ts",
+      "example": "desktop/web/src/editions/web/web-session.ts",
       "type_only": "counts",
       "graph": {
         "from": [
-          "web/browser-design-session.ts"
+          "editions/web/web-session.ts"
         ],
         "to": [
           "editions/web/BrowserAppShell.tsx"
@@ -766,8 +766,7 @@
         ],
         "to": [
           "app/canvas-map-surface/canvas-host.ts",
-          "app/document-session/state-machine.ts",
-          "app/document-session/workflows.ts"
+          "app/document-session/core/session-core.ts"
         ]
       },
       "note": "Consortium workflow does not depend on its orchestrators"
@@ -792,7 +791,7 @@
           "commands/**"
         ]
       },
-      "note": "The right-click menu runs only its request’s scene edits"
+      "note": "The right-click menu runs only its request\u2019s scene edits"
     },
     {
       "id": "design-edit-authority-only-in-core",
@@ -805,7 +804,8 @@
       "type_only": "counts",
       "graph": {
         "fromNot": [
-          "app/design-edit/core.ts"
+          "app/design-edit/core.ts",
+          "app/document-session/edit-authority.ts"
         ],
         "to": [
           "app/design-edit/authority-capability.ts"
@@ -828,8 +828,7 @@
         ],
         "to": [
           "canvas/runtime/scene-runtime.ts",
-          "app/document-session/persistence.ts",
-          "app/document-session/state-machine.ts"
+          "app/document-session/core/session-core.ts"
         ]
       },
       "note": "Design Session lifecycle does not construct runtime internals"
@@ -886,37 +885,11 @@
         ],
         "to": [
           "canvas/runtime/scene-runtime.ts",
-          "app/document-session/transition.ts",
-          "app/document-session/persistence.ts",
-          "app/document-session/state-machine.ts",
+          "app/document-session/core/session-core.ts",
           "ipc/**"
         ]
       },
       "note": "Canvas document hook delegates runtime and transition ownership"
-    },
-    {
-      "id": "document-workflows-import-no-stores",
-      "tool": "dependency-cruiser",
-      "ledger": "2.1-M186",
-      "family": "document-workflows-import-no-stores",
-      "adr": "0022",
-      "owner_today": "desktop/web/src/app/document-session/workflows.ts",
-      "example": "desktop/web/src/app/document-session/workflows.ts",
-      "type_only": "counts",
-      "graph": {
-        "from": [
-          "app/document-session/workflows.ts"
-        ],
-        "to": [
-          "canvas/session.ts",
-          "app/document-session/store.ts",
-          "planning/time-model.ts"
-        ],
-        "packages": [
-          "@preact/signals"
-        ]
-      },
-      "note": "Document Session workflows do not own stores or Canvas sessions"
     },
     {
       "id": "generated-search-facts-only-in-normalizer",
@@ -1150,47 +1123,6 @@
       "note": "Panel Target adapters do not bypass presentation ownership"
     },
     {
-      "id": "persistence-capability-imported-only-by-owners",
-      "tool": "dependency-cruiser",
-      "ledger": "2.1-M186",
-      "family": "persistence-capability-imported-only-by-owners",
-      "adr": "0022",
-      "owner_today": "desktop/web/src/app/document-session/persistence.ts",
-      "example": "desktop/web/src/app/document-session/persistence.ts",
-      "type_only": "counts",
-      "graph": {
-        "fromNot": [
-          "app/document-session/persistence.ts"
-        ],
-        "to": [
-          "app/document-session/persistence-capability.ts"
-        ]
-      },
-      "note": "Persistence capture capability stays private"
-    },
-    {
-      "id": "persistence-imports-no-workflows",
-      "tool": "dependency-cruiser",
-      "ledger": "2.1-M186",
-      "family": "persistence-imports-no-workflows",
-      "adr": "0022",
-      "owner_today": "desktop/web/src/app/document-session/persistence.ts",
-      "example": "desktop/web/src/app/document-session/persistence.ts",
-      "type_only": "counts",
-      "graph": {
-        "from": [
-          "app/document-session/persistence.ts"
-        ],
-        "to": [
-          "app/consortium/workflow.ts",
-          "app/document-session/workflow-runner.ts",
-          "app/document-session/workflows.ts",
-          "canvas/runtime/scene-runtime/transactions.ts"
-        ]
-      },
-      "note": "Design persistence does not orchestrate workflows or Scene edits"
-    },
-    {
       "id": "place-search-imports-no-geocoding-transport",
       "tool": "dependency-cruiser",
       "ledger": "2.1-M186",
@@ -1328,7 +1260,6 @@
           "app/problem-report/attachments.ts"
         ],
         "to": [
-          "app/document-session/persistence.ts",
           "app/document-session/store.ts",
           "canvas/session.ts"
         ]
@@ -1512,7 +1443,7 @@
         {
           "from": [
             "app/geojson/**",
-            "app/document-session/continuous-save.ts",
+            "app/document-session/core/**",
             "app/map-layers/**"
           ],
           "to": [
@@ -1770,9 +1701,6 @@
           "components/panels/CanvasPanel.tsx",
           "components/canvas/DisplayLegend.tsx",
           "app/design-notebook/**",
-          "app/document-session/actions.ts",
-          "app/document-session/transition.ts",
-          "app/document-session/state-machine.ts",
           "app/problem-report/attachments.ts",
           "commands/registry.ts",
           "commands/graph/**"
@@ -1850,46 +1778,6 @@
       "note": "Web Design Template orchestration stays free of Desktop authorities"
     },
     {
-      "id": "write-admission-only-in-persistence-adapters",
-      "tool": "dependency-cruiser",
-      "ledger": "2.1-M186",
-      "family": "write-admission-only-in-persistence-adapters",
-      "adr": "0022",
-      "owner_today": "desktop/web/src/app/document-session/persistence.ts",
-      "example": "desktop/web/src/app/document-session/persistence.ts",
-      "type_only": "counts",
-      "graph": {
-        "fromNot": [
-          "app/document-session/persistence.ts"
-        ],
-        "to": [
-          "app/document-session/write-admission.ts"
-        ]
-      },
-      "note": "Prepared Design write destinations stay in persistence adapters"
-    },
-    {
-      "id": "scene-history-only-in-authority",
-      "tool": "dependency-cruiser",
-      "ledger": "2.1-M186",
-      "family": "scene-history-only-in-authority",
-      "adr": "0022",
-      "owner_today": "desktop/web/src/canvas/runtime/scene-runtime/transactions.ts",
-      "example": "desktop/web/src/canvas/runtime/scene-runtime/construction.ts",
-      "type_only": "counts",
-      "graph": {
-        "fromNot": [
-          "canvas/runtime/scene-runtime/transactions.ts",
-          "canvas/runtime/scene-runtime/construction.ts",
-          "canvas/runtime/scene-history.ts"
-        ],
-        "to": [
-          "canvas/runtime/scene-history.ts"
-        ]
-      },
-      "note": "scene-history is imported only by the Settled Scene Authority and its construction"
-    },
-    {
       "id": "canvas-listeners-only-in-input-owners",
       "tool": "ast-grep",
       "ledger": "2.1-M186",
@@ -1916,8 +1804,8 @@
       "family": "design-edit-authority-registration-only-in-store",
       "adr": "0022",
       "owner_today": "desktop/web/src/app/design-edit/authority-capability.ts",
-      "example": "desktop/web/src/app/document-session/store.ts",
-      "note": "Design Edit authority registration stays in the document store"
+      "example": "desktop/web/src/app/document-session/edit-authority.ts",
+      "note": "Design Edit authority registration stays in the Session Core edit-authority bridge"
     },
     {
       "id": "test-only-exports-only-in-tests",
@@ -2009,34 +1897,14 @@
       "note": "P12 the renderer learns the camera one way"
     },
     {
-      "id": "persistence-capability-registration-only-in-store",
-      "tool": "ast-grep",
-      "ledger": "2.1-M186",
-      "family": "persistence-capability-registration-only-in-store",
-      "adr": "0022",
-      "owner_today": "desktop/web/src/app/document-session/persistence-capability.ts",
-      "example": "desktop/web/src/app/document-session/store.ts",
-      "note": "Design persistence capability registration stays in the store"
-    },
-    {
       "id": "persistence-capture-only-in-persistence",
       "tool": "ast-grep",
       "ledger": "2.1-M186",
       "family": "persistence-capture-only-in-persistence",
       "adr": "0022",
-      "owner_today": "desktop/web/src/app/document-session/persistence.ts",
-      "example": "desktop/web/src/app/document-session/persistence.ts",
-      "note": "Raw Design persistence capture stays in persistence"
-    },
-    {
-      "id": "persistence-state-capture-only-in-owner",
-      "tool": "ast-grep",
-      "ledger": "2.1-M186",
-      "family": "persistence-state-capture-only-in-owner",
-      "adr": "0022",
-      "owner_today": "desktop/web/src/app/document-session/persistence-capability.ts",
-      "example": "desktop/web/src/app/document-session/persistence.ts",
-      "note": "Design persistence capability stays with its owner and adapter"
+      "owner_today": "desktop/web/src/app/document-session/core/scene-half.ts",
+      "example": "desktop/web/src/app/document-session/core/scene-half.ts",
+      "note": "Raw Design persistence capture stays in Session Core scene-half"
     },
     {
       "id": "pointer-capture-only-in-dom-input",
@@ -2435,7 +2303,7 @@
       "family": "updater-plugin-only-in-updater",
       "owner_today": "desktop/src/host/updater/mod.rs",
       "example": "desktop/src/host/updater/mod.rs",
-      "note": "the updater plugin (tauri_plugin_updater) only in the updater module, desktop/src/host/updater/ (ADR 0023 Checks, contracts §3 Updater, Phase 0 F6); cargo-deny admits the crate only through canopi-desktop; at 0",
+      "note": "the updater plugin (tauri_plugin_updater) only in the updater module, desktop/src/host/updater/ (ADR 0023 Checks, contracts \u00a73 Updater, Phase 0 F6); cargo-deny admits the crate only through canopi-desktop; at 0",
       "scope": [
         "desktop/src/**",
         "canopi-types/src/**",
@@ -2498,7 +2366,7 @@
         "phase": "N1",
         "bead": "canopi-f47t.52.190"
       },
-      "note": "§18 R3: a command reaches the executor only through a facade method with its OpSpec; native_command_policy::tests holds today's 81 executor calls in 10 command files until N1"
+      "note": "\u00a718 R3: a command reaches the executor only through a facade method with its OpSpec; native_command_policy::tests holds today's 81 executor calls in 10 command files until N1"
     },
     {
       "id": "rust-search-fold-only-in-search-text",
@@ -2511,7 +2379,7 @@
         "path": "desktop/src",
         "phase": "N4"
       },
-      "note": "§18 R18: Rust search folding only in canopi-search-text, held by the shared corpus run natively and through the page wasm; 6 implementations today (the TS half is search-fold-only-in-search-text)"
+      "note": "\u00a718 R18: Rust search folding only in canopi-search-text, held by the shared corpus run natively and through the page wasm; 6 implementations today (the TS half is search-fold-only-in-search-text)"
     },
     {
       "id": "locale-list-only-in-registry",
@@ -2521,7 +2389,7 @@
       "adr": "0023",
       "owner_today": "canopi-types/src/locale.rs",
       "example": "canopi-types/src/locale.rs",
-      "note": "§18 R19: locale lists, endonyms and sys_locale only in the canopi-types L6 registry (desktop/src/services/settings.rs passes [sys_locale] to canopi_types::locale::match_locale); generated to TS in desktop/web/src/generated/locale-registry.ts",
+      "note": "\u00a718 R19: locale lists, endonyms and sys_locale only in the canopi-types L6 registry (desktop/src/services/settings.rs passes [sys_locale] to canopi_types::locale::match_locale); generated to TS in desktop/web/src/generated/locale-registry.ts",
       "scope": [
         "desktop/src/**",
         "canopi-types/src/**",
@@ -2541,7 +2409,7 @@
       "family": "cargo-deny",
       "owner_today": "canopi-format-wasm/Cargo.toml",
       "example": "canopi-format-wasm/src/lib.rs",
-      "note": "§18 R20: wasm-bindgen only in the -wasm crates, each created in its phase (deny.toml [bans] wrappers over the native graph, where the -wasm crate's plain dependency is the one edge); canopi-format-wasm from Step 2.0.4 (canopi-f47t.52.270)"
+      "note": "\u00a718 R20: wasm-bindgen only in the -wasm crates, each created in its phase (deny.toml [bans] wrappers over the native graph, where the -wasm crate's plain dependency is the one edge); canopi-format-wasm from Step 2.0.4 (canopi-f47t.52.270)"
     },
     {
       "id": "edition-pairs",
@@ -2551,7 +2419,7 @@
       "family": "edition-pairs",
       "owner_today": "desktop/web/src/platform",
       "example": "desktop/web/src/platform/problem-report.ts",
-      "note": "contracts §22 (F3): every *.desktop.ts or *.browser.ts sits in platform/ beside a port with the same stem"
+      "note": "contracts \u00a722 (F3): every *.desktop.ts or *.browser.ts sits in platform/ beside a port with the same stem"
     },
     {
       "id": "object-capability-gaps",
@@ -2561,7 +2429,7 @@
       "family": "object-capability-gaps",
       "owner_today": "desktop/web/src/app/command-table/object-capabilities.ts",
       "example": "desktop/web/src/app/command-table/object-capabilities.ts",
-      "note": "contracts §21:877: named per-entry gap ratchet over the 28x57 object-capability matrix"
+      "note": "contracts \u00a721:877: named per-entry gap ratchet over the 28x57 object-capability matrix"
     },
     {
       "id": "no-path-string-command-arg",
@@ -2581,7 +2449,7 @@
         "desktop/web/src/ipc/**/*.ts"
       ],
       "keys": "path",
-      "note": "§18 R21: #[tauri::command] and ipc/ wrappers carry no raw path string or PathBuf argument; grants replace them in 2b/N2 (2.1-M522)"
+      "note": "\u00a718 R21: #[tauri::command] and ipc/ wrappers carry no raw path string or PathBuf argument; grants replace them in 2b/N2 (2.1-M522)"
     },
     {
       "id": "tauri-crate-only-in-desktop",
@@ -2591,7 +2459,7 @@
       "family": "cargo-deny",
       "owner_today": "desktop/Cargo.toml",
       "example": "desktop/src/commands/health.rs",
-      "note": "§18 R1, the cargo-deny half of tauri-only-in-shell: the tauri crate only under canopi-desktop and its Tauri plugins (deny.toml [bans] wrappers, DR26), so a library crate split out at N1 cannot depend on it"
+      "note": "\u00a718 R1, the cargo-deny half of tauri-only-in-shell: the tauri crate only under canopi-desktop and its Tauri plugins (deny.toml [bans] wrappers, DR26), so a library crate split out at N1 cannot depend on it"
     },
     {
       "id": "format-crate-bans-native",
@@ -2601,7 +2469,7 @@
       "family": "format-crate-bans-native",
       "owner_today": "canopi-format/Cargo.toml",
       "example": "canopi-format-wasm/Cargo.toml",
-      "note": "§18 R7: canopi-format and canopi-format-wasm reach no tauri, tokio or rusqlite over normal and build edges, nor schemars, which the Web worker's module would carry (canopi-f47t.52.270) (design check F9: policy/adapters/cargo-tree.mjs reads each one's whole graph, since cargo-deny's [bans] wrappers judge only direct parents); from Step 2.0.4 (canopi-f47t.52.270)"
+      "note": "\u00a718 R7: canopi-format and canopi-format-wasm reach no tauri, tokio or rusqlite over normal and build edges, nor schemars, which the Web worker's module would carry (canopi-f47t.52.270) (design check F9: policy/adapters/cargo-tree.mjs reads each one's whole graph, since cargo-deny's [bans] wrappers judge only direct parents); from Step 2.0.4 (canopi-f47t.52.270)"
     },
     {
       "id": "catalog-store-only-in-desktop",
@@ -2615,7 +2483,7 @@
         "phase": "N2",
         "bead": "canopi-f47t.52.47"
       },
-      "note": "§18 R6: canopi-catalog and canopi-store meet only in canopi-desktop, no catalog-store edge (cargo-deny [bans] with the crates)"
+      "note": "\u00a718 R6: canopi-catalog and canopi-store meet only in canopi-desktop, no catalog-store edge (cargo-deny [bans] with the crates)"
     },
     {
       "id": "sha2-only-in-support",
@@ -2629,7 +2497,7 @@
         "phase": "N1",
         "bead": "canopi-f47t.52.190"
       },
-      "note": "§18 R10: sha2 and other hashers only through canopi-support's hash (cargo-deny [bans] wrappers, with the crate)"
+      "note": "\u00a718 R10: sha2 and other hashers only through canopi-support's hash (cargo-deny [bans] wrappers, with the crate)"
     },
     {
       "id": "no-attach-step",
@@ -2681,7 +2549,7 @@
       "family": "no-reexport-only-types-module",
       "owner_today": "none",
       "example": "desktop/web/src/app/settings/state.ts",
-      "note": "a types/ module whose every statement is an `export ... from` re-export is a shim hiding its generated owner (contracts §12, Q45 pass); 4 at the base, 0 at Phase 2's close"
+      "note": "a types/ module whose every statement is an `export ... from` re-export is a shim hiding its generated owner (contracts \u00a712, Q45 pass); 4 at the base, 0 at Phase 2's close"
     },
     {
       "id": "guarded-files",

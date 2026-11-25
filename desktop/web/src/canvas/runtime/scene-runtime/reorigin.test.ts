@@ -114,17 +114,13 @@ const SCREEN = { width: 400, height: 300 }
 const FAR_EAST_METERS = 20_000
 
 function createRuntime() {
-  const setCanvasClean = vi.fn<(clean: boolean) => void>()
   const runtime = new SceneCanvasRuntime({
-    appAdapter: {
-      ...createDetachedCanvasRuntimeAppAdapter(),
-      cleanState: { setCanvasClean },
-    },
+    appAdapter: createDetachedCanvasRuntimeAppAdapter(),
   })
   const file = makeFile()
   runtime.documentSurface.loadDocument(file)
   runtime.documentSurface.resize(SCREEN.width, SCREEN.height)
-  return { runtime, file, setCanvasClean }
+  return { runtime, file }
 }
 
 function sessionPlane(runtime: SceneCanvasRuntime): SessionPlane {
@@ -195,13 +191,12 @@ function geoNear(point: { lon: number; lat: number }) {
 
 describe('session plane re-origin', () => {
   it('moves the plane origin to a distant view centre without moving any saved lon/lat or dirtying the Design', async () => {
-    const { runtime, file, setCanvasClean } = createRuntime()
+    const { runtime, file } = createRuntime()
     try {
       const before = savedScene(runtime, file)
       const previous = sessionPlane(runtime)
       const farCentre = { x: FAR_EAST_METERS, y: 0 }
       const expectedOrigin = previous.toGeo(farCentre)
-      setCanvasClean.mockClear()
 
       centreViewOn(runtime, farCentre)
       await settleReorigin()
@@ -219,7 +214,6 @@ describe('session plane re-origin', () => {
       expect(Math.hypot(centre.x, centre.y)).toBeLessThan(0.01)
 
       expect(savedScene(runtime, file)).toEqual(before)
-      expect(setCanvasClean).not.toHaveBeenCalledWith(false)
       expect(runtime.commandSurface.history.canUndo.value).toBe(false)
       expect(runtime.commandSurface.history.canRedo.value).toBe(false)
     } finally {

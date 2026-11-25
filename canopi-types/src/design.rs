@@ -183,6 +183,7 @@ pub const PLANT_SYMBOL_IDS: &[&str] = &[
 pub enum DesignFileFieldOwner {
     Document,
     Scene,
+    Format,
 }
 
 impl DesignFileFieldOwner {
@@ -194,6 +195,7 @@ impl DesignFileFieldOwner {
         match self {
             Self::Document => "document",
             Self::Scene => "scene",
+            Self::Format => "format",
         }
     }
 }
@@ -215,7 +217,7 @@ pub struct DesignFileField {
 pub const DESIGN_FILE_FIELDS: &[DesignFileField] = &[
     DesignFileField {
         key: "version",
-        owner: DesignFileFieldOwner::Scene,
+        owner: DesignFileFieldOwner::Format,
     },
     DesignFileField {
         key: "name",
@@ -291,7 +293,7 @@ pub const DESIGN_FILE_FIELDS: &[DesignFileField] = &[
     },
     DesignFileField {
         key: "map_view",
-        owner: DesignFileFieldOwner::Scene,
+        owner: DesignFileFieldOwner::Format,
     },
     DesignFileField {
         key: "created_at",
@@ -299,7 +301,7 @@ pub const DESIGN_FILE_FIELDS: &[DesignFileField] = &[
     },
     DesignFileField {
         key: "updated_at",
-        owner: DesignFileFieldOwner::Scene,
+        owner: DesignFileFieldOwner::Format,
     },
     DesignFileField {
         key: "extra",
@@ -814,6 +816,10 @@ pub struct DesignSummary {
     pub path: String,
     pub name: String,
     pub updated_at: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub grant: Option<crate::ids::FileGrantId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub recent_id: Option<String>,
 }
 
 /// Longest side of a [`DesignSketch`] frame, in sketch units.
@@ -958,6 +964,10 @@ pub struct DesignNotebookEntry {
     pub plant_count: u32,
     pub section_id: Option<String>,
     pub sort_order: i32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub grant: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub recent_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]

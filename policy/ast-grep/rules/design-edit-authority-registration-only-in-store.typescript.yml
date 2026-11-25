@@ -2,7 +2,7 @@
 id: design-edit-authority-registration-only-in-store.typescript
 language: typescript
 severity: error
-message: "Design Edit authority registration stays in the document store; owner desktop/web/src/app/design-edit/authority-capability.ts; example desktop/web/src/app/document-session/store.ts"
+message: "Design Edit authority registration stays in the Session Core edit-authority bridge; owner desktop/web/src/app/design-edit/authority-capability.ts; example desktop/web/src/app/document-session/edit-authority.ts"
 files:
   - "{desktop/web,policy/fixtures/rules/*}/src/**/*.ts"
 ignores:
@@ -10,6 +10,7 @@ ignores:
   - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
   - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
   - "{desktop/web,policy/fixtures/rules/*}/src/app/design-edit/authority-capability.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/app/document-session/edit-authority.ts"
 rule:
   any:
     - kind: identifier

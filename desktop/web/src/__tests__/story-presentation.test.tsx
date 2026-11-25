@@ -40,7 +40,7 @@ import type { CanopiFile, SavedView, Story } from '../types/design'
 import type { ViewCamera } from '../geo/view/types'
 import { createTestCanvasCommandSurface, createTestCanvasRuntimeSurfaces } from './support/canvas-runtime-surfaces'
 import { createTestCanvasQuerySurface } from './support/canvas-query-surface'
-import { replaceCurrentDesignState } from './support/design-session-state'
+import { replaceCurrentDesignState, resetDirtyBaselines } from './support/design-session-state'
 import { TEST_GEO_ORIGIN } from './support/geo-design'
 import { framedCornersOnScreen, groundSizeShown } from './support/saved-view-frame'
 import { describeSavedViewSnapshot, VIEW_SNAPSHOT_THUMBNAIL } from '../app/saved-views/snapshot'
@@ -160,7 +160,7 @@ function framedTour(width: number, height: number, bearing: number): CanopiFile 
 beforeEach(() => {
   locale.value = 'en'
   replaceCurrentDesignState(design(), null, 'Stories')
-  designSessionStore.resetDirtyBaselines()
+  resetDirtyBaselines()
   mountMap()
   container = document.createElement('div')
   document.body.append(container)
@@ -177,7 +177,6 @@ afterEach(() => {
 describe('presenting a story', () => {
   it('applies a step’s view as session overrides and never touches the Design', () => {
     const before = currentDesign.value
-    const revision = designSessionStore.committedDesignRevision.value
     const userLayers = mapLayers.value
 
     expect(presentStory('tour', 1)).toBe(true)
@@ -204,7 +203,6 @@ describe('presenting a story', () => {
     expect(mapLayers.value).toBe(userLayers)
     expect(currentDesign.value).toBe(before)
     expect(designSessionStore.designDirty.value).toBe(false)
-    expect(designSessionStore.committedDesignRevision.value).toBe(revision)
   })
 
   it('clears the highlight for a step whose species has no plants instead of keeping the previous one', () => {

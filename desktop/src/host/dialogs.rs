@@ -27,7 +27,6 @@ use std::sync::{Arc, Mutex, PoisonError};
 
 use canopi_types::dialog::{DialogKind, DialogPurpose, PickOpenOutcome, PickSaveOutcome};
 use canopi_types::failure::{Failure, FailureCode, ops};
-use canopi_types::ids::FileGrantId;
 
 use crate::host::home::FileGrantRegistry;
 use crate::native_operation::{ExecutorError, NativeOperationClass, NativeOperationExecutor};
@@ -253,20 +252,22 @@ pub async fn pick_open(
     if paths.is_empty() {
         return Ok(PickOpenOutcome::Cancelled);
     }
-    let minted = if kind == DialogKind::DesignOpen {
+    let (minted, file_homes) = if kind == DialogKind::DesignOpen {
         let registry = Arc::clone(grants);
         let to_grant = paths.clone();
-        executor
+        let homes = executor
             .run_typed(NativeOperationClass::Local, OP, move || {
                 to_grant
                     .iter()
-                    .map(|path| registry.grant(path))
-                    .collect::<Result<Vec<FileGrantId>, _>>()
+                    .map(|path| registry.grant_info(path))
+                    .collect::<Result<Vec<canopi_types::design_home::FileHomeGrant>, _>>()
                     .map_err(|_| Failure::new(FailureCode::Invalid, OP))
             })
-            .await?
+            .await?;
+        let ids = homes.iter().map(|h| h.grant.clone()).collect();
+        (ids, homes)
     } else {
-        Vec::new()
+        (Vec::new(), Vec::new())
     };
     let paths = paths
         .into_iter()
@@ -276,6 +277,7 @@ pub async fn pick_open(
     Ok(PickOpenOutcome::Picked {
         paths,
         grants: minted,
+        file_homes,
     })
 }
 
@@ -304,14 +306,14 @@ pub async fn pick_save(
         return Ok(PickSaveOutcome::Cancelled);
     };
     let resolved = with_extension(kind, path);
-    let grant = if kind == DialogKind::DesignSave {
+    let file_home = if kind == DialogKind::DesignSave {
         let registry = Arc::clone(grants);
         let target = resolved.clone();
         Some(
             executor
                 .run_typed(NativeOperationClass::Local, OP, move || {
                     registry
-                        .grant(&target)
+                        .grant_info(&target)
                         .map_err(|_| Failure::new(FailureCode::Invalid, OP))
                 })
                 .await?,
@@ -319,9 +321,11 @@ pub async fn pick_save(
     } else {
         None
     };
+    let grant = file_home.as_ref().map(|h| h.grant.clone());
     Ok(PickSaveOutcome::Picked {
         path: path_text(resolved).ok_or_else(not_unicode)?,
         grant,
+        file_home,
     })
 }
 

@@ -163,6 +163,8 @@ export function createTestCanvasDocumentSurface(
       isCurrent: () => true,
       acknowledgeSaved: () => 'applied',
     }),
+    serializeSceneFields: () => ({}),
+    replaySceneCommand: () => true,
     resize: () => {},
     destroy: () => {},
   }

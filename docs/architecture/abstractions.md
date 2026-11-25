@@ -38,12 +38,12 @@ Verdicts (keep, merge, split, cut, add, change) cite the [ledger](../decisions/2
 | Abstraction | Concept owned | Owner | Why it exists | Canonical example | Verdict |
 |---|---|---|---|---|---|
 | `DurableFs`, `publish_durably`, `remove_durably` | durable publish and remove with a `Precondition` | `canopi-support` (2.1) | Fault implementation; crash and disk full | `desktop/src/design/mod.rs` | change (M111) |
-| Write vocabulary | admission, write lane, target lock (`TargetLocks`), Busy | Session core write lane; target locks in `canopi-support` (2.1) | Two homes today | `app/document-session/write-admission.ts` | change (M111) |
+| Write vocabulary | admission, write lane, target lock (`TargetLocks`), Busy | Session core write lane; target locks in `canopi-support` (2.1) | Two homes today | `app/document-session/core/write-lane.ts` | change (M111) |
 | Store migration chain | `FLOOR`, `STEPS`, `CURRENT` per store | pure chain in `canopi-types` (2.1); TS runner in `platform/` | Every store change | `editions/web/settings.ts` | change: synchronous steps, staged moves (M157) |
 | Fault seams | `DurableFs`, Draft `IDBFactory`, the library worker's OPFS pool | each store adapter | Model suites inject faults | `desktop/src/design/mod.rs` | add a third seam (M110, M151) |
-| `DesignHomeStore` and `DesignHome` | where a Design lives; `HomeVersion` SHA-256; write results | `platform/design-home.ts` | Desktop and Web; merge | `app/document-session/continuous-save.ts` | change (M117, Q165) |
+| `DesignHomeStore` and `DesignHome` | where a Design lives; `HomeVersion` SHA-256; write results | `platform/design-home.ts` | Desktop and Web; merge | `app/document-session/core/write-lane.ts` | keep (M117, Q165) |
 | Draft records | Drafts on Web | `platform/draft-records.browser.ts`; `desktop/src/design/drafts.rs` | Untrusted record | `web/browser-app-data.ts` | change: internal seam, not a port (M117) |
-| File access and grants | pick any file kind; opaque handle for a user file | `platform/file-access.ts` (2.1); grant table and dialog registry in `canopi-desktop` | No paths cross IPC | `app/geojson/workflow.ts` | change: pickers, dialog registry, home identity (M155) |
+| File access and grants | pick any file kind; opaque handle for a user file | `platform/file-access.ts`; grant table and dialog registry in `canopi-desktop` | No paths cross IPC | `app/geojson/workflow.ts` | change: pickers, dialog registry, home identity (M155) |
 | FileDelivery | exports: `deliver(row, signal)` over a content union | `platform/file-delivery.ts` (2.1) | Desktop and Web; PDF, CSV, GeoTIFF | `app/canvas-pdf/platform.desktop.ts` | change (M140) |
 | Personal-records ports | saved stamps, Design notebook, species lists | `platform/saved-stamps.ts` (2.1), `platform/design-notebook.ts` (2.1), `platform/species-lists.ts` (2.1) | Desktop and Web; Web parity | `ipc/saved-object-stamps.ts` | change (M141, Q173) |
 | Browser record | the only `localStorage` access | `platform/browser-record.ts` | One quota and decode rule | `web/browser-app-data.ts` | add (M141) |
@@ -67,16 +67,16 @@ Verdicts (keep, merge, split, cut, add, change) cite the [ledger](../decisions/2
 
 | Abstraction | Concept owned | Owner | Why it exists | Canonical example | Verdict |
 |---|---|---|---|---|---|
-| Session core | Design lifecycle, home, save state, last-open home, read-only view | `app/document-session/core/` (2.1) | Merges two hand-written machines | `app/document-session/state-machine.ts` | change (M116) |
-| Pending question | close or replace question held by the core; answer in | Session core | One state-out, command-in way | `app/document-session/save-problem.ts` | change: Session state, `core.answer` (M162) |
-| Design scope, `latest()` | per-Design lifetime | `types/design-scope.ts` (2.1) | About 30 hand resets today | `app/canvas-map-surface/canvas-host.ts` | keep (ADR 0024, M118) |
-| One history | `core.document`, staged `core.compound`, tool history first | Session core | One Undo order; PDF editor, merge | `canvas/runtime/scene-runtime/transactions.ts` | change (M114, M115, M158) |
+| Session core | Design lifecycle, home, save state, last-open home, read-only view | `app/document-session/core/` | Single authority for Desktop, Web and gallery | `app/document-session/core/session-core.ts` | keep (ADR 0024, M116) |
+| Pending question | close or replace question held by the core; answer in | Session core | One state-out, command-in way | `app/document-session/core/session-core.ts` | keep (M162) |
+| Design scope, `latest()` | per-Design lifetime | `types/design-scope.ts` | Replaces hand resets | `app/canvas-map-surface/canvas-host.ts` | keep (ADR 0024, M118) |
+| One history | `core.document`, staged `core.compound`, tool history first | Session core | One Undo order; PDF editor, merge | `app/document-session/core/history.ts` | keep (M114, M115, M158) |
 | Print workspace entry | one amendable entry per PDF workspace session | Session core | PDF editor | `app/canvas-pdf/workflow.ts` | change: coalesce key sealed by any other entry (M160) |
-| Undo toast | a view of the one history | Session core | No second Undo path | `app/saved-views/` | change: view of `newestUndoable` (M159, Q172) |
+| Undo toast | a view of the one history | Session core | No second Undo path | `app/saved-views/dialogs.ts` | keep: view of `newestUndoable` (M159, Q172) |
 | `core.place` | stamp or arrangement as one compound entry | Session core | Stamps, merge, detected trees | `app/saved-object-stamps/` | add (M119) |
 | Document references | kept and marked when the object goes | `app/design-edit/` | Print, planning, merge | `app/design-edit/views.ts` | add (M120) |
 | Serial lanes | serialisation only in named owners | core write lane, settings, `app/record-workbench/` (2.1), sampler lanes, display admission | Four queues today | `app/mutation-queue.ts` | change (M118) |
-| App lifecycle port | close, hide, focus lost, show, `release-waiting` | `platform/app-lifecycle.ts` (2.1) | Desktop and Web page events | `app/shell/close-guard.ts` | add (M98, M116) |
+| App lifecycle port | close, hide, focus lost, show, `release-waiting` | `platform/app-lifecycle.ts` | Desktop and Web page events | `app/shell/close-guard.ts` | add (M98, M116) |
 | App scope | `installAppLifetime(ports)`, reverse disposal | edition roots | One app scope for two bootstraps | `editions/desktop/boot.ts` | keep (ADR 0024) |
 
 ## Canvas and map
@@ -155,7 +155,7 @@ Verdicts (keep, merge, split, cut, add, change) cite the [ledger](../decisions/2
 | Origin table | allowed origins; both CSPs | `policy/origins.json` (2.1) | Trust boundary | `desktop/tauri.conf.json` | add (M102) |
 | Service worker | offline, skew caches, kill-switch, `keep_catalog` | service worker (2.1) | Offline Drafts, deploy skew | `scripts/web_release.py` | change (M99, M100) |
 | Catalog manifest | content-named, carried by the page bundle | `scripts/web_release.py` | A tab reads its own release's catalog | the owner | change (M101) |
-| Release waiting | `release-waiting{source}`, flush, then `applyRelease()` | `platform/app-lifecycle.ts` (2.1) | One Reload owner | `editions/web/browser-release-watch.ts` (manifest source, 2.0.3) | add (M98) |
+| Release waiting | `release-waiting{source}`, flush, then `applyRelease()` | `platform/app-lifecycle.ts` | One Reload owner | `editions/web/browser-release-watch.ts` (manifest source, 2.0.3) | add (M98) |
 | Updater | check and download inside the Network lane; `UpdateState` in `app/updates/` (2.1) | `desktop/src/host/updater/` (2.1) | Signed artifacts | the owner | add (M96, M97, Q163, Q164) |
 | Build-time config patch | Desktop config, CSP generated from the origin table | `desktop/build.rs` | Generator for Desktop | the owner | keep (M102) |
 
@@ -178,5 +178,5 @@ Verdicts (keep, merge, split, cut, add, change) cite the [ledger](../decisions/2
 - `RasterEngine` (M131); `AnalysisLane` (M129); `LibraryItemRole` and the kind fields (M130).
 - `SceneHistory` (M114); `SceneHostLayer`, `sceneSyncCount` and the hand MapLibre interfaces (M145).
 - `TOOL_REGISTRY`, `app/canvas-commands/` and `app/shell-commands/`: into the command table (M146); `pinAt` and `finishProfile` (M147).
-- The shell notice registry, `app/document-session/workflow-runner.ts`, `app/document-session/continuous-save.ts` and the 13 session counters (M118).
+- The shell notice registry, the legacy workflow runner, legacy continuous save and the 13 session counters (M118).
 - `LonLat` and `GeoPosition` (M123); the per-store quota codes (M141).

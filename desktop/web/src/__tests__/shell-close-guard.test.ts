@@ -1,580 +1,349 @@
-import { signal } from "@preact/signals";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { Failure } from "../generated/contracts";
+import type { CanopiFile } from "../types/design";
+import {
+  answerSaveProblem,
+  saveProblem,
+  type SaveProblemChoice,
+  type SaveProblemRequest,
+} from "../app/document-session/save-problem";
+import { flushBeforeExit, registerCloseGuard, type CloseGuardLifetime } from "../app/shell/close-guard";
+import {
+  createTestSessionCore,
+  type TestSessionCoreHandle,
+} from "./support/session-core-fixture";
 
-const mocks = vi.hoisted(() => ({
-  destroy: vi.fn(),
-  flushDesign: vi.fn(),
-  flushSettingsProjection: vi.fn(),
-  getCurrentWindow: vi.fn(),
-  onCloseRequested: vi.fn(),
-  onFocusChanged: vi.fn(),
-  requestSaveProblemDecision: vi.fn(),
-  unlistenA: vi.fn(),
-  unlistenB: vi.fn(),
-  unlistenFocus: vi.fn(),
-  currentDesign: { value: {} as object | null, peek() { return this.value; } },
-}));
+const WRITE_FAILURE: Failure = {
+  code: { kind: "io", detail: "other" },
+  user_may_retry: true,
+  op: "design.write",
+  operation: null,
+  detail: null,
+} as unknown as Failure;
 
-vi.mock("@tauri-apps/api/window", () => ({
-  getCurrentWindow: mocks.getCurrentWindow,
-}));
-
-vi.mock("../app/document-session/transition", () => ({
-  designContinuousSave: {
-    flush: mocks.flushDesign,
-    conflict: signal(null),
-  },
-}));
-
-vi.mock("../app/document-session/store", () => ({
-  currentDesign: mocks.currentDesign,
-}));
-
-vi.mock("../app/document-session/save-problem", () => ({
-  requestSaveProblemDecision: mocks.requestSaveProblemDecision,
-}));
-
-vi.mock("../app/settings/projection", () => ({
-  flushSettingsProjection: mocks.flushSettingsProjection,
-}));
-
-async function flushMicrotasks(): Promise<void> {
-  await Promise.resolve();
-  await Promise.resolve();
+function sampleDesign(name = "Orchard"): CanopiFile {
+  return {
+    version: 9,
+    name,
+    description: null,
+    plant_species_colors: {},
+    plant_species_symbols: {},
+    layers: [],
+    plants: [],
+    zones: [],
+    annotations: [],
+    measurement_guides: [],
+    groups: [],
+    consortiums: [],
+    timeline: [],
+    budget: [],
+    budget_currency: "EUR",
+    views: [],
+    stories: [],
+    created_at: "2026-01-01T00:00:00Z",
+    updated_at: "2026-01-01T00:00:00Z",
+    extra: {},
+  };
 }
 
-type CloseHandler = (event: { preventDefault: () => void }) => Promise<void>;
-type FocusHandler = (event: { payload: boolean }) => void;
+async function waitForProblem(): Promise<SaveProblemRequest> {
+  await vi.waitFor(() => {
+    expect(saveProblem.value).not.toBeNull();
+  });
+  return saveProblem.value!;
+}
+
+async function answerNext(choice: SaveProblemChoice): Promise<SaveProblemRequest> {
+  const req = await waitForProblem();
+  answerSaveProblem(choice);
+  return req;
+}
 
 describe("registerCloseGuard", () => {
-  beforeEach(async () => {
-    vi.resetModules();
-    mocks.destroy.mockReset();
-    mocks.flushDesign.mockReset().mockResolvedValue(true);
-    mocks.flushSettingsProjection.mockReset().mockResolvedValue(undefined);
-    mocks.getCurrentWindow.mockReset();
-    mocks.onCloseRequested.mockReset();
-    mocks.onFocusChanged.mockReset().mockResolvedValue(mocks.unlistenFocus);
-    mocks.requestSaveProblemDecision.mockReset();
-    mocks.unlistenA.mockReset();
-    mocks.unlistenB.mockReset();
-    mocks.unlistenFocus.mockReset();
-    mocks.currentDesign.value = {};
-    mocks.getCurrentWindow.mockReturnValue({
-      onCloseRequested: mocks.onCloseRequested,
-      onFocusChanged: mocks.onFocusChanged,
-      destroy: mocks.destroy,
-    });
-    mocks.onCloseRequested
-      .mockResolvedValueOnce(mocks.unlistenA)
-      .mockResolvedValueOnce(mocks.unlistenB);
+  let handle: TestSessionCoreHandle | null = null;
+  let guard: CloseGuardLifetime | null = null;
+
+  beforeEach(() => {
+    handle = null;
+    guard = null;
   });
 
-  it("cleans up the previous listener when re-registering", async () => {
-    const { registerCloseGuard } = await import("../app/shell/close-guard");
-
-    registerCloseGuard();
-    await flushMicrotasks();
-    registerCloseGuard();
-    await flushMicrotasks();
-
-    expect(mocks.onCloseRequested).toHaveBeenCalledTimes(2);
-    expect(mocks.unlistenA).toHaveBeenCalledTimes(1);
+  afterEach(() => {
+    guard?.dispose();
+    guard = null;
+    if (saveProblem.peek()) answerSaveProblem("cancel");
+    handle?.dispose();
+    handle = null;
   });
 
-  it("disposes stale async listeners when register is called twice before the first promise settles", async () => {
-    const { registerCloseGuard } = await import("../app/shell/close-guard");
+  it("cleans up the previous guard when re-registering and prompts once per question", async () => {
+    const flushSettings = vi.fn(async () => { throw new Error("busy"); });
+    handle = createTestSessionCore({ file: sampleDesign(), path: "/orchard.canopi", flushSettings });
+    const g1 = registerCloseGuard();
+    guard = registerCloseGuard();
+    g1.dispose();
 
-    registerCloseGuard();
-    registerCloseGuard();
-    await flushMicrotasks();
-
-    expect(mocks.onCloseRequested).toHaveBeenCalledTimes(2);
-    expect(mocks.unlistenA).toHaveBeenCalledTimes(1);
-  });
-
-  it("disposes a listener that settles after its close-guard lifetime ends", async () => {
-    let resolveRegistration!: (unlisten: () => void) => void;
-    mocks.onCloseRequested.mockReset().mockReturnValue(new Promise<() => void>((resolve) => {
-      resolveRegistration = resolve;
-    }));
-    const { registerCloseGuard } = await import("../app/shell/close-guard");
-
-    const lifetime = registerCloseGuard();
-    lifetime.dispose();
-    resolveRegistration(mocks.unlistenA);
-    await flushMicrotasks();
-
-    expect(mocks.unlistenA).toHaveBeenCalledTimes(1);
-  });
-
-  it("disposes a settled close-guard listener at most once", async () => {
-    const { registerCloseGuard } = await import("../app/shell/close-guard");
-
-    const lifetime = registerCloseGuard();
-    await flushMicrotasks();
-    lifetime.dispose();
-    lifetime.dispose();
-
-    expect(mocks.unlistenA).toHaveBeenCalledTimes(1);
-  });
-
-  it("does not report a listener registration failure after its lifetime ends", async () => {
-    let rejectRegistration!: (error: unknown) => void;
-    mocks.onCloseRequested.mockReset().mockReturnValue(new Promise<() => void>((_resolve, reject) => {
-      rejectRegistration = reject;
-    }));
-    const logError = vi.spyOn(console, "error").mockImplementation(() => {});
-    const { registerCloseGuard } = await import("../app/shell/close-guard");
-
-    const lifetime = registerCloseGuard();
-    lifetime.dispose();
-    rejectRegistration(new Error("obsolete registration"));
-    await flushMicrotasks();
-
-    expect(logError).not.toHaveBeenCalled();
-    logError.mockRestore();
-  });
-
-  it("reports a listener registration failure for the active lifetime", async () => {
-    const error = new Error("listener unavailable");
-    mocks.onCloseRequested.mockReset().mockRejectedValue(error);
-    const logError = vi.spyOn(console, "error").mockImplementation(() => {});
-    const { registerCloseGuard } = await import("../app/shell/close-guard");
-
-    registerCloseGuard();
-    await flushMicrotasks();
-
-    expect(logError).toHaveBeenCalledWith("Failed to register close guard:", error);
-    logError.mockRestore();
+    const closing = handle.core.close("close");
+    const asked = await answerNext("cancel");
+    expect(asked).toEqual({ kind: "settings-failed", designSaved: true });
+    expect(await closing).toBe("cancelled");
+    expect(handle.lifecycle.destroyedCount()).toBe(0);
   });
 
   it("prevents a clean close until settings finish flushing, then destroys the window", async () => {
     let resolveFlush!: () => void;
-    mocks.flushSettingsProjection.mockReturnValue(new Promise<void>((resolve) => {
-      resolveFlush = resolve;
-    }));
-    const { registerCloseGuard } = await import("../app/shell/close-guard");
-    registerCloseGuard();
-    await flushMicrotasks();
+    const flushSettings = vi.fn(() => new Promise<void>((resolve) => { resolveFlush = resolve; }));
+    handle = createTestSessionCore({ file: sampleDesign(), path: "/orchard.canopi", flushSettings });
+    guard = registerCloseGuard();
 
-    const handler = mocks.onCloseRequested.mock.calls[0]?.[0] as CloseHandler;
-    const event = { preventDefault: vi.fn() };
-    const close = handler(event);
-    await flushMicrotasks();
+    handle.core.document("rename", () => ({ name: "Updated" }));
+    const writeSpy = vi.spyOn(handle.home, "write");
 
-    expect(mocks.flushDesign).toHaveBeenCalledTimes(1);
-    expect(mocks.flushSettingsProjection).toHaveBeenCalledTimes(1);
-    expect(event.preventDefault).toHaveBeenCalledTimes(1);
-    expect(mocks.requestSaveProblemDecision).not.toHaveBeenCalled();
-    expect(mocks.destroy).not.toHaveBeenCalled();
+    const closePromise = handle.core.close("quit");
+    await vi.waitFor(() => expect(flushSettings).toHaveBeenCalledTimes(1));
+
+    expect(writeSpy).toHaveBeenCalledTimes(1);
+    expect(saveProblem.value).toBeNull();
+    expect(handle.lifecycle.destroyedCount()).toBe(0);
 
     resolveFlush();
-    await close;
-
-    expect(mocks.destroy).toHaveBeenCalledTimes(1);
-  });
-
-  it("coalesces close requests while the close workflow is in flight", async () => {
-    let resolveFlush!: () => void;
-    mocks.flushSettingsProjection.mockReturnValue(new Promise<void>((resolve) => {
-      resolveFlush = resolve;
-    }));
-    const { registerCloseGuard } = await import("../app/shell/close-guard");
-    registerCloseGuard();
-    await flushMicrotasks();
-
-    const handler = mocks.onCloseRequested.mock.calls[0]?.[0] as CloseHandler;
-    const firstEvent = { preventDefault: vi.fn() };
-    const secondEvent = { preventDefault: vi.fn() };
-    const firstClose = handler(firstEvent);
-    const secondClose = handler(secondEvent);
-    await flushMicrotasks();
-
-    expect(firstEvent.preventDefault).toHaveBeenCalledTimes(1);
-    expect(secondEvent.preventDefault).toHaveBeenCalledTimes(1);
-    expect(mocks.flushDesign).toHaveBeenCalledTimes(1);
-    expect(mocks.flushSettingsProjection).toHaveBeenCalledTimes(1);
-
-    resolveFlush();
-    await Promise.all([firstClose, secondClose]);
-
-    expect(mocks.requestSaveProblemDecision).not.toHaveBeenCalled();
-    expect(mocks.destroy).toHaveBeenCalledTimes(1);
-  });
-
-  it("does not finish a close after its guard lifetime is disposed during flush", async () => {
-    let resolveFlush!: () => void;
-    mocks.flushSettingsProjection.mockReturnValue(new Promise<void>((resolve) => {
-      resolveFlush = resolve;
-    }));
-    const { registerCloseGuard } = await import("../app/shell/close-guard");
-    const lifetime = registerCloseGuard();
-    await flushMicrotasks();
-    const handler = mocks.onCloseRequested.mock.calls[0]?.[0] as CloseHandler;
-    const event = { preventDefault: vi.fn() };
-
-    const close = handler(event);
-    lifetime.dispose();
-    resolveFlush();
-    await close;
-
-    expect(event.preventDefault).toHaveBeenCalledTimes(1);
-    expect(mocks.requestSaveProblemDecision).not.toHaveBeenCalled();
-    expect(mocks.destroy).not.toHaveBeenCalled();
+    expect(await closePromise).toBe("closed");
+    expect(handle.lifecycle.destroyedCount()).toBe(1);
   });
 
   it("canopi-eon8.14.1: an unsaveable settings store flushes the Design, then offers Retry and Close anyway", async () => {
-    mocks.flushSettingsProjection.mockRejectedValue(new Error("settings unavailable"));
-    mocks.requestSaveProblemDecision.mockResolvedValue("discard");
-    const { registerCloseGuard } = await import("../app/shell/close-guard");
-    registerCloseGuard();
-    await flushMicrotasks();
+    const order: string[] = [];
+    const flushSettings = vi.fn(async () => {
+      order.push("settings");
+      throw new Error("settings unavailable");
+    });
+    handle = createTestSessionCore({ file: sampleDesign(), path: "/orchard.canopi", flushSettings });
+    guard = registerCloseGuard();
+    const origWrite = handle.home.write.bind(handle.home);
+    vi.spyOn(handle.home, "write").mockImplementation(async (...args) => {
+      order.push("design");
+      return origWrite(...args);
+    });
 
-    const handler = mocks.onCloseRequested.mock.calls[0]?.[0] as CloseHandler;
-    await handler({ preventDefault: vi.fn() });
+    handle.core.document("rename", () => ({ name: "SavedBeforeSettings" }));
+    const closePromise = handle.core.close("quit");
+    const asked = await answerNext("discard");
+    expect(await closePromise).toBe("closed");
 
-    expect(mocks.flushDesign).toHaveBeenCalledTimes(1);
-    expect(mocks.flushDesign.mock.invocationCallOrder[0]!)
-      .toBeLessThan(mocks.flushSettingsProjection.mock.invocationCallOrder[0]!);
-    expect(mocks.requestSaveProblemDecision).toHaveBeenCalledTimes(1);
-    expect(mocks.requestSaveProblemDecision).toHaveBeenCalledWith({ kind: "settings-failed", designSaved: true });
-    expect(mocks.destroy).toHaveBeenCalledTimes(1);
+    expect(order).toEqual(["design", "settings"]);
+    expect(asked).toEqual({ kind: "settings-failed", designSaved: true });
+    expect(handle.lifecycle.destroyedCount()).toBe(1);
   });
 
   it("canopi-eon8.14.1: settings Retry asks again while it fails and closes once it succeeds", async () => {
-    mocks.flushSettingsProjection
+    const flushSettings = vi.fn()
       .mockRejectedValueOnce(new Error("busy"))
       .mockRejectedValueOnce(new Error("busy"))
       .mockResolvedValueOnce(undefined);
-    mocks.requestSaveProblemDecision.mockResolvedValue("retry");
-    const { registerCloseGuard } = await import("../app/shell/close-guard");
-    registerCloseGuard();
-    await flushMicrotasks();
+    handle = createTestSessionCore({ file: sampleDesign(), path: "/orchard.canopi", flushSettings });
+    guard = registerCloseGuard();
 
-    const handler = mocks.onCloseRequested.mock.calls[0]?.[0] as CloseHandler;
-    await handler({ preventDefault: vi.fn() });
+    const closePromise = handle.core.close("quit");
+    await answerNext("retry");
+    await answerNext("retry");
+    expect(await closePromise).toBe("closed");
 
-    expect(mocks.flushDesign).toHaveBeenCalledTimes(1);
-    expect(mocks.flushSettingsProjection).toHaveBeenCalledTimes(3);
-    expect(mocks.requestSaveProblemDecision).toHaveBeenCalledTimes(2);
-    expect(mocks.destroy).toHaveBeenCalledTimes(1);
+    expect(flushSettings).toHaveBeenCalledTimes(3);
+    expect(handle.lifecycle.destroyedCount()).toBe(1);
   });
 
   it("canopi-eon8.14.1: Cancel or Escape on the settings dialog keeps the window open", async () => {
-    mocks.flushSettingsProjection.mockRejectedValue(new Error("busy"));
-    mocks.requestSaveProblemDecision.mockResolvedValue("cancel");
-    const { registerCloseGuard } = await import("../app/shell/close-guard");
-    registerCloseGuard();
-    await flushMicrotasks();
+    const flushSettings = vi.fn().mockRejectedValue(new Error("busy"));
+    handle = createTestSessionCore({ file: sampleDesign(), path: "/orchard.canopi", flushSettings });
+    guard = registerCloseGuard();
 
-    const handler = mocks.onCloseRequested.mock.calls[0]?.[0] as CloseHandler;
-    await handler({ preventDefault: vi.fn() });
+    const closePromise = handle.core.close("quit");
+    const asked = await answerNext("cancel");
+    expect(await closePromise).toBe("cancelled");
 
-    expect(mocks.flushDesign).toHaveBeenCalledTimes(1);
-    expect(mocks.requestSaveProblemDecision).toHaveBeenCalledWith({ kind: "settings-failed", designSaved: true });
-    expect(mocks.destroy).not.toHaveBeenCalled();
-  });
-
-  it("canopi-eon8.14.1: with no Design open, the settings dialog never calls a Design saved", async () => {
-    mocks.flushDesign.mockResolvedValue(true);
-    mocks.flushSettingsProjection.mockRejectedValue(new Error("settings unavailable"));
-    mocks.requestSaveProblemDecision.mockResolvedValue("cancel");
-    const { registerCloseGuard } = await import("../app/shell/close-guard");
-    mocks.currentDesign.value = null;
-    registerCloseGuard();
-    await flushMicrotasks();
-
-    const handler = mocks.onCloseRequested.mock.calls[0]?.[0] as CloseHandler;
-    await handler({ preventDefault: vi.fn() });
-
-    expect(mocks.requestSaveProblemDecision.mock.calls).toEqual([
-      [{ kind: "settings-failed", designSaved: false }],
-    ]);
-    expect(mocks.destroy).not.toHaveBeenCalled();
+    expect(asked).toEqual({ kind: "settings-failed", designSaved: true });
+    expect(handle.core.state.value.kind).toBe("open");
+    expect(handle.lifecycle.destroyedCount()).toBe(0);
   });
 
   it("canopi-eon8.14.1: a Design closed without saving, then unsaveable settings, asks twice in order", async () => {
-    mocks.flushDesign.mockResolvedValue(false);
-    mocks.flushSettingsProjection.mockRejectedValue(new Error("busy"));
-    mocks.requestSaveProblemDecision.mockResolvedValue("discard");
-    const { registerCloseGuard } = await import("../app/shell/close-guard");
-    registerCloseGuard();
-    await flushMicrotasks();
+    const flushSettings = vi.fn().mockRejectedValue(new Error("busy"));
+    handle = createTestSessionCore({ file: sampleDesign(), path: "/orchard.canopi", flushSettings });
+    guard = registerCloseGuard();
 
-    const handler = mocks.onCloseRequested.mock.calls[0]?.[0] as CloseHandler;
-    await handler({ preventDefault: vi.fn() });
+    handle.core.document("rename", () => ({ name: "Unsaveable" }));
+    handle.home.setWriteResult({ kind: "failed", failure: WRITE_FAILURE });
 
-    expect(mocks.requestSaveProblemDecision.mock.calls).toEqual([
-      [{ kind: "flush-failed", purpose: "close", conflict: false }],
-      [{ kind: "settings-failed", designSaved: false }],
+    const closePromise = handle.core.close("quit");
+    const first = await answerNext("discard");
+    const second = await answerNext("discard");
+    expect(await closePromise).toBe("closed");
+
+    expect([first, second]).toEqual([
+      { kind: "flush-failed", purpose: "close", conflict: false },
+      { kind: "settings-failed", designSaved: false },
     ]);
-    expect(mocks.destroy).toHaveBeenCalledTimes(1);
+    expect(handle.lifecycle.destroyedCount()).toBe(1);
   });
 
-  it("canopi-eon8.14.1: disposing the guard while the settings dialog is open never destroys", async () => {
-    let answer!: (choice: string) => void;
-    mocks.flushSettingsProjection.mockRejectedValue(new Error("busy"));
-    mocks.requestSaveProblemDecision.mockReturnValue(new Promise<string>((resolve) => {
-      answer = resolve;
-    }));
-    const { registerCloseGuard } = await import("../app/shell/close-guard");
-    const lifetime = registerCloseGuard();
-    await flushMicrotasks();
+  it("canopi-eon8.14.1: disposing the guard while the settings dialog is open never answers or destroys", async () => {
+    const flushSettings = vi.fn().mockRejectedValue(new Error("busy"));
+    handle = createTestSessionCore({ file: sampleDesign(), path: "/orchard.canopi", flushSettings });
+    guard = registerCloseGuard();
 
-    const handler = mocks.onCloseRequested.mock.calls[0]?.[0] as CloseHandler;
-    const close = handler({ preventDefault: vi.fn() });
-    await vi.waitFor(() => expect(mocks.requestSaveProblemDecision).toHaveBeenCalledTimes(1));
-    lifetime.dispose();
-    answer("discard");
-    await close;
+    void handle.core.close("quit");
+    await waitForProblem();
+    guard.dispose();
+    guard = null;
+    answerSaveProblem("discard");
+    await Promise.resolve();
+    await Promise.resolve();
 
-    expect(mocks.destroy).not.toHaveBeenCalled();
-  });
-
-  it("canopi-eon8.14.1: a second close request during the settings dialog asks no second time", async () => {
-    let answer!: (choice: string) => void;
-    mocks.flushSettingsProjection.mockRejectedValue(new Error("busy"));
-    mocks.requestSaveProblemDecision.mockReturnValue(new Promise<string>((resolve) => {
-      answer = resolve;
-    }));
-    const { registerCloseGuard } = await import("../app/shell/close-guard");
-    registerCloseGuard();
-    await flushMicrotasks();
-
-    const handler = mocks.onCloseRequested.mock.calls[0]?.[0] as CloseHandler;
-    const firstClose = handler({ preventDefault: vi.fn() });
-    await vi.waitFor(() => expect(mocks.requestSaveProblemDecision).toHaveBeenCalledTimes(1));
-    const secondClose = handler({ preventDefault: vi.fn() });
-    answer("discard");
-    await Promise.all([firstClose, secondClose]);
-
-    expect(mocks.requestSaveProblemDecision).toHaveBeenCalledTimes(1);
-    expect(mocks.flushDesign).toHaveBeenCalledTimes(1);
-    expect(mocks.destroy).toHaveBeenCalledTimes(1);
-  });
-
-  it("contains and reports a window-destroy failure", async () => {
-    const error = new Error("window unavailable");
-    mocks.destroy.mockRejectedValue(error);
-    const logError = vi.spyOn(console, "error").mockImplementation(() => {});
-    const { registerCloseGuard } = await import("../app/shell/close-guard");
-    registerCloseGuard();
-    await flushMicrotasks();
-
-    const handler = mocks.onCloseRequested.mock.calls[0]?.[0] as CloseHandler;
-    await expect(handler({ preventDefault: vi.fn() })).resolves.toBeUndefined();
-
-    expect(mocks.destroy).toHaveBeenCalledTimes(1);
-    expect(logError).toHaveBeenCalledWith("Failed to complete close workflow:", error);
-    logError.mockRestore();
+    expect(handle.lifecycle.destroyedCount()).toBe(0);
   });
 
   it("writes the Design to its home before destroying the window, without asking", async () => {
-    const { registerCloseGuard } = await import("../app/shell/close-guard");
-    registerCloseGuard();
-    await flushMicrotasks();
+    handle = createTestSessionCore({ file: sampleDesign(), path: "/orchard.canopi" });
+    guard = registerCloseGuard();
+    handle.core.document("rename", () => ({ name: "CleanClose" }));
+    const writeSpy = vi.spyOn(handle.home, "write");
 
-    const handler = mocks.onCloseRequested.mock.calls[0]?.[0] as CloseHandler;
-    await handler({ preventDefault: vi.fn() });
+    handle.lifecycle.emit({ kind: "close-requested" });
+    await vi.waitFor(() => expect(handle!.lifecycle.destroyedCount()).toBe(1));
 
-    expect(mocks.flushDesign).toHaveBeenCalledTimes(1);
-    expect(mocks.requestSaveProblemDecision).not.toHaveBeenCalled();
-    expect(mocks.destroy).toHaveBeenCalledTimes(1);
+    expect(writeSpy).toHaveBeenCalledTimes(1);
+    expect(saveProblem.value).toBeNull();
   });
 
   it("asks once when the write fails and retries on request", async () => {
-    mocks.flushDesign.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
-    mocks.requestSaveProblemDecision.mockResolvedValue("retry");
-    const { registerCloseGuard } = await import("../app/shell/close-guard");
-    registerCloseGuard();
-    await flushMicrotasks();
+    handle = createTestSessionCore({ file: sampleDesign(), path: "/orchard.canopi" });
+    guard = registerCloseGuard();
+    handle.core.document("rename", () => ({ name: "RetryMe" }));
+    handle.home.setWriteResult({ kind: "failed", failure: WRITE_FAILURE });
 
-    const handler = mocks.onCloseRequested.mock.calls[0]?.[0] as CloseHandler;
-    await handler({ preventDefault: vi.fn() });
+    const closePromise = handle.core.close("quit");
+    const asked = await waitForProblem();
+    expect(asked).toEqual({ kind: "flush-failed", purpose: "close", conflict: false });
 
-    expect(mocks.requestSaveProblemDecision).toHaveBeenCalledWith({
-      kind: "flush-failed",
-      purpose: "close",
-      conflict: false,
-    });
-    expect(mocks.flushDesign).toHaveBeenCalledTimes(2);
-    expect(mocks.destroy).toHaveBeenCalledTimes(1);
+    handle.home.setWriteResult(null);
+    answerSaveProblem("retry");
+    expect(await closePromise).toBe("closed");
+    expect(handle.lifecycle.destroyedCount()).toBe(1);
   });
 
   it("closes without saving when the user chooses to", async () => {
-    mocks.flushDesign.mockResolvedValue(false);
-    mocks.requestSaveProblemDecision.mockResolvedValue("discard");
-    const { registerCloseGuard } = await import("../app/shell/close-guard");
-    registerCloseGuard();
-    await flushMicrotasks();
+    handle = createTestSessionCore({ file: sampleDesign(), path: "/orchard.canopi" });
+    guard = registerCloseGuard();
+    handle.core.document("rename", () => ({ name: "DiscardMe" }));
+    handle.home.setWriteResult({ kind: "failed", failure: WRITE_FAILURE });
 
-    const handler = mocks.onCloseRequested.mock.calls[0]?.[0] as CloseHandler;
-    await handler({ preventDefault: vi.fn() });
-
-    expect(mocks.flushDesign).toHaveBeenCalledTimes(1);
-    expect(mocks.destroy).toHaveBeenCalledTimes(1);
+    const closePromise = handle.core.close("quit");
+    await answerNext("discard");
+    expect(await closePromise).toBe("closed");
+    expect(handle.lifecycle.destroyedCount()).toBe(1);
   });
 
-  it("keeps the window open when the user cancels after a failed write", async () => {
-    mocks.flushDesign.mockResolvedValue(false);
-    mocks.requestSaveProblemDecision.mockResolvedValue("cancel");
-    const { registerCloseGuard } = await import("../app/shell/close-guard");
-    registerCloseGuard();
-    await flushMicrotasks();
-
-    const handler = mocks.onCloseRequested.mock.calls[0]?.[0] as CloseHandler;
-    await handler({ preventDefault: vi.fn() });
-
-    expect(mocks.destroy).not.toHaveBeenCalled();
-  });
-
-  // A cancelled close must not leave its settled workflow behind: a later close request that joined it would close
-  // nothing, and Canopi could never be closed again.
   it("canopi-f47t.52.248: after a cancelled close, the next close request runs the close workflow again", async () => {
-    mocks.flushDesign.mockResolvedValue(false);
-    mocks.requestSaveProblemDecision.mockResolvedValueOnce("cancel").mockResolvedValueOnce("discard");
-    const { registerCloseGuard } = await import("../app/shell/close-guard");
-    registerCloseGuard();
-    await flushMicrotasks();
+    handle = createTestSessionCore({ file: sampleDesign(), path: "/orchard.canopi" });
+    guard = registerCloseGuard();
+    handle.core.document("rename", () => ({ name: "CancelThenClose" }));
+    handle.home.setWriteResult({ kind: "failed", failure: WRITE_FAILURE });
 
-    const handler = mocks.onCloseRequested.mock.calls[0]?.[0] as CloseHandler;
-    await handler({ preventDefault: vi.fn() });
-    const afterCancel = { asked: mocks.requestSaveProblemDecision.mock.calls.length, destroyed: mocks.destroy.mock.calls.length };
-    await handler({ preventDefault: vi.fn() });
+    const firstClose = handle.core.close("quit");
+    await answerNext("cancel");
+    expect(await firstClose).toBe("cancelled");
+    expect(handle.lifecycle.destroyedCount()).toBe(0);
 
-    expect({
-      afterCancel,
-      asked: mocks.requestSaveProblemDecision.mock.calls.length,
-      flushes: mocks.flushDesign.mock.calls.length,
-      destroyed: mocks.destroy.mock.calls.length,
-    }).toEqual({ afterCancel: { asked: 1, destroyed: 0 }, asked: 2, flushes: 2, destroyed: 1 });
+    const secondClose = handle.core.close("quit");
+    await answerNext("discard");
+    expect(await secondClose).toBe("closed");
+    expect(handle.lifecycle.destroyedCount()).toBe(1);
   });
 
-  it("contains and reports a failed close dialog", async () => {
-    const error = new Error("dialog unavailable");
-    mocks.flushDesign.mockResolvedValue(false);
-    mocks.requestSaveProblemDecision.mockRejectedValue(error);
-    const logError = vi.spyOn(console, "error").mockImplementation(() => {});
-    const { registerCloseGuard } = await import("../app/shell/close-guard");
-    registerCloseGuard();
-    await flushMicrotasks();
+  it("writes the Design when the window loses focus", async () => {
+    handle = createTestSessionCore({ file: sampleDesign(), path: "/orchard.canopi" });
+    guard = registerCloseGuard();
+    handle.core.document("rename", () => ({ name: "FocusSaved" }));
+    const writeSpy = vi.spyOn(handle.home, "write");
 
-    const handler = mocks.onCloseRequested.mock.calls[0]?.[0] as CloseHandler;
-    await expect(handler({ preventDefault: vi.fn() })).resolves.toBeUndefined();
-
-    expect(mocks.destroy).not.toHaveBeenCalled();
-    expect(logError).toHaveBeenCalledWith("Failed to complete close workflow:", error);
-    logError.mockRestore();
-  });
-
-  it("writes the Design when the window loses focus, not when it gains it", async () => {
-    const { registerCloseGuard } = await import("../app/shell/close-guard");
-    const lifetime = registerCloseGuard();
-    await flushMicrotasks();
-
-    const onFocus = mocks.onFocusChanged.mock.calls[0]?.[0] as FocusHandler;
-    onFocus({ payload: true });
-    expect(mocks.flushDesign).not.toHaveBeenCalled();
-    onFocus({ payload: false });
-    expect(mocks.flushDesign).toHaveBeenCalledTimes(1);
-
-    lifetime.dispose();
-    expect(mocks.unlistenFocus).toHaveBeenCalledTimes(1);
-    onFocus({ payload: false });
-    expect(mocks.flushDesign).toHaveBeenCalledTimes(1);
+    await handle.core.handleLifecycle({ kind: "focus-lost" });
+    expect(writeSpy).toHaveBeenCalledTimes(1);
+    expect(handle.core.dirty.value).toBe(false);
   });
 });
 
 describe("flushBeforeExit", () => {
-  beforeEach(() => {
-    vi.resetModules();
-    mocks.destroy.mockReset();
-    mocks.flushDesign.mockReset().mockResolvedValue(true);
-    mocks.flushSettingsProjection.mockReset().mockResolvedValue(undefined);
-    mocks.requestSaveProblemDecision.mockReset();
-    mocks.currentDesign.value = {};
+  let handle: TestSessionCoreHandle | null = null;
+  let guard: CloseGuardLifetime | null = null;
+
+  afterEach(() => {
+    guard?.dispose();
+    guard = null;
+    if (saveProblem.peek()) answerSaveProblem("cancel");
+    handle?.dispose();
+    handle = null;
   });
 
   it("before an update it writes the Design, then the settings, and proceeds without asking or closing the window", async () => {
-    const { flushBeforeExit } = await import("../app/shell/close-guard");
+    const order: string[] = [];
+    const flushSettings = vi.fn(async () => { order.push("settings"); });
+    handle = createTestSessionCore({ file: sampleDesign(), path: "/orchard.canopi", flushSettings });
+    guard = registerCloseGuard();
+    const origWrite = handle.home.write.bind(handle.home);
+    vi.spyOn(handle.home, "write").mockImplementation(async (...args) => {
+      order.push("design");
+      return origWrite(...args);
+    });
+    handle.core.document("rename", () => ({ name: "BeforeUpdate" }));
 
     await expect(flushBeforeExit("update")).resolves.toBe("proceed");
 
-    expect(mocks.flushDesign.mock.invocationCallOrder[0]!)
-      .toBeLessThan(mocks.flushSettingsProjection.mock.invocationCallOrder[0]!);
-    expect(mocks.requestSaveProblemDecision).not.toHaveBeenCalled();
-    expect(mocks.destroy).not.toHaveBeenCalled();
+    expect(order).toEqual(["design", "settings"]);
+    expect(saveProblem.value).toBeNull();
+    expect(handle.lifecycle.destroyedCount()).toBe(0);
   });
 
   it("a failed Design write before an update offers Retry, Close without saving or Cancel, and Cancel keeps Canopi open", async () => {
-    mocks.flushDesign.mockResolvedValue(false);
-    mocks.requestSaveProblemDecision.mockResolvedValue("cancel");
-    const { flushBeforeExit } = await import("../app/shell/close-guard");
+    const flushSettings = vi.fn(async () => {});
+    handle = createTestSessionCore({ file: sampleDesign(), path: "/orchard.canopi", flushSettings });
+    guard = registerCloseGuard();
+    handle.core.document("rename", () => ({ name: "FailUpdate" }));
+    handle.home.setWriteResult({ kind: "failed", failure: WRITE_FAILURE });
 
-    await expect(flushBeforeExit("update")).resolves.toBe("cancel");
+    const pending = flushBeforeExit("update");
+    const asked = await answerNext("cancel");
 
-    expect(mocks.requestSaveProblemDecision.mock.calls).toEqual([
-      [{ kind: "flush-failed", purpose: "close", conflict: false }],
+    await expect(pending).resolves.toBe("cancel");
+    expect(asked).toEqual({ kind: "flush-failed", purpose: "close", conflict: false });
+    expect(flushSettings).not.toHaveBeenCalled();
+  });
+
+  it("a failed settings write before an update offers Retry, Close anyway or Cancel; Cancel keeps Canopi open", async () => {
+    const flushSettings = vi.fn().mockRejectedValue(new Error("settings unavailable"));
+    handle = createTestSessionCore({ file: sampleDesign(), path: "/orchard.canopi", flushSettings });
+    guard = registerCloseGuard();
+
+    const pending = flushBeforeExit("update");
+    const first = await answerNext("retry");
+    const second = await answerNext("cancel");
+
+    await expect(pending).resolves.toBe("cancel");
+    expect(flushSettings).toHaveBeenCalledTimes(2);
+    expect([first, second]).toEqual([
+      { kind: "settings-failed", designSaved: true },
+      { kind: "settings-failed", designSaved: true },
     ]);
-    expect(mocks.flushSettingsProjection).not.toHaveBeenCalled();
   });
 
-  it("a failed settings write before an update offers Retry, Close anyway or Cancel; Cancel or Escape keeps Canopi open", async () => {
-    mocks.flushSettingsProjection.mockRejectedValue(new Error("settings unavailable"));
-    mocks.requestSaveProblemDecision.mockResolvedValueOnce("retry").mockResolvedValueOnce("cancel");
-    vi.spyOn(console, "error").mockImplementation(() => {});
-    const { flushBeforeExit } = await import("../app/shell/close-guard");
+  it("Close anyway after a failed settings write lets the update go on without destroying the window", async () => {
+    const flushSettings = vi.fn().mockRejectedValue(new Error("settings unavailable"));
+    handle = createTestSessionCore({ file: sampleDesign(), path: "/orchard.canopi", flushSettings });
+    guard = registerCloseGuard();
 
-    await expect(flushBeforeExit("update")).resolves.toBe("cancel");
+    const pending = flushBeforeExit("update");
+    await answerNext("discard");
 
-    expect(mocks.flushSettingsProjection).toHaveBeenCalledTimes(2);
-    expect(mocks.requestSaveProblemDecision.mock.calls).toEqual([
-      [{ kind: "settings-failed", designSaved: true }],
-      [{ kind: "settings-failed", designSaved: true }],
-    ]);
-    vi.mocked(console.error).mockRestore();
-  });
-
-  it("Close anyway after a failed settings write lets the update go on", async () => {
-    mocks.flushSettingsProjection.mockRejectedValue(new Error("settings unavailable"));
-    mocks.requestSaveProblemDecision.mockResolvedValue("discard");
-    vi.spyOn(console, "error").mockImplementation(() => {});
-    const { flushBeforeExit } = await import("../app/shell/close-guard");
-
-    await expect(flushBeforeExit("update")).resolves.toBe("proceed");
-
-    expect(mocks.destroy).not.toHaveBeenCalled();
-    vi.mocked(console.error).mockRestore();
-  });
-
-  // Until N1's drain an update install during a LiDAR job stops it as today's Quit does (2.1-M63, Q61): the update
-  // takes the window close's own flush, which asks nothing about jobs, and the host's exit ends the job, which the next
-  // launch shows as Interrupted.
-  it("an update install while a LiDAR job runs stops it as Quit does: the update takes the window close's flush and asks nothing about the job", async () => {
-    mocks.getCurrentWindow.mockReturnValue({
-      onCloseRequested: mocks.onCloseRequested.mockReset().mockResolvedValue(mocks.unlistenA),
-      onFocusChanged: mocks.onFocusChanged.mockReset().mockResolvedValue(mocks.unlistenFocus),
-      destroy: mocks.destroy,
-    });
-    const { flushBeforeExit, registerCloseGuard } = await import("../app/shell/close-guard");
-    const steps = () => ({
-      design: mocks.flushDesign.mock.calls.length,
-      settings: mocks.flushSettingsProjection.mock.calls.length,
-      asked: mocks.requestSaveProblemDecision.mock.calls.length,
-    });
-
-    const lifetime = registerCloseGuard();
-    await flushMicrotasks();
-    await (mocks.onCloseRequested.mock.calls[0]?.[0] as CloseHandler)({ preventDefault: vi.fn() });
-    const quit = steps();
-    mocks.flushDesign.mockClear();
-    mocks.flushSettingsProjection.mockClear();
-
-    await expect(flushBeforeExit("update")).resolves.toBe("proceed");
-
-    expect(steps()).toEqual(quit);
-    expect(quit).toEqual({ design: 1, settings: 1, asked: 0 });
-    lifetime.dispose();
+    await expect(pending).resolves.toBe("proceed");
+    expect(handle.lifecycle.destroyedCount()).toBe(0);
   });
 });

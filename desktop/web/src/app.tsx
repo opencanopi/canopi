@@ -2,13 +2,19 @@ import "./styles/global.css";
 import styles from "./App.module.css";
 import { TitleBar } from "./components/shared/TitleBar";
 import { CommandPalette } from "./components/shared/CommandPalette";
-import { AboutCanopiDialog, AboutUpdates } from "./components/shared/AboutCanopiDialog";
 import { SaveProblemDialog } from "./components/shared/SaveProblemDialog";
 import { NoticeRow } from "./components/shared/NoticeRow";
 import { ToastSlot } from "./components/shared/ToastSlot";
-import { ProblemReportDialog, openProblemReport } from "./components/shared/ProblemReportDialog";
-import { createLaunchCheckPort, LaunchCheckSwitch, SettingsDialog, type LaunchCheckPort, type SettingsFoldersAdapter } from "./components/shared/SettingsDialog";
-import { KeyboardShortcutsDialog } from "./components/shared/KeyboardShortcutsDialog";
+import {
+  createLaunchCheckPort,
+  LazyAboutCanopiDialog,
+  LazyKeyboardShortcutsDialog,
+  LazyProblemReportDialog,
+  LazySettingsDialog,
+  openProblemReport,
+  type LaunchCheckPort,
+  type SettingsFoldersAdapter,
+} from "./components/shared/LazyDialogs";
 import { detectPlatform } from "./canvas/runtime/input/platform";
 import { DesktopPanelRail } from "./components/panels/DesktopPanelRail";
 import { DesktopWorkspace } from "./components/workspace/DesktopWorkspace";
@@ -97,11 +103,11 @@ export function App({ updates: ports, dismissStoreNoticeOnHost }: {
       <DesktopPanelRail />
       <CommandPalette />
       <WorkspaceDialogs />
-      <SettingsDialog folders={DESKTOP_FOLDERS} updates={<LaunchCheckSwitch port={updates.launchCheck} />} />
+      <LazySettingsDialog folders={DESKTOP_FOLDERS} launchCheckPort={updates.launchCheck} />
       <DesktopKeyboardShortcuts />
-      <AboutCanopiDialog updates={<AboutUpdates controller={updates.controller} downloadPage={updaterEndpoints.download_page} />} />
+      <LazyAboutCanopiDialog controller={updates.controller} downloadPage={updaterEndpoints.download_page} />
       <SaveProblemDialog />
-      <ProblemReportDialog />
+      <LazyProblemReportDialog />
       <NoticeRow />
       <ToastSlot />
     </div>
@@ -112,5 +118,5 @@ function DesktopKeyboardShortcuts() {
   if (!keyboardShortcutsDialogOpen.value) return null;
   // WebKitGTK delivers no trackpad pinch, so Linux gets the note.
   const platform = detectPlatform(navigator, window as unknown as { readonly GestureEvent?: unknown });
-  return <KeyboardShortcutsDialog menus={appCommandGraphChromeProjection.value.menus} platform={platform} linuxPinchNote={platform.os === "linux"} />;
+  return <LazyKeyboardShortcutsDialog menus={appCommandGraphChromeProjection.value.menus} platform={platform} linuxPinchNote={platform.os === "linux"} />;
 }

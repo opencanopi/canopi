@@ -20,11 +20,11 @@ import type {
   DesignDraftSummary,
   DesignNotebookSection,
   DesignNotebookSnapshot,
-  DesignSaveOutcome,
   DesignSummary,
   DialogKind,
   DynamicFilterOptions,
   FileGrantId,
+  FileHomeGrant,
   FilterOptions,
   FlowerColorResolution,
   GeoResult,
@@ -40,7 +40,6 @@ import type {
   LidarLayerCollection,
   LidarSamplePointsRequest,
   LidarSampleSeries,
-  LoadedDesign,
   OperationId,
   PaginatedResult,
   PickOpenOutcome,
@@ -71,6 +70,8 @@ export interface PendingOpen {
   readonly path: string
   readonly several: boolean
   readonly grant?: FileGrantId
+  readonly display_name?: string
+  readonly recent_id?: string
 }
 
 export type CommandSyncKind = 'async' | 'bounded_sync'
@@ -155,6 +156,6 @@ mod tests {
         assert!(ts.contains("'lidar_layer_collection'"));
         assert!(ts.contains("export type CommandMap"));
         assert!(ts.contains("export function createTypedInvoke"));
-        assert!(ts.contains("readonly 'save_design': { readonly args: { readonly path: string; readonly content: Record<string, unknown>; readonly expectedFingerprint?: string | null }; readonly reply: DesignSaveOutcome }"));
+        assert!(ts.contains("readonly 'home_write': { readonly args: { readonly key: string; readonly bytes: readonly number[]; readonly expected?: HomeVersion | null; readonly keepPrevious?: boolean | null }; readonly reply: HomeWrite }"));
     }
 }

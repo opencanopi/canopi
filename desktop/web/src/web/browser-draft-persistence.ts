@@ -1,5 +1,5 @@
 import { computed, signal, type ReadonlySignal } from "@preact/signals";
-import type { DesignSaveStatus } from "../app/document-session/continuous-save";
+import type { DesignSaveStatus } from "../app/document-session/live-core";
 import type { ReadOnlyOrigin } from "../app/document-session/store";
 
 export interface BrowserShellDesignIdentity {

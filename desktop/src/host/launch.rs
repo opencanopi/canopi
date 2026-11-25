@@ -25,6 +25,10 @@ pub struct PendingOpen {
     pub several: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub grant: Option<FileGrantId>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub display_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub recent_id: Option<String>,
 }
 
 /// One command-line argument as the launch delivered it.
@@ -87,6 +91,8 @@ pub fn parse(
         path,
         several,
         grant: None,
+        display_name: None,
+        recent_id: None,
     })
 }
 
@@ -221,7 +227,11 @@ impl<R: tauri::Runtime> WindowControl for tauri::WebviewWindow<R> {
 }
 
 fn with_minted_grant(mut pending: PendingOpen, grants: &FileGrantRegistry) -> PendingOpen {
-    pending.grant = grants.grant(Path::new(&pending.path)).ok();
+    if let Ok(info) = grants.grant_info(Path::new(&pending.path)) {
+        pending.grant = Some(info.grant);
+        pending.display_name = Some(info.display_name);
+        pending.recent_id = Some(info.recent_id);
+    }
     pending
 }
 
@@ -248,6 +258,8 @@ mod tests {
             path: path.to_owned(),
             several,
             grant: None,
+            display_name: None,
+            recent_id: None,
         })
     }
 
@@ -427,6 +439,8 @@ mod tests {
             path: "/g.canopi".into(),
             several: true,
             grant: None,
+            display_name: None,
+            recent_id: None,
         })
         .unwrap();
         assert_eq!(

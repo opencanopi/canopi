@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { librarySnapshot, slopeItem, sourceItem } from '../../__tests__/support/library-fixtures'
 import type { CanopiFile } from '../../types/design'
 import { designSessionStore } from '../document-session/store'
+import { replaceCurrentDesignState } from '../../__tests__/support/design-session-state'
 import { activePanel, selectPanel, sidePanel } from '../shell/state'
 import { lidarLibrary } from './library-store'
 import { showInSiteData, siteDataViewFor } from './site-data-view'
@@ -13,7 +14,7 @@ const LINE = [{ lon: 2.35, lat: 48.85 }, { lon: 2.36, lat: 48.86 }]
 function openOrchard(): void {
   const entry = (kind: 'Source' | 'Derived', id: string, order: number) =>
     ({ kind, id, name: id, order, visible: true, opacity: 1, ramp: null, reversed: false, range: null })
-  designSessionStore.replaceCurrentDesignState({
+  replaceCurrentDesignState({
     name: 'Orchard',
     lidar: { visible: true, entries: [entry('Source', 'a', 0), entry('Derived', 's', 1), entry('Derived', 't', 2)] },
   } as unknown as CanopiFile, null, 'Orchard')

@@ -12,7 +12,7 @@ let disposePorts: (() => void) | null = null
 import { PLACE_SEARCH_ZOOM, requestPlaceSearchFocus } from '../app/geocoding/place-search-ui'
 import { resetPlaceSearchPacingForTests } from '../app/geocoding/place-search'
 import { installPlaceSearchSession, placeSearch } from '../app/geocoding/place-search-session'
-import { designSessionStore } from '../app/document-session/store'
+import { clearCurrentDesignState, replaceCurrentDesignState } from './support/design-session-state'
 import { CURRENT_CANOPI_FILE_VERSION } from '../generated/canopi-design-format'
 import type { CanopiFile } from '../types/design'
 import { locale } from '../app/settings/state'
@@ -53,7 +53,7 @@ describe('Place search field', () => {
     transport.mockImplementation(async () => [])
     resetPlaceSearchPacingForTests()
     // An open empty Draft asks "Where is your site?" in place of this field; the next test opens its own.
-    designSessionStore.clearCurrentDesign()
+    clearCurrentDesignState()
   })
 
   const input = () => container.querySelector<HTMLInputElement>('input[role="combobox"]')!
@@ -163,7 +163,7 @@ describe('Place search field', () => {
       expect(placeSearch.results.value).toHaveLength(1)
 
       await act(async () => {
-        designSessionStore.replaceCurrentDesignState(emptyDesign('Next'), null, 'Next')
+        replaceCurrentDesignState(emptyDesign('Next'), null, 'Next')
       })
 
       expect(placeSearch.results.value).toEqual([])
@@ -184,7 +184,7 @@ describe('New Design site guidance', () => {
     container = document.createElement('div')
     document.body.appendChild(container)
     sidePanel.value = null
-    designSessionStore.replaceCurrentDesignState(emptyDesign('Untitled'), null, 'Untitled')
+    replaceCurrentDesignState(emptyDesign('Untitled'), null, 'Untitled')
     setCurrentCanvasSession(createTestCanvasRuntimeSurfaces({
       commands: createTestCanvasCommandSurface({ viewport: { showPlace } }),
       queries: createTestCanvasQuerySurface(),
@@ -199,7 +199,7 @@ describe('New Design site guidance', () => {
     placeSearch.clear()
     showPlace.mockClear()
     sidePanel.value = null
-    designSessionStore.clearCurrentDesign()
+    clearCurrentDesignState()
   })
 
   it('asks "Where is your site?" for an empty Draft, then shows the Start card and the found place', async () => {
@@ -260,7 +260,7 @@ describe('New Design site guidance', () => {
   })
 
   it('stays out of the way for a Design saved to a file', async () => {
-    designSessionStore.replaceCurrentDesignState(emptyDesign('Saved'), '/designs/saved.canopi', 'Saved')
+    replaceCurrentDesignState(emptyDesign('Saved'), '/designs/saved.canopi', 'Saved')
     await act(async () => { render(<SiteOnboarding />, container) })
     expect(container.textContent).toBe('')
   })

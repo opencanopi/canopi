@@ -26,7 +26,7 @@ import type { CanopiFile, SavedView, Story, StoryStep } from '../types/design'
 import type { ViewCamera } from '../geo/view/types'
 import { createTestCanvasCommandSurface, createTestCanvasRuntimeSurfaces } from './support/canvas-runtime-surfaces'
 import { createTestCanvasQuerySurface } from './support/canvas-query-surface'
-import { replaceCurrentDesignState } from './support/design-session-state'
+import { replaceCurrentDesignState, resetDirtyBaselines } from './support/design-session-state'
 import { TEST_GEO_ORIGIN } from './support/geo-design'
 import type * as SavedViewsThumbnailsModule from '../app/saved-views/thumbnails'
 
@@ -139,7 +139,7 @@ beforeEach(() => {
   container = document.createElement('div')
   document.body.append(container)
   replaceCurrentDesignState(design(), null, 'Stories')
-  designSessionStore.resetDirtyBaselines()
+  resetDirtyBaselines()
 })
 
 afterEach(() => {

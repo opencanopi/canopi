@@ -40,6 +40,9 @@ pub fn add_design_reference(
     if path.trim().is_empty() {
         return Err("Design path is required".to_owned());
     }
+    if crate::host::home::FileGrantRegistry::is_grant(path) {
+        return Err("Design Notebook must store a resolved file path, not a grant id".to_owned());
+    }
 
     let conn = user_db.acquire();
     crate::db::design_notebook::record_design_reference(

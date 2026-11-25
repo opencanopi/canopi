@@ -39,7 +39,6 @@ import {
   type ScenePoint,
   type SceneZoneEntity,
 } from '../../canvas/runtime/scene'
-import { SceneHistory } from '../../canvas/runtime/scene-history'
 import {
   applySceneDragDeltaToDraft,
   captureSceneDragState,
@@ -47,12 +46,8 @@ import {
   type SceneDragState,
 } from '../../canvas/runtime/scene-runtime/drag-state'
 import { getDesignObjectSelectionModel } from '../../canvas/runtime/scene-runtime/selection'
-import {
-  SceneRuntimeEditCoordinator,
-  type SceneCommandAdmission,
-  type SceneEditCoordinator,
-  type SceneEditTransaction,
-} from '../../canvas/runtime/scene-runtime/transactions'
+import type { CanvasRuntimeSceneSessionAdapter } from '../../canvas/runtime/app-adapter'
+import { createDetachedSceneSessionAdapter, SceneRuntimeEditCoordinator, type SceneCommandAdmission, type SceneEditCoordinator, type SceneEditTransaction } from '../../canvas/runtime/scene-runtime/transactions'
 import type { ToolHandle } from '../../canvas/runtime/tools/draft'
 import { TOOL_REGISTRY, type ToolFactory } from '../../canvas/runtime/tools/registry'
 import type { SnapSettings } from '../../canvas/runtime/tools/snapping'
@@ -390,7 +385,7 @@ export interface ToolHarness {
   readonly toolState: ReadonlySignal<ToolId>
   readonly view: TestView
   readonly store: SceneStore
-  readonly history: SceneHistory
+  readonly history: CanvasRuntimeSceneSessionAdapter
   readonly edits: SceneEditCoordinator
   readonly renderer: RecordingRenderer
   readonly chrome: ToolHarnessChrome
@@ -461,15 +456,16 @@ export function createToolHarness(options: ToolHarnessOptions = {}): ToolHarness
     ...(options.screen ? { screen: options.screen } : {}),
   })
   const store = sceneStoreWith(options.scene ?? {})
-  const history = new SceneHistory()
+  const sceneSession = createDetachedSceneSessionAdapter()
   const coordinator = new SceneRuntimeEditCoordinator({
     sceneStore: store,
-    history,
+    sceneSession,
     setSelection: (targets) => store.setSelection(targets),
     incrementSceneRevision: () => {},
     syncCanvasSignalsFromScene: () => {},
     invalidate: () => {},
   })
+  sceneSession.bindReplay((command, direction, onApplied) => coordinator.replayCommand(command, direction, onApplied))
   const edits = options.edits ?? coordinator
   const renderer = createRecordingRenderer()
   const record: ToolHarnessRecord = {
@@ -650,7 +646,7 @@ export function createToolHarness(options: ToolHarnessOptions = {}): ToolHarness
     toolState,
     view,
     store,
-    history,
+    history: sceneSession,
     edits,
     renderer,
     chrome,

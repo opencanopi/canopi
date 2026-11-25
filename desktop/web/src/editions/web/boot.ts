@@ -1,14 +1,19 @@
 /**
- * editions/web/boot.ts: L5 Web edition lifetime bootstrap (ADR 0022, ADR 0030, contracts §22).
+ * editions/web/boot.ts: L5 Web edition lifetime bootstrap (ADR 0022, ADR 0030, contracts §22, C4).
  */
 import { installPlaceSearchSession } from "../../app/geocoding/place-search-session";
 import { installToolRailLearning } from "../../app/tool-rail/learning";
 import { installSettingsProjection, readSettingsReportSummary } from "../../app/settings/projection";
 import { initTheme } from "../../app/settings/theme";
 import { registerDesignOpenFailurePresenter } from "../../app/document-session/open-failure";
-import { registerDesignSessionWorkflow } from "../../app/document-session/workflows";
-import { consortiumSyncWorkflow } from "../../app/consortium/workflow";
-import { browserDesignSessionController } from "../../web/browser-design-session";
+import { createJsonSessionCodec, createSessionCore, installLiveSessionCore } from "../../app/document-session/live-core";
+import { registerCloseGuard } from "../../app/shell/close-guard";
+import { installConsortiumSync } from "../../app/consortium/workflow";
+import { withNewDesignDisplay } from "../../app/settings/new-design-defaults";
+import { DEFAULT_BUDGET_CURRENCY } from "../../app/contracts/document";
+import { CURRENT_CANOPI_FILE_VERSION } from "../../generated/canopi-design-format";
+import { NEW_DESIGN_LAYER_DEFAULTS } from "../../generated/new-design-defaults";
+import type { DraftId } from "../../platform/design-home";
 import { presentBrowserDesignOpenFailure, raiseEarlierDataNotice } from "../../web/browser-notices";
 import { browserAppDataStore } from "../../web/browser-app-data";
 import { browserDraftPersistence } from "../../web/browser-draft-persistence";
@@ -29,24 +34,65 @@ import { speciesCatalogWorkbench as browserSpeciesCatalogWorkbench } from "./spe
 import { createBrowserProblemReportWriter } from "./problem-report";
 import { CANOPI_VERSION } from "../../app/about/metadata";
 import { storeHealth } from "../../failures/health";
-import { isNewerReadView } from "../../app/document-session/store";
 import { installCanvasHostRuntime } from "../../app/canvas-map-surface/use-canvas-host";
 import { createBrowserCanvasHostRuntime } from "./browser-workspace-runtime";
+import {
+  browserAppLifecyclePort,
+  browserFileAccessPort,
+  createBrowserSessionHomeStore,
+} from "./session-ports";
+import {
+  currentWebDesignText,
+  downloadWebCanopi,
+  installWebNewerDrafts,
+  isWebDraftEditable,
+  isWebDraftListingComplete,
+  listedNewerWebDrafts,
+  listWebDrafts,
+  relistNewerWebDrafts,
+  setWebLaunching,
+} from "./web-session";
 
 let disposeWebRoot: (() => void) | null = null;
 
+function createNewWebCanopiFile(name: string, timestamp: string) {
+  return {
+    version: CURRENT_CANOPI_FILE_VERSION,
+    name,
+    description: null,
+    plant_species_colors: {},
+    plant_species_symbols: {},
+    layers: NEW_DESIGN_LAYER_DEFAULTS.map((layer) => ({ ...layer })),
+    plants: [],
+    zones: [],
+    annotations: [],
+    measurement_guides: [],
+    groups: [],
+    consortiums: [],
+    timeline: [],
+    budget: [],
+    budget_currency: DEFAULT_BUDGET_CURRENCY,
+    views: [],
+    stories: [],
+    created_at: timestamp,
+    updated_at: timestamp,
+    extra: {},
+  };
+}
+
 export function bootWebEdition(): () => void {
   disposeWebRoot?.();
-  registerDesignSessionWorkflow(consortiumSyncWorkflow);
+  const stopConsortiumSync = installConsortiumSync();
 
-  // Window error hooks first so a failure during bootstrap reaches the ring (ADR 0025).
   const disposeFailureHooks = installFailureHooks({ storage: "device" }, window);
   const problemReportWriter = createBrowserProblemReportWriter({
     build: () => ({ app: "Canopi", version: CANOPI_VERSION }),
     health: () => storeHealth.peek(),
     settings: () => readSettingsReportSummary(capabilitiesForEdition("web", "linux")),
-    currentDesign: () => (isNewerReadView(browserDesignSessionController.readDesignIdentity()?.readOnlyOrigin) ? null : browserDesignSessionController.currentDesignText()),
+    currentDesign: () => currentWebDesignText(),
   });
+  const formatCore = createDesignCore();
+  const browserHomeStore = createBrowserSessionHomeStore();
   const disposePorts = installEditionPorts({
     capabilities: capabilitiesForEdition("web", "linux"),
     manifest: WEB_EDITION_MANIFEST,
@@ -55,9 +101,44 @@ export function bootWebEdition(): () => void {
     geocoding: browserGeocodingTransport,
     canvasPdfDelivery: createBrowserPdfDelivery,
     budgetExportDelivery: deliverBrowserBudgetCsv,
+    designHome: browserHomeStore,
+    fileAccess: browserFileAccessPort,
+    appLifecycle: browserAppLifecyclePort,
+    designCore: formatCore,
   });
+  const webSessionCore = createSessionCore({
+    designHome: browserHomeStore,
+    fileAccess: browserFileAccessPort,
+    lifecycle: browserAppLifecyclePort,
+    codec: createJsonSessionCodec({ readNewerDesign: (text) => formatCore.readNewerDesign(text) }),
+    settings: {
+      readLastOpenHome: async () => null,
+      writeLastOpenHome: async () => {},
+      applyNewDesignDefaults: withNewDesignDisplay,
+    },
+    newDesignFactory: () => createNewWebCanopiFile("Untitled", new Date().toISOString()),
+  });
+  const disposeSessionCore = installLiveSessionCore(webSessionCore);
+  const closeGuardLifetime = registerCloseGuard({ downloadCopy: downloadWebCanopi });
   const disposeCatalog = installSpeciesCatalogWorkbench(browserSpeciesCatalogWorkbench);
-  const disposeCanvasHost = installCanvasHostRuntime(() => createBrowserCanvasHostRuntime(browserDesignSessionController));
+  const disposeCanvasHost = installCanvasHostRuntime(() => createBrowserCanvasHostRuntime());
+
+  const onBeforeUnload = (event: BeforeUnloadEvent) => {
+    const open = webSessionCore.currentDesign.peek();
+    const needsFlush = webSessionCore.pendingWrite.peek() || open?.save.kind === "failed";
+    if (!needsFlush || !open || open.readOnly) return;
+    try {
+      if (open.home.kind === "draft") {
+        const snap = webSessionCore.snapshot();
+        if (snap && browserHomeStore.flushDraftSync(open.home.key, snap, open.home.version)) return;
+      }
+    } catch {
+      // Snapshot/sync-flush failure (e.g. SceneEditBusyError or invalid Draft) falls through to browser unload prompt (B2).
+    }
+    event.preventDefault();
+    event.returnValue = "";
+  };
+  window.addEventListener("beforeunload", onBeforeUnload);
 
   const disposeTheme = initTheme();
   const settingsInstallation = installSettingsProjection(browserSettingsPlatformAdapter);
@@ -67,21 +148,37 @@ export function bootWebEdition(): () => void {
   });
   if (browserAppDataStore.takeEarlierDataNotice(new Date().toISOString())) raiseEarlierDataNotice();
   browserAppDataStore.openSpeciesLists(readSpeciesListRecord);
-  const uninstallFormatCore = browserDesignSessionController.installFormatCore(createDesignCore());
-  const uninstallNewerDrafts = browserDesignSessionController.installNewerDrafts(createDraftRecordsReader({
+  const uninstallNewerDrafts = installWebNewerDrafts(createDraftRecordsReader({
     onVersionChange: () => browserReleaseWatch.storeChanged(),
     report: (error) => reportFailure(error, { shown: "none", source: "web-drafts.read" }),
   }));
+
   let disposeDraftPersistence = () => {};
-  void browserDesignSessionController.launch().catch((error: unknown) => {
-    if (!disposed) console.error("Failed to restore the latest Design Draft:", error);
-  }).finally(() => {
-    if (disposed) return;
-    const controller = browserDesignSessionController;
-    const hasDrafts = !controller.draftListingComplete() || controller.listDrafts().length + (controller.listedNewerDrafts()?.length ?? 0) > 0;
-    disposeDraftPersistence = browserDraftPersistence.start({ hasDrafts });
-  });
-  const uninstallContinuousSave = browserDesignSessionController.installContinuousSave();
+  setWebLaunching(true);
+  void (async () => {
+    try {
+      const listing = await relistNewerWebDrafts();
+      if (!disposed && listing.complete && listing.drafts.length === 0 && !webSessionCore.currentDesign.peek()) {
+        const reloadHome = browserAppDataStore.takeReloadHome();
+        const targetDraftId = reloadHome !== null
+          ? reloadHome.draft
+          : (listWebDrafts()[0]?.id ?? null);
+        if (targetDraftId && isWebDraftEditable(targetDraftId)) {
+          await webSessionCore.openFrom({ kind: "draft", id: targetDraftId as DraftId });
+        }
+      }
+    } catch (error) {
+      if (!disposed) console.error("Failed to restore the latest Design Draft:", error);
+    } finally {
+      setWebLaunching(false);
+      if (!disposed) {
+        const hasDrafts = !isWebDraftListingComplete()
+          || listWebDrafts().length + (listedNewerWebDrafts()?.length ?? 0) > 0;
+        disposeDraftPersistence = browserDraftPersistence.start({ hasDrafts });
+      }
+    }
+  })();
+
   const stopReleaseWatch = browserReleaseWatch.start();
   registerDesignOpenFailurePresenter(presentBrowserDesignOpenFailure);
   const disposePlaceSearchSession = installPlaceSearchSession();
@@ -90,21 +187,24 @@ export function bootWebEdition(): () => void {
   const dispose = () => {
     if (disposed) return;
     disposed = true;
+    window.removeEventListener("beforeunload", onBeforeUnload);
     registerDesignOpenFailurePresenter(null);
     disposeToolRailLearning();
     disposePlaceSearchSession();
     stopReleaseWatch();
-    uninstallContinuousSave();
-    uninstallNewerDrafts();
-    uninstallFormatCore();
     disposeDraftPersistence();
+    uninstallNewerDrafts();
     settingsInstallation.dispose();
     disposeTheme();
     disposeCatalog();
     disposeCanvasHost();
+    closeGuardLifetime.dispose();
+    disposeSessionCore();
     disposePorts();
     problemReportWriter.dispose();
     disposeFailureHooks();
+    stopConsortiumSync();
+    if (disposeWebRoot === dispose) disposeWebRoot = null;
   };
   disposeWebRoot = dispose;
   return dispose;

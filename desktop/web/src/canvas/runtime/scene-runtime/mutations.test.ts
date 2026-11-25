@@ -10,9 +10,8 @@ import {
   SceneStore,
   type SceneDesignObjectTarget,
 } from '../scene'
-import { SceneHistory } from '../scene-history'
 import { SceneRuntimeMutationController } from './mutations'
-import { SceneRuntimeEditCoordinator } from './transactions'
+import { createDetachedSceneSessionAdapter, SceneRuntimeEditCoordinator } from './transactions'
 
 function makeFile(): CanopiFile {
   return {
@@ -101,15 +100,15 @@ function createController(file = makeFile()) {
   const setSelection = (targets: Iterable<SceneDesignObjectTarget>) => {
     sceneStore.setSelection(targets)
   }
-  const history = new SceneHistory()
-  const record = history.record.bind(history)
-  vi.spyOn(history, 'record').mockImplementation((command, transaction) => {
+  const sceneSession = createDetachedSceneSessionAdapter()
+  const record = sceneSession.recordSceneEdit.bind(sceneSession)
+  vi.spyOn(sceneSession, 'recordSceneEdit').mockImplementation((label, command) => {
     state.dirtyTypes.push(command.type)
-    return record(command, transaction)
+    return record(label, command)
   })
   const sceneEdits = new SceneRuntimeEditCoordinator({
     sceneStore,
-    history,
+    sceneSession,
     setSelection,
     incrementSceneRevision: () => {},
     syncCanvasSignalsFromScene: () => {
@@ -119,6 +118,7 @@ function createController(file = makeFile()) {
       state.invalidations += 1
     },
   })
+  sceneSession.bindReplay((command, direction) => sceneEdits.replayCommand(command, direction))
   const controller = new SceneRuntimeMutationController({
     sceneStore,
     selection: {

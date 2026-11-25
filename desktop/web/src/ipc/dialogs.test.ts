@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Failure } from '../generated/contracts'
-import { isCancelledFailure } from '../failures/ipc-failure'
 import { resetFrontendDiagnosticsForTests, ringEntries } from '../failures/ring'
 import { pickOpen, pickSave } from './dialogs'
 
@@ -62,15 +61,15 @@ describe('a typed dialog rejection reaching a 2.0 caller (canopi-f47t.52.35)', (
   beforeEach(() => invoke.mockReset())
 
   it('reaches every Open and Save caller as the same Failure', async () => {
-    const { openDesignDialog, selectDesignSavePath } = await import('./design')
+    const { pickOpen, pickSave } = await import('./dialogs')
     const { exportFile } = await import('./export')
     const { desktopGeoJsonFiles } = await import('./geojson')
     const stamps = await import('./saved-object-stamps')
     const { chooseImportFiles } = await import('../app/data-library/actions')
     const { createPdfDelivery } = await import('../app/canvas-pdf/platform.desktop')
     const callers: [string, () => Promise<unknown>][] = [
-      ['dialog.pick_open', () => openDesignDialog()],
-      ['dialog.pick_save', () => selectDesignSavePath({ currentPath: null, suggestedName: 'Orchard' })],
+      ['dialog.pick_open', () => pickOpen('design-open')],
+      ['dialog.pick_save', () => pickSave('design-save', 'Orchard.canopi')],
       ['dialog.pick_save', () => exportFile('a,b', 'budget', 'budget-csv-export')],
       ['dialog.pick_save', () => desktopGeoJsonFiles.writeGeoJsonFile('{}', 'plan.geojson')],
       ['dialog.pick_save', () => stamps.exportSavedObjectStampCanopiFile({}, 'Hedge')],
@@ -89,10 +88,10 @@ describe('a typed dialog rejection reaching a 2.0 caller (canopi-f47t.52.35)', (
   })
 
   it('settles a second Design open as the dialog cancel the session reads as no notice (canopi-f47t.52.35, 2.1-Q284)', async () => {
-    const { openDesignDialog } = await import('./design')
+    const { pickOpen } = await import('./dialogs')
     invoke.mockRejectedValueOnce(alreadyOpen('dialog.pick_open'))
 
-    await expect(openDesignDialog()).rejects.toSatisfy(isCancelledFailure)
+    await expect(pickOpen('design-open')).resolves.toEqual({ kind: 'cancelled' })
     expect(invoke).toHaveBeenCalledTimes(1)
   })
 

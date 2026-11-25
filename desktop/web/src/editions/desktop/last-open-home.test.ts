@@ -1,9 +1,13 @@
-import { signal } from '@preact/signals'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { DesignSummary, Settings } from '../../generated/contracts'
-import type * as DesignIpc from '../../ipc/design'
-import type { CanopiFile, LoadedDesign } from '../../types/design'
-import type { DesignHome } from '../../app/document-session/continuous-save'
+import type { CanopiFile } from '../../types/design'
+import { createInMemoryDesignHomeStore } from '../../__tests__/support/session-core-fixture'
+import {
+  createJsonSessionCodec,
+  createSessionCore,
+  installLiveSessionCore,
+  type SessionCore,
+} from '../../app/document-session/live-core'
 import { closeDesign } from '../../app/document-session/actions'
 import { installLaunchFile } from '../../app/document-session/launch-file'
 import {
@@ -11,33 +15,20 @@ import {
   type DesignOpenFailureNotice,
 } from '../../app/document-session/open-failure'
 import { currentDesign, designPath } from '../../app/document-session/store'
-import { resetDesignSessionStateForTests } from '../../app/document-session/transition'
 import { decodeSettingsRecord } from '../../app/settings/interpreter'
 import {
   flushSettingsProjection,
   installSettingsProjection,
+  mutateSettingsProjection,
   resetSettingsProjectionForTests,
 } from '../../app/settings/projection'
 import { lastOpenHome } from '../../app/settings/state'
+import { decodeLastOpenHome, type DesignHome, type DraftId } from '../../platform/design-home'
 import { createDesktopSettingsPlatformAdapter } from './settings'
 import {
   createDesktopLastOpenHomePort,
-  installDesktopLastOpenHomeWriter,
+  encodeDesktopLastOpenHome,
 } from './last-open-home'
-
-const ipcMocks = vi.hoisted(() => ({
-  loadDesign: vi.fn<(path: string) => Promise<LoadedDesign>>(),
-  loadDesignDraft: vi.fn<(id: string) => Promise<CanopiFile>>(),
-}))
-
-vi.mock('../../ipc/design', async (importOriginal) => {
-  const actual = await importOriginal<typeof DesignIpc>()
-  return {
-    ...actual,
-    loadDesign: ipcMocks.loadDesign,
-    loadDesignDraft: ipcMocks.loadDesignDraft,
-  }
-})
 
 function sampleDesign(name: string): CanopiFile {
   return {
@@ -88,16 +79,41 @@ function createPersistentDesktopWireStore(initial: Partial<Settings> = {}) {
   }
 }
 
+function installDesktopSessionCore(
+  home: ReturnType<typeof createInMemoryDesignHomeStore>,
+): { core: SessionCore; dispose: () => void } {
+  const core = createSessionCore({
+    designHome: home,
+    fileAccess: {
+      pickOpen: async () => ({ kind: 'cancelled' }),
+      pickHomeTarget: async () => ({ kind: 'cancelled' }),
+    },
+    lifecycle: { subscribe: () => () => {} },
+    codec: createJsonSessionCodec(),
+    settings: {
+      async readLastOpenHome() {
+        return decodeLastOpenHome(lastOpenHome.peek())
+      },
+      async writeLastOpenHome(next: DesignHome | null) {
+        const token = await encodeDesktopLastOpenHome(next)
+        mutateSettingsProjection((draft) => {
+          draft.lastOpenHome = token
+        })
+      },
+      flushSettings: flushSettingsProjection,
+    },
+    newDesignFactory: () => sampleDesign('Untitled'),
+  })
+  const dispose = installLiveSessionCore(core)
+  return { core, dispose }
+}
+
 describe('Desktop durable last_open_home boot -> reopen (2b-4 B2/B5, 2.1-Q127, 2.1-M523)', () => {
   const cleanups: Array<() => void> = []
   const presenter = vi.fn<(notice: DesignOpenFailureNotice) => void>()
 
-  beforeEach(async () => {
+  beforeEach(() => {
     resetSettingsProjectionForTests()
-    resetDesignSessionStateForTests()
-    await closeDesign()
-    ipcMocks.loadDesign.mockReset()
-    ipcMocks.loadDesignDraft.mockReset()
     presenter.mockReset()
     registerDesignOpenFailurePresenter(presenter)
   })
@@ -105,46 +121,41 @@ describe('Desktop durable last_open_home boot -> reopen (2b-4 B2/B5, 2.1-Q127, 2
   afterEach(async () => {
     while (cleanups.length > 0) cleanups.pop()?.()
     registerDesignOpenFailurePresenter(null)
-    resetDesignSessionStateForTests()
     await closeDesign()
     resetSettingsProjectionForTests()
   })
 
   it('persists an opened file home through Desktop settings and reopens it on relaunch without storing raw paths', async () => {
     const wire = createPersistentDesktopWireStore()
+    const home = createInMemoryDesignHomeStore()
+    const recentId = 'a'.repeat(64)
+    home.seedFile('grant:orchard', sampleDesign('Orchard'), 'v-1')
     const recentFiles: DesignSummary[] = [
-      { path: '/home/alice/Orchard.canopi', name: 'Orchard', updated_at: '2026-11-25T08:00:00Z' },
+      {
+        path: '/home/alice/Orchard.canopi',
+        name: 'Orchard',
+        updated_at: '2026-11-25T08:00:00Z',
+        grant: 'grant:orchard',
+        recent_id: recentId,
+      },
     ]
-    ipcMocks.loadDesign.mockResolvedValueOnce({
-      file: sampleDesign('Orchard'),
-      fingerprint: 'fp-1',
-    })
 
-    // Session 1: boot, open a saved file, and quit.
+    // Session 1: boot, open a saved file through SessionCore, and quit.
     const install1 = installSettingsProjection(wire.createAdapter())
     cleanups.push(() => install1.dispose())
     await install1.ready
 
-    const sessionDesign = signal<object | null>(null)
-    const sessionPath = signal<string | null>(null)
-    const saveStatus = signal<string>('saved')
-    let activeHome: DesignHome | null = null
+    const s1 = installDesktopSessionCore(home)
+    cleanups.push(s1.dispose)
 
-    const stopWriter = installDesktopLastOpenHomeWriter({
-      currentDesign: sessionDesign,
-      designPath: sessionPath,
-      saveStatus,
-      readHome: () => activeHome,
+    const opened = await s1.core.openFrom({
+      kind: 'file',
+      grant: 'grant:orchard',
+      displayName: 'Orchard.canopi',
+      recentId,
     })
-    cleanups.push(stopWriter)
-
-    activeHome = { kind: 'file', path: '/home/alice/Orchard.canopi', fingerprint: 'fp-1' }
-    sessionPath.value = '/home/alice/Orchard.canopi'
-    sessionDesign.value = { name: 'Orchard' }
-
-    await vi.waitFor(() => {
-      expect(lastOpenHome.value).toMatch(/^file:[0-9a-f]{64}$/)
-    })
+    expect(opened.status).toBe('opened')
+    expect(lastOpenHome.value).toBe(`file:${recentId}`)
     const persistedToken = lastOpenHome.value
     await flushSettingsProjection()
 
@@ -154,14 +165,119 @@ describe('Desktop durable last_open_home boot -> reopen (2b-4 B2/B5, 2.1-Q127, 2
     expect(wire.read().last_open_home).not.toContain('Orchard.canopi')
 
     // Tear down Session 1 (simulated quit).
-    stopWriter()
+    s1.dispose()
     install1.dispose()
     resetSettingsProjectionForTests()
 
-    // Session 2 (simulated relaunch): hydrate from persisted wire store and run boot launchIntent
-    // through the real actions -> transition -> state-machine -> open-failure path.
+    // Session 2 (simulated relaunch): hydrate from persisted wire store and run boot launchIntent.
     const install2 = installSettingsProjection(wire.createAdapter())
     cleanups.push(() => install2.dispose())
+    const s2 = installDesktopSessionCore(home)
+    cleanups.push(s2.dispose)
+
+    const stopLaunch = installLaunchFile({
+      take: async () => null,
+      subscribe: () => () => undefined,
+      lastOpenHome: createDesktopLastOpenHomePort({
+        settingsReady: install2.ready,
+        getRecentFiles: async () => recentFiles,
+        grantForRecent: async (id) => (id === recentId
+          ? { grant: 'grant:orchard', display_name: 'Orchard.canopi', recent_id: recentId }
+          : null),
+      }),
+    })
+    cleanups.push(stopLaunch)
+
+    await vi.waitFor(() => {
+      expect(currentDesign.value?.name).toBe('Orchard')
+    })
+    expect(designPath.value).toBe('grant:orchard')
+    expect(s2.core.currentDesign.value?.home).toMatchObject({
+      kind: 'file',
+      key: 'grant:orchard',
+      displayName: 'Orchard.canopi',
+      recentId,
+    })
+    expect(presenter).not.toHaveBeenCalled()
+  })
+
+  it('persists an opened Draft home and reopens it on relaunch, and clears on close', async () => {
+    const wire = createPersistentDesktopWireStore()
+    const home = createInMemoryDesignHomeStore()
+    home.seedFile('draft-42', sampleDesign('Untitled'), 'v-draft-42')
+
+    // Session 1: open a Draft, verify durable write.
+    const install1 = installSettingsProjection(wire.createAdapter())
+    cleanups.push(() => install1.dispose())
+    await install1.ready
+
+    const s1 = installDesktopSessionCore(home)
+    cleanups.push(s1.dispose)
+
+    await s1.core.openFrom({ kind: 'draft', id: 'draft-42' as DraftId })
+    expect(lastOpenHome.value).toBe('draft:draft-42')
+    await flushSettingsProjection()
+    expect(wire.read().last_open_home).toBe('draft:draft-42')
+
+    // Session 2: relaunch reopens Draft 42.
+    s1.dispose()
+    install1.dispose()
+    resetSettingsProjectionForTests()
+
+    const install2 = installSettingsProjection(wire.createAdapter())
+    cleanups.push(() => install2.dispose())
+    const s2 = installDesktopSessionCore(home)
+    cleanups.push(s2.dispose)
+
+    const stopLaunch2 = installLaunchFile({
+      take: async () => null,
+      subscribe: () => () => undefined,
+      lastOpenHome: createDesktopLastOpenHomePort({
+        settingsReady: install2.ready,
+        getRecentFiles: async () => [],
+      }),
+    })
+    cleanups.push(stopLaunch2)
+
+    await vi.waitFor(() => {
+      expect(currentDesign.value?.name).toBe('Untitled')
+    })
+    expect(presenter).not.toHaveBeenCalled()
+
+    // Close the open Design -> SessionCore clears last_open_home so Session 3 stays on Start screen.
+    await s2.core.close('close')
+    expect(lastOpenHome.value).toBeNull()
+    await flushSettingsProjection()
+    expect(wire.read().last_open_home).toBeNull()
+  })
+
+  it('B5 regression: unreadable or missing last_open_home file falls back silently to Start screen with zero refusal dialog', async () => {
+    const wire = createPersistentDesktopWireStore()
+    const recentFiles: DesignSummary[] = [
+      { path: '/home/alice/Broken.canopi', name: 'Broken', updated_at: '2026-11-25T08:00:00Z' },
+    ]
+
+    // Persist a valid file token first using encodeDesktopLastOpenHome.
+    const install1 = installSettingsProjection(wire.createAdapter())
+    cleanups.push(() => install1.dispose())
+    await install1.ready
+    const token = await encodeDesktopLastOpenHome({
+      kind: 'file',
+      key: '/home/alice/Broken.canopi',
+      displayName: 'Broken.canopi',
+      version: 'v-1',
+    })
+    mutateSettingsProjection((draft) => { draft.lastOpenHome = token })
+    await flushSettingsProjection()
+    install1.dispose()
+    resetSettingsProjectionForTests()
+
+    // Relaunch with file absent/unreadable in DesignHomeStore.
+    const emptyHome = createInMemoryDesignHomeStore()
+    const install2 = installSettingsProjection(wire.createAdapter())
+    cleanups.push(() => install2.dispose())
+    const s2 = installDesktopSessionCore(emptyHome)
+    cleanups.push(s2.dispose)
 
     const stopLaunch = installLaunchFile({
       take: async () => null,
@@ -174,151 +290,24 @@ describe('Desktop durable last_open_home boot -> reopen (2b-4 B2/B5, 2.1-Q127, 2
     cleanups.push(stopLaunch)
 
     await vi.waitFor(() => {
-      expect(ipcMocks.loadDesign).toHaveBeenCalledWith('/home/alice/Orchard.canopi')
-      expect(currentDesign.value?.name).toBe('Orchard')
+      expect(lastOpenHome.value).toBeNull()
     })
-    expect(designPath.value).toBe('/home/alice/Orchard.canopi')
-    expect(presenter).not.toHaveBeenCalled()
-  })
-
-  it('persists an opened Draft home and reopens it on relaunch, and clears on close', async () => {
-    const wire = createPersistentDesktopWireStore()
-    ipcMocks.loadDesignDraft.mockResolvedValueOnce(sampleDesign('Untitled'))
-
-    // Session 1: open a Draft, verify durable write.
-    const install1 = installSettingsProjection(wire.createAdapter())
-    cleanups.push(() => install1.dispose())
-    await install1.ready
-
-    const sessionDesign = signal<object | null>(null)
-    const sessionPath = signal<string | null>(null)
-    const saveStatus = signal<string>('draft')
-    let activeHome: DesignHome | null = null
-
-    const stopWriter = installDesktopLastOpenHomeWriter({
-      currentDesign: sessionDesign,
-      designPath: sessionPath,
-      saveStatus,
-      readHome: () => activeHome,
-    })
-    cleanups.push(stopWriter)
-
-    activeHome = { kind: 'draft', id: 'draft-42' }
-    sessionDesign.value = { name: 'Untitled' }
-
-    await vi.waitFor(() => expect(lastOpenHome.value).toBe('draft:draft-42'))
     await flushSettingsProjection()
-    expect(wire.read().last_open_home).toBe('draft:draft-42')
 
-    // Session 2: relaunch reopens Draft 42 through the real actions/transition path.
-    stopWriter()
-    install1.dispose()
-    resetSettingsProjectionForTests()
-
-    const install2 = installSettingsProjection(wire.createAdapter())
-    cleanups.push(() => install2.dispose())
-    const stopLaunch2 = installLaunchFile({
-      take: async () => null,
-      subscribe: () => () => undefined,
-      lastOpenHome: createDesktopLastOpenHomePort({
-        settingsReady: install2.ready,
-        getRecentFiles: async () => [],
-      }),
-    })
-    cleanups.push(stopLaunch2)
-
-    await vi.waitFor(() => {
-      expect(ipcMocks.loadDesignDraft).toHaveBeenCalledWith('draft-42')
-      expect(currentDesign.value?.name).toBe('Untitled')
-    })
-    expect(presenter).not.toHaveBeenCalled()
-
-    // Now close the open Design -> writer clears last_open_home so Session 3 stays on Start screen.
-    const sessionDesign2 = signal<object | null>({ name: 'Untitled' })
-    const stopWriter2 = installDesktopLastOpenHomeWriter({
-      currentDesign: sessionDesign2,
-      designPath: signal<string | null>(null),
-      saveStatus: signal<string>('draft'),
-      readHome: () => (sessionDesign2.peek() ? { kind: 'draft', id: 'draft-42' } : null),
-    })
-    cleanups.push(stopWriter2)
-    sessionDesign2.value = null
-
-    await vi.waitFor(() => expect(lastOpenHome.value).toBeNull())
-    await flushSettingsProjection()
     expect(wire.read().last_open_home).toBeNull()
-  })
-
-  it('B5 regression: unreadable or newer last_open_home file falls back silently to Start screen with zero refusal dialog', async () => {
-    const failures = [
-      { kind: 'unreadable', message: 'permission denied' },
-      { kind: 'newer_version', message: 'version 11', field_path: '$.version' },
-    ] as const
-
-    for (const failure of failures) {
-      resetSettingsProjectionForTests()
-      resetDesignSessionStateForTests()
-      await closeDesign()
-      ipcMocks.loadDesign.mockReset()
-      presenter.mockReset()
-
-      const wire = createPersistentDesktopWireStore()
-      const recentFiles: DesignSummary[] = [
-        { path: '/home/alice/Broken.canopi', name: 'Broken', updated_at: '2026-11-25T08:00:00Z' },
-      ]
-
-      // Persist a valid file token first through the real writer.
-      const install1 = installSettingsProjection(wire.createAdapter())
-      cleanups.push(() => install1.dispose())
-      await install1.ready
-      const sessionDesign = signal<object | null>({ name: 'Broken' })
-      const stopWriter = installDesktopLastOpenHomeWriter({
-        currentDesign: sessionDesign,
-        designPath: signal<string | null>('/home/alice/Broken.canopi'),
-        saveStatus: signal<string>('saved'),
-        readHome: () => ({ kind: 'file', path: '/home/alice/Broken.canopi', fingerprint: 'fp-broken' }),
-      })
-      await vi.waitFor(() => expect(lastOpenHome.value).toMatch(/^file:[0-9a-f]{64}$/))
-      await flushSettingsProjection()
-      stopWriter()
-      install1.dispose()
-      resetSettingsProjectionForTests()
-
-      // Relaunch with IPC load failing through the REAL actions -> transition -> open-failure path.
-      ipcMocks.loadDesign.mockRejectedValueOnce(failure)
-      const install2 = installSettingsProjection(wire.createAdapter())
-      cleanups.push(() => install2.dispose())
-      const stopLaunch = installLaunchFile({
-        take: async () => null,
-        subscribe: () => () => undefined,
-        lastOpenHome: createDesktopLastOpenHomePort({
-          settingsReady: install2.ready,
-          getRecentFiles: async () => recentFiles,
-        }),
-      })
-      cleanups.push(stopLaunch)
-
-      await vi.waitFor(() => {
-        expect(ipcMocks.loadDesign).toHaveBeenCalledWith('/home/alice/Broken.canopi')
-        expect(lastOpenHome.value).toBeNull()
-      })
-      await flushSettingsProjection()
-
-      expect(wire.read().last_open_home).toBeNull()
-      expect(currentDesign.value).toBeNull()
-      expect(presenter).not.toHaveBeenCalled()
-
-      stopLaunch()
-      install2.dispose()
-    }
+    expect(currentDesign.value).toBeNull()
+    expect(presenter).not.toHaveBeenCalled()
   })
 
   it('B5 regression: missing last_open_home Draft falls back silently to Start screen with zero refusal dialog', async () => {
     const wire = createPersistentDesktopWireStore({ last_open_home: 'draft:draft-gone' })
-    ipcMocks.loadDesignDraft.mockRejectedValueOnce({ kind: 'missing', message: 'draft not found' })
+    const home = createInMemoryDesignHomeStore()
 
     const install = installSettingsProjection(wire.createAdapter())
     cleanups.push(() => install.dispose())
+    const session = installDesktopSessionCore(home)
+    cleanups.push(session.dispose)
+
     const stopLaunch = installLaunchFile({
       take: async () => null,
       subscribe: () => () => undefined,
@@ -330,7 +319,6 @@ describe('Desktop durable last_open_home boot -> reopen (2b-4 B2/B5, 2.1-Q127, 2
     cleanups.push(stopLaunch)
 
     await vi.waitFor(() => {
-      expect(ipcMocks.loadDesignDraft).toHaveBeenCalledWith('draft-gone')
       expect(lastOpenHome.value).toBeNull()
     })
     await flushSettingsProjection()
@@ -341,13 +329,15 @@ describe('Desktop durable last_open_home boot -> reopen (2b-4 B2/B5, 2.1-Q127, 2
   })
 
   it('explicit file-argument launch still presents a refusal dialog when load fails', async () => {
-    // Open an initial Draft so the subsequent explicit file launch executes immediately (not deferred).
-    ipcMocks.loadDesignDraft.mockResolvedValueOnce(sampleDesign('Open'))
+    const home = createInMemoryDesignHomeStore()
+    home.seedFile('draft-open', sampleDesign('Open'), 'v-open')
     const wire = createPersistentDesktopWireStore({ last_open_home: 'draft:draft-open' })
     const install = installSettingsProjection(wire.createAdapter())
     cleanups.push(() => install.dispose())
+    const session = installDesktopSessionCore(home)
+    cleanups.push(session.dispose)
 
-    let pending: { path: string; several: boolean } | null = null
+    let pending: { path: string; several: boolean; grant?: string; display_name?: string } | null = null
     const notify: { fn: (() => void) | null } = { fn: null }
     const stopLaunch = installLaunchFile({
       take: async () => {
@@ -371,9 +361,13 @@ describe('Desktop durable last_open_home boot -> reopen (2b-4 B2/B5, 2.1-Q127, 2
     await vi.waitFor(() => expect(currentDesign.value?.name).toBe('Open'))
     expect(presenter).not.toHaveBeenCalled()
 
-    // Forward an explicit file-argument launch whose IPC load fails -> refusal MUST be presented.
-    ipcMocks.loadDesign.mockRejectedValueOnce({ kind: 'unreadable', message: 'permission denied' })
-    pending = { path: '/home/alice/ExplicitBroken.canopi', several: false }
+    // Forward an explicit file-argument launch whose load fails -> refusal MUST be presented.
+    pending = {
+      path: '/home/alice/ExplicitBroken.canopi',
+      several: false,
+      grant: 'grant:explicit-broken',
+      display_name: 'ExplicitBroken.canopi',
+    }
     notify.fn?.()
 
     await vi.waitFor(() => expect(presenter).toHaveBeenCalledTimes(1))
@@ -391,8 +385,29 @@ describe('Desktop durable last_open_home boot -> reopen (2b-4 B2/B5, 2.1-Q127, 2
         getRecentFiles: async () => [],
       })
       expect(await port.read()).toBeNull()
-      expect(await port.resolveFilePath?.('nonexistent')).toBeNull()
+      expect(await port.resolveFileHome('nonexistent')).toBeNull()
       install.dispose()
     }
+  })
+
+  it('encodeDesktopLastOpenHome encodes draft, file (hashed), and null homes', async () => {
+    expect(await encodeDesktopLastOpenHome(null)).toBeNull()
+    expect(await encodeDesktopLastOpenHome({ kind: 'draft', key: 'd-9' as DraftId, version: null })).toBe('draft:d-9')
+    const recentId = 'b'.repeat(64)
+    const fileToken = await encodeDesktopLastOpenHome({
+      kind: 'file',
+      key: 'grant:7',
+      displayName: 'Garden.canopi',
+      recentId,
+      version: 'v-1',
+    })
+    expect(fileToken).toBe(`file:${recentId}`)
+    expect(fileToken).not.toContain('alice')
+    expect(await encodeDesktopLastOpenHome({
+      kind: 'file',
+      key: 'grant:7',
+      displayName: 'Garden.canopi',
+      version: 'v-1',
+    })).toBeNull()
   })
 })

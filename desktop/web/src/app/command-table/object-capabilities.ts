@@ -89,7 +89,10 @@ export const OBJECT_KIND_ROWS: Readonly<Record<ObjectKind, ObjectKindRow>> = {
 
 /** The only way to read a kind's owner (contracts §21). */
 export function ownerOf(row: ObjectKindRow): ObjectOwner {
-  if ('field' in row.backing) return DOCUMENT_FILE_FIELD_OWNERS[row.backing.field]
+  if ('field' in row.backing) {
+    const owner = DOCUMENT_FILE_FIELD_OWNERS[row.backing.field]
+    return owner === 'format' ? 'document' : owner
+  }
   if ('sceneTarget' in row.backing) return 'scene'
   if ('printSetup' in row.backing) return 'document'
   if ('store' in row.backing) return row.backing.store

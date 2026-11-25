@@ -11,6 +11,8 @@ ignores:
   - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
   - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
   - "{desktop/web,policy/fixtures/rules/*}/src/app/canvas-map-surface/canvas-host.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/app/canvas-map-surface/desktop-workspace-runtime.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/editions/web/browser-workspace-runtime.ts"
   - "{desktop/web,policy/fixtures/rules/*}/src/canvas/session.ts"
   - "{desktop/web,policy/fixtures/rules/*}/src/canvas/runtime/lifecycle-owner.ts"
 rule:

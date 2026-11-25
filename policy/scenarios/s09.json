@@ -9,7 +9,7 @@
       "phase": "2",
       "note": "the one Design source contract, created by the scenario"
     },
-    "web/browser-design-session.ts",
+    "editions/web/web-session.ts",
     "editions/web/boot.ts",
     "i18n/"
   ],

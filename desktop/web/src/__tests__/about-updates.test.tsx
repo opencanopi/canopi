@@ -519,7 +519,7 @@ describe('Desktop root', () => {
     expect({ rows, text: rowNotice('update.available')!.textContent, modal: container.querySelector('[aria-modal]'), focused: document.activeElement === before })
       .toEqual({ rows: 1, text: 'Canopi 2.1.0 is availableAbout Canopi', modal: null, focused: true })
     await act(async () => { [...rowNotice('update.available')!.querySelectorAll('button')].find((button) => button.textContent === 'About Canopi')!.click() })
-    expect(container.querySelector('[data-about-updates] button')!.textContent).toBe('Download and install')
+    await vi.waitFor(() => expect(container.querySelector('[data-about-updates] button')?.textContent).toBe('Download and install'))
     // Opening About is no dismissal: the notice stays until dismissed or installed this session (2.1-Q293).
     expect(rowNotice('update.available')).not.toBeNull()
   })

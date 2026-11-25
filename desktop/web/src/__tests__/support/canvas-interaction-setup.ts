@@ -6,12 +6,7 @@ import { signal } from '@preact/signals'
 import { afterEach, beforeEach, expect, vi } from 'vitest'
 import { clearPlantStampSource } from '../../canvas/plant-stamp-source'
 import { clearSavedObjectStampSource } from '../../canvas/saved-object-stamp-source'
-import {
-  IDLE_CANVAS_TOOL_GUIDANCE,
-  currentCanvasSelection,
-  setCanvasTool,
-  setCanvasToolGuidance,
-} from '../../canvas/session-state'
+import { IDLE_CANVAS_TOOL_GUIDANCE, currentCanvasSelection, setCanvasTool, setCanvasToolGuidance } from '../../canvas/session-state'
 import { h, render as renderPreact } from 'preact'
 import { setupRerender, teardown as teardownPreactTestUtils } from 'preact/test-utils'
 import { ToolCard } from '../../components/canvas/ToolCard'
@@ -19,11 +14,7 @@ import { CanvasContextMenu } from '../../components/canvas/CanvasContextMenu'
 import { closeCanvasContextMenu, openCanvasContextMenu } from '../../app/canvas-context-menu/state'
 import { focusOwner } from '../../app/keyboard/focus-owner'
 import { setCurrentCanvasSession } from '../../canvas/session'
-import {
-  createTestCanvasCommandSurface,
-  createTestCanvasDocumentSurface,
-  createTestCanvasKeyboardPort,
-} from './canvas-runtime-surfaces'
+import { createTestCanvasCommandSurface, createTestCanvasDocumentSurface, createTestCanvasKeyboardPort } from './canvas-runtime-surfaces'
 import { createTestCanvasQuerySurface } from './canvas-query-surface'
 import { plantSpacingIntervalM, singleKeyShortcuts, snapToGridEnabled } from '../../app/settings/state'
 import { installKeyRouter, type KeyRouterHandle } from '../../app/keyboard/key-router'
@@ -60,8 +51,8 @@ import {
   type CanvasContextMenuItemId,
 } from '../../app/canvas-context-menu/entries'
 import { getDesignObjectSelectionModel } from '../../canvas/runtime/scene-runtime/selection'
-import { SceneHistory } from '../../canvas/runtime/scene-history'
 import {
+  createDetachedSceneSessionAdapter,
   SceneRuntimeEditCoordinator,
   type SceneCommandAdmission,
   type SceneEditCoordinator,
@@ -248,22 +239,25 @@ export function createInteractionDeps(
   })
   // As the runtime does: only a scene render refreshes the session; a camera frame reaches the tools on their own listener.
   const render = overrides.render ?? (() => { renderedSession?.refreshMeasurements() })
-  const history = new SceneHistory()
+  const sceneSession = createDetachedSceneSessionAdapter()
   if (overrides.onSceneEditCommit) {
-    const record = history.record.bind(history)
-    vi.spyOn(history, 'record').mockImplementation((command, transaction) => {
+    const record = sceneSession.recordSceneEdit.bind(sceneSession)
+    vi.spyOn(sceneSession, 'recordSceneEdit').mockImplementation((label, command) => {
       overrides.onSceneEditCommit?.(command.type)
-      return record(command, transaction)
+      return record(label, command)
     })
   }
   const sceneEdits = overrides.sceneEdits ?? new SceneRuntimeEditCoordinator({
     sceneStore: store,
-    history,
+    sceneSession,
     setSelection,
     incrementSceneRevision: () => {},
     syncCanvasSignalsFromScene: () => {},
     invalidate: () => render(),
   })
+  if (sceneEdits instanceof SceneRuntimeEditCoordinator) {
+    sceneSession.bindReplay((command, direction) => sceneEdits.replayCommand(command, direction))
+  }
   const commandAdmission = overrides.commandAdmission
     ?? ('runWhenSettled' in sceneEdits
       ? sceneEdits as unknown as SceneCommandAdmission

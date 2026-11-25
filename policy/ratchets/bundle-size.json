@@ -9,6 +9,10 @@
   ],
   "lane": "ci",
   "budgets": {
+    "desktop chunk: AboutCanopiDialog": {
+      "ceiling": 6130,
+      "tolerance": 0.05
+    },
     "desktop chunk: BudgetPanel": {
       "ceiling": 12434,
       "tolerance": 0.05
@@ -19,6 +23,10 @@
     },
     "desktop chunk: ConsortiumPanel": {
       "ceiling": 15752,
+      "tolerance": 0.05
+    },
+    "desktop chunk: ControlIcon": {
+      "ceiling": 1495880,
       "tolerance": 0.05
     },
     "desktop chunk: DataDialogs": {
@@ -34,7 +42,7 @@
       "tolerance": 0.05
     },
     "desktop chunk: DockPanelHeader": {
-      "ceiling": 297,
+      "ceiling": 335,
       "tolerance": 0.05
     },
     "desktop chunk: Dropdown": {
@@ -43,6 +51,10 @@
     },
     "desktop chunk: FavoritesPanel": {
       "ceiling": 24093,
+      "tolerance": 0.05
+    },
+    "desktop chunk: KeyboardShortcutsDialog": {
+      "ceiling": 4471,
       "tolerance": 0.05
     },
     "desktop chunk: LayersPanel": {
@@ -61,25 +73,53 @@
       "ceiling": 34338,
       "tolerance": 0.05
     },
+    "desktop chunk: ProblemReportDialog": {
+      "ceiling": 5459,
+      "tolerance": 0.05
+    },
+    "desktop chunk: SegmentedControl": {
+      "ceiling": 1134,
+      "tolerance": 0.05,
+      "bead": "canopi-f47t.52.205"
+    },
+    "desktop chunk: SettingsDialog": {
+      "ceiling": 9439,
+      "tolerance": 0.05
+    },
     "desktop chunk: SiteDataPanel": {
       "ceiling": 30999,
       "tolerance": 0.05
+    },
+    "desktop chunk: Slider": {
+      "ceiling": 635,
+      "tolerance": 0.05,
+      "bead": "canopi-f47t.52.205"
     },
     "desktop chunk: StoriesPanel": {
       "ceiling": 24030,
       "tolerance": 0.05
     },
     "desktop chunk: SurfaceHeader": {
-      "ceiling": 1471831,
+      "ceiling": 6390,
       "tolerance": 0.05
     },
     "desktop chunk: SurfaceSearch": {
       "ceiling": 822,
       "tolerance": 0.05
     },
+    "desktop chunk: Switch": {
+      "ceiling": 847,
+      "tolerance": 0.05,
+      "bead": "canopi-f47t.52.205"
+    },
     "desktop chunk: THIRD_PARTY_NOTICES": {
       "ceiling": 730269,
       "tolerance": 0.05
+    },
+    "desktop chunk: ToastSlot": {
+      "ceiling": 6607,
+      "tolerance": 0.05,
+      "bead": "canopi-f47t.52.205"
     },
     "desktop chunk: arming": {
       "ceiling": 5034,
@@ -93,8 +133,20 @@
       "ceiling": 42514,
       "tolerance": 0.05
     },
+    "desktop chunk: canopi-design-format": {
+      "ceiling": 11274,
+      "tolerance": 0.05
+    },
+    "desktop chunk: canvas-commands": {
+      "ceiling": 6616,
+      "tolerance": 0.05
+    },
     "desktop chunk: contextual-selection-actions": {
       "ceiling": 3798,
+      "tolerance": 0.05
+    },
+    "desktop chunk: contracts": {
+      "ceiling": 3489,
       "tolerance": 0.05
     },
     "desktop chunk: core": {
@@ -114,11 +166,7 @@
       "tolerance": 0.05
     },
     "desktop chunk: dialogs": {
-      "ceiling": 502,
-      "tolerance": 0.05
-    },
-    "desktop chunk: document": {
-      "ceiling": 1636,
+      "ceiling": 1016,
       "tolerance": 0.05
     },
     "desktop chunk: edition-ports": {
@@ -131,6 +179,10 @@
     },
     "desktop chunk: favorite-species-presentation": {
       "ceiling": 895,
+      "tolerance": 0.05
+    },
+    "desktop chunk: focus": {
+      "ceiling": 190307,
       "tolerance": 0.05
     },
     "desktop chunk: focus-owner": {
@@ -198,16 +250,16 @@
       "ceiling": 509003,
       "tolerance": 0.05
     },
+    "desktop chunk: metadata": {
+      "ceiling": 3662,
+      "tolerance": 0.05
+    },
     "desktop chunk: modal-layer": {
       "ceiling": 510,
       "tolerance": 0.05
     },
     "desktop chunk: mutation-queue": {
       "ceiling": 2231,
-      "tolerance": 0.05
-    },
-    "desktop chunk: new-design-defaults": {
-      "ceiling": 227,
       "tolerance": 0.05
     },
     "desktop chunk: overrides": {
@@ -230,6 +282,11 @@
       "ceiling": 21386,
       "tolerance": 0.05
     },
+    "desktop chunk: preload-helper": {
+      "ceiling": 1519,
+      "tolerance": 0.05,
+      "bead": "canopi-f47t.52.205"
+    },
     "desktop chunk: profile": {
       "ceiling": 6855,
       "tolerance": 0.05
@@ -251,11 +308,19 @@
       "tolerance": 0.05
     },
     "desktop chunk: selection": {
-      "ceiling": 504,
+      "ceiling": 537,
+      "tolerance": 0.05
+    },
+    "desktop chunk: session": {
+      "ceiling": 2132,
       "tolerance": 0.05
     },
     "desktop chunk: session-plane": {
       "ceiling": 2805,
+      "tolerance": 0.05
+    },
+    "desktop chunk: shortcut-text": {
+      "ceiling": 1466,
       "tolerance": 0.05
     },
     "desktop chunk: species-row.module": {
@@ -263,7 +328,11 @@
       "tolerance": 0.05
     },
     "desktop chunk: state": {
-      "ceiling": 722,
+      "ceiling": 3141,
+      "tolerance": 0.05
+    },
+    "desktop chunk: store": {
+      "ceiling": 41157,
       "tolerance": 0.05
     },
     "desktop chunk: tauri": {
@@ -280,6 +349,10 @@
     },
     "desktop chunk: usePointerReorder": {
       "ceiling": 1573,
+      "tolerance": 0.05
+    },
+    "desktop chunk: useScrimPress": {
+      "ceiling": 4189,
       "tolerance": 0.05
     },
     "desktop chunk: visible-map-area": {
@@ -368,9 +441,8 @@
       "tolerance": 0.05
     },
     "web chunk: preload-helper": {
-      "ceiling": 47500,
-      "tolerance": 0.05,
-      "bead": "canopi-f47t.52.205"
+      "ceiling": 77370,
+      "tolerance": 0.05
     },
     "web chunk: rolldown-runtime": {
       "ceiling": 726,

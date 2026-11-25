@@ -37,23 +37,6 @@ export function presentBrowserDraftOpenFailure(): void {
   showOutcome('web.open-failure', { tone: 'error', title: 'start.cantOpenTitle', message: 'webStorage.downloadFailedMessage' })
 }
 
-const DRAFT_UNCHECKED = 'web.draft-unchecked'
-
-/**
- * An old-key Draft opened read-only while 2.1's Draft listing could not be read: it may be a copy 2.1 replaced, so the
- * notice offers its Download a copy (2.1-Q334).
- */
-export function presentBrowserDraftUncheckedNotice(download: () => void): void {
-  showOutcome(DRAFT_UNCHECKED, {
-    tone: 'warning', message: 'webStorage.uncheckedReadOnly', action: { label: 'webShell.downloadCopy', run: download },
-  })
-}
-
-/** That view's session ended: its notice goes with it. */
-export function withdrawBrowserDraftUncheckedNotice(): void {
-  withdrawNotice(DRAFT_UNCHECKED)
-}
-
 /** Browser data from before Canopi 2.0 stays in place, unread (ADR 0021): told once, at the launch that finds it. */
 export function raiseEarlierDataNotice(): void {
   raiseNotice({ key: 'web.earlier-data', title: 'health.localDataNotOpenedTitle', message: 'health.localDataNotOpened' })

@@ -54,18 +54,6 @@ export interface WorkspaceRuntimeComposition {
   dispose(): Promise<void>
 }
 
-/**
- * The only details an edition mount supplies to the shared workspace. Edition
- * factories bind application adapters and contribution policy behind this
- * small mount-facing contract.
- */
-export interface WorkspaceRuntimeMountOptions {
-  readonly container: HTMLElement
-  readonly onFailure?: (error: unknown) => void
-  readonly onRuntimeDestroyed?: () => void
-  readonly onMapFailureStateChange?: (state: 'none' | 'handling' | 'settled') => void
-}
-
 /** The geographic view a settled camera shows, for the app's last-view setting. */
 export type WorkspaceSettledView = GeographicView
 

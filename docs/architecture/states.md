@@ -4,9 +4,9 @@ Which states each long-lived thing passes through and who moves it. Rules: ADR 0
 
 ### Design Session
 
-Model: target
+Model: current
 Source: ADR 0024, contracts §4, 2.1-Q66
-Enum: SessionState (2.1)
+Enum: DesignSessionState (2.1)
 
 ```mermaid
 stateDiagram-v2
@@ -64,34 +64,6 @@ stateDiagram-v2
 
 - Dirty is `rev > ackRev`; only `written` sets `ackRev` (2.1-Q68).
 - `quota` and `failed` keep the Design in memory and arm the Web leave prompt (contracts §4 case 6).
-
-### Design Session at HEAD (Desktop only)
-
-Model: current
-Enum: app/document-session/state-machine.ts::DesignSessionStateStatus
-
-```mermaid
-stateDiagram-v2
-  state "detached-empty" as detached_empty
-  state "detached-ready" as detached_ready
-  state "attached-empty" as attached_empty
-  state "attached-ready" as attached_ready
-  state "tearing-down" as tearing_down
-  [*] --> detached_empty
-  detached_empty --> loading: canvas start
-  loading --> attached_ready: Design applied
-  loading --> attached_empty: nothing to load
-  loading --> failed: load threw
-  attached_ready --> loading: transitionDocument
-  attached_ready --> saving: writeHome or Save as
-  saving --> attached_ready: settled
-  attached_ready --> tearing_down: canvas unmount
-  tearing_down --> detached_ready: handoff snapshot kept
-  tearing_down --> detached_empty: no Design
-```
-
-- Web has no state union: `web/browser-design-session.ts` orders work with a `replacementIntent` counter. Both are replaced by the Session core.
-- Only tests read `DesignSessionStateStatus`; both editions guard with hand counters (`replacementIntent`, `operationIntent`); 2b deletes both with `DesignSaveStatus`.
 
 ### Library jobs
 

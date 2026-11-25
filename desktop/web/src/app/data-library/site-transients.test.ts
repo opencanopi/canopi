@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { setCurrentCanvasSession } from '../../canvas/session'
 import type { CanvasRuntimeSurfaces } from '../../canvas/runtime/runtime'
 import type { CanopiFile } from '../../types/design'
-import { designSessionStore } from '../document-session/store'
+import { openTestDesign, replaceCurrentDesignState } from '../../__tests__/support/design-session-state'
 import { runEscape } from '../keyboard/escape-chain'
 import type { KeyboardEventLike } from '../keyboard/key-chord'
 import type { FocusClass } from '../keyboard/target-class'
@@ -36,7 +36,7 @@ function escape(): boolean {
 }
 
 function openDesign(name: string): void {
-  designSessionStore.replaceCurrentDesignState({ name } as CanopiFile, null, name)
+  replaceCurrentDesignState({ name } as CanopiFile, null, name)
 }
 
 /** A canvas session whose view mode the test drives; site-transients reads only `queries.view.mode`. */
@@ -142,11 +142,11 @@ describe('the Site data transients (canopi-f47t.42, U49)', () => {
     expect(profileLine.value).toBeNull()
   })
 
-  it('replacing the Design ends them, with Site data still open', () => {
+  it('replacing the Design ends them, with Site data still open', async () => {
     setPin(PARIS)
     setProfileLine(LINE)
 
-    openDesign('Meadow')
+    await openTestDesign({ name: 'Meadow' } as CanopiFile)
 
     expect(sidePanel.value).toBe('site-data')
     expect(pin.value).toBeNull()

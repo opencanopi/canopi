@@ -1,120 +1,196 @@
-import type { CanvasDocumentSurface } from "../../canvas/runtime/runtime";
+// app/document-session/actions.ts
+// Single-authority Design Session actions backed exclusively by the live Session Core (C4, ADR 0024, contracts §4).
+
 import { computed } from "@preact/signals";
-import {
-  type DocumentTransitionResult,
-  closeDesignSession,
-  consumeQueuedDocumentLoad,
-  createNewDesignSession,
-  designContinuousSave,
-  openDesignDraftSession,
-  openDesignSessionFromDialog,
-  openDesignSessionFromPath,
-  resolveDesignSaveConflict,
-  revertDesignSessionToOpenedVersion,
-  saveCurrentDesign,
-  saveCurrentDesignEdits,
-  saveAsCurrentDesign,
-} from "./transition";
+import type { DraftId, FileGrantId } from "../../platform/design-home";
+import { editionPorts } from "../../platform/edition-ports";
+import type { CanopiFile } from "../../types/design";
+import { applyNewDesignBackground } from "../settings/new-design-defaults";
+import type { DeepReadonly } from "./core";
+import { activeSessionCore, getLiveSessionCore, requireLiveSessionCore } from "./live-core";
 import { presentDesignOpenFailure } from "./open-failure";
+import { requestSaveProblemDecision } from "./save-problem";
+import { saveStatusOf, type DesignSaveStatus } from "./save-status";
 
-interface DocumentLoadOptions {
-  session?: CanvasDocumentSurface | null;
-  isCancelled?: () => boolean;
-  /** Whether a failed open is shown to the user via `presentDesignOpenFailure` (defaults to `true`). */
-  presentFailure?: boolean;
-  /** When false, load immediately even while detached on the Start screen instead of queueing. */
-  deferWhenDetached?: boolean;
+export interface DesignSaveSettlement {
+  readonly status: "applied" | "stale";
+  readonly path: string | null;
+  readonly content: DeepReadonly<CanopiFile>;
 }
 
-export {
-  consumeQueuedDocumentLoad,
-  saveCurrentDesign,
-  saveCurrentDesignEdits,
-  saveAsCurrentDesign,
-};
+export const designSaveStatus = computed<DesignSaveStatus>(() => {
+  const core = activeSessionCore.value;
+  const open = core?.currentDesign.value;
+  if (!core || !open) return "saved";
+  return saveStatusOf(open.save, core.dirty.value, {
+    readOnly: open.readOnly,
+    homeKind: open.home.kind,
+  });
+});
 
-/** Continuous-save status of the current Design. */
-export const designSaveStatus = computed(() => designContinuousSave.status.value);
+export const designSaveFailureReason = computed<string | null>(() => {
+  const save = activeSessionCore.value?.currentDesign.value?.save;
+  if (!save) return null;
+  if (save.kind === "failed" || save.kind === "refused") return save.reason;
+  if (save.kind === "quota") return "quota_refused";
+  if (save.kind === "copy_blocked") return save.folder;
+  return null;
+});
 
-/** Why the last continuous save failed; null unless the status is `error`. */
-export const designSaveFailureReason = computed(() => designContinuousSave.failureReason.value);
+export const designRevertAvailable = computed<boolean>(
+  () => activeSessionCore.value?.revertAvailable.value ?? false,
+);
 
-/** The current Design changed since it was opened or created. */
-export const designRevertAvailable = computed(() => designContinuousSave.revertAvailable.value);
+export async function saveCurrentDesign(): Promise<boolean> {
+  const core = requireLiveSessionCore();
+  const open = core.currentDesign.peek();
+  if (!open || open.readOnly) return false;
+  if (open.home.kind === "file") return core.flushNow({ force: true });
+  const settlement = await saveAsCurrentDesign();
+  return settlement?.status === "applied";
+}
 
-/**
- * Retry a failed save: the same write Save asks for, so a refused Save of a moved view writes again even with no edit
- * pending (U30); a refusal keeps the error and a write that lands clears it.
- */
+export async function saveCurrentDesignEdits(): Promise<boolean> {
+  const core = requireLiveSessionCore();
+  const open = core.currentDesign.peek();
+  if (!open || open.readOnly) return false;
+  return core.flushNow();
+}
+
+export async function saveAsCurrentDesign(): Promise<DesignSaveSettlement | null> {
+  const core = requireLiveSessionCore();
+  const open = core.currentDesign.peek();
+  if (!open || open.readOnly) return null;
+
+  let outcome = await core.saveAs();
+  if (outcome === "conflict") {
+    const afterConflict = core.currentDesign.peek();
+    const fileGone = afterConflict?.save.kind === "conflict" && afterConflict.save.current === null;
+    const choice = await requestSaveProblemDecision({ kind: "conflict", fileGone });
+    if (choice === "keep-mine" || choice === "save-copy") {
+      const resolved = await core.resolveConflict(choice === "save-copy" ? "save-as" : "keep-mine");
+      outcome = resolved === "resolved" ? "saved" : "failed";
+    } else {
+      return null;
+    }
+  }
+  if (outcome !== "saved") return null;
+  const saved = core.currentDesign.peek();
+  const content = core.snapshot();
+  if (!saved || !content) return null;
+  return {
+    status: "applied",
+    path: saved.home.kind === "file" ? saved.home.key : null,
+    content,
+  };
+}
+
 export async function retryDesignSave(): Promise<void> {
-  await designContinuousSave.save();
+  const core = requireLiveSessionCore();
+  if (!core.currentDesign.peek()) return;
+  await core.flushNow({ force: true });
 }
 
-/** Open the dialog that resolves a file changed outside Canopi. */
 export async function resolveDesignConflict(): Promise<void> {
-  throwIfFailed(await resolveDesignSaveConflict());
+  const core = requireLiveSessionCore();
+  const open = core.currentDesign.peek();
+  if (!open || open.save.kind !== "conflict") return;
+  const choice = await requestSaveProblemDecision({ kind: "conflict", fileGone: open.save.current === null });
+  if (choice === "cancel") return;
+  if (choice === "use-file") {
+    await core.resolveConflict("use-file");
+    return;
+  }
+  await core.resolveConflict(choice === "save-copy" ? "save-as" : "keep-mine");
 }
 
-/** Replace the current Design with the version it had when opened. */
 export async function revertDesign(): Promise<void> {
-  throwIfFailed(await revertDesignSessionToOpenedVersion());
+  const core = requireLiveSessionCore();
+  if (!core.revertAvailable.peek()) return;
+  const choice = await requestSaveProblemDecision({ kind: "revert" });
+  if (choice !== "revert") return;
+  await core.revert();
 }
 
-/** Open a Design Draft through the shared replacement path. */
+function toOpenError(error: unknown, fallbackReason: string): Error {
+  if (error instanceof Error) return error;
+  const err = new Error(fallbackReason);
+  if (error && typeof error === "object") Object.assign(err, error);
+  return err;
+}
+
 export async function openDesignDraft(
   id: string,
-  options: Pick<DocumentLoadOptions, "presentFailure"> = {},
+  options: { readonly presentFailure?: boolean } = {},
 ): Promise<void> {
-  const result = await openDesignDraftSession(id);
-  if (options.presentFailure !== false) presentIfFailed(result);
-  throwIfFailed(result);
-}
-
-/** Open file dialog and replace the active document through the shared guard. */
-export async function openDesign(): Promise<void> {
-  const result = await openDesignSessionFromDialog();
-
-  presentIfFailed(result);
-  throwIfFailed(result);
-}
-
-/** Open a design from a known path (for example, recent files). */
-export async function openDesignFromPath(
-  path: string,
-  options: DocumentLoadOptions = {},
-): Promise<void> {
-  const result = await openDesignSessionFromPath(path, {
-    session: options.session,
-    isCancelled: options.isCancelled,
-    deferWhenDetached: options.deferWhenDetached,
-  });
-
-  if (options.presentFailure !== false) presentIfFailed(result);
-  throwIfFailed(result);
-}
-
-/** Create a new blank design through the shared replacement guard. */
-export async function newDesignAction(): Promise<void> {
-  const result = await createNewDesignSession();
-
-  throwIfFailed(result);
-}
-
-/**
- * Close the current Design and return to the Start screen. Continuous save
- * writes it home first; only a failed write asks (Cancel keeps it open).
- */
-export async function closeDesign(): Promise<void> {
-  throwIfFailed(await closeDesignSession());
-}
-
-/** A Design that could not be opened is told to the user before the caller sees the error. */
-function presentIfFailed(result: DocumentTransitionResult | null): void {
-  if (result?.status === "failed") presentDesignOpenFailure(result.error);
-}
-
-function throwIfFailed(result: DocumentTransitionResult | null): void {
-  if (result?.status === "failed") {
-    throw result.error;
+  const core = requireLiveSessionCore();
+  const result = await core.openFrom({ kind: "draft", id: id as DraftId });
+  if (result.status === "refused") {
+    const error = toOpenError(result.error, result.reason);
+    if (options.presentFailure !== false) presentDesignOpenFailure(result.error ?? error);
+    throw error;
   }
+}
+
+export async function openDesign(): Promise<void> {
+  requireLiveSessionCore();
+  const picked = await editionPorts().fileAccess.pickOpen("canopi");
+  if (picked.kind === "cancelled") return;
+  await openDesignFileHome(picked);
+}
+
+async function openDesignFileHome(
+  target: {
+    readonly grant: FileGrantId;
+    readonly displayName?: string;
+    readonly recentId?: string;
+  },
+  options: { readonly presentFailure?: boolean } = {},
+): Promise<void> {
+  const core = requireLiveSessionCore();
+  const result = await core.openFrom({
+    kind: "file",
+    grant: target.grant,
+    ...(target.displayName ? { displayName: target.displayName } : {}),
+    ...(target.recentId ? { recentId: target.recentId } : {}),
+  });
+  if (result.status === "refused") {
+    const error = toOpenError(result.error, result.reason);
+    if (options.presentFailure !== false) presentDesignOpenFailure(result.error ?? error);
+    throw error;
+  }
+}
+
+export async function openDesignFromPath(
+  grant: FileGrantId,
+  options: {
+    readonly presentFailure?: boolean;
+    readonly grant?: FileGrantId;
+    readonly displayName?: string;
+    readonly recentId?: string;
+  } = {},
+): Promise<void> {
+  await openDesignFileHome(
+    {
+      grant: options.grant ?? grant,
+      ...(options.displayName ? { displayName: options.displayName } : {}),
+      ...(options.recentId ? { recentId: options.recentId } : {}),
+    },
+    options,
+  );
+}
+
+export async function newDesignAction(): Promise<void> {
+  const core = requireLiveSessionCore();
+  const result = await core.createNew();
+  if (result.status === "opened") applyNewDesignBackground();
+  if (result.status === "refused") {
+    throw new Error(result.reason);
+  }
+}
+
+export async function closeDesign(): Promise<void> {
+  const core = getLiveSessionCore();
+  if (!core) return;
+  await core.close("close");
 }

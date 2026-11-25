@@ -289,9 +289,9 @@ function SavedViewUndoToast() {
   return (
     <SlotToast
       message={undo.message}
-      icon={undo.deletion ? 'check' : 'alert'}
-      actionLabel={undo.deletion ? t('savedViews.undo') : undefined}
-      onAction={undo.deletion ? undoDeleteView : undefined}
+      icon={undo.undo ? 'check' : 'alert'}
+      actionLabel={undo.undo ? t('savedViews.undo') : undefined}
+      onAction={undo.undo ? undoDeleteView : undefined}
       onDismiss={() => dismissDeleteViewUndo(undo)}
     />
   )

@@ -85,21 +85,27 @@ impl Host {
         }
     }
 
-    fn open(&self, window: &'static str, kind: DialogKind) -> PickJoin<PickOpenOutcome> {
-        let (ex, dlg, gr) = (
+    fn parts(
+        &self,
+    ) -> (
+        NativeOperationExecutor,
+        Arc<HostDialogs>,
+        Arc<FileGrantRegistry>,
+    ) {
+        (
             self.executor.clone(),
             self.dialogs.clone(),
             self.grants.clone(),
-        );
+        )
+    }
+
+    fn open(&self, window: &'static str, kind: DialogKind) -> PickJoin<PickOpenOutcome> {
+        let (ex, dlg, gr) = self.parts();
         tauri::async_runtime::spawn(async move { pick_open(&ex, &dlg, &gr, window, kind).await })
     }
 
     fn save(&self, kind: DialogKind, stem: &'static str) -> PickJoin<PickSaveOutcome> {
-        let (ex, dlg, gr) = (
-            self.executor.clone(),
-            self.dialogs.clone(),
-            self.grants.clone(),
-        );
+        let (ex, dlg, gr) = self.parts();
         tauri::async_runtime::spawn(
             async move { pick_save(&ex, &dlg, &gr, "main", kind, stem).await },
         )
@@ -116,9 +122,11 @@ fn settle<T>(handle: tauri::async_runtime::JoinHandle<T>) -> T {
 }
 
 fn picked_with_grant(grants: &FileGrantRegistry, path: &Path) -> PickOpenOutcome {
+    let info = grants.grant_info(path).expect("minted grant info");
     PickOpenOutcome::Picked {
         paths: vec![path.display().to_string()],
-        grants: vec![grants.grant(path).expect("minted grant")],
+        grants: vec![info.grant.clone()],
+        file_homes: vec![info],
     }
 }
 
@@ -182,11 +190,13 @@ fn canopi_f47t_52_228_14_a_file_picked_through_the_host_dialogs_is_refused_over_
     answers.join().expect("the picks are answered");
 
     assert_eq!(opened, Ok(picked_with_grant(&grants, &garden)));
+    let saved_info = grants.grant_info(&copy).expect("saved grant info");
     assert_eq!(
         saved,
         Ok(PickSaveOutcome::Picked {
             path: copy.display().to_string(),
-            grant: Some(grants.grant(&copy).expect("saved grant")),
+            grant: Some(saved_info.grant.clone()),
+            file_home: Some(saved_info),
         })
     );
     assert!(!scope.is_allowed(&garden), "the opened file is served");
@@ -324,11 +334,19 @@ fn canopi_f47t_52_228_14_a_save_appends_the_kinds_first_extension_when_missing()
         host.picker.answer(index, Some(vec![absolute(&[chosen])]));
         let written_path = absolute(&[written]);
         let path = written_path.display().to_string();
-        let grant = (kind == DialogKind::DesignSave)
-            .then(|| host.grants.grant(&written_path).expect("saved grant"));
+        let file_home = (kind == DialogKind::DesignSave).then(|| {
+            host.grants
+                .grant_info(&written_path)
+                .expect("saved grant info")
+        });
+        let grant = file_home.as_ref().map(|h| h.grant.clone());
         assert_eq!(
             settle(save),
-            Ok(PickSaveOutcome::Picked { path, grant }),
+            Ok(PickSaveOutcome::Picked {
+                path,
+                grant,
+                file_home,
+            }),
             "{kind:?}"
         );
     }
@@ -416,6 +434,7 @@ fn canopi_f47t_52_228_14_only_a_multiple_kind_returns_several_paths() {
         Ok(PickOpenOutcome::Picked {
             paths: both,
             grants: Vec::new(),
+            file_homes: Vec::new(),
         })
     );
     assert_eq!(settle(design), Ok(picked_with_grant(&host.grants, &a)));
@@ -440,20 +459,17 @@ fn canopi_f47t_52_228_14_the_geojson_host_read_keeps_the_path_in_the_host() {
     assert_eq!(settle(read), Ok(Some(source)));
 }
 
-/// A recorded Design folder that is gone is not offered to the dialog.
 #[test]
 fn canopi_f47t_52_228_14_a_design_folder_that_is_gone_is_not_offered() {
     let host = Host::new();
     let gone = absolute(&["canopi-f47t-gone", "garden.canopi"]);
     host.dialogs.record_design_folder("main", &gone);
-
     let open = host.open("main", DialogKind::DesignOpen);
     assert_eq!(host.picker.request(0).start_folder, None);
     host.picker.answer(0, None);
     settle(open).expect("cancelled");
 }
 
-/// A Design path's folder on each platform's own path syntax; a relative path has none.
 #[test]
 fn canopi_f47t_52_228_14_the_design_folder_follows_windows_and_unix_paths() {
     #[cfg(windows)]
@@ -466,19 +482,14 @@ fn canopi_f47t_52_228_14_the_design_folder_follows_windows_and_unix_paths() {
     let dialogs = HostDialogs::default();
     dialogs.record_design_folder("main", Path::new(design));
     dialogs.record_design_folder("other", Path::new("garden.canopi"));
-
     let windows = lock(&dialogs.windows);
     assert_eq!(
         windows.get("main").and_then(|w| w.design_folder.clone()),
         Some(PathBuf::from(folder))
     );
-    assert!(
-        windows.get("other").is_none(),
-        "a relative path has no folder"
-    );
+    assert!(windows.get("other").is_none());
 }
 
-/// ADR 0029 Platform matrix: the e2e build answers each pick with the next answer file.
 #[test]
 fn canopi_f47t_52_228_14_the_e2e_answer_folder_answers_each_pick_in_name_order() {
     let scratch = crate::test_scratch::TestScratch::new("host-dialogs-e2e-answers");
@@ -501,18 +512,16 @@ fn canopi_f47t_52_228_14_the_e2e_answer_folder_answers_each_pick_in_name_order()
     assert_eq!(AnswerFolderPicker { folder: None }.next_answer(), None);
 }
 
-/// The host plugin gives the app its dialog state once the app exists, so every command finds it.
 #[test]
 fn canopi_f47t_52_228_14_the_host_plugin_manages_the_dialog_state() {
     use tauri::Manager as _;
     let app = tauri::test::mock_builder()
         .plugin(plugin())
         .build(tauri::test::mock_context(tauri::test::noop_assets()))
-        .expect("the mock app builds with the host dialogs plugin");
+        .expect("mock app builds with host dialogs plugin");
     assert!(app.try_state::<HostDialogs>().is_some());
 }
 
-/// Fails to show its first dialog, as a system dialog that cannot open; holds every later one.
 #[derive(Default)]
 struct FailsFirstPicker {
     failed: std::sync::atomic::AtomicBool,
@@ -523,7 +532,7 @@ impl Picker for FailsFirstPicker {
     fn show(&self, request: DialogRequest, answer: Answer) {
         assert!(
             self.failed.swap(true, std::sync::atomic::Ordering::SeqCst),
-            "the dialog could not be opened"
+            "dialog failed"
         );
         self.held.show(request, answer);
     }
@@ -533,9 +542,7 @@ impl Picker for FailsFirstPicker {
     }
 }
 
-/// Contracts §7: a pick whose dialog fails to open settles as an error (its panic settles
-/// `panicked` through the executor) and frees its window, so the next pick there shows its
-/// dialog rather than being refused as already open.
+/// Contracts §7: a pick whose dialog fails to open settles as `panicked` and frees its window.
 #[test]
 fn canopi_f47t_52_228_14_a_dialog_that_fails_to_open_frees_the_window_for_the_next_pick() {
     let picker = Arc::new(FailsFirstPicker::default());
@@ -553,48 +560,38 @@ fn canopi_f47t_52_228_14_a_dialog_that_fails_to_open_frees_the_window_for_the_ne
     assert_eq!(settle(next), Ok(picked_with_grant(&host.grants, &garden)));
 }
 
-/// One problem report names one settlement under one op: a pick the executor settles keeps
-/// its native ring entry under the op of the Failure the webview receives.
 #[test]
 fn canopi_f47t_52_36_a_settled_pick_keeps_its_ring_entry_under_the_commands_op() {
-    let picker = Arc::new(FailsFirstPicker::default());
-    let host = Host::with_picker(picker);
-
+    let host = Host::with_picker(Arc::new(FailsFirstPicker::default()));
     let failed = settle(host.save(DialogKind::DesignSave, "Orchard")).expect_err("panicked");
-
     assert_eq!(failed.op, ops::DIALOG_PICK_SAVE);
     let kept = crate::logging::recent_failures();
     assert!(
         kept.iter()
-            .any(|kept| kept.failure.op == failed.op && kept.failure.code == FailureCode::Panicked),
+            .any(|k| k.failure.op == failed.op && k.failure.code == FailureCode::Panicked),
         "{kept:?}"
     );
     assert!(
-        kept.iter().all(|kept| kept.failure.op != "file dialog"),
+        kept.iter().all(|k| k.failure.op != "file dialog"),
         "{kept:?}"
     );
 }
 
 #[test]
 fn canopi_f47t_52_36_a_settled_host_read_pick_keeps_its_ring_entry_under_the_host_read_op() {
-    let picker = Arc::new(FailsFirstPicker::default());
-    let shown: Arc<dyn Picker> = picker.clone();
-    let dialogs = HostDialogs::new(shown);
-    let executor = executor();
-
+    let dialogs = HostDialogs::new(Arc::new(FailsFirstPicker::default()));
     let refused = tauri::async_runtime::block_on(pick_host_read(
-        &executor,
+        &executor(),
         &dialogs,
         "main",
         DialogKind::GeojsonImport,
     ));
-
     assert!(refused.is_err(), "{refused:?}");
     let kept = crate::logging::recent_failures();
     assert!(
         kept.iter()
-            .any(|kept| kept.failure.op == ops::DIALOG_PICK_HOST_READ
-                && kept.failure.code == FailureCode::Panicked),
+            .any(|k| k.failure.op == ops::DIALOG_PICK_HOST_READ
+                && k.failure.code == FailureCode::Panicked),
         "{kept:?}"
     );
 }

@@ -4,7 +4,7 @@
   "entries": {
     "canopi-types/src/lidar.rs": { "count": 1, "bead": "canopi-f47t.52.35" },
     "desktop/src/commands/app_folders.rs": { "count": 2, "bead": "canopi-f47t.52.35" },
-    "desktop/src/commands/design.rs": { "count": 9, "bead": "canopi-f47t.52.35" },
+    "desktop/src/commands/design.rs": { "count": 7, "bead": "canopi-f47t.52.35" },
     "desktop/src/commands/design_notebook.rs": { "count": 10, "bead": "canopi-f47t.52.35" },
     "desktop/src/commands/export.rs": { "count": 3, "bead": "canopi-f47t.52.35" },
     "desktop/src/commands/favorites.rs": { "count": 3, "bead": "canopi-f47t.52.35" },

@@ -100,14 +100,11 @@ pub fn run() {
             commands::saved_object_stamps::export_saved_object_stamp_canopi_file,
             commands::saved_object_stamps::load_saved_object_stamp_canopi_file,
             commands::design::new_design,
-            commands::design::save_design,
-            commands::design::load_design,
+            commands::design::read_newer_design,
             commands::design::get_recent_files,
             commands::design::get_recent_design_previews,
             commands::design::remove_recent_design,
             commands::design::show_recent_design_in_folder,
-            commands::design::save_design_draft,
-            commands::design::load_design_draft,
             commands::design::list_design_drafts,
             commands::design::delete_design_draft,
             commands::design_notebook::get_design_notebook,
@@ -128,6 +125,7 @@ pub fn run() {
             commands::host::take_pending_open,
             commands::host::home_read,
             commands::host::home_write,
+            commands::host::grant_for_recent,
             commands::host::pick_open,
             commands::host::pick_save,
             commands::update::update_check,
@@ -178,10 +176,6 @@ pub fn run() {
                 app.state::<std::sync::Arc<host::home::FileGrantRegistry>>()
                     .inner(),
             );
-            app.manage(std::sync::Arc::new(host::home::DesktopHomeStore::production(
-                &data_dir,
-                file_grants,
-            )));
             app.manage(services::recent_design_previews::RecentDesignPreviews::default());
             let (user_db, user_stores) = match services::health::open_stores(&data_dir) {
                 Ok(opened) => opened,
@@ -196,6 +190,10 @@ pub fn run() {
                     return Err(format!("Failed to initialize user DB: {error}").into());
                 }
             };
+            app.manage(std::sync::Arc::new(
+                host::home::DesktopHomeStore::production(&data_dir, file_grants)
+                    .with_user_db(user_db.clone()),
+            ));
             app.manage(services::settings::DesktopSettingsStore::new(&data_dir, user_db.clone()));
             app.manage(user_db);
             tracing::info!("User DB initialized");
@@ -270,7 +268,6 @@ pub fn run() {
             let plant_db_status = plant_db.status();
             app.manage(plant_db);
             app.manage(services::plant_browser::SpeciesSearchCancellation::default());
-
             app.manage(AppHealth::new(SubsystemHealth(std::collections::BTreeMap::from_iter([
                 (StoreId::PlantCatalog, services::health::plant_catalog(plant_db_status)),
                 (StoreId::LibraryCatalogue, StoreHealth { status: lidar_library_status, notice: None }),
@@ -597,11 +594,7 @@ mod tests {
             lidar.join("lidar-library.sqlite"),
             data_dir.join("user.db"),
         ] {
-            assert!(
-                !scope.is_allowed(&refused),
-                "refused: {}",
-                refused.display()
-            );
+            assert!(!scope.is_allowed(&refused), "{}", refused.display());
         }
     }
 
@@ -622,10 +615,7 @@ mod tests {
             .iter()
             .find(|window| window.label == "main")
             .expect("tauri.conf.json declares the main window");
-        assert!(
-            !main.create,
-            "Tauri must not create the unguarded main window"
-        );
+        assert!(!main.create, "must not auto-create main window");
         let app = tauri::test::mock_builder()
             .build(context)
             .expect("the mock app builds from the real configuration");
@@ -658,10 +648,11 @@ mod tests {
                 }
             })
             .collect::<Vec<_>>();
-        let mut expected = vec!["main-window".to_owned()];
-        if dev_bridge {
-            expected.push("mcp-bridge-dev".to_owned());
-        }
+        let expected = if dev_bridge {
+            vec!["main-window", "mcp-bridge-dev"]
+        } else {
+            vec!["main-window"]
+        };
         assert_eq!(capabilities, expected);
     }
 }

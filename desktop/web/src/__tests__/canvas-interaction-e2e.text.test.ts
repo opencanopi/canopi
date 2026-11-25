@@ -8,8 +8,9 @@
 import { describe, expect, it, vi } from 'vitest'
 import { t } from '../i18n'
 import type { ScenePoint, SceneStore } from '../canvas/runtime/scene'
-import { SceneHistory } from '../canvas/runtime/scene-history'
-import { SceneRuntimeEditCoordinator } from '../canvas/runtime/scene-runtime/transactions'
+import {
+  SceneRuntimeEditCoordinator,
+} from '../canvas/runtime/scene-runtime/transactions'
 import type { SceneInteractionEventHarness } from './support/canvas-interaction-events'
 import type { TestView } from './support/test-view'
 import {
@@ -259,7 +260,6 @@ describe('SceneInteractionSession', () => {
     const baseDeps = createInteractionDeps(container, store, testView)
     const sceneEdits = new SceneRuntimeEditCoordinator({
       sceneStore: store,
-      history: new SceneHistory(),
       setSelection: baseDeps.setSelection,
       incrementSceneRevision: () => {},
       syncCanvasSignalsFromScene: () => {},

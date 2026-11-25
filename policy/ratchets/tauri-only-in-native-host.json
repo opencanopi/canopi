@@ -5,9 +5,6 @@
     "app/data-library/display.ts -> node_modules/@tauri-apps/api/core.js": {
       "count": 1
     },
-    "app/shell/close-guard.ts -> node_modules/@tauri-apps/api/window.js": {
-      "count": 1
-    },
     "app/shell/window-actions.ts -> node_modules/@tauri-apps/api/window.js": {
       "count": 1
     },

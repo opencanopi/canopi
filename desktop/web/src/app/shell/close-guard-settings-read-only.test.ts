@@ -1,33 +1,34 @@
 // @vitest-environment jsdom
 // Desktop settings on a newer-read-only user DB (2.1-Q320, design check R3 'Setting changed: applied per Q6, never
-// written'): through the real Desktop settings adapter, IPC transport, settings projection and close guard, with only
-// Tauri's invoke and the Design session stubbed. A refused save keeps the change for the session, records and logs
-// nothing, and Quit, Reload or an update asks nothing about the settings; any other save failure still asks.
-import { signal } from '@preact/signals'
+// written'): through the real Desktop settings adapter, IPC transport, settings projection, SessionCore and close guard,
+// with only Tauri's invoke stubbed. A refused save keeps the change for the session, records and logs nothing, and Quit,
+// Reload or an update asks nothing about the settings; any other save failure still asks.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { createTestSessionCore, makeTestDesign, type TestSessionCoreHandle } from '../../__tests__/support/session-core-fixture'
 import { DEFAULT_SETTINGS } from '../../generated/settings'
+import { answerSaveProblem, saveProblem } from '../document-session/save-problem'
 
 const mocks = vi.hoisted(() => ({
   invoke: vi.fn(),
-  requestSaveProblemDecision: vi.fn(),
 }))
 
 vi.mock('@tauri-apps/api/core', () => ({ invoke: mocks.invoke, Channel: class {} }))
-vi.mock('@tauri-apps/api/window', () => ({ getCurrentWindow: vi.fn() }))
-vi.mock('../document-session/transition', () => ({
-  designContinuousSave: { flush: vi.fn(async () => true), conflict: signal(null) },
-}))
-vi.mock('../document-session/store', () => ({ currentDesign: { peek: () => null } }))
-vi.mock('../document-session/save-problem', () => ({ requestSaveProblemDecision: mocks.requestSaveProblemDecision }))
 
-const { flushBeforeExit } = await import('./close-guard')
-const { installSettingsProjection, mutateSettingsProjection, resetSettingsProjectionForTests } = await import('../settings/projection')
+const { flushBeforeExit, registerCloseGuard } = await import('./close-guard')
+const {
+  flushSettingsProjection,
+  installSettingsProjection,
+  mutateSettingsProjection,
+  resetSettingsProjectionForTests,
+} = await import('../settings/projection')
 const { createDesktopSettingsPlatformAdapter } = await import('../../editions/desktop/settings')
 const { getSettingsRecord, patchSettingsRecord } = await import('../../ipc/settings')
 const { resetFrontendDiagnosticsForTests, ringEntries } = await import('../../failures/ring')
 const { snapToGridEnabled } = await import('../settings/state')
 
-let dispose: () => void = () => undefined
+let disposeSettings: () => void = () => undefined
+let session: TestSessionCoreHandle | null = null
+let guard: { dispose(): void } | null = null
 
 async function installDesktopSettings(saveRejection: unknown): Promise<void> {
   mocks.invoke.mockImplementation((command: string) => {
@@ -44,21 +45,31 @@ async function installDesktopSettings(saveRejection: unknown): Promise<void> {
   const installation = installSettingsProjection(
     createDesktopSettingsPlatformAdapter({ getSettingsRecord, patchSettingsRecord }),
   )
-  dispose = installation.dispose
+  disposeSettings = installation.dispose
   await installation.ready
 }
 
 beforeEach(() => {
   mocks.invoke.mockReset()
-  mocks.requestSaveProblemDecision.mockReset().mockResolvedValue('cancel')
   resetSettingsProjectionForTests()
   resetFrontendDiagnosticsForTests()
   snapToGridEnabled.value = false
+  session = createTestSessionCore({
+    file: makeTestDesign(),
+    path: '/orchard.canopi',
+    flushSettings: flushSettingsProjection,
+  })
+  guard = registerCloseGuard()
 })
 
 afterEach(() => {
-  dispose()
-  dispose = () => undefined
+  guard?.dispose()
+  guard = null
+  if (saveProblem.peek()) answerSaveProblem('cancel')
+  session?.dispose()
+  session = null
+  disposeSettings()
+  disposeSettings = () => undefined
   resetSettingsProjectionForTests()
   vi.restoreAllMocks()
 })
@@ -75,13 +86,16 @@ describe('Desktop settings refused as read-only', () => {
     })
 
     mutateSettingsProjection((draft) => { draft.snapToGrid = true })
-    const answers = [await flushBeforeExit('update'), await flushBeforeExit('reload'), await flushBeforeExit('update')]
+    const answers = [await flushBeforeExit('update')]
+    await session!.core.createNew()
+    answers.push(await flushBeforeExit('reload'))
+    await session!.core.createNew()
     mutateSettingsProjection((draft) => { draft.theme = 'dark' })
     answers.push(await flushBeforeExit('update'))
 
-    expect(answers).toEqual(['proceed', 'proceed', 'proceed', 'proceed'])
+    expect(answers).toEqual(['proceed', 'proceed', 'proceed'])
     expect(snapToGridEnabled.value).toBe(true)
-    expect(mocks.requestSaveProblemDecision).not.toHaveBeenCalled()
+    expect(saveProblem.value).toBeNull()
     expect(ringEntries()).toEqual([])
     expect(consoleError).not.toHaveBeenCalled()
     // The first refusal says the store refuses writes; later changes are never sent.
@@ -94,7 +108,11 @@ describe('Desktop settings refused as read-only', () => {
 
     mutateSettingsProjection((draft) => { draft.snapToGrid = true })
 
-    expect(await flushBeforeExit('update')).toBe('cancel')
-    expect(mocks.requestSaveProblemDecision).toHaveBeenCalledWith({ kind: 'settings-failed', designSaved: false })
+    const pending = flushBeforeExit('update')
+    await vi.waitFor(() => expect(saveProblem.value).not.toBeNull())
+    expect(saveProblem.value).toEqual({ kind: 'settings-failed', designSaved: true })
+    answerSaveProblem('cancel')
+
+    expect(await pending).toBe('cancel')
   })
 })

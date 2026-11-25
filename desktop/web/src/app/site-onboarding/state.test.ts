@@ -1,8 +1,7 @@
 // @vitest-environment jsdom
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { createDesignSessionReplacement } from '../document-session/replacement'
-import { createDesignSessionStoreTestFixture, designSessionStore } from '../document-session/store'
+import { clearCurrentDesignState, replaceCurrentDesignState } from '../../__tests__/support/design-session-state'
 import { setCurrentCanvasSession } from '../../canvas/session'
 import { CURRENT_CANOPI_FILE_VERSION } from '../../generated/canopi-design-format'
 import type { CanopiFile, PlacedPlant } from '../../types/design'
@@ -20,13 +19,13 @@ beforeEach(() => {
 afterEach(async () => {
   setCurrentCanvasSession(null)
   await host.destroy()
-  createDesignSessionStoreTestFixture(designSessionStore).reset()
+  clearCurrentDesignState()
 })
 
 /** Opens a Draft (no file path) the way both editions replace the open Design. */
-function open(file: CanopiFile, kind: 'new' | 'loaded'): void {
-  createDesignSessionReplacement({ store: designSessionStore, workflowRunner: { install() {}, dispose() {} } })
-    .replace({ file, kind, path: null, name: file.name }, host.surfaces.documents, () => true)
+function open(file: CanopiFile, _kind: 'new' | 'loaded'): void {
+  host.surfaces.documents.loadDocument(file)
+  replaceCurrentDesignState(file, null, file.name)
 }
 
 function deleteEverything(): void {

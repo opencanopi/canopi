@@ -28,5 +28,24 @@ export function createGalleryEditionPorts(edition: 'desktop' | 'web'): EditionPo
     geocoding: async () => [],
     canvasPdfDelivery: () => ({ save: async () => 'downloaded', dispose: () => {} }),
     budgetExportDelivery: async () => {},
+    designHome: {
+      read: async () => ({ kind: 'absent' }),
+      write: async () => ({ kind: 'written', version: 'gallery-v1' }),
+      listDrafts: async () => [],
+      deleteDraft: async () => ({ ok: true }),
+      onVersionChange: () => () => {},
+    },
+    fileAccess: {
+      pickOpen: async () => ({ kind: 'cancelled' }),
+      pickHomeTarget: async () => ({ kind: 'cancelled' }),
+    },
+    appLifecycle: {
+      subscribe: () => () => {},
+    },
+    designCore: {
+      readNewerDesign: async () => {
+        throw new Error('Gallery edition does not decode newer Designs')
+      },
+    },
   }
 }

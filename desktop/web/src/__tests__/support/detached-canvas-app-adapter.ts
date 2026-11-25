@@ -18,9 +18,6 @@ export function createDetachedCanvasRuntimeAppAdapter(): CanvasRuntimeAppAdapter
   let plantSpacingIntervalM: number = DEFAULT_SETTINGS.plant_spacing_interval_m
 
   return {
-    cleanState: {
-      setCanvasClean: () => {},
-    },
     document: {
       composeDocumentForSave: composeDetachedCanvasDocument,
     },

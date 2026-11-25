@@ -67,10 +67,10 @@ export const KNOWN_CANOPI_KEYS = [
 ] as const
 
 export type KnownCanopiKey = (typeof KNOWN_CANOPI_KEYS)[number]
-export type DocumentFileFieldOwner = 'document' | 'scene'
+export type DocumentFileFieldOwner = 'document' | 'scene' | 'format'
 
 export const DOCUMENT_FILE_FIELD_OWNERS = {
-  version: "scene",
+  version: "format",
   name: "document",
   description: "document",
   plant_species_colors: "scene",
@@ -89,8 +89,8 @@ export const DOCUMENT_FILE_FIELD_OWNERS = {
   lidar: "document",
   views: "document",
   stories: "document",
-  map_view: "scene",
+  map_view: "format",
   created_at: "document",
-  updated_at: "scene",
+  updated_at: "format",
   extra: "document",
 } as const satisfies Record<KnownCanopiKey, DocumentFileFieldOwner>

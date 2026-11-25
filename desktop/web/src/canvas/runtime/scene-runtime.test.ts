@@ -60,6 +60,7 @@ import { SceneCanvasRuntime } from './scene-runtime'
 import { projectScenePlantLabels } from './selection-labels'
 import type { SceneRuntimePanelTargetAdapter } from './scene-runtime/panel-target-adapter'
 import {
+  createDetachedSceneSessionAdapter,
   SceneEditBusyError,
   type SceneEditCoordinator,
   type SceneEditTransaction,
@@ -419,21 +420,14 @@ function createRuntimeWithAppPanelTargets(appAdapter?: CanvasRuntimeAppAdapter):
   })
 }
 
-function lastCleanState(setCanvasClean: ReturnType<typeof vi.fn<(clean: boolean) => void>>): boolean | undefined {
-  return setCanvasClean.mock.calls[setCanvasClean.mock.calls.length - 1]?.[0]
-}
-
 function createCleanStateAdapterProbe() {
-  const setCanvasClean = vi.fn<(clean: boolean) => void>()
   return {
     adapter: {
-      cleanState: { setCanvasClean },
       document: { composeDocumentForSave: composeTestDocumentForSave },
       settings: createTestSettingsAdapter(),
       translate: t,
       isReadOnly: () => false,
     } satisfies CanvasRuntimeAppAdapter,
-    setCanvasClean,
   }
 }
 
@@ -2555,7 +2549,6 @@ describe('scene canvas runtime', () => {
     const cleanState = createCleanStateAdapterProbe()
     const runtime = createRuntimeWithAppPanelTargets(cleanState.adapter)
     runtime.documentSurface.loadDocument(makeFile())
-    cleanState.setCanvasClean.mockClear()
     const { renderer } = await initRuntimeWithStubbedRenderer(runtime)
 
     renderer.setSnapshot.mockClear()
@@ -2573,7 +2566,7 @@ describe('scene canvas runtime', () => {
     expect(snapshot?.highlightedZoneIds).toEqual(new Set(['zone-1']))
     expect(runtime.querySurface.getSelection().length).toBe(0)
     expect(currentCanvasSelection.value.size).toBe(0)
-    expect(cleanState.setCanvasClean).not.toHaveBeenCalledWith(false)
+    expect(runtime.commandSurface.history.canUndo.value).toBe(false)
     runtime.destroy()
   })
 
@@ -2658,26 +2651,36 @@ describe('scene canvas runtime', () => {
   })
 
   it('reports canvas clean-state transitions through the injected app adapter', () => {
-    const cleanState = createCleanStateAdapterProbe()
-    const runtime = new SceneCanvasRuntime({ appAdapter: cleanState.adapter })
+    const sceneSession = createDetachedSceneSessionAdapter()
+    const recordSpy = vi.spyOn(sceneSession, 'recordSceneEdit')
+    const undoSpy = vi.spyOn(sceneSession, 'undo')
+    const redoSpy = vi.spyOn(sceneSession, 'redo')
+    const runtime = new SceneCanvasRuntime({
+      appAdapter: {
+        ...createCleanStateAdapterProbe().adapter,
+        sceneSession,
+      },
+    })
+    sceneSession.bindReplay((command, direction) => runtime.documentSurface.replaySceneCommand(command, direction))
     const file = fileWithOnlyPlants('plant-1')
 
     runtime.documentSurface.loadDocument(file)
-    runtime.documentSurface.captureForPersistence({ name: file.name }, file).acknowledgeSaved()
-    cleanState.setCanvasClean.mockClear()
+    recordSpy.mockClear()
 
     runtime.commandSurface.sceneEdits.selectAll()
     runtime.commandSurface.sceneEdits.lockSelected()
-    expect(lastCleanState(cleanState.setCanvasClean)).toBe(false)
+    expect(recordSpy).toHaveBeenCalledTimes(1)
+    expect(sceneSession.canUndo.value).toBe(true)
 
     runtime.commandSurface.history.undo()
-    expect(lastCleanState(cleanState.setCanvasClean)).toBe(true)
+    expect(undoSpy).toHaveBeenCalledTimes(1)
+    expect(sceneSession.canUndo.value).toBe(false)
+    expect(sceneSession.canRedo.value).toBe(true)
 
     runtime.commandSurface.history.redo()
-    expect(lastCleanState(cleanState.setCanvasClean)).toBe(false)
-
-    runtime.documentSurface.captureForPersistence({ name: file.name }, file).acknowledgeSaved()
-    expect(lastCleanState(cleanState.setCanvasClean)).toBe(true)
+    expect(redoSpy).toHaveBeenCalledTimes(1)
+    expect(sceneSession.canUndo.value).toBe(true)
+    expect(sceneSession.canRedo.value).toBe(false)
   })
 
   it('stales existing persistence receipts and rejects new capture after destroy', () => {
@@ -2713,7 +2716,6 @@ describe('scene canvas runtime', () => {
     } as CanopiFile))
     const runtime = new SceneCanvasRuntime({
       appAdapter: {
-        cleanState: { setCanvasClean: () => {} },
         document: { composeDocumentForSave },
         settings: createTestSettingsAdapter(),
         translate: t,
@@ -3142,7 +3144,6 @@ describe('scene canvas runtime', () => {
     const position = () => runtime.querySurface.getSceneSnapshot().plants[0]!.position
     const start = { ...position() }
     runtime.commandSurface.sceneEdits.selectAll()
-    cleanState.setCanvasClean.mockClear()
 
     // 3 × 0.1 m right then 3 × 0.1 m left sums to 2.8e-17 in floating point, not 0.
     for (let step = 0; step < 3; step += 1) runtime.commandSurface.sceneEdits.nudgeSelected({ x: 0.1, y: 0 })
@@ -3151,7 +3152,6 @@ describe('scene canvas runtime', () => {
 
     expect(position()).toEqual(start)
     expect(runtime.commandSurface.history.canUndo.value).toBe(false)
-    expect(cleanState.setCanvasClean.mock.calls.some(([clean]) => clean === false)).toBe(false)
     runtime.destroy()
   })
 
@@ -3646,7 +3646,6 @@ describe('scene canvas runtime', () => {
     const file = fileWithOnlyPlants('plant-1')
     runtime.documentSurface.loadDocument(file)
     runtime.documentSurface.captureForPersistence({ name: file.name }, file).acknowledgeSaved()
-    cleanState.setCanvasClean.mockClear()
 
     runtime.commandSurface.sceneEdits.selectAll()
     runtime.commandSurface.sceneEdits.lockSelected()
@@ -3654,7 +3653,6 @@ describe('scene canvas runtime', () => {
     expect(runtime.documentSurface.captureForPersistence({ name: file.name }, file).content.plants.find((plant) => plant.id === 'plant-1')?.locked)
       .toBe(true)
     expect(runtime.querySurface.getSelection().length).toBe(0)
-    expect(lastCleanState(cleanState.setCanvasClean)).toBe(false)
     expect(runtime.commandSurface.history.canUndo.value).toBe(true)
 
     runtime.commandSurface.history.undo()
@@ -3681,7 +3679,6 @@ describe('scene canvas runtime', () => {
     const file = makeFile()
     runtime.documentSurface.loadDocument(file)
     runtime.documentSurface.captureForPersistence({ name: file.name }, file).acknowledgeSaved()
-    cleanState.setCanvasClean.mockClear()
 
     expect(runtime.commandSurface.layers.setSceneLayerVisibility('plants', false)).toBe(true)
     expect(runtime.commandSurface.layers.setSceneLayerOpacity('zones', 0.4)).toBe(true)
@@ -3692,7 +3689,6 @@ describe('scene canvas runtime', () => {
     expect(serialized.layers.find((layer) => layer.name === 'plants')?.visible).toBe(false)
     expect(serialized.layers.find((layer) => layer.name === 'zones')?.opacity).toBe(0.4)
     expect(serialized.layers.find((layer) => layer.name === 'zones')?.locked).toBe(true)
-    expect(lastCleanState(cleanState.setCanvasClean)).toBe(false)
     expect(runtime.commandSurface.history.canUndo.value).toBe(true)
 
     runtime.commandSurface.history.undo()
@@ -3717,12 +3713,11 @@ describe('scene canvas runtime', () => {
     file.plants[1]!.color = '#C44230'
     runtime.documentSurface.loadDocument(file)
     runtime.documentSurface.captureForPersistence({ name: file.name }, file).acknowledgeSaved()
-    cleanState.setCanvasClean.mockClear()
 
     const changed = runtime.commandSurface.plantPresentation.setPlantColorForSpecies('Malus domestica', '#C44230')
 
     expect(changed).toBe(0)
-    expect(lastCleanState(cleanState.setCanvasClean)).toBe(false)
+    expect(runtime.commandSurface.history.canUndo.value).toBe(true)
     expect(runtime.documentSurface.captureForPersistence({ name: file.name }, file).content.plant_species_colors).toEqual({
       'Malus domestica': '#C44230',
     })

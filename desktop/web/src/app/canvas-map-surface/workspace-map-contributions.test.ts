@@ -9,7 +9,7 @@ import { WorkspaceMapContributions } from './workspace-map-contributions'
 import { USER_LOCATION_OVERLAY_PORT } from './user-location-overlay-port'
 import { createDesktopWorkspaceMapContributionAdapter } from './desktop-workspace-map-contribution-adapter'
 import { createTestCanvasQuerySurface } from '../../__tests__/support/canvas-query-surface'
-import { designSessionStore } from '../document-session/store'
+import { createTestSessionCore } from '../../__tests__/support/session-core-fixture'
 import { activePanel, selectPanel, sidePanel } from '../shell/state'
 import { endSiteDataTransients, setPin, setProfileLine } from '../data-library/site-transients'
 import type { CanopiFile } from '../../types/design'
@@ -873,7 +873,7 @@ describe('WorkspaceMapContributions', () => {
   })
 
   it('reads the Desktop pin and profile line into the snapshot in [lon, lat], and none in overview', () => {
-    designSessionStore.replaceCurrentDesignState({ name: 'Orchard' } as CanopiFile, null, 'Orchard')
+    const session = createTestSessionCore({ file: { name: 'Orchard' } as CanopiFile })
     selectPanel('site-data')
     try {
       const adapter = createDesktopWorkspaceMapContributionAdapter({ locationEnabled: true })
@@ -885,6 +885,7 @@ describe('WorkspaceMapContributions', () => {
       runtime.setPlacement({ x: 0, y: 0, scale: 0.01 })
       expect(adapter.read(runtime)?.overlays.site).toBeNull()
     } finally {
+      session.dispose()
       endSiteDataTransients()
       sidePanel.value = null
       activePanel.value = 'canvas'

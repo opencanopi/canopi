@@ -3,13 +3,12 @@ import type { CanopiFile } from '../../types/design'
 type DesignProjector = (design: CanopiFile) => CanopiFile
 
 export interface DesignEditAuthorityCapability {
-  editCommitted(projector: DesignProjector): CanopiFile | null
+  editCommitted(projector: DesignProjector, label?: string): CanopiFile | null
   reconcileCommitted(projector: DesignProjector): CanopiFile | null
-  markCommittedDirty(): void
   readCommitted(): CanopiFile | null
   readSessionIdentity(): object
   readDesignName(): string
-  renameDesign(name: string): boolean
+  renameDesign(name: string, label?: string): boolean
 }
 
 const NO_AUTHORITY = 'Design Session store has no Design Edit authority'

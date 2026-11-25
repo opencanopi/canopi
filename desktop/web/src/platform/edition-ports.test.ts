@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
+import { createTestEditionPorts } from '../__tests__/support/test-edition-ports'
 import { capabilitiesForEdition } from '../generated/edition-capabilities'
-import { DEFAULT_SETTINGS } from '../generated/settings'
 import {
   editionPorts,
   hasEditionPorts,
@@ -9,33 +9,9 @@ import {
 } from './edition-ports'
 
 function stubPorts(edition: 'desktop' | 'web'): EditionPorts {
-  return {
+  return createTestEditionPorts({
     capabilities: capabilitiesForEdition(edition, 'linux'),
-    settings: {
-      load: () => ({ ...DEFAULT_SETTINGS }),
-      save: async () => {},
-    },
-    problemReport: {
-      sections: {
-        build: 'not_on_this_edition',
-        health: 'not_on_this_edition',
-        queues: 'not_on_this_edition',
-        native_settlements: 'not_on_this_edition',
-        jobs: 'not_on_this_edition',
-        library_disk: 'not_on_this_edition',
-        log_tail: 'not_on_this_edition',
-        settings_summary: 'not_on_this_edition',
-      },
-      currentDesign: () => null,
-      write: async () => ({ file_name: 'report.zip' }),
-    },
-    geocoding: async () => [],
-    canvasPdfDelivery: () => ({
-      save: async () => 'downloaded',
-      dispose: () => {},
-    }),
-    budgetExportDelivery: async () => {},
-  }
+  })
 }
 
 describe('platform/edition-ports (Stage 2 A1)', () => {

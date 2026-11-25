@@ -1,7 +1,0 @@
-{
-  "$schema": "./ratchet.schema.json",
-  "family": "persistence-capability-imported-only-by-owners",
-  "entries": {
-    "app/document-session/store.ts -> app/document-session/persistence-capability.ts": { "count": 1 }
-  }
-}

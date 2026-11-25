@@ -7,6 +7,7 @@ import { computed, signal, type ReadonlySignal } from '@preact/signals'
 import { useCallback, useLayoutEffect, useRef } from 'preact/hooks'
 import { reportFailure } from '../../failures/report'
 import type { LayerSlotId } from '../../maplibre/map-lifetime'
+import { createAppSceneRuntimePanelTargetAdapter } from '../canvas-runtime/panel-target-adapter'
 import { flushSettingsProjection } from '../settings/projection'
 import {
   IDLE_CANVAS_SURFACE_STATE,
@@ -17,11 +18,22 @@ import {
   type CanvasHostView,
   type CanvasSurfaceState,
 } from './canvas-host'
-import type { WorkspaceRuntimeComposition } from './workspace-runtime-composition'
+import { persistLastView } from './last-view'
+import {
+  createWorkspaceRuntimeComposition,
+  type WorkspaceRuntimeComposition,
+  type WorkspaceRuntimeCompositionOptions,
+} from './workspace-runtime-composition'
+
+type CanvasHostCompositionAdapters = Pick<
+  WorkspaceRuntimeCompositionOptions,
+  'appAdapter' | 'mapContributions' | 'readSnapshot' | 'readBackgroundPresentation'
+>
 
 export interface CanvasHostRuntimeBinding {
   readonly core: CanvasHostCore
-  readonly createComposition: (options: CanvasHostCompositionOptions) => WorkspaceRuntimeComposition
+  readonly adapters?: CanvasHostCompositionAdapters
+  readonly createComposition?: (options: CanvasHostCompositionOptions) => WorkspaceRuntimeComposition
 }
 
 const runtimeBindingSlot: { current: (() => CanvasHostRuntimeBinding) | null } = { current: null }
@@ -72,10 +84,19 @@ export function useCanvasHost(containerRef: MutableDomRef<HTMLDivElement>): Canv
     if (!container) return
 
     const binding = readCanvasHostRuntime()
+    const createComposition = binding.createComposition ?? ((options: CanvasHostCompositionOptions) => {
+      if (!binding.adapters) throw new Error('Canvas host runtime requires adapters or createComposition')
+      return createWorkspaceRuntimeComposition({
+        ...options,
+        ...binding.adapters,
+        targetPresentation: createAppSceneRuntimePanelTargetAdapter(),
+        onViewSettled: persistLastView,
+      })
+    })
     const handle = mountCanvasHost({
       elements: { container },
       core: binding.core,
-      createComposition: binding.createComposition,
+      createComposition,
       flushSettings: flushSettingsProjection,
       reportFailure: (error, info) => {
         reportFailure(error, { shown: 'none', source: info.source })

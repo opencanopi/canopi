@@ -36,13 +36,13 @@ import type { CanvasDocumentSurface } from '../../canvas/runtime/runtime'
 import { installSpeciesCacheLoader } from '../../app/canvas-runtime/species-cache'
 import { createDesktopCanvasRuntimeAppAdapter } from '../../app/canvas-runtime/desktop-adapter'
 import { createAppCanvasRuntimeAppAdapter } from '../../app/canvas-runtime/app-adapter'
-import { createAppSceneRuntimePanelTargetAdapter } from '../../app/canvas-runtime/panel-target-adapter'
 import { createDesktopWorkspaceMapContributionAdapter } from '../../app/canvas-map-surface/desktop-workspace-map-contribution-adapter'
 import { createDesktopCanvasHostCore } from '../../app/canvas-map-surface/desktop-workspace-runtime'
-import { installCanvasHostRuntime } from '../../app/canvas-map-surface/use-canvas-host'
+import { installCanvasHostRuntime, type CanvasHostRuntimeBinding } from '../../app/canvas-map-surface/use-canvas-host'
 import { readWorkspaceActivationSnapshot, readWorkspaceBackgroundPresentation } from '../../app/canvas-map-surface/workspace-activation-snapshot'
 import { readWorkspaceMapContributions } from '../../app/canvas-map-surface/workspace-map-contribution-adapter'
-import { createWorkspaceRuntimeComposition, type WorkspaceRuntimeComposition, type WorkspaceRuntimeMountOptions } from '../../app/canvas-map-surface/workspace-runtime-composition'
+import { createJsonSessionCodec, createSessionCore, installLiveSessionCore } from '../../app/document-session/live-core'
+import { registerCloseGuard } from '../../app/shell/close-guard'
 import { installLidarDisplayDescriptors } from '../../app/data-library/display'
 import { installLidarLibraryObserver } from '../../app/data-library/library-store'
 import { closeCanvasContextMenu, openCanvasContextMenu } from '../../app/canvas-context-menu/state'
@@ -50,6 +50,7 @@ import { createGalleryEditionPorts } from './ports'
 import { activity, galleryCommandTransport } from './command-adapter'
 import { installAssetUrlResolver, installCommandTransport } from '../../types/command-transport'
 import { installEditionPorts } from '../../platform/edition-ports'
+import type { DesignHomeStore, DraftId } from '../../platform/design-home'
 import type { AppFolderLocations } from '../../generated/contracts'
 import { attachmentFailure, pendingAttachments } from '../../app/data-library/actions'
 import { analyzeItem, dataDialog, libraryView, openDataLibrary } from '../../app/data-library/library-navigation'
@@ -131,13 +132,11 @@ if (edition === 'desktop' && fixtureState === 'lidar-raster') {
   installLidarDisplayDescriptors((path) => path)
 }
 
-function createGalleryDesktopRuntime(options: WorkspaceRuntimeMountOptions): WorkspaceRuntimeComposition {
+function createGalleryDesktopAdapters(): NonNullable<CanvasHostRuntimeBinding['adapters']> {
   const baseContributions = createDesktopWorkspaceMapContributionAdapter({ locationEnabled: true })
   const baseCreateRasterDisplay = baseContributions.createRasterDisplay
-  return createWorkspaceRuntimeComposition({
-    ...options,
+  return {
     appAdapter: createDesktopCanvasRuntimeAppAdapter(),
-    targetPresentation: createAppSceneRuntimePanelTargetAdapter(),
     mapContributions: {
       ...(baseCreateRasterDisplay && fixtureState === 'lidar-raster'
         ? {
@@ -161,21 +160,19 @@ function createGalleryDesktopRuntime(options: WorkspaceRuntimeMountOptions): Wor
         }
       },
     },
-    readSnapshot: (readInitialCenter) => readWorkspaceActivationSnapshot({
+    readSnapshot: (readInitialCenter: () => { readonly lat: number; readonly lon: number }) => readWorkspaceActivationSnapshot({
       readInitialCenter,
       readMapLayers: readOfflineMapLayers,
     }),
     readBackgroundPresentation: () => readWorkspaceBackgroundPresentation({
       readMapLayers: readOfflineMapLayers,
     }),
-  })
+  }
 }
 
-function createGalleryWebRuntime(options: WorkspaceRuntimeMountOptions): WorkspaceRuntimeComposition {
-  return createWorkspaceRuntimeComposition({
-    ...options,
+function createGalleryWebAdapters(): NonNullable<CanvasHostRuntimeBinding['adapters']> {
+  return {
     appAdapter: createAppCanvasRuntimeAppAdapter({ presentationData: {} }),
-    targetPresentation: createAppSceneRuntimePanelTargetAdapter(),
     mapContributions: {
       read: (runtime) => readWorkspaceMapContributions(runtime, designSessionStore, () => ({
         lidar: [],
@@ -183,18 +180,17 @@ function createGalleryWebRuntime(options: WorkspaceRuntimeMountOptions): Workspa
         site: null,
       })),
     },
-    readSnapshot: (readInitialCenter) => readWorkspaceActivationSnapshot({
+    readSnapshot: (readInitialCenter: () => { readonly lat: number; readonly lon: number }) => readWorkspaceActivationSnapshot({
       readInitialCenter,
       readMapLayers: readOfflineMapLayers,
     }),
     readBackgroundPresentation: () => readWorkspaceBackgroundPresentation({
       readMapLayers: readOfflineMapLayers,
     }),
-  })
+  }
 }
 
 const galleryWebController = {
-  launching: signal(false),
   attachCanvasSession: (documents: CanvasDocumentSurface) => {
     const current = designSessionStore.currentDesign.peek()
     if (current) {
@@ -204,7 +200,7 @@ const galleryWebController = {
     }
     return () => {}
   },
-} as unknown as NonNullable<Parameters<typeof WebCanvasWorkspace>[0]['controller']>
+}
 const initial = parseGallerySurface(params.get('surface'))
 const selectedSurface = signal<GallerySurface>(initial)
 installCanvasHostRuntime(() => {
@@ -223,15 +219,50 @@ installCanvasHostRuntime(() => {
           detach = null
         },
       },
-      createComposition: createGalleryWebRuntime,
+      adapters: createGalleryWebAdapters(),
     }
   }
   return {
     core: createDesktopCanvasHostCore(),
-    createComposition: createGalleryDesktopRuntime,
+    adapters: createGalleryDesktopAdapters(),
   }
 })
-installEditionPorts(createGalleryEditionPorts(edition))
+const galleryPorts = createGalleryEditionPorts(edition)
+installEditionPorts(galleryPorts)
+const gallerySessionKind = params.get('session') === 'read-only'
+  ? { kind: 'read-only', origin: 'newer-version', savedByVersion: 10 } as const
+  : undefined
+const file = designFixture(fixtureState)
+// `state=no-design`: no Design is open, as on the Start screen (the empty Data library's Import… is disabled).
+const gallerySessionCore = createSessionCore({
+  designHome: galleryPorts.designHome as DesignHomeStore,
+  fileAccess: galleryPorts.fileAccess,
+  lifecycle: galleryPorts.appLifecycle,
+  codec: createJsonSessionCodec({
+    decode: async (bytes) => ({
+      file: JSON.parse(new TextDecoder().decode(bytes)),
+      ...(gallerySessionKind ? { readOnly: true, savedByVersion: gallerySessionKind.savedByVersion } : {}),
+    }),
+  }),
+  settings: {
+    readLastOpenHome: async () => null,
+    writeLastOpenHome: async () => {},
+  },
+  newDesignFactory: () => designFixture(fixtureState),
+  ...(initial !== 'start' && fixtureState !== 'no-design'
+    ? { initialDesign: { home: { kind: 'draft', key: 'gallery-fixture' as DraftId, version: null }, file, ...(gallerySessionKind ? { readOnly: true, savedByVersion: gallerySessionKind.savedByVersion } : {}) } }
+    : {}),
+})
+const disposeGallerySessionCore = installLiveSessionCore(gallerySessionCore)
+// Gallery registers the close guard to keep SessionCore's close-question contract active;
+// it never triggers host close prompts, so WorkspaceDialogs does not mount SaveProblemDialog here (N4).
+const galleryCloseGuard = registerCloseGuard()
+if (import.meta.hot) {
+  import.meta.hot.dispose(() => {
+    galleryCloseGuard.dispose()
+    disposeGallerySessionCore()
+  })
+}
 const galleryAppFolders: AppFolderLocations = {
   drafts: '/gallery/drafts',
   data_library: '/gallery/data-library',
@@ -239,13 +270,6 @@ const galleryAppFolders: AppFolderLocations = {
 /** `open=<id>`: the Site data item opened under its row, or the item the Data library selects. */
 const openItem = params.get('open')
 const galleryCanvasReady = signal(false)
-const file = designFixture(fixtureState)
-// `session=read-only`: the Design opens as one a newer Canopi saved (2.1-Q317), its save status "Read-only" (Q336).
-const sessionKind = params.get('session') === 'read-only'
-  ? { kind: 'read-only', origin: 'newer-version', savedByVersion: 10 } as const
-  : undefined
-// `state=no-design`: no Design is open, as on the Start screen (the empty Data library's Import… is disabled).
-if (initial !== 'start' && fixtureState !== 'no-design') designSessionStore.replaceCurrentDesignState(file, null, file.name, sessionKind)
 // Layers-initiated work joining this Design, as its progress rows show it.
 if (fixtureState === 'lidar-progress') {
   const identity = designSessionStore.sessionIdentity.value
@@ -425,7 +449,6 @@ function GalleryCanvasWorkspace() {
   if (edition === 'web' || locationButton) {
     return (
       <WebCanvasWorkspace
-        controller={galleryWebController}
         {...(locationButton ? { myLocation: locationButton } : {})}
       />
     )
@@ -511,10 +534,10 @@ function GalleryWebFrame({ children }: { readonly children: preact.ComponentChil
   return <>
     <BrowserAppShell
       commandProjection={projection}
-      designIdentity={sessionKind
-        ? { name: file.name, saveStatus: 'read-only', saveFailureReason: null, readOnlyOrigin: sessionKind.origin }
+      designIdentity={gallerySessionKind
+        ? { name: file.name, saveStatus: 'read-only', saveFailureReason: null, readOnlyOrigin: gallerySessionKind.origin }
         : { name: file.name, saveStatus: 'draft', saveFailureReason: null }}
-      {...(sessionKind ? { onUpdate: () => {} } : {})}
+      {...(gallerySessionKind ? { onUpdate: () => {} } : {})}
       placeSearch
       {...(undoAction ? { undo: undoAction } : {})}
     >
@@ -527,12 +550,7 @@ function GalleryWebFrame({ children }: { readonly children: preact.ComponentChil
   </>
 }
 
-function GalleryStart() {
-  return <>
-    <WelcomeScreen />
-    <GalleryDesktopFrame />
-  </>
-}
+function GalleryStart() { return <><WelcomeScreen /><GalleryDesktopFrame /></> }
 
 function GalleryWorkspaceCommands({ panelProjection }: { readonly panelProjection: WorkspacePanelProjection }) {
   return (

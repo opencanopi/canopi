@@ -11,7 +11,8 @@ import { t } from '../../i18n'
 import type { Settings } from '../../types/settings'
 import { gridVisible } from '../canvas-settings/signals'
 import { composeDocumentForSave } from '../contracts/document'
-import { setCanvasClean } from '../document-session/store'
+import { createTestSessionCore } from '../../__tests__/support/session-core-fixture'
+import type { CanopiFile } from '../../types/design'
 import {
   installSettingsProjection,
   resetSettingsProjectionForTests,
@@ -61,12 +62,20 @@ describe('Canvas Runtime app adapter composition', () => {
     expect(adapter.savedObjectStamps).toBeUndefined()
   })
 
-  it('delegates clean state, document composition, and translation to app authorities', () => {
-    const adapter = createAdapter()
+  it('delegates sceneSession history, document composition, and translation to app authorities', () => {
+    const session = createTestSessionCore({ file: { version: 9, name: 'Orchard', plants: [] } as unknown as CanopiFile })
+    try {
+      const adapter = createAdapter()
 
-    expect(adapter.cleanState.setCanvasClean).toBe(setCanvasClean)
-    expect(adapter.document.composeDocumentForSave).toBe(composeDocumentForSave)
-    expect(adapter.translate).toBe(t)
+      expect(adapter.sceneSession?.canUndo.value).toBe(false)
+      adapter.sceneSession?.recordSceneEdit('move', { type: 'move', before: {}, after: {} })
+      expect(adapter.sceneSession?.canUndo.value).toBe(true)
+      expect(session.core.dirty.value).toBe(true)
+      expect(adapter.document.composeDocumentForSave).toBe(composeDocumentForSave)
+      expect(adapter.translate).toBe(t)
+    } finally {
+      session.dispose()
+    }
   })
 
   it('persists Plant Spacing interval commits immediately', () => {

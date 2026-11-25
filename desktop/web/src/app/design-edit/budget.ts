@@ -11,7 +11,7 @@ export function setBudgetCurrency(currency: string): void {
       budget_currency: currency,
       budget: design.budget.map((item) => ({ ...item, currency })),
     }
-  })
+  }, 'budget.currency')
 }
 
 export function setPlantBudgetPrice(canonicalName: string, unitCost: number): void {
@@ -44,5 +44,5 @@ export function setPlantBudgetPrice(canonicalName: string, unitCost: number): vo
         ? [...budget, next]
         : budget.map((item, itemIndex) => (itemIndex === index ? next : item)),
     }
-  })
+  }, 'budget.price')
 }

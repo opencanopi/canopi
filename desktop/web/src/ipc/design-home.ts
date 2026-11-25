@@ -1,5 +1,5 @@
 import { invokeTyped, mintOperationId } from './transport'
-import type { HomeRead, HomeVersion, HomeWrite } from '../generated/contracts'
+import type { FileHomeGrant, HomeRead, HomeVersion, HomeWrite } from '../generated/contracts'
 
 /**
  * Desktop Design home IPC wrappers (`home_read` / `home_write`, 2b-4; contracts §4, ADR 0027).
@@ -9,6 +9,10 @@ import type { HomeRead, HomeVersion, HomeWrite } from '../generated/contracts'
  */
 export async function homeRead(key: string): Promise<HomeRead> {
   return invokeTyped('home_read', { key }, mintOperationId('s'))
+}
+
+export async function grantForRecent(recentId: string): Promise<FileHomeGrant | null> {
+  return invokeTyped('grant_for_recent', { recentId }, mintOperationId('s'))
 }
 
 export async function homeWrite(

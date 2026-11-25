@@ -1,5 +1,4 @@
 import { useMemo } from 'preact/hooks'
-import type { BrowserDesignSessionController } from '../../web/browser-design-session'
 export { WebCanvasWorkspace } from './WebCanvasWorkspace'
 import { WebCanvasWorkspace } from './WebCanvasWorkspace'
 import { WebLayersPanel } from './WebLayersPanel'
@@ -25,19 +24,17 @@ const WorldMapPanel = retryableLazy(async () => {
 })
 
 export function WebWorkspace({
-  controller,
   panelProjection,
   phoneTabs,
   templatesEnabled,
 }: {
-  readonly controller: BrowserDesignSessionController
   readonly panelProjection: WorkspacePanelProjection
   /** The side panel commands, as the phone sheet's tabs. */
   readonly phoneTabs: readonly PanelRailCommand[]
   readonly templatesEnabled: boolean
 }) {
   const surfaces = useMemo<WorkspaceSurfaces>(() => {
-    const Canvas = () => <WebCanvasWorkspace controller={controller} />
+    const Canvas = () => <WebCanvasWorkspace />
     return {
       primary: {
         canvas: Canvas,
@@ -54,7 +51,7 @@ export function WebWorkspace({
         favorites: WebFavorites,
       },
     }
-  }, [controller, templatesEnabled])
+  }, [templatesEnabled])
 
   return (
     <WorkspaceComposition

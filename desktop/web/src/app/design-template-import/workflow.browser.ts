@@ -1,8 +1,6 @@
 import type { TemplateMeta } from '../../types/community'
 import { decodeCanopiDesign } from '../contracts/design-ingestion'
-import {
-  browserDesignSessionController,
-} from '../../web/browser-design-session'
+import { requireLiveSessionCore } from '../document-session/live-core'
 import { WEB_STATIC_DESIGN_TEMPLATE_ASSET_ORIGINS } from './static-design-templates'
 import {
   createDesignTemplateImportCoordinator,
@@ -50,10 +48,14 @@ export function createBrowserDesignTemplateImportWorkflow(
     },
     open: (envelope, isCancelled) => {
       const openCanopiTemplate = adapters.openCanopiTemplate
-        ?? ((envelope, options) => browserDesignSessionController.openCanopiTemplate(
-          envelope,
-          options,
-        ))
+        ?? (async (template) => {
+          const core = requireLiveSessionCore()
+          const bytes = new TextEncoder().encode(JSON.stringify(template.file))
+          const res = await core.openFrom({ kind: 'bytes', name: template.file.name || 'Untitled', bytes })
+          if (res.status === 'cancelled') return res.status
+          if (res.status === 'refused') throw new Error(res.reason)
+          return 'opened'
+        })
       return openCanopiTemplate(envelope, { isCancelled })
     },
   })

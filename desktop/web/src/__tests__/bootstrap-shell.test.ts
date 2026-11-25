@@ -38,6 +38,8 @@ const mocks = vi.hoisted(() => ({
   takeEarlierDataNotice: vi.fn(),
   raiseEarlierDataNotice: vi.fn(),
   openSpeciesLists: vi.fn(),
+  takeReloadHome: vi.fn(),
+  loadDraft: vi.fn(),
   installLaunchFile: vi.fn(),
   disposeLaunchFile: vi.fn(),
 }));
@@ -47,7 +49,13 @@ vi.mock("../app/document-session/launch-file", () => ({
 }));
 
 vi.mock("../web/browser-app-data", () => ({
-  browserAppDataStore: { takeEarlierDataNotice: mocks.takeEarlierDataNotice, openSpeciesLists: mocks.openSpeciesLists },
+  browserAppDataStore: {
+    takeEarlierDataNotice: mocks.takeEarlierDataNotice,
+    openSpeciesLists: mocks.openSpeciesLists,
+    listDrafts: mocks.listDrafts,
+    takeReloadHome: mocks.takeReloadHome,
+    loadDraft: mocks.loadDraft,
+  },
 }));
 
 vi.mock("../web/browser-notices", () => ({
@@ -57,18 +65,6 @@ vi.mock("../web/browser-notices", () => ({
 
 vi.mock("../app/tool-rail/learning", () => ({
   installToolRailLearning: mocks.installToolRailLearning,
-}));
-
-vi.mock("../web/browser-design-session", () => ({
-  browserDesignSessionController: {
-    launch: mocks.launch,
-    installNewerDrafts: mocks.installNewerDrafts,
-    listDrafts: mocks.listDrafts,
-    listedNewerDrafts: mocks.listedNewerDrafts,
-    draftListingComplete: mocks.draftListingComplete,
-    installContinuousSave: mocks.installContinuousSave,
-    installFormatCore: mocks.installFormatCore,
-  },
 }));
 
 vi.mock("../app/geocoding/place-search-session", () => ({
@@ -93,10 +89,13 @@ vi.mock("../app/settings/projection", () => ({
   installSettingsProjection: mocks.installSettingsProjection,
   readSettingsReportSummary: () => ({}),
   retrySettingsLoad: async () => false,
+  flushSettingsProjection: vi.fn(async () => {}),
+  mutateSettingsProjection: vi.fn(),
 }));
 
 vi.mock("../app/shell/close-guard", () => ({
   registerCloseGuard: mocks.registerCloseGuard,
+  waitForCloseHold: vi.fn(async () => {}),
 }));
 
 vi.mock("../editions/web/settings", () => ({
@@ -147,6 +146,8 @@ describe("settings platform bootstrap", () => {
     mocks.installToolRailLearning.mockReset().mockReturnValue(mocks.disposeToolRailLearning);
     mocks.takeEarlierDataNotice.mockReset().mockReturnValue(false);
     mocks.raiseEarlierDataNotice.mockReset();
+    mocks.takeReloadHome.mockReset().mockReturnValue(null);
+    mocks.loadDraft.mockReset().mockReturnValue(null);
     mocks.disposeLaunchFile.mockReset();
     mocks.installLaunchFile.mockReset().mockReturnValue(mocks.disposeLaunchFile);
   });
@@ -174,41 +175,26 @@ describe("settings platform bootstrap", () => {
     expect(mocks.disposeTheme).toHaveBeenCalledOnce();
   });
 
-  it("owns the Web Design Session lifetime: restores the newest Draft, then saves continuously", async () => {
+  it("owns the Web Design Session lifetime: installs SessionCore, opens species lists, and disposes cleanly on re-boot", async () => {
     const { bootWebEdition: bootstrapPlatform } = await import("../editions/web/boot");
+    const { getLiveSessionCore } = await import("../app/document-session/live-core");
 
     bootstrapPlatform();
 
-    expect(mocks.launch).toHaveBeenCalledOnce();
-    // canopi-f47t.52.272: 2.1's Draft store reader is the session's before the launch reads its ids (2.1-Q321, A18).
-    expect(mocks.installNewerDrafts).toHaveBeenCalledOnce();
-    expect(mocks.installNewerDrafts.mock.invocationCallOrder[0]).toBeLessThan(mocks.launch.mock.invocationCallOrder[0]!);
+    const firstCore = getLiveSessionCore();
+    expect(firstCore).not.toBeNull();
     // The species lists read 2.1's key through the reader the launch passes in (2.1-Q319, Q320).
     expect(mocks.openSpeciesLists).toHaveBeenCalledOnce();
     const { readSpeciesListRecord } = await import("../platform/browser-record");
     expect(mocks.openSpeciesLists.mock.calls[0]![0]).toBe(readSpeciesListRecord);
-    expect(mocks.installContinuousSave).toHaveBeenCalledOnce();
     expect(mocks.installPlaceSearchSession).toHaveBeenCalledOnce();
-    expect(mocks.installSettingsProjection.mock.invocationCallOrder[0]).toBeLessThan(
-      mocks.launch.mock.invocationCallOrder[0]!,
-    );
-    expect(mocks.launch.mock.invocationCallOrder[0]).toBeLessThan(
-      mocks.installContinuousSave.mock.invocationCallOrder[0]!,
-    );
-    // canopi-f47t.52.270: the format core is the session's before a Draft reopens, so a newer one opens read-only.
-    expect(mocks.installFormatCore.mock.invocationCallOrder[0]).toBeLessThan(
-      mocks.launch.mock.invocationCallOrder[0]!,
-    );
 
     bootstrapPlatform();
 
-    expect(mocks.uninstallFormatCore).toHaveBeenCalledOnce();
-    expect(mocks.uninstallNewerDrafts).toHaveBeenCalledOnce();
-    expect(mocks.uninstallContinuousSave).toHaveBeenCalledOnce();
+    expect(getLiveSessionCore()).not.toBe(firstCore);
     expect(mocks.disposePlaceSearchSession).toHaveBeenCalledOnce();
     expect(mocks.installToolRailLearning).toHaveBeenCalledTimes(2);
     expect(mocks.disposeToolRailLearning).toHaveBeenCalledOnce();
-    expect(mocks.installContinuousSave).toHaveBeenCalledTimes(2);
   });
 
   // The notice holds locale keys (failures/notices.ts), so raised at once it reads in the user's locale once it loads.
@@ -220,7 +206,6 @@ describe("settings platform bootstrap", () => {
 
     expect(mocks.takeEarlierDataNotice).toHaveBeenCalledOnce();
     expect(mocks.raiseEarlierDataNotice).toHaveBeenCalledOnce();
-    expect(mocks.launch).toHaveBeenCalledOnce();
   });
 
   it("says nothing when no browser data from before Canopi 2.0 was found", async () => {
@@ -230,13 +215,11 @@ describe("settings platform bootstrap", () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(mocks.raiseEarlierDataNotice).not.toHaveBeenCalled();
-    expect(mocks.launch).toHaveBeenCalledOnce();
   });
 
   // canopi-eon8.15 (S1): a release Reload from the start screen reopens no Draft (2.1-Q189), yet the stored Drafts are
   // still there, so the launch is not a first visit: the warning and Keep my drafts show, and New/Open do not ask.
   it("canopi-eon8.15: Drafts stored at launch warn and offer Keep my drafts even when none reopened", async () => {
-    mocks.launch.mockResolvedValue(false);
     const storage = { persisted: vi.fn(async () => false), persist: vi.fn(async () => false) };
     Object.defineProperty(globalThis.navigator, "storage", { configurable: true, value: storage });
     try {
@@ -259,7 +242,6 @@ describe("settings platform bootstrap", () => {
   });
 
   it("canopi-eon8.15: a launch with no stored Draft is a first visit", async () => {
-    mocks.launch.mockResolvedValue(false);
     mocks.listDrafts.mockReturnValue([]);
     const storage = { persisted: vi.fn(async () => false), persist: vi.fn(async () => false) };
     Object.defineProperty(globalThis.navigator, "storage", { configurable: true, value: storage });
@@ -277,59 +259,17 @@ describe("settings platform bootstrap", () => {
     }
   });
 
-  // The launch's 2.1 listing counts: an origin whose only Drafts are 2.1's IndexedDB ones is not a first visit (2.1-Q82,
-  // Q190), so Drafts are counted once that listing settles.
-  it("R3 canopi-f47t.52.272: an origin with only 2.1 Drafts warns when storage is not kept", async () => {
-    let finishLaunch!: (restored: boolean) => void;
-    mocks.launch.mockReturnValue(new Promise<boolean>((resolve) => { finishLaunch = resolve; }));
-    mocks.listDrafts.mockReturnValue([]);
-    mocks.listedNewerDrafts.mockReturnValue(null);
-    const storage = { persisted: vi.fn(async () => false), persist: vi.fn(async () => false) };
-    Object.defineProperty(globalThis.navigator, "storage", { configurable: true, value: storage });
-    try {
-      const { browserDraftPersistence } = await import("../web/browser-draft-persistence");
-      const { bootWebEdition: bootstrapPlatform } = await import("../editions/web/boot");
-
-      bootstrapPlatform();
-      mocks.listedNewerDrafts.mockReturnValue([{ id: "draft-1", name: "Orchard in 2.1", updatedAt: "2026-12-01T00:00:00.000Z" }]);
-      finishLaunch(false);
-      await vi.waitFor(() => expect(browserDraftPersistence.view.value.state).toBe("not-kept"));
-
-      expect(browserDraftPersistence.view.value.notice, "the amber warning, not the first-visit reason").toBe("warning");
-      expect(browserDraftPersistence.view.value.warn).toBe(true);
-    } finally {
-      delete (globalThis.navigator as { storage?: unknown }).storage;
-    }
-  });
-
-  // With no listing completed, 2.1 may hold Drafts this launch could not see: count them, so the warning shows.
-  it("R3 canopi-f47t.52.272: a launch whose 2.1 listing never completed warns as if Drafts were kept", async () => {
-    mocks.listDrafts.mockReturnValue([]);
-    mocks.listedNewerDrafts.mockReturnValue([]);
-    mocks.draftListingComplete.mockReturnValue(false);
-    Object.defineProperty(globalThis.navigator, "storage", { configurable: true, value: { persisted: vi.fn(async () => false), persist: vi.fn(async () => false) } });
-    try {
-      const { browserDraftPersistence } = await import("../web/browser-draft-persistence");
-      const { bootWebEdition: bootstrapPlatform } = await import("../editions/web/boot");
-
-      bootstrapPlatform();
-      await vi.waitFor(() => expect(browserDraftPersistence.view.value.state).toBe("not-kept"));
-      expect(browserDraftPersistence.view.value.notice, "the amber warning, not the first-visit reason").toBe("warning");
-    } finally {
-      delete (globalThis.navigator as { storage?: unknown }).storage;
-    }
-  });
-
-  it("still saves continuously when restoring the newest Draft fails", async () => {
+  it("still installs SessionCore when restoring the reload Draft fails", async () => {
     const error = new Error("storage unavailable");
-    mocks.launch.mockRejectedValue(error);
+    mocks.takeReloadHome.mockImplementation(() => { throw error; });
     const logError = vi.spyOn(console, "error").mockImplementation(() => {});
     const { bootWebEdition: bootstrapPlatform } = await import("../editions/web/boot");
+    const { getLiveSessionCore } = await import("../app/document-session/live-core");
 
     bootstrapPlatform();
 
     await vi.waitFor(() => expect(logError).toHaveBeenCalledWith("Failed to restore the latest Design Draft:", error));
-    expect(mocks.installContinuousSave).toHaveBeenCalledOnce();
+    expect(getLiveSessionCore()).not.toBeNull();
   });
 
   it("does not report a Browser settings failure from a replaced bootstrap", async () => {
@@ -360,11 +300,6 @@ describe("settings platform bootstrap", () => {
       ring.resetFrontendDiagnosticsForTests();
       platform.bootstrapPlatform();
       platform.bootstrapPlatform();
-      await vi.waitFor(async () => {
-        const { DESIGN_SESSION_WORKFLOWS } = await import("../app/document-session/workflows");
-        const { consortiumSyncWorkflow } = await import("../app/consortium/workflow");
-        expect(DESIGN_SESSION_WORKFLOWS).toContain(consortiumSyncWorkflow);
-      });
       window.dispatchEvent(new ErrorEvent("error", { error: new Error("first fault"), message: "first fault" }));
       expect(ring.ringEntries().filter((entry) => entry.source === "window.error")).toHaveLength(1);
 
@@ -420,7 +355,7 @@ describe("settings platform bootstrap", () => {
       lastOpenHome: expect.objectContaining({
         read: expect.any(Function),
         clear: expect.any(Function),
-        resolveFilePath: expect.any(Function),
+        resolveFileHome: expect.any(Function),
       }),
     });
     expect(mocks.disposeLaunchFile).toHaveBeenCalledOnce();

@@ -9,9 +9,8 @@ import {
 } from '../app/design-edit/lidar'
 import { currentDesign, designSessionStore } from '../app/document-session/store'
 import {
-  designSessionFixture,
-  nonCanvasRevision,
   replaceCurrentDesignState,
+  resetDirtyBaselines,
 } from './support/design-session-state'
 import type { CanopiFile } from '../types/design'
 
@@ -165,7 +164,7 @@ describe('LiDAR presentation entries through the Design Edit seam', () => {
 
     upsertLidarEntry('Source', 'lyr-eye', 'Terrain')
     expect(currentDesign.value?.lidar?.visible).toBe(true)
-    designSessionFixture.nonCanvasSavedRevision = nonCanvasRevision.value
+    resetDirtyBaselines()
     expect(designSessionStore.designDirty.value).toBe(false)
 
     setSiteDataVisible(false)
@@ -182,7 +181,7 @@ describe('LiDAR presentation entries through the Design Edit seam', () => {
     replaceCurrentDesignState(design('Names'), null, 'Names')
     upsertLidarEntry('Source', 'lyr-n', 'Old name')
     upsertLidarEntry('Derived', 'slope-n', 'Slope')
-    designSessionFixture.nonCanvasSavedRevision = nonCanvasRevision.value
+    resetDirtyBaselines()
     expect(designSessionStore.designDirty.value).toBe(false)
 
     // Names the library lists; an id the Design does not present is ignored.

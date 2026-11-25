@@ -169,7 +169,7 @@ pub(crate) fn render_known_canopi_keys() -> Result<String, Box<dyn std::error::E
     }
     file.push_str("] as const\n");
     file.push_str("\nexport type KnownCanopiKey = (typeof KNOWN_CANOPI_KEYS)[number]\n");
-    file.push_str("export type DocumentFileFieldOwner = 'document' | 'scene'\n\n");
+    file.push_str("export type DocumentFileFieldOwner = 'document' | 'scene' | 'format'\n\n");
     file.push_str("export const DOCUMENT_FILE_FIELD_OWNERS = {\n");
     for field in canopi_types::design::DESIGN_FILE_FIELDS {
         writeln!(file, "  {}: {:?},", field.key, field.owner.as_str())?;

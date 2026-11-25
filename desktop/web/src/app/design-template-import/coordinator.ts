@@ -34,7 +34,7 @@ export function createDesignTemplateImportCoordinator(
         if (isCancelled()) return 'superseded'
 
         const result = await adapters.open({
-          file: cloneDocument(file),
+          file,
           name: request.title,
         }, isCancelled)
         return isCancelled() ? 'superseded' : result
@@ -58,8 +58,4 @@ function cloneTemplateMeta(template: TemplateMeta): TemplateMeta {
     location: { ...template.location },
     tags: [...template.tags],
   }
-}
-
-function cloneDocument(file: CanopiFile): CanopiFile {
-  return JSON.parse(JSON.stringify(file)) as CanopiFile
 }

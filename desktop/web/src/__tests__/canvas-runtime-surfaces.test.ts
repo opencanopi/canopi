@@ -172,6 +172,8 @@ function createDocumentSurface() {
       isCurrent: () => true,
       acknowledgeSaved: () => 'applied',
     }),
+    serializeSceneFields: () => ({}),
+    replaySceneCommand: () => true,
     resize: () => {},
     destroy: () => {},
   } satisfies CanvasDocumentSurface

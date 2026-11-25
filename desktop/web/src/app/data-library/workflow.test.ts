@@ -23,6 +23,7 @@ vi.mock('./library-store', async (importOriginal) => ({
 }))
 
 import { designSessionStore } from '../document-session/store'
+import { clearCurrentDesignState, openTestDesign, replaceCurrentDesignState } from '../../__tests__/support/design-session-state'
 import { setSiteDataVisible } from '../design-edit/lidar'
 import { lidarLibrary } from './library-store'
 import { disposeLidarWorkflow, installLidarWorkflow } from './workflow'
@@ -30,7 +31,7 @@ import type * as DesignEditLidarModule from '../design-edit/lidar'
 import type * as LibraryStoreModule from './library-store'
 
 function openDesign(name: string, entryName: string): void {
-  designSessionStore.replaceCurrentDesignState({
+  replaceCurrentDesignState({
     name,
     lidar: {
       visible: true,
@@ -55,7 +56,7 @@ describe('the Desktop data workflow (canopi-f47t.42)', () => {
     disposeLidarWorkflow()
     lidarLibrary.value = null
     // A Design edit here dirties the Design; the next test opens its own clean one.
-    designSessionStore.clearCurrentDesign()
+    clearCurrentDesignState()
   })
 
   it('refreshes the open Design\'s stored names once from a library rename, without dirtying it', () => {
@@ -67,9 +68,15 @@ describe('the Desktop data workflow (canopi-f47t.42)', () => {
     expect(designSessionStore.designDirty.value).toBe(false)
   })
 
-  it('refreshes a newly opened Design from the snapshot it opens with', () => {
+  it('refreshes a newly opened Design from the snapshot it opens with', async () => {
     lidarLibrary.value = librarySnapshot([sourceItem('a', 'Bare earth')])
-    openDesign('Hedges', 'Old name')
+    await openTestDesign({
+      name: 'Hedges',
+      lidar: {
+        visible: true,
+        entries: [{ kind: 'Source', id: 'a', name: 'Old name', order: 0, visible: true, opacity: 1, ramp: null, reversed: false, range: null }],
+      },
+    } as unknown as CanopiFile)
     expect(storedName()).toBe('Bare earth')
     expect(designSessionStore.designDirty.value).toBe(false)
   })

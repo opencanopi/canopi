@@ -5,17 +5,20 @@ import { signal } from '@preact/signals'
 import { render } from 'preact'
 import { act } from 'preact/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { SaveProblemChoice, requestSaveProblemDecision } from '../app/document-session/save-problem'
+import type { requestSaveProblemDecision } from '../app/document-session/save-problem'
 import { answerSaveProblem, saveProblem } from '../app/document-session/save-problem'
-import { createDesignSessionStore } from '../app/document-session/store'
+import { createJsonSessionCodec, createSessionCore, installLiveSessionCore, type SessionCore } from '../app/document-session/live-core'
+import { designSessionStore } from '../app/document-session/store'
 import { activePanel, navigateTo, sidePanel } from '../app/shell/state'
 import { locale } from '../app/settings/state'
 import { SaveProblemDialog } from '../components/shared/SaveProblemDialog'
 import { t } from '../i18n'
+import type { DraftId } from '../platform/design-home'
 import type { CanopiFile } from '../types/design'
-import { createBrowserAppDataStore, type BrowserStorageAdapter } from '../web/browser-app-data'
-import { createBrowserDesignSessionController, type BrowserCanopiDownload } from '../web/browser-design-session'
+import { browserAppDataStore, createBrowserAppDataStore, type BrowserStorageAdapter } from '../web/browser-app-data'
 import { BrowserAppShell } from '../editions/web/BrowserAppShell'
+import { browserAppLifecyclePort, browserFileAccessPort, createBrowserSessionHomeStore } from '../editions/web/session-ports'
+import { reloadWebForRelease } from '../editions/web/web-session'
 import { installReleaseNotice, presentBrowserGeoJsonNotice, raiseEarlierDataNotice } from '../web/browser-notices'
 import { raiseNotice, resetNoticesForTests } from '../failures/notices'
 import { editDesignSessionForTest } from './support/design-session-edit'
@@ -52,207 +55,178 @@ function design(name: string, description: string | null = null): CanopiFile {
   }
 }
 
-/** One browser tab: its own Design Session over the shared localStorage and its own sessionStorage. */
-function tab(storage: MemoryStorage, session: MemoryStorage, decide?: (request: unknown) => Promise<SaveProblemChoice>) {
+const disposers: Array<() => void> = []
+
+/** One browser tab: its own SessionCore over the shared localStorage and sessionStorage. */
+function tab(storage: MemoryStorage, session: MemoryStorage = memoryStorage()) {
   let tick = 0
-  const store = createDesignSessionStore()
   const appDataStore = createBrowserAppDataStore({ storage, session })
-  const reload = vi.fn()
-  const downloadCanopiFile = vi.fn<(download: BrowserCanopiDownload) => Promise<void>>(async () => undefined)
-  const controller = createBrowserDesignSessionController({
-    store,
-    appDataStore,
-    fileAdapter: { openCanopiFile: async () => null, downloadCanopiFile },
-    now: () => new Date(Date.UTC(2026, 6, 4, 12, 0, tick++)),
-    requestSaveDecision: decide as never,
-    reload,
+  const designHome = createBrowserSessionHomeStore(appDataStore, () => new Date(Date.UTC(2026, 6, 4, 12, 0, tick++)))
+  const core: SessionCore = createSessionCore({
+    designHome,
+    fileAccess: browserFileAccessPort,
+    lifecycle: browserAppLifecyclePort,
+    codec: createJsonSessionCodec(),
+    settings: {
+      readLastOpenHome: async () => null,
+      writeLastOpenHome: async () => {},
+    },
+    newDesignFactory: () => design('Untitled'),
   })
-  return { store, appDataStore, controller, reload, downloadCanopiFile }
+  const dispose = installLiveSessionCore(core)
+  disposers.push(dispose)
+  const reload = vi.fn()
+  return { appDataStore, core, reload, dispose }
 }
 
 describe('Reload for a waiting release (2.1-Q83, Q188, Q189)', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    sessionStorage.clear()
+  })
+
+  afterEach(() => {
+    while (disposers.length > 0) disposers.pop()?.()
+    localStorage.clear()
+    sessionStorage.clear()
+    vi.restoreAllMocks()
+  })
+
   it('reloads at once when no Design is open', async () => {
-    const decide = vi.fn()
-    const run = tab(memoryStorage(), memoryStorage(), decide)
-    await expect(run.controller.reloadForRelease()).resolves.toBe(true)
+    const run = tab(memoryStorage())
+    await expect(reloadWebForRelease(run.reload)).resolves.toBe(true)
     expect(run.reload).toHaveBeenCalledOnce()
-    expect(decide).not.toHaveBeenCalled()
-    expect(run.appDataStore.takeReloadHome(), 'the tab record says it had no Design').toEqual({ draft: null })
+    expect(run.core.state.value.kind).toBe('idle')
   })
 
   it('writes pending changes before it reloads', async () => {
     const storage = memoryStorage()
-    const run = tab(storage, memoryStorage())
-    await run.controller.newDesign()
-    editDesignSessionForTest(run.store, (file) => ({ ...file, description: 'planted before the deploy' }))
+    const run = tab(storage)
+    await run.core.createNew()
+    const draftId = run.core.currentDesign.peek()!.home.key
+    editDesignSessionForTest(designSessionStore, (file) => ({ ...file, description: 'planted before the deploy' }))
     let written: string | null | undefined
     run.reload.mockImplementation(() => {
       // When the page reloads, the latest edit is already in the Draft.
-      const id = run.appDataStore.listDrafts()[0]?.id
-      written = id === undefined ? undefined : run.appDataStore.loadDraft(id)?.description
+      written = run.appDataStore.loadDraft(draftId)?.description
     })
-    await expect(run.controller.reloadForRelease()).resolves.toBe(true)
+    await expect(reloadWebForRelease(run.reload)).resolves.toBe(true)
     expect(run.reload).toHaveBeenCalledOnce()
     expect(written).toBe('planted before the deploy')
   })
 
-  it('Q83: Reload saves first, and a failed save offers Download a copy', async () => {
+  it('Q83: Reload saves first, surfaces a reload question on write failure, and supports cancel, retry, and discard', async () => {
     const storage = memoryStorage()
-    const answers: SaveProblemChoice[] = ['save-copy', 'cancel']
-    const decide = vi.fn(async () => answers.shift() ?? 'cancel')
-    const run = tab(storage, memoryStorage(), decide)
-    await run.controller.newDesign()
-    editDesignSessionForTest(run.store, (file) => ({ ...file, description: 'unwritable' }))
+    const run = tab(storage)
+    await run.core.createNew()
+    const draftId = run.core.currentDesign.peek()!.home.key
+    editDesignSessionForTest(designSessionStore, (file) => ({ ...file, description: 'unwritable' }))
     storage.failWrites = true
 
-    // Download a copy downloads, then returns to the dialog; Cancel keeps the tab as it is.
-    await expect(run.controller.reloadForRelease()).resolves.toBe(false)
-    expect(decide).toHaveBeenNthCalledWith(1, { kind: 'flush-failed', purpose: 'reload', conflict: false })
-    expect(decide).toHaveBeenCalledTimes(2)
-    expect(run.downloadCanopiFile).toHaveBeenCalledOnce()
-    expect(run.downloadCanopiFile.mock.calls[0]![0].text).toContain('unwritable')
+    // Cancel keeps the tab open with the unwritten edit.
+    const cancelReload = reloadWebForRelease(run.reload)
+    await vi.waitFor(() => expect(run.core.state.value.kind).toBe('closing'))
+    const q1 = run.core.state.value
+    expect(q1.kind).toBe('closing')
+    if (q1.kind === 'closing') {
+      expect(q1.question?.kind).toBe('flush-failed-before-close')
+      expect(q1.question?.purpose).toBe('reload')
+      run.core.answer(q1.question!.id, 'cancel')
+    }
+    await expect(cancelReload).resolves.toBe(false)
     expect(run.reload).not.toHaveBeenCalled()
-    expect(run.store.readCurrentDesign()?.description).toBe('unwritable')
+    expect(designSessionStore.readCurrentDesign()?.description).toBe('unwritable')
 
     // Retry once the browser has room writes the Draft, then reloads.
-    answers.push('retry')
-    decide.mockImplementationOnce(async () => {
-      storage.failWrites = false
-      return answers.shift()!
-    })
-    await expect(run.controller.reloadForRelease()).resolves.toBe(true)
+    const retryReload = reloadWebForRelease(run.reload)
+    await vi.waitFor(() => expect(run.core.state.value.kind).toBe('closing'))
+    storage.failWrites = false
+    const q2 = run.core.state.value
+    if (q2.kind === 'closing') {
+      run.core.answer(q2.question!.id, 'retry')
+    }
+    await expect(retryReload).resolves.toBe(true)
     expect(run.reload).toHaveBeenCalledOnce()
-    const draft = run.appDataStore.listDrafts()[0]!
-    expect(run.appDataStore.loadDraft(draft.id)?.description).toBe('unwritable')
+    expect(run.appDataStore.loadDraft(draftId)?.description).toBe('unwritable')
 
-    // Reload without saving reloads with the write still failing.
-    const again = tab(storage, memoryStorage(), async () => 'discard')
-    await again.controller.newDesign()
+    // Reload without saving (discard) reloads with the write still failing.
+    const again = tab(storage)
+    await again.core.createNew()
     storage.failWrites = true
-    editDesignSessionForTest(again.store, (file) => ({ ...file, description: 'lost on purpose' }))
-    await expect(again.controller.reloadForRelease()).resolves.toBe(true)
+    editDesignSessionForTest(designSessionStore, (file) => ({ ...file, description: 'lost on purpose' }))
+    const discardReload = reloadWebForRelease(again.reload)
+    await vi.waitFor(() => expect(again.core.state.value.kind).toBe('closing'))
+    const q3 = again.core.state.value
+    if (q3.kind === 'closing') {
+      again.core.answer(q3.question!.id, 'discard')
+    }
+    await expect(discardReload).resolves.toBe(true)
     expect(again.reload).toHaveBeenCalledOnce()
   })
 
-  it('a second Reload while the first is saving is the same Reload', async () => {
-    const storage = memoryStorage()
-    let answer!: (choice: SaveProblemChoice) => void
-    const decide = vi.fn(() => new Promise<SaveProblemChoice>((resolve) => { answer = resolve }))
-    const run = tab(storage, memoryStorage(), decide)
-    await run.controller.newDesign()
-    editDesignSessionForTest(run.store, (file) => ({ ...file, description: 'busy' }))
-    storage.failWrites = true
-    const first = run.controller.reloadForRelease()
-    const second = run.controller.reloadForRelease()
-    await vi.waitFor(() => expect(decide).toHaveBeenCalledOnce())
-    answer('discard')
-    await expect(first).resolves.toBe(true)
-    await expect(second).resolves.toBe(true)
-    expect(run.reload).toHaveBeenCalledOnce()
-  })
-
-  it('Reload over a Draft another tab changed offers Download a copy', async () => {
+  it('Reload over a Draft another tab changed pauses on conflict instead of overwriting the other tab', async () => {
     const storage = memoryStorage()
     const other = createBrowserAppDataStore({ storage, session: memoryStorage() })
     other.saveDraft({ id: 'draft-shared', file: design('Shared'), now: '2026-07-04T11:00:00.000Z' })
-    const decide = vi.fn(async () => 'cancel' as const)
-    const run = tab(storage, memoryStorage(), decide)
-    expect(await run.controller.launch()).toBe(true)
-    other.saveDraft({ id: 'draft-shared', file: design('Shared', 'other tab'), now: '2026-07-04T13:00:00.000Z' })
-    editDesignSessionForTest(run.store, (file) => ({ ...file, description: 'this tab' }))
+    const run = tab(storage)
+    const opened = await run.core.openFrom({ kind: 'draft', id: 'draft-shared' as DraftId })
+    expect(opened.status).toBe('opened')
 
-    await expect(run.controller.reloadForRelease()).resolves.toBe(false)
-    expect(decide).toHaveBeenCalledWith({ kind: 'flush-failed', purpose: 'reload', conflict: true, where: 'another-tab' })
+    // Another tab updates the same Draft.
+    other.saveDraft({ id: 'draft-shared', file: design('Shared', 'other tab'), now: '2026-07-04T13:00:00.000Z' })
+    editDesignSessionForTest(designSessionStore, (file) => ({ ...file, description: 'this tab' }))
+
+    const reloading = reloadWebForRelease(run.reload)
+    await vi.waitFor(() => expect(run.core.state.value.kind).toBe('closing'))
+    const q = run.core.state.value
+    expect(q.kind).toBe('closing')
+    if (q.kind === 'closing') {
+      expect(q.current?.save.kind).toBe('conflict')
+      run.core.answer(q.question!.id, 'cancel')
+    }
+    await expect(reloading).resolves.toBe(false)
     expect(run.reload).not.toHaveBeenCalled()
     expect(other.loadDraft('draft-shared')?.description).toBe('other tab')
   })
 
-  it('Q189: Reload reopens the Design this tab had open', async () => {
+  it('Q189: Reload notes the open Draft id in sessionStorage and reopens it once', async () => {
     const storage = memoryStorage()
-    const session = memoryStorage()
-    const seed = createBrowserAppDataStore({ storage, session: memoryStorage() })
+    const seed = createBrowserAppDataStore({ storage })
     seed.saveDraft({ id: 'draft-orchard', file: design('Orchard'), now: '2026-07-04T10:00:00.000Z' })
     seed.saveDraft({ id: 'draft-hedge', file: design('Hedge'), now: '2026-07-04T11:00:00.000Z' })
 
-    const before = tab(storage, session)
-    await before.controller.openDraft('draft-orchard')
-    expect(before.store.readDesignName()).toBe('Orchard')
-    // Another tab writes a newer Draft meanwhile, so "the newest" would be the wrong Design.
-    seed.saveDraft({ id: 'draft-hedge', file: design('Hedge', 'newer'), now: '2026-07-04T23:00:00.000Z' })
-    await before.controller.reloadForRelease()
+    const before = tab(storage)
+    const openRes = await before.core.openFrom({ kind: 'draft', id: 'draft-orchard' as DraftId })
+    expect(openRes.status).toBe('opened')
+    expect(designSessionStore.readDesignName()).toBe('Orchard')
+
+    await expect(reloadWebForRelease(before.reload)).resolves.toBe(true)
     expect(before.reload).toHaveBeenCalledOnce()
-    expect(Array.from(session.values.values()).map((value) => JSON.parse(value)), 'the tab record names only the Draft id').toEqual([{ draft: 'draft-orchard' }])
-    expect(Array.from(storage.values.keys()).some((key) => key.includes('reload')), 'nothing lands in localStorage').toBe(false)
+    // The tab record lives in sessionStorage (one-shot), never localStorage.
+    expect(Array.from(storage.values.keys()).some((key) => key.includes('reload'))).toBe(false)
+    const noted = browserAppDataStore.takeReloadHome()
+    expect(noted).toEqual({ draft: 'draft-orchard' })
+    expect(browserAppDataStore.takeReloadHome(), 'the record is one-shot').toBeNull()
 
-    // The same tab after the reload: this tab's Design, once; a later launch reopens the newest as before.
-    const after = tab(storage, session)
-    expect(await after.controller.launch()).toBe(true)
-    expect(after.store.readDesignName()).toBe('Orchard')
-    expect(session.values.size, 'the record is one-shot').toBe(0)
-    const later = tab(storage, session)
-    expect(await later.controller.launch()).toBe(true)
-    expect(later.store.readDesignName()).toBe('Hedge')
+    // Reopening the noted draft after reload restores the tab's own Design.
+    const after = tab(storage)
+    const reopened = await after.core.openFrom({ kind: 'draft', id: noted!.draft as DraftId })
+    expect(reopened.status).toBe('opened')
+    expect(designSessionStore.readDesignName()).toBe('Orchard')
   })
 
-  // C2-1: a reload never falls back to the newest Draft, which may be another tab's open Design.
-  it('Q189: a tab record naming a Draft that is gone opens the start screen, never the newest Draft', async () => {
+  it('Q189: a reload record naming a Draft that is gone refuses to open and leaves the start screen empty', async () => {
     const storage = memoryStorage()
-    const session = memoryStorage()
-    const seed = createBrowserAppDataStore({ storage, session })
+    const seed = createBrowserAppDataStore({ storage })
     seed.saveDraft({ id: 'draft-hedge', file: design('Hedge'), now: '2026-07-04T11:00:00.000Z' })
-    seed.noteReloadHome('draft-deleted')
-    const after = tab(storage, session)
-    expect(await after.controller.launch()).toBe(false)
-    expect(after.store.hasCurrentDesign()).toBe(false)
-  })
+    browserAppDataStore.noteReloadHome('draft-deleted')
 
-  it('Q189 (C2-1): Reload from the start screen comes back to the start screen, not another tab\'s Draft', async () => {
-    const storage = memoryStorage()
-    const session = memoryStorage()
-    const other = createBrowserAppDataStore({ storage, session: memoryStorage() })
-    other.saveDraft({ id: 'draft-orchard', file: design('Orchard'), now: '2026-07-04T10:00:00.000Z' })
-    const before = tab(storage, session)
-    await expect(before.controller.reloadForRelease()).resolves.toBe(true)
-    const after = tab(storage, session)
-    expect(await after.controller.launch()).toBe(false)
-    expect(after.store.hasCurrentDesign()).toBe(false)
-    // The record is one-shot: a later launch reopens the newest Draft as before.
-    const later = tab(storage, session)
-    expect(await later.controller.launch()).toBe(true)
-    expect(later.store.readDesignName()).toBe('Orchard')
-  })
-
-  it('Q189 (C2-1): Reload without saving a Design never written comes back to the start screen', async () => {
-    const storage = memoryStorage()
-    const session = memoryStorage()
-    const other = createBrowserAppDataStore({ storage, session: memoryStorage() })
-    other.saveDraft({ id: 'draft-orchard', file: design('Orchard'), now: '2026-07-04T10:00:00.000Z' })
-    const before = tab(storage, session, async () => 'discard')
-    await before.controller.newDesign()
-    storage.failWrites = true
-    editDesignSessionForTest(before.store, (file) => ({ ...file, description: 'never written' }))
-    await expect(before.controller.reloadForRelease()).resolves.toBe(true)
-    storage.failWrites = false
-    const after = tab(storage, session)
-    expect(await after.controller.launch()).toBe(false)
-    expect(after.store.hasCurrentDesign()).toBe(false)
-  })
-
-  it('an unreadable session store never blocks the reload or the launch', async () => {
-    const storage = memoryStorage()
-    const broken: BrowserStorageAdapter = {
-      getItem: () => { throw new DOMException('denied', 'SecurityError') },
-      setItem: () => { throw new DOMException('denied', 'SecurityError') },
-      removeItem: () => { throw new DOMException('denied', 'SecurityError') },
-    }
-    const run = tab(storage, broken as MemoryStorage)
-    await run.controller.newDesign()
-    editDesignSessionForTest(run.store, (file) => ({ ...file, description: 'saved before the reload' }))
-    await expect(run.controller.reloadForRelease()).resolves.toBe(true)
-    expect(run.reload).toHaveBeenCalledOnce()
-    const after = tab(storage, broken as MemoryStorage)
-    expect(await after.controller.launch()).toBe(true)
-    expect(after.store.readCurrentDesign()?.description).toBe('saved before the reload')
+    const noted = browserAppDataStore.takeReloadHome()
+    expect(noted).toEqual({ draft: 'draft-deleted' })
+    const after = tab(storage)
+    const res = await after.core.openFrom({ kind: 'draft', id: noted!.draft as DraftId })
+    expect(res.status).toBe('refused')
+    expect(designSessionStore.hasCurrentDesign()).toBe(false)
   })
 })
 

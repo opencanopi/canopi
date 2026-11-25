@@ -1,14 +1,13 @@
 import { STORY_IMAGES_MAX_TOTAL_BYTES } from '../../generated/canopi-design-format'
 import type { CanopiFile, RichTextBlock, Story, StoryImage, StoryStep } from '../../types/design'
 import { designEmbeddedImageBytes } from '../contracts/views-admission'
-import { currentDesignSessionKey, editCurrentDesign, readCurrentDesign } from './core'
+import { editCurrentDesign } from './core'
 
 // Stories are Design Edit data (ADR 0011), like saved views: every command
 // dirties the Design for continuous save, none is in the scene history, and a
 // command that changes nothing returns the Design untouched. A step shows a
 // saved view of the same Design by id; callers pass only ids of views that
-// exist, and deleting a view (views.ts) removes the steps that show it. An
-// Undo that meets a missing view parks its steps until that view's own Undo.
+// exist, and deleting a view (views.ts) removes the steps that show it.
 // A Design embeds at most 10 MiB of images, the limit admission refuses above;
 // a command that would take it over (duplicating a step, an Undo) changes
 // nothing and says `images-do-not-fit`, so continuous save never writes a
@@ -17,49 +16,8 @@ import { currentDesignSessionKey, editCurrentDesign, readCurrentDesign } from '.
 /** What a story command did. */
 export type StoryEditOutcome = 'applied' | 'unchanged' | 'images-do-not-fit'
 
-/** What deleting a story removed, so Undo can put it back where it was. */
-interface StoryDeletion {
-  readonly story: Story
-  readonly index: number
-}
-
-/** What deleting a step removed, so Undo can put it back where it was. */
-interface StoryStepDeletion {
-  readonly storyId: string
-  readonly step: StoryStep
-  readonly index: number
-}
-
 /** The fields of a step an editor changes. */
 type StoryStepPatch = Partial<Pick<StoryStep, 'title' | 'text' | 'images' | 'view_id'>>
-
-/**
- * Steps an Undo could not put back because their view had been deleted in
- * between, by view id, for the Design session that dropped them. Undoing the
- * view's deletion (`restoreSavedView`) puts them back where they were; another
- * Design forgets them with its session.
- */
-const parkedSteps = new WeakMap<object, Map<string, StoryStepDeletion[]>>()
-
-export function parkStepsAwaitingView(entries: readonly StoryStepDeletion[]): void {
-  if (entries.length === 0) return
-  const key = currentDesignSessionKey()
-  let byView = parkedSteps.get(key)
-  if (!byView) parkedSteps.set(key, byView = new Map())
-  for (const entry of entries) {
-    const list = byView.get(entry.step.view_id) ?? []
-    list.push(entry)
-    byView.set(entry.step.view_id, list)
-  }
-}
-
-/** Takes the steps parked for `viewId`, in the order they were dropped; views.ts restores them with the view. */
-export function takeStepsAwaitingView(viewId: string): readonly StoryStepDeletion[] {
-  const byView = parkedSteps.get(currentDesignSessionKey())
-  const entries = byView?.get(viewId) ?? []
-  byView?.delete(viewId)
-  return entries
-}
 
 function viewExists(design: CanopiFile, viewId: string): boolean {
   return (design.views ?? []).some((view) => view.id === viewId)
@@ -72,7 +30,7 @@ function imagesFit(design: CanopiFile, next: CanopiFile): boolean {
 }
 
 /** A Design Edit whose result must keep the Design's images within their limit. */
-export function editWithinImageLimit(update: (design: CanopiFile) => CanopiFile): StoryEditOutcome {
+export function editWithinImageLimit(update: (design: CanopiFile) => CanopiFile, label = 'stories.edit'): StoryEditOutcome {
   let outcome: StoryEditOutcome = 'unchanged'
   editCurrentDesign((design) => {
     const next = update(design)
@@ -86,7 +44,7 @@ export function editWithinImageLimit(update: (design: CanopiFile) => CanopiFile)
     }
     outcome = 'applied'
     return next
-  })
+  }, label)
   return outcome
 }
 
@@ -128,37 +86,15 @@ export function renameStory(storyId: string, name: string): void {
   editStory(storyId, (story) => story.name === nextName ? story : { ...story, name: nextName })
 }
 
-export function deleteStory(storyId: string): StoryDeletion | null {
-  let deletion: StoryDeletion | null = null
+export function deleteStory(storyId: string): { readonly name: string } | null {
+  let deleted: { readonly name: string } | null = null
   editStories((stories) => {
-    const index = stories.findIndex((story) => story.id === storyId)
-    if (index === -1) return stories
-    deletion = { story: stories[index]!, index }
+    const target = stories.find((story) => story.id === storyId)
+    if (!target) return stories
+    deleted = { name: target.name }
     return stories.filter((story) => story.id !== storyId)
   })
-  return deletion
-}
-
-/**
- * Undo for `deleteStory`. Steps whose view is gone since stay out, so none
- * dangles; they are parked and return with the view's own Undo.
- */
-export function restoreStory(deletion: StoryDeletion): StoryEditOutcome {
-  const design = readCurrentDesign()
-  if (!design || (design.stories ?? []).some((story) => story.id === deletion.story.id)) return 'unchanged'
-  const dropped = deletion.story.steps.flatMap((step, index) => (
-    viewExists(design, step.view_id) ? [] : [{ storyId: deletion.story.id, step, index }]
-  ))
-  const kept = new Set(dropped.map((entry) => entry.step.id))
-  const outcome = editStories((stories) => {
-    if (stories.some((story) => story.id === deletion.story.id)) return stories
-    const story = { ...deletion.story, steps: deletion.story.steps.filter((step) => !kept.has(step.id)) }
-    const copy = [...stories]
-    copy.splice(Math.min(deletion.index, copy.length), 0, story)
-    return copy
-  })
-  if (outcome === 'applied') parkStepsAwaitingView(dropped)
-  return outcome
+  return deleted
 }
 
 /** Adds a step at `index` (the end by default) when its view exists. */
@@ -250,30 +186,15 @@ export function duplicateStoryStep(storyId: string, stepId: string, newStepId: s
   })
 }
 
-export function deleteStoryStep(storyId: string, stepId: string): StoryStepDeletion | null {
-  let deletion: StoryStepDeletion | null = null
+export function deleteStoryStep(storyId: string, stepId: string): { readonly title: string } | null {
+  let deleted: { readonly title: string } | null = null
   editStory(storyId, (story) => {
-    const index = story.steps.findIndex((step) => step.id === stepId)
-    if (index === -1) return story
-    deletion = { storyId, step: story.steps[index]!, index }
+    const target = story.steps.find((step) => step.id === stepId)
+    if (!target) return story
+    deleted = { title: target.title }
     return { ...story, steps: story.steps.filter((step) => step.id !== stepId) }
   })
-  return deletion
-}
-
-/**
- * Undo for `deleteStoryStep`. Nothing comes back when the story is gone; a
- * step whose view is gone is parked and returns with the view's own Undo.
- */
-export function restoreStoryStep(deletion: StoryStepDeletion): StoryEditOutcome {
-  const design = readCurrentDesign()
-  if (!design) return 'unchanged'
-  const storyExists = (design.stories ?? []).some((story) => story.id === deletion.storyId)
-  if (storyExists && !viewExists(design, deletion.step.view_id)) {
-    parkStepsAwaitingView([deletion])
-    return 'unchanged'
-  }
-  return addStoryStep(deletion.storyId, deletion.step, deletion.index)
+  return deleted
 }
 
 function definedFields(patch: StoryStepPatch): StoryStepPatch {

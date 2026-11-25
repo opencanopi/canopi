@@ -65,10 +65,6 @@ export function getCurrentCanvasLayerCommandSurface(): CanvasLayerCommandSurface
   return currentCanvasLayerCommandSurface.value
 }
 
-export function getCurrentCanvasDocumentSurface(): CanvasDocumentSurface | null {
-  return currentCanvasDocumentSurface.value
-}
-
 export function setCurrentCanvasSession(surfaces: CanvasRuntimeSurfaces | null): void {
   currentCanvasSession.value = surfaces
 }

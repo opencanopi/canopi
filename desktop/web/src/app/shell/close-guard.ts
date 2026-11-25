@@ -1,51 +1,30 @@
+/**
+ * app/shell/close-guard.ts: Dialog adapter between SessionCore closing/replacing questions and
+ * the SaveProblemDialog, plus update close-hold coordination (C4, ADR 0024, contracts §4, #497 N5).
+ * SessionCore is the sole subscriber to AppLifecyclePort close-requested and focus-lost events.
+ */
 import { effect, signal, type ReadonlySignal } from "@preact/signals";
-import { getCurrentWindow } from "@tauri-apps/api/window";
-import { designContinuousSave } from "../document-session/transition";
-import { requestSaveProblemDecision } from "../document-session/save-problem";
-import { currentDesign } from "../document-session/store";
-import { flushSettingsProjection } from "../settings/projection";
+import type { QuestionId, QuestionKind, QuestionPurpose } from "../document-session/core";
+import { activeSessionCore, getLiveSessionCore } from "../document-session/live-core";
+import { answerSaveProblem, requestSaveProblemDecision } from "../document-session/save-problem";
 import { holdModalLayer } from "./modal-layer";
 
 export interface CloseGuardLifetime {
   dispose(): void;
 }
 
-interface ActiveCloseGuard {
-  disposed: boolean;
-  closePromise: Promise<void> | null;
-  unlisteners: (() => void)[];
-}
-
-let activeCloseGuard: ActiveCloseGuard | null = null;
-
-/**
- * What a held window close waits for: an update's install, or its exit (its own exit flush, then the installer or the
- * restart). The Desktop root names it: "Installing update…" or "Finishing update…".
- */
 export type UpdateHold = "install" | "exit";
 
-/** An update's install or exit a window close waits for, its answer, and whether a close is waiting for it. */
 interface CloseHold {
   readonly kind: UpdateHold;
   readonly settled: Promise<ExitAnswer>;
   waited: boolean;
 }
 
-/** The update run a window close waits for now; null when none runs. */
 const closeHold = signal<CloseHold | null>(null);
 
-/** The update run a window close is waiting for, which the Desktop root names; null when no close waits. */
 export const closeWaitsFor = signal<UpdateHold | null>(null);
 
-/**
- * Holds every window close until `run` settles (2.1-Q254): an update's install, or its whole exit from its own exit
- * flush to the installer or the restart, as `kind` names. A close never ends Canopi in the middle of an install, which would leave a
- * truncated AppImage or an orphaned `pkexec` prompt, and never runs a second exit flush beside the update's, which
- * would destroy the window before the installer or the restart runs. Once `run` settles the close runs as usual,
- * without restarting, unless `run` answered cancel: the user kept Canopi open in the update's exit flush. A rejected
- * run lets the close go on. The answer, read once `run` has settled, is whether a close waited for it: the caller then
- * leaves the exit to that close and does not restart (app/updates/controller.ts).
- */
 export function holdCloseUntilSettled(kind: UpdateHold, run: Promise<ExitAnswer>): () => boolean {
   const hold: CloseHold = { kind, settled: run.catch(() => "proceed" as const), waited: false };
   closeHold.value = hold;
@@ -55,13 +34,6 @@ export function holdCloseUntilSettled(kind: UpdateHold, run: Promise<ExitAnswer>
   return () => hold.waited;
 }
 
-/**
- * Blocks every Design edit while `exiting` holds: an update's close request, until Canopi exits or the exit is called
- * off (app/updates/controller.ts `exiting`). The exit flush writes the edits made so far and the native drain waits
- * only for writes already sent, so an edit made after the flush would wait in continuous save's delay and be lost.
- * The block is the modal layer's hold: the workspace is inert and keyboard routes stand aside. Returns the binding's
- * end, which drops a hold still open.
- */
 export function blockEditsWhile(exiting: ReadonlySignal<boolean>): () => void {
   let release: (() => void) | null = null;
   const drop = () => {
@@ -78,173 +50,141 @@ export function blockEditsWhile(exiting: ReadonlySignal<boolean>): () => void {
   };
 }
 
-/**
- * Why Canopi is about to exit: the window's close, an update's install or restart (2.1-M209), or the Desktop root
- * boundary's Reload, whose save question speaks of reloading.
- */
 type ExitPurpose = "close" | "update" | "reload";
 
-/** What the exit flush answers: go on and exit, or keep Canopi open. */
 export type ExitAnswer = "proceed" | "cancel";
 
-/**
- * Before Canopi exits it writes the current Design to its home first, then the settings. Only a failed write asks the
- * user anything: for the Design Retry, Close without saving or Cancel; for the settings Retry, Close anyway or Cancel,
- * Cancel and Escape keeping Canopi open (2.1-Q20, Q176, Q182, M71); before a reload the same choices say Reload
- * without saving and Reload anyway (canopi-f47t.52.36). The settings dialog calls the Design saved only
- * when a Design is open and the flush wrote it: flush also succeeds when no Design is open, which saved nothing
- * (M175). `abandoned` ends the flush with cancel, asking nothing more, once the caller no longer needs its answer.
- */
-async function runExitFlush(purpose: ExitPurpose, abandoned: () => boolean): Promise<ExitAnswer> {
-  let designSaved = false;
-  for (;;) {
-    const flushed = await designContinuousSave.flush();
-    if (abandoned()) return "cancel";
-    if (flushed) {
-      designSaved = currentDesign.peek() !== null;
-      break;
-    }
-    const choice = await requestSaveProblemDecision({
-      kind: "flush-failed",
-      purpose: purpose === "reload" ? "app-reload" : "close",
-      conflict: designContinuousSave.conflict.peek() !== null,
-    });
-    if (abandoned() || choice === "cancel") return "cancel";
-    if (choice === "discard") break;
-  }
+export interface CloseGuardOptions {
+  /** Web release reload offers Download a copy (`save-copy`) and asks again (2.1-Q83, Q188). */
+  readonly downloadCopy?: () => Promise<void> | void;
+}
 
-  for (;;) {
-    try {
-      await flushSettingsProjection();
-      if (abandoned()) return "cancel";
-      break;
-    } catch (error) {
-      if (abandoned()) return "cancel";
-      console.error(`Failed to flush settings before ${purpose}:`, error);
-    }
-    const choice = await requestSaveProblemDecision(purpose === "reload"
-      ? { kind: "settings-failed", designSaved, purpose: "reload" }
-      : { kind: "settings-failed", designSaved });
-    if (abandoned() || choice === "cancel") return "cancel";
-    if (choice === "discard") break;
+async function promptForQuestion(
+  kind: QuestionKind,
+  purpose: QuestionPurpose,
+  hasConflict: boolean,
+  hasOpenDesign: boolean,
+  options?: CloseGuardOptions,
+): Promise<"retry" | "discard" | "cancel"> {
+  if (kind === "settings-flush-failed-before-close") {
+    const decision = await requestSaveProblemDecision(
+      purpose === "reload"
+        ? { kind: "settings-failed", designSaved: hasOpenDesign, purpose: "reload" }
+        : { kind: "settings-failed", designSaved: hasOpenDesign },
+    );
+    return decision === "retry" || decision === "discard" ? decision : "cancel";
   }
-  return "proceed";
+  const downloadCopy = purpose === "reload" && kind !== "flush-failed-before-open" ? options?.downloadCopy : undefined;
+  if (downloadCopy) {
+    for (;;) {
+      const decision = await requestSaveProblemDecision({
+        kind: "flush-failed",
+        purpose: "reload",
+        conflict: hasConflict,
+      });
+      if (decision === "save-copy") {
+        await downloadCopy();
+        continue;
+      }
+      return decision === "retry" || decision === "discard" ? decision : "cancel";
+    }
+  }
+  const dialogPurpose = kind === "flush-failed-before-open"
+    ? "replace"
+    : purpose === "reload"
+      ? "app-reload"
+      : "close";
+  const decision = await requestSaveProblemDecision({
+    kind: "flush-failed",
+    purpose: dialogPurpose,
+    conflict: hasConflict,
+  });
+  return decision === "retry" || decision === "discard" ? decision : "cancel";
+}
+
+export async function waitForCloseHold(): Promise<ExitAnswer> {
+  const hold = closeHold.peek();
+  if (!hold) return "proceed";
+  hold.waited = true;
+  closeWaitsFor.value = hold.kind;
+  try {
+    return await hold.settled;
+  } finally {
+    closeWaitsFor.value = null;
+  }
 }
 
 /**
- * The one flush before Canopi exits, for a caller that exits by its own means: an update's installer or restart awaits
- * the answer and exits only on proceed (2.1-M209, AF30). Until 2b's app-lifecycle port it asks nothing about a running
- * LiDAR job, so an update install stops it as today's Quit does (2.1-M63).
+ * The one flush before Canopi exits (update install/restart or Desktop root Reload):
+ * delegates to `SessionCore.close(purpose)` so the core's write lane, settings flush, and
+ * question state machine run as the single authority.
  */
-export function flushBeforeExit(purpose: ExitPurpose): Promise<ExitAnswer> {
-  return runExitFlush(purpose, () => false);
+export async function flushBeforeExit(purpose: ExitPurpose): Promise<ExitAnswer> {
+  if (purpose === "close" && (await waitForCloseHold()) === "cancel") return "cancel";
+  const core = getLiveSessionCore();
+  if (!core) return "proceed";
+  const outcome = await core.close(purpose === "close" ? "quit" : purpose);
+  return outcome === "closed" ? "proceed" : "cancel";
 }
 
-/**
- * The Desktop root boundary's Reload: the exit flush first, as a window close runs it, asking in reload words, then the
- * reload on proceed; Cancel keeps Canopi as it is.
- */
 export function reloadAfterExitFlush(reload: () => void = () => location.reload()): void {
   void flushBeforeExit("reload").then((answer) => {
     if (answer === "proceed") reload();
   });
 }
 
-/**
- * The window's close: first the update run it must wait for, if one runs (the window stays open, showing
- * "Installing update…" or "Finishing update…"; a run answering cancel keeps it open), then the exit flush, then the window is destroyed only
- * on proceed.
- */
-async function runCloseWorkflow(
-  closeGuard: ActiveCloseGuard,
-  currentWindow: ReturnType<typeof getCurrentWindow>,
-): Promise<void> {
-  const hold = closeHold.peek();
-  if (hold) {
-    hold.waited = true;
-    closeWaitsFor.value = hold.kind;
-    let held: ExitAnswer;
-    try {
-      held = await hold.settled;
-    } finally {
-      closeWaitsFor.value = null;
-    }
-    if (closeGuard.disposed || held === "cancel") return;
-  }
-  const answer = await runExitFlush("close", () => closeGuard.disposed);
-  if (answer === "proceed" && !closeGuard.disposed) await currentWindow.destroy();
-}
+let activeStop: (() => void) | null = null;
 
 /**
- * The Desktop window guard: flushes the current Design when the window loses
- * focus and before it closes.
+ * Subscribes to `SessionCore.state` closing/replacing questions and bridges each one to
+ * `requestSaveProblemDecision`, calling `core.answer(id, choice)`.
  */
-export function registerCloseGuard(): CloseGuardLifetime {
-  if (activeCloseGuard) disposeCloseGuard(activeCloseGuard);
+export function registerCloseGuard(options?: CloseGuardOptions): CloseGuardLifetime {
+  activeStop?.();
+  let disposed = false;
+  let promptedId: QuestionId | null = null;
 
-  const closeGuard: ActiveCloseGuard = {
-    disposed: false,
-    closePromise: null,
-    unlisteners: [],
-  };
-  activeCloseGuard = closeGuard;
-  const currentWindow = getCurrentWindow();
-
-  const keepListener = (unlisten: () => void) => {
-    if (closeGuard.disposed || activeCloseGuard !== closeGuard) {
-      unlisten();
+  const stop = effect(() => {
+    const core = activeSessionCore.value;
+    const state = core?.state.value;
+    const question =
+      state && (state.kind === "closing" || state.kind === "replacing") ? state.question : undefined;
+    if (!core || !state || !question) {
+      if (promptedId !== null) {
+        promptedId = null;
+        answerSaveProblem("cancel");
+      }
       return;
     }
-    closeGuard.unlisteners.push(unlisten);
-  };
-  const reportRegistrationFailure = (error: unknown) => {
-    if (!closeGuard.disposed && activeCloseGuard === closeGuard) {
-      console.error("Failed to register close guard:", error);
+    if (question.id === promptedId) return;
+    if (promptedId !== null) answerSaveProblem("cancel");
+    promptedId = question.id;
+    const current = state.kind === "closing" || state.kind === "replacing" ? state.current : undefined;
+    const hasConflict = current?.save.kind === "conflict";
+    const hasOpenDesign = question.designSaved ?? (current != null);
+    void promptForQuestion(question.kind, question.purpose, hasConflict, hasOpenDesign, options).then((choice) => {
+      if (disposed || promptedId !== question.id) return;
+      promptedId = null;
+      core.answer(question.id, choice);
+    });
+  });
+
+  const dispose = () => {
+    if (disposed) return;
+    disposed = true;
+    if (promptedId !== null) {
+      promptedId = null;
+      answerSaveProblem("cancel");
     }
+    stop();
+    if (activeStop === dispose) activeStop = null;
   };
-
-  void currentWindow
-    .onCloseRequested((event) => {
-      event.preventDefault();
-      if (closeGuard.disposed) return;
-      if (closeGuard.closePromise) return closeGuard.closePromise;
-
-      const closePromise = runCloseWorkflow(closeGuard, currentWindow).catch((error) => {
-        console.error("Failed to complete close workflow:", error);
-      });
-      closeGuard.closePromise = closePromise;
-      void closePromise.then(() => {
-        if (closeGuard.closePromise === closePromise) closeGuard.closePromise = null;
-      });
-      return closePromise;
-    })
-    .then(keepListener)
-    .catch(reportRegistrationFailure);
-
-  void currentWindow
-    .onFocusChanged(({ payload: focused }) => {
-      if (focused || closeGuard.disposed) return;
-      void designContinuousSave.flush().catch((error: unknown) => {
-        console.error("Failed to save the Design when the window lost focus:", error);
-      });
-    })
-    .then(keepListener)
-    .catch(reportRegistrationFailure);
-
-  return {
-    dispose: () => disposeCloseGuard(closeGuard),
-  };
-}
-
-function disposeCloseGuard(closeGuard: ActiveCloseGuard): void {
-  if (closeGuard.disposed) return;
-  closeGuard.disposed = true;
-  for (const unlisten of closeGuard.unlisteners.splice(0)) unlisten();
-  if (activeCloseGuard === closeGuard) activeCloseGuard = null;
+  activeStop = dispose;
+  return { dispose };
 }
 
 if (import.meta.hot) {
   import.meta.hot.dispose(() => {
-    if (activeCloseGuard) disposeCloseGuard(activeCloseGuard);
+    activeStop?.();
   });
 }

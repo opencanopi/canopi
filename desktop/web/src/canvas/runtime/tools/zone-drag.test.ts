@@ -272,15 +272,20 @@ describe('Zone drag tools', () => {
 
   it('a release whose commit publication fails keeps the shape once, and the next press draws', () => {
     const h = harness({ tool: 'rectangle' })
-    const record = h.history.record.bind(h.history)
+    const begin = h.edits.begin.bind(h.edits)
     let failures = 1
-    vi.spyOn(h.history, 'record').mockImplementation((command, accepted) => {
-      record(command, accepted)
-      if (command.type === 'interaction-rectangle' && failures > 0) {
-        failures -= 1
-        throw new Error('rectangle publication failed')
-      }
-    })
+    vi.spyOn(h.edits, 'begin').mockImplementation((type, options) =>
+      begin(type, {
+        ...options,
+        onCommitted: () => {
+          options?.onCommitted?.()
+          if (type === 'interaction-rectangle' && failures > 0) {
+            failures -= 1
+            throw new Error('rectangle publication failed')
+          }
+        },
+      }),
+    )
 
     // History accepted the rectangle before its publication threw: the commit keeps it and runs no step again.
     expect(() => h.drag({ x: 10, y: 20 }, { x: 40, y: 60 })).toThrow('rectangle publication failed')

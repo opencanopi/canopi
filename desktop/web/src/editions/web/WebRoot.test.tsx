@@ -6,18 +6,17 @@ import { render } from 'preact'
 import { act } from 'preact/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { problemReportSubmission } from '../../app/problem-report/submission'
-import { createDesignSessionStore } from '../../app/document-session/store'
+import { designSessionStore } from '../../app/document-session/store'
 import { resetFrontendDiagnosticsForTests } from '../../failures/ring'
 import en from '../../i18n/en.json'
 import type { CanopiFile } from '../../types/design'
-import { createBrowserAppDataStore, type BrowserStorageAdapter } from '../../web/browser-app-data'
-import { createBrowserDesignSessionController } from '../../web/browser-design-session'
+import { createTestSessionCore } from '../../__tests__/support/session-core-fixture'
 import { installWebProblemReport, WebRootBoundary } from './WebRoot'
 
 const DESIGN = '{\n  "name": "Hazel walk",\n  "plant_species_colors": { "Corylus avellana": "CAV" }\n}\n'
 
 let container: HTMLDivElement
-let uninstall: () => void
+let uninstall: (() => void) | null = null
 let downloads: Blob[]
 
 function Broken(): never {
@@ -30,11 +29,6 @@ function button(label: string): HTMLButtonElement {
   return found!
 }
 
-function memoryStorage(): BrowserStorageAdapter {
-  const values = new Map<string, string>()
-  return { getItem: (key) => values.get(key) ?? null, setItem: (key, value) => void values.set(key, value), removeItem: (key) => void values.delete(key) }
-}
-
 function makeFile(name: string): CanopiFile {
   return {
     version: 9, name, description: null, plant_species_colors: {}, plant_species_symbols: {}, layers: [], plants: [], zones: [],
@@ -43,21 +37,8 @@ function makeFile(name: string): CanopiFile {
   }
 }
 
-/** A real Web Design session opened on `text` through a stub format core reading any newer file as `view`. */
-async function openedSession(text: string, view: CanopiFile) {
-  const store = createDesignSessionStore()
-  const controller = createBrowserDesignSessionController({
-    store,
-    appDataStore: createBrowserAppDataStore({ storage: memoryStorage() }),
-    fileAdapter: { openCanopiFile: vi.fn(async () => ({ fileName: 'orchard.canopi', text })), downloadCanopiFile: vi.fn(async () => undefined) },
-  })
-  controller.installFormatCore({ readNewerDesign: vi.fn(async () => ({ view, saved_by_version: 10 })) })
-  await expect(controller.openCanopi()).resolves.toBe(true)
-  return { controller, store }
-}
-
 async function showRootFallback(currentDesignText: () => string | null): Promise<void> {
-  uninstall = installWebProblemReport({ currentDesignText, readDesignIdentity: () => null })
+  uninstall = installWebProblemReport({ currentDesignText })
   const session = { reloadForRelease: vi.fn(async () => true) }
   await act(async () => render(<WebRootBoundary session={session}><Broken /></WebRootBoundary>, container))
 }
@@ -94,7 +75,8 @@ afterEach(() => {
   render(null, container)
   container.remove()
   problemReportSubmission.close()
-  uninstall()
+  uninstall?.()
+  uninstall = null
   vi.restoreAllMocks()
 })
 
@@ -121,15 +103,27 @@ describe('Web root', () => {
   })
 
   it('canopi-v4kj: the Web writer attaches no Design for one a newer Canopi saved, open read-only, and the open Design otherwise', async () => {
-    const newer = await openedSession(JSON.stringify({ ...makeFile('Orchard 2.1'), version: 10 }), makeFile('Orchard 2.1'))
-    expect(newer.store.sessionKind.value).toEqual({ kind: 'read-only', origin: 'newer-version', savedByVersion: 10 })
-    uninstall = installWebProblemReport(newer.controller)
-    expect(problemReportSubmission.port.value!.currentDesign()).toBeNull()
-    uninstall()
+    const newer = createTestSessionCore({
+      file: makeFile('Orchard 2.1'),
+      kind: { kind: 'read-only', origin: 'newer-version', savedByVersion: 10 },
+    })
+    try {
+      expect(designSessionStore.sessionKind.value).toEqual({ kind: 'read-only', origin: 'newer-version', savedByVersion: 10 })
+      uninstall = installWebProblemReport()
+      expect(problemReportSubmission.port.value!.currentDesign()).toBeNull()
+      uninstall()
+      uninstall = null
+    } finally {
+      newer.dispose()
+    }
 
-    const editing = await openedSession(JSON.stringify(makeFile('Orchard')), makeFile('unused'))
-    expect(editing.store.sessionKind.value).toEqual({ kind: 'editing' })
-    uninstall = installWebProblemReport(editing.controller)
-    expect(problemReportSubmission.port.value!.currentDesign()).toContain('"name": "Orchard"')
+    const editing = createTestSessionCore({ file: makeFile('Orchard') })
+    try {
+      expect(designSessionStore.sessionKind.value).toEqual({ kind: 'editing' })
+      uninstall = installWebProblemReport()
+      expect(problemReportSubmission.port.value!.currentDesign()).toContain('"name": "Orchard"')
+    } finally {
+      editing.dispose()
+    }
   })
 })

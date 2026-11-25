@@ -20,8 +20,6 @@ export {
   deleteSavedView,
   recaptureSavedView,
   renameSavedView,
-  restoreSavedView,
-  type SavedViewDeletion,
 } from './views'
 export {
   addStory,
@@ -29,12 +27,11 @@ export {
   deleteStory,
   deleteStoryStep,
   duplicateStoryStep,
+  editWithinImageLimit,
   moveStoryStep,
   moveStoryStepToStory,
   renameStory,
   reorderStorySteps,
-  restoreStory,
-  restoreStoryStep,
   updateStoryStep,
   type StoryEditOutcome,
 } from './stories'

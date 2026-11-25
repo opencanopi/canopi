@@ -9,7 +9,6 @@ import { CanvasChrome } from '../../components/canvas/CanvasChrome'
 import { MyLocationButton } from '../../components/canvas/MyLocationButton'
 import { workspaceCanvasCommandProjection } from '../../app/workspace-commands/canvas-actions'
 import panelStyles from '../../components/panels/Panels.module.css'
-import { browserDesignSessionController, type BrowserDesignSessionController } from '../../web/browser-design-session'
 import { getMapNoticeReadModel } from '../../app/canvas-map-surface/map-notice'
 import { useDesignReveal } from '../../app/canvas-map-surface/design-reveal'
 import { hasVisibleMapLayer } from '../../app/settings/state'
@@ -18,15 +17,14 @@ import { MapNotice } from '../../components/canvas/MapNotice'
 import { t } from '../../i18n'
 import { WebWelcomeScreen } from './WebWelcomeScreen'
 import { useMapArea } from '../../components/shared/useMapChrome'
+import { webLaunching } from './web-session'
 
 interface WebCanvasWorkspaceProps {
-  readonly controller?: BrowserDesignSessionController
   readonly store?: DesignSessionStore
   readonly myLocation?: FunctionComponent<{ readonly className: string | undefined }>
 }
 
 export function WebCanvasWorkspace({
-  controller = browserDesignSessionController,
   store = designSessionStore,
   myLocation = MyLocationButton,
 }: WebCanvasWorkspaceProps) {
@@ -39,19 +37,15 @@ export function WebCanvasWorkspace({
 
   const mapNotice = getMapNoticeReadModel({
     hasDesign,
-    // The map the workspace draws: a presented story step's layers, else the user's own.
     mapVisible: hasVisibleMapLayer(presentedMapLayers()),
     surface,
     t,
   })
-  // While the launch reads 2.1's Draft ids (canopi-f47t.52.272) neither the start screen nor a Design shows.
-  const reveal = useDesignReveal(hasDesign, surface, controller.launching.value)
+  const reveal = useDesignReveal(hasDesign, surface, webLaunching.value)
 
   return (
     <div className={panelStyles.canvasPanel} data-testid="web-canvas-workspace">
       <div ref={canvasAreaRef} className={panelStyles.canvasArea} data-design-hidden={hasDesign && !reveal.shown ? '' : undefined}>
-        {/* Focusable from script while no session holds it (tabIndex -1, which the session restores when it ends), so
-            focus handed to the map after a Retry lands before the rebuilt session makes it a Tab stop again. */}
         <div
           ref={containerRef}
           tabIndex={-1}
@@ -67,7 +61,7 @@ export function WebCanvasWorkspace({
           }}
           canvasRef={containerRef}
         />
-        {reveal.startScreen && <WebWelcomeScreen controller={controller} />}
+        {reveal.startScreen && <WebWelcomeScreen />}
       </div>
     </div>
   )

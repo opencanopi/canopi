@@ -73,7 +73,7 @@ export function upsertLidarEntry(
       ...design,
       lidar: { ...section, entries: [...section.entries, entry] },
     }
-  })
+  }, 'lidar.upsert')
 }
 
 /**
@@ -98,7 +98,7 @@ export function patchLidarEntryById(id: string, patch: LidarEntryPatch): void {
         entries: section.entries.map((entry) => (entry === existing ? next : entry)),
       },
     }
-  })
+  }, 'lidar.patch')
 }
 
 export function removeLidarEntries(ids: string[]): void {
@@ -116,7 +116,7 @@ export function removeLidarEntries(ids: string[]): void {
       return { ...design, lidar: null }
     }
     return { ...design, lidar: { ...section, entries: nextEntries } }
-  })
+  }, 'lidar.remove')
 }
 
 function mergeEntry(
@@ -166,7 +166,7 @@ export function setSiteDataVisible(visible: boolean): void {
       return design
     }
     return { ...design, lidar: { ...section, visible } }
-  })
+  }, 'lidar.visibility')
 }
 
 function nextOrder(entries: LidarPresentationEntry[]): number {
@@ -196,7 +196,7 @@ export function setLidarEntryOrders(orders: ReadonlyMap<string, number>): void {
       return design
     }
     return { ...design, lidar: { ...section, entries: nextEntries } }
-  })
+  }, 'lidar.reorder')
 }
 
 /**

@@ -6,8 +6,20 @@ use specta::Type;
 
 use crate::{
     failure::Failure,
-    ids::{DraftId, HomeVersion},
+    ids::{DraftId, FileGrantId, HomeVersion},
 };
+
+/// Host-issued identity for a granted Design file: ephemeral grant handle for `home_read`/`home_write`,
+/// human-readable file name for UI display, and stable opaque `recent_id` for `last_open_home`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
+pub struct FileHomeGrant {
+    /// Ephemeral process-local file grant id (`grant:N`) accepted by `home_read` / `home_write`.
+    pub grant: FileGrantId,
+    /// Human-readable file name (never a full path or grant id) for title/UI display.
+    pub display_name: String,
+    /// Stable opaque Recent Designs identifier (SHA-256 hex of the resolved path) for `last_open_home`.
+    pub recent_id: String,
+}
 
 /// Result of reading a Design home (file grant or Draft id) through `home_read`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]

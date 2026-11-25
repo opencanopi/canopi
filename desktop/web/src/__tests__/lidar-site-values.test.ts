@@ -32,7 +32,7 @@ vi.mock('../ipc/lidar', async (importOriginal) => ({
 import { setCurrentCanvasSession } from '../canvas/session'
 import type { CanvasRuntimeSurfaces } from '../canvas/runtime/runtime'
 import type { PointerKind } from '../canvas/runtime/interaction-types'
-import { designSessionStore } from '../app/document-session/store'
+import { openTestDesign, replaceCurrentDesignState } from './support/design-session-state'
 import { setLidarEntryVisibility } from '../app/data-library/actions'
 import { lidarLibrary } from '../app/data-library/library-store'
 import { endSiteDataTransients, pin, setPin } from '../app/data-library/site-transients'
@@ -57,7 +57,8 @@ function openDesign(entries: { id: string; visible: boolean; kind?: 'Source' | '
       })),
     },
   } as unknown as CanopiFile
-  designSessionStore.replaceCurrentDesignState(design, null, 'Orchard')
+  replaceCurrentDesignState(design, null, 'Orchard')
+  selectPanel('site-data')
 }
 
 /** Releases every held answer, including those the released ones let run, then answers at once again. */
@@ -226,7 +227,16 @@ describe('Site data row values', () => {
     hover(10, 20)
     await flush()
     // Reopened from the keyboard: the pointer never leaves the map, and the rows to read are the same.
-    openDesign([{ id: 'mnt', visible: true }, { id: 'dsm', visible: true }])
+    await openTestDesign({
+      name: 'Orchard',
+      lidar: {
+        visible: true,
+        entries: [
+          { kind: 'Source', id: 'mnt', name: 'mnt', visible: true, opacity: 1, order: 0, ramp: null, reversed: false, range: null },
+          { kind: 'Source', id: 'dsm', name: 'dsm', visible: true, opacity: 1, order: 1, ramp: null, reversed: false, range: null },
+        ],
+      },
+    } as unknown as CanopiFile)
     await flush()
 
     // The answer asked for the closed session is dropped; the reopened session asks again at the same point.

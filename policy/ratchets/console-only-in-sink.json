@@ -5,15 +5,12 @@
     "desktop/web/src/app/budget/workbench.ts": { "count": 1, "bead": "canopi-f47t.52.36" },
     "desktop/web/src/app/data-library/import-coverage.ts": { "count": 1, "bead": "canopi-f47t.52.36" },
     "desktop/web/src/app/design-drafts/controller.ts": { "count": 1, "bead": "canopi-f47t.52.36" },
-    "desktop/web/src/app/document-session/continuous-save.ts": { "count": 1, "bead": "canopi-f47t.52.36" },
     "desktop/web/src/app/document-session/launch-file.ts": { "count": 1, "bead": "canopi-f47t.52.36" },
     "desktop/web/src/app/document-session/open-failure.ts": { "count": 1, "bead": "canopi-f47t.52.36" },
-    "desktop/web/src/app/document-session/state-machine.ts": { "count": 2, "bead": "canopi-f47t.52.36" },
     "desktop/web/src/app/geojson/workflow.ts": { "count": 2, "bead": "canopi-f47t.52.36" },
     "desktop/web/src/app/plant-browser/search-session.ts": { "count": 2, "bead": "canopi-f47t.52.36" },
     "desktop/web/src/app/recent-files/controller.ts": { "count": 2, "bead": "canopi-f47t.52.36" },
     "desktop/web/src/app/settings/projection.ts": { "count": 1, "bead": "canopi-f47t.52.36" },
-    "desktop/web/src/app/shell/close-guard.ts": { "count": 4, "bead": "canopi-f47t.52.36" },
     "desktop/web/src/canvas/runtime/inspection-lens.ts": { "count": 3, "bead": "canopi-f47t.52.36" },
     "desktop/web/src/canvas/runtime/scene-runtime/render-scheduler.ts": { "count": 1, "bead": "canopi-f47t.52.36" },
     "desktop/web/src/components/canvas/InspectionLens.tsx": { "count": 1, "bead": "canopi-f47t.52.36" },
@@ -26,7 +23,6 @@
     "desktop/web/src/editions/web/boot.ts": { "count": 2, "bead": "canopi-f47t.52.36" },
     "desktop/web/src/editions/web/species-catalog.ts": { "count": 1, "bead": "canopi-f47t.52.36" },
     "desktop/web/src/ipc/launch.ts": { "count": 1, "bead": "canopi-f47t.52.36" },
-    "desktop/web/src/web/browser-design-session.ts": { "count": 3, "bead": "canopi-f47t.52.36" },
     "desktop/web/src/web/browser-draft-persistence.ts": { "count": 1, "bead": "canopi-f47t.52.36" }
   }
 }

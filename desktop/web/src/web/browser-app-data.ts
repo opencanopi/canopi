@@ -15,26 +15,14 @@ import type { RecordRead, SpeciesListEntry, SpeciesListRecord } from "../platfor
 // newer Canopi and refuses writes. platform/ passes the reader in (openSpeciesLists), so web/ imports no platform/ code.
 const RECORD_VERSION = 3 as const;
 const EARLIER_KEYS: readonly string[] = [
-  "canopi:web-app-data:v1",
-  "canopi:web-app-data:v2:drafts",
-  "canopi:web-app-data:v2:settings",
-  "canopi:web-app-data:v2:species",
-  "canopi:web-app-data:v2:saved-object-stamps",
-  "canopi:web-app-data:v2:authority",
-  "canopi:web-app-data:v2:migration-progress",
-  "canopi:web-app-data:v2:authority-reservation",
+  "canopi:web-app-data:v1", "canopi:web-app-data:v2:drafts", "canopi:web-app-data:v2:settings", "canopi:web-app-data:v2:species",
+  "canopi:web-app-data:v2:saved-object-stamps", "canopi:web-app-data:v2:authority", "canopi:web-app-data:v2:migration-progress", "canopi:web-app-data:v2:authority-reservation",
 ];
-/** Set once the user has been told that the 1.x data was left in place. */
 const KEPT_IN_PLACE_NOTICE_KEY = "canopi:web-app-data:before-2.0-kept-in-place-notice";
-const STORAGE_KEYS = {
-  drafts: "canopi:web-app-data:v3:drafts", settings: "canopi:web-app-data:v3:settings",
-  species: "canopi:web-app-data:v3:species", stamps: "canopi:web-app-data:v3:saved-object-stamps",
-} as const;
-/** Exported for other-tab `storage` event matching (ADR 0024). */
+const STORAGE_KEYS = { drafts: "canopi:web-app-data:v3:drafts", settings: "canopi:web-app-data:v3:settings", species: "canopi:web-app-data:v3:species", stamps: "canopi:web-app-data:v3:saved-object-stamps" } as const;
 export const SETTINGS_STORAGE_KEY = STORAGE_KEYS.settings;
-/** One-shot backup of the raw settings record before per-field reset (E2, ADR 0026, 2.1-Q54); never read by the app. */
+export const DRAFTS_STORAGE_KEY = STORAGE_KEYS.drafts;
 const SETTINGS_BEFORE_RESET_KEY = "canopi:web-app-data:settings.before-reset";
-/** Per-tab release-reload Draft id in sessionStorage (2.1-Q189); not a user-work store, so no record version. */
 const RELOAD_HOME_KEY = "canopi:web-session:reload-home";
 
 interface BrowserReloadHome { readonly draft: string | null; }
@@ -47,7 +35,7 @@ export interface BrowserStorageAdapter {
 type SpeciesListReader = (storage: BrowserStorageAdapter) => RecordRead<SpeciesListRecord>;
 interface NewerRecordReaders { species?: SpeciesListReader }
 
-export type BrowserAppDataWriteResult<T> =
+type BrowserAppDataWriteResult<T> =
   | { readonly ok: true; readonly value: T }
   | { readonly ok: false; readonly error: unknown };
 
@@ -279,7 +267,7 @@ export function createBrowserAppDataStore({
           const stored = current.drafts.find((draft) => draft.id === id);
           if (stored && stored.updatedAt !== expectedUpdatedAt) throw new BrowserDraftChangedError(id);
         }
-        const summary = { id, name: file.name || "Untitled", updatedAt: now };
+        const summary: BrowserDraftSummary = { id, name: file.name || "Untitled", updatedAt: now };
         const drafts = [summary, ...current.drafts.filter((draft) => draft.id !== summary.id)];
         const draftFiles = { ...current.draftFiles, [summary.id]: file };
         const refused = withoutRefusedDraft(current.refused, summary.id);

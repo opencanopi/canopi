@@ -12,8 +12,6 @@
     "app/data-library/sampler.ts -> ipc/lidar.ts": { "count": 1 },
     "app/design-drafts/controller.ts -> ipc/design.ts": { "count": 1 },
     "app/design-notebook/workbench.ts -> ipc/design.ts": { "count": 1 },
-    "app/document-session/state-machine.ts -> ipc/design.ts": { "count": 1 },
-    "app/document-session/transition.ts -> ipc/design.ts": { "count": 1 },
     "app/plant-detail/detail-controller.ts -> ipc/species.ts": { "count": 1 },
     "app/plant-detail/media-controller.ts -> ipc/species.ts": { "count": 1 },
     "app/recent-files/controller.ts -> ipc/design.ts": { "count": 1 },

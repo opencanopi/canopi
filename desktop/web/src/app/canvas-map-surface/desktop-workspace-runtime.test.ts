@@ -7,19 +7,10 @@ import {
   createTestCanvasDocumentSurface,
   createTestCanvasRuntimeSurfaces,
 } from '../../__tests__/support/canvas-runtime-surfaces'
+import { createTestSessionCore, makeTestDesign, type TestSessionCoreHandle } from '../../__tests__/support/session-core-fixture'
 import { mountCanvasHost, type CanvasHostHandle } from './canvas-host'
-import type { WorkspaceRuntimeComposition } from './workspace-runtime-composition'
-
-const transitionMocks = vi.hoisted(() => ({
-  startAttachedDesignSession: vi.fn(),
-  abortFailedAttachedDesignSessionStart: vi.fn(),
-  consumeQueuedDocumentLoad: vi.fn(),
-  teardownAttachedDesignSession: vi.fn(),
-}))
-
-vi.mock('../document-session/transition', () => transitionMocks)
-
 import { createDesktopCanvasHostCore, createDesktopCanvasHostRuntime } from './desktop-workspace-runtime'
+import type { WorkspaceRuntimeComposition } from './workspace-runtime-composition'
 
 async function flushMicrotasks(): Promise<void> {
   for (let i = 0; i < 12; i += 1) await Promise.resolve()
@@ -51,26 +42,29 @@ function makeFakeComposition() {
 
 describe('createDesktopCanvasHostCore through mountCanvasHost', () => {
   let handles: CanvasHostHandle[] = []
+  let session: TestSessionCoreHandle | null = null
 
   beforeEach(() => {
     vi.clearAllMocks()
     setCurrentCanvasSession(null)
     handles = []
+    session = createTestSessionCore({ file: makeTestDesign(), path: '/orchard.canopi' })
   })
 
   afterEach(async () => {
     for (const handle of handles.splice(0)) await handle.dispose()
     setCurrentCanvasSession(null)
+    session?.dispose()
+    session = null
   })
 
-  it('loads on mount, snapshots with runtimeInitialized: true on teardown, and cancels queued load after snapshot', async () => {
-    const order: string[] = []
-    const cancelQueued = vi.fn(() => order.push('cancelQueued'))
-    transitionMocks.startAttachedDesignSession.mockResolvedValue(null)
-    transitionMocks.consumeQueuedDocumentLoad.mockReturnValue(cancelQueued)
-    transitionMocks.teardownAttachedDesignSession.mockImplementation(() => order.push('teardown'))
-
+  it('attaches ScenePort on mount and detaches ScenePort on teardown', async () => {
+    const attachSpy = vi.spyOn(session!.core, 'attachScene')
+    const detachSpy = vi.spyOn(session!.core, 'detachScene')
     const fake = makeFakeComposition()
+    const loadSpy = vi.spyOn(fake.documents, 'replaceDocument')
+    const serializeSpy = vi.spyOn(fake.documents, 'serializeSceneFields')
+
     const host = mountCanvasHost({
       elements: { container: makeContainer() },
       core: createDesktopCanvasHostCore(),
@@ -81,23 +75,25 @@ describe('createDesktopCanvasHostCore through mountCanvasHost', () => {
     handles.push(host)
     await flushMicrotasks()
 
-    expect(transitionMocks.startAttachedDesignSession).toHaveBeenCalledWith(fake.documents)
-    expect(transitionMocks.consumeQueuedDocumentLoad).toHaveBeenCalledWith(fake.documents)
+    expect(attachSpy).toHaveBeenCalledTimes(1)
+    expect(loadSpy).toHaveBeenCalledTimes(1)
+    expect(session!.core.currentDesign.value?.scene.kind).toBe('attached')
     expect(host.ready.value).toBe(true)
 
     await host.dispose()
-    expect(transitionMocks.teardownAttachedDesignSession).toHaveBeenCalledWith(
-      expect.objectContaining({ session: fake.documents, runtimeInitialized: true }),
-    )
-    expect(order).toEqual(['teardown', 'cancelQueued'])
+    expect(detachSpy).toHaveBeenCalledTimes(1)
+    expect(serializeSpy).toHaveBeenCalledTimes(1)
+    expect(session!.core.currentDesign.value?.scene.kind).toBe('detached')
     expect(fake.dispose).toHaveBeenCalledOnce()
   })
 
-  it('does not snapshot before load when startAttachedDesignSession fails', async () => {
+  it('detaches and reports runtime-failed when ScenePort.load throws during attachScene', async () => {
     const startError = new Error('load failed')
-    transitionMocks.startAttachedDesignSession.mockResolvedValue({ status: 'failed', error: startError })
+    const detachSpy = vi.spyOn(session!.core, 'detachScene')
     const fake = makeFakeComposition()
+    vi.spyOn(fake.documents, 'replaceDocument').mockImplementation(() => { throw startError })
     const reportFailure = vi.fn()
+
     const host = mountCanvasHost({
       elements: { container: makeContainer() },
       core: createDesktopCanvasHostCore(),
@@ -108,53 +104,46 @@ describe('createDesktopCanvasHostCore through mountCanvasHost', () => {
     handles.push(host)
     await flushMicrotasks()
 
-    expect(transitionMocks.abortFailedAttachedDesignSessionStart).toHaveBeenCalledWith(
-      fake.documents,
-      expect.any(Function),
-    )
-    expect(transitionMocks.teardownAttachedDesignSession).not.toHaveBeenCalled()
+    expect(detachSpy).not.toHaveBeenCalled()
     expect(host.surface.value).toEqual({ kind: 'unavailable', cause: 'runtime-failed' })
     expect(reportFailure).toHaveBeenCalledWith(startError, { code: 'canvas-start-failed', source: 'canvas-host' })
   })
 
-  it('aborts cleanly if consumeQueuedDocumentLoad throws synchronously', async () => {
-    const queueError = new Error('queued load exploded')
-    transitionMocks.startAttachedDesignSession.mockResolvedValue(null)
-    transitionMocks.consumeQueuedDocumentLoad.mockImplementation(() => { throw queueError })
+  it('returns no-design without loading when SessionCore has no open Design', async () => {
+    session!.dispose()
+    session = createTestSessionCore()
+    const attachSpy = vi.spyOn(session.core, 'attachScene')
     const fake = makeFakeComposition()
-    const reportFailure = vi.fn()
+    const loadSpy = vi.spyOn(fake.documents, 'replaceDocument')
+
     const host = mountCanvasHost({
       elements: { container: makeContainer() },
       core: createDesktopCanvasHostCore(),
       createComposition: () => fake.composition,
       flushSettings: vi.fn(async () => {}),
-      reportFailure,
+      reportFailure: vi.fn(),
     })
     handles.push(host)
     await flushMicrotasks()
 
-    expect(transitionMocks.abortFailedAttachedDesignSessionStart).toHaveBeenCalledWith(
-      fake.documents,
-      expect.any(Function),
-    )
-    expect(host.surface.value).toEqual({ kind: 'unavailable', cause: 'runtime-failed' })
-    expect(reportFailure).toHaveBeenCalledWith(queueError, { code: 'canvas-start-failed', source: 'canvas-host' })
+    expect(attachSpy).toHaveBeenCalledTimes(1)
+    expect(attachSpy).toHaveReturnedWith('no-design')
+    expect(loadSpy).not.toHaveBeenCalled()
+    expect(host.ready.value).toBe(true)
   })
 
-  it('retains queued load cancellation and retries teardown when handoff snapshot throws', async () => {
+  it('retries teardown when detachScene serialize throws and binds shared adapters without per-edition createComposition', async () => {
     const handoffError = new Error('handoff capture blocked')
-    const cancelQueued = vi.fn()
     let failOnce = true
-    transitionMocks.startAttachedDesignSession.mockResolvedValue(null)
-    transitionMocks.consumeQueuedDocumentLoad.mockReturnValue(cancelQueued)
-    transitionMocks.teardownAttachedDesignSession.mockImplementation(() => {
+    const fake1 = makeFakeComposition()
+    vi.spyOn(fake1.documents, 'serializeSceneFields').mockImplementation(() => {
       if (failOnce) {
         failOnce = false
         throw handoffError
       }
+      return { plants: [] }
     })
 
-    const fake1 = makeFakeComposition()
     const host1 = mountCanvasHost({
       elements: { container: makeContainer() },
       core: createDesktopCanvasHostCore(),
@@ -167,7 +156,6 @@ describe('createDesktopCanvasHostCore through mountCanvasHost', () => {
 
     await host1.dispose()
     expect(fake1.dispose).not.toHaveBeenCalled()
-    expect(cancelQueued).not.toHaveBeenCalled()
     expect(getCurrentCanvasSession()).toBe(fake1.surfaces)
 
     const fake2 = makeFakeComposition()
@@ -181,12 +169,11 @@ describe('createDesktopCanvasHostCore through mountCanvasHost', () => {
     handles.push(host2)
     await flushMicrotasks()
 
-    expect(transitionMocks.teardownAttachedDesignSession).toHaveBeenCalledTimes(2)
-    expect(cancelQueued).toHaveBeenCalledOnce()
     expect(fake1.dispose).toHaveBeenCalledOnce()
     expect(getCurrentCanvasSession()).toBe(fake2.surfaces)
 
     const runtime = createDesktopCanvasHostRuntime({ locationEnabled: true })
-    expect(typeof runtime.createComposition).toBe('function')
+    expect(runtime.adapters).toBeDefined()
+    expect(runtime.createComposition).toBeUndefined()
   })
 })

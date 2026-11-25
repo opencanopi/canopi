@@ -216,6 +216,8 @@ pub fn get_design_notebook_entries_with_sections(
             plant_count: row.get(3)?,
             section_id: row.get(4)?,
             sort_order: row.get(5)?,
+            grant: None,
+            recent_id: None,
         })
     })?;
 

@@ -118,7 +118,7 @@ function ownedFieldSource(
   document: CanopiFile,
   canvas: CanopiFile,
 ): CanopiFile {
-  return DOCUMENT_FILE_FIELD_OWNERS[key] === 'scene' ? canvas : document
+  return DOCUMENT_FILE_FIELD_OWNERS[key] === 'scene' || key === 'updated_at' ? canvas : document
 }
 
 function normalizeDocumentKnownFields(file: CanopiFile): CanopiFile {

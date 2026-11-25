@@ -21,7 +21,7 @@ import { CANOPI_VERSION } from "../../app/about/metadata";
  *   connection) shows it too, as `source: store`: a newer Canopi is serving this origin (2.1-Q40, design check A18).
  *   Dismissing it hides it until the next change.
  * The signal is shaped as Phase 1's app-lifecycle `release-waiting{source: manifest}` (2.1-M98); W1 swaps the fetch for
- * `registration.update()` (2.1-M99). Reload is the session's (`browser-design-session.ts` `reloadForRelease`).
+ * `registration.update()` (2.1-M99). Reload is the session's (`web-session.ts` `reloadWebForRelease`).
  */
 interface BrowserReleaseWaiting {
   readonly source: "manifest" | "store";

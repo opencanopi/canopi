@@ -4,7 +4,9 @@ import type { CanopiFile } from '../../types/design'
 const KNOWN_CANOPI_KEY_SET = new Set<string>(KNOWN_CANOPI_KEYS)
 
 /** Encode the normalized in-memory Design shape as canonical `.canopi` JSON. */
-export function encodeCanopiDesign(file: CanopiFile): Record<string, unknown> {
+export function encodeCanopiDesign(
+  file: CanopiFile | { readonly version: number; readonly name: string; readonly extra?: unknown },
+): Record<string, unknown> {
   const wire: Record<string, unknown> = {}
 
   if (file.extra && typeof file.extra === 'object' && !Array.isArray(file.extra)) {

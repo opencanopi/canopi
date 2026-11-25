@@ -100,14 +100,11 @@ commands! {
     export_saved_object_stamp_canopi_file => "commands::saved_object_stamps::export_saved_object_stamp_canopi_file": Async (path: "string", content: "Record<string, unknown>") -> "string",
     load_saved_object_stamp_canopi_file => "commands::saved_object_stamps::load_saved_object_stamp_canopi_file": Async (path: "string") -> "CanopiFile",
     new_design => "commands::design::new_design": BoundedSync () -> "CanopiFile",
-    save_design => "commands::design::save_design": Async (path: "string", content: "Record<string, unknown>", expectedFingerprint? opt: "string | null") -> "DesignSaveOutcome",
-    load_design => "commands::design::load_design": Async (path: "string") -> "LoadedDesign | ReadOnlyDesign",
+    read_newer_design => "commands::design::read_newer_design": Async (text: "string") -> "ReadOnlyDesign",
     get_recent_files => "commands::design::get_recent_files": Async () -> "DesignSummary[]",
     get_recent_design_previews => "commands::design::get_recent_design_previews": Async (paths: "readonly string[]") -> "RecentDesignSummary[]",
     remove_recent_design => "commands::design::remove_recent_design": Async (path: "string") -> "void",
     show_recent_design_in_folder => "commands::design::show_recent_design_in_folder": Async (path: "string") -> "void",
-    save_design_draft => "commands::design::save_design_draft": Async (id: "string", content: "Record<string, unknown>") -> "void",
-    load_design_draft => "commands::design::load_design_draft": Async (id: "string") -> "CanopiFile | ReadOnlyDesign",
     list_design_drafts => "commands::design::list_design_drafts": Async () -> "DesignDraftSummary[]",
     delete_design_draft => "commands::design::delete_design_draft": Async (id: "string") -> "void",
     get_design_notebook => "commands::design_notebook::get_design_notebook": Async () -> "DesignNotebookSnapshot",
@@ -128,6 +125,7 @@ commands! {
     take_pending_open => "commands::host::take_pending_open": BoundedSync () -> "PendingOpen | null",
     home_read => "commands::host::home_read": Async (key: "string") -> "HomeRead",
     home_write => "commands::host::home_write": Async (key: "string", bytes: "readonly number[]", expected? opt: "HomeVersion | null", keepPrevious? opt: "boolean | null") -> "HomeWrite",
+    grant_for_recent => "commands::host::grant_for_recent": Async (recentId: "string") -> "FileHomeGrant | null",
     pick_open => "commands::host::pick_open": Async (kind: "DialogKind") -> "PickOpenOutcome",
     pick_save => "commands::host::pick_save": Async (kind: "DialogKind", stem: "string") -> "PickSaveOutcome",
     update_check => "commands::update::update_check": Async (operation: "string") -> "UpdateOffer | null",
@@ -177,6 +175,6 @@ mod tests {
                 row.name
             );
         }
-        assert_eq!(names.len(), 83);
+        assert_eq!(names.len(), 81);
     }
 }

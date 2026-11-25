@@ -5,20 +5,17 @@ import {
   deleteStory,
   deleteStoryStep,
   duplicateStoryStep,
+  editWithinImageLimit,
   moveStoryStep,
   moveStoryStepToStory,
   recaptureSavedView,
   renameStory,
   reorderStorySteps,
-  restoreStory,
-  restoreStoryStep,
   updateStoryStep,
-  deleteSavedView,
-  restoreSavedView,
 } from '../app/design-edit'
 import { viewsAndStoriesProblem } from '../app/contracts/views-admission'
 import { currentDesign, designSessionStore } from '../app/document-session/store'
-import { replaceCurrentDesignState } from './support/design-session-state'
+import { replaceCurrentDesignState, resetDirtyBaselines } from './support/design-session-state'
 import type { CanopiFile, SavedView, Story, StoryStep } from '../types/design'
 
 function view(id: string): SavedView {
@@ -54,13 +51,13 @@ function open(stories: Story[] = [], views: SavedView[] = [view('a'), view('b')]
     created_at: '', updated_at: '', extra: {},
   }
   replaceCurrentDesignState(file, null, file.name)
-  designSessionStore.resetDirtyBaselines()
+  resetDirtyBaselines()
 }
 
 const steps = (storyIndex = 0) => currentDesign.value!.stories![storyIndex]!.steps.map((entry) => entry.id)
 
 describe('story Design Edit commands', () => {
-  it('adds, renames and deletes stories as Design edits, and Undo restores a story where it was', () => {
+  it('adds, renames and deletes stories as Design edits', () => {
     open([story('s1')])
     addStory(story('s2', [step('x')]))
     renameStory('s2', '  Client visit ')
@@ -68,10 +65,9 @@ describe('story Design Edit commands', () => {
     expect(currentDesign.value?.stories?.map((entry) => entry.name)).toEqual(['Story s1', 'Client visit'])
     expect(designSessionStore.designDirty.value).toBe(true)
 
-    const deletion = deleteStory('s1')!
+    const deleted = deleteStory('s1')
+    expect(deleted).toEqual({ name: 'Story s1' })
     expect(currentDesign.value?.stories?.map((entry) => entry.id)).toEqual(['s2'])
-    restoreStory(deletion)
-    expect(currentDesign.value?.stories?.map((entry) => entry.id)).toEqual(['s1', 's2'])
   })
 
   it('changes nothing for unknown ids or a repeated value', () => {
@@ -132,25 +128,11 @@ describe('story Design Edit commands', () => {
     expect(steps(1)).toEqual(['x', 'y', 'new-x'])
   })
 
-  it('deletes a step and Undo puts it back where it was, unless its view went away', () => {
+  it('deletes a step and returns its title', () => {
     open([story('s1', [step('x'), step('y', 'b')])])
-    const deletion = deleteStoryStep('s1', 'x')!
+    const deleted = deleteStoryStep('s1', 'x')
+    expect(deleted).toEqual({ title: 'Step x' })
     expect(steps()).toEqual(['y'])
-    restoreStoryStep(deletion)
-    expect(steps()).toEqual(['x', 'y'])
-
-    const deletedY = deleteStoryStep('s1', 'y')!
-    deleteSavedView('b')
-    restoreStoryStep(deletedY)
-    expect(steps()).toEqual(['x'])
-  })
-
-  it('restores a deleted story without steps whose view went away', () => {
-    open([story('s1', [step('x'), step('y', 'b')])])
-    const deletion = deleteStory('s1')!
-    deleteSavedView('b')
-    restoreStory(deletion)
-    expect(steps()).toEqual(['x'])
   })
 })
 
@@ -176,26 +158,20 @@ describe('the 10 MiB of images a Design embeds', () => {
     expect(admitted()).toBeNull()
   })
 
-  it('refuses an Undo that would bring back more images than fit', () => {
+  it('refuses a snapshot edit that would bring back more images than fit', () => {
     open([story('s1', [withImages('x', 4), withImages('y', 5)])])
-    const deletion = deleteStoryStep('s1', 'x')!
+    const before = currentDesign.value!.stories
+    deleteStoryStep('s1', 'x')
     updateStoryStep('s1', 'y', { images: withImages('y', 9).images })
-    expect(restoreStoryStep(deletion)).toBe('images-do-not-fit')
+    expect(editWithinImageLimit((design) => ({ ...design, stories: before }))).toBe('applied')
+    expect(admitted()).toBeNull()
+
+    open([story('s1', [withImages('y', 9)])])
+    expect(editWithinImageLimit((design) => ({
+      ...design,
+      stories: [story('s1', [withImages('x', 4), withImages('y', 9)])],
+    }))).toBe('images-do-not-fit')
     expect(steps()).toEqual(['y'])
-    expect(admitted()).toBeNull()
-
-    open([story('s1', [withImages('x', 4)]), story('s2', [withImages('y', 5)])])
-    const storyDeletion = deleteStory('s1')!
-    updateStoryStep('s2', 'y', { images: withImages('y', 9).images })
-    expect(restoreStory(storyDeletion)).toBe('images-do-not-fit')
-    expect(currentDesign.value?.stories?.map((entry) => entry.id)).toEqual(['s2'])
-    expect(admitted()).toBeNull()
-
-    open([story('s1', [withImages('x', 4, 'b')]), story('s2', [withImages('y', 5)])])
-    const viewDeletion = deleteSavedView('b')!
-    updateStoryStep('s2', 'y', { images: withImages('y', 9).images })
-    expect(restoreSavedView(viewDeletion)).toBe('images-do-not-fit')
-    expect(currentDesign.value?.views?.map((entry) => entry.id)).toEqual(['a'])
     expect(admitted()).toBeNull()
   })
 

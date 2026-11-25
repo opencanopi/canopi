@@ -1,7 +1,7 @@
 import { signal } from '@preact/signals'
 import { describe, expect, it, vi } from 'vitest'
 import { createDesignNotebookWorkbench } from '../app/design-notebook/workbench'
-import type { DesignSaveSettlement } from '../app/document-session/persistence'
+import type { DesignSaveSettlement } from '../app/document-session/actions'
 import type { CanopiFile, DesignNotebookSnapshot, DesignSummary } from '../types/design'
 
 describe('design notebook workbench', () => {
@@ -102,7 +102,7 @@ describe('design notebook workbench', () => {
             updated_at: '2026-06-22T08:00:00.000Z',
             plant_count: 7,
             section_id: null,
-            sort_order: 1,
+            sort_order: 1, grant: 'grant:forest-edge', recent_id: 'rid-forest-edge',
           },
         ],
       }),
@@ -111,19 +111,13 @@ describe('design notebook workbench', () => {
 
     await workbench.load()
 
-    expect(workbench.view.value.entries.map((entry) => entry.path)).toEqual([
-      '/designs/terrace.canopi',
-      '/designs/forest-edge.canopi',
-    ])
+    expect(workbench.view.value.entries.map((entry) => entry.path)).toEqual(['/designs/terrace.canopi', '/designs/forest-edge.canopi'])
     expect(workbench.view.value.activePath).toBe('/designs/terrace.canopi')
-    expect(workbench.view.value.visibleEntries.map((entry) => entry.name)).toEqual([
-      'Terrace Guild',
-      'Forest Edge',
-    ])
+    expect(workbench.view.value.visibleEntries.map((entry) => entry.name)).toEqual(['Terrace Guild', 'Forest Edge'])
 
     await workbench.openEntry('/designs/forest-edge.canopi')
 
-    expect(openDesign).toHaveBeenCalledWith('/designs/forest-edge.canopi')
+    expect(openDesign).toHaveBeenCalledWith('grant:forest-edge', { grant: 'grant:forest-edge', displayName: 'forest-edge.canopi', recentId: 'rid-forest-edge' })
     expect(workbench.view.value.activePath).toBe('/designs/forest-edge.canopi')
   })
 

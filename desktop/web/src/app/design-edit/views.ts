@@ -1,18 +1,9 @@
-import type { SavedView, StoryStep } from '../../generated/contracts'
-import { editCurrentDesign, readCurrentDesign } from './core'
-import { editWithinImageLimit, parkStepsAwaitingView, takeStepsAwaitingView, type StoryEditOutcome } from './stories'
+import type { SavedView } from '../../generated/contracts'
+import { editCurrentDesign } from './core'
 
 // Saved views are Design Edit data (ADR 0011): every command dirties the Design
 // for continuous save, none is in the scene history, and a command that changes
 // nothing returns the Design untouched. Story commands live in stories.ts.
-
-/** What deleting a view removed, so Undo can put it back where it was. */
-export interface SavedViewDeletion {
-  readonly view: SavedView
-  readonly index: number
-  /** Story steps that showed the view, in story order, with their positions. */
-  readonly steps: readonly { readonly storyId: string; readonly step: StoryStep; readonly index: number }[]
-}
 
 /** Adds a view as one edit. */
 export function addSavedView(view: SavedView): void {
@@ -20,7 +11,7 @@ export function addSavedView(view: SavedView): void {
     const views = design.views ?? []
     if (views.some((existing) => existing.id === view.id)) return design
     return { ...design, views: [...views, view] }
-  })
+  }, 'views.add')
 }
 
 /**
@@ -58,7 +49,7 @@ export function recaptureSavedView(id: string, capture: SavedView): void {
     const nextViews = [...views]
     nextViews[index] = next
     return { ...design, views: nextViews }
-  })
+  }, 'views.recapture')
 }
 
 export function renameSavedView(id: string, name: string): void {
@@ -71,68 +62,34 @@ export function renameSavedView(id: string, name: string): void {
     const next = [...views]
     next[index] = { ...views[index]!, name: nextName }
     return { ...design, views: next }
-  })
+  }, 'views.rename')
 }
 
 /**
  * Deletes a view and every story step that shows it, so no step dangles.
- * Callers confirm first when stories use the view. Returns what was removed.
+ * Callers confirm first when stories use the view. Returns the deleted view's
+ * name, or null when no such view exists.
  */
-export function deleteSavedView(id: string): SavedViewDeletion | null {
-  let deletion: SavedViewDeletion | null = null
+export function deleteSavedView(id: string): { readonly name: string } | null {
+  let deleted: { readonly name: string } | null = null
   editCurrentDesign((design) => {
     const views = design.views ?? []
-    const index = views.findIndex((view) => view.id === id)
-    if (index === -1) return design
-    const removedSteps: SavedViewDeletion['steps'][number][] = []
+    const target = views.find((view) => view.id === id)
+    if (!target) return design
     const stories = design.stories ?? []
+    let removedAnyStep = false
     const nextStories = stories.map((story) => {
-      const steps = story.steps.filter((step, stepIndex) => {
-        if (step.view_id !== id) return true
-        removedSteps.push({ storyId: story.id, step, index: stepIndex })
-        return false
-      })
-      return steps.length === story.steps.length ? story : { ...story, steps }
+      const steps = story.steps.filter((step) => step.view_id !== id)
+      if (steps.length === story.steps.length) return story
+      removedAnyStep = true
+      return { ...story, steps }
     })
-    deletion = { view: views[index]!, index, steps: removedSteps }
+    deleted = { name: target.name }
     return {
       ...design,
       views: views.filter((view) => view.id !== id),
-      stories: removedSteps.length === 0 ? stories : nextStories,
+      stories: removedAnyStep ? nextStories : stories,
     }
-  })
-  return deletion
-}
-
-/**
- * Undo for `deleteSavedView`: puts the view and its steps back at their
- * positions, with any step a story or step Undo had parked while the view was
- * gone. Steps whose story is gone stay deleted; a view that exists again is
- * left alone.
- */
-export function restoreSavedView(deletion: SavedViewDeletion): StoryEditOutcome {
-  const current = readCurrentDesign()
-  if (!current || (current.views ?? []).some((view) => view.id === deletion.view.id)) return 'unchanged'
-  const parked = takeStepsAwaitingView(deletion.view.id)
-  const restoredSteps = [...deletion.steps, ...parked]
-  const outcome = editWithinImageLimit((design) => {
-    const views = design.views ?? []
-    if (views.some((view) => view.id === deletion.view.id)) return design
-    const nextViews = [...views]
-    nextViews.splice(Math.min(deletion.index, views.length), 0, deletion.view)
-    const stories = design.stories ?? []
-    const nextStories = stories.map((story) => {
-      const removed = restoredSteps.filter((entry) => entry.storyId === story.id)
-      if (removed.length === 0) return story
-      const steps = [...story.steps]
-      for (const entry of removed) {
-        if (steps.some((step) => step.id === entry.step.id)) continue
-        steps.splice(Math.min(entry.index, steps.length), 0, entry.step)
-      }
-      return { ...story, steps }
-    })
-    return { ...design, views: nextViews, stories: nextStories }
-  })
-  if (outcome !== 'applied') parkStepsAwaitingView(parked)
-  return outcome
+  }, 'views.delete')
+  return deleted
 }

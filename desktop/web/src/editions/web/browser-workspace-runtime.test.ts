@@ -1,57 +1,28 @@
 // @vitest-environment jsdom
 
 import { signal } from '@preact/signals'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { createTestCanvasQuerySurface } from '../../__tests__/support/canvas-query-surface'
-import type {
-  WorkspaceRuntimeCompositionOptions,
-  WorkspaceRuntimeComposition,
-} from '../../app/canvas-map-surface/workspace-runtime-composition'
 import type { DesignSessionStore } from '../../app/document-session/store'
 import { createSessionPlane } from '../../geo/session-plane'
 import { createBrowserCanvasHostRuntime } from './browser-workspace-runtime'
-import type * as WorkspaceRuntimeCompositionModule from '../../app/canvas-map-surface/workspace-runtime-composition'
 
-const workspaceMocks = vi.hoisted(() => ({
-  createComposition: vi.fn(),
-}))
-
-vi.mock('../../app/canvas-map-surface/workspace-runtime-composition', async (importOriginal) => ({
-  ...await importOriginal<typeof WorkspaceRuntimeCompositionModule>(),
-  createWorkspaceRuntimeComposition: workspaceMocks.createComposition,
-}))
-
-beforeEach(() => {
-  workspaceMocks.createComposition.mockReset()
-})
-
-describe('browser workspace runtime composition', () => {
-  it('binds one injected Design store to activation and contribution snapshots', () => {
+describe('browser workspace runtime adapters', () => {
+  it('binds one injected Design store to activation and contribution snapshots without a per-edition createComposition', () => {
     const sessionIdentity = {}
     const hasCurrentDesign = vi.fn(() => true)
     const store: Pick<DesignSessionStore, 'sessionIdentity' | 'hasCurrentDesign'> = {
       sessionIdentity: signal(sessionIdentity),
       hasCurrentDesign,
     }
-    const composition = {} as WorkspaceRuntimeComposition
-    workspaceMocks.createComposition.mockReturnValue(composition)
 
-    const result = createBrowserCanvasHostRuntime(
-      { attachCanvasSession: () => () => {} },
-      store,
-    ).createComposition({
-      container: document.createElement('div'),
-      onFailure: () => {},
-      onRuntimeDestroyed: () => {},
-      onMapFailureStateChange: () => {},
-    })
+    const runtime = createBrowserCanvasHostRuntime(store)
+    expect(runtime.createComposition).toBeUndefined()
+    expect(runtime.adapters).toBeDefined()
 
-    expect(result).toBe(composition)
-    const options = workspaceMocks.createComposition.mock.calls[0]![0] as
-      WorkspaceRuntimeCompositionOptions
     const readInitialCenter = vi.fn(() => ({ lat: 48, lon: 2 }))
-    const activation = options.readSnapshot!(readInitialCenter)
-    const contributions = options.mapContributions.read(
+    const activation = runtime.adapters!.readSnapshot!(readInitialCenter)
+    const contributions = runtime.adapters!.mapContributions.read(
       createTestCanvasQuerySurface({ sessionPlane: createSessionPlane({ lat: 48, lon: 2 }) }),
     )
 

@@ -6,7 +6,7 @@ export function moveConsortiumEntry(
   canonicalName: string,
   updates: { stratum?: string; startPhase: number; endPhase: number },
 ): void {
-  editDesignArray('consortiums', (consortiums) => moveConsortiumEntryInArray(consortiums, canonicalName, updates))
+  editDesignArray('consortiums', (consortiums) => moveConsortiumEntryInArray(consortiums, canonicalName, updates), 'consortium.move')
 }
 
 function moveConsortiumEntryInArray(

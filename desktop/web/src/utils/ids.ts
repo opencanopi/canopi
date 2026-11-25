@@ -2,13 +2,18 @@
 // Owner of the generic id minters (ids-only-in-minters, ADR 0024; §18 F17). Invariant: ids
 // are minted only by their minters; transport sequence numbers are never exported.
 
-import type { OperationId } from '../generated/contracts'
+import type { DraftId, OperationId } from '../generated/contracts'
 
 let fallbackCounter = 0
 
 /** Mints a branded `OperationId` (`u-<uuidv4>` or `s-<uuidv4>`, 2.1-M411, canopi-f47t.52.70). */
 export function mintOperationId(origin: 'u' | 's' = 'u'): OperationId {
   return `${origin}-${createUuid()}` as OperationId
+}
+
+/** Mints a branded `DraftId` (`<uuidv4>`, 2.1-M547 / contracts §4). */
+export function mintDraftId(): DraftId {
+  return createUuid() as DraftId
 }
 
 export function createUuid(): string {

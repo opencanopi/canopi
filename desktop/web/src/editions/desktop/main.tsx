@@ -4,7 +4,8 @@
 import { render } from "preact";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { App, reloadAfterExitFlush } from "../../app";
-import { openProblemReport, ProblemReportDialog } from "../../components/shared/ProblemReportDialog";
+import { openProblemReport } from "../../app/problem-report/submission";
+import { LazyProblemReportDialog } from "../../components/shared/LazyDialogs";
 import { RootBoundary } from "../../components/shared/SurfaceBoundary";
 import { SaveProblemDialog } from "../../components/shared/SaveProblemDialog";
 import { desktopUpdatePorts } from "./updates";
@@ -18,7 +19,7 @@ render(
     source="root.desktop"
     onReport={openProblemReport}
     onReload={reloadAfterExitFlush}
-    dialogs={<><ProblemReportDialog /><SaveProblemDialog /></>}
+    dialogs={<><LazyProblemReportDialog /><SaveProblemDialog /></>}
   >
     <App updates={desktopUpdatePorts} dismissStoreNoticeOnHost={dismissStoreNoticeOnHost} />
   </RootBoundary>,

@@ -7,7 +7,7 @@ import { activePanel, sidePanel } from '../app/shell/state'
 import { gridVisible } from '../app/canvas-settings/signals'
 import { singleKeyShortcuts, theme, snapToGridEnabled } from '../app/settings/state'
 import { setCurrentCanvasSession } from '../canvas/session'
-import { designSessionFixture, resetDirtyBaselines } from './support/design-session-state'
+import { designSessionFixture, markTestDesignDirty, resetDirtyBaselines } from './support/design-session-state'
 import * as documentActions from '../app/document-session/actions'
 import { problemReportDialogOpen } from '../app/problem-report/state'
 import { answerSaveProblem, requestSaveProblemDecision } from '../app/document-session/save-problem'
@@ -79,8 +79,6 @@ describe('command registry canvas tool switching', () => {
     sidePanel.value = null
     setCurrentCanvasSession(null)
     designSessionFixture.file = null
-    designSessionFixture.nonCanvasRevision = 0
-    designSessionFixture.nonCanvasSavedRevision = 0
     gridVisible.value = true
     snapToGridEnabled.value = false
     settingsProjection.resetSettingsProjectionForTests()
@@ -277,8 +275,7 @@ describe('command registry canvas tool switching', () => {
       updated_at: '',
       extra: {},
     }
-    designSessionFixture.nonCanvasRevision = 1
-    designSessionFixture.nonCanvasSavedRevision = 0
+    markTestDesignDirty()
     const newSpy = vi.spyOn(documentActions, 'newDesignAction').mockResolvedValue(undefined)
     const openSpy = vi.spyOn(documentActions, 'openDesign').mockResolvedValue(undefined)
     const saveSpy = vi.spyOn(documentActions, 'saveCurrentDesign').mockResolvedValue(true)
@@ -378,8 +375,7 @@ describe('command registry canvas tool switching', () => {
       updated_at: '',
       extra: {},
     }
-    designSessionFixture.nonCanvasRevision = 1
-    designSessionFixture.nonCanvasSavedRevision = 0
+    markTestDesignDirty()
     mountCanvasCommandSurface({ history: { canUndo: signal(true) } })
 
     expect(fileSave()).toMatchObject({ disabled: false })

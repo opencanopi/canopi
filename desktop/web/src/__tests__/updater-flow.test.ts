@@ -1,45 +1,167 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { effect } from '@preact/signals'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { createTestSessionCore, makeTestDesign, type TestSessionCoreHandle } from './support/session-core-fixture'
 import {
-  ADMIN_PROMPT_DISMISSED, fakeHost, INSTALLER_FAILED, OFFER, OFFLINE, settleTasks, startUpdater, type FakeUpdateHost,
-} from './support/fake-update-host'
+  answerSaveProblem,
+  saveProblem,
+  type SaveProblemChoice,
+  type SaveProblemRequest,
+} from '../app/document-session/save-problem'
+import { flushBeforeExit, holdCloseUntilSettled, registerCloseGuard, type CloseGuardLifetime } from '../app/shell/close-guard'
+import { createUpdateController, type UpdateController, type UpdaterPort } from '../app/updates/controller'
 import { checkForUpdate as checkForUpdateOverIpc } from '../ipc/update'
-import type { SaveProblemRequest } from '../app/document-session/save-problem'
 import { updateFailureMessage, type UpdateFailureMessage } from '../failures/messages'
 import { t } from '../i18n'
-import type { UpdaterFailure, UpdateOffer, UpdateOp, UpdateOs } from '../generated/contracts'
+import { createUuid } from '../utils/ids'
+import type { UpdateDownload, UpdaterFailure, UpdateOffer, UpdateOp, UpdateOs, UpdateProgress } from '../generated/contracts'
 
-// The Desktop updater's user paths (canopi-f47t.52.228.15) through the real state machine, controller and close guard:
-// fakes stand only at the ports, the host's update commands (UpdaterPort, what ipc/update.ts invokes) and the close
-// guard's Design flush, settings flush and save-problem question, answered from a script. The states are the
-// contract's UpdateState kinds (2.1-M208), the failures typed §2 Failure values (its updater codes) and the close
-// dialog the close guard's (ADR 0024, 2.1-Q182).
+// The Desktop updater's user paths (canopi-f47t.52.228.15) through the real state machine, controller,
+// SessionCore and close guard.
 
-/**
- * A failure message's text as About renders it: app/updates names keys only, so it adds no cross-area edge to i18n
- * (2.1-M200), and About translates (about-updates.test.tsx renders About itself).
- */
-function translated(message: UpdateFailureMessage | null): string | null {
-  if (message === null) return null
-  return message.reason === undefined ? t(message.key) : t(message.key, { reason: t(message.reason) })
+type Result<T> = { readonly ok: true, readonly value: T } | { readonly ok: false, readonly failure: UpdaterFailure }
+type CloseEvent = 'design-flushed' | { readonly asked: SaveProblemRequest, readonly answer: SaveProblemChoice }
+
+const fail = (op: UpdateOp, code: UpdaterFailure['code'], user_may_retry = true): UpdaterFailure =>
+  ({ code, op, user_may_retry, operation: null, detail: null })
+
+const OFFER: UpdateOffer = { version: '2.1.0', date: '2026-11-02', notes_url: 'https://github.com/canopi/canopi/releases/tag/v2.1.0' }
+const CANCELLED = fail('updater.download', { kind: 'cancelled' }, false)
+const OFFLINE = fail('updater.check', { kind: 'network', network: 'offline' })
+const ADMIN_PROMPT_DISMISSED = fail('updater.install', { kind: 'update_admin_prompt_dismissed' })
+const INSTALLER_FAILED = fail('updater.install', { kind: 'update_install_failed', bundle: 'nsis' })
+
+interface HostScript {
+  readonly check?: Result<UpdateOffer | null>
+  readonly download?: UpdateDownload
+  readonly install?: Result<null>
+  readonly launchCheck?: boolean
+  readonly progress?: readonly UpdateProgress[]
+  readonly holdDownload?: boolean
+  readonly settingsSaveable?: boolean
+  readonly designOpen?: boolean
+  readonly answers?: readonly SaveProblemChoice[]
 }
 
-function shown(failure: UpdaterFailure, platform: UpdateOs = 'linux'): string | null {
-  return translated(updateFailureMessage(failure, platform))
+const activeCleanups: Array<() => void> = []
+
+afterEach(() => {
+  while (activeCleanups.length > 0) activeCleanups.pop()?.()
+  if (saveProblem.peek()) answerSaveProblem('cancel')
+})
+
+function makeHost(script: HostScript = {}) {
+  const staged: string[] = []
+  const settlements: string[] = []
+  const closeLog: CloseEvent[] = []
+  const installs: string[] = []
+  const restarts: number[] = []
+  const order: string[] = []
+  const calls = { check: 0, download: 0 }
+  const unsaved: string[] = []
+  const written: string[] = []
+  const writtenAt: { install?: string[], restart?: string[] } = {}
+  const answers = [...(script.answers ?? [])]
+  let cancelRequested = false
+  let releaseDownload = () => {}
+
+  const designOpen = script.designOpen ?? true
+  const session: TestSessionCoreHandle = createTestSessionCore({
+    ...(designOpen ? { file: makeTestDesign(), path: '/designs/orchard.canopi' } : {}),
+    flushSettings: async () => { if (!(script.settingsSaveable ?? true)) throw new Error('settings store unwritable') },
+  })
+  const origWrite = session.home.write.bind(session.home)
+  vi.spyOn(session.home, 'write').mockImplementation(async (...args) => {
+    const res = await origWrite(...args)
+    closeLog.push('design-flushed')
+    order.push('design-flushed')
+    written.push(...unsaved.splice(0))
+    return res
+  })
+
+  // Ensure a dirty edit exists when testing closeLog / flush order with a Design open.
+  if (designOpen) session.core.document('initial-dirty', () => ({ description: 'pending-before-update' }))
+
+  const guard: CloseGuardLifetime = registerCloseGuard()
+  const stopAutoAnswer = effect(() => {
+    const req = saveProblem.value
+    if (!req) return
+    const answer = answers.shift() ?? 'cancel'
+    closeLog.push({ asked: req, answer })
+    queueMicrotask(() => { if (saveProblem.peek() === req) answerSaveProblem(answer) })
+  })
+  activeCleanups.push(() => { stopAutoAnswer(); guard.dispose(); session.dispose() })
+
+  const settle = <T>(op: string, result: Result<T>): Promise<T> => {
+    settlements.push(`${op} ${result.ok ? 'ok' : String(result.failure.code.kind)}`)
+    return result.ok ? Promise.resolve(result.value) : Promise.reject(result.failure)
+  }
+
+  const updater: UpdaterPort = {
+    checkForUpdate: () => { calls.check += 1; return settle('updater.check', script.check ?? { ok: true, value: OFFER }) },
+    downloadUpdate: (_operation, onProgress) => {
+      calls.download += 1
+      return new Promise<UpdateDownload>((resolve, reject) => {
+        const finish = () => {
+          for (const progress of script.progress ?? []) onProgress(progress)
+          if (cancelRequested) { settle('updater.download', { ok: false, failure: CANCELLED }).catch(reject); return }
+          staged.push(OFFER.version)
+          void settle<UpdateDownload>('updater.download', { ok: true, value: script.download ?? { kind: 'verified' } }).then(resolve)
+        }
+        if (script.holdDownload) releaseDownload = finish
+        else setTimeout(finish, 0)
+      })
+    },
+    cancelUpdate: () => { cancelRequested = true; return Promise.resolve() },
+    installUpdate: () => {
+      const result = script.install ?? { ok: true, value: null }
+      if (result.ok) installs.push(OFFER.version)
+      order.push('install')
+      writtenAt.install = [...written]
+      return settle('updater.install', result).then(() => undefined)
+    },
+    restartAfterUpdate: () => {
+      restarts.push(restarts.length + 1)
+      order.push('restart')
+      writtenAt.restart = [...written]
+      return Promise.resolve()
+    },
+    getLaunchCheck: () => Promise.resolve(script.launchCheck ?? true),
+  }
+
+  return {
+    updater, staged, settlements, closeLog, installs, restarts, order, calls, writtenAt,
+    edit: (change: string) => { unsaved.push(change); session.core.document(change, () => ({ description: change })) },
+    releaseDownload: () => releaseDownload(),
+  }
 }
+
+function startUpdater(
+  host: { readonly updater: UpdaterPort },
+  options: { readonly platform: UpdateOs, readonly onUpdateAvailable?: (offer: UpdateOffer) => void },
+): UpdateController {
+  return createUpdateController({
+    updater: host.updater, platform: options.platform, flushBeforeExit, holdCloseUntilSettled, mintOperationId: createUuid,
+    ...(options.onUpdateAvailable ? { onUpdateAvailable: options.onUpdateAvailable } : {}),
+  })
+}
+
+async function runToInstall(updater: UpdateController): Promise<void> {
+  await updater.check(); await updater.download(); await updater.install()
+}
+
+const settleTasks = (): Promise<void> => new Promise((settle) => setTimeout(settle, 0))
+const translated = (m: UpdateFailureMessage | null): string | null =>
+  m === null ? null : m.reason === undefined ? t(m.key) : t(m.key, { reason: t(m.reason) })
+const shown = (failure: UpdaterFailure, platform: UpdateOs = 'linux'): string | null =>
+  translated(updateFailureMessage(failure, platform))
 
 // Tauri's invoke, for the one path through the real ipc/update.ts and transport.
 const tauriInvoke = vi.hoisted(() => vi.fn())
 vi.mock('@tauri-apps/api/core', () => ({ invoke: tauriInvoke, Channel: class {} }))
 
-beforeEach(() => {
-  fakeHost()
-})
-
 describe('Desktop updater user paths', () => {
-  // A cancel goes downloading to idle (states.md Updater, 2.1-M208); "settles cancelled" is the executor's silent
-  // settlement in its log, never a failed state.
   it('cancelled update download leaves nothing staged and settles cancelled', async () => {
-    const host = fakeHost()
+    const host = makeHost()
     const updater = startUpdater(host, { platform: 'linux' })
 
     await updater.check()
@@ -54,15 +176,9 @@ describe('Desktop updater user paths', () => {
     })
   })
 
-  // The settings question is the close guard's 'settings-failed' dialog: Retry, Close anyway ('discard') and Cancel
-  // (2.1-Q182). On Windows the flush runs before the installer (2.1-Q234).
   it('update install with an unsaveable settings store flushes the Design first, then offers Retry, Close anyway and Cancel', async () => {
-    const host = fakeHost({ settingsSaveable: false, answers: ['retry', 'discard'] })
-    const updater = startUpdater(host, { platform: 'windows' })
-
-    await updater.check()
-    await updater.download()
-    await updater.install()
+    const host = makeHost({ settingsSaveable: false, answers: ['retry', 'discard'] })
+    await runToInstall(startUpdater(host, { platform: 'windows' }))
 
     const settingsFailed: SaveProblemRequest = { kind: 'settings-failed', designSaved: true }
     expect({ closeLog: host.closeLog, installs: host.installs }).toEqual({
@@ -72,12 +188,9 @@ describe('Desktop updater user paths', () => {
   })
 
   it('on Windows an update install cancelled at the close dialog installs nothing', async () => {
-    const host = fakeHost({ settingsSaveable: false, answers: ['cancel'] })
+    const host = makeHost({ settingsSaveable: false, answers: ['cancel'] })
     const updater = startUpdater(host, { platform: 'windows' })
-
-    await updater.check()
-    await updater.download()
-    await updater.install()
+    await runToInstall(updater)
 
     expect({ state: updater.state.value, installs: host.installs, closeLog: host.closeLog }).toEqual({
       state: { kind: 'verified' },
@@ -86,17 +199,9 @@ describe('Desktop updater user paths', () => {
     })
   })
 
-  // plan Phase 0 F6 and 2.1-M82: an edit the continuous save has not written yet is written before anything ends
-  // Canopi. On Windows the installer quits Canopi, so the close guard writes it before the installer runs; on Linux
-  // Canopi stays open while it installs, so an edit made during the install is written too, before the restart. The
-  // Windows installer's Restart Manager close (RmShutdown, which reaches only RunEvent::Exit and skips the close
-  // guard) is not driven here: an update Canopi starts writes the edit here first and then the updater plugin exits
-  // Canopi itself as it launches the installer. For an installer run by hand, the native exit handler holds the exit
-  // until a write already sent lands (desktop/src/lib.rs, the_exit_event_waits_for_a_running_write_to_land); the
-  // updater lane's NSIS run checks that an edit continuous save has written survives the installer's close.
   it('update install during an unsaved edit keeps the edit', async () => {
-    const writtenOn = async (platform: UpdateOs): Promise<FakeUpdateHost['writtenAt']> => {
-      const host = fakeHost()
+    const writtenOn = async (platform: UpdateOs): Promise<{ install?: string[], restart?: string[] }> => {
+      const host = makeHost()
       const updater = startUpdater(host, { platform })
       await updater.check()
       await updater.download()
@@ -113,11 +218,8 @@ describe('Desktop updater user paths', () => {
     })
   })
 
-
-  // About shows the controller's failureMessage, the line about-updates.test.tsx renders in About.
   it('offline update check settles network.offline and About shows it', async () => {
-    const updater = startUpdater(fakeHost({ check: { ok: false, failure: OFFLINE } }), { platform: 'linux' })
-
+    const updater = startUpdater(makeHost({ check: { ok: false, failure: OFFLINE } }), { platform: 'linux' })
     await updater.check()
 
     expect(updater.state.value).toEqual({ kind: 'failed', failure: OFFLINE })
@@ -125,12 +227,9 @@ describe('Desktop updater user paths', () => {
   })
 
   it('a dismissed .deb admin prompt keeps the Design open with Update not installed', async () => {
-    const host = fakeHost({ install: { ok: false, failure: ADMIN_PROMPT_DISMISSED } })
+    const host = makeHost({ install: { ok: false, failure: ADMIN_PROMPT_DISMISSED } })
     const updater = startUpdater(host, { platform: 'linux' })
-
-    await updater.check()
-    await updater.download()
-    await updater.install()
+    await runToInstall(updater)
 
     expect({ state: updater.state.value, closeLog: host.closeLog, installs: host.installs }).toEqual({
       state: { kind: 'failed', failure: ADMIN_PROMPT_DISMISSED },
@@ -143,7 +242,7 @@ describe('Desktop updater user paths', () => {
 
 describe('Desktop updater controller', () => {
   it('with the launch check off, launch makes no update check', async () => {
-    const host = fakeHost({ launchCheck: false })
+    const host = makeHost({ launchCheck: false })
     const updater = startUpdater(host, { platform: 'linux' })
 
     await updater.launchCheck()
@@ -151,10 +250,8 @@ describe('Desktop updater controller', () => {
     expect({ checks: host.calls.check, state: updater.state.value }).toEqual({ checks: 0, state: { kind: 'idle' } })
   })
 
-  // A launch check that found nothing leaves the controller idle, where a second one would check again: a remount
-  // calling it twice still checks once (2.1-Q164).
   it('the launch check runs once when called twice', async () => {
-    const host = fakeHost({ check: { ok: true, value: null } })
+    const host = makeHost({ check: { ok: true, value: null } })
     const updater = startUpdater(host, { platform: 'linux' })
 
     await updater.launchCheck()
@@ -164,7 +261,7 @@ describe('Desktop updater controller', () => {
   })
 
   it('a new controller is idle and not up to date', () => {
-    const updater = startUpdater(fakeHost(), { platform: 'linux' })
+    const updater = startUpdater(makeHost(), { platform: 'linux' })
 
     expect({ state: updater.state.value, upToDate: updater.upToDate.value, canRetry: updater.canRetry.value })
       .toEqual({ state: { kind: 'idle' }, upToDate: false, canRetry: false })
@@ -172,12 +269,12 @@ describe('Desktop updater controller', () => {
 
   it('an update the launch check finds raises one notice and downloads nothing; About\'s check raises none', async () => {
     const notices: UpdateOffer[] = []
-    const host = fakeHost()
+    const host = makeHost()
     const updater = startUpdater(host, { platform: 'linux', onUpdateAvailable: (offer) => notices.push(offer) })
 
     await updater.launchCheck()
     const afterLaunch = updater.state.value
-    const about = startUpdater(fakeHost(), { platform: 'linux', onUpdateAvailable: (offer) => notices.push(offer) })
+    const about = startUpdater(makeHost(), { platform: 'linux', onUpdateAvailable: (offer) => notices.push(offer) })
     await about.check()
 
     expect({ notices, afterLaunch, downloads: host.calls.download }).toEqual({
@@ -187,10 +284,8 @@ describe('Desktop updater controller', () => {
     })
   })
 
-  // A second press joins the running op: it resolves only once the first has settled, so About never shows the
-  // second press done while the first still runs, and the host sees one call.
   it('a second check or download while one runs resolves when the first settles, with one host call', async () => {
-    const host = fakeHost({ holdDownload: true })
+    const host = makeHost({ holdDownload: true })
     let releaseCheck = () => {}
     const held = new Promise<void>((release) => { releaseCheck = release })
     const updater = startUpdater({ ...host, updater: { ...host.updater, checkForUpdate: (id) => held.then(() => host.updater.checkForUpdate(id)) } }, { platform: 'linux' })
@@ -217,7 +312,7 @@ describe('Desktop updater controller', () => {
   })
 
   it('a download pressed while a check runs returns at once and calls no host (canopi-f47t.52.228)', async () => {
-    const host = fakeHost()
+    const host = makeHost()
     let releaseCheck = () => {}
     const held = new Promise<void>((release) => { releaseCheck = release })
     const updater = startUpdater({ ...host, updater: { ...host.updater, checkForUpdate: (id) => held.then(() => host.updater.checkForUpdate(id)) } }, { platform: 'linux' })
@@ -234,7 +329,7 @@ describe('Desktop updater controller', () => {
   })
 
   it('About\'s Check pressed during a download keeps its progress, its cancel and its join (canopi-f47t.52.228.15)', async () => {
-    const host = fakeHost({ holdDownload: true, progress: [{ received: 5, total: 10 }] })
+    const host = makeHost({ holdDownload: true, progress: [{ received: 5, total: 10 }] })
     const updater = startUpdater(host, { platform: 'linux' })
     const seen: unknown[] = []
 
@@ -259,7 +354,7 @@ describe('Desktop updater controller', () => {
   })
 
   it('download progress arrives over update_download\'s channel and shows while downloading', async () => {
-    const host = fakeHost({ holdDownload: true, progress: [{ received: 512, total: 2048 }] })
+    const host = makeHost({ holdDownload: true, progress: [{ received: 512, total: 2048 }] })
     const updater = startUpdater(host, { platform: 'linux' })
     const seen: unknown[] = []
 
@@ -280,10 +375,8 @@ describe('Desktop updater controller', () => {
     ])
   })
 
-  // A rejection that is not a typed failure is a fault in Canopi: About leaves Checking… for the failure, and offers
-  // Check for updates, not Retry.
   it('a check rejected with a plain Error settles failed internal and offers no Retry', async () => {
-    const host = fakeHost()
+    const host = makeHost()
     const updater = startUpdater({ ...host, updater: { ...host.updater, checkForUpdate: () => Promise.reject(new Error('lost')) } }, { platform: 'linux' })
 
     await updater.check()
@@ -294,10 +387,8 @@ describe('Desktop updater controller', () => {
     })
   })
 
-  // Through the real ipc/update.ts and transport: a rejection that is no typed failure (Tauri's own, a String error)
-  // is already in the ring, redacted, and About shows the failed check with only that redacted detail (2.1-M409).
   it('a check rejected with untyped text settles failed internal under updater.check, its detail redacted', async () => {
-    const host = fakeHost()
+    const host = makeHost()
     tauriInvoke.mockRejectedValueOnce('channel file unreadable at /home/ana/.cache/canopi/latest.json')
     const updater = startUpdater({ ...host, updater: { ...host.updater, checkForUpdate: checkForUpdateOverIpc } }, { platform: 'linux' })
 
@@ -309,37 +400,29 @@ describe('Desktop updater controller', () => {
     expect(state.kind === 'failed' && state.failure.detail).toContain('channel file unreadable')
   })
 
-  // Channel messages and the command's reply are not ordered: progress the channel delivers after the download has
-  // failed must not take About off the failure and back to a progress bar.
   it('progress arriving after a failed download leaves About on the failure', async () => {
-    const host = fakeHost()
-    const failure: UpdaterFailure = { code: { kind: 'network', network: 'timeout' }, user_may_retry: true, op: 'updater.download', operation: null, detail: null }
+    const host = makeHost()
+    const failure = fail('updater.download', { kind: 'network', network: 'timeout' })
     let lateProgress = () => {}
     const updater = startUpdater({
       ...host,
       updater: {
         ...host.updater,
-        downloadUpdate: (_id, onProgress) => {
-          lateProgress = () => onProgress({ received: 5, total: 10 })
-          return Promise.reject(failure)
-        },
+        downloadUpdate: (_id, onProgress) => { lateProgress = () => onProgress({ received: 5, total: 10 }); return Promise.reject(failure) },
       },
     }, { platform: 'linux' })
 
     await updater.check()
     await updater.download()
     lateProgress()
-
     expect({ state: updater.state.value, canRetry: updater.canRetry.value }).toEqual({ state: { kind: 'failed', failure }, canRetry: true })
   })
 
-  // Each start reaches the host only from its own state (the controller's runs do not check that their first move
-  // took): Download from available, Retry after a failed download that allows it, Install from verified.
   it('download, retry and install call the host only from available, a retryable failed download and verified', async () => {
-    const retryable: UpdaterFailure = { code: { kind: 'network', network: 'timeout' }, user_may_retry: true, op: 'updater.download', operation: null, detail: null }
+    const retryable = fail('updater.download', { kind: 'network', network: 'timeout' })
     const final: UpdaterFailure = { ...retryable, code: { kind: 'update_signature_refused' }, user_may_retry: false }
     const run = async (failDownload: UpdaterFailure | null) => {
-      const host = fakeHost()
+      const host = makeHost()
       let failNext = failDownload
       const updater = startUpdater({
         ...host,
@@ -377,21 +460,16 @@ describe('Desktop updater controller', () => {
 
   it('an installer that cannot be replaced by Canopi settles link_only with its download page', async () => {
     const url = 'https://projectcanopi.com/download'
-    const updater = startUpdater(fakeHost({ download: { kind: 'link_only', url } }), { platform: 'linux' })
-
+    const updater = startUpdater(makeHost({ download: { kind: 'link_only', url } }), { platform: 'linux' })
     await updater.check()
     await updater.download()
-
     expect(updater.state.value).toEqual({ kind: 'link_only', url })
   })
 
   it('on Linux the update installs, then the close request flushes and restarts without a Design path (2.1-M523)', async () => {
-    const host = fakeHost()
+    const host = makeHost()
     const updater = startUpdater(host, { platform: 'linux' })
-
-    await updater.check()
-    await updater.download()
-    await updater.install()
+    await runToInstall(updater)
 
     expect({ order: host.order, restarts: host.restarts, state: updater.state.value.kind }).toEqual({
       order: ['install', 'design-flushed', 'restart'],
@@ -401,23 +479,15 @@ describe('Desktop updater controller', () => {
   })
 
   it('on Linux a Draft restarts with no Design path', async () => {
-    const host = fakeHost({ designOpen: false })
-    const updater = startUpdater(host, { platform: 'linux' })
-
-    await updater.check()
-    await updater.download()
-    await updater.install()
-
+    const host = makeHost({ designOpen: false })
+    await runToInstall(startUpdater(host, { platform: 'linux' }))
     expect(host.restarts).toEqual([1])
   })
 
   it('on Linux a close cancelled after the install shows Restart to finish updating and the update stays installed', async () => {
-    const host = fakeHost({ settingsSaveable: false, answers: ['cancel', 'discard'] })
+    const host = makeHost({ settingsSaveable: false, answers: ['cancel', 'discard'] })
     const updater = startUpdater(host, { platform: 'linux' })
-
-    await updater.check()
-    await updater.download()
-    await updater.install()
+    await runToInstall(updater)
     const afterCancel = { state: updater.state.value, installs: [...host.installs], restarts: [...host.restarts] }
     await updater.restart()
 
@@ -428,12 +498,9 @@ describe('Desktop updater controller', () => {
   })
 
   it('on Windows the close request runs before the installer, which runs only on proceed', async () => {
-    const host = fakeHost()
+    const host = makeHost()
     const updater = startUpdater(host, { platform: 'windows' })
-
-    await updater.check()
-    await updater.download()
-    await updater.install()
+    await runToInstall(updater)
 
     expect({ order: host.order, state: updater.state.value.kind }).toEqual({
       order: ['design-flushed', 'install'],
@@ -441,23 +508,16 @@ describe('Desktop updater controller', () => {
     })
   })
 
-  // 2.1-M523: launch reopens the last open home from settings, so Windows install takes no Design path.
   it('on Windows the installer runs without a Design path argument (2.1-M523)', async () => {
-    const host = fakeHost()
-    const updater = startUpdater(host, { platform: 'windows' })
-    await updater.check().then(() => updater.download())
-    await updater.install()
-
+    const host = makeHost()
+    await runToInstall(startUpdater(host, { platform: 'windows' }))
     expect(host.installs).toEqual([OFFER.version])
   })
 
   it('on Windows an installer that cannot launch after the close dialog settles failed with the Design open', async () => {
-    const host = fakeHost({ install: { ok: false, failure: INSTALLER_FAILED } })
+    const host = makeHost({ install: { ok: false, failure: INSTALLER_FAILED } })
     const updater = startUpdater(host, { platform: 'windows' })
-
-    await updater.check()
-    await updater.download()
-    await updater.install()
+    await runToInstall(updater)
 
     expect({ state: updater.state.value, restarts: host.restarts }).toEqual({
       state: { kind: 'failed', failure: INSTALLER_FAILED },
@@ -466,7 +526,6 @@ describe('Desktop updater controller', () => {
   })
 })
 
-/** Every updater failure code (contracts §2 updater row and the codes it reuses), with the op it settles on. */
 const FAILURE_TEXT: readonly (readonly [UpdateOp, UpdaterFailure['code'], string | null])[] = [
   ['updater.check', { kind: 'network', network: 'offline' }, 'Can’t check for updates while offline'],
   ['updater.check', { kind: 'network', network: 'timeout' }, 'Couldn’t check for updates'],
@@ -500,7 +559,7 @@ describe('updater failure messages (2.1-Q237, 2.1-Q244)', () => {
     const messages = FAILURE_TEXT.map(([op, code]) => shown({ code, op, user_may_retry: true, operation: null, detail: null }))
     expect(messages).toEqual(FAILURE_TEXT.map(([, , text]) => text))
   })
-  // Windows install failures show plain "Update not installed" (2.1-Q234, 2.1-Q244): the six reasons are Linux only.
+
   it('on Windows an install failure is plain Update not installed, without a Linux reason (canopi-f47t.52.228.15)', () => {
     const windowsText: readonly (readonly [UpdateOp, UpdaterFailure['code'], string | null])[] = [
       ['updater.install', { kind: 'update_install_failed', bundle: 'nsis' }, 'Update not installed'],

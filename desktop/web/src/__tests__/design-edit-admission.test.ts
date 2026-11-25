@@ -13,14 +13,11 @@ import {
   renameSavedView,
   renameStory,
   reorderStorySteps,
-  restoreSavedView,
-  restoreStory,
-  restoreStoryStep,
   updateStoryStep,
 } from '../app/design-edit'
 import { viewsAndStoriesProblem } from '../app/contracts/views-admission'
-import { currentDesign, designSessionStore } from '../app/document-session/store'
-import { replaceCurrentDesignState } from './support/design-session-state'
+import { currentDesign } from '../app/document-session/store'
+import { replaceCurrentDesignState, resetDirtyBaselines } from './support/design-session-state'
 import type { CanopiFile, SavedView, Story, StoryStep } from '../types/design'
 
 // A save never refuses to write (canopi-ut80). Instead, every Design Edit
@@ -55,7 +52,7 @@ function open(stories: Story[], views: SavedView[]): void {
     created_at: '', updated_at: '', extra: {},
   }
   replaceCurrentDesignState(file, null, file.name)
-  designSessionStore.resetDirtyBaselines()
+  resetDirtyBaselines()
 }
 
 function problem(): string | null {
@@ -89,18 +86,10 @@ describe('every view and story edit keeps the Design openable', () => {
       expect(problem(), label).toBeNull()
     }
 
-    const viewDeletion = deleteSavedView('b')!
+    deleteSavedView('b')
     expect(problem(), 'delete a view that steps use').toBeNull()
-    const stepDeletion = deleteStoryStep('s1', 'x')!
-    const storyDeletion = deleteStory('s1')!
+    deleteStoryStep('s1', 'x')
+    deleteStory('s1')
     expect(problem(), 'delete a step and a story').toBeNull()
-    restoreStory(storyDeletion)
-    expect(problem(), 'restore a story').toBeNull()
-    restoreStoryStep(stepDeletion)
-    expect(problem(), 'restore a step into a story that has its id').toBeNull()
-    restoreSavedView(viewDeletion)
-    expect(problem(), 'restore a view and its steps').toBeNull()
-    restoreSavedView(viewDeletion)
-    expect(problem(), 'restore the same view twice').toBeNull()
   })
 })

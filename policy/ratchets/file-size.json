@@ -158,15 +158,6 @@
     "desktop/web/src/__tests__/design-notebook-workbench.test.ts": {
       "count": 799
     },
-    "desktop/web/src/__tests__/design-session-persistence.test.ts": {
-      "count": 1243
-    },
-    "desktop/web/src/__tests__/design-session-replacement.test.ts": {
-      "count": 675
-    },
-    "desktop/web/src/__tests__/document-session-transition.test.ts": {
-      "count": 2798
-    },
     "desktop/web/src/__tests__/duckdb-wasm-catalog.test.ts": {
       "count": 1477
     },
@@ -218,9 +209,6 @@
     "desktop/web/src/__tests__/web-canvas-workspace.test.tsx": {
       "count": 1060
     },
-    "desktop/web/src/__tests__/web-design-session.test.ts": {
-      "count": 2548
-    },
     "desktop/web/src/__tests__/web-species-catalog-adapter.test.ts": {
       "count": 1057
     },
@@ -238,12 +226,6 @@
     },
     "desktop/web/src/app/canvas-map-surface/workspace-map-controls.test.ts": {
       "count": 1831
-    },
-    "desktop/web/src/app/document-session/persistence.ts": {
-      "count": 773
-    },
-    "desktop/web/src/app/document-session/state-machine.ts": {
-      "count": 1032
     },
     "desktop/web/src/app/geojson/codec.ts": {
       "count": 603
@@ -346,9 +328,6 @@
     },
     "desktop/web/src/web/browser-app-data.ts": {
       "count": 628
-    },
-    "desktop/web/src/web/browser-design-session.ts": {
-      "count": 716
     },
     "scripts/generate-web-catalog.py": {
       "count": 1061

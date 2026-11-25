@@ -38,7 +38,6 @@ describe('Calendar empty states', () => {
 
   async function mount(timeline: TimelineAction[]): Promise<void> {
     designSessionFixture.file = design(timeline)
-    designSessionFixture.nonCanvasRevision = 0
     await act(async () => { render(<CalendarPanel />, container) })
   }
 

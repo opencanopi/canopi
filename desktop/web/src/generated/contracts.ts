@@ -338,6 +338,8 @@ export type DesignNotebookEntry = {
 	plant_count: number,
 	section_id: string | null,
 	sort_order: number,
+	grant?: string | null,
+	recent_id?: string | null,
 };
 
 export type DesignNotebookSection = {
@@ -388,6 +390,8 @@ export type DesignSummary = {
 	path: string,
 	name: string,
 	updated_at: string,
+	grant?: FileGrantId | null,
+	recent_id?: string | null,
 };
 
 /**
@@ -583,6 +587,19 @@ export type FailureSource =
 
 // Opaque host-issued grant naming a Design file without exposing its filesystem path (ADR 0027).
 export type FileGrantId = string;
+
+/**
+ *  Host-issued identity for a granted Design file: ephemeral grant handle for `home_read`/`home_write`,
+ *  human-readable file name for UI display, and stable opaque `recent_id` for `last_open_home`.
+ */
+export type FileHomeGrant = {
+	// Ephemeral process-local file grant id (`grant:N`) accepted by `home_read` / `home_write`.
+	grant: FileGrantId,
+	// Human-readable file name (never a full path or grant id) for title/UI display.
+	display_name: string,
+	// Stable opaque Recent Designs identifier (SHA-256 hex of the resolved path) for `last_open_home`.
+	recent_id: string,
+};
 
 export type FilterOp = "Equals" | "In" | "Gte" | "Lte" | "Between" | "IsTrue";
 
@@ -1364,7 +1381,9 @@ export type PickOpenOutcome =
 // Absolute paths, in the order the dialog gave them.
 paths: string[];
 // Host-issued file grants for picked Design files (`home_read` / `home_write`, 2b-4).
-grants?: FileGrantId[] };
+grants?: FileGrantId[];
+// Full file-home identities (`{ grant, display_name, recent_id }`) for picked Design files.
+file_homes?: FileHomeGrant[] };
 
 // What a host Save dialog answered.
 export type PickSaveOutcome =
@@ -1375,7 +1394,9 @@ export type PickSaveOutcome =
 // The absolute path.
 path: string;
 // Host-issued file grant for a Design save target (`home_read` / `home_write`, 2b-4).
-grant?: FileGrantId | null };
+grant?: FileGrantId | null;
+// Full file-home identity (`{ grant, display_name, recent_id }`) for a Design save target.
+file_home?: FileHomeGrant | null };
 
 export type PlacedPlant = {
 	id: string,

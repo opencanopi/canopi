@@ -1,4 +1,6 @@
 import type { CanopiFile, SavedViewCamera } from '../../../types/design'
+import { DOCUMENT_FILE_FIELD_OWNERS } from '../../../generated/known-canopi-keys'
+import type { SceneCommand } from '../scene-commands'
 import { serializeScenePersistedState } from '../scene'
 import type {
   CanvasPersistenceCapture,
@@ -11,8 +13,14 @@ import type {
 } from '../app-adapter'
 import type { SceneDocumentAuthority, ScenePersistenceAuthority } from './transactions'
 
+const SCENE_FIELD_KEYS = Object.entries(DOCUMENT_FILE_FIELD_OWNERS)
+  .filter(([, owner]) => owner === 'scene')
+  .map(([key]) => key)
+
 interface SceneRuntimeDocumentBridgeOptions {
-  authority: SceneDocumentAuthority & ScenePersistenceAuthority
+  authority: SceneDocumentAuthority & ScenePersistenceAuthority & {
+    replayCommand(command: SceneCommand, direction: 'undo' | 'redo'): boolean
+  }
   prepareForDocumentReplacement(): void
   clearPanelOriginTargets(): void
   composeDocumentForSave(input: CanvasRuntimeDocumentCompositionInput): CanopiFile
@@ -67,5 +75,20 @@ export class SceneRuntimeDocumentBridge {
       isCurrent: () => capture.isCurrent(),
       acknowledgeSaved: () => capture.acknowledgeSaved(),
     })
+  }
+
+  serializeSceneFields(mapView: SavedViewCamera | null): Partial<CanopiFile> {
+    const capture = this._authority.capturePersistence()
+    const serialized: Record<string, unknown> = { ...serializeScenePersistedState(capture.scene, capture.plane, { now: new Date() }) }
+    const out: Record<string, unknown> = {}
+    for (const key of SCENE_FIELD_KEYS) {
+      if (key in serialized) out[key] = serialized[key]
+    }
+    if (mapView) out.map_view = mapView
+    return out
+  }
+
+  replaySceneCommand(command: SceneCommand, direction: 'undo' | 'redo'): boolean {
+    return this._authority.replayCommand(command, direction)
   }
 }

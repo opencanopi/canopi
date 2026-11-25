@@ -198,6 +198,7 @@ pub(crate) fn encode_design(content: &CanopiFile) -> Result<Vec<u8>, String> {
 }
 
 /// Result of [`save_to_file`].
+#[cfg(test)]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum SaveResult {
     /// Written; the fingerprint of the bytes now on disk.
@@ -213,6 +214,7 @@ pub(crate) enum SaveResult {
 /// written and the current fingerprint is returned. `None` overwrites
 /// unconditionally (Save As, or keeping this copy over an outside change). The
 /// check and the write run under one write admission for the target.
+#[cfg(test)]
 pub(crate) fn save_to_file(
     path: &Path,
     content: &CanopiFile,
@@ -302,9 +304,19 @@ fn read_bounded(path: &Path, limit: u64) -> Result<Vec<u8>, DesignLoadError> {
     Ok(content)
 }
 
+/// Read a Design saved by a newer Canopi (version >= `FIRST_READ_VERSION`) into its
+/// read-only view from UTF-8 JSON text (2.1-M478, N1).
+pub fn read_newer_design_text(text: &str) -> Result<ReadOnlyDesign, DesignLoadFailure> {
+    let value: serde_json::Value = serde_json::from_str(text)
+        .map_err(|source| DesignLoadError::InvalidJson { source }.failure())?;
+    read_newer_design(&value).map_err(|source| DesignLoadError::NewerRefused { source }.failure())
+}
+
 /// The branch at the version check (2.1-M478): a version of 10 or later goes to the read
 /// view, any other to this build's admission.
-fn open_design_bytes(content: &[u8]) -> Result<OpenedDesign<CanopiFile>, DesignLoadError> {
+pub(crate) fn open_design_bytes(
+    content: &[u8],
+) -> Result<OpenedDesign<CanopiFile>, DesignLoadError> {
     let value: serde_json::Value = serde_json::from_slice(content)
         .map_err(|source| DesignLoadError::InvalidJson { source })?;
     let newer =
@@ -1176,5 +1188,28 @@ mod write_tests {
         assert!(result.is_err(), "{result:?}");
         assert!(path.is_dir());
         assert!(owned_sidecars(&dir, "tmp").is_empty());
+    }
+
+    #[test]
+    fn read_newer_design_text_reads_newer_version_and_refuses_invalid_or_older() {
+        let newer = serde_json::json!({
+            "version": 99,
+            "name": "Future Garden",
+            "created_at": "2027-01-01T00:00:00Z",
+            "updated_at": "2027-01-01T00:00:00Z",
+            "layers": [],
+            "plants": [],
+            "zones": [],
+            "annotations": [],
+            "measurement_guides": [],
+            "groups": []
+        })
+        .to_string();
+        let read_only = read_newer_design_text(&newer).expect("newer design should read read-only");
+        assert_eq!(read_only.saved_by_version, 99);
+        assert_eq!(read_only.view.name, "Future Garden");
+
+        let invalid = read_newer_design_text("{not json");
+        assert!(invalid.is_err(), "invalid JSON must be refused");
     }
 }

@@ -1,15 +1,15 @@
 // @vitest-environment jsdom
 
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import { persistLastView } from '../app/canvas-map-surface/last-view'
 import { createAppCanvasRuntimeAppAdapter } from '../app/canvas-runtime/app-adapter'
-import { createDesignSessionReplacement } from '../app/document-session/replacement'
-import { createDesignSessionStore } from '../app/document-session/store'
+import { createCanvasDocumentReplacementToken } from '../canvas/runtime/runtime'
 import { resetSettingsProjectionForTests } from '../app/settings/projection'
 import { lastView } from '../app/settings/state'
 import { geographicViewOfCamera } from '../geo/session-plane'
 import { CURRENT_CANOPI_FILE_VERSION } from '../generated/canopi-design-format'
 import type { CanopiFile } from '../types/design'
+import { clearCurrentDesignState, replaceCurrentDesignState } from './support/design-session-state'
 import { createLiveTestCanvasRuntimeHost, type CanvasRuntimeHost } from './support/live-canvas-runtime'
 
 function design(name: string, plants: CanopiFile['plants'] = []): CanopiFile {
@@ -46,6 +46,7 @@ const hosts: CanvasRuntimeHost[] = []
 
 afterEach(async () => {
   for (const host of hosts.splice(0)) await host.destroy()
+  clearCurrentDesignState()
   resetSettingsProjectionForTests()
   lastView.value = null
 })
@@ -58,15 +59,16 @@ function newDesignOverOpenDesign(): { lon: number; lat: number; zoom: number } {
   })
   hosts.push(host)
   const { documents: canvas, queries } = host.surfaces
-  const store = createDesignSessionStore({ file: previousSiteDesign(), path: '/designs/previous.canopi', name: 'Previous' })
-  canvas.loadDocument(previousSiteDesign())
+  const previous = previousSiteDesign()
+  replaceCurrentDesignState(previous, '/designs/previous.canopi', 'Previous')
+  canvas.loadDocument(previous)
   canvas.zoomToFit()
-  const replacement = createDesignSessionReplacement({
-    store,
-    workflowRunner: { install: vi.fn(), dispose: vi.fn() },
-  })
 
-  replacement.replace({ file: design('Untitled'), kind: 'new', path: null, name: 'Untitled' }, canvas, () => true)
+  const next = design('Untitled')
+  canvas.replaceDocument(next, createCanvasDocumentReplacementToken(), () => {
+    replaceCurrentDesignState(next, null, 'Untitled')
+  })
+  canvas.zoomToFit()
 
   return geographicViewOfCamera(queries.view.captureView().camera)
 }

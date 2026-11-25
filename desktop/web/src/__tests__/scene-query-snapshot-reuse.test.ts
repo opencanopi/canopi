@@ -2,9 +2,10 @@ import { signal } from '@preact/signals'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createSceneCanvasQuerySurface } from '../canvas/runtime/query-surface'
 import { SceneStore } from '../canvas/runtime/scene'
-import { SceneHistory } from '../canvas/runtime/scene-history'
 import { SceneRuntimePresentationController } from '../canvas/runtime/scene-runtime/presentation'
-import { SceneRuntimeEditCoordinator } from '../canvas/runtime/scene-runtime/transactions'
+import {
+  SceneRuntimeEditCoordinator,
+} from '../canvas/runtime/scene-runtime/transactions'
 import { createTestView } from './support/test-view'
 
 function setup() {
@@ -20,7 +21,7 @@ function setup() {
   store.setSelection([{ kind: 'plant', id: '0' }])
   const camera = createTestView()
   const authority = new SceneRuntimeEditCoordinator({
-    sceneStore: store, history: new SceneHistory(),
+    sceneStore: store,
     setSelection: (targets) => { store.setSelection(targets) },
     incrementSceneRevision: () => {}, syncCanvasSignalsFromScene: () => {}, invalidate: () => {},
   })

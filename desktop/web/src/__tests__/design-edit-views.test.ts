@@ -2,15 +2,10 @@ import { afterEach, describe, expect, it } from 'vitest'
 import {
   addSavedView,
   deleteSavedView,
-  deleteStory,
-  deleteStoryStep,
   renameSavedView,
-  restoreSavedView,
-  restoreStory,
-  restoreStoryStep,
 } from '../app/design-edit'
 import { currentDesign, designSessionStore } from '../app/document-session/store'
-import { replaceCurrentDesignState } from './support/design-session-state'
+import { clearCurrentDesignState, replaceCurrentDesignState } from './support/design-session-state'
 import type { CanopiFile, SavedView, Story, StoryStep } from '../types/design'
 
 function design(): CanopiFile {
@@ -66,7 +61,7 @@ function story(id: string, steps: StoryStep[] = []): Story {
 
 // An edit dirties the Design; the next test opens its own clean one.
 afterEach(() => {
-  designSessionStore.clearCurrentDesign()
+  clearCurrentDesignState()
 })
 
 function start(overrides: Partial<CanopiFile> = {}): void {
@@ -109,7 +104,7 @@ describe('saved views through Design Edit', () => {
     expect(currentDesign.value).toBe(before)
   })
 
-  it('deleting a view removes the story steps that show it and undo restores both in place', () => {
+  it('deleting a view removes the story steps that show it and returns its name', () => {
     start({
       views: [view('a'), view('b'), view('c')],
       stories: [
@@ -118,82 +113,11 @@ describe('saved views through Design Edit', () => {
       ],
     })
 
-    const deletion = deleteSavedView('a')
+    const deleted = deleteSavedView('a')
 
+    expect(deleted).toEqual({ name: 'View a' })
     expect(views()).toEqual(['b', 'c'])
     expect(stepsOf('s')).toEqual(['2'])
     expect(stepsOf('t')).toEqual(['4'])
-    expect(deletion?.view.id).toBe('a')
-    expect(deletion?.index).toBe(0)
-    expect(deletion?.steps.map((entry) => [entry.storyId, entry.step.id, entry.index])).toEqual([
-      ['s', '1', 0],
-      ['s', '3', 2],
-    ])
-
-    addSavedView(view('d'))
-    restoreSavedView(deletion!)
-
-    expect(views()).toEqual(['a', 'b', 'c', 'd'])
-    expect(stepsOf('s')).toEqual(['1', '2', '3'])
-  })
-
-  // Delete story A (step S shows V), delete V (no step to confirm), Undo the
-  // story (S cannot come back: V is gone), Undo the view: S is back in A.
-  it('a step dropped by a story Undo because its view was gone returns with the view\'s Undo', () => {
-    start({ views: [view('v'), view('w')], stories: [story('a', [step('1', 'w'), step('s', 'v'), step('3', 'w')])] })
-    const storyDeletion = deleteStory('a')!
-    const viewDeletion = deleteSavedView('v')!
-    expect(viewDeletion.steps).toEqual([])
-
-    restoreStory(storyDeletion)
-    expect(stepsOf('a')).toEqual(['1', '3'])
-
-    restoreSavedView(viewDeletion)
-    expect(views()).toEqual(['v', 'w'])
-    expect(stepsOf('a')).toEqual(['1', 's', '3'])
-
-    const restored = currentDesign.value
-    restoreSavedView(viewDeletion)
-    expect(currentDesign.value).toBe(restored)
-  })
-
-  it('a step whose own Undo met a missing view returns with the view\'s Undo, at its place', () => {
-    start({ views: [view('v'), view('w')], stories: [story('a', [step('s', 'v'), step('2', 'w')])] })
-    const stepDeletion = deleteStoryStep('a', 's')!
-    const viewDeletion = deleteSavedView('v')!
-
-    restoreStoryStep(stepDeletion)
-    expect(stepsOf('a')).toEqual(['2'])
-
-    restoreSavedView(viewDeletion)
-    expect(stepsOf('a')).toEqual(['s', '2'])
-  })
-
-  it('parked steps belong to the Design session that dropped them', () => {
-    start({ views: [view('v')], stories: [story('a', [step('s', 'v')])] })
-    const storyDeletion = deleteStory('a')!
-    const viewDeletion = deleteSavedView('v')!
-    restoreStory(storyDeletion)
-
-    start({ views: [], stories: [story('a', [])] })
-    restoreSavedView(viewDeletion)
-    expect(views()).toEqual(['v'])
-    expect(stepsOf('a')).toEqual([])
-  })
-
-  it('restoring twice or after the story went away keeps references whole', () => {
-    start({ views: [view('a')], stories: [story('s', [step('1', 'a')])] })
-    const deletion = deleteSavedView('a')!
-
-    restoreSavedView(deletion)
-    const restored = currentDesign.value
-    restoreSavedView(deletion)
-    expect(currentDesign.value).toBe(restored)
-
-    deleteSavedView('a')
-    start({ views: [], stories: [] })
-    restoreSavedView(deletion)
-    expect(views()).toEqual(['a'])
-    expect(currentDesign.value?.stories).toEqual([])
   })
 })

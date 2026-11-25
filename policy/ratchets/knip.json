@@ -58,14 +58,15 @@
     "desktop/web/src/app/community/catalog.browser.ts: knip:types/StaticDesignTemplateCatalogOptions": {
       "count": 1
     },
-    "desktop/web/src/app/contracts/design-ingestion.ts: knip:exports/CanopiDesignIngestionError": {
-      "count": 1
-    },
     "desktop/web/src/app/contracts/document.ts: knip:exports/DOCUMENT_FILE_FIELD_OWNERS": {
       "count": 1
     },
     "desktop/web/src/app/contracts/document.ts: knip:exports/extractDocumentExtra": {
       "count": 1
+    },
+    "desktop/web/src/app/contracts/document.ts: knip:exports/normalizeNewDocument": {
+      "count": 1,
+      "bead": "canopi-f47t.52.218"
     },
     "desktop/web/src/app/data-library/camera-request.ts: knip:exports/lidarBoundsToLocalWorld": {
       "count": 1
@@ -107,29 +108,70 @@
     "desktop/web/src/app/data-library/site-values.ts: knip:types/SiteRowValue": {
       "count": 1
     },
+    "desktop/web/src/app/design-edit/index.ts: knip:exports/deleteSavedView": {
+      "count": 1,
+      "bead": "canopi-f47t.52.218"
+    },
+    "desktop/web/src/app/design-edit/index.ts: knip:exports/deleteStory": {
+      "count": 1,
+      "bead": "canopi-f47t.52.218"
+    },
+    "desktop/web/src/app/design-edit/index.ts: knip:exports/deleteStoryStep": {
+      "count": 1,
+      "bead": "canopi-f47t.52.218"
+    },
+    "desktop/web/src/app/design-edit/index.ts: knip:exports/editWithinImageLimit": {
+      "count": 1,
+      "bead": "canopi-f47t.52.218"
+    },
+    "desktop/web/src/app/design-edit/plant-display.ts: knip:exports/withPlantDisplayOptions": {
+      "count": 1,
+      "bead": "canopi-f47t.52.218"
+    },
+    "desktop/web/src/app/design-edit/stories.ts: knip:exports/deleteStory": {
+      "count": 1,
+      "bead": "canopi-f47t.52.218"
+    },
+    "desktop/web/src/app/design-edit/stories.ts: knip:exports/deleteStoryStep": {
+      "count": 1,
+      "bead": "canopi-f47t.52.218"
+    },
+    "desktop/web/src/app/design-edit/stories.ts: knip:exports/editWithinImageLimit": {
+      "count": 1,
+      "bead": "canopi-f47t.52.218"
+    },
+    "desktop/web/src/app/design-edit/views.ts: knip:exports/deleteSavedView": {
+      "count": 1,
+      "bead": "canopi-f47t.52.218"
+    },
     "desktop/web/src/app/design-template-import/workflow.browser.ts: knip:exports/createBrowserDesignTemplateImportWorkflow": {
       "count": 1
     },
     "desktop/web/src/app/design-template-import/workflow.browser.ts: knip:types/BrowserDesignTemplateImportAdapters": {
       "count": 1
     },
-    "desktop/web/src/app/document-session/actions.ts: knip:exports/consumeQueuedDocumentLoad": {
-      "count": 1
-    },
-    "desktop/web/src/app/document-session/continuous-save.ts: knip:exports/CONTINUOUS_SAVE_DELAY_MS": {
-      "count": 1
+    "desktop/web/src/app/document-session/core/edits.ts: knip:types/PlacementFragment": {
+      "count": 1,
+      "bead": "canopi-f47t.52.218"
     },
     "desktop/web/src/app/document-session/open-failure.ts: knip:exports/designOpenFailureNoticeOf": {
       "count": 1
     },
-    "desktop/web/src/app/document-session/persistence.ts: knip:exports/DesignPersistenceBusyError": {
-      "count": 1
+    "desktop/web/src/app/document-session/store.ts: knip:exports/EDITING_DESIGN_SESSION": {
+      "count": 1,
+      "bead": "canopi-f47t.52.218"
     },
-    "desktop/web/src/app/document-session/persistence.ts: knip:exports/DesignPersistenceSettlementError": {
-      "count": 1
+    "desktop/web/src/app/document-session/store.ts: knip:exports/designDirty": {
+      "count": 1,
+      "bead": "canopi-f47t.52.218"
     },
-    "desktop/web/src/app/document-session/store.ts: knip:exports/createDesignSessionStore": {
-      "count": 1
+    "desktop/web/src/app/document-session/store.ts: knip:exports/sessionIdentity": {
+      "count": 1,
+      "bead": "canopi-f47t.52.218"
+    },
+    "desktop/web/src/app/document-session/store.ts: knip:exports/sessionKind": {
+      "count": 1,
+      "bead": "canopi-f47t.52.218"
     },
     "desktop/web/src/app/document-session/store.ts: knip:types/DesignSessionIdentity": {
       "count": 1
@@ -143,10 +185,10 @@
     "desktop/web/src/app/geocoding/registry.ts: knip:exports/NOMINATIM_MIN_INTERVAL_MS": {
       "count": 1
     },
-    "desktop/web/src/app/geojson/codec.ts: knip:exports/encodeDesignGeoJson": {
+    "desktop/web/src/app/geojson/codec.ts: knip:exports/GEOJSON_KIND_PROPERTY": {
       "count": 1
     },
-    "desktop/web/src/app/geojson/codec.ts: knip:exports/GEOJSON_KIND_PROPERTY": {
+    "desktop/web/src/app/geojson/codec.ts: knip:exports/encodeDesignGeoJson": {
       "count": 1
     },
     "desktop/web/src/app/geojson/codec.ts: knip:types/GeoJsonFeatureCollection": {
@@ -212,10 +254,10 @@
     "desktop/web/src/app/plant-browser/plant-filter-model.ts: knip:types/StripThresholdField": {
       "count": 1
     },
-    "desktop/web/src/app/plant-browser/workbench.ts: knip:exports/composeSpeciesDisplayNames": {
+    "desktop/web/src/app/plant-browser/workbench.ts: knip:exports/SPECIES_BROWSE_SORTS": {
       "count": 1
     },
-    "desktop/web/src/app/plant-browser/workbench.ts: knip:exports/SPECIES_BROWSE_SORTS": {
+    "desktop/web/src/app/plant-browser/workbench.ts: knip:exports/composeSpeciesDisplayNames": {
       "count": 1
     },
     "desktop/web/src/app/plant-browser/workbench.ts: knip:types/SpeciesCatalogDetailImage": {
@@ -248,10 +290,10 @@
     "desktop/web/src/app/saved-object-stamps/workbench.ts: knip:types/SavedObjectStampSelectionView": {
       "count": 1
     },
-    "desktop/web/src/app/saved-views/snapshot.ts: knip:exports/disposeViewSnapshots": {
+    "desktop/web/src/app/saved-views/snapshot.ts: knip:exports/VIEW_SNAPSHOT_DEFAULT_TIMEOUT_MS": {
       "count": 1
     },
-    "desktop/web/src/app/saved-views/snapshot.ts: knip:exports/VIEW_SNAPSHOT_DEFAULT_TIMEOUT_MS": {
+    "desktop/web/src/app/saved-views/snapshot.ts: knip:exports/disposeViewSnapshots": {
       "count": 1
     },
     "desktop/web/src/app/saved-views/thumbnails.ts: knip:exports/createSavedViewThumbnailCache": {
@@ -299,10 +341,10 @@
     "desktop/web/src/canvas/runtime/plant-display.ts: knip:exports/NO_STRATUM_DISPLAY_COLOR": {
       "count": 1
     },
-    "desktop/web/src/canvas/runtime/plant-display.ts: knip:exports/plantDisplaysEqual": {
+    "desktop/web/src/canvas/runtime/plant-display.ts: knip:exports/STRATUM_DISPLAY_COLORS": {
       "count": 1
     },
-    "desktop/web/src/canvas/runtime/plant-display.ts: knip:exports/STRATUM_DISPLAY_COLORS": {
+    "desktop/web/src/canvas/runtime/plant-display.ts: knip:exports/plantDisplaysEqual": {
       "count": 1
     },
     "desktop/web/src/canvas/runtime/plant-symbol-recipes.ts: knip:exports/PLANT_SYMBOL_RECIPES": {
@@ -319,6 +361,10 @@
     },
     "desktop/web/src/canvas/runtime/runtime.ts: knip:types/CanvasPersistenceAcknowledgement": {
       "count": 1
+    },
+    "desktop/web/src/canvas/runtime/scene-runtime/transactions.ts: knip:exports/createDetachedSceneSessionAdapter": {
+      "count": 1,
+      "bead": "canopi-f47t.52.218"
     },
     "desktop/web/src/canvas/runtime/scene-visuals.ts: knip:exports/CANVAS_MAP_BACKDROP_COLORS": {
       "count": 1
@@ -421,10 +467,10 @@
     "desktop/web/src/editions/web/browser-geojson.ts: knip:exports/browserGeoJsonFiles": {
       "count": 1
     },
-    "desktop/web/src/editions/web/browser-release-watch.ts: knip:exports/createBrowserReleaseWatch": {
+    "desktop/web/src/editions/web/browser-release-watch.ts: knip:exports/RELEASE_READ_INTERVAL_MS": {
       "count": 1
     },
-    "desktop/web/src/editions/web/browser-release-watch.ts: knip:exports/RELEASE_READ_INTERVAL_MS": {
+    "desktop/web/src/editions/web/browser-release-watch.ts: knip:exports/createBrowserReleaseWatch": {
       "count": 1
     },
     "desktop/web/src/editions/web/browser-release-watch.ts: knip:types/BrowserReleaseWatchTarget": {
@@ -518,24 +564,6 @@
     "desktop/web/src/web/browser-app-data.ts: knip:types/BrowserStorageAdapter": {
       "count": 1
     },
-    "desktop/web/src/web/browser-design-session.ts: knip:exports/browserDesignFileAdapter": {
-      "count": 1
-    },
-    "desktop/web/src/web/browser-design-session.ts: knip:exports/createBrowserDesignSessionController": {
-      "count": 1
-    },
-    "desktop/web/src/web/browser-design-session.ts: knip:types/BrowserCanopiDownload": {
-      "count": 1
-    },
-    "desktop/web/src/web/browser-design-session.ts: knip:types/BrowserDesignFileAdapter": {
-      "count": 1
-    },
-    "desktop/web/src/web/browser-design-session.ts: knip:types/BrowserOpenedCanopiFile": {
-      "count": 1
-    },
-    "desktop/web/src/web/browser-design-session.ts: knip:types/BrowserPageLifecycleTarget": {
-      "count": 1
-    },
     "desktop/web/src/web/browser-draft-persistence.ts: knip:exports/createBrowserDraftPersistence": {
       "count": 1
     },
@@ -548,10 +576,10 @@
     "policy/core/diff.mjs: knip:exports/gitRenames": {
       "count": 1
     },
-    "policy/core/observe.mjs: knip:exports/observeFamily": {
+    "policy/core/observe.mjs: knip:exports/PLANTED_DIR": {
       "count": 1
     },
-    "policy/core/observe.mjs: knip:exports/PLANTED_DIR": {
+    "policy/core/observe.mjs: knip:exports/observeFamily": {
       "count": 1
     },
     "policy/core/path-filters.mjs: knip:exports/regexAlternatives": {
@@ -590,10 +618,10 @@
     "policy/gate/engines.mjs: knip:exports/ENGINES_FILE": {
       "count": 1
     },
-    "policy/gate/ledger.ts: knip:exports/prose": {
+    "policy/gate/ledger.ts: knip:exports/SPACE": {
       "count": 1
     },
-    "policy/gate/ledger.ts: knip:exports/SPACE": {
+    "policy/gate/ledger.ts: knip:exports/prose": {
       "count": 1
     },
     "policy/gate/test-reader.ts: knip:exports/JS": {

@@ -67,7 +67,7 @@ describe('TitleBar', () => {
     locale.value = 'en'
     theme.value = 'light'
     activePanel.value = 'canvas'
-    replaceCurrentDesignState(makeDesign('Untitled'), null, 'Untitled')
+    replaceCurrentDesignState(makeDesign('Untitled'), '/designs/untitled.canopi', 'Untitled')
     resetDirtyBaselines()
     windowMocks.startDragging.mockClear()
     windowMocks.toggleMaximize.mockClear()

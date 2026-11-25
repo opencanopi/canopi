@@ -9,7 +9,7 @@ import { commandPaletteOpen } from '../commands/registry'
 import type { KeyRouterHandle } from '../app/keyboard/key-router'
 import { installDesktopKeys } from './support/desktop-key-router'
 import { setCurrentCanvasSession } from '../canvas/session'
-import { designSessionFixture } from './support/design-session-state'
+import { designSessionFixture, markTestDesignDirty } from './support/design-session-state'
 import {
   createTestCanvasCommandSurface,
   createTestCanvasRuntimeSurfaces,
@@ -37,8 +37,6 @@ describe('Desktop keys', () => {
     currentCanvasSelection.value = new Set()
     setCurrentCanvasSession(null)
     designSessionFixture.file = null
-    designSessionFixture.nonCanvasRevision = 0
-    designSessionFixture.nonCanvasSavedRevision = 0
     commandPaletteOpen.value = false
     keys = installDesktopKeys()
   })
@@ -212,8 +210,7 @@ describe('Desktop keys', () => {
       updated_at: '',
       extra: {},
     }
-    designSessionFixture.nonCanvasRevision = 1
-    designSessionFixture.nonCanvasSavedRevision = 0
+    markTestDesignDirty()
     const saveSpy = vi.spyOn(documentActions, 'saveCurrentDesign').mockResolvedValue(true)
     const saveAsSpy = vi.spyOn(documentActions, 'saveAsCurrentDesign').mockResolvedValue(null)
     const openSpy = vi.spyOn(documentActions, 'openDesign').mockResolvedValue(undefined)

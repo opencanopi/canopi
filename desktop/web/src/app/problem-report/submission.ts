@@ -60,6 +60,11 @@ export function installProblemReportPort(port: ProblemReportPort): () => void {
 export function openProblemReportDialog(): void {
   problemReportSubmission.open(null)
 }
+
+/** Opens the problem report with an optional originating failure (root fallback, notices). */
+export function openProblemReport(origin: ReportOrigin | null = null): void {
+  problemReportSubmission.open(origin)
+}
 export function createProblemReportSubmission(
   deps: ProblemReportSubmissionDeps,
 ): ProblemReportSubmission {

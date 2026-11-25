@@ -27,7 +27,7 @@
       "count": 1
     },
     "desktop/web/src/__tests__/design-edit-stories.test.ts": {
-      "count": 4
+      "count": 3
     },
     "desktop/web/src/__tests__/design-map-view.test.ts": {
       "count": 1
@@ -53,9 +53,6 @@
     "desktop/web/src/__tests__/saved-object-stamps-workbench.test.ts": {
       "count": 1
     },
-    "desktop/web/src/__tests__/settings-sections.test.tsx": {
-      "count": 1
-    },
     "desktop/web/src/__tests__/support/before-paint.ts": {
       "count": 1
     },
@@ -73,9 +70,6 @@
     },
     "desktop/web/src/__tests__/support/zoom-calibration-scenes.ts": {
       "count": 1
-    },
-    "desktop/web/src/__tests__/web-design-session.test.ts": {
-      "count": 2
     },
     "desktop/web/src/__tests__/web-layers-panel.test.tsx": {
       "count": 1
@@ -132,15 +126,6 @@
       "count": 1
     },
     "desktop/web/src/app/design-template-import/workflow.browser.ts": {
-      "count": 1
-    },
-    "desktop/web/src/app/document-session/actions.ts": {
-      "count": 1
-    },
-    "desktop/web/src/app/document-session/state-machine.ts": {
-      "count": 3
-    },
-    "desktop/web/src/app/document-session/transition.ts": {
       "count": 1
     },
     "desktop/web/src/app/planning-projection/consortium.ts": {
@@ -394,9 +379,6 @@
     },
     "desktop/web/src/maplibre/view-snapshot-map.test.ts": {
       "count": 1
-    },
-    "desktop/web/src/web/browser-design-session.ts": {
-      "count": 2
     },
     "desktop/web/vite.config.ts": {
       "count": 2

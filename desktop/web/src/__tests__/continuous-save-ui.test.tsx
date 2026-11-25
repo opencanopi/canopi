@@ -3,11 +3,7 @@
 import { render } from 'preact'
 import { act } from 'preact/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import {
-  answerSaveProblem,
-  requestSaveProblemDecision,
-  saveProblem,
-} from '../app/document-session/save-problem'
+import { answerSaveProblem, requestSaveProblemDecision, saveProblem } from '../app/document-session/save-problem'
 import { createDesignDraftsController } from '../app/design-drafts'
 import { locale } from '../app/settings/state'
 import { StartScreen, type StartScreenDraft } from '../components/shared/StartScreen'
@@ -15,34 +11,18 @@ import { SaveProblemDialog } from '../components/shared/SaveProblemDialog'
 import { CommandPalette } from '../components/shared/CommandPalette'
 import { commandPaletteOpen } from '../commands/registry'
 import { SaveStatusLabel } from '../components/shared/SaveStatusLabel'
-import { createDesignSessionStore } from '../app/document-session/store'
-import { createBrowserAppDataStore } from '../web/browser-app-data'
-import { createBrowserDesignSessionController } from '../web/browser-design-session'
+import { designSessionStore } from '../app/document-session/store'
+import { browserAppDataStore } from '../web/browser-app-data'
 import { WebWelcomeScreen } from '../editions/web/WebWelcomeScreen'
+import { createTestSessionCore } from './support/session-core-fixture'
 import { beforePaint } from './support/before-paint'
 import type { CanopiFile } from '../types/design'
 
 let container: HTMLDivElement
-
-beforeEach(() => {
-  locale.value = 'en'
-  container = document.createElement('div')
-  document.body.appendChild(container)
-})
-
-afterEach(() => {
-  answerSaveProblem('cancel')
-  render(null, container)
-  container.remove()
-})
-
-function buttons(): HTMLButtonElement[] {
-  return Array.from(container.querySelectorAll('button'))
-}
-
-function labels(): string[] {
-  return buttons().map((button) => button.textContent ?? '')
-}
+beforeEach(() => { locale.value = 'en'; container = document.createElement('div'); document.body.appendChild(container) })
+afterEach(() => { answerSaveProblem('cancel'); render(null, container); container.remove() })
+const buttons = (): HTMLButtonElement[] => Array.from(container.querySelectorAll('button'))
+const labels = (): string[] => buttons().map((button) => button.textContent ?? '')
 
 describe('SaveStatusLabel', () => {
   const draftAction = { label: 'Save as…', style: 'button' as const, run: vi.fn() }
@@ -683,43 +663,55 @@ describe('Design Drafts controller', () => {
 
 describe('WebWelcomeScreen', () => {
   it('lists browser Drafts, opens one and deletes another', async () => {
-    const values = new Map<string, string>()
-    const storage = { getItem: (key: string) => values.get(key) ?? null, setItem: (key: string, value: string) => { values.set(key, value) }, removeItem: (key: string) => { values.delete(key) } }
-    const appDataStore = createBrowserAppDataStore({ storage })
-    for (const name of ['Kitchen Garden', 'Hedge']) {
-      appDataStore.saveDraft({ id: `draft-${name}`, file: design(name), now: '2026-01-01T00:00:00.000Z' })
+    const handle = createTestSessionCore({ file: null })
+    const origDeleteDraft = handle.home.deleteDraft.bind(handle.home)
+    handle.home.deleteDraft = async (id) => {
+      browserAppDataStore.deleteDraft(id)
+      return origDeleteDraft(id)
     }
-    const store = createDesignSessionStore()
-    const controller = createBrowserDesignSessionController({ store, appDataStore })
+    for (const draft of browserAppDataStore.listDrafts()) {
+      browserAppDataStore.deleteDraft(draft.id)
+    }
+    try {
+      for (const name of ['Kitchen Garden', 'Hedge']) {
+        const file = design(name)
+        browserAppDataStore.saveDraft({ id: `draft-${name}`, file, now: '2026-01-01T00:00:00.000Z' })
+        handle.home.seedFile(`draft-${name}`, file)
+      }
 
-    await act(async () => {
-      render(<WebWelcomeScreen controller={controller} />, container)
-    })
-    expect(container.textContent).toContain('Kitchen Garden')
-    expect(container.textContent).toContain('Hedge')
+      await act(async () => {
+        render(<WebWelcomeScreen />, container)
+      })
+      expect(container.textContent).toContain('Kitchen Garden')
+      expect(container.textContent).toContain('Hedge')
 
-    await act(async () => {
-      container.querySelector<HTMLButtonElement>('button[aria-label="Actions for Kitchen Garden"]')?.click()
-    })
-    await act(async () => {
-      Array.from(document.body.querySelectorAll<HTMLButtonElement>('[role="menuitem"]'))
-        .find((item) => item.textContent === 'Delete draft…')?.click()
-    })
-    await act(async () => {
-      Array.from(container.querySelectorAll<HTMLButtonElement>('button'))
-        .find((button) => button.textContent === 'Delete draft')?.click()
-      // The delete and the open each wait for the 2.1 listing guard (design check A18) before they act.
-      await new Promise((resolve) => setTimeout(resolve, 0))
-    })
-    expect(container.textContent).not.toContain('Kitchen Garden')
-    expect(appDataStore.listDrafts().map((draft) => draft.id)).toEqual(['draft-Hedge'])
+      await act(async () => {
+        container.querySelector<HTMLButtonElement>('button[aria-label="Actions for Kitchen Garden"]')?.click()
+      })
+      await act(async () => {
+        Array.from(document.body.querySelectorAll<HTMLButtonElement>('[role="menuitem"]'))
+          .find((item) => item.textContent === 'Delete draft…')?.click()
+      })
+      await act(async () => {
+        Array.from(document.body.querySelectorAll<HTMLButtonElement>('button'))
+          .find((button) => button.textContent === 'Delete draft')?.click()
+        await new Promise((resolve) => setTimeout(resolve, 0))
+      })
+      expect(container.textContent).not.toContain('Kitchen Garden')
+      expect(browserAppDataStore.listDrafts().map((draft) => draft.id)).toEqual(['draft-Hedge'])
 
-    await act(async () => {
-      Array.from(container.querySelectorAll<HTMLButtonElement>('li button'))
-        .find((button) => button.textContent?.includes('Hedge'))?.click()
-      await new Promise((resolve) => setTimeout(resolve, 0))
-    })
-    expect(store.readDesignName()).toBe('Hedge')
+      await act(async () => {
+        Array.from(container.querySelectorAll<HTMLButtonElement>('li button'))
+          .find((button) => button.textContent?.includes('Hedge'))?.click()
+        await new Promise((resolve) => setTimeout(resolve, 0))
+      })
+      expect(designSessionStore.readDesignName()).toBe('Hedge')
+    } finally {
+      for (const draft of browserAppDataStore.listDrafts()) {
+        browserAppDataStore.deleteDraft(draft.id)
+      }
+      handle.dispose()
+    }
   })
 })
 

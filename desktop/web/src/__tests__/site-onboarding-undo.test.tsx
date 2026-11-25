@@ -8,18 +8,17 @@ import { createBrowserCanvasHostRuntime } from '../editions/web/browser-workspac
 import { createMapLifetimeSlot } from '../maplibre/map-lifetime'
 import type { WorkspaceRuntimeComposition } from '../app/canvas-map-surface/workspace-runtime-composition'
 import { encodeCanopiDesign } from '../app/contracts/canopi-design-wire'
-import { createDesignSessionStoreTestFixture, designSessionStore } from '../app/document-session/store'
+import { designSessionStore } from '../app/document-session/store'
 import { currentCanvasSession } from '../canvas/session'
 import { CURRENT_CANOPI_FILE_VERSION } from '../generated/canopi-design-format'
 import type { CanopiFile } from '../types/design'
-import { createBrowserAppDataStore, type BrowserStorageAdapter } from '../web/browser-app-data'
 import { createBrowserCanvasRuntimeAppAdapter } from '../editions/web/browser-canvas-runtime'
-import { createBrowserDesignSessionController } from '../web/browser-design-session'
 import type { KeyRouterHandle } from '../app/keyboard/key-router'
 import { installWebKeyRouter } from '../editions/web/browser-shell-commands'
 import { WebCanvasWorkspace } from '../editions/web/WebCanvasWorkspace'
 import { geoAt } from './support/geo-design'
 import { createLiveTestCanvasRuntimeHost } from './support/live-canvas-runtime'
+import { createTestSessionCore, type TestSessionCoreHandle } from './support/session-core-fixture'
 
 /**
  * canopi-28w8 on the Web Edition: the Web workspace with its real floating
@@ -29,6 +28,7 @@ import { createLiveTestCanvasRuntimeHost } from './support/live-canvas-runtime'
 describe('Where is your site? and Undo on the Web Edition', () => {
   let container: HTMLDivElement
   let keys: KeyRouterHandle | null = null
+  let session: TestSessionCoreHandle | null = null
 
   afterEach(async () => {
     // Unmounting the workspace releases the runtime through the composition.
@@ -39,12 +39,14 @@ describe('Where is your site? and Undo on the Web Edition', () => {
     container.remove()
     keys?.dispose()
     keys = null
-    createDesignSessionStoreTestFixture(designSessionStore).reset()
+    session?.dispose()
+    session = null
   })
 
   it('select all, delete, Ctrl+Z restores every object on the Web edition', async () => {
     container = document.createElement('div')
     document.body.appendChild(container)
+    session = createTestSessionCore({ file: null })
     const host = createLiveTestCanvasRuntimeHost({ appAdapter: createBrowserCanvasRuntimeAppAdapter() })
     const mapSlot = createMapLifetimeSlot(
       { restart: () => false, retryLayer: () => {}, release: () => {} },
@@ -56,16 +58,8 @@ describe('Where is your site? and Undo on the Web Edition', () => {
       start: async () => 'shared-ready',
       dispose: () => host.destroy(),
     }
-    const controller = createBrowserDesignSessionController({
-      appDataStore: createBrowserAppDataStore({ storage: memoryStorage() }),
-      fileAdapter: {
-        openCanopiFile: async () => ({ fileName: 'orchard.canopi', text: JSON.stringify(encodeCanopiDesign(orchard())) }),
-        downloadCanopiFile: async () => undefined,
-      },
-      now: () => new Date('2026-09-29T12:00:00.000Z'),
-    })
     const uninstallCanvasHost = installCanvasHostRuntime(() => ({
-      core: createBrowserCanvasHostRuntime(controller).core,
+      core: createBrowserCanvasHostRuntime().core,
       createComposition: () => composition,
     }))
     keys = installWebKeyRouter({
@@ -75,7 +69,7 @@ describe('Where is your site? and Undo on the Web Edition', () => {
 
     try {
       await act(async () => {
-        render(<WebCanvasWorkspace controller={controller} />, container)
+        render(<WebCanvasWorkspace />, container)
         await flushMicrotasks()
       })
     } finally {
@@ -86,7 +80,12 @@ describe('Where is your site? and Undo on the Web Edition', () => {
 
     // Open Design… from the start screen: the orchard opens as a Draft.
     await act(async () => {
-      await controller.openCanopi()
+      await session!.core.openFrom({
+        kind: 'bytes',
+        name: 'orchard.canopi',
+        bytes: new TextEncoder().encode(JSON.stringify(encodeCanopiDesign(orchard()))),
+      })
+      await flushMicrotasks()
     })
     const { queries } = host.surfaces
     const opened = queries.getSceneSnapshot()
@@ -129,15 +128,6 @@ async function press(init: KeyboardEventInit): Promise<void> {
 
 async function flushMicrotasks(): Promise<void> {
   for (let index = 0; index < 20; index += 1) await Promise.resolve()
-}
-
-function memoryStorage(): BrowserStorageAdapter {
-  const values = new Map<string, string>()
-  return {
-    getItem: (key) => values.get(key) ?? null,
-    setItem: (key, value) => { values.set(key, value) },
-    removeItem: (key) => { values.delete(key) },
-  }
 }
 
 function orchard(): CanopiFile {

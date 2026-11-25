@@ -5,6 +5,7 @@
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
+use crate::design_home::FileHomeGrant;
 use crate::ids::FileGrantId;
 
 /// One purpose a host file dialog serves; one row per call site, so a start-folder rule
@@ -136,6 +137,9 @@ pub enum PickOpenOutcome {
         /// Host-issued file grants for picked Design files (`home_read` / `home_write`, 2b-4).
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
         grants: Vec<FileGrantId>,
+        /// Full file-home identities (`{ grant, display_name, recent_id }`) for picked Design files.
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        file_homes: Vec<FileHomeGrant>,
     },
 }
 
@@ -152,6 +156,9 @@ pub enum PickSaveOutcome {
         /// Host-issued file grant for a Design save target (`home_read` / `home_write`, 2b-4).
         #[serde(default, skip_serializing_if = "Option::is_none")]
         grant: Option<FileGrantId>,
+        /// Full file-home identity (`{ grant, display_name, recent_id }`) for a Design save target.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        file_home: Option<FileHomeGrant>,
     },
 }
 
@@ -187,6 +194,7 @@ mod tests {
         let picked = PickOpenOutcome::Picked {
             paths: vec!["/a.tif".to_string()],
             grants: Vec::new(),
+            file_homes: Vec::new(),
         };
         assert_eq!(
             serde_json::to_value(picked).unwrap_or_default(),

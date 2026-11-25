@@ -59,7 +59,14 @@ export function WelcomeScreen() {
         // A Recent Design a newer Canopi saved opens read-only, and its row says so, a file too
         // large for a preview included (2.1-Q316).
         readOnly: savedByNewer(recentFilesController.previews.value.get(file.path)),
-        open: () => { void openDesignFromPath(file.path).catch(logWelcomeError) },
+        open: () => {
+          if (!file.grant) return
+          void openDesignFromPath(file.grant, {
+            grant: file.grant,
+            displayName: file.name,
+            ...(file.recent_id ? { recentId: file.recent_id } : {}),
+          }).catch(logWelcomeError)
+        },
         showInFolder: () => { void recentFilesController.showInFolder(file.path) },
         remove: () => { void recentFilesController.remove(file.path).catch(logWelcomeError) },
       }))}

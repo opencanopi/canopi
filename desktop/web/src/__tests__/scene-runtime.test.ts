@@ -562,7 +562,7 @@ describe('Canvas runtime surfaces', () => {
   })
 
   it('undo and redo keep document-owned metadata outside scene history', () => {
-    const host = createRuntimeHostWithAppComposition()
+    const host = createRuntimeHost()
     const { commands, documents } = host.surfaces
     const documentCopy: CanopiFile = {
       ...BASE_FILE,

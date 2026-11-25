@@ -51,6 +51,7 @@ impl DesignDrafts {
 
     /// Durably write the draft `id`, creating the store when needed; a Draft saved by a
     /// newer Canopi is never saved over ([`refuse_newer`]).
+    #[cfg(test)]
     pub(crate) fn save(&self, id: &str, content: &CanopiFile) -> Result<(), String> {
         let dir = self.dir.as_path();
         let path = draft_path(dir, id)?;

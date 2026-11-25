@@ -115,12 +115,7 @@ const STATE_ACCESS_ALLOWLIST: &[StateAccessAllowance] = &[
         reason: "awaits, with no executor permit held, until in-memory job flags show the deleted item's own cancelled jobs have settled",
     },
     StateAccessAllowance {
-        path: "commands::design::save_design",
-        operation: "record_design_folder",
-        reason: "remembers, in memory, the written Design's folder for the window's next host dialog",
-    },
-    StateAccessAllowance {
-        path: "commands::design::load_design",
+        path: "commands::host::home_read",
         operation: "record_design_folder",
         reason: "remembers, in memory, the loaded Design's folder for the window's next host dialog",
     },

@@ -1,6 +1,6 @@
 import type { ComponentChildren, RefObject } from 'preact'
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'preact/hooks'
-import type { DesignSaveStatus } from '../../app/document-session/continuous-save'
+import type { DesignSaveStatus } from '../../app/document-session/live-core'
 import { saveProblem, type SaveConflictSource } from '../../app/document-session/save-problem'
 import type { ReadOnlyOrigin } from '../../app/document-session/store'
 import { t } from '../../i18n'

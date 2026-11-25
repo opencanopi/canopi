@@ -573,7 +573,7 @@
     {
       "id": "guide-design-document-deleting-a-view-deletes-the",
       "doc": "docs/guides/design-document.md",
-      "quote": "Deleting a view deletes the steps that show it and returns a `SavedViewDeletion` that",
+      "quote": "Deleting a view or story records one `core.document(..., { isDelete: true })` entry",
       "state": {
         "exists": {
           "check": "desktop/web/src/__tests__/design-edit-views.test.ts"
@@ -596,7 +596,7 @@
       "quote": "A Design Edit command computes its update first, installs committed state, then publishes",
       "state": {
         "exists": {
-          "check": "desktop/web/src/__tests__/design-edit-authority.test.ts"
+          "check": "desktop/web/src/app/document-session/design-edit-authority.test.ts"
         }
       }
     },
@@ -633,7 +633,7 @@
     {
       "id": "guide-design-document-every-replacement-first-flushes-the",
       "doc": "docs/guides/design-document.md",
-      "quote": "Every replacement first flushes the current Design to its home (`dirtyGuard:",
+      "quote": "Every open, new, or close flushes the current Design to its home through `flushOrAskBeforeTransition`",
       "state": {
         "exists": {
           "check": "desktop/web/src/__tests__/document-session-transition.test.ts"
@@ -643,7 +643,7 @@
     {
       "id": "guide-design-document-only-and-load-the-runtime",
       "doc": "docs/guides/design-document.md",
-      "quote": "Only `attach()` and `replace()` (`app/document-session/replacement.ts`) load the runtime document;",
+      "quote": "`ScenePort` (`attachScene` / `detachScene`) is the only seam loading or serializing the Scene half;",
       "state": {
         "exists": {
           "check": "desktop/web/src/__tests__/design-session-replacement.test.ts"
@@ -653,17 +653,17 @@
     {
       "id": "guide-design-document-continuous-save-restarts-a-1500",
       "doc": "docs/guides/design-document.md",
-      "quote": "Continuous save restarts a 1500 ms timer per committed change, coalesces writes and flushes on",
+      "quote": "Autosave restarts a 1500 ms timer per committed change, coalesces writes in `core/write-lane.ts`,",
       "state": {
         "exists": {
-          "check": "desktop/web/src/__tests__/continuous-save.test.ts"
+          "check": "desktop/web/src/app/document-session/core/session-core.test.ts"
         }
       }
     },
     {
       "id": "guide-design-document-dirty-means-not-yet-written",
       "doc": "docs/guides/design-document.md",
-      "quote": "Dirty means \"not yet written to the home\":",
+      "quote": "Dirty means `rev > ackRev` (`isDesignDirty`); `store.ts` is a read-only projection",
       "state": {
         "exists": {
           "check": "desktop/web/src/__tests__/dirty-state.test.ts"
@@ -673,20 +673,20 @@
     {
       "id": "guide-design-document-a-file-write-carries-the",
       "doc": "docs/guides/design-document.md",
-      "quote": "A file write carries the SHA-256 fingerprint it expects (`desktop/src/services/design_files.rs`);",
+      "quote": "A file write carries the SHA-256 `HomeVersion` it expects (`desktop/src/services/design_files.rs`),",
       "state": {
         "exists": {
-          "check": "desktop/web/src/__tests__/continuous-save.test.ts"
+          "check": "desktop/web/src/app/document-session/core/session-core.test.ts"
         }
       }
     },
     {
       "id": "guide-design-document-a-dialog-answer-applies-only",
       "doc": "docs/guides/design-document.md",
-      "quote": "A dialog answer applies only to the session that asked:",
+      "quote": "A dialog answer carries its `QuestionId` and applies only via `core.answer(id, choice)`;",
       "state": {
         "exists": {
-          "check": "desktop/web/src/__tests__/continuous-save.test.ts"
+          "check": "desktop/web/src/app/document-session/core/session-core.test.ts"
         }
       }
     },

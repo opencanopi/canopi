@@ -453,7 +453,7 @@ describe('FavoritesPanel', () => {
   })
 
   it('clears a stamp import refusal once another Design is opened', async () => {
-    const { designSessionStore } = await import('../app/document-session/store')
+    const { replaceCurrentDesignState } = await import('./support/design-session-state')
     await act(async () => {
       render(<FavoritesPanel />, container)
       await flushEffects()
@@ -467,7 +467,7 @@ describe('FavoritesPanel', () => {
     expect(alert()?.textContent).toBe('No visible objects')
 
     await act(async () => {
-      designSessionStore.replaceCurrentDesignState(otherDesign(), '/designs/other.canopi', 'Other')
+      replaceCurrentDesignState(otherDesign(), '/designs/other.canopi', 'Other')
       await flushEffects()
     })
 

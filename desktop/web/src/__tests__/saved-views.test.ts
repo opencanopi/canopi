@@ -29,7 +29,9 @@ import { describeSavedViewSnapshot, savedViewPresentedLabels, VIEW_SNAPSHOT_THUM
 import type { ViewCamera } from '../geo/view/types'
 import { setPlantLabels } from '../app/plant-display/actions'
 import { createDefaultMapLayers, mapLayers } from '../app/map-layers/state'
+import { createJsonSessionCodec, createSessionCore, installLiveSessionCore } from '../app/document-session/live-core'
 import { currentDesign, designSessionStore } from '../app/document-session/store'
+import { createTestEditionPorts } from './support/test-edition-ports'
 import { createDefaultScenePersistedState } from '../canvas/runtime/scene'
 import { createSessionPlane } from '../geo/session-plane'
 import { setCurrentCanvasSession } from '../canvas/session'
@@ -39,7 +41,7 @@ import {
   createTestCanvasRuntimeSurfaces,
 } from './support/canvas-runtime-surfaces'
 import { createTestCanvasQuerySurface } from './support/canvas-query-surface'
-import { replaceCurrentDesignState } from './support/design-session-state'
+import { clearCurrentDesignState, replaceCurrentDesignState, resetDirtyBaselines } from './support/design-session-state'
 import { TEST_GEO_ORIGIN } from './support/geo-design'
 import { framedCornersOnScreen, groundSizeShown, type WindowSize } from './support/saved-view-frame'
 
@@ -156,7 +158,7 @@ afterEach(() => {
   dismissDeleteViewUndo()
   mapLayers.value = createDefaultMapLayers()
   // A saved view dirties the Design; the next test opens its own clean one.
-  designSessionStore.clearCurrentDesign()
+  clearCurrentDesignState()
 })
 
 describe('saving the current view', () => {
@@ -303,10 +305,9 @@ describe('going to a saved view', () => {
   it('flies the camera there and touches nothing else: no Design edit, dirt, layers, focus or selection', () => {
     replaceCurrentDesignState(design([BERRIES]), null, 'Orchard')
     const { showPlace, showCamera, focus, selectSpecies } = mountCanvas()
-    designSessionStore.resetDirtyBaselines()
+    resetDirtyBaselines()
     expect(designSessionStore.designDirty.value).toBe(false)
     const before = currentDesign.value
-    const revision = designSessionStore.committedDesignRevision.value
     const layersBefore = mapLayers.value
 
     expect(goToSavedView('berries')).toBe(true)
@@ -315,7 +316,6 @@ describe('going to a saved view', () => {
     expect(showPlace).not.toHaveBeenCalled()
     expect(currentDesign.value).toBe(before)
     expect(designSessionStore.designDirty.value).toBe(false)
-    expect(designSessionStore.committedDesignRevision.value).toBe(revision)
     expect(mapLayers.value).toBe(layersBefore)
     expect(focus).not.toHaveBeenCalled()
     expect(selectSpecies).not.toHaveBeenCalled()
@@ -468,6 +468,43 @@ describe('managing views', () => {
     expect(savedViewUndo.value).toBeNull()
     undoDeleteView()
     expect(currentDesign.value?.views).toEqual([])
+  })
+
+  it('routes saved-view delete and Undo through unified SessionCore history when a live core is installed', async () => {
+    const ports = createTestEditionPorts()
+    const core = createSessionCore({
+      designHome: {
+        read: async () => ({ kind: 'absent' }),
+        write: async () => ({ kind: 'written', version: 'v1' }),
+        listDrafts: async () => [],
+        deleteDraft: async () => ({ ok: true }),
+        onVersionChange: () => () => {},
+      },
+      fileAccess: ports.fileAccess,
+      lifecycle: ports.appLifecycle,
+      codec: createJsonSessionCodec(),
+      settings: { readLastOpenHome: async () => null, writeLastOpenHome: async () => {} },
+      newDesignFactory: () => design([BERRIES, POND], [visit(['berries', 'pond'])]),
+    })
+    const dispose = installLiveSessionCore(core)
+    try {
+      await core.createNew()
+      requestDeleteView('berries')
+      confirmDeleteView()
+
+      expect(core.currentDesign.value?.document.views?.map((v) => v.id)).toEqual(['pond'])
+      expect(core.currentDesign.value?.document.stories?.[0]?.steps.map((s) => s.view_id)).toEqual(['pond'])
+      expect(core.canUndo.value).toBe(true)
+      expect(core.newestUndoable.value?.isDelete).toBe(true)
+      expect(savedViewUndo.value?.undo).not.toBeNull()
+
+      undoDeleteView()
+      expect(core.currentDesign.value?.document.views?.map((v) => v.id)).toEqual(['berries', 'pond'])
+      expect(core.currentDesign.value?.document.stories?.[0]?.steps.map((s) => s.view_id)).toEqual(['berries', 'pond'])
+      expect(core.canUndo.value).toBe(false)
+    } finally {
+      dispose()
+    }
   })
 })
 

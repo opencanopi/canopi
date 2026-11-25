@@ -3,7 +3,6 @@ import { currentCanvasQuerySurface } from '../../canvas/session'
 import { consortiumTarget, getConsortiumCanonicalName } from '../../target'
 import { reconcileCurrentDesign } from '../design-edit'
 import { currentDesign } from '../document-session/store'
-import type { DesignSessionWorkflow } from '../document-session/workflow-runner'
 import type { Consortium } from '../../generated/contracts'
 import { DEFAULT_CONSORTIUM_END_PHASE, DEFAULT_CONSORTIUM_START_PHASE, DEFAULT_CONSORTIUM_STRATUM } from '../../planning/time-model'
 
@@ -18,9 +17,9 @@ function createDefaultConsortiumEntry(canonicalName: string): Consortium {
 
 let disposer: (() => void) | null = null
 
-function installConsortiumSync(): void {
+export function installConsortiumSync(): () => void {
   disposer?.()
-  disposer = effect(() => {
+  const stop = effect(() => {
     const session = currentCanvasQuerySurface.value
     void session?.revision.scene.value
     const design = currentDesign.value
@@ -31,19 +30,16 @@ function installConsortiumSync(): void {
     if (toAdd.length === 0) return
     reconcileCurrentDesign((d) => ({ ...d, consortiums: [...d.consortiums, ...toAdd.map(createDefaultConsortiumEntry)] }))
   })
+  disposer = stop
+  return () => {
+    stop()
+    if (disposer === stop) disposer = null
+  }
 }
 
 function disposeConsortiumSync(): void {
   disposer?.()
   disposer = null
-}
-
-export const consortiumSyncWorkflow: DesignSessionWorkflow = {
-  id: 'consortium-sync',
-  install: () => {
-    installConsortiumSync()
-    return disposeConsortiumSync
-  },
 }
 
 if (import.meta.hot) {

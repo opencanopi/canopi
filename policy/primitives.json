@@ -190,7 +190,7 @@
       "tool": "ast-grep",
       "ledger": "2.1-M203",
       "adr": "0024",
-      "owner_today": "desktop/web/src/app/document-session/continuous-save.ts",
+      "owner_today": "desktop/web/src/app/document-session/core",
       "also_owners": [
         "desktop/web/src/app/settings",
         "desktop/web/src/app/data-library/sampler.ts"
@@ -200,7 +200,7 @@
         "phase": "2b",
         "bead": "canopi-f47t.52.48"
       },
-      "example": "desktop/web/src/app/document-session/continuous-save.ts",
+      "example": "desktop/web/src/app/document-session/core/write-lane.ts",
       "note": "a serial lane (a self-reassigned promise tail or an awaiting while (a || b) drain) lives only in the closed owner set: the Session core write lane, settings persistence, the record workbench, the Site data sampler lanes and display admission"
     },
     {
@@ -759,6 +759,9 @@
         "desktop/web/src/app/canvas-pdf/platform.browser.ts",
         "desktop/web/src/app/canvas-pdf/platform.desktop.ts",
         "desktop/web/src/app/document-session/state-machine.ts",
+        "desktop/web/src/app/document-session/core/session-core.ts",
+        "desktop/web/src/editions/desktop/session-ports.ts",
+        "desktop/web/src/editions/web/session-ports.ts",
         "desktop/web/src/app/saved-object-stamps/workbench.ts"
       ],
       "owner_target": {

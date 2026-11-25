@@ -25,7 +25,8 @@ import { dispatchWorkspaceCanvasIntent, workspaceCanvasCommandProjection } from 
 import { focusOwner } from '../keyboard/focus-owner'
 import { singleKeyShortcuts } from '../settings/state'
 import { activePanel } from '../shell/state'
-import { createDesignSessionStoreTestFixture, designSessionStore, EDITING_DESIGN_SESSION } from './store'
+import { createTestSessionCore, type TestSessionCoreHandle } from '../../__tests__/support/session-core-fixture'
+import { designSessionStore, EDITING_DESIGN_SESSION, type DesignSessionKind } from './store'
 import {
   buildCanvasContextMenuEntries,
   type CanvasContextMenuCommand,
@@ -37,7 +38,17 @@ import type { CanvasDesignObjectSelectionModel } from '../../canvas/runtime/runt
 import { t } from '../../i18n'
 import type { CanopiFile } from '../../types/design'
 
-const fixture = createDesignSessionStoreTestFixture(designSessionStore)
+let sessionHandle: TestSessionCoreHandle | null = null
+
+function installSession(
+  file: CanopiFile,
+  path: string | null,
+  name: string,
+  kind: DesignSessionKind,
+): void {
+  sessionHandle?.dispose()
+  sessionHandle = createTestSessionCore({ file, path, name, kind })
+}
 
 const SHOWN: CanopiFile = {
   version: 9,
@@ -81,7 +92,7 @@ beforeEach(() => {
   activePanel.value = 'canvas'
   currentCanvasTool.value = 'select'
   singleKeyShortcuts.value = true
-  designSessionStore.replaceCurrentDesignState(SHOWN, null, 'Orchard 2.1', {
+  installSession(SHOWN, null, 'Orchard 2.1', {
     kind: 'read-only',
     origin: 'newer-version',
     savedByVersion: 10,
@@ -91,7 +102,8 @@ beforeEach(() => {
 afterEach(() => {
   releaseRegion()
   setCurrentCanvasSession(null)
-  fixture.reset()
+  sessionHandle?.dispose()
+  sessionHandle = null
   host.remove()
   elsewhere.remove()
 })
@@ -217,7 +229,7 @@ it('R1 canopi-f47t.52.270: the right-click menu greys every edit and edit tool o
   expect(renameZoneDialog.value).toBeNull()
 
   // The same menu over an editing Design offers the edits.
-  designSessionStore.replaceCurrentDesignState(SHOWN, '/designs/orchard.canopi', 'Orchard', EDITING_DESIGN_SESSION)
+  installSession(SHOWN, '/designs/orchard.canopi', 'Orchard', EDITING_DESIGN_SESSION)
   expect(contextMenu([{ kind: 'plant', id: 'apple-1' }]).enabled).toEqual(expect.arrayContaining(['cut', 'delete', 'lock']))
   expect(contextMenu(null).enabled).toEqual(['place-plants-here', 'paste', 'select-all'])
 })
@@ -257,7 +269,7 @@ describe('R1 canopi-f47t.52.270: a read-only Design offers Close only', () => {
   })
 
   it('Desktop: an editing Design of the same content keeps Rename, Save and Save as', () => {
-    designSessionStore.replaceCurrentDesignState(SHOWN, null, SHOWN.name, EDITING_DESIGN_SESSION)
+    installSession(SHOWN, null, SHOWN.name, EDITING_DESIGN_SESSION)
     expect(isCatalogCommandDisabled('file.rename')).toBe(false)
     expect(isCatalogCommandDisabled('file.save')).toBe(false)
     expect(isCatalogCommandDisabled('file.saveAs')).toBe(false)
@@ -272,7 +284,7 @@ describe('R1 canopi-f47t.52.270: a read-only Design offers Close only', () => {
   })
 
   it('R3 canopi-f47t.52.272: a Web Draft opened while 2.1\'s Drafts could not be listed keeps Download a copy, and nothing else (2.1-Q334)', () => {
-    designSessionStore.replaceCurrentDesignState(SHOWN, null, SHOWN.name, { kind: 'read-only', origin: 'storage-unchecked' })
+    installSession(SHOWN, null, SHOWN.name, { kind: 'read-only', origin: 'storage-unchecked' })
     const enabled = webEnabled()
     expect(enabled).toContain('file.downloadCanopi')
     for (const id of ['file.rename', 'file.revert', 'file.importGeoJson', 'file.exportGeoJson', 'file.exportBudgetCsv', 'file.exportCanvasPdf', 'view.saveCurrentView']) {

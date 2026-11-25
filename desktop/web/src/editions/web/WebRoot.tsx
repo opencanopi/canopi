@@ -1,10 +1,7 @@
 // web/WebRoot.tsx: the Web Edition's root boundary and its problem report writer (ADR 0022, ADR 0025, contracts §22,
-// 2.1-Q83, Q189, Q283). Invariant: the writer is installed once for the page, outside the app, so a fault that takes
-// the app down still leaves Report a problem working; the report attaches the Web Design session's open Design only
-// when ticked, never a newer Canopi's read view (canopi-v4kj), and downloads one zip of the browser's sections.
+// 2.1-Q83, Q189, Q283).
 import type { ComponentChildren } from "preact";
 import { CANOPI_VERSION } from "../../app/about/metadata";
-import { isNewerReadView } from "../../app/document-session/store";
 import { installProblemReportPort } from "../../app/problem-report/submission";
 import { capabilitiesForEdition } from "../../generated/edition-capabilities";
 import { readSettingsReportSummary } from "../../app/settings/projection";
@@ -14,21 +11,24 @@ import { RootBoundary } from "../../components/shared/SurfaceBoundary";
 import { storeHealth } from "../../failures/health";
 import { reportFailure } from "../../failures/report";
 import { createBrowserProblemReportWriter } from "./problem-report";
-import { browserDesignSessionController, type BrowserDesignSessionController } from "../../web/browser-design-session";
+import { currentWebDesignText, reloadWebForRelease } from "./web-session";
 
-type ReportSession = Pick<BrowserDesignSessionController, "currentDesignText" | "readDesignIdentity">;
-type RootSession = Pick<BrowserDesignSessionController, "reloadForRelease">;
+interface ReportSession {
+  currentDesignText(): string | null;
+}
+interface RootSession {
+  reloadForRelease(): Promise<unknown>;
+}
 
-/**
- * Installs the Web problem report's writer for the page: the browser's sections, and the session's open Design for the
- * consent row. Returns the uninstall, which also frees its pending download URLs.
- */
-export function installWebProblemReport(session: ReportSession = browserDesignSessionController): () => void {
+const DEFAULT_REPORT_SESSION: ReportSession = { currentDesignText: currentWebDesignText };
+const DEFAULT_ROOT_SESSION: RootSession = { reloadForRelease: () => reloadWebForRelease() };
+
+export function installWebProblemReport(session: ReportSession = DEFAULT_REPORT_SESSION): () => void {
   const writer = createBrowserProblemReportWriter({
     build: () => ({ app: "Canopi", version: CANOPI_VERSION }),
     health: () => storeHealth.peek(),
     settings: () => readSettingsReportSummary(capabilitiesForEdition("web", "linux")),
-    currentDesign: () => (isNewerReadView(session.readDesignIdentity()?.readOnlyOrigin) ? null : session.currentDesignText()),
+    currentDesign: () => session.currentDesignText(),
   });
   const uninstall = installProblemReportPort(writer);
   return () => {
@@ -37,11 +37,7 @@ export function installWebProblemReport(session: ReportSession = browserDesignSe
   };
 }
 
-/**
- * The Web root boundary: Report a problem opens the problem report, and Reload is the release's, which writes the
- * Draft first, asks the save question when it cannot and reopens this tab's own Draft after the reload.
- */
-export function WebRootBoundary({ session = browserDesignSessionController, children }: {
+export function WebRootBoundary({ session = DEFAULT_ROOT_SESSION, children }: {
   readonly session?: RootSession;
   readonly children: ComponentChildren;
 }) {

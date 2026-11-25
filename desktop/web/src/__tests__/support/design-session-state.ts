@@ -1,59 +1,89 @@
+/**
+ * __tests__/support/design-session-state.ts: Real SessionCore-backed test helpers for the
+ * read-only `designSessionStore` projection (Blueprint §2, 2b-3).
+ */
+import { computed } from '@preact/signals'
+import { encodeCanopiDesign } from '../../app/contracts/canopi-design-wire'
+import { getLiveSessionCore } from '../../app/document-session/live-core'
 import {
-  createDesignSessionStoreTestFixture,
   designSessionStore,
+  type DesignSessionKind,
 } from '../../app/document-session/store'
 import type { CanopiFile } from '../../types/design'
-
-// Test-only adapter for the real Design Session store authority.
-// Production code must use app/document-session/store directly.
-const fixture = createDesignSessionStoreTestFixture(designSessionStore)
+import { createTestSessionCore, makeTestDesign, type TestSessionCoreHandle } from './session-core-fixture'
 
 export const currentDesign = designSessionStore.currentDesign
 export const designPath = designSessionStore.designPath
 export const designName = designSessionStore.designName
-export const pendingDesignPath = fixture.pendingDesignPath
-
-export const nonCanvasRevision = fixture.nonCanvasRevision
-export const canvasClean = fixture.canvasClean
-export const canvasDirty = designSessionStore.canvasDirty
 export const designDirty = designSessionStore.designDirty
+export const canvasDirty = computed(() => designSessionStore.designDirty.value)
+
+let activeHandle: TestSessionCoreHandle | null = null
+
+function installHandle(options: Parameters<typeof createTestSessionCore>[0]): TestSessionCoreHandle {
+  activeHandle?.dispose()
+  activeHandle = createTestSessionCore(options)
+  return activeHandle
+}
+
+export function replaceCurrentDesignState(
+  file: CanopiFile,
+  path: string | null = null,
+  name: string = file.name || 'Untitled',
+  kind?: DesignSessionKind,
+): void {
+  installHandle({ file, path, name, ...(kind ? { kind } : {}) })
+}
+
+export function clearCurrentDesignState(): void {
+  installHandle({ file: null })
+}
+
+export async function openTestDesign(file: CanopiFile): Promise<void> {
+  const core = getLiveSessionCore() ?? installHandle({ file: null }).core
+  const normalized = { ...makeTestDesign(), ...file }
+  const bytes = new TextEncoder().encode(JSON.stringify(encodeCanopiDesign(normalized)))
+  await core.openFrom({ kind: 'bytes', name: file.name || 'Untitled', bytes })
+}
+
+export function markTestDesignDirty(): void {
+  const core = getLiveSessionCore()
+  if (!core) return
+  core.recordSceneEdit('test-dirty', {
+    type: 'test-dirty',
+    before: {},
+    after: {},
+  })
+}
+
+export function resetDirtyBaselines(): void {
+  const core = getLiveSessionCore()
+  const open = core?.currentDesign.peek()
+  if (!open) return
+  installHandle({
+    file: open.document as CanopiFile,
+    path: open.home.kind === 'file' ? open.home.key : null,
+    name: open.document.name,
+  })
+}
 
 export const designSessionFixture = {
   set file(file: CanopiFile | null) {
-    fixture.setState({ file })
+    if (!file) {
+      clearCurrentDesignState()
+      return
+    }
+    const path = designSessionStore.readDesignPath()
+    replaceCurrentDesignState(file, path, file.name || 'Untitled')
   },
   set path(path: string | null) {
-    fixture.setState({ path })
+    const file = designSessionStore.readCurrentDesign()
+    if (!file) return
+    replaceCurrentDesignState(file, path, file.name || 'Untitled')
   },
   set name(name: string) {
-    fixture.setState({ name })
-  },
-  set pendingDesignPath(path: string | null) {
-    fixture.setState({ pendingDesignPath: path })
-  },
-  set nonCanvasRevision(revision: number) {
-    fixture.setState({ nonCanvasRevision: revision })
-  },
-  set nonCanvasSavedRevision(revision: number) {
-    fixture.setState({ nonCanvasSavedRevision: revision })
-  },
-  set persistenceDiverged(diverged: boolean) {
-    fixture.setState({ persistenceDiverged: diverged })
-  },
-  set canvasClean(clean: boolean) {
-    fixture.setState({ canvasClean: clean })
-  },
-  set detachedCanvasDirty(dirty: boolean) {
-    fixture.setState({ detachedCanvasDirty: dirty })
+    const core = getLiveSessionCore()
+    if (!core?.currentDesign.peek()) return
+    core.document('rename', () => ({ name }))
   },
 }
-
-export const resetDirtyBaselines = () => designSessionStore.resetDirtyBaselines()
-export const markSaved = () => fixture.markSaved()
-export const markCanvasDetachedDirty = (dirty: boolean) =>
-  designSessionStore.markCanvasDetachedDirty(dirty)
-export const replaceCurrentDesignState = (
-  file: CanopiFile,
-  path: string | null,
-  name: string,
-) => designSessionStore.replaceCurrentDesignState(file, path, name)

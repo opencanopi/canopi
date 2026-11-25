@@ -1,32 +1,28 @@
-use std::io;
-use std::path::Path;
-use std::sync::Arc;
-
-use canopi_support::durable::TargetLocks;
-use canopi_support::fault_fs::{FaultAction, FaultFs, FaultOp};
-use canopi_support::hash;
-use canopi_types::design_home::{HomeRead, HomeWrite};
-use canopi_types::ids::HomeVersion;
-
 use super::{DesktopHomeStore, FileGrantRegistry, GrantError, MAX_CANOPI_FILE_BYTES};
 use crate::test_scratch::TestScratch;
+use canopi_support::{
+    durable::TargetLocks,
+    fault_fs::{FaultAction, FaultFs, FaultOp},
+    hash,
+};
+use canopi_types::{
+    design_home::{HomeRead, HomeWrite},
+    ids::HomeVersion,
+};
+use std::{io, path::Path, sync::Arc};
 
 #[test]
 fn home_read_and_write_resolve_file_grants_and_draft_ids_behind_one_port() {
     let root = TestScratch::new("home-port-probe");
-    let app_data = root.join("app-data");
-    let designs = root.join("designs");
+    let (app_data, designs) = (root.join("app-data"), root.join("designs"));
     std::fs::create_dir_all(&designs).unwrap();
-
     let grants = Arc::new(FileGrantRegistry::default());
     let store = DesktopHomeStore::production(&app_data, Arc::clone(&grants));
-
     // File grant home: absent -> write(None) -> read -> write(Some(v1)) -> conflict on stale v1.
     let file_path = designs.join("orchard.canopi");
     let grant = grants.grant(&file_path).expect("grant file");
     assert_eq!(grants.grant(&file_path).unwrap(), grant);
     assert!(FileGrantRegistry::is_grant(grant.as_str()));
-
     assert_eq!(store.read(grant.as_str()), HomeRead::Absent);
 
     let v1_bytes = b"{\"version\":9,\"name\":\"Orchard\"}";
@@ -71,13 +67,7 @@ fn home_read_and_write_resolve_file_grants_and_draft_ids_behind_one_port() {
             version: dv1,
         }
     );
-    assert!(
-        app_data
-            .join("drafts")
-            .join("draft-2b4-probe.canopi")
-            .exists()
-    );
-
+    assert!(app_data.join("drafts/draft-2b4-probe.canopi").exists());
     // Invalid keys and unknown grants are refused cleanly.
     assert!(matches!(
         store.read("../escape"),
@@ -96,21 +86,17 @@ fn home_read_and_write_resolve_file_grants_and_draft_ids_behind_one_port() {
 #[test]
 fn conflict_wins_over_pre_upgrade_copy_and_copies_never_overwrite() {
     let root = TestScratch::new("home-pre-upgrade-copy");
-    let app_data = root.join("app-data");
-    let designs = root.join("designs");
+    let (app_data, designs) = (root.join("app-data"), root.join("designs"));
     std::fs::create_dir_all(&designs).unwrap();
-
     let grants = Arc::new(FileGrantRegistry::default());
     let store = DesktopHomeStore::production(&app_data, Arc::clone(&grants));
     let file_path = designs.join("garden.canopi");
     let grant = grants.grant(&file_path).unwrap();
-
     let v9 = b"{\"version\":9}";
     let HomeWrite::Written { version: v9_hash } = store.write(grant.as_str(), v9, None, false)
     else {
         panic!("initial write");
     };
-
     // Stale expected version with keep_previous=true -> Conflict, NO backup created.
     let stale =
         HomeVersion::new("0000000000000000000000000000000000000000000000000000000000000000");
@@ -341,10 +327,14 @@ fn real_commands_mint_file_grants_and_round_trip_home_read_and_home_write() {
     let app = tauri::test::mock_builder()
         .manage(crate::native_operation::NativeOperationExecutor::production())
         .manage(crate::host::launch::PendingOpenSlot::default())
+        .manage(crate::host::dialogs::HostDialogs::default())
         .manage(Arc::clone(&grants))
         .manage(Arc::clone(&store))
         .build(tauri::test::mock_context(tauri::test::noop_assets()))
         .expect("mock app builds");
+    let win = tauri::WebviewWindowBuilder::new(&app, "main", tauri::WebviewUrl::default())
+        .build()
+        .expect("mock window builds");
 
     // Forward a launch file through on_second_launch -> take_pending_open mints a grant.
     crate::host::launch::on_second_launch(
@@ -357,6 +347,8 @@ fn real_commands_mint_file_grants_and_round_trip_home_read_and_home_write() {
 
     // Read through the real async `home_read` command using the minted grant.
     let read_outcome = tauri::async_runtime::block_on(crate::commands::host::home_read(
+        win.clone(),
+        app.state(),
         app.state(),
         app.state(),
         grant.as_str().to_owned(),
@@ -370,6 +362,7 @@ fn real_commands_mint_file_grants_and_round_trip_home_read_and_home_write() {
     // Write an update through the real async `home_write` command using the same grant.
     let updated = b"{\"version\":10,\"origin\":\"home_write\"}";
     let write_outcome = tauri::async_runtime::block_on(crate::commands::host::home_write(
+        win,
         app.state(),
         app.state(),
         grant.as_str().to_owned(),
@@ -562,4 +555,46 @@ fn q348_draft_backup_failure_returns_copy_blocked_and_preserves_v9_draft() {
         }
     );
     assert!(!drafts_dir.join("before-v10/safe-draft.canopi").exists());
+}
+
+#[test]
+fn home_read_and_write_record_desktop_recents_for_file_grants_only() {
+    let root = TestScratch::new("home-recents");
+    let (app_data, designs) = (root.join("app-data"), root.join("designs"));
+    std::fs::create_dir_all(&app_data).unwrap();
+    std::fs::create_dir_all(&designs).unwrap();
+    let (user_db, _) = crate::db::UserDb::open(app_data.join("user.db")).unwrap();
+    let grants = Arc::new(FileGrantRegistry::default());
+    let store =
+        DesktopHomeStore::production(&app_data, Arc::clone(&grants)).with_user_db(user_db.clone());
+    let file_path = designs.join("meadow.canopi");
+    let info = grants.grant_info(&file_path).unwrap();
+    assert_eq!(info.display_name, "meadow.canopi");
+    let mut design = crate::services::design_files::new_design().unwrap();
+    design.name = "Meadow".to_owned();
+    let payload = serde_json::to_vec(&design).unwrap();
+    let w1 = store.write(info.grant.as_str(), &payload, None, false);
+    let w2 = store.write("draft-only", &payload, None, false);
+    assert!(matches!(w1, HomeWrite::Written { .. }) && matches!(w2, HomeWrite::Written { .. }));
+    let list_recents = || {
+        crate::db::recent_files::get_recent_files(&user_db.acquire_writable().unwrap(), 10).unwrap()
+    };
+    let recents = list_recents();
+    assert_eq!((recents.len(), recents[0].name.as_str()), (1, "Meadow"));
+    assert_eq!(super::recent_id_for_path(&recents[0].path), info.recent_id);
+    design.name = "Sunny Meadow".to_owned();
+    std::fs::write(&file_path, serde_json::to_vec(&design).unwrap()).unwrap();
+    let is_present = |k: &str| matches!(store.read(k), HomeRead::Present { .. });
+    assert!(is_present(info.grant.as_str()));
+    for (name, bytes) in [
+        ("bad.canopi", &b"not json"[..]),
+        ("v8.canopi", br#"{"version":8,"name":"Old"}"#),
+        ("bad-v9.canopi", br#"{"version":9,"name":"Incomplete"}"#),
+    ] {
+        let p = designs.join(name);
+        std::fs::write(&p, bytes).unwrap();
+        assert!(is_present(grants.grant(&p).unwrap().as_str()));
+    }
+    let after = list_recents();
+    assert_eq!((after.len(), after[0].name.as_str()), (1, "Sunny Meadow"));
 }

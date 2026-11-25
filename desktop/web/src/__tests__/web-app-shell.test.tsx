@@ -27,7 +27,9 @@ vi.mock('../editions/web/WebCanvasWorkspace', async () => {
 vi.mock('../components/panels/WorldMapPanel', () => ({
   WorldMapPanel: () => <div data-testid="web-templates-workspace" />,
 }))
-import { createDesignSessionStore } from '../app/document-session/store'
+
+import { createJsonSessionCodec, createSessionCore, installLiveSessionCore, type SessionCore } from '../app/document-session/live-core'
+import { designSessionStore } from '../app/document-session/store'
 import { activePanel, navigateTo, sidePanel } from '../app/shell/state'
 import { closeSettingsDialog } from '../app/shell/dialogs'
 import { locale, theme } from '../app/settings/state'
@@ -35,10 +37,12 @@ import {
   installSettingsProjection,
   resetSettingsProjectionForTests,
 } from '../app/settings/projection'
+import type { CanopiFile } from '../types/design'
 import type { Settings } from '../types/settings'
 import { createBrowserAppDataStore, type BrowserStorageAdapter } from '../web/browser-app-data'
-import { createBrowserDesignSessionController, type BrowserDesignFileAdapter } from '../web/browser-design-session'
+import * as browserTextFiles from '../web/browser-text-files'
 import { BrowserAppShell } from '../editions/web/BrowserAppShell'
+import { browserAppLifecyclePort, browserFileAccessPort, createBrowserSessionHomeStore } from '../editions/web/session-ports'
 import { phoneLayout } from '../app/shell/phone-layout'
 import { requestPlaceSearchFocus } from '../app/geocoding/place-search-ui'
 import { WebApp } from '../editions/web/WebApp'
@@ -47,6 +51,11 @@ import { createBrowserDraftPersistence } from '../web/browser-draft-persistence'
 import { t } from '../i18n'
 import { SettingsDialog } from '../components/shared/SettingsDialog'
 import { editDesignSessionForTest } from './support/design-session-edit'
+import { makeTestDesign } from './support/session-core-fixture'
+
+function makeFile(name = 'Untitled'): CanopiFile {
+  return makeTestDesign({ name, created_at: '2026-07-04T12:00:00.000Z', updated_at: '2026-07-04T12:00:00.000Z' })
+}
 
 function panelBarCommandIds(container: HTMLElement): string[] {
   return Array.from(container.querySelectorAll<HTMLElement>('[data-panel-rail] [data-command-id]'))
@@ -126,6 +135,26 @@ function shellCommandProjection({
 
 describe('Web Edition Browser App Shell', () => {
   let container: HTMLDivElement
+  const disposers: Array<() => void> = []
+
+  function installWebSession(storage: MemoryStorage = memoryStorage()) {
+    const appDataStore = createBrowserAppDataStore({ storage })
+    const designHome = createBrowserSessionHomeStore(appDataStore, () => new Date('2026-07-04T12:00:00.000Z'))
+    const core: SessionCore = createSessionCore({
+      designHome,
+      fileAccess: browserFileAccessPort,
+      lifecycle: browserAppLifecyclePort,
+      codec: createJsonSessionCodec(),
+      settings: {
+        readLastOpenHome: async () => null,
+        writeLastOpenHome: async () => {},
+      },
+      newDesignFactory: () => makeFile('Untitled'),
+    })
+    const dispose = installLiveSessionCore(core)
+    disposers.push(dispose)
+    return { storage, appDataStore, core, dispose }
+  }
 
   beforeEach(() => {
     container = document.createElement('div')
@@ -144,7 +173,9 @@ describe('Web Edition Browser App Shell', () => {
     closeSettingsDialog()
     unmount(container)
     container.remove()
+    while (disposers.length > 0) disposers.pop()?.()
     resetSettingsProjectionForTests()
+    vi.restoreAllMocks()
   })
 
   it('renders the browser command set without desktop-only chrome or commands', async () => {
@@ -297,23 +328,10 @@ describe('Web Edition Browser App Shell', () => {
   })
 
   it('opens switches and closes Web side panels beside the right PanelBar', async () => {
-    const store = createDesignSessionStore()
-    const appDataStore = createBrowserAppDataStore({ storage: memoryStorage() })
-    const controller = createBrowserDesignSessionController({
-      store,
-      appDataStore,
-      fileAdapter: testFileAdapter(),
-      now: () => new Date('2026-07-04T12:00:00.000Z'),
-      createDraftId: () => 'draft-side-panel-state',
-    })
+    installWebSession()
 
     await act(async () => {
-      render(
-        <WebApp
-          controller={controller}
-        />,
-        container,
-      )
+      render(<WebApp />, container)
     })
 
     expect(container.querySelector('[data-workspace-composition]')?.getAttribute('data-workspace-sidebar-open')).toBeNull()
@@ -345,16 +363,8 @@ describe('Web Edition Browser App Shell', () => {
   })
 
   it('opens Budget and Consortium in the wider dock and every other panel at the default width', async () => {
-    const store = createDesignSessionStore()
-    const appDataStore = createBrowserAppDataStore({ storage: memoryStorage() })
-    const controller = createBrowserDesignSessionController({
-      store,
-      appDataStore,
-      fileAdapter: testFileAdapter(),
-      now: () => new Date('2026-07-04T12:00:00.000Z'),
-      createDraftId: () => 'draft-planning-panel-size',
-    })
-    await act(async () => { render(<WebApp controller={controller} />, container) })
+    installWebSession()
+    await act(async () => { render(<WebApp />, container) })
     await clickShellCommand(container, 'file.new')
 
     await act(async () => { panelBarButton(container, 'nav.budget').click() })
@@ -367,15 +377,8 @@ describe('Web Edition Browser App Shell', () => {
   })
 
   it('preserves the canvas across side panels and releases it for the Templates primary route', async () => {
-    const store = createDesignSessionStore()
-    const controller = createBrowserDesignSessionController({
-      store,
-      appDataStore: createBrowserAppDataStore({ storage: memoryStorage() }),
-      fileAdapter: testFileAdapter(),
-      now: () => new Date('2026-07-04T12:00:00.000Z'),
-      createDraftId: () => 'draft-workspace-routing',
-    })
-    await act(async () => { render(<WebApp controller={controller} templatesEnabled />, container) })
+    installWebSession()
+    await act(async () => { render(<WebApp templatesEnabled />, container) })
     await clickShellCommand(container, 'file.new')
     const canvas = container.querySelector<HTMLButtonElement>('[data-testid="web-workspace-canvas"]')
     if (!canvas) throw new Error('Missing Web workspace canvas')
@@ -508,24 +511,10 @@ describe('Web Edition Browser App Shell', () => {
   })
 
   it('renames the active Browser Design from the top bar like desktop', async () => {
-    const store = createDesignSessionStore()
-    const appDataStore = createBrowserAppDataStore({ storage: memoryStorage() })
-    const controller = createBrowserDesignSessionController({
-      store,
-      appDataStore,
-      fileAdapter: testFileAdapter(),
-      now: () => new Date('2026-07-04T12:00:00.000Z'),
-      createDraftId: () => 'draft-rename-state',
-    })
+    const { appDataStore, core } = installWebSession()
 
     await act(async () => {
-      render(
-        <WebApp
-          controller={controller}
-          workspace={<div data-testid="stub-workspace" />}
-        />,
-        container,
-      )
+      render(<WebApp workspace={<div data-testid="stub-workspace" />} />, container)
     })
     await clickShellCommand(container, 'file.new')
 
@@ -546,36 +535,21 @@ describe('Web Edition Browser App Shell', () => {
       input.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: 'Enter' }))
     })
 
-    expect(store.readDesignName()).toBe('Terrace Garden')
-    expect(store.readCurrentDesign()?.name).toBe('Terrace Garden')
+    expect(designSessionStore.readDesignName()).toBe('Terrace Garden')
+    expect(designSessionStore.readCurrentDesign()?.name).toBe('Terrace Garden')
     expect(container.querySelector('button[aria-label^="Rename Design: "]')?.textContent).toBe('Terrace Garden')
     await act(async () => {
-      await controller.continuousSave.flush()
+      await core.flushNow()
     })
     expect(appDataStore.listDrafts()[0]?.name).toBe('Terrace Garden')
   })
 
-
   it('enables Download .canopi only after a Browser Design is active', async () => {
-    const store = createDesignSessionStore()
-    const appDataStore = createBrowserAppDataStore({ storage: memoryStorage() })
-    const fileAdapter = testFileAdapter()
-    const controller = createBrowserDesignSessionController({
-      store,
-      appDataStore,
-      fileAdapter,
-      now: () => new Date('2026-07-04T12:00:00.000Z'),
-      createDraftId: () => 'draft-download-state',
-    })
+    installWebSession()
+    const downloadSpy = vi.spyOn(browserTextFiles, 'downloadBrowserTextFile').mockImplementation(() => undefined)
 
     await act(async () => {
-      render(
-        <WebApp
-          controller={controller}
-          workspace={<div data-testid="stub-workspace" />}
-        />,
-        container,
-      )
+      render(<WebApp workspace={<div data-testid="stub-workspace" />} />, container)
     })
 
     await openCommandMenu(container, 'file.downloadCanopi')
@@ -591,35 +565,22 @@ describe('Web Edition Browser App Shell', () => {
       download.click()
     })
 
-    expect(fileAdapter.downloadCanopiFile).toHaveBeenCalledOnce()
+    expect(downloadSpy).toHaveBeenCalledOnce()
   })
 
   it('shows the active Browser Design identity and continuous-save status in the top bar', async () => {
-    const store = createDesignSessionStore()
     const storage = memoryStorage()
-    const appDataStore = createBrowserAppDataStore({ storage })
-    const controller = createBrowserDesignSessionController({
-      store,
-      appDataStore,
-      fileAdapter: testFileAdapter(),
-      now: () => new Date('2026-07-04T12:00:00.000Z'),
-      createDraftId: () => 'draft-identity-state',
-    })
+    const { appDataStore, core } = installWebSession(storage)
 
     await act(async () => {
-      render(
-        <WebApp
-          controller={controller}
-          workspace={<div data-testid="stub-workspace" />}
-        />,
-        container,
-      )
+      render(<WebApp workspace={<div data-testid="stub-workspace" />} />, container)
     })
 
     expect(container.querySelector('button[aria-label^="Rename Design: "]')).toBeNull()
     expect(container.querySelector('[data-save-status]')).toBeNull()
 
     await clickShellCommand(container, 'file.new')
+    const draftId = core.currentDesign.peek()!.home.key
 
     expect(container.querySelector('button[aria-label^="Rename Design: "]')?.textContent).toBe('Untitled Design')
     expect(container.querySelector('[data-save-status] [role="status"]')?.textContent).toBe('Saved in this browser')
@@ -627,12 +588,12 @@ describe('Web Edition Browser App Shell', () => {
 
     storage.failWrites = true
     await act(async () => {
-      editDesignSessionForTest(store, (design) => ({ ...design, description: 'Browser edit' }))
+      editDesignSessionForTest(designSessionStore, (design) => ({ ...design, description: 'Browser edit' }))
     })
     expect(container.querySelector('[data-save-status] [role="status"]')?.textContent).toBe('Saved in this browser')
 
     await act(async () => {
-      await controller.continuousSave.flush()
+      await core.flushNow()
     })
     const status = container.querySelector('[data-save-status]')
     expect(status?.getAttribute('data-save-status')).toBe('error')
@@ -649,10 +610,10 @@ describe('Web Edition Browser App Shell', () => {
       await Promise.resolve()
     })
     await act(async () => {
-      await controller.continuousSave.flush()
+      await core.flushNow()
     })
     expect(container.querySelector('[data-save-status] [role="status"]')?.textContent).toBe('Saved in this browser')
-    expect(appDataStore.loadDraft('draft-identity-state')?.description).toBe('Browser edit')
+    expect(appDataStore.loadDraft(draftId)?.description).toBe('Browser edit')
   })
 
   async function launchWithUnkeptDrafts(answer: Promise<boolean>, storage = memoryStorage()) {
@@ -663,20 +624,12 @@ describe('Web Edition Browser App Shell', () => {
     })
     persistence.start({ hasDrafts: true })
     for (let i = 0; i < 5; i++) await Promise.resolve()
-    const store = createDesignSessionStore()
-    const controller = createBrowserDesignSessionController({
-      store,
-      appDataStore: createBrowserAppDataStore({ storage }),
-      fileAdapter: testFileAdapter(),
-      now: () => new Date('2026-07-04T12:00:00.000Z'),
-      createDraftId: () => 'draft-persistence-warning',
-      requestDraftPersistence: () => persistence.requestOnce(),
-    })
+    const { core, appDataStore } = installWebSession(storage)
     await act(async () => {
-      render(<WebApp controller={controller} persistence={persistence} workspace={<div data-testid="stub-workspace" />} />, container)
+      render(<WebApp persistence={persistence} workspace={<div data-testid="stub-workspace" />} />, container)
     })
     await clickShellCommand(container, 'file.new')
-    return { persist, store, controller }
+    return { persist, core, appDataStore }
   }
 
   it('2.1-Q198: with unkept Drafts New does not ask; the save-status warning opens the reason, Keep my Drafts and Download a copy', async () => {
@@ -757,15 +710,15 @@ describe('Web Edition Browser App Shell', () => {
 
     it('P4-1: File › Keep my drafts… is never a dead tap: it leaves File while the status is not a Draft (a failed write)', async () => {
       const storage = memoryStorage()
-      const { store, controller } = await launchWithUnkeptDrafts(Promise.resolve(false), storage)
+      const { core } = await launchWithUnkeptDrafts(Promise.resolve(false), storage)
       await openCommandMenu(container, 'file.new')
       expect(container.querySelector('[data-command-id="file.keepDrafts"]'), 'offered while the warning shows').not.toBeNull()
       await openCommandMenu(container, 'file.new')
 
       storage.failWrites = true
       await act(async () => {
-        store.setCanvasClean(false)
-        await controller.continuousSave.flush()
+        editDesignSessionForTest(designSessionStore, (design) => ({ ...design, description: 'dirty' }))
+        await core.flushNow()
       })
       expect(container.querySelector('[data-save-status]')?.getAttribute('data-save-status')).toBe('error')
       await openCommandMenu(container, 'file.new')
@@ -784,33 +737,25 @@ describe('Web Edition Browser App Shell', () => {
     expect(document.activeElement?.closest('[data-save-status]'), 'focus did not drop to the page').not.toBeNull()
   })
 
-  it('Retry writes the Draft again after a failed write even when an undo left nothing pending', async () => {
-    const store = createDesignSessionStore()
+  it('Retry writes the Draft again after a failed write even after an undo', async () => {
     const storage = memoryStorage()
-    const appDataStore = createBrowserAppDataStore({ storage })
-    const controller = createBrowserDesignSessionController({
-      store,
-      appDataStore,
-      fileAdapter: testFileAdapter(),
-      now: () => new Date('2026-07-04T12:00:00.000Z'),
-      createDraftId: () => 'draft-retry-clean',
-    })
+    const { core } = installWebSession(storage)
     await act(async () => {
-      render(<WebApp controller={controller} workspace={<div data-testid="stub-workspace" />} />, container)
+      render(<WebApp workspace={<div data-testid="stub-workspace" />} />, container)
     })
     await clickShellCommand(container, 'file.new')
 
     storage.failWrites = true
     await act(async () => {
-      store.setCanvasClean(false)
-      await controller.continuousSave.flush()
+      editDesignSessionForTest(designSessionStore, (design) => ({ ...design, description: 'failed edit' }))
+      await core.flushNow()
     })
     const status = container.querySelector('[data-save-status]')
     expect(status?.getAttribute('data-save-status')).toBe('error')
 
-    // Undo back to the clean point: nothing is pending, but the error stays until a write lands.
+    // Undo after the failed write: the error stays until a write lands.
     storage.failWrites = false
-    await act(async () => { store.setCanvasClean(true) })
+    await act(async () => { core.undo() })
     expect(container.querySelector('[data-save-status]')?.getAttribute('data-save-status')).toBe('error')
 
     await act(async () => {
@@ -822,9 +767,10 @@ describe('Web Edition Browser App Shell', () => {
         .find((button) => button.textContent === 'Retry')?.click()
       await Promise.resolve()
     })
-    await act(async () => { await controller.continuousSave.flush() })
+    await act(async () => { await core.flushNow() })
     expect(container.querySelector('[data-save-status] [role="status"]')?.textContent).toBe('Saved in this browser')
   })
+
   it('offers Resolve… when another browser tab changed the open Draft', async () => {
     const onResolveSaveConflict = vi.fn()
     await act(async () => {
@@ -1016,12 +962,5 @@ function memoryStorage(): MemoryStorage {
     removeItem: (key) => {
       values.delete(key)
     },
-  }
-}
-
-function testFileAdapter(): BrowserDesignFileAdapter {
-  return {
-    openCanopiFile: vi.fn(async () => null),
-    downloadCanopiFile: vi.fn(async () => undefined),
   }
 }

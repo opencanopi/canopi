@@ -9,9 +9,12 @@ import {
 interface LaunchedFile {
   readonly path: string
   readonly several: boolean
+  readonly grant?: string
+  readonly display_name?: string
+  readonly recent_id?: string
 }
 
-const openDesignFromPath = vi.hoisted(() => vi.fn(async (_path: string): Promise<void> => undefined))
+const openDesignFromPath = vi.hoisted(() => vi.fn(async (_grant: string, _options?: Record<string, unknown>): Promise<void> => undefined))
 const openDesignDraft = vi.hoisted(() => vi.fn(async (_id: string): Promise<void> => undefined))
 const presentDesignOpenFailure = vi.hoisted(() => vi.fn((_error: unknown): void => undefined))
 
@@ -64,32 +67,52 @@ describe('the launch file (canopi-f47t.52.228.14)', () => {
     dispose = null
   })
 
-  it('pulls once at boot and opens a .canopi file through the replacement path', async () => {
+  it('pulls once at boot and opens a .canopi file with its host grant, displayName, and recentId', async () => {
     const launch = fakeSource()
-    launch.leave({ path: '/designs/Garden.CANOPI', several: false })
+    launch.leave({
+      path: '/designs/Garden.CANOPI',
+      several: false,
+      grant: 'grant:1',
+      display_name: 'Garden.CANOPI',
+      recent_id: 'rid-garden',
+    })
 
     dispose = installLaunchFile(launch.source)
 
-    await vi.waitFor(() => expect(openDesignFromPath).toHaveBeenCalledWith('/designs/Garden.CANOPI'))
+    await vi.waitFor(() => expect(openDesignFromPath).toHaveBeenCalledWith('grant:1', {
+      grant: 'grant:1',
+      displayName: 'Garden.CANOPI',
+      recentId: 'rid-garden',
+    }))
     expect(launch.take).toHaveBeenCalledTimes(1)
     expect(multiOpenNotice.value).toBeNull()
   })
 
-  it('pulls again on each later launch, and an empty slot opens nothing', async () => {
+  it('pulls again on each second-instance launch with grant and recentId, and an empty slot opens nothing', async () => {
     const launch = fakeSource()
     dispose = installLaunchFile(launch.source)
     await vi.waitFor(() => expect(launch.take).toHaveBeenCalledTimes(1))
     expect(openDesignFromPath).not.toHaveBeenCalled()
 
-    launch.launch({ path: '/designs/orchard.canopi', several: false })
+    launch.launch({
+      path: '/designs/orchard.canopi',
+      several: false,
+      grant: 'grant:2',
+      display_name: 'orchard.canopi',
+      recent_id: 'rid-orchard',
+    })
 
-    await vi.waitFor(() => expect(openDesignFromPath).toHaveBeenCalledWith('/designs/orchard.canopi'))
+    await vi.waitFor(() => expect(openDesignFromPath).toHaveBeenCalledWith('grant:2', {
+      grant: 'grant:2',
+      displayName: 'orchard.canopi',
+      recentId: 'rid-orchard',
+    }))
     expect(launch.take).toHaveBeenCalledTimes(2)
   })
 
   it('a file that is not a .canopi Design shows the open failure and opens nothing', async () => {
     const launch = fakeSource()
-    launch.leave({ path: '/photos/garden.png', several: false })
+    launch.leave({ path: '/photos/garden.png', several: false, grant: 'grant:99' })
 
     dispose = installLaunchFile(launch.source)
 
@@ -101,11 +124,14 @@ describe('the launch file (canopi-f47t.52.228.14)', () => {
     const launch = fakeSource()
     let finishOpen: () => void = () => undefined
     openDesignFromPath.mockImplementation(() => new Promise<void>((done) => { finishOpen = done }))
-    launch.leave({ path: '/designs/first.canopi', several: true })
+    launch.leave({ path: '/designs/first.canopi', several: true, grant: 'grant:3', display_name: 'first.canopi' })
 
     dispose = installLaunchFile(launch.source)
 
-    await vi.waitFor(() => expect(openDesignFromPath).toHaveBeenCalledWith('/designs/first.canopi'))
+    await vi.waitFor(() => expect(openDesignFromPath).toHaveBeenCalledWith('grant:3', {
+      grant: 'grant:3',
+      displayName: 'first.canopi',
+    }))
     const shown = multiOpenNotice.value
     expect(shown).not.toBeNull()
     finishOpen()
@@ -119,13 +145,13 @@ describe('the launch file (canopi-f47t.52.228.14)', () => {
   it('a failed open, already shown by the open path, leaves the next launch working', async () => {
     const launch = fakeSource()
     openDesignFromPath.mockRejectedValueOnce(new Error('missing'))
-    launch.leave({ path: '/designs/gone.canopi', several: false })
+    launch.leave({ path: '/designs/gone.canopi', several: false, grant: 'grant:4' })
     dispose = installLaunchFile(launch.source)
     await vi.waitFor(() => expect(openDesignFromPath).toHaveBeenCalledTimes(1))
 
-    launch.launch({ path: '/designs/here.canopi', several: false })
+    launch.launch({ path: '/designs/here.canopi', several: false, grant: 'grant:5' })
 
-    await vi.waitFor(() => expect(openDesignFromPath).toHaveBeenLastCalledWith('/designs/here.canopi'))
+    await vi.waitFor(() => expect(openDesignFromPath).toHaveBeenLastCalledWith('grant:5', { grant: 'grant:5' }))
     expect(presentDesignOpenFailure).not.toHaveBeenCalled()
   })
 
@@ -140,21 +166,25 @@ describe('the launch file (canopi-f47t.52.228.14)', () => {
     expect(launch.subscribed).toBe(false)
   })
 
-  it('a Design open at quit reopens at launch (2.1-Q127, 2b-4)', async () => {
+  it('a Design open at quit reopens at launch via resolveFileHome (2.1-Q127, 2b-4)', async () => {
     const launch = fakeSource()
     const lastHome: LastOpenHome = { kind: 'file', recent_id: 'recent-42' }
     const lastOpenHome = {
       read: vi.fn(async () => lastHome),
       clear: vi.fn(async () => undefined),
-      resolveFilePath: vi.fn(async (id: string) => (id === 'recent-42' ? '/designs/reopened.canopi' : null)),
+      resolveFileHome: vi.fn(async (id: string) =>
+        id === 'recent-42' ? { grant: 'grant:42', displayName: 'reopened.canopi', recentId: 'recent-42' } : null,
+      ),
     }
 
     dispose = installLaunchFile({ ...launch.source, lastOpenHome })
 
     await vi.waitFor(() =>
-      expect(openDesignFromPath).toHaveBeenCalledWith('/designs/reopened.canopi', {
+      expect(openDesignFromPath).toHaveBeenCalledWith('grant:42', {
         presentFailure: false,
-        deferWhenDetached: false,
+        grant: 'grant:42',
+        displayName: 'reopened.canopi',
+        recentId: 'recent-42',
       }),
     )
     expect(lastOpenHome.clear).not.toHaveBeenCalled()
@@ -167,7 +197,7 @@ describe('the launch file (canopi-f47t.52.228.14)', () => {
     const lastOpenHome = {
       read: vi.fn(async (): Promise<LastOpenHome | null> => ({ kind: 'file', recent_id: 'recent-deleted' })),
       clear,
-      resolveFilePath: vi.fn(async () => '/designs/deleted.canopi'),
+      resolveFileHome: vi.fn(async () => ({ grant: 'grant:del', displayName: 'deleted.canopi', recentId: 'recent-deleted' })),
     }
 
     dispose = installLaunchFile({ ...launch.source, lastOpenHome })
@@ -178,13 +208,16 @@ describe('the launch file (canopi-f47t.52.228.14)', () => {
 
   it('a launch with a file opens it, not the last Design (2.1-M85, 2b-4)', async () => {
     const launch = fakeSource()
-    launch.leave({ path: '/designs/arg.canopi', several: false })
+    launch.leave({ path: '/designs/arg.canopi', several: false, grant: 'grant:7', display_name: 'arg.canopi' })
     const read = vi.fn(async (): Promise<LastOpenHome | null> => ({ kind: 'draft', id: 'draft-last' as DraftId }))
-    const lastOpenHome = { read, clear: vi.fn(async () => undefined) }
+    const lastOpenHome = { read, clear: vi.fn(async () => undefined), resolveFileHome: vi.fn(async () => null) }
 
     dispose = installLaunchFile({ ...launch.source, lastOpenHome })
 
-    await vi.waitFor(() => expect(openDesignFromPath).toHaveBeenCalledWith('/designs/arg.canopi'))
+    await vi.waitFor(() => expect(openDesignFromPath).toHaveBeenCalledWith('grant:7', {
+      grant: 'grant:7',
+      displayName: 'arg.canopi',
+    }))
     expect(read).not.toHaveBeenCalled()
     expect(openDesignDraft).not.toHaveBeenCalled()
   })
@@ -192,7 +225,7 @@ describe('the launch file (canopi-f47t.52.228.14)', () => {
   it('closing a Design and then quitting shows the start screen at launch (2.1-Q127, 2b-4)', async () => {
     const launch = fakeSource()
     const read = vi.fn(async (): Promise<LastOpenHome | null> => null)
-    const lastOpenHome = { read, clear: vi.fn(async () => undefined) }
+    const lastOpenHome = { read, clear: vi.fn(async () => undefined), resolveFileHome: vi.fn(async () => null) }
 
     dispose = installLaunchFile({ ...launch.source, lastOpenHome })
 
@@ -204,15 +237,15 @@ describe('the launch file (canopi-f47t.52.228.14)', () => {
   it('opening a file during an unsaved edit saves it first and opens without asking (2.1-Q166, 2b-4)', async () => {
     const launch = fakeSource()
     const order: string[] = []
-    openDesignFromPath.mockImplementationOnce(async (path: string) => {
+    openDesignFromPath.mockImplementationOnce(async (grant: string) => {
       order.push('flush-unsaved-edit')
-      order.push(`open:${path}`)
+      order.push(`open:${grant}`)
     })
     dispose = installLaunchFile(launch.source)
     await vi.waitFor(() => expect(launch.take).toHaveBeenCalledTimes(1))
 
-    launch.launch({ path: '/designs/second.canopi', several: false })
+    launch.launch({ path: '/designs/second.canopi', several: false, grant: 'grant:8' })
 
-    await vi.waitFor(() => expect(order).toEqual(['flush-unsaved-edit', 'open:/designs/second.canopi']))
+    await vi.waitFor(() => expect(order).toEqual(['flush-unsaved-edit', 'open:grant:8']))
   })
 })

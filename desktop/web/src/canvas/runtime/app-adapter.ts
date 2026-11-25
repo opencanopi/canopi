@@ -1,6 +1,7 @@
 import type { ReadonlySignal } from '@preact/signals'
 import type { CanopiFile } from '../../types/design'
 import type { PointAction } from '../point-editor/rules'
+import type { SceneCommand } from './scene-commands'
 import type {
   CanvasPlantLabelSource,
   CanvasSpeciesPresentationCache,
@@ -20,8 +21,13 @@ interface CanvasRuntimeChromeSettingsSnapshot {
   readonly gridVisible: boolean
 }
 
-interface CanvasRuntimeCleanStateAdapter {
-  setCanvasClean(clean: boolean): void
+export interface CanvasRuntimeSceneSessionAdapter {
+  readonly canUndo: ReadonlySignal<boolean>
+  readonly canRedo: ReadonlySignal<boolean>
+  recordSceneEdit(label: string, command: SceneCommand): void
+  undo(): void
+  redo(): void
+  remapSceneCommands?(map: (command: SceneCommand) => SceneCommand): void
 }
 
 export interface CanvasRuntimeDocumentCompositionInput {
@@ -184,7 +190,7 @@ export type CanvasRuntimeTranslator = (
 ) => string
 
 export interface CanvasRuntimeAppAdapter {
-  readonly cleanState: CanvasRuntimeCleanStateAdapter
+  readonly sceneSession?: CanvasRuntimeSceneSessionAdapter
   readonly document: CanvasRuntimeDocumentAdapter
   readonly savedObjectStamps?: CanvasRuntimeSavedObjectStampAdapter
   /** Absent in a detached runtime, where right-click only suppresses the native menu. */

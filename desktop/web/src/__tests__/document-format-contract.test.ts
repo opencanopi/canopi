@@ -203,7 +203,7 @@ describe('document format contract', () => {
 
     for (const key of KNOWN_CANOPI_KEYS) {
       if (metadataOwned.has(key)) continue
-      const expectedSource = DOCUMENT_FILE_FIELD_OWNERS[key] === 'scene'
+      const expectedSource = DOCUMENT_FILE_FIELD_OWNERS[key] === 'scene' || key === 'updated_at'
         ? canvasRecord
         : documentRecord
       expect(saved[key], key).toEqual(expectedSource[key])

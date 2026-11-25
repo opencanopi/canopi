@@ -22,6 +22,3 @@ export type PlacedPlant = Contracts.PlacedPlant
 
 /** A Design in memory: the file's fields, with unknown root fields under `extra`. */
 export type CanopiFile = Contracts.CanopiFile & { extra?: Record<string, unknown> }
-
-/** A Design read from a file, with the fingerprint its next save must find. */
-export type LoadedDesign = Contracts.LoadedDesign

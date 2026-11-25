@@ -3,24 +3,14 @@ import { batch, computed, signal, type ReadonlySignal } from '@preact/signals'
 import type { SessionPlane } from '../../../geo/session-plane'
 import type { CanopiFile } from '../../../types/design'
 import { collectCanvasRuntimeErrors, throwCanvasRuntimeCleanupErrors } from '../cleanup'
-import {
-  CanvasAuthorityBusyError,
-  CanvasDocumentReplacementNotAdmittedError,
-  type CanvasDocumentReplacementToken,
-} from '../runtime'
-import type { SceneHistory } from '../scene-history'
-import {
-  type SceneDesignObjectTarget,
-  type ScenePersistedState,
-  type SceneStore,
-} from '../scene'
-import {
-  applySceneCommandPersistedPatch,
-  createScenePatchCommand,
-  type SceneCommand,
-  type SceneCommandPatch,
-  type SceneCommandSnapshot,
-} from '../scene-commands'
+import { CanvasAuthorityBusyError, CanvasDocumentReplacementNotAdmittedError, type CanvasDocumentReplacementToken } from './replacement-token'
+import { type SceneDesignObjectTarget, type ScenePersistedState, type SceneStore } from '../scene'
+import { applySceneCommandPersistedPatch, createScenePatchCommand, remapSceneCommandPatch, type SceneCommand, type SceneCommandPatch, type SceneCommandSnapshot } from '../scene-commands'
+import type { CanvasRuntimeSceneSessionAdapter } from '../app-adapter'
+
+import { createDetachedSceneSessionAdapter } from './detached-session-adapter'
+
+export { createDetachedSceneSessionAdapter }
 
 export interface SceneEditTransaction {
   mutate(edit: (draft: ScenePersistedState) => void): void
@@ -98,7 +88,7 @@ export class SceneEditBusyError extends CanvasAuthorityBusyError {
 
 interface SceneRuntimeEditCoordinatorOptions {
   sceneStore: SceneStore
-  history: SceneHistory
+  sceneSession?: CanvasRuntimeSceneSessionAdapter
   setSelection(targets: Iterable<SceneDesignObjectTarget>): void
   incrementSceneRevision(): void
   syncCanvasSignalsFromScene(): void
@@ -118,7 +108,7 @@ interface SceneAuthorityOperation {
 
 export class SceneRuntimeEditCoordinator implements SceneRuntimeAuthority {
   private readonly _sceneStore: SceneStore
-  private readonly _history: SceneHistory
+  private readonly _sceneSession: CanvasRuntimeSceneSessionAdapter
   private readonly _setSelection: SceneRuntimeEditCoordinatorOptions['setSelection']
   private readonly _incrementSceneRevision: SceneRuntimeEditCoordinatorOptions['incrementSceneRevision']
   private readonly _syncCanvasSignalsFromScene: SceneRuntimeEditCoordinatorOptions['syncCanvasSignalsFromScene']
@@ -137,16 +127,22 @@ export class SceneRuntimeEditCoordinator implements SceneRuntimeAuthority {
   readonly revision: ReadonlySignal<number> = this._admissionRevision
   readonly canUndo = computed(() => {
     void this._admissionRevision.value
-    return this._active === null && !this._refusesEdits() && this._history.canUndo.value
+    return this._active === null && !this._refusesEdits() && this._sceneSession.canUndo.value
   })
   readonly canRedo = computed(() => {
     void this._admissionRevision.value
-    return this._active === null && !this._refusesEdits() && this._history.canRedo.value
+    return this._active === null && !this._refusesEdits() && this._sceneSession.canRedo.value
   })
 
   constructor(options: SceneRuntimeEditCoordinatorOptions) {
     this._sceneStore = options.sceneStore
-    this._history = options.history
+    if (options.sceneSession) {
+      this._sceneSession = options.sceneSession
+    } else {
+      const detached = createDetachedSceneSessionAdapter()
+      detached.bindReplay((command, direction, onApplied) => this.replayCommand(command, direction, onApplied))
+      this._sceneSession = detached
+    }
     this._setSelection = options.setSelection
     this._incrementSceneRevision = options.incrementSceneRevision
     this._syncCanvasSignalsFromScene = options.syncCanvasSignalsFromScene
@@ -191,7 +187,10 @@ export class SceneRuntimeEditCoordinator implements SceneRuntimeAuthority {
       sceneStore: this._sceneStore,
       captureSnapshot: () => this._captureSnapshot(),
       setSelection: this._setSelection,
-      recordHistory: (command, accepted) => this._history.record(command, accepted),
+      recordHistory: (command, accepted) => {
+        this._sceneSession.recordSceneEdit(command.type, command)
+        accepted()
+      },
       syncCanvasSignalsFromScene: this._syncCanvasSignalsFromScene,
       incrementSceneRevision: this._incrementSceneRevision,
       invalidate: this._invalidate,
@@ -205,11 +204,44 @@ export class SceneRuntimeEditCoordinator implements SceneRuntimeAuthority {
   }
 
   undo(): boolean {
-    return this._replay('undo')
+    if (this._active || this._refusesEdits() || !this._sceneSession.canUndo.peek()) return false
+    this._sceneSession.undo()
+    return true
   }
 
   redo(): boolean {
-    return this._replay('redo')
+    if (this._active || this._refusesEdits() || !this._sceneSession.canRedo.peek()) return false
+    this._sceneSession.redo()
+    return true
+  }
+
+  /**
+   * Replays a single SceneCommand supplied by SessionCore (`ScenePort.replay`) inside a Scene
+   * authority operation so selection, signals, revision and invalidation run once.
+   */
+  replayCommand(command: SceneCommand, direction: 'undo' | 'redo', onApplied?: () => void): boolean {
+    if (this._active || this._refusesEdits()) return false
+    const replay: SceneAuthorityOperation = { type: `scene-history-${direction}` }
+    this._acquire(replay)
+    const patch = direction === 'undo' ? command.before : command.after
+    const errors: unknown[] = []
+    try {
+      this._applyPersisted(patch)
+    } catch (error) {
+      this._release(replay)
+      throw error
+    }
+    onApplied?.()
+    const selection = patch.selection
+    errors.push(...collectCanvasRuntimeErrors([
+      ...selection ? [() => this._setSelection(selection)] : [],
+      this._syncCanvasSignalsFromScene,
+      this._incrementSceneRevision,
+      () => this._invalidate(),
+    ]))
+    this._release(replay)
+    throwCanvasRuntimeCleanupErrors(errors, `Scene history ${direction} failed to publish`)
+    return true
   }
 
   /**
@@ -225,11 +257,10 @@ export class SceneRuntimeEditCoordinator implements SceneRuntimeAuthority {
       || this._replacementHandoff
     ) return
     const reprojector = this._sceneStore.beginReorigin(origin)
-    const reprojectPatch = (patch: SceneCommandPatch): SceneCommandPatch => patch.persisted
-      ? { ...patch, persisted: reprojector.persisted(patch.persisted) }
-      : patch
+    const reprojectPatch = (patch: SceneCommandPatch): SceneCommandPatch =>
+      remapSceneCommandPatch(patch, (persisted) => reprojector.persisted(persisted))
     batch(() => {
-      this._history.remapCommands((command) => ({
+      this._sceneSession.remapSceneCommands?.((command) => ({
         ...command,
         before: reprojectPatch(command.before),
         after: reprojectPatch(command.after),
@@ -255,38 +286,17 @@ export class SceneRuntimeEditCoordinator implements SceneRuntimeAuthority {
       && !this._active.historyAccepted
       ? this._active.captureCommittedPersistedState()
       : this._sceneStore.persisted
-    const checkpoint = this._history.captureCheckpoint()
     const documentGeneration = this._documentGeneration
     const persistenceEpoch = this._persistenceEpoch
-    let acknowledgement: ScenePersistenceAcknowledgement | null = null
     const captureIsCurrent = () => !this._persistenceDisposed
       && documentGeneration === this._documentGeneration
       && persistenceEpoch === this._persistenceEpoch
-      && this._history.isCheckpointCurrent(checkpoint)
 
     return Object.freeze({
       scene,
       plane: this._sceneStore.sessionPlane,
       isCurrent: captureIsCurrent,
-      acknowledgeSaved: (): ScenePersistenceAcknowledgement => {
-        if (acknowledgement) return acknowledgement
-        if (
-          this._persistenceDisposed
-          || documentGeneration !== this._documentGeneration
-          || persistenceEpoch !== this._persistenceEpoch
-        ) {
-          acknowledgement = 'stale'
-          return acknowledgement
-        }
-        const historyAcknowledgement = this._history.acknowledgeSaved(checkpoint)
-        acknowledgement = historyAcknowledgement === 'stale'
-          || this._persistenceDisposed
-          || documentGeneration !== this._documentGeneration
-          || persistenceEpoch !== this._persistenceEpoch
-          ? 'stale'
-          : 'applied'
-        return acknowledgement
-      },
+      acknowledgeSaved: (): ScenePersistenceAcknowledgement => (captureIsCurrent() ? 'applied' : 'stale'),
     })
   }
 
@@ -298,12 +308,10 @@ export class SceneRuntimeEditCoordinator implements SceneRuntimeAuthority {
 
   hydrate(file: CanopiFile): void {
     if (this._active && !isFailedSettlement(this._active)) throw new SceneEditBusyError(this._active.type)
-    const ownedFile = cloneDocument(file)
     const hydration = new SceneHydrationSettlement({
       type: 'document-hydration',
-      file: ownedFile,
+      file,
       sceneStore: this._sceneStore,
-      history: this._history,
       noteStoreHydrated: () => this._noteStoreHydrated(),
       syncCanvasSignalsFromScene: this._syncCanvasSignalsFromScene,
       invalidate: this._invalidate,
@@ -324,12 +332,10 @@ export class SceneRuntimeEditCoordinator implements SceneRuntimeAuthority {
     if (predecessor && !failedOpen && !(predecessor instanceof SceneRuntimeEditTransaction && predecessor.isOpen)) {
       throw new SceneEditBusyError(predecessor.type)
     }
-    const ownedFile = cloneDocument(file)
     const replacement = new SceneHydrationSettlement({
       type: 'document-replacement',
-      file: ownedFile,
+      file,
       sceneStore: this._sceneStore,
-      history: this._history,
       noteStoreHydrated: () => this._noteStoreHydrated(),
       syncCanvasSignalsFromScene: this._syncCanvasSignalsFromScene,
       invalidate: this._invalidate,
@@ -387,48 +393,8 @@ export class SceneRuntimeEditCoordinator implements SceneRuntimeAuthority {
 
   /** The patch's Scene content as one store update. */
   private _applyPersisted(patch: SceneCommandPatch): void {
-    if (!patch.persisted) return
+    if (!patch.persisted && !patch.entityDeltas) return
     this._sceneStore.updatePersisted((draft) => applySceneCommandPersistedPatch(draft, patch))
-  }
-
-  /**
-   * Undo or redo: the cursor moves, then the patch's content is one store update (a throw there moves the cursor back
-   * and changes nothing), then history's signals, the selection and the Scene publication run once each; a throw among
-   * them keeps the step and is rethrown after the Scene is released.
-   */
-  private _replay(direction: 'undo' | 'redo'): boolean {
-    if (this._active || this._refusesEdits()) return false
-    const replay: SceneAuthorityOperation = { type: `scene-history-${direction}` }
-    this._acquire(replay)
-    const patchOf = (command: SceneCommand) => direction === 'undo' ? command.before : command.after
-    const step: { patch?: SceneCommandPatch } = {}
-    const apply = (command: SceneCommand) => {
-      this._applyPersisted(patchOf(command))
-      step.patch = patchOf(command)
-    }
-    const errors: unknown[] = []
-    try {
-      if (!(direction === 'undo' ? this._history.undo(apply) : this._history.redo(apply))) {
-        this._release(replay)
-        return false
-      }
-    } catch (error) {
-      if (!step.patch) {
-        this._release(replay)
-        throw error
-      }
-      errors.push(error)
-    }
-    const selection = step.patch!.selection
-    errors.push(...collectCanvasRuntimeErrors([
-      ...selection ? [() => this._setSelection(selection)] : [],
-      this._syncCanvasSignalsFromScene,
-      this._incrementSceneRevision,
-      () => this._invalidate(),
-    ]))
-    this._release(replay)
-    throwCanvasRuntimeCleanupErrors(errors, `Scene history ${direction} failed to publish`)
-    return true
   }
 
   private _noteStoreHydrated(): void {
@@ -466,7 +432,6 @@ interface SceneHydrationSettlementOptions {
   readonly type: 'document-hydration' | 'document-replacement'
   readonly file: CanopiFile
   readonly sceneStore: SceneStore
-  readonly history: SceneHistory
   readonly noteStoreHydrated: () => void
   readonly syncCanvasSignalsFromScene: () => void
   readonly invalidate: () => void
@@ -496,7 +461,6 @@ class SceneHydrationSettlement implements SceneAuthorityOperation {
     try {
       options.sceneStore.hydrate(options.file)
       options.noteStoreHydrated()
-      options.history.clear()
       options.syncCanvasSignalsFromScene()
       options.invalidate()
       options.incrementSceneRevision()
@@ -645,8 +609,4 @@ class SceneRuntimeEditTransaction implements SceneEditTransaction {
   private _assertOpen(): void {
     if (!this._open) throw new Error('Scene edit transaction is closed')
   }
-}
-
-function cloneDocument(file: CanopiFile): CanopiFile {
-  return JSON.parse(JSON.stringify(file)) as CanopiFile
 }

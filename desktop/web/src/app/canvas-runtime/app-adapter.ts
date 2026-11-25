@@ -1,4 +1,4 @@
-import { effect, signal, type ReadonlySignal } from '@preact/signals'
+import { computed, effect, signal, type ReadonlySignal } from '@preact/signals'
 import type {
   CanvasRuntimeAppAdapter,
   CanvasRuntimePresentationDataAdapter,
@@ -18,7 +18,8 @@ import { presentedMapLayers, storyPresentationHidesEditingAids, storyPresentatio
 import { gridVisible } from '../canvas-settings/signals'
 import { mutateSettingsProjection } from '../settings/projection'
 import { composeDocumentForSave } from '../contracts/document'
-import { designSessionStore, setCanvasClean } from '../document-session/store'
+import { activeSessionCore, getLiveSessionCore } from '../document-session/live-core'
+import { designSessionStore } from '../document-session/store'
 import { closeCanvasContextMenu, openCanvasContextMenu } from '../canvas-context-menu/state'
 import { t } from '../../i18n'
 import { currentPlantDisplay } from '../plant-display/state'
@@ -42,8 +43,25 @@ export interface CanvasRuntimeAppCapabilities {
 export function createAppCanvasRuntimeAppAdapter(
   capabilities: CanvasRuntimeAppCapabilities,
 ): CanvasRuntimeAppAdapter {
+  const canUndo = computed(() => activeSessionCore.value?.canUndo.value ?? false)
+  const canRedo = computed(() => activeSessionCore.value?.canRedo.value ?? false)
   return {
-    cleanState: { setCanvasClean },
+    sceneSession: {
+      canUndo,
+      canRedo,
+      recordSceneEdit: (label, command) => {
+        getLiveSessionCore()?.recordSceneEdit(label, command)
+      },
+      undo: () => {
+        getLiveSessionCore()?.undo()
+      },
+      redo: () => {
+        getLiveSessionCore()?.redo()
+      },
+      remapSceneCommands: (map) => {
+        getLiveSessionCore()?.remapSceneCommands(map)
+      },
+    },
     // A Design a newer Canopi saved shows read-only (2.1-M478): the Scene authority refuses every edit over it.
     isReadOnly: () => designSessionStore.isReadOnly(),
     // A tool's focus request and a closed text entry focus the map through the one focus owner.

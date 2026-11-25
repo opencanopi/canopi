@@ -756,6 +756,16 @@
         "name": "sort_order",
         "flatten": false,
         "skip": false
+      },
+      {
+        "name": "grant",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "recent_id",
+        "flatten": false,
+        "skip": false
       }
     ]
   },
@@ -861,6 +871,16 @@
         "name": "updated_at",
         "flatten": false,
         "skip": false
+      },
+      {
+        "name": "grant",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "recent_id",
+        "flatten": false,
+        "skip": false
       }
     ]
   },
@@ -964,6 +984,26 @@
       },
       {
         "name": "detail",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "FileHomeGrant",
+    "fields": [
+      {
+        "name": "grant",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "display_name",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "recent_id",
         "flatten": false,
         "skip": false
       }

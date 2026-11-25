@@ -168,7 +168,7 @@ flowchart TB
     cmd["2 app/command-table/"]
     can["3 canvas/, owner Scene"]
     doc["4 app/design-edit/document/ (2.1), owner Document"]:::target
-    core["5 app/document-session/core/ (2.1), owner Session core"]:::target
+    core["5 app/document-session/core/, owner Session core"]
   end
   subgraph L1["L1 adapters, ranked"]
     fail["1 failures/"]
@@ -216,8 +216,8 @@ flowchart LR
   pd["editions/desktop/boot.ts"]
   pb["editions/web/boot.ts"]
   wa["editions/web/WebApp.tsx"]
-  ds["app/document-session/state-machine.ts"]
-  bs["web/browser-design-session.ts"]
+  ds["app/document-session/core/session-core.ts"]
+  bs["editions/web/web-session.ts"]
   kd["commands/registry.ts: Desktop key router"]
   kw["editions/web/browser-shell-commands.ts: Web key router"]
   al["Four feature aliases: species catalog, PDF, budget CSV, geocoding"]
@@ -331,7 +331,7 @@ flowchart LR
   cap["generated/edition-capabilities.ts from canopi-types/edition-capabilities.json"]
   ep["platform/edition-ports.ts: EditionPorts, installed once"]
   host["canvas-host.ts (2.1): one mountCanvasHost"]:::target
-  core["app/document-session/core/ (2.1), owner Session core"]:::target
+  core["app/document-session/core/, owner Session core"]
   feat["L3 features and L4 surfaces"]
   ed --> da
   ew --> wa
@@ -351,7 +351,7 @@ flowchart LR
 | DesignHomeStore | `platform/design-home.ts` | native files, file grants | IndexedDB Draft store, file input, download | L10, L17, L21 |
 | DesignCore | `platform/design-core.ts` (Web read view built in 2.0.4) | format worker, bytes through `ipc/bytes.ts` (2.1) | format worker over `canopi-format-wasm` (2.1) | L5 |
 | FileDelivery | `platform/file-delivery.ts` (2.1) | dialog and native write | download | L12 |
-| File access | `platform/file-access.ts` (2.1) | host dialogs with `pickOpen`, `pickHomeTarget`, `convertFileSrc` | file input | L9 |
+| File access | `platform/file-access.ts` | host dialogs with `pickOpen`, `pickHomeTarget`, `convertFileSrc` | file input | L9 |
 | App lifecycle | not named | close and exit requests, update install | visibility, page hide and show, version change | ADR 0024 |
 | Settings store | `platform/settings.ts` | user DB settings row | localStorage record | L16 |
 | Data library | `platform/library.ts` (2.1) | library commands (N3) | library worker over SQLite on OPFS (N5) | L21 |

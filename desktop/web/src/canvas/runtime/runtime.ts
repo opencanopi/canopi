@@ -2,6 +2,7 @@ import type { SpeciesFocus, SpeciesFocusCommands } from './species-key'
 import type { CanvasPrintSnapshot } from '../print'
 import type { CanvasInspectionHandle } from '../inspection'
 import type { ReadonlySignal } from '@preact/signals'
+import type { SceneCommand } from './scene-commands'
 import type {
   Annotation,
   CanopiFile,
@@ -273,16 +274,14 @@ export interface CanvasDocumentReplacementReceipt {
   readonly callerFinalizerInvoked: boolean
 }
 
-export class CanvasDocumentReplacementNotAdmittedError extends Error {
-  constructor(readonly reason: unknown) {
-    super(
-      reason instanceof Error
-        ? reason.message
-        : 'Canvas rejected document replacement before hydration',
-    )
-    this.name = 'CanvasDocumentReplacementNotAdmittedError'
-  }
-}
+import type { CanvasDocumentReplacementToken } from './scene-runtime/replacement-token'
+
+export {
+  CanvasAuthorityBusyError,
+  CanvasDocumentReplacementNotAdmittedError,
+  createCanvasDocumentReplacementToken,
+  type CanvasDocumentReplacementToken,
+} from './scene-runtime/replacement-token'
 
 export type CanvasPersistenceAcknowledgement = 'applied' | 'stale'
 
@@ -290,28 +289,6 @@ export interface CanvasPersistenceCapture {
   readonly content: CanopiFile
   isCurrent(): boolean
   acknowledgeSaved(): CanvasPersistenceAcknowledgement
-}
-
-export class CanvasAuthorityBusyError extends Error {
-  constructor(
-    readonly activeType: string,
-    message = `Canvas authority ${activeType} is busy`,
-  ) {
-    super(message)
-    this.name = 'CanvasAuthorityBusyError'
-  }
-}
-
-const canvasDocumentReplacementTokenBrand = Symbol('canvas-document-replacement-token')
-
-export interface CanvasDocumentReplacementToken {
-  readonly [canvasDocumentReplacementTokenBrand]: true
-}
-
-export function createCanvasDocumentReplacementToken(): CanvasDocumentReplacementToken {
-  return Object.freeze({
-    [canvasDocumentReplacementTokenBrand]: true as const,
-  })
 }
 
 export interface CanvasDocumentSurface {
@@ -335,6 +312,8 @@ export interface CanvasDocumentSurface {
     metadata: CanvasRuntimeDocumentMetadata,
     doc: CanopiFile,
   ): CanvasPersistenceCapture
+  serializeSceneFields(): Partial<CanopiFile>
+  replaySceneCommand(command: SceneCommand, direction: 'undo' | 'redo'): boolean
   resize(width: number, height: number): void
   destroy(): void
 }

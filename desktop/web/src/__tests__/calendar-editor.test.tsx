@@ -119,7 +119,6 @@ describe('Calendar action editor', () => {
     locale.value = 'en'
     disposePlanningViewState()
     designSessionFixture.file = design()
-    designSessionFixture.nonCanvasRevision = 0
     // A new file starts a new session with fresh planning view state, so the
     // month is set after it; set before, it was discarded.
     readPlanningViewState().calendarMonth.value = '2026-09-01'

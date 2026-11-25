@@ -14,14 +14,14 @@ import { SaveStatusLabel } from '../../components/shared/SaveStatusLabel'
 import { TitleBar } from '../../components/shared/TitleBar'
 import { BrowserAppShell } from '../../editions/web/BrowserAppShell'
 import { projectBrowserShellForTest } from '../../__tests__/support/browser-shell-projection'
-import { createDesignSessionStoreTestFixture, designSessionStore } from './store'
+import { createTestSessionCore, type TestSessionCoreHandle } from '../../__tests__/support/session-core-fixture'
 import type { CanopiFile } from '../../types/design'
 
 vi.mock('@tauri-apps/api/window', () => ({
   getCurrentWindow: () => ({ close: vi.fn(), minimize: vi.fn(), toggleMaximize: vi.fn(), startDragging: vi.fn() }),
 }))
 
-const fixture = createDesignSessionStoreTestFixture(designSessionStore)
+let sessionHandle: TestSessionCoreHandle | null = null
 
 const SHOWN: CanopiFile = {
   version: 9, name: 'Orchard 2.1', description: null, plant_species_colors: {}, plant_species_symbols: {}, layers: [],
@@ -45,7 +45,8 @@ afterEach(() => {
   render(null, container)
   container.remove()
   closeAboutCanopiDialog()
-  fixture.reset()
+  sessionHandle?.dispose()
+  sessionHandle = null
 })
 
 function button(text: string, root: ParentNode = container): HTMLButtonElement | undefined {
@@ -147,7 +148,7 @@ describe('R1 canopi-f47t.52.270: the read-only Design in the save-status slot (2
 
   it('Web: a Draft opened while storage could not be checked says so in the frame\'s popover, whose Download a copy runs File\'s', async () => {
     // File › Download a copy is on for this origin only (2.1-Q334): the session says which.
-    designSessionStore.replaceCurrentDesignState(SHOWN, null, 'Pond', { kind: 'read-only', origin: 'storage-unchecked' })
+    sessionHandle = createTestSessionCore({ file: SHOWN, name: 'Pond', kind: { kind: 'read-only', origin: 'storage-unchecked' } })
     const run = vi.fn()
     const downloadCanopi = vi.fn()
     await act(async () => {
@@ -174,10 +175,10 @@ describe('R1 canopi-f47t.52.270: the read-only Design in the save-status slot (2
   })
 
   it('Desktop: the title bar shows "Read-only", the name as text, and the popover\'s Update opens About to check for updates', async () => {
-    designSessionStore.replaceCurrentDesignState(SHOWN, null, SHOWN.name, {
-      kind: 'read-only',
-      origin: 'newer-version',
-      savedByVersion: 10,
+    sessionHandle = createTestSessionCore({
+      file: SHOWN,
+      name: SHOWN.name,
+      kind: { kind: 'read-only', origin: 'newer-version', savedByVersion: 10 },
     })
     await act(async () => { render(<TitleBar />, container) })
     expect(inlineButtons()).toEqual([LABEL])

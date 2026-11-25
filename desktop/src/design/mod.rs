@@ -55,6 +55,7 @@ pub(crate) fn fingerprint(bytes: &[u8]) -> String {
 
 /// [`fingerprint`] of the file at `path`, streamed so an unexpectedly large
 /// replacement is never buffered whole. `None` when no file is there.
+#[cfg(test)]
 pub(crate) fn fingerprint_file(path: &Path) -> std::io::Result<Option<String>> {
     hash::sha256_file(path)
 }

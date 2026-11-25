@@ -16,8 +16,8 @@ import { MANUAL_TARGET, speciesTarget } from '../target'
 import type { CanopiFile } from '../types/design'
 import {
   currentDesign,
+  designDirty,
   designSessionFixture,
-  nonCanvasRevision,
 } from './support/design-session-state'
 import { createTestCanvasRuntimeSurfaces } from './support/canvas-runtime-surfaces'
 import { createTestCanvasQuerySurface, type TestCanvasQuerySurface } from './support/canvas-query-surface'
@@ -74,7 +74,6 @@ describe('Calendar workbench', () => {
     document.body.appendChild(container)
     disposePlanningViewState()
     designSessionFixture.file = design('Calendar one')
-    designSessionFixture.nonCanvasRevision = 0
     queries = createTestCanvasQuerySurface()
     setCanvasSelection([])
     setCurrentCanvasSession(createTestCanvasRuntimeSurfaces({ queries }))
@@ -97,7 +96,7 @@ describe('Calendar workbench', () => {
     })
 
     expect(currentDesign.value?.timeline[0]).toEqual(action({ description: 'Revised' }))
-    expect(nonCanvasRevision.value).toBe(1)
+    expect(designDirty.value).toBe(true)
   })
 
   it('patches only completion from the row checkbox', () => {
@@ -171,7 +170,7 @@ describe('Calendar workbench', () => {
       expect(workbench.saveEditor()).toBe(false)
     })
     expect(workbench.editorError).toBe('date-order')
-    expect(nonCanvasRevision.value).toBe(0)
+    expect(designDirty.value).toBe(false)
 
     act(() => {
       workbench.updateDraft({ end_date: '2026-09-20' })
@@ -179,7 +178,7 @@ describe('Calendar workbench', () => {
       expect(workbench.saveEditor()).toBe(false)
     })
     expect(workbench.editorError).toBe('empty-targets')
-    expect(nonCanvasRevision.value).toBe(0)
+    expect(designDirty.value).toBe(false)
   })
 
   it('deletes the edited saved action through Design Edit', () => {
@@ -189,7 +188,7 @@ describe('Calendar workbench', () => {
     })
 
     expect(currentDesign.value?.timeline).toEqual([])
-    expect(nonCanvasRevision.value).toBe(1)
+    expect(designDirty.value).toBe(true)
   })
 
   it('cannot write an open draft into a replacement Design with a repeated action ID', async () => {

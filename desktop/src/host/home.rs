@@ -3,7 +3,7 @@
 //! One `home_read` / `home_write` port resolves both host-issued [`FileGrantId`]s and
 //! validated [`DraftId`]s (`{app_data}/drafts/<id>.canopi`) behind `canopi-support`'s
 //! [`DurableFs`] and case-folded [`TargetLocks`]. No Draft path or raw user path crosses
-//! to the frontend.
+//! `home_read` / `home_write`; legacy Recent/Notebook display metadata stays on its own read-only commands.
 
 use std::collections::HashMap;
 use std::fmt;
@@ -17,7 +17,7 @@ use canopi_support::durable::{
     publish_durably_unlocked,
 };
 use canopi_support::hash;
-use canopi_types::design_home::{HomeRead, HomeWrite};
+use canopi_types::design_home::{FileHomeGrant, HomeRead, HomeWrite};
 use canopi_types::failure::{Failure, FailureCode, IoFailureKind, ops};
 use canopi_types::ids::{FileGrantId, HomeVersion};
 
@@ -96,11 +96,11 @@ impl FileGrantRegistry {
             .file_name()
             .ok_or(GrantError::MissingFileName)?
             .to_os_string();
-        // Fall back to the non-canonical parent if the folder does not exist yet (see
-        // `GrantTargetKey`); a later successful canonicalisation mints a fresh grant id.
         let canonical_parent =
             std::fs::canonicalize(parent).unwrap_or_else(|_| parent.to_path_buf());
-        let resolved_path = canonical_parent.join(&file_name);
+        // Preserve the caller's path form (no Windows `\\?\` or symlink rewrite) while
+        // deduplicating grants by canonical target so Recents never gets duplicate rows (N1).
+        let stored_path = path.to_path_buf();
         let key = GrantTargetKey {
             parent: canonical_parent,
             file_name,
@@ -112,8 +112,26 @@ impl FileGrantRegistry {
         let seq = self.next_id.fetch_add(1, Ordering::Relaxed) + 1;
         let id = FileGrantId::new(format!("{GRANT_PREFIX}{seq}"));
         table.by_target.insert(key, id.clone());
-        table.by_id.insert(id.clone(), resolved_path);
+        table.by_id.insert(id.clone(), stored_path);
         Ok(id)
+    }
+
+    /// Mints or reuses the full [`FileHomeGrant`] (`{ grant, display_name, recent_id }`) for `path`.
+    pub fn grant_info(&self, path: &Path) -> Result<FileHomeGrant, GrantError> {
+        let grant = self.grant(path)?;
+        let resolved = self.resolve(&grant).unwrap_or_else(|| path.to_path_buf());
+        let display_name = resolved
+            .file_name()
+            .and_then(|name| name.to_str())
+            .filter(|name| !name.is_empty())
+            .unwrap_or("Untitled.canopi")
+            .to_owned();
+        let recent_id = recent_id_for_path(&resolved.to_string_lossy());
+        Ok(FileHomeGrant {
+            grant,
+            display_name,
+            recent_id,
+        })
     }
 
     /// Resolves a host-issued grant id to its filesystem path.
@@ -128,6 +146,13 @@ impl FileGrantRegistry {
     }
 }
 
+/// Stable opaque Recent Designs identifier for `path` (SHA-256 hex), shared across `FileHomeGrant`
+/// and `grant_for_recent` so `last_open_home` never stores raw paths or ephemeral grant ids.
+#[must_use]
+pub fn recent_id_for_path(path: &str) -> String {
+    hash::sha256_hex(path.as_bytes())
+}
+
 enum ResolvedHome {
     File(PathBuf),
     Draft { id: String, path: PathBuf },
@@ -139,6 +164,7 @@ pub struct DesktopHomeStore<F: DurableFs = OsDurableFs> {
     grants: Arc<FileGrantRegistry>,
     locks: Arc<TargetLocks>,
     fs: F,
+    user_db: Option<crate::db::UserDb>,
 }
 
 impl DesktopHomeStore<OsDurableFs> {
@@ -172,6 +198,47 @@ impl<F: DurableFs> DesktopHomeStore<F> {
             grants,
             locks,
             fs,
+            user_db: None,
+        }
+    }
+
+    /// Attaches a [`crate::db::UserDb`] so file-grant reads and writes record Desktop Recents (M3).
+    #[must_use]
+    pub fn with_user_db(mut self, user_db: crate::db::UserDb) -> Self {
+        self.user_db = Some(user_db);
+        self
+    }
+
+    fn record_recent_from_bytes(&self, resolved: &ResolvedHome, bytes: &[u8]) {
+        let ResolvedHome::File(path) = resolved else {
+            return;
+        };
+        let Some(user_db) = &self.user_db else {
+            return;
+        };
+        let Some(path_str) = path.to_str() else {
+            return;
+        };
+        let fallback_name = path
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .filter(|s| !s.is_empty())
+            .unwrap_or("Untitled");
+        // Admit once through the canonical format codec (`admit_v9_schema` + newer read-only, N2).
+        let admitted_name = match crate::design::format::open_design_bytes(bytes) {
+            Ok(crate::design::format::OpenedDesign::Editable(file)) => file.name,
+            Ok(crate::design::format::OpenedDesign::ReadOnly(ro)) => ro.view.name,
+            Err(_) => return,
+        };
+        let name = if admitted_name.is_empty() {
+            fallback_name.to_owned()
+        } else {
+            admitted_name
+        };
+        if let Some(conn) = user_db.acquire_writable()
+            && let Err(error) = crate::db::recent_files::record_recent_file(&conn, path_str, &name)
+        {
+            tracing::debug!(%error, "Failed to record recent file from home store");
         }
     }
 
@@ -233,6 +300,7 @@ impl<F: DurableFs> DesktopHomeStore<F> {
                     };
                 }
                 let version = HomeVersion::new(hash::sha256_hex(&bytes));
+                self.record_recent_from_bytes(&resolved, &bytes);
                 HomeRead::Present { bytes, version }
             }
             Err(error) if error.kind() == io::ErrorKind::NotFound => HomeRead::Absent,
@@ -278,9 +346,14 @@ impl<F: DurableFs> DesktopHomeStore<F> {
             ResolvedHome::File(path) | ResolvedHome::Draft { path, .. } => path.clone(),
         };
 
-        self.locks.with_lock(&path, || {
+        let outcome = self.locks.with_lock(&path, || {
             self.write_locked(&resolved, &path, bytes, expected, keep_previous)
-        })
+        });
+        if matches!(outcome, HomeWrite::Written { .. }) {
+            // Record Recents outside the target lock so saves refresh Recents order (F6/N2).
+            self.record_recent_from_bytes(&resolved, bytes);
+        }
+        outcome
     }
 
     fn write_locked(

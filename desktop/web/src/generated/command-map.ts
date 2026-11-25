@@ -10,11 +10,11 @@ import type {
   DesignDraftSummary,
   DesignNotebookSection,
   DesignNotebookSnapshot,
-  DesignSaveOutcome,
   DesignSummary,
   DialogKind,
   DynamicFilterOptions,
   FileGrantId,
+  FileHomeGrant,
   FilterOptions,
   FlowerColorResolution,
   GeoResult,
@@ -30,7 +30,6 @@ import type {
   LidarLayerCollection,
   LidarSamplePointsRequest,
   LidarSampleSeries,
-  LoadedDesign,
   OperationId,
   PaginatedResult,
   PickOpenOutcome,
@@ -61,6 +60,8 @@ export interface PendingOpen {
   readonly path: string
   readonly several: boolean
   readonly grant?: FileGrantId
+  readonly display_name?: string
+  readonly recent_id?: string
 }
 
 export type CommandSyncKind = 'async' | 'bounded_sync'
@@ -91,14 +92,11 @@ export const COMMAND_NAMES = [
   'export_saved_object_stamp_canopi_file',
   'load_saved_object_stamp_canopi_file',
   'new_design',
-  'save_design',
-  'load_design',
+  'read_newer_design',
   'get_recent_files',
   'get_recent_design_previews',
   'remove_recent_design',
   'show_recent_design_in_folder',
-  'save_design_draft',
-  'load_design_draft',
   'list_design_drafts',
   'delete_design_draft',
   'get_design_notebook',
@@ -119,6 +117,7 @@ export const COMMAND_NAMES = [
   'take_pending_open',
   'home_read',
   'home_write',
+  'grant_for_recent',
   'pick_open',
   'pick_save',
   'update_check',
@@ -179,14 +178,11 @@ export type CommandMap = {
   readonly 'export_saved_object_stamp_canopi_file': { readonly args: { readonly path: string; readonly content: Record<string, unknown> }; readonly reply: string }
   readonly 'load_saved_object_stamp_canopi_file': { readonly args: { readonly path: string }; readonly reply: CanopiFile }
   readonly 'new_design': { readonly args: undefined; readonly reply: CanopiFile }
-  readonly 'save_design': { readonly args: { readonly path: string; readonly content: Record<string, unknown>; readonly expectedFingerprint?: string | null }; readonly reply: DesignSaveOutcome }
-  readonly 'load_design': { readonly args: { readonly path: string }; readonly reply: LoadedDesign | ReadOnlyDesign }
+  readonly 'read_newer_design': { readonly args: { readonly text: string }; readonly reply: ReadOnlyDesign }
   readonly 'get_recent_files': { readonly args: undefined; readonly reply: DesignSummary[] }
   readonly 'get_recent_design_previews': { readonly args: { readonly paths: readonly string[] }; readonly reply: RecentDesignSummary[] }
   readonly 'remove_recent_design': { readonly args: { readonly path: string }; readonly reply: void }
   readonly 'show_recent_design_in_folder': { readonly args: { readonly path: string }; readonly reply: void }
-  readonly 'save_design_draft': { readonly args: { readonly id: string; readonly content: Record<string, unknown> }; readonly reply: void }
-  readonly 'load_design_draft': { readonly args: { readonly id: string }; readonly reply: CanopiFile | ReadOnlyDesign }
   readonly 'list_design_drafts': { readonly args: undefined; readonly reply: DesignDraftSummary[] }
   readonly 'delete_design_draft': { readonly args: { readonly id: string }; readonly reply: void }
   readonly 'get_design_notebook': { readonly args: undefined; readonly reply: DesignNotebookSnapshot }
@@ -207,6 +203,7 @@ export type CommandMap = {
   readonly 'take_pending_open': { readonly args: undefined; readonly reply: PendingOpen | null }
   readonly 'home_read': { readonly args: { readonly key: string }; readonly reply: HomeRead }
   readonly 'home_write': { readonly args: { readonly key: string; readonly bytes: readonly number[]; readonly expected?: HomeVersion | null; readonly keepPrevious?: boolean | null }; readonly reply: HomeWrite }
+  readonly 'grant_for_recent': { readonly args: { readonly recentId: string }; readonly reply: FileHomeGrant | null }
   readonly 'pick_open': { readonly args: { readonly kind: DialogKind }; readonly reply: PickOpenOutcome }
   readonly 'pick_save': { readonly args: { readonly kind: DialogKind; readonly stem: string }; readonly reply: PickSaveOutcome }
   readonly 'update_check': { readonly args: { readonly operation: string }; readonly reply: UpdateOffer | null }
@@ -282,14 +279,11 @@ export const COMMAND_SYNC_KINDS: Readonly<Record<CommandName, CommandSyncKind>> 
   'export_saved_object_stamp_canopi_file': 'async',
   'load_saved_object_stamp_canopi_file': 'async',
   'new_design': 'bounded_sync',
-  'save_design': 'async',
-  'load_design': 'async',
+  'read_newer_design': 'async',
   'get_recent_files': 'async',
   'get_recent_design_previews': 'async',
   'remove_recent_design': 'async',
   'show_recent_design_in_folder': 'async',
-  'save_design_draft': 'async',
-  'load_design_draft': 'async',
   'list_design_drafts': 'async',
   'delete_design_draft': 'async',
   'get_design_notebook': 'async',
@@ -310,6 +304,7 @@ export const COMMAND_SYNC_KINDS: Readonly<Record<CommandName, CommandSyncKind>> 
   'take_pending_open': 'bounded_sync',
   'home_read': 'async',
   'home_write': 'async',
+  'grant_for_recent': 'async',
   'pick_open': 'async',
   'pick_save': 'async',
   'update_check': 'async',

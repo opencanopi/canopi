@@ -13,9 +13,9 @@ import type {
   SceneInteractionSession,
   SceneInteractionSessionDeps,
 } from '../canvas/runtime/interaction-session'
-import { SceneHistory } from '../canvas/runtime/scene-history'
 import { SceneRuntimeReoriginController } from '../canvas/runtime/scene-runtime/reorigin'
 import {
+  createDetachedSceneSessionAdapter,
   SceneRuntimeEditCoordinator,
   type SceneEditCoordinator,
   type SceneEditTransaction,
@@ -150,26 +150,26 @@ describe('SceneInteractionSession', () => {
     { label: 'Rectangle', tool: 'rectangle' },
     { label: 'Measurement Guide', tool: 'measurement-guide' },
   ] as const)('keeps a $label drag authoritative until pointer-up commits it', ({ tool }) => {
-    const history = new SceneHistory()
-    const record = history.record.bind(history)
+    const sceneSession = createDetachedSceneSessionAdapter()
+    const record = sceneSession.recordSceneEdit.bind(sceneSession)
     let unrelatedRecordFailures = 2
-    vi.spyOn(history, 'record').mockImplementation((command, transaction) => {
-      const recorded = record(command, transaction)
+    vi.spyOn(sceneSession, 'recordSceneEdit').mockImplementation((label, command) => {
+      record(label, command)
       if (command.type === 'unrelated-immediate' && unrelatedRecordFailures > 0) {
         unrelatedRecordFailures -= 1
         throw new Error('unrelated publication failed')
       }
-      return recorded
     })
     const baseDeps = createInteractionDeps(container, store, testView)
     const coordinator = new SceneRuntimeEditCoordinator({
       sceneStore: store,
-      history,
+      sceneSession,
       setSelection: baseDeps.setSelection,
       incrementSceneRevision: () => {},
       syncCanvasSignalsFromScene: () => {},
       invalidate: () => {},
     })
+    sceneSession.bindReplay((command, direction) => coordinator.replayCommand(command, direction))
     const deps: SceneInteractionSessionDeps = {
       ...baseDeps,
       sceneEdits: coordinator,
@@ -272,25 +272,19 @@ describe('SceneInteractionSession', () => {
   })
 
   it('a pointer-up whose commit fails finishes publication at once, then reaches the app', () => {
-    const history = new SceneHistory()
-    const record = history.record.bind(history)
-    let publicationFailures = 2
-    vi.spyOn(history, 'record').mockImplementation((command, transaction) => {
-      const recorded = record(command, transaction)
-      if (command.type === 'interaction-rectangle' && publicationFailures > 0) {
-        publicationFailures -= 1
-        throw new Error('rectangle publication failed')
-      }
-      return recorded
-    })
+    let publicationFailures = 1
     const baseDeps = createInteractionDeps(container, store, testView)
     const coordinator = new SceneRuntimeEditCoordinator({
       sceneStore: store,
-      history,
       setSelection: baseDeps.setSelection,
       incrementSceneRevision: () => {},
       syncCanvasSignalsFromScene: () => {},
-      invalidate: () => {},
+      invalidate: () => {
+        if (publicationFailures > 0) {
+          publicationFailures -= 1
+          throw new Error('rectangle publication failed')
+        }
+      },
     })
     const session = createTestSession({
       ...baseDeps,
@@ -329,11 +323,9 @@ describe('SceneInteractionSession', () => {
     { label: 'Rectangle', tool: 'rectangle' },
     { label: 'Measurement Guide', tool: 'measurement-guide' },
   ] as const)('a $label commit whose cleanup throws keeps the shape once, leaving nothing open for the next drag', ({ tool }) => {
-    const history = new SceneHistory()
     const baseDeps = createInteractionDeps(container, store, testView)
     const coordinator = new SceneRuntimeEditCoordinator({
       sceneStore: store,
-      history,
       setSelection: baseDeps.setSelection,
       incrementSceneRevision: () => {},
       syncCanvasSignalsFromScene: () => {},

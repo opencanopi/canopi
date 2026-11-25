@@ -7,7 +7,7 @@ import { act } from 'preact/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createTestCanvasQuerySurface } from '../../__tests__/support/canvas-query-surface'
 import { createTestCanvasRuntimeSurfaces } from '../../__tests__/support/canvas-runtime-surfaces'
-import { replaceCurrentDesignState } from '../../__tests__/support/design-session-state'
+import { clearCurrentDesignState, replaceCurrentDesignState } from '../../__tests__/support/design-session-state'
 import { installDesktopKeys } from '../../__tests__/support/desktop-key-router'
 import { TEST_GEO_ORIGIN } from '../../__tests__/support/geo-design'
 import { plantColorMenuOpen } from '../../canvas/plant-color-menu-state'
@@ -17,7 +17,6 @@ import { currentCanvasSelection } from '../../canvas/session-state'
 import { PlantAppearancePopovers } from '../../components/canvas/PlantAppearancePopovers'
 import { useFocusRegion } from '../../components/shared/useFocusRegion'
 import type { CanopiFile } from '../../types/design'
-import { createDesignSessionStoreTestFixture, designSessionStore } from '../document-session/store'
 import { holdModalLayer } from '../shell/modal-layer'
 import { leaveStoryPresentation, presentStory } from '../story-presentation'
 import { focusOwner } from './focus-owner'
@@ -221,7 +220,7 @@ describe('focus moves go through the focus owner', () => {
       expect(document.activeElement).toBe(map)
     } finally {
       leaveStoryPresentation()
-      createDesignSessionStoreTestFixture(designSessionStore).reset()
+      clearCurrentDesignState()
     }
   })
 

@@ -3,7 +3,6 @@
   "family": "unit-scc",
   "bead": "canopi-f47t.52.182",
   "entries": {
-    "app/document-session <-> ipc": { "count": 4 },
     "canvas (top) <-> canvas/plant-path": { "count": 1 },
     "canvas (top) <-> canvas/runtime": { "count": 25 },
     "canvas (top) <-> canvas/runtime/chrome": { "count": 3 },
@@ -17,7 +16,7 @@
     "canvas/runtime <-> canvas/runtime/chrome": { "count": 4 },
     "canvas/runtime <-> canvas/runtime/input": { "count": 6 },
     "canvas/runtime <-> canvas/runtime/scene": { "count": 10 },
-    "canvas/runtime <-> canvas/runtime/scene-runtime": { "count": 30 },
+    "canvas/runtime <-> canvas/runtime/scene-runtime": { "count": 29 },
     "canvas/runtime <-> canvas/runtime/tools": { "count": 24 },
     "canvas/runtime <-> target": { "count": 2 },
     "canvas/runtime/interaction <-> canvas/runtime/scene-runtime": { "count": 1 },

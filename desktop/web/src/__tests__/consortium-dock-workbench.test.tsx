@@ -13,8 +13,8 @@ import { consortiumTarget } from '../target'
 import type { CanopiFile, PlacedPlant } from '../types/design'
 import {
   currentDesign,
+  designDirty,
   designSessionFixture,
-  nonCanvasRevision,
 } from './support/design-session-state'
 import { createTestCanvasQuerySurface } from './support/canvas-query-surface'
 import { createTestCanvasRuntimeSurfaces } from './support/canvas-runtime-surfaces'
@@ -73,7 +73,6 @@ describe('Consortium dock workbench', () => {
     document.body.appendChild(container)
     disposePlanningViewState()
     designSessionFixture.file = design('Consortium one')
-    designSessionFixture.nonCanvasRevision = 0
     setCurrentCanvasSession(createTestCanvasRuntimeSurfaces({
       queries: createTestCanvasQuerySurface({ plants: [plant()] }),
     }))
@@ -96,7 +95,7 @@ describe('Consortium dock workbench', () => {
       workbench.updateDraft({ startPhase: 5, endPhase: 2 })
       expect(workbench.saveEditor()).toBe(false)
     })
-    expect(nonCanvasRevision.value).toBe(0)
+    expect(designDirty.value).toBe(false)
 
     act(() => {
       workbench.updateDraft({ stratum: 'high', startPhase: 2, endPhase: 5 })
@@ -106,7 +105,7 @@ describe('Consortium dock workbench', () => {
       stratum: 'high', start_phase: 2, end_phase: 5,
     })
     expect(currentDesign.value?.consortiums[1]?.target).toEqual(consortiumTarget('Absent species'))
-    expect(nonCanvasRevision.value).toBe(1)
+    expect(designDirty.value).toBe(true)
   })
 
   it('reports a successful move outside the active filter and keeps cancellation clean', () => {
@@ -116,7 +115,7 @@ describe('Consortium dock workbench', () => {
       workbench.openEditor(row)
       workbench.cancelEditor()
     })
-    expect(nonCanvasRevision.value).toBe(0)
+    expect(designDirty.value).toBe(false)
 
     act(() => {
       workbench.openEditor(row)
@@ -133,7 +132,7 @@ describe('Consortium dock workbench', () => {
       expect(workbench.saveEditor()).toBe(true)
     })
 
-    expect(nonCanvasRevision.value).toBe(0)
+    expect(designDirty.value).toBe(false)
   })
 
   it('cancels a draft when another Design with the same species replaces the session', async () => {

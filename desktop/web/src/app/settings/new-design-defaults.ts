@@ -1,5 +1,24 @@
+import type { CanopiFile } from '../../types/design'
 import { mutateSettingsProjection } from './projection'
 import { newDesignDefaults, type NewDesignDefaults } from './state'
+
+/** Applies Settings › New Designs display defaults (symbol scale, labels) to a newly created Design. */
+export function withNewDesignDisplay(
+  file: CanopiFile,
+  defaults: NewDesignDefaults = newDesignDefaults.peek(),
+) {
+  const prevExtra = file.extra && typeof file.extra === 'object' ? file.extra : {}
+  return {
+    ...file,
+    extra: {
+      ...prevExtra,
+      plant_display: {
+        symbol_scale: defaults.symbolScale,
+        labels: defaults.labels,
+      },
+    },
+  }
+}
 
 /**
  * Settings › New Designs › Open on satellite, applied when a Design is

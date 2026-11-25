@@ -3,19 +3,16 @@ import { useEffect, useMemo } from "preact/hooks";
 import { activePanel, sidePanel } from "../../app/shell/state";
 import { keyboardShortcutsDialogOpen } from "../../app/shell/dialogs";
 import { workspaceCanvasCommandProjection } from "../../app/workspace-commands/canvas-actions";
+import { designSessionStore } from "../../app/document-session/store";
 import styles from "./WebApp.module.css";
 import { BrowserAppShell } from "./BrowserAppShell";
-import type { BrowserShellCatalog, WebShellShortcutSource } from "./browser-shell-commands";
+import type { BrowserDesignShellCommands, BrowserShellCatalog, WebShellShortcutSource } from "./browser-shell-commands";
 import {
   createBrowserShellCapabilities,
   createBrowserShellCatalog,
   browserPhoneSheetTabs,
   createBrowserShellCommandProjection,
 } from "./browser-shell-commands";
-import {
-  browserDesignSessionController,
-  type BrowserDesignSessionController,
-} from "../../web/browser-design-session";
 import { browserDraftPersistence, type BrowserDraftPersistence } from "../../web/browser-draft-persistence";
 import { browserReleaseWatch } from "./browser-release-watch";
 import { installReleaseNotice } from "../../web/browser-notices";
@@ -30,9 +27,18 @@ import { WebWorkspace } from "./WebWorkspace";
 import { createBrowserGeoJsonWorkflow } from "./browser-geojson";
 import { currentCanvasSession } from "../../canvas/session";
 import type { GeoJsonWorkflow } from "../../app/geojson/workflow";
+import {
+  createWebShellCommands,
+  designRevertAvailable,
+  readWebDesignIdentity,
+  reloadWebForRelease,
+  resolveDesignConflict,
+  retryDesignSave,
+  setDesignName,
+} from "./web-session";
 
 interface WebAppProps {
-  readonly controller?: BrowserDesignSessionController;
+  readonly commands?: BrowserDesignShellCommands;
   readonly templatesEnabled?: boolean;
   readonly workspace?: ComponentChildren;
   readonly geoJson?: GeoJsonWorkflow;
@@ -42,87 +48,81 @@ interface WebAppProps {
   readonly persistence?: Pick<BrowserDraftPersistence, "view" | "keep" | "showReason">;
 }
 
-/** Build the Web Edition command catalog for a controller and its GeoJSON workflow. */
+/** Build the Web Edition command catalog backed by the live Session Core. */
 export function createWebAppCatalog(
-  controller: BrowserDesignSessionController = browserDesignSessionController,
+  commands: BrowserDesignShellCommands = createWebShellCommands(),
   geoJson: GeoJsonWorkflow = createBrowserGeoJsonWorkflow(),
   templatesEnabled: boolean = hasConfiguredStaticDesignTemplates(),
 ): BrowserShellCatalog {
   return createBrowserShellCatalog(
-    createBrowserShellCapabilities(controller, logWebAppCommandError, geoJson),
+    createBrowserShellCapabilities(commands, logWebAppCommandError, geoJson),
     {
       templatesEnabled,
-      canvasReady: () => controller.hasCurrentDesign() && currentCanvasSession.peek() !== null,
+      canvasReady: () => designSessionStore.hasCurrentDesign() && currentCanvasSession.peek() !== null,
     },
   );
 }
 
 /** What the Web keyboard shortcuts need to run shell commands against the live state. */
-export function createWebShellShortcutSource(
-  catalog: BrowserShellCatalog,
-  controller: BrowserDesignSessionController = browserDesignSessionController,
-): WebShellShortcutSource {
+export function createWebShellShortcutSource(catalog: BrowserShellCatalog): WebShellShortcutSource {
   return {
     catalog,
     readState: () => ({
-      hasDesign: controller.hasCurrentDesign(),
-      revertAvailable: controller.continuousSave.revertAvailable.peek(),
+      hasDesign: designSessionStore.hasCurrentDesign(),
+      revertAvailable: designRevertAvailable.peek(),
       activePanel: activePanel.peek(),
       sidePanel: sidePanel.peek(),
     }),
-  }
+  };
 }
 
 export function WebApp({
-  controller = browserDesignSessionController,
+  commands,
   templatesEnabled = hasConfiguredStaticDesignTemplates(),
   workspace,
   geoJson,
   catalog,
   persistence = browserDraftPersistence,
 }: WebAppProps) {
-  const hasDesign = controller.hasCurrentDesign();
-  const designIdentity = controller.readDesignIdentity();
+  const hasDesign = designSessionStore.currentDesign.value !== null;
+  const designIdentity = readWebDesignIdentity();
   const shellCatalog = useMemo(
-    () => catalog ?? createWebAppCatalog(controller, geoJson ?? createBrowserGeoJsonWorkflow(), templatesEnabled),
-    [catalog, controller, geoJson, templatesEnabled],
+    () => catalog ?? createWebAppCatalog(commands ?? createWebShellCommands(), geoJson ?? createBrowserGeoJsonWorkflow(), templatesEnabled),
+    [catalog, commands, geoJson, templatesEnabled],
   );
   const commandProjection = createBrowserShellCommandProjection({
     catalog: shellCatalog,
     state: {
       hasDesign,
-      revertAvailable: controller.continuousSave.revertAvailable.value,
+      revertAvailable: designRevertAvailable.value,
       activePanel: activePanel.value,
       sidePanel: sidePanel.value,
     },
     canvas: workspaceCanvasCommandProjection.value,
   });
 
-  // New version: Reload on the one notice row; Reload saves first: Saving… until the session reloads the page, or the
-  // user cancels its save problem (M179).
   useEffect(() => installReleaseNotice({
     waiting: browserReleaseWatch.notice,
-    designOpen: () => controller.hasCurrentDesign(),
-    reload: () => controller.reloadForRelease(),
+    designOpen: () => designSessionStore.currentDesign.value !== null,
+    reload: () => reloadWebForRelease(),
     dismiss: () => browserReleaseWatch.dismiss(),
     onError: logWebAppCommandError,
-  }), [controller]);
+  }), []);
 
   return (
     <div className={styles.root} data-canopi-web-root>
       <BrowserAppShell
         commandProjection={commandProjection}
         designIdentity={designIdentity}
-        onRenameDesign={(name) => controller.renameDesign(name)}
+        onRenameDesign={(name) => setDesignName(name)}
         onRetrySave={() => {
-          void controller.continuousSave.save().catch(logWebAppCommandError);
+          void retryDesignSave().catch(logWebAppCommandError);
         }}
         onResolveSaveConflict={() => {
-          void controller.resolveSaveConflict().catch(logWebAppCommandError);
+          void resolveDesignConflict().catch(logWebAppCommandError);
         }}
-        // Update on a read-only Design reloads, as a waiting release does: nothing of it is pending (2.1-Q317).
         onUpdate={() => {
-          void controller.reloadForRelease().catch(logWebAppCommandError);
+          void reloadWebForRelease().catch(logWebAppCommandError);
         }}
         placeSearch={hasDesign}
         persistence={persistence}
@@ -130,7 +130,6 @@ export function WebApp({
       >
         {workspace ?? (
           <WebWorkspace
-            controller={controller}
             panelProjection={commandProjection.panelBar}
             phoneTabs={browserPhoneSheetTabs(commandProjection.panelBar)}
             templatesEnabled={templatesEnabled}
@@ -141,7 +140,6 @@ export function WebApp({
       <SaveProblemDialog />
       <SettingsDialog />
       {keyboardShortcutsDialogOpen.value && (
-        // Browsers on Linux deliver a trackpad pinch as Ctrl + wheel: no Linux note.
         <KeyboardShortcutsDialog
           menus={commandProjection.workspaceMenus}
           platform={detectPlatform(navigator, window as unknown as { readonly GestureEvent?: unknown })}

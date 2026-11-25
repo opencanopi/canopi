@@ -1,6 +1,6 @@
-use canopi_types::design::{
-    CanopiFile, DesignLoadFailure, DesignSaveOutcome, DesignSummary, LoadedDesign,
-};
+#[cfg(test)]
+use canopi_types::design::DesignSaveOutcome;
+use canopi_types::design::{CanopiFile, DesignLoadFailure, DesignSummary, LoadedDesign};
 use std::path::{Path, PathBuf};
 
 use crate::db::{UserDb, user_db::write_refusal};
@@ -23,6 +23,7 @@ fn now_iso8601() -> String {
 
 /// Save a Design to its file. With `expected_fingerprint`, a file changed
 /// outside Canopi since then is left alone and reported as a conflict.
+#[cfg(test)]
 pub fn save_design(
     user_db: &UserDb,
     path: String,
@@ -326,6 +327,8 @@ mod tests {
             path: path.to_owned(),
             name: name.to_owned(),
             updated_at: "2026-07-02T00:00:00Z".to_owned(),
+            grant: None,
+            recent_id: None,
         }
     }
 
@@ -704,7 +707,6 @@ mod tests {
             "changed by another program"
         );
         assert!(get_recent_files(&user_db).unwrap().is_empty());
-
         let _ = std::fs::remove_file(&path);
     }
 
@@ -715,12 +717,10 @@ mod tests {
         let path = temp_design_path(&scratch, "reveal");
         let listed = path.to_string_lossy().into_owned();
         save_design(&user_db, listed.clone(), test_design("Reveal"), None).unwrap();
-
         let file = recent_design_file(&user_db, &listed).unwrap();
         let revealer = RecordingRevealer::default();
         show_design_in_folder(&file, &revealer).unwrap();
         assert_eq!(revealer.shown(), vec![Shown::Item(path.clone())]);
-
         let no_file_manager = RecordingRevealer::without_file_manager();
         show_design_in_folder(&file, &no_file_manager).unwrap();
         assert_eq!(
@@ -730,7 +730,6 @@ mod tests {
                 Shown::Folder(path.parent().unwrap().to_path_buf())
             ]
         );
-
         let unlisted = scratch.join("not-a-recent-design.canopi");
         let error = recent_design_file(&user_db, &unlisted.to_string_lossy()).unwrap_err();
         assert!(!error.contains("not-a-recent-design"), "{error}");
@@ -740,11 +739,12 @@ mod tests {
     #[test]
     fn a_listed_design_without_a_folder_has_nothing_to_show() {
         let user_db = test_user_db();
-        {
-            let conn = user_db.acquire();
-            crate::db::recent_files::record_recent_file(&conn, "orchard.canopi", "Orchard")
-                .unwrap();
-        }
+        crate::db::recent_files::record_recent_file(
+            &user_db.acquire(),
+            "orchard.canopi",
+            "Orchard",
+        )
+        .unwrap();
         let error = recent_design_file(&user_db, "orchard.canopi").unwrap_err();
         assert_eq!(error, "This Design has no folder to show.");
     }

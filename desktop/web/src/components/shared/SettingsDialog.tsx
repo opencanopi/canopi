@@ -26,7 +26,6 @@ import { PLANT_SYMBOL_SCALE_MAX, PLANT_SYMBOL_SCALE_MIN } from '../../canvas/run
 import type { AppFolder, AppFolderLocations, BasemapStyle, PlantLabels, ScrollWheel } from '../../generated/contracts'
 import { SETTINGS_BASEMAP_STYLES } from '../../generated/settings'
 import type { Locale, Theme } from '../../types/settings'
-import { readFailureCode } from '../../failures/store-read'
 import { t } from '../../i18n'
 import { ControlIcon, type ControlIconName } from './ControlIcon'
 import { Dropdown, type DropdownItem } from './Dropdown'
@@ -71,7 +70,7 @@ export interface SettingsFoldersAdapter {
  * File › Settings… (Ctrl ,): device preferences, never stored in a Design. `updates` is the Desktop root's
  * LaunchCheckSwitch, shown in About as given and never tested here, so Web shows no updater (ADR 0030, 2.1-Q201).
  */
-export function SettingsDialog({ folders, updates }: { readonly folders?: SettingsFoldersAdapter, readonly updates?: ComponentChildren }) {
+export function SettingsDialog({ folders, updates }: { readonly folders?: SettingsFoldersAdapter | undefined, readonly updates?: ComponentChildren | undefined }) {
   if (!settingsDialogOpen.value) return null
   return <SettingsDialogContent folders={folders} updates={updates} />
 }
@@ -348,27 +347,8 @@ function AboutSection({ updates }: { readonly updates?: ComponentChildren }) {
   </>
 }
 
-/** The launch-check setting's own key row, `updater.check_at_launch`, through the host (2.1-M206). */
-export interface LaunchCheckPort {
-  get(): Promise<boolean>
-  /** Resolves once written, or once held for the session under settings a newer Canopi saved; rejects otherwise. */
-  set(on: boolean): Promise<void>
-}
-
-/**
- * The port over the host's row, holding a write the store refuses under settings a newer Canopi saved (2.1-Q320,
- * M487) until the app closes, so the About tab reads the user's value again when it remounts.
- */
-export function createLaunchCheckPort(get: () => Promise<boolean>, set: (on: boolean) => Promise<void>): LaunchCheckPort {
-  let session: boolean | null = null
-  return {
-    get: () => (session === null ? get() : Promise.resolve(session)),
-    set: (on) => set(on).then(() => { session = null }, (error: unknown) => {
-      if (readFailureCode(error).kind !== 'store_read_only') throw error
-      session = on
-    }),
-  }
-}
+import { createLaunchCheckPort, type LaunchCheckPort } from './launch-check-port'
+export { createLaunchCheckPort, type LaunchCheckPort }
 
 /**
  * "Check for updates at launch" (2.1-Q164): its own key row, on when the row is missing (the host's default), so the

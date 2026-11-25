@@ -2,22 +2,10 @@
   "$schema": "./ratchet.schema.json",
   "family": "layer-order",
   "entries": {
-    "app/design-template-import/workflow.browser.ts -> web/browser-design-session.ts": {
-      "count": 1
-    },
     "canvas/runtime/scene-runtime.ts -> target/index.ts": {
       "count": 1
     },
     "i18n/index.ts -> app/settings/state.ts": {
-      "count": 1
-    },
-    "ipc/design.ts -> app/contracts/canopi-design-wire.ts": {
-      "count": 1
-    },
-    "ipc/design.ts -> app/document-session/continuous-save.ts": {
-      "count": 1
-    },
-    "ipc/design.ts -> app/document-session/write-admission.ts": {
       "count": 1
     },
     "ipc/geojson.ts -> app/geojson/workflow.ts": {
