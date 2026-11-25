@@ -39,6 +39,7 @@ export interface QuantitySpec {
   readonly allowsNegative: boolean
   readonly acceptsFeetAndInches: boolean
   readonly approximatePrefix: boolean
+  readonly wholeSourceRoundsToWholeUnit: boolean
   readonly metric: QuantitySystemSpec
   readonly usCustomary: QuantitySystemSpec
   readonly inputUnits: readonly UnitInputSpec[]
@@ -47,7 +48,7 @@ export interface QuantitySpec {
 export interface PdfScaleSpec {
   readonly id: string
   readonly group: Exclude<PdfScaleGroup, 'fit'>
-  readonly label: string
+  readonly label: string | null
   readonly denominator: number
   readonly metric: boolean
   readonly usCustomary: boolean
@@ -76,7 +77,9 @@ export const CONVERSION_CONSTANTS = {
   m2PerSqFoot: 0.09290304,
   sqFeetPerAcre: 43560,
   m2PerAcre: 4046.8564224,
+  mmPerCm: 10,
   mmPerInch: 25.4,
+  litersPerMl: 0.001,
   litersPerUsGallon: 3.785411784,
   fahrenheitScale: 1.8,
   fahrenheitOffset: 32,
@@ -111,6 +114,7 @@ export const QUANTITY_TABLE: Readonly<Record<QuantityKind, QuantitySpec>> = {
     allowsNegative: false,
     acceptsFeetAndInches: true,
     approximatePrefix: false,
+    wholeSourceRoundsToWholeUnit: false,
     metric: { bareInputUnit: 'm', bands: [
       { maxSiExclusive: 1, style: { kind: 'single', unit: 'cm', decimals: 0 } },
       { maxSiExclusive: 10, style: { kind: 'single', unit: 'm', decimals: 1 } },
@@ -139,6 +143,7 @@ export const QUANTITY_TABLE: Readonly<Record<QuantityKind, QuantitySpec>> = {
     allowsNegative: false,
     acceptsFeetAndInches: false,
     approximatePrefix: false,
+    wholeSourceRoundsToWholeUnit: false,
     metric: { bareInputUnit: 'm2', bands: [
       { maxSiExclusive: 1, style: { kind: 'single', unit: 'cm2', decimals: 0 } },
       { maxSiExclusive: 10000, style: { kind: 'single', unit: 'm2', decimals: 0 } },
@@ -165,6 +170,7 @@ export const QUANTITY_TABLE: Readonly<Record<QuantityKind, QuantitySpec>> = {
     allowsNegative: true,
     acceptsFeetAndInches: false,
     approximatePrefix: false,
+    wholeSourceRoundsToWholeUnit: false,
     metric: { bareInputUnit: 'celsius', bands: [
       { maxSiExclusive: null, style: { kind: 'single', unit: 'celsius', decimals: 0 } },
     ] },
@@ -182,6 +188,7 @@ export const QUANTITY_TABLE: Readonly<Record<QuantityKind, QuantitySpec>> = {
     allowsNegative: false,
     acceptsFeetAndInches: false,
     approximatePrefix: false,
+    wholeSourceRoundsToWholeUnit: false,
     metric: { bareInputUnit: 'mm', bands: [
       { maxSiExclusive: null, style: { kind: 'single', unit: 'mm', decimals: 0 } },
     ] },
@@ -200,6 +207,7 @@ export const QUANTITY_TABLE: Readonly<Record<QuantityKind, QuantitySpec>> = {
     allowsNegative: false,
     acceptsFeetAndInches: false,
     approximatePrefix: false,
+    wholeSourceRoundsToWholeUnit: false,
     metric: { bareInputUnit: 'l', bands: [
       { maxSiExclusive: null, style: { kind: 'single', unit: 'l', decimals: 1 } },
     ] },
@@ -218,6 +226,7 @@ export const QUANTITY_TABLE: Readonly<Record<QuantityKind, QuantitySpec>> = {
     allowsNegative: false,
     acceptsFeetAndInches: true,
     approximatePrefix: false,
+    wholeSourceRoundsToWholeUnit: false,
     metric: { bareInputUnit: 'm', bands: [
       { maxSiExclusive: 1, style: { kind: 'single', unit: 'cm', decimals: 0 } },
       { maxSiExclusive: 10, style: { kind: 'single', unit: 'm', decimals: 1 } },
@@ -246,14 +255,16 @@ export const QUANTITY_TABLE: Readonly<Record<QuantityKind, QuantitySpec>> = {
     allowsNegative: false,
     acceptsFeetAndInches: true,
     approximatePrefix: false,
+    wholeSourceRoundsToWholeUnit: true,
     metric: { bareInputUnit: 'm', bands: [
       { maxSiExclusive: 1, style: { kind: 'single', unit: 'cm', decimals: 0 } },
+      { maxSiExclusive: 10, style: { kind: 'single', unit: 'm', decimals: 1 } },
       { maxSiExclusive: 1000, style: { kind: 'single', unit: 'm', decimals: 0 } },
       { maxSiExclusive: null, style: { kind: 'single', unit: 'km', decimals: 2 } },
     ] },
     usCustomary: { bareInputUnit: 'ft', bands: [
       { maxSiExclusive: 0.3048, style: { kind: 'single', unit: 'in', decimals: 0 } },
-      { maxSiExclusive: 1, style: { kind: 'feet_and_inches', dropZeroInches: true } },
+      { maxSiExclusive: 3.048, style: { kind: 'feet_and_inches', dropZeroInches: true } },
       { maxSiExclusive: 1609.344, style: { kind: 'single', unit: 'ft', decimals: 0 } },
       { maxSiExclusive: null, style: { kind: 'single', unit: 'mi', decimals: 2 } },
     ] },
@@ -270,15 +281,15 @@ export const QUANTITY_TABLE: Readonly<Record<QuantityKind, QuantitySpec>> = {
 } as const
 
 export const PDF_SCALES: readonly PdfScaleSpec[] = [
-  { id: 'ratio:50', group: 'ratio', label: "1:50", denominator: 50, metric: true, usCustomary: true },
-  { id: 'ratio:100', group: 'ratio', label: "1:100", denominator: 100, metric: true, usCustomary: true },
-  { id: 'ratio:200', group: 'ratio', label: "1:200", denominator: 200, metric: true, usCustomary: true },
-  { id: 'ratio:250', group: 'ratio', label: "1:250", denominator: 250, metric: true, usCustomary: true },
-  { id: 'ratio:500', group: 'ratio', label: "1:500", denominator: 500, metric: true, usCustomary: true },
-  { id: 'ratio:1000', group: 'ratio', label: "1:1,000", denominator: 1000, metric: true, usCustomary: true },
-  { id: 'ratio:2000', group: 'ratio', label: "1:2,000", denominator: 2000, metric: true, usCustomary: true },
-  { id: 'ratio:2500', group: 'ratio', label: "1:2,500", denominator: 2500, metric: true, usCustomary: true },
-  { id: 'ratio:5000', group: 'ratio', label: "1:5,000", denominator: 5000, metric: true, usCustomary: true },
+  { id: 'ratio:50', group: 'ratio', label: null, denominator: 50, metric: true, usCustomary: true },
+  { id: 'ratio:100', group: 'ratio', label: null, denominator: 100, metric: true, usCustomary: true },
+  { id: 'ratio:200', group: 'ratio', label: null, denominator: 200, metric: true, usCustomary: true },
+  { id: 'ratio:250', group: 'ratio', label: null, denominator: 250, metric: true, usCustomary: true },
+  { id: 'ratio:500', group: 'ratio', label: null, denominator: 500, metric: true, usCustomary: true },
+  { id: 'ratio:1000', group: 'ratio', label: null, denominator: 1000, metric: true, usCustomary: true },
+  { id: 'ratio:2000', group: 'ratio', label: null, denominator: 2000, metric: true, usCustomary: true },
+  { id: 'ratio:2500', group: 'ratio', label: null, denominator: 2500, metric: true, usCustomary: true },
+  { id: 'ratio:5000', group: 'ratio', label: null, denominator: 5000, metric: true, usCustomary: true },
   { id: 'us_arch:1_16_in_1_ft', group: 'us_architectural', label: "1/16″ = 1′-0″", denominator: 192, metric: false, usCustomary: true },
   { id: 'us_arch:3_32_in_1_ft', group: 'us_architectural', label: "3/32″ = 1′-0″", denominator: 128, metric: false, usCustomary: true },
   { id: 'us_arch:1_8_in_1_ft', group: 'us_architectural', label: "1/8″ = 1′-0″", denominator: 96, metric: false, usCustomary: true },

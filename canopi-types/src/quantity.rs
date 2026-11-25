@@ -16,7 +16,9 @@ pub use scales::{
     PDF_SCALES, PdfScaleGroup, PdfScaleSpec, SCALE_BAR_STEPS_METRIC_M, SCALE_BAR_STEPS_US_M,
     nice_distance_at_most, scale_bar_steps,
 };
-pub use tables::{QUANTITIES, select_display_band, spec_for};
+pub use tables::{
+    QUANTITIES, is_whole_si_unit, select_display_band, select_display_style, spec_for,
+};
 
 /// User-selected device unit system (contracts §14, `2.1-Q120`, `2.1-Q169`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Type)]
@@ -96,8 +98,12 @@ pub struct ConversionConstants {
     pub sq_feet_per_acre: f64,
     /// Exact square metres per acre (`4046.8564224`).
     pub m2_per_acre: f64,
+    /// Exact millimetres per centimetre (`10.0`).
+    pub mm_per_cm: f64,
     /// Exact millimetres per inch (`25.4`).
     pub mm_per_inch: f64,
+    /// Exact litres per millilitre (`0.001`).
+    pub liters_per_ml: f64,
     /// Exact litres per US liquid gallon (`3.785411784`).
     pub liters_per_us_gallon: f64,
     /// Fahrenheit degrees per Celsius degree (`1.8`).
@@ -123,7 +129,9 @@ pub const CONVERSION_CONSTANTS: ConversionConstants = ConversionConstants {
     m2_per_sq_foot: 0.092_903_04,
     sq_feet_per_acre: 43_560.0,
     m2_per_acre: 4_046.856_422_4,
+    mm_per_cm: 10.0,
     mm_per_inch: 25.4,
+    liters_per_ml: 0.001,
     liters_per_us_gallon: 3.785_411_784,
     fahrenheit_scale: 1.8,
     fahrenheit_offset: 32.0,
@@ -390,6 +398,10 @@ pub struct QuantitySpec {
     pub accepts_feet_and_inches: bool,
     /// Whether converted values show an approximation prefix (`false` per Operator Q2 Option A).
     pub approximate_prefix: bool,
+    /// Whether whole-SI source values `>= 1` round to whole display units
+    /// (`true` for `CatalogSize` per contracts §14 & Q2 Option A: `3 m` -> `3 m` / `10 ft`,
+    /// while fractional values like `1.5 m` or `2.5 m` follow the Length bands).
+    pub whole_source_rounds_to_whole_unit: bool,
     /// Metric display bands and bare-number unit.
     pub metric: QuantitySystemSpec,
     /// US customary display bands and bare-number unit.
@@ -400,12 +412,9 @@ pub struct QuantitySpec {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashSet;
-
     use super::{
-        CONVERSION_CONSTANTS, DisplayStyle, PDF_SCALES, PdfScaleGroup, QUANTITIES, QuantityKind,
-        SCALE_BAR_STEPS_METRIC_M, SCALE_BAR_STEPS_US_M, UnitId, UnitSystem,
-        default_unit_system_for_region, nice_distance_at_most, select_display_band, spec_for,
+        CONVERSION_CONSTANTS, DisplayStyle, QUANTITIES, QuantityKind, UnitId, UnitSystem,
+        default_unit_system_for_region, select_display_band, select_display_style, spec_for,
     };
 
     #[test]
@@ -461,6 +470,10 @@ mod tests {
             assert!(
                 !spec.approximate_prefix,
                 "Operator Q2 Option A: no ~ prefix"
+            );
+            assert_eq!(
+                spec.whole_source_rounds_to_whole_unit,
+                spec.kind == QuantityKind::CatalogSize
             );
             assert_eq!(spec.allows_negative, spec.kind == QuantityKind::Temperature);
             for bands in [spec.metric.bands, spec.us_customary.bands] {
@@ -535,58 +548,51 @@ mod tests {
                 decimals: 2
             }
         );
-        // CatalogSize: Q2 Option A (3 m -> whole ft, 0.5 m -> ft & in).
+        // CatalogSize (contracts §14, Q2 Option A): whole-m values >= 1 m round
+        // to whole m / whole ft, while fractional values follow Length bands.
+        for whole_m in [2.0, 3.0] {
+            assert_eq!(
+                select_display_style(QuantityKind::CatalogSize, UnitSystem::Metric, whole_m),
+                DisplayStyle::Single {
+                    unit: UnitId::Meter,
+                    decimals: 0
+                }
+            );
+            assert_eq!(
+                select_display_style(QuantityKind::CatalogSize, UnitSystem::UsCustomary, whole_m),
+                DisplayStyle::Single {
+                    unit: UnitId::Foot,
+                    decimals: 0
+                }
+            );
+        }
+        for frac_m in [1.5, 2.5, 1.8288] {
+            assert_eq!(
+                select_display_style(QuantityKind::CatalogSize, UnitSystem::Metric, frac_m),
+                DisplayStyle::Single {
+                    unit: UnitId::Meter,
+                    decimals: 1
+                }
+            );
+            assert_eq!(
+                select_display_style(QuantityKind::CatalogSize, UnitSystem::UsCustomary, frac_m),
+                DisplayStyle::FeetAndInches {
+                    drop_zero_inches: true
+                }
+            );
+        }
         assert_eq!(
-            select_display_band(QuantityKind::CatalogSize, UnitSystem::UsCustomary, 3.0).style,
+            select_display_style(QuantityKind::CatalogSize, UnitSystem::Metric, 0.5),
             DisplayStyle::Single {
-                unit: UnitId::Foot,
+                unit: UnitId::Centimeter,
                 decimals: 0
             }
         );
         assert_eq!(
-            select_display_band(QuantityKind::CatalogSize, UnitSystem::UsCustomary, 0.5).style,
+            select_display_style(QuantityKind::CatalogSize, UnitSystem::UsCustomary, 0.5),
             DisplayStyle::FeetAndInches {
                 drop_zero_inches: true
             }
-        );
-    }
-
-    #[test]
-    fn pdf_scales_and_scale_bar_ladders_are_valid_and_ordered() {
-        let mut ids = HashSet::new();
-        let mut counts = (0usize, 0usize, 0usize);
-        for scale in PDF_SCALES {
-            assert!(ids.insert(scale.id), "duplicate PDF scale id {}", scale.id);
-            assert!(scale.denominator > 0);
-            match scale.group {
-                PdfScaleGroup::Ratio => {
-                    assert!(scale.metric && scale.us_customary);
-                    counts.0 += 1;
-                }
-                PdfScaleGroup::UsArchitectural => {
-                    assert!(!scale.metric && scale.us_customary);
-                    counts.1 += 1;
-                }
-                PdfScaleGroup::UsEngineering => {
-                    assert!(!scale.metric && scale.us_customary);
-                    counts.2 += 1;
-                }
-                PdfScaleGroup::Fit => panic!("PDF_SCALES holds fixed-ratio scales only"),
-            }
-        }
-        assert_eq!(counts, (9, 9, 7));
-
-        for ladder in [SCALE_BAR_STEPS_METRIC_M, SCALE_BAR_STEPS_US_M] {
-            for pair in ladder.windows(2) {
-                assert!(pair[1] > pair[0], "ladder must be strictly increasing");
-            }
-        }
-        assert_eq!(nice_distance_at_most(0.0, UnitSystem::Metric), 0.1);
-        assert_eq!(nice_distance_at_most(35.0, UnitSystem::Metric), 20.0);
-        assert_eq!(nice_distance_at_most(1_500.0, UnitSystem::Metric), 1_000.0);
-        assert_eq!(
-            nice_distance_at_most(1_609.344, UnitSystem::UsCustomary),
-            1_609.344
         );
     }
 }

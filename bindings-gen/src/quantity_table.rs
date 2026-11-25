@@ -91,6 +91,7 @@ fn write_types(out: &mut String) -> Result<(), Box<dyn Error>> {
     writeln!(out, "  readonly allowsNegative: boolean")?;
     writeln!(out, "  readonly acceptsFeetAndInches: boolean")?;
     writeln!(out, "  readonly approximatePrefix: boolean")?;
+    writeln!(out, "  readonly wholeSourceRoundsToWholeUnit: boolean")?;
     writeln!(out, "  readonly metric: QuantitySystemSpec")?;
     writeln!(out, "  readonly usCustomary: QuantitySystemSpec")?;
     writeln!(out, "  readonly inputUnits: readonly UnitInputSpec[]")?;
@@ -99,7 +100,7 @@ fn write_types(out: &mut String) -> Result<(), Box<dyn Error>> {
     writeln!(out, "export interface PdfScaleSpec {{")?;
     writeln!(out, "  readonly id: string")?;
     writeln!(out, "  readonly group: Exclude<PdfScaleGroup, 'fit'>")?;
-    writeln!(out, "  readonly label: string")?;
+    writeln!(out, "  readonly label: string | null")?;
     writeln!(out, "  readonly denominator: number")?;
     writeln!(out, "  readonly metric: boolean")?;
     writeln!(out, "  readonly usCustomary: boolean")?;
@@ -147,7 +148,9 @@ fn write_regions_and_constants(out: &mut String) -> Result<(), Box<dyn Error>> {
     writeln!(out, "  m2PerSqFoot: {},", fmt_f64(c.m2_per_sq_foot))?;
     writeln!(out, "  sqFeetPerAcre: {},", fmt_f64(c.sq_feet_per_acre))?;
     writeln!(out, "  m2PerAcre: {},", fmt_f64(c.m2_per_acre))?;
+    writeln!(out, "  mmPerCm: {},", fmt_f64(c.mm_per_cm))?;
     writeln!(out, "  mmPerInch: {},", fmt_f64(c.mm_per_inch))?;
+    writeln!(out, "  litersPerMl: {},", fmt_f64(c.liters_per_ml))?;
     writeln!(
         out,
         "  litersPerUsGallon: {},",
@@ -207,6 +210,11 @@ fn write_quantity_spec(out: &mut String, spec: &QuantitySpec) -> Result<(), Box<
         spec.accepts_feet_and_inches
     )?;
     writeln!(out, "    approximatePrefix: {},", spec.approximate_prefix)?;
+    writeln!(
+        out,
+        "    wholeSourceRoundsToWholeUnit: {},",
+        spec.whole_source_rounds_to_whole_unit
+    )?;
     write_system_spec(out, "metric", &spec.metric)?;
     write_system_spec(out, "usCustomary", &spec.us_customary)?;
     writeln!(out, "    inputUnits: [")?;
@@ -281,7 +289,10 @@ fn write_pdf_scales(out: &mut String) -> Result<(), Box<dyn Error>> {
 }
 
 fn write_pdf_scale(out: &mut String, scale: &PdfScaleSpec) -> Result<(), Box<dyn Error>> {
-    let label = serde_json::to_string(scale.label)?;
+    let label = match scale.label {
+        Some(text) => serde_json::to_string(text)?,
+        None => "null".to_string(),
+    };
     writeln!(
         out,
         "  {{ id: '{}', group: '{}', label: {label}, denominator: {}, metric: {}, usCustomary: {} }},",
@@ -335,7 +346,11 @@ mod tests {
         assert!(first.contains("US_CUSTOMARY_REGIONS: readonly string[] = ['US', 'LR', 'MM']"));
         assert!(first.contains("dropZeroInches: true"));
         assert!(first.contains("approximatePrefix: false"));
-        assert!(first.contains("id: 'ratio:5000'"));
+        assert!(first.contains("wholeSourceRoundsToWholeUnit: true"));
+        assert!(first.contains("wholeSourceRoundsToWholeUnit: false"));
+        assert!(first.contains("mmPerCm: 10"));
+        assert!(first.contains("litersPerMl: 0.001"));
+        assert!(first.contains("id: 'ratio:5000', group: 'ratio', label: null, denominator: 5000"));
         assert!(first.contains("id: 'us_arch:1_8_in_1_ft'"));
         assert!(first.contains("id: 'us_eng:1_in_100_ft'"));
         // Metric 1500 m (#316 nit: de-DE "1,50 km") falls in the >= 1000 m km/2-decimal band.

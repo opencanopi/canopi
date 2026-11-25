@@ -44,19 +44,6 @@ const LENGTH_BANDS_US: &[DisplayBand] = &[
     single(None, UnitId::Mile, 2),
 ];
 
-const CATALOG_SIZE_BANDS_METRIC: &[DisplayBand] = &[
-    single(Some(1.0), UnitId::Centimeter, 0),
-    single(Some(C.m_per_km), UnitId::Meter, 0),
-    single(None, UnitId::Kilometer, 2),
-];
-
-const CATALOG_SIZE_BANDS_US: &[DisplayBand] = &[
-    single(Some(C.m_per_foot), UnitId::Inch, 0),
-    ft_in(Some(1.0)),
-    single(Some(C.m_per_mile), UnitId::Foot, 0),
-    single(None, UnitId::Mile, 2),
-];
-
 const LENGTH_INPUT_UNITS: &[UnitInputSpec] = &[
     input(
         UnitId::Millimeter,
@@ -175,7 +162,7 @@ const RAINFALL_INPUT_UNITS: &[UnitInputSpec] = &[
     ),
     input(
         UnitId::Centimeter,
-        10.0,
+        C.mm_per_cm,
         &[
             "cm",
             "centimeter",
@@ -197,7 +184,7 @@ const VOLUME_BANDS_US: &[DisplayBand] = &[single(None, UnitId::UsGallon, 1)];
 const VOLUME_INPUT_UNITS: &[UnitInputSpec] = &[
     input(
         UnitId::Milliliter,
-        0.001,
+        C.liters_per_ml,
         &[
             "ml",
             "milliliter",
@@ -226,6 +213,7 @@ pub const QUANTITIES: &[QuantitySpec] = &[
         allows_negative: false,
         accepts_feet_and_inches: true,
         approximate_prefix: false,
+        whole_source_rounds_to_whole_unit: false,
         metric: QuantitySystemSpec {
             bare_input_unit: UnitId::Meter,
             bands: LENGTH_BANDS_METRIC,
@@ -242,6 +230,7 @@ pub const QUANTITIES: &[QuantitySpec] = &[
         allows_negative: false,
         accepts_feet_and_inches: false,
         approximate_prefix: false,
+        whole_source_rounds_to_whole_unit: false,
         metric: QuantitySystemSpec {
             bare_input_unit: UnitId::SquareMeter,
             bands: AREA_BANDS_METRIC,
@@ -258,6 +247,7 @@ pub const QUANTITIES: &[QuantitySpec] = &[
         allows_negative: true,
         accepts_feet_and_inches: false,
         approximate_prefix: false,
+        whole_source_rounds_to_whole_unit: false,
         metric: QuantitySystemSpec {
             bare_input_unit: UnitId::Celsius,
             bands: TEMPERATURE_BANDS_METRIC,
@@ -274,6 +264,7 @@ pub const QUANTITIES: &[QuantitySpec] = &[
         allows_negative: false,
         accepts_feet_and_inches: false,
         approximate_prefix: false,
+        whole_source_rounds_to_whole_unit: false,
         metric: QuantitySystemSpec {
             bare_input_unit: UnitId::Millimeter,
             bands: RAINFALL_BANDS_METRIC,
@@ -290,6 +281,7 @@ pub const QUANTITIES: &[QuantitySpec] = &[
         allows_negative: false,
         accepts_feet_and_inches: false,
         approximate_prefix: false,
+        whole_source_rounds_to_whole_unit: false,
         metric: QuantitySystemSpec {
             bare_input_unit: UnitId::Liter,
             bands: VOLUME_BANDS_METRIC,
@@ -306,6 +298,7 @@ pub const QUANTITIES: &[QuantitySpec] = &[
         allows_negative: false,
         accepts_feet_and_inches: true,
         approximate_prefix: false,
+        whole_source_rounds_to_whole_unit: false,
         metric: QuantitySystemSpec {
             bare_input_unit: UnitId::Meter,
             bands: LENGTH_BANDS_METRIC,
@@ -322,13 +315,14 @@ pub const QUANTITIES: &[QuantitySpec] = &[
         allows_negative: false,
         accepts_feet_and_inches: true,
         approximate_prefix: false,
+        whole_source_rounds_to_whole_unit: true,
         metric: QuantitySystemSpec {
             bare_input_unit: UnitId::Meter,
-            bands: CATALOG_SIZE_BANDS_METRIC,
+            bands: LENGTH_BANDS_METRIC,
         },
         us_customary: QuantitySystemSpec {
             bare_input_unit: UnitId::Foot,
-            bands: CATALOG_SIZE_BANDS_US,
+            bands: LENGTH_BANDS_US,
         },
         input_units: LENGTH_INPUT_UNITS,
     },
@@ -369,4 +363,29 @@ pub fn select_display_band(
         }
     }
     &bands[bands.len() - 1]
+}
+
+/// Returns `true` when `abs_si` is an exact whole SI unit (within `1e-9`).
+#[must_use]
+pub fn is_whole_si_unit(abs_si: f64) -> bool {
+    abs_si.is_finite() && (abs_si - abs_si.round()).abs() <= 1e-9
+}
+
+/// Selects the effective [`DisplayStyle`] for `abs_si`, applying the per-value
+/// whole-source precision rule (`whole_source_rounds_to_whole_unit`) when
+/// `abs_si >= 1.0` is a whole SI unit (contracts §14, Q2 Option A).
+#[must_use]
+pub fn select_display_style(kind: QuantityKind, system: UnitSystem, abs_si: f64) -> DisplayStyle {
+    let spec = spec_for(kind);
+    let style = select_display_band(kind, system, abs_si).style;
+    if !spec.whole_source_rounds_to_whole_unit || abs_si < 1.0 || !is_whole_si_unit(abs_si) {
+        return style;
+    }
+    match style {
+        DisplayStyle::Single { unit, .. } => DisplayStyle::Single { unit, decimals: 0 },
+        DisplayStyle::FeetAndInches { .. } => DisplayStyle::Single {
+            unit: UnitId::Foot,
+            decimals: 0,
+        },
+    }
 }

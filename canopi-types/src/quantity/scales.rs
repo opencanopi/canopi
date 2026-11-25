@@ -40,8 +40,9 @@ pub struct PdfScaleSpec {
     pub id: &'static str,
     /// Picker group (`Ratio`, `UsArchitectural`, or `UsEngineering`).
     pub group: PdfScaleGroup,
-    /// Canonical scale label (`1:100`, `1/8″ = 1′-0″`, `1″ = 20′`).
-    pub label: &'static str,
+    /// Static display label for US architectural/engineering scales (`1/8″ = 1′-0″`, `1″ = 20′`).
+    /// `None` for `Ratio` scales, whose `1:<denominator>` label must be formatted via `Intl`.
+    pub label: Option<&'static str>,
     /// Exact denominator `D` of the `1 : D` map ratio.
     pub denominator: u32,
     /// Offered when `unit_system == Metric`.
@@ -50,190 +51,139 @@ pub struct PdfScaleSpec {
     pub us_customary: bool,
 }
 
-const fn scale(
+const fn ratio(id: &'static str, denominator: u32) -> PdfScaleSpec {
+    PdfScaleSpec {
+        id,
+        group: PdfScaleGroup::Ratio,
+        label: None,
+        denominator,
+        metric: true,
+        us_customary: true,
+    }
+}
+
+const fn us_scale(
     id: &'static str,
     group: PdfScaleGroup,
     label: &'static str,
     denominator: u32,
-    metric: bool,
-    us_customary: bool,
 ) -> PdfScaleSpec {
     PdfScaleSpec {
         id,
         group,
-        label,
+        label: Some(label),
         denominator,
-        metric,
-        us_customary,
+        metric: false,
+        us_customary: true,
     }
 }
 
 /// Operator-approved PDF scale picker list (`2.1-Q133`, `2.1-Q356`).
 pub const PDF_SCALES: &[PdfScaleSpec] = &[
-    scale("ratio:50", PdfScaleGroup::Ratio, "1:50", 50, true, true),
-    scale("ratio:100", PdfScaleGroup::Ratio, "1:100", 100, true, true),
-    scale("ratio:200", PdfScaleGroup::Ratio, "1:200", 200, true, true),
-    scale("ratio:250", PdfScaleGroup::Ratio, "1:250", 250, true, true),
-    scale("ratio:500", PdfScaleGroup::Ratio, "1:500", 500, true, true),
-    scale(
-        "ratio:1000",
-        PdfScaleGroup::Ratio,
-        "1:1,000",
-        1_000,
-        true,
-        true,
-    ),
-    scale(
-        "ratio:2000",
-        PdfScaleGroup::Ratio,
-        "1:2,000",
-        2_000,
-        true,
-        true,
-    ),
-    scale(
-        "ratio:2500",
-        PdfScaleGroup::Ratio,
-        "1:2,500",
-        2_500,
-        true,
-        true,
-    ),
-    scale(
-        "ratio:5000",
-        PdfScaleGroup::Ratio,
-        "1:5,000",
-        5_000,
-        true,
-        true,
-    ),
-    scale(
+    ratio("ratio:50", 50),
+    ratio("ratio:100", 100),
+    ratio("ratio:200", 200),
+    ratio("ratio:250", 250),
+    ratio("ratio:500", 500),
+    ratio("ratio:1000", 1_000),
+    ratio("ratio:2000", 2_000),
+    ratio("ratio:2500", 2_500),
+    ratio("ratio:5000", 5_000),
+    us_scale(
         "us_arch:1_16_in_1_ft",
         PdfScaleGroup::UsArchitectural,
         "1/16″ = 1′-0″",
         192,
-        false,
-        true,
     ),
-    scale(
+    us_scale(
         "us_arch:3_32_in_1_ft",
         PdfScaleGroup::UsArchitectural,
         "3/32″ = 1′-0″",
         128,
-        false,
-        true,
     ),
-    scale(
+    us_scale(
         "us_arch:1_8_in_1_ft",
         PdfScaleGroup::UsArchitectural,
         "1/8″ = 1′-0″",
         96,
-        false,
-        true,
     ),
-    scale(
+    us_scale(
         "us_arch:3_16_in_1_ft",
         PdfScaleGroup::UsArchitectural,
         "3/16″ = 1′-0″",
         64,
-        false,
-        true,
     ),
-    scale(
+    us_scale(
         "us_arch:1_4_in_1_ft",
         PdfScaleGroup::UsArchitectural,
         "1/4″ = 1′-0″",
         48,
-        false,
-        true,
     ),
-    scale(
+    us_scale(
         "us_arch:3_8_in_1_ft",
         PdfScaleGroup::UsArchitectural,
         "3/8″ = 1′-0″",
         32,
-        false,
-        true,
     ),
-    scale(
+    us_scale(
         "us_arch:1_2_in_1_ft",
         PdfScaleGroup::UsArchitectural,
         "1/2″ = 1′-0″",
         24,
-        false,
-        true,
     ),
-    scale(
+    us_scale(
         "us_arch:3_4_in_1_ft",
         PdfScaleGroup::UsArchitectural,
         "3/4″ = 1′-0″",
         16,
-        false,
-        true,
     ),
-    scale(
+    us_scale(
         "us_arch:1_in_1_ft",
         PdfScaleGroup::UsArchitectural,
         "1″ = 1′-0″",
         12,
-        false,
-        true,
     ),
-    scale(
+    us_scale(
         "us_eng:1_in_10_ft",
         PdfScaleGroup::UsEngineering,
         "1″ = 10′",
         120,
-        false,
-        true,
     ),
-    scale(
+    us_scale(
         "us_eng:1_in_20_ft",
         PdfScaleGroup::UsEngineering,
         "1″ = 20′",
         240,
-        false,
-        true,
     ),
-    scale(
+    us_scale(
         "us_eng:1_in_30_ft",
         PdfScaleGroup::UsEngineering,
         "1″ = 30′",
         360,
-        false,
-        true,
     ),
-    scale(
+    us_scale(
         "us_eng:1_in_40_ft",
         PdfScaleGroup::UsEngineering,
         "1″ = 40′",
         480,
-        false,
-        true,
     ),
-    scale(
+    us_scale(
         "us_eng:1_in_50_ft",
         PdfScaleGroup::UsEngineering,
         "1″ = 50′",
         600,
-        false,
-        true,
     ),
-    scale(
+    us_scale(
         "us_eng:1_in_60_ft",
         PdfScaleGroup::UsEngineering,
         "1″ = 60′",
         720,
-        false,
-        true,
     ),
-    scale(
+    us_scale(
         "us_eng:1_in_100_ft",
         PdfScaleGroup::UsEngineering,
         "1″ = 100′",
         1_200,
-        false,
-        true,
     ),
 ];
 
@@ -289,4 +239,56 @@ pub fn nice_distance_at_most(max_m: f64, system: UnitSystem) -> f64 {
         }
     }
     chosen
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashSet;
+
+    use super::{
+        PDF_SCALES, PdfScaleGroup, SCALE_BAR_STEPS_METRIC_M, SCALE_BAR_STEPS_US_M, UnitSystem,
+        nice_distance_at_most,
+    };
+
+    #[test]
+    fn pdf_scales_and_scale_bar_ladders_are_valid_and_ordered() {
+        let mut ids = HashSet::new();
+        let mut counts = (0usize, 0usize, 0usize);
+        for scale in PDF_SCALES {
+            assert!(ids.insert(scale.id), "duplicate PDF scale id {}", scale.id);
+            assert!(scale.denominator > 0);
+            match scale.group {
+                PdfScaleGroup::Ratio => {
+                    assert!(scale.metric && scale.us_customary);
+                    assert!(scale.label.is_none(), "ratio labels format with Intl");
+                    counts.0 += 1;
+                }
+                PdfScaleGroup::UsArchitectural => {
+                    assert!(!scale.metric && scale.us_customary);
+                    assert!(scale.label.is_some());
+                    counts.1 += 1;
+                }
+                PdfScaleGroup::UsEngineering => {
+                    assert!(!scale.metric && scale.us_customary);
+                    assert!(scale.label.is_some());
+                    counts.2 += 1;
+                }
+                PdfScaleGroup::Fit => panic!("PDF_SCALES holds fixed-ratio scales only"),
+            }
+        }
+        assert_eq!(counts, (9, 9, 7));
+
+        for ladder in [SCALE_BAR_STEPS_METRIC_M, SCALE_BAR_STEPS_US_M] {
+            for pair in ladder.windows(2) {
+                assert!(pair[1] > pair[0], "ladder must be strictly increasing");
+            }
+        }
+        assert_eq!(nice_distance_at_most(0.0, UnitSystem::Metric), 0.1);
+        assert_eq!(nice_distance_at_most(35.0, UnitSystem::Metric), 20.0);
+        assert_eq!(nice_distance_at_most(1_500.0, UnitSystem::Metric), 1_000.0);
+        assert_eq!(
+            nice_distance_at_most(1_609.344, UnitSystem::UsCustomary),
+            1_609.344
+        );
+    }
 }
