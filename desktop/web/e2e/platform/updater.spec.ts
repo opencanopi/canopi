@@ -193,15 +193,20 @@ async function waitForExit(what: string, timeout = 180_000): Promise<void> {
  * Starts the installed Canopi again on the session's profile in a new session, as a user starting it after it closed.
  * On Linux tauri-driver closes a running Canopi and launches it for the new session; on Windows the harness launches
  * it and the new session attaches (the harness's own launch is the first session's; this is every later one's).
+ * Pass `reopenedDesign` when `last_open_home` (2.1-Q127) will reopen that Design on boot instead of the start screen.
  */
-async function relaunch(): Promise<void> {
+async function relaunch(reopenedDesign?: string): Promise<void> {
   if (currentPlatform() === 'linux') {
     await browser.reloadSession()
   } else {
     const app = await launchForAttach(currentProfile())
     await browser.reloadSession({ ...browser.requestedCapabilities, 'ms:edgeOptions': { debuggerAddress: app.debuggerAddress } })
   }
-  await $('[data-start-screen]').waitForDisplayed({ timeout: 90_000 })
+  if (reopenedDesign === undefined) {
+    await $('[data-start-screen]').waitForDisplayed({ timeout: 90_000 })
+  } else {
+    await $(`button[aria-label="Rename Design: ${reopenedDesign}"]`).waitForDisplayed({ timeout: 90_000 })
+  }
 }
 
 /** Runs a Windows installer silently, as a user running a download by hand; it closes a running Canopi first. */
@@ -415,8 +420,9 @@ describe('the updater, from an installed N-1 to N', () => {
     await new Promise((settle) => setTimeout(settle, 2_000))
     runInstaller(N1_SETUP)
     await waitForExit('N-1\'s installer, run by hand, did not close it')
-    await relaunch()
-    await openDesign(garden, 'Reinstalled garden')
+    // Durable last_open_home (2.1-Q127) reopens the continuous-saved Design directly on boot.
+    await relaunch('Reinstalled garden')
+    expect(savedName(garden)).toBe('Reinstalled garden')
     current = garden
   })
 
@@ -451,11 +457,11 @@ describe('the updater, from an installed N-1 to N', () => {
 
     runInstaller(N1_SETUP)
     expect(installedVersion()).toBe('9.0.0')
-    await relaunch()
+    // 2.0.3 never clears last_open_home, so the prior test's Design reopens on boot (2.1-Q127).
+    await relaunch(current === '' ? undefined : 'Reinstalled garden')
     const kept = await launchCheckSwitch()
     expect(await kept.isSelected()).toBe(false)
     await browser.keys('Escape')
-    current = ''
   })
 
   // Every row, the MSI's included: msiexec starts only after the update path's flush (canopi-f47t.52.244).
