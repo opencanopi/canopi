@@ -2,6 +2,26 @@
 // Do not edit it by hand.
 import type { StoreId } from './contracts'
 
+export type FormId = "canopi_file" | "user_db" | "saved_stamp_payload" | "settings" | "library_catalogue" | "source_meta" | "web_drafts" | "web_species_lists" | "web_legacy_container"
+
+export interface FormSpec {
+  readonly form: FormId
+  readonly store: StoreId | null
+  readonly floor: number
+}
+
+export const FORM_SPECS: Readonly<Record<FormId, FormSpec>> = {
+  "canopi_file": { form: "canopi_file", store: null, floor: 9 },
+  "user_db": { form: "user_db", store: "user_db", floor: 9 },
+  "saved_stamp_payload": { form: "saved_stamp_payload", store: null, floor: 2 },
+  "settings": { form: "settings", store: "settings", floor: 1 },
+  "library_catalogue": { form: "library_catalogue", store: "library_catalogue", floor: 25 },
+  "source_meta": { form: "source_meta", store: null, floor: 1 },
+  "web_drafts": { form: "web_drafts", store: "web_drafts", floor: 4 },
+  "web_species_lists": { form: "web_species_lists", store: "web_species_lists", floor: 1 },
+  "web_legacy_container": { form: "web_legacy_container", store: null, floor: 3 },
+} as const
+
 export interface StoreFloor {
   readonly store: StoreId
   readonly minReadable: number

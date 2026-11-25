@@ -1,8 +1,12 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import type { StoreId } from '../generated/contracts'
-import { admitStoreVersion, STORE_FLOORS, type StoreFloor, type StoredForm } from '../generated/store-chain'
-import { requireStoreFloor, runStoreChain, type ChainStep } from './store-chain'
+import { admitStoreVersion, FORM_SPECS, STORE_FLOORS, type StoreFloor, type StoredForm } from '../generated/store-chain'
+import {
+  requireStoreFloor,
+  runStoreChain,
+  type ChainStep,
+} from './store-chain'
 
 interface WireExpected {
   kind: StoredForm['kind']
@@ -102,5 +106,46 @@ describe('platform/store-chain (Stage 2 Item 9)', () => {
     expect(() => runStoreChain(floor, 1, { v: 1, log: [] }, [steps[0]!])).toThrow(/missing or invalid step from v2/)
     expect(requireStoreFloor('settings').store).toBe('settings')
     expect(() => requireStoreFloor('plant_catalog')).toThrow(/no version floor declared/)
+  })
+
+  it('exposes the closed FORM_SPECS table aligned with STORE_FLOORS (2.1-M485, 2.1-M540)', () => {
+    expect(Object.keys(FORM_SPECS)).toHaveLength(9)
+    expect(FORM_SPECS.canopi_file).toEqual({ form: 'canopi_file', store: null, floor: 9 })
+    expect(FORM_SPECS.saved_stamp_payload).toEqual({ form: 'saved_stamp_payload', store: null, floor: 2 })
+    expect(FORM_SPECS.source_meta).toEqual({ form: 'source_meta', store: null, floor: 1 })
+    expect(FORM_SPECS.web_legacy_container).toEqual({ form: 'web_legacy_container', store: null, floor: 3 })
+    for (const spec of Object.values(FORM_SPECS)) {
+      if (spec.store !== null) {
+        expect(spec.floor).toBe(requireStoreFloor(spec.store).minReadable)
+      }
+    }
+  })
+
+  it('rejects async steps at compile time and thenables at runtime with step-returned-thenable (contracts §11)', () => {
+    const asyncStep: ChainStep<{ v: number }> = {
+      from: 1,
+      to: 2,
+      // @ts-expect-error async steps return Promise and must not compile
+      run: async (s) => ({ v: s.v + 1 }),
+    }
+    expect(() => runStoreChain({ store: 'settings', minReadable: 1, current: 2, maxReadable: null }, 1, { v: 1 }, [asyncStep]))
+      .toThrow(/step-returned-thenable/)
+
+    const thenableStep: ChainStep<{ v: number }> = {
+      from: 1,
+      to: 2,
+      run: (() => ({ then: () => undefined })) as unknown as ChainStep<{ v: number }>['run'],
+    }
+    try {
+      runStoreChain({ store: 'settings', minReadable: 1, current: 2, maxReadable: null }, 1, { v: 1 }, [thenableStep])
+      expect.unreachable('expected StepReturnedThenableError')
+    } catch (error) {
+      expect(error).toBeInstanceOf(Error)
+      const typed = error as Error & { code?: unknown; from?: unknown; store?: unknown }
+      expect(typed.name).toBe('StepReturnedThenableError')
+      expect(typed.code).toBe('step-returned-thenable')
+      expect(typed.from).toBe(1)
+      expect(typed.store).toBe('settings')
+    }
   })
 })

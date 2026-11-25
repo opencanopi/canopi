@@ -1,7 +1,7 @@
 //! Emits `desktop/web/src/generated/store-chain.ts` from `canopi_types::store_chain::STORE_FLOORS`
 //! (Stage 2 Item 9; ADR 0023, ADR 0026).
 
-use canopi_types::store_chain::STORE_FLOORS;
+use canopi_types::store_chain::{FORM_SPECS, STORE_FLOORS};
 use std::error::Error;
 use std::fmt::Write;
 
@@ -14,6 +14,7 @@ pub(crate) fn render_store_chain_ts() -> Result<String, Box<dyn Error>> {
     writeln!(out, "// Do not edit it by hand.")?;
     writeln!(out, "import type {{ StoreId }} from './contracts'")?;
     writeln!(out)?;
+    write_form_specs_ts(&mut out)?;
     writeln!(out, "export interface StoreFloor {{")?;
     writeln!(out, "  readonly store: StoreId")?;
     writeln!(out, "  readonly minReadable: number")?;
@@ -86,4 +87,39 @@ pub(crate) fn render_store_chain_ts() -> Result<String, Box<dyn Error>> {
     )?;
     writeln!(out, "}}")?;
     Ok(out)
+}
+
+fn write_form_specs_ts(out: &mut String) -> Result<(), Box<dyn Error>> {
+    let form_union = FORM_SPECS
+        .iter()
+        .map(|spec| serde_json::to_string(&spec.form))
+        .collect::<Result<Vec<_>, _>>()?
+        .join(" | ");
+    writeln!(out, "export type FormId = {form_union}")?;
+    writeln!(out)?;
+    writeln!(out, "export interface FormSpec {{")?;
+    writeln!(out, "  readonly form: FormId")?;
+    writeln!(out, "  readonly store: StoreId | null")?;
+    writeln!(out, "  readonly floor: number")?;
+    writeln!(out, "}}")?;
+    writeln!(out)?;
+    writeln!(
+        out,
+        "export const FORM_SPECS: Readonly<Record<FormId, FormSpec>> = {{"
+    )?;
+    for spec in FORM_SPECS {
+        let key = serde_json::to_string(&spec.form)?;
+        let store = match spec.store {
+            Some(store_id) => serde_json::to_string(&store_id)?,
+            None => "null".to_string(),
+        };
+        writeln!(
+            out,
+            "  {key}: {{ form: {key}, store: {store}, floor: {} }},",
+            spec.floor
+        )?;
+    }
+    writeln!(out, "}} as const")?;
+    writeln!(out)?;
+    Ok(())
 }
