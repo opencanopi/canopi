@@ -21,6 +21,8 @@ const designSessionStateMachine = createDesignSessionStateMachine();
 interface DesignSessionLoadOptions {
   readonly session?: CanvasDocumentSurface | null;
   readonly isCancelled?: () => boolean;
+  /** When false, load immediately even while detached on the Start screen instead of queueing. */
+  readonly deferWhenDetached?: boolean;
 }
 
 export function captureCurrentDesignObservation() {
@@ -111,9 +113,13 @@ export function openDesignSessionFromPath(
     session: options.session,
     load: () => designSessionStateMachine.loadDesignFromPath(path),
     isCancelled: options.isCancelled,
-    deferWhenDetachedAndEmpty: () => {
-      setPendingDesignPath(path);
-    },
+    ...(options.deferWhenDetached === false
+      ? {}
+      : {
+          deferWhenDetachedAndEmpty: () => {
+            setPendingDesignPath(path);
+          },
+        }),
   });
 }
 

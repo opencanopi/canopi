@@ -95,10 +95,11 @@ async function openFrom(
     }
   }
 
-  // Reopening `last_open_home`: missing or unreadable falls back quietly to the start screen.
+  // Reopening `last_open_home`: missing or unreadable falls back quietly to the start screen
+  // without showing a refusal dialog (contracts §4, 2.1-Q127).
   try {
     if (intent.home.kind === 'draft') {
-      await openDesignDraft(intent.home.id)
+      await openDesignDraft(intent.home.id, { presentFailure: false })
       return true
     }
     const resolvedPath = lastOpenHome?.resolveFilePath
@@ -108,7 +109,7 @@ async function openFrom(
       await lastOpenHome?.clear()
       return false
     }
-    await openDesignFromPath(resolvedPath)
+    await openDesignFromPath(resolvedPath, { presentFailure: false, deferWhenDetached: false })
     return true
   } catch {
     // Reopening last_open_home falls back quietly to the start screen when missing or unreadable.

@@ -20,6 +20,10 @@ import { presentDesignOpenFailure } from "./open-failure";
 interface DocumentLoadOptions {
   session?: CanvasDocumentSurface | null;
   isCancelled?: () => boolean;
+  /** Whether a failed open is shown to the user via `presentDesignOpenFailure` (defaults to `true`). */
+  presentFailure?: boolean;
+  /** When false, load immediately even while detached on the Start screen instead of queueing. */
+  deferWhenDetached?: boolean;
 }
 
 export {
@@ -57,9 +61,12 @@ export async function revertDesign(): Promise<void> {
 }
 
 /** Open a Design Draft through the shared replacement path. */
-export async function openDesignDraft(id: string): Promise<void> {
+export async function openDesignDraft(
+  id: string,
+  options: Pick<DocumentLoadOptions, "presentFailure"> = {},
+): Promise<void> {
   const result = await openDesignDraftSession(id);
-  presentIfFailed(result);
+  if (options.presentFailure !== false) presentIfFailed(result);
   throwIfFailed(result);
 }
 
@@ -79,9 +86,10 @@ export async function openDesignFromPath(
   const result = await openDesignSessionFromPath(path, {
     session: options.session,
     isCancelled: options.isCancelled,
+    deferWhenDetached: options.deferWhenDetached,
   });
 
-  presentIfFailed(result);
+  if (options.presentFailure !== false) presentIfFailed(result);
   throwIfFailed(result);
 }
 

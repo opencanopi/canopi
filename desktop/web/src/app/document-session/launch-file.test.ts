@@ -151,7 +151,12 @@ describe('the launch file (canopi-f47t.52.228.14)', () => {
 
     dispose = installLaunchFile({ ...launch.source, lastOpenHome })
 
-    await vi.waitFor(() => expect(openDesignFromPath).toHaveBeenCalledWith('/designs/reopened.canopi'))
+    await vi.waitFor(() =>
+      expect(openDesignFromPath).toHaveBeenCalledWith('/designs/reopened.canopi', {
+        presentFailure: false,
+        deferWhenDetached: false,
+      }),
+    )
     expect(lastOpenHome.clear).not.toHaveBeenCalled()
   })
 
