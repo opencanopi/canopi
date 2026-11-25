@@ -46,11 +46,8 @@ import { isPlantDbUnavailableError } from "../../ipc/plant-db-errors";
 import { createDesktopCanvasHostRuntime } from "../../app/canvas-map-surface/desktop-workspace-runtime";
 import { installCanvasHostRuntime } from "../../app/canvas-map-surface/use-canvas-host";
 
-function runtimeOsFromPlatform(platform: ReturnType<typeof detectPlatform>): RuntimeOs {
-  if (platform.os === "mac") return "macos";
-  if (platform.os === "windows") return "windows";
-  return "linux";
-}
+const runtimeOsFromPlatform = (platform: ReturnType<typeof detectPlatform>): RuntimeOs =>
+  platform.os === "mac" ? "macos" : platform.os === "windows" ? "windows" : "linux";
 
 let disposeDesktopRoot: (() => void) | null = null;
 
@@ -119,7 +116,7 @@ export function bootDesktopEdition(): () => void {
   );
 
   const dispose = () => {
-    disposers.slice().reverse().forEach((fn) => fn());
+    for (let i = disposers.length; i--;) disposers[i]!();
   };
   disposeDesktopRoot = dispose;
   return dispose;

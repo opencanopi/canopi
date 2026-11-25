@@ -20,7 +20,7 @@
     "desktop/web/src/components/canvas/ToolCard.tsx": { "count": 3 },
     "desktop/web/src/components/panels/SpeciesKeyPanel.tsx": { "count": 5 },
     "desktop/web/src/components/panels/lidar/SiteData.tsx": { "count": 6 },
-    "desktop/web/src/components/shared/CommandPalette.tsx": { "count": 4 },
+    "desktop/web/src/components/shared/CommandPalette.tsx": { "count": 1 },
     "desktop/web/src/components/shared/DockPanelHeader.tsx": { "count": 1 },
     "desktop/web/src/components/shared/PhoneSheet.tsx": { "count": 4 },
     "desktop/web/src/components/workspace/WorkspaceComposition.tsx": { "count": 1 }
