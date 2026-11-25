@@ -3,9 +3,11 @@
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+#[cfg(not(windows))]
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, Weak};
 
+#[cfg(not(windows))]
 static NEXT_CASE_PROBE_ID: AtomicU64 = AtomicU64::new(0);
 
 /// Per-target mutual exclusion table (ADR 0023, contracts §11).
