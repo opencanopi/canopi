@@ -476,16 +476,17 @@ describe('the updater, from an installed N-1 to N', () => {
     await openAbout()
     // Windows: the installer relaunches N with an environment built from the user's profile; it must find this one.
     handProfileToRelaunch(currentProfile())
-    // Capture N-1's pids and Second garden's recent_files.last_opened before restart so the next test proves a new
-    // process started (not a lingering N-1) and actually reopened the Design (advancing SQLite's 1 s datetime('now')).
+    // Capture N-1's pids before restart so the next test proves a new process started (not a lingering N-1).
     preRestartPids = new Set(canopiProcesses().map((running) => running.pid))
-    preRestartLastOpened = resolvedLastOpenHome(currentProfile()).lastOpened
-    await new Promise((tick) => setTimeout(tick, 1_100))
     await press('Install and restart')
     // Continuous save may write the edit 1.5 s after it; either way the file the relaunch opens must hold it: the
     // update path flushes before the installer starts. An installer run by hand has its own test above.
     await browser.waitUntil(windowGone, { timeout: 180_000, timeoutMsg: 'the app did not restart into the update' })
     expect(savedName(second)).toBe('Updated garden')
+    // Capture Second garden's recent_files.last_opened after N-1's update flush has completed (save_design also
+    // updates last_opened via try_record_recent) so the next test proves N itself reopened the Design.
+    preRestartLastOpened = resolvedLastOpenHome(currentProfile()).lastOpened
+    expect(preRestartLastOpened).not.toBeNull()
     current = second
   })
 
@@ -553,15 +554,17 @@ describe('the updater, from an installed N-1 to N', () => {
     // N reopens Second garden.canopi (renamed to Updated garden) through durable last_open_home rather than argv
     // (2.1-Q127, 2.1-M523): openDesignFromPath upserts recent_files.last_opened, proving the reopen actually ran.
     const expectedFile = basename(current)
+    const before = preRestartLastOpened
+    expect(before).not.toBeNull()
     try {
       await browser.waitUntil(() => {
         const home = resolvedLastOpenHome(currentProfile())
-        const reopened = home.lastOpened !== null && (preRestartLastOpened === null || home.lastOpened > preRestartLastOpened)
+        const reopened = home.lastOpened !== null && before !== null && home.lastOpened > before
         return reopened && home.resolvedPath !== null && basename(home.resolvedPath) === expectedFile && home.resolvedName === 'Updated garden'
       }, { timeout: Math.max(deadline - Date.now(), 1_000) })
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error)
-      throw new Error(`the relaunched Canopi did not reopen ${expectedFile} / Updated garden via last_open_home (before=${String(preRestartLastOpened)}, ${reason}): ${JSON.stringify(resolvedLastOpenHome(currentProfile()))}`)
+      throw new Error(`the relaunched Canopi did not reopen ${expectedFile} / Updated garden via last_open_home (before=${String(before)}, ${reason}): ${JSON.stringify(resolvedLastOpenHome(currentProfile()))}`)
     }
   })
 
