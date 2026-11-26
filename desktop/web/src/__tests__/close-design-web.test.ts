@@ -37,7 +37,7 @@ function memoryStorage(): MemoryStorage {
 
 function makeFile(name: string): CanopiFile {
   return {
-    version: 9,
+    version: 10,
     name,
     description: null,
     plant_species_colors: {},

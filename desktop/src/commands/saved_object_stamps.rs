@@ -1,9 +1,16 @@
-use super::design::internal_load_failure;
 use crate::db::UserDb;
 use crate::native_operation::{NativeOperationClass, NativeOperationExecutor};
-use canopi_types::design::{CanopiFile, DesignLoadFailure};
+use canopi_types::design::{CanopiFile, DesignLoadFailure, DesignLoadFailureKind};
 use canopi_types::saved_object_stamps::SavedObjectStamp;
 use tauri::State;
+
+fn internal_load_failure(message: String) -> DesignLoadFailure {
+    DesignLoadFailure {
+        kind: DesignLoadFailureKind::Internal,
+        message,
+        field_path: None,
+    }
+}
 
 #[tauri::command]
 pub async fn get_saved_object_stamps(

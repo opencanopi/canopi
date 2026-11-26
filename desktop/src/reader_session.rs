@@ -90,10 +90,6 @@ fn design_read<T>(
     use canopi_types::design::DesignLoadFailureKind;
     let (status, saved_by_version) = match opened {
         Ok(OpenedDesign::Editable(_)) => (StoreOpenStatus::Ready, None),
-        Ok(OpenedDesign::ReadOnly(design)) => (
-            StoreOpenStatus::NewerReadOnly,
-            Some(design.saved_by_version),
-        ),
         Err(failure) if failure.kind == DesignLoadFailureKind::NewerVersion => {
             (StoreOpenStatus::RefusedNewer, None)
         }

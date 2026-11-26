@@ -15,7 +15,6 @@ import initFormatCore, {
   format_core_version,
   moduleUrl as formatModuleUrl,
   new_design,
-  read_newer_design,
 } from '../../../../canopi-format-wasm/glue.js'
 
 /** How the module was compiled: from the streamed response, or from its whole body when not labelled wasm. */
@@ -24,7 +23,6 @@ type CompilePath = 'streaming' | 'arrayBuffer'
 /** A call into the module. */
 export type FormatCoreRequest =
   | { readonly id: number, readonly call: 'version' }
-  | { readonly id: number, readonly call: 'read', readonly text: string }
   | { readonly id: number, readonly call: 'decode', readonly text: string }
   | { readonly id: number, readonly call: 'encode', readonly designJson: string }
   | { readonly id: number, readonly call: 'new_design', readonly inputJson: string }
@@ -88,8 +86,6 @@ function dispatch(request: FormatCoreRequest): string {
   switch (request.call) {
     case 'version':
       return format_core_version()
-    case 'read':
-      return read_newer_design(request.text)
     case 'decode':
       return decode_design(request.text)
     case 'encode':

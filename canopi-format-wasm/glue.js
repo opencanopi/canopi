@@ -14,6 +14,5 @@ export {
   encode_stamp_payload,
   format_core_version,
   new_design,
-  read_newer_design,
 } from './dist/canopi_format_wasm.js';
 export { default as moduleUrl } from './dist/canopi_format_wasm_bg.wasm?url';

@@ -23,7 +23,7 @@ use crate::core::{
     MAX_CANOPI_FILE_BYTES, NewDesignInput, decode_design, decode_design_value_with_steps,
     draft_summary, encode_design, new_design, v9_schema, v10_schema,
 };
-use crate::read::read_newer_design;
+use crate::schema::admit_schema;
 use crate::schema::unsupported_keyword;
 use crate::spec_emit::emit_v10_spec_files;
 use crate::stamps::{
@@ -57,9 +57,10 @@ fn v9_frozen_fixture_migrates_to_hand_written_golden_and_opens_in_frozen_v2_0_5_
     );
 
     let parsed: Value = serde_json::from_slice(&encoded).unwrap();
-    let ro = read_newer_design(&parsed).expect("v2.0.5 frozen reader must open migrated v10");
-    assert_eq!(ro.saved_by_version, 10);
-    assert_eq!(ro.view.plants.len(), 2);
+    let frozen_read = read_schema().expect("v2.0.5 frozen read schema");
+    admit_schema(&parsed, frozen_read).expect("v2.0.5 frozen read schema must admit migrated v10");
+    assert_eq!(parsed["version"], 10);
+    assert_eq!(parsed["plants"].as_array().unwrap().len(), 2);
 }
 
 #[test]
@@ -292,8 +293,12 @@ fn m31_emitted_v10_schema_matches_typed_model_and_frozen_read_schema_deeply() {
         .expect("spec/v10/fixture.canopi decodes");
     let expected: Value = serde_json::from_str(include_str!("../spec/v10/expected.json")).unwrap();
     assert_eq!(opened.design, expected);
-    let ro = read_newer_design(&opened.design).expect("v2.0.5 frozen reader opens spec fixture");
-    assert_eq!(ro.saved_by_version, 10);
+    admit_schema(
+        &opened.design,
+        read_schema().expect("v2.0.5 frozen read schema"),
+    )
+    .expect("v2.0.5 frozen read schema admits spec fixture");
+    assert_eq!(opened.design["version"], 10);
 }
 
 #[test]
@@ -488,7 +493,8 @@ fn stamp_payload_v3_round_trips_through_canopi_file() {
     let canopi_doc = stamp_to_canopi_file(&v3, "Apple Guild", origin);
     let doc_bytes = encode_design(&canopi_doc).expect("stamp .canopi file passes write admission");
     let parsed: Value = serde_json::from_slice(&doc_bytes).unwrap();
-    read_newer_design(&parsed).expect("v2.0.5 frozen reader opens stamp .canopi file");
+    admit_schema(&parsed, read_schema().expect("v2.0.5 frozen read schema"))
+        .expect("v2.0.5 frozen read schema admits stamp .canopi file");
 
     let round_tripped = canopi_file_to_stamp(&parsed, origin).expect("file -> stamp");
     assert_eq!(round_tripped.plant_species_colors, v3.plant_species_colors);

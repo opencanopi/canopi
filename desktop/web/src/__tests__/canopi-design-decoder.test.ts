@@ -17,27 +17,22 @@ import {
 
 describe('Canopi Design decoder', () => {
   it.each([
-    { version: undefined, displayed: 1 },
     { version: 1, displayed: 1 },
     { version: 6, displayed: 6 },
     { version: 7, displayed: 7 },
     { version: 8, displayed: 8 },
-    { version: 10, displayed: 10 },
-  ])('refuses any version but the current one: $displayed', ({ version, displayed }) => {
+    { version: 11, displayed: 11 },
+  ])('refuses any version outside v9..v10: $displayed', ({ version }) => {
     const input = currentDesign()
-    if (version === undefined) delete input.version
-    else input.version = version
+    input.version = version
 
-    expect(() => decodeCanopiDesign(input)).toThrow(
-      `$.version: unsupported Canopi Design version ${displayed}; Canopi 2.0 and later open only version 9`,
-    )
     expectKind(() => decodeCanopiDesign(input), 'unsupported_version')
   })
 
   it.each([
     { version: 7, kind: 'older_version' },
     { version: 8, kind: 'older_version' },
-    { version: 10, kind: 'newer_version' },
+    { version: 11, kind: 'newer_version' },
   ])('tells a Design from before Canopi 2.0 apart from a newer one: v$version', ({ version, kind }) => {
     try {
       decodeCanopiDesign(currentDesign({ version }))
@@ -125,11 +120,12 @@ describe('Canopi Design decoder', () => {
     expect(recentFrontendDiagnostics()).toEqual([])
   })
 
-  it('canopi-f47t.52.270: Open sends a Design whose version is an integer above 9 to the read view, as saved_by_newer does', () => {
-    expect(isSavedByNewerCanopi({ version: 10 })).toBe(true)
+  it('canopi-f47t.52.270: isSavedByNewerCanopi flags only integer versions above 10 (2.1-Q347)', () => {
     expect(isSavedByNewerCanopi({ version: 11 })).toBe(true)
+    expect(isSavedByNewerCanopi({ version: 12 })).toBe(true)
+    expect(isSavedByNewerCanopi({ version: 10 })).toBe(false)
     expect(isSavedByNewerCanopi({ version: 9 })).toBe(false)
-    expect(isSavedByNewerCanopi({ version: 10.5 })).toBe(false)
+    expect(isSavedByNewerCanopi({ version: 11.5 })).toBe(false)
     expect(isSavedByNewerCanopi(null)).toBe(false)
   })
 
@@ -137,20 +133,18 @@ describe('Canopi Design decoder', () => {
     expectKind(() => parseCanopiText('{not json'), 'invalid_document')
   })
 
-  it("canopi-f47t.52.270: the v10 read fixture's view decodes as a 2.0 Design and shows its display options with no repair", () => {
-    const expected = JSON.parse(readFileSync(
-      '../../canopi-format/spec/v10/read-expected.json',
+  it('canopi-f47t.52.270: the v10 read fixture decodes directly in 2.1 and shows its display options', () => {
+    const fixture = JSON.parse(readFileSync(
+      '../../canopi-format/spec/v10/read-fixture.canopi',
       'utf8',
-    )) as { view: unknown }
-    resetFrontendDiagnosticsForTests()
-    const decoded = decodeCanopiDesign(expected.view)
+    )) as unknown
+    const decoded = decodeCanopiDesign(fixture)
     expect(readPlantDisplayOptions(decoded)).toMatchObject({
       colorBy: 'species',
       labels: 'codes',
       symbolScale: 1.25,
       outline: false,
     })
-    expect(recentFrontendDiagnostics()).toEqual([])
   })
 })
 

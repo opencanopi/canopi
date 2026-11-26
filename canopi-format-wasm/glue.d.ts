@@ -28,9 +28,3 @@ export function decode_stamp_payload(text: string): string;
 
 /** Validates and canonically encodes a v3 saved-stamp payload: `{"ok": "<canonical-json>"}` or `{"err": StampPayloadRefusal}`. */
 export function encode_stamp_payload(payload_json: string): string;
-
-/**
- * Legacy Step 2.0.4 read call: a `.canopi` text of version 10 or later read for the read-only view, as JSON:
- * `{"read":{"view":…,"saved_by_version":<n>}}` or `{"refused":{"kind":…,"message":…,"field_path":…}}`.
- */
-export function read_newer_design(text: string): string;

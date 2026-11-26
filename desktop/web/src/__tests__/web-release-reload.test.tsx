@@ -48,7 +48,7 @@ function memoryStorage(): MemoryStorage {
 
 function design(name: string, description: string | null = null): CanopiFile {
   return {
-    version: 9, name, description, plant_species_colors: {}, plant_species_symbols: {}, layers: [], plants: [],
+    version: 10, name, description, plant_species_colors: {}, plant_species_symbols: {}, layers: [], plants: [],
     zones: [], annotations: [], measurement_guides: [], groups: [], consortiums: [], timeline: [], budget: [],
     budget_currency: 'EUR', views: [], stories: [], created_at: '2026-01-01T00:00:00.000Z',
     updated_at: '2026-01-01T00:00:00.000Z', extra: {},

@@ -45,6 +45,5 @@ describe('createGalleryEditionPorts', () => {
     await expect(ports.designCore.draftSummary(new Uint8Array(), '2026-11-26T00:00:00Z')).rejects.toThrow()
     await expect(ports.designCore.decodeStamp('{}')).rejects.toThrow()
     await expect(ports.designCore.encodeStamp(stamp)).rejects.toThrow()
-    await expect(ports.designCore.readNewerDesign('{}')).rejects.toThrow()
   })
 })

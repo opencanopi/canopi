@@ -10,7 +10,7 @@ import { createTestSessionCore, type TestSessionCoreHandle } from './support/ses
 
 function makeFile(name: string, description: string | null = null): CanopiFile {
   return {
-    version: 9,
+    version: 10,
     name,
     description,
     plant_species_colors: {},

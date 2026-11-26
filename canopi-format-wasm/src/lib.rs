@@ -3,35 +3,23 @@
 //! first need by `desktop/web/src/platform/design-core.worker.ts`, the one
 //! importer of its glue (`wasm-glue-only-in-adapter`).
 //!
-//! Exposes both the Format Core v10 API (`decode_design`, `encode_design`, `new_design`,
-//! `draft_summary`, `decode_stamp_payload`, `encode_stamp_payload`, `format_core_version`)
-//! and the legacy Step 2.0.4 `read_newer_design` export until the TS DesignCore switch
-//! deletes the read-only view.
+//! Exposes the Format Core v10 API (`decode_design`, `encode_design`, `new_design`,
+//! `draft_summary`, `decode_stamp_payload`, `encode_stamp_payload`, `format_core_version`).
 
 use canopi_format::core::{
     FORMAT_CORE_VERSION, FormatRefusal, NewDesignInput, OpenedDesign,
     decode_design as core_decode_design, draft_summary as core_draft_summary,
     encode_design as core_encode_design, new_design as core_new_design,
 };
-use canopi_format::read::read_newer_design as read_view;
 use canopi_format::stamps::{
     StampPayloadRefusal, decode_stamp_payload as core_decode_stamp,
     encode_stamp_payload as core_encode_stamp,
 };
 use canopi_types::design::field_path::FieldPath;
 use canopi_types::design::v10::FormatLoadRefusalKind;
-use canopi_types::design::{DesignLoadFailure, DesignLoadFailureKind, ReadOnlyDesign};
 use canopi_types::saved_object_stamps::SavedObjectStampPayload;
 use serde::Serialize;
 use wasm_bindgen::prelude::wasm_bindgen;
-
-/// Legacy Step 2.0.4 answer envelope for [`read_newer_design`].
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "snake_case")]
-enum ReadAnswer {
-    Read(Box<ReadOnlyDesign>),
-    Refused(DesignLoadFailure),
-}
 
 /// Answer envelope for [`decode_design`].
 #[derive(Debug, Serialize)]
@@ -91,6 +79,7 @@ pub fn encode_design(design_json: &str) -> String {
             kind: FormatLoadRefusalKind::InvalidJson,
             message: "the Design is not valid JSON".to_owned(),
             field_path: Some(FieldPath::root().to_string()),
+            typed_field_path: Some(FieldPath::root()),
         }),
         Ok(value) => match core_encode_design(&value) {
             Ok(bytes) => {
@@ -140,28 +129,6 @@ pub fn encode_stamp_payload(payload_json: &str) -> String {
                 String::from_utf8(bytes).unwrap_or_else(|_| String::from("{}")),
             ),
             Err(refusal) => StampEncodeAnswer::Err(refusal),
-        },
-    };
-    serde_json::to_string(&answer).unwrap_or_else(|_| String::from("{}"))
-}
-
-/// Legacy Step 2.0.4 export: read `text`, a `.canopi` Design of version 10 or later,
-/// for the read-only view. Kept until Lead's TS DesignCore switch deletes the read-only view.
-#[wasm_bindgen]
-pub fn read_newer_design(text: &str) -> String {
-    let answer = match serde_json::from_str::<serde_json::Value>(text) {
-        Err(_) => ReadAnswer::Refused(DesignLoadFailure {
-            kind: DesignLoadFailureKind::InvalidJson,
-            message: "the Design is not JSON".to_owned(),
-            field_path: Some(FieldPath::root()),
-        }),
-        Ok(value) => match read_view(&value) {
-            Ok(design) => ReadAnswer::Read(Box::new(design)),
-            Err(refused) => ReadAnswer::Refused(DesignLoadFailure {
-                kind: refused.kind,
-                message: refused.refusal.to_string(),
-                field_path: Some(refused.refusal.field_path),
-            }),
         },
     };
     serde_json::to_string(&answer).unwrap_or_else(|_| String::from("{}"))

@@ -267,6 +267,9 @@ mod reader {
             let design = DESIGN_STORES.contains(&read.store.as_str());
             match (read.status.as_str(), read.saved_by_version) {
                 ("newer_read_only", None) if !design => {}
+                // 2.1-Q347: at v10 cutover, v10 Design/Draft files open Ready (without writing bytes)
+                // and v11+ files are refused as NewerVersion (`refused_newer`).
+                ("ready", None) if design => {}
                 ("newer_read_only", Some(version))
                     if design && version >= FIRST_2_1_CANOPI_VERSION => {}
                 ("refused_newer", None) if design => {}
@@ -313,7 +316,13 @@ mod reader {
         let first = FIRST_2_1_CANOPI_VERSION;
         let cases = [
             (2, "ready", None, true, "a store opened read-write"),
-            (1, "ready", None, true, "a Draft opened to edit"),
+            (
+                1,
+                "ready",
+                None,
+                false,
+                "a v10 Draft opens ready on 2.1 (2.1-Q347)",
+            ),
             (0, "newer_read_only", None, true, "no saved_by_version"),
             (0, "newer_read_only", Some(first - 1), true, "pre-2.1"),
             (0, "refused_newer", None, false, "a refused Design"),

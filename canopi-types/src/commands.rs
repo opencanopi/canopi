@@ -100,7 +100,6 @@ commands! {
     export_saved_object_stamp_canopi_file => "commands::saved_object_stamps::export_saved_object_stamp_canopi_file": Async (path: "string", content: "Record<string, unknown>") -> "string",
     load_saved_object_stamp_canopi_file => "commands::saved_object_stamps::load_saved_object_stamp_canopi_file": Async (path: "string") -> "CanopiFile",
     new_design => "commands::design::new_design": BoundedSync () -> "CanopiFile",
-    read_newer_design => "commands::design::read_newer_design": Async (text: "string") -> "ReadOnlyDesign",
     get_recent_files => "commands::design::get_recent_files": Async () -> "DesignSummary[]",
     get_recent_design_previews => "commands::design::get_recent_design_previews": Async (paths: "readonly string[]") -> "RecentDesignSummary[]",
     remove_recent_design => "commands::design::remove_recent_design": Async (path: "string") -> "void",
@@ -184,6 +183,6 @@ mod tests {
                 row.name
             );
         }
-        assert_eq!(names.len(), 90);
+        assert_eq!(names.len(), 89);
     }
 }

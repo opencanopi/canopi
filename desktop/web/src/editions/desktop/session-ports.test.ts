@@ -18,7 +18,6 @@ vi.mock('@tauri-apps/plugin-dialog', () => ({
 
 import { flattenDocumentForJson as encodeCanopiDesign } from '../../app/contracts/document'
 import { createJsonSessionCodec, createSessionCore, getLiveSessionCore, installLiveSessionCore } from '../../app/document-session/live-core'
-import { designSessionStore } from '../../app/document-session/store'
 import { makeTestDesign } from '../../__tests__/support/session-core-fixture'
 import type { DraftId } from '../../platform/design-home'
 import { bootDesktopEdition } from './boot'
@@ -27,7 +26,6 @@ import { createDesktopLastOpenHomePort, encodeDesktopLastOpenHome } from './last
 import {
   createDesktopAppLifecyclePort,
   createDesktopSessionHomeStore,
-  desktopDesignCorePort,
   desktopFileAccessPort,
   type DesktopWindowHandle,
 } from './session-ports'
@@ -59,9 +57,6 @@ describe('Desktop edition ports (M5, N1, N2)', () => {
         writes.push({ key: String(args.key), expected: (args.expected as string | null) ?? null })
         return { kind: 'written', version: 'sha-v9-next' }
       }
-      if (cmd === 'read_newer_design') {
-        return { saved_by_version: 10, view: makeTestDesign({ name: 'Future 2.1' }) }
-      }
       if (cmd === 'list_design_drafts') {
         return [{ id: 'draft-1', name: 'Draft One', updated_at: '2026-09-01T00:00:00.000Z' }]
       }
@@ -86,29 +81,25 @@ describe('Desktop edition ports (M5, N1, N2)', () => {
       designHome: home,
       fileAccess: desktopFileAccessPort,
       lifecycle: { subscribe: () => () => {} },
-      codec: createJsonSessionCodec({ readNewerDesign: desktopDesignCorePort.readNewerDesign }),
+      codec: createJsonSessionCodec(),
       settings: { readLastOpenHome: async () => null, writeLastOpenHome: async () => {} },
       newDesignFactory: () => makeTestDesign(),
       flushDelayMs: 60_000,
     })
     cleanups.push(installLiveSessionCore(core))
 
-    // Editable v9 file opens, edits, and writes through home_write IPC.
+    // Editable v10 file opens, edits, and writes through home_write IPC.
     const opened = await core.openFrom({ kind: 'file', grant: 'grant:v9' })
     expect(opened.status).toBe('opened')
     core.document('rename', () => ({ name: 'Desktop Orchard Edited' }))
     expect(await core.flushNow()).toBe(true)
     expect(writes).toEqual([{ key: 'grant:v9', expected: 'sha-v9' }])
 
-    // N1 (M478): Newer-Canopi v10 file opens read-only through native read_newer_design IPC, never refused.
-    const newer = await core.openFrom({ kind: 'file', grant: 'grant:v10' })
-    expect(newer.status).toBe('opened')
-    expect(designSessionStore.sessionKind.value).toEqual({
-      kind: 'read-only',
-      origin: 'newer-version',
-      savedByVersion: 10,
-    })
-    expect(designSessionStore.readDesignName()).toBe('Future 2.1')
+    // 2.1-Q347: v11 file is refused unchanged (no newer-file read-only view in 2.1).
+    const v11Bytes = Array.from(encoder.encode(JSON.stringify({ ...encodeCanopiDesign(makeTestDesign({ name: 'Future 2.2' })), version: 11 })))
+    invokeMock.mockImplementationOnce(async () => ({ kind: 'present', bytes: v11Bytes, version: 'sha-v11' }))
+    const newer = await core.openFrom({ kind: 'file', grant: 'grant:v11' })
+    expect(newer.status).toBe('refused')
   })
 
   it('B1 + B2: desktopFileAccessPort and last_open_home use host-minted { grant, displayName, recentId }, never raw paths', async () => {
@@ -216,7 +207,7 @@ describe('Desktop edition ports (M5, N1, N2)', () => {
       designHome: createDesktopSessionHomeStore(),
       fileAccess: desktopFileAccessPort,
       lifecycle: lifecycleB,
-      codec: createJsonSessionCodec({ readNewerDesign: desktopDesignCorePort.readNewerDesign }),
+      codec: createJsonSessionCodec(),
       settings: { readLastOpenHome: async () => null, writeLastOpenHome: async () => {} },
       newDesignFactory: () => makeTestDesign(),
       flushDelayMs: 60_000,
@@ -252,7 +243,7 @@ describe('Desktop edition ports (M5, N1, N2)', () => {
     expect(desktopGeoJsonWorkflow).toBeDefined()
 
     invokeMock.mockImplementation(async (cmd: string) => {
-      if (cmd === 'new_design') return makeTestDesign({ name: 'Booted Desktop' })
+      if (cmd === 'new_design' || cmd === 'design_core_new_design') return makeTestDesign({ name: 'Booted Desktop' })
       if (cmd === 'get_recent_files') return []
       if (cmd === 'take_pending_open') return null
       if (cmd === 'load_settings') return null

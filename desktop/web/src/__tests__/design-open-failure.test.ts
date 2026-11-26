@@ -82,8 +82,7 @@ describe('a Design that cannot be opened is told to the user', () => {
   })
 })
 
-/** The read output canopi-format gives for spec/v10/read-fixture.canopi: what the worker answers for a v10 file. */
-const READ_VIEW = readFileSync('../../canopi-format/spec/v10/read-expected.json', 'utf8')
+/** The frozen v10 Design fixture: what the worker answers for a v10 file. */
 const V10_TEXT = readFileSync('../../canopi-format/spec/v10/read-fixture.canopi', 'utf8')
 
 type DesignCoreWorker = ReturnType<NonNullable<NonNullable<Parameters<typeof createDesignCore>[0]>['createWorker']>>
@@ -98,7 +97,7 @@ class FakeFormatWorker implements DesignCoreWorker {
   postMessage(message: DesignCoreRequest): void { this.calls.push(message) }
   terminate(): void { this.terminated = true }
   answer(reply: unknown): void { this.onmessage?.({ data: reply } as MessageEvent<unknown>) }
-  read(id: number): void { this.answer({ id, ok: true, value: `{"read":${READ_VIEW}}`, compiledBy: 'streaming' }) }
+  read(id: number): void { this.answer({ id, ok: true, value: JSON.stringify({ ok: { design: JSON.parse(V10_TEXT), migrated_from: null } }), compiledBy: 'streaming' }) }
   /** The worker script itself failed: a 404 after a deploy, or a module the engine refused. */
   failToStart(): void { this.onerror?.(new Event('error', { cancelable: true })) }
 }
@@ -121,17 +120,20 @@ function webOpen(text = V10_TEXT, { installed = true } = {}) {
     codec: createJsonSessionCodec({
       decode: async (bytes) => {
         lastDecodeError = null
-        const raw = new TextDecoder().decode(bytes)
         if (!activeFormatCore) {
           lastDecodeError = { kind: 'newer_version', message: 'newer version' }
           throw lastDecodeError
         }
         try {
-          const result = await activeFormatCore.readNewerDesign(raw)
+          const result = await activeFormatCore.decode(bytes)
+          if ('err' in result) {
+            lastDecodeError = result.err
+            throw Object.assign(new Error(result.err.message), result.err)
+          }
           return {
-            file: result.view,
-            readOnly: true,
-            savedByVersion: result.saved_by_version,
+            file: result.ok.design as never,
+            readOnly: false,
+            savedByVersion: null,
           }
         } catch (error) {
           lastDecodeError = error
@@ -208,7 +210,7 @@ describe('a newer Design the Web format core cannot read is told to the user', (
     await expect(refused).resolves.toBe(false)
     expect(designSessionStore.hasCurrentDesign()).toBe(false)
     expect(h.workers[0]!.terminated).toBe(true)
-    expect(recentFrontendDiagnostics()).toEqual([expect.objectContaining({ code: { kind: 'format_core_unavailable' }, source: 'format_core.read' })])
+    expect(recentFrontendDiagnostics()).toEqual([expect.objectContaining({ code: { kind: 'format_core_unavailable' }, source: 'format_core' })])
 
     // The module itself could not load inside a running worker: that open only, and the same worker loads again next.
     const second = h.openCanopi()
@@ -222,7 +224,7 @@ describe('a newer Design the Web format core cannot read is told to the user', (
     expect(h.workers).toHaveLength(2)
     h.workers[1]!.read(h.workers[1]!.calls[1]!.id)
     await expect(retried).resolves.toBe(true)
-    expect(designSessionStore.sessionKind.value).toEqual({ kind: 'read-only', origin: 'newer-version', savedByVersion: 10 })
+    expect(designSessionStore.hasCurrentDesign()).toBe(true)
   })
 
   it('canopi-f47t.52.270: a newer Design opened before the format core is installed, or after it is disposed, is refused as newer_version, as 2.0 refuses it', async () => {
@@ -240,20 +242,21 @@ describe('a newer Design the Web format core cannot read is told to the user', (
   it('canopi-f47t.52.270: a trap in decode settles that read and the reads queued behind it format_core_trapped, never replayed, and the next read starts a new worker', async () => {
     const h = webOpen()
     disposers.push(h.dispose)
-    const first = h.core!.readNewerDesign(V10_TEXT)
-    const queued = h.core!.readNewerDesign(V10_TEXT)
+    const bytes = new TextEncoder().encode(V10_TEXT)
+    const first = h.core!.decode(bytes)
+    const queued = h.core!.decode(bytes)
     const [trapped, behind] = h.workers[0]!.calls
     h.workers[0]!.answer({ id: trapped!.id, ok: false, error: 'trapped', detail: 'trapped' })
-    await expect(first).rejects.toMatchObject({ code: { kind: 'format_core_trapped' }, user_may_retry: true })
+    await expect(first).rejects.toMatchObject({ code: { kind: 'format_core_trapped' } })
     await expect(queued).rejects.toMatchObject({ code: { kind: 'format_core_trapped' } })
     expect(h.workers[0]!.terminated).toBe(true)
 
     // A late answer from the dead worker settles nothing twice; the next read runs on a new one.
     h.workers[0]!.read(behind!.id)
-    const next = h.core!.readNewerDesign(V10_TEXT)
+    const next = h.core!.decode(bytes)
     expect(h.workers).toHaveLength(2)
     h.workers[1]!.read(h.workers[1]!.calls[0]!.id)
-    await expect(next).resolves.toMatchObject({ saved_by_version: 10 })
+    await expect(next).resolves.toMatchObject({ ok: { design: { version: 10 } } })
     expect(designOpenFailureNoticeOf(await first.catch((error: unknown) => error)).message).toBe('failure.formatCoreTrapped')
   })
 
@@ -270,7 +273,7 @@ describe('a newer Design the Web format core cannot read is told to the user', (
     h.workers[0]!.read(h.workers[0]!.calls[0]!.id)
     h.workers[0]!.failToStart()
     await Promise.resolve()
-    expect([designSessionStore.sessionKind.value?.kind, designSessionStore.readDesignName(), presenter.mock.calls.length]).toEqual(['read-only', 'Orchard by the pond', 0])
+    expect([designSessionStore.sessionKind.value?.kind, designSessionStore.readDesignName(), presenter.mock.calls.length]).toEqual(['editing', 'Orchard by the pond', 0])
   })
 
   it('canopi-f47t.52.270: a newer Design the read refuses says why as Desktop does, its field kept for the report', async () => {
@@ -279,7 +282,7 @@ describe('a newer Design the Web format core cannot read is told to the user', (
     const refused = h.openCanopi()
     await h.posted(1)
     const failure = { kind: 'newer_version', message: '$.plants[0].canonical_name: missing required value', field_path: '$.plants[0].canonical_name' }
-    h.workers[0]!.answer({ id: h.workers[0]!.calls[0]!.id, ok: true, value: JSON.stringify({ refused: failure }), compiledBy: 'streaming' })
+    h.workers[0]!.answer({ id: h.workers[0]!.calls[0]!.id, ok: true, value: JSON.stringify({ err: failure }), compiledBy: 'streaming' })
     await expect(refused).resolves.toBe(false)
     expect(recentFrontendDiagnostics()[0]?.message).toContain('at $.plants[0].canonical_name')
   })

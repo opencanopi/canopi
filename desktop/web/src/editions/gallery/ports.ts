@@ -62,9 +62,6 @@ export function createGalleryEditionPorts(edition: 'desktop' | 'web'): EditionPo
       encodeStamp: async () => {
         throw new Error('Gallery edition does not encode stamps')
       },
-      readNewerDesign: async () => {
-        throw new Error('Gallery edition does not decode newer Designs')
-      },
     },
   }
 }

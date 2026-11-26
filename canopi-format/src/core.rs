@@ -93,12 +93,14 @@ pub fn decode_design(bytes: &[u8]) -> Result<OpenedDesign, FormatRefusal> {
             kind: FormatLoadRefusalKind::TooLarge,
             message: format!("file exceeds {MAX_CANOPI_FILE_BYTES} bytes"),
             field_path: None,
+            typed_field_path: None,
         });
     }
     let raw: Value = serde_json::from_slice(bytes).map_err(|_| FormatRefusal {
         kind: FormatLoadRefusalKind::InvalidJson,
         message: "expected valid JSON".to_owned(),
         field_path: None,
+        typed_field_path: None,
     })?;
     decode_design_value(raw)
 }
@@ -126,17 +128,21 @@ pub fn decode_design_value_with_steps(
     let version = read_integer_version(&raw)?;
     let (migrated_from, candidate) = match admit_canopi_version(Some(version)) {
         Admission::Absent | Admission::BeforeFloor { .. } => {
+            let path = FieldPath::root().field("version");
             return Err(FormatRefusal {
                 kind: FormatLoadRefusalKind::OlderVersion,
                 message: format!("format version {version} is older than Canopi 2.0"),
-                field_path: Some(FieldPath::root().field("version").to_string()),
+                field_path: Some(path.to_string()),
+                typed_field_path: Some(path),
             });
         }
         Admission::NewerReadable { .. } | Admission::RefusedNewer { .. } => {
+            let path = FieldPath::root().field("version");
             return Err(FormatRefusal {
                 kind: FormatLoadRefusalKind::NewerVersion,
                 message: format!("format version {version} is newer than Canopi 2.1"),
-                field_path: Some(FieldPath::root().field("version").to_string()),
+                field_path: Some(path.to_string()),
+                typed_field_path: Some(path),
             });
         }
         Admission::Migratable { from } => {
@@ -146,6 +152,19 @@ pub fn decode_design_value_with_steps(
                     FormatRefusal::invalid_document(FieldPath::root(), "a valid frozen v9 schema")
                 })?;
                 admit_schema(&raw, schema_v9).map_err(FormatRefusal::from_refusal)?;
+                if let Some(groups) = raw.get("groups").and_then(Value::as_array) {
+                    let mut seen = std::collections::HashSet::new();
+                    for (idx, group) in groups.iter().enumerate() {
+                        if let Some(id) = group.get("id").and_then(Value::as_str)
+                            && !seen.insert(id)
+                        {
+                            return Err(FormatRefusal::invalid_document(
+                                FieldPath::root().field("groups").index(idx).field("id"),
+                                "expected unique group ids",
+                            ));
+                        }
+                    }
+                }
             }
             let migrated =
                 run_steps_with(steps, floor, raw, from).map_err(|step_err| FormatRefusal {
@@ -157,6 +176,7 @@ pub fn decode_design_value_with_steps(
                         step_err.from, step_err.reason
                     ),
                     field_path: Some(FieldPath::root().to_string()),
+                    typed_field_path: Some(FieldPath::root()),
                 })?;
             (Some(from), migrated)
         }
@@ -203,6 +223,7 @@ pub fn encode_design(design: &Value) -> Result<Vec<u8>, FormatRefusal> {
             kind: FormatLoadRefusalKind::TooLarge,
             message: format!("encoded file exceeds {MAX_CANOPI_FILE_BYTES} bytes"),
             field_path: None,
+            typed_field_path: None,
         });
     }
     Ok(bytes)
@@ -316,9 +337,9 @@ fn parse_and_admit_v10(
     let mut typed: CanopiFileV10 = serde_json::from_value(value.clone()).map_err(|_| {
         FormatRefusal::invalid_document(FieldPath::root(), "a valid v10 CanopiFile")
     })?;
+    admit_design_v10(&typed, mode).map_err(FormatRefusal::from_refusal)?;
     if mode == V10AdmissionMode::Decode {
         normalise_v10_on_decode(&mut typed);
     }
-    admit_design_v10(&typed, mode).map_err(FormatRefusal::from_refusal)?;
     Ok(typed)
 }

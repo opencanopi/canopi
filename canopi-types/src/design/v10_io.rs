@@ -48,6 +48,10 @@ pub struct FormatRefusal {
     /// Optional leaf field path for diagnostics and Problem Reports.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub field_path: Option<String>,
+    /// Typed field path preserved in-process for Rust callers (never serialized).
+    #[serde(skip)]
+    #[specta(skip)]
+    pub typed_field_path: Option<FieldPath>,
 }
 
 impl FormatRefusal {
@@ -61,10 +65,13 @@ impl FormatRefusal {
     /// Converts a [`Refusal`] from schema or typed admission into a [`FormatRefusal`].
     #[must_use]
     pub fn from_refusal(refusal: Refusal) -> Self {
+        let field_path = Some(refusal.field_path.to_string());
+        let typed_field_path = Some(refusal.field_path.clone());
         Self {
             kind: FormatLoadRefusalKind::InvalidDocument,
             message: refusal.to_string(),
-            field_path: Some(refusal.field_path.to_string()),
+            field_path,
+            typed_field_path,
         }
     }
 }

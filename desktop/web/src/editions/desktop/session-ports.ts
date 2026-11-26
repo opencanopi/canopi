@@ -4,7 +4,7 @@
  */
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { pickOpen, pickSave } from '../../ipc/dialogs'
-import { deleteDesignDraft, listDesignDrafts, readNewerDesign } from '../../ipc/design'
+import { deleteDesignDraft, listDesignDrafts } from '../../ipc/design'
 import {
   designCoreCanopiToStamp,
   designCoreDecode,
@@ -185,5 +185,4 @@ export const desktopDesignCorePort: DesignCore = {
     return 'ok' in reply ? { ok: new Uint8Array(reply.ok) } : reply
   },
   canopiToStamp: (bytes, origin) => designCoreCanopiToStamp(bytes, origin),
-  readNewerDesign: (text) => readNewerDesign(text),
 }

@@ -53,7 +53,6 @@ import type {
   ProblemReportResult,
   ProcessingHistoryPage,
   RasterQuantity,
-  ReadOnlyDesign,
   RecentDesignSummary,
   SavedObjectStamp,
   SavedObjectStampPayload,

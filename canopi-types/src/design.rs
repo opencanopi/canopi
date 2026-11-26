@@ -25,12 +25,12 @@ pub const DEFAULT_BUDGET_CURRENCY: &str = "EUR";
 )]
 pub const DEFAULT_PLANT_SYMBOL_ID: &str = "round";
 /// Current `.canopi` format version shared by native loading and generated Web facts.
-pub const CURRENT_CANOPI_FILE_VERSION: u32 = 9;
+pub const CURRENT_CANOPI_FILE_VERSION: u32 = 10;
 /// Missing versions are interpreted as the first public `.canopi` format.
 pub const MISSING_CANOPI_FILE_VERSION: u32 = 1;
-/// What the reader release does with a file newer than [`CURRENT_CANOPI_FILE_VERSION`] (the corpus fact
-/// `future_version_policy`): it opens read-only, never written (2.1-M478, 2.1-M481; Step 2.0.4).
-pub const FUTURE_CANOPI_FILE_VERSION_POLICY: &str = "newer_read_only";
+/// What Canopi 2.1 does with a file newer than [`CURRENT_CANOPI_FILE_VERSION`] (the corpus fact
+/// `future_version_policy`): refused unchanged (2.1-Q347; read-only view deleted at 2b-5).
+pub const FUTURE_CANOPI_FILE_VERSION_POLICY: &str = "refuse_newer";
 #[expect(
     missing_docs,
     reason = "undocumented before 2.1-Q217; document when this file is next touched"

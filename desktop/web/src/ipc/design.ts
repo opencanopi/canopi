@@ -7,14 +7,8 @@ import type {
 } from '../types/design'
 import type {
   DesignDraftSummary,
-  ReadOnlyDesign,
   RecentDesignSummary,
 } from '../generated/contracts'
-
-/** Read a Design saved by a newer Canopi into its read-only view (2.1-M478). */
-export async function readNewerDesign(text: string): Promise<ReadOnlyDesign> {
-  return invokeTyped('read_newer_design', { text }, mintOperationId('u'))
-}
 
 export async function listDesignDrafts(): Promise<DesignDraftSummary[]> {
   return invokeTyped('list_design_drafts', undefined, mintOperationId('u'))
@@ -22,11 +16,6 @@ export async function listDesignDrafts(): Promise<DesignDraftSummary[]> {
 
 export async function deleteDesignDraft(id: string): Promise<void> {
   return invokeTyped('delete_design_draft', { id }, mintOperationId('u'))
-}
-
-/** Create a new empty design with default layers. */
-export async function newDesign(): Promise<CanopiFile> {
-  return invokeTyped('new_design', undefined, mintOperationId('u'))
 }
 
 /** Get recently opened files list. */

@@ -96,7 +96,7 @@ describe('IPC transport', () => {
   it('a typed refusal not yet on the catalogue reaches its caller unchanged, for its surface to word', async () => {
     const refusal = { kind: 'newer_version', message: 'written by Canopi 9.0' }
     invoke.mockRejectedValueOnce(refusal)
-    await expect(invokeTyped('read_newer_design', { text: '{}' }, mintOperationId('u'))).rejects.toBe(refusal)
+    await expect(invokeTyped('load_saved_object_stamp_canopi_file', { path: '/tmp/a.canopi' }, mintOperationId('u'))).rejects.toBe(refusal)
     expect(ringEntries()).toEqual([])
   })
 

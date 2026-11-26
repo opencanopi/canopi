@@ -1,11 +1,10 @@
-use canopi_format::read::{FIRST_READ_VERSION, ReadRefusal, read_newer_design};
 use canopi_types::design::field_path::{FieldPath, Refusal};
+use canopi_types::design::v10::FormatLoadRefusalKind;
 use canopi_types::design::{
     CURRENT_CANOPI_FILE_VERSION, CanopiDesignIngestionErrorKind, CanopiFile,
     DEFAULT_BUDGET_CURRENCY, DesignLoadFailure, DesignLoadFailureKind, Layer, LoadedDesign,
-    MISSING_CANOPI_FILE_VERSION, ReadOnlyDesign,
+    MISSING_CANOPI_FILE_VERSION,
 };
-use canopi_types::views::{validate_map_view, validate_views_and_stories};
 use std::fmt;
 use std::path::Path;
 
@@ -71,34 +70,19 @@ pub(crate) const MAX_CANOPI_FILE_BYTES: u64 = 64 * 1024 * 1024;
 /// the caller knows the path, and they reach logs and Problem Reports.
 #[derive(Debug)]
 pub(crate) enum DesignLoadError {
-    Read {
-        source: std::io::Error,
-    },
-    TooLarge {
-        limit: u64,
-    },
-    InvalidJson {
-        source: serde_json::Error,
-    },
-    Ingestion {
-        source: CanopiDesignIngestionError,
-    },
-    /// A Design of version 10 or later the read view refused, with its kind (2.1-M481).
-    NewerRefused {
-        source: ReadRefusal,
-    },
+    Read { source: std::io::Error },
+    TooLarge { limit: u64 },
+    InvalidJson { source: serde_json::Error },
+    Ingestion { source: CanopiDesignIngestionError },
 }
 
-/// A Design as it opens (2.1-M478): `Editable` in this build's format, or `ReadOnly` when a
-/// newer Canopi saved it, a view no save, Draft or export path takes (2.1-M479). The wire
-/// carries the one shape or the other, a read-only one told apart by `saved_by_version`.
+/// A Design as it opens (2.1-Q347: from 2.1.0, newer Designs are refused unchanged,
+/// never opened read-only).
 #[derive(Debug, serde::Serialize)]
 #[serde(untagged)]
 pub enum OpenedDesign<T> {
-    /// This build's format, to edit.
+    /// This build's format (v9 migrated or v10), to edit.
     Editable(T),
-    /// Saved by a newer Canopi, to read only.
-    ReadOnly(Box<ReadOnlyDesign>),
 }
 
 impl OpenedDesign<LoadedDesign> {
@@ -106,7 +90,6 @@ impl OpenedDesign<LoadedDesign> {
     pub(crate) fn name(&self) -> &str {
         match self {
             Self::Editable(loaded) => &loaded.file.name,
-            Self::ReadOnly(design) => &design.view.name,
         }
     }
 }
@@ -117,7 +100,6 @@ impl<T> OpenedDesign<T> {
     pub(crate) fn editable(self) -> T {
         match self {
             Self::Editable(design) => design,
-            Self::ReadOnly(_) => panic!("expected this build's format, opened to edit"),
         }
     }
 }
@@ -127,7 +109,6 @@ impl DesignLoadError {
         // The refused field, when the file parsed as JSON and the Design was refused.
         let field_path = match self {
             Self::Ingestion { source } => Some(source.refusal.field_path.clone()),
-            Self::NewerRefused { source } => Some(source.refusal.field_path.clone()),
             _ => None,
         };
         let kind = match self {
@@ -142,7 +123,6 @@ impl DesignLoadError {
                 Some(_) => DesignLoadFailureKind::NewerVersion,
                 None => DesignLoadFailureKind::InvalidDocument,
             },
-            Self::NewerRefused { source } => source.kind,
         };
         DesignLoadFailure {
             kind,
@@ -167,32 +147,25 @@ impl fmt::Display for DesignLoadError {
             Self::Ingestion { source } => {
                 write!(formatter, "Failed to parse the Design: {source}")
             }
-            Self::NewerRefused { source } => {
-                write!(
-                    formatter,
-                    "Failed to read the newer Design: {}",
-                    source.refusal
-                )
-            }
         }
     }
 }
 
 impl std::error::Error for DesignLoadError {}
 
-/// Encode a Design as `.canopi` wire bytes: the one encoder for saves, drafts
-/// and exports. Refuses an encoding over [`MAX_CANOPI_FILE_BYTES`], so nothing
-/// is ever written that this build would then refuse to open.
+/// Encode a Design as canonical v10 `.canopi` wire bytes through `canopi-format`
+/// (2b-5, 2.1-M156, 2.1-M539): the one encoder for saves, drafts and exports.
+/// Refuses an encoding over [`MAX_CANOPI_FILE_BYTES`] or failing v10 write admission.
 pub(crate) fn encode_design(content: &CanopiFile) -> Result<Vec<u8>, String> {
-    let bytes = serde_json::to_vec_pretty(content)
-        .map_err(|e| format!("Failed to serialize design: {e}"))?;
-    if bytes.len() as u64 > MAX_CANOPI_FILE_BYTES {
-        return Err(format!(
+    let v10 = canopi_file_to_v10_value(content)?;
+    match canopi_format::core::encode_design(&v10) {
+        Ok(bytes) => Ok(bytes),
+        Err(refusal) if refusal.kind == FormatLoadRefusalKind::TooLarge => Err(format!(
             "The Design is larger than the {} MiB a Design file may hold; remove some story images or objects before saving",
             MAX_CANOPI_FILE_BYTES / (1024 * 1024)
-        ));
+        )),
+        Err(refusal) => Err(format!("Failed to encode Design: {}", refusal.message)),
     }
-    Ok(bytes)
 }
 
 /// Result of [`save_to_file`].
@@ -266,7 +239,6 @@ pub(crate) fn open_with_fingerprint(
     let fingerprint = super::fingerprint(&content);
     Ok(match open_design_bytes(&content)? {
         OpenedDesign::Editable(file) => OpenedDesign::Editable(LoadedDesign { file, fingerprint }),
-        OpenedDesign::ReadOnly(design) => OpenedDesign::ReadOnly(design),
     })
 }
 
@@ -302,31 +274,12 @@ fn read_bounded(path: &Path, limit: u64) -> Result<Vec<u8>, DesignLoadError> {
     Ok(content)
 }
 
-/// Read a Design saved by a newer Canopi (version >= `FIRST_READ_VERSION`) into its
-/// read-only view from UTF-8 JSON text (2.1-M478, N1).
-pub fn read_newer_design_text(text: &str) -> Result<ReadOnlyDesign, DesignLoadFailure> {
-    let value: serde_json::Value = serde_json::from_str(text)
-        .map_err(|source| DesignLoadError::InvalidJson { source }.failure())?;
-    read_newer_design(&value).map_err(|source| DesignLoadError::NewerRefused { source }.failure())
-}
-
-/// The branch at the version check (2.1-M478): a version of 10 or later goes to the read
-/// view, any other to this build's admission.
+/// Open `.canopi` bytes through the single `canopi-format` v10 Format Core (2b-5; 2.1-Q347):
+/// v9 migrates in place to v10, v10 opens directly, v1..v8 refuse as older, v11+ refuse as newer.
 pub(crate) fn open_design_bytes(
     content: &[u8],
 ) -> Result<OpenedDesign<CanopiFile>, DesignLoadError> {
-    let value: serde_json::Value = serde_json::from_slice(content)
-        .map_err(|source| DesignLoadError::InvalidJson { source })?;
-    let newer =
-        read_design_version(&value).is_ok_and(|version| version >= u64::from(FIRST_READ_VERSION));
-    if newer {
-        return read_newer_design(&value)
-            .map(|design| OpenedDesign::ReadOnly(Box::new(design)))
-            .map_err(|source| DesignLoadError::NewerRefused { source });
-    }
-    decode_design_value(value)
-        .map(OpenedDesign::Editable)
-        .map_err(|source| DesignLoadError::Ingestion { source })
+    decode_design_bytes(content).map(OpenedDesign::Editable)
 }
 
 fn decode_design_bytes(content: &[u8]) -> Result<CanopiFile, DesignLoadError> {
@@ -335,164 +288,253 @@ fn decode_design_bytes(content: &[u8]) -> Result<CanopiFile, DesignLoadError> {
     decode_design_value(value).map_err(|source| DesignLoadError::Ingestion { source })
 }
 
-/// Version admission, then current-format admission. Canopi 2.0 breaks
-/// stored data (ADR 0021): there is no migration ladder, and any version
-/// other than the current one is refused as `unsupported_version`.
+/// Decode a parsed JSON `.canopi` value through `canopi_format::core::decode_design_value`
+/// and project the admitted v10 Design onto [`CanopiFile`].
 fn decode_design_value(value: serde_json::Value) -> Result<CanopiFile, CanopiDesignIngestionError> {
     let version = read_design_version(&value)?;
-    if version != u64::from(CURRENT_CANOPI_FILE_VERSION) {
+    if version < u64::from(canopi_format::chain::CANOPI_FLOOR)
+        || version > u64::from(CURRENT_CANOPI_FILE_VERSION)
+    {
         return Err(CanopiDesignIngestionError::unsupported_version(version));
     }
-    admit_current_design_value(value)
+    let opened = canopi_format::core::decode_design_value(value).map_err(|refusal| {
+        let path = refusal.typed_field_path.unwrap_or_else(FieldPath::root);
+        let prefix = format!("{path}: ");
+        let expected = refusal
+            .message
+            .strip_prefix(&prefix)
+            .unwrap_or(&refusal.message);
+        match refusal.kind {
+            FormatLoadRefusalKind::OlderVersion | FormatLoadRefusalKind::NewerVersion => {
+                CanopiDesignIngestionError::unsupported_version(version)
+            }
+            _ => CanopiDesignIngestionError::invalid(path, expected),
+        }
+    })?;
+    v10_value_to_canopi_file(opened.design)
 }
 
-#[expect(
-    clippy::expect_used,
-    reason = "checked to be an object by `read_design_version`"
-)]
-fn admit_current_design_value(
+fn strip_nested_ext(value: &mut serde_json::Value) {
+    match value {
+        serde_json::Value::Object(map) => {
+            map.remove("ext");
+            for child in map.values_mut() {
+                strip_nested_ext(child);
+            }
+        }
+        serde_json::Value::Array(items) => {
+            for item in items {
+                strip_nested_ext(item);
+            }
+        }
+        _ => {}
+    }
+}
+
+fn project_v10_site_data_to_lidar(obj: &mut serde_json::Map<String, serde_json::Value>) {
+    let Some(mut site_data) = obj.remove("site_data") else {
+        return;
+    };
+    strip_nested_ext(&mut site_data);
+    if let Some(entries) = site_data.get_mut("entries").and_then(|v| v.as_array_mut()) {
+        for entry in entries {
+            if let Some(e) = entry.as_object_mut() {
+                e.entry("kind".to_owned())
+                    .or_insert_with(|| serde_json::json!("Source"));
+                if let Some(ramp) = e.get("ramp").and_then(|r| r.as_str())
+                    && !matches!(
+                        ramp,
+                        "Relief" | "Terrain" | "Earth" | "Greens" | "YellowRed" | "Magma" | "Gray"
+                    )
+                {
+                    e.insert("ramp".to_owned(), serde_json::Value::Null);
+                }
+            }
+        }
+    }
+    obj.insert("lidar".to_owned(), site_data);
+}
+
+fn project_v10_budget_to_session(
+    obj: &mut serde_json::Map<String, serde_json::Value>,
+    currency: &str,
+) {
+    let Some(budget) = obj.get_mut("budget").and_then(|v| v.as_array_mut()) else {
+        return;
+    };
+    for line in budget {
+        if let Some(item) = line.as_object_mut() {
+            let ext = item.remove("ext");
+            let ext_obj = ext.as_ref().and_then(|v| v.as_object());
+            for (field, fallback) in [
+                ("category", serde_json::json!("")),
+                ("description", serde_json::json!("")),
+                ("quantity", serde_json::json!(1.0)),
+                ("currency", serde_json::json!(currency)),
+            ] {
+                item.entry(field.to_owned()).or_insert_with(|| {
+                    ext_obj
+                        .and_then(|e| e.get(field))
+                        .cloned()
+                        .unwrap_or(fallback)
+                });
+            }
+        }
+        strip_nested_ext(line);
+    }
+}
+
+fn v10_value_to_canopi_file(
     mut value: serde_json::Value,
 ) -> Result<CanopiFile, CanopiDesignIngestionError> {
-    let object = value
-        .as_object()
-        .expect("checked to be an object by `read_design_version`");
-    // `extra` is the in-memory bag for unknown root fields, never a wire key:
-    // the canonical encoder writes unknown fields at the root.
-    if object.contains_key("extra") {
-        let expected = "reserved root field; unknown fields are stored at the root";
+    let Some(obj) = value.as_object_mut() else {
         return Err(CanopiDesignIngestionError::invalid(
-            FieldPath::root().field("extra"),
-            expected,
+            FieldPath::root(),
+            "expected a Canopi Design object",
         ));
-    }
-
-    value["version"] = serde_json::json!(CURRENT_CANOPI_FILE_VERSION);
-    let invalid = |refusal| {
-        CanopiDesignIngestionError::new(CanopiDesignIngestionErrorKind::InvalidDocument, refusal)
     };
-    // Validate against the frozen v9 schema and run the single v10 Format Core
-    // decode/migration/admission choke point (`canopi-format::core::decode_design_value`).
-    let schema = canopi_format::core::v9_schema().ok_or_else(|| {
-        CanopiDesignIngestionError::invalid(FieldPath::root(), "a valid frozen v9 schema")
-    })?;
-    canopi_format::schema::admit_schema(&value, schema).map_err(invalid)?;
-    if let Err(refusal) = canopi_format::core::decode_design_value(value.clone()) {
-        let field_path = refusal
-            .field_path
-            .as_deref()
-            .map(parse_v9_field_path)
-            .unwrap_or_else(FieldPath::root);
-        let expected = refusal
-            .field_path
-            .as_deref()
-            .and_then(|path| refusal.message.strip_prefix(&format!("{path}: ")))
-            .unwrap_or(&refusal.message);
-        return Err(CanopiDesignIngestionError::invalid(field_path, expected));
-    }
-    let file: CanopiFile = serde_json::from_value(value).map_err(|_| {
-        CanopiDesignIngestionError::invalid(FieldPath::root(), "expected a Canopi Design")
-    })?;
-    let mut seen_groups = std::collections::HashSet::new();
-    for (index, group) in file.groups.iter().enumerate() {
-        if group.id.is_empty() {
-            return Err(CanopiDesignIngestionError::invalid(
-                FieldPath::root().field("groups").index(index).field("id"),
-                "expected a non-empty id",
-            ));
-        }
-        if !seen_groups.insert(group.id.as_str()) {
-            return Err(CanopiDesignIngestionError::invalid(
-                FieldPath::root().field("groups").index(index).field("id"),
-                "expected a unique id",
-            ));
+    let currency = obj
+        .get("budget_currency")
+        .and_then(|v| v.as_str())
+        .unwrap_or(DEFAULT_BUDGET_CURRENCY)
+        .to_owned();
+    if let Some(layers) = obj.get_mut("layers").and_then(|v| v.as_array_mut()) {
+        for layer in layers {
+            strip_nested_ext(layer);
+            if let Some(l) = layer.as_object_mut() {
+                l.entry("visible".to_owned())
+                    .or_insert_with(|| serde_json::json!(true));
+                l.entry("locked".to_owned())
+                    .or_insert_with(|| serde_json::json!(false));
+                l.entry("opacity".to_owned())
+                    .or_insert_with(|| serde_json::json!(1.0));
+            }
         }
     }
-    validate_views_and_stories(&file.views, &file.stories)
-        .and_then(|()| validate_map_view(file.map_view.as_ref()))
-        .map_err(invalid)?;
-    Ok(file)
+    if let Some(plants) = obj.get_mut("plants").and_then(|v| v.as_array_mut()) {
+        for plant in plants {
+            strip_nested_ext(plant);
+            if let Some(p) = plant.as_object_mut() {
+                if let Some(spread) = p.remove("canopy_spread_m") {
+                    p.insert("scale".to_owned(), spread);
+                }
+                p.remove("quantity");
+                p.entry("locked".to_owned())
+                    .or_insert_with(|| serde_json::json!(false));
+            }
+        }
+    }
+    if let Some(zones) = obj.get_mut("zones").and_then(|v| v.as_array_mut()) {
+        for zone in zones {
+            strip_nested_ext(zone);
+            if let Some(z) = zone.as_object_mut() {
+                z.entry("locked".to_owned())
+                    .or_insert_with(|| serde_json::json!(false));
+                z.entry("rotation".to_owned())
+                    .or_insert_with(|| serde_json::json!(0.0));
+            }
+        }
+    }
+    for key in [
+        "annotations",
+        "measurement_guides",
+        "consortiums",
+        "groups",
+        "timeline",
+        "views",
+        "stories",
+        "map_view",
+    ] {
+        if let Some(section) = obj.get_mut(key) {
+            strip_nested_ext(section);
+        }
+    }
+    if let Some(groups) = obj.get_mut("groups").and_then(|v| v.as_array_mut()) {
+        for group in groups {
+            if let Some(members) = group.get_mut("members").and_then(|v| v.as_array_mut()) {
+                members.retain(|member| {
+                    matches!(
+                        member.get("kind").and_then(|k| k.as_str()),
+                        Some("plant" | "zone" | "annotation")
+                    )
+                });
+            }
+        }
+    }
+    project_v10_site_data_to_lidar(obj);
+    project_v10_budget_to_session(obj, &currency);
+    serde_json::from_value(value).map_err(|err| {
+        CanopiDesignIngestionError::invalid(
+            FieldPath::root(),
+            &format!("expected a Canopi Design ({err})"),
+        )
+    })
 }
 
-fn parse_v9_field_path(raw: &str) -> FieldPath {
-    const KNOWN_FIELDS: &[&str] = &[
-        "annotations",
-        "budget",
-        "budget_currency",
-        "camera",
-        "canopy_spread_m",
-        "consortiums",
-        "created_at",
-        "description",
-        "end",
-        "entries",
-        "extra",
-        "font_size",
-        "ground_size_m",
-        "groups",
-        "id",
-        "images",
-        "lat",
-        "layers",
-        "lidar",
-        "link",
-        "lon",
-        "map_view",
-        "measurement_guides",
-        "members",
-        "name",
-        "opacity",
-        "plants",
-        "points",
-        "position",
-        "range",
-        "rotation",
-        "scale",
-        "site_data",
-        "spans",
-        "src",
-        "start",
-        "steps",
-        "stories",
-        "text",
-        "timeline",
-        "updated_at",
-        "version",
-        "view_id",
-        "views",
-        "zones",
-    ];
-    let mut path = FieldPath::root();
-    let mut rest = raw.strip_prefix('$').unwrap_or(raw);
-    while !rest.is_empty() {
-        if let Some(after_dot) = rest.strip_prefix('.') {
-            let end = after_dot.find(['.', '[']).unwrap_or(after_dot.len());
-            let name = &after_dot[..end];
-            let mapped = match name {
-                "site_data" => "lidar",
-                "canopy_spread_m" => "scale",
-                other => other,
-            };
-            if let Some(&static_name) = KNOWN_FIELDS.iter().find(|&&k| k == mapped) {
-                path = path.field(static_name);
+fn canopi_file_to_v10_value(content: &CanopiFile) -> Result<serde_json::Value, String> {
+    let mut value =
+        serde_json::to_value(content).map_err(|e| format!("Failed to serialize design: {e}"))?;
+    let Some(obj) = value.as_object_mut() else {
+        return Err("Failed to serialize design: expected an object".to_owned());
+    };
+    obj.insert(
+        "version".to_owned(),
+        serde_json::json!(CURRENT_CANOPI_FILE_VERSION),
+    );
+    if let Some(plants) = obj.get_mut("plants").and_then(|v| v.as_array_mut()) {
+        for plant in plants {
+            if let Some(p) = plant.as_object_mut()
+                && let Some(scale) = p.remove("scale")
+            {
+                p.insert("canopy_spread_m".to_owned(), scale);
             }
-            rest = &after_dot[end..];
-        } else if let Some(after_bracket) = rest.strip_prefix('[') {
-            if let Some(close) = after_bracket.find(']') {
-                let inner = &after_bracket[..close];
-                if inner == "*" {
-                    path = path.map_value();
-                } else if let Ok(index) = inner.parse::<usize>() {
-                    path = path.index(index);
-                }
-                rest = &after_bracket[close + 1..];
-            } else {
-                break;
-            }
-        } else {
-            break;
         }
     }
-    path
+    if let Some(mut lidar) = obj.remove("lidar") {
+        if let Some(entries) = lidar.get_mut("entries").and_then(|v| v.as_array_mut()) {
+            for entry in entries {
+                if let Some(e) = entry.as_object_mut() {
+                    e.remove("kind");
+                }
+            }
+        }
+        obj.insert("site_data".to_owned(), lidar);
+    }
+    if let Some(budget) = obj.get_mut("budget").and_then(|v| v.as_array_mut()) {
+        let mut plant_lines = Vec::new();
+        let mut non_plant_lines = Vec::new();
+        for mut line in std::mem::take(budget) {
+            let is_species = line
+                .get("target")
+                .and_then(|t| t.get("kind"))
+                .and_then(|k| k.as_str())
+                == Some("species");
+            if is_species {
+                if let Some(item) = line.as_object_mut() {
+                    let mut ext = serde_json::Map::new();
+                    for key in ["category", "description", "quantity", "currency"] {
+                        if let Some(val) = item.remove(key) {
+                            ext.insert(key.to_owned(), val);
+                        }
+                    }
+                    if !ext.is_empty() {
+                        item.insert("ext".to_owned(), serde_json::Value::Object(ext));
+                    }
+                }
+                plant_lines.push(line);
+            } else {
+                non_plant_lines.push(line);
+            }
+        }
+        *budget = plant_lines;
+        if !non_plant_lines.is_empty() {
+            obj.insert(
+                "budget_ext".to_owned(),
+                serde_json::json!({ "legacy_non_plant_lines": non_plant_lines }),
+            );
+        }
+    }
+    Ok(value)
 }
 
 fn read_design_version(value: &serde_json::Value) -> Result<u64, CanopiDesignIngestionError> {
@@ -1300,25 +1342,37 @@ mod write_tests {
     }
 
     #[test]
-    fn read_newer_design_text_reads_newer_version_and_refuses_invalid_or_older() {
-        let newer = serde_json::json!({
-            "version": 99,
-            "name": "Future Garden",
-            "created_at": "2027-01-01T00:00:00Z",
-            "updated_at": "2027-01-01T00:00:00Z",
-            "layers": [],
-            "plants": [],
-            "zones": [],
-            "annotations": [],
-            "measurement_guides": [],
-            "groups": []
-        })
-        .to_string();
-        let read_only = read_newer_design_text(&newer).expect("newer design should read read-only");
-        assert_eq!(read_only.saved_by_version, 99);
-        assert_eq!(read_only.view.name, "Future Garden");
+    fn canopi_f47t_52_49_v9_with_species_budget_and_site_data_round_trips_through_v10_save_and_reopen()
+     {
+        let v9 = include_bytes!("../../../canopi-format/spec/v9/fixture.canopi");
+        let opened = decode_design_bytes(v9).expect("v9 frozen fixture decodes and migrates");
+        assert_eq!(opened.version, CURRENT_CANOPI_FILE_VERSION);
+        assert!(
+            !opened.budget.is_empty(),
+            "v9 fixture includes budget lines"
+        );
+        let opened_lidar = opened
+            .lidar
+            .as_ref()
+            .expect("v9 fixture includes Site data layers");
+        assert!(!opened_lidar.entries.is_empty());
 
-        let invalid = read_newer_design_text("{not json");
-        assert!(invalid.is_err(), "invalid JSON must be refused");
+        let encoded = encode_design(&opened).expect("migrated v9 encodes cleanly as v10");
+        let encoded_json: serde_json::Value = serde_json::from_slice(&encoded).unwrap();
+        assert_eq!(encoded_json["version"], 10);
+        assert!(
+            encoded_json.get("lidar").is_none(),
+            "canonical v10 uses site_data, never legacy lidar"
+        );
+
+        let reopened = decode_design_bytes(&encoded).expect("saved v10 reopens cleanly");
+        assert_eq!(reopened.version, 10);
+        assert_eq!(reopened.name, opened.name);
+        assert_eq!(reopened.plants.len(), opened.plants.len());
+        assert_eq!(reopened.budget.len(), opened.budget.len());
+        assert_eq!(
+            reopened.lidar.as_ref().map(|s| s.entries.len()),
+            Some(opened_lidar.entries.len())
+        );
     }
 }

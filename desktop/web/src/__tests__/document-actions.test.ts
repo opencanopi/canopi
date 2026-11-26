@@ -39,7 +39,7 @@ import type * as OpenFailureModule from '../app/document-session/open-failure'
 
 function makeFile(name: string, overrides: Partial<CanopiFile> = {}): CanopiFile {
   return {
-    version: 9,
+    version: 10,
     name,
     description: null,
     plant_species_colors: {},

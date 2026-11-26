@@ -43,7 +43,6 @@ import type {
   ProblemReportResult,
   ProcessingHistoryPage,
   RasterQuantity,
-  ReadOnlyDesign,
   RecentDesignSummary,
   SavedObjectStamp,
   SavedObjectStampPayload,
@@ -98,7 +97,6 @@ export const COMMAND_NAMES = [
   'export_saved_object_stamp_canopi_file',
   'load_saved_object_stamp_canopi_file',
   'new_design',
-  'read_newer_design',
   'get_recent_files',
   'get_recent_design_previews',
   'remove_recent_design',
@@ -193,7 +191,6 @@ export type CommandMap = {
   readonly 'export_saved_object_stamp_canopi_file': { readonly args: { readonly path: string; readonly content: Record<string, unknown> }; readonly reply: string }
   readonly 'load_saved_object_stamp_canopi_file': { readonly args: { readonly path: string }; readonly reply: CanopiFile }
   readonly 'new_design': { readonly args: undefined; readonly reply: CanopiFile }
-  readonly 'read_newer_design': { readonly args: { readonly text: string }; readonly reply: ReadOnlyDesign }
   readonly 'get_recent_files': { readonly args: undefined; readonly reply: DesignSummary[] }
   readonly 'get_recent_design_previews': { readonly args: { readonly paths: readonly string[] }; readonly reply: RecentDesignSummary[] }
   readonly 'remove_recent_design': { readonly args: { readonly path: string }; readonly reply: void }
@@ -303,7 +300,6 @@ export const COMMAND_SYNC_KINDS: Readonly<Record<CommandName, CommandSyncKind>> 
   'export_saved_object_stamp_canopi_file': 'async',
   'load_saved_object_stamp_canopi_file': 'async',
   'new_design': 'bounded_sync',
-  'read_newer_design': 'async',
   'get_recent_files': 'async',
   'get_recent_design_previews': 'async',
   'remove_recent_design': 'async',

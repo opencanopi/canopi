@@ -296,21 +296,9 @@ describe('SessionCore on real Desktop and Web edition ports (D1–D8, M1–M5)',
     const v7Bytes = encoder.encode(JSON.stringify({ ...encodeCanopiDesign(base), version: 7 }))
     await expect(codec.decode(v7Bytes)).rejects.toThrow(/unsupported Canopi Design version 7/i)
 
-    // Newer-version (v10) refused when no readNewerDesign is provided (never opened editable).
-    const v10Bytes = encoder.encode(JSON.stringify({ ...encodeCanopiDesign(base), version: 10 }))
-    await expect(codec.decode(v10Bytes)).rejects.toThrow(/unsupported Canopi Design version 10/i)
-
-    // Newer-version (v10) opens read-only when Web format core provides readNewerDesign.
-    const webCodec = createJsonSessionCodec({
-      readNewerDesign: async () => ({
-        saved_by_version: 10,
-        view: makeTestDesign({ name: 'From Canopi 2.1' }),
-      }),
-    })
-    const newer = await webCodec.decode(v10Bytes)
-    expect(newer.readOnly).toBe(true)
-    expect(newer.savedByVersion).toBe(10)
-    expect(newer.file.name).toBe('From Canopi 2.1')
+    // Newer-version (v11) is refused unchanged (2.1-Q347).
+    const v11Bytes = encoder.encode(JSON.stringify({ ...encodeCanopiDesign(base), version: 11 }))
+    await expect(codec.decode(v11Bytes)).rejects.toThrow(/unsupported Canopi Design version 11/i)
 
     // admitWrite refuses invalid duplicate plant ids.
     const invalidFile = makeTestDesign({ plants: [makePlant('dup-1'), makePlant('dup-1')] })

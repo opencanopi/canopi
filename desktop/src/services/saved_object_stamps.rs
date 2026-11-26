@@ -258,6 +258,7 @@ mod tests {
 
     #[test]
     fn canopi_f47t_52_271_the_listing_marks_only_a_payload_above_v3_as_needing_a_newer_canopi() {
+        // 2.1-Q155: stamp payload v3 is the current format in 2.1 (v2 migrates in memory; only v4+ needs newer).
         let user_db = test_user_db();
         insert_raw(&user_db, "v4", V4, 0);
         insert_raw(&user_db, "v3", V3, 1);

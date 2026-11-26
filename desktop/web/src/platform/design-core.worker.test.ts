@@ -2,7 +2,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 const initMock = vi.hoisted(() => vi.fn().mockResolvedValue(undefined))
-const readMock = vi.hoisted(() => vi.fn((text: string) => text))
 const versionMock = vi.hoisted(() => vi.fn(() => '2.1.0-beta.3'))
 const decodeMock = vi.hoisted(() => vi.fn((text: string) => `{"ok":{"design":${text}}}`))
 const encodeMock = vi.hoisted(() => vi.fn((text: string) => `{"ok":${JSON.stringify(text)}}`))
@@ -21,7 +20,6 @@ vi.mock('../../../../canopi-format-wasm/glue.js', () => ({
   draft_summary: draftSummaryMock,
   decode_stamp_payload: decodeStampMock,
   encode_stamp_payload: encodeStampMock,
-  read_newer_design: readMock,
 }))
 
 describe('design-core.worker', () => {
@@ -30,7 +28,7 @@ describe('design-core.worker', () => {
     vi.unstubAllGlobals()
   })
 
-  it('compiles wasm, answers v10 Format Core and read calls, and reports unavailable/trapped errors', async () => {
+  it('compiles wasm, answers v10 Format Core calls, and reports unavailable/trapped errors', async () => {
     const replies: unknown[] = []
     const workerSelf = self as unknown as {
       onmessage: ((e: { data: Record<string, unknown> }) => void) | null
@@ -42,7 +40,7 @@ describe('design-core.worker', () => {
     // First call: HTTP error -> unavailable, clears loading cache.
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }))
     await import('./design-core.worker')
-    workerSelf.onmessage?.({ data: { id: 1, call: 'read', text: '{}' } })
+    workerSelf.onmessage?.({ data: { id: 1, call: 'decode', text: '{}' } })
     await vi.waitFor(() => { expect(replies).toHaveLength(1) })
     expect(replies[0]).toMatchObject({ id: 1, ok: false, error: 'unavailable' })
 
@@ -53,9 +51,9 @@ describe('design-core.worker', () => {
       arrayBuffer: async () => new ArrayBuffer(8),
     }))
     vi.spyOn(WebAssembly, 'compile').mockResolvedValue({})
-    workerSelf.onmessage?.({ data: { id: 2, call: 'read', text: '{"v":11}' } })
+    workerSelf.onmessage?.({ data: { id: 2, call: 'version' } })
     await vi.waitFor(() => { expect(replies).toHaveLength(2) })
-    expect(replies[1]).toEqual({ id: 2, ok: true, value: '{"v":11}', compiledBy: 'arrayBuffer' })
+    expect(replies[1]).toEqual({ id: 2, ok: true, value: '2.1.0-beta.3', compiledBy: 'arrayBuffer' })
 
     // Format Core v10 calls: version, decode, encode, new_design, draft_summary, decode_stamp, encode_stamp.
     workerSelf.onmessage?.({ data: { id: 3, call: 'version' } })
@@ -74,9 +72,9 @@ describe('design-core.worker', () => {
     expect(replies[7]).toMatchObject({ id: 8, ok: true, value: '{"ok":{"version":3}}' })
     expect(replies[8]).toMatchObject({ id: 9, ok: true, value: '{"ok":"{\\"version\\":3}"}' })
 
-    // Trap call: read_newer_design throws -> trapped.
-    readMock.mockImplementationOnce(() => { throw new Error('wasm trap') })
-    workerSelf.onmessage?.({ data: { id: 10, call: 'read', text: '{}' } })
+    // Trap call: decode_design throws -> trapped.
+    decodeMock.mockImplementationOnce(() => { throw new Error('wasm trap') })
+    workerSelf.onmessage?.({ data: { id: 10, call: 'decode', text: '{}' } })
     await vi.waitFor(() => { expect(replies).toHaveLength(10) })
     expect(replies[9]).toEqual({ id: 10, ok: false, error: 'trapped', detail: 'trapped' })
 

@@ -1,8 +1,8 @@
 /**
  * platform/design-core.ts: the design-core port's Web adapter over the format worker (ADR 0025 Format core failures;
- * contracts §10, §18 F28; 2b-5, 2.1-M156, 2.1-M476, 2.1-M539). Owner of the format worker (`worker-only-in-owner`,
- * ADR 0028; §18 F16). Invariant: every call settles exactly once, nothing is retried silently, and the worker
- * (`platform/design-core.worker.ts`) is started only here.
+ * contracts §10, §18 F28; 2b-5, 2.1-M156, 2.1-M476, 2.1-M539, 2.1-Q347). Owner of the format worker
+ * (`worker-only-in-owner`, ADR 0028; §18 F16). Invariant: every call settles exactly once, nothing is retried
+ * silently, and the worker (`platform/design-core.worker.ts`) is started only here.
  *
  * - Lazy: the worker starts on the first call.
  * - Failed load -> `format_core_unavailable`; next call retries.
@@ -11,7 +11,6 @@
  */
 import type {
   CanopiFileV10,
-  DesignLoadFailure,
   DraftSummaryOutcome,
   Failure,
   FailureCode,
@@ -19,7 +18,6 @@ import type {
   FormatRefusal,
   GeoPoint,
   NewDesignInputContract,
-  ReadOnlyDesign,
   RedactedText,
   SavedObjectStampPayload,
 } from '../generated/contracts'
@@ -65,18 +63,13 @@ export interface DesignCore {
   decodeStamp(payloadJson: string): Promise<DesignCoreDecodeStampAnswer>
   /** Validates and canonically encodes a v3 saved-stamp payload (2.1-Q155, 2.1-M88). */
   encodeStamp(payload: SavedObjectStampPayload): Promise<DesignCoreEncodeStampAnswer>
-  /** Maps a v3 stamp payload to canonical v10 `.canopi` stamp file bytes (optional on Web until worker exposes it). */
+  /** Maps a v3 stamp payload to canonical v10 `.canopi` stamp file bytes (Desktop IPC). */
   stampToCanopi?(payload: SavedObjectStampPayload, name: string, origin: GeoPoint): Promise<DesignCoreEncodeAnswer>
-  /** Decodes a v9/v10 `.canopi` stamp file into a v3 stamp payload (optional on Web until worker exposes it). */
+  /** Decodes a v9/v10 `.canopi` stamp file into a v3 stamp payload (Desktop IPC). */
   canopiToStamp?(bytes: Uint8Array, origin: GeoPoint): Promise<DesignCoreDecodeStampAnswer>
-  /**
-   * Legacy Step 2.0.4 read view of `text` (2.1-M478). Rejects with `DesignLoadFailure` or a
-   * format core settlement (`format_core_unavailable`, `format_core_trapped`).
-   */
-  readNewerDesign(text: string): Promise<ReadOnlyDesign>
 }
 
-const DESIGN_CORE_READ_OP = 'format_core.read'
+const DESIGN_CORE_OP = 'format_core'
 const LARGE_OPEN_RECYCLE_BYTES = 4 * 1024 * 1024
 
 interface Waiting {
@@ -94,7 +87,8 @@ function startFormatWorker(): DesignCoreWorker {
 
 /** The adapter; its worker starts on its first call. */
 export function createDesignCore({ createWorker = startFormatWorker }: DesignCoreOptions = {}): DesignCore {
-  const utf8Decoder = new TextDecoder('utf-8', { fatal: false })
+  // Fatal UTF-8 decoding matches Desktop's `serde_json::from_slice` refusal of invalid UTF-8.
+  const utf8Decoder = new TextDecoder('utf-8', { fatal: true })
   const utf8Encoder = new TextEncoder()
   let worker: DesignCoreWorker | null = null
   let answered = false
@@ -131,19 +125,21 @@ export function createDesignCore({ createWorker = startFormatWorker }: DesignCor
 
   function receive(data: unknown): void {
     if (!isReply(data)) return
-    answered = true
     const call = waiting.get(data.id)
     if (!call) return
     waiting.delete(data.id)
     if (data.ok) {
+      answered = true
       call.resolve(data.value)
       if (recycleWhenIdle && waiting.size === 0) stopWorker()
       return
     }
     if (data.error === 'unavailable') {
+      // Do not mark `answered`: a subsequent worker error is still an unavailable start failure.
       call.reject(formatCoreFailure('format_core_unavailable', data.detail))
       return
     }
+    answered = true
     call.reject(formatCoreFailure('format_core_trapped', data.detail))
     stopWorker(() => formatCoreFailure('format_core_trapped', 'trapped'))
   }
@@ -168,13 +164,32 @@ export function createDesignCore({ createWorker = startFormatWorker }: DesignCor
     })
   }
 
+  function decodeUtf8Strict(bytes: Uint8Array): string | null {
+    try {
+      return utf8Decoder.decode(bytes)
+    } catch {
+      // Invalid UTF-8 bytes are refused as invalid_json for Desktop edition parity.
+      return null
+    }
+  }
+
   return {
     async version(): Promise<string> {
       return send((id) => ({ id, call: 'version' }))
     },
     async decode(bytes: Uint8Array): Promise<FormatDecodeAnswer> {
+      const text = decodeUtf8Strict(bytes)
+      if (text === null) {
+        return {
+          err: {
+            kind: 'invalid_json',
+            message: 'the Design is not valid UTF-8',
+            field_path: null,
+          },
+        }
+      }
       if (bytes.byteLength > LARGE_OPEN_RECYCLE_BYTES) recycleWhenIdle = true
-      const raw = await send((id) => ({ id, call: 'decode', text: utf8Decoder.decode(bytes) }))
+      const raw = await send((id) => ({ id, call: 'decode', text }))
       return JSON.parse(raw) as FormatDecodeAnswer
     },
     async encode(design: unknown): Promise<DesignCoreEncodeAnswer> {
@@ -186,6 +201,7 @@ export function createDesignCore({ createWorker = startFormatWorker }: DesignCor
         err: {
           kind: 'invalid_document',
           message: 'the format core gave an answer the adapter cannot read',
+          field_path: null,
         },
       }
     },
@@ -194,10 +210,19 @@ export function createDesignCore({ createWorker = startFormatWorker }: DesignCor
       return JSON.parse(raw) as CanopiFileV10
     },
     async draftSummary(bytes: Uint8Array, updatedAt: string): Promise<DraftSummaryOutcome> {
+      const text = decodeUtf8Strict(bytes)
+      if (text === null) {
+        return {
+          name: '',
+          updated_at: updatedAt,
+          readable: false,
+          refusal_kind: { kind: 'invalid_json' },
+        }
+      }
       const raw = await send((id) => ({
         id,
         call: 'draft_summary',
-        text: utf8Decoder.decode(bytes),
+        text,
         updatedAt,
       }))
       return JSON.parse(raw) as DraftSummaryOutcome
@@ -213,11 +238,6 @@ export function createDesignCore({ createWorker = startFormatWorker }: DesignCor
         payloadJson: JSON.stringify(payload),
       }))
       return JSON.parse(raw) as DesignCoreEncodeStampAnswer
-    },
-    async readNewerDesign(text: string): Promise<ReadOnlyDesign> {
-      const raw = await send((id) => ({ id, call: 'read', text }))
-      const settled = parseReadNewerAnswer(raw)
-      return settled.ok ? settled.value : Promise.reject(settled.failure)
     },
   }
 }
@@ -235,47 +255,14 @@ function isReply(data: unknown): data is Reply {
     : reply.ok === false && (reply.error === 'unavailable' || reply.error === 'trapped') && typeof reply.detail === 'string'
 }
 
-type ReadNewerSettled =
-  | { readonly ok: true; readonly value: ReadOnlyDesign }
-  | { readonly ok: false; readonly failure: DesignLoadFailure }
+type FormatCoreCode = Extract<FailureCode, { readonly kind: 'format_core_unavailable' | 'format_core_trapped' }>['kind']
 
-function parseReadNewerAnswer(value: string): ReadNewerSettled {
-  let answer: unknown
-  try {
-    answer = JSON.parse(value)
-  } catch {
-    // Not JSON: the module gave no answer this build reads, settled below as an internal fault.
-    answer = null
-  }
-  const record = typeof answer === 'object' && answer !== null ? answer as Record<string, unknown> : {}
-  if (isReadOnlyDesign(record.read)) return { ok: true, value: record.read }
-  if (isDesignLoadFailure(record.refused)) return { ok: false, failure: record.refused }
+function formatCoreFailure(kind: FormatCoreCode, detail: string): Failure {
   return {
-    ok: false,
-    failure: { kind: 'internal', message: 'the format core gave an answer the adapter cannot read' },
-  }
-}
-
-function isReadOnlyDesign(value: unknown): value is ReadOnlyDesign {
-  if (typeof value !== 'object' || value === null) return false
-  const design = value as Record<string, unknown>
-  return typeof design.saved_by_version === 'number' && typeof design.view === 'object' && design.view !== null
-}
-
-function isDesignLoadFailure(value: unknown): value is DesignLoadFailure {
-  if (typeof value !== 'object' || value === null) return false
-  const failure = value as Record<string, unknown>
-  return typeof failure.kind === 'string' && typeof failure.message === 'string'
-}
-
-/** A format core settlement as the wire carries one, so the ring, the notice and the report read its code. */
-function formatCoreFailure(kind: 'format_core_unavailable' | 'format_core_trapped', detail: string): Failure {
-  const code = { kind } as FailureCode
-  return {
-    code,
-    user_may_retry: true,
-    op: DESIGN_CORE_READ_OP,
+    code: { kind },
+    user_may_retry: false,
+    op: DESIGN_CORE_OP,
     operation: null,
-    detail: redact(detail) as RedactedText,
+    detail: detail.length > 0 ? redact(detail) as RedactedText : null,
   }
 }

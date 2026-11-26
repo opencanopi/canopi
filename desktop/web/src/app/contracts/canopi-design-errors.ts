@@ -11,6 +11,10 @@ export class CanopiDesignIngestionError extends Error {
     message: string,
     /** The file's version when `kind` is `unsupported_version`. */
     readonly unsupportedVersion: number | null = null,
+    /** Exact `DesignLoadFailureKind` when preserved from Format Core (`too_large`, `invalid_json`, etc.). */
+    readonly loadFailureKind: DesignLoadFailureKind | null = null,
+    /** Optional JSON path of the refused field (kept for diagnostics only, 2.1-Q286). */
+    readonly fieldPath: string | null = null,
   ) {
     super(message)
     this.name = 'CanopiDesignIngestionError'
@@ -52,10 +56,17 @@ function isDesignLoadFailureKind(kind: unknown): kind is DesignLoadFailureKind {
 export function designLoadFailureOf(error: unknown): DesignLoadFailure | null {
   if (error instanceof CanopiDesignIngestionError) {
     const newer = error.unsupportedVersion !== null && error.unsupportedVersion > CURRENT_CANOPI_FILE_VERSION
+    if (error.loadFailureKind !== null) {
+      return error.fieldPath !== null
+        ? { kind: error.loadFailureKind, message: error.message, field_path: error.fieldPath }
+        : { kind: error.loadFailureKind, message: error.message }
+    }
     if (error.kind === 'unsupported_version') {
       return { kind: newer ? 'newer_version' : 'older_version', message: error.message, field_path: '$.version' }
     }
-    return { kind: 'invalid_document', message: error.message }
+    return error.fieldPath !== null
+      ? { kind: 'invalid_document', message: error.message, field_path: error.fieldPath }
+      : { kind: 'invalid_document', message: error.message }
   }
   if (
     error !== null

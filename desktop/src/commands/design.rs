@@ -1,7 +1,4 @@
-use canopi_types::design::{
-    CanopiFile, DesignDraftSummary, DesignLoadFailure, DesignLoadFailureKind, DesignSummary,
-    ReadOnlyDesign, RecentDesignSummary,
-};
+use canopi_types::design::{CanopiFile, DesignDraftSummary, DesignSummary, RecentDesignSummary};
 use tauri::State;
 
 use crate::{
@@ -15,31 +12,6 @@ use crate::{
 #[tauri::command]
 pub fn new_design() -> Result<CanopiFile, String> {
     crate::services::design_files::new_design()
-}
-
-/// Read a Design saved by a newer Canopi into its `ReadOnlyDesign` view (2.1-M478).
-#[tauri::command]
-pub async fn read_newer_design(
-    executor: State<'_, NativeOperationExecutor>,
-    text: String,
-) -> Result<ReadOnlyDesign, DesignLoadFailure> {
-    executor
-        .run(
-            NativeOperationClass::Local,
-            "design read newer",
-            move || Ok(crate::design::format::read_newer_design_text(&text)),
-        )
-        .await
-        .unwrap_or_else(|message| Err(internal_load_failure(message)))
-}
-
-/// The executor could not run the load: a typed `Internal` failure.
-pub(crate) fn internal_load_failure(message: String) -> DesignLoadFailure {
-    DesignLoadFailure {
-        kind: DesignLoadFailureKind::Internal,
-        message,
-        field_path: None,
-    }
 }
 
 /// Return up to 20 recently opened files, most recent first, with minted file grants and `recent_id`s.

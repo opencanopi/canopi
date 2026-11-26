@@ -23,7 +23,7 @@ const WRITE_FAILURE: Failure = {
 
 function sampleDesign(): CanopiFile {
   return {
-    version: 9,
+    version: 10,
     name: 'Orchard',
     description: null,
     plant_species_colors: {},

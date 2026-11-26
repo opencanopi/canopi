@@ -252,7 +252,7 @@ describe('geolocated design codec', () => {
   it('serializes with an explicit frame so saved content never depends on hidden state', () => {
     const { persisted, plane } = hydrateSceneFromDesign(currentDesign())
     const saved = serializeScenePersistedState(persisted, plane)
-    expect(saved.version).toBe(9)
+    expect(saved.version).toBe(10)
     expect('spatial_frame' in saved).toBe(false)
   })
 })

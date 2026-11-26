@@ -275,8 +275,7 @@ mod tests {
         assert_eq!(bytes_a, bytes_b);
 
         // Decode migrates v9 -> v10 with frozen release label "2.0".
-        let v9 = crate::design::format::create_new_design("Legacy", "2026-10-01T00:00:00Z");
-        let v9_bytes = crate::design::format::encode_design(&v9).unwrap();
+        let v9_bytes = include_bytes!("../../../canopi-format/spec/v9/fixture.canopi").to_vec();
         let DecodeDesignReply::Ok(opened) =
             tauri::async_runtime::block_on(decode_design(&executor, v9_bytes.clone())).unwrap()
         else {
@@ -304,7 +303,7 @@ mod tests {
         ))
         .unwrap();
         assert!(summary.readable);
-        assert_eq!(summary.name, "Legacy");
+        assert_eq!(summary.name, "Frozen v9 Orchard");
         assert_eq!(summary.migrated_from, Some(9));
 
         let bad_summary = tauri::async_runtime::block_on(draft_summary(

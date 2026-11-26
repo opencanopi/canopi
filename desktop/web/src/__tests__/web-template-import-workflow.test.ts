@@ -79,7 +79,7 @@ describe('Web Edition Design Template import workflow', () => {
 
 function makeCanopiFile(overrides: Partial<CanopiFile> = {}): CanopiFile {
   return {
-    version: 9,
+    version: 10,
     name: 'Test Template',
     description: null,
     plant_species_colors: {},

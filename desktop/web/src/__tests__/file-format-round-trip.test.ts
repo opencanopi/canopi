@@ -120,7 +120,7 @@ describe('file format round-trip', () => {
     expect(serialized.updated_at).toBe(now.toISOString())
     expect(serialized).toEqual({
       ...sceneOwned,
-      version: 9,
+      version: 10,
       name: 'Untitled',
       description: null,
       created_at: now.toISOString(),
@@ -129,7 +129,7 @@ describe('file format round-trip', () => {
   })
 
   it('round-trips a serialized current-version Design through JSON and the Design decoder', () => {
-    expect(CURRENT_CANOPI_FILE_VERSION).toBe(9)
+    expect(CURRENT_CANOPI_FILE_VERSION).toBe(10)
     const hydrated = hydrateSceneFromDesign(FIXTURE)
     const serialized = serializeScenePersistedState(hydrated.persisted, hydrated.plane, {
       now: new Date('2026-04-09T12:00:00.000Z'),
@@ -137,7 +137,7 @@ describe('file format round-trip', () => {
 
     const decoded = decodeCanopiDesign(JSON.parse(JSON.stringify(encodeCanopiDesign(serialized))))
 
-    expect(decoded.version).toBe(9)
+    expect(decoded.version).toBe(10)
     expect(decoded.plants.map((plant) => plant.position)).toEqual(FIXTURE.plants.map((plant) => plant.position))
     expect(decoded.zones).toEqual(serialized.zones)
     expect(decoded.annotations).toEqual(serialized.annotations)
@@ -160,8 +160,11 @@ describe('file format round-trip', () => {
     }
 
     const first = save(JSON.stringify(wire))
+    const firstParsed = JSON.parse(first) as Record<string, unknown>
 
-    expect(JSON.parse(first)).toEqual(wire)
+    expect(firstParsed.version).toBe(10)
+    expect(firstParsed.views).toEqual(wire.views)
+    expect(firstParsed.stories).toEqual(wire.stories)
     expect(save(first)).toBe(first)
   })
 
@@ -169,7 +172,7 @@ describe('file format round-trip', () => {
     const { extra: _extra, ...wire } = conformance.accepted_documents['views-and-stories']
     for (const version of [4, 7, 8]) {
       expect(() => decodeCanopiDesign({ ...wire, version })).toThrow(
-        `$.version: unsupported Canopi Design version ${version}; Canopi 2.0 and later open only version 9`,
+        `format version ${version} is older than Canopi 2.0`,
       )
     }
   })

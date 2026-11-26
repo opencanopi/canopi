@@ -90,18 +90,18 @@ describe('platform/design-core adapter', () => {
     expect(workers[0]!.terminate).toHaveBeenCalledTimes(1)
 
     // Next call spawns a fresh worker.
-    const readOk = core.readNewerDesign('{}')
+    const nextVersion = core.version()
     expect(workers).toHaveLength(2)
-    workers[1]!.reply({ id: 10, ok: true, value: JSON.stringify({ read: { saved_by_version: 11, view: {} } }) })
-    expect(await readOk).toEqual({ saved_by_version: 11, view: {} })
+    workers[1]!.reply({ id: 10, ok: true, value: '2.1.0' })
+    expect(await nextVersion).toBe('2.1.0')
 
-    const readRefused = core.readNewerDesign('{}')
-    workers[1]!.reply({ id: 11, ok: true, value: JSON.stringify({ refused: { kind: 'invalid_json', message: 'bad' } }) })
-    await expect(readRefused).rejects.toEqual({ kind: 'invalid_json', message: 'bad' })
-
-    const readMalformed = core.readNewerDesign('{}')
-    workers[1]!.reply({ id: 12, ok: true, value: 'not-json' })
-    await expect(readMalformed).rejects.toMatchObject({ kind: 'internal' })
+    // Invalid UTF-8 bytes are refused as invalid_json before posting to worker (Minor 3).
+    const badUtf8 = new Uint8Array([0xff, 0xfe])
+    expect(await core.decode(badUtf8)).toMatchObject({ err: { kind: 'invalid_json' } })
+    expect(await core.draftSummary(badUtf8, '2026-11-26T00:00:00Z')).toMatchObject({
+      readable: false,
+      refusal_kind: { kind: 'invalid_json' },
+    })
   })
 
   it('settles unavailable, trapped, start-throw, and onerror cleanly', async () => {

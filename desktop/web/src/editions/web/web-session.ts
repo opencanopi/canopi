@@ -3,7 +3,8 @@
  * (ADR 0024, contracts §4).
  */
 import { effect, signal } from '@preact/signals'
-import { flattenDocumentForJson } from '../../app/contracts/document'
+import { sessionCanopiFileToV10 } from '../../app/contracts/document'
+import { editionPorts } from '../../platform/edition-ports'
 import { setDesignName } from '../../app/design-edit'
 import {
   closeDesign,
@@ -71,7 +72,7 @@ export function currentWebDesignText(): string | null {
   const open = core?.currentDesign.peek()
   if (!core || !open || (open.readOnly && open.savedByVersion !== null)) return null
   const snap = core.snapshot()
-  return snap ? JSON.stringify(flattenDocumentForJson(snap), null, 2) : null
+  return snap ? JSON.stringify(sessionCanopiFileToV10(snap), null, 2) : null
 }
 
 export async function newWebDesign(): Promise<void> {
@@ -140,11 +141,20 @@ function canopiDownloadName(raw: string): string {
   return `${out}.canopi`
 }
 
+async function encodeWebCanopiText(file: Parameters<typeof sessionCanopiFileToV10>[0]): Promise<string> {
+  const v10 = sessionCanopiFileToV10(file)
+  if (typeof Worker !== 'undefined') {
+    const encoded = await editionPorts().designCore.encode(v10)
+    if ('ok' in encoded) return new TextDecoder('utf-8', { fatal: true }).decode(encoded.ok)
+  }
+  return JSON.stringify(v10, null, 2)
+}
+
 export async function downloadWebCanopi(): Promise<void> {
   const core = requireLiveSessionCore()
   const snap = core.snapshot()
   if (!snap) return
-  const text = JSON.stringify(flattenDocumentForJson(snap), null, 2)
+  const text = await encodeWebCanopiText(snap)
   downloadBrowserTextFile(canopiDownloadName(snap.name), text, 'application/json')
 }
 
@@ -158,7 +168,7 @@ export async function downloadWebDraft(id: string): Promise<void> {
   }
   const file = newerDrafts.hides(id) ? null : browserAppDataStore.loadDraft(id)
   if (!file) throw new Error('Draft not found')
-  const text = JSON.stringify(flattenDocumentForJson(file), null, 2)
+  const text = await encodeWebCanopiText(file)
   downloadBrowserTextFile(canopiDownloadName(file.name), text, 'application/json')
 }
 

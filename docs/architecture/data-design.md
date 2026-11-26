@@ -163,7 +163,7 @@ stateDiagram-v2
 | Site data | root `lidar`; each entry carries `kind` | root `site_data`; `kind` optional and ignored, resolved by id, or required, per Step 2.0.4 R2's probe | Document |
 | Read schema (frozen by the reader release) | none | only identity and geometry required; every other field optional with a documented default | `canopi-format` |
 | Additions, no step (`canopi-format/spec/v10/additions/` (2.1)) | none | `print_setup` (Document); zone stroke colour and opacity (Scene) | spec emitter |
-| Codec | native `desktop/src/design/format.rs` (deleted TS decoder mirror) | `canopi-format-wasm` in `platform/design-core.worker.ts` on Web, `desktop/src/services/design_core.rs` on Desktop, canonical encode | `canopi-format` |
+| Codec | native `desktop/src/design/format.rs` and TS mirror (deleted at 2b-5) | `canopi-format-wasm` in `platform/design-core.worker.ts` on Web, `desktop/src/services/design_core.rs` on Desktop, canonical encode | `canopi-format` |
 
 - Owner: `canopi-format` owns read checks, the chain (`FLOOR = 9`, `CURRENT = FLOOR + STEPS.len()`), write admission, the new-Design builder and the frozen spec per version.
 - Invariant: a migrated open is clean; the first Desktop write in v10 keeps `<name> (Canopi 2.0).canopi` once; a migrated Desktop Draft keeps its v9 form once, unlisted; a failing step refuses with `migration_failed{from}`.

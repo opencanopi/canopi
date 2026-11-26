@@ -8,7 +8,7 @@ import { currentDesign } from './support/design-session-state'
 
 function makeFile(name: string, plantCount = 0): CanopiFile {
   return {
-    version: 9,
+    version: 10,
     name,
     description: null,
     plant_species_colors: {},

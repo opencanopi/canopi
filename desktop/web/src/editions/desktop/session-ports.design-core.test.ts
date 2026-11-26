@@ -65,7 +65,6 @@ describe('desktopDesignCorePort', () => {
     const stampCanopi = await desktopDesignCorePort.stampToCanopi?.(stamp, 'Guild', origin)
     expect(stampCanopi && 'ok' in stampCanopi && stampCanopi.ok instanceof Uint8Array).toBe(true)
     await desktopDesignCorePort.canopiToStamp?.(bytes, origin)
-    await desktopDesignCorePort.readNewerDesign('{}')
 
     expect(designCoreMocks.designCoreVersion).toHaveBeenCalledTimes(1)
     expect(designCoreMocks.designCoreDecode).toHaveBeenCalledTimes(1)
@@ -76,7 +75,6 @@ describe('desktopDesignCorePort', () => {
     expect(designCoreMocks.designCoreEncodeStamp).toHaveBeenCalledTimes(1)
     expect(designCoreMocks.designCoreStampToCanopi).toHaveBeenCalledTimes(1)
     expect(designCoreMocks.designCoreCanopiToStamp).toHaveBeenCalledTimes(1)
-    expect(readNewerMock).toHaveBeenCalledTimes(1)
   })
 
   it('delegates Desktop session home store and file access ports', async () => {
