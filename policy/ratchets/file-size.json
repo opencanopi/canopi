@@ -179,9 +179,6 @@
     "desktop/web/src/__tests__/scene-runtime.test.ts": {
       "count": 694
     },
-    "desktop/web/src/__tests__/settings-projection.test.ts": {
-      "count": 924
-    },
     "desktop/web/src/__tests__/stories-panel.test.tsx": {
       "count": 641
     },

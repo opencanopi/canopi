@@ -5,8 +5,11 @@ import { act } from 'preact/test-utils'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { WebLayersPanel } from '../editions/web/WebLayersPanel'
 import { createBrowserWorkspaceMapContributionAdapter } from '../editions/web/browser-workspace-map-contribution-adapter'
-import { createDefaultMapLayers, mapLayers } from '../app/map-layers/state'
-import { locale } from '../app/settings/state'
+import {
+  createDefaultMapLayersForTests as createDefaultMapLayers,
+  mapLayers,
+  locale,
+} from '../app/settings/state'
 import { setCurrentCanvasSession } from '../canvas/session'
 import { createTestCanvasQuerySurface } from './support/canvas-query-surface'
 import { replaceCurrentDesignState } from './support/design-session-state'

@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import type { CanvasSurfaceState } from '../app/canvas-map-surface/canvas-host'
 import { getMapNoticeReadModel } from '../app/canvas-map-surface/map-notice'
-import { createDefaultMapLayers, mapLayers } from '../app/map-layers/state'
+import { createDefaultMapLayersForTests as createDefaultMapLayers, mapLayers } from '../app/settings/state'
 import type { LayerSlotId, LayerStatus } from '../maplibre/map-lifetime'
 
 function readySurface(layers: ReadonlyArray<readonly [LayerSlotId, LayerStatus]> = []): CanvasSurfaceState {

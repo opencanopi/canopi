@@ -42,7 +42,7 @@ import {
   VIEW_SNAPSHOT_THUMBNAIL,
   ViewSnapshotSceneBusyError,
 } from '../app/saved-views/snapshot'
-import { createDefaultMapLayers, mapLayers } from '../app/map-layers/state'
+import { createDefaultMapLayersForTests as createDefaultMapLayers, mapLayers } from '../app/settings/state'
 import { designSessionStore } from '../app/document-session/store'
 import { setCurrentCanvasSession } from '../canvas/session'
 import { createDefaultScenePersistedState } from '../canvas/runtime/scene'

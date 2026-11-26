@@ -4,7 +4,12 @@ import { render } from 'preact'
 import { act } from 'preact/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { signal, type Signal } from '@preact/signals'
-import { createDefaultMapLayers, mapLayers, type MapLayersState } from '../app/map-layers/state'
+import {
+  createDefaultMapLayersForTests as createDefaultMapLayers,
+  mapLayers,
+  type MapLayersState,
+  locale,
+} from '../app/settings/state'
 import { setStoryPresentationOverrides } from '../app/story-presentation/overrides'
 import { storyPresentationActive } from '../app/story-presentation'
 import { t } from '../i18n'
@@ -19,7 +24,6 @@ import type { WorkspaceRuntimeComposition } from '../app/canvas-map-surface/work
 import { createMapLifetimeSlot, type LayerSlotId, type LayerStatus } from '../maplibre/map-lifetime'
 import { designSessionFixture } from './support/design-session-state'
 import type { CanopiFile } from '../types/design'
-import { locale } from '../app/settings/state'
 import { setCurrentCanvasSession } from '../canvas/session'
 import { createTestCanvasDocumentSurface, createTestCanvasRuntimeSurfaces } from './support/canvas-runtime-surfaces'
 import type * as StoryPresentationModule from '../app/story-presentation'

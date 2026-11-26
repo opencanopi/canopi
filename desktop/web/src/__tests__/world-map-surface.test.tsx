@@ -3,8 +3,13 @@
 import { render } from 'preact'
 import { act } from 'preact/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { googleMapsApiKey, satelliteSource } from '../app/settings/state'
-import { createDefaultMapLayers, mapLayers, type MapLayersState } from '../app/map-layers/state'
+import {
+  googleMapsApiKey,
+  satelliteSource,
+  createDefaultMapLayersForTests as createDefaultMapLayers,
+  mapLayers,
+  type MapLayersState,
+} from '../app/settings/state'
 import { readWorkspaceBackgroundPresentation } from '../app/canvas-map-surface/workspace-activation-snapshot'
 import { WorldMapSurface } from '../components/world-map/WorldMapSurface'
 import { BasemapTileAuth } from '../maplibre/basemap-tile-auth'

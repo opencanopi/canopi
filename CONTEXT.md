@@ -161,7 +161,7 @@ Each noun has one owner, written states and a closed list of who may change it (
 | Placed plant, Zone, Text note, Measurement, Selection | `SceneStore` | per object: present, locked | Scene Edits only |
 | Highlight | the canvas | shown, hidden | panels set origins; only the canvas draws (zones too, 2.1) |
 | Tool, armed source | the interaction session's tool owner | one typed record | the owner's arm command only (2.1) |
-| Background, Map layer | the settings map-layer slice (2.1); the map layer store is its actions and read model, with a story's override | Satellite, Street map, None | settings writes and the presented story |
+| Background, Map layer | settings map-layer slice (`app/settings/`); `app/map-layers/` holds actions and story-overridden reads | Satellite, Street map, None | settings writes and the presented story |
 | Canvas surface, Map | the canvas host; one lifetime per map (2.1) | idle, starting, unavailable, map, releasing; map: creating to released | host; lifetime |
 | Settings record | `app/settings/`, from one field table (2.1) | loading, ready (notice), degraded | `patchSettings` only |
 | `.canopi`, settings record, user DB, LiDAR catalogue, `meta.json`, browser records | each store's chain (ADR 0026); `.canopi`'s in `canopi-format`, in one worker | opening, migrating, then ready, recovered, newer-read-only, refused-newer, set-aside-damaged or unavailable | that store's frozen steps |

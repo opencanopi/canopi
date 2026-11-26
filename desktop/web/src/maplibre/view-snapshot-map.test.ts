@@ -14,7 +14,7 @@ import { createTestSceneRendererSnapshot } from '../__tests__/support/scene-rend
 import type { ViewTransform } from '../geo/view/types'
 import { conformalPoint, createSessionPlane } from '../geo/session-plane'
 import { describeSavedViewSnapshot, VIEW_SNAPSHOT_THUMBNAIL } from '../app/saved-views/snapshot'
-import { createDefaultMapLayers } from '../app/map-layers/state'
+import { createDefaultMapLayersForTests as createDefaultMapLayers } from '../app/settings/state'
 import type { SavedView } from '../types/design'
 import { createTestCanvasQuerySurface } from '../__tests__/support/canvas-query-surface'
 import { groundSizeShown } from '../__tests__/support/saved-view-frame'

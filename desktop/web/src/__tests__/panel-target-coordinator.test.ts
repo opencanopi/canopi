@@ -14,7 +14,7 @@ import {
   selectedPanelTargets,
 } from "../app/panel-targets/state";
 import { setStoryPresentationOverrides } from "../app/story-presentation/overrides";
-import { mapLayers } from "../app/map-layers/state";
+import { mapLayers } from "../app/settings/state";
 import { speciesTarget } from "../target";
 
 describe("Target Presentation", () => {

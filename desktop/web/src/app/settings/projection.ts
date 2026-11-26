@@ -22,6 +22,8 @@ import {
   launchCheck,
   locale,
   mapLayers,
+  mapLayersFromSettings,
+  mapLayersToSettingsFields,
   newDesignDefaults,
   normalizeMapLayers,
   plantSpacingIntervalM,
@@ -123,17 +125,7 @@ const setIfChanged = <T>(sig: { value: T }, next: T): void => {
 
 function flattenGroups(layers: MapLayersState, nd: NewDesignDefaults) {
   return {
-    basemap_style: layers.basemap.style,
-    basemap_visible: layers.basemap.visible,
-    basemap_opacity: layers.basemap.opacity,
-    satellite_visible: layers.satellite.visible,
-    satellite_opacity: layers.satellite.opacity,
-    contour_visible: layers.contours.visible,
-    contour_opacity: layers.contours.opacity,
-    contour_interval: layers.contours.intervalMeters,
-    hillshade_visible: layers.hillshade.visible,
-    hillshade_opacity: layers.hillshade.opacity,
-    soften_background: layers.softenBackground,
+    ...mapLayersToSettingsFields(layers),
     new_design_satellite: nd.satellite,
     new_design_symbol_scale: nd.symbolScale,
     new_design_labels: nd.labels,
@@ -160,13 +152,7 @@ function createDraftFromValues(v: SettingsValues, rawKey: string | null = v.goog
     satelliteSource: v.satellite_source ?? (trimmedKey(v.google_maps_api_key) ? 'google_key' : 'free'),
     sidePanel: { width: v.side_panel_width },
     savedStamps: { frameHeight: v.saved_stamps_frame_height ?? DEFAULT_SAVED_STAMPS_FRAME_HEIGHT },
-    mapLayers: normalizeMapLayers({
-      basemap: { style: v.basemap_style, visible: v.basemap_visible, opacity: v.basemap_opacity },
-      satellite: { visible: v.satellite_visible, opacity: v.satellite_opacity },
-      contours: { visible: v.contour_visible, opacity: v.contour_opacity, intervalMeters: v.contour_interval },
-      hillshade: { visible: v.hillshade_visible, opacity: v.hillshade_opacity },
-      softenBackground: v.soften_background,
-    }),
+    mapLayers: mapLayersFromSettings(v),
     toolRail: { usedTools: v.used_canvas_tools, namesVisible: v.tool_names_visible },
     newDesigns: { satellite: v.new_design_satellite, symbolScale: v.new_design_symbol_scale, labels: v.new_design_labels },
   }

@@ -15,8 +15,12 @@ import { openLayerRow } from '../app/canvas-layer-presentation/open-row'
 import { lidarLibrary } from '../app/data-library/library-store'
 import type { CanopiFile } from '../types/design'
 import { librarySnapshot, sourceItem } from './support/library-fixtures'
-import { createDefaultMapLayers, mapLayers } from '../app/map-layers/state'
-import { googleMapsApiKey, locale } from '../app/settings/state'
+import {
+  createDefaultMapLayersForTests as createDefaultMapLayers,
+  mapLayers,
+  googleMapsApiKey,
+  locale,
+} from '../app/settings/state'
 import { setCurrentCanvasHostView, type CanvasSurfaceState } from '../app/canvas-map-surface/host-view'
 import type { Settings } from '../types/settings'
 import {

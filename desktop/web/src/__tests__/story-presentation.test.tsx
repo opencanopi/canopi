@@ -24,7 +24,11 @@ import type { MapNoticeReadModel } from '../app/canvas-map-surface/map-notice'
 import { t } from '../i18n'
 import { PanelRail } from '../components/shared/PanelRail'
 import { currentDesign, designSessionStore } from '../app/document-session/store'
-import { createDefaultMapLayers, mapLayers } from '../app/map-layers/state'
+import {
+  createDefaultMapLayersForTests as createDefaultMapLayers,
+  mapLayers,
+  locale,
+} from '../app/settings/state'
 import { modalLayerOpen } from '../app/shell/modal-layer'
 import { readPanelTargetOverlaySnapshot } from '../app/panel-targets/presentation'
 import { createAppCanvasRuntimeAppAdapter } from '../app/canvas-runtime/app-adapter'
@@ -33,7 +37,6 @@ import { setCurrentCanvasSession, currentCanvasQuerySurface } from '../canvas/se
 import type { PlantDisplay } from '../canvas/runtime/plant-display'
 import { createDefaultScenePersistedState } from '../canvas/runtime/scene/defaults'
 import type { ScenePlantEntity } from '../canvas/runtime/scene'
-import { locale } from '../app/settings/state'
 import { gridVisible } from '../app/canvas-settings/signals'
 import { focusOwner } from '../app/keyboard/focus-owner'
 import type { CanopiFile, SavedView, Story } from '../types/design'

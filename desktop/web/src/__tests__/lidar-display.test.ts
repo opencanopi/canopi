@@ -18,7 +18,7 @@ const display = await import('../app/data-library/display')
 const { lidarLibrary } = await import('../app/data-library/library-store')
 const { setStoryPresentationOverrides } = await import('../app/story-presentation/overrides')
 const { designSessionFixture } = await import('./support/design-session-state')
-const { createDefaultMapLayers } = await import('../app/map-layers/state')
+const { createDefaultMapLayersForTests: createDefaultMapLayers } = await import('../app/settings/state')
 const { librarySnapshot, sourceItem } = await import('./support/library-fixtures')
 
 function item(overrides: Partial<LidarPresentationItem> = {}): LidarPresentationItem {

@@ -3,8 +3,16 @@
 import { render } from 'preact'
 import { act } from 'preact/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { locale, mapBackgroundOf, mapLayers, singleKeyShortcuts, theme, toolNamesVisible, usedCanvasTools } from '../app/settings/state'
-import { createDefaultMapLayers } from '../app/map-layers/state'
+import {
+  locale,
+  mapBackgroundOf,
+  mapLayers,
+  singleKeyShortcuts,
+  theme,
+  toolNamesVisible,
+  usedCanvasTools,
+  createDefaultMapLayersForTests as createDefaultMapLayers,
+} from '../app/settings/state'
 import {
   closeKeyboardShortcutsDialog,
   closeSettingsDialog,

@@ -27,8 +27,11 @@ import {
   saveCurrentDesign,
 } from '../app/document-session/actions'
 import { designSessionStore } from '../app/document-session/store'
-import { newDesignDefaults } from '../app/settings/state'
-import { createDefaultMapLayers, mapLayers } from '../app/map-layers/state'
+import {
+  newDesignDefaults,
+  createDefaultMapLayersForTests as createDefaultMapLayers,
+  mapLayers,
+} from '../app/settings/state'
 import { installEditionPorts } from '../platform/edition-ports'
 import type { PickFileOutcome } from '../platform/file-access'
 import type { CanopiFile } from '../types/design'

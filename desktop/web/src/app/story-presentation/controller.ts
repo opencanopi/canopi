@@ -6,13 +6,12 @@ import type { PanelTarget, SavedView, Story, StoryStep } from '../../types/desig
 import { currentDesign, designSessionStore } from '../document-session/store'
 import { goToSavedView } from '../saved-views/current-view'
 import { savedViewPresentedLabels } from '../saved-views/snapshot'
+import { mapLayers, type MapLayersState } from '../map-layers/read'
 import { mapLayersOfView } from '../map-layers/background-presentation'
 import { focusOwner } from '../keyboard/focus-owner'
 import {
-  mapLayers,
   setStoryPresentationHidesEditingAids,
   setStoryPresentationOverrides,
-  type MapLayersState,
   type StoryPresentationOverrides,
 } from './overrides'
 

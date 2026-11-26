@@ -3,7 +3,7 @@
 import { signal } from '@preact/signals'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { mapLayers } from '../app/map-layers/state'
+import { mapLayers, googleMapsApiKey, locale } from '../app/settings/state'
 import {
   readCurrentCanvasLayerStatuses,
   retryCurrentCanvasLayer,
@@ -21,7 +21,6 @@ import {
   setCanvasLayerPresentationVisibility,
 } from '../app/canvas-layer-presentation/presentation'
 import { flushSettingsProjection, hydrateSettingsProjectionForTests } from '../app/settings/projection'
-import { googleMapsApiKey, locale } from '../app/settings/state'
 import { setCurrentCanvasSession } from '../canvas/session'
 import { designSessionFixture } from './support/design-session-state'
 import { createTestCanvasQuerySurface } from './support/canvas-query-surface'

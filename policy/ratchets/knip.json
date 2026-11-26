@@ -194,9 +194,6 @@
     "desktop/web/src/app/geojson/codec.ts: knip:types/GeoJsonFeatureCollection": {
       "count": 1
     },
-    "desktop/web/src/app/map-layers/state.ts: knip:exports/createDefaultMapLayers": {
-      "count": 1
-    },
     "desktop/web/src/app/map-selection/summary.ts: knip:exports/readMapSelectionSummary": {
       "count": 1
     },

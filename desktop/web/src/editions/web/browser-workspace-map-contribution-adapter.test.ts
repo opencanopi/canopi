@@ -7,9 +7,12 @@ import { createBrowserWorkspaceMapContributionAdapter } from './browser-workspac
 import { setCanvasMapBackdrop } from '../../canvas/runtime/scene-visuals'
 import { myLocation } from '../../app/my-location/session'
 import { setMapBackground, setMapLayerVisible } from '../../app/map-layers/actions'
-import { createDefaultMapLayers, mapLayers } from '../../app/map-layers/state'
+import {
+  createDefaultMapLayersForTests as createDefaultMapLayers,
+  mapLayers,
+  theme,
+} from '../../app/settings/state'
 import { classifyTerrainSync } from '../../maplibre/terrain-sync'
-import { theme } from '../../app/settings/state'
 import { setStoryPresentationOverrides } from '../../app/story-presentation/overrides'
 import { getHillshadeLayerConfig } from '../../maplibre/contours'
 

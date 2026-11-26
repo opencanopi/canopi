@@ -704,7 +704,7 @@
       "quote": "Settings mutate through `mutateSettingsProjection()`;",
       "state": {
         "exists": {
-          "check": "desktop/web/src/__tests__/settings-projection.test.ts"
+          "check": "desktop/web/src/app/settings/settings-projection.test.ts"
         }
       }
     },

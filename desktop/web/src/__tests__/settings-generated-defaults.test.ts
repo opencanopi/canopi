@@ -10,8 +10,8 @@ import {
   singleKeyShortcuts,
   theme,
   snapToGridEnabled,
+  mapLayers,
 } from '../app/settings/state'
-import { mapLayers } from '../app/map-layers/state'
 import { DEFAULT_SETTINGS } from '../generated/settings'
 
 describe('generated settings defaults', () => {

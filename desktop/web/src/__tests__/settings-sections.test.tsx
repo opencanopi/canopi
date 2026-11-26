@@ -4,10 +4,9 @@ import { render } from 'preact'
 import { act } from 'preact/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest'
 import { aboutCanopiDialogOpen } from '../app/about/state'
-import { createDefaultMapLayers, mapLayers } from '../app/map-layers/state'
-import { recentFrontendDiagnostics } from '../app/problem-report/diagnostics'
-import { resetFrontendDiagnosticsForTests } from '../failures/ring'
 import {
+  createDefaultMapLayersForTests as createDefaultMapLayers,
+  mapLayers,
   googleMapsApiKey,
   locale,
   newDesignDefaults,
@@ -16,6 +15,8 @@ import {
   scrollWheel,
   singleKeyShortcuts,
 } from '../app/settings/state'
+import { recentFrontendDiagnostics } from '../app/problem-report/diagnostics'
+import { resetFrontendDiagnosticsForTests } from '../failures/ring'
 import {
   closeKeyboardShortcutsDialog,
   closeSettingsDialog,

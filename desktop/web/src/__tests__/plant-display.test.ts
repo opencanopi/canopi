@@ -12,7 +12,7 @@ import { cyclePlantLabels } from '../app/plant-display/actions'
 import { currentPlantDisplay, designStrata } from '../app/plant-display/state'
 import { createAppCanvasRuntimeAppAdapter } from '../app/canvas-runtime/app-adapter'
 import { readWorkspaceBackgroundPresentation } from '../app/canvas-map-surface/workspace-activation-snapshot'
-import { createDefaultMapLayers, mapLayers } from '../app/map-layers/state'
+import { createDefaultMapLayersForTests as createDefaultMapLayers, mapLayers } from '../app/settings/state'
 import {
   buildPlantPresentationEntries,
   hitTestPlant,

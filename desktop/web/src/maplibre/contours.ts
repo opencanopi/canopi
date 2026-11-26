@@ -7,7 +7,7 @@
 // in the map style.
 //
 // AD: Contour intervals are adaptive by zoom, with an optional user override
-// via the contour interval signal in app/canvas-settings/signals.
+// via the map-layer settings slice in app/settings/state.
 // ---------------------------------------------------------------------------
 
 import type mapLibreContour from 'maplibre-contour'

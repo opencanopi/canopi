@@ -10,7 +10,7 @@ import { CURRENT_CANOPI_FILE_VERSION } from '../../generated/canopi-design-forma
 import type { CanopiFile, SavedView } from '../../types/design'
 import { geoAt, TEST_GEO_ORIGIN } from '../../__tests__/support/geo-design'
 import { createTestRendererView } from '../../__tests__/support/scene-renderer-snapshot'
-import { createDefaultMapLayers } from '../map-layers/state'
+import { createDefaultMapLayersForTests as createDefaultMapLayers } from '../settings/state'
 import { describeSavedViewSnapshot, VIEW_SNAPSHOT_THUMBNAIL } from './snapshot'
 
 const runtimes: SceneCanvasRuntime[] = []

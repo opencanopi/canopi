@@ -17,8 +17,13 @@ import {
   installSettingsProjection,
   resetSettingsProjectionForTests,
 } from '../settings/projection'
-import { locale, theme } from '../settings/state'
-import { createDefaultMapLayers, mapLayers, type MapLayersState } from '../map-layers/state'
+import {
+  locale,
+  theme,
+  createDefaultMapLayersForTests as createDefaultMapLayers,
+  mapLayers,
+  type MapLayersState,
+} from '../settings/state'
 import { createAppCanvasRuntimeAppAdapter } from './app-adapter'
 import { createDesktopCanvasRuntimeAppAdapter } from './desktop-adapter'
 

@@ -1,5 +1,5 @@
 import { computed, signal } from '@preact/signals'
-import type { BasemapStyle, LastView, Locale, PlantLabels, SatelliteSource, ScrollWheel, Theme } from '../../generated/contracts'
+import type { BasemapStyle, LastView, Locale, PlantLabels, SatelliteSource, ScrollWheel, Settings, Theme } from '../../generated/contracts'
 import type { UnitSystem } from '../../generated/quantity-table'
 import { DEFAULT_SETTINGS, SETTINGS_BASEMAP_STYLES } from '../../generated/settings'
 import { DEFAULT_SAVED_STAMPS_FRAME_HEIGHT, MIN_FAVORITES_FRAME_HEIGHT } from './field-table'
@@ -87,7 +87,7 @@ export const newDesignDefaults = signal<NewDesignDefaults>({
 
 /**
  * Map layers slice state (Basemap, Satellite, Contours, Hillshade, Soften background).
- * Owned by settings (ADR 0024); `app/map-layers/state.ts` re-exports this slice and its read helpers.
+ * Owned by settings (ADR 0024, 2.1-M137); `app/map-layers/` holds its actions and read model.
  */
 export interface MapLayersState {
   readonly basemap: {
@@ -144,31 +144,54 @@ export function normalizeMapLayers(state: MapLayersState): MapLayersState {
   })
 }
 
-function createDefaultMapLayers(): MapLayersState {
+type MapLayerSettingsFields = Pick<
+  Settings,
+  | 'basemap_style'
+  | 'basemap_visible'
+  | 'basemap_opacity'
+  | 'satellite_visible'
+  | 'satellite_opacity'
+  | 'contour_visible'
+  | 'contour_opacity'
+  | 'contour_interval'
+  | 'hillshade_visible'
+  | 'hillshade_opacity'
+  | 'soften_background'
+>
+
+/** Projects flat settings fields into the normalised map-layers slice (2.1-M137). */
+export function mapLayersFromSettings(v: MapLayerSettingsFields): MapLayersState {
   return normalizeMapLayers({
-    basemap: {
-      style: DEFAULT_SETTINGS.basemap_style,
-      visible: DEFAULT_SETTINGS.basemap_visible,
-      opacity: DEFAULT_SETTINGS.basemap_opacity,
-    },
-    satellite: {
-      visible: DEFAULT_SETTINGS.satellite_visible,
-      opacity: DEFAULT_SETTINGS.satellite_opacity,
-    },
-    contours: {
-      visible: DEFAULT_SETTINGS.contour_visible,
-      opacity: DEFAULT_SETTINGS.contour_opacity,
-      intervalMeters: DEFAULT_SETTINGS.contour_interval,
-    },
-    hillshade: {
-      visible: DEFAULT_SETTINGS.hillshade_visible,
-      opacity: DEFAULT_SETTINGS.hillshade_opacity,
-    },
-    softenBackground: DEFAULT_SETTINGS.soften_background,
+    basemap: { style: v.basemap_style, visible: v.basemap_visible, opacity: v.basemap_opacity },
+    satellite: { visible: v.satellite_visible, opacity: v.satellite_opacity },
+    contours: { visible: v.contour_visible, opacity: v.contour_opacity, intervalMeters: v.contour_interval },
+    hillshade: { visible: v.hillshade_visible, opacity: v.hillshade_opacity },
+    softenBackground: v.soften_background,
   })
 }
 
-export const mapLayers = signal<MapLayersState>(createDefaultMapLayers())
+/** Projects the map-layers slice back into flat settings fields (2.1-M137). */
+export function mapLayersToSettingsFields(layers: MapLayersState): MapLayerSettingsFields {
+  return {
+    basemap_style: layers.basemap.style,
+    basemap_visible: layers.basemap.visible,
+    basemap_opacity: layers.basemap.opacity,
+    satellite_visible: layers.satellite.visible,
+    satellite_opacity: layers.satellite.opacity,
+    contour_visible: layers.contours.visible,
+    contour_opacity: layers.contours.opacity,
+    contour_interval: layers.contours.intervalMeters,
+    hillshade_visible: layers.hillshade.visible,
+    hillshade_opacity: layers.hillshade.opacity,
+    soften_background: layers.softenBackground,
+  }
+}
+
+/** @testonly */ export function createDefaultMapLayersForTests(): MapLayersState {
+  return mapLayersFromSettings(DEFAULT_SETTINGS)
+}
+
+export const mapLayers = signal<MapLayersState>(mapLayersFromSettings(DEFAULT_SETTINGS))
 
 const SOFTENED_BACKGROUND_OPACITY_FACTOR = 0.4
 
