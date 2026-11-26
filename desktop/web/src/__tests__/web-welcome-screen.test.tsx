@@ -5,6 +5,7 @@ import { render } from 'preact'
 import { act } from 'preact/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { decodeCanopiDesign } from './support/design-wire'
+import { flattenDocumentForJson } from '../app/contracts/document'
 import { designSessionStore } from '../app/document-session/store'
 import { locale } from '../app/settings/state'
 import { t } from '../i18n'
@@ -57,8 +58,8 @@ function design(name: string): CanopiFile {
 
 function setup(view: BrowserDraftPersistenceView, { drafts = true }: { drafts?: boolean } = {}) {
   if (drafts) {
-    browserAppDataStore.saveDraft({ id: 'draft-orchard', file: design('Orchard'), now: '2026-01-01T00:00:00.000Z' })
-    browserAppDataStore.saveDraft({ id: 'draft-hedge', file: design('Hedge'), now: '2026-01-02T00:00:00.000Z' })
+    browserAppDataStore.saveRawDraft({ id: 'draft-orchard', raw: flattenDocumentForJson(design('Orchard')), name: 'Orchard', now: '2026-01-01T00:00:00.000Z' })
+    browserAppDataStore.saveRawDraft({ id: 'draft-hedge', raw: flattenDocumentForJson(design('Hedge')), name: 'Hedge', now: '2026-01-02T00:00:00.000Z' })
   }
   const downloadCanopiFile = vi.spyOn(browserTextFiles, 'downloadBrowserTextFile').mockImplementation(() => undefined)
   session = createTestSessionCore()

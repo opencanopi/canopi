@@ -7,6 +7,10 @@ import {
 import { SceneStore } from './store'
 import { createDetachedSceneSessionAdapter, SceneRuntimeEditCoordinator } from '../scene-runtime/transactions'
 import { SceneRuntimeMutationController } from '../scene-runtime/mutations'
+import { getDesignObjectSelectionModel, projectSceneSelectionEntityIds } from '../scene-runtime/selection'
+import { hoverStateForTarget } from '../renderers/scene-paint'
+import { hitTestTopLevel } from '../tools/hit-testing'
+import type { PlantPresentationContext } from '../plant-presentation'
 import { makeTestDesign } from '../../../__tests__/support/session-core-fixture'
 import { decodeCanopiDesign, encodeCanopiDesign } from '../../../__tests__/support/design-wire'
 
@@ -269,42 +273,43 @@ describe('scene codec lossless v10 preservation', () => {
     expect(afterGroupDelete.plants).toEqual([])
   })
 
-  it('#734 B1: duplicate and cross-Design paste of a group containing a measurement guide remap the cloned guide id and encode cleanly', () => {
-    const makeController = (design: ReturnType<typeof makeTestDesign>) => {
-      const store = new SceneStore().hydrate(design)
-      const session = createDetachedSceneSessionAdapter()
-      const setSelection = (targets: Parameters<SceneStore['setSelection']>[0]) => {
-        store.setSelection(targets)
-      }
-      const edits = new SceneRuntimeEditCoordinator({
-        sceneStore: store,
-        sceneSession: session,
-        setSelection,
-        incrementSceneRevision: () => {},
-        syncCanvasSignalsFromScene: () => {},
-        invalidate: () => {},
-      })
-      session.bindReplay((command, direction) => edits.replayCommand(command, direction))
-      const controller = new SceneRuntimeMutationController({
-        sceneStore: store,
-        selection: { set: setSelection },
-        sceneEdits: edits,
-        commandAdmission: edits,
-        settledReader: edits,
-        presentation: {
-          getViewportScale: () => 1,
-          createPlantPresentationContext: (viewportScale = 1) => ({
-            pixelsPerMetre: viewportScale,
-            speciesCache: new Map(),
-            localizedCommonNames: new Map(),
-          }),
-          getLocalizedCommonNames: () => new Map(),
-          getSuggestedPlantColor: () => null,
-        },
-        invalidateScene: () => {},
-      })
-      return { store, controller }
+  const makeController = (design: ReturnType<typeof makeTestDesign>) => {
+    const store = new SceneStore().hydrate(design)
+    const session = createDetachedSceneSessionAdapter()
+    const setSelection = (targets: Parameters<SceneStore['setSelection']>[0]) => {
+      store.setSelection(targets)
     }
+    const edits = new SceneRuntimeEditCoordinator({
+      sceneStore: store,
+      sceneSession: session,
+      setSelection,
+      incrementSceneRevision: () => {},
+      syncCanvasSignalsFromScene: () => {},
+      invalidate: () => {},
+    })
+    session.bindReplay((command, direction) => edits.replayCommand(command, direction))
+    const controller = new SceneRuntimeMutationController({
+      sceneStore: store,
+      selection: { set: setSelection },
+      sceneEdits: edits,
+      commandAdmission: edits,
+      settledReader: edits,
+      presentation: {
+        getViewportScale: () => 1,
+        createPlantPresentationContext: (viewportScale = 1) => ({
+          pixelsPerMetre: viewportScale,
+          speciesCache: new Map(),
+          localizedCommonNames: new Map(),
+        }),
+        getLocalizedCommonNames: () => new Map(),
+        getSuggestedPlantColor: () => null,
+      },
+      invalidateScene: () => {},
+    })
+    return { store, controller }
+  }
+
+  it('#734 B1: duplicate and cross-Design paste of a group containing a measurement guide remap the cloned guide id and encode cleanly', () => {
 
     const designA = makeTestDesign({
       layers: [
@@ -407,6 +412,105 @@ describe('scene codec lossless v10 preservation', () => {
       { kind: 'plant', id: afterCrossPaste.plants[0]!.id, role: 'anchor' },
       { kind: 'zone', id: afterCrossPaste.zones[0]!.id },
       { kind: 'measurement_guide', id: pastedGuide.id, role: 'span' },
+    ])
+  })
+
+  it('#755 SF1 & SF2: grouped measurement guide picks/highlights via its group, respects group lock, and regrouping preserves member unknown keys', () => {
+    const withExtra = <T extends Record<string, unknown>>(obj: T, extra: Record<string, unknown>): T => ({ ...obj, ...extra })
+    const design = makeTestDesign({
+      layers: [
+        { name: 'plants', visible: true, locked: false, opacity: 1 },
+        { name: 'measurement-guides', visible: true, locked: false, opacity: 1 },
+      ],
+      plants: [
+        {
+          id: 'plant-1',
+          canonical_name: 'Malus domestica',
+          common_name: 'Apple',
+          position: { lon: 2.2945, lat: 48.8584 },
+          canopy_spread_m: 1,
+          rotation: 0,
+          color: '#5E8B7E',
+          locked: false,
+          pinned_name: false,
+          notes: null,
+          planted_date: null,
+          quantity: 1,
+        },
+        {
+          id: 'plant-2',
+          canonical_name: 'Pyrus communis',
+          common_name: 'Pear',
+          position: { lon: 2.2948, lat: 48.8584 },
+          canopy_spread_m: 1,
+          rotation: 0,
+          color: '#5E8B7E',
+          locked: false,
+          pinned_name: false,
+          notes: null,
+          planted_date: null,
+          quantity: 1,
+        },
+      ],
+      measurement_guides: [{
+        id: 'guide-1',
+        locked: false,
+        start: { lon: 2.2944, lat: 48.8585 },
+        end: { lon: 2.2946, lat: 48.8585 },
+      }],
+      groups: [{
+        id: 'group-1',
+        locked: true,
+        name: 'Locked guild',
+        members: [
+          withExtra({ kind: 'plant' as const, id: 'plant-1' }, { role: 'anchor' }),
+          withExtra({ kind: 'measurement_guide' as const, id: 'guide-1' }, { role: 'span' }),
+        ],
+      }],
+    })
+
+    const { store, controller } = makeController(design)
+    const guide = store.persisted.measurementGuides[0]!
+    const midpoint = { x: (guide.start.x + guide.end.x) / 2, y: (guide.start.y + guide.end.y) / 2 }
+    const plantCtx = {
+      pixelsPerMetre: 20,
+      speciesCache: new Map(),
+      plants: store.persisted.plants,
+    } as unknown as PlantPresentationContext
+
+    // SF1: clicking a grouped guide picks its group, never the guide alone.
+    expect(hitTestTopLevel(store.persisted, midpoint, 20, 'mouse', new Map(), () => plantCtx)).toEqual({
+      kind: 'group',
+      id: 'group-1',
+    })
+
+    // SF1: selecting the grouped guide directly is structurally blocked (cannot bypass group or lock).
+    const directModel = getDesignObjectSelectionModel(store.persisted, [{ kind: 'measurement-guide', id: 'guide-1' }], {
+      annotationViewportScale: 20,
+      plantContext: plantCtx,
+    })
+    expect(directModel.editableTargets).toEqual([])
+    expect(directModel.blockedTargets).toEqual([{ target: { kind: 'measurement-guide', id: 'guide-1' }, reason: 'structural' }])
+
+    // SF1: selecting or hovering the group highlights its grouped guide.
+    const selectedIds = projectSceneSelectionEntityIds(store.persisted, [{ kind: 'group', id: 'group-1' }])
+    expect(selectedIds.selectedMeasurementGuideIds.has('guide-1')).toBe(true)
+    const hoverSnap = { scene: store.persisted, hoverTarget: { kind: 'group', id: 'group-1', state: 'hover' } } as unknown as Parameters<typeof hoverStateForTarget>[0]
+    expect(hoverStateForTarget(hoverSnap, 'measurement-guide', 'guide-1')).toBe('hover')
+
+    // SF2: unlocking and regrouping with plant-2 preserves per-member unknown keys.
+    store.setSelection([{ kind: 'group', id: 'group-1' }])
+    controller.unlockSelected()
+    store.setSelection([{ kind: 'group', id: 'group-1' }, { kind: 'plant', id: 'plant-2' }])
+    controller.groupSelected()
+    const afterRegroup = decodeCanopiDesign(encodeCanopiDesign(
+      serializeScenePersistedState(store.persisted, store.sessionPlane),
+    ))
+    expect(afterRegroup.groups).toHaveLength(1)
+    expect(afterRegroup.groups[0]!.members).toEqual([
+      { kind: 'plant', id: 'plant-1', role: 'anchor' },
+      { kind: 'measurement_guide', id: 'guide-1', role: 'span' },
+      { kind: 'plant', id: 'plant-2' },
     ])
   })
 })

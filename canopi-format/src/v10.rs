@@ -129,6 +129,13 @@ mod tests {
         assert_eq!(crate::schema::unsupported_keyword(schema), None);
     }
 
+    #[test]
+    fn the_read_schema_is_built_once() {
+        let schema = read_schema().expect("the frozen read schema parses");
+        assert!(read_schema().is_some_and(|again| std::ptr::eq(schema, again)));
+        assert_eq!(schema["required"], serde_json::json!(["version"]));
+    }
+
     /// Each object schema of the frozen read schema, named `Def` or `Def[i]` for a `oneOf`
     /// variant, with the root as `CanopiFile`.
     fn objects(schema: &serde_json::Value) -> Vec<(String, &serde_json::Value)> {

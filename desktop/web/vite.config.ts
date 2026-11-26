@@ -143,8 +143,8 @@ export default defineConfig(({ command, mode }) => {
       // Preact 11 after-paint work runs inside the test that scheduled it (support/preact-after-paint.ts); then
       // fast-check's pinned seed, runs and per-run limit (__tests__/support/fast-check-setup.ts).
       setupFiles: ["./src/__tests__/support/preact-after-paint.ts", "./src/__tests__/support/fast-check-setup.ts"],
-      // The pinned PDF fonts, verified (and fetched when missing) once per run: bare `npx vitest run` needs no npm hook.
-      globalSetup: ["./scripts/prepare-pdf-fonts.mjs"],
+      // The pinned PDF fonts and format Wasm module, verified/built once per run: bare `npx vitest run` needs no npm hook.
+      globalSetup: ["./scripts/prepare-pdf-fonts.mjs", "./scripts/prepare-format-wasm.mjs"],
       sequence: { shuffle: { files: true, tests: true }, seed: mode === "test" ? testSeed() : PINNED_TEST_SEED },
       // A test that makes no assertion fails (ADR 0028 Flakes), so none passes by checking nothing.
       expect: { requireAssertions: true },

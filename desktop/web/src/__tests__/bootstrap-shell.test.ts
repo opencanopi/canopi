@@ -39,7 +39,7 @@ const mocks = vi.hoisted(() => ({
   raiseEarlierDataNotice: vi.fn(),
   openSpeciesLists: vi.fn(),
   takeReloadHome: vi.fn(),
-  loadDraft: vi.fn(),
+  loadRawDraft: vi.fn(),
   installLaunchFile: vi.fn(),
   disposeLaunchFile: vi.fn(),
 }));
@@ -54,7 +54,7 @@ vi.mock("../web/browser-app-data", () => ({
     openSpeciesLists: mocks.openSpeciesLists,
     listDrafts: mocks.listDrafts,
     takeReloadHome: mocks.takeReloadHome,
-    loadDraft: mocks.loadDraft,
+    loadRawDraft: mocks.loadRawDraft,
   },
 }));
 
@@ -147,7 +147,7 @@ describe("settings platform bootstrap", () => {
     mocks.takeEarlierDataNotice.mockReset().mockReturnValue(false);
     mocks.raiseEarlierDataNotice.mockReset();
     mocks.takeReloadHome.mockReset().mockReturnValue(null);
-    mocks.loadDraft.mockReset().mockReturnValue(null);
+    mocks.loadRawDraft.mockReset().mockReturnValue(null);
     mocks.disposeLaunchFile.mockReset();
     mocks.installLaunchFile.mockReset().mockReturnValue(mocks.disposeLaunchFile);
   });

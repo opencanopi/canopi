@@ -15,8 +15,8 @@ import {
   getSceneGroupedMemberKeys,
   resolveSceneObjectGroupMembers,
   sceneContainsTarget,
-  sceneObjectGroupMemberFromTarget,
   sceneObjectGroupMemberKey,
+  sceneObjectGroupMemberKeyForTarget,
   sceneTargetKey,
   sceneTargetLayerNames,
   freezeInDev,
@@ -83,7 +83,7 @@ export function projectSceneSelectionEntityIds(
     }
   }
   for (const guide of persisted.measurementGuides) {
-    if (selectedKeys.has(sceneTargetKey({ kind: 'measurement-guide', id: guide.id }))) {
+    if (isSelected({ kind: 'measurement-guide', id: guide.id })) {
       selectedMeasurementGuideIds.add(guide.id)
     }
   }
@@ -134,7 +134,10 @@ export function getSelectedTopLevelTargets(
   }
 
   for (const guide of persisted.measurementGuides) {
-    if (!selectedKeys.has(sceneTargetKey({ kind: 'measurement-guide', id: guide.id }))) continue
+    if (
+      !selectedKeys.has(sceneTargetKey({ kind: 'measurement-guide', id: guide.id }))
+      || groupedMemberKeys.has(sceneTargetKey({ kind: 'measurement-guide', id: guide.id }))
+    ) continue
     targets.push({ kind: 'measurement-guide', id: guide.id })
   }
 
@@ -358,11 +361,11 @@ function getBlockedSelectionTargets(
   const groupedMemberKeys = getSceneGroupedMemberKeys(persisted)
 
   for (const target of selectedTargets) {
-    const member = sceneObjectGroupMemberFromTarget(target)
+    const memberKey = sceneObjectGroupMemberKeyForTarget(target)
     // A structural block wins over the Design Object's own lock: a locked Object on a locked Layer is not selected locked.
     if (
       !sceneContainsTarget(persisted, target)
-      || (member && groupedMemberKeys.has(sceneObjectGroupMemberKey(member)))
+      || (memberKey !== null && groupedMemberKeys.has(memberKey))
       || isOnHiddenOrLockedLayer(persisted, target)
     ) {
       pushBlocked(blockedTargets, seen, { target, reason: 'structural' })

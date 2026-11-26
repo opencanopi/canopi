@@ -132,4 +132,32 @@ describe('platform/design-core adapter', () => {
     workers[1]!.fail()
     await expect(onErr).rejects.toMatchObject({ code: { kind: 'format_core_unavailable' } })
   })
+
+  it('#755 SF5: times out a stalled worker call as format_core_unavailable, terminates it, and respawns on next call', async () => {
+    vi.useFakeTimers()
+    try {
+      const workers: FakeWorker[] = []
+      const core = createDesignCore({
+        callTimeoutMs: 500,
+        createWorker: () => {
+          const w = makeFakeWorker()
+          workers.push(w)
+          return w
+        },
+      })
+
+      const stalled = core.version()
+      const settled = expect(stalled).rejects.toMatchObject({ code: { kind: 'format_core_unavailable' } })
+      await vi.advanceTimersByTimeAsync(500)
+      await settled
+      expect(workers[0]!.terminate).toHaveBeenCalledTimes(1)
+
+      const recovered = core.version()
+      expect(workers).toHaveLength(2)
+      workers[1]!.reply({ id: 2, ok: true, value: '2.1.0' })
+      expect(await recovered).toBe('2.1.0')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
 })

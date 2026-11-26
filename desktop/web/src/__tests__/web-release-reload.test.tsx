@@ -22,7 +22,7 @@ import { reloadWebForRelease } from '../editions/web/web-session'
 import { installReleaseNotice, presentBrowserGeoJsonNotice, raiseEarlierDataNotice } from '../web/browser-notices'
 import { raiseNotice, resetNoticesForTests } from '../failures/notices'
 import { editDesignSessionForTest } from './support/design-session-edit'
-import { createTestDesignCore } from './support/design-wire'
+import { createTestDesignCore, encodeCanopiDesign } from './support/design-wire'
 import { projectBrowserShellForTest } from './support/browser-shell-projection'
 
 // Reload for a waiting Web release (2.1-Q83, Q188, Q189, M179; Step 2.0.3 serving chunk 2): the session's
@@ -109,7 +109,7 @@ describe('Reload for a waiting release (2.1-Q83, Q188, Q189)', () => {
     let written: string | null | undefined
     run.reload.mockImplementation(() => {
       // When the page reloads, the latest edit is already in the Draft.
-      written = run.appDataStore.loadDraft(draftId)?.description
+      written = run.appDataStore.loadRawDraft(draftId)?.description as string | null | undefined
     })
     await expect(reloadWebForRelease(run.reload)).resolves.toBe(true)
     expect(run.reload).toHaveBeenCalledOnce()
@@ -148,7 +148,7 @@ describe('Reload for a waiting release (2.1-Q83, Q188, Q189)', () => {
     }
     await expect(retryReload).resolves.toBe(true)
     expect(run.reload).toHaveBeenCalledOnce()
-    expect(run.appDataStore.loadDraft(draftId)?.description).toBe('unwritable')
+    expect(run.appDataStore.loadRawDraft(draftId)?.description).toBe('unwritable')
 
     // Reload without saving (discard) reloads with the write still failing.
     const again = tab(storage)
@@ -168,13 +168,13 @@ describe('Reload for a waiting release (2.1-Q83, Q188, Q189)', () => {
   it('Reload over a Draft another tab changed pauses on conflict instead of overwriting the other tab', async () => {
     const storage = memoryStorage()
     const other = createBrowserAppDataStore({ storage, session: memoryStorage() })
-    other.saveDraft({ id: 'draft-shared', file: design('Shared'), now: '2026-07-04T11:00:00.000Z' })
+    other.saveRawDraft({ id: 'draft-shared', raw: encodeCanopiDesign(design('Shared')), name: 'Shared', now: '2026-07-04T11:00:00.000Z' })
     const run = tab(storage)
     const opened = await run.core.openFrom({ kind: 'draft', id: 'draft-shared' as DraftId })
     expect(opened.status).toBe('opened')
 
     // Another tab updates the same Draft.
-    other.saveDraft({ id: 'draft-shared', file: design('Shared', 'other tab'), now: '2026-07-04T13:00:00.000Z' })
+    other.saveRawDraft({ id: 'draft-shared', raw: encodeCanopiDesign(design('Shared', 'other tab')), name: 'Shared', now: '2026-07-04T13:00:00.000Z' })
     editDesignSessionForTest(designSessionStore, (file) => ({ ...file, description: 'this tab' }))
 
     const reloading = reloadWebForRelease(run.reload)
@@ -187,14 +187,14 @@ describe('Reload for a waiting release (2.1-Q83, Q188, Q189)', () => {
     }
     await expect(reloading).resolves.toBe(false)
     expect(run.reload).not.toHaveBeenCalled()
-    expect(other.loadDraft('draft-shared')?.description).toBe('other tab')
+    expect(other.loadRawDraft('draft-shared')?.description).toBe('other tab')
   })
 
   it('Q189: Reload notes the open Draft id in sessionStorage and reopens it once', async () => {
     const storage = memoryStorage()
     const seed = createBrowserAppDataStore({ storage })
-    seed.saveDraft({ id: 'draft-orchard', file: design('Orchard'), now: '2026-07-04T10:00:00.000Z' })
-    seed.saveDraft({ id: 'draft-hedge', file: design('Hedge'), now: '2026-07-04T11:00:00.000Z' })
+    seed.saveRawDraft({ id: 'draft-orchard', raw: encodeCanopiDesign(design('Orchard')), name: 'Orchard', now: '2026-07-04T10:00:00.000Z' })
+    seed.saveRawDraft({ id: 'draft-hedge', raw: encodeCanopiDesign(design('Hedge')), name: 'Hedge', now: '2026-07-04T11:00:00.000Z' })
 
     const before = tab(storage)
     const openRes = await before.core.openFrom({ kind: 'draft', id: 'draft-orchard' as DraftId })
@@ -219,7 +219,7 @@ describe('Reload for a waiting release (2.1-Q83, Q188, Q189)', () => {
   it('Q189: a reload record naming a Draft that is gone refuses to open and leaves the start screen empty', async () => {
     const storage = memoryStorage()
     const seed = createBrowserAppDataStore({ storage })
-    seed.saveDraft({ id: 'draft-hedge', file: design('Hedge'), now: '2026-07-04T11:00:00.000Z' })
+    seed.saveRawDraft({ id: 'draft-hedge', raw: encodeCanopiDesign(design('Hedge')), name: 'Hedge', now: '2026-07-04T11:00:00.000Z' })
     browserAppDataStore.noteReloadHome('draft-deleted')
 
     const noted = browserAppDataStore.takeReloadHome()

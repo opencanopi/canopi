@@ -12,8 +12,6 @@ use proptest::prelude::*;
 use serde_json::{Value, json};
 
 use crate::core::{decode_design, encode_design};
-use crate::schema::admit_schema;
-use crate::v10::read_schema;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Op {
@@ -583,8 +581,7 @@ proptest! {
         prop_assert_eq!(&b1, &b3);
 
         let parsed: Value = serde_json::from_slice(&b1).unwrap();
-        let frozen_read = read_schema().expect("v2.0.5 frozen read schema");
-        admit_schema(&parsed, frozen_read).expect("v2.0.5 frozen read schema admits generated v10");
+        crate::core_tests::admit_frozen_v2_0_5_read(&parsed);
         prop_assert_eq!(parsed["version"].as_u64(), Some(10));
     }
 }

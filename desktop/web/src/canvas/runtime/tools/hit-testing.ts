@@ -112,7 +112,10 @@ function hitTestTopLevelWithLayerFilter(
   const detail = getCanvasDetailLayout(scene, viewportScale)
   const plantContext = { ...plantPresentationContext(getPlantContext, viewportScale, speciesCache), plants: scene.plants }
   /** The top-level target of a member: itself, its group, or undefined when it cannot be picked (its group or layer). */
-  const topLevel = (target: SceneConcreteDesignObjectTarget, layerName: string): SceneDesignObjectTarget | undefined => {
+  const topLevel = (
+    target: SceneConcreteDesignObjectTarget | { readonly kind: 'measurement-guide'; readonly id: string },
+    layerName: string,
+  ): SceneDesignObjectTarget | undefined => {
     const key = sceneTargetKey(target)
     if (groupOf.has(key)) return groupOf.get(key) ?? undefined
     return isLayerHitEligible(scene, layerName) ? target : undefined
@@ -144,10 +147,9 @@ function hitTestTopLevelWithLayerFilter(
 
   for (let i = scene.measurementGuides.length - 1; i >= 0; i -= 1) {
     const guide = scene.measurementGuides[i]!
-    if (!isLayerHitEligible(scene, 'measurement-guides')) continue
-    if (hitMeasurementGuide(guide, point, viewportScale)) {
-      return { target: { kind: 'measurement-guide', id: guide.id }, zone: null }
-    }
+    const target = topLevel({ kind: 'measurement-guide', id: guide.id }, 'measurement-guides')
+    if (!target) continue
+    if (hitMeasurementGuide(guide, point, viewportScale)) return { target, zone: null }
   }
 
   // Zones whose tolerance bands overlap: the nearest line wins, so a tap on one bed's line never picks the bed beside it;

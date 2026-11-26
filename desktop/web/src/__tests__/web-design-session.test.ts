@@ -230,7 +230,7 @@ describe('Web Edition SessionCore + createBrowserSessionHomeStore lifecycle', ()
     editDesignSessionForTest(designSessionStore, (design) => ({ ...design, description: 'Composed in web' }))
     await expect(core.flushNow()).resolves.toBe(true)
 
-    const saved = appDataStore.loadDraft(draftId)
+    const saved = appDataStore.loadRawDraft(draftId)
     expect(saved?.version).toBe(CURRENT_CANOPI_FILE_VERSION)
     expect(saved?.description).toBe('Composed in web')
 
@@ -335,19 +335,19 @@ describe('Web Edition SessionCore + createBrowserSessionHomeStore lifecycle', ()
     await core.createNew()
     const draftId = core.currentDesign.peek()!.home.key
     editDesignSessionForTest(designSessionStore, (design) => ({ ...design, description: 'debounced' }))
-    expect(appDataStore.loadDraft(draftId)).toBeNull()
+    expect(appDataStore.loadRawDraft(draftId)).toBeNull()
 
     const firstWrite = nextWrite()
     await vi.advanceTimersByTimeAsync(CONTINUOUS_SAVE_DELAY_MS + 10)
     await firstWrite
-    expect(appDataStore.loadDraft(draftId)?.description).toBe('debounced')
+    expect(appDataStore.loadRawDraft(draftId)?.description).toBe('debounced')
     expect(designSaveStatus.value).toBe('draft')
 
     const hideWrite = nextWrite()
     editDesignSessionForTest(designSessionStore, (design) => ({ ...design, description: 'flushed on hide' }))
     lifecycle.emit({ kind: 'hidden' })
     await hideWrite
-    expect(appDataStore.loadDraft(draftId)?.description).toBe('flushed on hide')
+    expect(appDataStore.loadRawDraft(draftId)?.description).toBe('flushed on hide')
   })
 
   it('writes the current Design before a replacement and asks only when that write fails', async () => {
@@ -358,7 +358,7 @@ describe('Web Edition SessionCore + createBrowserSessionHomeStore lifecycle', ()
 
     // When storage works, createNew flushes automatically without asking.
     await core.createNew()
-    expect(appDataStore.loadDraft(firstId)?.description).toBe('saved before replace')
+    expect(appDataStore.loadRawDraft(firstId)?.description).toBe('saved before replace')
 
     // When storage fails, createNew enters closing/replacing question state.
     editDesignSessionForTest(designSessionStore, (design) => ({ ...design, description: 'cannot flush' }))
@@ -376,31 +376,32 @@ describe('Web Edition SessionCore + createBrowserSessionHomeStore lifecycle', ()
 
   it('reverts to the baseline opened and writes it back to the same Draft', async () => {
     const { appDataStore, core } = setupSession()
-    appDataStore.saveDraft({ id: 'draft-revert', file: makeFile({ name: 'Orchard', description: 'original' }), now: NOW.toISOString() })
+    appDataStore.saveRawDraft({ id: 'draft-revert', raw: encodeCanopiDesign(makeFile({ name: 'Orchard', description: 'original' })), name: 'Orchard', now: NOW.toISOString() })
 
     await openDesignDraft('draft-revert', { presentFailure: false })
     editDesignSessionForTest(designSessionStore, (design) => ({ ...design, description: 'edited' }))
     await core.flushNow()
-    expect(appDataStore.loadDraft('draft-revert')?.description).toBe('edited')
+    expect(appDataStore.loadRawDraft('draft-revert')?.description).toBe('edited')
 
     await expect(core.revert()).resolves.toBe('reverted')
     expect(designSessionStore.readCurrentDesign()?.description).toBe('original')
     await core.flushNow()
-    expect(appDataStore.loadDraft('draft-revert')?.description).toBe('original')
+    expect(appDataStore.loadRawDraft('draft-revert')?.description).toBe('original')
   })
 
   it('pauses on atomic integer CAS conflict when another browser tab changed the open Draft, and resolves cleanly', async () => {
     const storage = memoryStorage()
     const otherTabStore = createBrowserAppDataStore({ storage })
-    otherTabStore.saveDraft({ id: 'draft-shared', file: makeFile({ name: 'Shared', description: 'v1' }), now: NOW.toISOString() })
+    otherTabStore.saveRawDraft({ id: 'draft-shared', raw: encodeCanopiDesign(makeFile({ name: 'Shared', description: 'v1' })), name: 'Shared', now: NOW.toISOString() })
 
     const { core } = setupSession({ storage })
     await openDesignDraft('draft-shared', { presentFailure: false })
 
     // Another tab updates the same Draft at a newer timestamp.
-    otherTabStore.saveDraft({
+    otherTabStore.saveRawDraft({
       id: 'draft-shared',
-      file: makeFile({ name: 'Shared', description: 'from other tab' }),
+      raw: encodeCanopiDesign(makeFile({ name: 'Shared', description: 'from other tab' })),
+      name: 'Shared',
       now: new Date(NOW.getTime() + 1000).toISOString(),
     })
 
@@ -408,25 +409,25 @@ describe('Web Edition SessionCore + createBrowserSessionHomeStore lifecycle', ()
     await expect(core.flushNow()).resolves.toBe(false)
     expect(designSaveStatus.value).toBe('conflict')
     // The other tab's Draft was NOT overwritten.
-    expect(otherTabStore.loadDraft('draft-shared')?.description).toBe('from other tab')
+    expect(otherTabStore.loadRawDraft('draft-shared')?.description).toBe('from other tab')
 
     // Resolving with keep-mine writes this tab's version at the latest revision.
     await expect(core.resolveConflict('keep-mine')).resolves.toBe('resolved')
-    expect(otherTabStore.loadDraft('draft-shared')?.description).toBe('from this tab')
+    expect(otherTabStore.loadRawDraft('draft-shared')?.description).toBe('from this tab')
     expect(designSaveStatus.value).toBe('draft')
   })
 
   it('deletes a Draft other than the open one, and refuses to delete the open Draft', async () => {
     const { appDataStore } = setupSession()
-    appDataStore.saveDraft({ id: 'draft-a', file: makeFile({ name: 'Alpha' }), now: NOW.toISOString() })
-    appDataStore.saveDraft({ id: 'draft-b', file: makeFile({ name: 'Beta' }), now: NOW.toISOString() })
+    appDataStore.saveRawDraft({ id: 'draft-a', raw: encodeCanopiDesign(makeFile({ name: 'Alpha' })), name: 'Alpha', now: NOW.toISOString() })
+    appDataStore.saveRawDraft({ id: 'draft-b', raw: encodeCanopiDesign(makeFile({ name: 'Beta' })), name: 'Beta', now: NOW.toISOString() })
 
     await expect(openWebDraft('draft-a')).resolves.toBe(true)
     expect((await deleteWebDraft('draft-a')).ok).toBe(false)
-    expect(appDataStore.loadDraft('draft-a')).not.toBeNull()
+    expect(appDataStore.loadRawDraft('draft-a')).not.toBeNull()
 
     expect((await deleteWebDraft('draft-b')).ok).toBe(true)
-    expect(appDataStore.loadDraft('draft-b')).toBeNull()
+    expect(appDataStore.loadRawDraft('draft-b')).toBeNull()
   })
 
   it('keeps separate Browser Drafts for different Designs with the same name and renames without leaving stale rows', async () => {
@@ -474,7 +475,7 @@ describe('Web Edition SessionCore + createBrowserSessionHomeStore lifecycle', ()
     core.recordSceneEdit('add-plant', { type: 'test-add-plant' } as unknown as SceneCommand)
     await core.flushNow()
 
-    expect(appDataStore.loadDraft(draftId)?.plants).toEqual([expect.objectContaining(addedPlant)])
+    expect(decodeCanopiDesign(appDataStore.loadRawDraft(draftId)).plants).toEqual([expect.objectContaining(addedPlant)])
 
     // Detaching snapshots scene fields so currentWebDesignText still includes them (encoded via DesignCore).
     core.detachScene()
@@ -494,7 +495,7 @@ describe('Web Edition SessionCore + createBrowserSessionHomeStore lifecycle', ()
 describe('Web Draft download parity (2.1-Q193, canopi-eon8.15)', () => {
   it('Download a copy of a Draft and of the same Design open give one file name and one encoding', async () => {
     const file = makeFile({ name: 'Hazel: Walk/1', description: 'parity check' })
-    browserAppDataStore.saveDraft({ id: 'draft-parity', file, now: NOW.toISOString() })
+    browserAppDataStore.saveRawDraft({ id: 'draft-parity', raw: encodeCanopiDesign(file), name: file.name, now: NOW.toISOString() })
 
     const downloadSpy = vi.spyOn(browserTextFiles, 'downloadBrowserTextFile').mockImplementation(() => undefined)
     await downloadWebDraft('draft-parity')

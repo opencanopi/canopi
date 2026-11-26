@@ -857,7 +857,7 @@ function createGroupSelectedPlan(
       if (!group) continue
       selectedGroupIds.add(group.id)
       for (const member of resolveSceneObjectGroupMembers(persisted, group)) {
-        members.push({ kind: member.kind, id: member.id })
+        members.push(member)
       }
       continue
     }

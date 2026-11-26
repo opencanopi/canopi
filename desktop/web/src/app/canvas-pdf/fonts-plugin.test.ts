@@ -77,7 +77,7 @@ describe('PDF fonts plugin', () => {
     const validation = readFileSync(new URL('../../../scripts/pdf-validation/vite.config.mjs', import.meta.url), 'utf8')
     expect(validation).toMatch(/pdfFontsPlugin\(\)/)
     const tests = (await resolveConfig('test')) as UserConfig & { test?: { globalSetup?: string[] } }
-    expect(tests.test?.globalSetup).toEqual(['./scripts/prepare-pdf-fonts.mjs'])
+    expect(tests.test?.globalSetup).toContain('./scripts/prepare-pdf-fonts.mjs')
     const { scripts } = JSON.parse(readFileSync(new URL('../../../package.json', import.meta.url), 'utf8')) as { scripts: Record<string, string> }
     expect(Object.entries(scripts).filter(([name, script]) => name !== 'prepare:pdf-fonts' && script.includes('pdf-fonts'))).toEqual([])
   })

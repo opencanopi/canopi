@@ -26,11 +26,19 @@ export function sceneObjectGroupMemberKey(member: SceneObjectGroupMember): strin
   return sceneTargetKey(member)
 }
 
+/** Returns a group member for UI `group-selected` (excludes groups and measurement guides). */
 export function sceneObjectGroupMemberFromTarget(
   target: SceneDesignObjectTarget,
 ): SceneObjectGroupMember | null {
   if (target.kind === 'group' || target.kind === 'measurement-guide') return null
   return { kind: target.kind, id: target.id }
+}
+
+/** Returns the member key for any concrete object that can belong to an Object Group (including measurement guides). */
+export function sceneObjectGroupMemberKeyForTarget(
+  target: SceneDesignObjectTarget,
+): string | null {
+  return target.kind === 'group' ? null : sceneTargetKey(target)
 }
 
 export function sceneObjectGroupMemberLayerName(member: SceneObjectGroupMember): string {
@@ -119,7 +127,7 @@ export function isSceneObjectGroupMemberTarget(
   return member.kind === target.kind && member.id === target.id
 }
 
-export interface DeletedSceneMemberIds {
+interface DeletedSceneMemberIds {
   readonly plantIds?: ReadonlySet<string>
   readonly zoneIds?: ReadonlySet<string>
   readonly annotationIds?: ReadonlySet<string>

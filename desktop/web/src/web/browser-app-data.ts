@@ -1,9 +1,4 @@
-import {
-  flattenDocumentForJson,
-  isCurrentCanopiDocument,
-  normalizeLoadedDocument,
-} from "../app/contracts/document";
-import type { CanopiFile } from "../types/design";
+import { isCurrentCanopiDocument } from "../app/contracts/document";
 import { keepUnreadableRecord, StoreRefusedError, StoreUnreadableError } from "../failures/store-read";
 import { writeStoreHealth } from "../failures/health";
 import type { StoreId } from "../generated/contracts";
@@ -127,9 +122,10 @@ const PARTITIONS = {
   },
 } as const;
 
-interface SaveDraftOptions {
+interface SaveRawDraftOptions {
   readonly id?: string;
-  readonly file: CanopiFile;
+  readonly raw: Record<string, unknown>;
+  readonly name: string;
   readonly now: string;
   /**
    * The `updatedAt` this writer last read or wrote for the Draft (null: it
@@ -137,14 +133,6 @@ interface SaveDraftOptions {
    * save is refused with `BrowserDraftChangedError` instead of replacing it.
    * Omitted: overwrite unconditionally.
    */
-  readonly expectedUpdatedAt?: string | null;
-}
-
-interface SaveRawDraftOptions {
-  readonly id?: string;
-  readonly raw: Record<string, unknown>;
-  readonly name: string;
-  readonly now: string;
   readonly expectedUpdatedAt?: string | null;
 }
 
@@ -175,11 +163,9 @@ interface BrowserAppDataStoreOptions {
 }
 
 export interface BrowserAppDataStore {
-  saveDraft(options: SaveDraftOptions): BrowserAppDataWriteResult<BrowserDraftSummary>;
   /** Stores canonical `.canopi` wire JSON produced by DesignCore without re-normalizing or flattening. */
   saveRawDraft(options: SaveRawDraftOptions): BrowserAppDataWriteResult<BrowserDraftSummary>;
   listDrafts(): readonly BrowserDraftSummary[];
-  loadDraft(id: string): CanopiFile | null;
   /** Returns the stored `.canopi` wire JSON object untouched for DesignCore decode. */
   loadRawDraft(id: string): Record<string, unknown> | null;
   deleteDraft(id: string): BrowserAppDataWriteResult<null>;
@@ -288,17 +274,11 @@ export function createBrowserAppDataStore({
   }
 
   return {
-    saveDraft({ id, file, now, expectedUpdatedAt }) { return writeDraft(id, file.name, now, expectedUpdatedAt, flattenDocumentForJson(file)); },
     saveRawDraft({ id, raw, name, now, expectedUpdatedAt }) { return writeDraft(id, name, now, expectedUpdatedAt, raw); },
     listDrafts() { return readPartition(PARTITIONS.drafts).drafts; },
     loadRawDraft(id) {
       const draftFiles = readPartition(PARTITIONS.drafts).draftFiles;
       return Object.prototype.hasOwnProperty.call(draftFiles, id) ? draftFiles[id] ?? null : null;
-    },
-    loadDraft(id) {
-      const draftFiles = readPartition(PARTITIONS.drafts).draftFiles;
-      const raw = Object.prototype.hasOwnProperty.call(draftFiles, id) ? draftFiles[id] ?? null : null;
-      return raw ? normalizeLoadedDocument(raw) : null;
     },
 
     deleteDraft(id) {

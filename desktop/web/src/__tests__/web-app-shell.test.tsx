@@ -617,7 +617,7 @@ describe('Web Edition Browser App Shell', () => {
       await core.flushNow()
     })
     expect(container.querySelector('[data-save-status] [role="status"]')?.textContent).toBe('Saved in this browser')
-    expect(appDataStore.loadDraft(draftId)?.description).toBe('Browser edit')
+    expect(appDataStore.loadRawDraft(draftId)?.description).toBe('Browser edit')
   })
 
   async function launchWithUnkeptDrafts(answer: Promise<boolean>, storage = memoryStorage()) {

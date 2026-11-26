@@ -24,6 +24,8 @@ interface DesignCoreWorker {
 
 interface DesignCoreOptions {
   readonly createWorker?: () => DesignCoreWorker
+  /** Per-call timeout in ms before rejecting `format_core_unavailable` and recycling the worker. */
+  readonly callTimeoutMs?: number
 }
 
 type DesignCoreEncodeAnswer =
@@ -61,10 +63,12 @@ export interface DesignCore {
 
 const DESIGN_CORE_OP = 'format_core'
 const LARGE_OPEN_RECYCLE_BYTES = 4 * 1024 * 1024
+const DEFAULT_CALL_TIMEOUT_MS = 30_000
 
 interface Waiting {
   resolve(raw: string): void
   reject(reason: unknown): void
+  timer: ReturnType<typeof setTimeout>
 }
 
 /** The dedicated module worker the Web build emits beside the page. */
@@ -76,7 +80,10 @@ function startFormatWorker(): DesignCoreWorker {
 }
 
 /** The adapter; its worker starts on its first call. */
-export function createDesignCore({ createWorker = startFormatWorker }: DesignCoreOptions = {}): DesignCore {
+export function createDesignCore({
+  createWorker = startFormatWorker,
+  callTimeoutMs = DEFAULT_CALL_TIMEOUT_MS,
+}: DesignCoreOptions = {}): DesignCore {
   // Fatal UTF-8 decoding matches Desktop's `serde_json::from_slice` refusal of invalid UTF-8.
   const utf8Decoder = new TextDecoder('utf-8', { fatal: true })
   const utf8Encoder = new TextEncoder()
@@ -91,10 +98,12 @@ export function createDesignCore({ createWorker = startFormatWorker }: DesignCor
     worker = null
     answered = false
     recycleWhenIdle = false
-    if (!reason) return
     const settled = [...waiting.values()]
     waiting.clear()
-    for (const call of settled) call.reject(reason())
+    for (const call of settled) {
+      clearTimeout(call.timer)
+      if (reason) call.reject(reason())
+    }
   }
 
   function started(): DesignCoreWorker {
@@ -117,6 +126,7 @@ export function createDesignCore({ createWorker = startFormatWorker }: DesignCor
     if (!isReply(data)) return
     const call = waiting.get(data.id)
     if (!call) return
+    clearTimeout(call.timer)
     waiting.delete(data.id)
     if (data.ok) {
       answered = true
@@ -149,7 +159,11 @@ export function createDesignCore({ createWorker = startFormatWorker }: DesignCor
         return
       }
       const id = nextId++
-      waiting.set(id, { resolve, reject })
+      const timer = setTimeout(() => {
+        if (!waiting.has(id)) return
+        stopWorker(() => formatCoreFailure('format_core_unavailable', 'the format worker timed out'))
+      }, callTimeoutMs)
+      waiting.set(id, { resolve, reject, timer })
       running.postMessage(build(id))
     })
   }

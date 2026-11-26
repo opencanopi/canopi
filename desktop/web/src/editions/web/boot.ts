@@ -113,10 +113,12 @@ export function bootWebEdition(): () => void {
 
   const onBeforeUnload = (event: BeforeUnloadEvent) => {
     const open = webSessionCore.currentDesign.peek();
-    const needsFlush = webSessionCore.pendingWrite.peek() || open?.save.kind === "failed";
+    const needsFlush = webSessionCore.pendingWrite.peek()
+      || open?.save.kind === "failed"
+      || open?.save.kind === "refused";
     if (!needsFlush || !open || open.readOnly) return;
     try {
-      if (open.home.kind === "draft") {
+      if (open.home.kind === "draft" && open.save.kind !== "refused") {
         const snap = webSessionCore.snapshot();
         if (snap && browserHomeStore.flushDraftSync(open.home.key, snap, open.home.version)) return;
       }

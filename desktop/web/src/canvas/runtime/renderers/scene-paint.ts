@@ -238,7 +238,6 @@ export function hoverStateForTarget(
   const hoverTarget = snapshot.hoverTarget
   if (!hoverTarget) return null
   if (hoverTarget.kind === kind && hoverTarget.id === id) return hoverTarget.state
-  if (kind === 'measurement-guide') return null
   if (hoverTarget.kind !== 'group') return null
   const group = snapshot.scene.groups.find((entry) => entry.id === hoverTarget.id)
   return group?.members.some((member) => isSceneObjectGroupMemberTarget(member, { kind, id }))

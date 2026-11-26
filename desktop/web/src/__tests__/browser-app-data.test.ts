@@ -9,6 +9,7 @@ import { StoreRefusedError, StoreUnreadableError } from '../failures/store-read'
 import { installHealthNotices } from '../failures/health-notices'
 import { notices, resetNoticesForTests } from '../failures/notices'
 import { t } from '../i18n'
+import { flattenDocumentForJson } from '../app/contracts/document'
 import type { CanopiFile } from '../types/design'
 
 /** Canopi 2.0's records. */
@@ -43,8 +44,9 @@ describe('browser app data store', () => {
     const storage = memoryStorage()
     const store = createBrowserAppDataStore({ storage })
     const file = makeDesign({ name: 'Terrace Draft' })
+    const raw = flattenDocumentForJson(file)
 
-    const saved = store.saveDraft({ file, now: '2026-07-04T12:00:00.000Z' })
+    const saved = store.saveRawDraft({ raw, name: file.name, now: '2026-07-04T12:00:00.000Z' })
 
     expect(saved.ok).toBe(true)
     if (!saved.ok) throw new Error('draft should save')
@@ -54,7 +56,7 @@ describe('browser app data store', () => {
       updatedAt: '2026-07-04T12:00:00.000Z',
     })
     expect(store.listDrafts()).toEqual([saved.value])
-    expect(store.loadDraft(saved.value.id)).toEqual({ ...file, extra: {} })
+    expect(store.loadRawDraft(saved.value.id)).toEqual(raw)
     expect(saved.value).not.toHaveProperty('path')
     expect(saved.value).not.toHaveProperty('sectionId')
     expect([...storage.values.keys()]).toEqual([KEYS.drafts])
@@ -62,21 +64,23 @@ describe('browser app data store', () => {
 
   it('refuses a Draft write another tab overtook, and writes a Draft another tab deleted again rather than lose the edit', () => {
     const store = createBrowserAppDataStore({ storage: memoryStorage() })
-    store.saveDraft({ id: 'draft-x', file: makeDesign({ name: 'X' }), now: '2026-07-04T12:00:00.000Z' })
-    store.saveDraft({ id: 'draft-y', file: makeDesign({ name: 'Y' }), now: '2026-07-04T12:01:00.000Z' })
+    store.saveRawDraft({ id: 'draft-x', raw: flattenDocumentForJson(makeDesign({ name: 'X' })), name: 'X', now: '2026-07-04T12:00:00.000Z' })
+    store.saveRawDraft({ id: 'draft-y', raw: flattenDocumentForJson(makeDesign({ name: 'Y' })), name: 'Y', now: '2026-07-04T12:01:00.000Z' })
 
-    const overtaken = store.saveDraft({
+    const overtaken = store.saveRawDraft({
       id: 'draft-y',
-      file: makeDesign({ name: 'Y', description: 'edited' }),
+      raw: flattenDocumentForJson(makeDesign({ name: 'Y', description: 'edited' })),
+      name: 'Y',
       now: '2026-07-04T12:06:00.000Z',
       expectedUpdatedAt: '2026-07-04T11:00:00.000Z',
     })
     expect(!overtaken.ok && overtaken.error).toBeInstanceOf(BrowserDraftChangedError)
 
     store.deleteDraft('draft-x')
-    const edit = store.saveDraft({
+    const edit = store.saveRawDraft({
       id: 'draft-x',
-      file: makeDesign({ name: 'X', description: 'edited' }),
+      raw: flattenDocumentForJson(makeDesign({ name: 'X', description: 'edited' })),
+      name: 'X',
       now: '2026-07-04T13:01:00.000Z',
       expectedUpdatedAt: '2026-07-04T12:00:00.000Z',
     })
@@ -88,15 +92,16 @@ describe('browser app data store', () => {
     const storage = memoryStorage()
     const store = createBrowserAppDataStore({ storage })
     const file = { ...makeDesign({ name: 'Wire Draft' }), extra: { future_top_level: { keep: true } } }
+    const raw = flattenDocumentForJson(file)
 
-    const saved = store.saveDraft({ file, now: '2026-07-04T12:00:00.000Z' })
+    const saved = store.saveRawDraft({ raw, name: file.name, now: '2026-07-04T12:00:00.000Z' })
     if (!saved.ok) throw new Error('draft should save')
 
     const stored = JSON.parse(storage.values.get(KEYS.drafts)!) as { draftFiles: Record<string, Record<string, unknown>> }
     const wire = stored.draftFiles[saved.value.id]!
     expect(wire).not.toHaveProperty('extra')
     expect(wire.future_top_level).toEqual({ keep: true })
-    expect(store.loadDraft(saved.value.id)?.extra).toEqual({ future_top_level: { keep: true } })
+    expect(store.loadRawDraft(saved.value.id)?.future_top_level).toEqual({ keep: true })
   })
 
   it('persists browser settings, Species app data, and Saved Object Stamps', () => {
@@ -205,7 +210,7 @@ describe('browser app data store', () => {
       expect(store.listFavoriteSpecies()).toEqual([])
       expect(store.listRecentlyViewedSpecies()).toEqual([])
       expect(store.listSavedObjectStamps()).toEqual([])
-      expect(store.saveDraft({ file: makeDesign({ name: 'Orchard' }), now: NOW }).ok).toBe(true)
+      expect(store.saveRawDraft({ raw: flattenDocumentForJson(makeDesign({ name: 'Orchard' })), name: 'Orchard', now: NOW }).ok).toBe(true)
       expect(store.saveSettings({ locale: 'fr' }).ok).toBe(true)
       expect(store.setFavoriteSpecies(['Quercus robur']).ok).toBe(true)
       expect(store.saveSavedObjectStamps([]).ok).toBe(true)
@@ -284,8 +289,10 @@ describe('browser app data store', () => {
   it('reopens app data without reparsing an already-published Draft partition', () => {
     const storage = memoryStorage()
     const firstStore = createBrowserAppDataStore({ storage })
-    expect(firstStore.saveDraft({
-      file: makeDesign({ name: 'x'.repeat(10_000) }),
+    const largeName = 'x'.repeat(10_000)
+    expect(firstStore.saveRawDraft({
+      raw: flattenDocumentForJson(makeDesign({ name: largeName })),
+      name: largeName,
       now: '2026-07-04T12:00:00.000Z',
     }).ok).toBe(true)
     storage.reads.length = 0
@@ -334,15 +341,15 @@ describe('browser app data store', () => {
   it('reports storage failures without replacing existing readable app data', () => {
     const storage = memoryStorage()
     const store = createBrowserAppDataStore({ storage })
-    const saved = store.saveDraft({ file: makeDesign({ name: 'Safe Draft' }), now: '2026-07-04T12:00:00.000Z' })
+    const saved = store.saveRawDraft({ raw: flattenDocumentForJson(makeDesign({ name: 'Safe Draft' })), name: 'Safe Draft', now: '2026-07-04T12:00:00.000Z' })
     if (!saved.ok) throw new Error('initial save should pass')
     storage.failWrites = true
 
-    const failed = store.saveDraft({ file: makeDesign({ name: 'Broken Draft' }), now: '2026-07-04T13:00:00.000Z' })
+    const failed = store.saveRawDraft({ raw: flattenDocumentForJson(makeDesign({ name: 'Broken Draft' })), name: 'Broken Draft', now: '2026-07-04T13:00:00.000Z' })
 
     expect(failed.ok).toBe(false)
     expect(store.listDrafts()).toEqual([saved.value])
-    expect(store.loadDraft(saved.value.id)?.name).toBe('Safe Draft')
+    expect(store.loadRawDraft(saved.value.id)?.name).toBe('Safe Draft')
   })
 
   it('keeps the stored bytes of Drafts it cannot open when another Draft is saved or deleted', () => {
@@ -361,10 +368,10 @@ describe('browser app data store', () => {
     const store = createBrowserAppDataStore({ storage })
     expect(store.listDrafts()).toEqual([])
 
-    const saved = store.saveDraft({ id: 'new', file: makeDesign({ name: 'New' }), now: '2026-07-05T12:00:00.000Z' })
+    const saved = store.saveRawDraft({ id: 'new', raw: flattenDocumentForJson(makeDesign({ name: 'New' })), name: 'New', now: '2026-07-05T12:00:00.000Z' })
     expect(saved.ok).toBe(true)
     expect(store.deleteDraft('new').ok).toBe(true)
-    expect(store.saveDraft({ id: 'next', file: makeDesign({ name: 'Next' }), now: '2026-07-05T13:00:00.000Z' }).ok).toBe(true)
+    expect(store.saveRawDraft({ id: 'next', raw: flattenDocumentForJson(makeDesign({ name: 'Next' })), name: 'Next', now: '2026-07-05T13:00:00.000Z' }).ok).toBe(true)
 
     const stored = JSON.parse(storage.values.get(KEYS.drafts)!) as {
       drafts: unknown[]
@@ -399,9 +406,9 @@ describe('browser app data store', () => {
     const store = createBrowserAppDataStore({ storage })
 
     expect(store.listDrafts().map((draft) => draft.id)).toEqual(['valid'])
-    expect(store.loadDraft('valid')?.name).toBe('Valid')
-    expect(store.loadDraft('corrupt')).toBeNull()
-    expect(store.loadDraft('missing')).toBeNull()
+    expect(store.loadRawDraft('valid')?.name).toBe('Valid')
+    expect(store.loadRawDraft('corrupt')).toBeNull()
+    expect(store.loadRawDraft('missing')).toBeNull()
     expect(store.loadSettings()).toEqual({ locale: 'fr', theme: 'dark' })
     expect(store.listFavoriteSpecies()).toEqual(['Malus domestica'])
     expect(store.listRecentlyViewedSpecies()).toEqual(['Pyrus communis'])
@@ -438,7 +445,7 @@ describe('browser app data store', () => {
       expect(t(told[0]!.message, told[0]!.params)).toContain(named)
       // The store works again: a new write lands under the store's key, the set-aside record kept.
       expect(key === KEYS.drafts
-        ? data.saveDraft({ file: makeDesign({ name: 'Fresh' }), now: NOW }).ok
+        ? data.saveRawDraft({ raw: flattenDocumentForJson(makeDesign({ name: 'Fresh' })), name: 'Fresh', now: NOW }).ok
         : data.setFavoriteSpecies(['Malus domestica']).ok).toBe(true)
       expect(storage.values.get(aside)).toBe('{"version":3,"drafts":')
       dispose()
@@ -453,7 +460,7 @@ describe('browser app data store', () => {
 
       expect(data.listDrafts()).toEqual([])
       storage.rejectWrite = null
-      const refused = data.saveDraft({ file: makeDesign({ name: 'Lost?' }), now: NOW })
+      const refused = data.saveRawDraft({ raw: flattenDocumentForJson(makeDesign({ name: 'Lost?' })), name: 'Lost?', now: NOW })
       expect(refused.ok).toBe(false)
       if (refused.ok) throw new Error('the write should be refused')
       expect(refused.error).toBeInstanceOf(StoreRefusedError)

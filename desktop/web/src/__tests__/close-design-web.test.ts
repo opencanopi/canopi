@@ -119,7 +119,7 @@ describe('Web Close Design', () => {
 
     await expect(core.close('close')).resolves.toBe('closed')
 
-    expect(appDataStore.loadDraft(draftId)?.description).toBe('last edit')
+    expect(appDataStore.loadRawDraft(draftId)?.description).toBe('last edit')
     expect(designSessionStore.readCurrentDesign()).toBeNull()
     expect(designSessionStore.hasCurrentDesign()).toBe(false)
     expect(readWebDesignIdentity()).toBeNull()
@@ -136,13 +136,13 @@ describe('Web Close Design', () => {
     const draftId = core.currentDesign.peek()!.home.key
     editDesignSessionForTest(designSessionStore, (design) => ({ ...design, description: 'kept' }))
     await core.close('close')
-    const saveDraft = vi.spyOn(appDataStore, 'saveDraft')
+    const saveRawDraft = vi.spyOn(appDataStore, 'saveRawDraft')
 
     await vi.advanceTimersByTimeAsync(CONTINUOUS_SAVE_DELAY_MS * 4)
     await expect(core.flushNow()).resolves.toBe(true)
 
-    expect(saveDraft).not.toHaveBeenCalled()
-    expect(appDataStore.loadDraft(draftId)?.description).toBe('kept')
+    expect(saveRawDraft).not.toHaveBeenCalled()
+    expect(appDataStore.loadRawDraft(draftId)?.description).toBe('kept')
   })
 
   it('asks when the Draft write fails; Cancel keeps the Design and Discard closes it', async () => {

@@ -2,11 +2,7 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import {
-  decode_design,
-  encode_design,
-  initSync,
-} from '../../../../../canopi-format-wasm/dist/canopi_format_wasm.js'
+import { decode_design, encode_design, initSync } from '../../../../../canopi-format-wasm/dist/canopi_format_wasm.js'
 import { CURRENT_CANOPI_FILE_VERSION } from '../../generated/canopi-design-format'
 import type { CanopiFileV10, FormatDecodeAnswer } from '../../generated/contracts'
 import type { DesignCore } from '../../platform/design-core'
@@ -15,12 +11,7 @@ import { createBrowserSessionHomeStore } from '../../editions/web/session-ports'
 import { createBrowserAppDataStore, DRAFTS_STORAGE_KEY } from '../../web/browser-app-data'
 import type { CanopiFile } from '../../types/design'
 import { saveAsCurrentDesign, saveCurrentDesign } from './actions'
-import {
-  createJsonSessionCodec,
-  createSessionCore,
-  getLiveSessionCore,
-  installLiveSessionCore,
-} from './live-core'
+import { createJsonSessionCodec, createSessionCore, getLiveSessionCore, installLiveSessionCore } from './live-core'
 import { answerSaveProblem, saveProblem } from './save-problem'
 import { designSessionStore } from './store'
 
@@ -66,37 +57,10 @@ function makeDesignCore(decodeImpl: (bytes: Uint8Array) => Promise<FormatDecodeA
 describe('createJsonSessionCodec with DesignCore', () => {
   it('decodes v10 designs through DesignCore and maps v10 fields to session CanopiFile', async () => {
     const v10: CanopiFileV10 = {
-      version: 10,
-      name: 'Meadow',
-      description: null,
-      plant_species_colors: {},
-      plant_species_symbols: {},
-      plant_species_codes: {},
-      layers: [],
-      plants: [{
-        id: 'p1',
-        locked: false,
-        canonical_name: 'Malus domestica',
-        common_name: 'Apple',
-        color: null,
-        symbol: null,
-        position: { lon: 1, lat: 2 },
-        rotation: null,
-        canopy_spread_m: 3.5,
-        notes: null,
-        planted_date: null,
-        quantity: 1,
-      }],
-      zones: [{
-        id: 'z1',
-        name: 'Bed',
-        locked: false,
-        zone_type: 'polygon',
-        points: [{ lon: 0, lat: 0 }, { lon: 1, lat: 0 }, { lon: 1, lat: 1 }],
-        rotation: 0,
-        fill_color: '#abc',
-        notes: null,
-      }],
+      version: 10, name: 'Meadow', description: null,
+      plant_species_colors: {}, plant_species_symbols: {}, plant_species_codes: {}, layers: [],
+      plants: [{ id: 'p1', locked: false, canonical_name: 'Malus domestica', common_name: 'Apple', color: null, symbol: null, position: { lon: 1, lat: 2 }, rotation: null, canopy_spread_m: 3.5, notes: null, planted_date: null, quantity: 1 }],
+      zones: [{ id: 'z1', name: 'Bed', locked: false, zone_type: 'polygon', points: [{ lon: 0, lat: 0 }, { lon: 1, lat: 0 }, { lon: 1, lat: 1 }], rotation: 0, fill_color: '#abc', notes: null }],
       annotations: [{
         id: 'a1',
         locked: false,
@@ -136,27 +100,15 @@ describe('createJsonSessionCodec with DesignCore', () => {
     await expect(createJsonSessionCodec({ designCore: newerCore }).decode(new TextEncoder().encode('{}')))
       .rejects.toMatchObject({ message: 'too new', loadFailureKind: 'newer_version' })
 
-    const olderCore = makeDesignCore(async () => ({
-      err: { kind: 'older_version', message: 'too old' },
-    }))
+    const olderCore = makeDesignCore(async () => ({ err: { kind: 'older_version', message: 'too old' } }))
     await expect(createJsonSessionCodec({ designCore: olderCore }).decode(new TextEncoder().encode('{}')))
       .rejects.toMatchObject({ message: 'too old', loadFailureKind: 'older_version' })
-
-    const tooLargeCore = makeDesignCore(async () => ({
-      err: { kind: 'too_large', message: 'over 64 MiB' },
-    }))
+    const tooLargeCore = makeDesignCore(async () => ({ err: { kind: 'too_large', message: 'over 64 MiB' } }))
     await expect(createJsonSessionCodec({ designCore: tooLargeCore }).decode(new TextEncoder().encode('{}')))
       .rejects.toMatchObject({ message: 'over 64 MiB', loadFailureKind: 'too_large' })
-
-    const invalidCore = makeDesignCore(async () => ({
-      err: { kind: 'invalid_document', message: 'bad doc', field_path: '$.plants[0].position' },
-    }))
+    const invalidCore = makeDesignCore(async () => ({ err: { kind: 'invalid_document', message: 'bad doc', field_path: '$.plants[0].position' } }))
     await expect(createJsonSessionCodec({ designCore: invalidCore }).decode(new TextEncoder().encode('{}')))
-      .rejects.toMatchObject({
-        message: 'bad doc',
-        loadFailureKind: 'invalid_document',
-        fieldPath: '$.plants[0].position',
-      })
+      .rejects.toMatchObject({ message: 'bad doc', loadFailureKind: 'invalid_document', fieldPath: '$.plants[0].position' })
   })
 
   it('canopi-f47t.52.49 (B1): opens v9 fixture with species budget and Site data, saves canonical v10 through real Wasm DesignCore, and reopens cleanly', async () => {
@@ -189,30 +141,10 @@ describe('createJsonSessionCodec with DesignCore', () => {
     const base = (await codec.decode(new Uint8Array(v9Bytes))).file
 
     expect(codec.admitWrite?.(base)).toBeNull()
-    expect(codec.admitWrite?.({
-      ...base,
-      plants: [{ ...base.plants[0]!, canopy_spread_m: 0 }],
-    })).toContain('$.plants[0].canopy_spread_m')
-    expect(codec.admitWrite?.({
-      ...base,
-      plants: [{ ...base.plants[0]!, rotation: Number.NaN }],
-    })).toContain('$.plants[0].rotation')
-    expect(codec.admitWrite?.({
-      ...base,
-      annotations: [{
-        id: 'ann-1',
-        locked: false,
-        annotation_type: 'text',
-        position: { lon: 2, lat: 48 },
-        text: 'Note',
-        font_size: 0,
-        rotation: null,
-      }],
-    })).toContain('$.annotations[0].font_size')
-    expect(codec.admitWrite?.({
-      ...base,
-      layers: [{ ...base.layers[0]!, opacity: 1.5 }],
-    })).toContain('$.layers[0].opacity')
+    expect(codec.admitWrite?.({ ...base, plants: [{ ...base.plants[0]!, canopy_spread_m: 0 }] })).toContain('$.plants[0].canopy_spread_m')
+    expect(codec.admitWrite?.({ ...base, plants: [{ ...base.plants[0]!, rotation: Number.NaN }] })).toContain('$.plants[0].rotation')
+    expect(codec.admitWrite?.({ ...base, annotations: [{ id: 'ann-1', locked: false, annotation_type: 'text', position: { lon: 2, lat: 48 }, text: 'Note', font_size: 0, rotation: null }] })).toContain('$.annotations[0].font_size')
+    expect(codec.admitWrite?.({ ...base, layers: [{ ...base.layers[0]!, opacity: 1.5 }] })).toContain('$.layers[0].opacity')
     expect(codec.admitWrite?.({
       ...base,
       site_data: {
@@ -534,26 +466,15 @@ describe('live Session Core wiring (#481 B1/B2)', () => {
       drafts: [{ id: 'draft-v9', name: String(rawV9.name), updatedAt: '2026-10-01T00:00:00.000Z' }],
       draftFiles: { 'draft-v9': rawV9 },
     }))
-    const appDataStore = createBrowserAppDataStore({
-      storage: {
-        getItem: (k: string) => storageMap.get(k) ?? null,
-        setItem: (k: string, v: string) => { storageMap.set(k, v) },
-        removeItem: (k: string) => { storageMap.delete(k) },
-      },
-    })
+    const memStorage = { getItem: (k: string) => storageMap.get(k) ?? null, setItem: (k: string, v: string) => { storageMap.set(k, v) }, removeItem: (k: string) => { storageMap.delete(k) } }
+    const appDataStore = createBrowserAppDataStore({ storage: memStorage })
     const homeStore = createBrowserSessionHomeStore(appDataStore)
     const core = createSessionCore({
       designHome: homeStore,
-      fileAccess: {
-        pickOpen: async () => ({ kind: 'cancelled' }),
-        pickHomeTarget: async () => ({ kind: 'cancelled' }),
-      },
+      fileAccess: { pickOpen: async () => ({ kind: 'cancelled' }), pickHomeTarget: async () => ({ kind: 'cancelled' }) },
       lifecycle: { subscribe: () => () => {} },
       codec: createJsonSessionCodec({ designCore }),
-      settings: {
-        readLastOpenHome: async () => null,
-        writeLastOpenHome: async () => {},
-      },
+      settings: { readLastOpenHome: async () => null, writeLastOpenHome: async () => {} },
       newDesignFactory: () => sampleDesign('Untitled'),
     })
     disposeCore = installLiveSessionCore(core)
@@ -567,8 +488,66 @@ describe('live Session Core wiring (#481 B1/B2)', () => {
     core.document('Rename', () => ({ name: 'Migrated Orchard' }))
     await core.flushNow({ force: true })
     expect(core.dirty.peek()).toBe(false)
-    expect(appDataStore.loadDraft('draft-v9')?.name).toBe('Migrated Orchard')
-    expect(appDataStore.loadDraft('draft-v9')?.version).toBe(10)
+    expect(appDataStore.loadRawDraft('draft-v9')?.name).toBe('Migrated Orchard')
+    expect(appDataStore.loadRawDraft('draft-v9')?.version).toBe(10)
+  })
+
+  it('#755 B1: flushDraftSync refuses invalid guides, budget, print_setup, and root extra without overwriting the last good Draft, and valid flushes decode through real Wasm', () => {
+    const storageMap = new Map<string, string>()
+    const appDataStore = createBrowserAppDataStore({
+      storage: { getItem: (k: string) => storageMap.get(k) ?? null, setItem: (k: string, v: string) => { storageMap.set(k, v) }, removeItem: (k: string) => { storageMap.delete(k) } },
+    })
+    const homeStore = createBrowserSessionHomeStore(appDataStore)
+    const good = sampleDesign('Good Draft')
+    expect(homeStore.flushDraftSync('draft-safe', good, null)).toBe(true)
+    const goodUpdatedAt = appDataStore.listDrafts()[0]!.updatedAt
+
+    // Valid flushed bytes round-trip through real Wasm decode_design.
+    const goodRaw = appDataStore.loadRawDraft('draft-safe')!
+    const decodedGood = JSON.parse(decode_design(JSON.stringify(goodRaw))) as { ok?: { design: { name: string } } }
+    expect(decodedGood.ok?.design.name).toBe('Good Draft')
+
+    const okSplit = { id: 's1', pivot: { lon: 2, lat: 48 }, angle_deg: 0 }
+    const goodWithPrint = {
+      ...good,
+      print_setup: {
+        splits: [okSplit],
+        pages: [
+          { id: 'p-box', name: 'Box', area: { kind: 'box', centre: { lon: 2, lat: 48 }, size: { width_m: 10, height_m: 10 }, angle_deg: 0 }, scale: { kind: 'ratio', denominator: 100 } },
+          { id: 'p-whole', name: 'Whole', area: { kind: 'whole_design', angle_deg: 0, fallback: { centre: { lon: 2, lat: 48 }, size: { width_m: 10, height_m: 10 } } }, scale: { kind: 'customary', inches: 1, feet: 20 } },
+          { id: 'p-split', name: 'Split', area: { kind: 'split_sheet', split: 's1', along_page: { right_m: 0, down_m: 0 }, size: { width_m: 10, height_m: 10 } }, scale: { kind: 'fit' } },
+        ],
+      },
+    } as unknown as Parameters<typeof homeStore.flushDraftSync>[1]
+    expect(homeStore.flushDraftSync('draft-safe', goodWithPrint, goodUpdatedAt)).toBe(true)
+    const afterPrintUpdatedAt = appDataStore.listDrafts()[0]!.updatedAt
+    const badVariants = [
+      { ...good, name: 'Bad Guide Start', measurement_guides: [{ id: 'g1', start: { lon: Number.NaN, lat: 48 }, end: { lon: 2, lat: 48 }, locked: false }] },
+      { ...good, name: 'Bad Guide End', measurement_guides: [{ id: 'g1', start: { lon: 2, lat: 48 }, end: { lon: 200, lat: 48 }, locked: false }] },
+      { ...good, name: 'Bad Budget Cost', budget: [{ target: { kind: 'species', canonical_name: 'Malus domestica' }, unit_cost: Number.NaN }] },
+      { ...good, name: 'Bad Budget Species', budget: [{ target: { kind: 'species', canonical_name: '   ' }, unit_cost: 10 }] },
+      { ...good, name: 'Bad Split Id', print_setup: { splits: [{ ...okSplit, id: '' }], pages: [] } },
+      { ...good, name: 'Dup Split Id', print_setup: { splits: [okSplit, okSplit], pages: [] } },
+      { ...good, name: 'Bad Split Pivot', print_setup: { splits: [{ ...okSplit, pivot: { lon: 200, lat: 48 } }], pages: [] } },
+      { ...good, name: 'Bad Split Angle', print_setup: { splits: [{ ...okSplit, angle_deg: Number.NaN }], pages: [] } },
+      { ...good, name: 'Bad Page Id', print_setup: { splits: [], pages: [{ id: '', name: 'P', area: { kind: 'whole_design', angle_deg: 0 }, scale: { kind: 'fit' } }] } },
+      { ...good, name: 'Dup Page Id', print_setup: { splits: [], pages: [{ id: 'p1', name: 'P1', area: { kind: 'whole_design', angle_deg: 0 }, scale: { kind: 'fit' } }, { id: 'p1', name: 'P2', area: { kind: 'whole_design', angle_deg: 0 }, scale: { kind: 'fit' } }] } },
+      { ...good, name: 'Bad Box', print_setup: { splits: [], pages: [{ id: 'p1', name: 'P', area: { kind: 'box', centre: { lon: 200, lat: 48 }, size: { width_m: 10, height_m: 10 }, angle_deg: 0 }, scale: { kind: 'fit' } }] } },
+      { ...good, name: 'Bad Box Size', print_setup: { splits: [], pages: [{ id: 'p1', name: 'P', area: { kind: 'box', centre: { lon: 2, lat: 48 }, size: { width_m: 0, height_m: 10 }, angle_deg: 0 }, scale: { kind: 'fit' } }] } },
+      { ...good, name: 'Bad Box Angle', print_setup: { splits: [], pages: [{ id: 'p1', name: 'P', area: { kind: 'box', centre: { lon: 2, lat: 48 }, size: { width_m: 10, height_m: 10 }, angle_deg: Number.NaN }, scale: { kind: 'fit' } }] } },
+      { ...good, name: 'Bad Whole Angle', print_setup: { splits: [], pages: [{ id: 'p1', name: 'P', area: { kind: 'whole_design', angle_deg: Number.NaN }, scale: { kind: 'fit' } }] } },
+      { ...good, name: 'Bad Whole Fallback', print_setup: { splits: [], pages: [{ id: 'p1', name: 'P', area: { kind: 'whole_design', angle_deg: 0, fallback: { centre: { lon: 200, lat: 48 }, size: { width_m: 10, height_m: 10 } } }, scale: { kind: 'fit' } }] } },
+      { ...good, name: 'Bad Split Ref', print_setup: { splits: [], pages: [{ id: 'p1', name: 'P', area: { kind: 'split_sheet', split: 'missing', along_page: { right_m: 0, down_m: 0 }, size: { width_m: 10, height_m: 10 } }, scale: { kind: 'fit' } }] } },
+      { ...good, name: 'Bad Split Along', print_setup: { splits: [okSplit], pages: [{ id: 'p1', name: 'P', area: { kind: 'split_sheet', split: 's1', along_page: { right_m: Number.NaN, down_m: 0 }, size: { width_m: 10, height_m: 10 } }, scale: { kind: 'fit' } }] } },
+      { ...good, name: 'Bad Split Size', print_setup: { splits: [okSplit], pages: [{ id: 'p1', name: 'P', area: { kind: 'split_sheet', split: 's1', along_page: { right_m: 0, down_m: 0 }, size: { width_m: -1, height_m: 10 } }, scale: { kind: 'fit' } }] } },
+      { ...good, name: 'Bad Ratio Scale', print_setup: { splits: [], pages: [{ id: 'p1', name: 'P', area: { kind: 'whole_design', angle_deg: 0 }, scale: { kind: 'ratio', denominator: 0 } }] } },
+      { ...good, name: 'Bad Customary Scale', print_setup: { splits: [], pages: [{ id: 'p1', name: 'P', area: { kind: 'whole_design', angle_deg: 0 }, scale: { kind: 'customary', inches: 0, feet: 10 } }] } },
+      { ...good, name: 'Bad Root Extra', extra: { extra: 1 } },
+    ] as unknown as Array<Parameters<typeof homeStore.flushDraftSync>[1]>
+    for (const bad of badVariants) {
+      expect(homeStore.flushDraftSync('draft-safe', bad, afterPrintUpdatedAt)).toBe(false)
+      expect(appDataStore.loadRawDraft('draft-safe')?.name).toBe('Good Draft')
+    }
   })
 
   it('#689 / 2b-5: zone-target and unknown open-set budget lines plus nested view/story/colour-range extras survive Web SessionCore round-trip', async () => {

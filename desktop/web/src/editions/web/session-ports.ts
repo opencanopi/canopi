@@ -4,7 +4,6 @@
  */
 import {
   flattenDocumentForJson,
-  isCurrentCanopiDocument,
   parseCanopiJsonText,
 } from '../../app/contracts/document'
 import { admitCanopiWrite } from '../../app/document-session/live-core'
@@ -71,15 +70,14 @@ export function createBrowserSessionHomeStore(
   }
 
   return {
-    // Sync unload residual: DesignCore lives in a worker, so beforeunload validates via admitCanopiWrite (which omits
-    // groups/budget/print_setup/root-extra checks; decode normalises dangling groups on reopen).
+    // Sync unload flush: DesignCore lives in a worker, so beforeunload validates with the full decode-mode rule set
+    // in admitCanopiWrite (guides, budget, print_setup, root extra) before writing raw wire JSON.
     flushDraftSync(key: string, file: Parameters<typeof flattenDocumentForJson>[0], expected: HomeVersion | null): boolean {
       try {
         const alias = syncAliases.get(key)
         const effectiveExpected = alias && alias.from === expected ? alias.to : expected
-        const wire = flattenDocumentForJson(file)
-        if (!isCurrentCanopiDocument(wire)) return false
         if (admitCanopiWrite(file as Parameters<typeof admitCanopiWrite>[0]) !== null) return false
+        const wire = flattenDocumentForJson(file)
         const result = appDataStore.saveRawDraft({
           id: key,
           raw: wire,

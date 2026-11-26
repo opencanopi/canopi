@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { DEFAULT_BUDGET_CURRENCY } from '../../app/contracts/document'
+import { DEFAULT_BUDGET_CURRENCY, flattenDocumentForJson } from '../../app/contracts/document'
 import { getLiveSessionCore } from '../../app/document-session/live-core'
 import { notices, resetNoticesForTests } from '../../failures/notices'
 import { CURRENT_CANOPI_FILE_VERSION } from '../../generated/canopi-design-format'
@@ -88,8 +88,8 @@ function makeDesign(name: string): CanopiFile {
 }
 
 function seedTwoLegacyDrafts(): void {
-  browserAppDataStore.saveDraft({ id: 'hedge', file: makeDesign('Hedge'), now: '2026-10-01T00:00:00.000Z' })
-  browserAppDataStore.saveDraft({ id: 'orchard', file: makeDesign('Orchard as 2.0 left it'), now: '2026-10-02T00:00:00.000Z' })
+  browserAppDataStore.saveRawDraft({ id: 'hedge', raw: flattenDocumentForJson(makeDesign('Hedge')), name: 'Hedge', now: '2026-10-01T00:00:00.000Z' })
+  browserAppDataStore.saveRawDraft({ id: 'orchard', raw: flattenDocumentForJson(makeDesign('Orchard as 2.0 left it')), name: 'Orchard as 2.0 left it', now: '2026-10-02T00:00:00.000Z' })
 }
 
 const openFailureShown = () => notices.value.some((notice) => notice.key === 'web.open-failure')

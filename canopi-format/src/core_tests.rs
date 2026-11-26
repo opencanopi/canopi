@@ -4,9 +4,10 @@
 use std::collections::BTreeMap;
 
 use canopi_types::design::v10::{
-    FormatLoadRefusalKind, GeoPointV10, PanelTargetV10, canopi_file_v10_json_schema,
+    CanopiFileV10, FormatLoadRefusalKind, GeoPointV10, PanelTargetV10, canopi_file_v10_json_schema,
     print_setup_v10_json_schema,
 };
+use canopi_types::design::{V10AdmissionMode, admit_design_v10};
 use canopi_types::saved_object_stamps::{
     MAX_STAMP_PAYLOAD_BYTES, SavedObjectStampPayload, StampAnnotation, StampBudgetLine,
     StampCareAction, StampConsortium, StampGroup, StampGroupMember, StampGuide, StampPlant,
@@ -31,6 +32,18 @@ use crate::stamps::{
     stamp_to_canopi_file, stamp_v2_schema,
 };
 use crate::v10::read_schema;
+
+/// Verifies that `parsed` is accepted by both the frozen v2.0.5 read schema AND the semantic
+/// checks a 2.0.5 reader runs after schema admission (typed decode, ranges/coordinates, species
+/// budget `canonical_name`, views/stories/map_view, and `site_data` entry structure).
+pub(crate) fn admit_frozen_v2_0_5_read(parsed: &Value) {
+    let frozen_read = read_schema().expect("v2.0.5 frozen read schema");
+    admit_schema(parsed, frozen_read).expect("v2.0.5 frozen read schema must admit v10 output");
+    let typed: CanopiFileV10 =
+        serde_json::from_value(parsed.clone()).expect("v10 output deserialises into typed model");
+    admit_design_v10(&typed, V10AdmissionMode::Decode)
+        .expect("v2.0.5 semantic admission must accept v10 output");
+}
 
 fn valid_v9_fixture() -> Value {
     serde_json::from_str(include_str!("../spec/v9/fixture.canopi")).expect("frozen v9 fixture")
@@ -57,8 +70,7 @@ fn v9_frozen_fixture_migrates_to_hand_written_golden_and_opens_in_frozen_v2_0_5_
     );
 
     let parsed: Value = serde_json::from_slice(&encoded).unwrap();
-    let frozen_read = read_schema().expect("v2.0.5 frozen read schema");
-    admit_schema(&parsed, frozen_read).expect("v2.0.5 frozen read schema must admit migrated v10");
+    admit_frozen_v2_0_5_read(&parsed);
     assert_eq!(parsed["version"], 10);
     assert_eq!(parsed["plants"].as_array().unwrap().len(), 2);
 }
@@ -293,11 +305,7 @@ fn m31_emitted_v10_schema_matches_typed_model_and_frozen_read_schema_deeply() {
         .expect("spec/v10/fixture.canopi decodes");
     let expected: Value = serde_json::from_str(include_str!("../spec/v10/expected.json")).unwrap();
     assert_eq!(opened.design, expected);
-    admit_schema(
-        &opened.design,
-        read_schema().expect("v2.0.5 frozen read schema"),
-    )
-    .expect("v2.0.5 frozen read schema admits spec fixture");
+    admit_frozen_v2_0_5_read(&opened.design);
     assert_eq!(opened.design["version"], 10);
 }
 
@@ -495,8 +503,7 @@ fn stamp_payload_v3_round_trips_through_canopi_file() {
     let canopi_doc = stamp_to_canopi_file(&v3, "Apple Guild", origin.clone());
     let doc_bytes = encode_design(&canopi_doc).expect("stamp .canopi file passes write admission");
     let parsed: Value = serde_json::from_slice(&doc_bytes).unwrap();
-    admit_schema(&parsed, read_schema().expect("v2.0.5 frozen read schema"))
-        .expect("v2.0.5 frozen read schema admits stamp .canopi file");
+    admit_frozen_v2_0_5_read(&parsed);
 
     let round_tripped = canopi_file_to_stamp(&parsed, origin).expect("file -> stamp");
     assert_eq!(round_tripped.plant_species_colors, v3.plant_species_colors);

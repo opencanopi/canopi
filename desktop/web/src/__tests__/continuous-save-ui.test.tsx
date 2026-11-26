@@ -3,6 +3,7 @@
 import { render } from 'preact'
 import { act } from 'preact/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { flattenDocumentForJson } from '../app/contracts/document'
 import { answerSaveProblem, requestSaveProblemDecision, saveProblem } from '../app/document-session/save-problem'
 import { createDesignDraftsController } from '../app/design-drafts'
 import { locale } from '../app/settings/state'
@@ -675,7 +676,7 @@ describe('WebWelcomeScreen', () => {
     try {
       for (const name of ['Kitchen Garden', 'Hedge']) {
         const file = design(name)
-        browserAppDataStore.saveDraft({ id: `draft-${name}`, file, now: '2026-01-01T00:00:00.000Z' })
+        browserAppDataStore.saveRawDraft({ id: `draft-${name}`, raw: flattenDocumentForJson(file), name: file.name, now: '2026-01-01T00:00:00.000Z' })
         handle.home.seedFile(`draft-${name}`, file)
       }
 

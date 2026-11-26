@@ -82,6 +82,10 @@ export function admitCanopiWrite(file: WriteFile): string | null {
   if (file.version !== CURRENT_CANOPI_FILE_VERSION) {
     return `unsupported_version:${file.version}`
   }
+  const extra = (file as { readonly extra?: Record<string, unknown> }).extra
+  if (extra && Object.prototype.hasOwnProperty.call(extra, 'extra')) {
+    return "$.extra: reserved root field 'extra' is not allowed"
+  }
   const identityAndRange = designIdentitiesAndRangesProblem(file)
   if (identityAndRange) return identityAndRange
   const views = (file.views ?? []) as Parameters<typeof viewsAndStoriesProblem>[0]
@@ -224,11 +228,118 @@ function siteDataRangesProblem(file: WriteFile): string | null {
   return null
 }
 
+function measurementGuidesAndBudgetProblem(file: WriteFile): string | null {
+  const guides = file.measurement_guides ?? []
+  for (let i = 0; i < guides.length; i += 1) {
+    const guide = guides[i]
+    if (!guide) continue
+    if (!isAdmittedGeoPoint(guide.start)) return `$.measurement_guides[${i}].start: expected a valid WGS84 point`
+    if (!isAdmittedGeoPoint(guide.end)) return `$.measurement_guides[${i}].end: expected a valid WGS84 point`
+  }
+  const budget = file.budget ?? []
+  for (let i = 0; i < budget.length; i += 1) {
+    const line = budget[i]
+    if (!line) continue
+    if (!Number.isFinite(line.unit_cost)) return `$.budget[${i}].unit_cost: expected a finite number`
+    if (line.target?.kind === 'species') {
+      const canonical = (line.target as { readonly canonical_name?: unknown }).canonical_name
+      if (typeof canonical !== 'string' || canonical.trim().length === 0) {
+        return `$.budget[${i}].target.canonical_name: expected a non-empty canonical_name for species budget line`
+      }
+    }
+  }
+  return null
+}
+
+function isPositiveFiniteSize(size: { readonly width_m: number; readonly height_m: number } | undefined): boolean {
+  return size !== undefined
+    && Number.isFinite(size.width_m) && size.width_m > 0
+    && Number.isFinite(size.height_m) && size.height_m > 0
+}
+
+function printSetupProblem(file: WriteFile): string | null {
+  const setup = file.print_setup
+  if (!setup) return null
+  const splits = setup.splits ?? []
+  const splitIds = new Set<string>()
+  for (let i = 0; i < splits.length; i += 1) {
+    const split = splits[i]
+    if (!split) continue
+    if (!split.id) return `$.print_setup.splits[${i}].id: expected a non-empty id`
+    if (splitIds.has(split.id)) return `$.print_setup.splits[${i}].id: expected a unique id`
+    splitIds.add(split.id)
+    if (!isAdmittedGeoPoint(split.pivot)) return `$.print_setup.splits[${i}].pivot: expected a valid WGS84 point`
+    if (!Number.isFinite(split.angle_deg)) return `$.print_setup.splits[${i}].angle_deg: expected a finite number`
+  }
+  const pages = setup.pages ?? []
+  const pageIds = new Set<string>()
+  for (let i = 0; i < pages.length; i += 1) {
+    const page = pages[i]
+    if (!page) continue
+    if (!page.id) return `$.print_setup.pages[${i}].id: expected a non-empty id`
+    if (pageIds.has(page.id)) return `$.print_setup.pages[${i}].id: expected a unique id`
+    pageIds.add(page.id)
+    const areaProblem = printAreaProblem(page.area, splitIds, `$.print_setup.pages[${i}].area`)
+    if (areaProblem) return areaProblem
+    const scaleProblem = printScaleProblem(page.scale, `$.print_setup.pages[${i}].scale`)
+    if (scaleProblem) return scaleProblem
+  }
+  return null
+}
+
+type PrintPage = NonNullable<NonNullable<WriteFile['print_setup']>['pages']>[number]
+
+function printAreaProblem(
+  area: PrintPage['area'],
+  splitIds: ReadonlySet<string>,
+  path: string,
+): string | null {
+  if (area.kind === 'box') {
+    if (!isAdmittedGeoPoint(area.centre)) return `${path}.centre: expected a valid WGS84 point`
+    if (!isPositiveFiniteSize(area.size)) return `${path}.size: expected positive finite dimensions`
+    if (!Number.isFinite(area.angle_deg)) return `${path}.angle_deg: expected a finite number`
+    return null
+  }
+  if (area.kind === 'whole_design') {
+    if (!Number.isFinite(area.angle_deg)) return `${path}.angle_deg: expected a finite number`
+    if (area.fallback && !isAdmittedGeoPoint(area.fallback.centre)) {
+      return `${path}.fallback.centre: expected a valid WGS84 point`
+    }
+    return null
+  }
+  if (!splitIds.has(area.split)) return `${path}.split: expected an existing print_setup split id`
+  if (!Number.isFinite(area.along_page.right_m) || !Number.isFinite(area.along_page.down_m)) {
+    return `${path}.along_page: expected finite numbers`
+  }
+  if (!isPositiveFiniteSize(area.size)) return `${path}.size: expected positive finite dimensions`
+  return null
+}
+
+function printScaleProblem(
+  scale: PrintPage['scale'],
+  path: string,
+): string | null {
+  if (scale.kind === 'ratio') {
+    if (!Number.isInteger(scale.denominator) || scale.denominator <= 0) {
+      return `${path}.denominator: expected a positive integer denominator`
+    }
+    return null
+  }
+  if (scale.kind === 'customary') {
+    if (!Number.isFinite(scale.inches) || scale.inches <= 0 || !Number.isFinite(scale.feet) || scale.feet <= 0) {
+      return `${path}: expected positive finite customary scale values`
+    }
+  }
+  return null
+}
+
 function designIdentitiesAndRangesProblem(file: WriteFile): string | null {
   return (
     uniqueIdsProblem(file)
     ?? plantsAndZonesRangesProblem(file)
     ?? annotationsAndLayersRangesProblem(file)
     ?? siteDataRangesProblem(file)
+    ?? measurementGuidesAndBudgetProblem(file)
+    ?? printSetupProblem(file)
   )
 }
