@@ -287,10 +287,10 @@ function printSetupProblem(file: WriteFile): string | null {
   return null
 }
 
-type PrintPage = NonNullable<NonNullable<WriteFile['print_setup']>['pages']>[number]
+type PrintPageWire = NonNullable<NonNullable<WriteFile['print_setup']>['pages']>[number]
 
 function printAreaProblem(
-  area: PrintPage['area'],
+  area: PrintPageWire['area'],
   splitIds: ReadonlySet<string>,
   path: string,
 ): string | null {
@@ -316,7 +316,7 @@ function printAreaProblem(
 }
 
 function printScaleProblem(
-  scale: PrintPage['scale'],
+  scale: PrintPageWire['scale'],
   path: string,
 ): string | null {
   if (scale.kind === 'ratio') {
