@@ -83,9 +83,10 @@ describe('the Desktop boundary Reload', () => {
     const reload = vi.fn()
     await act(async () => render(<SaveProblemDialog />, container))
     reloadAfterExitFlush(reload)
-    await settle()
-
-    expect(container.textContent).toContain(t('saveProblem.flushFailedAppReloadMessage'))
+    await vi.waitFor(async () => {
+      await settle()
+      expect(container.textContent).toContain(t('saveProblem.flushFailedAppReloadMessage'))
+    })
     expect(buttons()).toEqual([t('saveProblem.retry'), t('saveProblem.discardAndReload'), t('canvas.file.cancel')])
     expect(container.textContent).not.toContain(t('saveProblem.closeWithoutSaving'))
 

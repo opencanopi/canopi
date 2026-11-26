@@ -24,8 +24,6 @@ import {
   getRecentFiles,
   listDesignDrafts,
   moveDesignReferenceToSection,
-  newDesign,
-  readNewerDesign,
   relocateDesignReference,
   removeDesignReference,
   removeRecentDesign,
@@ -117,14 +115,10 @@ describe('native IPC wire format', () => {
     expect(invoke).toHaveBeenLastCalledWith('remove_recent_design', { path: '/designs/a.canopi', operation: op })
     await showRecentDesignInFolder('/designs/a.canopi')
     expect(invoke).toHaveBeenLastCalledWith('show_recent_design_in_folder', { path: '/designs/a.canopi', operation: op })
-    await readNewerDesign('{}')
-    expect(invoke).toHaveBeenLastCalledWith('read_newer_design', { text: '{}', operation: op })
     await listDesignDrafts()
     expect(invoke).toHaveBeenLastCalledWith('list_design_drafts', { operation: op })
     await deleteDesignDraft('draft-1')
     expect(invoke).toHaveBeenLastCalledWith('delete_design_draft', { id: 'draft-1', operation: op })
-    await newDesign()
-    expect(invoke).toHaveBeenLastCalledWith('new_design', { operation: op })
     await getRecentFiles()
     expect(invoke).toHaveBeenLastCalledWith('get_recent_files', { operation: op })
     await getRecentDesignPreviews(['/designs/a.canopi'])
