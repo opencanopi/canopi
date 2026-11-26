@@ -184,6 +184,16 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      - uses: ./.github/actions/setup-rust
+        with:
+          targets: wasm32-unknown-unknown
+          cache: 'true'
+          cache-key: rust-check
+          cache-save: 'false'
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: wasm-bindgen@0.2.130
+
       - uses: ./.github/actions/setup-frontend
 
       # Before the dry run, which transforms font-urls.ts's eager glob before vitest's globalSetup writes the fonts.
