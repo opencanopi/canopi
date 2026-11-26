@@ -5,7 +5,7 @@ import {
   type SavedViewThumbnailCacheOptions,
 } from '../app/saved-views/thumbnails'
 import { VIEW_SNAPSHOT_THUMBNAIL, ViewSnapshotSceneBusyError } from '../app/saved-views/snapshot'
-import type { SavedView } from '../generated/contracts'
+import type { SavedView } from '../types/design'
 
 const VIEW: SavedView = {
   id: 'hedges',

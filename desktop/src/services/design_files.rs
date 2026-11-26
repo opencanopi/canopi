@@ -8,16 +8,6 @@ use crate::design::format;
 
 const RECENT_DESIGNS_LIMIT: usize = 20;
 
-#[cfg(test)]
-pub fn new_design() -> Result<CanopiFileV10, String> {
-    let ts = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH);
-    let secs = ts.unwrap_or_default().as_secs();
-    Ok(format::create_new_design(
-        "Untitled",
-        crate::design::unix_to_iso8601(secs),
-    ))
-}
-
 /// Save a Design to its file. With `expected_fingerprint`, a file changed
 /// outside Canopi since then is left alone and reported as a conflict.
 #[cfg(test)]

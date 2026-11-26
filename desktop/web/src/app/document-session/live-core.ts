@@ -77,6 +77,18 @@ async function decodeWithDesignCore(
   throw ingestionErrorFromFormatRefusal(answer.err)
 }
 
+/** Synchronous v10 write-admission check shared by SessionCore and synchronous unload flushes. */
+export function admitCanopiWrite(file: WriteFile): string | null {
+  if (file.version !== CURRENT_CANOPI_FILE_VERSION) {
+    return `unsupported_version:${file.version}`
+  }
+  const identityAndRange = designIdentitiesAndRangesProblem(file)
+  if (identityAndRange) return identityAndRange
+  const views = (file.views ?? []) as Parameters<typeof viewsAndStoriesProblem>[0]
+  const stories = (file.stories ?? []) as Parameters<typeof viewsAndStoriesProblem>[1]
+  return viewsAndStoriesProblem(views, stories) ?? mapViewProblem(file.map_view)
+}
+
 /** Production `.canopi` codec shared by Desktop, Web and Gallery Session Cores (2b-3, 2b-5, ADR 0026, contracts §4, §10). */
 export function createJsonSessionCodec(options: {
   readonly designCore: DesignCore
@@ -87,16 +99,7 @@ export function createJsonSessionCodec(options: {
       if (options.decode) return options.decode(bytes)
       return decodeWithDesignCore(options.designCore, bytes)
     },
-    admitWrite(file) {
-      if (file.version !== CURRENT_CANOPI_FILE_VERSION) {
-        return `unsupported_version:${file.version}`
-      }
-      const identityAndRange = designIdentitiesAndRangesProblem(file)
-      if (identityAndRange) return identityAndRange
-      const views = (file.views ?? []) as Parameters<typeof viewsAndStoriesProblem>[0]
-      const stories = (file.stories ?? []) as Parameters<typeof viewsAndStoriesProblem>[1]
-      return viewsAndStoriesProblem(views, stories) ?? mapViewProblem(file.map_view)
-    },
+    admitWrite: admitCanopiWrite,
     async encode(file) {
       const encoded = await options.designCore.encode(flattenDocumentForJson(file))
       if ('err' in encoded) throw ingestionErrorFromFormatRefusal(encoded.err)
@@ -167,6 +170,9 @@ function plantsAndZonesRangesProblem(file: WriteFile): string | null {
     const zone = file.zones[i]
     if (!zone) continue
     if (!Number.isFinite(zone.rotation)) return `$.zones[${i}].rotation: expected a finite number`
+    if (zone.opacity != null && !isAdmittedOpacityValue(zone.opacity)) {
+      return `$.zones[${i}].opacity: expected a finite number in [0, 1]`
+    }
     for (let j = 0; j < zone.points.length; j += 1) {
       if (!isAdmittedGeoPoint(zone.points[j])) {
         return `$.zones[${i}].points[${j}]: expected a valid WGS84 point`

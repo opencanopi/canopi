@@ -15,7 +15,7 @@ import { createPixiScenePainter } from '../../canvas/runtime/renderers/pixi-scen
 import { geographicViewOfCamera } from '../../geo/session-plane'
 import { createSceneHostLayer } from '../../maplibre/scene-host-layer'
 import { createViewSnapshotMap } from '../../maplibre/view-snapshot-map'
-import type { SavedView } from '../../generated/contracts'
+import type { SavedView } from '../../types/design'
 import styles from './gallery.module.css'
 
 const SHORT_TIMEOUT_VIEW = 'Region, 50 ms timeout'

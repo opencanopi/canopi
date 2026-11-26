@@ -5,9 +5,9 @@
 import {
   flattenDocumentForJson,
   isCurrentCanopiDocument,
-  normalizeLoadedDocument,
   parseCanopiJsonText,
 } from '../../app/contracts/document'
+import { admitCanopiWrite } from '../../app/document-session/live-core'
 import type { AppLifecyclePort, LifecycleEvent } from '../../platform/app-lifecycle'
 import type {
   DeleteDraftResult,
@@ -19,7 +19,6 @@ import type {
   HomeVersion,
 } from '../../platform/design-home'
 import type { FileAccessPort, PickFileOutcome } from '../../platform/file-access'
-import type { CanopiFile } from '../../types/design'
 import {
   browserAppDataStore,
   BrowserDraftChangedError,
@@ -78,9 +77,11 @@ export function createBrowserSessionHomeStore(
         const effectiveExpected = alias && alias.from === expected ? alias.to : expected
         const wire = flattenDocumentForJson(file)
         if (!isCurrentCanopiDocument(wire)) return false
-        const result = appDataStore.saveDraft({
+        if (admitCanopiWrite(file as Parameters<typeof admitCanopiWrite>[0]) !== null) return false
+        const result = appDataStore.saveRawDraft({
           id: key,
-          file: normalizeLoadedDocument(wire),
+          raw: wire,
+          name: file.name,
           now: nextMonotonicTimestamp(now(), effectiveExpected),
           expectedUpdatedAt: effectiveExpected,
         })
@@ -93,26 +94,28 @@ export function createBrowserSessionHomeStore(
       }
     },
     async read(key: string): Promise<HomeRead> {
-      const file = appDataStore.loadDraft(key)
-      if (!file) return { kind: 'absent' }
+      const raw = appDataStore.loadRawDraft(key)
+      if (!raw) return { kind: 'absent' }
       // Stored Drafts (v9 or v10) reach DesignCore untouched so chain.rs runs the single v9 -> v10 step.
-      const bytes = Array.from(encoder.encode(JSON.stringify(flattenDocumentForJson(file))))
+      const bytes = Array.from(encoder.encode(JSON.stringify(raw)))
       const version = readUpdatedAt(key) ?? ''
       return { kind: 'present', bytes, version }
     },
     async write(key: string, bytes: Uint8Array, expected: HomeVersion | null): Promise<DesignHomeWriteResult> {
-      let file: CanopiFile
+      let raw: Record<string, unknown>
+      let name: string
       try {
-        const raw = parseCanopiJsonText(decoder.decode(bytes))
-        if (!isCurrentCanopiDocument(raw)) {
+        const parsed = parseCanopiJsonText(decoder.decode(bytes))
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed) || typeof (parsed as { name?: unknown }).name !== 'string') {
           return {
             kind: 'failed',
             failure: { code: { kind: 'invalid' }, user_may_retry: false, op: 'web.draft.write', operation: null, detail: null },
           }
         }
-        file = normalizeLoadedDocument(raw)
+        raw = parsed as Record<string, unknown>
+        name = raw.name as string
       } catch {
-        // Invalid or non-current .canopi bytes cannot be written to browser draft storage.
+        // Invalid JSON bytes cannot be written to browser draft storage.
         return {
           kind: 'failed',
           failure: { code: { kind: 'invalid' }, user_may_retry: false, op: 'web.draft.write', operation: null, detail: null },
@@ -120,9 +123,10 @@ export function createBrowserSessionHomeStore(
       }
       const alias = syncAliases.get(key)
       const effectiveExpected = alias && alias.from === expected ? alias.to : expected
-      const result = appDataStore.saveDraft({
+      const result = appDataStore.saveRawDraft({
         id: key,
-        file,
+        raw,
+        name,
         now: nextMonotonicTimestamp(now(), effectiveExpected),
         expectedUpdatedAt: effectiveExpected,
       })
@@ -143,11 +147,11 @@ export function createBrowserSessionHomeStore(
     },
     async listDrafts(): Promise<readonly DraftRecord[]> {
       return appDataStore.listDrafts().map((draft) => {
-        const file = appDataStore.loadDraft(draft.id)
+        const raw = appDataStore.loadRawDraft(draft.id)
         return {
           id: draft.id as DraftId,
           updatedAt: draft.updatedAt,
-          bytes: file ? encoder.encode(JSON.stringify(flattenDocumentForJson(file))) : null,
+          bytes: raw ? encoder.encode(JSON.stringify(raw)) : null,
         }
       })
     },

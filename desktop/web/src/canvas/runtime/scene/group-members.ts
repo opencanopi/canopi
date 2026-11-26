@@ -116,3 +116,47 @@ export function isSceneObjectGroupMemberTarget(
 ): boolean {
   return member.kind === target.kind && member.id === target.id
 }
+
+export interface DeletedSceneMemberIds {
+  readonly plantIds?: ReadonlySet<string>
+  readonly zoneIds?: ReadonlySet<string>
+  readonly annotationIds?: ReadonlySet<string>
+  readonly measurementGuideIds?: ReadonlySet<string>
+}
+
+function isDeletedWireMember(
+  member: { readonly kind: string; readonly id: string },
+  deleted: DeletedSceneMemberIds,
+): boolean {
+  if (member.kind === 'plant') return deleted.plantIds?.has(member.id) === true
+  if (member.kind === 'zone') return deleted.zoneIds?.has(member.id) === true
+  if (member.kind === 'annotation') return deleted.annotationIds?.has(member.id) === true
+  if (member.kind === 'measurement_guide') return deleted.measurementGuideIds?.has(member.id) === true
+  return false
+}
+
+/**
+ * Removes deleted members from both concrete `members` and preserved `wireMembers` (including
+ * `measurement_guide` members) and drops the group only when fewer than 2 total members remain.
+ */
+export function pruneGroupDeletedMembers(
+  group: SceneObjectGroupEntity,
+  deleted: DeletedSceneMemberIds,
+): SceneObjectGroupEntity | null {
+  const members = group.members.filter((member) => !isDeletedWireMember(member, deleted))
+  if (!group.wireMembers) {
+    return members.length >= 2 ? { ...group, members } : null
+  }
+  const wireMembers = group.wireMembers.filter((member) => !isDeletedWireMember(member, deleted))
+  const wireKeys = new Set(wireMembers.map((member) => `${member.kind}:${member.id}`))
+  let totalCount = wireMembers.length
+  for (const member of members) {
+    if (!wireKeys.has(`${member.kind}:${member.id}`)) totalCount += 1
+  }
+  if (totalCount < 2) return null
+  return {
+    ...group,
+    members,
+    wireMembers,
+  }
+}

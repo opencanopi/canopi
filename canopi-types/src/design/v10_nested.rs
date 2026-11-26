@@ -6,7 +6,16 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
-use crate::design::{SpeciesPanelTargetKind, deserialize_json_u32};
+use crate::design::deserialize_json_u32;
+
+/// Target kind literal (`"species"`) for [`SpeciesPanelTargetV10`].
+#[cfg_attr(feature = "design-schema", derive(schemars::JsonSchema))]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
+pub enum SpeciesPanelTargetKind {
+    /// Species target.
+    #[serde(rename = "species")]
+    Species,
+}
 
 /// WGS84 point in v10 with Q69 extension bag (`2.1-Q69`).
 #[cfg_attr(feature = "design-schema", derive(schemars::JsonSchema))]

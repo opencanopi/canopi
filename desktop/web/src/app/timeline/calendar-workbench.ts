@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from 'preact/hooks'
 import { useSignal } from '@preact/signals'
-import type { PanelTarget, TimelineAction } from '../../generated/contracts'
+import type { PanelTarget, TimelineAction } from '../../types/design'
 import { MANUAL_TARGET, targetIdentity } from '../../target'
 import { createUuid } from '../../utils/ids'
 import {

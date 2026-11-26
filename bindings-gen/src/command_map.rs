@@ -30,7 +30,7 @@ import type {
   FlowerColorResolution,
   FormatDecodeAnswer,
   FormatRefusal,
-  GeoPoint,
+  GeoPointV10,
   GeoResult,
   HomeRead,
   HomeVersion,

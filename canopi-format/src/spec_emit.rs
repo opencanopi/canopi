@@ -2,10 +2,10 @@
 //! (contracts §10, ADR 0026; 2.1-Q7, 2.1-Q36, 2.1-M31, 2.1-M94, 2.1-M161, 2.1-Q355).
 //!
 //! Emits the full v10 spec bundle directly from the typed v10 Rust definitions
-//! (`CanopiFileV10`, `DESIGN_FILE_FIELDS_V10`, `PrintSetupV10`) alongside the frozen
+//! (`CanopiFileV10`, `DESIGN_FILE_FIELDS`, `PrintSetupV10`) alongside the frozen
 //! `spec/v10/read-schema.json` from Step 2.0.4 so the M31 compatibility check is real.
 
-use canopi_types::design::v10::DESIGN_FILE_FIELDS_V10;
+use canopi_types::design::DESIGN_FILE_FIELDS;
 use serde_json::{Value, json};
 
 use crate::chain::{CANOPI_CURRENT, CANOPI_FLOOR, canonicalize_json, release_label};
@@ -66,12 +66,11 @@ pub fn emit_v10_spec_files(v10_schema: &Value, print_setup_schema: &Value) -> Ve
     ]
 }
 
-/// Builds `spec/v10/fields.json` directly from [`DESIGN_FILE_FIELDS_V10`] and frozen `release_label`.
+/// Builds `spec/v10/fields.json` directly from [`DESIGN_FILE_FIELDS`] and frozen `release_label`.
 #[must_use]
 pub fn v10_fields_table() -> Value {
-    let fields: Vec<Value> = DESIGN_FILE_FIELDS_V10
+    let fields: Vec<Value> = DESIGN_FILE_FIELDS
         .iter()
-        .filter(|f| f.key != "extra")
         .map(|f| {
             json!({
                 "key": f.key,
@@ -91,7 +90,7 @@ pub fn v10_fields_table() -> Value {
     }))
 }
 
-/// Full v10 fixture covering every `DESIGN_FILE_FIELDS_V10` key with non-default values, every
+/// Full v10 fixture covering every `DESIGN_FILE_FIELDS` key with non-default values, every
 /// nested struct filled, v10 additions (`print_setup` per M161, zone `stroke_color`/`opacity`,
 /// timeline `offset_days`), and one unknown root key (contracts §10).
 #[must_use]

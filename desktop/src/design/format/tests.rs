@@ -120,7 +120,6 @@ fn conformance_document_value(file: &CanopiFileV10) -> serde_json::Value {
     let known = canopi_types::design::DESIGN_FILE_FIELDS
         .iter()
         .map(|field| field.key)
-        .filter(|key| *key != "extra")
         .collect::<std::collections::HashSet<_>>();
     let mut extra = serde_json::Map::new();
     for key in object

@@ -3,9 +3,9 @@
 
 use std::collections::BTreeMap;
 
-use canopi_types::design::GeoPoint;
 use canopi_types::design::v10::{
-    FormatLoadRefusalKind, canopi_file_v10_json_schema, print_setup_v10_json_schema,
+    FormatLoadRefusalKind, GeoPointV10, PanelTargetV10, canopi_file_v10_json_schema,
+    print_setup_v10_json_schema,
 };
 use canopi_types::saved_object_stamps::{
     MAX_STAMP_PAYLOAD_BYTES, SavedObjectStampPayload, StampAnnotation, StampBudgetLine,
@@ -470,8 +470,9 @@ fn sample_stamp_v3() -> SavedObjectStampPayload {
             description: "Winter prune".to_owned(),
             offset_days: Some(90),
             recurrence: None,
-            targets: vec![canopi_types::design::PanelTarget::PlacedPlant {
+            targets: vec![PanelTargetV10::PlacedPlant {
                 plant_id: "p1".to_owned(),
+                extra: BTreeMap::new(),
             }],
             extra: BTreeMap::new(),
         }],
@@ -486,7 +487,7 @@ fn stamp_payload_v3_round_trips_through_canopi_file() {
     let decoded = decode_stamp_payload(&encoded).expect("v3 stamp decodes");
     assert_eq!(decoded, v3);
 
-    let origin = GeoPoint {
+    let origin = GeoPointV10 {
         lon: 2.2945,
         lat: 48.8584,
         extra: Default::default(),

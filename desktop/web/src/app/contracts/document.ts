@@ -56,7 +56,7 @@ function normalizePersistedExtra(extra: CanopiFile['extra']): Record<string, unk
 export function extractDocumentExtra(raw: Record<string, unknown>): Record<string, unknown> {
   const extra: Record<string, unknown> = {}
   for (const key of Object.keys(raw)) {
-    if (!KNOWN_CANOPI_KEY_SET.has(key)) {
+    if (key !== 'extra' && !KNOWN_CANOPI_KEY_SET.has(key)) {
       Object.defineProperty(extra, key, {
         configurable: true,
         enumerable: true,
@@ -210,7 +210,7 @@ export function flattenDocumentForJson(
   }
   const record = file as unknown as Record<string, unknown>
   for (const key of KNOWN_CANOPI_KEYS) {
-    if (key === 'extra' || !Object.prototype.hasOwnProperty.call(record, key)) continue
+    if (!Object.prototype.hasOwnProperty.call(record, key)) continue
     const value = record[key]
     if (WRITTEN_ONLY_WHEN_PRESENT.has(key) && value == null) continue
     Object.defineProperty(wire, key, {

@@ -1,4 +1,4 @@
-import type { PanelTarget, SpeciesPanelTarget } from '../generated/contracts'
+import type { PanelTarget, SpeciesPanelTarget } from '../types/design'
 
 type Target = PanelTarget
 type SpeciesTarget = SpeciesPanelTarget

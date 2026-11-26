@@ -1,4 +1,4 @@
-import type { GeoPoint } from '../../../generated/contracts'
+import type { GeoPoint, CanopiFile } from '../../../types/design'
 // @vitest-environment jsdom
 
 import { describe, expect, it, vi } from 'vitest'
@@ -13,7 +13,6 @@ vi.mock('../../../ipc/species', async (importOriginal) => ({
 
 import { geoAt } from '../../../__tests__/support/geo-design'
 import { CURRENT_CANOPI_FILE_VERSION } from '../../../generated/canopi-design-format'
-import type { CanopiFile } from '../../../types/design'
 import { createSessionPlane } from '../../../geo/session-plane'
 import { AttachedInteractionMap } from '../../../__tests__/support/canvas-interaction-setup'
 import { placeOnHost } from '../../../__tests__/support/test-view'

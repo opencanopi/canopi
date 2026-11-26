@@ -8,7 +8,8 @@
 
 import { computed, effect, signal, type ReadonlySignal } from '@preact/signals'
 import { currentCanvasQuerySurface } from '../../canvas/session'
-import type { GeoPoint, LidarSampleTarget } from '../../generated/contracts'
+import type { LidarSampleTarget } from '../../generated/contracts'
+import type { GeoPoint } from '../../types/design'
 import { activePanel, sidePanel } from '../shell/state'
 import { siteDataLines } from './analysis-groups'
 import { readCurrentLidarPresentation } from './library-store'

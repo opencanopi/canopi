@@ -36,7 +36,8 @@ import {
   desktopDesignCorePort,
   desktopFileAccessPort,
 } from './session-ports'
-import type { GeoPoint, NewDesignInputContract, SavedObjectStampPayload } from '../../generated/contracts'
+import type { NewDesignInputContract, SavedObjectStampPayload } from '../../generated/contracts'
+import type { GeoPoint } from '../../types/design'
 import type { DraftId } from '../../platform/design-home'
 
 describe('desktopDesignCorePort', () => {

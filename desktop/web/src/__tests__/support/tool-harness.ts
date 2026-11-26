@@ -1,4 +1,4 @@
-import type { GeoPoint } from '../../generated/contracts'
+import type { GeoPoint } from '../../types/design'
 // __tests__/support/tool-harness.ts  (test support)
 //
 // The ToolHarness (spec §1.8): how tool and ToolHost tests build a scene and the ToolScene over it, and drive a real

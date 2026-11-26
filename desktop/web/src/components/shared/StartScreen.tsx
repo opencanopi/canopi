@@ -30,7 +30,7 @@ interface StartScreenDesign {
   readonly updatedAt: string
   /** What the file says about the Design; absent until it has been read. */
   readonly preview?: RecentDesignPreview
-  /** Saved by a newer Canopi: labelled read-only, and opening it shows the read-only view (2.1-Q316). */
+  /** Read-only row (2.1-Q316, Q347). */
   readonly readOnly?: boolean
   open(): void
   /** More › Show in folder: the file's folder in the system file manager. */
@@ -44,8 +44,7 @@ export interface StartScreenDraft {
   readonly name: string
   readonly updatedAt: string
   /**
-   * Saved by a newer Canopi (a 2.1 Draft): labelled read-only instead of "never saved", and opening it shows the
-   * read-only view (2.1-Q316, 2.1-Q321). Such a row has no `delete`.
+   * Read-only Draft row (2.1-Q316, 2.1-Q321): labelled read-only instead of "never saved" and has no `delete`.
    */
   readonly readOnly?: boolean
   open(): void

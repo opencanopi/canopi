@@ -288,7 +288,6 @@ fn validate_canopi_design_schema(
     let expected = canopi_types::design::DESIGN_FILE_FIELDS
         .iter()
         .map(|field| field.key)
-        .filter(|key| *key != "extra")
         .collect::<BTreeSet<_>>();
     if actual != expected {
         return Err(format!(

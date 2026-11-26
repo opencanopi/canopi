@@ -7,11 +7,6 @@ use serde::{Deserialize, Serialize};
 use specta::Type;
 
 use crate::settings::PlantLabels;
-use crate::views::{
-    RichTextBlock, RichTextListItem, RichTextSpan, SavedView, SavedViewBackground, SavedViewCamera,
-    SavedViewGroundSize, SavedViewHighlight, SavedViewLayers, SavedViewObject, SavedViewTerrain,
-    Story, StoryImage, StoryStep,
-};
 
 /// Saved view in v10 with M481 defaults and Q69 extension bag.
 #[cfg_attr(feature = "design-schema", derive(schemars::JsonSchema))]
@@ -372,131 +367,13 @@ pub struct StoryImageV10 {
     pub extra: BTreeMap<String, serde_json::Value>,
 }
 
-impl SavedViewCameraV10 {
-    pub(crate) fn to_v9(&self) -> SavedViewCamera {
-        SavedViewCamera {
-            lon: self.lon,
-            lat: self.lat,
-            zoom: self.zoom,
-            bearing: self.bearing,
-            ground_size_m: SavedViewGroundSize {
-                width: self.ground_size_m.width,
-                height: self.ground_size_m.height,
-            },
-            extra: self.extra.clone(),
-        }
-    }
-}
-
-impl SavedViewV10 {
-    pub(crate) fn to_v9(&self) -> SavedView {
-        SavedView {
-            id: self.id.clone(),
-            name: self.name.clone(),
-            camera: self.camera.to_v9(),
-            visible_layers: SavedViewLayers {
-                background: match &self.visible_layers.background {
-                    SavedViewBackgroundV10::Basemap { style, .. } => SavedViewBackground::Basemap {
-                        style: style.clone(),
-                    },
-                    SavedViewBackgroundV10::Satellite { .. } => SavedViewBackground::Satellite,
-                    SavedViewBackgroundV10::None { .. } => SavedViewBackground::None,
-                },
-                terrain: SavedViewTerrain {
-                    contours: self.visible_layers.terrain.contours,
-                    hillshade: self.visible_layers.terrain.hillshade,
-                },
-                scene_layers: self.visible_layers.scene_layers.clone(),
-                site_data: self.visible_layers.site_data.clone(),
-            },
-            highlighted: SavedViewHighlight {
-                species: self.highlighted.species.clone(),
-                objects: self
-                    .highlighted
-                    .objects
-                    .iter()
-                    .map(|o| match o {
-                        SavedViewObjectV10::Plant { id, .. } => {
-                            SavedViewObject::Plant { id: id.clone() }
-                        }
-                        SavedViewObjectV10::Zone { id, .. } => {
-                            SavedViewObject::Zone { id: id.clone() }
-                        }
-                        SavedViewObjectV10::Annotation { id, .. } => {
-                            SavedViewObject::Annotation { id: id.clone() }
-                        }
-                        SavedViewObjectV10::MeasurementGuide { id, .. } => {
-                            SavedViewObject::MeasurementGuide { id: id.clone() }
-                        }
-                        SavedViewObjectV10::Group { id, .. } => {
-                            SavedViewObject::Group { id: id.clone() }
-                        }
-                    })
-                    .collect(),
-            },
-            title: self.title.clone(),
-            text: self.text.iter().map(RichTextBlockV10::to_v9).collect(),
-            labels: self.labels,
-            extra: self.extra.clone(),
-        }
-    }
-}
-
-impl RichTextBlockV10 {
-    pub(crate) fn to_v9(&self) -> RichTextBlock {
-        match self {
-            Self::Paragraph { spans, .. } => RichTextBlock::Paragraph {
-                spans: spans.iter().map(RichTextSpanV10::to_v9).collect(),
-            },
-            Self::Bullets { items, .. } => RichTextBlock::Bullets {
-                items: items
-                    .iter()
-                    .map(|item| RichTextListItem {
-                        spans: item.spans.iter().map(RichTextSpanV10::to_v9).collect(),
-                    })
-                    .collect(),
-            },
-        }
-    }
-}
-
-impl RichTextSpanV10 {
-    pub(crate) fn to_v9(&self) -> RichTextSpan {
-        RichTextSpan {
-            text: self.text.clone(),
-            bold: self.bold,
-            italic: self.italic,
-            link: self.link.clone(),
-        }
-    }
-}
-
-impl StoryV10 {
-    pub(crate) fn to_v9(&self) -> Story {
-        Story {
-            id: self.id.clone(),
-            name: self.name.clone(),
-            steps: self
-                .steps
-                .iter()
-                .map(|step| StoryStep {
-                    id: step.id.clone(),
-                    view_id: step.view_id.clone(),
-                    title: step.title.clone(),
-                    text: step.text.iter().map(RichTextBlockV10::to_v9).collect(),
-                    images: step
-                        .images
-                        .iter()
-                        .map(|img| StoryImage {
-                            src: img.src.clone(),
-                            alt: img.alt.clone(),
-                        })
-                        .collect(),
-                    extra: step.extra.clone(),
-                })
-                .collect(),
-            extra: self.extra.clone(),
-        }
+impl SavedViewGroundSizeV10 {
+    /// Whether both framed ground sides are positive, finite, and within [`crate::views::SAVED_VIEW_MAX_GROUND_SIZE_M`].
+    #[must_use]
+    pub fn is_valid(&self) -> bool {
+        [self.width, self.height].iter().all(|side| {
+            side.is_finite() && *side > 0.0 && *side <= crate::views::SAVED_VIEW_MAX_GROUND_SIZE_M
+        })
     }
 }
 

@@ -13,7 +13,7 @@ import {
   type SiteMapOverlay,
 } from '../../maplibre/site-overlay'
 import { projectTargetsToMapFeatures } from '../../target'
-import type { PanelTarget } from '../../generated/contracts'
+import type { PanelTarget } from '../../types/design'
 
 /** The panel Targets the map highlights, and the Scene and plane origin they are projected from; the Site data pin and line. */
 export interface CanvasMapSurfaceOverlaySnapshot {

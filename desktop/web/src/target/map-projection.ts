@@ -1,4 +1,4 @@
-import type { GeoPoint, PanelTarget } from '../generated/contracts'
+import type { GeoPoint, PanelTarget } from '../types/design'
 import { createSessionPlane } from '../geo/session-plane'
 import type { SceneZoneEntity } from '../canvas/runtime/scene'
 import {

@@ -1,4 +1,4 @@
-import type { GeoPoint } from '../../../generated/contracts'
+import type { GeoPoint } from '../../../types/design'
 import {
   createSessionPlane,
   roundGeoDegrees,

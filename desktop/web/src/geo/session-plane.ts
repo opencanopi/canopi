@@ -15,7 +15,7 @@
 // ---------------------------------------------------------------------------
 
 import { WGS84_FLATTENING, WGS84_SEMI_MAJOR_AXIS_M } from '../generated/canopi-design-format'
-import type { GeoPoint } from '../generated/contracts'
+import type { GeoPoint } from '../types/design'
 import {
   geoToMercator,
   MAPLIBRE_WORLD_TILE_SIZE,

@@ -79,16 +79,6 @@ export type AnalysisUnavailable =
 // The engine the analysis runs on is not installed.
 { reason: "EngineMissing"; detail: string };
 
-export type Annotation = {
-	id: string,
-	locked: boolean,
-	annotation_type: string,
-	position: GeoPoint,
-	text: string,
-	font_size: number,
-	rotation: number | null,
-};
-
 // Identifier of a text annotation in a Design scene.
 export type AnnotationId = string & { readonly __brand: "AnnotationId" };
 
@@ -128,15 +118,6 @@ export type BasemapStyle = "liberty" | "positron" | "bright" | "dark";
 // Root budget extension bag holding non-plant lines preserved from v9 (`2.1-Q162`, `2.1-M491`).
 export type BudgetExtV10 = Record<string, never>;
 
-export type BudgetItem = {
-	target: PanelTarget,
-	category: string,
-	description: string,
-	quantity: number,
-	unit_cost: number,
-	currency: string,
-};
-
 // Plant budget line in v10 (`2.1-Q96`, `2.1-M482`).
 export type BudgetLineV10 = {
 	// Target species (or future open-kind target).
@@ -151,31 +132,6 @@ export type BudgetTargetV10 = {
 	kind: string,
 	// Required non-empty canonical species name when `kind == "species"`.
 	canonical_name?: string | null,
-};
-
-export type CanopiFile = {
-	version: number,
-	name: string,
-	description: string | null,
-	plant_species_colors: { [key in string]: string },
-	plant_species_symbols?: { [key in string]: string },
-	plant_species_codes?: { [key in string]: string },
-	layers: Layer[],
-	plants: PlacedPlant[],
-	zones: Zone[],
-	annotations: Annotation[],
-	measurement_guides?: MeasurementGuide[],
-	consortiums: Consortium[],
-	groups: ObjectGroup[],
-	timeline: TimelineAction[],
-	budget: BudgetItem[],
-	budget_currency: string,
-	lidar?: LidarPresentationSection | null,
-	views?: SavedView[],
-	stories?: Story[],
-	map_view?: SavedViewCamera | null,
-	created_at: string,
-	updated_at: string,
 };
 
 // Typed v10 `.canopi` Design document (contracts §10, 2.1-M481, 2.1-M482).
@@ -237,13 +193,6 @@ export type CommonNameEntry = {
 	is_primary: boolean,
 };
 
-export type Consortium = {
-	target: SpeciesPanelTarget,
-	stratum: string,
-	start_phase: number,
-	end_phase: number,
-};
-
 // Consortium row in v10 with M481 defaults and Q69 extension bag.
 export type ConsortiumV10 = {
 	// Target species.
@@ -281,8 +230,8 @@ export type DesignDraftSummary = {
 	// Last-modified UTC timestamp.
 	updated_at: string,
 	/**
-	 *  Whether opening the Draft edits it, shows it read-only, or refuses it (2.1-Q316). Absent on
-	 *  the wire for an editable Draft, the common case; a newer Draft always carries it.
+	 *  Whether opening the Draft edits it or refuses it as unreadable (2.1-Q316, 2.1-Q347). Absent
+	 *  on the wire for an editable Draft, the common case; an unreadable Draft carries it.
 	 */
 	access?: DesignDraftAccess,
 };
@@ -704,11 +653,6 @@ export type FrontendDiagnosticLevel =
 // A record kept for the report only.
 "info";
 
-export type GeoPoint = {
-	lon: number,
-	lat: number,
-};
-
 // WGS84 point in v10 with Q69 extension bag (`2.1-Q69`).
 export type GeoPointV10 = {
 	// Longitude in degrees `[-180, 180]`.
@@ -812,13 +756,6 @@ export type LastView = {
 	lon: number,
 	lat: number,
 	zoom: number,
-};
-
-export type Layer = {
-	name: string,
-	visible: boolean,
-	locked: boolean,
-	opacity: number,
 };
 
 // Identifier of a scene layer in a Design.
@@ -1249,13 +1186,6 @@ export type LoadedDesign = {
 
 export type Locale = "en" | "fr" | "es" | "pt" | "it" | "zh" | "de" | "ja" | "ko" | "nl" | "ru";
 
-export type MeasurementGuide = {
-	id: string,
-	locked?: boolean,
-	start: GeoPoint,
-	end: GeoPoint,
-};
-
 // Measurement guide in v10 with extension bag (`2.1-Q69`).
 export type MeasurementGuideV10 = {
 	// Stable object id.
@@ -1293,15 +1223,6 @@ export type NewDesignInputContract = {
 
 // Identifier of a Design Notebook section.
 export type NotebookSectionId = string & { readonly __brand: "NotebookSectionId" };
-
-export type ObjectGroup = {
-	id: string,
-	locked: boolean,
-	name: string | null,
-	members: ObjectGroupMember[],
-};
-
-export type ObjectGroupMember = { kind: "plant"; id: string } | { kind: "zone"; id: string } | { kind: "annotation"; id: string } | { kind: "measurement_guide"; id: string };
 
 // Group member in v10, including `measurement_guide` and Q69 extension bags (`2.1-Q154`, `2.1-M94`).
 export type ObjectGroupMemberV10 =
@@ -1364,8 +1285,6 @@ export type PaginatedResult<T> = {
 	total_estimate: number,
 };
 
-export type PanelTarget = { kind: "placed_plant"; plant_id: string } | { kind: "species"; canonical_name: string } | { kind: "zone"; zone_id: string } | { kind: "manual" } | { kind: "none" };
-
 // Panel target in v10 with Q69 extension bags on every variant.
 export type PanelTargetV10 =
 // Targets a placed plant by id.
@@ -1416,22 +1335,6 @@ path: string;
 grant?: FileGrantId | null;
 // Full file-home identity (`{ grant, display_name, recent_id }`) for a Design save target.
 file_home?: FileHomeGrant | null };
-
-export type PlacedPlant = {
-	id: string,
-	locked: boolean,
-	canonical_name: string,
-	common_name: string | null,
-	color: string | null,
-	symbol?: string | null,
-	pinned_name?: boolean,
-	position: GeoPoint,
-	rotation: number | null,
-	scale: number | null,
-	notes: string | null,
-	planted_date: string | null,
-	quantity: number | null,
-};
 
 // Placed plant in v10 (`canopy_spread_m` replaces v9 `scale`, `2.1-Q314`).
 export type PlacedPlantV10 = {
@@ -1845,8 +1748,6 @@ export type ReportSectionText = {
 	text: RedactedText,
 };
 
-export type RichTextBlock = { kind: "paragraph"; spans: RichTextSpan[] } | { kind: "bullets"; items: RichTextListItem[] };
-
 // Portable rich text block in v10 with M481 defaults and Q69 extension bags.
 export type RichTextBlockV10 =
 // Paragraph of inline spans.
@@ -1858,21 +1759,10 @@ spans?: RichTextSpanV10[] } |
 // List items (default empty).
 items?: RichTextListItemV10[] };
 
-export type RichTextListItem = {
-	spans: RichTextSpan[],
-};
-
 // Rich text list item in v10 with M481 default and Q69 bag.
 export type RichTextListItemV10 = {
 	// Inline spans (default empty).
 	spans?: RichTextSpanV10[],
-};
-
-export type RichTextSpan = {
-	text: string,
-	bold?: boolean,
-	italic?: boolean,
-	link: string | null,
 };
 
 // Rich text span in v10 with M481 defaults and Q69 bag.
@@ -1942,19 +1832,6 @@ export type SavedObjectStampPayload = {
 	timeline?: StampCareAction[],
 };
 
-export type SavedView = {
-	id: string,
-	name: string,
-	camera: SavedViewCamera,
-	visible_layers: SavedViewLayers,
-	highlighted: SavedViewHighlight,
-	title: string | null,
-	text?: RichTextBlock[],
-	labels?: PlantLabels | null,
-};
-
-export type SavedViewBackground = { kind: "basemap"; style: string } | { kind: "satellite" } | { kind: "none" };
-
 // Map background band in a v10 saved view with Q69 extension bags.
 export type SavedViewBackgroundV10 =
 // OpenFreeMap basemap style.
@@ -1965,14 +1842,6 @@ style: string } |
 { kind: "satellite" } |
 // No background.
 { kind: "none" };
-
-export type SavedViewCamera = {
-	lon: number,
-	lat: number,
-	zoom: number,
-	bearing: number,
-	ground_size_m: SavedViewGroundSize,
-};
 
 // Saved view camera in v10 with M481 defaults (`bearing` defaults to `0.0`) and Q69 bag.
 export type SavedViewCameraV10 = {
@@ -1988,22 +1857,12 @@ export type SavedViewCameraV10 = {
 	ground_size_m: SavedViewGroundSizeV10,
 };
 
-export type SavedViewGroundSize = {
-	width: number,
-	height: number,
-};
-
 // Framed ground size in metres with Q69 extension bag.
 export type SavedViewGroundSizeV10 = {
 	// Ground width in metres.
 	width: number,
 	// Ground height in metres.
 	height: number,
-};
-
-export type SavedViewHighlight = {
-	species: string[],
-	objects: SavedViewObject[],
 };
 
 // Highlighted species and objects in a v10 saved view with M481 defaults and Q69 bag.
@@ -2017,13 +1876,6 @@ export type SavedViewHighlightV10 = {
 // Identifier of a saved view in a Design.
 export type SavedViewId = string & { readonly __brand: "SavedViewId" };
 
-export type SavedViewLayers = {
-	background: SavedViewBackground,
-	terrain: SavedViewTerrain,
-	scene_layers: string[],
-	site_data: string[],
-};
-
 // Visible layers band in a v10 saved view with M481 defaults and Q69 bag.
 export type SavedViewLayersV10 = {
 	// Map background (default `none`).
@@ -2035,8 +1887,6 @@ export type SavedViewLayersV10 = {
 	// Site data entry ids (default empty).
 	site_data?: string[],
 };
-
-export type SavedViewObject = { kind: "plant"; id: string } | { kind: "zone"; id: string } | { kind: "annotation"; id: string } | { kind: "measurement_guide"; id: string } | { kind: "group"; id: string };
 
 // Highlighted object reference in a v10 saved view with Q69 extension bags.
 export type SavedViewObjectV10 =
@@ -2060,11 +1910,6 @@ id: string } |
 { kind: "group";
 // Object id.
 id: string };
-
-export type SavedViewTerrain = {
-	contours: boolean,
-	hillshade: boolean,
-};
 
 // Terrain overlays in a v10 saved view with M481 defaults and Q69 bag.
 export type SavedViewTerrainV10 = {
@@ -2417,12 +2262,10 @@ export type SpeciesListItem = {
 	is_favorite: boolean,
 };
 
-export type SpeciesPanelTarget = {
-	kind: SpeciesPanelTargetKind,
-	canonical_name: string,
-};
-
-export type SpeciesPanelTargetKind = "species";
+// Target kind literal (`"species"`) for [`SpeciesPanelTargetV10`].
+export type SpeciesPanelTargetKind =
+// Species target.
+"species";
 
 // Species panel target in v10 with Q69 extension bag.
 export type SpeciesPanelTargetV10 = {
@@ -2497,7 +2340,7 @@ export type StampCareAction = {
 	// Optional recurrence rule.
 	recurrence?: string | null,
 	// Target references remapped at placement.
-	targets?: PanelTarget[],
+	targets?: PanelTargetV10[],
 };
 
 // Species consortium entry carried inside a v3 stamp (`2.1-Q155`).
@@ -2691,19 +2534,8 @@ file: string } |
 // Why, as a catalogue code.
 code: FailureCode };
 
-export type Story = {
-	id: string,
-	name: string,
-	steps: StoryStep[],
-};
-
 // Identifier of a story in a Design.
 export type StoryId = string & { readonly __brand: "StoryId" };
-
-export type StoryImage = {
-	src: string,
-	alt?: string,
-};
 
 // Story image in v10 with M481 defaults and Q69 bag.
 export type StoryImageV10 = {
@@ -2711,14 +2543,6 @@ export type StoryImageV10 = {
 	src: string,
 	// Alternative text (default `""`).
 	alt?: string,
-};
-
-export type StoryStep = {
-	id: string,
-	view_id: string,
-	title: string,
-	text?: RichTextBlock[],
-	images?: StoryImage[],
 };
 
 // Story step in v10 with M481 defaults and Q69 bag.
@@ -2753,20 +2577,6 @@ export type StoryV10 = {
 export type SubsystemHealth = Partial<{ [key in StoreId]: StoreHealth }>;
 
 export type Theme = "light" | "dark";
-
-export type TimelineAction = {
-	id: string,
-	action_type: string,
-	description: string,
-	start_date: string | null,
-	end_date: string | null,
-	recurrence: string | null,
-	targets: PanelTarget[],
-	depends_on: string[] | null,
-	offset_days?: number | null,
-	completed: boolean,
-	order: number,
-};
 
 // Timeline care action in v10 with M481 defaults and optional `offset_days` addition (`2.1-Q36`, `2.1-Q155`).
 export type TimelineActionV10 = {
@@ -2879,19 +2689,6 @@ export type UpdateProgress = {
 	received: number,
 	// The payload's size when the server announced one.
 	total: number | null,
-};
-
-export type Zone = {
-	id: string,
-	name: string | null,
-	locked: boolean,
-	zone_type: string,
-	points: GeoPoint[],
-	rotation: number,
-	fill_color: string | null,
-	stroke_color?: string | null,
-	opacity?: number | null,
-	notes: string | null,
 };
 
 // Identifier of a zone in a Design scene.

@@ -1,5 +1,5 @@
 /** Read-only, renderer-independent authored Canvas content for physical output. */
-import type { GeoPoint } from '../generated/contracts'
+import type { GeoPoint } from '../types/design'
 
 export interface PrintPoint { readonly x: number; readonly y: number }
 export interface PrintBounds extends PrintPoint { readonly width: number; readonly height: number }

@@ -1,7 +1,7 @@
 // canvas/runtime/view/types.ts  (pure: no DOM, MapLibre, Pixi)
 
 import type { ReadonlySignal } from '@preact/signals'
-import type { GeoPoint } from '../../generated/contracts'
+import type { GeoPointV10 as GeoPoint } from '../../generated/contracts'
 import type { ConformalPoint, GroundMeasure } from '../session-plane'
 export type { GroundMeasure }
 

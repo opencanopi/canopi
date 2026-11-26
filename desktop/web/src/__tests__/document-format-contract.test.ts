@@ -268,11 +268,6 @@ describe('document format contract', () => {
         { kind: 'zone', id: 'zone-1' },
         { kind: 'annotation', id: 'annotation-1' },
       ],
-      wireMembers: [
-        { kind: 'plant', id: 'plant-1' },
-        { kind: 'zone', id: 'zone-1' },
-        { kind: 'annotation', id: 'annotation-1' },
-      ],
     }])
     expect(scene.groups[0]).not.toHaveProperty('memberIds')
     expect(scene.groups[0]).not.toHaveProperty('layer')

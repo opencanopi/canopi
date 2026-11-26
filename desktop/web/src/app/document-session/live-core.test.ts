@@ -486,7 +486,11 @@ describe('live Session Core wiring (#481 B1/B2)', () => {
 
     const opened = await codec.decode(new TextEncoder().encode(canonicalEnc.ok))
     const saved = await codec.encode(opened.file)
-    expect(JSON.parse(new TextDecoder().decode(saved.bytes))).toEqual(canonicalJson)
+    const savedJson = JSON.parse(new TextDecoder().decode(saved.bytes)) as Record<string, unknown>
+    expect(savedJson).toEqual(canonicalJson)
+    // Assert injected sections directly against `rich` so an encode drop cannot hide behind canonicalJson.
+    expect(savedJson.site_data).toEqual(rich.site_data)
+    expect(savedJson.budget_ext).toEqual(rich.budget_ext)
 
     const reopened = await codec.decode(saved.bytes)
     const resaved = await codec.encode(reopened.file)
@@ -586,6 +590,9 @@ describe('live Session Core wiring (#481 B1/B2)', () => {
     expect(opened.file.budget[1]?.target.kind).toBe('zone')
     expect(opened.file.budget[2]?.target.kind).toBe('seed_mix')
     const saved = await codec.encode(opened.file)
-    expect(JSON.parse(new TextDecoder().decode(saved.bytes))).toEqual(canonicalJson)
+    const savedJson = JSON.parse(new TextDecoder().decode(saved.bytes)) as Record<string, unknown>
+    expect(savedJson).toEqual(canonicalJson)
+    // Assert open-set budget target keys directly against `raw`.
+    expect(savedJson.budget).toEqual(raw.budget)
   })
 })

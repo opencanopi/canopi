@@ -18,14 +18,7 @@
 // Any malformed supported feature rejects the whole file before mutation.
 // ---------------------------------------------------------------------------
 
-import type { GeoPoint } from '../../generated/contracts'
-import type {
-  Annotation,
-  MeasurementGuide,
-  ObjectGroup,
-  PlacedPlant,
-  Zone,
-} from '../../types/design'
+import type { GeoPoint, Annotation, MeasurementGuide, ObjectGroup, PlacedPlant, Zone } from '../../types/design'
 import { WEB_MERCATOR_MAX_LATITUDE_DEG } from '../../generated/canopi-design-format'
 import {
   createSessionPlane,

@@ -1,7 +1,6 @@
-import type { GeoPoint } from '../../../generated/contracts'
+import type { GeoPoint, CanopiFile } from '../../../types/design'
 import { batch, computed, signal, type ReadonlySignal } from '@preact/signals'
 import type { SessionPlane } from '../../../geo/session-plane'
-import type { CanopiFile } from '../../../types/design'
 import { collectCanvasRuntimeErrors, throwCanvasRuntimeCleanupErrors } from '../cleanup'
 import { CanvasAuthorityBusyError, CanvasDocumentReplacementNotAdmittedError, type CanvasDocumentReplacementToken } from './replacement-token'
 import { type SceneDesignObjectTarget, type ScenePersistedState, type SceneStore } from '../scene'

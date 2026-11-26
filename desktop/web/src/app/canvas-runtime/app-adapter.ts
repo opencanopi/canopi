@@ -62,7 +62,7 @@ export function createAppCanvasRuntimeAppAdapter(
         getLiveSessionCore()?.remapSceneCommands(map)
       },
     },
-    // A Design a newer Canopi saved shows read-only (2.1-M478): the Scene authority refuses every edit over it.
+    // A read-only session (2.1-M478, Q347): the Scene authority refuses every edit over it.
     isReadOnly: () => designSessionStore.isReadOnly(),
     // A tool's focus request and a closed text entry focus the map through the one focus owner.
     focus: focusOwner,

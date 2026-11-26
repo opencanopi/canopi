@@ -7,7 +7,7 @@
 import { createSessionPlane, roundGeoDegrees, storedBearing, type GeographicView } from '../geo/session-plane'
 import { WORKSPACE_MAP_MAX_ZOOM, WORKSPACE_MAP_MIN_ZOOM } from '../geo/workspace-camera-policy'
 import { SAVED_VIEW_MAX_GROUND_SIZE_M, SAVED_VIEW_MAX_ZOOM } from '../generated/canopi-design-format'
-import type { SavedViewCamera } from '../generated/contracts'
+import type { SavedViewCamera } from '../types/design'
 
 type GroundSize = SavedViewCamera['ground_size_m']
 

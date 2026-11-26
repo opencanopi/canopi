@@ -44,7 +44,7 @@ function memoryStorage(): MemoryStorage {
 
 function makeFile(name: string, description: string | null = null): CanopiFile {
   return {
-    version: 9,
+    version: 10,
     name,
     description,
     plant_species_colors: {},
@@ -256,6 +256,56 @@ describe('createBrowserSessionHomeStore', () => {
 
     // Invalid payload (fails decodeCanopiDesign) returns false without throwing so beforeunload can preventDefault().
     expect(home.flushDraftSync('draft-sync', { version: 9, name: 123 } as never, v1)).toBe(false)
+  })
+
+  it('#694 B2: write stores DesignCore bytes untouched and flushDraftSync refuses invalid opacity or NaN rotation', async () => {
+    const storage = memoryStorage()
+    const appData = createBrowserAppDataStore({ storage })
+    const home = createBrowserSessionHomeStore(appData)
+
+    const rich = {
+      ...encodeCanopiDesign(makeFile('Rich')),
+      budget: [{ target: { kind: 'seed_mix', mix_id: 'meadow-1' }, unit_cost: 12.5 }],
+      future_root_tag: { keep: true },
+    }
+    const bytes = new TextEncoder().encode(JSON.stringify(rich))
+    const written = await home.write('draft-rich', bytes, null)
+    expect(written.kind).toBe('written')
+    const v1 = written.kind === 'written' ? written.version : null
+
+    const read = await home.read('draft-rich')
+    expect(read.kind).toBe('present')
+    if (read.kind === 'present') {
+      expect(JSON.parse(new TextDecoder().decode(new Uint8Array(read.bytes)))).toEqual(rich)
+    }
+
+    // flushDraftSync enforces write admission: out-of-range opacity and NaN rotation are refused without overwriting.
+    const badOpacity = makeFile('BadOpacity')
+    badOpacity.layers = [{ name: 'plants', visible: true, locked: false, opacity: 1.5 }]
+    expect(home.flushDraftSync('draft-rich', badOpacity, v1)).toBe(false)
+
+    const badRotation = makeFile('BadRotation')
+    badRotation.plants = [{
+      id: 'p1',
+      locked: false,
+      canonical_name: 'Malus domestica',
+      common_name: null,
+      color: null,
+      position: { lon: 2.3, lat: 48.8 },
+      rotation: Number.NaN,
+      canopy_spread_m: null,
+      notes: null,
+      planted_date: null,
+      quantity: 1,
+    }]
+    expect(home.flushDraftSync('draft-rich', badRotation, v1)).toBe(false)
+
+    // Stored Draft remains the last valid write.
+    const afterRefusal = await home.read('draft-rich')
+    expect(afterRefusal.kind).toBe('present')
+    if (afterRefusal.kind === 'present') {
+      expect(JSON.parse(new TextDecoder().decode(new Uint8Array(afterRefusal.bytes)))).toEqual(rich)
+    }
   })
 
   it('browserFileAccessPort and browserAppLifecyclePort forward browser lifecycle events cleanly', async () => {

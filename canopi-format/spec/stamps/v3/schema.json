@@ -1,8 +1,9 @@
 {
   "$defs": {
-    "PanelTarget": {
+    "PanelTargetV10": {
       "oneOf": [
         {
+          "additionalProperties": true,
           "properties": {
             "kind": {
               "const": "placed_plant",
@@ -19,6 +20,7 @@
           "type": "object"
         },
         {
+          "additionalProperties": true,
           "properties": {
             "canonical_name": {
               "type": "string"
@@ -35,6 +37,7 @@
           "type": "object"
         },
         {
+          "additionalProperties": true,
           "properties": {
             "kind": {
               "const": "zone",
@@ -51,6 +54,7 @@
           "type": "object"
         },
         {
+          "additionalProperties": true,
           "properties": {
             "kind": {
               "const": "manual",
@@ -63,6 +67,7 @@
           "type": "object"
         },
         {
+          "additionalProperties": true,
           "properties": {
             "kind": {
               "const": "none",
@@ -164,7 +169,7 @@
         "targets": {
           "default": [],
           "items": {
-            "$ref": "#/$defs/PanelTarget"
+            "$ref": "#/$defs/PanelTargetV10"
           },
           "type": "array"
         }

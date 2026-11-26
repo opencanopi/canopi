@@ -12,8 +12,8 @@ use serde::{Deserialize, Serialize};
 use specta::Type;
 
 use crate::design::{
-    DesignFileField, DesignFileFieldOwner, default_budget_currency, deserialize_json_i32,
-    deserialize_json_u32, deserialize_optional_json_u32,
+    default_budget_currency, deserialize_json_i32, deserialize_json_u32,
+    deserialize_optional_json_u32,
 };
 
 pub use super::v10_io::{
@@ -22,7 +22,7 @@ pub use super::v10_io::{
 };
 pub use super::v10_nested::{
     ConsortiumV10, GeoPointV10, LayerV10, LidarColourRangeV10, PanelTargetV10,
-    SpeciesPanelTargetV10,
+    SpeciesPanelTargetKind, SpeciesPanelTargetV10,
 };
 pub use super::v10_print::{
     AlongPageM, PrintAreaV10, PrintBoxFallback, PrintFramingV10, PrintPageV10, PrintScaleV10,
@@ -36,41 +36,6 @@ pub use super::v10_views::{
 
 /// Format version written by Canopi 2.1's Format Core.
 pub const CANOPI_V10_VERSION: u32 = 10;
-
-const fn v10_field(key: &'static str, owner: DesignFileFieldOwner) -> DesignFileField {
-    DesignFileField { key, owner }
-}
-
-/// Every v10 root field and its authority owner (`2.1-M31`, contracts §10).
-///
-/// Root `"extra"` is reserved and refused (matching v9 `format.rs` and v2.0.5 read admission).
-pub const DESIGN_FILE_FIELDS_V10: &[DesignFileField] = &[
-    v10_field("version", DesignFileFieldOwner::Scene),
-    v10_field("name", DesignFileFieldOwner::Document),
-    v10_field("description", DesignFileFieldOwner::Document),
-    v10_field("plant_species_colors", DesignFileFieldOwner::Scene),
-    v10_field("plant_species_symbols", DesignFileFieldOwner::Scene),
-    v10_field("plant_species_codes", DesignFileFieldOwner::Scene),
-    v10_field("layers", DesignFileFieldOwner::Scene),
-    v10_field("plants", DesignFileFieldOwner::Scene),
-    v10_field("zones", DesignFileFieldOwner::Scene),
-    v10_field("annotations", DesignFileFieldOwner::Scene),
-    v10_field("measurement_guides", DesignFileFieldOwner::Scene),
-    v10_field("consortiums", DesignFileFieldOwner::Document),
-    v10_field("groups", DesignFileFieldOwner::Scene),
-    v10_field("timeline", DesignFileFieldOwner::Document),
-    v10_field("budget", DesignFileFieldOwner::Document),
-    v10_field("budget_currency", DesignFileFieldOwner::Document),
-    v10_field("budget_ext", DesignFileFieldOwner::Document),
-    v10_field("site_data", DesignFileFieldOwner::Document),
-    v10_field("plant_display", DesignFileFieldOwner::Document),
-    v10_field("print_setup", DesignFileFieldOwner::Document),
-    v10_field("views", DesignFileFieldOwner::Document),
-    v10_field("stories", DesignFileFieldOwner::Document),
-    v10_field("map_view", DesignFileFieldOwner::Scene),
-    v10_field("created_at", DesignFileFieldOwner::Document),
-    v10_field("updated_at", DesignFileFieldOwner::Scene),
-];
 
 /// Typed v10 `.canopi` Design document (contracts §10, 2.1-M481, 2.1-M482).
 #[cfg_attr(feature = "design-schema", derive(schemars::JsonSchema))]

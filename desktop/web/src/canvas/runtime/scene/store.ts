@@ -1,8 +1,5 @@
-import type { GeoPoint } from '../../../generated/contracts'
+import type { GeoPoint, CanopiFile } from '../../../types/design'
 import { signal, type ReadonlySignal, type Signal } from '@preact/signals'
-import type {
-  CanopiFile,
-} from '../../../types/design'
 import {
   type ScenePersistedState,
   type SceneSessionState,

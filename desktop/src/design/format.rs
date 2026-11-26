@@ -1208,6 +1208,9 @@ mod write_tests {
             saved_json, canonical_json,
             "Desktop open -> save must preserve every canonical v10 field without loss"
         );
+        // Assert injected fields directly against `rich` so an encode bug cannot hide behind canonical_json.
+        assert_eq!(saved_json["site_data"], rich["site_data"]);
+        assert_eq!(saved_json["budget_ext"], rich["budget_ext"]);
 
         let reopened = decode_design_bytes(&saved).expect("saved v10 reopens cleanly");
         let resaved = encode_design(&reopened).expect("reopened v10 re-encodes cleanly");
@@ -1273,10 +1276,42 @@ mod write_tests {
         let saved = encode_design(&opened).expect("re-encodes in Desktop host");
         let saved_json: serde_json::Value = serde_json::from_slice(&saved).unwrap();
         assert_eq!(saved_json, canonical_json);
+        // Assert every injected nested tag and open-set target key directly against `raw`.
+        assert_nested_tags_preserved(&saved_json, &raw);
         assert_eq!(saved_json["layers"][0]["opacity"], serde_json::json!(0.3));
         assert_eq!(
             saved_json["site_data"]["entries"][0]["opacity"],
             serde_json::json!(0.3)
         );
+    }
+
+    fn assert_nested_tags_preserved(saved: &serde_json::Value, raw: &serde_json::Value) {
+        const POINTERS: &[&str] = &[
+            "/budget",
+            "/views/0/view_tag",
+            "/views/0/camera/cam_tag",
+            "/views/0/camera/ground_size_m/aspect_lock",
+            "/views/0/visible_layers/vl_tag",
+            "/views/0/visible_layers/background/bg_tag",
+            "/views/0/visible_layers/terrain/t_tag",
+            "/views/0/highlighted/hl_tag",
+            "/views/0/highlighted/objects/0/obj_tag",
+            "/views/0/text/0/block_tag",
+            "/views/0/text/0/spans/0/span_tag",
+            "/stories/0/story_tag",
+            "/stories/0/steps/0/step_tag",
+            "/stories/0/steps/0/text/0/node_tag",
+            "/stories/0/steps/0/text/0/spans/0/text_tag",
+            "/stories/0/steps/0/images/0/img_tag",
+            "/timeline/0/target/panel_tag",
+            "/site_data/entries/0/range/range_tag",
+            "/plants/0/canopy_spread_m",
+            "/plants/0/scale",
+        ];
+        for ptr in POINTERS {
+            let expected = raw.pointer(ptr);
+            assert!(expected.is_some(), "fixture missing injected pointer {ptr}");
+            assert_eq!(saved.pointer(ptr), expected, "mismatch at {ptr}");
+        }
     }
 }

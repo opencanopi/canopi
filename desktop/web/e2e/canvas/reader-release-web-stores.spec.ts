@@ -71,14 +71,9 @@ test('R3 canopi-f47t.52.272: reader release: Web lists IndexedDB Drafts read-onl
   await page.goto('')
   await seedDraftStore(page, [draftRecord('orchard', 'Orchard in 2.1', 3)], ['orchard'])
   // The old key still holds the Draft the move copied, under the same id, and a Draft a 2.0 tab made after the move.
-  await page.evaluate(([key, value]) => localStorage.setItem(key!, value!), [
-    V3_DRAFTS_KEY,
-    v3DraftsRecord([{ id: 'orchard', name: 'Orchard as 2.0 left it', day: 1 }, { id: 'hedge', name: 'Hedge', day: 2 }]),
-  ])
-  const before = await storageDump(page) as { stores: unknown }
+  await page.evaluate(([key, value]) => localStorage.setItem(key!, value!), [V3_DRAFTS_KEY, v3DraftsRecord([{ id: 'orchard', name: 'Orchard as 2.0 left it', day: 1 }, { id: 'hedge', name: 'Hedge', day: 2 }])])
+  const before = await storageDump(page)
   await page.reload()
-
-  // Today launch restores the old key's latest Draft, and the 2.1 Draft is never listed.
   await expect(startScreen(page), 'launch restores nothing while 2.1 Drafts exist').toBeVisible()
   const newer = draftRow(page, 'Orchard in 2.1')
   await expect(newer, 'the 2.1 Draft is listed').toHaveCount(1)
@@ -87,12 +82,10 @@ test('R3 canopi-f47t.52.272: reader release: Web lists IndexedDB Drafts read-onl
   await expect(draftRow(page, 'Hedge'), 'an editable 2.0 Draft is listed beside it').toHaveCount(1)
   await expect(draftRow(page, 'Hedge')).not.toHaveAttribute('data-read-only', '')
   await expect(draftRow(page, 'Orchard as 2.0 left it'), 'the old-key Draft the move copied is hidden').toHaveCount(0)
-
   await newer.getByRole('button', { name: 'Actions for Orchard in 2.1' }).click()
   await expect(page.getByRole('menuitem', { name: 'Download a copy' }), 'a read-only Draft offers Download a copy').toBeVisible()
   await expect(page.getByRole('menuitem', { name: 'Delete draft…' }), 'and no Delete').toHaveCount(0)
   await page.keyboard.press('Escape')
-
   expect(await storageDump(page), 'listing writes no record and no key').toEqual(before)
 })
 
@@ -247,7 +240,7 @@ async function startWithOneNewerDraft(page: Page): Promise<DraftRecord> {
 
 test('R3 canopi-f47t.52.272: 2.1-Q347: a 2.1 Draft opens natively on 2.1, downloads as 2.1 saved it, and writes nothing to the 2.1 store', async ({ page }) => {
   const record = await startWithOneNewerDraft(page)
-  const before = await storageDump(page) as { stores: unknown }
+  const before = await storageDump(page) as { local: [string, string | null][]; stores: unknown }
 
   await draftRow(page, 'Orchard in 2.1').getByRole('button', { name: 'Actions for Orchard in 2.1' }).click()
   const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('menuitem', { name: 'Download a copy' }).click()])
@@ -257,10 +250,14 @@ test('R3 canopi-f47t.52.272: 2.1-Q347: a 2.1 Draft opens natively on 2.1, downlo
 
   await draftRow(page, 'Orchard in 2.1').getByRole('button').first().click()
   const status = page.locator('[data-workspace-title-bar] [data-save-status]')
-  await expect(status, 'the 2.1 v10 Draft opens natively (2.1-Q347)').toHaveAttribute('data-save-status', /^(saved|draft)$/)
+  await expect(status, 'the 2.1 v10 Draft opens natively (2.1-Q347)').toHaveAttribute('data-save-status', 'draft')
   await expect(page.locator('[data-workspace-title-bar]')).toContainText('Orchard in 2.1')
   await page.waitForTimeout(1_000)
-  expect((await storageDump(page) as { stores: unknown }).stores, 'opening and downloading write no record to the 2.1 IndexedDB store').toEqual(before.stores)
+  const after = await storageDump(page) as { local: [string, string | null][]; stores: unknown }
+  expect(after.stores, 'opening and downloading write no record to the 2.1 IndexedDB store').toEqual(before.stores)
+  expect(after.local.filter(([k]) => k === V3_DRAFTS_KEY), 'opening writes no forked Draft to localStorage').toEqual(before.local.filter(([k]) => k === V3_DRAFTS_KEY))
+  const unexpectedLocalKeys = after.local.map(([k]) => k).filter((k) => !before.local.some(([bk]) => bk === k) && k !== 'canopi:web-app-data:v3:settings')
+  expect(unexpectedLocalKeys, 'only settings last_view may be created in localStorage on native open').toEqual([])
 })
 
 test('R3 canopi-f47t.52.272: a 2.1 Draft that 2.1 deleted after the list opens nothing, says so and leaves the list', async ({ page }) => {

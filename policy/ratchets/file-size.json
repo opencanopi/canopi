@@ -29,9 +29,6 @@
     "bindings-gen/src/plant_filter.rs": {
       "count": 1356
     },
-    "canopi-types/src/design.rs": {
-      "count": 1141
-    },
     "desktop/src/db/query_builder.rs": {
       "count": 1123
     },
@@ -226,9 +223,6 @@
     },
     "desktop/web/src/app/canvas-map-surface/workspace-map-controls.test.ts": {
       "count": 1831
-    },
-    "desktop/web/src/app/geojson/codec.ts": {
-      "count": 603
     },
     "desktop/web/src/app/keyboard/key-router.test.ts": {
       "count": 970

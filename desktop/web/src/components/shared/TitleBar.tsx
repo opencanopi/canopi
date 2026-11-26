@@ -51,7 +51,7 @@ export function TitleBar() {
       }}
       design={hasDesign ? (
         <>
-          {/* A read-only Design (one a newer Canopi saved) is shown, never renamed (2.1-Q315). */}
+          {/* A read-only Design is shown, never renamed (2.1-Q315, Q347). */}
           {saveStatus === 'read-only'
             ? <span className={styles.nameText}>{visibleDesignName(designName.value)}</span>
             : <DesignNameField name={designName.value} onRename={setDesignName} />}

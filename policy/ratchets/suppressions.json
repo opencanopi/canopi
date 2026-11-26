@@ -4,11 +4,12 @@
   "family": "suppressions",
   "ledger": "2.1-M187",
   "tool": "suppressions",
-  "scope": ["**"],
+  "scope": [
+    "**"
+  ],
   "lane": "commit",
   "keys": "path-rule",
   "entries": {
-    "canopi-types/src/design.rs: clippy:expect_used": { "count": 1 },
     "desktop/build.rs: clippy:expect_used": { "count": 1, "bead": "canopi-f47t.52.190" },
     "desktop/build.rs: clippy:unwrap_used": { "count": 1, "bead": "canopi-f47t.52.190" },
     "desktop/src/db/query_builder/builder.rs: clippy:expect_used": { "count": 2 },

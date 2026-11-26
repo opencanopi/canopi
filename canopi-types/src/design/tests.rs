@@ -43,7 +43,7 @@ fn design_geometry_rejects_out_of_range_positions() {
 
 #[test]
 fn design_positions_reject_local_metre_points() {
-    let result = serde_json::from_value::<CanopiFile>(design_with(json!({
+    let result = serde_json::from_value::<v10::CanopiFileV10>(design_with(json!({
         "plants": [{
             "id": "plant-1",
             "canonical_name": "Malus domestica",
@@ -55,8 +55,8 @@ fn design_positions_reject_local_metre_points() {
 
 #[test]
 fn design_objects_missing_lock_state_load_unlocked_and_serialize_explicitly() {
-    let file: CanopiFile = serde_json::from_value(json!({
-        "version": 9,
+    let file: v10::CanopiFileV10 = serde_json::from_value(json!({
+        "version": 10,
         "name": "Implicit locks",
         "description": null,
         "plant_species_colors": {},
@@ -219,22 +219,6 @@ fn plants_and_guides_need_an_id_and_unique_non_empty_ids() {
 }
 
 #[test]
-fn a_design_missing_a_list_canopi_always_writes_is_refused() {
-    let mut complete = design_with(json!({}));
-    complete["version"] = json!(9);
-    serde_json::from_value::<CanopiFile>(complete.clone())
-        .expect("a Design with every written list loads");
-    for key in ["annotations", "consortiums", "groups", "timeline", "budget"] {
-        let mut value = complete.clone();
-        value.as_object_mut().expect("object").remove(key);
-        let error = serde_json::from_value::<CanopiFile>(value)
-            .expect_err(key)
-            .to_string();
-        assert!(error.contains(&format!("missing field `{key}`")), "{error}");
-    }
-}
-
-#[test]
 fn zones_annotations_and_groups_need_unique_non_empty_ids() {
     let zone = |id: &str| json!({ "id": id, "zone_type": "rect", "points": [] });
     assert_eq!(
@@ -352,9 +336,9 @@ fn a_custom_colour_range_must_be_finite_even_when_built_in_memory() {
     assert!(admit_design_v10(&file, V10AdmissionMode::Decode).is_err());
 }
 
-fn zone_file(zone: serde_json::Value) -> Result<CanopiFile, serde_json::Error> {
+fn zone_file(zone: serde_json::Value) -> Result<v10::CanopiFileV10, serde_json::Error> {
     serde_json::from_value(json!({
-        "version": 9,
+        "version": 10,
         "name": "Zones",
         "plant_species_colors": {},
         "layers": [],
@@ -395,8 +379,8 @@ fn zones_keep_a_stable_id_beside_an_optional_display_name() {
 
 #[test]
 fn general_deserialization_rejects_obsolete_object_group_shape() {
-    let result = serde_json::from_value::<CanopiFile>(json!({
-        "version": 9,
+    let file = serde_json::from_value::<v10::CanopiFileV10>(json!({
+        "version": 10,
         "name": "Legacy groups require ingestion",
         "plant_species_colors": {},
         "layers": [],
@@ -420,10 +404,16 @@ fn general_deserialization_rejects_obsolete_object_group_shape() {
         }],
         "created_at": "2026-07-15T00:00:00.000Z",
         "updated_at": "2026-07-15T00:00:00.000Z"
-    }));
+    }))
+    .expect("v10 serde defaults missing members and preserves unknown keys in extra");
 
     assert!(
-        result.is_err(),
+        file.groups[0].members.is_empty(),
+        "obsolete member_ids must not populate typed group members",
+    );
+    assert!(
+        super::admission::admit_design_v10(&file, super::admission::V10AdmissionMode::Write)
+            .is_err(),
         "obsolete Object Groups must not enter the runtime",
     );
 }
@@ -563,29 +553,22 @@ fn a_designs_integer_fields_read_9_and_9_0_and_refuse_9_5_minus_1_and_4294967296
     }
 }
 
-/// canopi-f47t.52.245 (2.1-M482): a v9 file written before a field existed reads it at its
-/// documented default: no `budget_currency` is EUR, a timeline action without `targets` is
-/// `[manual]`, and a budget line without `target` is Manual.
+/// canopi-f47t.52.245 (2.1-M481, 2.1-M482): a v10 file missing optional fields reads them at their
+/// documented defaults: no `budget_currency` is EUR, and a timeline action without `targets` is `[manual]`.
 #[test]
-fn canopi_f47t_52_245_a_v9_file_missing_later_fields_reads_their_defaults() {
-    let mut raw = design_with(json!({
-        "version": 9,
+fn canopi_f47t_52_245_a_v10_file_missing_later_fields_reads_their_defaults() {
+    let raw = design_with(json!({
+        "version": 10,
         "timeline": [{
             "id": "a", "action_type": "planting", "description": "Plant",
             "completed": false, "order": 0
-        }],
-        "budget": [{
-            "category": "plants", "description": "Apples", "quantity": 2.0,
-            "unit_cost": 12.0, "currency": "EUR"
         }]
     }));
-    raw["version"] = json!(9);
-    let file: CanopiFile = serde_json::from_value(raw).expect("an older v9 file reads");
+    let file: v10::CanopiFileV10 = serde_json::from_value(raw).expect("a v10 file reads");
     assert_eq!(file.budget_currency, DEFAULT_BUDGET_CURRENCY);
     assert_eq!(DEFAULT_BUDGET_CURRENCY, "EUR");
     assert!(matches!(
         file.timeline[0].targets.as_slice(),
-        [PanelTarget::Manual]
+        [v10::PanelTargetV10::Manual { .. }]
     ));
-    assert!(matches!(file.budget[0].target, PanelTarget::Manual));
 }

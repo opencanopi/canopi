@@ -570,7 +570,7 @@ fn home_read_and_write_record_desktop_recents_for_file_grants_only() {
     let file_path = designs.join("meadow.canopi");
     let info = grants.grant_info(&file_path).unwrap();
     assert_eq!(info.display_name, "meadow.canopi");
-    let mut design = crate::services::design_files::new_design().unwrap();
+    let mut design = crate::design::format::create_new_design("Untitled", "2026-10-01T00:00:00Z");
     design.name = "Meadow".to_owned();
     let payload = serde_json::to_vec(&design).unwrap();
     let w1 = store.write(info.grant.as_str(), &payload, None, false);

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { MANUAL_TARGET, speciesTarget } from '../target'
 import { indexTargetScene, resolveTargetsInScene, type TargetSceneInput } from '../target/identity'
-import type { PanelTarget } from '../generated/contracts'
+import type { PanelTarget } from '../types/design'
 
 const NONE_TARGET = { kind: 'none' } as const
 

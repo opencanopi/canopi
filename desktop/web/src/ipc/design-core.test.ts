@@ -18,7 +18,8 @@ import {
   designCoreStampToCanopi,
   designCoreVersion,
 } from './design-core'
-import type { GeoPoint, NewDesignInputContract, SavedObjectStampPayload } from '../generated/contracts'
+import type { NewDesignInputContract, SavedObjectStampPayload } from '../generated/contracts'
+import type { GeoPoint } from '../types/design'
 
 describe('ipc/design-core', () => {
   it('routes all 9 DesignCore IPC commands with typed arguments', async () => {

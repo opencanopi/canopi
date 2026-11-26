@@ -66,7 +66,6 @@ export const KNOWN_CANOPI_KEYS = [
   "map_view",
   "created_at",
   "updated_at",
-  "extra",
 ] as const
 
 export type KnownCanopiKey = (typeof KNOWN_CANOPI_KEYS)[number]
@@ -98,5 +97,4 @@ export const DOCUMENT_FILE_FIELD_OWNERS = {
   map_view: "format",
   created_at: "document",
   updated_at: "format",
-  extra: "document",
 } as const satisfies Record<KnownCanopiKey, DocumentFileFieldOwner>

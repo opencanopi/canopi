@@ -4,15 +4,15 @@
 
 use std::collections::{HashMap, HashSet};
 
+use super::WEB_MERCATOR_MAX_LATITUDE_DEG;
 use super::field_path::{FieldPath, Refusal};
 use super::v10::{CanopiFileV10, GeoPointV10, LidarColourRangeV10, ObjectGroupMemberV10};
-use super::{GeoPoint, WEB_MERCATOR_MAX_LATITUDE_DEG};
 
 const FINITE: &str = "expected a finite number";
 const UNIT_INTERVAL: &str = "expected a number in [0, 1]";
 
 /// A WGS84 position's leaf at fault, latitude first as the schema walks it.
-pub(crate) fn check_point(point: &GeoPoint, path: &FieldPath) -> Result<(), Refusal> {
+pub(crate) fn check_point_v10(point: &GeoPointV10, path: &FieldPath) -> Result<(), Refusal> {
     let lat_valid = point.lat.is_finite()
         && (-WEB_MERCATOR_MAX_LATITUDE_DEG..=WEB_MERCATOR_MAX_LATITUDE_DEG).contains(&point.lat);
     if !lat_valid {
@@ -130,19 +130,7 @@ pub fn normalise_v10_on_decode(file: &mut CanopiFileV10) {
     }
 }
 
-pub(super) fn check_point_v10(point: &GeoPointV10, path: &FieldPath) -> Result<(), Refusal> {
-    check_point(
-        &GeoPoint {
-            lon: point.lon,
-            lat: point.lat,
-            extra: Default::default(),
-        },
-        path,
-    )
-}
-
-/// The single typed admission rule set for v10 `.canopi` Designs (`ADR 0026`, `canopi-gjs3`),
-/// sharing [`check_point`] and [`check_unique_ids`] with v9 admission.
+/// The single typed admission rule set for v10 `.canopi` Designs (`ADR 0026`, `canopi-gjs3`).
 pub fn admit_design_v10(file: &CanopiFileV10, mode: V10AdmissionMode) -> Result<(), Refusal> {
     let root = FieldPath::root();
     if file.extra.contains_key("extra") {
@@ -158,19 +146,9 @@ pub fn admit_design_v10(file: &CanopiFileV10, mode: V10AdmissionMode) -> Result<
     if let Some(setup) = &file.print_setup {
         super::v10_print::admit_print_setup(setup, &root)?;
     }
-    let v9_views: Vec<_> = file
-        .views
-        .iter()
-        .map(super::v10::SavedViewV10::to_v9)
-        .collect();
-    let v9_stories: Vec<_> = file
-        .stories
-        .iter()
-        .map(super::v10::StoryV10::to_v9)
-        .collect();
-    crate::views::validate_views_and_stories(&v9_views, &v9_stories)?;
+    crate::views::validate_views_and_stories(&file.views, &file.stories)?;
     if let Some(camera) = &file.map_view {
-        crate::views::validate_camera(&camera.to_v9(), &root.field("map_view"))?;
+        crate::views::validate_camera(camera, &root.field("map_view"))?;
     }
     Ok(())
 }

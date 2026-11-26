@@ -57,7 +57,7 @@ interface BrowserSavedObjectStampRecord {
 interface BrowserDraftsRecord {
   readonly version: typeof RECORD_VERSION;
   readonly drafts: readonly BrowserDraftSummary[];
-  readonly draftFiles: Record<string, CanopiFile>;
+  readonly draftFiles: Record<string, Record<string, unknown>>;
   /**
    * Drafts this Canopi refuses to open (a damaged, newer or older Design), kept as their stored values so a write of another
    * Draft never erases them.
@@ -140,6 +140,14 @@ interface SaveDraftOptions {
   readonly expectedUpdatedAt?: string | null;
 }
 
+interface SaveRawDraftOptions {
+  readonly id?: string;
+  readonly raw: Record<string, unknown>;
+  readonly name: string;
+  readonly now: string;
+  readonly expectedUpdatedAt?: string | null;
+}
+
 /** Another browser tab wrote the Draft after this writer last read or wrote it. */
 export class BrowserDraftChangedError extends Error {
   constructor(readonly draftId: string) {
@@ -168,8 +176,12 @@ interface BrowserAppDataStoreOptions {
 
 export interface BrowserAppDataStore {
   saveDraft(options: SaveDraftOptions): BrowserAppDataWriteResult<BrowserDraftSummary>;
+  /** Stores canonical `.canopi` wire JSON produced by DesignCore without re-normalizing or flattening. */
+  saveRawDraft(options: SaveRawDraftOptions): BrowserAppDataWriteResult<BrowserDraftSummary>;
   listDrafts(): readonly BrowserDraftSummary[];
   loadDraft(id: string): CanopiFile | null;
+  /** Returns the stored `.canopi` wire JSON object untouched for DesignCore decode. */
+  loadRawDraft(id: string): Record<string, unknown> | null;
   deleteDraft(id: string): BrowserAppDataWriteResult<null>;
   saveSettings(
     settings: Record<string, unknown>,
@@ -261,30 +273,32 @@ export function createBrowserAppDataStore({
     }
   }
 
+  function writeDraft(requestedId: string | undefined, name: string, now: string, expectedUpdatedAt: string | null | undefined, raw: Record<string, unknown>): BrowserAppDataWriteResult<BrowserDraftSummary> {
+    return writePartition(PARTITIONS.drafts, (current) => {
+      const id = normalizeDraftId(requestedId, name);
+      if (expectedUpdatedAt !== undefined) {
+        // A Draft deleted meanwhile is written again rather than lost.
+        const stored = current.drafts.find((draft) => draft.id === id);
+        if (stored && stored.updatedAt !== expectedUpdatedAt) throw new BrowserDraftChangedError(id);
+      }
+      const summary: BrowserDraftSummary = { id, name: name || "Untitled", updatedAt: now };
+      const drafts = [summary, ...current.drafts.filter((draft) => draft.id !== summary.id)];
+      return { next: { version: RECORD_VERSION, drafts, draftFiles: { ...current.draftFiles, [summary.id]: raw }, refused: withoutRefusedDraft(current.refused, summary.id) }, value: summary };
+    });
+  }
+
   return {
-    saveDraft({ id: requestedId, file, now, expectedUpdatedAt }) {
-      return writePartition(PARTITIONS.drafts, (current) => {
-        const id = normalizeDraftId(requestedId, file.name);
-        if (expectedUpdatedAt !== undefined) {
-          // A Draft deleted meanwhile is written again rather than lost.
-          const stored = current.drafts.find((draft) => draft.id === id);
-          if (stored && stored.updatedAt !== expectedUpdatedAt) throw new BrowserDraftChangedError(id);
-        }
-        const summary: BrowserDraftSummary = { id, name: file.name || "Untitled", updatedAt: now };
-        const drafts = [summary, ...current.drafts.filter((draft) => draft.id !== summary.id)];
-        const draftFiles = { ...current.draftFiles, [summary.id]: file };
-        const refused = withoutRefusedDraft(current.refused, summary.id);
-        return { next: { version: RECORD_VERSION, drafts, draftFiles, refused }, value: summary };
-      });
-    },
-
-    listDrafts() {
-      return readPartition(PARTITIONS.drafts).drafts;
-    },
-
-    loadDraft(id) {
+    saveDraft({ id, file, now, expectedUpdatedAt }) { return writeDraft(id, file.name, now, expectedUpdatedAt, flattenDocumentForJson(file)); },
+    saveRawDraft({ id, raw, name, now, expectedUpdatedAt }) { return writeDraft(id, name, now, expectedUpdatedAt, raw); },
+    listDrafts() { return readPartition(PARTITIONS.drafts).drafts; },
+    loadRawDraft(id) {
       const draftFiles = readPartition(PARTITIONS.drafts).draftFiles;
       return Object.prototype.hasOwnProperty.call(draftFiles, id) ? draftFiles[id] ?? null : null;
+    },
+    loadDraft(id) {
+      const draftFiles = readPartition(PARTITIONS.drafts).draftFiles;
+      const raw = Object.prototype.hasOwnProperty.call(draftFiles, id) ? draftFiles[id] ?? null : null;
+      return raw ? normalizeLoadedDocument(raw) : null;
     },
 
     deleteDraft(id) {
@@ -539,8 +553,8 @@ function encodeDraftsRecord(record: BrowserDraftsRecord): unknown {
   for (const [id, file] of Object.entries(record.refused.files)) {
     defineOwn(draftFiles, id, file);
   }
-  for (const [id, file] of Object.entries(record.draftFiles)) {
-    defineOwn(draftFiles, id, flattenDocumentForJson(file));
+  for (const [id, raw] of Object.entries(record.draftFiles)) {
+    defineOwn(draftFiles, id, raw);
   }
   return {
     version: record.version,
@@ -559,20 +573,15 @@ function withoutRefusedDraft(refused: RefusedDrafts, id: string): RefusedDrafts 
 }
 
 function decodeDraftFiles(value: unknown): {
-  decoded: Record<string, CanopiFile>;
+  decoded: Record<string, Record<string, unknown>>;
   refused: Record<string, unknown>;
 } {
-  const decoded: Record<string, CanopiFile> = {};
+  const decoded: Record<string, Record<string, unknown>> = {};
   const refused: Record<string, unknown> = {};
   if (!isRecord(value)) return { decoded, refused };
   for (const [id, rawFile] of Object.entries(value)) {
-    if (isCurrentCanopiDocument(rawFile)) {
-      defineOwn(decoded, id, normalizeLoadedDocument(rawFile));
-    } else {
-      // A Draft that does not open is not listed, but its stored value is
-      // kept: it is the user's Design, not ours to erase.
-      defineOwn(refused, id, rawFile);
-    }
+    if (isCurrentCanopiDocument(rawFile)) defineOwn(decoded, id, rawFile);
+    else defineOwn(refused, id, rawFile);
   }
   return { decoded, refused };
 }

@@ -10,7 +10,7 @@ import {
   richTextFromPlainText,
   richTextPlainText,
 } from '../app/stories/rich-text'
-import type { RichTextBlock } from '../generated/contracts'
+import type { RichTextBlock } from '../types/design'
 
 const span = (text: string, marks: { bold?: boolean; italic?: boolean; link?: string | null } = {}) => ({
   text, bold: marks.bold ?? false, italic: marks.italic ?? false, link: marks.link ?? null,

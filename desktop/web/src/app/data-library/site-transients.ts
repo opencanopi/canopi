@@ -11,7 +11,7 @@ import { batch, computed, effect, signal, type ReadonlySignal } from '@preact/si
 import { currentCanvasQuerySurface } from '../../canvas/session'
 import { designSessionStore } from '../document-session/store'
 import { ESCAPE_PRIORITY, registerEscapeLayer } from '../keyboard/escape-chain'
-import type { GeoPoint } from '../../generated/contracts'
+import type { GeoPoint } from '../../types/design'
 import { activePanel, sidePanel } from '../shell/state'
 
 const pinned = signal<GeoPoint | null>(null)

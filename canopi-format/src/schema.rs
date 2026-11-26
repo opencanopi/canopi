@@ -2,8 +2,8 @@
 //! of the Web decoder's interpreter (`app/contracts/canopi-design-schema-decoder.ts`) for the
 //! generated Schemars subset (`CANOPI_SCHEMA_KEYWORDS`), so a refused file names the field
 //! the Web names, as a typed [`FieldPath`] rather than serde's root or parent object. The
-//! Desktop v9 decode walks the generated `CanopiFile` schema with it until 2b moves that
-//! decode here; the v10 read admission walks the v10 read schema ([`crate::read`]).
+//! v10 read admission walks the v10 read schema ([`crate::read`]) and `canopi-format::core`
+//! walks the frozen v9 and v10 schemas.
 //!
 //! It validates, and [`fill_defaults`] sets each absent field to its schema default; serde
 //! builds the Design after it. Like the Web it walks a schema

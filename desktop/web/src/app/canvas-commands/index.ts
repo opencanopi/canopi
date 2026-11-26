@@ -109,7 +109,7 @@ export interface CanvasCommandProjectionState {
   /** False in overview, where Design objects are hidden and cannot change (the mutating edits); tools stay enabled. */
   readonly spatialEditingAvailable: boolean
   /**
-   * The Design Session is read-only (a Design a newer Canopi saved, 2.1-M478): only Select and Pan arm, and Undo, Redo
+   * The Design Session is read-only (2.1-M478, Q347): only Select and Pan arm, and Undo, Redo
    * and every edit that changes an object are off.
    */
   readonly readOnly: boolean

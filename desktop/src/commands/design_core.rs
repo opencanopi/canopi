@@ -2,8 +2,7 @@
 //! `canopi-f47t.52.49`, contracts §10, `2.1-M156`, `2.1-M539`, `2.1-Q155`, `2.1-M88`).
 
 use canopi_format::core::NewDesignInput;
-use canopi_types::design::GeoPoint;
-use canopi_types::design::v10::DraftSummaryOutcome;
+use canopi_types::design::v10::{DraftSummaryOutcome, GeoPointV10 as GeoPoint};
 use canopi_types::failure::Failure;
 use canopi_types::saved_object_stamps::SavedObjectStampPayload;
 use serde_json::Value;

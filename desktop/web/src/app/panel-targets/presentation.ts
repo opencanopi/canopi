@@ -1,6 +1,6 @@
 import { effect } from '@preact/signals'
 import { targetIdentity } from '../../target'
-import type { PanelTarget } from '../../generated/contracts'
+import type { PanelTarget } from '../../types/design'
 import { storyPresentationOverrides } from '../story-presentation/overrides'
 import {
   hoveredPanelTargets,

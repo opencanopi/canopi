@@ -16,8 +16,7 @@ use canopi_format::stamps::{
     StampPayloadRefusal, canopi_file_to_stamp, decode_stamp_payload as core_decode_stamp,
     encode_stamp_payload as core_encode_stamp, stamp_to_canopi_file,
 };
-use canopi_types::design::GeoPoint;
-use canopi_types::design::v10::DraftSummaryOutcome;
+use canopi_types::design::v10::{DraftSummaryOutcome, GeoPointV10 as GeoPoint};
 use canopi_types::failure::Failure;
 use canopi_types::saved_object_stamps::SavedObjectStampPayload;
 use serde::Serialize;

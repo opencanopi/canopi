@@ -89,8 +89,8 @@ pub struct DesignDraftSummary {
     pub name: String,
     /// Last-modified UTC timestamp.
     pub updated_at: String,
-    /// Whether opening the Draft edits it, shows it read-only, or refuses it (2.1-Q316). Absent on
-    /// the wire for an editable Draft, the common case; a newer Draft always carries it.
+    /// Whether opening the Draft edits it or refuses it as unreadable (2.1-Q316, 2.1-Q347). Absent
+    /// on the wire for an editable Draft, the common case; an unreadable Draft carries it.
     #[serde(default, skip_serializing_if = "DesignDraftAccess::is_editable")]
     #[specta(optional)]
     pub access: DesignDraftAccess,

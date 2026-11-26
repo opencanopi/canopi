@@ -10,7 +10,7 @@ import { describe, expect, it } from 'vitest'
 import { createTestView } from '../__tests__/support/test-view'
 import { createWorldLayers } from '../canvas/runtime/renderers/world-layers'
 import { WorldRootContainer, writeWorldAffine } from '../canvas/runtime/renderers/scene-paint'
-import type { GeoPoint } from '../generated/contracts'
+import type { GeoPoint } from '../types/design'
 import { WGS84_FLATTENING, WGS84_SEMI_MAJOR_AXIS_M } from '../generated/canopi-design-format'
 import {
   conformalFixturePlaneForTests,

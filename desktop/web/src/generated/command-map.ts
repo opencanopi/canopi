@@ -20,7 +20,7 @@ import type {
   FlowerColorResolution,
   FormatDecodeAnswer,
   FormatRefusal,
-  GeoPoint,
+  GeoPointV10,
   GeoResult,
   HomeRead,
   HomeVersion,
@@ -202,8 +202,8 @@ export type CommandMap = {
   readonly 'design_core_draft_summary': { readonly args: { readonly bytes: readonly number[]; readonly updatedAt: string }; readonly reply: DraftSummaryOutcome }
   readonly 'design_core_decode_stamp': { readonly args: { readonly payloadJson: string }; readonly reply: { ok: SavedObjectStampPayload } | { err: unknown } }
   readonly 'design_core_encode_stamp': { readonly args: { readonly payload: SavedObjectStampPayload }; readonly reply: { ok: string } | { err: unknown } }
-  readonly 'design_core_stamp_to_canopi': { readonly args: { readonly payload: SavedObjectStampPayload; readonly name: string; readonly origin: GeoPoint }; readonly reply: { ok: number[] } | { err: FormatRefusal } }
-  readonly 'design_core_canopi_to_stamp': { readonly args: { readonly bytes: readonly number[]; readonly origin: GeoPoint }; readonly reply: { ok: SavedObjectStampPayload } | { err: unknown } }
+  readonly 'design_core_stamp_to_canopi': { readonly args: { readonly payload: SavedObjectStampPayload; readonly name: string; readonly origin: GeoPointV10 }; readonly reply: { ok: number[] } | { err: FormatRefusal } }
+  readonly 'design_core_canopi_to_stamp': { readonly args: { readonly bytes: readonly number[]; readonly origin: GeoPointV10 }; readonly reply: { ok: SavedObjectStampPayload } | { err: unknown } }
   readonly 'get_design_notebook': { readonly args: undefined; readonly reply: DesignNotebookSnapshot }
   readonly 'create_notebook_section': { readonly args: { readonly name: string }; readonly reply: DesignNotebookSection }
   readonly 'add_design_reference_to_notebook': { readonly args: { readonly path: string; readonly content: CanopiFileV10 }; readonly reply: void }

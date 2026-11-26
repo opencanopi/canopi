@@ -25,7 +25,7 @@ import {
 } from '../geo/view/driver-frame'
 import { createDriverFrameSource } from '../geo/view/frame-source'
 import { constrainCamera, normaliseBearing } from '../geo/view/navigation-policy'
-import type { GeoPoint } from '../generated/contracts'
+import type { GeoPoint } from '../types/design'
 import type {
   ScreenInsets,
   ViewCamera,

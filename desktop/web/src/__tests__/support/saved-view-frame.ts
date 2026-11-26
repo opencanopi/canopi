@@ -6,7 +6,7 @@
 
 import { createSessionPlane } from '../../geo/session-plane'
 import type { ScreenPoint, ViewCamera } from '../../geo/view/types'
-import type { SavedView } from '../../generated/contracts'
+import type { SavedView } from '../../types/design'
 import { createTestView } from './test-view'
 
 type SavedViewCamera = SavedView['camera']

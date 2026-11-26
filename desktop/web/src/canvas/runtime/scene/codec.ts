@@ -421,6 +421,7 @@ function hydrateGroupEntity(group: ObjectGroup): SceneObjectGroupEntity {
   const unknownFields = extractUnknownKeys(group, GROUP_KNOWN_KEYS)
   const concreteMembers: SceneObjectGroupEntity['members'] = []
   const wireMembers: ScenePreservedGroupMember[] = []
+  let needsWireMembers = false
   for (const member of group.members) {
     const memberUnknown = extractUnknownKeys(member, GROUP_MEMBER_KNOWN_KEYS)
     wireMembers.push({
@@ -430,6 +431,9 @@ function hydrateGroupEntity(group: ObjectGroup): SceneObjectGroupEntity {
     })
     if (isConcreteGroupMemberKind(member.kind)) {
       concreteMembers.push({ kind: member.kind, id: member.id })
+      if (memberUnknown !== undefined) needsWireMembers = true
+    } else {
+      needsWireMembers = true
     }
   }
   return {
@@ -438,7 +442,7 @@ function hydrateGroupEntity(group: ObjectGroup): SceneObjectGroupEntity {
     locked: group.locked ?? false,
     name: group.name ?? null,
     members: concreteMembers,
-    ...(wireMembers.length > 0 ? { wireMembers } : {}),
+    ...(needsWireMembers ? { wireMembers } : {}),
     ...(unknownFields !== undefined ? { unknownFields } : {}),
   }
 }

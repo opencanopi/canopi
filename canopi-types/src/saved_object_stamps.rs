@@ -272,7 +272,7 @@ pub struct StampCareAction {
     pub recurrence: Option<String>,
     /// Target references remapped at placement.
     #[serde(default)]
-    pub targets: Vec<crate::design::PanelTarget>,
+    pub targets: Vec<crate::design::v10::PanelTargetV10>,
     /// Extension bag for unknown care-action keys (`2.1-Q69`).
     #[serde(flatten)]
     #[specta(skip)]

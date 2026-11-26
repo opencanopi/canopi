@@ -135,51 +135,6 @@
     ]
   },
   {
-    "name": "Annotation",
-    "fields": [
-      {
-        "name": "id",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "locked",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "annotation_type",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "position",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "text",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "font_size",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "rotation",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "extra",
-        "flatten": true,
-        "skip": true
-      }
-    ]
-  },
-  {
     "name": "AnnotationV10",
     "fields": [
       {
@@ -255,46 +210,6 @@
     ]
   },
   {
-    "name": "BudgetItem",
-    "fields": [
-      {
-        "name": "target",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "category",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "description",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "quantity",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "unit_cost",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "currency",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "extra",
-        "flatten": true,
-        "skip": true
-      }
-    ]
-  },
-  {
     "name": "BudgetLineV10",
     "fields": [
       {
@@ -329,126 +244,6 @@
       },
       {
         "name": "canonical_name",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "extra",
-        "flatten": true,
-        "skip": true
-      }
-    ]
-  },
-  {
-    "name": "CanopiFile",
-    "fields": [
-      {
-        "name": "version",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "name",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "description",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "plant_species_colors",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "plant_species_symbols",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "plant_species_codes",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "layers",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "plants",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "zones",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "annotations",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "measurement_guides",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "consortiums",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "groups",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "timeline",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "budget",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "budget_currency",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "lidar",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "views",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "stories",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "map_view",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "created_at",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "updated_at",
         "flatten": false,
         "skip": false
       },
@@ -606,36 +401,6 @@
         "name": "is_primary",
         "flatten": false,
         "skip": false
-      }
-    ]
-  },
-  {
-    "name": "Consortium",
-    "fields": [
-      {
-        "name": "target",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "stratum",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "start_phase",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "end_phase",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "extra",
-        "flatten": true,
-        "skip": true
       }
     ]
   },
@@ -1125,26 +890,6 @@
     ]
   },
   {
-    "name": "GeoPoint",
-    "fields": [
-      {
-        "name": "lon",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "lat",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "extra",
-        "flatten": true,
-        "skip": true
-      }
-    ]
-  },
-  {
     "name": "GeoPointV10",
     "fields": [
       {
@@ -1201,36 +946,6 @@
         "name": "zoom",
         "flatten": false,
         "skip": false
-      }
-    ]
-  },
-  {
-    "name": "Layer",
-    "fields": [
-      {
-        "name": "name",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "visible",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "locked",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "opacity",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "extra",
-        "flatten": true,
-        "skip": true
       }
     ]
   },
@@ -1845,36 +1560,6 @@
     ]
   },
   {
-    "name": "MeasurementGuide",
-    "fields": [
-      {
-        "name": "id",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "locked",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "start",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "end",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "extra",
-        "flatten": true,
-        "skip": true
-      }
-    ]
-  },
-  {
     "name": "MeasurementGuideV10",
     "fields": [
       {
@@ -1921,36 +1606,6 @@
         "name": "created_at",
         "flatten": false,
         "skip": false
-      }
-    ]
-  },
-  {
-    "name": "ObjectGroup",
-    "fields": [
-      {
-        "name": "id",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "locked",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "name",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "members",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "extra",
-        "flatten": true,
-        "skip": true
       }
     ]
   },
@@ -2021,81 +1676,6 @@
         "name": "total_estimate",
         "flatten": false,
         "skip": false
-      }
-    ]
-  },
-  {
-    "name": "PlacedPlant",
-    "fields": [
-      {
-        "name": "id",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "locked",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "canonical_name",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "common_name",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "color",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "symbol",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "pinned_name",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "position",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "rotation",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "scale",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "notes",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "planted_date",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "quantity",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "extra",
-        "flatten": true,
-        "skip": true
       }
     ]
   },
@@ -2635,16 +2215,6 @@
     ]
   },
   {
-    "name": "RichTextListItem",
-    "fields": [
-      {
-        "name": "spans",
-        "flatten": false,
-        "skip": false
-      }
-    ]
-  },
-  {
     "name": "RichTextListItemV10",
     "fields": [
       {
@@ -2656,31 +2226,6 @@
         "name": "extra",
         "flatten": true,
         "skip": true
-      }
-    ]
-  },
-  {
-    "name": "RichTextSpan",
-    "fields": [
-      {
-        "name": "text",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "bold",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "italic",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "link",
-        "flatten": false,
-        "skip": false
       }
     ]
   },
@@ -2830,91 +2375,6 @@
     ]
   },
   {
-    "name": "SavedView",
-    "fields": [
-      {
-        "name": "id",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "name",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "camera",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "visible_layers",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "highlighted",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "title",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "text",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "labels",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "extra",
-        "flatten": true,
-        "skip": true
-      }
-    ]
-  },
-  {
-    "name": "SavedViewCamera",
-    "fields": [
-      {
-        "name": "lon",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "lat",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "zoom",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "bearing",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "ground_size_m",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "extra",
-        "flatten": true,
-        "skip": true
-      }
-    ]
-  },
-  {
     "name": "SavedViewCameraV10",
     "fields": [
       {
@@ -2950,21 +2410,6 @@
     ]
   },
   {
-    "name": "SavedViewGroundSize",
-    "fields": [
-      {
-        "name": "width",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "height",
-        "flatten": false,
-        "skip": false
-      }
-    ]
-  },
-  {
     "name": "SavedViewGroundSizeV10",
     "fields": [
       {
@@ -2985,21 +2430,6 @@
     ]
   },
   {
-    "name": "SavedViewHighlight",
-    "fields": [
-      {
-        "name": "species",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "objects",
-        "flatten": false,
-        "skip": false
-      }
-    ]
-  },
-  {
     "name": "SavedViewHighlightV10",
     "fields": [
       {
@@ -3016,31 +2446,6 @@
         "name": "extra",
         "flatten": true,
         "skip": true
-      }
-    ]
-  },
-  {
-    "name": "SavedViewLayers",
-    "fields": [
-      {
-        "name": "background",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "terrain",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "scene_layers",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "site_data",
-        "flatten": false,
-        "skip": false
       }
     ]
   },
@@ -3071,21 +2476,6 @@
         "name": "extra",
         "flatten": true,
         "skip": true
-      }
-    ]
-  },
-  {
-    "name": "SavedViewTerrain",
-    "fields": [
-      {
-        "name": "contours",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "hillshade",
-        "flatten": false,
-        "skip": false
       }
     ]
   },
@@ -4340,21 +3730,6 @@
     ]
   },
   {
-    "name": "SpeciesPanelTarget",
-    "fields": [
-      {
-        "name": "kind",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "canonical_name",
-        "flatten": false,
-        "skip": false
-      }
-    ]
-  },
-  {
     "name": "SpeciesPanelTargetV10",
     "fields": [
       {
@@ -4780,46 +4155,6 @@
     ]
   },
   {
-    "name": "Story",
-    "fields": [
-      {
-        "name": "id",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "name",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "steps",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "extra",
-        "flatten": true,
-        "skip": true
-      }
-    ]
-  },
-  {
-    "name": "StoryImage",
-    "fields": [
-      {
-        "name": "src",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "alt",
-        "flatten": false,
-        "skip": false
-      }
-    ]
-  },
-  {
     "name": "StoryImageV10",
     "fields": [
       {
@@ -4829,41 +4164,6 @@
       },
       {
         "name": "alt",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "extra",
-        "flatten": true,
-        "skip": true
-      }
-    ]
-  },
-  {
-    "name": "StoryStep",
-    "fields": [
-      {
-        "name": "id",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "view_id",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "title",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "text",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "images",
         "flatten": false,
         "skip": false
       },
@@ -4924,71 +4224,6 @@
       },
       {
         "name": "steps",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "extra",
-        "flatten": true,
-        "skip": true
-      }
-    ]
-  },
-  {
-    "name": "TimelineAction",
-    "fields": [
-      {
-        "name": "id",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "action_type",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "description",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "start_date",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "end_date",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "recurrence",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "targets",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "depends_on",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "offset_days",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "completed",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "order",
         "flatten": false,
         "skip": false
       },
@@ -5121,66 +4356,6 @@
         "name": "total",
         "flatten": false,
         "skip": false
-      }
-    ]
-  },
-  {
-    "name": "Zone",
-    "fields": [
-      {
-        "name": "id",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "name",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "locked",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "zone_type",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "points",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "rotation",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "fill_color",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "stroke_color",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "opacity",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "notes",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "extra",
-        "flatten": true,
-        "skip": true
       }
     ]
   },

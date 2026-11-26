@@ -9,18 +9,8 @@
  * - Trap -> `format_core_trapped` for the active and queued calls; worker terminated and respawned on next call.
  * - Large open (> 4 MiB) -> worker recycled once idle (contracts §10).
  */
-import type {
-  CanopiFileV10,
-  DraftSummaryOutcome,
-  Failure,
-  FailureCode,
-  FormatDecodeAnswer,
-  FormatRefusal,
-  GeoPoint,
-  NewDesignInputContract,
-  RedactedText,
-  SavedObjectStampPayload,
-} from '../generated/contracts'
+import type { CanopiFileV10, DraftSummaryOutcome, Failure, FailureCode, FormatDecodeAnswer, FormatRefusal, NewDesignInputContract, RedactedText, SavedObjectStampPayload } from '../generated/contracts'
+import type { GeoPoint } from '../types/design'
 import { redact } from '../failures/redact'
 import type { FormatCoreRequest } from './design-core.worker'
 

@@ -2,8 +2,7 @@ import { groupPlantsBySpecies } from '../../canvas/plant-grouping'
 import type { PlantSymbolId } from '../../canvas/runtime/scene'
 import { isEnglishFallbackName, type SpeciesKeyEntry } from '../../canvas/runtime/species-key'
 import { getBudgetHoverTarget, getBudgetSpeciesTarget } from '../../target'
-import type { PanelTarget } from '../../generated/contracts'
-import type { BudgetItem, PlacedPlant } from '../../types/design'
+import type { PanelTarget, BudgetItem, PlacedPlant } from '../../types/design'
 import type { BudgetSort } from '../planning-view/state'
 
 export interface BudgetPlanningRow {

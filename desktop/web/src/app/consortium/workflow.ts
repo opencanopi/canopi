@@ -3,7 +3,7 @@ import { currentCanvasQuerySurface } from '../../canvas/session'
 import { consortiumTarget, getConsortiumCanonicalName } from '../../target'
 import { reconcileCurrentDesign } from '../design-edit'
 import { currentDesign } from '../document-session/store'
-import type { Consortium } from '../../generated/contracts'
+import type { Consortium } from '../../types/design'
 import { DEFAULT_CONSORTIUM_END_PHASE, DEFAULT_CONSORTIUM_START_PHASE, DEFAULT_CONSORTIUM_STRATUM } from '../../planning/time-model'
 
 function createDefaultConsortiumEntry(canonicalName: string): Consortium {

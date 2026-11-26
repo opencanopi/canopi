@@ -59,7 +59,7 @@ export function navigateTo(panel: Panel): void {
 }
 
 /**
- * The open Design is shown read-only (one a newer Canopi saved, 2.1-M478): the chrome's tools and commands read it to
+ * The open Design is shown read-only (2.1-M478, Q347): the chrome's tools and commands read it to
  * offer only what looks (Select, Pan, the panels, Close). A computed that calls it follows the Session kind.
  */
 export function designShownReadOnly(): boolean {

@@ -516,7 +516,7 @@ describe('scene runtime mutation controller', () => {
     controller.groupSelected()
 
     expect(sceneStore.persisted.groups).toHaveLength(1)
-    expect(sceneStore.persisted.groups[0]).toMatchObject({
+    expect(sceneStore.persisted.groups[0]).toEqual({
       kind: 'group',
       id: 'group-1',
       name: 'Guild',
@@ -561,7 +561,7 @@ describe('scene runtime mutation controller', () => {
     controller.groupSelected()
 
     expect(sceneStore.persisted.groups).toHaveLength(1)
-    expect(sceneStore.persisted.groups[0]).toMatchObject({
+    expect(sceneStore.persisted.groups[0]).toEqual({
       kind: 'group',
       id: 'group-top',
       name: 'Top',

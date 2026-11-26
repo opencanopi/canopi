@@ -1,5 +1,8 @@
 import type * as Contracts from '../generated/contracts'
 
+export type GeoPoint = Contracts.GeoPointV10
+export type PanelTarget = Contracts.PanelTargetV10
+export type SpeciesPanelTarget = Contracts.SpeciesPanelTargetV10
 export type Layer = Omit<Contracts.LayerV10, 'locked'> & { locked: boolean }
 export type Zone = Omit<Contracts.ZoneV10, 'name' | 'locked' | 'rotation' | 'fill_color' | 'notes'> & {
   name: string | null

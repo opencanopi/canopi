@@ -3,10 +3,13 @@
 use super::{admit_schema, fill_defaults, unsupported_keyword};
 use serde_json::{Value, json};
 
-/// The generated v9 `CanopiFile` schema, the one the Desktop decode walks.
+/// The frozen v9 schema (`spec/v9/schema.json`) that `canopi-format::core` walks on v9 inputs.
 fn v9_schema() -> &'static Value {
     static SCHEMA: std::sync::OnceLock<Value> = std::sync::OnceLock::new();
-    SCHEMA.get_or_init(canopi_types::design::canopi_file_json_schema)
+    SCHEMA.get_or_init(|| {
+        serde_json::from_str(include_str!("../../spec/v9/schema.json"))
+            .expect("frozen v9 schema should parse")
+    })
 }
 
 /// A new v9 Design as the Desktop writes it.

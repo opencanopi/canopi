@@ -46,7 +46,6 @@ const NON_KIND_CANOPI_KEYS = new Set<KnownCanopiKey>([
   'print_setup',
   'created_at',
   'updated_at',
-  'extra',
 ])
 
 function makeSelectionModel(

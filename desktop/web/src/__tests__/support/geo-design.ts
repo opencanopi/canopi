@@ -1,7 +1,6 @@
-import type { GeoPoint } from '../../generated/contracts'
+import type { GeoPoint, CanopiFile } from '../../types/design'
 import { createSessionPlane, roundGeoDegrees } from '../../geo/session-plane'
 import { hydrateSceneFromDesign } from '../../canvas/runtime/scene'
-import type { CanopiFile } from '../../types/design'
 
 /** Test-only authoring origin; production never converts metre fixtures. */
 export const TEST_GEO_ORIGIN: GeoPoint = Object.freeze({ lon: 13, lat: 23 })

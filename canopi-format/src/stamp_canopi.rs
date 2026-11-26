@@ -3,7 +3,8 @@
 
 use std::collections::BTreeMap;
 
-use canopi_types::design::{DEFAULT_BUDGET_CURRENCY, GeoPoint};
+use canopi_types::design::DEFAULT_BUDGET_CURRENCY;
+use canopi_types::design::v10::GeoPointV10 as GeoPoint;
 use canopi_types::saved_object_stamps::{
     STAMP_PAYLOAD_CURRENT, SavedObjectStampPayload, StampAnnotation, StampBudgetLine,
     StampCareAction, StampConsortium, StampGroup, StampGuide, StampPlant, StampPoint, StampZone,

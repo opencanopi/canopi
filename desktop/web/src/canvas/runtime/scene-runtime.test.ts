@@ -1,4 +1,4 @@
-import type { PanelTarget } from '../../generated/contracts'
+import type { PanelTarget, CanopiFile } from '../../types/design'
 // @vitest-environment jsdom
 import type { SceneRendererSnapshot, SceneRenderTarget } from './renderers/scene-types'
 import type { DraftPresentation } from './tools/draft'
@@ -48,7 +48,6 @@ import { buildCanvasContextMenuEntries, type CanvasContextMenuCommand } from '..
 import { createDesktopCanvasRuntimeAppAdapter } from '../../app/canvas-runtime/desktop-adapter'
 import { createAppSceneRuntimePanelTargetAdapter } from '../../app/canvas-runtime/panel-target-adapter'
 import { locale, plantSpacingIntervalM, snapToGridEnabled } from '../../app/settings/state'
-import type { CanopiFile } from '../../types/design'
 import { CURRENT_CANOPI_FILE_VERSION } from '../../generated/canopi-design-format'
 import { geoAt } from '../../__tests__/support/geo-design'
 import { installCanvasKeyRouter } from '../../__tests__/support/key-router'

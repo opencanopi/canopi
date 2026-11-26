@@ -3,7 +3,7 @@
   "fields": [
     {
       "key": "version",
-      "owner": "scene",
+      "owner": "format",
       "required": true
     },
     {
@@ -22,12 +22,12 @@
       "required": false
     },
     {
-      "key": "plant_species_symbols",
+      "key": "plant_species_codes",
       "owner": "scene",
       "required": false
     },
     {
-      "key": "plant_species_codes",
+      "key": "plant_species_symbols",
       "owner": "scene",
       "required": false
     },
@@ -113,7 +113,7 @@
     },
     {
       "key": "map_view",
-      "owner": "scene",
+      "owner": "format",
       "required": false
     },
     {
@@ -123,7 +123,7 @@
     },
     {
       "key": "updated_at",
-      "owner": "scene",
+      "owner": "format",
       "required": false
     }
   ],

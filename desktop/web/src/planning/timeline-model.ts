@@ -1,4 +1,4 @@
-import type { PanelTarget, TimelineAction } from '../generated/contracts'
+import type { PanelTarget, TimelineAction } from '../types/design'
 
 function panelTargetEquals(left: PanelTarget, right: PanelTarget): boolean {
   if (left.kind !== right.kind) return false

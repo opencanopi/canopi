@@ -2,10 +2,9 @@
 // Moved away, Blocked, and stale, over a stubbed browser geolocation and Permissions API and a fake view.
 import { signal } from '@preact/signals'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { GeoPoint } from '../../generated/contracts'
+import type { GeoPoint, CanopiFile } from '../../types/design'
 import type { ViewCamera } from '../../geo/view/types'
 import type { FollowView } from './follow'
-import type { CanopiFile } from '../../types/design'
 import { clearCurrentDesignState, replaceCurrentDesignState } from '../../__tests__/support/design-session-state'
 import { MyLocationSession, myLocation } from './session'
 

@@ -1379,10 +1379,12 @@ export const CANOPI_FILE_SCHEMA = {
       "type": "object"
     },
     "SpeciesPanelTargetKind": {
-      "enum": [
-        "species"
-      ],
-      "type": "string"
+      "oneOf": [
+        {
+          "const": "species",
+          "type": "string"
+        }
+      ]
     },
     "SpeciesPanelTargetV10": {
       "additionalProperties": true,

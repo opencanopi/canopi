@@ -6,7 +6,7 @@
 
 import { geoToMercator, MAPLIBRE_WORLD_TILE_SIZE } from '../../geo/projection'
 import { bearingCosSin } from '../../geo/view/navigation-policy'
-import type { GeoPoint } from '../../generated/contracts'
+import type { GeoPoint } from '../../types/design'
 import type { ScreenPoint, ViewCamera, ViewScreen } from '../../geo/view/types'
 
 export function geoToScreen(camera: ViewCamera, screen: ViewScreen, g: GeoPoint): ScreenPoint {

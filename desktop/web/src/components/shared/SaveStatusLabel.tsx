@@ -241,9 +241,8 @@ function DraftWarningDetails({ warning, draftAction, fallbackFocus }: {
 }
 
 /**
- * A read-only Design (2.1-Q317, M478, Q336): muted, never red, as nothing failed. The bar shows only its icon and
- * "Read-only"; the label opens a popover that says why by origin: a newer Canopi saved it, with Update, or the browser's
- * storage could not be checked (Q334), where updating does not help and it offers File's Download a copy instead.
+ * A read-only Design (2.1-Q317, M478, Q334, Q347): muted, never red, as nothing failed. The bar shows only its icon and
+ * "Read-only"; the label opens a popover explaining that storage could not be checked and offering Keep a copy.
  */
 function useDetailsPopover() {
   const [open, setOpen] = useState(false)

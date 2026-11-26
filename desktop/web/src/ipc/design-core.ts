@@ -2,15 +2,8 @@
  * ipc/design-core.ts: Typed Desktop IPC wrappers over `commands::design_core`
  * (`canopi-f47t.52.49`, contracts §10, 2.1-M156, 2.1-M539).
  */
-import type {
-  CanopiFileV10,
-  DraftSummaryOutcome,
-  FormatDecodeAnswer,
-  FormatRefusal,
-  GeoPoint,
-  NewDesignInputContract,
-  SavedObjectStampPayload,
-} from '../generated/contracts'
+import type { CanopiFileV10, DraftSummaryOutcome, FormatDecodeAnswer, FormatRefusal, NewDesignInputContract, SavedObjectStampPayload } from '../generated/contracts'
+import type { GeoPoint } from '../types/design'
 import { invokeTyped, mintOperationId } from './transport'
 
 export async function designCoreVersion(): Promise<string> {

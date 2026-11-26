@@ -117,7 +117,7 @@ export function BrowserAppShell({
         menus={menus}
         design={designIdentity ? (
           <>
-            {/* A read-only Design (one a newer Canopi saved) is shown, never renamed (2.1-Q315). */}
+            {/* A read-only Design is shown, never renamed (2.1-Q315, Q347). */}
             {designIdentity.saveStatus === "read-only"
               ? <span className={titleBarStyles.nameText}>{visibleDesignName(designIdentity.name)}</span>
               : <DesignNameField name={designIdentity.name} onRename={(name) => onRenameDesign?.(name)} />}

@@ -23,6 +23,7 @@ import {
   lockedSceneDesignObjectTargets,
   lockedSceneGroupMembers,
   normalizeSceneDesignObjectTargets,
+  pruneGroupDeletedMembers,
   resolveSceneObjectGroupMembers,
   resolvePlantSymbolForPlant,
   resolvePlantSymbolId,
@@ -372,17 +373,8 @@ export class SceneRuntimeMutationController {
           .filter((guide) => !deleted.measurementGuideIds.has(guide.id))
         draft.groups = draft.groups
           .filter((group) => !deleted.groupIds.has(group.id))
-          .map((group) => ({
-            ...group,
-            members: group.members.filter((member) =>
-              !(
-                (member.kind === 'plant' && deleted.plantIds.has(member.id))
-                || (member.kind === 'zone' && deleted.zoneIds.has(member.id))
-                || (member.kind === 'annotation' && deleted.annotationIds.has(member.id))
-              ),
-            ),
-          }))
-          .filter((group) => group.members.length >= 2)
+          .map((group) => pruneGroupDeletedMembers(group, deleted))
+          .filter((group): group is SceneObjectGroupEntity => group !== null)
       })
       tx.setSelection([])
     })

@@ -11,7 +11,6 @@ import { createRecentFilesController } from '../../app/recent-files'
 import { openKeyboardShortcutsDialog, openSettingsDialog } from '../../app/shell/dialogs'
 import { openProblemReportDialog } from '../../app/problem-report/submission'
 import { formatShortcut } from '../../app/shell-commands/shortcut-text'
-import type { RecentDesignPreview } from '../../generated/contracts'
 import { StartScreen } from './StartScreen'
 import { SlotToast } from './ToastSlot'
 
@@ -56,9 +55,6 @@ export function WelcomeScreen() {
         path: file.path,
         updatedAt: file.updated_at,
         preview: recentFilesController.previews.value.get(file.path),
-        // A Recent Design a newer Canopi saved opens read-only, and its row says so, a file too
-        // large for a preview included (2.1-Q316).
-        readOnly: savedByNewer(recentFilesController.previews.value.get(file.path)),
         open: () => {
           if (!file.grant) return
           void openDesignFromPath(file.grant, {
@@ -94,10 +90,6 @@ export function WelcomeScreen() {
     )}
     </>
   )
-}
-
-function savedByNewer(_preview: RecentDesignPreview | undefined): boolean {
-  return false
 }
 
 function logWelcomeError(error: unknown): void {
