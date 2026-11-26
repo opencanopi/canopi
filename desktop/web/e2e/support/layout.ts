@@ -35,6 +35,9 @@ export async function openFixture(page: Page, fixture: string, options: OpenOpti
   const { locale = 'en', basemapHidden = false, settings = {}, keepOnReload = false } = options
   const stored = { key: SETTINGS_KEY, values: { ...settings, locale, ...(basemapHidden ? { basemap_visible: false } : {}) } }
   const write = (record: typeof stored) => {
+    // Unloading to `about:blank` between calls re-runs earlier init scripts on an opaque origin, where Chromium and
+    // WebKit throw SecurityError on storage access.
+    if (window.location.origin === 'null' || window.location.href === 'about:blank') return
     localStorage.clear()
     sessionStorage.clear()
     localStorage.setItem(record.key, JSON.stringify({ version: 3, settings: record.values }))

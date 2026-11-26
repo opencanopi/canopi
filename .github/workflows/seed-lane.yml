@@ -56,6 +56,15 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup-rust
+        with:
+          targets: wasm32-unknown-unknown
+          cache: 'true'
+          cache-key: rust-check
+          cache-save: 'false'
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: wasm-bindgen@0.2.130
       - uses: ./.github/actions/setup-frontend
       # test:seed-lane picks CANOPI_TEST_SEED (shuffle order) and CANOPI_FC_SEED (fast-check) at random and prints them.
       - name: Whole suite from random seeds
@@ -80,6 +89,15 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup-rust
+        with:
+          targets: wasm32-unknown-unknown
+          cache: 'true'
+          cache-key: rust-check
+          cache-save: 'false'
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: wasm-bindgen@0.2.130
       - uses: ./.github/actions/setup-frontend
       # policy/fixtures/seed-lane/order-dependent.test.ts fails in seed 3's order of its eight tests only. Vitest
       # passes no `--dir` to a project, so CANOPI_TEST_DIR is the web project's (vite.config.ts).
