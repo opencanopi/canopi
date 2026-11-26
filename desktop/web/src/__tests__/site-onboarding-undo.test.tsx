@@ -7,7 +7,7 @@ import { installCanvasHostRuntime } from '../app/canvas-map-surface/use-canvas-h
 import { createBrowserCanvasHostRuntime } from '../editions/web/browser-workspace-runtime'
 import { createMapLifetimeSlot } from '../maplibre/map-lifetime'
 import type { WorkspaceRuntimeComposition } from '../app/canvas-map-surface/workspace-runtime-composition'
-import { encodeCanopiDesign } from '../app/contracts/canopi-design-wire'
+import { flattenDocumentForJson as encodeCanopiDesign } from '../app/contracts/document'
 import { designSessionStore } from '../app/document-session/store'
 import { currentCanvasSession } from '../canvas/session'
 import { CURRENT_CANOPI_FILE_VERSION } from '../generated/canopi-design-format'

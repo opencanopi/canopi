@@ -224,10 +224,14 @@ impl<F: DurableFs> DesktopHomeStore<F> {
             .and_then(|s| s.to_str())
             .filter(|s| !s.is_empty())
             .unwrap_or("Untitled");
-        // Admit once through the canonical format codec (`admit_v9_schema` + newer read-only, N2).
-        let admitted_name = match crate::design::format::open_design_bytes(bytes) {
-            Ok(crate::design::format::OpenedDesign::Editable(file)) => file.name,
-            Ok(crate::design::format::OpenedDesign::ReadOnly(ro)) => ro.view.name,
+        // Admit once through the canonical Format Core (v9 or v10).
+        let admitted_name = match canopi_format::core::decode_design(bytes) {
+            Ok(opened) => opened
+                .design
+                .get("name")
+                .and_then(serde_json::Value::as_str)
+                .unwrap_or_default()
+                .to_owned(),
             Err(_) => return,
         };
         let name = if admitted_name.is_empty() {

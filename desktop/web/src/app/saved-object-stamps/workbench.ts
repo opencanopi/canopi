@@ -34,7 +34,7 @@ import {
   renameSavedObjectStamp as renameSavedObjectStampIpc,
   reorderSavedObjectStamps as reorderSavedObjectStampsIpc,
 } from '../../ipc/saved-object-stamps'
-import { encodeCanopiDesign } from '../contracts/canopi-design-wire'
+import { flattenDocumentForJson } from '../contracts/document'
 import { designLoadFailureMessageKey, designLoadFailureOf } from '../contracts/canopi-design-errors'
 import type { CanopiFile } from '../../types/design'
 import type { SavedObjectStamp } from '../../types/saved-object-stamps'
@@ -49,14 +49,18 @@ import {
   defaultSavedObjectStampName,
   importedSavedObjectStampName,
   savedObjectStampPayloadFromCanopiFile,
+  type SavedObjectStampCanopiDocument,
 } from './file'
 import { isCancelledFailure } from '../../failures/ipc-failure'
 import { createMutationQueue } from '../mutation-queue'
 import type { LocaleKey } from '../../generated/locale-keys'
 
 /** Writes a stamp as a `.canopi` file in canonical wire form; the transport takes encoded JSON. */
-export function exportSavedObjectStampFile(file: CanopiFile, defaultName: string): Promise<string> {
-  return exportSavedObjectStampCanopiFile(encodeCanopiDesign(file), defaultName)
+export function exportSavedObjectStampFile(
+  file: Parameters<typeof flattenDocumentForJson>[0],
+  defaultName: string,
+): Promise<string> {
+  return exportSavedObjectStampCanopiFile(flattenDocumentForJson(file), defaultName)
 }
 
 export interface SavedObjectStampLibraryView {
@@ -106,7 +110,7 @@ interface SavedObjectStampWorkbenchOptions {
   readonly renameSavedObjectStamp?: (id: string, name: string) => Promise<SavedObjectStamp>
   readonly deleteSavedObjectStamp?: (id: string) => Promise<boolean>
   readonly reorderSavedObjectStamps?: (ids: string[]) => Promise<SavedObjectStamp[]>
-  readonly exportSavedObjectStamp?: (content: CanopiFile, defaultName: string) => Promise<string>
+  readonly exportSavedObjectStamp?: (content: SavedObjectStampCanopiDocument, defaultName: string) => Promise<string>
   readonly importSavedObjectStampFile?: () => Promise<CanopiFile>
   readonly getCanvasQuerySurface?: () => CanvasQuerySurface | null
   readonly arm?: typeof armCanvasTool

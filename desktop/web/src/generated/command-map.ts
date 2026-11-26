@@ -12,11 +12,15 @@ import type {
   DesignNotebookSnapshot,
   DesignSummary,
   DialogKind,
+  DraftSummaryOutcome,
   DynamicFilterOptions,
   FileGrantId,
   FileHomeGrant,
   FilterOptions,
   FlowerColorResolution,
+  FormatDecodeAnswer,
+  FormatRefusal,
+  GeoPoint,
   GeoResult,
   HomeRead,
   HomeVersion,
@@ -30,6 +34,7 @@ import type {
   LidarLayerCollection,
   LidarSamplePointsRequest,
   LidarSampleSeries,
+  NewDesignInputContract,
   OperationId,
   PaginatedResult,
   PickOpenOutcome,
@@ -41,6 +46,7 @@ import type {
   ReadOnlyDesign,
   RecentDesignSummary,
   SavedObjectStamp,
+  SavedObjectStampPayload,
   SpeciesDetail,
   SpeciesImage,
   SpeciesListItem,
@@ -99,6 +105,15 @@ export const COMMAND_NAMES = [
   'show_recent_design_in_folder',
   'list_design_drafts',
   'delete_design_draft',
+  'design_core_version',
+  'design_core_decode',
+  'design_core_encode',
+  'design_core_new_design',
+  'design_core_draft_summary',
+  'design_core_decode_stamp',
+  'design_core_encode_stamp',
+  'design_core_stamp_to_canopi',
+  'design_core_canopi_to_stamp',
   'get_design_notebook',
   'create_notebook_section',
   'add_design_reference_to_notebook',
@@ -185,6 +200,15 @@ export type CommandMap = {
   readonly 'show_recent_design_in_folder': { readonly args: { readonly path: string }; readonly reply: void }
   readonly 'list_design_drafts': { readonly args: undefined; readonly reply: DesignDraftSummary[] }
   readonly 'delete_design_draft': { readonly args: { readonly id: string }; readonly reply: void }
+  readonly 'design_core_version': { readonly args: undefined; readonly reply: string }
+  readonly 'design_core_decode': { readonly args: { readonly bytes: readonly number[] }; readonly reply: FormatDecodeAnswer }
+  readonly 'design_core_encode': { readonly args: { readonly design: unknown }; readonly reply: { ok: number[] } | { err: FormatRefusal } }
+  readonly 'design_core_new_design': { readonly args: { readonly input: NewDesignInputContract }; readonly reply: Record<string, unknown> }
+  readonly 'design_core_draft_summary': { readonly args: { readonly bytes: readonly number[]; readonly updatedAt: string }; readonly reply: DraftSummaryOutcome }
+  readonly 'design_core_decode_stamp': { readonly args: { readonly payloadJson: string }; readonly reply: { ok: SavedObjectStampPayload } | { err: unknown } }
+  readonly 'design_core_encode_stamp': { readonly args: { readonly payload: SavedObjectStampPayload }; readonly reply: { ok: string } | { err: unknown } }
+  readonly 'design_core_stamp_to_canopi': { readonly args: { readonly payload: SavedObjectStampPayload; readonly name: string; readonly origin: GeoPoint }; readonly reply: { ok: number[] } | { err: FormatRefusal } }
+  readonly 'design_core_canopi_to_stamp': { readonly args: { readonly bytes: readonly number[]; readonly origin: GeoPoint }; readonly reply: { ok: SavedObjectStampPayload } | { err: unknown } }
   readonly 'get_design_notebook': { readonly args: undefined; readonly reply: DesignNotebookSnapshot }
   readonly 'create_notebook_section': { readonly args: { readonly name: string }; readonly reply: DesignNotebookSection }
   readonly 'add_design_reference_to_notebook': { readonly args: { readonly path: string; readonly content: CanopiFile }; readonly reply: void }
@@ -286,6 +310,15 @@ export const COMMAND_SYNC_KINDS: Readonly<Record<CommandName, CommandSyncKind>> 
   'show_recent_design_in_folder': 'async',
   'list_design_drafts': 'async',
   'delete_design_draft': 'async',
+  'design_core_version': 'async',
+  'design_core_decode': 'async',
+  'design_core_encode': 'async',
+  'design_core_new_design': 'async',
+  'design_core_draft_summary': 'async',
+  'design_core_decode_stamp': 'async',
+  'design_core_encode_stamp': 'async',
+  'design_core_stamp_to_canopi': 'async',
+  'design_core_canopi_to_stamp': 'async',
   'get_design_notebook': 'async',
   'create_notebook_section': 'async',
   'add_design_reference_to_notebook': 'async',

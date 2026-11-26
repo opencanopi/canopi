@@ -6,7 +6,7 @@
  * and `actions.ts` + `close-guard.ts` end-to-end.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { encodeCanopiDesign } from '../../contracts/canopi-design-wire'
+import { flattenDocumentForJson as encodeCanopiDesign } from '../../contracts/document'
 import { createInMemoryDesignHomeStore, makeTestDesign } from '../../../__tests__/support/session-core-fixture'
 import {
   createDesktopAppLifecyclePort,

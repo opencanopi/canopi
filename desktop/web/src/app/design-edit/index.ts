@@ -1,4 +1,8 @@
 export {
+  isAdmittedColourRange,
+  isAdmittedOpacity,
+} from './admission'
+export {
   reconcileCurrentDesign,
   setDesignName,
 } from './core'

@@ -1,5 +1,10 @@
 import type { TemplateMeta } from '../../types/community'
-import { decodeCanopiDesign } from '../contracts/design-ingestion'
+import { CanopiDesignIngestionError } from '../contracts/canopi-design-errors'
+import {
+  isCurrentCanopiDocument,
+  normalizeLoadedDocument,
+  parseCanopiJsonText,
+} from '../contracts/document'
 import { requireLiveSessionCore } from '../document-session/live-core'
 import { WEB_STATIC_DESIGN_TEMPLATE_ASSET_ORIGINS } from './static-design-templates'
 import {
@@ -44,7 +49,17 @@ export function createBrowserDesignTemplateImportWorkflow(
         )
       }
       const text = await response.text()
-      return decodeCanopiDesign(JSON.parse(text) as unknown)
+      const raw = parseCanopiJsonText(text)
+      if (!isCurrentCanopiDocument(raw)) {
+        throw new CanopiDesignIngestionError('invalid_document', '$: expected a valid Canopi Design')
+      }
+      for (let i = 0; i < raw.zones.length; i += 1) {
+        const zone = raw.zones[i] as unknown as Record<string, unknown>
+        if (!Array.isArray(zone?.points)) {
+          throw new CanopiDesignIngestionError('invalid_document', `$.zones[${i}].points: missing required value`)
+        }
+      }
+      return normalizeLoadedDocument(raw)
     },
     open: (envelope, isCancelled) => {
       const openCanopiTemplate = adapters.openCanopiTemplate

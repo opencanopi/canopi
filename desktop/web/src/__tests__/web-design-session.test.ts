@@ -1,8 +1,7 @@
 // @vitest-environment jsdom
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { encodeCanopiDesign } from '../app/contracts/canopi-design-wire'
-import { decodeCanopiDesign } from '../app/contracts/design-ingestion'
+import { decodeCanopiDesign, encodeCanopiDesign } from './support/design-wire'
 import { DEFAULT_BUDGET_CURRENCY } from '../app/contracts/document'
 import {
   designSaveStatus,

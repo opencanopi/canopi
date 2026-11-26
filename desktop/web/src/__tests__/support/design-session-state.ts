@@ -3,7 +3,7 @@
  * read-only `designSessionStore` projection (Blueprint §2, 2b-3).
  */
 import { computed } from '@preact/signals'
-import { encodeCanopiDesign } from '../../app/contracts/canopi-design-wire'
+import { flattenDocumentForJson as encodeCanopiDesign } from '../../app/contracts/document'
 import { getLiveSessionCore } from '../../app/document-session/live-core'
 import {
   designSessionStore,

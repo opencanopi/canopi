@@ -3,15 +3,13 @@ use canopi_types::design::field_path::{FieldPath, Refusal};
 use canopi_types::design::{
     CURRENT_CANOPI_FILE_VERSION, CanopiDesignIngestionErrorKind, CanopiFile,
     DEFAULT_BUDGET_CURRENCY, DesignLoadFailure, DesignLoadFailureKind, Layer, LoadedDesign,
-    MISSING_CANOPI_FILE_VERSION, ReadOnlyDesign, admit_design_identities_and_ranges,
-    validate_design_geometry,
+    MISSING_CANOPI_FILE_VERSION, ReadOnlyDesign,
 };
 use canopi_types::views::{validate_map_view, validate_views_and_stories};
 use std::fmt;
 use std::path::Path;
 
 use super::new_design_defaults::NEW_DESIGN_LAYER_DEFAULTS;
-use super::schema_admission::admit_v9_schema;
 
 /// A refused Design: its kind, and the typed refusal naming the field (canopi-cyqd).
 #[derive(Debug)]
@@ -372,18 +370,129 @@ fn admit_current_design_value(
     let invalid = |refusal| {
         CanopiDesignIngestionError::new(CanopiDesignIngestionErrorKind::InvalidDocument, refusal)
     };
-    // The schema names the refused field; serde only builds what it admitted, so a serde
-    // error past it is a schema the Rust types outgrew, named at the root without its text.
-    admit_v9_schema(&value).map_err(invalid)?;
+    // Validate against the frozen v9 schema and run the single v10 Format Core
+    // decode/migration/admission choke point (`canopi-format::core::decode_design_value`).
+    let schema = canopi_format::core::v9_schema().ok_or_else(|| {
+        CanopiDesignIngestionError::invalid(FieldPath::root(), "a valid frozen v9 schema")
+    })?;
+    canopi_format::schema::admit_schema(&value, schema).map_err(invalid)?;
+    if let Err(refusal) = canopi_format::core::decode_design_value(value.clone()) {
+        let field_path = refusal
+            .field_path
+            .as_deref()
+            .map(parse_v9_field_path)
+            .unwrap_or_else(FieldPath::root);
+        let expected = refusal
+            .field_path
+            .as_deref()
+            .and_then(|path| refusal.message.strip_prefix(&format!("{path}: ")))
+            .unwrap_or(&refusal.message);
+        return Err(CanopiDesignIngestionError::invalid(field_path, expected));
+    }
     let file: CanopiFile = serde_json::from_value(value).map_err(|_| {
         CanopiDesignIngestionError::invalid(FieldPath::root(), "expected a Canopi Design")
     })?;
-    validate_design_geometry(&file)
-        .and_then(|()| admit_design_identities_and_ranges(&file))
-        .and_then(|()| validate_views_and_stories(&file.views, &file.stories))
+    let mut seen_groups = std::collections::HashSet::new();
+    for (index, group) in file.groups.iter().enumerate() {
+        if group.id.is_empty() {
+            return Err(CanopiDesignIngestionError::invalid(
+                FieldPath::root().field("groups").index(index).field("id"),
+                "expected a non-empty id",
+            ));
+        }
+        if !seen_groups.insert(group.id.as_str()) {
+            return Err(CanopiDesignIngestionError::invalid(
+                FieldPath::root().field("groups").index(index).field("id"),
+                "expected a unique id",
+            ));
+        }
+    }
+    validate_views_and_stories(&file.views, &file.stories)
         .and_then(|()| validate_map_view(file.map_view.as_ref()))
         .map_err(invalid)?;
     Ok(file)
+}
+
+fn parse_v9_field_path(raw: &str) -> FieldPath {
+    const KNOWN_FIELDS: &[&str] = &[
+        "annotations",
+        "budget",
+        "budget_currency",
+        "camera",
+        "canopy_spread_m",
+        "consortiums",
+        "created_at",
+        "description",
+        "end",
+        "entries",
+        "extra",
+        "font_size",
+        "ground_size_m",
+        "groups",
+        "id",
+        "images",
+        "lat",
+        "layers",
+        "lidar",
+        "link",
+        "lon",
+        "map_view",
+        "measurement_guides",
+        "members",
+        "name",
+        "opacity",
+        "plants",
+        "points",
+        "position",
+        "range",
+        "rotation",
+        "scale",
+        "site_data",
+        "spans",
+        "src",
+        "start",
+        "steps",
+        "stories",
+        "text",
+        "timeline",
+        "updated_at",
+        "version",
+        "view_id",
+        "views",
+        "zones",
+    ];
+    let mut path = FieldPath::root();
+    let mut rest = raw.strip_prefix('$').unwrap_or(raw);
+    while !rest.is_empty() {
+        if let Some(after_dot) = rest.strip_prefix('.') {
+            let end = after_dot.find(['.', '[']).unwrap_or(after_dot.len());
+            let name = &after_dot[..end];
+            let mapped = match name {
+                "site_data" => "lidar",
+                "canopy_spread_m" => "scale",
+                other => other,
+            };
+            if let Some(&static_name) = KNOWN_FIELDS.iter().find(|&&k| k == mapped) {
+                path = path.field(static_name);
+            }
+            rest = &after_dot[end..];
+        } else if let Some(after_bracket) = rest.strip_prefix('[') {
+            if let Some(close) = after_bracket.find(']') {
+                let inner = &after_bracket[..close];
+                if inner == "*" {
+                    path = path.map_value();
+                } else if let Ok(index) = inner.parse::<usize>() {
+                    path = path.index(index);
+                }
+                rest = &after_bracket[close + 1..];
+            } else {
+                break;
+            }
+        } else {
+            break;
+        }
+    }
+    path
 }
 
 fn read_design_version(value: &serde_json::Value) -> Result<u64, CanopiDesignIngestionError> {

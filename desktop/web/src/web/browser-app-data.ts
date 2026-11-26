@@ -1,5 +1,8 @@
-import { encodeCanopiDesign } from "../app/contracts/canopi-design-wire";
-import { decodeCanopiDesign } from "../app/contracts/design-ingestion";
+import {
+  flattenDocumentForJson,
+  isCurrentCanopiDocument,
+  normalizeLoadedDocument,
+} from "../app/contracts/document";
 import type { CanopiFile } from "../types/design";
 import { keepUnreadableRecord, StoreRefusedError, StoreUnreadableError } from "../failures/store-read";
 import { writeStoreHealth } from "../failures/health";
@@ -537,7 +540,7 @@ function encodeDraftsRecord(record: BrowserDraftsRecord): unknown {
     defineOwn(draftFiles, id, file);
   }
   for (const [id, file] of Object.entries(record.draftFiles)) {
-    defineOwn(draftFiles, id, encodeCanopiDesign(file));
+    defineOwn(draftFiles, id, flattenDocumentForJson(file));
   }
   return {
     version: record.version,
@@ -563,9 +566,9 @@ function decodeDraftFiles(value: unknown): {
   const refused: Record<string, unknown> = {};
   if (!isRecord(value)) return { decoded, refused };
   for (const [id, rawFile] of Object.entries(value)) {
-    try {
-      defineOwn(decoded, id, decodeCanopiDesign(rawFile));
-    } catch {
+    if (isCurrentCanopiDocument(rawFile)) {
+      defineOwn(decoded, id, normalizeLoadedDocument(rawFile));
+    } else {
       // A Draft that does not open is not listed, but its stored value is
       // kept: it is the user's Design, not ours to erase.
       defineOwn(refused, id, rawFile);

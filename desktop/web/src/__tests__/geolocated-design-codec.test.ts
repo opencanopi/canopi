@@ -9,7 +9,7 @@ import {
   createRectangularZoneMeasurements,
 } from '../canvas/runtime/zone-measurements'
 import { createSessionPlane } from '../geo/session-plane'
-import { decodeCanopiDesign } from '../app/contracts/design-ingestion'
+import { decodeCanopiDesign } from './support/design-wire'
 import { CURRENT_CANOPI_FILE_VERSION } from '../generated/canopi-design-format'
 import type { CanopiFile } from '../types/design'
 import { geoAt } from './support/geo-design'

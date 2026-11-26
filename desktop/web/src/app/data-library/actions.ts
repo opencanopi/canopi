@@ -52,7 +52,7 @@ import { siblingMoveOrders } from './reference-tree'
 import { kindDisplayDefaults } from './item-types'
 import { designSessionStore } from '../document-session/store'
 import { isPresentableOutput } from '../analyses/registry'
-import { isAdmittedColourRange, isAdmittedOpacity } from '../contracts/design-admission'
+import { isAdmittedColourRange, isAdmittedOpacity } from '../design-edit'
 
 /**
  * Leaf action module for the Data Library and the Layers data band: every UI

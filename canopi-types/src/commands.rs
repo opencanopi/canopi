@@ -107,6 +107,15 @@ commands! {
     show_recent_design_in_folder => "commands::design::show_recent_design_in_folder": Async (path: "string") -> "void",
     list_design_drafts => "commands::design::list_design_drafts": Async () -> "DesignDraftSummary[]",
     delete_design_draft => "commands::design::delete_design_draft": Async (id: "string") -> "void",
+    design_core_version => "commands::design_core::design_core_version": Async () -> "string",
+    design_core_decode => "commands::design_core::design_core_decode": Async (bytes: "readonly number[]") -> "FormatDecodeAnswer",
+    design_core_encode => "commands::design_core::design_core_encode": Async (design: "unknown") -> "{ ok: number[] } | { err: FormatRefusal }",
+    design_core_new_design => "commands::design_core::design_core_new_design": Async (input: "NewDesignInputContract") -> "Record<string, unknown>",
+    design_core_draft_summary => "commands::design_core::design_core_draft_summary": Async (bytes: "readonly number[]", updatedAt: "string") -> "DraftSummaryOutcome",
+    design_core_decode_stamp => "commands::design_core::design_core_decode_stamp": Async (payloadJson: "string") -> "{ ok: SavedObjectStampPayload } | { err: unknown }",
+    design_core_encode_stamp => "commands::design_core::design_core_encode_stamp": Async (payload: "SavedObjectStampPayload") -> "{ ok: string } | { err: unknown }",
+    design_core_stamp_to_canopi => "commands::design_core::design_core_stamp_to_canopi": Async (payload: "SavedObjectStampPayload", name: "string", origin: "GeoPoint") -> "{ ok: number[] } | { err: FormatRefusal }",
+    design_core_canopi_to_stamp => "commands::design_core::design_core_canopi_to_stamp": Async (bytes: "readonly number[]", origin: "GeoPoint") -> "{ ok: SavedObjectStampPayload } | { err: unknown }",
     get_design_notebook => "commands::design_notebook::get_design_notebook": Async () -> "DesignNotebookSnapshot",
     create_notebook_section => "commands::design_notebook::create_notebook_section": Async (name: "string") -> "DesignNotebookSection",
     add_design_reference_to_notebook => "commands::design_notebook::add_design_reference_to_notebook": Async (path: "string", content: "CanopiFile") -> "void",
@@ -175,6 +184,6 @@ mod tests {
                 row.name
             );
         }
-        assert_eq!(names.len(), 81);
+        assert_eq!(names.len(), 90);
     }
 }

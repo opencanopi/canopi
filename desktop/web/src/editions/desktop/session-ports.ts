@@ -5,6 +5,17 @@
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { pickOpen, pickSave } from '../../ipc/dialogs'
 import { deleteDesignDraft, listDesignDrafts, readNewerDesign } from '../../ipc/design'
+import {
+  designCoreCanopiToStamp,
+  designCoreDecode,
+  designCoreDecodeStamp,
+  designCoreDraftSummary,
+  designCoreEncode,
+  designCoreEncodeStamp,
+  designCoreNewDesign,
+  designCoreStampToCanopi,
+  designCoreVersion,
+} from '../../ipc/design-core'
 import type { AppLifecyclePort, LifecycleEvent } from '../../platform/app-lifecycle'
 import type { DesignCore } from '../../platform/design-core'
 import type {
@@ -159,5 +170,20 @@ export function createDesktopAppLifecyclePort(options?: {
 }
 
 export const desktopDesignCorePort: DesignCore = {
+  version: () => designCoreVersion(),
+  decode: (bytes) => designCoreDecode(bytes),
+  async encode(design) {
+    const reply = await designCoreEncode(design)
+    return 'ok' in reply ? { ok: new Uint8Array(reply.ok) } : reply
+  },
+  newDesign: (input) => designCoreNewDesign(input),
+  draftSummary: (bytes, updatedAt) => designCoreDraftSummary(bytes, updatedAt),
+  decodeStamp: (payloadJson) => designCoreDecodeStamp(payloadJson),
+  encodeStamp: (payload) => designCoreEncodeStamp(payload),
+  async stampToCanopi(payload, name, origin) {
+    const reply = await designCoreStampToCanopi(payload, name, origin)
+    return 'ok' in reply ? { ok: new Uint8Array(reply.ok) } : reply
+  },
+  canopiToStamp: (bytes, origin) => designCoreCanopiToStamp(bytes, origin),
   readNewerDesign: (text) => readNewerDesign(text),
 }

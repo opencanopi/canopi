@@ -166,9 +166,8 @@
       "doc": "docs/adr/0025-failure-model-and-native-scheduling.md",
       "quote": "Format core failure e2e through the real worker in Chromium, WebKit, Firefox and the Desktop",
       "state": {
-        "planned": {
-          "phase": "2b",
-          "bead": "canopi-f47t.52.49"
+        "exists": {
+          "check": "desktop/web/src/platform/design-core.worker.test.ts"
         }
       }
     },
@@ -182,9 +181,8 @@
       "doc": "docs/adr/0026-stored-data-after-2-0.md",
       "quote": "A migration harness, `migration_steps_frozen`, the schema release check,",
       "state": {
-        "planned": {
-          "phase": "2b",
-          "bead": "canopi-f47t.52.49"
+        "exists": {
+          "check": "canopi-format/src/core_tests.rs"
         }
       }
     },

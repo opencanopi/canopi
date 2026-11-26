@@ -103,7 +103,10 @@ export function bootDesktopEdition(): () => void {
     designHome: createDesktopSessionHomeStore(),
     fileAccess: desktopFileAccessPort,
     lifecycle: desktopLifecycle,
-    codec: createJsonSessionCodec({ readNewerDesign: desktopDesignCorePort.readNewerDesign }),
+    codec: createJsonSessionCodec({
+      designCore: desktopDesignCorePort,
+      readNewerDesign: desktopDesignCorePort.readNewerDesign,
+    }),
     settings: {
       readLastOpenHome: async () => decodeLastOpenHome(lastOpenHome.peek()),
       writeLastOpenHome: async (home) => {

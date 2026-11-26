@@ -110,7 +110,10 @@ export function bootWebEdition(): () => void {
     designHome: browserHomeStore,
     fileAccess: browserFileAccessPort,
     lifecycle: browserAppLifecyclePort,
-    codec: createJsonSessionCodec({ readNewerDesign: (text) => formatCore.readNewerDesign(text) }),
+    codec: createJsonSessionCodec({
+      ...(typeof Worker !== "undefined" ? { designCore: formatCore } : {}),
+      readNewerDesign: (text) => formatCore.readNewerDesign(text),
+    }),
     settings: {
       readLastOpenHome: async () => null,
       writeLastOpenHome: async () => {},

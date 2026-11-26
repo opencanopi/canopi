@@ -4,7 +4,7 @@
  * (`editions/web/session-ports.ts`, 2.1-M526, ADR 0024, ADR 0025).
  */
 import { describe, expect, it, vi } from 'vitest'
-import { encodeCanopiDesign } from '../../app/contracts/canopi-design-wire'
+import { flattenDocumentForJson as encodeCanopiDesign } from '../../app/contracts/document'
 import type { DraftId } from '../../platform/design-home'
 import type { CanopiFile } from '../../types/design'
 import {

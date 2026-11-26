@@ -16,7 +16,7 @@ vi.mock('@tauri-apps/plugin-dialog', () => ({
   message: vi.fn().mockResolvedValue(undefined),
 }))
 
-import { encodeCanopiDesign } from '../../app/contracts/canopi-design-wire'
+import { flattenDocumentForJson as encodeCanopiDesign } from '../../app/contracts/document'
 import { createJsonSessionCodec, createSessionCore, getLiveSessionCore, installLiveSessionCore } from '../../app/document-session/live-core'
 import { designSessionStore } from '../../app/document-session/store'
 import { makeTestDesign } from '../../__tests__/support/session-core-fixture'

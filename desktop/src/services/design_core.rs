@@ -3,10 +3,9 @@
 //!
 //! Every operation runs on [`NativeOperationClass::Local`] through [`NativeOperationExecutor`]
 //! and returns a typed reply envelope matching `canopi-format-wasm` (`{"ok": ...}` or
-//! `{"err": ...}`), with executor faults surfaced as [`Failure`]. Thin `#[tauri::command]`
-//! wrappers and their `ipc/design-core.ts` + `editions/desktop/boot.ts` wiring land together
-//! in the 2b-5 TS cutover PR (`canopi-f47t.52.208`) so `native_command_policy` and
-//! `knip --production` stay green.
+//! `{"err": ...}`), with executor faults surfaced as [`Failure`]. Wired through
+//! `commands::design_core`, `ipc/design-core.ts`, and `editions/desktop/boot.ts`
+//! (`canopi-f47t.52.49`).
 
 use canopi_format::core::{
     FORMAT_CORE_VERSION, FormatRefusal, NewDesignInput, OpenedDesign,

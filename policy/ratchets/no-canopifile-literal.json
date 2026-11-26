@@ -1,18 +1,5 @@
 {
   "$schema": "./ratchet.schema.json",
   "family": "no-canopifile-literal",
-  "entries": {
-    "desktop/web/src/app/contracts/design-ingestion.ts": {
-      "count": 1,
-      "bead": "canopi-f47t.52.49"
-    },
-    "desktop/web/src/app/contracts/document.ts": {
-      "count": 5,
-      "bead": "canopi-f47t.52.49"
-    },
-    "desktop/web/src/app/saved-object-stamps/file.ts": {
-      "count": 1,
-      "bead": "canopi-f47t.52.49"
-    }
-  }
+  "entries": {}
 }

@@ -1,144 +1,112 @@
-// @vitest-environment jsdom
-// Behavioral tests for live Session Core wiring (#481 B1/B2):
-// proves production saveAsCurrentDesign() routes through SessionCore (FAT 0-byte EMPTY_SHA256
-// probe + strict NotExists + Conflict 'Keep my version' retry) and mirrors open state into designSessionStore.
+import { describe, expect, it, vi } from 'vitest'
+import type { CanopiFileV10, FormatDecodeAnswer } from '../../generated/contracts'
+import type { DesignCore } from '../../platform/design-core'
+import { createJsonSessionCodec } from './live-core'
 
-import { afterEach, describe, expect, it, vi } from 'vitest'
-import { CURRENT_CANOPI_FILE_VERSION } from '../../generated/canopi-design-format'
-import { EMPTY_SHA256, type DesignHomeStore, type HomeVersion } from '../../platform/design-home'
-import type { CanopiFile } from '../../types/design'
-import {
-  createJsonSessionCodec,
-  createSessionCore,
-  getLiveSessionCore,
-  installLiveSessionCore,
-} from './live-core'
-import { answerSaveProblem, saveProblem } from './save-problem'
-import { designSessionStore } from './store'
-import { saveAsCurrentDesign, saveCurrentDesign } from './actions'
-
-function sampleDesign(name = 'Orchard'): CanopiFile {
+function makeDesignCore(decodeImpl: (bytes: Uint8Array) => Promise<FormatDecodeAnswer>): DesignCore {
   return {
-    version: CURRENT_CANOPI_FILE_VERSION,
-    name,
-    plants: [],
-    zones: [],
-    annotations: [],
-    groups: [],
-    layers: [],
-    site: { origin: { lat: 48.85, lon: 2.35 }, units: 'metric' },
-    timeline: [],
-    budget: { currency: 'EUR', plantPrices: {} },
-    consortium: { entries: [] },
-    views: [],
-    stories: [],
-    measurementGuides: [],
-  } as unknown as CanopiFile
+    version: vi.fn(async () => '2.1.0'),
+    decode: vi.fn(decodeImpl),
+    encode: vi.fn(async () => ({ ok: new Uint8Array() })),
+    newDesign: vi.fn(async () => ({}) as CanopiFileV10),
+    draftSummary: vi.fn(async () => ({ name: '', updated_at: '2026-11-26T00:00:00Z', readable: false })),
+    decodeStamp: vi.fn(async () => ({ err: 'unused' })),
+    encodeStamp: vi.fn(async () => ({ err: 'unused' })),
+    readNewerDesign: vi.fn(async () => ({ saved_by_version: 11, view: {} as never })),
+  }
 }
 
-describe('live Session Core wiring (#481 B1/B2)', () => {
-  let disposeCore: (() => void) | null = null
+describe('createJsonSessionCodec with DesignCore', () => {
+  it('decodes v10 designs through DesignCore and maps v10 fields to session CanopiFile', async () => {
+    const v10: CanopiFileV10 = {
+      version: 10,
+      name: 'Meadow',
+      description: null,
+      plant_species_colors: {},
+      plant_species_symbols: {},
+      plant_species_codes: {},
+      layers: [],
+      plants: [{
+        id: 'p1',
+        locked: false,
+        canonical_name: 'Malus domestica',
+        common_name: 'Apple',
+        color: null,
+        symbol: null,
+        position: { lon: 1, lat: 2 },
+        rotation: null,
+        canopy_spread_m: 3.5,
+        notes: null,
+        planted_date: null,
+        quantity: 1,
+      }],
+      zones: [{
+        id: 'z1',
+        name: 'Bed',
+        locked: false,
+        zone_type: 'polygon',
+        points: [{ lon: 0, lat: 0 }, { lon: 1, lat: 0 }, { lon: 1, lat: 1 }],
+        rotation: 0,
+        fill_color: '#abc',
+        notes: null,
+      }],
+      annotations: [{
+        id: 'a1',
+        locked: false,
+        annotation_type: 'text',
+        position: { lon: 0, lat: 0 },
+        text: 'Hi',
+        font_size: 12,
+        rotation: null,
+      }],
+      measurement_guides: [],
+      groups: [],
+      consortiums: [],
+      timeline: [],
+      budget: [],
+      budget_currency: 'EUR',
+      views: [],
+      stories: [],
+      created_at: '2026-11-26T00:00:00Z',
+      updated_at: '2026-11-26T00:00:00Z',
+      custom_flag: true,
+    } as CanopiFileV10
+    const core = makeDesignCore(async () => ({
+      ok: { design: v10, migrated_from: null },
+    }))
+    const codec = createJsonSessionCodec({ designCore: core })
 
-  afterEach(() => {
-    disposeCore?.()
-    disposeCore = null
+    const decoded = await codec.decode(new TextEncoder().encode('{}'))
+    expect(decoded.file.name).toBe('Meadow')
+    expect(decoded.file.plants[0]?.scale).toBe(3.5)
+    expect(decoded.file.extra).toEqual({ custom_flag: true })
   })
 
-  it('routes production saveAsCurrentDesign through SessionCore and handles a 0-byte FAT crash remnant via EMPTY_SHA256', async () => {
-    const writes: Array<{ key: string; expected: HomeVersion | null }> = []
-    const designHome: DesignHomeStore = {
-      read: vi.fn(async (key: string) => {
-        if (key === '/fat/remnant.canopi') {
-          return { kind: 'present' as const, bytes: [], version: EMPTY_SHA256 }
-        }
-        return { kind: 'absent' as const }
-      }),
-      write: vi.fn(async (key: string, _bytes: Uint8Array, expected: HomeVersion | null) => {
-        writes.push({ key, expected })
-        return { kind: 'written' as const, version: 'sha-written-1' }
-      }),
-      listDrafts: async () => [],
-      deleteDraft: async () => ({ ok: true as const }),
-      onVersionChange: () => () => {},
-    }
-
-    const core = createSessionCore({
-      designHome,
-      fileAccess: {
-        pickOpen: async () => ({ kind: 'cancelled' }),
-        pickHomeTarget: async () => ({ kind: 'picked', grant: '/fat/remnant.canopi', displayName: 'remnant.canopi' }),
-      },
-      lifecycle: { subscribe: () => () => {} },
-      codec: createJsonSessionCodec(),
-      settings: {
-        readLastOpenHome: async () => null,
-        writeLastOpenHome: async () => {},
-      },
-      newDesignFactory: () => sampleDesign('FAT Save As'),
+  it('routes newer_version through readNewerDesign and maps older/invalid refusals', async () => {
+    const newerCore = makeDesignCore(async () => ({
+      err: { kind: 'newer_version', message: 'too new' },
+    }))
+    const withReader = createJsonSessionCodec({
+      designCore: newerCore,
+      readNewerDesign: async () => ({ saved_by_version: 11, view: { name: 'Future' } as never }),
     })
-    disposeCore = installLiveSessionCore(core)
-    expect(getLiveSessionCore()).toBe(core)
+    const ro = await withReader.decode(new TextEncoder().encode('{}'))
+    expect(ro.readOnly).toBe(true)
+    expect(ro.savedByVersion).toBe(11)
 
-    await core.createNew()
-    expect(designSessionStore.currentDesign.peek()?.name).toBe('FAT Save As')
+    const withoutReader = createJsonSessionCodec({ designCore: newerCore })
+    await expect(withoutReader.decode(new TextEncoder().encode('{}'))).rejects.toThrow('too new')
 
-    const settlement = await saveAsCurrentDesign()
-    expect(settlement?.status).toBe('applied')
-    expect(settlement?.path).toBe('/fat/remnant.canopi')
-    expect(writes).toEqual([{ key: '/fat/remnant.canopi', expected: EMPTY_SHA256 }])
-    expect(designSessionStore.designPath.peek()).toBe('/fat/remnant.canopi')
-  })
+    const olderCore = makeDesignCore(async () => ({
+      err: { kind: 'older_version', message: 'too old' },
+    }))
+    await expect(createJsonSessionCodec({ designCore: olderCore }).decode(new TextEncoder().encode('{}')))
+      .rejects.toThrow('too old')
 
-  it('routes production saveAsCurrentDesign Conflict through Keep my version retry and flushes via saveCurrentDesign', async () => {
-    const writes: Array<{ key: string; expected: HomeVersion | null }> = []
-    let attempt = 0
-    const designHome: DesignHomeStore = {
-      read: vi.fn(async () => ({ kind: 'absent' as const })),
-      write: vi.fn(async (key: string, _bytes: Uint8Array, expected: HomeVersion | null) => {
-        writes.push({ key, expected })
-        attempt += 1
-        if (attempt === 1) {
-          return { kind: 'conflict' as const, current: 'sha-raced-on-disk' }
-        }
-        return { kind: 'written' as const, version: `sha-v${attempt}` }
-      }),
-      listDrafts: async () => [],
-      deleteDraft: async () => ({ ok: true as const }),
-      onVersionChange: () => () => {},
-    }
-
-    const core = createSessionCore({
-      designHome,
-      fileAccess: {
-        pickOpen: async () => ({ kind: 'cancelled' }),
-        pickHomeTarget: async () => ({ kind: 'picked', grant: '/designs/raced.canopi', displayName: 'raced.canopi' }),
-      },
-      lifecycle: { subscribe: () => () => {} },
-      codec: createJsonSessionCodec(),
-      settings: {
-        readLastOpenHome: async () => null,
-        writeLastOpenHome: async () => {},
-      },
-      newDesignFactory: () => sampleDesign('Raced Save As'),
-    })
-    disposeCore = installLiveSessionCore(core)
-    await core.createNew()
-
-    const saveAsPromise = saveAsCurrentDesign()
-    await vi.waitFor(() => expect(saveProblem.value?.kind).toBe('conflict'))
-    answerSaveProblem('keep-mine')
-
-    const settlement = await saveAsPromise
-    expect(settlement?.status).toBe('applied')
-    expect(settlement?.path).toBe('/designs/raced.canopi')
-    expect(writes).toEqual([
-      { key: '/designs/raced.canopi', expected: null },
-      { key: '/designs/raced.canopi', expected: 'sha-raced-on-disk' },
-    ])
-
-    // Subsequent edit + saveCurrentDesign flushes through SessionCore's write lane
-    core.document('Rename', () => ({ name: 'Renamed' }))
-    expect(await saveCurrentDesign()).toBe(true)
-    expect(writes).toHaveLength(3)
+    const invalidCore = makeDesignCore(async () => ({
+      err: { kind: 'invalid_document', message: 'bad doc' },
+    }))
+    await expect(createJsonSessionCodec({ designCore: invalidCore }).decode(new TextEncoder().encode('{}')))
+      .rejects.toThrow('bad doc')
   })
 })

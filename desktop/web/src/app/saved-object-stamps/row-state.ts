@@ -25,7 +25,7 @@ export function isSavedObjectStampPayloadFromBefore2_0(raw: string): boolean {
 
 /**
  * What a listed stamp offers, the one classifier for Favorites, the tool card's stamp chooser and the workbench:
- * `ready`; `before-2-0`, Delete only (ADR 0021); `needs-newer`, a payload newer than v2 that the stamp store marks in
+ * `ready`; `before-2-0`, Delete only (ADR 0021); `needs-newer`, a payload newer than v3 that the stamp store marks in
  * its listing (2.1-M88): listed by name, never placed, dragged, renamed, reordered or deleted.
  */
 export type SavedObjectStampRowState = 'ready' | 'before-2-0' | 'needs-newer'

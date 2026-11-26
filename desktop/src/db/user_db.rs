@@ -350,16 +350,16 @@ pub fn get_recently_viewed_names(
     stmt.query_map([limit], |row| row.get(0))?.collect()
 }
 
-/// True (1) for a saved stamp whose payload carries a numeric `version` above 2, the newest this build reads
-/// (2.1-M88, design check F6): a v3 payload from 2.1 lists as needing a newer Canopi, and every stamp write guards on
-/// its negation (the plan's `json_extract(payload_json,'$.version') <= 2`). A payload with no numeric version (damaged)
-/// and a pre-2.0 v1 stay this build's to delete. The `CASE` keeps `json_extract` off text that is not JSON, which it
-/// rejects. A macro, so each statement is one `concat!` literal and no SQL is formatted at run time.
+/// True (1) for a saved stamp whose payload carries a numeric `version` above 3, the newest this build reads
+/// (2.1-M88, design check F6): a v4+ payload from a later Canopi lists as needing a newer Canopi, and every stamp
+/// write guards on its negation (`json_extract(payload_json,'$.version') <= 3`). A payload with no numeric version
+/// (damaged) and a pre-2.0 v1 stay this build's to delete. The `CASE` keeps `json_extract` off text that is not JSON,
+/// which it rejects. A macro, so each statement is one `concat!` literal and no SQL is formatted at run time.
 macro_rules! stamp_payload_newer {
     () => {
         "COALESCE(CASE WHEN json_valid(payload_json) THEN \
          json_type(payload_json, '$.version') IN ('integer', 'real') \
-         AND json_extract(payload_json, '$.version') > 2 END, 0)"
+         AND json_extract(payload_json, '$.version') > 3 END, 0)"
     };
 }
 

@@ -745,7 +745,7 @@ describe('Saved Object Stamp Workbench', () => {
       updated_at: '2026-06-19T09:00:00Z',
     }
     const exportSavedObjectStamp = vi.fn(async (
-      _file: CanopiFile,
+      _file: unknown,
       _defaultName: string,
     ): Promise<string> => '/tmp/Apple guild.canopi')
     const getCanvasQuerySurface = vi.fn(() => {

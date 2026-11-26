@@ -3,7 +3,7 @@
  * (ADR 0024, contracts §4).
  */
 import { effect, signal } from '@preact/signals'
-import { encodeCanopiDesign } from '../../app/contracts/canopi-design-wire'
+import { flattenDocumentForJson } from '../../app/contracts/document'
 import { setDesignName } from '../../app/design-edit'
 import {
   closeDesign,
@@ -71,7 +71,7 @@ export function currentWebDesignText(): string | null {
   const open = core?.currentDesign.peek()
   if (!core || !open || (open.readOnly && open.savedByVersion !== null)) return null
   const snap = core.snapshot()
-  return snap ? JSON.stringify(encodeCanopiDesign(snap), null, 2) : null
+  return snap ? JSON.stringify(flattenDocumentForJson(snap), null, 2) : null
 }
 
 export async function newWebDesign(): Promise<void> {
@@ -144,7 +144,7 @@ export async function downloadWebCanopi(): Promise<void> {
   const core = requireLiveSessionCore()
   const snap = core.snapshot()
   if (!snap) return
-  const text = JSON.stringify(encodeCanopiDesign(snap), null, 2)
+  const text = JSON.stringify(flattenDocumentForJson(snap), null, 2)
   downloadBrowserTextFile(canopiDownloadName(snap.name), text, 'application/json')
 }
 
@@ -158,7 +158,7 @@ export async function downloadWebDraft(id: string): Promise<void> {
   }
   const file = newerDrafts.hides(id) ? null : browserAppDataStore.loadDraft(id)
   if (!file) throw new Error('Draft not found')
-  const text = JSON.stringify(encodeCanopiDesign(file), null, 2)
+  const text = JSON.stringify(flattenDocumentForJson(file), null, 2)
   downloadBrowserTextFile(canopiDownloadName(file.name), text, 'application/json')
 }
 

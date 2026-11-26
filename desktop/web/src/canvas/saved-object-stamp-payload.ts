@@ -4,16 +4,18 @@ import type {
 } from './runtime/scene'
 
 /**
- * Payload format of a saved stamp. Version 2 separates a zone's display name
- * from its identity (`.canopi` v9). Canopi 2.0 breaks stored data (ADR 0021):
- * only version 2 is read; a version 1 payload from before 2.0 and anything
- * newer are refused. A version 1 stamp stays in the library so the user can
- * see it and delete it; a newer one is listed and left alone (app/saved-object-stamps/row-state.ts).
+ * Payload format of a saved stamp. Version 3 (Canopi 2.1, `2.1-M88`) standardises on
+ * snake_case fields (`canonical_name`, `canopy_spread_m`, `rotation_deg`, `zone_type`,
+ * `fill_color`, `annotation_type`, `font_size`, `measurement_guides`, plus species/budget/care
+ * metadata) while continuing to read Canopi 2.0 version 2 (camelCase) payloads seamlessly.
+ * Version 1 payloads from before 2.0 and anything newer than v3 are refused here; a v1 stamp
+ * stays deletable and a v4+ stamp is listed as needing a newer Canopi (app/saved-object-stamps/row-state.ts).
  */
 export const SAVED_OBJECT_STAMP_PAYLOAD_VERSION = 2
+const SAVED_OBJECT_STAMP_PAYLOAD_V3_VERSION = 3
 
 export interface SavedObjectStampPayload {
-  readonly version: typeof SAVED_OBJECT_STAMP_PAYLOAD_VERSION
+  readonly version: typeof SAVED_OBJECT_STAMP_PAYLOAD_VERSION | typeof SAVED_OBJECT_STAMP_PAYLOAD_V3_VERSION
   readonly anchor: ScenePoint
   readonly plants: SavedObjectStampPlant[]
   readonly zones: SavedObjectStampZone[]
@@ -69,6 +71,9 @@ export function parseSavedObjectStampPayload(raw: string): SavedObjectStampPaylo
 
 export function normalizeSavedObjectStampPayload(raw: unknown): SavedObjectStampPayload | null {
   if (!isRecord(raw)) return null
+  if (raw.version === SAVED_OBJECT_STAMP_PAYLOAD_V3_VERSION) {
+    return normalizeSavedObjectStampPayloadV3(raw)
+  }
   if (raw.version !== SAVED_OBJECT_STAMP_PAYLOAD_VERSION) return null
   const anchor = pointFromUnknown(raw.anchor)
   if (!anchor) return null
@@ -86,6 +91,104 @@ export function normalizeSavedObjectStampPayload(raw: unknown): SavedObjectStamp
     zones,
     annotations,
     groups,
+  }
+}
+
+function normalizeSavedObjectStampPayloadV3(raw: Record<string, unknown>): SavedObjectStampPayload | null {
+  const anchor = pointFromUnknown(raw.anchor)
+  if (!anchor) return null
+
+  const plants = arrayFromUnknown(raw.plants, plantFromV3)
+  const zones = arrayFromUnknown(raw.zones, zoneFromV3)
+  const annotations = arrayFromUnknown(raw.annotations, annotationFromV3)
+  const groups = arrayFromUnknown(raw.groups, groupFromV3)
+  if (!plants || !zones || !annotations || !groups) return null
+
+  return {
+    version: SAVED_OBJECT_STAMP_PAYLOAD_V3_VERSION,
+    anchor,
+    plants,
+    zones,
+    annotations,
+    groups,
+  }
+}
+
+function plantFromV3(data: unknown): SavedObjectStampPlant | null {
+  if (!isRecord(data)) return null
+  const id = stringFromUnknown(data.id)
+  const canonicalName = stringFromUnknown(data.canonical_name)
+  const position = pointFromUnknown(data.position)
+  if (!id || !canonicalName || !position) return null
+
+  return {
+    id,
+    canonicalName,
+    commonName: nullableStringFromUnknown(data.common_name),
+    color: nullableStringFromUnknown(data.color),
+    symbol: nullableStringFromUnknown(data.symbol),
+    position,
+    rotationDeg: nullableNumberFromUnknown(data.rotation_deg),
+    scale: nullableNumberFromUnknown(data.canopy_spread_m),
+  }
+}
+
+function zoneFromV3(data: unknown): SavedObjectStampZone | null {
+  if (!isRecord(data)) return null
+  const id = stringFromUnknown(data.id)
+  const name = nullableStringFromUnknown(data.name)
+  const zoneType = stringFromUnknown(data.zone_type)
+  const points = arrayFromUnknown(data.points, pointFromUnknown)
+  if (!id || !zoneType || !points || points.length === 0) return null
+
+  return {
+    id,
+    name,
+    zoneType,
+    points,
+    rotationDeg: numberFromUnknown(data.rotation_deg) ?? 0,
+    fillColor: nullableStringFromUnknown(data.fill_color),
+  }
+}
+
+function annotationFromV3(data: unknown): SavedObjectStampAnnotation | null {
+  if (!isRecord(data)) return null
+  const id = stringFromUnknown(data.id)
+  const annotationType = stringFromUnknown(data.annotation_type)
+  const position = pointFromUnknown(data.position)
+  const text = stringFromUnknown(data.text)
+  const fontSize = numberFromUnknown(data.font_size)
+  if (!id || !annotationType || !position || text === null || fontSize === null) return null
+
+  return {
+    id,
+    annotationType,
+    position,
+    text,
+    fontSize,
+    rotationDeg: nullableNumberFromUnknown(data.rotation_deg),
+  }
+}
+
+function groupFromV3(data: unknown): SavedObjectStampGroup | null {
+  if (!isRecord(data)) return null
+  const id = stringFromUnknown(data.id)
+  if (!id || !Array.isArray(data.members)) return null
+  const members: SceneObjectGroupMember[] = []
+  for (const entry of data.members) {
+    if (!isRecord(entry)) return null
+    const memberId = stringFromUnknown(entry.id)
+    if (!memberId) return null
+    if (entry.kind === 'plant' || entry.kind === 'zone' || entry.kind === 'annotation') {
+      members.push({ kind: entry.kind, id: memberId })
+    } else if (entry.kind !== 'measurement_guide') {
+      return null
+    }
+  }
+  return {
+    id,
+    name: nullableStringFromUnknown(data.name),
+    members,
   }
 }
 

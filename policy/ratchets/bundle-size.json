@@ -122,7 +122,7 @@
       "bead": "canopi-f47t.52.205"
     },
     "desktop chunk: arming": {
-      "ceiling": 5034,
+      "ceiling": 6385,
       "tolerance": 0.05
     },
     "desktop chunk: boot-guard": {
@@ -149,10 +149,6 @@
       "ceiling": 3489,
       "tolerance": 0.05
     },
-    "desktop chunk: core": {
-      "ceiling": 432,
-      "tolerance": 0.05
-    },
     "desktop chunk: deflate": {
       "ceiling": 369,
       "tolerance": 0.05
@@ -168,6 +164,11 @@
     "desktop chunk: dialogs": {
       "ceiling": 1016,
       "tolerance": 0.05
+    },
+    "desktop chunk: domain-adapters": {
+      "ceiling": 707,
+      "tolerance": 0.05,
+      "bead": "canopi-f47t.52.205"
     },
     "desktop chunk: edition-ports": {
       "ceiling": 262,
@@ -315,10 +316,6 @@
       "ceiling": 2132,
       "tolerance": 0.05
     },
-    "desktop chunk: session-plane": {
-      "ceiling": 2805,
-      "tolerance": 0.05
-    },
     "desktop chunk: shortcut-text": {
       "ceiling": 1466,
       "tolerance": 0.05
@@ -334,6 +331,11 @@
     "desktop chunk: store": {
       "ceiling": 41157,
       "tolerance": 0.05
+    },
+    "desktop chunk: target": {
+      "ceiling": 7456,
+      "tolerance": 0.05,
+      "bead": "canopi-f47t.52.205"
     },
     "desktop chunk: tauri": {
       "ceiling": 16176,
@@ -371,10 +373,6 @@
       "ceiling": 851401,
       "tolerance": 0.05
     },
-    "desktop chunk: zone-geometry": {
-      "ceiling": 2603,
-      "tolerance": 0.05
-    },
     "desktop chunk: zone-label": {
       "ceiling": 1120,
       "tolerance": 0.05
@@ -400,7 +398,7 @@
       "tolerance": 0.05
     },
     "web chunk: WorldMapPanel": {
-      "ceiling": 7207,
+      "ceiling": 7625,
       "tolerance": 0.05
     },
     "web chunk: WorldMapSurface": {
@@ -416,7 +414,7 @@
       "tolerance": 0.05
     },
     "web chunk: design-core.worker": {
-      "ceiling": 3821,
+      "ceiling": 5455,
       "tolerance": 0.05
     },
     "web chunk: i18n": {
@@ -457,7 +455,7 @@
       "tolerance": 0.05
     },
     "web wasm: canopi_format_wasm_bg": {
-      "ceiling": 470182,
+      "ceiling": 1122462,
       "tolerance": 0.05
     }
   }

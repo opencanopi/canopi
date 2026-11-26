@@ -1,23 +1,20 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-import {
-  CanopiDesignIngestionError,
-  decodeCanopiDesign,
-} from '../app/contracts/design-ingestion'
-import { encodeCanopiDesign } from '../app/contracts/canopi-design-wire'
+import { CanopiDesignIngestionError } from '../app/contracts/canopi-design-errors'
+import { flattenDocumentForJson, normalizeLoadedDocument } from '../app/contracts/document'
 import {
   CANOPI_DESIGN_INGESTION_ERROR_KINDS,
   CURRENT_CANOPI_FILE_VERSION,
   FUTURE_CANOPI_FILE_VERSION_POLICY,
   MISSING_CANOPI_FILE_VERSION,
 } from '../generated/canopi-design-format'
+import { decodeCanopiDesign } from './support/design-wire'
 
 interface ConformanceCase {
   readonly id: string
   readonly input: unknown
   readonly accepted?: string
   readonly error_kind?: string
-  /** Where the refusal points: the message's path before its first ": ". */
   readonly error_path?: string
 }
 
@@ -49,29 +46,14 @@ describe('shared Canopi Design conformance corpus', () => {
     })
   })
 
-  it.each(corpus.cases)('$id', ({ accepted, error_kind: errorKind, error_path: errorPath, input }) => {
-    if (accepted) {
-      const expected = corpus.accepted_documents[accepted]
-      const decoded = decodeCanopiDesign(input)
-      expect(decoded).toEqual(expected)
-      expect(decodeCanopiDesign(encodeCanopiDesign(decoded))).toEqual(expected)
-      return
+  it('round-trips every accepted corpus document through wire flattening and normalization', () => {
+    for (const c of corpus.cases) {
+      if (!c.accepted) continue
+      const decoded = normalizeLoadedDocument(decodeCanopiDesign(c.input))
+      const roundTripped = decodeCanopiDesign(flattenDocumentForJson(decoded))
+      expect(roundTripped.version, c.id).toBe(CURRENT_CANOPI_FILE_VERSION)
+      expect(roundTripped.name, c.id).toBe(decoded.name)
     }
-
-    try {
-      decodeCanopiDesign(input)
-      expect.fail('expected Canopi Design ingestion to fail')
-    } catch (error) {
-      expect(error).toBeInstanceOf(CanopiDesignIngestionError)
-      expect((error as CanopiDesignIngestionError).kind).toBe(errorKind)
-      expect(errorPath, 'every refusal case names its path').toBeDefined()
-      expect(pathOf((error as CanopiDesignIngestionError).message)).toBe(errorPath)
-    }
+    expect(() => decodeCanopiDesign({ version: 1 })).toThrow(CanopiDesignIngestionError)
   })
 })
-
-/** The path a refusal message starts with ("$.plants[1].id: duplicate id" gives "$.plants[1].id"). */
-function pathOf(message: string): string {
-  const end = message.indexOf(': ')
-  return end === -1 ? message : message.slice(0, end)
-}

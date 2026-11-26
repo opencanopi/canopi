@@ -43,6 +43,25 @@ export function createGalleryEditionPorts(edition: 'desktop' | 'web'): EditionPo
       subscribe: () => () => {},
     },
     designCore: {
+      version: async () => 'gallery',
+      decode: async () => {
+        throw new Error('Gallery edition does not decode Designs')
+      },
+      encode: async () => {
+        throw new Error('Gallery edition does not encode Designs')
+      },
+      newDesign: async () => {
+        throw new Error('Gallery edition does not construct Designs')
+      },
+      draftSummary: async () => {
+        throw new Error('Gallery edition does not summarise Drafts')
+      },
+      decodeStamp: async () => {
+        throw new Error('Gallery edition does not decode stamps')
+      },
+      encodeStamp: async () => {
+        throw new Error('Gallery edition does not encode stamps')
+      },
       readNewerDesign: async () => {
         throw new Error('Gallery edition does not decode newer Designs')
       },

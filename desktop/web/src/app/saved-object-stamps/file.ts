@@ -31,11 +31,33 @@ const STAMP_FILE_LAYERS: CanopiFile['layers'] = [
   { name: 'annotations', visible: true, locked: false, opacity: 1 },
 ]
 
+export interface SavedObjectStampCanopiDocument {
+  readonly version: number
+  readonly name: string
+  readonly description: string | null
+  readonly plant_species_colors: Record<string, string>
+  readonly plant_species_symbols: Record<string, string>
+  readonly layers: CanopiFile['layers']
+  readonly plants: CanopiFile['plants']
+  readonly zones: CanopiFile['zones']
+  readonly annotations: CanopiFile['annotations']
+  readonly consortiums: CanopiFile['consortiums']
+  readonly groups: CanopiFile['groups']
+  readonly timeline: CanopiFile['timeline']
+  readonly budget: CanopiFile['budget']
+  readonly budget_currency: string
+  readonly views: CanopiFile['views']
+  readonly stories: CanopiFile['stories']
+  readonly created_at: string
+  readonly updated_at: string
+  readonly extra: Record<string, unknown>
+}
+
 export function composeSavedObjectStampCanopiFile({
   name,
   payload,
   now = new Date(),
-}: ComposeSavedObjectStampCanopiFileOptions): CanopiFile {
+}: ComposeSavedObjectStampCanopiFileOptions): SavedObjectStampCanopiDocument {
   const timestamp = now.toISOString()
   const plane = createSessionPlane(STAMP_FILE_ORIGIN)
   return {
@@ -92,8 +114,17 @@ export function composeSavedObjectStampCanopiFile({
   }
 }
 
-export function savedObjectStampPayloadFromCanopiFile(file: CanopiFile): SavedObjectStampPayload | null {
-  const plane = createSessionPlane(sessionPlaneOriginForPoints(designGeoPositions(file), STAMP_FILE_ORIGIN))
+export function savedObjectStampPayloadFromCanopiFile(
+  file: Pick<CanopiFile, 'layers' | 'plants' | 'zones' | 'annotations' | 'groups' | 'plant_species_symbols'> & {
+    readonly measurement_guides?: CanopiFile['measurement_guides']
+  },
+): SavedObjectStampPayload | null {
+  const plane = createSessionPlane(
+    sessionPlaneOriginForPoints(
+      designGeoPositions(file as Parameters<typeof designGeoPositions>[0]),
+      STAMP_FILE_ORIGIN,
+    ),
+  )
   const idMap = new Map<string, string>()
   const plants = layerVisible(file, 'plants')
     ? file.plants
@@ -170,7 +201,7 @@ export function savedObjectStampPayloadFromCanopiFile(file: CanopiFile): SavedOb
 }
 
 export function importedSavedObjectStampName(
-  file: CanopiFile,
+  file: Pick<CanopiFile, 'name'>,
   payload: SavedObjectStampPayload,
 ): string {
   return file.name.trim() || defaultSavedObjectStampName(payload)
@@ -223,7 +254,7 @@ function memberKey(member: { readonly kind: string; readonly id: string }): stri
   return `${member.kind}:${member.id}`
 }
 
-function layerVisible(file: CanopiFile, name: string): boolean {
+function layerVisible(file: Pick<CanopiFile, 'layers'>, name: string): boolean {
   return file.layers.find((layer) => layer.name === name)?.visible !== false
 }
 

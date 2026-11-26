@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { encodeCanopiDesign } from '../app/contracts/canopi-design-wire'
+import { flattenDocumentForJson as encodeCanopiDesign } from '../app/contracts/document'
 import { designRevertAvailable, newDesignAction, openDesignDraft } from '../app/document-session/actions'
 import { createJsonSessionCodec, createSessionCore, installLiveSessionCore, type SessionCore } from '../app/document-session/live-core'
 import { designSessionStore } from '../app/document-session/store'

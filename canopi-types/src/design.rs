@@ -12,10 +12,7 @@ mod v10_io;
 mod v10_nested;
 mod v10_print;
 mod v10_views;
-pub use admission::{
-    V10AdmissionMode, admit_design_identities_and_ranges, admit_design_v10,
-    normalise_v10_on_decode, validate_design_geometry,
-};
+pub use admission::{V10AdmissionMode, admit_design_v10, normalise_v10_on_decode};
 
 #[expect(
     missing_docs,

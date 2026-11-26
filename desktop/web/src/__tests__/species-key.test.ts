@@ -1,5 +1,4 @@
-import { decodeCanopiDesign } from '../app/contracts/design-ingestion'
-import { encodeCanopiDesign } from '../app/contracts/canopi-design-wire'
+import { decodeCanopiDesign, encodeCanopiDesign } from './support/design-wire'
 import { afterEach, describe, expect, it } from 'vitest'
 import { allocateSpeciesCodes } from '../canvas/runtime/species-key'
 import { DEFAULT_PLANT_DISPLAY, setCanvasPlantDisplay } from '../canvas/runtime/plant-display'

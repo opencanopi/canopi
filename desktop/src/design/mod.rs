@@ -3,7 +3,6 @@ pub mod drafts;
 pub mod format;
 mod new_design_defaults;
 pub(crate) mod preview;
-mod schema_admission;
 use canopi_support::durable::{
     DurableError, OsDurableFs, Precondition, PublishOptions, PublishSource,
     publish_durably_unlocked, sync_existing_file, sync_parent_directory as support_sync_parent_dir,

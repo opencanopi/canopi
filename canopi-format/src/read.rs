@@ -11,9 +11,9 @@
 
 use canopi_types::design::field_path::{FieldPath, FieldPathSegment, Refusal};
 use canopi_types::design::{
-    BudgetItem, CURRENT_CANOPI_FILE_VERSION, CanopiFile, DesignLoadFailureKind, ObjectGroup,
-    ObjectGroupMember, PanelTarget, PlacedPlant, ReadOnlyDesign,
-    admit_design_identities_and_ranges, validate_design_geometry,
+    BudgetItem, CURRENT_CANOPI_FILE_VERSION, CanopiFile, DesignLoadFailureKind, GeoPoint,
+    ObjectGroup, ObjectGroupMember, PanelTarget, PlacedPlant, ReadOnlyDesign,
+    WEB_MERCATOR_MAX_LATITUDE_DEG,
 };
 use canopi_types::library::LibraryItemRole;
 use canopi_types::lidar::{LidarPresentationEntry, LidarPresentationSection, LidarRamp};
@@ -74,8 +74,7 @@ pub fn read_newer_design(value: &Value) -> Result<ReadOnlyDesign, ReadRefusal> {
     species_lines_named(&file.budget).map_err(refused)?;
     let mut view = view_of(file);
     // Checked before duplicates go, so a refused entry is named by its index in the file.
-    validate_design_geometry(&view)
-        .and_then(|()| admit_design_identities_and_ranges(&view))
+    admit_read_view(&view)
         .and_then(|()| validate_views_and_stories(&view.views, &view.stories))
         .and_then(|()| validate_map_view(view.map_view.as_ref()))
         .map_err(|refusal| refused(in_file_names(refusal)))?;
@@ -388,6 +387,172 @@ fn in_file_names(refusal: Refusal) -> Refusal {
         };
     }
     Refusal::new(path, refusal.expected)
+}
+
+/// Minimal geometry, identity and range checks for the rollback read-only view (`read_newer_design`).
+fn admit_read_view(file: &CanopiFile) -> Result<(), Refusal> {
+    admit_read_view_geometry(file)?;
+    admit_read_view_ranges(file)
+}
+
+fn check_read_view_point(point: &GeoPoint, path: &FieldPath) -> Result<(), Refusal> {
+    let lat_valid = point.lat.is_finite()
+        && (-WEB_MERCATOR_MAX_LATITUDE_DEG..=WEB_MERCATOR_MAX_LATITUDE_DEG).contains(&point.lat);
+    if !lat_valid {
+        return Err(Refusal::new(
+            path.field("lat"),
+            format!(
+                "expected a Web Mercator latitude in [-{WEB_MERCATOR_MAX_LATITUDE_DEG}, {WEB_MERCATOR_MAX_LATITUDE_DEG}]"
+            ),
+        ));
+    }
+    if !(point.lon.is_finite() && (-180.0..=180.0).contains(&point.lon)) {
+        return Err(Refusal::new(
+            path.field("lon"),
+            "expected lon in [-180, 180]",
+        ));
+    }
+    Ok(())
+}
+
+fn check_read_view_ids(key: &'static str, ids: Vec<&str>) -> Result<(), Refusal> {
+    let list = FieldPath::root().field(key);
+    let mut seen = HashSet::new();
+    for (index, id) in ids.into_iter().enumerate() {
+        if id.is_empty() {
+            return Err(Refusal::new(
+                list.index(index).field("id"),
+                "expected a non-empty id",
+            ));
+        }
+        if !seen.insert(id) {
+            return Err(Refusal::new(
+                list.index(index).field("id"),
+                "expected a unique id",
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn admit_read_view_geometry(file: &CanopiFile) -> Result<(), Refusal> {
+    let root = FieldPath::root();
+    for (index, plant) in file.plants.iter().enumerate() {
+        check_read_view_point(
+            &plant.position,
+            &root.field("plants").index(index).field("position"),
+        )?;
+    }
+    for (index, zone) in file.zones.iter().enumerate() {
+        let zone_path = root.field("zones").index(index);
+        for (point_index, point) in zone.points.iter().enumerate() {
+            check_read_view_point(point, &zone_path.field("points").index(point_index))?;
+        }
+        if !zone.rotation.is_finite() {
+            return Err(Refusal::new(
+                zone_path.field("rotation"),
+                "expected a finite number",
+            ));
+        }
+    }
+    for (index, annotation) in file.annotations.iter().enumerate() {
+        check_read_view_point(
+            &annotation.position,
+            &root.field("annotations").index(index).field("position"),
+        )?;
+    }
+    for (index, guide) in file.measurement_guides.iter().enumerate() {
+        let path = root.field("measurement_guides").index(index);
+        check_read_view_point(&guide.start, &path.field("start"))?;
+        check_read_view_point(&guide.end, &path.field("end"))?;
+    }
+    check_read_view_ids(
+        "plants",
+        file.plants.iter().map(|p| p.id.as_str()).collect(),
+    )?;
+    check_read_view_ids(
+        "measurement_guides",
+        file.measurement_guides
+            .iter()
+            .map(|g| g.id.as_str())
+            .collect(),
+    )?;
+    check_read_view_ids("zones", file.zones.iter().map(|z| z.id.as_str()).collect())?;
+    check_read_view_ids(
+        "annotations",
+        file.annotations.iter().map(|a| a.id.as_str()).collect(),
+    )?;
+    check_read_view_ids(
+        "groups",
+        file.groups.iter().map(|g| g.id.as_str()).collect(),
+    )
+}
+
+fn admit_read_view_ranges(file: &CanopiFile) -> Result<(), Refusal> {
+    const FINITE: &str = "expected a finite number";
+    const UNIT_INTERVAL: &str = "expected a number in [0, 1]";
+    let root = FieldPath::root();
+    for (index, plant) in file.plants.iter().enumerate() {
+        let path = root.field("plants").index(index);
+        if plant
+            .scale
+            .is_some_and(|scale| !(scale.is_finite() && scale > 0.0))
+        {
+            return Err(Refusal::new(
+                path.field("scale"),
+                "expected a finite number above 0",
+            ));
+        }
+        if plant.rotation.is_some_and(|rotation| !rotation.is_finite()) {
+            return Err(Refusal::new(path.field("rotation"), FINITE));
+        }
+    }
+    for (index, annotation) in file.annotations.iter().enumerate() {
+        let path = root.field("annotations").index(index);
+        if !(annotation.font_size.is_finite() && annotation.font_size > 0.0) {
+            return Err(Refusal::new(
+                path.field("font_size"),
+                "expected a finite number above 0",
+            ));
+        }
+        if annotation
+            .rotation
+            .is_some_and(|rotation| !rotation.is_finite())
+        {
+            return Err(Refusal::new(path.field("rotation"), FINITE));
+        }
+    }
+    for (index, layer) in file.layers.iter().enumerate() {
+        if !(layer.opacity.is_finite() && (0.0..=1.0).contains(&layer.opacity)) {
+            return Err(Refusal::new(
+                root.field("layers").index(index).field("opacity"),
+                UNIT_INTERVAL,
+            ));
+        }
+    }
+    if let Some(lidar) = &file.lidar {
+        for (index, entry) in lidar.entries.iter().enumerate() {
+            let path = root.field("lidar").field("entries").index(index);
+            if !(entry.opacity.is_finite() && (0.0..=1.0).contains(&entry.opacity)) {
+                return Err(Refusal::new(path.field("opacity"), UNIT_INTERVAL));
+            }
+            if entry.name.trim().is_empty() {
+                return Err(Refusal::new(
+                    path.field("name"),
+                    "expected a non-empty name",
+                ));
+            }
+            if let Some(canopi_types::lidar::LidarColourRange::Custom { min, max }) = entry.range
+                && !(min.is_finite() && max.is_finite() && min < max)
+            {
+                return Err(Refusal::new(
+                    path.field("range"),
+                    "expected finite min and max with min below max",
+                ));
+            }
+        }
+    }
+    Ok(())
 }
 
 #[cfg(test)]

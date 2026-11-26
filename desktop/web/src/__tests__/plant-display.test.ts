@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { decodeCanopiDesign } from '../app/contracts/design-ingestion'
-import { encodeCanopiDesign } from '../app/contracts/canopi-design-wire'
+import { decodeCanopiDesign, encodeCanopiDesign } from './support/design-wire'
 import { composeDocumentForSave } from '../app/contracts/document'
 import {
   readPlantDisplayOptions,

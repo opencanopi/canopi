@@ -2,40 +2,41 @@
  * Owner of the format module's fetch (fetch-only-in-owners, ADR 0028; §18 F15). Invariant: the worker fetches only its
  * own `.wasm`, from the page's origin.
  *
- * The format worker (ADR 0025 format worker; contracts §18 F28; Step 2.0.4, 2.1-M476, 2.1-M477): the Web edition's
+ * The format worker (ADR 0025 format worker; contracts §10, §18 F28; 2b-5, 2.1-M476, 2.1-M539): the Web edition's
  * one runner of `canopi-format-wasm`, and the one importer of its wasm-bindgen glue (`wasm-glue-only-in-adapter`).
  * Desktop reads `.canopi` natively and never starts it.
- *
- * The glue and the `.wasm` come from `npm run build:format-wasm` (canopi-format-wasm/build-wasm.mjs, never committed);
- * both are imported through canopi-format-wasm/glue.js, typed there, so a checkout that has not built them still
- * type-checks and its import graph resolves. The module loads on the first call: the `.wasm` is compiled from its
- * response as it streams when the server labels it `application/wasm`, and from the whole body otherwise or when the
- * engine refuses the label (a host that serves it as octet-stream, or with a parameter, still works); a failed load
- * answers `unavailable` and the next call loads again.
- *
- * Its one call in the reader release is `read` (2.1-M477): a `.canopi` text of version 10 or later read for the
- * read-only view, answered with the module's JSON and the path the module was compiled by. A call that throws inside
- * the module answers `trapped`: a trapped instance stays dead, so the design-core adapter (platform/design-core.ts),
- * which starts this worker on the first newer file and is its one caller, terminates it and starts another.
  */
-import initFormatCore, { moduleUrl as formatModuleUrl, read_newer_design } from '../../../../canopi-format-wasm/glue.js'
+import initFormatCore, {
+  decode_design,
+  decode_stamp_payload,
+  draft_summary,
+  encode_design,
+  encode_stamp_payload,
+  format_core_version,
+  moduleUrl as formatModuleUrl,
+  new_design,
+  read_newer_design,
+} from '../../../../canopi-format-wasm/glue.js'
 
 /** How the module was compiled: from the streamed response, or from its whole body when not labelled wasm. */
 type CompilePath = 'streaming' | 'arrayBuffer'
 
 /** A call into the module. */
-interface FormatCoreRequest {
-  readonly id: number
-  readonly call: 'read'
-  readonly text: string
-}
+export type FormatCoreRequest =
+  | { readonly id: number, readonly call: 'version' }
+  | { readonly id: number, readonly call: 'read', readonly text: string }
+  | { readonly id: number, readonly call: 'decode', readonly text: string }
+  | { readonly id: number, readonly call: 'encode', readonly designJson: string }
+  | { readonly id: number, readonly call: 'new_design', readonly inputJson: string }
+  | { readonly id: number, readonly call: 'draft_summary', readonly text: string, readonly updatedAt: string }
+  | { readonly id: number, readonly call: 'decode_stamp', readonly text: string }
+  | { readonly id: number, readonly call: 'encode_stamp', readonly payloadJson: string }
 
 /**
  * The answer to one call: the module's JSON string, or why it gave none: the module could not load (`unavailable`, the
- * engine's words in `detail`) or the call trapped (`trapped`; no panic hook runs in the reader release, so `detail` is
- * `trapped`, ADR 0025).
+ * engine's words in `detail`) or the call trapped (`trapped`, ADR 0025).
  */
-type FormatCoreReply =
+export type FormatCoreReply =
   | { readonly id: number, readonly ok: true, readonly value: string, readonly compiledBy: CompilePath }
   | { readonly id: number, readonly ok: false, readonly error: 'unavailable' | 'trapped', readonly detail: string }
 
@@ -50,10 +51,7 @@ const WASM_CONTENT_TYPE = 'application/wasm'
 let loading: Promise<CompilePath> | undefined
 
 /**
- * The module compiled from `url`'s response: streamed when it is labelled `application/wasm`, else from its body. An
- * engine whose compileStreaming refuses the header with a TypeError (Chromium refuses `application/wasm;
- * charset=binary`, a parameter the essence check lets through) gets the body of a clone taken before streaming; a
- * CompileError, the module itself refused, is never retried.
+ * The module compiled from `url`'s response: streamed when it is labelled `application/wasm`, else from its body.
  */
 async function compileModule(url: string): Promise<{ module: WebAssembly.Module, compiledBy: CompilePath }> {
   const response = await fetch(url)
@@ -86,6 +84,27 @@ function core(): Promise<CompilePath> {
   return loading
 }
 
+function dispatch(request: FormatCoreRequest): string {
+  switch (request.call) {
+    case 'version':
+      return format_core_version()
+    case 'read':
+      return read_newer_design(request.text)
+    case 'decode':
+      return decode_design(request.text)
+    case 'encode':
+      return encode_design(request.designJson)
+    case 'new_design':
+      return new_design(request.inputJson)
+    case 'draft_summary':
+      return draft_summary(request.text, request.updatedAt)
+    case 'decode_stamp':
+      return decode_stamp_payload(request.text)
+    case 'encode_stamp':
+      return encode_stamp_payload(request.payloadJson)
+  }
+}
+
 async function answer(request: FormatCoreRequest): Promise<FormatCoreReply> {
   let compiledBy: CompilePath
   try {
@@ -95,7 +114,7 @@ async function answer(request: FormatCoreRequest): Promise<FormatCoreReply> {
     return { id: request.id, ok: false, error: 'unavailable', detail: error instanceof Error ? `${error.name}: ${error.message}` : 'unknown' }
   }
   try {
-    return { id: request.id, ok: true, value: read_newer_design(request.text), compiledBy }
+    return { id: request.id, ok: true, value: dispatch(request), compiledBy }
   } catch {
     // A trap (a Rust panic, an out-of-memory abort) leaves the instance dead; the adapter replaces this worker.
     return { id: request.id, ok: false, error: 'trapped', detail: 'trapped' }

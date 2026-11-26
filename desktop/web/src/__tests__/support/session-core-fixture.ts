@@ -2,7 +2,7 @@
  * __tests__/support/session-core-fixture.ts: Real SessionCore test fixture with in-memory
  * DesignHomeStore, fake FileAccessPort, fake AppLifecyclePort, and JSON codec (Blueprint §2, 2b-3).
  */
-import { encodeCanopiDesign } from '../../app/contracts/canopi-design-wire'
+import { flattenDocumentForJson as encodeCanopiDesign } from '../../app/contracts/document'
 import type { AppLifecyclePort, LifecycleEvent } from '../../platform/app-lifecycle'
 import type {
   DesignHome,
