@@ -289,7 +289,8 @@ export function createSessionCore(deps: SessionCoreDeps): SessionCore {
       if (isSuperseded(seq)) return { status: 'cancelled' }
     }
 
-    const installed = await installOpenDesign(fetched.home, decoded)
+    const effectiveDecoded = source.kind === 'bytes' && source.readOnly ? { ...decoded, readOnly: true } : decoded
+    const installed = await installOpenDesign(fetched.home, effectiveDecoded)
     if (!installed.ok) {
       restoreCurrent()
       return { status: 'refused', reason: installed.reason }

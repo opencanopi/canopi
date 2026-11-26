@@ -2190,7 +2190,13 @@
     "downloadFailedMessage": "Este borrador ya no está en este navegador o no se pudo leer.",
     "uncheckedReadOnly": "Abierto en solo lectura: Canopi no pudo comprobar el almacenamiento de este navegador, así que este borrador puede no estar actualizado. Descarga una copia para conservarlo.",
     "keepDrafts": "Conservar mis borradores",
-    "keepDraftsMenu": "Conservar mis borradores…"
+    "keepDraftsMenu": "Conservar mis borradores…",
+    "storeBlockedTitle": "Borradores esperando a otra pestaña",
+    "storeBlockedMessage": "Cierra las otras pestañas de Canopi para continuar.",
+    "pendingWriteTitle": "Puede faltar el último cambio",
+    "pendingWriteMessage": "Canopi se cerró antes de guardar el último cambio en «{{name}}». Revisa tu diseño antes de continuar.",
+    "olderTabCopyTitle": "Copiado de una pestaña anterior",
+    "olderTabCopyMessage": "Los cambios en «{{name}}» de una pestaña anterior de Canopi se guardaron como un borrador aparte."
   },
   "webRelease": {
     "title": "Nueva versión",

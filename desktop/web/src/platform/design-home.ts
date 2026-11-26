@@ -41,7 +41,7 @@ export type DesignSource =
       readonly displayName?: string
       readonly recentId?: string
     }
-  | { readonly kind: 'bytes'; readonly name: string; readonly bytes: Uint8Array }
+  | { readonly kind: 'bytes'; readonly name: string; readonly bytes: Uint8Array; readonly readOnly?: boolean }
   | { readonly kind: 'draft'; readonly id: DraftId }
 
 /** Raw Draft record returned by `DesignHomeStore.listDrafts()`. */

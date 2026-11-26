@@ -37,9 +37,43 @@ export function presentBrowserDraftOpenFailure(): void {
   showOutcome('web.open-failure', { tone: 'error', title: 'start.cantOpenTitle', message: 'webStorage.downloadFailedMessage' })
 }
 
+/** Q334 (canopi-2b6q): old-key Draft opened read-only while browser IndexedDB storage could not be checked. */
+export function presentBrowserStorageUncheckedNotice(): void {
+  showOutcome('web.storage-unchecked', { tone: 'info', title: 'readOnlyDesign.label', message: 'webStorage.uncheckedReadOnly' })
+}
+
 /** Browser data from before Canopi 2.0 stays in place, unread (ADR 0021): told once, at the launch that finds it. */
 export function raiseEarlierDataNotice(): void {
   raiseNotice({ key: 'web.earlier-data', title: 'health.localDataNotOpenedTitle', message: 'health.localDataNotOpened' })
+}
+
+/** Upgrade of `canopi-drafts` is waiting on another open Canopi tab (`draft_store_blocked`, 2.1-Q40). */
+export function raiseDraftStoreBlockedNotice(): void {
+  raiseNotice({ key: 'web.draft-store-blocked', tone: 'warning', title: 'webStorage.storeBlockedTitle', message: 'webStorage.storeBlockedMessage' })
+}
+
+export function withdrawDraftStoreBlockedNotice(): void {
+  withdrawNotice('web.draft-store-blocked')
+}
+
+/** Pending-write marker found at reopen: the page closed before committing the last edit (contracts §11). */
+export function raisePendingWriteNotice(draftName: string): void {
+  showOutcome('web.pending-write', {
+    tone: 'warning',
+    title: 'webStorage.pendingWriteTitle',
+    message: 'webStorage.pendingWriteMessage',
+    params: { name: draftName },
+  })
+}
+
+/** A 2.0 tab wrote after the move to IndexedDB: saved as a separate Draft without overwriting 2.1's copy. */
+export function raiseOlderTabCopyNotice(draftName: string): void {
+  showOutcome('web.older-tab-copy', {
+    tone: 'info',
+    title: 'webStorage.olderTabCopyTitle',
+    message: 'webStorage.olderTabCopyMessage',
+    params: { name: draftName },
+  })
 }
 
 const RELEASE_NOTICE = 'web.release'

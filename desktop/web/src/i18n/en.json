@@ -2190,7 +2190,13 @@
     "downloadFailedMessage": "This Draft is no longer in this browser, or could not be read.",
     "uncheckedReadOnly": "Opened read-only: Canopi couldn’t check this browser’s storage, so this Draft may be out of date. Download a copy to keep it.",
     "keepDrafts": "Keep my drafts",
-    "keepDraftsMenu": "Keep my drafts…"
+    "keepDraftsMenu": "Keep my drafts…",
+    "storeBlockedTitle": "Drafts waiting on another tab",
+    "storeBlockedMessage": "Close other Canopi tabs to continue.",
+    "pendingWriteTitle": "Last change may be missing",
+    "pendingWriteMessage": "Canopi closed before saving the last change to “{{name}}”. Check your Design before continuing.",
+    "olderTabCopyTitle": "Copied from an older tab",
+    "olderTabCopyMessage": "Changes to “{{name}}” from an older Canopi tab were saved as a separate Draft."
   },
   "webRelease": {
     "title": "New version",

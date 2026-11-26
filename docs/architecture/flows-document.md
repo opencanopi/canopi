@@ -61,7 +61,7 @@ sequenceDiagram
   participant Core as app/document-session/core/ (2.1) owner Session core
   participant Ask as session question dialog (2.1) reads core state
   participant Set as app/settings/ owner settings
-  participant Drafts as platform/design-home.browser.ts (2.1) owner Draft store
+  participant Drafts as platform/design-home.browser.ts owner Draft store
   alt quit, window close or update install
     Life->>Core: one close request
     opt a library job runs
@@ -104,7 +104,7 @@ sequenceDiagram
   participant Fmt as platform/design-core.worker.ts format worker
   participant DH as platform/design-home.desktop.ts (2.1) owner Draft store
   participant Dur as canopi-support publish_durably
-  participant WH as platform/design-home.browser.ts (2.1) owner Draft store
+  participant WH as platform/design-home.browser.ts owner Draft store
   Core->>Core: first edit of a new Design: mintDraftId(), rev plus one
   Core->>WH: markPending(id) on clean to dirty
   Core->>Fmt: encode(design)

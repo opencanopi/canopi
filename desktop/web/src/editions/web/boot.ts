@@ -13,13 +13,21 @@ import { withNewDesignDisplay } from "../../app/settings/new-design-defaults";
 import { normalizeLoadedDocument } from "../../app/contracts/document";
 import { NEW_DESIGN_LAYER_DEFAULTS } from "../../generated/new-design-defaults";
 import type { DraftId } from "../../platform/design-home";
-import { presentBrowserDesignOpenFailure, raiseEarlierDataNotice } from "../../web/browser-notices";
-import { browserAppDataStore } from "../../web/browser-app-data";
+import {
+  presentBrowserDesignOpenFailure,
+  raiseDraftStoreBlockedNotice,
+  raiseEarlierDataNotice,
+  raiseOlderTabCopyNotice,
+  raisePendingWriteNotice,
+  withdrawDraftStoreBlockedNotice,
+} from "../../web/browser-notices";
+import { browserAppDataStore, DRAFTS_STORAGE_KEY } from "../../web/browser-app-data";
 import { browserDraftPersistence } from "../../web/browser-draft-persistence";
 import { browserReleaseWatch } from "./browser-release-watch";
 import { browserSettingsPlatformAdapter } from "./settings";
-import { readSpeciesListRecord } from "../../platform/browser-record";
+import { readSpeciesListRecord, type BrowserStorage } from "../../platform/browser-record";
 import { createDesignCore } from "../../platform/design-core";
+import { createBrowserDesignHomeStore, isIndexedDbAvailable, type BrowserDesignHomeStore } from "../../platform/design-home.browser";
 import { createDraftRecordsReader } from "../../platform/draft-records.browser";
 import { installFailureHooks, reportFailure } from "../../failures/report";
 import { capabilitiesForEdition } from "../../generated/edition-capabilities";
@@ -66,7 +74,39 @@ export function bootWebEdition(): () => void {
     currentDesign: () => currentWebDesignText(),
   });
   const formatCore = createDesignCore();
-  const browserHomeStore = createBrowserSessionHomeStore();
+  const hasIndexedDb = isIndexedDbAvailable();
+  const legacyStorageBridge: BrowserStorage = {
+    getItem: (key) => browserAppDataStore.readRecord((s) => s.getItem(key)),
+    setItem: (key, value) => { browserAppDataStore.writeRecord((s) => s.setItem(key, value)); },
+    removeItem: (key) => { browserAppDataStore.writeRecord((s) => s.removeItem(key)); },
+  };
+  let idbHomeStore: BrowserDesignHomeStore | null = null;
+  let fallbackHomeStore: ReturnType<typeof createBrowserSessionHomeStore> | null = null;
+  if (hasIndexedDb) {
+    idbHomeStore = createBrowserDesignHomeStore({
+      legacyStorage: legacyStorageBridge,
+      designCore: formatCore,
+      appVersion: CANOPI_VERSION,
+      onVersionChange: () => {
+        browserReleaseWatch.storeChanged();
+      },
+      onBlocked: () => {
+        raiseDraftStoreBlockedNotice();
+      },
+      onNewerStore: () => {
+        browserReleaseWatch.storeChanged();
+      },
+      onOlderTabCopy: ({ name }) => {
+        raiseOlderTabCopyNotice(name);
+      },
+      onMigrationFailed: (error) => {
+        reportFailure(error, { shown: "none", source: "web-drafts.move" });
+      },
+    });
+  } else {
+    fallbackHomeStore = createBrowserSessionHomeStore();
+  }
+  const activeHomeStore = idbHomeStore ?? fallbackHomeStore!;
   const disposePorts = installEditionPorts({
     capabilities: capabilitiesForEdition("web", "linux"),
     manifest: WEB_EDITION_MANIFEST,
@@ -75,13 +115,14 @@ export function bootWebEdition(): () => void {
     geocoding: browserGeocodingTransport,
     canvasPdfDelivery: createBrowserPdfDelivery,
     budgetExportDelivery: deliverBrowserBudgetCsv,
-    designHome: browserHomeStore,
+    designHome: activeHomeStore,
     fileAccess: browserFileAccessPort,
     appLifecycle: browserAppLifecyclePort,
     designCore: formatCore,
   });
+  let lastMarkedDraftId: string | null = null;
   const webSessionCore = createSessionCore({
-    designHome: browserHomeStore,
+    designHome: activeHomeStore,
     fileAccess: browserFileAccessPort,
     lifecycle: browserAppLifecyclePort,
     codec: createJsonSessionCodec({
@@ -91,6 +132,17 @@ export function bootWebEdition(): () => void {
       readLastOpenHome: async () => null,
       writeLastOpenHome: async () => {},
       applyNewDesignDefaults: withNewDesignDisplay,
+    },
+    onPendingWriteChange: (pending) => {
+      if (!idbHomeStore) return;
+      const open = webSessionCore.currentDesign.peek();
+      if (pending && open && !open.readOnly && open.home.kind === "draft") {
+        lastMarkedDraftId = open.home.key;
+        idbHomeStore.markPending(open.home.key);
+      } else if (!pending && lastMarkedDraftId) {
+        idbHomeStore.clearPending(lastMarkedDraftId);
+        lastMarkedDraftId = null;
+      }
     },
     newDesignFactory: async () => {
       const now = new Date().toISOString();
@@ -115,20 +167,38 @@ export function bootWebEdition(): () => void {
     const open = webSessionCore.currentDesign.peek();
     const needsFlush = webSessionCore.pendingWrite.peek()
       || open?.save.kind === "failed"
-      || open?.save.kind === "refused";
+      || open?.save.kind === "refused"
+      || open?.save.kind === "quota";
     if (!needsFlush || !open || open.readOnly) return;
-    try {
-      if (open.home.kind === "draft" && open.save.kind !== "refused") {
-        const snap = webSessionCore.snapshot();
-        if (snap && browserHomeStore.flushDraftSync(open.home.key, snap, open.home.version)) return;
+    if (fallbackHomeStore) {
+      try {
+        if (open.home.kind === "draft" && open.save.kind !== "refused") {
+          const snap = webSessionCore.snapshot();
+          if (snap && fallbackHomeStore.flushDraftSync(open.home.key, snap, open.home.version)) return;
+        }
+      } catch {
+        // Snapshot/sync-flush failure (e.g. SceneEditBusyError or invalid Draft) falls through to browser unload prompt (B2).
       }
-    } catch {
-      // Snapshot/sync-flush failure (e.g. SceneEditBusyError or invalid Draft) falls through to browser unload prompt (B2).
     }
     event.preventDefault();
     event.returnValue = "";
   };
   window.addEventListener("beforeunload", onBeforeUnload);
+
+  const onPageHide = () => {
+    idbHomeStore?.closeForPageHide();
+  };
+  const onPageShow = (event: PageTransitionEvent) => {
+    if (event.persisted) void idbHomeStore?.reopenAfterPageShow();
+  };
+  const onLegacyStorage = (event: StorageEvent) => {
+    if (event.key === null || event.key === DRAFTS_STORAGE_KEY) {
+      void idbHomeStore?.syncLegacyStorage();
+    }
+  };
+  window.addEventListener("pagehide", onPageHide);
+  window.addEventListener("pageshow", onPageShow);
+  window.addEventListener("storage", onLegacyStorage);
 
   const disposeTheme = initTheme();
   const settingsInstallation = installSettingsProjection(browserSettingsPlatformAdapter);
@@ -138,32 +208,64 @@ export function bootWebEdition(): () => void {
   });
   if (browserAppDataStore.takeEarlierDataNotice(new Date().toISOString())) raiseEarlierDataNotice();
   browserAppDataStore.openSpeciesLists(readSpeciesListRecord);
-  const uninstallNewerDrafts = installWebNewerDrafts(createDraftRecordsReader({
-    onVersionChange: () => browserReleaseWatch.storeChanged(),
-    report: (error) => reportFailure(error, { shown: "none", source: "web-drafts.read" }),
-  }));
+  const uninstallNewerDrafts = idbHomeStore
+    ? () => {}
+    : installWebNewerDrafts(createDraftRecordsReader({
+        onVersionChange: () => browserReleaseWatch.storeChanged(),
+        report: (error) => reportFailure(error, { shown: "none", source: "web-drafts.read" }),
+      }));
+
+  const restoreIdbDrafts = async (store: BrowserDesignHomeStore): Promise<number> => {
+    const openOutcome = await store.open();
+    withdrawDraftStoreBlockedNotice();
+    if (disposed || openOutcome.kind !== "ready") return 0;
+    const drafts = await store.listDrafts();
+    for (const pendingId of store.takePendingMarkers()) {
+      const match = drafts.find((d) => d.id === pendingId);
+      raisePendingWriteNotice(draftNameFromBytes(match?.bytes ?? null) ?? "Untitled");
+      reportFailure(new Error(`Pending write marker found for Draft ${pendingId}`), {
+        shown: "notice",
+        source: "web-drafts.pending-marker",
+      });
+    }
+    if (!webSessionCore.currentDesign.peek()) {
+      const reloadHome = browserAppDataStore.takeReloadHome();
+      const targetDraftId = reloadHome !== null ? reloadHome.draft : (drafts[0]?.id ?? null);
+      if (targetDraftId) {
+        await webSessionCore.openFrom({ kind: "draft", id: targetDraftId as DraftId });
+      }
+    }
+    return drafts.length;
+  };
+
+  const restoreFallbackDrafts = async (): Promise<void> => {
+    const listing = await relistNewerWebDrafts();
+    if (disposed || !listing.complete || listing.drafts.length > 0 || webSessionCore.currentDesign.peek()) return;
+    const reloadHome = browserAppDataStore.takeReloadHome();
+    const targetDraftId = reloadHome !== null ? reloadHome.draft : (listWebDrafts()[0]?.id ?? null);
+    if (targetDraftId && isWebDraftEditable(targetDraftId)) {
+      await webSessionCore.openFrom({ kind: "draft", id: targetDraftId as DraftId });
+    }
+  };
 
   let disposeDraftPersistence = () => {};
   setWebLaunching(true);
   void (async () => {
+    let idbDraftCount = 0;
     try {
-      const listing = await relistNewerWebDrafts();
-      if (!disposed && listing.complete && listing.drafts.length === 0 && !webSessionCore.currentDesign.peek()) {
-        const reloadHome = browserAppDataStore.takeReloadHome();
-        const targetDraftId = reloadHome !== null
-          ? reloadHome.draft
-          : (listWebDrafts()[0]?.id ?? null);
-        if (targetDraftId && isWebDraftEditable(targetDraftId)) {
-          await webSessionCore.openFrom({ kind: "draft", id: targetDraftId as DraftId });
-        }
+      if (idbHomeStore) {
+        idbDraftCount = await restoreIdbDrafts(idbHomeStore);
+      } else {
+        await restoreFallbackDrafts();
       }
     } catch (error) {
       if (!disposed) console.error("Failed to restore the latest Design Draft:", error);
     } finally {
       setWebLaunching(false);
       if (!disposed) {
-        const hasDrafts = !isWebDraftListingComplete()
-          || listWebDrafts().length + (listedNewerWebDrafts()?.length ?? 0) > 0;
+        const hasDrafts = idbHomeStore
+          ? idbDraftCount > 0
+          : (!isWebDraftListingComplete() || listWebDrafts().length + (listedNewerWebDrafts()?.length ?? 0) > 0);
         disposeDraftPersistence = browserDraftPersistence.start({ hasDrafts });
       }
     }
@@ -178,6 +280,11 @@ export function bootWebEdition(): () => void {
     if (disposed) return;
     disposed = true;
     window.removeEventListener("beforeunload", onBeforeUnload);
+    window.removeEventListener("pagehide", onPageHide);
+    window.removeEventListener("pageshow", onPageShow);
+    window.removeEventListener("storage", onLegacyStorage);
+    withdrawDraftStoreBlockedNotice();
+    idbHomeStore?.dispose();
     registerDesignOpenFailurePresenter(null);
     disposeToolRailLearning();
     disposePlaceSearchSession();
@@ -198,6 +305,17 @@ export function bootWebEdition(): () => void {
   };
   disposeWebRoot = dispose;
   return dispose;
+}
+
+function draftNameFromBytes(bytes: Uint8Array | null): string | null {
+  if (!bytes) return null;
+  try {
+    const parsed = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes)) as { readonly name?: unknown };
+    return typeof parsed?.name === "string" && parsed.name.trim().length > 0 ? parsed.name : null;
+  } catch {
+    // Unreadable Draft bytes fall back to Untitled in the pending-write notice.
+    return null;
+  }
 }
 
 if (import.meta.hot) {

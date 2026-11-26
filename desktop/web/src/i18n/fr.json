@@ -2190,7 +2190,13 @@
     "downloadFailedMessage": "Ce brouillon n’est plus dans ce navigateur, ou n’a pas pu être lu.",
     "uncheckedReadOnly": "Ouvert en lecture seule : Canopi n’a pas pu vérifier le stockage de ce navigateur, ce brouillon n’est peut-être pas à jour. Téléchargez une copie pour le conserver.",
     "keepDrafts": "Garder mes brouillons",
-    "keepDraftsMenu": "Garder mes brouillons…"
+    "keepDraftsMenu": "Garder mes brouillons…",
+    "storeBlockedTitle": "Brouillons en attente d’un autre onglet",
+    "storeBlockedMessage": "Fermez les autres onglets Canopi pour continuer.",
+    "pendingWriteTitle": "La dernière modification manque peut-être",
+    "pendingWriteMessage": "Canopi s’est fermé avant d’enregistrer la dernière modification de « {{name}} ». Vérifiez votre projet avant de continuer.",
+    "olderTabCopyTitle": "Copié depuis un onglet plus ancien",
+    "olderTabCopyMessage": "Les modifications de « {{name}} » provenant d’un onglet Canopi plus ancien ont été enregistrées dans un brouillon séparé."
   },
   "webRelease": {
     "title": "Nouvelle version",

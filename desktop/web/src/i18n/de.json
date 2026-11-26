@@ -2190,7 +2190,13 @@
     "downloadFailedMessage": "Diese Skizze ist nicht mehr in diesem Browser oder konnte nicht gelesen werden.",
     "uncheckedReadOnly": "Schreibgeschützt geöffnet: Canopi konnte den Speicher dieses Browsers nicht prüfen, daher ist diese Skizze möglicherweise veraltet. Wählen Sie „Kopie herunterladen“, um sie zu behalten.",
     "keepDrafts": "Meine Skizzen behalten",
-    "keepDraftsMenu": "Meine Skizzen behalten…"
+    "keepDraftsMenu": "Meine Skizzen behalten…",
+    "storeBlockedTitle": "Entwürfe warten auf einen anderen Tab",
+    "storeBlockedMessage": "Schließen Sie andere Canopi-Tabs, um fortzufahren.",
+    "pendingWriteTitle": "Letzte Änderung fehlt möglicherweise",
+    "pendingWriteMessage": "Canopi wurde geschlossen, bevor die letzte Änderung an „{{name}}“ gespeichert wurde. Prüfen Sie Ihren Entwurf vor dem Fortfahren.",
+    "olderTabCopyTitle": "Aus einem älteren Tab kopiert",
+    "olderTabCopyMessage": "Änderungen an „{{name}}“ aus einem älteren Canopi-Tab wurden als separater Entwurf gespeichert."
   },
   "webRelease": {
     "title": "Neue Version",

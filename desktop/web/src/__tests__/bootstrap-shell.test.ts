@@ -49,18 +49,25 @@ vi.mock("../app/document-session/launch-file", () => ({
 }));
 
 vi.mock("../web/browser-app-data", () => ({
+  DRAFTS_STORAGE_KEY: "canopi:web-app-data:v3:drafts",
   browserAppDataStore: {
     takeEarlierDataNotice: mocks.takeEarlierDataNotice,
     openSpeciesLists: mocks.openSpeciesLists,
     listDrafts: mocks.listDrafts,
     takeReloadHome: mocks.takeReloadHome,
     loadRawDraft: mocks.loadRawDraft,
+    readRecord: () => null,
+    writeRecord: () => undefined,
   },
 }));
 
 vi.mock("../web/browser-notices", () => ({
   raiseEarlierDataNotice: mocks.raiseEarlierDataNotice,
   presentBrowserDesignOpenFailure: vi.fn(),
+  raiseDraftStoreBlockedNotice: vi.fn(),
+  withdrawDraftStoreBlockedNotice: vi.fn(),
+  raiseOlderTabCopyNotice: vi.fn(),
+  raisePendingWriteNotice: vi.fn(),
 }));
 
 vi.mock("../app/tool-rail/learning", () => ({

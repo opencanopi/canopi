@@ -2,6 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { DEFAULT_BUDGET_CURRENCY, flattenDocumentForJson } from '../../app/contracts/document'
 import { getLiveSessionCore } from '../../app/document-session/live-core'
+import { designSessionStore } from '../../app/document-session/store'
 import { notices, resetNoticesForTests } from '../../failures/notices'
 import { CURRENT_CANOPI_FILE_VERSION } from '../../generated/canopi-design-format'
 import { NEW_DESIGN_LAYER_DEFAULTS } from '../../generated/new-design-defaults'
@@ -39,6 +40,7 @@ vi.mock('../../platform/design-core', () => ({
 
 vi.mock('../../platform/draft-records.browser', () => ({
   createDraftRecordsReader: () => mockReaderHolder.records as BrowserNewerDraftRecords,
+  isIndexedDbAvailable: () => false,
 }))
 
 vi.mock('../../web/browser-text-files', async (importOriginal) => {
@@ -269,5 +271,15 @@ describe('Web Edition with 2.1 Drafts listed (R3 canopi-f47t.52.272)', () => {
     await vi.waitFor(() => expect(browserDraftPersistence.view.value.state).toBe('not-kept'))
 
     expect(browserDraftPersistence.view.value.notice, 'the amber warning, not the first-visit reason').toBe('warning')
+  })
+
+  it('canopi-2b6q (2.1-Q334): while IndexedDB listing cannot be read, opening an old-key Draft opens storage-unchecked read-only with notice and Delete stays off', async () => {
+    await bootWith({ drafts: [], hiddenIds: [], complete: false })
+    expect(isWebDraftListingComplete()).toBe(false)
+    expect((await deleteWebDraft('hedge')).ok).toBe(false)
+
+    expect(await openWebDraft('hedge')).toBe(true)
+    expect(designSessionStore.sessionKind.value).toEqual({ kind: 'read-only', origin: 'storage-unchecked' })
+    expect(notices.value.some((n) => n.key === 'web.storage-unchecked' && n.message === 'webStorage.uncheckedReadOnly')).toBe(true)
   })
 })

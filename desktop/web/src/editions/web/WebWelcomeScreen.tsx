@@ -11,12 +11,14 @@ import {
 } from '../../web/browser-draft-persistence'
 import type { BrowserDraftSummary } from '../../web/browser-app-data'
 import { presentBrowserDraftDownloadFailure } from '../../web/browser-notices'
+import { isIndexedDbAvailable } from '../../platform/design-home.browser'
 import {
   deleteWebDraft,
   downloadWebDraft,
   isWebDraftListingComplete,
   listedNewerWebDrafts,
   listWebDrafts,
+  listWebDraftsAsync,
   newWebDesign,
   openWebCanopiFile,
   openWebDraft,
@@ -46,6 +48,12 @@ export function WebWelcomeScreen({
   })
   const mounted = useRef(true)
   const relist = useCallback(() => {
+    if (isIndexedDbAvailable()) {
+      void listWebDraftsAsync().then((editable) => {
+        if (mounted.current) setListing({ editable, readOnly: [], loading: false })
+      }).catch(logWebWelcomeError)
+      return
+    }
     void relistNewerWebDrafts().then(({ drafts: readOnly }) => {
       if (mounted.current) setListing({ editable: listWebDrafts(), readOnly, loading: false })
     }).catch(logWebWelcomeError)

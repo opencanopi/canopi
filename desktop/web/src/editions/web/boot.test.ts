@@ -112,4 +112,102 @@ describe('bootWebEdition (canopi-f47t.52.71)', () => {
     expect(() => editionPorts()).toThrow(/not installed/)
     vi.restoreAllMocks()
   })
+
+  it('canopi-f47t.52.50: wires BrowserDesignHomeStore lifecycle, pending markers, pagehide/pageshow, and storage events when IndexedDB is available', async () => {
+    const idbMod = await import('../../platform/design-home.browser')
+    const captured: { opts?: Parameters<typeof idbMod.createBrowserDesignHomeStore>[0] } = {}
+    const draftBytes = new TextEncoder().encode(JSON.stringify({
+      version: 10,
+      name: 'IDB Orchard',
+      description: null,
+      plant_species_colors: {},
+      plant_species_symbols: {},
+      layers: [],
+      plants: [],
+      zones: [],
+      annotations: [],
+      created_at: '2026-12-01T00:00:00.000Z',
+      updated_at: '2026-12-01T00:00:00.000Z',
+    }))
+    const fakeStore = {
+      open: vi.fn().mockResolvedValue({ kind: 'ready' }),
+      read: vi.fn().mockResolvedValue({ kind: 'present', bytes: draftBytes, version: '1' }),
+      write: vi.fn().mockResolvedValue({ kind: 'written', version: '2' }),
+      delete: vi.fn().mockResolvedValue({ kind: 'deleted' }),
+      listDrafts: vi.fn().mockResolvedValue([{ id: 'draft-idb-1', bytes: draftBytes, version: '1' }]),
+      syncLegacyStorage: vi.fn().mockResolvedValue(undefined),
+      onVersionChange: vi.fn(() => () => {}),
+      closeForPageHide: vi.fn(),
+      reopenAfterPageShow: vi.fn().mockResolvedValue(undefined),
+      markPending: vi.fn(),
+      clearPending: vi.fn(),
+      takePendingMarkers: vi.fn().mockReturnValue(['draft-idb-1', 'draft-unmatched']),
+      dispose: vi.fn(),
+    }
+    vi.spyOn(idbMod, 'isIndexedDbAvailable').mockReturnValue(true)
+    vi.spyOn(idbMod, 'createBrowserDesignHomeStore').mockImplementation((opts) => {
+      captured.opts = opts
+      return fakeStore as never
+    })
+
+    const dispose = bootWebEdition()
+    await vi.waitFor(() => {
+      expect(fakeStore.listDrafts).toHaveBeenCalled()
+    })
+    expect(captured.opts).toBeDefined()
+    captured.opts?.onBlocked?.()
+    captured.opts?.onVersionChange?.()
+    captured.opts?.onNewerStore?.()
+    captured.opts?.onOlderTabCopy?.({ legacyId: 'old', copyId: 'older-tab-old', name: 'Old' })
+    captured.opts?.onMigrationFailed?.(new Error('move failed'))
+
+    window.dispatchEvent(new Event('pagehide'))
+    expect(fakeStore.closeForPageHide).toHaveBeenCalledOnce()
+    const pageShow = new Event('pageshow') as PageTransitionEvent
+    Object.defineProperty(pageShow, 'persisted', { value: true })
+    window.dispatchEvent(pageShow)
+    expect(fakeStore.reopenAfterPageShow).toHaveBeenCalledOnce()
+    const pageShowNotPersisted = new Event('pageshow') as PageTransitionEvent
+    Object.defineProperty(pageShowNotPersisted, 'persisted', { value: false })
+    window.dispatchEvent(pageShowNotPersisted)
+    expect(fakeStore.reopenAfterPageShow).toHaveBeenCalledOnce()
+    window.dispatchEvent(new StorageEvent('storage', { key: 'unrelated-key' }))
+    expect(fakeStore.syncLegacyStorage).not.toHaveBeenCalled()
+    window.dispatchEvent(new StorageEvent('storage', { key: 'canopi:web-app-data:v3:drafts' }))
+    window.dispatchEvent(new StorageEvent('storage', { key: null }))
+    expect(fakeStore.syncLegacyStorage).toHaveBeenCalledTimes(2)
+
+    const { listWebDraftsAsync, downloadWebDraft } = await import('./web-session')
+    const listed = await listWebDraftsAsync()
+    expect(listed.map((d) => d.id)).toContain('draft-idb-1')
+    // Exercise dirty->clean pending-write marker hooks and downloadWebDraft over IDB.
+    const core = getLiveSessionCore()!
+    core.document('rename', () => ({ name: 'IDB Renamed' }))
+    await vi.waitFor(() => {
+      expect(fakeStore.markPending).toHaveBeenCalled()
+    })
+    await core.close('close')
+    expect(fakeStore.clearPending).toHaveBeenCalled()
+    await downloadWebDraft('draft-idb-1')
+    expect(fakeStore.read).toHaveBeenCalledWith('draft-idb-1')
+    // Missing/unreadable draft in downloadWebDraft and malformed bytes in listWebDraftsAsync.
+    fakeStore.read.mockResolvedValueOnce({ kind: 'absent' })
+    await expect(downloadWebDraft('draft-missing')).rejects.toThrow('Draft not found')
+    fakeStore.listDrafts.mockResolvedValueOnce([{ id: 'draft-corrupt', bytes: new TextEncoder().encode('{bad'), version: '1' }])
+    expect(await listWebDraftsAsync()).toEqual([{ id: 'draft-corrupt', name: 'Untitled', updatedAt: undefined }])
+
+    dispose()
+    expect(fakeStore.dispose).toHaveBeenCalledOnce()
+
+    // Also cover open() returning 'newer' and open() rejecting cleanly.
+    fakeStore.open.mockResolvedValueOnce({ kind: 'newer' })
+    const dispose2 = bootWebEdition()
+    await vi.waitFor(() => { expect(fakeStore.open).toHaveBeenCalledTimes(2) })
+    dispose2()
+    fakeStore.open.mockRejectedValueOnce(new Error('open boom'))
+    const dispose3 = bootWebEdition()
+    await vi.waitFor(() => { expect(fakeStore.open).toHaveBeenCalledTimes(3) })
+    dispose3()
+    vi.restoreAllMocks()
+  })
 })

@@ -2190,7 +2190,13 @@
     "downloadFailedMessage": "此草稿已不在此浏览器中，或无法读取。",
     "uncheckedReadOnly": "已以只读方式打开：Canopi 无法检查此浏览器的存储，因此此草稿可能不是最新的。请下载副本以保留它。",
     "keepDrafts": "保留我的草稿",
-    "keepDraftsMenu": "保留我的草稿…"
+    "keepDraftsMenu": "保留我的草稿…",
+    "storeBlockedTitle": "草稿正在等待其他标签页",
+    "storeBlockedMessage": "请关闭其他 Canopi 标签页以继续。",
+    "pendingWriteTitle": "最后一次更改可能缺失",
+    "pendingWriteMessage": "Canopi 在保存对“{{name}}”的最后一次更改前已关闭。请在继续前检查你的设计。",
+    "olderTabCopyTitle": "已从旧标签页复制",
+    "olderTabCopyMessage": "来自旧版 Canopi 标签页对“{{name}}”的更改已另存为单独的草稿。"
   },
   "webRelease": {
     "title": "新版本",

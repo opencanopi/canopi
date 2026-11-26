@@ -5,7 +5,8 @@
 import { effect, signal } from '@preact/signals'
 import { ingestionErrorFromFormatRefusal } from '../../app/contracts/canopi-design-errors'
 import { flattenDocumentForJson } from '../../app/contracts/document'
-import { editionPorts } from '../../platform/edition-ports'
+import { editionPorts, hasEditionPorts } from '../../platform/edition-ports'
+import { isIndexedDbAvailable } from '../../platform/design-home.browser'
 import { setDesignName } from '../../app/design-edit'
 import {
   closeDesign,
@@ -26,7 +27,7 @@ import { currentCanvasSession } from '../../canvas/session'
 import { browserAppDataStore, type BrowserDraftSummary } from '../../web/browser-app-data'
 import { browserDraftPersistence, type BrowserShellDesignIdentity } from '../../web/browser-draft-persistence'
 import { createBrowserNewerDrafts, type BrowserNewerDraftRecords } from '../../web/browser-newer-drafts'
-import { presentBrowserDraftOpenFailure } from '../../web/browser-notices'
+import { presentBrowserDraftOpenFailure, presentBrowserStorageUncheckedNotice } from '../../web/browser-notices'
 import { downloadBrowserTextFile, pickBrowserTextFile } from '../../web/browser-text-files'
 
 export const webLaunching = signal(false)
@@ -166,10 +167,17 @@ export async function downloadWebDraft(id: string): Promise<void> {
     downloadBrowserTextFile(canopiDownloadName(newerDrafts.name(id) || 'Untitled'), text, 'application/json')
     return
   }
-  const raw = newerDrafts.hides(id) ? null : browserAppDataStore.loadRawDraft(id)
-  if (!raw) throw new Error('Draft not found')
   const core = editionPorts().designCore
-  const decoded = await core.decode(new TextEncoder().encode(JSON.stringify(raw)))
+  let rawBytes: Uint8Array | null = null
+  if (isIndexedDbAvailable() && hasEditionPorts()) {
+    const read = await editionPorts().designHome.read(id)
+    if (read.kind === 'present') rawBytes = new Uint8Array(read.bytes)
+  } else {
+    const raw = newerDrafts.hides(id) ? null : browserAppDataStore.loadRawDraft(id)
+    if (raw) rawBytes = new TextEncoder().encode(JSON.stringify(raw))
+  }
+  if (!rawBytes) throw new Error('Draft not found')
+  const decoded = await core.decode(rawBytes)
   if ('err' in decoded) throw ingestionErrorFromFormatRefusal(decoded.err)
   const encoded = await core.encode(decoded.ok.design)
   if ('err' in encoded) throw ingestionErrorFromFormatRefusal(encoded.err)
@@ -197,6 +205,24 @@ export async function openWebDraft(id: string): Promise<boolean> {
   }
   const admitted = await newerDrafts.admit(id)
   if (!admitted) {
+    // 2.1-Q334 (canopi-2b6q): when IndexedDB could not be checked, open the old-key Draft read-only with Download a copy.
+    if (!newerDrafts.known()) {
+      const raw = browserAppDataStore.loadRawDraft(id)
+      if (!raw) {
+        presentBrowserDraftOpenFailure()
+        return false
+      }
+      const core = requireLiveSessionCore()
+      const bytes = new TextEncoder().encode(JSON.stringify(raw))
+      const name = typeof raw.name === 'string' && raw.name.trim().length > 0 ? raw.name : 'Untitled'
+      const res = await core.openFrom({ kind: 'bytes', name, bytes, readOnly: true })
+      if (res.status === 'refused') {
+        presentDesignOpenFailure(res.error ?? new Error(res.reason))
+        return false
+      }
+      presentBrowserStorageUncheckedNotice()
+      return res.status === 'opened' || res.status === 'already-open'
+    }
     presentBrowserDraftOpenFailure()
     return false
   }
@@ -212,6 +238,29 @@ export async function openWebDraft(id: string): Promise<boolean> {
 
 export function listWebDrafts(): readonly BrowserDraftSummary[] {
   return browserAppDataStore.listDrafts().filter((draft) => !newerDrafts.hides(draft.id))
+}
+
+function summaryNameFromDraftBytes(bytes: Uint8Array | null): string {
+  if (!bytes) return 'Untitled'
+  try {
+    const parsed = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes)) as { readonly name?: unknown }
+    return typeof parsed?.name === 'string' && parsed.name.trim().length > 0 ? parsed.name : 'Untitled'
+  } catch {
+    // Unreadable Draft bytes fall back to Untitled in the welcome list.
+    return 'Untitled'
+  }
+}
+
+export async function listWebDraftsAsync(): Promise<readonly BrowserDraftSummary[]> {
+  if (!isIndexedDbAvailable() || !hasEditionPorts()) return listWebDrafts()
+  const home = editionPorts().designHome
+  if (!('listDrafts' in home)) return listWebDrafts()
+  const records = await home.listDrafts()
+  return records.map((record) => ({
+    id: record.id,
+    name: summaryNameFromDraftBytes(record.bytes),
+    updatedAt: record.updatedAt,
+  }))
 }
 
 export async function deleteWebDraft(id: string): Promise<{ readonly ok: true } | { readonly ok: false; readonly error: unknown }> {

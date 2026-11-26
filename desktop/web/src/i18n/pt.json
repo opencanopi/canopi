@@ -2190,7 +2190,13 @@
     "downloadFailedMessage": "Este rascunho não está mais neste navegador ou não pôde ser lido.",
     "uncheckedReadOnly": "Aberto somente leitura: o Canopi não conseguiu verificar o armazenamento deste navegador, então este rascunho pode estar desatualizado. Baixe uma cópia para mantê-lo.",
     "keepDrafts": "Manter meus rascunhos",
-    "keepDraftsMenu": "Manter meus rascunhos…"
+    "keepDraftsMenu": "Manter meus rascunhos…",
+    "storeBlockedTitle": "Rascunhos aguardando outra aba",
+    "storeBlockedMessage": "Feche as outras abas do Canopi para continuar.",
+    "pendingWriteTitle": "A última alteração pode estar faltando",
+    "pendingWriteMessage": "O Canopi foi fechado antes de salvar a última alteração em “{{name}}”. Verifique seu projeto antes de continuar.",
+    "olderTabCopyTitle": "Copiado de uma aba mais antiga",
+    "olderTabCopyMessage": "As alterações em “{{name}}” feitas em uma aba mais antiga do Canopi foram salvas como um rascunho separado."
   },
   "webRelease": {
     "title": "Nova versão",

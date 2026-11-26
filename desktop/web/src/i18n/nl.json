@@ -2190,7 +2190,13 @@
     "downloadFailedMessage": "Dit concept staat niet meer in deze browser of kon niet worden gelezen.",
     "uncheckedReadOnly": "Alleen-lezen geopend: Canopi kon de opslag van deze browser niet controleren, dus dit concept is mogelijk verouderd. Download een kopie om het te bewaren.",
     "keepDrafts": "Mijn concepten bewaren",
-    "keepDraftsMenu": "Mijn concepten bewaren…"
+    "keepDraftsMenu": "Mijn concepten bewaren…",
+    "storeBlockedTitle": "Concepten wachten op een ander tabblad",
+    "storeBlockedMessage": "Sluit andere Canopi-tabbladen om door te gaan.",
+    "pendingWriteTitle": "Laatste wijziging ontbreekt mogelijk",
+    "pendingWriteMessage": "Canopi werd gesloten voordat de laatste wijziging aan “{{name}}” was opgeslagen. Controleer je ontwerp voordat je verdergaat.",
+    "olderTabCopyTitle": "Gekopieerd uit een ouder tabblad",
+    "olderTabCopyMessage": "Wijzigingen aan “{{name}}” uit een ouder Canopi-tabblad zijn opgeslagen als een apart concept."
   },
   "webRelease": {
     "title": "Nieuwe versie",
