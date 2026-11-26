@@ -10,7 +10,7 @@ import {
   type ViewSnapshotMap,
   type ViewSnapshotRequest,
 } from '../../maplibre/view-snapshot-map'
-import type { SavedView } from '../../generated/contracts'
+import type { SavedView } from '../../types/design'
 import { isDarkMapBackdrop, locale, mapLayers, mapTerrainStateOf, type MapLayersState } from '../settings/state'
 import { readSatelliteConfig } from '../settings/satellite-config'
 import { backgroundPresentationOf, mapLayersOfView } from '../map-layers/background-presentation'

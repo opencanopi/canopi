@@ -34,7 +34,7 @@ function desktopSiteDataSummary(): SiteDataSummary {
     count: items.length,
     // `shown` folds the own eye with the summary eye; while the library is loading an entry counts by its own eye.
     shown: items.filter((item) => item.shown && !isMissing(item)).length,
-    visible: currentDesign.value?.lidar?.visible ?? true,
+    visible: currentDesign.value?.site_data?.visible ?? true,
     command: {
       label: command?.label ?? t('canvas.layers.siteData'),
       shortcut: command?.shortcut,

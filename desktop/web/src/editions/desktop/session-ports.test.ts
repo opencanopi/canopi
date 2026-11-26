@@ -18,6 +18,7 @@ vi.mock('@tauri-apps/plugin-dialog', () => ({
 
 import { flattenDocumentForJson as encodeCanopiDesign } from '../../app/contracts/document'
 import { createJsonSessionCodec, createSessionCore, getLiveSessionCore, installLiveSessionCore } from '../../app/document-session/live-core'
+import { createTestDesignCore } from '../../__tests__/support/design-wire'
 import { makeTestDesign } from '../../__tests__/support/session-core-fixture'
 import type { DraftId } from '../../platform/design-home'
 import { bootDesktopEdition } from './boot'
@@ -81,7 +82,7 @@ describe('Desktop edition ports (M5, N1, N2)', () => {
       designHome: home,
       fileAccess: desktopFileAccessPort,
       lifecycle: { subscribe: () => () => {} },
-      codec: createJsonSessionCodec(),
+      codec: createJsonSessionCodec({ designCore: createTestDesignCore() }),
       settings: { readLastOpenHome: async () => null, writeLastOpenHome: async () => {} },
       newDesignFactory: () => makeTestDesign(),
       flushDelayMs: 60_000,
@@ -207,7 +208,7 @@ describe('Desktop edition ports (M5, N1, N2)', () => {
       designHome: createDesktopSessionHomeStore(),
       fileAccess: desktopFileAccessPort,
       lifecycle: lifecycleB,
-      codec: createJsonSessionCodec(),
+      codec: createJsonSessionCodec({ designCore: createTestDesignCore() }),
       settings: { readLastOpenHome: async () => null, writeLastOpenHome: async () => {} },
       newDesignFactory: () => makeTestDesign(),
       flushDelayMs: 60_000,

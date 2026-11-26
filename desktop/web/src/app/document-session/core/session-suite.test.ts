@@ -24,7 +24,7 @@ function makeDesign(name = 'Orchard', overrides: Partial<CanopiFile> = {}): Cano
   return makeTestDesign({
     version: 10,
     name,
-    lidar: null,
+    site_data: null,
     extra: { plant_display: { labels: 'names', symbol_scale: 1 } },
     ...overrides,
   })
@@ -48,9 +48,9 @@ function makeFakeScenePort(initialPlants: CanopiFile['plants'] = []) {
     setPlants: (next: CanopiFile['plants']) => { plants = [...next] },
     addPlant: (id: string) => {
       plants = [...plants, {
-        id, canonical_name: 'Malus domestica', common_name: null, color: null,
-        position: { lon: 2.35, lat: 48.85 }, rotation: null, scale: null, notes: null, planted_date: null, quantity: null,
-      } as CanopiFile['plants'][number]]
+        id, locked: false, canonical_name: 'Malus domestica', common_name: null, color: null,
+        position: { lon: 2.35, lat: 48.85 }, rotation: null, canopy_spread_m: null, notes: null, planted_date: null, quantity: null,
+      }]
     },
   }
 }
@@ -539,8 +539,8 @@ describe('T7 per-family Document Undo (views, stories, budget, timeline, consort
     },
     {
       family: 'lidar',
-      patch: { lidar: { source: 'ign', visible: true } as unknown as NonNullable<CanopiFile['lidar']> },
-      read: (f) => f.lidar != null,
+      patch: { site_data: { visible: true, entries: [] } },
+      read: (f) => f.site_data != null,
       initial: false,
       updated: true,
     },

@@ -100,8 +100,9 @@
       "tolerance": 0.05
     },
     "desktop chunk: SurfaceHeader": {
-      "ceiling": 6390,
-      "tolerance": 0.05
+      "ceiling": 46621,
+      "tolerance": 0.05,
+      "bead": "canopi-f47t.52.205"
     },
     "desktop chunk: SurfaceSearch": {
       "ceiling": 822,
@@ -166,7 +167,7 @@
       "tolerance": 0.05
     },
     "desktop chunk: domain-adapters": {
-      "ceiling": 707,
+      "ceiling": 1171,
       "tolerance": 0.05,
       "bead": "canopi-f47t.52.205"
     },
@@ -305,8 +306,9 @@
       "tolerance": 0.05
     },
     "desktop chunk: scene": {
-      "ceiling": 9344,
-      "tolerance": 0.05
+      "ceiling": 12396,
+      "tolerance": 0.05,
+      "bead": "canopi-f47t.52.205"
     },
     "desktop chunk: selection": {
       "ceiling": 537,
@@ -326,10 +328,6 @@
     },
     "desktop chunk: state": {
       "ceiling": 3141,
-      "tolerance": 0.05
-    },
-    "desktop chunk: store": {
-      "ceiling": 41157,
       "tolerance": 0.05
     },
     "desktop chunk: target": {

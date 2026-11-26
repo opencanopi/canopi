@@ -17,16 +17,19 @@ import {
 
 describe('Canopi Design decoder', () => {
   it.each([
-    { version: 1, displayed: 1 },
-    { version: 6, displayed: 6 },
-    { version: 7, displayed: 7 },
-    { version: 8, displayed: 8 },
-    { version: 11, displayed: 11 },
-  ])('refuses any version outside v9..v10: $displayed', ({ version }) => {
+    { version: undefined, displayed: 'missing', expectedKind: 'invalid_version' as const },
+    { version: 0, displayed: 0, expectedKind: 'unsupported_version' as const },
+    { version: 1, displayed: 1, expectedKind: 'unsupported_version' as const },
+    { version: 6, displayed: 6, expectedKind: 'unsupported_version' as const },
+    { version: 7, displayed: 7, expectedKind: 'unsupported_version' as const },
+    { version: 8, displayed: 8, expectedKind: 'unsupported_version' as const },
+    { version: 11, displayed: 11, expectedKind: 'unsupported_version' as const },
+  ])('refuses any version outside v9..v10: $displayed', ({ version, expectedKind }) => {
     const input = currentDesign()
-    input.version = version
+    if (version === undefined) delete input.version
+    else input.version = version
 
-    expectKind(() => decodeCanopiDesign(input), 'unsupported_version')
+    expectKind(() => decodeCanopiDesign(input), expectedKind)
   })
 
   it.each([
@@ -126,10 +129,12 @@ describe('Canopi Design decoder', () => {
     expect(isSavedByNewerCanopi({ version: 10 })).toBe(false)
     expect(isSavedByNewerCanopi({ version: 9 })).toBe(false)
     expect(isSavedByNewerCanopi({ version: 11.5 })).toBe(false)
+    expect(isSavedByNewerCanopi({ version: Number.NaN })).toBe(false)
     expect(isSavedByNewerCanopi(null)).toBe(false)
   })
 
   it('canopi-f47t.52.270: text that is no JSON is a damaged Design before any version is read', () => {
+    expect(() => parseCanopiText('{not json')).toThrow('invalid JSON')
     expectKind(() => parseCanopiText('{not json'), 'invalid_document')
   })
 

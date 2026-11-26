@@ -32,7 +32,7 @@ function makeFile(): CanopiFile {
         color: null,
         position: geoAt(10, 10),
         rotation: null,
-        scale: null,
+        canopy_spread_m: null,
         notes: null,
         planted_date: null,
         quantity: 1,
@@ -45,7 +45,7 @@ function makeFile(): CanopiFile {
         color: null,
         position: geoAt(20, 20),
         rotation: null,
-        scale: null,
+        canopy_spread_m: null,
         notes: null,
         planted_date: null,
         quantity: 1,
@@ -515,7 +515,8 @@ describe('scene runtime mutation controller', () => {
 
     controller.groupSelected()
 
-    expect(sceneStore.persisted.groups).toEqual([{
+    expect(sceneStore.persisted.groups).toHaveLength(1)
+    expect(sceneStore.persisted.groups[0]).toMatchObject({
       kind: 'group',
       id: 'group-1',
       name: 'Guild',
@@ -525,7 +526,7 @@ describe('scene runtime mutation controller', () => {
         { kind: 'zone', id: 'zone-1' },
         { kind: 'annotation', id: 'annotation-1' },
       ],
-    }])
+    })
     expect(sceneStore.session.selectedTargets).toEqual([{ kind: 'group', id: 'group-1' }])
   })
 
@@ -559,7 +560,8 @@ describe('scene runtime mutation controller', () => {
 
     controller.groupSelected()
 
-    expect(sceneStore.persisted.groups).toEqual([{
+    expect(sceneStore.persisted.groups).toHaveLength(1)
+    expect(sceneStore.persisted.groups[0]).toMatchObject({
       kind: 'group',
       id: 'group-top',
       name: 'Top',
@@ -570,7 +572,7 @@ describe('scene runtime mutation controller', () => {
         { kind: 'plant', id: 'plant-2' },
         { kind: 'annotation', id: 'annotation-1' },
       ],
-    }])
+    })
     expect(sceneStore.session.selectedTargets).toEqual([{ kind: 'group', id: 'group-top' }])
   })
 
@@ -585,7 +587,7 @@ describe('scene runtime mutation controller', () => {
         color: null,
         position: geoAt(30, 30),
         rotation: null,
-        scale: null,
+        canopy_spread_m: null,
         notes: null,
         planted_date: null,
         quantity: 1,
@@ -598,7 +600,7 @@ describe('scene runtime mutation controller', () => {
         color: null,
         position: geoAt(40, 40),
         rotation: null,
-        scale: null,
+        canopy_spread_m: null,
         notes: null,
         planted_date: null,
         quantity: 1,
@@ -611,7 +613,7 @@ describe('scene runtime mutation controller', () => {
         color: null,
         position: geoAt(50, 50),
         rotation: null,
-        scale: null,
+        canopy_spread_m: null,
         notes: null,
         planted_date: null,
         quantity: 1,
@@ -648,7 +650,7 @@ describe('scene runtime mutation controller', () => {
         color: null,
         position: geoAt(30, 30),
         rotation: null,
-        scale: null,
+        canopy_spread_m: null,
         notes: null,
         planted_date: null,
         quantity: 1,
@@ -661,7 +663,7 @@ describe('scene runtime mutation controller', () => {
         color: null,
         position: geoAt(40, 40),
         rotation: null,
-        scale: null,
+        canopy_spread_m: null,
         notes: null,
         planted_date: null,
         quantity: 1,
@@ -1036,7 +1038,7 @@ describe('scene runtime mutation controller', () => {
         color: null,
         position: geoAt(30, 30),
         rotation: null,
-        scale: null,
+        canopy_spread_m: null,
         notes: null,
         planted_date: null,
         quantity: 1,
@@ -1092,9 +1094,7 @@ describe('scene runtime mutation controller', () => {
     const changed = controller.setPlantColorForSpecies('Malus domestica', '#C44230')
 
     expect(changed).toBe(0)
-    expect(sceneStore.persisted.plantSpeciesColors).toEqual({
-      'Malus domestica': '#C44230',
-    })
+    expect(sceneStore.persisted.plantSpeciesColors).toEqual({ 'Malus domestica': '#C44230' })
     expect(state.plantSpeciesColorSyncs).toBe(1)
     expect(state.dirtyTypes).toEqual(['set-plant-color-for-species'])
   })

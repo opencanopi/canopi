@@ -179,7 +179,7 @@ pub(crate) fn render_known_canopi_keys() -> Result<String, Box<dyn std::error::E
 }
 
 pub(crate) fn render_canopi_design_format() -> Result<String, Box<dyn std::error::Error>> {
-    let schema = canopi_types::design::canopi_file_json_schema();
+    let schema = canopi_types::design::v10::canopi_file_v10_json_schema();
     validate_canopi_design_schema(&schema)?;
     let schema_json = serde_json::to_string_pretty(&schema)?;
     let mut file =
@@ -369,7 +369,7 @@ mod tests {
 
     #[test]
     fn generated_canopi_schema_matches_the_file_authority() {
-        let schema = canopi_types::design::canopi_file_json_schema();
+        let schema = canopi_types::design::v10::canopi_file_v10_json_schema();
         validate_canopi_design_schema(&schema).expect("Canopi schema should be consumable by Web");
     }
 
@@ -378,7 +378,7 @@ mod tests {
     /// emitted order must be sorted (serde_json without `preserve_order`, canopi-cyqd).
     #[test]
     fn generated_canopi_schema_emits_properties_in_sorted_key_order() {
-        let schema = canopi_types::design::canopi_file_json_schema();
+        let schema = canopi_types::design::v10::canopi_file_v10_json_schema();
         let emitted = serde_json::to_string_pretty(&schema).expect("schema serializes");
         let mut keys = schema["properties"]
             .as_object()
@@ -403,7 +403,7 @@ mod tests {
 
     #[test]
     fn generated_canopi_schema_rejects_decoder_keywords_before_emitting() {
-        let mut schema = canopi_types::design::canopi_file_json_schema();
+        let mut schema = canopi_types::design::v10::canopi_file_v10_json_schema();
         schema
             .as_object_mut()
             .expect("root schema object")
@@ -416,7 +416,7 @@ mod tests {
 
     #[test]
     fn generated_canopi_schema_rejects_unsupported_numeric_formats() {
-        let mut schema = canopi_types::design::canopi_file_json_schema();
+        let mut schema = canopi_types::design::v10::canopi_file_v10_json_schema();
         schema["properties"]["version"]["format"] = serde_json::json!("uint64");
 
         let error = validate_canopi_design_schema(&schema)

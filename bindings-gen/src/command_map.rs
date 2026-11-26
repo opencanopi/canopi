@@ -15,7 +15,7 @@ import type {
   AnalysisRequest,
   AppFolder,
   AppFolderLocations,
-  CanopiFile,
+  CanopiFileV10,
   CommonNameEntry,
   DesignDraftSummary,
   DesignNotebookSection,

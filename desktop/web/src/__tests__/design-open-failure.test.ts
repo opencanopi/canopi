@@ -22,6 +22,7 @@ import { createDesignCore } from '../platform/design-core'
 import { installEditionPorts } from '../platform/edition-ports'
 import { createTestEditionPorts } from './support/test-edition-ports'
 import { createInMemoryDesignHomeStore, createTestSessionCore } from './support/session-core-fixture'
+import { createTestDesignCore } from './support/design-wire'
 
 const olderVersion = { kind: 'older_version', message: 'unsupported Canopi Design version 6; this build opens versions 7 to 9' }
 
@@ -118,6 +119,7 @@ function webOpen(text = V10_TEXT, { installed = true } = {}) {
     },
     lifecycle: { subscribe: () => () => {}, destroyWindow: async () => {} },
     codec: createJsonSessionCodec({
+      designCore: createTestDesignCore(),
       decode: async (bytes) => {
         lastDecodeError = null
         if (!activeFormatCore) {
@@ -133,7 +135,6 @@ function webOpen(text = V10_TEXT, { installed = true } = {}) {
           return {
             file: result.ok.design as never,
             readOnly: false,
-            savedByVersion: null,
           }
         } catch (error) {
           lastDecodeError = error
@@ -247,8 +248,8 @@ describe('a newer Design the Web format core cannot read is told to the user', (
     const queued = h.core!.decode(bytes)
     const [trapped, behind] = h.workers[0]!.calls
     h.workers[0]!.answer({ id: trapped!.id, ok: false, error: 'trapped', detail: 'trapped' })
-    await expect(first).rejects.toMatchObject({ code: { kind: 'format_core_trapped' } })
-    await expect(queued).rejects.toMatchObject({ code: { kind: 'format_core_trapped' } })
+    await expect(first).rejects.toMatchObject({ code: { kind: 'format_core_trapped' }, user_may_retry: true })
+    await expect(queued).rejects.toMatchObject({ code: { kind: 'format_core_trapped' }, user_may_retry: true })
     expect(h.workers[0]!.terminated).toBe(true)
 
     // A late answer from the dead worker settles nothing twice; the next read runs on a new one.

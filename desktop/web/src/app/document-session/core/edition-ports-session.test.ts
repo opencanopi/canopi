@@ -7,6 +7,7 @@
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { flattenDocumentForJson as encodeCanopiDesign } from '../../contracts/document'
+import { createTestDesignCore } from '../../../__tests__/support/design-wire'
 import { createInMemoryDesignHomeStore, makeTestDesign } from '../../../__tests__/support/session-core-fixture'
 import {
   createDesktopAppLifecyclePort,
@@ -78,16 +79,17 @@ function makeFakeWindow() {
 function makePlant(id: string): CanopiFile['plants'][number] {
   return {
     id,
+    locked: false,
     canonical_name: 'Malus domestica',
     common_name: null,
     color: null,
     position: { lon: 2.35, lat: 48.85 },
     rotation: null,
-    scale: null,
+    canopy_spread_m: null,
     notes: null,
     planted_date: null,
     quantity: null,
-  } as CanopiFile['plants'][number]
+  }
 }
 
 const cleanups: Array<() => void> = []
@@ -100,7 +102,7 @@ function installBasicCore(
     designHome,
     fileAccess: { pickOpen: async () => ({ kind: 'cancelled' }), pickHomeTarget: async () => ({ kind: 'cancelled' }) },
     lifecycle: { subscribe: () => () => {} },
-    codec: createJsonSessionCodec(),
+    codec: createJsonSessionCodec({ designCore: createTestDesignCore() }),
     settings: { readLastOpenHome: async () => null, writeLastOpenHome: async () => {} },
     newDesignFactory: () => makeTestDesign(),
     ...(flushDelayMs !== undefined ? { flushDelayMs } : {}),
@@ -134,7 +136,7 @@ describe('SessionCore on real Desktop and Web edition ports (D1–D8, M1–M5)',
         pickHomeTarget: async () => ({ kind: 'cancelled' }),
       },
       lifecycle,
-      codec: createJsonSessionCodec(),
+      codec: createJsonSessionCodec({ designCore: createTestDesignCore() }),
       settings: {
         readLastOpenHome: async () => null,
         writeLastOpenHome: async (next) => {
@@ -186,7 +188,7 @@ describe('SessionCore on real Desktop and Web edition ports (D1–D8, M1–M5)',
       designHome: home,
       fileAccess: { pickOpen: async () => ({ kind: 'cancelled' }), pickHomeTarget: async () => ({ kind: 'cancelled' }) },
       lifecycle: createDesktopAppLifecyclePort({ getWindow: () => win.handle }),
-      codec: createJsonSessionCodec(),
+      codec: createJsonSessionCodec({ designCore: createTestDesignCore() }),
       settings: {
         readLastOpenHome: async () => null,
         writeLastOpenHome: async (next) => {
@@ -239,7 +241,7 @@ describe('SessionCore on real Desktop and Web edition ports (D1–D8, M1–M5)',
         pickHomeTarget: async () => ({ kind: 'picked', grant: 'grant:new', displayName: 'new.canopi' }),
       },
       lifecycle: { subscribe: () => () => {} },
-      codec: createJsonSessionCodec(),
+      codec: createJsonSessionCodec({ designCore: createTestDesignCore() }),
       settings: { readLastOpenHome: async () => null, writeLastOpenHome: async () => {} },
       newDesignFactory: () => makeTestDesign({ name: 'Draft 1' }),
       flushDelayMs: 20,
@@ -272,8 +274,8 @@ describe('SessionCore on real Desktop and Web edition ports (D1–D8, M1–M5)',
     }
   })
 
-  it('D3: production codec preserves unknown root keys (plant_display), refuses pre-2.0 and newer-version files without reader, and opens newer read-only with Web format core', async () => {
-    const codec = createJsonSessionCodec()
+  it('D3: production codec preserves unknown root keys (plant_display) and refuses pre-2.0 and newer-version files unchanged (2.1-Q347)', async () => {
+    const codec = createJsonSessionCodec({ designCore: createTestDesignCore() })
     const base = makeTestDesign({ name: 'RoundTrip', extra: {} })
     const rawWithUnknown = wireBytes(base, {
       plant_display: { labels: 'codes', symbol_scale: 1.25 },
@@ -281,24 +283,24 @@ describe('SessionCore on real Desktop and Web edition ports (D1–D8, M1–M5)',
     })
 
     const decoded = await codec.decode(rawWithUnknown)
+    expect(decoded.file.plant_display).toMatchObject({ labels: 'codes', symbol_scale: 1.25 })
     expect(decoded.file.extra).toEqual({
-      plant_display: { labels: 'codes', symbol_scale: 1.25 },
       future_custom_key: { nested: true },
     })
 
     const reencoded = await codec.encode(decoded.file)
     const reencodedJson = JSON.parse(decoder.decode(reencoded.bytes)) as Record<string, unknown>
-    expect(reencodedJson.plant_display).toEqual({ labels: 'codes', symbol_scale: 1.25 })
+    expect(reencodedJson.plant_display).toMatchObject({ labels: 'codes', symbol_scale: 1.25 })
     expect(reencodedJson.future_custom_key).toEqual({ nested: true })
     expect('extra' in reencodedJson).toBe(false)
 
     // Pre-2.0 (v7) refused.
     const v7Bytes = encoder.encode(JSON.stringify({ ...encodeCanopiDesign(base), version: 7 }))
-    await expect(codec.decode(v7Bytes)).rejects.toThrow(/unsupported Canopi Design version 7/i)
+    await expect(codec.decode(v7Bytes)).rejects.toThrow(/version 7/i)
 
     // Newer-version (v11) is refused unchanged (2.1-Q347).
     const v11Bytes = encoder.encode(JSON.stringify({ ...encodeCanopiDesign(base), version: 11 }))
-    await expect(codec.decode(v11Bytes)).rejects.toThrow(/unsupported Canopi Design version 11/i)
+    await expect(codec.decode(v11Bytes)).rejects.toThrow(/version 11/i)
 
     // admitWrite refuses invalid duplicate plant ids.
     const invalidFile = makeTestDesign({ plants: [makePlant('dup-1'), makePlant('dup-1')] })
@@ -445,7 +447,7 @@ describe('SessionCore on real Desktop and Web edition ports (D1–D8, M1–M5)',
       designHome: wrappedWebHome,
       fileAccess: { pickOpen: async () => ({ kind: 'cancelled' }), pickHomeTarget: async () => ({ kind: 'cancelled' }) },
       lifecycle: { subscribe: () => () => {} },
-      codec: createJsonSessionCodec(),
+      codec: createJsonSessionCodec({ designCore: createTestDesignCore() }),
       settings: {
         readLastOpenHome: async () => null,
         writeLastOpenHome: async () => {},

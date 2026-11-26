@@ -59,7 +59,7 @@ export function DataLibraryView({ focusId }: { readonly focusId: string | null }
   const snapshot = lidarLibrary.value
   const [sort, setSort] = useState<LibrarySort>('name')
   const items = useMemo(() => libraryItems(snapshot, sort), [snapshot, sort, locale.value])
-  const references = currentDesign.value?.lidar?.entries ?? []
+  const references = currentDesign.value?.site_data?.entries ?? []
   const readOnly = storeStatus('library_catalogue').kind === 'newer_read_only'
   const [requestedId, setRequestedId] = useState<string | null>(focusId)
   const [pane, setPane] = useState<Pane>(focusId ? 'details' : 'list')

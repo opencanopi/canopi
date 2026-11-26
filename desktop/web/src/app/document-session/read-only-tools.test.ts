@@ -94,8 +94,7 @@ beforeEach(() => {
   singleKeyShortcuts.value = true
   installSession(SHOWN, null, 'Orchard 2.1', {
     kind: 'read-only',
-    origin: 'newer-version',
-    savedByVersion: 10,
+    origin: 'storage-unchecked',
   })
 })
 
@@ -275,12 +274,18 @@ describe('R1 canopi-f47t.52.270: a read-only Design offers Close only', () => {
     expect(isCatalogCommandDisabled('file.saveAs')).toBe(false)
   })
 
-  it('Web: the catalog turns off Rename, Download a copy, Revert, the imports and the exports, and keeps Close', () => {
+  it('Web: the catalog turns off Rename, Revert, imports, exports and saved-view edits, and keeps Close and Download a copy for storage-unchecked', () => {
     const enabled = webEnabled()
-    for (const id of ['file.rename', 'file.downloadCanopi', 'file.revert', 'file.importGeoJson', 'file.exportGeoJson', 'file.exportBudgetCsv', 'file.exportCanvasPdf', 'view.saveCurrentView']) {
+    expect(enabled).toContain('file.close')
+    expect(enabled).toContain('file.downloadCanopi')
+    for (const id of [
+      'file.rename', 'file.revert', 'file.importGeoJson', 'file.exportGeoJson', 'file.exportBudgetCsv',
+      'file.exportCanvasPdf', 'view.saveCurrentView', 'view.manageViews',
+    ]) {
       expect(enabled, id).not.toContain(id)
     }
-    expect(enabled).toContain('file.close')
+    installSession(SHOWN, null, SHOWN.name, EDITING_DESIGN_SESSION)
+    expect(webEnabled()).toEqual(expect.arrayContaining(['file.rename', 'file.downloadCanopi', 'file.revert']))
   })
 
   it('R3 canopi-f47t.52.272: a Web Draft opened while 2.1\'s Drafts could not be listed keeps Download a copy, and nothing else (2.1-Q334)', () => {

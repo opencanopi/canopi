@@ -84,7 +84,7 @@ function matches(item: LidarPresentationItem, query: string): boolean {
  */
 export function SiteDataList({ view }: { readonly view: SiteDataView }) {
   const items = readCurrentLidarPresentation()
-  const sectionShown = currentDesign.value?.lidar?.visible ?? true
+  const sectionShown = currentDesign.value?.site_data?.visible ?? true
   const identity = designSessionStore.sessionIdentity.value
   const pending = pendingAttachments.value.filter((entry) => entry.identity === identity)
   const failure = attachmentFailure.value

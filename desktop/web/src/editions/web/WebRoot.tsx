@@ -14,7 +14,7 @@ import { createBrowserProblemReportWriter } from "./problem-report";
 import { currentWebDesignText, reloadWebForRelease } from "./web-session";
 
 interface ReportSession {
-  currentDesignText(): string | null;
+  currentDesignText(): string | null | Promise<string | null>;
 }
 interface RootSession {
   reloadForRelease(): Promise<unknown>;

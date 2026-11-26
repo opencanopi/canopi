@@ -3,7 +3,8 @@
  * (ADR 0024, contracts §4).
  */
 import { effect, signal } from '@preact/signals'
-import { sessionCanopiFileToV10 } from '../../app/contracts/document'
+import { ingestionErrorFromFormatRefusal } from '../../app/contracts/canopi-design-errors'
+import { flattenDocumentForJson } from '../../app/contracts/document'
 import { editionPorts } from '../../platform/edition-ports'
 import { setDesignName } from '../../app/design-edit'
 import {
@@ -67,12 +68,13 @@ export function readWebDesignIdentity(): BrowserShellDesignIdentity | null {
   }
 }
 
-export function currentWebDesignText(): string | null {
+export async function currentWebDesignText(): Promise<string | null> {
   const core = getLiveSessionCore()
   const open = core?.currentDesign.peek()
-  if (!core || !open || (open.readOnly && open.savedByVersion !== null)) return null
+  if (!core || !open) return null
   const snap = core.snapshot()
-  return snap ? JSON.stringify(sessionCanopiFileToV10(snap), null, 2) : null
+  if (!snap) return null
+  return encodeWebCanopiText(snap)
 }
 
 export async function newWebDesign(): Promise<void> {
@@ -141,13 +143,20 @@ function canopiDownloadName(raw: string): string {
   return `${out}.canopi`
 }
 
-async function encodeWebCanopiText(file: Parameters<typeof sessionCanopiFileToV10>[0]): Promise<string> {
-  const v10 = sessionCanopiFileToV10(file)
-  if (typeof Worker !== 'undefined') {
-    const encoded = await editionPorts().designCore.encode(v10)
-    if ('ok' in encoded) return new TextDecoder('utf-8', { fatal: true }).decode(encoded.ok)
+async function encodeWebCanopiText(file: Parameters<typeof flattenDocumentForJson>[0]): Promise<string> {
+  const core = editionPorts().designCore
+  let v10: Record<string, unknown>
+  if (file.version === 9) {
+    const rawV9 = new TextEncoder().encode(JSON.stringify(flattenDocumentForJson(file)))
+    const decoded = await core.decode(rawV9)
+    if ('err' in decoded) throw ingestionErrorFromFormatRefusal(decoded.err)
+    v10 = decoded.ok.design
+  } else {
+    v10 = flattenDocumentForJson(file)
   }
-  return JSON.stringify(v10, null, 2)
+  const encoded = await core.encode(v10)
+  if ('err' in encoded) throw ingestionErrorFromFormatRefusal(encoded.err)
+  return new TextDecoder('utf-8', { fatal: true }).decode(encoded.ok)
 }
 
 export async function downloadWebCanopi(): Promise<void> {

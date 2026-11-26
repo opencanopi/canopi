@@ -39,7 +39,6 @@ const DESIGN_FORMAT_TS: &str = "desktop/web/src/generated/canopi-design-format.t
 const SETTINGS_TS: &str = "desktop/web/src/generated/settings.ts";
 const STORE_CHAIN_TS: &str = "desktop/web/src/generated/store-chain.ts";
 const NEW_DESIGN_DEFAULTS_TS: &str = "desktop/web/src/generated/new-design-defaults.ts";
-const NEW_DESIGN_DEFAULTS_RUST: &str = "desktop/src/design/new_design_defaults.rs";
 const PLANT_FILTER_TS: &str = "desktop/web/src/generated/plant-filter-fields.ts";
 const PLANT_FILTER_RUST: &str = "desktop/src/db/plant_filter_fields.rs";
 const REDACTION_TS: &str = "desktop/web/src/generated/redaction.ts";
@@ -200,10 +199,10 @@ fn emit_new_design_defaults(source_root: &Path) -> Result<Vec<EmittedArtifact>, 
     let rendered = new_design_defaults::render_new_design_defaults(
         &source_root.join("canopi-types/canopi-new-design-defaults.json"),
     )?;
-    Ok(vec![
-        EmittedArtifact::text(NEW_DESIGN_DEFAULTS_TS, rendered.typescript),
-        EmittedArtifact::rust(NEW_DESIGN_DEFAULTS_RUST, &rendered.rust, source_root)?,
-    ])
+    Ok(vec![EmittedArtifact::text(
+        NEW_DESIGN_DEFAULTS_TS,
+        rendered.typescript,
+    )])
 }
 
 fn emit_plant_filter(source_root: &Path) -> Result<Vec<EmittedArtifact>, Box<dyn Error>> {

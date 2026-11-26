@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { decodeCanopiDesign, encodeCanopiDesign } from './support/design-wire'
+import { createTestDesignCore, decodeCanopiDesign, encodeCanopiDesign } from './support/design-wire'
 import { DEFAULT_BUDGET_CURRENCY } from '../app/contracts/document'
 import {
   designSaveStatus,
@@ -46,6 +46,8 @@ import {
   setDesignName,
 } from '../editions/web/web-session'
 import { editDesignSessionForTest } from './support/design-session-edit'
+import { installEditionPorts } from '../platform/edition-ports'
+import { createTestEditionPorts } from './support/test-edition-ports'
 import { makeTestDesign } from './support/session-core-fixture'
 
 const CONTINUOUS_SAVE_DELAY_MS = 1500
@@ -112,7 +114,7 @@ function plantAt(position: { lon: number; lat: number }): CanopiFile['plants'][n
     color: null,
     position,
     rotation: null,
-    scale: null,
+    canopy_spread_m: null,
     notes: null,
     planted_date: null,
     quantity: 1,
@@ -164,7 +166,7 @@ function setupSession(options: {
     designHome,
     fileAccess: browserFileAccessPort,
     lifecycle,
-    codec: createJsonSessionCodec(),
+    codec: createJsonSessionCodec({ designCore: createTestDesignCore() }),
     settings: {
       readLastOpenHome: async () => null,
       writeLastOpenHome: async () => {},
@@ -179,6 +181,7 @@ function setupSession(options: {
 }
 
 beforeEach(() => {
+  disposers.push(installEditionPorts(createTestEditionPorts()))
   localStorage.clear()
   sessionStorage.clear()
   newDesignDefaults.value = { satellite: false, symbolScale: 1, labels: 'names' }
@@ -473,9 +476,9 @@ describe('Web Edition SessionCore + createBrowserSessionHomeStore lifecycle', ()
 
     expect(appDataStore.loadDraft(draftId)?.plants).toEqual([expect.objectContaining(addedPlant)])
 
-    // Detaching snapshots scene fields so currentWebDesignText still includes them.
+    // Detaching snapshots scene fields so currentWebDesignText still includes them (encoded via DesignCore).
     core.detachScene()
-    expect(currentWebDesignText()).toContain('Malus domestica')
+    expect(await currentWebDesignText()).toContain('Malus domestica')
 
     // Re-attaching a scene whose load throws during replacement keeps the current Design intact.
     const failingScene = makeScenePort()
@@ -500,7 +503,7 @@ describe('Web Draft download parity (2.1-Q193, canopi-eon8.15)', () => {
       designHome: createBrowserSessionHomeStore(browserAppDataStore, () => NOW),
       fileAccess: browserFileAccessPort,
       lifecycle: createFakeLifecycle(),
-      codec: createJsonSessionCodec(),
+      codec: createJsonSessionCodec({ designCore: createTestDesignCore() }),
       settings: { readLastOpenHome: async () => null, writeLastOpenHome: async () => {} },
       newDesignFactory: () => makeNewCanopiFile('Untitled'),
     })

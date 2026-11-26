@@ -1,6 +1,6 @@
 import { groupPlantsBySpecies } from '../../canvas/plant-grouping'
 import { getConsortiumCanonicalName } from '../../target'
-import type { Consortium, PlacedPlant } from '../../generated/contracts'
+import type { Consortium, PlacedPlant } from '../../types/design'
 import type { PlantSymbolId } from '../../canvas/runtime/scene'
 import { isEnglishFallbackName, type SpeciesKeyEntry } from '../../canvas/runtime/species-key'
 import { CONSORTIUM_STRATA, SUCCESSION_PHASE_COUNT } from '../../planning/time-model'

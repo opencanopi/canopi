@@ -10,7 +10,9 @@ import {
 import { CURRENT_CANOPI_FILE_VERSION } from '../../generated/canopi-design-format'
 import type { CanopiFileV10, FormatDecodeAnswer } from '../../generated/contracts'
 import type { DesignCore } from '../../platform/design-core'
-import { EMPTY_SHA256, type DesignHomeStore, type HomeVersion } from '../../platform/design-home'
+import { EMPTY_SHA256, type DesignHomeStore, type DraftId, type HomeVersion } from '../../platform/design-home'
+import { createBrowserSessionHomeStore } from '../../editions/web/session-ports'
+import { createBrowserAppDataStore, DRAFTS_STORAGE_KEY } from '../../web/browser-app-data'
 import type { CanopiFile } from '../../types/design'
 import { saveAsCurrentDesign, saveCurrentDesign } from './actions'
 import {
@@ -123,7 +125,7 @@ describe('createJsonSessionCodec with DesignCore', () => {
 
     const decoded = await codec.decode(new TextEncoder().encode('{}'))
     expect(decoded.file.name).toBe('Meadow')
-    expect(decoded.file.plants[0]?.scale).toBe(3.5)
+    expect(decoded.file.plants[0]?.canopy_spread_m).toBe(3.5)
     expect(decoded.file.extra).toEqual({ custom_flag: true })
   })
 
@@ -164,7 +166,7 @@ describe('createJsonSessionCodec with DesignCore', () => {
     const opened = await codec.decode(new Uint8Array(v9Bytes))
     expect(opened.file.version).toBe(10)
     expect(opened.file.budget?.length).toBeGreaterThan(0)
-    expect(opened.file.lidar?.entries.length).toBeGreaterThan(0)
+    expect(opened.file.site_data?.entries.length).toBeGreaterThan(0)
     expect(codec.admitWrite?.(opened.file)).toBeNull()
 
     const saved = await codec.encode(opened.file)
@@ -178,7 +180,7 @@ describe('createJsonSessionCodec with DesignCore', () => {
     expect(reopened.file.name).toBe(opened.file.name)
     expect(reopened.file.plants).toHaveLength(opened.file.plants.length)
     expect(reopened.file.budget).toEqual(opened.file.budget)
-    expect(reopened.file.lidar).toEqual(opened.file.lidar)
+    expect(reopened.file.site_data).toEqual(opened.file.site_data)
   })
 
   it('canopi-f47t.52.49 (B2): admitWrite refuses out-of-range plant scale/rotation, annotation font_size, layer/Site-data opacity, Site-data name/range, and WGS84 coords before save', async () => {
@@ -189,8 +191,8 @@ describe('createJsonSessionCodec with DesignCore', () => {
     expect(codec.admitWrite?.(base)).toBeNull()
     expect(codec.admitWrite?.({
       ...base,
-      plants: [{ ...base.plants[0]!, scale: 0 }],
-    })).toContain('$.plants[0].scale')
+      plants: [{ ...base.plants[0]!, canopy_spread_m: 0 }],
+    })).toContain('$.plants[0].canopy_spread_m')
     expect(codec.admitWrite?.({
       ...base,
       plants: [{ ...base.plants[0]!, rotation: Number.NaN }],
@@ -213,23 +215,23 @@ describe('createJsonSessionCodec with DesignCore', () => {
     })).toContain('$.layers[0].opacity')
     expect(codec.admitWrite?.({
       ...base,
-      lidar: {
-        ...base.lidar!,
-        entries: [{ ...base.lidar!.entries[0]!, opacity: -0.1 }],
+      site_data: {
+        ...base.site_data!,
+        entries: [{ ...base.site_data!.entries[0]!, opacity: -0.1 }],
       },
     })).toContain('$.site_data.entries[0].opacity')
     expect(codec.admitWrite?.({
       ...base,
-      lidar: {
-        ...base.lidar!,
-        entries: [{ ...base.lidar!.entries[0]!, name: '   ' }],
+      site_data: {
+        ...base.site_data!,
+        entries: [{ ...base.site_data!.entries[0]!, name: '   ' }],
       },
     })).toContain('$.site_data.entries[0].name')
     expect(codec.admitWrite?.({
       ...base,
-      lidar: {
-        ...base.lidar!,
-        entries: [{ ...base.lidar!.entries[0]!, range: { mode: 'Custom', min: 10, max: 5 } }],
+      site_data: {
+        ...base.site_data!,
+        entries: [{ ...base.site_data!.entries[0]!, range: { mode: 'Custom', min: 10, max: 5 } }],
       },
     })).toContain('$.site_data.entries[0].range')
     expect(codec.admitWrite?.({
@@ -284,16 +286,16 @@ describe('createJsonSessionCodec with DesignCore', () => {
     })).toContain('$.annotations[0].rotation')
     expect(codec.admitWrite?.({
       ...base,
-      lidar: {
-        ...base.lidar!,
-        entries: [{ ...base.lidar!.entries[0]!, id: '' }],
+      site_data: {
+        ...base.site_data!,
+        entries: [{ ...base.site_data!.entries[0]!, id: '' }],
       },
     })).toContain('$.site_data.entries[0].id')
     expect(codec.admitWrite?.({
       ...base,
-      lidar: {
-        ...base.lidar!,
-        entries: [base.lidar!.entries[0]!, base.lidar!.entries[0]!],
+      site_data: {
+        ...base.site_data!,
+        entries: [base.site_data!.entries[0]!, base.site_data!.entries[0]!],
       },
     })).toContain('$.site_data.entries[1].id')
   })
@@ -357,7 +359,7 @@ describe('live Session Core wiring (#481 B1/B2)', () => {
         pickHomeTarget: async () => ({ kind: 'picked', grant: '/fat/remnant.canopi', displayName: 'remnant.canopi' }),
       },
       lifecycle: { subscribe: () => () => {} },
-      codec: createJsonSessionCodec(),
+      codec: createJsonSessionCodec({ designCore: makeRealWasmDesignCore() }),
       settings: {
         readLastOpenHome: async () => null,
         writeLastOpenHome: async () => {},
@@ -402,7 +404,7 @@ describe('live Session Core wiring (#481 B1/B2)', () => {
         pickHomeTarget: async () => ({ kind: 'picked', grant: '/designs/raced.canopi', displayName: 'raced.canopi' }),
       },
       lifecycle: { subscribe: () => () => {} },
-      codec: createJsonSessionCodec(),
+      codec: createJsonSessionCodec({ designCore: makeRealWasmDesignCore() }),
       settings: {
         readLastOpenHome: async () => null,
         writeLastOpenHome: async () => {},
@@ -427,5 +429,163 @@ describe('live Session Core wiring (#481 B1/B2)', () => {
     core.document('Rename', () => ({ name: 'Renamed' }))
     expect(await saveCurrentDesign()).toBe(true)
     expect(writes).toHaveLength(3)
+  })
+
+  it('canopi-f47t.52.49: full v10 spec fixture round-trips losslessly through SessionCore + real Wasm DesignCore', async () => {
+    const designCore = makeRealWasmDesignCore()
+    const rawV10 = readFileSync(resolve(process.cwd(), '../../canopi-format/spec/v10/fixture.canopi'), 'utf8')
+    const decodedRef = JSON.parse(decode_design(rawV10)) as FormatDecodeAnswer
+    if (!('ok' in decodedRef)) throw new Error('expected v10 fixture to decode')
+    const rich = structuredClone(decodedRef.ok.design) as Record<string, unknown>
+    ;(rich.plants as Record<string, unknown>[])[0]!.quantity = 4
+    ;(rich.plants as Record<string, unknown>[])[0]!.ext = { nursery_tag: 'lot-7' }
+    ;(rich.zones as Record<string, unknown>[])[0]!.stroke_color = '#1E3A5F'
+    ;(rich.zones as Record<string, unknown>[])[0]!.opacity = 0.45
+    ;(rich.zones as Record<string, unknown>[])[0]!.ext = { slope_band: 'gentle' }
+    ;(rich.timeline as Record<string, unknown>[])[0]!.offset_days = 14
+    ;(rich.timeline as Record<string, unknown>[])[0]!.ext = { crew: 'orchard' }
+    ;(rich.layers as Record<string, unknown>[])[0]!.ext = { future_layer_tag: true }
+    rich.groups = [{
+      id: 'g-rich',
+      members: [
+        { kind: 'plant', id: (rich.plants as Record<string, unknown>[])[0]!.id, ext: { role: 'anchor' } },
+        { kind: 'measurement_guide', id: (rich.measurement_guides as Record<string, unknown>[])[0]!.id },
+      ],
+      ext: { label: 'swale-pair' },
+    }]
+    rich.site_data = {
+      visible: true,
+      entries: [{
+        id: 'derived-slope-1',
+        name: 'Slope',
+        visible: true,
+        opacity: 0.8,
+        order: 0,
+        ramp: 'Aurora',
+        reversed: false,
+        range: null,
+        ext: { unit: 'deg' },
+      }],
+      ext: { palette_version: 2 },
+    }
+    rich.budget_ext = {
+      non_plant_lines: [{
+        id: 'b-fence',
+        category: 'Materials',
+        description: 'Deer fence',
+        quantity: 120,
+        unit_cost: 4.5,
+        currency: 'EUR',
+        target: null,
+      }],
+      extra_note: 'keep-me',
+    }
+    const canonicalEnc = JSON.parse(encode_design(JSON.stringify(rich))) as { ok: string }
+    const canonicalJson = JSON.parse(canonicalEnc.ok) as Record<string, unknown>
+    const codec = createJsonSessionCodec({ designCore })
+
+    const opened = await codec.decode(new TextEncoder().encode(canonicalEnc.ok))
+    const saved = await codec.encode(opened.file)
+    expect(JSON.parse(new TextDecoder().decode(saved.bytes))).toEqual(canonicalJson)
+
+    const reopened = await codec.decode(saved.bytes)
+    const resaved = await codec.encode(reopened.file)
+    expect(JSON.parse(new TextDecoder().decode(resaved.bytes))).toEqual(canonicalJson)
+  })
+
+  it('canopi-f47t.52.49: frozen v9 fixture round-trips through SessionCore + real Wasm DesignCore matching chain.rs output', async () => {
+    const designCore = makeRealWasmDesignCore()
+    const rawV9 = readFileSync(resolve(process.cwd(), '../../canopi-format/spec/v9/fixture.canopi'), 'utf8')
+    const coreDecoded = JSON.parse(decode_design(rawV9)) as FormatDecodeAnswer
+    if (!('ok' in coreDecoded)) throw new Error('expected v9 fixture to decode')
+    const codec = createJsonSessionCodec({ designCore })
+
+    const opened = await codec.decode(new TextEncoder().encode(rawV9))
+    expect(opened.migratedFrom).toBe(9)
+    const saved = await codec.encode(opened.file)
+    expect(JSON.parse(new TextDecoder().decode(saved.bytes))).toEqual(coreDecoded.ok.design)
+
+    const reopened = await codec.decode(saved.bytes)
+    const resaved = await codec.encode(reopened.file)
+    expect(JSON.parse(new TextDecoder().decode(resaved.bytes))).toEqual(coreDecoded.ok.design)
+  })
+
+  it('canopi-f47t.52.49: stored 2.0 Web Draft (v9) with duplicate Site data ids migrates via DesignCore chain.rs and autosaves cleanly', async () => {
+    const designCore = makeRealWasmDesignCore()
+    const rawV9 = JSON.parse(
+      readFileSync(resolve(process.cwd(), '../../canopi-format/spec/v9/fixture.canopi'), 'utf8'),
+    ) as Record<string, unknown>
+    // Inject duplicate Site data id that only chain.rs v9->v10 deduplicates (2.1-M493, #669 B1-d).
+    rawV9.lidar = {
+      visible: true,
+      entries: [
+        { kind: 'Source', id: 'dup-site-1', name: 'First', visible: true, opacity: 1, order: 0, ramp: null, reversed: false, range: null },
+        { kind: 'Derived', id: 'dup-site-1', name: 'Duplicate', visible: true, opacity: 0.5, order: 1, ramp: null, reversed: false, range: null },
+      ],
+    }
+
+    const storageMap = new Map<string, string>()
+    storageMap.set(DRAFTS_STORAGE_KEY, JSON.stringify({
+      version: 3,
+      drafts: [{ id: 'draft-v9', name: String(rawV9.name), updatedAt: '2026-10-01T00:00:00.000Z' }],
+      draftFiles: { 'draft-v9': rawV9 },
+    }))
+    const appDataStore = createBrowserAppDataStore({
+      storage: {
+        getItem: (k: string) => storageMap.get(k) ?? null,
+        setItem: (k: string, v: string) => { storageMap.set(k, v) },
+        removeItem: (k: string) => { storageMap.delete(k) },
+      },
+    })
+    const homeStore = createBrowserSessionHomeStore(appDataStore)
+    const core = createSessionCore({
+      designHome: homeStore,
+      fileAccess: {
+        pickOpen: async () => ({ kind: 'cancelled' }),
+        pickHomeTarget: async () => ({ kind: 'cancelled' }),
+      },
+      lifecycle: { subscribe: () => () => {} },
+      codec: createJsonSessionCodec({ designCore }),
+      settings: {
+        readLastOpenHome: async () => null,
+        writeLastOpenHome: async () => {},
+      },
+      newDesignFactory: () => sampleDesign('Untitled'),
+    })
+    disposeCore = installLiveSessionCore(core)
+
+    const opened = await core.openFrom({ kind: 'draft', id: 'draft-v9' as DraftId })
+    expect(opened.status).toBe('opened')
+    expect(core.currentDesign.peek()?.migratedFrom).toBe(9)
+    expect(core.snapshot()?.site_data?.entries).toHaveLength(1)
+    expect(core.snapshot()?.site_data?.entries[0]?.id).toBe('dup-site-1')
+
+    core.document('Rename', () => ({ name: 'Migrated Orchard' }))
+    await core.flushNow({ force: true })
+    expect(core.dirty.peek()).toBe(false)
+    expect(appDataStore.loadDraft('draft-v9')?.name).toBe('Migrated Orchard')
+    expect(appDataStore.loadDraft('draft-v9')?.version).toBe(10)
+  })
+
+  it('#689 / 2b-5: zone-target and unknown open-set budget lines plus nested view/story/colour-range extras survive Web SessionCore round-trip', async () => {
+    const designCore = makeRealWasmDesignCore()
+    const raw = JSON.parse(
+      readFileSync(resolve(process.cwd(), '../../canopi-format/spec/v10/fixture.canopi'), 'utf8'),
+    ) as Record<string, unknown>
+    raw.budget = [
+      { target: { kind: 'species', canonical_name: 'Malus domestica', target_tag: 'orchard' }, unit_cost: 18.5 },
+      { target: { kind: 'zone', zone_id: 'zone-1', zone_note: 'south' }, unit_cost: 120.0, ext: { category: 'Earthworks' } },
+      { target: { kind: 'seed_mix', mix_id: 'meadow-a' }, unit_cost: 42.25 },
+    ]
+    const canonicalEnc = JSON.parse(encode_design(JSON.stringify(raw))) as { ok: string }
+    const canonicalJson = JSON.parse(canonicalEnc.ok) as Record<string, unknown>
+    const codec = createJsonSessionCodec({ designCore })
+
+    const opened = await codec.decode(new TextEncoder().encode(canonicalEnc.ok))
+    expect(opened.file.budget).toHaveLength(3)
+    expect(opened.file.budget[1]?.target.kind).toBe('zone')
+    expect(opened.file.budget[2]?.target.kind).toBe('seed_mix')
+    const saved = await codec.encode(opened.file)
+    expect(JSON.parse(new TextDecoder().decode(saved.bytes))).toEqual(canonicalJson)
   })
 })

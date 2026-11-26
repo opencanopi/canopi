@@ -257,19 +257,14 @@ export type ConsortiumV10 = {
 };
 
 /**
- *  How a listed Draft opens (2.1-Q316). Only an `Editable` Draft is ever opened for editing or
- *  deleted; the store refuses writes to the others (design check F7).
+ *  How a listed Draft opens (2.1-Q316, 2.1-Q347). Only an `Editable` Draft is ever opened for
+ *  editing or deleted; the store refuses writes to unreadable Drafts.
  */
 export type DesignDraftAccess =
 // A current Draft: it opens for editing.
 "editable" |
 /**
- *  Saved by a newer Canopi and read for the read-only view: listed as
- *  "Read-only: saved by a newer Canopi".
- */
-"read_only" |
-/**
- *  Saved by a newer Canopi whose read this build refuses: listed as unreadable, never
+ *  Saved by a newer Canopi or otherwise refused: listed as unreadable, never
  *  hidden, and opening it says why.
  */
 "unreadable";
@@ -279,8 +274,11 @@ export type DesignDraftAccess =
  *  user saves it as a file or deletes it.
  */
 export type DesignDraftSummary = {
+	// Stable draft identifier.
 	id: string,
+	// User-visible Design name.
 	name: string,
+	// Last-modified UTC timestamp.
 	updated_at: string,
 	/**
 	 *  Whether opening the Draft edits it, shows it read-only, or refuses it (2.1-Q316). Absent on
@@ -306,7 +304,9 @@ export type DesignGroundBounds = {
  *  path.
  */
 export type DesignLoadFailure = {
+	// Machine-readable refusal category mapped to user-facing copy.
 	kind: DesignLoadFailureKind,
+	// Diagnostic detail for logs and Problem Reports (never names a path).
 	message: string,
 	/**
 	 *  The refused field when the file parsed and the Design was refused (`$.version` for a
@@ -316,18 +316,27 @@ export type DesignLoadFailure = {
 	field_path?: string | null,
 };
 
+// Category of failure when reading or validating a `.canopi` Design.
 export type DesignLoadFailureKind =
 // Nothing is at the path.
 "missing" |
 // The file exists but could not be read (permissions, a folder, an I/O error).
-"unreadable" | "too_large" | "invalid_json" |
+"unreadable" |
+// The file exceeds the maximum admitted size.
+"too_large" |
+// The bytes are not valid JSON.
+"invalid_json" |
 /**
  *  Older than the current format (written before Canopi 2.0), which
  *  Canopi 2.0 and later do not open (ADR 0021).
  */
 "older_version" |
 // Newer than this build.
-"newer_version" | "invalid_document" |
+"newer_version" |
+// A frozen migration step failed on a valid earlier-version Design.
+"migration_failed" |
+// Parsed JSON did not satisfy the Design document schema.
+"invalid_document" |
 // The native side failed before it reached the file (an executor error).
 "internal";
 
@@ -358,12 +367,18 @@ export type DesignNotebookSnapshot = {
 // The result of writing a Design to its file.
 export type DesignSaveOutcome =
 // Written; `fingerprint` is what the next save must expect.
-{ kind: "saved"; path: string; fingerprint: string } |
+{ kind: "saved";
+// Saved file path.
+path: string;
+// SHA-256 hex digest of the newly written bytes.
+fingerprint: string } |
 /**
  *  The file changed outside Canopi since `expected_fingerprint`; nothing
  *  was written. `current_fingerprint` is `None` when the file is gone.
  */
-{ kind: "conflict"; current_fingerprint: string | null };
+{ kind: "conflict";
+// SHA-256 hex digest currently on disk, or `None` if removed.
+current_fingerprint: string | null };
 
 /**
  *  A symbolic mini-map of a Design: zones as outlines and plants as dots over
@@ -1145,13 +1160,13 @@ export type LidarLayerSource = {
 };
 
 export type LidarPresentationEntry = {
-	kind: LibraryItemRole,
+	kind?: LibraryItemRole | null,
 	id: string,
 	name: string,
 	visible: boolean,
 	opacity: number,
 	order: number,
-	ramp: LidarRamp | null,
+	ramp: string | null,
 	reversed: boolean,
 	range: LidarColourRange | null,
 };
@@ -1224,8 +1239,12 @@ export type Lineage =
  *  bytes) its next continuous save must still find on disk.
  */
 export type LoadedDesign = {
-	file: CanopiFile,
+	// The admitted in-memory v10 Design document.
+	file: CanopiFileV10,
+	// SHA-256 hex digest of the on-disk bytes at load time.
 	fingerprint: string,
+	// Source format version when migrated on open (e.g. `Some(9)`), or `None` when native v10.
+	migrated_from?: number | null,
 };
 
 export type Locale = "en" | "fr" | "es" | "pt" | "it" | "zh" | "de" | "ja" | "ko" | "nl" | "ru";
@@ -1282,7 +1301,7 @@ export type ObjectGroup = {
 	members: ObjectGroupMember[],
 };
 
-export type ObjectGroupMember = { kind: "plant"; id: string } | { kind: "zone"; id: string } | { kind: "annotation"; id: string };
+export type ObjectGroupMember = { kind: "plant"; id: string } | { kind: "zone"; id: string } | { kind: "annotation"; id: string } | { kind: "measurement_guide"; id: string };
 
 // Group member in v10, including `measurement_guide` and Q69 extension bags (`2.1-Q154`, `2.1-M94`).
 export type ObjectGroupMemberV10 =
@@ -1691,40 +1710,12 @@ export type RasterQuantity =
 // Terrain slope, in degrees or percent (derived only).
 "Slope";
 
-/**
- *  A Design saved by a newer Canopi, read for the read-only view (contracts §11 Rollback, 2.1-M478, 2.1-M479):
- *  `view` is its read projection in the in-memory shape this build draws, `saved_by_version` the file's format
- *  version. A distinct type on purpose: no save, Draft or export API takes it or its `view`, so a v10 Design never
- *  reaches 2.0 persistence (held by R1's type rule).
- */
-export type ReadOnlyDesign = {
-	// The Design as the read view maps it onto this build's shape, shown and never written.
-	view: CanopiFile,
-	// The format version the file was saved at, above [`CURRENT_CANOPI_FILE_VERSION`].
-	saved_by_version: number,
-};
-
 // What a Recent Design's file says about it, read when the list is shown.
 export type RecentDesignPreview = { kind: "read"; plant_count: number; zone_count: number;
 // `None` when the Design has no plants or zones yet.
 bounds: DesignGroundBounds | null; sketch: DesignSketch | null } |
-/**
- *  Saved by a newer Canopi and read for the read-only view (2.1-Q316): the row is labelled
- *  "Read-only: saved by a newer Canopi", never "update Canopi to open it", with what the
- *  read view shows of it.
- */
-{ kind: "read_only";
-// The format version the file was saved at, above [`CURRENT_CANOPI_FILE_VERSION`].
-saved_by_version: number; plant_count: number; zone_count: number;
-// `None` when the Design has no plants or zones yet.
-bounds: DesignGroundBounds | null; sketch: DesignSketch | null } |
-/**
- *  The file is larger than previews read; the row shows its name, and says it is
- *  read-only when a newer Canopi saved it and Open still reads it (2.1-Q316).
- */
-{ kind: "too_large";
-// Saved by a newer Canopi, within the size Open reads: Open shows it read-only.
-saved_by_newer: boolean } |
+// The file is larger than previews read; the row shows its name only.
+{ kind: "too_large" } |
 // The file cannot be opened, and why when that is known.
 { kind: "unreadable"; reason: RecentDesignUnreadableReason };
 
@@ -2772,6 +2763,7 @@ export type TimelineAction = {
 	recurrence: string | null,
 	targets: PanelTarget[],
 	depends_on: string[] | null,
+	offset_days?: number | null,
 	completed: boolean,
 	order: number,
 };
@@ -2897,6 +2889,8 @@ export type Zone = {
 	points: GeoPoint[],
 	rotation: number,
 	fill_color: string | null,
+	stroke_color?: string | null,
+	opacity?: number | null,
 	notes: string | null,
 };
 

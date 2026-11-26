@@ -12,6 +12,7 @@ import { createBrowserAppDataStore, type BrowserStorageAdapter } from '../web/br
 import { browserAppLifecyclePort, browserFileAccessPort, createBrowserSessionHomeStore } from '../editions/web/session-ports'
 import { readWebDesignIdentity } from '../editions/web/web-session'
 import { editDesignSessionForTest } from './support/design-session-edit'
+import { createTestDesignCore } from './support/design-wire'
 
 const CONTINUOUS_SAVE_DELAY_MS = 1500
 const NOW = new Date('2026-09-27T12:00:00.000Z')
@@ -86,7 +87,7 @@ function setup() {
     designHome,
     fileAccess: browserFileAccessPort,
     lifecycle: browserAppLifecyclePort,
-    codec: createJsonSessionCodec(),
+    codec: createJsonSessionCodec({ designCore: createTestDesignCore() }),
     settings: {
       readLastOpenHome: async () => null,
       writeLastOpenHome: async () => {},

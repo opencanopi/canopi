@@ -25,7 +25,7 @@ function designObjects(): GeoJsonDesignObjects {
         pinned_name: true,
         position: { lon: 2.349014123, lat: 48.864716987 },
         rotation: 15,
-        scale: 4.5,
+        canopy_spread_m: 4.5,
         notes: 'Keep pruned',
         planted_date: '2026-03-01',
         quantity: 3,
@@ -250,7 +250,7 @@ describe('GeoJSON codec import', () => {
     const imported = parseDesignGeoJson(collection(
       feature({ type: 'Point', coordinates: [1, 2] }, { species: 'Foo bar', canopy_spread_m: spread }),
     ))
-    expect(imported.objects.plants[0]?.scale).toBe(scale)
+    expect(imported.objects.plants[0]?.canopy_spread_m).toBe(scale)
   })
 
   it.each<[unknown, number | null]>([

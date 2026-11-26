@@ -7,7 +7,6 @@ import type {
   LibraryItemType,
   LibrarySnapshot,
   LidarColourRange,
-  LidarPresentationEntry,
   LidarRamp,
   LidarResultState,
   StoreOpenStatus,
@@ -319,13 +318,26 @@ function absentAvailability(library: LibrarySnapshot | null, status: LibraryOpen
  */
 export function readLidarPresentation(
   design: {
-    lidar?: { visible: boolean; entries: readonly LidarPresentationEntry[] } | null
+    site_data?: {
+      visible: boolean
+      entries: readonly {
+        readonly id: string
+        readonly name: string
+        readonly visible: boolean
+        readonly opacity: number
+        readonly order: number
+        readonly ramp?: string | null
+        readonly reversed?: boolean
+        readonly range?: LidarColourRange | null
+        readonly kind?: LibraryItemRole
+      }[]
+    } | null
   } | null,
   library: LibrarySnapshot | null,
   libraryStatus: LibraryOpenKind = { kind: 'ready' },
 ): LidarPresentationItem[] {
-  const entries = design?.lidar?.entries ?? []
-  const sectionVisible = design?.lidar?.visible ?? true
+  const entries = design?.site_data?.entries ?? []
+  const sectionVisible = design?.site_data?.visible ?? true
   const items: Omit<LidarPresentationItem, 'parentId' | 'depth'>[] = []
   for (const entry of entries) {
     // An id names one item, whatever kind the entry stored or left out (a v10 Design's Site data); the item's role
@@ -334,15 +346,15 @@ export function readLidarPresentation(
     // An item a newer catalogue lists is never drawn: its row reads by its name, needing a newer Canopi (2.1-Q318).
     const item = listed?.state === 'NeedsNewer' ? undefined : listed
     const presentation = {
-      kind: listed?.role ?? entry.kind,
+      kind: listed?.role ?? entry.kind ?? 'Source',
       id: entry.id,
       visible: entry.visible,
       shown: entry.visible && sectionVisible,
       opacity: entry.opacity,
       order: entry.order,
-      ramp: entry.ramp,
-      reversed: entry.reversed,
-      range: entry.range,
+      ramp: (entry.ramp ?? null) as LidarRamp | null,
+      reversed: entry.reversed ?? false,
+      range: entry.range ?? null,
     }
     items.push(item
       ? {

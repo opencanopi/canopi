@@ -47,7 +47,7 @@ import { framedCornersOnScreen, groundSizeShown, type WindowSize } from './suppo
 
 function design(views: SavedView[] = [], stories: Story[] = []): CanopiFile {
   return {
-    version: 9,
+    version: 10,
     name: 'Orchard',
     description: null,
     plant_species_colors: {},
@@ -63,11 +63,11 @@ function design(views: SavedView[] = [], stories: Story[] = []): CanopiFile {
     timeline: [],
     budget: [],
     budget_currency: 'EUR',
-    lidar: {
+    site_data: {
       visible: true,
       entries: [
-        { kind: 'Source', id: 'dtm-shown', name: 'Shown terrain', visible: true, opacity: 1, order: 0, ramp: null, reversed: false, range: null },
-        { kind: 'Source', id: 'dtm-hidden', name: 'Hidden terrain', visible: false, opacity: 1, order: 1, ramp: null, reversed: false, range: null },
+        { id: 'dtm-shown', name: 'Shown terrain', visible: true, opacity: 1, order: 0, ramp: null, reversed: false, range: null },
+        { id: 'dtm-hidden', name: 'Hidden terrain', visible: false, opacity: 1, order: 1, ramp: null, reversed: false, range: null },
       ],
     },
     views,
@@ -100,7 +100,7 @@ const BERRIES: SavedView = {
 function plant(canonicalName: string): PlacedPlant {
   return {
     id: canonicalName, canonical_name: canonicalName, common_name: null, color: null,
-    position: TEST_GEO_ORIGIN, rotation: null, scale: null, notes: null,
+    position: TEST_GEO_ORIGIN, rotation: null, canopy_spread_m: null, notes: null,
     planted_date: null, quantity: 1, locked: false,
   }
 }
@@ -199,7 +199,7 @@ describe('saving the current view', () => {
 
   it('captures no site data while the Site data eye is off, whatever each entry stores', () => {
     const base = design()
-    replaceCurrentDesignState({ ...base, lidar: { ...base.lidar!, visible: false } }, null, 'Orchard')
+    replaceCurrentDesignState({ ...base, site_data: { ...base.site_data!, visible: false } }, null, 'Orchard')
     mountCanvas()
 
     expect(saveCurrentView({ name: 'Hedges' })?.visible_layers.site_data).toEqual([])
@@ -482,7 +482,7 @@ describe('managing views', () => {
       },
       fileAccess: ports.fileAccess,
       lifecycle: ports.appLifecycle,
-      codec: createJsonSessionCodec(),
+      codec: createJsonSessionCodec({ designCore: ports.designCore }),
       settings: { readLastOpenHome: async () => null, writeLastOpenHome: async () => {} },
       newDesignFactory: () => design([BERRIES, POND], [visit(['berries', 'pond'])]),
     })

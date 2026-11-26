@@ -51,6 +51,9 @@ import { createBrowserDraftPersistence } from '../web/browser-draft-persistence'
 import { t } from '../i18n'
 import { SettingsDialog } from '../components/shared/SettingsDialog'
 import { editDesignSessionForTest } from './support/design-session-edit'
+import { installEditionPorts } from '../platform/edition-ports'
+import { createTestEditionPorts } from './support/test-edition-ports'
+import { createTestDesignCore } from './support/design-wire'
 import { makeTestDesign } from './support/session-core-fixture'
 
 function makeFile(name = 'Untitled'): CanopiFile {
@@ -144,7 +147,7 @@ describe('Web Edition Browser App Shell', () => {
       designHome,
       fileAccess: browserFileAccessPort,
       lifecycle: browserAppLifecyclePort,
-      codec: createJsonSessionCodec(),
+      codec: createJsonSessionCodec({ designCore: createTestDesignCore() }),
       settings: {
         readLastOpenHome: async () => null,
         writeLastOpenHome: async () => {},
@@ -157,6 +160,7 @@ describe('Web Edition Browser App Shell', () => {
   }
 
   beforeEach(() => {
+    disposers.push(installEditionPorts(createTestEditionPorts()))
     container = document.createElement('div')
     document.body.innerHTML = ''
     document.body.appendChild(container)

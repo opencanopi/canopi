@@ -19,6 +19,7 @@ import type { CanopiFile } from '../../types/design'
 import { mintDraftId } from '../../utils/ids'
 import { createJsonSessionCodec, createSessionCore, installLiveSessionCore, type SessionCore } from '../../app/document-session/live-core'
 import type { DesignSessionKind } from '../../app/document-session/store'
+import { createTestDesignCore } from './design-wire'
 
 export interface InMemoryDesignHomeStore extends DesignHomeStore {
   readonly files: Map<string, { bytes: Uint8Array; version: HomeVersion; updatedAt: string; name: string }>
@@ -175,14 +176,10 @@ function buildInitialDesign(
     : { kind: 'draft', key: mintDraftId(), version: null }
   if (initialHome.kind === 'file') home.seedFile(initialHome.key, initialFile, 'v-0')
   const readOnly = options.kind?.kind === 'read-only'
-  const savedByVersion = options.kind?.kind === 'read-only' && options.kind.origin === 'newer-version'
-    ? options.kind.savedByVersion
-    : null
   return {
     home: initialHome,
     file: options.name ? { ...initialFile, name: options.name } : initialFile,
     readOnly,
-    savedByVersion,
   }
 }
 
@@ -198,7 +195,7 @@ export function createTestSessionCore(options: TestSessionCoreOptions = {}): Tes
     designHome: home,
     fileAccess,
     lifecycle,
-    codec: createJsonSessionCodec(),
+    codec: createJsonSessionCodec({ designCore: createTestDesignCore() }),
     settings: {
       readLastOpenHome: async () => storedLastOpen,
       writeLastOpenHome: async (next) => {

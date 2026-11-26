@@ -20,7 +20,7 @@ use canopi_types::design::DesignLoadFailure;
 use canopi_types::health::{StoreId, StoreOpenStatus};
 use std::path::{Path, PathBuf};
 
-use crate::design::{drafts::DesignDrafts, format::OpenedDesign};
+use crate::design::drafts::DesignDrafts;
 use crate::services;
 
 /// How the session read one store.
@@ -30,13 +30,9 @@ pub struct StoreRead {
     /// `desktop_draft` and `canopi_file` for a Draft and a Design file.
     pub store: String,
     /// How the store opened: a health store's startup status as the page is handed it; for a
-    /// Design or Draft, `ready` when it opens to edit, `newer_read_only` when it opens as its
-    /// read view, `refused_newer` when this build's read refuses a newer one.
+    /// Design or Draft, `ready` when it opens to edit, `refused_newer` when this build refuses
+    /// a newer format version (2.1-Q347).
     pub status: StoreOpenStatus,
-    /// For a Design or Draft opened as its read view, the format version that saved it
-    /// (`ReadOnlyDesign::saved_by_version`): what opens the page's read-only Session with
-    /// `origin: 'newer-version'` (`app/document-session/load-result.ts`) and its Read-only label.
-    pub saved_by_version: Option<u32>,
 }
 
 /// One reader session over `data_dir` (the app data folder) and the Design files `designs`.
@@ -75,23 +71,16 @@ fn health_read(store: StoreId, status: StoreOpenStatus) -> Result<StoreRead, Str
         .ok()
         .and_then(|value| value.as_str().map(str::to_owned))
         .ok_or("a store id serializes as its literal")?;
-    Ok(StoreRead {
-        store,
-        status,
-        saved_by_version: None,
-    })
+    Ok(StoreRead { store, status })
 }
 
 /// A Draft or Design file as it opened; any refusal but a newer one fails the session.
-fn design_read<T>(
-    store: &str,
-    opened: Result<OpenedDesign<T>, DesignLoadFailure>,
-) -> Result<StoreRead, String> {
+fn design_read<T>(store: &str, opened: Result<T, DesignLoadFailure>) -> Result<StoreRead, String> {
     use canopi_types::design::DesignLoadFailureKind;
-    let (status, saved_by_version) = match opened {
-        Ok(OpenedDesign::Editable(_)) => (StoreOpenStatus::Ready, None),
+    let status = match opened {
+        Ok(_) => StoreOpenStatus::Ready,
         Err(failure) if failure.kind == DesignLoadFailureKind::NewerVersion => {
-            (StoreOpenStatus::RefusedNewer, None)
+            StoreOpenStatus::RefusedNewer
         }
         Err(failure) => {
             return Err(format!(
@@ -103,6 +92,5 @@ fn design_read<T>(
     Ok(StoreRead {
         store: store.to_owned(),
         status,
-        saved_by_version,
     })
 }

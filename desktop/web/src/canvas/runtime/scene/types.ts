@@ -16,6 +16,7 @@ export interface SceneLayerEntity {
   visible: boolean
   locked: boolean
   opacity: number
+  unknownFields?: Record<string, unknown>
 }
 
 export interface ScenePlantEntity {
@@ -27,13 +28,14 @@ export interface ScenePlantEntity {
   color: string | null
   symbol?: string | null
   pinnedName?: boolean
-  /** The catalog width when the plant was placed (the file's `scale`); never filled in later. */
+  /** The catalog width when the plant was placed (the file's `canopy_spread_m`); never filled in later. */
   canopySpreadM: number | null
   position: ScenePoint
   rotationDeg: number | null
   notes: string | null
   plantedDate: string | null
   quantity: number | null
+  unknownFields?: Record<string, unknown>
 }
 
 export interface SceneZoneEntity {
@@ -47,7 +49,10 @@ export interface SceneZoneEntity {
   points: ScenePoint[]
   rotationDeg: number
   fillColor: string | null
+  strokeColor?: string | null
+  opacity?: number | null
   notes: string | null
+  unknownFields?: Record<string, unknown>
 }
 
 export interface SceneAnnotationEntity {
@@ -59,6 +64,7 @@ export interface SceneAnnotationEntity {
   text: string
   fontSize: number
   rotationDeg: number | null
+  unknownFields?: Record<string, unknown>
 }
 
 export interface SceneMeasurementGuideEntity {
@@ -67,9 +73,17 @@ export interface SceneMeasurementGuideEntity {
   locked: boolean
   start: ScenePoint
   end: ScenePoint
+  unknownFields?: Record<string, unknown>
 }
 
 export type SceneObjectGroupMember = SceneConcreteDesignObjectTarget
+
+/** Wire member record preserving exact member order and unknown flat keys across scene round-trips. */
+export interface ScenePreservedGroupMember {
+  kind: string
+  id: string
+  unknownFields?: Record<string, unknown>
+}
 
 export interface SceneObjectGroupEntity {
   kind: 'group'
@@ -77,6 +91,9 @@ export interface SceneObjectGroupEntity {
   locked: boolean
   name: string | null
   members: SceneObjectGroupMember[]
+  /** Original wire member order and per-member unknown flat keys preserved across scene round-trips. */
+  wireMembers?: ScenePreservedGroupMember[]
+  unknownFields?: Record<string, unknown>
 }
 
 export interface ScenePersistedState {

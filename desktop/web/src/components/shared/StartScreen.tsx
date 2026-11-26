@@ -346,9 +346,9 @@ function DraftRow({ draft }: { readonly draft: StartScreenDraft }) {
   )
 }
 
-/** The sketch a read Design shows, a read-only one included (2.1-Q316). */
+/** The sketch a read Design shows. */
 function sketchOf(preview: RecentDesignPreview | undefined): DesignSketch | null {
-  return preview?.kind === 'read' || preview?.kind === 'read_only' ? preview.sketch : null
+  return preview?.kind === 'read' ? preview.sketch : null
 }
 
 function draftStatusKey(draft: StartScreenDraft): LocaleKey {

@@ -104,17 +104,12 @@ describe('document format contract', () => {
       }],
       budget: [{
         target: speciesBudgetTarget('Document species'),
-        category: 'plants',
-        description: 'Document budget',
-        quantity: 2,
         unit_cost: 3,
-        currency: 'USD',
       }],
       budget_currency: 'USD',
-      lidar: {
+      site_data: {
         visible: true,
         entries: [{
-          kind: 'Source',
           id: 'document-lidar',
           name: 'Document terrain',
           visible: true,
@@ -151,7 +146,7 @@ describe('document format contract', () => {
         color: null,
         position: geoAt(10, 20),
         rotation: null,
-        scale: null,
+        canopy_spread_m: null,
         notes: null,
         planted_date: null,
         quantity: 1,
@@ -226,7 +221,7 @@ describe('document format contract', () => {
   })
 
   it('normalizes raw loaded files into extra while the scene codec writes none', () => {
-    const normalized = normalizeLoadedDocument(RAW_DOCUMENT as unknown as CanopiFile)
+    const normalized = normalizeLoadedDocument(RAW_DOCUMENT)
 
     expect(normalized.extra).toEqual({
       preserved_from_file: 'keep-me',
@@ -273,6 +268,11 @@ describe('document format contract', () => {
         { kind: 'zone', id: 'zone-1' },
         { kind: 'annotation', id: 'annotation-1' },
       ],
+      wireMembers: [
+        { kind: 'plant', id: 'plant-1' },
+        { kind: 'zone', id: 'zone-1' },
+        { kind: 'annotation', id: 'annotation-1' },
+      ],
     }])
     expect(scene.groups[0]).not.toHaveProperty('memberIds')
     expect(scene.groups[0]).not.toHaveProperty('layer')
@@ -305,7 +305,7 @@ describe('document format contract', () => {
       timeline: undefined,
       budget: undefined,
       future_panel_field: { preserve: true },
-    } as unknown as CanopiFile)
+    })
 
     expect(normalized.annotations).toEqual([])
     expect(normalized.consortiums).toEqual([])
@@ -323,7 +323,7 @@ describe('document format contract', () => {
       plant_species_symbols: {
         'Malus domestica': 'tree',
       },
-    } as unknown as CanopiFile)
+    })
 
     expect(normalized.plant_species_symbols).toEqual({
       'Malus domestica': 'tree',
@@ -373,17 +373,12 @@ describe('document format contract', () => {
       }],
       budget: [{
         target: speciesBudgetTarget('Quercus robur'),
-        category: 'plants',
-        description: 'Quercus robur',
-        quantity: 1,
         unit_cost: 12,
-        currency: 'USD',
       }],
       budget_currency: 'USD',
-      lidar: {
+      site_data: {
         visible: true,
         entries: [{
-          kind: 'Source',
           id: 'saved-lidar',
           name: 'Saved terrain',
           visible: true,
@@ -412,7 +407,7 @@ describe('document format contract', () => {
         color: '#228833',
         position: geoAt(10, 20),
         rotation: null,
-        scale: 3,
+        canopy_spread_m: 3,
         notes: null,
         planted_date: null,
         quantity: 1,
@@ -459,7 +454,7 @@ describe('document format contract', () => {
     expect(saved.timeline).toEqual(document.timeline)
     expect(saved.budget).toEqual(document.budget)
     expect(saved.budget_currency).toBe('USD')
-    expect(saved.lidar).toEqual(document.lidar)
+    expect(saved.site_data).toEqual(document.site_data)
     expect(saved.plant_species_colors).toEqual(canvas.plant_species_colors)
     expect(saved.layers).toEqual(canvas.layers)
     expect(saved.plants).toEqual(canvas.plants)

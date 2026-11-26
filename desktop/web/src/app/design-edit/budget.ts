@@ -1,4 +1,4 @@
-import type { BudgetItem } from '../../generated/contracts'
+import type { BudgetItem } from '../../types/design'
 import { getBudgetSpeciesTarget, targets, speciesBudgetTarget } from '../../target'
 import { DEFAULT_BUDGET_CURRENCY } from '../contracts/document'
 import { editCurrentDesign } from './core'
@@ -9,7 +9,11 @@ export function setBudgetCurrency(currency: string): void {
     return {
       ...design,
       budget_currency: currency,
-      budget: design.budget.map((item) => ({ ...item, currency })),
+      budget: design.budget.map((item) => {
+        if (!item.ext || !Object.prototype.hasOwnProperty.call(item.ext, 'currency')) return item
+        const nextExt = { ...item.ext, currency }
+        return { ...item, ext: nextExt }
+      }),
     }
   }, 'budget.currency')
 }
@@ -21,21 +25,15 @@ export function setPlantBudgetPrice(canonicalName: string, unitCost: number): vo
     const currency = design.budget_currency ?? DEFAULT_BUDGET_CURRENCY
     const budget = design.budget
     const index = budget.findIndex((item) => {
-      if (item.category !== 'plants') return false
       const itemTarget = getBudgetSpeciesTarget(item)
       return itemTarget !== null && targets.equals(itemTarget, target)
     })
     const existing = index !== -1 ? budget[index] : undefined
-    if (existing && existing.unit_cost === sanitized && existing.currency === currency) return design
+    if (existing && existing.unit_cost === sanitized) return design
 
-    const next: BudgetItem = {
-      target,
-      category: 'plants',
-      description: canonicalName,
-      quantity: existing?.quantity ?? 0,
-      unit_cost: sanitized,
-      currency,
-    }
+    const next: BudgetItem = existing
+      ? { ...existing, unit_cost: sanitized }
+      : { target, unit_cost: sanitized }
 
     return {
       ...design,

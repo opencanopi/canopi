@@ -1,4 +1,5 @@
-import type { BasemapStyle, SavedView, SavedViewBackground } from '../../generated/contracts'
+import type { BasemapStyle } from '../../generated/contracts'
+import type { SavedView, SavedViewBackground } from '../../types/design'
 import { SETTINGS_BASEMAP_STYLES } from '../../generated/settings'
 import { captureMapBackgroundPresentation, type MapBackgroundPresentation } from '../../maplibre/map-background'
 import { effectiveBackgroundOpacity, mapBackgroundOf, type MapLayersState } from '../settings/state'

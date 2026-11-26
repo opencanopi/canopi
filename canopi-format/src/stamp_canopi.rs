@@ -23,7 +23,7 @@ pub fn stamp_to_canopi_file(
     origin: GeoPoint,
 ) -> Value {
     let to_geo = |pt: StampPoint| -> Value {
-        let (lon, lat) = metres_to_wgs84(origin, pt.x - payload.anchor.x, pt.y - payload.anchor.y);
+        let (lon, lat) = metres_to_wgs84(&origin, pt.x - payload.anchor.x, pt.y - payload.anchor.y);
         json!({ "lon": lon, "lat": lat })
     };
 
@@ -66,10 +66,10 @@ pub fn canopi_file_to_stamp(
     let payload = SavedObjectStampPayload {
         version: STAMP_PAYLOAD_CURRENT,
         anchor: StampPoint { x: 0.0, y: 0.0 },
-        plants: decode_plants(design, origin)?,
-        zones: decode_zones(design, origin)?,
-        annotations: decode_annotations(design, origin)?,
-        measurement_guides: decode_guides(design, origin)?,
+        plants: decode_plants(design, &origin)?,
+        zones: decode_zones(design, &origin)?,
+        annotations: decode_annotations(design, &origin)?,
+        measurement_guides: decode_guides(design, &origin)?,
         groups,
         plant_species_colors: string_map(design.get("plant_species_colors")),
         plant_species_symbols: string_map(design.get("plant_species_symbols")),
@@ -217,7 +217,7 @@ fn encode_timeline(timeline: &[StampCareAction]) -> Vec<Value> {
 }
 
 fn from_geo(
-    origin: GeoPoint,
+    origin: &GeoPoint,
     val: Option<&Value>,
     path: &str,
 ) -> Result<StampPoint, StampPayloadRefusal> {
@@ -235,7 +235,10 @@ fn from_geo(
     }
 }
 
-fn decode_plants(design: &Value, origin: GeoPoint) -> Result<Vec<StampPlant>, StampPayloadRefusal> {
+fn decode_plants(
+    design: &Value,
+    origin: &GeoPoint,
+) -> Result<Vec<StampPlant>, StampPayloadRefusal> {
     let mut plants = Vec::new();
     for (i, p) in design["plants"]
         .as_array()
@@ -265,7 +268,7 @@ fn decode_plants(design: &Value, origin: GeoPoint) -> Result<Vec<StampPlant>, St
     Ok(plants)
 }
 
-fn decode_zones(design: &Value, origin: GeoPoint) -> Result<Vec<StampZone>, StampPayloadRefusal> {
+fn decode_zones(design: &Value, origin: &GeoPoint) -> Result<Vec<StampZone>, StampPayloadRefusal> {
     let mut zones = Vec::new();
     for (i, z) in design["zones"].as_array().into_iter().flatten().enumerate() {
         let mut pts = Vec::new();
@@ -295,7 +298,7 @@ fn decode_zones(design: &Value, origin: GeoPoint) -> Result<Vec<StampZone>, Stam
 
 fn decode_annotations(
     design: &Value,
-    origin: GeoPoint,
+    origin: &GeoPoint,
 ) -> Result<Vec<StampAnnotation>, StampPayloadRefusal> {
     let mut annotations = Vec::new();
     for (i, a) in design["annotations"]
@@ -322,7 +325,10 @@ fn decode_annotations(
     Ok(annotations)
 }
 
-fn decode_guides(design: &Value, origin: GeoPoint) -> Result<Vec<StampGuide>, StampPayloadRefusal> {
+fn decode_guides(
+    design: &Value,
+    origin: &GeoPoint,
+) -> Result<Vec<StampGuide>, StampPayloadRefusal> {
     let mut guides = Vec::new();
     for (i, g) in design["measurement_guides"]
         .as_array()
@@ -408,14 +414,14 @@ fn string_map(val: Option<&Value>) -> BTreeMap<String, String> {
         .collect()
 }
 
-fn metres_to_wgs84(origin: GeoPoint, dx_m: f64, dy_m: f64) -> (f64, f64) {
+fn metres_to_wgs84(origin: &GeoPoint, dx_m: f64, dy_m: f64) -> (f64, f64) {
     let cos_lat = origin.lat.to_radians().cos().max(1e-6);
     let lon = origin.lon + dx_m / (METRES_PER_DEG_LAT * cos_lat);
     let lat = origin.lat + dy_m / METRES_PER_DEG_LAT;
     (lon, lat)
 }
 
-fn wgs84_to_metres(origin: GeoPoint, lon: f64, lat: f64) -> (f64, f64) {
+fn wgs84_to_metres(origin: &GeoPoint, lon: f64, lat: f64) -> (f64, f64) {
     let cos_lat = origin.lat.to_radians().cos().max(1e-6);
     let dx = (lon - origin.lon) * METRES_PER_DEG_LAT * cos_lat;
     let dy = (lat - origin.lat) * METRES_PER_DEG_LAT;

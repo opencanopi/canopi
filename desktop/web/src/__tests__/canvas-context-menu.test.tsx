@@ -219,7 +219,7 @@ describe('CanvasContextMenu', () => {
   // R1-8 failure state: an edit tool reachable by the right-click menu over a read-only Design (2.1-M478).
   it('canopi-f47t.52.270: over a read-only Session the shipped menu shows its edits disabled and runs none', async () => {
     replaceCurrentDesignState({ name: 'Orchard 2.1' } as unknown as CanopiFile, null, 'Orchard 2.1', {
-      kind: 'read-only', origin: 'newer-version', savedByVersion: 10,
+      kind: 'read-only', origin: 'storage-unchecked',
     })
     try {
       await open()

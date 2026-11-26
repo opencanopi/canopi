@@ -99,7 +99,6 @@ pub fn run() {
             commands::saved_object_stamps::reorder_saved_object_stamps,
             commands::saved_object_stamps::export_saved_object_stamp_canopi_file,
             commands::saved_object_stamps::load_saved_object_stamp_canopi_file,
-            commands::design::new_design,
             commands::design::get_recent_files,
             commands::design::get_recent_design_previews,
             commands::design::remove_recent_design,

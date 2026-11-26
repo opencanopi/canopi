@@ -91,7 +91,7 @@ function openedDesignWithPinnedPlant(): CanopiFile {
       pinned_name: true,
       position: geoAt(10, 10, { lon: 0, lat: 0 }),
       rotation: null,
-      scale: null,
+      canopy_spread_m: null,
       notes: null,
       planted_date: null,
       quantity: 1,

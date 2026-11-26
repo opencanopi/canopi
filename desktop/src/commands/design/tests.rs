@@ -23,7 +23,7 @@ fn mock_app(root: &std::path::Path) -> tauri::App<tauri::test::MockRuntime> {
         .unwrap()
 }
 
-fn design(name: &str) -> canopi_types::design::CanopiFile {
+fn design(name: &str) -> canopi_types::design::v10::CanopiFileV10 {
     crate::design::format::create_new_design(name, "2026-09-25T00:00:00Z")
 }
 
@@ -251,16 +251,6 @@ fn draft_commands_list_and_delete_through_managed_state() {
             .is_empty()
     );
     assert!(root.join("drafts").is_dir(), "drafts live under app data");
-}
-
-#[test]
-fn new_design_command_returns_an_untitled_current_design() {
-    let design = super::new_design().unwrap();
-    assert_eq!(design.name, "Untitled");
-    assert_eq!(
-        design.version,
-        canopi_types::design::CURRENT_CANOPI_FILE_VERSION
-    );
 }
 
 /// The hand-made v10 Design R1 froze (`canopi-format/spec/v10/`), as 2.1 saves it.

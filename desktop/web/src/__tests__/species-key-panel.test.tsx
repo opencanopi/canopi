@@ -254,7 +254,7 @@ describe('Plants in this Design', () => {
     const labels = container.querySelector<HTMLElement>('[role="radiogroup"][aria-label="Labels"]')!
     expect([...labels.querySelectorAll('[role="radio"]')].map((radio) => radio.textContent)).toEqual(['None', 'Codes', 'Names'])
     await act(() => radioNamed(labels, 'Codes').click())
-    expect(currentDesign.value?.extra?.plant_display).toMatchObject({ labels: 'codes' })
+    expect(currentDesign.value?.plant_display).toMatchObject({ labels: 'codes' })
     expect(radioNamed(labels, 'Codes').getAttribute('aria-checked')).toBe('true')
 
     const swatch = container.querySelector<HTMLInputElement>('input[aria-label="Color of Menthe verte"]')!
@@ -339,7 +339,7 @@ describe('Plants in this Design', () => {
     expect(container.querySelector('input[aria-label="Color of Menthe verte"]')).not.toBeNull()
 
     await act(() => radioNamed(colorBy, 'Stratum').click())
-    expect(currentDesign.value?.extra?.plant_display).toMatchObject({ color_by: 'stratum' })
+    expect(currentDesign.value?.plant_display).toMatchObject({ color_by: 'stratum' })
     const legend = container.querySelector<HTMLElement>('[aria-label="Stratum colors"]')!
     expect(legend.textContent).toContain('Emergent')
     expect(legend.textContent).toContain('No stratum yet')
@@ -356,7 +356,7 @@ describe('Plants in this Design', () => {
       one.value = '#aa3355'
       one.dispatchEvent(new Event('input', { bubbles: true }))
     })
-    expect(currentDesign.value?.extra?.plant_display).toMatchObject({ color_by: 'one_color', one_color: '#AA3355' })
+    expect(currentDesign.value?.plant_display).toMatchObject({ color_by: 'one_color', one_color: '#AA3355' })
     expect(glyphColor('Menthe verte')).toBe(rgb('#AA3355'))
     expect(setPlantColorForSpecies).not.toHaveBeenCalled()
     expect(queries.getSceneSnapshot().plants.every((plant) => plant.color === '#3e8e4e')).toBe(true)
@@ -367,7 +367,7 @@ describe('Plants in this Design', () => {
       consortiums: [
         { target: { kind: 'species', canonical_name: 'Malus domestica' }, stratum: 'high', start_phase: 0, end_phase: 2 },
       ],
-      extra: { plant_display: { color_by: 'stratum' } },
+      plant_display: { color_by: 'stratum' },
     }), null, 'Display')
     readPlanningViewState().plantsDisplayOpen.value = true
     await act(() => render(<SpeciesKeyPanel />, container))
@@ -382,14 +382,14 @@ describe('Plants in this Design', () => {
       high.value = '#112233'
       high.dispatchEvent(new Event('input', { bubbles: true }))
     })
-    expect(currentDesign.value?.extra?.plant_display).toMatchObject({ stratum_colors: { high: '#112233' } })
+    expect(currentDesign.value?.plant_display).toMatchObject({ stratum_colors: { high: '#112233' } })
     expect(glyphColor('Pommier cultivé')).toBe(rgb('#112233'))
     expect(glyphColor('Menthe verte')).toBe(rgb(NO_STRATUM_DISPLAY_COLOR))
     expect(setPlantColorForSpecies).not.toHaveBeenCalled()
     expect(queries.getSceneSnapshot().plants.every((plant) => plant.color === '#3e8e4e')).toBe(true)
 
     await act(() => buttonNamed('Reset stratum colors').click())
-    expect(currentDesign.value?.extra?.plant_display).not.toHaveProperty('stratum_colors')
+    expect(currentDesign.value?.plant_display).not.toHaveProperty('stratum_colors')
     expect(glyphColor('Pommier cultivé')).toBe(rgb(STRATUM_DISPLAY_COLORS.high))
   })
 
@@ -403,12 +403,12 @@ describe('Plants in this Design', () => {
       size.value = '150'
       size.dispatchEvent(new Event('input', { bubbles: true }))
     })
-    expect(currentDesign.value?.extra?.plant_display).toMatchObject({ symbol_scale: 1.5 })
+    expect(currentDesign.value?.plant_display).toMatchObject({ symbol_scale: 1.5 })
 
     const outline = switchNamed('Outline')
     expect(outline.checked).toBe(true)
     await act(() => outline.click())
-    expect(currentDesign.value?.extra?.plant_display).toMatchObject({ outline: false })
+    expect(currentDesign.value?.plant_display).toMatchObject({ outline: false })
 
     const soften = switchNamed('Soften background')
     expect(soften.checked).toBe(false)
@@ -549,7 +549,7 @@ function placedPlant(plant: typeof plants[number]): PlacedPlant {
     color: null,
     position: { lon: 0, lat: 0 },
     rotation: null,
-    scale: null,
+    canopy_spread_m: null,
     notes: null,
     planted_date: null,
     quantity: 1,

@@ -72,7 +72,7 @@ function currentDesign(overrides: Partial<CanopiFile> = {}): CanopiFile {
 function plant(id: string, position: { lon: number; lat: number }): CanopiFile['plants'][number] {
   return {
     id, locked: false, canonical_name: 'Malus domestica', common_name: null, color: null,
-    pinned_name: false, position, rotation: null, scale: null, notes: null, planted_date: null, quantity: null,
+    pinned_name: false, position, rotation: null, canopy_spread_m: null, notes: null, planted_date: null, quantity: null,
   }
 }
 

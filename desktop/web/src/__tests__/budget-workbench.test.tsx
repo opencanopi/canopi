@@ -48,7 +48,7 @@ function makePlant(canonicalName: string, commonName: string): PlacedPlant {
     color: null,
     position: { lon: 13, lat: 23 },
     rotation: null,
-    scale: null,
+    canopy_spread_m: null,
     notes: null,
     planted_date: null,
     quantity: 1,
@@ -111,7 +111,7 @@ describe('Budget Item workbench', () => {
     await act(async () => {
       priceInput('Pear').dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
     })
-    expect(currentDesign.value?.budget[0]).toMatchObject({ description: 'Pyrus communis', unit_cost: 12 })
+    expect(currentDesign.value?.budget[0]).toMatchObject({ target: speciesBudgetTarget('Pyrus communis'), unit_cost: 12 })
   })
 
   it('labels each unit cost field and commits a zero price on blur', async () => {
@@ -125,10 +125,10 @@ describe('Budget Item workbench', () => {
 
     expect(currentDesign.value?.budget).toHaveLength(1)
     expect(currentDesign.value?.budget[0]).toMatchObject({
-      description: 'Malus domestica',
+      target: speciesBudgetTarget('Malus domestica'),
       unit_cost: 0,
-      currency: 'EUR',
     })
+    expect(currentDesign.value?.budget_currency).toBe('EUR')
     expect(priceInput('Apple').value).toBe('0.00')
     expect(container.textContent).toContain('€0.00')
   })
@@ -136,7 +136,7 @@ describe('Budget Item workbench', () => {
   it('shows and accepts locale decimals in French', async () => {
     locale.value = 'fr'
     designSessionFixture.file = makeDesign({
-      budget: [{ target: speciesBudgetTarget('Malus domestica'), category: 'plants', description: 'Malus domestica', quantity: 0, unit_cost: 3.9, currency: 'EUR' }],
+      budget: [{ target: speciesBudgetTarget('Malus domestica'), unit_cost: 3.9 }],
     })
     await act(async () => { render(<BudgetPanel />, container) })
 
@@ -152,7 +152,7 @@ describe('Budget Item workbench', () => {
 
   it('keeps a price with more than two decimals when the field is only focused and left', async () => {
     designSessionFixture.file = makeDesign({
-      budget: [{ target: speciesBudgetTarget('Malus domestica'), category: 'plants', description: 'Malus domestica', quantity: 0, unit_cost: 0.125, currency: 'EUR' }],
+      budget: [{ target: speciesBudgetTarget('Malus domestica'), unit_cost: 0.125 }],
     })
     await act(async () => { render(<BudgetPanel />, container) })
     const designBefore = currentDesign.value
@@ -241,7 +241,7 @@ describe('Budget Item workbench', () => {
 
   it('finds rows by name or code, filters missing prices and follows the map selection', async () => {
     designSessionFixture.file = makeDesign({
-      budget: [{ target: speciesBudgetTarget('Malus domestica'), category: 'plants', description: 'Malus domestica', quantity: 0, unit_cost: 5, currency: 'EUR' }],
+      budget: [{ target: speciesBudgetTarget('Malus domestica'), unit_cost: 5 }],
     })
     const queries = createTestCanvasQuerySurface({
       plants: [

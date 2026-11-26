@@ -16,7 +16,7 @@ use canopi_types::design::{
     RecentDesignPreview, RecentDesignSummary, RecentDesignUnreadableReason,
 };
 
-use crate::design::format::{self, DesignLoadError, OpenedDesign};
+use crate::design::format::{self, DesignLoadError};
 
 /// Files larger than this are not read for a preview; the row shows the name only.
 pub(crate) const RECENT_PREVIEW_MAX_BYTES: u64 = 16 * 1024 * 1024;
@@ -105,7 +105,7 @@ fn read_preview(path: &Path, len: u64) -> (RecentDesignPreview, bool) {
         return too_large(path, len);
     }
     match format::open_within(path, RECENT_PREVIEW_MAX_BYTES) {
-        Ok(OpenedDesign::Editable(file)) => (crate::design::preview::preview_of(&file), true),
+        Ok(file) => (crate::design::preview::preview_of(&file), true),
         // The file grew past the cap after its size was read.
         Err(DesignLoadError::TooLarge { .. }) => too_large(path, len),
         Err(error) => refused(error),
@@ -115,13 +115,8 @@ fn read_preview(path: &Path, len: u64) -> (RecentDesignPreview, bool) {
 /// The row of a file Open refuses, saying why as Open says, and whether it may be cached.
 fn refused(error: DesignLoadError) -> (RecentDesignPreview, bool) {
     match error {
-        // Larger than Open reads: Open refuses it as too large, so it is never read-only.
-        DesignLoadError::TooLarge { .. } => (
-            RecentDesignPreview::TooLarge {
-                saved_by_newer: false,
-            },
-            true,
-        ),
+        // Larger than Open reads: Open refuses it as too large.
+        DesignLoadError::TooLarge { .. } => (RecentDesignPreview::TooLarge, true),
         DesignLoadError::Read { source, .. } => {
             tracing::warn!("A Recent Design could not be read for its preview");
             (unreadable(io_reason(&source)), false)
@@ -151,14 +146,7 @@ fn refused(error: DesignLoadError) -> (RecentDesignPreview, bool) {
 /// in one sequential read, so a current Design is never parsed whole; a newer one is refused
 /// as newer (2.1-Q347). One larger than Open reads is refused by Open as too large.
 fn too_large(path: &Path, len: u64) -> (RecentDesignPreview, bool) {
-    let name_only = || {
-        (
-            RecentDesignPreview::TooLarge {
-                saved_by_newer: false,
-            },
-            true,
-        )
-    };
+    let name_only = || (RecentDesignPreview::TooLarge, true);
     if len > format::MAX_CANOPI_FILE_BYTES {
         return name_only();
     }
@@ -189,13 +177,14 @@ fn io_reason(error: &std::io::Error) -> RecentDesignUnreadableReason {
 mod tests {
     use super::*;
     use crate::test_scratch::TestScratch;
-    use canopi_types::design::{CURRENT_CANOPI_FILE_VERSION, CanopiFile};
+    use canopi_types::design::CURRENT_CANOPI_FILE_VERSION;
+    use canopi_types::design::v10::CanopiFileV10;
 
     fn scratch(label: &str) -> TestScratch {
         TestScratch::new(&format!("recent-previews-{label}"))
     }
 
-    fn with_plants(count: usize) -> CanopiFile {
+    fn with_plants(count: usize) -> CanopiFileV10 {
         let mut file = format::create_new_design("Orchard", "2026-09-27T00:00:00Z");
         file.plants = (0..count)
             .map(|index| {
@@ -210,7 +199,7 @@ mod tests {
         file
     }
 
-    fn write(path: &Path, file: &CanopiFile) {
+    fn write(path: &Path, file: &CanopiFileV10) {
         std::fs::write(path, format::encode_design(file).unwrap()).unwrap();
     }
 
@@ -360,12 +349,7 @@ mod tests {
         let previews = RecentDesignPreviews::default();
 
         let result = previews.previews(&[path.to_string_lossy().into_owned()]);
-        assert_eq!(
-            result[0].preview,
-            RecentDesignPreview::TooLarge {
-                saved_by_newer: false
-            }
-        );
+        assert_eq!(result[0].preview, RecentDesignPreview::TooLarge);
     }
 
     /// canopi-f47t.52.270 (2.1-Q347): at v10 cutover, a newer Design (v11+) over the preview cap
@@ -424,12 +408,7 @@ mod tests {
             result[2].preview,
             unreadable(RecentDesignUnreadableReason::NewerVersion)
         );
-        assert_eq!(
-            result[3].preview,
-            RecentDesignPreview::TooLarge {
-                saved_by_newer: false
-            }
-        );
+        assert_eq!(result[3].preview, RecentDesignPreview::TooLarge);
     }
 
     #[test]

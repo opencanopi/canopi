@@ -130,12 +130,14 @@ fn a_view_without_its_ground_size_is_refused() {
 }
 
 #[test]
-fn an_older_extent_record_is_dropped_on_load() {
+fn unknown_saved_view_fields_are_preserved_on_round_trip() {
+    // 2.1-Q69: v10 preserves unknown nested keys (including legacy `extent` or future view keys).
     let mut value = view_value(camera(2.0, 48.0, 17.0, 0.0));
-    value["extent"] = json!({ "west": 1.99, "south": 47.995, "east": 2.01, "north": 48.005 });
+    let extent = json!({ "west": 1.99, "south": 47.995, "east": 2.01, "north": 48.005 });
+    value["extent"] = extent.clone();
     let view: SavedView = serde_json::from_value(value).expect("view should parse");
     let written = serde_json::to_value(&view).expect("serialize");
-    assert!(written.get("extent").is_none(), "{written}");
+    assert_eq!(written.get("extent"), Some(&extent), "{written}");
 }
 
 #[test]

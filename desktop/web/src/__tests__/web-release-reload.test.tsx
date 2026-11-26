@@ -22,6 +22,7 @@ import { reloadWebForRelease } from '../editions/web/web-session'
 import { installReleaseNotice, presentBrowserGeoJsonNotice, raiseEarlierDataNotice } from '../web/browser-notices'
 import { raiseNotice, resetNoticesForTests } from '../failures/notices'
 import { editDesignSessionForTest } from './support/design-session-edit'
+import { createTestDesignCore } from './support/design-wire'
 import { projectBrowserShellForTest } from './support/browser-shell-projection'
 
 // Reload for a waiting Web release (2.1-Q83, Q188, Q189, M179; Step 2.0.3 serving chunk 2): the session's
@@ -66,7 +67,7 @@ function tab(storage: MemoryStorage, session: MemoryStorage = memoryStorage()) {
     designHome,
     fileAccess: browserFileAccessPort,
     lifecycle: browserAppLifecyclePort,
-    codec: createJsonSessionCodec(),
+    codec: createJsonSessionCodec({ designCore: createTestDesignCore() }),
     settings: {
       readLastOpenHome: async () => null,
       writeLastOpenHome: async () => {},

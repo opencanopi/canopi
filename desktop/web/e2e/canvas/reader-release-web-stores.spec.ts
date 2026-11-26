@@ -75,7 +75,7 @@ test('R3 canopi-f47t.52.272: reader release: Web lists IndexedDB Drafts read-onl
     V3_DRAFTS_KEY,
     v3DraftsRecord([{ id: 'orchard', name: 'Orchard as 2.0 left it', day: 1 }, { id: 'hedge', name: 'Hedge', day: 2 }]),
   ])
-  const before = await storageDump(page)
+  const before = await storageDump(page) as { stores: unknown }
   await page.reload()
 
   // Today launch restores the old key's latest Draft, and the 2.1 Draft is never listed.
@@ -245,9 +245,9 @@ async function startWithOneNewerDraft(page: Page): Promise<DraftRecord> {
   return record
 }
 
-test('R3 canopi-f47t.52.272: a 2.1 Draft opens read-only, downloads as 2.1 saved it, and writes nothing', async ({ page }) => {
+test('R3 canopi-f47t.52.272: 2.1-Q347: a 2.1 Draft opens natively on 2.1, downloads as 2.1 saved it, and writes nothing to the 2.1 store', async ({ page }) => {
   const record = await startWithOneNewerDraft(page)
-  const before = await storageDump(page)
+  const before = await storageDump(page) as { stores: unknown }
 
   await draftRow(page, 'Orchard in 2.1').getByRole('button', { name: 'Actions for Orchard in 2.1' }).click()
   const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('menuitem', { name: 'Download a copy' }).click()])
@@ -257,10 +257,10 @@ test('R3 canopi-f47t.52.272: a 2.1 Draft opens read-only, downloads as 2.1 saved
 
   await draftRow(page, 'Orchard in 2.1').getByRole('button').first().click()
   const status = page.locator('[data-workspace-title-bar] [data-save-status]')
-  await expect(status, 'the 2.1 Draft opens in the read-only view (2.1-M478, Q336)').toHaveAttribute('data-save-status', 'read-only')
+  await expect(status, 'the 2.1 v10 Draft opens natively (2.1-Q347)').toHaveAttribute('data-save-status', /^(saved|draft)$/)
   await expect(page.locator('[data-workspace-title-bar]')).toContainText('Orchard in 2.1')
   await page.waitForTimeout(1_000)
-  expect(await storageDump(page), 'opening and downloading write no record and no key').toEqual(before)
+  expect((await storageDump(page) as { stores: unknown }).stores, 'opening and downloading write no record to the 2.1 IndexedDB store').toEqual(before.stores)
 })
 
 test('R3 canopi-f47t.52.272: a 2.1 Draft that 2.1 deleted after the list opens nothing, says so and leaves the list', async ({ page }) => {

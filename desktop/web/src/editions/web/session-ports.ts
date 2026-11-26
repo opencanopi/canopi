@@ -3,11 +3,10 @@
  * `browserAppDataStore` (2.1-M526, #497 N4, `no-cancelled-literal`, ADR 0024, ADR 0025; contracts §4, §22).
  */
 import {
+  flattenDocumentForJson,
   isCurrentCanopiDocument,
   normalizeLoadedDocument,
   parseCanopiJsonText,
-  sessionCanopiFileToV10,
-  v10ToSessionCanopiFile,
 } from '../../app/contracts/document'
 import type { AppLifecyclePort, LifecycleEvent } from '../../platform/app-lifecycle'
 import type {
@@ -56,7 +55,7 @@ function nextMonotonicTimestamp(now: Date, previous: HomeVersion | null): string
 
 export interface BrowserSessionHomeStore extends DesignHomeStore {
   /** Synchronous Draft flush for `beforeunload` (WEB-03); advances the expected version for this tab's next async write. */
-  flushDraftSync(key: string, file: Parameters<typeof sessionCanopiFileToV10>[0], expected: HomeVersion | null): boolean
+  flushDraftSync(key: string, file: Parameters<typeof flattenDocumentForJson>[0], expected: HomeVersion | null): boolean
 }
 
 export function createBrowserSessionHomeStore(
@@ -73,16 +72,15 @@ export function createBrowserSessionHomeStore(
   }
 
   return {
-    flushDraftSync(key: string, file: Parameters<typeof sessionCanopiFileToV10>[0], expected: HomeVersion | null): boolean {
+    flushDraftSync(key: string, file: Parameters<typeof flattenDocumentForJson>[0], expected: HomeVersion | null): boolean {
       try {
         const alias = syncAliases.get(key)
         const effectiveExpected = alias && alias.from === expected ? alias.to : expected
-        const raw = parseCanopiJsonText(JSON.stringify(sessionCanopiFileToV10(file)))
-        if (!isCurrentCanopiDocument(raw)) return false
-        const decoded = v10ToSessionCanopiFile(raw)
+        const wire = flattenDocumentForJson(file)
+        if (!isCurrentCanopiDocument(wire)) return false
         const result = appDataStore.saveDraft({
           id: key,
-          file: decoded,
+          file: normalizeLoadedDocument(wire),
           now: nextMonotonicTimestamp(now(), effectiveExpected),
           expectedUpdatedAt: effectiveExpected,
         })
@@ -97,7 +95,8 @@ export function createBrowserSessionHomeStore(
     async read(key: string): Promise<HomeRead> {
       const file = appDataStore.loadDraft(key)
       if (!file) return { kind: 'absent' }
-      const bytes = Array.from(encoder.encode(JSON.stringify(sessionCanopiFileToV10(file))))
+      // Stored Drafts (v9 or v10) reach DesignCore untouched so chain.rs runs the single v9 -> v10 step.
+      const bytes = Array.from(encoder.encode(JSON.stringify(flattenDocumentForJson(file))))
       const version = readUpdatedAt(key) ?? ''
       return { kind: 'present', bytes, version }
     },
@@ -111,7 +110,7 @@ export function createBrowserSessionHomeStore(
             failure: { code: { kind: 'invalid' }, user_may_retry: false, op: 'web.draft.write', operation: null, detail: null },
           }
         }
-        file = v10ToSessionCanopiFile(raw)
+        file = normalizeLoadedDocument(raw)
       } catch {
         // Invalid or non-current .canopi bytes cannot be written to browser draft storage.
         return {
@@ -123,7 +122,7 @@ export function createBrowserSessionHomeStore(
       const effectiveExpected = alias && alias.from === expected ? alias.to : expected
       const result = appDataStore.saveDraft({
         id: key,
-        file: normalizeLoadedDocument(file),
+        file,
         now: nextMonotonicTimestamp(now(), effectiveExpected),
         expectedUpdatedAt: effectiveExpected,
       })
@@ -148,7 +147,7 @@ export function createBrowserSessionHomeStore(
         return {
           id: draft.id as DraftId,
           updatedAt: draft.updatedAt,
-          bytes: file ? encoder.encode(JSON.stringify(sessionCanopiFileToV10(file))) : null,
+          bytes: file ? encoder.encode(JSON.stringify(flattenDocumentForJson(file))) : null,
         }
       })
     },

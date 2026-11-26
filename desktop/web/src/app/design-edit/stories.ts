@@ -168,9 +168,11 @@ export function moveStoryStepToStory(fromStoryId: string, stepId: string, toStor
     if (from === -1 || to === -1 || !step) return stories
     // Step ids are unique within a story; the moved step keeps its id when it can.
     const id = stories[to]!.steps.some((entry) => entry.id === step.id) ? newStepId : step.id
+    const fromStory = stories[from]!
+    const toStory = stories[to]!
     const copy = [...stories]
-    copy[from] = { ...stories[from]!, steps: stories[from]!.steps.filter((entry) => entry.id !== stepId) }
-    copy[to] = { ...stories[to]!, steps: [...stories[to]!.steps, { ...step, id }] }
+    copy[from] = { ...fromStory, steps: fromStory.steps.filter((entry) => entry.id !== stepId) }
+    copy[to] = { ...toStory, steps: [...toStory.steps, { ...step, id }] }
     return copy
   })
 }

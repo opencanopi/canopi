@@ -6,7 +6,7 @@ import {
 } from './support/design-session-state'
 import { moveConsortiumEntry } from '../app/design-edit'
 import { consortiumTarget } from '../target'
-import type { Consortium } from '../generated/contracts'
+import type { Consortium } from '../types/design'
 
 function consortium(canonicalName: string, overrides: Partial<Omit<Consortium, 'target'>> = {}): Consortium {
   return {
@@ -32,7 +32,7 @@ beforeEach(() => {
       color: null,
       position: { lon: 13, lat: 23 },
       rotation: null,
-      scale: null,
+      canopy_spread_m: null,
       notes: null,
       planted_date: null,
       quantity: null,

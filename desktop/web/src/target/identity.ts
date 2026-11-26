@@ -48,10 +48,6 @@ export function speciesTarget(canonicalName: string): SpeciesTarget {
   return { kind: 'species', canonical_name: canonicalName }
 }
 
-export function isSpeciesTarget(target: Target): target is SpeciesTarget {
-  return target.kind === 'species'
-}
-
 function targetKey(target: Target): string {
   switch (target.kind) {
     case 'placed_plant':

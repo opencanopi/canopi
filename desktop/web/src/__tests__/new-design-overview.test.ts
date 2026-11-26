@@ -37,7 +37,7 @@ const SITE = { lon: -1.5536, lat: 47.2184 }
 function previousSiteDesign(): CanopiFile {
   return design('Previous', [{
     id: 'apple', locked: false, canonical_name: 'Malus domestica', common_name: null, color: null,
-    pinned_name: false, position: SITE, rotation: null, scale: null, notes: null,
+    pinned_name: false, position: SITE, rotation: null, canopy_spread_m: null, notes: null,
     planted_date: null, quantity: null,
   }])
 }

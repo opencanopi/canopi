@@ -2,7 +2,8 @@ import { groupPlantsBySpecies } from '../../canvas/plant-grouping'
 import type { PlantSymbolId } from '../../canvas/runtime/scene'
 import { isEnglishFallbackName, type SpeciesKeyEntry } from '../../canvas/runtime/species-key'
 import { getBudgetHoverTarget, getBudgetSpeciesTarget } from '../../target'
-import type { BudgetItem, PanelTarget, PlacedPlant } from '../../generated/contracts'
+import type { PanelTarget } from '../../generated/contracts'
+import type { BudgetItem, PlacedPlant } from '../../types/design'
 import type { BudgetSort } from '../planning-view/state'
 
 export interface BudgetPlanningRow {
@@ -63,9 +64,12 @@ export function buildBudgetPlanningProjection({
     const target = getBudgetSpeciesTarget(item)
     if (!target) continue
     itemByCanonical.set(target.canonical_name, item)
+    const itemCurrency = typeof item.ext?.currency === 'string' && item.ext.currency.length > 0
+      ? item.ext.currency
+      : currency
     lineItemPriceMap.set(target.canonical_name, {
       unit_cost: item.unit_cost,
-      currency: item.currency,
+      currency: itemCurrency,
     })
   }
 

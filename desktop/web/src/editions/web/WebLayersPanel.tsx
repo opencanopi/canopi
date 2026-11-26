@@ -16,7 +16,7 @@ const WEB_REFERENCE_ROWS: ReadonlySet<string> = new Set(['basemap', 'satellite',
 export function WebLayersPanel() {
   const rows = readCanvasLayerPresentation(readCurrentCanvasLayerStatuses()).rows.filter((row) =>
     row.authority === 'scene' || WEB_REFERENCE_ROWS.has(row.id))
-  const count = currentDesign.value?.lidar?.entries.length ?? 0
+  const count = currentDesign.value?.site_data?.entries.length ?? 0
   const actions = {
     ...LAYER_PANEL_ACTIONS,
     openSatelliteSettings: () => openSettingsDialog({ section: 'map' }),

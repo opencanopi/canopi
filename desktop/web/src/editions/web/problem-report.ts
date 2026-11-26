@@ -115,7 +115,7 @@ export interface BrowserReportReaders {
   readonly build: () => Record<string, unknown>
   readonly health: () => unknown
   readonly settings: () => unknown
-  readonly currentDesign: () => string | null
+  readonly currentDesign: () => string | null | Promise<string | null>
 }
 
 export function createBrowserProblemReportWriter(readers: BrowserReportReaders): BrowserProblemReportWriter {

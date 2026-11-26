@@ -5,7 +5,12 @@ import { bootstrapShell, type ShellBootstrap } from "../../app/shell/bootstrap";
 import { registerCloseGuard, waitForCloseHold, type CloseGuardLifetime } from "../../app/shell/close-guard";
 import { disposeLidarWorkflow, installLidarWorkflow } from "../../app/data-library/workflow";
 import { disposeLidarDisplayDescriptors, installLidarDisplayDescriptors } from "../../app/data-library/display";
-import { createJsonSessionCodec, createSessionCore, installLiveSessionCore, v10ToSessionCanopiFile } from "../../app/document-session/live-core";
+import {
+  createJsonSessionCodec,
+  createSessionCore,
+  installLiveSessionCore,
+  normalizeLoadedDocument,
+} from "../../app/document-session/live-core";
 import { withNewDesignDisplay } from "../../app/settings/new-design-defaults";
 import { installConsortiumSync } from "../../app/consortium/workflow";
 import { installLaunchFile } from "../../app/document-session/launch-file";
@@ -124,11 +129,11 @@ export function bootDesktopEdition(): () => void {
         plant_display: null,
         created_at: new Date().toISOString(),
       });
-      const projected = v10ToSessionCanopiFile(created);
-      if (projected.layers.length === 0) {
-        projected.layers = NEW_DESIGN_LAYER_DEFAULTS.map((layer) => ({ ...layer }));
+      const normalized = normalizeLoadedDocument(created);
+      if (normalized.layers.length === 0) {
+        normalized.layers = NEW_DESIGN_LAYER_DEFAULTS.map((layer) => ({ ...layer }));
       }
-      return projected;
+      return normalized;
     },
   });
   const closeGuardLifetime: CloseGuardLifetime = registerCloseGuard();

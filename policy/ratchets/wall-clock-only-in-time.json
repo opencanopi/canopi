@@ -5,7 +5,6 @@
     "desktop/src/commands/problem_report.rs": { "count": 2, "bead": "canopi-f47t.52.190" },
     "desktop/src/db/mod.rs": { "count": 2, "bead": "canopi-f47t.52.190" },
     "desktop/src/design/drafts.rs": { "count": 1, "bead": "canopi-f47t.52.190" },
-    "desktop/src/services/design_files.rs": { "count": 2, "bead": "canopi-f47t.52.190" },
     "desktop/src/services/lidar/catalogue.rs": { "count": 4, "bead": "canopi-f47t.52.190" },
     "desktop/src/services/lidar/process.rs": { "count": 2, "bead": "canopi-f47t.52.190" },
     "desktop/src/services/lidar/recovery.rs": { "count": 2, "bead": "canopi-f47t.52.190" }

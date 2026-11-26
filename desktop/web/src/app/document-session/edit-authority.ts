@@ -41,7 +41,8 @@ function buildDocumentPatch(
   const patch: Record<string, unknown> = {}
   let changed = false
 
-  for (const key of Object.keys(nextRecord)) {
+  const keys = new Set([...Object.keys(prevRecord), ...Object.keys(nextRecord)])
+  for (const key of keys) {
     if (prevRecord[key] === nextRecord[key]) continue
     if (SCENE_OWNER_KEYS.has(key)) {
       if (import.meta.env.DEV) {

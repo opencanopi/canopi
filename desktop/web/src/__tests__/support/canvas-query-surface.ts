@@ -11,7 +11,7 @@ import type {
   CanvasQuerySurface,
 } from '../../canvas/runtime/runtime'
 import type { PointerWorld } from '../../canvas/runtime/interaction-ports'
-import type { PlacedPlant } from '../../generated/contracts'
+import type { PlacedPlant } from '../../types/design'
 import type { SpeciesCacheEntry } from '../../canvas/runtime/presentation-data'
 import { createViewReadSurface } from '../../geo/view/frame-source'
 import type { ViewReadSurface } from '../../geo/view/read-surface'

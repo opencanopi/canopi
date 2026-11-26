@@ -77,7 +77,7 @@ export function composeSavedObjectStampCanopiFile({
       pinned_name: false,
       position: serializeGeoPoint(plane, plant.position),
       rotation: plant.rotationDeg,
-      scale: plant.scale,
+      canopy_spread_m: plant.scale,
       notes: null,
       planted_date: null,
       quantity: null,
@@ -140,7 +140,7 @@ export function savedObjectStampPayloadFromCanopiFile(
           symbol: resolvePlantSymbolId(plant.symbol ?? file.plant_species_symbols?.[plant.canonical_name]),
           position: hydrateGeoPoint(plane, plant.position),
           rotationDeg: plant.rotation,
-          scale: plant.scale,
+          scale: plant.canopy_spread_m,
         }
       })
     : []
@@ -191,6 +191,7 @@ export function savedObjectStampPayloadFromCanopiFile(
         name: group.name,
         members: group.members
           .map((member) => {
+            if (member.kind === 'measurement_guide') return null
             const id = idMap.get(memberKey(member))
             return id ? { kind: member.kind, id } : null
           })

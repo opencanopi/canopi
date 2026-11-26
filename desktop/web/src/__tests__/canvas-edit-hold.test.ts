@@ -218,7 +218,7 @@ describe('Edit › Lock and Unlock follow the Scene', () => {
       layers: [],
       plants: [{
         id: 'plant-1', canonical_name: 'Malus domestica', common_name: null, color: null, position: { lon: 0, lat: 0 },
-        rotation: null, scale: null, notes: null, planted_date: null, quantity: 1, locked: false,
+        rotation: null, canopy_spread_m: null, notes: null, planted_date: null, quantity: 1, locked: false,
       }],
       zones: [],
       annotations: [],

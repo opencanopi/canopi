@@ -1,4 +1,4 @@
-import type { PlacedPlant } from '../generated/contracts'
+import type { PlacedPlant } from '../types/design'
 
 /**
  * Group placed plants by canonical name, resolving display names through

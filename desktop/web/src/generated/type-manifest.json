@@ -171,6 +171,11 @@
         "name": "rotation",
         "flatten": false,
         "skip": false
+      },
+      {
+        "name": "extra",
+        "flatten": true,
+        "skip": true
       }
     ]
   },
@@ -281,6 +286,11 @@
         "name": "currency",
         "flatten": false,
         "skip": false
+      },
+      {
+        "name": "extra",
+        "flatten": true,
+        "skip": true
       }
     ]
   },
@@ -621,6 +631,11 @@
         "name": "end_phase",
         "flatten": false,
         "skip": false
+      },
+      {
+        "name": "extra",
+        "flatten": true,
+        "skip": true
       }
     ]
   },
@@ -1121,6 +1136,11 @@
         "name": "lat",
         "flatten": false,
         "skip": false
+      },
+      {
+        "name": "extra",
+        "flatten": true,
+        "skip": true
       }
     ]
   },
@@ -1206,6 +1226,11 @@
         "name": "opacity",
         "flatten": false,
         "skip": false
+      },
+      {
+        "name": "extra",
+        "flatten": true,
+        "skip": true
       }
     ]
   },
@@ -1736,6 +1761,11 @@
         "name": "range",
         "flatten": false,
         "skip": false
+      },
+      {
+        "name": "extra",
+        "flatten": true,
+        "skip": true
       }
     ]
   },
@@ -1751,6 +1781,11 @@
         "name": "entries",
         "flatten": false,
         "skip": false
+      },
+      {
+        "name": "extra",
+        "flatten": true,
+        "skip": true
       }
     ]
   },
@@ -1801,6 +1836,11 @@
         "name": "fingerprint",
         "flatten": false,
         "skip": false
+      },
+      {
+        "name": "migrated_from",
+        "flatten": false,
+        "skip": false
       }
     ]
   },
@@ -1826,6 +1866,11 @@
         "name": "end",
         "flatten": false,
         "skip": false
+      },
+      {
+        "name": "extra",
+        "flatten": true,
+        "skip": true
       }
     ]
   },
@@ -1901,6 +1946,11 @@
         "name": "members",
         "flatten": false,
         "skip": false
+      },
+      {
+        "name": "extra",
+        "flatten": true,
+        "skip": true
       }
     ]
   },
@@ -2041,6 +2091,11 @@
         "name": "quantity",
         "flatten": false,
         "skip": false
+      },
+      {
+        "name": "extra",
+        "flatten": true,
+        "skip": true
       }
     ]
   },
@@ -2485,21 +2540,6 @@
     ]
   },
   {
-    "name": "ReadOnlyDesign",
-    "fields": [
-      {
-        "name": "view",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "saved_by_version",
-        "flatten": false,
-        "skip": false
-      }
-    ]
-  },
-  {
     "name": "RecentDesignSummary",
     "fields": [
       {
@@ -2831,6 +2871,11 @@
         "name": "labels",
         "flatten": false,
         "skip": false
+      },
+      {
+        "name": "extra",
+        "flatten": true,
+        "skip": true
       }
     ]
   },
@@ -2861,6 +2906,11 @@
         "name": "ground_size_m",
         "flatten": false,
         "skip": false
+      },
+      {
+        "name": "extra",
+        "flatten": true,
+        "skip": true
       }
     ]
   },
@@ -4746,6 +4796,11 @@
         "name": "steps",
         "flatten": false,
         "skip": false
+      },
+      {
+        "name": "extra",
+        "flatten": true,
+        "skip": true
       }
     ]
   },
@@ -4811,6 +4866,11 @@
         "name": "images",
         "flatten": false,
         "skip": false
+      },
+      {
+        "name": "extra",
+        "flatten": true,
+        "skip": true
       }
     ]
   },
@@ -4918,6 +4978,11 @@
         "skip": false
       },
       {
+        "name": "offset_days",
+        "flatten": false,
+        "skip": false
+      },
+      {
         "name": "completed",
         "flatten": false,
         "skip": false
@@ -4926,6 +4991,11 @@
         "name": "order",
         "flatten": false,
         "skip": false
+      },
+      {
+        "name": "extra",
+        "flatten": true,
+        "skip": true
       }
     ]
   },
@@ -5093,9 +5163,24 @@
         "skip": false
       },
       {
+        "name": "stroke_color",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "opacity",
+        "flatten": false,
+        "skip": false
+      },
+      {
         "name": "notes",
         "flatten": false,
         "skip": false
+      },
+      {
+        "name": "extra",
+        "flatten": true,
+        "skip": true
       }
     ]
   },

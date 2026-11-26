@@ -596,7 +596,7 @@ describe('command registry canvas tool switching', () => {
     const resetNorth = vi.fn()
     mountCanvasCommandSurface({ viewport: { resetNorth } })
     const keyDown = (target: EventTarget) => pressKey({ key: 'L', shiftKey: true }, target).defaultPrevented
-    const labels = () => (currentDesign.value?.extra?.plant_display as { labels?: string } | undefined)?.labels ?? 'names'
+    const labels = () => currentDesign.value?.plant_display?.labels ?? 'names'
 
     expect(keyDown(document.body)).toBe(true)
     expect(labels()).toBe('none')
@@ -624,7 +624,7 @@ describe('command registry canvas tool switching', () => {
     const keyDown = (init: KeyboardEventInit) => pressKey(init).defaultPrevented
     const toolShortcut = () => flattenMenuActions(menus()).find((entry) => entry.id === 'canvas.tool.polygon')!.shortcut
     const fitShortcut = () => flattenMenuActions(menus()).find((entry) => entry.id === 'view.fitToDesign')!.shortcut
-    const labels = () => (currentDesign.value?.extra?.plant_display as { labels?: string } | undefined)?.labels ?? 'names'
+    const labels = () => currentDesign.value?.plant_display?.labels ?? 'names'
 
     try {
       expect(toolShortcut()).toBe('Z')

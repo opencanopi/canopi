@@ -2,7 +2,6 @@ import type { ComponentChildren, RefObject } from 'preact'
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'preact/hooks'
 import type { DesignSaveStatus } from '../../app/document-session/live-core'
 import { saveProblem, type SaveConflictSource } from '../../app/document-session/save-problem'
-import type { ReadOnlyOrigin } from '../../app/document-session/store'
 import { t } from '../../i18n'
 import { ControlIcon } from './ControlIcon'
 import styles from './save-status-label.module.css'
@@ -53,13 +52,6 @@ interface SaveStatusLabelProps {
   readonly conflictSource?: SaveConflictSource
   onRetry(): void
   onResolveConflict?(): void
-  /** Why the read-only status is read-only; its popover says so. Absent: a newer Canopi saved it. */
-  readonly readOnlyOrigin?: ReadOnlyOrigin | undefined
-  /**
-   * Update, in the read-only status's popover while a newer Canopi's Design is shown (2.1-Q317, Q336): Desktop checks
-   * for updates, the Web reloads. Absent, or storage not checked: the popover has no action.
-   */
-  onUpdate?(): void
 }
 
 /**
@@ -76,8 +68,6 @@ export function SaveStatusLabel({
   conflictSource,
   onRetry,
   onResolveConflict,
-  readOnlyOrigin = 'newer-version',
-  onUpdate,
 }: SaveStatusLabelProps) {
   // Web (a link-style Draft action) can focus the status itself when its warning leaves under focus.
   const statusRef = useRef<HTMLSpanElement>(null)
@@ -113,7 +103,7 @@ export function SaveStatusLabel({
           <SaveFailureDetails reason={failureReason} onRetry={onRetry} saveElsewhere={saveElsewhere} />
         </>
       )}
-      {status === 'read-only' && <ReadOnlyDesignDetails origin={readOnlyOrigin} onUpdate={onUpdate} keepCopy={saveElsewhere} />}
+      {status === 'read-only' && <ReadOnlyDesignDetails keepCopy={saveElsewhere} />}
       {status === 'conflict' && (
         <>
           <span className={styles.errorText} role="alert"><ControlIcon name="alert" /><span className={styles.label}>{t(conflictSource === 'another-tab' ? 'saveStatus.conflictAnotherTab' : 'saveStatus.conflict')}</span></span>
@@ -269,15 +259,10 @@ function useDetailsPopover() {
   return [open, setOpen, trigger, popover, titleId, descriptionId, close] as const
 }
 
-function ReadOnlyDesignDetails({ origin, onUpdate, keepCopy }: {
-  readonly origin: ReadOnlyOrigin
-  readonly onUpdate: (() => void) | undefined
+function ReadOnlyDesignDetails({ keepCopy }: {
   readonly keepCopy: SaveStatusAction
 }) {
   const [open, setOpen, trigger, popover, titleId, descriptionId, close] = useDetailsPopover()
-  const action = origin === 'newer-version'
-    ? (onUpdate ? { label: t('readOnlyDesign.update'), run: onUpdate } : null)
-    : keepCopy
 
   return (
     <span className={styles.detailsAnchor} data-preserve-overlays="true">
@@ -298,19 +283,17 @@ function ReadOnlyDesignDetails({ origin, onUpdate, keepCopy }: {
           popover={popover}
           titleId={titleId}
           descriptionId={descriptionId}
-          title={t(origin === 'newer-version' ? 'readOnlyDesign.status' : 'readOnlyDesign.label')}
+          title={t('readOnlyDesign.label')}
           onClose={close}
         >
           <p className={styles.popoverText} id={descriptionId}>
-            {t(origin === 'newer-version' ? 'readOnlyDesign.details' : 'webStorage.uncheckedReadOnly')}
+            {t('webStorage.uncheckedReadOnly')}
           </p>
-          {action && (
-            <div className={styles.popoverActions}>
-              <button type="button" className={styles.primary} onClick={() => { close(); action.run() }}>
-                {action.label}
-              </button>
-            </div>
-          )}
+          <div className={styles.popoverActions}>
+            <button type="button" className={styles.primary} onClick={() => { close(); keepCopy.run() }}>
+              {keepCopy.label}
+            </button>
+          </div>
         </StatusPopover>
       )}
     </span>

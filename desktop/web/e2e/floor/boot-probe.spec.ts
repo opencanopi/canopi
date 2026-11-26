@@ -241,16 +241,16 @@ function formatWorker(root: string): string | undefined {
   return readdirSync(assets).find((name) => /^design-core\.worker-[\w-]{16}\.js$/.test(name))
 }
 
-/** The frozen v10 fixture and the read view canopi-format gives for it, as format-core-probe.spec.ts sends them: the
- * worker's one call is `read` (R1-6). CANOPI_FLOOR_FORMAT_SPEC names their directory (default: the repository's, from
- * desktop/web); a working-directory path, since the old runners compile this file without import.meta. */
+/** The canonical v10 fixture and the decode answer canopi-format gives for it: the worker's decode call (`2b-5`,
+ * 2.1-M539). CANOPI_FLOOR_FORMAT_SPEC names their directory (default: the repository's, from desktop/web); a
+ * working-directory path, since the old runners compile this file without import.meta. */
 const FORMAT_SPEC = process.env['CANOPI_FLOOR_FORMAT_SPEC'] ?? '../../canopi-format/spec/v10'
-const PROBE_TEXT = readFileSync(join(FORMAT_SPEC, 'read-fixture.canopi'), 'utf8')
-const EXPECTED_VALUE = { read: JSON.parse(readFileSync(join(FORMAT_SPEC, 'read-expected.json'), 'utf8')) as unknown }
+const PROBE_TEXT = readFileSync(join(FORMAT_SPEC, 'fixture.canopi'), 'utf8')
+const EXPECTED_VALUE = { ok: { design: JSON.parse(readFileSync(join(FORMAT_SPEC, 'expected.json'), 'utf8')) as unknown } }
 
 interface WorkerRun { reply?: { ok?: boolean, value?: string, compiledBy?: string, error?: string, detail?: string }, error?: string, timedOut?: boolean }
 
-/** Starts the module worker at `url`, sends it one read call and settles with its reply, its error or a timeout (ES5). */
+/** Starts the module worker at `url`, sends it one decode call and settles with its reply, its error or a timeout (ES5). */
 function runWorker(page: Page, url: string): Promise<WorkerRun> {
   return page.evaluate(`new Promise(function (resolve) {
     var worker;
@@ -258,7 +258,7 @@ function runWorker(page: Page, url: string): Promise<WorkerRun> {
     var timer = setTimeout(function () { worker.terminate(); resolve({ timedOut: true }); }, 30000);
     worker.onmessage = function (event) { clearTimeout(timer); worker.terminate(); resolve({ reply: event.data }); };
     worker.onerror = function (event) { clearTimeout(timer); worker.terminate(); resolve({ error: 'worker error: ' + (event.message || 'no message') }); };
-    worker.postMessage({ id: 1, call: 'read', text: ${JSON.stringify(PROBE_TEXT)} });
+    worker.postMessage({ id: 1, call: 'decode', text: ${JSON.stringify(PROBE_TEXT)} });
   })`) as Promise<WorkerRun>
 }
 

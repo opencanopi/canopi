@@ -224,7 +224,7 @@
       {
         "id": "lyr-terrain",
         "name": "Terrain",
-        "opacity": 0.800000011920929,
+        "opacity": 0.8,
         "order": 0,
         "ramp": "Terrain",
         "range": {

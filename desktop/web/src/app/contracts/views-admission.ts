@@ -5,7 +5,7 @@ import {
   STORY_IMAGE_MAX_BYTES,
   STORY_IMAGES_MAX_TOTAL_BYTES,
 } from '../../generated/canopi-design-format'
-import type { CanopiFile, RichTextBlock, RichTextSpan, SavedView, Story } from '../../types/design'
+import type { CanopiFile, RichTextBlock, SavedView, Story } from '../../types/design'
 
 /** Mirrors canopi_types::views::validate_map_view: the view a Design was saved with, by the saved-view camera rules. */
 export function mapViewProblem(mapView: SavedView['camera'] | null | undefined): string | null {
@@ -80,9 +80,9 @@ export function isAllowedRichTextLink(link: string): boolean {
 function richTextProblem(blocks: readonly RichTextBlock[], path: string): string | null {
   for (const [blockIndex, block] of blocks.entries()) {
     const problem = block.kind === 'paragraph'
-      ? spansProblem(block.spans, `${path}[${blockIndex}]`)
-      : block.items.reduce<string | null>(
-        (found, item, itemIndex) => found ?? spansProblem(item.spans, `${path}[${blockIndex}].items[${itemIndex}]`),
+      ? spansProblem(block.spans ?? [], `${path}[${blockIndex}]`)
+      : (block.items ?? []).reduce<string | null>(
+        (found, item, itemIndex) => found ?? spansProblem(item.spans ?? [], `${path}[${blockIndex}].items[${itemIndex}]`),
         null,
       )
     if (problem) return problem
@@ -90,7 +90,7 @@ function richTextProblem(blocks: readonly RichTextBlock[], path: string): string
   return null
 }
 
-function spansProblem(spans: readonly RichTextSpan[], path: string): string | null {
+function spansProblem(spans: readonly { readonly link?: string | null }[], path: string): string | null {
   for (const [index, span] of spans.entries()) {
     if (span.link != null && !isAllowedRichTextLink(span.link)) {
       return `${path}.spans[${index}].link: links must be https:, http: or mailto:`

@@ -1,6 +1,7 @@
 use crate::db::UserDb;
 use crate::native_operation::{NativeOperationClass, NativeOperationExecutor};
-use canopi_types::design::{CanopiFile, DesignLoadFailure, DesignLoadFailureKind};
+use canopi_types::design::v10::CanopiFileV10;
+use canopi_types::design::{DesignLoadFailure, DesignLoadFailureKind};
 use canopi_types::saved_object_stamps::SavedObjectStamp;
 use tauri::State;
 
@@ -107,7 +108,7 @@ pub async fn reorder_saved_object_stamps(
 pub async fn export_saved_object_stamp_canopi_file(
     executor: State<'_, NativeOperationExecutor>,
     path: String,
-    content: CanopiFile,
+    content: CanopiFileV10,
 ) -> Result<String, String> {
     executor
         .run(
@@ -124,7 +125,7 @@ pub async fn export_saved_object_stamp_canopi_file(
 pub async fn load_saved_object_stamp_canopi_file(
     executor: State<'_, NativeOperationExecutor>,
     path: String,
-) -> Result<CanopiFile, DesignLoadFailure> {
+) -> Result<CanopiFileV10, DesignLoadFailure> {
     executor
         .run(
             NativeOperationClass::Local,

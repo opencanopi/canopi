@@ -108,7 +108,7 @@ beforeEach(async () => {
     sourceItem('chm', 'MNH · IGN', { resolution_m: 0.5, item_type: { kind: 'Raster', quantity: 'AboveGroundHeight' } }),
   ])
   mockedStore.currentDesign!.value = {
-    lidar: {
+    site_data: {
       visible: true,
       entries: [
         { kind: 'Source', id: 'chm', order: 0 },
@@ -327,7 +327,7 @@ describe('ProfileChart', () => {
   })
 
   it('says what to show with no elevation or height layer shown, and keeps the line', async () => {
-    mockedStore.currentDesign!.value = { lidar: { visible: false, entries: [] } }
+    mockedStore.currentDesign!.value = { site_data: { visible: false, entries: [] } }
     await drawLine()
 
     expect(container.textContent).toContain('Show an elevation or height layer to see its profile')

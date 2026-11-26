@@ -98,8 +98,7 @@ commands! {
     delete_saved_object_stamp => "commands::saved_object_stamps::delete_saved_object_stamp": Async (id: "string") -> "boolean",
     reorder_saved_object_stamps => "commands::saved_object_stamps::reorder_saved_object_stamps": Async (ids: "readonly string[]") -> "SavedObjectStamp[]",
     export_saved_object_stamp_canopi_file => "commands::saved_object_stamps::export_saved_object_stamp_canopi_file": Async (path: "string", content: "Record<string, unknown>") -> "string",
-    load_saved_object_stamp_canopi_file => "commands::saved_object_stamps::load_saved_object_stamp_canopi_file": Async (path: "string") -> "CanopiFile",
-    new_design => "commands::design::new_design": BoundedSync () -> "CanopiFile",
+    load_saved_object_stamp_canopi_file => "commands::saved_object_stamps::load_saved_object_stamp_canopi_file": Async (path: "string") -> "CanopiFileV10",
     get_recent_files => "commands::design::get_recent_files": Async () -> "DesignSummary[]",
     get_recent_design_previews => "commands::design::get_recent_design_previews": Async (paths: "readonly string[]") -> "RecentDesignSummary[]",
     remove_recent_design => "commands::design::remove_recent_design": Async (path: "string") -> "void",
@@ -117,7 +116,7 @@ commands! {
     design_core_canopi_to_stamp => "commands::design_core::design_core_canopi_to_stamp": Async (bytes: "readonly number[]", origin: "GeoPoint") -> "{ ok: SavedObjectStampPayload } | { err: unknown }",
     get_design_notebook => "commands::design_notebook::get_design_notebook": Async () -> "DesignNotebookSnapshot",
     create_notebook_section => "commands::design_notebook::create_notebook_section": Async (name: "string") -> "DesignNotebookSection",
-    add_design_reference_to_notebook => "commands::design_notebook::add_design_reference_to_notebook": Async (path: "string", content: "CanopiFile") -> "void",
+    add_design_reference_to_notebook => "commands::design_notebook::add_design_reference_to_notebook": Async (path: "string", content: "CanopiFileV10") -> "void",
     rename_notebook_section => "commands::design_notebook::rename_notebook_section": Async (sectionId: "string", name: "string") -> "void",
     delete_notebook_section => "commands::design_notebook::delete_notebook_section": Async (sectionId: "string") -> "void",
     move_design_reference_to_section => "commands::design_notebook::move_design_reference_to_section": Async (path: "string", sectionId? opt: "string | null") -> "void",
@@ -183,6 +182,6 @@ mod tests {
                 row.name
             );
         }
-        assert_eq!(names.len(), 89);
+        assert_eq!(names.len(), 88);
     }
 }

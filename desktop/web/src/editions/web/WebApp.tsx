@@ -121,9 +121,6 @@ export function WebApp({
         onResolveSaveConflict={() => {
           void resolveDesignConflict().catch(logWebAppCommandError);
         }}
-        onUpdate={() => {
-          void reloadWebForRelease().catch(logWebAppCommandError);
-        }}
         placeSearch={hasDesign}
         persistence={persistence}
         undo={hasDesign ? workspaceCanvasCommandProjection.value.historyActions.find((action) => action.id === "undo") : undefined}

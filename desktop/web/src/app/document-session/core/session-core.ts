@@ -48,7 +48,6 @@ export function createSessionCore(deps: SessionCoreDeps): SessionCore {
             scene: { kind: 'detached', fields: extractSceneFields(frozenFile) },
             migratedFrom: deps.initialDesign.migratedFrom ?? null,
             readOnly: Boolean(deps.initialDesign.readOnly),
-            savedByVersion: deps.initialDesign.savedByVersion ?? null,
           },
         }
       })()
@@ -206,7 +205,6 @@ export function createSessionCore(deps: SessionCoreDeps): SessionCore {
         : { kind: 'detached', fields: sceneFields },
       migratedFrom: decoded.migratedFrom ?? null,
       readOnly: Boolean(decoded.readOnly),
-      savedByVersion: decoded.savedByVersion ?? null,
     }
 
     // Batch state publish with Scene load so reactive effects never observe nextScope paired with the prior Scene (B6).
@@ -506,6 +504,12 @@ export function createSessionCore(deps: SessionCoreDeps): SessionCore {
     snapshot() {
       const design = getCurrentDesign()
       return design ? composeForWrite(design) : null
+    },
+    async encodeSnapshot() {
+      const design = getCurrentDesign()
+      if (!design) return null
+      const { bytes } = await deps.codec.encode(composeForWrite(design))
+      return bytes
     },
     openFrom,
     createNew,

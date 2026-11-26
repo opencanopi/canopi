@@ -1,7 +1,8 @@
 use crate::db::UserDb;
 use crate::db::user_db::write_refusal;
 use crate::services::design_files::{design_path_availability, partition_by_availability};
-use canopi_types::design::{CanopiFile, DesignNotebookSection, DesignNotebookSnapshot};
+use canopi_types::design::v10::CanopiFileV10;
+use canopi_types::design::{DesignNotebookSection, DesignNotebookSnapshot};
 
 pub fn get_design_notebook(user_db: &UserDb) -> Result<DesignNotebookSnapshot, String> {
     let (entries, sections) = {
@@ -35,7 +36,7 @@ pub fn create_notebook_section(
 pub fn add_design_reference(
     user_db: &UserDb,
     path: &str,
-    design: &CanopiFile,
+    design: &CanopiFileV10,
 ) -> Result<(), String> {
     if path.trim().is_empty() {
         return Err("Design path is required".to_owned());

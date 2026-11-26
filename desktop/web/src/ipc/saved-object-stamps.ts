@@ -1,5 +1,5 @@
 import { invokeTyped, mintOperationId } from './transport'
-import type { CanopiFile } from '../types/design'
+import type { CanopiFileV10 } from '../generated/contracts'
 import type { SavedObjectStamp } from '../types/saved-object-stamps'
 import { pickCancelled, pickOpen, pickSave } from './dialogs'
 
@@ -42,7 +42,7 @@ export async function exportSavedObjectStampCanopiFile(
   }, mintOperationId('u'))
 }
 
-export async function importSavedObjectStampCanopiFile(): Promise<CanopiFile> {
+export async function importSavedObjectStampCanopiFile(): Promise<CanopiFileV10> {
   const outcome = await pickOpen('stamp-import')
   if (outcome.kind === 'cancelled') throw pickCancelled('dialog.pick_open')
   return invokeTyped('load_saved_object_stamp_canopi_file', { path: outcome.paths[0]! }, mintOperationId('u'))

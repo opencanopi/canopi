@@ -74,8 +74,7 @@ export function WelcomeScreen() {
         id: draft.id,
         name: draft.name,
         updatedAt: draft.updated_at,
-        // A newer Draft opens read-only, one the read refuses is listed unreadable; the store deletes neither (2.1-Q316, F7).
-        readOnly: draft.access === 'read_only',
+        // An unreadable Draft is listed unreadable and never deleted here (2.1-Q316, F7).
         unreadable: draft.access === 'unreadable',
         open: () => { void openDesignDraft(draft.id).catch(logWelcomeError) },
         ...((draft.access ?? 'editable') === 'editable'
@@ -97,8 +96,8 @@ export function WelcomeScreen() {
   )
 }
 
-function savedByNewer(preview: RecentDesignPreview | undefined): boolean {
-  return preview?.kind === 'read_only' || (preview?.kind === 'too_large' && preview.saved_by_newer)
+function savedByNewer(_preview: RecentDesignPreview | undefined): boolean {
+  return false
 }
 
 function logWelcomeError(error: unknown): void {

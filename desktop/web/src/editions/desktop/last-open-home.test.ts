@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { DesignSummary, Settings } from '../../generated/contracts'
 import type { CanopiFile } from '../../types/design'
+import { createTestDesignCore } from '../../__tests__/support/design-wire'
 import { createInMemoryDesignHomeStore } from '../../__tests__/support/session-core-fixture'
 import {
   createJsonSessionCodec,
@@ -89,7 +90,7 @@ function installDesktopSessionCore(
       pickHomeTarget: async () => ({ kind: 'cancelled' }),
     },
     lifecycle: { subscribe: () => () => {} },
-    codec: createJsonSessionCodec(),
+    codec: createJsonSessionCodec({ designCore: createTestDesignCore() }),
     settings: {
       async readLastOpenHome() {
         return decodeLastOpenHome(lastOpenHome.peek())

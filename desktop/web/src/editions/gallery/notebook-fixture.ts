@@ -25,7 +25,7 @@ export const notebookWorkbench = createDesignNotebookWorkbench({
   openDesign: async path => { activePath.value = path; activity.value = 'Opened the notebook reference in memory.' },
   saveCurrent: async () => true,
   saveAsCurrent: async () => ({ status: 'applied', path: activePath.value, content: file }),
-  addDesignReference: async (path, content) => { notebook.entries.push({ path, name: content.name, updated_at: content.updated_at, plant_count: content.plants.length, section_id: null, sort_order: notebook.entries.length }) },
+  addDesignReference: async (path, content) => { notebook.entries.push({ path, name: content.name ?? '', updated_at: content.updated_at ?? '', plant_count: content.plants?.length ?? 0, section_id: null, sort_order: notebook.entries.length }) },
   removeEntry: async path => { notebook.entries = notebook.entries.filter(entry => entry.path !== path) },
   createSection: async name => {
     const section = { id: `section-${sequence++}`, name, sort_order: notebook.sections.length, created_at: file.created_at, updated_at: file.updated_at }

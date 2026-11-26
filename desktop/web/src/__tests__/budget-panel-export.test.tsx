@@ -57,7 +57,7 @@ function makePlant(canonicalName: string, commonName: string): PlacedPlant {
     color: null,
     position: { lon: 13, lat: 23 },
     rotation: null,
-    scale: null,
+    canopy_spread_m: null,
     notes: null,
     planted_date: null,
     quantity: 1,
@@ -79,11 +79,7 @@ describe('BudgetPanel export', () => {
       budget: [
         {
           target: speciesBudgetTarget('Malus domestica'),
-          category: 'plants',
-          description: 'Malus domestica',
-          quantity: 0,
           unit_cost: 5,
-          currency: 'EUR',
         },
       ],
     })

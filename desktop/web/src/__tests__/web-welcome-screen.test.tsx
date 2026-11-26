@@ -14,6 +14,8 @@ import type { BrowserDraftPersistence } from '../web/browser-draft-persistence'
 import * as browserTextFiles from '../web/browser-text-files'
 import { notices, resetNoticesForTests } from '../failures/notices'
 import { WebWelcomeScreen } from '../editions/web/WebWelcomeScreen'
+import { installEditionPorts } from '../platform/edition-ports'
+import { createTestEditionPorts } from './support/test-edition-ports'
 import { createTestSessionCore, type TestSessionCoreHandle } from './support/session-core-fixture'
 
 type BrowserDraftPersistenceView = BrowserDraftPersistence['view']['value']
@@ -22,10 +24,12 @@ type BrowserDraftPersistenceView = BrowserDraftPersistence['view']['value']
 
 let container: HTMLDivElement
 let session: TestSessionCoreHandle | null = null
+let disposePorts: (() => void) | null = null
 
 beforeEach(() => {
   locale.value = 'en'
   localStorage.clear()
+  disposePorts = installEditionPorts(createTestEditionPorts())
   container = document.createElement('div')
   document.body.appendChild(container)
 })
@@ -36,6 +40,8 @@ afterEach(() => {
   container.remove()
   session?.dispose()
   session = null
+  disposePorts?.()
+  disposePorts = null
   localStorage.clear()
   vi.restoreAllMocks()
 })
@@ -160,6 +166,7 @@ describe('Web welcome screen and Draft persistence', () => {
     const items = Array.from(document.body.querySelectorAll<HTMLButtonElement>('[role="menuitem"]'))
     expect(items.map((item) => item.textContent)).toEqual(['Download a copy', 'Delete draft…'])
     await act(async () => { items[0]!.click() })
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)) })
     expect(downloadCanopiFile).toHaveBeenCalledOnce()
     const [fileName, text] = downloadCanopiFile.mock.calls[0]!
     expect(fileName).toBe('Orchard.canopi')

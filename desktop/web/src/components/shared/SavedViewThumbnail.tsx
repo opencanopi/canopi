@@ -1,4 +1,4 @@
-import type { SavedView } from '../../generated/contracts'
+import type { SavedView } from '../../types/design'
 import { useSavedViewThumbnail } from '../../app/saved-views'
 import styles from './SavedViewThumbnail.module.css'
 

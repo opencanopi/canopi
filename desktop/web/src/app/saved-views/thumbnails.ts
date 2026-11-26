@@ -1,7 +1,7 @@
 import { effect, signal, untracked, type ReadonlySignal, type Signal } from '@preact/signals'
 import { useEffect } from 'preact/hooks'
 import { currentCanvasQuerySurface } from '../../canvas/session'
-import type { SavedView } from '../../generated/contracts'
+import type { SavedView } from '../../types/design'
 import { currentDesign, designSessionStore } from '../document-session/store'
 import { locale, mapLayers, theme } from '../settings/state'
 import {

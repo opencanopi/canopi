@@ -55,7 +55,7 @@ describe('new Design view', () => {
     const file = emptyDesign()
     file.plants = [{
       id: 'p', locked: false, canonical_name: 'Malus domestica', common_name: null, color: null,
-      pinned_name: false, position: { lon: 5, lat: 45 }, rotation: null, scale: null, notes: null,
+      pinned_name: false, position: { lon: 5, lat: 45 }, rotation: null, canopy_spread_m: null, notes: null,
       planted_date: null, quantity: null,
     }]
     const store = new SceneStore(() => ({ lon: -1.5536, lat: 47.2184 })).hydrate(file)

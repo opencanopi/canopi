@@ -33,15 +33,15 @@ import type * as LibraryStoreModule from './library-store'
 function openDesign(name: string, entryName: string): void {
   replaceCurrentDesignState({
     name,
-    lidar: {
+    site_data: {
       visible: true,
-      entries: [{ kind: 'Source', id: 'a', name: entryName, order: 0, visible: true, opacity: 1, ramp: null, reversed: false, range: null }],
+      entries: [{ id: 'a', name: entryName, order: 0, visible: true, opacity: 1, ramp: null, reversed: false, range: null }],
     },
   } as unknown as CanopiFile, null, name)
 }
 
 function storedName(): string | undefined {
-  return designSessionStore.currentDesign.value?.lidar?.entries[0]?.name
+  return designSessionStore.currentDesign.value?.site_data?.entries[0]?.name
 }
 
 describe('the Desktop data workflow (canopi-f47t.42)', () => {
@@ -72,9 +72,9 @@ describe('the Desktop data workflow (canopi-f47t.42)', () => {
     lidarLibrary.value = librarySnapshot([sourceItem('a', 'Bare earth')])
     await openTestDesign({
       name: 'Hedges',
-      lidar: {
+      site_data: {
         visible: true,
-        entries: [{ kind: 'Source', id: 'a', name: 'Old name', order: 0, visible: true, opacity: 1, ramp: null, reversed: false, range: null }],
+        entries: [{ id: 'a', name: 'Old name', order: 0, visible: true, opacity: 1, ramp: null, reversed: false, range: null }],
       },
     } as unknown as CanopiFile)
     expect(storedName()).toBe('Bare earth')
@@ -87,6 +87,6 @@ describe('the Desktop data workflow (canopi-f47t.42)', () => {
     const calls = reconcile.calls
     setSiteDataVisible(false)
     expect(reconcile.calls).toBe(calls)
-    expect(designSessionStore.currentDesign.value?.lidar?.visible).toBe(false)
+    expect(designSessionStore.currentDesign.value?.site_data?.visible).toBe(false)
   })
 })

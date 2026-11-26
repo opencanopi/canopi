@@ -144,6 +144,6 @@ function design(name: string, plants: PlacedPlant[] = []): CanopiFile {
 function plant(id: string, x: number, y: number): PlacedPlant {
   return {
     id, locked: false, canonical_name: 'Malus domestica', common_name: 'Apple', color: null,
-    position: geoAt(x, y), rotation: null, scale: null, notes: null, planted_date: null, quantity: 1,
+    position: geoAt(x, y), rotation: null, canopy_spread_m: null, notes: null, planted_date: null, quantity: 1,
   }
 }

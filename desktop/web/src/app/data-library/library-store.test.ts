@@ -17,7 +17,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock('../../ipc/lidar', () => ({ lidarListLibrary: mocks.listLibrary }))
 vi.mock('../document-session/store', () => ({
   currentDesign: signal({
-    lidar: {
+    site_data: {
       visible: true,
       entries: [{ kind: 'Source', id: 'item-1', name: 'Orchard', visible: true, opacity: 1, order: 0, ramp: null, reversed: false, range: null }],
     },

@@ -425,6 +425,7 @@ mod tests {
         let origin = GeoPoint {
             lon: 2.35,
             lat: 48.86,
+            extra: Default::default(),
         };
         let payload = sample_v3_stamp_payload();
 
@@ -446,7 +447,7 @@ mod tests {
             &executor,
             payload.clone(),
             "Apple guild".into(),
-            origin,
+            origin.clone(),
         ))
         .unwrap() else {
             panic!("expected Ok exporting stamp to .canopi");

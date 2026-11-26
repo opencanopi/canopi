@@ -1,6 +1,11 @@
 // @vitest-environment jsdom
 import { h, render } from 'preact'
 import { describe, expect, it, vi } from 'vitest'
+import { createTestDesignCore } from '../../__tests__/support/design-wire'
+
+vi.mock('../../platform/design-core', () => ({
+  createDesignCore: () => createTestDesignCore(),
+}))
 import { getLiveSessionCore } from '../../app/document-session/live-core'
 import { answerSaveProblem, saveProblem } from '../../app/document-session/save-problem'
 import { editionPorts, hasEditionPorts, installEditionPorts } from '../../platform/edition-ports'
@@ -21,13 +26,13 @@ describe('bootWebEdition (canopi-f47t.52.71)', () => {
     for (const reader of Object.values(ports.problemReport.sections)) {
       if (typeof reader === 'function') expect(reader()).toBeDefined()
     }
-    expect(ports.problemReport.currentDesign()).toBeNull()
+    expect(await ports.problemReport.currentDesign()).toBeNull()
 
     const core = getLiveSessionCore()!
     expect(core).not.toBeNull()
     const created = await core.createNew()
     expect(created.status).toBe('opened')
-    expect(ports.problemReport.currentDesign()).not.toBeNull()
+    expect(await ports.problemReport.currentDesign()).not.toBeNull()
     core.document('rename', () => ({ name: 'WebBooted' }))
     const beforeUnloadClean = new Event('beforeunload', { cancelable: true })
     window.dispatchEvent(beforeUnloadClean)

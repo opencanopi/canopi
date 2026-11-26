@@ -384,7 +384,7 @@ const galleryHandlers: GalleryCommandHandlers = {
   },
   load_saved_object_stamp_canopi_file: () => {
     activity.value = 'Imported the sample design in memory.'
-    return file
+    return file as unknown as ReturnType<typeof file extends never ? never : () => never>
   },
   lidar_list_library: () => ({
     items: lidarItems,

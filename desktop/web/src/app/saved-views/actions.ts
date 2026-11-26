@@ -1,5 +1,5 @@
 import { t } from '../../i18n'
-import type { SavedView } from '../../generated/contracts'
+import type { SavedView } from '../../types/design'
 import { createUuid } from '../../utils/ids'
 import { addSavedView } from '../design-edit'
 import { captureCurrentView, currentSavedViews } from './current-view'

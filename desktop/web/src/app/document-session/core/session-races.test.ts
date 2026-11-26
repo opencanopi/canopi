@@ -6,6 +6,7 @@
  * createNew openSequence bump, and close-guard dialog dismissal on cancelled question.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { createTestDesignCore } from '../../../__tests__/support/design-wire'
 import { makeTestDesign } from '../../../__tests__/support/session-core-fixture'
 import type { DesignHomeStore, HomeVersion } from '../../../platform/design-home'
 import { registerCloseGuard } from '../../shell/close-guard'
@@ -72,7 +73,7 @@ function makeCore(
     designHome: home.store,
     fileAccess: { pickOpen: async () => ({ kind: 'cancelled' }), pickHomeTarget: async () => ({ kind: 'cancelled' }) },
     lifecycle: { subscribe: () => () => {} },
-    codec: createJsonSessionCodec(),
+    codec: createJsonSessionCodec({ designCore: createTestDesignCore() }),
     settings: { readLastOpenHome: async () => null, writeLastOpenHome: async () => {} },
     newDesignFactory: () => makeTestDesign(),
     flushDelayMs: 60_000,
@@ -107,7 +108,7 @@ describe('SessionCore races & error-recovery regressions (#581)', () => {
     const home = makeMemoryHome()
     let releasePick!: () => void
     const pickGate = new Promise<void>((resolve) => { releasePick = resolve })
-    const codec = createJsonSessionCodec()
+    const codec = createJsonSessionCodec({ designCore: createTestDesignCore() })
     const writtenHomes: Array<unknown> = []
     const core = makeCore(home, {
       fileAccess: {
@@ -165,7 +166,6 @@ describe('SessionCore races & error-recovery regressions (#581)', () => {
       document: docA,
       baseline: docA,
       scene: { kind: 'detached', fields: {} },
-      savedByVersion: null,
       readOnly: false,
       rev: 1,
       ackRev: 1,
@@ -327,7 +327,7 @@ describe('SessionCore races & error-recovery regressions (#581)', () => {
 
   it('#588 M2: forced save queued behind an in-flight write aborts when another Design opens across the await', async () => {
     const home = makeMemoryHome()
-    const codec = createJsonSessionCodec()
+    const codec = createJsonSessionCodec({ designCore: createTestDesignCore() })
     let releaseFirstWrite: (() => void) | null = null
     let firstBlocked = true
     const writes: string[] = []
@@ -348,7 +348,6 @@ describe('SessionCore races & error-recovery regressions (#581)', () => {
       document: docA,
       baseline: docA,
       scene: { kind: 'detached', fields: {} },
-      savedByVersion: null,
       readOnly: false,
       rev: 2,
       ackRev: 1,
@@ -361,7 +360,6 @@ describe('SessionCore races & error-recovery regressions (#581)', () => {
       document: docB,
       baseline: docB,
       scene: { kind: 'detached', fields: {} },
-      savedByVersion: null,
       readOnly: false,
       rev: 1,
       ackRev: 1,

@@ -10,8 +10,7 @@ import { createJsonSessionCodec, createSessionCore, installLiveSessionCore } fro
 import { registerCloseGuard } from "../../app/shell/close-guard";
 import { installConsortiumSync } from "../../app/consortium/workflow";
 import { withNewDesignDisplay } from "../../app/settings/new-design-defaults";
-import { DEFAULT_BUDGET_CURRENCY, v10ToSessionCanopiFile } from "../../app/contracts/document";
-import { CURRENT_CANOPI_FILE_VERSION } from "../../generated/canopi-design-format";
+import { normalizeLoadedDocument } from "../../app/contracts/document";
 import { NEW_DESIGN_LAYER_DEFAULTS } from "../../generated/new-design-defaults";
 import type { DraftId } from "../../platform/design-home";
 import { presentBrowserDesignOpenFailure, raiseEarlierDataNotice } from "../../web/browser-notices";
@@ -55,31 +54,6 @@ import {
 
 let disposeWebRoot: (() => void) | null = null;
 
-function createNewWebCanopiFile(name: string, timestamp: string) {
-  return {
-    version: CURRENT_CANOPI_FILE_VERSION,
-    name,
-    description: null,
-    plant_species_colors: {},
-    plant_species_symbols: {},
-    layers: NEW_DESIGN_LAYER_DEFAULTS.map((layer) => ({ ...layer })),
-    plants: [],
-    zones: [],
-    annotations: [],
-    measurement_guides: [],
-    groups: [],
-    consortiums: [],
-    timeline: [],
-    budget: [],
-    budget_currency: DEFAULT_BUDGET_CURRENCY,
-    views: [],
-    stories: [],
-    created_at: timestamp,
-    updated_at: timestamp,
-    extra: {},
-  };
-}
-
 export function bootWebEdition(): () => void {
   disposeWebRoot?.();
   const stopConsortiumSync = installConsortiumSync();
@@ -111,7 +85,7 @@ export function bootWebEdition(): () => void {
     fileAccess: browserFileAccessPort,
     lifecycle: browserAppLifecyclePort,
     codec: createJsonSessionCodec({
-      ...(typeof Worker !== "undefined" ? { designCore: formatCore } : {}),
+      designCore: formatCore,
     }),
     settings: {
       readLastOpenHome: async () => null,
@@ -120,19 +94,16 @@ export function bootWebEdition(): () => void {
     },
     newDesignFactory: async () => {
       const now = new Date().toISOString();
-      if (typeof Worker !== "undefined") {
-        const created = await formatCore.newDesign({
-          name: "Untitled",
-          plant_display: null,
-          created_at: now,
-        });
-        const projected = v10ToSessionCanopiFile(created);
-        if (projected.layers.length === 0) {
-          projected.layers = NEW_DESIGN_LAYER_DEFAULTS.map((layer) => ({ ...layer }));
-        }
-        return projected;
+      const created = await formatCore.newDesign({
+        name: "Untitled",
+        plant_display: null,
+        created_at: now,
+      });
+      const normalized = normalizeLoadedDocument(created);
+      if (normalized.layers.length === 0) {
+        normalized.layers = NEW_DESIGN_LAYER_DEFAULTS.map((layer) => ({ ...layer }));
       }
-      return createNewWebCanopiFile("Untitled", now);
+      return normalized;
     },
   });
   const disposeSessionCore = installLiveSessionCore(webSessionCore);

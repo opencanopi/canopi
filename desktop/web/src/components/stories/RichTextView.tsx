@@ -1,5 +1,5 @@
 import { isAllowedRichTextLink } from '../../app/stories'
-import type { RichTextBlock, RichTextSpan } from '../../generated/contracts'
+import type { RichTextBlock, RichTextSpan } from '../../types/design'
 
 /**
  * Renders story rich text for reading: paragraphs, bullet lists, bold, italic

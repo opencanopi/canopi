@@ -489,8 +489,9 @@ fn stamp_payload_v3_round_trips_through_canopi_file() {
     let origin = GeoPoint {
         lon: 2.2945,
         lat: 48.8584,
+        extra: Default::default(),
     };
-    let canopi_doc = stamp_to_canopi_file(&v3, "Apple Guild", origin);
+    let canopi_doc = stamp_to_canopi_file(&v3, "Apple Guild", origin.clone());
     let doc_bytes = encode_design(&canopi_doc).expect("stamp .canopi file passes write admission");
     let parsed: Value = serde_json::from_slice(&doc_bytes).unwrap();
     admit_schema(&parsed, read_schema().expect("v2.0.5 frozen read schema"))
@@ -517,4 +518,58 @@ fn new_design_builds_canonical_v10_document() {
     assert_eq!(doc["name"], "Meadow");
     assert_eq!(doc["plant_display"]["color_by"], "species");
     encode_design(&doc).expect("new_design output passes write admission");
+}
+
+#[test]
+fn invalid_or_missing_root_versions_are_refused() {
+    let base = new_design(&NewDesignInput {
+        name: "Version Check".to_owned(),
+        plant_display: None,
+        created_at: "2026-11-25T00:00:00Z".to_owned(),
+    });
+    let mut zero = base.clone();
+    zero["version"] = json!(0);
+    let mut float = base.clone();
+    float["version"] = json!(1.5);
+    let mut null_v = base.clone();
+    null_v["version"] = Value::Null;
+    let mut missing = base;
+    missing.as_object_mut().unwrap().remove("version");
+
+    for (label, doc, expected_kind) in [
+        ("zero", zero, FormatLoadRefusalKind::OlderVersion),
+        ("float", float, FormatLoadRefusalKind::InvalidDocument),
+        ("null", null_v, FormatLoadRefusalKind::InvalidDocument),
+        ("missing", missing, FormatLoadRefusalKind::InvalidDocument),
+    ] {
+        let bytes = serde_json::to_vec(&doc).unwrap();
+        let refusal =
+            decode_design(&bytes).expect_err(&format!("{label} version must be refused on decode"));
+        assert_eq!(refusal.kind, expected_kind, "{label}: {refusal:?}");
+    }
+}
+
+#[test]
+fn earlier_root_fields_stay_in_extra_on_decode_and_encode() {
+    let mut doc = new_design(&NewDesignInput {
+        name: "Extra Root".to_owned(),
+        plant_display: None,
+        created_at: "2026-11-25T00:00:00Z".to_owned(),
+    });
+    doc["location"] = json!({ "lat": 47.2, "lon": 8.5 });
+    doc["north_bearing_deg"] = json!(15.0);
+    doc["spatial_frame"] = json!({ "kind": "local" });
+    let bytes = serde_json::to_vec(&doc).unwrap();
+    let decoded = decode_design(&bytes).expect("earlier root fields are preserved in extra");
+    assert_eq!(decoded.design["location"], doc["location"]);
+    assert_eq!(
+        decoded.design["north_bearing_deg"],
+        doc["north_bearing_deg"]
+    );
+    assert_eq!(decoded.design["spatial_frame"], doc["spatial_frame"]);
+    let reencoded: Value =
+        serde_json::from_slice(&encode_design(&decoded.design).expect("re-encodes")).unwrap();
+    assert_eq!(reencoded["location"], doc["location"]);
+    assert_eq!(reencoded["north_bearing_deg"], doc["north_bearing_deg"]);
+    assert_eq!(reencoded["spatial_frame"], doc["spatial_frame"]);
 }

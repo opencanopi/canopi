@@ -33,8 +33,6 @@ interface BrowserAppShellProps {
   readonly onRetrySave?: () => void;
   /** Settles a Draft another browser tab changed. */
   readonly onResolveSaveConflict?: () => void;
-  /** Update while a newer Canopi's Design is shown read-only: the Web reloads to update (2.1-Q317). */
-  readonly onUpdate?: () => void;
   /** Whether the title bar offers the place search (while a Design is open). */
   readonly placeSearch?: boolean;
   /** Undo, which the phone top bar carries in place of the tool rail's history. */
@@ -61,7 +59,6 @@ export function BrowserAppShell({
   onRenameDesign,
   onRetrySave,
   onResolveSaveConflict,
-  onUpdate,
   placeSearch = false,
   undo,
   persistence = null,
@@ -136,8 +133,6 @@ export function BrowserAppShell({
               onRetry={() => onRetrySave?.()}
               conflictSource="another-tab"
               onResolveConflict={onResolveSaveConflict}
-              readOnlyOrigin={designIdentity.readOnlyOrigin}
-              onUpdate={onUpdate}
             />
           </>
         ) : undefined}

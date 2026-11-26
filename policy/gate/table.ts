@@ -250,7 +250,7 @@ export const TABLE: Table = {
       name: 'shared-contracts', label: 'Shared contracts (`canopi-types/`, `en.json`)',
       row: '`cd desktop/web && {check-types}` (stale: `npm run gen:types`); `{unicode-facts}`',
       patterns: [String.raw`^canopi-types/`, String.raw`^bindings-gen/`, String.raw`^desktop/web/src/i18n/en\.json$`,
-        String.raw`^desktop/web/src/generated/`, String.raw`^desktop/src/(db/plant_filter_fields|db/query_builder/translate_value|design/new_design_defaults|services/lidar/analysis_registry_generated)\.rs$`,
+        String.raw`^desktop/web/src/generated/`, String.raw`^desktop/src/(db/plant_filter_fields|db/query_builder/translate_value|services/lidar/analysis_registry_generated)\.rs$`,
         String.raw`^scripts/(species_catalog_contract\.py|web_catalog_artifact_contract\.py|species_search_normalization\.py|schema-contract\.json)$`,
         String.raw`^rust-toolchain\.toml$`, String.raw`^scripts/species_search_unicode_facts\.py$`, String.raw`^\.python-version$`],
       actions: ['setup-rust', 'setup-frontend'],

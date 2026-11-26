@@ -1,6 +1,6 @@
 import { useEffect } from 'preact/hooks'
 import { setDesignName } from '../../app/design-edit'
-import { currentDesign, designName, designSessionStore, readOnlyOrigin } from '../../app/document-session/store'
+import { currentDesign, designName } from '../../app/document-session/store'
 import {
   designSaveFailureReason,
   designSaveStatus,
@@ -15,7 +15,6 @@ import {
   toggleMaximizeAppWindow,
 } from '../../app/shell/window-actions'
 import { designNotebookWorkbench } from '../../app/design-notebook'
-import { openAboutCanopiDialog } from '../../app/about/state'
 import { appCommandGraphChromeProjection } from '../../commands/registry'
 import { t } from '../../i18n'
 import { PlaceSearchField } from '../canvas/PlaceSearch'
@@ -64,9 +63,6 @@ export function TitleBar() {
             saveElsewhere={{ label: t('saveStatus.saveAs'), run: saveAs }}
             onRetry={() => { void retryDesignSave() }}
             onResolveConflict={() => { void resolveDesignConflict().catch(logSaveCommandError) }}
-            readOnlyOrigin={readOnlyOrigin(designSessionStore.sessionKind.value)}
-            // Desktop updates in About, where the check for updates lives (2.1-Q317), as a store notice's Update does.
-            onUpdate={openAboutCanopiDialog}
           />
         </>
       ) : undefined}

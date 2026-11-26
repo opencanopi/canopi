@@ -53,8 +53,8 @@ const DEFAULT_PLANT_DISPLAY_OPTIONS: PlantDisplayOptions = Object.freeze({
 })
 
 /** The Design's display options; unknown or invalid stored values fall back to defaults, reported as a repair. */
-export function readPlantDisplayOptions(design: Pick<CanopiFile, 'extra'> | null): PlantDisplayOptions {
-  const stored = readExtra(design, PLANT_DISPLAY_EXTRA_KEY) as Partial<Record<keyof StoredPlantDisplay, unknown>> | null
+export function readPlantDisplayOptions(design: Pick<CanopiFile, 'extra' | 'plant_display'> | null): PlantDisplayOptions {
+  const stored = (design?.plant_display ?? readExtra(design, PLANT_DISPLAY_EXTRA_KEY)) as Partial<Record<keyof StoredPlantDisplay, unknown>> | null
   if (!stored) return DEFAULT_PLANT_DISPLAY_OPTIONS
   const colorBy = stored.color_by === 'one_color' ? 'one-color' : stored.color_by
   const oneColor = typeof stored.one_color === 'string' ? normalizeHexColor(stored.one_color) : null
@@ -103,16 +103,23 @@ function storedFrom(options: PlantDisplayOptions): StoredPlantDisplay {
 }
 
 /** The Design with some display options changed; a change to nothing returns it untouched. */
-export function withPlantDisplayOptions<T extends Pick<CanopiFile, 'extra'>>(
+export function withPlantDisplayOptions<T extends Pick<CanopiFile, 'extra' | 'plant_display'>>(
   design: T,
   change: Partial<PlantDisplayOptions>,
 ): T {
   const current = readPlantDisplayOptions(design)
   const next = readPlantDisplayOptions({
-    extra: { [PLANT_DISPLAY_EXTRA_KEY]: storedFrom({ ...current, ...change }) },
+    plant_display: storedFrom({ ...current, ...change }),
+    extra: {},
   })
   if (sameOptions(current, next)) return design
-  return withExtra(design, PLANT_DISPLAY_EXTRA_KEY, sameOptions(next, DEFAULT_PLANT_DISPLAY_OPTIONS) ? null : { ...storedFrom(next) })
+  const clearedExtra = withExtra(design, PLANT_DISPLAY_EXTRA_KEY, null)
+  if (sameOptions(next, DEFAULT_PLANT_DISPLAY_OPTIONS)) {
+    const copy = { ...clearedExtra }
+    delete (copy as { plant_display?: unknown }).plant_display
+    return copy
+  }
+  return { ...clearedExtra, plant_display: { ...storedFrom(next) } }
 }
 
 /** Changes some display options of the current Design; a change to nothing leaves it untouched. */

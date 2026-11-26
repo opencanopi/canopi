@@ -5,7 +5,7 @@ import type {
   AnalysisRequest,
   AppFolder,
   AppFolderLocations,
-  CanopiFile,
+  CanopiFileV10,
   CommonNameEntry,
   DesignDraftSummary,
   DesignNotebookSection,
@@ -96,7 +96,6 @@ export const COMMAND_NAMES = [
   'reorder_saved_object_stamps',
   'export_saved_object_stamp_canopi_file',
   'load_saved_object_stamp_canopi_file',
-  'new_design',
   'get_recent_files',
   'get_recent_design_previews',
   'remove_recent_design',
@@ -189,8 +188,7 @@ export type CommandMap = {
   readonly 'delete_saved_object_stamp': { readonly args: { readonly id: string }; readonly reply: boolean }
   readonly 'reorder_saved_object_stamps': { readonly args: { readonly ids: readonly string[] }; readonly reply: SavedObjectStamp[] }
   readonly 'export_saved_object_stamp_canopi_file': { readonly args: { readonly path: string; readonly content: Record<string, unknown> }; readonly reply: string }
-  readonly 'load_saved_object_stamp_canopi_file': { readonly args: { readonly path: string }; readonly reply: CanopiFile }
-  readonly 'new_design': { readonly args: undefined; readonly reply: CanopiFile }
+  readonly 'load_saved_object_stamp_canopi_file': { readonly args: { readonly path: string }; readonly reply: CanopiFileV10 }
   readonly 'get_recent_files': { readonly args: undefined; readonly reply: DesignSummary[] }
   readonly 'get_recent_design_previews': { readonly args: { readonly paths: readonly string[] }; readonly reply: RecentDesignSummary[] }
   readonly 'remove_recent_design': { readonly args: { readonly path: string }; readonly reply: void }
@@ -208,7 +206,7 @@ export type CommandMap = {
   readonly 'design_core_canopi_to_stamp': { readonly args: { readonly bytes: readonly number[]; readonly origin: GeoPoint }; readonly reply: { ok: SavedObjectStampPayload } | { err: unknown } }
   readonly 'get_design_notebook': { readonly args: undefined; readonly reply: DesignNotebookSnapshot }
   readonly 'create_notebook_section': { readonly args: { readonly name: string }; readonly reply: DesignNotebookSection }
-  readonly 'add_design_reference_to_notebook': { readonly args: { readonly path: string; readonly content: CanopiFile }; readonly reply: void }
+  readonly 'add_design_reference_to_notebook': { readonly args: { readonly path: string; readonly content: CanopiFileV10 }; readonly reply: void }
   readonly 'rename_notebook_section': { readonly args: { readonly sectionId: string; readonly name: string }; readonly reply: void }
   readonly 'delete_notebook_section': { readonly args: { readonly sectionId: string }; readonly reply: void }
   readonly 'move_design_reference_to_section': { readonly args: { readonly path: string; readonly sectionId?: string | null }; readonly reply: void }
@@ -299,7 +297,6 @@ export const COMMAND_SYNC_KINDS: Readonly<Record<CommandName, CommandSyncKind>> 
   'reorder_saved_object_stamps': 'async',
   'export_saved_object_stamp_canopi_file': 'async',
   'load_saved_object_stamp_canopi_file': 'async',
-  'new_design': 'bounded_sync',
   'get_recent_files': 'async',
   'get_recent_design_previews': 'async',
   'remove_recent_design': 'async',

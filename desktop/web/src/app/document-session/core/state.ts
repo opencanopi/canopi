@@ -58,7 +58,6 @@ export interface OpenDesignState {
   readonly scene: SceneAttachment
   readonly migratedFrom: number | null
   readonly readOnly: boolean
-  readonly savedByVersion: number | null
 }
 
 export type DesignSessionState =

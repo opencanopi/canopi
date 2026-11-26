@@ -168,7 +168,7 @@
         },
         "opacity": {
           "default": 1.0,
-          "format": "float",
+          "format": "double",
           "type": "number"
         },
         "visible": {
@@ -1292,7 +1292,7 @@
         },
         "opacity": {
           "default": 1.0,
-          "format": "float",
+          "format": "double",
           "type": "number"
         },
         "order": {

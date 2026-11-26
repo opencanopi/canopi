@@ -16,7 +16,7 @@ function openOrchard(): void {
     ({ kind, id, name: id, order, visible: true, opacity: 1, ramp: null, reversed: false, range: null })
   replaceCurrentDesignState({
     name: 'Orchard',
-    lidar: { visible: true, entries: [entry('Source', 'a', 0), entry('Derived', 's', 1), entry('Derived', 't', 2)] },
+    site_data: { visible: true, entries: [entry('Source', 'a', 0), entry('Derived', 's', 1), entry('Derived', 't', 2)] },
   } as unknown as CanopiFile, null, 'Orchard')
 }
 

@@ -7,21 +7,27 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import {
   decode_design,
+  decode_stamp_payload,
+  draft_summary,
   encode_design,
+  encode_stamp_payload,
+  format_core_version,
   initSync,
+  new_design,
 } from '../../../../../canopi-format-wasm/dist/canopi_format_wasm.js'
 import { CURRENT_CANOPI_FILE_VERSION } from '../../generated/canopi-design-format'
-import type { FormatDecodeAnswer, FormatRefusal } from '../../generated/contracts'
+import type { CanopiFileV10, DraftSummaryOutcome, FormatDecodeAnswer, FormatRefusal, NewDesignInputContract, SavedObjectStampPayload } from '../../generated/contracts'
+import type { DesignCore } from '../../platform/design-core'
 import type { CanopiFile } from '../../types/design'
 import {
   asCanopiDesignIngestionError,
   CanopiDesignIngestionError,
+  ingestionErrorFromFormatRefusal,
 } from '../../app/contracts/canopi-design-errors'
 import {
-  isSavedByNewerCanopi,
+  flattenDocumentForJson,
+  normalizeLoadedDocument,
   parseCanopiJsonText,
-  sessionCanopiFileToV10,
-  v10ToSessionCanopiFile,
 } from '../../app/contracts/document'
 
 let wasmInitialized = false
@@ -36,39 +42,20 @@ function ensureWasm(): void {
 
 export {
   CanopiDesignIngestionError,
-  isSavedByNewerCanopi,
   parseCanopiJsonText as parseCanopiText,
+}
+
+export function isSavedByNewerCanopi(value: unknown): boolean {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return false
+  const version = (value as Record<string, unknown>).version
+  return typeof version === 'number' && Number.isInteger(version) && version > CURRENT_CANOPI_FILE_VERSION
 }
 
 function throwRefusal(refusal: FormatRefusal, raw: unknown): never {
   const version = raw && typeof raw === 'object' && !Array.isArray(raw)
     ? (raw as { readonly version?: unknown }).version
     : undefined
-  if (refusal.kind === 'older_version') {
-    throw new CanopiDesignIngestionError(
-      'unsupported_version',
-      refusal.message,
-      typeof version === 'number' ? version : CURRENT_CANOPI_FILE_VERSION - 1,
-      'older_version',
-      refusal.field_path ?? '$.version',
-    )
-  }
-  if (refusal.kind === 'newer_version') {
-    throw new CanopiDesignIngestionError(
-      'unsupported_version',
-      refusal.message,
-      typeof version === 'number' ? version : CURRENT_CANOPI_FILE_VERSION + 1,
-      'newer_version',
-      refusal.field_path ?? '$.version',
-    )
-  }
-  const kind = refusal.field_path === '$.version' ? 'invalid_version' : 'invalid_document'
-  const loadKind = refusal.kind === 'too_large'
-    ? 'too_large'
-    : refusal.kind === 'invalid_json'
-      ? 'invalid_json'
-      : 'invalid_document'
-  throw new CanopiDesignIngestionError(kind, refusal.message, null, loadKind, refusal.field_path ?? null)
+  throw ingestionErrorFromFormatRefusal(refusal, version)
 }
 
 /** Decode a `.canopi` value (v9 or v10) through the real `canopi-format-wasm` Format Core. */
@@ -78,7 +65,7 @@ export function decodeCanopiDesign(value: unknown): CanopiFile {
     const text = JSON.stringify(value)
     const answer = JSON.parse(decode_design(text)) as FormatDecodeAnswer
     if ('ok' in answer) {
-      return v10ToSessionCanopiFile(answer.ok.design)
+      return normalizeLoadedDocument(answer.ok.design)
     }
     throwRefusal(answer.err, value)
   } catch (error) {
@@ -89,7 +76,7 @@ export function decodeCanopiDesign(value: unknown): CanopiFile {
 /** Encode an in-memory `CanopiFile` through the real `canopi-format-wasm` canonical v10 encoder. */
 export function encodeCanopiDesign(file: CanopiFile): Record<string, unknown> {
   ensureWasm()
-  const v10 = sessionCanopiFileToV10(file)
+  const v10 = flattenDocumentForJson(file)
   const answer = JSON.parse(encode_design(JSON.stringify(v10))) as {
     readonly ok?: string
     readonly err?: FormatRefusal
@@ -101,4 +88,46 @@ export function encodeCanopiDesign(file: CanopiFile): Record<string, unknown> {
     answer.err ?? { kind: 'invalid_document', message: 'encode_design returned no output', field_path: null },
     v10,
   )
+}
+
+/** Real `canopi-format-wasm` `DesignCore` adapter for unit tests (no Web Worker required). */
+export function createTestDesignCore(): DesignCore {
+  const decoder = new TextDecoder('utf-8', { fatal: true })
+  const encoder = new TextEncoder()
+  return {
+    version: async () => {
+      ensureWasm()
+      return format_core_version()
+    },
+    decode: async (bytes) => {
+      ensureWasm()
+      const text = decoder.decode(bytes)
+      return JSON.parse(decode_design(text)) as FormatDecodeAnswer
+    },
+    encode: async (design) => {
+      ensureWasm()
+      const raw = JSON.parse(encode_design(JSON.stringify(design))) as
+        | { readonly ok: string }
+        | { readonly err: FormatRefusal }
+      if ('ok' in raw) return { ok: encoder.encode(raw.ok) }
+      return { err: raw.err }
+    },
+    newDesign: async (input: NewDesignInputContract) => {
+      ensureWasm()
+      return JSON.parse(new_design(JSON.stringify(input))) as CanopiFileV10
+    },
+    draftSummary: async (bytes, updatedAt) => {
+      ensureWasm()
+      const text = decoder.decode(bytes)
+      return JSON.parse(draft_summary(text, updatedAt)) as DraftSummaryOutcome
+    },
+    decodeStamp: async (payloadJson) => {
+      ensureWasm()
+      return JSON.parse(decode_stamp_payload(payloadJson)) as { readonly ok: SavedObjectStampPayload } | { readonly err: unknown }
+    },
+    encodeStamp: async (payload) => {
+      ensureWasm()
+      return JSON.parse(encode_stamp_payload(JSON.stringify(payload))) as { readonly ok: string } | { readonly err: unknown }
+    },
+  }
 }

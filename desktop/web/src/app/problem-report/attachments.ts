@@ -1,11 +1,11 @@
 import { getLiveSessionCore } from '../document-session/live-core'
-import { sessionCanopiFileToV10 } from '../contracts/document'
 
-/** The open Design as Desktop's report attaches it; null with none open or a newer Canopi's read view (canopi-v4kj). */
-export function buildCurrentDesignProblemReportAttachment(): string | null {
+/** The open Design as Desktop's report attaches it, encoded via the active SessionCore's DesignCore codec; null with none open. */
+export async function buildCurrentDesignProblemReportAttachment(): Promise<string | null> {
   const core = getLiveSessionCore()
-  const open = core?.currentDesign.peek()
-  if (!core || !open || (open.readOnly && open.savedByVersion !== null)) return null
-  const file = core.snapshot()
-  return file ? `${JSON.stringify(sessionCanopiFileToV10(file), null, 2)}\n` : null
+  if (!core) return null
+  const bytes = await core.encodeSnapshot()
+  if (!bytes) return null
+  const text = new TextDecoder('utf-8', { fatal: true }).decode(bytes)
+  return text.endsWith('\n') ? text : `${text}\n`
 }

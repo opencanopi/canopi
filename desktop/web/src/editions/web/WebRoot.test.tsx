@@ -9,7 +9,9 @@ import { problemReportSubmission } from '../../app/problem-report/submission'
 import { designSessionStore } from '../../app/document-session/store'
 import { resetFrontendDiagnosticsForTests } from '../../failures/ring'
 import en from '../../i18n/en.json'
+import { installEditionPorts } from '../../platform/edition-ports'
 import type { CanopiFile } from '../../types/design'
+import { createTestDesignCore } from '../../__tests__/support/design-wire'
 import { createTestSessionCore } from '../../__tests__/support/session-core-fixture'
 import { installWebProblemReport, WebRootBoundary } from './WebRoot'
 
@@ -31,7 +33,7 @@ function button(label: string): HTMLButtonElement {
 
 function makeFile(name: string): CanopiFile {
   return {
-    version: 9, name, description: null, plant_species_colors: {}, plant_species_symbols: {}, layers: [], plants: [], zones: [],
+    version: 10, name, description: null, plant_species_colors: {}, plant_species_symbols: {}, layers: [], plants: [], zones: [],
     annotations: [], measurement_guides: [], groups: [], consortiums: [], timeline: [], budget: [], budget_currency: 'EUR',
     created_at: '2026-09-01T00:00:00.000Z', updated_at: '2026-09-01T00:00:00.000Z',
   }
@@ -102,28 +104,34 @@ describe('Web root', () => {
     expect(container.textContent).toContain(en.problemReport.currentDesignUnavailable)
   })
 
-  it('canopi-v4kj: the Web writer attaches no Design for one a newer Canopi saved, open read-only, and the open Design otherwise', async () => {
-    const newer = createTestSessionCore({
+  it('canopi-v4kj: the Web writer attaches the open Design for editing and storage-unchecked sessions', async () => {
+    const disposePorts = installEditionPorts({ designCore: createTestDesignCore() } as never)
+    const unchecked = createTestSessionCore({
       file: makeFile('Orchard 2.1'),
-      kind: { kind: 'read-only', origin: 'newer-version', savedByVersion: 10 },
+      kind: { kind: 'read-only', origin: 'storage-unchecked' },
     })
     try {
-      expect(designSessionStore.sessionKind.value).toEqual({ kind: 'read-only', origin: 'newer-version', savedByVersion: 10 })
+      expect(designSessionStore.sessionKind.value).toEqual({ kind: 'read-only', origin: 'storage-unchecked' })
       uninstall = installWebProblemReport()
-      expect(problemReportSubmission.port.value!.currentDesign()).toBeNull()
+      const uncheckedText = await problemReportSubmission.port.value!.currentDesign()
+      expect(uncheckedText).not.toBeNull()
+      expect((JSON.parse(uncheckedText!) as { name: string }).name).toBe('Orchard 2.1')
       uninstall()
       uninstall = null
     } finally {
-      newer.dispose()
+      unchecked.dispose()
     }
 
     const editing = createTestSessionCore({ file: makeFile('Orchard') })
     try {
       expect(designSessionStore.sessionKind.value).toEqual({ kind: 'editing' })
       uninstall = installWebProblemReport()
-      expect(problemReportSubmission.port.value!.currentDesign()).toContain('"name": "Orchard"')
+      const editingText = await problemReportSubmission.port.value!.currentDesign()
+      expect(editingText).not.toBeNull()
+      expect((JSON.parse(editingText!) as { name: string }).name).toBe('Orchard')
     } finally {
       editing.dispose()
+      disposePorts()
     }
   })
 })

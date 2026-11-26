@@ -67,7 +67,7 @@ interface Entry { kind: 'Source' | 'Derived'; id: string; order: number; visible
 
 function setDesign(entries: readonly Entry[], visible = true): void {
   (currentDesign as unknown as { value: unknown }).value = {
-    lidar: { visible, entries: entries.map((entry) => ({ name: entry.id, visible: true, opacity: 1, ramp: null, reversed: false, range: null, ...entry })) },
+    site_data: { visible, entries: entries.map((entry) => ({ name: entry.id, visible: true, opacity: 1, ramp: null, reversed: false, range: null, ...entry })) },
   }
 }
 

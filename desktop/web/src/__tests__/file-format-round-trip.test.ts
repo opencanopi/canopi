@@ -36,7 +36,7 @@ const FIXTURE: CanopiFile = {
       pinned_name: false,
       position: storedGeoAt(100, 200),
       rotation: 45,
-      scale: 3.5,
+      canopy_spread_m: 3.5,
       notes: 'Near the pond',
       planted_date: '2025-03-15',
       quantity: 1,
@@ -50,7 +50,7 @@ const FIXTURE: CanopiFile = {
       pinned_name: false,
       position: storedGeoAt(-50.5, 300.75),
       rotation: null,
-      scale: null,
+      canopy_spread_m: null,
       notes: null,
       planted_date: null,
       quantity: 3,
@@ -162,6 +162,17 @@ describe('file format round-trip', () => {
     const first = save(JSON.stringify(wire))
     const firstParsed = JSON.parse(first) as Record<string, unknown>
 
+    // Full canonical v10 round-trip: views, stories, and every other field preserved against `wire`.
+    const { lidar, ...wireWithoutLidar } = wire
+    const expectedFromWire = {
+      ...wireWithoutLidar,
+      version: 10,
+      site_data: {
+        visible: lidar.visible,
+        entries: lidar.entries.map(({ kind: _kind, ...rest }) => rest),
+      },
+    }
+    expect(firstParsed).toEqual(expectedFromWire)
     expect(firstParsed.version).toBe(10)
     expect(firstParsed.views).toEqual(wire.views)
     expect(firstParsed.stories).toEqual(wire.stories)

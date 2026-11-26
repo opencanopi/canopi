@@ -27,7 +27,7 @@ function plant(canonicalName = 'Malus domestica'): PlacedPlant {
     color: null,
     position: { lon: 13, lat: 23 },
     rotation: null,
-    scale: null,
+    canopy_spread_m: null,
     notes: null,
     planted_date: null,
     quantity: 1,

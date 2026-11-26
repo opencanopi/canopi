@@ -1,4 +1,4 @@
-import type { SavedView } from '../../generated/contracts'
+import type { SavedView } from '../../types/design'
 import { editCurrentDesign } from './core'
 
 // Saved views are Design Edit data (ADR 0011): every command dirties the Design

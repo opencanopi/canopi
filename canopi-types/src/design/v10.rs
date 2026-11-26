@@ -484,7 +484,7 @@ pub struct SiteDataEntryV10 {
     pub visible: bool,
     /// Opacity in `[0, 1]`.
     #[serde(default = "default_opaque")]
-    pub opacity: f32,
+    pub opacity: f64,
     /// Draw order (lower draws further back).
     #[serde(default, deserialize_with = "deserialize_json_u32")]
     pub order: u32,
@@ -569,7 +569,7 @@ fn default_true() -> bool {
     true
 }
 
-fn default_opaque() -> f32 {
+fn default_opaque() -> f64 {
     1.0
 }
 

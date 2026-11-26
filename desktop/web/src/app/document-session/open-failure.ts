@@ -58,6 +58,7 @@ function failureCodeOf(kind: DesignLoadFailureKind): FailureCode {
     case 'invalid_json':
     case 'older_version':
     case 'newer_version':
+    case 'migration_failed':
     case 'invalid_document':
       return { kind: 'invalid' }
     case 'internal':

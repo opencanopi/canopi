@@ -1,5 +1,5 @@
 import { isAllowedRichTextLink } from '../contracts/views-admission'
-import type { RichTextBlock, RichTextSpan } from '../../generated/contracts'
+import type { RichTextBlock, RichTextSpan } from '../../types/design'
 
 // Portable rich text (`RichTextBlock`) for story steps: paragraphs and bullet
 // lists of spans that are bold, italic or links. Nothing here keeps HTML: an
@@ -7,7 +7,7 @@ import type { RichTextBlock, RichTextSpan } from '../../generated/contracts'
 // three marks and links with an allowed scheme; everything else (scripts,
 // styles, images, attributes, unknown elements) is dropped or read as text.
 
-type Marks = Pick<RichTextSpan, 'bold' | 'italic' | 'link'>
+type Marks = { bold: boolean; italic: boolean; link: string | null }
 
 const PLAIN: Marks = { bold: false, italic: false, link: null }
 

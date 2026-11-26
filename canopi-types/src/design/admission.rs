@@ -135,6 +135,7 @@ pub(super) fn check_point_v10(point: &GeoPointV10, path: &FieldPath) -> Result<(
         &GeoPoint {
             lon: point.lon,
             lat: point.lat,
+            extra: Default::default(),
         },
         path,
     )

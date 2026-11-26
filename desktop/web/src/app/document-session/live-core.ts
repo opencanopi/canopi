@@ -2,20 +2,16 @@
 // Live Session Core installation and v10 Format Core codec bridge for Desktop, Web and Gallery (2b-3, 2b-5; contracts §4, §10, ADR 0024, ADR 0026).
 
 import { signal, type ReadonlySignal } from '@preact/signals'
-import type { DesignLoadFailureKind, FormatRefusal, GeoPoint, LidarColourRange } from '../../generated/contracts'
+import type { GeoPointV10, LidarColourRangeV10 } from '../../generated/contracts'
 import {
   CURRENT_CANOPI_FILE_VERSION,
   WEB_MERCATOR_MAX_LATITUDE_DEG,
 } from '../../generated/canopi-design-format'
 import type { DesignCore } from '../../platform/design-core'
-import { CanopiDesignIngestionError } from '../contracts/canopi-design-errors'
+import { ingestionErrorFromFormatRefusal } from '../contracts/canopi-design-errors'
 import {
-  isCurrentCanopiDocument,
-  isSavedByNewerCanopi,
+  flattenDocumentForJson,
   normalizeLoadedDocument,
-  parseCanopiJsonText,
-  sessionCanopiFileToV10,
-  v10ToSessionCanopiFile,
 } from '../contracts/document'
 import { mapViewProblem, viewsAndStoriesProblem } from '../contracts/views-admission'
 import {
@@ -29,7 +25,7 @@ import type { DesignSaveStatus } from './save-status'
 
 export {
   createSessionCore,
-  v10ToSessionCanopiFile,
+  normalizeLoadedDocument,
   type DecodedDesignPayload,
   type DesignSaveStatus,
   type SessionCore,
@@ -67,100 +63,29 @@ export function installLiveSessionCore(core: SessionCore): () => void {
   }
 }
 
-function ingestionErrorFromFormatRefusal(refusal: FormatRefusal): CanopiDesignIngestionError {
-  const kind = refusal.kind
-  if (kind === 'older_version') {
-    return new CanopiDesignIngestionError(
-      'unsupported_version',
-      refusal.message,
-      CURRENT_CANOPI_FILE_VERSION - 1,
-      'older_version',
-      refusal.field_path ?? '$.version',
-    )
-  }
-  if (kind === 'newer_version') {
-    return new CanopiDesignIngestionError(
-      'unsupported_version',
-      refusal.message,
-      CURRENT_CANOPI_FILE_VERSION + 1,
-      'newer_version',
-      refusal.field_path ?? '$.version',
-    )
-  }
-  const loadFailureKind: DesignLoadFailureKind =
-    kind === 'too_large'
-      ? 'too_large'
-      : kind === 'invalid_json'
-        ? 'invalid_json'
-        : 'invalid_document'
-  return new CanopiDesignIngestionError(
-    'invalid_document',
-    refusal.message,
-    null,
-    loadFailureKind,
-    refusal.field_path ?? null,
-  )
-}
-
 async function decodeWithDesignCore(
   designCore: DesignCore,
   bytes: Uint8Array,
 ): Promise<DecodedDesignPayload> {
   const answer = await designCore.decode(bytes)
   if ('ok' in answer) {
-    return { file: v10ToSessionCanopiFile(answer.ok.design) }
+    return {
+      file: normalizeLoadedDocument(answer.ok.design),
+      migratedFrom: answer.ok.migrated_from ?? null,
+    }
   }
   throw ingestionErrorFromFormatRefusal(answer.err)
 }
 
-async function decodeFallbackJson(
-  bytes: Uint8Array,
-  decoder: TextDecoder,
-): Promise<DecodedDesignPayload> {
-  const text = decoder.decode(bytes)
-  const raw = parseCanopiJsonText(text)
-  if (isSavedByNewerCanopi(raw)) {
-    const version = (raw as { readonly version?: unknown }).version
-    throw new CanopiDesignIngestionError(
-      'unsupported_version',
-      `$.version: unsupported Canopi Design version ${String(version)}; saved by a newer Canopi`,
-      typeof version === 'number' ? version : CURRENT_CANOPI_FILE_VERSION + 1,
-      'newer_version',
-      '$.version',
-    )
-  }
-  if (!isCurrentCanopiDocument(raw)) {
-    const version = raw && typeof raw === 'object' && !Array.isArray(raw)
-      ? (raw as { readonly version?: unknown }).version
-      : undefined
-    if (typeof version === 'number' && Number.isInteger(version) && version !== CURRENT_CANOPI_FILE_VERSION) {
-      throw new CanopiDesignIngestionError(
-        'unsupported_version',
-        `$.version: unsupported Canopi Design version ${version}`,
-        version,
-        version > CURRENT_CANOPI_FILE_VERSION ? 'newer_version' : 'older_version',
-        '$.version',
-      )
-    }
-    throw new CanopiDesignIngestionError('invalid_document', '$: expected a valid Canopi Design')
-  }
-  return { file: normalizeLoadedDocument(raw) }
-}
-
 /** Production `.canopi` codec shared by Desktop, Web and Gallery Session Cores (2b-3, 2b-5, ADR 0026, contracts §4, §10). */
-export function createJsonSessionCodec(options?: {
-  readonly designCore?: DesignCore
+export function createJsonSessionCodec(options: {
+  readonly designCore: DesignCore
   readonly decode?: (bytes: Uint8Array) => Promise<DecodedDesignPayload>
 }): SessionCoreCodec {
-  const encoder = new TextEncoder()
-  const decoder = new TextDecoder('utf-8', { fatal: true })
   return {
     async decode(bytes) {
-      if (options?.decode) return options.decode(bytes)
-      if (options?.designCore) {
-        return decodeWithDesignCore(options.designCore, bytes)
-      }
-      return decodeFallbackJson(bytes, decoder)
+      if (options.decode) return options.decode(bytes)
+      return decodeWithDesignCore(options.designCore, bytes)
     },
     admitWrite(file) {
       if (file.version !== CURRENT_CANOPI_FILE_VERSION) {
@@ -173,15 +98,9 @@ export function createJsonSessionCodec(options?: {
       return viewsAndStoriesProblem(views, stories) ?? mapViewProblem(file.map_view)
     },
     async encode(file) {
-      const v10 = sessionCanopiFileToV10(file)
-      let bytes: Uint8Array
-      if (options?.designCore) {
-        const encoded = await options.designCore.encode(v10)
-        if ('err' in encoded) throw ingestionErrorFromFormatRefusal(encoded.err)
-        bytes = encoded.ok
-      } else {
-        bytes = encoder.encode(JSON.stringify(v10))
-      }
+      const encoded = await options.designCore.encode(flattenDocumentForJson(file))
+      if ('err' in encoded) throw ingestionErrorFromFormatRefusal(encoded.err)
+      const bytes = encoded.ok
       const digest = await globalThis.crypto.subtle.digest('SHA-256', new Uint8Array(bytes))
       const version = Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('')
       return { bytes, version }
@@ -195,12 +114,12 @@ function isAdmittedOpacityValue(value: number): boolean {
   return Number.isFinite(value) && value >= 0 && value <= 1
 }
 
-function isAdmittedRangeValue(range: LidarColourRange | null | undefined): boolean {
+function isAdmittedRangeValue(range: LidarColourRangeV10 | null | undefined): boolean {
   if (!range || range.mode !== 'Custom') return true
   return Number.isFinite(range.min) && Number.isFinite(range.max) && range.min < range.max
 }
 
-function isAdmittedGeoPoint(point: Readonly<GeoPoint> | undefined): boolean {
+function isAdmittedGeoPoint(point: Readonly<GeoPointV10> | undefined): boolean {
   return (
     point !== undefined
     && Number.isFinite(point.lon)
@@ -237,8 +156,8 @@ function plantsAndZonesRangesProblem(file: WriteFile): string | null {
     const plant = file.plants[i]
     if (!plant) continue
     if (!isAdmittedGeoPoint(plant.position)) return `$.plants[${i}].position: expected a valid WGS84 point`
-    if (plant.scale != null && (!Number.isFinite(plant.scale) || plant.scale <= 0)) {
-      return `$.plants[${i}].scale: expected a positive finite number`
+    if (plant.canopy_spread_m != null && (!Number.isFinite(plant.canopy_spread_m) || plant.canopy_spread_m <= 0)) {
+      return `$.plants[${i}].canopy_spread_m: expected a positive finite number`
     }
     if (plant.rotation != null && !Number.isFinite(plant.rotation)) {
       return `$.plants[${i}].rotation: expected a finite number`
@@ -280,7 +199,7 @@ function annotationsAndLayersRangesProblem(file: WriteFile): string | null {
 }
 
 function siteDataRangesProblem(file: WriteFile): string | null {
-  const siteEntries = file.lidar?.entries ?? []
+  const siteEntries = file.site_data?.entries ?? []
   const seenSiteIds = new Set<string>()
   for (let i = 0; i < siteEntries.length; i += 1) {
     const entry = siteEntries[i]

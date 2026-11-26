@@ -32,7 +32,6 @@ export interface DecodedDesignPayload {
   readonly file: CanopiFile
   readonly migratedFrom?: number | null
   readonly readOnly?: boolean
-  readonly savedByVersion?: number | null
 }
 
 export interface SessionCoreCodec {
@@ -64,7 +63,6 @@ export interface SessionCoreDeps {
     readonly file: CanopiFile
     readonly migratedFrom?: number | null
     readonly readOnly?: boolean
-    readonly savedByVersion?: number | null
   }
 }
 
@@ -87,6 +85,7 @@ export interface SessionCore extends SessionEditsApi {
   readonly newestUndoable: ReadonlySignal<HistoryEntry | null>
 
   snapshot(): DeepReadonly<CanopiFile> | null
+  encodeSnapshot(): Promise<Uint8Array | null>
   openFrom(source: DesignSource): Promise<OpenResult>
   createNew(): Promise<OpenResult>
   close(purpose?: QuestionPurpose): Promise<'closed' | 'cancelled'>

@@ -9,7 +9,7 @@ import { buildConsortiumPlanningProjection } from '../app/planning-projection/co
 import { buildTimelineSpeciesOptions } from '../app/planning-projection/timeline'
 import { speciesDisplayNames } from '../canvas/runtime/species-key'
 import { MANUAL_TARGET, speciesBudgetTarget, speciesTarget } from '../target'
-import type { BudgetItem, Consortium, PlacedPlant, TimelineAction } from '../generated/contracts'
+import type { BudgetItem, Consortium, PlacedPlant, TimelineAction } from '../types/design'
 
 function makePlant(canonicalName: string, commonName: string | null = null): PlacedPlant {
   return {
@@ -19,7 +19,7 @@ function makePlant(canonicalName: string, commonName: string | null = null): Pla
     color: null,
     position: { lon: 13, lat: 23 },
     rotation: null,
-    scale: null,
+    canopy_spread_m: null,
     notes: null,
     planted_date: null,
     quantity: 1,
@@ -48,19 +48,11 @@ describe('Planning Projection', () => {
     const budget: BudgetItem[] = [
       {
         target: speciesBudgetTarget('Malus domestica'),
-        category: 'plants',
-        description: 'Malus domestica',
-        quantity: 0,
         unit_cost: 5,
-        currency: 'EUR',
       },
       {
         target: MANUAL_TARGET,
-        category: 'materials',
-        description: 'Mulch',
-        quantity: 1,
         unit_cost: 12,
-        currency: 'EUR',
       },
     ]
 
@@ -110,8 +102,8 @@ describe('Planning Projection', () => {
       ],
       localizedNames: new Map([['Acer campestre', 'Érable champêtre']]),
       budget: [
-        { target: speciesBudgetTarget('Acer campestre'), category: 'plants', description: '', quantity: 0, unit_cost: 4, currency: 'EUR' },
-        { target: speciesBudgetTarget('Malus domestica'), category: 'plants', description: '', quantity: 0, unit_cost: 0, currency: 'EUR' },
+        { target: speciesBudgetTarget('Acer campestre'), unit_cost: 4 },
+        { target: speciesBudgetTarget('Malus domestica'), unit_cost: 0 },
       ],
       currency: 'EUR',
       locale: 'fr',

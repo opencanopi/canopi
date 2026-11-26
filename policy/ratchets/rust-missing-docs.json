@@ -4,13 +4,17 @@
   "family": "rust-missing-docs",
   "ledger": "2.1-Q217",
   "tool": "clippy",
-  "scope": ["canopi-types/**"],
+  "scope": [
+    "canopi-types/**"
+  ],
   "lane": "commit",
   "keys": "path-rule",
-  "select": ["missing_docs"],
+  "select": [
+    "missing_docs"
+  ],
   "entries": {
     "canopi-types/src/analysis_registry.rs: clippy:missing_docs": { "count": 12 },
-    "canopi-types/src/design.rs: clippy:missing_docs": { "count": 41 },
+    "canopi-types/src/design.rs: clippy:missing_docs": { "count": 36 },
     "canopi-types/src/library.rs: clippy:missing_docs": { "count": 21 },
     "canopi-types/src/lidar.rs: clippy:missing_docs": { "count": 21 },
     "canopi-types/src/location.rs: clippy:missing_docs": { "count": 1 },

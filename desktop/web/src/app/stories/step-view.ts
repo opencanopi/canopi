@@ -1,6 +1,6 @@
 import { currentCanvasQuerySurface } from '../../canvas/session'
 import { t } from '../../i18n'
-import type { SavedView } from '../../generated/contracts'
+import type { SavedView } from '../../types/design'
 import { savedViewPresentedLabels } from '../saved-views/snapshot'
 
 /** One "This step shows" tag: what the step's view shows, in words. */

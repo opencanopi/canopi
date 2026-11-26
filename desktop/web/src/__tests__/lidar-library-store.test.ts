@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { LibrarySnapshot, LidarImportJob, LidarPresentationEntry } from '../generated/contracts'
+import type { LibrarySnapshot, LidarImportJob } from '../generated/contracts'
 import { librarySnapshot, slopeItem, sourceItem } from './support/library-fixtures'
 
 const listLibraryMock = vi.hoisted(() => vi.fn())
@@ -220,7 +220,7 @@ describe('LiDAR presentation join', () => {
         freshness: { state: 'Stale', reasons: [{ reason: 'InputUpdated', input_key: 'dem', item_id: 'ground' }] },
       }),
     ])
-    const design = { lidar: { visible: true, entries: [
+    const design = { site_data: { visible: true, entries: [
       { kind: 'Derived' as const, id: 'slope', name: 'Ground · Slope', visible: true, opacity: 0.5, order: 1, ramp: 'Magma' as const, reversed: true, range: { mode: 'Custom' as const, min: 0, max: 30 } },
       { kind: 'Source' as const, id: 'ground', name: 'Ground', visible: false, opacity: 1, order: 0, ramp: null, reversed: false, range: null },
       { kind: 'Derived' as const, id: 'gone', name: 'Old terrain', visible: true, opacity: 1, order: 2, ramp: null, reversed: false, range: null },
@@ -246,8 +246,8 @@ describe('LiDAR presentation join', () => {
 
   it('folds the Site data eye with each own eye into shown, keeping the own eye', () => {
     const library = librarySnapshot([sourceItem('ground', 'Ground')])
-    const read = (section: boolean, own: boolean) => readLidarPresentation({ lidar: { visible: section, entries: [
-      { kind: 'Source', id: 'ground', name: 'Ground', visible: own, opacity: 1, order: 0, ramp: null, reversed: false, range: null },
+    const read = (section: boolean, own: boolean) => readLidarPresentation({ site_data: { visible: section, entries: [
+      { id: 'ground', name: 'Ground', visible: own, opacity: 1, order: 0, ramp: null, reversed: false, range: null },
     ] } }, library)[0]
 
     expect(read(true, true)).toMatchObject({ visible: true, shown: true })
@@ -259,9 +259,9 @@ describe('LiDAR presentation join', () => {
   it('canopi-f47t.52.271: matches an entry by id alone and takes its kind from the matched library item (2.1-M493)', () => {
     const library = librarySnapshot([sourceItem('ground', 'Ground'), slopeItem('slope', 'ground')])
     const entry = (id: string, kind?: 'Source' | 'Derived') =>
-      ({ id, name: 'Stored name', visible: true, opacity: 1, order: 0, ramp: null, reversed: false, range: null, ...(kind ? { kind } : {}) }) as LidarPresentationEntry
+      ({ id, name: 'Stored name', visible: true, opacity: 1, order: 0, ramp: null, reversed: false, range: null, ...(kind ? { kind } : {}) })
     const rows = readLidarPresentation(
-      { lidar: { visible: true, entries: [entry('slope'), { ...entry('ground', 'Derived'), order: 1 }, { ...entry('gone', 'Derived'), order: 2 }] } },
+      { site_data: { visible: true, entries: [entry('slope'), { ...entry('ground', 'Derived'), order: 1 }, { ...entry('gone', 'Derived'), order: 2 }] } },
       library,
     )
     const [kindless, wrongKind, missing] = ['slope', 'ground', 'gone'].map((id) => rows.find((row) => row.id === id))
@@ -275,7 +275,7 @@ describe('LiDAR presentation join', () => {
   it('canopi-f47t.52.271: an item a newer catalogue lists reads as needing a newer Canopi and draws nothing', () => {
     const library = librarySnapshot([sourceItem('lyr-1', 'Orchard terrain', { state: 'NeedsNewer', generation_id: null, newer_kind: 'raster' })])
     const [row] = readLidarPresentation(
-      { lidar: { visible: true, entries: [{ kind: 'Source', id: 'lyr-1', name: 'Old name', visible: true, opacity: 1, order: 0, ramp: null, reversed: false, range: null }] } },
+      { site_data: { visible: true, entries: [{ id: 'lyr-1', name: 'Old name', visible: true, opacity: 1, order: 0, ramp: null, reversed: false, range: null }] } },
       library,
       { kind: 'newer_read_only' },
     )
@@ -284,8 +284,8 @@ describe('LiDAR presentation join', () => {
   })
 
   it('says why an item is missing, and that nothing is missing while the library loads', () => {
-    const design = { lidar: { visible: true, entries: [
-      { kind: 'Source' as const, id: 'ground', name: 'Ground', visible: true, opacity: 1, order: 0, ramp: null, reversed: false, range: null },
+    const design = { site_data: { visible: true, entries: [
+      { id: 'ground', name: 'Ground', visible: true, opacity: 1, order: 0, ramp: null, reversed: false, range: null },
     ] } }
     const missing = (library: LibrarySnapshot | null, status: Parameters<typeof readLidarPresentation>[2]) =>
       readLidarPresentation(design, library, status)[0]?.availability

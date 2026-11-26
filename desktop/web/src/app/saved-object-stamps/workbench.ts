@@ -34,7 +34,7 @@ import {
   renameSavedObjectStamp as renameSavedObjectStampIpc,
   reorderSavedObjectStamps as reorderSavedObjectStampsIpc,
 } from '../../ipc/saved-object-stamps'
-import { flattenDocumentForJson } from '../contracts/document'
+import { flattenDocumentForJson, normalizeLoadedDocument } from '../contracts/document'
 import { designLoadFailureMessageKey, designLoadFailureOf } from '../contracts/canopi-design-errors'
 import type { CanopiFile } from '../../types/design'
 import type { SavedObjectStamp } from '../../types/saved-object-stamps'
@@ -128,7 +128,7 @@ export function createSavedObjectStampWorkbench({
   deleteSavedObjectStamp = deleteSavedObjectStampIpc,
   reorderSavedObjectStamps = reorderSavedObjectStampsIpc,
   exportSavedObjectStamp = exportSavedObjectStampFile,
-  importSavedObjectStampFile = importSavedObjectStampCanopiFile,
+  importSavedObjectStampFile = async () => normalizeLoadedDocument(await importSavedObjectStampCanopiFile()),
   getCanvasQuerySurface = () => currentCanvasQuerySurface.value,
   arm = armCanvasTool,
 }: SavedObjectStampWorkbenchOptions = {}): SavedObjectStampWorkbench {

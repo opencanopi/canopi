@@ -229,9 +229,7 @@ installCanvasHostRuntime(() => {
 })
 const galleryPorts = createGalleryEditionPorts(edition)
 installEditionPorts(galleryPorts)
-const gallerySessionKind = params.get('session') === 'read-only'
-  ? { kind: 'read-only', origin: 'newer-version', savedByVersion: 10 } as const
-  : undefined
+const galleryReadOnly = params.get('session') === 'read-only'
 const file = designFixture(fixtureState)
 // `state=no-design`: no Design is open, as on the Start screen (the empty Data library's Import… is disabled).
 const gallerySessionCore = createSessionCore({
@@ -239,9 +237,10 @@ const gallerySessionCore = createSessionCore({
   fileAccess: galleryPorts.fileAccess,
   lifecycle: galleryPorts.appLifecycle,
   codec: createJsonSessionCodec({
+    designCore: galleryPorts.designCore,
     decode: async (bytes) => ({
       file: JSON.parse(new TextDecoder().decode(bytes)),
-      ...(gallerySessionKind ? { readOnly: true, savedByVersion: gallerySessionKind.savedByVersion } : {}),
+      ...(galleryReadOnly ? { readOnly: true } : {}),
     }),
   }),
   settings: {
@@ -250,7 +249,7 @@ const gallerySessionCore = createSessionCore({
   },
   newDesignFactory: () => designFixture(fixtureState),
   ...(initial !== 'start' && fixtureState !== 'no-design'
-    ? { initialDesign: { home: { kind: 'draft', key: 'gallery-fixture' as DraftId, version: null }, file, ...(gallerySessionKind ? { readOnly: true, savedByVersion: gallerySessionKind.savedByVersion } : {}) } }
+    ? { initialDesign: { home: { kind: 'draft', key: 'gallery-fixture' as DraftId, version: null }, file, ...(galleryReadOnly ? { readOnly: true } : {}) } }
     : {}),
 })
 const disposeGallerySessionCore = installLiveSessionCore(gallerySessionCore)
@@ -534,10 +533,7 @@ function GalleryWebFrame({ children }: { readonly children: preact.ComponentChil
   return <>
     <BrowserAppShell
       commandProjection={projection}
-      designIdentity={gallerySessionKind
-        ? { name: file.name, saveStatus: 'read-only', saveFailureReason: null, readOnlyOrigin: gallerySessionKind.origin }
-        : { name: file.name, saveStatus: 'draft', saveFailureReason: null }}
-      {...(gallerySessionKind ? { onUpdate: () => {} } : {})}
+      designIdentity={{ name: file.name, saveStatus: galleryReadOnly ? 'read-only' : 'draft', saveFailureReason: null }}
       placeSearch
       {...(undoAction ? { undo: undoAction } : {})}
     >

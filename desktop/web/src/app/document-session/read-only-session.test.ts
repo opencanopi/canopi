@@ -4,6 +4,7 @@
 // replacement without asking. The Canvas here is the real Scene authority, so what a close leaves is read from its
 // Scene content and undo history.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { createTestDesignCore } from '../../__tests__/support/design-wire'
 import { createInMemoryDesignHomeStore } from '../../__tests__/support/session-core-fixture'
 import { createDetachedCanvasRuntimeAppAdapter } from '../../__tests__/support/detached-canvas-app-adapter'
 import { SceneCanvasRuntime } from '../../canvas/runtime/scene-runtime'
@@ -30,7 +31,7 @@ import {
 import { designSessionStore } from './store'
 
 const EMPTY_DESIGN: Omit<CanopiFile, 'name' | 'plants'> = {
-  version: 9,
+  version: 10,
   description: null,
   plant_species_colors: {},
   plant_species_symbols: {},
@@ -54,16 +55,17 @@ const EMPTY_DESIGN: Omit<CanopiFile, 'name' | 'plants'> = {
 function apple(index: number): CanopiFile['plants'][number] {
   return {
     id: `plant-${index}`,
+    locked: false,
     canonical_name: 'Malus domestica',
     common_name: null,
     color: null,
     position: { lon: 2 + index * 1e-5, lat: 48 },
     rotation: null,
-    scale: null,
+    canopy_spread_m: null,
     notes: null,
     planted_date: null,
     quantity: null,
-  } as CanopiFile['plants'][number]
+  }
 }
 
 function makeFile(name: string, plantCount = 0): CanopiFile {
@@ -92,7 +94,7 @@ function openEditing(): void {
   pickHomeTarget = vi.fn<FileAccessPort['pickHomeTarget']>(async () => ({ kind: 'cancelled' as const }))
   decodeGate = null
 
-  const baseCodec = createJsonSessionCodec()
+  const baseCodec = createJsonSessionCodec({ designCore: createTestDesignCore() })
   core = createSessionCore({
     designHome: home,
     fileAccess: {
@@ -103,10 +105,10 @@ function openEditing(): void {
     codec: {
       async decode(bytes) {
         if (decodeGate) await decodeGate(bytes)
-        const parsed = JSON.parse(new TextDecoder().decode(bytes)) as CanopiFile & { __savedByVersion?: number }
-        if (parsed.__savedByVersion) {
-          const { __savedByVersion, ...rest } = parsed
-          return { file: rest, readOnly: true, savedByVersion: __savedByVersion }
+        const parsed = JSON.parse(new TextDecoder().decode(bytes)) as CanopiFile & { __readOnly?: boolean }
+        if (parsed.__readOnly) {
+          const { __readOnly, ...rest } = parsed
+          return { file: rest, readOnly: true }
         }
         return { file: parsed }
       },
@@ -143,7 +145,7 @@ function openEditing(): void {
 
 function seedNewer(name = 'Orchard 2.1', plantCount = 3): FileGrantId {
   const grant: FileGrantId = `/designs/${name}.canopi`
-  const payload = { ...makeFile(name, plantCount), __savedByVersion: 10 }
+  const payload = { ...makeFile(name, plantCount), __readOnly: true }
   home.files.set(grant, {
     bytes: new TextEncoder().encode(JSON.stringify(payload)),
     version: `v-${name}`,
@@ -178,10 +180,9 @@ describe('the read-only Session kind (canopi-f47t.52.270)', () => {
     const result = await openNewer('Orchard 2.1', 3)
 
     expect(result.status).toBe('opened')
-    expect(designSessionStore.sessionKind.value).toEqual({ kind: 'read-only', origin: 'newer-version', savedByVersion: 10 })
+    expect(designSessionStore.sessionKind.value).toEqual({ kind: 'read-only', origin: 'storage-unchecked' })
     expect(designSessionStore.readDesignName()).toBe('Orchard 2.1')
     expect(plantCount()).toBe(3)
-    expect(designSessionStore.holdsNewerReadView()).toBe(true)
     expect(designSaveStatus.value).toBe('read-only')
     expect(designRevertAvailable.value).toBe(false)
     expect(core.dirty.value).toBe(false)

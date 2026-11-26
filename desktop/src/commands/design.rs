@@ -1,4 +1,4 @@
-use canopi_types::design::{CanopiFile, DesignDraftSummary, DesignSummary, RecentDesignSummary};
+use canopi_types::design::{DesignDraftSummary, DesignSummary, RecentDesignSummary};
 use tauri::State;
 
 use crate::{
@@ -7,12 +7,6 @@ use crate::{
     native_operation::{NativeOperationClass, NativeOperationExecutor},
     services::recent_design_previews::RecentDesignPreviews,
 };
-
-/// Create a new Design from the canonical shared defaults.
-#[tauri::command]
-pub fn new_design() -> Result<CanopiFile, String> {
-    crate::services::design_files::new_design()
-}
 
 /// Return up to 20 recently opened files, most recent first, with minted file grants and `recent_id`s.
 #[tauri::command]

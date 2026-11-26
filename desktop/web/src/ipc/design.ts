@@ -6,6 +6,7 @@ import type {
   DesignSummary,
 } from '../types/design'
 import type {
+  CanopiFileV10,
   DesignDraftSummary,
   RecentDesignSummary,
 } from '../generated/contracts'
@@ -52,9 +53,9 @@ export async function createNotebookSection(name: string): Promise<DesignNoteboo
 
 export async function addDesignReferenceToNotebook(
   path: string,
-  content: CanopiFile,
+  content: CanopiFile | CanopiFileV10,
 ): Promise<void> {
-  return invokeTyped('add_design_reference_to_notebook', { path, content }, mintOperationId('u'))
+  return invokeTyped('add_design_reference_to_notebook', { path, content: content as CanopiFileV10 }, mintOperationId('u'))
 }
 
 export async function renameNotebookSection(sectionId: string, name: string): Promise<void> {

@@ -1,4 +1,5 @@
-import type { PanelTarget, PlacedPlant, TimelineAction } from '../../generated/contracts'
+import type { PanelTarget } from '../../generated/contracts'
+import type { PlacedPlant, TimelineAction } from '../../types/design'
 import { normalizeSearchText } from '../../utils/normalize-search'
 import type { CalendarCompletionFilter } from '../planning-view/state'
 import { missingZoneLabel } from '../map-selection/zone-label'

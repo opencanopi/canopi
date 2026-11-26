@@ -50,7 +50,7 @@ let surface: TestCanvasQuerySurface
 function openDesign(entries: { id: string; visible: boolean; kind?: 'Source' | 'Derived' }[]): void {
   const design = {
     name: 'Orchard',
-    lidar: {
+    site_data: {
       visible: true,
       entries: entries.map(({ id, visible, kind = 'Source' }, order) => ({
         kind, id, name: id, visible, opacity: 1, order, ramp: null, reversed: false, range: null,
@@ -229,7 +229,7 @@ describe('Site data row values', () => {
     // Reopened from the keyboard: the pointer never leaves the map, and the rows to read are the same.
     await openTestDesign({
       name: 'Orchard',
-      lidar: {
+      site_data: {
         visible: true,
         entries: [
           { kind: 'Source', id: 'mnt', name: 'mnt', visible: true, opacity: 1, order: 0, ramp: null, reversed: false, range: null },

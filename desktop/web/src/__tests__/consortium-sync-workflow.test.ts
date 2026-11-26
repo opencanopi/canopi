@@ -43,7 +43,7 @@ function makePlant(canonical_name: string): PlacedPlant {
     color: null,
     position: { lon: 13, lat: 23 },
     rotation: null,
-    scale: null,
+    canopy_spread_m: null,
     notes: null,
     planted_date: null,
     quantity: null,

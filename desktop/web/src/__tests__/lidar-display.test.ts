@@ -214,8 +214,8 @@ describe('LiDAR display descriptor requests', () => {
       plant_species_colors: {}, plant_species_symbols: {}, plant_species_codes: {},
       layers: [], plants: [], zones: [], annotations: [], measurement_guides: [],
       consortiums: [], groups: [], timeline: [], budget: [], budget_currency: 'EUR',
-      lidar: { visible: true, entries: [
-        { kind: 'Source', id: 'lyr-1', name: 'Orchard terrain', visible: false, opacity: 1, order: 0, ramp: null, reversed: false, range: null },
+      site_data: { visible: true, entries: [
+        { id: 'lyr-1', name: 'Orchard terrain', visible: false, opacity: 1, order: 0, ramp: null, reversed: false, range: null },
       ] },
       created_at: '', updated_at: '', extra: {},
     }
@@ -258,13 +258,13 @@ describe('LiDAR display descriptor requests', () => {
       sourceItem('lyr-1', 'Orchard terrain', { generation_id: 'gen-2' }),
       sourceItem('lyr-2', 'Canopy', { generation_id: 'gen-5' }),
     ])
-    const entry = (id: string, range: unknown) => ({ kind: 'Source', id, name: id, visible: true, opacity: 1, order: 0, ramp: 'Terrain', reversed: false, range })
+    const entry = (id: string, range: unknown) => ({ id, name: id, visible: true, opacity: 1, order: 0, ramp: 'Terrain', reversed: false, range })
     designSessionFixture.file = {
       version: 9, name: 'Orchard', description: null,
       plant_species_colors: {}, plant_species_symbols: {}, plant_species_codes: {},
       layers: [], plants: [], zones: [], annotations: [], measurement_guides: [],
       consortiums: [], groups: [], timeline: [], budget: [], budget_currency: 'EUR',
-      lidar: { visible: true, entries: [entry('lyr-1', { mode: 'CutOutliers' }), entry('lyr-2', null)] as never },
+      site_data: { visible: true, entries: [entry('lyr-1', { mode: 'CutOutliers' }), entry('lyr-2', null)] as never },
       created_at: '', updated_at: '', extra: {},
     }
     try {
@@ -297,13 +297,13 @@ describe('LiDAR display descriptor requests', () => {
       sourceItem('lyr-1', 'Orchard terrain', { generation_id: 'gen-2' }),
       sourceItem('lyr-2', 'Canopy', { generation_id: 'gen-5' }),
     ])
-    const entry = (id: string, ramp: unknown) => ({ kind: 'Source', id, name: id, visible: true, opacity: 1, order: 0, ramp, reversed: false, range: { mode: 'CutOutliers' } })
+    const entry = (id: string, ramp: unknown) => ({ id, name: id, visible: true, opacity: 1, order: 0, ramp, reversed: false, range: { mode: 'CutOutliers' } })
     designSessionFixture.file = {
       version: 9, name: 'Orchard', description: null,
       plant_species_colors: {}, plant_species_symbols: {}, plant_species_codes: {},
       layers: [], plants: [], zones: [], annotations: [], measurement_guides: [],
       consortiums: [], groups: [], timeline: [], budget: [], budget_currency: 'EUR',
-      lidar: { visible: true, entries: [entry('lyr-1', null), entry('lyr-2', 'Terrain')] as never },
+      site_data: { visible: true, entries: [entry('lyr-1', null), entry('lyr-2', 'Terrain')] as never },
       created_at: '', updated_at: '', extra: {},
     }
     try {
@@ -349,13 +349,13 @@ describe('LiDAR display descriptor requests', () => {
       sourceItem('lyr-1', 'Orchard terrain', { generation_id: 'gen-2' }),
       sourceItem('lyr-2', 'Canopy', { generation_id: 'gen-5' }),
     ])
-    const entry = (id: string, range: unknown) => ({ kind: 'Source', id, name: id, visible: false, opacity: 1, order: 0, ramp: 'Terrain', reversed: false, range })
+    const entry = (id: string, range: unknown) => ({ id, name: id, visible: false, opacity: 1, order: 0, ramp: 'Terrain', reversed: false, range })
     designSessionFixture.file = {
       version: 9, name: 'Orchard', description: null,
       plant_species_colors: {}, plant_species_symbols: {}, plant_species_codes: {},
       layers: [], plants: [], zones: [], annotations: [], measurement_guides: [],
       consortiums: [], groups: [], timeline: [], budget: [], budget_currency: 'EUR',
-      lidar: { visible: true, entries: [entry('lyr-1', { mode: 'CutOutliers' }), entry('lyr-2', null)] as never },
+      site_data: { visible: true, entries: [entry('lyr-1', { mode: 'CutOutliers' }), entry('lyr-2', null)] as never },
       created_at: '', updated_at: '', extra: {},
     }
     try {
@@ -541,8 +541,8 @@ describe('LiDAR display descriptor refusals', () => {
       plant_species_colors: {}, plant_species_symbols: {}, plant_species_codes: {},
       layers: [], plants: [], zones: [], annotations: [], measurement_guides: [],
       consortiums: [], groups: [], timeline: [], budget: [], budget_currency: 'EUR',
-      lidar: { visible: true, entries: [
-        { kind: 'Source', id: 'lyr-1', name: 'Orchard terrain', visible: false, opacity: 1, order: 0, ramp: null, reversed: false, range: null },
+      site_data: { visible: true, entries: [
+        { id: 'lyr-1', name: 'Orchard terrain', visible: false, opacity: 1, order: 0, ramp: null, reversed: false, range: null },
       ] },
       created_at: '', updated_at: '', extra: {},
     }

@@ -742,7 +742,7 @@ describe('visible map area', () => {
     const at = (x: number, y: number) => geoAt(x, y, { lon: 0, lat: 0 })
     const plant = (id: string, x: number, y: number, canonical: string): CanopiFile['plants'][number] => ({
       id, canonical_name: canonical, common_name: null, color: null, position: at(x, y), rotation: null,
-      scale: null, notes: null, planted_date: null, quantity: 1, locked: false,
+      canopy_spread_m: null, notes: null, planted_date: null, quantity: 1, locked: false,
     })
     try {
       host.surfaces.documents.loadDocument({

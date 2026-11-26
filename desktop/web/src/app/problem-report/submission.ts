@@ -4,7 +4,6 @@ import type { ProblemReportPort } from '../../platform/problem-report'
 import { reportFailure, reportInline, type ReportOrigin } from '../../failures/report'
 import { t } from '../../i18n'
 import { buildProblemReport } from './builder'
-import { designSessionStore } from '../document-session/store'
 import { recentFrontendDiagnostics } from './diagnostics'
 import { problemReportDialogOpen } from './state'
 
@@ -70,7 +69,7 @@ export function createProblemReportSubmission(
 ): ProblemReportSubmission {
   const description = signal('')
   const includeCurrentDesign = signal(false)
-  const currentDesignOffered = computed(() => !designSessionStore.holdsNewerReadView())
+  const currentDesignOffered = computed(() => true)
   const submitting = signal(false)
   const result = signal<ProblemReportResult | null>(null)
   const error = signal<string | null>(null)
@@ -133,7 +132,7 @@ export function createProblemReportSubmission(
         let currentDesign: string | null = null
         // A tick left from before a newer Design opened goes with its row, never blocking the report (canopi-v4kj).
         if (includeCurrentDesign.value && currentDesignOffered.value) {
-          currentDesign = writer.currentDesign()
+          currentDesign = await writer.currentDesign()
           if (!currentDesign) {
             error.value = t('problemReport.currentDesignUnavailable')
             return

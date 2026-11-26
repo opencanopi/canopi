@@ -31,6 +31,12 @@ const mockReaderHolder: {
 
 const downloadSpy = vi.fn()
 
+import { createTestDesignCore } from '../../__tests__/support/design-wire'
+
+vi.mock('../../platform/design-core', () => ({
+  createDesignCore: () => createTestDesignCore(),
+}))
+
 vi.mock('../../platform/draft-records.browser', () => ({
   createDraftRecordsReader: () => mockReaderHolder.records as BrowserNewerDraftRecords,
 }))

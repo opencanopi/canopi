@@ -192,7 +192,6 @@
     "app/plant-finder -> i18n": { "count": 1 },
     "app/plant-finder -> target": { "count": 1 },
     "app/plant-finder -> utils": { "count": 1 },
-    "app/problem-report -> app/contracts": { "count": 1 },
     "app/problem-report -> app/document-session": { "count": 1 },
     "app/problem-report -> failures": { "count": 1 },
     "app/problem-report -> generated": { "count": 1, "bead": "canopi-f47t.52.36" },

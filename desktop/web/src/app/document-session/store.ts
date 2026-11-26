@@ -7,13 +7,11 @@ import type { CanopiFile } from '../../types/design'
 import { activeSessionCore } from './live-core'
 
 /**
- * What the open Design Session may do (2.1-M478, design check F3). `editing` writes every change to its home;
- * `read-only` shows a Design a newer Canopi saved (`origin: 'newer-version'`, its format `savedByVersion`), or a Web
- * Draft opened while 2.1's Draft listing could not be read (`origin: 'storage-unchecked'`, 2.1-Q334).
+ * What the open Design Session may do (2.1-M478, 2.1-Q347). `editing` writes every change to its home;
+ * `read-only` shows a Web Draft opened while 2.1's Draft listing could not be read (`origin: 'storage-unchecked'`, 2.1-Q334).
  */
 export type DesignSessionKind =
   | { readonly kind: 'editing' }
-  | { readonly kind: 'read-only'; readonly origin: 'newer-version'; readonly savedByVersion: number }
   | { readonly kind: 'read-only'; readonly origin: 'storage-unchecked' }
 
 export const EDITING_DESIGN_SESSION: DesignSessionKind = Object.freeze({ kind: 'editing' })
@@ -22,14 +20,6 @@ export const EDITING_DESIGN_SESSION: DesignSessionKind = Object.freeze({ kind: '
 export type ReadOnlyOrigin = Extract<DesignSessionKind, { kind: 'read-only' }>['origin']
 export function readOnlyOrigin(kind: DesignSessionKind): ReadOnlyOrigin | undefined {
   return kind.kind === 'read-only' ? kind.origin : undefined
-}
-
-/**
- * Whether a session read-only from `origin` shows a newer Canopi's read view, never the user's file: no save, Draft,
- * export or problem report encodes it (2.1-M479, canopi-v4kj). A storage-unchecked Draft is the user's own, read whole.
- */
-function isNewerReadView(origin: ReadOnlyOrigin | undefined): boolean {
-  return origin === 'newer-version'
 }
 
 export interface DesignSessionIdentity {
@@ -52,7 +42,6 @@ export interface DesignSessionStore {
   readDesignName(): string
   hasCurrentDesign(): boolean
   isReadOnly(): boolean
-  holdsNewerReadView(): boolean
   isDesignDirty(): boolean
 }
 
@@ -91,9 +80,6 @@ export const designName: ReadonlySignal<string> = computed(() => {
 export const sessionKind: ReadonlySignal<DesignSessionKind> = computed(() => {
   const open = openDesign.value
   if (!open || !open.readOnly) return EDITING_DESIGN_SESSION
-  if (open.savedByVersion !== null) {
-    return { kind: 'read-only', origin: 'newer-version', savedByVersion: open.savedByVersion }
-  }
   return { kind: 'read-only', origin: 'storage-unchecked' }
 })
 
@@ -129,9 +115,6 @@ export const designSessionStore: DesignSessionStore = {
   },
   isReadOnly() {
     return sessionKind.peek().kind === 'read-only'
-  },
-  holdsNewerReadView() {
-    return isNewerReadView(readOnlyOrigin(sessionKind.value))
   },
   isDesignDirty() {
     return designDirty.peek()

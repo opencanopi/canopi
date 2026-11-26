@@ -7,7 +7,7 @@
     "canopi-types/src/design.rs",
     "bindings-gen/src/design_format.rs",
     "desktop/src/design/format.rs",
-    "app/contracts/design-admission.ts",
+    "canopi-format/src/",
     "app/contracts/document.ts",
     "app/design-edit/",
     "components/panels/"

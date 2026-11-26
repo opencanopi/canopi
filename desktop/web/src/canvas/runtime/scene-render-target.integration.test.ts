@@ -82,7 +82,7 @@ function orchard(): CanopiFile {
     layers: [],
     plants: [{
       id: 'apple', locked: false, canonical_name: 'Malus domestica', common_name: null, color: null,
-      pinned_name: false, position: { lon: -1.5536, lat: 47.2184 }, rotation: null, scale: null, notes: null,
+      pinned_name: false, position: { lon: -1.5536, lat: 47.2184 }, rotation: null, canopy_spread_m: null, notes: null,
       planted_date: null, quantity: null,
     }],
     zones: [],

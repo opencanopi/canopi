@@ -313,9 +313,9 @@ function designOrigin(state: string): { lon: number; lat: number } {
 }
 
 /** Site data entries: the three of every state, the nine more `lidar-long` lists, the two `lidar-missing` names. */
-function lidarEntries(state: string): NonNullable<CanopiFile['lidar']>['entries'] {
-  const entry = (kind: 'Source' | 'Derived', id: string, name: string, order: number, visible = true, opacity = 0.82) =>
-    ({ kind, id, name, visible, opacity, order, ramp: null, reversed: false, range: null })
+function lidarEntries(state: string): NonNullable<CanopiFile['site_data']>['entries'] {
+  const entry = (_kind: 'Source' | 'Derived', id: string, name: string, order: number, visible = true, opacity = 0.82) =>
+    ({ id, name, visible, opacity, order, ramp: null, reversed: false, range: null })
   const entries = [
     entry('Source', 'lidar-ground', 'IGN LiDAR HD MNT', 0),
     entry('Derived', 'lidar-slope', 'IGN LiDAR HD MNT · Slope', 1, true, 0.66),
@@ -366,18 +366,14 @@ export function designFixture(state = 'populated'): CanopiFile {
     }, createSessionPlane(designOrigin(state)), { now: new Date('2026-01-01T00:00:00Z') }),
     name: 'Orchard notebook',
     ...(state === 'empty' ? {} : storyFixture(designOrigin(state), state === 'long')),
-    lidar: state === 'empty' ? null : {
+    site_data: state === 'empty' ? null : {
       visible: true,
       entries: lidarEntries(state),
     },
     budget_currency: 'EUR',
     budget: activeSpecies.slice(0, 5).flatMap((canonicalName, index) => index === 4 ? [] : [{
       target: { kind: 'species' as const, canonical_name: canonicalName },
-      category: 'plants',
-      description: canonicalName,
-      quantity: 0,
       unit_cost: index === 1 ? 0 : 3.5 + index * 1.25,
-      currency: 'EUR',
     }]),
     timeline: state === 'empty' ? [] : [
       {

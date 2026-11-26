@@ -44,7 +44,7 @@ pub struct LayerV10 {
     pub locked: bool,
     /// Layer opacity in `[0, 1]` (default `1.0`).
     #[serde(default = "default_opaque")]
-    pub opacity: f32,
+    pub opacity: f64,
     /// Extension bag for unknown layer keys (`2.1-Q69`).
     #[serde(flatten)]
     #[specta(skip)]
@@ -173,7 +173,7 @@ fn default_true() -> bool {
     true
 }
 
-fn default_opaque() -> f32 {
+fn default_opaque() -> f64 {
     1.0
 }
 

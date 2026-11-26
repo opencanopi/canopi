@@ -391,10 +391,10 @@ describe('story actions', () => {
       },
       fileAccess: ports.fileAccess,
       lifecycle: ports.appLifecycle,
-      codec: createJsonSessionCodec(),
+      codec: createJsonSessionCodec({ designCore: ports.designCore }),
       settings: { readLastOpenHome: async () => null, writeLastOpenHome: async () => {} },
       newDesignFactory: () => ({
-        version: 9, name: 'Stories', description: null, plant_species_colors: {},
+        version: 10, name: 'Stories', description: null, plant_species_colors: {},
         layers: [], plants: [], zones: [], annotations: [], consortiums: [], groups: [],
         timeline: [], budget: [], budget_currency: 'EUR', views: [view('v1'), view('v2')], stories: [STORY],
         created_at: '', updated_at: '', extra: {},

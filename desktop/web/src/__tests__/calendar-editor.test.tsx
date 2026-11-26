@@ -1,4 +1,3 @@
-import type { TimelineAction } from '../generated/contracts'
 // @vitest-environment jsdom
 
 import { render } from 'preact'
@@ -10,7 +9,7 @@ import { locale } from '../app/settings/state'
 import { sidePanel } from '../app/shell/state'
 import { setCurrentCanvasSession } from '../canvas/session'
 import { speciesTarget } from '../target'
-import type { CanopiFile, PlacedPlant } from '../types/design'
+import type { CanopiFile, PlacedPlant, TimelineAction } from '../types/design'
 import { currentDesign, designSessionFixture } from './support/design-session-state'
 import { createTestCanvasQuerySurface } from './support/canvas-query-surface'
 import { createTestCanvasRuntimeSurfaces } from './support/canvas-runtime-surfaces'
@@ -32,7 +31,7 @@ function plant(id: string, canonicalName: string, commonName: string): PlacedPla
     color: null,
     position: { lon: 13, lat: 23 },
     rotation: null,
-    scale: null,
+    canopy_spread_m: null,
     notes: null,
     planted_date: null,
     quantity: 1,

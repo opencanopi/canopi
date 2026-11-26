@@ -277,7 +277,19 @@ pub const DESIGN_FILE_FIELDS: &[DesignFileField] = &[
         owner: DesignFileFieldOwner::Document,
     },
     DesignFileField {
-        key: "lidar",
+        key: "budget_ext",
+        owner: DesignFileFieldOwner::Document,
+    },
+    DesignFileField {
+        key: "site_data",
+        owner: DesignFileFieldOwner::Document,
+    },
+    DesignFileField {
+        key: "plant_display",
+        owner: DesignFileFieldOwner::Document,
+    },
+    DesignFileField {
+        key: "print_setup",
         owner: DesignFileFieldOwner::Document,
     },
     DesignFileField {
@@ -410,6 +422,10 @@ pub struct Layer {
     pub visible: bool,
     pub locked: bool,
     pub opacity: f32,
+    #[serde(flatten, default)]
+    #[cfg_attr(feature = "design-schema", schemars(skip))]
+    #[specta(skip)]
+    pub extra: std::collections::BTreeMap<String, serde_json::Value>,
 }
 
 #[cfg_attr(feature = "design-schema", derive(schemars::JsonSchema))]
@@ -442,6 +458,10 @@ pub struct PlacedPlant {
     pub planted_date: Option<String>,
     #[cfg_attr(feature = "design-schema", schemars(default))]
     pub quantity: Option<u32>,
+    #[serde(flatten, default)]
+    #[cfg_attr(feature = "design-schema", schemars(skip))]
+    #[specta(skip)]
+    pub extra: std::collections::BTreeMap<String, serde_json::Value>,
 }
 
 #[derive(Deserialize)]
@@ -463,6 +483,8 @@ struct PlacedPlantInput {
     planted_date: Option<String>,
     #[serde(default, deserialize_with = "deserialize_optional_json_u32")]
     quantity: Option<u32>,
+    #[serde(flatten, default)]
+    extra: std::collections::BTreeMap<String, serde_json::Value>,
 }
 
 impl<'de> Deserialize<'de> for PlacedPlant {
@@ -485,6 +507,7 @@ impl<'de> Deserialize<'de> for PlacedPlant {
             notes: input.notes,
             planted_date: input.planted_date,
             quantity: input.quantity,
+            extra: input.extra,
         })
     }
 }
@@ -492,7 +515,7 @@ impl<'de> Deserialize<'de> for PlacedPlant {
 // A WGS84 position in degrees. Every persisted design object position is a
 // `GeoPoint`; metres exist only in the runtime's session plane.
 #[cfg_attr(feature = "design-schema", derive(schemars::JsonSchema))]
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Type)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
 #[expect(
     missing_docs,
     reason = "undocumented before 2.1-Q217; document when this file is next touched"
@@ -508,6 +531,10 @@ pub struct GeoPoint {
         schemars(range(min = -85.0511287798066, max = 85.0511287798066))
     )]
     pub lat: f64,
+    #[serde(flatten, default)]
+    #[cfg_attr(feature = "design-schema", schemars(skip))]
+    #[specta(skip)]
+    pub extra: std::collections::BTreeMap<String, serde_json::Value>,
 }
 
 #[cfg_attr(feature = "design-schema", derive(schemars::JsonSchema))]
@@ -535,8 +562,18 @@ pub struct Zone {
     pub rotation: f64,
     #[cfg_attr(feature = "design-schema", schemars(default))]
     pub fill_color: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[specta(optional)]
+    pub stroke_color: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[specta(optional)]
+    pub opacity: Option<f64>,
     #[cfg_attr(feature = "design-schema", schemars(default))]
     pub notes: Option<String>,
+    #[serde(flatten, default)]
+    #[cfg_attr(feature = "design-schema", schemars(skip))]
+    #[specta(skip)]
+    pub extra: std::collections::BTreeMap<String, serde_json::Value>,
 }
 
 #[derive(Deserialize)]
@@ -550,7 +587,13 @@ struct ZoneInput {
     #[serde(default)]
     rotation: f64,
     fill_color: Option<String>,
+    #[serde(default)]
+    stroke_color: Option<String>,
+    #[serde(default)]
+    opacity: Option<f64>,
     notes: Option<String>,
+    #[serde(flatten, default)]
+    extra: std::collections::BTreeMap<String, serde_json::Value>,
 }
 
 impl<'de> Deserialize<'de> for Zone {
@@ -567,7 +610,10 @@ impl<'de> Deserialize<'de> for Zone {
             points: input.points,
             rotation: input.rotation,
             fill_color: input.fill_color,
+            stroke_color: input.stroke_color,
+            opacity: input.opacity,
             notes: input.notes,
+            extra: input.extra,
         })
     }
 }
@@ -588,6 +634,10 @@ pub struct Annotation {
     pub font_size: f64,
     #[cfg_attr(feature = "design-schema", schemars(default))]
     pub rotation: Option<f64>,
+    #[serde(flatten, default)]
+    #[cfg_attr(feature = "design-schema", schemars(skip))]
+    #[specta(skip)]
+    pub extra: std::collections::BTreeMap<String, serde_json::Value>,
 }
 
 #[cfg_attr(feature = "design-schema", derive(schemars::JsonSchema))]
@@ -602,6 +652,10 @@ pub struct MeasurementGuide {
     pub locked: bool,
     pub start: GeoPoint,
     pub end: GeoPoint,
+    #[serde(flatten, default)]
+    #[cfg_attr(feature = "design-schema", schemars(skip))]
+    #[specta(skip)]
+    pub extra: std::collections::BTreeMap<String, serde_json::Value>,
 }
 
 #[derive(Deserialize)]
@@ -614,6 +668,8 @@ struct AnnotationInput {
     text: String,
     font_size: f64,
     rotation: Option<f64>,
+    #[serde(flatten, default)]
+    extra: std::collections::BTreeMap<String, serde_json::Value>,
 }
 
 impl<'de> Deserialize<'de> for Annotation {
@@ -630,6 +686,7 @@ impl<'de> Deserialize<'de> for Annotation {
             text: input.text,
             font_size: input.font_size,
             rotation: input.rotation,
+            extra: input.extra,
         })
     }
 }
@@ -647,6 +704,10 @@ pub struct Consortium {
     pub start_phase: u32,
     #[serde(deserialize_with = "deserialize_json_u32")]
     pub end_phase: u32,
+    #[serde(flatten, default)]
+    #[cfg_attr(feature = "design-schema", schemars(skip))]
+    #[specta(skip)]
+    pub extra: std::collections::BTreeMap<String, serde_json::Value>,
 }
 
 #[cfg_attr(feature = "design-schema", derive(schemars::JsonSchema))]
@@ -712,9 +773,16 @@ pub struct TimelineAction {
     pub targets: Vec<PanelTarget>,
     #[cfg_attr(feature = "design-schema", schemars(default))]
     pub depends_on: Option<Vec<String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[specta(optional)]
+    pub offset_days: Option<i32>,
     pub completed: bool,
     #[serde(deserialize_with = "deserialize_json_i32")]
     pub order: i32,
+    #[serde(flatten, default)]
+    #[cfg_attr(feature = "design-schema", schemars(skip))]
+    #[specta(skip)]
+    pub extra: std::collections::BTreeMap<String, serde_json::Value>,
 }
 
 #[cfg_attr(feature = "design-schema", derive(schemars::JsonSchema))]
@@ -731,6 +799,10 @@ pub struct BudgetItem {
     pub quantity: f64,
     pub unit_cost: f64,
     pub currency: String,
+    #[serde(flatten, default)]
+    #[cfg_attr(feature = "design-schema", schemars(skip))]
+    #[specta(skip)]
+    pub extra: std::collections::BTreeMap<String, serde_json::Value>,
 }
 
 fn default_manual_target() -> PanelTarget {
@@ -758,11 +830,37 @@ pub fn default_budget_currency() -> String {
 )]
 pub enum ObjectGroupMember {
     #[serde(rename = "plant")]
-    Plant { id: String },
+    Plant {
+        id: String,
+        #[serde(flatten, default)]
+        #[cfg_attr(feature = "design-schema", schemars(skip))]
+        #[specta(skip)]
+        extra: std::collections::BTreeMap<String, serde_json::Value>,
+    },
     #[serde(rename = "zone")]
-    Zone { id: String },
+    Zone {
+        id: String,
+        #[serde(flatten, default)]
+        #[cfg_attr(feature = "design-schema", schemars(skip))]
+        #[specta(skip)]
+        extra: std::collections::BTreeMap<String, serde_json::Value>,
+    },
     #[serde(rename = "annotation")]
-    Annotation { id: String },
+    Annotation {
+        id: String,
+        #[serde(flatten, default)]
+        #[cfg_attr(feature = "design-schema", schemars(skip))]
+        #[specta(skip)]
+        extra: std::collections::BTreeMap<String, serde_json::Value>,
+    },
+    #[serde(rename = "measurement_guide")]
+    MeasurementGuide {
+        id: String,
+        #[serde(flatten, default)]
+        #[cfg_attr(feature = "design-schema", schemars(skip))]
+        #[specta(skip)]
+        extra: std::collections::BTreeMap<String, serde_json::Value>,
+    },
 }
 
 #[cfg_attr(feature = "design-schema", derive(schemars::JsonSchema))]
@@ -778,6 +876,10 @@ pub struct ObjectGroup {
     #[cfg_attr(feature = "design-schema", schemars(default))]
     pub name: Option<String>,
     pub members: Vec<ObjectGroupMember>,
+    #[serde(flatten, default)]
+    #[cfg_attr(feature = "design-schema", schemars(skip))]
+    #[specta(skip)]
+    pub extra: std::collections::BTreeMap<String, serde_json::Value>,
 }
 
 #[derive(Deserialize)]
@@ -787,6 +889,8 @@ struct ObjectGroupSerdeInput {
     locked: bool,
     name: Option<String>,
     members: Vec<ObjectGroupMember>,
+    #[serde(flatten, default)]
+    extra: std::collections::BTreeMap<String, serde_json::Value>,
 }
 
 impl<'de> Deserialize<'de> for ObjectGroup {
@@ -800,6 +904,7 @@ impl<'de> Deserialize<'de> for ObjectGroup {
             locked: input.locked,
             name: input.name,
             members: input.members,
+            extra: input.extra,
         })
     }
 }
@@ -884,24 +989,8 @@ pub enum RecentDesignPreview {
         bounds: Option<DesignGroundBounds>,
         sketch: Option<DesignSketch>,
     },
-    /// Saved by a newer Canopi and read for the read-only view (2.1-Q316): the row is labelled
-    /// "Read-only: saved by a newer Canopi", never "update Canopi to open it", with what the
-    /// read view shows of it.
-    ReadOnly {
-        /// The format version the file was saved at, above [`CURRENT_CANOPI_FILE_VERSION`].
-        saved_by_version: u32,
-        plant_count: u32,
-        zone_count: u32,
-        /// `None` when the Design has no plants or zones yet.
-        bounds: Option<DesignGroundBounds>,
-        sketch: Option<DesignSketch>,
-    },
-    /// The file is larger than previews read; the row shows its name, and says it is
-    /// read-only when a newer Canopi saved it and Open still reads it (2.1-Q316).
-    TooLarge {
-        /// Saved by a newer Canopi, within the size Open reads: Open shows it read-only.
-        saved_by_newer: bool,
-    },
+    /// The file is larger than previews read; the row shows its name only.
+    TooLarge,
     /// The file cannot be opened, and why when that is known.
     Unreadable {
         reason: RecentDesignUnreadableReason,
@@ -977,128 +1066,11 @@ pub struct DesignNotebookSnapshot {
     pub sections: Vec<DesignNotebookSection>,
 }
 
-/// A Design read from a file, with the fingerprint (SHA-256 of the file's
-/// bytes) its next continuous save must still find on disk.
-#[derive(Debug, Clone, Serialize, Deserialize, Type)]
-#[expect(
-    missing_docs,
-    reason = "undocumented before 2.1-Q217; document when this file is next touched"
-)]
-pub struct LoadedDesign {
-    pub file: CanopiFile,
-    pub fingerprint: String,
-}
-
-/// A Design saved by a newer Canopi, read for the read-only view (contracts §11 Rollback, 2.1-M478, 2.1-M479):
-/// `view` is its read projection in the in-memory shape this build draws, `saved_by_version` the file's format
-/// version. A distinct type on purpose: no save, Draft or export API takes it or its `view`, so a v10 Design never
-/// reaches 2.0 persistence (held by R1's type rule).
-#[derive(Debug, Clone, Serialize, Deserialize, Type)]
-pub struct ReadOnlyDesign {
-    /// The Design as the read view maps it onto this build's shape, shown and never written.
-    pub view: CanopiFile,
-    /// The format version the file was saved at, above [`CURRENT_CANOPI_FILE_VERSION`].
-    pub saved_by_version: u32,
-}
-
-/// Why a Design file could not be opened. `kind` is what the interface maps
-/// to a message; `message` is for logs and Problem Reports and never names a
-/// path.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
-#[expect(
-    missing_docs,
-    reason = "undocumented before 2.1-Q217; document when this file is next touched"
-)]
-pub struct DesignLoadFailure {
-    pub kind: DesignLoadFailureKind,
-    pub message: String,
-    /// The refused field when the file parsed and the Design was refused (`$.version` for a
-    /// version this build does not open), for the failure ring and Problem Reports
-    /// only: the refusal the user reads never names it (2.1-Q286, canopi-cyqd).
-    #[serde(default, skip_deserializing, skip_serializing_if = "Option::is_none")]
-    #[specta(optional)]
-    pub field_path: Option<field_path::FieldPath>,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
-#[serde(rename_all = "snake_case")]
-#[expect(
-    missing_docs,
-    reason = "undocumented before 2.1-Q217; document when this file is next touched"
-)]
-pub enum DesignLoadFailureKind {
-    /// Nothing is at the path.
-    Missing,
-    /// The file exists but could not be read (permissions, a folder, an I/O error).
-    Unreadable,
-    TooLarge,
-    InvalidJson,
-    /// Older than the current format (written before Canopi 2.0), which
-    /// Canopi 2.0 and later do not open (ADR 0021).
-    OlderVersion,
-    /// Newer than this build.
-    NewerVersion,
-    InvalidDocument,
-    /// The native side failed before it reached the file (an executor error).
-    Internal,
-}
-
-/// The result of writing a Design to its file.
-#[derive(Debug, Clone, Serialize, Deserialize, Type)]
-#[serde(tag = "kind", rename_all = "snake_case")]
-#[expect(
-    missing_docs,
-    reason = "undocumented before 2.1-Q217; document when this file is next touched"
-)]
-pub enum DesignSaveOutcome {
-    /// Written; `fingerprint` is what the next save must expect.
-    Saved { path: String, fingerprint: String },
-    /// The file changed outside Canopi since `expected_fingerprint`; nothing
-    /// was written. `current_fingerprint` is `None` when the file is gone.
-    Conflict { current_fingerprint: Option<String> },
-}
-
-/// A Design draft: an unsaved (Untitled) Design kept in app data until the
-/// user saves it as a file or deletes it.
-#[derive(Debug, Clone, Serialize, Deserialize, Type)]
-#[expect(
-    missing_docs,
-    reason = "undocumented before 2.1-Q217; document when this file is next touched"
-)]
-pub struct DesignDraftSummary {
-    pub id: String,
-    pub name: String,
-    pub updated_at: String,
-    /// Whether opening the Draft edits it, shows it read-only, or refuses it (2.1-Q316). Absent on
-    /// the wire for an editable Draft, the common case; a newer Draft always carries it.
-    #[serde(default, skip_serializing_if = "DesignDraftAccess::is_editable")]
-    #[specta(optional)]
-    pub access: DesignDraftAccess,
-}
-
-/// How a listed Draft opens (2.1-Q316). Only an `Editable` Draft is ever opened for editing or
-/// deleted; the store refuses writes to the others (design check F7).
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, Type)]
-#[serde(rename_all = "snake_case")]
-pub enum DesignDraftAccess {
-    /// A current Draft: it opens for editing.
-    #[default]
-    Editable,
-    /// Saved by a newer Canopi and read for the read-only view: listed as
-    /// "Read-only: saved by a newer Canopi".
-    ReadOnly,
-    /// Saved by a newer Canopi whose read this build refuses: listed as unreadable, never
-    /// hidden, and opening it says why.
-    Unreadable,
-}
-
-impl DesignDraftAccess {
-    /// Whether the Draft opens for editing; the wire omits `access` then.
-    #[must_use]
-    pub fn is_editable(&self) -> bool {
-        *self == Self::Editable
-    }
-}
+mod session;
+pub use session::{
+    DesignDraftAccess, DesignDraftSummary, DesignLoadFailure, DesignLoadFailureKind,
+    DesignSaveOutcome, LoadedDesign,
+};
 
 #[cfg(test)]
 mod tests;

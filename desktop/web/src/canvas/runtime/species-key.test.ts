@@ -35,7 +35,7 @@ it('the species key shows an opened plant\'s stratum colour once the catalog loa
     layers: [{ name: 'plants', visible: true, locked: false, opacity: 1 }],
     plants: [{
       id: 'plant-1', canonical_name: 'Malus domestica', common_name: 'Apple', color: null,
-      position: geoAt(10, 10, { lon: 0, lat: 0 }), rotation: null, scale: null, notes: null, planted_date: null,
+      position: geoAt(10, 10, { lon: 0, lat: 0 }), rotation: null, canopy_spread_m: null, notes: null, planted_date: null,
       quantity: 1, locked: false,
     }],
     zones: [], annotations: [], consortiums: [], groups: [], timeline: [], budget: [], budget_currency: 'EUR',

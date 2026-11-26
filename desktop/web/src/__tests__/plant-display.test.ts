@@ -42,7 +42,7 @@ import { designSessionFixture, replaceCurrentDesignState } from './support/desig
 
 function design(overrides: Partial<CanopiFile> = {}): CanopiFile {
   return {
-    version: 9,
+    version: 10,
     name: 'Display',
     description: null,
     plant_species_colors: {},
@@ -221,7 +221,7 @@ describe('plant display as Design data', () => {
 
     setPlantDisplayOptions({ colorBy: 'one-color', oneColor: '#aa3355', labels: 'codes', symbolScale: 1.3, outline: false })
     expect(designSessionStore.designDirty.value).toBe(true)
-    expect(currentDesign.value?.extra?.plant_display).toEqual({
+    expect(currentDesign.value?.plant_display).toEqual({
       color_by: 'one_color', one_color: '#AA3355', symbol_scale: 1.3, outline: false, labels: 'codes',
     })
 
@@ -253,7 +253,7 @@ describe('plant display as Design data', () => {
 
     setStratumDisplayColor('high', '#112233')
     setStratumDisplayColor('none', '#445566')
-    expect(currentDesign.value?.extra?.plant_display).toMatchObject({ stratum_colors: { high: '#112233', none: '#445566' } })
+    expect(currentDesign.value?.plant_display).toMatchObject({ stratum_colors: { high: '#112233', none: '#445566' } })
     expect(currentPlantDisplay.value.stratumColors).toEqual({ high: '#112233', none: '#445566' })
     expect(currentDesign.value?.plant_species_colors).toEqual({ 'Malus domestica': '#3E8E4E' })
 
@@ -261,7 +261,7 @@ describe('plant display as Design data', () => {
     setStratumDisplayColor('high', STRATUM_DISPLAY_COLORS.high)
     expect(currentPlantDisplay.value.stratumColors).toEqual({ none: '#445566' })
     resetStratumDisplayColors()
-    expect(currentDesign.value?.extra).not.toHaveProperty('plant_display')
+    expect(currentDesign.value?.plant_display).toBeUndefined()
   })
 
   it('reads invalid stored options as defaults', () => {

@@ -260,7 +260,7 @@ type FormatCoreCode = Extract<FailureCode, { readonly kind: 'format_core_unavail
 function formatCoreFailure(kind: FormatCoreCode, detail: string): Failure {
   return {
     code: { kind },
-    user_may_retry: false,
+    user_may_retry: true,
     op: DESIGN_CORE_OP,
     operation: null,
     detail: detail.length > 0 ? redact(detail) as RedactedText : null,

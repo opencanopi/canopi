@@ -27,12 +27,33 @@ export type CanopiDesignIngestionErrorKind = (typeof CANOPI_DESIGN_INGESTION_ERR
 
 export const CANOPI_FILE_SCHEMA = {
   "$defs": {
-    "Annotation": {
+    "AlongPageM": {
+      "additionalProperties": true,
+      "properties": {
+        "down_m": {
+          "format": "double",
+          "type": "number"
+        },
+        "right_m": {
+          "format": "double",
+          "type": "number"
+        }
+      },
+      "required": [
+        "right_m",
+        "down_m"
+      ],
+      "type": "object"
+    },
+    "AnnotationV10": {
+      "additionalProperties": true,
       "properties": {
         "annotation_type": {
+          "default": "text",
           "type": "string"
         },
         "font_size": {
+          "default": 16.0,
           "format": "double",
           "type": "number"
         },
@@ -44,7 +65,7 @@ export const CANOPI_FILE_SCHEMA = {
           "type": "boolean"
         },
         "position": {
-          "$ref": "#/$defs/GeoPoint"
+          "$ref": "#/$defs/GeoPointV10"
         },
         "rotation": {
           "default": null,
@@ -55,81 +76,93 @@ export const CANOPI_FILE_SCHEMA = {
           ]
         },
         "text": {
+          "default": "",
           "type": "string"
         }
       },
       "required": [
         "id",
-        "annotation_type",
-        "position",
-        "text",
-        "font_size"
+        "position"
       ],
       "type": "object"
     },
-    "BudgetItem": {
+    "BudgetExtV10": {
+      "additionalProperties": true,
       "properties": {
-        "category": {
-          "type": "string"
-        },
-        "currency": {
-          "type": "string"
-        },
-        "description": {
-          "type": "string"
-        },
-        "quantity": {
-          "format": "double",
-          "type": "number"
-        },
+        "non_plant_lines": {
+          "default": [],
+          "items": true,
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "BudgetLineV10": {
+      "additionalProperties": true,
+      "properties": {
+        "ext": {},
         "target": {
-          "$ref": "#/$defs/PanelTarget",
-          "default": {
-            "kind": "manual"
-          }
+          "$ref": "#/$defs/BudgetTargetV10"
         },
         "unit_cost": {
+          "default": 0.0,
           "format": "double",
           "type": "number"
         }
       },
       "required": [
-        "category",
-        "description",
-        "quantity",
-        "unit_cost",
-        "currency"
+        "target"
       ],
       "type": "object"
     },
-    "Consortium": {
+    "BudgetTargetV10": {
+      "additionalProperties": true,
+      "properties": {
+        "canonical_name": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "kind": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "type": "object"
+    },
+    "ConsortiumV10": {
+      "additionalProperties": true,
       "properties": {
         "end_phase": {
+          "default": 2,
           "format": "uint32",
           "minimum": 0,
           "type": "integer"
         },
         "start_phase": {
+          "default": 0,
           "format": "uint32",
           "minimum": 0,
           "type": "integer"
         },
         "stratum": {
+          "default": "unassigned",
           "type": "string"
         },
         "target": {
-          "$ref": "#/$defs/SpeciesPanelTarget"
+          "$ref": "#/$defs/SpeciesPanelTargetV10"
         }
       },
       "required": [
-        "target",
-        "stratum",
-        "start_phase",
-        "end_phase"
+        "target"
       ],
       "type": "object"
     },
-    "GeoPoint": {
+    "GeoPointV10": {
+      "additionalProperties": true,
       "properties": {
         "lat": {
           "format": "double",
@@ -150,40 +183,35 @@ export const CANOPI_FILE_SCHEMA = {
       ],
       "type": "object"
     },
-    "Layer": {
+    "LayerV10": {
+      "additionalProperties": true,
       "properties": {
         "locked": {
+          "default": false,
           "type": "boolean"
         },
         "name": {
           "type": "string"
         },
         "opacity": {
-          "format": "float",
+          "default": 1.0,
+          "format": "double",
           "type": "number"
         },
         "visible": {
+          "default": true,
           "type": "boolean"
         }
       },
       "required": [
-        "name",
-        "visible",
-        "locked",
-        "opacity"
+        "name"
       ],
       "type": "object"
     },
-    "LibraryItemRole": {
-      "enum": [
-        "Source",
-        "Derived"
-      ],
-      "type": "string"
-    },
-    "LidarColourRange": {
+    "LidarColourRangeV10": {
       "oneOf": [
         {
+          "additionalProperties": true,
           "properties": {
             "mode": {
               "const": "Data",
@@ -196,6 +224,7 @@ export const CANOPI_FILE_SCHEMA = {
           "type": "object"
         },
         {
+          "additionalProperties": true,
           "properties": {
             "mode": {
               "const": "CutOutliers",
@@ -208,6 +237,7 @@ export const CANOPI_FILE_SCHEMA = {
           "type": "object"
         },
         {
+          "additionalProperties": true,
           "properties": {
             "max": {
               "format": "double",
@@ -231,98 +261,11 @@ export const CANOPI_FILE_SCHEMA = {
         }
       ]
     },
-    "LidarPresentationEntry": {
-      "properties": {
-        "id": {
-          "type": "string"
-        },
-        "kind": {
-          "$ref": "#/$defs/LibraryItemRole"
-        },
-        "name": {
-          "type": "string"
-        },
-        "opacity": {
-          "format": "float",
-          "type": "number"
-        },
-        "order": {
-          "format": "uint32",
-          "minimum": 0,
-          "type": "integer"
-        },
-        "ramp": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/LidarRamp"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "range": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/LidarColourRange"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "reversed": {
-          "type": "boolean"
-        },
-        "visible": {
-          "type": "boolean"
-        }
-      },
-      "required": [
-        "kind",
-        "id",
-        "name",
-        "visible",
-        "opacity",
-        "order",
-        "reversed"
-      ],
-      "type": "object"
-    },
-    "LidarPresentationSection": {
-      "properties": {
-        "entries": {
-          "items": {
-            "$ref": "#/$defs/LidarPresentationEntry"
-          },
-          "type": "array"
-        },
-        "visible": {
-          "type": "boolean"
-        }
-      },
-      "required": [
-        "visible",
-        "entries"
-      ],
-      "type": "object"
-    },
-    "LidarRamp": {
-      "enum": [
-        "Relief",
-        "Terrain",
-        "Earth",
-        "Greens",
-        "YellowRed",
-        "Magma",
-        "Gray"
-      ],
-      "type": "string"
-    },
-    "MeasurementGuide": {
+    "MeasurementGuideV10": {
+      "additionalProperties": true,
       "properties": {
         "end": {
-          "$ref": "#/$defs/GeoPoint"
+          "$ref": "#/$defs/GeoPointV10"
         },
         "id": {
           "type": "string"
@@ -332,7 +275,7 @@ export const CANOPI_FILE_SCHEMA = {
           "type": "boolean"
         },
         "start": {
-          "$ref": "#/$defs/GeoPoint"
+          "$ref": "#/$defs/GeoPointV10"
         }
       },
       "required": [
@@ -342,38 +285,10 @@ export const CANOPI_FILE_SCHEMA = {
       ],
       "type": "object"
     },
-    "ObjectGroup": {
-      "properties": {
-        "id": {
-          "type": "string"
-        },
-        "locked": {
-          "default": false,
-          "type": "boolean"
-        },
-        "members": {
-          "items": {
-            "$ref": "#/$defs/ObjectGroupMember"
-          },
-          "type": "array"
-        },
-        "name": {
-          "default": null,
-          "type": [
-            "string",
-            "null"
-          ]
-        }
-      },
-      "required": [
-        "id",
-        "members"
-      ],
-      "type": "object"
-    },
-    "ObjectGroupMember": {
+    "ObjectGroupMemberV10": {
       "oneOf": [
         {
+          "additionalProperties": true,
           "properties": {
             "id": {
               "type": "string"
@@ -390,6 +305,7 @@ export const CANOPI_FILE_SCHEMA = {
           "type": "object"
         },
         {
+          "additionalProperties": true,
           "properties": {
             "id": {
               "type": "string"
@@ -406,6 +322,7 @@ export const CANOPI_FILE_SCHEMA = {
           "type": "object"
         },
         {
+          "additionalProperties": true,
           "properties": {
             "id": {
               "type": "string"
@@ -420,12 +337,60 @@ export const CANOPI_FILE_SCHEMA = {
             "id"
           ],
           "type": "object"
+        },
+        {
+          "additionalProperties": true,
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "kind": {
+              "const": "measurement_guide",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "id"
+          ],
+          "type": "object"
         }
       ]
     },
-    "PanelTarget": {
+    "ObjectGroupV10": {
+      "additionalProperties": true,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "locked": {
+          "default": false,
+          "type": "boolean"
+        },
+        "members": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ObjectGroupMemberV10"
+          },
+          "type": "array"
+        },
+        "name": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "type": "object"
+    },
+    "PanelTargetV10": {
       "oneOf": [
         {
+          "additionalProperties": true,
           "properties": {
             "kind": {
               "const": "placed_plant",
@@ -442,6 +407,7 @@ export const CANOPI_FILE_SCHEMA = {
           "type": "object"
         },
         {
+          "additionalProperties": true,
           "properties": {
             "canonical_name": {
               "type": "string"
@@ -458,6 +424,7 @@ export const CANOPI_FILE_SCHEMA = {
           "type": "object"
         },
         {
+          "additionalProperties": true,
           "properties": {
             "kind": {
               "const": "zone",
@@ -474,6 +441,7 @@ export const CANOPI_FILE_SCHEMA = {
           "type": "object"
         },
         {
+          "additionalProperties": true,
           "properties": {
             "kind": {
               "const": "manual",
@@ -486,6 +454,7 @@ export const CANOPI_FILE_SCHEMA = {
           "type": "object"
         },
         {
+          "additionalProperties": true,
           "properties": {
             "kind": {
               "const": "none",
@@ -499,10 +468,19 @@ export const CANOPI_FILE_SCHEMA = {
         }
       ]
     },
-    "PlacedPlant": {
+    "PlacedPlantV10": {
+      "additionalProperties": true,
       "properties": {
         "canonical_name": {
           "type": "string"
+        },
+        "canopy_spread_m": {
+          "default": null,
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
         },
         "color": {
           "default": null,
@@ -544,7 +522,7 @@ export const CANOPI_FILE_SCHEMA = {
           ]
         },
         "position": {
-          "$ref": "#/$defs/GeoPoint"
+          "$ref": "#/$defs/GeoPointV10"
         },
         "quantity": {
           "default": null,
@@ -556,14 +534,6 @@ export const CANOPI_FILE_SCHEMA = {
           ]
         },
         "rotation": {
-          "default": null,
-          "format": "double",
-          "type": [
-            "number",
-            "null"
-          ]
-        },
-        "scale": {
           "default": null,
           "format": "double",
           "type": [
@@ -586,6 +556,58 @@ export const CANOPI_FILE_SCHEMA = {
       ],
       "type": "object"
     },
+    "PlantDisplayV10": {
+      "additionalProperties": true,
+      "properties": {
+        "color_by": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "labels": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "one_color": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "outline": {
+          "default": null,
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "stratum_colors": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": null,
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "symbol_scale": {
+          "default": null,
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
     "PlantLabels": {
       "enum": [
         "none",
@@ -594,32 +616,304 @@ export const CANOPI_FILE_SCHEMA = {
       ],
       "type": "string"
     },
-    "RichTextBlock": {
+    "PrintAreaV10": {
       "oneOf": [
         {
+          "additionalProperties": true,
+          "properties": {
+            "angle_deg": {
+              "format": "double",
+              "type": "number"
+            },
+            "centre": {
+              "$ref": "#/$defs/GeoPointV10"
+            },
+            "kind": {
+              "const": "box",
+              "type": "string"
+            },
+            "size": {
+              "$ref": "#/$defs/PrintSizeM"
+            }
+          },
+          "required": [
+            "kind",
+            "centre",
+            "size",
+            "angle_deg"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": true,
+          "properties": {
+            "angle_deg": {
+              "format": "double",
+              "type": "number"
+            },
+            "fallback": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/PrintBoxFallback"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "kind": {
+              "const": "whole_design",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "angle_deg"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": true,
+          "properties": {
+            "along_page": {
+              "$ref": "#/$defs/AlongPageM"
+            },
+            "kind": {
+              "const": "split_sheet",
+              "type": "string"
+            },
+            "size": {
+              "$ref": "#/$defs/PrintSizeM"
+            },
+            "split": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "split",
+            "along_page",
+            "size"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "PrintBoxFallback": {
+      "additionalProperties": true,
+      "properties": {
+        "centre": {
+          "$ref": "#/$defs/GeoPointV10"
+        },
+        "size": {
+          "$ref": "#/$defs/PrintSizeM"
+        }
+      },
+      "required": [
+        "centre",
+        "size"
+      ],
+      "type": "object"
+    },
+    "PrintFramingV10": {
+      "additionalProperties": true,
+      "properties": {
+        "orientation": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "paper": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "PrintPageV10": {
+      "additionalProperties": true,
+      "properties": {
+        "area": {
+          "$ref": "#/$defs/PrintAreaV10"
+        },
+        "framing": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PrintFramingV10"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "scale": {
+          "$ref": "#/$defs/PrintScaleV10"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "area",
+        "scale"
+      ],
+      "type": "object"
+    },
+    "PrintScaleV10": {
+      "oneOf": [
+        {
+          "additionalProperties": true,
+          "properties": {
+            "kind": {
+              "const": "fit",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": true,
+          "properties": {
+            "denominator": {
+              "format": "uint32",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "kind": {
+              "const": "ratio",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "denominator"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": true,
+          "properties": {
+            "feet": {
+              "format": "double",
+              "type": "number"
+            },
+            "inches": {
+              "format": "double",
+              "type": "number"
+            },
+            "kind": {
+              "const": "customary",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "inches",
+            "feet"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "PrintSetupV10": {
+      "additionalProperties": true,
+      "properties": {
+        "pages": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/PrintPageV10"
+          },
+          "type": "array"
+        },
+        "splits": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/PrintSplitV10"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "PrintSizeM": {
+      "additionalProperties": true,
+      "properties": {
+        "height_m": {
+          "format": "double",
+          "type": "number"
+        },
+        "width_m": {
+          "format": "double",
+          "type": "number"
+        }
+      },
+      "required": [
+        "width_m",
+        "height_m"
+      ],
+      "type": "object"
+    },
+    "PrintSplitV10": {
+      "additionalProperties": true,
+      "properties": {
+        "angle_deg": {
+          "format": "double",
+          "type": "number"
+        },
+        "id": {
+          "type": "string"
+        },
+        "pivot": {
+          "$ref": "#/$defs/GeoPointV10"
+        }
+      },
+      "required": [
+        "id",
+        "pivot",
+        "angle_deg"
+      ],
+      "type": "object"
+    },
+    "RichTextBlockV10": {
+      "oneOf": [
+        {
+          "additionalProperties": true,
           "properties": {
             "kind": {
               "const": "paragraph",
               "type": "string"
             },
             "spans": {
+              "default": [],
               "items": {
-                "$ref": "#/$defs/RichTextSpan"
+                "$ref": "#/$defs/RichTextSpanV10"
               },
               "type": "array"
             }
           },
           "required": [
-            "kind",
-            "spans"
+            "kind"
           ],
           "type": "object"
         },
         {
+          "additionalProperties": true,
           "properties": {
             "items": {
+              "default": [],
               "items": {
-                "$ref": "#/$defs/RichTextListItem"
+                "$ref": "#/$defs/RichTextListItemV10"
               },
               "type": "array"
             },
@@ -629,28 +923,27 @@ export const CANOPI_FILE_SCHEMA = {
             }
           },
           "required": [
-            "kind",
-            "items"
+            "kind"
           ],
           "type": "object"
         }
       ]
     },
-    "RichTextListItem": {
+    "RichTextListItemV10": {
+      "additionalProperties": true,
       "properties": {
         "spans": {
+          "default": [],
           "items": {
-            "$ref": "#/$defs/RichTextSpan"
+            "$ref": "#/$defs/RichTextSpanV10"
           },
           "type": "array"
         }
       },
-      "required": [
-        "spans"
-      ],
       "type": "object"
     },
-    "RichTextSpan": {
+    "RichTextSpanV10": {
+      "additionalProperties": true,
       "properties": {
         "bold": {
           "default": false,
@@ -668,69 +961,16 @@ export const CANOPI_FILE_SCHEMA = {
           ]
         },
         "text": {
+          "default": "",
           "type": "string"
         }
       },
-      "required": [
-        "text"
-      ],
       "type": "object"
     },
-    "SavedView": {
-      "properties": {
-        "camera": {
-          "$ref": "#/$defs/SavedViewCamera"
-        },
-        "highlighted": {
-          "$ref": "#/$defs/SavedViewHighlight"
-        },
-        "id": {
-          "type": "string"
-        },
-        "labels": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/PlantLabels"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null
-        },
-        "name": {
-          "type": "string"
-        },
-        "text": {
-          "default": [],
-          "items": {
-            "$ref": "#/$defs/RichTextBlock"
-          },
-          "type": "array"
-        },
-        "title": {
-          "default": null,
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "visible_layers": {
-          "$ref": "#/$defs/SavedViewLayers"
-        }
-      },
-      "required": [
-        "id",
-        "name",
-        "camera",
-        "visible_layers",
-        "highlighted"
-      ],
-      "type": "object"
-    },
-    "SavedViewBackground": {
+    "SavedViewBackgroundV10": {
       "oneOf": [
         {
+          "additionalProperties": true,
           "properties": {
             "kind": {
               "const": "basemap",
@@ -747,6 +987,7 @@ export const CANOPI_FILE_SCHEMA = {
           "type": "object"
         },
         {
+          "additionalProperties": true,
           "properties": {
             "kind": {
               "const": "satellite",
@@ -759,6 +1000,7 @@ export const CANOPI_FILE_SCHEMA = {
           "type": "object"
         },
         {
+          "additionalProperties": true,
           "properties": {
             "kind": {
               "const": "none",
@@ -772,16 +1014,18 @@ export const CANOPI_FILE_SCHEMA = {
         }
       ]
     },
-    "SavedViewCamera": {
+    "SavedViewCameraV10": {
+      "additionalProperties": true,
       "properties": {
         "bearing": {
+          "default": 0.0,
           "format": "double",
           "maximum": 360.0,
           "minimum": 0.0,
           "type": "number"
         },
         "ground_size_m": {
-          "$ref": "#/$defs/SavedViewGroundSize"
+          "$ref": "#/$defs/SavedViewGroundSizeV10"
         },
         "lat": {
           "format": "double",
@@ -806,12 +1050,12 @@ export const CANOPI_FILE_SCHEMA = {
         "lon",
         "lat",
         "zoom",
-        "bearing",
         "ground_size_m"
       ],
       "type": "object"
     },
-    "SavedViewGroundSize": {
+    "SavedViewGroundSizeV10": {
+      "additionalProperties": true,
       "properties": {
         "height": {
           "format": "double",
@@ -832,59 +1076,68 @@ export const CANOPI_FILE_SCHEMA = {
       ],
       "type": "object"
     },
-    "SavedViewHighlight": {
+    "SavedViewHighlightV10": {
+      "additionalProperties": true,
       "properties": {
         "objects": {
+          "default": [],
           "items": {
-            "$ref": "#/$defs/SavedViewObject"
+            "$ref": "#/$defs/SavedViewObjectV10"
           },
           "type": "array"
         },
         "species": {
+          "default": [],
           "items": {
             "type": "string"
           },
           "type": "array"
         }
       },
-      "required": [
-        "species",
-        "objects"
-      ],
       "type": "object"
     },
-    "SavedViewLayers": {
+    "SavedViewLayersV10": {
+      "additionalProperties": true,
       "properties": {
         "background": {
-          "$ref": "#/$defs/SavedViewBackground"
+          "$ref": "#/$defs/SavedViewBackgroundV10",
+          "default": {
+            "kind": "none"
+          }
         },
         "scene_layers": {
+          "default": [
+            "zones",
+            "plants",
+            "measurement-guides",
+            "annotations"
+          ],
           "items": {
             "type": "string"
           },
           "type": "array"
         },
         "site_data": {
+          "default": [],
           "items": {
             "type": "string"
           },
           "type": "array"
         },
         "terrain": {
-          "$ref": "#/$defs/SavedViewTerrain"
+          "$ref": "#/$defs/SavedViewTerrainV10",
+          "default": {
+            "contours": false,
+            "hillshade": false
+          }
         }
       },
-      "required": [
-        "background",
-        "terrain",
-        "scene_layers",
-        "site_data"
-      ],
       "type": "object"
     },
-    "SavedViewObject": {
+    "SavedViewObjectV10": {
       "oneOf": [
         {
+          "additionalProperties": true,
           "properties": {
             "id": {
               "type": "string"
@@ -901,6 +1154,7 @@ export const CANOPI_FILE_SCHEMA = {
           "type": "object"
         },
         {
+          "additionalProperties": true,
           "properties": {
             "id": {
               "type": "string"
@@ -917,6 +1171,7 @@ export const CANOPI_FILE_SCHEMA = {
           "type": "object"
         },
         {
+          "additionalProperties": true,
           "properties": {
             "id": {
               "type": "string"
@@ -933,6 +1188,7 @@ export const CANOPI_FILE_SCHEMA = {
           "type": "object"
         },
         {
+          "additionalProperties": true,
           "properties": {
             "id": {
               "type": "string"
@@ -949,6 +1205,7 @@ export const CANOPI_FILE_SCHEMA = {
           "type": "object"
         },
         {
+          "additionalProperties": true,
           "properties": {
             "id": {
               "type": "string"
@@ -966,22 +1223,169 @@ export const CANOPI_FILE_SCHEMA = {
         }
       ]
     },
-    "SavedViewTerrain": {
+    "SavedViewTerrainV10": {
+      "additionalProperties": true,
       "properties": {
         "contours": {
+          "default": false,
           "type": "boolean"
         },
         "hillshade": {
+          "default": false,
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
+    "SavedViewV10": {
+      "additionalProperties": true,
+      "properties": {
+        "camera": {
+          "$ref": "#/$defs/SavedViewCameraV10"
+        },
+        "highlighted": {
+          "$ref": "#/$defs/SavedViewHighlightV10",
+          "default": {
+            "objects": [],
+            "species": []
+          }
+        },
+        "id": {
+          "type": "string"
+        },
+        "labels": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PlantLabels"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "name": {
+          "default": "",
+          "type": "string"
+        },
+        "text": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/RichTextBlockV10"
+          },
+          "type": "array"
+        },
+        "title": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "visible_layers": {
+          "$ref": "#/$defs/SavedViewLayersV10",
+          "default": {
+            "background": {
+              "kind": "none"
+            },
+            "scene_layers": [
+              "zones",
+              "plants",
+              "measurement-guides",
+              "annotations"
+            ],
+            "site_data": [],
+            "terrain": {
+              "contours": false,
+              "hillshade": false
+            }
+          }
+        }
+      },
+      "required": [
+        "id",
+        "camera"
+      ],
+      "type": "object"
+    },
+    "SiteDataEntryV10": {
+      "additionalProperties": true,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "opacity": {
+          "default": 1.0,
+          "format": "double",
+          "type": "number"
+        },
+        "order": {
+          "default": 0,
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "ramp": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "range": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/LidarColourRangeV10"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "reversed": {
+          "default": false,
+          "type": "boolean"
+        },
+        "visible": {
+          "default": true,
           "type": "boolean"
         }
       },
       "required": [
-        "contours",
-        "hillshade"
+        "id",
+        "name"
       ],
       "type": "object"
     },
-    "SpeciesPanelTarget": {
+    "SiteDataSectionV10": {
+      "additionalProperties": true,
+      "properties": {
+        "entries": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/SiteDataEntryV10"
+          },
+          "type": "array"
+        },
+        "visible": {
+          "default": true,
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
+    "SpeciesPanelTargetKind": {
+      "enum": [
+        "species"
+      ],
+      "type": "string"
+    },
+    "SpeciesPanelTargetV10": {
+      "additionalProperties": true,
       "properties": {
         "canonical_name": {
           "type": "string"
@@ -996,35 +1400,8 @@ export const CANOPI_FILE_SCHEMA = {
       ],
       "type": "object"
     },
-    "SpeciesPanelTargetKind": {
-      "enum": [
-        "species"
-      ],
-      "type": "string"
-    },
-    "Story": {
-      "properties": {
-        "id": {
-          "type": "string"
-        },
-        "name": {
-          "type": "string"
-        },
-        "steps": {
-          "items": {
-            "$ref": "#/$defs/StoryStep"
-          },
-          "type": "array"
-        }
-      },
-      "required": [
-        "id",
-        "name",
-        "steps"
-      ],
-      "type": "object"
-    },
-    "StoryImage": {
+    "StoryImageV10": {
+      "additionalProperties": true,
       "properties": {
         "alt": {
           "default": "",
@@ -1039,7 +1416,8 @@ export const CANOPI_FILE_SCHEMA = {
       ],
       "type": "object"
     },
-    "StoryStep": {
+    "StoryStepV10": {
+      "additionalProperties": true,
       "properties": {
         "id": {
           "type": "string"
@@ -1047,18 +1425,19 @@ export const CANOPI_FILE_SCHEMA = {
         "images": {
           "default": [],
           "items": {
-            "$ref": "#/$defs/StoryImage"
+            "$ref": "#/$defs/StoryImageV10"
           },
           "type": "array"
         },
         "text": {
           "default": [],
           "items": {
-            "$ref": "#/$defs/RichTextBlock"
+            "$ref": "#/$defs/RichTextBlockV10"
           },
           "type": "array"
         },
         "title": {
+          "default": "",
           "type": "string"
         },
         "view_id": {
@@ -1067,17 +1446,42 @@ export const CANOPI_FILE_SCHEMA = {
       },
       "required": [
         "id",
-        "view_id",
-        "title"
+        "view_id"
       ],
       "type": "object"
     },
-    "TimelineAction": {
+    "StoryV10": {
+      "additionalProperties": true,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "default": "",
+          "type": "string"
+        },
+        "steps": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/StoryStepV10"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "type": "object"
+    },
+    "TimelineActionV10": {
+      "additionalProperties": true,
       "properties": {
         "action_type": {
+          "default": "other",
           "type": "string"
         },
         "completed": {
+          "default": false,
           "type": "boolean"
         },
         "depends_on": {
@@ -1091,6 +1495,7 @@ export const CANOPI_FILE_SCHEMA = {
           ]
         },
         "description": {
+          "default": "",
           "type": "string"
         },
         "end_date": {
@@ -1103,7 +1508,15 @@ export const CANOPI_FILE_SCHEMA = {
         "id": {
           "type": "string"
         },
+        "offset_days": {
+          "format": "int32",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
         "order": {
+          "default": 0,
           "format": "int32",
           "type": "integer"
         },
@@ -1128,21 +1541,18 @@ export const CANOPI_FILE_SCHEMA = {
             }
           ],
           "items": {
-            "$ref": "#/$defs/PanelTarget"
+            "$ref": "#/$defs/PanelTargetV10"
           },
           "type": "array"
         }
       },
       "required": [
-        "id",
-        "action_type",
-        "description",
-        "completed",
-        "order"
+        "id"
       ],
       "type": "object"
     },
-    "Zone": {
+    "ZoneV10": {
+      "additionalProperties": true,
       "properties": {
         "fill_color": {
           "default": null,
@@ -1172,9 +1582,16 @@ export const CANOPI_FILE_SCHEMA = {
             "null"
           ]
         },
+        "opacity": {
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
         "points": {
           "items": {
-            "$ref": "#/$defs/GeoPoint"
+            "$ref": "#/$defs/GeoPointV10"
           },
           "type": "array"
         },
@@ -1182,6 +1599,12 @@ export const CANOPI_FILE_SCHEMA = {
           "default": 0.0,
           "format": "double",
           "type": "number"
+        },
+        "stroke_color": {
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "zone_type": {
           "type": "string"
@@ -1199,14 +1622,16 @@ export const CANOPI_FILE_SCHEMA = {
   "additionalProperties": true,
   "properties": {
     "annotations": {
+      "default": [],
       "items": {
-        "$ref": "#/$defs/Annotation"
+        "$ref": "#/$defs/AnnotationV10"
       },
       "type": "array"
     },
     "budget": {
+      "default": [],
       "items": {
-        "$ref": "#/$defs/BudgetItem"
+        "$ref": "#/$defs/BudgetLineV10"
       },
       "type": "array"
     },
@@ -1214,13 +1639,25 @@ export const CANOPI_FILE_SCHEMA = {
       "default": "EUR",
       "type": "string"
     },
+    "budget_ext": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/BudgetExtV10"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
     "consortiums": {
+      "default": [],
       "items": {
-        "$ref": "#/$defs/Consortium"
+        "$ref": "#/$defs/ConsortiumV10"
       },
       "type": "array"
     },
     "created_at": {
+      "default": "",
       "type": "string"
     },
     "description": {
@@ -1231,31 +1668,23 @@ export const CANOPI_FILE_SCHEMA = {
       ]
     },
     "groups": {
+      "default": [],
       "items": {
-        "$ref": "#/$defs/ObjectGroup"
+        "$ref": "#/$defs/ObjectGroupV10"
       },
       "type": "array"
     },
     "layers": {
+      "default": [],
       "items": {
-        "$ref": "#/$defs/Layer"
+        "$ref": "#/$defs/LayerV10"
       },
       "type": "array"
-    },
-    "lidar": {
-      "anyOf": [
-        {
-          "$ref": "#/$defs/LidarPresentationSection"
-        },
-        {
-          "type": "null"
-        }
-      ]
     },
     "map_view": {
       "anyOf": [
         {
-          "$ref": "#/$defs/SavedViewCamera"
+          "$ref": "#/$defs/SavedViewCameraV10"
         },
         {
           "type": "null"
@@ -1265,12 +1694,23 @@ export const CANOPI_FILE_SCHEMA = {
     "measurement_guides": {
       "default": [],
       "items": {
-        "$ref": "#/$defs/MeasurementGuide"
+        "$ref": "#/$defs/MeasurementGuideV10"
       },
       "type": "array"
     },
     "name": {
+      "default": "",
       "type": "string"
+    },
+    "plant_display": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/PlantDisplayV10"
+        },
+        {
+          "type": "null"
+        }
+      ]
     },
     "plant_species_codes": {
       "additionalProperties": {
@@ -1283,6 +1723,7 @@ export const CANOPI_FILE_SCHEMA = {
       "additionalProperties": {
         "type": "string"
       },
+      "default": {},
       "type": "object"
     },
     "plant_species_symbols": {
@@ -1293,25 +1734,48 @@ export const CANOPI_FILE_SCHEMA = {
       "type": "object"
     },
     "plants": {
+      "default": [],
       "items": {
-        "$ref": "#/$defs/PlacedPlant"
+        "$ref": "#/$defs/PlacedPlantV10"
       },
       "type": "array"
+    },
+    "print_setup": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/PrintSetupV10"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "site_data": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/SiteDataSectionV10"
+        },
+        {
+          "type": "null"
+        }
+      ]
     },
     "stories": {
       "default": [],
       "items": {
-        "$ref": "#/$defs/Story"
+        "$ref": "#/$defs/StoryV10"
       },
       "type": "array"
     },
     "timeline": {
+      "default": [],
       "items": {
-        "$ref": "#/$defs/TimelineAction"
+        "$ref": "#/$defs/TimelineActionV10"
       },
       "type": "array"
     },
     "updated_at": {
+      "default": "",
       "type": "string"
     },
     "version": {
@@ -1322,32 +1786,21 @@ export const CANOPI_FILE_SCHEMA = {
     "views": {
       "default": [],
       "items": {
-        "$ref": "#/$defs/SavedView"
+        "$ref": "#/$defs/SavedViewV10"
       },
       "type": "array"
     },
     "zones": {
+      "default": [],
       "items": {
-        "$ref": "#/$defs/Zone"
+        "$ref": "#/$defs/ZoneV10"
       },
       "type": "array"
     }
   },
   "required": [
-    "version",
-    "name",
-    "plant_species_colors",
-    "layers",
-    "plants",
-    "zones",
-    "annotations",
-    "consortiums",
-    "groups",
-    "timeline",
-    "budget",
-    "created_at",
-    "updated_at"
+    "version"
   ],
-  "title": "CanopiFile",
+  "title": "CanopiFileV10",
   "type": "object"
 } as const

@@ -2,7 +2,7 @@ import { buildCanvasPrintSnapshot } from './print-snapshot'
 import { getCanvasPlantNameLabels } from './automatic-detail'
 import { isPlantLayerShown } from './scene-visuals'
 import { isWorkspaceOverviewScale } from '../../geo/workspace-camera-policy'
-import type { PlacedPlant } from '../../generated/contracts'
+import type { PlacedPlant } from '../../types/design'
 import type { SelectedPlantColorContext } from '../plant-color-context'
 import type { SelectedPlantSymbolContext } from '../plant-symbol-context'
 import type {

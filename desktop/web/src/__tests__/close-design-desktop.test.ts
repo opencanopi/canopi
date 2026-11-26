@@ -21,7 +21,7 @@ function makeFile(name: string, plantCount = 0): CanopiFile {
       color: null,
       position: { lon: 2 + index * 1e-5, lat: 48 },
       rotation: null,
-      scale: null,
+      canopy_spread_m: null,
       notes: null,
       planted_date: null,
       quantity: null,

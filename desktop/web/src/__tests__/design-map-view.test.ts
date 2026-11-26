@@ -24,7 +24,7 @@ const PATH = '/designs/orchard.canopi'
 function orchard(): CanopiFile {
   const plant = (id: string, lonOffset: number): CanopiFile['plants'][number] => ({
     id, locked: false, canonical_name: 'Malus domestica', common_name: null, color: null,
-    pinned_name: false, position: { lon: SITE.lon + lonOffset, lat: SITE.lat }, rotation: null, scale: null, notes: null,
+    pinned_name: false, position: { lon: SITE.lon + lonOffset, lat: SITE.lat }, rotation: null, canopy_spread_m: null, notes: null,
     planted_date: null, quantity: null,
   })
   return {

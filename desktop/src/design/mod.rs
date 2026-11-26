@@ -1,7 +1,6 @@
 // .canopi Design files: admission, durable writes, fingerprints, drafts
 pub mod drafts;
 pub mod format;
-mod new_design_defaults;
 pub(crate) mod preview;
 use canopi_support::durable::{
     DurableError, OsDurableFs, Precondition, PublishOptions, PublishSource,

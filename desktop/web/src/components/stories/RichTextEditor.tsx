@@ -10,7 +10,7 @@ import {
 } from '../../app/stories'
 import { ariaKeyShortcuts, formatShortcut } from '../../app/shell-commands/shortcut-text'
 import { t } from '../../i18n'
-import type { RichTextBlock, RichTextSpan } from '../../generated/contracts'
+import type { RichTextBlock, RichTextSpan } from '../../types/design'
 import { ButtonTooltip } from '../shared/ButtonTooltip'
 import { ControlIcon, type ControlIconName } from '../shared/ControlIcon'
 import styles from './RichTextEditor.module.css'

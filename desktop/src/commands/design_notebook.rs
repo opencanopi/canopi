@@ -1,7 +1,8 @@
 use std::path::Path;
 use std::sync::Arc;
 
-use canopi_types::design::{CanopiFile, DesignNotebookSection, DesignNotebookSnapshot};
+use canopi_types::design::v10::CanopiFileV10;
+use canopi_types::design::{DesignNotebookSection, DesignNotebookSnapshot};
 use canopi_types::ids::FileGrantId;
 
 use crate::{
@@ -59,7 +60,7 @@ pub async fn add_design_reference_to_notebook(
     user_db: State<'_, UserDb>,
     grants: State<'_, Arc<FileGrantRegistry>>,
     path: String,
-    content: CanopiFile,
+    content: CanopiFileV10,
 ) -> Result<(), String> {
     let user_db = user_db.inner().clone();
     let grants = grants.inner().clone();

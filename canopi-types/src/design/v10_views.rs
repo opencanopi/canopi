@@ -383,6 +383,7 @@ impl SavedViewCameraV10 {
                 width: self.ground_size_m.width,
                 height: self.ground_size_m.height,
             },
+            extra: self.extra.clone(),
         }
     }
 }
@@ -436,6 +437,7 @@ impl SavedViewV10 {
             title: self.title.clone(),
             text: self.text.iter().map(RichTextBlockV10::to_v9).collect(),
             labels: self.labels,
+            extra: self.extra.clone(),
         }
     }
 }
@@ -490,8 +492,10 @@ impl StoryV10 {
                             alt: img.alt.clone(),
                         })
                         .collect(),
+                    extra: step.extra.clone(),
                 })
                 .collect(),
+            extra: self.extra.clone(),
         }
     }
 }

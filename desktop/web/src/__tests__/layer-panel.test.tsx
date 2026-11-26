@@ -392,11 +392,11 @@ describe('LayerPanel', () => {
 
   describe('the Site data summary row (Desktop)', () => {
     function entry(id: string, name: string, visible: boolean, order: number) {
-      return { kind: 'Source' as const, id, name, visible, opacity: 1, order, ramp: null, reversed: false, range: null }
+      return { id, name, visible, opacity: 1, order, ramp: null, reversed: false, range: null }
     }
 
     function withSiteData(entries: ReturnType<typeof entry>[], visible = true): void {
-      designSessionFixture.file = { ...currentDesign.value!, lidar: { visible, entries } } as CanopiFile
+      designSessionFixture.file = { ...currentDesign.value!, site_data: { visible, entries } } as CanopiFile
     }
 
     const threeEntries = () => [entry('a', 'Ground', true, 0), entry('b', 'Surface', true, 1), entry('c', 'Canopy', false, 2)]
@@ -411,11 +411,11 @@ describe('LayerPanel', () => {
       const eye = container.querySelector<HTMLButtonElement>('button[aria-label="Hide Site data"]')!
       expect(eye.getAttribute('aria-pressed')).toBe('true')
       await act(async () => { eye.click() })
-      expect(currentDesign.value?.lidar?.visible).toBe(false)
-      expect(currentDesign.value?.lidar?.entries.map((item) => item.visible)).toEqual([true, true, false])
+      expect(currentDesign.value?.site_data?.visible).toBe(false)
+      expect(currentDesign.value?.site_data?.entries.map((item) => item.visible)).toEqual([true, true, false])
       expect(container.textContent).toContain('0 of 3 shown')
       await act(async () => { container.querySelector<HTMLButtonElement>('button[aria-label="Show Site data"]')!.click() })
-      expect(currentDesign.value?.lidar?.visible).toBe(true)
+      expect(currentDesign.value?.site_data?.visible).toBe(true)
       expect(container.textContent).toContain('2 of 3 shown')
     })
 

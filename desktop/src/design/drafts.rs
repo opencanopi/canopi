@@ -2,12 +2,13 @@
 //! file or deleted. Each draft is `{app_data}/drafts/<id>.canopi` in the same
 //! `.canopi` wire format, encoder, durable write and load admission as a Design file.
 
+use canopi_types::design::v10::CanopiFileV10;
 use canopi_types::design::{
-    CanopiFile, DesignDraftAccess, DesignDraftSummary, DesignLoadFailure, DesignLoadFailureKind,
+    DesignDraftAccess, DesignDraftSummary, DesignLoadFailure, DesignLoadFailureKind,
 };
 use std::path::{Path, PathBuf};
 
-use super::format::{self, OpenedDesign};
+use super::format;
 
 const DRAFTS_DIR: &str = "drafts";
 const DRAFT_EXTENSION: &str = "canopi";
@@ -52,7 +53,7 @@ impl DesignDrafts {
     /// Durably write the draft `id`, creating the store when needed; a Draft saved by a
     /// newer Canopi is never saved over ([`refuse_newer`]).
     #[cfg(test)]
-    pub(crate) fn save(&self, id: &str, content: &CanopiFile) -> Result<(), String> {
+    pub(crate) fn save(&self, id: &str, content: &CanopiFileV10) -> Result<(), String> {
         let dir = self.dir.as_path();
         let path = draft_path(dir, id)?;
         let bytes = format::encode_design(content)?;
@@ -65,9 +66,9 @@ impl DesignDrafts {
         })
     }
 
-    /// Load the draft `id` with the same size cap and version admission as a Design file, a
-    /// newer one read-only (2.1-M478), its refusal typed as a Design file's is (canopi-cyqd).
-    pub(crate) fn load(&self, id: &str) -> Result<OpenedDesign<CanopiFile>, DesignLoadFailure> {
+    /// Load the draft `id` with the same size cap and version admission as a Design file
+    /// (2.1-Q347: newer versions are refused), its refusal typed as a Design file's is (canopi-cyqd).
+    pub(crate) fn load(&self, id: &str) -> Result<CanopiFileV10, DesignLoadFailure> {
         let path = draft_path(&self.dir, id).map_err(|message| DesignLoadFailure {
             kind: DesignLoadFailureKind::Missing,
             message,
@@ -182,7 +183,7 @@ fn summarize_draft(
         .and_then(|metadata| metadata.modified())
         .map_err(|_| DraftSkip::Unreadable)?;
     let (name, access) = match format::open_within(path, format::MAX_CANOPI_FILE_BYTES) {
-        Ok(OpenedDesign::Editable(file)) => (file.name, DesignDraftAccess::Editable),
+        Ok(file) => (file.name, DesignDraftAccess::Editable),
         // Listed unreadable, never as an editable Untitled row; opening it says why it was
         // refused (2.1-Q347: newer Designs/Drafts are refused unchanged).
         Err(error) if error.failure().kind == DesignLoadFailureKind::NewerVersion => {
@@ -223,7 +224,7 @@ mod tests {
         TestScratch::new(&format!("drafts-{label}"))
     }
 
-    fn design(name: &str) -> CanopiFile {
+    fn design(name: &str) -> CanopiFileV10 {
         format::create_new_design(name, "2026-09-25T00:00:00Z")
     }
 
@@ -247,10 +248,7 @@ mod tests {
             bytes,
             format::encode_design(&design("Orchard sketch")).unwrap()
         );
-        assert_eq!(
-            drafts.load("draft-1").unwrap().editable().name,
-            "Orchard sketch"
-        );
+        assert_eq!(drafts.load("draft-1").unwrap().name, "Orchard sketch");
         let names = fs::read_dir(&dir)
             .unwrap()
             .map(|entry| entry.unwrap().file_name())
@@ -261,7 +259,7 @@ mod tests {
             .save("draft-1", &design("Orchard sketch, later"))
             .unwrap();
         assert_eq!(
-            drafts.load("draft-1").unwrap().editable().name,
+            drafts.load("draft-1").unwrap().name,
             "Orchard sketch, later"
         );
     }
@@ -539,7 +537,7 @@ mod tests {
         assert!(dir.join("folder.canopi").is_dir());
 
         drafts.save("damaged", &design("Repaired")).unwrap();
-        assert_eq!(drafts.load("damaged").unwrap().editable().name, "Repaired");
+        assert_eq!(drafts.load("damaged").unwrap().name, "Repaired");
         fs::write(dir.join("damaged.canopi"), "{ not json").unwrap();
         drafts.delete("damaged").unwrap();
         assert_eq!(sidecar_free(&dir), ["folder.canopi", "huge.canopi"]);

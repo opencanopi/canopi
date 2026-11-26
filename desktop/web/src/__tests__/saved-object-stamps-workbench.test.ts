@@ -803,7 +803,7 @@ describe('Saved Object Stamp Workbench', () => {
         symbol: null,
         position: geoAt(2, 3),
         rotation: null,
-        scale: null,
+        canopy_spread_m: null,
         notes: 'private note',
         planted_date: '2026-04-01',
         quantity: 4,

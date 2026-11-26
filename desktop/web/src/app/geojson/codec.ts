@@ -18,14 +18,14 @@
 // Any malformed supported feature rejects the whole file before mutation.
 // ---------------------------------------------------------------------------
 
+import type { GeoPoint } from '../../generated/contracts'
 import type {
   Annotation,
-  GeoPoint,
   MeasurementGuide,
   ObjectGroup,
   PlacedPlant,
   Zone,
-} from '../../generated/contracts'
+} from '../../types/design'
 import { WEB_MERCATOR_MAX_LATITUDE_DEG } from '../../generated/canopi-design-format'
 import {
   createSessionPlane,
@@ -139,7 +139,7 @@ export function encodeDesignGeoJson(objects: GeoJsonDesignObjects): GeoJsonFeatu
         symbol: plant.symbol ?? null,
         pinned_name: plant.pinned_name === true,
         rotation: plant.rotation,
-        canopy_spread_m: plant.scale,
+        canopy_spread_m: plant.canopy_spread_m,
         notes: plant.notes,
         planted_date: plant.planted_date,
         quantity: plant.quantity,
@@ -354,7 +354,7 @@ function decodeDesignGeoJson(value: unknown, options: GeoJsonDecodeOptions = {})
             pinned_name: booleanOr(properties.pinned_name, false),
             position: point,
             rotation: finiteOrNull(properties.rotation),
-            scale: positiveOrNull(properties.canopy_spread_m),
+            canopy_spread_m: positiveOrNull(properties.canopy_spread_m),
             notes: stringOrNull(properties.notes),
             planted_date: stringOrNull(properties.planted_date),
             quantity: countOrNull(properties.quantity),

@@ -37,6 +37,10 @@ pub struct SavedView {
     // key) shows the Design's labels.
     #[serde(default)]
     pub labels: Option<crate::settings::PlantLabels>,
+    #[serde(flatten, default)]
+    #[cfg_attr(feature = "design-schema", schemars(skip))]
+    #[specta(skip)]
+    pub extra: std::collections::BTreeMap<String, serde_json::Value>,
 }
 
 // Camera of a saved view: centre, zoom and bearing (degrees clockwise from
@@ -45,7 +49,7 @@ pub struct SavedView {
 // the framed ground into the window, never zooming in past the saved zoom
 // (ADR 0011).
 #[cfg_attr(feature = "design-schema", derive(schemars::JsonSchema))]
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Type)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
 #[expect(
     missing_docs,
     reason = "undocumented before 2.1-Q217; document when this file is next touched"
@@ -70,6 +74,10 @@ pub struct SavedViewCamera {
     // The ground the map showed when the view was saved, in metres in the
     // view's own turned frame, each side clamped to 1e8 m.
     pub ground_size_m: SavedViewGroundSize,
+    #[serde(flatten, default)]
+    #[cfg_attr(feature = "design-schema", schemars(skip))]
+    #[specta(skip)]
+    pub extra: std::collections::BTreeMap<String, serde_json::Value>,
 }
 
 // Width (along the view's screen x axis) and height of the ground a saved view
@@ -230,6 +238,10 @@ pub struct Story {
     pub id: String,
     pub name: String,
     pub steps: Vec<StoryStep>,
+    #[serde(flatten, default)]
+    #[cfg_attr(feature = "design-schema", schemars(skip))]
+    #[specta(skip)]
+    pub extra: std::collections::BTreeMap<String, serde_json::Value>,
 }
 
 // One step of a story: the saved view it shows, with its title and text.
@@ -248,6 +260,10 @@ pub struct StoryStep {
     pub text: Vec<RichTextBlock>,
     #[serde(default)]
     pub images: Vec<StoryImage>,
+    #[serde(flatten, default)]
+    #[cfg_attr(feature = "design-schema", schemars(skip))]
+    #[specta(skip)]
+    pub extra: std::collections::BTreeMap<String, serde_json::Value>,
 }
 
 // An image shown with a story step: an `https:` URL or a `data:image/` URI.

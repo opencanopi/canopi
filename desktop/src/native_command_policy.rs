@@ -30,10 +30,6 @@ pub(crate) struct SyncCommandAllowance {
 
 pub(crate) const SYNC_COMMAND_ALLOWLIST: &[SyncCommandAllowance] = &[
     SyncCommandAllowance {
-        path: "commands::design::new_design",
-        reason: "constructs bounded generated defaults and a timestamp without external I/O",
-    },
-    SyncCommandAllowance {
         path: "commands::health::get_health",
         reason: "returns a clone of the in-memory health snapshot under its lock; it cannot fail, so it returns SubsystemHealth itself",
     },

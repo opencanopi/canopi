@@ -39,7 +39,7 @@ function design(name: string): CanopiFile {
 }
 
 function readLidarEntries(file: CanopiFile) {
-  return file.lidar?.entries ?? []
+  return file.site_data?.entries ?? []
 }
 
 /** Entries in the order the panel displays them, lowest order first. */
@@ -55,15 +55,15 @@ describe('LiDAR presentation entries through the Design Edit seam', () => {
     upsertLidarEntry('Source', 'lyr-1', 'Terrain')
     const afterAdd = currentDesign.value
     expect(afterAdd).not.toBe(base)
-    expect(afterAdd?.lidar).not.toBeNull()
+    expect(afterAdd?.site_data).not.toBeNull()
     expect(readLidarEntries(afterAdd as CanopiFile)).toEqual([
-      { kind: 'Source', id: 'lyr-1', name: 'Terrain', visible: true, opacity: 1, order: 0, ramp: null, reversed: false, range: null },
+      { id: 'lyr-1', name: 'Terrain', visible: true, opacity: 1, order: 0, ramp: null, reversed: false, range: null },
     ])
 
     patchLidarEntryById('lyr-1', { visible: false, opacity: 0.5 })
     const afterPatch = currentDesign.value
     expect(readLidarEntries(afterPatch as CanopiFile)).toEqual([
-      { kind: 'Source', id: 'lyr-1', name: 'Terrain', visible: false, opacity: 0.5, order: 0, ramp: null, reversed: false, range: null },
+      { id: 'lyr-1', name: 'Terrain', visible: false, opacity: 0.5, order: 0, ramp: null, reversed: false, range: null },
     ])
     // Second entry receives the next order value.
     upsertLidarEntry('Derived', 'adef-1', 'Slope')
@@ -94,7 +94,7 @@ describe('LiDAR presentation entries through the Design Edit seam', () => {
     expect(readLidarEntries(currentDesign.value as CanopiFile)).toHaveLength(1)
 
     removeLidarEntries(['lyr-3'])
-    expect(currentDesign.value?.lidar ?? null).toBeNull()
+    expect(currentDesign.value?.site_data ?? null).toBeNull()
   })
 
   it('preserves unavailable entries so library deletions never rewrite documents', () => {
@@ -160,15 +160,15 @@ describe('LiDAR presentation entries through the Design Edit seam', () => {
   it('folds the Site data eye into the section and keeps each entry eye', () => {
     replaceCurrentDesignState(design('Eye'), null, 'Eye')
     setSiteDataVisible(false)
-    expect(currentDesign.value?.lidar ?? null).toBeNull()
+    expect(currentDesign.value?.site_data ?? null).toBeNull()
 
     upsertLidarEntry('Source', 'lyr-eye', 'Terrain')
-    expect(currentDesign.value?.lidar?.visible).toBe(true)
+    expect(currentDesign.value?.site_data?.visible).toBe(true)
     resetDirtyBaselines()
     expect(designSessionStore.designDirty.value).toBe(false)
 
     setSiteDataVisible(false)
-    expect(currentDesign.value?.lidar?.visible).toBe(false)
+    expect(currentDesign.value?.site_data?.visible).toBe(false)
     expect(readLidarEntries(currentDesign.value as CanopiFile)[0]?.visible).toBe(true)
     expect(designSessionStore.designDirty.value).toBe(true)
 
