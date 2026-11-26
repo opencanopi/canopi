@@ -36,7 +36,10 @@ function nativeWindow(body: string, handle?: number): NativeWindow {
     "Add-Type -Namespace Canopi -Name Window -MemberDefinition '"
       + '[DllImport("user32.dll")] public static extern bool ShowWindow(System.IntPtr h, int c); '
       + '[DllImport("user32.dll")] public static extern bool IsIconic(System.IntPtr h); '
-      + "[DllImport(\"user32.dll\")] public static extern System.IntPtr GetForegroundWindow();'",
+      + '[DllImport("user32.dll")] public static extern System.IntPtr GetForegroundWindow(); '
+      + '[DllImport("user32.dll")] public static extern System.IntPtr GetShellWindow(); '
+      + '[DllImport("user32.dll")] public static extern System.IntPtr GetDesktopWindow(); '
+      + "[DllImport(\"user32.dll\")] public static extern bool SetForegroundWindow(System.IntPtr h);'",
     handle === undefined
       ? `$h = (Get-Process -Id ${currentAppPid()} -ErrorAction Stop).MainWindowHandle`
       : `$h = [System.IntPtr]::new(${handle})`,
@@ -58,7 +61,14 @@ function minimiseAppWindow(): number | undefined {
     execFileSync('xdotool', ['search', '--sync', '--onlyvisible', '--name', '^Canopi$', 'windowminimize', '%@'])
     return undefined
   }
-  const window = nativeWindow('[void][Canopi.Window]::ShowWindow($h, 6); Start-Sleep -Milliseconds 250')
+  const window = nativeWindow(
+    '[void][Canopi.Window]::ShowWindow($h, 6); '
+    + 'if ([Canopi.Window]::GetForegroundWindow() -eq $h) { '
+    + '$other = [Canopi.Window]::GetShellWindow(); '
+    + 'if ($other -eq [System.IntPtr]::Zero) { $other = [Canopi.Window]::GetDesktopWindow() }; '
+    + 'if ($other -ne [System.IntPtr]::Zero) { [void][Canopi.Window]::SetForegroundWindow($other) } '
+    + '}; Start-Sleep -Milliseconds 250',
+  )
   if (!window.iconic) throw new Error(`the app's window ${window.handle} is not minimised after SW_MINIMIZE`)
   return window.handle
 }

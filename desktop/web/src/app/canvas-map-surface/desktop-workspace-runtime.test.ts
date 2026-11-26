@@ -63,6 +63,8 @@ describe('createDesktopCanvasHostCore through mountCanvasHost', () => {
     const detachSpy = vi.spyOn(session!.core, 'detachScene')
     const fake = makeFakeComposition()
     const loadSpy = vi.spyOn(fake.documents, 'replaceDocument')
+    const showChromeSpy = vi.spyOn(fake.documents, 'showCanvasChrome')
+    const zoomToFitSpy = vi.spyOn(fake.documents, 'zoomToFit')
     const serializeSpy = vi.spyOn(fake.documents, 'serializeSceneFields')
 
     const host = mountCanvasHost({
@@ -77,6 +79,8 @@ describe('createDesktopCanvasHostCore through mountCanvasHost', () => {
 
     expect(attachSpy).toHaveBeenCalledTimes(1)
     expect(loadSpy).toHaveBeenCalledTimes(1)
+    expect(showChromeSpy).toHaveBeenCalledTimes(1)
+    expect(zoomToFitSpy).toHaveBeenCalledTimes(1)
     expect(session!.core.currentDesign.value?.scene.kind).toBe('attached')
     expect(host.ready.value).toBe(true)
 
@@ -85,6 +89,35 @@ describe('createDesktopCanvasHostCore through mountCanvasHost', () => {
     expect(serializeSpy).toHaveBeenCalledTimes(1)
     expect(session!.core.currentDesign.value?.scene.kind).toBe('detached')
     expect(fake.dispose).toHaveBeenCalledOnce()
+  })
+
+  it('canopi-272xn: ScenePort.load shows canvas chrome before zoomToFit', async () => {
+    const fake = makeFakeComposition()
+    const replaceSpy = vi.spyOn(fake.documents, 'replaceDocument')
+    const showChromeSpy = vi.spyOn(fake.documents, 'showCanvasChrome')
+    const zoomToFitSpy = vi.spyOn(fake.documents, 'zoomToFit')
+
+    const host = mountCanvasHost({
+      elements: { container: makeContainer() },
+      core: createDesktopCanvasHostCore(),
+      createComposition: () => fake.composition,
+      flushSettings: vi.fn(async () => {}),
+      reportFailure: vi.fn(),
+    })
+    handles.push(host)
+    await flushMicrotasks()
+
+    expect(replaceSpy).toHaveBeenCalledTimes(1)
+    expect(showChromeSpy).toHaveBeenCalledTimes(1)
+    expect(zoomToFitSpy).toHaveBeenCalledTimes(1)
+    const [replaceOrder] = replaceSpy.mock.invocationCallOrder
+    const [showOrder] = showChromeSpy.mock.invocationCallOrder
+    const [fitOrder] = zoomToFitSpy.mock.invocationCallOrder
+    if (replaceOrder === undefined || showOrder === undefined || fitOrder === undefined) {
+      throw new Error('expected ScenePort.load to invoke replaceDocument, showCanvasChrome, and zoomToFit')
+    }
+    expect(replaceOrder).toBeLessThan(showOrder)
+    expect(showOrder).toBeLessThan(fitOrder)
   })
 
   it('detaches and reports runtime-failed when ScenePort.load throws during attachScene', async () => {

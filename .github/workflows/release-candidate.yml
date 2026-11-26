@@ -749,7 +749,11 @@ jobs:
             const mime = { ".html": "text/html", ".js": "text/javascript", ".mjs": "text/javascript", ".css": "text/css", ".wasm": "application/wasm", ".json": "application/json", ".parquet": "application/octet-stream", ".svg": "image/svg+xml", ".png": "image/png" };
             http.createServer((req, res) => {
               const urlPath = decodeURIComponent((req.url || "/").split("?")[0]);
-              const file = path.join(root, urlPath === "/" ? "index.html" : urlPath);
+              let file = path.join(root, urlPath === "/" ? "index.html" : urlPath);
+              // SPA fallback: serve index.html for missing extensionless routes (matches static-host rewrites).
+              if (file.startsWith(root) && (!fs.existsSync(file) || fs.statSync(file).isDirectory()) && path.extname(urlPath) === "") {
+                file = path.join(root, "index.html");
+              }
               if (!file.startsWith(root) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) { res.writeHead(404); res.end(); return; }
               const stat = fs.statSync(file);
               const ct = mime[path.extname(file)] || "application/octet-stream";

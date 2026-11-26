@@ -497,32 +497,41 @@ describe('the updater, from an installed N-1 to N', () => {
   })
 
   /**
-   * Reads durable `last_open_home` from a snapshot copy of the profile's `user.db` (so we never contend with the
-   * running Canopi's WAL lock) and resolves a `file:<sha256>` token against `recent_files` (2.1-Q127, 2.1-M523).
+   * Reads durable `last_open_home` from `settings.json` (2e-2 file authority, falling back to legacy
+   * `user.db` if absent) and resolves a `file:<sha256>` token against a snapshot copy of `user.db`'s
+   * `recent_files` so we never contend with the running Canopi's WAL lock (2.1-Q127, 2.1-M523).
    */
   function resolvedLastOpenHome(profileRoot: string): { lastOpenHome: string | null, resolvedPath: string | null, resolvedName: string | null, lastOpened: string | null } {
-    const store = storeFiles(appFolders(profileRoot), 'user.db')
-    const sourceDb = store.find((file) => basename(file) === 'user.db')
-    if (sourceDb === undefined) return { lastOpenHome: null, resolvedPath: null, resolvedName: null, lastOpened: null }
+    const folders = appFolders(profileRoot)
+    const settingsFile = storeFiles(folders, 'settings.json').find((file) => basename(file) === 'settings.json')
+    let token: string | null = null
+    let fromSettingsJson = false
+    if (settingsFile) {
+      try {
+        const raw = (JSON.parse(readFileSync(settingsFile, 'utf8')) as { last_open_home?: unknown }).last_open_home
+        token = typeof raw === 'string' ? raw : null
+        fromSettingsJson = true
+      } catch { /* fall back to user.db if settings.json is mid-write */ }
+    }
+    const store = storeFiles(folders, 'user.db')
+    if (!store.some((file) => basename(file) === 'user.db')) return { lastOpenHome: token, resolvedPath: null, resolvedName: null, lastOpened: null }
     const snapshotDir = mkdtempSync(join(tmpdir(), 'canopi-updater-db-'))
     try {
       for (const file of store) copyFileSync(file, join(snapshotDir, basename(file)))
       const db = new DatabaseSync(join(snapshotDir, 'user.db'))
       try {
-        const settingsRow = db.prepare("SELECT value FROM settings WHERE key = 'settings'").get() as { value?: string } | undefined
-        const parsed = settingsRow?.value ? JSON.parse(settingsRow.value) as { last_open_home?: string | null } : null
-        const token = typeof parsed?.last_open_home === 'string' ? parsed.last_open_home : null
-        if (!token || !token.startsWith('file:')) return { lastOpenHome: token, resolvedPath: null, resolvedName: null, lastOpened: null }
+        if (!fromSettingsJson) {
+          const row = db.prepare("SELECT value FROM settings WHERE key = 'settings'").get() as { value?: string } | undefined
+          const raw = row?.value ? (JSON.parse(row.value) as { last_open_home?: unknown }).last_open_home : null
+          token = typeof raw === 'string' ? raw : null
+        }
+        if (!token?.startsWith('file:')) return { lastOpenHome: token, resolvedPath: null, resolvedName: null, lastOpened: null }
         const recentId = token.slice('file:'.length)
         const recent = db.prepare('SELECT path, name, last_opened FROM recent_files').all() as { path: string, name: string, last_opened: string }[]
         const match = recent.find((row) => createHash('sha256').update(row.path, 'utf8').digest('hex') === recentId)
         return { lastOpenHome: token, resolvedPath: match?.path ?? null, resolvedName: match?.name ?? null, lastOpened: match?.last_opened ?? null }
-      } finally {
-        db.close()
-      }
-    } finally {
-      rmSync(snapshotDir, { recursive: true, force: true })
-    }
+      } finally { db.close() }
+    } finally { rmSync(snapshotDir, { recursive: true, force: true }) }
   }
 
   it('restarts into N as the primary instance with the current Design', async () => {

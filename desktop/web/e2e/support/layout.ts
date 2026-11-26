@@ -36,6 +36,7 @@ export async function openFixture(page: Page, fixture: string, options: OpenOpti
   const stored = { key: SETTINGS_KEY, values: { ...settings, locale, ...(basemapHidden ? { basemap_visible: false } : {}) } }
   const write = (record: typeof stored) => {
     localStorage.clear()
+    sessionStorage.clear()
     localStorage.setItem(record.key, JSON.stringify({ version: 3, settings: record.values }))
   }
   if (keepOnReload) {
@@ -43,6 +44,8 @@ export async function openFixture(page: Page, fixture: string, options: OpenOpti
     await page.evaluate(write, stored)
     await page.reload()
   } else {
+    // Unload any earlier open Design before clearing storage so its pagehide flush cannot race WebKit's init script.
+    if (page.url() !== 'about:blank') await page.goto('about:blank')
     await page.addInitScript(write, stored)
     await page.goto('')
   }

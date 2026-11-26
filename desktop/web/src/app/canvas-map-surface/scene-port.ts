@@ -18,6 +18,7 @@ export function scenePortOf(documents: CanvasDocumentSurface): ScenePort {
         createCanvasDocumentReplacementToken(),
         () => {},
       )
+      documents.showCanvasChrome()
       documents.zoomToFit()
     },
     replay: (command, direction) => {

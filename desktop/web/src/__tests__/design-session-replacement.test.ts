@@ -102,7 +102,7 @@ describe('Design Session replacement (SessionCore)', () => {
     const result = await h.core.openFrom({ kind: 'file', grant: '/designs/requested.canopi' })
 
     expect(result.status).toBe('opened')
-    expect(events).toEqual(['replace:Requested', 'zoom-to-fit'])
+    expect(events).toEqual(['replace:Requested', 'show-chrome', 'zoom-to-fit'])
     expect(designSessionStore.readDesignName()).toBe('Requested')
     expect(designSessionStore.isDesignDirty()).toBe(false)
   })

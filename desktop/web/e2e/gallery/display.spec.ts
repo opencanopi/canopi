@@ -11,9 +11,9 @@
 import type { Locator, Page } from '@playwright/test'
 import { expect, openGallery, recordRasterTiles, renderedRasterTiles as renderedTiles, settledRaster, test } from '../support/gallery'
 
-/** The map's pixels as PNG bytes, the dock panels over it masked (a pressed or focused control is not a repaint). */
+/** The map's pixels as PNG bytes, the chrome over it masked (a pressed, focused, or Undo-enabled control is not a repaint). */
 async function mapPixels(map: Locator): Promise<Buffer> {
-  return map.screenshot({ animations: 'disabled', mask: [map.page().locator('aside')] })
+  return map.screenshot({ animations: 'disabled', mask: [map.page().locator('aside'), map.page().locator('[role="toolbar"]')] })
 }
 
 /** Waits until the renderer has rendered tiles beyond `after` and the map's picture holds still. */

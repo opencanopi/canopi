@@ -117,6 +117,16 @@ jobs:
           "CANOPI_E2E_NATIVE_DRIVER=$driver" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
           if (-not (Get-Command tauri-driver -ErrorAction SilentlyContinue)) { throw 'tauri-driver is not on PATH' }
 
+      - name: Enable Windows Location consent for my-location spec (2.1-Q146)
+        if: ${{ matrix.os == 'windows-2025' }}
+        shell: pwsh
+        run: |
+          foreach ($hive in @('HKLM:', 'HKCU:')) {
+            $key = "$hive\SOFTWARE\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\location"
+            New-Item -Path $key -Force | Out-Null
+            Set-ItemProperty -Path $key -Name Value -Value 'Allow'
+          }
+
       - name: Drive the app
         run: |
           set -euo pipefail

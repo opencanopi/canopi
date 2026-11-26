@@ -289,8 +289,10 @@ describe('Desktop durable last_open_home boot -> reopen (2b-4 B2/B5, 2.1-Q127, 2
     })
     cleanups.push(stopLaunch)
 
+    await install2.ready
     await vi.waitFor(() => {
       expect(lastOpenHome.value).toBeNull()
+      expect(wire.read().last_open_home).toBeNull()
     })
     await flushSettingsProjection()
 
@@ -318,8 +320,10 @@ describe('Desktop durable last_open_home boot -> reopen (2b-4 B2/B5, 2.1-Q127, 2
     })
     cleanups.push(stopLaunch)
 
+    await install.ready
     await vi.waitFor(() => {
       expect(lastOpenHome.value).toBeNull()
+      expect(wire.read().last_open_home).toBeNull()
     })
     await flushSettingsProjection()
 
