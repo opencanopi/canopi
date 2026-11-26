@@ -78,7 +78,14 @@ test.describe('a map that stops drawing', () => {
   // Playwright's Firefox logs the Error argument by its name alone, without the message, so there the whole line is
   // expected rather than a prefix that would let any map failure through.
   test.use({
-    expectedConsoleErrors: async ({ browserName }, use) => use(browserName === 'firefox' ? [] : ['Shared workspace map failed: Error: MapLibre WebGL context was lost']),
+    expectedConsoleErrors: async ({ browserName }, use) => use(
+      browserName === 'firefox'
+        ? ['MapLibre WebGL context was lost while preparing the shared workspace.']
+        : [
+            'Shared workspace map failed: Error: MapLibre WebGL context was lost',
+            'MapLibre WebGL context was lost while preparing the shared workspace.',
+          ],
+    ),
     expectedConsoleLines: async ({ browserName }, use) => use(browserName === 'firefox' ? ['Shared workspace map failed: Error'] : []),
   })
 
