@@ -1,24 +1,26 @@
 import type { CanvasQuerySurface } from '../../canvas/runtime/runtime'
 import { canvasPaintRevision } from '../../canvas/theme-refresh'
 import type { DesignSessionStore } from '../document-session/store'
+import { isDarkMapBackdrop, mapTerrainStateOf } from '../settings/state'
+import { myLocation } from '../my-location/session'
 import { readPanelTargetOverlaySnapshot } from '../panel-targets/presentation'
-import type { MapLibreApi, MapLibreMapInstance } from '../../maplibre/loader'
+import { presentedMapLayers } from '../story-presentation/overrides'
+import type { MapLibreApi } from '../../maplibre/loader'
 import type { TerrainLayerState, TerrainProtocolSupport } from '../../maplibre/terrain'
+import { loadMapLibreTerrainSupport } from '../../maplibre/terrain-loader'
 import type { RasterDisplay, RasterDisplayLayer, RasterDisplayMap, RasterDisplayOptions } from '../../maplibre/raster-display/adapter'
 import type { CanvasMapSurfaceOverlaySnapshot } from './overlays'
+import { USER_LOCATION_OVERLAY_PORT, type UserLocationOverlayPort } from './user-location-overlay-port'
 import type { SiteMapOverlay } from '../../maplibre/site-overlay'
 import type { UserLocationReading } from '../../maplibre/user-location-overlay'
+
+export type { UserLocationOverlayPort }
 
 export interface WorkspaceMapContributionSnapshot {
   readonly sessionIdentity: object
   readonly lidar: readonly Readonly<RasterDisplayLayer>[]
   readonly terrain: TerrainLayerState
   readonly overlays: CanvasMapSurfaceOverlaySnapshot
-}
-
-export interface UserLocationOverlayPort {
-  sync(map: MapLibreMapInstance, reading: UserLocationReading | null): void
-  clear(map: MapLibreMapInstance): void
 }
 
 export interface WorkspaceMapContributionAdapter {
@@ -48,21 +50,28 @@ export interface WorkspaceMapContributionAdapter {
   readonly userLocationOverlay?: UserLocationOverlayPort
 }
 
-/** What an edition adds to the shared contributions: its LiDAR band and terrain, and Desktop's Site data pin and line. */
-interface WorkspaceMapEditionContributions extends Pick<WorkspaceMapContributionSnapshot, 'lidar' | 'terrain'> {
+/** What an edition adds to the shared contributions: Desktop's LiDAR band and Site data pin/line. */
+interface WorkspaceMapEditionAdditions {
+  readonly lidar: readonly Readonly<RasterDisplayLayer>[]
   readonly site: SiteMapOverlay | null
 }
 
+const NO_EDITION_ADDITIONS: WorkspaceMapEditionAdditions = Object.freeze({
+  lidar: [],
+  site: null,
+})
+
 /**
- * The contributions both editions read: null without a Design or a plane, else the panel Targets (none in overview) over the
- * edition's LiDAR layers and terrain. Coarse view signals only: the contributions re-read when the Scene changes, the camera
- * settles, the mode changes or the canvas paint changes (theme, backdrop: overlays already on the map repaint in its colours),
- * never on a camera frame alone. The one high-rate exception, the profile chart's hover, goes through `readSiteHover`.
+ * Shared Q45 contribution reader: null without a Design or a plane, else the
+ * shared terrain (following the map backdrop, not UI theme; contracts §6,
+ * 2.1-Q25) and panel Targets (none in overview) over the edition's capability
+ * rows (`lidar`, `site`). Coarse view signals only: re-reads on Scene change,
+ * settled camera, mode change or canvas paint change, never on a camera frame.
  */
 export function readWorkspaceMapContributions(
   runtime: CanvasQuerySurface,
   store: Pick<DesignSessionStore, 'sessionIdentity' | 'hasCurrentDesign'>,
-  edition: () => WorkspaceMapEditionContributions,
+  edition: () => WorkspaceMapEditionAdditions = () => NO_EDITION_ADDITIONS,
 ): WorkspaceMapContributionSnapshot | null {
   const sessionIdentity = store.sessionIdentity.value
   if (!store.hasCurrentDesign()) return null
@@ -73,10 +82,16 @@ export function readWorkspaceMapContributions(
   void canvasPaintRevision.value
   const overview = runtime.view.mode.value === 'overview'
   const panelTargets = readPanelTargetOverlaySnapshot()
-  const { site, ...contributions } = edition()
+  const presented = presentedMapLayers()
+  const terrain: TerrainLayerState = {
+    ...mapTerrainStateOf(presented),
+    isDark: isDarkMapBackdrop(presented),
+  }
+  const { site, lidar } = edition()
   return {
     sessionIdentity,
-    ...contributions,
+    lidar,
+    terrain,
     overlays: {
       runtime,
       location: { lat: plane.origin.lat, lon: plane.origin.lon },
@@ -84,5 +99,21 @@ export function readWorkspaceMapContributions(
       selectedTargets: overview ? [] : panelTargets.selectedTargets,
       site: overview ? null : site,
     },
+  }
+}
+
+/** Shared adapter fields owned once for both editions: terrain support and optional My location wiring (2.1-Q25, 2.1-Q45, 2.1-Q146). */
+export function createSharedContributionCapabilities(options: { readonly locationEnabled: boolean }): Pick<
+  WorkspaceMapContributionAdapter,
+  'loadTerrainSupport' | 'readUserLocation' | 'userLocationOverlay'
+> {
+  return {
+    loadTerrainSupport: loadMapLibreTerrainSupport,
+    ...(options.locationEnabled
+      ? {
+          readUserLocation: () => myLocation.reading.value,
+          userLocationOverlay: USER_LOCATION_OVERLAY_PORT,
+        }
+      : {}),
   }
 }

@@ -142,7 +142,7 @@ describe('saved view snapshot request', () => {
     const view = createTestRendererView({ x: 1, y: 2, scale: 3 })
     const scene = request.scene.build(view)
     expect(build).toHaveBeenCalledWith({
-      view, visibleLayerNames: ['plants'], focusedSpecies: 'Rubus idaeus', plantLabels: 'codes',
+      view, visibleLayerNames: ['plants'], focusedSpecies: 'Rubus idaeus', plantLabels: 'codes', highlightedObjects: [{ kind: 'plant', id: 'p1' }],
     })
     expect(scene.scene.layers.map((layer) => [layer.name, layer.visible])).toEqual([['plants', true], ['zones', false]])
   })

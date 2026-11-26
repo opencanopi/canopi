@@ -213,6 +213,8 @@ export interface CanvasViewSceneRequest {
   readonly focusedSpecies: string | null
   /** Labels the view shows; absent, the workspace's choice. */
   readonly plantLabels?: PlantLabelMode
+  /** Objects the saved view highlights (2.1-Q352, canopi-5ys2.3.10). */
+  readonly highlightedObjects?: readonly { readonly kind: string; readonly id: string }[]
 }
 
 /** How many plants in view carry a label on the map now ("Codes shown for 70 of 282 plants in view"). */

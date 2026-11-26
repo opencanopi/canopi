@@ -876,7 +876,7 @@ describe('WorkspaceMapContributions', () => {
     designSessionStore.replaceCurrentDesignState({ name: 'Orchard' } as CanopiFile, null, 'Orchard')
     selectPanel('site-data')
     try {
-      const adapter = createDesktopWorkspaceMapContributionAdapter()
+      const adapter = createDesktopWorkspaceMapContributionAdapter({ locationEnabled: true })
       const runtime = createTestCanvasQuerySurface()
       expect(adapter.read(runtime)?.overlays.site).toBeNull()
       setPin({ lon: 2.35, lat: 48.85 })

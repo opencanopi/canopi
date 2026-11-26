@@ -6,8 +6,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { WorkspaceMapContributions } from '../app/canvas-map-surface/workspace-map-contributions'
-import { USER_LOCATION_OVERLAY_PORT } from '../app/canvas-map-surface/user-location-overlay-port'
+import { capabilitiesForEdition } from '../generated/edition-capabilities'
+import { createDesktopWorkspaceMapContributionAdapter } from '../app/canvas-map-surface/desktop-workspace-map-contribution-adapter'
 import type { WorkspaceMapContributionSnapshot } from '../app/canvas-map-surface/workspace-map-contribution-adapter'
+import { createBrowserWorkspaceMapContributionAdapter } from '../editions/web/browser-workspace-map-contribution-adapter'
 import { createDefaultScenePersistedState } from '../canvas/runtime/scene'
 import type { MapLibreApi, MapLibreMapInstance } from '../maplibre/loader'
 import type { UserLocationReading } from '../maplibre/user-location-overlay'
@@ -80,21 +82,39 @@ function consoleText(spies: readonly ReturnType<typeof vi.spyOn>[]): string {
   return spies.flatMap((spy) => spy.mock.calls.flat().map(text)).join('\n')
 }
 
-describe('a location reading never reaches a log', () => {
+describe('a location reading never reaches a log (both editions, 2.1-Q146)', () => {
   afterEach(() => { vi.restoreAllMocks() })
 
-  it('logs no fix when the dot and accuracy source fail to take it', () => {
-    const spies = (['log', 'info', 'warn', 'error', 'debug', 'trace'] as const)
-      .map((method) => vi.spyOn(console, method).mockImplementation(() => {}))
-    const map = new FailingSetDataMap()
-    const contributions = new WorkspaceMapContributions({ onFailure: () => {}, userLocationOverlay: USER_LOCATION_OVERLAY_PORT })
-    contributions.attach({ map, maplibre: {} as MapLibreApi, lifetime: { on() {}, off() {}, addCleanup() {} }, isCurrent: () => true })
-    contributions.update(emptySnapshot())
-    contributions.admitStyle()
+  for (const [edition, adapter] of [
+    ['Web', createBrowserWorkspaceMapContributionAdapter()],
+    ['Desktop (Linux)', createDesktopWorkspaceMapContributionAdapter({ locationEnabled: capabilitiesForEdition('desktop', 'linux').has('my-location') })],
+    ['Desktop (Windows)', createDesktopWorkspaceMapContributionAdapter({ locationEnabled: capabilitiesForEdition('desktop', 'windows').has('my-location') })],
+  ] as const) {
+    it(`${edition}: logs no fix when the dot and accuracy source fail to take it`, () => {
+      const spies = (['log', 'info', 'warn', 'error', 'debug', 'trace'] as const)
+        .map((method) => vi.spyOn(console, method).mockImplementation(() => {}))
+      const map = new FailingSetDataMap()
+      expect(adapter.userLocationOverlay, `${edition} wires the location overlay`).toBeDefined()
+      const contributions = new WorkspaceMapContributions({
+        onFailure: () => {},
+        ...(adapter.userLocationOverlay ? { userLocationOverlay: adapter.userLocationOverlay } : {}),
+      })
+      contributions.attach({ map, maplibre: {} as MapLibreApi, lifetime: { on() {}, off() {}, addCleanup() {} }, isCurrent: () => true })
+      contributions.update(emptySnapshot())
+      contributions.admitStyle()
 
-    contributions.setUserLocation(FIX)
+      contributions.setUserLocation(FIX)
 
-    expect(map.fixWrites, 'the reading reached the map, and its write failed').not.toEqual([])
-    expect(consoleText(spies), 'no console output carries the fix').not.toContain(FIX_DIGITS)
+      expect(map.fixWrites, `${edition}: the reading reached the map, and its write failed`).not.toEqual([])
+      expect(consoleText(spies), `${edition}: no console output carries the fix`).not.toContain(FIX_DIGITS)
+    })
+  }
+
+  it('Desktop (macOS): omits location wiring per ADR 0030 / 2.1-Q146', () => {
+    const macAdapter = createDesktopWorkspaceMapContributionAdapter({
+      locationEnabled: capabilitiesForEdition('desktop', 'macos').has('my-location'),
+    })
+    expect(macAdapter.readUserLocation).toBeUndefined()
+    expect(macAdapter.userLocationOverlay).toBeUndefined()
   })
 })

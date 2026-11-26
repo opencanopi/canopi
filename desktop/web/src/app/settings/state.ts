@@ -189,6 +189,30 @@ export function hasVisibleMapLayer(state: MapLayersState): boolean {
   return mapBackgroundOf(state) !== 'none' || state.contours.visible || state.hillshade.visible
 }
 
+/** Below half opacity a background mostly lets the map's light paper through. */
+const BACKDROP_OPACITY_THRESHOLD = 0.5
+
+/**
+ * The map backdrop under the Design and contours (contracts §6: never the UI theme).
+ */
+export function mapBackdropOf(state: MapLayersState): 'paper' | 'basemap' | 'dark-basemap' | 'satellite' {
+  switch (mapBackgroundOf(state)) {
+    case 'satellite':
+      return effectiveBackgroundOpacity(state, 'satellite') < BACKDROP_OPACITY_THRESHOLD ? 'paper' : 'satellite'
+    case 'basemap':
+      if (effectiveBackgroundOpacity(state, 'basemap') < BACKDROP_OPACITY_THRESHOLD) return 'paper'
+      return state.basemap.style === 'dark' ? 'dark-basemap' : 'basemap'
+    case 'none':
+      return 'paper'
+  }
+}
+
+/** Whether the map backdrop is dark (satellite imagery or dark basemap; contracts §6). */
+export function isDarkMapBackdrop(state: MapLayersState): boolean {
+  const backdrop = mapBackdropOf(state)
+  return backdrop === 'satellite' || backdrop === 'dark-basemap'
+}
+
 /** Contours and Hillshade in the shape the terrain contribution consumes. */
 export function mapTerrainStateOf(state: MapLayersState) {
   return {

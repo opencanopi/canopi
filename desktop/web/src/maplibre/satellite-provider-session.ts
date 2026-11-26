@@ -353,7 +353,7 @@ export class SatelliteImageryProvider {
       ...descriptor,
       tiles: [...descriptor.tiles],
       tileSize: session.tileWidth,
-      attribution: copyright ?? descriptor.attribution,
+      attribution: copyright || descriptor.attribution,
       maxzoom: Math.min(
         descriptor.maxzoom,
         typeof metadataZoom === 'number' && Number.isFinite(metadataZoom)
@@ -620,35 +620,42 @@ export function readSessionExpiryMs(expiry: unknown, nowMs: number): number {
 /** The attribution and zoom availability one viewport answer supplies. */
 export interface BasemapViewportMetadata {
   readonly copyright: string | null
-  readonly maxZoom: number
+  readonly maxZoom: number | null
 }
 
 /**
- * Read the documented viewport response.
+ * Read the documented viewport response (2.1-Q350, canopi-qv53).
  *
  * `maxZoomRects` describes availability over sub-rectangles of the request.
- * Coverage is exact for the bounded metadata format: wrapped provider
- * rectangles and viewports are normalized into intervals split at ±180 with
- * constant-time modulo, then intersected. A viewport spanning at least 360
- * degrees queries one complete world. Every positive-area partition needs
- * support; its supported zoom is the maximum of covering rectangles, and the
- * source ceiling is the minimum across partitions, capped by the base
- * descriptor. Uncovered or unsupported metadata is unavailable, not an
- * invented zoom. More than 64 input rectangles is unavailable under the
- * existing metadata error policy. Empty objects and answers without finite
- * applicable availability or a copyright are not established metadata.
+ * Partial coverage keeps Satellite ready using the covered partitions' ceiling
+ * so MapLibre stretches the provider's deepest tiles; empty coverage
+ * (`maxZoomRects: []` or no intersecting rect) stays ready with `maxZoom: null`
+ * (blank imagery where there are no tiles). Malformed answers (missing
+ * `copyright` string, non-array `maxZoomRects`, or >64 rectangles) return null.
  */
 export function readViewportMetadata(
   json: unknown,
   viewport: SatelliteViewport,
 ): BasemapViewportMetadata | null {
   if (!isRecord(json)) return null
-  const copyright =
-    typeof json.copyright === 'string' && json.copyright.length > 0 ? json.copyright : null
-  if (copyright === null) return null
-  const rects = Array.isArray(json.maxZoomRects) ? json.maxZoomRects : []
+  if (typeof json.copyright !== 'string') return null
+  if (!Array.isArray(json.maxZoomRects)) return null
+  const trimmedCopyright = json.copyright.trim()
+  const copyright = trimmedCopyright.length > 0 ? trimmedCopyright : null
+  const rects = json.maxZoomRects
   // Conservative local parser support bound, not a claimed provider guarantee.
   if (rects.length > 64) return null
+  if (
+    !Number.isFinite(viewport.north) || !Number.isFinite(viewport.south)
+    || !Number.isFinite(viewport.east) || !Number.isFinite(viewport.west)
+    || !Number.isFinite(viewport.zoom)
+    || viewport.north <= viewport.south
+    || viewport.south < -90 || viewport.north > 90
+  ) {
+    return null
+  }
+  const viewPieces = splitLongitudeSpan(viewport.west, viewport.east)
+  if (viewPieces.length === 0) return null
   const parsed: Array<{ north: number; south: number; west: number; east: number; maxZoom: number }> = []
   for (const rect of rects) {
     if (!isRecord(rect)) continue
@@ -668,20 +675,8 @@ export function readViewportMetadata(
     }
     parsed.push({ north, south, west, east, maxZoom: value })
   }
-  if (parsed.length === 0) return null
-  if (
-    !Number.isFinite(viewport.north) || !Number.isFinite(viewport.south)
-    || !Number.isFinite(viewport.east) || !Number.isFinite(viewport.west)
-    || !Number.isFinite(viewport.zoom)
-    || viewport.north <= viewport.south
-    || viewport.south < -90 || viewport.north > 90
-  ) {
-    return null
-  }
-  const viewPieces = splitLongitudeSpan(viewport.west, viewport.east)
-  if (viewPieces.length === 0) return null
+  if (parsed.length === 0) return rects.length === 0 ? { copyright, maxZoom: null } : null
   const ceiling = exactCoverageCeiling(viewPieces, viewport, parsed)
-  if (ceiling === null) return null
   return { copyright, maxZoom: ceiling }
 }
 
@@ -778,7 +773,7 @@ function exactCoverageCeiling(
           if (piece.end <= lonA || piece.start >= lonB) continue
           partZoom = partZoom === null ? piece.maxZoom : Math.max(partZoom, piece.maxZoom)
         }
-        if (partZoom === null) return null
+        if (partZoom === null) continue
         ceiling = ceiling === null ? partZoom : Math.min(ceiling, partZoom)
       }
     }

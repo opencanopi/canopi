@@ -168,13 +168,15 @@ export class SceneRuntimePresentationController {
 
   /**
    * A snapshot for an off-screen view capture: the persisted scene with only
-   * the requested layers visible, no selection, hover or panel highlight.
+   * the requested layers visible, the view's highlighted objects (2.1-Q352),
+   * and no selection, hover or panel highlight.
    */
   buildViewCaptureSnapshot(request: {
     readonly overview: boolean
     readonly visibleLayerNames: readonly string[]
     readonly focusedSpecies: string | null
     readonly plantLabels?: PlantLabelMode
+    readonly highlightedObjects?: readonly { readonly kind: string; readonly id: string }[]
   }): SceneRendererSnapshot {
     const persisted = this._sceneStore.persisted
     const visible = new Set(request.visibleLayerNames)
@@ -187,6 +189,14 @@ export class SceneRuntimePresentationController {
     const localizedCommonNames = this.getLocalizedCommonNames()
     const speciesCache = this._speciesCache.getCache()
     const selectionLabelPlantIds = new Set<string>()
+    const plantIds = new Set(scene.plants.map((plant) => plant.id))
+    const zoneIds = new Set(scene.zones.map((zone) => zone.id))
+    const highlightedPlantIds = new Set<string>()
+    const highlightedZoneIds = new Set<string>()
+    for (const object of request.highlightedObjects ?? []) {
+      if (object.kind === 'plant' && plantIds.has(object.id)) highlightedPlantIds.add(object.id)
+      else if (object.kind === 'zone' && zoneIds.has(object.id)) highlightedZoneIds.add(object.id)
+    }
     return {
       scene,
       speciesFocus,
@@ -196,8 +206,8 @@ export class SceneRuntimePresentationController {
       selectedZoneIds: new Set(),
       selectedAnnotationIds: new Set(),
       selectedMeasurementGuideIds: new Set(),
-      highlightedPlantIds: new Set(),
-      highlightedZoneIds: new Set(),
+      highlightedPlantIds,
+      highlightedZoneIds,
       speciesCache,
       localizedCommonNames,
       hoveredCanonicalName: null,

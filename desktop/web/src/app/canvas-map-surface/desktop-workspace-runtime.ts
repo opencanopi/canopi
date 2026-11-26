@@ -9,7 +9,10 @@ import {
 } from '../document-session/transition'
 import type { CanvasDocumentSurface } from '../../canvas/runtime/runtime'
 import type { CanvasHostCore } from './canvas-host'
-import { createDesktopWorkspaceMapContributionAdapter } from './desktop-workspace-map-contribution-adapter'
+import {
+  createDesktopWorkspaceMapContributionAdapter,
+  type DesktopWorkspaceMapContributionOptions,
+} from './desktop-workspace-map-contribution-adapter'
 import { persistLastView } from './last-view'
 import type { CanvasHostRuntimeBinding } from './use-canvas-host'
 import {
@@ -21,12 +24,13 @@ import {
 /** Desktop's complete shared-workspace assembly. */
 function createDesktopWorkspaceRuntimeComposition(
   options: WorkspaceRuntimeMountOptions,
+  contributions: DesktopWorkspaceMapContributionOptions,
 ): WorkspaceRuntimeComposition {
   return createWorkspaceRuntimeComposition({
     ...options,
     appAdapter: createDesktopCanvasRuntimeAppAdapter(),
     targetPresentation: createAppSceneRuntimePanelTargetAdapter(),
-    mapContributions: createDesktopWorkspaceMapContributionAdapter(),
+    mapContributions: createDesktopWorkspaceMapContributionAdapter(contributions),
     onViewSettled: persistLastView,
   })
 }
@@ -78,9 +82,11 @@ export function createDesktopCanvasHostCore(): CanvasHostCore {
   }
 }
 
-export function createDesktopCanvasHostRuntime(): CanvasHostRuntimeBinding {
+export function createDesktopCanvasHostRuntime(
+  contributions: DesktopWorkspaceMapContributionOptions,
+): CanvasHostRuntimeBinding {
   return {
     core: createDesktopCanvasHostCore(),
-    createComposition: createDesktopWorkspaceRuntimeComposition,
+    createComposition: (options) => createDesktopWorkspaceRuntimeComposition(options, contributions),
   }
 }

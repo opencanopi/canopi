@@ -726,11 +726,6 @@
       }
     },
     "basemap": {
-      "googleKey": "Google Maps API キー（任意）",
-      "saveKey": "キーを保存",
-      "clearKey": "キーを消去",
-      "keySaved": "このデバイスにキーを保存しました。",
-      "keyLocalOnly": "このデバイスの設定にのみ保存されます。デザイン・エクスポート・ログ・レポートには書き込まれません。",
       "style": "スタイル",
       "styles": {
         "liberty": "Liberty",
@@ -738,9 +733,6 @@
         "bright": "明るい",
         "dark": "ダーク"
       }
-    },
-    "satellite": {
-      "googleKeyOptional": "キーがない場合、Canopi は Google の公開衛星タイルを使用します。公式の Map Tiles API を使うには Google Maps API キーを追加してください。"
     },
     "zoom": {
       "scaleBar": "縮尺バー: {{distance}}",
@@ -754,7 +746,7 @@
     },
     "myLocation": {
       "show": "現在地を表示",
-      "blocked": "位置情報がブロックされています。ブラウザの設定でこのサイトに許可してください。",
+      "blocked": "位置情報がブロックされています。ブラウザーまたはシステムの設定で許可してください。",
       "unavailable": "現在地を取得できません。引き続き試しています。"
     },
     "selectionChip": {

@@ -11,7 +11,7 @@ const TERRAIN_PROTOCOL_ID = 'canopi-terrain'
 let terrainSupportPromise: Promise<TerrainProtocolSupport> | null = null
 
 export async function loadMapLibreTerrainSupport(
-  maplibre: MapLibreApi,
+  maplibre: Pick<MapLibreApi, 'addProtocol'>,
 ): Promise<TerrainProtocolSupport> {
   if (!terrainSupportPromise) {
     terrainSupportPromise = import('maplibre-contour')

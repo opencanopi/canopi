@@ -726,11 +726,6 @@
       }
     },
     "basemap": {
-      "googleKey": "Google Maps API-sleutel (optioneel)",
-      "saveKey": "Sleutel opslaan",
-      "clearKey": "Sleutel wissen",
-      "keySaved": "Sleutel op dit apparaat opgeslagen.",
-      "keyLocalOnly": "Alleen in de instellingen van dit apparaat. Wordt nooit in een ontwerp, export, logboek of rapport geschreven.",
       "style": "Stijl",
       "styles": {
         "liberty": "Liberty",
@@ -738,9 +733,6 @@
         "bright": "Licht",
         "dark": "Donker"
       }
-    },
-    "satellite": {
-      "googleKeyOptional": "Zonder sleutel gebruikt Canopi de openbare satelliettegels van Google. Voeg je Google Maps API-sleutel toe om de officiële Map Tiles API te gebruiken."
     },
     "zoom": {
       "scaleBar": "Schaalbalk: {{distance}}",
@@ -754,7 +746,7 @@
     },
     "myLocation": {
       "show": "Mijn locatie tonen",
-      "blocked": "Locatie is geblokkeerd. Sta deze toe voor deze site in de instellingen van je browser.",
+      "blocked": "Locatie is geblokkeerd. Sta dit toe in de browser- of systeeminstellingen.",
       "unavailable": "Je locatie is nu niet beschikbaar; we blijven het proberen."
     },
     "selectionChip": {

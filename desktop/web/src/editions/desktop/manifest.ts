@@ -44,7 +44,7 @@ export const DESKTOP_EDITION_MANIFEST: EditionManifest = {
     e('contours'),
     e('hillshade'),
     e('scene'),
-    e('my-location'),
+    e('my-location', 'my-location'),
     e('site-data-rasters', 'site-data-below-limit'),
   ],
   panels: DESKTOP_SHELL_COMMAND_CATALOG

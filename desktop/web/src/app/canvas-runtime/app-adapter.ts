@@ -4,18 +4,16 @@ import type {
   CanvasRuntimePresentationDataAdapter,
   CanvasRuntimeSavedObjectStampAdapter,
 } from '../../canvas/runtime/app-adapter'
-import type { CanvasMapBackdrop } from '../../canvas/runtime/scene-visuals'
 import {
-  effectiveBackgroundOpacity,
   lastView,
   locale,
-  mapBackgroundOf,
+  mapBackdropOf,
   plantSpacingIntervalM,
   scrollWheel,
   snapToGridEnabled,
   theme,
-  type MapLayersState,
 } from '../settings/state'
+
 import { presentedMapLayers, storyPresentationHidesEditingAids, storyPresentationOverrides } from '../story-presentation/overrides'
 import { gridVisible } from '../canvas-settings/signals'
 import { mutateSettingsProjection } from '../settings/projection'
@@ -128,17 +126,4 @@ function reducedMotionPreference(): ReadonlySignal<boolean> {
   return preference
 }
 
-/** Below half opacity a background mostly lets the map's light paper through. */
-const BACKDROP_OPACITY_THRESHOLD = 0.5
 
-function mapBackdropOf(state: MapLayersState): CanvasMapBackdrop {
-  switch (mapBackgroundOf(state)) {
-    case 'satellite':
-      return effectiveBackgroundOpacity(state, 'satellite') < BACKDROP_OPACITY_THRESHOLD ? 'paper' : 'satellite'
-    case 'basemap':
-      if (effectiveBackgroundOpacity(state, 'basemap') < BACKDROP_OPACITY_THRESHOLD) return 'paper'
-      return state.basemap.style === 'dark' ? 'dark-basemap' : 'basemap'
-    case 'none':
-      return 'paper'
-  }
-}

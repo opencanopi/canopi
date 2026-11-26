@@ -234,32 +234,9 @@
   line-height: 1.4;
 }
 
-.keyForm {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.keyInput {
-  width: 100%;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-surface);
-  color: var(--color-text);
-  padding: var(--space-1) var(--space-2);
-  font-family: inherit;
-  font-size: var(--text-xs);
-}
-
-.keyInput:focus-visible,
 .keyButton:focus-visible {
   outline: 2px solid var(--color-focus);
   outline-offset: 2px;
-}
-
-.keyActions {
-  display: flex;
-  gap: var(--space-2);
 }
 
 .keyButton {

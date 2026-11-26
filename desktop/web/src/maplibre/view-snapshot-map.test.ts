@@ -138,6 +138,7 @@ class FakeMap {
     ;(layer.onAdd as ((m: unknown, gl: WebGL2RenderingContext) => void) | undefined)?.(this, this.gl)
   }
   getLayer(id: string): unknown { return this.layers.get(id) }
+  removeLayer(id: string): void { this.layers.delete(id) }
   /** Web Mercator at 512-pixel tiles, like MapLibre. */
   project(point: { lng: number; lat: number }): { x: number; y: number } {
     const worldSize = 512 * 2 ** this.zoom
@@ -207,7 +208,7 @@ function createFakeBackground(options: MapBackgroundOptions) {
 function createOwner(overrides: Partial<ViewSnapshotMapOptions> = {}) {
   return createViewSnapshotMap({
     readSatelliteConfig: () => ({ googleMapsApiKey: null, locale: 'en' }),
-    loadMapLibre: async () => ({ Map: FakeMap as unknown as new (options: MapLibreMapConstructorOptions) => unknown }),
+    loadMapLibre: async () => ({ Map: FakeMap as unknown as new (options: MapLibreMapConstructorOptions) => unknown, addProtocol() {} }),
     mountBackground: createFakeBackground,
     createSceneLayer: createFakeLayer,
     readFrame: (canvas) => ({

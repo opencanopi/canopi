@@ -13,6 +13,7 @@
 import { readFileSync, writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import type { Locator, Page } from '@playwright/test'
+import { routeMinimalBasemap } from '../support/basemap'
 import { pressMod } from '../support/canvas'
 import { Fingers, type Point } from '../support/fingers'
 import { boxOf, chipFrame, expectHitAtCentre, mapHost, nextFrames, openFixture, overlap, type Box } from '../support/layout'
@@ -1050,19 +1051,9 @@ for (const phone of PHONES) {
 // The map credits never sit under the zoom column (release close, DR16; U18's bottom band is retired). Offline the
 // Basemap style never installs and the map shows no credits, so its style is answered in the page with inline credits
 // and no sprite; the credits then show at the map's bottom right, on the zoom column's side, at the sheet's peek and half.
-const BASEMAP_CREDITS = '<a href="https://openfreemap.org">OpenFreeMap</a> <a href="https://www.openmaptiles.org/">© OpenMapTiles</a>'
-  + ' Data from <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-
 /** Answers the Basemap style with inline credits and opens the fixture; the credits show at the sheet's peek. */
 async function openWithCredits(page: Page, size: string) {
-  await page.route('https://tiles.openfreemap.org/styles/**', (route) => route.fulfill({
-    contentType: 'application/json',
-    body: JSON.stringify({
-      version: 8,
-      sources: { openmaptiles: { type: 'geojson', data: { type: 'FeatureCollection', features: [] }, attribution: BASEMAP_CREDITS } },
-      layers: [{ id: 'water', type: 'fill', source: 'openmaptiles', paint: { 'fill-color': '#a0c8f0' } }],
-    }),
-  }))
+  await routeMinimalBasemap(page)
   await openFixture(page, FIXTURE)
   await expect(mapHost(page).locator('.maplibregl-ctrl-attrib'), `${size}: the Basemap's credits show`).toBeVisible()
 }

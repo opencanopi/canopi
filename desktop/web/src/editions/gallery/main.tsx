@@ -132,7 +132,7 @@ if (edition === 'desktop' && fixtureState === 'lidar-raster') {
 }
 
 function createGalleryDesktopRuntime(options: WorkspaceRuntimeMountOptions): WorkspaceRuntimeComposition {
-  const baseContributions = createDesktopWorkspaceMapContributionAdapter()
+  const baseContributions = createDesktopWorkspaceMapContributionAdapter({ locationEnabled: true })
   const baseCreateRasterDisplay = baseContributions.createRasterDisplay
   return createWorkspaceRuntimeComposition({
     ...options,

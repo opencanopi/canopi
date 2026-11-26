@@ -2,7 +2,7 @@
   "$schema": "./ratchet.schema.json",
   "family": "location-session-only-in-button",
   "entries": {
-    "editions/web/browser-workspace-map-contribution-adapter.ts -> app/my-location/session.ts": {
+    "app/canvas-map-surface/workspace-map-contribution-adapter.ts -> app/my-location/session.ts": {
       "count": 1,
       "bead": "canopi-f47t.52.185"
     }

@@ -6,8 +6,9 @@ import { ButtonTooltip } from '../shared/ButtonTooltip'
 import styles from './MyLocationButton.module.css'
 
 /**
- * Show my location: the Web Edition's button in the zoom group, before the compass (canopi-f47t.53, U54 Q9, Q13, Q16,
- * Q18; pattern canvas-navigation.md). Desktop passes no button, and the Web hides it without a secure context or
+ * Show my location: the button in the zoom group, before the compass (canopi-f47t.53, U54 Q9, Q13, Q16, Q18;
+ * 2.1-Q146; pattern canvas-navigation.md). Web, Desktop Linux and Desktop Windows pass it when `my-location` is in
+ * their capability set (macOS Desktop omits it per ADR 0030), and the button hides without a secure context or
  * `navigator.geolocation` (design check A1). A click runs the location session's press: from Off it shows the dot and
  * follows it, while Following it turns location off, while Moved away it re-centres and follows again. It is pressed
  * only while Following; Blocked disables it with the reason in its tooltip, and a stale fix says location is
@@ -20,6 +21,7 @@ export function MyLocationButton({ className }: { readonly className: string | u
       className={className}
       mode={myLocation.mode.value}
       unavailable={myLocation.unavailable.value}
+      hasReading={myLocation.reading.value !== null}
       onPress={() => myLocation.press()}
     />
   )
@@ -29,12 +31,14 @@ export function MyLocationButton({ className }: { readonly className: string | u
 const TAP_TOOLTIP_MS = 4000
 
 /** The button for a given state, so the UI gallery can show each one without a device location. */
-export function MyLocationButtonView({ className, mode, unavailable, onPress }: {
+export function MyLocationButtonView({ className, mode, unavailable, hasReading = false, onPress }: {
   /** The zoom group's button class, which gives the button its size, hover and focus. */
   readonly className: string | undefined
   readonly mode: MyLocationMode
   /** The browser reported the position unavailable or timed out since the last fix. */
   readonly unavailable: boolean
+  /** True once a device reading has arrived in this session (boolean only; never exposes coordinates). */
+  readonly hasReading?: boolean
   readonly onPress: () => void
 }) {
   const descriptionId = useId()
@@ -57,6 +61,8 @@ export function MyLocationButtonView({ className, mode, unavailable, onPress }: 
         type="button"
         className={[className, styles.location].filter(Boolean).join(' ')}
         data-my-location={mode}
+        data-my-location-unavailable={unavailable ? 'true' : undefined}
+        data-my-location-fix={hasReading ? 'true' : undefined}
         aria-label={label}
         aria-pressed={following ? true : undefined}
         aria-disabled={blocked ? true : undefined}

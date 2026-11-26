@@ -745,6 +745,16 @@
    "rule": "maplibre-gl-only-in-maplibre"
   },
   {
+   "pattern": "maplibre-contour",
+   "lowest_layer": "L1",
+   "chunk": "maplibre-contour",
+   "editions": [
+    "desktop",
+    "web"
+   ],
+   "note": "lazy contour DEM protocol chunk (2.1-Q25, 2.1-M554)"
+  },
+  {
    "pattern": "@tauri-apps/",
    "owner": [
     "ipc/",

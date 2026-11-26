@@ -1,3 +1,5 @@
+import { reportMapError } from './map-errors'
+import type { MapLibreApi } from './loader'
 import {
   TERRAIN_CONTOUR_LAYER_IDS,
   TERRAIN_CONTOUR_SOURCE_ID,
@@ -15,7 +17,7 @@ export interface TerrainSyncMap {
   addSource(id: string, source: Record<string, unknown>): void
   getSource(id: string): unknown
   removeSource(id: string): void
-  addLayer(layer: Record<string, unknown>): void
+  addLayer(layer: Record<string, unknown>, beforeId?: string): void
   getLayer(id: string): unknown
   removeLayer(id: string): void
   setPaintProperty?(layerId: string, property: string, value: unknown): void
@@ -99,6 +101,7 @@ export function rebuildTerrain(
   map: TerrainSyncMap,
   protocols: TerrainProtocolSupport,
   state: TerrainLayerState,
+  beforeId?: string,
 ): void {
   clearTerrain(map)
 
@@ -109,6 +112,60 @@ export function rebuildTerrain(
 
   const terrainLayers = createTerrainLayers(state)
   for (const layer of terrainLayers) {
-    map.addLayer(layer)
+    map.addLayer(layer, beforeId)
   }
+}
+
+export interface SnapshotTerrainHost<MapLibre = MapLibreApi> {
+  readonly map: TerrainSyncMap
+  readonly maplibre: MapLibre
+  readonly teardown: AbortController
+  terrainState: TerrainLayerState | null
+  terrainProtocols: TerrainProtocolSupport | null
+}
+
+/**
+ * Synchronises contours/hillshade on a hidden snapshot map below `beforeId` (contracts §6).
+ * Returns `true` when terrain failed to load and was skipped (so the caller marks `missingTiles`
+ * without dropping the whole thumbnail), or `false` when terrain succeeded or was not needed.
+ */
+export async function syncSnapshotTerrain<MapLibre = MapLibreApi>(
+  host: SnapshotTerrainHost<MapLibre>,
+  next: TerrainLayerState | null,
+  beforeId: string,
+  loadSupport: ((maplibre: MapLibre) => Promise<TerrainProtocolSupport>) | undefined,
+): Promise<boolean> {
+  if (!next) {
+    if (host.terrainState) {
+      clearTerrain(host.map)
+      host.terrainState = null
+    }
+    return false
+  }
+  const mode = classifyTerrainSync(host.terrainState, next)
+  if (mode === 'noop') return false
+  if (mode === 'clear') {
+    clearTerrain(host.map)
+    host.terrainState = null
+    return false
+  }
+  if (mode === 'paint') {
+    applyTerrainPaintUpdates(host.map, next)
+    host.terrainState = next
+    return false
+  }
+  if (!loadSupport) return false
+  if (!host.terrainProtocols) {
+    try {
+      host.terrainProtocols = await loadSupport(host.maplibre)
+    } catch (error) {
+      // Offline or uncached terrain bundle: skip contours and mark tiles missing rather than dropping the thumbnail.
+      reportMapError('Snapshot terrain support failed to load', error)
+      return true
+    }
+    if (host.teardown.signal.aborted) return false
+  }
+  rebuildTerrain(host.map, host.terrainProtocols, next, beforeId)
+  host.terrainState = next
+  return false
 }

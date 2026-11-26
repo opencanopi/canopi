@@ -9,8 +9,10 @@ import { WORKSPACE_MAP_MIN_ZOOM } from '../geo/workspace-camera-policy'
 import { BasemapTileAuth } from './basemap-tile-auth'
 import { createMapLibreCameraDriver, type MapLibreCameraDriverMap } from './camera-driver'
 import { createMapLibreEmptyStyle, MAPLIBRE_MAP_MAX_ZOOM } from './config'
-import { loadMapLibreModule, type MapLibreMapConstructorOptions } from './loader'
+import { loadMapLibreModule, type MapLibreApi, type MapLibreMapConstructorOptions } from './loader'
 import type { SatelliteConfig } from './satellite-provider'
+import type { TerrainLayerState, TerrainProtocolSupport } from './terrain'
+import { syncSnapshotTerrain, type TerrainSyncMap } from './terrain-sync'
 import {
   mountMapBackground,
   type MapBackgroundHandle,
@@ -62,6 +64,8 @@ export interface ViewSnapshotRequest<Snapshot = unknown> {
   /** Defaults to 1. A change of ratio replaces the off-screen map. */
   readonly pixelRatio?: number
   readonly background: MapBackgroundPresentation
+  /** Optional terrain (Contours / Relief) following the view's map backdrop (contracts §6). */
+  readonly terrain?: TerrainLayerState
   readonly scene: ViewSnapshotScene<Snapshot>
   /** How long to wait for the background and its tiles before reading anyway. */
   readonly timeoutMs: number
@@ -102,7 +106,7 @@ interface ViewSnapshotFrame {
 }
 
 /** What the snapshot owner needs from a MapLibre map; its camera driver moves and resizes it. */
-interface ViewSnapshotMapLibreMap extends SceneHostMap, MapLibreCameraDriverMap {
+interface ViewSnapshotMapLibreMap extends SceneHostMap, MapLibreCameraDriverMap, TerrainSyncMap {
   redraw(): void
   remove(): void
   on(type: string, listener: (event?: unknown) => void): void
@@ -115,6 +119,7 @@ interface ViewSnapshotMapLibreMap extends SceneHostMap, MapLibreCameraDriverMap 
 
 interface ViewSnapshotMapLibre {
   readonly Map: new (options: MapLibreMapConstructorOptions) => unknown
+  readonly addProtocol: MapLibreApi['addProtocol']
 }
 
 type ViewSnapshotSceneLayerFactory<Snapshot = unknown> = (
@@ -127,6 +132,7 @@ export interface ViewSnapshotMapOptions<Snapshot = unknown> {
   /** Builds the off-screen map's scene host layer (the caller supplies the Pixi painter factory; contracts §6). */
   readonly createSceneLayer: ViewSnapshotSceneLayerFactory<Snapshot>
   readonly loadMapLibre?: () => Promise<ViewSnapshotMapLibre>
+  readonly loadTerrainSupport?: (maplibre: ViewSnapshotMapLibre) => Promise<TerrainProtocolSupport>
   readonly mountBackground?: (options: MapBackgroundOptions) => MapBackgroundHandle
   /** Copies the map canvas; runs inside the frame's task. */
   readonly readFrame?: (canvas: HTMLCanvasElement) => ViewSnapshotFrame
@@ -158,6 +164,7 @@ interface SnapshotView {
 interface SnapshotInstance<Snapshot = unknown> {
   readonly container: HTMLElement
   readonly map: ViewSnapshotMapLibreMap
+  readonly maplibre: ViewSnapshotMapLibre
   readonly view: SnapshotView
   /** The map's one camera owner, created once the map has loaded. */
   driver: CameraDriver | null
@@ -165,6 +172,8 @@ interface SnapshotInstance<Snapshot = unknown> {
   readonly pixelRatio: number
   readonly teardown: AbortController
   background: MapBackgroundHandle | null
+  terrainProtocols: TerrainProtocolSupport | null
+  terrainState: TerrainLayerState | null
   sceneLayer: SceneHostLayer<Snapshot, never> | null
   width: number
   height: number
@@ -271,12 +280,15 @@ export function createViewSnapshotMap<Snapshot = unknown>(options: ViewSnapshotM
     const created: SnapshotInstance<Snapshot> = {
       container,
       map,
+      maplibre,
       view: snapshotView(request.scene.origin),
       driver: null,
       tileAuth,
       pixelRatio,
       teardown: new AbortController(),
       background: null,
+      terrainProtocols: null,
+      terrainState: null,
       sceneLayer: null,
       width: request.width,
       height: request.height,
@@ -397,6 +409,9 @@ export function createViewSnapshotMap<Snapshot = unknown>(options: ViewSnapshotM
     }
     // No Retry button here: each capture is one, so a Basemap that failed while offline downloads again (ADR 0004).
     background.retry(request.background)
+    const terrainMissing = await syncSnapshotTerrain(current, request.terrain ?? null, VIEW_SNAPSHOT_SCENE_LAYER_ID, options.loadTerrainSupport)
+    throwIfAborted(request.signal)
+    if (current.teardown.signal.aborted) throw current.broken ?? new Error('The snapshot map was released during a capture.')
     const targetView = driver.frames.viewFrame.peek().view
     const presentWait = sceneLayer.presentFor(targetView).catch((error: unknown) => {
       current.broken ??= error instanceof Error ? error : new Error(String(error))
@@ -415,7 +430,7 @@ export function createViewSnapshotMap<Snapshot = unknown>(options: ViewSnapshotM
     if (current.broken) throw current.broken
 
     const attribution = readAttribution(current.container)
-    const missingTiles = settled.timedOut || current.tileErrors > 0 || !background.isApplied()
+    const missingTiles = settled.timedOut || current.tileErrors > 0 || !background.isApplied() || terrainMissing
     const encodeStartedAt = now()
     const blob = await bounded(
       settled.frame.encode(request.type ?? 'image/png', request.quality),

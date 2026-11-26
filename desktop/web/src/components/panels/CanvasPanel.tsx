@@ -11,7 +11,9 @@ import { appCommandGraphToolbarProjection } from '../../commands/registry'
 import { profileLineMenu } from '../../app/data-library/profile'
 import { CanvasChrome } from '../canvas/CanvasChrome'
 import { MapNotice } from '../canvas/MapNotice'
+import { MyLocationButton } from '../canvas/MyLocationButton'
 import { StampChooser } from '../canvas/StampChooser'
+import { editionPorts, hasEditionPorts } from '../../platform/edition-ports'
 import { useMapArea } from '../shared/useMapChrome'
 import styles from './Panels.module.css'
 
@@ -50,6 +52,7 @@ export function CanvasPanel() {
             projection={appCommandGraphToolbarProjection.value}
             canvasRef={containerRef}
             stampChooser={StampChooser}
+            {...(hasEditionPorts() && editionPorts().capabilities.has('my-location') ? { myLocation: MyLocationButton } : {})}
             profileLine={profileLineMenu}
           />
         )}

@@ -1173,7 +1173,7 @@
     {
       "id": "guide-map-workspace-show-my-location-web-only",
       "doc": "docs/guides/map-workspace.md",
-      "quote": "Show my location (Web only in 2.0):",
+      "quote": "Show my location (Web, Desktop Linux and Windows; macOS per ADR 0030):",
       "state": {
         "exists": {
           "check": "desktop/web/src/__tests__/my-location-trust.test.ts"

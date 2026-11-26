@@ -8,6 +8,7 @@
     "app/canvas-map-surface/desktop-workspace-map-contribution-adapter.ts -> app/story-presentation/overrides.ts": { "count": 1 },
     "app/canvas-map-surface/map-notice.ts -> app/story-presentation/overrides.ts": { "count": 1 },
     "app/canvas-map-surface/workspace-activation-snapshot.ts -> app/story-presentation/overrides.ts": { "count": 1 },
+    "app/canvas-map-surface/workspace-map-contribution-adapter.ts -> app/story-presentation/overrides.ts": { "count": 1, "bead": "canopi-f47t.52.205" },
     "app/canvas-map-surface/workspace-runtime-composition.ts -> app/story-presentation/overrides.ts": { "count": 1 },
     "app/canvas-pdf/workflow.ts -> app/plant-browser/workbench.ts": { "count": 1 },
     "app/canvas-runtime/app-adapter.ts -> app/story-presentation/overrides.ts": { "count": 1 },

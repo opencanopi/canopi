@@ -97,7 +97,7 @@ const MUTED_COLOR_DARK = '#8B7D6B' // dark mode muted
  * Return MapLibre layer configs for major and minor contour lines.
  * The source must have a `contours` vector layer with `ele` and `level` properties.
  *
- * @param isDark - whether the current theme is dark
+ * @param isDark - whether the map backdrop is dark (not the UI theme; contracts §6)
  */
 export function getContourLayerConfigs(isDark: boolean) {
   const inkColor = isDark ? INK_COLOR_DARK : INK_COLOR
@@ -153,7 +153,7 @@ export function getHillshadeLayerConfig(exaggeration: number) {
       'hillshade-accent-color': '#8b7355',      // warm accent
       'hillshade-exaggeration': exaggeration,
       'hillshade-illumination-direction': 315,
-      'hillshade-illumination-anchor': 'viewport' as const,
+      'hillshade-illumination-anchor': 'map' as const,
     },
     layout: {
       visibility: 'visible' as const,

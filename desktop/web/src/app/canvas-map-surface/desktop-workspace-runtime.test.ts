@@ -186,7 +186,7 @@ describe('createDesktopCanvasHostCore through mountCanvasHost', () => {
     expect(fake1.dispose).toHaveBeenCalledOnce()
     expect(getCurrentCanvasSession()).toBe(fake2.surfaces)
 
-    const runtime = createDesktopCanvasHostRuntime()
+    const runtime = createDesktopCanvasHostRuntime({ locationEnabled: true })
     expect(typeof runtime.createComposition).toBe('function')
   })
 })

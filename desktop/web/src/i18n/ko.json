@@ -726,11 +726,6 @@
       }
     },
     "basemap": {
-      "googleKey": "Google Maps API 키(선택)",
-      "saveKey": "키 저장",
-      "clearKey": "키 지우기",
-      "keySaved": "이 기기에 키를 저장했습니다.",
-      "keyLocalOnly": "이 기기 설정에만 저장됩니다. 디자인, 내보내기, 로그, 보고서에는 기록되지 않습니다.",
       "style": "스타일",
       "styles": {
         "liberty": "Liberty",
@@ -738,9 +733,6 @@
         "bright": "밝게",
         "dark": "어둡게"
       }
-    },
-    "satellite": {
-      "googleKeyOptional": "키가 없으면 Canopi는 Google의 공개 위성 타일을 사용합니다. 공식 Map Tiles API를 사용하려면 Google Maps API 키를 추가하세요."
     },
     "zoom": {
       "scaleBar": "축척 막대: {{distance}}",
@@ -754,7 +746,7 @@
     },
     "myLocation": {
       "show": "내 위치 표시",
-      "blocked": "위치 접근이 차단되었습니다. 브라우저 설정에서 이 사이트에 허용하세요.",
+      "blocked": "위치가 차단되어 있습니다. 브라우저 또는 시스템 설정에서 허용해 주세요.",
       "unavailable": "지금은 위치를 확인할 수 없습니다. 계속 시도하는 중입니다."
     },
     "selectionChip": {

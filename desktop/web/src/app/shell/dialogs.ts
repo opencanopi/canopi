@@ -4,11 +4,22 @@ import { signal } from '@preact/signals'
 export const settingsDialogOpen = signal(false)
 export const keyboardShortcutsDialogOpen = signal(false)
 
-export function openSettingsDialog(): void {
+/** A section File › Settings can open directly at (2.1-Q64: Layers Satellite links to Map and imagery). */
+export type SettingsDialogSection = 'map'
+
+export const settingsDialogSectionRequest = signal<{ readonly section: SettingsDialogSection } | null>(null)
+
+export function openSettingsDialog(options: { readonly section?: SettingsDialogSection } = {}): void {
+  settingsDialogSectionRequest.value = options.section ? { section: options.section } : null
   settingsDialogOpen.value = true
 }
 
+export function settingsDialogSectionShown(): void {
+  settingsDialogSectionRequest.value = null
+}
+
 export function closeSettingsDialog(): void {
+  settingsDialogSectionRequest.value = null
   settingsDialogOpen.value = false
 }
 

@@ -1,9 +1,13 @@
-import { clearUserLocationOverlay, syncUserLocationOverlay } from '../../maplibre/user-location-overlay'
-import type { UserLocationOverlayPort } from './workspace-map-contribution-adapter'
+import type { MapLibreMapInstance } from '../../maplibre/loader'
+import { clearUserLocationOverlay, syncUserLocationOverlay, type UserLocationReading } from '../../maplibre/user-location-overlay'
+
+export interface UserLocationOverlayPort {
+  sync(map: MapLibreMapInstance, reading: UserLocationReading | null): void
+  clear(map: MapLibreMapInstance): void
+}
 
 /**
- * Web-only map overlay port for Show my location, supplied through WorkspaceMapContributionAdapter so
- * Desktop does not bundle Web-only geolocation overlay rendering code.
+ * Map overlay port for Show my location, supplied through WorkspaceMapContributionAdapter.
  */
 export const USER_LOCATION_OVERLAY_PORT: UserLocationOverlayPort = {
   sync: syncUserLocationOverlay,

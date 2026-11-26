@@ -1,8 +1,7 @@
 // @vitest-environment jsdom
 //
-// Phase 2 commit 0: 2.1-Q352, written before 2d-3 builds it (it.fails until then). A saved view's thumbnail draws the
-// view's highlighted objects: the scene its snapshot builds, from the live scene runtime, carries them. 2d-3 turns
-// it.fails into it.
+// 2.1-Q352 (canopi-5ys2.3.10): A saved view's thumbnail draws the view's highlighted objects:
+// the scene its snapshot builds, from the live scene runtime, carries them.
 
 import { afterEach, describe, expect, it } from 'vitest'
 import { createTestSceneCanvasRuntime } from '../../__tests__/support/detached-canvas-app-adapter'
@@ -45,7 +44,7 @@ function design(): CanopiFile {
 }
 
 describe('2.1-Q352 saved view thumbnails', () => {
-  it.fails('Q352 (2d-3): a saved view thumbnail draws the view highlighted plant', () => {
+  it('Q352 (2d-3): a saved view thumbnail draws the view highlighted plant', () => {
     const runtime = createTestSceneCanvasRuntime()
     runtimes.push(runtime)
     runtime.documentSurface.loadDocument(design())
@@ -55,5 +54,35 @@ describe('2.1-Q352 saved view thumbnails', () => {
     expect(request, 'the view has a snapshot request').not.toBeNull()
     const scene = request!.scene.build(createTestRendererView({ x: 160, y: 100, scale: 4 }))
     expect([...scene.highlightedPlantIds]).toEqual(['p1'])
+  })
+
+  it('includes contour layers following the view map backdrop in a saved view snapshot (contracts §6)', () => {
+    const runtime = createTestSceneCanvasRuntime()
+    runtimes.push(runtime)
+    runtime.documentSurface.loadDocument(design())
+    const contourLightView: SavedView = {
+      ...VIEW,
+      visible_layers: {
+        ...VIEW.visible_layers,
+        background: { kind: 'basemap', style: 'liberty' },
+        terrain: { contours: true, hillshade: false },
+      },
+    }
+    const contourDarkView: SavedView = {
+      ...VIEW,
+      visible_layers: {
+        ...VIEW.visible_layers,
+        background: { kind: 'satellite' },
+        terrain: { contours: true, hillshade: true },
+      },
+    }
+    const lightReq = describeSavedViewSnapshot(contourLightView, VIEW_SNAPSHOT_THUMBNAIL, {
+      queries: runtime.querySurface, mapLayers: createDefaultMapLayers(), locale: 'en', plantLabels: 'names',
+    })
+    const darkReq = describeSavedViewSnapshot(contourDarkView, VIEW_SNAPSHOT_THUMBNAIL, {
+      queries: runtime.querySurface, mapLayers: createDefaultMapLayers(), locale: 'en', plantLabels: 'names',
+    })
+    expect(lightReq?.terrain).toMatchObject({ contoursVisible: true, hillshadeVisible: false, isDark: false })
+    expect(darkReq?.terrain).toMatchObject({ contoursVisible: true, hillshadeVisible: true, isDark: true })
   })
 })

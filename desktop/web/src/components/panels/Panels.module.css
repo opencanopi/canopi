@@ -208,7 +208,7 @@
    up under a panel. */
 .canvasArea :global(.maplibregl-ctrl-bottom-right) {
   right: calc(var(--zoom-group-width, 0px) + var(--chrome-inset) + var(--space-2));
-  bottom: var(--chrome-inset);
+  bottom: calc(var(--chrome-inset) + var(--notice-row-clearance, 0px));
   max-width: calc(100% - var(--zoom-group-width, 0px) - var(--view-chip-width, 0px) - 2 * var(--chrome-inset) - 2 * var(--space-2));
 }
 

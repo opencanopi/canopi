@@ -726,11 +726,6 @@
       }
     },
     "basemap": {
-      "googleKey": "Google Maps API 密钥（可选）",
-      "saveKey": "保存密钥",
-      "clearKey": "清除密钥",
-      "keySaved": "密钥已保存在此设备上。",
-      "keyLocalOnly": "仅保存在此设备的设置中。绝不会写入设计、导出、日志或报告。",
       "style": "样式",
       "styles": {
         "liberty": "Liberty",
@@ -738,9 +733,6 @@
         "bright": "明亮",
         "dark": "深色"
       }
-    },
-    "satellite": {
-      "googleKeyOptional": "没有密钥时，Canopi 使用 Google 的公开卫星瓦片。添加您的 Google Maps API 密钥即可使用官方 Map Tiles API。"
     },
     "zoom": {
       "scaleBar": "比例尺：{{distance}}",
@@ -754,7 +746,7 @@
     },
     "myLocation": {
       "show": "显示我的位置",
-      "blocked": "位置访问已被阻止。请在浏览器设置中允许此网站使用位置。",
+      "blocked": "位置权限已被阻止。请在浏览器或系统设置中允许。",
       "unavailable": "暂时无法获取您的位置，正在继续尝试。"
     },
     "selectionChip": {

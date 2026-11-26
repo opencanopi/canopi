@@ -5,7 +5,7 @@ import { formatCount } from '../../utils/format-count'
 import type { CanvasLayerPresentationDetail, CanvasLayerPresentationRow } from '../../app/canvas-layer-presentation/presentation'
 import { ButtonTooltip } from '../shared/ButtonTooltip'
 import { Dropdown } from '../shared/Dropdown'
-import { useEffect, useRef, useState } from 'preact/hooks'
+import { useEffect, useRef } from 'preact/hooks'
 import type { BasemapStyle } from '../../generated/contracts'
 import type { MapBackground } from '../../app/settings/state'
 import { Slider } from '../shared/Slider'
@@ -45,7 +45,8 @@ export interface LayerPanelActions {
   opacity(id: string, opacity: number): void
   contourInterval(meters: number): void
   basemapStyle(style: BasemapStyle): void
-  saveGoogleKey(key: string | null): void
+  /** Opens Settings › Map and imagery for satellite source & key management (2.1-Q64). */
+  openSatelliteSettings?(): void
   /** Background › Satellite, Street map or None. */
   background(choice: MapBackground): void
   /** Soften background: dims the chosen background under the Design. */
@@ -76,7 +77,7 @@ export type SiteDataSummary =
   | { readonly kind: 'needs-desktop'; readonly count: number }
 
 /** Background sources are proper names, the same in every language. */
-const BACKGROUND_SOURCES = { satellite: 'Google', basemap: 'OpenFreeMap' } as const
+const BACKGROUND_SOURCES = { basemap: 'OpenFreeMap' } as const
 
 /** Which background the map draws: Satellite hides the Basemap under it. */
 function chosenBackground(background: readonly CanvasLayerPresentationRow[]): MapBackground {
@@ -207,8 +208,12 @@ function BackgroundChoice({ rows, actions }: {
   readonly actions: LayerPanelActions
 }) {
   const choice = chosenBackground(rows)
+  const satelliteRow = rows.find((row) => row.id === 'satellite')
+  const satelliteSource = satelliteRow?.detail.type === 'satellite' && satelliteRow.detail.hasGoogleKey
+    ? t('settings.satelliteGoogle')
+    : t('settings.satelliteFree')
   const options: { value: MapBackground; label: string; source: string; row?: CanvasLayerPresentationRow }[] = [
-    { value: 'satellite', label: t('canvas.layers.satellite'), source: BACKGROUND_SOURCES.satellite, row: rows.find((row) => row.id === 'satellite') },
+    { value: 'satellite', label: t('canvas.layers.satellite'), source: satelliteSource, row: satelliteRow },
     { value: 'basemap', label: t('canvas.layers.backgroundMap'), source: BACKGROUND_SOURCES.basemap, row: rows.find((row) => row.id === 'basemap') },
     { value: 'none', label: t('canvas.layers.backgroundNone'), source: t('canvas.layers.backgroundPlainPaper') },
   ]
@@ -379,9 +384,21 @@ function SatelliteLayerDetail({ row, detail, actions }: {
   row: CanvasLayerPresentationRow
   detail: Extract<CanvasLayerPresentationDetail, { type: 'satellite' }>
 }) {
+  const sourceLabel = detail.hasGoogleKey ? t('settings.satelliteGoogle') : t('settings.satelliteFree')
   return (
     <div className={styles.layerDetail}>
-      <GoogleKeyForm hasKey={detail.hasGoogleKey} onSave={(key) => actions.saveGoogleKey(key)} />
+      <div className={styles.controlRow}>
+        <span className={styles.controlLabel}>{sourceLabel}</span>
+        {actions.openSatelliteSettings && (
+          <button
+            type="button"
+            className={styles.keyButton}
+            onClick={() => actions.openSatelliteSettings?.()}
+          >
+            {t('settings.mapAndImagery')}
+          </button>
+        )}
+      </div>
       <OpacitySlider actions={actions} row={row} />
       <SoftenBackgroundSwitch soften={detail.softenBackground} actions={actions} />
     </div>
@@ -396,62 +413,6 @@ function SoftenBackgroundSwitch({ soften, actions }: { soften: boolean; actions:
       checked={soften}
       onChange={(next) => actions.softenBackground(next)}
     />
-  )
-}
-
-/**
- * The device-local Google key. The field never shows a stored key; saving
- * trims it, and it never reaches a Design, export, diagnostic bundle or log.
- */
-function GoogleKeyForm({ hasKey, onSave }: { hasKey: boolean; onSave(key: string | null): void }) {
-  const [draft, setDraft] = useState('')
-  const [saved, setSaved] = useState(false)
-  return (
-    <form
-      className={styles.keyForm}
-      onSubmit={(event) => {
-        event.preventDefault()
-        if (!draft.trim()) return
-        onSave(draft)
-        setDraft('')
-        setSaved(true)
-      }}
-    >
-      {!hasKey && <p className={styles.layerNote}>{t('canvas.satellite.googleKeyOptional')}</p>}
-      <label className={styles.controlRow}>
-        <span className={styles.controlLabel}>{t('canvas.basemap.googleKey')}</span>
-        <input
-          type="password"
-          className={styles.keyInput}
-          autoComplete="off"
-          spellcheck={false}
-          value={draft}
-          placeholder={hasKey ? '••••••••' : ''}
-          onInput={(event) => {
-            setSaved(false)
-            setDraft(event.currentTarget.value)
-          }}
-        />
-      </label>
-      <div className={styles.keyActions}>
-        <button type="submit" className={styles.keyButton} disabled={!draft.trim()}>{t('canvas.basemap.saveKey')}</button>
-        {hasKey && (
-          <button
-            type="button"
-            className={styles.keyButton}
-            onClick={() => {
-              setDraft('')
-              setSaved(false)
-              onSave(null)
-            }}
-          >
-            {t('canvas.basemap.clearKey')}
-          </button>
-        )}
-      </div>
-      {saved && <p className={styles.layerNote} role="status">{t('canvas.basemap.keySaved')}</p>}
-      <p className={styles.layerNote}>{t('canvas.basemap.keyLocalOnly')}</p>
-    </form>
   )
 }
 

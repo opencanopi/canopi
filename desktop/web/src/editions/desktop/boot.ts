@@ -61,9 +61,10 @@ export function bootDesktopEdition(): () => void {
     installNativeAssetUrlResolver(),
   ];
   const platform = detectPlatform(navigator, window as unknown as { readonly GestureEvent?: unknown });
+  const capabilities = capabilitiesForEdition("desktop", runtimeOsFromPlatform(platform));
   disposers.push(
     installEditionPorts({
-      capabilities: capabilitiesForEdition("desktop", runtimeOsFromPlatform(platform)),
+      capabilities,
       manifest: DESKTOP_EDITION_MANIFEST,
       settings: desktopSettingsPlatformAdapter,
       problemReport: desktopProblemReport,
@@ -75,7 +76,7 @@ export function bootDesktopEdition(): () => void {
     installSpeciesCatalogWorkbench(desktopSpeciesCatalogWorkbench),
     installSpeciesCacheLoader({ getSpeciesBatch, getFlowerColorBatch, isPlantDbUnavailableError }),
     installGeoJsonWorkflow(desktopGeoJsonWorkflow),
-    installCanvasHostRuntime(createDesktopCanvasHostRuntime),
+    installCanvasHostRuntime(() => createDesktopCanvasHostRuntime({ locationEnabled: capabilities.has("my-location") })),
   );
   installProblemReportPort(desktopProblemReport);
   installLidarWorkflow();

@@ -12,6 +12,7 @@ pub mod dialogs;
 pub mod exit;
 pub mod home;
 pub mod launch;
+pub mod permissions;
 pub mod single_instance;
 pub mod updater;
 pub mod window_state;
@@ -33,6 +34,7 @@ pub fn register<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder
         .plugin(dialogs::plugin())
         .plugin(updater::plugin())
         .manage(updater::UpdaterHost::production())
+        .on_permission_request(permissions::handle_request)
         .on_window_event(|window, event| {
             if matches!(event, tauri::WindowEvent::Destroyed) {
                 use tauri::Manager as _;

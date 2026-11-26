@@ -42,7 +42,7 @@ test.describe('Desktop Layers', () => {
     const summary = layers(page).getByRole('region', { name: 'Site data' })
     const clipped: string[] = []
     for (const [button, text] of [
-      [summary.getByRole('button', { name: /^Site data/ }), /^Site data\s*Ctrl\+?\s?2$/],
+      [summary.getByRole('button', { name: /^Site data/ }), /^Site data\s*Alt\+?\s?Shift\+?\s?2$/],
       [summary.getByRole('button', { name: 'Hide Site data' }), /^Hide Site data$/],
       [summary.getByRole('button', { name: 'Open Site data' }), /^Open Site data$/],
     ] as const) {

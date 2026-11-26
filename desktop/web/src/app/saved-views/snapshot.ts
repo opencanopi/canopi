@@ -11,9 +11,10 @@ import {
   type ViewSnapshotRequest,
 } from '../../maplibre/view-snapshot-map'
 import type { SavedView } from '../../generated/contracts'
-import { locale, mapLayers, type MapLayersState } from '../settings/state'
+import { isDarkMapBackdrop, locale, mapLayers, mapTerrainStateOf, type MapLayersState } from '../settings/state'
 import { readSatelliteConfig } from '../settings/satellite-config'
 import { backgroundPresentationOf, mapLayersOfView } from '../map-layers/background-presentation'
+import { loadMapLibreTerrainSupport } from '../../maplibre/terrain-loader'
 import { currentPlantDisplay } from '../plant-display/state'
 import type { PlantLabelMode } from '../../canvas/runtime/plant-display'
 import { savedViewZoom } from '../../canvas/saved-view-framing'
@@ -61,6 +62,8 @@ export function describeSavedViewSnapshot(
   if (!plane) return null
   const visibleLayerNames = [...view.visible_layers.scene_layers]
   const focusedSpecies = view.highlighted.species[0] ?? null
+  const highlightedObjects = view.highlighted.objects
+  const viewMapLayers = mapLayersOfView(view, context.mapLayers)
   return {
     camera: {
       lon: view.camera.lon,
@@ -71,12 +74,13 @@ export function describeSavedViewSnapshot(
     width: options.width,
     height: options.height,
     ...(options.pixelRatio === undefined ? {} : { pixelRatio: options.pixelRatio }),
-    background: backgroundPresentationOf(mapLayersOfView(view, context.mapLayers), context.locale),
+    background: backgroundPresentationOf(viewMapLayers, context.locale),
+    terrain: { ...mapTerrainStateOf(viewMapLayers), isDark: isDarkMapBackdrop(viewMapLayers) },
     scene: {
       origin: plane.origin,
       build(view) {
         const snapshot = context.queries.captureViewScene({
-          view, visibleLayerNames, focusedSpecies, plantLabels: context.plantLabels,
+          view, visibleLayerNames, focusedSpecies, plantLabels: context.plantLabels, highlightedObjects,
         })
         if (!snapshot) throw new ViewSnapshotSceneBusyError()
         return snapshot
@@ -125,6 +129,7 @@ export async function captureSavedViewSnapshot(
   if (!request) return null
   owner ??= createViewSnapshotMap({
     readSatelliteConfig,
+    loadTerrainSupport: loadMapLibreTerrainSupport,
     createSceneLayer: (layerOptions) => createSceneHostLayer({ ...layerOptions, painter: createPixiScenePainter() }),
   })
   return owner.capture(request)

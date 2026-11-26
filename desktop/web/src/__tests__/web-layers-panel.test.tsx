@@ -4,9 +4,11 @@ import { render } from 'preact'
 import { act } from 'preact/test-utils'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { WebLayersPanel } from '../editions/web/WebLayersPanel'
+import { createBrowserWorkspaceMapContributionAdapter } from '../editions/web/browser-workspace-map-contribution-adapter'
 import { createDefaultMapLayers, mapLayers } from '../app/map-layers/state'
 import { locale } from '../app/settings/state'
 import { setCurrentCanvasSession } from '../canvas/session'
+import { createTestCanvasQuerySurface } from './support/canvas-query-surface'
 import { replaceCurrentDesignState } from './support/design-session-state'
 import type { CanopiFile } from '../types/design'
 
@@ -41,15 +43,27 @@ describe('Web Layers', () => {
     return { kind, id, name: id, visible: true, opacity: 1, order, ramp: null, reversed: false, range: null }
   }
 
-  it('offers Satellite, Street map or None in Map, and no Site data row without site data', () => {
+  it('offers Contours, Relief, and Satellite/Street map/None in Map matching Web contributions, and no Site data row without site data (2.1-Q25, 2.1-Q45)', async () => {
     mount(null)
     expect(container.textContent).not.toContain('Site data')
-    expect(container.textContent).not.toContain('Contour lines')
-    expect(container.textContent).not.toContain('Hillshading')
-    expect(container.querySelector('button[aria-haspopup="menu"]')).toBeNull()
+    expect(container.textContent).toContain('Contour lines')
+    expect(container.textContent).toContain('Hillshading')
     const map = container.querySelector('section[aria-labelledby="layers-map"]')!
     expect(Array.from(map.querySelectorAll('input[type="radio"]')).map((input) => (input as HTMLInputElement).value))
       .toEqual(['satellite', 'basemap', 'none'])
+    // Every Web terrain row matches a live contribution that Web's adapter actually reads and draws.
+    const adapter = createBrowserWorkspaceMapContributionAdapter()
+    const runtime = createTestCanvasQuerySurface()
+    expect(adapter.loadTerrainSupport).toBeTypeOf('function')
+    expect(adapter.createRasterDisplay).toBeUndefined()
+    expect(adapter.read(runtime)?.terrain.contoursVisible).toBe(false)
+    expect(adapter.read(runtime)?.terrain.hillshadeVisible).toBe(false)
+    const toggles = Array.from(map.querySelectorAll('button[aria-pressed]')) as HTMLButtonElement[]
+    expect(toggles).toHaveLength(2)
+    await act(() => { for (const toggle of toggles) toggle.click() })
+    const after = adapter.read(runtime)
+    expect(after?.terrain.contoursVisible).toBe(true)
+    expect(after?.terrain.hillshadeVisible).toBe(true)
   })
 
   it('says how many terrain or height layers the Design keeps for Desktop, with no eye and no Site data button', () => {

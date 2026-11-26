@@ -117,10 +117,6 @@
       "ceiling": 502,
       "tolerance": 0.05
     },
-    "desktop chunk: dist": {
-      "ceiling": 30097,
-      "tolerance": 0.05
-    },
     "desktop chunk: document": {
       "ceiling": 1636,
       "tolerance": 0.05
@@ -188,6 +184,11 @@
     "desktop chunk: lzw": {
       "ceiling": 33813,
       "tolerance": 0.05
+    },
+    "desktop chunk: maplibre-contour": {
+      "ceiling": 28975,
+      "tolerance": 0.05,
+      "bead": "canopi-f47t.52.205"
     },
     "desktop chunk: maplibre-gl": {
       "ceiling": 1058276,
@@ -353,6 +354,11 @@
       "ceiling": 607757,
       "tolerance": 0.05
     },
+    "web chunk: maplibre-contour": {
+      "ceiling": 28994,
+      "tolerance": 0.05,
+      "bead": "canopi-f47t.52.205"
+    },
     "web chunk: maplibre-gl": {
       "ceiling": 1057808,
       "tolerance": 0.05
@@ -362,8 +368,9 @@
       "tolerance": 0.05
     },
     "web chunk: preload-helper": {
-      "ceiling": 44727,
-      "tolerance": 0.05
+      "ceiling": 47500,
+      "tolerance": 0.05,
+      "bead": "canopi-f47t.52.205"
     },
     "web chunk: rolldown-runtime": {
       "ceiling": 726,

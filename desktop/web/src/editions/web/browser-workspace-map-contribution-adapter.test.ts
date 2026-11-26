@@ -6,6 +6,12 @@ import { createSessionPlane, type SessionPlane } from '../../geo/session-plane'
 import { createBrowserWorkspaceMapContributionAdapter } from './browser-workspace-map-contribution-adapter'
 import { setCanvasMapBackdrop } from '../../canvas/runtime/scene-visuals'
 import { myLocation } from '../../app/my-location/session'
+import { setMapBackground, setMapLayerVisible } from '../../app/map-layers/actions'
+import { createDefaultMapLayers, mapLayers } from '../../app/map-layers/state'
+import { classifyTerrainSync } from '../../maplibre/terrain-sync'
+import { theme } from '../../app/settings/state'
+import { setStoryPresentationOverrides } from '../../app/story-presentation/overrides'
+import { getHillshadeLayerConfig } from '../../maplibre/contours'
 
 afterEach(clearPanelOriginTargets)
 
@@ -17,13 +23,13 @@ function runtimeWithPlane(
 }
 
 describe('browser workspace map contribution adapter', () => {
-  it('returns null without querying scene when no Design exists', () => {
+  it('returns null without querying scene when no Design exists, and exposes Web terrain support (2.1-Q25)', () => {
     const adapter = createBrowserWorkspaceMapContributionAdapter({ sessionIdentity: signal({}), hasCurrentDesign: () => false })
     const runtime = runtimeWithPlane(createSessionPlane({ lat: 48, lon: 2 }))
     vi.spyOn(runtime, 'getSceneSnapshot')
     expect(adapter.read(runtime)).toBeNull()
     expect(runtime.getSceneSnapshot).not.toHaveBeenCalled()
-    expect(adapter.loadTerrainSupport).toBeUndefined()
+    expect(adapter.loadTerrainSupport).toBeTypeOf('function')
   })
 
   it('returns null until the runtime has a session plane', () => {
@@ -102,6 +108,52 @@ describe('browser workspace map contribution adapter', () => {
     } finally {
       if (descriptor) Object.defineProperty(navigator, 'geolocation', descriptor)
       else delete (navigator as unknown as Record<string, unknown>).geolocation
+    }
+  })
+
+  it('applies story step terrain overrides to Web rendering and follows map backdrop rather than UI theme (2.1-Q25, 2.1-Q45, 2.1-Q57)', () => {
+    const adapter = createBrowserWorkspaceMapContributionAdapter({ sessionIdentity: signal({}), hasCurrentDesign: () => true })
+    const runtime = runtimeWithPlane(createSessionPlane({ lat: 48, lon: 2 }))
+    const prevTheme = theme.value
+    const prevMapLayers = mapLayers.value
+    try {
+      setMapBackground('basemap')
+      setMapLayerVisible('contours', false)
+      setMapLayerVisible('hillshade', false)
+      theme.value = 'dark'
+
+      const before = adapter.read(runtime)!
+      expect(before.terrain.contoursVisible).toBe(false)
+      expect(before.terrain.isDark).toBe(false)
+
+      const defaults = createDefaultMapLayers()
+      setStoryPresentationOverrides({
+        mapLayers: {
+          ...defaults,
+          basemap: { ...defaults.basemap, visible: false },
+          satellite: { ...defaults.satellite, visible: true },
+          contours: { ...defaults.contours, visible: true },
+          hillshade: { ...defaults.hillshade, visible: true },
+        },
+        siteDataIds: new Set(),
+        plantLabels: 'names',
+        targets: [],
+      })
+      theme.value = 'light'
+      const during = adapter.read(runtime)!
+      expect(during.terrain.contoursVisible).toBe(true)
+      expect(during.terrain.hillshadeVisible).toBe(true)
+      expect(during.terrain.isDark).toBe(true)
+      // Story step terrain override triggers an actual terrain rebuild in Web rendering.
+      expect(classifyTerrainSync(before.terrain, during.terrain)).toBe('rebuild')
+
+      const hillshade = getHillshadeLayerConfig(0.6)
+      expect(hillshade.paint['hillshade-illumination-direction']).toBe(315)
+      expect(hillshade.paint['hillshade-illumination-anchor']).toBe('map')
+    } finally {
+      setStoryPresentationOverrides(null)
+      theme.value = prevTheme
+      mapLayers.value = prevMapLayers
     }
   })
 })

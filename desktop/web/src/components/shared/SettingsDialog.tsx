@@ -17,6 +17,8 @@ import {
   closeSettingsDialog,
   openKeyboardShortcutsDialog,
   settingsDialogOpen,
+  settingsDialogSectionRequest,
+  settingsDialogSectionShown,
 } from '../../app/shell/dialogs'
 import { toggleToolNames, toolRailShowsNames } from '../../app/tool-rail/learning'
 import { modKeyName } from '../../app/shell-commands/shortcut-text'
@@ -75,7 +77,13 @@ export function SettingsDialog({ folders, updates }: { readonly folders?: Settin
 }
 
 function SettingsDialogContent({ folders, updates }: { readonly folders?: SettingsFoldersAdapter, readonly updates?: ComponentChildren }) {
-  const [active, setActive] = useState<SettingsSectionId>('appearance')
+  const [active, setActive] = useState<SettingsSectionId>(() => settingsDialogSectionRequest.peek()?.section ?? 'appearance')
+  const requestedSection = settingsDialogSectionRequest.value
+  useEffect(() => {
+    if (!requestedSection) return
+    setActive(requestedSection.section)
+    settingsDialogSectionShown()
+  }, [requestedSection])
   const id = useId()
   const section = SECTIONS.find(([sid]) => sid === active)!
   return (

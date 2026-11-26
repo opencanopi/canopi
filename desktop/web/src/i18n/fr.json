@@ -726,11 +726,6 @@
       }
     },
     "basemap": {
-      "googleKey": "Clé API Google Maps (facultative)",
-      "saveKey": "Enregistrer la clé",
-      "clearKey": "Effacer la clé",
-      "keySaved": "Clé enregistrée sur cet appareil.",
-      "keyLocalOnly": "Stockée uniquement dans les réglages de cet appareil. Elle n’est jamais écrite dans un Design, un export, un journal ou un rapport.",
       "style": "Style",
       "styles": {
         "liberty": "Liberty",
@@ -738,9 +733,6 @@
         "bright": "Clair",
         "dark": "Sombre"
       }
-    },
-    "satellite": {
-      "googleKeyOptional": "Sans clé, Canopi utilise les tuiles satellite publiques de Google. Ajoutez votre clé API Google Maps pour utiliser l’API officielle Map Tiles."
     },
     "zoom": {
       "scaleBar": "Barre d’échelle : {{distance}}",
@@ -754,7 +746,7 @@
     },
     "myLocation": {
       "show": "Afficher ma position",
-      "blocked": "La localisation est bloquée. Autorisez-la pour ce site dans les réglages de votre navigateur.",
+      "blocked": "La localisation est bloquée. Autorisez-la dans les paramètres de votre navigateur ou du système.",
       "unavailable": "Votre position est indisponible pour le moment ; nouvelle tentative en cours."
     },
     "selectionChip": {

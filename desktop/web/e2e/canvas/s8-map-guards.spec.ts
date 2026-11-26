@@ -4,11 +4,11 @@
 //      Design interactive with no leaked story presentation state.
 import { fileURLToPath } from 'node:url'
 import type { Page } from '@playwright/test'
+import { BASEMAP_STYLE_URL, minimalBasemapStyle } from '../support/basemap'
 import { designMap, expectCanvasDrawn } from '../support/canvas'
 import { expect, test } from '../support/offline'
 
 const FIXTURE = fileURLToPath(new URL('../fixtures/canvas-base.canopi', import.meta.url))
-const STYLE_REQUEST = /^https:\/\/tiles\.openfreemap\.org\/styles\//
 
 async function openFixture(page: Page): Promise<void> {
   await page.goto('')
@@ -29,15 +29,11 @@ test('S8 guard: changing a map contribution while Retry is in flight keeps the m
   // Hold the Retry style request so we can toggle a map contribution mid-Retry.
   let releaseRetry!: () => void
   const held = new Promise<void>((resolve) => { releaseRetry = resolve })
-  await page.route(STYLE_REQUEST, async (route) => {
+  await page.route(BASEMAP_STYLE_URL, async (route) => {
     await held
     await route.fulfill({
       contentType: 'application/json',
-      body: JSON.stringify({
-        version: 8,
-        sources: { openmaptiles: { type: 'geojson', data: { type: 'FeatureCollection', features: [] } } },
-        layers: [{ id: 'water', type: 'fill', source: 'openmaptiles', paint: { 'fill-color': '#a0c8f0' } }],
-      }),
+      body: JSON.stringify(minimalBasemapStyle({ attribution: null })),
     })
   })
 
