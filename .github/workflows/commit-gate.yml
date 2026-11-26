@@ -31,6 +31,16 @@ jobs:
           # Every commit of the range and the merge base; the PR's head, not GitHub's merge commit.
           fetch-depth: 0
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      # Rust wasm32 target + wasm-bindgen CLI for Vitest's prepare-format-wasm globalSetup when `commit-gate pr --vitest` runs `vitest list`.
+      - uses: ./.github/actions/setup-rust
+        with:
+          targets: wasm32-unknown-unknown
+          cache: 'true'
+          cache-key: rust-check
+          cache-save: 'false'
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: wasm-bindgen@0.2.130
       # Node 24 with its npm 11 (2.1-M220): the gate, its TypeScript reading of tests and vitest list.
       - uses: ./.github/actions/setup-frontend
       # Build & Test reads a .beads-only change as docs and runs no policy check, so closing a bead a ratchet entry or

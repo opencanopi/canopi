@@ -102,7 +102,7 @@ function webBuildsWithoutModuleTools(workflow: string): string[] {
 }
 
 /** Commands that run Vitest in CI, where `vite.config.ts`'s `globalSetup` runs `prepare-format-wasm.mjs`. */
-const VITEST_JOB_TRIGGER = /\b(?:npm (?:test|run test(?::(?:coverage|seed-lane|mutation))?(?!:))|(?:npx\s+)?vitest\s+run|stryker\s+run|policy\/gate\/cli\.mjs\s+(?:full\s+--area\s+frontend|affected\b[^\n]*--only\s+vitest-lane|push\b))\b/u
+const VITEST_JOB_TRIGGER = /\b(?:npm (?:test|run test(?::(?:coverage|seed-lane|mutation))?(?!:))|(?:npx\s+)?vitest\s+(?:run|list)|stryker\s+run|policy\/gate\/cli\.mjs\s+(?:full\s+--area\s+frontend|affected\b[^\n]*--only\s+vitest-lane|push\b|commit-gate\s+pr\b[^\n]*--vitest))\b/u
 
 /** The jobs of a workflow that run Vitest with no wasm32 target or no wasm-bindgen CLI installed before it. */
 function vitestJobsWithoutModuleTools(workflow: string): string[] {
@@ -149,6 +149,9 @@ describe('canopi-f47t.52.270: every CI Web build has the module tools', () => {
       '  bare-vitest:',
       '    steps:',
       '      - run: npx vitest run',
+      '  bare-commit-gate:',
+      '    steps:',
+      '      - run: node policy/gate/cli.mjs commit-gate pr "$BASE" "$HEAD" --body-env PR_BODY --vitest',
       '  other:',
       '    steps:',
       '      # vitest is only mentioned in a comment here',
@@ -156,7 +159,7 @@ describe('canopi-f47t.52.270: every CI Web build has the module tools', () => {
       '      - run: npm run typecheck',
       '',
     ].join('\n')
-    expect(vitestJobsWithoutModuleTools(planted)).toEqual(['bare-seed', 'bare-mutation', 'bare-affected', 'bare-vitest'])
+    expect(vitestJobsWithoutModuleTools(planted)).toEqual(['bare-seed', 'bare-mutation', 'bare-affected', 'bare-vitest', 'bare-commit-gate'])
   })
 
   it('installs both in every workflow job that runs Vitest (seed-lane, scripts vitest-lane, mutation stryker)', () => {
