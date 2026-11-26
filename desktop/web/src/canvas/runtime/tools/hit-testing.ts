@@ -188,7 +188,7 @@ function memberGroups(
 function isGroupLayerHitEligible(
   scene: ScenePersistedState,
   isLayerHitEligible: (scene: ScenePersistedState, layerName: string) => boolean,
-  members: readonly SceneConcreteDesignObjectTarget[],
+  members: readonly { readonly kind: 'plant' | 'zone' | 'annotation' | 'measurement-guide'; readonly id: string }[],
 ): boolean {
   if (members.length === 0) return false
   return members.every((member) =>
@@ -216,51 +216,44 @@ export function queryQuadTopLevel(
   const detail = getCanvasDetailLayout(scene, viewportScale)
   const area: QueryPolygon = { points: quad, bounds: pointsBounds(quad) }
 
+  const memberHits = (member: { readonly kind: 'plant' | 'zone' | 'annotation' | 'measurement-guide'; readonly id: string }): boolean => {
+    if (member.kind === 'plant') {
+      const plant = scene.plants.find((entry) => entry.id === member.id)
+      return plant ? plantIntersectsPolygon(plant, area, viewportScale, speciesCache, getPlantContext) : false
+    }
+    if (member.kind === 'zone') {
+      const zone = scene.zones.find((entry) => entry.id === member.id)
+      return zone ? zoneIntersectsPolygon(zone, area, viewportScale) : false
+    }
+    if (member.kind === 'annotation') {
+      const annotation = scene.annotations.find((entry) => entry.id === member.id)
+      return annotation ? annotationIntersectsPolygon(annotation, area, viewportScale, false, detail.annotationIds.has(annotation.id)) : false
+    }
+    const guide = scene.measurementGuides.find((entry) => entry.id === member.id)
+    return guide ? segmentIntersectsPolygon(guide.start, guide.end, area) : false
+  }
   for (const group of scene.groups) {
     const members = resolveSceneObjectGroupMembers(scene, group)
-    if (!isGroupLayerHitEligible(scene, isSceneLayerEditable, members)) continue
-    const hit = members.some((member) => {
-      const plant = member.kind === 'plant' ? scene.plants.find((entry) => entry.id === member.id) : null
-      if (plant && plantIntersectsPolygon(plant, area, viewportScale, speciesCache, getPlantContext)) return true
-      const zone = member.kind === 'zone' ? scene.zones.find((entry) => entry.id === member.id) : null
-      if (zone && zoneIntersectsPolygon(zone, area, viewportScale)) return true
-      const annotation = member.kind === 'annotation'
-        ? scene.annotations.find((entry) => entry.id === member.id)
-        : null
-      return annotation ? annotationIntersectsPolygon(annotation, area, viewportScale, false, detail.annotationIds.has(annotation.id)) : false
-    })
-    if (hit) targets.push({ kind: 'group', id: group.id })
-  }
-
-  for (const plant of scene.plants) {
-    if (groupedMemberKeys.has(sceneTargetKey({ kind: 'plant', id: plant.id }))) continue
-    if (!isSceneLayerEditable(scene, 'plants')) continue
-    if (plantIntersectsPolygon(plant, area, viewportScale, speciesCache, getPlantContext)) {
-      targets.push({ kind: 'plant', id: plant.id })
+    if (isGroupLayerHitEligible(scene, isSceneLayerEditable, members) && members.some(memberHits)) {
+      targets.push({ kind: 'group', id: group.id })
     }
   }
-
-  for (const guide of scene.measurementGuides) {
-    if (!isSceneLayerEditable(scene, 'measurement-guides')) continue
-    if (segmentIntersectsPolygon(guide.start, guide.end, area)) {
-      targets.push({ kind: 'measurement-guide', id: guide.id })
+  const addUngrouped = <T extends { readonly id: string }>(
+    layer: string,
+    kind: 'plant' | 'zone' | 'annotation' | 'measurement-guide',
+    items: readonly T[],
+    intersects: (item: T) => boolean,
+  ) => {
+    if (!isSceneLayerEditable(scene, layer)) return
+    for (const item of items) {
+      if (!groupedMemberKeys.has(sceneTargetKey({ kind, id: item.id })) && intersects(item)) targets.push({ kind, id: item.id })
     }
   }
-
-  for (const zone of scene.zones) {
-    if (groupedMemberKeys.has(sceneTargetKey({ kind: 'zone', id: zone.id }))) continue
-    if (!isSceneLayerEditable(scene, 'zones')) continue
-    if (zoneIntersectsPolygon(zone, area, viewportScale)) targets.push({ kind: 'zone', id: zone.id })
-  }
-
-  for (const annotation of scene.annotations) {
-    if (groupedMemberKeys.has(sceneTargetKey({ kind: 'annotation', id: annotation.id }))) continue
-    if (!isSceneLayerEditable(scene, 'annotations')) continue
-    if (annotationIntersectsPolygon(annotation, area, viewportScale, annotation.id === getRevealedAnnotationId(selection), detail.annotationIds.has(annotation.id))) {
-      targets.push({ kind: 'annotation', id: annotation.id })
-    }
-  }
-
+  addUngrouped('plants', 'plant', scene.plants, (p) => plantIntersectsPolygon(p, area, viewportScale, speciesCache, getPlantContext))
+  addUngrouped('measurement-guides', 'measurement-guide', scene.measurementGuides, (g) => segmentIntersectsPolygon(g.start, g.end, area))
+  addUngrouped('zones', 'zone', scene.zones, (z) => zoneIntersectsPolygon(z, area, viewportScale))
+  const revealedId = getRevealedAnnotationId(selection)
+  addUngrouped('annotations', 'annotation', scene.annotations, (a) => annotationIntersectsPolygon(a, area, viewportScale, a.id === revealedId, detail.annotationIds.has(a.id)))
   return targets
 }
 

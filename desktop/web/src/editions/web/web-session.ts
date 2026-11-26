@@ -145,16 +145,7 @@ function canopiDownloadName(raw: string): string {
 
 async function encodeWebCanopiText(file: Parameters<typeof flattenDocumentForJson>[0]): Promise<string> {
   const core = editionPorts().designCore
-  let v10: Record<string, unknown>
-  if (file.version === 9) {
-    const rawV9 = new TextEncoder().encode(JSON.stringify(flattenDocumentForJson(file)))
-    const decoded = await core.decode(rawV9)
-    if ('err' in decoded) throw ingestionErrorFromFormatRefusal(decoded.err)
-    v10 = decoded.ok.design
-  } else {
-    v10 = flattenDocumentForJson(file)
-  }
-  const encoded = await core.encode(v10)
+  const encoded = await core.encode(flattenDocumentForJson(file))
   if ('err' in encoded) throw ingestionErrorFromFormatRefusal(encoded.err)
   return new TextDecoder('utf-8', { fatal: true }).decode(encoded.ok)
 }
@@ -175,10 +166,16 @@ export async function downloadWebDraft(id: string): Promise<void> {
     downloadBrowserTextFile(canopiDownloadName(newerDrafts.name(id) || 'Untitled'), text, 'application/json')
     return
   }
-  const file = newerDrafts.hides(id) ? null : browserAppDataStore.loadDraft(id)
-  if (!file) throw new Error('Draft not found')
-  const text = await encodeWebCanopiText(file)
-  downloadBrowserTextFile(canopiDownloadName(file.name), text, 'application/json')
+  const raw = newerDrafts.hides(id) ? null : browserAppDataStore.loadRawDraft(id)
+  if (!raw) throw new Error('Draft not found')
+  const core = editionPorts().designCore
+  const decoded = await core.decode(new TextEncoder().encode(JSON.stringify(raw)))
+  if ('err' in decoded) throw ingestionErrorFromFormatRefusal(decoded.err)
+  const encoded = await core.encode(decoded.ok.design)
+  if ('err' in encoded) throw ingestionErrorFromFormatRefusal(encoded.err)
+  const text = new TextDecoder('utf-8', { fatal: true }).decode(encoded.ok)
+  const name = typeof decoded.ok.design.name === 'string' ? decoded.ok.design.name : 'Untitled'
+  downloadBrowserTextFile(canopiDownloadName(name), text, 'application/json')
 }
 
 export async function openWebDraft(id: string): Promise<boolean> {

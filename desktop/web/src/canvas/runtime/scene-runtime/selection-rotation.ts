@@ -105,8 +105,13 @@ function captureTopLevelTarget(
 function captureMemberTarget(
   scene: ScenePersistedState,
   state: RotationTransformState,
-  target: { kind: 'plant' | 'zone' | 'annotation'; id: string },
+  target: { kind: 'plant' | 'zone' | 'annotation' | 'measurement-guide'; id: string },
 ): void {
+  if (target.kind === 'measurement-guide') {
+    const guide = scene.measurementGuides.find((entry) => entry.id === target.id)
+    if (guide) state.measurementGuides.set(guide.id, { start: { ...guide.start }, end: { ...guide.end } })
+    return
+  }
   const plant = target.kind === 'plant' ? scene.plants.find((entry) => entry.id === target.id) : null
   if (plant) {
     state.plants.set(plant.id, { ...plant.position })

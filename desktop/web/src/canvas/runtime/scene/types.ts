@@ -1,6 +1,5 @@
 import type { SpeciesFocus } from '../species-key'
 import type {
-  SceneConcreteDesignObjectTarget,
   SceneDesignObjectSelection,
   SceneDesignObjectTarget,
 } from './design-object-targets'
@@ -76,14 +75,11 @@ export interface SceneMeasurementGuideEntity {
   unknownFields?: Record<string, unknown>
 }
 
-export type SceneObjectGroupMember = SceneConcreteDesignObjectTarget
-
-/** Wire member record preserving exact member order and unknown flat keys across scene round-trips. */
-export interface ScenePreservedGroupMember {
-  kind: string
-  id: string
-  unknownFields?: Record<string, unknown>
-}
+export type SceneObjectGroupMember =
+  | { readonly kind: 'plant'; readonly id: string; readonly unknownFields?: Record<string, unknown> }
+  | { readonly kind: 'zone'; readonly id: string; readonly unknownFields?: Record<string, unknown> }
+  | { readonly kind: 'annotation'; readonly id: string; readonly unknownFields?: Record<string, unknown> }
+  | { readonly kind: 'measurement-guide'; readonly id: string; readonly unknownFields?: Record<string, unknown> }
 
 export interface SceneObjectGroupEntity {
   kind: 'group'
@@ -91,8 +87,6 @@ export interface SceneObjectGroupEntity {
   locked: boolean
   name: string | null
   members: SceneObjectGroupMember[]
-  /** Original wire member order and per-member unknown flat keys preserved across scene round-trips. */
-  wireMembers?: ScenePreservedGroupMember[]
   unknownFields?: Record<string, unknown>
 }
 

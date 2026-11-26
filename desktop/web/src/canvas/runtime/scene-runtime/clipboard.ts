@@ -140,7 +140,8 @@ export function resolveSelectedEntitySets(
     for (const member of resolveSceneObjectGroupMembers(persisted, group)) {
       if (member.kind === 'plant') plantIds.add(member.id)
       else if (member.kind === 'zone') zoneIds.add(member.id)
-      else annotationIds.add(member.id)
+      else if (member.kind === 'annotation') annotationIds.add(member.id)
+      else measurementGuideIds.add(member.id)
     }
   }
 

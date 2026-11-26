@@ -127,13 +127,17 @@ function materializeSceneArrangement(
     }
   })
 
-  const measurementGuides = template.measurementGuides.map(({ entity }): SceneMeasurementGuideEntity => ({
-    ...entity,
-    id: allocateUniqueId(reservedIds, () => `measurement-guide-${createId()}`),
-    locked: false,
-    start: translatePoint(entity.start, translateBy),
-    end: translatePoint(entity.end, translateBy),
-  }))
+  const measurementGuides = template.measurementGuides.map(({ sourceId, entity }): SceneMeasurementGuideEntity => {
+    const id = allocateUniqueId(reservedIds, () => `measurement-guide-${createId()}`)
+    sourceToCloneId.set(sceneObjectGroupMemberKey({ kind: 'measurement-guide', id: sourceId }), id)
+    return {
+      ...entity,
+      id,
+      locked: false,
+      start: translatePoint(entity.start, translateBy),
+      end: translatePoint(entity.end, translateBy),
+    }
+  })
 
   const groupedMemberKeys = new Set<string>()
   const groups = template.groups
@@ -142,7 +146,10 @@ function materializeSceneArrangement(
         entity.members
           .map((member): SceneObjectGroupMember | null => {
             const cloneId = sourceToCloneId.get(sceneObjectGroupMemberKey(member))
-            return cloneId ? { kind: member.kind, id: cloneId } : null
+            if (!cloneId) return null
+            return member.unknownFields
+              ? { kind: member.kind, id: cloneId, unknownFields: structuredClone(member.unknownFields) }
+              : { kind: member.kind, id: cloneId }
           })
           .filter((member): member is SceneObjectGroupMember => member !== null),
       )
@@ -163,7 +170,9 @@ function materializeSceneArrangement(
   }))
   addUngroupedSelection(selectedTopLevelTargets, groupedMemberKeys, plants, zones, annotations)
   for (const guide of measurementGuides) {
-    selectedTopLevelTargets.push({ kind: 'measurement-guide', id: guide.id })
+    if (!groupedMemberKeys.has(sceneObjectGroupMemberKey({ kind: 'measurement-guide', id: guide.id }))) {
+      selectedTopLevelTargets.push({ kind: 'measurement-guide', id: guide.id })
+    }
   }
 
   return {

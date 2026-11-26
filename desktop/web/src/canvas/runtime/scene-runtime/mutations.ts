@@ -384,34 +384,22 @@ export class SceneRuntimeMutationController {
     const persisted = this._sceneStore.persisted
     const targets: SceneDesignObjectTarget[] = []
     const groupedMemberKeys = getSceneGroupedMemberKeys(persisted)
-
-    if (isSceneLayerEditable(persisted, 'plants')) {
-      for (const plant of persisted.plants) {
-        if (groupedMemberKeys.has(sceneTargetKey({ kind: 'plant', id: plant.id })) || plant.locked) continue
-        targets.push({ kind: 'plant', id: plant.id })
+    const addUngrouped = (
+      layer: string,
+      kind: 'plant' | 'zone' | 'annotation' | 'measurement-guide',
+      items: readonly { readonly id: string; readonly locked: boolean }[],
+    ) => {
+      if (!isSceneLayerEditable(persisted, layer)) return
+      for (const item of items) {
+        if (!item.locked && !groupedMemberKeys.has(sceneTargetKey({ kind, id: item.id }))) {
+          targets.push({ kind, id: item.id })
+        }
       }
     }
-
-    if (isSceneLayerEditable(persisted, 'zones')) {
-      for (const zone of persisted.zones) {
-        if (groupedMemberKeys.has(sceneTargetKey({ kind: 'zone', id: zone.id })) || zone.locked) continue
-        targets.push({ kind: 'zone', id: zone.id })
-      }
-    }
-
-    if (isSceneLayerEditable(persisted, 'annotations')) {
-      for (const annotation of persisted.annotations) {
-        if (groupedMemberKeys.has(sceneTargetKey({ kind: 'annotation', id: annotation.id })) || annotation.locked) continue
-        targets.push({ kind: 'annotation', id: annotation.id })
-      }
-    }
-
-    if (isSceneLayerEditable(persisted, 'measurement-guides')) {
-      for (const guide of persisted.measurementGuides) {
-        if (guide.locked) continue
-        targets.push({ kind: 'measurement-guide', id: guide.id })
-      }
-    }
+    addUngrouped('plants', 'plant', persisted.plants)
+    addUngrouped('zones', 'zone', persisted.zones)
+    addUngrouped('annotations', 'annotation', persisted.annotations)
+    addUngrouped('measurement-guides', 'measurement-guide', persisted.measurementGuides)
 
     for (const group of persisted.groups) {
       if (

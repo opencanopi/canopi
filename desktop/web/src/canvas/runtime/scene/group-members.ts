@@ -5,14 +5,15 @@ import type {
 } from './types'
 import {
   sceneTargetKey,
-  type SceneConcreteDesignObjectTarget,
   type SceneDesignObjectTarget,
 } from './design-object-targets'
 
 function cloneSceneObjectGroupMember(
   member: SceneObjectGroupMember,
 ): SceneObjectGroupMember {
-  return { ...member }
+  return member.unknownFields
+    ? { ...member, unknownFields: structuredClone(member.unknownFields) }
+    : { ...member }
 }
 
 export function cloneSceneObjectGroupMembers(
@@ -35,6 +36,7 @@ export function sceneObjectGroupMemberFromTarget(
 export function sceneObjectGroupMemberLayerName(member: SceneObjectGroupMember): string {
   if (member.kind === 'zone') return 'zones'
   if (member.kind === 'annotation') return 'annotations'
+  if (member.kind === 'measurement-guide') return 'measurement-guides'
   return 'plants'
 }
 
@@ -55,25 +57,26 @@ export function dedupeSceneObjectGroupMembers(
 function resolveSceneObjectGroupMember(
   scene: ScenePersistedState,
   member: SceneObjectGroupMember,
-): SceneConcreteDesignObjectTarget | null {
+): SceneObjectGroupMember | null {
   if (member.kind === 'plant') {
-    return scene.plants.some((plant) => plant.id === member.id) ? { kind: 'plant', id: member.id } : null
+    return scene.plants.some((plant) => plant.id === member.id) ? member : null
   }
   if (member.kind === 'zone') {
-    return scene.zones.some((zone) => zone.id === member.id) ? { kind: 'zone', id: member.id } : null
+    return scene.zones.some((zone) => zone.id === member.id) ? member : null
   }
-  return scene.annotations.some((annotation) => annotation.id === member.id)
-    ? { kind: 'annotation', id: member.id }
-    : null
+  if (member.kind === 'annotation') {
+    return scene.annotations.some((annotation) => annotation.id === member.id) ? member : null
+  }
+  return scene.measurementGuides.some((guide) => guide.id === member.id) ? member : null
 }
 
 export function resolveSceneObjectGroupMembers(
   scene: ScenePersistedState,
   group: SceneObjectGroupEntity,
-): SceneConcreteDesignObjectTarget[] {
+): SceneObjectGroupMember[] {
   return group.members
     .map((member) => resolveSceneObjectGroupMember(scene, member))
-    .filter((target): target is SceneConcreteDesignObjectTarget => target !== null)
+    .filter((target): target is SceneObjectGroupMember => target !== null)
 }
 
 /** Whether the Scene holds `target`, by kind and id. */
@@ -87,7 +90,6 @@ export function sceneContainsTarget(scene: ScenePersistedState, target: SceneDes
 
 /** The layers `target` sits on: its own, or a group's distinct member layers in member order (missing members skipped). */
 export function sceneTargetLayerNames(scene: ScenePersistedState, target: SceneDesignObjectTarget): string[] {
-  if (target.kind === 'measurement-guide') return ['measurement-guides']
   if (target.kind !== 'group') return [sceneObjectGroupMemberLayerName(target)]
   const group = scene.groups.find((entry) => entry.id === target.id)
   if (!group) return []
@@ -112,7 +114,7 @@ export function getSceneGroupedMemberKeys(scene: ScenePersistedState): Map<strin
 
 export function isSceneObjectGroupMemberTarget(
   member: SceneObjectGroupMember,
-  target: SceneConcreteDesignObjectTarget,
+  target: SceneDesignObjectTarget,
 ): boolean {
   return member.kind === target.kind && member.id === target.id
 }
@@ -124,39 +126,24 @@ export interface DeletedSceneMemberIds {
   readonly measurementGuideIds?: ReadonlySet<string>
 }
 
-function isDeletedWireMember(
-  member: { readonly kind: string; readonly id: string },
+function isDeletedMember(
+  member: SceneObjectGroupMember,
   deleted: DeletedSceneMemberIds,
 ): boolean {
   if (member.kind === 'plant') return deleted.plantIds?.has(member.id) === true
   if (member.kind === 'zone') return deleted.zoneIds?.has(member.id) === true
   if (member.kind === 'annotation') return deleted.annotationIds?.has(member.id) === true
-  if (member.kind === 'measurement_guide') return deleted.measurementGuideIds?.has(member.id) === true
-  return false
+  return deleted.measurementGuideIds?.has(member.id) === true
 }
 
 /**
- * Removes deleted members from both concrete `members` and preserved `wireMembers` (including
- * `measurement_guide` members) and drops the group only when fewer than 2 total members remain.
+ * Removes deleted members (including `measurement-guide` members) and drops the group when fewer
+ * than 2 members remain.
  */
 export function pruneGroupDeletedMembers(
   group: SceneObjectGroupEntity,
   deleted: DeletedSceneMemberIds,
 ): SceneObjectGroupEntity | null {
-  const members = group.members.filter((member) => !isDeletedWireMember(member, deleted))
-  if (!group.wireMembers) {
-    return members.length >= 2 ? { ...group, members } : null
-  }
-  const wireMembers = group.wireMembers.filter((member) => !isDeletedWireMember(member, deleted))
-  const wireKeys = new Set(wireMembers.map((member) => `${member.kind}:${member.id}`))
-  let totalCount = wireMembers.length
-  for (const member of members) {
-    if (!wireKeys.has(`${member.kind}:${member.id}`)) totalCount += 1
-  }
-  if (totalCount < 2) return null
-  return {
-    ...group,
-    members,
-    wireMembers,
-  }
+  const members = group.members.filter((member) => !isDeletedMember(member, deleted))
+  return members.length >= 2 ? { ...group, members } : null
 }

@@ -71,6 +71,8 @@ export function createBrowserSessionHomeStore(
   }
 
   return {
+    // Sync unload residual: DesignCore lives in a worker, so beforeunload validates via admitCanopiWrite (which omits
+    // groups/budget/print_setup/root-extra checks; decode normalises dangling groups on reopen).
     flushDraftSync(key: string, file: Parameters<typeof flattenDocumentForJson>[0], expected: HomeVersion | null): boolean {
       try {
         const alias = syncAliases.get(key)

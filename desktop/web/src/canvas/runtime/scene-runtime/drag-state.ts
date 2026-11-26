@@ -78,6 +78,10 @@ export function captureSceneDragState(
         ? scene.annotations.find((entry) => entry.id === member.id)
         : null
       if (annotation) state.annotationStarts.set(annotation.id, { ...annotation.position })
+      const guide = member.kind === 'measurement-guide'
+        ? scene.measurementGuides.find((entry) => entry.id === member.id)
+        : null
+      if (guide) state.measurementGuideStarts.set(guide.id, { start: { ...guide.start }, end: { ...guide.end } })
     }
   }
 }

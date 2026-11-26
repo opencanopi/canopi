@@ -34,9 +34,9 @@ import type {
   SceneLayerEntity,
   SceneMeasurementGuideEntity,
   SceneObjectGroupEntity,
+  SceneObjectGroupMember,
   ScenePersistedState,
   ScenePlantEntity,
-  ScenePreservedGroupMember,
   SceneSessionState,
   SceneZoneEntity,
 } from './types'
@@ -409,68 +409,41 @@ function cloneMeasurementGuideEntity(
   }
 }
 
-function isConcreteGroupMemberKind(kind: string): kind is 'plant' | 'zone' | 'annotation' {
-  return kind === 'plant' || kind === 'zone' || kind === 'annotation'
+function hydrateGroupMemberKind(kind: ObjectGroupMember['kind']): SceneObjectGroupMember['kind'] {
+  return kind === 'measurement_guide' ? 'measurement-guide' : kind
 }
 
-function memberKey(kind: string, id: string): string {
-  return `${kind}:${id}`
+function serializeGroupMemberKind(kind: SceneObjectGroupMember['kind']): ObjectGroupMember['kind'] {
+  return kind === 'measurement-guide' ? 'measurement_guide' : kind
 }
 
 function hydrateGroupEntity(group: ObjectGroup): SceneObjectGroupEntity {
   const unknownFields = extractUnknownKeys(group, GROUP_KNOWN_KEYS)
-  const concreteMembers: SceneObjectGroupEntity['members'] = []
-  const wireMembers: ScenePreservedGroupMember[] = []
-  let needsWireMembers = false
-  for (const member of group.members) {
+  const members: SceneObjectGroupMember[] = group.members.map((member) => {
     const memberUnknown = extractUnknownKeys(member, GROUP_MEMBER_KNOWN_KEYS)
-    wireMembers.push({
-      kind: member.kind,
+    return {
+      kind: hydrateGroupMemberKind(member.kind),
       id: member.id,
       ...(memberUnknown !== undefined ? { unknownFields: memberUnknown } : {}),
-    })
-    if (isConcreteGroupMemberKind(member.kind)) {
-      concreteMembers.push({ kind: member.kind, id: member.id })
-      if (memberUnknown !== undefined) needsWireMembers = true
-    } else {
-      needsWireMembers = true
     }
-  }
+  })
   return {
     kind: 'group',
     id: group.id,
     locked: group.locked ?? false,
     name: group.name ?? null,
-    members: concreteMembers,
-    ...(needsWireMembers ? { wireMembers } : {}),
+    members,
     ...(unknownFields !== undefined ? { unknownFields } : {}),
   }
 }
 
 function serializeGroupEntity(group: SceneObjectGroupEntity): ObjectGroup {
-  const members: ObjectGroupMember[] = []
-  if (group.wireMembers && group.wireMembers.length > 0) {
-    const activeConcrete = new Set(group.members.map((m) => memberKey(m.kind, m.id)))
-    const emittedConcrete = new Set<string>()
-    for (const wire of group.wireMembers) {
-      if (isConcreteGroupMemberKind(wire.kind)) {
-        const key = memberKey(wire.kind, wire.id)
-        if (!activeConcrete.has(key)) continue
-        emittedConcrete.add(key)
-      }
-      members.push(
-        withUnknownFields({ kind: wire.kind, id: wire.id } as ObjectGroupMember, wire.unknownFields),
-      )
-    }
-    for (const member of group.members) {
-      const key = memberKey(member.kind, member.id)
-      if (!emittedConcrete.has(key)) {
-        members.push({ kind: member.kind, id: member.id })
-      }
-    }
-  } else {
-    members.push(...cloneSceneObjectGroupMembers(group.members))
-  }
+  const members: ObjectGroupMember[] = group.members.map((member) =>
+    withUnknownFields(
+      { kind: serializeGroupMemberKind(member.kind), id: member.id },
+      member.unknownFields,
+    ),
+  )
   return withUnknownFields({
     id: group.id,
     locked: group.locked,
@@ -484,18 +457,6 @@ function cloneGroupEntity(group: SceneObjectGroupEntity): SceneObjectGroupEntity
   return {
     ...group,
     members: cloneSceneObjectGroupMembers(group.members),
-    ...(group.wireMembers
-      ? {
-          wireMembers: group.wireMembers.map((member) => {
-            const memberUnknown = cloneUnknownFields(member.unknownFields)
-            return {
-              kind: member.kind,
-              id: member.id,
-              ...(memberUnknown !== undefined ? { unknownFields: memberUnknown } : {}),
-            }
-          }),
-        }
-      : {}),
     ...(unknownFields !== undefined ? { unknownFields } : {}),
   }
 }
