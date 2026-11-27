@@ -12,6 +12,7 @@ import {
   getMapBackdropInk,
   OVERLAY_CASING_EXTRA_PX,
   SITE_PIN_VISUAL,
+  type CanvasMapBackdrop,
 } from '../canvas/runtime/scene-visuals'
 
 /** The overlay snapshot's Site data part, in [lon, lat]; null on Web and in overview. */
@@ -162,12 +163,15 @@ export interface SiteHoverOverlayContract {
  * The profile chart's hover point ([lon, lat]) as a hollow ring in the backdrop ink on its own source, so a scrub is one setData
  * (GeoLibre `NativeProfileMap.setHover`); null draws nothing.
  */
-export function siteHoverOverlayContract(hover: readonly [number, number] | null): SiteHoverOverlayContract {
+export function siteHoverOverlayContract(
+  hover: readonly [number, number] | null,
+  backdrop: CanvasMapBackdrop = 'basemap',
+): SiteHoverOverlayContract {
   const ids = siteMapOverlayIds().hover
   const features: SiteMapOverlayFeature[] = hover && finite(hover)
     ? [{ type: 'Feature', geometry: { type: 'Point', coordinates: hover }, properties: { role: 'pin' } }]
     : []
-  const ink = getMapBackdropInk()
+  const ink = getMapBackdropInk(backdrop)
   return {
     source: { id: ids.sourceId, type: 'geojson', data: { type: 'FeatureCollection', features } },
     layers: [{

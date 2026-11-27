@@ -33,11 +33,11 @@ interface CanvasLockedMoveNotice {
 }
 
 export const currentCanvasLockedMoveNotice = signal<CanvasLockedMoveNotice | null>(null)
-let lockedMoveNoticeIds = 0
+const lockedMoveNoticeIds = { value: 0 }
 
 export function noteCanvasLockedMoveRefused(): void {
-  lockedMoveNoticeIds += 1
-  currentCanvasLockedMoveNotice.value = { id: lockedMoveNoticeIds }
+  lockedMoveNoticeIds.value += 1
+  currentCanvasLockedMoveNotice.value = { id: lockedMoveNoticeIds.value }
 }
 
 /** Dismisses `notice`, only while it is still the one shown. */

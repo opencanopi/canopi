@@ -29,7 +29,6 @@ import {
   plantDisplaysEqual,
   stratumDisplayColor,
   resolveDisplayedPlantColor,
-  setCanvasPlantDisplay,
   type PlantDisplay,
 } from '../canvas/runtime/plant-display'
 import { getPlantSymbolEdgeWidth } from '../canvas/runtime/scene-visuals'
@@ -92,7 +91,6 @@ const consortium = (canonicalName: string, stratum: string) => ({
 })
 
 afterEach(() => {
-  setCanvasPlantDisplay(DEFAULT_PLANT_DISPLAY)
   designSessionFixture.file = null
   mapLayers.value = createDefaultMapLayers()
 })
@@ -189,28 +187,33 @@ describe('plant display rules', () => {
       symbolScale: 1.5,
       strata: new Map([['Malus domestica', 'emergent']]),
     })
-    expect(setCanvasPlantDisplay(display)).toBe(true)
-    expect(setCanvasPlantDisplay(normalizePlantDisplay({ ...display, strata: new Map(display.strata) }))).toBe(false)
-    const after = buildPlantPresentationEntries(plants, context, new Set())
+    expect(plantDisplaysEqual(DEFAULT_PLANT_DISPLAY, display)).toBe(false)
+    expect(plantDisplaysEqual(display, normalizePlantDisplay({ ...display, strata: new Map(display.strata) }))).toBe(true)
+    const scaledContext = { ...context, plantDisplay: display }
+    const hitsAtScaled = (distance: number) => hitTestPlant(
+      plants[0]!,
+      { x: plants[0]!.position.x + distance, y: plants[0]!.position.y },
+      scaledContext,
+    )
+    const after = buildPlantPresentationEntries(plants, scaledContext, new Set())
     expect(after.map((entry) => entry.color)).toEqual([STRATUM_DISPLAY_COLORS.emergent, NO_STRATUM_DISPLAY_COLOR])
     expect(plants.map((entry) => resolvePlantBaseColor(entry, new Map()))).toEqual(['#3E8E4E', '#3E8E4E'])
     expect(after[0]!.radiusScreenPx).toBeCloseTo(before[0]!.radiusScreenPx * 1.5)
-    expect(hitsAt(scaledHitMetres * 0.999)).toBe(true)
-    expect(hitsAt(scaledHitMetres * 1.001)).toBe(false)
+    expect(hitsAtScaled(scaledHitMetres * 0.999)).toBe(true)
+    expect(hitsAtScaled(scaledHitMetres * 1.001)).toBe(false)
     expect(plants.every((entry) => entry.color === '#3E8E4E')).toBe(true)
-    expect(resolvePlantDisplayColor(plants[1]!, new Map())).toBe(NO_STRATUM_DISPLAY_COLOR)
+    expect(resolvePlantDisplayColor(plants[1]!, new Map(), display)).toBe(NO_STRATUM_DISPLAY_COLOR)
 
     const print = buildCanvasPrintSnapshot({
       plantSpeciesColors: {}, plantSpeciesSymbols: {}, plantSpeciesCodes: {}, layers: [], plants,
       zones: [], annotations: [], measurementGuides: [], groups: [],
-    }, context)
+    }, scaledContext)
     expect(print.plants.map((entry) => entry.color)).toEqual([STRATUM_DISPLAY_COLORS.emergent, NO_STRATUM_DISPLAY_COLOR])
   })
 
   it('drops the symbol halo when Outline is off', () => {
     expect(getPlantSymbolEdgeWidth(20)).toBeGreaterThan(0)
-    setCanvasPlantDisplay({ ...DEFAULT_PLANT_DISPLAY, outline: false })
-    expect(getPlantSymbolEdgeWidth(20)).toBe(0)
+    expect(getPlantSymbolEdgeWidth(20, { ...DEFAULT_PLANT_DISPLAY, outline: false })).toBe(0)
   })
 })
 

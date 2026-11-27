@@ -25,10 +25,7 @@ import {
   roundGeoDegrees,
   type PlanePoint,
 } from '../../geo/session-plane'
-import {
-  getEllipticalZonePolygon,
-  getRectangularZoneCorners,
-} from '../../canvas/runtime/zone-geometry'
+import { dispatchZoneByShape, getEllipticalZonePolygon, getRectangularZoneCorners, isFramedZone, isLineZone } from '../../canvas/runtime/zone-geometry'
 
 export const GEOJSON_KIND_PROPERTY = 'canopi_kind'
 export const GEOJSON_MAX_FEATURES = 20_000
@@ -152,7 +149,7 @@ export function encodeDesignGeoJson(objects: GeoJsonDesignObjects): GeoJsonFeatu
       locked: zone.locked,
       group_ids: groupIds('zone', zone.id),
     }
-    if (zone.zone_type === 'rect' || zone.zone_type === 'ellipse') {
+    if (isFramedZone(zone)) {
       properties.canopi_points = zone.points.map(position)
     }
     features.push({
@@ -214,7 +211,7 @@ function memberKey(kind: string, id: string): string {
 }
 
 function zoneGeometry(zone: Zone): GeoJsonGeometry {
-  if (zone.zone_type === 'line') {
+  if (isLineZone(zone)) {
     return { type: 'LineString', coordinates: zone.points.map(position) }
   }
   const outline = drawnZoneOutline(zone) ?? zone.points.map(position)
@@ -224,24 +221,26 @@ function zoneGeometry(zone: Zone): GeoJsonGeometry {
 // Rectangles and ellipses store an unrotated frame plus a rotation; their drawn
 // outline comes from the runtime's zone geometry in a local plane at the zone.
 function drawnZoneOutline(zone: Zone): GeoJsonPosition[] | null {
-  if (zone.zone_type !== 'rect' && zone.zone_type !== 'ellipse') return null
+  if (!isFramedZone(zone)) return null
   const anchor = zone.points[0]
   if (!anchor) return null
   const plane = createSessionPlane(anchor)
   const planePoints = zone.points.map((point) => plane.toPlane(point))
-  let outline: PlanePoint[] | null
-  if (zone.zone_type === 'rect') {
-    outline = getRectangularZoneCorners({ ...zoneEntityFrame(zone), points: planePoints.map(copyPoint) })
-  } else {
-    const [first, second] = planePoints
-    if (!first || !second) return null
-    const center = { x: (first.x + second.x) / 2, y: (first.y + second.y) / 2 }
-    const radii = { x: (second.x - first.x) / 2, y: (second.y - first.y) / 2 }
-    outline = getEllipticalZonePolygon(
-      { ...zoneEntityFrame(zone), points: [center, radii] },
-      ELLIPSE_OUTLINE_SEGMENTS,
-    )
-  }
+  const outline = dispatchZoneByShape<Zone, PlanePoint[] | null>(zone, {
+    rect: () => getRectangularZoneCorners({ ...zoneEntityFrame(zone), points: planePoints.map(copyPoint) }),
+    ellipse: () => {
+      const [first, second] = planePoints
+      if (!first || !second) return null
+      const center = { x: (first.x + second.x) / 2, y: (first.y + second.y) / 2 }
+      const radii = { x: (second.x - first.x) / 2, y: (second.y - first.y) / 2 }
+      return getEllipticalZonePolygon(
+        { ...zoneEntityFrame(zone), points: [center, radii] },
+        ELLIPSE_OUTLINE_SEGMENTS,
+      )
+    },
+    polygon: () => null,
+    line: () => null,
+  })
   if (!outline) return null
   return outline.map((point) => {
     const geo = plane.toGeo(point)

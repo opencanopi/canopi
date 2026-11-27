@@ -23,7 +23,8 @@ import {
   isSceneDesignObjectLocked,
 } from '../scene'
 import { getCanvasPlantDisplay } from '../plant-display'
-import { createScreenAlignedBounds, getZoneWorldBounds } from '../zone-geometry'
+import { createScreenAlignedBounds } from '../zone-geometry'
+import { getZoneWorldBounds } from './selection-rotation'
 import { getSameSpeciesReferenceCanonicalName } from './species-selection'
 
 declare global {
@@ -190,7 +191,7 @@ export function getDesignObjectSelectionModel(
   selectedTargets: SceneDesignObjectSelection,
   options: SceneSelectionReadModelOptions,
 ): CanvasDesignObjectSelectionModel {
-  const symbolScale = getCanvasPlantDisplay().symbolScale
+  const symbolScale = options.plantContext.plantDisplay?.symbolScale ?? 1
   const fontEpoch = getAnnotationFontEpoch()
   const memo = selectionModelMemos.get(persisted)
   if (

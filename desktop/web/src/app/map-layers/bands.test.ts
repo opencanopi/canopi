@@ -42,7 +42,7 @@ describe('Map layer stack reconciliation', () => {
     const map = new FakeOrderMap([
       MAPLIBRE_SHARED_SCENE_LAYER_ID,
       'unmanaged-a',
-      'panel-target-hover-plants',
+      'site-pin-core',
       'lidar-second',
       MAPLIBRE_SATELLITE_LAYER_ID,
       'unmanaged-b',
@@ -115,14 +115,15 @@ describe('Map layer stack reconciliation', () => {
     const interaction = descriptors.filter((descriptor) => descriptor.band === 'interaction-overlay').map((descriptor) => descriptor.id)
     const location = userLocationOverlayIds().layerIds
     expect(interaction.slice(-(site.length + hover.length + location.length), -location.length)).toEqual([...site, ...hover])
-    expect(interaction.indexOf(site[0]!)).toBeGreaterThan(interaction.indexOf('panel-target-hover-plants'))
+    expect(descriptors.findIndex((d) => d.id === site[0]!)).toBeGreaterThan(
+      descriptors.findIndex((d) => d.id === MAPLIBRE_SHARED_SCENE_LAYER_ID),
+    )
 
-    // A pin added late (below the highlights and the scene) is moved back on top.
+    // A pin added late (below the scene) is moved back on top.
     const map = new FakeOrderMap([
       'site-pin-core',
       MAPLIBRE_BASEMAP_BACKGROUND_LAYER_ID,
       MAPLIBRE_SHARED_SCENE_LAYER_ID,
-      'panel-target-hover-plants',
       'site-hover-ring',
       'site-profile-line',
     ])
@@ -130,7 +131,6 @@ describe('Map layer stack reconciliation', () => {
     expect(map.order).toEqual([
       MAPLIBRE_BASEMAP_BACKGROUND_LAYER_ID,
       MAPLIBRE_SHARED_SCENE_LAYER_ID,
-      'panel-target-hover-plants',
       'site-profile-line',
       'site-pin-core',
       'site-hover-ring',

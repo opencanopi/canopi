@@ -1,5 +1,8 @@
-import { getRevealedAnnotationId } from '../../canvas/runtime/annotation-layout'
+import { getAnnotationFontEpoch, getRevealedAnnotationId } from '../../canvas/runtime/annotation-layout'
+import { DEFAULT_PLANT_DISPLAY } from '../../canvas/runtime/plant-display'
 import type { SceneRendererSnapshot } from '../../canvas/runtime/renderers/scene-types'
+import { getMapBackdropInk } from '../../canvas/runtime/scene-visuals'
+import { readCanvasPaintTokens } from '../../canvas/theme-refresh'
 import type {
   SceneDesignObjectSelection,
   ScenePersistedState,
@@ -20,6 +23,12 @@ export interface TestSceneRendererSnapshotOptions {
   readonly localizedCommonNames?: SceneRendererSnapshot['localizedCommonNames']
   readonly hoveredCanonicalName?: SceneRendererSnapshot['hoveredCanonicalName']
   readonly hoverTarget?: SceneRendererSnapshot['hoverTarget']
+  readonly plantLabels?: SceneRendererSnapshot['plantLabels']
+  readonly plantDisplay?: SceneRendererSnapshot['plantDisplay']
+  readonly mapBackdrop?: SceneRendererSnapshot['mapBackdrop']
+  readonly backdropInk?: SceneRendererSnapshot['backdropInk']
+  readonly paintTokens?: SceneRendererSnapshot['paintTokens']
+  readonly annotationFontEpoch?: SceneRendererSnapshot['annotationFontEpoch']
 }
 
 export function createTestSceneRendererSnapshot(
@@ -42,6 +51,7 @@ export function createTestSceneRendererSnapshot(
     : null
   const selectionProjection = projectSceneSelectionEntityIds(scene, selectedTargets)
 
+  const mapBackdrop = options.mapBackdrop ?? 'basemap'
   return {
     scene,
     selectionLabelPlantIds: new Set(singleSelectedPlant ? [singleSelectedPlant.id] : []),
@@ -54,6 +64,12 @@ export function createTestSceneRendererSnapshot(
     localizedCommonNames: new Map(options.localizedCommonNames ?? []),
     hoveredCanonicalName: options.hoveredCanonicalName ?? null,
     hoverTarget: options.hoverTarget ?? null,
+    ...(options.plantLabels ? { plantLabels: options.plantLabels } : {}),
+    plantDisplay: options.plantDisplay ?? DEFAULT_PLANT_DISPLAY,
+    mapBackdrop,
+    backdropInk: options.backdropInk ?? getMapBackdropInk(mapBackdrop),
+    paintTokens: options.paintTokens ?? readCanvasPaintTokens(),
+    annotationFontEpoch: options.annotationFontEpoch ?? getAnnotationFontEpoch(),
   }
 }
 

@@ -1,13 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import { MANUAL_TARGET, speciesTarget } from '../target'
-import { indexTargetScene, resolveTargetsInScene, type TargetSceneInput } from '../target/identity'
+import { MANUAL_TARGET, speciesTarget, targetIdentity } from '../target'
 import type { PanelTarget } from '../types/design'
+
+type TargetSceneInput = Parameters<typeof targetIdentity.indexScene>[0]
 
 const NONE_TARGET = { kind: 'none' } as const
 
 /** The resolution the canvas overlays project, without its resolved references. */
 function resolveTargets(values: readonly PanelTarget[], scene: TargetSceneInput) {
-  const { plantIds, zoneIds } = resolveTargetsInScene(values, indexTargetScene(scene))
+  const { plantIds, zoneIds } = targetIdentity.resolve(values, targetIdentity.indexScene(scene))
   return { plantIds, zoneIds }
 }
 

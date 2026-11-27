@@ -4,6 +4,7 @@ import type { Container, Text } from 'pixi.js'
 import { getAnnotationPresentation } from '../annotation-layout'
 import { buildPlantPresentationEntries } from '../plant-presentation'
 import { getMapTextColor, resolveZoneVisual } from '../scene-visuals'
+import { isZoneClosed } from '../zone-geometry'
 import type { DraftPresentation } from '../tools/draft'
 import { bandCentreScale, zoomBandOf } from '../../../geo/view/frame-source'
 import type { ViewTransform } from '../../../geo/view/types'
@@ -57,6 +58,7 @@ export function createPixiScenePresentation(options: PixiScenePresentationOption
     viewSize,
     requestRepaint: options.requestRepaint,
     painters: createDraftScenePainters(() => snapshot),
+    getPaintTokens: () => snapshot?.paintTokens,
   })
   stage.addChild(world.root)
   stage.addChild(billboards.root)
@@ -98,13 +100,14 @@ export function createDraftScenePainters(getSnapshot: () => SceneRendererSnapsho
     drawZoneGhost(fill, outline, zone, scale) {
       // The ghost: the zone's fill at a fifth (a line has none) and the placed zone's outline, its cream stroke over its
       // dark casing, traced at the band's centre scale as the zone it places is.
-      const visual = resolveZoneVisual(zone)
+      const snapshot = getSnapshot()
+      const visual = resolveZoneVisual(zone, snapshot?.paintTokens)
       if (!traceZonePath(outline, zone)) return false
       const stroke = resolveCasedStroke(null, { color: visual.stroke, casing: visual.casing }, ZONE_STROKE_PX, bandCentreScale(zoomBandOf(scale)))
       outline.stroke(stroke.casing)
       traceZonePath(outline, zone)
       outline.stroke(stroke.stroke)
-      if (zone.zoneType !== 'line' && traceZonePath(fill, zone)) {
+      if (isZoneClosed(zone) && traceZonePath(fill, zone)) {
         fill.fill({ color: toPixiColor(visual.fill), alpha: 0.2 * cssColorAlpha(visual.fill) })
       }
       return true
@@ -119,23 +122,25 @@ export function createDraftScenePainters(getSnapshot: () => SceneRendererSnapsho
         pixelsPerMetre: scale,
         speciesCache: snapshot.speciesCache,
         plantSpeciesSymbols: snapshot.scene.plantSpeciesSymbols,
+        plantDisplay: snapshot.plantDisplay,
       }, new Set())
       if (!entry) return false
       // Plant a row's look: a disc in the display colour, its 2 px border the same colour, so never under 2 px in radius.
       if (mark === 'dot') graphics.circle(0, 0, Math.max(entry.radiusScreenPx, DOT_GHOST_MIN_RADIUS_PX)).fill({ color: toPixiColor(entry.color) })
-      else drawPlantGlyph(graphics.context, entry)
+      else drawPlantGlyph(graphics.context, entry, snapshot.mapBackdrop, snapshot.plantDisplay)
       return true
     },
     drawNoteGhost(text, marker, annotation, scale) {
       if (annotation.annotationType !== 'text') return null
+      const snapshot = getSnapshot()
       const { textFrame, textOpacity, markerOpacity, markerPaths, markerStrokePx } =
         getAnnotationPresentation(annotation, scale)
-      styleAnnotationText(text, annotation, textFrame.lineHeightPx)
+      styleAnnotationText(text, annotation, textFrame.lineHeightPx, snapshot?.backdropInk)
       // The note's own angle; the draft layer turns it with the map.
       text.rotation = noteTextRotation(annotation, 0)
       // The ghost marker has no halo.
       traceAnnotationMarker(marker.context, markerPaths)
-      marker.stroke({ color: toPixiColor(getMapTextColor()), width: markerStrokePx })
+      marker.stroke({ color: toPixiColor(getMapTextColor(snapshot?.backdropInk)), width: markerStrokePx })
       return { textOpacity, markerOpacity }
     },
   }

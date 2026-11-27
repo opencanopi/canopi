@@ -11,12 +11,6 @@
     "ipc/geojson.ts -> app/geojson/workflow.ts": {
       "count": 1
     },
-    "maplibre/panel-target-overlays.ts -> canvas/runtime/scene-visuals.ts": {
-      "count": 1
-    },
-    "maplibre/panel-target-overlays.ts -> target/index.ts": {
-      "count": 1
-    },
     "maplibre/site-overlay.ts -> canvas/runtime/scene-visuals.ts": {
       "count": 1
     },

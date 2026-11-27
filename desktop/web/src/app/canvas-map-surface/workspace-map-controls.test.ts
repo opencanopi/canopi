@@ -225,7 +225,7 @@ function targetContribution(sessionIdentity: object): WorkspaceMapContributionSn
   return {
     sessionIdentity, lidar: [],
     terrain: { contourIntervalMeters: 1, contoursVisible: false, contoursOpacity: 1, hillshadeVisible: false, hillshadeOpacity: 1, isDark: false },
-    overlays: { runtime: { getSceneSnapshot: () => scene }, location: { lat: 48, lon: 2 }, hoveredTargets: [{ kind: 'zone', zone_id: 'plot' }], selectedTargets: [] , site: null },
+    overlays: { runtime: { getSceneSnapshot: () => scene }, location: { lat: 48, lon: 2 }, hoveredTargets: [{ kind: 'zone', zone_id: 'plot' }], selectedTargets: [] , site: { pin: [2.001, 48.001], profileLine: null } },
   }
 }
 
@@ -407,15 +407,15 @@ describe('WorkspaceMapControls', () => {
     const error = new Error('target layer failed')
     const add = map.addLayer.getMockImplementation()!
     map.addLayer.mockImplementation((layer, before) => {
-      if (layer.id?.startsWith('panel-target-')) throw error
+      if (layer.id?.startsWith('site-')) throw error
       add(layer, before)
     })
     map.emit('style.load')
     await expect(acquisition).resolves.toBe(map)
     expect(map.remove).not.toHaveBeenCalled()
     expect(readyLayers(states.mock.lastCall?.[0])?.get('library:skipped')).toEqual({ kind: 'skipped', reason: 'layer-skipped' })
-    expect([...map.layers.keys()].some((id) => id.startsWith('panel-target-'))).toBe(false)
-    expect(logError).toHaveBeenCalledWith('Skipped a map overlay that failed to sync:', error)
+    expect([...map.layers.keys()].some((id) => id.startsWith('site-'))).toBe(false)
+    expect(logError).toHaveBeenCalledWith('Skipped the Site data map overlay that failed to sync:', error)
   })
 
   it.each(['addSource', 'addLayer'] as const)('keeps the map admitted and editable when a live Target overlay %s throws', async (method) => {
@@ -431,13 +431,13 @@ describe('WorkspaceMapControls', () => {
     if (method === 'addSource') {
       const add = map.addSource.getMockImplementation()!
       map.addSource.mockImplementation((id, source) => {
-        if (id.startsWith('panel-target-')) throw error
+        if (id.startsWith('site-')) throw error
         add(id, source)
       })
     } else {
       const add = map.addLayer.getMockImplementation()!
       map.addLayer.mockImplementation((layer, before) => {
-        if (layer.id?.startsWith('panel-target-')) throw error
+        if (layer.id?.startsWith('site-')) throw error
         add(layer, before)
       })
     }
@@ -464,12 +464,12 @@ describe('WorkspaceMapControls', () => {
     const add = map.addSource.getMockImplementation()!
     map.addSource.mockImplementation((id, source) => {
       // MapLibre validates, emits an error event and does not add the source.
-      if (id.startsWith('panel-target-')) map.emit('error', { error: new Error(`sources.${id}: unknown property "id"`) })
+      if (id.startsWith('site-')) map.emit('error', { error: new Error(`sources.${id}: unknown property "id"`) })
       else add(id, source)
     })
     const addLayer = map.addLayer.getMockImplementation()!
     map.addLayer.mockImplementation((layer, before) => {
-      if (layer.id?.startsWith('panel-target-') && !map.sources.has(String((layer as { source?: unknown }).source))) {
+      if (layer.id?.startsWith('site-') && !map.sources.has(String((layer as { source?: unknown }).source))) {
         map.emit('error', { error: new Error(`layers.${layer.id}: source "${String((layer as { source?: unknown }).source)}" not found`) })
         return
       }

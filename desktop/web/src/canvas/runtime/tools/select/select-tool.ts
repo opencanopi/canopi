@@ -27,6 +27,7 @@ import {
   addPolygonCorner,
   canRemovePolygonCorner,
   isPolygonCorner,
+  isPolygonZone,
   removePolygonCorner,
   reshapableZone,
   zoneControlPointHandles,
@@ -190,7 +191,7 @@ export function createSelectTool(): CanvasTool {
     const c = ctx()
     if (point.modifiers.additive || point.modifiers.subtractive) return false
     const zone = reshapableZone(c.scene.persisted, c.scene.selectionModel())
-    if (zone?.zoneType !== 'polygon' || edge.zoneId !== zone.id) return false
+    if (!zone || !isPolygonZone(zone) || edge.zoneId !== zone.id) return false
     addPolygonCorner(c, zone.id, edge.edgeIndex, point.world)
     return true
   }

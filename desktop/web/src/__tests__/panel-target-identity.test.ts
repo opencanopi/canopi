@@ -3,9 +3,10 @@ import { hoveredPanelTargets, selectedPanelTargets } from '../app/panel-targets/
 import {
   MANUAL_TARGET,
   targetIdentity,
-  type TargetSceneInput,
 } from '../target'
 import type { PanelTarget } from '../types/design'
+
+type TargetSceneInput = Parameters<typeof targetIdentity.indexScene>[0]
 
 const NONE_TARGET = { kind: 'none' } as const
 

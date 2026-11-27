@@ -207,4 +207,44 @@ describe('world layers', () => {
     expect(layers.root.children[0]).toBe(aidsLayer)
     expect(aidsLayer.children).toEqual([aid(layers, 'grid')])
   })
+
+  it('canopi-1ecd: draws a zone highlight fill on the canvas for highlighted closed zones and none for linear zones', () => {
+    const layers = createWorldLayers()
+    const view = createTestRendererView({ x: 0, y: 0, scale: 12 })
+    const closedZone = {
+      kind: 'zone' as const,
+      locked: false,
+      id: 'zone-closed',
+      name: 'Orchard',
+      zoneType: 'polygon' as const,
+      rotationDeg: 0,
+      points: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 10 }],
+      fillColor: null,
+      notes: null,
+    }
+    const lineZone = {
+      kind: 'zone' as const,
+      locked: false,
+      id: 'zone-line',
+      name: 'Swale',
+      zoneType: 'line' as const,
+      rotationDeg: 0,
+      points: [{ x: 0, y: 0 }, { x: 10, y: 0 }],
+      fillColor: null,
+      notes: null,
+    }
+    const snapshot = createTestSceneRendererSnapshot({
+      scene: { zones: [closedZone, lineZone] },
+      highlightedZoneIds: new Set(['zone-closed', 'zone-line']),
+    })
+    layers.present(view, snapshot)
+    const zonesLayer = layers.root.children[1]!
+    const [closedGraphic, lineGraphic] = zonesLayer.children as Graphics[]
+    const closedFills = closedGraphic!.context.instructions.filter((i) => i.action === 'fill')
+    const lineFills = lineGraphic!.context.instructions.filter((i) => i.action === 'fill')
+    // Base fill + highlight fill (alpha 0.12) on the closed zone; no fill on the linear zone.
+    expect(closedFills.length).toBe(2)
+    expect((closedFills[1]!.data as { style: { alpha: number } }).style.alpha).toBeCloseTo(0.12)
+    expect(lineFills.length).toBe(0)
+  })
 })

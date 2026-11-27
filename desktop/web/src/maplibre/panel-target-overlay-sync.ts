@@ -1,7 +1,5 @@
-import type { PanelTargetMapOverlayVariant } from './panel-target-overlays'
-
 /**
- * A GeoJSON overlay the map draws in the interaction-overlay band: one source and its layers. The panel Targets, the Site data
+ * A GeoJSON overlay the map draws in the interaction-overlay band: one source and its layers. The Site data
  * pin and profile line, and the profile's hover ring each build one (architecture review, finding 7).
  */
 interface MapOverlayContract {
@@ -40,32 +38,11 @@ export interface MapLibreOverlayMap {
  */
 const sourceData = new WeakMap<MapLibreGeoJsonSource, string>()
 
-export function panelTargetMapOverlayIds(variant: PanelTargetMapOverlayVariant) {
-  const sourceId = `panel-target-${variant}-source`
-  return {
-    sourceId,
-    layerIds: [
-      `panel-target-${variant}-zones-fill`,
-      `panel-target-${variant}-zones-casing`,
-      `panel-target-${variant}-zones-line`,
-      `panel-target-${variant}-plants-halo`,
-      `panel-target-${variant}-plants`,
-    ] as const,
-  }
-}
-
 export function clearMapOverlay(map: MapLibreOverlayMap, ids: MapOverlayIds): void {
   for (const layerId of [...ids.layerIds].reverse()) {
     if (map.getLayer(layerId)) map.removeLayer(layerId)
   }
   if (map.getSource(ids.sourceId)) map.removeSource(ids.sourceId)
-}
-
-export function clearPanelTargetMapOverlay(
-  map: MapLibreOverlayMap,
-  variant: PanelTargetMapOverlayVariant,
-): void {
-  clearMapOverlay(map, panelTargetMapOverlayIds(variant))
 }
 
 /**

@@ -6,6 +6,8 @@ import {
 } from '../../../geo/session-plane'
 import { WEB_MERCATOR_GRID_MAX_LATITUDE_DEG } from '../../../geo/web-mercator'
 import type { ScenePersistedState, ScenePoint, SceneZoneEntity } from './types'
+import { isEllipseZoneWithRadii } from '../zone-geometry'
+export { isEllipseZoneWithRadii }
 
 // Positions are written rounded to 1e-9 degree (about 0.1 mm), latitude clamped to the grid inside Web Mercator.
 // Rounding is idempotent through the session plane, so an unedited position on the grid is written unchanged after
@@ -89,7 +91,7 @@ export class ScenePlaneReprojector {
   }
 
   zone(zone: SceneZoneEntity): SceneZoneEntity {
-    if (zone.zoneType === 'ellipse' && zone.points.length >= 2) {
+    if (isEllipseZoneWithRadii(zone)) {
       const [center, radii] = this.ellipse(zone.points[0]!, zone.points[1]!)
       return { ...zone, points: [center, radii, ...zone.points.slice(2).map((point) => this.point(point))] }
     }

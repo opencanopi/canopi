@@ -21,7 +21,6 @@
     "maplibre/terrain-sync.ts",
     "maplibre/terrain-loader.ts",
     "maplibre/panel-target-overlay-sync.ts",
-    "maplibre/panel-target-overlays.ts",
     "maplibre/site-overlay.ts",
     "maplibre/user-location-overlay.ts",
     "maplibre/raster-display/adapter.ts",

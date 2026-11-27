@@ -1,6 +1,6 @@
 import type { SceneBounds } from '../../../geo/view/types'
-import { degreesToRadians, pointsBounds, rotatePointAround } from '../zone-geometry'
-import type { CanvasDesignObjectSelectionModel } from '../runtime'
+import { degreesToRadians, getZoneWorldBounds, isEllipseZoneWithRadii, rotatePointAround, rotateZoneGeometry, translateZonePoints } from '../zone-geometry'
+export { getZoneWorldBounds, isEllipseZoneWithRadii, translateZonePoints }
 import {
   resolveSceneObjectGroupMembers,
   type SceneAnnotationEntity,
@@ -9,6 +9,12 @@ import {
   type ScenePoint,
   type SceneZoneEntity,
 } from '../scene'
+
+interface RotationSelectionInput {
+  readonly bounds: SceneBounds | null
+  readonly editableTargets: readonly { readonly kind: string; readonly id: string }[]
+  readonly blockedTargets: readonly unknown[]
+}
 
 /**
  * Rotating a selection about a pivot: the rotation handle's drag and the
@@ -47,7 +53,7 @@ interface MeasurementGuideRotationStart {
   readonly end: ScenePoint
 }
 
-export function isRotatableSelection(selection: CanvasDesignObjectSelectionModel): selection is CanvasDesignObjectSelectionModel & {
+export function isRotatableSelection<T extends RotationSelectionInput>(selection: T): selection is T & {
   readonly bounds: SceneBounds
   readonly editableTargets: readonly RotatableTarget[]
 } {
@@ -58,7 +64,7 @@ export function isRotatableSelection(selection: CanvasDesignObjectSelectionModel
 
 export function captureRotationTransformState(
   scene: ScenePersistedState,
-  selection: CanvasDesignObjectSelectionModel,
+  selection: RotationSelectionInput,
 ): RotationTransformState | null {
   if (!isRotatableSelection(selection)) return null
   const state = createRotationTransformState()
@@ -221,50 +227,16 @@ function rotateZone<T extends ScenePersistedState['zones'][number]>(
   pivot: ScenePoint,
   deltaDeg: number,
 ): T {
-  if (start.zoneType === 'ellipse' && start.points.length >= 2) {
-    return {
-      ...zone,
-      points: [
-        rotateByDegrees(start.points[0]!, pivot, deltaDeg),
-        { ...start.points[1]! },
-      ],
-      rotationDeg: normalizeRotationDeg(start.rotationDeg + deltaDeg),
-    }
-  }
-
-  if (start.zoneType === 'rect' && start.points.length >= 4) {
-    const bounds = pointsBounds(start.points.slice(0, 4))
-    const center = {
-      x: bounds.x + bounds.width / 2,
-      y: bounds.y + bounds.height / 2,
-    }
-    return {
-      ...zone,
-      points: rectPointsAroundCenter(rotateByDegrees(center, pivot, deltaDeg), bounds.width, bounds.height),
-      rotationDeg: normalizeRotationDeg(start.rotationDeg + deltaDeg),
-    }
-  }
-
+  const rotated = rotateZoneGeometry(start, pivot, deltaDeg, normalizeRotationDeg)
   return {
     ...zone,
-    points: start.points.map((point) => rotateByDegrees(point, pivot, deltaDeg)),
-    rotationDeg: start.rotationDeg,
+    points: rotated.points,
+    rotationDeg: rotated.rotationDeg,
   }
 }
 
 function rotateByDegrees(point: ScenePoint, pivot: ScenePoint, degrees: number): ScenePoint {
   return rotatePointAround(point, pivot, degreesToRadians(degrees))
-}
-
-function rectPointsAroundCenter(center: ScenePoint, width: number, height: number): ScenePoint[] {
-  const halfWidth = width / 2
-  const halfHeight = height / 2
-  return [
-    { x: center.x - halfWidth, y: center.y - halfHeight },
-    { x: center.x + halfWidth, y: center.y - halfHeight },
-    { x: center.x + halfWidth, y: center.y + halfHeight },
-    { x: center.x - halfWidth, y: center.y + halfHeight },
-  ]
 }
 
 

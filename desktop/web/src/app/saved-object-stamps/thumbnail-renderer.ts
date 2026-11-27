@@ -4,8 +4,8 @@ import {
   type SavedObjectStampZone,
 } from '../../canvas/saved-object-stamp-payload'
 import {
-  getEllipticalZonePolygon,
-  getRectangularZoneCorners,
+  getZoneOutlinePoints,
+  isZoneClosed,
   polygonArea,
 } from '../../canvas/runtime/zone-geometry'
 import type { ScenePoint, SceneZoneEntity } from '../../canvas/runtime/scene'
@@ -166,15 +166,12 @@ function zoneCandidate(zone: SavedObjectStampZone): ZoneCandidate | null {
     zone,
     points,
     area: Math.abs(polygonArea(points)),
-    closed: zone.zoneType !== 'line',
+    closed: isZoneClosed(zone),
   }
 }
 
 function zonePreviewPoints(zone: SavedObjectStampZone): readonly ScenePoint[] {
-  const sceneZone = sceneZoneFromSavedZone(zone)
-  if (zone.zoneType === 'rect') return getRectangularZoneCorners(sceneZone) ?? []
-  if (zone.zoneType === 'ellipse') return getEllipticalZonePolygon(sceneZone, 18) ?? []
-  return zone.points
+  return getZoneOutlinePoints(sceneZoneFromSavedZone(zone), 18)
 }
 
 function sceneZoneFromSavedZone(zone: SavedObjectStampZone): SceneZoneEntity {

@@ -57,7 +57,7 @@ type PassiveHoverAt = NonNullable<Parameters<ToolHostDeps['chrome']['setTooltip'
 
 const NO_HANDLES: HandleList = Object.freeze([])
 
-let descriptionSequence = 0
+const descriptionSequence = { value: 0 }
 
 /** The session's dependencies: today's, which the host and the chrome run on, then the pipeline's own. */
 export interface SceneInteractionSessionDeps {
@@ -882,7 +882,7 @@ function prepareInteractionHost(
 ): InteractionHostController {
   const previous = HOST_ATTRIBUTES.map((name) => [name, container.getAttribute(name)] as const)
   const description = document.createElement('div')
-  description.id = `canopi-map-keys-${++descriptionSequence}`
+  description.id = `canopi-map-keys-${++descriptionSequence.value}`
   description.hidden = true
   description.dataset.mapKeysDescription = 'true'
 

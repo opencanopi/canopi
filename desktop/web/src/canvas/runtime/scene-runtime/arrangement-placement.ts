@@ -1,4 +1,5 @@
 import { createUuid } from '../../../utils/ids'
+import { isEllipseZoneWithRadii } from './selection-rotation'
 import type {
   SceneAnnotationEntity,
   SceneDesignObjectTarget,
@@ -247,7 +248,7 @@ export function translateZonePoints(
   zone: Pick<SceneZoneEntity, 'zoneType' | 'points'>,
   delta: ScenePoint,
 ): ScenePoint[] {
-  if (zone.zoneType === 'ellipse' && zone.points.length >= 2) {
+  if (isEllipseZoneWithRadii(zone)) {
     return zone.points.map((point, index) => index === 1 ? { ...point } : translatePoint(point, delta))
   }
   return zone.points.map((point) => translatePoint(point, delta))

@@ -19,6 +19,7 @@ import { formatShortcut } from '../shell-commands/shortcut-text'
 import type { CanvasContextMenuRequest } from '../../canvas/runtime/app-adapter'
 import type { PointAction } from '../../canvas/point-editor/rules'
 import type { CanvasDesignObjectSelectionModel } from '../../canvas/runtime/runtime'
+import { isLineZone } from '../../canvas/runtime/zone-geometry'
 import {
   selectionCommandAvailability,
   selectionIncludesPlants,
@@ -492,7 +493,7 @@ function profileLineTarget(
   const [only] = targets
   if (targets.length !== 1 || !only) return null
   if (only.kind === 'measurement-guide') return { kind: 'measurement-guide', id: only.id }
-  return only.kind === 'zone' && summary?.zones.length === 1 && summary.zones[0]!.zoneType === 'line'
+  return only.kind === 'zone' && summary?.zones.length === 1 && isLineZone(summary.zones[0]!)
     ? { kind: 'zone', id: only.id }
     : null
 }

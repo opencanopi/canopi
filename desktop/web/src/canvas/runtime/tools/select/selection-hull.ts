@@ -15,7 +15,7 @@ import { resolveSceneObjectGroupMembers } from '../../scene/group-members'
 import type { SceneDesignObjectTarget } from '../../scene/design-object-targets'
 import type { SceneZoneEntity } from '../../scene/types'
 import type { WorldPoint, WorldQuad } from '../../../../geo/view/types'
-import { getRectangularZoneCorners } from '../../zone-geometry'
+import { dispatchZoneByShape, getRectangularZoneCorners } from '../../zone-geometry'
 import { screenBasisOf, screenCoordsToWorldDelta, worldDeltaToScreenCoords } from '../screen-basis'
 import type { ToolScene, ToolView } from '../tool'
 
@@ -101,24 +101,33 @@ function addZone(
   span: (centre: WorldPoint, halfAcross: number, halfDown: number) => void,
   points: (outline: readonly WorldPoint[]) => void,
 ): void {
-  if (zone.zoneType === 'rect' && zone.points.length >= 4) {
-    const corners = getRectangularZoneCorners(zone)
-    if (corners) points(corners)
-    return
-  }
-  if (zone.zoneType === 'ellipse' && zone.points.length >= 2) {
-    // The turned ellipse's half-extent in the (right, down) dual basis: hypot of the two semi-axes' coordinates.
-    const centre = zone.points[0]!
-    const radii = zone.points[1]!
-    const radians = (zone.rotationDeg * Math.PI) / 180
-    const major = { x: Math.cos(radians) * Math.abs(radii.x), y: Math.sin(radians) * Math.abs(radii.x) }
-    const minor = { x: -Math.sin(radians) * Math.abs(radii.y), y: Math.cos(radians) * Math.abs(radii.y) }
-    span(
-      centre,
-      Math.hypot(coordAcross(major), coordAcross(minor)),
-      Math.hypot(coordDown(major), coordDown(minor)),
-    )
-    return
-  }
-  points(zone.points)
+  dispatchZoneByShape(zone, {
+    rect: () => {
+      if (zone.points.length >= 4) {
+        const corners = getRectangularZoneCorners(zone)
+        if (corners) points(corners)
+        return
+      }
+      points(zone.points)
+    },
+    ellipse: () => {
+      if (zone.points.length >= 2) {
+        // The turned ellipse's half-extent in the (right, down) dual basis: hypot of the two semi-axes' coordinates.
+        const centre = zone.points[0]!
+        const radii = zone.points[1]!
+        const radians = (zone.rotationDeg * Math.PI) / 180
+        const major = { x: Math.cos(radians) * Math.abs(radii.x), y: Math.sin(radians) * Math.abs(radii.x) }
+        const minor = { x: -Math.sin(radians) * Math.abs(radii.y), y: Math.cos(radians) * Math.abs(radii.y) }
+        span(
+          centre,
+          Math.hypot(coordAcross(major), coordAcross(minor)),
+          Math.hypot(coordDown(major), coordDown(minor)),
+        )
+        return
+      }
+      points(zone.points)
+    },
+    polygon: () => { points(zone.points) },
+    line: () => { points(zone.points) },
+  })
 }

@@ -4,8 +4,8 @@ import {
   type ScenePersistedState,
   type SceneSessionState,
 } from './types'
-import { allocateSpeciesCodes } from '../species-key'
 import {
+  allocateSpeciesCodes,
   cloneScenePersistedState,
   cloneSceneSessionState,
   hydrateSceneFromDesign,

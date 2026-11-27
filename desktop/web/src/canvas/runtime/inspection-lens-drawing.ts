@@ -26,7 +26,7 @@ import {
 } from './scene-visuals'
 import type { ViewTransform } from '../../geo/view/types'
 import { pixelsPerMetreAt } from '../../geo/view/view-transform'
-import { getRectangularZoneCorners } from './zone-geometry'
+import { isZoneClosed, traceZoneOutline } from './zone-geometry'
 import { getCanvasColor } from '../theme-refresh'
 
 const ZONE_STROKE_PX = 2
@@ -88,7 +88,7 @@ function drawZones(ctx: CanvasRenderingContext2D, scene: ScenePersistedState, pi
     traceZonePath(ctx, zone)
     ctx.fillStyle = visual.fill
     ctx.globalAlpha = 0.2 * layer.opacity
-    if (zone.zoneType !== 'line') ctx.fill()
+    if (isZoneClosed(zone)) ctx.fill()
     ctx.globalAlpha = layer.opacity
     ctx.strokeStyle = visual.casing
     ctx.lineWidth = (ZONE_STROKE_PX + OVERLAY_CASING_EXTRA_PX) / pixelsPerMetre
@@ -102,44 +102,22 @@ function drawZones(ctx: CanvasRenderingContext2D, scene: ScenePersistedState, pi
 }
 
 function traceZonePath(ctx: CanvasRenderingContext2D, zone: SceneZoneEntity): void {
-  if (zone.zoneType === 'rect' && zone.points.length >= 4) {
-    traceClosedPath(ctx, getRectangularZoneCorners(zone)!)
-    return
-  }
-
-  if (zone.zoneType === 'ellipse' && zone.points.length >= 2) {
-    const center = zone.points[0]!
-    const radii = zone.points[1]!
-    ctx.ellipse(
-      center.x,
-      center.y,
-      Math.abs(radii.x),
-      Math.abs(radii.y),
-      (zone.rotationDeg * Math.PI) / 180,
-      0,
-      Math.PI * 2,
-    )
-    return
-  }
-
-  const first = zone.points[0]
-  if (!first) return
-  ctx.moveTo(first.x, first.y)
-  for (let i = 1; i < zone.points.length; i += 1) {
-    const point = zone.points[i]!
-    ctx.lineTo(point.x, point.y)
-  }
-  if (zone.zoneType !== 'line') ctx.closePath()
-}
-
-function traceClosedPath(ctx: CanvasRenderingContext2D, points: readonly { x: number; y: number }[]): void {
-  const first = points[0]!
-  ctx.moveTo(first.x, first.y)
-  for (let index = 1; index < points.length; index += 1) {
-    const point = points[index]!
-    ctx.lineTo(point.x, point.y)
-  }
-  ctx.closePath()
+  traceZoneOutline(zone, {
+    rect: (x, y, width, height) => { ctx.rect(x, y, width, height) },
+    ellipse: (cx, cy, rx, ry, rotationDeg) => {
+      ctx.ellipse(cx, cy, rx, ry, (rotationDeg * Math.PI) / 180, 0, Math.PI * 2)
+    },
+    polyline: (points, closed) => {
+      const first = points[0]
+      if (!first) return
+      ctx.moveTo(first.x, first.y)
+      for (let i = 1; i < points.length; i += 1) {
+        const point = points[i]!
+        ctx.lineTo(point.x, point.y)
+      }
+      if (closed) ctx.closePath()
+    },
+  })
 }
 
 function drawPlants(

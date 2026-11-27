@@ -9,7 +9,7 @@ import {
   serializeGeoPoint,
   type ScenePoint,
 } from '../../canvas/runtime/scene'
-import { getZoneWorldBounds } from '../../canvas/runtime/zone-geometry'
+import { getZoneWorldBounds, isEllipseZoneWithRadii } from '../../canvas/runtime/zone-geometry'
 import { CURRENT_CANOPI_FILE_VERSION } from '../../generated/canopi-design-format'
 import { createSessionPlane, sessionPlaneOriginForPoints, type SessionPlane } from '../../geo/session-plane'
 import { t } from '../../i18n'
@@ -212,13 +212,13 @@ function stampZonePointsToGeo(
   plane: SessionPlane,
   zone: SavedObjectStampPayload['zones'][number],
 ): CanopiFile['zones'][number]['points'] {
-  return zone.zoneType === 'ellipse' && zone.points.length >= 2
+  return isEllipseZoneWithRadii(zone)
     ? serializeGeoEllipse(plane, zone.points[0]!, zone.points[1]!)
     : zone.points.map((point) => serializeGeoPoint(plane, point))
 }
 
 function stampZonePointsFromGeo(plane: SessionPlane, zone: CanopiFile['zones'][number]): ScenePoint[] {
-  return zone.zone_type === 'ellipse' && zone.points.length >= 2
+  return isEllipseZoneWithRadii(zone)
     ? hydrateGeoEllipse(plane, [zone.points[0]!, zone.points[1]!])
     : zone.points.map((point) => hydrateGeoPoint(plane, point))
 }

@@ -123,11 +123,23 @@ const HIT_EPSILON = 0.000001
 
 type MeasureContext = Pick<CanvasRenderingContext2D, 'font' | 'measureText'>
 
-/** The 2D context notes are measured with; null where there is none, and undefined until the first note asks. */
-let measureContext: MeasureContext | null | undefined
-const textMetricsByKey = new Map<string, AnnotationTextMetrics>()
-/** The font epoch the memoised widths were measured at. */
-let metricsEpoch = canvasFonts.epoch()
+interface AnnotationLayoutCache {
+  measureContext: MeasureContext | null | undefined
+  readonly textMetricsByKey: Map<string, AnnotationTextMetrics>
+  metricsEpoch: number
+}
+
+const layoutCacheByHost = new WeakMap<object, AnnotationLayoutCache>()
+
+function layoutCache(): AnnotationLayoutCache {
+  const key = globalThis.document ?? globalThis
+  let cache = layoutCacheByHost.get(key)
+  if (!cache) {
+    cache = { measureContext: undefined, textMetricsByKey: new Map(), metricsEpoch: canvasFonts.epoch() }
+    layoutCacheByHost.set(key, cache)
+  }
+  return cache
+}
 
 /** Counts the web-font loads that re-measured the notes; memos of anything sized by a note keep it in their key. */
 export function getAnnotationFontEpoch(): number {
@@ -146,13 +158,14 @@ export function onAnnotationFontLoad(listener: () => void): () => void {
  * this module's importers (the tools), hence the 2D context of its own.
  */
 function getAnnotationTextMetrics(annotation: Pick<SceneAnnotationEntity, 'text' | 'fontSize'>): AnnotationTextMetrics {
+  const cache = layoutCache()
   // A font load forgets every width measured in the fallback.
-  if (metricsEpoch !== canvasFonts.epoch()) {
-    metricsEpoch = canvasFonts.epoch()
-    textMetricsByKey.clear()
+  if (cache.metricsEpoch !== canvasFonts.epoch()) {
+    cache.metricsEpoch = canvasFonts.epoch()
+    cache.textMetricsByKey.clear()
   }
   const key = `${annotation.fontSize}|${annotation.text}`
-  const known = textMetricsByKey.get(key)
+  const known = cache.textMetricsByKey.get(key)
   if (known) return known
   const lines = annotation.text.split('\n')
   const lineHeightPx = annotation.fontSize * LINE_HEIGHT_FACTOR
@@ -161,8 +174,8 @@ function getAnnotationTextMetrics(annotation: Pick<SceneAnnotationEntity, 'text'
     heightPx: Math.max(lines.length * lineHeightPx, annotation.fontSize),
     lineHeightPx,
   }
-  if (textMetricsByKey.size >= 512) textMetricsByKey.clear()
-  textMetricsByKey.set(key, metrics)
+  if (cache.textMetricsByKey.size >= 512) cache.textMetricsByKey.clear()
+  cache.textMetricsByKey.set(key, metrics)
   return metrics
 }
 
@@ -184,15 +197,16 @@ function measureLinesWidth(lines: readonly string[], fontSize: number): number {
  * rather than a width measured in a fallback font for good.
  */
 function getMeasureContext(): MeasureContext | null {
-  if (measureContext !== undefined) return measureContext
+  const cache = layoutCache()
+  if (cache.measureContext !== undefined) return cache.measureContext
   try {
-    measureContext = !globalThis.document?.fonts ? null
+    cache.measureContext = !globalThis.document?.fonts ? null
       : typeof OffscreenCanvas === 'function' ? new OffscreenCanvas(1, 1).getContext('2d')
         : document.createElement('canvas').getContext('2d')
   } catch {
-    measureContext = null
+    cache.measureContext = null
   }
-  return measureContext
+  return cache.measureContext
 }
 
 export function getAnnotationWorldBounds(

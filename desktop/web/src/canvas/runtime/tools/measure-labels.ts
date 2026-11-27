@@ -11,7 +11,7 @@ import { isSceneObjectGroupMemberTarget } from '../scene/group-members'
 import type { ScenePersistedState } from '../scene/types'
 import type { GroundMeasure } from '../../../geo/session-plane'
 import type { ScreenPoint, WorldPoint } from '../../../geo/view/types'
-import { getRectangularZoneCorners, polygonArea } from '../zone-geometry'
+import { dispatchZoneByShape, getRectangularZoneCorners, polygonArea } from '../zone-geometry'
 import {
   createEllipticalZoneMeasurements,
   createLinearZoneMeasurements,
@@ -96,13 +96,14 @@ export function selectedZoneMeasurementLabels(
   const zone = scene.zones.find((entry) => entry.id === target.id)
   if (!zone) return []
 
-  if (zone.zoneType === 'ellipse' && zone.points.length >= 2) {
-    return createEllipticalZoneMeasurements(zone.points[0]!, zone.points[1]!, zone.rotationDeg, measure)
-  }
-  if (zone.zoneType === 'line' && zone.points.length >= 2) {
-    return createLinearZoneMeasurements(zone.points[0]!, zone.points[1]!, measure)
-  }
-  if (zone.zoneType === 'polygon') return createPolygonalZoneMeasurements(zone.points, measure)
-  if (zone.zoneType !== 'rect') return []
-  return createRectangularZoneMeasurements(getRectangularZoneCorners(zone) ?? zone.points, measure)
+  return dispatchZoneByShape(zone, {
+    ellipse: (z) => z.points.length >= 2
+      ? createEllipticalZoneMeasurements(z.points[0]!, z.points[1]!, z.rotationDeg, measure)
+      : [],
+    line: (z) => z.points.length >= 2
+      ? createLinearZoneMeasurements(z.points[0]!, z.points[1]!, measure)
+      : [],
+    polygon: (z) => createPolygonalZoneMeasurements(z.points, measure),
+    rect: (z) => createRectangularZoneMeasurements(getRectangularZoneCorners(z) ?? z.points, measure),
+  })
 }

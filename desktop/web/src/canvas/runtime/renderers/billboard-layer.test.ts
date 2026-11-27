@@ -13,7 +13,7 @@ import { getCanvasDetailLayout } from '../automatic-detail'
 import { buildPlantPresentationEntries } from '../plant-presentation'
 import { ROUND_PLANT_SYMBOL_RADIUS } from '../plant-symbol-recipes'
 import type { SceneAnnotationEntity, ScenePlantEntity, ScenePoint } from '../scene'
-import { setCanvasMapBackdrop } from '../scene-visuals'
+import { getMapBackdropInk } from '../scene-visuals'
 import { screenAngleForWorldAngle } from '../../../geo/view/view-transform'
 import { createBillboardLayer } from './billboard-layer'
 import type * as AutomaticDetailModule from '../automatic-detail'
@@ -27,7 +27,6 @@ vi.mock('../automatic-detail', async (importOriginal) => {
 afterEach(() => {
   vi.restoreAllMocks()
   delete window.__CANOPI_PIXI_SCENE_WORK__
-  setCanvasMapBackdrop('basemap')
 })
 
 function createPlant(overrides: Partial<ScenePlantEntity> = {}): ScenePlantEntity {
@@ -343,10 +342,9 @@ describe('billboard layer', () => {
     const theme = document.createElement('div')
     theme.style.setProperty('--canvas-selection-stroke', '#123456')
     try {
-      // A theme and a backdrop change each send the same scene again.
+      // A theme and a backdrop change each send a new snapshot.
       refreshCanvasColorCache(theme)
-      setCanvasMapBackdrop('satellite')
-      layer.present(view, retainedScene())
+      layer.present(view, { ...retainedScene(), mapBackdrop: 'satellite', backdropInk: getMapBackdropInk('satellite') })
       const colours = shownGraphics(layer.root).map((graphics) => strokeColours(graphics.context))
       // The ring and the outline take the new selection colour; the badge and the marker the satellite ink.
       expect(colours.flat()).toContain(0x123456)
@@ -359,6 +357,25 @@ describe('billboard layer', () => {
       theme.style.setProperty('--canvas-selection-stroke', '#9C5A16')
       refreshCanvasColorCache(theme)
       layer.dispose()
+    }
+  })
+
+  it('two independent billboard surfaces render from their own snapshots with no shared process globals (ADR 0024)', () => {
+    const view = createTestRendererView({ x: 0, y: 0, scale: 6 })
+    const lightLayer = createBillboardLayer({ createText: () => new Text(), viewSize: { width: 400, height: 300 } })
+    const darkLayer = createBillboardLayer({ createText: () => new Text(), viewSize: { width: 400, height: 300 } })
+    try {
+      const base = retainedScene()
+      lightLayer.present(view, { ...base, mapBackdrop: 'basemap', backdropInk: getMapBackdropInk('basemap') })
+      darkLayer.present(view, { ...base, mapBackdrop: 'satellite', backdropInk: getMapBackdropInk('satellite') })
+
+      const lightColours = shownGraphics(lightLayer.root).flatMap((g) => strokeColours(g.context))
+      const darkColours = shownGraphics(darkLayer.root).flatMap((g) => strokeColours(g.context))
+      expect(lightColours).toContain(0xfff8ec)
+      expect(darkColours).toContain(0x14100a)
+    } finally {
+      lightLayer.dispose()
+      darkLayer.dispose()
     }
   })
 })

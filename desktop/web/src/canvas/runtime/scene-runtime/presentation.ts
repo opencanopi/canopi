@@ -1,4 +1,4 @@
-import { getRevealedAnnotationId } from '../annotation-layout'
+import { getAnnotationFontEpoch, getRevealedAnnotationId } from '../annotation-layout'
 import type { PlantPresentationContext } from '../plant-presentation'
 import {
   createDetachedCanvasPlantLabelSource,
@@ -8,7 +8,8 @@ import {
   type SpeciesCacheEntry,
 } from '../presentation-data'
 import type { SceneEditingAids, SceneRendererHoverTarget, SceneRendererSnapshot } from '../renderers/scene-types'
-import type { PlantLabelMode } from '../plant-display'
+import { DEFAULT_PLANT_DISPLAY, plantDisplaysEqual, type PlantDisplay, type PlantLabelMode } from '../plant-display'
+import { getMapBackdropInk, readCanvasPaintTokens, type CanvasBackdropInk, type CanvasMapBackdrop } from '../scene-visuals'
 import type {
   SceneDesignObjectTarget,
   ScenePersistedState,
@@ -53,6 +54,8 @@ export class SceneRuntimePresentationController {
   private _presentedLayerNames: ReadonlySet<string> | null = null
   /** The workspace's grid (SceneCanvasRuntime's, while the chrome shows and the grid is on); null draws none. */
   private _editingAids: SceneEditingAids | null = null
+  private _plantDisplay: PlantDisplay = DEFAULT_PLANT_DISPLAY
+  private _mapBackdrop: CanvasMapBackdrop = 'basemap'
 
   constructor(options: SceneRuntimePresentationControllerOptions) {
     this._sceneStore = options.sceneStore
@@ -89,7 +92,32 @@ export class SceneRuntimePresentationController {
       pixelsPerMetre: viewportScale,
       speciesCache: this._speciesCache.getCache(),
       localizedCommonNames: this.getLocalizedCommonNames(),
+      plantDisplay: this._plantDisplay,
     }
+  }
+
+  getPlantDisplay(): PlantDisplay {
+    return this._plantDisplay
+  }
+
+  setPlantDisplay(display: PlantDisplay): boolean {
+    if (plantDisplaysEqual(this._plantDisplay, display)) return false
+    this._plantDisplay = display
+    return true
+  }
+
+  getMapBackdrop(): CanvasMapBackdrop {
+    return this._mapBackdrop
+  }
+
+  getBackdropInk(): CanvasBackdropInk {
+    return getMapBackdropInk(this._mapBackdrop)
+  }
+
+  setMapBackdrop(backdrop: CanvasMapBackdrop): boolean {
+    if (this._mapBackdrop === backdrop) return false
+    this._mapBackdrop = backdrop
+    return true
   }
 
   /**
@@ -122,7 +150,9 @@ export class SceneRuntimePresentationController {
     if (presented) return this.buildPresentedSnapshot(presented, options.overview === true)
     const scene = this._sceneStore.persisted
     const session = this._sceneStore.session
-    if (options.overview) return buildOverviewRendererSnapshot(scene, session.speciesFocus)
+    if (options.overview) {
+      return buildOverviewRendererSnapshot(scene, session.speciesFocus, this._plantDisplay, this._mapBackdrop)
+    }
     const hoveredPlant = session.hoveredTarget?.kind === 'plant'
       ? scene.plants.find((plant) => plant.id === session.hoveredTarget?.id)
       : null
@@ -147,6 +177,11 @@ export class SceneRuntimePresentationController {
       localizedCommonNames,
       hoveredCanonicalName: hoveredPlant?.canonicalName ?? null,
       hoverTarget: getRendererHoverTarget(scene, session.hoveredTarget),
+      plantDisplay: this._plantDisplay,
+      mapBackdrop: this._mapBackdrop,
+      backdropInk: getMapBackdropInk(this._mapBackdrop),
+      paintTokens: readCanvasPaintTokens(),
+      annotationFontEpoch: getAnnotationFontEpoch(),
       ...this._editingAids ? { editingAids: this._editingAids } : {},
       groundMeasure: this._sceneStore.sessionPlane,
     }
@@ -185,7 +220,9 @@ export class SceneRuntimePresentationController {
       layers: persisted.layers.map((layer) => ({ ...layer, visible: visible.has(layer.name) })),
     }
     const speciesFocus = { canonicalName: request.focusedSpecies }
-    if (request.overview) return buildOverviewRendererSnapshot(scene, speciesFocus)
+    if (request.overview) {
+      return buildOverviewRendererSnapshot(scene, speciesFocus, this._plantDisplay, this._mapBackdrop)
+    }
     const localizedCommonNames = this.getLocalizedCommonNames()
     const speciesCache = this._speciesCache.getCache()
     const selectionLabelPlantIds = new Set<string>()
@@ -212,6 +249,11 @@ export class SceneRuntimePresentationController {
       localizedCommonNames,
       hoveredCanonicalName: null,
       hoverTarget: null,
+      plantDisplay: this._plantDisplay,
+      mapBackdrop: this._mapBackdrop,
+      backdropInk: getMapBackdropInk(this._mapBackdrop),
+      paintTokens: readCanvasPaintTokens(),
+      annotationFontEpoch: getAnnotationFontEpoch(),
       ...request.plantLabels ? { plantLabels: request.plantLabels } : {},
       groundMeasure: this._sceneStore.sessionPlane,
     }
@@ -262,6 +304,8 @@ function editingAidsEqual(a: SceneEditingAids | null, b: SceneEditingAids | null
 function buildOverviewRendererSnapshot(
   scene: ScenePersistedState,
   speciesFocus: SceneRendererSnapshot['speciesFocus'],
+  plantDisplay: PlantDisplay,
+  mapBackdrop: CanvasMapBackdrop,
 ): SceneRendererSnapshot {
   return {
     scene: {
@@ -285,6 +329,11 @@ function buildOverviewRendererSnapshot(
     localizedCommonNames: new Map(),
     hoveredCanonicalName: null,
     hoverTarget: null,
+    plantDisplay,
+    mapBackdrop,
+    backdropInk: getMapBackdropInk(mapBackdrop),
+    paintTokens: readCanvasPaintTokens(),
+    annotationFontEpoch: getAnnotationFontEpoch(),
   }
 }
 

@@ -26,7 +26,12 @@ import {
   sceneTargetKey,
 } from '../scene'
 import type { SpeciesCacheEntry } from '../presentation-data'
-import { getEllipticalZonePolygon, getRectangularZoneCorners, pointsBounds } from '../zone-geometry'
+import {
+  getZoneEdges,
+  getZoneHitOutline,
+  isEllipseZoneWithRadii,
+  pointsBounds,
+} from '../zone-geometry'
 export { createScreenAlignedBounds } from '../zone-geometry'
 
 /**
@@ -323,13 +328,7 @@ export function zoneEdgeSegment(zone: SceneZoneEntity, edgeIndex: number): reado
 }
 
 function zoneEdges(zone: SceneZoneEntity): ReadonlyArray<readonly [ScenePoint, ScenePoint]> {
-  if (zone.zoneType === 'line' && zone.points.length >= 2) return [[zone.points[0]!, zone.points[1]!]]
-  if (zone.zoneType === 'polygon' && zone.points.length >= 3) return edgesOf(zone.points)
-  if (zone.zoneType === 'rect' && zone.points.length >= 4) {
-    const corners = getRectangularZoneCorners(zone)
-    return corners ? edgesOf(corners) : []
-  }
-  return []
+  return getZoneEdges(zone)
 }
 
 /** Line zones and guides, for every pointer: they keep their picking (canopi-qd2k). */
@@ -341,18 +340,12 @@ const MIN_ELLIPSE_BOUNDARY_SEGMENTS = 48
  *  closed zone's outline, LINE_HIT_TOLERANCE_PX for a line zone), else null; never by its inside. */
 function zoneLineDistancePx(zone: SceneZoneEntity, point: ScenePoint, viewportScale: number, pointer: PointerKind): number | null {
   const scale = Math.max(viewportScale, 1e-6)
-  let outline: readonly ScenePoint[] | null
-  if (zone.zoneType === 'line' && zone.points.length >= 2) {
-    const distancePx = distanceToSegment(point, zone.points[0]!, zone.points[1]!) * scale
+  const hitOutline = getZoneHitOutline(zone, ellipseBoundarySegmentCount(zone, viewportScale))
+  if (hitOutline && !hitOutline.closed && hitOutline.points.length >= 2) {
+    const distancePx = distanceToSegment(point, hitOutline.points[0]!, hitOutline.points[1]!) * scale
     return distancePx <= LINE_HIT_TOLERANCE_PX + GEOMETRY_EPSILON ? distancePx : null
   }
-  if (zone.zoneType === 'rect' && zone.points.length >= 4) outline = getRectangularZoneCorners(zone)
-  else if (zone.zoneType === 'ellipse' && zone.points.length >= 2) {
-    outline = getEllipticalZonePolygon(zone, ellipseBoundarySegmentCount(zone, viewportScale))
-  } else if (zone.zoneType === 'polygon' && zone.points.length >= 3) outline = zone.points
-  // A shape too short of points for its kind: the outline of its bounds.
-  else outline = rectCorners(zoneBounds(zone))
-  if (!outline) return null
+  const outline = hitOutline?.points ?? rectCorners(zoneBounds(zone))
   const distancePx = distanceToOutline(point, outline) * scale
   return distancePx <= PICK_TOLERANCE_PX[pointer] + GEOMETRY_EPSILON ? distancePx : null
 }
@@ -361,25 +354,11 @@ function zoneLineDistancePx(zone: SceneZoneEntity, point: ScenePoint, viewportSc
  *  band wholly inside a zone leaves the zone out (canopi-qd2k). An ellipse's outline follows its drawn curve at the zoom,
  *  as a click's does. */
 function zoneIntersectsPolygon(zone: SceneZoneEntity, area: QueryPolygon, viewportScale: number): boolean {
-  if (zone.zoneType === 'rect' && zone.points.length >= 4) {
-    const corners = getRectangularZoneCorners(zone)
-    return corners ? outlineIntersectsPolygon(corners, area) : false
+  const hitOutline = getZoneHitOutline(zone, ellipseBoundarySegmentCount(zone, viewportScale))
+  if (hitOutline && !hitOutline.closed && hitOutline.points.length >= 2) {
+    return segmentIntersectsPolygon(hitOutline.points[0]!, hitOutline.points[1]!, area)
   }
-
-  if (zone.zoneType === 'ellipse' && zone.points.length >= 2) {
-    const polygon = getEllipticalZonePolygon(zone, ellipseBoundarySegmentCount(zone, viewportScale))
-    return polygon ? outlineIntersectsPolygon(polygon, area) : false
-  }
-
-  if (zone.zoneType === 'line' && zone.points.length >= 2) {
-    return segmentIntersectsPolygon(zone.points[0]!, zone.points[1]!, area)
-  }
-
-  if (zone.zoneType === 'polygon' && zone.points.length >= 3) {
-    return outlineIntersectsPolygon(zone.points, area)
-  }
-
-  return outlineIntersectsPolygon(rectCorners(zoneBounds(zone)), area)
+  return outlineIntersectsPolygon(hitOutline?.points ?? rectCorners(zoneBounds(zone)), area)
 }
 
 /** A closed outline and the band's polygon: a corner of the outline inside the band, or crossing edges. */
@@ -553,7 +532,7 @@ function plantIntersectsPolygon(
 }
 
 function zoneBounds(zone: SceneZoneEntity): SimpleRect {
-  if (zone.zoneType === 'ellipse' && zone.points.length >= 2) {
+  if (isEllipseZoneWithRadii(zone)) {
     const center = zone.points[0]!
     const radii = zone.points[1]!
     return {

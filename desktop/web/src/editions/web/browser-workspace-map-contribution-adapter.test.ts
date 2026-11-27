@@ -4,7 +4,7 @@ import { clearPanelOriginTargets, setHoveredPanelTargets } from '../../app/panel
 import { createTestCanvasQuerySurface, type TestPlacement } from '../../__tests__/support/canvas-query-surface'
 import { createSessionPlane, type SessionPlane } from '../../geo/session-plane'
 import { createBrowserWorkspaceMapContributionAdapter } from './browser-workspace-map-contribution-adapter'
-import { setCanvasMapBackdrop } from '../../canvas/runtime/scene-visuals'
+import { markCanvasPaintChanged } from '../../canvas/theme-refresh'
 import { myLocation } from '../../app/my-location/session'
 import { setMapBackground, setMapLayerVisible } from '../../app/map-layers/actions'
 import {
@@ -84,11 +84,10 @@ describe('browser workspace map contribution adapter', () => {
       reads += 1
     })
     try {
-      setCanvasMapBackdrop('satellite')
+      markCanvasPaintChanged()
       expect(reads).toBe(2)
     } finally {
       stop()
-      setCanvasMapBackdrop('basemap')
     }
   })
 

@@ -1,8 +1,6 @@
 import type { CanvasQuerySurface } from '../../canvas/runtime/runtime'
-import { createPanelTargetMapOverlayContract } from '../../maplibre/panel-target-overlays'
 import {
   clearMapOverlay,
-  clearPanelTargetMapOverlay,
   syncMapOverlay,
   type MapLibreOverlayMap,
 } from '../../maplibre/panel-target-overlay-sync'
@@ -12,10 +10,9 @@ import {
   siteMapOverlayIds,
   type SiteMapOverlay,
 } from '../../maplibre/site-overlay'
-import { projectTargetsToMapFeatures } from '../../target'
 import type { PanelTarget } from '../../types/design'
 
-/** The panel Targets the map highlights, and the Scene and plane origin they are projected from; the Site data pin and line. */
+/** Map overlay snapshot: the Site data pin and line (panel highlights draw on the canvas only, canopi-1ecd). */
 export interface CanvasMapSurfaceOverlaySnapshot {
   readonly runtime: Pick<CanvasQuerySurface, 'getSceneSnapshot'>
   readonly location: { readonly lat: number; readonly lon: number }
@@ -26,29 +23,6 @@ export interface CanvasMapSurfaceOverlaySnapshot {
    * neither. The chart hover never rides the snapshot: `readSiteHover?()` feeds `WorkspaceMapContributions.setSiteHover`.
    */
   readonly site: SiteMapOverlay | null
-}
-
-export function clearCanvasMapSurfaceOverlays(map: MapLibreOverlayMap): void {
-  clearPanelTargetMapOverlay(map, 'hover')
-  clearPanelTargetMapOverlay(map, 'selection')
-}
-
-/** Paints the hover and selection overlays; with no Targets it clears them without reading the Scene. */
-export function syncCanvasMapSurfaceOverlays(map: MapLibreOverlayMap, snapshot: CanvasMapSurfaceOverlaySnapshot): void {
-  const { hoveredTargets, selectedTargets, location } = snapshot
-  if (hoveredTargets.length === 0 && selectedTargets.length === 0) {
-    clearCanvasMapSurfaceOverlays(map)
-    return
-  }
-  const scene = snapshot.runtime.getSceneSnapshot()
-  syncMapOverlay(map, createPanelTargetMapOverlayContract(
-    'selection',
-    projectTargetsToMapFeatures(selectedTargets, scene, location),
-  ))
-  syncMapOverlay(map, createPanelTargetMapOverlayContract(
-    'hover',
-    projectTargetsToMapFeatures(hoveredTargets, scene, location),
-  ))
 }
 
 /** Clears the Site data pin and line, and the hover ring drawn over them. */

@@ -9,10 +9,12 @@
 import 'pixi.js/unsafe-eval'
 import { Container, TextStyle, type Graphics, type Text, type TextStyleOptions } from 'pixi.js'
 import { isSceneObjectGroupMemberTarget, type ScenePoint } from '../scene'
+import type { CanvasPaintTokens } from '../../theme-refresh'
 import {
   getCanvasInteractionStrokeVisual,
   getLabelHalo,
   OVERLAY_CASING_EXTRA_PX,
+  type CanvasBackdropInk,
   type CanvasInteractionStrokeVisual,
   type CanvasInteractionVisualState,
 } from '../scene-visuals'
@@ -99,8 +101,11 @@ export function casedStroke(visual: CanvasInteractionStrokeVisual, pixelsPerMetr
 }
 
 /** The cased outline of an interaction state in CSS px. */
-export function interactionOutline(state: CanvasInteractionVisualState): CasedStroke {
-  return casedStroke(getCanvasInteractionStrokeVisual(state), 1)
+export function interactionOutline(
+  state: CanvasInteractionVisualState,
+  paintTokens?: CanvasPaintTokens,
+): CasedStroke {
+  return casedStroke(getCanvasInteractionStrokeVisual(state, paintTokens), 1)
 }
 
 export function drawClosedPath(graphics: Graphics, points: readonly ScenePoint[]): Graphics {
@@ -248,8 +253,11 @@ export function hoverStateForTarget(
 const textStyleKeys = new WeakMap<Text, string>()
 
 /** The halo under map text, so it reads on the backdrop and on busy imagery. */
-export function labelHaloStroke(fontSizePx: number): { color: number; width: number; join: 'round' } {
-  const halo = getLabelHalo(fontSizePx)
+export function labelHaloStroke(
+  fontSizePx: number,
+  backdropInk?: CanvasBackdropInk,
+): { color: number; width: number; join: 'round' } {
+  const halo = getLabelHalo(fontSizePx, backdropInk)
   return { color: toPixiColor(halo.color), width: halo.widthPx, join: 'round' }
 }
 

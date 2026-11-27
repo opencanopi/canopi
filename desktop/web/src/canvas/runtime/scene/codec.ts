@@ -5,6 +5,7 @@
 import type { GeoPointV10 } from '../../../generated/contracts'
 
 import { allocateSpeciesCodes } from '../species-key'
+export { allocateSpeciesCodes }
 import type {
   Annotation,
   CanopiFile,
@@ -26,6 +27,7 @@ import {
 import {
   hydrateGeoEllipse,
   hydrateGeoPoint,
+  isEllipseZoneWithRadii,
   serializeGeoEllipse,
   serializeGeoPoint,
 } from './geo-frame'
@@ -298,7 +300,7 @@ function hydrateZoneEntity(zone: Zone, plane: SessionPlane): SceneZoneEntity {
     name: zone.name ?? null,
     locked: zone.locked ?? false,
     zoneType: zone.zone_type,
-    points: zone.zone_type === 'ellipse' && zone.points.length >= 2
+    points: isEllipseZoneWithRadii(zone)
       ? hydrateGeoEllipse(plane, [zone.points[0]!, zone.points[1]!])
       : zone.points.map((point) => hydrateGeoPoint(plane, point)),
     rotationDeg: zone.rotation ?? 0,
@@ -316,7 +318,7 @@ function serializeZoneEntity(zone: SceneZoneEntity, plane: SessionPlane): Zone {
     name: zone.name,
     locked: zone.locked,
     zone_type: zone.zoneType,
-    points: zone.zoneType === 'ellipse' && zone.points.length >= 2
+    points: isEllipseZoneWithRadii(zone)
       ? serializeGeoEllipse(plane, zone.points[0]!, zone.points[1]!)
       : zone.points.map((point) => serializeGeoPoint(plane, point)),
     rotation: zone.rotationDeg,

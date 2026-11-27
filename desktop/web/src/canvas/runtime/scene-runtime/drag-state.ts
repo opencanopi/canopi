@@ -1,3 +1,4 @@
+import { translateZonePoints } from './selection-rotation'
 import {
   resolveSceneObjectGroupMembers,
   sceneTargetKey,
@@ -105,27 +106,9 @@ export function applySceneDragDeltaToDraft(
   draft.zones = draft.zones.map((zone) => {
     const start = state.zoneStarts.get(zone.id)
     if (!start) return zone
-    if (zone.zoneType === 'ellipse' && start.length >= 2) {
-      // Elliptical Zones store center + radii, not drawable vertices.
-      const center = start[0]!
-      const radii = start[1]!
-      return {
-        ...zone,
-        points: [
-          {
-            x: center.x + delta.x,
-            y: center.y + delta.y,
-          },
-          { ...radii },
-        ],
-      }
-    }
     return {
       ...zone,
-      points: start.map((point) => ({
-        x: point.x + delta.x,
-        y: point.y + delta.y,
-      })),
+      points: translateZonePoints(zone, delta, start),
     }
   })
   draft.annotations = draft.annotations.map((annotation) => {

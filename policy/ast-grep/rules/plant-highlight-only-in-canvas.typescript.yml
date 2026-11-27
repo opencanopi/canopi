@@ -1,8 +1,8 @@
-# plant-highlight-only-in-canvas (FAP conversion, F1a): MapLibre draws no plant highlight
+# plant-highlight-only-in-canvas (FAP conversion, F1a; canopi-1ecd): MapLibre draws no plant or zone highlight
 id: plant-highlight-only-in-canvas.typescript
 language: typescript
 severity: error
-message: "MapLibre draws no plant highlight; owner desktop/web/src/canvas; example desktop/web/src/maplibre/basemap-tile-auth.ts"
+message: "MapLibre draws no plant or zone highlight; owner desktop/web/src/canvas; example desktop/web/src/maplibre/basemap-tile-auth.ts"
 files:
   - "{desktop/web,policy/fixtures/rules/*}/src/maplibre/**/*.ts"
 ignores:
@@ -16,4 +16,4 @@ rule:
     - kind: type_identifier
     - kind: shorthand_property_identifier
     - kind: shorthand_property_identifier_pattern
-  regex: ^(MIN_PLANT_RING_RADIUS_PX|highlightedPlantIds|plantRingRadius)$
+  regex: ^(MIN_PLANT_RING_RADIUS_PX|highlightedPlantIds|highlightedZoneIds|plantRingRadius|panelTargetMapOverlayIds|createPanelTargetMapOverlayContract)$

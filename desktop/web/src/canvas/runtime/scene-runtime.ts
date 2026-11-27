@@ -1,9 +1,7 @@
 import { batch, effect, type ReadonlySignal } from '@preact/signals'
 import { setCanvasDesignPinHovered, setCanvasSelection, setCanvasToolGuidance } from '../session-state'
-import { refreshCanvasColorCache } from '../theme-refresh'
+import { markCanvasPaintChanged, refreshCanvasColorCache } from '../theme-refresh'
 import { onAnnotationFontLoad } from './annotation-layout'
-import { getMapBackdropInk, setCanvasMapBackdrop } from './scene-visuals'
-import { DEFAULT_PLANT_DISPLAY, setCanvasPlantDisplay } from './plant-display'
 import {
   createSceneInteractionSession,
   type SceneInteractionSession,
@@ -380,8 +378,6 @@ export class SceneCanvasRuntime {
   }
 
   private _installEffects(): void {
-    // The display is module state shared with drawing and hit testing; the next runtime starts from the default.
-    this._disposeEffects.push(() => { setCanvasPlantDisplay(DEFAULT_PLANT_DISPLAY) })
     this._disposeEffects.push(...installSceneRuntimeEffects({
       onTheme: () => {
         const container = this._rendering.container
@@ -400,12 +396,13 @@ export class SceneCanvasRuntime {
         this._syncEditingAids()
       },
       onMapBackdrop: (backdrop) => {
-        if (!setCanvasMapBackdrop(backdrop)) return
+        if (!this._presentation.setMapBackdrop(backdrop)) return
+        markCanvasPaintChanged()
         this._syncEditingAids()
         this._invalidate()
       },
       onPlantDisplay: (display) => {
-        if (!setCanvasPlantDisplay(display)) return
+        if (!this._presentation.setPlantDisplay(display)) return
         this._construction.inspection.refresh()
         this._invalidate()
       },
@@ -449,7 +446,9 @@ export class SceneCanvasRuntime {
    * grid is scene content, so a change syncs the scene; the same aids again change nothing.
    */
   private _syncEditingAids(): void {
-    const ink = this._chromeShown && this._appAdapter.settings.readChromeOverlay().gridVisible ? getMapBackdropInk() : null
+    const ink = this._chromeShown && this._appAdapter.settings.readChromeOverlay().gridVisible
+      ? this._presentation.getBackdropInk()
+      : null
     const editingAids = ink ? { grid: { ink: ink.grid, majorInk: ink.gridMajor } } : null
     if (this._presentation.setEditingAids(editingAids)) this._invalidate()
   }

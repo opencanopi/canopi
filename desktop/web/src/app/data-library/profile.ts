@@ -20,6 +20,7 @@ import type { CanvasContextMenuProfileLine } from '../canvas-context-menu/entrie
 import type { SessionPlane } from '../../geo/session-plane'
 import type { LibraryItemRole, LibrarySnapshot, LidarSampleSeries, LidarSampleTarget } from '../../generated/contracts'
 import type { GeoPoint } from '../../types/design'
+import { isLineZone } from '../../canvas/runtime/zone-geometry'
 import { armCanvasTool } from '../keyboard/arming'
 import { selectPanel, sidePanel } from '../shell/state'
 import { profileRole, type ProfileRole } from './item-types'
@@ -457,7 +458,7 @@ export const profileLineMenu: CanvasContextMenuProfileLine = {
   profile(target) {
     const scene = currentCanvasQuerySurface.peek()?.getSceneSnapshot()
     const points = target.kind === 'zone'
-      ? scene?.zones.find((zone) => zone.id === target.id && zone.zoneType === 'line')?.points
+      ? scene?.zones.find((zone) => zone.id === target.id && isLineZone(zone))?.points
       : (() => {
           const guide = scene?.measurementGuides.find((candidate) => candidate.id === target.id)
           return guide ? [guide.start, guide.end] : undefined

@@ -16,10 +16,23 @@ interface FontRequests {
 /** How many settled requests a face set remembers; past it, a request may be asked for once more. */
 const SETTLED_LIMIT = 1024
 
+interface FontLoaderState {
+  epoch: number
+  readonly listeners: Set<() => void>
+}
+
 /** Per font face set, so a page (or a test) that swaps `document.fonts` starts afresh. */
 const requestsByFonts = new WeakMap<Fonts, FontRequests>()
-const listeners = new Set<() => void>()
-let fontEpoch = 0
+const stateByGlobal = new WeakMap<object, FontLoaderState>()
+
+function loaderState(): FontLoaderState {
+  let state = stateByGlobal.get(globalThis)
+  if (!state) {
+    state = { epoch: 0, listeners: new Set() }
+    stateByGlobal.set(globalThis, state)
+  }
+  return state
+}
 
 function requestsOf(fonts: Fonts): FontRequests {
   let requests = requestsByFonts.get(fonts)
@@ -55,8 +68,9 @@ function request(font: string, text = ''): void {
   loading.then((faces) => {
     settle()
     if (!faces.some((face) => unloaded.has(face) && face.status === 'loaded')) return
-    fontEpoch += 1
-    for (const listener of [...listeners]) listener()
+    const state = loaderState()
+    state.epoch += 1
+    for (const listener of [...state.listeners]) listener()
   }, () => {
     settle()
     // The text keeps the fallback font for good: the browser logs the failed request, and asking again would loop.
@@ -73,9 +87,10 @@ export function distinctCharacters(texts: Iterable<string>): string {
 export const canvasFonts = {
   request,
   /** Counts the loads that brought a face; a memo of anything sized by canvas text keeps it in its key. */
-  epoch: (): number => fontEpoch,
+  epoch: (): number => loaderState().epoch,
   /** Calls `listener` after each epoch move; returns the unsubscribe, which a disposed drawer calls. */
   subscribe(listener: () => void): () => void {
+    const { listeners } = loaderState()
     listeners.add(listener)
     return () => { listeners.delete(listener) }
   },

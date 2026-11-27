@@ -7,7 +7,7 @@ import { applyTerrainPaintUpdates, classifyTerrainSync, clearTerrain, rebuildTer
 import { TERRAIN_CONTOUR_LAYER_IDS, TERRAIN_CONTOUR_SOURCE_ID, TERRAIN_DEM_SOURCE_ID, TERRAIN_HILLSHADE_LAYER_ID, type TerrainLayerState } from '../../maplibre/terrain'
 import { mapErrorResourceId, RASTER_DISPLAY_SOURCE_PREFIX } from '../../maplibre/map-error-owner'
 import type { RasterDisplay, RasterDisplayLayer } from '../../maplibre/raster-display/adapter'
-import { clearCanvasMapSurfaceOverlays, clearCanvasMapSurfaceSiteHover, clearCanvasMapSurfaceSiteOverlay, syncCanvasMapSurfaceOverlays, syncCanvasMapSurfaceSiteHover, syncCanvasMapSurfaceSiteOverlay, type CanvasMapSurfaceOverlaySnapshot } from './overlays'
+import { clearCanvasMapSurfaceSiteHover, clearCanvasMapSurfaceSiteOverlay, syncCanvasMapSurfaceSiteHover, syncCanvasMapSurfaceSiteOverlay } from './overlays'
 import { siteMapOverlayIds, type SiteMapOverlay } from '../../maplibre/site-overlay'
 import { userLocationOverlayIds, type UserLocationReading } from '../../maplibre/user-location-overlay'
 import { createMapLayerStackDescriptors, reconcileMapLayerStack } from '../map-layers/bands'
@@ -57,9 +57,7 @@ export class WorkspaceMapContributions {
   private draining = false
   private failed = false
   private disposed = false
-  /** Target set whose overlay failed; skipped until the Targets change. */
-  private skippedOverlayKey: string | null = null
-  /** Site data pin and line whose overlay failed; skipped until they change, so the panel highlights never go with them. */
+  /** Site data pin and line whose overlay failed; skipped until they change. */
   private skippedSiteKey: string | null = null
   /** The chart hover's ground point; never part of the snapshot, so it moves no revision. */
   private siteHover: readonly [number, number] | null = null
@@ -189,14 +187,6 @@ export class WorkspaceMapContributions {
       this.drain()
       return true
     }
-    if (id.startsWith(PANEL_TARGET_PREFIX)) {
-      // MapLibre validation emits instead of throwing, often mid-sync; the
-      // drain removes the partial overlay on its next pass.
-      if (this.skippedOverlayKey === null && this.snapshot) this.overlayFailed(overlayKey(this.snapshot.overlays), event)
-      this.dirty = true
-      this.drain()
-      return true
-    }
     return false
   }
 
@@ -266,7 +256,6 @@ export class WorkspaceMapContributions {
         const map = this.guardedMap(revision)
         try {
           this.syncRaster(map, snapshot.lidar)
-          this.syncOverlays(map, snapshot.overlays)
           this.syncSiteOverlay(map, snapshot.overlays.site)
           this.syncSiteHover(map)
           this.syncUserLocation(map)
@@ -301,36 +290,8 @@ export class WorkspaceMapContributions {
   }
 
   /**
-   * Panel Target overlays are optional decoration. A failing sync is rolled
-   * back and skipped until the Targets change; a rollback that cannot remove
-   * the partial overlay escapes to the hard failure path.
-   */
-  private syncOverlays(map: MapLibreMapInstance, overlays: CanvasMapSurfaceOverlaySnapshot): void {
-    const key = overlayKey(overlays)
-    if (this.skippedOverlayKey !== null) {
-      if (this.skippedOverlayKey === key) {
-        clearCanvasMapSurfaceOverlays(map)
-        return
-      }
-      this.skippedOverlayKey = null
-    }
-    try {
-      syncCanvasMapSurfaceOverlays(map, overlays)
-    } catch (error) {
-      if (error === STALE_CONTRIBUTION) throw error
-      this.overlayFailed(key, error)
-      clearCanvasMapSurfaceOverlays(map)
-    }
-  }
-
-  private overlayFailed(key: string, error: unknown): void {
-    this.skippedOverlayKey = key
-    this.log('Skipped a map overlay that failed to sync:', error)
-  }
-
-  /**
-   * The Site data pin and line, on their own skip key: a failing sync is rolled back and skipped until they change, and the
-   * panel Target overlays stay drawn. A rollback that cannot remove the partial overlay escapes to the hard failure path.
+   * The Site data pin and line, on their own skip key: a failing sync is rolled back and skipped until they change.
+   * A rollback that cannot remove the partial overlay escapes to the hard failure path.
    */
   private syncSiteOverlay(map: MapLibreMapInstance, site: SiteMapOverlay | null): void {
     const key = siteKey(site)
@@ -403,7 +364,7 @@ export class WorkspaceMapContributions {
   }
 
   private layerSkipped(): boolean {
-    return this.skippedOverlayKey !== null || this.skippedSiteKey !== null || this.rasterSkipped
+    return this.skippedSiteKey !== null || this.rasterSkipped
   }
 
   /**
@@ -513,7 +474,6 @@ export class WorkspaceMapContributions {
     const revision = this.revision
     const map = this.context && this.guardedMap(revision, true)
     if (map) {
-      this.attemptCall('Failed to clear map target overlays:', () => clearCanvasMapSurfaceOverlays(map))
       this.attemptCall('Failed to clear the Site data map overlay:', () => clearCanvasMapSurfaceSiteOverlay(map))
       this.attemptCall('Failed to clear the user location map overlay:', () => this.options.userLocationOverlay?.clear(map))
       this.attemptCall('Failed to clear map terrain:', () => clearTerrain(map))
@@ -577,7 +537,6 @@ function rasterAnchor(map: MapLibreMapInstance): string | undefined {
 }
 
 const STALE_CONTRIBUTION = Symbol('stale-map-contribution')
-const PANEL_TARGET_PREFIX = 'panel-target-'
 const TERRAIN_DEM_IDS = new Set<string>([TERRAIN_DEM_SOURCE_ID, TERRAIN_HILLSHADE_LAYER_ID])
 const TERRAIN_CONTOUR_IDS = new Set<string>([TERRAIN_CONTOUR_SOURCE_ID, ...TERRAIN_CONTOUR_LAYER_IDS])
 const SITE_OVERLAY_IDS = (() => { const ids = siteMapOverlayIds(); return new Set<string>([ids.sourceId, ...ids.layerIds, ids.hover.sourceId, ...ids.hover.layerIds]) })()
@@ -585,11 +544,8 @@ const USER_LOCATION_IDS = (() => { const ids = userLocationOverlayIds(); return 
 
 /** Late errors from a contribution this owner already removed stay passive. */
 function isContributionResource(id: string): boolean {
-  return id.startsWith(RASTER_DISPLAY_SOURCE_PREFIX) || TERRAIN_DEM_IDS.has(id) || TERRAIN_CONTOUR_IDS.has(id) || id.startsWith(PANEL_TARGET_PREFIX) || SITE_OVERLAY_IDS.has(id) || USER_LOCATION_IDS.has(id)
+  return id.startsWith(RASTER_DISPLAY_SOURCE_PREFIX) || TERRAIN_DEM_IDS.has(id) || TERRAIN_CONTOUR_IDS.has(id) || SITE_OVERLAY_IDS.has(id) || USER_LOCATION_IDS.has(id)
 }
-
-/** Identity of the Target set an overlay draws; geometry is re-read on each sync. */
-function overlayKey(overlays: CanvasMapSurfaceOverlaySnapshot): string { return JSON.stringify([overlays.hoveredTargets, overlays.selectedTargets]) }
 
 /** Identity of the pin and line a site overlay draws. */
 function siteKey(site: SiteMapOverlay | null): string { return JSON.stringify(site) }

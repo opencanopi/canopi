@@ -1406,13 +1406,13 @@ describe('scene canvas runtime', () => {
       runtime.documentSurface.showCanvasChrome()
       const presentation = (runtime as unknown as { _presentation: SceneRuntimePresentationController })._presentation
       const gridInk = () => presentation.buildRendererSnapshot().editingAids?.grid.ink
-      const light = getMapBackdropInk().grid
+      const light = getMapBackdropInk('basemap').grid
       expect(gridInk()).toBe(light)
 
       onMapBackdrop('dark-basemap')
 
-      expect(getMapBackdropInk().grid).not.toBe(light)
-      expect(gridInk()).toBe(getMapBackdropInk().grid)
+      expect(getMapBackdropInk('dark-basemap').grid).not.toBe(light)
+      expect(gridInk()).toBe(getMapBackdropInk('dark-basemap').grid)
     } finally {
       onMapBackdrop('basemap')
       runtime.destroy()

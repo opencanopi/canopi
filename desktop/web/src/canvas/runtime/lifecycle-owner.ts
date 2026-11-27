@@ -8,7 +8,7 @@ interface CanvasRuntimeLifecycleOwner {
   releasePromise: Promise<void> | null
 }
 
-let currentOwner: CanvasRuntimeLifecycleOwner | null = null
+const lifecycleSlot: { current: CanvasRuntimeLifecycleOwner | null } = { current: null }
 
 export class CanvasRuntimeLifecycleBusyError extends Error {
   constructor(message = 'Another Canvas runtime lifecycle is still active') {
@@ -24,13 +24,13 @@ export class CanvasRuntimeLifecycleBusyError extends Error {
 export async function acquireCanvasRuntimeLifecycle(
   releaseRuntime: () => Promise<void>,
 ): Promise<CanvasRuntimeLifecycleLease> {
-  const previousOwner = currentOwner
+  const previousOwner = lifecycleSlot.current
   if (previousOwner) {
     if (!previousOwner.releaseRequested) throw new CanvasRuntimeLifecycleBusyError()
     await releaseOwner(previousOwner)
     // Another continuation may reserve the lifecycle while this one is
     // suspended. Re-check rather than allowing two successors to claim it.
-    if (currentOwner) throw new CanvasRuntimeLifecycleBusyError()
+    if (lifecycleSlot.current) throw new CanvasRuntimeLifecycleBusyError()
   }
 
   const owner: CanvasRuntimeLifecycleOwner = {
@@ -38,11 +38,11 @@ export async function acquireCanvasRuntimeLifecycle(
     releaseRequested: false,
     releasePromise: null,
   }
-  currentOwner = owner
+  lifecycleSlot.current = owner
 
   return Object.freeze({
     release: () => {
-      if (currentOwner !== owner) return Promise.resolve()
+      if (lifecycleSlot.current !== owner) return Promise.resolve()
       owner.releaseRequested = true
       return releaseOwner(owner)
     },
@@ -62,7 +62,7 @@ function releaseOwner(owner: CanvasRuntimeLifecycleOwner): Promise<void> {
   // synchronous handoff may reenter acquisition or release.
   owner.releasePromise = releaseResult.then(
     () => {
-      if (currentOwner === owner) currentOwner = null
+      if (lifecycleSlot.current === owner) lifecycleSlot.current = null
     },
     (error: unknown) => {
       // Keep the requested owner so a later acquire/release can retry it.

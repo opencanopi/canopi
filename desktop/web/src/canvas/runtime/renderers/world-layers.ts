@@ -29,7 +29,7 @@ import {
 } from '../scene-visuals'
 import { bandCentreScale, zoomBandOf } from '../../../geo/view/frame-source'
 import type { SceneBounds, ViewTransform } from '../../../geo/view/types'
-import { getEllipticalZonePolygon, getRectangularZoneCorners } from '../zone-geometry'
+import { getEllipticalZonePolygon, isZoneClosed, traceZoneOutline } from '../zone-geometry'
 import {
   cssColorAlpha,
   destroyEntriesNotIn,
@@ -45,6 +45,7 @@ import {
   WorldRootContainer,
   writeWorldAffine,
 } from './scene-paint'
+import type { CanvasPaintTokens } from '../../theme-refresh'
 import type { SceneEditingAids, SceneRendererHoverState, SceneRendererSnapshot } from './scene-types'
 
 export const ZONE_STROKE_PX = 2
@@ -207,6 +208,7 @@ function syncZones(layer: Container, graphicsById: Map<string, Graphics>, snapsh
       snapshot.highlightedZoneIds.has(zone.id),
       hoverStateForTarget(snapshot, 'zone', zone.id),
       strokeScale,
+      snapshot.paintTokens,
     )
   }
   destroyEntriesNotIn(graphicsById, nextZoneIds)
@@ -219,19 +221,27 @@ function drawZone(
   highlighted: boolean,
   hoverState: SceneRendererHoverState | null,
   strokeScale: number,
+  paintTokens: CanvasPaintTokens,
 ): void {
-  const visual = resolveZoneVisual(zone)
+  const visual = resolveZoneVisual(zone, paintTokens)
   const fillColor = toPixiColor(visual.fill)
   const fillAlpha = 0.2 * cssColorAlpha(visual.fill)
   const interactionState = resolveInteractionState(selected, highlighted, hoverState)
-  const interactionVisual = interactionState ? getCanvasInteractionStrokeVisual(interactionState) : null
+  const interactionVisual = interactionState ? getCanvasInteractionStrokeVisual(interactionState, paintTokens) : null
   const stroke = resolveCasedStroke(interactionVisual, { color: visual.stroke, casing: visual.casing }, ZONE_STROKE_PX, strokeScale)
+  // canopi-1ecd: zone highlight fill draws on the canvas only.
+  const highlightFill = highlighted && isZoneClosed(zone)
+    ? { color: toPixiColor(getCanvasInteractionStrokeVisual('highlight', paintTokens).color), alpha: 0.12 }
+    : null
 
-  if (reuseGeometry(graphics, [zone.zoneType, zone.points, zone.rotationDeg, fillColor, fillAlpha, stroke])) return
+  if (reuseGeometry(graphics, [zone.zoneType, zone.points, zone.rotationDeg, fillColor, fillAlpha, highlightFill, stroke])) return
   graphics.clear()
 
   if (!traceZonePath(graphics, zone)) return
-  if (zone.zoneType !== 'line') graphics.fill({ color: fillColor, alpha: fillAlpha })
+  if (isZoneClosed(zone)) {
+    graphics.fill({ color: fillColor, alpha: fillAlpha })
+    if (highlightFill) graphics.fill(highlightFill)
+  }
   graphics.stroke(stroke.casing)
   traceZonePath(graphics, zone)
   graphics.stroke(stroke.stroke)
@@ -239,44 +249,29 @@ function drawZone(
 
 /** Traces the zone outline in world metres; the caller fills and strokes it. Returns false when nothing is drawable. */
 export function traceZonePath(graphics: Graphics, zone: SceneZoneEntity): boolean {
-  if (zone.zoneType === 'rect' && zone.points.length >= 4) {
-    if (Math.abs(zone.rotationDeg) > 0.000001) {
-      const corners = getRectangularZoneCorners(zone)
-      if (!corners) return false
-      drawClosedPath(graphics, corners)
-      return true
-    }
-
-    const start = zone.points[0]!
-    const end = zone.points[2]!
-    graphics.rect(start.x, start.y, end.x - start.x, end.y - start.y)
-    return true
-  }
-
-  if (zone.zoneType === 'ellipse' && zone.points.length >= 2) {
-    if (Math.abs(zone.rotationDeg) > 0.000001) {
-      const polygon = getEllipticalZonePolygon(zone)
-      if (!polygon) return false
-      drawClosedPath(graphics, polygon)
-      return true
-    }
-
-    const center = zone.points[0]!
-    const radii = zone.points[1]!
-    graphics.ellipse(center.x, center.y, radii.x, radii.y)
-    return true
-  }
-
-  if (zone.points.length < 2) return false
-
-  const first = zone.points[0]!
-  graphics.moveTo(first.x, first.y)
-  for (let i = 1; i < zone.points.length; i += 1) {
-    const point = zone.points[i]!
-    graphics.lineTo(point.x, point.y)
-  }
-  if (zone.zoneType !== 'line') graphics.closePath()
-  return true
+  return traceZoneOutline(zone, {
+    rect: (x, y, width, height) => { graphics.rect(x, y, width, height) },
+    ellipse: (cx, cy, rx, ry, rotationDeg) => {
+      if (Math.abs(rotationDeg) > 0.000001) {
+        const polygon = getEllipticalZonePolygon(zone)
+        if (polygon) drawClosedPath(graphics, polygon)
+        return
+      }
+      graphics.ellipse(cx, cy, rx, ry)
+    },
+    polyline: (points, closed) => {
+      if (closed) {
+        drawClosedPath(graphics, points)
+        return
+      }
+      const first = points[0]!
+      graphics.moveTo(first.x, first.y)
+      for (let i = 1; i < points.length; i += 1) {
+        const point = points[i]!
+        graphics.lineTo(point.x, point.y)
+      }
+    },
+  })
 }
 
 function syncMeasurementGuides(
@@ -323,8 +318,8 @@ function drawMeasurementGuide(
     false,
     hoverStateForTarget(snapshot, 'measurement-guide', guide.id),
   )
-  const interactionVisual = interactionState ? getCanvasInteractionStrokeVisual(interactionState) : null
-  const stroke = resolveCasedStroke(interactionVisual, getGuideLineVisual(), MEASUREMENT_GUIDE_STROKE_PX, strokeScale)
+  const interactionVisual = interactionState ? getCanvasInteractionStrokeVisual(interactionState, snapshot.paintTokens) : null
+  const stroke = resolveCasedStroke(interactionVisual, getGuideLineVisual(snapshot.paintTokens), MEASUREMENT_GUIDE_STROKE_PX, strokeScale)
   if (reuseGeometry(graphics, [guide.start, guide.end, stroke, strokeScale])) return true
   graphics.clear()
   const units = (px: number) => screenPxToWorldPx(px, strokeScale)

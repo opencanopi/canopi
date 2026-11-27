@@ -17,53 +17,17 @@ import { AlphaFilter, CanvasTextMetrics, Container, Graphics, GraphicsContext, R
 import { annotationOutlineCorners, getAnnotationPresentation } from '../annotation-layout'
 import { canvasFonts, distinctCharacters } from '../fonts/font-loading'
 import { getCanvasDetailLayout, isMeasurementLabelVisible } from '../automatic-detail'
-import {
-  createMeasurementGuidePresentation,
-  MEASUREMENT_GUIDE_LABEL_FONT_SIZE_PX,
-  measurementGuideLabelPoseIn,
-} from '../measurement-guides'
-import {
-  buildPlantPresentationEntries,
-  getStackBadgeOffsetPx,
-  getStackBadgeSizePx,
-  plantStackCounts,
-  rescalePlantEntry,
-  STACK_BADGE_FONT_SIZE_PX,
-  type PlantPresentationEntry,
-} from '../plant-presentation'
+import { createMeasurementGuidePresentation, MEASUREMENT_GUIDE_LABEL_FONT_SIZE_PX, measurementGuideLabelPoseIn } from '../measurement-guides'
+import { buildPlantPresentationEntries, getStackBadgeOffsetPx, getStackBadgeSizePx, plantStackCounts, rescalePlantEntry, STACK_BADGE_FONT_SIZE_PX, type PlantPresentationEntry } from '../plant-presentation'
 import { getPlantSymbolArt, ROUND_PLANT_SYMBOL_RADIUS, tracePlantSymbolContours } from '../plant-symbol-recipes'
 import type { PlantSymbolId, SceneAnnotationEntity, SceneMeasurementGuideEntity, ScenePoint } from '../scene'
-import {
-  getCanvasInteractionStrokeVisual,
-  getMapBackdropInk,
-  getMapTextColor,
-  getPlantSymbolEdgeColor,
-  getPlantSymbolEdgeWidth,
-  getSceneLayerStyle,
-  getStackBadgeBackgroundColor,
-  getStackBadgeTextColor,
-  MIN_PLANT_RING_RADIUS_PX,
-  OVERLAY_CASING_EXTRA_PX,
-  type CanvasInteractionVisualState,
-} from '../scene-visuals'
+import { DEFAULT_PLANT_DISPLAY, type PlantDisplay } from '../plant-display'
+import { CANVAS_MAP_BACKDROP_COLORS, getCanvasInteractionStrokeVisual, getMapBackdropInk, getMapTextColor, getPlantSymbolEdgeColor, getPlantSymbolEdgeWidth, getSceneLayerStyle, getStackBadgeBackgroundColor, getStackBadgeTextColor, MIN_PLANT_RING_RADIUS_PX, OVERLAY_CASING_EXTRA_PX, type CanvasBackdropInk, type CanvasInteractionVisualState, type CanvasMapBackdrop } from '../scene-visuals'
 import type { PlantNameLabel } from '../selection-labels'
 import type { ViewTransform } from '../../../geo/view/types'
 import { pixelsPerMetreAt, screenAngleForWorldAngle } from '../../../geo/view/view-transform'
 import { LabelAdmission, type AdmittedLabels } from './label-admission'
-import {
-  casedStroke,
-  destroyEntriesNotIn,
-  destroyEntry,
-  drawClosedPath,
-  hoverStateForTarget,
-  interactionOutline,
-  labelHaloStroke,
-  resolveInteractionState,
-  reuseGeometry,
-  setTextStyle,
-  toPixiColor,
-  type CasedStroke,
-} from './scene-paint'
+import { casedStroke, destroyEntriesNotIn, destroyEntry, drawClosedPath, hoverStateForTarget, interactionOutline, labelHaloStroke, resolveInteractionState, reuseGeometry, setTextStyle, toPixiColor, type CasedStroke } from './scene-paint'
 import type { SceneRendererHoverState, SceneRendererSnapshot } from './scene-types'
 
 type PixiSceneWorkName =
@@ -178,15 +142,19 @@ export function createBillboardLayer(options: BillboardLayerOptions): BillboardL
   let snapshot: SceneRendererSnapshot | null = null
   /** The admission the name labels hold; a new one restyles them, the same one only moves them. */
   let drawnLabels: AdmittedLabels | null = null
+  let drawnBackdrop: CanvasMapBackdrop | null = null
   let fontEpoch = canvasFonts.epoch()
+  let snapshotFontEpoch = 0
 
   return {
     root,
     present(view, next, settled = true) {
       if (next) {
         // Pixi keeps rasters and ascents and hears no font load: every text goes, and the build draws it in the web font.
-        if (fontEpoch !== canvasFonts.epoch()) {
-          fontEpoch = canvasFonts.epoch()
+        const liveFontEpoch = canvasFonts.epoch()
+        if (fontEpoch !== liveFontEpoch || snapshotFontEpoch !== next.annotationFontEpoch) {
+          fontEpoch = liveFontEpoch
+          snapshotFontEpoch = next.annotationFontEpoch
           CanvasTextMetrics.clearMetrics()
           for (const texts of [plants.badgeTextById, notes.textById, measurementLabels.labelById, plantNameLabelById,
             selectionLabelBySpecies]) destroyEntriesNotIn(texts, new Set())
@@ -205,8 +173,9 @@ export function createBillboardLayer(options: BillboardLayerOptions): BillboardL
       placeNotes(notes, view)
       placeMeasurementLabels(measurementLabels, snapshot, view)
       const admitted = labels.admit(view.pixelsPerMetre, settled)!
-      const restyle = admitted !== drawnLabels
+      const restyle = admitted !== drawnLabels || drawnBackdrop !== snapshot.mapBackdrop
       drawnLabels = admitted
+      drawnBackdrop = snapshot.mapBackdrop
       // Admission is empty while the Plants layer shows nothing; its opacity fades every name, a selection's included.
       if (restyle) {
         const opacity = getSceneLayerStyle(snapshot.scene, 'plants').opacity
@@ -214,9 +183,9 @@ export function createBillboardLayer(options: BillboardLayerOptions): BillboardL
         selectionLabelLayer.alpha = opacity
       }
       syncNameLabels(createText, plantNameLabelLayer, plantNameLabelById, (label) => label.plantId, view, labelProjection,
-        admitted.plantNameLabels, restyle)
+        admitted.plantNameLabels, restyle, snapshot.backdropInk)
       syncNameLabels(createText, selectionLabelLayer, selectionLabelBySpecies, (label) => label.canonicalName, view, labelProjection,
-        admitted.selectionLabels, restyle)
+        admitted.selectionLabels, restyle, snapshot.backdropInk)
     },
     resize(width, height) {
       viewSize.width = width
@@ -412,6 +381,8 @@ interface BuiltPlants {
   readonly ringById: ReadonlyMap<string, PlantRing>
   readonly stackCounts: ReadonlyMap<string, number>
   readonly badgeColor: number
+  readonly mapBackdrop: CanvasMapBackdrop
+  readonly plantDisplay: PlantDisplay
 }
 
 /** A ring's state and cased stroke; `look` keys its shared context with the radius. */
@@ -469,8 +440,10 @@ function buildPlants(
     pixelsPerMetreAt: (point) => pixelsPerMetreAt(view, point),
     speciesCache: snapshot.speciesCache,
     plantSpeciesSymbols: snapshot.scene.plantSpeciesSymbols,
+    plantDisplay: snapshot.plantDisplay,
   }, snapshot.selectedPlantIds))
   const stackCounts = measurePixiSceneWork('plantLayout', () => plantStackCounts(entries))
+  const backdropColor = CANVAS_MAP_BACKDROP_COLORS[snapshot.mapBackdrop]
 
   if (stackCounts.size) canvasFonts.request(`${STACK_BADGE_FONT_SIZE_PX}px ${CANVAS_CHROME_FONT_FAMILY}`, '0123456789')
   const rings = new Map<string, PlantRing>()
@@ -486,7 +459,7 @@ function buildPlants(
     if (state) {
       let ring = ringLooks.get(state)
       if (!ring) {
-        const outline = interactionOutline(state)
+        const outline = interactionOutline(state, snapshot.paintTokens)
         ring = { outline, look: `${state}|${JSON.stringify(outline)}` }
         ringLooks.set(state, ring)
       }
@@ -519,7 +492,7 @@ function buildPlants(
       setTextStyle(badgeText, {
         fontFamily: CANVAS_CHROME_FONT_FAMILY,
         fontSize: STACK_BADGE_FONT_SIZE_PX,
-        fill: toPixiColor(getStackBadgeTextColor()),
+        fill: toPixiColor(getStackBadgeTextColor(backdropColor)),
       })
     } else {
       destroyEntry(badgeById, id, destroySharedGraphics)
@@ -533,7 +506,9 @@ function buildPlants(
     scale: view.pixelsPerMetre,
     ringById: rings,
     stackCounts,
-    badgeColor: toPixiColor(getStackBadgeBackgroundColor()),
+    badgeColor: toPixiColor(getStackBadgeBackgroundColor(backdropColor)),
+    mapBackdrop: snapshot.mapBackdrop,
+    plantDisplay: snapshot.plantDisplay,
   }
 }
 
@@ -542,7 +517,7 @@ function placePlants(plants: PlantGraphics, viewSize: { width: number; height: n
   const { built, visibleIds } = plants
   if (!built) return
   if (built.scale !== view.pixelsPerMetre) {
-    built.entries = measurePixiSceneWork('plantEntries', () => built.entries.map((e) => rescalePlantEntry(e, pixelsPerMetreAt(view, e.plant.position))))
+    built.entries = measurePixiSceneWork('plantEntries', () => built.entries.map((e) => rescalePlantEntry(e, pixelsPerMetreAt(view, e.plant.position), built.plantDisplay.symbolScale)))
     built.scale = view.pixelsPerMetre
   }
   // Includes the largest symbolic footprint, interaction ring and stack badge.
@@ -574,7 +549,7 @@ function showPlant(plants: PlantGraphics, built: BuiltPlants, entry: PlantPresen
   const { shared } = plants
   const keys = plantContextKeys(entry, built)
   const graphic = plants.graphicsById.get(id)!
-  bindShared(shared, graphic, keys.glyph, (context) => measurePixiSceneWork('plantGlyph', () => drawPlantGlyph(context, entry)))
+  bindShared(shared, graphic, keys.glyph, (context) => measurePixiSceneWork('plantGlyph', () => drawPlantGlyph(context, entry, built.mapBackdrop, built.plantDisplay)))
   graphic.position.set(x, y)
   graphic.visible = true
 
@@ -623,7 +598,7 @@ function plantContextKeys(entry: PlantPresentationEntry, built: BuiltPlants): Pl
   const ring = built.ringById.get(entry.plant.id)
   const stackCount = built.stackCounts.get(entry.plant.id)
   keys = {
-    glyph: plantGeometryKey(entry),
+    glyph: plantGeometryKey(entry, built.mapBackdrop, built.plantDisplay),
     ring: ring ? `ring|${plantRingRadius(entry)}|${ring.look}` : null,
     badge: stackCount ? `badge|${stackCount}|${built.badgeColor}` : null,
   }
@@ -631,26 +606,36 @@ function plantContextKeys(entry: PlantPresentationEntry, built: BuiltPlants): Pl
   return keys
 }
 
-function plantGeometryKey(entry: PlantPresentationEntry): string {
+function plantGeometryKey(
+  entry: PlantPresentationEntry,
+  mapBackdrop: CanvasMapBackdrop,
+  plantDisplay: PlantDisplay,
+): string {
   const renderedSymbol = resolveRenderedPlantSymbol(entry)
-  const edgeColor = getPlantSymbolEdgeColor(entry.color)
-  const edgeWidth = getPlantSymbolEdgeWidth(entry.glyphRadiusPx * 2)
+  const edgeColor = getPlantSymbolEdgeColor(entry.color, CANVAS_MAP_BACKDROP_COLORS[mapBackdrop])
+  const edgeWidth = getPlantSymbolEdgeWidth(entry.glyphRadiusPx * 2, plantDisplay)
   return `glyph|${entry.glyphRadiusPx}|${renderedSymbol}|${entry.dot}|${entry.color}|${edgeColor}|${edgeWidth}`
 }
 
 /** The symbol alone at the local origin, opaque, at its drawn radius; its container applies any dimming or layer opacity once. */
-export function drawPlantGlyph(graphics: GraphicsContext, entry: PlantPresentationEntry): void {
+export function drawPlantGlyph(
+  graphics: GraphicsContext,
+  entry: PlantPresentationEntry,
+  mapBackdrop: CanvasMapBackdrop = 'basemap',
+  plantDisplay: Pick<PlantDisplay, 'outline'> = DEFAULT_PLANT_DISPLAY,
+): void {
   const symbol = resolveRenderedPlantSymbol(entry)
   const r = entry.glyphRadiusPx
   const color = toPixiColor(entry.color)
+  const backdropColor = CANVAS_MAP_BACKDROP_COLORS[mapBackdrop]
   if (entry.dot || symbol === 'round') {
     graphics.circle(0, 0, entry.dot ? r : r * ROUND_PLANT_SYMBOL_RADIUS).fill({ color })
-    const width = getPlantSymbolEdgeWidth(r * 2)
-    if (!entry.dot && width > 0) graphics.stroke({ color: toPixiColor(getPlantSymbolEdgeColor(entry.color)), width })
+    const width = getPlantSymbolEdgeWidth(r * 2, plantDisplay)
+    if (!entry.dot && width > 0) graphics.stroke({ color: toPixiColor(getPlantSymbolEdgeColor(entry.color, backdropColor)), width })
     return
   }
-  const edge = toPixiColor(getPlantSymbolEdgeColor(entry.color))
-  const width = getPlantSymbolEdgeWidth(r * 2)
+  const edge = toPixiColor(getPlantSymbolEdgeColor(entry.color, backdropColor))
+  const width = getPlantSymbolEdgeWidth(r * 2, plantDisplay)
   const art = getPlantSymbolArt(symbol, r * 2)
   // Halo under the whole silhouette (unless Outline is off), then the body, then cut-outs in the outline colour.
   if (width > 0) {
@@ -758,7 +743,7 @@ function buildNotes(createText: () => Text, notes: NoteGraphics, snapshot: Scene
       textById.set(annotation.id, text)
       textLayer.addChild(text)
     }
-    styleAnnotationText(text, annotation, getAnnotationPresentation(annotation, pixelsPerMetre).textFrame.lineHeightPx)
+    styleAnnotationText(text, annotation, getAnnotationPresentation(annotation, pixelsPerMetre).textFrame.lineHeightPx, snapshot.backdropInk)
     if (!markerById.has(annotation.id)) {
       const marker = new Graphics(shared.empty)
       marker.visible = false
@@ -782,11 +767,11 @@ function buildNotes(createText: () => Text, notes: NoteGraphics, snapshot: Scene
       text,
       revealText: annotation.id === snapshot.revealedAnnotationId
         || (snapshot.hoverTarget?.kind === 'annotation' && snapshot.hoverTarget.id === annotation.id),
-      outline: interactionState ? casedStroke(getCanvasInteractionStrokeVisual(interactionState), 1) : null,
+      outline: interactionState ? casedStroke(getCanvasInteractionStrokeVisual(interactionState, snapshot.paintTokens), 1) : null,
     })
   }
-  const ink = getMapBackdropInk()
-  notes.built = { snapshot, notes: built, markerInk: { halo: toPixiColor(ink.halo), ink: toPixiColor(getMapTextColor()) }, scale: null }
+  const ink = snapshot.backdropInk
+  notes.built = { snapshot, notes: built, markerInk: { halo: toPixiColor(ink.halo), ink: toPixiColor(getMapTextColor(ink)) }, scale: null }
 }
 
 /** Places the notes: their anchors and angles every frame; text, marker and outline when the scale changed. */
@@ -796,7 +781,7 @@ function placeNotes(notes: NoteGraphics, view: ViewTransform): void {
   const pixelsPerMetre = view.pixelsPerMetre
   if (built.scale !== pixelsPerMetre) {
     built.scale = pixelsPerMetre
-    const detail = getCanvasDetailLayout(built.snapshot.scene, pixelsPerMetre)
+    const detail = getCanvasDetailLayout(built.snapshot.scene, pixelsPerMetre, built.snapshot.plantDisplay.symbolScale, built.snapshot.annotationFontEpoch)
     for (const note of built.notes) presentNote(notes, built, note, pixelsPerMetre, detail.annotationIds.has(note.annotation.id))
   }
   for (const { annotation, text } of built.notes) {
@@ -844,14 +829,19 @@ function presentNote(notes: NoteGraphics, built: BuiltNotes, note: BuiltNote, pi
 }
 
 /** A note's text and style; the caller places it at the note's screen point and turns it (`screenAngleForWorldAngle`). */
-export function styleAnnotationText(text: Text, annotation: SceneAnnotationEntity, lineHeightPx: number): void {
+export function styleAnnotationText(
+  text: Text,
+  annotation: SceneAnnotationEntity,
+  lineHeightPx: number,
+  backdropInk: CanvasBackdropInk = getMapBackdropInk(),
+): void {
   text.text = annotation.text
   setTextStyle(text, {
     fontFamily: CANVAS_CHROME_FONT_FAMILY,
     fontSize: annotation.fontSize,
     lineHeight: lineHeightPx,
-    fill: getMapTextColor(),
-    stroke: labelHaloStroke(annotation.fontSize),
+    fill: getMapTextColor(backdropInk),
+    stroke: labelHaloStroke(annotation.fontSize, backdropInk),
   })
   text.anchor.set(0, 0)
 }
@@ -899,8 +889,8 @@ function buildMeasurementLabels(createText: () => Text, labels: MeasurementLabel
         fontFamily: CANVAS_CHROME_FONT_FAMILY,
         fontSize: MEASUREMENT_GUIDE_LABEL_FONT_SIZE_PX,
         // Map text follows the backdrop; the guide's own stroke carries the interaction state.
-        fill: toPixiColor(getMapTextColor()),
-        stroke: labelHaloStroke(MEASUREMENT_GUIDE_LABEL_FONT_SIZE_PX),
+        fill: toPixiColor(getMapTextColor(snapshot.backdropInk)),
+        stroke: labelHaloStroke(MEASUREMENT_GUIDE_LABEL_FONT_SIZE_PX, snapshot.backdropInk),
       })
       text.anchor.set(0.5, 0.5)
       built.push({ guide, text })
@@ -933,6 +923,7 @@ function syncNameLabels<L extends NameLabel>(
   projection: AnchorProjection,
   labels: readonly L[],
   restyle: boolean,
+  backdropInk: CanvasBackdropInk,
 ): void {
   if (restyle) {
     for (const label of labels) {
@@ -948,8 +939,8 @@ function syncNameLabels<L extends NameLabel>(
         fontSize: 12,
         fontWeight: '600',
         fontStyle: label.fontStyle,
-        fill: toPixiColor(getMapTextColor()),
-        stroke: labelHaloStroke(12),
+        fill: toPixiColor(getMapTextColor(backdropInk)),
+        stroke: labelHaloStroke(12, backdropInk),
       })
       text.anchor.set(0.5, 0)
       text.alpha = label.opacity ?? 1

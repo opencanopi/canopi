@@ -11,7 +11,7 @@ import { getPlantWorldBounds, type PlantPresentationContext } from './plant-pres
 import type { SceneDesignObjectTarget, ScenePersistedState, SceneZoneEntity } from './scene'
 import { resolveSceneObjectGroupMembers } from './scene/group-members'
 import type { WorldPoint } from '../../geo/view/types'
-import { getRectangularZoneCorners, getZoneWorldBounds } from './zone-geometry'
+import { getZoneExtentPoints, getZoneWorldBounds } from './zone-geometry'
 
 /** Sides of the polygon drawn around a disc or an ellipse: it holds the shape and overshoots it by under 0.5 %. */
 const OUTLINE_SIDES = 32
@@ -104,13 +104,7 @@ export function selectionExtentPoints(
 }
 
 function zoneOutline(zone: SceneZoneEntity): readonly WorldPoint[] {
-  const corners = getRectangularZoneCorners(zone)
-  if (corners) return corners
-  if (zone.zoneType === 'ellipse' && zone.points.length >= 2) {
-    const radii = zone.points[1]!
-    return outlineAround(zone.points[0]!, Math.abs(radii.x), Math.abs(radii.y), zone.rotationDeg)
-  }
-  return zone.points.map((point) => ({ ...point }))
+  return getZoneExtentPoints(zone)
 }
 
 /**

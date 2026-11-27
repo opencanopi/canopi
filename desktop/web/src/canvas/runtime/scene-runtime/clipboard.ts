@@ -10,6 +10,7 @@ import type {
 import type { SessionPlane } from '../../../geo/session-plane'
 import type { SceneSelectionTarget } from './selection'
 import type { SceneArrangementTemplate } from './arrangement-placement'
+import { isEllipseZoneWithRadii } from './selection-rotation'
 import { resolveSceneObjectGroupMembers } from '../scene'
 
 export interface SceneClipboardPayload {
@@ -66,7 +67,7 @@ export function reprojectClipboardPayload(
     plane,
     plants: payload.plants.map((plant) => ({ ...plant, position: point(plant.position) })),
     zones: payload.zones.map((zone) => {
-      if (zone.zoneType === 'ellipse' && zone.points.length >= 2) {
+      if (isEllipseZoneWithRadii(zone)) {
         const [center, radii] = ellipse(zone.points[0]!, zone.points[1]!)
         return { ...zone, points: [center, radii, ...zone.points.slice(2).map(point)] }
       }

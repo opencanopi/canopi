@@ -16,7 +16,8 @@ import type { CanvasDesignObjectSelectionModel } from '../../runtime'
 import { singleEditableTarget } from '../../scene-runtime/selection'
 import type { ScenePersistedState, SceneZoneEntity } from '../../scene/types'
 import type { WorldPoint } from '../../../../geo/view/types'
-import { getRectangularZoneCorners, polygonArea } from '../../zone-geometry'
+import { dispatchZoneByShape, getRectangularZoneCorners, isPolygonZone, polygonArea } from '../../zone-geometry'
+export { isPolygonZone }
 import type { ToolHandle } from '../draft'
 import type { ToolContext, ToolView } from '../tool'
 import type { HandleSize } from './handle-size'
@@ -60,29 +61,29 @@ export function reshapableZone(
 
 /** The zone's reshape points, in the order of their labels' indices. */
 export function zoneControlPoints(zone: SceneZoneEntity): ZoneControlPoint[] {
-  if (zone.zoneType === 'line' && zone.points.length >= 2) {
-    return zone.points.slice(0, 2).map((world, index) => point(zone, 'line-endpoint', index, world, `vertex:${zone.id}:${index}`))
-  }
-  if (zone.zoneType === 'polygon' && zone.points.length >= 3) {
-    return zone.points.map((world, index) => point(zone, 'polygon-vertex', index, world, `vertex:${zone.id}:${index}`))
-  }
-  if (zone.zoneType === 'rect') {
-    return getRectangularZoneCorners(zone)?.map((world, index) =>
-      point(zone, 'rect-corner', index, world, `rect-corner:${zone.id}:${RECT_CORNER_NAMES[index]}`)) ?? []
-  }
-  if (zone.zoneType === 'ellipse' && zone.points.length >= 2) {
-    const center = zone.points[0]!
-    const radii = zone.points[1]!
-    const axis = (kind: keyof typeof ELLIPSE_AXIS_NAMES, index: number, offset: WorldPoint): ZoneControlPoint =>
-      point(zone, kind, index, offsetRotated(center, offset, zone.rotationDeg), `ellipse-axis:${zone.id}:${ELLIPSE_AXIS_NAMES[kind]}`)
-    return [
-      axis('ellipse-east', 0, { x: Math.abs(radii.x), y: 0 }),
-      axis('ellipse-west', 1, { x: -Math.abs(radii.x), y: 0 }),
-      axis('ellipse-north', 2, { x: 0, y: -Math.abs(radii.y) }),
-      axis('ellipse-south', 3, { x: 0, y: Math.abs(radii.y) }),
-    ]
-  }
-  return []
+  return dispatchZoneByShape(zone, {
+    line: () => zone.points.length >= 2
+      ? zone.points.slice(0, 2).map((world, index) => point(zone, 'line-endpoint', index, world, `vertex:${zone.id}:${index}`))
+      : [],
+    polygon: () => zone.points.length >= 3
+      ? zone.points.map((world, index) => point(zone, 'polygon-vertex', index, world, `vertex:${zone.id}:${index}`))
+      : [],
+    rect: () => getRectangularZoneCorners(zone)?.map((world, index) =>
+      point(zone, 'rect-corner', index, world, `rect-corner:${zone.id}:${RECT_CORNER_NAMES[index]}`)) ?? [],
+    ellipse: () => {
+      if (zone.points.length < 2) return []
+      const center = zone.points[0]!
+      const radii = zone.points[1]!
+      const axis = (kind: keyof typeof ELLIPSE_AXIS_NAMES, index: number, offset: WorldPoint): ZoneControlPoint =>
+        point(zone, kind, index, offsetRotated(center, offset, zone.rotationDeg), `ellipse-axis:${zone.id}:${ELLIPSE_AXIS_NAMES[kind]}`)
+      return [
+        axis('ellipse-east', 0, { x: Math.abs(radii.x), y: 0 }),
+        axis('ellipse-west', 1, { x: -Math.abs(radii.x), y: 0 }),
+        axis('ellipse-north', 2, { x: 0, y: -Math.abs(radii.y) }),
+        axis('ellipse-south', 3, { x: 0, y: Math.abs(radii.y) }),
+      ]
+    },
+  })
 }
 
 /** The handles the host draws for `points`. */
@@ -118,7 +119,7 @@ export function zoneEdgeMidpoints(
   view: Pick<ToolView, 'screenDistance'>,
   size: HandleSize,
 ): ZoneEdgeMidpoint[] {
-  if (zone.zoneType !== 'polygon' || zone.points.length < MIN_POLYGON_CORNERS) return []
+  if (!isPolygonZone(zone) || zone.points.length < MIN_POLYGON_CORNERS) return []
   const edges = zone.points.map((from, edgeIndex) => {
     const to = zone.points[(edgeIndex + 1) % zone.points.length]!
     return { id: `edge-mid:${zone.id}:${edgeIndex}` as ToolHandleId, zoneId: zone.id, edgeIndex, from, to, anchor: midpoint(from, to) }
@@ -133,7 +134,7 @@ export function isPolygonCorner(controlPoint: ZoneControlPoint): boolean {
 
 /** True while the polygon has a corner to spare: a polygon keeps at least 3 (its area rule may still refuse one). */
 export function canRemovePolygonCorner(zone: SceneZoneEntity): boolean {
-  return zone.zoneType === 'polygon' && zone.points.length > MIN_POLYGON_CORNERS
+  return isPolygonZone(zone) && zone.points.length > MIN_POLYGON_CORNERS
 }
 
 /** Adds a corner to the polygon on edge `edgeIndex`, at the point of the edge nearest `at`, as one undo step. */
@@ -161,7 +162,7 @@ function editPolygon(
   change: (points: readonly WorldPoint[]) => WorldPoint[] | null,
 ): boolean {
   const zone = ctx.scene.persisted.zones.find((entry) => entry.id === zoneId)
-  const points = zone?.zoneType === 'polygon' ? change(zone.points) : null
+  const points = zone && isPolygonZone(zone) ? change(zone.points) : null
   if (!points) return false
   ctx.effects.edits.run(CORNER_EDIT, (tx) => {
     tx.mutate((draft) => {
@@ -188,7 +189,7 @@ export function zoneCornerInsertSubject(zone: SceneZoneEntity, edgeIndex: number
     entityId: zone.id,
     start: cloneZone(zone),
     reshape: (start, dragged) => {
-      if (start.zoneType !== 'polygon' || edgeIndex < 0 || edgeIndex >= start.points.length) return null
+      if (!isPolygonZone(start) || edgeIndex < 0 || edgeIndex >= start.points.length) return null
       const points = [
         ...start.points.slice(0, edgeIndex + 1).map((entry) => ({ ...entry })),
         cleanPoint(dragged),
@@ -224,11 +225,12 @@ function reshapeZone(
   controlPoint: Pick<ZoneControlPoint, 'kind' | 'index'>,
   dragged: WorldPoint,
 ): SceneZoneEntity | null {
-  if (zone.zoneType === 'line') return reshapeLinearZone(zone, controlPoint.index, dragged)
-  if (zone.zoneType === 'polygon') return reshapePolygonalZone(zone, controlPoint.index, dragged)
-  if (zone.zoneType === 'rect') return reshapeRectangularZone(zone, controlPoint.index, dragged)
-  if (zone.zoneType === 'ellipse') return reshapeEllipticalZone(zone, controlPoint.kind, dragged)
-  return null
+  return dispatchZoneByShape(zone, {
+    line: (z) => reshapeLinearZone(z, controlPoint.index, dragged),
+    polygon: (z) => reshapePolygonalZone(z, controlPoint.index, dragged),
+    rect: (z) => reshapeRectangularZone(z, controlPoint.index, dragged),
+    ellipse: (z) => reshapeEllipticalZone(z, controlPoint.kind, dragged),
+  })
 }
 
 function cloneZone(zone: SceneZoneEntity): SceneZoneEntity {
