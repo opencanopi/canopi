@@ -2,6 +2,7 @@
 // from a new Design through place search, the plant catalog, a drawn zone, a download and a reload.
 import { readFile } from 'node:fs/promises'
 import { expect, test, type Response } from '@playwright/test'
+import { DRAFT_DATABASE, draftStoreDump } from '../e2e/support/web-storage'
 import { collectPageProblems } from './page-problems'
 
 test('a deployed Web Edition creates, edits, downloads and keeps a Design', async ({ page }) => {
@@ -72,6 +73,11 @@ test('a deployed Web Edition creates, edits, downloads and keeps a Design', asyn
   })
 
   await test.step('a reload keeps the Design', async () => {
+    // Wait for continuous save to flush the drawn zone to IndexedDB before reloading (2.1-M157).
+    await expect.poll(async () => {
+      const dump = await page.evaluate(draftStoreDump, DRAFT_DATABASE)
+      return Array.isArray(dump?.drafts) ? dump.drafts.length : 0
+    }).toBeGreaterThan(0)
     await page.reload({ waitUntil: 'networkidle' })
     await expect(page.getByRole('button', { name: 'Settings…' }).first()).toBeVisible()
     await expect(page.getByText('No Designs in this browser yet')).toHaveCount(0)

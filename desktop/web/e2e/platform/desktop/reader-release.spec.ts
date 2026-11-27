@@ -4,9 +4,9 @@
 // file shows the native error dialog).
 //
 // Each test starts from the start screen: the specs share one app session, a test that opens a Design leaves the
-// workspace open, and a reload puts the start screen back (Desktop reopens no Design on launch). Drafts are written
-// before the page reloads, so the start screen lists them. Text selectors are scoped from an element: WebKitGTK's
-// driver refuses one combined with CSS (canopi-4ycm).
+// workspace open, and closing the open Design clears last_open_home (2.1-Q127) and puts the start screen back. Drafts
+// are written before the page reloads, so the start screen lists them. Text selectors are scoped from an element:
+// WebKitGTK's driver refuses one combined with CSS (canopi-4ycm).
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { $, browser, expect } from '@wdio/globals'
@@ -34,7 +34,8 @@ describe('the v10 cutover in the Desktop app', () => {
 
   beforeEach(async () => {
     if (await $('[data-start-screen]').isDisplayed()) return
-    await browser.refresh()
+    // Close the open Design so Desktop clears last_open_home (2.1-Q127) and returns to the start screen.
+    await browser.keys(['Control', 'w'])
     await $('[data-start-screen]').waitForDisplayed({ timeout: 90_000 })
   })
 

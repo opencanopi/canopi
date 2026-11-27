@@ -13,6 +13,7 @@ import { expectDownloadName } from '../support/download'
 import { boxOf, expectHitAtCentre, overlap, type Box } from '../support/layout'
 import { expect, test } from '../support/offline'
 import { pageWithPersistence, type PersistenceAnswer } from '../support/storage-persistence'
+import { DRAFT_DATABASE, draftStoreDump } from '../support/web-storage'
 
 const FIXTURE = fileURLToPath(new URL('../fixtures/canvas-base.canopi', import.meta.url))
 const SETTINGS_KEY = 'canopi:web-app-data:v3:settings'
@@ -505,28 +506,33 @@ for (const locale of LOCALES) {
   }
 }
 
-// WEB-03 (2.1-Q22, ADR 0025): the tab asks before it closes only while the Design's last Draft write failed; the close
-// first writes a pending edit synchronously, so an edit the browser can store closes with no prompt. iOS Safari fires no
-// beforeunload that can prompt (a known gap; its save status error is the protection).
+async function readIdbDraftNames(page: Page): Promise<string[]> {
+  const dump = await page.evaluate(draftStoreDump, DRAFT_DATABASE)
+  return Array.isArray(dump?.drafts) ? (dump.drafts as { name?: string }[]).map((row) => row.name ?? '') : []
+}
+
+// WEB-03 (2.1-Q22, ADR 0025, 2.1-M157): the tab asks before it closes while a Draft write is pending or failed
+// (IndexedDB writes are async so beforeunload kicks off a flush and guards unsaved work); once the edit is stored,
+// the tab closes with no prompt. iOS Safari fires no beforeunload that can prompt (save status error is the protection).
 test.describe('the leave prompt', () => {
   // The app's own line for the write the browser refused.
   test.use({ expectedConsoleErrors: ['Continuous save failed:'] })
 
   test('WEB-03: closing the tab after a failed Draft write prompts', async ({ page }) => {
-    await page.addInitScript((key) => {
-      // The browser's storage full for Drafts while `__failDrafts` is set (a quota refusal).
-      const setItem = Storage.prototype.setItem
-      Storage.prototype.setItem = function failingSetItem(this: Storage, name: string, value: string) {
-        if ((window as unknown as { __failDrafts?: boolean }).__failDrafts && name === key) {
-          throw new DOMException('The quota has been exceeded.', 'QuotaExceededError')
+    await page.addInitScript(() => {
+      // Abort the IndexedDB transaction while `__failDrafts` is set, simulating a browser write refusal.
+      const origPut = IDBObjectStore.prototype.put
+      IDBObjectStore.prototype.put = function failingPut(this: IDBObjectStore, value: unknown, key?: IDBValidKey) {
+        if ((window as unknown as { __failDrafts?: boolean }).__failDrafts && this.name === 'drafts') {
+          this.transaction.abort()
+          return undefined as unknown as IDBRequest<IDBValidKey>
         }
-        setItem.call(this, name, value)
+        return key === undefined ? origPut.call(this, value) : origPut.call(this, value, key)
       }
-    }, DRAFTS_KEY)
+    })
     await page.goto('')
     await openFixtureFromStart(page)
-    const draftNames = () => page.evaluate((key) => (JSON.parse(localStorage.getItem(key) || '{"drafts":[]}') as { drafts: { name: string }[] }).drafts.map((draft) => draft.name), DRAFTS_KEY)
-    await expect.poll(draftNames, 'the opened Design is a Draft').toHaveLength(1)
+    await expect.poll(() => readIdbDraftNames(page), 'the opened Design is a Draft').toHaveLength(1)
     const dialogs: string[] = []
     page.on('dialog', (dialog) => { dialogs.push(dialog.type()); void dialog.dismiss() })
 
@@ -536,17 +542,21 @@ test.describe('the leave prompt', () => {
     await page.close({ runBeforeUnload: true })
     await expect.poll(() => dialogs).toEqual(['beforeunload'])
     expect(page.isClosed()).toBe(false)
-    expect(await draftNames()).not.toContain('Orchard not yet written')
+    expect(await readIdbDraftNames(page)).not.toContain('Orchard not yet written')
 
-    // Room again: the close writes the edit first, and the tab closes without asking.
+    // Room again: beforeunload starts the async IndexedDB flush; once saved, the tab closes without asking.
     await page.evaluate(() => { (window as unknown as { __failDrafts: boolean }).__failDrafts = false })
+    await page.close({ runBeforeUnload: true })
+    await expect.poll(() => readIdbDraftNames(page)).toContain('Orchard not yet written')
+    await expect(page.locator('[data-workspace-title-bar] [data-save-status="draft"]')).toBeVisible()
+    const promptCountBeforeCleanClose = dialogs.length
     const context = page.context()
     await page.close({ runBeforeUnload: true })
     await expect.poll(() => page.isClosed()).toBe(true)
-    expect(dialogs).toEqual(['beforeunload'])
+    expect(dialogs).toHaveLength(promptCountBeforeCleanClose)
     const next = await context.newPage()
     await next.goto('')
-    expect(await next.evaluate((key) => (JSON.parse(localStorage.getItem(key)!) as { drafts: { name: string }[] }).drafts.map((draft) => draft.name), DRAFTS_KEY)).toContain('Orchard not yet written')
+    await expect.poll(() => readIdbDraftNames(next)).toContain('Orchard not yet written')
   })
 
   test('WEB-03: an edit the close writes closes the tab without asking', async ({ page }) => {
@@ -554,15 +564,17 @@ test.describe('the leave prompt', () => {
     page.on('dialog', (dialog) => { dialogs.push(dialog.type()); void dialog.dismiss() })
     await page.goto('')
     await openFixtureFromStart(page)
-    // Closed before the continuous save's delay: the close's synchronous write keeps the edit.
+    // Wait for the continuous save to land in IndexedDB, then the tab closes without prompting.
     await renameDesignInTitleBar(page, 'Orchard written at close')
+    await expect.poll(() => readIdbDraftNames(page)).toContain('Orchard written at close')
+    await expect(page.locator('[data-workspace-title-bar] [data-save-status="draft"]')).toBeVisible()
     const context = page.context()
     await page.close({ runBeforeUnload: true })
     await expect.poll(() => page.isClosed()).toBe(true)
     expect(dialogs).toEqual([])
     const next = await context.newPage()
     await next.goto('')
-    expect(await next.evaluate((key) => (JSON.parse(localStorage.getItem(key)!) as { drafts: { name: string }[] }).drafts.map((draft) => draft.name), DRAFTS_KEY)).toContain('Orchard written at close')
+    await expect.poll(() => readIdbDraftNames(next)).toContain('Orchard written at close')
   })
 })
 
