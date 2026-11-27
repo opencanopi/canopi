@@ -250,7 +250,7 @@ function pushFaults(build: Workflow, probes: readonly string[], table: Table = T
 }
 
 /** The setup a Commit gate job may run besides its checks: these actions, and these lines. */
-const COMMIT_GATE_SETUP = { uses: /^(?:actions\/(?:checkout|setup-node)@|\.\/\.github\/actions\/setup-frontend$)/, run: new Set(['npm ci --prefix desktop/web']) }
+const COMMIT_GATE_SETUP = { uses: /^(?:actions\/(?:checkout|setup-node)@|taiki-e\/install-action@|\.\/\.github\/actions\/setup-(?:frontend|rust)$)/, run: new Set(['npm ci --prefix desktop/web']) }
 /** On a pull request, whether a job or step with this `if` runs; undefined for a condition reading more than the event. */
 const onPullRequest = (condition: string | undefined) =>
   ({ undefined: true, "github.event_name == 'pull_request'": true, "github.event_name == 'push'": false } as Record<string, boolean>)[String(condition)]
