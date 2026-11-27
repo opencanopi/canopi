@@ -33,7 +33,7 @@ import type { SpeciesCacheEntry } from './presentation-data'
 
 type PointerWorldListener = (point: PointerWorld | null) => void
 type EmptyGroundTapListener = (world: WorldPoint) => void
-const IDLE_TOOL_STATE: ToolHostState = Object.freeze({ id: 'select', source: null, stampId: null })
+const IDLE_TOOL_STATE: ToolHostState = Object.freeze({ id: 'select', source: null })
 
 interface SceneCanvasQuerySurfaceOptions {
   readonly revision: CanvasQueryRevision

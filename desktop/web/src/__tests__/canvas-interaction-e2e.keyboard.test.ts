@@ -493,7 +493,7 @@ describe('SceneInteractionSession', () => {
       store.updatePersisted((draft) => {
         draft.plants = [makePlant('plant-1', 'Malus domestica', { x: 200, y: 200 })]
       })
-      const deps = createInteractionDeps(container, store, testView, { setTool: (name: string) => { session.setTool(name as 'plant-stamp') } })
+      const deps = createInteractionDeps(container, store, testView)
       const session: SceneInteractionSession = createTestSession(deps)
       deps.setSelection([plantTarget('plant-1')])
       openContextMenu({ x: 30, y: 30 })

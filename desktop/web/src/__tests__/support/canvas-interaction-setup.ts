@@ -208,7 +208,6 @@ export function createInteractionDeps(
     | 'settledReader'
     | 'getDesignObjectSelection'
     | 'selectionCommands'
-    | 'setTool'
     | 'setHoveredTarget'
     | 'getPlantPresentationContext'
     | 'readPlantSpacingIntervalMeters'
@@ -303,9 +302,6 @@ export function createInteractionDeps(
       rotateSelected: vi.fn(),
     },
     contextMenu: overrides.contextMenu ?? contextMenuHost.adapter,
-    setTool: (overrides.setTool ?? ((name: string) => {
-      void name
-    })) as SceneInteractionSessionDeps['setTool'],
     render,
     readSnapToGridEnabled: () => snapToGridEnabled.value,
     readPlantSpacingIntervalMeters: overrides.readPlantSpacingIntervalMeters ?? (() => plantSpacingIntervalM.value),
@@ -720,7 +716,7 @@ export function installSceneInteractionFixture(
     // The runtime mirrors the session's tool state for the tool card, as the query surface does.
     const syncState = () => {
       const state = session.toolState.peek()
-      sessionQueries.setActiveTool(state.id, state.source, state.stampId)
+      sessionQueries.setActiveTool(state.id, state.source)
     }
     syncState()
     const setTool = session.setTool.bind(session)

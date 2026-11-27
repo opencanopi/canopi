@@ -469,56 +469,39 @@ describe('ToolHost', () => {
   })
 
   describe('interceptors', () => {
-    it('siteData.pin settles its request on a tap in site mode; a Select tap settles nothing (2.1-Q364)', () => {
+    it('subscribeEmptyGroundTap notifies on a Select tap on empty ground or any Pan tap in site mode; a hit on an object never notifies (2.1-M558)', () => {
       const select = stubTool('select')
-      const sitePin: StubTool = stubTool('siteData.pin', {
-        gesture: (g) => {
-          if (g.kind === 'press') return 'handled'
-          if (g.kind === 'tap') {
-            sitePin.ctx().effects.completeRequest(g.point.world)
-            return 'handled'
-          }
-          return 'pass'
-        },
-      })
-      useStubTools(select, sitePin)
+      const hand = stubTool('hand')
+      useStubTools(select, hand)
       const pin = vi.fn()
       const h = harness({ scene: { plants: [appleAt({ x: 200, y: 200 })], zones: [bed()] } })
+      h.host.subscribeEmptyGroundTap(pin)
 
-      // Select hears taps on empty ground and objects without settling any pin request.
-      expect(h.press({ x: 300, y: 100 })).toEqual({})
-      expect(h.release({ x: 301, y: 101 })).toEqual({})
-      expect(select.count('tap')).toBe(1)
+      // Select tap on a plant never notifies.
+      h.click({ x: 200, y: 200 })
       expect(pin).not.toHaveBeenCalled()
 
-      // Arming siteData.pin settles with the tapped world point.
-      h.host.arm('siteData.pin', null, {
-        onSettled(outcome) {
-          if (outcome.kind === 'picked') pin(outcome.value)
-        },
-      })
-      h.click({ x: 60, y: 35 })
-      expect(pin).toHaveBeenCalledWith(h.world({ x: 60, y: 35 }))
+      // Select tap on empty ground notifies with the tapped world point.
+      expect(h.press({ x: 300, y: 100 })).toEqual({})
+      expect(h.release({ x: 301, y: 101 })).toEqual({})
+      expect(select.count('tap')).toBe(2)
+      expect(pin).toHaveBeenCalledTimes(1)
+      expect(pin).toHaveBeenLastCalledWith(h.world({ x: 301, y: 101 }))
+
+      // Any Pan tap in site mode notifies, even over a plant.
+      h.arm('hand')
+      h.click({ x: 200, y: 200 })
+      expect(pin).toHaveBeenCalledTimes(2)
+      expect(pin).toHaveBeenLastCalledWith(h.world({ x: 200, y: 200 }))
     })
 
-    it('a drag, a lost capture, overview and other tools never settle a siteData.pin request', () => {
+    it('a drag, a lost capture, overview and other tools never notify subscribeEmptyGroundTap (2.1-M558)', () => {
       const select = stubTool('select')
       const polygon = stubTool('polygon')
-      const hand = stubTool('hand')
-      const sitePin: StubTool = stubTool('siteData.pin', {
-        gesture: (g) => {
-          if (sitePin.ctx().view.mode !== 'site') return 'pass'
-          if (g.kind === 'press') return 'handled'
-          if (g.kind === 'tap') {
-            sitePin.ctx().effects.completeRequest(g.point.world)
-            return 'handled'
-          }
-          return 'pass'
-        },
-      })
-      useStubTools(select, polygon, hand, sitePin)
+      useStubTools(select, polygon)
       const pin = vi.fn()
       const h = harness({ scene: { plants: [appleAt({ x: 200, y: 200 })] } })
+      h.host.subscribeEmptyGroundTap(pin)
 
       // A band from empty ground, and a drag of the rotate handle.
       h.drag({ x: 300, y: 100 }, { x: 350, y: 150 })
@@ -526,32 +509,21 @@ describe('ToolHost', () => {
       h.release()
       expect(select.last('handle-drag')).toMatchObject({ phase: 'end', handle: 'rotate' })
 
-      // Polygon and Pan never settle a pin request.
+      // Polygon never notifies.
       h.arm('polygon')
       h.click({ x: 300, y: 100 })
       expect(polygon.count('tap')).toBe(1)
-      h.arm('hand')
-      h.click({ x: 200, y: 200 })
-      expect(hand.count('tap')).toBe(1)
       expect(pin).not.toHaveBeenCalled()
 
-      // A press whose capture was lost while it was taken ends with the lost-capture outcome and settles nothing.
+      // A press whose capture was lost while it was taken ends with the lost-capture outcome and never notifies.
       const lost = harness({ capturePress: () => false })
-      lost.host.arm('siteData.pin', null, {
-        onSettled(outcome) {
-          if (outcome.kind === 'picked') pin(outcome.value)
-        },
-      })
+      lost.host.subscribeEmptyGroundTap(pin)
       expect(lost.click({ x: 300, y: 100 })).toEqual({ rejectSession: true })
       expect(pin).not.toHaveBeenCalled()
 
-      // Overview: a tap in overview settles nothing.
+      // Overview: a tap in overview never notifies.
       const overview = harness({ viewport: OVERVIEW })
-      overview.host.arm('siteData.pin', null, {
-        onSettled(outcome) {
-          if (outcome.kind === 'picked') pin(outcome.value)
-        },
-      })
+      overview.host.subscribeEmptyGroundTap(pin)
       overview.click({ x: 120, y: 80 })
       expect(pin).not.toHaveBeenCalled()
     })
@@ -601,25 +573,11 @@ describe('ToolHost', () => {
       expect(h.host.activeToolIsSelect()).toBe(true)
     })
 
-    it('a finger\'s tap with siteData.pin armed settles at the down point', () => {
-      const sitePin: StubTool = stubTool('siteData.pin', {
-        gesture: (g) => {
-          if (g.kind === 'press') return 'handled'
-          if (g.kind === 'tap') {
-            sitePin.ctx().effects.completeRequest(g.point.world)
-            return 'handled'
-          }
-          return 'pass'
-        },
-      })
-      useStubTools(sitePin)
+    it('a finger\'s tap on empty ground under Select notifies subscribeEmptyGroundTap at the down point', () => {
+      useStubTools(stubTool('select'))
       const pin = vi.fn()
       const h = harness()
-      h.host.arm('siteData.pin', null, {
-        onSettled(outcome) {
-          if (outcome.kind === 'picked') pin(outcome.value)
-        },
-      })
+      h.host.subscribeEmptyGroundTap(pin)
 
       // The recogniser resolves a finger's tap at its down point (input/recognise.ts).
       h.click({ x: 120, y: 90 }, { pointer: 'touch' })

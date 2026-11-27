@@ -207,17 +207,15 @@ describe('armCanvasTool', () => {
     expect(order, 'key').toEqual(['fit:view-centre', `arm:${toolId}`])
   })
 
-  it('hands the source and stampId to ToolHost, and re-arming without a source preserves the armed species (#880 B2)', () => {
+  it('hands the source to ToolHost, and re-arming without a source preserves the armed species (#880 B2)', () => {
     const stamp = parseSavedObjectStampPayload(PEAR.payload_json)!
     expect(armCanvasTool('saved-object-stamp', {
       from: 'card',
       source: { kind: 'saved-stamp', stamp, name: 'Pear guild' },
-      request: { stampId: 'stamp-pear' },
     })).toBe(true)
     expect(currentCanvasToolState.value).toEqual({
       id: 'saved-object-stamp',
       source: { kind: 'saved-stamp', stamp, name: 'Pear guild' },
-      stampId: 'stamp-pear',
     })
     expect(armCanvasTool('saved-object-stamp', { from: 'card', source: { kind: 'saved-stamp', stamp, name: 'Pear guild' } })).toBe(true)
     expect(armSpy).toHaveBeenCalledTimes(2)
@@ -242,7 +240,6 @@ describe('armCanvasTool', () => {
     expect(arm).toHaveBeenLastCalledWith('saved-object-stamp', {
       from: 'panel',
       source: { kind: 'saved-stamp', stamp: payload, name: 'Pear guild' },
-      request: { stampId: 'stamp-pear' },
     })
     expect(workbench.placeStamp(PEAR, 'card')).toBe(true)
     expect(arm.mock.lastCall?.[1].from).toBe('card')
@@ -309,7 +306,7 @@ describe('armCanvasTool', () => {
     try {
       queries.setPlacement({ x: 0, y: 0, scale: 3 })
       order.length = 0
-      expect(armCanvasTool('siteData.pin', { from: 'panel' })).toBe(false)
+      expect(armCanvasTool('profile', { from: 'panel' })).toBe(false)
       expect(order).toEqual([])
     } finally {
       setToolCapabilityReader(null)

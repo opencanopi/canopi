@@ -12,7 +12,7 @@ describe('tool harness registry', () => {
   it('the replaced tool registry lists every tool before the first test, so any test can run first (canopi-f47t.52.228.55)', () => {
     expect(toolsAtLoad.sort()).toEqual([
       'ellipse', 'hand', 'line', 'measurement-guide', 'object-stamp', 'plant-spacing', 'plant-stamp', 'polygon', 'profile',
-      'rectangle', 'saved-object-stamp', 'select', 'siteData.pin', 'text',
+      'rectangle', 'saved-object-stamp', 'select', 'text',
     ])
   })
 })

@@ -784,7 +784,7 @@ function fakeQuerySurface(): CanvasQuerySurface {
       plantNames: signal(0),
       transientHistory: signal(0),
     },
-    toolState: signal({ id: 'select' as const, source: null, stampId: null }),
+    toolState: signal({ id: 'select' as const, source: null }),
     activeTool: signal('select' as const),
     sessionPlane: signal<SessionPlane | null>(createSessionPlane(TEST_GEO_ORIGIN)),
     view: createTestViewReadSurface(),

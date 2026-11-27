@@ -50,7 +50,6 @@ describe('Place moves focus to the map so Esc reaches the armed tool', () => {
     expect(currentCanvasToolState.value).toEqual({
       id: 'plant-stamp',
       source: { kind: 'species', species },
-      stampId: null,
     })
     expect(document.activeElement).toBe(map)
   })

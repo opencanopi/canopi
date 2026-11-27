@@ -264,7 +264,6 @@ export function createSavedObjectStampWorkbench({
     return arm('saved-object-stamp', {
       from,
       source: { kind: 'saved-stamp', stamp: payload, name: stamp.name.trim() || null },
-      request: { stampId: stamp.id },
     })
   }
 

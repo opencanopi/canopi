@@ -78,7 +78,6 @@ export interface SceneInteractionSessionDeps {
   }
   /** Renders the right-click menu; absent in a detached runtime. */
   contextMenu?: CanvasRuntimeContextMenuAdapter
-  setTool: (id: ToolId) => void
   /** A scene render; a camera frame repaints on its own (the runtime's onCameraFrame). */
   render: () => void
   readSnapToGridEnabled: () => boolean

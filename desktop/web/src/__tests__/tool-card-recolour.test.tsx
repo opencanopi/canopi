@@ -89,7 +89,6 @@ describe('Tool card after a Species Key recolour', () => {
     queries.bindToolState(signal<ToolHostState>({
       id: 'plant-stamp',
       source: { kind: 'species', species: APPLE },
-      stampId: null,
     }))
     setCurrentCanvasSession({
       commands: createTestCanvasCommandSurface(),

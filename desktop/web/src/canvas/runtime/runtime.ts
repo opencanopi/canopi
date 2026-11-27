@@ -230,7 +230,7 @@ export interface CanvasQuerySurface {
   /** Labels drawn for the plants in view; zero in overview and while nothing is mounted. */
   getPlantLabelCoverage(): CanvasPlantLabelCoverage
   readonly revision: CanvasQueryRevision
-  /** ToolHost's single authoritative tool state record (id, source, stampId; L11, §18 F29). */
+  /** ToolHost's single authoritative tool state record (id, source; L11, §18 F29). */
   readonly toolState: ReadonlySignal<ToolHostState>
   /** The armed canvas tool, derived from ToolHost's one state record (L11, §18 F29). */
   readonly activeTool: ReadonlySignal<ToolId>

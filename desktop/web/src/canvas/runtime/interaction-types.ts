@@ -21,8 +21,6 @@ export type MapInputOutcome<T = unknown> =
   | { readonly kind: 'detached' }
 /** Request options passed to `tools.arm(id, source, request)`. */
 export interface MapInputRequest<T = unknown> {
-  /** Saved stamp id when arming a stamp tool (`tools.arm('saved-object-stamp', source, { stampId })`). */
-  readonly stampId?: string
   /** Called at most once when the request settles. */
   readonly onSettled?: (outcome: MapInputOutcome<T>) => void
 }

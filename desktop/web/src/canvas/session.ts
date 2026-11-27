@@ -14,7 +14,7 @@ import type {
 import type { ToolHostState } from './runtime/interaction-ports'
 import type { ToolId } from './runtime/interaction-types'
 
-const IDLE_TOOL_STATE: ToolHostState = Object.freeze({ id: 'select', source: null, stampId: null })
+const IDLE_TOOL_STATE: ToolHostState = Object.freeze({ id: 'select', source: null })
 
 export const currentCanvasSession = signal<CanvasRuntimeSurfaces | null>(null)
 export const currentCanvasCommandSurface = computed<CanvasCommandSurface | null>(() =>
@@ -44,7 +44,7 @@ export const currentCanvasQuerySurface = computed<CanvasQuerySurface | null>(() 
 export const currentCanvasDocumentSurface = computed<CanvasDocumentSurface | null>(() =>
   currentCanvasSession.value?.documents ?? null,
 )
-/** Read-only view of ToolHost's single authoritative tool state record (id, source, stampId; L11, §18 F29). */
+/** Read-only view of ToolHost's single authoritative tool state record (id, source; L11, §18 F29). */
 export const currentCanvasToolState: ReadonlySignal<ToolHostState> = computed<ToolHostState>(() =>
   currentCanvasQuerySurface.value?.toolState?.value ?? IDLE_TOOL_STATE,
 )

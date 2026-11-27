@@ -52,7 +52,7 @@ export type TestCanvasQuerySurface = CanvasQuerySurface & {
   readonly toolState: Signal<ToolHostState>
   /** Writable: the fake's active tool, mirroring ToolHost's single activeTool signal. */
   readonly activeTool: Signal<ToolId>
-  setActiveTool(tool: ToolId, source?: ToolSource | null, stampId?: string | null): void
+  setActiveTool(tool: ToolId, source?: ToolSource | null): void
   emitEmptyGroundTap(world: WorldPoint): void
   /** Moves the fake's view to this placement, as a camera move would. */
   setPlacement(placement: TestPlacement): void
@@ -83,7 +83,7 @@ export function createTestCanvasQuerySurface({
   activeTool = 'select',
 }: TestCanvasQuerySurfaceOptions = {}): TestCanvasQuerySurface {
   const sessionPlaneSignal = signal<SessionPlane | null>(sessionPlane)
-  const toolStateSignal = signal<ToolHostState>({ id: activeTool, source: null, stampId: null })
+  const toolStateSignal = signal<ToolHostState>({ id: activeTool, source: null })
   const activeToolSignal = signal<ToolId>(activeTool)
   const sceneRevision = signal(0)
   const plantNamesRevision = signal(0)
@@ -107,11 +107,10 @@ export function createTestCanvasQuerySurface({
     revision,
     toolState: toolStateSignal,
     activeTool: activeToolSignal,
-    setActiveTool: (tool, source, stampId) => {
+    setActiveTool: (tool, source) => {
       const prev = toolStateSignal.peek()
       const nextSource = source !== undefined ? source : (prev.id === tool ? prev.source : null)
-      const nextStampId = stampId !== undefined ? stampId : (prev.id === tool && source === undefined ? prev.stampId : null)
-      toolStateSignal.value = { id: tool, source: nextSource, stampId: nextStampId }
+      toolStateSignal.value = { id: tool, source: nextSource }
       activeToolSignal.value = tool
     },
     view: createFollowingTestView(placementSignal, { ...screen, devicePixelRatio: 1 }, sessionPlaneSignal),

@@ -56,7 +56,7 @@ export function createTestCanvasRuntimeSurfaces({
       ...commands.tools,
       arm: (id, source, request) => {
         const handle = commands.tools.arm(id, source, request)
-        queries.setActiveTool(id, source, request?.stampId)
+        queries.setActiveTool(id, source)
         return handle
       },
     },

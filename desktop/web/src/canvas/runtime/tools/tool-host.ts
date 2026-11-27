@@ -164,7 +164,7 @@ export function createToolHost(deps: ToolHostDeps): ToolHost {
 
   let disposed = false
   /** Single authoritative state record for the active tool and its armed source (L11, §18 F29). */
-  const toolState = signal<ToolHostState>({ id: deps.initialTool ?? 'select', source: null, stampId: null })
+  const toolState = signal<ToolHostState>({ id: deps.initialTool ?? 'select', source: null })
   const activeToolSignal: ReadonlySignal<ToolId> = computed(() => toolState.value.id)
   const currentId = (): ToolId => toolState.peek().id
   const activeSource = (): ToolSource | null => toolState.peek().source
@@ -1336,9 +1336,8 @@ export function createToolHost(deps: ToolHostDeps): ToolHost {
   function activate(
     id: ToolId,
     source: ToolSource | null,
-    stampId: string | null = null,
   ): void {
-    toolState.value = { id, source, stampId }
+    toolState.value = { id, source }
     draftHidden = false
     toolDraft = null
     toolHandles = NO_HANDLES
@@ -1361,7 +1360,7 @@ export function createToolHost(deps: ToolHostDeps): ToolHost {
   /**
    * Arms a tool with an optional source and map-input request (L11, §18 F29). Any prior pending request settles once
    * as `'superseded'` (when another request replaces it) or `'tool-change'`. Re-arming the same tool with `source`
-   * omitted preserves its current source and stampId. Any throw while arming arms a fresh Select.
+   * omitted preserves its current source. Any throw while arming arms a fresh Select.
    */
   function arm<T = unknown>(
     id: ToolId,
@@ -1396,15 +1395,12 @@ export function createToolHost(deps: ToolHostDeps): ToolHost {
         if (!changing) {
           const prev = toolState.peek()
           const nextSource = source === undefined ? prev.source : source
-          const nextStampId = request?.stampId !== undefined
-            ? request.stampId
-            : (source === undefined ? prev.stampId : null)
-          toolState.value = { id, source: nextSource, stampId: nextStampId }
+          toolState.value = { id, source: nextSource }
           if (nextSource !== prev.source && activeTool.sourceChanged) activeTool.sourceChanged(nextSource)
           return
         }
         activeTool.deactivate('switch')
-        activate(id, source ?? null, request?.stampId ?? null)
+        activate(id, source ?? null)
       } catch (error) {
         selectOnFault = true
         settlePending({ kind: 'cancelled', reason: 'tool-change' })

@@ -34,7 +34,7 @@ import type { CanopiFile } from '../types/design'
 function createQuerySurface() {
   return {
     revision: { scene: signal(0), plantNames: signal(0), transientHistory: signal(0) },
-    toolState: signal<ToolHostState>({ id: 'select', source: null, stampId: null }),
+    toolState: signal<ToolHostState>({ id: 'select', source: null }),
     activeTool: signal<ToolId>('select'),
     sessionPlane: signal(createSessionPlane(DEFAULT_NEW_DESIGN_VIEW)),
     view: createTestViewReadSurface(),

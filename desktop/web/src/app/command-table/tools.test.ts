@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { isToolId, TOOL_IDS, TOOL_ROWS } from './tools'
 
 describe('tool descriptor rows (2c-1 probe, contracts §18 F29)', () => {
-  it('declares select, polygon, saved-object-stamp, and siteData.pin with read traits, constraints, and Esc steps', () => {
+  it('declares select, polygon, saved-object-stamp, and profile with read traits, constraints, and Esc steps', () => {
     const select = TOOL_ROWS.select
     expect(select.readOnly).toBe(true)
     expect(select.cursor).toBe('default')
@@ -24,11 +24,11 @@ describe('tool descriptor rows (2c-1 probe, contracts §18 F29)', () => {
     expect(stamp.requiresSource).toBe('saved-stamp')
     expect(stamp.escSteps).toEqual(['gesture', 'tool'])
 
-    const pin = TOOL_ROWS['siteData.pin']
-    expect(pin.readOnly).toBe(true)
-    expect(pin.needsCanvas).toBe(true)
-    expect(pin.requires).toEqual(['site-data-below-limit'])
-    expect(pin.escSteps).toEqual(['gesture', 'tool'])
+    const profile = TOOL_ROWS.profile
+    expect(profile.readOnly).toBe(true)
+    expect(profile.needsCanvas).toBe(true)
+    expect(profile.requires).toEqual(['site-data-below-limit'])
+    expect(profile.escSteps).toEqual(['gesture', 'tool-transient', 'tool'])
   })
 
   it('recognises every declared ToolId via isToolId and rejects unknown strings', () => {

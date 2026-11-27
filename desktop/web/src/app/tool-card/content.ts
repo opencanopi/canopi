@@ -67,7 +67,6 @@ const TITLE_KEYS: Readonly<Record<ToolId, LocaleKey>> = {
   text: 'canvas.tools.text',
   'measurement-guide': 'canvas.tools.measurementGuide',
   profile: 'canvas.tools.profile',
-  'siteData.pin': 'canvas.layers.siteData',
 }
 
 const PLACING_TOOLS = new Set(['plant-stamp', 'object-stamp', 'saved-object-stamp'])
@@ -162,8 +161,6 @@ export function toolCardContent(input: ToolCardInput): ToolCardContent | null {
       return card(null, translate('canvas.toolCard.measure'), hints('canvas.toolCard.lineKeys'))
     case 'profile':
       return card(null, translate('canvas.toolCard.profile'), hints('canvas.toolCard.lineKeys'))
-    case 'siteData.pin':
-      return card(null, translate(input.coarsePointer ? 'siteData.hintTouch' : 'siteData.hint'))
   }
 }
 

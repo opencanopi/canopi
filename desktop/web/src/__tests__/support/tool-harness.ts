@@ -266,7 +266,6 @@ export function stubTool(id: ToolId, behaviour: StubToolBehaviour = {}): StubToo
 const TOOL_IDS = Object.keys({
   select: true, hand: true, 'plant-stamp': true, text: true, line: true, 'measurement-guide': true, rectangle: true,
   ellipse: true, polygon: true, 'object-stamp': true, 'saved-object-stamp': true, 'plant-spacing': true, profile: true,
-  'siteData.pin': true,
 } satisfies Record<ToolId, true>) as ToolId[]
 
 /** Lists every tool id in the vi.mock'ed tools/registry.ts: each of `tools` returns its stub, and every other id a fresh

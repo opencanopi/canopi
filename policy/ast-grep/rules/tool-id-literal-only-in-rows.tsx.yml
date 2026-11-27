@@ -20,7 +20,7 @@ ignores:
 rule:
   kind: string
   # members: generate.mjs refuses this list when it differs from the ToolId union of the row's owner_today
-  regex: ^['"](select|hand|plant-stamp|text|line|measurement-guide|rectangle|ellipse|polygon|object-stamp|saved-object-stamp|plant-spacing|profile|siteData.pin)['"]$
+  regex: ^['"](select|hand|plant-stamp|text|line|measurement-guide|rectangle|ellipse|polygon|object-stamp|saved-object-stamp|plant-spacing|profile)['"]$
   any:
     - inside:
         kind: binary_expression

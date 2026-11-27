@@ -312,7 +312,7 @@ describe('Site data row values', () => {
     expect(shown()).toEqual({ at: 'pin', dsm: { kind: 'value', value: 1.25 }, mnt: { kind: 'value', value: 1.25 } })
   })
 
-  it('pins the tapped point via siteData.pin as the WGS84 point the canvas drew there', () => {
+  it('pins the tapped point as the WGS84 point the canvas drew there', () => {
     setPin(surface.sessionPlane.peek()!.toGeo({ x: 12, y: -30 }))
 
     expect(pin.value).toEqual(surface.sessionPlane.peek()!.toGeo({ x: 12, y: -30 }))

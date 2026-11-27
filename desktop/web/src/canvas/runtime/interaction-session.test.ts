@@ -674,7 +674,7 @@ describe('the interaction session', () => {
     expect(session.keyboard.escapeLayers()).not.toContain('gesture')
   })
 
-  it('Profile\'s finished line and siteData.pin settle through arm() requests (2c-1)', () => {
+  it('Profile\'s finished line settles through arm() and Select empty-ground taps reach subscribeEmptyGroundTap (2c-1, 2.1-M558)', () => {
     const line = [{ x: 10, y: 20 }, { x: 60, y: 20 }]
     const profile: StubTool = stubTool('profile', {
       gesture: (g) => {
@@ -682,16 +682,12 @@ describe('the interaction session', () => {
         return 'pass'
       },
     })
-    const sitePin: StubTool = stubTool('siteData.pin', {
-      gesture: (g) => {
-        if (g.kind === 'tap') sitePin.ctx().effects.completeRequest(g.point.world)
-        return 'handled'
-      },
-    })
-    useStubTools(profile, sitePin)
+    const select = stubTool('select')
+    useStubTools(profile, select)
     const finishProfile = vi.fn()
     const pinAt = vi.fn()
     const { session } = createSession()
+    session.subscribeEmptyGroundTap(pinAt)
     session.arm('profile', null, {
       onSettled(outcome) {
         if (outcome.kind === 'picked') finishProfile(outcome.value)
@@ -703,11 +699,7 @@ describe('the interaction session', () => {
     expect(finishProfile).toHaveBeenCalledWith(line)
     expect(pinAt).not.toHaveBeenCalled()
 
-    session.arm('siteData.pin', null, {
-      onSettled(outcome) {
-        if (outcome.kind === 'picked') pinAt(outcome.value)
-      },
-    })
+    session.arm('select', null)
     events.pointerDown({ x: 100, y: 100 }, { button: 0, detail: 0, timeStamp: 5000 })
     events.pointerUp({ x: 100, y: 100 }, { button: 0, detail: 0, timeStamp: 5050 })
     expect(pinAt).toHaveBeenCalledWith(testView.view().screenToWorld({ x: 100, y: 100 }))

@@ -19,7 +19,6 @@ export type ToolId =
   | 'saved-object-stamp'
   | 'plant-spacing'
   | 'profile'
-  | 'siteData.pin'
 
 type ToolEscapeStep = 'gesture' | 'nudge-series' | 'tool-transient' | 'tool' | 'selection'
 
@@ -33,7 +32,7 @@ export interface ToolRow {
   readonly readOnly: boolean
   /** Tools that stay in overview without fitting the Design first (Select and Pan). */
   readonly worksInOverview?: boolean
-  /** Tools that do not show a tool row in the phone context bar (Select, Pan, and Desktop-only pin). */
+  /** Tools that do not show a tool row in the phone context bar (Select and Pan). */
   readonly hidePhoneCard?: boolean
   readonly needsCanvas?: boolean
   readonly needsSpatialEditing?: boolean
@@ -161,15 +160,6 @@ export const TOOL_ROWS: Readonly<Record<ToolId, ToolRow>> = {
     shiftConstrains: true,
     cursor: 'crosshair',
     escSteps: DEFAULT_DRAW_ESC,
-  },
-  'siteData.pin': {
-    id: 'siteData.pin',
-    readOnly: true,
-    hidePhoneCard: true,
-    needsCanvas: true,
-    requires: ['site-data-below-limit'],
-    cursor: 'crosshair',
-    escSteps: ['gesture', 'tool'],
   },
 }
 

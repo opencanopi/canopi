@@ -65,7 +65,6 @@
     "desktop/web/src/__tests__/story-presentation.test.tsx: oxlint:typescript/no-unnecessary-type-assertion": { "count": 3 },
     "desktop/web/src/__tests__/support/canvas-interaction-events.ts: oxlint:typescript/no-unnecessary-type-assertion": { "count": 1 },
     "desktop/web/src/__tests__/support/canvas-interaction-setup.ts: oxlint:complexity": { "count": 1 },
-    "desktop/web/src/__tests__/support/canvas-interaction-setup.ts: oxlint:typescript/no-unnecessary-type-assertion": { "count": 1 },
     "desktop/web/src/__tests__/support/scene-renderer-snapshot.ts: oxlint:complexity": { "count": 1 },
     "desktop/web/src/__tests__/support/tooltip.ts: oxlint:typescript/no-floating-promises": { "count": 2 },
     "desktop/web/src/__tests__/support/unmount.ts: oxlint:typescript/no-floating-promises": { "count": 1 },

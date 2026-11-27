@@ -3,7 +3,7 @@
 // 1. ToolHost is the sole owner of the active tool and armed source (`L11`, "tool copies 3 to 1").
 // 2. `tools.arm(id, source, request)` settles each map input request AT MOST ONCE with:
 //    `picked | cancelled{reason: 'escape' | 'tool-change' | 'design-closed' | 'superseded'} | detached`.
-// 3. `siteData.pin` tool row settles on tap with the ground point (click to pin, click again to move, 2.1-Q364).
+// 3. `subscribeEmptyGroundTap` fires on Select empty-ground taps and Pan taps in site mode (2.1-M558).
 import { describe, expect, it, vi } from 'vitest'
 import { signal } from '@preact/signals'
 import * as sessionState from '../../session-state'
@@ -118,22 +118,25 @@ describe('ToolHost owner policy & map-input settlement (ADR 0024, §18 F29, 2.1-
     const mods = { shift: false, ctrl: false, alt: false, meta: false }
 
     const pickedOutcomes: MapInputOutcome[] = []
-    const h1 = host.arm('siteData.pin', null, { onSettled: (o) => pickedOutcomes.push(o) })
-    expect(host.activeTool.value).toBe('siteData.pin')
-    host.gesture({ kind: 'press', id: 1, at: { x: 42, y: 18 }, mods, pointer: 'mouse', clickCount: 1, target: { kind: 'surface' } })
-    host.gesture({ kind: 'tap', id: 1, at: { x: 42, y: 18 }, mods, pointer: 'mouse', clickCount: 1 })
-    expect(await h1.settled).toEqual({ kind: 'picked', value: { x: 42, y: 18 } })
+    const h1 = host.arm('profile', null, { onSettled: (o) => pickedOutcomes.push(o) })
+    expect(host.activeTool.value).toBe('profile')
+    host.gesture({ kind: 'press', id: 1, at: { x: 10, y: 18 }, mods, pointer: 'mouse', clickCount: 1, target: { kind: 'surface' } })
+    host.gesture({ kind: 'tap', id: 1, at: { x: 10, y: 18 }, mods, pointer: 'mouse', clickCount: 1 })
+    host.gesture({ kind: 'press', id: 2, at: { x: 42, y: 18 }, mods, pointer: 'mouse', clickCount: 1, target: { kind: 'surface' } })
+    host.gesture({ kind: 'tap', id: 2, at: { x: 42, y: 18 }, mods, pointer: 'mouse', clickCount: 1 })
+    host.command({ kind: 'confirm' })
+    expect(await h1.settled).toEqual({ kind: 'picked', value: [{ x: 10, y: 18 }, { x: 42, y: 18 }] })
     h1.cancel('escape')
     expect(pickedOutcomes).toHaveLength(1)
 
-    const h2 = host.arm('siteData.pin', null, {})
-    const h3 = host.arm('profile', null, {})
+    const h2 = host.arm('profile', null, {})
+    const h3 = host.arm('polygon', null, {})
     expect(await h2.settled).toEqual({ kind: 'cancelled', reason: 'superseded' })
 
     host.arm('select', null)
     expect(await h3.settled).toEqual({ kind: 'cancelled', reason: 'tool-change' })
 
-    const h4 = host.arm('siteData.pin', null, {})
+    const h4 = host.arm('profile', null, {})
     h4.cancel('escape')
     expect(await h4.settled).toEqual({ kind: 'cancelled', reason: 'escape' })
 
@@ -142,13 +145,13 @@ describe('ToolHost owner policy & map-input settlement (ADR 0024, §18 F29, 2.1-
     expect(await h5.settled).toEqual({ kind: 'cancelled', reason: 'design-closed' })
     expect(host.activeTool.value).toBe('select')
 
-    const h6 = host.arm('siteData.pin', null, {})
+    const h6 = host.arm('profile', null, {})
     host.dispose()
     expect(await h6.settled).toEqual({ kind: 'detached' })
 
     // 7. arming after dispose settles immediately as detached
     const detachedOutcomes: MapInputOutcome[] = []
-    const h7 = host.arm('siteData.pin', null, { onSettled: (o) => detachedOutcomes.push(o) })
+    const h7 = host.arm('profile', null, { onSettled: (o) => detachedOutcomes.push(o) })
     expect(await h7.settled).toEqual({ kind: 'detached' })
     expect(detachedOutcomes).toEqual([{ kind: 'detached' }])
   })
@@ -156,7 +159,7 @@ describe('ToolHost owner policy & map-input settlement (ADR 0024, §18 F29, 2.1-
   it('escapeTool settles a pending map-input request with reason escape and returns to Select (#880 S5)', async () => {
     const host = makeToolHost()
     const onSettled = vi.fn()
-    const handle = host.arm('siteData.pin', null, { onSettled })
+    const handle = host.arm('profile', null, { onSettled })
     host.escapeTool()
     expect(host.activeTool.peek()).toBe('select')
     expect(onSettled).toHaveBeenCalledWith({ kind: 'cancelled', reason: 'escape' })
@@ -183,18 +186,6 @@ describe('ToolHost owner policy & map-input settlement (ADR 0024, §18 F29, 2.1-
     host.gesture({ kind: 'press', id: 3, at: { x: 140, y: 140 }, mods, pointer: 'mouse', target: { kind: 'surface' }, clickCount: 1 })
     host.gesture({ kind: 'tap', id: 3, at: { x: 140, y: 140 }, mods, pointer: 'mouse', clickCount: 1 })
     expect(tapped).toHaveBeenCalledTimes(2)
-    host.dispose()
-  })
-
-  it('covers siteData.pin pass branches (hover, non-tap commands, and overview mode)', () => {
-    const host = makeToolHost()
-    host.arm('siteData.pin', null)
-    const mods = { shift: false, ctrl: false, alt: false, meta: false }
-    expect(host.gesture({ kind: 'hover', at: { x: 10, y: 10 }, mods, pointer: 'mouse', target: { kind: 'surface' } })).toEqual({})
-    expect(host.command({ kind: 'confirm' })).toBe('pass')
-    // Re-arming the same tool with a new source updates ToolHost state in place
-    host.arm('siteData.pin', null, { stampId: 's-1' })
-    expect(host.state.value.stampId).toBe('s-1')
     host.dispose()
   })
 

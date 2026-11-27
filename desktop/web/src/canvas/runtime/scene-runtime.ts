@@ -222,9 +222,6 @@ export class SceneCanvasRuntime {
         ? { saveSelectionAsObjectStamp: this._commandSurface.sceneEdits.saveSelectionAsObjectStamp }
         : undefined,
       contextMenu: this._appAdapter.contextMenu,
-      setTool: (id) => {
-        if (this._interaction?.tool !== id) this._commandSurface.tools.arm(id)
-      },
       render: () => this._invalidate(),
       readSnapToGridEnabled: () => this._appAdapter.settings.readSnapToGridEnabled(),
       readScrollWheel: () => this._appAdapter.settings.readScrollWheel(),

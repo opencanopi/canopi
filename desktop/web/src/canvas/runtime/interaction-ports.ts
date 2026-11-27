@@ -215,7 +215,6 @@ export interface ToolSceneSource {
 export interface ToolHostState {
   readonly id: ToolId
   readonly source: ToolSource | null
-  readonly stampId: string | null
 }
 
 export interface ToolHost {

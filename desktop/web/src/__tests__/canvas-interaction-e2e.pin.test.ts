@@ -54,23 +54,12 @@ describe('SceneInteractionSession: the Site data pin', () => {
   function createPinSession(): {
     session: SceneInteractionSession
     pinAt: ReturnType<typeof vi.fn>
-    armPin: () => void
   } {
     const pinAt = vi.fn()
     const deps: SceneInteractionSessionDeps = createInteractionDeps(container, store, testView)
     const session = fixture.createTestSession(deps)
     session.subscribeEmptyGroundTap(pinAt)
-    const armPin = () => {
-      session.arm<ScenePoint>('siteData.pin', null, {
-        onSettled(outcome) {
-          if (outcome.kind === 'picked') {
-            pinAt(outcome.value)
-            queueMicrotask(armPin)
-          }
-        },
-      })
-    }
-    return { session, pinAt, armPin }
+    return { session, pinAt }
   }
 
   /** A mouse click whose pointerdown sends detail 0, as WebKitGTK's does; `t` keeps clicks apart in time. */
@@ -132,9 +121,9 @@ describe('SceneInteractionSession: the Site data pin', () => {
     session.dispose()
   })
 
-  it('a finger\'s rolling tap with siteData.pin armed pins at the down point', () => {
-    const { session, pinAt, armPin } = createPinSession()
-    armPin()
+  it('a finger\'s rolling Select tap on empty ground pins', () => {
+    const { session, pinAt } = createPinSession()
+    session.setTool('select')
     const finger = { pointerType: 'touch', pointerId: 1, isPrimary: true, detail: 0 }
 
     events.pointerDown({ x: 150, y: 120 }, { ...finger, button: 0, buttons: 1 })
@@ -221,7 +210,7 @@ describe('the canvas runtime: the Site data pin', () => {
     document.body.replaceChildren()
   })
 
-  it('arming siteData.pin through the command surface settles with the tapped world point', async () => {
+  it('a Select click on empty ground reaches subscribeEmptyGroundTap through the live runtime', async () => {
     const pinAt = vi.fn()
     const host = createLiveTestCanvasRuntimeHost({
       screen: { width: 400, height: 300 },
@@ -239,13 +228,10 @@ describe('the canvas runtime: the Site data pin', () => {
     placeOnHost(host.cameraHost, host.surfaces.queries.sessionPlane.peek()!, { x: 0, y: 0, scale: 1 })
     expect(host.cameraHost.frames.viewFrame.peek().mode).toBe('site')
 
-    host.surfaces.commands.tools.arm<ScenePoint>('siteData.pin', null, {
-      onSettled(outcome) {
-        if (outcome.kind === 'picked') pinAt(outcome.value)
-      },
-    })
+    const unsub = host.surfaces.queries.subscribeEmptyGroundTap!(pinAt)
     events.pointerDown({ x: 100, y: 80 }, { button: 0, buttons: 1, detail: 0 })
     events.pointerUp({ x: 100, y: 80 }, { button: 0, buttons: 0, detail: 0 })
+    unsub()
 
     const expected = host.cameraHost.frames.viewFrame.peek().view.screenToWorld({ x: 100, y: 80 })
     expect(pinAt).toHaveBeenCalledTimes(1)
