@@ -38,7 +38,7 @@ import { openTestDesign, replaceCurrentDesignState } from './support/design-sess
 import { setLidarEntryVisibility } from '../app/data-library/actions'
 import { lidarLibrary } from '../app/data-library/library-store'
 import { endSiteDataTransients, pin, setPin } from '../app/data-library/site-transients'
-import { armSitePin, siteValues } from '../app/data-library/site-values'
+import { siteValues } from '../app/data-library/site-values'
 import { activePanel, selectPanel, sidePanel } from '../app/shell/state'
 import type { CanopiFile } from '../types/design'
 import { createTestCanvasQuerySurface, type TestCanvasQuerySurface } from './support/canvas-query-surface'
@@ -313,7 +313,6 @@ describe('Site data row values', () => {
   })
 
   it('pins the tapped point via siteData.pin as the WGS84 point the canvas drew there', () => {
-    armSitePin('panel')
     setPin(surface.sessionPlane.peek()!.toGeo({ x: 12, y: -30 }))
 
     expect(pin.value).toEqual(surface.sessionPlane.peek()!.toGeo({ x: 12, y: -30 }))

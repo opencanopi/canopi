@@ -7,14 +7,11 @@ import { signal, type Signal } from '@preact/signals'
 import { act } from 'preact/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { SpeciesCatalogWorkbench } from '../app/plant-browser/workbench'
-import { readSavedObjectStampDragData } from '../canvas/saved-object-stamp-source'
+import { clearSavedObjectStampDragSource, readSavedObjectStampDragPreviewSource } from '../canvas/stamp-drag-data'
 import type { SpeciesListItem } from '../types/species'
 import type { CanopiFile } from '../types/design'
 import { beforePaint, holdAfterPaint } from './support/before-paint'
-import {
-  createTestSpeciesCatalogWorkbench,
-  makeSpeciesListItem,
-} from './support/species-catalog-workbench'
+import { createTestSpeciesCatalogWorkbench, makeSpeciesListItem } from './support/species-catalog-workbench'
 import type * as FavoritesPanelModule from '../components/panels/FavoritesPanel'
 import type * as SettingsStateModule from '../app/settings/state'
 import type * as PlantBrowserModule from '../app/plant-browser'
@@ -256,6 +253,7 @@ describe('FavoritesPanel', () => {
     render(null, container)
     container.remove()
     workbench.dispose()
+    clearSavedObjectStampDragSource()
     vi.doUnmock('../app/plant-browser')
     vi.doUnmock('../app/saved-object-stamps')
     vi.doUnmock('../app/favorites/controller')
@@ -534,11 +532,11 @@ describe('FavoritesPanel', () => {
 
     const placementDragData = dragDataStore()
     body!.dispatchEvent(dragStartEvent(placementDragData))
-    expect(readSavedObjectStampDragData(placementDragData)?.plants).toHaveLength(2)
+    expect(readSavedObjectStampDragPreviewSource(placementDragData)?.plants).toHaveLength(2)
 
     const reorderDragData = dragDataStore()
     grip!.dispatchEvent(dragStartEvent(reorderDragData))
-    expect(readSavedObjectStampDragData(reorderDragData)).toBeNull()
+    expect(readSavedObjectStampDragPreviewSource(reorderDragData)).toBeNull()
 
     await openStampActions()
     expect(container.querySelector('button[aria-label^="Place stamp "]')).toBeTruthy()
@@ -655,7 +653,7 @@ describe('FavoritesPanel', () => {
     const dragData = dragDataStore()
     const dragStart = dragStartEvent(dragData)
     row.querySelector<HTMLElement>('[data-saved-stamp-body="stamp-old"]')!.dispatchEvent(dragStart)
-    expect(readSavedObjectStampDragData(dragData)).toBeNull()
+    expect(readSavedObjectStampDragPreviewSource(dragData)).toBeNull()
     const actions = [...row.querySelectorAll<HTMLButtonElement>('button:not([data-saved-stamp-grip])')]
     // The only action names its stamp, and its description says why it is the only one,
     // so a keyboard or screen-reader user hears both while tabbing.

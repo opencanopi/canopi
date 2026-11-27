@@ -5,20 +5,24 @@
 // The one way app code arms a canvas tool (spec §1.6, policy P9). Each caller passes its own `from`: the rail, menus,
 // palette and both editions' keys reach here through the one canvas runner (runCanvasIntent in
 // app/workspace-commands/canvas-actions.ts, behind runCatalogCommand and the projected action(from)); a catalog panel's
-// Place, Favorites' Place stamp, the tool card's stamp chooser and the Start card call it directly. Arming writes the source to the
-// module read models first (canvas/plant-stamp-source.ts, canvas/saved-object-stamp-source.ts: what the tool card,
-// recents and choosers show, and what the session reads when the tool activates), selects the canvas panel for the
-// command and Start-card callers, sets the tool on the live canvas session and focuses the map for every `from` but a
+// Place, Favorites' Place stamp, the tool card's stamp chooser and the Start card call it directly. Arming records any
+// chosen species in recentPlantStampSources, selects the canvas panel for the command and Start-card callers, arms the
+// tool on the live canvas session (ToolHost owns the armed source) and focuses the map for every `from` but a
 // shortcut, which leaves focus where it is. In overview a drawing tool first fits the Design as Return to Design does (an
 // empty or too-large Design zooms in about the view centre), so every path that picks a tool leaves overview before the
 // tool activates (canopi-n2cg); Select and Pan work in overview as they are. A drop arms in the runtime, with no `from`.
 // Rail learning is not recorded here: it stays an effect on every tool change (app/tool-rail/learning.ts).
 
+import { signal } from '@preact/signals'
 import type { CanvasCommandFrom } from '../canvas-commands'
-import { TOOL_ROWS, type ToolId } from '../command-table'
+import {
+  lackingCapabilities,
+  TOOL_ROWS,
+  type EditionCapabilityId,
+  type ToolId,
+} from '../command-table'
 import type { MapInputHandle, MapInputRequest, ToolSource } from '../../canvas/runtime/interaction-types'
-import { selectPlantStampSource } from '../../canvas/plant-stamp-source'
-import { selectSavedObjectStampSource } from '../../canvas/saved-object-stamp-source'
+import { recordRecentPlantStampSource } from '../../canvas/stamp-drag-data'
 import {
   currentCanvasQuerySurface,
   currentCanvasToolCommandSurface,
@@ -34,6 +38,21 @@ export interface ArmCanvasToolOptions<T = unknown> {
   readonly from: ArmFrom
   readonly source?: ToolSource
   readonly request?: MapInputRequest<T>
+  readonly capabilities?: ReadonlySet<EditionCapabilityId>
+}
+
+const capabilityReader = signal<(() => ReadonlySet<EditionCapabilityId> | null) | null>(null)
+
+/** Registers the edition's capability reader so arming enforces `TOOL_ROWS[tool].requires` without importing platform/. */
+export function setToolCapabilityReader(read: (() => ReadonlySet<EditionCapabilityId> | null) | null): void {
+  capabilityReader.value = read
+}
+
+function canArmTool(tool: ToolId, explicitCapabilities?: ReadonlySet<EditionCapabilityId>): boolean {
+  const row = TOOL_ROWS[tool]
+  if (!row.readOnly && designShownReadOnly()) return false
+  const capabilities = explicitCapabilities ?? capabilityReader.peek()?.() ?? null
+  return !(row.requires?.length && capabilities && lackingCapabilities(row.requires, capabilities).length > 0)
 }
 
 /** Arms a canvas tool through ToolHost and returns its single-settlement map input handle, or null when dropped/refused. */
@@ -42,24 +61,22 @@ function armCanvasToolRequest<T = unknown>(
   options: ArmCanvasToolOptions<T>,
 ): MapInputHandle<T> | null {
   const { from, source, request } = options
+  if (!canArmTool(tool, options.capabilities)) return null
   const row = TOOL_ROWS[tool]
-  if (!row.readOnly && designShownReadOnly()) return null
   const command = from !== 'panel' && from !== 'card'
   if (command && activePanel.peek() !== 'canvas') selectPanel('canvas')
   const tools = currentCanvasToolCommandSurface.peek()
   if (source?.kind === 'species') {
-    // Kept with no canvas too: Place plants' chooser offers it again.
-    selectPlantStampSource(source.species)
-  } else if (source?.kind === 'saved-stamp' && tools) {
-    selectSavedObjectStampSource(source.stamp, source.name ?? null)
+    // Kept with no canvas too: Place plants' chooser offers it again in recents.
+    recordRecentPlantStampSource(source.species)
   }
   // 2.1-Q41: a tool picked with no Design/canvas open is dropped, never queued.
   if (!tools) return null
-  if (!row.readOnly && currentCanvasQuerySurface.peek()?.view.mode.peek() === 'overview') {
+  if (!row.worksInOverview && currentCanvasQuerySurface.peek()?.view.mode.peek() === 'overview') {
     // Fit first, so the tool's first configure sees site mode (the fit jumps; the mode is current on return).
     currentCanvasViewportCommandSurface.peek()?.returnToDesign({ around: 'view-centre' })
   }
-  const handle = tools.arm(tool, source ?? null, request)
+  const handle = tools.arm(tool, source, request)
   if (from !== 'shortcut') focusOwner.focusMap()
   return handle
 }

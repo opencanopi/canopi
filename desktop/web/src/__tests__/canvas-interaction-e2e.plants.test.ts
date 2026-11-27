@@ -5,11 +5,7 @@
 // Shared fakes, helpers and fixture: support/canvas-interaction-setup.ts.
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { gridInterval } from '../canvas/grid'
-import {
-  readPlantStampSource,
-  selectPlantStampSource,
-  writePlantStampDragData,
-} from '../canvas/plant-stamp-source'
+import { writePlantStampDragData } from '../canvas/stamp-drag-data'
 import {
   currentCanvasSelection,
   setCanvasToolGuidance,
@@ -139,15 +135,17 @@ describe('SceneInteractionSession', () => {
     events = createSceneInteractionEventHarness(container, {
       pointerCapture: { synchronousLossOnSet: true },
     })
-    selectPlantStampSource({
-      canonical_name: 'Malus domestica',
-      common_name: 'Apple',
-      stratum: 'high',
-      width_max_m: 4,
-    })
     const onSceneEditCommit = vi.fn()
     const session = createTestSession(createInteractionDeps(container, store, testView, { onSceneEditCommit }))
-    session.setTool('plant-stamp')
+    session.arm('plant-stamp', {
+      kind: 'species',
+      species: {
+        canonical_name: 'Malus domestica',
+        common_name: 'Apple',
+        stratum: 'high',
+        width_max_m: 4,
+      },
+    })
 
     events.pointerDown({ x: 50, y: 70 }, { pointerId: 26 })
 
@@ -453,9 +451,8 @@ describe('SceneInteractionSession', () => {
     store.updatePersisted((draft) => {
       draft.plants = [makePlant('source', 'Malus domestica', { x: 20, y: 30 })]
     })
-    const setTool = vi.fn()
     const onSceneEditCommit = vi.fn()
-    const session = createTestSession(createInteractionDeps(container, store, testView, { setTool, onSceneEditCommit }))
+    const session = createTestSession(createInteractionDeps(container, store, testView, { onSceneEditCommit }))
     session.setTool('plant-spacing')
     events.pointerDown({ x: 20, y: 30 }, { button: 0 })
     events.pointerMove({ x: 60, y: 30 }, { button: 0 })
@@ -464,16 +461,16 @@ describe('SceneInteractionSession', () => {
 
     events.keyDown({ key: 'Escape', target: container })
     expect(rowSource('source')).toBe(true)
-    expect(setTool).not.toHaveBeenCalledWith('select')
+    expect(session.tool).toBe('plant-spacing')
     events.pointerUp({ x: 60, y: 30 }, { button: 0 })
     expect(onSceneEditCommit).not.toHaveBeenCalled()
     expect(store.persisted.plants).toHaveLength(1)
 
     events.keyDown({ key: 'Escape', target: container })
     expect(rowSource('source')).toBe(false)
-    expect(setTool).not.toHaveBeenCalledWith('select')
+    expect(session.tool).toBe('plant-spacing')
     events.keyDown({ key: 'Escape', target: container })
-    expect(setTool).toHaveBeenLastCalledWith('select')
+    expect(session.tool).toBe('select')
     session.dispose()
   })
 
@@ -1057,13 +1054,17 @@ describe('SceneInteractionSession', () => {
             makePlant('plant-1', 'Malus domestica', { x: 120, y: 30 }, { commonName: 'Apple' }),
           ]
         })
-        if ('species' in c) {
-          selectPlantStampSource({ canonical_name: 'Pyrus communis', common_name: 'Pear', stratum: 'high', width_max_m: 4 })
-        }
         const setHoveredTarget = vi.fn()
         const deps = createInteractionDeps(container, store, testView, { setHoveredTarget })
         const session = createTestSession(deps)
-        session.setTool(c.tool)
+        if ('species' in c) {
+          session.arm(c.tool, {
+            kind: 'species',
+            species: { canonical_name: 'Pyrus communis', common_name: 'Pear', stratum: 'high', width_max_m: 4 },
+          })
+        } else {
+          session.setTool(c.tool)
+        }
 
         // Today's Select, Text and Place plants kept their pointer gesture: _updateHover never ran until the release.
         events.pointerDown(c.from, { button: 0 })
@@ -1213,21 +1214,22 @@ describe('SceneInteractionSession', () => {
     session.dispose()
   })
 
-  it('clears Plant Stamp source on session dispose without writing scene data', () => {
-    selectPlantStampSource({
-      canonical_name: 'Malus domestica',
-      common_name: 'Apple',
-      stratum: 'high',
-      width_max_m: 4,
+  it('clears Plant Stamp source on session dispose without writing scene data', async () => {
+    const session = createTestSession(createInteractionDeps(container, store, testView))
+    const handle = session.arm('plant-stamp', {
+      kind: 'species',
+      species: {
+        canonical_name: 'Malus domestica',
+        common_name: 'Apple',
+        stratum: 'high',
+        width_max_m: 4,
+      },
     })
 
-    const session = createTestSession(createInteractionDeps(container, store, testView))
-    session.setTool('plant-stamp')
-
-    expect(readPlantStampSource()).not.toBeNull()
+    expect(session.tool).toBe('plant-stamp')
     session.dispose()
 
-    expect(readPlantStampSource()).toBeNull()
+    await expect(handle.settled).resolves.toEqual({ kind: 'detached' })
     expect(store.persisted.plants).toHaveLength(0)
   })
 
@@ -1235,15 +1237,17 @@ describe('SceneInteractionSession', () => {
     // At scale=4, gridInterval() returns 5m
     testView.setViewport({ x: 0, y: 0, scale: 4 })
     snapToGridEnabled.value = true
-    selectPlantStampSource({
-      canonical_name: 'Malus domestica',
-      common_name: 'Apple',
-      stratum: 'high',
-      width_max_m: 4,
-    })
 
     const session = createTestSession(createInteractionDeps(container, store, testView))
-    session.setTool('plant-stamp')
+    session.arm('plant-stamp', {
+      kind: 'species',
+      species: {
+        canonical_name: 'Malus domestica',
+        common_name: 'Apple',
+        stratum: 'high',
+        width_max_m: 4,
+      },
+    })
 
     // Screen (53,67) → world (13.25, 16.75) → snaps to (15, 15) at 5m interval
     events.pointerDown({ x: 53, y: 67 }, { button: 0 })
@@ -1262,8 +1266,7 @@ describe('SceneInteractionSession', () => {
     document.body.appendChild(sourceControl)
     sourceControl.focus()
     expect(document.activeElement).toBe(sourceControl)
-    const setTool = vi.fn()
-    const deps = createInteractionDeps(container, store, testView, { setTool })
+    const deps = createInteractionDeps(container, store, testView)
     const session = createTestSession(deps)
     const originalFocus = container.focus.bind(container)
     let nativeDropInProgress = false
@@ -1310,7 +1313,7 @@ describe('SceneInteractionSession', () => {
 
       expect(droppedPlant).toBeDefined()
       expect(currentCanvasSelection.value).toEqual(new Set([droppedPlant!.id]))
-      expect(setTool).toHaveBeenCalledWith('select')
+      expect(session.tool).toBe('select')
       expect(document.activeElement).toBe(sourceControl)
       await nextAnimationFrame()
       expect(document.activeElement).toBe(container)
@@ -1400,9 +1403,10 @@ describe('SceneInteractionSession', () => {
       expect(store.persisted.plants).toHaveLength(0)
       expect(published.at(-1)?.speciesPrompts).toBe(1)
 
-      selectPlantStampSource({ canonical_name: 'Malus domestica', common_name: 'Apple', stratum: null, width_max_m: 6 })
-      // The pick reaches Place plants through the session's read model after a microtask (spec §1.4).
-      await Promise.resolve()
+      session.arm('plant-stamp', {
+        kind: 'species',
+        species: { canonical_name: 'Malus domestica', common_name: 'Apple', stratum: null, width_max_m: 6 },
+      })
       events.pointerDown({ x: 40, y: 40 })
       events.pointerUp({ x: 40, y: 40 })
 
@@ -1417,10 +1421,8 @@ describe('SceneInteractionSession', () => {
 
     it('arms Place plants and asks for a species, then places the chosen one at the right-clicked point', async () => {
       const published: CanvasToolGuidance[] = []
-      const tools: string[] = []
       const deps = createInteractionDeps(container, store, testView, {
         publishToolGuidance: (guidance) => { published.push(guidance) },
-        setTool: (name: string) => { tools.push(name) },
       })
       const session = createTestSession(deps)
       session.setTool('select')
@@ -1429,12 +1431,11 @@ describe('SceneInteractionSession', () => {
       expect(contextMenuHost.current?.selection).toBeNull()
       contextMenuCommand('place-plants-here').run()
 
-      expect(tools.at(-1)).toBe('plant-stamp')
+      expect(session.tool).toBe('plant-stamp')
       expect(store.persisted.plants).toHaveLength(0)
       expect(published.at(-1)?.speciesPrompts).toBe(1)
 
-      selectPlantStampSource(APPLE)
-      await Promise.resolve()
+      session.arm('plant-stamp', { kind: 'species', species: APPLE })
 
       expect(store.persisted.plants).toHaveLength(1)
       expect(store.persisted.plants[0]).toMatchObject({ canonicalName: 'Malus domestica', position: world({ x: 120, y: 80 }) })
@@ -1442,16 +1443,14 @@ describe('SceneInteractionSession', () => {
       expect(published.at(-1)?.speciesPrompts).toBe(0)
 
       // The pick is spent: choosing another species places nothing more.
-      selectPlantStampSource({ ...APPLE, canonical_name: 'Pyrus communis' })
-      await Promise.resolve()
+      session.arm('plant-stamp', { kind: 'species', species: { ...APPLE, canonical_name: 'Pyrus communis' } })
       expect(store.persisted.plants).toHaveLength(1)
       session.dispose()
     })
 
     it('places the species already chosen at once', () => {
-      selectPlantStampSource(APPLE)
       const session = createTestSession(createInteractionDeps(container, store, testView))
-      session.setTool('plant-stamp')
+      session.arm('plant-stamp', { kind: 'species', species: APPLE })
 
       openContextMenu({ x: 60, y: 40 })
       contextMenuCommand('place-plants-here').run()
@@ -1462,24 +1461,19 @@ describe('SceneInteractionSession', () => {
     })
 
     it('a waiting point is no Esc layer: Shift+Esc leaves nothing, and Esc leaves Place plants with the point (U35)', async () => {
-      const tools: string[] = []
-      const session = createTestSession(createInteractionDeps(container, store, testView, {
-        setTool: (name: string) => { tools.push(name) },
-      }))
+      const session = createTestSession(createInteractionDeps(container, store, testView))
       session.setTool('select')
       openContextMenu({ x: 30, y: 30 })
       contextMenuCommand('place-plants-here').run()
-      expect(tools.at(-1)).toBe('plant-stamp')
+      expect(session.tool).toBe('plant-stamp')
 
       // As with no point waiting, leaving the tool takes an Esc with no modifier.
       events.keyDown({ key: 'Escape', shiftKey: true, target: container })
-      expect(tools.at(-1)).toBe('plant-stamp')
+      expect(session.tool).toBe('plant-stamp')
 
       events.keyDown({ key: 'Escape', target: container })
-      expect(tools.at(-1)).toBe('select')
-      session.setTool('plant-stamp')
-      selectPlantStampSource(APPLE)
-      await Promise.resolve()
+      expect(session.tool).toBe('select')
+      session.arm('plant-stamp', { kind: 'species', species: APPLE })
       expect(store.persisted.plants).toHaveLength(0)
       session.dispose()
     })
@@ -1491,9 +1485,7 @@ describe('SceneInteractionSession', () => {
       contextMenuCommand('place-plants-here').run()
 
       session.setTool('select')
-      session.setTool('plant-stamp')
-      selectPlantStampSource(APPLE)
-      await Promise.resolve()
+      session.arm('plant-stamp', { kind: 'species', species: APPLE })
 
       expect(store.persisted.plants).toHaveLength(0)
       session.dispose()

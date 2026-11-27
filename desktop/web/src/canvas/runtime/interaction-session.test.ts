@@ -7,8 +7,13 @@ import { createSceneInteractionEventHarness, type SceneInteractionEventHarness }
 import { createTestView, type TestView } from '../../__tests__/support/test-view'
 import { installCanvasKeyRouter } from '../../__tests__/support/key-router'
 import type { KeyRouterHandle } from '../../app/keyboard/key-router'
-import { clearPlantStampSource, readPlantStampSource, selectPlantStampSource, writePlantStampDragData } from '../plant-stamp-source'
-import { clearSavedObjectStampSource, readSavedObjectStampDragPreviewSource, readSavedObjectStampName, readSavedObjectStampSource, selectSavedObjectStampSource, writeSavedObjectStampDragData } from '../saved-object-stamp-source'
+import {
+  clearSavedObjectStampDragSource,
+  readSavedObjectStampDragPreviewSource,
+  writePlantStampDragData,
+  writeSavedObjectStampDragData,
+} from '../stamp-drag-data'
+import type { SavedObjectStampPayload } from '../saved-object-stamp-payload'
 import type { CanvasFocusPort } from './app-adapter'
 import type { InputPlatform } from './input/platform'
 import type { ToolHost, ToolHostDeps, PointerWorld } from './interaction-ports'
@@ -59,8 +64,7 @@ beforeEach(() => {
   sessions = []
   // Keys reach the latest session's port through the app's key router, as in the workspace.
   keys = installCanvasKeyRouter(() => sessions.at(-1)?.keyboard ?? null)
-  clearPlantStampSource()
-  clearSavedObjectStampSource()
+  clearSavedObjectStampDragSource()
 })
 
 afterEach(() => {
@@ -71,8 +75,7 @@ afterEach(() => {
   container.remove()
   useStubTools()
   document.documentElement.removeAttribute('data-story-presenting')
-  clearPlantStampSource()
-  clearSavedObjectStampSource()
+  clearSavedObjectStampDragSource()
 })
 
 function recordingRenderer() {
@@ -89,12 +92,6 @@ function createSession(overrides: Partial<SceneInteractionSessionDeps> = {}): { 
   const session = createSceneInteractionSession(deps)
   sessions.push(session)
   return { session, deps }
-}
-
-/** The microtask after a species pick (the plant source reaches the tool once the picker's own update is done). */
-async function afterPick(): Promise<void> {
-  await Promise.resolve()
-  await Promise.resolve()
 }
 
 describe('the interaction session', () => {
@@ -197,7 +194,7 @@ describe('the interaction session', () => {
     expect(testView.viewport()).not.toEqual(before)
   })
 
-  it('a plant source chosen while armed reaches sourceChanged', async () => {
+  it('a plant source chosen while armed reaches sourceChanged', () => {
     const sources: (ToolSource | null)[] = []
     const stamp = stubTool('plant-stamp', {
       activate: (_ctx, source) => { sources.push(source) },
@@ -205,31 +202,27 @@ describe('the interaction session', () => {
     })
     useStubTools(stamp)
     const { session } = createSession()
-    session.setTool('plant-stamp')
+    session.arm('plant-stamp')
     expect(sources).toEqual([null])
 
-    const chosen = selectPlantStampSource(SPECIES)
-    // The pick reaches the tool after the chooser's own update (a microtask), as today's Place plants here.
-    expect(stamp.calls).not.toContain('sourceChanged')
-    await afterPick()
-    expect(sources).toEqual([null, { kind: 'species', species: chosen }])
+    session.arm('plant-stamp', { kind: 'species', species: SPECIES })
+    expect(sources).toEqual([null, { kind: 'species', species: SPECIES }])
 
     // Armed again with a source, the tool gets it at activation.
-    session.setTool('select')
-    selectPlantStampSource(SPECIES)
-    session.setTool('plant-stamp')
-    expect(sources.at(-1)).toEqual({ kind: 'species', species: readPlantStampSource() })
+    session.arm('select')
+    session.arm('plant-stamp', { kind: 'species', species: SPECIES })
+    expect(sources.at(-1)).toEqual({ kind: 'species', species: SPECIES })
+    expect(session.toolState.value.source).toEqual({ kind: 'species', species: SPECIES })
   })
 
   it('leaving Place plants clears its source', () => {
     useStubTools(stubTool('plant-stamp'))
     const { session } = createSession()
-    selectPlantStampSource(SPECIES)
-    session.setTool('plant-stamp')
-    expect(readPlantStampSource()).not.toBeNull()
+    session.arm('plant-stamp', { kind: 'species', species: SPECIES })
+    expect(session.toolState.value.source).not.toBeNull()
 
-    session.setTool('select')
-    expect(readPlantStampSource()).toBeNull()
+    session.arm('select')
+    expect(session.toolState.value.source).toBeNull()
   })
 
   it('a presented story shows no draft or handles', async () => {
@@ -328,7 +321,10 @@ describe('the interaction session', () => {
     expect(returnToDesign).toHaveBeenCalledExactlyOnceWith({ around: 'view-centre' })
     expect(testView.viewport().scale).toBeGreaterThanOrEqual(0.1)
     expect(store.persisted.plants).toHaveLength(0)
-    expect(readPlantStampSource()?.canonical_name).toBe('Pyrus communis')
+    expect(session.toolState.value.source).toEqual({
+      kind: 'species',
+      species: expect.objectContaining({ canonical_name: 'Pyrus communis' }),
+    })
     expect(session.tool).toBe('plant-stamp')
 
     // A saved stamp follows the plant rule.
@@ -339,8 +335,11 @@ describe('the interaction session', () => {
       payload_json: JSON.stringify(stamp),
     }))
     expect(returnToDesign).toHaveBeenCalledTimes(2)
-    expect(readSavedObjectStampSource()).not.toBeNull()
-    expect(readSavedObjectStampName(), 'the tool card names the dropped stamp, as when it is picked with Place').toBe('Bed')
+    expect(session.toolState.value.source).toMatchObject({ kind: 'saved-stamp', stamp })
+    expect(
+      session.toolState.value.source?.kind === 'saved-stamp' ? session.toolState.value.source.name : undefined,
+      'the tool card names the dropped stamp, as when it is picked with Place',
+    ).toBe('Bed')
     expect(session.tool).toBe('saved-object-stamp')
     expect(store.persisted.zones).toHaveLength(0)
 
@@ -350,7 +349,7 @@ describe('the interaction session', () => {
       id: 'stamp-2', name: '   ', sort_order: 1, created_at: '2026-06-19T09:00:00Z', updated_at: '2026-06-19T09:00:00Z',
       payload_json: JSON.stringify(stamp),
     }))
-    expect(readSavedObjectStampName()).toBeNull()
+    expect(session.toolState.value.source?.kind === 'saved-stamp' ? session.toolState.value.source.name : undefined).toBeNull()
   })
 
   describe('the Design pin in overview (canopi-n2cg)', () => {
@@ -553,18 +552,19 @@ describe('the interaction session', () => {
     const sources: (ToolSource | null)[] = []
     useStubTools(stubTool('saved-object-stamp', { sourceChanged: (source) => { sources.push(source) } }))
     const { session } = createSession()
-    session.setTool('saved-object-stamp')
+    session.arm('saved-object-stamp')
 
-    const stamp = selectSavedObjectStampSource({
+    const stamp: SavedObjectStampPayload = {
       version: 2,
       anchor: { x: 0, y: 0 },
       plants: [],
       zones: [],
       annotations: [],
       groups: [],
-    } as unknown as Parameters<typeof selectSavedObjectStampSource>[0])
+    }
+    session.arm('saved-object-stamp', { kind: 'saved-stamp', stamp })
     expect(sources).toEqual([{ kind: 'saved-stamp', stamp }])
-    session.setTool('select')
+    session.arm('select')
     expect(sources).toHaveLength(1)
   })
 
@@ -857,22 +857,21 @@ describe('the interaction session', () => {
     }
     useStubTools(stubTool('plant-stamp', record), stubTool('saved-object-stamp', record))
 
-    const chosen = selectPlantStampSource(SPECIES)
     const { session } = createSession()
-    session.setTool('plant-stamp')
-    expect(sources.at(-1)).toEqual({ kind: 'species', species: chosen })
+    session.arm('plant-stamp', { kind: 'species', species: SPECIES })
+    expect(sources.at(-1)).toEqual({ kind: 'species', species: SPECIES })
     session.dispose()
 
-    const stamp = selectSavedObjectStampSource({
+    const stamp: SavedObjectStampPayload = {
       version: 2,
       anchor: { x: 0, y: 0 },
       plants: [],
       zones: [],
       annotations: [],
       groups: [],
-    } as unknown as Parameters<typeof selectSavedObjectStampSource>[0])
+    }
     const { session: stampSession } = createSession()
-    stampSession.setTool('saved-object-stamp')
+    stampSession.arm('saved-object-stamp', { kind: 'saved-stamp', stamp })
     expect(sources.at(-1)).toEqual({ kind: 'saved-stamp', stamp })
   })
 
@@ -1077,14 +1076,13 @@ describe('registered tools against today\'s session (0B-3 host rulings)', () => 
     })
     useStubTools(stubTool('plant-stamp'), rectangle)
     const { session } = createSession()
-    selectPlantStampSource(SPECIES)
-    session.setTool('plant-stamp')
-    expect(readPlantStampSource()).not.toBeNull()
+    session.arm('plant-stamp', { kind: 'species', species: SPECIES })
+    expect(session.toolState.value.source).not.toBeNull()
 
-    expect(() => session.setTool('rectangle')).toThrow('activation failed')
+    expect(() => session.arm('rectangle')).toThrow('activation failed')
     failActivation = false
     expect(session.tool).toBe('select')
-    expect(readPlantStampSource()).toBeNull()
+    expect(session.toolState.value.source).toBeNull()
   })
 
   it('a failed tool switch during a Shift+middle rotate cancels the turn, so the view keys work again', () => {
@@ -1210,19 +1208,17 @@ describe('registered tools against today\'s session (0B-3 host rulings)', () => 
 })
 
 describe('releases the tool did not hear (today\'s pointerup cleanup)', () => {
-  /** A saved stamp of one apple, held through the read model as Favorites arms it. */
-  function holdAppleStamp(): void {
-    selectSavedObjectStampSource({
-      version: 2,
-      anchor: { x: 0, y: 0 },
-      plants: [{
-        id: 'plant-1', canonicalName: 'Malus domestica', commonName: 'Apple', color: null, symbol: null,
-        position: { x: 0, y: 0 }, rotationDeg: null, scale: null,
-      }],
-      zones: [],
-      annotations: [],
-      groups: [],
-    } as unknown as Parameters<typeof selectSavedObjectStampSource>[0])
+  /** A saved stamp of one apple, armed as Favorites arms it. */
+  const APPLE_STAMP: SavedObjectStampPayload = {
+    version: 2,
+    anchor: { x: 0, y: 0 },
+    plants: [{
+      id: 'plant-1', canonicalName: 'Malus domestica', commonName: 'Apple', color: null, symbol: null,
+      position: { x: 0, y: 0 }, rotationDeg: null, scale: null,
+    }],
+    zones: [],
+    annotations: [],
+    groups: [],
   }
 
   function ghostShown(renderer: ReturnType<typeof recordingRenderer>): boolean {
@@ -1277,11 +1273,10 @@ describe('releases the tool did not hear (today\'s pointerup cleanup)', () => {
   })
 
   it('a right-click release hides a held stamp\'s ghost until the next hover, and a click on a panel leaves it', () => {
-    holdAppleStamp()
     useStubTools(createSavedObjectStampTool())
     const renderer = recordingRenderer()
     const { session } = createSession({ renderer })
-    session.setTool('saved-object-stamp')
+    session.arm('saved-object-stamp', { kind: 'saved-stamp', stamp: APPLE_STAMP })
     const panel = document.createElement('button')
     document.body.appendChild(panel)
 

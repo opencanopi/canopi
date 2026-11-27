@@ -356,13 +356,13 @@ describe('MenuBar keyboard and semantics', () => {
 
 describe('MenuBar with the Desktop menus', () => {
   let container: HTMLDivElement
-  const setTool = vi.fn()
+  const arm = vi.fn(() => ({ settled: new Promise<never>(() => {}), cancel: () => {} }))
 
   beforeEach(() => {
     container = document.createElement('div')
     document.body.appendChild(container)
-    setTool.mockReset()
-    setCurrentCanvasSession(createTestCanvasRuntimeSurfaces({ commands: createTestCanvasCommandSurface({ tools: { setTool } }) }))
+    arm.mockClear()
+    setCurrentCanvasSession(createTestCanvasRuntimeSurfaces({ commands: createTestCanvasCommandSurface({ tools: { arm } }) }))
   })
 
   afterEach(() => {
@@ -383,7 +383,7 @@ describe('MenuBar with the Desktop menus', () => {
     const pan = view.querySelector<HTMLElement>('[data-command-id="canvas.tool.hand"]')!
     expect(pan.textContent).toBe('PanH')
     await act(async () => { pan.click() })
-    expect(setTool).toHaveBeenCalledWith('hand')
+    expect(arm).toHaveBeenCalledWith('hand', undefined, undefined)
     expect(currentCanvasTool.value).toBe('hand')
   })
 

@@ -69,7 +69,7 @@ export function parseSavedObjectStampPayload(raw: string): SavedObjectStampPaylo
   }
 }
 
-export function normalizeSavedObjectStampPayload(raw: unknown): SavedObjectStampPayload | null {
+function normalizeSavedObjectStampPayload(raw: unknown): SavedObjectStampPayload | null {
   if (!isRecord(raw)) return null
   if (raw.version === SAVED_OBJECT_STAMP_PAYLOAD_V3_VERSION) {
     return normalizeSavedObjectStampPayloadV3(raw)

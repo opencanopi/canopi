@@ -9,11 +9,11 @@ import {
   createToolSceneSource,
   type ToolHarness,
 } from '../../../__tests__/support/tool-harness'
-import { normalizeSavedObjectStampPayload, type SavedObjectStampPayload } from '../../saved-object-stamp-payload'
+import { parseSavedObjectStampPayload, type SavedObjectStampPayload } from '../../saved-object-stamp-payload'
 import { SceneStore, type SceneDesignObjectTarget, type ScenePoint } from '../scene'
 import { SceneRuntimeMutationController } from '../scene-runtime/mutations'
 import { createDetachedSceneSessionAdapter, SceneRuntimeEditCoordinator } from '../scene-runtime/transactions'
-import { degreesToRadians, rotatePointAround } from '../zone-geometry'
+import { createScreenAlignedBounds, degreesToRadians, rotatePointAround } from '../zone-geometry'
 import type { DraftShape } from './draft'
 import { placeSavedObjectStamp, savedObjectStampGhostShapes } from './saved-object-stamp'
 import { createToolScene } from './tool-host'
@@ -83,7 +83,7 @@ function makeLZoneScene(bearingDeg: number) {
 }
 
 function lShapeSavedStamp(): SavedObjectStampPayload {
-  const normalized = normalizeSavedObjectStampPayload({
+  const normalized = parseSavedObjectStampPayload(JSON.stringify({
     version: 2,
     anchor: { ...WORLD_AABB_CENTER },
     plants: [],
@@ -93,17 +93,15 @@ function lShapeSavedStamp(): SavedObjectStampPayload {
     }],
     annotations: [],
     groups: [],
-  })
+  }))
   if (!normalized) throw new Error('Failed to normalize L-shape stamp payload')
   return normalized
 }
 
-function stampedPoints(pivot: ScenePoint, at: ScenePoint, deg: number): ScenePoint[] {
-  const rad = degreesToRadians(deg)
-  return L_SHAPE.map((p) => {
-    const turned = rotatePointAround(p, pivot, rad)
-    return { x: turned.x + (at.x - pivot.x), y: turned.y + (at.y - pivot.y) }
-  })
+function screenBoxCenterOf(points: readonly ScenePoint[], bearingDeg: number): ScenePoint {
+  const box = createScreenAlignedBounds(bearingDeg)
+  box.addPoints(points)
+  return box.center()!
 }
 
 describe('Turned map screen-aligned pivot and anchor (2.1-Q89)', () => {
@@ -142,46 +140,52 @@ describe('Turned map screen-aligned pivot and anchor (2.1-Q89)', () => {
     }
   })
 
-  it('saved-object stamp ghost preview and placement pivot and anchor on the screen-aligned box centre at bearing 45°', () => {
+  it('saved-object stamp ghost preview and placement centre the turned template on at in screen coordinates at bearing 45°', () => {
     const h = createToolHarness({ camera: { bearingDeg: 45 } })
     harnesses.push(h)
     const scene = createToolScene(createToolSceneSource(h.store))
     const stamp = lShapeSavedStamp()
     const at = { x: 100, y: 120 }
 
-    // 1. Direct ghost preview and placement API at bearing 45° (with rotationDeg = 45°).
-    const ghostShapes = savedObjectStampGhostShapes(scene, stamp, at, 45, 45)
-    const ghost = ghostShapes?.find((shape): shape is Extract<DraftShape, { kind: 'ghost' }> => shape.kind === 'ghost')
-    expect(ghost?.entity.kind).toBe('objects')
-    const ghostPoints = ghost?.entity.kind === 'objects' ? ghost.entity.template.zones[0]!.entity.points : []
+    // 1. Level to the screen (rotationDeg = 45°, bearingDeg = 45°): the ghost and placed zone's screen-box centre equals `at`.
+    const levelGhost = savedObjectStampGhostShapes(scene, stamp, at, 45, 45)
+      ?.find((shape): shape is Extract<DraftShape, { kind: 'ghost' }> => shape.kind === 'ghost')
+    expect(levelGhost?.entity.kind).toBe('objects')
+    const levelGhostPoints = levelGhost?.entity.kind === 'objects' ? levelGhost.entity.template.zones[0]!.entity.points : []
+    const levelGhostCenter = screenBoxCenterOf(levelGhostPoints, 45)
+    expect(levelGhostCenter.x).toBeCloseTo(at.x, 5)
+    expect(levelGhostCenter.y).toBeCloseTo(at.y, 5)
 
     const onCommitted = vi.fn()
     placeSavedObjectStamp(h.edits, scene, stamp, at, { rotationDeg: 45, bearingDeg: 45, onCommitted })
     expect(onCommitted).toHaveBeenCalledOnce()
+    const levelPlacedCenter = screenBoxCenterOf(h.store.persisted.zones[0]!.points, 45)
+    expect(levelPlacedCenter.x).toBeCloseTo(at.x, 5)
+    expect(levelPlacedCenter.y).toBeCloseTo(at.y, 5)
 
-    const placedPoints = h.store.persisted.zones[0]!.points
-    const expectedScreen = stampedPoints(SCREEN_BOX_CENTER_AT_45, at, 45)
-    const expectedWorld = stampedPoints(WORLD_AABB_CENTER, at, 45)
+    // 2. Unturned on a 45° map (rotationDeg = 0°, bearingDeg = 45°): still centred on `at` in screen coordinates (distinct from world AABB).
+    const unturnedGhost = savedObjectStampGhostShapes(scene, stamp, at, 0, 45)
+      ?.find((shape): shape is Extract<DraftShape, { kind: 'ghost' }> => shape.kind === 'ghost')
+    const unturnedGhostPoints = unturnedGhost?.entity.kind === 'objects' ? unturnedGhost.entity.template.zones[0]!.entity.points : []
+    const unturnedGhostCenter = screenBoxCenterOf(unturnedGhostPoints, 45)
+    expect(unturnedGhostCenter.x).toBeCloseTo(at.x, 5)
+    expect(unturnedGhostCenter.y).toBeCloseTo(at.y, 5)
+    expect(Math.hypot(
+      unturnedGhostPoints[0]!.x - (at.x - WORLD_AABB_CENTER.x),
+      unturnedGhostPoints[0]!.y - (at.y - WORLD_AABB_CENTER.y),
+    )).toBeGreaterThan(2)
 
-    for (let i = 0; i < L_SHAPE.length; i += 1) {
-      expect(ghostPoints[i]!.x).toBeCloseTo(expectedScreen[i]!.x, 5)
-      expect(ghostPoints[i]!.y).toBeCloseTo(expectedScreen[i]!.y, 5)
-      expect(placedPoints[i]!.x).toBeCloseTo(expectedScreen[i]!.x, 5)
-      expect(placedPoints[i]!.y).toBeCloseTo(expectedScreen[i]!.y, 5)
-      expect(Math.hypot(placedPoints[i]!.x - expectedWorld[i]!.x, placedPoints[i]!.y - expectedWorld[i]!.y)).toBeGreaterThan(2)
-    }
-
-    // 2. Through the live saved-object-stamp tool at bearing 45°.
+    // 3. Through the live saved-object-stamp tool at bearing 45° (both level and after turning with `]`).
     h.arm('saved-object-stamp', { kind: 'saved-stamp', stamp })
+    h.host.command({ kind: 'rotate-held', stepDeg: 15 })
+    h.host.command({ kind: 'rotate-held', stepDeg: 15 })
+    h.host.command({ kind: 'rotate-held', stepDeg: 15 })
     const clickScreen = { x: 200, y: 150 }
     const clickWorld = h.world(clickScreen)
     h.click(clickScreen)
     expect(h.store.persisted.zones).toHaveLength(2)
-    const toolPlaced = h.store.persisted.zones[1]!.points
-    const expectedClick = stampedPoints(SCREEN_BOX_CENTER_AT_45, clickWorld, 45)
-    for (let i = 0; i < L_SHAPE.length; i += 1) {
-      expect(toolPlaced[i]!.x).toBeCloseTo(expectedClick[i]!.x, 5)
-      expect(toolPlaced[i]!.y).toBeCloseTo(expectedClick[i]!.y, 5)
-    }
+    const toolPlacedCenter = screenBoxCenterOf(h.store.persisted.zones[1]!.points, 45)
+    expect(toolPlacedCenter.x).toBeCloseTo(clickWorld.x, 5)
+    expect(toolPlacedCenter.y).toBeCloseTo(clickWorld.y, 5)
   })
 })

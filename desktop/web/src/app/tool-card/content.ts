@@ -163,7 +163,7 @@ export function toolCardContent(input: ToolCardInput): ToolCardContent | null {
     case 'profile':
       return card(null, translate('canvas.toolCard.profile'), hints('canvas.toolCard.lineKeys'))
     case 'siteData.pin':
-      return card(null, translate('canvas.toolCard.selectHint'))
+      return card(null, translate(input.coarsePointer ? 'siteData.hintTouch' : 'siteData.hint'))
   }
 }
 

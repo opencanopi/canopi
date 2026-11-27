@@ -53,7 +53,7 @@ async function createMountedRuntime(readOnly: { value: boolean }) {
   const plane = runtime.querySurface.sessionPlane.peek()!
   const tree = plane.toPlane(file.plants[0]!.position)
   placeOnHost(runtime.cameraHost, plane, { x: SCREEN.width / 2 - tree.x, y: SCREEN.height / 2 - tree.y, scale: 1 })
-  runtime.commandSurface.tools.setTool('select')
+  runtime.commandSurface.tools.arm('select')
   const events = createSceneInteractionEventHarness(container)
   return {
     runtime,

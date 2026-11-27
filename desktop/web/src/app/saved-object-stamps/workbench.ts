@@ -261,7 +261,11 @@ export function createSavedObjectStampWorkbench({
     if (queue.disposed || savedObjectStampRowState(stamp) !== 'ready') return false
     const payload = parseSavedObjectStampPayload(stamp.payload_json)
     if (!payload) return false
-    return arm('saved-object-stamp', { from, source: { kind: 'saved-stamp', stamp: payload, name: stamp.name.trim() || null } })
+    return arm('saved-object-stamp', {
+      from,
+      source: { kind: 'saved-stamp', stamp: payload, name: stamp.name.trim() || null },
+      request: { stampId: stamp.id },
+    })
   }
 
   async function exportStamp(stamp: SavedObjectStamp): Promise<string | null> {

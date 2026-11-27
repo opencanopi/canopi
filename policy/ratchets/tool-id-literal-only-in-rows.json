@@ -8,7 +8,6 @@
     "desktop/web/src/app/tool-card/content.ts": { "count": 6 },
     "desktop/web/src/app/tool-rail/learning.ts": { "count": 1 },
     "desktop/web/src/canvas/runtime/input/recognise.ts": { "count": 2 },
-    "desktop/web/src/canvas/runtime/interaction-session.ts": { "count": 4 },
     "desktop/web/src/components/canvas/SiteOnboarding.tsx": { "count": 1 },
     "desktop/web/src/components/canvas/StampChooser.tsx": { "count": 2 },
     "desktop/web/src/components/canvas/ToolCard.tsx": { "count": 15 },

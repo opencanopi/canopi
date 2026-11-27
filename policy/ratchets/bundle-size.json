@@ -144,7 +144,7 @@
       "tolerance": 0.05
     },
     "desktop chunk: command-table": {
-      "ceiling": 7346,
+      "ceiling": 8314,
       "tolerance": 0.05,
       "bead": "canopi-f47t.52.5"
     },
@@ -172,6 +172,11 @@
       "ceiling": 1171,
       "tolerance": 0.05,
       "bead": "canopi-f47t.52.205"
+    },
+    "desktop chunk: edition-capabilities": {
+      "ceiling": 3486,
+      "tolerance": 0.05,
+      "bead": "canopi-f47t.52.5"
     },
     "desktop chunk: edition-ports": {
       "ceiling": 262,
@@ -329,7 +334,7 @@
       "tolerance": 0.05
     },
     "desktop chunk: target": {
-      "ceiling": 8222,
+      "ceiling": 9829,
       "tolerance": 0.05,
       "bead": "canopi-f47t.52.5"
     },

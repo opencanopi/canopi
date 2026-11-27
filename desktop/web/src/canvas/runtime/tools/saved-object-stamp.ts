@@ -180,11 +180,11 @@ export function savedObjectStampGhostShapes(
   stamp: SavedObjectStampPayload,
   at: WorldPoint,
   rotationDeg: number,
-  bearingDeg: number = rotationDeg,
+  bearingDeg: number,
 ): DraftShape[] | null {
   if (!canPlaceSavedObjectStamp(scene, stamp)) return null
   const template = savedObjectStampArrangementTemplate(stamp)
-  const pivot = savedObjectStampPivot(stamp, template, bearingDeg)
+  const pivot = savedObjectStampPivot(stamp, template, rotationDeg, bearingDeg)
   return stampGhostShapes(stampTemplateAt(template, pivot, at, rotationDeg))
 }
 
@@ -198,11 +198,11 @@ export function placeSavedObjectStamp(
   scene: StampScene,
   stamp: SavedObjectStampPayload,
   at: WorldPoint,
-  options: { readonly rotationDeg: number; readonly bearingDeg?: number; readonly onCommitted: () => void },
+  options: { readonly rotationDeg: number; readonly bearingDeg: number; readonly onCommitted: () => void },
 ): void {
   if (!canPlaceSavedObjectStamp(scene, stamp)) return
   const template = savedObjectStampArrangementTemplate(stamp)
-  const pivot = savedObjectStampPivot(stamp, template, options.bearingDeg ?? options.rotationDeg)
+  const pivot = savedObjectStampPivot(stamp, template, options.rotationDeg, options.bearingDeg)
   createSceneArrangementPlacement({ sceneEdits: edits }).place({
     template: stampTemplateAt(template, pivot, at, options.rotationDeg),
     translateBy: ORIGIN,
@@ -213,20 +213,22 @@ export function placeSavedObjectStamp(
 
 /**
  * 2.1-Q89: On a turned map, saved stamps whose anchor is their world bounding-box centre pivot and anchor
- * on the centre of their screen-aligned box at `bearingDeg` instead of the world AABB centre. Stamps with
- * an explicit custom anchor keep that anchor.
+ * on the centre of the turned template's screen-aligned box at `bearingDeg` (equivalently, the unturned
+ * template's box at `bearingDeg - rotationDeg`, which returns `stamp.anchor` when the stamp is level to
+ * the screen). Stamps with an explicit custom anchor keep that anchor.
  */
 function savedObjectStampPivot(
   stamp: SavedObjectStampPayload,
   template: SceneArrangementTemplate,
+  rotationDeg: number,
   bearingDeg: number,
 ): WorldPoint {
-  const normalized = ((bearingDeg % 360) + 360) % 360
-  if (normalized <= 1e-6 || Math.abs(normalized - 360) <= 1e-6) return stamp.anchor
+  const relativeBearing = turnStampRotation(bearingDeg, -rotationDeg)
+  if (relativeBearing <= 1e-6 || Math.abs(relativeBearing - 360) <= 1e-6) return stamp.anchor
   const worldCenter = worldTemplateCenter(template)
   if (!worldCenter) return stamp.anchor
   if (Math.hypot(stamp.anchor.x - worldCenter.x, stamp.anchor.y - worldCenter.y) > 1e-3) return stamp.anchor
-  return screenAlignedTemplateCenter(template, bearingDeg) ?? stamp.anchor
+  return screenAlignedTemplateCenter(template, relativeBearing) ?? stamp.anchor
 }
 
 function requiredLayers(stamp: SavedObjectStampPayload): string[] {

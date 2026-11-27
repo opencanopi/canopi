@@ -10,7 +10,7 @@ import {
 } from '../../../__tests__/support/tool-harness'
 import { t } from '../../../i18n'
 import { getStratumColor } from '../../plants'
-import type { PlantStampSourceInput } from '../../plant-stamp-source'
+import type { PlantStampSourceInput } from '../../stamp-drag-data'
 import { resolvePlantBaseColor } from '../plant-presentation'
 import type { SpeciesCacheEntry } from '../presentation-data'
 import type { WorldPoint } from '../../../geo/view/types'

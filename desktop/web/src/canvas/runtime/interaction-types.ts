@@ -1,6 +1,6 @@
 // canvas/runtime/interaction-types.ts  (types)
 
-import type { PlantStampSourceInput } from '../plant-stamp-source'
+import type { PlantStampSourceInput } from '../stamp-drag-data'
 import type { SavedObjectStampPayload } from '../saved-object-stamp-payload'
 
 export type PointerKind = 'mouse' | 'pen' | 'touch'

@@ -5,8 +5,7 @@
 // Shared fakes, helpers and fixture: support/canvas-interaction-setup.ts.
 import { signal } from '@preact/signals'
 import { describe, expect, it, vi } from 'vitest'
-import { writePlantStampDragData } from '../canvas/plant-stamp-source'
-import { writeSavedObjectStampDragData } from '../canvas/saved-object-stamp-source'
+import { writePlantStampDragData, writeSavedObjectStampDragData } from '../canvas/stamp-drag-data'
 import { currentCanvasLockedMoveNotice, currentCanvasSelection } from '../canvas/session-state'
 import { snapToGridEnabled } from '../app/settings/state'
 import { createMapLibreCameraDriver } from '../maplibre/camera-driver'

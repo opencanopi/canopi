@@ -11,6 +11,7 @@ import {
   EDITION_CAPABILITIES,
   type Applicability,
   type CommandContext,
+  type CommandOrToolId,
   type CommandOrToolRow,
   type EditionCapabilityId,
 } from '../command-table'
@@ -134,6 +135,11 @@ function projectEntry(
   return [disabled ? { ...command, disabled: true, run: () => {} } : command]
 }
 
+function rowWithHidden(id: CommandOrToolId, hidden = false): CommandOrToolRow {
+  const base = commandRowFor(id)
+  return hidden ? { ...base, hidden: true } : base
+}
+
 function withSeparator(entries: readonly CanvasContextMenuCommand[]): readonly CanvasContextMenuEntry[] {
   return entries.length > 0 ? [...entries, SEPARATOR] : []
 }
@@ -193,7 +199,7 @@ export function buildCanvasContextMenuEntries(
   // so a locked zone or read-only Design keeps it enabled.
   const turnViewToEdge = request.turnViewToEdge
   const edgeEntries = withSeparator(projectEntry(
-    { id: 'turn-view-to-edge', needsCanvas: true, hidden: !turnViewToEdge },
+    rowWithHidden('turn-view-to-edge', !turnViewToEdge),
     commandContext,
     (disabled) => ({
       id: 'turn-view-to-edge',
@@ -206,7 +212,7 @@ export function buildCanvasContextMenuEntries(
   // Finish shape (spec §3.2): a polygon draft that can finish leads every menu with it.
   const finishShape = request.finishShape
   const finishEntries = withSeparator(projectEntry(
-    { id: 'finish-shape', needsSpatialEditing: true, hidden: !finishShape },
+    rowWithHidden('finish-shape', !finishShape),
     commandContext,
     (disabled) => ({
       id: 'finish-shape',
@@ -223,7 +229,7 @@ export function buildCanvasContextMenuEntries(
     return [
       ...finishEntries,
       ...pointActions.flatMap((entry) => projectEntry(
-        { id: entry.action, needsSpatialEditing: true },
+        commandRowFor(entry.action),
         commandContext,
         (disabled) => ({
           id: entry.action,
@@ -240,7 +246,7 @@ export function buildCanvasContextMenuEntries(
   if (!selection || !can) {
     const placePlantsAt = request.placePlantsAt
     const placePlantsEntries = withSeparator(projectEntry(
-      { id: 'place-plants-here', needsSpatialEditing: true, hidden: !placePlantsAt },
+      rowWithHidden('place-plants-here', !placePlantsAt),
       commandContext,
       (disabled) => ({
         id: 'place-plants-here',
@@ -265,7 +271,7 @@ export function buildCanvasContextMenuEntries(
   const appearance = (kind: PlantAppearanceKind, labelKey: LocaleKey): readonly CanvasContextMenuCommand[] => {
     const id = kind === 'color' ? 'plant-color' : 'plant-symbol'
     return projectEntry(
-      { id, needsSpatialEditing: true, hidden: !plants },
+      rowWithHidden(id, !plants),
       commandContext,
       (disabled) => ({
         id,
@@ -285,13 +291,13 @@ export function buildCanvasContextMenuEntries(
   }
 
   const plain = <T,>(
-    id: CanvasContextMenuItemId,
+    id: CanvasContextMenuItemId & CommandOrToolId,
     labelKey: LocaleKey,
     target: T | null,
     run: (target: T) => void,
-    row: Omit<CommandOrToolRow, 'id'>,
+    hidden = false,
   ): readonly CanvasContextMenuCommand[] => projectEntry(
-    { id, ...row },
+    rowWithHidden(id, hidden),
     commandContext,
     (disabled) => ({
       id,
@@ -306,13 +312,8 @@ export function buildCanvasContextMenuEntries(
 
   const calendarTarget = calendarTargetFor(selection)
   const planningEntries = withSeparator([
-    ...plain('add-to-calendar', 'canvas.contextMenu.addToCalendar', calendarTarget, options.addToCalendar, {
-      needsSpatialEditing: true,
-    }),
-    ...plain('set-unit-cost', 'canvas.contextMenu.setUnitCost', oneSpecies, options.setUnitCost, {
-      needsSpatialEditing: true,
-      hidden: !plants,
-    }),
+    ...plain('add-to-calendar', 'canvas.contextMenu.addToCalendar', calendarTarget, options.addToCalendar),
+    ...plain('set-unit-cost', 'canvas.contextMenu.setUnitCost', oneSpecies, options.setUnitCost, !plants),
   ])
 
   const plantEntries = withSeparator([
@@ -320,7 +321,7 @@ export function buildCanvasContextMenuEntries(
     ...appearance('color', 'canvas.plantColor.label'),
     ...appearance('symbol', 'canvas.plantSymbol.label'),
     ...projectEntry(
-      { id: 'toggle-plant-names', needsSpatialEditing: true, hidden: !plants },
+      rowWithHidden('toggle-plant-names', !plants),
       commandContext,
       (disabled) => ({
         id: 'toggle-plant-names',
@@ -330,17 +331,14 @@ export function buildCanvasContextMenuEntries(
       }),
       !can.plantAppearance,
     ),
-    ...plain('species-details', 'canvas.contextMenu.speciesDetails', oneSpecies, options.openSpeciesDetail, {
-      needsCanvas: true,
-      hidden: !plants,
-    }),
+    ...plain('species-details', 'canvas.contextMenu.speciesDetails', oneSpecies, options.openSpeciesDetail, !plants),
   ])
 
   // Rename zone… names one lone zone; a locked one keeps the item, disabled.
   const loneZone = calendarTarget?.kind === 'zone' ? calendarTarget.zoneId : null
   const renameZoneId = loneEditableZoneId(selection)
   const zoneEntries = withSeparator(projectEntry(
-    { id: 'rename-zone', needsSpatialEditing: true, hidden: loneZone === null },
+    rowWithHidden('rename-zone', loneZone === null),
     commandContext,
     (disabled) => ({
       id: 'rename-zone',
@@ -364,12 +362,7 @@ export function buildCanvasContextMenuEntries(
   const lineTarget = profileLineTarget(selection, options.summary)
   const profiler = options.profileLine
   const profileEntries = withSeparator(projectEntry(
-    {
-      id: 'profile-line',
-      requires: ['site-data-below-limit'],
-      needsCanvas: true,
-      hidden: !lineTarget || !profiler,
-    },
+    rowWithHidden('profile-line', !lineTarget || !profiler),
     commandContext,
     (disabled) => ({
       id: 'profile-line',

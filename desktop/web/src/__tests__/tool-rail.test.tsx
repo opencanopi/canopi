@@ -45,7 +45,7 @@ describe('ToolRail', () => {
   let queries: TestCanvasQuerySurface
   const canUndo = signal(false)
   const canRedo = signal(false)
-  const setTool = vi.fn()
+  const arm = vi.fn(() => ({ settled: new Promise<never>(() => {}), cancel: () => {} }))
   const undo = vi.fn()
   const redo = vi.fn()
   const toggleGrid = vi.fn()
@@ -57,7 +57,7 @@ describe('ToolRail', () => {
     document.body.appendChild(container)
     canUndo.value = false
     canRedo.value = false
-    setTool.mockReset()
+    arm.mockClear()
     undo.mockReset()
     redo.mockReset()
     toggleGrid.mockReset()
@@ -72,7 +72,7 @@ describe('ToolRail', () => {
     queries = createTestCanvasQuerySurface()
     setCurrentCanvasSession(createTestCanvasRuntimeSurfaces({
       commands: createTestCanvasCommandSurface({
-        tools: { setTool },
+        tools: { arm },
         history: {
           canUndo,
           canRedo,
@@ -211,7 +211,7 @@ describe('ToolRail', () => {
     sidePanel.value = 'plant-db'
     await mount()
     await act(async () => { railButton('canvas.tool.line').click() })
-    expect(setTool).toHaveBeenCalledWith('line')
+    expect(arm).toHaveBeenCalledWith('line', undefined, undefined)
     expect(currentCanvasTool.value).toBe('line')
     expect(sidePanel.value).toBe('plant-db')
     expect(activePanel.value).toBe('canvas')
@@ -228,7 +228,7 @@ describe('ToolRail', () => {
     })
     expect(document.activeElement).toBe(railButton('canvas.tool.plantStamp'))
     expect(railButton('canvas.tool.plantStamp').tabIndex).toBe(0)
-    expect(setTool).not.toHaveBeenCalled()
+    expect(arm).not.toHaveBeenCalled()
 
     await act(async () => {
       railButton('canvas.tool.plantStamp').dispatchEvent(new KeyboardEvent('keydown', { key: 'End', bubbles: true }))
@@ -378,7 +378,7 @@ describe('ToolRail', () => {
       expect(items[1]!.textContent).toContain('R')
       expect(items[1]!.getAttribute('aria-keyshortcuts')).toBe('R')
       await act(async () => { items[1]!.dispatchEvent(new MouseEvent('click', { bubbles: true })) })
-      expect(setTool).toHaveBeenCalledWith('rectangle')
+      expect(arm).toHaveBeenCalledWith('rectangle', undefined, undefined)
       expect(currentCanvasTool.value).toBe('rectangle')
       // More shows that it holds the active tool.
       expect(container.querySelector('[data-tool-rail-more]')!.hasAttribute('data-holds-active')).toBe(true)
@@ -418,9 +418,9 @@ describe('ViewChip', () => {
   })
 
   it('the view chip and View menu show Grid and Snap to grid only, and Shift+R does nothing', async () => {
-    const setTool = vi.fn()
+    const arm = vi.fn(() => ({ settled: new Promise<never>(() => {}), cancel: () => {} }))
     setCurrentCanvasSession(createTestCanvasRuntimeSurfaces({
-      commands: createTestCanvasCommandSurface({ tools: { setTool }, chrome: { toggleGrid, toggleSnapToGrid } }),
+      commands: createTestCanvasCommandSurface({ tools: { arm }, chrome: { toggleGrid, toggleSnapToGrid } }),
     }))
     await act(async () => { render(<Chip />, container) })
     expect([...container.querySelectorAll('button')].map((button) => button.textContent)).toEqual(['Grid', 'Snap to grid'])
@@ -437,7 +437,7 @@ describe('ViewChip', () => {
         return event.defaultPrevented
       }
       expect(press('R')).toBe(false)
-      expect(setTool).not.toHaveBeenCalled()
+      expect(arm).not.toHaveBeenCalled()
       expect(toggleGrid).not.toHaveBeenCalled()
       expect(toggleSnapToGrid).not.toHaveBeenCalled()
       // The router is live: Shift+G still toggles the grid.

@@ -10,9 +10,7 @@ import { computed, effect, signal, type ReadonlySignal } from '@preact/signals'
 import { currentCanvasQuerySurface } from '../../canvas/session'
 import type { LidarSampleTarget } from '../../generated/contracts'
 import type { GeoPoint } from '../../types/design'
-import { TOOL_ROWS } from '../command-table'
-import { armCanvasTool } from '../keyboard/arming'
-import { activePanel, selectPanel, sidePanel } from '../shell/state'
+import { activePanel, sidePanel } from '../shell/state'
 import { siteDataLines } from './analysis-groups'
 import { readCurrentLidarPresentation } from './library-store'
 import { referenceRows } from './reference-tree'
@@ -48,7 +46,7 @@ effect(() => {
   const surface = currentCanvasQuerySurface.value
   pointer.value = null
   if (!surface) return
-  return surface.subscribePointerWorld((point) => {
+  const offPointer = surface.subscribePointerWorld((point) => {
     // A finger never hovers: it ends a mouse's hover, so the rows read the pin it taps.
     if (point?.pointerKind === 'touch') {
       pointer.value = null
@@ -58,6 +56,14 @@ effect(() => {
     const geo = point && plane ? plane.toGeo(point.world) : null
     pointer.value = geo && Number.isFinite(geo.lon) && Number.isFinite(geo.lat) ? { lon: geo.lon, lat: geo.lat } : null
   })
+  // 2.1-Q364: While Site data is open in site mode, an unused Select empty-ground tap or Pan tap pins that point.
+  const offTap = surface.subscribeEmptyGroundTap?.((world) => {
+    if (reading.peek()) pinSiteDataPoint(world)
+  })
+  return () => {
+    offPointer()
+    offTap?.()
+  }
 })
 
 let askedKey: string | null = null
@@ -173,23 +179,4 @@ effect(() => {
 function pinSiteDataPoint(point: { readonly x: number; readonly y: number }): void {
   const plane = currentCanvasQuerySurface.peek()?.sessionPlane.peek()
   if (plane) setPin(plane.toGeo(point))
-}
-
-/**
- * Arms the Site data pin tool (`siteData.pin`, 2.1-Q364): click to pin, click again to move, until Esc or another tool
- * is chosen. Opens Site data if not already open.
- */
-export function armSitePin(from: 'panel' | 'palette' = 'panel'): void {
-  if (sidePanel.peek() !== 'site-data') selectPanel('site-data')
-  armCanvasTool<{ readonly x: number; readonly y: number }>(TOOL_ROWS['siteData.pin'].id, {
-    from,
-    request: {
-      onSettled(outcome) {
-        if (outcome.kind === 'picked') {
-          pinSiteDataPoint(outcome.value)
-          armSitePin(from)
-        }
-      },
-    },
-  })
 }

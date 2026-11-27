@@ -13,8 +13,6 @@ import { setShortcutPlatform } from '../app/shell-commands/shortcut-text'
 import { focusOwner } from '../app/keyboard/focus-owner'
 import { parseSavedObjectStampPayload } from '../canvas/saved-object-stamp-payload'
 import { StampChooser } from '../components/canvas/StampChooser'
-import { clearPlantStampSource, selectPlantStampSource } from '../canvas/plant-stamp-source'
-import { clearSavedObjectStampSource } from '../canvas/saved-object-stamp-source'
 import { setCurrentCanvasSession } from '../canvas/session'
 import {
   IDLE_CANVAS_TOOL_GUIDANCE,
@@ -94,8 +92,6 @@ describe('Tool card', () => {
     container.remove()
     setShortcutPlatform({ os: 'linux' })
     setCanvasToolGuidance(IDLE_CANVAS_TOOL_GUIDANCE)
-    clearPlantStampSource()
-    clearSavedObjectStampSource()
     locating.open!.value = false
     setCurrentCanvasSession(null)
     sidePanel.value = null
@@ -165,8 +161,10 @@ describe('Tool card', () => {
   })
 
   it('names the species for Place plants, offers Change species and says Esc stops placing', async () => {
-    selectPlantStampSource(APPLE)
-    await choose('plant-stamp')
+    await act(() => {
+      queries.setActiveTool('plant-stamp', { kind: 'species', species: APPLE })
+      setCanvasToolGuidance(IDLE_CANVAS_TOOL_GUIDANCE)
+    })
 
     expect(card()!.getAttribute('aria-label')).toBe('Place plants')
     // The species takes its own line, so the instruction never breaks around it.
@@ -178,8 +176,10 @@ describe('Tool card', () => {
   // canopi-f47t.52.228.20: the chooser took focus after paint (Preact 11 useEffect), so in WebKit an Esc in between reached
   // the canvas's tool layer and put Place plants away instead of only closing the chooser.
   it('canopi-f47t.52.228.20: Change species has focus in the chooser and closes it on Esc before any after-paint work', async () => {
-    selectPlantStampSource(APPLE)
-    await choose('plant-stamp')
+    await act(() => {
+      queries.setActiveTool('plant-stamp', { kind: 'species', species: APPLE })
+      setCanvasToolGuidance(IDLE_CANVAS_TOOL_GUIDANCE)
+    })
     const release = holdAfterPaint()
     try {
       // A click as WebKit gives it: the link is not focused.
@@ -202,9 +202,9 @@ describe('Tool card', () => {
       locale.value = 'fr'
       queries = createTestCanvasQuerySurface({ englishFallbackNames: new Map([['Malus domestica', 'Apple']]) })
       setCurrentCanvasSession(createTestCanvasRuntimeSurfaces({ queries }))
+      queries.setActiveTool('plant-stamp', { kind: 'species', species: { ...APPLE, common_name: null } })
+      setCanvasToolGuidance(IDLE_CANVAS_TOOL_GUIDANCE)
     })
-    selectPlantStampSource({ ...APPLE, common_name: null })
-    await choose('plant-stamp')
 
     const subject = live().querySelector('b')!
     expect(subject.querySelector('[lang="en"]')?.textContent).toBe('Apple')
@@ -217,9 +217,9 @@ describe('Tool card', () => {
       locale.value = 'fr'
       queries = createTestCanvasQuerySurface({ localizedNames: new Map([['Malus domestica', 'Pommier']]) })
       setCurrentCanvasSession(createTestCanvasRuntimeSurfaces({ queries }))
+      queries.setActiveTool('plant-stamp', { kind: 'species', species: APPLE })
+      setCanvasToolGuidance(IDLE_CANVAS_TOOL_GUIDANCE)
     })
-    selectPlantStampSource(APPLE)
-    await choose('plant-stamp')
     expect(live().querySelector('b')?.textContent).toBe('Pommier')
   })
 
@@ -233,9 +233,9 @@ describe('Tool card', () => {
         },
       })
       setCurrentCanvasSession(createTestCanvasRuntimeSurfaces({ queries }))
+      queries.setActiveTool('plant-stamp', { kind: 'species', species: APPLE })
+      setCanvasToolGuidance(IDLE_CANVAS_TOOL_GUIDANCE)
     })
-    selectPlantStampSource(APPLE)
-    await choose('plant-stamp')
 
     const lead = card()!.querySelector<HTMLElement>('[data-tool-card-lead]')!
     expect(lead.getAttribute('aria-hidden')).toBe('true')
@@ -243,7 +243,7 @@ describe('Tool card', () => {
     expect(lead.style.color).toBe('rgb(176, 96, 69)')
 
     // No species yet: no glyph.
-    await act(() => { clearPlantStampSource() })
+    await act(() => { queries.setActiveTool('plant-stamp', null) })
     expect(card()!.querySelector('[data-tool-card-lead]')).toBeNull()
   })
 
@@ -343,14 +343,14 @@ describe('Tool card', () => {
 
     it('opens a chooser of saved stamps that arms the chosen one and gives the map focus back', async () => {
       savedStamps.items = [savedStamp('stamp-1', 'Guilde pommier', ['Malus domestica', 'Rubus idaeus']), savedStamp('stamp-2', '', ['Malus domestica'])]
-      const setTool = vi.fn()
+      const arm = vi.fn((_id: ToolId) => ({ settled: new Promise<never>(() => {}), cancel: () => {} }))
       const map = document.createElement('div')
       map.tabIndex = 0
       document.body.append(map)
       const releaseMap = focusOwner.registerRegion('map', map)
       queries = createTestCanvasQuerySurface()
       setCurrentCanvasSession(createTestCanvasRuntimeSurfaces({
-        commands: createTestCanvasCommandSurface({ tools: { setTool } }),
+        commands: createTestCanvasCommandSurface({ tools: { arm } }),
         queries,
       }))
       await act(() => render(<ToolCard stampChooser={StampChooser} />, container))
@@ -365,7 +365,7 @@ describe('Tool card', () => {
       expect(document.activeElement?.textContent).toBe('Copy an object on the map')
 
       await act(() => options[0]!.click())
-      expect(setTool).toHaveBeenLastCalledWith('saved-object-stamp')
+      expect(arm.mock.calls.at(-1)?.[0]).toBe('saved-object-stamp')
       expect(container.querySelector('[data-stamp-chooser]')).toBeNull()
       expect(document.activeElement).toBe(map)
       expect(lines()[1]).toBe('Guilde pommier')
@@ -507,10 +507,10 @@ describe('Tool card', () => {
     })
 
     it('offers copying an object from the map instead, and closes on Esc', async () => {
-      const setTool = vi.fn()
+      const arm = vi.fn((_id: ToolId) => ({ settled: new Promise<never>(() => {}), cancel: () => {} }))
       queries = createTestCanvasQuerySurface()
       setCurrentCanvasSession(createTestCanvasRuntimeSurfaces({
-        commands: createTestCanvasCommandSurface({ tools: { setTool } }),
+        commands: createTestCanvasCommandSurface({ tools: { arm } }),
         queries,
       }))
       await act(() => render(<ToolCard stampChooser={StampChooser} />, container))
@@ -523,7 +523,7 @@ describe('Tool card', () => {
       const copy = [...container.querySelectorAll('button')].find((button) => button.textContent === 'Copy an object on the map')!
       await act(() => copy.click())
       // Leaving and re-arming Place a stamp drops what it held, so the next click picks again.
-      expect(setTool.mock.calls.map(([tool]) => tool)).toEqual(['select', 'object-stamp'])
+      expect(arm.mock.calls.map(([tool]) => tool)).toEqual(['select', 'object-stamp'])
       expect(container.querySelector('[data-stamp-chooser]')).toBeNull()
 
       // The chooser replaced the link, so Preact made a new one when it closed.

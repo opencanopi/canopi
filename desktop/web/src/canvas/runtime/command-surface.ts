@@ -162,7 +162,6 @@ class SceneCanvasCommandRole implements CanvasCommandSurface {
     this.speciesFocus = options.speciesFocus
     this.tools = {
       arm: (id, source, request) => this.options.armInteractionTool(id, source, request),
-      setTool: (id) => { void this.options.armInteractionTool(id) },
       plantRowSpacing: options.plantRowSpacing,
       plantRowPath: options.plantRowPath,
     }

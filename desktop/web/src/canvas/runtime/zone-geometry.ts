@@ -3,6 +3,7 @@
 // zone shape is decoded only here; callers ask it for outlines, measures and paths.
 
 import { groundPolylineLength, type GroundMeasure, type Metres, type SquareMetres } from '../../geo/session-plane'
+import { bearingCosSin } from '../../geo/view/navigation-policy'
 import type { ScenePoint, SceneZoneEntity } from './scene'
 
 export interface ZoneWorldBounds {
@@ -178,9 +179,7 @@ export interface ScreenAlignedBounds {
 }
 
 export function createScreenAlignedBounds(bearingDeg: number): ScreenAlignedBounds {
-  const rad = degreesToRadians(bearingDeg)
-  const cos = Math.cos(rad)
-  const sin = Math.sin(rad)
+  const [cos, sin] = bearingCosSin(bearingDeg)
   let minU = Infinity
   let maxU = -Infinity
   let minV = Infinity

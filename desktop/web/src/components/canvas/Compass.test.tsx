@@ -373,6 +373,7 @@ function selectPort(host: HTMLElement, canvas: { selected: boolean, tool: string
     activeToolIsSelect: () => canvas.tool === 'select',
     activeToolHasEscapeTransient: () => false,
     textEntryOpen: () => false,
+    activeToolEscSteps: () => ['gesture', 'nudge-series', 'tool-transient', 'tool', 'selection'],
     interrupted: () => {},
   } as unknown as ToolHost
   return createCanvasKeyboardPort({
@@ -387,7 +388,7 @@ function selectPort(host: HTMLElement, canvas: { selected: boolean, tool: string
       spaceHeld: () => false,
       keyState: () => {},
       escapeGesture: () => {},
-      requestTool: (id) => { canvas.tool = id },
+      escapeTool: () => { canvas.tool = 'select' },
       clearSelection: () => { canvas.selected = false },
     },
   })

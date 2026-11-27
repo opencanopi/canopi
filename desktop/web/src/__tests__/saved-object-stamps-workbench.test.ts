@@ -712,6 +712,7 @@ describe('Saved Object Stamp Workbench', () => {
     expect(arm).toHaveBeenCalledWith('saved-object-stamp', {
       from: 'panel',
       source: { kind: 'saved-stamp', stamp: parseSavedObjectStampPayload(stamp.payload_json), name: 'Guild' },
+      request: { stampId: 'stamp-1' },
     })
     // A stamp whose payload cannot be read arms nothing.
     expect(workbench.placeStamp({ ...stamp, payload_json: '{' }, 'card')).toBe(false)

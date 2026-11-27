@@ -10,7 +10,6 @@ vi.mock('../../../ipc/species', () => ({
 }))
 
 import { createSceneInteractionEventHarness } from '../../../__tests__/support/canvas-interaction-events'
-import { clearSavedObjectStampSource, selectSavedObjectStampSource } from '../../saved-object-stamp-source'
 import type { DraftPresentation, DraftShape } from '../tools/draft'
 import { geoAt } from '../../../__tests__/support/geo-design'
 import { CURRENT_CANOPI_FILE_VERSION } from '../../../generated/canopi-design-format'
@@ -374,7 +373,7 @@ describe('session plane re-origin', () => {
     const mounted = await createMountedRuntime()
     const { runtime, events } = mounted
     try {
-      runtime.commandSurface.tools.setTool('polygon')
+      runtime.commandSurface.tools.arm('polygon')
       events.pointerDown({ x: 200, y: 150 })
       events.pointerUp({ x: 200, y: 150 })
       events.pointerDown({ x: 250, y: 150 })
@@ -404,7 +403,7 @@ describe('session plane re-origin', () => {
     const mounted = await createMountedRuntime()
     const { runtime, events, container } = mounted
     try {
-      runtime.commandSurface.tools.setTool('text')
+      runtime.commandSurface.tools.arm('text')
       events.pointerDown({ x: 200, y: 150 })
       events.pointerUp({ x: 200, y: 150 })
       const textarea = container.querySelector<HTMLTextAreaElement>('textarea')
@@ -442,18 +441,20 @@ describe('session plane re-origin', () => {
       return ghost?.entity.kind === 'objects' ? ghost.entity.template.plants[0]!.entity : null
     }
     try {
-      selectSavedObjectStampSource({
-        version: 2,
-        anchor: { x: 0, y: 0 },
-        plants: [{
-          id: 'plant-1', canonicalName: 'Malus domestica', commonName: 'Apple', color: null, symbol: null,
-          position: { x: 0, y: 0 }, rotationDeg: null, scale: null,
-        }],
-        zones: [],
-        annotations: [],
-        groups: [],
+      runtime.commandSurface.tools.arm('saved-object-stamp', {
+        kind: 'saved-stamp',
+        stamp: {
+          version: 2,
+          anchor: { x: 0, y: 0 },
+          plants: [{
+            id: 'plant-1', canonicalName: 'Malus domestica', commonName: 'Apple', color: null, symbol: null,
+            position: { x: 0, y: 0 }, rotationDeg: null, scale: null,
+          }],
+          zones: [],
+          annotations: [],
+          groups: [],
+        },
       })
-      runtime.commandSurface.tools.setTool('saved-object-stamp')
       events.pointerMove({ x: 250, y: 150 })
       events.pointerLeave({ x: 450, y: 150 })
       expect(ghostPlant()).not.toBeNull()
@@ -470,7 +471,6 @@ describe('session plane re-origin', () => {
       expect(ghostPlant()!.position.x).toBeCloseTo(under.x, 6)
       expect(ghostPlant()!.position.y).toBeCloseTo(under.y, 6)
     } finally {
-      clearSavedObjectStampSource()
       mounted.dispose()
     }
   })

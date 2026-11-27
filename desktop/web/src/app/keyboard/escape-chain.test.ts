@@ -17,6 +17,7 @@ import type { ToolHost } from '../../canvas/runtime/interaction-ports'
 import type { ToolId } from '../../canvas/runtime/interaction-types'
 import { createCanvasKeyboardPort } from '../../canvas/runtime/keyboard-port'
 import type { CanvasEscapeLayer, CanvasKeyboardPort } from '../../canvas/runtime/runtime'
+import { TOOL_ROWS } from '../command-table'
 import { ESCAPE_PRIORITY, registerEscapeLayer } from './escape-chain'
 import { installKeyRouter, type KeyRouterHandle } from './key-router'
 import { CANVAS_KEYMAP_ROWS } from './keymap'
@@ -57,6 +58,7 @@ function canvasPort(): CanvasKeyboardPort {
     endNudgeSeries: () => {},
     activeToolIsSelect: () => canvas.tool === 'select',
     activeToolHasEscapeTransient: () => canvas.transient,
+    activeToolEscSteps: () => TOOL_ROWS[canvas.tool].escSteps,
     openTextEntryMode: () => null,
     interrupted: () => {},
   } as unknown as ToolHost
@@ -72,7 +74,7 @@ function canvasPort(): CanvasKeyboardPort {
       spaceHeld: () => false,
       keyState: () => {},
       escapeGesture: () => { canvas.live = false },
-      requestTool: (id) => { canvas.tool = id; canvas.transient = false },
+      escapeTool: () => { canvas.tool = 'select'; canvas.transient = false },
       clearSelection: () => { canvas.selected = false },
     },
   })

@@ -1,5 +1,5 @@
 import { signal } from '@preact/signals'
-import type { MapInputHandle, MapInputOutcome, ToolId } from '../../canvas/runtime/interaction-types'
+import type { MapInputHandle, MapInputOutcome } from '../../canvas/runtime/interaction-types'
 import type {
   CanvasCommandSurface,
   CanvasDocumentSurface,
@@ -54,13 +54,9 @@ export function createTestCanvasRuntimeSurfaces({
     ...commands,
     tools: {
       ...commands.tools,
-      setTool: (id: ToolId) => {
-        commands.tools.setTool(id)
-        queries.setActiveTool(id)
-      },
       arm: (id, source, request) => {
         const handle = commands.tools.arm(id, source, request)
-        queries.setActiveTool(id)
+        queries.setActiveTool(id, source, request?.stampId)
         return handle
       },
     },
@@ -88,7 +84,6 @@ export function createTestCanvasCommandSurface(
     speciesFocus: { focus: () => {} },
     tools: {
       arm: () => createNoopMapInputHandle(),
-      setTool: () => {},
       plantRowSpacing: { input: () => {}, commit: () => {}, blur: () => {}, cancel: () => {} },
       plantRowPath: { finish: () => {}, setMode: () => {} },
     },
@@ -161,9 +156,7 @@ export function createTestCanvasCommandSurface(
     },
   }
 
-  const setTool = overrides.tools?.setTool ?? surface.tools.setTool
-  const arm: CanvasToolCommandSurface['arm'] = overrides.tools?.arm ?? ((id, _source, request) => {
-    setTool(id)
+  const arm: CanvasToolCommandSurface['arm'] = overrides.tools?.arm ?? ((_id, _source, request) => {
     const handle = createNoopMapInputHandle<never>()
     if (request?.onSettled) {
       void handle.settled.then((outcome) => request.onSettled!(outcome))
@@ -176,7 +169,6 @@ export function createTestCanvasCommandSurface(
       ...overrides.tools,
       plantRowSpacing: { ...surface.tools.plantRowSpacing, ...overrides.tools?.plantRowSpacing },
       plantRowPath: { ...surface.tools.plantRowPath!, ...overrides.tools?.plantRowPath },
-      setTool,
       arm,
     },
     speciesFocus: { ...surface.speciesFocus, ...overrides.speciesFocus },

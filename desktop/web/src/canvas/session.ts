@@ -11,7 +11,10 @@ import type {
   CanvasToolCommandSurface,
   CanvasViewportCommandSurface,
 } from './runtime/runtime'
+import type { ToolHostState } from './runtime/interaction-ports'
 import type { ToolId } from './runtime/interaction-types'
+
+const IDLE_TOOL_STATE: ToolHostState = Object.freeze({ id: 'select', source: null, stampId: null })
 
 export const currentCanvasSession = signal<CanvasRuntimeSurfaces | null>(null)
 export const currentCanvasCommandSurface = computed<CanvasCommandSurface | null>(() =>
@@ -41,9 +44,13 @@ export const currentCanvasQuerySurface = computed<CanvasQuerySurface | null>(() 
 export const currentCanvasDocumentSurface = computed<CanvasDocumentSurface | null>(() =>
   currentCanvasSession.value?.documents ?? null,
 )
+/** Read-only view of ToolHost's single authoritative tool state record (id, source, stampId; L11, §18 F29). */
+export const currentCanvasToolState: ReadonlySignal<ToolHostState> = computed<ToolHostState>(() =>
+  currentCanvasQuerySurface.value?.toolState?.value ?? IDLE_TOOL_STATE,
+)
 /** Read-only view of ToolHost's single active tool signal (L11, §18 F29). */
 export const currentCanvasTool: ReadonlySignal<ToolId> = computed<ToolId>(() =>
-  currentCanvasQuerySurface.value?.activeTool?.value ?? 'select',
+  currentCanvasQuerySurface.value?.activeTool?.value ?? currentCanvasToolState.value.id,
 )
 export { currentCanvasDesignPinHovered, currentCanvasHasSelection, currentCanvasSelection, currentCanvasToolGuidance } from './session-state'
 

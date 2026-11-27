@@ -3,9 +3,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { focusOwner } from '../app/keyboard/focus-owner'
 import { placeSpeciesOnMap } from '../components/plant-db/place-species'
-import { setCurrentCanvasSession } from '../canvas/session'
+import { currentCanvasToolState, setCurrentCanvasSession } from '../canvas/session'
 import { createTestCanvasCommandSurface, createTestCanvasRuntimeSurfaces } from './support/canvas-runtime-surfaces'
-import { clearPlantStampSource, readPlantStampSource } from '../canvas/plant-stamp-source'
+import { recentPlantStampSources } from '../canvas/stamp-drag-data'
 
 // Esc cancels Place plants only when the key comes from the map (the canvas
 // ignores Esc from panel buttons on purpose), so every Place button hands
@@ -29,7 +29,7 @@ describe('Place moves focus to the map so Esc reaches the armed tool', () => {
   afterEach(() => {
     release()
     setCurrentCanvasSession(null)
-    clearPlantStampSource()
+    recentPlantStampSources.value = []
     document.body.innerHTML = ''
   })
 
@@ -41,12 +41,17 @@ describe('Place moves focus to the map so Esc reaches the armed tool', () => {
   })
 
   it('arms Place plants with the species and focuses the map', () => {
-    const setTool = vi.fn()
-    setCurrentCanvasSession(createTestCanvasRuntimeSurfaces({ commands: createTestCanvasCommandSurface({ tools: { setTool } }) }))
+    const arm = vi.fn(() => ({ settled: new Promise<never>(() => {}), cancel: () => {} }))
+    setCurrentCanvasSession(createTestCanvasRuntimeSurfaces({ commands: createTestCanvasCommandSurface({ tools: { arm } }) }))
     placeButton.focus()
-    placeSpeciesOnMap({ canonical_name: 'Corylus avellana', common_name: 'European hazelnut', stratum: null, width_max_m: null })
-    expect(setTool).toHaveBeenCalledWith('plant-stamp')
-    expect(readPlantStampSource()?.canonical_name).toBe('Corylus avellana')
+    const species = { canonical_name: 'Corylus avellana', common_name: 'European hazelnut', stratum: null, width_max_m: null }
+    placeSpeciesOnMap(species)
+    expect(arm).toHaveBeenCalledWith('plant-stamp', { kind: 'species', species }, undefined)
+    expect(currentCanvasToolState.value).toEqual({
+      id: 'plant-stamp',
+      source: { kind: 'species', species },
+      stampId: null,
+    })
     expect(document.activeElement).toBe(map)
   })
 

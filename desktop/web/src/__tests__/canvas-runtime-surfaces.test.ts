@@ -23,6 +23,7 @@ import type {
   CanvasQuerySurface,
   CanvasRuntimeSurfaces,
 } from '../canvas/runtime/runtime'
+import type { ToolHostState } from '../canvas/runtime/interaction-ports'
 import type { ToolId } from '../canvas/runtime/interaction-types'
 import { createCanvasDocumentReplacementToken } from '../canvas/runtime/runtime'
 import { createTestViewReadSurface } from './support/canvas-query-surface'
@@ -33,6 +34,7 @@ import type { CanopiFile } from '../types/design'
 function createQuerySurface() {
   return {
     revision: { scene: signal(0), plantNames: signal(0), transientHistory: signal(0) },
+    toolState: signal<ToolHostState>({ id: 'select', source: null, stampId: null }),
     activeTool: signal<ToolId>('select'),
     sessionPlane: signal(createSessionPlane(DEFAULT_NEW_DESIGN_VIEW)),
     view: createTestViewReadSurface(),
@@ -83,8 +85,7 @@ function createCommandSurface() {
   return {
     speciesFocus: { focus: () => {} },
     tools: {
-      arm: () => ({ settled: new Promise(() => {}), cancel: () => {} }),
-      setTool: (_name: ToolId) => {},
+      arm: (_id: ToolId) => ({ settled: new Promise<never>(() => {}), cancel: () => {} }),
       plantRowSpacing: { input: () => {}, commit: () => {}, blur: () => {}, cancel: () => {} },
     },
     viewport: {
@@ -241,7 +242,7 @@ describe('canvas runtime surfaces', () => {
     try {
       await runtime.init(container)
       setCurrentCanvasSession(surfaces)
-      surfaces.commands.tools.setTool('hand')
+      surfaces.commands.tools.arm('hand')
       surfaces.documents.loadDocument(file)
 
       expect(currentCanvasTool.value).toBe('hand')
@@ -267,7 +268,7 @@ describe('canvas runtime surfaces', () => {
   it('keeps command consumers away from scene queries and document serialization', () => {
     const commandSurface = createCommandSurface()
 
-    commandSurface.tools.setTool('hand')
+    commandSurface.tools.arm('hand')
     expect(commandSurface.history.canUndo.value).toBe(false)
     // @ts-expect-error command surfaces do not expose flat tool commands.
     commandSurface.setTool

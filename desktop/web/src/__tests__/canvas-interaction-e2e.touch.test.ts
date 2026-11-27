@@ -5,7 +5,6 @@
 // point and a pinch never reaches a tool. Real tools, the real recogniser and the real DOM source, in jsdom.
 // Shared fakes, helpers and fixture: support/canvas-interaction-setup.ts.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { selectPlantStampSource } from '../canvas/plant-stamp-source'
 import { currentCanvasSelection } from '../canvas/session-state'
 import type { SceneStore, ScenePoint } from '../canvas/runtime/scene'
 import type {
@@ -77,14 +76,14 @@ describe('SceneInteractionSession: touch', () => {
     return (renderer.lastDraft()?.shapes ?? []).filter((shape) => shape.kind === 'circle-px').length
   }
 
-  function choosePlant(): void {
-    selectPlantStampSource({ canonical_name: 'Malus domestica', common_name: 'Apple', stratum: 'high', width_max_m: 4 })
+  const APPLE_SOURCE = {
+    kind: 'species' as const,
+    species: { canonical_name: 'Malus domestica', common_name: 'Apple', stratum: 'high', width_max_m: 4 },
   }
 
   it('a touch tap with Plant stamp places one plant at the down point', () => {
-    choosePlant()
     const session = createTestSession(createInteractionDeps(container, store, testView))
-    session.setTool('plant-stamp')
+    session.arm('plant-stamp', APPLE_SOURCE)
 
     // A rolling tap: the finger moves 5 px and lifts 4 px from where it landed, within the 8 px touch slop.
     touchDown({ x: 100, y: 100 })
@@ -97,9 +96,8 @@ describe('SceneInteractionSession: touch', () => {
   })
 
   it('a finger that slides past 8 px with Plant stamp places one plant at the press point', () => {
-    choosePlant()
     const session = createTestSession(createInteractionDeps(container, store, testView))
-    session.setTool('plant-stamp')
+    session.arm('plant-stamp', APPLE_SOURCE)
 
     touchDown({ x: 100, y: 100 })
     expect(store.persisted.plants).toHaveLength(0)
@@ -144,9 +142,8 @@ describe('SceneInteractionSession: touch', () => {
   })
 
   it('E13 a pinch with Plant stamp places nothing', () => {
-    choosePlant()
     const session = createTestSession(createInteractionDeps(container, store, testView))
-    session.setTool('plant-stamp')
+    session.arm('plant-stamp', APPLE_SOURCE)
     const scale = testView.view().pixelsPerMetre
 
     pinch({ x: 100, y: 100 }, { x: 200, y: 100 })
@@ -235,9 +232,8 @@ describe('SceneInteractionSession: touch', () => {
 
   it('E14 a long press with Plant stamp opens the menu at the finger and places nothing, the lift included', () => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
-    choosePlant()
     const session = createTestSession(createInteractionDeps(container, store, testView))
-    session.setTool('plant-stamp')
+    session.arm('plant-stamp', APPLE_SOURCE)
 
     touchDown({ x: 100, y: 100 })
     vi.advanceTimersByTime(499)

@@ -29,8 +29,12 @@ type ToolSourceKind = 'species' | 'saved-stamp'
 
 export interface ToolRow {
   readonly id: ToolId
-  /** Read-only tools may arm in overview and on read-only Sessions (2.1-M478). */
+  /** Read-only tools may arm on a read-only Session (2.1-M478). */
   readonly readOnly: boolean
+  /** Tools that stay in overview without fitting the Design first (Select and Pan). */
+  readonly worksInOverview?: boolean
+  /** Tools that do not show a tool row in the phone context bar (Select, Pan, and Desktop-only pin). */
+  readonly hidePhoneCard?: boolean
   readonly needsCanvas?: boolean
   readonly needsSpatialEditing?: boolean
   readonly requires?: readonly EditionCapabilityId[]
@@ -51,6 +55,8 @@ export const TOOL_ROWS: Readonly<Record<ToolId, ToolRow>> = {
   select: {
     id: 'select',
     readOnly: true,
+    worksInOverview: true,
+    hidePhoneCard: true,
     needsCanvas: true,
     cursor: 'default',
     escSteps: ['gesture', 'nudge-series', 'tool-transient', 'selection'],
@@ -58,6 +64,8 @@ export const TOOL_ROWS: Readonly<Record<ToolId, ToolRow>> = {
   hand: {
     id: 'hand',
     readOnly: true,
+    worksInOverview: true,
+    hidePhoneCard: true,
     needsCanvas: true,
     cursor: 'grab',
     escSteps: ['gesture', 'tool'],
@@ -157,6 +165,7 @@ export const TOOL_ROWS: Readonly<Record<ToolId, ToolRow>> = {
   'siteData.pin': {
     id: 'siteData.pin',
     readOnly: true,
+    hidePhoneCard: true,
     needsCanvas: true,
     requires: ['site-data-below-limit'],
     cursor: 'crosshair',

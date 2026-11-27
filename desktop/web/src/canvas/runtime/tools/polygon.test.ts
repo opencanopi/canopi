@@ -487,4 +487,32 @@ describe('Polygon tool', () => {
     expect(h.store.persisted.zones).toHaveLength(1)
     expect(h.host.holdsReorigin()).toBe(false)
   })
+
+  it('Esc removes the last point after dragging an earlier corner and Alt+click never deletes the only point (2.1-Q88, #880 B4)', () => {
+    const h = harness()
+
+    // Draft A, B, C, then drag B to B'.
+    h.click({ x: 10, y: 10 })
+    h.click({ x: 120, y: 10 })
+    h.click({ x: 120, y: 120 })
+    const bHandle = h.chrome.handles.find((handle) => handle.id === 'point:draft:1')
+    expect(bHandle).toBeDefined()
+    expect(bHandle!.label).toBe('canvas.zoneControlPoint.label')
+    expect(h.chrome.handles.find((handle) => handle.id === 'dot:draft:0')?.label).toBe('canvas.zoneEdgeMidpoint.label')
+
+    h.drag({ x: 120, y: 10 }, { x: 140, y: 20 }, { target: { kind: 'handle', id: bHandle!.id } })
+    expect(cornerMarkers(h)).toEqual([h.world({ x: 10, y: 10 }), h.world({ x: 140, y: 20 }), h.world({ x: 120, y: 120 })])
+
+    // Esc removes the last point C, leaving [A, B'] (NOT undoing the drag of B to B').
+    expect(h.host.command({ kind: 'escape' })).toBe('handled')
+    expect(cornerMarkers(h)).toEqual([h.world({ x: 10, y: 10 }), h.world({ x: 140, y: 20 })])
+
+    // Step back to a single point; Alt+click refuses to delete the only remaining point.
+    expect(h.host.command({ kind: 'escape' })).toBe('handled')
+    expect(cornerMarkers(h)).toEqual([h.world({ x: 10, y: 10 })])
+    h.click({ x: 10, y: 10 }, { mods: { alt: true } })
+    expect(cornerMarkers(h)).toEqual([h.world({ x: 10, y: 10 })])
+    expect(h.host.activeToolHasEscapeTransient()).toBe(true)
+    expect(h.host.transientHistory.canUndo()).toBe(true)
+  })
 })

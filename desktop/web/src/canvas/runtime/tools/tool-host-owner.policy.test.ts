@@ -4,7 +4,7 @@
 // 2. `tools.arm(id, source, request)` settles each map input request AT MOST ONCE with:
 //    `picked | cancelled{reason: 'escape' | 'tool-change' | 'design-closed' | 'superseded'} | detached`.
 // 3. `siteData.pin` tool row settles on tap with the ground point (click to pin, click again to move, 2.1-Q364).
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { signal } from '@preact/signals'
 import * as sessionState from '../../session-state'
 import * as session from '../../session'
@@ -151,6 +151,39 @@ describe('ToolHost owner policy & map-input settlement (ADR 0024, §18 F29, 2.1-
     const h7 = host.arm('siteData.pin', null, { onSettled: (o) => detachedOutcomes.push(o) })
     expect(await h7.settled).toEqual({ kind: 'detached' })
     expect(detachedOutcomes).toEqual([{ kind: 'detached' }])
+  })
+
+  it('escapeTool settles a pending map-input request with reason escape and returns to Select (#880 S5)', async () => {
+    const host = makeToolHost()
+    const onSettled = vi.fn()
+    const handle = host.arm('siteData.pin', null, { onSettled })
+    host.escapeTool()
+    expect(host.activeTool.peek()).toBe('select')
+    expect(onSettled).toHaveBeenCalledWith({ kind: 'cancelled', reason: 'escape' })
+    expect(await handle.settled).toEqual({ kind: 'cancelled', reason: 'escape' })
+    host.dispose()
+  })
+
+  it('subscribeEmptyGroundTap notifies on Select empty-ground taps and Pan taps in site mode (2.1-Q364, #880 B1)', () => {
+    const host = makeToolHost()
+    const tapped = vi.fn()
+    const unsub = host.subscribeEmptyGroundTap(tapped)
+    const mods = { shift: false, ctrl: false, alt: false, meta: false }
+    host.gesture({ kind: 'press', id: 1, at: { x: 100, y: 100 }, mods, pointer: 'mouse', target: { kind: 'surface' }, clickCount: 1 })
+    host.gesture({ kind: 'tap', id: 1, at: { x: 100, y: 100 }, mods, pointer: 'mouse', clickCount: 1 })
+    expect(tapped).toHaveBeenCalledTimes(1)
+
+    host.arm('hand', null)
+    host.gesture({ kind: 'press', id: 2, at: { x: 120, y: 120 }, mods, pointer: 'mouse', target: { kind: 'surface' }, clickCount: 1 })
+    host.gesture({ kind: 'tap', id: 2, at: { x: 120, y: 120 }, mods, pointer: 'mouse', clickCount: 1 })
+    expect(tapped).toHaveBeenCalledTimes(2)
+
+    unsub()
+    host.arm('select', null)
+    host.gesture({ kind: 'press', id: 3, at: { x: 140, y: 140 }, mods, pointer: 'mouse', target: { kind: 'surface' }, clickCount: 1 })
+    host.gesture({ kind: 'tap', id: 3, at: { x: 140, y: 140 }, mods, pointer: 'mouse', clickCount: 1 })
+    expect(tapped).toHaveBeenCalledTimes(2)
+    host.dispose()
   })
 
   it('covers siteData.pin pass branches (hover, non-tap commands, and overview mode)', () => {

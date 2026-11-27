@@ -55,12 +55,30 @@ type CanvasCommandId =
   | 'view.searchPlace'
   | 'view.cycleLabels'
 
-type CommandId = ShellCommandId | CanvasCommandId
+type CanvasContextMenuCommandId =
+  | 'turn-view-to-edge'
+  | 'finish-shape'
+  | 'place-plants-here'
+  | 'plant-color'
+  | 'plant-symbol'
+  | 'toggle-plant-names'
+  | 'species-details'
+  | 'add-to-calendar'
+  | 'set-unit-cost'
+  | 'rename-zone'
+  | 'profile-line'
+  | 'delete-point'
+  | 'sharp-corner'
+  | 'smooth-corner'
+
+type CanvasCommandRowId = CanvasCommandId | CanvasContextMenuCommandId
+
+type CommandId = ShellCommandId | CanvasCommandRowId
 
 export type CommandOrToolId = CommandId | ToolId
 
 /** Mirrors `SelectionCommandAvailability` (single runtime predicate for selection commands). */
-interface SelectionAvailabilityContext {
+export interface SelectionAvailabilityContext {
   readonly copy: boolean
   readonly edit: boolean
   readonly group: boolean
@@ -152,7 +170,7 @@ export function commandApplicability(row: CommandOrToolRow, ctx: CommandContext)
 }
 
 /** Real canvas command rows with selection predicates, needs-flags, and capability gates (contracts §21). */
-export const CANVAS_COMMAND_ROWS: Readonly<Record<CanvasCommandId, CommandOrToolRow>> = {
+const CANVAS_COMMAND_ROWS: Readonly<Record<CanvasCommandRowId, CommandOrToolRow>> = {
   'edit.undo': { id: 'edit.undo', needsDesign: true, needsUndo: true },
   'edit.redo': { id: 'edit.redo', needsDesign: true, needsRedo: true },
   'canvas.tool.select': { id: 'canvas.tool.select', needsCanvas: true },
@@ -199,6 +217,20 @@ export const CANVAS_COMMAND_ROWS: Readonly<Record<CanvasCommandId, CommandOrTool
   'view.turnViewRight': { id: 'view.turnViewRight', needsCanvas: true },
   'view.searchPlace': { id: 'view.searchPlace', needsCanvas: true },
   'view.cycleLabels': { id: 'view.cycleLabels', needsCanvas: true },
+  'turn-view-to-edge': { id: 'turn-view-to-edge', needsCanvas: true },
+  'finish-shape': { id: 'finish-shape', needsSpatialEditing: true },
+  'place-plants-here': { id: 'place-plants-here', needsSpatialEditing: true },
+  'plant-color': { id: 'plant-color', needsSpatialEditing: true },
+  'plant-symbol': { id: 'plant-symbol', needsSpatialEditing: true },
+  'toggle-plant-names': { id: 'toggle-plant-names', needsSpatialEditing: true },
+  'species-details': { id: 'species-details', needsCanvas: true },
+  'add-to-calendar': { id: 'add-to-calendar', needsSpatialEditing: true },
+  'set-unit-cost': { id: 'set-unit-cost', needsSpatialEditing: true },
+  'rename-zone': { id: 'rename-zone', needsSpatialEditing: true },
+  'profile-line': { id: 'profile-line', requires: ['site-data-below-limit'], needsCanvas: true },
+  'delete-point': { id: 'delete-point', needsSpatialEditing: true },
+  'sharp-corner': { id: 'sharp-corner', needsSpatialEditing: true },
+  'smooth-corner': { id: 'smooth-corner', needsSpatialEditing: true },
 }
 
 const PANEL_REQUIRES_BY_ID = new Map<string, readonly EditionCapabilityId[]>(
@@ -207,7 +239,7 @@ const PANEL_REQUIRES_BY_ID = new Map<string, readonly EditionCapabilityId[]>(
 
 /** Single source of truth resolving any command or tool id to its `CommandOrToolRow` (contracts §21, 2.1-M164). */
 export function commandRowFor(id: CommandOrToolId): CommandOrToolRow {
-  if (id in CANVAS_COMMAND_ROWS) return CANVAS_COMMAND_ROWS[id as CanvasCommandId]
+  if (id in CANVAS_COMMAND_ROWS) return CANVAS_COMMAND_ROWS[id as CanvasCommandRowId]
   if (isToolId(id)) return TOOL_ROWS[id]
   const requires = PANEL_REQUIRES_BY_ID.get(id) ?? SHELL_COMMAND_REQUIRES[id as ShellCommandId]
   return requires ? { id, requires } : { id }

@@ -3,7 +3,7 @@ import { speciesCatalogWorkbench } from '../../app/plant-browser'
 import { useEnglishFallbackNames } from '../../app/plant-finder/catalog-names'
 import {
   writePlantStampDragData,
-} from '../../canvas/plant-stamp-source'
+} from '../../canvas/stamp-drag-data'
 import type { SpeciesCatalogDetail, SpeciesCatalogDetailView } from '../../app/plant-browser/workbench'
 import { openSetText, t } from '../../i18n'
 import { locale } from '../../app/settings/state'

@@ -6,7 +6,7 @@ import {
 } from '../app/canvas-commands'
 import { ariaKeyShortcuts, formatShortcut } from '../app/shell-commands/shortcut-text'
 import { t } from '../i18n'
-import type { CanvasEditSelectionAvailability } from '../app/canvas-commands/edit-availability'
+import type { SelectionAvailabilityContext } from '../app/command-table'
 
 /** Every tool, in rail order. */
 const projectedCanvasTools = (projection: CanvasCommandProjection) =>
@@ -30,7 +30,7 @@ function state(overrides: Partial<CanvasCommandProjectionState> = {}): CanvasCom
 }
 
 /** A selection every selection command applies to. */
-const EVERYTHING: CanvasEditSelectionAvailability = {
+const EVERYTHING: SelectionAvailabilityContext = {
   copy: true,
   edit: true,
   group: true,

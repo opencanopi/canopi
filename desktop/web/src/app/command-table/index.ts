@@ -6,8 +6,11 @@ export { TOOL_IDS, TOOL_ROWS, type ToolId } from './tools'
 export {
   commandApplicability,
   commandRowFor,
+  lackingCapabilities,
   type Applicability,
   type CommandContext,
+  type CommandOrToolId,
   type CommandOrToolRow,
+  type SelectionAvailabilityContext,
 } from './applicability'
 export { EDITION_CAPABILITIES, type EditionCapabilityId } from '../../generated/edition-capabilities'

@@ -4,8 +4,7 @@
 // canvas v2 seams commit; renamed with the suites at the end of 0B.
 import { signal } from '@preact/signals'
 import { afterEach, beforeEach, expect, vi } from 'vitest'
-import { clearPlantStampSource } from '../../canvas/plant-stamp-source'
-import { clearSavedObjectStampSource } from '../../canvas/saved-object-stamp-source'
+import { clearSavedObjectStampDragSource } from '../../canvas/stamp-drag-data'
 import { IDLE_CANVAS_TOOL_GUIDANCE, currentCanvasSelection, setCanvasToolGuidance } from '../../canvas/session-state'
 import { h, render as renderPreact } from 'preact'
 import { setupRerender, teardown as teardownPreactTestUtils } from 'preact/test-utils'
@@ -35,11 +34,7 @@ import {
   type ScenePoint,
   type SceneZoneEntity,
 } from '../../canvas/runtime/scene'
-import {
-  createSceneInteractionSession,
-  type SceneInteractionSession,
-  type SceneInteractionSessionDeps,
-} from '../../canvas/runtime/interaction-session'
+import { createSceneInteractionSession, type SceneInteractionSession, type SceneInteractionSessionDeps } from '../../canvas/runtime/interaction-session'
 import type { CanvasDesignObjectSelectionModel } from '../../canvas/runtime/runtime'
 import type {
   CanvasContextMenuRequest,
@@ -722,16 +717,21 @@ export function installSceneInteractionFixture(
   function createTestSession(deps: SceneInteractionSessionDeps): SceneInteractionSession {
     const session = createSceneInteractionSession(deps)
     renderedSession = session
-    // The runtime mirrors the session's tool for the tool card, as the query surface does.
+    // The runtime mirrors the session's tool state for the tool card, as the query surface does.
+    const syncState = () => {
+      const state = session.toolState.peek()
+      sessionQueries.setActiveTool(state.id, state.source, state.stampId)
+    }
+    syncState()
     const setTool = session.setTool.bind(session)
     session.setTool = (name) => {
       setTool(name)
-      sessionQueries.setActiveTool(name)
+      syncState()
     }
     const arm = session.arm.bind(session)
     session.arm = (id, source, request) => {
       const handle = arm(id, source, request)
-      sessionQueries.setActiveTool(id)
+      syncState()
       return handle
     }
     sessions.push(session)
@@ -834,8 +834,7 @@ export function installSceneInteractionFixture(
     store = new SceneStore()
     sessions = []
     currentCanvasSelection.value = new Set()
-    clearPlantStampSource()
-    clearSavedObjectStampSource()
+    clearSavedObjectStampDragSource()
     snapToGridEnabled.value = false
     plantSpacingIntervalM.value = 0.5
     singleKeyShortcuts.value = true
@@ -882,8 +881,7 @@ export function installSceneInteractionFixture(
     setCanvasToolGuidance(IDLE_CANVAS_TOOL_GUIDANCE)
     container.remove()
     currentCanvasSelection.value = new Set()
-    clearPlantStampSource()
-    clearSavedObjectStampSource()
+    clearSavedObjectStampDragSource()
     snapToGridEnabled.value = false
     plantSpacingIntervalM.value = 0.5
     if (disposalErrors.length > 0) throw disposalErrors[0]

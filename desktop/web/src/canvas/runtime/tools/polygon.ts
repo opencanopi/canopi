@@ -103,7 +103,6 @@ const POLYGON: VertexPathSpec = {
 export function createVertexPathTool(spec: VertexPathSpec): CanvasTool {
   let ctx: ToolContext | null = null
   let points: WorldPoint[] = []
-  let undoStack: WorldPoint[][] = []
   let redoStack: WorldPoint[][] = []
   /** Where the rubber band ends: the pointer, or the last point placed. */
   let active: WorldPoint | null = null
@@ -145,7 +144,7 @@ export function createVertexPathTool(spec: VertexPathSpec): CanvasTool {
       anchor,
       hitRadiusPx: size.pointRadiusPx,
       glyph: 'corner',
-      label: tool.translate('canvas.plantRow.point', { index: index + 1 }),
+      label: tool.translate('canvas.zoneControlPoint.label', { index: index + 1 }),
     }))
     // While a point or midpoint dot is dragging, hide dots so they do not chase the pointer.
     if (pointDrag || pts.length < 2) return handles
@@ -158,7 +157,7 @@ export function createVertexPathTool(spec: VertexPathSpec): CanvasTool {
         anchor: { x: (from.x + to.x) / 2, y: (from.y + to.y) / 2 },
         hitRadiusPx: size.midpointRadiusPx,
         glyph: 'midpoint',
-        label: tool.translate('canvas.plantRow.dot', { index: index + 1 }),
+        label: tool.translate('canvas.zoneEdgeMidpoint.label', { index: index + 1 }),
       })
     }
     return handles
@@ -190,9 +189,8 @@ export function createVertexPathTool(spec: VertexPathSpec): CanvasTool {
     effects.setHandles(handles, activeHandle)
   }
 
-  /** Records a transient edit step and clears the redo stack. */
+  /** Updates the draft points and forgets any redo states (anchors.ts model, 2.1-Q88). */
   function commitPoints(next: WorldPoint[]): void {
-    undoStack = [...undoStack, points]
     points = next
     redoStack = []
     if (points.length === 0) active = null
@@ -245,9 +243,9 @@ export function createVertexPathTool(spec: VertexPathSpec): CanvasTool {
     return nearest
   }
 
-  /** Deletes point `index` and records the transient step. */
+  /** Deletes point `index`, refusing to drop the only remaining point (2.1-Q88, Plant a row parity). */
   function deletePoint(index: number): void {
-    if (index < 0 || index >= points.length) return
+    if (points.length <= 1 || index < 0 || index >= points.length) return
     commitPoints(points.filter((_, at) => at !== index))
     touched = null
     pointDrag = null
@@ -389,12 +387,11 @@ export function createVertexPathTool(spec: VertexPathSpec): CanvasTool {
     spec.finish(points, context(), drop)
   }
 
+  /** Steps back by removing the last point onto the redo stack (2.1-Q88, anchors.ts parity). */
   function undo(): boolean {
-    const prev = undoStack[undoStack.length - 1]
-    if (!prev) return false
-    undoStack = undoStack.slice(0, -1)
+    if (points.length === 0) return false
     redoStack = [...redoStack, points]
-    points = [...prev]
+    points = points.slice(0, -1)
     pointDrag = null
     touched = null
     if (points.length === 0) active = null
@@ -406,7 +403,6 @@ export function createVertexPathTool(spec: VertexPathSpec): CanvasTool {
     const restored = redoStack[redoStack.length - 1]
     if (!restored) return false
     redoStack = redoStack.slice(0, -1)
-    undoStack = [...undoStack, points]
     points = [...restored]
     pointDrag = null
     touched = null
@@ -415,8 +411,8 @@ export function createVertexPathTool(spec: VertexPathSpec): CanvasTool {
     return true
   }
 
-  /** Esc (A17): the last step goes onto the redo stack; the last point left takes the redo with it, so the next Esc
-   *  leaves the tool; a redo-only history goes, and the tool asks for Select in the same press. */
+  /** Esc (A17, 2.1-Q88): removes the last point onto the redo stack; the last point left takes the redo with it, so the
+   *  next Esc leaves the tool; a redo-only history goes, and the tool asks for Select in the same press. */
   function stepBack(): boolean {
     if (points.length > 1) return undo()
     if (points.length === 1) {
@@ -431,7 +427,6 @@ export function createVertexPathTool(spec: VertexPathSpec): CanvasTool {
 
   function drop(): void {
     points = []
-    undoStack = []
     redoStack = []
     active = null
     pointDrag = null
@@ -457,7 +452,6 @@ export function createVertexPathTool(spec: VertexPathSpec): CanvasTool {
     activate(next) {
       ctx = next
       points = []
-      undoStack = []
       redoStack = []
       active = null
       pointDrag = null
@@ -538,7 +532,7 @@ export function createVertexPathTool(spec: VertexPathSpec): CanvasTool {
       if (reason === 'navigate' && points.length > 0) return
       if (hasTransient()) drop()
     },
-    canUndoTransient: () => undoStack.length > 0,
+    canUndoTransient: () => points.length > 0,
     canRedoTransient: () => redoStack.length > 0,
     deactivate() {
       if (hasTransient()) drop()

@@ -8,7 +8,7 @@
 // species' mature width when the catalog gives one (never invented) and the distance to the nearest plant within 320 px
 // on screen. The preview hides when the pointer leaves the map and when the map enters overview.
 
-import type { PlantStampSourceInput } from '../../plant-stamp-source'
+import type { PlantStampSourceInput } from '../../stamp-drag-data'
 import { speciesPlacementAppearance } from '../species-key'
 import { formatMetricDistance } from '../zone-measurements'
 import type { SceneEditCoordinator } from '../scene-runtime/transactions'

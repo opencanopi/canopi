@@ -1,12 +1,11 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import {
-  clearPlantStampSource,
   hasPlantStampDragData,
-  readPlantStampDragData,
-  readPlantStampSource,
-  selectPlantStampSource,
+  readPlantStampDropSource,
+  recentPlantStampSources,
+  recordRecentPlantStampSource,
   writePlantStampDragData,
-} from '../canvas/plant-stamp-source'
+} from '../canvas/stamp-drag-data'
 
 function species(overrides = {}) {
   return {
@@ -32,22 +31,27 @@ function dragDataStore() {
   }
 }
 
-describe('Plant Stamp source', () => {
-  it('owns selected source lifecycle', () => {
-    clearPlantStampSource()
-    expect(readPlantStampSource()).toBeNull()
+function dropEvent(dataTransfer: unknown): DragEvent {
+  return { dataTransfer } as DragEvent
+}
 
-    selectPlantStampSource(species())
+describe('Plant Stamp drag data and recent sources', () => {
+  afterEach(() => {
+    recentPlantStampSources.value = []
+  })
 
-    expect(readPlantStampSource()).toEqual({
-      canonical_name: 'Malus domestica',
-      common_name: 'Apple',
-      stratum: 'high',
-      width_max_m: 4,
-    })
+  it('records recent plant stamp sources newest-first without duplicates', () => {
+    recentPlantStampSources.value = []
+    expect(recentPlantStampSources.value).toEqual([])
 
-    clearPlantStampSource()
-    expect(readPlantStampSource()).toBeNull()
+    recordRecentPlantStampSource(species())
+    recordRecentPlantStampSource(species({ canonical_name: 'Pyrus communis', common_name: 'Pear' }))
+    recordRecentPlantStampSource(species())
+
+    expect(recentPlantStampSources.value.map((entry) => entry.canonical_name)).toEqual([
+      'Malus domestica',
+      'Pyrus communis',
+    ])
   })
 
   it('centralizes drag data serialization and parsing', () => {
@@ -56,7 +60,7 @@ describe('Plant Stamp source', () => {
     writePlantStampDragData(dataTransfer, species())
 
     expect(dataTransfer.effectAllowed).toBe('copy')
-    expect(readPlantStampDragData(dataTransfer)).toEqual({
+    expect(readPlantStampDropSource(dropEvent(dataTransfer))).toEqual({
       canonical_name: 'Malus domestica',
       common_name: 'Apple',
       stratum: 'high',
@@ -84,10 +88,10 @@ describe('Plant Stamp source', () => {
     writePlantStampDragData(dataTransfer, species())
 
     expect(hasPlantStampDragData(dataTransfer)).toBe(true)
-    expect(readPlantStampDragData(dataTransfer)).toBeNull()
+    expect(readPlantStampDropSource(dropEvent(dataTransfer))).toBeNull()
 
     protectedDragData = false
-    expect(readPlantStampDragData(dataTransfer)?.canonical_name).toBe('Malus domestica')
+    expect(readPlantStampDropSource(dropEvent(dataTransfer))?.canonical_name).toBe('Malus domestica')
   })
 
   it('does not trust protected text drag types without readable plant payload data', () => {
@@ -110,7 +114,7 @@ describe('Plant Stamp source', () => {
     expect(hasPlantStampDragData(dataTransfer)).toBe(false)
 
     protectedDragData = false
-    expect(readPlantStampDragData(dataTransfer)?.canonical_name).toBe('Malus domestica')
+    expect(readPlantStampDropSource(dropEvent(dataTransfer))?.canonical_name).toBe('Malus domestica')
     expect(hasPlantStampDragData(dataTransfer)).toBe(true)
   })
 
@@ -118,6 +122,6 @@ describe('Plant Stamp source', () => {
     const dataTransfer = dragDataStore()
     dataTransfer.setData('text/plain', JSON.stringify({ common_name: 'No identity' }))
 
-    expect(readPlantStampDragData(dataTransfer)).toBeNull()
+    expect(readPlantStampDropSource(dropEvent(dataTransfer))).toBeNull()
   })
 })

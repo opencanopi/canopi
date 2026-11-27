@@ -10,13 +10,13 @@ import type {
   CanvasPlantLabelCoverage,
   CanvasQuerySurface,
 } from '../../canvas/runtime/runtime'
-import type { PointerWorld } from '../../canvas/runtime/interaction-ports'
-import type { ToolId } from '../../canvas/runtime/interaction-types'
+import type { PointerWorld, ToolHostState } from '../../canvas/runtime/interaction-ports'
+import type { ToolId, ToolSource } from '../../canvas/runtime/interaction-types'
 import type { PlacedPlant } from '../../types/design'
 import type { SpeciesCacheEntry } from '../../canvas/runtime/presentation-data'
 import { createViewReadSurface } from '../../geo/view/frame-source'
 import type { ViewReadSurface } from '../../geo/view/read-surface'
-import type { ViewFrame, ViewFrameSource, ViewScreen } from '../../geo/view/types'
+import type { ViewFrame, ViewFrameSource, ViewScreen, WorldPoint } from '../../geo/view/types'
 import { planarToViewCamera } from '../../geo/view/camera-math'
 import { buildViewTransform } from '../../geo/view/view-transform'
 import { createSessionPlane, type SessionPlane } from '../../geo/session-plane'
@@ -48,9 +48,12 @@ interface TestCanvasQuerySurfaceOptions {
 export type TestCanvasQuerySurface = CanvasQuerySurface & {
   /** Writable: the fake's `view` reads its ground on this plane, so a test sets it instead of spreading another signal in. */
   readonly sessionPlane: Signal<SessionPlane | null>
+  /** Writable: the fake's tool state, mirroring ToolHost's single state signal. */
+  readonly toolState: Signal<ToolHostState>
   /** Writable: the fake's active tool, mirroring ToolHost's single activeTool signal. */
   readonly activeTool: Signal<ToolId>
-  setActiveTool(tool: ToolId): void
+  setActiveTool(tool: ToolId, source?: ToolSource | null, stampId?: string | null): void
+  emitEmptyGroundTap(world: WorldPoint): void
   /** Moves the fake's view to this placement, as a camera move would. */
   setPlacement(placement: TestPlacement): void
   bumpSceneRevision(): void
@@ -80,6 +83,7 @@ export function createTestCanvasQuerySurface({
   activeTool = 'select',
 }: TestCanvasQuerySurfaceOptions = {}): TestCanvasQuerySurface {
   const sessionPlaneSignal = signal<SessionPlane | null>(sessionPlane)
+  const toolStateSignal = signal<ToolHostState>({ id: activeTool, source: null, stampId: null })
   const activeToolSignal = signal<ToolId>(activeTool)
   const sceneRevision = signal(0)
   const plantNamesRevision = signal(0)
@@ -97,11 +101,17 @@ export function createTestCanvasQuerySurface({
   let currentSelection = selection.map((target) => ({ ...target }))
   let settled = true
   const pointerWorldListeners = new Set<(point: PointerWorld | null) => void>()
+  const emptyGroundTapListeners = new Set<(world: WorldPoint) => void>()
 
   return {
     revision,
+    toolState: toolStateSignal,
     activeTool: activeToolSignal,
-    setActiveTool: (tool) => {
+    setActiveTool: (tool, source, stampId) => {
+      const prev = toolStateSignal.peek()
+      const nextSource = source !== undefined ? source : (prev.id === tool ? prev.source : null)
+      const nextStampId = stampId !== undefined ? stampId : (prev.id === tool && source === undefined ? prev.stampId : null)
+      toolStateSignal.value = { id: tool, source: nextSource, stampId: nextStampId }
       activeToolSignal.value = tool
     },
     view: createFollowingTestView(placementSignal, { ...screen, devicePixelRatio: 1 }, sessionPlaneSignal),
@@ -208,6 +218,15 @@ export function createTestCanvasQuerySurface({
     },
     emitPointerWorld: (point) => {
       for (const listener of [...pointerWorldListeners]) listener(point)
+    },
+    subscribeEmptyGroundTap: (listener) => {
+      emptyGroundTapListeners.add(listener)
+      return () => {
+        emptyGroundTapListeners.delete(listener)
+      }
+    },
+    emitEmptyGroundTap: (world) => {
+      for (const listener of [...emptyGroundTapListeners]) listener(world)
     },
   }
 }

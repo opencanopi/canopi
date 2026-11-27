@@ -10,12 +10,12 @@ import {
 import { usePlantFinder } from '../../app/plant-finder/use-plant-finder'
 import type { PlantFinderHit } from '../../app/plant-finder/matcher'
 import { selectPanel } from '../../app/shell/state'
+import { armCanvasTool } from '../../app/keyboard/arming'
 import {
   recentPlantStampSources,
-  selectPlantStampSource,
   type PlantStampSource,
-} from '../../canvas/plant-stamp-source'
-import { currentCanvasQuerySurface } from '../../canvas/session'
+} from '../../canvas/stamp-drag-data'
+import { currentCanvasQuerySurface, currentCanvasTool } from '../../canvas/session'
 import { t } from '../../i18n'
 import { MatchText, PlantFinder, StratumFormFilters } from '../shared/PlantFinder'
 import { SpeciesCommonName } from '../shared/SpeciesIdentity'
@@ -82,7 +82,7 @@ export function SpeciesChooser({ autoFocus, focusRequest, onChosen, onEscape }: 
   }, [focusRequest])
 
   function choose(entry: ChooserSpecies): void {
-    selectPlantStampSource(entry.source)
+    armCanvasTool(currentCanvasTool.peek(), { from: 'card', source: { kind: 'species', species: entry.source } })
     onChosen()
   }
 

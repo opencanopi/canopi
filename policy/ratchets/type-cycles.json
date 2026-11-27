@@ -2,7 +2,6 @@
   "$schema": "./ratchet.schema.json",
   "family": "type-cycles",
   "entries": {
-    "app/canvas-commands/edit-availability.ts -> app/canvas-commands/index.ts": { "count": 1 },
     "canvas/runtime/app-adapter.ts -> canvas/runtime/runtime.ts": { "count": 1 },
     "canvas/runtime/app-adapter.ts -> canvas/runtime/scene-visuals.ts": { "count": 1 },
     "canvas/runtime/input/gestures.ts -> canvas/runtime/input/raw-input.ts": { "count": 1 },

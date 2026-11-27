@@ -5,7 +5,6 @@
 // Shared fakes, helpers and fixture: support/canvas-interaction-setup.ts. The session draws its drafts into a recording
 // renderer (the draft sink scene-runtime.ts passes); the tools' own behaviour is tested in canvas/runtime/tools/*.test.ts.
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { selectPlantStampSource } from '../canvas/plant-stamp-source'
 import { currentCanvasSelection } from '../canvas/session-state'
 import { snapToGridEnabled } from '../app/settings/state'
 import type { SceneStore, ScenePoint } from '../canvas/runtime/scene'
@@ -861,14 +860,8 @@ describe('SceneInteractionSession', () => {
       return events.keyDown({ key: 'Escape', target: container })
     }
 
-    function sessionWithToolLog(): { session: SceneInteractionSession, tools: string[] } {
-      const tools: string[] = []
-      const deps = createInteractionDeps(container, store, testView, { setTool: (name: string) => { tools.push(name) } })
-      return { session: createTestSession(deps), tools }
-    }
-
     it('steps a polygon draft back point by point, then returns to Select (A17)', () => {
-      const { session, tools } = sessionWithToolLog()
+      const session = createTestSession(createInteractionDeps(container, store, testView))
       session.setTool('polygon')
       container.focus()
       events.pointerDown({ x: 20, y: 20 })
@@ -878,12 +871,12 @@ describe('SceneInteractionSession', () => {
 
       escapeOnMap()
       escapeOnMap()
-      expect(tools).not.toContain('select')
+      expect(session.tool).toBe('polygon')
       expect(draftBand()).toBeNull()
       expect(document.activeElement).toBe(container)
 
       escapeOnMap()
-      expect(tools.at(-1)).toBe('select')
+      expect(session.tool).toBe('select')
       session.dispose()
     })
   })
@@ -1027,8 +1020,7 @@ describe('SceneInteractionSession', () => {
 
   it('cancels redo-only polygonal zone draft history with Escape and returns to Select in the same press (A17)', () => {
     const onSceneEditCommit = vi.fn()
-    const tools: string[] = []
-    const deps = createInteractionDeps(container, store, testView, { onSceneEditCommit, setTool: (name: string) => { tools.push(name) } })
+    const deps = createInteractionDeps(container, store, testView, { onSceneEditCommit })
     const session = createTestSession(deps)
     session.setTool('polygon')
 
@@ -1039,7 +1031,7 @@ describe('SceneInteractionSession', () => {
 
     events.keyDown({ key: 'Escape' })
 
-    expect(tools.at(-1)).toBe('select')
+    expect(session.tool).toBe('select')
     expect(session.canRedoTransientHistory()).toBe(false)
     expect(session.redoTransientHistory()).toBe(false)
     expect(draftBand()).toBeNull()
@@ -1313,14 +1305,16 @@ describe('SceneInteractionSession', () => {
         rectangleSession.dispose()
         rectangleSession = null
 
-        selectPlantStampSource({
-          canonical_name: 'Malus domestica',
-          common_name: 'Apple',
-          stratum: 'high',
-          width_max_m: 4,
-        })
         plantSession = createTestSession(createInteractionDeps(container, store, testView))
-        plantSession.setTool('plant-stamp')
+        plantSession.arm('plant-stamp', {
+          kind: 'species',
+          species: {
+            canonical_name: 'Malus domestica',
+            common_name: 'Apple',
+            stratum: 'high',
+            width_max_m: 4,
+          },
+        })
 
         events.pointerDown({ x: 50, y: 70 }, { button: 0 })
 

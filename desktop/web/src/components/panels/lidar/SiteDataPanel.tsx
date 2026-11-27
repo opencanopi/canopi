@@ -8,7 +8,7 @@ import { installLidarLibraryObserver, lidarLibrary, readCurrentLidarPresentation
 import { armProfile, profileAvailable } from '../../../app/data-library/profile'
 import { siteDataViewFor, type SiteDataView } from '../../../app/data-library/site-data-view'
 import { pin, unpin } from '../../../app/data-library/site-transients'
-import { armSitePin, siteValues } from '../../../app/data-library/site-values'
+import { siteValues } from '../../../app/data-library/site-values'
 import { referenceRows } from '../../../app/data-library/reference-tree'
 import { locale } from '../../../app/settings/state'
 import { currentCanvasTool } from '../../../canvas/session'
@@ -87,7 +87,7 @@ function PinLine() {
   const readable = readCurrentLidarPresentation().some((item) => item.shown && item.availability === 'present' && item.state === 'Ready')
   if (!readable) return null
   const coarse = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches
-  return <p className={styles.hint} onClick={() => armSitePin('panel')}>{coarse ? t('siteData.hintTouch') : t('siteData.hint')}</p>
+  return <p className={styles.hint}>{coarse ? t('siteData.hintTouch') : t('siteData.hint')}</p>
 }
 
 function Toolbar({ view }: { readonly view: SiteDataView }) {

@@ -1,12 +1,15 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import { parseSavedObjectStampPayload, type SavedObjectStampPayload } from '../canvas/saved-object-stamp-payload'
 import { isSavedObjectStampPayloadFromBefore2_0 } from '../app/saved-object-stamps/row-state'
 import type { SavedObjectStamp } from '../types/saved-object-stamps'
 import {
+  clearSavedObjectStampDragSource,
   hasSavedObjectStampDragData,
-  readSavedObjectStampDragData,
+  readSavedObjectStampDragName,
+  readSavedObjectStampDragPreviewSource,
+  readSavedObjectStampDropSource,
   writeSavedObjectStampDragData,
-} from '../canvas/saved-object-stamp-source'
+} from '../canvas/stamp-drag-data'
 
 function payload(): SavedObjectStampPayload {
   return {
@@ -54,14 +57,26 @@ function dragDataStore() {
   }
 }
 
+function dropEvent(dataTransfer: unknown): DragEvent {
+  return { dataTransfer } as DragEvent
+}
+
 describe('Saved Object Stamp source', () => {
+  afterEach(() => {
+    clearSavedObjectStampDragSource()
+  })
+
   it('centralizes drag data serialization and parsing', () => {
     const dataTransfer = dragDataStore()
 
     writeSavedObjectStampDragData(dataTransfer, stamp())
 
     expect(dataTransfer.effectAllowed).toBe('copy')
-    expect(readSavedObjectStampDragData(dataTransfer)).toEqual(payload())
+    expect(readSavedObjectStampDropSource(dropEvent(dataTransfer))).toEqual(payload())
+    expect(readSavedObjectStampDragName()).toBe('Apple guild')
+
+    clearSavedObjectStampDragSource()
+    expect(readSavedObjectStampDragName()).toBeNull()
   })
 
   it('detects browser-protected drag data from the Saved Object Stamp MIME type', () => {
@@ -84,10 +99,11 @@ describe('Saved Object Stamp source', () => {
     writeSavedObjectStampDragData(dataTransfer, stamp())
 
     expect(hasSavedObjectStampDragData(dataTransfer)).toBe(true)
-    expect(readSavedObjectStampDragData(dataTransfer)).toBeNull()
+    expect(readSavedObjectStampDropSource(dropEvent(dataTransfer))).toBeNull()
+    expect(readSavedObjectStampDragPreviewSource(dataTransfer)).toEqual(payload())
 
     protectedDragData = false
-    expect(readSavedObjectStampDragData(dataTransfer)?.plants[0]?.canonicalName)
+    expect(readSavedObjectStampDropSource(dropEvent(dataTransfer))?.plants[0]?.canonicalName)
       .toBe('Malus domestica')
   })
 
@@ -120,7 +136,7 @@ describe('Saved Object Stamp source', () => {
     const dataTransfer = dragDataStore()
     dataTransfer.setData('application/x.canopi.saved-object-stamp+json', JSON.stringify({ version: 1 }))
 
-    expect(readSavedObjectStampDragData(dataTransfer)).toBeNull()
+    expect(readSavedObjectStampDropSource(dropEvent(dataTransfer))).toBeNull()
     expect(hasSavedObjectStampDragData(dataTransfer)).toBe(false)
   })
 })

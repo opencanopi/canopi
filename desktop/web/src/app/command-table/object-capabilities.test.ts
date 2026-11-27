@@ -13,11 +13,12 @@ import {
 import { KNOWN_CANOPI_KEYS, type KnownCanopiKey } from '../../generated/known-canopi-keys'
 import { OBJECT_KINDS, type ObjectKind } from '../../types/design-object-kinds'
 import {
-  CANVAS_COMMAND_ROWS,
   commandApplicability,
   commandRowFor,
   type CommandContext,
+  type CommandOrToolId,
 } from './applicability'
+import { canvasCommandDefinitions } from '../canvas-commands'
 import { SHELL_COMMAND_REQUIRES } from './commands'
 import {
   CAPABILITIES,
@@ -147,10 +148,20 @@ describe('object-action capability matrix (contracts §21, 2.1-Q147)', () => {
         expect(kindByCap.get(req), `kind '${row.id}' requires non-gate '${req}'`).toBe('gate')
       }
     }
+    const canvasCommandIds: readonly CommandOrToolId[] = [
+      ...canvasCommandDefinitions.map((d) => d.commandId),
+      'turn-view-to-edge', 'finish-shape', 'place-plants-here',
+      'plant-color', 'plant-symbol', 'toggle-plant-names', 'species-details',
+      'add-to-calendar', 'set-unit-cost', 'rename-zone', 'profile-line',
+      'delete-point', 'sharp-corner', 'smooth-corner',
+    ]
     const allCommandReqs: readonly (readonly [string, readonly EditionCapabilityId[] | undefined])[] = [
       ...Object.entries(SHELL_COMMAND_REQUIRES),
       ...PANEL_DESCRIPTORS.map((p) => [p.commandId, p.requires] as const),
-      ...Object.values(CANVAS_COMMAND_ROWS).map((r) => [r.id, r.requires] as const),
+      ...canvasCommandIds.map((id) => {
+        const row = commandRowFor(id)
+        return [row.id, row.requires] as const
+      }),
       ...Object.values(TOOL_ROWS).map((r) => [r.id, r.requires] as const),
     ]
     for (const [cmd, reqs] of allCommandReqs) {

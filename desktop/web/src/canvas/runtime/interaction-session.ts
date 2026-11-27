@@ -12,10 +12,9 @@
 // window blur, follows a placed drop (the saved stamp's drag source, the map's focus on the next frame), owns the
 // navigation cursor, and passes on no draft or handles while a story is presented.
 
-import { effect, type ReadonlySignal } from '@preact/signals'
+import type { ReadonlySignal } from '@preact/signals'
 import { TOOL_ROWS } from '../../app/command-table'
-import { readPlantStampSource, clearPlantStampSource, selectPlantStampSource } from '../plant-stamp-source'
-import { clearSavedObjectStampDragSource, clearSavedObjectStampSource, readSavedObjectStampDragName, readSavedObjectStampSource, selectSavedObjectStampSource } from '../saved-object-stamp-source'
+import { clearSavedObjectStampDragSource, readSavedObjectStampDragName, recordRecentPlantStampSource } from '../stamp-drag-data'
 import { IDLE_CANVAS_TOOL_GUIDANCE, noteCanvasLockedMoveRefused, type CanvasToolGuidance } from '../session-state'
 import type { CanvasContextMenuCommands, CanvasFocusPort, CanvasRuntimeContextMenuAdapter, CanvasRuntimeTranslator, CanvasScrollWheelSetting } from './app-adapter'
 import { createHandleLayer, type HandleLayer } from './chrome/handle-layer'
@@ -29,8 +28,8 @@ import { detectPlatform, modKeyIsCmd, type InputPlatform } from './input/platfor
 import type { AdapterEffect, RawInput, RecogniserConfig, RecogniserState, TargetClass } from './input/raw-input'
 import { initialRecogniserState, recognise } from './input/recognise'
 import { DEFAULT_THRESHOLDS } from './input/thresholds'
-import type { GestureOutcome, PointerWorld, ToolHost, ToolHostDeps } from './interaction-ports'
-import type { MapInputHandle, MapInputRequest, Modifiers, OverviewDropPayload, ToolId } from './interaction-types'
+import type { GestureOutcome, PointerWorld, ToolHost, ToolHostDeps, ToolHostState } from './interaction-ports'
+import type { MapInputHandle, MapInputRequest, Modifiers, OverviewDropPayload, ToolId, ToolSource } from './interaction-types'
 import { createCanvasKeyboardPort } from './keyboard-port'
 import type { PlantPresentationContext } from './plant-presentation'
 import type { SceneRenderTarget } from './renderers/scene-types'
@@ -40,7 +39,7 @@ import type { SceneCommandAdmission, SceneEditCoordinator, SettledSceneReader } 
 import type { SpeciesCacheEntry } from './presentation-data'
 import { createContextMenuPort, createToolHost, createToolScene } from './tools/tool-host'
 import type { ViewNavigation } from '../../geo/view/navigation'
-import type { ViewFrame, ViewFrameSource } from '../../geo/view/types'
+import type { ViewFrame, ViewFrameSource, WorldPoint } from '../../geo/view/types'
 
 /** Attributes the session sets on the map host and restores when it ends. */
 const HOST_ATTRIBUTES = ['tabindex', 'role', 'aria-label', 'aria-describedby'] as const
@@ -52,7 +51,6 @@ const NO_DROP: readonly AdapterEffect[] = Object.freeze([{ kind: 'drop-effect', 
 const PREVENT_DEFAULT: readonly AdapterEffect[] = Object.freeze([{ kind: 'prevent-default' }])
 /** The host's types, read through it (P5b: this module imports nothing else from tools/). */
 type DraftPresentation = Parameters<ToolHostDeps['renderer']['setDraft']>[0]
-type ToolSource = Parameters<ToolHost['setTool']>[1]
 type HandleList = Parameters<ToolHostDeps['chrome']['setHandles']>[0]
 type HandleId = Parameters<ToolHostDeps['chrome']['setHandles']>[1]
 type PassiveHoverAt = NonNullable<Parameters<ToolHostDeps['chrome']['setTooltip']>[0]>
@@ -113,6 +111,8 @@ export interface SceneInteractionSessionDeps {
 export interface SceneInteractionSession {
   /** The tool the session has armed now (after a failed switch: the one it kept or fell back to). */
   readonly tool: ToolId
+  /** Single authoritative tool state signal owned by ToolHost (L11, §18 F29). */
+  readonly toolState: ReadonlySignal<ToolHostState>
   /** Live active tool signal owned by ToolHost (L11, §18 F29). */
   readonly activeTool: ReadonlySignal<ToolId>
   /** Arms a tool with optional source and map-input request; returns a handle that settles once. */
@@ -135,6 +135,7 @@ export interface SceneInteractionSession {
   /** ToolHost.subscribePointerWorld: the pointer's world and screen points over the map, null when it leaves (the inspection
    *  lens). The session drops the point of a move made with any button held (its raw buttonMask), as today's lens skipped it. */
   subscribePointerWorld(listener: (point: PointerWorld | null) => void): () => void
+  subscribeEmptyGroundTap(listener: (world: WorldPoint) => void): () => void
   /** ToolHost.holdsReorigin: re-origin waits while a press, a tool transient or the text entry is open (spec §4.19). */
   holdsReorigin(): boolean
   dispose(): void
@@ -188,7 +189,6 @@ class DefaultSceneInteractionSession implements SceneInteractionSession {
   private readonly _source: ReturnType<typeof createDomInputSource>
   private readonly _renderer: Pick<SceneRenderTarget, 'setDraft'>
   private readonly _detachSource: () => void
-  private readonly _stopWatchingSources: () => void
   private readonly _storyObserver: MutationObserver | null
   private _recogniser: RecogniserState = initialRecogniserState()
   private _pointingDevice: 'mouse' | 'trackpad'
@@ -303,9 +303,7 @@ class DefaultSceneInteractionSession implements SceneInteractionSession {
         focus,
         guidance: (guidance) => _deps.publishToolGuidance(guidance ? { ...IDLE_CANVAS_TOOL_GUIDANCE, ...guidance } : IDLE_CANVAS_TOOL_GUIDANCE),
         toolRow: (id) => TOOL_ROWS[id],
-        onToolChanged: (id, previous) => {
-          if (previous && previous !== id) clearToolSource(previous)
-          this._deps.setTool(id)
+        onToolChanged: () => {
           this._configure()
         },
         settings: {
@@ -349,7 +347,7 @@ class DefaultSceneInteractionSession implements SceneInteractionSession {
           spaceHeld: () => this._recogniser.held.space,
           keyState: (state) => this._setKeyState(state.space, state.mods),
           escapeGesture: () => this._escapeGesture(),
-          requestTool: (id) => this._switchTool(id),
+          escapeTool: () => this._escapeTool(),
           clearSelection: () => {
             _deps.clearSelection()
             _deps.render()
@@ -366,10 +364,8 @@ class DefaultSceneInteractionSession implements SceneInteractionSession {
           clear: (id) => window.clearTimeout(id),
         },
       })
-      this._stopWatchingSources = own(this._watchToolSources(), (stop) => stop())
       this._storyObserver = own(this._observeStoryPresentation(), (observer) => observer?.disconnect())
-      this.setTool(this._toolHost.activeTool.peek())
-      this._handInitialSource()
+      this._configure()
       this._detachSource = this._source.attach((input) => this._receive(input))
       rollback.length = 0
     } catch (error) {
@@ -392,6 +388,10 @@ class DefaultSceneInteractionSession implements SceneInteractionSession {
     return this._toolHost.activeTool.peek()
   }
 
+  get toolState(): ReadonlySignal<ToolHostState> {
+    return this._toolHost.state
+  }
+
   get activeTool(): ReadonlySignal<ToolId> {
     return this._toolHost.activeTool
   }
@@ -406,18 +406,14 @@ class DefaultSceneInteractionSession implements SceneInteractionSession {
       request?.onSettled?.(detached)
       return { settled: Promise.resolve(detached), cancel() {} }
     }
-    const previous = this._toolHost.activeTool.peek()
     this._navigationCursor = null
     let handle: MapInputHandle<T>
     try {
-      handle = this._toolHost.arm(id, source !== undefined ? source : toolSourceFor(id), request)
+      handle = this._toolHost.arm(id, source, request)
     } catch (error) {
       this._endPressesAfterFailedSwitch()
-      clearToolSource(previous)
       throw error
     }
-    // The tool left drops its pick once it is deactivated, as today's tools did (the next tool never hears it).
-    if (previous !== id) clearToolSource(previous)
     // The live presses belong to the tool left: they end on the host's path, which releases their capture.
     this._configure()
     return handle
@@ -429,12 +425,10 @@ class DefaultSceneInteractionSession implements SceneInteractionSession {
 
   prepareForDocumentReplacement(): void {
     if (this._disposed) return
-    const tool = this._toolHost.activeTool.peek()
     runCanvasRuntimeCleanups([
       () => this._cancelDropFocus(),
       () => this._toolHost.prepareForDocumentReplacement(),
       () => this._escapeGesture(),
-      () => clearToolSource(tool),
     ], 'Scene Interaction document replacement preparation failed')
   }
 
@@ -483,6 +477,10 @@ class DefaultSceneInteractionSession implements SceneInteractionSession {
     })
   }
 
+  subscribeEmptyGroundTap(listener: (world: WorldPoint) => void): () => void {
+    return this._toolHost.subscribeEmptyGroundTap(listener)
+  }
+
   dispose(): void {
     if (this._disposed) return
     this._disposed = true
@@ -494,12 +492,9 @@ class DefaultSceneInteractionSession implements SceneInteractionSession {
         errors.push(error)
       }
     }
-    const tool = this._toolHost.activeTool.peek()
     attempt(() => this._detachSource())
     attempt(() => this._storyObserver?.disconnect())
     attempt(() => this._stopHearingMode())
-    attempt(() => this._stopWatchingSources())
-    attempt(() => clearToolSource(tool))
     attempt(() => this._cancelDropFocus())
     attempt(() => this._toolHost.dispose())
     attempt(() => this._tooltip.dispose())
@@ -669,11 +664,14 @@ class DefaultSceneInteractionSession implements SceneInteractionSession {
     if (this._disposed) return
     this._deps.viewNavigation.returnToDesign({ around: 'view-centre' })
     if (payload.kind === 'species') {
-      selectPlantStampSource(payload.species)
-      this._switchTool('plant-stamp')
+      recordRecentPlantStampSource(payload.species)
+      this.arm('plant-stamp', { kind: 'species', species: payload.species })
     } else {
-      selectSavedObjectStampSource(payload.stamp, readSavedObjectStampDragName())
-      this._switchTool('saved-object-stamp')
+      this.arm('saved-object-stamp', {
+        kind: 'saved-stamp',
+        stamp: payload.stamp,
+        name: readSavedObjectStampDragName(),
+      })
     }
     this._dropped(payload.kind)
   }
@@ -753,10 +751,10 @@ class DefaultSceneInteractionSession implements SceneInteractionSession {
     return this._deps.readScrollWheel() === 'pan' ? 'trackpad' : 'mouse'
   }
 
-  /** Arms a tool as a tool's own request does: the runtime's setTool first, then the session if it did not follow. */
-  private _switchTool(id: ToolId): void {
-    this._deps.setTool(id)
-    if (this._toolHost.activeTool.peek() !== id) this.setTool(id)
+  /** Esc on the 'tool' layer leaves the armed tool for Select, settling any pending map-input request as `'escape'`. */
+  private _escapeTool(): void {
+    this._navigationCursor = null
+    this._toolHost.escapeTool()
   }
 
   /**
@@ -866,51 +864,6 @@ class DefaultSceneInteractionSession implements SceneInteractionSession {
     return observer
   }
 
-  // ── The plant and saved-stamp read models ──────────────────────────────────────────────────────────────────────
-
-  /**
-   * Place plants or the saved-stamp tool hears a new source while armed: the plant source after a microtask,
-   * inside the settled admission (a pick from the chooser leaves its own update first), the saved stamp at once.
-   */
-  private _watchToolSources(): () => void {
-    let plant = readPlantStampSource()
-    let saved = readSavedObjectStampSource()
-    const stopPlant = effect(() => {
-      const next = readPlantStampSource()
-      if (next === plant) return
-      plant = next
-      if (this._toolHost.activeTool.peek() !== 'plant-stamp') return
-      queueMicrotask(() => {
-        if (this._disposed || this._toolHost.activeTool.peek() !== 'plant-stamp') return
-        this._deps.commandAdmission.runWhenSettled(
-          () => this._toolHost.sourceChanged(toolSourceFor('plant-stamp')),
-          undefined,
-        )
-      })
-    })
-    const stopSaved = effect(() => {
-      const next = readSavedObjectStampSource()
-      if (next === saved) return
-      saved = next
-      if (this._toolHost.activeTool.peek() !== 'saved-object-stamp') return
-      this._toolHost.sourceChanged(toolSourceFor('saved-object-stamp'))
-    })
-    return () => {
-      stopPlant()
-      stopSaved()
-    }
-  }
-
-  /**
-   * The host activated the first tool with no source, and the watchers start from the picks already made: a stamp tool
-   * armed with a pick when the map mounts (or mounts again) hears it now, as today's tools read it live.
-   */
-  private _handInitialSource(): void {
-    const tool = this._toolHost.activeTool.peek()
-    const source = toolSourceFor(tool)
-    if (source) this._toolHost.sourceChanged(source)
-  }
-
   private _spacing(run: () => void): void {
     if (!this._disposed) run()
   }
@@ -980,24 +933,6 @@ function liveStoreReader(deps: SceneInteractionSessionDeps): SceneStateReader {
     get sessionPlane() { return deps.getSceneStore().sessionPlane },
     get sessionPlaneSignal() { return deps.getSceneStore().sessionPlaneSignal },
   }
-}
-
-function toolSourceFor(tool: ToolId): ToolSource | null {
-  if (tool === 'plant-stamp') {
-    const species = readPlantStampSource()
-    return species ? { kind: 'species', species } : null
-  }
-  if (tool === 'saved-object-stamp') {
-    const stamp = readSavedObjectStampSource()
-    return stamp ? { kind: 'saved-stamp', stamp } : null
-  }
-  return null
-}
-
-/** Leaving a stamp tool (or ending the session) drops its pick, as today's tools did on deactivation. */
-function clearToolSource(tool: ToolId): void {
-  if (tool === 'plant-stamp') clearPlantStampSource()
-  else if (tool === 'saved-object-stamp') clearSavedObjectStampSource()
 }
 
 /** The end of a pan or turn that a pointer drove (middle, Space, overview, the Pan tool, Shift+middle or Shift+right), not

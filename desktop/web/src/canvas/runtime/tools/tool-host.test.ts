@@ -10,8 +10,8 @@ import { closeCanvasContextMenu, openCanvasContextMenu } from '../../../app/canv
 import { CanvasContextMenu } from '../../../components/canvas/CanvasContextMenu'
 import { gridInterval, snapToGrid } from '../../grid'
 import { CanvasRuntimeCleanupError } from '../cleanup'
-import type { PlantStampSourceInput } from '../../plant-stamp-source'
-import { normalizeSavedObjectStampPayload } from '../../saved-object-stamp-payload'
+import type { PlantStampSourceInput } from '../../stamp-drag-data'
+import { parseSavedObjectStampPayload } from '../../saved-object-stamp-payload'
 import type { CanvasContextMenuCommands, CanvasContextMenuRequest } from '../app-adapter'
 import type { CanvasDropPayload, ToolHandleId, ToolId } from '../interaction-types'
 import type { SceneDesignObjectTarget } from '../scene/design-object-targets'
@@ -2105,20 +2105,12 @@ describe('ToolHost', () => {
     const PEAR_OVER: CanvasDropPayload = { kind: 'species', species: null }
     const PEAR_DROP: CanvasDropPayload = { kind: 'species', species: PEAR }
     /** A saved stamp of one bed and one apple, its anchor at the bed's corner. */
-    const GUILD = normalizeSavedObjectStampPayload({
-      version: 2,
-      anchor: { x: 0, y: 0 },
-      plants: [{
-        id: 'plant-1', canonicalName: 'Malus domestica', commonName: 'Apple', color: null, symbol: null,
-        position: { x: 4, y: 3 }, rotationDeg: null,
-      }],
-      zones: [{
-        id: 'zone-1', name: 'Bed', zoneType: 'rect', rotationDeg: 0, fillColor: null,
-        points: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 6 }, { x: 0, y: 6 }],
-      }],
-      annotations: [],
-      groups: [],
-    })!
+    const GUILD = parseSavedObjectStampPayload(JSON.stringify({
+      version: 2, anchor: { x: 0, y: 0 },
+      plants: [{ id: 'plant-1', canonicalName: 'Malus domestica', commonName: 'Apple', color: null, symbol: null, position: { x: 4, y: 3 }, rotationDeg: null }],
+      zones: [{ id: 'zone-1', name: 'Bed', zoneType: 'rect', rotationDeg: 0, fillColor: null, points: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 6 }, { x: 0, y: 6 }] }],
+      annotations: [], groups: [],
+    }))!
     const GUILD_DRAG: CanvasDropPayload = { kind: 'saved-stamp', stamp: GUILD }
     /** Today's band select draft: the selection stroke at 2 px over the selection fill. */
     const BAND_STYLE = { style: { token: 'selection', widthPx: 2 }, fill: { token: 'selection-fill' } } as const
@@ -2504,7 +2496,7 @@ describe('ToolHost', () => {
 
         // An entry of a tool since retired sends nothing, as Finish shape.
         const stale = h.record.menus[0]!.pointActions![0]!
-        h.host.setTool('rectangle', null)
+        h.host.arm('rectangle', null)
         stale.run()
         expect(select.commands).toHaveLength(1)
       })

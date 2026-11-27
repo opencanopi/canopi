@@ -14,7 +14,6 @@ import {
   type ToolHarness,
 } from '../../../__tests__/support/tool-harness'
 import { setCurrentCanvasSession } from '../../session'
-import type { ToolId } from '../interaction-types'
 import { createPanTool } from './pan'
 import type { ToolGesture } from './tool'
 
@@ -46,7 +45,14 @@ describe('Pan tool', () => {
     const { h } = panHarness()
     // The key path: the Desktop key router's H row arms the tool through the canvas command surface.
     setCurrentCanvasSession(createTestCanvasRuntimeSurfaces({
-      commands: createTestCanvasCommandSurface({ tools: { setTool: (id: string) => h.arm(id as ToolId) } }),
+      commands: createTestCanvasCommandSurface({
+        tools: {
+          arm: (id) => {
+            h.arm(id)
+            return { settled: new Promise(() => {}), cancel() {} }
+          },
+        },
+      }),
     }))
 
     const keys = installDesktopKeys()

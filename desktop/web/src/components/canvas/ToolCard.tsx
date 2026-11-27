@@ -7,18 +7,16 @@ import { toolCardContent, type SavedStampSummary } from '../../app/tool-card/con
 import { modKeyName } from '../../app/shell-commands/shortcut-text'
 import { siteLocateOpen } from '../../app/site-onboarding/state'
 import { phoneLayout, phoneToolOptions } from '../../app/shell/phone-layout'
-import { readPlantStampSource, type PlantStampSource } from '../../canvas/plant-stamp-source'
+import type { PlantStampSource } from '../../canvas/stamp-drag-data'
 import { speciesPlacementAppearance } from '../../canvas/runtime/species-key'
 import type { PlantSymbolId } from '../../canvas/runtime/scene'
-import {
-  readSavedObjectStampName,
-  readSavedObjectStampSource,
-} from '../../canvas/saved-object-stamp-source'
+import type { ToolSource } from '../../canvas/runtime/interaction-types'
 import {
   currentCanvasQuerySurface,
   currentCanvasTool,
   currentCanvasToolCommandSurface,
   currentCanvasToolGuidance,
+  currentCanvasToolState,
 } from '../../canvas/session'
 import type { CanvasPlantRowGuidance, CanvasToolGuidance } from '../../canvas/session-state'
 import { scrollWheel } from '../../app/settings/state'
@@ -45,10 +43,11 @@ type ToolCardContent = NonNullable<ReturnType<typeof toolCardContent>>
 
 /** What the card or the phone's tool row shows of the armed tool; null content shows none. */
 function useToolCard(phone: boolean) {
+  const toolState = currentCanvasToolState.value
   const tool = currentCanvasTool.value
   const guidance = currentCanvasToolGuidance.value
-  const source = readPlantStampSource()
-  const savedStamp = readSavedStampSummary()
+  const source: PlantStampSource | null = toolState.source?.kind === 'species' ? toolState.source.species : null
+  const savedStamp = readSavedStampSummary(toolState.source)
   const overview = currentCanvasQuerySurface.value?.view.mode.value === 'overview'
   const species = usePlantStampSpeciesName(source)
   const coarsePointer = useCoarsePointer()
@@ -530,11 +529,11 @@ function SpacingField({ row, kind, switched = false }: {
   )
 }
 
-function readSavedStampSummary(): SavedStampSummary | null {
-  const payload = readSavedObjectStampSource()
-  if (!payload) return null
+function readSavedStampSummary(source: ToolSource | null): SavedStampSummary | null {
+  if (source?.kind !== 'saved-stamp') return null
+  const payload = source.stamp
   return {
-    name: readSavedObjectStampName(),
+    name: source.name ?? null,
     plants: payload.plants.length,
     species: new Set(payload.plants.map((plant) => plant.canonicalName)).size,
   }

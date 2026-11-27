@@ -5,7 +5,7 @@ import {
   type ToolHarness,
 } from '../../../__tests__/support/tool-harness'
 import {
-  normalizeSavedObjectStampPayload,
+  parseSavedObjectStampPayload,
   type SavedObjectStampPayload,
 } from '../../saved-object-stamp-payload'
 import type { SceneArrangementTemplate } from '../scene-runtime/arrangement-placement'
@@ -47,7 +47,7 @@ afterEach(() => {
 
 /** A saved stamp as the read model holds it (normalised, as selectSavedObjectStampSource stores it). */
 function stamp(payload: Omit<SavedObjectStampPayload, 'version'>): SavedObjectStampPayload {
-  const normalized = normalizeSavedObjectStampPayload({ version: 2, ...payload })
+  const normalized = parseSavedObjectStampPayload(JSON.stringify({ version: 2, ...payload }))
   if (!normalized) throw new Error('The test stamp does not normalise.')
   return normalized
 }
@@ -503,12 +503,12 @@ describe('saved object stamp tool', () => {
       const at = { x: 100, y: 120 }
 
       expect(canPlaceSavedObjectStamp(scene, GUILD)).toBe(true)
-      const preview = savedObjectStampGhostShapes(scene, GUILD, at, 0)
+      const preview = savedObjectStampGhostShapes(scene, GUILD, at, 0, 0)
       expect(ghostsIn(preview).map((shape) => shape.opacity)).toEqual([0.62, 0.68])
       expect(templateOf(ghostsIn(preview)[0]).plants[0]!.entity.position).toEqual(at)
 
       const onCommitted = vi.fn()
-      placeSavedObjectStamp(h.edits, scene, GUILD, at, { rotationDeg: 0, onCommitted })
+      placeSavedObjectStamp(h.edits, scene, GUILD, at, { rotationDeg: 0, bearingDeg: 0, onCommitted })
 
       expect(onCommitted).toHaveBeenCalledOnce()
       expect(commits).toEqual(['interaction-saved-object-stamp'])
@@ -525,9 +525,9 @@ describe('saved object stamp tool', () => {
       expect(canPlaceSavedObjectStamp(scene, empty)).toBe(false)
       lockLayer(h, 'zones')
       expect(canPlaceSavedObjectStamp(scene, LOCKED_ZONE_ONLY)).toBe(false)
-      expect(savedObjectStampGhostShapes(scene, LOCKED_ZONE_ONLY, { x: 10, y: 10 }, 0)).toBeNull()
+      expect(savedObjectStampGhostShapes(scene, LOCKED_ZONE_ONLY, { x: 10, y: 10 }, 0, 0)).toBeNull()
       const onCommitted = vi.fn()
-      placeSavedObjectStamp(h.edits, scene, LOCKED_ZONE_ONLY, { x: 10, y: 10 }, { rotationDeg: 0, onCommitted })
+      placeSavedObjectStamp(h.edits, scene, LOCKED_ZONE_ONLY, { x: 10, y: 10 }, { rotationDeg: 0, bearingDeg: 0, onCommitted })
       expect(onCommitted).not.toHaveBeenCalled()
       h.store.updatePersisted((draft) => {
         draft.layers = draft.layers.map((layer) => layer.name === 'plants' ? { ...layer, visible: false } : layer)

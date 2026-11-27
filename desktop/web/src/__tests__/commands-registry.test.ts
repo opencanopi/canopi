@@ -97,28 +97,30 @@ describe('command registry canvas tool switching', () => {
     resetFrontendDiagnosticsForTests()
   })
 
+  const mockArm = () => vi.fn(() => ({ settled: new Promise<never>(() => {}), cancel: () => {} }))
+
   it('routes tool commands through the live canvas session when mounted', () => {
-    const setTool = vi.fn()
-    mountCanvasCommandSurface({ tools: { setTool } })
+    const arm = mockArm()
+    mountCanvasCommandSurface({ tools: { arm } })
 
     getCommand('canvas.tool.hand').action()
 
     expect(activePanel.value).toBe('canvas')
     expect(sidePanel.value).toBe(null)
-    expect(setTool).toHaveBeenCalledWith('hand')
+    expect(arm).toHaveBeenCalledWith('hand', undefined, undefined)
     expect(currentCanvasTool.value).toBe('hand')
   })
 
   it('preserves side panels only when tool commands already start from the canvas', () => {
-    const setTool = vi.fn()
-    mountCanvasCommandSurface({ tools: { setTool } })
+    const arm = mockArm()
+    mountCanvasCommandSurface({ tools: { arm } })
 
     sidePanel.value = 'plant-db'
     getCommand('canvas.tool.ellipse').action()
 
     expect(activePanel.value).toBe('canvas')
     expect(sidePanel.value).toBe('plant-db')
-    expect(setTool).toHaveBeenCalledWith('ellipse')
+    expect(arm).toHaveBeenCalledWith('ellipse', undefined, undefined)
     expect(currentCanvasTool.value).toBe('ellipse')
 
     activePanel.value = 'templates'
@@ -127,54 +129,54 @@ describe('command registry canvas tool switching', () => {
 
     expect(activePanel.value).toBe('canvas')
     expect(sidePanel.value).toBe(null)
-    expect(setTool).toHaveBeenCalledWith('hand')
+    expect(arm).toHaveBeenCalledWith('hand', undefined, undefined)
     expect(currentCanvasTool.value).toBe('hand')
   })
 
   it('exposes the ellipse tool through the shared command graph', () => {
-    const setTool = vi.fn()
-    mountCanvasCommandSurface({ tools: { setTool } })
+    const arm = mockArm()
+    mountCanvasCommandSurface({ tools: { arm } })
 
     getCommand('canvas.tool.ellipse').action()
 
     expect(getCommand('canvas.tool.ellipse').shortcut).toBe('E')
     expect(activePanel.value).toBe('canvas')
-    expect(setTool).toHaveBeenCalledWith('ellipse')
+    expect(arm).toHaveBeenCalledWith('ellipse', undefined, undefined)
     expect(currentCanvasTool.value).toBe('ellipse')
   })
 
   it('exposes the polygon tool through the shared command graph', () => {
-    const setTool = vi.fn()
-    mountCanvasCommandSurface({ tools: { setTool } })
+    const arm = mockArm()
+    mountCanvasCommandSurface({ tools: { arm } })
 
     getCommand('canvas.tool.polygon').action()
 
     expect(getCommand('canvas.tool.polygon').shortcut).toBe('Z')
     expect(activePanel.value).toBe('canvas')
-    expect(setTool).toHaveBeenCalledWith('polygon')
+    expect(arm).toHaveBeenCalledWith('polygon', undefined, undefined)
     expect(currentCanvasTool.value).toBe('polygon')
   })
 
   it('exposes the Line tool through the shared command graph', () => {
-    const setTool = vi.fn()
-    mountCanvasCommandSurface({ tools: { setTool } })
+    const arm = mockArm()
+    mountCanvasCommandSurface({ tools: { arm } })
 
     getCommand('canvas.tool.line').action()
 
     expect(getCommand('canvas.tool.line').shortcut).toBe('L')
     expect(activePanel.value).toBe('canvas')
-    expect(setTool).toHaveBeenCalledWith('line')
+    expect(arm).toHaveBeenCalledWith('line', undefined, undefined)
     expect(currentCanvasTool.value).toBe('line')
   })
 
   it('exposes the Measurement Guide tool through the shared command graph', () => {
-    const setTool = vi.fn()
-    mountCanvasCommandSurface({ tools: { setTool } })
+    const arm = mockArm()
+    mountCanvasCommandSurface({ tools: { arm } })
 
     getCommand('canvas.tool.measurementGuide').action()
 
     expect(activePanel.value).toBe('canvas')
-    expect(setTool).toHaveBeenCalledWith('measurement-guide')
+    expect(arm).toHaveBeenCalledWith('measurement-guide', undefined, undefined)
     expect(currentCanvasTool.value).toBe('measurement-guide')
     expect(appCommandGraphToolbarProjection.value.toolGroups.flatMap((group) => group.tools).some((tool) =>
       tool.tool === 'measurement-guide'
@@ -183,35 +185,35 @@ describe('command registry canvas tool switching', () => {
   })
 
   it('exposes Object Stamp through the shared command graph', () => {
-    const setTool = vi.fn()
-    mountCanvasCommandSurface({ tools: { setTool } })
+    const arm = mockArm()
+    mountCanvasCommandSurface({ tools: { arm } })
 
     getCommand('canvas.tool.objectStamp').action()
 
     expect(activePanel.value).toBe('canvas')
-    expect(setTool).toHaveBeenCalledWith('object-stamp')
+    expect(arm).toHaveBeenCalledWith('object-stamp', undefined, undefined)
     expect(currentCanvasTool.value).toBe('object-stamp')
   })
 
   it('exposes Plant Spacing through the shared command graph', () => {
-    const setTool = vi.fn()
-    mountCanvasCommandSurface({ tools: { setTool } })
+    const arm = mockArm()
+    mountCanvasCommandSurface({ tools: { arm } })
 
     getCommand('canvas.tool.plantSpacing').action()
 
     expect(getCommand('canvas.tool.plantSpacing').shortcut).toBe('W')
     expect(activePanel.value).toBe('canvas')
-    expect(setTool).toHaveBeenCalledWith('plant-spacing')
+    expect(arm).toHaveBeenCalledWith('plant-spacing', undefined, undefined)
     expect(currentCanvasTool.value).toBe('plant-spacing')
   })
 
   it('H arms Pan', () => {
-    const setTool = vi.fn()
-    mountCanvasCommandSurface({ tools: { setTool } })
+    const arm = mockArm()
+    mountCanvasCommandSurface({ tools: { arm } })
 
     expect(pressKey({ key: 'h' }, document.body).defaultPrevented).toBe(true)
 
-    expect(setTool).toHaveBeenCalledWith('hand')
+    expect(arm).toHaveBeenCalledWith('hand', undefined, undefined)
     expect(currentCanvasTool.value).toBe('hand')
   })
 
@@ -456,7 +458,7 @@ describe('command registry canvas tool switching', () => {
   })
 
   it('exposes toolbar commands through the App Command Graph', () => {
-    const setTool = vi.fn()
+    const arm = mockArm()
     const undo = vi.fn()
     const toggleGrid = vi.fn()
     const toggleSnapToGrid = vi.fn()
@@ -513,7 +515,7 @@ describe('command registry canvas tool switching', () => {
     })
 
     mountCanvasCommandSurface({
-      tools: { setTool },
+      tools: { arm },
       history: {
         canUndo: signal(true),
         undo,
@@ -535,7 +537,7 @@ describe('command registry canvas tool switching', () => {
     settingToggle('snap').action()
 
     expect(activePanel.value).toBe('canvas')
-    expect(setTool).toHaveBeenCalledWith('ellipse')
+    expect(arm).toHaveBeenCalledWith('ellipse', undefined, undefined)
     expect(currentCanvasTool.value).toBe('ellipse')
     expect(undo).toHaveBeenCalledTimes(1)
     expect(toggleGrid).toHaveBeenCalledTimes(1)
@@ -890,12 +892,12 @@ describe('command registry canvas tool switching', () => {
   })
 
   it('arms Place plants without a species, for the tool card to offer its chooser', () => {
-    const setTool = vi.fn()
-    mountCanvasCommandSurface({ tools: { setTool } })
+    const arm = mockArm()
+    mountCanvasCommandSurface({ tools: { arm } })
     sidePanel.value = null
 
     getCommand('canvas.tool.plantStamp').action()
-    expect(setTool).toHaveBeenCalledWith('plant-stamp')
+    expect(arm).toHaveBeenCalledWith('plant-stamp', undefined, undefined)
     expect(sidePanel.value).toBeNull()
   })
 

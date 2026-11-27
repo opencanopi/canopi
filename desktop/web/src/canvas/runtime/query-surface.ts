@@ -20,7 +20,7 @@ import type {
   ScenePersistedState,
   SceneStateReader,
 } from './scene'
-import type { PointerWorld } from './interaction-ports'
+import type { PointerWorld, ToolHostState } from './interaction-ports'
 import type { ToolId } from './interaction-types'
 import type { SceneRuntimeMutationController } from './scene-runtime/mutations'
 import type { SceneRuntimePresentationController } from './scene-runtime/presentation'
@@ -28,10 +28,12 @@ import { EMPTY_SELECTION_MODEL, getDesignObjectSelectionModel } from './scene-ru
 import type { SettledSceneReader } from './scene-runtime/transactions'
 import { createViewReadSurface } from '../../geo/view/frame-source'
 import type { ViewReadSurface } from '../../geo/view/read-surface'
-import type { ViewFrameSource } from '../../geo/view/types'
+import type { ViewFrameSource, WorldPoint } from '../../geo/view/types'
 import type { SpeciesCacheEntry } from './presentation-data'
 
 type PointerWorldListener = (point: PointerWorld | null) => void
+type EmptyGroundTapListener = (world: WorldPoint) => void
+const IDLE_TOOL_STATE: ToolHostState = Object.freeze({ id: 'select', source: null, stampId: null })
 
 interface SceneCanvasQuerySurfaceOptions {
   readonly revision: CanvasQueryRevision
@@ -62,7 +64,8 @@ interface SceneCanvasQuerySurfaceOptions {
  */
 export interface SceneCanvasQuerySurface extends CanvasQuerySurface {
   bindPointerWorld(source: ((listener: PointerWorldListener) => () => void) | null): void
-  bindActiveTool(source: ReadonlySignal<ToolId> | null): void
+  bindEmptyGroundTap(source: ((listener: EmptyGroundTapListener) => () => void) | null): void
+  bindToolState(source: ReadonlySignal<ToolHostState> | null): void
 }
 
 export function createSceneCanvasQuerySurface(options: SceneCanvasQuerySurfaceOptions): SceneCanvasQuerySurface {
@@ -71,10 +74,13 @@ export function createSceneCanvasQuerySurface(options: SceneCanvasQuerySurfaceOp
 
 class SceneCanvasQueryRole implements SceneCanvasQuerySurface {
   readonly view: ViewReadSurface
-  private readonly boundActiveTool = signal<ReadonlySignal<ToolId> | null>(null)
-  readonly activeTool: ReadonlySignal<ToolId> = computed(() => this.boundActiveTool.value?.value ?? 'select')
+  private readonly boundToolState = signal<ReadonlySignal<ToolHostState> | null>(null)
+  readonly toolState: ReadonlySignal<ToolHostState> = computed(() => this.boundToolState.value?.value ?? IDLE_TOOL_STATE)
+  readonly activeTool: ReadonlySignal<ToolId> = computed(() => this.toolState.value.id)
   private readonly pointerWorldListeners = new Set<PointerWorldListener>()
   private stopPointerWorld: (() => void) | null = null
+  private readonly emptyGroundTapListeners = new Set<EmptyGroundTapListener>()
+  private stopEmptyGroundTap: (() => void) | null = null
   /** The point last published; a session that ends with one live publishes null, so nothing reads a point no cursor is at. */
   private lastPointerWorld: PointerWorld | null = null
 
@@ -83,8 +89,8 @@ class SceneCanvasQueryRole implements SceneCanvasQuerySurface {
     this.view = createViewReadSurface(options.frames)
   }
 
-  bindActiveTool(source: ReadonlySignal<ToolId> | null): void {
-    this.boundActiveTool.value = source
+  bindToolState(source: ReadonlySignal<ToolHostState> | null): void {
+    this.boundToolState.value = source
   }
 
   subscribePointerWorld(listener: PointerWorldListener): () => void {
@@ -99,6 +105,21 @@ class SceneCanvasQueryRole implements SceneCanvasQuerySurface {
     this.stopPointerWorld = null
     if (this.lastPointerWorld) this.publishPointerWorld(null)
     this.stopPointerWorld = source?.((point) => this.publishPointerWorld(point)) ?? null
+  }
+
+  subscribeEmptyGroundTap(listener: EmptyGroundTapListener): () => void {
+    this.emptyGroundTapListeners.add(listener)
+    return () => {
+      this.emptyGroundTapListeners.delete(listener)
+    }
+  }
+
+  bindEmptyGroundTap(source: ((listener: EmptyGroundTapListener) => () => void) | null): void {
+    this.stopEmptyGroundTap?.()
+    this.stopEmptyGroundTap = null
+    this.stopEmptyGroundTap = source?.((world) => {
+      for (const listener of [...this.emptyGroundTapListeners]) listener(world)
+    }) ?? null
   }
 
   private publishPointerWorld(point: PointerWorld | null): void {

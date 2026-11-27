@@ -569,7 +569,7 @@
       "family": "canvas-commands-reach-no-platform",
       "adr": "0022",
       "owner_today": "desktop/web/src/app/canvas-commands",
-      "example": "desktop/web/src/app/canvas-commands/edit-availability.ts",
+      "example": "desktop/web/src/app/canvas-commands/index.ts",
       "type_only": "counts",
       "graph": {
         "from": [

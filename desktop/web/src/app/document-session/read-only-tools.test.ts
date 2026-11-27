@@ -75,7 +75,7 @@ const SHOWN: CanopiFile = {
 
 let host: HTMLDivElement
 let elsewhere: HTMLButtonElement
-let setTool: ReturnType<typeof vi.fn<(name: string) => void>>
+let armed: ReturnType<typeof vi.fn<(name: string) => void>>
 let releaseRegion: () => void
 
 beforeEach(() => {
@@ -84,9 +84,16 @@ beforeEach(() => {
   elsewhere = document.createElement('button')
   document.body.append(host, elsewhere)
   releaseRegion = focusOwner.registerRegion('map', host)
-  setTool = vi.fn<(name: string) => void>()
+  armed = vi.fn<(name: string) => void>()
   setCurrentCanvasSession(createTestCanvasRuntimeSurfaces({
-    commands: createTestCanvasCommandSurface({ tools: { setTool } }),
+    commands: createTestCanvasCommandSurface({
+      tools: {
+        arm: (id) => {
+          armed(id)
+          return { settled: new Promise(() => {}), cancel() {} }
+        },
+      },
+    }),
     keyboard: createTestCanvasKeyboardPort({ host }),
   }))
   activePanel.value = 'canvas'
@@ -115,8 +122,8 @@ it('R1 canopi-f47t.52.270: a drawing tool\'s key arms nothing over a read-only D
   } finally {
     keys.dispose()
   }
-  expect(setTool).not.toHaveBeenCalledWith('line')
-  expect(setTool).toHaveBeenCalledWith('hand')
+  expect(armed).not.toHaveBeenCalledWith('line')
+  expect(armed).toHaveBeenCalledWith('hand')
 })
 
 it('R1 canopi-f47t.52.270: the one command projection greys the drawing tools, Undo and the object edits over a read-only Design', () => {
@@ -124,7 +131,12 @@ it('R1 canopi-f47t.52.270: the one command projection greys the drawing tools, U
   const undo = vi.fn()
   setCurrentCanvasSession(createTestCanvasRuntimeSurfaces({
     commands: createTestCanvasCommandSurface({
-      tools: { setTool },
+      tools: {
+        arm: (id) => {
+          armed(id)
+          return { settled: new Promise(() => {}), cancel() {} }
+        },
+      },
       history: { canUndo: signal(true), canRedo: signal(true), undo },
       sceneEdits: { deleteSelected },
     }),

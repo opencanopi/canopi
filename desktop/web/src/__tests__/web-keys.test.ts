@@ -159,12 +159,12 @@ describe('Web keys', () => {
   })
 
   it('dispatches tool and history shortcuts with exact Ctrl (Cmd on a Mac), Shift and Alt semantics', () => {
-    const setTool = vi.fn()
+    const arm = vi.fn(() => ({ settled: new Promise<never>(() => {}), cancel: () => {} }))
     const undo = vi.fn()
     const redo = vi.fn()
     setCurrentCanvasSession(createTestCanvasRuntimeSurfaces({
       commands: createTestCanvasCommandSurface({
-        tools: { setTool },
+        tools: { arm },
         history: {
           canUndo: signal(true),
           canRedo: signal(true),
@@ -197,8 +197,8 @@ describe('Web keys', () => {
       altKey: true,
     }).defaultPrevented).toBe(false)
 
-    expect(setTool).toHaveBeenCalledOnce()
-    expect(setTool).toHaveBeenCalledWith('ellipse')
+    expect(arm).toHaveBeenCalledOnce()
+    expect(arm).toHaveBeenCalledWith('ellipse', undefined, undefined)
     expect(currentCanvasTool.value).toBe('ellipse')
     expect(undo).toHaveBeenCalledTimes(2)
     expect(redo).toHaveBeenCalledTimes(2)
@@ -207,11 +207,11 @@ describe('Web keys', () => {
   it('suppresses Canvas shortcuts from editable targets', () => {
     const input = document.createElement('input')
     document.body.appendChild(input)
-    const setTool = vi.fn()
+    const arm = vi.fn(() => ({ settled: new Promise<never>(() => {}), cancel: () => {} }))
     const undo = vi.fn()
     setCurrentCanvasSession(createTestCanvasRuntimeSurfaces({
       commands: createTestCanvasCommandSurface({
-        tools: { setTool },
+        tools: { arm },
         history: { canUndo: signal(true), undo },
       }),
     }))
@@ -220,7 +220,7 @@ describe('Web keys', () => {
     input.dispatchEvent(shortcutEvent({ key: 'e', bubbles: true }))
     input.dispatchEvent(shortcutEvent({ key: 'z', ctrlKey: true, bubbles: true }))
 
-    expect(setTool).not.toHaveBeenCalled()
+    expect(arm).not.toHaveBeenCalled()
     expect(undo).not.toHaveBeenCalled()
     expect(currentCanvasTool.value).toBe('select')
   })

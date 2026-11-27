@@ -66,7 +66,8 @@ export class SceneCanvasRuntime {
         const interaction = this._interaction
         this._interaction = null
         this._querySurface.bindPointerWorld(null)
-        this._querySurface.bindActiveTool(null)
+        this._querySurface.bindEmptyGroundTap(null)
+        this._querySurface.bindToolState(null)
         try {
           interaction?.dispose()
         } finally {
@@ -222,7 +223,7 @@ export class SceneCanvasRuntime {
         : undefined,
       contextMenu: this._appAdapter.contextMenu,
       setTool: (id) => {
-        if (this._interaction?.tool !== id) this._commandSurface.tools.setTool(id)
+        if (this._interaction?.tool !== id) this._commandSurface.tools.arm(id)
       },
       render: () => this._invalidate(),
       readSnapToGridEnabled: () => this._appAdapter.settings.readSnapToGridEnabled(),
@@ -248,7 +249,8 @@ export class SceneCanvasRuntime {
     })
     const interaction = this._interaction
     this._querySurface.bindPointerWorld((listener) => interaction.subscribePointerWorld(listener))
-    this._querySurface.bindActiveTool(interaction.activeTool)
+    this._querySurface.bindEmptyGroundTap((listener) => interaction.subscribeEmptyGroundTap(listener))
+    this._querySurface.bindToolState(interaction.toolState)
     await this._rendering.renderScene()
   }
 
@@ -292,7 +294,8 @@ export class SceneCanvasRuntime {
     const interaction = this._interaction
     this._interaction = null
     this._querySurface.bindPointerWorld(null)
-    this._querySurface.bindActiveTool(null)
+    this._querySurface.bindEmptyGroundTap(null)
+    this._querySurface.bindToolState(null)
     try {
       interaction?.dispose()
     } finally {
@@ -348,7 +351,7 @@ export class SceneCanvasRuntime {
 
   private _resetTransientRuntimeState(): void {
     resetTransientRuntimeState((id) => {
-      this._commandSurface.tools.setTool(id)
+      this._commandSurface.tools.arm(id)
     })
   }
 

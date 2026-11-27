@@ -4,6 +4,7 @@
 // tests that arm no tool and drive keys, and the keyboard access, Esc chain and
 // arrow-key nudge describes.
 // Shared fakes, helpers and fixture: support/canvas-interaction-setup.ts.
+import { effect } from '@preact/signals'
 import { describe, expect, it, vi } from 'vitest'
 import { t } from '../i18n'
 import { modKeyName } from '../app/shell-commands/shortcut-text'
@@ -225,8 +226,13 @@ describe('SceneInteractionSession', () => {
       renderer?: SceneInteractionSessionDeps['renderer'],
     ): { session: SceneInteractionSession, deps: SceneInteractionSessionDeps, tools: string[] } {
       const tools: string[] = []
-      const deps = createInteractionDeps(container, store, testView, { setTool: (name: string) => { tools.push(name) } })
-      return { session: createTestSession(renderer ? { ...deps, renderer } : deps), deps, tools }
+      const deps = createInteractionDeps(container, store, testView)
+      const session = createTestSession(renderer ? { ...deps, renderer } : deps)
+      let ready = false
+      const stop = effect(() => { const id = session.toolState.value.id; if (ready) tools.push(id); else ready = true })
+      const origDispose = session.dispose.bind(session)
+      session.dispose = () => { stop(); origDispose() }
+      return { session, deps, tools }
     }
 
     it.each([
@@ -589,28 +595,21 @@ describe('SceneInteractionSession', () => {
         events.keyDown({ key: 'z', ctrlKey: true, target: container })
         expect(nudge.endNudge).toHaveBeenCalledTimes(1)
         expect(nudge.endNudge).toHaveBeenLastCalledWith()
-
         events.keyDown({ key: 'ArrowRight', target: container })
         events.pointerDown({ x: 200, y: 200 }, { button: 0 })
         expect(nudge.endNudge).toHaveBeenCalledTimes(2)
         events.pointerUp({ x: 200, y: 200 }, { button: 0 })
-        // The press on empty map cleared the selection; the series needs one.
         deps.setSelection([plantTarget('plant-1')])
-
         events.keyDown({ key: 'ArrowRight', target: container })
         vi.advanceTimersByTime(1000)
         expect(nudge.endNudge).toHaveBeenCalledTimes(3)
-
         events.keyDown({ key: 'ArrowRight', target: container })
         container.dispatchEvent(new FocusEvent('focusout', { relatedTarget: document.body }))
         expect(nudge.endNudge).toHaveBeenCalledTimes(4)
-
         events.keyDown({ key: 'ArrowRight', target: container })
         session.setTool('polygon')
         expect(nudge.endNudge).toHaveBeenCalledTimes(5)
-      } finally {
-        vi.useRealTimers()
-      }
+      } finally { vi.useRealTimers() }
     })
 
     it('cancels the series with Esc instead of clearing the selection', () => {

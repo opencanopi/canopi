@@ -48,80 +48,82 @@ describe('Desktop keys', () => {
     commandPaletteOpen.value = false
   })
 
+  const mockArm = () => vi.fn(() => ({ settled: new Promise<never>(() => {}), cancel: () => {} }))
+
   it('routes tool shortcuts through the live canvas session when mounted', () => {
-    const setTool = vi.fn()
-    mountCanvasCommandSurface({ tools: { setTool } })
+    const arm = mockArm()
+    mountCanvasCommandSurface({ tools: { arm } })
 
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'r' }))
 
-    expect(setTool).toHaveBeenCalledWith('rectangle')
+    expect(arm).toHaveBeenCalledWith('rectangle', undefined, undefined)
     expect(currentCanvasTool.value).toBe('rectangle')
   })
 
   // A key the active tool consumed (Backspace in a polygon draft) is not also
   // an app shortcut: the dispatcher honours defaultPrevented like any listener.
   it('ignores a key an earlier listener already consumed', () => {
-    const setTool = vi.fn()
-    mountCanvasCommandSurface({ tools: { setTool } })
+    const arm = mockArm()
+    mountCanvasCommandSurface({ tools: { arm } })
     const event = new KeyboardEvent('keydown', { key: 'r', cancelable: true })
     event.preventDefault()
 
     window.dispatchEvent(event)
 
-    expect(setTool).not.toHaveBeenCalled()
+    expect(arm).not.toHaveBeenCalled()
     expect(currentCanvasTool.value).toBe('select')
   })
 
   it('routes the ellipse tool shortcut through the live canvas session', () => {
-    const setTool = vi.fn()
-    mountCanvasCommandSurface({ tools: { setTool } })
+    const arm = mockArm()
+    mountCanvasCommandSurface({ tools: { arm } })
 
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'e' }))
 
-    expect(setTool).toHaveBeenCalledWith('ellipse')
+    expect(arm).toHaveBeenCalledWith('ellipse', undefined, undefined)
     expect(currentCanvasTool.value).toBe('ellipse')
   })
 
   it('routes the Line tool shortcut through the live canvas session', () => {
-    const setTool = vi.fn()
-    mountCanvasCommandSurface({ tools: { setTool } })
+    const arm = mockArm()
+    mountCanvasCommandSurface({ tools: { arm } })
 
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'l' }))
 
-    expect(setTool).toHaveBeenCalledWith('line')
+    expect(arm).toHaveBeenCalledWith('line', undefined, undefined)
     expect(currentCanvasTool.value).toBe('line')
   })
 
   it('routes the polygon tool shortcut through the live canvas session', () => {
-    const setTool = vi.fn()
-    mountCanvasCommandSurface({ tools: { setTool } })
+    const arm = mockArm()
+    mountCanvasCommandSurface({ tools: { arm } })
 
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'z' }))
 
-    expect(setTool).toHaveBeenCalledWith('polygon')
+    expect(arm).toHaveBeenCalledWith('polygon', undefined, undefined)
     expect(currentCanvasTool.value).toBe('polygon')
   })
 
   it('routes the Plant Spacing shortcut through the live canvas session', () => {
-    const setTool = vi.fn()
-    mountCanvasCommandSurface({ tools: { setTool } })
+    const arm = mockArm()
+    mountCanvasCommandSurface({ tools: { arm } })
 
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'w' }))
 
-    expect(setTool).toHaveBeenCalledWith('plant-spacing')
+    expect(arm).toHaveBeenCalledWith('plant-spacing', undefined, undefined)
     expect(currentCanvasTool.value).toBe('plant-spacing')
   })
 
   it('does not route tool shortcuts while an editable input is focused', () => {
     const input = document.createElement('input')
     document.body.appendChild(input)
-    const setTool = vi.fn()
-    mountCanvasCommandSurface({ tools: { setTool } })
+    const arm = mockArm()
+    mountCanvasCommandSurface({ tools: { arm } })
 
     input.focus()
     input.dispatchEvent(new KeyboardEvent('keydown', { key: 'w', bubbles: true }))
 
-    expect(setTool).not.toHaveBeenCalled()
+    expect(arm).not.toHaveBeenCalled()
     expect(currentCanvasTool.value).toBe('select')
     input.remove()
   })

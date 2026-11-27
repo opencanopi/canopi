@@ -6,7 +6,6 @@ import { act } from 'preact/test-utils'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { locale } from '../app/settings/state'
 import { ToolCard } from '../components/canvas/ToolCard'
-import { clearPlantStampSource, selectPlantStampSource } from '../canvas/plant-stamp-source'
 import { createSceneCanvasQuerySurface } from '../canvas/runtime/query-surface'
 import { SceneStore } from '../canvas/runtime/scene'
 import { SceneRuntimeMutationController } from '../canvas/runtime/scene-runtime/mutations'
@@ -16,7 +15,7 @@ import {
 } from '../canvas/runtime/scene-runtime/transactions'
 import { setCurrentCanvasSession } from '../canvas/session'
 import { IDLE_CANVAS_TOOL_GUIDANCE, setCanvasToolGuidance } from '../canvas/session-state'
-import type { ToolId } from '../canvas/runtime/interaction-types'
+import type { ToolHostState } from '../canvas/runtime/interaction-ports'
 import {
   createTestCanvasCommandSurface,
   createTestCanvasDocumentSurface,
@@ -82,20 +81,22 @@ describe('Tool card after a Species Key recolour', () => {
     render(null, container)
     container.remove()
     setCanvasToolGuidance(IDLE_CANVAS_TOOL_GUIDANCE)
-    clearPlantStampSource()
     setCurrentCanvasSession(null)
   })
 
   it('with Place plants armed, the card glyph takes the species\' new colour', async () => {
     const { queries, mutations } = runtimeOverOneApple()
-    queries.bindActiveTool(signal<ToolId>('plant-stamp'))
+    queries.bindToolState(signal<ToolHostState>({
+      id: 'plant-stamp',
+      source: { kind: 'species', species: APPLE },
+      stampId: null,
+    }))
     setCurrentCanvasSession({
       commands: createTestCanvasCommandSurface(),
       queries,
       documents: createTestCanvasDocumentSurface(),
       keyboard: createTestCanvasKeyboardPort(),
     })
-    selectPlantStampSource(APPLE)
     await act(() => render(<ToolCard />, container))
     const lead = () => container.querySelector<HTMLElement>('[data-tool-card-lead="species"]')!
     expect(lead().style.color).toBe('rgb(176, 96, 69)')

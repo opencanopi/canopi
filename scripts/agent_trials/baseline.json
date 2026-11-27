@@ -3624,7 +3624,7 @@
           "desktop/web/src/app/tool-card/content.ts"
         ],
         "canvas": [
-          "desktop/web/src/canvas/runtime/tool-id.ts",
+          "desktop/web/src/app/command-table/tools.ts",
           "desktop/web/src/canvas/runtime/tools/measure-area.ts",
           "desktop/web/src/canvas/runtime/tools/registry.ts",
           "desktop/web/src/canvas/runtime/tools/tool-host.ts"
@@ -3682,7 +3682,7 @@
           "added": 3,
           "removed": 0
         },
-        "desktop/web/src/canvas/runtime/tool-id.ts": {
+        "desktop/web/src/app/command-table/tools.ts": {
           "added": 1,
           "removed": 1
         },
@@ -3767,7 +3767,7 @@
         "app/keyboard/keymap.ts",
         "app/tool-card/content.ts",
         "app/tool-rail/learning.ts",
-        "canvas/runtime/tool-id.ts",
+        "app/command-table/tools.ts",
         "canvas/runtime/tools/profile-line.test.ts",
         "canvas/runtime/tools/tool-host.ts",
         "components/canvas/toolbar-icons.tsx",
@@ -3812,7 +3812,7 @@
         "touched": [
           "app/command-table/index.ts",
           "app/tool-card/content.ts",
-          "canvas/runtime/tool-id.ts",
+          "app/command-table/tools.ts",
           "canvas/runtime/tools/",
           "components/canvas/toolbar-icons.tsx"
         ]
@@ -3856,7 +3856,7 @@
           "desktop/web/src/app/tool-card/content.ts"
         ],
         "canvas": [
-          "desktop/web/src/canvas/runtime/tool-id.ts",
+          "desktop/web/src/app/command-table/tools.ts",
           "desktop/web/src/canvas/runtime/tools/measure-area.ts",
           "desktop/web/src/canvas/runtime/tools/polygon.ts",
           "desktop/web/src/canvas/runtime/tools/registry.ts",
@@ -3921,7 +3921,7 @@
           "added": 3,
           "removed": 0
         },
-        "desktop/web/src/canvas/runtime/tool-id.ts": {
+        "desktop/web/src/app/command-table/tools.ts": {
           "added": 1,
           "removed": 0
         },
@@ -4018,7 +4018,7 @@
         "app/map-selection/zone-label.ts",
         "app/tool-card/content.ts",
         "canvas/runtime/keyboard-port.ts",
-        "canvas/runtime/tool-id.ts",
+        "app/command-table/tools.ts",
         "canvas/runtime/tools/profile-line.test.ts",
         "canvas/runtime/tools/tool-host.ts",
         "commands-registry.test.ts",
@@ -4079,7 +4079,7 @@
         "touched": [
           "app/command-table/index.ts",
           "app/tool-card/content.ts",
-          "canvas/runtime/tool-id.ts",
+          "app/command-table/tools.ts",
           "canvas/runtime/tools/",
           "components/canvas/toolbar-icons.tsx"
         ]

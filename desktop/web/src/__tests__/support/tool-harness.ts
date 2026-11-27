@@ -662,7 +662,7 @@ export function createToolHarness(options: ToolHarnessOptions = {}): ToolHarness
         })
         return
       }
-      host.setTool(id, source)
+      host.arm(id, source)
     },
     select(...targets) {
       store.setSelection(targets)

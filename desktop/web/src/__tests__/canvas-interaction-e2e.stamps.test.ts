@@ -5,13 +5,11 @@
 // saved-stamp read model through the session's source bridge, and a Favorites drag over a held stamp. The stamp tools' own
 // behaviour is tested through the ToolHarness in canvas/runtime/tools/{object-stamp,saved-object-stamp}.test.ts (0B-3 D4).
 // Shared fakes, helpers and fixture: support/canvas-interaction-setup.ts.
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import {
   clearSavedObjectStampDragSource,
-  readSavedObjectStampSource,
-  selectSavedObjectStampSource,
   writeSavedObjectStampDragData,
-} from '../canvas/saved-object-stamp-source'
+} from '../canvas/stamp-drag-data'
 import { armCanvasTool } from '../app/keyboard/arming'
 import { parseSavedObjectStampPayload } from '../canvas/saved-object-stamp-payload'
 import { setCurrentCanvasSession } from '../canvas/session'
@@ -83,8 +81,7 @@ describe('SceneInteractionSession', () => {
       }]
     })
 
-    const setTool = vi.fn()
-    const deps = createInteractionDeps(container, store, testView, { setTool })
+    const deps = createInteractionDeps(container, store, testView)
     const session = createTestSession(deps)
     session.setTool('object-stamp')
 
@@ -93,7 +90,7 @@ describe('SceneInteractionSession', () => {
     // The held pick is the tool's transient: the first Esc drops it and the tool stays armed.
     expect(session.keyboard.escapeLayers()).toEqual(['tool-transient', 'tool'])
     events.keyDown({ key: 'Escape' })
-    expect(setTool).not.toHaveBeenCalledWith('select')
+    expect(session.tool).toBe('object-stamp')
     events.pointerDown({ x: 90, y: 90 }, { button: 0 })
     events.pointerUp({ x: 90, y: 90 }, { button: 0 })
     expect(store.persisted.plants).toHaveLength(1)
@@ -101,34 +98,37 @@ describe('SceneInteractionSession', () => {
     // With nothing held, Esc leaves for Select.
     expect(session.keyboard.escapeLayers()).toEqual(['tool'])
     events.keyDown({ key: 'Escape' })
-    expect(setTool).toHaveBeenCalledWith('select')
+    expect(session.tool).toBe('select')
     session.dispose()
   })
 
-  it('places a held saved stamp once, then returns to Select and drops the stamp', () => {
-    selectSavedObjectStampSource({
-      version: 2,
+  const appleStampSource = (x = 0) => ({
+    kind: 'saved-stamp' as const,
+    name: 'Apple',
+    stamp: {
+      version: 2 as const,
       anchor: { x: 0, y: 0 },
       plants: [{
         id: 'plant-1', canonicalName: 'Malus domestica', commonName: 'Apple', color: null, symbol: null,
-        position: { x: 0, y: 0 }, rotationDeg: null, scale: null,
+        position: { x, y: 0 }, rotationDeg: null, scale: null,
       }],
       zones: [],
       annotations: [],
       groups: [],
-    })
-    const setTool = vi.fn()
-    const deps = createInteractionDeps(container, store, testView, { setTool })
+    },
+  })
+
+  it('places a held saved stamp once, then returns to Select and drops the stamp', () => {
+    const deps = createInteractionDeps(container, store, testView)
     const session = createTestSession(deps)
-    session.setTool('saved-object-stamp')
+    session.arm('saved-object-stamp', appleStampSource())
 
     events.pointerMove({ x: 100, y: 100 })
     events.pointerDown({ x: 100, y: 100 }, { button: 0 })
     events.pointerUp({ x: 100, y: 100 }, { button: 0 })
 
     expect(store.persisted.plants.map((plant) => plant.position)).toEqual([world({ x: 100, y: 100 })])
-    expect(setTool).toHaveBeenCalledWith('select')
-    expect(readSavedObjectStampSource()).toBeNull()
+    expect(session.tool).toBe('select')
     events.pointerDown({ x: 150, y: 150 }, { button: 0 })
     events.pointerUp({ x: 150, y: 150 }, { button: 0 })
     expect(store.persisted.plants).toHaveLength(1)
@@ -136,17 +136,6 @@ describe('SceneInteractionSession', () => {
   })
 
   it('a Favorites drag over the map hides the held stamp\'s ghost until the pointer moves over the map again', () => {
-    selectSavedObjectStampSource({
-      version: 2,
-      anchor: { x: 0, y: 0 },
-      plants: [{
-        id: 'plant-1', canonicalName: 'Malus domestica', commonName: 'Apple', color: null, symbol: null,
-        position: { x: 0, y: 0 }, rotationDeg: null, scale: null,
-      }],
-      zones: [],
-      annotations: [],
-      groups: [],
-    })
     const drafts: (DraftPresentation | null)[] = []
     /** Where the ghost draws the stamp's plant, which sits on its anchor. */
     const ghostAnchor = () => {
@@ -165,7 +154,7 @@ describe('SceneInteractionSession', () => {
       ...createInteractionDeps(container, store, testView),
       renderer: { setDraft: (draft) => { drafts.push(draft) } },
     })
-    session.setTool('saved-object-stamp')
+    session.arm('saved-object-stamp', appleStampSource())
     events.pointerMove({ x: 100, y: 100 }, { buttons: 0 })
     expect(ghostAnchor()).toEqual(world({ x: 100, y: 100 }))
 
@@ -197,17 +186,6 @@ describe('SceneInteractionSession', () => {
   })
 
   it('choosing another saved stamp in Favorites hides the held stamp\'s turned ghost until the next move, which shows the new one upright', () => {
-    selectSavedObjectStampSource({
-      version: 2,
-      anchor: { x: 0, y: 0 },
-      plants: [{
-        id: 'plant-1', canonicalName: 'Malus domestica', commonName: 'Apple', color: null, symbol: null,
-        position: { x: 10, y: 0 }, rotationDeg: null, scale: null,
-      }],
-      zones: [],
-      annotations: [],
-      groups: [],
-    })
     const drafts: (DraftPresentation | null)[] = []
     const published: CanvasToolGuidance[] = []
     /** The ghost's plants, where a press would place them. */
@@ -220,7 +198,7 @@ describe('SceneInteractionSession', () => {
       ...createInteractionDeps(container, store, testView, { publishToolGuidance: (guidance) => { published.push(guidance) } }),
       renderer: { setDraft: (draft) => { drafts.push(draft) } },
     })
-    session.setTool('saved-object-stamp')
+    session.arm('saved-object-stamp', appleStampSource(10))
     events.pointerMove({ x: 100, y: 100 }, { buttons: 0 })
     events.keyDown({ key: ']', target: container })
     // The apple saved 10 m east of the anchor turns 15° about the pointer.
@@ -231,9 +209,9 @@ describe('SceneInteractionSession', () => {
     expect(turned[0]!.at.y).toBeCloseTo(anchor.y + 10 * Math.sin(Math.PI / 12), 6)
     expect(published.at(-1)?.stampRotationDeg).toBe(15)
 
-    // Favorites' click: arming writes the read model, then arms the tool again (the session's setTool runs the cancellation).
+    // Favorites' click: arming passes the new stamp directly through session.arm.
     setCurrentCanvasSession(createTestCanvasRuntimeSurfaces({
-      commands: createTestCanvasCommandSurface({ tools: { setTool: (name) => session.setTool(name) } }),
+      commands: createTestCanvasCommandSurface({ tools: { arm: (id, source, request) => session.arm(id, source, request) } }),
     }))
     const pear = parseSavedObjectStampPayload(PEAR_STAMP.payload_json)!
     expect(armCanvasTool('saved-object-stamp', { from: 'panel', source: { kind: 'saved-stamp', stamp: pear, name: PEAR_STAMP.name } })).toBe(true)
@@ -246,23 +224,25 @@ describe('SceneInteractionSession', () => {
   })
 
   describe('stamp rotation', () => {
-    function holdSavedStamp(): void {
-      selectSavedObjectStampSource({
-        version: 2,
+    const SAVED_STAMP_SOURCE = {
+      kind: 'saved-stamp' as const,
+      name: 'Apple',
+      stamp: {
+        version: 2 as const,
         anchor: { x: 0, y: 0 },
         plants: [{
           id: 'plant-1', canonicalName: 'Malus domestica', commonName: 'Apple', color: null, symbol: null,
           position: { x: 10, y: 0 }, rotationDeg: null, scale: null,
         }],
         zones: [{
-          id: 'zone-1', name: null, zoneType: 'rect', rotationDeg: 0, fillColor: null,
+          id: 'zone-1', name: null, zoneType: 'rect' as const, rotationDeg: 0, fillColor: null,
           points: [{ x: -2, y: -2 }, { x: 2, y: -2 }, { x: 2, y: 2 }, { x: -2, y: 2 }],
         }],
         annotations: [{
-          id: 'annotation-1', annotationType: 'text', position: { x: 0, y: 10 }, text: 'Mulch', fontSize: 16, rotationDeg: null,
+          id: 'annotation-1', annotationType: 'text' as const, position: { x: 0, y: 10 }, text: 'Mulch', fontSize: 16, rotationDeg: null,
         }],
         groups: [],
-      })
+      },
     }
 
     function rotationSession(overrides: Parameters<typeof createInteractionDeps>[3] = {}) {
@@ -307,10 +287,9 @@ describe('SceneInteractionSession', () => {
     })
 
     it('with single-key shortcuts off, turns the stamp only while the map has focus', () => {
-      holdSavedStamp()
       singleKeyShortcuts.value = false
       const { session, angle } = rotationSession()
-      session.setTool('saved-object-stamp')
+      session.arm('saved-object-stamp', SAVED_STAMP_SOURCE)
       events.pointerMove({ x: 100, y: 100 }, { button: 0 })
 
       expect(events.keyDown({ key: ']' }).defaultPrevented).toBe(false)
@@ -321,12 +300,11 @@ describe('SceneInteractionSession', () => {
     })
 
     it('starts each new stamp upright', () => {
-      holdSavedStamp()
       const { session, angle } = rotationSession()
-      session.setTool('saved-object-stamp')
+      session.arm('saved-object-stamp', SAVED_STAMP_SOURCE)
       events.keyDown({ key: ']', target: container })
       expect(angle()).toBe(15)
-      holdSavedStamp()
+      session.arm('saved-object-stamp', { ...SAVED_STAMP_SOURCE, stamp: { ...SAVED_STAMP_SOURCE.stamp } })
       events.pointerMove({ x: 100, y: 100 }, { button: 0 })
       expect(angle()).toBe(0)
       session.setTool('select')

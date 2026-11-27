@@ -77,7 +77,7 @@ describe('Polygon and Profile draft points follow Plant a row grammar (2.1-Q88)'
     expect(handleIds(h)).toEqual([])
   })
 
-  it('dragging a drafted point handle moves the vertex and supports transient undo/redo', () => {
+  it('dragging a drafted point handle moves the vertex and undo/redo steps back the last point (2.1-Q88)', () => {
     const h = harness()
     h.click({ x: 10, y: 10 })
     h.click({ x: 110, y: 10 })
@@ -93,16 +93,14 @@ describe('Polygon and Profile draft points follow Plant a row grammar (2.1-Q88)'
     ])
     expect(h.host.transientHistory.canUndo()).toBe(true)
 
-    // Undo restores the pre-drag vertex position.
+    // Anchors model: undo removes the last drafted point; redo restores it.
     expect(h.host.command({ kind: 'undo-transient' })).toBe('handled')
     expect(cornerMarkers(h)).toEqual([
       h.world({ x: 10, y: 10 }),
-      h.world({ x: 110, y: 10 }),
-      h.world({ x: 110, y: 110 }),
+      h.world({ x: 150, y: 30 }),
     ])
     expect(h.host.transientHistory.canRedo()).toBe(true)
 
-    // Redo re-applies the vertex move.
     expect(h.host.command({ kind: 'redo-transient' })).toBe('handled')
     expect(cornerMarkers(h)).toEqual([
       h.world({ x: 10, y: 10 }),
@@ -118,7 +116,7 @@ describe('Polygon and Profile draft points follow Plant a row grammar (2.1-Q88)'
     ])
   })
 
-  it('dragging a midpoint dot handle inserts a new vertex on the segment with transient undo/redo', () => {
+  it('dragging a midpoint dot handle inserts a new vertex on the segment', () => {
     const h = harness()
     h.click({ x: 10, y: 10 })
     h.click({ x: 110, y: 10 })
@@ -137,8 +135,8 @@ describe('Polygon and Profile draft points follow Plant a row grammar (2.1-Q88)'
     expect(h.host.command({ kind: 'undo-transient' })).toBe('handled')
     expect(cornerMarkers(h)).toEqual([
       h.world({ x: 10, y: 10 }),
+      h.world({ x: 60, y: 40 }),
       h.world({ x: 110, y: 10 }),
-      h.world({ x: 110, y: 110 }),
     ])
 
     expect(h.host.command({ kind: 'redo-transient' })).toBe('handled')
@@ -173,27 +171,21 @@ describe('Polygon and Profile draft points follow Plant a row grammar (2.1-Q88)'
       h.world({ x: 10, y: 110 }),
     ])
 
-    // Undo restores the deleted point, then focused Delete removes it again.
-    expect(h.host.command({ kind: 'undo-transient' })).toBe('handled')
-    expect(cornerMarkers(h)).toHaveLength(4)
+    // Focused Delete removes the focused handle.
     h.chrome.focusedHandle = point1
     expect(h.host.command({ kind: 'delete-handle' })).toBe('handled')
     expect(cornerMarkers(h)).toEqual([
       h.world({ x: 10, y: 10 }),
-      h.world({ x: 110, y: 110 }),
       h.world({ x: 10, y: 110 }),
     ])
     h.chrome.focusedHandle = null
 
-    // Alt+click within CLOSE_DISTANCE_PX deletes point 2 (10, 110).
+    // Alt+click within CLOSE_DISTANCE_PX deletes point 1 (10, 110).
     h.click({ x: 13, y: 107 }, { mods: { alt: true } })
-    expect(cornerMarkers(h)).toEqual([
-      h.world({ x: 10, y: 10 }),
-      h.world({ x: 110, y: 110 }),
-    ])
+    expect(cornerMarkers(h)).toEqual([h.world({ x: 10, y: 10 })])
 
-    // Alt+click on a point handle also deletes it.
-    h.click({ x: 110, y: 110 }, { mods: { alt: true }, target: { kind: 'handle', id: 'point:draft:1' as ToolHandleId } })
+    // Alt+click on the only remaining point refuses to delete it.
+    h.click({ x: 10, y: 10 }, { mods: { alt: true }, target: { kind: 'handle', id: 'point:draft:0' as ToolHandleId } })
     expect(cornerMarkers(h)).toEqual([h.world({ x: 10, y: 10 })])
   })
 
@@ -210,9 +202,9 @@ describe('Polygon and Profile draft points follow Plant a row grammar (2.1-Q88)'
       h.world({ x: 110, y: 10 }),
     ])
 
-    // Undo/redo works on Profile draft point edits too.
+    // Undo/redo steps back the last point on Profile drafts too.
     expect(h.host.command({ kind: 'undo-transient' })).toBe('handled')
-    expect(cornerMarkers(h)).toEqual([h.world({ x: 10, y: 10 }), h.world({ x: 110, y: 10 })])
+    expect(cornerMarkers(h)).toEqual([h.world({ x: 10, y: 10 }), h.world({ x: 60, y: 50 })])
     expect(h.host.command({ kind: 'redo-transient' })).toBe('handled')
     expect(cornerMarkers(h)).toEqual([
       h.world({ x: 10, y: 10 }),

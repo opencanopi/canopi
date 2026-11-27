@@ -4,7 +4,7 @@ import { locale } from '../../app/settings/state'
 import { speciesCatalogWorkbench } from '../../app/plant-browser'
 import {
   writePlantStampDragData,
-} from '../../canvas/plant-stamp-source'
+} from '../../canvas/stamp-drag-data'
 import type { SpeciesListItem } from '../../types/species'
 import { PlantSymbolGlyph } from '../canvas/PlantSymbolGlyph'
 import { ButtonTooltip } from '../shared/ButtonTooltip'

@@ -37,14 +37,6 @@
     "desktop/web/src/app/canvas-pdf/workflow.ts: knip:types/PdfCapture": {
       "count": 1
     },
-    "desktop/web/src/app/command-table/applicability.ts: knip:exports/CANVAS_COMMAND_ROWS": {
-      "count": 1,
-      "bead": "canopi-f47t.52.76"
-    },
-    "desktop/web/src/app/command-table/applicability.ts: knip:exports/lackingCapabilities": {
-      "count": 1,
-      "bead": "canopi-f47t.52.76"
-    },
     "desktop/web/src/app/command-table/object-capabilities.ts: knip:files/file": {
       "count": 1,
       "bead": "canopi-f47t.52.76"
@@ -326,9 +318,6 @@
     "desktop/web/src/app/stories/rich-text.ts: knip:exports/richTextPlainText": {
       "count": 1
     },
-    "desktop/web/src/canvas/plant-stamp-source.ts: knip:exports/readPlantStampDragData": {
-      "count": 1
-    },
     "desktop/web/src/canvas/runtime/lifecycle-owner.ts: knip:exports/CanvasRuntimeLifecycleBusyError": {
       "count": 1
     },
@@ -399,9 +388,6 @@
       "count": 1
     },
     "desktop/web/src/canvas/runtime/zone-measurements.ts: knip:exports/formatMetricArea": {
-      "count": 1
-    },
-    "desktop/web/src/canvas/saved-object-stamp-source.ts: knip:exports/readSavedObjectStampDragData": {
       "count": 1
     },
     "desktop/web/src/canvas/theme-refresh.ts: knip:exports/CANVAS_COLOR_CSS_VARS": {

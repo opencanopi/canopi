@@ -266,10 +266,6 @@
       "count": 1,
       "bead": "canopi-f47t.52.65"
     },
-    "app/data-library -> app/command-table": {
-      "count": 1,
-      "bead": "canopi-f47t.52.5"
-    },
     "app/data-library -> app/design-edit": {
       "count": 1
     },

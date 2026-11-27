@@ -4,6 +4,7 @@ import { signal } from '@preact/signals'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { GestureOutcome, ToolHost } from './interaction-ports'
 import type { ToolId } from './interaction-types'
+import { TOOL_ROWS } from '../../app/command-table'
 import {
   createCanvasKeyboardPort,
   createForwardingCanvasKeyboardPort,
@@ -65,6 +66,7 @@ function fixture(options: { readonly tool?: ToolId; readonly reply?: (c: ToolCom
     hasNudgeSeries: () => state.nudging,
     activeToolIsSelect: () => tool.peek() === 'select',
     activeToolHasEscapeTransient: () => state.transient,
+    activeToolEscSteps: () => TOOL_ROWS[tool.peek()].escSteps,
     holdsReorigin: () => state.transient || state.waiting,
     textEntryOpen: () => false,
   } as unknown as ToolHost
@@ -77,8 +79,8 @@ function fixture(options: { readonly tool?: ToolId; readonly reply?: (c: ToolCom
       state.space = next.space
     }),
     escapeGesture: vi.fn(),
-    requestTool: vi.fn((id: ToolId) => {
-      tool.value = id
+    escapeTool: vi.fn(() => {
+      tool.value = 'select'
     }),
     clearSelection: vi.fn(() => {
       state.selected = false
@@ -212,24 +214,25 @@ describe('createCanvasKeyboardPort', () => {
     expect(refused.port.command({ kind: 'rotate-held', stepDeg: 15 })).toBe(false)
   })
 
-  it('Esc layers run by priority: a live pointer session, a nudge series, the tool\'s draft or source, the tool, the selection', () => {
+  it('Esc layers run by priority from TOOL_ROWS.escSteps: gesture, tool-transient, tool on drawing tools; nudge-series and selection on Select', () => {
     const f = fixture({ tool: 'polygon', reply: (c) => c.kind === 'escape' ? 'handled' : 'pass' })
     f.selected = true
     f.live = true
     f.nudging = true
     f.transient = true
 
-    expect(f.port.escapeLayers()).toEqual(['gesture', 'nudge-series', 'tool-transient', 'tool', 'selection'])
+    expect(f.port.escapeLayers()).toEqual(['gesture', 'tool-transient', 'tool'])
     f.port.escape('gesture')
     expect(f.session.escapeGesture).toHaveBeenCalledTimes(1)
-    f.port.escape('nudge-series')
-    expect(f.toolHost.endNudgeSeries).toHaveBeenLastCalledWith(false)
     f.port.escape('tool-transient')
     expect(f.toolHost.command).toHaveBeenLastCalledWith({ kind: 'escape' })
     f.port.escape('tool')
-    expect(f.session.requestTool).toHaveBeenCalledExactlyOnceWith('select')
+    expect(f.session.escapeTool).toHaveBeenCalledTimes(1)
     f.live = false
     f.transient = false
+    expect(f.port.escapeLayers()).toEqual(['nudge-series', 'selection'])
+    f.port.escape('nudge-series')
+    expect(f.toolHost.endNudgeSeries).toHaveBeenLastCalledWith(false)
     expect(f.port.escapeLayers()).toEqual(['selection'])
     f.port.escape('selection')
     expect(f.session.clearSelection).toHaveBeenCalledTimes(1)
@@ -240,7 +243,7 @@ describe('createCanvasKeyboardPort', () => {
     const f = fixture({ tool: 'plant-stamp', reply: () => 'handled' })
     expect(f.port.escapeLayers()).toEqual(['tool'])
     f.port.escape('tool')
-    expect(f.session.requestTool).toHaveBeenCalledExactlyOnceWith('select')
+    expect(f.session.escapeTool).toHaveBeenCalledTimes(1)
     expect(f.toolHost.command).not.toHaveBeenCalled()
   })
 
@@ -318,7 +321,7 @@ describe('createCanvasKeyboardPort', () => {
     f.port.escape('gesture')
     expect(f.session.escapeGesture).toHaveBeenCalledTimes(1)
     expect(f.toolHost.interrupted).toHaveBeenCalledTimes(1)
-    expect(f.session.requestTool).not.toHaveBeenCalled()
+    expect(f.session.escapeTool).not.toHaveBeenCalled()
     expect(keyState(f.port, { key: ' ', code: 'Space' })).toBe('held')
   })
 
@@ -410,7 +413,7 @@ describe('createForwardingCanvasKeyboardPort', () => {
     expect(f.toolHost.command).toHaveBeenCalledWith({ kind: 'confirm' })
     expect(port.escapeLayers()).toEqual(['tool'])
     port.escape('tool')
-    expect(f.session.requestTool).toHaveBeenCalledWith('select')
+    expect(f.session.escapeTool).toHaveBeenCalledTimes(1)
     expect(keyState(port as Fixture['port'], { key: ' ', code: 'Space' })).toBe('held')
     expect(f.session.keyState).toHaveBeenCalledTimes(1)
 

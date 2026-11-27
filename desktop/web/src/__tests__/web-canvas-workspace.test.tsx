@@ -705,7 +705,6 @@ function fakeCommandSurface(): CanvasCommandSurface {
     speciesFocus: { focus: () => {} },
     tools: {
       arm: vi.fn(() => ({ settled: new Promise<never>(() => {}), cancel: vi.fn() })),
-      setTool: vi.fn(),
       plantRowSpacing: { input: vi.fn(), commit: vi.fn(), blur: vi.fn(), cancel: vi.fn() },
     },
     viewport: {
@@ -785,6 +784,7 @@ function fakeQuerySurface(): CanvasQuerySurface {
       plantNames: signal(0),
       transientHistory: signal(0),
     },
+    toolState: signal({ id: 'select' as const, source: null, stampId: null }),
     activeTool: signal('select' as const),
     sessionPlane: signal<SessionPlane | null>(createSessionPlane(TEST_GEO_ORIGIN)),
     view: createTestViewReadSurface(),
