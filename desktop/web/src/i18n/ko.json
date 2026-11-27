@@ -48,7 +48,8 @@
     "addCurrentUnsavedHint": "노트북에 추가하기 전에 이 디자인을 저장합니다.",
     "addCurrentDesign": "현재 디자인을 노트북에 추가",
     "addCurrentButton": "현재 디자인 추가",
-    "openNow": "현재 열림"
+    "openNow": "현재 열림",
+    "renameSectionFailed": "Canopi에서 이 섹션의 이름을 바꿀 수 없었습니다. 다시 시도하세요."
   },
   "plantDb": {
     "title": "식물 카탈로그",

@@ -48,7 +48,8 @@
     "addCurrentUnsavedHint": "ノートに追加する前にこのデザインを保存します。",
     "addCurrentDesign": "現在のデザインをノートに追加",
     "addCurrentButton": "現在のデザインを追加",
-    "openNow": "現在開いています"
+    "openNow": "現在開いています",
+    "renameSectionFailed": "Canopi はこのセクションの名前を変更できませんでした。もう一度お試しください。"
   },
   "plantDb": {
     "title": "植物カタログ",

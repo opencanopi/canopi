@@ -48,7 +48,8 @@
     "addCurrentUnsavedHint": "Speichern Sie dieses Design, bevor es zum Notizbuch hinzugefügt wird.",
     "addCurrentDesign": "Aktuelles Design zum Notizbuch hinzufügen",
     "addCurrentButton": "Aktuelles Design hinzufügen",
-    "openNow": "Jetzt geöffnet"
+    "openNow": "Jetzt geöffnet",
+    "renameSectionFailed": "Canopi konnte diesen Abschnitt nicht umbenennen. Versuchen Sie es erneut."
   },
   "plantDb": {
     "title": "Pflanzenkatalog",

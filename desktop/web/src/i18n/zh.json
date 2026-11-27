@@ -48,7 +48,8 @@
     "addCurrentUnsavedHint": "先保存此设计，再添加到笔记本。",
     "addCurrentDesign": "将当前设计添加到笔记本",
     "addCurrentButton": "添加当前设计",
-    "openNow": "当前打开"
+    "openNow": "当前打开",
+    "renameSectionFailed": "Canopi 无法重命名此分区，请重试。"
   },
   "plantDb": {
     "title": "植物目录",

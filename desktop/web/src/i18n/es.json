@@ -48,7 +48,8 @@
     "addCurrentUnsavedHint": "Guarda este diseño antes de añadirlo al cuaderno.",
     "addCurrentDesign": "Añadir el diseño actual al cuaderno",
     "addCurrentButton": "Añadir diseño actual",
-    "openNow": "Abierto ahora"
+    "openNow": "Abierto ahora",
+    "renameSectionFailed": "Canopi no pudo cambiar el nombre de esta sección. Inténtalo de nuevo."
   },
   "plantDb": {
     "title": "Catálogo de plantas",

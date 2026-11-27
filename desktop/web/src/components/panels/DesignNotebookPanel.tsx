@@ -97,10 +97,14 @@ export function DesignNotebookPanel({
     setRenamingSectionId(section.id)
   }
 
-  function commitRename(sectionId: string, name: string): Promise<void> {
-    return workbench.renameSection(sectionId, name).then(() => {
+  async function commitRename(sectionId: string, name: string): Promise<void | { readonly error: string }> {
+    try {
+      await workbench.renameSection(sectionId, name)
       setRenamingSectionId(null)
-    })
+    } catch {
+      // reason: map IPC/store refusal to translated user-facing copy instead of raw error text (2.1-Q360)
+      return { error: t('designNotebook.renameSectionFailed') }
+    }
   }
 
   function cancelRename(): void {
@@ -377,6 +381,7 @@ export function DesignNotebookPanel({
                       value={section.name}
                       ariaLabel={t('designNotebook.sectionName')}
                       className={styles.sectionRenameInput}
+                      errorClassName={styles.sectionRenameError}
                       unchangedName={section.name}
                       onCommit={(name) => commitRename(section.id, name)}
                       onCancel={cancelRename}

@@ -6,7 +6,7 @@
 // user's typed text.
 
 import { useLayoutEffect, useRef, useState } from 'preact/hooks'
-import { normaliseObjectName } from '../../app/design-edit'
+import { normaliseObjectName } from '../../app/contracts/object-name'
 
 export type RenameCommitResult = void | null | { readonly error: string } | Promise<void | null | { readonly error: string }>
 

@@ -30,6 +30,7 @@ import type {
   DesignSummary,
 } from '../../types/design'
 import { createMutationQueue } from '../mutation-queue'
+import { normaliseObjectName } from '../contracts/object-name'
 
 const MAX_RECENT_DESIGNS = 5
 
@@ -297,8 +298,9 @@ export function createDesignNotebookWorkbench(
   }
 
   function createSection(name: string): Promise<void> {
-    const normalizedName = normalizeSectionName(name)
-    if (!normalizedName) return Promise.resolve()
+    const normalised = normaliseObjectName(name)
+    if (!normalised.ok) return Promise.resolve()
+    const normalizedName = normalised.name
     return queue.enqueue(undefined, async (admittedLifetime) => {
       const section = await createSectionAdapter(normalizedName)
       if (!queue.isCurrent(admittedLifetime)) return
@@ -307,8 +309,9 @@ export function createDesignNotebookWorkbench(
   }
 
   function renameSection(sectionId: string, name: string): Promise<void> {
-    const normalizedName = normalizeSectionName(name)
-    if (!normalizedName) return Promise.resolve()
+    const normalised = normaliseObjectName(name)
+    if (!normalised.ok) return Promise.resolve()
+    const normalizedName = normalised.name
     return queue.enqueue(undefined, async (admittedLifetime) => {
       await renameSectionAdapter(sectionId, normalizedName)
       if (!queue.isCurrent(admittedLifetime)) return
@@ -427,10 +430,6 @@ export function createDesignNotebookWorkbench(
 }
 
 export const designNotebookWorkbench = createDesignNotebookWorkbench()
-
-function normalizeSectionName(value: string): string {
-  return value.trim()
-}
 
 function validSectionId(
   sectionId: string | null,

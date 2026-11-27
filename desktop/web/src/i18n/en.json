@@ -48,7 +48,8 @@
     "addCurrentUnsavedHint": "Save this Design before adding it to the notebook.",
     "addCurrentDesign": "Add the current Design to the notebook",
     "addCurrentButton": "Add current Design",
-    "openNow": "Open now"
+    "openNow": "Open now",
+    "renameSectionFailed": "Canopi couldn't rename this section. Try again."
   },
   "plantDb": {
     "title": "Plant catalog",

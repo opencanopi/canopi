@@ -48,7 +48,8 @@
     "addCurrentUnsavedHint": "Salva questo progetto prima di aggiungerlo al quaderno.",
     "addCurrentDesign": "Aggiungi il progetto corrente al quaderno",
     "addCurrentButton": "Aggiungi progetto corrente",
-    "openNow": "Aperto ora"
+    "openNow": "Aperto ora",
+    "renameSectionFailed": "Canopi non è riuscito a rinominare questa sezione. Riprova."
   },
   "plantDb": {
     "title": "Catalogo delle piante",

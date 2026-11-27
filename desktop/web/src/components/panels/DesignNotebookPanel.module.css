@@ -395,3 +395,10 @@
 .rowActive .fileIcon, .rowActive .rowName { color: var(--color-primary); }
 .headerButton:disabled { color: var(--color-text-muted); cursor: default; opacity: 0.6; }
 .headerButton:focus-visible, .sectionIconButton:focus-visible, .rowIconButton:focus-visible { outline: 2px solid var(--color-focus); outline-offset: -2px; }
+
+.sectionRenameError {
+  display: block;
+  margin-top: var(--space-1);
+  color: var(--color-danger);
+  font-size: var(--text-xs);
+}

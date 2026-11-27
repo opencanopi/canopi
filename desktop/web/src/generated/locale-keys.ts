@@ -779,6 +779,7 @@ export type LocaleKey =
   | "designNotebook.openNow"
   | "designNotebook.openRecent"
   | "designNotebook.removeDesignFromNotebook"
+  | "designNotebook.renameSectionFailed"
   | "designNotebook.sectionEmpty"
   | "designNotebook.sectionName"
   | "designNotebook.title"

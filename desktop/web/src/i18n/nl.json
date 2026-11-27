@@ -48,7 +48,8 @@
     "addCurrentUnsavedHint": "Sla dit ontwerp op voordat je het aan het notitieboek toevoegt.",
     "addCurrentDesign": "Het huidige ontwerp aan het notitieboek toevoegen",
     "addCurrentButton": "Huidig ontwerp toevoegen",
-    "openNow": "Nu geopend"
+    "openNow": "Nu geopend",
+    "renameSectionFailed": "Canopi kon deze sectie niet hernoemen. Probeer het opnieuw."
   },
   "plantDb": {
     "title": "Plantencatalogus",
