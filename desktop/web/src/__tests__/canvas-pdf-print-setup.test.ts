@@ -298,4 +298,58 @@ describe('PDF export per-page angles, splits, and print_setup persistence (2c-4b
     expect(saved?.north_arrow).toBe(false)
     workflow.dispose()
   })
+
+  it('draws the overview navigation dashed quad, badge, and link over plan (30, 4) rotated 32° for a 32° detail page', () => {
+    const text = testText()
+    const base = makeInput(0)
+    const plants = [
+      { id: 'p-origin', canonicalName: 'Malus domestica', position: { x: 0, y: 0 }, color: '#2d6a4f', symbol: 'apple', mark, pinnedName: false },
+      { id: 'p-bed', canonicalName: 'Malus domestica', position: { x: 30, y: 4 }, color: '#2d6a4f', symbol: 'apple', mark, pinnedName: false },
+    ]
+    const input: PdfInput = { ...base, canvas: { ...base.canvas, plants } }
+    const setup: PdfSetup = {
+      paper: 'A4',
+      layers: ['plants'],
+      northArrow: true,
+      areas: [{ id: '1', name: 'Rotated Bed', bounds: { x: 24, y: 0, width: 12, height: 8 }, angleDeg: 32 }],
+      views: { overview: { angleDeg: 0 } },
+    }
+    const plan = buildPdfPlan(input, setup, text, LABELS)
+    const overview = plan.pages.find((p) => p.kind === 'overview')!
+    const expectedCenterX = overview.frame.x + (30 - overview.ground.x) * overview.pointsPerMeter
+    const expectedCenterY = overview.frame.y + (4 - overview.ground.y) * overview.pointsPerMeter
+
+    // Clickable PDF link lands over plan (30, 4), not raw 32°-frame (27.56, -12.50).
+    const link = overview.links?.find((l) => l.target === 'page:area:1')!
+    expect(link).toBeDefined()
+    expect(link.bounds.x + link.bounds.width / 2).toBeCloseTo(expectedCenterX, 1)
+    expect(link.bounds.y + link.bounds.height / 2).toBeCloseTo(expectedCenterY, 1)
+
+    // Dashed navigation quad is rotated 32° and its bounding box matches link.bounds.
+    const navPath = overview.operations.find(
+      (op): op is Extract<PdfPage['operations'][number], { kind: 'path' }> =>
+        op.kind === 'path' && op.stroke === '#A06B1F' && op.fill === null && op.d.includes(' L'),
+    )!
+    expect(navPath).toBeDefined()
+    const segs = [...navPath.d.matchAll(/M(-?[\d.]+) (-?[\d.]+) L(-?[\d.]+) (-?[\d.]+)/g)]
+    expect(segs.length).toBeGreaterThan(4)
+    const pts = segs.flatMap((m) => [[Number(m[1]), Number(m[2])], [Number(m[3]), Number(m[4])]])
+    const minX = Math.min(...pts.map((p) => p[0]!)), maxX = Math.max(...pts.map((p) => p[0]!))
+    const minY = Math.min(...pts.map((p) => p[1]!)), maxY = Math.max(...pts.map((p) => p[1]!))
+    expect((minX + maxX) / 2).toBeCloseTo(expectedCenterX, 1)
+    expect((minY + maxY) / 2).toBeCloseTo(expectedCenterY, 1)
+    // Every segment is tilted (both dx and dy non-zero) because the quad is rotated 32°.
+    const first = segs[0]!
+    expect(Math.abs(Number(first[3]) - Number(first[1]))).toBeGreaterThan(0.5)
+    expect(Math.abs(Number(first[4]) - Number(first[2]))).toBeGreaterThan(0.5)
+
+    // Detail badge '1' is placed next to the transformed navigation bounds.
+    const badge = overview.operations.find(
+      (op): op is Extract<PdfPage['operations'][number], { kind: 'text' }> =>
+        op.kind === 'text' && op.color === '#A06B1F' && op.line.runs.map((r) => r.text).join('') === '1',
+    )!
+    expect(badge).toBeDefined()
+    expect(Math.abs(badge.x - link.bounds.x)).toBeLessThan(30)
+    expect(Math.abs(badge.y - link.bounds.y)).toBeLessThan(30)
+  })
 })

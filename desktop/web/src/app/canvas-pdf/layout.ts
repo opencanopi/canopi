@@ -341,18 +341,29 @@ function drawNavigation(overview: PdfPage, details: readonly PdfPage[], canvas: 
       space.reserve({ x: b.x / MM, y: b.y / MM, width: b.width / MM, height: b.height / MM })
     }
   }
+  const overviewFrame = pageFrame(overview.angleDeg ?? 0)
   operations.push({ kind: 'clip', bounds: frame })
   for (const page of details) {
-    const bounds = { x: frame.x + (page.ground.x - ground.x) * scale, y: frame.y + (page.ground.y - ground.y) * scale,
-      width: page.ground.width * scale, height: page.ground.height * scale }
+    const detailFrame = pageFrame(page.angleDeg ?? overviewFrame.angleDeg)
+    const groundCorners = [
+      { x: page.ground.x, y: page.ground.y },
+      { x: page.ground.x + page.ground.width, y: page.ground.y },
+      { x: page.ground.x + page.ground.width, y: page.ground.y + page.ground.height },
+      { x: page.ground.x, y: page.ground.y + page.ground.height },
+    ]
+    const corners: [number, number][] = groundCorners.map(c => {
+      const inOverview = detailFrame.angleDeg === overviewFrame.angleDeg ? c : overviewFrame.toFrame(detailFrame.fromFrame(c))
+      return [frame.x + (inOverview.x - ground.x) * scale, frame.y + (inOverview.y - ground.y) * scale]
+    })
+    const xs = corners.map(c => c[0]), ys = corners.map(c => c[1])
+    const bounds = { x: Math.min(...xs), y: Math.min(...ys), width: Math.max(...xs) - Math.min(...xs), height: Math.max(...ys) - Math.min(...ys) }
     if (bounds.x + bounds.width < frame.x || bounds.x > frame.x + frame.width || bounds.y + bounds.height < frame.y || bounds.y > frame.y + frame.height) continue
-    const corners = [[bounds.x, bounds.y], [bounds.x + bounds.width, bounds.y], [bounds.x + bounds.width, bounds.y + bounds.height], [bounds.x, bounds.y + bounds.height]]
     const strokes: string[] = []
     for (let i = 0; i < 4; i++) {
-      const a = corners[i]!, b = corners[(i + 1) % 4]!, length = Math.hypot(b[0]! - a[0]!, b[1]! - a[1]!)
+      const a = corners[i]!, b = corners[(i + 1) % 4]!, length = Math.hypot(b[0] - a[0], b[1] - a[1])
       for (let t = 0; t < length; t += 2.2 * MM) {
         const end = Math.min(length, t + 1.4 * MM)
-        strokes.push(`M${a[0]! + (b[0]! - a[0]!) * t / length} ${a[1]! + (b[1]! - a[1]!) * t / length} L${a[0]! + (b[0]! - a[0]!) * end / length} ${a[1]! + (b[1]! - a[1]!) * end / length}`)
+        strokes.push(`M${a[0] + (b[0] - a[0]) * t / length} ${a[1] + (b[1] - a[1]) * t / length} L${a[0] + (b[0] - a[0]) * end / length} ${a[1] + (b[1] - a[1]) * end / length}`)
       }
     }
     operations.push(pathOp(strokes.join(' '), '#A06B1F', null, .22 * MM))
