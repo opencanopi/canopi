@@ -390,6 +390,87 @@ describe('PlantColorMenu', () => {
     expect(setSelectedPlantColor).toHaveBeenCalledWith('#123ABC')
   })
 
+  it('adjusts custom color with keyboard sliders and closes via Escape, header close, and outside pointerup', async () => {
+    getSelectedPlantColorContext.mockReturnValue({
+      plantIds: ['plant-1'],
+      singleSpeciesCanonicalName: 'Malus domestica',
+      singleSpeciesCommonName: 'Apple',
+      sharedCurrentColor: '#4CAF50',
+      suggestedColor: '#C8A51E',
+      singleSpeciesDefaultColor: null,
+    })
+
+    await act(async () => {
+      render(<PlantColorMenu buttonRef={buttonRef} />, container)
+      await Promise.resolve()
+    })
+
+    const moreColorsButton = [...document.querySelectorAll('button')].find((button) =>
+      button.textContent?.includes('Custom color'),
+    ) as HTMLButtonElement
+    await act(async () => {
+      moreColorsButton.click()
+      await Promise.resolve()
+    })
+
+    const sliders = document.querySelectorAll<HTMLElement>('[role="slider"]')
+    expect(sliders).toHaveLength(2)
+    const [squareSlider, hueSlider] = sliders
+    const input = document.querySelector<HTMLInputElement>('input[placeholder="#C44230"]')!
+    const before = input.value
+
+    await act(async () => {
+      squareSlider!.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', shiftKey: true, bubbles: true, cancelable: true }))
+      hueSlider!.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', shiftKey: true, bubbles: true, cancelable: true }))
+      hueSlider!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Home', bubbles: true, cancelable: true }))
+      await Promise.resolve()
+    })
+    expect(input.value).not.toBe(before)
+
+    const rect = { left: 0, top: 0, width: 100, height: 100, right: 100, bottom: 100, x: 0, y: 0, toJSON: () => ({}) } as DOMRect
+    vi.spyOn(squareSlider!, 'getBoundingClientRect').mockReturnValue(rect)
+    vi.spyOn(hueSlider!, 'getBoundingClientRect').mockReturnValue(rect)
+    const afterKeys = input.value
+    await act(async () => {
+      squareSlider!.dispatchEvent(new MouseEvent('pointerdown', { button: 0, clientX: 80, clientY: 20, bubbles: true, cancelable: true }))
+      document.dispatchEvent(new MouseEvent('pointermove', { clientX: 60, clientY: 40, bubbles: true }))
+      document.dispatchEvent(new MouseEvent('pointerup', { bubbles: true }))
+      hueSlider!.dispatchEvent(new MouseEvent('pointerdown', { button: 0, clientX: 10, clientY: 50, bubbles: true, cancelable: true }))
+      document.dispatchEvent(new MouseEvent('pointermove', { clientX: 10, clientY: 75, bubbles: true }))
+      document.dispatchEvent(new MouseEvent('pointerup', { bubbles: true }))
+      await Promise.resolve()
+    })
+    expect(input.value).not.toBe(afterKeys)
+
+    const dialog = document.querySelector<HTMLElement>('[role="dialog"]')!
+    await act(async () => {
+      dialog.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
+      await Promise.resolve()
+    })
+    expect(plantColorMenuOpen.value).toBe(false)
+
+    await act(async () => {
+      plantColorMenuOpen.value = true
+      await Promise.resolve()
+    })
+    const closeButton = document.querySelector<HTMLButtonElement>('[role="dialog"] button[aria-label="Close"]')!
+    await act(async () => {
+      closeButton.click()
+      await Promise.resolve()
+    })
+    expect(plantColorMenuOpen.value).toBe(false)
+
+    await act(async () => {
+      plantColorMenuOpen.value = true
+      await Promise.resolve()
+    })
+    await act(async () => {
+      document.body.dispatchEvent(new MouseEvent('pointerup', { bubbles: true }))
+      await Promise.resolve()
+    })
+    expect(plantColorMenuOpen.value).toBe(false)
+  })
+
 })
 
 describe('PlantColorMenu on a live Scene', () => {
