@@ -1,4 +1,5 @@
 import { createUuid } from '../../../utils/ids'
+import type { SavedObjectStampPayload } from '../../saved-object-stamp-payload'
 import { isEllipseZoneWithRadii } from './selection-rotation'
 import type {
   SceneAnnotationEntity,
@@ -35,6 +36,12 @@ interface SceneArrangementPlacementInput {
   readonly translateBy: ScenePoint
   readonly historyType: string
   readonly onCommitted?: () => void
+  /** Preserve per-object `locked` flags from the template (used by saved stamps, 2.1-M88). */
+  readonly preserveLocks?: boolean
+  /** Optional fill-only species metadata merger (colors, symbols, Q168 codes) applied in the same Scene transaction. */
+  readonly mergeSpecies?: (draft: ScenePersistedState) => void
+  /** When placing a saved object stamp, pass its payload so Session Core records one compound Scene+Document entry. */
+  readonly savedStamp?: SavedObjectStampPayload
 }
 
 interface SceneArrangementPlacementReceipt {
@@ -57,18 +64,24 @@ export function createSceneArrangementPlacement({
   createId = createUuid,
 }: SceneArrangementPlacementDeps): SceneArrangementPlacement {
   return {
-    place({ template, translateBy, historyType, onCommitted }): SceneArrangementPlacementReceipt {
+    place({ template, translateBy, historyType, onCommitted, preserveLocks = false, mergeSpecies, savedStamp }): SceneArrangementPlacementReceipt {
       let createdCount = 0
       let selectedTopLevelTargets: SceneDesignObjectTarget[] = []
+      let idRemap: ReadonlyMap<string, string> = new Map()
       const committed = sceneEdits.run(historyType, (tx) => {
         tx.mutate((draft) => {
-          const placement = materializeSceneArrangement(draft, template, translateBy, createId)
+          const placement = materializeSceneArrangement(draft, template, translateBy, createId, preserveLocks)
           appendPlacement(draft, placement)
+          mergeSpecies?.(draft)
           createdCount = placement.createdCount
           selectedTopLevelTargets = placement.selectedTopLevelTargets
+          idRemap = placement.idRemap
         })
         if (selectedTopLevelTargets.length > 0) tx.setSelection(selectedTopLevelTargets)
-      }, { onCommitted })
+      }, {
+        onCommitted,
+        ...(savedStamp ? { savedStamp: { payload: savedStamp, getIdRemap: () => idRemap } } : {}),
+      })
 
       return { committed, createdCount, selectedTopLevelTargets }
     },
@@ -83,6 +96,7 @@ interface MaterializedSceneArrangement {
   readonly groups: SceneObjectGroupEntity[]
   readonly selectedTopLevelTargets: SceneDesignObjectTarget[]
   readonly createdCount: number
+  readonly idRemap: ReadonlyMap<string, string>
 }
 
 function materializeSceneArrangement(
@@ -90,6 +104,7 @@ function materializeSceneArrangement(
   template: SceneArrangementTemplate,
   translateBy: ScenePoint,
   createId: () => string,
+  preserveLocks: boolean,
 ): MaterializedSceneArrangement {
   const reservedIds = existingSceneIds(draft)
   const sourceToCloneId = new Map<string, string>()
@@ -100,7 +115,7 @@ function materializeSceneArrangement(
     return {
       ...entity,
       id,
-      locked: false,
+      locked: preserveLocks ? Boolean(entity.locked) : false,
       position: translatePoint(entity.position, translateBy),
     }
   })
@@ -112,7 +127,7 @@ function materializeSceneArrangement(
     return {
       ...entity,
       id,
-      locked: false,
+      locked: preserveLocks ? Boolean(entity.locked) : false,
       points: translateZonePoints(entity, translateBy),
     }
   })
@@ -123,7 +138,7 @@ function materializeSceneArrangement(
     return {
       ...entity,
       id,
-      locked: false,
+      locked: preserveLocks ? Boolean(entity.locked) : false,
       position: translatePoint(entity.position, translateBy),
     }
   })
@@ -134,7 +149,7 @@ function materializeSceneArrangement(
     return {
       ...entity,
       id,
-      locked: false,
+      locked: preserveLocks ? Boolean(entity.locked) : false,
       start: translatePoint(entity.start, translateBy),
       end: translatePoint(entity.end, translateBy),
     }
@@ -159,7 +174,7 @@ function materializeSceneArrangement(
       return {
         ...entity,
         id: allocateUniqueId(reservedIds, createId),
-        locked: false,
+        locked: preserveLocks ? Boolean(entity.locked) : false,
         members,
       }
     })
@@ -184,6 +199,7 @@ function materializeSceneArrangement(
     groups,
     selectedTopLevelTargets,
     createdCount: plants.length + zones.length + annotations.length + measurementGuides.length + groups.length,
+    idRemap: sourceToCloneId,
   }
 }
 

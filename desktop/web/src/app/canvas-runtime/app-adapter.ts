@@ -3,6 +3,7 @@ import type {
   CanvasRuntimeAppAdapter,
   CanvasRuntimePresentationDataAdapter,
   CanvasRuntimeSavedObjectStampAdapter,
+  CanvasRuntimeSceneSessionAdapter,
 } from '../../canvas/runtime/app-adapter'
 import {
   lastView,
@@ -33,6 +34,7 @@ import { focusOwner } from '../keyboard/focus-owner'
 export interface AppCanvasRuntimeAdapterDeps {
   readonly presentationData: CanvasRuntimePresentationDataAdapter
   readonly savedObjectStamps?: CanvasRuntimeSavedObjectStampAdapter
+  readonly placeSavedStamp?: CanvasRuntimeSceneSessionAdapter['placeSavedStamp']
 }
 
 export function createAppCanvasRuntimeAppAdapter(
@@ -47,6 +49,7 @@ export function createAppCanvasRuntimeAppAdapter(
       recordSceneEdit: (label, command, options) => {
         getLiveSessionCore()?.recordSceneEdit(label, command, options)
       },
+      placeSavedStamp: deps.placeSavedStamp,
       undo: () => {
         getLiveSessionCore()?.undo()
       },

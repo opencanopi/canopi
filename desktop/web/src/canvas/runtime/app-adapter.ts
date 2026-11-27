@@ -1,6 +1,7 @@
 import type { ReadonlySignal } from '@preact/signals'
 import type { CanopiFile } from '../../types/design'
 import type { PointAction } from '../point-editor/rules'
+import type { SavedObjectStampPayload } from '../saved-object-stamp-payload'
 import type { SceneCommand } from './scene-commands'
 import type {
   CanvasPlantLabelSource,
@@ -30,6 +31,11 @@ export interface CanvasRuntimeSceneSessionAdapter {
     command: SceneCommand,
     options?: { readonly remainingPlantSpecies?: ReadonlySet<string> },
   ): void
+  /** Compound placement hook for v3 saved object stamps (2.1-M88, 2.1-M89, 2.1-Q155, 2.1-Q168, 2.1-Q354). */
+  placeSavedStamp?(
+    stamp: SavedObjectStampPayload,
+    applyScene: () => { readonly command: SceneCommand; readonly rollback: () => void; readonly idRemap: ReadonlyMap<string, string> },
+  ): boolean
   undo(): void
   redo(): void
   remapSceneCommands?(map: (command: SceneCommand) => SceneCommand): void
@@ -54,6 +60,11 @@ export interface CanvasRuntimeSavedObjectStampCapture {
 
 export interface CanvasRuntimeSavedObjectStampAdapter {
   saveCurrentSelection(capture: CanvasRuntimeSavedObjectStampCapture): void | Promise<unknown>
+  /** Optional compound placement hook for v3 saved object stamps (2.1-M88, 2.1-M89, 2.1-Q155, 2.1-Q168, 2.1-Q354). */
+  placeSavedStamp?(
+    stamp: SavedObjectStampPayload,
+    applyScene: () => { readonly command: SceneCommand; readonly rollback: () => void; readonly idRemap: ReadonlyMap<string, string> },
+  ): boolean
 }
 
 /** The scene edits a right-click menu may run; there is no other mutation path. */

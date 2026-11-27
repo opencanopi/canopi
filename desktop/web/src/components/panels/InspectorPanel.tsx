@@ -20,7 +20,7 @@ import type {
 } from '../../canvas/runtime/scene'
 import type { SessionPlane } from '../../geo/session-plane'
 import { t } from '../../i18n'
-import { formatLength, formatNumber, formatPercent, parseQuantity } from '../../utils/format'
+import { formatLength, formatNumber, formatPercent, parseLocalizedNumber, parseQuantity } from '../../utils/format'
 import { CanopiColorPicker } from '../canvas/CanopiColorPicker'
 import styles from './InspectorPanel.module.css'
 
@@ -113,14 +113,15 @@ function NumberField({
   readonly decimals?: number
   readonly onCommit: (next: number) => void
 }) {
+  const activeLocale = locale.value
   return (
     <InspectorTextField
       id={id}
       label={label}
-      formatted={formatNumber(value, locale.value, { maximumFractionDigits: decimals })}
+      formatted={formatNumber(value, activeLocale, { maximumFractionDigits: decimals })}
       parseAndCommit={(raw) => {
-        const n = Number(raw.replace(',', '.').trim())
-        if (!Number.isFinite(n)) return false
+        const n = parseLocalizedNumber(raw, activeLocale)
+        if (n === null || !Number.isFinite(n)) return false
         onCommit(n)
         return true
       }}

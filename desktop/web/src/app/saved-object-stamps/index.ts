@@ -19,3 +19,5 @@ export {
   savedObjectStampIdsNeedsNewerLast,
   savedObjectStampRowState,
 } from './row-state'
+
+export { placeStampThroughCore } from './place'

@@ -37,7 +37,7 @@ export function SelectionChip({ placement = 'map' }: {
   // The summary hook re-renders the chip on selection and scene changes (locks included).
   const selectionModel = queries?.getDesignObjectSelection() ?? null
   const renameZoneId = loneEditableZoneId(selectionModel)
-  const canInspect = selectionModel?.editableTargets.length === 1
+  const canInspect = canInspectSelection(selectionModel)
   const bar = placement === 'bar'
   return (
     <div className={styles.chip} role="group" aria-label={t('canvas.selectionChip.label')} data-selection-chip={bar ? 'bar' : 'bottom'}>
@@ -92,6 +92,12 @@ export function SelectionChip({ placement = 'map' }: {
       </button>
     </div>
   )
+}
+
+function canInspectSelection(
+  selectionModel: ReturnType<NonNullable<typeof currentCanvasQuerySurface.value>['getDesignObjectSelection']> | null,
+): boolean {
+  return selectionModel?.editableTargets.length === 1 && selectionModel.editableTargets[0]?.kind !== 'group'
 }
 
 function isOnlyPlants(summary: MapSelectionSummary): boolean {

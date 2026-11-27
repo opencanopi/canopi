@@ -207,6 +207,23 @@ export function placeSavedObjectStamp(
     translateBy: ORIGIN,
     historyType: 'interaction-saved-object-stamp',
     onCommitted: options.onCommitted,
+    preserveLocks: true,
+    savedStamp: stamp,
+    mergeSpecies: (draft) => {
+      if (stamp.plantSpeciesColors) {
+        for (const [species, color] of Object.entries(stamp.plantSpeciesColors)) {
+          if (!draft.plantSpeciesColors[species]) draft.plantSpeciesColors[species] = color
+        }
+      }
+      if (stamp.plantSpeciesSymbols) {
+        for (const [species, symbol] of Object.entries(stamp.plantSpeciesSymbols)) {
+          if (!draft.plantSpeciesSymbols[species]) draft.plantSpeciesSymbols[species] = symbol
+        }
+      }
+      if (stamp.plantSpeciesCodes && Object.keys(stamp.plantSpeciesCodes).length > 0) {
+        draft.plantSpeciesCodes = mergeIncomingSpeciesCodes(draft.plantSpeciesCodes, stamp.plantSpeciesCodes)
+      }
+    },
   })
 }
 
@@ -224,6 +241,23 @@ function savedObjectStampPivot(
   const relativeBearing = turnStampRotation(bearingDeg, -rotationDeg)
   if (relativeBearing <= 1e-6 || Math.abs(relativeBearing - 360) <= 1e-6) return stamp.anchor
   return screenAlignedTemplateCenter(template, relativeBearing) ?? stamp.anchor
+}
+
+function mergeIncomingSpeciesCodes(
+  existing: Readonly<Record<string, string>>,
+  incoming: Readonly<Record<string, string>>,
+): Record<string, string> {
+  const next: Record<string, string> = { ...existing }
+  const used = new Set(Object.values(next))
+  for (const [species, code] of Object.entries(incoming)) {
+    if (next[species]) continue
+    let candidate = code
+    let n = 2
+    while (used.has(candidate)) candidate = `${code}${n++}`
+    next[species] = candidate
+    used.add(candidate)
+  }
+  return next
 }
 
 function requiredLayers(stamp: SavedObjectStampPayload): string[] {

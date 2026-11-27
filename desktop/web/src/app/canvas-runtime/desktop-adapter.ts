@@ -2,7 +2,9 @@ import type { CanvasRuntimeAppAdapter } from '../../canvas/runtime/app-adapter'
 import { CanvasPlantLabelResolver } from '../../canvas/runtime/plant-labels'
 import { CanvasSpeciesCache } from './species-cache'
 import { speciesCatalogWorkbench } from '../plant-browser'
-import { savedObjectStampWorkbench } from '../saved-object-stamps'
+import { getLiveSessionCore } from '../document-session/live-core'
+import { designSessionStore } from '../document-session/store'
+import { placeStampThroughCore, savedObjectStampWorkbench } from '../saved-object-stamps'
 import { createAppCanvasRuntimeAppAdapter } from './app-adapter'
 
 export function createDesktopCanvasRuntimeAppAdapter(): CanvasRuntimeAppAdapter {
@@ -13,7 +15,15 @@ export function createDesktopCanvasRuntimeAppAdapter(): CanvasRuntimeAppAdapter 
       speciesCache: new CanvasSpeciesCache(),
     },
     savedObjectStamps: {
-      saveCurrentSelection: (capture) => savedObjectStampWorkbench.saveSelection(capture),
+      saveCurrentSelection: (capture) => savedObjectStampWorkbench.saveSelection({
+        ...capture,
+        design: capture.design !== undefined ? capture.design : designSessionStore.currentDesign.peek(),
+      }),
+    },
+    placeSavedStamp: (stamp, applyScene) => {
+      const core = getLiveSessionCore()
+      if (!core) return false
+      return placeStampThroughCore(core, stamp, () => applyScene()) !== null
     },
   })
 }

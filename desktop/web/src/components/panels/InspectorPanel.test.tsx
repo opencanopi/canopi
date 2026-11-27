@@ -219,6 +219,8 @@ describe('InspectorPanel', () => {
     expect(edits.editPlantFields).toHaveBeenCalledWith('p-1', { canopySpreadM: 5 })
     await commitTextInput('inspector-plant-quantity', '3')
     expect(edits.editPlantFields).toHaveBeenCalledWith('p-1', { quantity: 3 })
+    await commitTextInput('inspector-plant-quantity', '1,000')
+    expect(edits.editPlantFields).toHaveBeenCalledWith('p-1', { quantity: 1000 })
     const dateInput = container.querySelector<HTMLInputElement>('#inspector-plant-date')!
     await act(() => {
       dateInput.value = '2026-05-01'

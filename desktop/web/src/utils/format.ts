@@ -354,7 +354,7 @@ function splitDecimalParts(
   return { rawInt, fracPart }
 }
 
-function parseLocalizedNumber(raw: string, locale: string): number | null {
+export function parseLocalizedNumber(raw: string, locale: string): number | null {
   const trimmed = raw.trim()
   if (!trimmed) return null
 

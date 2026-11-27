@@ -405,26 +405,7 @@ function SpeciesRow({ entry, result, focused, detail, onOpenDetail }: {
         />
         <span className={row.count}>{formatCount(entry.count, locale.value)}</span>
       </button>
-      <input
-        type="text"
-        className={row.code}
-        value={entry.code}
-        maxLength={12}
-        aria-label={t('speciesKey.codeLabel', { name })}
-        data-species-code-input={entry.canonicalName}
-        onClick={(e) => e.stopPropagation()}
-        onFocusOut={(e) => {
-          const ok = currentCanvasSceneEditCommandSurface.value?.setSpeciesCode(entry.canonicalName, e.currentTarget.value)
-          if (!ok) e.currentTarget.value = entry.code
-        }}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') {
-            e.preventDefault()
-            const ok = currentCanvasSceneEditCommandSurface.value?.setSpeciesCode(entry.canonicalName, e.currentTarget.value)
-            if (!ok) e.currentTarget.value = entry.code
-          }
-        }}
-      />
+      <SpeciesCodeInput canonicalName={entry.canonicalName} name={name} code={entry.code} />
       {result.active && (
         <button
           type="button"
@@ -446,6 +427,49 @@ function SpeciesRow({ entry, result, focused, detail, onOpenDetail }: {
         </button>
       )}
     </li>
+  )
+}
+
+function SpeciesCodeInput({
+  canonicalName,
+  name,
+  code,
+}: {
+  readonly canonicalName: string
+  readonly name: string
+  readonly code: string
+}) {
+  const [draft, setDraft] = useState(code)
+  useEffect(() => {
+    setDraft(code)
+  }, [code])
+
+  const commit = (raw: string) => {
+    const ok = currentCanvasSceneEditCommandSurface.value?.setSpeciesCode(canonicalName, raw)
+    if (!ok) setDraft(code)
+  }
+
+  return (
+    <input
+      type="text"
+      className={row.code}
+      value={draft}
+      maxLength={12}
+      aria-label={t('speciesKey.codeLabel', { name })}
+      data-species-code-input={canonicalName}
+      onClick={(e) => e.stopPropagation()}
+      onInput={(e) => setDraft(e.currentTarget.value)}
+      onFocusOut={(e) => commit(e.currentTarget.value)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault()
+          commit(e.currentTarget.value)
+        } else if (e.key === 'Escape') {
+          e.preventDefault()
+          setDraft(code)
+        }
+      }}
+    />
   )
 }
 

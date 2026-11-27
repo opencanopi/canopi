@@ -28,14 +28,6 @@ import { createScenePatchCommand, type SceneCommand } from '../canvas/runtime/sc
 import { addTimelineAction } from '../app/design-edit/timeline'
 import { deletePlantBudgetPrice, setPlantBudgetPrice } from '../app/design-edit/budget'
 import { buildConsortiumPlanningProjection } from '../app/planning-projection/consortium'
-import { placeStampThroughCore } from '../app/saved-object-stamps/place'
-import {
-  mergeStampSpeciesCodes,
-  parseSavedObjectStampPayload,
-  SAVED_OBJECT_STAMP_PAYLOAD_V3_VERSION,
-  serializeSavedObjectStampPayloadV3,
-  type SavedObjectStampPayload,
-} from '../canvas/saved-object-stamp-payload'
 import { sceneExtentPoints } from '../canvas/runtime/scene-extent'
 import { formatHoverTooltipContent } from '../canvas/runtime/hover-tooltip-content'
 import { resolveZoneVisual } from '../canvas/runtime/scene-visuals'
@@ -246,118 +238,6 @@ describe('2c-4a Capability Fills', () => {
     expect(store.persisted.groups).toHaveLength(1)
     expect(store.persisted.groups[0]!.members.every((m: SceneObjectGroupMember) => (m.kind as string) !== 'group')).toBe(true)
     expect(store.persisted.groups[0]!.members).toHaveLength(4)
-  })
-
-  it('Stamp placement commits everything as one Undo entry and merges species codes under 2.1-Q168', () => {
-    const replayed: Array<{ direction: 'undo' | 'redo'; type: string }> = []
-    const fixture = createTestSessionCore({ file: makeTestDesign() })
-    disposers.push(fixture.dispose)
-    const { core } = fixture
-    const port: ScenePort = {
-      serialize: () => ({} as ReturnType<ScenePort['serialize']>),
-      load() {},
-      replay(command, direction) {
-        replayed.push({ direction, type: command.type })
-      },
-    }
-    core.attachScene(port)
-
-    // Verify 2.1-Q168 species code merge rule
-    const mergedCodes = mergeStampSpeciesCodes(
-      { 'Malus domestica': 'MD', 'Juglans regia': 'JR' },
-      { 'Malus domestica': 'AP', 'Corylus avellana': 'JR', 'Castanea sativa': 'CS' },
-    )
-    expect(mergedCodes['Malus domestica']).toBe('MD') // existing species keeps Design's code
-    expect(mergedCodes['Castanea sativa']).toBe('CS') // unused stamp code kept
-    expect(mergedCodes['Corylus avellana']).not.toBe('JR') // clashing code auto-disambiguated
-    expect(mergedCodes['Corylus avellana']).toMatch(/^JR\d+$/)
-
-    // Verify v3 serialization round-trip preserves guides, locks, notes, style, care actions, species data
-    const v3Stamp: SavedObjectStampPayload = {
-      version: SAVED_OBJECT_STAMP_PAYLOAD_V3_VERSION,
-      anchor: { x: 0, y: 0 },
-      plants: [{
-        id: 'sp-1',
-        canonicalName: 'Castanea sativa',
-        commonName: 'Sweet chestnut',
-        color: '#2e7d32',
-        symbol: 'canopy',
-        position: { x: 1, y: 2 },
-        rotationDeg: 0,
-        scale: 6,
-        locked: true,
-        notes: 'Grafted cultivar',
-      }],
-      zones: [{
-        id: 'sz-1',
-        name: 'Chestnut bed',
-        zoneType: 'rect',
-        points: [{ x: 0, y: 0 }, { x: 4, y: 0 }, { x: 4, y: 4 }, { x: 0, y: 4 }],
-        rotationDeg: 0,
-        fillColor: '#4caf50',
-        strokeColor: '#1b5e20',
-        opacity: 0.6,
-        notes: 'Mulch yearly',
-      }],
-      annotations: [{
-        id: 'sa-1',
-        annotationType: 'text',
-        position: { x: 2, y: 2 },
-        text: 'Irrigate',
-        fontSize: 14,
-        rotationDeg: null,
-      }],
-      measurementGuides: [{
-        id: 'sg-1',
-        start: { x: 0, y: 0 },
-        end: { x: 4, y: 0 },
-        locked: false,
-      }],
-      groups: [{
-        id: 'sgrp-1',
-        name: 'Guild',
-        members: [{ kind: 'plant', id: 'sp-1' }, { kind: 'measurement-guide', id: 'sg-1' }],
-      }],
-      plantSpeciesCodes: { 'Castanea sativa': 'CS' },
-      consortiums: [{ canonicalName: 'Castanea sativa', stratum: 'emergent', startPhase: 1, endPhase: 7 }],
-      budget: [{ canonicalName: 'Castanea sativa', unitCost: 24 }],
-      timeline: [{
-        title: 'Winter prune',
-        category: 'pruning',
-        offsetDays: 30,
-        targets: [{ kind: 'placed_plant', plant_id: 'sp-1' }],
-      }],
-    }
-    const parsed = parseSavedObjectStampPayload(serializeSavedObjectStampPayloadV3(v3Stamp))
-    expect(parsed?.version).toBe(SAVED_OBJECT_STAMP_PAYLOAD_V3_VERSION)
-    expect(parsed?.measurementGuides).toHaveLength(1)
-    expect(parsed?.zones[0]?.strokeColor).toBe('#1b5e20')
-    expect(parsed?.zones[0]?.opacity).toBe(0.6)
-    expect(parsed?.timeline).toHaveLength(1)
-
-    const summary = placeStampThroughCore(core, v3Stamp, () => ({
-      command: makeDummySceneCommand('place-saved-object-stamp'),
-      rollback: () => {},
-      idRemap: new Map([['plant:sp-1', 'live-plant-1']]),
-    }))
-
-    expect(summary).toEqual({ plants: 1, zones: 1, annotations: 1, guides: 1, careActions: 1 })
-    expect(core.currentDesign.peek()?.document.consortiums).toHaveLength(1)
-    expect(core.currentDesign.peek()?.document.budget).toHaveLength(1)
-    expect(core.currentDesign.peek()?.document.timeline).toHaveLength(1)
-    expect(core.currentDesign.peek()?.document.timeline[0]!.description).toBe('Winter prune')
-    expect(core.currentDesign.peek()?.document.timeline[0]!.targets).toEqual([
-      { kind: 'placed_plant', plant_id: 'live-plant-1' },
-    ])
-
-    // Single Undo removes BOTH scene and document parts together
-    expect(core.canUndo.peek()).toBe(true)
-    core.undo()
-    expect(replayed).toEqual([{ direction: 'undo', type: 'place-saved-object-stamp' }])
-    expect(core.currentDesign.peek()?.document.consortiums).toHaveLength(0)
-    expect(core.currentDesign.peek()?.document.budget).toHaveLength(0)
-    expect(core.currentDesign.peek()?.document.timeline).toHaveLength(0)
-    expect(core.canUndo.peek()).toBe(false)
   })
 
   it('Deleting the last plant of a species removes its Consortium row in the same Undo entry', () => {

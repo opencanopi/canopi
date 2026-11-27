@@ -1,7 +1,7 @@
 import type { ComponentChildren, ComponentType } from 'preact'
 import { Suspense } from 'preact/compat'
 import { useEffect, useMemo, useRef } from 'preact/hooks'
-import { inspectorOpen, usePlanningViewState } from '../../app/planning-view/state'
+import { closeInspector, inspectorOpen, usePlanningViewState } from '../../app/planning-view/state'
 import { phoneLayout } from '../../app/shell/phone-layout'
 import { siteLocateOpen } from '../../app/site-onboarding/state'
 import { storyPresentationActive } from '../../app/story-presentation'
@@ -112,7 +112,7 @@ export function WorkspaceComposition({
       {phone && phoneTabs ? (
         // The phone sheet stands in for the dock and the panel rail; it steps aside with the dock.
         !locating && !presenting && (
-          <PhoneSheet layout={phone} tabs={phoneTabs} bar={phoneBar} options={phoneOptions}>{sidePanelContent}</PhoneSheet>
+          <PhoneSheet layout={phone} tabs={phoneTabs} bar={phoneBar} options={phoneOptions} inspectorOpen={inspecting} onCloseInspector={closeInspector}>{sidePanelContent}</PhoneSheet>
         )
       ) : (mountedSide || inspecting) && sidePanelContent ? (
         <SidePanelDock

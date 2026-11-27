@@ -1,6 +1,7 @@
 import type { GeoPoint, CanopiFile } from '../../../types/design'
 import { batch, computed, signal, type ReadonlySignal } from '@preact/signals'
 import type { SessionPlane } from '../../../geo/session-plane'
+import type { SavedObjectStampPayload } from '../../saved-object-stamp-payload'
 import { collectCanvasRuntimeErrors, throwCanvasRuntimeCleanupErrors } from '../cleanup'
 import { CanvasAuthorityBusyError, CanvasDocumentReplacementNotAdmittedError, type CanvasDocumentReplacementToken } from './replacement-token'
 import { type SceneDesignObjectTarget, type ScenePersistedState, type SceneStore } from '../scene'
@@ -19,8 +20,14 @@ export interface SceneEditTransaction {
   readonly changed: boolean
 }
 
+export interface SceneEditSavedStampOption {
+  readonly payload: SavedObjectStampPayload
+  readonly getIdRemap: () => ReadonlyMap<string, string>
+}
+
 export interface SceneEditRunOptions {
   readonly onCommitted?: () => void
+  readonly savedStamp?: SceneEditSavedStampOption
 }
 
 export interface SceneEditCoordinator {
@@ -163,7 +170,7 @@ export class SceneRuntimeEditCoordinator implements SceneRuntimeAuthority {
     options: SceneEditRunOptions = {},
   ): boolean {
     if (this._active) return false
-    const tx = this._begin(type, options.onCommitted)
+    const tx = this._begin(type, options.onCommitted, options.savedStamp)
     try {
       edit(tx)
     } catch (error) {
@@ -179,14 +186,31 @@ export class SceneRuntimeEditCoordinator implements SceneRuntimeAuthority {
     return this._begin(type, options.onCommitted)
   }
 
-  private _begin(type: string, onCommitted: () => void = () => {}): SceneRuntimeEditTransaction {
+  private _begin(
+    type: string,
+    onCommitted: () => void = () => {},
+    savedStamp?: SceneEditSavedStampOption,
+  ): SceneRuntimeEditTransaction {
     if (this._active) throw new SceneEditBusyError(this._active.type)
     const transaction = new SceneRuntimeEditTransaction({
       type,
       sceneStore: this._sceneStore,
       captureSnapshot: () => this._captureSnapshot(),
       setSelection: this._setSelection,
-      recordHistory: (command, accepted) => {
+      recordHistory: (command, accepted, beforeSnapshot) => {
+        if (savedStamp && this._sceneSession.placeSavedStamp) {
+          const placed = this._sceneSession.placeSavedStamp(savedStamp.payload, () => ({
+            command,
+            rollback: () => {
+              this._restore(beforeSnapshot)
+              this._syncCanvasSignalsFromScene()
+            },
+            idRemap: savedStamp.getIdRemap(),
+          }))
+          if (!placed) throw new Error('Saved stamp placement was refused by Session Core')
+          accepted()
+          return
+        }
         const remainingPlantSpecies = new Set(this._sceneStore.persisted.plants.map((plant) => plant.canonicalName))
         this._sceneSession.recordSceneEdit(command.type, command, { remainingPlantSpecies })
         accepted()
@@ -482,7 +506,7 @@ interface SceneRuntimeEditTransactionOptions {
   sceneStore: SceneStore
   captureSnapshot(): SceneCommandSnapshot
   setSelection(targets: Iterable<SceneDesignObjectTarget>): void
-  recordHistory(command: SceneCommand, accepted: () => void): void
+  recordHistory(command: SceneCommand, accepted: () => void, beforeSnapshot: SceneCommandSnapshot): void
   syncCanvasSignalsFromScene(): void
   incrementSceneRevision(): void
   invalidate(): void
@@ -556,7 +580,7 @@ class SceneRuntimeEditTransaction implements SceneEditTransaction {
     }
     const errors: unknown[] = []
     try {
-      this._options.recordHistory(command, () => { this._historyAccepted = true })
+      this._options.recordHistory(command, () => { this._historyAccepted = true }, this._before)
     } catch (error) {
       errors.push(error)
       if (!this._historyAccepted) this._undo(errors)
