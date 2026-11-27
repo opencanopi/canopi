@@ -117,7 +117,7 @@ jobs:
             echo "The ref is not on release/2.0: no Stable-fix preflight."
           fi
 
-      # A dry run builds tauri.conf.json's version, so its manifests must still agree.
+      # A dry run builds Cargo.toml [workspace.package]'s version, so its lockfile must still agree.
       - id: release
         name: Read the release version
         shell: bash
@@ -125,7 +125,7 @@ jobs:
           RELEASE_VERSION: ${{ inputs.release_version }}
         run: |
           set -euo pipefail
-          if [ "$DRY_RUN" = true ]; then RELEASE_VERSION="$(jq -r .version desktop/tauri.conf.json)"; fi
+          if [ "$DRY_RUN" = true ]; then RELEASE_VERSION="$(python3 -c 'import re; from pathlib import Path; m = re.search(r"(?ms)^\[workspace\.package\]\s*(.*?)(?:^\[|\Z)", Path("Cargo.toml").read_text()); print(re.search(r"(?m)^\s*version\s*=\s*\"([^\"]+)\"\s*$", m.group(1)).group(1))')"; fi
           echo "version=$RELEASE_VERSION" | tee -a "$GITHUB_OUTPUT"
 
       - id: version
@@ -168,10 +168,12 @@ jobs:
                   raise SystemExit(f"::error::{path} [workspace.package] must define version.")
               return version_match.group(1)
 
+          for no_copy in ("desktop/tauri.conf.json", "desktop/web/package.json"):
+              if "version" in json.loads(Path(no_copy).read_text()):
+                  raise SystemExit(f"::error::{no_copy} must not duplicate Cargo.toml [workspace.package] version.")
+
           versions = {
-              "desktop/tauri.conf.json": read_json_version("desktop/tauri.conf.json"),
               "Cargo.toml [workspace.package]": read_cargo_workspace_version("Cargo.toml"),
-              "desktop/web/package.json": read_json_version("desktop/web/package.json"),
               "desktop/web/package-lock.json": read_json_version("desktop/web/package-lock.json"),
               "desktop/web/package-lock.json packages['']": read_package_lock_root_version("desktop/web/package-lock.json"),
           }
@@ -180,21 +182,21 @@ jobs:
           for source, version in versions.items():
               print(f"{source}: {version}")
 
-          tauri_version = versions["desktop/tauri.conf.json"]
+          cargo_version = versions["Cargo.toml [workspace.package]"]
           failed = False
-          if tauri_version != requested_version:
+          if cargo_version != requested_version:
               print(
-                  f"::error::desktop/tauri.conf.json version '{tauri_version}' does not match workflow input '{requested_version}'.",
+                  f"::error::Cargo.toml [workspace.package] version '{cargo_version}' does not match workflow input '{requested_version}'.",
                   file=sys.stderr,
               )
               failed = True
 
           for source, version in versions.items():
-              if source == "desktop/tauri.conf.json":
+              if source == "Cargo.toml [workspace.package]":
                   continue
-              if version != tauri_version:
+              if version != cargo_version:
                   print(
-                      f"::error::{source} version '{version}' does not match desktop/tauri.conf.json version '{tauri_version}'.",
+                      f"::error::{source} version '{version}' does not match Cargo.toml [workspace.package] version '{cargo_version}'.",
                       file=sys.stderr,
                   )
                   failed = True

@@ -75,7 +75,7 @@ function WorkspaceTitleBarContent({
         </>
       )}
       <span className={styles.spacer} />
-      <span className={styles.wide}>{fileActions}</span>
+      <span className={`${styles.wide} ${styles.fileActions}`}>{fileActions}</span>
       {search}
       <span className={styles.wide}>
         <TitleBarIconButton command={help} icon="help" />
@@ -91,14 +91,16 @@ function WorkspaceTitleBarContent({
   )
 }
 
-function TitleBarIconButton({ command, icon }: {
+export function TitleBarIconButton({ command, icon, dataWebCommandId }: {
   readonly command: TitleBarCommand
   readonly icon: ControlIconName
+  readonly dataWebCommandId?: string
 }) {
   return (
     <button
       type="button"
       className={styles.iconButton}
+      data-web-command-id={dataWebCommandId}
       aria-label={command.label}
       aria-keyshortcuts={command.ariaShortcut}
       aria-disabled={command.disabled ? true : undefined}

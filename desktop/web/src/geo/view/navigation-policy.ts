@@ -6,7 +6,7 @@
 
 import type { ReadonlySignal } from '@preact/signals'
 import { MAPLIBRE_WORLD_TILE_SIZE } from '../projection'
-import { mercatorToGeo } from '../web-mercator'
+import { mercatorToGeo, worldSizeAt } from '../web-mercator'
 import { createSessionPlane } from '../session-plane'
 import { WORKSPACE_MAP_MAX_ZOOM, WORKSPACE_MAP_MIN_ZOOM } from '../workspace-camera-policy'
 import type { ViewCamera, ViewScreen } from './types'
@@ -56,7 +56,7 @@ export function constrainCamera(camera: ViewCamera, screen: ViewScreen, policy: 
   const minimum = Math.min(policy.maxZoom, Math.max(policy.minZoom, worldZoomFloor(screen)))
   const zoom = Math.min(policy.maxZoom, Math.max(minimum, camera.zoom))
 
-  const half = screenDiagonal(screen) / 2 / (MAPLIBRE_WORLD_TILE_SIZE * 2 ** zoom)
+  const half = screenDiagonal(screen) / 2 / worldSizeAt(zoom)
   const west = half <= 0.5 ? mercatorToGeo(half, 0.5).lng : 0
   const east = half <= 0.5 ? mercatorToGeo(1 - half, 0.5).lng : 0
   const north = half <= 0.5 ? mercatorToGeo(0.5, half).lat : 0

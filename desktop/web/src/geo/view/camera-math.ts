@@ -4,8 +4,7 @@
 // placement (a PlanarCamera: a fit's result, a test's viewport) into a ViewCamera through the session plane. Nothing here
 // constrains: the drivers pass every target through constrainCamera (navigation-policy.ts).
 
-import { MAPLIBRE_WORLD_TILE_SIZE } from '../projection'
-import { geoToMercator, mercatorToGeo } from '../web-mercator'
+import { geoToMercator, mercatorToGeo, worldSizeAt } from '../web-mercator'
 import { conformalPoint, type ConformalPoint, type SessionPlane } from '../session-plane'
 import { bearingCosSin, normaliseBearing } from './navigation-policy'
 import type { GeoPointV10 as GeoPoint } from '../../generated/contracts'
@@ -59,11 +58,6 @@ export function placementCentre(camera: PlanarCamera, screen: ViewScreen): Confo
     y: (screen.height / 2 - camera.y) / camera.scale,
   }, camera.bearingDeg)
   return conformalPoint(pt.x, pt.y)
-}
-
-/** CSS px per Mercator unit at a zoom: MapLibre's worldSize. */
-function worldSizeAt(zoom: number): number {
-  return MAPLIBRE_WORLD_TILE_SIZE * 2 ** zoom
 }
 
 /** The Mercator point under a screen point. */

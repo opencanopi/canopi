@@ -9,7 +9,7 @@ Rules for the Rust/Tauri backend, checks, the bundled plant DB, the updater and 
 ## Authorities and boundaries
 
 - `desktop/src/native_command_policy.rs` rules `#[tauri::command]` execution; `desktop/src/native_operation.rs` owns `NativeOperationExecutor`, the blocking pool's only caller. `clippy.toml` disallows thread/blocking-pool entry points and `catch_unwind`; reviewed escapes use one statement's reasoned `#[expect(clippy::disallowed_methods)]` (`disallowed-methods` ratchet).
-- `desktop/tauri.conf.json` owns version, CSP and asset-protocol scope; `capabilities/main-window.json` grants only called permissions.
+- `Cargo.toml` `[workspace.package]` owns version (`canopi-f47t.52.75`); `desktop/tauri.conf.json` owns CSP and asset-protocol scope; `capabilities/main-window.json` grants only called permissions.
 - Layers: `design/**` and `db/**` name no `crate::services`; `services/**` names no `crate::commands` or `AppHealth`; exceptions are named (`module_layering::tests`).
 - `desktop/src/design/mod.rs` owns file writes; `services/export.rs` admits exports; `image_cache.rs` owns image fetches; `services/problem_report/` owns reports; `services/folder_reveal.rs` reveals via opener without spawning; `host/` is the platform seam.
 - `bindings-gen` (`npm run gen:types`) alone writes generated adapters (run in the target worktree); IPC types live in `canopi-types` with `specta::Type`.

@@ -8,6 +8,7 @@
 import { fileURLToPath } from 'node:url'
 import type { Page } from '@playwright/test'
 import { bearing, designMap, expectCanvasDrawn } from '../support/canvas'
+import { chooseFixtureFromStart } from '../support/layout'
 import { Fingers, type Point } from '../support/fingers'
 import { expect, test } from '../support/offline'
 import { tooltipOf } from '../support/tooltip'
@@ -47,11 +48,7 @@ const RECT_ZONE_CHIP = 'Rectangle zone · 112 m² · 44.1 m'
 async function openBaseFixture(page: Page, layout: Layout): Promise<void> {
   await page.setViewportSize(layout.viewport)
   await page.goto('')
-  const [chooser] = await Promise.all([
-    page.waitForEvent('filechooser'),
-    page.getByRole('button', { name: /Open a \.canopi file…/ }).first().click(),
-  ])
-  await chooser.setFiles(FIXTURE)
+  await chooseFixtureFromStart(page, FIXTURE)
   await expect(designMap(page)).toBeVisible()
   await expect(tool(page, 'Select')).toHaveAttribute('aria-pressed', 'true')
   await expectCanvasDrawn(page)

@@ -6,7 +6,6 @@ import { installPhoneLayout, phoneLayout } from "../../app/shell/phone-layout";
 import { t } from "../../i18n";
 import { PlaceSearchField } from "../../components/canvas/PlaceSearch";
 import { ToolIcon } from "../../components/canvas/toolbar-icons";
-import { ButtonTooltip } from "../../components/shared/ButtonTooltip";
 import { ControlIcon } from "../../components/shared/ControlIcon";
 import { DesignNameField, visibleDesignName } from "../../components/shared/DesignNameField";
 import { NoticeRow } from "../../components/shared/NoticeRow";
@@ -16,7 +15,7 @@ import { PanelRail } from "../../components/shared/PanelRail";
 import { SaveStatusLabel } from "../../components/shared/SaveStatusLabel";
 import { ToastSlot } from "../../components/shared/ToastSlot";
 import { useModalInertRegion } from "../../components/shared/useModalLayer";
-import { WorkspaceTitleBar, type TitleBarCommand } from "../../components/shared/WorkspaceTitleBar";
+import { TitleBarIconButton, WorkspaceTitleBar, type TitleBarCommand } from "../../components/shared/WorkspaceTitleBar";
 import titleBarStyles from "../../components/shared/WorkspaceTitleBar.module.css";
 import {
   type BrowserShellChromeProjection,
@@ -137,17 +136,11 @@ export function BrowserAppShell({
           </>
         ) : undefined}
         fileActions={openCanopi ? (
-          <button
-            type="button"
-            className={titleBarStyles.iconButton}
-            data-web-command-id={openCanopi.id}
-            aria-label={t("webShell.openCanopiFile")}
-            aria-keyshortcuts={openCanopi.ariaShortcut}
-            onClick={() => openCanopi.action()}
-          >
-            <ControlIcon name="folder-open" size={20} />
-            <ButtonTooltip label={t("webShell.openCanopiFile")} shortcut={openCanopi.shortcut} side="bottom" />
-          </button>
+          <TitleBarIconButton
+            command={{ ...openCanopi, label: t("webShell.openCanopiFile") }}
+            icon="folder-open"
+            dataWebCommandId={openCanopi.id}
+          />
         ) : undefined}
         search={phone ? (
           <>

@@ -23,6 +23,7 @@ import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import type { Locator, Page } from '@playwright/test'
 import { designMap } from '../support/canvas'
+import { chooseFixtureFromStart } from '../support/layout'
 import { pixel, pixelsAround, type Pixels } from '../support/pixels'
 import { expect, test } from '../support/offline'
 import { DRAFT_DATABASE, draftStoreDump } from '../support/web-storage'
@@ -287,11 +288,7 @@ async function openBaseFixture(page: Page, locale?: string): Promise<void> {
     }, locale)
   }
   await page.goto('')
-  const [chooser] = await Promise.all([
-    page.waitForEvent('filechooser'),
-    page.locator('[data-start-screen] button').filter({ hasText: /\.canopi/ }).first().click(),
-  ])
-  await chooser.setFiles(FIXTURE)
+  await chooseFixtureFromStart(page, FIXTURE)
   // The map host by role alone: its name follows the page's language.
   const map = page.getByRole('application').first()
   await expect(map).toBeVisible()

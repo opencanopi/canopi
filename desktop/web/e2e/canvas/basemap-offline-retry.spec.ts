@@ -4,6 +4,7 @@
 // Basemap's style; "reconnecting" answers it in the page with a small style whose credits show once it installs.
 import { fileURLToPath } from 'node:url'
 import { routeMinimalBasemap } from '../support/basemap'
+import { chooseFixtureFromStart } from '../support/layout'
 import { designMap, expectCanvasDrawn } from '../support/canvas'
 import { expect, test } from '../support/offline'
 
@@ -13,11 +14,7 @@ const OFFLINE_MAP = 'data-e2e-offline-map'
 
 test('a Basemap that could not load offline installs on the same map after reconnecting and Retry', async ({ page }) => {
   await page.goto('')
-  const [chooser] = await Promise.all([
-    page.waitForEvent('filechooser'),
-    page.getByRole('button', { name: /Open a \.canopi file…/ }).first().click(),
-  ])
-  await chooser.setFiles(FIXTURE)
+  await chooseFixtureFromStart(page, FIXTURE)
   await expect(designMap(page)).toBeVisible()
   await expectCanvasDrawn(page)
 

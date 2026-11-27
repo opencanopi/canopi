@@ -112,7 +112,7 @@ jobs:
         run: |
           set -euo pipefail
           windows_bundles=""
-          version="$(jq -r .version desktop/tauri.conf.json)"
+          version="$(python3 -c 'import re; from pathlib import Path; m = re.search(r"(?ms)^\[workspace\.package\]\s*(.*?)(?:^\[|\Z)", Path("Cargo.toml").read_text()); print(re.search(r"(?m)^\s*version\s*=\s*\"([^\"]+)\"\s*$", m.group(1)).group(1))')"
           if [[ "$version" == *-* ]]; then windows_bundles="--bundles nsis"; fi
           # LZMA took 13.5 of the Windows job's 24 min on 2026-10-14 for a 291 MiB installer; a PR
           # checks that the installer builds and its sidecar runs, so zlib is enough. Release Candidate keeps LZMA.

@@ -11,7 +11,7 @@ import { readCargoWorkspaceVersion } from '../../../../policy/release-version.mj
 import { fileURLToPath } from 'node:url'
 import type { Locator, Page } from '@playwright/test'
 import { expectDownloadName } from '../support/download'
-import { boxOf, expectHitAtCentre, openFixtureFromStart as openStartFixture, overlap, type Box } from '../support/layout'
+import { boxOf, expectHitAtCentre, openFixtureFromStart, overlap, type Box } from '../support/layout'
 import { expect, test } from '../support/offline'
 import { pageWithPersistence, type PersistenceAnswer } from '../support/storage-persistence'
 import { DRAFT_DATABASE, draftStoreDump } from '../support/web-storage'
@@ -65,8 +65,8 @@ async function openDraftWarning(page: Page, locale = 'en'): Promise<void> {
   await row.click()
 }
 
-async function openFixtureFromStart(page: Page): Promise<void> {
-  await openStartFixture(page, FIXTURE)
+async function openDraftFixture(page: Page): Promise<void> {
+  await openFixtureFromStart(page, FIXTURE)
   await expect(startScreen(page)).toHaveCount(0)
 }
 
@@ -90,7 +90,7 @@ for (const answer of ['granted', 'refused'] as const satisfies readonly Persiste
 
         // A second Draft in the same launch asks nothing.
         await closeDesign(app)
-        await openFixtureFromStart(app)
+        await openDraftFixture(app)
         await closeDesign(app)
         expect((await persistCalls(app)).calls, 'asked once per launch').toBe(1)
         if (answer === 'granted') {
@@ -111,7 +111,7 @@ test('Q82: a refused request warns on the welcome screen and in the save status 
   try {
     const app = forced.page
     await app.goto('')
-    await openFixtureFromStart(app)
+    await openDraftFixture(app)
 
     // The save status: muted, an alert icon, and Download a copy beside it above 1100 px (2.1-Q246); the warning opens
     // what may happen and Download a copy, with no second ask (2.1-Q198).
@@ -528,7 +528,7 @@ test.describe('the leave prompt', () => {
       }
     })
     await page.goto('')
-    await openFixtureFromStart(page)
+    await openDraftFixture(page)
     await expect.poll(() => readIdbDraftNames(page), 'the opened Design is a Draft').toHaveLength(1)
     const dialogs: string[] = []
     page.on('dialog', (dialog) => { dialogs.push(dialog.type()); void dialog.dismiss() })
@@ -560,7 +560,7 @@ test.describe('the leave prompt', () => {
     const dialogs: string[] = []
     page.on('dialog', (dialog) => { dialogs.push(dialog.type()); void dialog.dismiss() })
     await page.goto('')
-    await openFixtureFromStart(page)
+    await openDraftFixture(page)
     // Wait for the continuous save to land in IndexedDB, then the tab closes without prompting.
     await renameDesignInTitleBar(page, 'Orchard written at close')
     await expect.poll(() => readIdbDraftNames(page)).toContain('Orchard written at close')

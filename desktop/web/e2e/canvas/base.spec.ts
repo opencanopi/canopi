@@ -7,6 +7,7 @@ import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import type { Page } from '@playwright/test'
 import { designMap, expectCanvasDrawn, seedPointingDevice } from '../support/canvas'
+import { chooseFixtureFromStart } from '../support/layout'
 import { expect, test } from '../support/offline'
 
 const FIXTURE = fileURLToPath(new URL('../fixtures/canvas-base.canopi', import.meta.url))
@@ -23,11 +24,7 @@ async function openBaseFixture(page: Page): Promise<void> {
   // WebKit reports a Mac user agent, where a new profile starts on Trackpad (2.1-Q309); the wheel steps need Mouse.
   await seedPointingDevice(page)
   await page.goto('')
-  const [chooser] = await Promise.all([
-    page.waitForEvent('filechooser'),
-    page.getByRole('button', { name: /Open a \.canopi file…/ }).first().click(),
-  ])
-  await chooser.setFiles(FIXTURE)
+  await chooseFixtureFromStart(page, FIXTURE)
   await expect(designMap(page)).toBeVisible()
   await expect(page.getByRole('toolbar', { name: 'Tools' }).getByRole('button', { name: 'Select' })).toHaveAttribute('aria-pressed', 'true')
   // The opening camera frames the Design.

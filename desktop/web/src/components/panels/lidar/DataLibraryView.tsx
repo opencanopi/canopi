@@ -7,7 +7,7 @@ import {
 } from '../../../app/data-library/actions'
 import { findAnalysis } from '../../../app/analyses/registry'
 import {
-  filterLibraryItems, libraryItems, selectionAfter, takenItemNames, type LibraryItem, type LibrarySort,
+  filterLibraryItems, libraryItems, selectionAfter, takenItemNames, uniqueItemName, type LibraryItem, type LibrarySort,
   type LibraryTypeFilter,
 } from '../../../app/data-library/library-items'
 import {
@@ -21,13 +21,14 @@ import type { LibraryDeleteImpact } from '../../../generated/contracts'
 import { t } from '../../../i18n'
 import { ButtonTooltip } from '../../shared/ButtonTooltip'
 import { Dropdown, type DropdownItem } from '../../shared/Dropdown'
+import { InlineRenameField } from '../../shared/InlineRenameField'
 import { Notice } from '../../shared/Notice'
 import { SurfaceSearch } from '../../shared/SurfaceSearch'
 import { WorkspaceDialog } from '../../shared/WorkspaceDialog'
 import { ItemDetails } from './ItemDetails'
 import { formatDiskSize, isRunning, isStale, itemStatusLabel, itemSummary } from './item-text'
 import { LibraryPreview, usePreviewClient } from './LibraryPreview'
-import { LibraryItemNameField, isItemNameTaken } from './LibraryItemNameField'
+import { isItemNameTaken } from './LibraryItemNameField'
 import styles from './data-library.module.css'
 
 /** How long a selection rests before its details fetch their source files and history. */
@@ -377,8 +378,15 @@ export function DataLibraryView({ focusId }: { readonly focusId: string | null }
                   )}
                 </div>
                 {mode === 'rename' && (
-                  <RenameForm item={item} busy={busy} error={error} onCancel={() => endMode(['rename'])}
-                    onSubmit={(name) => void run(() => renameLibraryItem(item.id, name), () => endMode(['rename']))} />
+                  <RenameForm item={item} onCancel={() => endMode(['rename'])} onSubmit={async (name) => {
+                    setBusy(true); setError(null)
+                    try { await renameLibraryItem(item.id, name); endMode(['rename']); return null }
+                    catch (cause) {
+                      const message = cause instanceof Error ? cause.message : String(cause)
+                      setError(message)
+                      return { error: message }
+                    } finally { setBusy(false) }
+                  }} />
                 )}
                 {item.status === 'needs-newer' ? <p>{newerKind(item)} · {t('canvas.lidar.library.needsNewerNote')}</p> : <ItemDetails item={item}
                   nameOf={nameOf}
@@ -536,39 +544,28 @@ function SortChoice({ value, onChange }: { value: LibrarySort; onChange(next: Li
   )
 }
 
-/** Rename in place of the name; Esc cancels only the rename, never the sheet. */
-function RenameForm({ item, busy, error, onCancel, onSubmit }: {
+/** Rename in place via the shared inline rename rule (2.1-Q87): Enter/click-away commits, Esc cancels only the rename. */
+function RenameForm({ item, onCancel, onSubmit }: {
   item: LibraryItem
-  busy: boolean
-  error: string | null
   onCancel(): void
-  onSubmit(name: string): void
+  onSubmit(name: string): Promise<{ readonly error: string } | null>
 }) {
-  const [name, setName] = useState(item.name)
-  const form = useRef<HTMLFormElement>(null)
   const taken = takenItemNames(lidarLibrary.value, item.id)
-  const ready = name.trim() !== '' && !isItemNameTaken(name, taken)
-  // Focused as the form commits, not after a paint: the trigger it replaced has gone, and an Esc pressed meanwhile
-  // would reach the sheet instead (canopi-kprb).
-  useLayoutEffect(() => { form.current?.querySelector<HTMLInputElement>('input')?.focus() }, [])
   return (
-    <form
-      ref={form}
-      className={styles.form}
-      onSubmit={(event) => { event.preventDefault(); if (ready) onSubmit(name.trim()) }}
-      onKeyDown={(event) => {
-        if (event.key !== 'Escape') return
-        event.preventDefault()
-        event.stopPropagation()
-        onCancel()
-      }}
-    >
-      <LibraryItemNameField value={name} taken={taken} onInput={setName} />
-      {error && <p className={styles.error} role="alert">{error}</p>}
-      <div className={styles.formActions}>
-        <button type="button" className={styles.dialogButton} onClick={onCancel}>{t('canvas.lidar.library.cancel')}</button>
-        <button type="submit" className={`${styles.dialogButton} ${styles.primary}`} disabled={busy || !ready}>{t('canvas.lidar.library.saveName')}</button>
-      </div>
+    <form className={styles.form} onSubmit={(event) => event.preventDefault()}>
+      <InlineRenameField
+        value={item.name}
+        unchangedName={item.name}
+        ariaLabel={t('canvas.lidar.library.name')}
+        errorClassName={styles.fieldError}
+        onCancel={onCancel}
+        onCommit={(name) => {
+          if (isItemNameTaken(name, taken)) {
+            return { error: t('canvas.lidar.import.nameTaken', { name, suggestion: uniqueItemName(name, taken) }) }
+          }
+          return onSubmit(name)
+        }}
+      />
     </form>
   )
 }

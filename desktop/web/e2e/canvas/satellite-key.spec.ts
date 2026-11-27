@@ -7,6 +7,7 @@
 import { fileURLToPath } from 'node:url'
 import type { Route } from '@playwright/test'
 import { designMap, expectCanvasDrawn } from '../support/canvas'
+import { chooseFixtureFromStart } from '../support/layout'
 import { expect, test } from '../support/offline'
 
 const FIXTURE = fileURLToPath(new URL('../fixtures/canvas-base.canopi', import.meta.url))
@@ -75,11 +76,7 @@ test('a rejected Google key shows the Satellite notice, and Retry brings the ima
   await settings.getByRole('button', { name: 'Save key' }).click()
   await settings.getByRole('button', { name: 'Close' }).click()
 
-  const [chooser] = await Promise.all([
-    page.waitForEvent('filechooser'),
-    page.locator('[data-start-screen] button').filter({ hasText: /\.canopi/ }).first().click(),
-  ])
-  await chooser.setFiles(FIXTURE)
+  await chooseFixtureFromStart(page, FIXTURE)
   await expect(designMap(page)).toBeVisible()
   await expectCanvasDrawn(page)
 

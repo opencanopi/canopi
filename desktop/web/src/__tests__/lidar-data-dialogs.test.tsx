@@ -391,18 +391,18 @@ describe('Data library, Import and Analyze dialogs', () => {
       const name = container.querySelector<HTMLInputElement>('section[aria-labelledby] form input')!
       expect(document.activeElement).toBe(name)
       await type(name, 'elevation')
+      await key(name, 'Enter')
       expect(container.textContent).toContain('already has data named “elevation”')
-      expect(button('Save name').disabled).toBe(true)
+      expect(actions.renameLibraryItem).not.toHaveBeenCalled()
       await key(name, 'Escape')
       expect(libraryView.value).not.toBeNull()
       expect(container.querySelector('section[aria-labelledby] form')).toBeNull()
       expect(detailsHeading()).toBe('Terrain')
 
       await click(button(/^Rename…$/))
-      await type(container.querySelector<HTMLInputElement>('section[aria-labelledby] form input')!, 'Terrain model')
-      await act(async () => {
-        container.querySelector('section[aria-labelledby] form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
-      })
+      const next = container.querySelector<HTMLInputElement>('section[aria-labelledby] form input')!
+      await type(next, '  Terrain\tmodel  ')
+      await key(next, 'Enter')
       expect(actions.renameLibraryItem).toHaveBeenCalledWith('b', 'Terrain model')
     })
 
@@ -540,7 +540,7 @@ describe('Data library, Import and Analyze dialogs', () => {
       await key(container.querySelector('section[aria-labelledby] form input')!, 'Escape')
       expect(document.activeElement).toBe(button(/^Rename…$/))
       await click(button(/^Rename…$/))
-      await click(button(/^Cancel$/))
+      await act(async () => { container.querySelector<HTMLInputElement>('section[aria-labelledby] form input')!.blur() })
       expect(document.activeElement).toBe(button(/^Rename…$/))
 
       await click(button(/^Delete everywhere$/))

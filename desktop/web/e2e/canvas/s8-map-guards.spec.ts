@@ -5,6 +5,7 @@
 import { fileURLToPath } from 'node:url'
 import type { Page } from '@playwright/test'
 import { BASEMAP_STYLE_URL, minimalBasemapStyle } from '../support/basemap'
+import { chooseFixtureFromStart } from '../support/layout'
 import { designMap, expectCanvasDrawn } from '../support/canvas'
 import { expect, test } from '../support/offline'
 
@@ -12,11 +13,7 @@ const FIXTURE = fileURLToPath(new URL('../fixtures/canvas-base.canopi', import.m
 
 async function openFixture(page: Page): Promise<void> {
   await page.goto('')
-  const [chooser] = await Promise.all([
-    page.waitForEvent('filechooser'),
-    page.getByRole('button', { name: /Open a \.canopi file…/ }).first().click(),
-  ])
-  await chooser.setFiles(FIXTURE)
+  await chooseFixtureFromStart(page, FIXTURE)
   await expect(designMap(page)).toBeVisible()
   await expectCanvasDrawn(page)
 }

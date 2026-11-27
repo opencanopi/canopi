@@ -204,6 +204,8 @@ describe('favorite species list search parity (contracts §17)', () => {
       ['Edelkastanie', ['Castanea sativa']],
       // Species code from open Design on both Desktop and Web
       ['MD', ['Malus domestica']],
+      // Multi-hit prefix query: compares full order of 2+ hits identically across both panels
+      ['p', ['Prunus persica', 'Malus domestica']],
     ]
 
     for (const [query, expected] of cases) {

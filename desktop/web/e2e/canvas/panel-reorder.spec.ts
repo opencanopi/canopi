@@ -7,6 +7,7 @@
 import { fileURLToPath } from 'node:url'
 import type { Locator, Page } from '@playwright/test'
 import { designMap, expectCanvasDrawn } from '../support/canvas'
+import { chooseFixtureFromStart } from '../support/layout'
 import { expect, test } from '../support/offline'
 
 const FIXTURE = fileURLToPath(new URL('../fixtures/canvas-base.canopi', import.meta.url))
@@ -20,11 +21,7 @@ interface Point { readonly x: number, readonly y: number }
 async function openStories(page: Page): Promise<Locator> {
   await page.setViewportSize(VIEWPORT)
   await page.goto('')
-  const [chooser] = await Promise.all([
-    page.waitForEvent('filechooser'),
-    page.getByRole('button', { name: /Open a \.canopi file…/ }).first().click(),
-  ])
-  await chooser.setFiles(FIXTURE)
+  await chooseFixtureFromStart(page, FIXTURE)
   await expect(designMap(page)).toBeVisible()
   await expectCanvasDrawn(page)
   await page.getByRole('navigation', { name: 'Web Edition panels' }).getByRole('button', { name: 'Stories' }).click()

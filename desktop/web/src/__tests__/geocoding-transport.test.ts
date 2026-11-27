@@ -88,4 +88,30 @@ describe('geocoding transports', () => {
     expect(search.results.value).toHaveLength(1)
     expect(search.providerId.value).toBe('nominatim')
   })
+
+  it('settles a stalled Web place search to error after 5 s instead of hanging on searching (canopi-f47t.52.77)', async () => {
+    vi.useFakeTimers()
+    try {
+      const fetchStub = vi.fn((_url: string, init?: RequestInit) => new Promise<Response>((_resolve, reject) => {
+        const signal = init?.signal
+        if (!signal) return
+        if (signal.aborted) {
+          reject(signal.reason)
+          return
+        }
+        signal.addEventListener('abort', () => { reject(signal.reason) }, { once: true })
+      }))
+      vi.stubGlobal('fetch', fetchStub)
+      const search = createPlaceSearchController({ transport: browserTransport, locale: () => 'en', sleep: async () => {} })
+      const pending = search.search('Stalled Place')
+      expect(search.status.value).toBe('searching')
+      await vi.advanceTimersByTimeAsync(5000)
+      await pending
+      expect(search.status.value).toBe('error')
+      expect(search.results.value).toEqual([])
+      expect(search.providerId.value).toBeNull()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
 })

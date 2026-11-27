@@ -8,6 +8,7 @@ import {
   WEB_MERCATOR_MAX_LATITUDE_DEG,
   WGS84_SEMI_MAJOR_AXIS_M,
 } from '../generated/canopi-design-format'
+import { MAPLIBRE_WORLD_TILE_SIZE } from './projection'
 
 const DEGREES_TO_RADIANS = Math.PI / 180
 
@@ -16,6 +17,11 @@ export const WEB_MERCATOR_GRID_MAX_LATITUDE_DEG = Math.floor(WEB_MERCATOR_MAX_LA
 
 /** Half the Web Mercator world extent in EPSG:3857 metres (π * a). */
 export const WEB_MERCATOR_HALF_WORLD_M = Math.PI * WGS84_SEMI_MAJOR_AXIS_M
+
+/** CSS px per normalized [0, 1] Web Mercator world unit at `zoom`: MapLibre's worldSize. */
+export function worldSizeAt(zoom: number): number {
+  return MAPLIBRE_WORLD_TILE_SIZE * 2 ** zoom
+}
 
 export interface MapMercatorCoordinate {
   x: number

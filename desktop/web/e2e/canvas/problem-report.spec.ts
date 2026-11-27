@@ -4,15 +4,15 @@
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import type { Page } from '@playwright/test'
-import { openFixtureFromStart as openStartFixture } from '../support/layout'
+import { openFixtureFromStart } from '../support/layout'
 import { expect, test } from '../support/offline'
 
 const FIXTURE = fileURLToPath(new URL('../fixtures/canvas-base.canopi', import.meta.url))
 const REPORT_NAME = /^canopi-report-\d{8}-\d{6}\.zip$/
 
-async function openFixtureFromStart(page: Page): Promise<void> {
+async function openReportFixture(page: Page): Promise<void> {
   await page.goto('')
-  await openStartFixture(page, FIXTURE)
+  await openFixtureFromStart(page, FIXTURE)
 }
 
 async function openReportDialog(page: Page) {
@@ -54,7 +54,7 @@ async function createReport(page: Page, dialog: Awaited<ReturnType<typeof openRe
 }
 
 test('Help › Report a problem downloads one zip of the browser\'s sections, without the Design unless ticked', async ({ page }) => {
-  await openFixtureFromStart(page)
+  await openReportFixture(page)
   const dialog = await openReportDialog(page)
   // Web lists only the sections a browser has, and names where to send the zip (2.1-Q279, Q280).
   await expect(dialog.getByText('Waiting and running background work, by count and time.')).toHaveCount(0)
@@ -73,7 +73,7 @@ test('Help › Report a problem downloads one zip of the browser\'s sections, wi
 })
 
 test('canopi-f47t.52.36: Include current Design ticked puts the open Design in the Web report', async ({ page }) => {
-  await openFixtureFromStart(page)
+  await openReportFixture(page)
   const dialog = await openReportDialog(page)
   await dialog.getByRole('checkbox', { name: /Include current Design/ }).check()
 

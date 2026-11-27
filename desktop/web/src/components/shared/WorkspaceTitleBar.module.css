@@ -124,7 +124,15 @@
   display: contents;
 }
 
+.fileActions {
+  display: contents;
+}
+
 @media (max-width: 900px) {
+  .fileActions {
+    display: none;
+  }
+
   .nameText {
     max-width: 22vw;
   }

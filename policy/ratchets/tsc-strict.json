@@ -117,7 +117,7 @@
     "desktop/web/src/components/shared/WorkspaceTitleBar.tsx": { "count": 2 },
     "desktop/web/src/components/stories/RichTextEditor.tsx": { "count": 1 },
     "desktop/web/src/components/stories/StoryPresenter.tsx": { "count": 1 },
-    "desktop/web/src/editions/web/BrowserAppShell.tsx": { "count": 3 },
+    "desktop/web/src/editions/web/BrowserAppShell.tsx": { "count": 2 },
     "desktop/web/src/editions/web/WebApp.tsx": { "count": 1 },
     "desktop/web/src/editions/web/WebSpeciesCatalogPanel.tsx": { "count": 2 },
     "desktop/web/src/editions/web/browser-workspace-map-contribution-adapter.test.ts": { "count": 1 },

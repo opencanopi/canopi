@@ -6,17 +6,14 @@
 import { fileURLToPath } from 'node:url'
 import type { Locator, Page } from '@playwright/test'
 import { designMap, expectCanvasDrawn } from '../support/canvas'
+import { chooseFixtureFromStart } from '../support/layout'
 import { expect, test } from '../support/offline'
 
 const FIXTURE = fileURLToPath(new URL('../fixtures/layers-web.canopi', import.meta.url))
 
 async function openLayersFixture(page: Page): Promise<Locator> {
   await page.goto('')
-  const [chooser] = await Promise.all([
-    page.waitForEvent('filechooser'),
-    page.getByRole('button', { name: /Open a \.canopi file…/ }).first().click(),
-  ])
-  await chooser.setFiles(FIXTURE)
+  await chooseFixtureFromStart(page, FIXTURE)
   await expect(designMap(page)).toBeVisible()
   await expectCanvasDrawn(page)
   await page.getByRole('button', { name: /^Layers\b/ }).first().click()
@@ -67,11 +64,7 @@ test.describe('Layers in the phone sheet', () => {
 
   test('w2: rows are at least 44 px and the Background choice is reachable at half height', async ({ page }) => {
     await page.goto('')
-    const [chooser] = await Promise.all([
-      page.waitForEvent('filechooser'),
-      page.getByRole('button', { name: /Open a \.canopi file…/ }).first().click(),
-    ])
-    await chooser.setFiles(FIXTURE)
+    await chooseFixtureFromStart(page, FIXTURE)
     await expect(designMap(page)).toBeVisible()
     await expectCanvasDrawn(page)
     const tabs = page.getByRole('tablist')

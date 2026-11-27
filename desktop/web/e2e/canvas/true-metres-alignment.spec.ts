@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url'
 import { inflateSync } from 'node:zlib'
 import type { Page } from '@playwright/test'
 import { bearing, designMap, expectCanvasDrawn, pressMod, seedPointingDevice } from '../support/canvas'
-import { nextFrames } from '../support/layout'
+import { chooseFixtureFromStart, nextFrames } from '../support/layout'
 import { expect, test } from '../support/offline'
 
 const BASE_FIXTURE_PATH = fileURLToPath(new URL('../fixtures/canvas-base.canopi', import.meta.url))
@@ -241,11 +241,7 @@ test.describe('true ground metres alignment across latitudes (2.1-Q78d, 2.1-M520
       await seedPointingDevice(page)
       await page.goto('')
       const { buffer, corners } = makeRectDesignAtLatitude(lat, lon)
-      const [chooser] = await Promise.all([
-        page.waitForEvent('filechooser'),
-        page.getByRole('button', { name: /Open a \.canopi file…/ }).first().click(),
-      ])
-      await chooser.setFiles({
+      await chooseFixtureFromStart(page, {
         name: `true-metres-${lat}.canopi`,
         mimeType: 'application/json',
         buffer,

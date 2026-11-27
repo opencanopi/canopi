@@ -5,7 +5,7 @@
 
 .titleBarVariant {
   flex: 0 1 auto;
-  width: var(--place-search-width, 290px);
+  width: min(var(--place-search-width, 290px), clamp(130px, 17vw, 290px));
 }
 
 .dialogVariant {

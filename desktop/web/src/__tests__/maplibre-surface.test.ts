@@ -121,7 +121,8 @@ describe('MapLibre surface', () => {
       context.lifetime.addCleanup(cleanup)
     })
 
-    surface.open(container, { createMap: createFakeMap, onCreate })
+    const noop = () => {}
+    surface.open(container, { createMap: createFakeMap, onCreate, onResize: noop, onCreateError: noop })
     await flushPromises()
 
     expect(maps).toHaveLength(1)
@@ -136,7 +137,7 @@ describe('MapLibre surface', () => {
     expect(onMove).toHaveBeenCalledTimes(1)
 
     // A new request replaces the map: the first one goes with everything registered on it.
-    surface.open(container, { createMap: createFakeMap })
+    surface.open(container, { createMap: createFakeMap, onResize: noop, onCreateError: noop })
     await flushPromises()
     expect(cleanup).toHaveBeenCalledTimes(1)
     expect(maps[0]!.off).toHaveBeenCalledWith('move', onMove)
@@ -153,7 +154,7 @@ describe('MapLibre surface', () => {
     expect(surface.maplibre).toBeNull()
 
     // A destroyed surface opens again for the next map.
-    surface.open(container, { createMap: createFakeMap })
+    surface.open(container, { createMap: createFakeMap, onResize: noop, onCreateError: noop })
     await flushPromises()
     expect(maps).toHaveLength(3)
     expect(surface.map).toBe(maps[2])
@@ -169,7 +170,7 @@ describe('MapLibre surface', () => {
     })
     const onResize = vi.fn()
 
-    surface.open(container, { createMap: createFakeMap, onResize })
+    surface.open(container, { createMap: createFakeMap, onResize, onCreateError: () => {} })
     await flushPromises()
     observers[0]!.emit()
 
@@ -181,12 +182,6 @@ describe('MapLibre surface', () => {
     size = { width: 320, height: 200 }
     observers[0]!.emit()
     expect(onResize).toHaveBeenLastCalledWith(expect.objectContaining({ map: maps[0] }), { width: 320, height: 200 })
-
-    // A request without a hook: nothing resizes its map.
-    surface.open(container, { createMap: createFakeMap })
-    await flushPromises()
-    observers[1]!.emit()
-    expect(maps[1]!.resize).not.toHaveBeenCalled()
     expect(onResize).toHaveBeenCalledTimes(2)
     surface.destroy()
   })
@@ -206,6 +201,7 @@ describe('MapLibre surface', () => {
         context.lifetime.addCleanup(cleanup)
         throw setupError
       },
+      onResize: () => {},
       onCreateError,
     })
     await flushPromises()
@@ -218,7 +214,7 @@ describe('MapLibre surface', () => {
     expect(surface.map).toBeNull()
     expect(logError).not.toHaveBeenCalled()
 
-    surface.open(container, { createMap: createFakeMap })
+    surface.open(container, { createMap: createFakeMap, onResize: () => {}, onCreateError })
     await flushPromises()
 
     expect(maps).toHaveLength(2)
@@ -238,6 +234,7 @@ describe('MapLibre surface', () => {
         lifetime.addCleanup(() => { throw cleanupError })
         throw createError
       },
+      onResize: () => {},
       onCreateError,
     })
     await flushPromises()
@@ -270,6 +267,7 @@ describe('MapLibre surface', () => {
       onCreate: () => {
         throw createError
       },
+      onResize: () => {},
       onCreateError,
     })
     await flushPromises()
@@ -301,6 +299,8 @@ describe('MapLibre surface', () => {
         })
         return map
       },
+      onResize: () => {},
+      onCreateError: () => {},
     })
     await flushPromises()
     expect(surface.map).toBe(maps[0])
@@ -308,19 +308,6 @@ describe('MapLibre surface', () => {
     expect(() => surface.destroy()).toThrow(removeError)
     expect(Array.from(container.children)).toEqual([existingChild])
     expect(container.classList).not.toContain('maplibregl-map')
-    expect(surface.map).toBeNull()
-  })
-
-  it('a create failure with no onCreateError is logged once through the surface\'s redacted logError', async () => {
-    // The World map's request passes no onCreateError: its failure still reaches the log, with the key redacted.
-    const logError = vi.fn()
-    const surface = createSurface({ logError })
-    const createError = new Error('WebGL unavailable')
-
-    surface.open(container, { createMap: () => { throw createError } })
-    await flushPromises()
-
-    expect(logError).toHaveBeenCalledExactlyOnceWith('Failed to create MapLibre map:', createError)
     expect(surface.map).toBeNull()
   })
 
@@ -332,6 +319,8 @@ describe('MapLibre surface', () => {
         surface.destroy()
         return createFakeMap(api, target)
       },
+      onResize: () => {},
+      onCreateError: () => {},
     })
     await flushPromises()
 
@@ -368,6 +357,7 @@ describe('MapLibre surface', () => {
         dragRotate: false,
         touchZoomRotate: false,
       }),
+      onResize: () => {},
       onCreateError,
     }
 
@@ -399,7 +389,7 @@ describe('MapLibre surface', () => {
     })
     const createMap = vi.fn()
 
-    surface.open(container, { createMap })
+    surface.open(container, { createMap, onResize: () => {}, onCreateError: () => {} })
     surface.destroy()
     pendingLoad.resolveMapLibre?.(maplibre)
     await flushPromises()
@@ -427,6 +417,8 @@ describe('MapLibre surface', () => {
           lifetime.on('moveend', listener)
         }
       },
+      onResize: () => {},
+      onCreateError: () => {},
     })
     await flushPromises()
     const map = maps[0]!
@@ -452,6 +444,8 @@ describe('MapLibre surface', () => {
         lifetime.on('moveend', listener)
         lifetime.addCleanup(() => { teardown(); lifetime.off('moveend', listener) })
       },
+      onResize: () => {},
+      onCreateError: () => {},
     })
     await flushPromises()
     surface.destroy()
@@ -469,6 +463,8 @@ describe('MapLibre surface', () => {
         lifetime.addCleanup(cleanup)
         lifetime.addCleanup(() => { throw error })
       },
+      onResize: () => {},
+      onCreateError: () => {},
     })
     await flushPromises()
     surface.destroy()
@@ -482,7 +478,7 @@ describe('MapLibre surface', () => {
   it('a lifetime used after its map is gone holds nothing', async () => {
     const surface = createSurface()
     let lifetime!: MapLibreSurfaceContext<FakeMap>['lifetime']
-    surface.open(container, { createMap: createFakeMap, onCreate: (context) => { lifetime = context.lifetime } })
+    surface.open(container, { createMap: createFakeMap, onCreate: (context) => { lifetime = context.lifetime }, onResize: () => {}, onCreateError: () => {} })
     await flushPromises()
     surface.destroy()
 

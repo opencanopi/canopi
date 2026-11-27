@@ -21,7 +21,7 @@ import {
   wgs84MetresPerMercatorAtLat,
   wgs84Radii,
 } from './projection'
-import { geoToMercator, mercatorToGeo } from './web-mercator'
+import { geoToMercator, mercatorToGeo, worldSizeAt } from './web-mercator'
 
 declare const planePointBrand: unique symbol
 declare const conformalPointBrand: unique symbol
@@ -232,7 +232,7 @@ function buildSessionPlane(origin: GeoPoint, conformal: boolean): SessionPlane {
     toView,
     fromView,
     pixelsPerMetre(zoom: number): { readonly x: number; readonly y: number; readonly mean: number } {
-      const worldSize = MAPLIBRE_WORLD_TILE_SIZE * 2 ** zoom
+      const worldSize = worldSizeAt(zoom)
       return {
         x: worldSize / mercToPlaneX,
         y: worldSize / mercToPlaneY,

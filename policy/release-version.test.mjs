@@ -10,10 +10,10 @@ import { writtenRepo } from './core/test-repo.mjs';
 import { releaseVersionRefusals } from './release-version.mjs';
 
 const repo = (files) => writtenRepo(files, 'policy-release-version-');
-const manifests = ({ tauri = '2.1.0', cargo = '2.1.0', pkg = '2.1.0', lock = '2.1.0', lockRoot = '2.1.0' } = {}) => ({
-  'desktop/tauri.conf.json': JSON.stringify({ productName: 'Canopi', version: tauri }),
+const manifests = ({ cargo = '2.1.0', lock = '2.1.0', lockRoot = '2.1.0', tauri, pkg } = {}) => ({
+  'desktop/tauri.conf.json': JSON.stringify({ productName: 'Canopi', ...(tauri !== undefined ? { version: tauri } : {}) }),
   'Cargo.toml': `[workspace]\nmembers = ["desktop"]\n\n[workspace.package]\nversion = "${cargo}"\nedition = "2024"\n\n[workspace.dependencies]\nserde = { version = "1" }\n`,
-  'desktop/web/package.json': JSON.stringify({ name: 'canopi-web', version: pkg }),
+  'desktop/web/package.json': JSON.stringify({ name: 'canopi-web', ...(pkg !== undefined ? { version: pkg } : {}) }),
   'desktop/web/package-lock.json': JSON.stringify({ name: 'canopi-web', version: lock, packages: { '': { version: lockRoot } } }),
 });
 
@@ -37,9 +37,8 @@ test('canopi-f47t.52.228.61: a bump that misses Cargo.toml is refused at each ma
 
 test('canopi-f47t.52.228.61: a manifest that holds no version is refused, and a repository without tauri.conf.json is not read', () => {
   const files = manifests();
-  files['desktop/tauri.conf.json'] = JSON.stringify({ productName: 'Canopi' });
   delete files['desktop/web/package-lock.json'];
   assert.deepEqual(releaseVersionRefusals(repo(files)).map((r) => r.where),
-    ['desktop/tauri.conf.json', 'desktop/web/package-lock.json', 'desktop/web/package-lock.json packages[\'\']']);
+    ['desktop/web/package-lock.json', 'desktop/web/package-lock.json packages[\'\']']);
   assert.deepEqual(releaseVersionRefusals(repo({ 'Cargo.toml': '[workspace]\n' })), []);
 });

@@ -9,7 +9,7 @@
 import { fileURLToPath } from 'node:url'
 import type { Page } from '@playwright/test'
 import { bearing, designMap, expectCanvasDrawn, pressMod, seedPointingDevice } from '../support/canvas'
-import { nextFrames, openFixture } from '../support/layout'
+import { chooseFixtureFromStart, nextFrames, openFixture } from '../support/layout'
 import { expect, test } from '../support/offline'
 
 const FIXTURE = fileURLToPath(new URL('../fixtures/canvas-base.canopi', import.meta.url))
@@ -27,11 +27,7 @@ const APPLE = { x: 430, y: 273 }
 async function openBaseFixture(page: Page): Promise<void> {
   await seedPointingDevice(page) // WebKit reports a Mac, where a new profile starts on Trackpad (2.1-Q309)
   await page.goto('')
-  const [chooser] = await Promise.all([
-    page.waitForEvent('filechooser'),
-    page.getByRole('button', { name: /Open a \.canopi file…/ }).first().click(),
-  ])
-  await chooser.setFiles(FIXTURE)
+  await chooseFixtureFromStart(page, FIXTURE)
   await expect(designMap(page)).toBeVisible()
   await expect(tool(page, 'Select')).toHaveAttribute('aria-pressed', 'true')
   // The opening camera frames the Design.

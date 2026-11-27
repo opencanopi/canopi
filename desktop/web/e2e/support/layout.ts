@@ -1,7 +1,7 @@
 // Layout helpers for the Web Edition's chrome checks (map-notice-layout.spec.ts, plant-path-chrome.spec.ts): open a
 // fixture in a fresh browser with Web Edition settings, read boxes, test overlap and what a click at a centre reaches,
 // and read the visible map frame the visible-map-area seam publishes for the chips. DOM assertions only, no baselines.
-import type { Locator, Page } from '@playwright/test'
+import type { FileChooser, Locator, Page } from '@playwright/test'
 import { expect } from './offline'
 import { DRAFT_DATABASE } from './web-storage'
 
@@ -52,7 +52,7 @@ async function clearOriginStorage(page: Page, write: (record: { key: string, val
   }
 }
 
-async function chooseFixtureFromStart(page: Page, fixture: string): Promise<void> {
+export async function chooseFixtureFromStart(page: Page, fixture: Parameters<FileChooser['setFiles']>[0]): Promise<void> {
   const open = page.locator('[data-start-screen] button').filter({ hasText: /\.canopi/ }).first()
   const [chooser] = await Promise.all([page.waitForEvent('filechooser'), open.click()])
   await chooser.setFiles(fixture)
