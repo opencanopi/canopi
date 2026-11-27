@@ -200,9 +200,9 @@
       "tolerance": 0.05
     },
     "desktop chunk: format": {
-      "ceiling": 372,
+      "ceiling": 6751,
       "tolerance": 0.05,
-      "bead": "canopi-f47t.52.73"
+      "bead": "canopi-f47t.52.11"
     },
     "desktop chunk: format-count": {
       "ceiling": 191486,
@@ -226,8 +226,9 @@
       "tolerance": 0.05
     },
     "desktop chunk: item-text": {
-      "ceiling": 9300,
-      "tolerance": 0.05
+      "ceiling": 9924,
+      "tolerance": 0.05,
+      "bead": "canopi-f47t.52.11"
     },
     "desktop chunk: job": {
       "ceiling": 607757,
@@ -315,6 +316,11 @@
       "ceiling": 11576,
       "tolerance": 0.05
     },
+    "desktop chunk: quantity-table": {
+      "ceiling": 8972,
+      "tolerance": 0.05,
+      "bead": "canopi-f47t.52.11"
+    },
     "desktop chunk: raw": {
       "ceiling": 225,
       "tolerance": 0.05
@@ -364,6 +370,11 @@
     "desktop chunk: transport": {
       "ceiling": 5693,
       "tolerance": 0.05
+    },
+    "desktop chunk: use-popover-escape-layer": {
+      "ceiling": 344,
+      "tolerance": 0.05,
+      "bead": "canopi-f47t.52.11"
     },
     "desktop chunk: usePointerReorder": {
       "ceiling": 1573,

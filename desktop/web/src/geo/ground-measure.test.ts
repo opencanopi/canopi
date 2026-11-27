@@ -151,6 +151,7 @@ describe('WGS84 ground measure everywhere (2m-2)', () => {
         plantSpeciesSymbols: {},
         plantSpeciesCodes: {},
       },
+      undefined,
       plane,
     )
     expect(printSnapshot.planeOrigin).toEqual(plane.origin)

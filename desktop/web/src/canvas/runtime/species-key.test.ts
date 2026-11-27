@@ -83,10 +83,9 @@ it('2.1-Q94: sorts species by shown name using the interface language collation 
     created_at: '2026-04-02T00:00:00.000Z', updated_at: '2026-04-02T00:00:00.000Z', extra: {},
   })
   const snapshot = runtime.querySurface.getSceneSnapshot()
-  const cache = runtime.querySurface.getSpeciesCache()
 
-  const svOrder = buildSpeciesKey(snapshot, cache, new Map(), new Map(), 'sv').map((e) => e.commonName)
-  const enOrder = buildSpeciesKey(snapshot, cache, new Map(), new Map(), 'en').map((e) => e.commonName)
+  const svOrder = buildSpeciesKey(snapshot, new Map(), new Map(), 'sv').map((e) => e.commonName)
+  const enOrder = buildSpeciesKey(snapshot, new Map(), new Map(), 'en').map((e) => e.commonName)
   expect(svOrder).toEqual(['Ziziphus', 'Ål', 'Äpple'])
   expect(enOrder).toEqual(['Ål', 'Äpple', 'Ziziphus'])
   runtime.destroy()

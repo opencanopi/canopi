@@ -4,7 +4,7 @@
   "bead": "canopi-f47t.52.182",
   "entries": {
     "canvas (top) <-> canvas/plant-path": { "count": 1 },
-    "canvas (top) <-> canvas/runtime": { "count": 22 },
+    "canvas (top) <-> canvas/runtime": { "count": 21 },
     "canvas (top) <-> canvas/runtime/chrome": { "count": 3 },
     "canvas (top) <-> canvas/runtime/input": { "count": 1 },
     "canvas (top) <-> canvas/runtime/scene": { "count": 1 },

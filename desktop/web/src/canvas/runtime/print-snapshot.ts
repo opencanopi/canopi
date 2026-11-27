@@ -1,5 +1,6 @@
 import type { SessionPlane } from '../../geo/session-plane'
 import type { CanvasPrintSnapshot, PrintMarkPath } from '../print'
+import { DEFAULT_PLANT_DISPLAY } from './plant-display'
 import { resolvePlantDisplayColor, type PlantPresentationContext } from './plant-presentation'
 import { resolvePlantSymbolForPlant, type ScenePersistedState } from './scene'
 import { getPlantSymbolArt, plantSymbolPath, type PlantSymbolArt } from './plant-symbol-recipes'
@@ -8,18 +9,19 @@ import { zoneDisplayName } from './zone-identity'
 
 export function buildCanvasPrintSnapshot(
   scene: ScenePersistedState,
-  context: PlantPresentationContext,
+  context: Partial<PlantPresentationContext> = { plantDisplay: DEFAULT_PLANT_DISPLAY },
   plane?: Pick<SessionPlane, 'origin'>,
 ): CanvasPrintSnapshot {
+  const plantDisplay = context.plantDisplay ?? DEFAULT_PLANT_DISPLAY
   return {
     ...(plane ? { planeOrigin: { lon: plane.origin.lon, lat: plane.origin.lat } } : {}),
-    symbolScale: context.plantDisplay.symbolScale,
+    symbolScale: plantDisplay.symbolScale,
     layers: scene.layers.map(({ name, visible, opacity }) => ({ name, visible, opacity })),
     plants: scene.plants.map((plant) => {
       const symbol = resolvePlantSymbolForPlant(plant, scene.plantSpeciesSymbols)
       return { id: plant.id, canonicalName: plant.canonicalName, speciesCode: scene.plantSpeciesCodes[plant.canonicalName], position: { ...plant.position },
         // Print carries the colour mode, never the stored colour it would override.
-        color: resolvePlantDisplayColor(plant, context.plantDisplay), symbol,
+        color: resolvePlantDisplayColor(plant, plantDisplay), symbol,
         mark: markPaths(getPlantSymbolArt(symbol, 24)),
         smallMark: markPaths(getPlantSymbolArt(symbol, 12)), pinnedName: plant.pinnedName === true }
     }),

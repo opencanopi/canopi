@@ -172,12 +172,8 @@ export function createVertexPathTool(spec: VertexPathSpec): CanvasTool {
   }
 
   function redraw(): void {
-<<<<<<< HEAD
     const tool = context()
-    const { effects, scene, view } = tool
-=======
-    const { effects, scene, view, settings } = context()
->>>>>>> d8499abdd (fix(2c-3): route unitSystem to all display sites, fix es/it parser, land F35 & #921 should-fix)
+    const { effects, scene, view, settings } = tool
     effects.setGuidance({ gesture: points.length > 0 })
     if (points.length === 0) {
       if (handlesPublished) {

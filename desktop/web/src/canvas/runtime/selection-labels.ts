@@ -1,5 +1,5 @@
 import { getCanvasTextOpacity } from './text-visibility'
-import { getCanvasPlantDisplay } from './plant-display'
+import { DEFAULT_PLANT_DISPLAY } from './plant-display'
 import { getPlantWorldBounds } from './plant-presentation'
 import type { ScenePlantEntity, ScenePoint } from './scene'
 import type { SceneRendererSnapshot } from './renderers/scene-types'
@@ -32,7 +32,7 @@ export function projectScenePlantLabels(
   pixelsPerMetre: number,
 ): { readonly pinnedPlantNameLabels: PlantNameLabel[]; readonly selectionLabels: SelectionLabel[] } {
   const { scene, localizedCommonNames, selectionLabelPlantIds } = snapshot
-  const codes = (snapshot.plantLabels ?? getCanvasPlantDisplay().labels) === 'codes'
+  const codes = (snapshot.plantLabels ?? DEFAULT_PLANT_DISPLAY.labels) === 'codes'
     ? scene.plantSpeciesCodes
     : undefined
   return {

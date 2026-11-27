@@ -67,7 +67,7 @@ describe('pinned plant name legend through the runtime', () => {
     const design = openedDesignWithPinnedPlant()
     design.plants[0]!.common_name = ''
     runtime.documentSurface.loadDocument(design)
-    expect(buildPinnedPlantNameLegendEntries(runtime.querySurface, DEFAULT_PLANT_DISPLAY)[0]?.label).toBe('Malus domestica')
+    expect(buildPinnedPlantNameLegendEntries(runtime.querySurface, DEFAULT_PLANT_DISPLAY, 'en')[0]?.label).toBe('Malus domestica')
     runtime.destroy()
   })
 
