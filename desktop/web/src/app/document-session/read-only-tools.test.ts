@@ -24,7 +24,6 @@ import { setCanvasSelection } from '../../canvas/session-state'
 import { dispatchWorkspaceCanvasIntent, workspaceCanvasCommandProjection } from '../workspace-commands/canvas-actions'
 import { focusOwner } from '../keyboard/focus-owner'
 import { singleKeyShortcuts } from '../settings/state'
-import { activePanel } from '../shell/state'
 import { createTestSessionCore, type TestSessionCoreHandle } from '../../__tests__/support/session-core-fixture'
 import { designSessionStore, EDITING_DESIGN_SESSION, type DesignSessionKind } from './store'
 import {
@@ -96,7 +95,6 @@ beforeEach(() => {
     }),
     keyboard: createTestCanvasKeyboardPort({ host }),
   }))
-  activePanel.value = 'canvas'
   singleKeyShortcuts.value = true
   installSession(SHOWN, null, 'Orchard 2.1', {
     kind: 'read-only',
@@ -266,7 +264,7 @@ function webEnabled(): string[] {
     newDesign: run, openCanopi: run, downloadCanopi: run, revertDesign: run, importGeoJson: run, exportGeoJson: run,
     exportBudgetCsv: run, closeDesign: run, navigate: run,
   }, { canvasReady: () => true })
-  const state = { hasDesign: true, revertAvailable: true, activePanel: 'canvas', sidePanel: null } as const
+  const state = { hasDesign: true, revertAvailable: true, sidePanel: null } as const
   return catalog.filter((entry) => !entry.isExecutionDisabled(state)).map((entry) => entry.id)
 }
 

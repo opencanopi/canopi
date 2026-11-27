@@ -1,4 +1,4 @@
-import type { Panel, SidePanel } from '../../app/shell/state'
+import type { SidePanel } from '../../app/shell/state'
 import { workspaceCanvasCommandProjection } from '../../app/workspace-commands/canvas-actions'
 import {
   createBrowserShellCatalog,
@@ -9,14 +9,12 @@ import {
 
 /** A Web Edition shell projection from plain test inputs. */
 export function projectBrowserShellForTest({
-  currentPanel = 'canvas',
   currentSidePanel = null,
   downloadCanopiEnabled = true,
   revertAvailable = false,
   geoJsonEnabled = true,
   capabilities,
 }: {
-  readonly currentPanel?: Panel
   readonly currentSidePanel?: SidePanel | null
   readonly downloadCanopiEnabled?: boolean
   readonly revertAvailable?: boolean
@@ -28,7 +26,6 @@ export function projectBrowserShellForTest({
     state: {
       hasDesign: downloadCanopiEnabled,
       revertAvailable,
-      activePanel: currentPanel,
       sidePanel: currentSidePanel,
     },
     canvas: workspaceCanvasCommandProjection.value,

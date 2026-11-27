@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vite
 import type { ToolId } from '../canvas/runtime/interaction-types'
 import { locale, scrollWheel } from '../app/settings/state'
 import { t } from '../i18n'
-import { activePanel, sidePanel } from '../app/shell/state'
+import { sidePanel } from '../app/shell/state'
 import { phoneLayout } from '../app/shell/phone-layout'
 import { ToolCard } from '../components/canvas/ToolCard'
 import { armCanvasTool } from '../app/keyboard/arming'
@@ -95,7 +95,6 @@ describe('Tool card', () => {
     locating.open!.value = false
     setCurrentCanvasSession(null)
     sidePanel.value = null
-    activePanel.value = 'canvas'
   })
 
   async function choose(tool: ToolId, guidance: Partial<CanvasToolGuidance> = {}): Promise<void> {

@@ -97,8 +97,8 @@ export function DesignNotebookPanel({
     setRenamingSectionId(section.id)
   }
 
-  function commitRename(sectionId: string, name: string): void {
-    void workbench.renameSection(sectionId, name).then(() => {
+  function commitRename(sectionId: string, name: string): Promise<void> {
+    return workbench.renameSection(sectionId, name).then(() => {
       setRenamingSectionId(null)
     })
   }

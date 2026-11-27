@@ -10,7 +10,7 @@ import {
   type WorkspacePanelProjection,
   type WorkspaceSurfaces,
 } from '../components/workspace/WorkspaceComposition'
-import { activePanel, navigateTo, sidePanel, type Panel } from '../app/shell/state'
+import { navigateTo, sidePanel, type Panel } from '../app/shell/state'
 import { currentDesign, designSessionFixture } from './support/design-session-state'
 import { projectBrowserShellForTest } from './support/browser-shell-projection'
 import { appCommandGraphPanelProjection } from '../commands/graph/projections'
@@ -53,7 +53,6 @@ describe('shared edition workspace composition', () => {
     container = document.createElement('div')
     document.body.innerHTML = ''
     document.body.appendChild(container)
-    activePanel.value = 'canvas'
     sidePanel.value = null
   })
 

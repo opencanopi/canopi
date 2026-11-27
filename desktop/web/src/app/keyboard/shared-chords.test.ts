@@ -65,7 +65,7 @@ describe('2.1-Q343 shared chords', () => {
     const catalog = createBrowserShellCatalog(capabilities, { canvasReady: () => true })
     router = installWebKeyRouter({
       catalog,
-      readState: () => ({ hasDesign: true, revertAvailable: false, activePanel: 'canvas', sidePanel: null }),
+      readState: () => ({ hasDesign: true, revertAvailable: false, sidePanel: null }),
     }, TEST_KEY_PLATFORM)
 
     expect(press(altShift('n')).defaultPrevented, 'Alt+Shift+N is taken').toBe(true)

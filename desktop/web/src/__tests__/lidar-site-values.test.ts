@@ -39,7 +39,7 @@ import { setLidarEntryVisibility } from '../app/data-library/actions'
 import { lidarLibrary } from '../app/data-library/library-store'
 import { endSiteDataTransients, pin, setPin } from '../app/data-library/site-transients'
 import { siteValues } from '../app/data-library/site-values'
-import { activePanel, selectPanel, sidePanel } from '../app/shell/state'
+import { selectPanel, sidePanel } from '../app/shell/state'
 import type { CanopiFile } from '../types/design'
 import { createTestCanvasQuerySurface, type TestCanvasQuerySurface } from './support/canvas-query-surface'
 import { librarySnapshot, slopeItem, slopeProvenance, sourceItem } from './support/library-fixtures'
@@ -97,7 +97,6 @@ describe('Site data row values', () => {
     openDesign([{ id: 'mnt', visible: true }, { id: 'dsm', visible: true }])
     surface = createTestCanvasQuerySurface()
     setCurrentCanvasSession({ queries: surface } as unknown as CanvasRuntimeSurfaces)
-    activePanel.value = 'canvas'
     selectPanel('site-data')
   })
 

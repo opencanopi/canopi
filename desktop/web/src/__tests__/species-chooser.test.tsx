@@ -5,7 +5,7 @@ import { act } from 'preact/test-utils'
 import { signal } from '@preact/signals'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { locale } from '../app/settings/state'
-import { activePanel, sidePanel } from '../app/shell/state'
+import { sidePanel } from '../app/shell/state'
 import { ToolCard } from '../components/canvas/ToolCard'
 import { focusOwner } from '../app/keyboard/focus-owner'
 import { recentPlantStampSources } from '../canvas/stamp-drag-data'
@@ -123,7 +123,6 @@ describe('Place plants species chooser', () => {
     favorites.englishNames = {}
     setCurrentCanvasSession(null)
     sidePanel.value = null
-    activePanel.value = 'canvas'
   })
 
   const activeSpecies = () => {

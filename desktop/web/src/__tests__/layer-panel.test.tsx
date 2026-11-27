@@ -27,7 +27,7 @@ import {
   currentDesign,
   designSessionFixture,
 } from './support/design-session-state'
-import { activePanel, sidePanel } from '../app/shell/state'
+import { sidePanel } from '../app/shell/state'
 import {
   flushSettingsProjection,
   installSettingsProjection,
@@ -125,14 +125,12 @@ describe('LayerPanel', () => {
     lidarLibrary.value = null
     mapLayers.value = createDefaultMapLayers()
     googleMapsApiKey.value = null
-    activePanel.value = 'canvas'
     sidePanel.value = 'favorites'
     installSettingsProjection({
       load: () => baseSettings(),
       save: saveSettings,
     })
     setCurrentCanvasSession(null)
-    activePanel.value = 'canvas'
     sidePanel.value = null
   })
 

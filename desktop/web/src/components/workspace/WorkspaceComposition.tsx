@@ -67,7 +67,6 @@ export function WorkspaceComposition({
     [panelProjection, surfaces],
   )
   const requestedSide = sidePanel.value
-  const primary: PrimaryPanel = 'canvas'
   // "Where is your site?" is the one task: the dock steps aside, as the tool
   // rail does, and comes back once the site is found or skipped.
   const locating = siteLocateOpen.value
@@ -83,7 +82,7 @@ export function WorkspaceComposition({
   // The map, its chrome and the dock sit behind every modal dialog.
   const root = useRef<HTMLDivElement>(null)
   useModalInertRegion(root)
-  const PrimarySurface = surfaces.primary[primary]
+  const PrimarySurface = surfaces.primary.canvas!
   const SideSurface = mountedSide ? surfaces.side[mountedSide] : undefined
   const phone = phoneTabs ? phoneLayout.value : null
   const sidePanelContent = mountedSide && SideSurface ? (
@@ -101,20 +100,16 @@ export function WorkspaceComposition({
     navigateTo('canvas')
   }, [registrations, requestedSide])
 
-  if (!PrimarySurface) {
-    throw new Error(`Workspace is missing its '${primary}' primary surface.`)
-  }
-
   return (
     <div
       ref={root}
       className={styles.root}
       data-workspace-composition
-      data-workspace-primary-panel={primary}
+      data-workspace-primary-panel="canvas"
       data-workspace-sidebar-open={mountedSide ? 'true' : undefined}
     >
       <div className={styles.primary}>
-        <SurfaceBoundary key={primary} surface="workspace-primary">
+        <SurfaceBoundary key="canvas" surface="workspace-primary">
           <Suspense fallback={<WorkspaceLoading />}>
             <PrimarySurface />
           </Suspense>

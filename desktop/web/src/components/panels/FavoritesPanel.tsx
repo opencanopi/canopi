@@ -831,7 +831,13 @@ function SavedObjectStampRow({
   }
 
   async function commitRename(next: string): Promise<void | { readonly error: string }> {
-    const renamed = await savedObjectStampWorkbench.renameStamp(stamp.id, next)
+    let renamed: SavedObjectStamp | null
+    try {
+      renamed = await savedObjectStampWorkbench.renameStamp(stamp.id, next)
+    } catch {
+      // reason: map IPC/store refusal to translated user-facing copy instead of raw error text (2.1-Q360)
+      return { error: t('savedObjectStamps.renameFailed') }
+    }
     if (!renamed) {
       return { error: t('savedObjectStamps.renameFailed') }
     }
@@ -911,6 +917,7 @@ function SavedObjectStampRow({
             value={stamp.name}
             ariaLabel={t('savedObjectStamps.nameInput')}
             className={styles.savedStampNameInput}
+            errorClassName={styles.savedStampRenameError}
             unchangedName={stamp.name}
             cancelOnFocusOutTarget={(relatedTarget) =>
               relatedTarget instanceof HTMLElement

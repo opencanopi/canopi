@@ -26,8 +26,14 @@ import { workspaceCanvasCommandProjection } from '../app/workspace-commands/canv
 import { clearCurrentDesignState, replaceCurrentDesignState } from './support/design-session-state'
 import { CURRENT_CANOPI_FILE_VERSION } from '../generated/canopi-design-format'
 import type { CanopiFile } from '../types/design'
-import { normaliseObjectName } from '../app/design-edit/object-name'
+import { signal } from '@preact/signals'
+import { normaliseObjectName } from '../app/contracts/object-name'
+import { setDesignName } from '../app/design-edit/core'
 import { designSessionStore } from '../app/document-session/store'
+import { installSpeciesCatalogWorkbench, type SpeciesCatalogWorkbench } from '../app/plant-browser'
+import { FavoritesPanel } from '../components/panels/FavoritesPanel'
+import { savedObjectStampWorkbench } from '../app/saved-object-stamps'
+import { t } from '../i18n'
 
 const container = document.createElement('div')
 
@@ -89,9 +95,9 @@ describe('shared rename rule and inline field (2.1-Q87, 2.1-Q360)', () => {
     await act(async () => { desktopEscInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })) })
     expect(designSessionStore.currentDesign.peek()?.name).toBe('South field')
 
-    // 2. Web BrowserAppShell path
+    // 2. Web BrowserAppShell path wired to real setDesignName
     render(null, container)
-    const onWebRename = vi.fn()
+    replaceCurrentDesignState(sampleDesign('North field'), null, 'North field')
     const catalog = createBrowserShellCatalog(
       createBrowserShellCapabilities({
         newDesign: async () => {},
@@ -107,7 +113,7 @@ describe('shared rename rule and inline field (2.1-Q87, 2.1-Q360)', () => {
     )
     const projection = createBrowserShellCommandProjection({
       catalog,
-      state: { hasDesign: true, revertAvailable: false, activePanel: 'canvas', sidePanel: null },
+      state: { hasDesign: true, revertAvailable: false, sidePanel: null },
       canvas: workspaceCanvasCommandProjection.peek(),
     })
     await act(async () => {
@@ -115,7 +121,7 @@ describe('shared rename rule and inline field (2.1-Q87, 2.1-Q360)', () => {
         <BrowserAppShell
           commandProjection={projection}
           designIdentity={{ name: 'North field', saveStatus: 'draft', saveFailureReason: null }}
-          onRenameDesign={onWebRename}
+          onRenameDesign={setDesignName}
         >
           <div />
         </BrowserAppShell>,
@@ -128,7 +134,64 @@ describe('shared rename rule and inline field (2.1-Q87, 2.1-Q360)', () => {
     const webInput = container.querySelector<HTMLInputElement>('input')!
     webInput.value = '  South field '
     await act(async () => { webInput.dispatchEvent(new FocusEvent('focusout', { bubbles: true })) })
-    expect(onWebRename).toHaveBeenCalledWith('South field')
+    expect(designSessionStore.currentDesign.peek()?.name).toBe('South field')
+  })
+
+  it('reopens the stamp rename field with translated renameFailed when a stamp rename is refused or rejects (2.1-Q360)', async () => {
+    document.body.appendChild(container)
+    const uninstallCatalog = installSpeciesCatalogWorkbench({
+      favorites: signal({ items: [], loading: false, failed: false }),
+      sidebar: signal({ recentlyViewed: [], recentlyViewedLoading: false, recentlyViewedFailed: false }),
+      detail: signal({ canonicalName: null, detail: null, loading: false, error: null }),
+      selectedCanonicalName: signal<string | null>(null),
+      mount: () => () => undefined,
+      resolveDisplayNames: async () => ({ names: {}, englishFallbacks: [] }),
+    } as unknown as SpeciesCatalogWorkbench)
+    const renameSpy = vi.spyOn(savedObjectStampWorkbench, 'renameStamp').mockRejectedValueOnce(new Error('raw_ipc_store_read_only'))
+    const loadSpy = vi.spyOn(savedObjectStampWorkbench, 'loadLibrary').mockResolvedValue(undefined)
+    const librarySpy = vi.spyOn(savedObjectStampWorkbench.library, 'value', 'get').mockReturnValue({
+      items: [{
+        id: 'stamp-1',
+        name: 'Apple guild',
+        payload_json: JSON.stringify({ version: 3, plants: [], zones: [], annotations: [], guides: [], groups: [], consortiums: [], budget: [], timeline: [] }),
+        created_at: '',
+        updated_at: '',
+        sort_order: 0,
+      }],
+      loading: false,
+      revision: 1,
+    })
+    try {
+      await act(async () => { render(<FavoritesPanel />, container) })
+      const menuBtn = container.querySelector<HTMLButtonElement>(`button[aria-label="${t('savedObjectStamps.actionsFor', { name: 'Apple guild' })}"]`)
+      expect(menuBtn).not.toBeNull()
+      await act(async () => { menuBtn!.click() })
+      const renameItem = Array.from(document.body.querySelectorAll<HTMLButtonElement>('[role="menuitem"]'))
+        .find((el) => el.textContent?.trim() === t('savedObjectStamps.rename'))
+      expect(renameItem).toBeDefined()
+      await act(async () => { renameItem!.click() })
+      const input = container.querySelector<HTMLInputElement>('[data-saved-stamp-row="stamp-1"] input')!
+      expect(input).not.toBeNull()
+      input.value = 'Pear guild'
+      await act(async () => {
+        input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
+        await Promise.resolve()
+        await Promise.resolve()
+      })
+      expect(renameSpy).toHaveBeenCalledWith('stamp-1', 'Pear guild')
+      const reopened = container.querySelector<HTMLInputElement>('[data-saved-stamp-row="stamp-1"] input')
+      expect(reopened).not.toBeNull()
+      expect(reopened!.value).toBe('Pear guild')
+      expect(reopened!.getAttribute('aria-invalid')).toBe('true')
+      const alertText = container.querySelector('[data-saved-stamp-row="stamp-1"] [role="alert"]')?.textContent
+      expect(alertText).toBe(t('savedObjectStamps.renameFailed'))
+      expect(alertText).not.toContain('raw_ipc_store_read_only')
+    } finally {
+      uninstallCatalog()
+      librarySpy.mockRestore()
+      renameSpy.mockRestore()
+      loadSpy.mockRestore()
+    }
   })
 
   it('reopens/keeps the field open with the error and typed name when a rename is refused or throws (2.1-Q360)', async () => {

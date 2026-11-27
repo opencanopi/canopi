@@ -5,9 +5,11 @@
  * MIT License; see THIRD_PARTY_NOTICES.md.
  */
 
-export const DEFAULT_FORWARD_GEOCODE_ENDPOINT = 'https://nominatim.openstreetmap.org/search'
+import { GEOCODER_IDENTIFIED_HOSTS } from '../../generated/contracts'
+
 /** Host whose public usage policy (1 request per second) must be respected. */
-export const NOMINATIM_PUBLIC_HOST = 'nominatim.openstreetmap.org'
+const NOMINATIM_PUBLIC_HOST = GEOCODER_IDENTIFIED_HOSTS[0]
+export const DEFAULT_FORWARD_GEOCODE_ENDPOINT = `https://${NOMINATIM_PUBLIC_HOST}/search`
 /** Nominatim's public policy is 1 request/second; 1.1 s leaves margin. */
 export const NOMINATIM_MIN_INTERVAL_MS = 1100
 
@@ -15,7 +17,6 @@ export const NOMINATIM_MIN_INTERVAL_MS = 1100
 export const NOMINATIM_PROVIDER = {
   id: 'nominatim',
   service: 'Nominatim',
-  defaultForwardEndpoint: DEFAULT_FORWARD_GEOCODE_ENDPOINT,
 } as const
 
 /** A normalized forward-geocoding match. */
@@ -51,14 +52,13 @@ function coerceScore(value: number | string | undefined | null): number | null {
 function buildForwardGeocodeUrl(
   endpoint: string,
   query: string,
-  options: { acceptLanguage?: string; email?: string; limit?: number } = {},
+  options: { acceptLanguage?: string; limit?: number } = {},
 ): string {
   const url = new URL(endpoint)
   url.searchParams.set('q', query)
   url.searchParams.set('format', 'jsonv2')
   url.searchParams.set('limit', String(options.limit ?? 1))
   if (options.acceptLanguage) url.searchParams.set('accept-language', options.acceptLanguage)
-  if (options.email) url.searchParams.set('email', options.email)
   return url.toString()
 }
 
@@ -105,12 +105,11 @@ export function nextDelayMs(lastStartedAt: number | null, now: number, intervalM
 export async function geocodeForward(
   query: string,
   transport: GeocodingTransport,
-  options: { signal?: AbortSignal; endpoint?: string; email?: string; limit?: number; acceptLanguage?: string } = {},
+  options: { signal?: AbortSignal; endpoint?: string; limit?: number; acceptLanguage?: string } = {},
 ): Promise<GeocodeMatch[]> {
   const endpoint = options.endpoint ?? DEFAULT_FORWARD_GEOCODE_ENDPOINT
   const url = buildForwardGeocodeUrl(endpoint, query, {
     ...(options.acceptLanguage ? { acceptLanguage: options.acceptLanguage } : {}),
-    ...(options.email ? { email: options.email } : {}),
     ...(options.limit ? { limit: options.limit } : {}),
   })
   return parseNominatimForward(await transport(url, options.signal))

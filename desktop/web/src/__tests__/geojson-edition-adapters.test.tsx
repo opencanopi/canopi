@@ -211,7 +211,6 @@ describe('Web GeoJSON file adapter and notice', () => {
     const container = document.createElement('div')
     document.body.appendChild(container)
     const projection = projectBrowserShellForTest({
-      currentPanel: 'canvas',
       currentSidePanel: null,
       downloadCanopiEnabled: true,
       revertAvailable: false,

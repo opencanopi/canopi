@@ -78,9 +78,7 @@ describe('App Command Graph shell catalog', () => {
 
     const projection = projectShellCommandCatalog(catalog, {
       hasDesign: false,
-      revertAvailable: false,
-      activePanel: 'canvas',
-      sidePanel: 'favorites',
+      revertAvailable: false, sidePanel: 'favorites',
     }, (key) => `translated:${key}`)
 
     expect(projection.menus.map((menu) => ({
@@ -128,7 +126,7 @@ describe('App Command Graph shell catalog', () => {
       navigateLayers: { execute: () => undefined },
       toggleTheme: { execute: () => { dark = !dark }, isChecked: () => dark },
     })
-    const state = { hasDesign: true, revertAvailable: false, activePanel: 'canvas' as const, sidePanel: null }
+    const state = { hasDesign: true, revertAvailable: false, sidePanel: null }
     const projection = projectShellCommandCatalog(catalog, state, (key) => key === 'shortcutKeys.ctrl' ? 'Ctrl' : key, {
       unavailableShortcuts: new Set(['Ctrl+N']),
     })

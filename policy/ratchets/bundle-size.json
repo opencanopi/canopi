@@ -153,8 +153,9 @@
       "tolerance": 0.05
     },
     "desktop chunk: contracts": {
-      "ceiling": 3489,
-      "tolerance": 0.05
+      "ceiling": 3684,
+      "tolerance": 0.05,
+      "bead": "canopi-f47t.52.77"
     },
     "desktop chunk: deflate": {
       "ceiling": 369,
@@ -169,7 +170,7 @@
       "tolerance": 0.05
     },
     "desktop chunk: domain-adapters": {
-      "ceiling": 1171,
+      "ceiling": 1253,
       "tolerance": 0.05,
       "bead": "canopi-f47t.52.205"
     },

@@ -131,7 +131,7 @@ function webViewMenu(): readonly MenuEntry[] {
   }, { canvasReady: () => true })
   const projection = createBrowserShellCommandProjection({
     catalog,
-    state: { hasDesign: currentDesign.value !== null, revertAvailable: false, activePanel: 'canvas', sidePanel: null },
+    state: { hasDesign: currentDesign.value !== null, revertAvailable: false, sidePanel: null },
     canvas: workspaceCanvasCommandProjection.value,
   })
   return viewMenuOf(projection.workspaceMenus)

@@ -159,7 +159,6 @@ pub(crate) fn contract_types() -> TypeCollection {
         .register::<canopi_types::lidar::LidarSampleSeries>()
         .register::<canopi_types::lidar::LidarSampleTarget>()
         .register::<canopi_types::lidar::LidarSampleUnavailableReason>()
-        .register::<canopi_types::location::GeoResult>()
         .register::<canopi_types::report::ReportConsent>()
         .register::<canopi_types::report::ReportManifest>()
         .register::<canopi_types::report::ReportManifestEntry>()
@@ -260,6 +259,11 @@ pub(crate) fn render_typescript_contracts() -> Result<String, Box<dyn std::error
             &format!("export type {brand} = string & {{ readonly __brand: \"{brand}\" }};\n"),
         );
     }
+    // The geocoder host allowlist (2.1-M142, contracts §18 R16): Rust and TS read one list.
+    normalized.push_str(&format!(
+        "\nexport const GEOCODER_IDENTIFIED_HOSTS = {} as const\n",
+        serde_json::to_string(canopi_types::location::GEOCODER_IDENTIFIED_HOSTS)?,
+    ));
     // The problem report's sections (ADR 0025, 2.1-M421): the one TS builder
     // reads the rows Rust declares.
     normalized.push_str(&format!(

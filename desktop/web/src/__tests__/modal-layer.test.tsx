@@ -15,7 +15,7 @@ import { ESCAPE_PRIORITY, registerEscapeLayer } from '../app/keyboard/escape-cha
 import { focusOwner } from '../app/keyboard/focus-owner'
 import { modalLayerOpen } from '../app/shell/modal-layer'
 import { registerPlantFinder } from '../app/plant-finder/focus'
-import { sidePanel, activePanel } from '../app/shell/state'
+import { sidePanel } from '../app/shell/state'
 import { closeSaveViewDialog, openSaveViewDialog } from '../app/saved-views'
 import { aboutCanopiDialogOpen, closeAboutCanopiDialog, openAboutCanopiDialog } from '../app/about/state'
 import { answerSaveProblem, requestSaveProblemDecision, saveProblem } from '../app/document-session/save-problem'
@@ -105,7 +105,6 @@ describe('Modal layer', () => {
     document.body.appendChild(container)
     locale.value = 'en'
     theme.value = 'light'
-    activePanel.value = 'canvas'
     sidePanel.value = null
     replaceCurrentDesignState(design(), null, 'Orchard')
     setCurrentCanvasSession(createTestCanvasRuntimeSurfaces({

@@ -32,7 +32,7 @@ import type * as LibraryNavigationModule from '../app/data-library/library-navig
 import type * as DocumentSessionActionsModule from '../app/document-session/actions'
 import type * as BudgetExportModule from '../app/budget/export'
 
-const withDesign: ShellCommandState = { hasDesign: true, revertAvailable: false, activePanel: 'canvas', sidePanel: null }
+const withDesign: ShellCommandState = { hasDesign: true, revertAvailable: false, sidePanel: null }
 const command = (id: string) => DESKTOP_SHELL_COMMAND_CATALOG.find((entry) => entry.id === id)!
 
 describe('File menu (Desktop)', () => {

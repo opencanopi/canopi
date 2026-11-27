@@ -36,7 +36,6 @@
     "desktop/web/src/__tests__/dropdown.test.tsx": {  },
     "desktop/web/src/__tests__/duckdb-wasm-instantiation.test.ts": {  },
     "desktop/web/src/__tests__/extract-extra.test.ts": {  },
-    "desktop/web/src/__tests__/favorite-species-presentation.test.ts": {  },
     "desktop/web/src/__tests__/format-count.test.ts": {  },
     "desktop/web/src/__tests__/geojson-codec.test.ts": {  },
     "desktop/web/src/__tests__/i18n-copy.test.ts": {  },

@@ -8,7 +8,7 @@ import { t } from '../../i18n'
 import { createBrowserShellCatalog } from '../../editions/web/browser-shell-commands'
 import { projectShellCommandCatalog, type ShellCommandState } from './index'
 
-const STATE: ShellCommandState = { hasDesign: true, revertAvailable: false, activePanel: 'canvas', sidePanel: null }
+const STATE: ShellCommandState = { hasDesign: true, revertAvailable: false, sidePanel: null }
 
 function noteOf(command: unknown): unknown {
   return typeof command === 'object' && command !== null && 'note' in command ? command.note : undefined

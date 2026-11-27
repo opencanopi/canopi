@@ -12,16 +12,13 @@ export interface FavoriteSpeciesEntry {
 export function buildFavoriteFinderSpecies(
   items: readonly FavoriteSpeciesEntry[],
   codesBySpecies?: Readonly<Record<string, string>>,
-  catalogNames?: (canonicalName: string) => readonly string[],
 ): readonly PlantFinderSpecies[] {
   return items.map((item) => {
     const code = codesBySpecies?.[item.canonical_name]
-    const otherNames = catalogNames?.(item.canonical_name)
     return {
       canonicalName: item.canonical_name,
       commonName: item.common_name,
       ...(code !== undefined ? { code } : {}),
-      ...(otherNames && otherNames.length > 0 ? { otherNames } : {}),
     }
   })
 }

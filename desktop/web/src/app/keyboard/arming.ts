@@ -28,7 +28,7 @@ import {
   currentCanvasToolCommandSurface,
   currentCanvasViewportCommandSurface,
 } from '../../canvas/session'
-import { activePanel, designShownReadOnly, selectPanel } from '../shell/state'
+import { designShownReadOnly } from '../shell/state'
 import { focusOwner } from './focus-owner'
 
 /** Who armed the tool: a command surface (CanvasCommandFrom), a panel's Place, the tool card or the Start card. */
@@ -66,8 +66,6 @@ function armCanvasToolRequest<T = unknown>(
     return null
   }
   const row = TOOL_ROWS[tool]
-  const command = from !== 'panel' && from !== 'card'
-  if (command && activePanel.peek() !== 'canvas') selectPanel('canvas')
   const tools = currentCanvasToolCommandSurface.peek()
   if (source?.kind === 'species') {
     // Kept with no canvas too: Place plants' chooser offers it again in recents.

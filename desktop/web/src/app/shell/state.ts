@@ -13,8 +13,6 @@ export function isSidePanel(panel: Panel): panel is SidePanel {
   return SIDE_PANELS.has(panel);
 }
 
-export const activePanel = signal<Panel>("canvas");
-
 // Which sidebar panel is open alongside the canvas. null = none.
 // Starts closed — the user opens the Species Catalog Workbench when they need it
 // (by then IPC is ready).
@@ -33,14 +31,7 @@ effect(() => {
 export function selectPanel(panel: Panel): void {
   batch(() => {
     phoneToolOptions.value = null;
-    if (isSidePanel(panel)) {
-      sidePanel.value = panel;
-      activePanel.value = "canvas";
-      return;
-    }
-
-    sidePanel.value = null;
-    activePanel.value = panel;
+    sidePanel.value = isSidePanel(panel) ? panel : null;
   });
 }
 

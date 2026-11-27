@@ -18,7 +18,6 @@ vi.mock('@tauri-apps/api/window', () => ({
 
 
 import { locale, theme } from '../app/settings/state'
-import { activePanel } from '../app/shell/state'
 import { requestDesignRename } from '../app/shell/requests'
 import { settingsDialogOpen, keyboardShortcutsDialogOpen } from '../app/shell/dialogs'
 import {
@@ -66,7 +65,6 @@ describe('TitleBar', () => {
     document.body.appendChild(container)
     locale.value = 'en'
     theme.value = 'light'
-    activePanel.value = 'canvas'
     replaceCurrentDesignState(makeDesign('Untitled'), '/designs/untitled.canopi', 'Untitled')
     resetDirtyBaselines()
     windowMocks.startDragging.mockClear()

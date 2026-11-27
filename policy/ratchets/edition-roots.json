@@ -2,7 +2,6 @@
   "$schema": "./ratchet.schema.json",
   "family": "edition-roots",
   "entries": {
-    "app/geocoding/transport.desktop.ts -> app/geocoding/transport.browser.ts": { "count": 1 },
     "editions/gallery/main.tsx -> editions/web/BrowserAppShell.tsx": { "count": 1, "bead": "canopi-f47t.52.48" },
     "editions/gallery/main.tsx -> editions/web/WebLayersPanel.tsx": { "count": 1, "bead": "canopi-f47t.52.48" },
     "editions/gallery/main.tsx -> editions/web/WebSpeciesCatalogPanel.tsx": { "count": 1, "bead": "canopi-f47t.52.48" },

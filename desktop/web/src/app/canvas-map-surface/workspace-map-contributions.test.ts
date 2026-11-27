@@ -10,7 +10,7 @@ import { USER_LOCATION_OVERLAY_PORT } from './user-location-overlay-port'
 import { createDesktopWorkspaceMapContributionAdapter } from './desktop-workspace-map-contribution-adapter'
 import { createTestCanvasQuerySurface } from '../../__tests__/support/canvas-query-surface'
 import { createTestSessionCore } from '../../__tests__/support/session-core-fixture'
-import { activePanel, selectPanel, sidePanel } from '../shell/state'
+import { selectPanel, sidePanel } from '../shell/state'
 import { endSiteDataTransients, setPin, setProfileLine } from '../data-library/site-transients'
 import type { CanopiFile } from '../../types/design'
 import { signal } from '@preact/signals'
@@ -888,7 +888,6 @@ describe('WorkspaceMapContributions', () => {
       session.dispose()
       endSiteDataTransients()
       sidePanel.value = null
-      activePanel.value = 'canvas'
     }
   })
 })

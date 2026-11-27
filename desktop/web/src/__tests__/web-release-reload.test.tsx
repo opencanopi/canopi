@@ -9,7 +9,7 @@ import type { requestSaveProblemDecision } from '../app/document-session/save-pr
 import { answerSaveProblem, saveProblem } from '../app/document-session/save-problem'
 import { createJsonSessionCodec, createSessionCore, installLiveSessionCore, type SessionCore } from '../app/document-session/live-core'
 import { designSessionStore } from '../app/document-session/store'
-import { activePanel, navigateTo, sidePanel } from '../app/shell/state'
+import { navigateTo, sidePanel } from '../app/shell/state'
 import { locale } from '../app/settings/state'
 import { SaveProblemDialog } from '../components/shared/SaveProblemDialog'
 import { t } from '../i18n'
@@ -279,7 +279,6 @@ describe('the New version: Reload notice in the shell row (2.1-Q83, Q187, M179)'
   let container: HTMLDivElement
   beforeEach(() => {
     locale.value = 'en'
-    activePanel.value = 'canvas'
     sidePanel.value = null
     container = document.createElement('div')
     document.body.appendChild(container)

@@ -1,6 +1,6 @@
 import { STORY_IMAGES_MAX_TOTAL_BYTES } from '../../generated/canopi-design-format'
 import type { CanopiFile, RichTextBlock, Story, StoryImage, StoryStep } from '../../types/design'
-import { normaliseObjectName } from './object-name'
+import { normaliseObjectName } from '../contracts/object-name'
 import { designEmbeddedImageBytes } from '../contracts/views-admission'
 import { editCurrentDesign } from './core'
 

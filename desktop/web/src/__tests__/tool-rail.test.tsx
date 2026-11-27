@@ -19,7 +19,7 @@ import { phoneLayout } from '../app/shell/phone-layout'
 import { toolNamesVisible, usedCanvasTools, snapToGridEnabled } from '../app/settings/state'
 import { currentCanvasTool, setCurrentCanvasSession } from '../canvas/session'
 import { currentCanvasSelection } from '../canvas/session-state'
-import { activePanel, sidePanel } from '../app/shell/state'
+import { sidePanel } from '../app/shell/state'
 import { gridVisible } from '../app/canvas-settings/signals'
 import { createTestCanvasQuerySurface, type TestCanvasQuerySurface } from './support/canvas-query-surface'
 import { appCommandGraphChromeProjection } from '../commands/graph/projections'
@@ -63,7 +63,6 @@ describe('ToolRail', () => {
     toggleGrid.mockReset()
     toggleSnapToGrid.mockReset()
     currentCanvasSelection.value = new Set()
-    activePanel.value = 'canvas'
     sidePanel.value = null
     gridVisible.value = true
     snapToGridEnabled.value = false
@@ -93,7 +92,6 @@ describe('ToolRail', () => {
     container.remove()
     phoneLayout.value = null
     currentCanvasSelection.value = new Set()
-    activePanel.value = 'canvas'
     sidePanel.value = null
     gridVisible.value = true
     snapToGridEnabled.value = false
@@ -214,7 +212,6 @@ describe('ToolRail', () => {
     expect(arm).toHaveBeenCalledWith('line', undefined, undefined)
     expect(currentCanvasTool.value).toBe('line')
     expect(sidePanel.value).toBe('plant-db')
-    expect(activePanel.value).toBe('canvas')
   })
 
   it('moves focus with the arrow keys without choosing a tool (one tab stop)', async () => {

@@ -74,7 +74,6 @@ export interface ShellCommandState {
   readonly hasDesign: boolean
   /** The current Design changed since it was opened or created. */
   readonly revertAvailable: boolean
-  readonly activePanel: Panel
   readonly sidePanel: SidePanel | null
 }
 

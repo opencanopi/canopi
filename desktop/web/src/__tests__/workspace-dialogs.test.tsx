@@ -381,7 +381,7 @@ describe('Workspace shell capabilities', () => {
     aboutCanopiDialogOpen.value = false
 
     const rename = designRenameRequest.value
-    expect(capabilities.renameDesign.isExecutionDisabled({ hasDesign: false, revertAvailable: false, activePanel: 'canvas', sidePanel: null })).toBe(true)
+    expect(capabilities.renameDesign.isExecutionDisabled({ hasDesign: false, revertAvailable: false, sidePanel: null })).toBe(true)
     capabilities.renameDesign.execute()
     expect(designRenameRequest.value).toBe(rename + 1)
 

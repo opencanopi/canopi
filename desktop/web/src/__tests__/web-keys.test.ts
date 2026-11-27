@@ -6,7 +6,7 @@ import { currentCanvasTool, setCurrentCanvasSession } from '../canvas/session'
 import { currentCanvasSelection } from '../canvas/session-state'
 import { placeSearchFocusRequest } from '../app/geocoding/place-search-ui'
 import { keyboardShortcutsDialogOpen } from '../app/shell/dialogs'
-import { activePanel, sidePanel } from '../app/shell/state'
+import { sidePanel } from '../app/shell/state'
 import { singleKeyShortcuts } from '../app/settings/state'
 import { t } from '../i18n'
 import {
@@ -30,7 +30,7 @@ let keys: KeyRouterHandle | null = null
 function installWebKeys(catalog: BrowserShellCatalog = [], os: 'linux' | 'mac' = 'linux'): KeyRouterHandle {
   keys = installWebKeyRouter({
     catalog,
-    readState: () => ({ hasDesign: true, revertAvailable: false, activePanel: 'canvas', sidePanel: null }),
+    readState: () => ({ hasDesign: true, revertAvailable: false, sidePanel: null }),
   }, { os, gestureEvents: false })
   return keys
 }
@@ -52,7 +52,6 @@ describe('Web keys', () => {
     keys = null
     setCurrentCanvasSession(null)
     currentCanvasSelection.value = new Set()
-    activePanel.value = 'canvas'
     sidePanel.value = null
     document.body.innerHTML = ''
     setShortcutPlatform({ os: 'linux' })

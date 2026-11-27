@@ -5,7 +5,7 @@ import type { LidarSamplePointsRequest, LidarSampleSeries } from '../../generate
 import type { GeoPoint } from '../../types/design'
 import { setCurrentCanvasSession } from '../../canvas/session'
 import type { CanvasRuntimeSurfaces } from '../../canvas/runtime/runtime'
-import { activePanel, sidePanel } from '../shell/state'
+import { sidePanel } from '../shell/state'
 import { recentFrontendDiagnostics } from '../problem-report/diagnostics'
 import { resetFrontendDiagnosticsForTests } from '../../failures/ring'
 import {
@@ -491,7 +491,6 @@ describe('Profile this line', () => {
     setCurrentCanvasSession({
       queries: { sessionPlane: signal(PLANE), view: { mode: signal('site') }, getSceneSnapshot: () => scene },
     } as unknown as CanvasRuntimeSurfaces)
-    activePanel.value = 'canvas'
     sidePanel.value = null
 
     profileLineMenu.profile({ kind: 'zone', id: 'line-1' })

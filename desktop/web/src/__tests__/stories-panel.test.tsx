@@ -348,7 +348,7 @@ describe('Stories panel', () => {
     await openMenuItem(button('More actions for this story'), 'delete-story')
     const web = installWebKeyRouter({
       catalog: [],
-      readState: () => ({ hasDesign: true, revertAvailable: false, activePanel: 'canvas', sidePanel: 'stories' }),
+      readState: () => ({ hasDesign: true, revertAvailable: false, sidePanel: 'stories' }),
     })
     try {
       await act(async () => { pressKey({ key: 'z', code: 'KeyZ', ctrlKey: true }) })

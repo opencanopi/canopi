@@ -16,7 +16,7 @@ import { createPdfWorkflow } from '../app/canvas-pdf/workflow'
 import { answerSaveProblem, requestSaveProblemDecision } from '../app/document-session/save-problem'
 import { closeDataDialog, closeDataLibrary, openDataLibrary } from '../app/data-library/library-navigation'
 import { problemReportDialogOpen } from '../app/problem-report/state'
-import { activePanel, sidePanel } from '../app/shell/state'
+import { sidePanel } from '../app/shell/state'
 import { commandPaletteOpen } from '../app/shell/dialogs'
 import { appCommandGraphPanelProjection } from '../commands/graph/projections'
 import { CanvasPdfDialog } from '../components/canvas-pdf/CanvasPdfDialog'
@@ -114,7 +114,6 @@ beforeEach(() => {
   document.body.appendChild(container)
   resetFrontendDiagnosticsForTests()
   vi.spyOn(console, 'error').mockImplementation(() => {})
-  activePanel.value = 'canvas'
   sidePanel.value = null
 })
 

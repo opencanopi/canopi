@@ -64,7 +64,7 @@ describe('Where is your site? and Undo on the Web Edition', () => {
     }))
     keys = installWebKeyRouter({
       catalog: [],
-      readState: () => ({ hasDesign: true, revertAvailable: false, activePanel: 'canvas', sidePanel: null }),
+      readState: () => ({ hasDesign: true, revertAvailable: false, sidePanel: null }),
     })
 
     try {

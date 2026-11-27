@@ -1,4 +1,5 @@
 import type { CanopiFile } from '../../types/design'
+import { normaliseObjectName } from '../contracts/object-name'
 import {
   defaultDesignEditAuthority,
   disposeDefaultDesignEditAuthority,
@@ -23,12 +24,12 @@ export function reconcileCurrentDesign(
 }
 
 export function setDesignName(name: string, label = 'rename'): void {
-  const nextName = name.trim()
-  if (nextName.length === 0) return
+  const normalised = normaliseObjectName(name)
+  if (!normalised.ok) return
   const authority = defaultDesignEditAuthority()
-  if (nextName === authority.readDesignName()) return
+  if (normalised.name === authority.readDesignName()) return
 
-  authority.renameDesign(nextName, label)
+  authority.renameDesign(normalised.name, label)
 }
 
 export function editDesignArray<K extends keyof CanopiFile>(

@@ -5,6 +5,7 @@ import { buildFavoriteFinderSpecies, rankFavoriteSpecies, usePlantFinder } from 
 import {
   writePlantStampDragData,
 } from '../../canvas/stamp-drag-data'
+import { currentCanvasQuerySurface } from '../../canvas/session'
 import type { SpeciesCatalogDetail, SpeciesCatalogDetailView } from '../../app/plant-browser/workbench'
 import { openSetText, t } from '../../i18n'
 import { locale } from '../../app/settings/state'
@@ -35,13 +36,16 @@ interface WebSpeciesCatalogPanelProps {
 
 export function WebSpeciesCatalogPanel({ mode }: WebSpeciesCatalogPanelProps) {
   const [favoriteSearch, setFavoriteSearch] = useState('')
+  const queries = currentCanvasQuerySurface.value
+  void queries?.revision.scene.value
+  const scene = queries?.getSceneSnapshot()
   const favoritesView = speciesCatalogWorkbench.favorites.value
   const sidebar = speciesCatalogWorkbench.sidebar.value
   const detailView = speciesCatalogWorkbench.detail.value
   const isCatalog = mode === 'catalog'
   const finderSpecies = useMemo(
-    () => buildFavoriteFinderSpecies(favoritesView.items),
-    [favoritesView.items],
+    () => buildFavoriteFinderSpecies(favoritesView.items, scene?.plantSpeciesCodes),
+    [favoritesView.items, scene],
   )
   const finder = usePlantFinder(finderSpecies, favoriteSearch)
   const visibleItems = useMemo(

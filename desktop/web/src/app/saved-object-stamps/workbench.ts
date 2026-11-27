@@ -24,6 +24,7 @@ import { currentCanvasQuerySurface, currentCanvasSelection } from '../../canvas/
 import type { CanvasRuntimeSavedObjectStampCapture } from '../../canvas/runtime/app-adapter'
 import { canSaveSelectionAsObjectStamp } from '../../canvas/runtime/interaction/contextual-selection-actions'
 import { armCanvasTool, type ArmFrom } from '../keyboard/arming'
+import { normaliseObjectName } from '../contracts/object-name'
 import { parseSavedObjectStampPayload, SAVED_OBJECT_STAMP_PAYLOAD_VERSION } from '../../canvas/saved-object-stamp-payload'
 import { savedObjectStampRowState } from './row-state'
 import {
@@ -216,8 +217,9 @@ export function createSavedObjectStampWorkbench({
   }
 
   function renameStamp(id: string, name: string): Promise<SavedObjectStamp | null> {
-    const nextName = name.trim()
-    if (nextName.length === 0 || needsNewer(id)) return Promise.resolve(null)
+    const normalised = normaliseObjectName(name)
+    if (!normalised.ok || needsNewer(id)) return Promise.resolve(null)
+    const nextName = normalised.name
     return queue.enqueue(null, async (admittedLifetime) => {
       const renamed = await renameSavedObjectStamp(id, nextName)
       if (!queue.isCurrent(admittedLifetime)) return null

@@ -910,26 +910,6 @@
     ]
   },
   {
-    "name": "GeoResult",
-    "fields": [
-      {
-        "name": "display_name",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "lat",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "lon",
-        "flatten": false,
-        "skip": false
-      }
-    ]
-  },
-  {
     "name": "LastView",
     "fields": [
       {

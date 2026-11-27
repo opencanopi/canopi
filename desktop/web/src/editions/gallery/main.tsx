@@ -23,7 +23,7 @@ import { StoryPresenter } from '../../components/stories/StoryPresenter'
 import { notebookWorkbench } from './notebook-fixture'
 import { WebSpeciesCatalogPanel, WebSpeciesKeyPanel } from '../web/WebSpeciesCatalogPanel'
 import { WebLayersPanel } from '../web/WebLayersPanel'
-import { activePanel, navigateTo, sidePanel } from '../../app/shell/state'
+import { navigateTo, sidePanel } from '../../app/shell/state'
 import { applyHealthSnapshot } from '../../failures/health'
 import { installHealthNotices } from '../../failures/health-notices'
 import { locale, mapLayers, sidePanelWidth, theme, type MapLayersState } from '../../app/settings/state'
@@ -496,7 +496,7 @@ const galleryWebCatalog = createBrowserShellCatalog(createBrowserShellCapabiliti
 function galleryWebProjection() {
   return createBrowserShellCommandProjection({
     catalog: galleryWebCatalog,
-    state: { hasDesign: true, revertAvailable: false, activePanel: activePanel.value, sidePanel: sidePanel.value },
+    state: { hasDesign: true, revertAvailable: false, sidePanel: sidePanel.value },
     canvas: workspaceCanvasCommandProjection.value,
   })
 }

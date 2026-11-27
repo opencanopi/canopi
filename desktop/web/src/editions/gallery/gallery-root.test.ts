@@ -4,7 +4,6 @@ import { join, relative, resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { h, render } from 'preact'
 import { useRef } from 'preact/hooks'
-import { activePanel } from '../../app/shell/state'
 import {
   GALLERY_LOCATION_STATES,
   GALLERY_SURFACES,
@@ -28,7 +27,6 @@ describe('gallery root helpers (canopi-f47t.52.233)', () => {
     for (const surface of Object.keys(GALLERY_SURFACES) as GallerySurface[]) {
       expect(parseGallerySurface(surface)).toBe(surface)
       selectGalleryPanel(surface)
-      expect(typeof activePanel.value).toBe('string')
     }
 
     expect(parseGalleryLocationState(null)).toBe('following')

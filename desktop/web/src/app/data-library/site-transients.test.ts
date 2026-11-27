@@ -7,7 +7,7 @@ import { openTestDesign, replaceCurrentDesignState } from '../../__tests__/suppo
 import { runEscape } from '../keyboard/escape-chain'
 import type { KeyboardEventLike } from '../keyboard/key-chord'
 import type { FocusClass } from '../keyboard/target-class'
-import { activePanel, selectPanel, sidePanel } from '../shell/state'
+import { selectPanel, sidePanel } from '../shell/state'
 import {
   clearProfile,
   endSiteDataTransients,
@@ -56,7 +56,6 @@ describe('the Site data transients (canopi-f47t.42, U49)', () => {
     endSiteDataTransients()
     setCurrentCanvasSession(null)
     sidePanel.value = null
-    activePanel.value = 'canvas'
   })
 
   it('holds the pin and the profile line in lon/lat while Site data is the open panel', () => {

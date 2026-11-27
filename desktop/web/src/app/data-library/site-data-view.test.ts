@@ -3,7 +3,7 @@ import { librarySnapshot, slopeItem, sourceItem } from '../../__tests__/support/
 import type { CanopiFile } from '../../types/design'
 import { designSessionStore } from '../document-session/store'
 import { replaceCurrentDesignState } from '../../__tests__/support/design-session-state'
-import { activePanel, selectPanel, sidePanel } from '../shell/state'
+import { selectPanel, sidePanel } from '../shell/state'
 import { lidarLibrary } from './library-store'
 import { showInSiteData, siteDataViewFor } from './site-data-view'
 import { endSiteDataTransients, pin, profileLine, setPin, setProfileLine } from './site-transients'
@@ -34,7 +34,6 @@ describe('the Site data view state (canopi-f47t.42)', () => {
   afterEach(() => {
     endSiteDataTransients()
     sidePanel.value = null
-    activePanel.value = 'canvas'
   })
 
   it('is one owner per Design session, starting with nothing open, collapsed or filtered', () => {

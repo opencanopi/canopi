@@ -3,7 +3,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { signal } from '@preact/signals'
 import { currentCanvasSelection } from '../canvas/session-state'
-import { activePanel, sidePanel } from '../app/shell/state'
+import { sidePanel } from '../app/shell/state'
 import * as documentActions from '../app/document-session/actions'
 import { commandPaletteOpen } from '../commands/registry'
 import type { KeyRouterHandle } from '../app/keyboard/key-router'
@@ -31,7 +31,6 @@ describe('Desktop keys', () => {
   let keys: KeyRouterHandle
 
   beforeEach(() => {
-    activePanel.value = 'canvas'
     sidePanel.value = null
     currentCanvasSelection.value = new Set()
     setCurrentCanvasSession(null)
@@ -139,12 +138,10 @@ describe('Desktop keys', () => {
   it('keeps panel shortcuts aligned with the command registry mapping', () => {
     window.dispatchEvent(new KeyboardEvent('keydown', { key: '4', ctrlKey: true }))
 
-    expect(activePanel.value).toBe('canvas')
     expect(sidePanel.value).toBe('plant-db')
 
     window.dispatchEvent(new KeyboardEvent('keydown', { key: '4', ctrlKey: true }))
 
-    expect(activePanel.value).toBe('canvas')
     expect(sidePanel.value).toBe(null)
   })
 

@@ -49,7 +49,7 @@ import { currentDesign, designSessionStore } from '../app/document-session/store
 import { dataDialog, libraryView } from '../app/data-library/library-navigation'
 import { showInSiteData, siteDataViewFor } from '../app/data-library/site-data-view'
 import { pin, setPin, unpin } from '../app/data-library/site-transients'
-import { activePanel, sidePanel } from '../app/shell/state'
+import { sidePanel } from '../app/shell/state'
 import { locale } from '../app/settings/state'
 import type { LibraryItemSummary } from '../generated/contracts'
 import type { Signal } from '@preact/signals'
@@ -662,7 +662,6 @@ describe('pending work, failures and the Site data eye', () => {
 
 describe('the pinned point', () => {
   it('shows the pin\'s coordinates with Unpin, and otherwise a hint while a row can show a value', async () => {
-    activePanel.value = 'canvas'
     setDesign([{ kind: 'Source', id: 'a', order: 0 }])
     mount()
     expect(container.textContent).toContain('Point at the map to read values · click to pin')

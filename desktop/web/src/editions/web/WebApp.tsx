@@ -1,6 +1,6 @@
 import type { ComponentChildren } from "preact";
 import { useEffect, useMemo } from "preact/hooks";
-import { activePanel, sidePanel } from "../../app/shell/state";
+import { sidePanel } from "../../app/shell/state";
 import { keyboardShortcutsDialogOpen } from "../../app/shell/dialogs";
 import { workspaceCanvasCommandProjection } from "../../app/workspace-commands/canvas-actions";
 import { designSessionStore } from "../../app/document-session/store";
@@ -66,7 +66,6 @@ export function createWebShellShortcutSource(catalog: BrowserShellCatalog): WebS
     readState: () => ({
       hasDesign: designSessionStore.hasCurrentDesign(),
       revertAvailable: designRevertAvailable.peek(),
-      activePanel: activePanel.peek(),
       sidePanel: sidePanel.peek(),
     }),
   };
@@ -90,7 +89,6 @@ export function WebApp({
     state: {
       hasDesign,
       revertAvailable: designRevertAvailable.value,
-      activePanel: activePanel.value,
       sidePanel: sidePanel.value,
     },
     canvas: workspaceCanvasCommandProjection.value,

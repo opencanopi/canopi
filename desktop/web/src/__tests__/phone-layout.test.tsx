@@ -23,7 +23,7 @@ import {
   toolRailRoom,
   visibleMapFrame,
 } from '../app/shell/visible-map-area'
-import { activePanel, navigateTo, selectPanel, sidePanel, type SidePanel } from '../app/shell/state'
+import { navigateTo, selectPanel, sidePanel, type SidePanel } from '../app/shell/state'
 import { locale } from '../app/settings/state'
 import type { PanelRailCommand } from '../components/shared/PanelRail'
 import { PHONE_SHEET_TABS, PhoneSheet } from '../components/shared/PhoneSheet'
@@ -70,7 +70,6 @@ describe('phone layout', () => {
     document.body.innerHTML = ''
     document.body.appendChild(container)
     locale.value = 'en'
-    activePanel.value = 'canvas'
     sidePanel.value = null
     phoneLayout.value = null
     phoneSheetOpenHeight.value = 'half'

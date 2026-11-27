@@ -7,7 +7,7 @@ import { PanelRail } from '../components/shared/PanelRail'
 import { railVisibleCount } from '../components/shared/rail-fit'
 import { panelRailRoom } from '../app/shell/visible-map-area'
 import { DesktopPanelRail } from '../components/panels/DesktopPanelRail'
-import { activePanel, sidePanel } from '../app/shell/state'
+import { sidePanel } from '../app/shell/state'
 import { locale } from '../app/settings/state'
 import { appCommandGraphPanelProjection } from '../commands/registry'
 import { designSessionFixture } from './support/design-session-state'
@@ -27,7 +27,6 @@ describe('Panel rail', () => {
     document.body.innerHTML = ''
     document.body.appendChild(container)
     locale.value = 'en'
-    activePanel.value = 'canvas'
     sidePanel.value = null
     designSessionFixture.file = {
       version: 9,
@@ -154,7 +153,6 @@ describe('Panel rail', () => {
       render(<ProjectedRail />, container)
     })
 
-    expect(activePanel.value).toBe('canvas')
     expect(sidePanel.value).toBe('plant-db')
     expect(panelButton('Plant catalog').disabled).toBe(false)
     expect(panelButton('Plant catalog').getAttribute('aria-expanded')).toBe('true')
@@ -165,7 +163,6 @@ describe('Panel rail', () => {
       panelButton('Plant catalog').dispatchEvent(new MouseEvent('click', { bubbles: true }))
     })
 
-    expect(activePanel.value).toBe('canvas')
     expect(sidePanel.value).toBe(null)
     expect(panelButton('Plant catalog').disabled).toBe(false)
     expect(panelButton('Plant catalog').getAttribute('aria-expanded')).toBe('false')
@@ -183,7 +180,6 @@ describe('Panel rail', () => {
       panelButton('Plant catalog').dispatchEvent(new MouseEvent('click', { bubbles: true }))
     })
 
-    expect(activePanel.value).toBe('canvas')
     expect(sidePanel.value).toBe('plant-db')
     expect(panelButton('Plant catalog').getAttribute('aria-expanded')).toBe('true')
 
@@ -191,7 +187,6 @@ describe('Panel rail', () => {
       panelButton('Plant catalog').dispatchEvent(new MouseEvent('click', { bubbles: true }))
     })
 
-    expect(activePanel.value).toBe('canvas')
     expect(sidePanel.value).toBe(null)
     expect(panelButton('Plant catalog').getAttribute('aria-expanded')).toBe('false')
   })

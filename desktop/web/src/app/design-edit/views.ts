@@ -1,4 +1,5 @@
 import type { SavedView } from '../../types/design'
+import { normaliseObjectName } from '../contracts/object-name'
 import { editCurrentDesign } from './core'
 
 // Saved views are Design Edit data (ADR 0011): every command dirties the Design
@@ -53,8 +54,9 @@ export function recaptureSavedView(id: string, capture: SavedView): void {
 }
 
 export function renameSavedView(id: string, name: string): void {
-  const nextName = name.trim()
-  if (nextName.length === 0) return
+  const normalised = normaliseObjectName(name)
+  if (!normalised.ok) return
+  const nextName = normalised.name
   editCurrentDesign((design) => {
     const views = design.views ?? []
     const index = views.findIndex((view) => view.id === id)

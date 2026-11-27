@@ -26,7 +26,7 @@ vi.mock('../editions/web/WebCanvasWorkspace', async () => {
 
 import { createJsonSessionCodec, createSessionCore, installLiveSessionCore, type SessionCore } from '../app/document-session/live-core'
 import { designSessionStore } from '../app/document-session/store'
-import { activePanel, navigateTo, sidePanel } from '../app/shell/state'
+import { navigateTo, sidePanel } from '../app/shell/state'
 import { closeSettingsDialog } from '../app/shell/dialogs'
 import { locale, theme } from '../app/settings/state'
 import {
@@ -110,7 +110,6 @@ function shellCommandProjection({
   readonly downloadCanopiEnabled?: boolean
 } = {}) {
   return projectBrowserShellForTest({
-    currentPanel: activePanel.value,
     currentSidePanel: sidePanel.value,
     downloadCanopiEnabled,
     revertAvailable: false,
@@ -157,7 +156,6 @@ describe('Web Edition Browser App Shell', () => {
     container = document.createElement('div')
     document.body.innerHTML = ''
     document.body.appendChild(container)
-    activePanel.value = 'canvas'
     sidePanel.value = null
     locale.value = 'en'
     theme.value = 'light'
@@ -301,7 +299,6 @@ describe('Web Edition Browser App Shell', () => {
       panelBarButton(container, 'nav.plantDb').click()
     })
 
-    expect(activePanel.value).toBe('canvas')
     expect(sidePanel.value).toBe('plant-db')
   })
 
@@ -405,7 +402,6 @@ describe('Web Edition Browser App Shell', () => {
       navigate: vi.fn(),
     }
     const commandProjection = projectBrowserShellForTest({
-      currentPanel: 'canvas',
       currentSidePanel: null,
       downloadCanopiEnabled: true,
       revertAvailable: false,

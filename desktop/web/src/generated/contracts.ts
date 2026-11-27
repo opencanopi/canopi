@@ -681,12 +681,6 @@ export type GeoPointV10 = {
 	lat: number,
 };
 
-export type GeoResult = {
-	display_name: string,
-	lat: number,
-	lon: number,
-};
-
 // Identifier of an object group in a Design scene.
 export type GroupId = string & { readonly __brand: "GroupId" };
 
@@ -2737,6 +2731,8 @@ export type ZoneV10 = {
 	// Optional zone notes.
 	notes?: string | null,
 };
+
+export const GEOCODER_IDENTIFIED_HOSTS = ["nominatim.openstreetmap.org"] as const
 
 export const REPORT_SECTIONS: readonly ReportSection[] = [
   {

@@ -29,7 +29,7 @@ import {
   saveCurrentDesign,
 } from '../../app/document-session/actions'
 import { openCommandPalette } from '../../app/shell/dialogs'
-import { activePanel, navigateTo, sidePanel, type Panel } from '../../app/shell/state'
+import { navigateTo, sidePanel, type Panel } from '../../app/shell/state'
 import { openProblemReportDialog } from '../../app/problem-report/submission'
 import { reportFailure } from '../../failures/report'
 import { exportCurrentBudgetCsv } from '../../app/budget/export'
@@ -106,7 +106,6 @@ export function readAppCommandState(): AppCommandState {
   return {
     hasDesign: currentDesign.value !== null,
     revertAvailable: designRevertAvailable.value,
-    activePanel: activePanel.value,
     sidePanel: sidePanel.value,
   }
 }

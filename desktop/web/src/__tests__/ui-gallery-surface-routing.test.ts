@@ -1,12 +1,11 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { activePanel, sidePanel } from '../app/shell/state'
+import { sidePanel } from '../app/shell/state'
 import {
   parseGallerySurface,
   selectGalleryPanel,
 } from '../editions/gallery/surface-routing'
 
 beforeEach(() => {
-  activePanel.value = 'canvas'
   sidePanel.value = null
 })
 
@@ -15,7 +14,6 @@ describe('UI gallery surface routing', () => {
     selectGalleryPanel('calendar')
     selectGalleryPanel('calendar-expanded')
 
-    expect(activePanel.value).toBe('canvas')
     expect(sidePanel.value).toBe('calendar')
   })
 

@@ -3,7 +3,7 @@
 import { afterEach, beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest'
 import { signal } from '@preact/signals'
 import { currentCanvasSelection } from '../canvas/session-state'
-import { activePanel, sidePanel } from '../app/shell/state'
+import { sidePanel } from '../app/shell/state'
 import { gridVisible } from '../app/canvas-settings/signals'
 import { singleKeyShortcuts, theme, snapToGridEnabled } from '../app/settings/state'
 import { currentCanvasTool, setCurrentCanvasSession } from '../canvas/session'
@@ -74,7 +74,6 @@ describe('command registry canvas tool switching', () => {
 
   beforeEach(() => {
     keys = installDesktopKeys()
-    activePanel.value = 'canvas'
     sidePanel.value = null
     setCurrentCanvasSession(null)
     designSessionFixture.file = null
@@ -105,7 +104,6 @@ describe('command registry canvas tool switching', () => {
 
     getCommand('canvas.tool.hand').action()
 
-    expect(activePanel.value).toBe('canvas')
     expect(sidePanel.value).toBe(null)
     expect(arm).toHaveBeenCalledWith('hand', undefined, undefined)
     expect(currentCanvasTool.value).toBe('hand')
@@ -118,7 +116,6 @@ describe('command registry canvas tool switching', () => {
     sidePanel.value = 'plant-db'
     getCommand('canvas.tool.ellipse').action()
 
-    expect(activePanel.value).toBe('canvas')
     expect(sidePanel.value).toBe('plant-db')
     expect(arm).toHaveBeenCalledWith('ellipse', undefined, undefined)
     expect(currentCanvasTool.value).toBe('ellipse')
@@ -126,7 +123,6 @@ describe('command registry canvas tool switching', () => {
     sidePanel.value = null
     getCommand('canvas.tool.hand').action()
 
-    expect(activePanel.value).toBe('canvas')
     expect(sidePanel.value).toBe(null)
     expect(arm).toHaveBeenCalledWith('hand', undefined, undefined)
     expect(currentCanvasTool.value).toBe('hand')
@@ -139,7 +135,6 @@ describe('command registry canvas tool switching', () => {
     getCommand('canvas.tool.ellipse').action()
 
     expect(getCommand('canvas.tool.ellipse').shortcut).toBe('E')
-    expect(activePanel.value).toBe('canvas')
     expect(arm).toHaveBeenCalledWith('ellipse', undefined, undefined)
     expect(currentCanvasTool.value).toBe('ellipse')
   })
@@ -151,7 +146,6 @@ describe('command registry canvas tool switching', () => {
     getCommand('canvas.tool.polygon').action()
 
     expect(getCommand('canvas.tool.polygon').shortcut).toBe('Z')
-    expect(activePanel.value).toBe('canvas')
     expect(arm).toHaveBeenCalledWith('polygon', undefined, undefined)
     expect(currentCanvasTool.value).toBe('polygon')
   })
@@ -163,7 +157,6 @@ describe('command registry canvas tool switching', () => {
     getCommand('canvas.tool.line').action()
 
     expect(getCommand('canvas.tool.line').shortcut).toBe('L')
-    expect(activePanel.value).toBe('canvas')
     expect(arm).toHaveBeenCalledWith('line', undefined, undefined)
     expect(currentCanvasTool.value).toBe('line')
   })
@@ -174,7 +167,6 @@ describe('command registry canvas tool switching', () => {
 
     getCommand('canvas.tool.measurementGuide').action()
 
-    expect(activePanel.value).toBe('canvas')
     expect(arm).toHaveBeenCalledWith('measurement-guide', undefined, undefined)
     expect(currentCanvasTool.value).toBe('measurement-guide')
     expect(appCommandGraphToolbarProjection.value.toolGroups.flatMap((group) => group.tools).some((tool) =>
@@ -189,7 +181,6 @@ describe('command registry canvas tool switching', () => {
 
     getCommand('canvas.tool.objectStamp').action()
 
-    expect(activePanel.value).toBe('canvas')
     expect(arm).toHaveBeenCalledWith('object-stamp', undefined, undefined)
     expect(currentCanvasTool.value).toBe('object-stamp')
   })
@@ -201,7 +192,6 @@ describe('command registry canvas tool switching', () => {
     getCommand('canvas.tool.plantSpacing').action()
 
     expect(getCommand('canvas.tool.plantSpacing').shortcut).toBe('W')
-    expect(activePanel.value).toBe('canvas')
     expect(arm).toHaveBeenCalledWith('plant-spacing', undefined, undefined)
     expect(currentCanvasTool.value).toBe('plant-spacing')
   })
@@ -235,7 +225,6 @@ describe('command registry canvas tool switching', () => {
   it('drops a tool command without priming mirror state when no session is mounted (2.1-Q41)', () => {
     getCommand('canvas.tool.text').action()
 
-    expect(activePanel.value).toBe('canvas')
     expect(currentCanvasTool.value).toBe('select')
   })
 
@@ -411,19 +400,15 @@ describe('command registry canvas tool switching', () => {
       active: false,
     })
     runPanelCommand('nav.designNotebook')
-    expect(activePanel.value).toBe('canvas')
     expect(sidePanel.value).toBe('design-notebook')
     expect(panelCommand('design-notebook')).toMatchObject({ disabled: false, active: true })
     runPanelCommand('nav.designNotebook')
-    expect(activePanel.value).toBe('canvas')
     expect(sidePanel.value).toBe(null)
 
     runPanelCommand('nav.plantDb')
-    expect(activePanel.value).toBe('canvas')
     expect(sidePanel.value).toBe('plant-db')
     expect(panelCommand('plant-db')).toMatchObject({ disabled: false, active: true })
     runPanelCommand('nav.plantDb')
-    expect(activePanel.value).toBe('canvas')
     expect(sidePanel.value).toBe(null)
 
     designSessionFixture.file = {
@@ -447,12 +432,10 @@ describe('command registry canvas tool switching', () => {
 
     expect(panelCommand('plant-db')).toMatchObject({ disabled: false, active: false })
     runPanelCommand('nav.plantDb')
-    expect(activePanel.value).toBe('canvas')
     expect(sidePanel.value).toBe('plant-db')
     expect(panelCommand('plant-db')).toMatchObject({ disabled: false, active: true })
 
     runPanelCommand('nav.plantDb')
-    expect(activePanel.value).toBe('canvas')
     expect(sidePanel.value).toBe(null)
   })
 
@@ -535,7 +518,6 @@ describe('command registry canvas tool switching', () => {
     settingToggle('grid').action()
     settingToggle('snap').action()
 
-    expect(activePanel.value).toBe('canvas')
     expect(arm).toHaveBeenCalledWith('ellipse', undefined, undefined)
     expect(currentCanvasTool.value).toBe('ellipse')
     expect(undo).toHaveBeenCalledTimes(1)

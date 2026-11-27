@@ -16,9 +16,7 @@ import type { ToolId as CommandTableToolId } from './tools'
 
 const STATE: ShellCommandState = {
   hasDesign: true,
-  revertAvailable: false,
-  activePanel: 'canvas',
-  sidePanel: null,
+  revertAvailable: false, sidePanel: null,
 }
 
 function isRouted(keymap: readonly KeymapRow[], commandId: string, canonicalShortcut: string): boolean {

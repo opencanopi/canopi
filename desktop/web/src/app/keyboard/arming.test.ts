@@ -26,7 +26,7 @@ import type { SavedObjectStamp } from '../../types/saved-object-stamps'
 import { installWebKeyRouter } from '../../editions/web/browser-shell-commands'
 import { createSavedObjectStampWorkbench } from '../saved-object-stamps/workbench'
 import { singleKeyShortcuts } from '../settings/state'
-import { activePanel, sidePanel } from '../shell/state'
+import { sidePanel } from '../shell/state'
 import { workspaceCanvasCommandProjection } from '../workspace-commands/canvas-actions'
 import { armCanvasTool } from './arming'
 import { focusOwner } from './focus-owner'
@@ -102,7 +102,6 @@ beforeEach(() => {
   document.body.append(host, elsewhere, mount)
   armSpy = vi.fn()
   releases = [focusOwner.registerRegion('map', host)]
-  activePanel.value = 'canvas'
   sidePanel.value = null
   singleKeyShortcuts.value = true
   connectCanvas()
@@ -134,10 +133,8 @@ describe('armCanvasTool', () => {
 
   it('selects the canvas panel for the command and Start card callers, and drops the tool without a canvas (2.1-Q41)', () => {
     setCurrentCanvasSession(null)
-    activePanel.value = 'plant-db'
     elsewhere.focus()
     expect(armCanvasTool('polygon', { from: 'start-card' })).toBe(false)
-    expect(activePanel.value).toBe('canvas')
     expect(currentCanvasTool.value).toBe('select')
     expect(armSpy).not.toHaveBeenCalled()
     expect(document.activeElement).toBe(elsewhere)
@@ -285,7 +282,7 @@ describe('armCanvasTool', () => {
 
     const web = installWebKeyRouter({
       catalog: [],
-      readState: () => ({ hasDesign: true, revertAvailable: false, activePanel: 'canvas', sidePanel: null }),
+      readState: () => ({ hasDesign: true, revertAvailable: false, sidePanel: null }),
     }, TEST_KEY_PLATFORM)
     try {
       elsewhere.dispatchEvent(new KeyboardEvent('keydown', { key: 't', code: 'KeyT', bubbles: true, cancelable: true }))

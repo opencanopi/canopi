@@ -54,7 +54,7 @@ import { lidarLibrary } from '../app/data-library/library-store'
 import { profileCopyText, profileHover, setProfileCursor, siteProfile } from '../app/data-library/profile'
 import { endSiteDataTransients, profileLine, setProfileLine } from '../app/data-library/site-transients'
 import { siteSampler } from '../app/data-library/sampler'
-import { activePanel, selectPanel, sidePanel } from '../app/shell/state'
+import { selectPanel, sidePanel } from '../app/shell/state'
 import { setCurrentCanvasSession } from '../canvas/session'
 import { createSessionPlane } from '../geo/session-plane'
 import type { CanvasRuntimeSurfaces } from '../canvas/runtime/runtime'
@@ -105,7 +105,6 @@ beforeEach(async () => {
   sampling.answer = analyticSite
   sampling.requests = []
   setCurrentCanvasSession({ queries: { sessionPlane: signal(PLANE), view: { mode: signal('site') } } } as unknown as CanvasRuntimeSurfaces)
-  activePanel.value = 'canvas'
   selectPanel('site-data')
   lidarLibrary.value = librarySnapshot([
     sourceItem('mnt', 'MNT · IGN', { resolution_m: 0.5 }),
