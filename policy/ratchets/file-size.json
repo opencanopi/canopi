@@ -314,9 +314,6 @@
     "desktop/web/src/maplibre/view-snapshot-map.ts": {
       "count": 651
     },
-    "desktop/web/src/web/browser-app-data.ts": {
-      "count": 628
-    },
     "scripts/generate-web-catalog.py": {
       "count": 1061
     },

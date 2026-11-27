@@ -271,6 +271,49 @@ describe('platform/design-home.browser move & tab safety (#826 & #848 B1-B3, SF1
     expect((JSON.parse(secondAfter.content) as { name: string }).name).toBe('2.0 Edit 2')
     expect(storage.getItem(LEGACY_DRAFTS_KEY)).toBe(secondLegacyRaw)
     store.dispose()
+
+    // R1-S2: rotated copy id also excludes every copyId tracked in nextCopies (even if its row was deleted).
+    const idbS2 = new MiniFakeIdb()
+    const storageS2 = makeMemoryStorage()
+    storageS2.setItem(LEGACY_DRAFTS_KEY, legacyPayload([
+      { id: 'a', name: 'A initial' },
+      { id: 'a-2', name: 'A2 initial' },
+    ]))
+    const copiesS2: Array<{ legacyId: string; copyId: string; name: string }> = []
+    const storeS2 = createBrowserDesignHomeStore({
+      factory: idbS2.factory(),
+      legacyStorage: storageS2,
+      designCore: makeFakeDesignCore(),
+      onOlderTabCopy: (c) => copiesS2.push(c),
+    })
+    await storeS2.open()
+    storageS2.setItem(LEGACY_DRAFTS_KEY, legacyPayload([
+      { id: 'a', name: 'A 2.0 edit 1' },
+      { id: 'a-2', name: 'A2 2.0 edit 1' },
+    ]))
+    await storeS2.syncLegacyStorage()
+    expect(copiesS2.map((c) => c.copyId).sort()).toEqual(['older-tab-a', 'older-tab-a-2'])
+    // User deletes older-tab-a-2 and edits older-tab-a in 2.1.
+    expect(await storeS2.deleteDraft('older-tab-a-2' as never)).toEqual({ ok: true })
+    expect(await storeS2.write('older-tab-a', v10Bytes('A copy 2.1 edit'), '1')).toEqual({ kind: 'written', version: '2' })
+    // Next 2.0 edit of `a` must rotate past `older-tab-a-2` (tracked by `a-2` in nextCopies) to `older-tab-a-3`.
+    storageS2.setItem(LEGACY_DRAFTS_KEY, legacyPayload([
+      { id: 'a', name: 'A 2.0 edit 2' },
+      { id: 'a-2', name: 'A2 2.0 edit 1' },
+    ]))
+    await storeS2.syncLegacyStorage()
+    const rotated = copiesS2.at(-1)!
+    expect(rotated.legacyId).toBe('a')
+    expect(rotated.copyId).toBe('older-tab-a-3')
+    // Subsequent 2.0 edit of `a-2` uses `older-tab-a-2` and never clobbers `a`'s rotated copy.
+    storageS2.setItem(LEGACY_DRAFTS_KEY, legacyPayload([
+      { id: 'a', name: 'A 2.0 edit 2' },
+      { id: 'a-2', name: 'A2 2.0 edit 2' },
+    ]))
+    await storeS2.syncLegacyStorage()
+    expect((JSON.parse((idbS2.stores.get('drafts')!.get('older-tab-a-3') as StoredDraftRecord).content) as { name: string }).name).toBe('A 2.0 edit 2')
+    expect((JSON.parse((idbS2.stores.get('drafts')!.get('older-tab-a-2') as StoredDraftRecord).content) as { name: string }).name).toBe('A2 2.0 edit 2')
+    storeS2.dispose()
   })
 
   it('canopi-f47t.52.50 (SF1, SF2, SF3): heartbeat keeps live markers fresh past stale window, reloadTabId recovers reload without duplicate-tab collision, and pagehide blocks reopen', async () => {
@@ -388,5 +431,95 @@ describe('platform/design-home.browser move & tab safety (#826 & #848 B1-B3, SF1
     expect(listed.map((d) => d.id)).toEqual(['draft-hedge', 'older-tab-draft-orchard', 'draft-orchard'])
     expect(copies).toEqual([])
     store.dispose()
+  })
+
+  it('canopi-f47t.52.50 (R1-S1, R2-3, R2-3b, R2-7): atomic swap older-tab copy, repeated re-stages without false split, verify skip on concurrent 2.1 save, and pageshow legacy resync', async () => {
+    const idb = new MiniFakeIdb()
+    const storage = makeMemoryStorage()
+    storage.setItem(LEGACY_DRAFTS_KEY, legacyPayload([{ id: 'draft-r', name: 'V1' }]))
+    const copies: Array<{ legacyId: string; copyId: string; name: string }> = []
+    const failures: unknown[] = []
+    let readBackCount = 0
+    idb.onReadBack = () => {
+      readBackCount += 1
+      // Each runInitialLegacyMove runs 2 readonly getAlls (pre-hash + verify).
+      // Mutate on verify (#2 and #4) so swap aborts twice and re-stages V1 -> V2 -> V3 (R2-3).
+      if (readBackCount === 2) {
+        storage.setItem(LEGACY_DRAFTS_KEY, legacyPayload([{ id: 'draft-r', name: 'V2' }]))
+      } else if (readBackCount === 4) {
+        storage.setItem(LEGACY_DRAFTS_KEY, legacyPayload([{ id: 'draft-r', name: 'V3' }]))
+      }
+    }
+    const store = createBrowserDesignHomeStore({
+      factory: idb.factory(),
+      legacyStorage: storage,
+      designCore: makeFakeDesignCore(),
+      onOlderTabCopy: (c) => copies.push(c),
+      onMigrationFailed: (e) => failures.push(e),
+    })
+    await store.open()
+    expect((idb.stores.get('meta')!.get('move') as DraftMoveMetaRecord).state).toBe('copied')
+    await store.syncLegacyStorage()
+    expect((idb.stores.get('meta')!.get('move') as DraftMoveMetaRecord).state).toBe('copied')
+    expect((idb.stores.get('drafts')!.get('draft-r') as StoredDraftRecord).version).toBe(2)
+    await store.syncLegacyStorage()
+    expect((idb.stores.get('meta')!.get('move') as DraftMoveMetaRecord).state).toBe('live')
+    // R2-3: repeated 2.0 re-stages bumped version 1 -> 2 -> 3 without creating any needless older-tab copy.
+    const finalRow = idb.stores.get('drafts')!.get('draft-r') as StoredDraftRecord
+    expect(finalRow.version).toBe(3)
+    expect((JSON.parse(finalRow.content) as { name: string }).name).toBe('V3')
+    expect(copies).toEqual([])
+    expect(failures).toEqual([])
+
+    // R2-7: a 2.0 edit made while hidden in bfcache is synced automatically on reopenAfterPageShow.
+    store.closeForPageHide()
+    storage.setItem(LEGACY_DRAFTS_KEY, legacyPayload([{ id: 'draft-r', name: 'V4 while hidden' }]))
+    await store.reopenAfterPageShow()
+    expect(copies).toHaveLength(1)
+    expect(copies[0]!.name).toBe('V4 while hidden')
+    store.dispose()
+
+    // R2-3b & R1-S1: a 2.1 save landing between stage and verify does NOT trigger onMigrationFailed,
+    // and if a swap fails its CAS, a later sync still produces the older-tab copy atomically at go-live.
+    const idb2 = new MiniFakeIdb()
+    const storage2 = makeMemoryStorage()
+    storage2.setItem(LEGACY_DRAFTS_KEY, legacyPayload([{ id: 'draft-c', name: 'C1' }]))
+    const copies2: Array<{ legacyId: string; copyId: string; name: string }> = []
+    const failures2: unknown[] = []
+    let readBackCount2 = 0
+    idb2.onReadBack = () => {
+      readBackCount2 += 1
+      // Fire on the verify read-back (#2, right after staging) to simulate a concurrent 2.1 save
+      // advancing version to 2 before verify, plus another tab bumping `meta.rev` so the first swap CAS bails out.
+      if (readBackCount2 !== 2) return
+      const cur = idb2.stores.get('drafts')!.get('draft-c') as StoredDraftRecord
+      idb2.stores.get('drafts')!.set('draft-c', {
+        ...cur,
+        version: 2,
+        name: 'C1 edited in 2.1',
+        content: new TextDecoder().decode(v10Bytes('C1 edited in 2.1')),
+      })
+      const meta = idb2.stores.get('meta')!.get('move') as DraftMoveMetaRecord
+      idb2.stores.get('meta')!.set('move', { ...meta, rev: meta.rev + 1 })
+    }
+    const store2 = createBrowserDesignHomeStore({
+      factory: idb2.factory(),
+      legacyStorage: storage2,
+      designCore: makeFakeDesignCore(),
+      onOlderTabCopy: (c) => copies2.push(c),
+      onMigrationFailed: (e) => failures2.push(e),
+    })
+    await store2.open()
+    expect(failures2, 'R2-3b: concurrent 2.1 save between stage and verify must not report onMigrationFailed').toEqual([])
+    expect((idb2.stores.get('meta')!.get('move') as DraftMoveMetaRecord).state).toBe('copied')
+
+    // 2.0 also edits draft-c while copied; the retry sync goes live and atomically creates the older-tab copy.
+    storage2.setItem(LEGACY_DRAFTS_KEY, legacyPayload([{ id: 'draft-c', name: 'C2 from 2.0' }]))
+    await store2.syncLegacyStorage()
+    expect((idb2.stores.get('meta')!.get('move') as DraftMoveMetaRecord).state).toBe('live')
+    expect(copies2).toHaveLength(1)
+    expect(copies2[0]!.name).toBe('C2 from 2.0')
+    expect((JSON.parse((idb2.stores.get('drafts')!.get('draft-c') as StoredDraftRecord).content) as { name: string }).name).toBe('C1 edited in 2.1')
+    store2.dispose()
   })
 })

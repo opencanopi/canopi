@@ -150,13 +150,12 @@ export async function downloadWebCanopi(): Promise<void> {
 export async function downloadWebDraft(id: string): Promise<void> {
   const core = editionPorts().designCore
   let rawBytes: Uint8Array | null = null
-  if (!webStorageUnchecked.peek() && hasEditionPorts()) {
-    const read = await editionPorts().designHome.read(id)
-    if (read.kind === 'present') rawBytes = new Uint8Array(read.bytes)
-  }
-  if (!rawBytes) {
+  if (webStorageUnchecked.peek()) {
     const raw = browserAppDataStore.loadRawDraft(id)
     if (raw) rawBytes = new TextEncoder().encode(JSON.stringify(raw))
+  } else if (hasEditionPorts()) {
+    const read = await editionPorts().designHome.read(id)
+    if (read.kind === 'present') rawBytes = new Uint8Array(read.bytes)
   }
   if (!rawBytes) throw new Error('Draft not found')
   const decoded = await core.decode(rawBytes)
@@ -195,6 +194,8 @@ export async function openWebDraft(id: string): Promise<boolean> {
     const core = requireLiveSessionCore()
     const res = await core.openFrom({ kind: 'draft', id: id as DraftId })
     if (res.status === 'refused') {
+      // 2.1-Q40 / 2.1-Q337: a newer store or versionchange already raised the one Reload notice; stay quiet here.
+      if (res.reason === 'draft_store_newer') return false
       const kind = res.error && typeof res.error === 'object' ? (res.error as { readonly kind?: unknown }).kind : undefined
       if (kind === 'missing' || kind === 'unreadable') {
         presentBrowserDraftOpenFailure()

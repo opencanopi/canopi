@@ -275,19 +275,12 @@ export function createDraftRecordsStore(options: DraftRecordsStoreOptions = {}):
     }
     const swapped = await runInitialLegacyMove({
       conn, stores: moveStores, prepared, sourceHash, appVersion,
-      legacyStorage: options.legacyStorage, designCore: options.designCore, onMigrationFailed: options.onMigrationFailed,
+      legacyStorage: options.legacyStorage, designCore: options.designCore,
+      onOlderTabCopy: options.onOlderTabCopy, onMigrationFailed: options.onMigrationFailed,
     })
+    if (swapped) return 'done'
     const after = await readMoveMetaRecord(conn, moveStores)
-    if (!swapped) return after?.state === 'live' ? 'retry' : 'done'
-    // B2: if any row reached version >= 2 while `copied` and 2.0 edited it before go-live,
-    // its movedHash differs from `prepared`; run the older-tab pass immediately so the 2.0 edit is never lost.
-    const movedHashes = after?.movedHashes ?? {}
-    if (after?.state === 'live' && prepared.some((item) => item.contentHash !== movedHashes[item.id])) {
-      await runOlderTabLegacyCopy({
-        conn, stores: moveStores, prepared, sourceHash, expectedRev: after.rev, appVersion, onOlderTabCopy: options.onOlderTabCopy,
-      })
-    }
-    return 'done'
+    return after?.state === 'live' ? 'retry' : 'done'
   }
 
   const runSyncLegacyOnce = async (): Promise<void> => {
@@ -453,7 +446,8 @@ export function createDraftRecordsStore(options: DraftRecordsStoreOptions = {}):
     async reopenAfterPageShow(): Promise<void> {
       pageHidden = false
       syncPendingHeartbeat()
-      await openDb()
+      const conn = await openDb()
+      if (conn) await syncLegacyStorage()
     },
     onVersionChange(cb: () => void): () => void {
       versionListeners.add(cb)

@@ -16,6 +16,7 @@ import { t } from '../i18n'
 import type { DraftId } from '../platform/design-home'
 import type { CanopiFile } from '../types/design'
 import { browserAppDataStore, createBrowserAppDataStore, type BrowserStorageAdapter } from '../web/browser-app-data'
+import { seedLegacyDraft } from './support/legacy-draft-fixture'
 import { BrowserAppShell } from '../editions/web/BrowserAppShell'
 import { browserAppLifecyclePort, browserFileAccessPort } from '../editions/web/session-ports'
 import { createBrowserSessionHomeStore } from './support/browser-session-home-store'
@@ -169,13 +170,13 @@ describe('Reload for a waiting release (2.1-Q83, Q188, Q189)', () => {
   it('Reload over a Draft another tab changed pauses on conflict instead of overwriting the other tab', async () => {
     const storage = memoryStorage()
     const other = createBrowserAppDataStore({ storage, session: memoryStorage() })
-    other.saveRawDraft({ id: 'draft-shared', raw: encodeCanopiDesign(design('Shared')), name: 'Shared', now: '2026-07-04T11:00:00.000Z' })
+    seedLegacyDraft({ id: 'draft-shared', raw: encodeCanopiDesign(design('Shared')), name: 'Shared', now: '2026-07-04T11:00:00.000Z', storage })
     const run = tab(storage)
     const opened = await run.core.openFrom({ kind: 'draft', id: 'draft-shared' as DraftId })
     expect(opened.status).toBe('opened')
 
     // Another tab updates the same Draft.
-    other.saveRawDraft({ id: 'draft-shared', raw: encodeCanopiDesign(design('Shared', 'other tab')), name: 'Shared', now: '2026-07-04T13:00:00.000Z' })
+    seedLegacyDraft({ id: 'draft-shared', raw: encodeCanopiDesign(design('Shared', 'other tab')), name: 'Shared', now: '2026-07-04T13:00:00.000Z', storage })
     editDesignSessionForTest(designSessionStore, (file) => ({ ...file, description: 'this tab' }))
 
     const reloading = reloadWebForRelease(run.reload)
@@ -193,9 +194,8 @@ describe('Reload for a waiting release (2.1-Q83, Q188, Q189)', () => {
 
   it('Q189: Reload notes the open Draft id in sessionStorage and reopens it once', async () => {
     const storage = memoryStorage()
-    const seed = createBrowserAppDataStore({ storage })
-    seed.saveRawDraft({ id: 'draft-orchard', raw: encodeCanopiDesign(design('Orchard')), name: 'Orchard', now: '2026-07-04T10:00:00.000Z' })
-    seed.saveRawDraft({ id: 'draft-hedge', raw: encodeCanopiDesign(design('Hedge')), name: 'Hedge', now: '2026-07-04T11:00:00.000Z' })
+    seedLegacyDraft({ id: 'draft-orchard', raw: encodeCanopiDesign(design('Orchard')), name: 'Orchard', now: '2026-07-04T10:00:00.000Z', storage })
+    seedLegacyDraft({ id: 'draft-hedge', raw: encodeCanopiDesign(design('Hedge')), name: 'Hedge', now: '2026-07-04T11:00:00.000Z', storage })
 
     const before = tab(storage)
     const openRes = await before.core.openFrom({ kind: 'draft', id: 'draft-orchard' as DraftId })
@@ -219,8 +219,7 @@ describe('Reload for a waiting release (2.1-Q83, Q188, Q189)', () => {
 
   it('Q189: a reload record naming a Draft that is gone refuses to open and leaves the start screen empty', async () => {
     const storage = memoryStorage()
-    const seed = createBrowserAppDataStore({ storage })
-    seed.saveRawDraft({ id: 'draft-hedge', raw: encodeCanopiDesign(design('Hedge')), name: 'Hedge', now: '2026-07-04T11:00:00.000Z' })
+    seedLegacyDraft({ id: 'draft-hedge', raw: encodeCanopiDesign(design('Hedge')), name: 'Hedge', now: '2026-07-04T11:00:00.000Z', storage })
     browserAppDataStore.noteReloadHome('draft-deleted')
 
     const noted = browserAppDataStore.takeReloadHome()

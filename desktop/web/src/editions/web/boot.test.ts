@@ -2,6 +2,7 @@
 import { h, render } from 'preact'
 import { describe, expect, it, vi } from 'vitest'
 import { createTestDesignCore } from '../../__tests__/support/design-wire'
+import { seedLegacyDraft } from '../../__tests__/support/legacy-draft-fixture'
 
 vi.mock('../../platform/design-core', () => ({
   createDesignCore: () => createTestDesignCore(),
@@ -203,10 +204,13 @@ describe('bootWebEdition (canopi-f47t.52.71)', () => {
 
     window.dispatchEvent(new Event('pagehide'))
     expect(fakeStore.closeForPageHide).toHaveBeenCalledOnce()
+    // R2-6: pagehide notes the reload tab id; pageshow(persisted) clears it so a duplicated tab cannot steal markers.
+    expect(sessionStorage.getItem('canopi:web-drafts:reload-tab-id')).not.toBeNull()
     const pageShow = new Event('pageshow') as PageTransitionEvent
     Object.defineProperty(pageShow, 'persisted', { value: true })
     window.dispatchEvent(pageShow)
     expect(fakeStore.reopenAfterPageShow).toHaveBeenCalledOnce()
+    expect(sessionStorage.getItem('canopi:web-drafts:reload-tab-id')).toBeNull()
     const pageShowNotPersisted = new Event('pageshow') as PageTransitionEvent
     Object.defineProperty(pageShowNotPersisted, 'persisted', { value: false })
     window.dispatchEvent(pageShowNotPersisted)
@@ -226,12 +230,32 @@ describe('bootWebEdition (canopi-f47t.52.71)', () => {
     await vi.waitFor(() => {
       expect(fakeStore.markPending).toHaveBeenCalled()
     })
+    // R2-6: beforeunload does not note reload-tab-id (only pagehide does).
+    window.dispatchEvent(new Event('beforeunload', { cancelable: true }))
+    expect(sessionStorage.getItem('canopi:web-drafts:reload-tab-id')).toBeNull()
+    // R2-8: returning from bfcache with a dirty Draft retries flushNow after reopen.
+    const flushOnRestore = vi.spyOn(core, 'flushNow')
+    const pageShowDirty = new Event('pageshow') as PageTransitionEvent
+    Object.defineProperty(pageShowDirty, 'persisted', { value: true })
+    window.dispatchEvent(pageShowDirty)
+    await vi.waitFor(() => {
+      expect(flushOnRestore).toHaveBeenCalledWith({ force: true })
+    })
+    flushOnRestore.mockRestore()
     await core.close('close')
     expect(fakeStore.clearPending).toHaveBeenCalled()
     await downloadWebDraft('draft-idb-1')
     expect(fakeStore.read).toHaveBeenCalledWith('draft-idb-1')
+    // R2-2: when IndexedDB is working, Download a copy never falls back to stale 2.0 localStorage.
+    seedLegacyDraft({
+      id: 'draft-missing',
+      name: 'Stale 2.0',
+      now: '2026-10-01T00:00:00.000Z',
+      raw: { version: 10, name: 'Stale 2.0' },
+    })
     fakeStore.read.mockResolvedValueOnce({ kind: 'absent' })
     await expect(downloadWebDraft('draft-missing')).rejects.toThrow('Draft not found')
+    localStorage.removeItem(DRAFTS_STORAGE_KEY)
     fakeStore.listDrafts.mockResolvedValueOnce([{ id: 'draft-corrupt', bytes: new TextEncoder().encode('{bad'), updatedAt: '' }])
     expect((await listWebDraftsAsync()).editable).toEqual([{ id: 'draft-corrupt', name: 'Untitled', updatedAt: '' }])
 
@@ -247,12 +271,45 @@ describe('bootWebEdition (canopi-f47t.52.71)', () => {
     vi.restoreAllMocks()
   })
 
+  it('R3 canopi-f47t.52.272: a 2.1 Draft whose read a version change closed opens nothing and says no open failure, as the Reload notice tells the user (2.1-Q40, Q337)', async () => {
+    resetNoticesForTests()
+    const idbMod = await import('../../platform/design-home.browser')
+    const fakeStore = {
+      open: vi.fn().mockResolvedValue({ kind: 'ready' }),
+      read: vi.fn().mockResolvedValue({ kind: 'unreadable', reason: 'draft_store_newer' }),
+      write: vi.fn().mockResolvedValue({ kind: 'written', version: '1' }),
+      deleteDraft: vi.fn().mockResolvedValue({ ok: true }),
+      listDrafts: vi.fn().mockResolvedValue([]),
+      syncLegacyStorage: vi.fn().mockResolvedValue(undefined),
+      onVersionChange: vi.fn(() => () => {}),
+      closeForPageHide: vi.fn(),
+      reopenAfterPageShow: vi.fn().mockResolvedValue(undefined),
+      markPending: vi.fn(),
+      clearPending: vi.fn(),
+      takePendingMarkers: vi.fn().mockReturnValue([]),
+      dispose: vi.fn(),
+    }
+    vi.spyOn(idbMod, 'createBrowserDesignHomeStore').mockReturnValue(fakeStore)
+    const dispose = bootWebEdition()
+    const { openWebDraft } = await import('./web-session')
+    try {
+      await vi.waitFor(() => expect(fakeStore.open).toHaveBeenCalled())
+      resetNoticesForTests()
+      expect(await openWebDraft('draft-newer-1')).toBe(false)
+      expect(notices.value.some((n) => n.key === 'web.open-failure')).toBe(false)
+      expect(getLiveSessionCore()!.currentDesign.peek()).toBeNull()
+    } finally {
+      dispose()
+      vi.restoreAllMocks()
+    }
+  })
+
   it('canopi-2b6q (2.1-Q334, B4): real bootWebEdition with failing indexedDB.open lists 2.0 Drafts read-only, opens read-only with notice, handles deleted 2.0 Drafts, and never writes', async () => {
     localStorage.clear()
     sessionStorage.clear()
     resetNoticesForTests()
     vi.spyOn(console, 'error').mockImplementation(() => {})
-    browserAppDataStore.saveRawDraft({
+    seedLegacyDraft({
       id: 'legacy-1',
       name: 'Old Garden',
       now: '2026-10-01T00:00:00.000Z',

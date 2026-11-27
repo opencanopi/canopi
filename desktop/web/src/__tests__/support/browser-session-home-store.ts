@@ -21,7 +21,9 @@ import {
   browserAppDataStore,
   DRAFTS_STORAGE_KEY,
   type BrowserAppDataStore,
+  type BrowserStorageAdapter,
 } from '../../web/browser-app-data'
+import { deleteLegacyDraft, seedLegacyDraft } from './legacy-draft-fixture'
 
 function isQuotaError(error: unknown): boolean {
   if (!error || typeof error !== 'object') return false
@@ -68,6 +70,18 @@ export function createBrowserSessionHomeStore(
 
   const admitWrite = createJsonSessionCodec({ designCore: undefined as never }).admitWrite!
 
+  const storageBridge: BrowserStorageAdapter = {
+    getItem: (k) => appDataStore.readRecord((s) => s.getItem(k)),
+    setItem: (k, v) => {
+      const res = appDataStore.writeRecord((s) => s.setItem(k, v))
+      if (!res.ok) throw res.error
+    },
+    removeItem: (k) => {
+      const res = appDataStore.writeRecord((s) => s.removeItem(k))
+      if (!res.ok) throw res.error
+    },
+  }
+
   return {
     flushDraftSync(key: string, file: Parameters<typeof flattenDocumentForJson>[0], expected: HomeVersion | null): boolean {
       try {
@@ -75,12 +89,13 @@ export function createBrowserSessionHomeStore(
         const effectiveExpected = alias && alias.from === expected ? alias.to : expected
         if (admitWrite(file as Parameters<typeof admitWrite>[0]) !== null) return false
         const wire = flattenDocumentForJson(file)
-        const result = appDataStore.saveRawDraft({
+        const result = seedLegacyDraft({
           id: key,
           raw: wire,
           name: file.name,
           now: nextMonotonicTimestamp(now(), effectiveExpected),
           expectedUpdatedAt: effectiveExpected,
+          storage: storageBridge,
         })
         if (!result.ok) return false
         syncAliases.set(key, { from: expected, to: result.value.updatedAt })
@@ -119,12 +134,13 @@ export function createBrowserSessionHomeStore(
       }
       const alias = syncAliases.get(key)
       const effectiveExpected = alias && alias.from === expected ? alias.to : expected
-      const result = appDataStore.saveRawDraft({
+      const result = seedLegacyDraft({
         id: key,
         raw,
         name,
         now: nextMonotonicTimestamp(now(), effectiveExpected),
         expectedUpdatedAt: effectiveExpected,
+        storage: storageBridge,
       })
       if (result.ok) {
         syncAliases.delete(key)
@@ -152,7 +168,7 @@ export function createBrowserSessionHomeStore(
       })
     },
     async deleteDraft(id: DraftId): Promise<DeleteDraftResult> {
-      const result = appDataStore.deleteDraft(id)
+      const result = deleteLegacyDraft(id, storageBridge)
       return result.ok
         ? { ok: true }
         : {

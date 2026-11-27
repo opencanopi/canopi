@@ -157,7 +157,6 @@ export function bootWebEdition(): () => void {
   const disposeCanvasHost = installCanvasHostRuntime(() => createBrowserCanvasHostRuntime());
 
   const onBeforeUnload = (event: BeforeUnloadEvent) => {
-    browserAppDataStore.noteReloadTabId(liveTabId);
     const open = webSessionCore.currentDesign.peek();
     const needsFlush = webSessionCore.pendingWrite.peek()
       || open?.save.kind === "failed"
@@ -180,7 +179,17 @@ export function bootWebEdition(): () => void {
     idbHomeStore.closeForPageHide();
   };
   const onPageShow = (event: PageTransitionEvent) => {
-    if (event.persisted) void idbHomeStore.reopenAfterPageShow();
+    if (!event.persisted) return;
+    browserAppDataStore.takeReloadTabId();
+    void idbHomeStore.reopenAfterPageShow().then(() => {
+      if (disposed) return;
+      const open = webSessionCore.currentDesign.peek();
+      if (open && !open.readOnly && open.home.kind === "draft" && (webSessionCore.pendingWrite.peek() || open.save.kind === "failed")) {
+        void webSessionCore.flushNow({ force: true }).catch(() => {
+          // Best-effort retry after bfcache restore; save notice remains if it still fails.
+        });
+      }
+    });
   };
   const onLegacyStorage = (event: StorageEvent) => {
     if (event.key === null || event.key === DRAFTS_STORAGE_KEY) {

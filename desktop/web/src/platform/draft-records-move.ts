@@ -274,23 +274,18 @@ export async function readMoveMetaRecord(conn: IDBDatabase, stores: LegacyMoveSt
   return raw as unknown as DraftMoveMetaRecord
 }
 
-export async function runInitialLegacyMove(params: {
-  readonly conn: IDBDatabase
-  readonly stores: LegacyMoveStores
-  readonly prepared: readonly PreparedLegacyDraft[]
-  readonly sourceHash: string
-  readonly appVersion: string
-  readonly legacyStorage: BrowserStorage | undefined
-  readonly designCore: Pick<DesignCore, 'decode' | 'encode'> | undefined
-  readonly onMigrationFailed: ((error: unknown) => void) | undefined
-}): Promise<boolean> {
-  const { conn, stores, prepared, sourceHash, appVersion, legacyStorage, designCore, onMigrationFailed } = params
-  let stagedRev = 0
-  let alreadyLive = false
-  const verifyIds = new Set<string>()
-
-  // Stage in one readwrite transaction, re-reading `meta.move` inside the tx for CAS between concurrent 2.1 tabs.
-  await new Promise<void>((resolve, reject) => {
+function runMoveReadWriteTx(
+  conn: IDBDatabase,
+  stores: LegacyMoveStores,
+  label: string,
+  apply: (
+    existingRows: readonly StoredDraftRecord[],
+    existingMeta: DraftMoveMetaRecord | null,
+    draftsStore: IDBObjectStore,
+    metaStore: IDBObjectStore,
+  ) => void,
+): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
     const tx = conn.transaction([stores.draftsStore, stores.metaStore], 'readwrite')
     const draftsStore = tx.objectStore(stores.draftsStore)
     const metaStore = tx.objectStore(stores.metaStore)
@@ -299,59 +294,7 @@ export async function runInitialLegacyMove(params: {
 
     const finish = () => {
       if (existingRows === null || existingMeta === undefined) return
-      if (existingMeta?.state === 'live') {
-        alreadyLive = true
-        return
-      }
-      const heldById = new Map<string, StoredDraftRecord>()
-      for (const row of existingRows) heldById.set(row.id, row)
-      stagedRev = (existingMeta?.rev ?? 0) + 1
-      const copiedIds = [...new Set([...(existingMeta?.copiedIds ?? []), ...prepared.map((p) => p.id)])]
-      const movedHashes: Record<string, string> = { ...(existingMeta?.movedHashes ?? {}) }
-
-      for (const item of prepared) {
-        const existing = heldById.get(item.id)
-        if (!existing) {
-          draftsStore.put({
-            id: item.id,
-            canopi_version: appVersion,
-            version: 1,
-            name: item.name,
-            updated_at: item.updatedAt,
-            content: item.content,
-          } satisfies StoredDraftRecord)
-          movedHashes[item.id] = item.contentHash
-          verifyIds.add(item.id)
-        } else if (existing.version <= 1) {
-          // Unpublished staged copy (state !== 'live'): re-stage with a bumped version if content differs (B1/B2)
-          // so any 2.1 session holding version "1" sees a CAS conflict instead of silently overwriting 2.0 edits.
-          if (existing.content !== item.content) {
-            draftsStore.put({
-              id: item.id,
-              canopi_version: appVersion,
-              version: existing.version + 1,
-              name: item.name,
-              updated_at: item.updatedAt,
-              content: item.content,
-            } satisfies StoredDraftRecord)
-          }
-          movedHashes[item.id] = item.contentHash
-          verifyIds.add(item.id)
-        } else {
-          // Already edited by 2.1 (version > 1): never overwrite, and preserve the earlier movedHash so
-          // a concurrent 2.0 edit is routed through the older-tab copy lane once live (B2).
-          if (!(item.id in movedHashes)) movedHashes[item.id] = item.contentHash
-        }
-      }
-      metaStore.put({
-        key: 'move',
-        state: 'copied',
-        sourceHash,
-        rev: stagedRev,
-        copiedIds,
-        movedHashes,
-        ...(existingMeta?.olderTabCopies ? { olderTabCopies: existingMeta.olderTabCopies } : {}),
-      } satisfies DraftMoveMetaRecord)
+      apply(existingRows, existingMeta, draftsStore, metaStore)
     }
 
     const draftsReq = draftsStore.getAll()
@@ -367,13 +310,85 @@ export async function runInitialLegacyMove(params: {
       finish()
     }
     tx.oncomplete = () => resolve()
-    tx.onerror = () => reject(tx.error ?? new Error('Staging legacy Drafts failed'))
-    tx.onabort = () => reject(tx.error ?? new Error('Staging legacy Drafts aborted'))
+    tx.onerror = () => reject(tx.error ?? new Error(`${label} failed`))
+    tx.onabort = () => reject(tx.error ?? new Error(`${label} aborted`))
   })
+}
 
-  if (alreadyLive) return false
+async function hashExistingDraftRows(
+  conn: IDBDatabase,
+  stores: LegacyMoveStores,
+  prepared: readonly PreparedLegacyDraft[],
+): Promise<Map<string, string>> {
+  const preTx = conn.transaction(stores.draftsStore, 'readonly')
+  const [preRows] = await readIdbRequests(preTx, [preTx.objectStore(stores.draftsStore).getAll()], stores.draftsStore)
+  const hashByContent = new Map<string, string>()
+  for (const item of prepared) hashByContent.set(item.content, item.contentHash)
+  for (const row of Array.isArray(preRows) ? preRows : []) {
+    if (isPlainRecord(row) && typeof row.content === 'string' && !hashByContent.has(row.content)) {
+      hashByContent.set(row.content, await sha256Hex(row.content))
+    }
+  }
+  return hashByContent
+}
 
-  // Read-back verification outside any transaction through DesignCore (2.1-M157, B1).
+function stageOneLegacyItem(params: {
+  readonly item: PreparedLegacyDraft
+  readonly existing: StoredDraftRecord | undefined
+  readonly hashByContent: ReadonlyMap<string, string>
+  readonly movedHashes: Record<string, string>
+  readonly stagedVersions: Map<string, number>
+  readonly draftsStore: IDBObjectStore
+  readonly appVersion: string
+}): void {
+  const { item, existing, hashByContent, movedHashes, stagedVersions, draftsStore, appVersion } = params
+  if (!existing) {
+    draftsStore.put({
+      id: item.id,
+      canopi_version: appVersion,
+      version: 1,
+      name: item.name,
+      updated_at: item.updatedAt,
+      content: item.content,
+    } satisfies StoredDraftRecord)
+    movedHashes[item.id] = item.contentHash
+    stagedVersions.set(item.id, 1)
+    return
+  }
+  const existingHash = hashByContent.get(existing.content)
+  if (existingHash !== undefined && existingHash === movedHashes[item.id]) {
+    // Unpublished staged copy (state !== 'live') still matching what the move itself staged:
+    // re-stage with a bumped version if content differs (B1/B2/R2-3) so any 2.1 session holding
+    // the earlier version sees a CAS conflict, while repeated 2.0 re-stages never look like 2.1 edits.
+    const nextVersion = existing.content !== item.content ? existing.version + 1 : existing.version
+    if (existing.content !== item.content) {
+      draftsStore.put({
+        id: item.id,
+        canopi_version: appVersion,
+        version: nextVersion,
+        name: item.name,
+        updated_at: item.updatedAt,
+        content: item.content,
+      } satisfies StoredDraftRecord)
+    }
+    movedHashes[item.id] = item.contentHash
+    stagedVersions.set(item.id, nextVersion)
+    return
+  }
+  // Already edited by 2.1: never overwrite, and preserve the earlier movedHash so
+  // a concurrent 2.0 edit is routed through the older-tab copy lane atomically at swap (B2/S1).
+  if (!(item.id in movedHashes)) movedHashes[item.id] = item.contentHash
+}
+
+async function verifyStagedDrafts(params: {
+  readonly conn: IDBDatabase
+  readonly stores: LegacyMoveStores
+  readonly prepared: readonly PreparedLegacyDraft[]
+  readonly stagedVersions: ReadonlyMap<string, number>
+  readonly designCore: Pick<DesignCore, 'decode' | 'encode'> | undefined
+  readonly onMigrationFailed: ((error: unknown) => void) | undefined
+}): Promise<boolean> {
+  const { conn, stores, prepared, stagedVersions, designCore, onMigrationFailed } = params
   const verifyTx = conn.transaction(stores.draftsStore, 'readonly')
   const [allRows] = await readIdbRequests(verifyTx, [verifyTx.objectStore(stores.draftsStore).getAll()], stores.draftsStore)
   const byId = new Map<string, StoredDraftRecord>()
@@ -381,38 +396,119 @@ export async function runInitialLegacyMove(params: {
     if (isPlainRecord(row) && typeof row.id === 'string') byId.set(row.id, row as unknown as StoredDraftRecord)
   }
   for (const item of prepared) {
-    if (!verifyIds.has(item.id)) continue
-    if (!(await verifyStoredContent(byId.get(item.id), item, designCore))) {
+    const stagedVersion = stagedVersions.get(item.id)
+    if (stagedVersion === undefined) continue
+    const stored = byId.get(item.id)
+    // R2-3b: a 2.1 save that landed between stage and verify already superseded this staged row.
+    if (stored && stored.version > stagedVersion) continue
+    if (!(await verifyStoredContent(stored, item, designCore))) {
       onMigrationFailed?.(new Error(`Verification mismatch for migrated Draft ${item.id}`))
       return false
     }
   }
+  return true
+}
+
+function applyOlderTabBatch(params: {
+  readonly existingRows: readonly StoredDraftRecord[]
+  readonly currentMeta: DraftMoveMetaRecord
+  readonly prepared: readonly PreparedLegacyDraft[]
+  readonly draftsStore: IDBObjectStore
+  readonly appVersion: string
+}): {
+  readonly nextCopies: Record<string, OlderTabCopyEntry>
+  readonly createdOrUpdated: readonly { readonly legacyId: string; readonly copyId: string; readonly name: string }[]
+} {
+  const { existingRows, currentMeta, prepared, draftsStore, appVersion } = params
+  const rowsById = new Map<string, StoredDraftRecord>(existingRows.map((row) => [row.id, row]))
+  const movedHashes = currentMeta.movedHashes ?? {}
+  const nextCopies: Record<string, OlderTabCopyEntry> = { ...(currentMeta.olderTabCopies ?? {}) }
+  const reservedIds = new Set<string>(rowsById.keys())
+  for (const entry of Object.values(nextCopies)) reservedIds.add(entry.copyId)
+  const createdOrUpdated: Array<{ readonly legacyId: string; readonly copyId: string; readonly name: string }> = []
+  for (const item of prepared) {
+    const result = applyOlderTabItem({ item, movedHashes, rowsById, reservedIds, nextCopies, draftsStore, appVersion })
+    if (result) createdOrUpdated.push(result)
+  }
+  return { nextCopies, createdOrUpdated }
+}
+
+export async function runInitialLegacyMove(params: {
+  readonly conn: IDBDatabase
+  readonly stores: LegacyMoveStores
+  readonly prepared: readonly PreparedLegacyDraft[]
+  readonly sourceHash: string
+  readonly appVersion: string
+  readonly legacyStorage: BrowserStorage | undefined
+  readonly designCore: Pick<DesignCore, 'decode' | 'encode'> | undefined
+  readonly onOlderTabCopy: ((copy: { readonly legacyId: string; readonly copyId: string; readonly name: string }) => void) | undefined
+  readonly onMigrationFailed: ((error: unknown) => void) | undefined
+}): Promise<boolean> {
+  const { conn, stores, prepared, sourceHash, appVersion, legacyStorage, designCore, onOlderTabCopy, onMigrationFailed } = params
+  let stagedRev = 0
+  let alreadyLive = false
+  const stagedVersions = new Map<string, number>()
+
+  // Pre-hash existing rows outside the readwrite tx so re-staging can tell whether a row is still
+  // unedited by 2.1 (`sha256(existing.content) === movedHashes[id]`, R2-3) even after version bumps.
+  const hashByContent = await hashExistingDraftRows(conn, stores, prepared)
+
+  // Stage in one readwrite transaction, re-reading `meta.move` inside the tx for CAS between concurrent 2.1 tabs.
+  await runMoveReadWriteTx(conn, stores, 'Staging legacy Drafts', (existingRows, existingMeta, draftsStore, metaStore) => {
+    if (existingMeta?.state === 'live') {
+      alreadyLive = true
+      return
+    }
+    const heldById = new Map<string, StoredDraftRecord>(existingRows.map((row) => [row.id, row]))
+    stagedRev = (existingMeta?.rev ?? 0) + 1
+    const copiedIds = [...new Set([...(existingMeta?.copiedIds ?? []), ...prepared.map((p) => p.id)])]
+    const movedHashes: Record<string, string> = { ...(existingMeta?.movedHashes ?? {}) }
+    for (const item of prepared) {
+      stageOneLegacyItem({ item, existing: heldById.get(item.id), hashByContent, movedHashes, stagedVersions, draftsStore, appVersion })
+    }
+    metaStore.put({
+      key: 'move',
+      state: 'copied',
+      sourceHash,
+      rev: stagedRev,
+      copiedIds,
+      movedHashes,
+      ...(existingMeta?.olderTabCopies ? { olderTabCopies: existingMeta.olderTabCopies } : {}),
+    } satisfies DraftMoveMetaRecord)
+  })
+  if (alreadyLive) return false
+
+  // Read-back verification outside any transaction through DesignCore (2.1-M157, B1).
+  if (!(await verifyStagedDrafts({ conn, stores, prepared, stagedVersions, designCore, onMigrationFailed }))) return false
 
   // Re-read the 2.0 key synchronously before swapping live; a change during staging aborts the swap.
   const rawNow = legacyStorage?.getItem(LEGACY_DRAFTS_KEY)
   if (rawNow === null || rawNow === undefined || (await sha256Hex(rawNow)) !== sourceHash) return false
   let swapped = false
-  await new Promise<void>((resolve, reject) => {
-    const tx = conn.transaction(stores.metaStore, 'readwrite')
-    const metaStore = tx.objectStore(stores.metaStore)
-    const getReq = metaStore.get(stores.moveKey)
-    getReq.onsuccess = () => {
-      const cur = getReq.result as DraftMoveMetaRecord | undefined
-      if (!cur || cur.state !== 'copied' || cur.rev !== stagedRev) return
-      metaStore.put({ ...cur, state: 'live' } satisfies DraftMoveMetaRecord)
-      swapped = true
-    }
-    tx.oncomplete = () => resolve()
-    tx.onerror = () => reject(tx.error ?? new Error('Swapping legacy Drafts live failed'))
-    tx.onabort = () => reject(tx.error ?? new Error('Swapping legacy Drafts live aborted'))
+  let createdOrUpdated: readonly { readonly legacyId: string; readonly copyId: string; readonly name: string }[] = []
+  // S1: apply any go-live older-tab copies inside the swap transaction itself so `state: 'live'` and
+  // concurrent 2.0 edits on 2.1-edited rows commit atomically with zero two-transaction window.
+  await runMoveReadWriteTx(conn, stores, 'Swapping legacy Drafts live', (existingRows, currentMeta, draftsStore, metaStore) => {
+    if (!currentMeta || currentMeta.state !== 'copied' || currentMeta.rev !== stagedRev) return
+    const batch = applyOlderTabBatch({ existingRows, currentMeta, prepared, draftsStore, appVersion })
+    createdOrUpdated = batch.createdOrUpdated
+    metaStore.put({
+      ...currentMeta,
+      state: 'live',
+      ...(Object.keys(batch.nextCopies).length > 0 ? { olderTabCopies: batch.nextCopies } : {}),
+    } satisfies DraftMoveMetaRecord)
+    swapped = true
   })
+  if (swapped) {
+    for (const copy of createdOrUpdated) onOlderTabCopy?.(copy)
+  }
   return swapped
 }
 
-function chooseAvailableCopyId(legacyId: string, existingIds: ReadonlySet<string>): string {
+function chooseAvailableCopyId(legacyId: string, reservedIds: ReadonlySet<string>): string {
   for (let rev = 2; rev < 1000; rev += 1) {
     const candidate = olderTabCopyId(legacyId, rev)
-    if (!existingIds.has(candidate)) return candidate
+    if (!reservedIds.has(candidate)) return candidate
   }
   return olderTabCopyId(`${legacyId}-${Date.now().toString(36)}`, 2)
 }
@@ -420,32 +516,36 @@ function chooseAvailableCopyId(legacyId: string, existingIds: ReadonlySet<string
 function applyOlderTabItem(params: {
   readonly item: PreparedLegacyDraft
   readonly movedHashes: Readonly<Record<string, string>>
-  readonly rowsById: ReadonlyMap<string, StoredDraftRecord>
-  readonly existingIds: Set<string>
+  readonly rowsById: Map<string, StoredDraftRecord>
+  readonly reservedIds: Set<string>
   readonly nextCopies: Record<string, OlderTabCopyEntry>
   readonly draftsStore: IDBObjectStore
   readonly appVersion: string
 }): { readonly legacyId: string; readonly copyId: string; readonly name: string } | null {
-  const { item, movedHashes, rowsById, existingIds, nextCopies, draftsStore, appVersion } = params
+  const { item, movedHashes, rowsById, reservedIds, nextCopies, draftsStore, appVersion } = params
   const prevCopy = nextCopies[item.id]
   if (item.contentHash === movedHashes[item.id] || item.contentHash === prevCopy?.canonicalHash) return null
   const preferredId = prevCopy?.copyId ?? olderTabCopyId(item.id)
   const existing = rowsById.get(preferredId)
-  // Rotate when the tracked copy has 2.1 edits (or collides with an existing ordinary Draft):
-  // the 2.1-edited copy stays as an ordinary Draft, and a fresh older-tab-* record gets the new 2.0 content (2.1-M527).
+  const claimedByOtherLegacy = Object.entries(nextCopies).some(([legacyId, entry]) => legacyId !== item.id && entry.copyId === preferredId)
+  // Rotate when the tracked copy has 2.1 edits, collides with an existing ordinary Draft, or is tracked by
+  // another legacy id (2.1-M527, B3, S2): the 2.1-edited copy stays intact and a fresh id receives the 2.0 edit.
   const writtenVersion = prevCopy?.writtenVersion ?? 1
-  const needsRotate = existing !== undefined && (prevCopy === undefined || existing.version > writtenVersion)
-  const copyId = needsRotate ? chooseAvailableCopyId(item.id, existingIds) : preferredId
+  const needsRotate = claimedByOtherLegacy
+    || (existing !== undefined && (prevCopy === undefined || existing.version > writtenVersion))
+  const copyId = needsRotate ? chooseAvailableCopyId(item.id, reservedIds) : preferredId
   const nextVersion = !needsRotate && existing ? existing.version + 1 : 1
-  existingIds.add(copyId)
-  draftsStore.put({
+  const record: StoredDraftRecord = {
     id: copyId,
     canopi_version: appVersion,
     version: nextVersion,
     name: item.name,
     updated_at: item.updatedAt,
     content: item.content,
-  } satisfies StoredDraftRecord)
+  }
+  reservedIds.add(copyId)
+  rowsById.set(copyId, record)
+  draftsStore.put(record)
   nextCopies[item.id] = { copyId, canonicalHash: item.contentHash, writtenVersion: nextVersion }
   return { legacyId: item.id, copyId, name: item.name }
 }
@@ -460,55 +560,23 @@ export async function runOlderTabLegacyCopy(params: {
   readonly onOlderTabCopy: ((copy: { readonly legacyId: string; readonly copyId: string; readonly name: string }) => void) | undefined
 }): Promise<boolean> {
   const { conn, stores, prepared, sourceHash, expectedRev, appVersion, onOlderTabCopy } = params
-  const createdOrUpdated: Array<{ readonly legacyId: string; readonly copyId: string; readonly name: string }> = []
+  let createdOrUpdated: readonly { readonly legacyId: string; readonly copyId: string; readonly name: string }[] = []
   let committed = false
 
-  await new Promise<void>((resolve, reject) => {
-    const tx = conn.transaction([stores.draftsStore, stores.metaStore], 'readwrite')
-    const draftsStore = tx.objectStore(stores.draftsStore)
-    const metaStore = tx.objectStore(stores.metaStore)
-    let existingRows: StoredDraftRecord[] | null = null
-    let currentMeta: DraftMoveMetaRecord | null | undefined = undefined
-
-    const finish = () => {
-      if (existingRows === null || currentMeta === undefined) return
-      // Meta CAS: if another 2.1 tab advanced `rev`, bail so caller can re-sync without dropping entries.
-      if (!currentMeta || currentMeta.state !== 'live' || currentMeta.rev !== expectedRev) return
-      const rowsById = new Map<string, StoredDraftRecord>(existingRows.map((row) => [row.id, row]))
-      const existingIds = new Set<string>(rowsById.keys())
-      const movedHashes = currentMeta.movedHashes ?? {}
-      const nextCopies: Record<string, OlderTabCopyEntry> = { ...(currentMeta.olderTabCopies ?? {}) }
-
-      for (const item of prepared) {
-        const result = applyOlderTabItem({ item, movedHashes, rowsById, existingIds, nextCopies, draftsStore, appVersion })
-        if (result) createdOrUpdated.push(result)
-      }
-      const copiedIds = [...new Set([...currentMeta.copiedIds, ...prepared.map((p) => p.id)])]
-      metaStore.put({
-        ...currentMeta,
-        sourceHash,
-        rev: currentMeta.rev + 1,
-        copiedIds,
-        olderTabCopies: nextCopies,
-      } satisfies DraftMoveMetaRecord)
-      committed = true
-    }
-
-    const draftsReq = draftsStore.getAll()
-    draftsReq.onsuccess = () => {
-      existingRows = (Array.isArray(draftsReq.result) ? draftsReq.result : [])
-        .filter((r): r is StoredDraftRecord => isPlainRecord(r) && typeof r.id === 'string')
-      finish()
-    }
-    const metaReq = metaStore.get(stores.moveKey)
-    metaReq.onsuccess = () => {
-      const raw = metaReq.result
-      currentMeta = isPlainRecord(raw) && raw.key === stores.moveKey ? (raw as unknown as DraftMoveMetaRecord) : null
-      finish()
-    }
-    tx.oncomplete = () => resolve()
-    tx.onerror = () => reject(tx.error ?? new Error('Copying older-tab Drafts failed'))
-    tx.onabort = () => reject(tx.error ?? new Error('Copying older-tab Drafts aborted'))
+  await runMoveReadWriteTx(conn, stores, 'Copying older-tab Drafts', (existingRows, currentMeta, draftsStore, metaStore) => {
+    // Meta CAS: if another 2.1 tab advanced `rev`, bail so caller can re-sync without dropping entries.
+    if (!currentMeta || currentMeta.state !== 'live' || currentMeta.rev !== expectedRev) return
+    const batch = applyOlderTabBatch({ existingRows, currentMeta, prepared, draftsStore, appVersion })
+    createdOrUpdated = batch.createdOrUpdated
+    const copiedIds = [...new Set([...currentMeta.copiedIds, ...prepared.map((p) => p.id)])]
+    metaStore.put({
+      ...currentMeta,
+      sourceHash,
+      rev: currentMeta.rev + 1,
+      copiedIds,
+      olderTabCopies: batch.nextCopies,
+    } satisfies DraftMoveMetaRecord)
+    committed = true
   })
 
   if (committed) {

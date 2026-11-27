@@ -137,12 +137,12 @@ describe('Web Close Design', () => {
     const draftId = core.currentDesign.peek()!.home.key
     editDesignSessionForTest(designSessionStore, (design) => ({ ...design, description: 'kept' }))
     await core.close('close')
-    const saveRawDraft = vi.spyOn(appDataStore, 'saveRawDraft')
+    const writeRecord = vi.spyOn(appDataStore, 'writeRecord')
 
     await vi.advanceTimersByTimeAsync(CONTINUOUS_SAVE_DELAY_MS * 4)
     await expect(core.flushNow()).resolves.toBe(true)
 
-    expect(saveRawDraft).not.toHaveBeenCalled()
+    expect(writeRecord).not.toHaveBeenCalled()
     expect(appDataStore.loadRawDraft(draftId)?.description).toBe('kept')
   })
 

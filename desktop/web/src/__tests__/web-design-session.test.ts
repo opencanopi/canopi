@@ -32,7 +32,9 @@ import {
 } from '../web/browser-app-data'
 import * as browserTextFiles from '../web/browser-text-files'
 import { browserFileAccessPort } from '../editions/web/session-ports'
+import { editionPorts, installEditionPorts } from '../platform/edition-ports'
 import { createBrowserSessionHomeStore } from './support/browser-session-home-store'
+import { seedLegacyDraft } from './support/legacy-draft-fixture'
 import {
   createWebShellCommands,
   currentWebDesignText,
@@ -44,7 +46,6 @@ import {
   setDesignName,
 } from '../editions/web/web-session'
 import { editDesignSessionForTest } from './support/design-session-edit'
-import { installEditionPorts } from '../platform/edition-ports'
 import { createTestEditionPorts } from './support/test-edition-ports'
 import { makeTestDesign } from './support/session-core-fixture'
 
@@ -373,8 +374,8 @@ describe('Web Edition SessionCore + createBrowserSessionHomeStore lifecycle', ()
   })
 
   it('reverts to the baseline opened and writes it back to the same Draft', async () => {
-    const { appDataStore, core } = setupSession()
-    appDataStore.saveRawDraft({ id: 'draft-revert', raw: encodeCanopiDesign(makeFile({ name: 'Orchard', description: 'original' })), name: 'Orchard', now: NOW.toISOString() })
+    const { storage, appDataStore, core } = setupSession()
+    seedLegacyDraft({ id: 'draft-revert', raw: encodeCanopiDesign(makeFile({ name: 'Orchard', description: 'original' })), name: 'Orchard', now: NOW.toISOString(), storage })
 
     await openDesignDraft('draft-revert', { presentFailure: false })
     editDesignSessionForTest(designSessionStore, (design) => ({ ...design, description: 'edited' }))
@@ -390,17 +391,18 @@ describe('Web Edition SessionCore + createBrowserSessionHomeStore lifecycle', ()
   it('pauses on atomic integer CAS conflict when another browser tab changed the open Draft, and resolves cleanly', async () => {
     const storage = memoryStorage()
     const otherTabStore = createBrowserAppDataStore({ storage })
-    otherTabStore.saveRawDraft({ id: 'draft-shared', raw: encodeCanopiDesign(makeFile({ name: 'Shared', description: 'v1' })), name: 'Shared', now: NOW.toISOString() })
+    seedLegacyDraft({ id: 'draft-shared', raw: encodeCanopiDesign(makeFile({ name: 'Shared', description: 'v1' })), name: 'Shared', now: NOW.toISOString(), storage })
 
     const { core } = setupSession({ storage })
     await openDesignDraft('draft-shared', { presentFailure: false })
 
     // Another tab updates the same Draft at a newer timestamp.
-    otherTabStore.saveRawDraft({
+    seedLegacyDraft({
       id: 'draft-shared',
       raw: encodeCanopiDesign(makeFile({ name: 'Shared', description: 'from other tab' })),
       name: 'Shared',
       now: new Date(NOW.getTime() + 1000).toISOString(),
+      storage,
     })
 
     editDesignSessionForTest(designSessionStore, (design) => ({ ...design, description: 'from this tab' }))
@@ -416,9 +418,9 @@ describe('Web Edition SessionCore + createBrowserSessionHomeStore lifecycle', ()
   })
 
   it('deletes a Draft other than the open one, and refuses to delete the open Draft', async () => {
-    const { appDataStore } = setupSession()
-    appDataStore.saveRawDraft({ id: 'draft-a', raw: encodeCanopiDesign(makeFile({ name: 'Alpha' })), name: 'Alpha', now: NOW.toISOString() })
-    appDataStore.saveRawDraft({ id: 'draft-b', raw: encodeCanopiDesign(makeFile({ name: 'Beta' })), name: 'Beta', now: NOW.toISOString() })
+    const { storage, appDataStore } = setupSession()
+    seedLegacyDraft({ id: 'draft-a', raw: encodeCanopiDesign(makeFile({ name: 'Alpha' })), name: 'Alpha', now: NOW.toISOString(), storage })
+    seedLegacyDraft({ id: 'draft-b', raw: encodeCanopiDesign(makeFile({ name: 'Beta' })), name: 'Beta', now: NOW.toISOString(), storage })
 
     await expect(openWebDraft('draft-a')).resolves.toBe(true)
     expect((await deleteWebDraft('draft-a')).ok).toBe(false)
@@ -493,13 +495,19 @@ describe('Web Edition SessionCore + createBrowserSessionHomeStore lifecycle', ()
 describe('Web Draft download parity (2.1-Q193, canopi-eon8.15)', () => {
   it('Download a copy of a Draft and of the same Design open give one file name and one encoding', async () => {
     const file = makeFile({ name: 'Hazel: Walk/1', description: 'parity check' })
-    browserAppDataStore.saveRawDraft({ id: 'draft-parity', raw: encodeCanopiDesign(file), name: file.name, now: NOW.toISOString() })
+    seedLegacyDraft({ id: 'draft-parity', raw: encodeCanopiDesign(file), name: file.name, now: NOW.toISOString() })
+    const home = createBrowserSessionHomeStore(browserAppDataStore, () => NOW)
+    const disposePorts = installEditionPorts({
+      ...editionPorts(),
+      designHome: home,
+    })
+    disposers.push(disposePorts)
 
     const downloadSpy = vi.spyOn(browserTextFiles, 'downloadBrowserTextFile').mockImplementation(() => undefined)
     await downloadWebDraft('draft-parity')
 
     const core = createSessionCore({
-      designHome: createBrowserSessionHomeStore(browserAppDataStore, () => NOW),
+      designHome: home,
       fileAccess: browserFileAccessPort,
       lifecycle: createFakeLifecycle(),
       codec: createJsonSessionCodec({ designCore: createTestDesignCore() }),

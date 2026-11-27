@@ -99,9 +99,6 @@ const PARTITIONS = {
     store: "web_drafts",
     accepts: isSupportedDraftsRecord,
     normalize: normalizeDraftsRecord,
-    // Draft files are stored in the .canopi wire form, like every other
-    // persisted Design, so they decode through the same admission.
-    encode: encodeDraftsRecord,
   },
   settings: {
     key: STORAGE_KEYS.settings,
@@ -122,28 +119,6 @@ const PARTITIONS = {
   },
 } as const;
 
-interface SaveRawDraftOptions {
-  readonly id?: string;
-  readonly raw: Record<string, unknown>;
-  readonly name: string;
-  readonly now: string;
-  /**
-   * The `updatedAt` this writer last read or wrote for the Draft (null: it
-   * never saw one). When another browser tab has since written the Draft, the
-   * save is refused with `BrowserDraftChangedError` instead of replacing it.
-   * Omitted: overwrite unconditionally.
-   */
-  readonly expectedUpdatedAt?: string | null;
-}
-
-/** Another browser tab wrote the Draft after this writer last read or wrote it. */
-class BrowserDraftChangedError extends Error {
-  constructor(readonly draftId: string) {
-    super("The Draft was changed in another browser tab");
-    this.name = "BrowserDraftChangedError";
-  }
-}
-
 /** A stored record's value, or undefined when it is not JSON. */
 function parseRecord(raw: string): unknown {
   try {
@@ -163,12 +138,9 @@ interface BrowserAppDataStoreOptions {
 }
 
 export interface BrowserAppDataStore {
-  /** Stores canonical `.canopi` wire JSON produced by DesignCore without re-normalizing or flattening. */
-  saveRawDraft(options: SaveRawDraftOptions): BrowserAppDataWriteResult<BrowserDraftSummary>;
   listDrafts(): readonly BrowserDraftSummary[];
   /** Returns the stored `.canopi` wire JSON object untouched for DesignCore decode. */
   loadRawDraft(id: string): Record<string, unknown> | null;
-  deleteDraft(id: string): BrowserAppDataWriteResult<null>;
   saveSettings(
     settings: Record<string, unknown>,
     patch?: Readonly<Record<string, unknown>>,
@@ -263,34 +235,11 @@ export function createBrowserAppDataStore({
     }
   }
 
-  function writeDraft(requestedId: string | undefined, name: string, now: string, expectedUpdatedAt: string | null | undefined, raw: Record<string, unknown>): BrowserAppDataWriteResult<BrowserDraftSummary> {
-    return writePartition(PARTITIONS.drafts, (current) => {
-      const id = normalizeDraftId(requestedId, name);
-      if (expectedUpdatedAt !== undefined) {
-        // A Draft deleted meanwhile is written again rather than lost.
-        const stored = current.drafts.find((draft) => draft.id === id);
-        if (stored && stored.updatedAt !== expectedUpdatedAt) throw new BrowserDraftChangedError(id);
-      }
-      const summary: BrowserDraftSummary = { id, name: name || "Untitled", updatedAt: now };
-      const drafts = [summary, ...current.drafts.filter((draft) => draft.id !== summary.id)];
-      return { next: { version: RECORD_VERSION, drafts, draftFiles: { ...current.draftFiles, [summary.id]: raw }, refused: withoutRefusedDraft(current.refused, summary.id) }, value: summary };
-    });
-  }
-
   return {
-    saveRawDraft({ id, raw, name, now, expectedUpdatedAt }) { return writeDraft(id, name, now, expectedUpdatedAt, raw); },
     listDrafts() { return readPartition(PARTITIONS.drafts).drafts; },
     loadRawDraft(id) {
       const draftFiles = readPartition(PARTITIONS.drafts).draftFiles;
       return Object.prototype.hasOwnProperty.call(draftFiles, id) ? draftFiles[id] ?? null : null;
-    },
-
-    deleteDraft(id) {
-      return writePartition(PARTITIONS.drafts, (current) => {
-        const { [id]: _removed, ...draftFiles } = current.draftFiles;
-        const drafts = current.drafts.filter((draft) => draft.id !== id);
-        return { next: { version: RECORD_VERSION, drafts, draftFiles, refused: withoutRefusedDraft(current.refused, id) }, value: null };
-      });
     },
 
     saveSettings(settings, patch) {
@@ -547,30 +496,6 @@ function isCurrentRecord(value: unknown): value is Record<string, unknown> & { v
   return isRecord(value) && value.version === RECORD_VERSION;
 }
 
-function encodeDraftsRecord(record: BrowserDraftsRecord): unknown {
-  const draftFiles: Record<string, unknown> = {};
-  for (const [id, file] of Object.entries(record.refused.files)) {
-    defineOwn(draftFiles, id, file);
-  }
-  for (const [id, raw] of Object.entries(record.draftFiles)) {
-    defineOwn(draftFiles, id, raw);
-  }
-  return {
-    version: record.version,
-    drafts: [...record.drafts, ...record.refused.summaries],
-    draftFiles,
-  };
-}
-
-function withoutRefusedDraft(refused: RefusedDrafts, id: string): RefusedDrafts {
-  if (!Object.prototype.hasOwnProperty.call(refused.files, id)) return refused;
-  const { [id]: _removed, ...files } = refused.files;
-  return {
-    summaries: refused.summaries.filter((draft) => !isRecord(draft) || draft.id !== id),
-    files,
-  };
-}
-
 function decodeDraftFiles(value: unknown): {
   decoded: Record<string, Record<string, unknown>>;
   refused: Record<string, unknown>;
@@ -612,14 +537,4 @@ function uniqueStrings(values: readonly unknown[]): readonly string[] {
     output.push(normalized);
   }
   return output;
-}
-
-function draftIdFor(name: string): string {
-  const slug = name.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
-  return `draft-${slug || "untitled"}`;
-}
-
-function normalizeDraftId(id: string | undefined, name: string): string {
-  const normalized = id?.trim();
-  return normalized && normalized.length > 0 ? normalized : draftIdFor(name);
 }

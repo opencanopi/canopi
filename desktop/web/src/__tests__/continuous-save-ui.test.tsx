@@ -14,6 +14,7 @@ import { commandPaletteOpen } from '../commands/registry'
 import { SaveStatusLabel } from '../components/shared/SaveStatusLabel'
 import { designSessionStore } from '../app/document-session/store'
 import { browserAppDataStore } from '../web/browser-app-data'
+import { deleteLegacyDraft, seedLegacyDraft } from './support/legacy-draft-fixture'
 import { WebWelcomeScreen } from '../editions/web/WebWelcomeScreen'
 import { createTestSessionCore } from './support/session-core-fixture'
 import { beforePaint } from './support/before-paint'
@@ -667,16 +668,16 @@ describe('WebWelcomeScreen', () => {
     const handle = createTestSessionCore({ file: null })
     const origDeleteDraft = handle.home.deleteDraft.bind(handle.home)
     handle.home.deleteDraft = async (id) => {
-      browserAppDataStore.deleteDraft(id)
+      deleteLegacyDraft(id)
       return origDeleteDraft(id)
     }
     for (const draft of browserAppDataStore.listDrafts()) {
-      browserAppDataStore.deleteDraft(draft.id)
+      deleteLegacyDraft(draft.id)
     }
     try {
       for (const name of ['Kitchen Garden', 'Hedge']) {
         const file = design(name)
-        browserAppDataStore.saveRawDraft({ id: `draft-${name}`, raw: flattenDocumentForJson(file), name: file.name, now: '2026-01-01T00:00:00.000Z' })
+        seedLegacyDraft({ id: `draft-${name}`, raw: flattenDocumentForJson(file), name: file.name, now: '2026-01-01T00:00:00.000Z' })
         handle.home.seedFile(`draft-${name}`, file)
       }
 
@@ -709,7 +710,7 @@ describe('WebWelcomeScreen', () => {
       expect(designSessionStore.readDesignName()).toBe('Hedge')
     } finally {
       for (const draft of browserAppDataStore.listDrafts()) {
-        browserAppDataStore.deleteDraft(draft.id)
+        deleteLegacyDraft(draft.id)
       }
       handle.dispose()
     }

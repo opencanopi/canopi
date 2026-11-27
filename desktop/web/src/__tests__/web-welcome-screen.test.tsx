@@ -11,6 +11,7 @@ import { locale } from '../app/settings/state'
 import { t } from '../i18n'
 import type { CanopiFile } from '../types/design'
 import { browserAppDataStore } from '../web/browser-app-data'
+import { deleteLegacyDraft, seedLegacyDraft } from './support/legacy-draft-fixture'
 import type { BrowserDraftPersistence } from '../web/browser-draft-persistence'
 import * as browserTextFiles from '../web/browser-text-files'
 import { notices, resetNoticesForTests } from '../failures/notices'
@@ -60,12 +61,16 @@ function design(name: string): CanopiFile {
 }
 
 function setup(view: BrowserDraftPersistenceView, { drafts = true }: { drafts?: boolean } = {}) {
-  if (drafts) {
-    browserAppDataStore.saveRawDraft({ id: 'draft-orchard', raw: flattenDocumentForJson(design('Orchard')), name: 'Orchard', now: '2026-01-01T00:00:00.000Z' })
-    browserAppDataStore.saveRawDraft({ id: 'draft-hedge', raw: flattenDocumentForJson(design('Hedge')), name: 'Hedge', now: '2026-01-02T00:00:00.000Z' })
-  }
   const downloadCanopiFile = vi.spyOn(browserTextFiles, 'downloadBrowserTextFile').mockImplementation(() => undefined)
   session = createTestSessionCore()
+  if (drafts) {
+    const orchard = design('Orchard')
+    const hedge = design('Hedge')
+    seedLegacyDraft({ id: 'draft-orchard', raw: flattenDocumentForJson(orchard), name: 'Orchard', now: '2026-01-01T00:00:00.000Z' })
+    seedLegacyDraft({ id: 'draft-hedge', raw: flattenDocumentForJson(hedge), name: 'Hedge', now: '2026-01-02T00:00:00.000Z' })
+    session.home.seedFile('draft-orchard', orchard)
+    session.home.seedFile('draft-hedge', hedge)
+  }
   const hideReason = vi.fn()
   const persistence = { view: signal(view), keep: vi.fn(), showReason: vi.fn(() => hideReason) }
   return { session, persistence, downloadCanopiFile, hideReason }
@@ -187,7 +192,8 @@ describe('Web welcome screen and Draft persistence', () => {
     await act(async () => { render(<WebWelcomeScreen persistence={persistence} />, container) })
     await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)) })
     // Another tab, or the browser, removed the Draft after the rows were listed.
-    browserAppDataStore.deleteDraft('draft-orchard')
+    deleteLegacyDraft('draft-orchard')
+    await session!.home.deleteDraft('draft-orchard' as never)
     await act(async () => { container.querySelector<HTMLButtonElement>('button[aria-label="Actions for Orchard"]')!.click() })
     const download = Array.from(document.body.querySelectorAll<HTMLButtonElement>('[role="menuitem"]'))
       .find((item) => item.textContent === t('webShell.downloadCopy'))!
