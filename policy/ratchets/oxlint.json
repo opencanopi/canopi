@@ -85,7 +85,7 @@
     "desktop/web/src/app/canvas-map-surface/workspace-activation.ts: oxlint:complexity": { "count": 1 },
     "desktop/web/src/app/canvas-map-surface/workspace-generation-reconciler.ts: oxlint:typescript/no-floating-promises": { "count": 1 },
     "desktop/web/src/app/canvas-map-surface/workspace-map-contributions.test.ts: oxlint:typescript/no-unnecessary-type-assertion": { "count": 3 },
-    "desktop/web/src/app/canvas-map-surface/workspace-map-contributions.ts: oxlint:complexity": { "count": 2 },
+    "desktop/web/src/app/canvas-map-surface/workspace-map-contributions.ts: oxlint:complexity": { "count": 1 },
     "desktop/web/src/app/canvas-map-surface/workspace-map-contributions.ts: oxlint:typescript/only-throw-error": { "count": 2 },
     "desktop/web/src/app/canvas-map-surface/workspace-map-controls.test.ts: oxlint:typescript/no-unnecessary-type-assertion": { "count": 1 },
     "desktop/web/src/app/canvas-map-surface/workspace-map-controls.test.ts: oxlint:typescript/only-throw-error": { "count": 1 },

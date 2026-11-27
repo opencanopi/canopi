@@ -212,6 +212,11 @@
       "ceiling": 43439,
       "tolerance": 0.05
     },
+    "desktop chunk: identity": {
+      "ceiling": 1396,
+      "tolerance": 0.05,
+      "bead": "canopi-f47t.52.205"
+    },
     "desktop chunk: index": {
       "ceiling": 685131,
       "tolerance": 0.05
@@ -331,6 +336,11 @@
       "ceiling": 2132,
       "tolerance": 0.05
     },
+    "desktop chunk: session-plane": {
+      "ceiling": 2914,
+      "tolerance": 0.05,
+      "bead": "canopi-f47t.52.205"
+    },
     "desktop chunk: shortcut-text": {
       "ceiling": 1466,
       "tolerance": 0.05
@@ -342,11 +352,6 @@
     "desktop chunk: state": {
       "ceiling": 3141,
       "tolerance": 0.05
-    },
-    "desktop chunk: target": {
-      "ceiling": 9829,
-      "tolerance": 0.05,
-      "bead": "canopi-f47t.52.5"
     },
     "desktop chunk: tauri": {
       "ceiling": 16176,
@@ -383,6 +388,11 @@
     "desktop chunk: worker": {
       "ceiling": 851401,
       "tolerance": 0.05
+    },
+    "desktop chunk: zone-geometry": {
+      "ceiling": 7957,
+      "tolerance": 0.05,
+      "bead": "canopi-f47t.52.205"
     },
     "desktop chunk: zone-label": {
       "ceiling": 1120,

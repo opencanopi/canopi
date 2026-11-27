@@ -2,7 +2,6 @@
   "$schema": "./ratchet.schema.json",
   "family": "single-lonlat-point-type",
   "entries": {
-    "desktop/web/src/app/canvas-map-surface/overlays.ts": { "count": 1 },
     "desktop/web/src/app/canvas-map-surface/workspace-activation-snapshot.ts": { "count": 1 },
     "desktop/web/src/app/canvas-map-surface/workspace-activation.ts": { "count": 1 },
     "desktop/web/src/app/canvas-map-surface/workspace-runtime-composition.ts": { "count": 1 },

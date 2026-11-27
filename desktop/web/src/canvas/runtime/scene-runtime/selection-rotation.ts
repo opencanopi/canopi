@@ -1,6 +1,6 @@
 import type { SceneBounds } from '../../../geo/view/types'
-import { degreesToRadians, getZoneWorldBounds, isEllipseZoneWithRadii, rotatePointAround, rotateZoneGeometry, translateZonePoints } from '../zone-geometry'
-export { getZoneWorldBounds, isEllipseZoneWithRadii, translateZonePoints }
+import { createScreenAlignedBounds, degreesToRadians, getZoneWorldBounds, isEllipseZoneWithRadii, rotatePointAround, rotateZoneGeometry, translateZonePoints } from '../zone-geometry'
+export { createScreenAlignedBounds, getZoneWorldBounds, isEllipseZoneWithRadii, translateZonePoints }
 import {
   resolveSceneObjectGroupMembers,
   type SceneAnnotationEntity,

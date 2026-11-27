@@ -27,8 +27,8 @@
     "desktop/web/package.json",
     "desktop/web/vite.config.ts"
   ],
-  "ideal": 24,
-  "bound": 30,
+  "ideal": 23,
+  "bound": 28,
   "checked_at": "2",
   "walks": [
     {

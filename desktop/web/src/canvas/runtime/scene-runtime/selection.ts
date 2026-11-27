@@ -22,9 +22,7 @@ import {
   freezeInDev,
   isSceneDesignObjectLocked,
 } from '../scene'
-import { getCanvasPlantDisplay } from '../plant-display'
-import { createScreenAlignedBounds } from '../zone-geometry'
-import { getZoneWorldBounds } from './selection-rotation'
+import { createScreenAlignedBounds, getZoneWorldBounds } from './selection-rotation'
 import { getSameSpeciesReferenceCanonicalName } from './species-selection'
 
 declare global {

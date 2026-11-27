@@ -4,7 +4,7 @@
   "bead": "canopi-f47t.52.182",
   "entries": {
     "canvas (top) <-> canvas/plant-path": { "count": 1 },
-    "canvas (top) <-> canvas/runtime": { "count": 23 },
+    "canvas (top) <-> canvas/runtime": { "count": 22 },
     "canvas (top) <-> canvas/runtime/chrome": { "count": 3 },
     "canvas (top) <-> canvas/runtime/input": { "count": 1 },
     "canvas (top) <-> canvas/runtime/scene": { "count": 1 },
@@ -18,7 +18,6 @@
     "canvas/runtime <-> canvas/runtime/scene": { "count": 10 },
     "canvas/runtime <-> canvas/runtime/scene-runtime": { "count": 29 },
     "canvas/runtime <-> canvas/runtime/tools": { "count": 24 },
-    "canvas/runtime <-> target": { "count": 2 },
     "canvas/runtime/interaction <-> canvas/runtime/scene-runtime": { "count": 1 },
     "canvas/runtime/interaction <-> canvas/runtime/tools": { "count": 1 },
     "canvas/runtime/scene <-> canvas/runtime/scene-runtime": { "count": 10 },

@@ -10,7 +10,6 @@ import { capabilitiesForEdition } from '../generated/edition-capabilities'
 import { createDesktopWorkspaceMapContributionAdapter } from '../app/canvas-map-surface/desktop-workspace-map-contribution-adapter'
 import type { WorkspaceMapContributionSnapshot } from '../app/canvas-map-surface/workspace-map-contribution-adapter'
 import { createBrowserWorkspaceMapContributionAdapter } from '../editions/web/browser-workspace-map-contribution-adapter'
-import { createDefaultScenePersistedState } from '../canvas/runtime/scene'
 import type { MapLibreApi, MapLibreMapInstance } from '../maplibre/loader'
 import type { UserLocationReading } from '../maplibre/user-location-overlay'
 
@@ -63,12 +62,11 @@ class FailingSetDataMap implements MapLibreMapInstance {
 }
 
 function emptySnapshot(): WorkspaceMapContributionSnapshot {
-  const scene = createDefaultScenePersistedState()
   return {
     sessionIdentity: {},
     lidar: [],
     terrain: { contourIntervalMeters: 1, contoursVisible: false, contoursOpacity: 1, hillshadeVisible: false, hillshadeOpacity: 1, isDark: false },
-    overlays: { runtime: { getSceneSnapshot: () => scene }, location: { lat: 48, lon: 2 }, hoveredTargets: [], selectedTargets: [], site: null },
+    overlays: { site: null },
   }
 }
 
