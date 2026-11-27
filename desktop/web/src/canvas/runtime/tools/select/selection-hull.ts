@@ -69,7 +69,7 @@ export function selectionScreenHull(scene: ToolScene, selection: CanvasDesignObj
         const annotation = persisted.annotations.find((entry) => entry.id === target.id)
         if (!annotation) return
         const pixelsPerMetre = pixelsPerMetreAt(annotation.position)
-        const textAllowed = getCanvasDetailLayout(persisted, pixelsPerMetre).annotationIds.has(annotation.id)
+        const textAllowed = getCanvasDetailLayout(persisted, pixelsPerMetre, scene.plantSymbolScale).annotationIds.has(annotation.id)
         points(getAnnotationVisualWorldCorners(
           annotation, pixelsPerMetre, revealable && annotation.id === revealedId, textAllowed,
         ))

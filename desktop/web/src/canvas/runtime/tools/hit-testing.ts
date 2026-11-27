@@ -111,8 +111,8 @@ function hitTestTopLevelWithLayerFilter(
   hoveredAnnotationId: string | null,
 ): TopLevelPick | null {
   const groupOf = memberGroups(scene, isLayerHitEligible)
-  const detail = getCanvasDetailLayout(scene, viewportScale)
   const plantContext = { ...plantPresentationContext(getPlantContext, viewportScale, speciesCache), plants: scene.plants }
+  const detail = getCanvasDetailLayout(scene, viewportScale, plantContext.plantDisplay?.symbolScale)
   /** The top-level target of a member: itself, its group, or undefined when it cannot be picked (its group or layer). */
   const topLevel = (
     target: SceneConcreteDesignObjectTarget | { readonly kind: 'measurement-guide'; readonly id: string },
@@ -217,7 +217,7 @@ export function queryQuadTopLevel(
   const baseContext = getPlantContext
   getPlantContext = (scale) => ({ ...baseContext(scale), plants: scene.plants })
   const groupedMemberKeys = getSceneGroupedMemberKeys(scene)
-  const detail = getCanvasDetailLayout(scene, viewportScale)
+  const detail = getCanvasDetailLayout(scene, viewportScale, getPlantContext(viewportScale).plantDisplay?.symbolScale)
   const area: QueryPolygon = { points: quad, bounds: pointsBounds(quad) }
 
   const memberHits = (member: { readonly kind: 'plant' | 'zone' | 'annotation' | 'measurement-guide'; readonly id: string }): boolean => {

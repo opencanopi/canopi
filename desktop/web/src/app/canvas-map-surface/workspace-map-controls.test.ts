@@ -1,6 +1,5 @@
 // @vitest-environment jsdom
 
-import { createDefaultScenePersistedState } from '../../canvas/runtime/scene'
 import type { WorkspaceMapContributionSnapshot } from './workspace-map-contribution-adapter'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { MapLibreSurface } from '../../maplibre/surface'
@@ -220,12 +219,10 @@ async function waitForMap(maps: FakeMap[]): Promise<FakeMap> {
 }
 
 function targetContribution(sessionIdentity: object): WorkspaceMapContributionSnapshot {
-  const scene = createDefaultScenePersistedState()
-  scene.zones = [{ kind: 'zone', locked: false, id: 'plot', name: 'plot', zoneType: 'polygon', rotationDeg: 0, points: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 10 }], fillColor: null, notes: null }]
   return {
     sessionIdentity, lidar: [],
     terrain: { contourIntervalMeters: 1, contoursVisible: false, contoursOpacity: 1, hillshadeVisible: false, hillshadeOpacity: 1, isDark: false },
-    overlays: { runtime: { getSceneSnapshot: () => scene }, location: { lat: 48, lon: 2 }, hoveredTargets: [{ kind: 'zone', zone_id: 'plot' }], selectedTargets: [] , site: { pin: [2.001, 48.001], profileLine: null } },
+    overlays: { site: { pin: [2.001, 48.001], profileLine: null } },
   }
 }
 
@@ -583,7 +580,7 @@ describe('WorkspaceMapControls', () => {
       sessionIdentity: controls.sessionIdentity,
       lidar: [],
       terrain: { contourIntervalMeters: 1, contoursVisible: false, contoursOpacity: 1, hillshadeVisible: false, hillshadeOpacity: 1, isDark: false },
-      overlays: { runtime: { getSceneSnapshot: vi.fn() }, location: { lat: 0, lon: 0 }, hoveredTargets: [], selectedTargets: [] , site: null },
+      overlays: { site: null },
     }
     controls.updateMapContributions(input)
     const map = await waitForMap(maps)
@@ -893,7 +890,7 @@ describe('WorkspaceMapControls', () => {
     controls.updateMapContributions({
       ...contribution,
       lidar: [lidarLayer('lidar-a'), lidarLayer('lidar-b')],
-      overlays: { ...contribution.overlays, hoveredTargets: [] },
+      overlays: { ...contribution.overlays },
     })
     const map = await waitForMap(maps)
     map.emit('style.load')

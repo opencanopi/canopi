@@ -136,7 +136,13 @@ export class SceneCanvasInspectionOwner {
       if (ctx) {
         canvas.width = Math.round(width * dpr); canvas.height = Math.round(height * dpr)
         try {
-          drawInspectionLensScene(ctx, { scene: snapshot.scene, speciesCache: snapshot.speciesCache, hoveredPlantId: highlightedId },
+          drawInspectionLensScene(ctx, {
+            scene: snapshot.scene,
+            speciesCache: snapshot.speciesCache,
+            hoveredPlantId: highlightedId,
+            plantDisplay: snapshot.plantDisplay,
+            paintTokens: snapshot.paintTokens,
+          },
             view, { widthPx: width, heightPx: height, dpr, scratch: sizedScratch })
         } catch (error) {
           console.error('Canvas inspection preview unavailable:', error)

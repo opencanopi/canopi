@@ -4,7 +4,8 @@ import { readFileSync } from 'node:fs'
 import { afterEach, describe, expect, it } from 'vitest'
 
 import { CANVAS_CHROME_FONT_FAMILY } from '../chrome-fonts'
-import { getCanvasColor } from '../theme-refresh'
+import { readCanvasPaintTokens, type CanvasPaintTokens } from '../theme-refresh'
+const getCanvasColor = (name: keyof CanvasPaintTokens) => readCanvasPaintTokens()[name]
 import { getCanvasInteractionStrokeVisual, getDraftLabelVisual, getDraftVisual } from './scene-visuals'
 
 const GLOBAL_CSS = readFileSync('src/styles/global.css', 'utf8')

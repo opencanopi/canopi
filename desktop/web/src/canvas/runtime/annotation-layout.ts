@@ -129,14 +129,15 @@ interface AnnotationLayoutCache {
   metricsEpoch: number
 }
 
-const layoutCacheByHost = new WeakMap<object, AnnotationLayoutCache>()
+const layoutCacheByDocument = new WeakMap<Document, AnnotationLayoutCache>()
 
-function layoutCache(): AnnotationLayoutCache {
-  const key = globalThis.document ?? globalThis
-  let cache = layoutCacheByHost.get(key)
+function layoutCache(): AnnotationLayoutCache | null {
+  const doc = globalThis.document
+  if (!doc) return null
+  let cache = layoutCacheByDocument.get(doc)
   if (!cache) {
     cache = { measureContext: undefined, textMetricsByKey: new Map(), metricsEpoch: canvasFonts.epoch() }
-    layoutCacheByHost.set(key, cache)
+    layoutCacheByDocument.set(doc, cache)
   }
   return cache
 }
@@ -154,29 +155,38 @@ export function onAnnotationFontLoad(listener: () => void): () => void {
 /**
  * A note's text box: each line measured by the browser in the font the renderer draws it in, as Pixi's
  * CanvasTextMetrics measures it, without the halo Pixi adds to its texture (the glyphs start half a halo in, so the
- * outline's 4 px margin ends about 2 px past the last glyph). Memoised by size and text. Policy P5c keeps Pixi out of
- * this module's importers (the tools), hence the 2D context of its own.
+ * outline's 4 px margin ends about 2 px past the last glyph). Memoised per Document by size and text (unmemoised
+ * without a Document). Policy P5c keeps Pixi out of this module's importers (the tools), hence the 2D context of its own.
  */
 function getAnnotationTextMetrics(annotation: Pick<SceneAnnotationEntity, 'text' | 'fontSize'>): AnnotationTextMetrics {
   const cache = layoutCache()
-  // A font load forgets every width measured in the fallback.
-  if (cache.metricsEpoch !== canvasFonts.epoch()) {
-    cache.metricsEpoch = canvasFonts.epoch()
-    cache.textMetricsByKey.clear()
+  if (cache) {
+    // A font load forgets every width measured in the fallback.
+    if (cache.metricsEpoch !== canvasFonts.epoch()) {
+      cache.metricsEpoch = canvasFonts.epoch()
+      cache.textMetricsByKey.clear()
+    }
+    const key = `${annotation.fontSize}|${annotation.text}`
+    const known = cache.textMetricsByKey.get(key)
+    if (known) return known
+    const lines = annotation.text.split('\n')
+    const lineHeightPx = annotation.fontSize * LINE_HEIGHT_FACTOR
+    const metrics = {
+      widthPx: measureLinesWidth(lines, annotation.fontSize),
+      heightPx: Math.max(lines.length * lineHeightPx, annotation.fontSize),
+      lineHeightPx,
+    }
+    if (cache.textMetricsByKey.size >= 512) cache.textMetricsByKey.clear()
+    cache.textMetricsByKey.set(key, metrics)
+    return metrics
   }
-  const key = `${annotation.fontSize}|${annotation.text}`
-  const known = cache.textMetricsByKey.get(key)
-  if (known) return known
   const lines = annotation.text.split('\n')
   const lineHeightPx = annotation.fontSize * LINE_HEIGHT_FACTOR
-  const metrics = {
+  return {
     widthPx: measureLinesWidth(lines, annotation.fontSize),
     heightPx: Math.max(lines.length * lineHeightPx, annotation.fontSize),
     lineHeightPx,
   }
-  if (cache.textMetricsByKey.size >= 512) cache.textMetricsByKey.clear()
-  cache.textMetricsByKey.set(key, metrics)
-  return metrics
 }
 
 function measureLinesWidth(lines: readonly string[], fontSize: number): number {
@@ -193,11 +203,12 @@ function measureLinesWidth(lines: readonly string[], fontSize: number): number {
 }
 
 /**
- * Probed once. A page without the font loading API cannot say when the web font arrives, so it keeps the estimate
- * rather than a width measured in a fallback font for good.
+ * Probed once per Document. A page without the font loading API cannot say when the web font arrives, so it keeps the
+ * estimate rather than a width measured in a fallback font for good.
  */
 function getMeasureContext(): MeasureContext | null {
   const cache = layoutCache()
+  if (!cache) return null
   if (cache.measureContext !== undefined) return cache.measureContext
   try {
     cache.measureContext = !globalThis.document?.fonts ? null

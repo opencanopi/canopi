@@ -8,7 +8,8 @@ import '../../../__tests__/support/camera-tolerance'
 
 import { createTestRendererView, createTestSceneRendererSnapshot } from '../../../__tests__/support/scene-renderer-snapshot'
 import { CANVAS_CHROME_FONT_FAMILY } from '../../chrome-fonts'
-import { getCanvasColor } from '../../theme-refresh'
+import { readCanvasPaintTokens, type CanvasPaintTokens } from '../../theme-refresh'
+const getCanvasColor = (name: keyof CanvasPaintTokens) => readCanvasPaintTokens()[name]
 import { getAnnotationPresentation } from '../annotation-layout'
 import { buildPlantPresentationEntries, resolvePlantDisplayColor } from '../plant-presentation'
 import { getDraftLabelVisual, OVERLAY_CASING_EXTRA_PX } from '../scene-visuals'

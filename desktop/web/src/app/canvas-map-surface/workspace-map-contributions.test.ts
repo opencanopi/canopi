@@ -114,7 +114,7 @@ function snapshot(identity: object, overrides: Partial<WorkspaceMapContributionS
     sessionIdentity: identity,
     lidar: [layer()],
     terrain: { contourIntervalMeters: 1, contoursVisible: false, contoursOpacity: 1, hillshadeVisible: false, hillshadeOpacity: 1, isDark: false },
-    overlays: { runtime: { getSceneSnapshot: () => scene }, location: { lat: 48, lon: 2 }, hoveredTargets: [{ kind: 'zone', zone_id: 'plot' }], selectedTargets: [], site: null },
+    overlays: { site: null },
     ...overrides,
   }
 }
@@ -610,15 +610,15 @@ describe('WorkspaceMapContributions', () => {
         add(candidate)
       })
       const selected = snapshot(f.identity)
-      const input = withSite({ ...selected, overlays: { ...selected.overlays, selectedTargets: [{ kind: 'zone', zone_id: 'plot' }] } }, [2.001, 48.001])
+      const input = withSite(selected, [2.001, 48.001])
       f.manager.update(input)
       f.manager.admitStyle()
       expect(f.failure).not.toHaveBeenCalled()
       expect(f.map.order.some((id) => id.startsWith('site-'))).toBe(false)
       expect(readyLayers(f.states.at(-1))?.get('library:skipped')).toEqual({ kind: 'skipped', reason: 'layer-skipped' })
       const attempts = f.map.addLayer.mock.calls.length
-      // A new panel hover is a new Target set but the same pin: the site is not retried.
-      f.manager.update({ ...input, overlays: { ...input.overlays, hoveredTargets: [] } })
+      // A new snapshot with the same pin: the site is not retried.
+      f.manager.update({ ...input, overlays: { ...input.overlays } })
       expect(f.map.addLayer.mock.calls.slice(attempts).some(([candidate]) => String(candidate.id).startsWith('site-'))).toBe(false)
       expect(f.logError).toHaveBeenCalledOnce()
       broken = false
@@ -630,7 +630,7 @@ describe('WorkspaceMapContributions', () => {
     it('routes a MapLibre error naming a site layer to the site key, leaving the selection highlight drawn', () => {
       const f = fixture()
       const selected = snapshot(f.identity)
-      f.manager.update(withSite({ ...selected, overlays: { ...selected.overlays, selectedTargets: [{ kind: 'zone', zone_id: 'plot' }] } }, [2.001, 48.001]))
+      f.manager.update(withSite(selected, [2.001, 48.001]))
       f.manager.admitStyle()
       expect(f.manager.handleMapError({ layer: { id: 'site-pin-core' }, error: new Error('site paint rejected') })).toBe(true)
       expect(f.failure).not.toHaveBeenCalled()

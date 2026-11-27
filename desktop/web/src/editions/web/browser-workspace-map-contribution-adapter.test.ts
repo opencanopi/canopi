@@ -1,6 +1,5 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { effect, signal } from '@preact/signals'
-import { clearPanelOriginTargets, setHoveredPanelTargets } from '../../app/panel-targets/presentation'
 import { createTestCanvasQuerySurface, type TestPlacement } from '../../__tests__/support/canvas-query-surface'
 import { createSessionPlane, type SessionPlane } from '../../geo/session-plane'
 import { createBrowserWorkspaceMapContributionAdapter } from './browser-workspace-map-contribution-adapter'
@@ -15,8 +14,6 @@ import {
 import { classifyTerrainSync } from '../../maplibre/terrain-sync'
 import { setStoryPresentationOverrides } from '../../app/story-presentation/overrides'
 import { getHillshadeLayerConfig } from '../../maplibre/contours'
-
-afterEach(clearPanelOriginTargets)
 
 function runtimeWithPlane(
   plane: SessionPlane | null,
@@ -40,37 +37,19 @@ describe('browser workspace map contribution adapter', () => {
     expect(adapter.read(runtimeWithPlane(null))).toBeNull()
   })
 
-  it('captures session-bound targets at the session plane origin with explicitly empty LiDAR and terrain', () => {
+  it('captures session-bound overlays with mapBackdrop, paintTokens, and explicitly empty LiDAR and terrain', () => {
     const identity = {}
     const adapter = createBrowserWorkspaceMapContributionAdapter({
       sessionIdentity: signal(identity), hasCurrentDesign: () => true,
     })
-    setHoveredPanelTargets([{ kind: 'zone', zone_id: 'plot' }])
     const snapshot = adapter.read(runtimeWithPlane(createSessionPlane({ lat: 48, lon: 2 })))!
     expect(snapshot.sessionIdentity).toBe(identity)
     expect(snapshot.lidar).toEqual([])
     expect(snapshot.terrain).toMatchObject({ contoursVisible: false, hillshadeVisible: false })
-    expect(snapshot.overlays.location).toEqual({ lat: 48, lon: 2 })
-    expect(snapshot.overlays.hoveredTargets).toEqual([{ kind: 'zone', zone_id: 'plot' }])
+    expect(snapshot.overlays.site).toBeNull()
+    expect(snapshot.overlays.mapBackdrop).toBeDefined()
+    expect(snapshot.overlays.paintTokens).toBeDefined()
     expect(snapshot).not.toHaveProperty('designExtentMeters')
-    clearPanelOriginTargets()
-    expect(snapshot.overlays.hoveredTargets).toHaveLength(1)
-  })
-
-  it('suppresses panel Target overlays in overview without changing their authority', () => {
-    const adapter = createBrowserWorkspaceMapContributionAdapter({
-      sessionIdentity: signal({}), hasCurrentDesign: () => true,
-    })
-    setHoveredPanelTargets([{ kind: 'zone', zone_id: 'plot' }])
-
-    const snapshot = adapter.read(runtimeWithPlane(
-      createSessionPlane({ lat: 23, lon: 13 }),
-      { x: 0, y: 0, scale: 0.01 },
-    ))!
-
-    expect(snapshot.overlays.hoveredTargets).toEqual([])
-    clearPanelOriginTargets()
-    expect(snapshot.overlays.hoveredTargets).toEqual([])
   })
 
   it('reads again when the canvas paint changes, so overlays already on the map repaint', () => {
@@ -103,7 +82,7 @@ describe('browser workspace map contribution adapter', () => {
       success({ coords: { longitude: 2.35, latitude: 48.85, accuracy: 12 }, timestamp: 1 } as GeolocationPosition)
       expect(adapter.readUserLocation?.()).toEqual({ lon: 2.35, lat: 48.85, accuracy: 12, timestamp: 1, stale: false })
       const snapshot = adapter.read(runtimeWithPlane(createSessionPlane({ lat: 48, lon: 2 })))
-      expect(JSON.stringify(snapshot?.overlays.location)).not.toContain('2.35')
+      expect(JSON.stringify(snapshot?.overlays)).not.toContain('2.35')
       myLocation.press()
       expect(adapter.readUserLocation?.()).toBeNull()
       expect(geolocation.clearWatch).toHaveBeenCalledOnce()

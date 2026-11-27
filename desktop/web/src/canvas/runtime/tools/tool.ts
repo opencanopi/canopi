@@ -176,6 +176,8 @@ export interface ToolScene {
   /** How the scene presents a plant now: the name in today's order (localised, stored common,
    *  canonical), the display colour and the symbol radius in CSS px. For tool-card names, row glyphs and the source ring. */
   plantPresentation(plant: ScenePlantEntity): { readonly commonName: string; readonly color: string; readonly radiusPx: number }
+  /** Active plant symbol scale for detail layout collision checks (defaults to 1 when omitted in unit stubs). */
+  readonly plantSymbolScale?: number
   isLayerOpenForCreation(layer: SceneLayerKind): boolean
   selection(): SceneDesignObjectSelection
   selectionModel(): SelectionReadModel         // memoised by reference: the same Scene, selection and scale return the same model

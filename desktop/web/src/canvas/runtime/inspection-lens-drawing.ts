@@ -22,25 +22,24 @@ import {
   getStackBadgeBackgroundColor,
   getStackBadgeTextColor,
   OVERLAY_CASING_EXTRA_PX,
+  readCanvasPaintTokens,
   resolveZoneVisual,
 } from './scene-visuals'
+import { DEFAULT_PLANT_DISPLAY, type PlantDisplay } from './plant-display'
 import type { ViewTransform } from '../../geo/view/types'
 import { pixelsPerMetreAt } from '../../geo/view/view-transform'
 import { isZoneClosed, traceZoneOutline } from './zone-geometry'
-import { getCanvasColor } from '../theme-refresh'
+import type { CanvasPaintTokens } from '../theme-refresh'
 
 const ZONE_STROKE_PX = 2
-
-/** The lens preview sits on the themed paper (`--canvas-bg`), not on the map. */
-function lensPaper(): string {
-  return getCanvasColor('background')
-}
 
 /** What the lens paints: the scene's zones and plants with their layers, and the plant the lens has highlighted. */
 interface InspectionLensScene {
   readonly scene: ScenePersistedState
   readonly speciesCache: ReadonlyMap<string, SpeciesCacheEntry>
   readonly hoveredPlantId: string | null
+  readonly plantDisplay?: PlantDisplay
+  readonly paintTokens?: CanvasPaintTokens
 }
 
 export interface InspectionLensDrawOptions {
@@ -71,19 +70,27 @@ export function drawInspectionLensScene(
   const widthPx = Math.max(1, options.widthPx)
   const heightPx = Math.max(1, options.heightPx)
 
+  const paintTokens = lens.paintTokens ?? readCanvasPaintTokens()
+  const plantDisplay = lens.plantDisplay ?? DEFAULT_PLANT_DISPLAY
+
   applyScreenSpaceTransform(ctx, dpr)
   ctx.clearRect(0, 0, widthPx, heightPx)
   applyView(ctx, view)
-  drawZones(ctx, lens.scene, view.pixelsPerMetre)
-  drawPlants(ctx, lens, view, dpr, widthPx, heightPx, options.scratch)
+  drawZones(ctx, lens.scene, view.pixelsPerMetre, paintTokens)
+  drawPlants(ctx, lens, plantDisplay, paintTokens, view, dpr, widthPx, heightPx, options.scratch)
 }
 
-function drawZones(ctx: CanvasRenderingContext2D, scene: ScenePersistedState, pixelsPerMetre: number): void {
+function drawZones(
+  ctx: CanvasRenderingContext2D,
+  scene: ScenePersistedState,
+  pixelsPerMetre: number,
+  paintTokens: CanvasPaintTokens,
+): void {
   const layer = getSceneLayerStyle(scene, 'zones')
   if (!layer.visible) return
 
   for (const zone of scene.zones) {
-    const visual = resolveZoneVisual(zone)
+    const visual = resolveZoneVisual(zone, paintTokens)
     ctx.beginPath()
     traceZonePath(ctx, zone)
     ctx.fillStyle = visual.fill
@@ -123,6 +130,8 @@ function traceZonePath(ctx: CanvasRenderingContext2D, zone: SceneZoneEntity): vo
 function drawPlants(
   ctx: CanvasRenderingContext2D,
   { scene, speciesCache, hoveredPlantId }: InspectionLensScene,
+  plantDisplay: PlantDisplay,
+  paintTokens: CanvasPaintTokens,
   view: ViewTransform,
   dpr: number,
   widthPx: number,
@@ -147,6 +156,7 @@ function drawPlants(
   // plant, so a neighbour just outside the lens still sizes an edge plant.
   const margin = 32
   const scale = view.pixelsPerMetre
+  const paper = paintTokens.background
   const visiblePlants = scene.plants.filter((plant) => {
     const { x, y } = view.worldToScreen(plant.position)
     return x >= -margin && y >= -margin && x <= widthPx + margin && y <= heightPx + margin
@@ -157,6 +167,7 @@ function drawPlants(
     pixelsPerMetreAt: (point) => pixelsPerMetreAt(view, point),
     speciesCache,
     plantSpeciesSymbols: scene.plantSpeciesSymbols,
+    plantDisplay,
   }, new Set())
   const stackCounts = plantStackCounts(entries)
   // Plant glyphs and hover rings are screen-upright isotropic marks (2.1-M520, spec §4.8, §4.13):
@@ -172,7 +183,7 @@ function drawPlants(
   }
   for (const entry of entries) {
     upright(entry.plant.position)
-    drawPlantSymbolGlyph(target, entry, scale)
+    drawPlantSymbolGlyph(target, entry, scale, plantDisplay, paper)
     target.restore()
   }
 
@@ -180,7 +191,7 @@ function drawPlants(
   const hovered = hoveredPlantId === null ? undefined : entries.find((entry) => entry.plant.id === hoveredPlantId)
   if (hovered) {
     upright(hovered.plant.position)
-    const ring = getCanvasInteractionStrokeVisual('hover')
+    const ring = getCanvasInteractionStrokeVisual('hover', paintTokens)
     target.beginPath()
     target.arc(hovered.plant.position.x, hovered.plant.position.y, hovered.radiusWorld * 1.4, 0, Math.PI * 2)
     target.globalAlpha = ring.alpha
@@ -203,7 +214,7 @@ function drawPlants(
   // Stack badges stay per shape, above every symbol.
   for (const entry of entries) {
     const stackCount = stackCounts.get(entry.plant.id)
-    if (stackCount) drawStackBadge(ctx, entry, view.worldToScreen(entry.plant.position), stackCount, layer.opacity, dpr)
+    if (stackCount) drawStackBadge(ctx, entry, view.worldToScreen(entry.plant.position), stackCount, layer.opacity, dpr, paper)
   }
 
   target.globalAlpha = 1
@@ -214,6 +225,8 @@ function drawPlantSymbolGlyph(
   ctx: CanvasRenderingContext2D,
   entry: PlantPresentationEntry,
   viewportScale: number,
+  plantDisplay: PlantDisplay,
+  paper: string,
 ): void {
   const symbol = entry.dot ? 'round' : entry.symbol
   const { x, y } = entry.plant.position
@@ -224,17 +237,17 @@ function drawPlantSymbolGlyph(
     ctx.beginPath()
     ctx.arc(x, y, entry.dot ? r : r * ROUND_PLANT_SYMBOL_RADIUS, 0, Math.PI * 2)
     ctx.fill()
-    const edgeWidth = getPlantSymbolEdgeWidth(entry.radiusScreenPx * 2)
+    const edgeWidth = getPlantSymbolEdgeWidth(entry.radiusScreenPx * 2, plantDisplay)
     if (!entry.dot && edgeWidth > 0) {
-      ctx.strokeStyle = getPlantSymbolEdgeColor(entry.color, lensPaper())
+      ctx.strokeStyle = getPlantSymbolEdgeColor(entry.color, paper)
       ctx.lineWidth = edgeWidth / viewportScale
       ctx.stroke()
     }
     return
   }
-  const edge = getPlantSymbolEdgeColor(entry.color, lensPaper())
+  const edge = getPlantSymbolEdgeColor(entry.color, paper)
   const art = getPlantSymbolArt(symbol, entry.radiusScreenPx * 2)
-  const edgeWidth = getPlantSymbolEdgeWidth(entry.radiusScreenPx * 2)
+  const edgeWidth = getPlantSymbolEdgeWidth(entry.radiusScreenPx * 2, plantDisplay)
   ctx.strokeStyle = edge
   ctx.lineCap = 'round'
   ctx.lineJoin = 'round'
@@ -260,6 +273,7 @@ function drawStackBadge(
   count: number,
   opacity: number,
   dpr: number,
+  paper: string,
 ): void {
   ctx.save()
   applyScreenSpaceTransform(ctx, dpr)
@@ -267,12 +281,12 @@ function drawStackBadge(
   const x = at.x + offset.x
   const y = at.y + offset.y
   ctx.globalAlpha = opacity
-  ctx.fillStyle = getStackBadgeBackgroundColor(lensPaper())
+  ctx.fillStyle = getStackBadgeBackgroundColor(paper)
   const size = getStackBadgeSizePx(String(count))
   ctx.beginPath()
   ctx.roundRect(x - size.width / 2, y - size.height / 2, size.width, size.height, size.height / 2)
   ctx.fill()
-  ctx.fillStyle = getStackBadgeTextColor(lensPaper())
+  ctx.fillStyle = getStackBadgeTextColor(paper)
   ctx.font = `${STACK_BADGE_FONT_SIZE_PX}px ${CANVAS_CHROME_FONT_FAMILY}`
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'

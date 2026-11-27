@@ -56,8 +56,7 @@ type HandleId = Parameters<ToolHostDeps['chrome']['setHandles']>[1]
 type PassiveHoverAt = NonNullable<Parameters<ToolHostDeps['chrome']['setTooltip']>[0]>
 
 const NO_HANDLES: HandleList = Object.freeze([])
-
-const descriptionSequence = { value: 0 }
+const descriptionSequenceByDocument = new WeakMap<Document, number>()
 
 /** The session's dependencies: today's, which the host and the chrome run on, then the pipeline's own. */
 export interface SceneInteractionSessionDeps {
@@ -882,7 +881,8 @@ function prepareInteractionHost(
 ): InteractionHostController {
   const previous = HOST_ATTRIBUTES.map((name) => [name, container.getAttribute(name)] as const)
   const description = document.createElement('div')
-  description.id = `canopi-map-keys-${++descriptionSequence.value}`
+  const nextId = (descriptionSequenceByDocument.get(container.ownerDocument) ?? 0) + 1
+  descriptionSequenceByDocument.set(container.ownerDocument, nextId); description.id = `canopi-map-keys-${nextId}`
   description.hidden = true
   description.dataset.mapKeysDescription = 'true'
 

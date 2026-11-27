@@ -7,7 +7,13 @@ import { applyTerrainPaintUpdates, classifyTerrainSync, clearTerrain, rebuildTer
 import { TERRAIN_CONTOUR_LAYER_IDS, TERRAIN_CONTOUR_SOURCE_ID, TERRAIN_DEM_SOURCE_ID, TERRAIN_HILLSHADE_LAYER_ID, type TerrainLayerState } from '../../maplibre/terrain'
 import { mapErrorResourceId, RASTER_DISPLAY_SOURCE_PREFIX } from '../../maplibre/map-error-owner'
 import type { RasterDisplay, RasterDisplayLayer } from '../../maplibre/raster-display/adapter'
-import { clearCanvasMapSurfaceSiteHover, clearCanvasMapSurfaceSiteOverlay, syncCanvasMapSurfaceSiteHover, syncCanvasMapSurfaceSiteOverlay } from './overlays'
+import {
+  clearCanvasMapSurfaceSiteHover,
+  clearCanvasMapSurfaceSiteOverlay,
+  syncCanvasMapSurfaceSiteHover,
+  syncCanvasMapSurfaceSiteOverlay,
+  type CanvasMapSurfaceOverlaySnapshot,
+} from './overlays'
 import { siteMapOverlayIds, type SiteMapOverlay } from '../../maplibre/site-overlay'
 import { userLocationOverlayIds, type UserLocationReading } from '../../maplibre/user-location-overlay'
 import { createMapLayerStackDescriptors, reconcileMapLayerStack } from '../map-layers/bands'
@@ -256,7 +262,7 @@ export class WorkspaceMapContributions {
         const map = this.guardedMap(revision)
         try {
           this.syncRaster(map, snapshot.lidar)
-          this.syncSiteOverlay(map, snapshot.overlays.site)
+          this.syncSiteOverlay(map, snapshot.overlays.site, snapshot.overlays.paintTokens)
           this.syncSiteHover(map)
           this.syncUserLocation(map)
           this.reconcileOrder(map, snapshot)
@@ -293,7 +299,11 @@ export class WorkspaceMapContributions {
    * The Site data pin and line, on their own skip key: a failing sync is rolled back and skipped until they change.
    * A rollback that cannot remove the partial overlay escapes to the hard failure path.
    */
-  private syncSiteOverlay(map: MapLibreMapInstance, site: SiteMapOverlay | null): void {
+  private syncSiteOverlay(
+    map: MapLibreMapInstance,
+    site: SiteMapOverlay | null,
+    paintTokens?: CanvasMapSurfaceOverlaySnapshot['paintTokens'],
+  ): void {
     const key = siteKey(site)
     if (this.skippedSiteKey !== null) {
       if (this.skippedSiteKey === key) {
@@ -303,7 +313,7 @@ export class WorkspaceMapContributions {
       this.skippedSiteKey = null
     }
     try {
-      syncCanvasMapSurfaceSiteOverlay(map, site)
+      syncCanvasMapSurfaceSiteOverlay(map, site, paintTokens)
     } catch (error) {
       if (error === STALE_CONTRIBUTION) throw error
       this.siteFailed(key, error)
@@ -319,7 +329,7 @@ export class WorkspaceMapContributions {
       return
     }
     try {
-      syncCanvasMapSurfaceSiteHover(map, this.siteHover)
+      syncCanvasMapSurfaceSiteHover(map, this.siteHover, this.snapshot?.overlays.mapBackdrop)
     } catch (error) {
       if (error === STALE_CONTRIBUTION) throw error
       this.siteFailed(siteKey(site), error)

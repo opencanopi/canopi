@@ -115,13 +115,6 @@ export function isThemeManagedZoneFill(value: string | null | undefined): boolea
   return MANAGED_ZONE_FILL_VALUES.has(normalized)
 }
 
-/**
- * Returns the current theme color for a canvas element.
- */
-export function getCanvasColor(name: CanvasColorName): string {
-  return _colors[name]
-}
-
 /** Returns an immutable snapshot of every canvas paint token for SceneRendererSnapshot (ADR 0024). */
 export function readCanvasPaintTokens(): CanvasPaintTokens {
   return Object.freeze({ ..._colors })

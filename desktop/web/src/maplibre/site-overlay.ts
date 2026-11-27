@@ -11,8 +11,10 @@ import {
   getGuideLineVisual,
   getMapBackdropInk,
   OVERLAY_CASING_EXTRA_PX,
+  readCanvasPaintTokens,
   SITE_PIN_VISUAL,
   type CanvasMapBackdrop,
+  type CanvasPaintTokens,
 } from '../canvas/runtime/scene-visuals'
 
 /** The overlay snapshot's Site data part, in [lon, lat]; null on Web and in overview. */
@@ -85,7 +87,10 @@ function roleFilter(role: SiteMapOverlayFeature['properties']['role']): readonly
   return ['==', ['get', 'role'], role]
 }
 
-export function siteMapOverlayContract(site: SiteMapOverlay | null): SiteMapOverlayContract {
+export function siteMapOverlayContract(
+  site: SiteMapOverlay | null,
+  paintTokens: CanvasPaintTokens = readCanvasPaintTokens(),
+): SiteMapOverlayContract {
   const ids = siteMapOverlayIds()
   const features: SiteMapOverlayFeature[] = []
   const line = site?.profileLine
@@ -99,7 +104,7 @@ export function siteMapOverlayContract(site: SiteMapOverlay | null): SiteMapOver
   if (pin && finite(pin)) {
     features.push({ type: 'Feature', geometry: { type: 'Point', coordinates: pin }, properties: { role: 'pin' } })
   }
-  const guide = getGuideLineVisual()
+  const guide = getGuideLineVisual(paintTokens)
   const [casing, profile, vertices, ring, core] = ids.layerIds
   return {
     source: { id: ids.sourceId, type: 'geojson', data: { type: 'FeatureCollection', features } },

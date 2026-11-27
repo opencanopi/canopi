@@ -89,7 +89,7 @@ export function selectionExtentPoints(
       if (target.kind === 'annotation') {
         const annotation = scene.annotations.find((entry) => entry.id === target.id)
         if (!annotation) return
-        detailAnnotationIds ??= getCanvasDetailLayout(scene, pixelsPerMetre).annotationIds
+        detailAnnotationIds ??= getCanvasDetailLayout(scene, pixelsPerMetre, options.plantContext.plantDisplay?.symbolScale).annotationIds
         points.push(...getAnnotationVisualWorldCorners(
           annotation, pixelsPerMetre, annotation.id === revealedAnnotationId, detailAnnotationIds.has(annotation.id),
         ))

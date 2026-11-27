@@ -6,41 +6,32 @@
 
 type Fonts = Pick<FontFaceSet, 'load' | 'forEach'>
 
-interface FontRequests {
+interface FontLoaderState {
   /** Font and text loads in flight. */
   readonly pending: Set<string>
   /** Loads that settled, loaded or failed: never asked for again. */
   readonly settled: Set<string>
+  epoch: number
+  readonly listeners: Set<() => void>
 }
 
 /** How many settled requests a face set remembers; past it, a request may be asked for once more. */
 const SETTLED_LIMIT = 1024
 
-interface FontLoaderState {
-  epoch: number
-  readonly listeners: Set<() => void>
+/** Per font face set, so a page (or a test) that swaps `document.fonts` starts afresh. */
+const stateByFonts = new WeakMap<Fonts, FontLoaderState>()
+
+function currentFonts(): Fonts | undefined {
+  return globalThis.document?.fonts
 }
 
-/** Per font face set, so a page (or a test) that swaps `document.fonts` starts afresh. */
-const requestsByFonts = new WeakMap<Fonts, FontRequests>()
-const stateByGlobal = new WeakMap<object, FontLoaderState>()
-
-function loaderState(): FontLoaderState {
-  let state = stateByGlobal.get(globalThis)
+function stateOf(fonts: Fonts): FontLoaderState {
+  let state = stateByFonts.get(fonts)
   if (!state) {
-    state = { epoch: 0, listeners: new Set() }
-    stateByGlobal.set(globalThis, state)
+    state = { pending: new Set(), settled: new Set(), epoch: 0, listeners: new Set() }
+    stateByFonts.set(fonts, state)
   }
   return state
-}
-
-function requestsOf(fonts: Fonts): FontRequests {
-  let requests = requestsByFonts.get(fonts)
-  if (!requests) {
-    requests = { pending: new Set(), settled: new Set() }
-    requestsByFonts.set(fonts, requests)
-  }
-  return requests
 }
 
 /**
@@ -50,25 +41,24 @@ function requestsOf(fonts: Fonts): FontRequests {
  * font-display: swap as failed, so check() is true, and only `load()` waits for the face to arrive.
  */
 function request(font: string, text = ''): void {
-  const fonts = globalThis.document?.fonts as Fonts | undefined
+  const fonts = currentFonts()
   if (!fonts) return
-  const requests = requestsOf(fonts)
+  const state = stateOf(fonts)
   const key = `${font}\n${text}`
-  if (requests.pending.has(key) || requests.settled.has(key)) return
+  if (state.pending.has(key) || state.settled.has(key)) return
   const unloaded = new Set<FontFace>()
   fonts.forEach((face) => { if (face.status !== 'loaded') unloaded.add(face) })
   if (unloaded.size === 0) return
-  requests.pending.add(key)
+  state.pending.add(key)
   const settle = () => {
-    requests.pending.delete(key)
-    if (requests.settled.size >= SETTLED_LIMIT) requests.settled.clear()
-    requests.settled.add(key)
+    state.pending.delete(key)
+    if (state.settled.size >= SETTLED_LIMIT) state.settled.clear()
+    state.settled.add(key)
   }
   const loading = text ? fonts.load(font, text) : fonts.load(font)
   loading.then((faces) => {
     settle()
     if (!faces.some((face) => unloaded.has(face) && face.status === 'loaded')) return
-    const state = loaderState()
     state.epoch += 1
     for (const listener of [...state.listeners]) listener()
   }, () => {
@@ -87,10 +77,15 @@ export function distinctCharacters(texts: Iterable<string>): string {
 export const canvasFonts = {
   request,
   /** Counts the loads that brought a face; a memo of anything sized by canvas text keeps it in its key. */
-  epoch: (): number => loaderState().epoch,
+  epoch: (): number => {
+    const fonts = currentFonts()
+    return fonts ? stateOf(fonts).epoch : 0
+  },
   /** Calls `listener` after each epoch move; returns the unsubscribe, which a disposed drawer calls. */
   subscribe(listener: () => void): () => void {
-    const { listeners } = loaderState()
+    const fonts = currentFonts()
+    if (!fonts) return () => {}
+    const { listeners } = stateOf(fonts)
     listeners.add(listener)
     return () => { listeners.delete(listener) }
   },

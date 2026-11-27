@@ -6,7 +6,7 @@ import {
   type CanvasMapBackdrop,
   type CanvasPaintTokens,
 } from '../theme-refresh'
-export { readCanvasPaintTokens, type CanvasBackdropInk, type CanvasMapBackdrop }
+export { readCanvasPaintTokens, type CanvasBackdropInk, type CanvasMapBackdrop, type CanvasPaintTokens }
 import { contrastRatio } from '../plant-colors'
 import { DEFAULT_PLANT_DISPLAY, type PlantDisplay } from './plant-display'
 import type {

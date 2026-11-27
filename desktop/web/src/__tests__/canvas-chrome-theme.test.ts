@@ -99,17 +99,18 @@ describe('canvas chrome fonts', () => {
 
 describe('canvas colour tokens', () => {
   it('uses the light --canvas-* tokens as theme-refresh fallbacks before the first refresh', async () => {
-    const { CANVAS_COLOR_CSS_VARS, getCanvasColor } = await loadFreshThemeRefresh()
+    const { CANVAS_COLOR_CSS_VARS, readCanvasPaintTokens } = await loadFreshThemeRefresh()
+    const colors = readCanvasPaintTokens()
     for (const [name, cssVar] of Object.entries(CANVAS_COLOR_CSS_VARS)) {
       const token = LIGHT_TOKENS.get(cssVar)
       expect(token, `${cssVar} is defined in :root`).toBeDefined()
-      expect(normalizeColor(getCanvasColor(name as keyof typeof CANVAS_COLOR_CSS_VARS)), cssVar)
+      expect(normalizeColor(colors[name as keyof typeof CANVAS_COLOR_CSS_VARS]), cssVar)
         .toBe(normalizeColor(token!))
     }
   })
 
   it('defines every refreshed canvas colour in the dark theme and adopts it on refresh', async () => {
-    const { CANVAS_COLOR_CSS_VARS, getCanvasColor, refreshCanvasColorCache } = await loadFreshThemeRefresh()
+    const { CANVAS_COLOR_CSS_VARS, readCanvasPaintTokens, refreshCanvasColorCache } = await loadFreshThemeRefresh()
     const container = document.createElement('div')
     for (const cssVar of Object.values(CANVAS_COLOR_CSS_VARS)) {
       const token = DARK_TOKENS.get(cssVar)
@@ -117,8 +118,9 @@ describe('canvas colour tokens', () => {
       container.style.setProperty(cssVar, token!)
     }
     refreshCanvasColorCache(container)
+    const colors = readCanvasPaintTokens()
     for (const [name, cssVar] of Object.entries(CANVAS_COLOR_CSS_VARS)) {
-      expect(normalizeColor(getCanvasColor(name as keyof typeof CANVAS_COLOR_CSS_VARS)), cssVar)
+      expect(normalizeColor(colors[name as keyof typeof CANVAS_COLOR_CSS_VARS]), cssVar)
         .toBe(normalizeColor(DARK_TOKENS.get(cssVar)!))
     }
   })

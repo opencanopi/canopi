@@ -30,7 +30,7 @@ import {
   locale,
 } from '../app/settings/state'
 import { modalLayerOpen } from '../app/shell/modal-layer'
-import { readPanelTargetOverlaySnapshot } from '../app/panel-targets/presentation'
+import { readPanelOriginTargets } from '../app/panel-targets/presentation'
 import { createAppCanvasRuntimeAppAdapter } from '../app/canvas-runtime/app-adapter'
 import { createSessionPlane } from '../geo/session-plane'
 import { setCurrentCanvasSession, currentCanvasQuerySurface } from '../canvas/session'
@@ -193,7 +193,7 @@ describe('presenting a story', () => {
     expect(presented.hillshade.visible).toBe(true)
     expect(storyPresentationOverrides.value?.plantLabels).toBe('codes')
     expect([...storyPresentationOverrides.value!.siteDataIds]).toEqual([])
-    expect(readPanelTargetOverlaySnapshot().selectedTargets).toEqual([
+    expect(readPanelOriginTargets()).toEqual([
       { kind: 'species', canonical_name: 'Lycium barbarum' },
       { kind: 'zone', zone_id: 'zone-1' },
     ])

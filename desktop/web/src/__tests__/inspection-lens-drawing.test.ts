@@ -4,7 +4,8 @@ import './support/camera-tolerance'
 import { drawInspectionLensScene } from '../canvas/runtime/inspection-lens-drawing'
 import type { SceneRendererSnapshot } from '../canvas/runtime/renderers/scene-types'
 import type { SceneDesignObjectSelection } from '../canvas/runtime/scene'
-import { getCanvasInteractionStrokeVisual } from '../canvas/runtime/scene-visuals'
+import { getCanvasInteractionStrokeVisual, readCanvasPaintTokens } from '../canvas/runtime/scene-visuals'
+import { DEFAULT_PLANT_DISPLAY } from '../canvas/runtime/plant-display'
 import { createTestRendererView, createTestSceneRendererSnapshot } from './support/scene-renderer-snapshot'
 
 /** A lens snapshot and the placement its view draws it at (screen = world × scale + { x, y }, bearing 0). */
@@ -23,7 +24,13 @@ function draw(
   const view = createTestRendererView(scene.viewport, { screen: { width: widthPx, height: heightPx, devicePixelRatio: options.dpr ?? 1 } })
   const { snapshot } = scene
   const hoveredPlantId = snapshot.hoverTarget?.kind === 'plant' ? snapshot.hoverTarget.id : null
-  drawInspectionLensScene(ctx as unknown as CanvasRenderingContext2D, { scene: snapshot.scene, speciesCache: snapshot.speciesCache, hoveredPlantId }, view, {
+  drawInspectionLensScene(ctx as unknown as CanvasRenderingContext2D, {
+    scene: snapshot.scene,
+    speciesCache: snapshot.speciesCache,
+    hoveredPlantId,
+    plantDisplay: snapshot.plantDisplay,
+    paintTokens: snapshot.paintTokens,
+  }, view, {
     widthPx,
     heightPx,
     dpr: options.dpr ?? 1,
@@ -249,6 +256,46 @@ describe('drawInspectionLensScene', () => {
     }))
     // The hover ring is one casing stroke and one ring stroke.
     expect(ctx.stroke.mock.calls.length).toBe(plainStrokes.stroke.mock.calls.length + 2)
+  })
+
+  it('respects snapshot plantDisplay (outline off, symbolScale) and custom paintTokens', () => {
+    const base = createRendererSnapshot({
+      plants: [createPlant({ id: 'a', position: { x: 10, y: 10 } })],
+      zones: [{ kind: 'zone', id: 'bed', name: 'bed', zoneType: 'rect', locked: false, rotationDeg: 0,
+        points: [{ x: 0, y: 0 }, { x: 20, y: 0 }, { x: 20, y: 20 }, { x: 0, y: 20 }], fillColor: null, notes: null }],
+      viewport: { x: 0, y: 0, scale: 20 },
+    })
+    const customTokens = {
+      ...readCanvasPaintTokens(),
+      background: '#111111',
+      'zone-stroke': '#abcdef',
+      'hover-stroke': '#fedcba',
+    }
+    const scaled = createMockCanvasContext()
+    const strokeStyles: string[] = []
+    scaled.stroke.mockImplementation(() => { strokeStyles.push(scaled.strokeStyle) })
+    draw(scaled, {
+      ...base,
+      snapshot: {
+        ...base.snapshot,
+        hoverTarget: { kind: 'plant', id: 'a', state: 'hover' },
+        plantDisplay: { ...DEFAULT_PLANT_DISPLAY, outline: false, symbolScale: 1.5 },
+        paintTokens: customTokens,
+      },
+    })
+
+    const baseline = createMockCanvasContext()
+    draw(baseline, base)
+
+    // Zone stroke and hover ring read snapshot paintTokens, and outline: false skips the plant symbol stroke.
+    expect(strokeStyles).toContain('#abcdef')
+    expect(strokeStyles).toContain('#fedcba')
+    // 2 strokes for zone (casing + stroke) + 2 strokes for hover ring (casing + stroke), 0 for the plant outline.
+    expect(strokeStyles).toHaveLength(4)
+    // symbolScale 1.5 draws a larger plant symbol radius than the default 1.0.
+    const scaledRadius = scaled.arc.mock.calls[0]?.[2] ?? 0
+    const baselineRadius = baseline.arc.mock.calls[0]?.[2] ?? 0
+    expect(scaledRadius).toBeGreaterThan(baselineRadius)
   })
 })
 

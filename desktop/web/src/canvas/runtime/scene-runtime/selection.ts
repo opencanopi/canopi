@@ -331,7 +331,7 @@ function getTargetBounds(
   if (annotation) {
     const bounds = getAnnotationVisualWorldBounds(
       annotation, options.annotationViewportScale, annotation.id === options.revealedAnnotationId,
-      getCanvasDetailLayout(persisted, options.annotationViewportScale).annotationIds.has(annotation.id),
+      getCanvasDetailLayout(persisted, options.annotationViewportScale, options.plantContext.plantDisplay?.symbolScale).annotationIds.has(annotation.id),
     )
     return {
       minX: bounds.x,

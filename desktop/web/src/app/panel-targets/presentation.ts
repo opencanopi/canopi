@@ -21,11 +21,6 @@ export interface PanelTargetPresentationController {
   dispose(): void
 }
 
-export interface PanelTargetOverlaySnapshot {
-  readonly hoveredTargets: readonly PanelTarget[]
-  readonly selectedTargets: readonly PanelTarget[]
-}
-
 export function createPanelTargetPresentationController(
   origin: PanelTargetPresentationOrigin,
 ): PanelTargetPresentationController {
@@ -113,16 +108,6 @@ export function readPanelOriginTargets(): readonly PanelTarget[] {
     ...hoveredPanelTargets.value,
     ...matchedPanelTargets.value,
   ]
-}
-
-export function readPanelTargetOverlaySnapshot(): PanelTargetOverlaySnapshot {
-  // A presented story step rings what its view highlights, and nothing else.
-  const presented = storyPresentationOverrides.value
-  if (presented) return { hoveredTargets: [], selectedTargets: presented.targets }
-  return {
-    hoveredTargets: hoveredPanelTargets.value,
-    selectedTargets: selectedPanelTargets.value,
-  }
 }
 
 export function subscribePanelOriginTargetChanges(

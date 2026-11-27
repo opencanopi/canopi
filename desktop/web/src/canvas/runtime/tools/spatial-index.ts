@@ -89,6 +89,9 @@ export function createToolScene(source: ToolSceneSource): ToolScene {
         radiusPx: entry.radiusScreenPx,
       }
     },
+    get plantSymbolScale(): number {
+      return source.plantContext(source.pixelsPerMetre()).plantDisplay?.symbolScale ?? 1
+    },
     isLayerOpenForCreation: (layer) => source.isLayerOpenForCreation(layer),
     selection: () => source.selection(),
     selectionModel: () => source.selectionModel(),

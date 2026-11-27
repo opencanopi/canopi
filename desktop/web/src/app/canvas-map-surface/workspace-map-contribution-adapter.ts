@@ -1,9 +1,8 @@
 import type { CanvasQuerySurface } from '../../canvas/runtime/runtime'
-import { canvasPaintRevision } from '../../canvas/theme-refresh'
+import { canvasPaintRevision, readCanvasPaintTokens } from '../../canvas/theme-refresh'
 import type { DesignSessionStore } from '../document-session/store'
-import { isDarkMapBackdrop, mapTerrainStateOf } from '../settings/state'
+import { isDarkMapBackdrop, mapBackdropOf, mapTerrainStateOf } from '../settings/state'
 import { myLocation } from '../my-location/session'
-import { readPanelTargetOverlaySnapshot } from '../panel-targets/presentation'
 import { presentedMapLayers } from '../story-presentation/overrides'
 import type { MapLibreApi } from '../../maplibre/loader'
 import type { TerrainLayerState, TerrainProtocolSupport } from '../../maplibre/terrain'
@@ -81,7 +80,6 @@ export function readWorkspaceMapContributions(
   void runtime.view.settledCamera.value
   void canvasPaintRevision.value
   const overview = runtime.view.mode.value === 'overview'
-  const panelTargets = readPanelTargetOverlaySnapshot()
   const presented = presentedMapLayers()
   const terrain: TerrainLayerState = {
     ...mapTerrainStateOf(presented),
@@ -93,11 +91,9 @@ export function readWorkspaceMapContributions(
     lidar,
     terrain,
     overlays: {
-      runtime,
-      location: { lat: plane.origin.lat, lon: plane.origin.lon },
-      hoveredTargets: overview ? [] : panelTargets.hoveredTargets,
-      selectedTargets: overview ? [] : panelTargets.selectedTargets,
       site: overview ? null : site,
+      mapBackdrop: mapBackdropOf(presented),
+      paintTokens: readCanvasPaintTokens(),
     },
   }
 }
