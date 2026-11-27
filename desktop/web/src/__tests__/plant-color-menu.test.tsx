@@ -433,7 +433,7 @@ describe('PlantColorMenu', () => {
       await Promise.resolve()
     })
     await act(async () => {
-      document.body.dispatchEvent(new MouseEvent('pointerup', { bubbles: true }))
+      document.body.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true }))
       await Promise.resolve()
     })
     expect(plantColorMenuOpen.value).toBe(false)
