@@ -362,7 +362,7 @@ describe('story actions', () => {
     duplicateStep('visit', 'a')
 
     expect(currentDesign.value!.stories![0]!.steps).toHaveLength(1)
-    expect(storyUndo.value).toEqual({ message: 'These images do not fit: a Design holds at most 10 MB of images. Remove an image, then try again.', undo: null })
+    expect(storyUndo.value).toEqual({ message: 'These images do not fit: a Design holds at most 10.5 MB of images. Remove an image, then try again.', undo: null })
     undoStoryDelete()
     expect(currentDesign.value!.stories![0]!.steps).toHaveLength(1)
   })

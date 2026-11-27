@@ -633,19 +633,26 @@ export function createSpeciesCatalogWorkbench({
     }
   }
 
-  async function loadSpeciesDetail(canonicalName: string): Promise<void> {
+  let cachedDetail: { readonly key: string; readonly promise: Promise<SpeciesCatalogDetail | SpeciesDetail | null> } | null = null
+
+  function fetchDetailOnce(canonicalName: string, requestedLocale: string, forceRefresh = false): Promise<SpeciesCatalogDetail | SpeciesDetail | null> {
+    const key = `${requestedLocale}\u0000${canonicalName}`
+    if (!forceRefresh && cachedDetail?.key === key) return cachedDetail.promise
+    const promise = getSpeciesDetailAdapter(canonicalName, requestedLocale).catch((error) => {
+      if (cachedDetail?.key === key) cachedDetail = null
+      throw error
+    })
+    cachedDetail = { key, promise }
+    return promise
+  }
+
+  async function loadSpeciesDetail(canonicalName: string, forceRefresh = false): Promise<void> {
     if (disposed) return
     const generation = ++detailGeneration
     const requestedLocale = localeSignal.value
-    detail.value = {
-      canonicalName,
-      detail: null,
-      loading: true,
-      error: null,
-    }
-
+    detail.value = { canonicalName, detail: null, loading: true, error: null }
     try {
-      const nextDetail = await getSpeciesDetailAdapter(canonicalName, requestedLocale)
+      const nextDetail = await fetchDetailOnce(canonicalName, requestedLocale, forceRefresh)
       if (disposed || generation !== detailGeneration || selectedCanonicalName.value !== canonicalName) return
       const englishName = nextDetail && !nextDetail.common_name?.trim() && requestedLocale.split('-')[0] !== ENGLISH
         ? await resolveEnglishName(canonicalName)
@@ -661,12 +668,7 @@ export function createSpeciesCatalogWorkbench({
     } catch (error) {
       if (disposed || generation !== detailGeneration || selectedCanonicalName.value !== canonicalName) return
       recordCatalogFailure(error)
-      detail.value = {
-        canonicalName,
-        detail: null,
-        loading: false,
-        error: error instanceof Error ? error.message : String(error),
-      }
+      detail.value = { canonicalName, detail: null, loading: false, error: error instanceof Error ? error.message : String(error) }
     }
   }
 
@@ -805,7 +807,7 @@ export function createSpeciesCatalogWorkbench({
       if (disposed) return
       const alreadySelected = selectedCanonicalName.peek() === canonicalName
       selectedCanonicalName.value = canonicalName
-      if (alreadySelected || !viewsActive.peek()) void loadSpeciesDetail(canonicalName)
+      if (alreadySelected || !viewsActive.peek()) void loadSpeciesDetail(canonicalName, alreadySelected)
       try {
         void Promise.resolve(onSpeciesSelected?.(canonicalName))
           // The recorded view is what "Recently viewed" lists, so it reloads once the record lands.
@@ -821,7 +823,7 @@ export function createSpeciesCatalogWorkbench({
     retrySpeciesDetail() {
       if (disposed) return
       const canonicalName = selectedCanonicalName.peek()
-      if (canonicalName) void loadSpeciesDetail(canonicalName)
+      if (canonicalName) void loadSpeciesDetail(canonicalName, true)
     },
 
     closeSpeciesDetail() {
@@ -876,7 +878,7 @@ export function createSpeciesCatalogWorkbench({
     },
 
     async fetchSpeciesDetail(canonicalName, requestedLocale) {
-      const nextDetail = await getSpeciesDetailAdapter(canonicalName, requestedLocale)
+      const nextDetail = await fetchDetailOnce(canonicalName, requestedLocale)
       if (!nextDetail) throw new Error(`Species detail not found: ${canonicalName}`)
       return nextDetail
     },

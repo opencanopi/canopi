@@ -1,4 +1,5 @@
 import { effect, untracked } from '@preact/signals'
+import { currentLocale } from '../../i18n'
 import { editionPorts } from '../../platform/edition-ports'
 import { designSessionStore } from '../document-session/store'
 import { createPlaceSearchController, type PlaceSearchController } from './place-search'
@@ -9,6 +10,7 @@ export { parseCoordinates } from './place-search'
 /** The app's one place search, bound lazily to the edition's geocoding transport (Stage 2 A1). */
 export const placeSearch: PlaceSearchController = createPlaceSearchController({
   transport: (url, signal) => editionPorts().geocoding(url, signal),
+  locale: currentLocale,
 })
 
 /** Forget the place search results; the field's text belongs to the field. */

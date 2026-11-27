@@ -1,12 +1,11 @@
 import { signal, type ReadonlySignal } from '@preact/signals'
 import { WEB_MERCATOR_MAX_LATITUDE_DEG } from '../../generated/canopi-design-format'
 import {
-  defaultGeocoderConfig,
+  DEFAULT_FORWARD_GEOCODE_ENDPOINT,
+  NOMINATIM_PROVIDER,
   geocodeForward,
   geocoderMinIntervalMs,
-  getGeocodingProvider,
   nextDelayMs,
-  type GeocoderConfig,
   type GeocodingTransport,
 } from './registry'
 
@@ -25,8 +24,8 @@ type PlaceSearchStatus = 'idle' | 'searching' | 'results' | 'no-results' | 'erro
 export interface PlaceSearchController {
   readonly results: ReadonlySignal<readonly PlaceSearchResult[]>
   readonly status: ReadonlySignal<PlaceSearchStatus>
-  /** Credit to show with geocoder results; null for coordinates. */
-  readonly attribution: ReadonlySignal<string | null>
+  /** Provider id for geocoder results; null for coordinates or before results. */
+  readonly providerId: ReadonlySignal<typeof NOMINATIM_PROVIDER.id | null>
   /** Runs one search; called on Enter only, never while typing. */
   search(query: string): Promise<void>
   clear(): void
@@ -35,8 +34,10 @@ export interface PlaceSearchController {
 
 export interface PlaceSearchOptions {
   readonly transport: GeocodingTransport
-  readonly config?: GeocoderConfig
+  readonly endpoint?: string
   readonly limit?: number
+  /** Current interface locale for `accept-language`. */
+  readonly locale?: () => string
   readonly now?: () => number
   readonly sleep?: (ms: number, signal: AbortSignal) => Promise<void>
 }
@@ -105,11 +106,14 @@ function abortableSleep(ms: number, signal: AbortSignal): Promise<void> {
   })
 }
 
+const MAX_PLACE_SEARCH_CACHE_ENTRIES = 64
+
 export function createPlaceSearchController(options: PlaceSearchOptions): PlaceSearchController {
   const results = signal<readonly PlaceSearchResult[]>([])
   const status = signal<PlaceSearchStatus>('idle')
-  const attribution = signal<string | null>(null)
-  const config = options.config ?? defaultGeocoderConfig()
+  const providerId = signal<typeof NOMINATIM_PROVIDER.id | null>(null)
+  const endpoint = options.endpoint ?? DEFAULT_FORWARD_GEOCODE_ENDPOINT
+  const getLocale = options.locale ?? (() => 'en')
   const now = options.now ?? (() => Date.now())
   const sleep = options.sleep ?? abortableSleep
   let controller: AbortController | null = null
@@ -124,14 +128,14 @@ export function createPlaceSearchController(options: PlaceSearchOptions): PlaceS
   return {
     results,
     status,
-    attribution,
+    providerId,
     async search(query) {
       cancel()
       const trimmed = query.trim()
       if (!trimmed) {
         results.value = []
         status.value = 'idle'
-        attribution.value = null
+        providerId.value = null
         return
       }
       const coordinates = parseCoordinates(trimmed)
@@ -143,29 +147,31 @@ export function createPlaceSearchController(options: PlaceSearchOptions): PlaceS
           source: 'coordinates',
         }]
         status.value = 'results'
-        attribution.value = null
+        providerId.value = null
         return
       }
-      const cacheKey = `${config.providerId}:${config.forwardEndpoint}:${trimmed.toLowerCase()}`
+      const acceptLanguage = getLocale()
+      const normalizedQuery = trimmed.replace(/\s+/g, ' ').toLowerCase()
+      const cacheKey = `${endpoint}:${acceptLanguage}:${normalizedQuery}`
       const cached = cache.get(cacheKey)
       if (cached) {
         results.value = cached
         status.value = cached.length > 0 ? 'results' : 'no-results'
-        attribution.value = getGeocodingProvider(config.providerId).attribution
+        providerId.value = NOMINATIM_PROVIDER.id
         return
       }
       const current = new AbortController()
       controller = current
       status.value = 'searching'
       try {
-        const endpoint = config.forwardEndpoint
         const interval = geocoderMinIntervalMs(endpoint)
         await sleep(nextDelayMs(lastRequestStartedAt.get(endpoint) ?? null, now(), interval), current.signal)
         if (current.signal.aborted) return
         lastRequestStartedAt.set(endpoint, now())
         const matches = await geocodeForward(trimmed, options.transport, {
           signal: current.signal,
-          config,
+          endpoint,
+          acceptLanguage,
           limit: options.limit ?? 5,
         })
         if (controller !== current) return
@@ -180,15 +186,19 @@ export function createPlaceSearchController(options: PlaceSearchOptions): PlaceS
             lon: match.lon,
             source: 'geocoder',
           }))
+        if (cache.size >= MAX_PLACE_SEARCH_CACHE_ENTRIES) {
+          const oldest = cache.keys().next().value
+          if (oldest !== undefined) cache.delete(oldest)
+        }
         cache.set(cacheKey, nextResults)
         results.value = nextResults
         status.value = nextResults.length > 0 ? 'results' : 'no-results'
-        attribution.value = getGeocodingProvider(config.providerId).attribution
+        providerId.value = NOMINATIM_PROVIDER.id
       } catch (error) {
         if (controller !== current || (error instanceof DOMException && error.name === 'AbortError')) return
         results.value = []
         status.value = 'error'
-        attribution.value = null
+        providerId.value = null
       } finally {
         if (controller === current) controller = null
       }
@@ -197,7 +207,7 @@ export function createPlaceSearchController(options: PlaceSearchOptions): PlaceS
       cancel()
       results.value = []
       status.value = 'idle'
-      attribution.value = null
+      providerId.value = null
     },
     dispose: cancel,
   }

@@ -177,7 +177,6 @@ export function BrowserAppShell({
       {!phone && <PanelRail
         label={t("webShell.panels")}
         groups={[
-          commandProjection.panelBar.primary.length > 1 ? commandProjection.panelBar.primary : [],
           commandProjection.panelBar.design,
           commandProjection.panelBar.planning,
         ]}

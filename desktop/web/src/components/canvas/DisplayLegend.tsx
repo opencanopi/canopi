@@ -2,6 +2,7 @@ import { buildPinnedPlantNameLegendEntries } from '../../canvas/pinned-plant-nam
 import { currentCanvasQuerySurface } from '../../canvas/session'
 import { t } from '../../i18n'
 import { currentPlantDisplay } from '../../app/plant-display/state'
+import { locale } from '../../app/settings/state'
 import { phoneLayout } from '../../app/shell/phone-layout'
 import { useLayoutEffect, useRef, useState } from 'preact/hooks'
 import { bottomChromeCoverOver, leftChromeCrowdsMap, visibleMapFrame } from '../../app/shell/visible-map-area'
@@ -29,7 +30,7 @@ export function DisplayLegend() {
   // Phones show the pinned names on the map only: nothing but the zoom column floats there (answer 25).
   const pinnedEntries = !querySurface || phoneLayout.value !== null
     ? []
-    : buildPinnedPlantNameLegendEntries(querySurface, currentPlantDisplay.value)
+    : buildPinnedPlantNameLegendEntries(querySurface, currentPlantDisplay.value, locale.value)
   const shown = pinnedEntries.length > 0
   const frame = visibleMapFrame.value
   const [covers, setCovers] = useState(false)

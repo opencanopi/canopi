@@ -6,6 +6,11 @@ import { SUPPORTED_LOCALES } from "../generated/locale-registry";
 
 export { SUPPORTED_LOCALES };
 
+/** Active interface locale, read untracked for imperative formatting and request headers. */
+export function currentLocale(): string {
+  return locale.peek();
+}
+
 // Stryker disable next-line all
 const localeBundles = import.meta.glob<Record<string, unknown>>("./*.json", {
   eager: true,

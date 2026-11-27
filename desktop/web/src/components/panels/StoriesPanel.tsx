@@ -29,6 +29,7 @@ import type { SavedView, Story, StoryStep } from '../../types/design'
 import { ActionMenu, type ActionMenuEntry } from '../shared/ActionMenu'
 import { ButtonTooltip } from '../shared/ButtonTooltip'
 import { ControlIcon } from '../shared/ControlIcon'
+import { InlineRenameField } from '../shared/InlineRenameField'
 import { DockPanelHeader } from '../shared/DockPanelHeader'
 import { Dropdown } from '../shared/Dropdown'
 import { EmptyState } from '../shared/EmptyState'
@@ -75,39 +76,30 @@ export function StoriesPanel() {
 
 function StorySelector({ stories, story }: { readonly stories: readonly Story[]; readonly story: Story }) {
   const [renaming, setRenaming] = useState(false)
-  const [draft, setDraft] = useState(story.name)
-  const field = useRef<HTMLInputElement>(null)
   const menuSlot = useRef<HTMLDivElement>(null)
 
-  useEffect(() => {
-    if (renaming) field.current?.select()
-  }, [renaming])
-
-  function finish(commit: boolean): void {
-    if (commit) renameStory(story.id, draft)
+  function closeRename(): void {
     setRenaming(false)
     requestAnimationFrame(() => menuSlot.current?.querySelector<HTMLButtonElement>('button')?.focus())
   }
 
   if (renaming) {
     return (
-      <form className={styles.selector} onSubmit={(event) => { event.preventDefault(); finish(true) }}>
-        <input
-          ref={field}
+      <div className={styles.selector}>
+        <InlineRenameField
+          value={story.name}
+          ariaLabel={t('stories.renameField')}
           className={styles.renameField}
-          aria-label={t('stories.renameField')}
-          value={draft}
-          onInput={(event) => setDraft(event.currentTarget.value)}
-          onKeyDown={(event) => {
-            if (event.key !== 'Escape') return
-            event.preventDefault()
-            event.stopPropagation()
-            finish(false)
+          unchangedName={story.name}
+          cancelOnFocusOutTarget={(target) => target instanceof HTMLElement && Boolean(target.closest('[data-story-rename-cancel="true"]'))}
+          onCommit={(name) => {
+            renameStory(story.id, name)
+            closeRename()
           }}
+          onCancel={closeRename}
         />
-        <button type="submit" className={styles.smallButton}>{t('stories.renameSave')}</button>
-        <button type="button" className={`${styles.smallButton} ${styles.ghost}`} onClick={() => finish(false)}>{t('stories.cancel')}</button>
-      </form>
+        <button type="button" className={`${styles.smallButton} ${styles.ghost}`} data-story-rename-cancel="true" onClick={closeRename}>{t('stories.cancel')}</button>
+      </div>
     )
   }
 
@@ -126,7 +118,7 @@ function StorySelector({ stories, story }: { readonly stories: readonly Story[];
         <ActionMenu
           label={t('stories.storyActions')}
           items={[
-            { id: 'rename-story', label: t('stories.renameStory'), run: () => { setDraft(story.name); setRenaming(true) } },
+            { id: 'rename-story', label: t('stories.renameStory'), run: () => { setRenaming(true) } },
             { separator: true },
             { id: 'delete-story', label: t('stories.deleteStory'), danger: true, run: () => requestDeleteStory(story.id) },
           ]}

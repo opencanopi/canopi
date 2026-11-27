@@ -1,4 +1,4 @@
-// utils/object-name.ts  (L0, pure)
+// app/design-edit/object-name.ts  (pure)
 //
 // Single rename normalisation rule shared by Desktop and Web for Designs,
 // saved views, stories and stamps (contracts §4, 2.1-Q87, 2.1-Q360).

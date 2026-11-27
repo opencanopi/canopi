@@ -13,7 +13,10 @@ import { admitWebCatalogManifest } from "./src/generated/web-catalog-artifact.mj
 import { ENGINE_FLOOR_BROWSERS, ENGINE_FLOOR_TARGET } from "./engine-floor";
 // The coverage floors' one home (2.1-M217): policy/check.mjs holds this config's loaded values to the same family.
 import coverageFamily from "../../policy/ratchets/coverage.json";
-const CARGO_APP_VERSION = /^\s*version\s*=\s*"([^"]+)"\s*$/m.exec(/^\[workspace\.package\]\s*$([\s\S]*?)(?=^\[|(?![\s\S]))/m.exec(readFileSync(fileURLToPath(new URL('../../Cargo.toml', import.meta.url)), 'utf8'))?.[1] ?? '')?.[1] ?? (() => { throw new Error('Cargo.toml [workspace.package] version missing'); })();
+const { readCargoWorkspaceVersion } = (await import(new URL("../../policy/release-version.mjs", import.meta.url).href)) as {
+  readCargoWorkspaceVersion(root: string): string;
+};
+const CARGO_APP_VERSION = readCargoWorkspaceVersion(fileURLToPath(new URL("../../", import.meta.url)));
 // The generated Web plant catalog (`npm run generate:web-catalog`, git-ignored); a test may point elsewhere.
 const WEB_CATALOG_INPUT_ENV = "CANOPI_WEB_CATALOG_INPUT";
 // Web files are named `<name>-<16-character hash>.<ext>`, so scripts/web_release.py can tell a hashed name from a

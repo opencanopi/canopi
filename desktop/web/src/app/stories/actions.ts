@@ -1,5 +1,7 @@
 import { computed, signal, type ReadonlySignal } from '@preact/signals'
-import { t } from '../../i18n'
+import { STORY_IMAGES_MAX_TOTAL_BYTES } from '../../generated/canopi-design-format'
+import { currentLocale, t } from '../../i18n'
+import { formatImageBytes } from './images'
 import type { RichTextBlock, Story, StoryImage, StoryStep } from '../../types/design'
 import { createUuid } from '../../utils/ids'
 import {
@@ -123,7 +125,15 @@ function offerUndo(message: string, undo: () => void): void {
 /** Says why an edit changed nothing when its images would not fit in the Design. */
 function reportOutcome(outcome: StoryEditOutcome): void {
   if (outcome !== 'images-do-not-fit') return
-  undoState.value = { session: currentSession(), value: { message: t('stories.imagesDoNotFit'), undo: null } }
+  undoState.value = {
+    session: currentSession(),
+    value: {
+      message: t('stories.imagesDoNotFit', {
+        limit: formatImageBytes(STORY_IMAGES_MAX_TOTAL_BYTES, currentLocale()),
+      }),
+      undo: null,
+    },
+  }
 }
 
 function findStory(storyId: string): Story | null {

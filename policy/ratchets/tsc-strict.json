@@ -87,7 +87,7 @@
     "desktop/web/src/components/panels/CalendarPanel.tsx": { "count": 3 },
     "desktop/web/src/components/panels/CalendarSpeciesPicker.tsx": { "count": 1 },
     "desktop/web/src/components/panels/ConsortiumPanel.tsx": { "count": 1 },
-    "desktop/web/src/components/panels/FavoritesPanel.tsx": { "count": 2 },
+    "desktop/web/src/components/panels/FavoritesPanel.tsx": { "count": 1 },
     "desktop/web/src/components/panels/LayersPanel.tsx": { "count": 1 },
     "desktop/web/src/components/panels/SpeciesKeyPanel.tsx": { "count": 4 },
     "desktop/web/src/components/panels/StoriesPanel.tsx": { "count": 2 },

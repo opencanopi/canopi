@@ -370,7 +370,7 @@ describe('Stories panel', () => {
       field.value = 'Visit in June'
       field.dispatchEvent(new Event('input', { bubbles: true }))
     })
-    await act(async () => { field.form!.requestSubmit() })
+    await act(async () => { field.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })) })
     expect(currentDesign.value!.stories![0]!.name).toBe('Visit in June')
 
     await openMenuItem(button('More actions for this story'), 'delete-story')

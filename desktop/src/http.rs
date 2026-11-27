@@ -1,5 +1,13 @@
 use std::time::Duration;
 
+pub fn require_https_host(url: &str, allowed_host: &str) -> Result<(), String> {
+    let parsed = reqwest::Url::parse(url).map_err(|e| format!("Invalid URL: {e}"))?;
+    if parsed.scheme() != "https" || parsed.host_str() != Some(allowed_host) {
+        return Err(format!("Only https://{allowed_host} is allowed"));
+    }
+    Ok(())
+}
+
 pub fn build_get_request(
     url: &str,
     user_agent: &str,

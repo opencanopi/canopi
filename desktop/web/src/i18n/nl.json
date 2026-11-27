@@ -322,9 +322,7 @@
       "coordinates": "{{lat}}° {{northSouth}}, {{lon}}° {{eastWest}}",
       "west": "W",
       "goStraightThere": "Coördinaten · er direct heen",
-      "enterHint": "Druk op Enter om te zoeken",
-      "attributionNominatim": "Zoeken via Nominatim · © OpenStreetMap-bijdragers",
-      "attributionPelias": "Zoeken via Pelias · © OpenStreetMap-bijdragers"
+      "enterHint": "Druk op Enter om te zoeken"
     },
     "file": {
       "cancel": "Annuleren"
@@ -1365,7 +1363,8 @@
     "reorderNamed": "{{name}} verplaatsen (Alt ↑ of ↓)",
     "placeNamed": "Stempel {{name}} plaatsen",
     "deleteNamed": "Stempel {{name}} verwijderen",
-    "actionsFor": "Meer acties voor {{name}}"
+    "actionsFor": "Meer acties voor {{name}}",
+    "renameFailed": "Canopi kon deze stempel niet hernoemen. Probeer het opnieuw."
   },
   "boundary": {
     "panelFailed": "Dit paneel kon niet worden geladen",
@@ -1847,7 +1846,6 @@
   "siteOnboarding": {
     "locateTitle": "Waar ligt je terrein?",
     "locateIntro": "Zoek een plaats of plak coördinaten. De kaart gaat erheen; er wordt nog niets geplaatst.",
-    "placeNamesCredit": "Plaatsnamen © OpenStreetMap-bijdragers",
     "skip": "Overslaan, ik zoek het op de kaart",
     "startTitle": "Begin je ontwerp",
     "closeStart": "Begin je ontwerp sluiten",
@@ -2058,9 +2056,9 @@
     "imageRemove": "Afbeelding {{number}} verwijderen",
     "imagePreview": "Afbeelding {{number}}: {{alt}}",
     "imageType": "Kies een PNG-, JPEG-, WebP- of GIF-afbeelding.",
-    "imageTooLarge": "Deze afbeelding is {{size}}. Een afbeelding mag hoogstens 1 MB zijn; kies een kleinere.",
-    "imageDesignFull": "Dit ontwerp bevat al {{used}} aan afbeeldingen, en een ontwerp kan 10 MB bevatten. Verwijder een afbeelding of kies een kleinere.",
-    "imagesDoNotFit": "Deze afbeeldingen passen niet: een ontwerp bevat maximaal 10 MB aan afbeeldingen. Verwijder een afbeelding en probeer het opnieuw.",
+    "imageTooLarge": "Deze afbeelding is {{size}}. Een afbeelding mag hoogstens {{limit}} zijn; kies een kleinere.",
+    "imageDesignFull": "Dit ontwerp bevat al {{used}} aan afbeeldingen, en een ontwerp kan {{limit}} bevatten. Verwijder een afbeelding of kies een kleinere.",
+    "imagesDoNotFit": "Deze afbeeldingen passen niet: een ontwerp bevat maximaal {{limit}} aan afbeeldingen. Verwijder een afbeelding en probeer het opnieuw.",
     "imageUnreadable": "Canopi kon deze afbeelding niet lezen. Probeer een ander bestand.",
     "imageResized": "Canopi heeft deze afbeelding verkleind zodat ze past: van {{from}} naar {{to}}.",
     "imageShrinking": "Afbeelding verkleinen…",
@@ -2256,5 +2254,8 @@
   },
   "fileDelivery": {
     "refused": "Opslaan onder die bestandsnaam is niet gelukt. Kies een andere naam of map en probeer het opnieuw."
+  },
+  "geocoding": {
+    "credit": "Zoeken via {{service}} · © OpenStreetMap-bijdragers"
   }
 }

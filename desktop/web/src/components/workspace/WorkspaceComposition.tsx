@@ -7,7 +7,6 @@ import { siteLocateOpen } from '../../app/site-onboarding/state'
 import { storyPresentationActive } from '../../app/story-presentation'
 import type { ShellPanelBarProjection } from '../../app/shell-commands'
 import {
-  activePanel,
   isSidePanel,
   navigateTo,
   sidePanel,
@@ -67,18 +66,14 @@ export function WorkspaceComposition({
     () => validateWorkspaceSurfaces(panelProjection, surfaces),
     [panelProjection, surfaces],
   )
-  const currentPrimary = activePanel.value
   const requestedSide = sidePanel.value
-  const primary = registrations.primary.has(currentPrimary)
-    ? currentPrimary as PrimaryPanel
-    : 'canvas'
+  const primary: PrimaryPanel = 'canvas'
   // "Where is your site?" is the one task: the dock steps aside, as the tool
   // rail does, and comes back once the site is found or skipped.
   const locating = siteLocateOpen.value
   // A presented story fills the window; the dock comes back when it ends.
   const presenting = storyPresentationActive.value
-  const mountedSide = primary === 'canvas'
-    && !locating
+  const mountedSide = !locating
     && !presenting
     && requestedSide
     && registrations.side.has(requestedSide)
@@ -102,12 +97,9 @@ export function WorkspaceComposition({
   ) : null
 
   useEffect(() => {
-    if (
-      registrations.primary.has(currentPrimary)
-      && (!requestedSide || registrations.side.has(requestedSide))
-    ) return
+    if (!requestedSide || registrations.side.has(requestedSide)) return
     navigateTo('canvas')
-  }, [currentPrimary, registrations, requestedSide])
+  }, [registrations, requestedSide])
 
   if (!PrimarySurface) {
     throw new Error(`Workspace is missing its '${primary}' primary surface.`)

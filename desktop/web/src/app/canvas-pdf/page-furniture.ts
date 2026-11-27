@@ -2,6 +2,7 @@ import type { PrintPlant } from '../../canvas/print'
 import type { PdfInput, PdfLabels, PdfOperation, PdfPage, PdfPaper } from './types'
 import type { PdfTextEngine } from './text'
 import { MM, PRINT, drawMark, pathOp, textOp } from './page-drawing'
+import { compareSpeciesByShownName } from '../../utils/species-sort'
 
 export function detailFurniture(page: PdfPage, input: PdfInput, labels: PdfLabels, paper: PdfPaper, text: PdfTextEngine, showScale: boolean, northAngleDeg: number, groundScaleFactor = 1): PdfOperation[] {
   const operations: PdfOperation[] = [], margin = 10 * MM
@@ -68,9 +69,12 @@ export function symbolLegend(plants: readonly PrintPlant[], pageWidth: number, l
   const samples = new Map<string, PrintPlant>()
   for (const plant of plants) if (!samples.has(plant.symbol)) samples.set(plant.symbol, plant)
   if (!samples.size) return null
-  const collator = new Intl.Collator(locale)
   const nameOf = (symbol: string) => labels.symbolNames?.[symbol]?.trim() || symbol
-  const ordered = [...samples.keys()].sort((a, b) => collator.compare(nameOf(a), nameOf(b)) || a.localeCompare(b))
+  const ordered = [...samples.keys()].sort((a, b) => compareSpeciesByShownName(
+    { shownName: nameOf(a), canonicalName: a },
+    { shownName: nameOf(b), canonicalName: b },
+    locale,
+  ))
   const size = 7, rows = 4, row = 3.4 * MM, first = 12 * MM, radius = 1.1 * MM, gap = 1.2 * MM, columnGap = 4 * MM
   const right = pageWidth - 10 * MM, budget = Math.max(40 * MM, pageWidth * .45), nameWidth = 32 * MM
   const columns: { symbols: string[]; width: number }[] = []

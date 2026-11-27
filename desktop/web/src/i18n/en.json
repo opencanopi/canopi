@@ -322,9 +322,7 @@
       "coordinates": "{{lat}}° {{northSouth}}, {{lon}}° {{eastWest}}",
       "west": "W",
       "goStraightThere": "Coordinates · go straight there",
-      "enterHint": "Press Enter to search",
-      "attributionNominatim": "Search by Nominatim · © OpenStreetMap contributors",
-      "attributionPelias": "Search by Pelias · © OpenStreetMap contributors"
+      "enterHint": "Press Enter to search"
     },
     "file": {
       "cancel": "Cancel"
@@ -1365,7 +1363,8 @@
     "reorderNamed": "Reorder {{name}} (Alt ↑ or ↓)",
     "placeNamed": "Place stamp {{name}}",
     "deleteNamed": "Delete stamp {{name}}",
-    "actionsFor": "More actions for {{name}}"
+    "actionsFor": "More actions for {{name}}",
+    "renameFailed": "Canopi couldn't rename this stamp. Try again."
   },
   "boundary": {
     "panelFailed": "This panel couldn’t load",
@@ -1847,7 +1846,6 @@
   "siteOnboarding": {
     "locateTitle": "Where is your site?",
     "locateIntro": "Search a place or paste coordinates. The map goes there; nothing is placed yet.",
-    "placeNamesCredit": "Place names © OpenStreetMap contributors",
     "skip": "Skip, I’ll find it on the map",
     "startTitle": "Start your Design",
     "closeStart": "Close Start your Design",
@@ -2058,9 +2056,9 @@
     "imageRemove": "Remove image {{number}}",
     "imagePreview": "Image {{number}}: {{alt}}",
     "imageType": "Choose a PNG, JPEG, WebP or GIF image.",
-    "imageTooLarge": "This image is {{size}}. An image can be at most 1 MB; choose a smaller one.",
-    "imageDesignFull": "This Design already holds {{used}} of images, and a Design can hold 10 MB. Remove an image or choose a smaller one.",
-    "imagesDoNotFit": "These images do not fit: a Design holds at most 10 MB of images. Remove an image, then try again.",
+    "imageTooLarge": "This image is {{size}}. An image can be at most {{limit}}; choose a smaller one.",
+    "imageDesignFull": "This Design already holds {{used}} of images, and a Design can hold {{limit}}. Remove an image or choose a smaller one.",
+    "imagesDoNotFit": "These images do not fit: a Design holds at most {{limit}} of images. Remove an image, then try again.",
     "imageUnreadable": "Canopi couldn't read this image. Try another file.",
     "imageResized": "Canopi made this image smaller to fit: {{from}} to {{to}}.",
     "imageShrinking": "Making this image smaller…",
@@ -2256,5 +2254,8 @@
   },
   "fileDelivery": {
     "refused": "Could not save to that file name. Choose a different file name or folder and try again."
+  },
+  "geocoding": {
+    "credit": "Search by {{service}} · © OpenStreetMap contributors"
   }
 }

@@ -95,7 +95,6 @@ export function PhoneSheet({ layout, tabs, bar, options, children }: {
   const optionsId = useId()
   const portrait = layout === 'portrait'
   const panels = tabs.filter((command) => command.panel)
-  // Only side panels open the sheet; a primary view (Templates) just switches the map.
   const sidePanels = panels.filter((command) => isSidePanel(command.panel!))
   const openPanel = sidePanels.find((command) => command.active)?.panel ?? null
   const open = openPanel !== null

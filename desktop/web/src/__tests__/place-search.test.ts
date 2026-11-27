@@ -5,7 +5,7 @@ import {
   shortPlaceLabel,
   resetPlaceSearchPacingForTests,
 } from '../app/geocoding/place-search'
-import { NOMINATIM_ATTRIBUTION, NOMINATIM_MIN_INTERVAL_MS } from '../app/geocoding/registry'
+import { NOMINATIM_MIN_INTERVAL_MS, NOMINATIM_PROVIDER } from '../app/geocoding/registry'
 
 afterEach(() => resetPlaceSearchPacingForTests())
 
@@ -25,7 +25,7 @@ describe('place search', () => {
     await search.search('48.8584, 2.2945')
     expect(transport).not.toHaveBeenCalled()
     expect(search.results.value).toEqual([{ label: '48.858400, 2.294500', detail: null, lat: 48.8584, lon: 2.2945, source: 'coordinates' }])
-    expect(search.attribution.value).toBeNull()
+    expect(search.providerId.value).toBeNull()
   })
 
   it.each([
@@ -51,7 +51,7 @@ describe('place search', () => {
     expect(transport).toHaveBeenCalledTimes(1)
     expect(search.results.value).toEqual([{ label: 'Tours', detail: 'Indre-et-Loire, France', lat: 47.39, lon: 0.689, source: 'geocoder' }])
     expect(search.status.value).toBe('results')
-    expect(search.attribution.value).toBe(NOMINATIM_ATTRIBUTION)
+    expect(search.providerId.value).toBe(NOMINATIM_PROVIDER.id)
   })
 
   it('lists a place once when the geocoder returns several objects with the same name', async () => {

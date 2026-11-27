@@ -4,7 +4,8 @@
     "generate.mjs!",
     "gate/cli.mjs!",
     "adapters/*.{mjs,ts}!",
-    "generate/depcruise.mjs!"
+    "generate/depcruise.mjs!",
+    "release-version.mjs!"
   ],
   "project": [
     "**/*.{mjs,ts}!"

@@ -21,7 +21,6 @@ import type {
   FormatDecodeAnswer,
   FormatRefusal,
   GeoPointV10,
-  GeoResult,
   HomeRead,
   HomeVersion,
   HomeWrite,
@@ -141,7 +140,7 @@ export const COMMAND_NAMES = [
   'show_problem_report_folder',
   'get_app_folders',
   'show_app_folder',
-  'geocode_address',
+  'geocoder_fetch',
   'lidar_list_library',
   'lidar_rename_item',
   'lidar_delete_impact',
@@ -233,7 +232,7 @@ export type CommandMap = {
   readonly 'show_problem_report_folder': { readonly args: { readonly fileName: string }; readonly reply: void }
   readonly 'get_app_folders': { readonly args: undefined; readonly reply: AppFolderLocations }
   readonly 'show_app_folder': { readonly args: { readonly folder: AppFolder }; readonly reply: void }
-  readonly 'geocode_address': { readonly args: { readonly query: string }; readonly reply: GeoResult[] }
+  readonly 'geocoder_fetch': { readonly args: { readonly url: string }; readonly reply: string }
   readonly 'lidar_list_library': { readonly args: undefined; readonly reply: LibrarySnapshot }
   readonly 'lidar_rename_item': { readonly args: { readonly itemId: string; readonly name: string }; readonly reply: void }
   readonly 'lidar_delete_impact': { readonly args: { readonly itemId: string }; readonly reply: LibraryDeleteImpact }
@@ -340,7 +339,7 @@ export const COMMAND_SYNC_KINDS: Readonly<Record<CommandName, CommandSyncKind>> 
   'show_problem_report_folder': 'async',
   'get_app_folders': 'async',
   'show_app_folder': 'async',
-  'geocode_address': 'async',
+  'geocoder_fetch': 'async',
   'lidar_list_library': 'async',
   'lidar_rename_item': 'async',
   'lidar_delete_impact': 'async',

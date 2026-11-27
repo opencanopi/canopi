@@ -2,6 +2,7 @@ import type { PrintBounds, PrintPlant, PrintPoint } from '../../canvas/print'
 import { PdfTextError, type TextLine } from './text'
 import type { PdfHabit, PdfInput, PdfLegendEntry, PdfOperation } from './types'
 import { contrastingInk } from '../../canvas/plant-colors'
+import { compareSpeciesByShownName } from '../../utils/species-sort'
 
 import { MM, PRINT } from './print-style'
 export { MM, PRINT } from './print-style'
@@ -19,8 +20,11 @@ export function identifyPlants(plants: readonly PrintPlant[], input: Pick<PdfInp
     }
     if (!entry.appearances.some((a) => a.symbol === plant.symbol && a.color === plant.color)) entry.appearances.push(plant)
   }
-  const collator = new Intl.Collator(input.locale)
-  return Array.from(bySpecies.values()).sort((a, b) => collator.compare(a.name, b.name) || collator.compare(a.canonicalName, b.canonicalName))
+  return Array.from(bySpecies.values()).sort((a, b) => compareSpeciesByShownName(
+    { shownName: a.name, canonicalName: a.canonicalName },
+    { shownName: b.name, canonicalName: b.canonicalName },
+    input.locale,
+  ))
 }
 interface ExtentAnchor { point: PrintPoint; left: number; top: number; right: number; bottom: number }
 export function fitOverview(input: PdfInput, frame: PrintBounds, coverage: readonly PrintBounds[] = []): { ground: PrintBounds; pointsPerMeter: number } {

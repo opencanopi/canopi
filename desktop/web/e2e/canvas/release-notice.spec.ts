@@ -9,6 +9,7 @@ import { boxOf, expectHitAtCentre, openFixtureFromStart, overlap, type Box } fro
 import { expect, test } from '../support/offline'
 import { draftsKeptStub } from '../support/storage-persistence'
 import { DRAFT_DATABASE, draftStoreDump } from '../support/web-storage'
+import { readCargoWorkspaceVersion } from '../../../../policy/release-version.mjs'
 
 const FIXTURE = fileURLToPath(new URL('../fixtures/canvas-base.canopi', import.meta.url))
 /** The PDF preview's lazy `job` chunk (app/canvas-pdf/live.ts): never loaded before the export opens, and offline-safe. */
@@ -25,8 +26,8 @@ async function openPdfExport(page: Page): Promise<void> {
 // The browser's line for a chunk a test answers 404.
 test.use({ expectedConsoleErrors: [NOT_FOUND] })
 
-/** This build's release (the manifest of a packaged build names desktop/web/package.json's, which release-candidate keeps equal). */
-const OWN_VERSION = (JSON.parse(readFileSync(fileURLToPath(new URL('../../../tauri.conf.json', import.meta.url)), 'utf8')) as { version: string }).version
+/** This build's release (Cargo.toml [workspace.package], held equal across manifests by release-version.mjs). */
+const OWN_VERSION = readCargoWorkspaceVersion(fileURLToPath(new URL('../../../..', import.meta.url)))
 const OTHER_VERSION = `${OWN_VERSION}-next`
 const MANIFEST = '**/canopi-web-edition-manifest.json'
 const SETTINGS_KEY = 'canopi:web-app-data:v3:settings'

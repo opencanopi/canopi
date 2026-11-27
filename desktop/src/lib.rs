@@ -144,7 +144,7 @@ pub fn run() {
             commands::problem_report::show_problem_report_folder,
             commands::app_folders::get_app_folders,
             commands::app_folders::show_app_folder,
-            commands::geocoding::geocode_address,
+            commands::geocoding::geocoder_fetch,
             commands::lidar::lidar_list_library,
             commands::lidar::lidar_rename_item,
             commands::lidar::lidar_delete_impact,

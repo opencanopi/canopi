@@ -98,7 +98,6 @@ export function speciesFocusOpacity(
   return focus.canonicalName && focus.canonicalName !== canonicalName ? SPECIES_FOCUS_DIM_OPACITY : 1
 }
 
-const NO_ENGLISH_FALLBACKS: ReadonlyMap<string, string> = new Map()
 
 /**
  * The species names lists show: the name in the UI language, else the English
@@ -139,8 +138,8 @@ export function buildSpeciesKey(
   scene: ScenePersistedState,
   speciesCache: ReadonlyMap<string, SpeciesCacheEntry>,
   localizedNames: ReadonlyMap<string, string | null>,
-  englishFallbackNames: ReadonlyMap<string, string> = NO_ENGLISH_FALLBACKS,
-  locale = 'en',
+  englishFallbackNames: ReadonlyMap<string, string>,
+  locale: string,
 ): SpeciesKeyEntry[] {
   const entries = new Map<
     string,

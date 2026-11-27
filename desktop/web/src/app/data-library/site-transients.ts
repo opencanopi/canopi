@@ -12,7 +12,7 @@ import { currentCanvasQuerySurface } from '../../canvas/session'
 import { designSessionStore } from '../document-session/store'
 import { ESCAPE_PRIORITY, registerEscapeLayer } from '../keyboard/escape-chain'
 import type { GeoPoint } from '../../types/design'
-import { activePanel, sidePanel } from '../shell/state'
+import { sidePanel } from '../shell/state'
 
 const pinned = signal<GeoPoint | null>(null)
 const line = signal<readonly GeoPoint[] | null>(null)
@@ -25,8 +25,7 @@ export const profileLine: ReadonlySignal<readonly GeoPoint[] | null> = line
 
 /** Site data can hold a pin or a profile only while its panel is the open side panel over the Canvas, in site mode. */
 const siteDataOpen = computed(() =>
-  activePanel.value === 'canvas'
-  && sidePanel.value === 'site-data'
+  sidePanel.value === 'site-data'
   && currentCanvasQuerySurface.value?.view.mode.value !== 'overview')
 
 function finite(point: GeoPoint): boolean {

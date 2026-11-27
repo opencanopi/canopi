@@ -1,10 +1,9 @@
-pub use canopi_types::location::GeoResult;
 use tauri::State;
 
 #[tauri::command]
-pub async fn geocode_address(
+pub async fn geocoder_fetch(
     executor: State<'_, crate::native_operation::NativeOperationExecutor>,
-    query: String,
-) -> Result<Vec<GeoResult>, String> {
-    crate::services::geocoding::geocode_address(executor.inner(), query).await
+    url: String,
+) -> Result<String, String> {
+    crate::services::geocoding::geocoder_fetch(executor.inner(), url).await
 }

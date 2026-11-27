@@ -31,7 +31,6 @@ import type {
   FormatDecodeAnswer,
   FormatRefusal,
   GeoPointV10,
-  GeoResult,
   HomeRead,
   HomeVersion,
   HomeWrite,

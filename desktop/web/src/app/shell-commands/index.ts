@@ -388,10 +388,7 @@ function isPanelCommandActive(
   state: ShellCommandState,
 ): boolean {
   if (panelPlacement.group !== 'primary') {
-    return state.activePanel === 'canvas' && state.sidePanel === panelPlacement.panel
+    return state.sidePanel === panelPlacement.panel
   }
-  if (panelPlacement.panel === 'canvas') {
-    return state.activePanel === 'canvas' && state.sidePanel === null
-  }
-  return state.activePanel === panelPlacement.panel
+  return state.sidePanel === null
 }

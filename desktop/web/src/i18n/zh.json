@@ -322,9 +322,7 @@
       "coordinates": "{{northSouth}}{{lat}}°，{{eastWest}}{{lon}}°",
       "west": "西经",
       "goStraightThere": "坐标 · 直接前往",
-      "enterHint": "按 Enter 键搜索",
-      "attributionNominatim": "由 Nominatim 提供搜索 · © OpenStreetMap 贡献者",
-      "attributionPelias": "由 Pelias 提供搜索 · © OpenStreetMap 贡献者"
+      "enterHint": "按 Enter 键搜索"
     },
     "file": {
       "cancel": "取消"
@@ -1365,7 +1363,8 @@
     "reorderNamed": "调整 {{name}} 的顺序（Alt ↑ 或 ↓）",
     "placeNamed": "放置图章 {{name}}",
     "deleteNamed": "删除图章 {{name}}",
-    "actionsFor": "{{name}} 的更多操作"
+    "actionsFor": "{{name}} 的更多操作",
+    "renameFailed": "Canopi 无法重命名此图章，请重试。"
   },
   "boundary": {
     "panelFailed": "无法加载此面板",
@@ -1847,7 +1846,6 @@
   "siteOnboarding": {
     "locateTitle": "您的场地在哪里？",
     "locateIntro": "搜索地点或粘贴坐标。地图会移到那里，但还不会放置任何东西。",
-    "placeNamesCredit": "地名 © OpenStreetMap 贡献者",
     "skip": "跳过，我会在地图上找",
     "startTitle": "开始您的设计",
     "closeStart": "关闭“开始您的设计”",
@@ -2058,9 +2056,9 @@
     "imageRemove": "移除图片 {{number}}",
     "imagePreview": "图片 {{number}}：{{alt}}",
     "imageType": "请选择 PNG、JPEG、WebP 或 GIF 图片。",
-    "imageTooLarge": "此图片大小为 {{size}}。每张图片最大 1 MB，请选择更小的图片。",
-    "imageDesignFull": "此设计中的图片已达 {{used}}，而一个设计最多可容纳 10 MB。请移除一张图片或选择更小的图片。",
-    "imagesDoNotFit": "这些图片放不下：一个设计最多可容纳 10 MB 图片。请移除一张图片后重试。",
+    "imageTooLarge": "此图片大小为 {{size}}。每张图片最大 {{limit}}，请选择更小的图片。",
+    "imageDesignFull": "此设计中的图片已达 {{used}}，而一个设计最多可容纳 {{limit}}。请移除一张图片或选择更小的图片。",
+    "imagesDoNotFit": "这些图片放不下：一个设计最多可容纳 {{limit}} 图片。请移除一张图片后重试。",
     "imageUnreadable": "Canopi 无法读取此图片。请尝试其他文件。",
     "imageResized": "Canopi 已缩小此图片以符合上限：{{from}} → {{to}}。",
     "imageShrinking": "正在缩小图片…",
@@ -2256,5 +2254,8 @@
   },
   "fileDelivery": {
     "refused": "无法以该文件名保存。请选择其他文件名或文件夹后重试。"
+  },
+  "geocoding": {
+    "credit": "由 {{service}} 提供搜索 · © OpenStreetMap 贡献者"
   }
 }

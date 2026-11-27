@@ -322,9 +322,7 @@
       "coordinates": "{{northSouth}} {{lat}}°, {{eastWest}} {{lon}}°",
       "west": "서경",
       "goStraightThere": "좌표 · 바로 이동",
-      "enterHint": "Enter 키를 눌러 검색",
-      "attributionNominatim": "Nominatim 검색 · © OpenStreetMap 기여자",
-      "attributionPelias": "Pelias 검색 · © OpenStreetMap 기여자"
+      "enterHint": "Enter 키를 눌러 검색"
     },
     "file": {
       "cancel": "취소"
@@ -1365,7 +1363,8 @@
     "reorderNamed": "{{name}} 순서 변경(Alt ↑ 또는 ↓)",
     "placeNamed": "스탬프 {{name}} 배치",
     "deleteNamed": "스탬프 {{name}} 삭제",
-    "actionsFor": "{{name}} 추가 작업"
+    "actionsFor": "{{name}} 추가 작업",
+    "renameFailed": "Canopi에서 이 스탬프의 이름을 바꿀 수 없었습니다. 다시 시도하세요."
   },
   "boundary": {
     "panelFailed": "이 패널을 불러오지 못했습니다",
@@ -1847,7 +1846,6 @@
   "siteOnboarding": {
     "locateTitle": "부지는 어디에 있나요?",
     "locateIntro": "장소를 검색하거나 좌표를 붙여 넣으세요. 지도가 그곳으로 이동하며, 아직 아무것도 배치되지 않습니다.",
-    "placeNamesCredit": "지명 © OpenStreetMap 기여자",
     "skip": "건너뛰고 지도에서 찾기",
     "startTitle": "디자인 시작하기",
     "closeStart": "디자인 시작하기 닫기",
@@ -2058,9 +2056,9 @@
     "imageRemove": "이미지 {{number}} 제거",
     "imagePreview": "이미지 {{number}}: {{alt}}",
     "imageType": "PNG, JPEG, WebP 또는 GIF 이미지를 선택하세요.",
-    "imageTooLarge": "이 이미지는 {{size}}입니다. 이미지는 최대 1MB까지 가능합니다. 더 작은 이미지를 선택하세요.",
-    "imageDesignFull": "이 디자인에는 이미 {{used}}의 이미지가 있으며, 디자인에는 최대 10MB까지 담을 수 있습니다. 이미지를 제거하거나 더 작은 이미지를 선택하세요.",
-    "imagesDoNotFit": "이미지가 들어가지 않습니다. 디자인에는 이미지를 최대 10MB까지 담을 수 있습니다. 이미지를 제거한 뒤 다시 시도하세요.",
+    "imageTooLarge": "이 이미지는 {{size}}입니다. 이미지는 최대 {{limit}}까지 가능합니다. 더 작은 이미지를 선택하세요.",
+    "imageDesignFull": "이 디자인에는 이미 {{used}}의 이미지가 있으며, 디자인에는 최대 {{limit}}까지 담을 수 있습니다. 이미지를 제거하거나 더 작은 이미지를 선택하세요.",
+    "imagesDoNotFit": "이미지가 들어가지 않습니다. 디자인에는 이미지를 최대 {{limit}}까지 담을 수 있습니다. 이미지를 제거한 뒤 다시 시도하세요.",
     "imageUnreadable": "Canopi에서 이 이미지를 읽을 수 없습니다. 다른 파일을 시도하세요.",
     "imageResized": "Canopi가 이 이미지를 한도에 맞게 줄였습니다: {{from}} → {{to}}.",
     "imageShrinking": "이미지를 줄이는 중…",
@@ -2256,5 +2254,8 @@
   },
   "fileDelivery": {
     "refused": "해당 파일 이름으로 저장할 수 없습니다. 다른 파일 이름이나 폴더를 선택해 다시 시도하세요."
+  },
+  "geocoding": {
+    "credit": "{{service}} 검색 · © OpenStreetMap 기여자"
   }
 }

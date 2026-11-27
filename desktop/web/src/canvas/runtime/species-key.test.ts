@@ -45,6 +45,8 @@ it('the species key shows an opened plant\'s stratum colour once the catalog loa
     runtime.querySurface.getSceneSnapshot(),
     runtime.querySurface.getSpeciesCache(),
     new Map(),
+    new Map(),
+    'en',
   )[0]?.appearances[0]?.color
   const host = document.createElement('div')
   Object.defineProperty(host, 'clientWidth', { configurable: true, value: 400 })
@@ -54,5 +56,40 @@ it('the species key shows an opened plant\'s stratum colour once the catalog loa
   await vi.waitFor(() => expect(renderer.setSnapshot).toHaveBeenCalled())
 
   expect(keyColor()).toBe(getStratumColor('emergent'))
+  runtime.destroy()
+})
+
+it('2.1-Q94: sorts species by shown name using the interface language collation (Swedish ä/å after z)', () => {
+  const runtime = new SceneCanvasRuntime({ appAdapter: createDetachedCanvasRuntimeAppAdapter() })
+  runtime.documentSurface.loadDocument({
+    version: CURRENT_CANOPI_FILE_VERSION, name: 'Collation', description: null, plant_species_colors: {},
+    layers: [{ name: 'plants', visible: true, locked: false, opacity: 1 }],
+    plants: [
+      {
+        id: 'p1', canonical_name: 'Malus domestica', common_name: 'Äpple', color: null,
+        position: geoAt(0, 0, { lon: 0, lat: 0 }), rotation: null, canopy_spread_m: null, notes: null, planted_date: null,
+        quantity: 1, locked: false,
+      },
+      {
+        id: 'p2', canonical_name: 'Ziziphus jujuba', common_name: 'Ziziphus', color: null,
+        position: geoAt(5, 0, { lon: 0, lat: 0 }), rotation: null, canopy_spread_m: null, notes: null, planted_date: null,
+        quantity: 1, locked: false,
+      },
+      {
+        id: 'p3', canonical_name: 'Alnus glutinosa', common_name: 'Ål', color: null,
+        position: geoAt(10, 0, { lon: 0, lat: 0 }), rotation: null, canopy_spread_m: null, notes: null, planted_date: null,
+        quantity: 1, locked: false,
+      },
+    ],
+    zones: [], annotations: [], consortiums: [], groups: [], timeline: [], budget: [], budget_currency: 'EUR',
+    created_at: '2026-04-02T00:00:00.000Z', updated_at: '2026-04-02T00:00:00.000Z', extra: {},
+  })
+  const snapshot = runtime.querySurface.getSceneSnapshot()
+  const cache = runtime.querySurface.getSpeciesCache()
+
+  const svOrder = buildSpeciesKey(snapshot, cache, new Map(), new Map(), 'sv').map((e) => e.commonName)
+  const enOrder = buildSpeciesKey(snapshot, cache, new Map(), new Map(), 'en').map((e) => e.commonName)
+  expect(svOrder).toEqual(['Ziziphus', 'Ål', 'Äpple'])
+  expect(enOrder).toEqual(['Ål', 'Äpple', 'Ziziphus'])
   runtime.destroy()
 })

@@ -7,6 +7,7 @@
 // sizes, in English and the longest locale, overlap none of their neighbours, and every neighbouring control takes a
 // click at its centre. DOM assertions only, no baselines.
 import { readFileSync } from 'node:fs'
+import { readCargoWorkspaceVersion } from '../../../../policy/release-version.mjs'
 import { fileURLToPath } from 'node:url'
 import type { Locator, Page } from '@playwright/test'
 import { expectDownloadName } from '../support/download'
@@ -291,7 +292,7 @@ test('Q193: Download a copy in the second Draft row downloads that Draft, not th
 // canopi-eon8.15 (S1): a release Reload from the start screen reopens no Draft (2.1-Q189), yet the Drafts are still
 // stored, so the reloaded launch is not a first visit: the amber warning and Keep my drafts are back (Q190, Q198).
 test('canopi-eon8.15: Reload from the start screen with an unkept Draft keeps the warning and Keep my drafts', async ({ page }) => {
-  const version = (JSON.parse(readFileSync(fileURLToPath(new URL('../../../tauri.conf.json', import.meta.url)), 'utf8')) as { version: string }).version
+  const version = readCargoWorkspaceVersion(fileURLToPath(new URL('../../../..', import.meta.url)))
   await page.route('**/canopi-web-edition-manifest.json', (route) => route.fulfill({
     status: 200,
     contentType: 'application/json',

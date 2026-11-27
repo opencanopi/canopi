@@ -1,5 +1,6 @@
 import { STORY_IMAGES_MAX_TOTAL_BYTES } from '../../generated/canopi-design-format'
 import type { CanopiFile, RichTextBlock, Story, StoryImage, StoryStep } from '../../types/design'
+import { normaliseObjectName } from './object-name'
 import { designEmbeddedImageBytes } from '../contracts/views-admission'
 import { editCurrentDesign } from './core'
 
@@ -79,10 +80,11 @@ export function addStory(story: Story): void {
   })
 }
 
-/** Renames a story; a blank name keeps the old one. */
+/** Renames a story; a blank name keeps the old one (2.1-Q87). */
 export function renameStory(storyId: string, name: string): void {
-  const nextName = name.trim()
-  if (nextName.length === 0) return
+  const normalised = normaliseObjectName(name)
+  if (!normalised.ok) return
+  const nextName = normalised.name
   editStory(storyId, (story) => story.name === nextName ? story : { ...story, name: nextName })
 }
 

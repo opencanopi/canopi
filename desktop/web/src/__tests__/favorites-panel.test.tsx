@@ -24,8 +24,7 @@ vi.mock('../components/plant-detail/PlantDetailCard', () => ({
 }))
 
 async function flushEffects(): Promise<void> {
-  await Promise.resolve()
-  await Promise.resolve()
+  await Promise.resolve(); await Promise.resolve()
   await new Promise((resolve) => setTimeout(resolve, 0))
   await Promise.resolve()
 }
@@ -34,17 +33,9 @@ function dragDataStore() {
   const values = new Map<string, string>()
   const types: string[] = []
   return {
-    values,
-    types,
-    effectAllowed: 'none',
-    dropEffect: 'none',
-    setData(type: string, value: string) {
-      values.set(type, value)
-      if (!types.includes(type)) types.push(type)
-    },
-    getData(type: string) {
-      return values.get(type) ?? ''
-    },
+    values, types, effectAllowed: 'none', dropEffect: 'none',
+    setData(type: string, value: string) { values.set(type, value); if (!types.includes(type)) types.push(type) },
+    getData(type: string) { return values.get(type) ?? '' },
   }
 }
 
@@ -148,7 +139,11 @@ describe('FavoritesPanel', () => {
     loadStampLibraryMock = vi.fn(async () => {})
     saveSelectionMock = vi.fn(async () => null)
     saveCanvasSelectionMock = vi.fn()
-    renameStampMock = vi.fn(async () => null)
+    renameStampMock = vi.fn(async (id: string, name: string) => ({
+      ...stampLibrary.value.items[0]!,
+      id,
+      name,
+    }))
     deleteStampMock = vi.fn(async () => true)
     reorderStampMock = vi.fn(async () => {})
     placeStampMock = vi.fn(() => true)

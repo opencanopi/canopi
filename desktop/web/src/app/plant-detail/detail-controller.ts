@@ -27,11 +27,21 @@ interface CreatePlantDetailControllerOptions {
   loadHabits?: typeof getSpeciesHabits
 }
 
+function isFullSpeciesDetail(detail: unknown): detail is SpeciesDetail {
+  return Boolean(detail && typeof detail === 'object' && 'canonical_name' in detail && !('common_names' in detail))
+}
+
 export function createPlantDetailController(
   options: CreatePlantDetailControllerOptions = {},
 ): PlantDetailController {
   const loadDetail = options.loadDetail
-    ?? (async (canonicalName, locale) => (await speciesCatalogWorkbench.fetchSpeciesDetail(canonicalName, locale)) as unknown as SpeciesDetail)
+    ?? (async (canonicalName, locale) => {
+      const fetched = await speciesCatalogWorkbench.fetchSpeciesDetail(canonicalName, locale)
+      if (!isFullSpeciesDetail(fetched)) {
+        throw new Error(`Desktop species detail unavailable for ${canonicalName}`)
+      }
+      return fetched
+    })
   const loadLocaleCommonNames = options.loadLocaleCommonNames ?? getLocaleCommonNames
   const resolveDisplayNames = options.resolveDisplayNames
     ?? ((names, locale) => speciesCatalogWorkbench.resolveDisplayNames(names, locale))

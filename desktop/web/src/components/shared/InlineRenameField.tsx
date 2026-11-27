@@ -6,7 +6,7 @@
 // user's typed text.
 
 import { useLayoutEffect, useRef, useState } from 'preact/hooks'
-import { normaliseObjectName } from '../../utils/object-name'
+import { normaliseObjectName } from '../../app/design-edit'
 
 export type RenameCommitResult = void | null | { readonly error: string } | Promise<void | null | { readonly error: string }>
 
@@ -19,6 +19,8 @@ export interface InlineRenameFieldProps {
   readonly unchangedName?: string | undefined
   /** Optional fallback display name that should not be persisted when unchanged. */
   readonly fallbackDisplayName?: string | undefined
+  /** Optional predicate to cancel instead of commit when focus moves to a matching target (e.g., an inline Cancel button). */
+  readonly cancelOnFocusOutTarget?: (relatedTarget: EventTarget | null) => boolean
   readonly onCommit: (name: string) => RenameCommitResult
   readonly onCancel: () => void
 }
@@ -30,6 +32,7 @@ export function InlineRenameField({
   errorClassName,
   unchangedName,
   fallbackDisplayName,
+  cancelOnFocusOutTarget,
   onCommit,
   onCancel,
 }: InlineRenameFieldProps) {
@@ -42,6 +45,13 @@ export function InlineRenameField({
     input.current?.focus()
     input.current?.select()
   }, [])
+
+  function reopenWithError(raw: string, message: string): void {
+    settled.current = false
+    setDraft(raw)
+    setError(message)
+    requestAnimationFrame(() => input.current?.focus())
+  }
 
   function commit(): void {
     if (settled.current) return
@@ -63,29 +73,26 @@ export function InlineRenameField({
       return
     }
     settled.current = true
-    const result = onCommit(next)
+    let result: RenameCommitResult
+    try {
+      result = onCommit(next)
+    } catch (err) {
+      reopenWithError(raw, err instanceof Error ? err.message : String(err))
+      return
+    }
     if (result && typeof (result as Promise<unknown>).then === 'function') {
       void (result as Promise<void | null | { readonly error: string }>).then(
         (resolved) => {
           if (resolved && 'error' in resolved && resolved.error) {
-            settled.current = false
-            setDraft(raw)
-            setError(resolved.error)
-            requestAnimationFrame(() => input.current?.focus())
+            reopenWithError(raw, resolved.error)
           }
         },
         (err: unknown) => {
-          settled.current = false
-          setDraft(raw)
-          setError(err instanceof Error ? err.message : String(err))
-          requestAnimationFrame(() => input.current?.focus())
+          reopenWithError(raw, err instanceof Error ? err.message : String(err))
         },
       )
     } else if (result && typeof result === 'object' && 'error' in result && result.error) {
-      settled.current = false
-      setDraft(raw)
-      setError(result.error)
-      requestAnimationFrame(() => input.current?.focus())
+      reopenWithError(raw, result.error)
     }
   }
 
@@ -107,7 +114,13 @@ export function InlineRenameField({
           setDraft(event.currentTarget.value)
           if (error) setError(null)
         }}
-        onFocusOut={() => commit()}
+        onFocusOut={(event) => {
+          if (cancelOnFocusOutTarget?.(event.relatedTarget)) {
+            cancel()
+            return
+          }
+          commit()
+        }}
         onKeyDown={(event) => {
           if (event.key === 'Enter') {
             event.preventDefault()

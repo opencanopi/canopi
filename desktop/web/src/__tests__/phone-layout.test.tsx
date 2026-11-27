@@ -451,7 +451,7 @@ describe('phone layout', () => {
 
   it('keeps the primary views in More when multiple primary views exist, where they switch without opening the sheet', async () => {
     const switchView = vi.fn()
-    expect(browserPhoneSheetTabs({ primary: ['canvas'], design: ['layers'], planning: ['calendar'] })).toEqual(['layers', 'calendar'])
+    expect(browserPhoneSheetTabs({ design: ['layers'], planning: ['calendar'] })).toEqual(['layers', 'calendar'])
     function WithViews() {
       const views: PanelRailCommand[] = [
         { panel: 'canvas', id: 'nav.canvas', label: 'Design canvas', disabled: false, active: true, action: switchView },

@@ -144,7 +144,7 @@ commands! {
     show_problem_report_folder => "commands::problem_report::show_problem_report_folder": Async (fileName: "string") -> "void",
     get_app_folders => "commands::app_folders::get_app_folders": Async () -> "AppFolderLocations",
     show_app_folder => "commands::app_folders::show_app_folder": Async (folder: "AppFolder") -> "void",
-    geocode_address => "commands::geocoding::geocode_address": Async (query: "string") -> "GeoResult[]",
+    geocoder_fetch => "commands::geocoding::geocoder_fetch": Async (url: "string") -> "string",
     lidar_list_library => "commands::lidar::lidar_list_library": Async () -> "LibrarySnapshot",
     lidar_rename_item => "commands::lidar::lidar_rename_item": Async (itemId: "string", name: "string") -> "void",
     lidar_delete_impact => "commands::lidar::lidar_delete_impact": Async (itemId: "string") -> "LibraryDeleteImpact",

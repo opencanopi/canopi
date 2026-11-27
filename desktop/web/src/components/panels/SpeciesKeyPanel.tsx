@@ -97,6 +97,7 @@ function PlantsInDesign({ renderDetail, onOpenDetail }: {
   const queries = currentCanvasQuerySurface.value
   const revision = queries?.revision.scene.value
   const namesRevision = queries?.revision.plantNames.value
+  const activeLocale = locale.value
   const entries = useMemo(
     () => queries
       ? buildSpeciesKey(
@@ -104,9 +105,10 @@ function PlantsInDesign({ renderDetail, onOpenDetail }: {
         queries.getSpeciesCache(),
         queries.getLocalizedCommonNames(),
         queries.getEnglishFallbackNames(),
+        activeLocale,
       )
       : [],
-    [queries, revision, namesRevision],
+    [queries, revision, namesRevision, activeLocale],
   )
   const finderSpecies = useMemo(() => entries.map((entry) => ({
     canonicalName: entry.canonicalName,

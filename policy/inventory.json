@@ -821,7 +821,7 @@
     {
       "id": "guide-editions-phone-classification-and-the-sheet",
       "doc": "docs/guides/editions.md",
-      "quote": "Phone classification and the sheet's heights and keys are pure and tested (`phone-layout.test.tsx`).",
+      "quote": "Phone classification and the sheet's heights and keys are pure and tested (`phone-layout.test.tsx`, `desktop-phone-layout.test.tsx`).",
       "state": {
         "exists": {
           "check": "desktop/web/src/__tests__/phone-layout.test.tsx"

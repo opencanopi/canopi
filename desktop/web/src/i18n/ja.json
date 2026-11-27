@@ -322,9 +322,7 @@
       "coordinates": "{{northSouth}}{{lat}}°, {{eastWest}}{{lon}}°",
       "west": "西経",
       "goStraightThere": "座標 · そのまま移動",
-      "enterHint": "Enter キーで検索",
-      "attributionNominatim": "Nominatim による検索 · © OpenStreetMap 貢献者",
-      "attributionPelias": "Pelias による検索 · © OpenStreetMap 貢献者"
+      "enterHint": "Enter キーで検索"
     },
     "file": {
       "cancel": "キャンセル"
@@ -1365,7 +1363,8 @@
     "reorderNamed": "{{name}}を並べ替え（Alt ↑ または ↓）",
     "placeNamed": "スタンプ「{{name}}」を配置",
     "deleteNamed": "スタンプ「{{name}}」を削除",
-    "actionsFor": "{{name}}のその他の操作"
+    "actionsFor": "{{name}}のその他の操作",
+    "renameFailed": "Canopi はこのスタンプの名前を変更できませんでした。もう一度お試しください。"
   },
   "boundary": {
     "panelFailed": "このパネルを読み込めませんでした",
@@ -1847,7 +1846,6 @@
   "siteOnboarding": {
     "locateTitle": "敷地はどこですか？",
     "locateIntro": "場所を検索するか座標を貼り付けてください。地図がそこへ移動します。まだ何も配置されません。",
-    "placeNamesCredit": "地名 © OpenStreetMap 貢献者",
     "skip": "スキップして地図で探す",
     "startTitle": "デザインを始めましょう",
     "closeStart": "「デザインを始めましょう」を閉じる",
@@ -2058,9 +2056,9 @@
     "imageRemove": "画像 {{number}} を削除",
     "imagePreview": "画像 {{number}}：{{alt}}",
     "imageType": "PNG、JPEG、WebP、GIF のいずれかの画像を選んでください。",
-    "imageTooLarge": "この画像は {{size}} です。画像は 1 MB までです。もっと小さい画像を選んでください。",
-    "imageDesignFull": "このデザインにはすでに {{used}} の画像があり、デザインに入れられるのは 10 MB までです。画像を削除するか、もっと小さい画像を選んでください。",
-    "imagesDoNotFit": "これらの画像は入りません。デザインに入れられる画像は 10 MB までです。画像を削除してから、もう一度お試しください。",
+    "imageTooLarge": "この画像は {{size}} です。画像は {{limit}} までです。もっと小さい画像を選んでください。",
+    "imageDesignFull": "このデザインにはすでに {{used}} の画像があり、デザインに入れられるのは {{limit}} までです。画像を削除するか、もっと小さい画像を選んでください。",
+    "imagesDoNotFit": "これらの画像は入りません。デザインに入れられる画像は {{limit}} までです。画像を削除してから、もう一度お試しください。",
     "imageUnreadable": "Canopi はこの画像を読み込めませんでした。別のファイルを試してください。",
     "imageResized": "Canopi がこの画像を上限に収まるよう縮小しました（{{from}} → {{to}}）。",
     "imageShrinking": "画像を縮小しています…",
@@ -2256,5 +2254,8 @@
   },
   "fileDelivery": {
     "refused": "そのファイル名では保存できませんでした。別のファイル名またはフォルダーを選んでやり直してください。"
+  },
+  "geocoding": {
+    "credit": "{{service}} による検索 · © OpenStreetMap 貢献者"
   }
 }

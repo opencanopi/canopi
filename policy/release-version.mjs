@@ -14,6 +14,13 @@ const readCargoVersion = (text) => {
   const table = /^\[workspace\.package\]\s*$([\s\S]*?)(?=^\[|(?![\s\S]))/m.exec(text)?.[1] ?? '';
   return /^\s*version\s*=\s*"([^"]+)"\s*$/m.exec(table)?.[1];
 };
+
+/** Reads the single authoritative release version from Cargo.toml [workspace.package] (canopi-f47t.52.75). */
+export function readCargoWorkspaceVersion(root) {
+  const version = readCargoVersion(fs.readFileSync(path.join(root, AUTHORITY_FILE), 'utf8'));
+  if (!version) throw new Error(`${AUTHORITY_WHERE} version missing`);
+  return version;
+}
 /** Each place the version is repeated, by how the preflight names it, with the file it reads and how. */
 const SOURCES = [
   ['desktop/tauri.conf.json', 'desktop/tauri.conf.json', (text) => json(text).version],

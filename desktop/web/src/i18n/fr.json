@@ -322,9 +322,7 @@
       "coordinates": "{{lat}}° {{northSouth}}, {{lon}}° {{eastWest}}",
       "west": "O",
       "goStraightThere": "Coordonnées · y aller directement",
-      "enterHint": "Appuyez sur Entrée pour rechercher",
-      "attributionNominatim": "Recherche par Nominatim · © contributeurs OpenStreetMap",
-      "attributionPelias": "Recherche par Pelias · © contributeurs OpenStreetMap"
+      "enterHint": "Appuyez sur Entrée pour rechercher"
     },
     "file": {
       "cancel": "Annuler"
@@ -1365,7 +1363,8 @@
     "reorderNamed": "Déplacer {{name}} (Alt ↑ ou ↓)",
     "placeNamed": "Placer le tampon {{name}}",
     "deleteNamed": "Supprimer le tampon {{name}}",
-    "actionsFor": "Autres actions pour {{name}}"
+    "actionsFor": "Autres actions pour {{name}}",
+    "renameFailed": "Canopi n’a pas pu renommer ce tampon. Réessayez."
   },
   "boundary": {
     "panelFailed": "Ce panneau n’a pas pu se charger",
@@ -1847,7 +1846,6 @@
   "siteOnboarding": {
     "locateTitle": "Où se trouve votre terrain ?",
     "locateIntro": "Cherchez un lieu ou collez des coordonnées. La carte s’y rend ; rien n’est encore placé.",
-    "placeNamesCredit": "Noms de lieux © contributeurs OpenStreetMap",
     "skip": "Passer, je le trouverai sur la carte",
     "startTitle": "Commencez votre Design",
     "closeStart": "Fermer « Commencez votre Design »",
@@ -2058,9 +2056,9 @@
     "imageRemove": "Supprimer l’image {{number}}",
     "imagePreview": "Image {{number}} : {{alt}}",
     "imageType": "Choisissez une image PNG, JPEG, WebP ou GIF.",
-    "imageTooLarge": "Cette image pèse {{size}}. Une image ne peut pas dépasser 1 Mo ; choisissez-en une plus petite.",
-    "imageDesignFull": "Ce Design contient déjà {{used}} d’images, et un Design peut en contenir 10 Mo. Supprimez une image ou choisissez-en une plus petite.",
-    "imagesDoNotFit": "Ces images ne tiennent pas : un Design contient au plus 10 Mo d’images. Supprimez une image, puis réessayez.",
+    "imageTooLarge": "Cette image pèse {{size}}. Une image ne peut pas dépasser {{limit}} ; choisissez-en une plus petite.",
+    "imageDesignFull": "Ce Design contient déjà {{used}} d’images, et un Design peut en contenir {{limit}}. Supprimez une image ou choisissez-en une plus petite.",
+    "imagesDoNotFit": "Ces images ne tiennent pas : un Design contient au plus {{limit}} d’images. Supprimez une image, puis réessayez.",
     "imageUnreadable": "Canopi n’a pas pu lire cette image. Essayez un autre fichier.",
     "imageResized": "Canopi a réduit cette image pour qu’elle tienne : de {{from}} à {{to}}.",
     "imageShrinking": "Réduction de l’image…",
@@ -2256,5 +2254,8 @@
   },
   "fileDelivery": {
     "refused": "Impossible d’enregistrer sous ce nom de fichier. Choisissez un autre nom ou dossier et réessayez."
+  },
+  "geocoding": {
+    "credit": "Recherche par {{service}} · © contributeurs OpenStreetMap"
   }
 }

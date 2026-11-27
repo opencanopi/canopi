@@ -44,7 +44,7 @@ describe('pinned plant name legend through the runtime', () => {
     })
     runtime.connectRenderTarget(renderer)
     runtime.documentSurface.loadDocument(openedDesignWithPinnedPlant())
-    const legendColor = () => buildPinnedPlantNameLegendEntries(runtime.querySurface, DEFAULT_PLANT_DISPLAY)[0]?.color
+    const legendColor = () => buildPinnedPlantNameLegendEntries(runtime.querySurface, DEFAULT_PLANT_DISPLAY, 'en')[0]?.color
     // Before the first frame no catalog entry has loaded.
     expect(legendColor()).not.toBe(getStratumColor('high'))
     const plantNamesRevision = runtime.querySurface.revision.plantNames.value
@@ -67,10 +67,30 @@ describe('pinned plant name legend through the runtime', () => {
     const runtime = new SceneCanvasRuntime({ appAdapter: createDetachedCanvasRuntimeAppAdapter() })
     const design = openedDesignWithPinnedPlant()
     runtime.documentSurface.loadDocument(design)
-    expect(buildPinnedPlantNameLegendEntries(runtime.querySurface, DEFAULT_PLANT_DISPLAY)).toHaveLength(1)
+    expect(buildPinnedPlantNameLegendEntries(runtime.querySurface, DEFAULT_PLANT_DISPLAY, 'en')).toHaveLength(1)
 
     runtime.documentSurface.loadDocument({ ...design, layers: [{ name: 'plants', visible: true, locked: false, opacity: 0 }] })
-    expect(buildPinnedPlantNameLegendEntries(runtime.querySurface, DEFAULT_PLANT_DISPLAY)).toEqual([])
+    expect(buildPinnedPlantNameLegendEntries(runtime.querySurface, DEFAULT_PLANT_DISPLAY, 'en')).toEqual([])
+    runtime.destroy()
+  })
+
+  it('2.1-Q94: sorts pinned legend entries with the interface language collation (Swedish ä/å after z)', () => {
+    const runtime = new SceneCanvasRuntime({ appAdapter: createDetachedCanvasRuntimeAppAdapter() })
+    const design = openedDesignWithPinnedPlant()
+    runtime.documentSurface.loadDocument({
+      ...design,
+      plants: [
+        { ...design.plants[0]!, id: 'p1', canonical_name: 'Malus domestica', common_name: 'Äpple' },
+        { ...design.plants[0]!, id: 'p2', canonical_name: 'Ziziphus jujuba', common_name: 'Ziziphus' },
+        { ...design.plants[0]!, id: 'p3', canonical_name: 'Alnus glutinosa', common_name: 'Ål' },
+      ],
+    })
+    expect(buildPinnedPlantNameLegendEntries(runtime.querySurface, DEFAULT_PLANT_DISPLAY, 'sv').map((e) => e.label)).toEqual([
+      'Ziziphus', 'Ål', 'Äpple',
+    ])
+    expect(buildPinnedPlantNameLegendEntries(runtime.querySurface, DEFAULT_PLANT_DISPLAY, 'en').map((e) => e.label)).toEqual([
+      'Ål', 'Äpple', 'Ziziphus',
+    ])
     runtime.destroy()
   })
 })

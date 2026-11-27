@@ -66,7 +66,7 @@ function readPlanningProjectionCanvasSnapshot(
     localizedNames: speciesDisplayNames(localizedNames, englishFallbackNames),
     englishFallbackNames,
     speciesKey: session
-      ? buildSpeciesKey(session.getSceneSnapshot(), session.getSpeciesCache(), localizedNames, englishFallbackNames)
+      ? buildSpeciesKey(session.getSceneSnapshot(), session.getSpeciesCache(), localizedNames, englishFallbackNames, activeLocale)
       : [],
     zones: (() => {
       const plane = session?.sessionPlane.peek() ?? null

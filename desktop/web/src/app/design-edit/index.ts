@@ -19,6 +19,7 @@ export {
   type CalendarActionFormData,
 } from './timeline'
 export { moveConsortiumEntry } from './consortium'
+export { normaliseObjectName } from './object-name'
 export {
   addSavedView,
   deleteSavedView,

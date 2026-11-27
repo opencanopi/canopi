@@ -10,7 +10,7 @@ import { computed, effect, signal, type ReadonlySignal } from '@preact/signals'
 import { currentCanvasQuerySurface } from '../../canvas/session'
 import type { LidarSampleTarget } from '../../generated/contracts'
 import type { GeoPoint } from '../../types/design'
-import { activePanel, sidePanel } from '../shell/state'
+import { sidePanel } from '../shell/state'
 import { siteDataLines } from './analysis-groups'
 import { readCurrentLidarPresentation } from './library-store'
 import { referenceRows } from './reference-tree'
@@ -35,8 +35,7 @@ export const siteValues: ReadonlySignal<SiteValues | null> = values
 
 /** Values are read only while Site data is the open side panel over the Canvas, in site mode (as site-transients.ts). */
 const reading = computed(() =>
-  activePanel.value === 'canvas'
-  && sidePanel.value === 'site-data'
+  sidePanel.value === 'site-data'
   && currentCanvasQuerySurface.value?.view.mode.value !== 'overview')
 
 /** The mouse or pen over the map, in WGS84; null off the map. Touch never hovers. */

@@ -52,6 +52,12 @@ async function clearOriginStorage(page: Page, write: (record: { key: string, val
   }
 }
 
+async function chooseFixtureFromStart(page: Page, fixture: string): Promise<void> {
+  const open = page.locator('[data-start-screen] button').filter({ hasText: /\.canopi/ }).first()
+  const [chooser] = await Promise.all([page.waitForEvent('filechooser'), open.click()])
+  await chooser.setFiles(fixture)
+}
+
 /**
  * Opens `fixture` in a fresh browser (an earlier open's draft would reopen with its camera), whose Web Edition settings
  * take `locale` and the other options.
@@ -77,9 +83,7 @@ export async function openFixture(page: Page, fixture: string, options: OpenOpti
     await page.addInitScript(write, stored)
     await page.goto('')
   }
-  const open = page.locator('[data-start-screen] button').filter({ hasText: /\.canopi/ }).first()
-  const [chooser] = await Promise.all([page.waitForEvent('filechooser'), open.click()])
-  await chooser.setFiles(fixture)
+  await chooseFixtureFromStart(page, fixture)
   await expect(mapHost(page)).toBeVisible()
   await expect(mapHost(page), 'the canvas has drawn the opened Design').not.toHaveAttribute('aria-busy')
 }
@@ -89,9 +93,7 @@ export async function openFixture(page: Page, fixture: string, options: OpenOpti
  * Safe in headless Firefox (no WebGL context), where `mapHost` never becomes ready.
  */
 export async function openFixtureFromStart(page: Page, fixture: string): Promise<void> {
-  const open = page.locator('[data-start-screen] button').filter({ hasText: /\.canopi/ }).first()
-  const [chooser] = await Promise.all([page.waitForEvent('filechooser'), open.click()])
-  await chooser.setFiles(fixture)
+  await chooseFixtureFromStart(page, fixture)
   await expect(page.locator('[data-workspace-title-bar] [data-save-status]')).toBeVisible()
 }
 

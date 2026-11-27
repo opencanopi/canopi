@@ -1,10 +1,9 @@
 // @vitest-environment jsdom
 //
-// Phase 2 commit 0: 2.1-Q344, written before 2a-3 builds it (it.fails until then). Desktop chooses its layout with
-// Web's classifier: a Desktop window under 640 px wide, or short and wide, uses the phone layout (the plan's 760 px
-// test is corrected, so 640 to 759 px wide keeps the desktop layout), and the phone top bar keeps Desktop's window
-// controls and drag region. The Desktop root today never installs the classifier. 2a-3 turns each it.fails into it.
-// It renders the whole Desktop App root (shell, title bar, classifier), so it sits with the cross-module suites.
+// 2.1-Q344: Desktop chooses its layout with Web's classifier. A Desktop window under 640 px wide, or short and wide,
+// uses the phone layout (640 to 759 px wide keeps the desktop layout), renders the phone sheet with its tabs instead
+// of the desktop panel rail, and keeps Desktop's window controls and drag region in the phone top bar.
+// It renders the whole Desktop App root (shell, title bar, workspace, classifier), so it sits with the cross-module suites.
 
 import { render } from 'preact'
 import { act } from 'preact/test-utils'
@@ -62,6 +61,9 @@ describe('2.1-Q344 the Desktop layout classifier', () => {
   it('Q344 (2a-3): a Desktop window under 640 px wide uses the phone layout, a short wide one the landscape phone layout, 640 px and wider none', async () => {
     await renderDesktopApp(600, 800)
     expect(phoneLayout.value).toBe('portrait')
+    expect(container.querySelector('[data-layout="portrait"]')).not.toBeNull()
+    expect(container.querySelectorAll('[data-sheet-tab]').length).toBeGreaterThan(0)
+    expect(container.querySelector(`nav[aria-label="${t('panelRail.label')}"]`)).toBeNull()
 
     const sizes: readonly [number, number, 'portrait' | 'landscape' | null][] = [
       [639, 800, 'portrait'],
@@ -75,6 +77,16 @@ describe('2.1-Q344 the Desktop layout classifier', () => {
     for (const [width, height, layout] of sizes) {
       await act(async () => { resizeWindow(width, height) })
       expect(phoneLayout.value, `${width} x ${height}`).toBe(layout)
+      const root = container.firstElementChild
+      if (layout) {
+        expect(root?.getAttribute('data-layout'), `${width} x ${height} data-layout`).toBe(layout)
+        expect(container.querySelectorAll('[data-sheet-tab]').length, `${width} x ${height} phone sheet tabs`).toBeGreaterThan(0)
+        expect(container.querySelector(`nav[aria-label="${t('panelRail.label')}"]`), `${width} x ${height} rail absent`).toBeNull()
+      } else {
+        expect(root?.getAttribute('data-layout'), `${width} x ${height} data-layout`).toBeNull()
+        expect(container.querySelectorAll('[data-sheet-tab]').length, `${width} x ${height} phone sheet absent`).toBe(0)
+        expect(container.querySelector(`nav[aria-label="${t('panelRail.label')}"]`), `${width} x ${height} rail present`).not.toBeNull()
+      }
     }
   })
 

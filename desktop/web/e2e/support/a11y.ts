@@ -6,7 +6,6 @@
 // the three engines; the ARIA snapshot is matched against e2e/canvas/a11y.spec.ts-snapshots/<surface>-<engine>.aria.yml
 // (per engine: WebKit's user agent gives the Command shortcuts); the keyboard flow presses keys only, never the mouse. A new surface is a new row here; the adapter fails closed on a row
 // with no report in any engine.
-import { readFileSync } from 'node:fs'
 import { mkdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -14,10 +13,11 @@ import AxeBuilder from '@axe-core/playwright'
 import type { Locator, Page } from '@playwright/test'
 import { expect } from './offline'
 import { openFixture } from './layout'
+import { readCargoWorkspaceVersion } from '../../../../policy/release-version.mjs'
 
 const FIXTURE = fileURLToPath(new URL('../fixtures/canvas-base.canopi', import.meta.url))
 /** This build's release, which the edition manifest a focus reads names (canvas/release-notice.spec.ts). */
-const OWN_VERSION = (JSON.parse(readFileSync(fileURLToPath(new URL('../../../tauri.conf.json', import.meta.url)), 'utf8')) as { version: string }).version
+const OWN_VERSION = readCargoWorkspaceVersion(fileURLToPath(new URL('../../../..', import.meta.url)))
 
 /** Where each engine's reports go; the CI a11y job uploads it and the a11y-policy job reads it (CANOPI_A11Y_REPORTS). */
 export const A11Y_REPORTS = fileURLToPath(new URL('../../test-results/a11y/', import.meta.url))

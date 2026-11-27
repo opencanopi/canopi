@@ -22,7 +22,7 @@ export interface PinnedPlantNameLegendSource {
 export function buildPinnedPlantNameLegendEntries(
   source: PinnedPlantNameLegendSource,
   display: PlantDisplay,
-  locale = 'en',
+  locale: string,
 ): PinnedPlantNameLegendEntry[] {
   const scene = source.getSceneSnapshot()
   // The canvas draws no plant, so no pinned name, on a hidden or fully transparent Plants layer (canopi-knon).

@@ -15,7 +15,7 @@ import {
   type StoryImageRead,
 } from '../../app/stories'
 import { currentDesign } from '../../app/document-session/store'
-import { STORY_IMAGE_MAX_BYTES } from '../../generated/canopi-design-format'
+import { STORY_IMAGES_MAX_TOTAL_BYTES, STORY_IMAGE_MAX_BYTES } from '../../generated/canopi-design-format'
 import { locale } from '../../app/settings/state'
 import { t } from '../../i18n'
 import type { SavedView, StoryImage, StoryStep } from '../../types/design'
@@ -268,11 +268,16 @@ function PendingImage({ src, resized, number, onKeep, onCancel }: {
 }
 
 function imageProblemText(read: Extract<StoryImageRead, { ok: false }>): string {
+  const activeLocale = locale.peek()
   switch (read.problem) {
     case 'type': return t('stories.imageType')
-    case 'tooLarge': return t('stories.imageTooLarge', { size: formatImageBytes(read.bytes, locale.peek()) })
+    case 'tooLarge': return t('stories.imageTooLarge', {
+      size: formatImageBytes(read.bytes, activeLocale),
+      limit: formatImageBytes(STORY_IMAGE_MAX_BYTES, activeLocale),
+    })
     case 'designFull': return t('stories.imageDesignFull', {
-      used: formatImageBytes(designEmbeddedImageBytes(currentDesign.peek()), locale.peek()),
+      used: formatImageBytes(designEmbeddedImageBytes(currentDesign.peek()), activeLocale),
+      limit: formatImageBytes(STORY_IMAGES_MAX_TOTAL_BYTES, activeLocale),
     })
     case 'unreadable': return t('stories.imageUnreadable')
   }

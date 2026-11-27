@@ -296,7 +296,7 @@ describe('saved view dialogs', () => {
     const field = container.querySelector<HTMLInputElement>('input[aria-label="New name for Pond"]')!
     expect(document.activeElement).toBe(field)
     await type(field, 'Wildlife pond')
-    await act(async () => { field.form!.requestSubmit() })
+    await key(field, { key: 'Enter' })
     expect(currentDesign.value?.views?.map((view) => view.name)).toEqual(['Wildlife pond', 'Hedge'])
     expect(document.activeElement).toBe(button('Rename Wildlife pond'))
 
