@@ -41,12 +41,12 @@ interface LensReading {
 interface InkSlice {
   readonly CANVAS_MAP_BACKDROP_COLORS: Readonly<Record<Backdrop, string>>
   refreshCanvasColorCache(container: HTMLElement): void
-  getCanvasColor(name: 'background'): string
-  setCanvasMapBackdrop(backdrop: Backdrop): boolean
-  getMapTextColor(): string
-  getLabelHalo(size: number): { color: string }
-  getStackBadgeBackgroundColor(): string
-  getStackBadgeTextColor(): string
+  readCanvasPaintTokens(): { readonly background: string }
+  getMapBackdropInk(backdrop: Backdrop): { text: string; halo: string; badgeBackground: string; badgeText: string }
+  getMapTextColor(backdropInk?: { text: string }): string
+  getLabelHalo(size: number, backdropInk?: { halo: string }): { color: string }
+  getStackBadgeBackgroundColor(background?: string): string
+  getStackBadgeTextColor(background?: string): string
   getPlantSymbolEdgeColor(fill: string, background?: string): string
   resolveBackdropInk(background: string): { text: string, badgeBackground: string }
   contrastRatio(a: string, b: string): number
@@ -59,7 +59,7 @@ declare global {
 /** The ink rules and the colour cache, bundled from the app's source as one script that sets `window.__backdropInk`. */
 function inkScript(): Promise<string> {
   return pageBundle(
-    "export * from './scene-visuals'\nexport { getCanvasColor, refreshCanvasColorCache } from '../theme-refresh'\nexport { contrastRatio } from '../plant-colors'",
+    "export * from './scene-visuals'\nexport { readCanvasPaintTokens, refreshCanvasColorCache } from '../theme-refresh'\nexport { contrastRatio } from '../plant-colors'",
     fileURLToPath(new URL('../../src/canvas/runtime/', import.meta.url)),
     '__backdropInk',
   )
@@ -84,11 +84,11 @@ async function readings(page: Page): Promise<Record<Theme, Record<Backdrop, Read
       ink.refreshCanvasColorCache(container)
       out[theme] = {}
       for (const backdrop of backdrops) {
-        ink.setCanvasMapBackdrop(backdrop)
+        const backdropInk = ink.getMapBackdropInk(backdrop)
         const background = ink.CANVAS_MAP_BACKDROP_COLORS[backdrop]
-        const text = ink.getMapTextColor()
-        const halo = ink.getLabelHalo(12).color
-        const badge = ink.getStackBadgeBackgroundColor()
+        const text = ink.getMapTextColor(backdropInk)
+        const halo = ink.getLabelHalo(12, backdropInk).color
+        const badge = ink.getStackBadgeBackgroundColor(background)
         out[theme][backdrop] = {
           ink: text,
           halo,
@@ -97,9 +97,9 @@ async function readings(page: Page): Promise<Record<Theme, Record<Backdrop, Read
             inkOnBackdrop: ink.contrastRatio(text, background),
             inkOnHalo: ink.contrastRatio(text, halo),
             badgeOnBackdrop: ink.contrastRatio(badge, background),
-            badgeTextOnBadge: ink.contrastRatio(ink.getStackBadgeTextColor(), badge),
+            badgeTextOnBadge: ink.contrastRatio(ink.getStackBadgeTextColor(background), badge),
             // A plant painted in the backdrop colour still gets a contrasting edge.
-            edgeOnBackdropColouredPlant: ink.contrastRatio(ink.getPlantSymbolEdgeColor(background), background),
+            edgeOnBackdropColouredPlant: ink.contrastRatio(ink.getPlantSymbolEdgeColor(background, background), background),
           },
         }
       }
@@ -142,7 +142,7 @@ test.describe('canvas label ink follows the map backdrop, not the UI theme (cano
       for (const theme of themes) {
         document.documentElement.setAttribute('data-theme', theme)
         ink.refreshCanvasColorCache(container)
-        const paper = ink.getCanvasColor('background')
+        const paper = ink.readCanvasPaintTokens().background
         const resolved = ink.resolveBackdropInk(paper)
         out[theme] = {
           paper,

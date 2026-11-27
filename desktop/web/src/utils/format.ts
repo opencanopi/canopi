@@ -393,20 +393,46 @@ interface SortedAlias {
   readonly unit: UnitId
 }
 
-const sortedAliasesByKind = new Map<QuantityKind, readonly SortedAlias[]>()
+const sortedAliasesByKindLocale = new Map<string, readonly SortedAlias[]>()
 
-function aliasesForKind(kind: QuantityKind): readonly SortedAlias[] {
-  let cached = sortedAliasesByKind.get(kind)
+function aliasesForKind(kind: QuantityKind, locale: string): readonly SortedAlias[] {
+  const key = `${kind}|${locale}`
+  let cached = sortedAliasesByKindLocale.get(key)
   if (!cached) {
+    const seen = new Set<string>()
     const list: SortedAlias[] = []
+    const add = (alias: string, unit: UnitId) => {
+      const normalized = alias.trim().toLowerCase()
+      if (!normalized) return
+      const dedupeKey = `${normalized}|${unit}`
+      if (seen.has(dedupeKey)) return
+      seen.add(dedupeKey)
+      list.push({ alias: normalized, unit })
+    }
     for (const input of QUANTITY_TABLE[kind].inputUnits) {
       for (const alias of input.aliases) {
-        list.push({ alias: alias.toLowerCase(), unit: input.unit })
+        add(alias, input.unit)
+      }
+      const intlUnit = UNIT_META[input.unit].intlUnit
+      if (intlUnit !== null) {
+        const formatter = cachedNumberFormat(locale, {
+          style: 'unit',
+          unit: intlUnit,
+          unitDisplay: 'short',
+        })
+        for (const sample of [1, 2]) {
+          const localizedUnit = formatter
+            .formatToParts(sample)
+            .filter((part) => part.type === 'unit')
+            .map((part) => part.value)
+            .join('')
+          add(localizedUnit, input.unit)
+        }
       }
     }
     list.sort((a, b) => b.alias.length - a.alias.length)
     cached = list
-    sortedAliasesByKind.set(kind, cached)
+    sortedAliasesByKindLocale.set(key, cached)
   }
   return cached
 }
@@ -439,7 +465,7 @@ export function parseQuantity(
 
   // Try matching a trailing unit alias (longest first).
   const lowered = trimmed.toLowerCase()
-  for (const { alias, unit } of aliasesForKind(kind)) {
+  for (const { alias, unit } of aliasesForKind(kind, locale)) {
     if (!lowered.endsWith(alias)) continue
     const numRaw = trimmed.slice(0, trimmed.length - alias.length).trim()
     if (!numRaw) continue

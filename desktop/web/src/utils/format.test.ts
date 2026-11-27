@@ -173,6 +173,15 @@ describe('parseQuantity (#316 locale rules & cross-system input)', () => {
     const si56 = parseQuantity('length', `5' 6"`, 'us_customary', 'en-US')!
     expect(formatLength(si56, 'us_customary', 'en-US')).toBe('5′ 6″')
   })
+
+  it('round-trips Intl localized unit suffixes across non-Latin locales (ru, zh, ja, ko)', () => {
+    for (const locale of ['ru', 'zh', 'ja', 'ko', 'de', 'fr']) {
+      const formatted1m = formatLength(1, 'metric', locale, { trimTrailingZeros: true, maximumFractionDigits: 3 })
+      expect(parseQuantity('length', formatted1m, 'metric', locale), `${locale}: ${formatted1m}`).toBeCloseTo(1, 6)
+      const formatted50cm = formatLength(0.5, 'metric', locale, { trimTrailingZeros: true, maximumFractionDigits: 3 })
+      expect(parseQuantity('length', formatted50cm, 'metric', locale), `${locale}: ${formatted50cm}`).toBeCloseTo(0.5, 6)
+    }
+  })
 })
 
 describe('scale bar steps and formatting', () => {

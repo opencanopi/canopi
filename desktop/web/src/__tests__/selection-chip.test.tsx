@@ -267,7 +267,8 @@ describe('Selection chip', () => {
     expect(buttons()).toEqual(['Clear selection'])
 
     await select([{ kind: 'zone', id: RECT_ID }])
-    await act(() => chip()!.querySelector<HTMLButtonElement>('button')!.click())
+    const renameButton = [...chip()!.querySelectorAll<HTMLButtonElement>('button')].find((button) => button.textContent === 'Rename…')!
+    await act(() => renameButton.click())
     const input = document.querySelector<HTMLInputElement>('[role="dialog"] input')!
     expect(input.value).toBe('')
     await act(() => {

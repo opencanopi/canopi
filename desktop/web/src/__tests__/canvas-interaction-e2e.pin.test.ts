@@ -4,7 +4,8 @@
 // recogniser, router and tool host, with the real tools, reach the app adapter's pinAt. A tap no tool uses pins: a
 // Select tap on empty ground (after Select clears the selection) or any Pan-tool tap. Each press sends pointerdown
 // detail 0, as WebKitGTK does. Shared fakes, helpers and fixture: support/canvas-interaction-setup.ts.
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { snapToGridEnabled } from '../app/settings/state'
 
 vi.mock('../ipc/species', async (importOriginal) => ({
   ...await importOriginal<typeof IpcSpeciesModule>(),
@@ -244,7 +245,12 @@ describe('Desktop: the pin and profile hand-offs reach Site data in lon/lat', ()
   const harnesses: SceneInteractionEventHarness[] = []
   const hosts: CanvasRuntimeHost[] = []
 
+  beforeEach(() => {
+    snapToGridEnabled.value = false
+  })
+
   afterEach(async () => {
+    snapToGridEnabled.value = true
     endSiteDataTransients()
     setCurrentCanvasSession(null)
     sidePanel.value = null
