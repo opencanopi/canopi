@@ -27,7 +27,7 @@ export interface BrowserDesignHomeStore extends DesignHomeStore {
   syncLegacyStorage(): Promise<void>
   markPending(id: string): void
   clearPending(id: string): void
-  takePendingMarkers(): readonly string[]
+  takePendingMarkers(reloadTabId?: string | null): readonly string[]
   closeForPageHide(): void
   reopenAfterPageShow(): Promise<void>
   dispose(): void
@@ -49,7 +49,7 @@ export function createBrowserDesignHomeStore(
     onVersionChange: (cb: () => void): (() => void) => store.onVersionChange(cb),
     markPending: (id: string): void => store.markPending(id),
     clearPending: (id: string): void => store.clearPending(id),
-    takePendingMarkers: (): readonly string[] => store.takePendingMarkers(),
+    takePendingMarkers: (reloadTabId?: string | null): readonly string[] => store.takePendingMarkers(reloadTabId),
     closeForPageHide: (): void => store.closeForPageHide(),
     reopenAfterPageShow: (): Promise<void> => store.reopenAfterPageShow(),
     dispose: (): void => store.dispose(),

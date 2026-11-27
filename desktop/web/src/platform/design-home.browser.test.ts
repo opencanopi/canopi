@@ -9,7 +9,7 @@ import type { BrowserStorage } from './browser-record'
 import type { DesignCore } from './design-core'
 import type { DraftId } from './design-home'
 import { createBrowserDesignHomeStore } from './design-home.browser'
-import { createDraftRecordsReaderForTests as createDraftRecordsReader } from './draft-records.browser'
+import { createDraftRecordsReader } from './__fixtures__/draft-records-reader-v205'
 import { LEGACY_DRAFTS_KEY, type DraftMoveMetaRecord, type StoredDraftRecord } from './draft-records-move'
 
 const DRAFT_DATABASE = 'canopi-drafts'

@@ -105,10 +105,13 @@ export async function sha256Hex(text: string): Promise<string> {
 }
 
 /** Deterministic `[a-z0-9-]{1,64}` id for an "older-tab" copy (2.1-M527(c)); `revision > 1` disambiguates after 2.1 edits. */
-function olderTabCopyId(legacyId: string): string {
+function olderTabCopyId(legacyId: string, revision = 1): string {
   const clean = legacyId.toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '')
   const suffix = clean.length > 0 ? clean : 'draft'
-  return `older-tab-${suffix.slice(0, 54)}`.slice(0, 64)
+  if (revision <= 1) return `older-tab-${suffix.slice(0, 54)}`.slice(0, 64)
+  const revTag = `-${revision}`
+  const maxSuffix = Math.max(1, 64 - 'older-tab-'.length - revTag.length)
+  return `older-tab-${suffix.slice(0, maxSuffix)}${revTag}`
 }
 
 export function parseDraftWriteBytes(
@@ -320,12 +323,13 @@ export async function runInitialLegacyMove(params: {
           movedHashes[item.id] = item.contentHash
           verifyIds.add(item.id)
         } else if (existing.version <= 1) {
-          // Unpublished staged copy (state !== 'live'): re-stage if content differs (B1/B2) and always re-verify.
+          // Unpublished staged copy (state !== 'live'): re-stage with a bumped version if content differs (B1/B2)
+          // so any 2.1 session holding version "1" sees a CAS conflict instead of silently overwriting 2.0 edits.
           if (existing.content !== item.content) {
             draftsStore.put({
               id: item.id,
               canopi_version: appVersion,
-              version: 1,
+              version: existing.version + 1,
               name: item.name,
               updated_at: item.updatedAt,
               content: item.content,
@@ -405,27 +409,35 @@ export async function runInitialLegacyMove(params: {
   return swapped
 }
 
+function chooseAvailableCopyId(legacyId: string, existingIds: ReadonlySet<string>): string {
+  for (let rev = 2; rev < 1000; rev += 1) {
+    const candidate = olderTabCopyId(legacyId, rev)
+    if (!existingIds.has(candidate)) return candidate
+  }
+  return olderTabCopyId(`${legacyId}-${Date.now().toString(36)}`, 2)
+}
+
 function applyOlderTabItem(params: {
   readonly item: PreparedLegacyDraft
   readonly movedHashes: Readonly<Record<string, string>>
   readonly rowsById: ReadonlyMap<string, StoredDraftRecord>
+  readonly existingIds: Set<string>
   readonly nextCopies: Record<string, OlderTabCopyEntry>
   readonly draftsStore: IDBObjectStore
   readonly appVersion: string
 }): { readonly legacyId: string; readonly copyId: string; readonly name: string } | null {
-  const { item, movedHashes, rowsById, nextCopies, draftsStore, appVersion } = params
+  const { item, movedHashes, rowsById, existingIds, nextCopies, draftsStore, appVersion } = params
   const prevCopy = nextCopies[item.id]
   if (item.contentHash === movedHashes[item.id] || item.contentHash === prevCopy?.canonicalHash) return null
-  const copyId = prevCopy?.copyId ?? olderTabCopyId(item.id)
-  const existing = rowsById.get(copyId)
-  // At most one older-tab copy per 2.0 id (2.1-M527); never overwrite 2.1 edits made to that copy.
-  // The 2.0 localStorage key stays untouched (2.1-M21), so both edits remain preserved.
+  const preferredId = prevCopy?.copyId ?? olderTabCopyId(item.id)
+  const existing = rowsById.get(preferredId)
+  // Rotate when the tracked copy has 2.1 edits (or collides with an existing ordinary Draft):
+  // the 2.1-edited copy stays as an ordinary Draft, and a fresh older-tab-* record gets the new 2.0 content (2.1-M527).
   const writtenVersion = prevCopy?.writtenVersion ?? 1
-  if (existing !== undefined && existing.version > writtenVersion) {
-    nextCopies[item.id] = { copyId, canonicalHash: item.contentHash, writtenVersion }
-    return null
-  }
-  const nextVersion = existing ? existing.version + 1 : 1
+  const needsRotate = existing !== undefined && (prevCopy === undefined || existing.version > writtenVersion)
+  const copyId = needsRotate ? chooseAvailableCopyId(item.id, existingIds) : preferredId
+  const nextVersion = !needsRotate && existing ? existing.version + 1 : 1
+  existingIds.add(copyId)
   draftsStore.put({
     id: copyId,
     canopi_version: appVersion,
@@ -463,11 +475,12 @@ export async function runOlderTabLegacyCopy(params: {
       // Meta CAS: if another 2.1 tab advanced `rev`, bail so caller can re-sync without dropping entries.
       if (!currentMeta || currentMeta.state !== 'live' || currentMeta.rev !== expectedRev) return
       const rowsById = new Map<string, StoredDraftRecord>(existingRows.map((row) => [row.id, row]))
+      const existingIds = new Set<string>(rowsById.keys())
       const movedHashes = currentMeta.movedHashes ?? {}
       const nextCopies: Record<string, OlderTabCopyEntry> = { ...(currentMeta.olderTabCopies ?? {}) }
 
       for (const item of prepared) {
-        const result = applyOlderTabItem({ item, movedHashes, rowsById, nextCopies, draftsStore, appVersion })
+        const result = applyOlderTabItem({ item, movedHashes, rowsById, existingIds, nextCopies, draftsStore, appVersion })
         if (result) createdOrUpdated.push(result)
       }
       const copiedIds = [...new Set([...currentMeta.copiedIds, ...prepared.map((p) => p.id)])]

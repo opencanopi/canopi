@@ -22,7 +22,6 @@ import { NEW_DESIGN_LAYER_DEFAULTS } from "../../generated/new-design-defaults";
 import type { DraftId } from "../../platform/design-home";
 import {
   presentBrowserDesignOpenFailure,
-  presentBrowserStorageUncheckedNotice,
   raiseDraftStoreBlockedNotice,
   raiseEarlierDataNotice,
   raiseOlderTabCopyNotice,
@@ -79,11 +78,13 @@ export function bootWebEdition(): () => void {
     setItem: (key, value) => { browserAppDataStore.writeRecord((s) => s.setItem(key, value)); },
     removeItem: (key) => { browserAppDataStore.writeRecord((s) => s.removeItem(key)); },
   };
+  const liveTabId = createUuid();
+  const reloadTabId = browserAppDataStore.takeReloadTabId();
   const idbHomeStore: BrowserDesignHomeStore = createBrowserDesignHomeStore({
     legacyStorage: legacyStorageBridge,
     designCore: formatCore,
     appVersion: CANOPI_VERSION,
-    tabId: browserAppDataStore.tabId(createUuid),
+    tabId: liveTabId,
     onVersionChange: () => {
       browserReleaseWatch.storeChanged();
     },
@@ -156,6 +157,7 @@ export function bootWebEdition(): () => void {
   const disposeCanvasHost = installCanvasHostRuntime(() => createBrowserCanvasHostRuntime());
 
   const onBeforeUnload = (event: BeforeUnloadEvent) => {
+    browserAppDataStore.noteReloadTabId(liveTabId);
     const open = webSessionCore.currentDesign.peek();
     const needsFlush = webSessionCore.pendingWrite.peek()
       || open?.save.kind === "failed"
@@ -174,6 +176,7 @@ export function bootWebEdition(): () => void {
   window.addEventListener("beforeunload", onBeforeUnload);
 
   const onPageHide = () => {
+    browserAppDataStore.noteReloadTabId(liveTabId);
     idbHomeStore.closeForPageHide();
   };
   const onPageShow = (event: PageTransitionEvent) => {
@@ -203,14 +206,14 @@ export function bootWebEdition(): () => void {
     if (disposed) return 0;
     if (openOutcome.kind === "unavailable") {
       // 2.1-Q334 (canopi-2b6q): IndexedDB could not be checked; list 2.0-key Drafts read-only with Download a copy.
+      // Notice ("Opened read-only...") is raised when a Draft is actually opened, never on an empty launch.
       setWebStorageUnchecked(true);
-      presentBrowserStorageUncheckedNotice();
       return browserAppDataStore.listDrafts().length;
     }
     setWebStorageUnchecked(false);
     if (openOutcome.kind !== "ready") return 0;
     const drafts = await idbHomeStore.listDrafts();
-    for (const pendingId of idbHomeStore.takePendingMarkers()) {
+    for (const pendingId of idbHomeStore.takePendingMarkers(reloadTabId)) {
       const match = drafts.find((d) => d.id === pendingId);
       raisePendingWriteNotice(draftNameFromBytes(match?.bytes ?? null));
       reportFailure(new Error(`Pending write marker found for Draft ${pendingId}`), {

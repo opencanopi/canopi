@@ -77,8 +77,8 @@ async function decodeWithDesignCore(
   throw ingestionErrorFromFormatRefusal(answer.err)
 }
 
-/** Synchronous v10 write-admission check shared by SessionCore and synchronous unload flushes. */
-export function admitCanopiWrite(file: WriteFile): string | null {
+/** Synchronous v10 write-admission check used by SessionCore's JSON codec. */
+function admitCanopiWrite(file: WriteFile): string | null {
   if (file.version !== CURRENT_CANOPI_FILE_VERSION) {
     return `unsupported_version:${file.version}`
   }

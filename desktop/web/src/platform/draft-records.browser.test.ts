@@ -5,7 +5,7 @@
 // Chromium, WebKit and Firefox; reader-release-web-stores.spec.ts runs the reader itself in those engines.
 import { readFileSync } from 'node:fs'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createDraftRecordsReaderForTests as createDraftRecordsReader, type DraftRecordsReaderTestFixture as DraftRecordsReader } from './draft-records.browser'
+import { createDraftRecordsReader, type DraftRecordsReader } from './__fixtures__/draft-records-reader-v205'
 
 interface FrozenDraftStore {
   readonly database: string
@@ -200,10 +200,11 @@ describe('the 2.1 Draft store read half', () => {
 
     expect(listing.drafts).toEqual([
       { id: 'draft-hedge', name: 'Hedge in 2.1', updatedAt: '2026-12-05T00:00:00.000Z' },
+      { id: 'older-tab-draft-orchard', name: 'Orchard in 2.0', updatedAt: '2026-12-04T00:00:00.000Z' },
       { id: 'draft-orchard', name: 'Orchard in 2.1', updatedAt: '2026-12-03T00:00:00.000Z' },
     ])
     // draft-hedge was never copied, yet 2.1 holds its id: an old-key Draft under it is hidden too.
-    expect([...listing.hiddenIds].sort()).toEqual(['draft-hedge', 'draft-moved-only', 'draft-orchard'])
+    expect([...listing.hiddenIds].sort()).toEqual(['draft-hedge', 'draft-moved-only', 'draft-orchard', 'older-tab-draft-orchard'])
     expect(listing.complete).toBe(true)
     expect(reports).toEqual([])
   })
@@ -248,7 +249,7 @@ describe('the 2.1 Draft store read half', () => {
     idb.seed(FROZEN)
     const { records } = reader(idb)
 
-    expect((await records.list()).drafts.map((draft) => draft.id)).toEqual(['draft-hedge', 'draft-orchard'])
+    expect((await records.list()).drafts.map((draft) => draft.id)).toEqual(['draft-hedge', 'older-tab-draft-orchard', 'draft-orchard'])
   })
 
   it.each([
@@ -264,7 +265,7 @@ describe('the 2.1 Draft store read half', () => {
 
     expect(versionChanges).toHaveLength(1)
     expect(idb.connections.every((connection) => connection.closed)).toBe(true)
-    expect(listing.drafts).toHaveLength(2)
+    expect(listing.drafts).toHaveLength(3)
     expect(reports).toEqual([])
   })
 
@@ -457,8 +458,8 @@ describe('the 2.1 Draft store read half', () => {
 
     const listing = await records.list()
 
-    expect(listing.drafts.map((draft) => draft.id)).toEqual(['draft-hedge', 'draft-orchard'])
-    expect(listing.hiddenIds).toEqual(['draft-hedge', 'draft-orchard'])
+    expect(listing.drafts.map((draft) => draft.id)).toEqual(['draft-hedge', 'older-tab-draft-orchard', 'draft-orchard'])
+    expect(listing.hiddenIds).toEqual(['draft-hedge', 'older-tab-draft-orchard', 'draft-orchard'])
     expect(listing.complete).toBe(true)
     expect(reports).toEqual([])
   })

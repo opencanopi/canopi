@@ -13,7 +13,7 @@ import {
   createDesktopAppLifecyclePort,
   type DesktopWindowHandle,
 } from '../../../editions/desktop/session-ports'
-import { createBrowserSessionHomeStoreForTests as createBrowserSessionHomeStore } from '../../../editions/web/session-ports'
+import { createBrowserSessionHomeStore } from '../../../__tests__/support/browser-session-home-store'
 import type { DesignHome, DesignHomeWriteResult, DraftId, HomeVersion } from '../../../platform/design-home'
 import type { CanopiFile } from '../../../types/design'
 import { createBrowserAppDataStore, type BrowserStorageAdapter } from '../../../web/browser-app-data'

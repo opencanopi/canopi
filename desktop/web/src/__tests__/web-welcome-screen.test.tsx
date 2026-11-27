@@ -15,7 +15,7 @@ import type { BrowserDraftPersistence } from '../web/browser-draft-persistence'
 import * as browserTextFiles from '../web/browser-text-files'
 import { notices, resetNoticesForTests } from '../failures/notices'
 import { WebWelcomeScreen } from '../editions/web/WebWelcomeScreen'
-import { createBrowserSessionHomeStoreForTests } from '../editions/web/session-ports'
+import { createBrowserSessionHomeStore } from './support/browser-session-home-store'
 import { installEditionPorts } from '../platform/edition-ports'
 import { createTestEditionPorts } from './support/test-edition-ports'
 import { createTestSessionCore, type TestSessionCoreHandle } from './support/session-core-fixture'
@@ -32,7 +32,7 @@ beforeEach(() => {
   locale.value = 'en'
   localStorage.clear()
   disposePorts = installEditionPorts(createTestEditionPorts({
-    designHome: createBrowserSessionHomeStoreForTests(browserAppDataStore),
+    designHome: createBrowserSessionHomeStore(browserAppDataStore),
   }))
   container = document.createElement('div')
   document.body.appendChild(container)

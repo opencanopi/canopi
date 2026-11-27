@@ -56,10 +56,29 @@ vi.mock("../web/browser-app-data", () => ({
     listDrafts: mocks.listDrafts,
     takeReloadHome: mocks.takeReloadHome,
     loadRawDraft: mocks.loadRawDraft,
-    tabId: (mint: () => string) => mint(),
+    noteReloadTabId: () => undefined,
+    takeReloadTabId: () => null,
     readRecord: () => null,
     writeRecord: () => undefined,
   },
+}));
+
+vi.mock("../platform/design-home.browser", () => ({
+  createBrowserDesignHomeStore: () => ({
+    open: vi.fn().mockResolvedValue({ kind: "ready" }),
+    syncLegacyStorage: vi.fn().mockResolvedValue(undefined),
+    read: vi.fn().mockResolvedValue({ kind: "absent" }),
+    write: vi.fn().mockResolvedValue({ kind: "written", version: "1" }),
+    listDrafts: vi.fn(async () => mocks.listDrafts().map((d: { id: string; updatedAt: string }) => ({ id: d.id, updatedAt: d.updatedAt, bytes: null }))),
+    deleteDraft: vi.fn().mockResolvedValue({ ok: true }),
+    onVersionChange: vi.fn().mockReturnValue(() => {}),
+    markPending: vi.fn(),
+    clearPending: vi.fn(),
+    takePendingMarkers: vi.fn().mockReturnValue([]),
+    closeForPageHide: vi.fn(),
+    reopenAfterPageShow: vi.fn().mockResolvedValue(undefined),
+    dispose: vi.fn(),
+  }),
 }));
 
 vi.mock("../web/browser-notices", () => ({
@@ -272,22 +291,6 @@ describe("settings platform bootstrap", () => {
     const error = new Error("storage unavailable");
     mocks.takeReloadHome.mockImplementation(() => { throw error; });
     const logError = vi.spyOn(console, "error").mockImplementation(() => {});
-    const designHomeBrowser = await import("../platform/design-home.browser");
-    vi.spyOn(designHomeBrowser, "createBrowserDesignHomeStore").mockReturnValue({
-      open: vi.fn().mockResolvedValue({ kind: "ready" }),
-      syncLegacyStorage: vi.fn().mockResolvedValue(undefined),
-      read: vi.fn().mockResolvedValue({ kind: "absent" }),
-      write: vi.fn().mockResolvedValue({ kind: "written", version: "1" }),
-      listDrafts: vi.fn().mockResolvedValue([]),
-      deleteDraft: vi.fn().mockResolvedValue({ kind: "deleted" }),
-      onVersionChange: vi.fn().mockReturnValue(() => {}),
-      markPending: vi.fn(),
-      clearPending: vi.fn(),
-      takePendingMarkers: vi.fn().mockReturnValue([]),
-      closeForPageHide: vi.fn(),
-      reopenAfterPageShow: vi.fn().mockResolvedValue(undefined),
-      dispose: vi.fn(),
-    });
     const { bootWebEdition: bootstrapPlatform } = await import("../editions/web/boot");
     const { getLiveSessionCore } = await import("../app/document-session/live-core");
 

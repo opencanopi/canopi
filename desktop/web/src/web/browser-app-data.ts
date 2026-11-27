@@ -137,7 +137,7 @@ interface SaveRawDraftOptions {
 }
 
 /** Another browser tab wrote the Draft after this writer last read or wrote it. */
-export class BrowserDraftChangedError extends Error {
+class BrowserDraftChangedError extends Error {
   constructor(readonly draftId: string) {
     super("The Draft was changed in another browser tab");
     this.name = "BrowserDraftChangedError";
@@ -194,8 +194,10 @@ export interface BrowserAppDataStore {
   noteReloadHome(draftId: string | null): void;
   /** What this tab had open before its release reload, once; null when nothing was noted or it cannot be read. */
   takeReloadHome(): BrowserReloadHome | null;
-  /** Stable per-tab id stored in sessionStorage so reload recovers this tab's pending-write markers without touching peer tabs. */
-  tabId(mintId: () => string): string;
+  /** Notes this page load's tab id in sessionStorage right before unload so a reload recovers its pending markers without colliding on Duplicate Tab. */
+  noteReloadTabId(tabId: string): void;
+  /** Takes the previous page load's reload tab id once from sessionStorage; null when this is a fresh or duplicated tab. */
+  takeReloadTabId(): string | null;
   /**
    * Reads the species lists at launch, 2.1's key through `read` from now on, so lists a newer Canopi saved, or damaged
    * ones, say so once, then (2.1-Q319).
@@ -376,16 +378,17 @@ export function createBrowserAppDataStore({
       return text === null ? null : parseReloadHome(text);
     },
 
-    tabId(mintId) {
+    noteReloadTabId(tabId) {
+      try { session.setItem("canopi:web-drafts:reload-tab-id", tabId); } catch { /* Best-effort reload tab id; stale timeout still recovers markers. */ }
+    },
+    takeReloadTabId() {
       try {
-        const existing = session.getItem("canopi:web-drafts:tab-id");
-        if (existing) return existing;
-        const created = mintId();
-        session.setItem("canopi:web-drafts:tab-id", created);
-        return created;
+        const existing = session.getItem("canopi:web-drafts:reload-tab-id");
+        if (existing !== null) session.removeItem("canopi:web-drafts:reload-tab-id");
+        return existing && existing.length > 0 ? existing : null;
       } catch {
-        // Session storage unavailable: fall back to a per-call id so peer tabs' markers stay isolated.
-        return mintId();
+        // Session storage unavailable: fall back to stale-peer marker recovery.
+        return null;
       }
     },
 

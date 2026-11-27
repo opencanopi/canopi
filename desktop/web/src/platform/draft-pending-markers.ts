@@ -93,6 +93,7 @@ export function takePendingWrites(
   myTabId: string,
   nowMs: number,
   staleAfterMs = DEFAULT_STALE_PENDING_MS,
+  reloadTabId?: string | null,
 ): readonly string[] {
   if (!storage) return []
   const tabs = readPendingTabIds(storage)
@@ -104,7 +105,7 @@ export function takePendingWrites(
       try { storage.removeItem(`${PENDING_TAB_PREFIX}${tabId}`) } catch { /* Best-effort cleanup of corrupt marker. */ }
       continue
     }
-    const isOwn = tabId === myTabId
+    const isOwn = tabId === myTabId || (typeof reloadTabId === 'string' && reloadTabId.length > 0 && tabId === reloadTabId)
     const isStale = nowMs - rec.updatedAtMs >= staleAfterMs
     if (isOwn || isStale) {
       for (const draftId of rec.draftIds) found.add(draftId)

@@ -7,7 +7,7 @@ import { CURRENT_CANOPI_FILE_VERSION } from '../../generated/canopi-design-forma
 import type { CanopiFileV10, FormatDecodeAnswer } from '../../generated/contracts'
 import type { DesignCore } from '../../platform/design-core'
 import { EMPTY_SHA256, type DesignHomeStore, type DraftId, type HomeVersion } from '../../platform/design-home'
-import { createBrowserSessionHomeStoreForTests as createBrowserSessionHomeStore } from '../../editions/web/session-ports'
+import { createBrowserSessionHomeStore } from '../../__tests__/support/browser-session-home-store'
 import { createBrowserAppDataStore, DRAFTS_STORAGE_KEY } from '../../web/browser-app-data'
 import type { CanopiFile } from '../../types/design'
 import { saveAsCurrentDesign, saveCurrentDesign } from './actions'

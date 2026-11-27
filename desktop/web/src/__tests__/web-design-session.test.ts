@@ -31,10 +31,8 @@ import {
   type BrowserStorageAdapter,
 } from '../web/browser-app-data'
 import * as browserTextFiles from '../web/browser-text-files'
-import {
-  browserFileAccessPort,
-  createBrowserSessionHomeStoreForTests as createBrowserSessionHomeStore,
-} from '../editions/web/session-ports'
+import { browserFileAccessPort } from '../editions/web/session-ports'
+import { createBrowserSessionHomeStore } from './support/browser-session-home-store'
 import {
   createWebShellCommands,
   currentWebDesignText,

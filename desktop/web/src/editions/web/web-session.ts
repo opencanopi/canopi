@@ -253,12 +253,11 @@ export async function deleteWebDraft(id: string): Promise<{ readonly ok: true } 
     return { ok: false, error: new Error(`The Draft ${id} cannot be deleted while browser storage is unchecked`) }
   }
   const core = getLiveSessionCore()
-  if (core) {
-    const res = await core.deleteDraft(id as never)
-    return res.ok ? { ok: true } : { ok: false, error: new Error(res.reason) }
+  if (!core) {
+    return { ok: false, error: new Error(`No live session available to delete Draft ${id}`) }
   }
-  const res = browserAppDataStore.deleteDraft(id)
-  return res.ok ? { ok: true } : { ok: false, error: res.error }
+  const res = await core.deleteDraft(id as never)
+  return res.ok ? { ok: true } : { ok: false, error: new Error(res.reason) }
 }
 
 export async function reloadWebForRelease(reload: () => void = () => globalThis.location.reload()): Promise<boolean> {

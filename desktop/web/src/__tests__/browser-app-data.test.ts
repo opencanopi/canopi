@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import {
-  BrowserDraftChangedError,
   createBrowserAppDataStore,
   type BrowserStorageAdapter,
 } from '../web/browser-app-data'
@@ -74,7 +73,7 @@ describe('browser app data store', () => {
       now: '2026-07-04T12:06:00.000Z',
       expectedUpdatedAt: '2026-07-04T11:00:00.000Z',
     })
-    expect(!overtaken.ok && overtaken.error).toBeInstanceOf(BrowserDraftChangedError)
+    expect(!overtaken.ok && overtaken.error instanceof Error ? overtaken.error.name : null).toBe('BrowserDraftChangedError')
 
     store.deleteDraft('draft-x')
     const edit = store.saveRawDraft({

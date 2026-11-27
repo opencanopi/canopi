@@ -235,12 +235,19 @@ describe('bootWebEdition (canopi-f47t.52.71)', () => {
     fakeStore.listDrafts.mockResolvedValueOnce([{ id: 'draft-corrupt', bytes: new TextEncoder().encode('{bad'), updatedAt: '' }])
     expect((await listWebDraftsAsync()).editable).toEqual([{ id: 'draft-corrupt', name: 'Untitled', updatedAt: '' }])
 
+    fakeStore.read.mockResolvedValueOnce({ kind: 'unreadable', reason: 'draft_unreadable' })
+    resetNoticesForTests()
+    const { openWebDraft: openIdbDraft } = await import('./web-session')
+    expect(await openIdbDraft('draft-idb-1')).toBe(false)
+    expect(notices.value.some((n) => n.key === 'web.open-failure')).toBe(true)
+    expect(core.currentDesign.peek()).toBeNull()
+
     dispose()
     expect(fakeStore.dispose).toHaveBeenCalledOnce()
     vi.restoreAllMocks()
   })
 
-  it('canopi-2b6q (2.1-Q334, B4): real bootWebEdition with failing indexedDB.open lists 2.0 Drafts read-only, opens read-only with notice, and never writes', async () => {
+  it('canopi-2b6q (2.1-Q334, B4): real bootWebEdition with failing indexedDB.open lists 2.0 Drafts read-only, opens read-only with notice, handles deleted 2.0 Drafts, and never writes', async () => {
     localStorage.clear()
     sessionStorage.clear()
     resetNoticesForTests()
@@ -294,7 +301,8 @@ describe('bootWebEdition (canopi-f47t.52.71)', () => {
     try {
       await vi.waitFor(() => expect(webLaunching.value).toBe(false))
       expect(isWebStorageUnchecked()).toBe(true)
-      expect(notices.value.some((n) => n.key === 'web.storage-unchecked')).toBe(true)
+      // Should-fix #3: launch with nothing opened does not prematurely raise the "Opened read-only" notice.
+      expect(notices.value.some((n) => n.key === 'web.storage-unchecked')).toBe(false)
 
       const listing = await listWebDraftsAsync()
       expect(listing.editable).toEqual([])
@@ -303,6 +311,7 @@ describe('bootWebEdition (canopi-f47t.52.71)', () => {
 
       const setItemSpy = vi.spyOn(Storage.prototype, 'setItem')
       expect(await openWebDraft('legacy-1')).toBe(true)
+      expect(notices.value.some((n) => n.key === 'web.storage-unchecked')).toBe(true)
       expect(designSessionStore.sessionKind.value).toEqual({ kind: 'read-only', origin: 'storage-unchecked' })
       // In-memory edit on a read-only storage-unchecked Draft must never write to localStorage (2.1-M21).
       getLiveSessionCore()!.document('rename', () => ({ name: 'Should Not Persist' }))
@@ -310,6 +319,14 @@ describe('bootWebEdition (canopi-f47t.52.71)', () => {
       expect(setItemSpy).not.toHaveBeenCalledWith(DRAFTS_STORAGE_KEY, expect.anything())
       expect(localStorage.getItem(DRAFTS_STORAGE_KEY)).toBe(legacyRecord)
       expect(browserAppDataStore.listDrafts()).toHaveLength(1)
+
+      // Restored Q334 behaviour: a 2.0 Draft another tab deleted after listing opens nothing, says so, and leaves the list.
+      await getLiveSessionCore()!.close('close')
+      localStorage.removeItem(DRAFTS_STORAGE_KEY)
+      resetNoticesForTests()
+      expect(await openWebDraft('legacy-1')).toBe(false)
+      expect(notices.value.some((n) => n.key === 'web.open-failure')).toBe(true)
+      expect((await listWebDraftsAsync()).readOnly).toEqual([])
     } finally {
       dispose()
       Object.defineProperty(globalThis, 'indexedDB', { configurable: true, value: prevIdb })

@@ -44,173 +44,9 @@ const DRAFTS_STORE = 'drafts'
 const META_STORE = 'meta'
 /** The move record's key; its `copiedIds` name the old-key Drafts the 2.1 move copied (2.1-Q322, M157). */
 const MOVE_RECORD_KEY = 'move'
-/** How long one read waits before the launch goes on without it (design check A18). */
-const DRAFT_READ_TIMEOUT_MS = 3000
 
-/** A 2.1 Draft as the list shows it: its record fields, never its Design. */
-interface DraftRecordSummary {
-  readonly id: string
-  readonly name: string
-  /** An ISO 8601 instant; empty when the record holds none. */
-  readonly updatedAt: string
-}
-
-interface DraftStoreListing {
-  /** The 2.1 Drafts whose record fields read, newest first. */
-  readonly drafts: readonly DraftRecordSummary[]
-  /**
-   * The ids the 2.0 Drafts key hides from its list, restore and last-updated read: the move's `copiedIds` and every id
-   * the store holds, so an old-key Draft is never shown, opened or deleted under an id 2.1 keeps.
-   */
-  readonly hiddenIds: readonly string[]
-  /** False when this read failed or ran late, and the Drafts and ids are the last good listing's (empty before one). */
-  readonly complete: boolean
-}
-
-/** @testonly The 2.0.5 reader-release read half; by its type it offers no write (cross-release tests). */
-export interface DraftRecordsReaderTestFixture {
-  /** The 2.1 Drafts and the ids they hide; never rejects: a failed or late read is reported and gives the last good listing, incomplete. */
-  list(): Promise<DraftStoreListing>
-  /**
-   * The Design of one 2.1 Draft as 2.1 saved it (`.canopi` text); never rejects: null when the store no longer holds
-   * it, or when the read fails or runs late, which is reported; `closed` when a version change closed it first.
-   */
-  content(id: string): Promise<string | null | 'closed'>
-}
-
-/** What the reader needs of `indexedDB`: `open` without a version, and `databases()` where the engine has it. */
+/** What the store needs of `indexedDB`: `open`. */
 type DraftStoreFactory = Pick<IDBFactory, 'open'> & { readonly databases?: () => Promise<readonly IDBDatabaseInfo[]> }
-
-interface DraftRecordsReaderOptions {
-  /** The page's `indexedDB` by default; undefined where the engine offers none (then the store is absent). */
-  readonly factory?: DraftStoreFactory | undefined
-  /** A version change reached an open connection, which is already closed. */
-  readonly onVersionChange: () => void
-  /** A listing that failed or ran late. */
-  readonly report: (error: unknown) => void
-  readonly timeoutMs?: number
-}
-
-const NO_DRAFTS: DraftStoreListing = { drafts: [], hiddenIds: [], complete: true }
-
-/** @testonly Creates the 2.0.5 reader-release IndexedDB reader (used by cross-release compatibility tests). */
-export function createDraftRecordsReaderForTests({
-  factory = globalThis.indexedDB,
-  onVersionChange,
-  report,
-  timeoutMs = DRAFT_READ_TIMEOUT_MS,
-}: DraftRecordsReaderOptions): DraftRecordsReaderTestFixture {
-  let lastListing = NO_DRAFTS
-  /**
-   * Runs `read` on an open connection to an existing store, then closes it; `absent` when there is none. `seen.closed`
-   * turns true once a version change closed the connection.
-   */
-  async function withStore<T>(read: (db: IDBDatabase) => Promise<T>, absent: T, seen = { closed: false }): Promise<T> {
-    if (!factory || await listedAbsent(factory)) return absent
-    const db = await openExisting(factory)
-    if (!db) return absent
-    db.onversionchange = () => {
-      seen.closed = true
-      db.close()
-      onVersionChange()
-    }
-    try {
-      return db.objectStoreNames.contains(DRAFTS_STORE) ? await read(db) : absent
-    } finally {
-      db.close()
-    }
-  }
-
-  return {
-    async list() {
-      try {
-        lastListing = await bounded(withStore(readListing, NO_DRAFTS), timeoutMs)
-        return lastListing
-      } catch (error) {
-        report(error)
-        return { ...lastListing, complete: false }
-      }
-    },
-    async content(id) {
-      const seen = { closed: false }
-      try {
-        return await bounded(withStore(async (db) => {
-          const tx = db.transaction(DRAFTS_STORE, 'readonly')
-          const [record] = await readIdbRequests(tx, [tx.objectStore(DRAFTS_STORE).get(id)], DRAFT_DATABASE)
-          return isPlainRecord(record) && typeof record.content === 'string' ? record.content : null
-        }, null, seen), timeoutMs)
-      } catch (error) {
-        // A version change closed it: the page offers Reload, which is all the user needs to hear (2.1-Q40, Q337).
-        if (seen.closed) return 'closed'
-        // The open then says it could not open the Draft and the rows re-list, as for one 2.1 deleted (design check).
-        report(error)
-        return null
-      }
-    },
-  }
-}
-
-/** True when `databases()` answers without the store; false where it lists it or the engine has none. */
-async function listedAbsent(factory: DraftStoreFactory): Promise<boolean> {
-  if (typeof factory.databases !== 'function') return false
-  const infos = await factory.databases()
-  return !infos.some((info) => info.name === DRAFT_DATABASE)
-}
-
-/** Opens the store without a version; null, and nothing created, when the open had to upgrade from version 0. */
-function openExisting(factory: DraftStoreFactory): Promise<IDBDatabase | null> {
-  return new Promise((resolve, reject) => {
-    const request = factory.open(DRAFT_DATABASE)
-    let aborted = false
-    request.onupgradeneeded = (event) => {
-      if (event.oldVersion !== 0) return
-      aborted = true
-      request.transaction?.abort()
-    }
-    request.onerror = (event) => {
-      event.preventDefault()
-      if (aborted) resolve(null)
-      else reject(request.error ?? new Error(`Opening ${DRAFT_DATABASE} failed`))
-    }
-    request.onsuccess = () => resolve(request.result)
-  })
-}
-
-async function readListing(db: IDBDatabase): Promise<DraftStoreListing> {
-  const withMeta = db.objectStoreNames.contains(META_STORE)
-  const tx = db.transaction(withMeta ? [DRAFTS_STORE, META_STORE] : [DRAFTS_STORE], 'readonly')
-  const [records, move] = await readIdbRequests(tx, [
-    tx.objectStore(DRAFTS_STORE).getAll(),
-    ...(withMeta ? [tx.objectStore(META_STORE).get(MOVE_RECORD_KEY)] : []),
-  ], DRAFT_DATABASE)
-  const all = Array.isArray(records) ? records : []
-  const drafts = all.map(summaryOf).filter((draft): draft is DraftRecordSummary => draft !== null)
-  drafts.sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : a.updatedAt > b.updatedAt ? -1 : 0))
-  const held = drafts.map((draft) => draft.id)
-  const copied = isPlainRecord(move) && Array.isArray(move.copiedIds)
-    ? move.copiedIds.filter((id): id is string => typeof id === 'string')
-    : []
-  return { drafts, hiddenIds: [...new Set([...copied, ...held])], complete: true }
-}
-
-/** A record's list fields; null when it names no id (it is still hidden by id when it has one). */
-function summaryOf(record: unknown): DraftRecordSummary | null {
-  if (!isPlainRecord(record) || typeof record.id !== 'string' || record.id === '') return null
-  return {
-    id: record.id,
-    name: typeof record.name === 'string' ? record.name : '',
-    updatedAt: typeof record.updated_at === 'string' ? record.updated_at : '',
-  }
-}
-
-/** `read`, or a rejection once `ms` pass; the read itself runs on and closes its connection when it ends. */
-function bounded<T>(read: Promise<T>, ms: number): Promise<T> {
-  let timer: ReturnType<typeof setTimeout> | undefined
-  const late = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => reject(new Error(`Reading ${DRAFT_DATABASE} took longer than ${ms} ms`)), ms)
-  })
-  return Promise.race([read, late]).finally(() => clearTimeout(timer))
-}
 
 export type DraftStoreOpenOutcome =
   | { readonly kind: 'ready' }
@@ -237,10 +73,12 @@ export interface DraftRecordsStoreOptions {
   readonly onOlderTabCopy?: (copy: { readonly legacyId: string; readonly copyId: string; readonly name: string }) => void
   /** Staged move verification failed; reported and retried on next open. */
   readonly onMigrationFailed?: (error: unknown) => void
-  /** Per-tab owner id for pending-write markers (survives reload when sourced from sessionStorage). */
+  /** Per-tab owner id for pending-write markers (minted per page load in memory). */
   readonly tabId?: string
   /** Age in ms after which another tab's pending-write marker is treated as stale/crashed. */
   readonly stalePendingMs?: number
+  /** Heartbeat interval in ms while this tab has active pending-write markers (defaults to stalePendingMs / 3). */
+  readonly heartbeatMs?: number
   /** Bound in ms for `open()` so a blocked upgrade does not stall launch indefinitely. */
   readonly openTimeoutMs?: number
 }
@@ -254,7 +92,7 @@ export interface DraftRecordsStore {
   syncLegacyStorage(): Promise<void>
   markPending(id: string): void
   clearPending(id: string): void
-  takePendingMarkers(): readonly string[]
+  takePendingMarkers(reloadTabId?: string | null): readonly string[]
   closeForPageHide(): void
   reopenAfterPageShow(): Promise<void>
   onVersionChange(cb: () => void): () => void
@@ -288,9 +126,35 @@ export function createDraftRecordsStore(options: DraftRecordsStoreOptions = {}):
   const now = options.now ?? (() => new Date())
   const tabId = options.tabId ?? `tab-${++fallbackTabCounter}`
   const stalePendingMs = options.stalePendingMs ?? DEFAULT_STALE_PENDING_MS
+  const heartbeatMs = options.heartbeatMs ?? Math.max(1000, Math.floor(stalePendingMs / 3))
   const openTimeoutMs = options.openTimeoutMs ?? DEFAULT_OPEN_TIMEOUT_MS
   const floor = requireStoreFloor('web_drafts')
   const versionListeners = new Set<() => void>()
+  const activePendingIds = new Set<string>()
+  let heartbeatTimer: ReturnType<typeof setInterval> | null = null
+
+  const stopPendingHeartbeat = (): void => {
+    if (heartbeatTimer !== null) {
+      clearInterval(heartbeatTimer)
+      heartbeatTimer = null
+    }
+  }
+
+  const syncPendingHeartbeat = (): void => {
+    if (disposed || pageHidden || activePendingIds.size === 0 || !options.legacyStorage) {
+      stopPendingHeartbeat()
+      return
+    }
+    if (heartbeatTimer !== null) return
+    heartbeatTimer = setInterval(() => {
+      if (disposed || pageHidden || activePendingIds.size === 0) {
+        stopPendingHeartbeat()
+        return
+      }
+      const ts = now().getTime()
+      for (const id of activePendingIds) markPendingWrite(options.legacyStorage, tabId, id, ts)
+    }, heartbeatMs)
+  }
 
   let db: IDBDatabase | null = null
   let opening: Promise<IDBDatabase | null> | null = null
@@ -392,33 +256,44 @@ export function createDraftRecordsStore(options: DraftRecordsStoreOptions = {}):
 
   const moveStores = { draftsStore: DRAFTS_STORE, metaStore: META_STORE, moveKey: MOVE_RECORD_KEY } as const
 
+  const runSyncLegacyAttempt = async (): Promise<'done' | 'retry'> => {
+    const raw = options.legacyStorage?.getItem(LEGACY_DRAFTS_KEY)
+    if (!raw) return 'done'
+    const conn = await openDb()
+    if (!conn) return 'done'
+    const sourceHash = await sha256Hex(raw)
+    const existingMove = await readMoveMetaRecord(conn, moveStores)
+    if (existingMove?.state === 'live' && existingMove.sourceHash === sourceHash) return 'done'
+    const entries = parseLegacyDraftsEnvelope(raw)
+    if (entries.length === 0) return 'done'
+    const prepared = await prepareLegacyDrafts(entries, options.designCore, now().toISOString())
+    if (existingMove?.state === 'live') {
+      const committed = await runOlderTabLegacyCopy({
+        conn, stores: moveStores, prepared, sourceHash, expectedRev: existingMove.rev, appVersion, onOlderTabCopy: options.onOlderTabCopy,
+      })
+      return committed ? 'done' : 'retry'
+    }
+    const swapped = await runInitialLegacyMove({
+      conn, stores: moveStores, prepared, sourceHash, appVersion,
+      legacyStorage: options.legacyStorage, designCore: options.designCore, onMigrationFailed: options.onMigrationFailed,
+    })
+    const after = await readMoveMetaRecord(conn, moveStores)
+    if (!swapped) return after?.state === 'live' ? 'retry' : 'done'
+    // B2: if any row reached version >= 2 while `copied` and 2.0 edited it before go-live,
+    // its movedHash differs from `prepared`; run the older-tab pass immediately so the 2.0 edit is never lost.
+    const movedHashes = after?.movedHashes ?? {}
+    if (after?.state === 'live' && prepared.some((item) => item.contentHash !== movedHashes[item.id])) {
+      await runOlderTabLegacyCopy({
+        conn, stores: moveStores, prepared, sourceHash, expectedRev: after.rev, appVersion, onOlderTabCopy: options.onOlderTabCopy,
+      })
+    }
+    return 'done'
+  }
+
   const runSyncLegacyOnce = async (): Promise<void> => {
     for (let attempt = 0; attempt < 2; attempt += 1) {
-      const raw = options.legacyStorage?.getItem(LEGACY_DRAFTS_KEY)
-      if (!raw) return
-      const conn = await openDb()
-      if (!conn) return
-      const sourceHash = await sha256Hex(raw)
-      const existingMove = await readMoveMetaRecord(conn, moveStores)
-      if (existingMove?.state === 'live' && existingMove.sourceHash === sourceHash) return
-      const entries = parseLegacyDraftsEnvelope(raw)
-      if (entries.length === 0) return
-      const prepared = await prepareLegacyDrafts(entries, options.designCore, now().toISOString())
       try {
-        if (existingMove?.state === 'live') {
-          const committed = await runOlderTabLegacyCopy({
-            conn, stores: moveStores, prepared, sourceHash, expectedRev: existingMove.rev, appVersion, onOlderTabCopy: options.onOlderTabCopy,
-          })
-          if (committed) return
-        } else {
-          const swapped = await runInitialLegacyMove({
-            conn, stores: moveStores, prepared, sourceHash, appVersion,
-            legacyStorage: options.legacyStorage, designCore: options.designCore, onMigrationFailed: options.onMigrationFailed,
-          })
-          if (swapped) return
-          const after = await readMoveMetaRecord(conn, moveStores)
-          if (after?.state !== 'live') return
-        }
+        if ((await runSyncLegacyAttempt()) === 'done') return
       } catch (error) {
         options.onMigrationFailed?.(error)
         return
@@ -548,6 +423,8 @@ export function createDraftRecordsStore(options: DraftRecordsStoreOptions = {}):
           tx.onerror = () => reject(tx.error ?? new Error('Draft delete failed'))
           tx.onabort = () => reject(tx.error ?? new Error('Draft delete aborted'))
         })
+        activePendingIds.delete(id)
+        syncPendingHeartbeat()
         clearPendingWrite(options.legacyStorage, tabId, id, now().getTime())
         return { ok: true }
       } catch {
@@ -556,15 +433,26 @@ export function createDraftRecordsStore(options: DraftRecordsStoreOptions = {}):
       }
     },
     syncLegacyStorage,
-    markPending: (id: string) => markPendingWrite(options.legacyStorage, tabId, id, now().getTime()),
-    clearPending: (id: string) => clearPendingWrite(options.legacyStorage, tabId, id, now().getTime()),
-    takePendingMarkers: () => takePendingWrites(options.legacyStorage, tabId, now().getTime(), stalePendingMs),
+    markPending: (id: string) => {
+      activePendingIds.add(id)
+      markPendingWrite(options.legacyStorage, tabId, id, now().getTime())
+      syncPendingHeartbeat()
+    },
+    clearPending: (id: string) => {
+      activePendingIds.delete(id)
+      clearPendingWrite(options.legacyStorage, tabId, id, now().getTime())
+      syncPendingHeartbeat()
+    },
+    takePendingMarkers: (reloadTabId?: string | null) =>
+      takePendingWrites(options.legacyStorage, tabId, now().getTime(), stalePendingMs, reloadTabId),
     closeForPageHide: () => {
       pageHidden = true
+      stopPendingHeartbeat()
       closeConnection()
     },
     async reopenAfterPageShow(): Promise<void> {
       pageHidden = false
+      syncPendingHeartbeat()
       await openDb()
     },
     onVersionChange(cb: () => void): () => void {
@@ -573,6 +461,8 @@ export function createDraftRecordsStore(options: DraftRecordsStoreOptions = {}):
     },
     dispose(): void {
       disposed = true
+      activePendingIds.clear()
+      stopPendingHeartbeat()
       versionListeners.clear()
       closeConnection()
     },
