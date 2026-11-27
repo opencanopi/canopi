@@ -84,6 +84,17 @@ export async function openFixture(page: Page, fixture: string, options: OpenOpti
   await expect(mapHost(page), 'the canvas has drawn the opened Design').not.toHaveAttribute('aria-busy')
 }
 
+/**
+ * Opens `fixture` from an already-loaded Start screen and waits for the Design's title bar (2.1-Q45).
+ * Safe in headless Firefox (no WebGL context), where `mapHost` never becomes ready.
+ */
+export async function openFixtureFromStart(page: Page, fixture: string): Promise<void> {
+  const open = page.locator('[data-start-screen] button').filter({ hasText: /\.canopi/ }).first()
+  const [chooser] = await Promise.all([page.waitForEvent('filechooser'), open.click()])
+  await chooser.setFiles(fixture)
+  await expect(page.locator('[data-workspace-title-bar] [data-save-status]')).toBeVisible()
+}
+
 export async function nextFrames(page: Page): Promise<void> {
   await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))))
 }

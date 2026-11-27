@@ -10,7 +10,7 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import type { Locator, Page } from '@playwright/test'
 import { expectDownloadName } from '../support/download'
-import { boxOf, expectHitAtCentre, overlap, type Box } from '../support/layout'
+import { boxOf, expectHitAtCentre, openFixtureFromStart as openStartFixture, overlap, type Box } from '../support/layout'
 import { expect, test } from '../support/offline'
 import { pageWithPersistence, type PersistenceAnswer } from '../support/storage-persistence'
 import { DRAFT_DATABASE, draftStoreDump } from '../support/web-storage'
@@ -51,7 +51,7 @@ async function closeDesign(page: Page, locale = 'en'): Promise<void> {
  * phone, where the warning is text and the status leaves its action to File (P3-6).
  */
 async function openDraftWarning(page: Page, locale = 'en'): Promise<void> {
-  if (await page.locator('[data-phone-layout]').count() === 0) {
+  if (await page.locator('[data-layout]').count() === 0) {
     await page.locator('[data-save-status] [data-draft-warning]').click()
     return
   }
@@ -65,11 +65,7 @@ async function openDraftWarning(page: Page, locale = 'en'): Promise<void> {
 }
 
 async function openFixtureFromStart(page: Page): Promise<void> {
-  const open = startScreen(page).getByRole('button').filter({ hasText: /\.canopi/ }).first()
-  const [chooser] = await Promise.all([page.waitForEvent('filechooser'), open.click()])
-  await chooser.setFiles(FIXTURE)
-  // The Design's title bar, not the map: Firefox in the pinned image has no WebGL, so its map never draws.
-  await expect(page.locator('[data-workspace-title-bar] [data-save-status]')).toBeVisible()
+  await openStartFixture(page, FIXTURE)
   await expect(startScreen(page)).toHaveCount(0)
 }
 
@@ -390,13 +386,13 @@ for (const locale of LOCALES) {
           await expectHitAtCentre(button, `${(await button.getAttribute('aria-label')) || (await button.textContent())?.trim()} (${name})`)
         }
         // The phone top bar keeps its one row (52 px, 44 px buttons: controls-and-shell "Web on phones").
-        if (await page.locator('[data-phone-layout]').count()) expect(barBox.height, 'the phone bar keeps one row').toBeLessThanOrEqual(52.5)
+        if (await page.locator('[data-layout]').count()) expect(barBox.height, 'the phone bar keeps one row').toBeLessThanOrEqual(52.5)
       })
 
       test(`Q198 neighbours: the warning's popover opens on screen over the map, and its buttons take a click (${name})`, async ({ page }) => {
         await launchWithUnkeptDrafts(page, locale)
         const warning = page.locator('[data-save-status] [data-draft-warning]')
-        const phone = await page.locator('[data-phone-layout]').count() > 0
+        const phone = await page.locator('[data-layout]').count() > 0
         // P3-6: on a phone the warning is text, leaving no undersized target under the Design name; File opens it.
         if (phone) {
           expect(await warning.evaluate((element) => element.closest('button') === null && element.querySelector('button') === null), `the warning is text on a phone (${name})`).toBe(true)

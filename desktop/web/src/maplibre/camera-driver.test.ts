@@ -3,7 +3,7 @@
 import { signal } from '@preact/signals'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createTestView, type TestView } from '../__tests__/support/test-view'
-import { geoToMercator, mercatorToGeo } from '../geo/projection'
+import { geoToMercator, mercatorToGeo } from '../geo/web-mercator'
 import { conformalFixturePlaneForTests, createSessionPlane, type SessionPlane } from '../geo/session-plane'
 import type { ScenePersistedState } from '../canvas/runtime/scene'
 import type { CameraDriver, CameraDriverDeps } from '../geo/view/camera-driver'

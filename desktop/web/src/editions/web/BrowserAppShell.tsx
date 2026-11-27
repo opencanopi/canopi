@@ -109,7 +109,7 @@ export function BrowserAppShell({
 
   return (
     <>
-    <div ref={shell} className={styles.shell} data-testid="browser-app-shell" data-phone-layout={phone ?? undefined}>
+    <div ref={shell} className={styles.shell} data-testid="browser-app-shell" data-layout={phone ?? undefined}>
       <main className={styles.workspace} aria-label={t("webShell.workspace")}>
         {children}
       </main>
@@ -172,13 +172,11 @@ export function BrowserAppShell({
         settings={settings}
       />
       {phoneSearchOpen && <PhoneSearch onClose={closePhoneSearch} />}
-      {/* The Web rail stays for Templates and the catalog, which work without a Design.
+      {/* The rail stays for Catalog and Favorites, which work without a Design.
           On a phone the workspace's sheet carries the panels instead. */}
       {!phone && <PanelRail
         label={t("webShell.panels")}
         groups={[
-          // The Design canvas and the Templates map are the two primary views; with
-          // no Templates there is nothing to switch between.
           commandProjection.panelBar.primary.length > 1 ? commandProjection.panelBar.primary : [],
           commandProjection.panelBar.design,
           commandProjection.panelBar.planning,

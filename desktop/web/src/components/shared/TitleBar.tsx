@@ -18,6 +18,7 @@ import { designNotebookWorkbench } from '../../app/design-notebook'
 import { appCommandGraphChromeProjection } from '../../commands/registry'
 import { t } from '../../i18n'
 import { PlaceSearchField } from '../canvas/PlaceSearch'
+import { ButtonTooltip } from './ButtonTooltip'
 import { ControlIcon } from './ControlIcon'
 import { DesignNameField, visibleDesignName } from './DesignNameField'
 import { SaveStatusLabel } from './SaveStatusLabel'
@@ -66,6 +67,23 @@ export function TitleBar() {
           />
         </>
       ) : undefined}
+      fileActions={(
+        <button
+          type="button"
+          className={styles.iconButton}
+          aria-label={t('webShell.openCanopiFile')}
+          aria-keyshortcuts={projection.titleBar.openDesign.ariaShortcut}
+          disabled={projection.titleBar.openDesign.disabled}
+          onClick={() => projection.titleBar.openDesign.action()}
+        >
+          <ControlIcon name="folder-open" size={20} />
+          <ButtonTooltip
+            label={t('webShell.openCanopiFile')}
+            {...(projection.titleBar.openDesign.shortcut ? { shortcut: projection.titleBar.openDesign.shortcut } : {})}
+            side="bottom"
+          />
+        </button>
+      )}
       search={hasDesign ? <PlaceSearchField /> : undefined}
       help={projection.titleBar.help}
       settings={projection.titleBar.settings}

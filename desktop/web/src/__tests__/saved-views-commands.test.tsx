@@ -128,7 +128,7 @@ function webViewMenu(): readonly MenuEntry[] {
     exportBudgetCsv: () => undefined,
     closeDesign: () => undefined,
     navigate: () => undefined,
-  }, { templatesEnabled: false, canvasReady: () => true })
+  }, { canvasReady: () => true })
   const projection = createBrowserShellCommandProjection({
     catalog,
     state: { hasDesign: currentDesign.value !== null, revertAvailable: false, activePanel: 'canvas', sidePanel: null },

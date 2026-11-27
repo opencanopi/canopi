@@ -16,7 +16,6 @@ import {
 import { browserDraftPersistence, type BrowserDraftPersistence } from "../../web/browser-draft-persistence";
 import { browserReleaseWatch } from "./browser-release-watch";
 import { installReleaseNotice } from "../../web/browser-notices";
-import { hasConfiguredStaticDesignTemplates } from "../../app/community/catalog.browser";
 import { WorkspaceDialogs } from "../../components/workspace/WorkspaceComposition";
 import { SaveProblemDialog } from "../../components/shared/SaveProblemDialog";
 import { SettingsDialog } from "../../components/shared/SettingsDialog";
@@ -39,7 +38,6 @@ import {
 
 interface WebAppProps {
   readonly commands?: BrowserDesignShellCommands;
-  readonly templatesEnabled?: boolean;
   readonly workspace?: ComponentChildren;
   readonly geoJson?: GeoJsonWorkflow;
   /** The catalog the entry's keyboard shortcuts use; built here when absent. */
@@ -52,12 +50,10 @@ interface WebAppProps {
 export function createWebAppCatalog(
   commands: BrowserDesignShellCommands = createWebShellCommands(),
   geoJson: GeoJsonWorkflow = createBrowserGeoJsonWorkflow(),
-  templatesEnabled: boolean = hasConfiguredStaticDesignTemplates(),
 ): BrowserShellCatalog {
   return createBrowserShellCatalog(
     createBrowserShellCapabilities(commands, logWebAppCommandError, geoJson),
     {
-      templatesEnabled,
       canvasReady: () => designSessionStore.hasCurrentDesign() && currentCanvasSession.peek() !== null,
     },
   );
@@ -78,7 +74,6 @@ export function createWebShellShortcutSource(catalog: BrowserShellCatalog): WebS
 
 export function WebApp({
   commands,
-  templatesEnabled = hasConfiguredStaticDesignTemplates(),
   workspace,
   geoJson,
   catalog,
@@ -87,8 +82,8 @@ export function WebApp({
   const hasDesign = designSessionStore.currentDesign.value !== null;
   const designIdentity = readWebDesignIdentity();
   const shellCatalog = useMemo(
-    () => catalog ?? createWebAppCatalog(commands ?? createWebShellCommands(), geoJson ?? createBrowserGeoJsonWorkflow(), templatesEnabled),
-    [catalog, commands, geoJson, templatesEnabled],
+    () => catalog ?? createWebAppCatalog(commands ?? createWebShellCommands(), geoJson ?? createBrowserGeoJsonWorkflow()),
+    [catalog, commands, geoJson],
   );
   const commandProjection = createBrowserShellCommandProjection({
     catalog: shellCatalog,
@@ -129,7 +124,6 @@ export function WebApp({
           <WebWorkspace
             panelProjection={commandProjection.panelBar}
             phoneTabs={browserPhoneSheetTabs(commandProjection.panelBar)}
-            templatesEnabled={templatesEnabled}
           />
         )}
       </BrowserAppShell>

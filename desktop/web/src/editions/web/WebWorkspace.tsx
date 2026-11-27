@@ -12,33 +12,24 @@ import {
   type WorkspacePanelProjection,
   type WorkspaceSurfaces,
 } from '../../components/workspace/WorkspaceComposition'
-import { retryableLazy } from '../../failures/lazy'
 import type { PanelRailCommand } from '../../components/shared/PanelRail'
 import { PhoneContextBar } from '../../components/canvas/PhoneContextBar'
 import { ToolOptions } from '../../components/canvas/ToolCard'
 import { designSessionStore } from '../../app/document-session/store'
 
-const WorldMapPanel = retryableLazy(async () => {
-  const module = await import('../../components/panels/WorldMapPanel')
-  return { default: module.WorldMapPanel }
-})
-
 export function WebWorkspace({
   panelProjection,
   phoneTabs,
-  templatesEnabled,
 }: {
   readonly panelProjection: WorkspacePanelProjection
   /** The side panel commands, as the phone sheet's tabs. */
   readonly phoneTabs: readonly PanelRailCommand[]
-  readonly templatesEnabled: boolean
 }) {
   const surfaces = useMemo<WorkspaceSurfaces>(() => {
     const Canvas = () => <WebCanvasWorkspace />
     return {
       primary: {
         canvas: Canvas,
-        ...(templatesEnabled ? { templates: WorldMapPanel } : {}),
       },
       side: {
         'species-key': WebSpeciesKeyPanel,
@@ -51,7 +42,7 @@ export function WebWorkspace({
         favorites: WebFavorites,
       },
     }
-  }, [templatesEnabled])
+  }, [])
 
   return (
     <WorkspaceComposition

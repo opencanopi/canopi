@@ -6,8 +6,8 @@ import {
   isCurrentCanopiDocument,
   normalizeLoadedDocument,
   normalizeNewDocument,
-  parseCanopiJsonText,
 } from './document'
+import { parseCanopiJsonText } from '../../__tests__/support/design-wire'
 import { CanopiDesignIngestionError } from './canopi-design-errors'
 
 describe('app/contracts/document v10 helpers', () => {

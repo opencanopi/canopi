@@ -65,7 +65,6 @@ export type LocaleKey =
   | "analyses.unavailable.AlreadyInSiteData"
   | "analyses.unavailable.EngineMissing"
   | "analyses.unavailable.GridNotProjectedMetres"
-  | "analyses.unavailable.NeedsDesktop"
   | "analyses.unavailable.NotReady"
   | "analyses.unavailable.ValuesNotMetres"
   | "analyses.unavailable.WrongInput"
@@ -482,6 +481,8 @@ export type LocaleKey =
   | "canvas.pinnedPlantNames.legend"
   | "canvas.placePreview.matureWidth"
   | "canvas.placePreview.nearest"
+  | "canvas.placeSearch.attributionNominatim"
+  | "canvas.placeSearch.attributionPelias"
   | "canvas.placeSearch.clear"
   | "canvas.placeSearch.coordinates"
   | "canvas.placeSearch.east"
@@ -2053,16 +2054,6 @@ export type LocaleKey =
   | "window.close"
   | "window.maximize"
   | "window.minimize"
-  | "worldMap.author"
-  | "worldMap.discover"
-  | "worldMap.downloading"
-  | "worldMap.featured"
-  | "worldMap.filterByClimate"
-  | "worldMap.filterByStyle"
-  | "worldMap.noDesigns"
-  | "worldMap.openTemplate"
-  | "worldMap.title"
-  | "worldMap.zoomToExplore"
 
 /** A LocaleKey's family, up to and including its first `_`: `filters.habit_` for `filters.habit_Tree`. */
 export type LocaleKeyFamily = LocaleKey extends infer Key ? (Key extends `${infer Family}_${string}` ? `${Family}_` : never) : never

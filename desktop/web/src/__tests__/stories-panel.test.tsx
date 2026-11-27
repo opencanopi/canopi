@@ -543,7 +543,7 @@ describe('step editor', () => {
       await act(async () => { input.dispatchEvent(new Event('change', { bubbles: true })) })
       await until(() => editor.querySelector('input[required]') !== null)
       expect(context.drawImage).toHaveBeenCalledWith(expect.anything(), 0, 0, 2560, 1707)
-      expect(editor.textContent).toContain('Canopi made this image smaller to fit: 2.5 MB to 0.2 MB.')
+      expect(editor.textContent).toContain('Canopi made this image smaller to fit: 2.6 MB to 256 kB.')
       const alt = editor.querySelector<HTMLInputElement>('input[required]')!
       await act(async () => {
         alt.value = 'The orchard in May'

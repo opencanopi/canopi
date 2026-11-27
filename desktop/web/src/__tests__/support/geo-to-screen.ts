@@ -4,7 +4,8 @@
 // bearing about the screen centre). Production never projects a geographic point onto the screen (P3 keeps world-to-screen in
 // view-transform.ts); the fake maps do, through this copy.
 
-import { geoToMercator, MAPLIBRE_WORLD_TILE_SIZE } from '../../geo/projection'
+import { MAPLIBRE_WORLD_TILE_SIZE } from '../../geo/projection'
+import { geoToMercator } from '../../geo/web-mercator'
 import { bearingCosSin } from '../../geo/view/navigation-policy'
 import type { GeoPoint } from '../../types/design'
 import type { ScreenPoint, ViewCamera, ViewScreen } from '../../geo/view/types'

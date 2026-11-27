@@ -38,6 +38,7 @@ vi.mock('../app/plant-browser', async () => {
   return {
     speciesCatalogWorkbench: Object.assign(workbench, {
       resolveDisplayNames: composeSpeciesDisplayNames((names, locale) => ipc.getCommonNames([...names], locale)),
+      fetchSpeciesDetail: (canonicalName: string, locale: string) => ipc.getSpeciesDetail(canonicalName, locale),
     }),
   }
 })

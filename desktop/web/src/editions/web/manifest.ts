@@ -16,12 +16,9 @@ const webDescriptors = SHELL_COMMAND_DESCRIPTORS.filter((d) => webCapabilitySet.
 const WEB_INSTEAD_OF_COMMANDS: Readonly<Record<string, EditionCapabilityId>> = {
   'file.openCanopi': 'file-home',
   'file.downloadCanopi': 'file-home',
-  'nav.templates': 'file-home',
 }
 
-const WEB_INSTEAD_OF_PANELS: Readonly<Record<string, EditionCapabilityId>> = {
-  templates: 'file-home',
-}
+const WEB_INSTEAD_OF_PANELS: Readonly<Record<string, EditionCapabilityId>> = {}
 
 function webEntry(
   id: string,

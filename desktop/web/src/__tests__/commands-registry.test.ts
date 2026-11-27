@@ -123,7 +123,6 @@ describe('command registry canvas tool switching', () => {
     expect(arm).toHaveBeenCalledWith('ellipse', undefined, undefined)
     expect(currentCanvasTool.value).toBe('ellipse')
 
-    activePanel.value = 'templates'
     sidePanel.value = null
     getCommand('canvas.tool.hand').action()
 
@@ -398,7 +397,7 @@ describe('command registry canvas tool switching', () => {
     expect(panelCommand('location')).toBeUndefined()
     expect(panelCommand('plant-db')).toMatchObject({
       commandId: 'nav.plantDb',
-      disabled: true,
+      disabled: false,
       active: false,
     })
     expect(panelCommand('design-notebook')).toMatchObject({
@@ -408,7 +407,7 @@ describe('command registry canvas tool switching', () => {
     })
     expect(panelCommand('favorites')).toMatchObject({
       commandId: 'nav.favorites',
-      disabled: true,
+      disabled: false,
       active: false,
     })
     runPanelCommand('nav.designNotebook')

@@ -4,7 +4,6 @@
   "entries": {
     "desktop/web/src/app/budget/workbench.ts": { "count": 14 },
     "desktop/web/src/app/canvas-runtime/app-adapter.ts": { "count": 1 },
-    "desktop/web/src/app/community/controller.ts": { "count": 16 },
     "desktop/web/src/app/consortium/dock-workbench.ts": { "count": 12 },
     "desktop/web/src/app/data-library/actions.ts": { "count": 2 },
     "desktop/web/src/app/panel-targets/presentation.ts": { "count": 9 },

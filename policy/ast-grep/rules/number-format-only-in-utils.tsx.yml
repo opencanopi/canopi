@@ -6,7 +6,7 @@
 id: number-format-only-in-utils.tsx
 language: tsx
 severity: error
-message: "number-format-only-in-utils (§18 F11): numbers are formatted (Intl.NumberFormat, toFixed, toPrecision) only by the locale number owner, utils/format.ts from 2a. ADR 0028; owner desktop/web/src/utils/format-count.ts; target desktop/web/src/utils/format.ts (2a); example desktop/web/src/utils/format-count.ts"
+message: "number-format-only-in-utils (§18 F11): numbers are formatted (Intl.NumberFormat, toFixed, toPrecision) only by the locale number owner, utils/format.ts from 2a. ADR 0028; owner desktop/web/src/utils/format.ts (also desktop/web/src/utils/format-count.ts); target desktop/web/src/utils/format.ts (2a); example desktop/web/src/utils/format.ts"
 files:
   - "{desktop/web,policy/fixtures/rules/*}/src/**/*.tsx"
 ignores:
@@ -16,6 +16,7 @@ ignores:
   - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
   - "{desktop/web,policy/fixtures/rules/*}/src/generated/**"
   - "{desktop/web,policy/fixtures/rules/*}/src/editions/gallery/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/utils/format.ts"
   - "{desktop/web,policy/fixtures/rules/*}/src/utils/format-count.ts"
 rule:
   any:

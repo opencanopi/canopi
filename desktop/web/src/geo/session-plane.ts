@@ -17,12 +17,11 @@
 import { WGS84_FLATTENING, WGS84_SEMI_MAJOR_AXIS_M } from '../generated/canopi-design-format'
 import type { GeoPoint } from '../types/design'
 import {
-  geoToMercator,
   MAPLIBRE_WORLD_TILE_SIZE,
-  mercatorToGeo,
   wgs84MetresPerMercatorAtLat,
   wgs84Radii,
 } from './projection'
+import { geoToMercator, mercatorToGeo } from './web-mercator'
 
 declare const planePointBrand: unique symbol
 declare const conformalPointBrand: unique symbol

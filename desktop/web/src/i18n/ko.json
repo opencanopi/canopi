@@ -312,7 +312,7 @@
       "placeholder": "장소 또는 좌표",
       "searching": "검색 중…",
       "noResults": "장소를 찾을 수 없습니다",
-      "error": "장소 검색에 실패했습니다",
+      "error": "장소 검색을 사용할 수 없습니다. 대신 위도와 경도를 입력하세요.",
       "results": "장소",
       "placeholderShort": "장소 검색",
       "east": "동경",
@@ -322,7 +322,9 @@
       "coordinates": "{{northSouth}} {{lat}}°, {{eastWest}} {{lon}}°",
       "west": "서경",
       "goStraightThere": "좌표 · 바로 이동",
-      "enterHint": "Enter 키를 눌러 검색"
+      "enterHint": "Enter 키를 눌러 검색",
+      "attributionNominatim": "Nominatim 검색 · © OpenStreetMap 기여자",
+      "attributionPelias": "Pelias 검색 · © OpenStreetMap 기여자"
     },
     "file": {
       "cancel": "취소"
@@ -892,18 +894,6 @@
       "point": "줄의 점 {{index}}",
       "dot": "줄 구간 {{index}}에 점 추가"
     }
-  },
-  "worldMap": {
-    "title": "세계 지도",
-    "discover": "디자인 둘러보기",
-    "featured": "추천",
-    "downloading": "템플릿 다운로드 중…",
-    "author": "{{author}} 제작",
-    "noDesigns": "이 지역에 아직 디자인이 없습니다",
-    "zoomToExplore": "확대하여 디자인을 둘러보세요",
-    "filterByClimate": "기후별 필터",
-    "filterByStyle": "스타일별 필터",
-    "openTemplate": "새 디자인으로 열기"
   },
   "theme": {
     "light": "라이트",
@@ -1736,7 +1726,6 @@
       "ValuesNotMetres": "미터 단위 값이 필요합니다. 이 데이터의 단위는 {{units}}입니다.",
       "GridNotProjectedMetres": "지상 미터 단위의 투영 격자가 필요합니다. Web Mercator나 경위도는 사용할 수 없습니다.",
       "EngineMissing": "사용할 수 없음: GeoLibre 엔진이 없습니다.",
-      "NeedsDesktop": "Canopi Desktop이 필요합니다.",
       "AlreadyInSiteData": "이미 부지 데이터에 있습니다."
     },
     "stale": {

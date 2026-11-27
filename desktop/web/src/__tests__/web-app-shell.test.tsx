@@ -24,10 +24,6 @@ vi.mock('../editions/web/WebCanvasWorkspace', async () => {
   }
 })
 
-vi.mock('../components/panels/WorldMapPanel', () => ({
-  WorldMapPanel: () => <div data-testid="web-templates-workspace" />,
-}))
-
 import { createJsonSessionCodec, createSessionCore, installLiveSessionCore, type SessionCore } from '../app/document-session/live-core'
 import { designSessionStore } from '../app/document-session/store'
 import { activePanel, navigateTo, sidePanel } from '../app/shell/state'
@@ -109,10 +105,8 @@ function baseSettings(overrides: Partial<Settings> = {}): Settings {
 }
 
 function shellCommandProjection({
-  templatesEnabled = false,
   downloadCanopiEnabled = true,
 }: {
-  readonly templatesEnabled?: boolean
   readonly downloadCanopiEnabled?: boolean
 } = {}) {
   return projectBrowserShellForTest({
@@ -121,7 +115,6 @@ function shellCommandProjection({
     downloadCanopiEnabled,
     revertAvailable: false,
     geoJsonEnabled: downloadCanopiEnabled,
-    templatesEnabled,
     capabilities: {
       newDesign: () => undefined,
       openCanopi: () => undefined,
@@ -278,30 +271,13 @@ describe('Web Edition Browser App Shell', () => {
     expect(openMenuCommandIds(container)).toEqual([])
   })
 
-  it('shows the templates entry point only when static templates are configured', async () => {
-    await act(async () => {
-      render(<BrowserAppShell commandProjection={shellCommandProjection({ templatesEnabled: true })} />, container)
-    })
-
-    expect(panelBarCommandIds(container)).toContain('nav.templates')
-
-    await act(async () => {
-      panelBarButton(container, 'nav.templates').click()
-    })
-
-    expect(activePanel.value).toBe('templates')
-    expect(sidePanel.value).toBeNull()
-  })
-
   it('renders web-safe panel navigation in a desktop-style right PanelBar', async () => {
     await act(async () => {
-      render(<BrowserAppShell commandProjection={shellCommandProjection({ templatesEnabled: true })} />, container)
+      render(<BrowserAppShell commandProjection={shellCommandProjection()} />, container)
     })
 
     expect(container.querySelector('[data-panel-rail]')).not.toBeNull()
     expect(panelBarCommandIds(container)).toEqual([
-      'nav.canvas',
-      'nav.templates',
       'nav.layers',
       'nav.speciesKey',
       'nav.plantDb',
@@ -312,8 +288,6 @@ describe('Web Edition Browser App Shell', () => {
       'nav.stories',
     ])
     expect(panelBarLabels(container)).toEqual([
-      'Design canvas',
-      'World map',
       'Layers',
       'Plants in this Design',
       'Plant catalog',
@@ -380,9 +354,9 @@ describe('Web Edition Browser App Shell', () => {
     expect(container.querySelector('[data-dock-width]')?.getAttribute('data-dock-width')).toBe('default')
   })
 
-  it('preserves the canvas across side panels and releases it for the Templates primary route', async () => {
+  it('preserves the canvas across side panels', async () => {
     installWebSession()
-    await act(async () => { render(<WebApp templatesEnabled />, container) })
+    await act(async () => { render(<WebApp />, container) })
     await clickShellCommand(container, 'file.new')
     const canvas = container.querySelector<HTMLButtonElement>('[data-testid="web-workspace-canvas"]')
     if (!canvas) throw new Error('Missing Web workspace canvas')
@@ -401,18 +375,6 @@ describe('Web Edition Browser App Shell', () => {
     expect(container.querySelector('[data-testid="web-workspace-canvas"]')).toBe(canvas)
     expect(canvas.textContent).toBe('1:plant-1:125')
     expect(workspaceCanvasLifecycle.unmounted).not.toHaveBeenCalled()
-
-    await act(async () => { panelBarButton(container, 'nav.templates').click() })
-    await vi.waitFor(() => {
-      expect(container.querySelector('[data-testid="web-templates-workspace"]')).not.toBeNull()
-    })
-    expect(container.querySelector('[data-testid="web-workspace-canvas"]')).toBeNull()
-    expect(sidePanel.value).toBeNull()
-    expect(workspaceCanvasLifecycle.unmounted).toHaveBeenCalledOnce()
-
-    await act(async () => { panelBarButton(container, 'nav.canvas').click() })
-    expect(container.querySelector('[data-testid="web-workspace-canvas"]')).not.toBeNull()
-    expect(workspaceCanvasLifecycle.mounted).toHaveBeenCalledTimes(2)
   })
 
   it('keeps Location placement and address search out of browser chrome', async () => {
@@ -448,7 +410,6 @@ describe('Web Edition Browser App Shell', () => {
       downloadCanopiEnabled: true,
       revertAvailable: false,
       geoJsonEnabled: true,
-      templatesEnabled: false,
       capabilities,
     })
     await act(async () => {
@@ -820,7 +781,7 @@ describe('Web Edition Browser App Shell', () => {
         )
       })
       const shell = container.querySelector<HTMLElement>('[data-testid="browser-app-shell"]')!
-      expect(shell.dataset.phoneLayout).toBe('portrait')
+      expect(shell.dataset.layout).toBe('portrait')
       expect(container.querySelector('[data-panel-rail]')).toBeNull()
       expect(container.querySelector('[role="combobox"]')).toBeNull()
 
@@ -855,7 +816,7 @@ describe('Web Edition Browser App Shell', () => {
       expect(container.querySelector('[data-phone-search-card]')).not.toBeNull()
 
       await act(async () => { resizeTo(1280, 800) })
-      expect(shell.dataset.phoneLayout).toBeUndefined()
+      expect(shell.dataset.layout).toBeUndefined()
       expect(container.querySelector('[data-panel-rail]')).not.toBeNull()
       expect(container.querySelector('[data-phone-search-card]')).toBeNull()
       expect(container.querySelector('button[data-phone-undo]')).toBeNull()
@@ -867,7 +828,7 @@ describe('Web Edition Browser App Shell', () => {
       await act(async () => {
         render(<BrowserAppShell commandProjection={shellCommandProjection()} />, container)
       })
-      expect(container.querySelector<HTMLElement>('[data-testid="browser-app-shell"]')!.dataset.phoneLayout).toBe('landscape')
+      expect(container.querySelector<HTMLElement>('[data-testid="browser-app-shell"]')!.dataset.layout).toBe('landscape')
       expect(container.querySelector('button[data-phone-search]')).toBeNull()
       await act(async () => { render(null, container) })
       expect(phoneLayout.value).toBeNull()

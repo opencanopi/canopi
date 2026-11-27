@@ -42,7 +42,7 @@ describe('command-table keymap & reserved chords (canopi-f47t.52.76, 2.1-Q343)',
     const webCatalog = createBrowserShellCatalog({
       newDesign: vi.fn(), openCanopi: vi.fn(), downloadCanopi: vi.fn(), revertDesign: vi.fn(),
       importGeoJson: vi.fn(), exportGeoJson: vi.fn(), exportBudgetCsv: vi.fn(), closeDesign: vi.fn(), navigate: vi.fn(),
-    }, { templatesEnabled: false, canvasReady: () => true })
+    }, { canvasReady: () => true })
     const webKeymap = [...shellKeymapRows(webCatalog, { omit: BROWSER_RESERVED_CHORDS }), ...CANVAS_KEYMAP_ROWS]
     const webProjection = projectShellCommandCatalog(webCatalog, STATE, t, { unavailableShortcuts: BROWSER_RESERVED_CHORDS })
 
@@ -64,9 +64,9 @@ describe('command-table keymap & reserved chords (canopi-f47t.52.76, 2.1-Q343)',
     expect([runtimeToTable('select'), tableToRuntime('profile')]).toEqual(['select', 'profile'])
   })
 
-  it('PANEL_DESCRIPTORS lists all 12 panels with unique ids and browser-safe Alt+Shift chords', () => {
-    expect(PANEL_DESCRIPTORS).toHaveLength(12)
-    expect(new Set(PANEL_DESCRIPTORS.map((p) => p.panel)).size).toBe(12)
+  it('PANEL_DESCRIPTORS lists all 11 panels with unique ids and browser-safe Alt+Shift chords', () => {
+    expect(PANEL_DESCRIPTORS).toHaveLength(11)
+    expect(new Set(PANEL_DESCRIPTORS.map((p) => p.panel)).size).toBe(11)
     for (const desc of PANEL_DESCRIPTORS) {
       if (!desc.shortcuts) continue
       const shared = resolveDisplayedShortcut(desc.shortcuts, BROWSER_RESERVED_CHORDS)

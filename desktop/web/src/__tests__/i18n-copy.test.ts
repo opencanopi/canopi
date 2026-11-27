@@ -95,7 +95,7 @@ describe('placeholder lengths', () => {
  * them (Design, Layers, Select), as are brands and file formats.
  */
 const PROPER_NOUNS = new Set([
-  'Canopi', 'Google', 'OpenStreetMap', 'IGN', 'Esri', 'Maps', 'API', 'GeoLibre', 'Grime', 'Raunkiaer', 'Ellenberg', 'Köppen',
+  'Canopi', 'Google', 'OpenStreetMap', 'Nominatim', 'Pelias', 'IGN', 'Esri', 'Maps', 'API', 'GeoLibre', 'Grime', 'Raunkiaer', 'Ellenberg', 'Köppen',
   'Design', 'Designs', 'Layers', 'Select', 'Pan', 'Satellite', 'Start', 'Web', 'Desktop', 'Edition', 'English', 'Latin',
   'Ctrl', 'Shift', 'Alt', 'Esc', 'Tab', 'Enter', 'Space', 'Delete', 'Backspace', 'Home', 'End', 'Plus', 'Minus',
 ])

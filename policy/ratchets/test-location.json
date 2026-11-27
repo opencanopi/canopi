@@ -38,7 +38,6 @@
     "desktop/web/src/__tests__/extract-extra.test.ts": {  },
     "desktop/web/src/__tests__/favorite-species-presentation.test.ts": {  },
     "desktop/web/src/__tests__/format-count.test.ts": {  },
-    "desktop/web/src/__tests__/geocoding-transport.test.ts": {  },
     "desktop/web/src/__tests__/geojson-codec.test.ts": {  },
     "desktop/web/src/__tests__/i18n-copy.test.ts": {  },
     "desktop/web/src/__tests__/i18n-glossary.test.ts": {  },
@@ -95,9 +94,6 @@
     "desktop/web/src/__tests__/web-dev-entry.test.ts": {  },
     "desktop/web/src/__tests__/web-draft-persistence.test.ts": {  },
     "desktop/web/src/__tests__/web-release-watch.test.ts": {  },
-    "desktop/web/src/__tests__/web-static-design-template-catalog.test.ts": {  },
-    "desktop/web/src/__tests__/web-template-import-workflow.test.ts": {  },
-    "desktop/web/src/__tests__/workspace-camera-policy.test.ts": {  },
     "desktop/web/src/__tests__/zone-measurements.test.ts": {  }
   }
 }

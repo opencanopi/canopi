@@ -119,6 +119,8 @@ export function createPlaceSearchController(options: PlaceSearchOptions): PlaceS
     controller = null
   }
 
+  const cache = new Map<string, readonly PlaceSearchResult[]>()
+
   return {
     results,
     status,
@@ -144,6 +146,14 @@ export function createPlaceSearchController(options: PlaceSearchOptions): PlaceS
         attribution.value = null
         return
       }
+      const cacheKey = `${config.providerId}:${config.forwardEndpoint}:${trimmed.toLowerCase()}`
+      const cached = cache.get(cacheKey)
+      if (cached) {
+        results.value = cached
+        status.value = cached.length > 0 ? 'results' : 'no-results'
+        attribution.value = getGeocodingProvider(config.providerId).attribution
+        return
+      }
       const current = new AbortController()
       controller = current
       status.value = 'searching'
@@ -162,7 +172,7 @@ export function createPlaceSearchController(options: PlaceSearchOptions): PlaceS
         // Nominatim can return several OSM objects (a town and its boundary)
         // under one name; the user can only tell them apart by label.
         const seen = new Set<string>()
-        results.value = matches
+        const nextResults: PlaceSearchResult[] = matches
           .filter((match) => !seen.has(match.displayName) && seen.add(match.displayName))
           .map((match) => ({
             ...shortPlaceLabel(match.displayName),
@@ -170,7 +180,9 @@ export function createPlaceSearchController(options: PlaceSearchOptions): PlaceS
             lon: match.lon,
             source: 'geocoder',
           }))
-        status.value = results.value.length > 0 ? 'results' : 'no-results'
+        cache.set(cacheKey, nextResults)
+        results.value = nextResults
+        status.value = nextResults.length > 0 ? 'results' : 'no-results'
         attribution.value = getGeocodingProvider(config.providerId).attribution
       } catch (error) {
         if (controller !== current || (error instanceof DOMException && error.name === 'AbortError')) return

@@ -1,7 +1,0 @@
-{
-  "$schema": "./ratchet.schema.json",
-  "family": "fetch-only-in-owners",
-  "entries": {
-    "desktop/web/src/app/design-template-import/workflow.browser.ts": { "count": 1, "bead": "canopi-f47t.52.46" }
-  }
-}

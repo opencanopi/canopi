@@ -208,11 +208,12 @@ export const DESKTOP_SHELL_COMMAND_CATALOG = composeShellCommandCatalog({
   navigateSiteData: designPanel('site-data'),
   navigateSpeciesKey: designPanel('species-key'),
   navigatePlantDatabase: {
-    // The catalog runs from the start screen; the rail offers it with a Design.
+    // Catalog and Favorites open without a Design on both editions (2.1-Q130).
     execute: () => navigateTo('plant-db'),
-    isProjectionDisabled: (state) => !state.hasDesign && state.sidePanel !== 'plant-db',
   },
-  navigateFavorites: designPanel('favorites'),
+  navigateFavorites: {
+    execute: () => navigateTo('favorites'),
+  },
   navigateCalendar: designPanel('calendar'),
   navigateBudget: designPanel('budget'),
   navigateConsortium: designPanel('consortium'),

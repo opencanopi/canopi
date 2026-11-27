@@ -23,7 +23,7 @@ const LOCALES: Record<string, unknown> = { en, de, es, fr, it: itLocale, ja, ko,
  */
 const UNAVAILABLE = Object.keys({
   WrongInput: true, NotReady: true, ValuesNotMetres: true, GridNotProjectedMetres: true, EngineMissing: true,
-  NeedsDesktop: true, AlreadyInSiteData: true,
+  AlreadyInSiteData: true,
 } satisfies Record<AnalysisAvailability['reason'] | AnalysisUnavailable['reason'], true>)
 const STALE = Object.keys({
   InputUpdated: true, InputStale: true, RecipeUpdated: true, ToolUpdated: true,

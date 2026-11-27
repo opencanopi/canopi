@@ -4,7 +4,6 @@
   "entries": {
     "desktop/web/src/app/budget/formatting.ts": { "count": 2, "bead": "canopi-f47t.52.51" },
     "desktop/web/src/app/canvas-runtime/app-adapter.ts": { "count": 1, "bead": "canopi-f47t.52.51" },
-    "desktop/web/src/app/community/controller.ts": { "count": 2, "bead": "canopi-f47t.52.51" },
     "desktop/web/src/app/consortium/workflow.ts": { "count": 1, "bead": "canopi-f47t.52.51" },
     "desktop/web/src/app/data-library/display-legend.ts": { "count": 1, "bead": "canopi-f47t.52.51" },
     "desktop/web/src/app/data-library/display-range.ts": { "count": 2, "bead": "canopi-f47t.52.51" },

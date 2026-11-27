@@ -1,4 +1,4 @@
-import { normalizeSpeciesSearch } from '../../utils/species-search-normalization'
+import { normalizeSpeciesSearch } from '../../platform/page-rules'
 
 /**
  * The plant finder's matcher: pure, synchronous and shared by every plant list.

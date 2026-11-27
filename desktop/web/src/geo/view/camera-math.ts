@@ -4,7 +4,8 @@
 // placement (a PlanarCamera: a fit's result, a test's viewport) into a ViewCamera through the session plane. Nothing here
 // constrains: the drivers pass every target through constrainCamera (navigation-policy.ts).
 
-import { geoToMercator, MAPLIBRE_WORLD_TILE_SIZE, mercatorToGeo } from '../projection'
+import { MAPLIBRE_WORLD_TILE_SIZE } from '../projection'
+import { geoToMercator, mercatorToGeo } from '../web-mercator'
 import { conformalPoint, type ConformalPoint, type SessionPlane } from '../session-plane'
 import { bearingCosSin, normaliseBearing } from './navigation-policy'
 import type { GeoPointV10 as GeoPoint } from '../../generated/contracts'

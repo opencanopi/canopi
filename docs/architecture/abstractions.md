@@ -93,7 +93,7 @@ Verdicts (keep, merge, split, cut, add, change) cite the [ledger](../decisions/2
 | Raster pool lanes | worker tasks; in-process lane | `maplibre/raster-display/pool.ts` | Real worker and test lane | the owner | keep (ADR 0024) |
 | ToolHost and map input | active tool, armed source, `tools.arm(id, source, request?)` handle | `canvas/runtime/tools/tool-host.ts` | Map pick for forms | the owner | change (M147) |
 | Session plane | plane maths; `trueNorthAt` for plane consumers | `geo/session-plane.ts` | Earth model, one owner | `geo/session-plane.ts` | change (M124) |
-| Web Mercator | Web Mercator maths per language | `geo/web-mercator.ts` (2.1) | Hot path in Rust and TS | `maplibre/` | keep (ADR 0001) |
+| Web Mercator | Web Mercator maths per language | `geo/web-mercator.ts` | Hot path in Rust and TS | `maplibre/` | keep (ADR 0001) |
 
 ## Settings and editions
 
@@ -104,13 +104,13 @@ Verdicts (keep, merge, split, cut, add, change) cite the [ledger](../decisions/2
 | Settings store port | settings persistence | `platform/settings.ts` | Desktop and Web | `editions/desktop/settings.ts` | keep (ADR 0022) |
 | Window state | Desktop window geometry | Desktop host in `canopi-desktop` | Outside settings and reports | `desktop/src/lib.rs` | change (M135) |
 | Quantity table | units and display per quantity; scale | `canopi-types` (2.1) | Metric and US customary; analyses | `app/data-library/item-types.ts` | change (M125, Q167) |
-| Number display | number, unit, byte, money text | `utils/format.ts` (2.1) | 36 files format by hand | `utils/format-count.ts` | keep (ADR 0027) |
+| Number display | number, unit, byte, money text | `utils/format.ts` | 36 files format by hand | `utils/format-count.ts` | keep (ADR 0027) |
 | `EditionPorts` | every port binding of one root | `platform/edition-ports.ts` | Desktop, Web and gallery roots | `editions/desktop/boot.ts` | change (M139) |
 | Edition-capability table | the only allowed edition differences | `canopi-types/edition-capabilities.json` | Web parity | `editions/web/browser-shell-commands.ts` | change: gate and adapter rows, set by edition plus OS (M136, M164) |
 | Gallery root | Desktop adapters over a fake transport; library transcripts | `editions/gallery/` | Fake transport | `editions/gallery/command-adapter.ts` | change (M143, M139) |
 | Species reader | catalog query, supersede by `AbortSignal` | `platform/species-reader.ts` (2.1) or `catalog/` (2.1) | Two E1 outcomes | `ipc/species.ts` | change (M133) |
-| Geocoding transport | page fetch on Web, `geocoder_fetch` on Desktop | `platform/geocoding.ts` (2.1) | Two transports, host allowlist | `app/geocoding/transport.desktop.ts` | change (M142) |
-| Page rules | search folding and analysis parameter rules in the page | `platform/page-rules.ts` (2.1) over `canopi-page-rules-wasm` (2.1) | Six folds today | `utils/normalize-search.ts` | change (M104) |
+| Geocoding transport | page fetch on Web, `geocoder_fetch` on Desktop | `platform/geocoding.ts` | Two transports, host allowlist | `app/geocoding/transport.desktop.ts` | change (M142) |
+| Page rules | search folding and analysis parameter rules in the page | `platform/page-rules.ts` over `canopi-page-rules-wasm` (2.1) | Six folds today | `platform/page-rules.ts` | change (M104) |
 | Phone layout | phone chrome on both editions | `app/shell/phone-layout.ts` | One responsive composition | the owner | keep (ADR 0030) |
 
 ## Commands and keys

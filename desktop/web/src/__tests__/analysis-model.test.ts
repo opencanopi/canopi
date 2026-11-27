@@ -109,10 +109,7 @@ describe('Analyze dialog model', () => {
     expect(groups[1]!.options[0]!.unavailable).toBeNull()
   })
 
-  it('refuses every entry on Web, and an entry native did not offer', () => {
-    expect(analysisOptions(subject(), context({ capabilities: capabilitiesForEdition('web', 'linux') }), 'en', REGISTRY, GROUPS)
-      .flatMap((group) => group.options.map((option) => option.unavailable)))
-      .toEqual([{ reason: 'NeedsDesktop' }, { reason: 'NeedsDesktop' }])
+  it('refuses an entry the host did not offer (no Web-only NeedsDesktop branch, 2.1-E5)', () => {
     expect(analysisOptions(subject([]), context(), 'en', REGISTRY, GROUPS)[0]!.options[0]!.unavailable)
       .toEqual({ reason: 'NotReady' })
   })

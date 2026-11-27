@@ -186,4 +186,9 @@ describe('edition-root-parity (design check A33, ADR 0022, ADR 0030, 2.1-M211)',
     expect(violations).toHaveLength(1)
     expect(violations[0]).toMatchObject({ dimension: surface, id: entry, presentIn: desktopOnly ? 'desktop' : 'web' })
   })
+
+  it('exports the shared installAppLifetime composition installer (2.1-Q45)', async () => {
+    const lifetime = await import('../editions/install-app-lifetime')
+    expect(typeof lifetime.installAppLifetime).toBe('function')
+  })
 })

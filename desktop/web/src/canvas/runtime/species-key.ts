@@ -4,6 +4,7 @@ import { resolvePlantBaseColor } from './plant-presentation'
 import { normalizeHexColor } from '../plant-colors'
 import { getStratumColor } from '../plants'
 import type { SpeciesCacheEntry } from './presentation-data'
+import { compareSpeciesByShownName } from '../../utils/species-sort'
 
 /** A species' symbol and colour on the map. */
 export interface SpeciesAppearance {
@@ -139,6 +140,7 @@ export function buildSpeciesKey(
   speciesCache: ReadonlyMap<string, SpeciesCacheEntry>,
   localizedNames: ReadonlyMap<string, string | null>,
   englishFallbackNames: ReadonlyMap<string, string> = NO_ENGLISH_FALLBACKS,
+  locale = 'en',
 ): SpeciesKeyEntry[] {
   const entries = new Map<
     string,
@@ -180,10 +182,10 @@ export function buildSpeciesKey(
     }
   }
   return [...entries.values()].sort((a, b) =>
-    a.canonicalName < b.canonicalName
-      ? -1
-      : a.canonicalName > b.canonicalName
-        ? 1
-        : 0,
+    compareSpeciesByShownName(
+      { shownName: a.commonName || a.canonicalName, canonicalName: a.canonicalName },
+      { shownName: b.commonName || b.canonicalName, canonicalName: b.canonicalName },
+      locale,
+    ),
   )
 }

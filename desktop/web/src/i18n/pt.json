@@ -312,7 +312,7 @@
       "placeholder": "Lugar ou coordenadas",
       "searching": "Pesquisando…",
       "noResults": "Nenhum lugar encontrado",
-      "error": "A pesquisa de lugar falhou",
+      "error": "Pesquisa de locais indisponível. Introduza latitude e longitude.",
       "results": "Lugares",
       "placeholderShort": "Pesquisar um lugar",
       "east": "L",
@@ -322,7 +322,9 @@
       "coordinates": "{{lat}}° {{northSouth}}, {{lon}}° {{eastWest}}",
       "west": "O",
       "goStraightThere": "Coordenadas · ir direto",
-      "enterHint": "Pressione Enter para pesquisar"
+      "enterHint": "Pressione Enter para pesquisar",
+      "attributionNominatim": "Pesquisa por Nominatim · © colaboradores do OpenStreetMap",
+      "attributionPelias": "Pesquisa por Pelias · © colaboradores do OpenStreetMap"
     },
     "file": {
       "cancel": "Cancelar"
@@ -892,18 +894,6 @@
       "point": "Ponto da fileira {{index}}",
       "dot": "Adicionar um ponto no trecho {{index}} da fileira"
     }
-  },
-  "worldMap": {
-    "title": "Mapa mundial",
-    "discover": "Descobrir designs",
-    "featured": "Destaque",
-    "downloading": "Baixando modelo…",
-    "author": "Por {{author}}",
-    "noDesigns": "Ainda não há designs nesta área",
-    "zoomToExplore": "Amplie para explorar designs",
-    "filterByClimate": "Filtrar por clima",
-    "filterByStyle": "Filtrar por estilo",
-    "openTemplate": "Abrir como novo design"
   },
   "theme": {
     "light": "Claro",
@@ -1736,7 +1726,6 @@
       "ValuesNotMetres": "Precisa de valores em metros; estes dados estão em {{units}}.",
       "GridNotProjectedMetres": "Precisa de uma grade projetada em metros no terreno, não Web Mercator nem longitude e latitude.",
       "EngineMissing": "Indisponível: o motor GeoLibre está ausente.",
-      "NeedsDesktop": "Precisa do Canopi Desktop.",
       "AlreadyInSiteData": "Já está em Dados do local."
     },
     "stale": {

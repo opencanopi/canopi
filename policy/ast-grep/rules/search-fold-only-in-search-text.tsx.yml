@@ -7,7 +7,7 @@
 id: search-fold-only-in-search-text.tsx
 language: tsx
 severity: error
-message: "search-fold-only-in-search-text (§18 F18): search folding (normalize NFD or NFKD, a combining-mark strip) only in the one TS search normaliser, platform/page-rules.ts from 2a over canopi-page-rules-wasm from N4; NFC and non-search uses are not folds. ADR 0028; owner desktop/web/src/utils/normalize-search.ts; target desktop/web/src/platform/page-rules.ts (2a); example desktop/web/src/utils/normalize-search.ts"
+message: "search-fold-only-in-search-text (§18 F18): search folding (normalize NFD or NFKD, a combining-mark strip) only in the one TS search normaliser, platform/page-rules.ts from 2a over canopi-page-rules-wasm from N4; NFC and non-search uses are not folds. ADR 0028; owner desktop/web/src/platform/page-rules.ts; target desktop/web/src/platform/page-rules.ts (2a); example desktop/web/src/platform/page-rules.ts"
 files:
   - "{desktop/web,policy/fixtures/rules/*}/src/**/*.tsx"
 ignores:
@@ -17,7 +17,7 @@ ignores:
   - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
   - "{desktop/web,policy/fixtures/rules/*}/src/generated/**"
   - "{desktop/web,policy/fixtures/rules/*}/src/editions/gallery/**"
-  - "{desktop/web,policy/fixtures/rules/*}/src/utils/normalize-search.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/platform/page-rules.ts"
 rule:
   any:
     - kind: call_expression

@@ -20,13 +20,6 @@ describe('app navigation', () => {
     expect(sidePanel.value).toBe(null)
   })
 
-  it('opens the templates shell as a full-screen panel', () => {
-    navigateTo('templates')
-
-    expect(activePanel.value).toBe('templates')
-    expect(sidePanel.value).toBe(null)
-  })
-
   it('opens the Species Catalog Workbench as a sidebar panel', () => {
     navigateTo('plant-db')
 
@@ -57,14 +50,6 @@ describe('app navigation', () => {
     expect(sidePanel.value).toBe(null)
   })
 
-  it('routes sidebar navigation back through the canvas shell from templates', () => {
-    navigateTo('templates')
-    navigateTo('design-notebook')
-
-    expect(activePanel.value).toBe('canvas')
-    expect(sidePanel.value).toBe('design-notebook')
-  })
-
   it('selects a sidebar panel idempotently for route-like callers', () => {
     selectPanel('calendar')
     selectPanel('calendar')
@@ -72,8 +57,8 @@ describe('app navigation', () => {
     expect(activePanel.value).toBe('canvas')
     expect(sidePanel.value).toBe('calendar')
 
-    selectPanel('templates')
-    expect(activePanel.value).toBe('templates')
+    selectPanel('canvas')
+    expect(activePanel.value).toBe('canvas')
     expect(sidePanel.value).toBe(null)
   })
 })

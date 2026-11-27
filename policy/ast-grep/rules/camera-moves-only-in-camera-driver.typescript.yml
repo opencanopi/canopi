@@ -10,7 +10,6 @@ ignores:
   - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
   - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
   - "{desktop/web,policy/fixtures/rules/*}/src/maplibre/camera-driver.ts"
-  - "{desktop/web,policy/fixtures/rules/*}/src/components/world-map/**"
 utils:
   # a camera method on any receiver, dotted or by bracket (`map['easeTo']`)
   camera-method:

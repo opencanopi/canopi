@@ -216,7 +216,6 @@ describe('Web GeoJSON file adapter and notice', () => {
       downloadCanopiEnabled: true,
       revertAvailable: false,
       geoJsonEnabled: true,
-      templatesEnabled: false,
       capabilities: {
         newDesign: () => undefined,
         openCanopi: () => undefined,

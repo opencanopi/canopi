@@ -62,7 +62,7 @@ describe('2.1-Q343 shared chords', () => {
       newDesign: vi.fn(), openCanopi: vi.fn(), downloadCanopi: vi.fn(), revertDesign: vi.fn(),
       importGeoJson: vi.fn(), exportGeoJson: vi.fn(), exportBudgetCsv: vi.fn(), closeDesign: vi.fn(), navigate: vi.fn(),
     }
-    const catalog = createBrowserShellCatalog(capabilities, { templatesEnabled: false, canvasReady: () => true })
+    const catalog = createBrowserShellCatalog(capabilities, { canvasReady: () => true })
     router = installWebKeyRouter({
       catalog,
       readState: () => ({ hasDesign: true, revertAvailable: false, activePanel: 'canvas', sidePanel: null }),

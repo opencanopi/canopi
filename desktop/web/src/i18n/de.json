@@ -312,7 +312,7 @@
       "placeholder": "Ort oder Koordinaten",
       "searching": "Suche…",
       "noResults": "Keine Orte gefunden",
-      "error": "Ortssuche fehlgeschlagen",
+      "error": "Ortssuche nicht verfügbar. Geben Sie stattdessen Koordinaten ein.",
       "results": "Orte",
       "placeholderShort": "Ort suchen",
       "east": "O",
@@ -322,7 +322,9 @@
       "coordinates": "{{lat}}° {{northSouth}}, {{lon}}° {{eastWest}}",
       "west": "W",
       "goStraightThere": "Koordinaten · direkt hin",
-      "enterHint": "Zum Suchen die Eingabetaste drücken"
+      "enterHint": "Zum Suchen die Eingabetaste drücken",
+      "attributionNominatim": "Suche über Nominatim · © OpenStreetMap-Mitwirkende",
+      "attributionPelias": "Suche über Pelias · © OpenStreetMap-Mitwirkende"
     },
     "file": {
       "cancel": "Abbrechen"
@@ -892,18 +894,6 @@
       "point": "Reihenpunkt {{index}}",
       "dot": "Punkt auf Reihenabschnitt {{index}} hinzufügen"
     }
-  },
-  "worldMap": {
-    "title": "Weltkarte",
-    "discover": "Designs entdecken",
-    "featured": "Empfohlen",
-    "downloading": "Vorlage wird heruntergeladen…",
-    "author": "Von {{author}}",
-    "noDesigns": "Noch keine Designs in dieser Region",
-    "zoomToExplore": "Zoomen Sie hinein, um Designs zu erkunden",
-    "filterByClimate": "Nach Klima filtern",
-    "filterByStyle": "Nach Stil filtern",
-    "openTemplate": "Als neues Design öffnen"
   },
   "theme": {
     "light": "Hell",
@@ -1736,7 +1726,6 @@
       "ValuesNotMetres": "Benötigt Werte in Metern; diese Daten sind in {{units}}.",
       "GridNotProjectedMetres": "Benötigt ein projiziertes Raster in Metern am Boden, nicht Web Mercator oder Länge und Breite.",
       "EngineMissing": "Nicht verfügbar: Die GeoLibre-Engine fehlt.",
-      "NeedsDesktop": "Benötigt Canopi Desktop.",
       "AlreadyInSiteData": "Bereits in den Standortdaten."
     },
     "stale": {

@@ -7,7 +7,6 @@
     "maplibre/config.ts",
     "maplibre/workspace-map.ts",
     "maplibre/view-snapshot-map.ts",
-    "maplibre/world-map.ts",
     "maplibre/surface.ts",
     "maplibre/camera-driver.ts",
     "maplibre/scene-host-layer.ts",
@@ -29,8 +28,8 @@
     "desktop/web/package.json",
     "desktop/web/vite.config.ts"
   ],
-  "ideal": 25,
-  "bound": 31,
+  "ideal": 24,
+  "bound": 30,
   "checked_at": "2",
   "walks": [
     {

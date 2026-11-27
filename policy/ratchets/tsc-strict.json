@@ -49,7 +49,6 @@
     "desktop/web/src/app/canvas-pdf/workflow.ts": { "count": 1 },
     "desktop/web/src/app/canvas-runtime/app-adapter.ts": { "count": 1 },
     "desktop/web/src/app/consortium/dock-workbench.ts": { "count": 1 },
-    "desktop/web/src/app/design-template-import/workflow.browser.ts": { "count": 1 },
     "desktop/web/src/app/planning-projection/consortium.ts": { "count": 1 },
     "desktop/web/src/app/plant-browser/workbench.ts": { "count": 1 },
     "desktop/web/src/app/shell-commands/index.ts": { "count": 2 },

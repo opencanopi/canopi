@@ -66,11 +66,11 @@ describe('lidarFailureMessage', () => {
   })
 
   it('writes limits with the interface language’s numbers and units', () => {
-    expect(lidarFailureMessage(refusal(EVERY_KIND.SourceTooLarge))).toBe('big.tif is too large: one file can be at most 2 GB.')
+    expect(lidarFailureMessage(refusal(EVERY_KIND.SourceTooLarge))).toBe('big.tif is too large: one file can be at most 2.1 GB.')
     locale.value = 'fr'
     expect(lidarFailureMessage(refusal({ kind: 'TooManyFiles', limit: 1200 })))
       .toBe('Un import peut contenir au plus 1 200 fichiers. Choisissez moins de fichiers.')
-    expect(lidarFailureMessage(refusal({ kind: 'ImportTooLarge', limit_mib: 512 }))).toMatch(/512\sMo/)
+    expect(lidarFailureMessage(refusal({ kind: 'ImportTooLarge', limit_mib: 512 }))).toMatch(/537\sMo/)
   })
 
   it('words an Internal refusal, a plain error, text or an unknown kind as the generic message', () => {

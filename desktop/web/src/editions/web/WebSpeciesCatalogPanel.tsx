@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks'
 import { speciesCatalogWorkbench } from '../../app/plant-browser'
 import { useEnglishFallbackNames } from '../../app/plant-finder/catalog-names'
+import { findPlants, type PlantFinderName } from '../../app/plant-finder/matcher'
 import {
   writePlantStampDragData,
 } from '../../canvas/stamp-drag-data'
@@ -11,7 +12,6 @@ import type { SpeciesListItem } from '../../types/species'
 import { CatalogBrowser } from '../../components/plant-db/CatalogBrowser'
 import { interfaceLanguageName } from '../../components/plant-db/language-name'
 import {
-  filterFavoriteSpecies,
   useFavoriteSpeciesDetailNavigation,
 } from '../../components/plant-db/favorite-species-presentation'
 import { SpeciesKeyPanel } from '../../components/panels/SpeciesKeyPanel'
@@ -39,7 +39,16 @@ export function WebSpeciesCatalogPanel({ mode }: WebSpeciesCatalogPanelProps) {
   const sidebar = speciesCatalogWorkbench.sidebar.value
   const detailView = speciesCatalogWorkbench.detail.value
   const isCatalog = mode === 'catalog'
-  const visibleItems = filterFavoriteSpecies(favoritesView.items, favoriteSearch)
+  const visibleItems = useMemo(() => {
+    const records = favoritesView.items.map((item) => {
+      const names: PlantFinderName[] = []
+      if (item.common_name) names.push({ text: item.common_name, kind: 'common' })
+      names.push({ text: item.canonical_name, kind: 'scientific' })
+      return { key: item, names }
+    })
+    const result = findPlants(records, favoriteSearch)
+    return result.active ? result.hits.map((hit) => hit.key) : favoritesView.items
+  }, [favoritesView.items, favoriteSearch])
   const englishNames = useEnglishFallbackNames(useMemo(() => [...favoritesView.items, ...sidebar.recentlyViewed].map((item) => ({
     canonicalName: item.canonical_name,
     commonName: item.common_name,

@@ -64,9 +64,9 @@ function makeSelectionModel(
 }
 
 describe('object-action capability matrix (contracts §21, 2.1-Q147)', () => {
-  it('Exhaustive: 28 kinds x 57 capabilities are populated and cover every KnownCanopiKey, SceneTargetKind, and PdfPageKind', () => {
+  it('Exhaustive: 28 kinds x 56 capabilities are populated and cover every KnownCanopiKey, SceneTargetKind, and PdfPageKind', () => {
     expect(OBJECT_KINDS).toHaveLength(28)
-    expect(CAPABILITIES).toHaveLength(57)
+    expect(CAPABILITIES).toHaveLength(56)
 
     let totalCells = 0
     for (const { id: kind } of OBJECT_KINDS) {
@@ -77,7 +77,7 @@ describe('object-action capability matrix (contracts §21, 2.1-Q147)', () => {
         totalCells += 1
       }
     }
-    expect(totalCells).toBe(28 * 57)
+    expect(totalCells).toBe(28 * 56)
 
     const coveredFields = new Set<KnownCanopiKey>()
     const coveredSceneTargets = new Set<SceneTargetKind>()

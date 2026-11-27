@@ -299,7 +299,7 @@
       "adr": "0024",
       "owner_today": "desktop/web/src/app/canvas-map-surface/canvas-host.ts",
       "example": "desktop/web/src/app/canvas-map-surface/canvas-host.ts",
-      "note": "only canvas-host.ts acquires the canvas runtime lease, publishes the canvas session, or calls attachScene/detachScene (\u00a75, 2b-2)"
+      "note": "only canvas-host.ts acquires the canvas runtime lease, publishes the canvas session, or calls attachScene/detachScene (§5, 2b-2)"
     },
     {
       "id": "mount-canvas-host-only-in-use-canvas-host",
@@ -309,7 +309,7 @@
       "adr": "0024",
       "owner_today": "desktop/web/src/app/canvas-map-surface/use-canvas-host.ts",
       "example": "desktop/web/src/app/canvas-map-surface/use-canvas-host.ts",
-      "note": "only use-canvas-host.ts calls mountCanvasHost in production (\u00a75, 2b-2)"
+      "note": "only use-canvas-host.ts calls mountCanvasHost in production (§5, 2b-2)"
     },
     {
       "id": "surface-or-map-state-only-in-host-and-lifetime",
@@ -319,7 +319,7 @@
       "adr": "0024",
       "owner_today": "desktop/web/src/app/canvas-map-surface/canvas-host.ts",
       "example": "desktop/web/src/app/canvas-map-surface/canvas-host.ts",
-      "note": "no useState or signal holds CanvasSurfaceState or MapLifetimeState outside canvas-host.ts and map-lifetime.ts (\u00a75, 2b-2)"
+      "note": "no useState or signal holds CanvasSurfaceState or MapLifetimeState outside canvas-host.ts and map-lifetime.ts (§5, 2b-2)"
     },
     {
       "id": "data-map-active-only-from-map-surface-visibility",
@@ -329,7 +329,7 @@
       "adr": "0024",
       "owner_today": "desktop/web/src/components/panels/CanvasPanel.tsx",
       "example": "desktop/web/src/components/panels/CanvasPanel.tsx",
-      "note": "data-map-active is derived only from mapSurfaceVisible (\u00a75, Q26, 2b-2)"
+      "note": "data-map-active is derived only from mapSurfaceVisible (§5, Q26, 2b-2)"
     },
     {
       "id": "components-import-no-map-lifetime",
@@ -348,7 +348,7 @@
           "maplibre/map-lifetime.ts"
         ]
       },
-      "note": "components/ never imports maplibre/map-lifetime.ts directly (\u00a75, 2b-2)"
+      "note": "components/ never imports maplibre/map-lifetime.ts directly (§5, 2b-2)"
     },
     {
       "id": "app-tests-import-no-scene-runtime",
@@ -791,7 +791,7 @@
           "commands/**"
         ]
       },
-      "note": "The right-click menu runs only its request\u2019s scene edits"
+      "note": "The right-click menu runs only its request’s scene edits"
     },
     {
       "id": "design-edit-authority-only-in-core",
@@ -1070,7 +1070,7 @@
       "family": "no-controller-imports-controller",
       "adr": "0022",
       "owner_today": "desktop/web/src/app",
-      "example": "desktop/web/src/app/community/controller.ts",
+      "example": "desktop/web/src/app/updates/controller.ts",
       "type_only": "counts",
       "graph": {
         "from": [
@@ -1185,7 +1185,8 @@
           "**"
         ],
         "toNot": [
-          "utils/species-search-normalization.ts"
+          "utils/species-search-normalization.ts",
+          "platform/page-rules.ts"
         ]
       },
       "note": "Plant finder matcher stays pure over the search normalization authority"
@@ -1641,6 +1642,7 @@
           "geo/view/**",
           "geo/projection.ts",
           "geo/session-plane.ts",
+          "geo/web-mercator.ts",
           "geo/workspace-camera-policy.ts"
         ],
         "typeOnlyTo": [
@@ -1749,32 +1751,6 @@
         ]
       },
       "note": "Web Species detail stays behind the reduced adapter"
-    },
-    {
-      "id": "web-templates-import-no-desktop-authority",
-      "tool": "dependency-cruiser",
-      "ledger": "2.1-M186",
-      "family": "web-templates-import-no-desktop-authority",
-      "adr": "0022",
-      "owner_today": "desktop/web/src/app/community/controller.ts",
-      "example": "desktop/web/src/app/community/controller.ts",
-      "type_only": "counts",
-      "graph": {
-        "from": [
-          "app/community/controller.ts",
-          "app/community/catalog.browser.ts",
-          "app/design-template-import/coordinator.ts",
-          "app/design-template-import/types.ts",
-          "app/design-template-import/workflow.browser.ts"
-        ],
-        "to": [
-          "app/document-session/actions.ts"
-        ],
-        "packages": [
-          "@tauri-apps/api/core"
-        ]
-      },
-      "note": "Web Design Template orchestration stays free of Desktop authorities"
     },
     {
       "id": "canvas-listeners-only-in-input-owners",
@@ -2302,7 +2278,7 @@
       "family": "updater-plugin-only-in-updater",
       "owner_today": "desktop/src/host/updater/mod.rs",
       "example": "desktop/src/host/updater/mod.rs",
-      "note": "the updater plugin (tauri_plugin_updater) only in the updater module, desktop/src/host/updater/ (ADR 0023 Checks, contracts \u00a73 Updater, Phase 0 F6); cargo-deny admits the crate only through canopi-desktop; at 0",
+      "note": "the updater plugin (tauri_plugin_updater) only in the updater module, desktop/src/host/updater/ (ADR 0023 Checks, contracts §3 Updater, Phase 0 F6); cargo-deny admits the crate only through canopi-desktop; at 0",
       "scope": [
         "desktop/src/**",
         "canopi-types/src/**",
@@ -2365,7 +2341,7 @@
         "phase": "N1",
         "bead": "canopi-f47t.52.190"
       },
-      "note": "\u00a718 R3: a command reaches the executor only through a facade method with its OpSpec; native_command_policy::tests holds today's 81 executor calls in 10 command files until N1"
+      "note": "§18 R3: a command reaches the executor only through a facade method with its OpSpec; native_command_policy::tests holds today's 81 executor calls in 10 command files until N1"
     },
     {
       "id": "rust-search-fold-only-in-search-text",
@@ -2378,7 +2354,7 @@
         "path": "desktop/src",
         "phase": "N4"
       },
-      "note": "\u00a718 R18: Rust search folding only in canopi-search-text, held by the shared corpus run natively and through the page wasm; 6 implementations today (the TS half is search-fold-only-in-search-text)"
+      "note": "§18 R18: Rust search folding only in canopi-search-text, held by the shared corpus run natively and through the page wasm; 6 implementations today (the TS half is search-fold-only-in-search-text)"
     },
     {
       "id": "locale-list-only-in-registry",
@@ -2388,7 +2364,7 @@
       "adr": "0023",
       "owner_today": "canopi-types/src/locale.rs",
       "example": "canopi-types/src/locale.rs",
-      "note": "\u00a718 R19: locale lists, endonyms and sys_locale only in the canopi-types L6 registry (desktop/src/services/settings.rs passes [sys_locale] to canopi_types::locale::match_locale); generated to TS in desktop/web/src/generated/locale-registry.ts",
+      "note": "§18 R19: locale lists, endonyms and sys_locale only in the canopi-types L6 registry (desktop/src/services/settings.rs passes [sys_locale] to canopi_types::locale::match_locale); generated to TS in desktop/web/src/generated/locale-registry.ts",
       "scope": [
         "desktop/src/**",
         "canopi-types/src/**",
@@ -2408,7 +2384,7 @@
       "family": "cargo-deny",
       "owner_today": "canopi-format-wasm/Cargo.toml",
       "example": "canopi-format-wasm/src/lib.rs",
-      "note": "\u00a718 R20: wasm-bindgen only in the -wasm crates, each created in its phase (deny.toml [bans] wrappers over the native graph, where the -wasm crate's plain dependency is the one edge); canopi-format-wasm from Step 2.0.4 (canopi-f47t.52.270)"
+      "note": "§18 R20: wasm-bindgen only in the -wasm crates, each created in its phase (deny.toml [bans] wrappers over the native graph, where the -wasm crate's plain dependency is the one edge); canopi-format-wasm from Step 2.0.4 (canopi-f47t.52.270)"
     },
     {
       "id": "edition-pairs",
@@ -2418,7 +2394,7 @@
       "family": "edition-pairs",
       "owner_today": "desktop/web/src/platform",
       "example": "desktop/web/src/platform/problem-report.ts",
-      "note": "contracts \u00a722 (F3): every *.desktop.ts or *.browser.ts sits in platform/ beside a port with the same stem"
+      "note": "contracts §22 (F3): every *.desktop.ts or *.browser.ts sits in platform/ beside a port with the same stem"
     },
     {
       "id": "object-capability-gaps",
@@ -2428,7 +2404,7 @@
       "family": "object-capability-gaps",
       "owner_today": "desktop/web/src/app/command-table/object-capabilities.ts",
       "example": "desktop/web/src/app/command-table/object-capabilities.ts",
-      "note": "contracts \u00a721:877: named per-entry gap ratchet over the 28x57 object-capability matrix"
+      "note": "contracts §21:877: named per-entry gap ratchet over the 28x57 object-capability matrix"
     },
     {
       "id": "no-path-string-command-arg",
@@ -2448,7 +2424,7 @@
         "desktop/web/src/ipc/**/*.ts"
       ],
       "keys": "path",
-      "note": "\u00a718 R21: #[tauri::command] and ipc/ wrappers carry no raw path string or PathBuf argument; grants replace them in 2b/N2 (2.1-M522)"
+      "note": "§18 R21: #[tauri::command] and ipc/ wrappers carry no raw path string or PathBuf argument; grants replace them in 2b/N2 (2.1-M522)"
     },
     {
       "id": "tauri-crate-only-in-desktop",
@@ -2458,7 +2434,7 @@
       "family": "cargo-deny",
       "owner_today": "desktop/Cargo.toml",
       "example": "desktop/src/commands/health.rs",
-      "note": "\u00a718 R1, the cargo-deny half of tauri-only-in-shell: the tauri crate only under canopi-desktop and its Tauri plugins (deny.toml [bans] wrappers, DR26), so a library crate split out at N1 cannot depend on it"
+      "note": "§18 R1, the cargo-deny half of tauri-only-in-shell: the tauri crate only under canopi-desktop and its Tauri plugins (deny.toml [bans] wrappers, DR26), so a library crate split out at N1 cannot depend on it"
     },
     {
       "id": "format-crate-bans-native",
@@ -2468,7 +2444,7 @@
       "family": "format-crate-bans-native",
       "owner_today": "canopi-format/Cargo.toml",
       "example": "canopi-format-wasm/Cargo.toml",
-      "note": "\u00a718 R7: canopi-format and canopi-format-wasm reach no tauri, tokio or rusqlite over normal and build edges, nor schemars, which the Web worker's module would carry (canopi-f47t.52.270) (design check F9: policy/adapters/cargo-tree.mjs reads each one's whole graph, since cargo-deny's [bans] wrappers judge only direct parents); from Step 2.0.4 (canopi-f47t.52.270)"
+      "note": "§18 R7: canopi-format and canopi-format-wasm reach no tauri, tokio or rusqlite over normal and build edges, nor schemars, which the Web worker's module would carry (canopi-f47t.52.270) (design check F9: policy/adapters/cargo-tree.mjs reads each one's whole graph, since cargo-deny's [bans] wrappers judge only direct parents); from Step 2.0.4 (canopi-f47t.52.270)"
     },
     {
       "id": "catalog-store-only-in-desktop",
@@ -2482,7 +2458,7 @@
         "phase": "N2",
         "bead": "canopi-f47t.52.62"
       },
-      "note": "\u00a718 R6: canopi-catalog and canopi-store meet only in canopi-desktop, no catalog-store edge (cargo-deny [bans] with the crates)"
+      "note": "§18 R6: canopi-catalog and canopi-store meet only in canopi-desktop, no catalog-store edge (cargo-deny [bans] with the crates)"
     },
     {
       "id": "sha2-only-in-support",
@@ -2496,7 +2472,7 @@
         "phase": "N1",
         "bead": "canopi-f47t.52.190"
       },
-      "note": "\u00a718 R10: sha2 and other hashers only through canopi-support's hash (cargo-deny [bans] wrappers, with the crate)"
+      "note": "§18 R10: sha2 and other hashers only through canopi-support's hash (cargo-deny [bans] wrappers, with the crate)"
     },
     {
       "id": "no-attach-step",
@@ -2548,7 +2524,7 @@
       "family": "no-reexport-only-types-module",
       "owner_today": "none",
       "example": "desktop/web/src/app/settings/state.ts",
-      "note": "a types/ module whose every statement is an `export ... from` re-export is a shim hiding its generated owner (contracts \u00a712, Q45 pass); 4 at the base, 0 at Phase 2's close"
+      "note": "a types/ module whose every statement is an `export ... from` re-export is a shim hiding its generated owner (contracts §12, Q45 pass); 4 at the base, 0 at Phase 2's close"
     },
     {
       "id": "guarded-files",

@@ -38,7 +38,7 @@ fn geocode_address_blocking(query: String) -> Result<Vec<GeoResult>, String> {
         std::time::Duration::from_secs(5),
     )
     .query("q", &query)
-    .query("format", "json")
+    .query("format", "jsonv2")
     .query("limit", "5")
     .call()
     .map_err(|e| format!("Failed to geocode: {e}"))?;

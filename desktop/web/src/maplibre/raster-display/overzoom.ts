@@ -16,11 +16,17 @@
  * decoded-block budget; tiles of one screen share one or two ancestors.
  */
 import type { CogSource, RenderOptions } from 'cog-tiler-wasm'
+import {
+  lonToWebMercatorX,
+  WEB_MERCATOR_HALF_WORLD_M,
+  webMercatorXToLon,
+  webMercatorYToLat,
+} from '../../geo/web-mercator'
 
 const TILE = 256
 /** Ancestor window side: the native tile and one source pixel of halo each side. */
 const WINDOW = TILE + 2
-const HALF_WORLD = 20_037_508.342_789_244
+const HALF_WORLD = WEB_MERCATOR_HALF_WORLD_M
 /** How far from a whole zoom a native zoom may read, from float bounds, and still be one. */
 const WHOLE_ZOOM_TOLERANCE = 1e-6
 
@@ -40,9 +46,9 @@ interface AncestorCache {
   delete(key: string): boolean
 }
 
-const mercatorX = (lon: number) => (lon / 180) * HALF_WORLD
-const longitude = (x: number) => (x / HALF_WORLD) * 180
-const latitude = (y: number) => (Math.atan(Math.exp((y / HALF_WORLD) * Math.PI)) * 360) / Math.PI - 90
+const mercatorX = lonToWebMercatorX
+const longitude = webMercatorXToLon
+const latitude = webMercatorYToLat
 
 /**
  * The XYZ zoom whose tile pixel is the source's full-resolution pixel, or null

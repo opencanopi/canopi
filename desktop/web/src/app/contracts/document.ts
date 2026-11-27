@@ -6,10 +6,6 @@ import {
 import type { KnownCanopiKey } from '../../generated/known-canopi-keys'
 import { CURRENT_CANOPI_FILE_VERSION } from '../../generated/canopi-design-format'
 import type { CanopiFile } from '../../types/design'
-import {
-  asCanopiDesignIngestionError,
-  CanopiDesignIngestionError,
-} from './canopi-design-errors'
 
 export { DEFAULT_BUDGET_CURRENCY }
 
@@ -221,18 +217,6 @@ export function flattenDocumentForJson(
     })
   }
   return wire
-}
-
-/** Parse raw `.canopi` JSON text, wrapping syntax errors in `CanopiDesignIngestionError`. */
-export function parseCanopiJsonText(text: string): unknown {
-  try {
-    return JSON.parse(text) as unknown
-  } catch (error) {
-    if (error instanceof SyntaxError) {
-      throw new CanopiDesignIngestionError('invalid_document', `$: invalid JSON (${error.message})`)
-    }
-    throw asCanopiDesignIngestionError(error)
-  }
 }
 
 const REQUIRED_ARRAY_KEYS = [

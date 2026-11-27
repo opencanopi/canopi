@@ -30,7 +30,6 @@ import type { LocaleKey } from '../../generated/locale-keys'
 /** Why an analysis cannot run from one item, native or frontend. */
 export type AnalysisAvailability =
   | AnalysisUnavailable
-  | { readonly reason: 'NeedsDesktop' }
   | { readonly reason: 'AlreadyInSiteData'; readonly itemId: string }
 
 /** What the model reads from the item the dialog analyses. */
@@ -117,9 +116,9 @@ export function analysisOptions(
 /**
  * Why one entry cannot run from this item with these settings, or null.
  *
- * The edition comes first (nothing runs on Web), then the native offer; a run
- * that would duplicate a result the Design already shows is refused last, as
- * "Show in Site data" rather than a second identical calculation.
+ * The native/worker offer comes first; a run that would duplicate a result the
+ * Design already shows is refused last, as "Show in Site data" rather than a
+ * second identical calculation.
  */
 export function entryAvailability(
   entry: AnalysisEntry,
@@ -128,7 +127,6 @@ export function entryAvailability(
   form: AnalysisForm,
   locale: string,
 ): AnalysisAvailability | null {
-  if (!context.capabilities.has('site-data-below-limit')) return { reason: 'NeedsDesktop' }
   const offer = subject.offers.find((candidate) => candidate.analysis_id === entry.id)
   // An entry native does not offer cannot be run from this snapshot.
   if (!offer) return { reason: 'NotReady' }

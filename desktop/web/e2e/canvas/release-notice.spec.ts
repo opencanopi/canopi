@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import type { Locator, Page, Route } from '@playwright/test'
 import { expectDownloadName } from '../support/download'
-import { boxOf, expectHitAtCentre, overlap, type Box } from '../support/layout'
+import { boxOf, expectHitAtCentre, openFixtureFromStart, overlap, type Box } from '../support/layout'
 import { expect, test } from '../support/offline'
 import { draftsKeptStub } from '../support/storage-persistence'
 import { DRAFT_DATABASE, draftStoreDump } from '../support/web-storage'
@@ -15,14 +15,6 @@ const FIXTURE = fileURLToPath(new URL('../fixtures/canvas-base.canopi', import.m
 const PDF_JOB_CHUNK = /\/assets\/job-[^/]+\.js$/
 
 const NOT_FOUND = 'Failed to load resource: the server responded with a status of 404 (Not Found)'
-
-async function openFixtureFromStart(page: Page): Promise<void> {
-  const open = page.locator('[data-start-screen] button').filter({ hasText: /\.canopi/ }).first()
-  const [chooser] = await Promise.all([page.waitForEvent('filechooser'), open.click()])
-  await chooser.setFiles(FIXTURE)
-  // The Design's title bar, not the map: Firefox in the pinned image has no WebGL, so its map never draws.
-  await expect(page.locator('[data-workspace-title-bar] [data-save-status]')).toBeVisible()
-}
 
 async function openPdfExport(page: Page): Promise<void> {
   await page.getByRole('menubar', { name: 'Menus' }).getByRole('menuitem', { name: 'File' }).click()
@@ -78,7 +70,7 @@ test('Q83: another release named by the manifest shows one New version: Reload n
   const manifest = await routeManifest(page, () => version)
   await page.route(PDF_JOB_CHUNK, (route) => route.fulfill({ status: 404, contentType: 'text/plain', body: 'Not Found' }))
   await page.goto('')
-  await openFixtureFromStart(page)
+  await openFixtureFromStart(page, FIXTURE)
 
   // This tab's own release: no notice.
   await focusWindow(page)
@@ -153,7 +145,7 @@ test.describe('a Draft write that fails', () => {
     })
     await routeManifest(page, () => OTHER_VERSION)
     await page.goto('')
-    await openFixtureFromStart(page)
+    await openFixtureFromStart(page, FIXTURE)
     await expect.poll(() => readIdbDraftNames(page), 'the opened Design is a Draft').toHaveLength(1)
 
     // An edit the browser cannot write.
@@ -307,7 +299,7 @@ for (const locale of LOCALES) {
           for (const neighbour of await shellNeighbours(page, notice)) {
             expect(overlap(noticeBox, neighbour.box), `the notice overlaps ${neighbour.name} (${name})`).toBe(false)
           }
-          const phone = await page.locator('[data-phone-layout]').count() > 0
+          const phone = await page.locator('[data-layout]').count() > 0
           for (const label of [text.notice.reload!, text.notice.dismiss!]) {
             const button = notice.getByRole('button', { name: label, exact: true })
             await expect(async () => { await expectHitAtCentre(button, `${label} (${name})`) }).toPass({ timeout: 5000 })

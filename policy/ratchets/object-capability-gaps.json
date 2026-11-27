@@ -10,1517 +10,367 @@
   "lane": "commit",
   "keys": "name",
   "entries": {
-    "analysis-result:design-template-import": {
-      "count": 1,
-      "bead": "canopi-capt13later"
-    },
-    "analysis-result:duplicate": {
-      "count": 1,
-      "bead": "canopi-capt9later"
-    },
-    "analysis-result:hover-tooltip": {
-      "count": 1,
-      "bead": "canopi-capt9later"
-    },
-    "analysis-result:inspection-lens": {
-      "count": 1,
-      "bead": "canopi-capt9later"
-    },
-    "analysis-result:pdf-page-edit": {
-      "count": 1,
-      "bead": "canopi-capt2later"
-    },
-    "analysis-result:profile-line": {
-      "count": 1,
-      "bead": "canopi-capt9later"
-    },
-    "analysis-result:saved-views": {
-      "count": 1,
-      "bead": "canopi-capt9later"
-    },
-    "analysis-result:site-data-display": {
-      "count": 1,
-      "bead": "canopi-capt9later"
-    },
-    "analysis-result:undo-redo": {
-      "count": 1,
-      "bead": "canopi-capt7later"
-    },
-    "analysis-result:zoom-to-selection": {
-      "count": 1,
-      "bead": "canopi-capt9later"
-    },
-    "budget-item:copy-cut-paste": {
-      "count": 1,
-      "bead": "canopi-capt8later"
-    },
-    "budget-item:delete": {
-      "count": 1,
-      "bead": "canopi-capt8s2c"
-    },
-    "budget-item:design-template-import": {
-      "count": 1,
-      "bead": "canopi-capt13later"
-    },
-    "budget-item:find-plants": {
-      "count": 1,
-      "bead": "canopi-capt8later"
-    },
-    "budget-item:multi-select-edit": {
-      "count": 1,
-      "bead": "canopi-capt8later"
-    },
-    "budget-item:species-details": {
-      "count": 1,
-      "bead": "canopi-capt8later"
-    },
-    "budget-item:touch-gestures": {
-      "count": 1,
-      "bead": "canopi-capt11s2c"
-    },
-    "budget-item:undo-redo": {
-      "count": 1,
-      "bead": "canopi-f47t.52.123"
-    },
-    "budget-item:zoom-to-selection": {
-      "count": 1,
-      "bead": "canopi-capt8later"
-    },
-    "calendar-action:budget-csv-export": {
-      "count": 1,
-      "bead": "canopi-capt8later"
-    },
-    "calendar-action:context-menu": {
-      "count": 1,
-      "bead": "canopi-capt8later"
-    },
-    "calendar-action:copy-cut-paste": {
-      "count": 1,
-      "bead": "canopi-capt8later"
-    },
-    "calendar-action:design-template-import": {
-      "count": 1,
-      "bead": "canopi-capt13later"
-    },
-    "calendar-action:duplicate": {
-      "count": 1,
-      "bead": "canopi-capt8later"
-    },
-    "calendar-action:find-plants": {
-      "count": 1,
-      "bead": "canopi-capt8later"
-    },
-    "calendar-action:multi-select-edit": {
-      "count": 1,
-      "bead": "canopi-capt8later"
-    },
-    "calendar-action:species-details": {
-      "count": 1,
-      "bead": "canopi-capt8later"
-    },
-    "calendar-action:species-focus": {
-      "count": 1,
-      "bead": "canopi-capt8later"
-    },
-    "calendar-action:touch-gestures": {
-      "count": 1,
-      "bead": "canopi-capt11s2c"
-    },
-    "calendar-action:undo-redo": {
-      "count": 1,
-      "bead": "canopi-f47t.52.123"
-    },
-    "calendar-action:zoom-to-selection": {
-      "count": 1,
-      "bead": "canopi-capt8later"
-    },
-    "consortium-entry:budget-csv-export": {
-      "count": 1,
-      "bead": "canopi-capt8later"
-    },
-    "consortium-entry:context-menu": {
-      "count": 1,
-      "bead": "canopi-capt8later"
-    },
-    "consortium-entry:copy-cut-paste": {
-      "count": 1,
-      "bead": "canopi-capt8later"
-    },
-    "consortium-entry:delete": {
-      "count": 1,
-      "bead": "canopi-capt8later"
-    },
-    "consortium-entry:design-template-import": {
-      "count": 1,
-      "bead": "canopi-capt13later"
-    },
-    "consortium-entry:find-plants": {
-      "count": 1,
-      "bead": "canopi-capt8later"
-    },
-    "consortium-entry:multi-select-edit": {
-      "count": 1,
-      "bead": "canopi-capt8later"
-    },
-    "consortium-entry:species-details": {
-      "count": 1,
-      "bead": "canopi-capt8later"
-    },
-    "consortium-entry:touch-gestures": {
-      "count": 1,
-      "bead": "canopi-capt11s2c"
-    },
-    "consortium-entry:undo-redo": {
-      "count": 1,
-      "bead": "canopi-f47t.52.123"
-    },
-    "consortium-entry:zoom-to-selection": {
-      "count": 1,
-      "bead": "canopi-capt8later"
-    },
-    "design-map-view:pdf-export": {
-      "count": 1,
-      "bead": "canopi-capt3later"
-    },
-    "design-map-view:pdf-page-edit": {
-      "count": 1,
-      "bead": "canopi-capt3later"
-    },
-    "design-map-view:pdf-per-view-rotation": {
-      "count": 1,
-      "bead": "canopi-capt3s2c"
-    },
-    "group:align-distribute": {
-      "count": 1,
-      "bead": "canopi-capt6later"
-    },
-    "group:calendar-budget-targets": {
-      "count": 1,
-      "bead": "canopi-capt6s2c"
-    },
-    "group:context-menu": {
-      "count": 1,
-      "bead": "canopi-capt6s2c"
-    },
-    "group:design-template-import": {
-      "count": 1,
-      "bead": "canopi-capt13later"
-    },
-    "group:edit-by-values": {
-      "count": 1,
-      "bead": "canopi-capt6s2c"
-    },
-    "group:edit-note-text": {
-      "count": 1,
-      "bead": "canopi-capt6s2c"
-    },
-    "group:find-plants": {
-      "count": 1,
-      "bead": "canopi-capt6later"
-    },
-    "group:hover-tooltip": {
-      "count": 1,
-      "bead": "canopi-capt6s2c"
-    },
-    "group:inspect-selection-chip": {
-      "count": 1,
-      "bead": "canopi-capt6s2c"
-    },
-    "group:inspection-lens": {
-      "count": 1,
-      "bead": "canopi-capt6s2c"
-    },
-    "group:measure-show-dimensions": {
-      "count": 1,
-      "bead": "canopi-capt6s2c"
-    },
-    "group:multi-select-edit": {
-      "count": 1,
-      "bead": "canopi-capt6s2c"
-    },
-    "group:pdf-export": {
-      "count": 1,
-      "bead": "canopi-capt6later"
-    },
-    "group:pdf-page-edit": {
-      "count": 1,
-      "bead": "canopi-capt6later"
-    },
-    "group:plant-a-row": {
-      "count": 1,
-      "bead": "canopi-capt6later"
-    },
-    "group:plant-style": {
-      "count": 1,
-      "bead": "canopi-capt6s2c"
-    },
-    "group:rename-zone": {
-      "count": 1,
-      "bead": "canopi-capt6s2c"
-    },
-    "group:reshape-vertices": {
-      "count": 1,
-      "bead": "canopi-capt6later"
-    },
-    "group:resize-scale": {
-      "count": 1,
-      "bead": "canopi-capt6later"
-    },
-    "group:saved-views": {
-      "count": 1,
-      "bead": "canopi-capt6s2c"
-    },
-    "group:select": {
-      "count": 1,
-      "bead": "canopi-capt6s2c"
-    },
-    "group:select-same-species": {
-      "count": 1,
-      "bead": "canopi-capt6s2c"
-    },
-    "group:species-details": {
-      "count": 1,
-      "bead": "canopi-capt6s2c"
-    },
-    "group:stories": {
-      "count": 1,
-      "bead": "canopi-capt6s2c"
-    },
-    "group:zone-style": {
-      "count": 1,
-      "bead": "canopi-capt6s2c"
-    },
-    "map-background:saved-views": {
-      "count": 1,
-      "bead": "canopi-capt9later"
-    },
-    "map-background:site-data-display": {
-      "count": 1,
-      "bead": "canopi-capt9later"
-    },
-    "measurement-guide:align-distribute": {
-      "count": 1,
-      "bead": "canopi-capt1later"
-    },
-    "measurement-guide:context-menu": {
-      "count": 1,
-      "bead": "canopi-f47t.52.155"
-    },
-    "measurement-guide:design-template-import": {
-      "count": 1,
-      "bead": "canopi-capt13later"
-    },
-    "measurement-guide:edit-by-values": {
-      "count": 1,
-      "bead": "canopi-f47t.52.155"
-    },
-    "measurement-guide:edit-note-text": {
-      "count": 1,
-      "bead": "canopi-capt1later"
-    },
-    "measurement-guide:group-ungroup": {
-      "count": 1,
-      "bead": "canopi-f47t.52.155"
-    },
-    "measurement-guide:hover-tooltip": {
-      "count": 1,
-      "bead": "canopi-f47t.52.155"
-    },
-    "measurement-guide:inspection-lens": {
-      "count": 1,
-      "bead": "canopi-f47t.52.155"
-    },
-    "measurement-guide:layer-assignment": {
-      "count": 1,
-      "bead": "canopi-capt1later"
-    },
-    "measurement-guide:measure-show-dimensions": {
-      "count": 1,
-      "bead": "canopi-f47t.52.155"
-    },
-    "measurement-guide:multi-select-edit": {
-      "count": 1,
-      "bead": "canopi-f47t.52.155"
-    },
-    "measurement-guide:object-stamp": {
-      "count": 1,
-      "bead": "canopi-f47t.52.155"
-    },
-    "measurement-guide:pdf-page-edit": {
-      "count": 1,
-      "bead": "canopi-capt2later"
-    },
-    "measurement-guide:place-from-stamp": {
-      "count": 1,
-      "bead": "canopi-f47t.52.155"
-    },
-    "measurement-guide:plant-a-row": {
-      "count": 1,
-      "bead": "canopi-capt1later"
-    },
-    "measurement-guide:rename-zone": {
-      "count": 1,
-      "bead": "canopi-capt1later"
-    },
-    "measurement-guide:resize-scale": {
-      "count": 1,
-      "bead": "canopi-f47t.52.155"
-    },
-    "measurement-guide:save-as-stamp": {
-      "count": 1,
-      "bead": "canopi-f47t.52.155"
-    },
-    "measurement-guide:saved-views": {
-      "count": 1,
-      "bead": "canopi-f47t.52.155"
-    },
-    "measurement-guide:stamp-library-manage": {
-      "count": 1,
-      "bead": "canopi-f47t.52.155"
-    },
-    "measurement-guide:stories": {
-      "count": 1,
-      "bead": "canopi-f47t.52.155"
-    },
-    "measurement-guide:touch-gestures": {
-      "count": 1,
-      "bead": "canopi-f47t.52.155"
-    },
-    "measurement-guide:turn-view-to-edge": {
-      "count": 1,
-      "bead": "canopi-f47t.52.155"
-    },
-    "measurement-guide:zoom-to-selection": {
-      "count": 1,
-      "bead": "canopi-f47t.52.155"
-    },
-    "pdf-detail-page:align-distribute": {
-      "count": 1,
-      "bead": "canopi-capt2later"
-    },
-    "pdf-detail-page:band-select": {
-      "count": 1,
-      "bead": "canopi-capt2later"
-    },
-    "pdf-detail-page:context-menu": {
-      "count": 1,
-      "bead": "canopi-capt2s2c"
-    },
-    "pdf-detail-page:copy-cut-paste": {
-      "count": 1,
-      "bead": "canopi-capt2later"
-    },
-    "pdf-detail-page:draw-constraints": {
-      "count": 1,
-      "bead": "canopi-capt2later"
-    },
-    "pdf-detail-page:duplicate": {
-      "count": 1,
-      "bead": "canopi-capt2later"
-    },
-    "pdf-detail-page:edit-by-values": {
-      "count": 1,
-      "bead": "canopi-capt2later"
-    },
-    "pdf-detail-page:hover-tooltip": {
-      "count": 1,
-      "bead": "canopi-capt2later"
-    },
-    "pdf-detail-page:layer-assignment": {
-      "count": 1,
-      "bead": "canopi-capt2later"
-    },
-    "pdf-detail-page:multi-select-edit": {
-      "count": 1,
-      "bead": "canopi-capt2s2c"
-    },
-    "pdf-detail-page:pdf-page-edit": {
-      "count": 1,
-      "bead": "canopi-capt2later"
-    },
-    "pdf-detail-page:pdf-per-view-rotation": {
-      "count": 1,
-      "bead": "canopi-capt2s2c"
-    },
-    "pdf-detail-page:plant-style": {
-      "count": 1,
-      "bead": "canopi-capt2later"
-    },
-    "pdf-detail-page:rename-zone": {
-      "count": 1,
-      "bead": "canopi-capt2later"
-    },
-    "pdf-detail-page:reshape-vertices": {
-      "count": 1,
-      "bead": "canopi-capt2later"
-    },
-    "pdf-detail-page:resize-scale": {
-      "count": 1,
-      "bead": "canopi-capt2later"
-    },
-    "pdf-detail-page:rotate-by-value": {
-      "count": 1,
-      "bead": "canopi-capt2s2c"
-    },
-    "pdf-detail-page:rotate-handle": {
-      "count": 1,
-      "bead": "canopi-capt2s2c"
-    },
-    "pdf-detail-page:saved-views": {
-      "count": 1,
-      "bead": "canopi-capt2s2c"
-    },
-    "pdf-detail-page:select": {
-      "count": 1,
-      "bead": "canopi-capt2later"
-    },
-    "pdf-detail-page:select-all": {
-      "count": 1,
-      "bead": "canopi-capt2later"
-    },
-    "pdf-detail-page:snap-to-grid": {
-      "count": 1,
-      "bead": "canopi-capt2later"
-    },
-    "pdf-detail-page:species-focus": {
-      "count": 1,
-      "bead": "canopi-capt2later"
-    },
-    "pdf-detail-page:touch-gestures": {
-      "count": 1,
-      "bead": "canopi-capt2later"
-    },
-    "pdf-detail-page:turn-view-to-edge": {
-      "count": 1,
-      "bead": "canopi-capt2s2c"
-    },
-    "pdf-detail-page:undo-redo": {
-      "count": 1,
-      "bead": "canopi-capt2later"
-    },
-    "pdf-detail-page:zoom-to-selection": {
-      "count": 1,
-      "bead": "canopi-capt2later"
-    },
-    "pdf-key-page:pdf-page-edit": {
-      "count": 1,
-      "bead": "canopi-capt2later"
-    },
-    "pdf-key-page:rename-zone": {
-      "count": 1,
-      "bead": "canopi-capt2later"
-    },
-    "pdf-key-page:species-details": {
-      "count": 1,
-      "bead": "canopi-capt2later"
-    },
-    "pdf-overview-page:delete": {
-      "count": 1,
-      "bead": "canopi-z1ie7"
-    },
-    "pdf-overview-page:edit-by-values": {
-      "count": 1,
-      "bead": "canopi-capt2later"
-    },
-    "pdf-overview-page:hover-tooltip": {
-      "count": 1,
-      "bead": "canopi-capt2later"
-    },
-    "pdf-overview-page:measure-show-dimensions": {
-      "count": 1,
-      "bead": "canopi-capt2s2c"
-    },
-    "pdf-overview-page:pdf-page-edit": {
-      "count": 1,
-      "bead": "canopi-capt2later"
-    },
-    "pdf-overview-page:pdf-per-view-rotation": {
-      "count": 1,
-      "bead": "canopi-capt2s2c"
-    },
-    "pdf-overview-page:plant-labels": {
-      "count": 1,
-      "bead": "canopi-capt2s2c"
-    },
-    "pdf-overview-page:rename-zone": {
-      "count": 1,
-      "bead": "canopi-capt2later"
-    },
-    "pdf-overview-page:resize-scale": {
-      "count": 1,
-      "bead": "canopi-capt2later"
-    },
-    "pdf-overview-page:rotate-by-value": {
-      "count": 1,
-      "bead": "canopi-capt2s2c"
-    },
-    "pdf-overview-page:rotate-handle": {
-      "count": 1,
-      "bead": "canopi-capt2s2c"
-    },
-    "pdf-overview-page:saved-views": {
-      "count": 1,
-      "bead": "canopi-capt2later"
-    },
-    "pdf-overview-page:species-details": {
-      "count": 1,
-      "bead": "canopi-capt2later"
-    },
-    "pdf-overview-page:species-focus": {
-      "count": 1,
-      "bead": "canopi-capt2later"
-    },
-    "pdf-overview-page:touch-gestures": {
-      "count": 1,
-      "bead": "canopi-capt2later"
-    },
-    "pdf-overview-page:turn-view-to-edge": {
-      "count": 1,
-      "bead": "canopi-capt2s2c"
-    },
-    "pdf-page-furniture:delete": {
-      "count": 1,
-      "bead": "canopi-capt2later"
-    },
-    "pdf-page-furniture:keyboard-nudge": {
-      "count": 1,
-      "bead": "canopi-capt2later"
-    },
-    "pdf-page-furniture:move": {
-      "count": 1,
-      "bead": "canopi-capt2later"
-    },
-    "pdf-page-furniture:pdf-page-edit": {
-      "count": 1,
-      "bead": "canopi-capt2later"
-    },
-    "pdf-page-furniture:pdf-per-view-rotation": {
-      "count": 1,
-      "bead": "canopi-capt2s2c"
-    },
-    "pdf-setup:edit-by-values": {
-      "count": 1,
-      "bead": "canopi-capt2s2c"
-    },
-    "pdf-setup:layer-assignment": {
-      "count": 1,
-      "bead": "canopi-capt2later"
-    },
-    "pdf-setup:pdf-per-view-rotation": {
-      "count": 1,
-      "bead": "canopi-capt2s2c"
-    },
-    "pdf-setup:plant-labels": {
-      "count": 1,
-      "bead": "canopi-capt2later"
-    },
-    "pdf-setup:plant-style": {
-      "count": 1,
-      "bead": "canopi-capt2later"
-    },
-    "pdf-setup:rotate-by-value": {
-      "count": 1,
-      "bead": "canopi-capt2s2c"
-    },
-    "pdf-setup:rotate-handle": {
-      "count": 1,
-      "bead": "canopi-capt2s2c"
-    },
-    "pdf-setup:saved-views": {
-      "count": 1,
-      "bead": "canopi-capt2later"
-    },
-    "pdf-setup:species-focus": {
-      "count": 1,
-      "bead": "canopi-capt2later"
-    },
-    "pdf-setup:stories": {
-      "count": 1,
-      "bead": "canopi-capt2later"
-    },
-    "pdf-setup:turn-view-to-edge": {
-      "count": 1,
-      "bead": "canopi-capt2s2c"
-    },
-    "pdf-setup:undo-redo": {
-      "count": 1,
-      "bead": "canopi-capt2later"
-    },
-    "pdf-setup:zone-style": {
-      "count": 1,
-      "bead": "canopi-capt2later"
-    },
-    "pdf-split-sheets:band-select": {
-      "count": 1,
-      "bead": "canopi-capt2later"
-    },
-    "pdf-split-sheets:delete": {
-      "count": 1,
-      "bead": "canopi-capt2later"
-    },
-    "pdf-split-sheets:duplicate": {
-      "count": 1,
-      "bead": "canopi-capt2later"
-    },
-    "pdf-split-sheets:edit-by-values": {
-      "count": 1,
-      "bead": "canopi-capt2later"
-    },
-    "pdf-split-sheets:keyboard-nudge": {
-      "count": 1,
-      "bead": "canopi-capt2later"
-    },
-    "pdf-split-sheets:move": {
-      "count": 1,
-      "bead": "canopi-capt2later"
-    },
-    "pdf-split-sheets:pdf-per-view-rotation": {
-      "count": 1,
-      "bead": "canopi-capt2s2c"
-    },
-    "pdf-split-sheets:reshape-vertices": {
-      "count": 1,
-      "bead": "canopi-capt2later"
-    },
-    "pdf-split-sheets:resize-scale": {
-      "count": 1,
-      "bead": "canopi-capt2later"
-    },
-    "pdf-split-sheets:rotate-by-value": {
-      "count": 1,
-      "bead": "canopi-capt2s2c"
-    },
-    "pdf-split-sheets:rotate-handle": {
-      "count": 1,
-      "bead": "canopi-capt2s2c"
-    },
-    "pdf-split-sheets:select": {
-      "count": 1,
-      "bead": "canopi-capt2later"
-    },
-    "pdf-split-sheets:select-all": {
-      "count": 1,
-      "bead": "canopi-capt2later"
-    },
-    "pdf-split-sheets:turn-view-to-edge": {
-      "count": 1,
-      "bead": "canopi-capt2s2c"
-    },
-    "pdf-split-sheets:undo-redo": {
-      "count": 1,
-      "bead": "canopi-capt2later"
-    },
-    "plant-row-path:edit-by-values": {
-      "count": 1,
-      "bead": "canopi-capt4later"
-    },
-    "plant-row-path:group-ungroup": {
-      "count": 1,
-      "bead": "canopi-capt4later"
-    },
-    "plant-row-path:inspection-lens": {
-      "count": 1,
-      "bead": "canopi-capt12s2c"
-    },
-    "plant-row-path:keyboard-nudge": {
-      "count": 1,
-      "bead": "canopi-capt4later"
-    },
-    "plant-row-path:move": {
-      "count": 1,
-      "bead": "canopi-capt4later"
-    },
-    "plant-row-path:plant-labels": {
-      "count": 1,
-      "bead": "canopi-capt4later"
-    },
-    "plant-row-path:profile-line": {
-      "count": 1,
-      "bead": "canopi-capt14later"
-    },
-    "plant-row-path:reshape-vertices": {
-      "count": 1,
-      "bead": "canopi-capt4later"
-    },
-    "plant-row-path:rotate-by-value": {
-      "count": 1,
-      "bead": "canopi-capt4later"
-    },
-    "plant-row-path:rotate-handle": {
-      "count": 1,
-      "bead": "canopi-capt4later"
-    },
-    "plant:align-distribute": {
-      "count": 1,
-      "bead": "canopi-capt4later"
-    },
-    "plant:budget-csv-export": {
-      "count": 1,
-      "bead": "canopi-capt8later"
-    },
-    "plant:design-template-import": {
-      "count": 1,
-      "bead": "canopi-capt13later"
-    },
-    "plant:edit-by-values": {
-      "count": 1,
-      "bead": "canopi-capt4later"
-    },
-    "plant:edit-note-text": {
-      "count": 1,
-      "bead": "canopi-capt4later"
-    },
-    "plant:hover-tooltip": {
-      "count": 1,
-      "bead": "canopi-capt12s2c"
-    },
-    "plant:layer-assignment": {
-      "count": 1,
-      "bead": "canopi-capt10later"
-    },
-    "plant:measure-show-dimensions": {
-      "count": 1,
-      "bead": "canopi-capt4later"
-    },
-    "plant:place-from-stamp": {
-      "count": 1,
-      "bead": "canopi-capt5s2c"
-    },
-    "plant:plant-a-row": {
-      "count": 1,
-      "bead": "canopi-capt14later"
-    },
-    "plant:resize-scale": {
-      "count": 1,
-      "bead": "canopi-capt4later"
-    },
-    "plant:save-as-stamp": {
-      "count": 1,
-      "bead": "canopi-capt5s2c"
-    },
-    "plant:select-same-species": {
-      "count": 1,
-      "bead": "canopi-capt6s2c"
-    },
-    "plant:site-data-display": {
-      "count": 1,
-      "bead": "canopi-capt9later"
-    },
-    "plant:stamp-library-manage": {
-      "count": 1,
-      "bead": "canopi-capt5s2c"
-    },
-    "saved-object-stamp:context-menu": {
-      "count": 1,
-      "bead": "canopi-capt5later"
-    },
-    "saved-object-stamp:duplicate": {
-      "count": 1,
-      "bead": "canopi-capt5later"
-    },
-    "saved-object-stamp:edit-by-values": {
-      "count": 1,
-      "bead": "canopi-capt5later"
-    },
-    "saved-object-stamp:edit-note-text": {
-      "count": 1,
-      "bead": "canopi-capt5s2c"
-    },
-    "saved-object-stamp:find-plants": {
-      "count": 1,
-      "bead": "canopi-capt5later"
-    },
-    "saved-object-stamp:geojson-export-import": {
-      "count": 1,
-      "bead": "canopi-capt5later"
-    },
-    "saved-object-stamp:group-ungroup": {
-      "count": 1,
-      "bead": "canopi-capt5s2c"
-    },
-    "saved-object-stamp:inspect-selection-chip": {
-      "count": 1,
-      "bead": "canopi-capt5later"
-    },
-    "saved-object-stamp:keyboard-nudge": {
-      "count": 1,
-      "bead": "canopi-capt5later"
-    },
-    "saved-object-stamp:layer-assignment": {
-      "count": 1,
-      "bead": "canopi-capt5later"
-    },
-    "saved-object-stamp:layer-visibility-lock-opacity": {
-      "count": 1,
-      "bead": "canopi-capt5later"
-    },
-    "saved-object-stamp:lock-unlock": {
-      "count": 1,
-      "bead": "canopi-capt5s2c"
-    },
-    "saved-object-stamp:measure-show-dimensions": {
-      "count": 1,
-      "bead": "canopi-capt5s2c"
-    },
-    "saved-object-stamp:move": {
-      "count": 1,
-      "bead": "canopi-capt5later"
-    },
-    "saved-object-stamp:multi-select-edit": {
-      "count": 1,
-      "bead": "canopi-capt5s2c"
-    },
-    "saved-object-stamp:object-stamp": {
-      "count": 1,
-      "bead": "canopi-capt5s2c"
-    },
-    "saved-object-stamp:place-from-stamp": {
-      "count": 1,
-      "bead": "canopi-capt5later"
-    },
-    "saved-object-stamp:plant-a-row": {
-      "count": 1,
-      "bead": "canopi-capt5later"
-    },
-    "saved-object-stamp:plant-labels": {
-      "count": 1,
-      "bead": "canopi-capt5s2c"
-    },
-    "saved-object-stamp:plant-style": {
-      "count": 1,
-      "bead": "canopi-capt5s2c"
-    },
-    "saved-object-stamp:rename-zone": {
-      "count": 1,
-      "bead": "canopi-capt5later"
-    },
-    "saved-object-stamp:resize-scale": {
-      "count": 1,
-      "bead": "canopi-capt5later"
-    },
-    "saved-object-stamp:rotate-by-value": {
-      "count": 1,
-      "bead": "canopi-capt5later"
-    },
-    "saved-object-stamp:rotate-handle": {
-      "count": 1,
-      "bead": "canopi-capt5later"
-    },
-    "saved-object-stamp:species-details": {
-      "count": 1,
-      "bead": "canopi-capt5later"
-    },
-    "saved-object-stamp:stamp-library-manage": {
-      "count": 1,
-      "bead": "canopi-capt5later"
-    },
-    "saved-object-stamp:undo-redo": {
-      "count": 1,
-      "bead": "canopi-capt5later"
-    },
-    "saved-object-stamp:zone-style": {
-      "count": 1,
-      "bead": "canopi-capt5s2c"
-    },
-    "saved-view:copy-cut-paste": {
-      "count": 1,
-      "bead": "canopi-capt8later"
-    },
-    "saved-view:design-template-import": {
-      "count": 1,
-      "bead": "canopi-capt13later"
-    },
-    "saved-view:duplicate": {
-      "count": 1,
-      "bead": "canopi-capt8later"
-    },
-    "saved-view:layer-assignment": {
-      "count": 1,
-      "bead": "canopi-capt8later"
-    },
-    "saved-view:measure-show-dimensions": {
-      "count": 1,
-      "bead": "canopi-capt8later"
-    },
-    "saved-view:pdf-export": {
-      "count": 1,
-      "bead": "canopi-capt3later"
-    },
-    "saved-view:pdf-page-edit": {
-      "count": 1,
-      "bead": "canopi-capt3later"
-    },
-    "saved-view:pdf-per-view-rotation": {
-      "count": 1,
-      "bead": "canopi-capt3s2c"
-    },
-    "saved-view:plant-style": {
-      "count": 1,
-      "bead": "canopi-capt8later"
-    },
-    "saved-view:rotate-by-value": {
-      "count": 1,
-      "bead": "canopi-capt8later"
-    },
-    "saved-view:site-data-display": {
-      "count": 1,
-      "bead": "canopi-capt8later"
-    },
-    "saved-view:species-details": {
-      "count": 1,
-      "bead": "canopi-capt8later"
-    },
-    "saved-view:species-focus": {
-      "count": 1,
-      "bead": "canopi-capt8later"
-    },
-    "saved-view:undo-redo": {
-      "count": 1,
-      "bead": "canopi-f47t.52.123"
-    },
-    "scene-layer:edit-note-text": {
-      "count": 1,
-      "bead": "canopi-capt10later"
-    },
-    "scene-layer:inspection-lens": {
-      "count": 1,
-      "bead": "canopi-capt10s2c"
-    },
-    "scene-layer:layer-assignment": {
-      "count": 1,
-      "bead": "canopi-capt10later"
-    },
-    "scene-layer:measure-show-dimensions": {
-      "count": 1,
-      "bead": "canopi-capt10later"
-    },
-    "scene-layer:pdf-page-edit": {
-      "count": 1,
-      "bead": "canopi-capt3later"
-    },
-    "scene-layer:plant-labels": {
-      "count": 1,
-      "bead": "canopi-capt10later"
-    },
-    "scene-layer:saved-views": {
-      "count": 1,
-      "bead": "canopi-capt10later"
-    },
-    "scene-layer:select-all": {
-      "count": 1,
-      "bead": "canopi-capt10later"
-    },
-    "scene-layer:z-order": {
-      "count": 1,
-      "bead": "canopi-capt10later"
-    },
-    "scene-layer:zone-style": {
-      "count": 1,
-      "bead": "canopi-capt10s2c"
-    },
-    "scene-layer:zoom-to-selection": {
-      "count": 1,
-      "bead": "canopi-capt10s2c"
-    },
-    "site-data-entry:copy-cut-paste": {
-      "count": 1,
-      "bead": "canopi-capt9later"
-    },
-    "site-data-entry:design-template-import": {
-      "count": 1,
-      "bead": "canopi-capt13later"
-    },
-    "site-data-entry:duplicate": {
-      "count": 1,
-      "bead": "canopi-capt9later"
-    },
-    "site-data-entry:hover-tooltip": {
-      "count": 1,
-      "bead": "canopi-capt9later"
-    },
-    "site-data-entry:inspection-lens": {
-      "count": 1,
-      "bead": "canopi-capt9later"
-    },
-    "site-data-entry:measure-show-dimensions": {
-      "count": 1,
-      "bead": "canopi-capt9later"
-    },
-    "site-data-entry:multi-select-edit": {
-      "count": 1,
-      "bead": "canopi-capt9later"
-    },
-    "site-data-entry:saved-views": {
-      "count": 1,
-      "bead": "canopi-capt9later"
-    },
-    "site-data-entry:site-data-display": {
-      "count": 1,
-      "bead": "canopi-capt9later"
-    },
-    "site-data-entry:undo-redo": {
-      "count": 1,
-      "bead": "canopi-f47t.52.123"
-    },
-    "site-data-entry:zoom-to-selection": {
-      "count": 1,
-      "bead": "canopi-capt9later"
-    },
-    "species-appearance:budget-csv-export": {
-      "count": 1,
-      "bead": "canopi-capt8later"
-    },
-    "species-appearance:context-menu": {
-      "count": 1,
-      "bead": "canopi-qjuzy"
-    },
-    "species-appearance:copy-cut-paste": {
-      "count": 1,
-      "bead": "canopi-capt8later"
-    },
-    "species-appearance:delete": {
-      "count": 1,
-      "bead": "canopi-qjuzy"
-    },
-    "species-appearance:design-template-import": {
-      "count": 1,
-      "bead": "canopi-capt13later"
-    },
-    "species-appearance:geojson-export-import": {
-      "count": 1,
-      "bead": "canopi-capt13later"
-    },
-    "species-appearance:hover-tooltip": {
-      "count": 1,
-      "bead": "canopi-capt8later"
-    },
-    "species-appearance:multi-select-edit": {
-      "count": 1,
-      "bead": "canopi-capt8later"
-    },
-    "species-appearance:place-from-stamp": {
-      "count": 1,
-      "bead": "canopi-capt5s2c"
-    },
-    "species-appearance:plant-style": {
-      "count": 1,
-      "bead": "canopi-capt8later"
-    },
-    "species-appearance:save-as-stamp": {
-      "count": 1,
-      "bead": "canopi-capt5s2c"
-    },
-    "species-appearance:saved-views": {
-      "count": 1,
-      "bead": "canopi-capt8later"
-    },
-    "species-appearance:stamp-library-manage": {
-      "count": 1,
-      "bead": "canopi-capt5s2c"
-    },
-    "species-appearance:stories": {
-      "count": 1,
-      "bead": "canopi-capt8later"
-    },
-    "species-appearance:undo-redo": {
-      "count": 1,
-      "bead": "canopi-f47t.52.123"
-    },
-    "story:copy-cut-paste": {
-      "count": 1,
-      "bead": "canopi-capt8later"
-    },
-    "story:design-template-import": {
-      "count": 1,
-      "bead": "canopi-capt13later"
-    },
-    "story:duplicate": {
-      "count": 1,
-      "bead": "canopi-capt8later"
-    },
-    "story:layer-assignment": {
-      "count": 1,
-      "bead": "canopi-capt8later"
-    },
-    "story:measure-show-dimensions": {
-      "count": 1,
-      "bead": "canopi-capt8later"
-    },
-    "story:pdf-export": {
-      "count": 1,
-      "bead": "canopi-capt3later"
-    },
-    "story:pdf-page-edit": {
-      "count": 1,
-      "bead": "canopi-capt3later"
-    },
-    "story:pdf-per-view-rotation": {
-      "count": 1,
-      "bead": "canopi-capt3s2c"
-    },
-    "story:species-details": {
-      "count": 1,
-      "bead": "canopi-capt8later"
-    },
-    "story:undo-redo": {
-      "count": 1,
-      "bead": "canopi-f47t.52.123"
-    },
-    "text-note:align-distribute": {
-      "count": 1,
-      "bead": "canopi-capt4later"
-    },
-    "text-note:context-menu": {
-      "count": 1,
-      "bead": "canopi-capt4s2c"
-    },
-    "text-note:design-template-import": {
-      "count": 1,
-      "bead": "canopi-capt13later"
-    },
-    "text-note:edit-by-values": {
-      "count": 1,
-      "bead": "canopi-capt4later"
-    },
-    "text-note:edit-note-text": {
-      "count": 1,
-      "bead": "canopi-capt4later"
-    },
-    "text-note:find-plants": {
-      "count": 1,
-      "bead": "canopi-capt12later"
-    },
-    "text-note:hover-tooltip": {
-      "count": 1,
-      "bead": "canopi-capt12later"
-    },
-    "text-note:inspection-lens": {
-      "count": 1,
-      "bead": "canopi-capt12s2c"
-    },
-    "text-note:layer-assignment": {
-      "count": 1,
-      "bead": "canopi-capt10later"
-    },
-    "text-note:multi-select-edit": {
-      "count": 1,
-      "bead": "canopi-capt4later"
-    },
-    "text-note:pdf-page-edit": {
-      "count": 1,
-      "bead": "canopi-capt3later"
-    },
-    "text-note:resize-scale": {
-      "count": 1,
-      "bead": "canopi-capt4later"
-    },
-    "text-note:saved-views": {
-      "count": 1,
-      "bead": "canopi-capt12s2c"
-    },
-    "text-note:snap-to-grid": {
-      "count": 1,
-      "bead": "canopi-capt4s2c"
-    },
-    "text-note:stories": {
-      "count": 1,
-      "bead": "canopi-capt12s2c"
-    },
-    "zone-ellipse:align-distribute": {
-      "count": 1,
-      "bead": "canopi-capt4later"
-    },
-    "zone-ellipse:budget-csv-export": {
-      "count": 1,
-      "bead": "canopi-capt8later"
-    },
-    "zone-ellipse:calendar-budget-targets": {
-      "count": 1,
-      "bead": "canopi-capt8later"
-    },
-    "zone-ellipse:context-menu": {
-      "count": 1,
-      "bead": "canopi-capt4s2c"
-    },
-    "zone-ellipse:design-template-import": {
-      "count": 1,
-      "bead": "canopi-capt13later"
-    },
-    "zone-ellipse:edit-by-values": {
-      "count": 1,
-      "bead": "canopi-capt4s2c"
-    },
-    "zone-ellipse:edit-note-text": {
-      "count": 1,
-      "bead": "canopi-capt4later"
-    },
-    "zone-ellipse:find-plants": {
-      "count": 1,
-      "bead": "canopi-capt12later"
-    },
-    "zone-ellipse:hover-tooltip": {
-      "count": 1,
-      "bead": "canopi-capt12s2c"
-    },
-    "zone-ellipse:layer-assignment": {
-      "count": 1,
-      "bead": "canopi-capt10later"
-    },
-    "zone-ellipse:measure-show-dimensions": {
-      "count": 1,
-      "bead": "canopi-capt4s2c"
-    },
-    "zone-ellipse:multi-select-edit": {
-      "count": 1,
-      "bead": "canopi-capt4s2c"
-    },
-    "zone-ellipse:pdf-page-edit": {
-      "count": 1,
-      "bead": "canopi-capt3later"
-    },
-    "zone-ellipse:plant-a-row": {
-      "count": 1,
-      "bead": "canopi-capt14later"
-    },
-    "zone-ellipse:profile-line": {
-      "count": 1,
-      "bead": "canopi-capt14later"
-    },
-    "zone-ellipse:rename-zone": {
-      "count": 1,
-      "bead": "canopi-capt4s2c"
-    },
-    "zone-ellipse:resize-scale": {
-      "count": 1,
-      "bead": "canopi-capt4s2c"
-    },
-    "zone-ellipse:touch-gestures": {
-      "count": 1,
-      "bead": "canopi-capt11s2c"
-    },
-    "zone-ellipse:turn-view-to-edge": {
-      "count": 1,
-      "bead": "canopi-capt12later"
-    },
-    "zone-ellipse:zone-style": {
-      "count": 1,
-      "bead": "canopi-capt4s2c"
-    },
-    "zone-line:align-distribute": {
-      "count": 1,
-      "bead": "canopi-capt4later"
-    },
-    "zone-line:budget-csv-export": {
-      "count": 1,
-      "bead": "canopi-capt8later"
-    },
-    "zone-line:calendar-budget-targets": {
-      "count": 1,
-      "bead": "canopi-capt8later"
-    },
-    "zone-line:design-template-import": {
-      "count": 1,
-      "bead": "canopi-capt13later"
-    },
-    "zone-line:edit-by-values": {
-      "count": 1,
-      "bead": "canopi-capt4s2c"
-    },
-    "zone-line:edit-note-text": {
-      "count": 1,
-      "bead": "canopi-capt4later"
-    },
-    "zone-line:find-plants": {
-      "count": 1,
-      "bead": "canopi-capt12later"
-    },
-    "zone-line:hover-tooltip": {
-      "count": 1,
-      "bead": "canopi-capt12s2c"
-    },
-    "zone-line:layer-assignment": {
-      "count": 1,
-      "bead": "canopi-capt10later"
-    },
-    "zone-line:measure-show-dimensions": {
-      "count": 1,
-      "bead": "canopi-capt4s2c"
-    },
-    "zone-line:multi-select-edit": {
-      "count": 1,
-      "bead": "canopi-capt4s2c"
-    },
-    "zone-line:pdf-page-edit": {
-      "count": 1,
-      "bead": "canopi-capt3later"
-    },
-    "zone-line:plant-a-row": {
-      "count": 1,
-      "bead": "canopi-capt14later"
-    },
-    "zone-line:rename-zone": {
-      "count": 1,
-      "bead": "canopi-capt4later"
-    },
-    "zone-line:resize-scale": {
-      "count": 1,
-      "bead": "canopi-capt4s2c"
-    },
-    "zone-line:touch-gestures": {
-      "count": 1,
-      "bead": "canopi-capt11s2c"
-    },
-    "zone-line:zone-style": {
-      "count": 1,
-      "bead": "canopi-capt4s2c"
-    },
-    "zone-polygon:align-distribute": {
-      "count": 1,
-      "bead": "canopi-capt4later"
-    },
-    "zone-polygon:budget-csv-export": {
-      "count": 1,
-      "bead": "canopi-capt8later"
-    },
-    "zone-polygon:calendar-budget-targets": {
-      "count": 1,
-      "bead": "canopi-capt8later"
-    },
-    "zone-polygon:context-menu": {
-      "count": 1,
-      "bead": "canopi-capt4s2c"
-    },
-    "zone-polygon:design-template-import": {
-      "count": 1,
-      "bead": "canopi-capt13later"
-    },
-    "zone-polygon:edit-by-values": {
-      "count": 1,
-      "bead": "canopi-capt4s2c"
-    },
-    "zone-polygon:edit-note-text": {
-      "count": 1,
-      "bead": "canopi-capt4later"
-    },
-    "zone-polygon:find-plants": {
-      "count": 1,
-      "bead": "canopi-capt12later"
-    },
-    "zone-polygon:hover-tooltip": {
-      "count": 1,
-      "bead": "canopi-capt12s2c"
-    },
-    "zone-polygon:layer-assignment": {
-      "count": 1,
-      "bead": "canopi-capt10later"
-    },
-    "zone-polygon:measure-show-dimensions": {
-      "count": 1,
-      "bead": "canopi-capt4s2c"
-    },
-    "zone-polygon:multi-select-edit": {
-      "count": 1,
-      "bead": "canopi-capt4s2c"
-    },
-    "zone-polygon:pdf-page-edit": {
-      "count": 1,
-      "bead": "canopi-capt3later"
-    },
-    "zone-polygon:plant-a-row": {
-      "count": 1,
-      "bead": "canopi-capt14later"
-    },
-    "zone-polygon:profile-line": {
-      "count": 1,
-      "bead": "canopi-capt14later"
-    },
-    "zone-polygon:rename-zone": {
-      "count": 1,
-      "bead": "canopi-capt4s2c"
-    },
-    "zone-polygon:resize-scale": {
-      "count": 1,
-      "bead": "canopi-capt4s2c"
-    },
-    "zone-polygon:zone-style": {
-      "count": 1,
-      "bead": "canopi-capt4s2c"
-    },
-    "zone-rect:align-distribute": {
-      "count": 1,
-      "bead": "canopi-capt4later"
-    },
-    "zone-rect:budget-csv-export": {
-      "count": 1,
-      "bead": "canopi-capt8later"
-    },
-    "zone-rect:calendar-budget-targets": {
-      "count": 1,
-      "bead": "canopi-capt8later"
-    },
-    "zone-rect:context-menu": {
-      "count": 1,
-      "bead": "canopi-capt4s2c"
-    },
-    "zone-rect:design-template-import": {
-      "count": 1,
-      "bead": "canopi-capt13later"
-    },
-    "zone-rect:edit-by-values": {
-      "count": 1,
-      "bead": "canopi-capt4s2c"
-    },
-    "zone-rect:edit-note-text": {
-      "count": 1,
-      "bead": "canopi-capt4later"
-    },
-    "zone-rect:find-plants": {
-      "count": 1,
-      "bead": "canopi-capt12later"
-    },
-    "zone-rect:hover-tooltip": {
-      "count": 1,
-      "bead": "canopi-capt12s2c"
-    },
-    "zone-rect:layer-assignment": {
-      "count": 1,
-      "bead": "canopi-capt10later"
-    },
-    "zone-rect:measure-show-dimensions": {
-      "count": 1,
-      "bead": "canopi-capt4s2c"
-    },
-    "zone-rect:multi-select-edit": {
-      "count": 1,
-      "bead": "canopi-capt4s2c"
-    },
-    "zone-rect:pdf-page-edit": {
-      "count": 1,
-      "bead": "canopi-capt3later"
-    },
-    "zone-rect:plant-a-row": {
-      "count": 1,
-      "bead": "canopi-capt14later"
-    },
-    "zone-rect:profile-line": {
-      "count": 1,
-      "bead": "canopi-capt14later"
-    },
-    "zone-rect:rename-zone": {
-      "count": 1,
-      "bead": "canopi-capt4s2c"
-    },
-    "zone-rect:resize-scale": {
-      "count": 1,
-      "bead": "canopi-capt4s2c"
-    },
-    "zone-rect:touch-gestures": {
-      "count": 1,
-      "bead": "canopi-capt11s2c"
-    },
-    "zone-rect:zone-style": {
-      "count": 1,
-      "bead": "canopi-capt4s2c"
-    }
+    "analysis-result:duplicate": { "count": 1, "bead": "canopi-capt9later" },
+    "analysis-result:hover-tooltip": { "count": 1, "bead": "canopi-capt9later" },
+    "analysis-result:inspection-lens": { "count": 1, "bead": "canopi-capt9later" },
+    "analysis-result:pdf-page-edit": { "count": 1, "bead": "canopi-capt2later" },
+    "analysis-result:profile-line": { "count": 1, "bead": "canopi-capt9later" },
+    "analysis-result:saved-views": { "count": 1, "bead": "canopi-capt9later" },
+    "analysis-result:site-data-display": { "count": 1, "bead": "canopi-capt9later" },
+    "analysis-result:undo-redo": { "count": 1, "bead": "canopi-capt7later" },
+    "analysis-result:zoom-to-selection": { "count": 1, "bead": "canopi-capt9later" },
+    "budget-item:copy-cut-paste": { "count": 1, "bead": "canopi-capt8later" },
+    "budget-item:delete": { "count": 1, "bead": "canopi-capt8s2c" },
+    "budget-item:find-plants": { "count": 1, "bead": "canopi-capt8later" },
+    "budget-item:multi-select-edit": { "count": 1, "bead": "canopi-capt8later" },
+    "budget-item:species-details": { "count": 1, "bead": "canopi-capt8later" },
+    "budget-item:touch-gestures": { "count": 1, "bead": "canopi-capt11s2c" },
+    "budget-item:undo-redo": { "count": 1, "bead": "canopi-f47t.52.123" },
+    "budget-item:zoom-to-selection": { "count": 1, "bead": "canopi-capt8later" },
+    "calendar-action:budget-csv-export": { "count": 1, "bead": "canopi-capt8later" },
+    "calendar-action:context-menu": { "count": 1, "bead": "canopi-capt8later" },
+    "calendar-action:copy-cut-paste": { "count": 1, "bead": "canopi-capt8later" },
+    "calendar-action:duplicate": { "count": 1, "bead": "canopi-capt8later" },
+    "calendar-action:find-plants": { "count": 1, "bead": "canopi-capt8later" },
+    "calendar-action:multi-select-edit": { "count": 1, "bead": "canopi-capt8later" },
+    "calendar-action:species-details": { "count": 1, "bead": "canopi-capt8later" },
+    "calendar-action:species-focus": { "count": 1, "bead": "canopi-capt8later" },
+    "calendar-action:touch-gestures": { "count": 1, "bead": "canopi-capt11s2c" },
+    "calendar-action:undo-redo": { "count": 1, "bead": "canopi-f47t.52.123" },
+    "calendar-action:zoom-to-selection": { "count": 1, "bead": "canopi-capt8later" },
+    "consortium-entry:budget-csv-export": { "count": 1, "bead": "canopi-capt8later" },
+    "consortium-entry:context-menu": { "count": 1, "bead": "canopi-capt8later" },
+    "consortium-entry:copy-cut-paste": { "count": 1, "bead": "canopi-capt8later" },
+    "consortium-entry:delete": { "count": 1, "bead": "canopi-capt8later" },
+    "consortium-entry:find-plants": { "count": 1, "bead": "canopi-capt8later" },
+    "consortium-entry:multi-select-edit": { "count": 1, "bead": "canopi-capt8later" },
+    "consortium-entry:species-details": { "count": 1, "bead": "canopi-capt8later" },
+    "consortium-entry:touch-gestures": { "count": 1, "bead": "canopi-capt11s2c" },
+    "consortium-entry:undo-redo": { "count": 1, "bead": "canopi-f47t.52.123" },
+    "consortium-entry:zoom-to-selection": { "count": 1, "bead": "canopi-capt8later" },
+    "design-map-view:pdf-export": { "count": 1, "bead": "canopi-capt3later" },
+    "design-map-view:pdf-page-edit": { "count": 1, "bead": "canopi-capt3later" },
+    "design-map-view:pdf-per-view-rotation": { "count": 1, "bead": "canopi-capt3s2c" },
+    "group:align-distribute": { "count": 1, "bead": "canopi-capt6later" },
+    "group:calendar-budget-targets": { "count": 1, "bead": "canopi-capt6s2c" },
+    "group:context-menu": { "count": 1, "bead": "canopi-capt6s2c" },
+    "group:edit-by-values": { "count": 1, "bead": "canopi-capt6s2c" },
+    "group:edit-note-text": { "count": 1, "bead": "canopi-capt6s2c" },
+    "group:find-plants": { "count": 1, "bead": "canopi-capt6later" },
+    "group:hover-tooltip": { "count": 1, "bead": "canopi-capt6s2c" },
+    "group:inspect-selection-chip": { "count": 1, "bead": "canopi-capt6s2c" },
+    "group:inspection-lens": { "count": 1, "bead": "canopi-capt6s2c" },
+    "group:measure-show-dimensions": { "count": 1, "bead": "canopi-capt6s2c" },
+    "group:multi-select-edit": { "count": 1, "bead": "canopi-capt6s2c" },
+    "group:pdf-export": { "count": 1, "bead": "canopi-capt6later" },
+    "group:pdf-page-edit": { "count": 1, "bead": "canopi-capt6later" },
+    "group:plant-a-row": { "count": 1, "bead": "canopi-capt6later" },
+    "group:plant-style": { "count": 1, "bead": "canopi-capt6s2c" },
+    "group:rename-zone": { "count": 1, "bead": "canopi-capt6s2c" },
+    "group:reshape-vertices": { "count": 1, "bead": "canopi-capt6later" },
+    "group:resize-scale": { "count": 1, "bead": "canopi-capt6later" },
+    "group:saved-views": { "count": 1, "bead": "canopi-capt6s2c" },
+    "group:select": { "count": 1, "bead": "canopi-capt6s2c" },
+    "group:select-same-species": { "count": 1, "bead": "canopi-capt6s2c" },
+    "group:species-details": { "count": 1, "bead": "canopi-capt6s2c" },
+    "group:stories": { "count": 1, "bead": "canopi-capt6s2c" },
+    "group:zone-style": { "count": 1, "bead": "canopi-capt6s2c" },
+    "map-background:saved-views": { "count": 1, "bead": "canopi-capt9later" },
+    "map-background:site-data-display": { "count": 1, "bead": "canopi-capt9later" },
+    "measurement-guide:align-distribute": { "count": 1, "bead": "canopi-capt1later" },
+    "measurement-guide:context-menu": { "count": 1, "bead": "canopi-f47t.52.155" },
+    "measurement-guide:edit-by-values": { "count": 1, "bead": "canopi-f47t.52.155" },
+    "measurement-guide:edit-note-text": { "count": 1, "bead": "canopi-capt1later" },
+    "measurement-guide:group-ungroup": { "count": 1, "bead": "canopi-f47t.52.155" },
+    "measurement-guide:hover-tooltip": { "count": 1, "bead": "canopi-f47t.52.155" },
+    "measurement-guide:inspection-lens": { "count": 1, "bead": "canopi-f47t.52.155" },
+    "measurement-guide:layer-assignment": { "count": 1, "bead": "canopi-capt1later" },
+    "measurement-guide:measure-show-dimensions": { "count": 1, "bead": "canopi-f47t.52.155" },
+    "measurement-guide:multi-select-edit": { "count": 1, "bead": "canopi-f47t.52.155" },
+    "measurement-guide:object-stamp": { "count": 1, "bead": "canopi-f47t.52.155" },
+    "measurement-guide:pdf-page-edit": { "count": 1, "bead": "canopi-capt2later" },
+    "measurement-guide:place-from-stamp": { "count": 1, "bead": "canopi-f47t.52.155" },
+    "measurement-guide:plant-a-row": { "count": 1, "bead": "canopi-capt1later" },
+    "measurement-guide:rename-zone": { "count": 1, "bead": "canopi-capt1later" },
+    "measurement-guide:resize-scale": { "count": 1, "bead": "canopi-f47t.52.155" },
+    "measurement-guide:save-as-stamp": { "count": 1, "bead": "canopi-f47t.52.155" },
+    "measurement-guide:saved-views": { "count": 1, "bead": "canopi-f47t.52.155" },
+    "measurement-guide:stamp-library-manage": { "count": 1, "bead": "canopi-f47t.52.155" },
+    "measurement-guide:stories": { "count": 1, "bead": "canopi-f47t.52.155" },
+    "measurement-guide:touch-gestures": { "count": 1, "bead": "canopi-f47t.52.155" },
+    "measurement-guide:turn-view-to-edge": { "count": 1, "bead": "canopi-f47t.52.155" },
+    "measurement-guide:zoom-to-selection": { "count": 1, "bead": "canopi-f47t.52.155" },
+    "pdf-detail-page:align-distribute": { "count": 1, "bead": "canopi-capt2later" },
+    "pdf-detail-page:band-select": { "count": 1, "bead": "canopi-capt2later" },
+    "pdf-detail-page:context-menu": { "count": 1, "bead": "canopi-capt2s2c" },
+    "pdf-detail-page:copy-cut-paste": { "count": 1, "bead": "canopi-capt2later" },
+    "pdf-detail-page:draw-constraints": { "count": 1, "bead": "canopi-capt2later" },
+    "pdf-detail-page:duplicate": { "count": 1, "bead": "canopi-capt2later" },
+    "pdf-detail-page:edit-by-values": { "count": 1, "bead": "canopi-capt2later" },
+    "pdf-detail-page:hover-tooltip": { "count": 1, "bead": "canopi-capt2later" },
+    "pdf-detail-page:layer-assignment": { "count": 1, "bead": "canopi-capt2later" },
+    "pdf-detail-page:multi-select-edit": { "count": 1, "bead": "canopi-capt2s2c" },
+    "pdf-detail-page:pdf-page-edit": { "count": 1, "bead": "canopi-capt2later" },
+    "pdf-detail-page:pdf-per-view-rotation": { "count": 1, "bead": "canopi-capt2s2c" },
+    "pdf-detail-page:plant-style": { "count": 1, "bead": "canopi-capt2later" },
+    "pdf-detail-page:rename-zone": { "count": 1, "bead": "canopi-capt2later" },
+    "pdf-detail-page:reshape-vertices": { "count": 1, "bead": "canopi-capt2later" },
+    "pdf-detail-page:resize-scale": { "count": 1, "bead": "canopi-capt2later" },
+    "pdf-detail-page:rotate-by-value": { "count": 1, "bead": "canopi-capt2s2c" },
+    "pdf-detail-page:rotate-handle": { "count": 1, "bead": "canopi-capt2s2c" },
+    "pdf-detail-page:saved-views": { "count": 1, "bead": "canopi-capt2s2c" },
+    "pdf-detail-page:select": { "count": 1, "bead": "canopi-capt2later" },
+    "pdf-detail-page:select-all": { "count": 1, "bead": "canopi-capt2later" },
+    "pdf-detail-page:snap-to-grid": { "count": 1, "bead": "canopi-capt2later" },
+    "pdf-detail-page:species-focus": { "count": 1, "bead": "canopi-capt2later" },
+    "pdf-detail-page:touch-gestures": { "count": 1, "bead": "canopi-capt2later" },
+    "pdf-detail-page:turn-view-to-edge": { "count": 1, "bead": "canopi-capt2s2c" },
+    "pdf-detail-page:undo-redo": { "count": 1, "bead": "canopi-capt2later" },
+    "pdf-detail-page:zoom-to-selection": { "count": 1, "bead": "canopi-capt2later" },
+    "pdf-key-page:pdf-page-edit": { "count": 1, "bead": "canopi-capt2later" },
+    "pdf-key-page:rename-zone": { "count": 1, "bead": "canopi-capt2later" },
+    "pdf-key-page:species-details": { "count": 1, "bead": "canopi-capt2later" },
+    "pdf-overview-page:delete": { "count": 1, "bead": "canopi-z1ie7" },
+    "pdf-overview-page:edit-by-values": { "count": 1, "bead": "canopi-capt2later" },
+    "pdf-overview-page:hover-tooltip": { "count": 1, "bead": "canopi-capt2later" },
+    "pdf-overview-page:measure-show-dimensions": { "count": 1, "bead": "canopi-capt2s2c" },
+    "pdf-overview-page:pdf-page-edit": { "count": 1, "bead": "canopi-capt2later" },
+    "pdf-overview-page:pdf-per-view-rotation": { "count": 1, "bead": "canopi-capt2s2c" },
+    "pdf-overview-page:plant-labels": { "count": 1, "bead": "canopi-capt2s2c" },
+    "pdf-overview-page:rename-zone": { "count": 1, "bead": "canopi-capt2later" },
+    "pdf-overview-page:resize-scale": { "count": 1, "bead": "canopi-capt2later" },
+    "pdf-overview-page:rotate-by-value": { "count": 1, "bead": "canopi-capt2s2c" },
+    "pdf-overview-page:rotate-handle": { "count": 1, "bead": "canopi-capt2s2c" },
+    "pdf-overview-page:saved-views": { "count": 1, "bead": "canopi-capt2later" },
+    "pdf-overview-page:species-details": { "count": 1, "bead": "canopi-capt2later" },
+    "pdf-overview-page:species-focus": { "count": 1, "bead": "canopi-capt2later" },
+    "pdf-overview-page:touch-gestures": { "count": 1, "bead": "canopi-capt2later" },
+    "pdf-overview-page:turn-view-to-edge": { "count": 1, "bead": "canopi-capt2s2c" },
+    "pdf-page-furniture:delete": { "count": 1, "bead": "canopi-capt2later" },
+    "pdf-page-furniture:keyboard-nudge": { "count": 1, "bead": "canopi-capt2later" },
+    "pdf-page-furniture:move": { "count": 1, "bead": "canopi-capt2later" },
+    "pdf-page-furniture:pdf-page-edit": { "count": 1, "bead": "canopi-capt2later" },
+    "pdf-page-furniture:pdf-per-view-rotation": { "count": 1, "bead": "canopi-capt2s2c" },
+    "pdf-setup:edit-by-values": { "count": 1, "bead": "canopi-capt2s2c" },
+    "pdf-setup:layer-assignment": { "count": 1, "bead": "canopi-capt2later" },
+    "pdf-setup:pdf-per-view-rotation": { "count": 1, "bead": "canopi-capt2s2c" },
+    "pdf-setup:plant-labels": { "count": 1, "bead": "canopi-capt2later" },
+    "pdf-setup:plant-style": { "count": 1, "bead": "canopi-capt2later" },
+    "pdf-setup:rotate-by-value": { "count": 1, "bead": "canopi-capt2s2c" },
+    "pdf-setup:rotate-handle": { "count": 1, "bead": "canopi-capt2s2c" },
+    "pdf-setup:saved-views": { "count": 1, "bead": "canopi-capt2later" },
+    "pdf-setup:species-focus": { "count": 1, "bead": "canopi-capt2later" },
+    "pdf-setup:stories": { "count": 1, "bead": "canopi-capt2later" },
+    "pdf-setup:turn-view-to-edge": { "count": 1, "bead": "canopi-capt2s2c" },
+    "pdf-setup:undo-redo": { "count": 1, "bead": "canopi-capt2later" },
+    "pdf-setup:zone-style": { "count": 1, "bead": "canopi-capt2later" },
+    "pdf-split-sheets:band-select": { "count": 1, "bead": "canopi-capt2later" },
+    "pdf-split-sheets:delete": { "count": 1, "bead": "canopi-capt2later" },
+    "pdf-split-sheets:duplicate": { "count": 1, "bead": "canopi-capt2later" },
+    "pdf-split-sheets:edit-by-values": { "count": 1, "bead": "canopi-capt2later" },
+    "pdf-split-sheets:keyboard-nudge": { "count": 1, "bead": "canopi-capt2later" },
+    "pdf-split-sheets:move": { "count": 1, "bead": "canopi-capt2later" },
+    "pdf-split-sheets:pdf-per-view-rotation": { "count": 1, "bead": "canopi-capt2s2c" },
+    "pdf-split-sheets:reshape-vertices": { "count": 1, "bead": "canopi-capt2later" },
+    "pdf-split-sheets:resize-scale": { "count": 1, "bead": "canopi-capt2later" },
+    "pdf-split-sheets:rotate-by-value": { "count": 1, "bead": "canopi-capt2s2c" },
+    "pdf-split-sheets:rotate-handle": { "count": 1, "bead": "canopi-capt2s2c" },
+    "pdf-split-sheets:select": { "count": 1, "bead": "canopi-capt2later" },
+    "pdf-split-sheets:select-all": { "count": 1, "bead": "canopi-capt2later" },
+    "pdf-split-sheets:turn-view-to-edge": { "count": 1, "bead": "canopi-capt2s2c" },
+    "pdf-split-sheets:undo-redo": { "count": 1, "bead": "canopi-capt2later" },
+    "plant-row-path:edit-by-values": { "count": 1, "bead": "canopi-capt4later" },
+    "plant-row-path:group-ungroup": { "count": 1, "bead": "canopi-capt4later" },
+    "plant-row-path:inspection-lens": { "count": 1, "bead": "canopi-capt12s2c" },
+    "plant-row-path:keyboard-nudge": { "count": 1, "bead": "canopi-capt4later" },
+    "plant-row-path:move": { "count": 1, "bead": "canopi-capt4later" },
+    "plant-row-path:plant-labels": { "count": 1, "bead": "canopi-capt4later" },
+    "plant-row-path:profile-line": { "count": 1, "bead": "canopi-capt14later" },
+    "plant-row-path:reshape-vertices": { "count": 1, "bead": "canopi-capt4later" },
+    "plant-row-path:rotate-by-value": { "count": 1, "bead": "canopi-capt4later" },
+    "plant-row-path:rotate-handle": { "count": 1, "bead": "canopi-capt4later" },
+    "plant:align-distribute": { "count": 1, "bead": "canopi-capt4later" },
+    "plant:budget-csv-export": { "count": 1, "bead": "canopi-capt8later" },
+    "plant:edit-by-values": { "count": 1, "bead": "canopi-capt4later" },
+    "plant:edit-note-text": { "count": 1, "bead": "canopi-capt4later" },
+    "plant:hover-tooltip": { "count": 1, "bead": "canopi-capt12s2c" },
+    "plant:layer-assignment": { "count": 1, "bead": "canopi-capt10later" },
+    "plant:measure-show-dimensions": { "count": 1, "bead": "canopi-capt4later" },
+    "plant:place-from-stamp": { "count": 1, "bead": "canopi-capt5s2c" },
+    "plant:plant-a-row": { "count": 1, "bead": "canopi-capt14later" },
+    "plant:resize-scale": { "count": 1, "bead": "canopi-capt4later" },
+    "plant:save-as-stamp": { "count": 1, "bead": "canopi-capt5s2c" },
+    "plant:select-same-species": { "count": 1, "bead": "canopi-capt6s2c" },
+    "plant:site-data-display": { "count": 1, "bead": "canopi-capt9later" },
+    "plant:stamp-library-manage": { "count": 1, "bead": "canopi-capt5s2c" },
+    "saved-object-stamp:context-menu": { "count": 1, "bead": "canopi-capt5later" },
+    "saved-object-stamp:duplicate": { "count": 1, "bead": "canopi-capt5later" },
+    "saved-object-stamp:edit-by-values": { "count": 1, "bead": "canopi-capt5later" },
+    "saved-object-stamp:edit-note-text": { "count": 1, "bead": "canopi-capt5s2c" },
+    "saved-object-stamp:find-plants": { "count": 1, "bead": "canopi-capt5later" },
+    "saved-object-stamp:geojson-export-import": { "count": 1, "bead": "canopi-capt5later" },
+    "saved-object-stamp:group-ungroup": { "count": 1, "bead": "canopi-capt5s2c" },
+    "saved-object-stamp:inspect-selection-chip": { "count": 1, "bead": "canopi-capt5later" },
+    "saved-object-stamp:keyboard-nudge": { "count": 1, "bead": "canopi-capt5later" },
+    "saved-object-stamp:layer-assignment": { "count": 1, "bead": "canopi-capt5later" },
+    "saved-object-stamp:layer-visibility-lock-opacity": { "count": 1, "bead": "canopi-capt5later" },
+    "saved-object-stamp:lock-unlock": { "count": 1, "bead": "canopi-capt5s2c" },
+    "saved-object-stamp:measure-show-dimensions": { "count": 1, "bead": "canopi-capt5s2c" },
+    "saved-object-stamp:move": { "count": 1, "bead": "canopi-capt5later" },
+    "saved-object-stamp:multi-select-edit": { "count": 1, "bead": "canopi-capt5s2c" },
+    "saved-object-stamp:object-stamp": { "count": 1, "bead": "canopi-capt5s2c" },
+    "saved-object-stamp:place-from-stamp": { "count": 1, "bead": "canopi-capt5later" },
+    "saved-object-stamp:plant-a-row": { "count": 1, "bead": "canopi-capt5later" },
+    "saved-object-stamp:plant-labels": { "count": 1, "bead": "canopi-capt5s2c" },
+    "saved-object-stamp:plant-style": { "count": 1, "bead": "canopi-capt5s2c" },
+    "saved-object-stamp:rename-zone": { "count": 1, "bead": "canopi-capt5later" },
+    "saved-object-stamp:resize-scale": { "count": 1, "bead": "canopi-capt5later" },
+    "saved-object-stamp:rotate-by-value": { "count": 1, "bead": "canopi-capt5later" },
+    "saved-object-stamp:rotate-handle": { "count": 1, "bead": "canopi-capt5later" },
+    "saved-object-stamp:species-details": { "count": 1, "bead": "canopi-capt5later" },
+    "saved-object-stamp:stamp-library-manage": { "count": 1, "bead": "canopi-capt5later" },
+    "saved-object-stamp:undo-redo": { "count": 1, "bead": "canopi-capt5later" },
+    "saved-object-stamp:zone-style": { "count": 1, "bead": "canopi-capt5s2c" },
+    "saved-view:copy-cut-paste": { "count": 1, "bead": "canopi-capt8later" },
+    "saved-view:duplicate": { "count": 1, "bead": "canopi-capt8later" },
+    "saved-view:layer-assignment": { "count": 1, "bead": "canopi-capt8later" },
+    "saved-view:measure-show-dimensions": { "count": 1, "bead": "canopi-capt8later" },
+    "saved-view:pdf-export": { "count": 1, "bead": "canopi-capt3later" },
+    "saved-view:pdf-page-edit": { "count": 1, "bead": "canopi-capt3later" },
+    "saved-view:pdf-per-view-rotation": { "count": 1, "bead": "canopi-capt3s2c" },
+    "saved-view:plant-style": { "count": 1, "bead": "canopi-capt8later" },
+    "saved-view:rotate-by-value": { "count": 1, "bead": "canopi-capt8later" },
+    "saved-view:site-data-display": { "count": 1, "bead": "canopi-capt8later" },
+    "saved-view:species-details": { "count": 1, "bead": "canopi-capt8later" },
+    "saved-view:species-focus": { "count": 1, "bead": "canopi-capt8later" },
+    "saved-view:undo-redo": { "count": 1, "bead": "canopi-f47t.52.123" },
+    "scene-layer:edit-note-text": { "count": 1, "bead": "canopi-capt10later" },
+    "scene-layer:inspection-lens": { "count": 1, "bead": "canopi-capt10s2c" },
+    "scene-layer:layer-assignment": { "count": 1, "bead": "canopi-capt10later" },
+    "scene-layer:measure-show-dimensions": { "count": 1, "bead": "canopi-capt10later" },
+    "scene-layer:pdf-page-edit": { "count": 1, "bead": "canopi-capt3later" },
+    "scene-layer:plant-labels": { "count": 1, "bead": "canopi-capt10later" },
+    "scene-layer:saved-views": { "count": 1, "bead": "canopi-capt10later" },
+    "scene-layer:select-all": { "count": 1, "bead": "canopi-capt10later" },
+    "scene-layer:z-order": { "count": 1, "bead": "canopi-capt10later" },
+    "scene-layer:zone-style": { "count": 1, "bead": "canopi-capt10s2c" },
+    "scene-layer:zoom-to-selection": { "count": 1, "bead": "canopi-capt10s2c" },
+    "site-data-entry:copy-cut-paste": { "count": 1, "bead": "canopi-capt9later" },
+    "site-data-entry:duplicate": { "count": 1, "bead": "canopi-capt9later" },
+    "site-data-entry:hover-tooltip": { "count": 1, "bead": "canopi-capt9later" },
+    "site-data-entry:inspection-lens": { "count": 1, "bead": "canopi-capt9later" },
+    "site-data-entry:measure-show-dimensions": { "count": 1, "bead": "canopi-capt9later" },
+    "site-data-entry:multi-select-edit": { "count": 1, "bead": "canopi-capt9later" },
+    "site-data-entry:saved-views": { "count": 1, "bead": "canopi-capt9later" },
+    "site-data-entry:site-data-display": { "count": 1, "bead": "canopi-capt9later" },
+    "site-data-entry:undo-redo": { "count": 1, "bead": "canopi-f47t.52.123" },
+    "site-data-entry:zoom-to-selection": { "count": 1, "bead": "canopi-capt9later" },
+    "species-appearance:budget-csv-export": { "count": 1, "bead": "canopi-capt8later" },
+    "species-appearance:context-menu": { "count": 1, "bead": "canopi-qjuzy" },
+    "species-appearance:copy-cut-paste": { "count": 1, "bead": "canopi-capt8later" },
+    "species-appearance:delete": { "count": 1, "bead": "canopi-qjuzy" },
+    "species-appearance:geojson-export-import": { "count": 1, "bead": "canopi-capt13later" },
+    "species-appearance:hover-tooltip": { "count": 1, "bead": "canopi-capt8later" },
+    "species-appearance:multi-select-edit": { "count": 1, "bead": "canopi-capt8later" },
+    "species-appearance:place-from-stamp": { "count": 1, "bead": "canopi-capt5s2c" },
+    "species-appearance:plant-style": { "count": 1, "bead": "canopi-capt8later" },
+    "species-appearance:save-as-stamp": { "count": 1, "bead": "canopi-capt5s2c" },
+    "species-appearance:saved-views": { "count": 1, "bead": "canopi-capt8later" },
+    "species-appearance:stamp-library-manage": { "count": 1, "bead": "canopi-capt5s2c" },
+    "species-appearance:stories": { "count": 1, "bead": "canopi-capt8later" },
+    "species-appearance:undo-redo": { "count": 1, "bead": "canopi-f47t.52.123" },
+    "story:copy-cut-paste": { "count": 1, "bead": "canopi-capt8later" },
+    "story:duplicate": { "count": 1, "bead": "canopi-capt8later" },
+    "story:layer-assignment": { "count": 1, "bead": "canopi-capt8later" },
+    "story:measure-show-dimensions": { "count": 1, "bead": "canopi-capt8later" },
+    "story:pdf-export": { "count": 1, "bead": "canopi-capt3later" },
+    "story:pdf-page-edit": { "count": 1, "bead": "canopi-capt3later" },
+    "story:pdf-per-view-rotation": { "count": 1, "bead": "canopi-capt3s2c" },
+    "story:species-details": { "count": 1, "bead": "canopi-capt8later" },
+    "story:undo-redo": { "count": 1, "bead": "canopi-f47t.52.123" },
+    "text-note:align-distribute": { "count": 1, "bead": "canopi-capt4later" },
+    "text-note:context-menu": { "count": 1, "bead": "canopi-capt4s2c" },
+    "text-note:edit-by-values": { "count": 1, "bead": "canopi-capt4later" },
+    "text-note:edit-note-text": { "count": 1, "bead": "canopi-capt4later" },
+    "text-note:find-plants": { "count": 1, "bead": "canopi-capt12later" },
+    "text-note:hover-tooltip": { "count": 1, "bead": "canopi-capt12later" },
+    "text-note:inspection-lens": { "count": 1, "bead": "canopi-capt12s2c" },
+    "text-note:layer-assignment": { "count": 1, "bead": "canopi-capt10later" },
+    "text-note:multi-select-edit": { "count": 1, "bead": "canopi-capt4later" },
+    "text-note:pdf-page-edit": { "count": 1, "bead": "canopi-capt3later" },
+    "text-note:resize-scale": { "count": 1, "bead": "canopi-capt4later" },
+    "text-note:saved-views": { "count": 1, "bead": "canopi-capt12s2c" },
+    "text-note:snap-to-grid": { "count": 1, "bead": "canopi-capt4s2c" },
+    "text-note:stories": { "count": 1, "bead": "canopi-capt12s2c" },
+    "zone-ellipse:align-distribute": { "count": 1, "bead": "canopi-capt4later" },
+    "zone-ellipse:budget-csv-export": { "count": 1, "bead": "canopi-capt8later" },
+    "zone-ellipse:calendar-budget-targets": { "count": 1, "bead": "canopi-capt8later" },
+    "zone-ellipse:context-menu": { "count": 1, "bead": "canopi-capt4s2c" },
+    "zone-ellipse:edit-by-values": { "count": 1, "bead": "canopi-capt4s2c" },
+    "zone-ellipse:edit-note-text": { "count": 1, "bead": "canopi-capt4later" },
+    "zone-ellipse:find-plants": { "count": 1, "bead": "canopi-capt12later" },
+    "zone-ellipse:hover-tooltip": { "count": 1, "bead": "canopi-capt12s2c" },
+    "zone-ellipse:layer-assignment": { "count": 1, "bead": "canopi-capt10later" },
+    "zone-ellipse:measure-show-dimensions": { "count": 1, "bead": "canopi-capt4s2c" },
+    "zone-ellipse:multi-select-edit": { "count": 1, "bead": "canopi-capt4s2c" },
+    "zone-ellipse:pdf-page-edit": { "count": 1, "bead": "canopi-capt3later" },
+    "zone-ellipse:plant-a-row": { "count": 1, "bead": "canopi-capt14later" },
+    "zone-ellipse:profile-line": { "count": 1, "bead": "canopi-capt14later" },
+    "zone-ellipse:rename-zone": { "count": 1, "bead": "canopi-capt4s2c" },
+    "zone-ellipse:resize-scale": { "count": 1, "bead": "canopi-capt4s2c" },
+    "zone-ellipse:touch-gestures": { "count": 1, "bead": "canopi-capt11s2c" },
+    "zone-ellipse:turn-view-to-edge": { "count": 1, "bead": "canopi-capt12later" },
+    "zone-ellipse:zone-style": { "count": 1, "bead": "canopi-capt4s2c" },
+    "zone-line:align-distribute": { "count": 1, "bead": "canopi-capt4later" },
+    "zone-line:budget-csv-export": { "count": 1, "bead": "canopi-capt8later" },
+    "zone-line:calendar-budget-targets": { "count": 1, "bead": "canopi-capt8later" },
+    "zone-line:edit-by-values": { "count": 1, "bead": "canopi-capt4s2c" },
+    "zone-line:edit-note-text": { "count": 1, "bead": "canopi-capt4later" },
+    "zone-line:find-plants": { "count": 1, "bead": "canopi-capt12later" },
+    "zone-line:hover-tooltip": { "count": 1, "bead": "canopi-capt12s2c" },
+    "zone-line:layer-assignment": { "count": 1, "bead": "canopi-capt10later" },
+    "zone-line:measure-show-dimensions": { "count": 1, "bead": "canopi-capt4s2c" },
+    "zone-line:multi-select-edit": { "count": 1, "bead": "canopi-capt4s2c" },
+    "zone-line:pdf-page-edit": { "count": 1, "bead": "canopi-capt3later" },
+    "zone-line:plant-a-row": { "count": 1, "bead": "canopi-capt14later" },
+    "zone-line:rename-zone": { "count": 1, "bead": "canopi-capt4later" },
+    "zone-line:resize-scale": { "count": 1, "bead": "canopi-capt4s2c" },
+    "zone-line:touch-gestures": { "count": 1, "bead": "canopi-capt11s2c" },
+    "zone-line:zone-style": { "count": 1, "bead": "canopi-capt4s2c" },
+    "zone-polygon:align-distribute": { "count": 1, "bead": "canopi-capt4later" },
+    "zone-polygon:budget-csv-export": { "count": 1, "bead": "canopi-capt8later" },
+    "zone-polygon:calendar-budget-targets": { "count": 1, "bead": "canopi-capt8later" },
+    "zone-polygon:context-menu": { "count": 1, "bead": "canopi-capt4s2c" },
+    "zone-polygon:edit-by-values": { "count": 1, "bead": "canopi-capt4s2c" },
+    "zone-polygon:edit-note-text": { "count": 1, "bead": "canopi-capt4later" },
+    "zone-polygon:find-plants": { "count": 1, "bead": "canopi-capt12later" },
+    "zone-polygon:hover-tooltip": { "count": 1, "bead": "canopi-capt12s2c" },
+    "zone-polygon:layer-assignment": { "count": 1, "bead": "canopi-capt10later" },
+    "zone-polygon:measure-show-dimensions": { "count": 1, "bead": "canopi-capt4s2c" },
+    "zone-polygon:multi-select-edit": { "count": 1, "bead": "canopi-capt4s2c" },
+    "zone-polygon:pdf-page-edit": { "count": 1, "bead": "canopi-capt3later" },
+    "zone-polygon:plant-a-row": { "count": 1, "bead": "canopi-capt14later" },
+    "zone-polygon:profile-line": { "count": 1, "bead": "canopi-capt14later" },
+    "zone-polygon:rename-zone": { "count": 1, "bead": "canopi-capt4s2c" },
+    "zone-polygon:resize-scale": { "count": 1, "bead": "canopi-capt4s2c" },
+    "zone-polygon:zone-style": { "count": 1, "bead": "canopi-capt4s2c" },
+    "zone-rect:align-distribute": { "count": 1, "bead": "canopi-capt4later" },
+    "zone-rect:budget-csv-export": { "count": 1, "bead": "canopi-capt8later" },
+    "zone-rect:calendar-budget-targets": { "count": 1, "bead": "canopi-capt8later" },
+    "zone-rect:context-menu": { "count": 1, "bead": "canopi-capt4s2c" },
+    "zone-rect:edit-by-values": { "count": 1, "bead": "canopi-capt4s2c" },
+    "zone-rect:edit-note-text": { "count": 1, "bead": "canopi-capt4later" },
+    "zone-rect:find-plants": { "count": 1, "bead": "canopi-capt12later" },
+    "zone-rect:hover-tooltip": { "count": 1, "bead": "canopi-capt12s2c" },
+    "zone-rect:layer-assignment": { "count": 1, "bead": "canopi-capt10later" },
+    "zone-rect:measure-show-dimensions": { "count": 1, "bead": "canopi-capt4s2c" },
+    "zone-rect:multi-select-edit": { "count": 1, "bead": "canopi-capt4s2c" },
+    "zone-rect:pdf-page-edit": { "count": 1, "bead": "canopi-capt3later" },
+    "zone-rect:plant-a-row": { "count": 1, "bead": "canopi-capt14later" },
+    "zone-rect:profile-line": { "count": 1, "bead": "canopi-capt14later" },
+    "zone-rect:rename-zone": { "count": 1, "bead": "canopi-capt4s2c" },
+    "zone-rect:resize-scale": { "count": 1, "bead": "canopi-capt4s2c" },
+    "zone-rect:touch-gestures": { "count": 1, "bead": "canopi-capt11s2c" },
+    "zone-rect:zone-style": { "count": 1, "bead": "canopi-capt4s2c" }
   }
 }

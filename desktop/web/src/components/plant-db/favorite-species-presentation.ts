@@ -1,19 +1,7 @@
 import { useLayoutEffect, useRef } from 'preact/hooks'
-import type { SpeciesListItem } from '../../types/species'
-import { normalizeSpeciesSearch } from '../../utils/species-search-normalization'
 
 interface ElementRef<T extends HTMLElement> {
   readonly current: T | null
-}
-
-export function filterFavoriteSpecies(
-  items: readonly SpeciesListItem[],
-  search: string,
-): readonly SpeciesListItem[] {
-  const needle = normalizeSpeciesSearch(search).text
-  return items.filter((item) => normalizeSpeciesSearch(
-    `${item.common_name ?? ''} ${item.canonical_name}`,
-  ).text.includes(needle))
 }
 
 export function useFavoriteSpeciesDetailNavigation({

@@ -222,19 +222,19 @@
 
 /* Web on phones, on its side too: the field fills the search card (BrowserAppShell),
    with a 44 px field and 16 px text so the phone does not zoom in. */
-:global([data-phone-layout]) .titleBarVariant {
+:global([data-layout]) .titleBarVariant {
   flex: 1 1 auto;
   width: auto;
 }
 
-:global([data-phone-layout]) .titleBarVariant .field {
+:global([data-layout]) .titleBarVariant .field {
   height: var(--control-size-touch);
 }
 
-:global([data-phone-layout]) .titleBarVariant .input {
+:global([data-layout]) .titleBarVariant .input {
   font-size: var(--text-touch);
 }
 
-:global([data-phone-layout]) .titleBarVariant .key {
+:global([data-layout]) .titleBarVariant .key {
   display: none;
 }

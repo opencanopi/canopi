@@ -3,10 +3,8 @@
  * test harness for Web session unit tests (production Web Edition uses IndexedDB
  * `platform/design-home.browser.ts`, 2.1-M21 / 2.1-M526).
  */
-import {
-  flattenDocumentForJson,
-  parseCanopiJsonText,
-} from '../../app/contracts/document'
+import { flattenDocumentForJson } from '../../app/contracts/document'
+import { parseCanopiJsonText } from './design-wire'
 import { createJsonSessionCodec } from '../../app/document-session/live-core'
 import type {
   DeleteDraftResult,

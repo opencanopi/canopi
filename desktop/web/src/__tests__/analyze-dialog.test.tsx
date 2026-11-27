@@ -298,12 +298,6 @@ describe('Analyze dialog', () => {
     expect(run.disabled).toBe(true)
   })
 
-  it('says every analysis needs Desktop on Web', () => {
-    mount({ context: { capabilities: capabilitiesForEdition('web', 'linux') } })
-    expect(container.querySelectorAll('[class*="reason"]')).toHaveLength(2)
-    expect(container.textContent).toContain('Needs Canopi Desktop.')
-  })
-
   it('offers Show in Site data instead of Run for a result the Design already shows', async () => {
     mount({ context: { results: [{ id: 'slope-1', provenance: slopeProvenance('slope-1', 'ground') }], inDesign: new Set(['slope-1']) } })
     expect(Array.from(container.querySelectorAll('button')).some((button) => button.textContent === 'Run')).toBe(true)

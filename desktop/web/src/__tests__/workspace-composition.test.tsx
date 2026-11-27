@@ -192,39 +192,6 @@ describe('shared edition workspace composition', () => {
     expect(canvasMounts).toBe(1)
   })
 
-  it('unmounts the canvas for a supported replacing primary route and remounts it on return', async () => {
-    const unmounted = vi.fn()
-    function Canvas() {
-      useEffect(() => unmounted, [])
-      return <div data-testid="canvas" />
-    }
-    const surfaces: WorkspaceSurfaces = {
-      primary: { canvas: Canvas, templates: Templates },
-      side: { calendar: Calendar },
-    }
-
-    await act(async () => {
-      render(
-        <WorkspaceComposition
-          panelProjection={projection({ primary: ['canvas', 'templates'], design: ['calendar'] })}
-          surfaces={surfaces}
-        />,
-        container,
-      )
-    })
-    await act(async () => { navigateTo('calendar') })
-    expect(container.querySelector('[data-workspace-side-panel="calendar"]')).not.toBeNull()
-    expect(unmounted).not.toHaveBeenCalled()
-
-    await act(async () => { navigateTo('templates') })
-    expect(container.querySelector('[data-testid="templates"]')).not.toBeNull()
-    expect(container.querySelector('[data-workspace-side-panel]')).toBeNull()
-    expect(unmounted).toHaveBeenCalledOnce()
-
-    await act(async () => { navigateTo('canvas') })
-    expect(container.querySelector('[data-testid="canvas"]')).not.toBeNull()
-  })
-
   it('hides the open dock panel while "Where is your site?" is showing, and keeps it for afterwards', async () => {
     sidePanel.value = 'layers'
     const Layers = () => <p data-testid="layers">Layers</p>
@@ -286,10 +253,6 @@ describe('shared edition workspace composition', () => {
 
 function Canvas() {
   return <div data-testid="canvas" />
-}
-
-function Templates() {
-  return <div data-testid="templates" />
 }
 
 function Calendar() {

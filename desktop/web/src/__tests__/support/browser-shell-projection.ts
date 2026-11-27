@@ -14,7 +14,6 @@ export function projectBrowserShellForTest({
   downloadCanopiEnabled = true,
   revertAvailable = false,
   geoJsonEnabled = true,
-  templatesEnabled = false,
   capabilities,
 }: {
   readonly currentPanel?: Panel
@@ -22,11 +21,10 @@ export function projectBrowserShellForTest({
   readonly downloadCanopiEnabled?: boolean
   readonly revertAvailable?: boolean
   readonly geoJsonEnabled?: boolean
-  readonly templatesEnabled?: boolean
   readonly capabilities: BrowserShellCapabilities
 }): BrowserShellChromeProjection {
   return createBrowserShellCommandProjection({
-    catalog: createBrowserShellCatalog(capabilities, { templatesEnabled, canvasReady: () => geoJsonEnabled }),
+    catalog: createBrowserShellCatalog(capabilities, { canvasReady: () => geoJsonEnabled }),
     state: {
       hasDesign: downloadCanopiEnabled,
       revertAvailable,

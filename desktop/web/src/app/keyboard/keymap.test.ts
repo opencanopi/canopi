@@ -29,7 +29,7 @@ function webKeymap(): readonly KeymapRow[] {
   const catalog = createBrowserShellCatalog({
     newDesign: vi.fn(), openCanopi: vi.fn(), downloadCanopi: vi.fn(), revertDesign: vi.fn(),
     importGeoJson: vi.fn(), exportGeoJson: vi.fn(), exportBudgetCsv: vi.fn(), closeDesign: vi.fn(), navigate: vi.fn(),
-  }, { templatesEnabled: true, canvasReady: () => true })
+  }, { canvasReady: () => true })
   // Without the shortcuts a browser keeps, which the Web omits: a superset of its keymap.
   return [...shellKeymapRows(catalog), ...CANVAS_KEYMAP_ROWS]
 }

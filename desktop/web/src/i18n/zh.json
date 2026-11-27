@@ -312,7 +312,7 @@
       "placeholder": "地点或坐标",
       "searching": "正在搜索…",
       "noResults": "未找到地点",
-      "error": "地点搜索失败",
+      "error": "地点搜索不可用。请改为输入经纬度。",
       "results": "地点",
       "placeholderShort": "搜索地点",
       "east": "东经",
@@ -322,7 +322,9 @@
       "coordinates": "{{northSouth}}{{lat}}°，{{eastWest}}{{lon}}°",
       "west": "西经",
       "goStraightThere": "坐标 · 直接前往",
-      "enterHint": "按 Enter 键搜索"
+      "enterHint": "按 Enter 键搜索",
+      "attributionNominatim": "由 Nominatim 提供搜索 · © OpenStreetMap 贡献者",
+      "attributionPelias": "由 Pelias 提供搜索 · © OpenStreetMap 贡献者"
     },
     "file": {
       "cancel": "取消"
@@ -892,18 +894,6 @@
       "point": "行上的点 {{index}}",
       "dot": "在行段 {{index}} 上添加点"
     }
-  },
-  "worldMap": {
-    "title": "世界地图",
-    "discover": "发现设计",
-    "featured": "精选",
-    "downloading": "正在下载模板…",
-    "author": "{{author}} 设计",
-    "noDesigns": "该区域暂无设计",
-    "zoomToExplore": "放大以探索设计",
-    "filterByClimate": "按气候筛选",
-    "filterByStyle": "按风格筛选",
-    "openTemplate": "作为新设计打开"
   },
   "theme": {
     "light": "浅色",
@@ -1736,7 +1726,6 @@
       "ValuesNotMetres": "需要以米为单位的数值；此数据的单位为 {{units}}。",
       "GridNotProjectedMetres": "需要以地面米为单位的投影格网，不能是 Web Mercator 或经纬度。",
       "EngineMissing": "不可用：缺少 GeoLibre 引擎。",
-      "NeedsDesktop": "需要 Canopi Desktop。",
       "AlreadyInSiteData": "已在场地数据中。"
     },
     "stale": {

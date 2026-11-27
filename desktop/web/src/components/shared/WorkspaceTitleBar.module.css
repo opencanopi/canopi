@@ -166,10 +166,10 @@
   }
 }
 
-/* Web on phones, upright or on its side (`data-phone-layout` on the Web shell,
+/* Web on phones, upright or on its side (`data-layout` on the Web shell,
    board WebPhone): a 44 px top bar with Menu, the Design name over its status,
    Undo and the place search button. */
-:global([data-phone-layout]) .titleBar {
+:global([data-layout]) .titleBar {
   right: calc(var(--chrome-inset) + env(safe-area-inset-right));
   left: calc(var(--chrome-inset) + env(safe-area-inset-left));
   gap: var(--space-0-5);
@@ -178,14 +178,14 @@
   padding: var(--space-1);
 }
 
-:global([data-phone-layout]) .logo,
-:global([data-phone-layout]) .rule,
-:global([data-phone-layout]) .wide,
-:global([data-phone-layout]) .spacer {
+:global([data-layout]) .logo,
+:global([data-layout]) .rule,
+:global([data-layout]) .wide,
+:global([data-layout]) .spacer {
   display: none;
 }
 
-:global([data-phone-layout]) .design {
+:global([data-layout]) .design {
   flex: 1 1 auto;
   flex-direction: column;
   align-items: flex-start;
@@ -194,24 +194,24 @@
 }
 
 /* The name shares the bar's 44 px with its status, so it keeps the 24 px minimum target. */
-:global([data-phone-layout]) .nameButton {
+:global([data-layout]) .nameButton {
   max-width: 100%;
   height: auto;
   min-height: var(--control-size-sm);
   padding: 0 var(--space-1);
 }
 
-:global([data-phone-layout]) .nameText {
+:global([data-layout]) .nameText {
   max-width: 100%;
   font-size: var(--text-md);
 }
 
-:global([data-phone-layout]) .nameInput {
+:global([data-layout]) .nameInput {
   width: 100%;
   font-size: var(--text-touch);
 }
 
-:global([data-phone-layout]) .iconButton {
+:global([data-layout]) .iconButton {
   width: var(--control-size-touch);
   height: var(--control-size-touch);
 }

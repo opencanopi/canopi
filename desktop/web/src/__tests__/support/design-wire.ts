@@ -20,15 +20,32 @@ import type { CanopiFileV10, DraftSummaryOutcome, FormatDecodeAnswer, FormatRefu
 import type { DesignCore } from '../../platform/design-core'
 import type { CanopiFile } from '../../types/design'
 import {
-  asCanopiDesignIngestionError,
   CanopiDesignIngestionError,
   ingestionErrorFromFormatRefusal,
 } from '../../app/contracts/canopi-design-errors'
+
+function asCanopiDesignIngestionError(error: unknown): CanopiDesignIngestionError {
+  if (error instanceof CanopiDesignIngestionError) return error
+  return new CanopiDesignIngestionError(
+    'invalid_document',
+    error instanceof Error ? error.message : String(error),
+  )
+}
 import {
   flattenDocumentForJson,
   normalizeLoadedDocument,
-  parseCanopiJsonText,
 } from '../../app/contracts/document'
+
+export function parseCanopiJsonText(text: string): unknown {
+  try {
+    return JSON.parse(text) as unknown
+  } catch (error) {
+    if (error instanceof SyntaxError) {
+      throw new CanopiDesignIngestionError('invalid_document', `$: invalid JSON (${error.message})`)
+    }
+    throw asCanopiDesignIngestionError(error)
+  }
+}
 
 let wasmInitialized = false
 

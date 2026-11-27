@@ -1,5 +1,7 @@
 // @vitest-environment jsdom
 
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { render } from 'preact'
 import { act } from 'preact/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -8,12 +10,13 @@ import { CANOPI_LICENSE, CANOPI_VERSION } from '../app/about/metadata'
 import { locale } from '../app/settings/state'
 import { appCommandGraphChromeProjection } from '../commands/registry'
 import { AboutCanopiDialog } from '../components/shared/AboutCanopiDialog'
-import tauriConfigText from '../../../tauri.conf.json?raw'
 
-function readTauriConfigVersion(): string {
-  const config = JSON.parse(tauriConfigText) as { version?: unknown }
-  if (typeof config.version !== 'string') throw new Error('Missing Tauri version')
-  return config.version
+function readWorkspaceCargoVersion(): string {
+  const text = readFileSync(resolve(process.cwd(), '../../Cargo.toml'), 'utf8')
+  const table = /^\[workspace\.package\]\s*$([\s\S]*?)(?=^\[|(?![\s\S]))/m.exec(text)?.[1] ?? ''
+  const version = /^\s*version\s*=\s*"([^"]+)"\s*$/m.exec(table)?.[1]
+  if (!version) throw new Error('Missing Cargo.toml [workspace.package] version')
+  return version
 }
 
 describe('AboutCanopiDialog', () => {
@@ -113,7 +116,7 @@ describe('AboutCanopiDialog', () => {
     expect(document.activeElement).toBe(link())
   })
 
-  it('uses the Tauri app version as About metadata', () => {
-    expect(CANOPI_VERSION).toBe(readTauriConfigVersion())
+  it('uses the Cargo workspace version as About metadata (canopi-f47t.52.75)', () => {
+    expect(CANOPI_VERSION).toBe(readWorkspaceCargoVersion())
   })
 })

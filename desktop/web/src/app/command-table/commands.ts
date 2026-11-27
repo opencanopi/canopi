@@ -26,7 +26,6 @@ export type ShellCommandId =
   | 'file.close'
   | 'file.exit'
   | 'nav.canvas'
-  | 'nav.templates'
   | 'nav.layers'
   | 'nav.siteData'
   | 'nav.speciesKey'

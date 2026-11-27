@@ -117,7 +117,7 @@ flowchart LR
   frame["canvas/runtime/scene/geo-frame.ts write-back at 1e-9 deg"]
   view["ConformalPoint (2.1) camera similarity"]
   measure["groundLength and groundArea (2.1)"]
-  fmt["utils/format.ts (2.1)"]
+  fmt["utils/format.ts"]
   north["trueNorthAt (2.1)"]
   pdf["app/canvas-pdf/page-frame.ts north arrow"]
   reorigin["canvas/runtime/scene-runtime/reorigin.ts"]

@@ -4,16 +4,14 @@ import {
   roundGeoDegrees,
   type SessionPlane,
 } from '../../../geo/session-plane'
+import { WEB_MERCATOR_GRID_MAX_LATITUDE_DEG } from '../../../geo/web-mercator'
 import type { ScenePersistedState, ScenePoint, SceneZoneEntity } from './types'
-
-// The largest 1e-9 degree grid latitude inside Web Mercator's ±85.0511287798066.
-const GRID_MAX_LATITUDE_DEG = 85.051128779
 
 // Positions are written rounded to 1e-9 degree (about 0.1 mm), latitude clamped to the grid inside Web Mercator.
 // Rounding is idempotent through the session plane, so an unedited position on the grid is written unchanged after
 // any number of re-origins, and one with more decimals is rounded once.
 function gridGeoPosition(point: GeoPoint): GeoPoint {
-  const lat = Math.min(GRID_MAX_LATITUDE_DEG, Math.max(-GRID_MAX_LATITUDE_DEG, roundGeoDegrees(point.lat)))
+  const lat = Math.min(WEB_MERCATOR_GRID_MAX_LATITUDE_DEG, Math.max(-WEB_MERCATOR_GRID_MAX_LATITUDE_DEG, roundGeoDegrees(point.lat)))
   return { lon: roundGeoDegrees(point.lon), lat }
 }
 

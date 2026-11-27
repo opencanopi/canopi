@@ -26,7 +26,7 @@
 /* Phones (board WebPhone): chrome sits 8 px from the edges and clear of the
    notch and home indicator; the top bar is 44 px targets in a 52 px bar, and
    everything placed below the title bar follows it down. */
-.shell[data-phone-layout] {
+.shell[data-layout] {
   --chrome-inset: var(--space-2);
   --chrome-top: calc(var(--space-2) + env(safe-area-inset-top));
   --title-bar-height: calc(var(--control-size-touch) + var(--space-2));

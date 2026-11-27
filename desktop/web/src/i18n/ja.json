@@ -312,7 +312,7 @@
       "placeholder": "場所または座標",
       "searching": "検索中…",
       "noResults": "場所が見つかりません",
-      "error": "場所の検索に失敗しました",
+      "error": "場所の検索を利用できません。代わりに緯度・経度を入力してください。",
       "results": "場所",
       "placeholderShort": "場所を検索",
       "east": "東経",
@@ -322,7 +322,9 @@
       "coordinates": "{{northSouth}}{{lat}}°, {{eastWest}}{{lon}}°",
       "west": "西経",
       "goStraightThere": "座標 · そのまま移動",
-      "enterHint": "Enter キーで検索"
+      "enterHint": "Enter キーで検索",
+      "attributionNominatim": "Nominatim による検索 · © OpenStreetMap 貢献者",
+      "attributionPelias": "Pelias による検索 · © OpenStreetMap 貢献者"
     },
     "file": {
       "cancel": "キャンセル"
@@ -892,18 +894,6 @@
       "point": "列の点 {{index}}",
       "dot": "列の区間 {{index}} に点を追加"
     }
-  },
-  "worldMap": {
-    "title": "世界地図",
-    "discover": "デザインを発見",
-    "featured": "おすすめ",
-    "downloading": "テンプレートをダウンロード中…",
-    "author": "{{author}} 作",
-    "noDesigns": "この地域にデザインはまだありません",
-    "zoomToExplore": "ズームしてデザインを探索",
-    "filterByClimate": "気候で絞り込み",
-    "filterByStyle": "スタイルで絞り込み",
-    "openTemplate": "新しいデザインとして開く"
   },
   "theme": {
     "light": "ライト",
@@ -1736,7 +1726,6 @@
       "ValuesNotMetres": "メートル単位の値が必要です。このデータの単位は {{units}} です。",
       "GridNotProjectedMetres": "地上のメートル単位の投影グリッドが必要です。Web Mercator や経緯度は使えません。",
       "EngineMissing": "利用できません：GeoLibre エンジンがありません。",
-      "NeedsDesktop": "Canopi Desktop が必要です。",
       "AlreadyInSiteData": "すでに敷地データにあります。"
     },
     "stale": {

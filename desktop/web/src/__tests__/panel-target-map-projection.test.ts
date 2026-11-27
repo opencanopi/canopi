@@ -3,7 +3,7 @@ import type { TargetMapProjectionScene } from '../target'
 import { MANUAL_TARGET, speciesTarget, targetIdentity, projectTargetsToMapFeatures } from '../target'
 
 const NONE_TARGET = { kind: 'none' } as const
-import { geoToMercator } from '../geo/projection'
+import { geoToMercator } from '../geo/web-mercator'
 import type { ViewCamera } from '../geo/view/types'
 import { createSessionPlane } from '../geo/session-plane'
 import { projectTargetResolutionToMapFeatures } from '../target/map-projection'

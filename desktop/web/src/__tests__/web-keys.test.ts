@@ -39,7 +39,7 @@ function webCatalog(newDesign = vi.fn()): BrowserShellCatalog {
   return createBrowserShellCatalog({
     newDesign, openCanopi: vi.fn(), downloadCanopi: vi.fn(), revertDesign: vi.fn(),
     importGeoJson: vi.fn(), exportGeoJson: vi.fn(), exportBudgetCsv: vi.fn(), closeDesign: vi.fn(), navigate: vi.fn(),
-  }, { templatesEnabled: false, canvasReady: () => true })
+  }, { canvasReady: () => true })
 }
 
 describe('Web keys', () => {

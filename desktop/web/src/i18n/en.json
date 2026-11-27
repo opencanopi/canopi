@@ -312,7 +312,7 @@
       "placeholder": "Place or coordinates",
       "searching": "Searching…",
       "noResults": "No places found",
-      "error": "Place search failed",
+      "error": "Place search unavailable. Enter latitude, longitude instead.",
       "results": "Places",
       "placeholderShort": "Search a place",
       "east": "E",
@@ -322,7 +322,9 @@
       "coordinates": "{{lat}}° {{northSouth}}, {{lon}}° {{eastWest}}",
       "west": "W",
       "goStraightThere": "Coordinates · go straight there",
-      "enterHint": "Press Enter to search"
+      "enterHint": "Press Enter to search",
+      "attributionNominatim": "Search by Nominatim · © OpenStreetMap contributors",
+      "attributionPelias": "Search by Pelias · © OpenStreetMap contributors"
     },
     "file": {
       "cancel": "Cancel"
@@ -892,18 +894,6 @@
       "point": "Row point {{index}}",
       "dot": "Add a point on row segment {{index}}"
     }
-  },
-  "worldMap": {
-    "title": "World map",
-    "discover": "Discover Designs",
-    "featured": "Featured",
-    "downloading": "Downloading template…",
-    "author": "By {{author}}",
-    "noDesigns": "No Designs in this area yet",
-    "zoomToExplore": "Zoom in to explore Designs",
-    "filterByClimate": "Filter by climate",
-    "filterByStyle": "Filter by style",
-    "openTemplate": "Open as a new Design"
   },
   "theme": {
     "light": "Light",
@@ -1736,7 +1726,6 @@
       "ValuesNotMetres": "Needs values in metres; this data is in {{units}}.",
       "GridNotProjectedMetres": "Needs a projected grid in ground metres, not Web Mercator or longitude and latitude.",
       "EngineMissing": "Unavailable: the GeoLibre engine is missing.",
-      "NeedsDesktop": "Needs Canopi Desktop.",
       "AlreadyInSiteData": "Already in Site data."
     },
     "stale": {

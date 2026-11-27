@@ -829,16 +829,6 @@
       }
     },
     {
-      "id": "guide-editions-the-templates-entry-appears-only",
-      "doc": "docs/guides/editions.md",
-      "quote": "The Templates entry appears only when `web/static-design-templates.ts` configures one;",
-      "state": {
-        "exists": {
-          "check": "desktop/web/src/__tests__/web-static-design-template-catalog.test.ts"
-        }
-      }
-    },
-    {
       "id": "guide-editions-web-layers-site-data-row",
       "doc": "docs/guides/editions.md",
       "quote": "Web Layers' Site data row reads \"N terrain or height layers in this Design · Needs Canopi Desktop\",",

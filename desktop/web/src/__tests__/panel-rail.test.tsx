@@ -109,12 +109,12 @@ describe('Panel rail', () => {
     expect(container.querySelector('button[data-panel="canvas"]')).toBeNull()
   })
 
-  it('hides the Desktop rail on the start screen', async () => {
+  it('keeps the Desktop rail mounted on the start screen so Catalog and Favorites open without a Design (2.1-Q130)', async () => {
     designSessionFixture.file = null
     await act(async () => {
       render(<DesktopPanelRail />, container)
     })
-    expect(container.querySelector('nav')).toBeNull()
+    expect(container.querySelector('nav')).not.toBeNull()
   })
 
   it('marks the Desktop rail as the open Design\'s chrome, which waits while the Design is hidden (global.css)', async () => {
@@ -138,12 +138,12 @@ describe('Panel rail', () => {
 
     expect(panelButton('Plants in this Design').disabled).toBe(true)
     expect(panelButton('Layers').disabled).toBe(true)
-    expect(panelButton('Plant catalog').disabled).toBe(true)
+    expect(panelButton('Plant catalog').disabled).toBe(false)
     expect(panelButton('Design notebook').disabled).toBe(false)
-    expect(panelButton('Favorites and stamps').disabled).toBe(true)
+    expect(panelButton('Favorites and stamps').disabled).toBe(false)
   })
 
-  it('keeps an active no-design Plant catalog panel button enabled so it can close the panel', async () => {
+  it('keeps no-design Plant catalog and Favorites panel buttons enabled so they can open and close without a Design (2.1-Q130)', async () => {
     designSessionFixture.file = null
     const panels = appCommandGraphPanelProjection.value
     const plantDb = [...panels.primary, ...panels.design, ...panels.planning]
@@ -159,7 +159,7 @@ describe('Panel rail', () => {
     expect(panelButton('Plant catalog').disabled).toBe(false)
     expect(panelButton('Plant catalog').getAttribute('aria-expanded')).toBe('true')
     expect(panelButton('Design notebook').disabled).toBe(false)
-    expect(panelButton('Favorites and stamps').disabled).toBe(true)
+    expect(panelButton('Favorites and stamps').disabled).toBe(false)
 
     await act(async () => {
       panelButton('Plant catalog').dispatchEvent(new MouseEvent('click', { bubbles: true }))
@@ -167,7 +167,7 @@ describe('Panel rail', () => {
 
     expect(activePanel.value).toBe('canvas')
     expect(sidePanel.value).toBe(null)
-    expect(panelButton('Plant catalog').disabled).toBe(true)
+    expect(panelButton('Plant catalog').disabled).toBe(false)
     expect(panelButton('Plant catalog').getAttribute('aria-expanded')).toBe('false')
   })
 

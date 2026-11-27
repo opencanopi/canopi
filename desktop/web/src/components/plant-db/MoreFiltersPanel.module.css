@@ -39,7 +39,6 @@
   font-weight: 600;
   color: var(--color-text-muted);
   font-family: var(--font-sans);
-  text-transform: uppercase;
   letter-spacing: 0.06em;
 }
 

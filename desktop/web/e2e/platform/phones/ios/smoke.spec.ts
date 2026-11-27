@@ -164,7 +164,7 @@ async function designShell(): Promise<DesignShell> {
     const startScreen = document.querySelector('[data-start-screen]')
     const startShown = startScreen !== null && startScreen.getClientRects().length > 0 && getComputedStyle(startScreen).visibility !== 'hidden'
     const shell = document.querySelector('[data-testid="browser-app-shell"]')
-    const phoneLayout = shell?.getAttribute('data-phone-layout') ?? null
+    const phoneLayout = shell?.getAttribute('data-layout') ?? null
     return {
       startScreenGone: !startShown,
       workspace: document.querySelector('[data-testid="web-canvas-workspace"]') !== null,
@@ -256,8 +256,8 @@ describe(`the Web Edition in Safari on an ${tablet ? 'iPad' : 'iPhone'}`, () => 
     await waitForDesign(tappedAt)
     const shell = $('[data-testid="browser-app-shell"]')
     await expect(shell).toBeDisplayed()
-    if (tablet) await expect(shell).not.toHaveAttribute('data-phone-layout')
-    else await expect(shell).toHaveAttribute('data-phone-layout', 'portrait')
+    if (tablet) await expect(shell).not.toHaveAttribute('data-layout')
+    else await expect(shell).toHaveAttribute('data-layout', 'portrait')
     expect(await overflow()).toBeLessThanOrEqual(0)
     // One tap is one New Design: a doubled click would test the replacement path, not a user's single tap.
     expect((await newDesignClicks()).length).toBe(1)

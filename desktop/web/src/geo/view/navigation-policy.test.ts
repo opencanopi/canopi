@@ -1,6 +1,7 @@
 import { signal } from '@preact/signals'
 import { describe, expect, it } from 'vitest'
-import { geoToMercator, MAPLIBRE_WORLD_TILE_SIZE } from '../projection'
+import { MAPLIBRE_WORLD_TILE_SIZE } from '../projection'
+import { geoToMercator } from '../web-mercator'
 import {
   angularDistanceToNorth,
   constrainCamera,

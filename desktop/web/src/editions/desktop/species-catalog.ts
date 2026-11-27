@@ -3,6 +3,7 @@ import {
   getCommonNames,
   getDynamicFilterOptions,
   getFilterOptions,
+  getSpeciesDetail,
   getSpeciesHabits,
   searchSpecies,
   supersedeSpeciesSearch,
@@ -42,6 +43,8 @@ const liveSpeciesCatalogWorkbench = createSpeciesCatalogWorkbench({
   resolveCommonNames: (canonicalNames, locale) =>
     whenPlantDbAvailable(unavailable, () => inBatches(canonicalNames, (batch) => getCommonNames(batch, locale))),
   resolveHabits: (canonicalNames) => whenPlantDbAvailable(empty({}), () => inBatches(canonicalNames, getSpeciesHabits)),
+  getSpeciesDetail: (canonicalName, locale) =>
+    whenPlantDbAvailable(unavailable, () => getSpeciesDetail(canonicalName, locale)),
 })
 
 // get_common_names and get_species_habits take at most 500 names per call.

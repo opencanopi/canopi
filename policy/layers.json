@@ -273,12 +273,6 @@
    "area": "app/canvas-settings"
   },
   {
-   "path": "app/community/",
-   "layer": "L3",
-   "edition": "web",
-   "area": "app/community"
-  },
-  {
    "path": "app/consortium/",
    "layer": "L3",
    "edition": "both",
@@ -316,12 +310,6 @@
    "layer": "L3",
    "edition": "desktop",
    "area": "app/design-notebook"
-  },
-  {
-   "path": "app/design-template-import/",
-   "layer": "L3",
-   "edition": "web",
-   "area": "app/design-template-import"
   },
   {
    "path": "app/document-session/",
@@ -630,6 +618,14 @@
    "edition": "web",
    "area": "web-root",
    "note": "the one Design source contract; moves with web/ when canopi-f47t.52.45 dissolves it; planned so scenario s09 names it (2.1-M310)"
+  },
+  {
+   "path": "editions/install-app-lifetime.ts",
+   "layer": "L5",
+   "phase": "2a",
+   "edition": "both",
+   "area": "editions",
+   "owner": "edition lifetime installers"
   },
   {
    "path": "editions/desktop/",

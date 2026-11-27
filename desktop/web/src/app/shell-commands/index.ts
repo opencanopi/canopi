@@ -35,7 +35,6 @@ type ShellCommandIdByCapability = {
   readonly closeDesign: 'file.close'
   readonly exitApp: 'file.exit'
   readonly navigateCanvas: 'nav.canvas'
-  readonly navigateTemplates: 'nav.templates'
   readonly navigateLayers: 'nav.layers'
   readonly navigateSiteData: 'nav.siteData'
   readonly navigateSpeciesKey: 'nav.speciesKey'
@@ -199,7 +198,6 @@ type ShellCommandDescriptor = {
 const file = (section: number, submenu?: ShellSubmenuId): ShellCommandMenuPlacement => ({ id: 'file', section, submenu })
 const PANEL_CAP_ID: Record<Panel, ShellCommandCapabilityId> = {
   canvas: 'navigateCanvas',
-  templates: 'navigateTemplates',
   layers: 'navigateLayers',
   'site-data': 'navigateSiteData',
   'species-key': 'navigateSpeciesKey',

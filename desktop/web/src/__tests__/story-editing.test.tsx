@@ -427,8 +427,8 @@ describe('story images', () => {
   it('counts only embedded bytes and formats sizes for people', () => {
     expect(designEmbeddedImageBytes(currentDesign.value)).toBe(3)
     expect(designEmbeddedImageBytes(null)).toBe(0)
-    expect(formatImageBytes(1.5 * 1024 * 1024, 'en')).toBe('1.5 MB')
-    expect(formatImageBytes(10, 'fr')).toBe('0,1\u202fMo')
+    expect(formatImageBytes(1.5 * 1024 * 1024, 'en')).toBe('1.6 MB')
+    expect(formatImageBytes(100, 'fr')).toBe('0,1\u202fko')
   })
 
   it('refuses an image that would take the Design over 10 MB', async () => {

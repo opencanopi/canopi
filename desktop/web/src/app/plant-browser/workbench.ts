@@ -3,6 +3,7 @@ import type {
   DynamicFilterOptions,
   FilterOp,
   FilterOptions,
+  SpeciesDetail,
   SpeciesFilter,
   SpeciesListItem,
 } from '../../types/species'
@@ -35,7 +36,7 @@ type FavoriteItemsAdapter = (locale: string) => Promise<SpeciesListItem[]>
 type RecentlyViewedAdapter = (locale: string, limit: number) => Promise<SpeciesListItem[]>
 type ToggleFavoriteAdapter = (canonicalName: string) => Promise<boolean>
 type SpeciesSelectedAdapter = (canonicalName: string) => void | Promise<void>
-type SpeciesDetailAdapter = (canonicalName: string, locale: string) => Promise<SpeciesCatalogDetail | null>
+type SpeciesDetailAdapter = (canonicalName: string, locale: string) => Promise<SpeciesCatalogDetail | SpeciesDetail | null>
 type CommonNamesAdapter = (canonicalNames: readonly string[], locale: string) => Promise<Readonly<Record<string, string>>>
 type HabitsAdapter = (canonicalNames: readonly string[]) => Promise<Readonly<Record<string, string>>>
 
@@ -169,6 +170,8 @@ export interface SpeciesCatalogWorkbench {
   selectSpecies(canonicalName: string): void
   /** Loads the open species' detail again, after a failure (its Retry). */
   retrySpeciesDetail(): void
+  /** Loads a species detail record through this edition's catalog adapter (2.1-Q45). */
+  fetchSpeciesDetail(canonicalName: string, locale: string): Promise<SpeciesCatalogDetail | SpeciesDetail>
   closeSpeciesDetail(): void
   toggleFavorite(canonicalName: string): Promise<void>
   isFavorite(canonicalName: string): boolean
@@ -650,7 +653,7 @@ export function createSpeciesCatalogWorkbench({
       if (disposed || generation !== detailGeneration || selectedCanonicalName.value !== canonicalName) return
       detail.value = {
         canonicalName,
-        detail: nextDetail,
+        detail: nextDetail && 'common_names' in nextDetail ? nextDetail : null,
         loading: false,
         error: null,
         englishName,
@@ -871,32 +874,24 @@ export function createSpeciesCatalogWorkbench({
       })
       return page.items
     },
+
+    async fetchSpeciesDetail(canonicalName, requestedLocale) {
+      const nextDetail = await getSpeciesDetailAdapter(canonicalName, requestedLocale)
+      if (!nextDetail) throw new Error(`Species detail not found: ${canonicalName}`)
+      return nextDetail
+    },
   }
 }
 
-function reconcileFavoriteNames(
-  names: readonly string[],
-  canonicalName: string,
-  nowFavorite: boolean,
-): string[] {
+function reconcileFavoriteNames(names: readonly string[], canonicalName: string, nowFavorite: boolean): string[] {
   if (!nowFavorite) return names.filter((name) => name !== canonicalName)
   return names.includes(canonicalName) ? [...names] : [...names, canonicalName]
 }
 
-function reconcileFavoriteItems(
-  items: readonly SpeciesListItem[],
-  mutationItem: SpeciesListItem | undefined,
-  canonicalName: string,
-  nowFavorite: boolean,
-): SpeciesListItem[] {
+function reconcileFavoriteItems(items: readonly SpeciesListItem[], mutationItem: SpeciesListItem | undefined, canonicalName: string, nowFavorite: boolean): SpeciesListItem[] {
   if (!nowFavorite) return items.filter((item) => item.canonical_name !== canonicalName)
-  const existing = items.find((item) => item.canonical_name === canonicalName)
-  if (existing) {
-    return items.map((item) => (
-      item.canonical_name === canonicalName ? { ...item, is_favorite: true } : item
-    ))
+  if (items.some((item) => item.canonical_name === canonicalName)) {
+    return items.map((item) => (item.canonical_name === canonicalName ? { ...item, is_favorite: true } : item))
   }
-  return mutationItem
-    ? [{ ...mutationItem, is_favorite: true }, ...items]
-    : [...items]
+  return mutationItem ? [{ ...mutationItem, is_favorite: true }, ...items] : [...items]
 }

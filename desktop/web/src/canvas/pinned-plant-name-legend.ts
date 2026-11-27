@@ -3,9 +3,11 @@ import type { PlantDisplay } from './runtime/plant-display'
 import { resolvePlantDisplayColor } from './runtime/plant-presentation'
 import { isPlantLayerShown } from './runtime/scene-visuals'
 import type { SpeciesCacheEntry } from './runtime/presentation-data'
+import { compareSpeciesByShownName } from '../utils/species-sort'
 
 export interface PinnedPlantNameLegendEntry {
   readonly label: string
+  readonly canonicalName?: string
   readonly color: string
   readonly symbol: PlantSymbolId
   readonly count: number
@@ -20,6 +22,7 @@ export interface PinnedPlantNameLegendSource {
 export function buildPinnedPlantNameLegendEntries(
   source: PinnedPlantNameLegendSource,
   display: PlantDisplay,
+  locale = 'en',
 ): PinnedPlantNameLegendEntry[] {
   const scene = source.getSceneSnapshot()
   // The canvas draws no plant, so no pinned name, on a hidden or fully transparent Plants layer (canopi-knon).
@@ -44,18 +47,23 @@ export function buildPinnedPlantNameLegendEntries(
       continue
     }
 
-    groups.set(key, { label, color, symbol, count: 1 })
+    groups.set(key, { label, canonicalName: plant.canonicalName, color, symbol, count: 1 })
   }
 
-  return [...groups.values()].sort(comparePinnedPlantNameLegendEntries)
+  return [...groups.values()].sort((left, right) => comparePinnedPlantNameLegendEntries(left, right, locale))
 }
 
 function comparePinnedPlantNameLegendEntries(
   left: PinnedPlantNameLegendEntry,
   right: PinnedPlantNameLegendEntry,
+  locale: string,
 ): number {
   return (
-    left.label.localeCompare(right.label)
+    compareSpeciesByShownName(
+      { shownName: left.label, canonicalName: left.canonicalName ?? left.label },
+      { shownName: right.label, canonicalName: right.canonicalName ?? right.label },
+      locale,
+    )
     || left.symbol.localeCompare(right.symbol)
     || left.color.localeCompare(right.color)
   )

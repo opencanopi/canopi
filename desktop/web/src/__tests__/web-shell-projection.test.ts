@@ -60,7 +60,7 @@ function project(
   canvasReady = true,
 ) {
   return createBrowserShellCommandProjection({
-    catalog: createBrowserShellCatalog(caps, { templatesEnabled: false, canvasReady: () => canvasReady }),
+    catalog: createBrowserShellCatalog(caps, { canvasReady: () => canvasReady }),
     state: { hasDesign: true, revertAvailable: false, activePanel: 'canvas', sidePanel: null, ...state },
     canvas: canvasProjection(),
   })

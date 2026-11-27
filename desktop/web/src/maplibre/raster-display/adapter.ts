@@ -25,7 +25,7 @@ import { recordRaster } from './diagnostics'
 import { RASTER_DISPLAY_SOURCE_PREFIX } from '../map-error-owner'
 import { reportMapSourceFailure } from '../map-errors'
 import type { LayerStatus } from '../map-lifetime'
-import { mercatorToGeo } from '../../geo/projection'
+import { mercatorToGeo } from '../../geo/web-mercator'
 
 type RasterBounds = readonly [west: number, south: number, east: number, north: number]
 

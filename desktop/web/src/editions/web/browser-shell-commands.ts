@@ -50,7 +50,6 @@ export const BROWSER_SHELL_CAPABILITY_IDS = [
   'saveCurrentView',
   'manageViews',
   'navigateCanvas',
-  'navigateTemplates',
   'navigateLayers',
   'navigateSiteData',
   'navigateSpeciesKey',
@@ -144,7 +143,6 @@ export function createBrowserShellCapabilities(
 }
 
 export interface BrowserShellCatalogOptions {
-  readonly templatesEnabled: boolean
   /** A Design is open in a mounted canvas runtime (GeoJSON needs one). */
   readonly canvasReady: () => boolean
 }
@@ -157,7 +155,7 @@ const storedCopyShown = () => {
 /** The Web Edition command catalog; availability reads the live state it is given. */
 export function createBrowserShellCatalog(
   capabilities: BrowserShellCapabilities,
-  { templatesEnabled, canvasReady }: BrowserShellCatalogOptions,
+  { canvasReady }: BrowserShellCatalogOptions,
 ): BrowserShellCatalog {
   const needsDesign = (state: ShellCommandState) => !state.hasDesign
   // A read-only Design offers Close only (2.1-Q315): no copy, revert, import or export.
@@ -210,9 +208,6 @@ export function createBrowserShellCatalog(
       isExecutionDisabled: needsDesign,
     },
     navigateCanvas: { execute: () => capabilities.navigate('canvas') },
-    ...(templatesEnabled
-      ? { navigateTemplates: { execute: () => capabilities.navigate('templates') } }
-      : {}),
     navigateLayers: designPanel('layers'),
     navigateSiteData: lackingCommand('site-data-below-limit'),
     navigateSpeciesKey: designPanel('species-key'),

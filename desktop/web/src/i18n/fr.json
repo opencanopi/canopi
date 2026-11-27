@@ -312,7 +312,7 @@
       "placeholder": "Lieu ou coordonnées",
       "searching": "Recherche…",
       "noResults": "Aucun lieu trouvé",
-      "error": "La recherche de lieu a échoué",
+      "error": "Recherche de lieu indisponible. Saisissez une latitude et une longitude.",
       "results": "Lieux",
       "placeholderShort": "Chercher un lieu",
       "east": "E",
@@ -322,7 +322,9 @@
       "coordinates": "{{lat}}° {{northSouth}}, {{lon}}° {{eastWest}}",
       "west": "O",
       "goStraightThere": "Coordonnées · y aller directement",
-      "enterHint": "Appuyez sur Entrée pour rechercher"
+      "enterHint": "Appuyez sur Entrée pour rechercher",
+      "attributionNominatim": "Recherche par Nominatim · © contributeurs OpenStreetMap",
+      "attributionPelias": "Recherche par Pelias · © contributeurs OpenStreetMap"
     },
     "file": {
       "cancel": "Annuler"
@@ -892,18 +894,6 @@
       "point": "Point de la rangée {{index}}",
       "dot": "Ajouter un point sur le segment {{index}} de la rangée"
     }
-  },
-  "worldMap": {
-    "title": "Carte du monde",
-    "discover": "Découvrir des Designs",
-    "featured": "En vedette",
-    "downloading": "Téléchargement du modèle…",
-    "author": "Par {{author}}",
-    "noDesigns": "Aucun Design dans cette zone pour l’instant",
-    "zoomToExplore": "Zoomez pour explorer les Designs",
-    "filterByClimate": "Filtrer par climat",
-    "filterByStyle": "Filtrer par style",
-    "openTemplate": "Ouvrir comme nouveau Design"
   },
   "theme": {
     "light": "Clair",
@@ -1736,7 +1726,6 @@
       "ValuesNotMetres": "Nécessite des valeurs en mètres ; ces données sont en {{units}}.",
       "GridNotProjectedMetres": "Nécessite une grille projetée en mètres au sol, pas en Web Mercator ni en longitude et latitude.",
       "EngineMissing": "Indisponible : le moteur GeoLibre est absent.",
-      "NeedsDesktop": "Nécessite Canopi Desktop.",
       "AlreadyInSiteData": "Déjà dans Données du site."
     },
     "stale": {

@@ -3,6 +3,7 @@ import { itemTypeLabel } from '../../../app/data-library/item-types'
 import type { LibraryItem } from '../../../app/data-library/library-items'
 import { locale } from '../../../app/settings/state'
 import { t } from '../../../i18n'
+import { formatByteSize } from '../../../utils/format'
 
 /** Wording and states of one library item, shared by the Data library and Layers details. */
 export function isStale(row: LibraryItem): boolean {
@@ -38,19 +39,7 @@ export function itemStatusLabel(row: LibraryItem): string {
   return row.role === 'Derived' ? t('canvas.lidar.library.calculationFailed') : t('canvas.lidar.library.importFailed')
 }
 
-/** "1.2 GB", "340 MB", "12 kB": the space the library takes on this computer. */
+/** "1.2 GB", "340 MB", "12 kB": the space the library takes on this computer (2.1-Q359). */
 export function formatDiskSize(bytes: number, activeLocale: string): string {
-  const units = ['kilobyte', 'megabyte', 'gigabyte', 'terabyte'] as const
-  let value = Math.max(0, bytes) / 1000
-  let unit = 0
-  while (value >= 1000 && unit < units.length - 1) {
-    value /= 1000
-    unit += 1
-  }
-  return new Intl.NumberFormat(activeLocale, {
-    style: 'unit',
-    unit: units[unit],
-    unitDisplay: 'short',
-    maximumFractionDigits: value >= 100 ? 0 : 1,
-  }).format(value)
+  return formatByteSize(bytes, activeLocale)
 }

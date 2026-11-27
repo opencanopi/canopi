@@ -491,7 +491,7 @@ const galleryWebCatalog = createBrowserShellCatalog(createBrowserShellCapabiliti
 }, (error) => console.error(error), {
   importGeoJson: async () => { activity.value = 'GeoJSON import stays in memory.'; return { status: 'cancelled' as const } },
   exportGeoJson: async () => { activity.value = 'GeoJSON export completed in memory.'; return { status: 'cancelled' as const } },
-}), { templatesEnabled: false, canvasReady: () => true })
+}), { canvasReady: () => true })
 
 function galleryWebProjection() {
   return createBrowserShellCommandProjection({

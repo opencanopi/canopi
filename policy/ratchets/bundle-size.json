@@ -198,6 +198,11 @@
       "ceiling": 1574,
       "tolerance": 0.05
     },
+    "desktop chunk: format": {
+      "ceiling": 372,
+      "tolerance": 0.05,
+      "bead": "canopi-f47t.52.73"
+    },
     "desktop chunk: format-count": {
       "ceiling": 191486,
       "tolerance": 0.05
@@ -398,14 +403,6 @@
       "ceiling": 730269,
       "tolerance": 0.05
     },
-    "web chunk: WorldMapPanel": {
-      "ceiling": 7625,
-      "tolerance": 0.05
-    },
-    "web chunk: WorldMapSurface": {
-      "ceiling": 2652,
-      "tolerance": 0.05
-    },
     "web chunk: boot-guard": {
       "ceiling": 7193,
       "tolerance": 0.05
@@ -437,10 +434,6 @@
     },
     "web chunk: maplibre-gl-worker": {
       "ceiling": 508951,
-      "tolerance": 0.05
-    },
-    "web chunk: preload-helper": {
-      "ceiling": 77370,
       "tolerance": 0.05
     },
     "web chunk: rolldown-runtime": {

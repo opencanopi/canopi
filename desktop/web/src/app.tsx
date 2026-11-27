@@ -22,7 +22,8 @@ import { WorkspaceDialogs } from "./components/workspace/WorkspaceComposition";
 import { keyboardShortcutsDialogOpen } from "./app/shell/dialogs";
 import { appCommandGraphChromeProjection } from "./commands/registry";
 import { getAppFolders, showAppFolder } from "./ipc/settings";
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useLayoutEffect, useState } from "preact/hooks";
+import { installPhoneLayout, phoneLayout } from "./app/shell/phone-layout";
 import { raiseLaunchNotices, raiseUpdateNotice, raiseUpdateNotInstalledNotice, withdrawUpdateNoticeOnInstall } from "./components/workspace/launch-notices";
 import { installStoreNotices } from "./components/workspace/store-notices";
 import { createUpdateController, type UpdateController, type UpdaterPort } from "./app/updates/controller";
@@ -93,14 +94,16 @@ export function App({ updates: ports, dismissStoreNoticeOnHost }: {
   readonly dismissStoreNoticeOnHost: (store: StoreId) => Promise<void>;
 }) {
   const updates = useDesktopUpdates(ports);
+  useLayoutEffect(() => installPhoneLayout(window), []);
+  const phone = phoneLayout.value;
   useEffect(raiseLaunchNotices, []);
   // Report a problem opens the problem report; Update opens About, where the update installs.
   useEffect(() => installStoreNotices({ report: openProblemReport, updatesInAbout: true, dismissOnHost: dismissStoreNoticeOnHost }), [dismissStoreNoticeOnHost]);
   return (
-    <div className={styles.appRoot}>
+    <div className={styles.appRoot} data-layout={phone ?? undefined}>
       <DesktopWorkspace />
       <TitleBar />
-      <DesktopPanelRail />
+      {!phone && <DesktopPanelRail />}
       <CommandPalette />
       <WorkspaceDialogs />
       <LazySettingsDialog folders={DESKTOP_FOLDERS} launchCheckPort={updates.launchCheck} />

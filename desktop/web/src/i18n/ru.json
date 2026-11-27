@@ -312,7 +312,7 @@
       "placeholder": "Место или координаты",
       "searching": "Поиск…",
       "noResults": "Места не найдены",
-      "error": "Не удалось найти место",
+      "error": "Поиск мест недоступен. Введите широту и долготу.",
       "results": "Места",
       "placeholderShort": "Найти место",
       "east": "в. д.",
@@ -322,7 +322,9 @@
       "coordinates": "{{lat}}° {{northSouth}}, {{lon}}° {{eastWest}}",
       "west": "з. д.",
       "goStraightThere": "Координаты · перейти сразу",
-      "enterHint": "Нажмите Enter для поиска"
+      "enterHint": "Нажмите Enter для поиска",
+      "attributionNominatim": "Поиск через Nominatim · © участники OpenStreetMap",
+      "attributionPelias": "Поиск через Pelias · © участники OpenStreetMap"
     },
     "file": {
       "cancel": "Отмена"
@@ -892,18 +894,6 @@
       "point": "Точка ряда {{index}}",
       "dot": "Добавить точку на отрезке ряда {{index}}"
     }
-  },
-  "worldMap": {
-    "title": "Карта мира",
-    "discover": "Посмотреть проекты",
-    "featured": "Рекомендуемые",
-    "downloading": "Загрузка шаблона…",
-    "author": "Автор: {{author}}",
-    "noDesigns": "В этом районе пока нет проектов",
-    "zoomToExplore": "Приблизьте, чтобы исследовать проекты",
-    "filterByClimate": "Фильтр по климату",
-    "filterByStyle": "Фильтр по стилю",
-    "openTemplate": "Открыть как новый проект"
   },
   "theme": {
     "light": "Светлая",
@@ -1736,7 +1726,6 @@
       "ValuesNotMetres": "Требуются значения в метрах; эти данные в {{units}}.",
       "GridNotProjectedMetres": "Требуется проецированная сетка в метрах на местности, а не Web Mercator или долгота и широта.",
       "EngineMissing": "Недоступно: отсутствует движок GeoLibre.",
-      "NeedsDesktop": "Требуется Canopi Desktop.",
       "AlreadyInSiteData": "Уже в данных участка."
     },
     "stale": {

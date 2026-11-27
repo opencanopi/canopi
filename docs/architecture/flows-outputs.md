@@ -94,7 +94,7 @@ Source: ADR 0027 One ranking contract; ADR 0029 Static Web serving; contracts §
 sequenceDiagram
   actor U as User
   participant WB as app/plant-browser/workbench.ts<br/>owner species catalog
-  participant NT as platform/page-rules.ts (2.1)<br/>owner page rules
+  participant NT as platform/page-rules.ts<br/>owner page rules
   participant RD as species reader browser adapter (2.1)<br/>owner species reader (E1 outcome A: also in the Desktop webview)
   participant DW as DuckDB worker, same origin (2.1)
   participant SW as service worker sw.js (2.1)

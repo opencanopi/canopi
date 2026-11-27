@@ -312,7 +312,7 @@
       "placeholder": "Plaats of coördinaten",
       "searching": "Zoeken…",
       "noResults": "Geen plaatsen gevonden",
-      "error": "Plaats zoeken mislukt",
+      "error": "Plaats zoeken niet beschikbaar. Voer in plaats daarvan coördinaten in.",
       "results": "Plaatsen",
       "placeholderShort": "Plaats zoeken",
       "east": "O",
@@ -322,7 +322,9 @@
       "coordinates": "{{lat}}° {{northSouth}}, {{lon}}° {{eastWest}}",
       "west": "W",
       "goStraightThere": "Coördinaten · er direct heen",
-      "enterHint": "Druk op Enter om te zoeken"
+      "enterHint": "Druk op Enter om te zoeken",
+      "attributionNominatim": "Zoeken via Nominatim · © OpenStreetMap-bijdragers",
+      "attributionPelias": "Zoeken via Pelias · © OpenStreetMap-bijdragers"
     },
     "file": {
       "cancel": "Annuleren"
@@ -892,18 +894,6 @@
       "point": "Rijpunt {{index}}",
       "dot": "Punt toevoegen op rijsegment {{index}}"
     }
-  },
-  "worldMap": {
-    "title": "Wereldkaart",
-    "discover": "Ontwerpen ontdekken",
-    "featured": "Uitgelicht",
-    "downloading": "Sjabloon downloaden…",
-    "author": "Door {{author}}",
-    "noDesigns": "Nog geen ontwerpen in dit gebied",
-    "zoomToExplore": "Zoom in om ontwerpen te verkennen",
-    "filterByClimate": "Filter op klimaat",
-    "filterByStyle": "Filter op stijl",
-    "openTemplate": "Openen als nieuw ontwerp"
   },
   "theme": {
     "light": "Licht",
@@ -1736,7 +1726,6 @@
       "ValuesNotMetres": "Vereist waarden in meters; deze data is in {{units}}.",
       "GridNotProjectedMetres": "Vereist een geprojecteerd raster in meters op de grond, geen Web Mercator of lengte en breedte.",
       "EngineMissing": "Niet beschikbaar: de GeoLibre-engine ontbreekt.",
-      "NeedsDesktop": "Vereist Canopi Desktop.",
       "AlreadyInSiteData": "Staat al in Terreindata."
     },
     "stale": {

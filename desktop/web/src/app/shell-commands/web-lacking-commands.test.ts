@@ -19,7 +19,7 @@ describe('2.1-Q358 commands Web lacks', () => {
     const catalog = createBrowserShellCatalog({
       newDesign: vi.fn(), openCanopi: vi.fn(), downloadCanopi: vi.fn(), revertDesign: vi.fn(),
       importGeoJson: vi.fn(), exportGeoJson: vi.fn(), exportBudgetCsv: vi.fn(), closeDesign: vi.fn(), navigate: vi.fn(),
-    }, { templatesEnabled: false, canvasReady: () => true })
+    }, { canvasReady: () => true })
     const projection = projectShellCommandCatalog(catalog, STATE, t)
 
     const fileMenu = projection.menus.find((menu) => menu.id === 'file')

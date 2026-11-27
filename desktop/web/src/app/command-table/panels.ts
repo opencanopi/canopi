@@ -10,7 +10,6 @@ export type Panel =
   | 'plant-db'
   | 'canvas'
   | 'favorites'
-  | 'templates'
   | 'design-notebook'
   | 'species-key'
   | 'layers'
@@ -20,14 +19,13 @@ export type Panel =
   | 'consortium'
   | 'stories'
 
-export type SidePanel = Exclude<Panel, 'canvas' | 'templates'>
+export type SidePanel = Exclude<Panel, 'canvas'>
 export type PanelGroup = 'primary' | 'design' | 'planning'
 
 export interface PanelDescriptor {
   readonly panel: Panel
   readonly commandId:
     | 'nav.canvas'
-    | 'nav.templates'
     | 'nav.layers'
     | 'nav.siteData'
     | 'nav.speciesKey'
@@ -67,7 +65,6 @@ function row(
 
 export const PANEL_DESCRIPTORS: readonly PanelDescriptor[] = [
   row('canvas', 'nav.canvas', 'panelRail.canvas', 'primary', 0),
-  row('templates', 'nav.templates', 'worldMap.title', 'primary', 1),
   row('layers', 'nav.layers', 'panelRail.layers', 'design', 0, 1),
   row('site-data', 'nav.siteData', 'canvas.layers.siteData', 'design', 1, 2, ['site-data-below-limit']),
   row('species-key', 'nav.speciesKey', 'panelRail.plants', 'design', 2, 3),

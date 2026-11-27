@@ -13,7 +13,7 @@ import { admitWebCatalogManifest } from "./src/generated/web-catalog-artifact.mj
 import { ENGINE_FLOOR_BROWSERS, ENGINE_FLOOR_TARGET } from "./engine-floor";
 // The coverage floors' one home (2.1-M217): policy/check.mjs holds this config's loaded values to the same family.
 import coverageFamily from "../../policy/ratchets/coverage.json";
-const tauriConfigPath = fileURLToPath(new URL('../tauri.conf.json', import.meta.url));
+const CARGO_APP_VERSION = /^\s*version\s*=\s*"([^"]+)"\s*$/m.exec(/^\[workspace\.package\]\s*$([\s\S]*?)(?=^\[|(?![\s\S]))/m.exec(readFileSync(fileURLToPath(new URL('../../Cargo.toml', import.meta.url)), 'utf8'))?.[1] ?? '')?.[1] ?? (() => { throw new Error('Cargo.toml [workspace.package] version missing'); })();
 // The generated Web plant catalog (`npm run generate:web-catalog`, git-ignored); a test may point elsewhere.
 const WEB_CATALOG_INPUT_ENV = "CANOPI_WEB_CATALOG_INPUT";
 // Web files are named `<name>-<16-character hash>.<ext>`, so scripts/web_release.py can tell a hashed name from a
@@ -84,8 +84,11 @@ export default defineConfig(({ command, mode }) => {
     // Nothing tracked lives in public/; a checkout's leftover public/canopi-catalog/ or public/pdf-fonts/ (before 2.0.3)
     // must never reach a build (2.1-M176).
     publicDir: false,
-    // The catalog directory, relative to the base: read by src/web/duckdb-wasm-catalog.ts.
-    define: { __CANOPI_WEB_CATALOG_PATH__: JSON.stringify(webCatalog?.path ?? "assets/catalog/none/") },
+    // The catalog directory and Cargo workspace version (.52.75): read by duckdb-wasm-catalog.ts and app/about/metadata.ts.
+    define: {
+      __CANOPI_WEB_CATALOG_PATH__: JSON.stringify(webCatalog?.path ?? "assets/catalog/none/"),
+      __CANOPI_APP_VERSION__: JSON.stringify(CARGO_APP_VERSION),
+    },
     optimizeDeps: {
       // The WASM decoder packages resolve their .wasm files relative to their
       // own module URL; pre-bundling would move them away from those files.
@@ -109,8 +112,6 @@ export default defineConfig(({ command, mode }) => {
       fs: {
         allow: [
           fileURLToPath(new URL('.', import.meta.url)),
-          tauriConfigPath,
-          `${tauriConfigPath}?raw`,
           // The About dialog's notices view imports the root file `?raw`.
           notices.NOTICES_PATH,
           `${notices.NOTICES_PATH}?raw`,

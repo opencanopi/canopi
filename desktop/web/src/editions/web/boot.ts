@@ -8,14 +8,9 @@
  * on the next launch. `pagehide` closes the IndexedDB connection and refuses reopens while hidden
  * so bfcache stays intact; `pageshow` (`event.persisted`) reopens it.
  */
-import { installPlaceSearchSession } from "../../app/geocoding/place-search-session";
-import { installToolRailLearning } from "../../app/tool-rail/learning";
 import { installSettingsProjection, readSettingsReportSummary } from "../../app/settings/projection";
 import { initTheme } from "../../app/settings/theme";
-import { registerDesignOpenFailurePresenter } from "../../app/document-session/open-failure";
-import { createJsonSessionCodec, createSessionCore, installLiveSessionCore } from "../../app/document-session/live-core";
-import { registerCloseGuard } from "../../app/shell/close-guard";
-import { installConsortiumSync } from "../../app/consortium/workflow";
+import { createJsonSessionCodec, createSessionCore } from "../../app/document-session/live-core";
 import { withNewDesignDisplay } from "../../app/settings/new-design-defaults";
 import { normalizeLoadedDocument } from "../../app/contracts/document";
 import { NEW_DESIGN_LAYER_DEFAULTS } from "../../generated/new-design-defaults";
@@ -39,22 +34,20 @@ import { readSpeciesListRecord, type BrowserStorage } from "../../platform/brows
 import { createDesignCore } from "../../platform/design-core";
 import { createBrowserDesignHomeStore, type BrowserDesignHomeStore } from "../../platform/design-home.browser";
 import { draftNameFromBytes } from "../../platform/draft-records-move";
-import { installFailureHooks, reportFailure } from "../../failures/report";
+import { reportFailure } from "../../failures/report";
 import { capabilitiesForEdition } from "../../generated/edition-capabilities";
-import { installEditionPorts } from "../../platform/edition-ports";
 import { createUuid } from "../../utils/ids";
 import { WEB_EDITION_MANIFEST } from "./manifest";
 import { geocodingTransport as browserGeocodingTransport } from "../../app/geocoding/transport.browser";
 import { createBrowserFileDelivery } from "../../platform/file-delivery";
 import { createUnsupportedDataLibraryPort } from "../../platform/library";
-import { installSpeciesCatalogWorkbench } from "../../app/plant-browser";
 import { speciesCatalogWorkbench as browserSpeciesCatalogWorkbench } from "./species-catalog";
 import { createBrowserProblemReportWriter } from "./problem-report";
 import { CANOPI_VERSION } from "../../app/about/metadata";
 import { storeHealth } from "../../failures/health";
-import { installCanvasHostRuntime } from "../../app/canvas-map-surface/use-canvas-host";
 import { createBrowserCanvasHostRuntime } from "./browser-workspace-runtime";
 import { browserAppLifecyclePort, browserFileAccessPort } from "./session-ports";
+import { installAppLifetime } from "../install-app-lifetime";
 import {
   currentWebDesignText,
   downloadWebCanopi,
@@ -66,9 +59,6 @@ let disposeWebRoot: (() => void) | null = null;
 
 export function bootWebEdition(): () => void {
   disposeWebRoot?.();
-  const stopConsortiumSync = installConsortiumSync();
-
-  const disposeFailureHooks = installFailureHooks({ storage: "device" }, window);
   registerBrowserProblemReportOpener(openProblemReportDialog);
   const browserFileDelivery = createBrowserFileDelivery({ untitled: () => t("titleBar.untitledDesign") });
   const problemReportWriter = createBrowserProblemReportWriter({
@@ -107,19 +97,6 @@ export function bootWebEdition(): () => void {
       reportFailure(error, { shown: "none", source: "web-drafts.move" });
     },
   });
-  const disposePorts = installEditionPorts({
-    capabilities: capabilitiesForEdition("web", "linux"),
-    manifest: WEB_EDITION_MANIFEST,
-    settings: browserSettingsPlatformAdapter,
-    problemReport: problemReportWriter,
-    geocoding: browserGeocodingTransport,
-    fileDelivery: browserFileDelivery,
-    dataLibrary: createUnsupportedDataLibraryPort(),
-    designHome: idbHomeStore,
-    fileAccess: browserFileAccessPort,
-    appLifecycle: browserAppLifecyclePort,
-    designCore: formatCore,
-  });
   let lastMarkedDraftId: string | null = null;
   const webSessionCore = createSessionCore({
     designHome: idbHomeStore,
@@ -157,10 +134,27 @@ export function bootWebEdition(): () => void {
       return normalized;
     },
   });
-  const disposeSessionCore = installLiveSessionCore(webSessionCore);
-  const closeGuardLifetime = registerCloseGuard({ downloadCopy: downloadWebCanopi });
-  const disposeCatalog = installSpeciesCatalogWorkbench(browserSpeciesCatalogWorkbench);
-  const disposeCanvasHost = installCanvasHostRuntime(() => createBrowserCanvasHostRuntime());
+  const disposeAppLifetime = installAppLifetime({
+    failureStorage: "device",
+    ports: {
+      capabilities: capabilitiesForEdition("web", "linux"),
+      manifest: WEB_EDITION_MANIFEST,
+      settings: browserSettingsPlatformAdapter,
+      problemReport: problemReportWriter,
+      geocoding: browserGeocodingTransport,
+      fileDelivery: browserFileDelivery,
+      dataLibrary: createUnsupportedDataLibraryPort(),
+      designHome: idbHomeStore,
+      fileAccess: browserFileAccessPort,
+      appLifecycle: browserAppLifecyclePort,
+      designCore: formatCore,
+    },
+    speciesCatalog: browserSpeciesCatalogWorkbench,
+    createCanvasHostRuntime: () => createBrowserCanvasHostRuntime(),
+    sessionCore: webSessionCore,
+    closeGuard: { downloadCopy: downloadWebCanopi },
+    openFailurePresenter: presentBrowserDesignOpenFailure,
+  });
 
   const onBeforeUnload = (event: BeforeUnloadEvent) => {
     const open = webSessionCore.currentDesign.peek();
@@ -263,9 +257,6 @@ export function bootWebEdition(): () => void {
   })();
 
   const stopReleaseWatch = browserReleaseWatch.start();
-  registerDesignOpenFailurePresenter(presentBrowserDesignOpenFailure);
-  const disposePlaceSearchSession = installPlaceSearchSession();
-  const disposeToolRailLearning = installToolRailLearning();
 
   const dispose = () => {
     if (disposed) return;
@@ -277,22 +268,13 @@ export function bootWebEdition(): () => void {
     withdrawDraftStoreBlockedNotice();
     setWebStorageUnchecked(false);
     idbHomeStore.dispose();
-    registerDesignOpenFailurePresenter(null);
-    disposeToolRailLearning();
-    disposePlaceSearchSession();
     stopReleaseWatch();
     disposeDraftPersistence();
     settingsInstallation.dispose();
     disposeTheme();
-    disposeCatalog();
-    disposeCanvasHost();
-    closeGuardLifetime.dispose();
-    disposeSessionCore();
-    disposePorts();
+    disposeAppLifetime();
     browserFileDelivery.dispose?.();
     problemReportWriter.dispose();
-    disposeFailureHooks();
-    stopConsortiumSync();
     if (disposeWebRoot === dispose) disposeWebRoot = null;
   };
   disposeWebRoot = dispose;

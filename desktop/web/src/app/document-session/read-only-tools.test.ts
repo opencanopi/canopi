@@ -265,7 +265,7 @@ function webEnabled(): string[] {
   const catalog = createBrowserShellCatalog({
     newDesign: run, openCanopi: run, downloadCanopi: run, revertDesign: run, importGeoJson: run, exportGeoJson: run,
     exportBudgetCsv: run, closeDesign: run, navigate: run,
-  }, { templatesEnabled: false, canvasReady: () => true })
+  }, { canvasReady: () => true })
   const state = { hasDesign: true, revertAvailable: true, activePanel: 'canvas', sidePanel: null } as const
   return catalog.filter((entry) => !entry.isExecutionDisabled(state)).map((entry) => entry.id)
 }

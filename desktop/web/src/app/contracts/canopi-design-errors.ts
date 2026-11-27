@@ -21,14 +21,6 @@ export class CanopiDesignIngestionError extends Error {
   }
 }
 
-export function asCanopiDesignIngestionError(error: unknown): CanopiDesignIngestionError {
-  if (error instanceof CanopiDesignIngestionError) return error
-  return new CanopiDesignIngestionError(
-    'invalid_document',
-    error instanceof Error ? error.message : String(error),
-  )
-}
-
 /** Every kind once: the compiler refuses a kind added to the contract and not here. */
 const DESIGN_LOAD_FAILURE_KINDS = {
   missing: true,

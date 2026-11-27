@@ -106,7 +106,7 @@ flowchart TB
   subgraph page["Page, owner edition root"]
     root["editions/web/"]:::target
     app["Shared app, desktop/web/src/"]
-    st["platform/page-rules.ts (2.1): page-rules wasm in the page"]:::target
+    st["platform/page-rules.ts: page-rules wasm in the page"]:::target
   end
   fw["Format worker: platform/design-core.worker.ts"]
   lw["Library worker: catalogue in SQLite on OPFS, engine child, Web Lock (2.1)"]:::target

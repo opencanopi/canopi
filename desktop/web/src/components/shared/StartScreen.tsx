@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'preact/hooks'
 import { locale } from '../../app/settings/state'
 import { formatInstantInList } from '../../planning/civil-date'
+import { normalizeSearchText } from '../../platform/page-rules'
 import { t } from '../../i18n'
 import { ActionMenu } from './ActionMenu'
 import { recentDesignLocations, type RecentDesignLocation } from '../../app/recent-files/locations'
@@ -356,5 +357,5 @@ function draftStatusKey(draft: StartScreenDraft): LocaleKey {
 }
 
 function fold(text: string): string {
-  return text.normalize('NFD').replace(/\p{M}/gu, '').toLocaleLowerCase()
+  return normalizeSearchText(text)
 }

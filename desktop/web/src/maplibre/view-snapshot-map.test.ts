@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { geoToMercator, mercatorToGeo } from '../geo/projection'
+import { geoToMercator, mercatorToGeo } from '../geo/web-mercator'
 import type { MapLibreMapConstructorOptions } from './loader'
 import {
   mountMapBackground,

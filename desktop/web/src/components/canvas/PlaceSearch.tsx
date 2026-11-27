@@ -218,7 +218,11 @@ export function PlaceCombobox({ variant, onPick, disabled = false, autoFocus = f
           ))}
         </ul>
         {!coordinates && search.attribution.value && options.length > 0 && variant === 'title-bar' && (
-          <p className={styles.attribution}>{search.attribution.value}</p>
+          <p className={styles.attribution}>
+            {search.attribution.value.includes('Pelias')
+              ? t('canvas.placeSearch.attributionPelias')
+              : t('canvas.placeSearch.attributionNominatim')}
+          </p>
         )}
       </div>
     </div>

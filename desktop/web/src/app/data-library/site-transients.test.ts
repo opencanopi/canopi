@@ -153,16 +153,6 @@ describe('the Site data transients (canopi-f47t.42, U49)', () => {
     expect(profileLine.value).toBeNull()
   })
 
-  it('leaving Canvas ends them', () => {
-    setPin(PARIS)
-    setProfileLine(LINE)
-
-    selectPanel('templates')
-
-    expect(pin.value).toBeNull()
-    expect(profileLine.value).toBeNull()
-  })
-
   it('entering overview ends them, and overview pins nothing', () => {
     const mode = canvasInMode('site')
     setPin(PARIS)

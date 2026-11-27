@@ -3,6 +3,7 @@ import { t } from '../../i18n'
 import { locale } from '../settings/state'
 import { failureOf } from '../../failures/ipc-failure'
 import { reportFailure } from '../../failures/report'
+import { formatByteSize } from '../../utils/format'
 
 /**
  * The one mapper from a Data library failure to what users read (canopi-bkbh).
@@ -17,15 +18,9 @@ import { reportFailure } from '../../failures/report'
 type Reason = LidarImportRefusalReason
 type Kind = Reason['kind']
 
-/** "2 GB", "512 MB": a limit in mebibytes, in the interface language. */
+/** "2.1 GB", "537 MB": a limit in mebibytes formatted in decimal SI (2.1-Q359), in the interface language. */
 function formatLimit(limitMib: number): string {
-  const gigabytes = limitMib >= 1024
-  return new Intl.NumberFormat(locale.value, {
-    style: 'unit',
-    unit: gigabytes ? 'gigabyte' : 'megabyte',
-    unitDisplay: 'short',
-    maximumFractionDigits: 1,
-  }).format(gigabytes ? limitMib / 1024 : limitMib)
+  return formatByteSize(limitMib * 1024 * 1024, locale.value)
 }
 
 const REFUSAL_COPY = {

@@ -4,6 +4,7 @@
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import type { Page } from '@playwright/test'
+import { openFixtureFromStart as openStartFixture } from '../support/layout'
 import { expect, test } from '../support/offline'
 
 const FIXTURE = fileURLToPath(new URL('../fixtures/canvas-base.canopi', import.meta.url))
@@ -11,11 +12,7 @@ const REPORT_NAME = /^canopi-report-\d{8}-\d{6}\.zip$/
 
 async function openFixtureFromStart(page: Page): Promise<void> {
   await page.goto('')
-  const open = page.locator('[data-start-screen] button').filter({ hasText: /\.canopi/ }).first()
-  const [chooser] = await Promise.all([page.waitForEvent('filechooser'), open.click()])
-  await chooser.setFiles(FIXTURE)
-  // The Design's title bar, not the map: Firefox in the pinned image has no WebGL, so its map never draws.
-  await expect(page.locator('[data-workspace-title-bar] [data-save-status]')).toBeVisible()
+  await openStartFixture(page, FIXTURE)
 }
 
 async function openReportDialog(page: Page) {

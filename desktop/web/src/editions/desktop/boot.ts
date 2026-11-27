@@ -2,17 +2,15 @@
  * editions/desktop/boot.ts: L5 Desktop edition lifetime bootstrap (ADR 0022, ADR 0030, contracts §22).
  */
 import { bootstrapShell, type ShellBootstrap } from "../../app/shell/bootstrap";
-import { registerCloseGuard, waitForCloseHold, type CloseGuardLifetime } from "../../app/shell/close-guard";
+import { waitForCloseHold } from "../../app/shell/close-guard";
 import { disposeLidarWorkflow, installLidarWorkflow } from "../../app/data-library/workflow";
 import { disposeLidarDisplayDescriptors, installLidarDisplayDescriptors } from "../../app/data-library/display";
 import {
   createJsonSessionCodec,
   createSessionCore,
-  installLiveSessionCore,
   normalizeLoadedDocument,
 } from "../../app/document-session/live-core";
 import { withNewDesignDisplay } from "../../app/settings/new-design-defaults";
-import { installConsortiumSync } from "../../app/consortium/workflow";
 import { installLaunchFile } from "../../app/document-session/launch-file";
 import { getRecentFiles } from "../../ipc/design";
 import { NEW_DESIGN_LAYER_DEFAULTS } from "../../generated/new-design-defaults";
@@ -22,22 +20,17 @@ import { createDesktopLastOpenHomePort, encodeDesktopLastOpenHome } from "./last
 import { flushSettingsProjection, mutateSettingsProjection } from "../../app/settings/projection";
 import { decodeLastOpenHome } from "../../platform/design-home";
 import { lastOpenHome, singleKeyShortcuts } from "../../app/settings/state";
-import { installPlaceSearchSession } from "../../app/geocoding/place-search-session";
-import { installToolRailLearning } from "../../app/tool-rail/learning";
 import { focusOwner } from "../../app/keyboard/focus-owner";
 import { installKeyRouter } from "../../app/keyboard/key-router";
 import { currentCanvasKeyboardPort } from "../../canvas/session";
 import { detectPlatform } from "../../canvas/runtime/input/platform";
 import { setShortcutPlatform } from "../../app/shell-commands/shortcut-text";
 import { installDesktopKeyRouter } from "../../commands/registry";
-import { registerDesignOpenFailurePresenter } from "../../app/document-session/open-failure";
 import { presentDesktopDesignOpenFailure } from "./open-failure";
 import { desktopSettingsPlatformAdapter, loadDesktopHealth } from "./settings";
 import { installProblemReportPort } from "../../app/problem-report/submission";
 import { desktopProblemReport } from "./problem-report";
-import { installFailureHooks } from "../../failures/report";
 import { capabilitiesForEdition, type RuntimeOs } from "../../generated/edition-capabilities";
-import { installEditionPorts } from "../../platform/edition-ports";
 import { desktopHomePort } from "./design-home";
 import { createDesktopAppLifecyclePort, createDesktopSessionHomeStore, desktopDesignCorePort, desktopFileAccessPort } from "./session-ports";
 import { DESKTOP_EDITION_MANIFEST } from "./manifest";
@@ -45,7 +38,6 @@ import { geocodingTransport as desktopGeocodingTransport } from "../../app/geoco
 import { t } from "../../i18n";
 import { createDesktopFileDelivery } from "./file-delivery";
 import { desktopDataLibraryPort } from "./library";
-import { installSpeciesCatalogWorkbench } from "../../app/plant-browser";
 import { speciesCatalogWorkbench as desktopSpeciesCatalogWorkbench } from "./species-catalog";
 import { installSpeciesCacheLoader } from "../../app/canvas-runtime/species-cache";
 import { installGeoJsonWorkflow } from "../../app/geojson/workflow";
@@ -54,7 +46,7 @@ import { getFlowerColorBatch, getSpeciesBatch } from "../../ipc/species";
 import { installNativeAssetUrlResolver } from "../../ipc/transport";
 import { isPlantDbUnavailableError } from "../../ipc/plant-db-errors";
 import { createDesktopCanvasHostRuntime } from "../../app/canvas-map-surface/desktop-workspace-runtime";
-import { installCanvasHostRuntime } from "../../app/canvas-map-surface/use-canvas-host";
+import { installAppLifetime } from "../install-app-lifetime";
 
 const runtimeOsFromPlatform = (platform: ReturnType<typeof detectPlatform>): RuntimeOs =>
   platform.os === "mac" ? "macos" : platform.os === "windows" ? "windows" : "linux";
@@ -64,48 +56,9 @@ let disposeDesktopRoot: (() => void) | null = null;
 export function bootDesktopEdition(): () => void {
   disposeDesktopRoot?.();
 
-  const disposers: Array<() => void> = [
-    // Window error hooks first so a failure during bootstrap reaches the ring (ADR 0025).
-    installFailureHooks({ storage: "disk" }, window),
-    installNativeAssetUrlResolver(),
-    installConsortiumSync(),
-  ];
   const platform = detectPlatform(navigator, window as unknown as { readonly GestureEvent?: unknown });
   const capabilities = capabilitiesForEdition("desktop", runtimeOsFromPlatform(platform));
   const desktopLifecycle = createDesktopAppLifecyclePort({ waitForCloseHold });
-  disposers.push(
-    installEditionPorts({
-      capabilities,
-      manifest: DESKTOP_EDITION_MANIFEST,
-      settings: desktopSettingsPlatformAdapter,
-      problemReport: desktopProblemReport,
-      geocoding: desktopGeocodingTransport,
-      fileDelivery: createDesktopFileDelivery(() => t("titleBar.untitledDesign")),
-      dataLibrary: desktopDataLibraryPort,
-      designHome: desktopHomePort,
-      fileAccess: desktopFileAccessPort,
-      appLifecycle: desktopLifecycle,
-      designCore: desktopDesignCorePort,
-    }),
-    installSpeciesCatalogWorkbench(desktopSpeciesCatalogWorkbench),
-    installSpeciesCacheLoader({ getSpeciesBatch, getFlowerColorBatch, isPlantDbUnavailableError }),
-    installGeoJsonWorkflow(desktopGeoJsonWorkflow),
-    installCanvasHostRuntime(() => createDesktopCanvasHostRuntime({ locationEnabled: capabilities.has("my-location") })),
-  );
-  installProblemReportPort(desktopProblemReport);
-  installLidarWorkflow();
-  installLidarDisplayDescriptors();
-  const shellBootstrap: ShellBootstrap = bootstrapShell(desktopSettingsPlatformAdapter, loadDesktopHealth);
-  registerDesignOpenFailurePresenter(presentDesktopDesignOpenFailure);
-  setShortcutPlatform(platform);
-  const keyRouter = installDesktopKeyRouter(installKeyRouter, {
-    target: window,
-    canvas: currentCanvasKeyboardPort,
-    singleKeys: singleKeyShortcuts,
-    focus: focusOwner,
-    platform,
-    document,
-  });
   const desktopSessionCore = createSessionCore({
     designHome: createDesktopSessionHomeStore(),
     fileAccess: desktopFileAccessPort,
@@ -137,11 +90,47 @@ export function bootDesktopEdition(): () => void {
       return normalized;
     },
   });
-  const closeGuardLifetime: CloseGuardLifetime = registerCloseGuard();
+
+  const disposers: Array<() => void> = [
+    installAppLifetime({
+      failureStorage: "disk",
+      ports: {
+        capabilities,
+        manifest: DESKTOP_EDITION_MANIFEST,
+        settings: desktopSettingsPlatformAdapter,
+        problemReport: desktopProblemReport,
+        geocoding: desktopGeocodingTransport,
+        fileDelivery: createDesktopFileDelivery(() => t("titleBar.untitledDesign")),
+        dataLibrary: desktopDataLibraryPort,
+        designHome: desktopHomePort,
+        fileAccess: desktopFileAccessPort,
+        appLifecycle: desktopLifecycle,
+        designCore: desktopDesignCorePort,
+      },
+      speciesCatalog: desktopSpeciesCatalogWorkbench,
+      createCanvasHostRuntime: () => createDesktopCanvasHostRuntime({ locationEnabled: capabilities.has("my-location") }),
+      sessionCore: desktopSessionCore,
+      openFailurePresenter: presentDesktopDesignOpenFailure,
+    }),
+    installNativeAssetUrlResolver(),
+    installSpeciesCacheLoader({ getSpeciesBatch, getFlowerColorBatch, isPlantDbUnavailableError }),
+    installGeoJsonWorkflow(desktopGeoJsonWorkflow),
+  ];
+  installProblemReportPort(desktopProblemReport);
+  installLidarWorkflow();
+  installLidarDisplayDescriptors();
+  const shellBootstrap: ShellBootstrap = bootstrapShell(desktopSettingsPlatformAdapter, loadDesktopHealth);
+  setShortcutPlatform(platform);
+  const keyRouter = installDesktopKeyRouter(installKeyRouter, {
+    target: window,
+    canvas: currentCanvasKeyboardPort,
+    singleKeys: singleKeyShortcuts,
+    focus: focusOwner,
+    platform,
+    document,
+  });
   disposers.push(
     () => shellBootstrap.dispose(),
-    () => registerDesignOpenFailurePresenter(null),
-    installLiveSessionCore(desktopSessionCore),
     installLaunchFile({
       take: takePendingOpen,
       subscribe: subscribePendingOpen,
@@ -152,9 +141,6 @@ export function bootDesktopEdition(): () => void {
       }),
     }),
     () => keyRouter.dispose(),
-    installToolRailLearning(),
-    installPlaceSearchSession(),
-    () => closeGuardLifetime.dispose(),
     disposeLidarDisplayDescriptors,
     disposeLidarWorkflow,
   );

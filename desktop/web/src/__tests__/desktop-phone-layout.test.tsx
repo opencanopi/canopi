@@ -59,7 +59,7 @@ afterEach(() => {
 })
 
 describe('2.1-Q344 the Desktop layout classifier', () => {
-  it.fails('Q344 (2a-3): a Desktop window under 640 px wide uses the phone layout, a short wide one the landscape phone layout, 640 px and wider none', async () => {
+  it('Q344 (2a-3): a Desktop window under 640 px wide uses the phone layout, a short wide one the landscape phone layout, 640 px and wider none', async () => {
     await renderDesktopApp(600, 800)
     expect(phoneLayout.value).toBe('portrait')
 
@@ -78,7 +78,7 @@ describe('2.1-Q344 the Desktop layout classifier', () => {
     }
   })
 
-  it.fails('Q344 (2a-3): the phone top bar keeps the window controls and drags the window', async () => {
+  it('Q344 (2a-3): the phone top bar keeps the window controls and drags the window', async () => {
     await renderDesktopApp(600, 800)
     expect(phoneLayout.value).toBe('portrait')
 

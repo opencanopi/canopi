@@ -2,7 +2,7 @@ import { signal, batch, effect } from "@preact/signals";
 import { currentDesign, designSessionStore } from "../document-session/store";
 import { phoneToolOptions } from "./phone-layout";
 
-export type Panel = "plant-db" | "canvas" | "favorites" | "templates" | "design-notebook" | "species-key" | "layers" | "site-data" | "calendar" | "budget" | "consortium" | "stories";
+export type Panel = "plant-db" | "canvas" | "favorites" | "design-notebook" | "species-key" | "layers" | "site-data" | "calendar" | "budget" | "consortium" | "stories";
 
 // Panels that open as a sidebar alongside the canvas instead of replacing it.
 export type SidePanel = "plant-db" | "favorites" | "design-notebook" | "species-key" | "layers" | "site-data" | "calendar" | "budget" | "consortium" | "stories";
