@@ -17,7 +17,9 @@ import { desktopGeoJsonWorkflow, presentDesktopGeoJsonNotice } from '../editions
 import { installGeoJsonWorkflow } from '../app/geojson/workflow'
 import { createBrowserGeoJsonWorkflow } from '../editions/web/browser-geojson'
 import { createBrowserFileDelivery } from '../platform/file-delivery'
+import { installEditionPorts } from '../platform/edition-ports'
 import { createDesktopFileDelivery } from '../editions/desktop/file-delivery'
+import { createTestEditionPorts } from './support/test-edition-ports'
 import { presentBrowserGeoJsonNotice } from '../web/browser-notices'
 import { notices, resetNoticesForTests } from '../failures/notices'
 import { t } from '../i18n'
@@ -49,11 +51,16 @@ function emptyDesign(): CanopiFile {
   }
 }
 
+let disposePorts: (() => void) | null = null
+
 beforeEach(() => {
   for (const mock of Object.values(tauri)) mock.mockReset()
+  disposePorts = installEditionPorts(createTestEditionPorts())
 })
 
 afterEach(() => {
+  disposePorts?.()
+  disposePorts = null
   setCurrentCanvasSession(null)
   designSessionFixture.file = null
   resetNoticesForTests()
