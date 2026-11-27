@@ -113,7 +113,7 @@ describe('plant presentation service', () => {
   })
 
   it('a plant without its own colour takes the default plant colour', () => {
-    expect(resolvePlantBaseColor(createPlant(), new Map([['Malus domestica', { stratum: 'emergent' }]])))
+    expect(resolvePlantBaseColor(createPlant()))
       .toBe(DEFAULT_PLANT_COLOR)
   })
 

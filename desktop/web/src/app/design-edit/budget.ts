@@ -9,11 +9,6 @@ export function setBudgetCurrency(currency: string): void {
     return {
       ...design,
       budget_currency: currency,
-      budget: design.budget.map((item) => {
-        if (!item.ext || !Object.prototype.hasOwnProperty.call(item.ext, 'currency')) return item
-        const nextExt = { ...item.ext, currency }
-        return { ...item, ext: nextExt }
-      }),
     }
   }, 'budget.currency')
 }

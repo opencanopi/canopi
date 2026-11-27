@@ -2,7 +2,6 @@ import { resolvePlantSymbolForPlant, type PlantSymbolId } from './scene/plant-sy
 import type { ScenePersistedState } from './scene/types'
 import { resolvePlantBaseColor } from './plant-presentation'
 import { DEFAULT_PLANT_COLOR, normalizeHexColor } from '../plant-colors'
-import type { SpeciesCacheEntry } from './presentation-data'
 import { compareSpeciesByShownName } from '../../utils/species-sort'
 
 /** A species' symbol and colour on the map. */
@@ -14,17 +13,15 @@ export interface SpeciesAppearance {
 /**
  * The symbol and colour a new plant of this species takes in this Design:
  * the Design's species symbol and colour, else the default symbol and the
- * stratum colour. The same rules as a placed plant without overrides. The
- * stratum is the species source's: a Favorite or recent pick has no entry in
- * the runtime's species cache, and a Design species' source reads it from there.
+ * default plant colour. The same rules as a placed plant without overrides.
  */
 export function speciesPlacementAppearance(
   scene: Pick<ScenePersistedState, 'plantSpeciesSymbols' | 'plantSpeciesColors'>,
-  species: { readonly canonicalName: string; readonly stratum: string | null },
+  canonicalName: string,
 ): SpeciesAppearance {
   return {
-    symbol: resolvePlantSymbolForPlant({ canonicalName: species.canonicalName }, scene.plantSpeciesSymbols),
-    color: normalizeHexColor(scene.plantSpeciesColors[species.canonicalName]) ?? DEFAULT_PLANT_COLOR,
+    symbol: resolvePlantSymbolForPlant({ canonicalName }, scene.plantSpeciesSymbols),
+    color: normalizeHexColor(scene.plantSpeciesColors[canonicalName]) ?? DEFAULT_PLANT_COLOR,
   }
 }
 
@@ -135,7 +132,6 @@ export interface SpeciesKeyEntry {
 
 export function buildSpeciesKey(
   scene: ScenePersistedState,
-  speciesCache: ReadonlyMap<string, SpeciesCacheEntry>,
   localizedNames: ReadonlyMap<string, string | null>,
   englishFallbackNames: ReadonlyMap<string, string>,
   locale: string,
@@ -169,7 +165,7 @@ export function buildSpeciesKey(
     }
     entry.count += 1
     const symbol = resolvePlantSymbolForPlant(plant, scene.plantSpeciesSymbols)
-    const color = resolvePlantBaseColor(plant, speciesCache)
+    const color = resolvePlantBaseColor(plant)
     if (
       !entry.appearances.some(
         (appearance) =>

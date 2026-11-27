@@ -8,7 +8,7 @@
 // one the canvas has drawn the change the DOM checks saw (expectCanvasDrawn).
 import { fileURLToPath } from 'node:url'
 import type { Page } from '@playwright/test'
-import { bearing, designMap, expectCanvasDrawn, pressMod, seedPointingDevice } from '../support/canvas'
+import { bearing, designMap, expectCanvasDrawn, pressMod, seedPointingDevice, seedUnitSystem } from '../support/canvas'
 import { chooseFixtureFromStart, nextFrames, openFixture } from '../support/layout'
 import { expect, test } from '../support/offline'
 
@@ -20,12 +20,12 @@ test.use({ draftsKept: true })
 const NEUTRAL = { x: 800, y: 450 }
 /** A point on the left edge of the fixture's rectangle zone (14 m x 8 m) at the opening camera. */
 const RECT_ZONE_EDGE = { x: 367, y: 300 }
-const RECT_ZONE_CHIP = 'Rectangle zone · 112 m² · 44.1 m'
+const RECT_ZONE_CHIP = 'Rectangle zone · 112 m² · 44 m'
 /** The Apple (Malus domestica) inside the rectangle zone, at the opening camera. */
 const APPLE = { x: 430, y: 273 }
 
 async function openBaseFixture(page: Page): Promise<void> {
-  await seedPointingDevice(page) // WebKit reports a Mac, where a new profile starts on Trackpad (2.1-Q309)
+  await Promise.all([seedPointingDevice(page), seedUnitSystem(page)]) // WebKit defaults to Trackpad (2.1-Q309); en-US to US customary (2.1-Q118)
   await page.goto('')
   await chooseFixtureFromStart(page, FIXTURE)
   await expect(designMap(page)).toBeVisible()

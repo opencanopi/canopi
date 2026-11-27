@@ -34,7 +34,7 @@ describe('setBudgetCurrency', () => {
     designSessionFixture.file = null
   })
 
-  it('sets budget_currency and updates all item currencies', () => {
+  it('sets budget_currency without rewriting item ext.currency', () => {
     designSessionFixture.file = makeDesign({
       budget_currency: 'EUR',
       budget: [
@@ -48,8 +48,8 @@ describe('setBudgetCurrency', () => {
     const design = currentDesign.value!
     const budget = design.budget!
     expect(design.budget_currency).toBe('USD')
-    expect(budget[0]!.ext?.['currency']).toBe('USD')
-    expect(budget[1]!.ext?.['currency']).toBe('USD')
+    expect(budget[0]!.ext?.['currency']).toBe('EUR')
+    expect(budget[1]!.ext?.['currency']).toBe('EUR')
   })
 
   it('sets budget_currency on a design with no budget items', () => {

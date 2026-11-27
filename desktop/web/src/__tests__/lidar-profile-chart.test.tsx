@@ -173,16 +173,49 @@ describe('ProfileChart', () => {
 
     expect(container.textContent).toContain('33 ft')
     expect(legendLines()).toEqual([
-      'MNT · IGNRise +5′ 3″ · Steepest 40% over 6′ 7″',
-      'MNS · IGNRise +4′ 5″ · Steepest 40% over 6′ 7″',
-      'MNH · IGNHighest 30 ft',
+      'MNT · IGNRise +5.2 ft · Steepest 40% over 6′ 7″',
+      'MNS · IGNRise +4.4 ft · Steepest 40% over 6′ 7″',
+      'MNH · IGNHighest 29.5 ft',
     ])
     const svg = container.querySelector('section > svg')!
     await act(async () => {
       svg.dispatchEvent(new PointerEvent('pointermove', { clientX: 60 + (342 * 9) / 10, bubbles: true }))
     })
     expect(container.querySelector('[role="status"]')?.textContent).toBe('At 30 ft')
-    expect(legendLines()).toEqual(['MNT · IGN333 ft', 'MNS · IGN—', 'MNH · IGN9′ 10″'])
+    expect(legendLines()).toEqual(['MNT · IGN333.01 ft', 'MNS · IGN—', 'MNH · IGN9.84 ft'])
+  })
+
+  it('keeps high elevations (> 1000 m) in m or ft on axes and preserves 1-decimal rise/canopy stats (#932 B1)', async () => {
+    sampling.answer = (request) => {
+      const xs = request.points.map(([lon, lat]) => PLANE.toPlane({ lon, lat }).x)
+      return request.targets.map((target) => ({
+        Values: {
+          values: xs.map((x) => {
+            if (target.entity_id === 'mnt') return 1203 + (12.34 * x) / 10
+            if (target.entity_id === 'mns') return 1203 + (44 * x) / 10
+            return 23.4
+          }),
+        },
+      }))
+    }
+    await drawLine()
+
+    const metricAxes = Array.from(container.querySelectorAll('section > svg text')).map((node) => node.textContent)
+    expect(metricAxes).toContain('1,203 m')
+    expect(metricAxes).toContain('1,247 m')
+    expect(metricAxes.join(' ')).not.toMatch(/km|mi/)
+    expect(legendLines()[0]).toContain('Rise +12.3 m')
+    expect(legendLines()[2]).toBe('MNH · IGNHighest 23.4 m')
+
+    await act(async () => {
+      unitSystem.value = 'us_customary'
+    })
+    const usAxes = Array.from(container.querySelectorAll('section > svg text')).map((node) => node.textContent)
+    expect(usAxes).toContain('3,947 ft')
+    expect(usAxes).toContain('4,091 ft')
+    expect(usAxes.join(' ')).not.toMatch(/km|mi/)
+    expect(legendLines()[0]).toContain('Rise +40.5 ft')
+    expect(legendLines()[2]).toBe('MNH · IGNHighest 76.8 ft')
   })
 
   it('samples through the app\'s one sampler, in its profile lane beside the row values\' lane', async () => {

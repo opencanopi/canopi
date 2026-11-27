@@ -28,6 +28,7 @@ export interface FormatQuantityOptions {
   readonly trimTrailingZeros?: boolean
   readonly minimumFractionDigits?: number
   readonly maximumFractionDigits?: number
+  readonly signDisplay?: 'auto' | 'exceptZero'
 }
 
 const numberFormatterCache = new Map<string, Intl.NumberFormat>()
@@ -195,6 +196,7 @@ function formatSingleUnit(
   const maxDecimals = options?.maximumFractionDigits ?? decimals
   const minDecimals = options?.minimumFractionDigits ?? (options?.trimTrailingZeros ? 0 : maxDecimals)
   const normalized = Math.abs(value) < 0.5 * 10 ** -(maxDecimals + 2) ? 0 : value
+  const signDisplay = options?.signDisplay
   const meta = UNIT_META[unit]
   if (meta.intlUnit !== null) {
     return cachedNumberFormat(locale, {
@@ -203,11 +205,13 @@ function formatSingleUnit(
       unitDisplay: 'short',
       minimumFractionDigits: minDecimals,
       maximumFractionDigits: maxDecimals,
+      ...(signDisplay ? { signDisplay } : {}),
     }).format(normalized)
   }
   const number = cachedNumberFormat(locale, {
     minimumFractionDigits: minDecimals,
     maximumFractionDigits: maxDecimals,
+    ...(signDisplay ? { signDisplay } : {}),
   }).format(normalized)
   return `${number} ${meta.symbol}`
 }
@@ -265,6 +269,45 @@ export function formatRasterResolution(meters: number, system: UnitSystem, local
 
 export function formatCatalogSize(meters: number, system: UnitSystem, locale: string, options?: FormatQuantityOptions): string {
   return formatQuantity('catalog_size', meters, system, locale, options)
+}
+
+/**
+ * Formats an elevation or vertical height in `m` (metric) or `ft` (US customary)
+ * without switching to `cm`, `in`, `km`, or `mi` (#932 B1).
+ */
+export function formatElevation(
+  meters: number,
+  system: UnitSystem,
+  locale: string,
+  options?: FormatQuantityOptions,
+): string {
+  const unit: UnitId = system === 'us_customary' ? 'ft' : 'm'
+  const value = convertFromSi('length', meters, unit)
+  return formatSingleUnit(value, unit, 0, locale, options)
+}
+
+/** Returns the display symbol for `kind`'s bare input unit in `system` (e.g. `"m"`/`"ft"`, `"m²"`/`"ft²"`). */
+export function bareInputUnitSymbol(kind: QuantityKind, system: UnitSystem): string {
+  const spec = QUANTITY_TABLE[kind]
+  const unit = (system === 'metric' ? spec.metric : spec.usCustomary).bareInputUnit
+  return UNIT_META[unit].symbol
+}
+
+/**
+ * Formats a stored SI quantity as a plain localized input number (no grouping, no unit suffix)
+ * in `system`'s bare input unit.
+ */
+export function formatQuantityInputNumber(
+  kind: QuantityKind,
+  siValue: number,
+  system: UnitSystem,
+  locale: string,
+  maxDecimals: number = 6,
+): string {
+  const spec = QUANTITY_TABLE[kind]
+  const unit = (system === 'metric' ? spec.metric : spec.usCustomary).bareInputUnit
+  const value = convertFromSi(kind, siValue, unit)
+  return formatNumber(value, locale, { useGrouping: false, maximumFractionDigits: maxDecimals })
 }
 
 function escapeRegExp(text: string): string {
@@ -464,6 +507,18 @@ export function niceDistanceAtMost(maxMeters: number, system: UnitSystem): numbe
 
 /** Formats a scale-bar distance cleanly in `system` without spurious `.0` on whole steps. */
 export function formatScaleBarDistance(meters: number, system: UnitSystem, locale: string): string {
+  const absMeters = Math.abs(meters)
+  const style = selectDisplayStyle('length', system, absMeters)
+  if (style.kind === 'single' && absMeters > 0) {
+    const value = Math.abs(convertFromSi('length', absMeters, style.unit))
+    if (value > 0 && value < 1) {
+      const decimals = Math.min(6, Math.max(style.decimals, -Math.floor(Math.log10(value))))
+      return formatQuantity('length', meters, system, locale, {
+        trimTrailingZeros: true,
+        maximumFractionDigits: decimals,
+      })
+    }
+  }
   return formatQuantity('length', meters, system, locale, { trimTrailingZeros: true })
 }
 

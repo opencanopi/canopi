@@ -22,8 +22,9 @@ import {
   type AnalysisSubject,
   type FormValue,
 } from '../../../app/analyses/model'
-import { locale } from '../../../app/settings/state'
+import { locale, unitSystem } from '../../../app/settings/state'
 import { t } from '../../../i18n'
+import type { UnitSystem } from '../../../utils/format'
 import { Dropdown } from '../../shared/Dropdown'
 import { Notice } from '../../shared/Notice'
 import { Switch } from '../../shared/Switch'
@@ -81,14 +82,15 @@ export function AnalyzeDialog({
   groups?: readonly { readonly key: AnalysisGroup; readonly labelKey: LocaleKey }[]
 }) {
   const language = locale.value
+  const system = unitSystem.value
   const titleId = useId()
   const formId = `${titleId}-form`
   const root = useRef<HTMLFormElement>(null)
   const [currentSourceId, setCurrentSourceId] = useState(sourceId)
   const item = sources.find((source) => source.id === currentSourceId) ?? sources[0]!
   const options = useMemo(
-    () => analysisOptions(item, context, language, registry, groups),
-    [item, context, language, registry, groups],
+    () => analysisOptions(item, context, language, registry, groups, system),
+    [item, context, language, registry, groups, system],
   )
   const flat = options.flatMap((group) => group.options)
   const firstChoice = (preferred: string | null) =>
@@ -116,11 +118,11 @@ export function AnalyzeDialog({
   }, [currentSourceId])
 
   const entry = flat.find((option) => option.entry.id === selectedId)?.entry ?? null
-  const form = entry ? forms[entry.id] ?? initialForm(entry, item.name, t(entry.titleKey), language) : null
-  const unavailable = entry && form ? entryAvailability(entry, item, context, form, language) : null
+  const form = entry ? forms[entry.id] ?? initialForm(entry, item.name, t(entry.titleKey), language, system) : null
+  const unavailable = entry && form ? entryAvailability(entry, item, context, form, language, system) : null
   const blocked = unavailable !== null && unavailable.reason !== 'AlreadyInSiteData'
-  const validation = entry && form ? validateForm(entry, form, language) : null
-  const existing = entry && form ? findExistingResult(entry, item.id, form, context, language) : null
+  const validation = entry && form ? validateForm(entry, form, language, system) : null
+  const existing = entry && form ? findExistingResult(entry, item.id, form, context, language, system) : null
 
   const update = (next: AnalysisForm) => {
     if (entry) setForms({ ...forms, [entry.id]: next })
@@ -141,7 +143,7 @@ export function AnalyzeDialog({
       onShowInSiteData(existing.id)
       return
     }
-    const request = buildAnalysisRequest(entry, item, form, language)
+    const request = buildAnalysisRequest(entry, item, form, language, system)
     if (!request) {
       setAttempted(true)
       // Move to the first field that needs attention so the error is announced.
@@ -160,7 +162,8 @@ export function AnalyzeDialog({
         key={param.key}
         param={param}
         value={form.values[param.key] ?? null}
-        error={shown ? paramErrorText(shown, language) : null}
+        system={system}
+        error={shown ? paramErrorText(shown, language, system) : null}
         onChange={(value) => setValue(param.key, value)}
       />
     )
@@ -298,9 +301,10 @@ function optionLabel(param: AnalysisParamSpec, option: string): string {
   return key ? t(key) : option
 }
 
-function ParamField({ param, value, error, onChange }: {
+function ParamField({ param, value, system, error, onChange }: {
   param: AnalysisParamSpec
   value: FormValue
+  system: UnitSystem
   error: string | null
   onChange(value: FormValue): void
 }) {
@@ -342,7 +346,7 @@ function ParamField({ param, value, error, onChange }: {
       )
     case 'number':
     case 'integer': {
-      const suffix = kind.type === 'number' ? paramUnitSuffix(kind.unit) : ''
+      const suffix = kind.type === 'number' ? paramUnitSuffix(kind.unit, system) : ''
       const unitId = `${id}-unit`
       return (
         <div className={styles.field}>

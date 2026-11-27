@@ -1,5 +1,5 @@
 import type { LidarRamp } from '../../generated/contracts'
-import { formatNumber } from '../../utils/format'
+import { formatElevation, formatNumber, formatRasterResolution, type UnitSystem } from '../../utils/format'
 import { unitSuffix } from './item-types'
 
 /**
@@ -59,17 +59,38 @@ function fixed(value: number, digits: number, locale: string): string {
   return formatNumber(value, locale, { minimumFractionDigits: digits, maximumFractionDigits: digits })
 }
 
-export function formatLegendValue(value: number, units: string, locale: string): string {
+export function formatLegendValue(
+  value: number,
+  units: string,
+  locale: string,
+  system: UnitSystem = 'metric',
+): string {
   const digits = Math.abs(value) >= 100 ? 0 : Math.abs(value) >= 10 ? 1 : 2
+  if (units === 'm') {
+    return formatElevation(value, system, locale, { minimumFractionDigits: digits, maximumFractionDigits: digits })
+  }
   return `${fixed(value, digits, locale)}${unitSuffix(units)}`
 }
 
-/** A raster's cell size in metres, to centimetres below 10 m. */
-export function formatRasterMetres(value: number, locale: string): string {
-  return `${fixed(value, value >= 10 ? 0 : value >= 1 ? 1 : 2, locale)} m`
+/** A raster's cell size, formatted in the active unit system. */
+export function formatRasterMetres(
+  value: number,
+  locale: string,
+  system: UnitSystem = 'metric',
+): string {
+  return formatRasterResolution(value, system, locale)
 }
 
 /** A raster's display range, to one decimal. */
-export function formatRasterRange(range: readonly [number, number], units: string, locale: string): string {
+export function formatRasterRange(
+  range: readonly [number, number],
+  units: string,
+  locale: string,
+  system: UnitSystem = 'metric',
+): string {
+  if (units === 'm') {
+    const options = { minimumFractionDigits: 1, maximumFractionDigits: 1 } as const
+    return `${formatElevation(range[0], system, locale, options)} – ${formatElevation(range[1], system, locale, options)}`
+  }
   return `${fixed(range[0], 1, locale)} – ${fixed(range[1], 1, locale)}${unitSuffix(units)}`
 }

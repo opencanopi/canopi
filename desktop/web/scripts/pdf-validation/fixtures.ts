@@ -65,6 +65,6 @@ export function fixture(name: FixtureName): PdfPreparation {
   // basemap layers exercise filtering without any provider or map capture.
   if (name === 'map-excluded') scene.layers.push({ kind: 'layer', name: 'satellite', visible: true, locked: false, opacity: 1 })
   return { input: { name: name === 'map-excluded' ? 'mixed' : name, locale: 'en', unitSystem: 'metric', viewBearingDeg: 0, commonNames,
-    canvas: buildCanvasPrintSnapshot(scene, { pixelsPerMetre: .001, speciesCache: new Map() }) }, setup,
+    canvas: buildCanvasPrintSnapshot(scene) }, setup,
     labels: englishPdfLabels }
 }

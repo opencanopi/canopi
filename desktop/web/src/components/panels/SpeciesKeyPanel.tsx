@@ -104,7 +104,6 @@ function PlantsInDesign({ renderDetail, onOpenDetail }: {
     () => queries
       ? buildSpeciesKey(
         queries.getSceneSnapshot(),
-        queries.getSpeciesCache(),
         queries.getLocalizedCommonNames(),
         queries.getEnglishFallbackNames(),
         activeLocale,

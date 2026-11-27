@@ -7,7 +7,7 @@
 // compass and the View menu's rotation rows on a phone).
 import { fileURLToPath } from 'node:url'
 import type { Page } from '@playwright/test'
-import { bearing, designMap, expectCanvasDrawn } from '../support/canvas'
+import { bearing, designMap, expectCanvasDrawn, seedUnitSystem } from '../support/canvas'
 import { chooseFixtureFromStart } from '../support/layout'
 import { Fingers, type Point } from '../support/fingers'
 import { expect, test } from '../support/offline'
@@ -43,9 +43,10 @@ const PHONE: Layout = {
   apple: { x: 114, y: 330 },
 }
 
-const RECT_ZONE_CHIP = 'Rectangle zone · 112 m² · 44.1 m'
+const RECT_ZONE_CHIP = 'Rectangle zone · 112 m² · 44 m'
 
 async function openBaseFixture(page: Page, layout: Layout): Promise<void> {
+  await seedUnitSystem(page)
   await page.setViewportSize(layout.viewport)
   await page.goto('')
   await chooseFixtureFromStart(page, FIXTURE)

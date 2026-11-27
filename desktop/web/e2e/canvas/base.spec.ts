@@ -6,7 +6,7 @@
 import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import type { Page } from '@playwright/test'
-import { designMap, expectCanvasDrawn, seedPointingDevice } from '../support/canvas'
+import { designMap, expectCanvasDrawn, seedPointingDevice, seedUnitSystem } from '../support/canvas'
 import { chooseFixtureFromStart } from '../support/layout'
 import { expect, test } from '../support/offline'
 
@@ -18,11 +18,13 @@ test.use({ draftsKept: true })
 const NEUTRAL = { x: 800, y: 450 }
 /** A point on the left edge of the fixture's rectangle zone (14 m x 8 m) at the opening camera. */
 const RECT_ZONE_EDGE = { x: 367, y: 300 }
-const RECT_ZONE_CHIP = 'Rectangle zone · 112 m² · 44.1 m'
+const RECT_ZONE_CHIP = 'Rectangle zone · 112 m² · 44 m'
 
 async function openBaseFixture(page: Page): Promise<void> {
   // WebKit reports a Mac user agent, where a new profile starts on Trackpad (2.1-Q309); the wheel steps need Mouse.
   await seedPointingDevice(page)
+  // playwright.config.ts pins en-US (US customary default per 2.1-Q118); these baselines and chip checks are metric.
+  await seedUnitSystem(page)
   await page.goto('')
   await chooseFixtureFromStart(page, FIXTURE)
   await expect(designMap(page)).toBeVisible()

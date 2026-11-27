@@ -197,12 +197,12 @@ describe('plant display rules', () => {
     )
     const after = buildPlantPresentationEntries(plants, scaledContext, new Set())
     expect(after.map((entry) => entry.color)).toEqual([STRATUM_DISPLAY_COLORS.emergent, NO_STRATUM_DISPLAY_COLOR])
-    expect(plants.map((entry) => resolvePlantBaseColor(entry, new Map()))).toEqual(['#3E8E4E', '#3E8E4E'])
+    expect(plants.map((entry) => resolvePlantBaseColor(entry))).toEqual(['#3E8E4E', '#3E8E4E'])
     expect(after[0]!.radiusScreenPx).toBeCloseTo(before[0]!.radiusScreenPx * 1.5)
     expect(hitsAtScaled(scaledHitMetres * 0.999)).toBe(true)
     expect(hitsAtScaled(scaledHitMetres * 1.001)).toBe(false)
     expect(plants.every((entry) => entry.color === '#3E8E4E')).toBe(true)
-    expect(resolvePlantDisplayColor(plants[1]!, new Map(), display)).toBe(NO_STRATUM_DISPLAY_COLOR)
+    expect(resolvePlantDisplayColor(plants[1]!, display)).toBe(NO_STRATUM_DISPLAY_COLOR)
 
     const print = buildCanvasPrintSnapshot({
       plantSpeciesColors: {}, plantSpeciesSymbols: {}, plantSpeciesCodes: {}, layers: [], plants,

@@ -42,7 +42,6 @@ it('the species key shows an opened plant\'s default colour when none is set', a
   })
   const keyColor = () => buildSpeciesKey(
     runtime.querySurface.getSceneSnapshot(),
-    runtime.querySurface.getSpeciesCache(),
     new Map(),
     new Map(),
     'en',

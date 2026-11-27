@@ -429,7 +429,7 @@ describe('draft layer', () => {
     const entry = buildPlantPresentationEntries([plant], { plants: snapshot.scene.plants, pixelsPerMetre: 30, speciesCache: snapshot.speciesCache }, new Set())[0]!
     const fills = paintInstructions(dot as Graphics, 'fill')
     expect(fills).toHaveLength(1)
-    expect(fills[0]!.data.style).toMatchObject({ color: pixiColor(resolvePlantDisplayColor(plant, snapshot.speciesCache)), alpha: 1 })
+    expect(fills[0]!.data.style).toMatchObject({ color: pixiColor(resolvePlantDisplayColor(plant)), alpha: 1 })
     expect(pathSteps(fills[0]!).find((step) => step.action === 'circle')?.data.slice(0, 3)).toEqual([0, 0, entry.radiusScreenPx])
     expect(paints(dot as Graphics, 'stroke')).toEqual([])
   })

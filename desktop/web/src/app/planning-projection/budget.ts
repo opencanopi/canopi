@@ -17,13 +17,12 @@ export interface BudgetPlanningRow {
   readonly item: BudgetItem | null
   readonly hasPrice: boolean
   readonly unitCost: number
-  readonly currency: string
   readonly subtotal: number
 }
 
 export interface BudgetPlanningProjection {
   readonly rows: readonly BudgetPlanningRow[]
-  readonly lineItemPriceMap: ReadonlyMap<string, { unit_cost: number; currency: string }>
+  readonly lineItemPriceMap: ReadonlyMap<string, { unit_cost: number }>
   readonly itemByCanonical: ReadonlyMap<string, BudgetItem>
   readonly totalPlants: number
   readonly pricedCount: number
@@ -42,7 +41,6 @@ export interface BuildBudgetPlanningProjectionOptions {
   readonly localizedNames?: ReadonlyMap<string, string | null>
   readonly englishFallbackNames?: ReadonlyMap<string, string>
   readonly budget: readonly BudgetItem[]
-  readonly currency: string
   readonly locale: string
   readonly speciesKey?: readonly SpeciesKeyEntry[]
 }
@@ -52,12 +50,11 @@ export function buildBudgetPlanningProjection({
   localizedNames,
   englishFallbackNames = new Map(),
   budget,
-  currency,
   locale,
   speciesKey = [],
 }: BuildBudgetPlanningProjectionOptions): BudgetPlanningProjection {
   const itemByCanonical = new Map<string, BudgetItem>()
-  const lineItemPriceMap = new Map<string, { unit_cost: number; currency: string }>()
+  const lineItemPriceMap = new Map<string, { unit_cost: number }>()
 
   for (const item of budget) {
     const target = getBudgetSpeciesTarget(item)
@@ -65,7 +62,6 @@ export function buildBudgetPlanningProjection({
     itemByCanonical.set(target.canonical_name, item)
     lineItemPriceMap.set(target.canonical_name, {
       unit_cost: item.unit_cost,
-      currency,
     })
   }
 
@@ -89,7 +85,6 @@ export function buildBudgetPlanningProjection({
         item,
         hasPrice: price !== undefined,
         unitCost,
-        currency,
         subtotal: value.count * unitCost,
       }
     })

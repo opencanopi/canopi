@@ -55,7 +55,7 @@ describe('pinned plant name legend through the runtime', () => {
     await vi.waitFor(() => expect(renderer.setSnapshot).toHaveBeenCalled())
 
     const drawn = renderer.setSnapshot.mock.calls.at(-1)![0] as SceneRendererSnapshot
-    const canvasColor = resolvePlantDisplayColor(drawn.scene.plants[0]!, drawn.speciesCache, DEFAULT_PLANT_DISPLAY)
+    const canvasColor = resolvePlantDisplayColor(drawn.scene.plants[0]!, DEFAULT_PLANT_DISPLAY)
     expect(canvasColor).toBe(DEFAULT_PLANT_COLOR)
     expect(legendColor()).toBe(canvasColor)
     expect(runtime.querySurface.revision.plantNames.value).toBeGreaterThan(plantNamesRevision)

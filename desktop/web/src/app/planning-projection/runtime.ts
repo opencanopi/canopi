@@ -68,7 +68,7 @@ function readPlanningProjectionCanvasSnapshot(
     localizedNames: speciesDisplayNames(localizedNames, englishFallbackNames),
     englishFallbackNames,
     speciesKey: session
-      ? buildSpeciesKey(session.getSceneSnapshot(), session.getSpeciesCache(), localizedNames, englishFallbackNames, activeLocale)
+      ? buildSpeciesKey(session.getSceneSnapshot(), localizedNames, englishFallbackNames, activeLocale)
       : [],
     zones: (() => {
       const plane = session?.sessionPlane.peek() ?? null
@@ -97,11 +97,9 @@ function usePlanningProjectionCanvasSnapshot(): PlanningProjectionCanvasSnapshot
 
 function useBudgetPlanningProjection({
   budget,
-  currency,
   locale,
 }: {
   readonly budget: readonly BudgetItem[]
-  readonly currency: string
   readonly locale: string
 }): BudgetPlanningProjection {
   const snapshot = usePlanningProjectionCanvasSnapshot()
@@ -111,10 +109,9 @@ function useBudgetPlanningProjection({
     localizedNames: snapshot.localizedNames,
     englishFallbackNames: snapshot.englishFallbackNames,
     budget,
-    currency,
     locale,
     speciesKey: snapshot.speciesKey,
-  }), [snapshot, budget, currency, locale])
+  }), [snapshot, budget, locale])
 }
 
 /**
@@ -132,7 +129,6 @@ export function readBudgetPlanningSurface(): BudgetPlanningSurface {
       localizedNames: snapshot.localizedNames,
       englishFallbackNames: snapshot.englishFallbackNames,
       budget: design?.budget ?? EMPTY_BUDGET,
-      currency,
       locale: activeLocale,
       speciesKey: snapshot.speciesKey,
     }),
@@ -149,7 +145,6 @@ export function useBudgetPlanningSurface(): BudgetPlanningSurface {
   const activeLocale = locale.value
   const projection = useBudgetPlanningProjection({
     budget,
-    currency,
     locale: activeLocale,
   })
 

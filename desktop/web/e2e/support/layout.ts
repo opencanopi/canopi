@@ -64,7 +64,9 @@ export async function chooseFixtureFromStart(page: Page, fixture: Parameters<Fil
  */
 export async function openFixture(page: Page, fixture: string, options: OpenOptions = {}): Promise<void> {
   const { locale = 'en', basemapHidden = false, settings = {}, keepOnReload = false } = options
-  const stored: { key: string, values: Record<string, unknown> } = { key: SETTINGS_KEY, values: { ...settings, locale, ...(basemapHidden ? { basemap_visible: false } : {}) } }
+  // Seed metric unless a caller overrides `unit_system`: playwright.config.ts pins `en-US`, whose first-run default is
+  // US customary (2.1-Q118), while the layout and chrome specs assert metric chip/spacing expectations.
+  const stored: { key: string, values: Record<string, unknown> } = { key: SETTINGS_KEY, values: { unit_system: 'metric', ...settings, locale, ...(basemapHidden ? { basemap_visible: false } : {}) } }
   const write = (record: typeof stored) => {
     // Unloading to `about:blank` between calls re-runs earlier init scripts on an opaque origin, where Chromium and
     // WebKit throw SecurityError on storage access.

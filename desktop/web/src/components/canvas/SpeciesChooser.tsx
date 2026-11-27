@@ -161,7 +161,7 @@ function OptionList({ entries, onChoose }: {
         const common = entry.shownName
         const canonical = entry.source.canonical_name
         const marks = (text: string) => hit?.marks.find((mark) => mark.text === text)?.ranges ?? []
-        const placement = speciesPlacementAppearance(scene, { canonicalName: canonical, stratum: entry.source.stratum })
+        const placement = speciesPlacementAppearance(scene, canonical)
         const appearance = { ...placement, color: displayedPlantColor(placement.color, canonical) }
         return (
           <li key={canonical}>

@@ -16,7 +16,7 @@ import { clearProfile } from '../../../app/data-library/site-transients'
 import { formatLength } from '../../../app/map-selection/zone-label'
 import { locale, unitSystem } from '../../../app/settings/state'
 import { t } from '../../../i18n'
-import { formatLength as formatQuantityLength, formatNumber, formatPercent, type UnitSystem } from '../../../utils/format'
+import { formatElevation, formatNumber, formatPercent, type UnitSystem } from '../../../utils/format'
 import { ButtonTooltip } from '../../shared/ButtonTooltip'
 import { ControlIcon } from '../../shared/ControlIcon'
 import styles from './profile.module.css'
@@ -223,7 +223,7 @@ function ReadyChart({ profile, language, system, retry, retryButton }: {
   const x = drawn[0]!.geometry.x
   const axisLabel = (value: number | null, curve: ProfileCurve) => {
     if (value === null) return ''
-    if (curve.units === 'm') return formatQuantityLength(value, system, language, { maximumFractionDigits: 1, trimTrailingZeros: true })
+    if (curve.units === 'm') return formatElevation(value, system, language, { maximumFractionDigits: 0 })
     return `${formatNumber(value, language, { maximumFractionDigits: 1 })}${unitSuffix(curve.units)}`
   }
   const plots = useMemo(() => (
@@ -314,8 +314,11 @@ function CursorMarks({ drawn, distances, bottom }: {
 
 function formatProfileCurveStat(value: number, units: string, language: string, system: UnitSystem, signed: boolean): string {
   if (units === 'm') {
-    const formatted = formatQuantityLength(value, system, language)
-    return signed && value > 0 ? `+${formatted}` : formatted
+    return formatElevation(value, system, language, {
+      minimumFractionDigits: 1,
+      maximumFractionDigits: 1,
+      ...(signed ? { signDisplay: 'exceptZero' as const } : {}),
+    })
   }
   const formatted = formatNumber(value, language, {
     minimumFractionDigits: 1,

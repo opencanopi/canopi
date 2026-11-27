@@ -81,7 +81,7 @@ export function buildPlantPresentationEntries(
       plant,
       spacing,
       ...plantSizeAt(spacing, localScale, display.symbolScale),
-      color: resolveDisplayedPlantColor(resolvePlantBaseColor(plant, context.speciesCache), plant.canonicalName, display),
+      color: resolveDisplayedPlantColor(resolvePlantBaseColor(plant), plant.canonicalName, display),
       symbol: resolvePlantSymbolForPlant(plant, context.plantSpeciesSymbols ?? {}),
       stackPriority: getStackPriority(plant, selected),
       selected,
@@ -132,7 +132,6 @@ export function hitTestPlant(
 /** The plant's own colour, else the default plant colour. */
 export function resolvePlantBaseColor(
   plant: Pick<ScenePlantEntity, 'canonicalName' | 'color'>,
-  _speciesCache?: ReadonlyMap<string, SpeciesCacheEntry>,
 ): string {
   return normalizeHexColor(plant.color) ?? DEFAULT_PLANT_COLOR
 }
@@ -152,10 +151,9 @@ export function cachedWidth(speciesCache: ReadonlyMap<string, SpeciesCacheEntry>
 /** The colour the plant is drawn with under the current plant display; its stored colour never changes. */
 export function resolvePlantDisplayColor(
   plant: ScenePlantEntity,
-  speciesCache: ReadonlyMap<string, SpeciesCacheEntry>,
   display: PlantDisplay = DEFAULT_PLANT_DISPLAY,
 ): string {
-  return resolveDisplayedPlantColor(resolvePlantBaseColor(plant, speciesCache), plant.canonicalName, display)
+  return resolveDisplayedPlantColor(resolvePlantBaseColor(plant), plant.canonicalName, display)
 }
 
 /**

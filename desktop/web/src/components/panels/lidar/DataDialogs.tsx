@@ -22,7 +22,7 @@ import {
   revealInSiteData,
   type DataDialog,
 } from '../../../app/data-library/library-navigation'
-import { locale } from '../../../app/settings/state'
+import { locale, unitSystem } from '../../../app/settings/state'
 import { AnalyzeDialog } from '../analyze/AnalyzeDialog'
 import { DataLibraryView } from './DataLibraryView'
 import { ImportDataDialog } from './ImportDataDialog'
@@ -103,7 +103,7 @@ function AnalyzeRequest({ request }: { readonly request: Extract<DataDialog, { k
     const outputs = items
       .filter((candidate) => candidate.provenance?.definition_id === provenance.definition_id)
       .map((candidate) => candidate.provenance!.output_key)
-    return formFromProvenance(entry, provenance, outputs, fixedInput.name, t(entry.titleKey), locale.value)
+    return formFromProvenance(entry, provenance, outputs, fixedInput.name, t(entry.titleKey), locale.value, unitSystem.value)
   })
   // Nothing to analyze once the library has loaded: the request closes rather than stay open unseen, which would leave
   // the library under it inert. Before the first snapshot it waits.

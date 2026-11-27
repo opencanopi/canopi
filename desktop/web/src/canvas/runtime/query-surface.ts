@@ -135,7 +135,6 @@ class SceneCanvasQueryRole implements SceneCanvasQuerySurface {
       const scene = this.options.sceneStore.persisted
       return buildCanvasPrintSnapshot(
         scene,
-        this.options.presentation.createPlantPresentationContext(1, scene.plants),
         this.options.sceneStore.sessionPlane,
       )
     }, null)

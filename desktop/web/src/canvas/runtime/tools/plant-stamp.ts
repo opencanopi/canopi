@@ -190,12 +190,8 @@ function previewShapes(ctx: ToolContext, species: PlantStampSourceInput, world: 
     })
   }
 
-  // A source with a stratum colours the ghost with it: a pick not yet in the Design has no species-cache entry. A source
-  // without one leaves the ghost reading the cache, as the plant a click places does.
   const entity = plantEntityFromStampSource(scene.persisted, species, world, PREVIEW_PLANT_ID)
-  const plant = species.stratum === null
-    ? entity
-    : { ...entity, color: speciesPlacementAppearance(scene.persisted, { canonicalName: species.canonical_name, stratum: species.stratum }).color }
+  const plant = { ...entity, color: speciesPlacementAppearance(scene.persisted, species.canonical_name).color }
   const nearest = scene.nearestPlant(world)
   if (nearest && view.screenDistance(world, nearest.plant.position) <= NEAREST_PLANT_MAX_SCREEN_PX) {
     const name = scene.plantPresentation(nearest.plant).commonName

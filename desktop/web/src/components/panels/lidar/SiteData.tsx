@@ -517,7 +517,7 @@ const MISSING_REASON_KEYS: Readonly<Record<LidarMissingReason, LocaleKey>> = {
 function caption(item: LidarPresentationItem): string {
   if (!item.itemType) return ''
   if (item.inputId) return [t('canvas.lidar.layers.fromItem', { name: nameOfItem(item.inputId) }), unitWords(item.units)].filter(Boolean).join(' · ')
-  return [itemTypeLabel(item.itemType), item.displayRange ? formatRasterRange(item.displayRange, item.units, locale.value) : null]
+  return [itemTypeLabel(item.itemType), item.displayRange ? formatRasterRange(item.displayRange, item.units, locale.value, unitSystem.value) : null]
     .filter(Boolean).join(' · ')
 }
 

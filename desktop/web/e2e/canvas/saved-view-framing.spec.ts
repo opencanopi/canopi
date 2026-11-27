@@ -9,7 +9,7 @@
 // No baselines: nothing here is compared with a recorded screenshot.
 import { fileURLToPath } from 'node:url'
 import type { Page } from '@playwright/test'
-import { designMap, expectCanvasDrawn } from '../support/canvas'
+import { designMap, expectCanvasDrawn, seedUnitSystem } from '../support/canvas'
 import { chooseFixtureFromStart } from '../support/layout'
 import { expect, test } from '../support/offline'
 
@@ -18,7 +18,7 @@ const FIXTURE = fileURLToPath(new URL('../fixtures/canvas-base.canopi', import.m
 const NEUTRAL = { x: 800, y: 450 }
 /** A point on the left edge of the fixture's rectangle zone (14 m x 8 m) at the opening camera. */
 const RECT_ZONE_EDGE = { x: 367, y: 300 }
-const RECT_ZONE_CHIP = 'Rectangle zone · 112 m² · 44.1 m'
+const RECT_ZONE_CHIP = 'Rectangle zone · 112 m² · 44 m'
 /** How far left the map is panned before saving: the zone's left corners end up within 200 px of the map's left edge. */
 const PAN_BEFORE_SAVE_PX = 240
 /** The window the view is opened in afterwards: 400 px narrower and 200 px shorter than playwright.config.ts's (the width sets the fit). */
@@ -35,6 +35,7 @@ interface Point { readonly x: number, readonly y: number }
 interface Box extends Point { readonly width: number, readonly height: number }
 
 async function openBaseFixture(page: Page): Promise<void> {
+  await seedUnitSystem(page)
   await page.goto('')
   await chooseFixtureFromStart(page, FIXTURE)
   await expect(designMap(page)).toBeVisible()

@@ -24,7 +24,7 @@ export function useCatalogDesignSpecies(): ReadonlyMap<string, CatalogDesignSpec
   const activeLocale = locale.value
   return useMemo(() => {
     if (!queries) return NO_SPECIES
-    const entries = buildSpeciesKey(queries.getSceneSnapshot(), queries.getSpeciesCache(), NO_NAMES, NO_FALLBACKS, activeLocale)
+    const entries = buildSpeciesKey(queries.getSceneSnapshot(), NO_NAMES, NO_FALLBACKS, activeLocale)
     if (entries.length === 0) return NO_SPECIES
     return new Map(entries.flatMap((entry) => {
       const appearance = entry.appearances[0]

@@ -12,7 +12,6 @@ import { t } from '../../../i18n'
 import { DEFAULT_PLANT_COLOR } from '../../plant-colors'
 import type { PlantStampSourceInput } from '../../stamp-drag-data'
 import { resolvePlantBaseColor } from '../plant-presentation'
-import type { SpeciesCacheEntry } from '../presentation-data'
 import type { WorldPoint } from '../../../geo/view/types'
 import type { DraftShape } from './draft'
 import { createPlantStampTool, placePlantFromSpecies } from './plant-stamp'
@@ -218,7 +217,6 @@ describe('Place plants tool', () => {
     })
 
     it('the ghost of a Design species picked without a stratum takes the colour its placed plant draws in', () => {
-      const speciesCache = new Map([['Malus domestica', { stratum: 'high' } as SpeciesCacheEntry]])
       const h = stampHarness(APPLE, {
         scale: 10,
         scene: { plants: [plantEntity('tree', 'Malus domestica', { x: 0, y: 0 })] },
@@ -229,8 +227,8 @@ describe('Place plants tool', () => {
       h.click({ x: 130, y: 140 })
       const placed = h.store.persisted.plants.at(-1)!
 
-      expect(resolvePlantBaseColor(placed, speciesCache)).toBe(DEFAULT_PLANT_COLOR)
-      expect(resolvePlantBaseColor(ghost, speciesCache)).toBe(DEFAULT_PLANT_COLOR)
+      expect(resolvePlantBaseColor(placed)).toBe(DEFAULT_PLANT_COLOR)
+      expect(resolvePlantBaseColor(ghost)).toBe(DEFAULT_PLANT_COLOR)
     })
 
     it('has no ring without a mature width and no guide to a plant beyond 320 px', () => {

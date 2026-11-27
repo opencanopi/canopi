@@ -341,7 +341,7 @@ function cardLead(tool: string, source: PlantStampSource | null, guidance: Canva
     const scene = currentCanvasQuerySurface.value?.getSceneSnapshot()
     const appearance = speciesPlacementAppearance(
       scene ?? { plantSpeciesSymbols: {}, plantSpeciesColors: {} },
-      { canonicalName: source.canonical_name, stratum: source.stratum },
+      source.canonical_name,
     )
     return { kind: 'species', ...appearance, color: displayedPlantColor(appearance.color, source.canonical_name) }
   }

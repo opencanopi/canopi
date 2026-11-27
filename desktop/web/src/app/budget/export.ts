@@ -16,7 +16,7 @@ export async function exportBudgetCsv(
   options: {
     currency: string
     designName: string
-    lineItemPriceMap: ReadonlyMap<string, { unit_cost: number; currency: string }>
+    lineItemPriceMap: ReadonlyMap<string, { unit_cost: number }>
     grandTotal: number
   },
 ): Promise<void> {

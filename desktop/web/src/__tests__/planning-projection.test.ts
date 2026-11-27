@@ -64,7 +64,6 @@ describe('Planning Projection', () => {
       ],
       localizedNames: new Map([['Malus domestica', 'Pommier']]),
       budget,
-      currency: 'EUR',
       locale: 'fr',
     })
 
@@ -105,7 +104,6 @@ describe('Planning Projection', () => {
         { target: speciesBudgetTarget('Acer campestre'), unit_cost: 4 },
         { target: speciesBudgetTarget('Malus domestica'), unit_cost: 0 },
       ],
-      currency: 'EUR',
       locale: 'fr',
       speciesKey: [
         { canonicalName: 'Acer campestre', commonName: 'Érable champêtre', code: 'ACH', englishFallback: false, count: 1, appearances: [{ symbol: 'canopy', color: '#A06B1F' }] },

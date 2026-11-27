@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { getScaleBarDisplay } from '../canvas/map-scale'
 import { SCALE_BAR_STEPS_M } from '../generated/quantity-table'
 import {
   CONVERSION_CONSTANTS,
@@ -8,6 +9,7 @@ import {
   formatByteSize,
   formatCatalogSize,
   formatCurrency,
+  formatElevation,
   formatFixed,
   formatLength,
   formatNumber,
@@ -81,6 +83,19 @@ describe('formatQuantity and convenience wrappers', () => {
 
     expect(formatRasterResolution(0.5, 'metric', 'en-US')).toBe('50 cm')
     expect(formatRasterResolution(1, 'metric', 'en-US')).toBe('1.0 m')
+  })
+
+  it('formats elevations in m or ft without banding to km or mi (#932 B1)', () => {
+    expect(formatElevation(1203, 'metric', 'en-US')).toBe('1,203 m')
+    expect(formatElevation(1247, 'metric', 'en-US')).toBe('1,247 m')
+    expect(formatElevation(1203, 'us_customary', 'en-US')).toBe('3,947 ft')
+    expect(formatElevation(1247, 'us_customary', 'en-US')).toBe('4,091 ft')
+    expect(formatElevation(1700, 'metric', 'en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })).toBe('1,700.00 m')
+    expect(formatElevation(1700, 'us_customary', 'en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })).toBe('5,577.43 ft')
+    expect(formatElevation(12.34, 'metric', 'en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1, signDisplay: 'exceptZero' })).toBe('+12.3 m')
+    expect(formatElevation(23.4, 'metric', 'en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 })).toBe('23.4 m')
+    expect(formatElevation(12.34, 'us_customary', 'en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1, signDisplay: 'exceptZero' })).toBe('+40.5 ft')
+    expect(formatElevation(0, 'metric', 'en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1, signDisplay: 'exceptZero' })).toBe('0.0 m')
   })
 })
 
@@ -186,6 +201,29 @@ describe('scale bar steps and formatting', () => {
     expect(formatScaleBarDistance(CONVERSION_CONSTANTS.mPerFoot, 'us_customary', 'en-US')).toBe('1 ft')
     expect(formatScaleBarDistance(100 * CONVERSION_CONSTANTS.mPerFoot, 'us_customary', 'en-US')).toBe('100 ft')
     expect(formatScaleBarDistance(CONVERSION_CONSTANTS.mPerMile, 'us_customary', 'en-US')).toBe('1 mi')
+  })
+
+  it('preserves fractional digits for sub-floor deep-zoom scale-bar steps (#932 SF8)', () => {
+    expect(formatScaleBarDistance(0.005, 'metric', 'en-US')).toBe('0.5 cm')
+    expect(formatScaleBarDistance(0.002, 'metric', 'en-US')).toBe('0.2 cm')
+    expect(formatScaleBarDistance(0.5 * CONVERSION_CONSTANTS.mPerInch, 'us_customary', 'en-US')).toBe('0.5 in')
+    expect(formatScaleBarDistance(0.2 * CONVERSION_CONSTANTS.mPerInch, 'us_customary', 'en-US')).toBe('0.2 in')
+
+    const metricHalfCm = getScaleBarDisplay(20_000, 'metric')
+    expect(metricHalfCm.meters).toBeCloseTo(0.005, 9)
+    expect(formatScaleBarDistance(metricHalfCm.meters, 'metric', 'en-US')).toBe('0.5 cm')
+
+    const metricTwoMm = getScaleBarDisplay(50_000, 'metric')
+    expect(metricTwoMm.meters).toBeCloseTo(0.002, 9)
+    expect(formatScaleBarDistance(metricTwoMm.meters, 'metric', 'en-US')).toBe('0.2 cm')
+
+    const usHalfIn = getScaleBarDisplay(8_000, 'us_customary')
+    expect(usHalfIn.meters).toBeCloseTo(0.5 * CONVERSION_CONSTANTS.mPerInch, 9)
+    expect(formatScaleBarDistance(usHalfIn.meters, 'us_customary', 'en-US')).toBe('0.5 in')
+
+    const usTwoTenthsIn = getScaleBarDisplay(20_000, 'us_customary')
+    expect(usTwoTenthsIn.meters).toBeCloseTo(0.2 * CONVERSION_CONSTANTS.mPerInch, 9)
+    expect(formatScaleBarDistance(usTwoTenthsIn.meters, 'us_customary', 'en-US')).toBe('0.2 in')
   })
 })
 

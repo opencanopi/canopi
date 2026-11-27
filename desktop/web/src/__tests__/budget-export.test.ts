@@ -32,7 +32,7 @@ describe('budget export', () => {
       {
         currency: 'EUR',
         designName: 'orchard',
-        lineItemPriceMap: new Map([['Malus domestica', { unit_cost: 12.5, currency: 'EUR' }]]),
+        lineItemPriceMap: new Map([['Malus domestica', { unit_cost: 12.5 }]]),
         grandTotal: 37.5,
       },
     )
@@ -54,7 +54,7 @@ describe('budget export', () => {
       {
         currency: 'EUR',
         designName: 'orchard',
-        lineItemPriceMap: new Map([['Malus domestica', { unit_cost: 0, currency: 'EUR' }]]),
+        lineItemPriceMap: new Map([['Malus domestica', { unit_cost: 0 }]]),
         grandTotal: 0,
       },
     )
@@ -70,7 +70,7 @@ describe('budget export', () => {
       {
         currency: '=HYPERLINK("http://x","EUR")',
         designName: 'orchard',
-        lineItemPriceMap: new Map([['Malus domestica', { unit_cost: 1, currency: 'EUR' }]]),
+        lineItemPriceMap: new Map([['Malus domestica', { unit_cost: 1 }]]),
         grandTotal: 3,
       },
     )

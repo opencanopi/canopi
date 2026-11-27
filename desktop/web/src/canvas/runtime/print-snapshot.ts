@@ -13,13 +13,13 @@ export function buildCanvasPrintSnapshot(
 ): CanvasPrintSnapshot {
   return {
     ...(plane ? { planeOrigin: { lon: plane.origin.lon, lat: plane.origin.lat } } : {}),
-    symbolScale: getCanvasPlantDisplay().symbolScale,
+    symbolScale: context.plantDisplay.symbolScale,
     layers: scene.layers.map(({ name, visible, opacity }) => ({ name, visible, opacity })),
     plants: scene.plants.map((plant) => {
       const symbol = resolvePlantSymbolForPlant(plant, scene.plantSpeciesSymbols)
       return { id: plant.id, canonicalName: plant.canonicalName, speciesCode: scene.plantSpeciesCodes[plant.canonicalName], position: { ...plant.position },
         // Print carries the colour mode, never the stored colour it would override.
-        color: resolvePlantDisplayColor(plant, context.speciesCache, context.plantDisplay), symbol,
+        color: resolvePlantDisplayColor(plant, context.plantDisplay), symbol,
         mark: markPaths(getPlantSymbolArt(symbol, 24)),
         smallMark: markPaths(getPlantSymbolArt(symbol, 12)), pinnedName: plant.pinnedName === true }
     }),

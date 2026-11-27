@@ -1,7 +1,7 @@
 import { formatRasterMetres } from '../../../app/data-library/display-legend'
 import { itemTypeLabel } from '../../../app/data-library/item-types'
 import type { LibraryItem } from '../../../app/data-library/library-items'
-import { locale } from '../../../app/settings/state'
+import { locale, unitSystem } from '../../../app/settings/state'
 import { t } from '../../../i18n'
 
 /** Wording and states of one library item, shared by the Data library and Layers details. */
@@ -25,7 +25,7 @@ export function unitWords(units: string): string {
 export function itemSummary(row: LibraryItem): string {
   const type = itemTypeLabel(row.itemType)
   if (row.role === 'Derived') return row.units ? `${type} · ${unitWords(row.units)}` : type
-  const resolution = row.resolutionM !== null ? ` · ${formatRasterMetres(row.resolutionM, locale.value)}` : ''
+  const resolution = row.resolutionM !== null ? ` · ${formatRasterMetres(row.resolutionM, locale.value, unitSystem.value)}` : ''
   return `${type}${resolution}`
 }
 

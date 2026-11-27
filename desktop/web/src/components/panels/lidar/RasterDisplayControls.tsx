@@ -5,7 +5,7 @@ import { lidarDisplayStyle } from '../../../app/data-library/display'
 import { formatLegendValue, legendGradient } from '../../../app/data-library/display-legend'
 import { kindDisplayDefaults, kindRamps, unitSuffix } from '../../../app/data-library/item-types'
 import type { LidarPresentationItem } from '../../../app/data-library/library-store'
-import { locale } from '../../../app/settings/state'
+import { locale, unitSystem } from '../../../app/settings/state'
 import type { LidarColourRange, LidarRamp } from '../../../generated/contracts'
 import { t } from '../../../i18n'
 import { formatNumber, formatPercent } from '../../../utils/format'
@@ -120,8 +120,8 @@ function Legend({ ramp, reversed, range, data, units }: {
   readonly units: string
 }) {
   const [low, high] = range
-  const lowText = formatLegendValue(low, units, locale.value)
-  const highText = formatLegendValue(high, units, locale.value)
+  const lowText = formatLegendValue(low, units, locale.value, unitSystem.value)
+  const highText = formatLegendValue(high, units, locale.value, unitSystem.value)
   return (
     <div className={styles.legend} aria-label={t('canvas.lidar.layers.legend')} role="group">
       <div className={styles.ramp} style={{ backgroundImage: legendGradient(ramp, reversed) }} />

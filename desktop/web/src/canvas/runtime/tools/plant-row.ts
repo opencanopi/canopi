@@ -331,7 +331,7 @@ export function createPlantRowTool(): CanvasTool {
       label: tool.scene.plantPresentation(plant).commonName,
     }
     draft = startDraft({ position: source.plant.position, sharp: false })
-    intervalText = formatPlantSpacingIntervalInput(tool.settings.plantSpacingIntervalM())
+    intervalText = formatPlantSpacingIntervalInput(tool.settings.plantSpacingIntervalM(), tool.settings.unitSystem?.() ?? 'metric', tool.settings.locale?.() ?? 'en')
     intervalValid = true
     missed = false
     shownCount = null
@@ -534,7 +534,7 @@ export function createPlantRowTool(): CanvasTool {
       countValid = parsed.valid && parsed.count <= PLANT_ROW_MAX_COUNT
       return parsed.valid && countValid ? { kind: 'count', count: parsed.count } : null
     }
-    const parsed = parsePlantSpacingIntervalInput(intervalText)
+    const parsed = parsePlantSpacingIntervalInput(intervalText, ctx?.settings.unitSystem?.() ?? 'metric', ctx?.settings.locale?.() ?? 'en')
     intervalValid = parsed.valid
     return parsed.valid ? { kind: 'interval', metres: parsed.meters } : null
   }
@@ -622,7 +622,7 @@ export function createPlantRowTool(): CanvasTool {
     // Only the interval is the device's; a count belongs to this row.
     if (chosen.kind === 'interval') {
       tool.settings.commitPlantSpacingIntervalM(chosen.metres)
-      intervalText = formatPlantSpacingIntervalInput(chosen.metres)
+      intervalText = formatPlantSpacingIntervalInput(chosen.metres, tool.settings.unitSystem?.() ?? 'metric', tool.settings.locale?.() ?? 'en')
     }
     if (c.via === 'enter') tool.effects.requestFocus('map')
   }
@@ -648,7 +648,7 @@ export function createPlantRowTool(): CanvasTool {
     },
     activate(next) {
       ctx = next
-      intervalText = formatPlantSpacingIntervalInput(next.settings.plantSpacingIntervalM())
+      intervalText = formatPlantSpacingIntervalInput(next.settings.plantSpacingIntervalM(), next.settings.unitSystem?.() ?? 'metric', next.settings.locale?.() ?? 'en')
       publish()
     },
     gesture(g) {

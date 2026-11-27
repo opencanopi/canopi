@@ -2,7 +2,6 @@ import { resolvePlantSymbolForPlant, type PlantSymbolId, type ScenePersistedStat
 import type { PlantDisplay } from './runtime/plant-display'
 import { resolvePlantDisplayColor } from './runtime/plant-presentation'
 import { isPlantLayerShown } from './runtime/scene-visuals'
-import type { SpeciesCacheEntry } from './runtime/presentation-data'
 import { compareSpeciesByShownName } from '../utils/species-sort'
 
 export interface PinnedPlantNameLegendEntry {
@@ -16,7 +15,6 @@ export interface PinnedPlantNameLegendEntry {
 export interface PinnedPlantNameLegendSource {
   getSceneSnapshot(): ScenePersistedState
   getLocalizedCommonNames(): ReadonlyMap<string, string | null>
-  getSpeciesCache(): ReadonlyMap<string, SpeciesCacheEntry>
 }
 
 export function buildPinnedPlantNameLegendEntries(
@@ -29,15 +27,14 @@ export function buildPinnedPlantNameLegendEntries(
   if (!isPlantLayerShown(scene)) return []
 
   const localizedNames = source.getLocalizedCommonNames()
-  const speciesCache = source.getSpeciesCache()
   const groups = new Map<string, PinnedPlantNameLegendEntry>()
 
   for (const plant of scene.plants) {
     if (plant.pinnedName !== true) continue
 
     const label = localizedNames.get(plant.canonicalName) || plant.commonName || plant.canonicalName
-    // The canvas's colour: a plant without its own takes its stratum's from the species entries the runtime loaded.
-    const color = resolvePlantDisplayColor(plant, speciesCache, display)
+    // The canvas's colour under the current plant display.
+    const color = resolvePlantDisplayColor(plant, display)
     const symbol = resolvePlantSymbolForPlant(plant, scene.plantSpeciesSymbols)
     const key = `${label}\u0000${symbol}\u0000${color}`
     const existing = groups.get(key)
