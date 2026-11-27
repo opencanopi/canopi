@@ -354,7 +354,7 @@ describe('SceneInteractionSession', () => {
     expect(input.value).toBe('50 cm')
     expect(document.activeElement).toBe(input)
 
-    input.value = '0,75m'
+    input.value = '0.75m'
     input.dispatchEvent(new Event('input', { bubbles: true }))
     expect(spacingInput()!.getAttribute('aria-invalid')).toBe('false')
     input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
@@ -394,7 +394,7 @@ describe('SceneInteractionSession', () => {
     events.pointerUp({ x: 20, y: 30 }, { button: 0 })
 
     const input = spacingInput()!
-    input.value = '0,75m'
+    input.value = '0.75m'
     input.dispatchEvent(new Event('input', { bubbles: true }))
     nextControl.focus()
     input.dispatchEvent(new FocusEvent('blur'))
