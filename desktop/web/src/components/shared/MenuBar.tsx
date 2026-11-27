@@ -62,6 +62,7 @@ export function MenuBar({ menus, label, compactLabel, onMenuOpen }: MenuBarProps
    */
   const focusBeforeOpen = useRef<Element | null>(null)
   const focusAtPress = useRef<Element | null>(null)
+  const menuScrollTop = useRef(0)
 
   // A modal dialog makes the bar inert; a menu open under it closes.
   useSignalEffect(() => { if (modalLayerOpen.value && openMenuId.peek()) closeAll(false) })
@@ -98,6 +99,7 @@ export function MenuBar({ menus, label, compactLabel, onMenuOpen }: MenuBarProps
   function openRootMenu(menuId: string, focusBefore: Element | null = document.activeElement): void {
     if (modalLayerOpen.peek()) return
     if (!openMenuId.peek()) focusBeforeOpen.current = focusBefore
+    menuScrollTop.current = 0
     openMenuId.value = menuId
     setSub(null)
     onMenuOpen?.(menuId === 'compact' ? 'file' : menuId)
@@ -107,6 +109,7 @@ export function MenuBar({ menus, label, compactLabel, onMenuOpen }: MenuBarProps
     const triggerId = openMenuId.value
     const before = focusBeforeOpen.current
     focusBeforeOpen.current = null
+    menuScrollTop.current = 0
     openMenuId.value = null
     setSub(null)
     if (!returnFocus || !triggerId) return
@@ -356,7 +359,13 @@ export function MenuBar({ menus, label, compactLabel, onMenuOpen }: MenuBarProps
               <div
                 className={styles.menuScroll}
                 data-menu-scroll
-                onScroll={() => { if (!compact && openSubmenuId.peek()) setSub(null) }}
+                onScroll={(event) => {
+                  // Ignore no-op scroll events (WebKit dispatches scroll with unchanged scrollTop=0 after a submenu click).
+                  const nextTop = event.currentTarget.scrollTop
+                  if (nextTop === menuScrollTop.current) return
+                  menuScrollTop.current = nextTop
+                  if (!compact && openSubmenuId.peek()) setSub(null)
+                }}
               >
                 {menu.items.map((entry, index) => renderEntry(entry, index, checkable, compact))}
               </div>

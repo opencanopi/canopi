@@ -121,6 +121,33 @@ describe('menus fit the viewport', () => {
     expect(Number.parseFloat(submenu.style.top) + 48).toBe(8)
   })
 
+  it('keeps an open submenu on a no-op scroll event (WebKit) and closes it only when scrollTop changes', async () => {
+    await act(async () => { render(<MenuBar menus={longMenus()} label="Menus" />, container) })
+    await act(async () => { container.querySelector<HTMLButtonElement>('[data-menu-id="view"]')!.click() })
+    const menu = container.querySelector<HTMLElement>('[data-menu-popup="root"]')!
+    const scroller = menu.querySelector<HTMLDivElement>('[data-menu-scroll]')!
+    const parent = menu.querySelector<HTMLButtonElement>('[data-submenu-id="saved"]')!
+    const submenu = () => container.querySelector<HTMLElement>('[role="menu"][aria-label="Saved views"]')
+
+    await act(async () => { parent.click() })
+    expect(submenu()).not.toBeNull()
+
+    // WebKit dispatches a deferred scroll event with an unchanged scrollTop=0 after clicking a submenu item.
+    await act(async () => { scroller.dispatchEvent(new Event('scroll')) })
+    expect(submenu()).not.toBeNull()
+
+    // Actually scrolling the root list moves the parent item away from the side popup, so the submenu closes.
+    scroller.scrollTop = 40
+    await act(async () => { scroller.dispatchEvent(new Event('scroll')) })
+    expect(submenu()).toBeNull()
+
+    // Re-opening at the new scroll position survives another no-op scroll event at scrollTop=40.
+    await act(async () => { parent.click() })
+    expect(submenu()).not.toBeNull()
+    await act(async () => { scroller.dispatchEvent(new Event('scroll')) })
+    expect(submenu()).not.toBeNull()
+  })
+
   it('caps an ActionMenu to the viewport and flips it above a trigger near the bottom', async () => {
     await act(async () => { render(<ActionMenu label="Row actions" items={[{ label: 'Rename', run: vi.fn() }]} />, container) })
     const trigger = container.querySelector<HTMLButtonElement>('button')!
