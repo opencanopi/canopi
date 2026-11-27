@@ -165,6 +165,7 @@ export function createSceneRuntimeConstruction(
     sceneStore,
     readPixelsPerMetre: readViewScale,
     getLocale: () => appAdapter.settings.readLocale(),
+    getUnitSystem: () => appAdapter.settings.readUnitSystem?.() ?? 'metric',
     resolveHighlightedTargets: callbacks.resolveHighlightedTargets,
     onPlantNamesChanged: callbacks.incrementPlantNamesRevision,
     speciesCache: presentationData?.speciesCache,

@@ -14,7 +14,7 @@ vi.mock('../app/canvas-pdf/worker?worker&inline', () => ({ default: class extend
 import { preparePdfJob } from '../app/canvas-pdf/job'
 import type { PdfPreparation } from '../app/canvas-pdf/prepare'
 import { englishPdfLabels } from '../../scripts/pdf-validation/fixtures'
-const input: PdfPreparation = { input: { name: 'Garden', locale: 'en', viewBearingDeg: 0, commonNames: {}, canvas: { plants: [], zones: [], annotations: [], measurements: [], layers: [] } },
+const input: PdfPreparation = { input: { name: 'Garden', locale: 'en', unitSystem: 'metric', viewBearingDeg: 0, commonNames: {}, canvas: { plants: [], zones: [], annotations: [], measurements: [], layers: [] } },
   setup: { paper: 'A4', layers: [] },
   labels: { ...englishPdfLabels, notes: 'Notes', observations: 'Field observations', keyAndNotes: 'Key and notes', overview: 'Overview', plants: 'Plants', actualSize: 'Actual size' } }
 const FONT_URLS = { 'NotoSans-Regular.ttf': 'https://app.test/assets/NotoSans-Regular-AbCd1234.ttf' }

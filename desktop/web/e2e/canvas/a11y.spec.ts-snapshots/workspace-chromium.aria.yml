@@ -28,7 +28,7 @@
     - button "Grid" [pressed]
     - button "Snap to grid" [pressed]
   - group "Zoom":
-    - 'img "Scale bar: 5 m"'
+    - 'img /Scale bar: .+/'
     - button "Zoom out"
     - button /Map scale 1:\d+\. Choose a scale/
     - button "Zoom in"

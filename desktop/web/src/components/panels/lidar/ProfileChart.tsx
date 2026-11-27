@@ -14,9 +14,9 @@ import { unitSuffix } from '../../../app/data-library/item-types'
 import { formatRowValue } from '../../../app/data-library/value-format'
 import { clearProfile } from '../../../app/data-library/site-transients'
 import { formatLength } from '../../../app/map-selection/zone-label'
-import { locale } from '../../../app/settings/state'
+import { locale, unitSystem } from '../../../app/settings/state'
 import { t } from '../../../i18n'
-import { formatNumber, formatPercent } from '../../../utils/format'
+import { formatLength as formatQuantityLength, formatNumber, formatPercent, type UnitSystem } from '../../../utils/format'
 import { ButtonTooltip } from '../../shared/ButtonTooltip'
 import { ControlIcon } from '../../shared/ControlIcon'
 import styles from './profile.module.css'
@@ -63,6 +63,7 @@ export function ProfileChart() {
   }, [profile])
   if (profile.status === 'none') return null
   const language = locale.value
+  const system = unitSystem.value
   // Retry unmounts as the read starts: the section, which every state keeps, holds focus meanwhile.
   const retry = () => {
     section.current?.focus()
@@ -72,8 +73,8 @@ export function ProfileChart() {
     <section ref={section} className={styles.profile} aria-label={t('siteData.profile')} tabIndex={-1}>
       <div className={styles.header}>
         <h3 className={styles.title}>{t('siteData.profile')}</h3>
-        <span className={styles.length}>{formatLength(profile.lengthM, language)}</span>
-        <span className={styles.at} role="status">{profile.status === 'ready' ? <CursorDistance profile={profile} language={language} /> : null}</span>
+        <span className={styles.length}>{formatLength(profile.lengthM, language, system)}</span>
+        <span className={styles.at} role="status">{profile.status === 'ready' ? <CursorDistance profile={profile} language={language} system={system} /> : null}</span>
         {profile.status === 'ready' ? <CopyValues profile={profile} /> : null}
         <button type="button" className={styles.iconButton} aria-label={t('siteData.chart.close')} onClick={clearProfile}>
           <ControlIcon name="close" size={16} />
@@ -81,7 +82,7 @@ export function ProfileChart() {
         </button>
       </div>
       {profile.status === 'ready'
-        ? <ReadyChart profile={profile} language={language} retry={retry} retryButton={retryButton} />
+        ? <ReadyChart profile={profile} language={language} system={system} retry={retry} retryButton={retryButton} />
         : profile.status === 'read-failed'
           ? (
               <div className={styles.failed}>
@@ -100,9 +101,9 @@ function offersRetry(profile: SiteProfile): boolean {
 }
 
 /** "At {distance}" while the cursor is on the chart. Only this, the cursor marks and the legend follow the cursor. */
-function CursorDistance({ profile, language }: { readonly profile: ReadyProfile; readonly language: string }) {
+function CursorDistance({ profile, language, system }: { readonly profile: ReadyProfile; readonly language: string; readonly system: UnitSystem }) {
   const cursor = profileCursor.value
-  return cursor === null ? null : <>{t('siteData.chart.at', { distance: formatLength(profile.samples.distances[cursor]!, language) })}</>
+  return cursor === null ? null : <>{t('siteData.chart.at', { distance: formatLength(profile.samples.distances[cursor]!, language, system) })}</>
 }
 
 const STATE_TEXT: Readonly<Record<'needs-layer' | 'reading' | 'no-values', LocaleKey>> = {
@@ -187,9 +188,10 @@ function drawProfile(profile: ReadyProfile): { readonly drawn: readonly DrawnPlo
  * The plots and legend. The curves, axes and ticks are drawn once per profile and locale; a pointer move re-renders
  * only the cursor marks, the legend readings and "At …".
  */
-function ReadyChart({ profile, language, retry, retryButton }: {
+function ReadyChart({ profile, language, system, retry, retryButton }: {
   readonly profile: ReadyProfile
   readonly language: string
+  readonly system: UnitSystem
   retry(): void
   readonly retryButton: Ref<HTMLButtonElement>
 }) {
@@ -219,9 +221,11 @@ function ReadyChart({ profile, language, retry, retryButton }: {
     setProfileCursor(indexAtX((event.clientX - rect.left) * scale, distances, { x0: X0, x1: X1 }))
   }
   const x = drawn[0]!.geometry.x
-  const axisLabel = (value: number | null, curve: ProfileCurve) => value === null
-    ? ''
-    : `${formatNumber(value, language, { maximumFractionDigits: 1 })}${unitSuffix(curve.units)}`
+  const axisLabel = (value: number | null, curve: ProfileCurve) => {
+    if (value === null) return ''
+    if (curve.units === 'm') return formatQuantityLength(value, system, language, { maximumFractionDigits: 1, trimTrailingZeros: true })
+    return `${formatNumber(value, language, { maximumFractionDigits: 1 })}${unitSuffix(curve.units)}`
+  }
   const plots = useMemo(() => (
     <>
       {drawn.map(({ plot, geometry }) => (
@@ -246,11 +250,11 @@ function ReadyChart({ profile, language, retry, retryButton }: {
       {distanceTicks(profile.lengthM).map((tick) => (
         <g key={tick}>
           <line className={styles.baseline} x1={x(tick)} x2={x(tick)} y1={bottom} y2={bottom + 4} />
-          <text className={styles.axisLabel} x={x(tick)} y={bottom + 17} text-anchor={tickAnchor(tick, x(tick))}>{formatLength(tick, language)}</text>
+          <text className={styles.axisLabel} x={x(tick)} y={bottom + 17} text-anchor={tickAnchor(tick, x(tick))}>{formatLength(tick, language, system)}</text>
         </g>
       ))}
     </>
-  ), [drawn, language])
+  ), [drawn, language, system])
   return (
     <>
       <svg
@@ -267,7 +271,7 @@ function ReadyChart({ profile, language, retry, retryButton }: {
       </svg>
       <ul className={styles.legend}>
         {profile.curves.map((curve, index) => (
-          <LegendLine key={curve.id} curve={curve} index={index} language={language} reading={hovering} releaseSteepest={releaseSteepest} />
+          <LegendLine key={curve.id} curve={curve} index={index} language={language} system={system} reading={hovering} releaseSteepest={releaseSteepest} />
         ))}
       </ul>
       {offersRetry(profile)
@@ -308,10 +312,24 @@ function CursorMarks({ drawn, distances, bottom }: {
   )
 }
 
-function LegendLine({ curve, index, language, reading: showsReading, releaseSteepest }: {
+function formatProfileCurveStat(value: number, units: string, language: string, system: UnitSystem, signed: boolean): string {
+  if (units === 'm') {
+    const formatted = formatQuantityLength(value, system, language)
+    return signed && value > 0 ? `+${formatted}` : formatted
+  }
+  const formatted = formatNumber(value, language, {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+    ...(signed ? { signDisplay: 'exceptZero' as const } : {}),
+  })
+  return `${formatted}${unitSuffix(units)}`
+}
+
+function LegendLine({ curve, index, language, system, reading: showsReading, releaseSteepest }: {
   readonly curve: ProfileCurve
   readonly index: number
   readonly language: string
+  readonly system: UnitSystem
   /** The pointer is on the plots: the line gives the curve's value at the cursor. */
   readonly reading: boolean
   releaseSteepest(): void
@@ -325,12 +343,12 @@ function LegendLine({ curve, index, language, reading: showsReading, releaseStee
     const value = curve.values[cursor] ?? null
     reading = value === null
       ? <span className={styles.reading} aria-label={t('siteData.noData')}>—</span>
-      : <span className={styles.reading}>{formatRowValue(value, curve.units, language)}</span>
+      : <span className={styles.reading}>{formatRowValue(value, curve.units, language, system)}</span>
   } else if (curve.stats.role === 'elevation') {
     const { rise, steepest } = curve.stats
     reading = (
       <span className={styles.reading}>
-        {rise === null ? null : t('siteData.chart.rise', { value: `${formatNumber(rise, language, { minimumFractionDigits: 1, maximumFractionDigits: 1, signDisplay: 'exceptZero' })}${unitSuffix(curve.units)}` })}
+        {rise === null ? null : t('siteData.chart.rise', { value: formatProfileCurveStat(rise, curve.units, language, system, true) })}
         {rise !== null && steepest ? ' · ' : null}
         {steepest ? (
           <button
@@ -341,7 +359,7 @@ function LegendLine({ curve, index, language, reading: showsReading, releaseStee
           >
             {t('siteData.chart.steepest', {
               percent: formatPercent(steepest.percent / 100, language, { maximumFractionDigits: 0 }),
-              run: formatLength(steepest.runM, language),
+              run: formatLength(steepest.runM, language, system),
             })}
           </button>
         ) : null}
@@ -351,7 +369,7 @@ function LegendLine({ curve, index, language, reading: showsReading, releaseStee
     const { highest } = curve.stats
     reading = (
       <span className={styles.reading}>
-        {highest === null ? null : t('siteData.chart.highest', { value: `${formatNumber(highest, language, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}${unitSuffix(curve.units)}` })}
+        {highest === null ? null : t('siteData.chart.highest', { value: formatProfileCurveStat(highest, curve.units, language, system, false) })}
       </span>
     )
   }

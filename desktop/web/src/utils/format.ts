@@ -2,8 +2,9 @@
 // byte-size formatting and parsing (ADR 0027, contracts §14, `2.1-Q120`,
 // `2.1-Q121`, `2.1-Q133`, `2.1-Q356`, `2.1-Q359`).
 // Invariants: no direct `Intl.NumberFormat` or `toLocaleString` outside this
-// module (`number-format-only-in-utils`, `no-currency-symbol-table`); all
-// display bands and conversion constants derive from `generated/quantity-table`.
+// module (`number-format-only-in-utils`, `no-currency-symbol-table`,
+// `unit-maths-only-in-quantity-owner`); all display bands and conversion
+// constants derive from `generated/quantity-table`.
 
 import {
   CONVERSION_CONSTANTS,
@@ -108,7 +109,8 @@ export function currencySymbol(currency: string, locale: string): string {
 export function localeNumberSeparators(locale: string): { readonly decimal: string; readonly group: string } {
   let cached = separatorCache.get(locale)
   if (!cached) {
-    const parts = cachedNumberFormat(locale).formatToParts(1234.5)
+    // Use 7 digits so locales with CLDR minimumGroupingDigits=2 (e.g. es, it) still emit a group part.
+    const parts = cachedNumberFormat(locale).formatToParts(1234567.5)
     const decimal = parts.find((part) => part.type === 'decimal')?.value ?? '.'
     const group = parts.find((part) => part.type === 'group')?.value ?? ''
     cached = Object.freeze({ decimal, group })
@@ -424,13 +426,22 @@ function niceOneTwoFiveAtMost(maximum: number): number {
 
 /**
  * Picks the largest nice scale-bar step in metres `<= maxMeters` for `system`,
- * falling back to the smallest ladder step below the floor and clean 1-2-5 scaling
- * above the ladder ceiling (e.g. world zoom in `km` / `mi`).
+ * extending cleanly downward below the ladder floor (so deep zoom never overruns
+ * the scale bar width budget) and with 1-2-5 scaling above the ladder ceiling
+ * (e.g. world zoom in `km` / `mi`).
  */
 export function niceDistanceAtMost(maxMeters: number, system: UnitSystem): number {
   const steps = SCALE_BAR_STEPS_M[system]
-  if (!Number.isFinite(maxMeters) || maxMeters <= steps[0]!) {
+  if (!Number.isFinite(maxMeters) || maxMeters <= 0) {
     return steps[0]!
+  }
+  if (maxMeters < steps[0]!) {
+    if (system === 'us_customary') {
+      const maxInches = maxMeters / CONVERSION_CONSTANTS.mPerInch
+      if (maxInches >= 6) return 6 * CONVERSION_CONSTANTS.mPerInch
+      return niceOneTwoFiveAtMost(maxInches) * CONVERSION_CONSTANTS.mPerInch
+    }
+    return niceOneTwoFiveAtMost(maxMeters)
   }
   const top = steps[steps.length - 1]!
   if (maxMeters > top) {

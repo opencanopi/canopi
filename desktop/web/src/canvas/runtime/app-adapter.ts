@@ -15,6 +15,7 @@ import type {
   CanvasSceneEditCommandSurface,
 } from './runtime'
 import type { LocaleKey } from '../../generated/locale-keys'
+import type { UnitSystem } from '../../utils/format'
 
 interface CanvasRuntimeChromeSettingsSnapshot {
   /** The grid; the app hides it while it presents the map. */
@@ -155,6 +156,7 @@ export type CanvasScrollWheelSetting = 'zoom' | 'pan'
 
 export interface CanvasRuntimeSettingsAdapter {
   readLocale(): string
+  readUnitSystem?(): UnitSystem
   readChromeOverlay(): CanvasRuntimeChromeSettingsSnapshot
   readSnapToGridEnabled(): boolean
   /** Settings › Canvas › Pointing device: what a plain wheel does; pinch and Ctrl wheel always zoom. */
@@ -168,6 +170,7 @@ export interface CanvasRuntimeSettingsAdapter {
   toggleSnapToGrid(): void
   subscribeTheme(onChange: () => void): () => void
   subscribeLocale(onChange: () => void): () => void
+  subscribeUnitSystem?(onChange: () => void): () => void
   subscribeChromeOverlay(onChange: () => void): () => void
   /** Calls `onChange` now and whenever the map background under the Design changes. */
   subscribeMapBackdrop(onChange: (backdrop: CanvasMapBackdrop) => void): () => void

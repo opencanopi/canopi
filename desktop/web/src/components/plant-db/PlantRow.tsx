@@ -1,7 +1,7 @@
 import type { ComponentChildren } from 'preact'
 import { openSetText, t } from '../../i18n'
-import { locale } from '../../app/settings/state'
-import { formatNumber } from '../../utils/format'
+import { locale, unitSystem } from '../../app/settings/state'
+import { formatCatalogSize, type UnitSystem } from '../../utils/format'
 import { speciesCatalogWorkbench } from '../../app/plant-browser'
 import {
   writePlantStampDragData,
@@ -41,7 +41,7 @@ export function PlantRow({ plant, inDesign, englishName, highlight }: Props) {
   const name = commonName || plant.canonical_name
   const showMatchedCommonName = speciesCatalogWorkbench.isActiveSearchText(speciesCatalogWorkbench.intent.value.text)
   const matchedName = showMatchedCommonName ? secondaryCommonNameForDisplay(plant, true) : null
-  const facts = catalogFacts(plant, locale.value)
+  const facts = catalogFacts(plant, locale.value, unitSystem.value)
   const lockedReason = favoriteLockedReason()
 
   const handleDragStart = (e: DragEvent) => {
@@ -115,12 +115,11 @@ export function PlantRow({ plant, inDesign, englishName, highlight }: Props) {
 }
 
 /** "Tree · 8 m · USDA 5–9 · Edible 4/5": form, height, hardiness and edibility when known. */
-function catalogFacts(plant: SpeciesListItem, currentLocale: string): string {
+function catalogFacts(plant: SpeciesListItem, currentLocale: string, system: UnitSystem): string {
   const facts: string[] = []
   if (plant.habit) facts.push(openSetText('filters.habit_', plant.habit))
   if (plant.height_max_m !== null) {
-    const height = formatNumber(plant.height_max_m, currentLocale, { maximumFractionDigits: 1 })
-    facts.push(t('plantDb.factHeight', { height }))
+    facts.push(formatCatalogSize(plant.height_max_m, system, currentLocale, { trimTrailingZeros: true }))
   }
   const min = plant.hardiness_zone_min
   const max = plant.hardiness_zone_max

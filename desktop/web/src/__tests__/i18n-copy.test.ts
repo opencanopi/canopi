@@ -243,3 +243,17 @@ describe('Brazilian Portuguese', () => {
     expect(europeanPortuguese('compartilhar o ficheiro')).toEqual(['ficheiro'])
   })
 })
+
+describe('story image limit copy (#921)', () => {
+  const LIMIT_KEYS = ['stories.imageTooLarge', 'stories.imageDesignFull', 'stories.imagesDoNotFit'] as const
+
+  it('interpolates {{limit}} instead of hard-coding 1 MB or 10 MB in every locale', () => {
+    for (const [code, entries] of Object.entries(flat)) {
+      for (const key of LIMIT_KEYS) {
+        const text = entries.get(key)
+        expect(text, `${code}.${key}`).toContain('{{limit}}')
+        expect(text, `${code}.${key}`).not.toMatch(/\b(?:1|10)\s*(?:MB|Mo|МБ)\b/u)
+      }
+    }
+  })
+})

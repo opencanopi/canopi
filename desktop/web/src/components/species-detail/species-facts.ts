@@ -1,6 +1,11 @@
 import { unitSystem } from '../../app/settings/state'
 import { openSetText, t } from '../../i18n'
-import { fahrenheitToCelsius, formatNumber as formatLocaleNumber, formatTemperature } from '../../utils/format'
+import {
+  fahrenheitToCelsius,
+  formatCatalogSize,
+  formatNumber as formatLocaleNumber,
+  formatTemperature,
+} from '../../utils/format'
 
 /** One cell of the key facts grid; `null` reads "Not recorded", never an empty cell. */
 export interface SpeciesFact {
@@ -24,14 +29,14 @@ export function formatNumber(value: number, locale: string, maximumFractionDigit
   return formatLocaleNumber(value, locale, { maximumFractionDigits })
 }
 
-/** "8 m" with the unit placed as the interface language places it. */
+/** "8 m" or "26 ft" in the active unit system, with whole catalog metres rounded to whole units. */
 function formatMetres(value: number, locale: string): string {
-  return formatLocaleNumber(value, locale, { style: 'unit', unit: 'meter', maximumFractionDigits: 1 })
+  return formatCatalogSize(value, unitSystem.value, locale, { trimTrailingZeros: true })
 }
 
-/** "4–10 m", "10 m" or null: a catalog min/max range in metres. */
+/** "4 m–10 m", "10 m" (or "13 ft–33 ft", "33 ft") or null: a catalog min/max range in metres. */
 export function formatMetreRange(min: number | null, max: number | null, locale: string): string | null {
-  if (min !== null && max !== null && min !== max) return `${formatNumber(min, locale)}–${formatMetres(max, locale)}`
+  if (min !== null && max !== null && min !== max) return `${formatMetres(min, locale)}–${formatMetres(max, locale)}`
   const single = max ?? min
   return single === null ? null : formatMetres(single, locale)
 }

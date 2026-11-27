@@ -161,9 +161,11 @@ export function createPlantRowTool(): CanvasTool {
       mode,
       countText,
       countValid,
-      length: preview && path && path.points.length >= 2 ? formatMetricDistance(preview.planting.lengthM) : null,
+      length: preview && path && path.points.length >= 2
+        ? formatMetricDistance(preview.planting.lengthM, tool.settings.unitSystem?.() ?? 'metric', tool.settings.locale?.() ?? 'en')
+        : null,
       loopSpacing: preview?.path.closed && mode === 'interval' && preview.planting.count > 0
-        ? formatMetricDistance(preview.planting.effectiveSpacingM)
+        ? formatMetricDistance(preview.planting.effectiveSpacingM, tool.settings.unitSystem?.() ?? 'metric', tool.settings.locale?.() ?? 'en')
         : null,
       touch: tool.pointer() === 'touch',
     }
@@ -239,7 +241,7 @@ export function createPlantRowTool(): CanvasTool {
       kind: 'label',
       anchor,
       offsetPx: { x: 0, y: 0 },
-      text: formatMetricDistance(row.planting.lengthM),
+      text: formatMetricDistance(row.planting.lengthM, tool.settings.unitSystem?.() ?? 'metric', tool.settings.locale?.() ?? 'en'),
       tone: 'hint-primary',
       ...(beside ? { beside } : {}),
     })

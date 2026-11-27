@@ -148,7 +148,7 @@ describe('Zone drag tools', () => {
       ['80 m', 'measure-quiet'],
       ['60 m', 'measure-quiet'],
       ['80 m', 'measure-quiet'],
-      ['4800 m²', 'measure'],
+      ['4,800 m²', 'measure'],
     ])
     expect(h.store.persisted.zones).toEqual([])
   })
@@ -170,7 +170,7 @@ describe('Zone drag tools', () => {
       style: DRAFT_STROKE,
       fill: ZONE_FILL,
     })
-    expect(chips(h)).toEqual([['60 m × 80 m', 'measure-quiet'], ['3770 m²', 'measure']])
+    expect(chips(h)).toEqual([['60 m × 80 m', 'measure-quiet'], ['3,770 m²', 'measure']])
 
     h.release(sb)
     expect(h.store.persisted.zones[0]).toMatchObject({

@@ -13,6 +13,7 @@
 // navigation cursor, and passes on no draft or handles while a story is presented.
 
 import type { ReadonlySignal } from '@preact/signals'
+import type { UnitSystem } from '../../utils/format'
 import { TOOL_ROWS } from '../../app/command-table'
 import { clearSavedObjectStampDragSource, readSavedObjectStampDragName, recordRecentPlantStampSource } from '../stamp-drag-data'
 import { IDLE_CANVAS_TOOL_GUIDANCE, noteCanvasLockedMoveRefused, type CanvasToolGuidance } from '../session-state'
@@ -83,6 +84,8 @@ export interface SceneInteractionSessionDeps {
   /** Settings › Canvas › Pointing device (stored scrollWheel: 'zoom' is Mouse, 'pan' is Trackpad). Pinch and Ctrl wheel zoom either way. */
   readScrollWheel: () => CanvasScrollWheelSetting
   readPlantSpacingIntervalMeters: () => number
+  readUnitSystem?: () => UnitSystem
+  readLocale?: () => string
   commitPlantSpacingIntervalMeters: (meters: number) => void
   translate: CanvasRuntimeTranslator
   setHoveredTarget: (target: SceneDesignObjectTarget | null) => void
@@ -305,6 +308,8 @@ class DefaultSceneInteractionSession implements SceneInteractionSession {
         settings: {
           plantSpacingIntervalM: _deps.readPlantSpacingIntervalMeters,
           commitPlantSpacingIntervalM: _deps.commitPlantSpacingIntervalMeters,
+          unitSystem: () => _deps.readUnitSystem?.() ?? 'metric',
+          locale: () => _deps.readLocale?.() ?? 'en',
         },
         snapping: () => ({ grid: _deps.readSnapToGridEnabled() }),
         translate: _deps.translate as ToolHostDeps['translate'],

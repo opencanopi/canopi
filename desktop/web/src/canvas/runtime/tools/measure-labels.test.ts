@@ -75,6 +75,18 @@ describe('zone measurement labels', () => {
     ])
   })
 
+  it('formats selected zone measurement labels in US customary when requested', () => {
+    const store = sceneStoreWith({ zones: [RECT, ELLIPSE, LINE] })
+
+    const rectTexts = selectedZoneMeasurementLabels(store.persisted, [{ kind: 'zone', id: 'rect' }], undefined, 'us_customary', 'en')
+      .map((label) => label.text)
+    expect(rectTexts).toEqual(['33 ft', '16 ft', '33 ft', '16 ft', '538 ft²'])
+
+    const lineTexts = selectedZoneMeasurementLabels(store.persisted, [{ kind: 'zone', id: 'line' }], undefined, 'us_customary', 'en')
+      .map((label) => label.text)
+    expect(lineTexts).toEqual(['39 ft'])
+  })
+
   it('drops an edge chip whose edge is shorter than 36 px on screen', () => {
     const labels = createRectangularZoneMeasurements(RECT.points)
 

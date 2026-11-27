@@ -17,6 +17,7 @@ import type {
   SceneStateReader,
 } from '../scene'
 import { isSceneDesignObjectLocked, isSceneTargetLayerLocked, sceneContainsTarget } from '../scene'
+import type { UnitSystem } from '../../../utils/format'
 import { projectSceneSelectionEntityIds } from './selection'
 
 interface SceneRuntimePresentationControllerOptions {
@@ -24,6 +25,7 @@ interface SceneRuntimePresentationControllerOptions {
   /** The live frame's scale, for plant presentation contexts (`view.pixelsPerMetre`). */
   readPixelsPerMetre(): number
   getLocale(): string
+  getUnitSystem?(): UnitSystem
   resolveHighlightedTargets(scene: ScenePersistedState): {
     plantIds: readonly string[]
     zoneIds: readonly string[]
@@ -44,6 +46,7 @@ export class SceneRuntimePresentationController {
   private readonly _sceneStore: SceneStateReader
   private readonly _readPixelsPerMetre: () => number
   private readonly _getLocale: () => string
+  private readonly _getUnitSystem: () => UnitSystem
   private readonly _resolveHighlightedTargets: SceneRuntimePresentationControllerOptions['resolveHighlightedTargets']
   private readonly _onPlantNamesChanged: () => void
   private readonly _speciesCache: CanvasSpeciesPresentationCache
@@ -61,6 +64,7 @@ export class SceneRuntimePresentationController {
     this._sceneStore = options.sceneStore
     this._readPixelsPerMetre = options.readPixelsPerMetre
     this._getLocale = options.getLocale
+    this._getUnitSystem = options.getUnitSystem ?? (() => 'metric')
     this._resolveHighlightedTargets = options.resolveHighlightedTargets
     this._onPlantNamesChanged = options.onPlantNamesChanged
     this._speciesCache = options.speciesCache ?? createDetachedCanvasSpeciesPresentationCache()
@@ -180,6 +184,8 @@ export class SceneRuntimePresentationController {
       annotationFontEpoch: getAnnotationFontEpoch(),
       ...this._editingAids ? { editingAids: this._editingAids } : {},
       groundMeasure: this._sceneStore.sessionPlane,
+      unitSystem: this._getUnitSystem(),
+      locale: this._getLocale(),
     }
   }
 
@@ -252,6 +258,8 @@ export class SceneRuntimePresentationController {
       annotationFontEpoch: getAnnotationFontEpoch(),
       ...request.plantLabels ? { plantLabels: request.plantLabels } : {},
       groundMeasure: this._sceneStore.sessionPlane,
+      unitSystem: this._getUnitSystem(),
+      locale: this._getLocale(),
     }
   }
 

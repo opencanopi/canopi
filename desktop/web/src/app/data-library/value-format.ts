@@ -5,14 +5,22 @@
 // separators, with the unit `unitSuffix` writes; an em dash where the raster has no value (the row names it "No data").
 // The value is one native cell, so it is never written finer than that.
 
-import { formatNumber } from '../../utils/format'
+import { formatLength, formatNumber, type UnitSystem } from '../../utils/format'
 import { unitSuffix } from './item-types'
 
 /** Fixed decimals per unit; any other unit gets 4 significant digits. */
 const DECIMALS: Readonly<Record<string, number>> = { m: 2, '°': 1, '%': 1 }
 
-export function formatRowValue(value: number | null, units: string, locale: string): string {
+export function formatRowValue(
+  value: number | null,
+  units: string,
+  locale: string,
+  system: UnitSystem = 'metric',
+): string {
   if (value === null || !Number.isFinite(value)) return '—'
+  if (units === 'm' && system === 'us_customary') {
+    return formatLength(value, system, locale)
+  }
   const decimals = DECIMALS[units]
   const formatted = formatNumber(
     value,

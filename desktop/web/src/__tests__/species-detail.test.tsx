@@ -143,7 +143,7 @@ describe('Species detail (Desktop)', () => {
     expect(facts()).toEqual({
       habit: 'Tree',
       stratum: 'High',
-      height: '4–10 m',
+      height: '4 m–10 m',
       width: '8 m',
       hardiness: 'USDA 3–8 · to -40°C',
       light: 'Full sun, Semi-shade',
@@ -175,7 +175,7 @@ describe('Species detail (Desktop)', () => {
     locale.value = 'fr'
     await open(emptySpeciesDetail('Malus domestica', { common_name: 'Pommier', height_max_m: 12.5, soil_ph_min: 5.5, soil_ph_max: 7 }))
 
-    expect(facts().height).toBe('12,5\u202fm')
+    expect(facts().height).toBe('13\u202fm')
     expect(facts().soil).toBe('pH 5,5–7')
   })
 

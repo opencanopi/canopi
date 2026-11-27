@@ -21,7 +21,7 @@ import {
 import type { SiteDataView } from '../../../app/data-library/site-data-view'
 import { siteValues } from '../../../app/data-library/site-values'
 import { formatRowValue } from '../../../app/data-library/value-format'
-import { locale } from '../../../app/settings/state'
+import { locale, unitSystem } from '../../../app/settings/state'
 import type { LibraryItemSummary } from '../../../generated/contracts'
 import { t } from '../../../i18n'
 import { formatPercent } from '../../../utils/format'
@@ -504,7 +504,7 @@ function Trailing({ row }: { readonly row: LidarPresentationItem }) {
   if (value.kind === 'no-data') {
     return <span className={`${styles.trailing} ${styles.muted}`} data-trailing role="img" aria-label={t('siteData.noData')}>—</span>
   }
-  return <span className={styles.trailing} data-trailing>{formatRowValue(value.value, row.units, locale.value)}</span>
+  return <span className={styles.trailing} data-trailing>{formatRowValue(value.value, row.units, locale.value, unitSystem.value)}</span>
 }
 
 const MISSING_REASON_KEYS: Readonly<Record<LidarMissingReason, LocaleKey>> = {

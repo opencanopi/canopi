@@ -88,7 +88,7 @@ describe('Find in key in the export sheet', () => {
     Object.defineProperty(SVGElement.prototype, 'scrollIntoView', { configurable: true, value: scrolled })
     const canvas = { layers: [], plants: [], zones: [], annotations: [], measurements: [] }
     const workflow = createPdfWorkflow({
-      capture: () => ({ identity: canvas, isCurrent: () => true, input: { name: 'Garden', locale: 'en', viewBearingDeg: 0, commonNames: {}, canvas } }),
+      capture: () => ({ identity: canvas, isCurrent: () => true, input: { name: 'Garden', locale: 'en', unitSystem: 'metric', viewBearingDeg: 0, commonNames: {}, canvas } }),
       prepare: async () => ({ plan: PLAN, bytes: new Uint8Array([1]) }),
       resolveDisplayNames: async () => ({ names: {}, englishFallbacks: [] }), resolveHabits: async () => ({}),
       delivery: { deliverFile: vi.fn(), dispose: vi.fn() },

@@ -630,7 +630,7 @@ describe('SceneInteractionSession', () => {
 
     expect(draftChips()).toEqual([
       '60 m × 80 m',
-      '3770 m²',
+      '3,770 m²',
     ])
     expect(store.persisted.annotations).toHaveLength(0)
     expect(onSceneEditCommit).not.toHaveBeenCalled()
@@ -747,7 +747,7 @@ describe('SceneInteractionSession', () => {
       '50 m',
       '40 m',
       '64 m',
-      '1000 m²',
+      '1,000 m²',
     ])
     session.dispose()
   })
@@ -1280,7 +1280,7 @@ describe('SceneInteractionSession', () => {
       '80 m',
       '60 m',
       '80 m',
-      '4800 m²',
+      '4,800 m²',
     ])
     expect(store.persisted.annotations).toHaveLength(0)
     expect(onSceneEditCommit).not.toHaveBeenCalled()

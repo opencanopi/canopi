@@ -11,7 +11,7 @@ const labels: PdfLabels = { ...englishPdfLabels, notes: 'Notes', observations: '
 const engine = () => createPdfTextEngine(new Map<PdfFontId, Uint8Array>([['latin', readFileSync('src/app/canvas-pdf/fonts/NotoSans-Regular.ttf')]]), 'en')
 const setup: PdfSetup = { paper: 'A4', views: { overview: { orientation: 'portrait' } }, layers: ['plants'], areas: [{ id: 'all', name: 'Garden', bounds: { x: -1, y: -1, width: 12, height: 17 } }] }
 function garden(count = 90): PdfInput {
-  return { name: 'Garden', locale: 'en', viewBearingDeg: 0, commonNames: {}, canvas: {
+  return { name: 'Garden', locale: 'en', unitSystem: 'metric', viewBearingDeg: 0, commonNames: {}, canvas: {
     layers: [{ name: 'plants', visible: true, opacity: .7 }], zones: [], annotations: [], measurements: [],
     plants: Array.from({ length: count }, (_, i) => ({ id: String(i), canonicalName: `Species ${String(i).padStart(3, '0')}`, position: { x: i % 10, y: Math.floor(i / 10) },
       color: '#234567', symbol: 'square', mark: [{ d: 'M-1 -1 H1 V1 H-1 Z', paint: 'symbol' }], pinnedName: false })),

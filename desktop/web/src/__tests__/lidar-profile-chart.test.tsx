@@ -55,6 +55,7 @@ import { profileCopyText, profileHover, setProfileCursor, siteProfile } from '..
 import { endSiteDataTransients, profileLine, setProfileLine } from '../app/data-library/site-transients'
 import { siteSampler } from '../app/data-library/sampler'
 import { selectPanel, sidePanel } from '../app/shell/state'
+import { unitSystem } from '../app/settings/state'
 import { setCurrentCanvasSession } from '../canvas/session'
 import { createSessionPlane } from '../geo/session-plane'
 import type { CanvasRuntimeSurfaces } from '../canvas/runtime/runtime'
@@ -135,6 +136,7 @@ afterEach(() => {
   sidePanel.value = null
   lidarLibrary.value = null
   mockedStore.currentDesign!.value = null
+  unitSystem.value = 'metric'
   vi.restoreAllMocks()
 })
 
@@ -161,6 +163,26 @@ describe('ProfileChart', () => {
       'MNS · IGNRise +1.4 m · Steepest 40% over 2 m',
       'MNH · IGNHighest 9.0 m',
     ])
+  })
+
+  it('formats metre curves, distances and stats in US customary when unitSystem changes', async () => {
+    await drawLine()
+    await act(async () => {
+      unitSystem.value = 'us_customary'
+    })
+
+    expect(container.textContent).toContain('33 ft')
+    expect(legendLines()).toEqual([
+      'MNT · IGNRise +5′ 3″ · Steepest 40% over 6′ 7″',
+      'MNS · IGNRise +4′ 5″ · Steepest 40% over 6′ 7″',
+      'MNH · IGNHighest 30 ft',
+    ])
+    const svg = container.querySelector('section > svg')!
+    await act(async () => {
+      svg.dispatchEvent(new PointerEvent('pointermove', { clientX: 60 + (342 * 9) / 10, bubbles: true }))
+    })
+    expect(container.querySelector('[role="status"]')?.textContent).toBe('At 30 ft')
+    expect(legendLines()).toEqual(['MNT · IGN333 ft', 'MNS · IGN—', 'MNH · IGN9′ 10″'])
   })
 
   it('samples through the app\'s one sampler, in its profile lane beside the row values\' lane', async () => {

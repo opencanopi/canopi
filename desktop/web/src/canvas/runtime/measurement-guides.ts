@@ -1,4 +1,5 @@
 import type { GroundMeasure } from '../../geo/session-plane'
+import type { UnitSystem } from '../../utils/format'
 import type { SceneMeasurementGuideEntity, ScenePoint } from './scene'
 import type { ViewTransform } from '../../geo/view/types'
 import { formatMetricDistance, type ZoneMeasurementLabel } from './zone-measurements'
@@ -22,6 +23,8 @@ export interface MeasurementGuidePresentation {
 export function createMeasurementGuidePresentation(
   guide: SceneMeasurementGuideEntity,
   measure?: Pick<GroundMeasure, 'groundLength'>,
+  system: UnitSystem = 'metric',
+  activeLocale = 'en',
 ): MeasurementGuidePresentation | null {
   const dx = guide.end.x - guide.start.x
   const dy = guide.end.y - guide.start.y
@@ -30,7 +33,7 @@ export function createMeasurementGuidePresentation(
   if (lengthWorld < 0.5 || planeLength <= 0) return null
 
   return {
-    text: formatMetricDistance(lengthWorld),
+    text: formatMetricDistance(lengthWorld, system, activeLocale),
     normalWorld: {
       x: dy / planeLength,
       y: -dx / planeLength,
@@ -77,6 +80,8 @@ export function createMeasurementGuideDraftMeasurements(
   start: ScenePoint,
   end: ScenePoint,
   measure?: Pick<GroundMeasure, 'groundLength'>,
+  system: UnitSystem = 'metric',
+  activeLocale = 'en',
 ): ZoneMeasurementLabel[] {
   const lengthWorld = measure ? measure.groundLength(start, end) : Math.hypot(end.x - start.x, end.y - start.y)
   if (lengthWorld < 0.5) return []
@@ -84,7 +89,7 @@ export function createMeasurementGuideDraftMeasurements(
   return [{
     id: 'measurement-guide-length',
     kind: 'dimension',
-    text: formatMetricDistance(lengthWorld),
+    text: formatMetricDistance(lengthWorld, system, activeLocale),
     worldPosition: {
       x: (start.x + end.x) / 2,
       y: (start.y + end.y) / 2,

@@ -224,6 +224,8 @@ export class SceneCanvasRuntime {
       readSnapToGridEnabled: () => this._appAdapter.settings.readSnapToGridEnabled(),
       readScrollWheel: () => this._appAdapter.settings.readScrollWheel(),
       readPlantSpacingIntervalMeters: () => this._appAdapter.settings.readPlantSpacingIntervalMeters(),
+      readUnitSystem: () => this._appAdapter.settings.readUnitSystem?.() ?? 'metric',
+      readLocale: () => this._appAdapter.settings.readLocale(),
       commitPlantSpacingIntervalMeters: (meters) =>
         this._appAdapter.settings.commitPlantSpacingIntervalMeters(meters),
       translate: this._appAdapter.translate,
@@ -390,6 +392,10 @@ export class SceneCanvasRuntime {
       onLocale: () => {
         this._interaction?.refreshTranslations()
         this._construction.inspection.refresh()
+        this._invalidate()
+      },
+      onUnitSystem: () => {
+        this._interaction?.refreshTranslations()
         this._invalidate()
       },
       onChromeOverlay: () => {

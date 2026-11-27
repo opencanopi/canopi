@@ -4,7 +4,7 @@ import { describeMapSelection } from '../../app/map-selection/summary-text'
 import { ariaKeyShortcuts } from '../../app/shell-commands/shortcut-text'
 import { loneEditableZoneId, openRenameZoneDialog } from '../../app/rename-zone/state'
 import { currentCanvasQuerySurface, currentCanvasSceneEditCommandSurface } from '../../canvas/session'
-import { locale } from '../../app/settings/state'
+import { locale, unitSystem } from '../../app/settings/state'
 import { t } from '../../i18n'
 import { SpeciesCommonName } from '../shared/SpeciesIdentity'
 import styles from './SelectionChip.module.css'
@@ -30,7 +30,7 @@ export function SelectionChip({ placement = 'map' }: {
   const queries = currentCanvasQuerySurface.value
   const overview = queries?.view.mode.value === 'overview'
   if (!summary || overview) return null
-  const { head, headEnglishFallback, details } = describeMapSelection(summary, locale.value)
+  const { head, headEnglishFallback, details } = describeMapSelection(summary, locale.value, unitSystem.value)
   const [only] = summary.species
   const wholeSpecies = summary.species.length === 1 && isOnlyPlants(summary) && only!.selectedCount < only!.designCount
   // The summary hook re-renders the chip on selection and scene changes (locks included).

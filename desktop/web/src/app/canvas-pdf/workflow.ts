@@ -91,7 +91,7 @@ export function createPdfWorkflow(deps: PdfWorkflowDependencies) {
       nextAreaId = 0
       setup.value = { paper: 'A4', layers: next.input.canvas.layers.filter((l) => EXPORTABLE.has(l.name) && l.visible && l.opacity > 0).map((l) => l.name) }
     }
-    availableLayers.value = next.input.canvas.layers.filter((layer) => EXPORTABLE.has(layer.name)).map((layer) => layer.name)
+    availableLayers.value = next.input.canvas.layers.filter((layer) => EXPORTABLE.has(layer.name) && layer.opacity > 0).map((layer) => layer.name)
     if (heldBearing === null && next.turning) {
       capture = next; state.value = { status: 'preparing', error: null, result: null }; return
     }

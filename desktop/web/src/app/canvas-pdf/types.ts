@@ -1,4 +1,5 @@
 import type { CanvasPrintSnapshot, PrintBounds, PrintPlant, PrintPoint } from '../../canvas/print'
+import type { UnitSystem } from '../../utils/format'
 import type { GlyphOutline, TextLine } from './text'
 export type PdfPaper = 'A4' | 'Letter'
 type PdfOrientation = 'auto' | 'portrait' | 'landscape'
@@ -46,6 +47,7 @@ export interface PdfSetup {
 export interface PdfInput {
   readonly name: string
   readonly locale: string
+  readonly unitSystem: UnitSystem
   readonly canvas: CanvasPrintSnapshot
   /** Display names by canonical name: the chosen language, else English. */
   readonly commonNames: Readonly<Record<string, string>>

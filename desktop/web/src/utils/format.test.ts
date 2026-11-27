@@ -106,6 +106,20 @@ describe('parseQuantity (#316 locale rules & cross-system input)', () => {
     expect(parseQuantity('length', '1.5 m', 'metric', 'fr-FR')).toBeCloseTo(1.5, 9)
   })
 
+  it('parses es and it grouped numbers despite CLDR minimumGroupingDigits=2 (#921 B2)', () => {
+    expect(parseQuantity('length', '1.500 m', 'metric', 'es')).toBeCloseTo(1500, 9)
+    expect(parseQuantity('length', '10.000,5 m', 'metric', 'es')).toBeCloseTo(10000.5, 9)
+    expect(parseQuantity('length', '1.5 m', 'metric', 'es')).toBeNull()
+    expect(parseQuantity('length', '1.500 m', 'metric', 'it')).toBeCloseTo(1500, 9)
+    expect(parseQuantity('length', '10.000,5 m', 'metric', 'it')).toBeCloseTo(10000.5, 9)
+    expect(parseQuantity('length', '1.5 m', 'metric', 'it')).toBeNull()
+    // Round trip: 1150 m² in US customary in Spanish formats with a dot thousands separator.
+    const formatted = formatArea(1150, 'us_customary', 'es')
+    const parsed = parseQuantity('area', formatted, 'us_customary', 'es')
+    expect(parsed).not.toBeNull()
+    expect(parsed!).toBeCloseTo(1150, 0)
+  })
+
   it('parses compound feet and inches in any system mode', () => {
     expect(parseQuantity('length', `5' 6"`, 'us_customary', 'en-US')).toBeCloseTo(1.6764, 9)
     expect(parseQuantity('length', '5′ 6″', 'us_customary', 'en-US')).toBeCloseTo(1.6764, 9)
@@ -149,11 +163,15 @@ describe('parseQuantity (#316 locale rules & cross-system input)', () => {
 describe('scale bar steps and formatting', () => {
   it('picks nice steps in metric and US customary including below-floor and above-ceiling', () => {
     expect(niceDistanceAtMost(0, 'metric')).toBe(SCALE_BAR_STEPS_M.metric[0])
+    expect(niceDistanceAtMost(0.3, 'metric')).toBeCloseTo(0.2, 9)
+    expect(niceDistanceAtMost(0.08, 'metric')).toBeCloseTo(0.05, 9)
     expect(niceDistanceAtMost(35, 'metric')).toBe(20)
     expect(niceDistanceAtMost(1500, 'metric')).toBe(1000)
     expect(niceDistanceAtMost(12_500_000, 'metric')).toBe(10_000_000)
 
     expect(niceDistanceAtMost(0, 'us_customary')).toBe(SCALE_BAR_STEPS_M.us_customary[0])
+    expect(niceDistanceAtMost(0.1, 'us_customary')).toBeLessThanOrEqual(0.1)
+    expect(niceDistanceAtMost(0.1, 'us_customary')).toBeCloseTo(2 * CONVERSION_CONSTANTS.mPerInch, 9)
     expect(niceDistanceAtMost(1609.344, 'us_customary')).toBe(1609.344)
     expect(niceDistanceAtMost(20_000, 'us_customary')).toBeCloseTo(10 * CONVERSION_CONSTANTS.mPerMile, 6)
   })

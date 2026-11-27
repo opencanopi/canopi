@@ -12,6 +12,7 @@ import {
   scrollWheel,
   snapToGridEnabled,
   theme,
+  unitSystem,
 } from '../settings/state'
 
 import { presentedMapLayers, storyPresentationHidesEditingAids, storyPresentationOverrides } from '../story-presentation/overrides'
@@ -77,6 +78,7 @@ export function createAppCanvasRuntimeAppAdapter(
     reducedMotion: reducedMotionPreference(),
     settings: {
       readLocale: () => locale.value,
+      readUnitSystem: () => unitSystem.value,
       // Presenting a story shows the map without the grid.
       readChromeOverlay: () => ({ gridVisible: gridVisible.value && !storyPresentationHidesEditingAids.value }),
       readSnapToGridEnabled: () => snapToGridEnabled.value,
@@ -102,6 +104,10 @@ export function createAppCanvasRuntimeAppAdapter(
       }),
       subscribeLocale: (onChange) => effect(() => {
         void locale.value
+        onChange()
+      }),
+      subscribeUnitSystem: (onChange) => effect(() => {
+        void unitSystem.value
         onChange()
       }),
       subscribeChromeOverlay: (onChange) => effect(() => {

@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useState } from 'preact/hooks'
+import { useLayoutEffect, useState } from 'preact/hooks'
 import { currentCanvasPlantPresentationCommandSurface, currentCanvasQuerySurface, currentCanvasSelection } from '../../canvas/session'
 import { plantSymbolMenuOpen, setPlantSymbolMenuOpen } from '../../app/canvas-context-menu/state'
 import { DEFAULT_PLANT_COLOR, normalizeHexColor } from '../../canvas/plant-colors'
@@ -34,7 +34,9 @@ export function PlantSymbolMenu({ buttonRef }: PlantSymbolMenuProps) {
   const querySurface = currentCanvasQuerySurface.value
   void querySurface?.revision.plantNames.value
   const menuOpen = plantSymbolMenuOpen.value
-  const menuRef = useAppearancePopover(menuOpen, buttonRef)
+  const menuRef = useAppearancePopover(menuOpen, buttonRef, {
+    onOutsidePointer: () => closeMenu(),
+  })
   const context = querySurface?.getSelectedPlantSymbolContext() ?? {
     plantIds: [],
     singleSpeciesCanonicalName: null,
@@ -62,20 +64,6 @@ export function PlantSymbolMenu({ buttonRef }: PlantSymbolMenuProps) {
       menuRef.current.querySelector<HTMLButtonElement>(`[data-symbol="${initial}"]`)?.focus({ preventScroll: true })
     }
   }, [menuOpen, selectionKey, context.sharedCurrentSymbol, context.sharedEffectiveSymbol, context.inheritedSymbol])
-
-  useEffect(() => {
-    if (!menuOpen) return
-
-    const handlePointerUp = (event: PointerEvent) => {
-      const target = event.target
-      if (!(target instanceof Element)) return
-      if (target.closest('[data-preserve-overlays="true"]')) return
-      closeMenu()
-    }
-
-    document.addEventListener('pointerup', handlePointerUp)
-    return () => document.removeEventListener('pointerup', handlePointerUp)
-  }, [menuOpen])
 
   // An Esc from outside the menu closes it, and only it (the Esc chain's popover layer, fixture I8); inside, the
   // menu's own handler takes the Esc first.

@@ -11,6 +11,7 @@ import { isSceneObjectGroupMemberTarget } from '../scene/group-members'
 import type { ScenePersistedState } from '../scene/types'
 import type { GroundMeasure } from '../../../geo/session-plane'
 import type { ScreenPoint, WorldPoint } from '../../../geo/view/types'
+import type { UnitSystem } from '../../../utils/format'
 import { dispatchZoneByShape, getRectangularZoneCorners, polygonArea } from '../zone-geometry'
 import {
   createEllipticalZoneMeasurements,
@@ -87,6 +88,8 @@ export function selectedZoneMeasurementLabels(
   scene: Readonly<ScenePersistedState>,
   selection: SceneDesignObjectSelection,
   measure?: GroundMeasure,
+  system: UnitSystem = 'metric',
+  activeLocale = 'en',
 ): ZoneMeasurementLabel[] {
   if (selection.length !== 1) return []
   const target = selection[0]!
@@ -99,12 +102,12 @@ export function selectedZoneMeasurementLabels(
 
   return dispatchZoneByShape(zone, {
     ellipse: (z) => z.points.length >= 2
-      ? createEllipticalZoneMeasurements(z.points[0]!, z.points[1]!, z.rotationDeg, measure)
+      ? createEllipticalZoneMeasurements(z.points[0]!, z.points[1]!, z.rotationDeg, measure, system, activeLocale)
       : [],
     line: (z) => z.points.length >= 2
-      ? createLinearZoneMeasurements(z.points[0]!, z.points[1]!, measure)
+      ? createLinearZoneMeasurements(z.points[0]!, z.points[1]!, measure, system, activeLocale)
       : [],
-    polygon: (z) => createPolygonalZoneMeasurements(z.points, measure),
-    rect: (z) => createRectangularZoneMeasurements(getRectangularZoneCorners(z) ?? z.points, measure),
+    polygon: (z) => createPolygonalZoneMeasurements(z.points, measure, system, activeLocale),
+    rect: (z) => createRectangularZoneMeasurements(getRectangularZoneCorners(z) ?? z.points, measure, system, activeLocale),
   })
 }

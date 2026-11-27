@@ -236,13 +236,13 @@
       "tool": "ast-grep",
       "ledger": "2.1-M189",
       "adr": "0028",
-      "status": "planned",
-      "owner_today": "none",
+      "owner_today": "desktop/web/src/utils/format.ts",
       "owner_target": {
         "path": "desktop/web/src/utils/format.ts",
         "phase": "2c",
         "bead": "canopi-f47t.52.11"
       },
+      "example": "desktop/web/src/utils/format.ts",
       "note": "unit conversion constants and maths only in the quantity table and utils/format.ts (counted at 2c's start)"
     },
     {

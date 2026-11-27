@@ -12,6 +12,7 @@ import {
 } from '../../canvas/plant-colors'
 import { t } from '../../i18n'
 import { usePopoverEscapeLayer } from '../../app/keyboard/use-popover-escape-layer'
+import { navigateAppearanceChoices, useAppearancePopover } from './useAppearancePopover'
 import styles from './CanopiColorPicker.module.css'
 
 const DEFAULT_HSL = hexToHsl(DEFAULT_PLANT_COLOR) ?? { h: 122, s: 39, l: 49 }
@@ -300,21 +301,6 @@ export interface CanopiColorSwatchPickerProps {
   readonly onChange: (hex: string) => void
 }
 
-function navigateSwatchGrid(event: KeyboardEvent, columns: number): void {
-  const target = event.target
-  if (!(target instanceof HTMLButtonElement) || target.getAttribute('role') !== 'option') return
-  const steps: Record<string, number> = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -columns, ArrowDown: columns }
-  const options = Array.from(target.closest('[role="dialog"]')?.querySelectorAll<HTMLButtonElement>('[role="option"]') ?? [])
-  const index = options.indexOf(target)
-  const step = steps[event.key]
-  if (index < 0 || (step === undefined && event.key !== 'Home' && event.key !== 'End')) return
-  event.preventDefault()
-  event.stopPropagation()
-  const next = event.key === 'Home' ? 0 : event.key === 'End' ? options.length - 1 : (index + (step ?? 0) + options.length) % options.length
-  options[next]?.focus()
-  options[next]?.click()
-}
-
 /**
  * A colour swatch button that opens the portalled Canopi colour picker popover (2.1-Q105).
  */
@@ -328,7 +314,6 @@ export function CanopiColorSwatchPicker({
   const [open, setOpen] = useState(false)
   const [activeValue, setActiveValue] = useState<string | null>(() => normalizeHexColor(value) ?? value)
   const triggerRef = useRef<HTMLButtonElement>(null)
-  const popoverRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     setActiveValue(normalizeHexColor(value) ?? value)
@@ -339,48 +324,12 @@ export function CanopiColorSwatchPicker({
     if (returnFocus) triggerRef.current?.focus()
   }
 
+  const popoverRef = useAppearancePopover(open, triggerRef, {
+    placement: 'below',
+    onOutsidePointer: () => close(false),
+  })
+
   usePopoverEscapeLayer(open, () => close(true))
-
-  useLayoutEffect(() => {
-    const popover = popoverRef.current
-    const trigger = triggerRef.current
-    if (!open || !popover || !trigger) return
-    const place = () => {
-      const anchor = trigger.getBoundingClientRect()
-      const bounds = popover.getBoundingClientRect()
-      const left = Math.max(8, Math.min(anchor.left, window.innerWidth - bounds.width - 8))
-      const below = anchor.bottom + 6
-      const top = below + bounds.height <= window.innerHeight - 8
-        ? below
-        : Math.max(8, anchor.top - bounds.height - 6)
-      popover.style.left = `${left}px`
-      popover.style.top = `${top}px`
-    }
-    place()
-    ;(popover.querySelector<HTMLElement>('[role="option"][aria-selected="true"]')
-      ?? popover.querySelector<HTMLElement>('[role="option"], button:not(:disabled)'))?.focus({ preventScroll: true })
-    const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(place) : null
-    observer?.observe(popover)
-    window.addEventListener('resize', place)
-    window.addEventListener('scroll', place, true)
-    return () => {
-      observer?.disconnect()
-      window.removeEventListener('resize', place)
-      window.removeEventListener('scroll', place, true)
-    }
-  }, [open])
-
-  useEffect(() => {
-    if (!open) return
-    const handlePointerDown = (event: PointerEvent) => {
-      const target = event.target
-      if (!(target instanceof Node)) return
-      if (popoverRef.current?.contains(target) || triggerRef.current?.contains(target)) return
-      close(false)
-    }
-    document.addEventListener('pointerdown', handlePointerDown)
-    return () => document.removeEventListener('pointerdown', handlePointerDown)
-  }, [open])
 
   const displayColor = normalizeHexColor(value) ?? value
 
@@ -413,7 +362,7 @@ export function CanopiColorSwatchPicker({
               event.stopPropagation()
               close(true)
             } else {
-              navigateSwatchGrid(event, 6)
+              navigateAppearanceChoices(event, 6)
             }
           }}
         >

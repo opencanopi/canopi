@@ -7,6 +7,7 @@
 
 import type { ScenePlantEntity } from '../scene/types'
 import type { ScreenPoint, WorldPoint } from '../../../geo/view/types'
+import type { UnitSystem } from '../../../utils/format'
 import { formatMetricDistance } from '../zone-measurements'
 import type { DraftShape, DraftStroke } from './draft'
 import type { ToolScene } from './tool'
@@ -39,6 +40,8 @@ export function plantDragDistanceGuideShapes(
   scene: Pick<ToolScene, 'persisted' | 'groundMeasure'>,
   active: ScenePlantEntity,
   dragged: ReadonlySet<string>,
+  unitSystem: UnitSystem = 'metric',
+  locale = 'en',
 ): DraftShape[] {
   const { layers, plants } = scene.persisted
   const plantsLayer = layers.find((layer) => layer.name === 'plants')
@@ -55,5 +58,5 @@ export function plantDragDistanceGuideShapes(
     .sort((left, right) => left.distanceM - right.distanceM || left.plant.id.localeCompare(right.plant.id))
     .slice(0, DRAG_DISTANCE_GUIDES)
     .flatMap(({ plant, distanceM }) =>
-      distanceGuideShapes(active.position, plant.position, formatMetricDistance(distanceM)))
+      distanceGuideShapes(active.position, plant.position, formatMetricDistance(distanceM, unitSystem, locale)))
 }

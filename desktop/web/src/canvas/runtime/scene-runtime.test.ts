@@ -2494,7 +2494,7 @@ describe('scene canvas runtime', () => {
       '80 m',
       '100 m',
       '80 m',
-      '8000 m²',
+      '8,000 m²',
     ])
 
     runtime.documentSurface.replaceDocument(

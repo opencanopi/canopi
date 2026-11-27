@@ -12,7 +12,7 @@ it('encodes the shared mixed-script overview as vector PDF bytes with embedded f
     ['jp', readFileSync('src/app/canvas-pdf/fonts/NotoSansCJKjp-Regular.otf')],
     ['kr', readFileSync('src/app/canvas-pdf/fonts/NotoSansCJKkr-Regular.otf')],
   ])
-  const input = { name: 'Érable Яблоня 庭園 정원', locale: 'ja', viewBearingDeg: 0, commonNames: {}, canvas: {
+  const input = { name: 'Érable Яблоня 庭園 정원', locale: 'ja', unitSystem: 'metric' as const, viewBearingDeg: 0, commonNames: {}, canvas: {
     layers: [{ name: 'annotations', visible: true, opacity: 1 }], plants: [], zones: [], measurements: [],
     annotations: [{ id: 'name', position: { x: 0, y: 0 }, text: 'ローズマリー AVATAR office', fontSize: 16, rotation: 0 }],
   } }
@@ -35,7 +35,7 @@ it('loads every regional font needed when mixed-script names wrap onto different
   vi.stubGlobal('fetch', async (url: string) => new Response(new Uint8Array(readFileSync(`src/app/canvas-pdf/fonts/${new URL(url).pathname.split('/').at(-1)}`))))
   try {
     const result = await preparePdf({
-      input: { name: 'Field garden · 庭園 정원', locale: 'en', viewBearingDeg: 0, commonNames: {}, canvas: {
+      input: { name: 'Field garden · 庭園 정원', locale: 'en', unitSystem: 'metric', viewBearingDeg: 0, commonNames: {}, canvas: {
         layers: [{ name: 'annotations', visible: true, opacity: 1 }], plants: [], zones: [], measurements: [],
         annotations: [{ id: 'note', position: { x: 0, y: 0 }, text: 'Érable Яблоня ローズマリー 정원', fontSize: 16, rotation: 0 }],
       } }, setup: { paper: 'A4', layers: ['annotations'] },

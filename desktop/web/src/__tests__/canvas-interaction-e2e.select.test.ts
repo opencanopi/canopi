@@ -2536,7 +2536,7 @@ describe('SceneInteractionSession', () => {
 
     expect(draftLabelTexts(deps)).toEqual([
       '60 m × 40 m',
-      '1885 m²',
+      '1,885 m²',
     ])
     session.dispose()
   })
@@ -3269,7 +3269,7 @@ describe('SceneInteractionSession', () => {
       '50 m',
       '40 m',
       '64 m',
-      '1000 m²',
+      '1,000 m²',
     ])
     session.dispose()
   })
@@ -3509,7 +3509,7 @@ describe('SceneInteractionSession', () => {
       '80 m',
       '100 m',
       '80 m',
-      '8000 m²',
+      '8,000 m²',
     ])
     session.dispose()
   })
@@ -3633,7 +3633,7 @@ describe('SceneInteractionSession', () => {
     expect(draftLabelTexts(deps)).toEqual([
       '100 m',
       '100 m',
-      '2000 m²',
+      '2,000 m²',
     ])
     session.dispose()
   })
@@ -3911,7 +3911,7 @@ describe('SceneInteractionSession', () => {
     events.pointerMove(screen({ x: 80, y: 10 }), { button: 0 })
 
     expect(store.persisted.zones[0]?.points[1]).toEqual(closePoint({ x: 80, y: 10 }))
-    expect(draftLabelTexts(deps)).toContain('1750 m²')
+    expect(draftLabelTexts(deps)).toContain('1,750 m²')
 
     events.pointerUp(screen({ x: 80, y: 10 }), { button: 0 })
 
@@ -3939,7 +3939,7 @@ describe('SceneInteractionSession', () => {
     expect(store.persisted.zones[0]?.points).toEqual([
       closePoint({ x: 10, y: 10 }), closePoint({ x: 90, y: 10 }), closePoint({ x: 90, y: 70 }), closePoint({ x: 10, y: 70 }),
     ])
-    expect(draftLabelTexts(deps)).toContain('4800 m²')
+    expect(draftLabelTexts(deps)).toContain('4,800 m²')
 
     events.pointerUp(screen({ x: 90, y: 70 }), { button: 0 })
 

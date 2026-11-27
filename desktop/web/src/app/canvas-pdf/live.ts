@@ -4,7 +4,7 @@ import type { FileDeliveryPort } from '../../platform/file-delivery'
 import { currentCanvasQuerySurface } from '../../canvas/session'
 import { designSessionStore } from '../document-session/store'
 import { speciesCatalogWorkbench } from '../plant-browser'
-import { locale } from '../settings/state'
+import { locale, unitSystem } from '../settings/state'
 import { t } from '../../i18n'
 import { PLANT_SYMBOL_IDS } from '../../generated/known-canopi-keys'
 import { createPdfWorkflow } from './workflow'
@@ -20,6 +20,7 @@ export const canvasPdf = createPdfWorkflow({
     const identity = designSessionStore.sessionIdentity.value
     const revision = query.revision.scene.value
     const language = locale.value
+    const system = unitSystem.value
     const name = designSessionStore.designName.value
     const canvas = query.capturePrintSnapshot()
     if (!canvas) return null
@@ -28,9 +29,9 @@ export const canvasPdf = createPdfWorkflow({
     const viewBearingDeg = query.view.captureView().camera.bearingDeg
     const settled = query.view.settledCamera.value
     const turning = normalise(viewBearingDeg) !== normalise(settled.bearingDeg)
-    return { identity, input: { name, locale: language, canvas, commonNames: {}, viewBearingDeg }, ...(turning ? { turning } : {}),
+    return { identity, input: { name, locale: language, unitSystem: system, canvas, commonNames: {}, viewBearingDeg }, ...(turning ? { turning } : {}),
       isCurrent: () => designSessionStore.sessionIdentity.value === identity && currentCanvasQuerySurface.value === query
-        && query.revision.scene.value === revision && locale.value === language && designSessionStore.designName.value === name
+        && query.revision.scene.value === revision && locale.value === language && unitSystem.value === system && designSessionStore.designName.value === name
         && query.getSettledPlacedPlants() !== null && (!turning || query.view.settledCamera.value === settled) }
   },
   // The catalog's batch projections: the same names and habits every plant list shows, in both editions.
@@ -54,6 +55,7 @@ const disposeObservation = effect(() => {
     void query?.getSettledPlacedPlants()
     void query?.view.settledCamera.value
     void locale.value
+    void unitSystem.value
     void designSessionStore.designName.value
   }
   canvasPdf.synchronize(identity)

@@ -3,7 +3,11 @@ import { measureZone } from '../../canvas/runtime/zone-geometry'
 import { zoneDisplayName } from '../../canvas/runtime/zone-identity'
 import type { GroundMeasure } from '../../geo/view/types'
 import { t } from '../../i18n'
-import { formatNumber } from '../../utils/format'
+import {
+  formatArea as formatQuantityArea,
+  formatLength as formatQuantityLength,
+  type UnitSystem,
+} from '../../utils/format'
 import type { LocaleKey } from '../../generated/locale-keys'
 
 const ZONE_TYPE_KEYS: Readonly<Record<string, LocaleKey>> = {
@@ -23,13 +27,20 @@ export function zoneTypeLabel(zoneType: string): string {
  * size ("Rectangle zone · 120 m²", "Line zone · 50 m"). The interface never
  * shows a zone's id.
  */
-export function zoneLabel(zone: SceneZoneEntity, activeLocale: string, measure: GroundMeasure): string {
+export function zoneLabel(
+  zone: SceneZoneEntity,
+  activeLocale: string,
+  measure: GroundMeasure,
+  system: UnitSystem = 'metric',
+): string {
   const name = zoneDisplayName(zone)
   if (name !== null) return name
   const measured = measureZone(zone, measure)
   const size = measured === null
     ? null
-    : measured.areaM2 === null ? formatLength(measured.perimeterM, activeLocale) : formatArea(measured.areaM2, activeLocale)
+    : measured.areaM2 === null
+      ? formatLength(measured.perimeterM, activeLocale, system)
+      : formatArea(measured.areaM2, activeLocale, system)
   const type = zoneTypeLabel(zone.zoneType)
   return size === null ? type : `${type} · ${size}`
 }
@@ -39,18 +50,12 @@ export function missingZoneLabel(): string {
   return t('canvas.selectionChip.zone')
 }
 
-/** Lengths as the map labels them: two decimals below 1 m, one below 100 m, none above. */
-export function formatLength(meters: number, activeLocale: string): string {
-  const digits = meters < 1 ? 2 : meters < 100 ? 1 : 0
-  return formatNumber(meters, activeLocale, { style: 'unit', unit: 'meter', unitDisplay: 'short', maximumFractionDigits: digits })
+/** Lengths as the map labels them, routed through the active unit system. */
+export function formatLength(meters: number, activeLocale: string, system: UnitSystem = 'metric'): string {
+  return formatQuantityLength(meters, system, activeLocale, { trimTrailingZeros: true })
 }
 
-/** Areas in m² (one decimal below 10 m²), or in hectares from 1 ha. */
-export function formatArea(squareMeters: number, activeLocale: string): string {
-  if (squareMeters >= 10_000) {
-    return formatNumber(squareMeters / 10_000, activeLocale, { style: 'unit', unit: 'hectare', unitDisplay: 'short', maximumFractionDigits: 2 })
-  }
-  // Intl has no square-metre unit; the symbol m² is the same in every interface language.
-  const value = formatNumber(squareMeters, activeLocale, { maximumFractionDigits: squareMeters < 10 ? 1 : 0 })
-  return `${value} m²`
+/** Areas as the map labels them, routed through the active unit system. */
+export function formatArea(squareMeters: number, activeLocale: string, system: UnitSystem = 'metric'): string {
+  return formatQuantityArea(squareMeters, system, activeLocale, { trimTrailingZeros: true })
 }

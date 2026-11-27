@@ -1,5 +1,6 @@
 import type { GroundMeasure } from '../../../geo/session-plane'
 import type { CanvasBackdropInk, CanvasMapBackdrop, CanvasPaintTokens } from '../../theme-refresh'
+import type { UnitSystem } from '../../../utils/format'
 import type { SpeciesFocus } from '../species-key'
 import type { ScenePersistedState } from '../scene'
 import type { DraftPresentation } from '../tools/draft'
@@ -57,6 +58,10 @@ export interface SceneRendererSnapshot {
   readonly editingAids?: SceneEditingAids
   /** True WGS84 ground measure for the session plane (contracts §20); used for measurement guide labels. */
   readonly groundMeasure?: GroundMeasure
+  /** Active display unit system for measurement guide labels (defaults to `'metric'`). */
+  readonly unitSystem?: UnitSystem
+  /** Active interface locale for measurement guide labels (defaults to `'en'`). */
+  readonly locale?: string
 }
 
 /**

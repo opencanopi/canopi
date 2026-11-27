@@ -21,7 +21,7 @@ export function detailFurniture(page: PdfPage, input: PdfInput, labels: PdfLabel
   operations.push(pathOp(`M${margin} ${page.height - 16 * MM} h${page.width - 2 * margin}`, '#d8d2c8', null, .2 * MM))
   emit(identity, margin, y + 1.5 * MM, 8)
   emit(`${labels.actualSize} · ${paper}`, page.width - margin, y + 1.5 * MM, 7.5, true)
-  if (showScale) operations.push(...groundScale(page, input.locale, text, labels.north, northAngleDeg, groundScaleFactor))
+  if (showScale) operations.push(...groundScale(page, input.locale, text, labels.north, northAngleDeg, groundScaleFactor, input.unitSystem))
   return operations
 }
 
@@ -29,7 +29,7 @@ export function detailFurniture(page: PdfPage, input: PdfInput, labels: PdfLabel
  * Ground scale bar centred in the footer, with a north arrow to its right pointing to true north: `northAngleDeg` is the
  * arrow's clockwise turn on paper, minus the layout angle (0 on North up pages). Its letter sits beyond the tip, level.
  */
-export function groundScale(page: Pick<PdfPage, 'width' | 'height' | 'pointsPerMeter'>, locale: string, text: PdfTextEngine, north = 'N', northAngleDeg = 0, groundScaleFactor = 1, unitSystem: UnitSystem = 'metric'): PdfOperation[] {
+export function groundScale(page: Pick<PdfPage, 'width' | 'height' | 'pointsPerMeter'>, locale: string, text: PdfTextEngine, north = 'N', northAngleDeg = 0, groundScaleFactor = 1, unitSystem: UnitSystem): PdfOperation[] {
   const operations: PdfOperation[] = [], y = page.height - 10 * MM
   const emit = (value: string, x: number, y: number, size: number, right = false, strong = false) => {
     const line = text.line(value, size, strong)

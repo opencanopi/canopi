@@ -8,6 +8,7 @@
 
 import type { GroundMeasure } from '../../../geo/session-plane'
 import type { WorldPoint } from '../../../geo/view/types'
+import type { UnitSystem } from '../../../utils/format'
 import { createPolylineDraftMeasurements } from '../zone-measurements'
 import type { DraftShape } from './draft'
 import { measureLabelShapes } from './measure-labels'
@@ -35,12 +36,14 @@ function profileDraftShapes(
   active: WorldPoint | null,
   view: ToolView,
   groundMeasure?: GroundMeasure,
+  unitSystem?: UnitSystem,
+  locale?: string,
 ): DraftShape[] {
   const band = active ? [...points, active] : points
   const shapes: DraftShape[] = []
   if (band.length >= 2) shapes.push({ kind: 'polyline', points: band, style: DRAFT_STROKE })
   for (const center of points) shapes.push({ kind: 'circle-px', center, ...VERTEX_MARKER })
-  const chips = createPolylineDraftMeasurements(points, active, groundMeasure)
+  const chips = createPolylineDraftMeasurements(points, active, groundMeasure, unitSystem, locale)
   shapes.push(...measureLabelShapes(chips, (a, b) => view.screenDistance(a, b)))
   return shapes
 }

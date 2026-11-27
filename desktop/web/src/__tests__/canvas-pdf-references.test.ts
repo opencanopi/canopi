@@ -19,7 +19,7 @@ const long = Array.from({ length: 40 }, (_, i) => `word${i}`).join(' ')
 const guides = (id: string, at: { x: number; y: number }) => Array.from({ length: 30 }, (_, i) => ({ id: `${id}${String(i).padStart(2, "0")}`, start: { x: at.x - .2, y: at.y + .2 }, end: { x: at.x + .2, y: at.y + .2 } }))
 const plant = (id: string, position: { x: number; y: number }) => ({ id, canonicalName: 'Malus domestica', position, color: '#496e36', symbol: 'tree', mark, pinnedName: false })
 function design(bearing: number): PdfInput {
-  return { name: 'References', locale: 'en', commonNames: { 'Malus domestica': 'Apple' }, viewBearingDeg: bearing, canvas: {
+  return { name: 'References', locale: 'en', unitSystem: 'metric', commonNames: { 'Malus domestica': 'Apple' }, viewBearingDeg: bearing, canvas: {
     layers: ['plants', 'zones', 'annotations', 'measurement-guides'].map(name => ({ name, visible: true, opacity: 1 })),
     zones: [circle(A, 1), circle(B, 2)],
     // Two coincident pairs give P codes; long notes and short guides give N and M codes.

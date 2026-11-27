@@ -21,18 +21,18 @@ function arrow(operations: readonly PdfOperation[]) {
 }
 
 it('groundScale turns the arrow by northAngleDeg', () => {
-  const upright = arrow(groundScale(page, 'en', text(), 'N'))
+  const upright = arrow(groundScale(page, 'en', text(), 'N', 0, 1, 'metric'))
   expect(upright.tip.x).toBeCloseTo(upright.notch.x, 6)
   expect(upright.tip.y).toBeLessThan(upright.notch.y)
-  expect(arrow(groundScale(page, 'en', text(), 'N', 0))).toEqual(upright)
+  expect(arrow(groundScale(page, 'en', text(), 'N', 0, 1, 'metric'))).toEqual(upright)
   // A layout turned to 90 has east up, so north points left on paper.
-  const turned = arrow(groundScale(page, 'en', text(), 'N', -90))
+  const turned = arrow(groundScale(page, 'en', text(), 'N', -90, 1, 'metric'))
   expect(turned.tip.y).toBeCloseTo(turned.notch.y, 6)
   expect(turned.tip.x).toBeLessThan(turned.notch.x)
   // The letter sits beyond the tip, level on paper.
   expect(turned.letter.rotation).toBe(0)
   expect(turned.letter.x + turned.letter.line.width).toBeLessThan(turned.tip.x)
-  const half = arrow(groundScale(page, 'en', text(), 'N', -30))
+  const half = arrow(groundScale(page, 'en', text(), 'N', -30, 1, 'metric'))
   const direction = Math.atan2(half.tip.y - half.notch.y, half.tip.x - half.notch.x) * 180 / Math.PI
   expect(direction).toBeCloseTo(-90 - 30, 6)
 })

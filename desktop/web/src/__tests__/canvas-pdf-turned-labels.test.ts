@@ -20,7 +20,7 @@ const text = () => createPdfTextEngine(new Map<PdfFontId, Uint8Array>([
 const row = (y: number): PrintZone => ({ name: null, path: `M0 ${y} L20 ${y} L20 ${y + 1} L0 ${y + 1} Z`, fill: null, bounds: { x: 0, y, width: 20, height: 1 },
   geometry: { kind: 'rect', points: [{ x: 0, y }, { x: 20, y }, { x: 20, y: y + 1 }, { x: 0, y: y + 1 }] } })
 const layers = ['plants', 'zones', 'measurement-guides', 'annotations']
-const design = (canvas: Partial<PdfInput['canvas']>): PdfInput => ({ name: 'Orchard', locale: 'en', viewBearingDeg: 60, commonNames: {}, canvas: {
+const design = (canvas: Partial<PdfInput['canvas']>): PdfInput => ({ name: 'Orchard', locale: 'en', unitSystem: 'metric', viewBearingDeg: 60, commonNames: {}, canvas: {
   layers: layers.map(name => ({ name, visible: true, opacity: 1 })), plants: [], zones: [], annotations: [], measurements: [], ...canvas } })
 
 /** Printed codes on a page: their text and the centre of their ink, in page points. */

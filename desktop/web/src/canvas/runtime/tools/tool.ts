@@ -32,6 +32,7 @@ import type { CanvasDesignObjectSelectionModel } from '../runtime'
 import type { CanvasToolGuidance } from '../../session-state'
 import type { PointAction, PointMenuItem } from '../../point-editor/rules'
 import type { LocaleKey } from '../../../generated/locale-keys'
+import type { UnitSystem } from '../../../utils/format'
 
 /** Modifiers by meaning, resolved per platform and per phase by the ToolHost. */
 export interface ToolModifiers {
@@ -209,6 +210,8 @@ export interface ToolEffects {
 export interface ToolSettingsPort {
   plantSpacingIntervalM(): number
   commitPlantSpacingIntervalM(metres: number): void
+  unitSystem?(): UnitSystem
+  locale?(): string
 }
 
 export interface ToolContext {

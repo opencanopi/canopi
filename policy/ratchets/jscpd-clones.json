@@ -105,7 +105,6 @@
     "desktop/web/src/canvas/runtime/tools/polygon.test.ts <-> desktop/web/src/canvas/runtime/tools/zone-drag.test.ts": { "count": 1 },
     "desktop/web/src/canvas/runtime/tools/select/band.test.ts <-> desktop/web/src/canvas/runtime/tools/select/move-drag.test.ts": { "count": 1 },
     "desktop/web/src/components/canvas/MapNotice.test.tsx <-> desktop/web/src/components/canvas/MapNotice.test.tsx": { "count": 1 },
-    "desktop/web/src/components/canvas/PlantColorMenu.tsx <-> desktop/web/src/components/canvas/PlantSymbolMenu.tsx": { "count": 1 },
     "desktop/web/src/components/panels/DesignNotebookPanel.tsx <-> desktop/web/src/components/panels/DesignNotebookPanel.tsx": { "count": 1 },
     "desktop/web/src/geo/view/fit.test.ts <-> desktop/web/src/geo/view/navigation.test.ts": { "count": 1 },
     "desktop/web/src/maplibre/camera-driver.test.ts <-> desktop/web/src/maplibre/camera-driver.test.ts": { "count": 1 },

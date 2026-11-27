@@ -3,7 +3,7 @@
 import { render } from 'preact'
 import { act } from 'preact/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { locale } from '../app/settings/state'
+import { locale, unitSystem } from '../app/settings/state'
 import { SelectionChip } from '../components/canvas/SelectionChip'
 import { RenameZoneDialog } from '../components/canvas/RenameZoneDialog'
 import { renameZoneDialog } from '../app/rename-zone/state'
@@ -42,6 +42,7 @@ describe('Selection chip', () => {
 
   beforeEach(() => {
     locale.value = 'en'
+    unitSystem.value = 'metric'
     container = document.createElement('div')
     document.body.append(container)
     const store = new SceneStore()
@@ -224,8 +225,8 @@ describe('Selection chip', () => {
   it('names a zone by its name, with its area and perimeter', async () => {
     await act(() => render(<SelectionChip />, container))
     await select([{ kind: 'zone', id: 'zone-z04' }])
-    // A right triangle with 10 m legs: 50 m², 10 + 10 + 14.1 m around.
-    expect(status()).toBe('Zone · Z04 · 50 m² · 34.1 m')
+    // A right triangle with 10 m legs: 50 m², 10 + 10 + 14.1 m around (rounded to whole m at >= 10 m).
+    expect(status()).toBe('Zone · Z04 · 50 m² · 34 m')
   })
 
   it('never shows an id: an unnamed zone is named by its type', async () => {
@@ -233,12 +234,24 @@ describe('Selection chip', () => {
     await select([{ kind: 'zone', id: RECT_ID }])
     expect(status()).toBe('Rectangle zone · 120 m² · 44 m')
     await select([{ kind: 'zone', id: ELLIPSE_ID }])
-    // π · 10 · 5 m², and Ramanujan's perimeter of a 20 × 10 m ellipse.
-    expect(status()).toBe('Ellipse zone · 157 m² · 48.4 m')
+    // π · 10 · 5 m², and Ramanujan's perimeter of a 20 × 10 m ellipse (rounded to whole m at >= 10 m).
+    expect(status()).toBe('Ellipse zone · 157 m² · 48 m')
     await select([{ kind: 'zone', id: LINE_ID }])
     expect(status()).toBe('Line zone · 50 m')
     await act(() => { locale.value = 'fr' })
     expect(status()).toBe('Zone linéaire · 50 m')
+  })
+
+  it('formats zone area, perimeter and plant spacing in US customary when unitSystem changes', async () => {
+    await act(() => render(<SelectionChip />, container))
+    await select([{ kind: 'zone', id: RECT_ID }])
+    expect(status()).toBe('Rectangle zone · 120 m² · 44 m')
+
+    await act(() => { unitSystem.value = 'us_customary' })
+    expect(status()).toBe('Rectangle zone · 1,292 ft² · 144 ft')
+
+    await select([{ kind: 'plant', id: 'apricot-1' }, { kind: 'plant', id: 'apricot-2' }])
+    expect(status()).toBe('2 plants · Apricot · 16 ft apart')
   })
 
   it('offers Rename… for one zone, which renames it by its id through the runtime', async () => {

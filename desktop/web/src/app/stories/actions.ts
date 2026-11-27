@@ -1,8 +1,8 @@
 import { computed, signal, type ReadonlySignal } from '@preact/signals'
 import { STORY_IMAGES_MAX_TOTAL_BYTES } from '../../generated/canopi-design-format'
 import { currentLocale, t } from '../../i18n'
-import { formatImageBytes } from './images'
 import type { RichTextBlock, Story, StoryImage, StoryStep } from '../../types/design'
+import { formatByteSize } from '../../utils/format'
 import { createUuid } from '../../utils/ids'
 import {
   addSavedView,
@@ -128,9 +128,7 @@ function reportOutcome(outcome: StoryEditOutcome): void {
   undoState.value = {
     session: currentSession(),
     value: {
-      message: t('stories.imagesDoNotFit', {
-        limit: formatImageBytes(STORY_IMAGES_MAX_TOTAL_BYTES, currentLocale()),
-      }),
+      message: t('stories.imagesDoNotFit', { limit: formatByteSize(STORY_IMAGES_MAX_TOTAL_BYTES, currentLocale()) }),
       undo: null,
     },
   }

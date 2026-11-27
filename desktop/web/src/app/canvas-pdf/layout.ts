@@ -222,7 +222,7 @@ function buildPages(original: PdfInput, setup: PdfSetup, text: PdfTextEngine, la
       operations.push(textOp(text.line('50 mm', 7), 10 * MM, page.height - 6 * MM, 7))
       const pageCenter = { x: page.ground.x + page.ground.width / 2, y: page.ground.y + page.ground.height / 2 }
       const scaleFactor = groundDistance(pageCenter, { x: pageCenter.x + 1, y: pageCenter.y })
-      if (showScale) operations.push(...groundScale(page, input.locale, text, labels.north, northAngleDeg, scaleFactor))
+      if (showScale) operations.push(...groundScale(page, input.locale, text, labels.north, northAngleDeg, scaleFactor, input.unitSystem))
       const reminder = text.line(`${labels.actualSize} · ${setup.paper}`, 7.5)
       operations.push(textOp(reminder, page.width - 10 * MM - reminder.width, page.height - 8.5 * MM, 7.5))
     } else if (page.kind === 'detail') {

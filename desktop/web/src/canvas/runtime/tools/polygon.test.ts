@@ -333,7 +333,7 @@ describe('Polygon tool', () => {
       ['40 m', 'measure-quiet'],
       ['50 m', 'measure-quiet'],
       ['40 m', 'measure-quiet'],
-      ['2000 m²', 'measure'],
+      ['2,000 m²', 'measure'],
     ])
   })
 

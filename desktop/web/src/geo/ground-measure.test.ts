@@ -82,10 +82,10 @@ describe('WGS84 ground measure everywhere (2m-2)', () => {
 
     // Zone measurement labels (rect, ellipse, polygon, line) route through groundMeasure.
     const rectLabels = createRectangularZoneMeasurements(rectPoints, plane)
-    expect(rectLabels.find((l) => l.kind === 'area')?.text).toContain(String(Math.round(expectedArea)))
+    expect(rectLabels.find((l) => l.kind === 'area')?.text.replaceAll(',', '')).toContain(String(Math.round(expectedArea)))
 
     const polyLabels = createPolygonalZoneMeasurements(rectPoints, plane)
-    expect(polyLabels.find((l) => l.kind === 'area')?.text).toContain(String(Math.round(expectedArea)))
+    expect(polyLabels.find((l) => l.kind === 'area')?.text.replaceAll(',', '')).toContain(String(Math.round(expectedArea)))
 
     const ellipseLabels = createEllipticalZoneMeasurements({ x: 50, y: -9_950 }, { x: 50, y: 20 }, 0, plane)
     const ellipseMeasured = measureZone({
@@ -94,7 +94,7 @@ describe('WGS84 ground measure everywhere (2m-2)', () => {
     }, plane)!
     const sEll = plane.groundScaleAt({ x: 50, y: -9_950 })
     expect(ellipseMeasured.areaM2).toBeCloseTo(Math.PI * 50 * 20 * sEll.x * sEll.y, 4)
-    expect(ellipseLabels.find((l) => l.kind === 'area')?.text).toContain(String(Math.round(ellipseMeasured.areaM2!)))
+    expect(ellipseLabels.find((l) => l.kind === 'area')?.text.replaceAll(',', '')).toContain(String(Math.round(ellipseMeasured.areaM2!)))
 
     const lineLabels = createLinearZoneMeasurements({ x: 0, y: -10_000 }, { x: 300, y: -10_000 }, plane)
     expect(lineLabels[0]!.text).toBe(`${Math.round(plane.groundLength({ x: 0, y: -10_000 }, { x: 300, y: -10_000 }))} m`)
@@ -243,7 +243,7 @@ describe('WGS84 ground measure everywhere (2m-2)', () => {
     const text = { outlines: {}, line: makeLine, wrap: (value: string, size: number) => [makeLine(value, size)] }
     const page = { width: 595, height: 842, pointsPerMeter: 10 }
     const barWidth = (factor: number) => {
-      const op = groundScale(page, 'en', text, 'N', 0, factor).find((o) => o.kind === 'path')!
+      const op = groundScale(page, 'en', text, 'N', 0, factor, 'metric').find((o) => o.kind === 'path')!
       const match = /h([\d.]+)/.exec(op.kind === 'path' ? op.d : '')
       return Number(match![1])
     }

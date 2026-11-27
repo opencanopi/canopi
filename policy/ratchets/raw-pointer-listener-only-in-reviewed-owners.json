@@ -3,11 +3,10 @@
   "family": "raw-pointer-listener-only-in-reviewed-owners",
   "entries": {
     "desktop/web/src/app/keyboard/key-router.ts": { "count": 3 },
-    "desktop/web/src/components/canvas/CanopiColorPicker.tsx": { "count": 4, "bead": "canopi-f47t.52.11" },
+    "desktop/web/src/components/canvas/CanopiColorPicker.tsx": { "count": 3, "bead": "canopi-f47t.52.11" },
     "desktop/web/src/components/canvas/InspectionLens.tsx": { "count": 4 },
-    "desktop/web/src/components/canvas/PlantColorMenu.tsx": { "count": 1 },
-    "desktop/web/src/components/canvas/PlantSymbolMenu.tsx": { "count": 1 },
     "desktop/web/src/components/canvas/ZoomControls.tsx": { "count": 1 },
+    "desktop/web/src/components/canvas/useAppearancePopover.ts": { "count": 1, "bead": "canopi-f47t.52.11" },
     "desktop/web/src/components/plant-db/MoreFiltersPanel.tsx": { "count": 1 },
     "desktop/web/src/components/shared/ActionMenu.tsx": { "count": 2 },
     "desktop/web/src/components/shared/ButtonTooltip.tsx": { "count": 3 },

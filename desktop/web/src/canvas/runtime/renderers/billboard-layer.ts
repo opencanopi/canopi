@@ -879,7 +879,7 @@ function buildMeasurementLabels(createText: () => Text, labels: MeasurementLabel
   const built: Array<{ readonly guide: SceneMeasurementGuideEntity; readonly text: Text }> = []
   if (shown) {
     for (const guide of snapshot.scene.measurementGuides) {
-      const presentation = createMeasurementGuidePresentation(guide, snapshot.groundMeasure)
+      const presentation = createMeasurementGuidePresentation(guide, snapshot.groundMeasure, snapshot.unitSystem, snapshot.locale)
       if (!presentation) continue
       let text = labelById.get(guide.id)
       if (!text) {

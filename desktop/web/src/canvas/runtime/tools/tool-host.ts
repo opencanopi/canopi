@@ -518,7 +518,7 @@ export function createToolHost(deps: ToolHostDeps): ToolHost {
   function decorationShapes(): DraftShape[] {
     if (zoneDraftHidesChips()) return []
     const selection = deps.scene.selection()
-    const labels = selectedZoneMeasurementLabels(deps.scene.persisted, selection, deps.scene.groundMeasure)
+    const labels = selectedZoneMeasurementLabels(deps.scene.persisted, selection, deps.scene.groundMeasure, deps.settings.unitSystem?.() ?? 'metric', deps.settings.locale?.() ?? 'en')
     if (labels.length === 0) return []
     const view = frame().view
     return measureLabelShapes(labels, (a, b) => view.screenDistance(a, b), shownEdgeDots(selection[0]!.id, view))

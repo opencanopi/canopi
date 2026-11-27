@@ -18,7 +18,7 @@ it('opens with one overview and explicitly adds a whole-design field sheet', asy
   const canvas = { layers: [{ name: 'annotations', visible: true, opacity: 1 }], plants: [], zones: [], measurements: [],
     annotations: ['Water weekly', 'Protect from wind'].map((text, i) => ({ id: String(i), text, position: { x: 0, y: 0 }, fontSize: 14, rotation: 0 })) }
   const text = createPdfTextEngine(new Map<PdfFontId, Uint8Array>([['latin', readFileSync('src/app/canvas-pdf/fonts/NotoSans-Regular.ttf')]]), 'en')
-  const workflow = createPdfWorkflow({ capture: () => ({ identity: canvas, isCurrent: () => true, input: { name: 'Garden', locale: 'en', viewBearingDeg: 0, commonNames: {}, canvas } }),
+  const workflow = createPdfWorkflow({ capture: () => ({ identity: canvas, isCurrent: () => true, input: { name: 'Garden', locale: 'en', unitSystem: 'metric', viewBearingDeg: 0, commonNames: {}, canvas } }),
     prepare: async ({ input, setup, labels }) => {
       const plan = buildPdfPlan(input, setup, text, labels)
       return { plan, bytes: plan.blocked ? null : new Uint8Array([1]) }
@@ -114,7 +114,7 @@ it('offers only printable layers and sends checkbox changes to the export setup'
   const prepare = vi.fn(async () => ({ bytes: null, plan: { pages: [], angleDeg: 0, outlines: {}, blocked: 'empty' as const } }))
   const canvas = { layers: [{ name: 'plants', visible: true, opacity: 1 }, { name: 'annotations', visible: false, opacity: 1 }, { name: 'base', visible: true, opacity: 1 }], plants: [], zones: [], annotations: [], measurements: [] }
   const workflow = createPdfWorkflow({ capture: () => ({ identity: canvas, isCurrent: () => true,
-    input: { name: 'Garden', locale: 'en', viewBearingDeg: 0, commonNames: {}, canvas } }), prepare, resolveDisplayNames: async () => ({ names: {}, englishFallbacks: [] }), resolveHabits: async () => ({}),
+    input: { name: 'Garden', locale: 'en', unitSystem: 'metric', viewBearingDeg: 0, commonNames: {}, canvas } }), prepare, resolveDisplayNames: async () => ({ names: {}, englishFallbacks: [] }), resolveHabits: async () => ({}),
     delivery: { deliverFile: vi.fn(), dispose: vi.fn() }, labels: () => ({ ...englishPdfLabels, notes: 'Notes', observations: 'Field observations', keyAndNotes: 'Key and notes', overview: 'Overview', plants: 'Plants', actualSize: 'Actual size' }), namePrintArea: (number) => `Print area ${number}` })
   try {
     await act(async () => { workflow.show(); render(<CanvasPdfDialog workflow={workflow} />, container) })
@@ -133,7 +133,7 @@ it('sets print-only plant colours and the north arrow from the side sheet', asyn
   const prepare = vi.fn(async (_preparation: PdfPreparation) => ({ bytes: null, plan: { pages: [], angleDeg: 0, outlines: {}, blocked: 'empty' as const } }))
   const canvas = { layers: [{ name: 'plants', visible: true, opacity: 1 }], plants: [], zones: [], annotations: [], measurements: [] }
   const workflow = createPdfWorkflow({ capture: () => ({ identity: canvas, isCurrent: () => true,
-    input: { name: 'Garden', locale: 'en', viewBearingDeg: 0, commonNames: {}, canvas } }), prepare, resolveDisplayNames: async () => ({ names: {}, englishFallbacks: [] }), resolveHabits: async () => ({}),
+    input: { name: 'Garden', locale: 'en', unitSystem: 'metric', viewBearingDeg: 0, commonNames: {}, canvas } }), prepare, resolveDisplayNames: async () => ({ names: {}, englishFallbacks: [] }), resolveHabits: async () => ({}),
     delivery: { deliverFile: vi.fn(), dispose: vi.fn() }, labels: () => ({ ...englishPdfLabels, notes: 'Notes', observations: 'Field observations', keyAndNotes: 'Key and notes', overview: 'Overview', plants: 'Plants', actualSize: 'Actual size' }), namePrintArea: (number) => `Print area ${number}` })
   try {
     await act(async () => { workflow.show(); render(<CanvasPdfDialog workflow={workflow} />, container) })
@@ -157,8 +157,13 @@ it('offers Map orientation under Plant colours, North up by default, and As on s
   const canvas = { layers: [{ name: 'plants', visible: true, opacity: 1 }], zones: [], annotations: [], measurements: [],
     plants: [{ id: 'p', canonicalName: 'Malus domestica', position: { x: 3, y: 4 }, color: '#123456', symbol: 'round', mark: [], pinnedName: false }] }
   const workflow = createPdfWorkflow({ capture: () => ({ identity: canvas, isCurrent: () => true,
+<<<<<<< HEAD
     input: { name: 'Garden', locale: 'en', commonNames: {}, canvas, viewBearingDeg: 30 } }), prepare, resolveDisplayNames: async () => ({ names: {}, englishFallbacks: [] }), resolveHabits: async () => ({}),
     delivery: { deliverFile: vi.fn(), dispose: vi.fn() }, labels: () => ({ ...englishPdfLabels, notes: 'Notes', observations: 'Field observations', keyAndNotes: 'Key and notes', overview: 'Overview', plants: 'Plants', actualSize: 'Actual size' }), namePrintArea: (number) => `Print area ${number}` })
+=======
+    input: { name: 'Garden', locale: 'en', unitSystem: 'metric', commonNames: {}, canvas, viewBearingDeg: 30 } }), prepare, resolveDisplayNames: async () => ({ names: {}, englishFallbacks: [] }), resolveHabits: async () => ({}),
+    delivery: { save: vi.fn(), dispose: vi.fn() }, labels: () => ({ ...englishPdfLabels, notes: 'Notes', observations: 'Field observations', keyAndNotes: 'Key and notes', overview: 'Overview', plants: 'Plants', actualSize: 'Actual size' }), namePrintArea: (number) => `Print area ${number}` })
+>>>>>>> d8499abdd (fix(2c-3): route unitSystem to all display sites, fix es/it parser, land F35 & #921 should-fix)
   try {
     await act(async () => { workflow.show(); render(<CanvasPdfDialog workflow={workflow} />, container) })
     await vi.waitFor(() => expect(workflow.state.value.status).toBe('ready'))
@@ -183,7 +188,7 @@ it('creates explicitly drawn detail pages and edits their zoom and orientation i
     { name: 'Tall bed', bounds: { x: 40, y: 0, width: 5, height: 30 }, path: 'M40 0 L45 0 L45 30 L40 30 Z', geometry: { kind: 'rect' as const, points: [{ x: 40, y: 0 }, { x: 45, y: 0 }, { x: 45, y: 30 }, { x: 40, y: 30 }] }, fill: null },
   ] }
   const text = createPdfTextEngine(new Map<PdfFontId, Uint8Array>([['latin', readFileSync('src/app/canvas-pdf/fonts/NotoSans-Regular.ttf')]]), 'en')
-  const workflow = createPdfWorkflow({ capture: () => ({ identity: canvas, isCurrent: () => true, input: { name: 'Garden', locale: 'en', viewBearingDeg: 0, commonNames: {}, canvas } }),
+  const workflow = createPdfWorkflow({ capture: () => ({ identity: canvas, isCurrent: () => true, input: { name: 'Garden', locale: 'en', unitSystem: 'metric', viewBearingDeg: 0, commonNames: {}, canvas } }),
     prepare: async ({ input, setup, labels }) => ({ bytes: new Uint8Array([1]), plan: buildPdfPlan(input, setup, text, labels) }),
     resolveDisplayNames: async () => ({ names: {}, englishFallbacks: [] }), resolveHabits: async () => ({}), delivery: { deliverFile: vi.fn(), dispose: vi.fn() },
     labels: () => ({ ...englishPdfLabels, notes: 'Notes', observations: 'Field observations', keyAndNotes: 'Key and notes', overview: 'Overview', plants: 'Plants', actualSize: 'Actual size' }),
@@ -259,7 +264,7 @@ it('returns to the source page when refreshed content no longer needs the select
     plants: Array.from({ length: 90 }, (_, i) => ({ id: String(i), canonicalName: 'Species ' + String(i).padStart(3, '0'),
       position: { x: i % 10, y: Math.floor(i / 10) }, color: '#000000', symbol: 'round', mark: [], pinnedName: false })) }
   const text = createPdfTextEngine(new Map<PdfFontId, Uint8Array>([['latin', readFileSync('src/app/canvas-pdf/fonts/NotoSans-Regular.ttf')]]), 'en')
-  const workflow = createPdfWorkflow({ capture: () => ({ identity: canvas, isCurrent: () => true, input: { name: 'Garden', locale: 'en', viewBearingDeg: 0, commonNames: {}, canvas } }),
+  const workflow = createPdfWorkflow({ capture: () => ({ identity: canvas, isCurrent: () => true, input: { name: 'Garden', locale: 'en', unitSystem: 'metric', viewBearingDeg: 0, commonNames: {}, canvas } }),
     prepare: async ({ input, setup, labels }) => ({ bytes: new Uint8Array([1]), plan: buildPdfPlan(input, setup, text, labels) }),
     resolveDisplayNames: async () => ({ names: {}, englishFallbacks: [] }), resolveHabits: async () => ({}), delivery: { deliverFile: vi.fn(), dispose: vi.fn() },
     labels: () => ({ ...englishPdfLabels, notes: 'Notes', observations: 'Field observations', keyAndNotes: 'Key and notes', overview: 'Overview', plants: 'Plants', actualSize: 'Actual size' }),
@@ -289,7 +294,7 @@ it('opens only the overview for an unreadable note and lets the user choose a de
   const canvas = { layers: [{ name: 'annotations', visible: true, opacity: 1 }], plants: [], zones: [], measurements: [],
     annotations: [{ id: 'long', text: 'Keep the complete instruction '.repeat(20), position: { x: 0, y: 0 }, fontSize: 14, rotation: 0 }] }
   const text = createPdfTextEngine(new Map<PdfFontId, Uint8Array>([['latin', readFileSync('src/app/canvas-pdf/fonts/NotoSans-Regular.ttf')]]), 'en')
-  const workflow = createPdfWorkflow({ capture: () => ({ identity: canvas, isCurrent: () => true, input: { name: 'Garden', locale: 'en', viewBearingDeg: 0, commonNames: {}, canvas } }),
+  const workflow = createPdfWorkflow({ capture: () => ({ identity: canvas, isCurrent: () => true, input: { name: 'Garden', locale: 'en', unitSystem: 'metric', viewBearingDeg: 0, commonNames: {}, canvas } }),
     prepare: async ({ input, setup, labels }) => ({ plan: buildPdfPlan(input, setup, text, labels), bytes: new Uint8Array([1]) }),
     resolveDisplayNames: async () => ({ names: {}, englishFallbacks: [] }), resolveHabits: async () => ({}), delivery: { deliverFile: vi.fn(), dispose: vi.fn() },
     labels: () => ({ ...englishPdfLabels, notes: 'Notes', observations: 'Observations', keyAndNotes: 'Key', overview: 'Overview', plants: 'Plants', actualSize: '100%' }),

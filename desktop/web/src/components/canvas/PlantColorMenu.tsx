@@ -36,7 +36,9 @@ export function PlantColorMenu({ buttonRef }: PlantColorMenuProps) {
   void querySurface?.revision.scene.value
   void querySurface?.revision.plantNames.value
   const menuOpen = plantColorMenuOpen.value
-  const menuRef = useAppearancePopover(menuOpen, buttonRef)
+  const menuRef = useAppearancePopover(menuOpen, buttonRef, {
+    onOutsidePointer: () => closeMenu(),
+  })
   const context = querySurface?.getSelectedPlantColorContext() ?? {
     plantIds: [],
     singleSpeciesCanonicalName: null,
@@ -64,20 +66,6 @@ export function PlantColorMenu({ buttonRef }: PlantColorMenuProps) {
     setActiveColor(initialColor)
     setCustomInput(initialColor)
   }, [menuOpen, selectionKey, context.sharedCurrentColor, context.singleSpeciesDefaultColor])
-
-  useEffect(() => {
-    if (!menuOpen) return
-
-    const handlePointerUp = (event: PointerEvent) => {
-      const target = event.target
-      if (!(target instanceof Element)) return
-      if (target.closest('[data-preserve-overlays="true"]')) return
-      closeMenu()
-    }
-
-    document.addEventListener('pointerup', handlePointerUp)
-    return () => document.removeEventListener('pointerup', handlePointerUp)
-  }, [menuOpen])
 
   // An Esc from outside the menu closes it, and only it (the Esc chain's popover layer, fixture I8); inside, the
   // menu's own handler takes the Esc first.

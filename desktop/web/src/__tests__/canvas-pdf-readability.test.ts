@@ -16,7 +16,7 @@ const mark = [{ d: 'M-1 -1 h2 v2 h-2 Z', paint: 'symbol' as const }]
 const words = (page: PdfPage) => page.operations.flatMap(op => op.kind === 'text' ? op.line.runs.map(run => run.text) : []).join(' ')
 const setup: PdfSetup = { paper: 'A4', layers: ['plants', 'annotations', 'measurement-guides', 'zones'], areas: [{ id: 'bed', name: 'Bed', bounds: { x: -1, y: -1, width: 10, height: 15 } }] }
 function input(): PdfInput {
-  return { name: 'Garden', locale: 'en', viewBearingDeg: 0, commonNames: { 'Mentha spicata': 'Mint' }, canvas: {
+  return { name: 'Garden', locale: 'en', unitSystem: 'metric', viewBearingDeg: 0, commonNames: { 'Mentha spicata': 'Mint' }, canvas: {
     layers: setup.layers.map(name => ({ name, visible: true, opacity: 1 })),
     plants: Array.from({ length: 25 }, (_, i) => ({ id: String(i), canonicalName: 'Mentha spicata', speciesCode: 'MSP', position: { x: 2, y: i * .4 },
       color: '#123456', symbol: 'rosette', mark, pinnedName: false })), annotations: [], zones: [], measurements: [],

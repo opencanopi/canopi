@@ -183,7 +183,9 @@ function previewShapes(ctx: ToolContext, species: PlantStampSourceInput, world: 
       kind: 'label',
       anchor: { x: world.x - down.x * radius, y: world.y - down.y * radius },
       offsetPx: { x: 0, y: 0 },
-      text: ctx.translate('canvas.placePreview.matureWidth', { width: formatMetricDistance(width) }),
+      text: ctx.translate('canvas.placePreview.matureWidth', {
+        width: formatMetricDistance(width, ctx.settings.unitSystem?.() ?? 'metric', ctx.settings.locale?.() ?? 'en'),
+      }),
       tone: 'hint',
     })
   }
@@ -202,7 +204,10 @@ function previewShapes(ctx: ToolContext, species: PlantStampSourceInput, world: 
     const [line, label] = distanceGuideShapes(
       world,
       nearest.plant.position,
-      ctx.translate('canvas.placePreview.nearest', { distance: formatMetricDistance(nearest.distanceM), name }),
+      ctx.translate('canvas.placePreview.nearest', {
+        distance: formatMetricDistance(nearest.distanceM, ctx.settings.unitSystem?.() ?? 'metric', ctx.settings.locale?.() ?? 'en'),
+        name,
+      }),
       { anchor: world, offsetPx: { x: 0, y: Math.max(symbolRadiusPx, 6) + 16 } },
     )
     shapes.push(line!)

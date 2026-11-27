@@ -35,7 +35,7 @@ async function editor(props: Partial<Parameters<typeof PdfPageEditor>[0]> & { pl
 }
 const text = () => createPdfTextEngine(new Map<PdfFontId, Uint8Array>([['latin', readFileSync('src/app/canvas-pdf/fonts/NotoSans-Regular.ttf')]]), 'en')
 const labels = { ...englishPdfLabels, notes: 'Notes', observations: 'Observations', keyAndNotes: 'Key and notes', overview: 'Overview', plants: 'Plants', actualSize: 'Actual size' }
-const garden = (viewBearingDeg: number): PdfInput => ({ name: 'Garden', locale: 'en', commonNames: {}, viewBearingDeg, canvas: {
+const garden = (viewBearingDeg: number): PdfInput => ({ name: 'Garden', locale: 'en', unitSystem: 'metric', commonNames: {}, viewBearingDeg, canvas: {
   layers: [{ name: 'plants', visible: true, opacity: 1 }], zones: [], annotations: [], measurements: [],
   plants: [0, 1, 2].map(i => ({ id: String(i), canonicalName: 'Malus domestica', position: { x: 100 + i * 6, y: 200 + i * 3 }, color: '#123456', symbol: 'round', mark: [], pinnedName: false })),
 } })

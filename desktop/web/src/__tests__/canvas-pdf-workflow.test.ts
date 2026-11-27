@@ -11,7 +11,7 @@ const result: PreparedPdf = { bytes: new Uint8Array([37, 80, 68, 70]), plan: { p
 function fixture(plants: PrintPlant[] = [], view: Pick<PdfInput, 'viewBearingDeg'> = { viewBearingDeg: 0 }) {
   const identity = {}
   let current = true
-  const capture: PdfCapture = { identity, isCurrent: () => current, input: { name: 'Garden', locale: 'fr', commonNames: {}, ...view,
+  const capture: PdfCapture = { identity, isCurrent: () => current, input: { name: 'Garden', locale: 'fr', unitSystem: 'metric', commonNames: {}, ...view,
     canvas: { layers: [{ name: 'plants', visible: true, opacity: 1 }, { name: 'base', visible: true, opacity: 1 }],
       plants, zones: [], annotations: [], measurements: [] } } }
   const prepare = vi.fn<(input: PdfPreparation, signal: AbortSignal) => Promise<PreparedPdf>>(async () => result)
@@ -273,6 +273,24 @@ describe('PDF workflow lifetime', () => {
     expect(workflow.state.value.result).toBeNull()
     expect(save).not.toHaveBeenCalled()
     workflow.dispose()
+  })
+  it('omits opacity-0 exportable layers from availableLayers (Q63)', async () => {
+    const { workflow, capture, setCanvas } = fixture()
+    setCanvas({
+      ...capture.input.canvas,
+      layers: [
+        { name: 'plants', visible: true, opacity: 1 },
+        { name: 'zones', visible: true, opacity: 0 },
+        { name: 'annotations', visible: false, opacity: 0.5 },
+        { name: 'measurement-guides', visible: true, opacity: 0 },
+      ],
+    })
+    try {
+      workflow.show()
+      await vi.waitFor(() => expect(workflow.state.value.status).toBe('ready'))
+      expect(workflow.availableLayers.value).toEqual(['plants', 'annotations'])
+      expect(workflow.setup.value.layers).toEqual(['plants'])
+    } finally { workflow.dispose() }
   })
   it('cancels a preparing job when the preview closes', async () => {
     const { workflow, prepare } = fixture()
