@@ -71,8 +71,7 @@
       "count": 1
     },
     "app/canvas-commands -> app/command-table": {
-      "count": 1,
-      "bead": "canopi-f47t.52.5"
+      "count": 1
     },
     "app/canvas-commands -> app/shell-commands": {
       "count": 1,
@@ -82,8 +81,7 @@
       "count": 1
     },
     "app/canvas-context-menu -> app/command-table": {
-      "count": 1,
-      "bead": "canopi-f47t.52.5"
+      "count": 1
     },
     "app/canvas-context-menu -> app/rename-zone": {
       "count": 1
@@ -417,8 +415,7 @@
       "count": 1
     },
     "app/keyboard -> app/command-table": {
-      "count": 1,
-      "bead": "canopi-f47t.52.5"
+      "count": 1
     },
     "app/keyboard -> app/shell": {
       "count": 1
@@ -836,8 +833,7 @@
       "count": 1
     },
     "canvas -> app/command-table": {
-      "count": 1,
-      "bead": "canopi-f47t.52.5"
+      "count": 1
     },
     "canvas -> generated": {
       "count": 1
@@ -941,8 +937,7 @@
       "count": 1
     },
     "components -> app/command-table": {
-      "count": 1,
-      "bead": "canopi-f47t.52.5"
+      "count": 1
     },
     "components -> app/community": {
       "count": 1

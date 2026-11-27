@@ -109,7 +109,7 @@ describe('Place plants tool', () => {
     h.click({ x: 40, y: 40 })
     expect(h.record.guidance.at(-1)?.speciesPrompts, 'each press asks again').toBe(2)
 
-    h.host.sourceChanged({ kind: 'species', species: APPLE })
+    h.arm('plant-stamp', { kind: 'species', species: APPLE })
     expect(h.record.guidance.at(-1)?.speciesPrompts).toBe(0)
     h.click({ x: 40, y: 40 })
     expect(h.store.persisted.plants).toHaveLength(1)
@@ -123,14 +123,14 @@ describe('Place plants tool', () => {
     expect(h.store.persisted.plants).toHaveLength(0)
     expect(h.record.guidance.at(-1)?.speciesPrompts).toBe(1)
 
-    h.host.sourceChanged({ kind: 'species', species: APPLE })
+    h.arm('plant-stamp', { kind: 'species', species: APPLE })
 
     expect(h.store.persisted.plants.map((plant) => plant.position)).toEqual([{ x: 15, y: 15 }])
     expect(h.store.session.selectedTargets).toEqual([{ kind: 'plant', id: h.store.persisted.plants[0]!.id }])
     expect(h.record.guidance.at(-1)?.speciesPrompts).toBe(0)
 
     // The pick is spent: another species places nothing more.
-    h.host.sourceChanged({ kind: 'species', species: { ...APPLE, canonical_name: 'Pyrus communis' } })
+    h.arm('plant-stamp', { kind: 'species', species: { ...APPLE, canonical_name: 'Pyrus communis' } })
     expect(h.store.persisted.plants).toHaveLength(1)
   })
 

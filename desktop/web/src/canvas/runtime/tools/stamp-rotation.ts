@@ -104,8 +104,3 @@ export function screenAlignedTemplateCenter(
   for (const { entity } of template.measurementGuides) box.addPoints([entity.start, entity.end])
   return box.center()
 }
-
-/** The centre of a stamp template's world-axis-aligned bounding box. */
-export function worldTemplateCenter(template: SceneArrangementTemplate): ScenePoint | null {
-  return screenAlignedTemplateCenter(template, 0)
-}

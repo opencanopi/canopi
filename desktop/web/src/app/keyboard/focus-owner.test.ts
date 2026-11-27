@@ -10,7 +10,7 @@ import { createTestCanvasRuntimeSurfaces } from '../../__tests__/support/canvas-
 import { clearCurrentDesignState, replaceCurrentDesignState } from '../../__tests__/support/design-session-state'
 import { installDesktopKeys } from '../../__tests__/support/desktop-key-router'
 import { TEST_GEO_ORIGIN } from '../../__tests__/support/geo-design'
-import { plantColorMenuOpen } from '../../canvas/plant-color-menu-state'
+import { plantColorMenuOpen } from '../canvas-context-menu/state'
 import { setCurrentCanvasSession } from '../../canvas/session'
 import { createSessionPlane } from '../../geo/session-plane'
 import { currentCanvasSelection } from '../../canvas/session-state'

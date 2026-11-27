@@ -195,6 +195,8 @@ export interface CanvasRuntimeAppAdapter {
   readonly savedObjectStamps?: CanvasRuntimeSavedObjectStampAdapter
   /** Absent in a detached runtime, where right-click only suppresses the native menu. */
   readonly contextMenu?: CanvasRuntimeContextMenuAdapter
+  /** Closes any open plant colour or symbol popover on transient runtime reset. Absent in a detached runtime. */
+  readonly closePlantAppearance?: () => void
   readonly presentationData?: CanvasRuntimePresentationDataAdapter
   /** Absent in a detached runtime, which draws the default display. */
   readonly plantDisplay?: CanvasRuntimePlantDisplayAdapter

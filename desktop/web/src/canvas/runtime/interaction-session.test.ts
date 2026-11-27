@@ -152,7 +152,7 @@ describe('the interaction session', () => {
     const rectangle = stubTool('rectangle')
     useStubTools(rectangle)
     const { session } = createSession()
-    session.setTool('rectangle')
+    session.arm('rectangle')
 
     events.pointerDown({ x: 20, y: 20 })
     events.pointerMove({ x: 60, y: 40 })
@@ -178,7 +178,7 @@ describe('the interaction session', () => {
     const rectangle = stubTool('rectangle')
     useStubTools(rectangle)
     const { session } = createSession()
-    session.setTool('rectangle')
+    session.arm('rectangle')
 
     events.holdSpace()
     events.pointerDown({ x: 100, y: 100 })
@@ -238,7 +238,7 @@ describe('the interaction session', () => {
     useStubTools(rectangle)
     const renderer = recordingRenderer()
     const { session } = createSession({ renderer })
-    session.setTool('rectangle')
+    session.arm('rectangle')
     events.pointerDown({ x: 20, y: 20 })
     events.pointerMove({ x: 40, y: 40 })
     events.pointerMove({ x: 60, y: 60 })
@@ -257,7 +257,7 @@ describe('the interaction session', () => {
   })
 
   it('a handled saved-stamp drop clears the drag source', () => {
-    createSession().session.setTool('line')
+    createSession().session.arm('line')
     const dragData = new Map<string, string>()
     const dataTransfer = {
       effectAllowed: 'none',
@@ -310,7 +310,7 @@ describe('the interaction session', () => {
     useStubTools(stubTool('rectangle'), stubTool('plant-stamp'), stubTool('saved-object-stamp'))
     const returnToDesign = vi.fn(testView.navigation.returnToDesign)
     const { session } = createSession({ viewNavigation: { ...testView.navigation, returnToDesign } })
-    session.setTool('rectangle')
+    session.arm('rectangle')
     enterOverview(testView)
     const species = (transfer: DataTransferLike) => writePlantStampDragData(transfer, PEAR)
 
@@ -489,7 +489,7 @@ describe('the interaction session', () => {
     })
     useStubTools(row)
     const { session } = createSession()
-    session.setTool('plant-spacing')
+    session.arm('plant-spacing')
 
     expect(session.canUndoTransientHistory()).toBe(true)
     expect(session.canRedoTransientHistory()).toBe(false)
@@ -513,7 +513,7 @@ describe('the interaction session', () => {
   it('Space and a pointer pan show the navigation cursor over a registered tool\'s', () => {
     useStubTools(stubTool('rectangle'))
     const { session } = createSession()
-    session.setTool('rectangle')
+    session.arm('rectangle')
     expect(container.style.cursor).toBe('crosshair')
 
     container.focus()
@@ -535,7 +535,7 @@ describe('the interaction session', () => {
     const rectangle = stubTool('rectangle')
     useStubTools(rectangle)
     const { session } = createSession()
-    session.setTool('rectangle')
+    session.arm('rectangle')
     container.focus()
 
     events.pointerDown({ x: 20, y: 20 })
@@ -707,7 +707,7 @@ describe('the interaction session', () => {
 
   it('a move with a button held and no press on the map publishes no pointer world point', () => {
     const { session } = createSession()
-    session.setTool('line')
+    session.arm('line')
     const points: (PointerWorld | null)[] = []
     session.subscribePointerWorld((point) => { points.push(point) })
 
@@ -731,7 +731,7 @@ describe('the interaction session', () => {
     // A registered tool still hears such a move as a hover (today's hover ran), and the lens still keeps its point.
     const rectangle = stubTool('rectangle')
     useStubTools(rectangle)
-    session.setTool('rectangle')
+    session.arm('rectangle')
     events.pointerMove({ x: 160, y: 150 }, { target: container, buttons: 1 })
     expect(rectangle.count('hover')).toBe(1)
     expect(points).toHaveLength(2)
@@ -745,7 +745,7 @@ describe('the interaction session', () => {
     useStubTools(createZoneDragTool('line'))
     const onSceneEditCommit = vi.fn()
     const { session } = createSession(createInteractionDeps(container, store, testView, { onSceneEditCommit }))
-    session.setTool('line')
+    session.arm('line')
     const pen = { pointerId: 40, pointerType: 'pen' } as const
 
     events.pointerDown({ x: 20, y: 30 }, { ...pen, button: 0, buttons: 1 })
@@ -778,7 +778,7 @@ describe('the interaction session', () => {
         if (broken) throw new Error('hover failed')
       },
     })
-    session.setTool('line')
+    session.arm('line')
     const panel = document.createElement('div')
     document.body.appendChild(panel)
     const panelMoves = vi.fn()
@@ -803,7 +803,7 @@ describe('the interaction session', () => {
       expect(panelMoves).toHaveBeenCalledOnce()
 
       useStubTools(stubTool('rectangle'))
-      session.setTool('rectangle')
+      session.arm('rectangle')
       expect(failingHover(101)).toHaveLength(1)
       expect(panelMoves).toHaveBeenCalledTimes(2)
     } finally {
@@ -825,7 +825,7 @@ describe('the interaction session', () => {
         zoomAroundPx: fail(testView.navigation.zoomAroundPx),
       },
     })
-    session.setTool('rectangle')
+    session.arm('rectangle')
 
     broken = true
     try {
@@ -871,24 +871,24 @@ describe('the interaction session', () => {
     const rectangle = stubTool('rectangle')
     useStubTools(rectangle, stubTool('ellipse'))
     const { session } = createSession()
-    session.setTool('rectangle')
+    session.arm('rectangle')
 
     events.pointerDown({ x: 20, y: 20 }, { pointerId: 4 })
     events.pointerMove({ x: 60, y: 40 }, { pointerId: 4 })
     expect(events.pointerCapture.has(4)).toBe(true)
     // The capture the host's press took goes at once, as today's tool change released it.
-    session.setTool('ellipse')
+    session.arm('ellipse')
     expect(events.pointerCapture.has(4)).toBe(false)
     events.pointerUp({ x: 60, y: 40 }, { pointerId: 4 })
 
     // A middle pan cut short the same way leaves no 'grabbing' behind for Space over the next registered tool.
-    session.setTool('rectangle')
+    session.arm('rectangle')
     events.pointerDown({ x: 100, y: 100 }, { pointerId: 5, button: 1 })
     events.pointerMove({ x: 130, y: 110 }, { pointerId: 5, button: 1 })
     expect(container.style.cursor).toBe('grabbing')
-    session.setTool('ellipse')
+    session.arm('ellipse')
     events.pointerUp({ x: 130, y: 110 }, { pointerId: 5, button: 1 })
-    session.setTool('rectangle')
+    session.arm('rectangle')
     container.focus()
     events.holdSpace()
     expect(container.style.cursor).toBe('grab')
@@ -955,7 +955,7 @@ describe('registered tools against today\'s session (0B-3 host rulings)', () => 
     })
     useStubTools(rectangle)
     const { session, deps } = createSession()
-    session.setTool('rectangle')
+    session.arm('rectangle')
 
     events.pointerDown({ x: 20, y: 20 }, { pointerId: 6 })
     expect(captured).toEqual([true])
@@ -973,7 +973,7 @@ describe('registered tools against today\'s session (0B-3 host rulings)', () => 
     const rectangle = stubTool('rectangle')
     useStubTools(rectangle)
     const { session, deps } = createSession()
-    session.setTool('rectangle')
+    session.arm('rectangle')
 
     events.pointerDown({ x: 20, y: 20 }, { pointerId: 6 })
     events.pointerMove({ x: 40, y: 40 }, { pointerId: 6 })
@@ -997,7 +997,7 @@ describe('registered tools against today\'s session (0B-3 host rulings)', () => 
     const { tool: rectangle, open } = editingTool('rectangle')
     useStubTools(rectangle)
     const { session } = createSession()
-    session.setTool('rectangle')
+    session.arm('rectangle')
 
     events.pointerDown({ x: 20, y: 30 }, { pointerId: 24 })
     expect(events.pointerCapture.setCalls).toHaveBeenCalledWith(24)
@@ -1018,13 +1018,13 @@ describe('registered tools against today\'s session (0B-3 host rulings)', () => 
         if (failHover) throw new Error('hover cleanup failed')
       },
     })
-    session.setTool('rectangle')
+    session.arm('rectangle')
     events.pointerDown({ x: 20, y: 30 }, { pointerId: 15 })
     events.pointerMove({ x: 35, y: 45 }, { pointerId: 15 })
     expect(open()).toBe(true)
 
     failHover = true
-    expect(() => session.setTool('ellipse')).toThrow('hover cleanup failed')
+    expect(() => session.arm('ellipse')).toThrow('hover cleanup failed')
     failHover = false
     expect(rectangle.last('cancel')).toEqual({ kind: 'cancel', reason: 'tool-change' })
     expect(open()).toBe(false)
@@ -1043,9 +1043,9 @@ describe('registered tools against today\'s session (0B-3 host rulings)', () => 
     // Today's Line, on the host as the app registers it.
     useStubTools(rectangle, createZoneDragTool('line'))
     const { session } = createSession()
-    session.setTool('line')
+    session.arm('line')
 
-    expect(() => session.setTool('rectangle')).toThrow('activation failed')
+    expect(() => session.arm('rectangle')).toThrow('activation failed')
     failActivation = false
     expect(session.tool).toBe('select')
     // Select is armed again: a drag selects, it does not draw a line.
@@ -1055,7 +1055,7 @@ describe('registered tools against today\'s session (0B-3 host rulings)', () => 
     expect(store.persisted.zones).toHaveLength(0)
     expect(rectangle.count('press')).toBe(0)
 
-    session.setTool('rectangle')
+    session.arm('rectangle')
     expect(session.tool).toBe('rectangle')
   })
 
@@ -1092,7 +1092,7 @@ describe('registered tools against today\'s session (0B-3 host rulings)', () => 
     events.pointerMove({ x: 120, y: 100 }, { pointerId: 4, buttons: 4, shiftKey: true })
     expect(bearing()).toBeCloseTo(16, 6)
 
-    expect(() => session.setTool('rectangle')).toThrow('activation failed')
+    expect(() => session.arm('rectangle')).toThrow('activation failed')
     failActivation = false
     // The rotate's session is cancelled: the camera is back at the press bearing.
     expect(bearing()).toBeCloseTo(0, 6)
@@ -1106,7 +1106,7 @@ describe('registered tools against today\'s session (0B-3 host rulings)', () => 
     const { tool: rectangle, open } = editingTool('rectangle')
     useStubTools(rectangle)
     const { session } = createSession()
-    session.setTool('rectangle')
+    session.arm('rectangle')
     events.pointerDown({ x: 20, y: 30 }, { pointerId: 25 })
     events.pointerMove({ x: 35, y: 45 }, { pointerId: 25 })
     expect(events.pointerCapture.has(25)).toBe(true)
@@ -1133,7 +1133,7 @@ describe('registered tools against today\'s session (0B-3 host rulings)', () => 
     })
     useStubTools(rectangle)
     const { session } = createSession()
-    session.setTool('rectangle')
+    session.arm('rectangle')
     const species = (transfer: DataTransferLike) => writePlantStampDragData(transfer, PEAR)
 
     events.pointerDown({ x: 20, y: 20 })
@@ -1159,7 +1159,7 @@ describe('registered tools against today\'s session (0B-3 host rulings)', () => 
     }
     useStubTools(stubTool('select'))
     const { session } = createSession({ sceneEdits: dropFails })
-    session.setTool('select')
+    session.arm('select')
     const species = (transfer: DataTransferLike) => writePlantStampDragData(transfer, PEAR)
 
     let drop!: DragEvent
@@ -1185,7 +1185,7 @@ describe('registered tools against today\'s session (0B-3 host rulings)', () => 
     useStubTools(stamp)
     const renderer = recordingRenderer()
     const { session } = createSession({ renderer })
-    session.setTool('object-stamp')
+    session.arm('object-stamp')
     events.pointerMove({ x: 50, y: 50 }, { buttons: 0 })
     expect(renderer.lastDraft()).toEqual(ghost)
 
@@ -1220,7 +1220,7 @@ describe('releases the tool did not hear (today\'s pointerup cleanup)', () => {
   it('a middle-button or Space pan drops a redo-only polygon history at its release or cancel and keeps a draft with corners', () => {
     useStubTools(createPolygonTool())
     const { session } = createSession()
-    session.setTool('polygon')
+    session.arm('polygon')
     const corner = (at: { x: number, y: number }): void => {
       events.pointerDown(at)
       events.pointerUp(at)
@@ -1294,7 +1294,7 @@ describe('releases the tool did not hear (today\'s pointerup cleanup)', () => {
     const rectangle = stubTool('rectangle')
     useStubTools(rectangle)
     const { session } = createSession()
-    session.setTool('rectangle')
+    session.arm('rectangle')
     const owned = ['data-canvas-text-entry', 'data-canvas-handle'].map((attribute) => {
       const element = document.createElement('div')
       element.setAttribute(attribute, 'create')
@@ -1354,7 +1354,7 @@ describe('releases the tool did not hear (today\'s pointerup cleanup)', () => {
     })
     useStubTools(select, rectangle)
     const { session } = createSession()
-    session.setTool('rectangle')
+    session.arm('rectangle')
 
     expect(captureWindowErrors(() => { events.pointerDown({ x: 20, y: 20 }) })).toHaveLength(1)
     expect(select.calls).toContain('activate')
@@ -1372,7 +1372,7 @@ describe('releases the tool did not hear (today\'s pointerup cleanup)', () => {
     const rectangle = stubTool('rectangle')
     useStubTools(select, rectangle)
     const { session } = createSession()
-    session.setTool('rectangle')
+    session.arm('rectangle')
 
     expect(() => session.prepareForDocumentReplacement()).toThrow()
     expect(select.calls).toContain('activate')
@@ -1387,7 +1387,7 @@ describe('releases the tool did not hear (today\'s pointerup cleanup)', () => {
     })
     useStubTools(rectangle)
     const { session } = createSession()
-    session.setTool('rectangle')
+    session.arm('rectangle')
 
     expect(() => enterOverview(testView)).toThrow('overview cleanup failed')
     expect(testView.viewport().scale).toBeCloseTo(0.05, 9)
@@ -1406,7 +1406,7 @@ describe('releases the tool did not hear (today\'s pointerup cleanup)', () => {
     })
     useStubTools(rectangle)
     const { session } = createSession()
-    session.setTool('rectangle')
+    session.arm('rectangle')
     container.focus()
     events.pointerDown({ x: 20, y: 20 })
     events.pointerMove({ x: 60, y: 40 })

@@ -1,19 +1,17 @@
 import { batch, signal } from '@preact/signals'
 import type { CanvasContextMenuRequest } from '../../canvas/runtime/app-adapter'
-import {
-  plantColorMenuOpen,
-  setPlantColorMenuOpen,
-} from '../../canvas/plant-color-menu-state'
-import {
-  plantSymbolMenuOpen,
-  setPlantSymbolMenuOpen,
-} from '../../canvas/plant-symbol-menu-state'
 
-export {
-  plantColorMenuOpen,
-  plantSymbolMenuOpen,
-  setPlantColorMenuOpen,
-  setPlantSymbolMenuOpen,
+// Component-scoped canvas UI state. The menu open flags are not part of scene or document authority.
+export const plantColorMenuOpen = signal<boolean>(false)
+
+export function setPlantColorMenuOpen(open: boolean): void {
+  plantColorMenuOpen.value = open
+}
+
+export const plantSymbolMenuOpen = signal<boolean>(false)
+
+export function setPlantSymbolMenuOpen(open: boolean): void {
+  plantSymbolMenuOpen.value = open
 }
 
 /** The open right-click menu, or null. The canvas runtime opens and closes it. */

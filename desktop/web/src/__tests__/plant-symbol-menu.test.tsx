@@ -5,7 +5,7 @@ import { act } from 'preact/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { PlantSymbolMenu } from '../components/canvas/PlantSymbolMenu'
 import { setCurrentCanvasSession } from '../canvas/session'
-import { plantSymbolMenuOpen } from '../canvas/plant-symbol-menu-state'
+import { plantSymbolMenuOpen } from '../app/canvas-context-menu/state'
 import { currentCanvasSelection } from '../canvas/session-state'
 import { createTestCanvasQuerySurface } from './support/canvas-query-surface'
 import {

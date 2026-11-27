@@ -188,4 +188,116 @@ describe('Turned map screen-aligned pivot and anchor (2.1-Q89)', () => {
     expect(toolPlacedCenter.x).toBeCloseTo(clickWorld.x, 5)
     expect(toolPlacedCenter.y).toBeCloseTo(clickWorld.y, 5)
   })
+
+  it('saved-object stamp containing a note whose anchor comes from selection.bounds still pivots on the screen-aligned centre at bearing 45°', () => {
+    const h = createToolHarness({ camera: { bearingDeg: 45 } })
+    harnesses.push(h)
+    const scene = createToolScene(createToolSceneSource(h.store))
+    // Bare positions span [0, 10] x [0, 10] (world box centre (5, 5); screen box centre at 45° is (2.5, 2.5)).
+    // Canvas selection.bounds includes the note text box, offsetting stamp.anchor well beyond 1e-3 m from (5, 5).
+    const boundsAnchor = { x: 6.4, y: 5.8 }
+    const stamp = parseSavedObjectStampPayload(JSON.stringify({
+      version: 2,
+      anchor: boundsAnchor,
+      plants: [
+        {
+          id: 'p1', canonicalName: 'Malus domestica', commonName: 'Apple', color: '#4a7c59',
+          symbol: null, scale: 2, position: { x: 0, y: 0 }, rotationDeg: 0,
+        },
+        {
+          id: 'p2', canonicalName: 'Malus domestica', commonName: 'Apple', color: '#4a7c59',
+          symbol: null, scale: 2, position: { x: 10, y: 0 }, rotationDeg: 0,
+        },
+      ],
+      zones: [],
+      annotations: [{
+        id: 'n1', annotationType: 'label', position: { x: 0, y: 10 },
+        text: 'South edge guild note', fontSize: 14, rotationDeg: 0,
+      }],
+      groups: [],
+    }))!
+    const at = { x: 80, y: 90 }
+
+    const ghostShapes = savedObjectStampGhostShapes(scene, stamp, at, 0, 45) ?? []
+    const ghostPoints: ScenePoint[] = []
+    for (const shape of ghostShapes) {
+      if (shape.kind === 'ghost' && shape.entity.kind === 'objects') {
+        for (const p of shape.entity.template.plants) ghostPoints.push(p.entity.position)
+        for (const a of shape.entity.template.annotations) ghostPoints.push(a.entity.position)
+      }
+    }
+    const ghostCenter = screenBoxCenterOf(ghostPoints, 45)
+    expect(ghostCenter.x).toBeCloseTo(at.x, 5)
+    expect(ghostCenter.y).toBeCloseTo(at.y, 5)
+
+    const onCommitted = vi.fn()
+    placeSavedObjectStamp(h.edits, scene, stamp, at, { rotationDeg: 0, bearingDeg: 45, onCommitted })
+    expect(onCommitted).toHaveBeenCalledOnce()
+    const placedPoints: ScenePoint[] = [
+      ...h.store.persisted.plants.map((p) => p.position),
+      ...h.store.persisted.annotations.map((a) => a.position),
+    ]
+    const placedCenter = screenBoxCenterOf(placedPoints, 45)
+    expect(placedCenter.x).toBeCloseTo(at.x, 5)
+    expect(placedCenter.y).toBeCloseTo(at.y, 5)
+    // Confirm it did not fall back to boundsAnchor (which would place (0, 0) at at - boundsAnchor).
+    expect(Math.hypot(
+      placedPoints[0]!.x - (at.x - boundsAnchor.x),
+      placedPoints[0]!.y - (at.y - boundsAnchor.y),
+    )).toBeGreaterThan(2)
+  })
+
+  it('saved-object stamp containing unequal plants whose anchor comes from selection.bounds still pivots on the screen-aligned centre at bearing 45°', () => {
+    const h = createToolHarness({ camera: { bearingDeg: 45 } })
+    harnesses.push(h)
+    const scene = createToolScene(createToolSceneSource(h.store))
+    // Bare positions span [0, 10] x [0, 10] (world box centre (5, 5); screen box centre at 45° is (2.5, 2.5)).
+    // Unequal crowns (8 m spread at (0, 0) vs 2 m spread at (10, 0) and (0, 10)) shift selection.bounds to [-4, 11] x [-4, 11],
+    // giving stamp.anchor = (3.5, 3.5), > 1e-3 m from the bare position box centre (5, 5).
+    const crownBoundsAnchor = { x: 3.5, y: 3.5 }
+    const stamp = parseSavedObjectStampPayload(JSON.stringify({
+      version: 2,
+      anchor: crownBoundsAnchor,
+      plants: [
+        {
+          id: 'big-tree', canonicalName: 'Castanea sativa', commonName: 'Chestnut', color: '#3b6e4c',
+          symbol: null, scale: 8, position: { x: 0, y: 0 }, rotationDeg: 0,
+        },
+        {
+          id: 'small-1', canonicalName: 'Ribes nigrum', commonName: 'Blackcurrant', color: '#5c8a6b',
+          symbol: null, scale: 2, position: { x: 10, y: 0 }, rotationDeg: 0,
+        },
+        {
+          id: 'small-2', canonicalName: 'Ribes nigrum', commonName: 'Blackcurrant', color: '#5c8a6b',
+          symbol: null, scale: 2, position: { x: 0, y: 10 }, rotationDeg: 0,
+        },
+      ],
+      zones: [],
+      annotations: [],
+      groups: [],
+    }))!
+    const at = { x: 110, y: 70 }
+
+    const ghost = savedObjectStampGhostShapes(scene, stamp, at, 0, 45)
+      ?.find((shape): shape is Extract<DraftShape, { kind: 'ghost' }> => shape.kind === 'ghost')
+    const ghostPoints = ghost?.entity.kind === 'objects'
+      ? ghost.entity.template.plants.map((p) => p.entity.position)
+      : []
+    const ghostCenter = screenBoxCenterOf(ghostPoints, 45)
+    expect(ghostCenter.x).toBeCloseTo(at.x, 5)
+    expect(ghostCenter.y).toBeCloseTo(at.y, 5)
+
+    const onCommitted = vi.fn()
+    placeSavedObjectStamp(h.edits, scene, stamp, at, { rotationDeg: 0, bearingDeg: 45, onCommitted })
+    expect(onCommitted).toHaveBeenCalledOnce()
+    const placedPoints = h.store.persisted.plants.map((p) => p.position)
+    const placedCenter = screenBoxCenterOf(placedPoints, 45)
+    expect(placedCenter.x).toBeCloseTo(at.x, 5)
+    expect(placedCenter.y).toBeCloseTo(at.y, 5)
+    // Confirm it did not fall back to crownBoundsAnchor.
+    expect(Math.hypot(
+      placedPoints[0]!.x - (at.x - crownBoundsAnchor.x),
+      placedPoints[0]!.y - (at.y - crownBoundsAnchor.y),
+    )).toBeGreaterThan(1)
+  })
 })

@@ -1548,12 +1548,6 @@ export function createToolHost(deps: ToolHostDeps): ToolHost {
       }, false)
       return !admitted || duringEdit ? QUARANTINE : NOTHING
     },
-    sourceChanged(source: ToolSource | null): void {
-      if (disposed) return
-      toolState.value = { ...toolState.peek(), source }
-      const tool = activeTool
-      if (tool.sourceChanged) callTool(() => tool.sourceChanged!(source))
-    },
     rawPress,
     notePointer(screen: ScreenPoint): void {
       if (disposed) return

@@ -116,8 +116,6 @@ export interface SceneInteractionSession {
   readonly activeTool: ReadonlySignal<ToolId>
   /** Arms a tool with optional source and map-input request; returns a handle that settles once. */
   arm<T = unknown>(id: ToolId, source?: ToolSource | null, request?: MapInputRequest<T>): MapInputHandle<T>
-
-  setTool(id: ToolId): void
   /** Plant a row's spacing field in the tool card; does nothing under another tool. */
   readonly plantRowSpacing: CanvasPlantRowSpacingField
   /** Plant a row's check button and mode switch in the tool card; nothing under another tool. */
@@ -379,10 +377,6 @@ class DefaultSceneInteractionSession implements SceneInteractionSession {
     }
   }
 
-  /**
-   * Arms a tool on the host. Any failure leaves a fresh Select on the host (spec §1.4 "Faults"), drops the tool left's
-   * source and still ends the live presses, as today's setTool had cleared the pointer gesture before the step that failed.
-   */
   get tool(): ToolId {
     return this._toolHost.activeTool.peek()
   }
@@ -395,6 +389,10 @@ class DefaultSceneInteractionSession implements SceneInteractionSession {
     return this._toolHost.activeTool
   }
 
+  /**
+   * Arms a tool on the host. Any failure leaves a fresh Select on the host (spec §1.4 "Faults"), drops the tool left's
+   * source and still ends the live presses, as today's setTool had cleared the pointer gesture before the step that failed.
+   */
   arm<T = unknown>(
     id: ToolId,
     source?: ToolSource | null,
@@ -416,10 +414,6 @@ class DefaultSceneInteractionSession implements SceneInteractionSession {
     // The live presses belong to the tool left: they end on the host's path, which releases their capture.
     this._configure()
     return handle
-  }
-
-  setTool(id: ToolId): void {
-    void this.arm(id)
   }
 
   prepareForDocumentReplacement(): void {

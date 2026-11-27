@@ -108,7 +108,7 @@ describe('SceneInteractionSession', () => {
     const onSceneEditCommit = vi.fn()
     const deps = createInteractionDeps(container, store, testView, { onSceneEditCommit })
     const session = createTestSession(deps)
-    session.setTool('select')
+    session.arm('select')
     deps.setSelection([plantTarget('plant-1')])
     const before = testView.viewport()
 
@@ -138,7 +138,7 @@ describe('SceneInteractionSession', () => {
       draft.plants = [makePlant('plant-1', 'Malus domestica', { x: 20, y: 30 })]
     })
     const session = createTestSession(createInteractionDeps(container, store, testView))
-    session.setTool('select')
+    session.arm('select')
 
     events.pointerDown({ x: 20, y: 30 }, { button: 2 })
     const point = events.clientPoint({ x: 20, y: 30 })
@@ -163,7 +163,7 @@ describe('SceneInteractionSession', () => {
     const onSceneEditCommit = vi.fn()
     const deps = createInteractionDeps(container, store, testView, { onSceneEditCommit })
     const session = createTestSession(deps)
-    session.setTool(tool)
+    session.arm(tool)
     const scene = structuredClone(store.persisted)
     const before = testView.viewport()
 
@@ -186,7 +186,7 @@ describe('SceneInteractionSession', () => {
   it('A9: a polygon draft keeps its corners on the ground through a right-drag pan, and its next click adds the third', () => {
     const deps = createInteractionDeps(container, store, testView)
     const session = createTestSession(deps)
-    session.setTool('polygon')
+    session.arm('polygon')
     const first = world({ x: 20, y: 20 })
     const second = world({ x: 80, y: 20 })
     events.pointerDown({ x: 20, y: 20 })
@@ -220,7 +220,7 @@ describe('SceneInteractionSession', () => {
     })
     const deps = { ...createInteractionDeps(container, store, testView), platform: MAC }
     const session = createTestSession(deps)
-    session.setTool('select')
+    session.arm('select')
     deps.setSelection([plantTarget('plant-2')])
 
     events.pointerDown({ x: 20, y: 30 }, { ctrlKey: true })
@@ -245,7 +245,7 @@ describe('SceneInteractionSession', () => {
       draft.plants = [makePlant('plant-1', 'Malus domestica', { x: 20, y: 30 })]
     })
     const session = createTestSession(createInteractionDeps(container, store, testView))
-    session.setTool('polygon')
+    session.arm('polygon')
     const barrel = { pointerType: 'pen', pointerId: 7, button: 2 } as const
 
     events.pointerDown({ x: 20, y: 30 }, barrel)
@@ -431,7 +431,7 @@ describe('SceneInteractionSession', () => {
     const onSceneEditCommit = vi.fn()
     const deps = createInteractionDeps(container, store, testView, { onSceneEditCommit })
     const session = createTestSession(deps)
-    session.setTool('rectangle')
+    session.arm('rectangle')
     enterOverview(testView)
     const scene = structuredClone(store.persisted)
     const before = testView.viewport()

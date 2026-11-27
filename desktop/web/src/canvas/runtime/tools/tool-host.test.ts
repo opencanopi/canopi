@@ -550,8 +550,7 @@ describe('ToolHost', () => {
       expect(finishProfile).toHaveBeenCalledWith(line)
     })
 
-    it('Profile completing its request and then requesting Select settles once and returns to Select', () => {
-      const line = [{ x: 1, y: 2 }, { x: 30, y: 40 }]
+    function setupFinishingProfile(line: { x: number; y: number }[]) {
       const profile: StubTool = stubTool('profile', {
         gesture: (g) => {
           if (g.kind === 'tap' && g.clickCount === 2) {
@@ -564,6 +563,12 @@ describe('ToolHost', () => {
       useStubTools(profile, stubTool('select'))
       const finishProfile = vi.fn()
       const h = harness({ tool: 'profile', finishProfile })
+      return { h, finishProfile }
+    }
+
+    it('Profile completing its request and then requesting Select settles once and returns to Select', () => {
+      const line = [{ x: 1, y: 2 }, { x: 30, y: 40 }]
+      const { h, finishProfile } = setupFinishingProfile(line)
 
       h.click({ x: 300, y: 100 })
       h.click({ x: 300, y: 100 }, { clickCount: 2 })
@@ -571,6 +576,18 @@ describe('ToolHost', () => {
       expect(finishProfile).toHaveBeenCalledTimes(1)
       expect(finishProfile).toHaveBeenCalledWith(line)
       expect(h.host.activeToolIsSelect()).toBe(true)
+    })
+
+    it('Profile finishing on empty ground and then requesting Select never pins: the tool that heard the tap decides', () => {
+      const { h } = setupFinishingProfile([{ x: 1, y: 2 }, { x: 30, y: 40 }])
+      const pin = vi.fn()
+      h.host.subscribeEmptyGroundTap(pin)
+
+      h.click({ x: 300, y: 100 })
+      h.click({ x: 300, y: 100 }, { clickCount: 2 })
+
+      expect(h.host.activeToolIsSelect()).toBe(true)
+      expect(pin).not.toHaveBeenCalled()
     })
 
     it('a finger\'s tap on empty ground under Select notifies subscribeEmptyGroundTap at the down point', () => {

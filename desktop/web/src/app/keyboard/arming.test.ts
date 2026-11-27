@@ -312,6 +312,26 @@ describe('armCanvasTool', () => {
       setToolCapabilityReader(null)
     }
   })
+
+  it('settles request once as detached when arm is refused by canArmTool or dropped with no canvas (#940)', () => {
+    const refusedSettled = vi.fn()
+    expect(armCanvasTool('profile', {
+      from: 'panel',
+      capabilities: new Set(),
+      request: { onSettled: refusedSettled },
+    })).toBe(false)
+    expect(refusedSettled).toHaveBeenCalledTimes(1)
+    expect(refusedSettled).toHaveBeenCalledWith({ kind: 'detached' })
+
+    setCurrentCanvasSession(null)
+    const droppedSettled = vi.fn()
+    expect(armCanvasTool('polygon', {
+      from: 'start-card',
+      request: { onSettled: droppedSettled },
+    })).toBe(false)
+    expect(droppedSettled).toHaveBeenCalledTimes(1)
+    expect(droppedSettled).toHaveBeenCalledWith({ kind: 'detached' })
+  })
 })
 
 /** A canvas in overview whose Return to Design and tool arming log their order; the fit lands at site scale. */

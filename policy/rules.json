@@ -1538,8 +1538,7 @@
         ],
         "to": [
           "canvas/session.ts",
-          "canvas/plant-color-menu-state.ts",
-          "canvas/plant-symbol-menu-state.ts"
+          "app/canvas-context-menu/state.ts"
         ]
       },
       "note": "Tool Rail renders its projection without reading Canvas state"

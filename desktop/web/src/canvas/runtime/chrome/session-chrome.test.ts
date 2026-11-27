@@ -74,7 +74,7 @@ describe('the session\'s chrome', () => {
     useStubTools(rectangle)
     const { session } = createSession()
 
-    session.setTool('rectangle')
+    session.arm('rectangle')
     const handle = drawnHandle()!
     const cornerAt = testView.view().worldToScreen(CORNER.anchor)
     expect(handle.getAttribute('aria-label')).toBe('Zone control point 1')
@@ -88,14 +88,14 @@ describe('the session\'s chrome', () => {
     events.pointerUp(cornerAt)
     expect(drawnHandle()!.dataset.canvasHandleActive).toBeUndefined()
 
-    session.setTool('ellipse')
+    session.arm('ellipse')
     expect(drawnHandle()).toBeNull()
   })
 
   it('a presented story shows no handles', async () => {
     useStubTools(stubTool('rectangle', { activate: (ctx) => ctx.effects.setHandles([CORNER]) }))
     const { session } = createSession()
-    session.setTool('rectangle')
+    session.arm('rectangle')
     expect(drawnHandle()).not.toBeNull()
 
     // Today's CSS hid the rotation handle and the control points while a story is presented.
@@ -131,7 +131,7 @@ describe('the session\'s chrome', () => {
     const focus: CanvasFocusPort = { focusMap: vi.fn(() => container.focus()) }
     const { session } = createSession({ focus, translate: (key) => `en:${key}` })
     container.tabIndex = 0
-    session.setTool('text')
+    session.arm('text')
 
     events.pointerDown({ x: 30, y: 40 })
     events.pointerUp({ x: 30, y: 40 })
@@ -172,7 +172,7 @@ describe('the session\'s chrome', () => {
       const focus: CanvasFocusPort = { focusMap: vi.fn(() => container.focus()) }
       const { session } = createSession({ focus })
       container.tabIndex = 0
-      session.setTool('text')
+      session.arm('text')
       events.pointerDown({ x: 30, y: 40 })
       events.pointerUp({ x: 30, y: 40 })
       const entry = container.querySelector<HTMLTextAreaElement>('textarea[data-canvas-text-entry]')!
@@ -203,7 +203,7 @@ describe('the session\'s chrome', () => {
     })
     useStubTools(text)
     const { session } = createSession()
-    session.setTool('text')
+    session.arm('text')
 
     events.pointerDown({ x: 30, y: 40 })
     events.pointerUp({ x: 30, y: 40 })
@@ -220,7 +220,7 @@ describe('the session\'s chrome', () => {
     })
     useStubTools(stubTool('rectangle'))
     const { session } = createSession()
-    session.setTool('rectangle')
+    session.arm('rectangle')
 
     events.pointerMove({ x: 20, y: 30 })
 
@@ -248,7 +248,7 @@ describe('the session\'s chrome', () => {
     })
     useStubTools(rectangle)
     const { session } = createSession()
-    session.setTool('rectangle')
+    session.arm('rectangle')
     events.pointerMove({ x: 20, y: 30 })
     events.pointerDown({ x: 300, y: 200 })
     events.pointerUp({ x: 300, y: 200 })

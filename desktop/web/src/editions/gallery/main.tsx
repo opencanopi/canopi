@@ -24,8 +24,6 @@ import { notebookWorkbench } from './notebook-fixture'
 import { WebSpeciesCatalogPanel, WebSpeciesKeyPanel } from '../web/WebSpeciesCatalogPanel'
 import { WebLayersPanel } from '../web/WebLayersPanel'
 import { activePanel, navigateTo, sidePanel } from '../../app/shell/state'
-import { plantColorMenuOpen } from '../../canvas/plant-color-menu-state'
-import { plantSymbolMenuOpen } from '../../canvas/plant-symbol-menu-state'
 import { applyHealthSnapshot } from '../../failures/health'
 import { installHealthNotices } from '../../failures/health-notices'
 import { locale, mapLayers, sidePanelWidth, theme, type MapLayersState } from '../../app/settings/state'
@@ -45,7 +43,12 @@ import { createJsonSessionCodec, createSessionCore, installLiveSessionCore } fro
 import { registerCloseGuard } from '../../app/shell/close-guard'
 import { installLidarDisplayDescriptors } from '../../app/data-library/display'
 import { installLidarLibraryObserver } from '../../app/data-library/library-store'
-import { closeCanvasContextMenu, openCanvasContextMenu } from '../../app/canvas-context-menu/state'
+import {
+  closeCanvasContextMenu,
+  openCanvasContextMenu,
+  plantColorMenuOpen,
+  plantSymbolMenuOpen,
+} from '../../app/canvas-context-menu/state'
 import { createGalleryEditionPorts } from './ports'
 import { activity, galleryCommandTransport } from './command-adapter'
 import { installAssetUrlResolver, installCommandTransport } from '../../types/command-transport'

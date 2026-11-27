@@ -8,7 +8,7 @@
     "canvas (top) <-> canvas/runtime/chrome": { "count": 3 },
     "canvas (top) <-> canvas/runtime/input": { "count": 1 },
     "canvas (top) <-> canvas/runtime/scene": { "count": 1 },
-    "canvas (top) <-> canvas/runtime/scene-runtime": { "count": 4 },
+    "canvas (top) <-> canvas/runtime/scene-runtime": { "count": 2 },
     "canvas (top) <-> canvas/runtime/tools": { "count": 4 },
     "canvas/plant-path <-> canvas/point-editor": { "count": 1 },
     "canvas/plant-path <-> canvas/runtime/tools": { "count": 2 },

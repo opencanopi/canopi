@@ -22,7 +22,6 @@ import {
   stampGhostShapes,
   stampTemplateAt,
   turnStampRotation,
-  worldTemplateCenter,
 } from './stamp-rotation'
 import type { CanvasTool, ToolContext, ToolScene, ToolSource } from './tool'
 
@@ -212,10 +211,9 @@ export function placeSavedObjectStamp(
 }
 
 /**
- * 2.1-Q89: On a turned map, saved stamps whose anchor is their world bounding-box centre pivot and anchor
- * on the centre of the turned template's screen-aligned box at `bearingDeg` (equivalently, the unturned
- * template's box at `bearingDeg - rotationDeg`, which returns `stamp.anchor` when the stamp is level to
- * the screen). Stamps with an explicit custom anchor keep that anchor.
+ * 2.1-Q89: On a turned map, saved stamps pivot and anchor on the centre of the turned template's
+ * screen-aligned box at `bearingDeg` (equivalently, the unturned template's box at
+ * `bearingDeg - rotationDeg`, which returns `stamp.anchor` when the stamp is level to the screen).
  */
 function savedObjectStampPivot(
   stamp: SavedObjectStampPayload,
@@ -225,9 +223,6 @@ function savedObjectStampPivot(
 ): WorldPoint {
   const relativeBearing = turnStampRotation(bearingDeg, -rotationDeg)
   if (relativeBearing <= 1e-6 || Math.abs(relativeBearing - 360) <= 1e-6) return stamp.anchor
-  const worldCenter = worldTemplateCenter(template)
-  if (!worldCenter) return stamp.anchor
-  if (Math.hypot(stamp.anchor.x - worldCenter.x, stamp.anchor.y - worldCenter.y) > 1e-3) return stamp.anchor
   return screenAlignedTemplateCenter(template, relativeBearing) ?? stamp.anchor
 }
 

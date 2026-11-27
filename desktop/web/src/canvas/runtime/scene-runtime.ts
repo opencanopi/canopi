@@ -347,9 +347,12 @@ export class SceneCanvasRuntime {
   }
 
   private _resetTransientRuntimeState(): void {
-    resetTransientRuntimeState((id) => {
-      this._commandSurface.tools.arm(id)
-    })
+    resetTransientRuntimeState(
+      (id) => {
+        this._commandSurface.tools.arm(id)
+      },
+      this._appAdapter.closePlantAppearance,
+    )
   }
 
   private _prepareForDocumentReplacement(): void {

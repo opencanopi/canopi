@@ -31,7 +31,6 @@ vi.mock('../../app/plant-browser', async (importOriginal) => {
     },
   }
 })
-import { plantColorMenuOpen } from '../plant-color-menu-state'
 import { currentCanvasToolGuidance, currentCanvasSelection } from '../session-state'
 import {
   hoveredPanelTargets,
@@ -41,7 +40,7 @@ import {
 import { createAppCanvasRuntimeAppAdapter } from '../../app/canvas-runtime/app-adapter'
 import { setStoryPresentationOverrides } from '../../app/story-presentation/overrides'
 import { mapLayers, locale, plantSpacingIntervalM, snapToGridEnabled } from '../../app/settings/state'
-import { canvasContextMenuRequest } from '../../app/canvas-context-menu/state'
+import { canvasContextMenuRequest, plantColorMenuOpen } from '../../app/canvas-context-menu/state'
 import { buildCanvasContextMenuEntries, type CanvasContextMenuCommand } from '../../app/canvas-context-menu/entries'
 import { createDesktopCanvasRuntimeAppAdapter } from '../../app/canvas-runtime/desktop-adapter'
 import { createAppSceneRuntimePanelTargetAdapter } from '../../app/canvas-runtime/panel-target-adapter'
@@ -2880,7 +2879,7 @@ describe('scene canvas runtime', () => {
   })
 
   it('resets transient runtime state before replacing the document', async () => {
-    const runtime = createRuntimeWithAppPanelTargets()
+    const runtime = createRuntimeWithAppPanelTargets(createAppCanvasRuntimeAppAdapter({ presentationData: {} }))
     const { renderer } = await initRuntimeWithStubbedRenderer(runtime)
 
     runtime.documentSurface.loadDocument(makeFile())

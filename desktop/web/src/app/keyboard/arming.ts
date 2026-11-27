@@ -61,7 +61,10 @@ function armCanvasToolRequest<T = unknown>(
   options: ArmCanvasToolOptions<T>,
 ): MapInputHandle<T> | null {
   const { from, source, request } = options
-  if (!canArmTool(tool, options.capabilities)) return null
+  if (!canArmTool(tool, options.capabilities)) {
+    request?.onSettled?.({ kind: 'detached' })
+    return null
+  }
   const row = TOOL_ROWS[tool]
   const command = from !== 'panel' && from !== 'card'
   if (command && activePanel.peek() !== 'canvas') selectPanel('canvas')
@@ -71,7 +74,10 @@ function armCanvasToolRequest<T = unknown>(
     recordRecentPlantStampSource(source.species)
   }
   // 2.1-Q41: a tool picked with no Design/canvas open is dropped, never queued.
-  if (!tools) return null
+  if (!tools) {
+    request?.onSettled?.({ kind: 'detached' })
+    return null
+  }
   if (!row.worksInOverview && currentCanvasQuerySurface.peek()?.view.mode.peek() === 'overview') {
     // Fit first, so the tool's first configure sees site mode (the fit jumps; the mode is current on return).
     currentCanvasViewportCommandSurface.peek()?.returnToDesign({ around: 'view-centre' })

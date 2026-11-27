@@ -20,7 +20,11 @@ import { mutateSettingsProjection } from '../settings/projection'
 import { composeDocumentForSave } from '../contracts/document'
 import { activeSessionCore, getLiveSessionCore } from '../document-session/live-core'
 import { designSessionStore } from '../document-session/store'
-import { closeCanvasContextMenu, openCanvasContextMenu } from '../canvas-context-menu/state'
+import {
+  closeCanvasContextMenu,
+  closePlantAppearance,
+  openCanvasContextMenu,
+} from '../canvas-context-menu/state'
 import { t } from '../../i18n'
 import { currentPlantDisplay } from '../plant-display/state'
 import { focusOwner } from '../keyboard/focus-owner'
@@ -58,6 +62,7 @@ export function createAppCanvasRuntimeAppAdapter(
     focus: focusOwner,
     document: { composeDocumentForSave },
     contextMenu: { open: openCanvasContextMenu, close: closeCanvasContextMenu },
+    closePlantAppearance,
     savedObjectStamps: deps.savedObjectStamps,
     presentationData: deps.presentationData,
     plantDisplay: {

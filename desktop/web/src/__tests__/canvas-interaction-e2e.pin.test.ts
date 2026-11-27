@@ -76,7 +76,7 @@ describe('SceneInteractionSession: the Site data pin', () => {
       draft.zones = [makeRectZone('zone-1', [{ x: 200, y: 150 }, { x: 280, y: 150 }, { x: 280, y: 210 }, { x: 200, y: 210 }])]
     })
     const { session, pinAt } = createPinSession()
-    session.setTool('select')
+    session.arm('select')
 
     click({ x: 20, y: 30 }, 0)
     expect(currentCanvasSelection.value).toEqual(new Set(['plant-1']))
@@ -100,16 +100,16 @@ describe('SceneInteractionSession: the Site data pin', () => {
 
   it('a band from empty ground and a Polygon corner never pin; a still Pan-tool click pins, a Pan-tool drag does not', () => {
     const { session, pinAt } = createPinSession()
-    session.setTool('select')
+    session.arm('select')
     events.pointerDown({ x: 100, y: 100 }, { button: 0, buttons: 1, detail: 0 })
     events.pointerMove({ x: 160, y: 140 }, { buttons: 1 })
     events.pointerUp({ x: 160, y: 140 }, { button: 0 })
 
-    session.setTool('polygon')
+    session.arm('polygon')
     click({ x: 50, y: 50 }, 1000)
     expect(pinAt).not.toHaveBeenCalled()
 
-    session.setTool('hand')
+    session.arm('hand')
     events.pointerDown({ x: 100, y: 100 }, { button: 0, buttons: 1, detail: 0, timeStamp: 2000 })
     events.pointerMove({ x: 140, y: 100 }, { buttons: 1, timeStamp: 2020 })
     events.pointerUp({ x: 140, y: 100 }, { button: 0, timeStamp: 2040 })
@@ -123,7 +123,7 @@ describe('SceneInteractionSession: the Site data pin', () => {
 
   it('a finger\'s rolling Select tap on empty ground pins', () => {
     const { session, pinAt } = createPinSession()
-    session.setTool('select')
+    session.arm('select')
     const finger = { pointerType: 'touch', pointerId: 1, isPrimary: true, detail: 0 }
 
     events.pointerDown({ x: 150, y: 120 }, { ...finger, button: 0, buttons: 1 })
@@ -156,7 +156,7 @@ describe('SceneInteractionSession: readouts under a still pointer', () => {
   it('a camera move under a still mouse republishes the pointer once the camera settles, so row values follow the ground', () => {
     vi.useFakeTimers()
     const session = fixture.createTestSession(createInteractionDeps(container, store, testView))
-    session.setTool('select')
+    session.arm('select')
     const points: unknown[] = []
     session.subscribePointerWorld((point) => { points.push(point) })
 
@@ -180,7 +180,7 @@ describe('SceneInteractionSession: readouts under a still pointer', () => {
   it('a still mouse that goes through overview and back republishes the ground under it once settled (or null), never the ground from before', () => {
     vi.useFakeTimers()
     const session = fixture.createTestSession(createInteractionDeps(container, store, testView))
-    session.setTool('select')
+    session.arm('select')
     const points: unknown[] = []
     session.subscribePointerWorld((point) => { points.push(point) })
 

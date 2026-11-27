@@ -83,7 +83,7 @@ describe('SceneInteractionSession', () => {
 
     const deps = createInteractionDeps(container, store, testView)
     const session = createTestSession(deps)
-    session.setTool('object-stamp')
+    session.arm('object-stamp')
 
     events.pointerDown({ x: 40, y: 40 }, { button: 0 })
     events.pointerUp({ x: 40, y: 40 }, { button: 0 })
@@ -201,12 +201,12 @@ describe('SceneInteractionSession', () => {
     session.arm('saved-object-stamp', appleStampSource(10))
     events.pointerMove({ x: 100, y: 100 }, { buttons: 0 })
     events.keyDown({ key: ']', target: container })
-    // The apple saved 10 m east of the anchor turns 15° about the pointer.
+    // 2.1-Q89: when turned 15°, the single-plant stamp pivots on its screen-aligned box centre (the plant itself).
     const anchor = world({ x: 100, y: 100 })
     const turned = ghost()!
     expect(turned.map(({ name }) => name)).toEqual(['Malus domestica'])
-    expect(turned[0]!.at.x).toBeCloseTo(anchor.x + 10 * Math.cos(Math.PI / 12), 6)
-    expect(turned[0]!.at.y).toBeCloseTo(anchor.y + 10 * Math.sin(Math.PI / 12), 6)
+    expect(turned[0]!.at.x).toBeCloseTo(anchor.x, 6)
+    expect(turned[0]!.at.y).toBeCloseTo(anchor.y, 6)
     expect(published.at(-1)?.stampRotationDeg).toBe(15)
 
     // Favorites' click: arming passes the new stamp directly through session.arm.
@@ -256,7 +256,7 @@ describe('SceneInteractionSession', () => {
 
     it('keeps ] and [ to the stamp while one is held, and leaves them to the shortcuts otherwise', () => {
       const { session, angle } = rotationSession()
-      session.setTool('object-stamp')
+      session.arm('object-stamp')
       // Nothing held yet: ] falls back to Bring to front, which this fixture's command sink leaves unconsumed.
       expect(events.keyDown({ key: ']', target: container }).defaultPrevented).toBe(false)
 
@@ -307,7 +307,7 @@ describe('SceneInteractionSession', () => {
       session.arm('saved-object-stamp', { ...SAVED_STAMP_SOURCE, stamp: { ...SAVED_STAMP_SOURCE.stamp } })
       events.pointerMove({ x: 100, y: 100 }, { button: 0 })
       expect(angle()).toBe(0)
-      session.setTool('select')
+      session.arm('select')
       expect(angle()).toBeNull()
       session.dispose()
     })

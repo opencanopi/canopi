@@ -49,7 +49,7 @@ describe('SceneInteractionSession', () => {
     })
     const deps = createInteractionDeps(container, store, testView)
     const session = createTestSession(deps)
-    session.setTool('hand')
+    session.arm('hand')
 
     events.pointerDown({ x: 20, y: 30 }, { button: 0, detail: 2 })
     events.pointerUp({ x: 20, y: 30 }, { button: 0, detail: 2 })
@@ -260,7 +260,7 @@ describe('SceneInteractionSession', () => {
 
     it('reports a polygon draft as a gesture until it is cancelled', () => {
       const { session, latest } = guidedSession()
-      session.setTool('polygon')
+      session.arm('polygon')
       expect(latest()).toEqual({ gesture: false, stamp: null, stampRotationDeg: null, speciesPrompts: 0, plantRow: null })
 
       events.pointerDown({ x: 10, y: 10 })
@@ -274,7 +274,7 @@ describe('SceneInteractionSession', () => {
 
     it('reports a zone drag as a gesture while the pointer is down', () => {
       const { session, latest } = guidedSession()
-      session.setTool('rectangle')
+      session.arm('rectangle')
 
       events.pointerDown({ x: 10, y: 10 })
       events.pointerMove({ x: 60, y: 40 })
@@ -287,7 +287,7 @@ describe('SceneInteractionSession', () => {
 
     it('reports an open text note field as a gesture until it closes', () => {
       const { session, latest } = guidedSession()
-      session.setTool('text')
+      session.arm('text')
 
       events.pointerDown({ x: 24, y: 32 })
       expect(latest().gesture).toBe(true)
@@ -319,14 +319,14 @@ describe('SceneInteractionSession', () => {
         }]
       })
       const { session, latest } = guidedSession()
-      session.setTool('object-stamp')
+      session.arm('object-stamp')
       expect(latest().stamp).toBeNull()
 
       events.pointerDown({ x: 20, y: 30 })
       expect(latest().stamp).toEqual({ kind: 'plant', name: 'Malus domestica', plants: 1, species: 1 })
 
-      session.setTool('select')
-      session.setTool('object-stamp')
+      session.arm('select')
+      session.arm('object-stamp')
       events.pointerDown({ x: 200, y: 200 })
       expect(latest().stamp).toEqual({ kind: 'group', name: 'Pear guild', plants: 3, species: 2 })
       session.dispose()
@@ -334,7 +334,7 @@ describe('SceneInteractionSession', () => {
 
     it('goes idle when the session ends', () => {
       const { session, latest } = guidedSession()
-      session.setTool('polygon')
+      session.arm('polygon')
       events.pointerDown({ x: 10, y: 10 })
 
       session.dispose()

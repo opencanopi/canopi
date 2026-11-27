@@ -233,8 +233,6 @@ export interface ToolHost {
    *  `handle`: the handle the menu's press landed on (the keyboard menu reads the focused one); when the armed tool answers
    *  CanvasTool.pointMenu for it, the point menu opens there instead, retargeting nothing (A16). */
   menuAt(at: ScreenPoint | 'selection', source: MenuSource, handle?: ToolHandleId): GestureOutcome
-  /** A new source for the armed tool: forwards to CanvasTool.sourceChanged. */
-  sourceChanged(source: ToolSource | null): void
   /**
    * Presses the host never sees as gestures: the session calls it for every raw pointerdown on the map host before routing it
    * (from the source's raw input, not a gesture; the down's role, 'auxiliary' as 'middle'). Commits the nudge series for any

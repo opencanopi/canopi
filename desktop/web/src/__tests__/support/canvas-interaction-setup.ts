@@ -719,11 +719,6 @@ export function installSceneInteractionFixture(
       sessionQueries.setActiveTool(state.id, state.source)
     }
     syncState()
-    const setTool = session.setTool.bind(session)
-    session.setTool = (name) => {
-      setTool(name)
-      syncState()
-    }
     const arm = session.arm.bind(session)
     session.arm = (id, source, request) => {
       const handle = arm(id, source, request)

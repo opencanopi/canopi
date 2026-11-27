@@ -98,7 +98,7 @@ describe('SceneInteractionSession', () => {
 
   it('arms the Space pan from the map or with nothing focused, never from a widget outside the map', () => {
     const session = createTestSession(createInteractionDeps(container, store, testView))
-    session.setTool('select')
+    session.arm('select')
     const before = { ...testView.viewport() }
     // A focusable widget beside the map that is no control (the inspection lens preview, a plain list row).
     const widget = document.createElement('div')
@@ -208,7 +208,7 @@ describe('SceneInteractionSession', () => {
 
     it('keeps focusing the host on a pointer press', () => {
       const session = createTestSession(createInteractionDeps(container, store, testView))
-      session.setTool('select')
+      session.arm('select')
 
       events.pointerDown({ x: 40, y: 40 })
 
@@ -251,7 +251,7 @@ describe('SceneInteractionSession', () => {
         draft.plants = [makePlant('plant-1', 'Malus domestica', { x: 200, y: 200 })]
       })
       const { session, deps, tools } = sessionWithToolLog()
-      session.setTool(tool)
+      session.arm(tool)
       deps.setSelection([plantTarget('plant-1')])
       container.focus()
 
@@ -274,7 +274,7 @@ describe('SceneInteractionSession', () => {
         draft.plants = [makePlant('plant-1', 'Malus domestica', { x: 200, y: 200 })]
       })
       const { session, deps, tools } = sessionWithToolLog()
-      session.setTool('rectangle')
+      session.arm('rectangle')
       deps.setSelection([plantTarget('plant-1')])
       const field = document.createElement('input')
       const panelRow = document.createElement('div')
@@ -293,7 +293,7 @@ describe('SceneInteractionSession', () => {
 
     it('cancels a new text note, returns focus to the map, then returns to Select', () => {
       const { session, tools } = sessionWithToolLog()
-      session.setTool('text')
+      session.arm('text')
       events.pointerDown({ x: 24, y: 32 }, { button: 0 })
       events.pointerUp({ x: 24, y: 32 }, { button: 0 })
       const textarea = container.querySelector<HTMLTextAreaElement>('textarea')!
@@ -311,7 +311,7 @@ describe('SceneInteractionSession', () => {
 
     it('lets a click inside a new text note field move the caret instead of committing the note', () => {
       const { session } = sessionWithToolLog()
-      session.setTool('text')
+      session.arm('text')
       events.pointerDown({ x: 24, y: 32 }, { button: 0 })
       const textarea = container.querySelector<HTMLTextAreaElement>('textarea')!
       textarea.focus()
@@ -328,7 +328,7 @@ describe('SceneInteractionSession', () => {
 
     it('returns focus to the map after a text note is finished with Enter', () => {
       const { session } = sessionWithToolLog()
-      session.setTool('text')
+      session.arm('text')
       events.pointerDown({ x: 24, y: 32 }, { button: 0 })
       const textarea = container.querySelector<HTMLTextAreaElement>('textarea')!
       textarea.focus()
@@ -347,7 +347,7 @@ describe('SceneInteractionSession', () => {
       })
       const deps = createInteractionDeps(container, store, testView)
       const session = createTestSession(deps)
-      session.setTool('select')
+      session.arm('select')
       deps.setSelection([annotationTarget('note-1')])
       container.focus()
       events.keyDown({ key: 'Enter', target: container })
@@ -366,7 +366,7 @@ describe('SceneInteractionSession', () => {
         draft.zones = [makeRectZone('zone-1', [{ x: 20, y: 20 }, { x: 80, y: 20 }, { x: 80, y: 60 }, { x: 20, y: 60 }])]
       })
       const { session, deps, tools } = sessionWithToolLog()
-      session.setTool('rectangle')
+      session.arm('rectangle')
       enterOverview(testView)
       deps.setSelection([zoneTarget('zone-1')])
       container.focus()
@@ -379,7 +379,7 @@ describe('SceneInteractionSession', () => {
 
     it('cancels a zone drag first, then returns to Select', () => {
       const { session, tools } = sessionWithToolLog()
-      session.setTool('rectangle')
+      session.arm('rectangle')
       events.pointerDown({ x: 20, y: 20 })
       events.pointerMove({ x: 80, y: 60 })
 
@@ -400,7 +400,7 @@ describe('SceneInteractionSession', () => {
       // The row's source ring draws in the session's draft sink (plan §1, exception 2), not the DOM.
       const drafts = createRecordingRenderer()
       const { session, tools } = sessionWithToolLog(drafts)
-      session.setTool('plant-spacing')
+      session.arm('plant-spacing')
       events.pointerDown({ x: 20, y: 30 })
       events.pointerUp({ x: 20, y: 30 })
       expect(drafts.lastDraft()?.shapes.some((shape) => shape.kind === 'circle-px')).toBe(true)
@@ -422,7 +422,7 @@ describe('SceneInteractionSession', () => {
       })
       const drafts = createRecordingRenderer()
       const { session, tools } = sessionWithToolLog(drafts)
-      session.setTool('plant-spacing')
+      session.arm('plant-spacing')
       for (const x of [20, 120, 220]) {
         events.pointerDown({ x, y: 30 })
         events.pointerUp({ x, y: 30 })
@@ -464,7 +464,7 @@ describe('SceneInteractionSession', () => {
       })
       const deps = createInteractionDeps(container, store, testView)
       const session = createTestSession(deps)
-      session.setTool('polygon')
+      session.arm('polygon')
       container.focus()
       events.pointerDown({ x: 20, y: 20 })
       events.pointerUp({ x: 20, y: 20 })
@@ -543,9 +543,9 @@ describe('SceneInteractionSession', () => {
     it('pans with an empty selection under any tool and in overview, but not from a field or with Alt', () => {
       const { session, deps } = nudgeSession(false)
       const before = testView.viewport()
-      session.setTool('polygon')
+      session.arm('polygon')
       events.keyDown({ key: 'ArrowRight', target: container })
-      session.setTool('select')
+      session.arm('select')
       expect(testView.viewport().x).toBeCloseTo(before.x - 64, 6)
       const leaveOverview = enterOverview(testView)
       const overview = testView.viewport()
@@ -607,7 +607,7 @@ describe('SceneInteractionSession', () => {
         container.dispatchEvent(new FocusEvent('focusout', { relatedTarget: document.body }))
         expect(nudge.endNudge).toHaveBeenCalledTimes(4)
         events.keyDown({ key: 'ArrowRight', target: container })
-        session.setTool('polygon')
+        session.arm('polygon')
         expect(nudge.endNudge).toHaveBeenCalledTimes(5)
       } finally { vi.useRealTimers() }
     })
@@ -631,7 +631,7 @@ describe('SceneInteractionSession', () => {
       try {
         events.keyDown({ key: 'ArrowRight', target: field })
         events.keyDown({ key: 'ArrowRight', altKey: true, target: container })
-        session.setTool('polygon')
+        session.arm('polygon')
         events.keyDown({ key: 'ArrowRight', target: container })
         expect(nudge.nudgeSelected).not.toHaveBeenCalled()
       } finally {
