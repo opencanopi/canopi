@@ -277,6 +277,10 @@
       "ceiling": 2231,
       "tolerance": 0.05
     },
+    "desktop chunk: object-name": {
+      "ceiling": 128,
+      "tolerance": 0.05
+    },
     "desktop chunk: overrides": {
       "ceiling": 264,
       "tolerance": 0.05

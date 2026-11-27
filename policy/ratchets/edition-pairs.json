@@ -11,10 +11,8 @@
   "lane": "commit",
   "keys": "path",
   "entries": {
-    "desktop/web/src/app/community/catalog.browser.ts": {  },
-    "desktop/web/src/app/design-template-import/workflow.browser.ts": {  },
-    "desktop/web/src/app/geocoding/transport.browser.ts": {  },
-    "desktop/web/src/app/geocoding/transport.desktop.ts": {  },
-    "desktop/web/src/platform/draft-records.browser.ts": {  }
+    "desktop/web/src/app/geocoding/transport.browser.ts": {},
+    "desktop/web/src/app/geocoding/transport.desktop.ts": {},
+    "desktop/web/src/platform/draft-records.browser.ts": {}
   }
 }
