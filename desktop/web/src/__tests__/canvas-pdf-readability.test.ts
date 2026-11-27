@@ -73,7 +73,7 @@ it('places transparent readable text clear of other text and stroked geometry on
     }
   }
   expect(page.operations.some(op => op.kind === 'path' && op.fill === '#ffffff')).toBe(false)
-  expect(words(page)).toContain('0.4 m')
+  expect(words(page)).toContain('40 cm')
 })
 
 it('retains complete rotated, coincident and boundary annotations directly or in the key', () => {

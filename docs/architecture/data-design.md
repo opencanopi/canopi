@@ -100,7 +100,7 @@ classDiagram
 | `ScenePersistedState`, `SceneStore` | Scene | memory, plane metres |
 | `SessionPlane` | the Earth model | memory; its anchor is never stored |
 | `SavedObjectStamp`, `SavedObjectStampPayload` | stamp store; chain in `canopi-format` | Desktop user DB `saved_object_stamps`; Web browser record |
-| `PrintSetup`, `PlanePrintSetup` | Document; `PlanePrintSetup` derived by `app/canvas-pdf/print-setup.ts` (2.1) | `.canopi` `print_setup`; the plane form never stored |
+| `PrintSetup`, `PlanePrintSetup` | Document; `PlanePrintSetup` derived by `app/canvas-pdf/print-setup.ts` | `.canopi` `print_setup`; the plane form never stored |
 
 ### Coordinates: file, plane and view
 
@@ -254,7 +254,6 @@ classDiagram
     +angle_deg clockwise from true north
   }
   class PlanePrintSetup {
-    <<2.1>>
     <<derived, never stored>>
   }
   CanopiFile --> PrintSetup : print_setup

@@ -155,6 +155,10 @@
     "app/canvas-map-surface -> maplibre": {
       "count": 1
     },
+    "app/canvas-pdf -> app/design-edit": {
+      "count": 1,
+      "bead": "canopi-capt2s2c"
+    },
     "app/canvas-pdf -> app/document-session": {
       "count": 1
     },

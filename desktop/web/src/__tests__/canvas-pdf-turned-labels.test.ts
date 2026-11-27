@@ -143,7 +143,7 @@ function guidePage(measurements: PdfInput['canvas']['measurements'], reserved: r
     measurements: new Map(measurements.map((g, i) => [g.id, `M${i + 1}`])) }
   const toPoints = (r: PrintBounds) => ({ x: r.x * MM, y: r.y * MM, width: r.width * MM, height: r.height * MM })
   return drawField(input, { x: 10 * MM, y: 30 * MM, width: 180 * MM, height: 240 * MM }, { x: 0, y: 0, width: 18, height: 24 }, 10 * MM,
-    { id: 'here', width: 210 * MM, height: 297 * MM, reserved: reserved.map(toPoints) }, text(), references)
+    { id: 'here', width: 210 * MM, height: 297 * MM, reserved: reserved.map(toPoints) }, text(), references, (a, b) => Math.hypot(b.x - a.x, b.y - a.y))
 }
 const printedCodes = (operations: readonly PdfPage['operations'][number][]) => codes({ operations } as PdfPage, /^M\d+$/)
 

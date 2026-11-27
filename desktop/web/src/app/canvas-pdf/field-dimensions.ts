@@ -1,5 +1,5 @@
 import type { CanvasPrintSnapshot, PrintPoint as Point } from '../../canvas/print'
-import { formatNumber } from '../../utils/format'
+import { formatQuantity, type UnitSystem } from '../../utils/format'
 import { clipSegment, contains, distance, inflate, type Segment } from './field-geometry'
 import type { FieldSpace, FieldLabel } from './field-placement'
 
@@ -36,7 +36,8 @@ export function fieldDimensions(
   space: FieldSpace,
   locale: string,
   size = 8.5,
-  groundDistance: (a: Point, b: Point) => number = distance,
+  groundDistance: (a: Point, b: Point) => number,
+  unitSystem: UnitSystem = 'metric',
 ): FieldDimension[] {
   const result: FieldDimension[] = []
   const ordered = [...guides].sort((a, b) => groundDistance(a.start, a.end) - groundDistance(b.start, b.end) || a.start.y - b.start.y || a.start.x - b.start.x || a.id.localeCompare(b.id))
@@ -44,7 +45,7 @@ export function fieldDimensions(
     const a = point(guide.start), b = point(guide.end), length = distance(a, b)
     if (length < 1e-8) continue
     const u = { x: (b.x - a.x) / length, y: (b.y - a.y) / length }, n = { x: -u.y, y: u.x }
-    const measured = space.measure(`${formatNumber(groundDistance(guide.start, guide.end), locale, { maximumFractionDigits: 2 })} m`, size, Infinity, true)
+    const measured = space.measure(formatQuantity('length', groundDistance(guide.start, guide.end), unitSystem, locale, { trimTrailingZeros: true }), size, Infinity, true)
     const vertical = Math.abs(u.y) > .9, width = vertical ? measured.height : measured.width, height = vertical ? measured.width : measured.height
     const ignored = [...space.marks].filter(([, r]) => contains(inflate(r, .1), a) || contains(inflate(r, .1), b)).map(([id]) => id)
     let chosen: FieldDimension | undefined

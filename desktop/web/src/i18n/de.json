@@ -1511,7 +1511,11 @@
     "mapOrientationAsOnScreen": "Wie auf dem Bildschirm",
     "northArrow": "Nordpfeil und Maßstab",
     "pageOptions": "Ausgewählte Seite",
-    "findInKey": "In der Legende suchen"
+    "findInKey": "In der Legende suchen",
+    "scale": "Maßstab",
+    "pageAngle": "Seitenwinkel",
+    "angleDegrees": "Winkel (°)",
+    "savedViewAngle": "Gespeicherte Ansicht"
   },
   "speciesKey": {
     "title": "Pflanzen in diesem Design",

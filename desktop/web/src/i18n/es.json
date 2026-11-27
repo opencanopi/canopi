@@ -1511,7 +1511,11 @@
     "mapOrientationAsOnScreen": "Como en pantalla",
     "northArrow": "Flecha del norte y escala",
     "pageOptions": "Página seleccionada",
-    "findInKey": "Buscar en la clave"
+    "findInKey": "Buscar en la clave",
+    "scale": "Escala",
+    "pageAngle": "Ángulo de página",
+    "angleDegrees": "Ángulo (°)",
+    "savedViewAngle": "Vista guardada"
   },
   "speciesKey": {
     "title": "Plantas de este diseño",

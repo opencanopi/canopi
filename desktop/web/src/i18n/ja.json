@@ -1511,7 +1511,11 @@
     "mapOrientationAsOnScreen": "画面どおり",
     "northArrow": "方位記号と縮尺",
     "pageOptions": "選択したページ",
-    "findInKey": "凡例で検索"
+    "findInKey": "凡例で検索",
+    "scale": "縮尺",
+    "pageAngle": "ページの角度",
+    "angleDegrees": "角度 (°)",
+    "savedViewAngle": "保存済みビュー"
   },
   "speciesKey": {
     "title": "このデザインの植物",

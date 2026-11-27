@@ -1511,7 +1511,11 @@
     "mapOrientationAsOnScreen": "Как на экране",
     "northArrow": "Стрелка севера и масштаб",
     "pageOptions": "Выбранная страница",
-    "findInKey": "Найти в легенде"
+    "findInKey": "Найти в легенде",
+    "scale": "Масштаб",
+    "pageAngle": "Угол страницы",
+    "angleDegrees": "Угол (°)",
+    "savedViewAngle": "Сохранённый вид"
   },
   "speciesKey": {
     "title": "Растения в этом проекте",

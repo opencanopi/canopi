@@ -1,5 +1,5 @@
 import type { CanvasPrintSnapshot, PrintBounds, PrintPlant, PrintPoint } from '../../canvas/print'
-import { formatNumber } from '../../utils/format'
+import { formatQuantity } from '../../utils/format'
 import type { PdfDestination, PdfEnclosure, PdfInput, PdfLegendEntry, PdfLink, PdfOperation, PdfPageReference } from './types'
 import type { PdfTextEngine, TextLine } from './text'
 import { MM } from './print-style'
@@ -80,7 +80,7 @@ export function visibleFieldCanvas(canvas: CanvasPrintSnapshot, ground: PrintBou
 
 /** One pure physical layout feeds both the SVG preview and the encoder. */
 export function drawField(input: PdfInput, frame: PrintBounds, ground: PrintBounds, scale: number, page: { id: string; width: number; height: number; reserved?: readonly PrintBounds[]; summary?: readonly TextLine[]; bodyTop?: number },
-  text: PdfTextEngine, references: FieldReferences, groundDistance: (a: PrintPoint, b: PrintPoint) => number = distance): FieldDrawing {
+  text: PdfTextEngine, references: FieldReferences, groundDistance: (a: PrintPoint, b: PrintPoint) => number): FieldDrawing {
   let identities = new Map(fieldIdentity(input.canvas.plants, references.allPlants ?? input.canvas.plants, references.identities))
   let best = layoutField(input, frame, ground, scale, page, text, references, identities, groundDistance)
   const unresolved = (drawing: FieldDrawing) => drawing.identifiedPlants.filter(p => !p.bounds.width).reduce((n, p) => n + p.ids.length, 0)
@@ -117,8 +117,8 @@ function layoutField(input: PdfInput, frame: PrintBounds, ground: PrintBounds, s
     ? inflate({ x: frame.x / MM, y: frame.y / MM, width: frame.width / MM, height: frame.height / MM }, 1) : undefined
   const stripOptions = (anchor: PrintPoint) => strip ? { outside: strip, axis: frame.width > frame.height ? 'y' as const : 'x' as const,
     preferred: frame.width > frame.height ? anchor.y < strip.y + strip.height / 2 ? -1 : 1 : anchor.x < strip.x + strip.width / 2 ? -1 : 1 } : {}
-  const fmt = (n: number) => formatNumber(n, input.locale, { maximumFractionDigits: 2 })
-  const coordinates = (p: PrintPoint) => `x ${fmt(p.x)} m · y ${fmt(p.y)} m`
+  const fmtLen = (n: number) => formatQuantity('length', n, input.unitSystem, input.locale, { trimTrailingZeros: true })
+  const coordinates = (p: PrintPoint) => `x ${fmtLen(p.x)} · y ${fmtLen(p.y)}`
   const opacity = (name: string) => canvas.layers.find(l => l.name === name)?.opacity ?? 1
   const top = (page.bodyTop ?? 24 * MM) / MM
   const space = new FieldSpace({ x: 8, y: top, width: page.width / MM - 16, height: page.height / MM - top - 18 }, text)
@@ -160,7 +160,7 @@ function layoutField(input: PdfInput, frame: PrintBounds, ground: PrintBounds, s
   const deferredMeasurement = (guide: CanvasPrintSnapshot['measurements'][number]) => {
     const clipped = clipSegment({ a: guide.start, b: guide.end }, ground)!
     const position = { x: (clipped.a.x + clipped.b.x) / 2, y: (clipped.a.y + clipped.b.y) / 2 }
-    const value = `${formatNumber(groundDistance(guide.start, guide.end), input.locale, { maximumFractionDigits: 2 })} m`
+    const value = fmtLen(groundDistance(guide.start, guide.end))
     const projected = { a: point(clipped.a), b: point(clipped.b) }
     line(projected, '#a29c91', .12, opacity('measurement-guides')); space.addSegments([projected])
     const home = references.measurementHomes?.get(guide.id)
@@ -245,7 +245,7 @@ function layoutField(input: PdfInput, frame: PrintBounds, ground: PrintBounds, s
     const complete = zone.dimensions.filter(d => contains(ground, d.start) && contains(ground, d.end))
     const reused = new Set(complete.filter(d => canvas.measurements.some(g =>
       distance(g.start, d.start) < .005 && distance(g.end, d.end) < .005 || distance(g.end, d.start) < .005 && distance(g.start, d.end) < .005)).map(d => d.id))
-    const dimensions = fieldDimensions(complete.filter(d => !reused.has(d.id)), point, space, input.locale, 8.5, groundDistance)
+    const dimensions = fieldDimensions(complete.filter(d => !reused.has(d.id)), point, space, input.locale, 8.5, groundDistance, input.unitSystem)
     for (const d of dimensions) {
       d.segments.forEach(s => line(s, '#656058', .16, opacity('zones')))
       d.ticks.forEach(s => line(s, INK, .25, opacity('zones'))); labelText(d.label, opacity('zones'))

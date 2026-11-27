@@ -21,7 +21,7 @@ export function insideZone(zone: PrintZone, point: PrintPoint): boolean {
 export function zoneMeasurements(
   zones: readonly PrintZone[],
   planZones: readonly PrintZone[] = zones,
-  groundDistance: (a: PrintPoint, b: PrintPoint) => number = (a, b) => Math.hypot(b.x - a.x, b.y - a.y),
+  groundDistance: (a: PrintPoint, b: PrintPoint) => number,
 ): ZoneMeasurements[] {
   const ellipses = zones.map((_, i) => i).filter(i => isPrintEllipseGeometry(zones[i]!.geometry)).sort((a, b) => {
     const p = planZones[a]!.bounds, q = planZones[b]!.bounds

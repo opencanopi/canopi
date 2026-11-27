@@ -1511,7 +1511,11 @@
     "mapOrientationAsOnScreen": "화면과 같이",
     "northArrow": "방위표와 축척",
     "pageOptions": "선택한 페이지",
-    "findInKey": "범례에서 찾기"
+    "findInKey": "범례에서 찾기",
+    "scale": "축척",
+    "pageAngle": "페이지 각도",
+    "angleDegrees": "각도 (°)",
+    "savedViewAngle": "저장된 보기"
   },
   "speciesKey": {
     "title": "이 디자인의 식물",

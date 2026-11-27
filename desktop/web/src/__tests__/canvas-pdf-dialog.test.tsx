@@ -38,8 +38,9 @@ it('opens with one overview and explicitly adds a whole-design field sheet', asy
     expect(workflow.state.value.result!.plan.pages).toHaveLength(1)
     await act(async () => { inSheet(button('Add field sheet')).click() })
     await act(async () => { inSheet(button('Whole Design')).click() })
-    for (const name of ['Fit', 'Zoom in', 'Zoom out', 'Automatic', 'Portrait', 'Landscape', 'Split into readable sheets']) inSheet(button(name))
-    inSheet(container.querySelector<HTMLInputElement>('input[aria-label="Canvas zoom (%)"]')!)
+    for (const name of ['Fit', 'North up', 'Automatic', 'Portrait', 'Landscape', 'Split into readable sheets']) inSheet(button(name))
+    inSheet(container.querySelector<HTMLButtonElement>('fieldset[aria-label="Scale"] button[aria-haspopup="listbox"]')!)
+    inSheet(container.querySelector<HTMLInputElement>('input[aria-label="Angle (°)"]')!)
     // Displacement is keyboard-driven on the focusable page editor.
     const editor = container.querySelector<SVGSVGElement>('[data-pdf-editor]')!
     expect(editor.getAttribute('tabindex')).toBe('0')
@@ -176,7 +177,7 @@ it('offers Map orientation under Plant colours, North up by default, and As on s
   } finally { render(null, container); workflow.dispose(); container.remove() }
 })
 
-it('creates explicitly drawn detail pages and edits their zoom and orientation independently', async () => {
+it('creates explicitly drawn detail pages and edits their angle, scale and orientation independently', async () => {
   const container = document.createElement('div'); document.body.append(container)
   const canvas = { layers: [{ name: 'zones', visible: true, opacity: 1 }], plants: [], annotations: [], measurements: [], zones: [
     { name: 'Wide bed', bounds: { x: 0, y: 0, width: 30, height: 5 }, path: 'M0 0 L30 0 L30 5 L0 5 Z', geometry: { kind: 'rect' as const, points: [{ x: 0, y: 0 }, { x: 30, y: 0 }, { x: 30, y: 5 }, { x: 0, y: 5 }] }, fill: null },
@@ -189,7 +190,7 @@ it('creates explicitly drawn detail pages and edits their zoom and orientation i
     labels: () => ({ ...englishPdfLabels, notes: 'Notes', observations: 'Field observations', keyAndNotes: 'Key and notes', overview: 'Overview', plants: 'Plants', actualSize: 'Actual size' }),
     namePrintArea: (number) => `Print area ${number}` })
   const button = (name: string) => Array.from(container.querySelectorAll('button')).find((node) => node.getAttribute('aria-label') === name || node.textContent === name)!
-  const zoom = () => container.querySelector<HTMLInputElement>('input[type="number"]')!
+  const angleInput = () => container.querySelector<HTMLInputElement>('input[aria-label="Angle (°)"]')!
   try {
     await act(async () => { workflow.show(); render(<CanvasPdfDialog workflow={workflow} />, container) })
     const draw = async (width: number, height: number) => {
@@ -219,14 +220,16 @@ it('creates explicitly drawn detail pages and edits their zoom and orientation i
     await draw(200, 50)
     expect(container.querySelector('svg[data-pdf-page="2"]')).not.toBeNull()
     expect(container.querySelector('[data-pdf-editor]')!.getAttribute('viewBox')!.split(' ').map(Number)[2]).toBeGreaterThan(700)
-    expect(zoom().value).toBe('100')
-    await act(async () => { zoom().value = '137.5'; zoom().dispatchEvent(new Event('input', { bubbles: true })); zoom().dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })) })
-    expect(workflow.setup.value.views?.['area:1']?.zoom).toBe(137.5)
+    expect(angleInput().value).toBe('0')
+    await act(async () => { angleInput().value = '32'; angleInput().dispatchEvent(new Event('input', { bubbles: true })); angleInput().dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })) })
+    expect(workflow.setup.value.areas?.[0]?.angleDeg).toBe(32)
+    await act(async () => { workflow.setPageScale('area:1', { kind: 'ratio', denominator: 100 }) })
+    expect(workflow.setup.value.views?.['area:1']?.scale).toEqual({ kind: 'ratio', denominator: 100 })
     await act(async () => { button('Portrait').click() })
     expect(workflow.setup.value.views?.['area:1']?.orientation).toBe('portrait')
     await draw(50, 200)
     expect(container.querySelector('svg[data-pdf-page="3"]')).not.toBeNull()
-    expect(zoom().value).toBe('100')
+    expect(angleInput().value).toBe('0')
     const area = workflow.setup.value.areas![1]!
     const page = workflow.state.value.result!.plan.pages[2]!
     expect(page.width).toBeLessThan(page.height)
@@ -235,12 +238,9 @@ it('creates explicitly drawn detail pages and edits their zoom and orientation i
     expect(page.ground.y).toBeLessThanOrEqual(area.bounds.y)
     expect(page.ground.y + page.ground.height).toBeGreaterThanOrEqual(area.bounds.y + area.bounds.height)
     await act(async () => { button('View page: Print area 1').click() })
-    expect(zoom().value).toBe('137.5')
-    await act(async () => { zoom().focus(); zoom().value = ''; zoom().dispatchEvent(new Event('input', { bubbles: true })) })
-    await act(async () => { zoom().blur() })
-    expect(zoom().value).toBe('137.5')
+    expect(angleInput().value).toBe('32')
     await act(async () => { button('Fit').click() })
-    expect(workflow.setup.value.views?.['area:1']).toEqual({ zoom: 100, orientation: 'portrait', offset: { x: 0, y: 0 } })
+    expect(workflow.setup.value.views?.['area:1']).toEqual({ zoom: 100, scale: { kind: 'fit' }, orientation: 'portrait', offset: { x: 0, y: 0 } })
     const retained = workflow.setup.peek()
     await act(async () => { button('Add field sheet').click() })
     await act(async () => { document.activeElement!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })) })
@@ -299,13 +299,13 @@ it('opens only the overview for an unreadable note and lets the user choose a de
     await act(async () => { await vi.waitFor(() => expect(workflow.state.value.status).toBe('ready')) })
     expect(workflow.state.value.result!.plan.pages.map(p => p.kind)).toEqual(['overview'])
     expect(container.querySelectorAll('button[aria-label^="View page:"]')).toHaveLength(1)
-    expect(container.querySelector('input[aria-label="Canvas zoom (%)"]')).not.toBeNull()
+    expect(container.querySelector('fieldset[aria-label="Scale"] button[aria-haspopup="listbox"]')).not.toBeNull()
     await act(async () => { workflow.addWholeDesign(); await vi.waitFor(() => expect(workflow.state.value.status).toBe('ready')) })
     expect(workflow.state.value.result!.plan.pages.filter(p => p.kind === 'detail')).toHaveLength(1)
     const card = container.querySelector<HTMLButtonElement>('button[aria-label="View page: Area 1"]')!
     expect(card).not.toBeNull()
     await act(async () => { card.click() })
-    expect(container.querySelector('input[aria-label="Canvas zoom (%)"]')).not.toBeNull()
+    expect(container.querySelector('fieldset[aria-label="Scale"] button[aria-haspopup="listbox"]')).not.toBeNull()
     expect(container.querySelector('button[aria-label="Remove page: Area 1"]')).not.toBeNull()
   } finally { render(null, container); workflow.dispose(); container.remove() }
 })

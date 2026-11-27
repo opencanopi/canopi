@@ -1511,7 +1511,11 @@
     "mapOrientationAsOnScreen": "Comme à l'écran",
     "northArrow": "Flèche du nord et échelle",
     "pageOptions": "Page sélectionnée",
-    "findInKey": "Chercher dans la légende"
+    "findInKey": "Chercher dans la légende",
+    "scale": "Échelle",
+    "pageAngle": "Angle de page",
+    "angleDegrees": "Angle (°)",
+    "savedViewAngle": "Vue enregistrée"
   },
   "speciesKey": {
     "title": "Plantes de ce Design",

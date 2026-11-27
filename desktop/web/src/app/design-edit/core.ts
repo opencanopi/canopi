@@ -3,13 +3,24 @@ import { normaliseObjectName } from '../contracts/object-name'
 import {
   defaultDesignEditAuthority,
   disposeDefaultDesignEditAuthority,
+  hasDesignEditAuthority as hasAuthority,
+  type DesignEditOptions,
 } from './authority-capability'
+
+export function hasDesignEditAuthority(): boolean {
+  return hasAuthority()
+}
 
 export function editCurrentDesign(
   updater: (design: CanopiFile) => CanopiFile,
   label = 'edit',
+  options?: DesignEditOptions,
 ): CanopiFile | null {
-  return defaultDesignEditAuthority().editCommitted(updater, label)
+  return defaultDesignEditAuthority().editCommitted(updater, label, options)
+}
+
+export function endDesignEditCoalesce(key: string): void {
+  defaultDesignEditAuthority().endCoalesce(key)
 }
 
 /** The open Design as committed, for a command that decides before it edits. */

@@ -165,10 +165,6 @@
       "ceiling": 9781,
       "tolerance": 0.05
     },
-    "desktop chunk: design-notebook": {
-      "ceiling": 42365,
-      "tolerance": 0.05
-    },
     "desktop chunk: domain-adapters": {
       "ceiling": 1253,
       "tolerance": 0.05,
@@ -218,8 +214,9 @@
       "bead": "canopi-f47t.52.205"
     },
     "desktop chunk: index": {
-      "ceiling": 685131,
-      "tolerance": 0.05
+      "ceiling": 1050656,
+      "tolerance": 0.05,
+      "bead": "canopi-capt2s2c"
     },
     "desktop chunk: init": {
       "ceiling": 136923,
@@ -317,7 +314,7 @@
       "tolerance": 0.05
     },
     "desktop chunk: quantity-table": {
-      "ceiling": 8972,
+      "ceiling": 11704,
       "tolerance": 0.05,
       "bead": "canopi-f47t.52.11"
     },
@@ -467,8 +464,9 @@
       "tolerance": 0.05
     },
     "web chunk: web": {
-      "ceiling": 3296612,
-      "tolerance": 0.05
+      "ceiling": 3828107,
+      "tolerance": 0.05,
+      "bead": "canopi-capt2s2c"
     },
     "web chunk: webworkerAll": {
       "ceiling": 34,

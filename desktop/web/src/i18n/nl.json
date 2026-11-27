@@ -1511,7 +1511,11 @@
     "mapOrientationAsOnScreen": "Zoals op het scherm",
     "northArrow": "Noordpijl en schaal",
     "pageOptions": "Geselecteerde pagina",
-    "findInKey": "Zoeken in de legenda"
+    "findInKey": "Zoeken in de legenda",
+    "scale": "Schaal",
+    "pageAngle": "Paginahoek",
+    "angleDegrees": "Hoek (°)",
+    "savedViewAngle": "Opgeslagen weergave"
   },
   "speciesKey": {
     "title": "Planten in dit ontwerp",

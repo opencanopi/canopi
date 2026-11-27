@@ -26,6 +26,11 @@ export {
   renameSavedView,
 } from './views'
 export {
+  endPrintSetupCoalesce,
+  readPrintSetup,
+  writePrintSetup,
+} from './print-setup'
+export {
   addStory,
   addStoryStep,
   deleteStory,

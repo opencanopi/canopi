@@ -1511,7 +1511,11 @@
     "mapOrientationAsOnScreen": "As on screen",
     "northArrow": "North arrow and scale",
     "pageOptions": "Selected page",
-    "findInKey": "Find in key"
+    "findInKey": "Find in key",
+    "scale": "Scale",
+    "pageAngle": "Page angle",
+    "angleDegrees": "Angle (°)",
+    "savedViewAngle": "Saved view"
   },
   "speciesKey": {
     "title": "Plants in this Design",

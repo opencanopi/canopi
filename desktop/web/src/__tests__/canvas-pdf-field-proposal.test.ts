@@ -17,10 +17,11 @@ const input: PdfInput = { name: 'Garden', locale: 'en', unitSystem: 'metric', vi
     color: '#218455', symbol: 'round', pinnedName: false,
     mark: [{ d: 'M1 0 A1 1 0 1 0 -1 0 A1 1 0 1 0 1 0 Z', paint: 'symbol' }] }],
 } }
+const planarDistance = (a: { x: number; y: number }, b: { x: number; y: number }) => Math.hypot(b.x - a.x, b.y - a.y)
 const draw = (value: PdfInput) => drawField(value, { x: 60, y: 60, width: 400, height: 400 },
-  { x: 0, y: 0, width: 10, height: 10 }, 40, { id: 'detail', width: 595, height: 842 }, text(), references(value))
+  { x: 0, y: 0, width: 10, height: 10 }, 40, { id: 'detail', width: 595, height: 842 }, text(), references(value), planarDistance)
 /** North up: the drawn canvas is the plan. */
-const references = (value: PdfInput) => fieldReferences(value, value.canvas, zoneMeasurements(value.canvas.zones))
+const references = (value: PdfInput) => fieldReferences(value, value.canvas, zoneMeasurements(value.canvas.zones, value.canvas.zones, planarDistance))
 
 it('prints overlapping zones transparently beneath artwork on the overview, detail and picker without changing authored fills', () => {
   const source: PdfInput = { ...input, canvas: { ...input.canvas,
@@ -129,16 +130,17 @@ it('reports true ellipse diameters on the overview rather than its rotated bound
   const plan = buildPdfPlan(source, { paper: 'A4', layers: ['zones'] }, text(),
     { ...englishPdfLabels, notes: 'Notes', observations: 'Observations', keyAndNotes: 'Key', overview: 'Overview', plants: 'Plants', actualSize: '100%' })
   const words = plan.pages[0]!.operations.flatMap(op => op.kind === 'text' ? op.line.runs.map(r => r.text) : []).join(' ')
-  expect(words).toContain('8.00')
-  expect(words).toContain('4.00')
+  expect(words).toContain('8 m')
+  expect(words).toContain('4 m')
   expect(words).not.toContain('6.34')
 })
 
 it('derives straight and bent zone sizes from real edges without inventing a rectangular extent', () => {
-  const zones = zoneMeasurements([
-    { name: 'Z01', path: '', fill: null, bounds: { x: 0, y: 0, width: 8, height: 8 }, geometry: { kind: 'rect', points: [{ x: 0, y: 0 }, { x: 3, y: 4 }, { x: 1.4, y: 5.2 }, { x: -1.6, y: 1.2 }] } },
-    { name: 'Z02', path: '', fill: null, bounds: { x: 0, y: 0, width: 4, height: 4 }, geometry: { kind: 'polygon', points: [{ x: 0, y: 0 }, { x: 4, y: 0 }, { x: 4, y: 1 }, { x: 1, y: 1 }, { x: 1, y: 4 }, { x: 0, y: 4 }] } },
-  ])
+  const inputZones = [
+    { name: 'Z01', path: '', fill: null, bounds: { x: 0, y: 0, width: 8, height: 8 }, geometry: { kind: 'rect' as const, points: [{ x: 0, y: 0 }, { x: 3, y: 4 }, { x: 1.4, y: 5.2 }, { x: -1.6, y: 1.2 }] } },
+    { name: 'Z02', path: '', fill: null, bounds: { x: 0, y: 0, width: 4, height: 4 }, geometry: { kind: 'polygon' as const, points: [{ x: 0, y: 0 }, { x: 4, y: 0 }, { x: 4, y: 1 }, { x: 1, y: 1 }, { x: 1, y: 4 }, { x: 0, y: 4 }] } },
+  ]
+  const zones = zoneMeasurements(inputZones, inputZones, planarDistance)
   expect(zones[0]).toMatchObject({ lengths: [5], widths: [2] })
   expect(zones[1]).toMatchObject({ lengths: [4, 4], widths: [1] })
   expect(zones[1]!.dimensions.map(d => d.metres)).toEqual([4, 4, 1])
@@ -179,8 +181,8 @@ it('groups repeated overview guide values by zone while retaining every authored
     { ...englishPdfLabels, notes: 'Notes', observations: 'Observations', keyAndNotes: 'Key', overview: 'Overview', plants: 'Plants', actualSize: '100%' })
   const overview = plan.pages[0]!
   const words = overview.operations.flatMap(op => op.kind === 'text' ? op.line.runs.map(r => r.text) : [])
-  expect(words).toContain('0.5 ×3')
-  expect(words.filter(w => w === '0.5 m')).toHaveLength(0)
+  expect(words).toContain('50 cm ×3')
+  expect(words.filter(w => w === '50 cm')).toHaveLength(0)
   expect(overview.measurementIds).toEqual(['g1', 'g2', 'g3'])
 })
 
@@ -223,9 +225,10 @@ it('moves a slender map across the sheet to fit its full key without reducing dr
 })
 
 it('retains small kinks on a bent bed’s exterior without mistaking them for its width', () => {
-  const [zone] = zoneMeasurements([{ name: 'Bent bed', path: '', fill: null, bounds: { x: 0, y: 0, width: 6, height: 5 },
-    geometry: { kind: 'polygon', points: [{ x: 0, y: 0 }, { x: 3, y: 0 }, { x: 3.5, y: .005 }, { x: 6, y: 0 },
-      { x: 6, y: 1 }, { x: 1, y: 1 }, { x: 1, y: 5 }, { x: 0, y: 5 }] } }])
+  const bent = [{ name: 'Bent bed', path: '', fill: null, bounds: { x: 0, y: 0, width: 6, height: 5 },
+    geometry: { kind: 'polygon' as const, points: [{ x: 0, y: 0 }, { x: 3, y: 0 }, { x: 3.5, y: .005 }, { x: 6, y: 0 },
+      { x: 6, y: 1 }, { x: 1, y: 1 }, { x: 1, y: 5 }, { x: 0, y: 5 }] } }]
+  const [zone] = zoneMeasurements(bent, bent, planarDistance)
   expect(zone!.widths).toEqual([1])
   expect(zone!.lengths).toHaveLength(4)
   expect(zone!.lengths.map(n => Math.round(n * 100) / 100)).toEqual([5, 2.5, .5, 3])
@@ -258,7 +261,7 @@ it('keeps full zone sizes on the detail itself when the zone crosses its crop', 
   const plan = buildPdfPlan(source, { paper: 'A4', layers: ['zones'], areas: [{ id: 'crop', name: 'Crop', bounds: { x: -1, y: -1, width: 12, height: 4 } }] }, text(),
     { ...englishPdfLabels, notes: 'Notes', observations: 'Observations', keyAndNotes: 'Key', overview: 'Overview', plants: 'Plants', actualSize: '100%' })
   const detail = plan.pages.find(p => p.kind === 'detail')!
-  expect(detail.operations.some(op => op.kind === 'text' && op.size === 8 && op.y < 90 && op.line.runs.map(r => r.text).join('').includes('100 × 1 m'))).toBe(true)
+  expect(detail.operations.some(op => op.kind === 'text' && op.size === 8 && op.y < 90 && op.line.runs.map(r => r.text).join('').includes('100 m × 1 m'))).toBe(true)
 })
 
 it('fits a field key with both common and botanical names without shrinking the map', () => {
@@ -304,7 +307,7 @@ it('prints a connected chain of authored overview guides in a readable aligned b
   const plan = buildPdfPlan(source, { paper: 'A4', layers: ['measurement-guides'] }, text(),
     { ...englishPdfLabels, notes: 'Notes', observations: 'Observations', keyAndNotes: 'Key', overview: 'Overview', plants: 'plants', actualSize: '100%' })
   const page = plan.pages[0]!
-  const labels = page.operations.filter(op => op.kind === 'text' && op.size >= 7 && op.y > page.frame.y + page.frame.height && op.line.runs.map(r => r.text).join('') === '1')
+  const labels = page.operations.filter(op => op.kind === 'text' && op.size >= 7 && op.y > page.frame.y + page.frame.height && op.line.runs.map(r => r.text).join('') === '1 m')
   expect(labels).toHaveLength(4)
   expect(page.measurementIds).toEqual(['g0', 'g1', 'g2', 'g3'])
 })
@@ -327,7 +330,7 @@ it('paginates only zone dimensions and guide values when an overview with annota
   expect(plan.pages.filter(p => p.sourceId === 'overview').length).toBeGreaterThan(0)
   const values = plan.pages.flatMap(p => p.operations.flatMap(op => op.kind === 'text' ? op.line.runs.map(r => r.text) : []))
   expect(values).toContain('Z90')
-  expect(values.filter(v => v === '0.5')).toHaveLength(90)
+  expect(values.filter(v => v === '50 cm')).toHaveLength(90)
   expect(values.join(' ')).not.toContain('Uncovered annotation')
   for (const page of plan.pages) {
     for (const op of page.operations) {
@@ -390,7 +393,7 @@ it('uses direct Species Codes for locally occasional ambiguous plants, regardles
   const allPlants = references({ ...source, canvas: { ...source.canvas, plants: [...source.canvas.plants,
     ...Array.from({ length: 100 }, (_, i) => ({ ...pear, id: `outside-${i}`, position: { x: 30, y: i } }))] } })
   const drawing = drawField(source, { x: 60, y: 60, width: 400, height: 400 }, { x: 0, y: 0, width: 10, height: 10 }, 40,
-    { id: 'detail', width: 595, height: 842 }, text(), allPlants)
+    { id: 'detail', width: 595, height: 842 }, text(), allPlants, planarDistance)
   expect(drawing.legend.find(e => e.canonicalName === 'Pyrus communis')!.enclosures).toEqual(['code'])
   expect(drawing.legend.find(e => e.canonicalName === 'Malus domestica')!.enclosures).toEqual(['plain'])
   expect(drawing.operations.some(op => op.kind === 'text' && op.line.runs.map(r => r.text).join('') === 'PCO')).toBe(true)
@@ -412,7 +415,7 @@ it('keeps crowded annotations off the overview without an N marker or annotation
   const { drawOverview } = await import('../app/canvas-pdf/overview')
   const source = { ...input, canvas: { ...input.canvas, annotations: [{ id: 'crowded', text: 'Full contextual note '.repeat(30),
     position: { x: 5, y: 5 }, fontSize: 16, rotation: 0 }] } }
-  const overview = drawOverview(source, { x: 30, y: 80, width: 500, height: 400 }, { x: 0, y: 0, width: 10, height: 8 }, 50, text(), new Map(), true)
+  const overview = drawOverview(source, { x: 30, y: 80, width: 500, height: 400 }, { x: 0, y: 0, width: 10, height: 8 }, 50, text(), new Map(), true, [], new Map(), planarDistance)
   expect(overview.notes.filter(n => n.kind === 'annotation')).toEqual([])
   expect(overview.annotationIds).not.toContain('crowded')
   expect(overview.operations.some(op => op.kind === 'text' && /^N\d+$/.test(op.line.runs.map(r => r.text).join('')))).toBe(false)

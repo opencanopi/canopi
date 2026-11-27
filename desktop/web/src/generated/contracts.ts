@@ -1456,6 +1456,10 @@ export type PrintFramingV10 = {
 	paper?: string | null,
 	// Optional orientation (`"portrait"` or `"landscape"`).
 	orientation?: string | null,
+	// Optional horizontal pan offset in plan metres.
+	offset_x_m?: number | null,
+	// Optional vertical pan offset in plan metres.
+	offset_y_m?: number | null,
 };
 
 // One print page in [`PrintSetupV10`] (`2.1-M161`).
@@ -1489,6 +1493,20 @@ feet: number };
 
 // Typed PDF print setup addition in v10 (`2.1-Q36`, `2.1-M90`, `2.1-M161`, `2.1-Q356`).
 export type PrintSetupV10 = {
+	// Optional paper size identifier (`"A4"` or `"Letter"`).
+	paper?: string | null,
+	// Optional printable layer override; absent means default visible exportable layers.
+	layers?: string[] | null,
+	// Optional print-only plant colour mode (`"design"`, `"grayscale"`, `"black"`).
+	plant_colors?: string | null,
+	// Whether map pages print the north arrow and ground scale bar (default true).
+	north_arrow?: boolean | null,
+	// Overview page clockwise angle in degrees (default 0, North up).
+	overview_angle_deg?: number | null,
+	// Overview page printed scale (default Fit).
+	overview_scale?: PrintScaleV10 | null,
+	// Overview page framing overrides (orientation and pan offset).
+	overview_framing?: PrintFramingV10 | null,
 	// Shared split definitions referenced by `SplitSheet` pages.
 	splits?: PrintSplitV10[],
 	// Print pages in print order.

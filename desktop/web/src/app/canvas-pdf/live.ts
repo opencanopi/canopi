@@ -2,6 +2,7 @@ import { effect } from '@preact/signals'
 import { editionPorts } from '../../platform/edition-ports'
 import type { FileDeliveryPort } from '../../platform/file-delivery'
 import { currentCanvasQuerySurface } from '../../canvas/session'
+import { endPrintSetupCoalesce, readPrintSetup, writePrintSetup } from '../design-edit'
 import { designSessionStore } from '../document-session/store'
 import { speciesCatalogWorkbench } from '../plant-browser'
 import { locale, unitSystem } from '../settings/state'
@@ -16,7 +17,8 @@ export function canExportCanvasPdf(): boolean {
 export const canvasPdf = createPdfWorkflow({
   capture() {
     const query = currentCanvasQuerySurface.value
-    if (!query || !designSessionStore.currentDesign.value) return null
+    const design = designSessionStore.currentDesign.value
+    if (!query || !design) return null
     const identity = designSessionStore.sessionIdentity.value
     const revision = query.revision.scene.value
     const language = locale.value
@@ -29,7 +31,8 @@ export const canvasPdf = createPdfWorkflow({
     const viewBearingDeg = query.view.captureView().camera.bearingDeg
     const settled = query.view.settledCamera.value
     const turning = normalise(viewBearingDeg) !== normalise(settled.bearingDeg)
-    return { identity, input: { name, locale: language, unitSystem: system, canvas, commonNames: {}, viewBearingDeg }, ...(turning ? { turning } : {}),
+    const savedViews = (design.views ?? []).map((v) => ({ id: v.id, name: v.name, bearingDeg: v.camera.bearing }))
+    return { identity, input: { name, locale: language, unitSystem: system, canvas, commonNames: {}, viewBearingDeg, ...(savedViews.length ? { savedViews } : {}) }, ...(turning ? { turning } : {}),
       isCurrent: () => designSessionStore.sessionIdentity.value === identity && currentCanvasQuerySurface.value === query
         && query.revision.scene.value === revision && locale.value === language && unitSystem.value === system && designSessionStore.designName.value === name
         && query.getSettledPlacedPlants() !== null && (!turning || query.view.settledCamera.value === settled) }
@@ -46,6 +49,11 @@ export const canvasPdf = createPdfWorkflow({
     habitOther: t('pdf.habitOther'), continued: t('pdf.continued'), englishFallback: t('pdf.englishFallback', { mark: t('speciesName.englishMark') }), englishMark: t('speciesName.englishMark'), symbols: t('pdf.symbols'), north: t('pdf.north'),
     symbolNames: symbolNames() }),
   namePrintArea: (number) => t('pdf.areaName', { number }),
+  printSetup: {
+    read: readPrintSetup,
+    write: writePrintSetup,
+    endCoalesce: endPrintSetupCoalesce,
+  },
 })
 const disposeObservation = effect(() => {
   const identity = designSessionStore.sessionIdentity.value

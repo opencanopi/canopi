@@ -1511,7 +1511,11 @@
     "mapOrientationAsOnScreen": "Come sullo schermo",
     "northArrow": "Freccia del nord e scala",
     "pageOptions": "Pagina selezionata",
-    "findInKey": "Cerca nella legenda"
+    "findInKey": "Cerca nella legenda",
+    "scale": "Scala",
+    "pageAngle": "Angolo pagina",
+    "angleDegrees": "Angolo (°)",
+    "savedViewAngle": "Vista salvata"
   },
   "speciesKey": {
     "title": "Piante di questo progetto",

@@ -718,6 +718,20 @@ export const CANOPI_FILE_SCHEMA = {
     "PrintFramingV10": {
       "additionalProperties": true,
       "properties": {
+        "offset_x_m": {
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "offset_y_m": {
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
         "orientation": {
           "type": [
             "string",
@@ -829,12 +843,66 @@ export const CANOPI_FILE_SCHEMA = {
     "PrintSetupV10": {
       "additionalProperties": true,
       "properties": {
+        "layers": {
+          "items": {
+            "type": "string"
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "north_arrow": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "overview_angle_deg": {
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "overview_framing": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PrintFramingV10"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "overview_scale": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PrintScaleV10"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "pages": {
           "default": [],
           "items": {
             "$ref": "#/$defs/PrintPageV10"
           },
           "type": "array"
+        },
+        "paper": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "plant_colors": {
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "splits": {
           "default": [],

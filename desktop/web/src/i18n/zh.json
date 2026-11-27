@@ -1511,7 +1511,11 @@
     "mapOrientationAsOnScreen": "与屏幕一致",
     "northArrow": "指北针和比例尺",
     "pageOptions": "所选页面",
-    "findInKey": "在图例中查找"
+    "findInKey": "在图例中查找",
+    "scale": "比例尺",
+    "pageAngle": "页面角度",
+    "angleDegrees": "角度 (°)",
+    "savedViewAngle": "已保存视图"
   },
   "speciesKey": {
     "title": "此设计中的植物",

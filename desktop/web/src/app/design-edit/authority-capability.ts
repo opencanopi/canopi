@@ -2,8 +2,13 @@ import type { CanopiFile } from '../../types/design'
 
 type DesignProjector = (design: CanopiFile) => CanopiFile
 
+export interface DesignEditOptions {
+  readonly coalesce?: string
+}
+
 export interface DesignEditAuthorityCapability {
-  editCommitted(projector: DesignProjector, label?: string): CanopiFile | null
+  editCommitted(projector: DesignProjector, label?: string, options?: DesignEditOptions): CanopiFile | null
+  endCoalesce(key: string): void
   reconcileCommitted(projector: DesignProjector): CanopiFile | null
   readCommitted(): CanopiFile | null
   readSessionIdentity(): object
@@ -47,6 +52,10 @@ export function designEditAuthorityCapabilityForTests(
   owner: object,
 ): DesignEditAuthorityCapability {
   return getAuthority(owner)
+}
+
+export function hasDesignEditAuthority(): boolean {
+  return defaultOwnerHolder.current !== null && authorities.has(defaultOwnerHolder.current)
 }
 
 export function defaultDesignEditAuthority(): DesignEditAuthorityCapability {

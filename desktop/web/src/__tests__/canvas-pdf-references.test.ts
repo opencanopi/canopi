@@ -39,7 +39,7 @@ function references(plan: PdfPlan) {
   const notes = plan.pages.flatMap(page => (page as { notes?: readonly { id: string; reference: string }[] }).notes ?? [])
   return {
     codes: Object.fromEntries(notes.map(n => [n.id, n.reference])),
-    rows: Object.fromEntries(strings(plan).flatMap(s => [...s.matchAll(/\b(E\d\d) · (Ø [\d.]+ × [\d.]+ m)/g)].map(m => [m[1]!, m[2]!]))),
+    rows: Object.fromEntries(strings(plan).flatMap(s => [...s.matchAll(/\b(E\d\d) · (Ø [\d.]+ [a-z]+ × [\d.]+ [a-z]+)/g)].map(m => [m[1]!, m[2]!]))),
   }
 }
 // The North up plan order (top, then left, then id or name): every A item comes before its B twin.
@@ -53,7 +53,7 @@ describe('PDF reference numbers', () => {
       const { codes, rows } = references(plan)
       expect(new Set(Object.values(codes).map(code => code[0])), name).toEqual(new Set(['N', 'P', 'M']))
       expect(codes, name).toEqual(Object.fromEntries(Object.keys(codes).map(id => [id, expected(id)])))
-      expect(rows, name).toEqual({ E01: 'Ø 2 × 2 m', E02: 'Ø 4 × 4 m' })
+      expect(rows, name).toEqual({ E01: 'Ø 2 m × 2 m', E02: 'Ø 4 m × 4 m' })
     }
   })
 })

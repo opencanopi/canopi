@@ -1,5 +1,5 @@
 import type { CanvasPrintSnapshot, PrintBounds } from '../../canvas/print'
-import { formatNumber } from '../../utils/format'
+import { formatQuantity, type UnitSystem } from '../../utils/format'
 import type { PdfLabels, PdfOperation } from './types'
 import type { PdfTextEngine } from './text'
 import { insideZone, type ZoneMeasurements } from './zone-measurements'
@@ -19,10 +19,11 @@ export function groupedGuides(zones: readonly ZoneMeasurements[], guides: Canvas
 export function overviewMeasurements(zones: readonly ZoneMeasurements[], guides: CanvasPrintSnapshot['measurements'],
   geometry: (index: number) => PrintBounds, text: PdfTextEngine, locale: string, labels: PdfLabels,
   guideValues: readonly string[] = [],
-  groundDistance: (a: CanvasPrintSnapshot['measurements'][number]['start'], b: CanvasPrintSnapshot['measurements'][number]['end']) => number = (a, b) => Math.hypot(b.x - a.x, b.y - a.y)): PdfOperation[][] {
+  groundDistance: (a: CanvasPrintSnapshot['measurements'][number]['start'], b: CanvasPrintSnapshot['measurements'][number]['end']) => number,
+  unitSystem: UnitSystem = 'metric'): PdfOperation[][] {
   const pages: PdfOperation[][] = []
-  const fmtTwo = (n: number) => formatNumber(n, locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-  const fmtCompact = (n: number) => formatNumber(n, locale, { maximumFractionDigits: 2 }), homes = groupedGuides(zones, guides)
+  const fmtLength = (n: number) => formatQuantity('length', n, unitSystem, locale, { trimTrailingZeros: true })
+  const homes = groupedGuides(zones, guides)
   let operations!: PdfOperation[], frame!: PrintBounds, columns!: number[], y = 0
   const emit = (value: string, x: number, baseline: number, size = 7.5, strong = false) => operations.push(textOp(text.line(value, size, strong), x, baseline, size))
   const start = () => {
@@ -47,7 +48,7 @@ export function overviewMeasurements(zones: readonly ZoneMeasurements[], guides:
       const value = Math.round(groundDistance(guide.start, guide.end) * 100) / 100
       counts.set(value, (counts.get(value) ?? 0) + 1)
     }
-    const values = [...counts].sort((a, b) => a[0] - b[0]).map(([n, count]) => fmtCompact(n) + (count > 1 ? ` ×${count}` : '')).join(' · ') || '—'
+    const values = [...counts].sort((a, b) => a[0] - b[0]).map(([n, count]) => fmtLength(n) + (count > 1 ? ` ×${count}` : '')).join(' · ') || '—'
     const lines = text.wrap(values, 7.2, frame!.width * .4)
     const name = item.zone.name !== null && item.zone.name !== item.reference ? item.zone.name : ''
     const names = name ? text.wrap(name, 7, frame!.width * .16) : []
@@ -57,9 +58,9 @@ export function overviewMeasurements(zones: readonly ZoneMeasurements[], guides:
       room(10)
       if (i === 0 || y === frame!.y + 56) emit(item.reference + (item.diameter ? ' Ø' : item.lengths.length > 1 ? '*' : ''), columns![0]!, y!, 7.5, true)
       if (i > 0 && names[i - 1]) operations!.push(textOp(names[i - 1]!, columns![0]!, y!, 7))
-      if (item.lengths[i] !== undefined) { const v = fmtTwo(item.lengths[i]!); emit(v, columns![1]! - text.line(v, 7.5).width, y!) }
+      if (item.lengths[i] !== undefined) { const v = fmtLength(item.lengths[i]!); emit(v, columns![1]! - text.line(v, 7.5).width, y!) }
       if (i === 0) {
-        const widths = item.widths.map(fmtTwo).join('–') || '—'
+        const widths = item.widths.map(fmtLength).join('–') || '—'
         emit(widths, columns![2]! - text.line(widths, 7.2).width, y!, 7.2)
       }
       if (lines[i]) operations!.push(textOp(lines[i]!, columns![3]!, y!, 7.2))

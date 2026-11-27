@@ -1788,6 +1788,16 @@
         "skip": false
       },
       {
+        "name": "offset_x_m",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "offset_y_m",
+        "flatten": false,
+        "skip": false
+      },
+      {
         "name": "extra",
         "flatten": true,
         "skip": true
@@ -1832,6 +1842,41 @@
   {
     "name": "PrintSetupV10",
     "fields": [
+      {
+        "name": "paper",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "layers",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "plant_colors",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "north_arrow",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "overview_angle_deg",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "overview_scale",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "overview_framing",
+        "flatten": false,
+        "skip": false
+      },
       {
         "name": "splits",
         "flatten": false,

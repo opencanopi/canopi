@@ -60,7 +60,7 @@ describe('PDF workflow lifetime', () => {
       expect(workflow.setup.value.areas![0]!.wholeDesign).toBe(true)
       expect(resolveDisplayNames.mock.lastCall![0]).toEqual(['Malus domestica', 'Prunus avium'])
       workflow.previewSplit(id); await vi.waitFor(() => expect(workflow.state.value.status).toBe('ready'))
-      const parts = workflow.splitPreview.value!.areas!.map(({ bounds, pivot }) => ({ bounds, pivot }))
+      const parts = workflow.splitPreview.value!.areas!.map(({ bounds, pivot, angleDeg }) => ({ bounds, pivot, angleDeg }))
       expect(parts).toEqual(splitPrintArea(picker, plants, frame))
       expect(workflow.splitPreview.value!.areas!.some(area => area.wholeDesign)).toBe(false)
       expect(resolveDisplayNames.mock.lastCall![0]).toEqual(['Malus domestica'])
@@ -160,7 +160,7 @@ describe('PDF workflow lifetime', () => {
     expect(workflow.setup.peek()).toBe(before)
     workflow.fitPage('overview')
     await vi.waitFor(() => expect(workflow.state.value.status).toBe('ready'))
-    expect(prepare.mock.lastCall![0].setup.views?.overview).toEqual({ offset: { x: 0, y: 0 }, zoom: 100, orientation: 'portrait' })
+    expect(prepare.mock.lastCall![0].setup.views?.overview).toEqual({ offset: { x: 0, y: 0 }, zoom: 100, scale: { kind: 'fit' }, orientation: 'portrait' })
     workflow.dispose()
   })
   it('prepares and delivers derived bytes without including map layers', async () => {
@@ -213,7 +213,7 @@ describe('PDF workflow lifetime', () => {
       workflow.show(); await vi.waitFor(() => expect(workflow.state.value.status).toBe('ready'))
       expect(workflow.state.value.error).toBeNull()
       expect(prepare.mock.lastCall![0].input.canvas.zones).toEqual(zones)
-      expect(prepare.mock.lastCall![0].setup.areas).toEqual([{ id: '1', name: 'Print area 1', bounds: { x: 1, y: 2, width: 3, height: 4 } }])
+      expect(prepare.mock.lastCall![0].setup.areas).toEqual([{ id: '1', name: 'Print area 1', bounds: { x: 1, y: 2, width: 3, height: 4 }, angleDeg: 0 }])
       expect(prepare.mock.lastCall![0].setup.views?.['area:1']).toEqual({ zoom: 75, orientation: 'landscape' })
     }
     workflow.dispose()
@@ -228,8 +228,8 @@ describe('PDF workflow lifetime', () => {
     workflow.close(); workflow.show()
     await vi.waitFor(() => expect(workflow.state.value.status).toBe('ready'))
     expect(prepare.mock.lastCall![0].setup.areas).toEqual([
-      { id: '1', name: 'Print area 1', bounds: { x: 1, y: 2, width: 4, height: 5 } },
-      { id: '2', name: 'Print area 2', bounds: { x: 10, y: 20, width: 3, height: 6 } },
+      { id: '1', name: 'Print area 1', bounds: { x: 1, y: 2, width: 4, height: 5 }, angleDeg: 0 },
+      { id: '2', name: 'Print area 2', bounds: { x: 10, y: 20, width: 3, height: 6 }, angleDeg: 0 },
     ])
     expect(prepare.mock.lastCall![0].setup.views).toEqual({ 'area:1': { zoom: 125.5, orientation: 'portrait' }, 'area:2': { zoom: 80, orientation: 'landscape' } })
     expect(capture.input.canvas.zones).toEqual([])

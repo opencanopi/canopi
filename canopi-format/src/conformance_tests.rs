@@ -466,7 +466,7 @@ fn sample_print_setup() -> PrintSetupV10 {
             },
             extra: BTreeMap::new(),
         }],
-        extra: BTreeMap::new(),
+        ..Default::default()
     }
 }
 

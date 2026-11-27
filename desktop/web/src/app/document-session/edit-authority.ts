@@ -60,7 +60,7 @@ function buildDocumentPatch(
 
 function createSessionCoreEditAuthority(core: SessionCore): DesignEditAuthorityCapability {
   return {
-    editCommitted(projector, label = 'edit') {
+    editCommitted(projector, label = 'edit', options) {
       const open = core.currentDesign.peek()
       if (!open || open.readOnly) return null
       const before = asMutableDesign(open.document)
@@ -68,8 +68,11 @@ function createSessionCoreEditAuthority(core: SessionCore): DesignEditAuthorityC
       if (next === before) return before
       const patch = buildDocumentPatch(open.document, next)
       if (!patch) return before
-      core.document(label, () => patch)
+      core.document(label, () => patch, options)
       return asMutableDesignOrNull(core.currentDesign.peek()?.document)
+    },
+    endCoalesce(key) {
+      core.endCoalesce(key)
     },
     reconcileCommitted(projector) {
       const open = core.currentDesign.peek()
