@@ -5,14 +5,20 @@
 // build.yml's changes job's packaging step through bash, and they name build.yml and tauri.conf.json, so a pull
 // request changing either (a version bump included) runs them.
 import { spawnSync } from 'node:child_process'
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { parse } from 'yaml'
 
+const CARGO_TOML = new URL('../../../../Cargo.toml', import.meta.url)
 const BUILD = new URL('../../../../.github/workflows/build.yml', import.meta.url)
-const TAURI_CONF = new URL('../../../tauri.conf.json', import.meta.url)
+
+function readWorkspaceVersion(): string {
+  const section = /^\[workspace\.package\]\s*([\s\S]*?)(?:^\[|$)/mu.exec(readFileSync(CARGO_TOML, 'utf8'))
+  const match = /^\s*version\s*=\s*"([^"]+)"\s*$/mu.exec(section?.[1] ?? '')
+  return match?.[1] ?? ''
+}
 
 /** The Windows row's bundle arguments build.yml's packaging step gives a push or a pull request packaging `version`. */
 function windowsBundles(pr: boolean, version: string): string | undefined {
@@ -22,8 +28,7 @@ function windowsBundles(pr: boolean, version: string): string | undefined {
   try {
     const output = join(dir, 'out')
     writeFileSync(output, '')
-    mkdirSync(join(dir, 'desktop'))
-    writeFileSync(join(dir, 'desktop/tauri.conf.json'), JSON.stringify({ productName: 'Canopi', version }))
+    writeFileSync(join(dir, 'Cargo.toml'), `[workspace.package]\nversion = "${version}"\n`)
     const result = spawnSync('bash', ['-c', step?.run ?? 'exit 9'], {
       encoding: 'utf8', cwd: dir, env: { PATH: process.env.PATH, PR_RUN: String(pr), EVERY_PLATFORM: 'true', GITHUB_OUTPUT: output },
     })
@@ -61,7 +66,7 @@ describe('the Windows MSI on a push (canopi-f47t.52.228.54.2)', () => {
   })
 
   it('canopi-f47t.52.228.54.2: the version this tree would package on a push reaches the MSI only when WiX takes it', () => {
-    const { version } = JSON.parse(readFileSync(TAURI_CONF, 'utf8')) as { version: string }
+    const version = readWorkspaceVersion()
     const windows = windowsBundles(false, version) ?? ''
     expect(!buildsMsi(windows) || msiTakes(version), `a push packaging ${version} bundles Windows with "${windows}"`).toBe(true)
     expect([msiTakes('2.1.0'), msiTakes('2.1.0-7'), msiTakes('2.1.0-beta.1'), msiTakes('256.0.0'), msiTakes('2.1.0-65536')])
