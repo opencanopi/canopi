@@ -460,10 +460,11 @@ export function createToolHost(deps: ToolHostDeps): ToolHost {
 
   /** Modifiers by meaning (spec §2.3), read from the event that carries them, with no platform dependency. */
   function resolveModifiers(mods: Modifiers, handle: ToolHandleId | null): ToolModifiers {
+    const constrainHeld = mods.shift || (deps.touchConstrain?.read() ?? false)
     return {
       additive: mods.shift || mods.ctrl || mods.meta,
       subtractive: mods.alt,
-      constrain: mods.shift && (handle === ROTATE_HANDLE_ID || Boolean(deps.toolRow?.(currentId()).shiftConstrains)),
+      constrain: constrainHeld && (handle === ROTATE_HANDLE_ID || Boolean(deps.toolRow?.(currentId()).shiftConstrains)),
       noSnap: (mods.ctrl || mods.meta) && currentId() === 'plant-spacing',
     }
   }
@@ -614,7 +615,7 @@ export function createToolHost(deps: ToolHostDeps): ToolHost {
   function passiveHover(world: WorldPoint, at: ScreenPoint, pointer: PointerKind): void {
     const visible = objectTarget(deps.scene.hitAt(world, { pointer, includeLocked: true }))
     deps.hover(visible)
-    deps.chrome.setTooltip(visible?.kind === 'plant' ? { target: visible, at } : null)
+    deps.chrome.setTooltip(visible ? { target: visible, at } : null)
   }
 
   /** The tool's hover, then the passive hover unless the tool handled it. */
@@ -1304,14 +1305,25 @@ export function createToolHost(deps: ToolHostDeps): ToolHost {
    */
   function edgeTurnAt(world: WorldPoint, pointer: PointerKind): (() => void) | null {
     const hit = deps.scene.hitAt(world, { pointer, includeLocked: true, zoneEdge: true })
-    if (hit?.kind !== 'zone-edge') return null
-    const zone = deps.scene.persisted.zones.find((entry) => entry.id === hit.zoneId)
-    const edge = zone ? zoneEdgeSegment(zone, hit.edgeIndex) : null
-    if (!edge) return null
-    const [a, b] = [{ x: edge[0].x, y: edge[0].y }, { x: edge[1].x, y: edge[1].y }]
-    return () => {
-      if (!disposed) deps.navigation.turnToEdge(a, b)
+    if (hit?.kind === 'zone-edge') {
+      const zone = deps.scene.persisted.zones.find((entry) => entry.id === hit.zoneId)
+      const edge = zone ? zoneEdgeSegment(zone, hit.edgeIndex) : null
+      if (!edge) return null
+      const [a, b] = [{ x: edge[0].x, y: edge[0].y }, { x: edge[1].x, y: edge[1].y }]
+      return () => {
+        if (!disposed) deps.navigation.turnToEdge(a, b)
+      }
     }
+    const objectHit = deps.scene.hitAt(world, { pointer, includeLocked: true })
+    if (objectHit?.kind === 'object' && objectHit.target.kind === 'measurement-guide') {
+      const guide = deps.scene.persisted.measurementGuides.find((entry) => entry.id === objectHit.target.id)
+      if (!guide) return null
+      const [a, b] = [{ x: guide.start.x, y: guide.start.y }, { x: guide.end.x, y: guide.end.y }]
+      return () => {
+        if (!disposed) deps.navigation.turnToEdge(a, b)
+      }
+    }
+    return null
   }
 
   function notifySceneChanged(): void {
@@ -1325,6 +1337,7 @@ export function createToolHost(deps: ToolHostDeps): ToolHost {
   function requestTool(id: ToolId, cancelReason: MapInputCancelReason = 'tool-change'): void {
     const previous = currentId()
     if (previous !== id) {
+      deps.touchConstrain?.reset()
       settlePending({ kind: 'cancelled', reason: cancelReason })
       arm(id, null)
     } else if (cancelReason === 'escape') {

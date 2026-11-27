@@ -403,9 +403,28 @@ function SpeciesRow({ entry, result, focused, detail, onOpenDetail }: {
           englishFallback={entry.englishFallback}
           highlight={finderHighlight(result.byKey.get(entry.canonicalName))}
         />
-        <span className={row.code}>{entry.code}</span>
         <span className={row.count}>{formatCount(entry.count, locale.value)}</span>
       </button>
+      <input
+        type="text"
+        className={row.code}
+        value={entry.code}
+        maxLength={12}
+        aria-label={t('speciesKey.codeLabel', { name })}
+        data-species-code-input={entry.canonicalName}
+        onClick={(e) => e.stopPropagation()}
+        onFocusOut={(e) => {
+          const ok = currentCanvasSceneEditCommandSurface.value?.setSpeciesCode(entry.canonicalName, e.currentTarget.value)
+          if (!ok) e.currentTarget.value = entry.code
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault()
+            const ok = currentCanvasSceneEditCommandSurface.value?.setSpeciesCode(entry.canonicalName, e.currentTarget.value)
+            if (!ok) e.currentTarget.value = entry.code
+          }
+        }}
+      />
       {result.active && (
         <button
           type="button"

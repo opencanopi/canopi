@@ -785,7 +785,9 @@
       "clear": "Annulla la selezione",
       "rename": "Rinomina…",
       "sameSpeciesShort": "Stessa specie",
-      "clearShort": "Deseleziona"
+      "clearShort": "Deseleziona",
+      "dimensions": "Dimensioni",
+      "dimensionsShort": "Misura"
     },
     "viewChip": "Vista",
     "map": {
@@ -864,7 +866,8 @@
       "pathKeys": "Alt mette un punto ad angolo vivo · Maiusc mantiene angoli di 45° · {{mod}} disattiva l’aggancio",
       "pathTouchHint": "Trascina un punto per spostarlo · trascina un indicatore per aggiungerne uno · tieni premuto un punto per altre opzioni",
       "pathFinish": "Pianta il filare",
-      "options": "Opzioni"
+      "options": "Opzioni",
+      "constrain": "Vincola"
     },
     "placePreview": {
       "nearest": "{{distance}} da {{name}}",
@@ -1362,7 +1365,10 @@
     "placeNamed": "Posiziona il timbro {{name}}",
     "deleteNamed": "Elimina il timbro {{name}}",
     "actionsFor": "Altre azioni per {{name}}",
-    "renameFailed": "Canopi non è riuscito a rinominare questo timbro. Riprova."
+    "renameFailed": "Canopi non è riuscito a rinominare questo timbro. Riprova.",
+    "deletedToast": "Eliminato “{{name}}”",
+    "placedToast": "Timbro posizionato ({{summary}})",
+    "undo": "Annulla"
   },
   "boundary": {
     "panelFailed": "Impossibile caricare questo pannello",
@@ -1583,7 +1589,8 @@
     "namesShown_one": "Nomi mostrati per {{shown, number}} di {{count, number}} pianta visibile",
     "namesShown_few": "Nomi mostrati per {{shown, number}} di {{count, number}} piante visibili",
     "namesShown_many": "Nomi mostrati per {{shown, number}} di {{count, number}} piante visibili",
-    "namesShown_other": "Nomi mostrati per {{shown, number}} di {{count, number}} piante visibili"
+    "namesShown_other": "Nomi mostrati per {{shown, number}} di {{count, number}} piante visibili",
+    "codeLabel": "Codice specie per {{name}}"
   },
   "geojson": {
     "import": "Importa GeoJSON…",
@@ -2264,5 +2271,30 @@
   },
   "geocoding": {
     "credit": "Ricerca con {{service}} · © collaboratori di OpenStreetMap"
+  },
+  "inspector": {
+    "title": "Modifica dimensioni",
+    "close": "Chiudi",
+    "empty": "Seleziona un oggetto modificabile per modificarne le dimensioni.",
+    "dimensions": "Dimensioni",
+    "width": "Larghezza",
+    "height": "Altezza",
+    "length": "Lunghezza",
+    "rotation": "Rotazione",
+    "angle": "Angolo",
+    "centerLat": "Latitudine centro",
+    "centerLon": "Longitudine centro",
+    "side": "Lato {{index}}",
+    "cornerAngle": "Angolo {{index}}",
+    "style": "Stile zona",
+    "fillColor": "Colore riempimento",
+    "strokeColor": "Colore bordo",
+    "opacity": "Opacità",
+    "canopySpread": "Ampiezza chioma",
+    "quantity": "Quantità",
+    "plantedDate": "Data di impianto",
+    "notes": "Note",
+    "noteText": "Testo nota",
+    "fontSize": "Dimensione testo"
   }
 }

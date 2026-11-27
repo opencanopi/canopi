@@ -173,6 +173,8 @@ export class SceneRuntimePresentationController {
       ...selectionProjection,
       highlightedPlantIds: new Set(highlightedTargets.plantIds),
       highlightedZoneIds: new Set(highlightedTargets.zoneIds),
+      highlightedAnnotationIds: new Set(),
+      highlightedMeasurementGuideIds: new Set(),
       speciesCache: this._speciesCache.getCache(),
       localizedCommonNames,
       hoveredCanonicalName: hoveredPlant?.canonicalName ?? null,
@@ -230,11 +232,17 @@ export class SceneRuntimePresentationController {
     const selectionLabelPlantIds = new Set<string>()
     const plantIds = new Set(scene.plants.map((plant) => plant.id))
     const zoneIds = new Set(scene.zones.map((zone) => zone.id))
+    const annotationIds = new Set(scene.annotations.map((annotation) => annotation.id))
+    const guideIds = new Set(scene.measurementGuides.map((guide) => guide.id))
     const highlightedPlantIds = new Set<string>()
     const highlightedZoneIds = new Set<string>()
+    const highlightedAnnotationIds = new Set<string>()
+    const highlightedMeasurementGuideIds = new Set<string>()
     for (const object of request.highlightedObjects ?? []) {
       if (object.kind === 'plant' && plantIds.has(object.id)) highlightedPlantIds.add(object.id)
       else if (object.kind === 'zone' && zoneIds.has(object.id)) highlightedZoneIds.add(object.id)
+      else if (object.kind === 'annotation' && annotationIds.has(object.id)) highlightedAnnotationIds.add(object.id)
+      else if (object.kind === 'measurement-guide' && guideIds.has(object.id)) highlightedMeasurementGuideIds.add(object.id)
     }
     return {
       scene,
@@ -247,6 +255,8 @@ export class SceneRuntimePresentationController {
       selectedMeasurementGuideIds: new Set(),
       highlightedPlantIds,
       highlightedZoneIds,
+      highlightedAnnotationIds,
+      highlightedMeasurementGuideIds,
       speciesCache,
       localizedCommonNames,
       hoveredCanonicalName: null,
@@ -329,6 +339,8 @@ function buildOverviewRendererSnapshot(
     selectedMeasurementGuideIds: new Set(),
     highlightedPlantIds: new Set(),
     highlightedZoneIds: new Set(),
+    highlightedAnnotationIds: new Set(),
+    highlightedMeasurementGuideIds: new Set(),
     speciesCache: new Map(),
     localizedCommonNames: new Map(),
     hoveredCanonicalName: null,

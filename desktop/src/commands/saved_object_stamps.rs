@@ -2,6 +2,7 @@ use crate::db::UserDb;
 use crate::native_operation::{NativeOperationClass, NativeOperationExecutor};
 use canopi_types::design::v10::CanopiFileV10;
 use canopi_types::design::{DesignLoadFailure, DesignLoadFailureKind};
+use canopi_types::failure::{Failure, FailureCode};
 use canopi_types::saved_object_stamps::SavedObjectStamp;
 use tauri::State;
 
@@ -84,6 +85,27 @@ pub async fn delete_saved_object_stamp(
             move || crate::services::saved_object_stamps::delete_saved_object_stamp(&user_db, id),
         )
         .await
+}
+
+#[tauri::command]
+pub async fn restore_saved_object_stamp(
+    executor: State<'_, NativeOperationExecutor>,
+    user_db: State<'_, UserDb>,
+    stamp: SavedObjectStamp,
+) -> Result<SavedObjectStamp, Failure> {
+    let user_db = user_db.inner().clone();
+    executor
+        .run(
+            NativeOperationClass::UserData,
+            "saved object stamp restore",
+            move || {
+                crate::services::saved_object_stamps::restore_saved_object_stamp(&user_db, stamp)
+            },
+        )
+        .await
+        .map_err(|detail| {
+            Failure::new(FailureCode::Internal, "saved_object_stamp.restore").with_english(&detail)
+        })
 }
 
 #[tauri::command]

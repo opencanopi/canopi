@@ -1,7 +1,7 @@
 import type { ComponentChildren, ComponentType } from 'preact'
 import { Suspense } from 'preact/compat'
 import { useEffect, useMemo, useRef } from 'preact/hooks'
-import { usePlanningViewState } from '../../app/planning-view/state'
+import { inspectorOpen, usePlanningViewState } from '../../app/planning-view/state'
 import { phoneLayout } from '../../app/shell/phone-layout'
 import { siteLocateOpen } from '../../app/site-onboarding/state'
 import { storyPresentationActive } from '../../app/story-presentation'
@@ -18,6 +18,7 @@ import { SavedViewDialogs } from '../shared/SavedViewDialogs'
 import { StoryPresenter } from '../stories/StoryPresenter'
 import { RenameZoneDialog } from '../canvas/RenameZoneDialog'
 import { RotateSelectionDialog } from '../canvas/RotateSelectionDialog'
+import { InspectorPanel } from '../panels/InspectorPanel'
 import { GettingStartedDialog } from '../shared/GettingStartedDialog'
 import type { PanelRailCommand } from '../shared/PanelRail'
 import { PhoneSheet } from '../shared/PhoneSheet'
@@ -85,15 +86,8 @@ export function WorkspaceComposition({
   const PrimarySurface = surfaces.primary.canvas!
   const SideSurface = mountedSide ? surfaces.side[mountedSide] : undefined
   const phone = phoneTabs ? phoneLayout.value : null
-  const sidePanelContent = mountedSide && SideSurface ? (
-    <div className={styles.sidePanel} data-workspace-side-panel={mountedSide}>
-      <SurfaceBoundary key={mountedSide} surface="workspace-side">
-        <Suspense fallback={<WorkspaceLoading />}>
-          <SideSurface />
-        </Suspense>
-      </SurfaceBoundary>
-    </div>
-  ) : null
+  const inspecting = !locating && !presenting && inspectorOpen.value
+  const sidePanelContent = renderSidePanelContent(inspecting, mountedSide, SideSurface)
 
   useEffect(() => {
     if (!requestedSide || registrations.side.has(requestedSide)) return
@@ -120,10 +114,10 @@ export function WorkspaceComposition({
         !locating && !presenting && (
           <PhoneSheet layout={phone} tabs={phoneTabs} bar={phoneBar} options={phoneOptions}>{sidePanelContent}</PhoneSheet>
         )
-      ) : mountedSide && sidePanelContent ? (
+      ) : (mountedSide || inspecting) && sidePanelContent ? (
         <SidePanelDock
           responsive={responsive}
-          wide={isWidePanel(mountedSide)}
+          wide={mountedSide ? isWidePanel(mountedSide) : false}
           expanded={mountedSide === 'calendar' && planningView.calendarExpanded.value}
           onManualResize={() => { planningView.calendarExpanded.value = false }}
         >
@@ -205,6 +199,32 @@ function assertSamePanels(
 /** Site data, Budget, Consortium and Stories open at 440 px; every other panel at 380 px. */
 function isWidePanel(panel: SidePanel): boolean {
   return panel === 'site-data' || panel === 'budget' || panel === 'consortium' || panel === 'stories'
+}
+
+function renderSidePanelContent(
+  inspecting: boolean,
+  mountedSide: SidePanel | null,
+  SideSurface: WorkspaceSurface | undefined,
+): ComponentChildren {
+  if (inspecting) {
+    return (
+      <div className={styles.sidePanel} data-workspace-side-panel="inspector">
+        <SurfaceBoundary key="inspector" surface="workspace-side">
+          <InspectorPanel />
+        </SurfaceBoundary>
+      </div>
+    )
+  }
+  if (!mountedSide || !SideSurface) return null
+  return (
+    <div className={styles.sidePanel} data-workspace-side-panel={mountedSide}>
+      <SurfaceBoundary key={mountedSide} surface="workspace-side">
+        <Suspense fallback={<WorkspaceLoading />}>
+          <SideSurface />
+        </Suspense>
+      </SurfaceBoundary>
+    </div>
+  )
 }
 
 function WorkspaceLoading() {

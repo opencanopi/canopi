@@ -1,4 +1,4 @@
-import { createDefaultConsortiumEntryForTests } from '../app/consortium/workflow'
+import { buildConsortiumPlanningProjection } from '../app/planning-projection/consortium'
 import { describe, expect, it } from 'vitest'
 import {
   CONSORTIUM_STRATA,
@@ -34,7 +34,23 @@ describe('Consortium time model', () => {
   })
 
   it('creates default Consortium entries for newly placed species', () => {
-    const entry = createDefaultConsortiumEntryForTests('Quercus robur')
+    const projection = buildConsortiumPlanningProjection({
+      consortiums: [],
+      plants: [{
+        id: 'p-1',
+        canonical_name: 'Quercus robur',
+        common_name: null,
+        color: null,
+        locked: false,
+        position: { lon: 0, lat: 0 },
+        rotation: null,
+        canopy_spread_m: 4,
+        notes: null,
+        planted_date: null,
+        quantity: 1,
+      }],
+    })
+    const entry = projection.activeEntries[0]!
 
     expect(getConsortiumCanonicalName(entry)).toBe('Quercus robur')
     expect(entry.stratum).toBe(DEFAULT_CONSORTIUM_STRATUM)

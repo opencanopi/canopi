@@ -244,9 +244,25 @@ function getPlantNamePinning(
   persisted: ScenePersistedState,
   editableTargets: readonly SceneSelectionTarget[],
 ): CanvasDesignObjectSelectionModel['plantNamePinning'] {
-  const plantIds = editableTargets
-    .filter((target): target is Extract<SceneSelectionTarget, { kind: 'plant' }> => target.kind === 'plant')
-    .map((target) => target.id)
+  const plantIds: string[] = []
+  const seen = new Set<string>()
+  const addPlant = (id: string) => {
+    if (!seen.has(id)) {
+      seen.add(id)
+      plantIds.push(id)
+    }
+  }
+  for (const target of editableTargets) {
+    if (target.kind === 'plant') {
+      addPlant(target.id)
+    } else if (target.kind === 'group') {
+      const group = persisted.groups.find((entry) => entry.id === target.id)
+      if (!group) continue
+      for (const member of resolveSceneObjectGroupMembers(persisted, group)) {
+        if (member.kind === 'plant') addPlant(member.id)
+      }
+    }
+  }
   if (plantIds.length === 0) {
     return {
       plantIds: [],

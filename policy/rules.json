@@ -755,26 +755,6 @@
       "note": "Consortium component delegates document edits to its Workbench"
     },
     {
-      "id": "consortium-workflow-imports-no-orchestrators",
-      "tool": "dependency-cruiser",
-      "ledger": "2.1-M186",
-      "family": "consortium-workflow-imports-no-orchestrators",
-      "adr": "0022",
-      "owner_today": "desktop/web/src/app/consortium/workflow.ts",
-      "example": "desktop/web/src/app/consortium/workflow.ts",
-      "type_only": "counts",
-      "graph": {
-        "from": [
-          "app/consortium/workflow.ts"
-        ],
-        "to": [
-          "app/canvas-map-surface/canvas-host.ts",
-          "app/document-session/core/session-core.ts"
-        ]
-      },
-      "note": "Consortium workflow does not depend on its orchestrators"
-    },
-    {
       "id": "context-menu-imports-no-session-or-commands",
       "tool": "dependency-cruiser",
       "ledger": "2.1-M186",

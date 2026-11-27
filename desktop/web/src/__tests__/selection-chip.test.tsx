@@ -135,7 +135,7 @@ describe('Selection chip', () => {
     const live = chip()!.querySelector('[role="status"]')!
     expect(live.getAttribute('aria-live')).toBe('polite')
     expect(status()).toBe('Apricot')
-    expect(buttons()).toEqual(['Select all of this species', 'Clear selection'])
+    expect(buttons()).toEqual(['Select all of this species', 'Dimensions', 'Clear selection'])
     for (const button of chip()!.querySelectorAll('button')) {
       expect(button.getAttribute('type')).toBe('button')
       expect(button.tabIndex).toBe(0)
@@ -305,7 +305,7 @@ describe('Selection chip', () => {
     await act(() => render(<SelectionChip />, container))
     await select([{ kind: 'zone', id: 'zone-z04' }])
     expect(status()).toContain('Zone · Z04')
-    expect(buttons()).toEqual(['Rename…', 'Clear selection'])
+    expect(buttons()).toEqual(['Dimensions', 'Rename…', 'Clear selection'])
 
     await select([{ kind: 'plant', id: 'apricot-1' }, { kind: 'plant', id: 'fig-1' }, { kind: 'zone', id: 'zone-z04' }, { kind: 'annotation', id: 'note-1' }])
     expect(status()).toBe('4 selected · 2 plants · 1 zone · 1 text note')

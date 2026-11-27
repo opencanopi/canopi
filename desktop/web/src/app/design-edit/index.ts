@@ -3,10 +3,10 @@ export {
   isAdmittedOpacity,
 } from './admission'
 export {
-  reconcileCurrentDesign,
   setDesignName,
 } from './core'
 export {
+  deletePlantBudgetPrice,
   setBudgetCurrency,
   setPlantBudgetPrice,
 } from './budget'

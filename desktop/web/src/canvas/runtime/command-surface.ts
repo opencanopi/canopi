@@ -1,4 +1,12 @@
 import type { SpeciesFocusCommands } from './species-key'
+import {
+  prepareEditAnnotationFields,
+  prepareEditGuideDimensions,
+  prepareEditPlantFields,
+  prepareEditZoneDimensions,
+  prepareSetSpeciesCode,
+  prepareSetZoneStyle,
+} from './dimension-math'
 import { computed, type ReadonlySignal } from '@preact/signals'
 import type { MapInputHandle, MapInputRequest, ToolId, ToolSource } from './interaction-types'
 import type {
@@ -91,6 +99,7 @@ interface SceneCanvasCommandSurfaceOptions {
     | 'groupSelected'
     | 'ungroupSelected'
     | 'renameZone'
+    | 'runSettledMutation'
     | 'rotateSelected'
     | 'setSelectedPlantColor'
     | 'setSelectedPlantSymbol'
@@ -200,6 +209,12 @@ class SceneCanvasCommandRole implements CanvasCommandSurface {
       groupSelected: () => this.runSpatialEdit(() => this.options.mutations.groupSelected()),
       ungroupSelected: () => this.runSpatialEdit(() => this.options.mutations.ungroupSelected()),
       renameZone: (zoneId, name) => this.options.mutations.renameZone(zoneId, name),
+      setZoneStyle: (zoneId, style) => this.options.mutations.runSettledMutation('set-zone-style', { layer: 'zones', target: { kind: 'zone', id: zoneId } }, (p) => prepareSetZoneStyle(p, zoneId, style)),
+      editZoneDimensions: (zoneId, edit) => this.options.mutations.runSettledMutation('edit-zone-dimensions', { layer: 'zones', target: { kind: 'zone', id: zoneId } }, (p, plane) => prepareEditZoneDimensions(p, plane, zoneId, edit)),
+      editMeasurementGuideDimensions: (guideId, edit) => this.options.mutations.runSettledMutation('edit-measurement-guide-dimensions', { layer: 'measurement-guides', target: { kind: 'measurement-guide', id: guideId } }, (p, plane) => prepareEditGuideDimensions(p, plane, guideId, edit)),
+      editPlantFields: (plantId, edit) => this.options.mutations.runSettledMutation('edit-plant-fields', { layer: 'plants', target: { kind: 'plant', id: plantId } }, (p) => prepareEditPlantFields(p, plantId, edit)),
+      editAnnotationFields: (annotationId, edit) => this.options.mutations.runSettledMutation('edit-annotation-fields', { layer: 'annotations', target: { kind: 'annotation', id: annotationId } }, (p) => prepareEditAnnotationFields(p, annotationId, edit)),
+      setSpeciesCode: (canonicalName, code) => this.options.mutations.runSettledMutation('set-species-code', null, (p) => prepareSetSpeciesCode(p, canonicalName, code)),
       rotateSelected: (degrees) => this.runSpatialEdit(() => this.options.mutations.rotateSelected(degrees)),
       nudgeSelected: (delta) => this.nudgeSelected(delta),
       endNudge: (options) => this.endNudge(options),

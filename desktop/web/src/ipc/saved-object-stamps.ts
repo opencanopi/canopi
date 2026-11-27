@@ -25,6 +25,10 @@ export async function deleteSavedObjectStamp(id: string): Promise<boolean> {
   return invokeTyped('delete_saved_object_stamp', { id }, mintOperationId('u'))
 }
 
+export async function restoreSavedObjectStamp(stamp: SavedObjectStamp): Promise<SavedObjectStamp> {
+  return invokeTyped('restore_saved_object_stamp', { stamp }, mintOperationId('u'))
+}
+
 export async function reorderSavedObjectStamps(ids: string[]): Promise<SavedObjectStamp[]> {
   return invokeTyped('reorder_saved_object_stamps', { ids }, mintOperationId('u'))
 }

@@ -1,4 +1,5 @@
 import { getRevealedAnnotationId } from '../annotation-layout'
+import type { SessionPlane } from '../../../geo/session-plane'
 import { createUuid } from '../../../utils/ids'
 import type { PlantPresentationContext } from '../plant-presentation'
 import { normalizeHexColor } from '../../plant-colors'
@@ -89,6 +90,7 @@ interface SceneRuntimeMutationControllerOptions {
     getViewportScale(): number
     createPlantPresentationContext(viewportScale?: number): PlantPresentationContext
     getLocalizedCommonNames(): ReadonlyMap<string, string | null>
+    getSuggestedPlantColor?(): string | null
   }
   /** Live camera bearing in degrees (2.1-Q89: screen-aligned pivot/anchor on a turned map); defaults to 0. */
   getBearingDeg?(): number
@@ -210,39 +212,38 @@ export class SceneRuntimeMutationController {
     return this._runCommandWhenSettled(() => this._renameZoneWhenSettled(zoneId, name), false)
   }
 
+  runSettledMutation(
+    label: string,
+    guard: { readonly layer?: string; readonly target?: SceneDesignObjectTarget } | null,
+    prepare: (persisted: ScenePersistedState, plane: SessionPlane) => ((draft: ScenePersistedState) => void) | null,
+  ): boolean {
+    return this._runCommandWhenSettled(() => {
+      const persisted = this._sceneStore.persisted
+      if (guard?.layer && !isSceneLayerEditable(persisted, guard.layer)) return false
+      if (guard?.target && (isSceneDesignObjectLocked(persisted, guard.target)
+        || persisted.groups.some((g) => g.locked && g.members.some((m) => m.kind === guard.target!.kind && m.id === guard.target!.id)))) return false
+      const mutate = prepare(persisted, this._sceneStore.sessionPlane)
+      if (!mutate) return false
+      this._sceneEdits.run(label, (tx) => tx.mutate(mutate))
+      return true
+    }, false)
+  }
+
   setSelectedPlantColor(color: string | null): number {
-    return this._runCommandWhenSettled(
-      () => this._setSelectedPlantColorWhenSettled(color),
-      0,
-    )
+    return this._runCommandWhenSettled(() => this._setSelectedPlantColorWhenSettled(color), 0)
   }
-
   setSelectedPlantSymbol(symbol: PlantSymbolId | null): number {
-    return this._runCommandWhenSettled(
-      () => this._setSelectedPlantSymbolWhenSettled(symbol),
-      0,
-    )
+    return this._runCommandWhenSettled(() => this._setSelectedPlantSymbolWhenSettled(symbol), 0)
   }
-
   setPlantColorForSpecies(canonicalName: string, color: string | null): number {
-    return this._runCommandWhenSettled(
-      () => this._setPlantColorForSpeciesWhenSettled(canonicalName, color),
-      0,
-    )
+    return this._runCommandWhenSettled(() => this._setPlantColorForSpeciesWhenSettled(canonicalName, color), 0)
   }
-
   setPlantSymbolForSpecies(canonicalName: string, symbol: PlantSymbolId): number {
-    return this._runCommandWhenSettled(
-      () => this._setPlantSymbolForSpeciesWhenSettled(canonicalName, symbol),
-      0,
-    )
+    return this._runCommandWhenSettled(() => this._setPlantSymbolForSpeciesWhenSettled(canonicalName, symbol), 0)
   }
 
   private _runCommandWhenSettled<T>(operation: () => T, busyResult: T): T {
-    return this._commandAdmission.runWhenSettled(
-      operation,
-      busyResult,
-    )
+    return this._commandAdmission.runWhenSettled(operation, busyResult)
   }
 
   private _copyWhenSettled(): void {

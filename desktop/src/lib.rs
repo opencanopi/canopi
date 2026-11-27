@@ -95,6 +95,7 @@ pub fn run() {
             commands::saved_object_stamps::create_saved_object_stamp,
             commands::saved_object_stamps::rename_saved_object_stamp,
             commands::saved_object_stamps::delete_saved_object_stamp,
+            commands::saved_object_stamps::restore_saved_object_stamp,
             commands::saved_object_stamps::reorder_saved_object_stamps,
             commands::saved_object_stamps::export_saved_object_stamp_canopi_file,
             commands::saved_object_stamps::load_saved_object_stamp_canopi_file,

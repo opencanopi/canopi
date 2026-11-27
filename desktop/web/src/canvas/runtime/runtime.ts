@@ -6,6 +6,7 @@ import type { SceneCommand } from './scene-commands'
 import type {
   Annotation,
   CanopiFile,
+  GeoPoint,
   MeasurementGuide,
   ObjectGroup,
   PlacedPlant,
@@ -154,6 +155,56 @@ export interface CanvasSceneEditCommandSurface {
    * nothing changed (unknown or locked zone, locked layer, same name).
    */
   renameZone(zoneId: string, name: string | null): boolean
+  /** Updates fill colour, stroke colour, and/or unified opacity on an editable zone (2.1-Q355). */
+  setZoneStyle(
+    zoneId: string,
+    style: { readonly fillColor?: string | null; readonly strokeColor?: string | null; readonly opacity?: number | null },
+  ): boolean
+  /** Edits a zone's true-ground dimensions, angle, or centre in one undoable edit (2.1-Q149, 2.1-Q353). */
+  editZoneDimensions(
+    zoneId: string,
+    edit: {
+      readonly widthM?: number
+      readonly heightM?: number
+      readonly lengthM?: number
+      readonly rotationDeg?: number
+      readonly angleDeg?: number
+      readonly center?: GeoPoint
+      readonly sideIndex?: number
+      readonly sideLengthM?: number
+      readonly cornerIndex?: number
+      readonly cornerAngleDeg?: number
+    },
+  ): boolean
+  /** Edits a measurement guide's true-ground length, angle, or centre in one undoable edit. */
+  editMeasurementGuideDimensions(
+    guideId: string,
+    edit: {
+      readonly lengthM?: number
+      readonly angleDeg?: number
+      readonly center?: GeoPoint
+    },
+  ): boolean
+  /** Edits a plant's canopy spread, notes, planted date, or quantity in one undoable edit (2.1-Q149). */
+  editPlantFields(
+    plantId: string,
+    edit: {
+      readonly canopySpreadM?: number
+      readonly notes?: string | null
+      readonly plantedDate?: string | null
+      readonly quantity?: number
+    },
+  ): boolean
+  /** Edits a text note's text or font size in one undoable edit. */
+  editAnnotationFields(
+    annotationId: string,
+    edit: {
+      readonly text?: string
+      readonly fontSize?: number
+    },
+  ): boolean
+  /** Sets a species' short code in `plant_species_codes` (2.1-M158). */
+  setSpeciesCode(canonicalName: string, code: string): boolean
   /**
    * Turns the editable selection about its centre by `degrees`, clockwise on
    * the map for positive values, as one undoable edit. A selection holding a

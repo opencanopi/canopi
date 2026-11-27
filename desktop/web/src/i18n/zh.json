@@ -785,7 +785,9 @@
       "clear": "清除选择",
       "rename": "重命名…",
       "sameSpeciesShort": "同一物种",
-      "clearShort": "清除"
+      "clearShort": "清除",
+      "dimensions": "尺寸",
+      "dimensionsShort": "尺寸"
     },
     "viewChip": "视图",
     "map": {
@@ -864,7 +866,8 @@
       "pathKeys": "Alt 放置尖角点 · Shift 保持 45° 角 · {{mod}} 关闭吸附",
       "pathTouchHint": "拖动点以移动 · 拖动标记以添加点 · 长按点查看更多",
       "pathFinish": "种下这一行",
-      "options": "选项"
+      "options": "选项",
+      "constrain": "约束"
     },
     "placePreview": {
       "nearest": "距 {{name}} {{distance}}",
@@ -1362,7 +1365,10 @@
     "placeNamed": "放置图章 {{name}}",
     "deleteNamed": "删除图章 {{name}}",
     "actionsFor": "{{name}} 的更多操作",
-    "renameFailed": "Canopi 无法重命名此图章，请重试。"
+    "renameFailed": "Canopi 无法重命名此图章，请重试。",
+    "deletedToast": "已删除“{{name}}”",
+    "placedToast": "已放置图章（{{summary}}）",
+    "undo": "撤销"
   },
   "boundary": {
     "panelFailed": "无法加载此面板",
@@ -1583,7 +1589,8 @@
     "namesShown_one": "视图中 {{count, number}} 株植物有 {{shown, number}} 株显示名称",
     "namesShown_few": "视图中 {{count, number}} 株植物有 {{shown, number}} 株显示名称",
     "namesShown_many": "视图中 {{count, number}} 株植物有 {{shown, number}} 株显示名称",
-    "namesShown_other": "视图中 {{count, number}} 株植物有 {{shown, number}} 株显示名称"
+    "namesShown_other": "视图中 {{count, number}} 株植物有 {{shown, number}} 株显示名称",
+    "codeLabel": "{{name}} 的物种代码"
   },
   "geojson": {
     "import": "导入 GeoJSON…",
@@ -2264,5 +2271,30 @@
   },
   "geocoding": {
     "credit": "由 {{service}} 提供搜索 · © OpenStreetMap 贡献者"
+  },
+  "inspector": {
+    "title": "编辑尺寸",
+    "close": "关闭",
+    "empty": "选择可编辑对象以编辑其尺寸。",
+    "dimensions": "尺寸",
+    "width": "宽度",
+    "height": "高度",
+    "length": "长度",
+    "rotation": "旋转",
+    "angle": "角度",
+    "centerLat": "中心纬度",
+    "centerLon": "中心经度",
+    "side": "边 {{index}}",
+    "cornerAngle": "角 {{index}}",
+    "style": "区域样式",
+    "fillColor": "填充颜色",
+    "strokeColor": "描边颜色",
+    "opacity": "不透明度",
+    "canopySpread": "冠幅",
+    "quantity": "数量",
+    "plantedDate": "种植日期",
+    "notes": "备注",
+    "noteText": "备注内容",
+    "fontSize": "字号"
   }
 }

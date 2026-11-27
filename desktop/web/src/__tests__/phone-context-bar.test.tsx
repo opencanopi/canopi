@@ -117,7 +117,7 @@ describe('Phone context bar', () => {
     await choose('polygon')
     const shown = () => [...card()!.querySelectorAll('b, span, button')].filter((node) => node.children.length === 0
       && node.getAttribute('role') !== 'tooltip' && !node.closest('[role="tooltip"]')).map((node) => node.textContent)
-    expect(shown()).toEqual(['Polygon zone', 'Click to add corners. Click the first corner, double-click or press Enter to finish.', 'Options'])
+    expect(shown()).toEqual(['Polygon zone', 'Click to add corners. Click the first corner, double-click or press Enter to finish.', 'Constrain', 'Options'])
     expect(card()!.querySelector('[data-tool-options-button]')?.getAttribute('aria-expanded')).toBe('false')
 
     await choose('plant-spacing', { gesture: true, plantRow: PATH })

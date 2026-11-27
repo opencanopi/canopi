@@ -187,7 +187,8 @@ export class SceneRuntimeEditCoordinator implements SceneRuntimeAuthority {
       captureSnapshot: () => this._captureSnapshot(),
       setSelection: this._setSelection,
       recordHistory: (command, accepted) => {
-        this._sceneSession.recordSceneEdit(command.type, command)
+        const remainingPlantSpecies = new Set(this._sceneStore.persisted.plants.map((plant) => plant.canonicalName))
+        this._sceneSession.recordSceneEdit(command.type, command, { remainingPlantSpecies })
         accepted()
       },
       syncCanvasSignalsFromScene: this._syncCanvasSignalsFromScene,

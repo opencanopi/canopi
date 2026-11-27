@@ -10,8 +10,14 @@ import { getCanvasDetailLayout } from './automatic-detail'
 import { getPlantWorldBounds, type PlantPresentationContext } from './plant-presentation'
 import type { SceneDesignObjectTarget, ScenePersistedState, SceneZoneEntity } from './scene'
 import { resolveSceneObjectGroupMembers } from './scene/group-members'
+import { getSceneLayerStyle } from './scene-visuals'
 import type { WorldPoint } from '../../geo/view/types'
 import { getZoneExtentPoints, getZoneWorldBounds } from './zone-geometry'
+
+function isLayerShown(scene: ScenePersistedState, layerName: string): boolean {
+  const style = getSceneLayerStyle(scene, layerName)
+  return style.visible && style.opacity > 0
+}
 
 /** Sides of the polygon drawn around a disc or an ellipse: it holds the shape and overshoots it by under 0.5 %. */
 const OUTLINE_SIDES = 32
@@ -41,12 +47,21 @@ export function sceneExtentPoints(
       pixelsPerMetre,
       plants: scene.plants,
     }
-    for (const plant of scene.plants) corners(getPlantWorldBounds(plant, plantsAtScale))
-    for (const zone of scene.zones) {
-      const box = getZoneWorldBounds(zone)
-      if (box) corners(box)
+    if (isLayerShown(scene, 'plants')) {
+      for (const plant of scene.plants) corners(getPlantWorldBounds(plant, plantsAtScale))
     }
-    for (const annotation of scene.annotations) corners(getAnnotationWorldBounds(annotation, pixelsPerMetre))
+    if (isLayerShown(scene, 'zones')) {
+      for (const zone of scene.zones) {
+        const box = getZoneWorldBounds(zone)
+        if (box) corners(box)
+      }
+    }
+    if (isLayerShown(scene, 'annotations')) {
+      for (const annotation of scene.annotations) corners(getAnnotationWorldBounds(annotation, pixelsPerMetre))
+    }
+    if (isLayerShown(scene, 'measurement-guides')) {
+      for (const guide of scene.measurementGuides) points.push({ ...guide.start }, { ...guide.end })
+    }
     return points
   }
 }
@@ -77,16 +92,19 @@ export function selectionExtentPoints(
         return
       }
       if (target.kind === 'plant') {
+        if (!isLayerShown(scene, 'plants')) return
         const plant = scene.plants.find((entry) => entry.id === target.id)
         if (plant) points.push(...outlineAround(plant.position, getPlantWorldBounds(plant, plantsAtScale).width / 2))
         return
       }
       if (target.kind === 'zone') {
+        if (!isLayerShown(scene, 'zones')) return
         const zone = scene.zones.find((entry) => entry.id === target.id)
         if (zone) points.push(...zoneOutline(zone))
         return
       }
       if (target.kind === 'annotation') {
+        if (!isLayerShown(scene, 'annotations')) return
         const annotation = scene.annotations.find((entry) => entry.id === target.id)
         if (!annotation) return
         detailAnnotationIds ??= getCanvasDetailLayout(scene, pixelsPerMetre, options.plantContext.plantDisplay?.symbolScale).annotationIds
@@ -95,6 +113,7 @@ export function selectionExtentPoints(
         ))
         return
       }
+      if (!isLayerShown(scene, 'measurement-guides')) return
       const guide = scene.measurementGuides.find((entry) => entry.id === target.id)
       if (guide) points.push({ ...guide.start }, { ...guide.end })
     }

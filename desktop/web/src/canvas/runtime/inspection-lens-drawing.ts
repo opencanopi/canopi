@@ -16,6 +16,7 @@ import type { SpeciesCacheEntry } from './presentation-data'
 import type { ScenePersistedState, SceneZoneEntity } from './scene'
 import {
   getCanvasInteractionStrokeVisual,
+  getGuideLineVisual,
   getPlantSymbolEdgeColor,
   getPlantSymbolEdgeWidth,
   getSceneLayerStyle,
@@ -77,7 +78,9 @@ export function drawInspectionLensScene(
   ctx.clearRect(0, 0, widthPx, heightPx)
   applyView(ctx, view)
   drawZones(ctx, lens.scene, view.pixelsPerMetre, paintTokens)
+  drawMeasurementGuides(ctx, lens.scene, view, dpr, paintTokens)
   drawPlants(ctx, lens, plantDisplay, paintTokens, view, dpr, widthPx, heightPx, options.scratch)
+  drawAnnotations(ctx, lens.scene, view, dpr, paintTokens)
 }
 
 function drawZones(
@@ -91,12 +94,14 @@ function drawZones(
 
   for (const zone of scene.zones) {
     const visual = resolveZoneVisual(zone, paintTokens)
+    const alpha = layer.opacity * visual.opacity
+    if (alpha <= 0) continue
     ctx.beginPath()
     traceZonePath(ctx, zone)
     ctx.fillStyle = visual.fill
-    ctx.globalAlpha = 0.2 * layer.opacity
+    ctx.globalAlpha = 0.2 * alpha
     if (isZoneClosed(zone)) ctx.fill()
-    ctx.globalAlpha = layer.opacity
+    ctx.globalAlpha = alpha
     ctx.strokeStyle = visual.casing
     ctx.lineWidth = (ZONE_STROKE_PX + OVERLAY_CASING_EXTRA_PX) / pixelsPerMetre
     ctx.stroke()
@@ -106,6 +111,61 @@ function drawZones(
   }
 
   ctx.globalAlpha = 1
+}
+
+function drawMeasurementGuides(
+  ctx: CanvasRenderingContext2D,
+  scene: ScenePersistedState,
+  view: ViewTransform,
+  dpr: number,
+  paintTokens: CanvasPaintTokens,
+): void {
+  const layer = getSceneLayerStyle(scene, 'measurement-guides')
+  if (!layer.visible || layer.opacity <= 0 || scene.measurementGuides.length === 0) return
+  const visual = getGuideLineVisual(paintTokens)
+  ctx.save()
+  applyScreenSpaceTransform(ctx, dpr)
+  ctx.globalAlpha = layer.opacity
+  ctx.setLineDash([6, 4])
+  for (const guide of scene.measurementGuides) {
+    const start = view.worldToScreen(guide.start)
+    const end = view.worldToScreen(guide.end)
+    ctx.beginPath()
+    ctx.moveTo(start.x, start.y)
+    ctx.lineTo(end.x, end.y)
+    ctx.strokeStyle = visual.casing
+    ctx.lineWidth = 1.5 + OVERLAY_CASING_EXTRA_PX
+    ctx.stroke()
+    ctx.strokeStyle = visual.color
+    ctx.lineWidth = 1.5
+    ctx.stroke()
+  }
+  ctx.restore()
+}
+
+function drawAnnotations(
+  ctx: CanvasRenderingContext2D,
+  scene: ScenePersistedState,
+  view: ViewTransform,
+  dpr: number,
+  paintTokens: CanvasPaintTokens,
+): void {
+  const layer = getSceneLayerStyle(scene, 'annotations')
+  if (!layer.visible || layer.opacity <= 0 || scene.annotations.length === 0) return
+  ctx.save()
+  applyScreenSpaceTransform(ctx, dpr)
+  ctx.globalAlpha = layer.opacity
+  ctx.fillStyle = paintTokens['zone-stroke']
+  ctx.textAlign = 'left'
+  ctx.textBaseline = 'top'
+  for (const annotation of scene.annotations) {
+    if (annotation.annotationType !== 'text' || !annotation.text.trim()) continue
+    const screen = view.worldToScreen(annotation.position)
+    const sizePx = Math.max(10, Math.min(24, annotation.fontSize))
+    ctx.font = `600 ${sizePx}px ${CANVAS_CHROME_FONT_FAMILY}`
+    ctx.fillText(annotation.text.split('\n')[0] ?? '', screen.x, screen.y)
+  }
+  ctx.restore()
 }
 
 function traceZonePath(ctx: CanvasRenderingContext2D, zone: SceneZoneEntity): void {

@@ -166,7 +166,7 @@ export function createSavedObjectStampTool(): CanvasTool {
 
 /** Whether the saved stamp can be placed now: it holds an object, and every layer it adds to is visible and unlocked. */
 export function canPlaceSavedObjectStamp(scene: StampScene, stamp: SavedObjectStampPayload): boolean {
-  if (stamp.plants.length + stamp.zones.length + stamp.annotations.length === 0) return false
+  if (stamp.plants.length + stamp.zones.length + stamp.annotations.length + (stamp.measurementGuides?.length ?? 0) === 0) return false
   return requiredLayers(stamp).every((layer) => scene.isLayerOpenForCreation(layer))
 }
 
@@ -231,6 +231,7 @@ function requiredLayers(stamp: SavedObjectStampPayload): string[] {
   if (stamp.plants.length > 0) layers.push('plants')
   if (stamp.zones.length > 0) layers.push('zones')
   if (stamp.annotations.length > 0) layers.push('annotations')
+  if ((stamp.measurementGuides?.length ?? 0) > 0) layers.push('measurement-guides')
   return layers
 }
 
@@ -248,7 +249,16 @@ function savedObjectStampArrangementTemplate(stamp: SavedObjectStampPayload): Sc
       sourceId: annotation.id,
       entity: sceneAnnotationFromSavedAnnotation(annotation),
     })),
-    measurementGuides: [],
+    measurementGuides: (stamp.measurementGuides ?? []).map((guide) => ({
+      sourceId: guide.id,
+      entity: {
+        kind: 'measurement-guide',
+        id: guide.id,
+        locked: guide.locked === true,
+        start: { ...guide.start },
+        end: { ...guide.end },
+      },
+    })),
     groups: stamp.groups.map((group) => ({
       sourceId: group.id,
       entity: {
@@ -268,7 +278,7 @@ function scenePlantFromSavedPlant(
   return {
     kind: 'plant',
     id: plant.id,
-    locked: false,
+    locked: plant.locked === true,
     canonicalName: plant.canonicalName,
     commonName: plant.commonName,
     color: plant.color,
@@ -276,10 +286,10 @@ function scenePlantFromSavedPlant(
     canopySpreadM: plant.scale,
     position: { ...plant.position },
     rotationDeg: plant.rotationDeg,
-    notes: null,
-    plantedDate: null,
-    quantity: 1,
-    pinnedName: false,
+    notes: plant.notes ?? null,
+    plantedDate: plant.plantedDate ?? null,
+    quantity: plant.quantity ?? 1,
+    pinnedName: plant.pinnedName === true,
   }
 }
 
@@ -290,12 +300,14 @@ function sceneZoneFromSavedZone(
     kind: 'zone',
     id: zone.id,
     name: zone.name,
-    locked: false,
+    locked: zone.locked === true,
     zoneType: zone.zoneType,
     points: zone.points.map((point) => ({ ...point })),
     rotationDeg: zone.rotationDeg,
     fillColor: zone.fillColor,
-    notes: null,
+    ...(zone.strokeColor !== undefined ? { strokeColor: zone.strokeColor } : {}),
+    ...(zone.opacity !== undefined ? { opacity: zone.opacity } : {}),
+    notes: zone.notes ?? null,
   }
 }
 
@@ -305,11 +317,12 @@ function sceneAnnotationFromSavedAnnotation(
   return {
     kind: 'annotation',
     id: annotation.id,
-    locked: false,
+    locked: annotation.locked === true,
     annotationType: annotation.annotationType,
     position: { ...annotation.position },
     text: annotation.text,
     fontSize: annotation.fontSize,
     rotationDeg: annotation.rotationDeg,
+    ...(annotation.color !== undefined ? { color: annotation.color } : {}),
   }
 }

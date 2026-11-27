@@ -3511,6 +3511,7 @@ describe('scene canvas runtime', () => {
     expect(scene.groups[0]?.members).toEqual([
       { kind: 'plant', id: 'plant-1' },
       { kind: 'zone', id: 'zone-1' },
+      { kind: 'measurement-guide', id: 'measurement-guide-1' },
     ])
     expect(scene.measurementGuides).toHaveLength(1)
     runtime.destroy()

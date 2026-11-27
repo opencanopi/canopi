@@ -43,7 +43,10 @@ describe('saved-object-stamp-payload v3 cross-boundary contract (#487 B1)', () =
     expect(parsed?.groups[0]).toEqual({
       id: 'grp-1',
       name: 'Apple guild',
-      members: [{ kind: 'plant', id: 'p-1' }],
+      members: [
+        { kind: 'plant', id: 'p-1' },
+        { kind: 'measurement-guide', id: 'g-1' },
+      ],
     })
   })
 

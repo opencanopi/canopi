@@ -785,7 +785,9 @@
       "clear": "Limpar a seleção",
       "rename": "Renomear…",
       "sameSpeciesShort": "Mesma espécie",
-      "clearShort": "Limpar"
+      "clearShort": "Limpar",
+      "dimensions": "Dimensões",
+      "dimensionsShort": "Tamanho"
     },
     "viewChip": "Visualização",
     "map": {
@@ -864,7 +866,8 @@
       "pathKeys": "Alt coloca um ponto em canto vivo · Shift mantém ângulos de 45° · {{mod}} desativa o ajuste",
       "pathTouchHint": "Arraste um ponto para movê-lo · arraste uma marca para adicionar um · mantenha um ponto pressionado para mais opções",
       "pathFinish": "Plantar a fileira",
-      "options": "Opções"
+      "options": "Opções",
+      "constrain": "Restringir"
     },
     "placePreview": {
       "nearest": "{{distance}} até {{name}}",
@@ -1362,7 +1365,10 @@
     "placeNamed": "Colocar o carimbo {{name}}",
     "deleteNamed": "Excluir o carimbo {{name}}",
     "actionsFor": "Mais ações para {{name}}",
-    "renameFailed": "O Canopi não conseguiu renomear este carimbo. Tente novamente."
+    "renameFailed": "O Canopi não conseguiu renomear este carimbo. Tente novamente.",
+    "deletedToast": "“{{name}}” excluído",
+    "placedToast": "Carimbo posicionado ({{summary}})",
+    "undo": "Desfazer"
   },
   "boundary": {
     "panelFailed": "Não foi possível carregar este painel",
@@ -1583,7 +1589,8 @@
     "namesShown_one": "Nomes visíveis em {{shown, number}} de {{count, number}} planta à vista",
     "namesShown_few": "Nomes visíveis em {{shown, number}} de {{count, number}} plantas à vista",
     "namesShown_many": "Nomes visíveis em {{shown, number}} de {{count, number}} plantas à vista",
-    "namesShown_other": "Nomes visíveis em {{shown, number}} de {{count, number}} plantas à vista"
+    "namesShown_other": "Nomes visíveis em {{shown, number}} de {{count, number}} plantas à vista",
+    "codeLabel": "Código da espécie para {{name}}"
   },
   "geojson": {
     "import": "Importar GeoJSON…",
@@ -2264,5 +2271,30 @@
   },
   "geocoding": {
     "credit": "Pesquisa por {{service}} · © colaboradores do OpenStreetMap"
+  },
+  "inspector": {
+    "title": "Editar dimensões",
+    "close": "Fechar",
+    "empty": "Selecione um objeto editável para editar suas dimensões.",
+    "dimensions": "Dimensões",
+    "width": "Largura",
+    "height": "Altura",
+    "length": "Comprimento",
+    "rotation": "Rotação",
+    "angle": "Ângulo",
+    "centerLat": "Latitude do centro",
+    "centerLon": "Longitude do centro",
+    "side": "Lado {{index}}",
+    "cornerAngle": "Ângulo {{index}}",
+    "style": "Estilo da zona",
+    "fillColor": "Cor de preenchimento",
+    "strokeColor": "Cor da borda",
+    "opacity": "Opacidade",
+    "canopySpread": "Diâmetro da copa",
+    "quantity": "Quantidade",
+    "plantedDate": "Data de plantio",
+    "notes": "Notas",
+    "noteText": "Texto da nota",
+    "fontSize": "Tamanho do texto"
   }
 }

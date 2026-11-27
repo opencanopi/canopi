@@ -126,7 +126,7 @@ describe('Plants in this Design', () => {
     expect(rows).toHaveLength(3)
     expect(rows[0]!.textContent).toContain('Menthe verte')
     expect(rows[1]!.textContent).toContain('Pommier cultivé')
-    expect(rows[1]!.textContent).toContain('MDO')
+    expect(rows[1]!.querySelector<HTMLInputElement>('[data-species-code-input]')?.value).toBe('MDO')
     expect(rows[1]!.textContent).toContain('2')
   })
 

@@ -51,8 +51,19 @@ export function readPlanningViewState(): PlanningViewState {
   return planningViewStateFor(designSessionStore.sessionIdentity.peek())
 }
 
+export const inspectorOpen = signal(false)
+
+export function openInspector(): void {
+  inspectorOpen.value = true
+}
+
+export function closeInspector(): void {
+  inspectorOpen.value = false
+}
+
 export function disposePlanningViewState(): void {
   owner = null
+  inspectorOpen.value = false
 }
 
 function planningViewStateFor(sessionIdentity: object): PlanningViewState {

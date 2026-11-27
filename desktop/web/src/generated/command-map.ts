@@ -90,6 +90,7 @@ export const COMMAND_NAMES = [
   'create_saved_object_stamp',
   'rename_saved_object_stamp',
   'delete_saved_object_stamp',
+  'restore_saved_object_stamp',
   'reorder_saved_object_stamps',
   'export_saved_object_stamp_canopi_file',
   'load_saved_object_stamp_canopi_file',
@@ -181,6 +182,7 @@ export type CommandMap = {
   readonly 'create_saved_object_stamp': { readonly args: { readonly name: string; readonly payloadJson: string }; readonly reply: SavedObjectStamp }
   readonly 'rename_saved_object_stamp': { readonly args: { readonly id: string; readonly name: string }; readonly reply: SavedObjectStamp }
   readonly 'delete_saved_object_stamp': { readonly args: { readonly id: string }; readonly reply: boolean }
+  readonly 'restore_saved_object_stamp': { readonly args: { readonly stamp: SavedObjectStamp }; readonly reply: SavedObjectStamp }
   readonly 'reorder_saved_object_stamps': { readonly args: { readonly ids: readonly string[] }; readonly reply: SavedObjectStamp[] }
   readonly 'export_saved_object_stamp_canopi_file': { readonly args: { readonly path: string; readonly content: Record<string, unknown> }; readonly reply: string }
   readonly 'load_saved_object_stamp_canopi_file': { readonly args: { readonly path: string }; readonly reply: CanopiFileV10 }
@@ -287,6 +289,7 @@ export const COMMAND_SYNC_KINDS: Readonly<Record<CommandName, CommandSyncKind>> 
   'create_saved_object_stamp': 'async',
   'rename_saved_object_stamp': 'async',
   'delete_saved_object_stamp': 'async',
+  'restore_saved_object_stamp': 'async',
   'reorder_saved_object_stamps': 'async',
   'export_saved_object_stamp_canopi_file': 'async',
   'load_saved_object_stamp_canopi_file': 'async',

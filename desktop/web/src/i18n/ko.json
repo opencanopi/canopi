@@ -785,7 +785,9 @@
       "clear": "선택 해제",
       "rename": "이름 바꾸기…",
       "sameSpeciesShort": "같은 종",
-      "clearShort": "해제"
+      "clearShort": "해제",
+      "dimensions": "치수",
+      "dimensionsShort": "크기"
     },
     "viewChip": "보기",
     "map": {
@@ -864,7 +866,8 @@
       "pathKeys": "Alt로 뾰족한 점 놓기 · Shift로 45° 유지 · {{mod}}로 맞춤 끄기",
       "pathTouchHint": "점을 끌어 옮기기 · 표시를 끌어 점 추가 · 점을 길게 눌러 더 보기",
       "pathFinish": "줄 심기",
-      "options": "옵션"
+      "options": "옵션",
+      "constrain": "고정"
     },
     "placePreview": {
       "nearest": "{{name}}까지 {{distance}}",
@@ -1362,7 +1365,10 @@
     "placeNamed": "스탬프 {{name}} 배치",
     "deleteNamed": "스탬프 {{name}} 삭제",
     "actionsFor": "{{name}} 추가 작업",
-    "renameFailed": "Canopi에서 이 스탬프의 이름을 바꿀 수 없었습니다. 다시 시도하세요."
+    "renameFailed": "Canopi에서 이 스탬프의 이름을 바꿀 수 없었습니다. 다시 시도하세요.",
+    "deletedToast": "“{{name}}” 삭제됨",
+    "placedToast": "스탬프 배치됨({{summary}})",
+    "undo": "실행 취소"
   },
   "boundary": {
     "panelFailed": "이 패널을 불러오지 못했습니다",
@@ -1583,7 +1589,8 @@
     "namesShown_one": "보이는 식물 {{count, number}}개 중 {{shown, number}}개에 이름 표시",
     "namesShown_few": "보이는 식물 {{count, number}}개 중 {{shown, number}}개에 이름 표시",
     "namesShown_many": "보이는 식물 {{count, number}}개 중 {{shown, number}}개에 이름 표시",
-    "namesShown_other": "보이는 식물 {{count, number}}개 중 {{shown, number}}개에 이름 표시"
+    "namesShown_other": "보이는 식물 {{count, number}}개 중 {{shown, number}}개에 이름 표시",
+    "codeLabel": "{{name}}의 종 코드"
   },
   "geojson": {
     "import": "GeoJSON 가져오기…",
@@ -2264,5 +2271,30 @@
   },
   "geocoding": {
     "credit": "{{service}} 검색 · © OpenStreetMap 기여자"
+  },
+  "inspector": {
+    "title": "치수 편집",
+    "close": "닫기",
+    "empty": "치수를 편집할 수 있는 개체를 선택하세요.",
+    "dimensions": "치수",
+    "width": "너비",
+    "height": "높이",
+    "length": "길이",
+    "rotation": "회전",
+    "angle": "각도",
+    "centerLat": "중심 위도",
+    "centerLon": "중심 경도",
+    "side": "변 {{index}}",
+    "cornerAngle": "각 {{index}}",
+    "style": "구역 스타일",
+    "fillColor": "채우기 색상",
+    "strokeColor": "선 색상",
+    "opacity": "불투명도",
+    "canopySpread": "수관 폭",
+    "quantity": "수량",
+    "plantedDate": "식재일",
+    "notes": "메모",
+    "noteText": "메모 내용",
+    "fontSize": "글자 크기"
   }
 }

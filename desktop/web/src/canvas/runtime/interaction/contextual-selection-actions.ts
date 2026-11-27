@@ -41,9 +41,7 @@ export function selectionCommandAvailability(
   return {
     copy: editsUnlockedPart,
     edit: editsUnlockedPart,
-    group: unblocked
-      && selection.editableTargets.length >= 2
-      && !selection.editableTargets.some((target) => target.kind === 'measurement-guide'),
+    group: unblocked && selection.editableTargets.length >= 2,
     ungroup: unblocked && selection.editableTargets.some((target) => target.kind === 'group'),
     rotate: isRotatableSelection(selection),
     unlock: locked,
@@ -62,7 +60,6 @@ export function selectionIncludesPlants(selection: CanvasDesignObjectSelectionMo
 
 export function canSaveSelectionAsObjectStamp(selection: CanvasDesignObjectSelectionModel): boolean {
   return selection.editableTargets.length + selection.lockedTargets.length > 0
-    && !hasMeasurementGuideTarget(selection)
     && !hasStructuralSelectionBlocker(selection)
 }
 
@@ -72,11 +69,6 @@ function hasStructuralSelectionBlocker(selection: CanvasDesignObjectSelectionMod
     blocked.reason !== 'locked-design-object'
     || !lockedKeys.has(targetKey(blocked.target)),
   )
-}
-
-function hasMeasurementGuideTarget(selection: CanvasDesignObjectSelectionModel): boolean {
-  return selection.editableTargets.some((target) => target.kind === 'measurement-guide')
-    || selection.lockedTargets.some((target) => target.kind === 'measurement-guide')
 }
 
 function targetKey(target: { kind: string; id: string }): string {

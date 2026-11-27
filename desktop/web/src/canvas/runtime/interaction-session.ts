@@ -16,10 +16,17 @@ import type { ReadonlySignal } from '@preact/signals'
 import type { UnitSystem } from '../../utils/format'
 import { TOOL_ROWS } from '../../app/command-table'
 import { clearSavedObjectStampDragSource, readSavedObjectStampDragName, recordRecentPlantStampSource } from '../stamp-drag-data'
-import { IDLE_CANVAS_TOOL_GUIDANCE, noteCanvasLockedMoveRefused, type CanvasToolGuidance } from '../session-state'
+import {
+  currentCanvasTouchConstrain,
+  IDLE_CANVAS_TOOL_GUIDANCE,
+  noteCanvasLockedMoveRefused,
+  setCanvasTouchConstrain,
+  type CanvasToolGuidance,
+} from '../session-state'
 import type { CanvasContextMenuCommands, CanvasFocusPort, CanvasRuntimeContextMenuAdapter, CanvasRuntimeTranslator, CanvasScrollWheelSetting } from './app-adapter'
 import { createHandleLayer, type HandleLayer } from './chrome/handle-layer'
 import { createHoverTooltip, type HoverTooltipController } from './chrome/hover-tooltip'
+import { formatHoverTooltipContent } from './hover-tooltip-content'
 import { createTextEntryHost, type TextEntryHost } from './chrome/text-entry-host'
 import { runCanvasRuntimeCleanups, throwCanvasRuntimeCleanupErrors } from './cleanup'
 import { createDomInputSource, outcomeEffects } from './input/dom-input-source'
@@ -272,6 +279,10 @@ class DefaultSceneInteractionSession implements SceneInteractionSession {
       const hostDeps: ToolHostDeps = {
         frames: this._frames,
         scene,
+        touchConstrain: {
+          read: () => currentCanvasTouchConstrain.peek(),
+          reset: () => setCanvasTouchConstrain(false),
+        },
         edits: _deps.sceneEdits,
         admission: _deps.commandAdmission,
         settled: _deps.settledReader,
@@ -832,15 +843,24 @@ class DefaultSceneInteractionSession implements SceneInteractionSession {
 
   /** The plant tooltip names the hovered plant as today: its localised common name, else the stored one, and its species. */
   private _showTooltip(tooltip: PassiveHoverAt | null): void {
-    const plant = tooltip?.target.kind === 'plant'
-      ? this._deps.getSceneStore().persisted.plants.find((entry) => entry.id === tooltip.target.id)
-      : undefined
-    if (!tooltip || !plant) {
+    if (!tooltip) {
       this._tooltip.hide()
       return
     }
-    const commonName = this._deps.getLocalizedCommonNames().get(plant.canonicalName) ?? plant.commonName
-    this._tooltip.show(tooltip.at.x, tooltip.at.y, commonName, plant.canonicalName)
+    const store = this._deps.getSceneStore()
+    const content = formatHoverTooltipContent(
+      store.persisted,
+      tooltip.target,
+      store.sessionPlane,
+      this._deps.getLocalizedCommonNames(),
+      this._deps.readUnitSystem?.() ?? 'metric',
+      this._deps.readLocale?.() ?? 'en',
+    )
+    if (!content) {
+      this._tooltip.hide()
+      return
+    }
+    this._tooltip.show(tooltip.at.x, tooltip.at.y, content.title, content.subtitle, content.subtitleItalic)
   }
 
   /**

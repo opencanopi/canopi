@@ -785,7 +785,9 @@
       "clear": "Clear selection",
       "rename": "Rename…",
       "sameSpeciesShort": "Same species",
-      "clearShort": "Clear"
+      "clearShort": "Clear",
+      "dimensions": "Dimensions",
+      "dimensionsShort": "Size"
     },
     "viewChip": "View",
     "map": {
@@ -864,7 +866,8 @@
       "pathKeys": "Alt adds a sharp point · Shift keeps 45° angles · {{mod}} turns off snapping",
       "pathTouchHint": "Drag a point to move it · drag a dot to add one · long press a point for more",
       "pathFinish": "Plant the row",
-      "options": "Options"
+      "options": "Options",
+      "constrain": "Constrain"
     },
     "placePreview": {
       "nearest": "{{distance}} to {{name}}",
@@ -1362,7 +1365,10 @@
     "placeNamed": "Place stamp {{name}}",
     "deleteNamed": "Delete stamp {{name}}",
     "actionsFor": "More actions for {{name}}",
-    "renameFailed": "Canopi couldn't rename this stamp. Try again."
+    "renameFailed": "Canopi couldn't rename this stamp. Try again.",
+    "deletedToast": "Deleted “{{name}}”",
+    "placedToast": "Placed stamp ({{summary}})",
+    "undo": "Undo"
   },
   "boundary": {
     "panelFailed": "This panel couldn’t load",
@@ -1583,7 +1589,8 @@
     "namesShown_one": "Names shown for {{shown, number}} of {{count, number}} plant in view",
     "namesShown_few": "Names shown for {{shown, number}} of {{count, number}} plants in view",
     "namesShown_many": "Names shown for {{shown, number}} of {{count, number}} plants in view",
-    "namesShown_other": "Names shown for {{shown, number}} of {{count, number}} plants in view"
+    "namesShown_other": "Names shown for {{shown, number}} of {{count, number}} plants in view",
+    "codeLabel": "Species code for {{name}}"
   },
   "geojson": {
     "import": "Import GeoJSON…",
@@ -2264,5 +2271,30 @@
   },
   "geocoding": {
     "credit": "Search by {{service}} · © OpenStreetMap contributors"
+  },
+  "inspector": {
+    "title": "Edit dimensions",
+    "close": "Close",
+    "empty": "Select an editable object to edit its dimensions.",
+    "dimensions": "Dimensions",
+    "width": "Width",
+    "height": "Height",
+    "length": "Length",
+    "rotation": "Rotation",
+    "angle": "Angle",
+    "centerLat": "Centre latitude",
+    "centerLon": "Centre longitude",
+    "side": "Side {{index}}",
+    "cornerAngle": "Angle {{index}}",
+    "style": "Zone style",
+    "fillColor": "Fill colour",
+    "strokeColor": "Stroke colour",
+    "opacity": "Opacity",
+    "canopySpread": "Canopy spread",
+    "quantity": "Quantity",
+    "plantedDate": "Planted date",
+    "notes": "Notes",
+    "noteText": "Note text",
+    "fontSize": "Text size"
   }
 }

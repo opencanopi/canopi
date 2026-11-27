@@ -18,7 +18,13 @@ import {
   currentCanvasToolGuidance,
   currentCanvasToolState,
 } from '../../canvas/session'
-import type { CanvasPlantRowGuidance, CanvasToolGuidance } from '../../canvas/session-state'
+import { TOOL_ROWS } from '../../app/command-table'
+import {
+  currentCanvasTouchConstrain,
+  toggleCanvasTouchConstrain,
+  type CanvasPlantRowGuidance,
+  type CanvasToolGuidance,
+} from '../../canvas/session-state'
 import { scrollWheel } from '../../app/settings/state'
 import { t } from '../../i18n'
 import { ButtonTooltip } from '../shared/ButtonTooltip'
@@ -200,6 +206,21 @@ export function ToolCard({ stampChooser: StampChooser }: {
  * name or the status does too. The name and the status (the row's count aside, which moves with every pointer move)
  * are the one polite live region, which stays mounted, so choosing a tool is announced. Select and Pan show no row.
  */
+function TouchConstrainButton({ tool }: { readonly tool: keyof typeof TOOL_ROWS | undefined }) {
+  if (!tool || !TOOL_ROWS[tool]?.shiftConstrains) return null
+  return (
+    <button
+      type="button"
+      className={styles.barOptions}
+      aria-pressed={currentCanvasTouchConstrain.value}
+      data-touch-constrain-toggle
+      onClick={() => toggleCanvasTouchConstrain()}
+    >
+      {t('canvas.toolCard.constrain')}
+    </button>
+  )
+}
+
 export function PhoneToolRow() {
   const { source, guidance, species, content, row, rowPath } = useToolCard(true)
   const lead = content ? cardLead(content.tool, source, guidance) : null
@@ -234,6 +255,7 @@ export function PhoneToolRow() {
         )}
       </div>
       {rowPath && <FinishButton row={rowPath} />}
+      <TouchConstrainButton tool={content?.tool} />
       {content && (
         <button
           type="button"

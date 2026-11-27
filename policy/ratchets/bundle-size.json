@@ -124,8 +124,9 @@
       "bead": "canopi-f47t.52.205"
     },
     "desktop chunk: arming": {
-      "ceiling": 6385,
-      "tolerance": 0.05
+      "ceiling": 10127,
+      "tolerance": 0.05,
+      "bead": "canopi-f47t.52.205"
     },
     "desktop chunk: boot-guard": {
       "ceiling": 6707,
@@ -336,8 +337,9 @@
       "tolerance": 0.05
     },
     "desktop chunk: session": {
-      "ceiling": 2132,
-      "tolerance": 0.05
+      "ceiling": 2299,
+      "tolerance": 0.05,
+      "bead": "canopi-f47t.52.205"
     },
     "desktop chunk: session-plane": {
       "ceiling": 2914,
@@ -398,7 +400,7 @@
       "tolerance": 0.05
     },
     "desktop chunk: zone-geometry": {
-      "ceiling": 7957,
+      "ceiling": 8544,
       "tolerance": 0.05,
       "bead": "canopi-f47t.52.205"
     },

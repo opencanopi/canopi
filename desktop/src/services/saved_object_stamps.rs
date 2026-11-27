@@ -92,6 +92,24 @@ pub fn delete_saved_object_stamp(user_db: &UserDb, id: String) -> Result<bool, S
     ))
 }
 
+pub fn restore_saved_object_stamp(
+    user_db: &UserDb,
+    mut stamp: SavedObjectStamp,
+) -> Result<SavedObjectStamp, String> {
+    let conn = user_db
+        .acquire_writable()
+        .ok_or_else(|| "store_read_only".to_owned())?;
+    let decoded =
+        decode_stamp_payload(stamp.payload_json.as_bytes()).map_err(stamp_payload_refusal)?;
+    let encoded = encode_stamp_payload(&decoded).map_err(stamp_payload_refusal)?;
+    stamp.payload_json = String::from_utf8(encoded)
+        .map_err(|_| "Saved Object Stamp payload could not be encoded as UTF-8".to_owned())?;
+    crate::db::user_db::restore_saved_object_stamp(&conn, &stamp).map_err(write_refusal(&format!(
+        "Failed to restore Saved Object Stamp '{}'",
+        stamp.id
+    )))
+}
+
 pub fn reorder_saved_object_stamps(
     user_db: &UserDb,
     ids: Vec<String>,

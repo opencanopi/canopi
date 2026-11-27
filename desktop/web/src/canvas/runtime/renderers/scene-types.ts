@@ -38,6 +38,8 @@ export interface SceneRendererSnapshot {
   readonly selectedMeasurementGuideIds: ReadonlySet<string>
   readonly highlightedPlantIds: ReadonlySet<string>
   readonly highlightedZoneIds: ReadonlySet<string>
+  readonly highlightedAnnotationIds?: ReadonlySet<string>
+  readonly highlightedMeasurementGuideIds?: ReadonlySet<string>
   readonly speciesCache: ReadonlyMap<string, SpeciesCacheEntry>
   readonly localizedCommonNames: ReadonlyMap<string, string | null>
   readonly hoveredCanonicalName: string | null

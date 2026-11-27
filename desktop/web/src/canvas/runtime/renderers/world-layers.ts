@@ -225,17 +225,24 @@ function drawZone(
   paintTokens: CanvasPaintTokens,
 ): void {
   const visual = resolveZoneVisual(zone, paintTokens)
+  const zoneOpacity = visual.opacity
   const fillColor = toPixiColor(visual.fill)
-  const fillAlpha = 0.2 * cssColorAlpha(visual.fill)
+  const fillAlpha = 0.2 * cssColorAlpha(visual.fill) * zoneOpacity
   const interactionState = resolveInteractionState(selected, highlighted, hoverState)
   const interactionVisual = interactionState ? getCanvasInteractionStrokeVisual(interactionState, paintTokens) : null
-  const stroke = resolveCasedStroke(interactionVisual, { color: visual.stroke, casing: visual.casing }, ZONE_STROKE_PX, strokeScale)
+  const baseStroke = resolveCasedStroke(interactionVisual, { color: visual.stroke, casing: visual.casing }, ZONE_STROKE_PX, strokeScale)
+  const stroke = zoneOpacity < 1 && !interactionVisual
+    ? {
+      casing: { ...baseStroke.casing, alpha: (baseStroke.casing.alpha ?? 1) * zoneOpacity },
+      stroke: { ...baseStroke.stroke, alpha: (baseStroke.stroke.alpha ?? 1) * zoneOpacity },
+    }
+    : baseStroke
   // canopi-1ecd: zone highlight fill draws on the canvas only.
   const highlightFill = highlighted && isZoneClosed(zone)
     ? { color: toPixiColor(getCanvasInteractionStrokeVisual('highlight', paintTokens).color), alpha: 0.12 }
     : null
 
-  if (reuseGeometry(graphics, [zone.zoneType, zone.points, zone.rotationDeg, fillColor, fillAlpha, highlightFill, stroke])) return
+  if (reuseGeometry(graphics, [zone.zoneType, zone.points, zone.rotationDeg, fillColor, fillAlpha, highlightFill, stroke, zoneOpacity])) return
   graphics.clear()
 
   if (!traceZonePath(graphics, zone)) return
@@ -317,7 +324,7 @@ function drawMeasurementGuide(
 
   const interactionState = resolveInteractionState(
     snapshot.selectedMeasurementGuideIds.has(guide.id),
-    false,
+    snapshot.highlightedMeasurementGuideIds?.has(guide.id) ?? false,
     hoverStateForTarget(snapshot, 'measurement-guide', guide.id),
   )
   const interactionVisual = interactionState ? getCanvasInteractionStrokeVisual(interactionState, snapshot.paintTokens) : null

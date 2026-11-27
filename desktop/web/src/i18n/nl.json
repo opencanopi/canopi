@@ -785,7 +785,9 @@
       "clear": "Selectie wissen",
       "rename": "Hernoemen…",
       "sameSpeciesShort": "Zelfde soort",
-      "clearShort": "Wissen"
+      "clearShort": "Wissen",
+      "dimensions": "Afmetingen",
+      "dimensionsShort": "Maat"
     },
     "viewChip": "Weergave",
     "map": {
@@ -864,7 +866,8 @@
       "pathKeys": "Alt plaatst een scherp punt · Shift houdt hoeken van 45° · {{mod}} zet uitlijnen uit",
       "pathTouchHint": "Sleep een punt om het te verplaatsen · sleep een stip om er een toe te voegen · houd een punt ingedrukt voor meer",
       "pathFinish": "Rij planten",
-      "options": "Opties"
+      "options": "Opties",
+      "constrain": "Beperken"
     },
     "placePreview": {
       "nearest": "{{distance}} tot {{name}}",
@@ -1362,7 +1365,10 @@
     "placeNamed": "Stempel {{name}} plaatsen",
     "deleteNamed": "Stempel {{name}} verwijderen",
     "actionsFor": "Meer acties voor {{name}}",
-    "renameFailed": "Canopi kon deze stempel niet hernoemen. Probeer het opnieuw."
+    "renameFailed": "Canopi kon deze stempel niet hernoemen. Probeer het opnieuw.",
+    "deletedToast": "‘{{name}}’ verwijderd",
+    "placedToast": "Stempel geplaatst ({{summary}})",
+    "undo": "Ongedaan maken"
   },
   "boundary": {
     "panelFailed": "Dit paneel kon niet worden geladen",
@@ -1583,7 +1589,8 @@
     "namesShown_one": "Namen getoond bij {{shown, number}} van {{count, number}} zichtbare plant",
     "namesShown_few": "Namen getoond bij {{shown, number}} van {{count, number}} zichtbare planten",
     "namesShown_many": "Namen getoond bij {{shown, number}} van {{count, number}} zichtbare planten",
-    "namesShown_other": "Namen getoond bij {{shown, number}} van {{count, number}} zichtbare planten"
+    "namesShown_other": "Namen getoond bij {{shown, number}} van {{count, number}} zichtbare planten",
+    "codeLabel": "Soortcode voor {{name}}"
   },
   "geojson": {
     "import": "GeoJSON importeren…",
@@ -2264,5 +2271,30 @@
   },
   "geocoding": {
     "credit": "Zoeken via {{service}} · © OpenStreetMap-bijdragers"
+  },
+  "inspector": {
+    "title": "Afmetingen bewerken",
+    "close": "Sluiten",
+    "empty": "Selecteer een bewerkbaar object om de afmetingen te bewerken.",
+    "dimensions": "Afmetingen",
+    "width": "Breedte",
+    "height": "Hoogte",
+    "length": "Lengte",
+    "rotation": "Rotatie",
+    "angle": "Hoek",
+    "centerLat": "Breedtegraad midden",
+    "centerLon": "Lengtegraad midden",
+    "side": "Zijde {{index}}",
+    "cornerAngle": "Hoek {{index}}",
+    "style": "Zonestijl",
+    "fillColor": "Vulkleur",
+    "strokeColor": "Lijnkleur",
+    "opacity": "Dekking",
+    "canopySpread": "Kroonbreedte",
+    "quantity": "Aantal",
+    "plantedDate": "Plantdatum",
+    "notes": "Notities",
+    "noteText": "Notitietekst",
+    "fontSize": "Tekstgrootte"
   }
 }

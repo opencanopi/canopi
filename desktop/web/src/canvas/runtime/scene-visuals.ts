@@ -26,6 +26,8 @@ export interface SceneZoneVisual {
   stroke: string
   /** Drawn under the stroke so the zone edge reads on bright or dark imagery. */
   casing: string
+  /** Unified zone opacity [0, 1] applying to fill and stroke together (2.1-Q355). */
+  opacity: number
 }
 
 export type CanvasInteractionVisualState =
@@ -76,11 +78,18 @@ export function resolveZoneVisual(
   const fill = zone.fillColor && !isThemeManagedZoneFill(zone.fillColor)
     ? zone.fillColor
     : paintTokens['zone-fill']
+  const stroke = zone.strokeColor && zone.strokeColor.trim().length > 0
+    ? zone.strokeColor
+    : paintTokens['zone-stroke']
+  const opacity = typeof zone.opacity === 'number' && Number.isFinite(zone.opacity)
+    ? Math.min(1, Math.max(0, zone.opacity))
+    : 1
 
   return {
     fill,
-    stroke: paintTokens['zone-stroke'],
+    stroke,
     casing: paintTokens['overlay-casing'],
+    opacity,
   }
 }
 

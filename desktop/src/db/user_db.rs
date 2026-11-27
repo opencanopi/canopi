@@ -445,6 +445,18 @@ pub fn delete_saved_object_stamp(conn: &Connection, id: &str) -> Result<bool, St
     Ok(deleted > 0)
 }
 
+/// Restores a previously deleted stamp row at its original id, sort_order, and timestamps (2.1-Q158).
+pub fn restore_saved_object_stamp(
+    conn: &Connection,
+    s: &SavedObjectStamp,
+) -> Result<SavedObjectStamp, rusqlite::Error> {
+    conn.execute(
+        "INSERT OR REPLACE INTO saved_object_stamps (id, name, payload_json, sort_order, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        (&s.id, &s.name, &s.payload_json, s.sort_order, &s.created_at, &s.updated_at),
+    )?;
+    conn.query_row(select_stamps!("WHERE id = ?1"), [&s.id], stamp_from_row)
+}
+
 /// Renumbers the named rows in the given order; rows not named, a newer one among them, keep their place. A list
 /// naming a newer row is refused whole: the transaction rolls back and no row is renumbered.
 pub fn reorder_saved_object_stamps(

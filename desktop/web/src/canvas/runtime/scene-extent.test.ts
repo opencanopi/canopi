@@ -106,8 +106,8 @@ describe('scene-extent', () => {
   it('collects footprint corners for plants, zones, and annotations', () => {
     const scene = makeScene()
     const points = sceneExtentPoints(scene, makePlantContext(scene))(10)
-    // 1 plant (4 corners) + 2 zones (8 corners) + 1 annotation (4 corners) = 16 points
-    expect(points).toHaveLength(16)
+    // 1 plant (4 corners) + 2 zones (8 corners) + 1 annotation (4 corners) + 1 guide (2 endpoints) = 18 points
+    expect(points).toHaveLength(18)
   })
 
   it('collects selection outlines for plants, zones, annotations, measurement guides, and groups', () => {

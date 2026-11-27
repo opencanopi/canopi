@@ -13,6 +13,8 @@ export interface PlacementFragment<TScene = unknown> {
   readonly label: string
   readonly sceneObjects: readonly TScene[]
   readonly documentPatch?: Partial<DeepReadonly<CanopiFile>>
+  /** Optional document merger for rich placements (e.g. v3 stamps adding care actions, consortiums, budget; 2.1-Q155, 2.1-M89). */
+  readonly mergeDocument?: (current: DeepReadonly<CanopiFile>) => Partial<DeepReadonly<CanopiFile>> | null
 }
 
 export interface SessionEditsHost {
@@ -33,7 +35,11 @@ export interface SessionEditsApi {
   ): HistoryEntryId | null
   reconcile(write: (current: DeepReadonly<CanopiFile>) => Partial<DeepReadonly<CanopiFile>> | null): void
   endCoalesce(key: string): void
-  recordSceneEdit(label: string, command: SceneCommand): HistoryEntryId | null
+  recordSceneEdit(
+    label: string,
+    command: SceneCommand,
+    options?: { readonly remainingPlantSpecies?: ReadonlySet<string> },
+  ): HistoryEntryId | null
   remapSceneCommands(map: (command: SceneCommand) => SceneCommand): void
   compound<TSceneResult>(
     label: string,
@@ -89,9 +95,23 @@ export function createSessionEdits(host: SessionEditsHost): SessionEditsApi {
     host.updateDesign((cur) => ({ ...cur, document: nextDoc }))
   }
 
-  const recordSceneEdit: SessionEditsApi['recordSceneEdit'] = (label, command) => {
+  const recordSceneEdit: SessionEditsApi['recordSceneEdit'] = (label, command, options) => {
     const design = host.getDesign()
     if (!design || design.readOnly) return null
+    const remaining = options?.remainingPlantSpecies
+    if (remaining && design.document.consortiums.length > 0) {
+      const nextConsortiums = design.document.consortiums.filter((entry) => {
+        const name = entry.target.kind === 'species' ? entry.target.canonical_name : null
+        return name !== null && remaining.has(name)
+      })
+      if (nextConsortiums.length < design.document.consortiums.length) {
+        const delta = diffDocumentPatch(design.document, { consortiums: nextConsortiums }) ?? { before: {}, after: {} }
+        const id = host.history.recordCompound(label, command, delta)
+        applyDocumentPatch(delta.after)
+        host.bumpHistoryTick()
+        return id
+      }
+    }
     const wasDirty = isDesignDirty(design)
     const id = host.history.recordScene(label, command)
     host.updateDesign((cur) => ({
@@ -139,6 +159,7 @@ export function createSessionEdits(host: SessionEditsHost): SessionEditsApi {
       fragment.label,
       () => ({ ...applySceneObjects(fragment.sceneObjects), result: undefined }),
       (_res, current) => {
+        if (fragment.mergeDocument) return fragment.mergeDocument(current)
         if (!fragment.documentPatch) return {}
         const fillOnly: Record<string, unknown> = {}
         for (const [key, val] of Object.entries(fragment.documentPatch)) {

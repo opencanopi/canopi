@@ -58,8 +58,8 @@ function makeSelectionModel(
     editableTargets: editableKinds.map((kind, i) => ({ kind, id: `e-${i}` })),
     lockedTargets: lockedKinds.map((kind, i) => ({ kind, id: `l-${i}` })),
     blockedTargets: [],
-    sameSpeciesReferenceCanonicalName: editableKinds.includes('plant') ? 'Malus domestica' : null,
-    plantNamePinning: { plantIds: editableKinds.includes('plant') ? ['e-0'] : [], allPinned: false },
+    sameSpeciesReferenceCanonicalName: editableKinds.includes('plant') || editableKinds.includes('group') ? 'Malus domestica' : null,
+    plantNamePinning: { plantIds: editableKinds.includes('plant') || editableKinds.includes('group') ? ['e-0'] : [], allPinned: false },
   }
 }
 
@@ -309,13 +309,13 @@ describe('object-action capability matrix (contracts §21, 2.1-Q147)', () => {
 
     // Verify 'no' cells backed by selection-gated canvas commands are disabled on Desktop (and lacking/disabled on Web),
     // and that lone-plant rotate-by-value ('partial', ADR 0015) is disabled for 1 plant and enabled for 2 plants.
-    const selectionGatedNoChecks: readonly (readonly [ObjectKind, Capability, 'canvas.selectSameSpecies' | 'canvas.groupSelected' | 'canvas.saveSelectionAsStamp'])[] = [
-      ['group', 'select-same-species', 'canvas.selectSameSpecies'],
-      ['measurement-guide', 'group-ungroup', 'canvas.groupSelected'],
-      ['measurement-guide', 'save-as-stamp', 'canvas.saveSelectionAsStamp'],
+    const selectionGatedNoChecks: readonly (readonly [ObjectKind, Capability, 'canvas.selectSameSpecies'])[] = [
+      ['zone-rect', 'select-same-species', 'canvas.selectSameSpecies'],
+      ['text-note', 'select-same-species', 'canvas.selectSameSpecies'],
+      ['measurement-guide', 'select-same-species', 'canvas.selectSameSpecies'],
     ]
     for (const [kind, cap, cmdId] of selectionGatedNoChecks) {
-      expect(CAPABILITY_MATRIX[kind][cap].state, `${kind}.${cap} expected 'no'`).toBe('no')
+      expect(['no', 'n/a'], `${kind}.${cap} expected 'no' or 'n/a'`).toContain(CAPABILITY_MATRIX[kind][cap].state)
       const row = commandRowFor(cmdId)
       const desktopCtx = fixtureContextFor([...roots[0].caps], kind, cap)
       expect(commandApplicability(row, desktopCtx), `desktop ${kind}.${cap} (${cmdId}) should be disabled`).toBe('disabled')

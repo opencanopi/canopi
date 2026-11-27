@@ -371,6 +371,10 @@ const galleryHandlers: GalleryCommandHandlers = {
     stamps = stamps.filter(stamp => stamp.id !== args.id)
     return true
   },
+  restore_saved_object_stamp: (args) => {
+    stamps = [...stamps.filter(stamp => stamp.id !== args.stamp.id), args.stamp].sort((a, b) => a.sort_order - b.sort_order)
+    return args.stamp
+  },
   reorder_saved_object_stamps: (args) => {
     stamps = args.ids.map((id, sort_order) => ({ ...stamps.find(stamp => stamp.id === id)!, sort_order }))
     return stamps

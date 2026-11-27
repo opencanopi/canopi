@@ -39,3 +39,15 @@ export function setPlantBudgetPrice(canonicalName: string, unitCost: number): vo
     }
   }, 'budget.price')
 }
+
+export function deletePlantBudgetPrice(canonicalName: string): void {
+  const target = speciesBudgetTarget(canonicalName)
+  editCurrentDesign((design) => {
+    const nextBudget = design.budget.filter((item) => {
+      const itemTarget = getBudgetSpeciesTarget(item)
+      return itemTarget === null || !targets.equals(itemTarget, target)
+    })
+    if (nextBudget.length === design.budget.length) return design
+    return { ...design, budget: nextBudget }
+  }, 'budget.delete')
+}

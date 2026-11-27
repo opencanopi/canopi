@@ -754,7 +754,7 @@ function buildNotes(createText: () => Text, notes: NoteGraphics, snapshot: Scene
     }
     const interactionState = resolveInteractionState(
       snapshot.selectedAnnotationIds.has(annotation.id),
-      false,
+      snapshot.highlightedAnnotationIds?.has(annotation.id) ?? false,
       hoverStateForTarget(snapshot, 'annotation', annotation.id),
     )
     if (interactionState && !outlineById.has(annotation.id)) {

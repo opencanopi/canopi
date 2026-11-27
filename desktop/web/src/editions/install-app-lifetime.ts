@@ -3,7 +3,6 @@
  * (2.1-Q45, ADR 0022, ADR 0024). Invariant: Desktop and Web boot modules call `installAppLifetime(...)` once rather
  * than importing these installers directly.
  */
-import { installConsortiumSync } from '../app/consortium/workflow'
 import { installCanvasHostRuntime } from '../app/canvas-map-surface/use-canvas-host'
 import { installLiveSessionCore, type SessionCore } from '../app/document-session/live-core'
 import { registerDesignOpenFailurePresenter, type DesignOpenFailurePresenter } from '../app/document-session/open-failure'
@@ -30,7 +29,6 @@ export function installAppLifetime(options: AppLifetimeInstallOptions): () => vo
   const disposers: Array<() => void> = [
     // Window error hooks first so any failure during startup reaches the failure ring (ADR 0025).
     installFailureHooks({ storage: options.failureStorage }, target),
-    installConsortiumSync(),
     installEditionPorts(options.ports),
     installSpeciesCatalogWorkbench(options.speciesCatalog),
     installCanvasHostRuntime(options.createCanvasHostRuntime),

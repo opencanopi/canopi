@@ -1,9 +1,15 @@
 import { groupPlantsBySpecies } from '../../canvas/plant-grouping'
-import { getConsortiumCanonicalName } from '../../target'
+import { consortiumTarget, getConsortiumCanonicalName } from '../../target'
 import type { Consortium, PlacedPlant } from '../../types/design'
 import type { PlantSymbolId } from '../../canvas/runtime/scene'
 import { isEnglishFallbackName, type SpeciesKeyEntry } from '../../canvas/runtime/species-key'
-import { CONSORTIUM_STRATA, SUCCESSION_PHASE_COUNT } from '../../planning/time-model'
+import {
+  CONSORTIUM_STRATA,
+  DEFAULT_CONSORTIUM_END_PHASE,
+  DEFAULT_CONSORTIUM_START_PHASE,
+  DEFAULT_CONSORTIUM_STRATUM,
+  SUCCESSION_PHASE_COUNT,
+} from '../../planning/time-model'
 import type { ConsortiumListFilter } from '../planning-view/state'
 
 export interface ConsortiumPlanningProjection {
@@ -189,5 +195,18 @@ function filterActiveConsortiumEntries(
   plants: readonly PlacedPlant[],
 ): Consortium[] {
   const activeSpecies = new Set(plants.map((plant) => plant.canonical_name))
-  return entries.filter((entry) => activeSpecies.has(getConsortiumCanonicalName(entry)))
+  const existing = entries.filter((entry) => activeSpecies.has(getConsortiumCanonicalName(entry)))
+  const covered = new Set(existing.map((entry) => getConsortiumCanonicalName(entry)))
+  const derived: Consortium[] = []
+  for (const plant of plants) {
+    if (covered.has(plant.canonical_name)) continue
+    covered.add(plant.canonical_name)
+    derived.push({
+      target: consortiumTarget(plant.canonical_name),
+      stratum: DEFAULT_CONSORTIUM_STRATUM,
+      start_phase: DEFAULT_CONSORTIUM_START_PHASE,
+      end_phase: DEFAULT_CONSORTIUM_END_PHASE,
+    })
+  }
+  return [...existing, ...derived]
 }

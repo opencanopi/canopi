@@ -785,7 +785,9 @@
       "clear": "選択を解除",
       "rename": "名前を変更…",
       "sameSpeciesShort": "同じ種",
-      "clearShort": "解除"
+      "clearShort": "解除",
+      "dimensions": "寸法",
+      "dimensionsShort": "寸法"
     },
     "viewChip": "表示",
     "map": {
@@ -864,7 +866,8 @@
       "pathKeys": "Alt で鋭い点を置く · Shift で 45° に固定 · {{mod}} でスナップをオフ",
       "pathTouchHint": "点をドラッグして移動 · 印をドラッグして点を追加 · 点を長押しでその他",
       "pathFinish": "列を植える",
-      "options": "オプション"
+      "options": "オプション",
+      "constrain": "固定"
     },
     "placePreview": {
       "nearest": "{{name}} まで {{distance}}",
@@ -1362,7 +1365,10 @@
     "placeNamed": "スタンプ「{{name}}」を配置",
     "deleteNamed": "スタンプ「{{name}}」を削除",
     "actionsFor": "{{name}}のその他の操作",
-    "renameFailed": "Canopi はこのスタンプの名前を変更できませんでした。もう一度お試しください。"
+    "renameFailed": "Canopi はこのスタンプの名前を変更できませんでした。もう一度お試しください。",
+    "deletedToast": "「{{name}}」を削除しました",
+    "placedToast": "スタンプを配置しました（{{summary}}）",
+    "undo": "元に戻す"
   },
   "boundary": {
     "panelFailed": "このパネルを読み込めませんでした",
@@ -1583,7 +1589,8 @@
     "namesShown_one": "表示中の植物 {{count, number}} 本のうち {{shown, number}} 本に名前を表示",
     "namesShown_few": "表示中の植物 {{count, number}} 本のうち {{shown, number}} 本に名前を表示",
     "namesShown_many": "表示中の植物 {{count, number}} 本のうち {{shown, number}} 本に名前を表示",
-    "namesShown_other": "表示中の植物 {{count, number}} 本のうち {{shown, number}} 本に名前を表示"
+    "namesShown_other": "表示中の植物 {{count, number}} 本のうち {{shown, number}} 本に名前を表示",
+    "codeLabel": "{{name}} の種コード"
   },
   "geojson": {
     "import": "GeoJSON をインポート…",
@@ -2264,5 +2271,30 @@
   },
   "geocoding": {
     "credit": "{{service}} による検索 · © OpenStreetMap 貢献者"
+  },
+  "inspector": {
+    "title": "寸法を編集",
+    "close": "閉じる",
+    "empty": "編集可能なオブジェクトを選択して寸法を編集してください。",
+    "dimensions": "寸法",
+    "width": "幅",
+    "height": "高さ",
+    "length": "長さ",
+    "rotation": "回転",
+    "angle": "角度",
+    "centerLat": "中心緯度",
+    "centerLon": "中心経度",
+    "side": "辺 {{index}}",
+    "cornerAngle": "角 {{index}}",
+    "style": "ゾーンスタイル",
+    "fillColor": "塗りつぶし色",
+    "strokeColor": "枠線の色",
+    "opacity": "不透明度",
+    "canopySpread": "樹冠幅",
+    "quantity": "数量",
+    "plantedDate": "植栽日",
+    "notes": "メモ",
+    "noteText": "メモ本文",
+    "fontSize": "文字サイズ"
   }
 }

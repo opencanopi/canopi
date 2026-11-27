@@ -785,7 +785,9 @@
       "clear": "Effacer la sélection",
       "rename": "Renommer…",
       "sameSpeciesShort": "Même espèce",
-      "clearShort": "Effacer"
+      "clearShort": "Effacer",
+      "dimensions": "Dimensions",
+      "dimensionsShort": "Taille"
     },
     "viewChip": "Affichage",
     "map": {
@@ -864,7 +866,8 @@
       "pathKeys": "Alt place un point anguleux · Maj garde des angles de 45° · {{mod}} désactive le magnétisme",
       "pathTouchHint": "Faites glisser un point pour le déplacer · faites glisser une pastille pour en ajouter un · appui long sur un point pour plus d’options",
       "pathFinish": "Planter la rangée",
-      "options": "Options"
+      "options": "Options",
+      "constrain": "Contraindre"
     },
     "placePreview": {
       "nearest": "{{distance}} de {{name}}",
@@ -1362,7 +1365,10 @@
     "placeNamed": "Placer le tampon {{name}}",
     "deleteNamed": "Supprimer le tampon {{name}}",
     "actionsFor": "Autres actions pour {{name}}",
-    "renameFailed": "Canopi n’a pas pu renommer ce tampon. Réessayez."
+    "renameFailed": "Canopi n’a pas pu renommer ce tampon. Réessayez.",
+    "deletedToast": "« {{name}} » supprimé",
+    "placedToast": "Tampon placé ({{summary}})",
+    "undo": "Annuler"
   },
   "boundary": {
     "panelFailed": "Ce panneau n’a pas pu se charger",
@@ -1583,7 +1589,8 @@
     "namesShown_one": "Noms affichés pour {{shown, number}} plante sur {{count, number}} visible",
     "namesShown_few": "Noms affichés pour {{shown, number}} plantes sur {{count, number}} visibles",
     "namesShown_many": "Noms affichés pour {{shown, number}} plantes sur {{count, number}} visibles",
-    "namesShown_other": "Noms affichés pour {{shown, number}} plantes sur {{count, number}} visibles"
+    "namesShown_other": "Noms affichés pour {{shown, number}} plantes sur {{count, number}} visibles",
+    "codeLabel": "Code espèce pour {{name}}"
   },
   "geojson": {
     "import": "Importer du GeoJSON…",
@@ -2264,5 +2271,30 @@
   },
   "geocoding": {
     "credit": "Recherche par {{service}} · © contributeurs OpenStreetMap"
+  },
+  "inspector": {
+    "title": "Modifier les dimensions",
+    "close": "Fermer",
+    "empty": "Sélectionnez un objet modifiable pour éditer ses dimensions.",
+    "dimensions": "Dimensions",
+    "width": "Largeur",
+    "height": "Hauteur",
+    "length": "Longueur",
+    "rotation": "Rotation",
+    "angle": "Angle",
+    "centerLat": "Latitude du centre",
+    "centerLon": "Longitude du centre",
+    "side": "Côté {{index}}",
+    "cornerAngle": "Angle {{index}}",
+    "style": "Style de zone",
+    "fillColor": "Couleur de remplissage",
+    "strokeColor": "Couleur de contour",
+    "opacity": "Opacité",
+    "canopySpread": "Envergure",
+    "quantity": "Quantité",
+    "plantedDate": "Date de plantation",
+    "notes": "Notes",
+    "noteText": "Texte de la note",
+    "fontSize": "Taille du texte"
   }
 }

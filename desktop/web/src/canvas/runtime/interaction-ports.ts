@@ -148,6 +148,8 @@ export interface ToolHostDeps {
   }
   /** Optional hook run after the host itself switches tools (e.g. a tool requesting Select) so the session can reconfigure. */
   readonly onToolChanged?: (id: ToolId, previous?: ToolId) => void
+  /** Touch constraint toggle (2.1-Q158 / T11): read on modifier resolution and reset on tool switch. */
+  readonly touchConstrain?: { readonly read: () => boolean; readonly reset: () => void }
   readonly settings: ToolSettingsPort
   /** Snap to grid, read at each point (interaction-session.ts wires the runtime settings adapter's readSnapToGridEnabled);
    *  the shape tools/snapping.ts takes. */

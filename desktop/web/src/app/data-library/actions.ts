@@ -172,8 +172,8 @@ export function addToDesign(role: LibraryItemRole, id: string): void {
  * Remove one reference from the current Design.
  *
  * A Design Edit, not a library operation: the item stays in the library and
- * in other Designs. Like every Design Edit it is saved continuously and has
- * no undo.
+ * in other Designs. Like every Design Edit it is saved continuously and
+ * participates in Design Undo (`core.document`).
  */
 export function removeFromDesign(id: string): void {
   removePresentedEntities([id])

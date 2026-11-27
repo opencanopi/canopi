@@ -25,7 +25,11 @@ interface CanvasRuntimeChromeSettingsSnapshot {
 export interface CanvasRuntimeSceneSessionAdapter {
   readonly canUndo: ReadonlySignal<boolean>
   readonly canRedo: ReadonlySignal<boolean>
-  recordSceneEdit(label: string, command: SceneCommand): void
+  recordSceneEdit(
+    label: string,
+    command: SceneCommand,
+    options?: { readonly remainingPlantSpecies?: ReadonlySet<string> },
+  ): void
   undo(): void
   redo(): void
   remapSceneCommands?(map: (command: SceneCommand) => SceneCommand): void
@@ -45,6 +49,7 @@ export interface CanvasRuntimeSavedObjectStampCapture {
   readonly scene: ScenePersistedState
   readonly selection: CanvasDesignObjectSelectionModel
   readonly localizedCommonNames: ReadonlyMap<string, string | null>
+  readonly design?: CanopiFile | null
 }
 
 export interface CanvasRuntimeSavedObjectStampAdapter {

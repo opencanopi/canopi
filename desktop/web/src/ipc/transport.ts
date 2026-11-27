@@ -134,6 +134,7 @@ const SILENT_UNTYPED: ReadonlyMap<string, SilentRow> = new Map<string, SilentRow
   ['create_saved_object_stamp', USER_DB_REFUSED],
   ['rename_saved_object_stamp', USER_DB_REFUSED],
   ['delete_saved_object_stamp', USER_DB_REFUSED],
+  ['restore_saved_object_stamp', USER_DB_REFUSED],
   ['reorder_saved_object_stamps', USER_DB_REFUSED],
   ['remove_recent_design', USER_DB_REFUSED],
   ['toggle_favorite', USER_DB_REFUSED],

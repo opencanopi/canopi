@@ -785,7 +785,9 @@
       "clear": "Auswahl aufheben",
       "rename": "Umbenennen…",
       "sameSpeciesShort": "Gleiche Art",
-      "clearShort": "Aufheben"
+      "clearShort": "Aufheben",
+      "dimensions": "Maße",
+      "dimensionsShort": "Größe"
     },
     "viewChip": "Ansicht",
     "map": {
@@ -864,7 +866,8 @@
       "pathKeys": "Alt setzt einen scharfen Eckpunkt · Umschalt hält 45°-Winkel · {{mod}} schaltet das Einrasten aus",
       "pathTouchHint": "Punkt ziehen verschiebt ihn · Markierung ziehen fügt einen hinzu · langes Drücken auf einen Punkt zeigt mehr",
       "pathFinish": "Reihe pflanzen",
-      "options": "Optionen"
+      "options": "Optionen",
+      "constrain": "Ausrichten"
     },
     "placePreview": {
       "nearest": "{{distance}} bis {{name}}",
@@ -1362,7 +1365,10 @@
     "placeNamed": "Stempel {{name}} setzen",
     "deleteNamed": "Stempel {{name}} löschen",
     "actionsFor": "Weitere Aktionen für {{name}}",
-    "renameFailed": "Canopi konnte diesen Stempel nicht umbenennen. Versuchen Sie es erneut."
+    "renameFailed": "Canopi konnte diesen Stempel nicht umbenennen. Versuchen Sie es erneut.",
+    "deletedToast": "„{{name}}“ gelöscht",
+    "placedToast": "Stempel platziert ({{summary}})",
+    "undo": "Rückgängig"
   },
   "boundary": {
     "panelFailed": "Dieser Bereich konnte nicht geladen werden",
@@ -1583,7 +1589,8 @@
     "namesShown_one": "Namen für {{shown, number}} von {{count, number}} sichtbaren Pflanze",
     "namesShown_few": "Namen für {{shown, number}} von {{count, number}} sichtbaren Pflanzen",
     "namesShown_many": "Namen für {{shown, number}} von {{count, number}} sichtbaren Pflanzen",
-    "namesShown_other": "Namen für {{shown, number}} von {{count, number}} sichtbaren Pflanzen"
+    "namesShown_other": "Namen für {{shown, number}} von {{count, number}} sichtbaren Pflanzen",
+    "codeLabel": "Kürzel für {{name}}"
   },
   "geojson": {
     "import": "GeoJSON importieren…",
@@ -2264,5 +2271,30 @@
   },
   "geocoding": {
     "credit": "Suche über {{service}} · © OpenStreetMap-Mitwirkende"
+  },
+  "inspector": {
+    "title": "Maße bearbeiten",
+    "close": "Schließen",
+    "empty": "Wählen Sie ein bearbeitbares Objekt aus, um seine Maße zu bearbeiten.",
+    "dimensions": "Maße",
+    "width": "Breite",
+    "height": "Höhe",
+    "length": "Länge",
+    "rotation": "Drehung",
+    "angle": "Winkel",
+    "centerLat": "Mittelpunkt Breitengrad",
+    "centerLon": "Mittelpunkt Längengrad",
+    "side": "Seite {{index}}",
+    "cornerAngle": "Winkel {{index}}",
+    "style": "Zonenstil",
+    "fillColor": "Füllfarbe",
+    "strokeColor": "Rahmenfarbe",
+    "opacity": "Deckkraft",
+    "canopySpread": "Kronendurchmesser",
+    "quantity": "Anzahl",
+    "plantedDate": "Pflanzdatum",
+    "notes": "Notizen",
+    "noteText": "Notiztext",
+    "fontSize": "Textgröße"
   }
 }

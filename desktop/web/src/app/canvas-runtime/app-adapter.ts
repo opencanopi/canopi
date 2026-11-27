@@ -44,8 +44,8 @@ export function createAppCanvasRuntimeAppAdapter(
     sceneSession: {
       canUndo,
       canRedo,
-      recordSceneEdit: (label, command) => {
-        getLiveSessionCore()?.recordSceneEdit(label, command)
+      recordSceneEdit: (label, command, options) => {
+        getLiveSessionCore()?.recordSceneEdit(label, command, options)
       },
       undo: () => {
         getLiveSessionCore()?.undo()

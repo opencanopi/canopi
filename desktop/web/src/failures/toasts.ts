@@ -13,6 +13,9 @@ interface ToastSpec {
   readonly key: string
   readonly message: LocaleKey
   readonly params?: Readonly<Record<string, string | number>>
+  /** Optional single action button (e.g. Undo on delete). */
+  readonly actionLabel?: LocaleKey
+  readonly onAction?: () => void
   /** How long it stays when nobody hovers or focuses it; the slot's default when omitted. */
   readonly timeoutMs?: number
 }

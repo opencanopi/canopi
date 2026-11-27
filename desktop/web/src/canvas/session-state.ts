@@ -25,6 +25,20 @@ export function setCanvasDesignPinHovered(hovered: boolean): void {
   currentCanvasDesignPinHovered.value = hovered
 }
 
+/** Touch constraint toggle (T11): constrains drawing/rotation on touch devices just like holding Shift. */
+export const currentCanvasTouchConstrain = signal(false)
+
+export function setCanvasTouchConstrain(active: boolean): void {
+  if (currentCanvasTouchConstrain.peek() === active) return
+  currentCanvasTouchConstrain.value = active
+}
+
+export function toggleCanvasTouchConstrain(): boolean {
+  const next = !currentCanvasTouchConstrain.peek()
+  currentCanvasTouchConstrain.value = next
+  return next
+}
+
 /** A drag refused by a lock (2.1-Q177): a fresh notice per refused drag, which the lock toast shows until dismissed. It
  *  belongs to the mounted canvas: the toast clears it when the canvas chrome unmounts, so the next canvas never replays it
  *  (canopi-eon8.14.3). */

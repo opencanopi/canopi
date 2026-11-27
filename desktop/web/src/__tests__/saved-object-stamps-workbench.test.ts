@@ -251,18 +251,18 @@ describe('Saved Object Stamp Workbench', () => {
     expect(payload.anchor).toEqual({ x: 12, y: 24 })
     expect(payload.plants).toEqual([{
       id: 'plant-1',
-      canonicalName: 'Malus domestica',
-      commonName: 'Apple',
+      canonical_name: 'Malus domestica',
+      common_name: 'Apple',
       color: '#c0442e',
       symbol: 'canopy',
       position: { x: 12, y: 24 },
-      rotationDeg: 15,
-      scale: 2,
+      rotation_deg: 15,
+      canopy_spread_m: 2,
+      locked: true,
+      notes: 'nursery note',
+      planted_date: '2026-04-01',
+      quantity: 3,
     }])
-    expect(payload.plants[0]).not.toHaveProperty('locked')
-    expect(payload.plants[0]).not.toHaveProperty('notes')
-    expect(payload.plants[0]).not.toHaveProperty('plantedDate')
-    expect(payload.plants[0]).not.toHaveProperty('quantity')
   })
 
   it('captures the effective Plant Symbol inherited from species defaults', async () => {
@@ -464,8 +464,7 @@ describe('Saved Object Stamp Workbench', () => {
     await workbench.saveSelection(captureFromQuery(query))
 
     const payload = JSON.parse(createStamp.mock.calls[0]![1])
-    expect(payload.zones[0]).not.toHaveProperty('locked')
-    expect(payload.zones[0]).not.toHaveProperty('notes')
+    expect(payload.zones[0]).toMatchObject({ locked: true, notes: 'mulch' })
     expect(payload.groups).toEqual([{
       id: 'group-1',
       name: 'Guild',

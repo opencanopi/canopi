@@ -109,8 +109,8 @@ const SHED_LEFT = { x: 150, y: 240 }
 const WEST_RIGHT = { x: -230, y: 240 }
 const EAST_LEFT = { x: -220, y: 240 }
 
-/** The picks whose zone has edges for "Turn view to this edge": every zone but the pond (an ellipse); g, by its plot. */
-const PICKS_WITH_EDGES: ReadonlySet<string | null> = new Set(['zone:bed', 'zone:field', 'zone:plot', 'zone:inner', 'zone:hedge', 'zone:shed', 'zone:west', 'zone:east', 'group:g'])
+/** The picks whose zone or guide has edges for "Turn view to this edge": every zone but the pond (an ellipse), g by its plot, and measurement guides (2.1-T10). */
+const PICKS_WITH_EDGES: ReadonlySet<string | null> = new Set(['zone:bed', 'zone:field', 'zone:plot', 'zone:inner', 'zone:hedge', 'zone:shed', 'zone:west', 'zone:east', 'group:g', 'measurement-guide:guide'])
 
 const both = (row: Omit<Row, 'pointer'>): Row[] => [{ ...row, pointer: 'mouse' }, { ...row, pointer: 'touch' }]
 

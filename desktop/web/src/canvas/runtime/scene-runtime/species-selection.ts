@@ -2,6 +2,7 @@ import {
   getSceneGroupedMemberKeys,
   isSceneLayerEditable,
   normalizeSceneDesignObjectTargets,
+  resolveSceneObjectGroupMembers,
   sceneTargetKey,
   type SceneDesignObjectSelection,
   type SceneDesignObjectTarget,
@@ -50,12 +51,28 @@ export function getSameSpeciesReferenceCanonicalName(
 ): string | null {
   if (targets.length === 0) return null
   const canonicalNames = new Set<string>()
-  for (const target of targets) {
-    if (target.kind !== 'plant') return null
-    const plant = scene.plants.find((entry) => entry.id === target.id)
-    if (!plant) return null
+  const collectPlant = (plantId: string): boolean => {
+    const plant = scene.plants.find((entry) => entry.id === plantId)
+    if (!plant) return false
     canonicalNames.add(plant.canonicalName)
-    if (canonicalNames.size > 1) return null
+    return canonicalNames.size <= 1
+  }
+  for (const target of targets) {
+    if (target.kind === 'plant') {
+      if (!collectPlant(target.id)) return null
+      continue
+    }
+    if (target.kind === 'group') {
+      const group = scene.groups.find((entry) => entry.id === target.id)
+      if (!group) return null
+      const members = resolveSceneObjectGroupMembers(scene, group)
+      if (members.length === 0) return null
+      for (const member of members) {
+        if (member.kind !== 'plant' || !collectPlant(member.id)) return null
+      }
+      continue
+    }
+    return null
   }
   return [...canonicalNames][0] ?? null
 }

@@ -26,11 +26,11 @@ export function sceneObjectGroupMemberKey(member: SceneObjectGroupMember): strin
   return sceneTargetKey(member)
 }
 
-/** Returns a group member for UI `group-selected` (excludes groups and measurement guides). */
+/** Returns a group member for UI `group-selected` (excludes nested groups; flat groups only, 2.1-Q154). */
 export function sceneObjectGroupMemberFromTarget(
   target: SceneDesignObjectTarget,
 ): SceneObjectGroupMember | null {
-  if (target.kind === 'group' || target.kind === 'measurement-guide') return null
+  if (target.kind === 'group') return null
   return { kind: target.kind, id: target.id }
 }
 

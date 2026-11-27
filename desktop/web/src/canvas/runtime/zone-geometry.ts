@@ -303,6 +303,59 @@ export function dispatchZoneByShape<Z extends ZoneLike, T>(
   }
 }
 
+export interface ZoneAxisFrame {
+  readonly center: ScenePoint
+  readonly halfWidth: number
+  readonly halfHeight: number
+  readonly rotationDeg: number
+}
+
+/** Axis frame (centre, half-extents, rotation) for a `rect` or `ellipse` zone; null otherwise. */
+export function getZoneAxisFrame(zone: SceneZoneEntity): ZoneAxisFrame | null {
+  if (zone.zoneType === 'rect' && zone.points.length >= 4) {
+    const bounds = pointsBounds(zone.points.slice(0, 4))
+    return {
+      center: { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 },
+      halfWidth: bounds.width / 2,
+      halfHeight: bounds.height / 2,
+      rotationDeg: zone.rotationDeg,
+    }
+  }
+  if (zone.zoneType === 'ellipse' && zone.points.length >= 2) {
+    return {
+      center: { x: zone.points[0]!.x, y: zone.points[0]!.y },
+      halfWidth: Math.abs(zone.points[1]!.x),
+      halfHeight: Math.abs(zone.points[1]!.y),
+      rotationDeg: zone.rotationDeg,
+    }
+  }
+  return null
+}
+
+/** Builds stored zone points for a `rect` (4 unrotated corners) or `ellipse` (`[center, radii]`). */
+export function buildFramedZonePoints(
+  zone: Pick<SceneZoneEntity, 'zoneType'>,
+  center: ScenePoint,
+  halfWidth: number,
+  halfHeight: number,
+): ScenePoint[] | null {
+  if (zone.zoneType === 'rect') {
+    return [
+      { x: center.x - halfWidth, y: center.y - halfHeight },
+      { x: center.x + halfWidth, y: center.y - halfHeight },
+      { x: center.x + halfWidth, y: center.y + halfHeight },
+      { x: center.x - halfWidth, y: center.y + halfHeight },
+    ]
+  }
+  if (zone.zoneType === 'ellipse') {
+    return [
+      { x: center.x, y: center.y },
+      { x: halfWidth, y: halfHeight },
+    ]
+  }
+  return null
+}
+
 export function getZoneOutlinePoints(zone: SceneZoneEntity, ellipseSegments = 48): ScenePoint[] {
   if (zone.zoneType === 'rect') return getRectangularZoneCorners(zone) ?? []
   if (zone.zoneType === 'ellipse') return getEllipticalZonePolygon(zone, ellipseSegments) ?? []

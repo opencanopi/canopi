@@ -785,7 +785,9 @@
       "clear": "Снять выделение",
       "rename": "Переименовать…",
       "sameSpeciesShort": "Тот же вид",
-      "clearShort": "Снять"
+      "clearShort": "Снять",
+      "dimensions": "Размеры",
+      "dimensionsShort": "Размер"
     },
     "viewChip": "Вид",
     "map": {
@@ -864,7 +866,8 @@
       "pathKeys": "Alt ставит острую точку · Shift держит углы 45° · {{mod}} отключает привязку",
       "pathTouchHint": "Перетащите точку, чтобы сдвинуть · перетащите метку, чтобы добавить точку · долгое нажатие на точку — другие действия",
       "pathFinish": "Посадить ряд",
-      "options": "Параметры"
+      "options": "Параметры",
+      "constrain": "Ограничить"
     },
     "placePreview": {
       "nearest": "{{distance}} до «{{name}}»",
@@ -1362,7 +1365,10 @@
     "placeNamed": "Разместить штамп {{name}}",
     "deleteNamed": "Удалить штамп {{name}}",
     "actionsFor": "Другие действия: {{name}}",
-    "renameFailed": "Canopi не удалось переименовать штамп. Попробуйте ещё раз."
+    "renameFailed": "Canopi не удалось переименовать штамп. Попробуйте ещё раз.",
+    "deletedToast": "«{{name}}» удалён",
+    "placedToast": "Штамп размещён ({{summary}})",
+    "undo": "Отменить"
   },
   "boundary": {
     "panelFailed": "Не удалось загрузить эту панель",
@@ -1583,7 +1589,8 @@
     "namesShown_one": "Названия показаны у {{shown, number}} из {{count, number}} растения в кадре",
     "namesShown_few": "Названия показаны у {{shown, number}} из {{count, number}} растений в кадре",
     "namesShown_many": "Названия показаны у {{shown, number}} из {{count, number}} растений в кадре",
-    "namesShown_other": "Названия показаны у {{shown, number}} из {{count, number}} растения в кадре"
+    "namesShown_other": "Названия показаны у {{shown, number}} из {{count, number}} растения в кадре",
+    "codeLabel": "Код вида для {{name}}"
   },
   "geojson": {
     "import": "Импорт GeoJSON…",
@@ -2264,5 +2271,30 @@
   },
   "geocoding": {
     "credit": "Поиск через {{service}} · © участники OpenStreetMap"
+  },
+  "inspector": {
+    "title": "Изменить размеры",
+    "close": "Закрыть",
+    "empty": "Выберите редактируемый объект, чтобы изменить его размеры.",
+    "dimensions": "Размеры",
+    "width": "Ширина",
+    "height": "Высота",
+    "length": "Длина",
+    "rotation": "Поворот",
+    "angle": "Угол",
+    "centerLat": "Широта центра",
+    "centerLon": "Долгота центра",
+    "side": "Сторона {{index}}",
+    "cornerAngle": "Угол {{index}}",
+    "style": "Стиль зоны",
+    "fillColor": "Цвет заливки",
+    "strokeColor": "Цвет контура",
+    "opacity": "Непрозрачность",
+    "canopySpread": "Диаметр кроны",
+    "quantity": "Количество",
+    "plantedDate": "Дата посадки",
+    "notes": "Заметки",
+    "noteText": "Текст заметки",
+    "fontSize": "Размер текста"
   }
 }
