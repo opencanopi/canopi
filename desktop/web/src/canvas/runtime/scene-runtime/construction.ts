@@ -5,7 +5,7 @@ import { createSceneCanvasCommandSurface } from '../command-surface'
 import { createSceneCanvasDocumentSurface, type SceneCanvasDocumentSurface } from '../document-surface'
 import { createSceneCanvasQuerySurface, type SceneCanvasQuerySurface } from '../query-surface'
 import { SceneCanvasInspectionOwner } from '../inspection-lens'
-import type { ToolId } from '../interaction-types'
+import type { MapInputHandle, MapInputRequest, ToolId, ToolSource } from '../interaction-types'
 import type {
   CanvasCommandSurface,
   CanvasPlantRowPathCommands,
@@ -74,8 +74,11 @@ export interface SceneRuntimeConstructionCallbacks {
   readonly canRedoTransientHistory: () => boolean
   readonly undoTransientHistory: () => boolean
   readonly redoTransientHistory: () => boolean
-  readonly setInteractionTool: (id: ToolId) => void
-  readonly readInteractionTool: () => ToolId | null
+  readonly armInteractionTool: <T = unknown>(
+    id: ToolId,
+    source?: ToolSource | null,
+    request?: MapInputRequest<T>,
+  ) => MapInputHandle<T>
   readonly plantRowSpacing: CanvasPlantRowSpacingField
   readonly plantRowPath: CanvasPlantRowPathCommands
   readonly disposeInteraction: () => void
@@ -269,6 +272,7 @@ export function createSceneRuntimeConstruction(
       getSuggestedPlantColor: (canonicalName) =>
         presentation.getSuggestedPlantColor(canonicalName),
     },
+    getBearingDeg: () => cameraHost.frames.viewFrame.peek().view.camera.bearingDeg,
     invalidateScene: () => callbacks.invalidate(),
   })
   const reorigin = new SceneRuntimeReoriginController({
@@ -321,8 +325,7 @@ export function createSceneRuntimeConstruction(
     sceneEdits,
     presentation,
     settings: appAdapter.settings,
-    setInteractionTool: callbacks.setInteractionTool,
-    readInteractionTool: callbacks.readInteractionTool,
+    armInteractionTool: callbacks.armInteractionTool,
     plantRowSpacing: callbacks.plantRowSpacing,
     plantRowPath: callbacks.plantRowPath,
     invalidate: callbacks.invalidate,

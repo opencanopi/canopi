@@ -10,9 +10,9 @@ import type {
 } from '../../generated/edition-capabilities'
 import { SHELL_COMMAND_REQUIRES, type ShellCommandId } from './commands'
 import { PANEL_DESCRIPTORS } from './panels'
-import { TOOL_ROWS, type ToolId } from './tools'
+import { isToolId, TOOL_ROWS, type ToolId } from './tools'
 
-export type CanvasCommandId =
+type CanvasCommandId =
   | 'edit.undo'
   | 'edit.redo'
   | 'canvas.tool.select'
@@ -55,12 +55,12 @@ export type CanvasCommandId =
   | 'view.searchPlace'
   | 'view.cycleLabels'
 
-export type CommandId = ShellCommandId | CanvasCommandId
+type CommandId = ShellCommandId | CanvasCommandId
 
 export type CommandOrToolId = CommandId | ToolId
 
 /** Mirrors `SelectionCommandAvailability` (single runtime predicate for selection commands). */
-export interface SelectionAvailabilityContext {
+interface SelectionAvailabilityContext {
   readonly copy: boolean
   readonly edit: boolean
   readonly group: boolean
@@ -168,11 +168,11 @@ export const CANVAS_COMMAND_ROWS: Readonly<Record<CanvasCommandId, CommandOrTool
   'canvas.tool.measurementGuide': { id: 'canvas.tool.measurementGuide', needsSpatialEditing: true },
   'canvas.toggleGrid': { id: 'canvas.toggleGrid', needsCanvas: true },
   'canvas.toggleSnapToGrid': { id: 'canvas.toggleSnapToGrid', needsCanvas: true },
-  'canvas.cut': { id: 'canvas.cut', needsSpatialEditing: true, selectionPredicate: 'copy' },
+  'canvas.cut': { id: 'canvas.cut', needsSpatialEditing: true, selectionPredicate: 'copy', blockedByHold: true },
   'canvas.copy': { id: 'canvas.copy', needsCanvas: true, selectionPredicate: 'copy' },
   'canvas.paste': { id: 'canvas.paste', needsSpatialEditing: true, needsPaste: true },
   'canvas.duplicateSelected': { id: 'canvas.duplicateSelected', needsSpatialEditing: true, selectionPredicate: 'edit' },
-  'canvas.deleteSelected': { id: 'canvas.deleteSelected', needsSpatialEditing: true, selectionPredicate: 'copy' },
+  'canvas.deleteSelected': { id: 'canvas.deleteSelected', needsSpatialEditing: true, selectionPredicate: 'copy', blockedByHold: true },
   'canvas.selectAll': { id: 'canvas.selectAll', needsCanvas: true },
   'canvas.selectSameSpecies': { id: 'canvas.selectSameSpecies', needsCanvas: true, selectionPredicate: 'selectSameSpecies' },
   'canvas.clearSelection': { id: 'canvas.clearSelection', needsCanvas: true, selectionPredicate: 'non-empty' },
@@ -208,7 +208,7 @@ const PANEL_REQUIRES_BY_ID = new Map<string, readonly EditionCapabilityId[]>(
 /** Single source of truth resolving any command or tool id to its `CommandOrToolRow` (contracts §21, 2.1-M164). */
 export function commandRowFor(id: CommandOrToolId): CommandOrToolRow {
   if (id in CANVAS_COMMAND_ROWS) return CANVAS_COMMAND_ROWS[id as CanvasCommandId]
-  if (id in TOOL_ROWS) return TOOL_ROWS[id as ToolId]
+  if (isToolId(id)) return TOOL_ROWS[id]
   const requires = PANEL_REQUIRES_BY_ID.get(id) ?? SHELL_COMMAND_REQUIRES[id as ShellCommandId]
   return requires ? { id, requires } : { id }
 }

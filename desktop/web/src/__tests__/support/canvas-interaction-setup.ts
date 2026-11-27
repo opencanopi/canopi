@@ -6,7 +6,7 @@ import { signal } from '@preact/signals'
 import { afterEach, beforeEach, expect, vi } from 'vitest'
 import { clearPlantStampSource } from '../../canvas/plant-stamp-source'
 import { clearSavedObjectStampSource } from '../../canvas/saved-object-stamp-source'
-import { IDLE_CANVAS_TOOL_GUIDANCE, currentCanvasSelection, setCanvasTool, setCanvasToolGuidance } from '../../canvas/session-state'
+import { IDLE_CANVAS_TOOL_GUIDANCE, currentCanvasSelection, setCanvasToolGuidance } from '../../canvas/session-state'
 import { h, render as renderPreact } from 'preact'
 import { setupRerender, teardown as teardownPreactTestUtils } from 'preact/test-utils'
 import { ToolCard } from '../../components/canvas/ToolCard'
@@ -15,7 +15,7 @@ import { closeCanvasContextMenu, openCanvasContextMenu } from '../../app/canvas-
 import { focusOwner } from '../../app/keyboard/focus-owner'
 import { setCurrentCanvasSession } from '../../canvas/session'
 import { createTestCanvasCommandSurface, createTestCanvasDocumentSurface, createTestCanvasKeyboardPort } from './canvas-runtime-surfaces'
-import { createTestCanvasQuerySurface } from './canvas-query-surface'
+import { createTestCanvasQuerySurface, type TestCanvasQuerySurface } from './canvas-query-surface'
 import { plantSpacingIntervalM, singleKeyShortcuts, snapToGridEnabled } from '../../app/settings/state'
 import { installKeyRouter, type KeyRouterHandle } from '../../app/keyboard/key-router'
 import { CANVAS_KEYMAP_ROWS } from '../../app/keyboard/keymap'
@@ -711,6 +711,7 @@ export function installSceneInteractionFixture(
 
   let toolCardHost: HTMLDivElement
   let flushToolCard: () => void
+  let sessionQueries: TestCanvasQuerySurface
   /** The app's own menu, once a test asks for it (appContextMenu). */
   let appMenuHost: HTMLDivElement | null = null
   let keyRouter: KeyRouterHandle
@@ -721,11 +722,17 @@ export function installSceneInteractionFixture(
   function createTestSession(deps: SceneInteractionSessionDeps): SceneInteractionSession {
     const session = createSceneInteractionSession(deps)
     renderedSession = session
-    // The runtime mirrors the session's tool for the tool card, as the command surface does.
+    // The runtime mirrors the session's tool for the tool card, as the query surface does.
     const setTool = session.setTool.bind(session)
     session.setTool = (name) => {
       setTool(name)
-      setCanvasTool(name)
+      sessionQueries.setActiveTool(name)
+    }
+    const arm = session.arm.bind(session)
+    session.arm = (id, source, request) => {
+      const handle = arm(id, source, request)
+      sessionQueries.setActiveTool(id)
+      return handle
     }
     sessions.push(session)
     return session
@@ -796,6 +803,7 @@ export function installSceneInteractionFixture(
     flushToolCard = setupRerender()
     const latest = () => sessions[sessions.length - 1]?.plantRowSpacing
     const latestPath = () => sessions[sessions.length - 1]?.plantRowPath
+    sessionQueries = createTestCanvasQuerySurface()
     setCurrentCanvasSession({
       commands: createTestCanvasCommandSurface({
         tools: {
@@ -811,7 +819,7 @@ export function installSceneInteractionFixture(
           },
         },
       }),
-      queries: createTestCanvasQuerySurface(),
+      queries: sessionQueries,
       documents: createTestCanvasDocumentSurface(),
       keyboard: createTestCanvasKeyboardPort(),
     })
@@ -871,7 +879,6 @@ export function installSceneInteractionFixture(
     releaseMapRegion()
     teardownPreactTestUtils()
     setCurrentCanvasSession(null)
-    setCanvasTool('select')
     setCanvasToolGuidance(IDLE_CANVAS_TOOL_GUIDANCE)
     container.remove()
     currentCanvasSelection.value = new Set()

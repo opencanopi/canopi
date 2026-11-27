@@ -14,6 +14,7 @@ import {
   rotateZoneAbout,
 } from '../scene-runtime/selection-rotation'
 import type { ScenePoint } from '../scene/types'
+import { createScreenAlignedBounds } from './hit-testing'
 import type { DraftShape } from './draft'
 
 const STAMP_GHOST_OPACITY = 0.62
@@ -85,4 +86,26 @@ const NO_OBJECTS: SceneArrangementTemplate = Object.freeze({ plants: [], zones: 
 
 function ghostOf(template: SceneArrangementTemplate, opacity: number): DraftShape {
   return { kind: 'ghost', opacity, entity: { kind: 'objects', template } }
+}
+
+/**
+ * The centre of a stamp template's screen-aligned bounding box at `bearingDeg` (2.1-Q89):
+ * at bearing 0 this equals the world AABB centre; on a turned map it projects onto the
+ * screen's right/down axes (`right = (cos θ, sin θ)`, `down = (-sin θ, cos θ)`).
+ */
+export function screenAlignedTemplateCenter(
+  template: SceneArrangementTemplate,
+  bearingDeg: number,
+): ScenePoint | null {
+  const box = createScreenAlignedBounds(bearingDeg)
+  for (const { entity } of template.plants) box.addPoint(entity.position)
+  for (const { entity } of template.zones) box.addZone(entity)
+  for (const { entity } of template.annotations) box.addPoint(entity.position)
+  for (const { entity } of template.measurementGuides) box.addPoints([entity.start, entity.end])
+  return box.center()
+}
+
+/** The centre of a stamp template's world-axis-aligned bounding box. */
+export function worldTemplateCenter(template: SceneArrangementTemplate): ScenePoint | null {
+  return screenAlignedTemplateCenter(template, 0)
 }

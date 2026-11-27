@@ -145,13 +145,8 @@
       "tool": "ast-grep",
       "ledger": "2.1-M189",
       "adr": "0018",
-      "owner_today": "desktop/web/src/canvas/runtime/tool-id.ts",
-      "owner_target": {
-        "path": "desktop/web/src/app/command-table/tools.ts",
-        "phase": "2c",
-        "bead": "canopi-f47t.52.5"
-      },
-      "example": "desktop/web/src/canvas/runtime/tool-id.ts",
+      "owner_today": "desktop/web/src/app/command-table/tools.ts",
+      "example": "desktop/web/src/app/command-table/tools.ts",
       "note": "a tool id literal is compared, armed or set as a tool only through the tool rows (DR23 context pattern)"
     },
     {
@@ -756,7 +751,8 @@
         "desktop/web/src/app/document-session/core/session-core.ts",
         "desktop/web/src/editions/desktop/session-ports.ts",
         "desktop/web/src/editions/web/session-ports.ts",
-        "desktop/web/src/app/saved-object-stamps/workbench.ts"
+        "desktop/web/src/app/saved-object-stamps/workbench.ts",
+        "desktop/web/src/canvas/runtime/tools/tool-host.ts"
       ],
       "owner_target": {
         "path": "desktop/web/src/failures",

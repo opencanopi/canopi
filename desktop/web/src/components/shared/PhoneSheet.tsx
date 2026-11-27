@@ -10,8 +10,8 @@ import {
   type PhoneSheetHeight,
 } from '../../app/shell/phone-layout'
 import { isSidePanel } from '../../app/shell/state'
-import { currentCanvasTool, currentCanvasToolGuidance } from '../../canvas/session-state'
-import type { ToolId } from '../../canvas/runtime/tool-id'
+import { currentCanvasTool, currentCanvasToolGuidance } from '../../canvas/session'
+import type { ToolId } from '../../app/command-table'
 import { framingMapFrame } from '../../app/shell/visible-map-area'
 import { DOCK_KEY_REGION } from '../../app/keyboard/target-class'
 import { t } from '../../i18n'

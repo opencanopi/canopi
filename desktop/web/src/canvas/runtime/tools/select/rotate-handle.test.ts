@@ -11,7 +11,11 @@ import {
 import type { ScreenPoint } from '../../../../geo/view/types'
 import { getEllipticalZonePolygon, getRectangularZoneCorners } from '../../zone-geometry'
 import { createToolScene } from '../spatial-index'
-import { ROTATE_HANDLE_ID, rotationReadout } from './rotate-handle'
+import { beginRotation, ROTATE_HANDLE_ID, rotationReadout } from './rotate-handle'
+import { selectionScreenHull } from './selection-hull'
+import type { ToolContext, ToolPoint, ToolScene, ToolView } from '../tool'
+import type { CanvasDesignObjectSelectionModel } from '../../runtime'
+import type { ScenePersistedState } from '../../scene/types'
 
 const harnesses: ToolHarness[] = []
 
@@ -292,5 +296,80 @@ describe('Select rotation handle', () => {
 
     expect(h.store.persisted.zones[0]!.rotationDeg).toBe(0)
     expect(h.history.canUndo.value).toBe(false)
+  })
+
+  it('pivots rotation on the centre of the screen-aligned box on a turned map (2.1-Q89)', () => {
+    const rad = (45 * Math.PI) / 180
+    const c = Math.cos(rad)
+    const s = Math.sin(rad)
+    const worldToScreen = (p: { readonly x: number; readonly y: number }) => ({ x: p.x * c - p.y * s, y: p.x * s + p.y * c })
+    const screenToWorld = (p: { readonly x: number; readonly y: number }) => ({ x: p.x * c + p.y * s, y: -p.x * s + p.y * c })
+    const view = {
+      bearingDeg: 45,
+      zoom: 18,
+      mode: 'site',
+      worldToScreen,
+      screenToWorld,
+      worldDeltaToScreen: worldToScreen,
+      screenDeltaToWorld: screenToWorld,
+      screenAxesInWorld: () => ({ right: screenToWorld({ x: 1, y: 0 }), down: screenToWorld({ x: 0, y: 1 }) }),
+      metresPerPixelAt: () => 1,
+      screenDistance: (a: { readonly x: number; readonly y: number }, b: { readonly x: number; readonly y: number }) =>
+        Math.hypot(worldToScreen(a).x - worldToScreen(b).x, worldToScreen(a).y - worldToScreen(b).y),
+      clampToView: (p: { readonly x: number; readonly y: number }) => p,
+    } as unknown as ToolView
+    const zone = {
+      id: 'z-1',
+      layer_id: 'zones',
+      name: 'L-bed',
+      zone_type: 'polygon',
+      points: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 2 }, { x: 2, y: 2 }, { x: 2, y: 10 }, { x: 0, y: 10 }],
+      rotation: 0,
+      locked: false,
+    }
+    const sceneState = {
+      plants: [],
+      zones: [zone],
+      annotations: [],
+      measurement_guides: [],
+      groups: [],
+      layers: [{ id: 'zones', name: 'zones', visible: true, locked: false, opacity: 1 }],
+    } as unknown as ScenePersistedState
+    const selection: CanvasDesignObjectSelectionModel = {
+      targets: [{ kind: 'zone', id: 'z-1' }],
+      editableTargets: [{ kind: 'zone', id: 'z-1' }],
+      lockedTargets: [],
+      blockedTargets: [],
+      bounds: { minX: 0, minY: 0, maxX: 10, maxY: 10 },
+      hasLocked: false,
+      allLocked: false,
+    } as unknown as CanvasDesignObjectSelectionModel
+    const scene = {
+      persisted: sceneState,
+      state: () => sceneState,
+      selection: () => selection.editableTargets,
+      selectionModel: () => selection,
+    } as unknown as ToolScene
+    const hull = selectionScreenHull(scene, selection, view)!
+    expect(hull).not.toBeNull()
+    const screenBoxCenter = { x: (hull[0].x + hull[2].x) / 2, y: (hull[0].y + hull[2].y) / 2 }
+    expect(Math.hypot(screenBoxCenter.x - 5, screenBoxCenter.y - 5)).toBeGreaterThan(0.5)
+    const ctx = {
+      scene,
+      view,
+      effects: { edits: { begin: vi.fn(() => ({ mutate: vi.fn(), commit: vi.fn(), abort: vi.fn(), changed: false })) } },
+    } as unknown as ToolContext
+    const start = {
+      world: { x: 10, y: 10 },
+      free: { x: 10, y: 10 },
+      constrained: { x: 10, y: 10 },
+      snapped: { x: 10, y: 10 },
+      modifiers: { additive: false, subtractive: false, constrain: false, noSnap: false },
+      pointer: 'mouse',
+    } as ToolPoint
+    const drag = beginRotation(ctx, sceneState, start)
+    expect(drag).not.toBeNull()
+    expect(drag!.pivot.x).toBeCloseTo(screenBoxCenter.x, 6)
+    expect(drag!.pivot.y).toBeCloseTo(screenBoxCenter.y, 6)
   })
 })

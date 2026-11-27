@@ -16,21 +16,44 @@
 // zone and selects it. Its draft is a fill-only polygon of the corners, the rubber band, a disc per corner and the edge
 // and area chips (tools/measure-labels.ts), whose edge chips re-cull on every camera frame.
 
-import { CLOSE_DISTANCE_PX, isSamePoint } from '../../point-editor/rules'
-import type { ToolId } from '../interaction-types'
+import { CLOSE_DISTANCE_PX, isSamePoint, pointMenuItems, pointPressIntent } from '../../point-editor/rules'
+import type { ToolHandleId, ToolId } from '../interaction-types'
 import type { GroundMeasure } from '../../../geo/session-plane'
 import type { WorldPoint } from '../../../geo/view/types'
 import { createPolygonalZoneDraftMeasurements } from '../zone-measurements'
-import type { DraftShape, DraftStroke } from './draft'
+import type { DraftShape, DraftStroke, ToolHandle } from './draft'
 import { measureLabelShapes } from './measure-labels'
+import { handleSizeFor } from './select/handle-size'
 import type { CanvasTool, ToolCommand, ToolContext, ToolGesture, ToolPoint, ToolReply, ToolScene, ToolView } from './tool'
 import { appendPolygonZoneToDraft } from './tool-actions'
 import { DRAFT_STROKE, ZONE_DRAFT_FILL } from './zone-drag'
 
+/** The owner of the draft's point and dot handles (`point:draft:<i>`, `dot:draft:<i>`). */
+const DRAFT_OWNER = 'draft'
+
+function draftHandleId(role: 'point' | 'dot', index: number): ToolHandleId {
+  return `${role}:${DRAFT_OWNER}:${index}` as ToolHandleId
+}
+
+function parseDraftHandle(id: string): { readonly role: 'point' | 'dot'; readonly index: number } | null {
+  const role = id.startsWith(`point:${DRAFT_OWNER}:`) ? 'point' : id.startsWith(`dot:${DRAFT_OWNER}:`) ? 'dot' : null
+  if (!role) return null
+  const raw = id.slice(role.length + DRAFT_OWNER.length + 2)
+  const index = Number(raw)
+  if (!raw || !Number.isInteger(index) || index < 0) return null
+  return { role, index }
+}
+
+/** A live press on a drafted point or midpoint dot, and where the pointer has taken it. */
+type DraftPointDrag =
+  | { readonly kind: 'move'; readonly index: number; at: WorldPoint | null; readonly closeOnTap: boolean }
+  | { readonly kind: 'insert'; readonly after: number; at: WorldPoint | null }
+
 /** The corners' fill carries no stroke: the rubber band draws the edges. */
 const FILL_ONLY: DraftStroke = Object.freeze({ token: 'draft', widthPx: 0 })
+const VERTEX_MARKER_STYLE: DraftStroke = Object.freeze({ token: 'draft', widthPx: 3.5 })
 /** A light disc of radius 3.5 px on a 1 px casing ring (plan §1, exception 2), at each point of a vertex path. */
-export const VERTEX_MARKER = Object.freeze({ radiusPx: 1.75, style: Object.freeze({ token: 'draft', widthPx: 3.5 }) as DraftStroke })
+export const VERTEX_MARKER = Object.freeze({ radiusPx: 1.75, style: VERTEX_MARKER_STYLE })
 
 /** What one vertex-path tool needs beyond the shared grammar. */
 export interface VertexPathSpec {
@@ -80,10 +103,15 @@ const POLYGON: VertexPathSpec = {
 export function createVertexPathTool(spec: VertexPathSpec): CanvasTool {
   let ctx: ToolContext | null = null
   let points: WorldPoint[] = []
-  let redo: WorldPoint[] = []
+  let undoStack: WorldPoint[][] = []
+  let redoStack: WorldPoint[][] = []
   /** Where the rubber band ends: the pointer, or the last point placed. */
   let active: WorldPoint | null = null
+  let pointDrag: DraftPointDrag | null = null
+  /** The drafted point Delete takes when no point handle has focus: the one last pressed, moved or inserted. */
+  let touched: number | null = null
   let drawn = false
+  let handlesPublished = false
 
   function context(): ToolContext {
     if (!ctx) throw new Error(`The ${spec.id} tool is not active`)
@@ -91,24 +119,83 @@ export function createVertexPathTool(spec: VertexPathSpec): CanvasTool {
   }
 
   function hasTransient(): boolean {
-    return points.length > 0 || redo.length > 0
+    return points.length > 0 || redoStack.length > 0
   }
 
   function canDraw(): boolean {
     return spec.canDraw?.(context().scene) ?? true
   }
 
+  function shownPoints(): readonly WorldPoint[] {
+    const drag = pointDrag
+    if (!drag?.at) return points
+    if (drag.kind === 'move') {
+      return points.map((point, index) => (index === drag.index ? drag.at! : point))
+    }
+    const next = [...points]
+    next.splice(drag.after + 1, 0, drag.at)
+    return next
+  }
+
+  function draftHandles(tool: ToolContext, pts: readonly WorldPoint[]): ToolHandle[] {
+    if (pts.length === 0) return []
+    const size = handleSizeFor(tool.pointer())
+    const handles: ToolHandle[] = pts.map((anchor, index) => ({
+      id: draftHandleId('point', index),
+      anchor,
+      hitRadiusPx: size.pointRadiusPx,
+      glyph: 'corner',
+      label: tool.translate('canvas.plantRow.point', { index: index + 1 }),
+    }))
+    // While a point or midpoint dot is dragging, hide dots so they do not chase the pointer.
+    if (pointDrag || pts.length < 2) return handles
+    for (let index = 0; index < pts.length - 1; index += 1) {
+      const from = pts[index]!
+      const to = pts[index + 1]!
+      if (tool.view.screenDistance(from, to) < size.minMidpointEdgePx) continue
+      handles.push({
+        id: draftHandleId('dot', index),
+        anchor: { x: (from.x + to.x) / 2, y: (from.y + to.y) / 2 },
+        hitRadiusPx: size.midpointRadiusPx,
+        glyph: 'midpoint',
+        label: tool.translate('canvas.plantRow.dot', { index: index + 1 }),
+      })
+    }
+    return handles
+  }
+
   function redraw(): void {
-    const { effects, scene, view } = context()
+    const tool = context()
+    const { effects, scene, view } = tool
     effects.setGuidance({ gesture: points.length > 0 })
     if (points.length === 0) {
+      if (handlesPublished) {
+        handlesPublished = false
+        effects.setHandles([])
+      }
       if (!drawn) return
       drawn = false
       effects.setDraft(null)
       return
     }
     drawn = true
-    effects.setDraft({ shapes: spec.draft(points, active, view, scene.groundMeasure) })
+    const shown = shownPoints()
+    effects.setDraft({ shapes: spec.draft(shown, pointDrag ? null : active, view, scene.groundMeasure) })
+    const handles = draftHandles(tool, shown)
+    const touchedId = touched !== null ? draftHandleId('point', touched) : null
+    const activeHandle = touchedId !== null && handles.some((handle) => handle.id === touchedId)
+      ? touchedId
+      : null
+    handlesPublished = true
+    effects.setHandles(handles, activeHandle)
+  }
+
+  /** Records a transient edit step and clears the redo stack. */
+  function commitPoints(next: WorldPoint[]): void {
+    undoStack = [...undoStack, points]
+    points = next
+    redoStack = []
+    if (points.length === 0) active = null
   }
 
   function press(point: ToolPoint, clickCount: number): void {
@@ -137,8 +224,8 @@ export function createVertexPathTool(spec: VertexPathSpec): CanvasTool {
       return
     }
     if (points.length === 0) spec.onFirstPoint?.(context())
-    points = [...points, next]
-    redo = []
+    commitPoints([...points, next])
+    touched = null
     active = next
     redraw()
   }
@@ -158,11 +245,132 @@ export function createVertexPathTool(spec: VertexPathSpec): CanvasTool {
     return nearest
   }
 
-  /** Alt+press: the point goes, and the redo with it (a new edit, as a new point). */
+  /** Deletes point `index` and records the transient step. */
   function deletePoint(index: number): void {
-    points = points.filter((_, at) => at !== index)
-    redo = []
-    if (points.length === 0) active = null
+    if (index < 0 || index >= points.length) return
+    commitPoints(points.filter((_, at) => at !== index))
+    touched = null
+    pointDrag = null
+    redraw()
+  }
+
+  function pointIndexOf(handle: ToolHandleId): number | null {
+    const parsed = parseDraftHandle(handle)
+    return parsed?.role === 'point' ? parsed.index : null
+  }
+
+  function focusedPointIndex(): number | null {
+    const focused = context().focusedHandle()
+    return focused !== null ? pointIndexOf(focused) : null
+  }
+
+  function deletePointIfAllowed(index: number | null): ToolReply {
+    if (index === null || points.length <= 1 || !points[index]) return 'pass'
+    deletePoint(index)
+    return 'handled'
+  }
+
+  function reply(handled: boolean): ToolReply {
+    return handled ? 'handled' : 'pass'
+  }
+
+  function confirmCommand(): ToolReply {
+    if (points.length === 0) return 'pass'
+    finish()
+    return 'handled'
+  }
+
+  function removeLastCommand(): ToolReply {
+    const index = focusedPointIndex()
+    if (index !== null && points.length > 1) {
+      deletePoint(index)
+      return 'handled'
+    }
+    return reply(undo())
+  }
+
+  function deleteFocusedOrTouched(): ToolReply {
+    return deletePointIfAllowed(focusedPointIndex() ?? touched)
+  }
+
+  function pointActionCommand(c: Extract<ToolCommand, { kind: 'point-action' }>): ToolReply {
+    return c.action === 'delete-point' ? deletePointIfAllowed(pointIndexOf(c.handle)) : 'pass'
+  }
+
+  /** A press on one of the draft's point or midpoint-dot handles (2.1-Q88, Plant a row's grammar). */
+  function handlePress(handle: ToolHandleId, point: ToolPoint, clickCount: number): boolean {
+    const parsed = parseDraftHandle(handle)
+    if (!parsed || points.length === 0) return false
+    const { role, index } = parsed
+    const intent = pointPressIntent({
+      role,
+      clickCount,
+      alt: point.modifiers.subtractive,
+      isLastDraftPoint: role === 'point' && index === points.length - 1,
+    })
+    switch (intent) {
+      case 'finish':
+        finish()
+        return true
+      case 'delete':
+        deletePoint(index)
+        return true
+      case 'move': {
+        if (!points[index]) return false
+        const closeOnTap = index === 0 && Boolean(spec.closesAt) && points.length >= spec.minPoints && clickCount === 1
+        touched = index
+        pointDrag = { kind: 'move', index, at: null, closeOnTap }
+        redraw()
+        return true
+      }
+      case 'insert': {
+        const from = points[index]
+        const to = points[index + 1]
+        if (!from || !to) return false
+        const mid: WorldPoint = { x: (from.x + to.x) / 2, y: (from.y + to.y) / 2 }
+        const next = [...points]
+        next.splice(index + 1, 0, mid)
+        commitPoints(next)
+        touched = index + 1
+        redraw()
+        return true
+      }
+      case 'insert-drag':
+        if (index < 0 || index >= points.length - 1) return false
+        pointDrag = { kind: 'insert', after: index, at: null }
+        redraw()
+        return true
+    }
+  }
+
+  function handleMove(at: WorldPoint): void {
+    if (!pointDrag) return
+    pointDrag.at = at
+    redraw()
+  }
+
+  function handleRelease(): void {
+    const drag = pointDrag
+    pointDrag = null
+    if (!drag) return
+    if (!drag.at) {
+      if (drag.kind === 'move' && drag.closeOnTap) {
+        finish()
+        return
+      }
+      redraw()
+      return
+    }
+    if (drag.kind === 'move') {
+      const next = points.map((point, index) => (index === drag.index ? drag.at! : point))
+      commitPoints(next)
+      touched = drag.index
+    } else {
+      const next = [...points]
+      next.splice(drag.after + 1, 0, drag.at)
+      commitPoints(next)
+      touched = drag.after + 1
+    }
     redraw()
   }
 
@@ -182,26 +390,32 @@ export function createVertexPathTool(spec: VertexPathSpec): CanvasTool {
   }
 
   function undo(): boolean {
-    const removed = points[points.length - 1]
-    if (!removed) return false
-    redo = [...redo, removed]
-    points = points.slice(0, -1)
+    const prev = undoStack[undoStack.length - 1]
+    if (!prev) return false
+    undoStack = undoStack.slice(0, -1)
+    redoStack = [...redoStack, points]
+    points = [...prev]
+    pointDrag = null
+    touched = null
     if (points.length === 0) active = null
     redraw()
     return true
   }
 
   function redoPoint(): boolean {
-    const restored = redo[redo.length - 1]
+    const restored = redoStack[redoStack.length - 1]
     if (!restored) return false
-    redo = redo.slice(0, -1)
-    points = [...points, restored]
-    if (active === null) active = restored
+    redoStack = redoStack.slice(0, -1)
+    undoStack = [...undoStack, points]
+    points = [...restored]
+    pointDrag = null
+    touched = null
+    if (active === null && points.length > 0) active = points[points.length - 1]!
     redraw()
     return true
   }
 
-  /** Esc (A17): the last point goes onto the redo stack; the last one left takes the redo with it, so the next Esc
+  /** Esc (A17): the last step goes onto the redo stack; the last point left takes the redo with it, so the next Esc
    *  leaves the tool; a redo-only history goes, and the tool asks for Select in the same press. */
   function stepBack(): boolean {
     if (points.length > 1) return undo()
@@ -209,7 +423,7 @@ export function createVertexPathTool(spec: VertexPathSpec): CanvasTool {
       drop()
       return true
     }
-    if (redo.length === 0) return false
+    if (redoStack.length === 0) return false
     drop()
     context().effects.requestTool('select')
     return true
@@ -217,8 +431,11 @@ export function createVertexPathTool(spec: VertexPathSpec): CanvasTool {
 
   function drop(): void {
     points = []
-    redo = []
+    undoStack = []
+    redoStack = []
     active = null
+    pointDrag = null
+    touched = null
     redraw()
   }
 
@@ -233,15 +450,20 @@ export function createVertexPathTool(spec: VertexPathSpec): CanvasTool {
   return {
     id: spec.id,
     constraint() {
+      if (pointDrag) return null
       const last = points[points.length - 1]
       return last ? { kind: 'direction', origin: last, stepDeg: 45 } : null
     },
     activate(next) {
       ctx = next
       points = []
-      redo = []
+      undoStack = []
+      redoStack = []
       active = null
+      pointDrag = null
+      touched = null
       drawn = false
+      handlesPublished = false
     },
     gesture(g: ToolGesture): ToolReply {
       switch (g.kind) {
@@ -252,25 +474,52 @@ export function createVertexPathTool(spec: VertexPathSpec): CanvasTool {
         case 'drag-start':
         case 'drag-move':
           return follow(g.point)
+        case 'handle-drag':
+          if (g.phase === 'start') return handlePress(g.handle, g.point, g.clickCount) ? 'handled' : 'pass'
+          if (g.phase === 'move') {
+            if (!pointDrag) return 'pass'
+            handleMove(g.point.snapped)
+            return 'handled'
+          }
+          if (!pointDrag) return 'pass'
+          handleRelease()
+          return 'handled'
+        case 'cancel':
+          if (pointDrag) {
+            pointDrag = null
+            redraw()
+          }
+          return 'pass'
         // The press added the point: a tap or a drag's end adds nothing, and a cancel keeps the draft.
-        default:
+        case 'drag-end':
+        case 'hover-end':
+        case 'tap':
           return 'pass'
       }
     },
     command(c: ToolCommand): ToolReply {
       switch (c.kind) {
         case 'confirm':
-          if (points.length === 0) return 'pass'
-          finish()
-          return 'handled'
+          return confirmCommand()
         case 'remove-last':
+          return removeLastCommand()
         case 'undo-transient':
-          return undo() ? 'handled' : 'pass'
+          return reply(undo())
         case 'redo-transient':
-          return redoPoint() ? 'handled' : 'pass'
+          return reply(redoPoint())
+        case 'delete-handle':
+          return deleteFocusedOrTouched()
+        case 'point-action':
+          return pointActionCommand(c)
         case 'escape':
-          return stepBack() ? 'handled' : 'pass'
-        default:
+          return reply(stepBack())
+        case 'edit-text':
+        case 'place-at':
+        case 'rotate-held':
+        case 'spacing-cancel':
+        case 'spacing-commit':
+        case 'spacing-input':
+        case 'spacing-mode':
           return 'pass'
       }
     },
@@ -278,16 +527,25 @@ export function createVertexPathTool(spec: VertexPathSpec): CanvasTool {
       if (points.length > 0) redraw()
     },
     canFinish: () => points.length >= spec.minPoints,
+    pointMenu(handle) {
+      const index = pointIndexOf(handle)
+      if (index === null || !points[index]) return []
+      return pointMenuItems({ sharpable: false, sharp: false, canDelete: points.length > 1 })
+    },
     hasTransient,
     cancelTransient(reason) {
       // An interruption keeps the draft only while it has points (today's hasPolygonDraft): a redo-only history goes.
       if (reason === 'navigate' && points.length > 0) return
       if (hasTransient()) drop()
     },
-    canUndoTransient: () => points.length > 0,
-    canRedoTransient: () => redo.length > 0,
+    canUndoTransient: () => undoStack.length > 0,
+    canRedoTransient: () => redoStack.length > 0,
     deactivate() {
       if (hasTransient()) drop()
+      else if (handlesPublished) {
+        handlesPublished = false
+        ctx?.effects.setHandles([])
+      }
     },
   }
 }

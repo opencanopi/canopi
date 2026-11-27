@@ -1,5 +1,5 @@
 import { locale } from '../../app/settings/state'
-import { plantColorMenuOpen } from '../../canvas/plant-color-menu-state'
+import { plantColorMenuOpen, setPlantColorMenuOpen } from '../../app/canvas-context-menu/state'
 import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks'
 import {
   currentCanvasPlantPresentationCommandSurface,
@@ -45,7 +45,7 @@ const HUE_STRIP_BACKGROUND = `
 `
 
 function closeMenu(buttonRef?: AppearanceAnchorRef) {
-  plantColorMenuOpen.value = false
+  setPlantColorMenuOpen(false)
   buttonRef?.current?.focus()
 }
 

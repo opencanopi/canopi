@@ -1,7 +1,6 @@
 import type { SpeciesFocusCommands } from './species-key'
 import { computed, type ReadonlySignal } from '@preact/signals'
-import { setCanvasTool } from '../session-state'
-import type { ToolId } from './interaction-types'
+import type { MapInputHandle, MapInputRequest, ToolId, ToolSource } from './interaction-types'
 import type {
   CanvasRuntimeSavedObjectStampAdapter,
   CanvasRuntimeSettingsAdapter,
@@ -111,9 +110,7 @@ interface SceneCanvasCommandSurfaceOptions {
     CanvasRuntimeSettingsAdapter,
     'toggleGridVisible' | 'toggleSnapToGrid'
   >
-  readonly setInteractionTool: (id: ToolId) => void
-  /** The tool the interaction session has armed now, or null without a session. */
-  readonly readInteractionTool: () => ToolId | null
+  readonly armInteractionTool: <T = unknown>(id: ToolId, source?: ToolSource | null, request?: MapInputRequest<T>) => MapInputHandle<T>
   /** The active interaction session's Plant a row spacing field. */
   readonly plantRowSpacing: CanvasPlantRowSpacingField
   /** The active interaction session's Plant a row path commands (the tool card's check button and mode switch). */
@@ -164,7 +161,8 @@ class SceneCanvasCommandRole implements CanvasCommandSurface {
 
     this.speciesFocus = options.speciesFocus
     this.tools = {
-      setTool: (id) => this.setTool(id),
+      arm: (id, source, request) => this.options.armInteractionTool(id, source, request),
+      setTool: (id) => { void this.options.armInteractionTool(id) },
       plantRowSpacing: options.plantRowSpacing,
       plantRowPath: options.plantRowPath,
     }
@@ -229,19 +227,6 @@ class SceneCanvasCommandRole implements CanvasCommandSurface {
       setPlantSymbolForSpecies: (canonicalName, symbol) =>
         this.options.mutations.setPlantSymbolForSpecies(canonicalName, symbol),
     }
-  }
-
-  private setTool(id: ToolId): void {
-    try {
-      this.options.setInteractionTool(id)
-    } catch (error) {
-      // A failed switch leaves the session on the tool it kept or fell back to (Select after a failed activation,
-      // the tool being left when leaving it failed): the app's own tool state follows the session, not the request.
-      const kept = this.options.readInteractionTool()
-      if (kept) setCanvasTool(kept)
-      throw error
-    }
-    setCanvasTool(id)
   }
 
   private nudgeSelected(delta: ScenePoint): boolean {

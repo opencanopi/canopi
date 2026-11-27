@@ -60,7 +60,7 @@
     "desktop/web/src/canvas/runtime/input/__fixtures__/sequences.ts": { "count": 7 },
     "desktop/web/src/canvas/runtime/input/dom-input-source.ts": { "count": 1 },
     "desktop/web/src/canvas/runtime/input/recognise.test.ts": { "count": 2 },
-    "desktop/web/src/canvas/runtime/interaction-session.ts": { "count": 3 },
+    "desktop/web/src/canvas/runtime/interaction-session.ts": { "count": 2 },
     "desktop/web/src/canvas/runtime/print-snapshot.ts": { "count": 1 },
     "desktop/web/src/canvas/runtime/renderers/pixi-scene.ts": { "count": 1 },
     "desktop/web/src/canvas/runtime/scene-runtime.test.ts": { "count": 1 },

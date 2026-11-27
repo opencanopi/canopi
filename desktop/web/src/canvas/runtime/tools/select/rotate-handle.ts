@@ -88,7 +88,13 @@ export function beginRotation(ctx: ToolContext, scene: Readonly<ScenePersistedSt
   const selection = ctx.scene.selectionModel()
   const state = captureRotationTransformState(scene, selection)
   if (!state || !selection.bounds) return null
-  const pivot = centerOfBounds(selection.bounds)
+  // 2.1-Q89: On a turned map, rotation pivots on the centre of the screen-aligned box.
+  const turned = Math.abs(((ctx.view.bearingDeg % 360) + 360) % 360) > 1e-6
+    && Math.abs((((ctx.view.bearingDeg % 360) + 360) % 360) - 360) > 1e-6
+  const hull = turned ? selectionScreenHull(ctx.scene, selection, ctx.view) : null
+  const pivot = hull
+    ? { x: (hull[0].x + hull[2].x) / 2, y: (hull[0].y + hull[2].y) / 2 }
+    : centerOfBounds(selection.bounds)
   return {
     tx: ctx.effects.edits.begin('interaction-rotate'),
     state,

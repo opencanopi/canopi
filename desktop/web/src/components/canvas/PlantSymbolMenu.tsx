@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useState } from 'preact/hooks'
 import { currentCanvasPlantPresentationCommandSurface, currentCanvasQuerySurface, currentCanvasSelection } from '../../canvas/session'
-import { plantSymbolMenuOpen } from '../../canvas/plant-symbol-menu-state'
+import { plantSymbolMenuOpen, setPlantSymbolMenuOpen } from '../../app/canvas-context-menu/state'
 import { DEFAULT_PLANT_COLOR, normalizeHexColor } from '../../canvas/plant-colors'
 import {
   DEFAULT_PLANT_SYMBOL_ID,
@@ -24,7 +24,7 @@ interface PlantSymbolMenuProps {
 const SYMBOL_GRID_COLUMNS = 5
 
 function closeMenu(buttonRef?: AppearanceAnchorRef) {
-  plantSymbolMenuOpen.value = false
+  setPlantSymbolMenuOpen(false)
   buttonRef?.current?.focus()
 }
 

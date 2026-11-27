@@ -20,7 +20,7 @@ import {
 import { createTestCanvasQuerySurface } from '../../__tests__/support/canvas-query-surface'
 import { installDesktopKeys } from '../../__tests__/support/desktop-key-router'
 import { setCurrentCanvasSession } from '../../canvas/session'
-import { currentCanvasTool, setCanvasSelection } from '../../canvas/session-state'
+import { setCanvasSelection } from '../../canvas/session-state'
 import { dispatchWorkspaceCanvasIntent, workspaceCanvasCommandProjection } from '../workspace-commands/canvas-actions'
 import { focusOwner } from '../keyboard/focus-owner'
 import { singleKeyShortcuts } from '../settings/state'
@@ -90,7 +90,6 @@ beforeEach(() => {
     keyboard: createTestCanvasKeyboardPort({ host }),
   }))
   activePanel.value = 'canvas'
-  currentCanvasTool.value = 'select'
   singleKeyShortcuts.value = true
   installSession(SHOWN, null, 'Orchard 2.1', {
     kind: 'read-only',

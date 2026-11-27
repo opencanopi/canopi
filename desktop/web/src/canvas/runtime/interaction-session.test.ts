@@ -2,43 +2,17 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { stubTool, useStubTools, type StubTool } from '../../__tests__/support/tool-harness'
-import {
-  captureWindowErrors,
-  createInteractionDeps,
-  makePlant,
-  plantTarget,
-  enterOverview,
-} from '../../__tests__/support/canvas-interaction-setup'
-import {
-  createSceneInteractionEventHarness,
-  type SceneInteractionEventHarness,
-} from '../../__tests__/support/canvas-interaction-events'
+import { captureWindowErrors, createInteractionDeps, makePlant, plantTarget, enterOverview } from '../../__tests__/support/canvas-interaction-setup'
+import { createSceneInteractionEventHarness, type SceneInteractionEventHarness } from '../../__tests__/support/canvas-interaction-events'
 import { createTestView, type TestView } from '../../__tests__/support/test-view'
 import { installCanvasKeyRouter } from '../../__tests__/support/key-router'
 import type { KeyRouterHandle } from '../../app/keyboard/key-router'
-import {
-  clearPlantStampSource,
-  readPlantStampSource,
-  selectPlantStampSource,
-  writePlantStampDragData,
-} from '../plant-stamp-source'
-import {
-  clearSavedObjectStampSource,
-  readSavedObjectStampDragPreviewSource,
-  readSavedObjectStampName,
-  readSavedObjectStampSource,
-  selectSavedObjectStampSource,
-  writeSavedObjectStampDragData,
-} from '../saved-object-stamp-source'
-import { setCanvasTool } from '../session-state'
+import { clearPlantStampSource, readPlantStampSource, selectPlantStampSource, writePlantStampDragData } from '../plant-stamp-source'
+import { clearSavedObjectStampSource, readSavedObjectStampDragPreviewSource, readSavedObjectStampName, readSavedObjectStampSource, selectSavedObjectStampSource, writeSavedObjectStampDragData } from '../saved-object-stamp-source'
 import type { CanvasFocusPort } from './app-adapter'
 import type { InputPlatform } from './input/platform'
 import type { ToolHost, ToolHostDeps, PointerWorld } from './interaction-ports'
-import {
-  createSceneInteractionSession,
-  type SceneInteractionSession,
-  type SceneInteractionSessionDeps,
-} from './interaction-session'
+import { createSceneInteractionSession, type SceneInteractionSession, type SceneInteractionSessionDeps } from './interaction-session'
 import { SceneStore } from './scene'
 import type { SceneEditCoordinator, SceneEditTransaction } from './scene-runtime/transactions'
 import type { DraftPresentation } from './tools/draft'
@@ -96,7 +70,6 @@ afterEach(() => {
   events.dispose()
   container.remove()
   useStubTools()
-  setCanvasTool('select')
   document.documentElement.removeAttribute('data-story-presenting')
   clearPlantStampSource()
   clearSavedObjectStampSource()
@@ -701,26 +674,40 @@ describe('the interaction session', () => {
     expect(session.keyboard.escapeLayers()).not.toContain('gesture')
   })
 
-  it('Profile\'s finished line and the Site data pin leave through the session deps (canopi-f47t.42)', () => {
+  it('Profile\'s finished line and siteData.pin settle through arm() requests (2c-1)', () => {
     const line = [{ x: 10, y: 20 }, { x: 60, y: 20 }]
     const profile: StubTool = stubTool('profile', {
       gesture: (g) => {
-        if (g.kind === 'tap') profile.ctx().effects.finishProfile(line)
+        if (g.kind === 'tap') profile.ctx().effects.completeRequest(line)
         return 'pass'
       },
     })
-    useStubTools(profile)
+    const sitePin: StubTool = stubTool('siteData.pin', {
+      gesture: (g) => {
+        if (g.kind === 'tap') sitePin.ctx().effects.completeRequest(g.point.world)
+        return 'handled'
+      },
+    })
+    useStubTools(profile, sitePin)
     const finishProfile = vi.fn()
     const pinAt = vi.fn()
-    const { session } = createSession({ finishProfile, pinAt })
-    session.setTool('profile')
+    const { session } = createSession()
+    session.arm('profile', null, {
+      onSettled(outcome) {
+        if (outcome.kind === 'picked') finishProfile(outcome.value)
+      },
+    })
 
     events.pointerDown({ x: 60, y: 20 }, { button: 0, detail: 0 })
     events.pointerUp({ x: 60, y: 20 }, { button: 0, detail: 0 })
     expect(finishProfile).toHaveBeenCalledWith(line)
     expect(pinAt).not.toHaveBeenCalled()
 
-    session.setTool('hand')
+    session.arm('siteData.pin', null, {
+      onSettled(outcome) {
+        if (outcome.kind === 'picked') pinAt(outcome.value)
+      },
+    })
     events.pointerDown({ x: 100, y: 100 }, { button: 0, detail: 0, timeStamp: 5000 })
     events.pointerUp({ x: 100, y: 100 }, { button: 0, detail: 0, timeStamp: 5050 })
     expect(pinAt).toHaveBeenCalledWith(testView.view().screenToWorld({ x: 100, y: 100 }))
@@ -862,7 +849,7 @@ describe('the interaction session', () => {
     }
   })
 
-  it('a session built with a stamp tool armed hands the tool its pick', () => {
+  it('arming a stamp tool hands the tool its pick', () => {
     const sources: (ToolSource | null)[] = []
     const record = {
       activate: (_ctx: unknown, source: ToolSource | null) => { sources.push(source) },
@@ -870,10 +857,9 @@ describe('the interaction session', () => {
     }
     useStubTools(stubTool('plant-stamp', record), stubTool('saved-object-stamp', record))
 
-    // The map mounts (or mounts again) with Place plants armed and a species picked: today's tool read the pick live.
     const chosen = selectPlantStampSource(SPECIES)
-    setCanvasTool('plant-stamp')
     const { session } = createSession()
+    session.setTool('plant-stamp')
     expect(sources.at(-1)).toEqual({ kind: 'species', species: chosen })
     session.dispose()
 
@@ -885,8 +871,8 @@ describe('the interaction session', () => {
       annotations: [],
       groups: [],
     } as unknown as Parameters<typeof selectSavedObjectStampSource>[0])
-    setCanvasTool('saved-object-stamp')
-    createSession()
+    const { session: stampSession } = createSession()
+    stampSession.setTool('saved-object-stamp')
     expect(sources.at(-1)).toEqual({ kind: 'saved-stamp', stamp })
   })
 
@@ -1390,13 +1376,13 @@ describe('releases the tool did not hear (today\'s pointerup cleanup)', () => {
 
   it('an activation that throws while preparing a document replacement names Select as the session\'s tool (B6)', () => {
     let activations = 0
-    const select = stubTool('select')
-    const rectangle = stubTool('rectangle', {
+    const select = stubTool('select', {
       activate: () => {
         activations += 1
-        if (activations > 1) throw new Error('activation failed')
+        if (activations === 2) throw new Error('activation failed')
       },
     })
+    const rectangle = stubTool('rectangle')
     useStubTools(select, rectangle)
     const { session } = createSession()
     session.setTool('rectangle')

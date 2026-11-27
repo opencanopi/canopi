@@ -25,23 +25,13 @@ import { t } from '../../i18n'
 import { currentPlantDisplay } from '../plant-display/state'
 import { focusOwner } from '../keyboard/focus-owner'
 
-export interface CanvasRuntimeAppCapabilities {
+export interface AppCanvasRuntimeAdapterDeps {
   readonly presentationData: CanvasRuntimePresentationDataAdapter
   readonly savedObjectStamps?: CanvasRuntimeSavedObjectStampAdapter
-  /**
-   * The Site data pin, supplied by the edition that has Site data (Desktop).
-   *
-   * It is a capability rather than an import because importing it here would
-   * pull the raster IPC and library store into the browser workspace graph,
-   * which the architecture guard forbids: Web has no raster capability.
-   */
-  readonly pinAt?: (point: { readonly x: number; readonly y: number }) => void
-  /** The Site data profile, supplied by the edition that has Site data (Desktop), for the same reason. */
-  readonly finishProfile?: (points: readonly { readonly x: number; readonly y: number }[]) => void
 }
 
 export function createAppCanvasRuntimeAppAdapter(
-  capabilities: CanvasRuntimeAppCapabilities,
+  deps: AppCanvasRuntimeAdapterDeps,
 ): CanvasRuntimeAppAdapter {
   const canUndo = computed(() => activeSessionCore.value?.canUndo.value ?? false)
   const canRedo = computed(() => activeSessionCore.value?.canRedo.value ?? false)
@@ -68,12 +58,8 @@ export function createAppCanvasRuntimeAppAdapter(
     focus: focusOwner,
     document: { composeDocumentForSave },
     contextMenu: { open: openCanvasContextMenu, close: closeCanvasContextMenu },
-    // Called per tap, so opening or closing the Site data panel needs no runtime
-    // rebuild; undefined in an edition that has no raster capability.
-    pinAt: capabilities.pinAt,
-    finishProfile: capabilities.finishProfile,
-    savedObjectStamps: capabilities.savedObjectStamps,
-    presentationData: capabilities.presentationData,
+    savedObjectStamps: deps.savedObjectStamps,
+    presentationData: deps.presentationData,
     plantDisplay: {
       // A presented story step shows its own labels; the Design's choice is untouched.
       subscribe: (onChange) => effect(() => {

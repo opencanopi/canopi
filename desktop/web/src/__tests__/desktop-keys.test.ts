@@ -2,13 +2,13 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { signal } from '@preact/signals'
-import { currentCanvasTool, currentCanvasSelection } from '../canvas/session-state'
+import { currentCanvasSelection } from '../canvas/session-state'
 import { activePanel, sidePanel } from '../app/shell/state'
 import * as documentActions from '../app/document-session/actions'
 import { commandPaletteOpen } from '../commands/registry'
 import type { KeyRouterHandle } from '../app/keyboard/key-router'
 import { installDesktopKeys } from './support/desktop-key-router'
-import { setCurrentCanvasSession } from '../canvas/session'
+import { currentCanvasTool, setCurrentCanvasSession } from '../canvas/session'
 import { designSessionFixture, markTestDesignDirty } from './support/design-session-state'
 import {
   createTestCanvasCommandSurface,
@@ -33,7 +33,6 @@ describe('Desktop keys', () => {
   beforeEach(() => {
     activePanel.value = 'canvas'
     sidePanel.value = null
-    currentCanvasTool.value = 'select'
     currentCanvasSelection.value = new Set()
     setCurrentCanvasSession(null)
     designSessionFixture.file = null
@@ -44,7 +43,6 @@ describe('Desktop keys', () => {
   afterEach(() => {
     keys.dispose()
     setCurrentCanvasSession(null)
-    currentCanvasTool.value = 'select'
     currentCanvasSelection.value = new Set()
     designSessionFixture.file = null
     commandPaletteOpen.value = false
@@ -128,12 +126,12 @@ describe('Desktop keys', () => {
     input.remove()
   })
 
-  it('falls back to priming the mirror tool state before session mount', () => {
+  it('drops a tool shortcut without priming mirror state before session mount (2.1-Q41)', () => {
     setCurrentCanvasSession(null)
 
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 't' }))
 
-    expect(currentCanvasTool.value).toBe('text')
+    expect(currentCanvasTool.value).toBe('select')
   })
 
   it('keeps panel shortcuts aligned with the command registry mapping', () => {

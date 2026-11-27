@@ -1,5 +1,4 @@
-import { computed, signal } from '@preact/signals'
-import { setCanvasTool } from './session-state'
+import { computed, signal, type ReadonlySignal } from '@preact/signals'
 import type {
   CanvasCommandSurface,
   CanvasDocumentSurface,
@@ -19,7 +18,7 @@ export const currentCanvasCommandSurface = computed<CanvasCommandSurface | null>
   currentCanvasSession.value?.commands ?? null,
 )
 export const currentCanvasToolCommandSurface = computed<CanvasToolCommandSurface | null>(() =>
-  currentCanvasSession.value?.commands.tools ?? null,
+  currentCanvasSession.value?.commands?.tools ?? null,
 )
 export const currentCanvasViewportCommandSurface = computed<CanvasViewportCommandSurface | null>(() =>
   currentCanvasSession.value?.commands.viewport ?? null,
@@ -42,7 +41,11 @@ export const currentCanvasQuerySurface = computed<CanvasQuerySurface | null>(() 
 export const currentCanvasDocumentSurface = computed<CanvasDocumentSurface | null>(() =>
   currentCanvasSession.value?.documents ?? null,
 )
-export { currentCanvasDesignPinHovered, currentCanvasHasSelection, currentCanvasSelection, currentCanvasTool, currentCanvasToolGuidance } from './session-state'
+/** Read-only view of ToolHost's single active tool signal (L11, §18 F29). */
+export const currentCanvasTool: ReadonlySignal<ToolId> = computed<ToolId>(() =>
+  currentCanvasQuerySurface.value?.activeTool?.value ?? 'select',
+)
+export { currentCanvasDesignPinHovered, currentCanvasHasSelection, currentCanvasSelection, currentCanvasToolGuidance } from './session-state'
 
 export function getCurrentCanvasSession(): CanvasRuntimeSurfaces | null {
   return currentCanvasSession.value
@@ -67,13 +70,4 @@ export function getCurrentCanvasLayerCommandSurface(): CanvasLayerCommandSurface
 
 export function setCurrentCanvasSession(surfaces: CanvasRuntimeSurfaces | null): void {
   currentCanvasSession.value = surfaces
-}
-
-export function setCurrentCanvasTool(id: ToolId): void {
-  const session = currentCanvasToolCommandSurface.value
-  if (session) {
-    session.setTool(id)
-    return
-  }
-  setCanvasTool(id)
 }

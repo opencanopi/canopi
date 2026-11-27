@@ -2,7 +2,7 @@
 // Policy and unit tests for the unified command table, keymap, and reserved-chord table
 // (canopi-f47t.52.76, 2.1-Q117, 2.1-Q132, 2.1-Q343, 2.1-Q358).
 import { describe, expect, it, vi } from 'vitest'
-import type { ToolId as RuntimeToolId } from '../../canvas/runtime/tool-id'
+import type { ToolId as RuntimeToolId } from '../../canvas/runtime/interaction-types'
 import { DESKTOP_SHELL_COMMAND_CATALOG } from '../../commands/graph/catalog'
 import { DESKTOP_KEYMAP } from '../../commands/graph/shortcuts'
 import { createBrowserShellCatalog } from '../../editions/web/browser-shell-commands'

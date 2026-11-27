@@ -1,3 +1,4 @@
+export { createScreenAlignedBounds } from '../zone-geometry'
 import { getCanvasDetailLayout } from '../automatic-detail'
 import type { PointerKind } from '../interaction-types'
 import { rectsIntersect, type SimpleRect } from '../../operations'
@@ -26,11 +27,7 @@ import {
   sceneTargetKey,
 } from '../scene'
 import type { SpeciesCacheEntry } from '../presentation-data'
-import {
-  getEllipticalZonePolygon,
-  getRectangularZoneCorners,
-  pointsBounds,
-} from '../zone-geometry'
+import { getEllipticalZonePolygon, getRectangularZoneCorners, pointsBounds } from '../zone-geometry'
 
 /**
  * The pick rule's one owner (canopi-qd2k, the user's decision of 2026-10-14; contract: hit-testing.pick.test.ts), reached

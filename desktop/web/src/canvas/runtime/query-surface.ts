@@ -1,3 +1,4 @@
+import { computed, signal, type ReadonlySignal } from '@preact/signals'
 import { buildCanvasPrintSnapshot } from './print-snapshot'
 import { getCanvasPlantNameLabels } from './automatic-detail'
 import { isPlantLayerShown } from './scene-visuals'
@@ -20,6 +21,7 @@ import type {
   SceneStateReader,
 } from './scene'
 import type { PointerWorld } from './interaction-ports'
+import type { ToolId } from './interaction-types'
 import type { SceneRuntimeMutationController } from './scene-runtime/mutations'
 import type { SceneRuntimePresentationController } from './scene-runtime/presentation'
 import { EMPTY_SELECTION_MODEL, getDesignObjectSelectionModel } from './scene-runtime/selection'
@@ -60,6 +62,7 @@ interface SceneCanvasQuerySurfaceOptions {
  */
 export interface SceneCanvasQuerySurface extends CanvasQuerySurface {
   bindPointerWorld(source: ((listener: PointerWorldListener) => () => void) | null): void
+  bindActiveTool(source: ReadonlySignal<ToolId> | null): void
 }
 
 export function createSceneCanvasQuerySurface(options: SceneCanvasQuerySurfaceOptions): SceneCanvasQuerySurface {
@@ -68,6 +71,8 @@ export function createSceneCanvasQuerySurface(options: SceneCanvasQuerySurfaceOp
 
 class SceneCanvasQueryRole implements SceneCanvasQuerySurface {
   readonly view: ViewReadSurface
+  private readonly boundActiveTool = signal<ReadonlySignal<ToolId> | null>(null)
+  readonly activeTool: ReadonlySignal<ToolId> = computed(() => this.boundActiveTool.value?.value ?? 'select')
   private readonly pointerWorldListeners = new Set<PointerWorldListener>()
   private stopPointerWorld: (() => void) | null = null
   /** The point last published; a session that ends with one live publishes null, so nothing reads a point no cursor is at. */
@@ -76,6 +81,10 @@ class SceneCanvasQueryRole implements SceneCanvasQuerySurface {
   constructor(private readonly options: SceneCanvasQuerySurfaceOptions) {
     // The frames place the Scene's metres; their ground is read on the Scene's plane.
     this.view = createViewReadSurface(options.frames)
+  }
+
+  bindActiveTool(source: ReadonlySignal<ToolId> | null): void {
+    this.boundActiveTool.value = source
   }
 
   subscribePointerWorld(listener: PointerWorldListener): () => void {

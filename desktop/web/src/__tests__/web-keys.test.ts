@@ -2,8 +2,8 @@
 
 import { signal } from '@preact/signals'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { setCurrentCanvasSession } from '../canvas/session'
-import { currentCanvasSelection, currentCanvasTool } from '../canvas/session-state'
+import { currentCanvasTool, setCurrentCanvasSession } from '../canvas/session'
+import { currentCanvasSelection } from '../canvas/session-state'
 import { placeSearchFocusRequest } from '../app/geocoding/place-search-ui'
 import { keyboardShortcutsDialogOpen } from '../app/shell/dialogs'
 import { activePanel, sidePanel } from '../app/shell/state'
@@ -44,7 +44,6 @@ function webCatalog(newDesign = vi.fn()): BrowserShellCatalog {
 
 describe('Web keys', () => {
   beforeEach(() => {
-    currentCanvasTool.value = 'select'
     setCurrentCanvasSession(null)
   })
 
@@ -55,7 +54,6 @@ describe('Web keys', () => {
     currentCanvasSelection.value = new Set()
     activePanel.value = 'canvas'
     sidePanel.value = null
-    currentCanvasTool.value = 'select'
     document.body.innerHTML = ''
     setShortcutPlatform({ os: 'linux' })
     vi.restoreAllMocks()

@@ -17,7 +17,13 @@ import { createSceneArrangementPlacement, type SceneArrangementTemplate } from '
 import type { SceneEditCoordinator } from '../scene-runtime/transactions'
 import type { WorldPoint } from '../../../geo/view/types'
 import type { DraftShape } from './draft'
-import { stampGhostShapes, stampTemplateAt, turnStampRotation } from './stamp-rotation'
+import {
+  screenAlignedTemplateCenter,
+  stampGhostShapes,
+  stampTemplateAt,
+  turnStampRotation,
+  worldTemplateCenter,
+} from './stamp-rotation'
 import type { CanvasTool, ToolContext, ToolScene, ToolSource } from './tool'
 
 const ORIGIN: WorldPoint = Object.freeze({ x: 0, y: 0 })
@@ -62,8 +68,8 @@ export function createSavedObjectStampTool(): CanvasTool {
 
   function showGhostAt(at: WorldPoint): void {
     lastAnchor = at
-    const { effects, scene } = context()
-    const shapes = stamp ? savedObjectStampGhostShapes(scene, stamp, at, rotationDeg()) : null
+    const { effects, scene, view } = context()
+    const shapes = stamp ? savedObjectStampGhostShapes(scene, stamp, at, rotationDeg(), view.bearingDeg) : null
     ghostShown = shapes !== null
     effects.setDraft(shapes ? { shapes } : null)
   }
@@ -76,9 +82,10 @@ export function createSavedObjectStampTool(): CanvasTool {
   function place(at: WorldPoint): void {
     const held = stamp
     if (!held) return
-    const { effects, scene } = context()
+    const { effects, scene, view } = context()
     placeSavedObjectStamp(effects.edits, scene, held, at, {
       rotationDeg: rotationDeg(),
+      bearingDeg: view.bearingDeg,
       onCommitted: () => {
         // One placement, then Select: leaving the tool drops the stamp from the read model (the session's).
         stamp = null
@@ -173,9 +180,12 @@ export function savedObjectStampGhostShapes(
   stamp: SavedObjectStampPayload,
   at: WorldPoint,
   rotationDeg: number,
+  bearingDeg: number = rotationDeg,
 ): DraftShape[] | null {
   if (!canPlaceSavedObjectStamp(scene, stamp)) return null
-  return stampGhostShapes(stampTemplateAt(savedObjectStampArrangementTemplate(stamp), stamp.anchor, at, rotationDeg))
+  const template = savedObjectStampArrangementTemplate(stamp)
+  const pivot = savedObjectStampPivot(stamp, template, bearingDeg)
+  return stampGhostShapes(stampTemplateAt(template, pivot, at, rotationDeg))
 }
 
 /**
@@ -188,15 +198,35 @@ export function placeSavedObjectStamp(
   scene: StampScene,
   stamp: SavedObjectStampPayload,
   at: WorldPoint,
-  options: { readonly rotationDeg: number; readonly onCommitted: () => void },
+  options: { readonly rotationDeg: number; readonly bearingDeg?: number; readonly onCommitted: () => void },
 ): void {
   if (!canPlaceSavedObjectStamp(scene, stamp)) return
+  const template = savedObjectStampArrangementTemplate(stamp)
+  const pivot = savedObjectStampPivot(stamp, template, options.bearingDeg ?? options.rotationDeg)
   createSceneArrangementPlacement({ sceneEdits: edits }).place({
-    template: stampTemplateAt(savedObjectStampArrangementTemplate(stamp), stamp.anchor, at, options.rotationDeg),
+    template: stampTemplateAt(template, pivot, at, options.rotationDeg),
     translateBy: ORIGIN,
     historyType: 'interaction-saved-object-stamp',
     onCommitted: options.onCommitted,
   })
+}
+
+/**
+ * 2.1-Q89: On a turned map, saved stamps whose anchor is their world bounding-box centre pivot and anchor
+ * on the centre of their screen-aligned box at `bearingDeg` instead of the world AABB centre. Stamps with
+ * an explicit custom anchor keep that anchor.
+ */
+function savedObjectStampPivot(
+  stamp: SavedObjectStampPayload,
+  template: SceneArrangementTemplate,
+  bearingDeg: number,
+): WorldPoint {
+  const normalized = ((bearingDeg % 360) + 360) % 360
+  if (normalized <= 1e-6 || Math.abs(normalized - 360) <= 1e-6) return stamp.anchor
+  const worldCenter = worldTemplateCenter(template)
+  if (!worldCenter) return stamp.anchor
+  if (Math.hypot(stamp.anchor.x - worldCenter.x, stamp.anchor.y - worldCenter.y) > 1e-3) return stamp.anchor
+  return screenAlignedTemplateCenter(template, bearingDeg) ?? stamp.anchor
 }
 
 function requiredLayers(stamp: SavedObjectStampPayload): string[] {

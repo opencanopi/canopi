@@ -111,7 +111,6 @@
     "desktop/web/src/canvas/runtime/tools/object-stamp.test.ts <-> desktop/web/src/canvas/runtime/tools/saved-object-stamp.test.ts": { "count": 2 },
     "desktop/web/src/canvas/runtime/tools/polygon.test.ts <-> desktop/web/src/canvas/runtime/tools/zone-drag.test.ts": { "count": 1 },
     "desktop/web/src/canvas/runtime/tools/select/band.test.ts <-> desktop/web/src/canvas/runtime/tools/select/move-drag.test.ts": { "count": 1 },
-    "desktop/web/src/canvas/runtime/tools/select/rotate-handle.test.ts <-> desktop/web/src/canvas/runtime/tools/select/rotate-handle.test.ts": { "count": 1 },
     "desktop/web/src/components/canvas/MapNotice.test.tsx <-> desktop/web/src/components/canvas/MapNotice.test.tsx": { "count": 1 },
     "desktop/web/src/components/canvas/PlantColorMenu.tsx <-> desktop/web/src/components/canvas/PlantSymbolMenu.tsx": { "count": 1 },
     "desktop/web/src/components/panels/DesignNotebookPanel.tsx <-> desktop/web/src/components/panels/DesignNotebookPanel.tsx": { "count": 1 },

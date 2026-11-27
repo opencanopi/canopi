@@ -6,7 +6,14 @@ import type { CanvasContextMenuPointAction, CanvasFocusPort } from './app-adapte
 import type { Gesture, MenuSource } from './input/gestures'
 import type { InputPlatform } from './input/platform'
 import type { AdapterEffect, RawInput, TargetClass } from './input/raw-input'
-import type { OverviewDropPayload, PointerKind, ToolHandleId, ToolId } from './interaction-types'
+import type {
+  MapInputHandle,
+  MapInputRequest,
+  OverviewDropPayload,
+  PointerKind,
+  ToolHandleId,
+  ToolId,
+} from './interaction-types'
 import type { PlantPresentationContext } from './plant-presentation'
 import type { SpeciesCacheEntry } from './presentation-data'
 import type { SceneRenderTarget } from './renderers/scene-types'
@@ -130,7 +137,16 @@ export interface ToolHostDeps {
   readonly menu: ContextMenuPort                                // opened only by the host (menuAt)
   readonly focus: CanvasFocusPort                               // ToolEffects.requestFocus
   readonly guidance: (g: Partial<CanvasToolGuidance> | null) => void
-  readonly toolState: { readonly active: ReadonlySignal<ToolId>; set(id: ToolId): void }   // the session's tool signal
+  /** Optional initial tool id (defaults to 'select'); ToolHost owns the single active tool signal. */
+  readonly initialTool?: ToolId
+  /** Descriptor lookup for the active tool's cursor, Shift constraint, and zone-draft flags (from app/command-table TOOL_ROWS). */
+  readonly toolRow?: (id: ToolId) => {
+    readonly shiftConstrains?: boolean
+    readonly zoneDraft?: boolean
+    readonly cursor: string
+  }
+  /** Optional hook run after the host itself switches tools (e.g. a tool requesting Select) so the session can reconfigure. */
+  readonly onToolChanged?: (id: ToolId, previous?: ToolId) => void
   readonly settings: ToolSettingsPort
   /** Snap to grid, read at each point (interaction-session.ts wires the runtime settings adapter's readSnapToGridEnabled);
    *  the shape tools/snapping.ts takes. */
@@ -146,14 +162,6 @@ export interface ToolHostDeps {
   readonly initialPointer: PointerKind
   /** Hover restyle (a directly locked object shows the locked hover stroke): the runtime's hovered target. */
   readonly hover: (target: SceneDesignObjectTarget | null) => void
-  /** Pins a Site data point (canopi-f47t.42, U49 Q17; spec §1.10, §3.8, fixture J10): called after a resolved Select tap
-   *  that hit nothing and moved nothing, or any Pan-tool tap; never in overview, never by another tool. It claims nothing:
-   *  the tap still reaches the tool (Select clears the selection). Absent on Web and while the Site data panel is closed
-   *  (CanvasRuntimeAppAdapter.pinAt, passed by scene-runtime.ts). */
-  readonly pin?: (world: WorldPoint) => void
-  /** The Site data profile (canopi-f47t.42, spec §1.10): ToolEffects.finishProfile's line, 2 or more points. Absent on Web
-   *  (CanvasRuntimeAppAdapter.finishProfile, passed by scene-runtime.ts). */
-  readonly finishProfile?: (points: readonly WorldPoint[]) => void
   /** ToolEffects.refuseLockedMove: a drag refused by a lock, which the session reports for the lock toast (2.1-Q177). */
   readonly lockedMoveRefused: () => void
   /**
@@ -202,7 +210,21 @@ export interface ToolSceneSource {
   readonly selectionModel: () => CanvasDesignObjectSelectionModel               // querySurface.getDesignObjectSelection
 }
 
+/** The single typed state record owned exclusively by ToolHost (L11, §18 F29). */
+export interface ToolHostState {
+  readonly id: ToolId
+  readonly source: ToolSource | null
+  readonly stampId: string | null
+  readonly hasRequest: boolean
+}
+
 export interface ToolHost {
+  /** Single authoritative state record for the active tool and its armed source (L11, §18 F29). */
+  readonly state: ReadonlySignal<ToolHostState>
+  /** Derived active tool id from `state`. */
+  readonly activeTool: ReadonlySignal<ToolId>
+  /** Arms a tool with optional source and map-input request; the returned handle settles once. */
+  arm<T = unknown>(id: ToolId, source?: ToolSource | null, request?: MapInputRequest<T>): MapInputHandle<T>
   /** Editing gestures, hovers and drops (drops go to the host's shared drop handler, whatever tool is armed); converts to world at event time. */
   gesture(g: Gesture): GestureOutcome
   command(c: ToolCommand): ToolReply

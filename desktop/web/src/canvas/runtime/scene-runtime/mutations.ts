@@ -41,31 +41,18 @@ import {
   resolveSelectedEntitySets,
   type SceneClipboardPayload,
 } from './clipboard'
-import {
-  createSceneArrangementPlacement,
-  type SceneArrangementPlacement,
-} from './arrangement-placement'
+import { createSceneArrangementPlacement, type SceneArrangementPlacement } from './arrangement-placement'
 import {
   getCombinedTargetBounds,
   getDesignObjectSelectionModel,
   getSelectedTopLevelTargets,
+  screenAlignedTargetsCenter,
   type SceneSelectionReadModelOptions,
   type SceneSelectionTarget,
 } from './selection'
-import {
-  applyRotationTransformToDraft,
-  captureRotationTransformState,
-  centerOfBounds,
-} from './selection-rotation'
-import {
-  getSameSpeciesReferenceCanonicalName,
-  getSelectablePlantIdsForSpecies,
-} from './species-selection'
-import type {
-  SceneCommandAdmission,
-  SceneEditCoordinator,
-  SettledSceneReader,
-} from './transactions'
+import { applyRotationTransformToDraft, captureRotationTransformState, centerOfBounds } from './selection-rotation'
+import { getSameSpeciesReferenceCanonicalName, getSelectablePlantIdsForSpecies } from './species-selection'
+import type { SceneCommandAdmission, SceneEditCoordinator, SettledSceneReader } from './transactions'
 
 const EMPTY_PLANT_COLOR_CONTEXT: SelectedPlantColorContext = {
   plantIds: [],
@@ -105,6 +92,8 @@ interface SceneRuntimeMutationControllerOptions {
     getLocalizedCommonNames(): ReadonlyMap<string, string | null>
     getSuggestedPlantColor(canonicalName: string): string | null
   }
+  /** Live camera bearing in degrees (2.1-Q89: screen-aligned pivot/anchor on a turned map); defaults to 0. */
+  getBearingDeg?(): number
   invalidateScene(): void
 }
 
@@ -116,6 +105,7 @@ export class SceneRuntimeMutationController {
   private readonly _settledReader: SettledSceneReader
   private readonly _arrangementPlacement: SceneArrangementPlacement
   private readonly _presentation: SceneRuntimeMutationControllerOptions['presentation']
+  private readonly _getBearingDeg: () => number
   private readonly _invalidateScene: () => void
   private _clipboard: SceneClipboardPayload | null = null
   private _normalPasteCount = 0
@@ -128,6 +118,7 @@ export class SceneRuntimeMutationController {
     this._settledReader = options.settledReader
     this._arrangementPlacement = createSceneArrangementPlacement({ sceneEdits: options.sceneEdits })
     this._presentation = options.presentation
+    this._getBearingDeg = options.getBearingDeg ?? (() => 0)
     this._invalidateScene = options.invalidateScene
   }
 
@@ -481,7 +472,19 @@ export class SceneRuntimeMutationController {
     const selection = this._getSelectionModel()
     const state = captureRotationTransformState(this._sceneStore.persisted, selection)
     if (!state || !selection.bounds) return
-    const pivot = centerOfBounds(selection.bounds)
+    const bearingDeg = this._getBearingDeg()
+    // 2.1-Q89: On a turned map, rotation pivots on the centre of the screen-aligned box.
+    const pivot = hasNonZeroBearing(bearingDeg)
+      ? screenAlignedTargetsCenter(
+          this._sceneStore.persisted,
+          [...selection.editableTargets, ...selection.lockedTargets],
+          {
+            ...this._getSelectionReadModelOptions(),
+            revealedAnnotationId: getRevealedAnnotationId(this._sceneStore.session.selectedTargets),
+          },
+          bearingDeg,
+        ) ?? centerOfBounds(selection.bounds)
+      : centerOfBounds(selection.bounds)
     this._sceneEdits.run('rotate-selected', (tx) => {
       tx.mutate((draft) => applyRotationTransformToDraft(draft, state, pivot, turn))
     })
@@ -810,16 +813,24 @@ export class SceneRuntimeMutationController {
       measurementGuides: payload.measurementGuides,
       groups: payload.groups,
     }
-    const bounds = getCombinedTargetBounds(
-      clipboardScene,
-      payload.sourceTargets,
-      {
-        ...this._getSelectionReadModelOptions(),
-        revealedAnnotationId: getRevealedAnnotationId(payload.sourceTargets),
-      },
-    )
+    const readOptions = {
+      ...this._getSelectionReadModelOptions(),
+      revealedAnnotationId: getRevealedAnnotationId(payload.sourceTargets),
+    }
+    const bearingDeg = this._getBearingDeg()
+    // 2.1-Q89: On a turned map, paste anchors on the centre of the screen-aligned box.
+    if (hasNonZeroBearing(bearingDeg)) {
+      const screenCenter = screenAlignedTargetsCenter(clipboardScene, payload.sourceTargets, readOptions, bearingDeg)
+      if (screenCenter) return screenCenter
+    }
+    const bounds = getCombinedTargetBounds(clipboardScene, payload.sourceTargets, readOptions)
     return bounds ? centerOfBounds(bounds) : null
   }
+}
+
+function hasNonZeroBearing(bearingDeg: number): boolean {
+  const normalized = ((bearingDeg % 360) + 360) % 360
+  return normalized > 1e-6 && Math.abs(normalized - 360) > 1e-6
 }
 
 function normalPasteOffset(step: number): ScenePoint {

@@ -1,7 +1,9 @@
 // @vitest-environment jsdom
 
 import { render } from 'preact'
-import { setCanvasTool } from '../canvas/session-state'
+import { setCurrentCanvasSession } from '../canvas/session'
+import { createTestCanvasQuerySurface } from './support/canvas-query-surface'
+import { createTestCanvasRuntimeSurfaces } from './support/canvas-runtime-surfaces'
 import { act } from 'preact/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { locale } from '../app/settings/state'
@@ -104,7 +106,7 @@ describe('Species detail (Desktop)', () => {
   })
 
   afterEach(() => {
-    setCanvasTool('select')
+    setCurrentCanvasSession(null)
     render(null, container)
     container.remove()
     locale.value = 'en'
@@ -214,16 +216,18 @@ describe('Species detail (Desktop)', () => {
   })
 
   it('drops its rings while Place plants is armed, so placing never keeps the species ringed', async () => {
+    const queries = createTestCanvasQuerySurface()
+    setCurrentCanvasSession(createTestCanvasRuntimeSurfaces({ queries }))
     inDesign.species = new Map([['Malus domestica', { code: 'MDO', count: 6, symbol: 'canopy', color: '#B06045' }]])
     await open()
     expect(mapActions.showSpeciesDetailOnMap).toHaveBeenCalledTimes(1)
 
     mapActions.showSpeciesDetailOnMap.mockClear()
-    await act(async () => { setCanvasTool('plant-stamp') })
+    await act(async () => { queries.setActiveTool('plant-stamp') })
     expect(mapActions.clearSpeciesDetailOnMap).toHaveBeenCalled()
     expect(mapActions.showSpeciesDetailOnMap).not.toHaveBeenCalled()
 
-    await act(async () => { setCanvasTool('select') })
+    await act(async () => { queries.setActiveTool('select') })
     expect(mapActions.showSpeciesDetailOnMap).toHaveBeenCalledWith('Malus domestica')
   })
 

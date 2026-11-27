@@ -1,7 +1,20 @@
 import { batch, signal } from '@preact/signals'
 import type { CanvasContextMenuRequest } from '../../canvas/runtime/app-adapter'
-import { plantColorMenuOpen } from '../../canvas/plant-color-menu-state'
-import { plantSymbolMenuOpen } from '../../canvas/plant-symbol-menu-state'
+import {
+  plantColorMenuOpen,
+  setPlantColorMenuOpen,
+} from '../../canvas/plant-color-menu-state'
+import {
+  plantSymbolMenuOpen,
+  setPlantSymbolMenuOpen,
+} from '../../canvas/plant-symbol-menu-state'
+
+export {
+  plantColorMenuOpen,
+  plantSymbolMenuOpen,
+  setPlantColorMenuOpen,
+  setPlantSymbolMenuOpen,
+}
 
 /** The open right-click menu, or null. The canvas runtime opens and closes it. */
 export const canvasContextMenuRequest = signal<CanvasContextMenuRequest | null>(null)
@@ -41,14 +54,14 @@ export type PlantAppearanceKind = 'color' | 'symbol'
 export function openPlantAppearance(kind: PlantAppearanceKind, anchor: PlantAppearanceAnchor): void {
   batch(() => {
     plantAppearanceAnchor.value = anchor
-    plantColorMenuOpen.value = kind === 'color'
-    plantSymbolMenuOpen.value = kind === 'symbol'
+    setPlantColorMenuOpen(kind === 'color')
+    setPlantSymbolMenuOpen(kind === 'symbol')
   })
 }
 
 export function closePlantAppearance(): void {
   batch(() => {
-    plantColorMenuOpen.value = false
-    plantSymbolMenuOpen.value = false
+    setPlantColorMenuOpen(false)
+    setPlantSymbolMenuOpen(false)
   })
 }

@@ -66,6 +66,7 @@ export class SceneCanvasRuntime {
         const interaction = this._interaction
         this._interaction = null
         this._querySurface.bindPointerWorld(null)
+        this._querySurface.bindActiveTool(null)
         try {
           interaction?.dispose()
         } finally {
@@ -77,10 +78,14 @@ export class SceneCanvasRuntime {
       canRedoTransientHistory: () => this._interaction?.canRedoTransientHistory() ?? false,
       undoTransientHistory: () => this._interaction?.undoTransientHistory() ?? false,
       redoTransientHistory: () => this._interaction?.redoTransientHistory() ?? false,
-      setInteractionTool: (id) => {
-        this._interaction?.setTool(id)
+      armInteractionTool: (id, source, request) => {
+        if (!this._interaction) {
+          const detached = { kind: 'detached' } as const
+          request?.onSettled?.(detached)
+          return { settled: Promise.resolve(detached), cancel() {} }
+        }
+        return this._interaction.arm(id, source, request)
       },
-      readInteractionTool: () => this._interaction?.tool ?? null,
       holdsReorigin: () => this._interaction?.holdsReorigin() ?? false,
       plantRowSpacing: {
         input: (text) => this._interaction?.plantRowSpacing.input(text),
@@ -210,15 +215,15 @@ export class SceneCanvasRuntime {
       sceneEdits: this._sceneCommands,
       commandAdmission: this._sceneCommands,
       settledReader: this._settledReader,
-      pinAt: this._appAdapter.pinAt,
-      finishProfile: this._appAdapter.finishProfile,
       getDesignObjectSelection: () => this._querySurface.getDesignObjectSelection(),
       selectionCommands: this._commandSurface.sceneEdits,
       contextualCommands: this._commandSurface.sceneEdits.saveSelectionAsObjectStamp
         ? { saveSelectionAsObjectStamp: this._commandSurface.sceneEdits.saveSelectionAsObjectStamp }
         : undefined,
       contextMenu: this._appAdapter.contextMenu,
-      setTool: (id) => this._commandSurface.tools.setTool(id),
+      setTool: (id) => {
+        if (this._interaction?.tool !== id) this._commandSurface.tools.setTool(id)
+      },
       render: () => this._invalidate(),
       readSnapToGridEnabled: () => this._appAdapter.settings.readSnapToGridEnabled(),
       readScrollWheel: () => this._appAdapter.settings.readScrollWheel(),
@@ -243,6 +248,7 @@ export class SceneCanvasRuntime {
     })
     const interaction = this._interaction
     this._querySurface.bindPointerWorld((listener) => interaction.subscribePointerWorld(listener))
+    this._querySurface.bindActiveTool(interaction.activeTool)
     await this._rendering.renderScene()
   }
 
@@ -286,6 +292,7 @@ export class SceneCanvasRuntime {
     const interaction = this._interaction
     this._interaction = null
     this._querySurface.bindPointerWorld(null)
+    this._querySurface.bindActiveTool(null)
     try {
       interaction?.dispose()
     } finally {

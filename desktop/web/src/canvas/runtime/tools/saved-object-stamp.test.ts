@@ -455,7 +455,8 @@ describe('saved object stamp tool', () => {
 
   it('hides the ghost on a window blur or the tool armed again, until the next hover, and keeps the stamp and its angle', () => {
     const h = harness()
-    holding(h, mulchStamp())
+    const stamp = mulchStamp()
+    holding(h, stamp)
     h.hover({ x: 100, y: 100 })
     h.host.command({ kind: 'rotate-held', stepDeg: 15 })
     expect(ghosts(h)).toHaveLength(2)
@@ -465,8 +466,8 @@ describe('saved object stamp tool', () => {
     h.hover({ x: 110, y: 100 })
     expectMulchGhostAt(h, h.world({ x: 110, y: 100 }), 15)
 
-    // Today's setTool to the same tool ran the cancellation.
-    h.arm('saved-object-stamp')
+    // Today's setTool to the same tool ran the cancellation while keeping the same source.
+    h.arm('saved-object-stamp', { kind: 'saved-stamp', stamp })
     expect(ghosts(h)).toEqual([])
     // A press that places nothing (an edit that does not commit) leaves the stamp; its release hides the ghost again.
     h.hover({ x: 120, y: 100 })

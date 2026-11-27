@@ -94,9 +94,8 @@
       "doc": "docs/adr/0024-ownership-and-lifecycle.md",
       "quote": "A ToolHost owner test (created at Phase 2c's start, 2.1-M77);",
       "state": {
-        "planned": {
-          "phase": "2c",
-          "bead": "canopi-f47t.52.5"
+        "exists": {
+          "check": "desktop/web/src/canvas/runtime/tools/tool-host-owner.policy.test.ts"
         }
       }
     },

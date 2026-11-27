@@ -163,3 +163,78 @@ export function pointsBounds(points: readonly ScenePoint[]): { x: number; y: num
 function cleanMetric(value: number): number {
   return Math.abs(value) < 0.0000001 ? 0 : value
 }
+
+/**
+ * Accumulator for a screen-aligned bounding box at `bearingDeg` (2.1-Q89):
+ * projects points, spans, and zones onto the screen's right/down axes
+ * (`right = (cos θ, sin θ)`, `down = (-sin θ, cos θ)`), returning the box centre in world metres.
+ */
+export interface ScreenAlignedBounds {
+  addPoint(point: ScenePoint): void
+  addPoints(points: readonly ScenePoint[]): void
+  addSpan(centre: ScenePoint, halfU: number, halfV: number): void
+  addZone(zone: SceneZoneEntity): void
+  center(): ScenePoint | null
+}
+
+export function createScreenAlignedBounds(bearingDeg: number): ScreenAlignedBounds {
+  const rad = degreesToRadians(bearingDeg)
+  const cos = Math.cos(rad)
+  const sin = Math.sin(rad)
+  let minU = Infinity
+  let maxU = -Infinity
+  let minV = Infinity
+  let maxV = -Infinity
+
+  const addSpan = (centre: ScenePoint, halfU: number, halfV: number): void => {
+    const u = centre.x * cos + centre.y * sin
+    const v = -centre.x * sin + centre.y * cos
+    minU = Math.min(minU, u - halfU)
+    maxU = Math.max(maxU, u + halfU)
+    minV = Math.min(minV, v - halfV)
+    maxV = Math.max(maxV, v + halfV)
+  }
+
+  const addPoint = (point: ScenePoint): void => {
+    addSpan(point, 0, 0)
+  }
+
+  const addPoints = (points: readonly ScenePoint[]): void => {
+    for (const point of points) addSpan(point, 0, 0)
+  }
+
+  const addZone = (zone: SceneZoneEntity): void => {
+    if (zone.points.length === 0) return
+    if (zone.zoneType === 'rect' && zone.points.length >= 4) {
+      const corners = getRectangularZoneCorners(zone)
+      if (corners) addPoints(corners)
+      return
+    }
+    if (zone.zoneType === 'ellipse' && zone.points.length >= 2) {
+      const centre = zone.points[0]!
+      const radii = zone.points[1]!
+      const zRad = degreesToRadians(zone.rotationDeg)
+      const major = { x: Math.cos(zRad) * Math.abs(radii.x), y: Math.sin(zRad) * Math.abs(radii.x) }
+      const minor = { x: -Math.sin(zRad) * Math.abs(radii.y), y: Math.cos(zRad) * Math.abs(radii.y) }
+      addSpan(
+        centre,
+        Math.hypot(major.x * cos + major.y * sin, minor.x * cos + minor.y * sin),
+        Math.hypot(-major.x * sin + major.y * cos, -minor.x * sin + minor.y * cos),
+      )
+      return
+    }
+    addPoints(zone.points)
+  }
+
+  const center = (): ScenePoint | null => {
+    if (!Number.isFinite(minU)) return null
+    const uMid = (minU + maxU) / 2
+    const vMid = (minV + maxV) / 2
+    return {
+      x: uMid * cos - vMid * sin,
+      y: uMid * sin + vMid * cos,
+    }
+  }
+
+  return { addPoint, addPoints, addSpan, addZone, center }
+}

@@ -21,7 +21,6 @@ import { SceneStore } from '../canvas/runtime/scene/store'
 import {
   currentCanvasSelection,
   IDLE_CANVAS_TOOL_GUIDANCE,
-  setCanvasTool,
   setCanvasToolGuidance,
   type CanvasPlantRowGuidance,
   type CanvasToolGuidance,
@@ -62,7 +61,6 @@ describe('Phone context bar', () => {
   afterEach(() => {
     render(null, container)
     container.remove()
-    setCanvasTool('select')
     setCanvasToolGuidance(IDLE_CANVAS_TOOL_GUIDANCE)
     phoneToolOptions.value = null
     phoneLayout.value = null
@@ -82,7 +80,7 @@ describe('Phone context bar', () => {
 
   async function choose(tool: ToolId, guidance: Partial<CanvasToolGuidance> = {}): Promise<void> {
     await act(() => {
-      setCanvasTool(tool)
+      queries.setActiveTool(tool)
       setCanvasToolGuidance({ ...IDLE_CANVAS_TOOL_GUIDANCE, ...guidance })
     })
   }

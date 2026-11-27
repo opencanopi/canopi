@@ -412,7 +412,14 @@ export const profileAvailable: ReadonlySignal<boolean> = computed(() => readAppC
  * line has a panel to show its chart in.
  */
 export function armProfile(from: 'panel' | 'palette'): void {
-  armCanvasTool('profile', { from })
+  armCanvasTool<readonly { readonly x: number; readonly y: number }[]>('profile', {
+    from,
+    request: {
+      onSettled(outcome) {
+        if (outcome.kind === 'picked') finishSiteProfile(outcome.value)
+      },
+    },
+  })
   if (sidePanel.peek() !== 'site-data') selectPanel('site-data')
 }
 
@@ -432,7 +439,7 @@ export const profileHover: ReadonlySignal<GeoPoint | null> = computed(() => {
  * metres, becomes the Site data profile line in WGS84; a new line replaces the old. Site data opens first when another
  * side panel took its place while Profile stayed armed, so the line the user drew always gets its chart.
  */
-export function finishSiteProfile(points: readonly { readonly x: number; readonly y: number }[]): void {
+function finishSiteProfile(points: readonly { readonly x: number; readonly y: number }[]): void {
   const plane = currentCanvasQuerySurface.peek()?.sessionPlane.peek()
   if (!plane) return
   if (sidePanel.peek() !== 'site-data') selectPanel('site-data')

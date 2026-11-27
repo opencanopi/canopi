@@ -19,6 +19,7 @@ import { openSpeciesDetail } from '../../app/plant-detail/actions'
 import { locale, singleKeyShortcuts } from '../../app/settings/state'
 import { requestCalendarAdd } from '../../app/timeline/calendar-request'
 import type { CanvasContextMenuRequest } from '../../canvas/runtime/app-adapter'
+import { editionPorts, hasEditionPorts } from '../../platform/edition-ports'
 import { t } from '../../i18n'
 import { ContextMenu } from '../shared/ActionMenu'
 
@@ -56,6 +57,7 @@ function OpenCanvasContextMenu({ request, profileLine }: {
     setUnitCost: requestBudgetPrice,
     profileLine,
     readOnly: designSessionStore.isReadOnly(),
+    ...(hasEditionPorts() ? { capabilities: [...editionPorts().capabilities] } : {}),
   })
   return (
     <ContextMenu

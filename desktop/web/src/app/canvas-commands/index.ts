@@ -3,7 +3,7 @@ import {
   formatShortcut,
   isCharacterKeyShortcut,
 } from '../shell-commands/shortcut-text'
-import type { ToolId } from '../../canvas/runtime/tool-id'
+import { TOOL_IDS, TOOL_ROWS, type ToolId } from '../command-table'
 import { canvasEditAvailable, type CanvasEditSelectionAvailability } from './edit-availability'
 import type { LocaleKey } from '../../generated/locale-keys'
 
@@ -12,10 +12,12 @@ import type { LocaleKey } from '../../generated/locale-keys'
  * with its payload. Profile is Desktop's, armed from Site data and the palette,
  * not on the rail (canopi-f47t.42).
  */
-export type CanvasToolId = Exclude<ToolId, 'saved-object-stamp'>
+export type CanvasToolId = Exclude<ToolId, 'saved-object-stamp' | 'siteData.pin'>
 
 /** The tools that only look at a Design: all a read-only Session arms (2.1-M478). */
-const CANVAS_READ_TOOLS: ReadonlySet<ToolId> = new Set<ToolId>(['select', 'hand'])
+const CANVAS_READ_TOOLS: ReadonlySet<ToolId> = new Set<ToolId>(
+  TOOL_IDS.filter((id) => TOOL_ROWS[id].readOnly),
+)
 
 /** Tool rail groups, top to bottom. Only `zones` carries a heading. */
 type CanvasToolGroupId = 'navigate' | 'plant' | 'zones' | 'annotate'

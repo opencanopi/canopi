@@ -23,6 +23,7 @@ import type {
   CanvasQuerySurface,
   CanvasRuntimeSurfaces,
 } from '../canvas/runtime/runtime'
+import type { ToolId } from '../canvas/runtime/interaction-types'
 import { createCanvasDocumentReplacementToken } from '../canvas/runtime/runtime'
 import { createTestViewReadSurface } from './support/canvas-query-surface'
 import { geoAt } from './support/geo-design'
@@ -32,6 +33,7 @@ import type { CanopiFile } from '../types/design'
 function createQuerySurface() {
   return {
     revision: { scene: signal(0), plantNames: signal(0), transientHistory: signal(0) },
+    activeTool: signal<ToolId>('select'),
     sessionPlane: signal(createSessionPlane(DEFAULT_NEW_DESIGN_VIEW)),
     view: createTestViewReadSurface(),
     getSpeciesFocus: () => ({ canonicalName: null }),
@@ -81,7 +83,8 @@ function createCommandSurface() {
   return {
     speciesFocus: { focus: () => {} },
     tools: {
-      setTool: (_name: string) => {},
+      arm: () => ({ settled: new Promise(() => {}), cancel: () => {} }),
+      setTool: (_name: ToolId) => {},
       plantRowSpacing: { input: () => {}, commit: () => {}, blur: () => {}, cancel: () => {} },
     },
     viewport: {
@@ -226,12 +229,18 @@ describe('canvas runtime surfaces', () => {
     }
   })
 
-  it('routes representative command, query, and document behavior through role surfaces', () => {
+  it('routes representative command, query, and document behavior through role surfaces', async () => {
     const runtime = createTestSceneCanvasRuntime()
     const surfaces = createCanvasRuntimeSurfaces(runtime)
     const file = serializeScenePersistedState(createDefaultScenePersistedState(), createSessionPlane(DEFAULT_NEW_DESIGN_VIEW))
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    Object.defineProperty(container, 'clientWidth', { configurable: true, value: 400 })
+    Object.defineProperty(container, 'clientHeight', { configurable: true, value: 300 })
 
     try {
+      await runtime.init(container)
+      setCurrentCanvasSession(surfaces)
       surfaces.commands.tools.setTool('hand')
       surfaces.documents.loadDocument(file)
 
@@ -240,6 +249,7 @@ describe('canvas runtime surfaces', () => {
       expect(surfaces.queries.getSceneSnapshot()).toEqual(createDefaultScenePersistedState())
     } finally {
       runtime.destroy()
+      container.remove()
     }
   })
 

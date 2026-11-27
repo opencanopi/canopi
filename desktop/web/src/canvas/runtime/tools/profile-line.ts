@@ -24,7 +24,7 @@ const PROFILE_LINE: VertexPathSpec = {
   minPoints: 2,
   draft: profileDraftShapes,
   finish(points, { effects }, done) {
-    effects.finishProfile(points)
+    effects.completeRequest(points)
     done()
     effects.requestTool('select')
   },

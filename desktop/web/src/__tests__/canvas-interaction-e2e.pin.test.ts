@@ -18,9 +18,11 @@ import type { ScenePoint, SceneStore } from '../canvas/runtime/scene'
 import type { SceneInteractionSession, SceneInteractionSessionDeps } from '../canvas/runtime/interaction-session'
 import { createAppCanvasRuntimeAppAdapter } from '../app/canvas-runtime/app-adapter'
 import { createDesktopCanvasRuntimeAppAdapter } from '../app/canvas-runtime/desktop-adapter'
+import { armProfile } from '../app/data-library/profile'
 import { endSiteDataTransients, pin, profileLine } from '../app/data-library/site-transients'
+import { armSitePin } from '../app/data-library/site-values'
 import { selectPanel, sidePanel } from '../app/shell/state'
-import { setCurrentCanvasSession } from '../canvas/session'
+import { currentCanvasTool, setCurrentCanvasSession } from '../canvas/session'
 import {
   createSceneInteractionEventHarness,
   type SceneInteractionEventHarness,
@@ -49,10 +51,25 @@ describe('SceneInteractionSession: the Site data pin', () => {
     () => ({ events }),
   )
 
-  function createPinSession(): { session: SceneInteractionSession; pinAt: ReturnType<typeof vi.fn> } {
+  function createPinSession(): {
+    session: SceneInteractionSession
+    pinAt: ReturnType<typeof vi.fn>
+    armPin: () => void
+  } {
     const pinAt = vi.fn()
-    const deps: SceneInteractionSessionDeps = { ...createInteractionDeps(container, store, testView), pinAt }
-    return { session: fixture.createTestSession(deps), pinAt }
+    const deps: SceneInteractionSessionDeps = createInteractionDeps(container, store, testView)
+    const session = fixture.createTestSession(deps)
+    const armPin = () => {
+      session.arm<ScenePoint>('siteData.pin', null, {
+        onSettled(outcome) {
+          if (outcome.kind === 'picked') {
+            pinAt(outcome.value)
+            armPin()
+          }
+        },
+      })
+    }
+    return { session, pinAt, armPin }
   }
 
   /** A mouse click whose pointerdown sends detail 0, as WebKitGTK's does; `t` keeps clicks apart in time. */
@@ -63,37 +80,37 @@ describe('SceneInteractionSession: the Site data pin', () => {
 
   const world = (at: ScenePoint) => testView.view().screenToWorld(at)
 
-  it('(canopi-qd2k) a Select click on empty ground, inside a zone too, clears the selection and pins; a click on a plant or a zone\'s outline selects only', () => {
+  it('(2.1-Q364) siteData.pin clicks to pin and clicks again to move; Select clicks select or clear without pinning', () => {
     store.updatePersisted((draft) => {
       draft.plants = [makePlant('plant-1', 'Malus domestica', { x: 20, y: 30 })]
       draft.zones = [makeRectZone('zone-1', [{ x: 200, y: 150 }, { x: 280, y: 150 }, { x: 280, y: 210 }, { x: 200, y: 210 }])]
     })
-    const { session, pinAt } = createPinSession()
+    const { session, pinAt, armPin } = createPinSession()
     session.setTool('select')
 
     click({ x: 20, y: 30 }, 0)
     expect(currentCanvasSelection.value).toEqual(new Set(['plant-1']))
     click({ x: 240, y: 152 }, 1000)
     expect(currentCanvasSelection.value).toEqual(new Set(['zone-1']))
-    expect(pinAt).not.toHaveBeenCalled()
-
     click({ x: 120, y: 260 }, 2000)
     expect(currentCanvasSelection.value.size).toBe(0)
-    expect(pinAt).toHaveBeenCalledTimes(1)
-    expect(pinAt).toHaveBeenCalledWith(world({ x: 120, y: 260 }))
+    expect(pinAt).not.toHaveBeenCalled()
 
-    // Inside the zone, away from its outline, is empty ground: it pins (the user's decision of 2026-10-14).
-    click({ x: 240, y: 152 }, 3000)
+    // Arming siteData.pin: click pins, click again moves (2.1-Q364).
+    armPin()
+    click({ x: 120, y: 260 }, 3000)
+    expect(pinAt).toHaveBeenCalledTimes(1)
+    expect(pinAt).toHaveBeenLastCalledWith(world({ x: 120, y: 260 }))
+
     click({ x: 240, y: 180 }, 4000)
-    expect(currentCanvasSelection.value.size).toBe(0)
     expect(pinAt).toHaveBeenCalledTimes(2)
     expect(pinAt).toHaveBeenLastCalledWith(world({ x: 240, y: 180 }))
     session.dispose()
   })
 
-  it('a band from empty ground and a Polygon corner never pin; a still Pan-tool click pins, a Pan-tool drag does not', () => {
-    const { session, pinAt } = createPinSession()
-    session.setTool('select')
+  it('a drag, a Polygon corner, and a Pan-tool click never pin', () => {
+    const { session, pinAt, armPin } = createPinSession()
+    armPin()
     events.pointerDown({ x: 100, y: 100 }, { button: 0, buttons: 1, detail: 0 })
     events.pointerMove({ x: 160, y: 140 }, { buttons: 1 })
     events.pointerUp({ x: 160, y: 140 }, { button: 0 })
@@ -105,17 +122,14 @@ describe('SceneInteractionSession: the Site data pin', () => {
     events.pointerDown({ x: 100, y: 100 }, { button: 0, buttons: 1, detail: 0, timeStamp: 2000 })
     events.pointerMove({ x: 140, y: 100 }, { buttons: 1, timeStamp: 2020 })
     events.pointerUp({ x: 140, y: 100 }, { button: 0, timeStamp: 2040 })
-    expect(pinAt).not.toHaveBeenCalled()
-
     click({ x: 300, y: 200 }, 3000)
-    expect(pinAt).toHaveBeenCalledTimes(1)
-    expect(pinAt).toHaveBeenCalledWith(world({ x: 300, y: 200 }))
+    expect(pinAt).not.toHaveBeenCalled()
     session.dispose()
   })
 
-  it('a finger\'s rolling Select tap on empty ground pins at the down point', () => {
-    const { session, pinAt } = createPinSession()
-    session.setTool('select')
+  it('a finger\'s rolling tap with siteData.pin armed pins at the down point', () => {
+    const { session, pinAt, armPin } = createPinSession()
+    armPin()
     const finger = { pointerType: 'touch', pointerId: 1, isPrimary: true, detail: 0 }
 
     events.pointerDown({ x: 150, y: 120 }, { ...finger, button: 0, buttons: 1 })
@@ -202,11 +216,11 @@ describe('the canvas runtime: the Site data pin', () => {
     document.body.replaceChildren()
   })
 
-  it('a Select click on empty ground reaches the edition\'s pinAt capability through the app adapter', async () => {
+  it('arming siteData.pin through the command surface settles with the tapped world point', async () => {
     const pinAt = vi.fn()
     const host = createLiveTestCanvasRuntimeHost({
       screen: { width: 400, height: 300 },
-      appAdapter: createAppCanvasRuntimeAppAdapter({ presentationData: {}, pinAt }),
+      appAdapter: createAppCanvasRuntimeAppAdapter({ presentationData: {} }),
     })
     hosts.push(host)
     const container = document.createElement('div')
@@ -220,6 +234,11 @@ describe('the canvas runtime: the Site data pin', () => {
     placeOnHost(host.cameraHost, host.surfaces.queries.sessionPlane.peek()!, { x: 0, y: 0, scale: 1 })
     expect(host.cameraHost.frames.viewFrame.peek().mode).toBe('site')
 
+    host.surfaces.commands.tools.arm<ScenePoint>('siteData.pin', null, {
+      onSettled(outcome) {
+        if (outcome.kind === 'picked') pinAt(outcome.value)
+      },
+    })
     events.pointerDown({ x: 100, y: 80 }, { button: 0, buttons: 1, detail: 0 })
     events.pointerUp({ x: 100, y: 80 }, { button: 0, buttons: 0, detail: 0 })
 
@@ -261,24 +280,35 @@ describe('Desktop: the pin and profile hand-offs reach Site data in lon/lat', ()
     return { appAdapter, host, events, plane }
   }
 
-  it('a Select tap on empty ground with Site data open pins the ground it shows, and entering overview unpins', async () => {
+  it('armSitePin clicks to pin, clicks again to move (2.1-Q364), and entering overview unpins', async () => {
     const { host, events, plane } = await desktopRuntime()
-    selectPanel('site-data')
+    armSitePin('panel')
+    expect(sidePanel.value).toBe('site-data')
+    expect(currentCanvasTool.value).toBe('siteData.pin')
 
-    events.pointerDown({ x: 100, y: 80 }, { button: 0, buttons: 1, detail: 0 })
-    events.pointerUp({ x: 100, y: 80 }, { button: 0, buttons: 0, detail: 0 })
+    events.pointerDown({ x: 100, y: 80 }, { button: 0, buttons: 1, detail: 0, timeStamp: 0 })
+    events.pointerUp({ x: 100, y: 80 }, { button: 0, buttons: 0, detail: 0, timeStamp: 50 })
 
-    const expected = plane.toGeo(host.cameraHost.frames.viewFrame.peek().view.screenToWorld({ x: 100, y: 80 }))
-    expect(pin.value?.lon).toBeCloseTo(expected.lon, 9)
-    expect(pin.value?.lat).toBeCloseTo(expected.lat, 9)
+    const first = plane.toGeo(host.cameraHost.frames.viewFrame.peek().view.screenToWorld({ x: 100, y: 80 }))
+    expect(pin.value?.lon).toBeCloseTo(first.lon, 9)
+    expect(pin.value?.lat).toBeCloseTo(first.lat, 9)
+    expect(currentCanvasTool.value).toBe('siteData.pin')
+
+    // Click again to move the pin (2.1-Q364).
+    events.pointerDown({ x: 200, y: 120 }, { button: 0, buttons: 1, detail: 0, timeStamp: 1000 })
+    events.pointerUp({ x: 200, y: 120 }, { button: 0, buttons: 0, detail: 0, timeStamp: 1050 })
+    const second = plane.toGeo(host.cameraHost.frames.viewFrame.peek().view.screenToWorld({ x: 200, y: 120 }))
+    expect(pin.value?.lon).toBeCloseTo(second.lon, 9)
+    expect(pin.value?.lat).toBeCloseTo(second.lat, 9)
 
     placeOnHost(host.cameraHost, plane, { x: 0, y: 0, scale: 0.0001 })
     expect(host.cameraHost.frames.viewFrame.peek().mode).toBe('overview')
     expect(pin.value).toBeNull()
   })
 
-  it('the same tap with Site data closed pins nothing', async () => {
+  it('a Select tap without arming siteData.pin pins nothing', async () => {
     const { events } = await desktopRuntime()
+    selectPanel('site-data')
 
     events.pointerDown({ x: 100, y: 80 }, { button: 0, buttons: 1, detail: 0 })
     events.pointerUp({ x: 100, y: 80 }, { button: 0, buttons: 0, detail: 0 })
@@ -287,11 +317,20 @@ describe('Desktop: the pin and profile hand-offs reach Site data in lon/lat', ()
   })
 
   it('a finished profile line becomes the Site data profile in lon/lat', async () => {
-    const { appAdapter, plane } = await desktopRuntime()
-    selectPanel('site-data')
+    const { host, events, plane } = await desktopRuntime()
+    armProfile('panel')
 
-    appAdapter.finishProfile!([{ x: 0, y: 0 }, { x: 30, y: 40 }])
+    for (const [at, t] of [[{ x: 0, y: 0 }, 0], [{ x: 30, y: 40 }, 1000], [{ x: 30, y: 40 }, 1200]] as const) {
+      events.pointerDown(at, { button: 0, buttons: 1, detail: 0, timeStamp: t })
+      events.pointerUp(at, { button: 0, buttons: 0, detail: 0, timeStamp: t + 50 })
+    }
 
-    expect(profileLine.value).toEqual([plane.toGeo({ x: 0, y: 0 }), plane.toGeo({ x: 30, y: 40 })])
+    const view = host.cameraHost.frames.viewFrame.peek().view
+    const expected = [{ x: 0, y: 0 }, { x: 30, y: 40 }].map((at) => plane.toGeo(view.screenToWorld(at)))
+    expect(profileLine.value).toHaveLength(2)
+    profileLine.value!.forEach((point, index) => {
+      expect(point.lon).toBeCloseTo(expected[index]!.lon, 9)
+      expect(point.lat).toBeCloseTo(expected[index]!.lat, 9)
+    })
   })
 })

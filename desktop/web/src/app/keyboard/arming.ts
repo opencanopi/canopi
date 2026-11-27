@@ -15,15 +15,14 @@
 // Rail learning is not recorded here: it stays an effect on every tool change (app/tool-rail/learning.ts).
 
 import type { CanvasCommandFrom } from '../canvas-commands'
-import type { ToolId } from '../../canvas/runtime/interaction-types'
-import type { ToolSource } from '../../canvas/runtime/tools/tool'
+import { TOOL_ROWS, type ToolId } from '../command-table'
+import type { MapInputHandle, MapInputRequest, ToolSource } from '../../canvas/runtime/interaction-types'
 import { selectPlantStampSource } from '../../canvas/plant-stamp-source'
 import { selectSavedObjectStampSource } from '../../canvas/saved-object-stamp-source'
 import {
   currentCanvasQuerySurface,
   currentCanvasToolCommandSurface,
   currentCanvasViewportCommandSurface,
-  setCurrentCanvasTool,
 } from '../../canvas/session'
 import { activePanel, designShownReadOnly, selectPanel } from '../shell/state'
 import { focusOwner } from './focus-owner'
@@ -31,19 +30,21 @@ import { focusOwner } from './focus-owner'
 /** Who armed the tool: a command surface (CanvasCommandFrom), a panel's Place, the tool card or the Start card. */
 export type ArmFrom = CanvasCommandFrom | 'panel' | 'card' | 'start-card'
 
-/** True when a canvas session took the tool. */
-export function armCanvasTool(
+export interface ArmCanvasToolOptions<T = unknown> {
+  readonly from: ArmFrom
+  readonly source?: ToolSource
+  readonly request?: MapInputRequest<T>
+}
+
+/** Arms a canvas tool through ToolHost and returns its single-settlement map input handle, or null when dropped/refused. */
+function armCanvasToolRequest<T = unknown>(
   tool: ToolId,
-  options: { readonly from: ArmFrom; readonly source?: ToolSource },
-): boolean {
-  const { from, source } = options
-  // Select and Pan only look: they work in overview as they are, and are all a read-only Session (a Design a newer
-  // Canopi saved) arms, whoever asks (2.1-M478; the command table greys the rest by CANVAS_READ_TOOLS).
-  const looksOnly = tool === 'select' || tool === 'hand'
-  if (!looksOnly && designShownReadOnly()) return false
+  options: ArmCanvasToolOptions<T>,
+): MapInputHandle<T> | null {
+  const { from, source, request } = options
+  const row = TOOL_ROWS[tool]
+  if (!row.readOnly && designShownReadOnly()) return null
   const command = from !== 'panel' && from !== 'card'
-  // The command and Start-card callers bring the map forward; Place plants arms without a species too (its card offers
-  // the chooser).
   if (command && activePanel.peek() !== 'canvas') selectPanel('canvas')
   const tools = currentCanvasToolCommandSurface.peek()
   if (source?.kind === 'species') {
@@ -52,18 +53,21 @@ export function armCanvasTool(
   } else if (source?.kind === 'saved-stamp' && tools) {
     selectSavedObjectStampSource(source.stamp, source.name ?? null)
   }
-  if (!tools) {
-    // Before the canvas mounts, a command primes the tool it starts with; a panel or the card arms nothing.
-    if (command) setCurrentCanvasTool(tool)
-    return false
-  }
-  // Never short-circuited for the tool already armed: arming it again takes the new source (and Copy an object on the
-  // map arms Select, then Place a stamp, to drop the stamp it held).
-  if (!looksOnly && currentCanvasQuerySurface.peek()?.view.mode.peek() === 'overview') {
+  // 2.1-Q41: a tool picked with no Design/canvas open is dropped, never queued.
+  if (!tools) return null
+  if (!row.readOnly && currentCanvasQuerySurface.peek()?.view.mode.peek() === 'overview') {
     // Fit first, so the tool's first configure sees site mode (the fit jumps; the mode is current on return).
     currentCanvasViewportCommandSurface.peek()?.returnToDesign({ around: 'view-centre' })
   }
-  setCurrentCanvasTool(tool)
+  const handle = tools.arm(tool, source ?? null, request)
   if (from !== 'shortcut') focusOwner.focusMap()
-  return true
+  return handle
+}
+
+/** True when a canvas session took the tool. */
+export function armCanvasTool<T = unknown>(
+  tool: ToolId,
+  options: ArmCanvasToolOptions<T>,
+): boolean {
+  return armCanvasToolRequest(tool, options) !== null
 }

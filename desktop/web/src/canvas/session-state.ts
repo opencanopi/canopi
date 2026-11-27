@@ -1,15 +1,9 @@
 import { computed, signal } from '@preact/signals'
 import type { PlantSymbolId } from '../generated/known-canopi-keys'
-import type { ToolId } from './runtime/interaction-types'
 
 // UI mirror state only, one name per signal (canvas/session.ts re-exports them). SceneCanvasRuntime owns the authoritative
-// canvas selection.
-export const currentCanvasTool = signal<ToolId>('select')
+// canvas selection; ToolHost owns the authoritative active tool (L11, §18 F29).
 export const currentCanvasSelection = signal<Set<string>>(new Set())
-
-export function setCanvasTool(id: ToolId): void {
-  currentCanvasTool.value = id
-}
 
 export function setCanvasSelection(
   ids: Iterable<string>,

@@ -8,7 +8,6 @@ import {
   type SceneInteractionEventHarness,
 } from '../../../__tests__/support/canvas-interaction-events'
 import { createTestView, type TestView } from '../../../__tests__/support/test-view'
-import { setCanvasTool } from '../../session-state'
 import type { CanvasFocusPort } from '../app-adapter'
 import type { InputPlatform } from '../input/platform'
 import type { ToolHandleId } from '../interaction-types'
@@ -53,7 +52,6 @@ afterEach(() => {
   events.dispose()
   container.remove()
   useStubTools()
-  setCanvasTool('select')
   document.documentElement.removeAttribute('data-story-presenting')
 })
 

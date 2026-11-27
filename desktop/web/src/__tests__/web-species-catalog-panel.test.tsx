@@ -14,8 +14,13 @@ import type { SpeciesFilter, SpeciesListItem } from '../types/species'
 import type { StoreOpenStatus } from '../generated/contracts'
 
 const mockCanvasSession = vi.hoisted(() => {
+  const setTool = vi.fn()
   const toolSurface = {
-    setTool: vi.fn(),
+    setTool,
+    arm: vi.fn((id: string) => {
+      setTool(id)
+      return { settled: Promise.resolve({ kind: 'detached' }), cancel() {} }
+    }),
   }
   return {
     toolSurface,

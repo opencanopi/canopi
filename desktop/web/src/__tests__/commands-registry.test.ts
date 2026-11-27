@@ -2,11 +2,11 @@
 
 import { afterEach, beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest'
 import { signal } from '@preact/signals'
-import { currentCanvasSelection, currentCanvasTool } from '../canvas/session-state'
+import { currentCanvasSelection } from '../canvas/session-state'
 import { activePanel, sidePanel } from '../app/shell/state'
 import { gridVisible } from '../app/canvas-settings/signals'
 import { singleKeyShortcuts, theme, snapToGridEnabled } from '../app/settings/state'
-import { setCurrentCanvasSession } from '../canvas/session'
+import { currentCanvasTool, setCurrentCanvasSession } from '../canvas/session'
 import { designSessionFixture, markTestDesignDirty, resetDirtyBaselines } from './support/design-session-state'
 import * as documentActions from '../app/document-session/actions'
 import { problemReportDialogOpen } from '../app/problem-report/state'
@@ -74,7 +74,6 @@ describe('command registry canvas tool switching', () => {
 
   beforeEach(() => {
     keys = installDesktopKeys()
-    currentCanvasTool.value = 'select'
     activePanel.value = 'canvas'
     sidePanel.value = null
     setCurrentCanvasSession(null)
@@ -90,7 +89,6 @@ describe('command registry canvas tool switching', () => {
     keys.dispose()
     vi.restoreAllMocks()
     setCurrentCanvasSession(null)
-    currentCanvasTool.value = 'select'
     designSessionFixture.file = null
     theme.value = 'light'
     gridVisible.value = true
@@ -233,11 +231,11 @@ describe('command registry canvas tool switching', () => {
     }
   })
 
-  it('falls back to priming the mirror tool state when no session is mounted', () => {
+  it('drops a tool command without priming mirror state when no session is mounted (2.1-Q41)', () => {
     getCommand('canvas.tool.text').action()
 
     expect(activePanel.value).toBe('canvas')
-    expect(currentCanvasTool.value).toBe('text')
+    expect(currentCanvasTool.value).toBe('select')
   })
 
   it('uses the shared shortcut definitions for panel navigation and tools', () => {

@@ -15,7 +15,8 @@ import {
   SceneRuntimeEditCoordinator,
 } from '../canvas/runtime/scene-runtime/transactions'
 import { setCurrentCanvasSession } from '../canvas/session'
-import { IDLE_CANVAS_TOOL_GUIDANCE, setCanvasTool, setCanvasToolGuidance } from '../canvas/session-state'
+import { IDLE_CANVAS_TOOL_GUIDANCE, setCanvasToolGuidance } from '../canvas/session-state'
+import type { ToolId } from '../canvas/runtime/interaction-types'
 import {
   createTestCanvasCommandSurface,
   createTestCanvasDocumentSurface,
@@ -80,7 +81,6 @@ describe('Tool card after a Species Key recolour', () => {
   afterEach(() => {
     render(null, container)
     container.remove()
-    setCanvasTool('select')
     setCanvasToolGuidance(IDLE_CANVAS_TOOL_GUIDANCE)
     clearPlantStampSource()
     setCurrentCanvasSession(null)
@@ -88,6 +88,7 @@ describe('Tool card after a Species Key recolour', () => {
 
   it('with Place plants armed, the card glyph takes the species\' new colour', async () => {
     const { queries, mutations } = runtimeOverOneApple()
+    queries.bindActiveTool(signal<ToolId>('plant-stamp'))
     setCurrentCanvasSession({
       commands: createTestCanvasCommandSurface(),
       queries,
@@ -95,7 +96,6 @@ describe('Tool card after a Species Key recolour', () => {
       keyboard: createTestCanvasKeyboardPort(),
     })
     selectPlantStampSource(APPLE)
-    setCanvasTool('plant-stamp')
     await act(() => render(<ToolCard />, container))
     const lead = () => container.querySelector<HTMLElement>('[data-tool-card-lead="species"]')!
     expect(lead().style.color).toBe('rgb(176, 96, 69)')

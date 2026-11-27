@@ -4,19 +4,7 @@ import { effect, signal } from '@preact/signals'
 import { h, render } from 'preact'
 import { act } from 'preact/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import {
-  createToolHarness,
-  createToolSceneSource,
-  plantEntity,
-  rectZone,
-  sceneStoreWith,
-  stubTool,
-  useStubTools,
-  type StubTool,
-  type StubToolBehaviour,
-  type ToolHarness,
-  type ToolHarnessOptions,
-} from '../../../__tests__/support/tool-harness'
+import { createToolHarness, createToolSceneSource, plantEntity, rectZone, sceneStoreWith, stubTool, useStubTools, type StubTool, type StubToolBehaviour, type ToolHarness, type ToolHarnessOptions } from '../../../__tests__/support/tool-harness'
 import { createTestView } from '../../../__tests__/support/test-view'
 import { closeCanvasContextMenu, openCanvasContextMenu } from '../../../app/canvas-context-menu/state'
 import { CanvasContextMenu } from '../../../components/canvas/CanvasContextMenu'
@@ -408,8 +396,9 @@ describe('ToolHost', () => {
     })
 
     it('interrupted and a document replacement forget the still pointer', () => {
+      const select = stubTool('select')
       const stamp = stubTool('plant-stamp')
-      useStubTools(stamp)
+      useStubTools(select, stamp)
       const h = harness({ tool: 'plant-stamp', scene: { plants: [appleAt({ x: 100, y: 100 })] } })
 
       h.hover({ x: 100, y: 100 })
@@ -427,7 +416,8 @@ describe('ToolHost', () => {
       h.host.prepareForDocumentReplacement()
       h.view.navigation.zoomOut()
       expect(stamp.count('hover')).toBe(2)
-      expect(stamp.calls.filter((call) => call === 'viewChanged')).toHaveLength(2)
+      expect(select.count('hover')).toBe(0)
+      expect(select.calls.filter((call) => call === 'viewChanged')).toHaveLength(1)
     })
 
     it('a pointer pan moves the resting pointer, re-emitted at once and on each camera frame', () => {
@@ -479,48 +469,56 @@ describe('ToolHost', () => {
   })
 
   describe('interceptors', () => {
-    it('J10: a Select tap on empty ground, inside a zone too, reaches Select, then pins its point; an object or a zone\'s outline selects only', () => {
-      const order: string[] = []
-      const select = stubTool('select', {
+    it('siteData.pin settles its request on a tap in site mode; a Select tap settles nothing (2.1-Q364)', () => {
+      const select = stubTool('select')
+      const sitePin: StubTool = stubTool('siteData.pin', {
         gesture: (g) => {
-          if (g.kind === 'tap') order.push('tap')
+          if (g.kind === 'press') return 'handled'
+          if (g.kind === 'tap') {
+            sitePin.ctx().effects.completeRequest(g.point.world)
+            return 'handled'
+          }
           return 'pass'
         },
       })
-      useStubTools(select)
-      const pin = vi.fn(() => { order.push('pin') })
-      const h = harness({ pin, scene: { plants: [appleAt({ x: 200, y: 200 })], zones: [bed()] } })
+      useStubTools(select, sitePin)
+      const pin = vi.fn()
+      const h = harness({ scene: { plants: [appleAt({ x: 200, y: 200 })], zones: [bed()] } })
 
-      // Empty ground, with a little jitter inside the slop: the tool hears the tap first, and nothing is claimed.
+      // Select hears taps on empty ground and objects without settling any pin request.
       expect(h.press({ x: 300, y: 100 })).toEqual({})
       expect(h.release({ x: 301, y: 101 })).toEqual({})
-      expect(order).toEqual(['tap', 'pin'])
-      expect(pin).toHaveBeenCalledWith(h.world({ x: 301, y: 101 }))
-
-      // A plant, and a zone's outline: Select selects them, and nothing pins.
-      pin.mockClear()
-      h.click({ x: 200, y: 200 })
-      h.click({ x: 60, y: 12 })
-      expect(select.count('tap')).toBe(3)
+      expect(select.count('tap')).toBe(1)
       expect(pin).not.toHaveBeenCalled()
 
-      // (canopi-qd2k, the user's decision of 2026-10-14) Inside a zone, away from its outline, is empty ground: it pins.
+      // Arming siteData.pin settles with the tapped world point.
+      h.host.arm('siteData.pin', null, {
+        onSettled(outcome) {
+          if (outcome.kind === 'picked') pin(outcome.value)
+        },
+      })
       h.click({ x: 60, y: 35 })
       expect(pin).toHaveBeenCalledWith(h.world({ x: 60, y: 35 }))
-      pin.mockClear()
-
-      // A double-click on empty ground pins at each of its taps.
-      h.click({ x: 300, y: 100 }, { clickCount: 2 })
-      expect(pin).toHaveBeenCalledTimes(1)
     })
 
-    it('J10: a drag, a handle, a lost capture, overview and the drawing tools never pin; any Pan-tool tap pins', () => {
+    it('a drag, a lost capture, overview and other tools never settle a siteData.pin request', () => {
       const select = stubTool('select')
       const polygon = stubTool('polygon')
       const hand = stubTool('hand')
-      useStubTools(select, polygon, hand)
+      const sitePin: StubTool = stubTool('siteData.pin', {
+        gesture: (g) => {
+          if (sitePin.ctx().view.mode !== 'site') return 'pass'
+          if (g.kind === 'press') return 'handled'
+          if (g.kind === 'tap') {
+            sitePin.ctx().effects.completeRequest(g.point.world)
+            return 'handled'
+          }
+          return 'pass'
+        },
+      })
+      useStubTools(select, polygon, hand, sitePin)
       const pin = vi.fn()
-      const h = harness({ pin, scene: { plants: [appleAt({ x: 200, y: 200 })] } })
+      const h = harness({ scene: { plants: [appleAt({ x: 200, y: 200 })] } })
 
       // A band from empty ground, and a drag of the rotate handle.
       h.drag({ x: 300, y: 100 }, { x: 350, y: 150 })
@@ -528,41 +526,47 @@ describe('ToolHost', () => {
       h.release()
       expect(select.last('handle-drag')).toMatchObject({ phase: 'end', handle: 'rotate' })
 
-      // Polygon adds its point and pins nothing.
+      // Polygon and Pan never settle a pin request.
       h.arm('polygon')
       h.click({ x: 300, y: 100 })
       expect(polygon.count('tap')).toBe(1)
-      expect(pin).not.toHaveBeenCalled()
-
-      // The Pan tool: any tap pins, on an object too.
       h.arm('hand')
       h.click({ x: 200, y: 200 })
       expect(hand.count('tap')).toBe(1)
-      expect(pin).toHaveBeenCalledWith(h.world({ x: 200, y: 200 }))
+      expect(pin).not.toHaveBeenCalled()
 
-      // A press whose capture was lost while it was taken ends with the lost-capture outcome and pins nothing.
-      pin.mockClear()
-      const lost = harness({ pin, capturePress: () => false })
+      // A press whose capture was lost while it was taken ends with the lost-capture outcome and settles nothing.
+      const lost = harness({ capturePress: () => false })
+      lost.host.arm('siteData.pin', null, {
+        onSettled(outcome) {
+          if (outcome.kind === 'picked') pin(outcome.value)
+        },
+      })
       expect(lost.click({ x: 300, y: 100 })).toEqual({ rejectSession: true })
+      expect(pin).not.toHaveBeenCalled()
 
-      // Overview: a press pans in the recogniser (U36); one that reached the host would pin nothing.
-      const overview = harness({ tool: 'hand', viewport: OVERVIEW, pin })
+      // Overview: a tap in overview settles nothing.
+      const overview = harness({ viewport: OVERVIEW })
+      overview.host.arm('siteData.pin', null, {
+        onSettled(outcome) {
+          if (outcome.kind === 'picked') pin(outcome.value)
+        },
+      })
       overview.click({ x: 120, y: 80 })
       expect(pin).not.toHaveBeenCalled()
     })
 
-    it('Profile hands its finished line to the Site data profile, never pins, constrains with Shift and shows the crosshair', () => {
+    it('Profile settles its request with the finished line, constrains with Shift and shows the crosshair', () => {
       const line = [{ x: 1, y: 2 }, { x: 30, y: 40 }]
       const profile: StubTool = stubTool('profile', {
         gesture: (g) => {
-          if (g.kind === 'tap' && g.clickCount === 2) profile.ctx().effects.finishProfile(line)
+          if (g.kind === 'tap' && g.clickCount === 2) profile.ctx().effects.completeRequest(line)
           return 'pass'
         },
       })
       useStubTools(profile)
-      const pin = vi.fn()
       const finishProfile = vi.fn()
-      const h = harness({ tool: 'profile', pin, finishProfile })
+      const h = harness({ tool: 'profile', finishProfile })
       expect(h.chrome.cursor).toBe('crosshair')
 
       h.hover({ x: 50, y: 50 }, { shift: true })
@@ -572,35 +576,50 @@ describe('ToolHost', () => {
       h.click({ x: 300, y: 100 }, { clickCount: 2 })
 
       expect(finishProfile).toHaveBeenCalledWith(line)
-      expect(pin).not.toHaveBeenCalled()
     })
 
-    it('Profile finishing on empty ground and then requesting Select never pins: the tool that heard the tap decides', () => {
+    it('Profile completing its request and then requesting Select settles once and returns to Select', () => {
       const line = [{ x: 1, y: 2 }, { x: 30, y: 40 }]
       const profile: StubTool = stubTool('profile', {
         gesture: (g) => {
           if (g.kind === 'tap' && g.clickCount === 2) {
-            profile.ctx().effects.finishProfile(line)
+            profile.ctx().effects.completeRequest(line)
             profile.ctx().effects.requestTool('select')
           }
           return 'pass'
         },
       })
       useStubTools(profile, stubTool('select'))
-      const pin = vi.fn()
-      const h = harness({ tool: 'profile', pin, finishProfile: vi.fn() })
+      const finishProfile = vi.fn()
+      const h = harness({ tool: 'profile', finishProfile })
 
       h.click({ x: 300, y: 100 })
       h.click({ x: 300, y: 100 }, { clickCount: 2 })
 
+      expect(finishProfile).toHaveBeenCalledTimes(1)
+      expect(finishProfile).toHaveBeenCalledWith(line)
       expect(h.host.activeToolIsSelect()).toBe(true)
-      expect(pin).not.toHaveBeenCalled()
     })
 
-    it('J10: a finger\'s Select tap on empty ground pins at the down point', () => {
-      useStubTools(stubTool('select'))
+    it('a finger\'s tap with siteData.pin armed settles at the down point', () => {
+      const sitePin: StubTool = stubTool('siteData.pin', {
+        gesture: (g) => {
+          if (g.kind === 'press') return 'handled'
+          if (g.kind === 'tap') {
+            sitePin.ctx().effects.completeRequest(g.point.world)
+            return 'handled'
+          }
+          return 'pass'
+        },
+      })
+      useStubTools(sitePin)
       const pin = vi.fn()
-      const h = harness({ pin })
+      const h = harness()
+      h.host.arm('siteData.pin', null, {
+        onSettled(outcome) {
+          if (outcome.kind === 'picked') pin(outcome.value)
+        },
+      })
 
       // The recogniser resolves a finger's tap at its down point (input/recognise.ts).
       h.click({ x: 120, y: 90 }, { pointer: 'touch' })
@@ -2530,11 +2549,7 @@ describe('ToolHost', () => {
         h.chrome.focusedHandle = CORNER
         h.menu('selection', 'keyboard')
         const screen = h.view.view().worldToScreen(CORNER_HANDLE.anchor)
-        expect(h.record.menus.at(-1)).toEqual({
-          at: CORNER_HANDLE.anchor,
-          screen,
-          pointActions: [{ action: 'delete-point', disabled: false, run: expect.any(Function) }],
-        })
+        expect(h.record.menus.at(-1)).toEqual({ at: CORNER_HANDLE.anchor, screen, pointActions: [{ action: 'delete-point', disabled: false, run: expect.any(Function) }] })
 
         h.chrome.focusedHandle = null
         h.menu('selection', 'keyboard')
@@ -2569,12 +2584,8 @@ describe('ToolHost', () => {
     })
 
     it('the menu port rebuilds today\'s three menu states', () => {
-      const store = sceneStoreWith({
-        plants: [appleAt({ x: 50, y: 50 }), plantEntity('p2', 'Pyrus communis', { x: 150, y: 50 })],
-      })
-      store.updateSession((session) => {
-        session.selectedTargets = [P1]
-      })
+      const store = sceneStoreWith({ plants: [appleAt({ x: 50, y: 50 }), plantEntity('p2', 'Pyrus communis', { x: 150, y: 50 })] })
+      store.updateSession((session) => { session.selectedTargets = [P1] })
       const { port, opened, view, source, pickAt } = menuPortFor(store)
 
       port.open({ at: { x: 50, y: 50 }, screen: { x: 50, y: 50 }, pick: pickAt({ x: 50, y: 50 }) })
@@ -2604,9 +2615,7 @@ describe('ToolHost', () => {
       expect(opened.at(-1)!.selection).toBeNull()
       expect(opened.at(-1)!.anchor).toEqual({ left: 50, top: 50, right: 50, bottom: 50 })
 
-      store.updatePersisted((draft) => {
-        draft.layers = draft.layers.map((layer) => (layer.name === 'plants' ? { ...layer, locked: true } : layer))
-      })
+      store.updatePersisted((draft) => { draft.layers = draft.layers.map((layer) => (layer.name === 'plants' ? { ...layer, locked: true } : layer)) })
       port.open({ at: { x: 150, y: 50 }, screen: { x: 150, y: 50 }, pick: pickAt({ x: 150, y: 50 }) })
       expect(opened.at(-1)!.selection?.editableTargets).toEqual([])
 
@@ -2634,9 +2643,7 @@ describe('ToolHost', () => {
       expect(opened.at(-1)!.selection?.editableTargets).toEqual([Z1])
 
       // A locked Zones layer: the outline gets the zone's disabled menu, the inside the empty map's.
-      store.updatePersisted((draft) => {
-        draft.layers = draft.layers.map((layer) => (layer.name === 'zones' ? { ...layer, locked: true } : layer))
-      })
+      store.updatePersisted((draft) => { draft.layers = draft.layers.map((layer) => (layer.name === 'zones' ? { ...layer, locked: true } : layer)) })
       expect(pickAt({ x: 3, y: 70 })).toEqual({ visible: Z1, target: null })
       expect(pickAt({ x: 30, y: 70 })).toEqual({ visible: null, target: null })
       port.close()
@@ -2661,20 +2668,14 @@ describe('ToolHost', () => {
     it('the keyboard menu opens beside a shape drawn level at 45, not beside its world box', () => {
       const bed = rectZone('bed', [{ x: -50, y: -10 }, { x: 50, y: -10 }, { x: 50, y: 10 }, { x: -50, y: 10 }], { rotationDeg: 45 })
       const store = sceneStoreWith({ zones: [bed] })
-      store.updateSession((session) => {
-        session.selectedTargets = [{ kind: 'zone', id: 'bed' }]
-      })
+      store.updateSession((session) => { session.selectedTargets = [{ kind: 'zone', id: 'bed' }] })
       const source = createToolSceneSource(store)
       const opened: CanvasContextMenuRequest[] = []
       const view = createTestView({ screen: { width: 800, height: 600 }, camera: { bearingDeg: 45 } })
       const port = createContextMenuPort({
-        container: document.createElement('div'),
-        view: view.view,
+        container: document.createElement('div'), view: view.view,
         adapter: { open: (request) => opened.push(request), close: () => {} },
-        commands: {} as never,
-        returnFocus: () => {},
-        scene: createToolScene(source),
-        selectionModel: source.selectionModel,
+        commands: {} as never, returnFocus: () => {}, scene: createToolScene(source), selectionModel: source.selectionModel,
       })
 
       port.open({ at: 'selection', screen: null })
@@ -2703,14 +2704,11 @@ describe('ToolHost', () => {
       const app = document.body.appendChild(document.createElement('div'))
       await act(async () => render(h(CanvasContextMenu, null), app))
       const port = createContextMenuPort({
-        container: document.createElement('div'),
-        view: view.view,
+        container: document.createElement('div'), view: view.view,
         adapter: { open: openCanvasContextMenu, close: closeCanvasContextMenu },
         // No command runs here: each one does nothing.
         commands: new Proxy({}, { get: () => () => false }) as CanvasContextMenuCommands,
-        returnFocus,
-        scene: createToolScene(source),
-        selectionModel: source.selectionModel,
+        returnFocus, scene: createToolScene(source), selectionModel: source.selectionModel,
       })
       const menu = () => document.querySelector<HTMLElement>('[role="menu"]')
       const openMenu = async () => {

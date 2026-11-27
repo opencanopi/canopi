@@ -15,20 +15,16 @@ import {
   selectPlantStampSource,
 } from '../canvas/plant-stamp-source'
 import { SceneStore } from '../canvas/runtime/scene/store'
-import { setCurrentCanvasSession } from '../canvas/session'
+import { currentCanvasTool, setCurrentCanvasSession } from '../canvas/session'
 import {
   IDLE_CANVAS_TOOL_GUIDANCE,
-  currentCanvasTool,
-  setCanvasTool,
   setCanvasToolGuidance,
 } from '../canvas/session-state'
 import type { SpeciesListItem } from '../types/species'
 import { hoveredPanelTargets, selectedPanelTargets } from '../app/panel-targets/state'
 import { speciesTarget } from '../target'
 import {
-  createTestCanvasCommandSurface,
-  createTestCanvasDocumentSurface,
-  createTestCanvasKeyboardPort,
+  createTestCanvasRuntimeSurfaces,
 } from './support/canvas-runtime-surfaces'
 import { createTestCanvasQuerySurface, type TestCanvasQuerySurface } from './support/canvas-query-surface'
 import type * as PlantBrowserModule from '../app/plant-browser'
@@ -109,12 +105,7 @@ describe('Place plants species chooser', () => {
         ['Ficus carica', { canonical_name: 'Ficus carica', stratum: 'emergent' }],
       ]),
     })
-    setCurrentCanvasSession({
-      commands: createTestCanvasCommandSurface(),
-      queries,
-      documents: createTestCanvasDocumentSurface(),
-      keyboard: createTestCanvasKeyboardPort(),
-    })
+    setCurrentCanvasSession(createTestCanvasRuntimeSurfaces({ queries }))
     favorites.view!.value = {
       items: [favorite('Rubus idaeus', 'Raspberry', 1.5), favorite('Ficus carica', 'Fig', 4)],
       loading: false,
@@ -122,7 +113,7 @@ describe('Place plants species chooser', () => {
     }
     await act(() => render(<ToolCard />, container))
     await act(() => {
-      setCanvasTool('plant-stamp')
+      queries.setActiveTool('plant-stamp')
       setCanvasToolGuidance(IDLE_CANVAS_TOOL_GUIDANCE)
     })
   })
@@ -132,7 +123,6 @@ describe('Place plants species chooser', () => {
     container.remove()
     releaseMap()
     map.remove()
-    setCanvasTool('select')
     setCanvasToolGuidance(IDLE_CANVAS_TOOL_GUIDANCE)
     clearPlantStampSource()
     recentPlantStampSources.value = []
@@ -294,15 +284,14 @@ describe('Place plants species chooser', () => {
     store.updatePersisted((draft) => {
       draft.plants = [plant('p1', 'Prunus avium', 'Cherry', null)]
     })
-    await act(() => setCurrentCanvasSession({
-      commands: createTestCanvasCommandSurface(),
-      queries: createTestCanvasQuerySurface({
+    await act(() => {
+      queries = createTestCanvasQuerySurface({
         scene: store.persisted,
         speciesCache: new Map([['Prunus avium', { canonical_name: 'Prunus avium', stratum: 'high', width_max_m: 6 }]]),
-      }),
-      documents: createTestCanvasDocumentSurface(),
-      keyboard: createTestCanvasKeyboardPort(),
-    }))
+        activeTool: 'plant-stamp',
+      })
+      setCurrentCanvasSession(createTestCanvasRuntimeSurfaces({ queries }))
+    })
     await act(() => options().find((option) => option.dataset.speciesOption === 'Prunus avium')!.click())
 
     expect(readPlantStampSource()?.width_max_m).toBe(6)

@@ -12,6 +12,7 @@ import { createPolygonTool } from './polygon'
 import { createProfileLineTool } from './profile-line'
 import { createSavedObjectStampTool } from './saved-object-stamp'
 import { createSelectTool } from './select/select-tool'
+import { createSitePinTool } from './site-pin'
 import { createTextNoteTool } from './text-note'
 import type { CanvasTool } from './tool'
 import { createZoneDragTool } from './zone-drag'
@@ -32,4 +33,5 @@ export const TOOL_REGISTRY: Readonly<Record<ToolId, ToolFactory>> = Object.freez
   polygon: createPolygonTool,
   'measurement-guide': createMeasurementGuideTool,
   profile: createProfileLineTool,
+  'siteData.pin': createSitePinTool,
 })

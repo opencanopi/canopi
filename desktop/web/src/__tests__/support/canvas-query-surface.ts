@@ -11,6 +11,7 @@ import type {
   CanvasQuerySurface,
 } from '../../canvas/runtime/runtime'
 import type { PointerWorld } from '../../canvas/runtime/interaction-ports'
+import type { ToolId } from '../../canvas/runtime/interaction-types'
 import type { PlacedPlant } from '../../types/design'
 import type { SpeciesCacheEntry } from '../../canvas/runtime/presentation-data'
 import { createViewReadSurface } from '../../geo/view/frame-source'
@@ -40,11 +41,16 @@ interface TestCanvasQuerySurfaceOptions {
   readonly plantLabelCoverage?: CanvasPlantLabelCoverage
   /** The catalog entries the runtime has loaded for the Design's species. */
   readonly speciesCache?: ReadonlyMap<string, SpeciesCacheEntry>
+  /** Initial active canvas tool; defaults to 'select'. */
+  readonly activeTool?: ToolId
 }
 
 export type TestCanvasQuerySurface = CanvasQuerySurface & {
   /** Writable: the fake's `view` reads its ground on this plane, so a test sets it instead of spreading another signal in. */
   readonly sessionPlane: Signal<SessionPlane | null>
+  /** Writable: the fake's active tool, mirroring ToolHost's single activeTool signal. */
+  readonly activeTool: Signal<ToolId>
+  setActiveTool(tool: ToolId): void
   /** Moves the fake's view to this placement, as a camera move would. */
   setPlacement(placement: TestPlacement): void
   bumpSceneRevision(): void
@@ -71,8 +77,10 @@ export function createTestCanvasQuerySurface({
   sessionPlane = createSessionPlane(TEST_GEO_ORIGIN),
   plantLabelCoverage = { labelled: 0, inView: 0 },
   speciesCache = new Map(),
+  activeTool = 'select',
 }: TestCanvasQuerySurfaceOptions = {}): TestCanvasQuerySurface {
   const sessionPlaneSignal = signal<SessionPlane | null>(sessionPlane)
+  const activeToolSignal = signal<ToolId>(activeTool)
   const sceneRevision = signal(0)
   const plantNamesRevision = signal(0)
   const transientHistoryRevision = signal(0)
@@ -92,6 +100,10 @@ export function createTestCanvasQuerySurface({
 
   return {
     revision,
+    activeTool: activeToolSignal,
+    setActiveTool: (tool) => {
+      activeToolSignal.value = tool
+    },
     view: createFollowingTestView(placementSignal, { ...screen, devicePixelRatio: 1 }, sessionPlaneSignal),
     sessionPlane: sessionPlaneSignal,
     getSpeciesFocus: () => ({ canonicalName: null }),

@@ -17,11 +17,11 @@ import {
 import { toolRailRoom, visibleMapFrame } from '../app/shell/visible-map-area'
 import { phoneLayout } from '../app/shell/phone-layout'
 import { toolNamesVisible, usedCanvasTools, snapToGridEnabled } from '../app/settings/state'
-import { setCurrentCanvasSession } from '../canvas/session'
-import { currentCanvasTool, currentCanvasSelection } from '../canvas/session-state'
+import { currentCanvasTool, setCurrentCanvasSession } from '../canvas/session'
+import { currentCanvasSelection } from '../canvas/session-state'
 import { activePanel, sidePanel } from '../app/shell/state'
 import { gridVisible } from '../app/canvas-settings/signals'
-import { createTestCanvasQuerySurface } from './support/canvas-query-surface'
+import { createTestCanvasQuerySurface, type TestCanvasQuerySurface } from './support/canvas-query-surface'
 import { appCommandGraphChromeProjection } from '../commands/graph/projections'
 import { flattenMenuActions } from '../app/shell-commands/menus'
 import { installDesktopKeys } from './support/desktop-key-router'
@@ -42,6 +42,7 @@ function Chip() {
 
 describe('ToolRail', () => {
   let container: HTMLDivElement
+  let queries: TestCanvasQuerySurface
   const canUndo = signal(false)
   const canRedo = signal(false)
   const setTool = vi.fn()
@@ -54,7 +55,6 @@ describe('ToolRail', () => {
     container = document.createElement('div')
     document.body.innerHTML = ''
     document.body.appendChild(container)
-    currentCanvasTool.value = 'select'
     canUndo.value = false
     canRedo.value = false
     setTool.mockReset()
@@ -69,6 +69,7 @@ describe('ToolRail', () => {
     snapToGridEnabled.value = false
     usedCanvasTools.value = []
     toolNamesVisible.value = null
+    queries = createTestCanvasQuerySurface()
     setCurrentCanvasSession(createTestCanvasRuntimeSurfaces({
       commands: createTestCanvasCommandSurface({
         tools: { setTool },
@@ -83,7 +84,7 @@ describe('ToolRail', () => {
           toggleSnapToGrid,
         },
       }),
-      queries: createTestCanvasQuerySurface(),
+      queries,
     }))
   })
 
@@ -91,7 +92,6 @@ describe('ToolRail', () => {
     render(null, container)
     container.remove()
     phoneLayout.value = null
-    currentCanvasTool.value = 'select'
     currentCanvasSelection.value = new Set()
     activePanel.value = 'canvas'
     sidePanel.value = null
@@ -131,9 +131,9 @@ describe('ToolRail', () => {
     const uninstall = installToolRailLearning()
     try {
       expect(usedCanvasTools.value).toEqual([])
-      await act(async () => { currentCanvasTool.value = 'polygon' })
-      await act(async () => { currentCanvasTool.value = 'select' })
-      await act(async () => { currentCanvasTool.value = 'polygon' })
+      await act(async () => { queries.setActiveTool('polygon') })
+      await act(async () => { queries.setActiveTool('select') })
+      await act(async () => { queries.setActiveTool('polygon') })
       expect(usedCanvasTools.value).toEqual(['polygon', 'select'])
     } finally {
       uninstall()
@@ -193,7 +193,7 @@ describe('ToolRail', () => {
   })
 
   it('presses the active tool and groups tools as the Menus board does', async () => {
-    currentCanvasTool.value = 'ellipse'
+    queries.setActiveTool('ellipse')
     await mount()
     const tools = [...container.querySelectorAll<HTMLButtonElement>('button[aria-pressed]')]
     expect(tools.map((button) => button.dataset.command)).toEqual([
@@ -271,7 +271,7 @@ describe('ToolRail', () => {
     await mount()
     await act(async () => {
       phoneLayout.value = 'portrait'
-      currentCanvasTool.value = 'rectangle'
+      queries.setActiveTool('rectangle')
     })
     const rail = container.querySelector<HTMLElement>('[role="toolbar"]')!
     expect(rail.dataset.toolRail).toBe('phone')
@@ -290,7 +290,7 @@ describe('ToolRail', () => {
   })
 
   it('Pan is not on the main rail and stays in the phone strip', async () => {
-    currentCanvasTool.value = 'hand'
+    queries.setActiveTool('hand')
     await mount()
     const railItems = () => [...container.querySelectorAll<HTMLButtonElement>('[data-rail-item]')]
     expect(railButton('canvas.tool.hand')).toBeNull()

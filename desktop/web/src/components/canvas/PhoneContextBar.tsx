@@ -1,4 +1,5 @@
 import { useEffect } from 'preact/hooks'
+import { TOOL_ROWS } from '../../app/command-table'
 import { phoneToolOptions } from '../../app/shell/phone-layout'
 import { useMapSelectionSummary } from '../../app/map-selection/summary'
 import { readPlantStampSource } from '../../canvas/plant-stamp-source'
@@ -30,16 +31,17 @@ import styles from './PhoneContextBar.module.css'
  */
 export function PhoneContextBar() {
   const tool = currentCanvasTool.value
+  const row = TOOL_ROWS[tool]
   const summary = useMapSelectionSummary()
   const overview = currentCanvasQuerySurface.value?.view.mode.value === 'overview'
-  const card = !overview && tool !== 'select' && tool !== 'hand'
+  const card = !overview && !row.readOnly
   const selection = !overview && !card && summary !== null
   const highlight = !overview && !card && !selection && plantsHighlighted()
   const speciesPrompts = currentCanvasToolGuidance.value.speciesPrompts
   // The overview has no tool's row, so no Options to close them with.
   useEffect(() => {
-    phoneToolOptions.value = card && tool === 'plant-stamp' && readPlantStampSource() === null ? 'half' : null
-  }, [tool, card])
+    phoneToolOptions.value = card && row.requiresSource === 'species' && readPlantStampSource() === null ? 'half' : null
+  }, [tool, card, row.requiresSource])
   useEffect(() => {
     if (speciesPrompts > 0) phoneToolOptions.value = 'half'
   }, [speciesPrompts])

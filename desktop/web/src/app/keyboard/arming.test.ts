@@ -17,8 +17,7 @@ import { TEST_KEY_PLATFORM } from '../../__tests__/support/key-router'
 import { readPlantStampSource, clearPlantStampSource, recentPlantStampSources } from '../../canvas/plant-stamp-source'
 import { clearSavedObjectStampSource, readSavedObjectStampName, readSavedObjectStampSource } from '../../canvas/saved-object-stamp-source'
 import { parseSavedObjectStampPayload } from '../../canvas/saved-object-stamp-payload'
-import { setCurrentCanvasSession } from '../../canvas/session'
-import { currentCanvasTool } from '../../canvas/session-state'
+import { currentCanvasTool, setCurrentCanvasSession } from '../../canvas/session'
 import { appCommandGraphChromeProjection } from '../../commands/registry'
 import type { MenuAction, MenuEntry } from '../../commands/registry'
 import { SiteOnboarding } from '../../components/canvas/SiteOnboarding'
@@ -99,7 +98,6 @@ beforeEach(() => {
   releases = [focusOwner.registerRegion('map', host)]
   activePanel.value = 'canvas'
   sidePanel.value = null
-  currentCanvasTool.value = 'select'
   singleKeyShortcuts.value = true
   connectCanvas()
   arm.mockClear()
@@ -130,18 +128,17 @@ describe('armCanvasTool', () => {
     expect(document.activeElement).toBe(elsewhere)
   })
 
-  it('selects the canvas panel for the command and Start card callers, and primes the tool without a canvas', () => {
+  it('selects the canvas panel for the command and Start card callers, and drops the tool without a canvas (2.1-Q41)', () => {
     setCurrentCanvasSession(null)
     activePanel.value = 'plant-db'
     elsewhere.focus()
     expect(armCanvasTool('polygon', { from: 'start-card' })).toBe(false)
     expect(activePanel.value).toBe('canvas')
-    expect(currentCanvasTool.value).toBe('polygon')
+    expect(currentCanvasTool.value).toBe('select')
     expect(setTool).not.toHaveBeenCalled()
     expect(document.activeElement).toBe(elsewhere)
 
     // A species from a panel is kept (and offered again by Place plants' chooser) with nothing to arm.
-    currentCanvasTool.value = 'select'
     expect(armCanvasTool('plant-stamp', { from: 'panel', source: { kind: 'species', species: HAZEL } })).toBe(false)
     expect(readPlantStampSource()?.canonical_name).toBe('Corylus avellana')
     expect(recentPlantStampSources.value.map((entry) => entry.canonical_name)).toEqual(['Corylus avellana'])

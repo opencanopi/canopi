@@ -6,8 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { MenuAction, MenuDefinition } from '../app/shell-commands/menus'
 import { MenuBar } from '../components/shared/MenuBar'
 import { appCommandGraphChromeProjection } from '../commands/graph/projections'
-import { setCurrentCanvasSession } from '../canvas/session'
-import { currentCanvasTool } from '../canvas/session-state'
+import { currentCanvasTool, setCurrentCanvasSession } from '../canvas/session'
 import {
   createTestCanvasCommandSurface,
   createTestCanvasKeyboardPort,
@@ -363,7 +362,6 @@ describe('MenuBar with the Desktop menus', () => {
     container = document.createElement('div')
     document.body.appendChild(container)
     setTool.mockReset()
-    currentCanvasTool.value = 'select'
     setCurrentCanvasSession(createTestCanvasRuntimeSurfaces({ commands: createTestCanvasCommandSurface({ tools: { setTool } }) }))
   })
 
@@ -371,7 +369,6 @@ describe('MenuBar with the Desktop menus', () => {
     render(null, container)
     container.remove()
     setCurrentCanvasSession(null)
-    currentCanvasTool.value = 'select'
   })
 
   const DesktopMenus = () => <MenuBar menus={appCommandGraphChromeProjection.value.menus} label="Menus" />

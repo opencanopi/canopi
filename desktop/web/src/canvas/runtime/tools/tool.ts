@@ -20,7 +20,7 @@
 // import these types from tool.ts, draft.ts or the same defining modules. Any later type import must keep
 // tools-reach-no-maplibre-or-pixi true.
 
-import type { CancelReason, PointerKind, ToolHandleId, ToolId } from '../interaction-types'
+import type { CancelReason, PointerKind, ToolHandleId, ToolId, ToolSource } from '../interaction-types'
 import type { DraftPresentation, ToolHandle } from './draft'
 import type { GroundMeasure } from '../../../geo/session-plane'
 import type { ScreenPoint, WorldPoint, WorldQuad, WorldVector } from '../../../geo/view/types'
@@ -30,8 +30,6 @@ import type { SceneEditCoordinator } from '../scene-runtime/transactions'
 import type { SceneArrangementTemplate } from '../scene-runtime/arrangement-placement'
 import type { CanvasDesignObjectSelectionModel } from '../runtime'
 import type { CanvasToolGuidance } from '../../session-state'
-import type { PlantStampSourceInput } from '../../plant-stamp-source'
-import type { SavedObjectStampPayload } from '../../saved-object-stamp-payload'
 import type { PointAction, PointMenuItem } from '../../point-editor/rules'
 import type { LocaleKey } from '../../../generated/locale-keys'
 
@@ -199,9 +197,8 @@ export interface ToolEffects {
   requestTextEntry(request: TextEntryRequest, submit: (text: string) => 'close' | 'keep', onCancel?: () => void): void
   closeTextEntry(): void
   requestFocus(target: 'map'): void                         // ToolHostDeps.focus (CanvasFocusPort, §1.6), implemented by the FocusOwner
-  /** Profile only (canopi-f47t.42): hands the finished line (2+ points) to the Site data profile (ToolHostDeps.finishProfile);
-   *  the tool then requests Select. */
-  finishProfile(points: readonly WorldPoint[]): void
+  /** Settles the active map input request (Profile line, Site data pin) once with `value`. */
+  completeRequest(value: unknown): void
   /** A drag refused by a lock, once per refused drag (Select's press on a locked object; 2.1-Q177): ToolHostDeps
    *  .lockedMoveRefused, which raises the lock toast. */
   refuseLockedMove(): void
@@ -271,9 +268,4 @@ export type ToolConstraint =
   | { readonly kind: 'direction'; readonly origin: WorldPoint; readonly stepDeg: 45 }
   | { readonly kind: 'rotation-delta'; readonly pivot: WorldPoint; readonly startDeg: number; readonly stepDeg: 15 }
 
-/** Arming payloads that today arrive through module-level signals. */
-export type ToolSource =
-  | { readonly kind: 'species'; readonly species: PlantStampSourceInput }
-  /** name: armCanvasTool writes it for the tool card (readSavedObjectStampName); the tool ignores it; sources the session
-   *  rebuilds from the read models omit it. */
-  | { readonly kind: 'saved-stamp'; readonly stamp: SavedObjectStampPayload; readonly name?: string | null }
+export type { ToolSource } from '../interaction-types'

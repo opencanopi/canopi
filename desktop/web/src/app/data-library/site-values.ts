@@ -10,7 +10,9 @@ import { computed, effect, signal, type ReadonlySignal } from '@preact/signals'
 import { currentCanvasQuerySurface } from '../../canvas/session'
 import type { LidarSampleTarget } from '../../generated/contracts'
 import type { GeoPoint } from '../../types/design'
-import { activePanel, sidePanel } from '../shell/state'
+import { TOOL_ROWS } from '../command-table'
+import { armCanvasTool } from '../keyboard/arming'
+import { activePanel, selectPanel, sidePanel } from '../shell/state'
 import { siteDataLines } from './analysis-groups'
 import { readCurrentLidarPresentation } from './library-store'
 import { referenceRows } from './reference-tree'
@@ -165,10 +167,29 @@ effect(() => {
   })
 })
 /**
- * The pin hand-off (CanvasRuntimeAppAdapter.pinAt): a tap no tool uses, in session-plane metres, pinned as the WGS84
+ * The pin hand-off: a tapped point, in session-plane metres, pinned as the WGS84
  * point the canvas drew there, so a re-origin never moves it.
  */
-export function pinSiteDataPoint(point: { readonly x: number; readonly y: number }): void {
+function pinSiteDataPoint(point: { readonly x: number; readonly y: number }): void {
   const plane = currentCanvasQuerySurface.peek()?.sessionPlane.peek()
   if (plane) setPin(plane.toGeo(point))
+}
+
+/**
+ * Arms the Site data pin tool (`siteData.pin`, 2.1-Q364): click to pin, click again to move, until Esc or another tool
+ * is chosen. Opens Site data if not already open.
+ */
+export function armSitePin(from: 'panel' | 'palette' = 'panel'): void {
+  if (sidePanel.peek() !== 'site-data') selectPanel('site-data')
+  armCanvasTool<{ readonly x: number; readonly y: number }>(TOOL_ROWS['siteData.pin'].id, {
+    from,
+    request: {
+      onSettled(outcome) {
+        if (outcome.kind === 'picked') {
+          pinSiteDataPoint(outcome.value)
+          armSitePin(from)
+        }
+      },
+    },
+  })
 }

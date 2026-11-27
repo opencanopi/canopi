@@ -87,8 +87,9 @@
       "tolerance": 0.05
     },
     "desktop chunk: SiteDataPanel": {
-      "ceiling": 30999,
-      "tolerance": 0.05
+      "ceiling": 33596,
+      "tolerance": 0.05,
+      "bead": "canopi-f47t.52.5"
     },
     "desktop chunk: Slider": {
       "ceiling": 635,
@@ -141,6 +142,11 @@
     "desktop chunk: canvas-commands": {
       "ceiling": 6616,
       "tolerance": 0.05
+    },
+    "desktop chunk: command-table": {
+      "ceiling": 7346,
+      "tolerance": 0.05,
+      "bead": "canopi-f47t.52.5"
     },
     "desktop chunk: contextual-selection-actions": {
       "ceiling": 3798,
@@ -285,10 +291,6 @@
       "tolerance": 0.05,
       "bead": "canopi-f47t.52.205"
     },
-    "desktop chunk: profile": {
-      "ceiling": 6855,
-      "tolerance": 0.05
-    },
     "desktop chunk: projection": {
       "ceiling": 11576,
       "tolerance": 0.05
@@ -327,9 +329,9 @@
       "tolerance": 0.05
     },
     "desktop chunk: target": {
-      "ceiling": 7456,
+      "ceiling": 8222,
       "tolerance": 0.05,
-      "bead": "canopi-f47t.52.205"
+      "bead": "canopi-f47t.52.5"
     },
     "desktop chunk: tauri": {
       "ceiling": 16176,

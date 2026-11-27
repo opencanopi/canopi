@@ -27,7 +27,6 @@ import { InspectionLens } from '../components/canvas/InspectionLens'
 import { PhoneToolRow, ToolCard } from '../components/canvas/ToolCard'
 import {
   IDLE_CANVAS_TOOL_GUIDANCE,
-  setCanvasTool,
   setCanvasToolGuidance,
   type CanvasPlantRowGuidance,
 } from '../canvas/session-state'
@@ -501,7 +500,7 @@ describe('visible map area', () => {
       expect(visibleMapFrame.value[edge]).toBe(0)
 
       await act(async () => {
-        setCanvasTool('plant-spacing')
+        surfaces.commands.tools.setTool('plant-spacing')
         setCanvasToolGuidance({ ...IDLE_CANVAS_TOOL_GUIDANCE, gesture: true, plantRow: row })
       })
       expect(visibleMapFrame.value[edge]).toBe(cover)
@@ -510,7 +509,7 @@ describe('visible map area', () => {
 
       // Back to Select: the room comes back.
       await act(async () => {
-        setCanvasTool('select')
+        surfaces.commands.tools.setTool('select')
         setCanvasToolGuidance(IDLE_CANVAS_TOOL_GUIDANCE)
       })
       expect(visibleMapFrame.value[edge]).toBe(0)
@@ -518,7 +517,7 @@ describe('visible map area', () => {
       render(null, container)
       container.remove()
       releaseArea()
-      setCanvasTool('select')
+      surfaces.commands.tools.setTool('select')
       setCanvasToolGuidance(IDLE_CANVAS_TOOL_GUIDANCE)
     }
   })

@@ -5,19 +5,14 @@ import type { GeoPoint } from '../../types/design'
 // ToolHost with gesture scripts (below). Scenes are real SceneStores in session-plane metres; the scene source reads the
 // frame scale, the species cache and the localised names through injected functions, as interaction-session.ts passes
 // the runtime's.
-import { signal, type ReadonlySignal } from '@preact/signals'
+import { type ReadonlySignal } from '@preact/signals'
+import { TOOL_ROWS } from '../../app/command-table'
 import type { CanvasToolGuidance } from '../../canvas/session-state'
 import { createSessionPlane } from '../../geo/session-plane'
 import type { Gesture, MenuSource, NavigationSource, PressTarget } from '../../canvas/runtime/input/gestures'
 import { createInputRouter } from '../../canvas/runtime/input/input-router'
 import type { TargetClass } from '../../canvas/runtime/input/raw-input'
-import type {
-  ContextMenuPort,
-  GestureOutcome,
-  ToolHost,
-  ToolHostDeps,
-  ToolSceneSource,
-} from '../../canvas/runtime/interaction-ports'
+import type { ContextMenuPort, GestureOutcome, ToolHost, ToolHostDeps, ToolSceneSource } from '../../canvas/runtime/interaction-ports'
 import type {
   CancelReason,
   CanvasDropPayload,
@@ -39,12 +34,7 @@ import {
   type ScenePoint,
   type SceneZoneEntity,
 } from '../../canvas/runtime/scene'
-import {
-  applySceneDragDeltaToDraft,
-  captureSceneDragState,
-  createSceneDragState,
-  type SceneDragState,
-} from '../../canvas/runtime/scene-runtime/drag-state'
+import { applySceneDragDeltaToDraft, captureSceneDragState, createSceneDragState, type SceneDragState } from '../../canvas/runtime/scene-runtime/drag-state'
 import { getDesignObjectSelectionModel } from '../../canvas/runtime/scene-runtime/selection'
 import type { CanvasRuntimeSceneSessionAdapter } from '../../canvas/runtime/app-adapter'
 import { createDetachedSceneSessionAdapter, SceneRuntimeEditCoordinator, type SceneCommandAdmission, type SceneEditCoordinator, type SceneEditTransaction } from '../../canvas/runtime/scene-runtime/transactions'
@@ -276,6 +266,7 @@ export function stubTool(id: ToolId, behaviour: StubToolBehaviour = {}): StubToo
 const TOOL_IDS = Object.keys({
   select: true, hand: true, 'plant-stamp': true, text: true, line: true, 'measurement-guide': true, rectangle: true,
   ellipse: true, polygon: true, 'object-stamp': true, 'saved-object-stamp': true, 'plant-spacing': true, profile: true,
+  'siteData.pin': true,
 } satisfies Record<ToolId, true>) as ToolId[]
 
 /** Lists every tool id in the vi.mock'ed tools/registry.ts: each of `tools` returns its stub, and every other id a fresh
@@ -496,7 +487,6 @@ export function createToolHarness(options: ToolHarnessOptions = {}): ToolHarness
   let menuOpen = false
   let now = 0
   const timers = createHarnessTimers(() => now)
-  const toolState = signal<ToolId>(options.tool ?? 'select')
   const scene = createToolScene(createToolSceneSource(store, { pixelsPerMetre: () => view.view().pixelsPerMetre }))
   let snapping: SnapSettings = options.snapping ?? { grid: false }
 
@@ -564,12 +554,8 @@ export function createToolHarness(options: ToolHarnessOptions = {}): ToolHarness
     guidance: (guidance) => {
       record.guidance.push(guidance)
     },
-    toolState: {
-      active: toolState,
-      set(id) {
-        toolState.value = id
-      },
-    },
+    initialTool: options.tool ?? 'select',
+    toolRow: (id) => TOOL_ROWS[id],
     settings: options.settings ?? {
       plantSpacingIntervalM: () => 1,
       commitPlantSpacingIntervalM: () => {},
@@ -584,8 +570,6 @@ export function createToolHarness(options: ToolHarnessOptions = {}): ToolHarness
       store.setHoveredTarget(target)
       record.hovers.push(target)
     },
-    ...(options.pin ? { pin: options.pin } : {}),
-    ...(options.finishProfile ? { finishProfile: options.finishProfile } : {}),
     lockedMoveRefused: () => {
       record.lockedMoveRefusals += 1
     },
@@ -608,6 +592,13 @@ export function createToolHarness(options: ToolHarnessOptions = {}): ToolHarness
       tapped: () => { record.pinTaps += 1 },
     },
   })
+  if (options.finishProfile && options.tool === 'profile') {
+    host.arm<readonly WorldPoint[]>('profile', null, {
+      onSettled(outcome) {
+        if (outcome.kind === 'picked') options.finishProfile!(outcome.value)
+      },
+    })
+  }
   host.subscribePointerWorld((point) => {
     record.pointerWorld.push(point && point.world)
   })
@@ -643,7 +634,7 @@ export function createToolHarness(options: ToolHarnessOptions = {}): ToolHarness
 
   const harness: ToolHarness = {
     host,
-    toolState,
+    toolState: host.activeTool,
     view,
     store,
     history: sceneSession,
@@ -663,7 +654,14 @@ export function createToolHarness(options: ToolHarnessOptions = {}): ToolHarness
     world: (at) => view.view().screenToWorld(at),
     screen: (at) => view.view().worldToScreen(at),
     arm(id, source = null) {
-      toolState.value = id
+      if (id === 'profile' && options.finishProfile) {
+        host.arm<readonly WorldPoint[]>('profile', source, {
+          onSettled(outcome) {
+            if (outcome.kind === 'picked') options.finishProfile!(outcome.value)
+          },
+        })
+        return
+      }
       host.setTool(id, source)
     },
     select(...targets) {

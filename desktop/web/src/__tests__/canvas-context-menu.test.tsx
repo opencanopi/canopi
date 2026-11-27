@@ -11,9 +11,9 @@ import {
   closeCanvasContextMenu,
   openCanvasContextMenu,
   plantAppearanceAnchor,
+  plantColorMenuOpen,
+  plantSymbolMenuOpen,
 } from '../app/canvas-context-menu/state'
-import { plantColorMenuOpen } from '../canvas/plant-color-menu-state'
-import { plantSymbolMenuOpen } from '../canvas/plant-symbol-menu-state'
 import { setCurrentCanvasSession } from '../canvas/session'
 import { clearCurrentDesignState, replaceCurrentDesignState } from './support/design-session-state'
 import type { CanopiFile } from '../types/design'

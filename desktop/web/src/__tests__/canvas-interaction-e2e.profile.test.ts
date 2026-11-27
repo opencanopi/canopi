@@ -21,8 +21,7 @@ import { armProfile } from '../app/data-library/profile'
 import { endSiteDataTransients, pin, profileLine } from '../app/data-library/site-transients'
 import { selectPanel, sidePanel } from '../app/shell/state'
 import { snapToGridEnabled } from '../app/settings/state'
-import { currentCanvasTool } from '../canvas/session-state'
-import { setCurrentCanvasSession } from '../canvas/session'
+import { currentCanvasTool, setCurrentCanvasSession } from '../canvas/session'
 import {
   createSceneInteractionEventHarness,
   type SceneInteractionEventHarness,
@@ -49,14 +48,16 @@ describe('SceneInteractionSession: the Profile tool', () => {
   function createProfileSession(): {
     session: SceneInteractionSession
     finishProfile: ReturnType<typeof vi.fn>
-    pinAt: ReturnType<typeof vi.fn>
   } {
     const finishProfile = vi.fn()
-    const pinAt = vi.fn()
-    const deps: SceneInteractionSessionDeps = { ...createInteractionDeps(container, store, testView), finishProfile, pinAt }
+    const deps: SceneInteractionSessionDeps = createInteractionDeps(container, store, testView)
     const session = fixture.createTestSession(deps)
-    session.setTool('profile')
-    return { session, finishProfile, pinAt }
+    session.arm<readonly ScenePoint[]>('profile', null, {
+      onSettled(outcome) {
+        if (outcome.kind === 'picked') finishProfile(outcome.value)
+      },
+    })
+    return { session, finishProfile }
   }
 
   /** A mouse click whose pointerdown sends detail 0, as WebKitGTK's does; `t` keeps clicks apart in time. */
@@ -74,8 +75,8 @@ describe('SceneInteractionSession: the Profile tool', () => {
 
   const world = (at: ScenePoint) => testView.view().screenToWorld(at)
 
-  it('a double-click at detail 0 finishes the line, arms Select and pins nothing', () => {
-    const { session, finishProfile, pinAt } = createProfileSession()
+  it('a double-click at detail 0 finishes the line and arms Select', () => {
+    const { session, finishProfile } = createProfileSession()
 
     click({ x: 20, y: 20 }, 0)
     click({ x: 120, y: 20 }, 1000)
@@ -85,13 +86,12 @@ describe('SceneInteractionSession: the Profile tool', () => {
     expect(finishProfile).toHaveBeenCalledTimes(1)
     expect(finishProfile).toHaveBeenCalledWith([world({ x: 20, y: 20 }), world({ x: 120, y: 20 }), world({ x: 120, y: 100 })])
     expect(session.tool).toBe('select')
-    expect(pinAt).not.toHaveBeenCalled()
     expect(store.persisted.zones).toEqual([])
     session.dispose()
   })
 
   it('a finger\'s double tap 20 px apart finishes the line', () => {
-    const { session, finishProfile, pinAt } = createProfileSession()
+    const { session, finishProfile } = createProfileSession()
 
     tap({ x: 20, y: 20 }, 0)
     tap({ x: 120, y: 20 }, 1000)
@@ -99,7 +99,7 @@ describe('SceneInteractionSession: the Profile tool', () => {
 
     expect(finishProfile).toHaveBeenCalledWith([world({ x: 20, y: 20 }), world({ x: 120, y: 20 })])
     expect(session.tool).toBe('select')
-    expect(pinAt).not.toHaveBeenCalled()
+    expect(store.persisted.zones).toEqual([])
     session.dispose()
   })
 
@@ -114,6 +114,7 @@ describe('SceneInteractionSession: the Profile tool', () => {
 
     expect(finishProfile).toHaveBeenCalledWith([world({ x: 20, y: 20 }), world({ x: 120, y: 20 })])
     expect(session.tool).toBe('select')
+    expect(store.persisted.zones).toEqual([])
     session.dispose()
   })
 
@@ -144,6 +145,7 @@ describe('SceneInteractionSession: the Profile tool', () => {
 
     expect(finishProfile).toHaveBeenCalledWith([world({ x: 20, y: 20 }), world({ x: 120, y: 20 })])
     expect(session.tool).toBe('select')
+    expect(store.persisted.zones).toEqual([])
     session.dispose()
   })
 })

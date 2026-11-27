@@ -34,7 +34,7 @@ vi.mock('../../app/plant-browser', async (importOriginal) => {
 import { plantColorMenuOpen } from '../plant-color-menu-state'
 import { clearPlantStampSource, readPlantStampSource, selectPlantStampSource } from '../plant-stamp-source'
 import { clearSavedObjectStampSource, selectSavedObjectStampSource } from '../saved-object-stamp-source'
-import { currentCanvasTool, currentCanvasToolGuidance, currentCanvasSelection } from '../session-state'
+import { currentCanvasToolGuidance, currentCanvasSelection } from '../session-state'
 import {
   hoveredPanelTargets,
   selectedPanelTargetOrigin,
@@ -516,7 +516,6 @@ function createPanelTargetAdapterProbe(initialTargets: readonly PanelTarget[] = 
 
 describe('scene canvas runtime', () => {
   beforeEach(() => {
-    currentCanvasTool.value = 'select'
     locale.value = 'en'
     currentCanvasSelection.value = new Set()
     plantColorMenuOpen.value = false
@@ -900,13 +899,13 @@ describe('scene canvas runtime', () => {
 
     expect(() => runtime.commandSurface.tools.setTool('rectangle'))
       .toThrow('drag abort failed')
-    expect(currentCanvasTool.value).toBe('select')
+    expect(runtime.querySurface.activeTool.value).toBe('select')
     expect(container.style.cursor).toBe('default')
 
     runtime.commandSurface.tools.setTool('rectangle')
 
     expect(abortCalls).toBe(2)
-    expect(currentCanvasTool.value).toBe('rectangle')
+    expect(runtime.querySurface.activeTool.value).toBe('rectangle')
     expect(container.style.cursor).toBe('crosshair')
 
     beginSpy.mockRestore()
@@ -922,10 +921,10 @@ describe('scene canvas runtime', () => {
     rectangleActivation.deactivateFails = true
     try {
       runtime.commandSurface.tools.setTool('rectangle')
-      expect(currentCanvasTool.value).toBe('rectangle')
+      expect(runtime.querySurface.activeTool.value).toBe('rectangle')
       // Leaving Rectangle throws before Ellipse is armed: the host arms a fresh Select, and so does the toolbar.
       expect(() => runtime.commandSurface.tools.setTool('ellipse')).toThrow('deactivation failed')
-      expect(currentCanvasTool.value).toBe('select')
+      expect(runtime.querySurface.activeTool.value).toBe('select')
     } finally {
       rectangleActivation.deactivateFails = false
     }
@@ -938,20 +937,20 @@ describe('scene canvas runtime', () => {
     runtime.documentSurface.loadDocument(fileWithOnlyPlants('plant-1'))
     setInteractionViewport(runtime)
     runtime.commandSurface.tools.setTool('line')
-    expect(currentCanvasTool.value).toBe('line')
+    expect(runtime.querySurface.activeTool.value).toBe('line')
 
     rectangleActivation.fails = true
     try {
-      // Rectangle's activation throws: the host falls back to Select, and the app's own tool state (session-state.ts,
-      // read here as `currentCanvasTool`) must follow it, not stay on the tool that was armed before the failed attempt.
+      // Rectangle's activation throws: the host falls back to Select, and the query surface's activeTool
+      // must follow it, not stay on the tool that was armed before the failed attempt.
       expect(() => runtime.commandSurface.tools.setTool('rectangle')).toThrow('activation failed')
-      expect(currentCanvasTool.value).toBe('select')
+      expect(runtime.querySurface.activeTool.value).toBe('select')
     } finally {
       rectangleActivation.fails = false
     }
 
     runtime.commandSurface.tools.setTool('rectangle')
-    expect(currentCanvasTool.value).toBe('rectangle')
+    expect(runtime.querySurface.activeTool.value).toBe('rectangle')
 
     runtime.destroy()
   })
@@ -2890,7 +2889,6 @@ describe('scene canvas runtime', () => {
 
     runtime.documentSurface.loadDocument(makeFile())
     runtime.commandSurface.tools.setTool('plant-stamp')
-    currentCanvasTool.value = 'plant-stamp'
     selectPlantStampSource({
       canonical_name: 'Malus domestica',
       common_name: 'Apple',
@@ -2913,7 +2911,7 @@ describe('scene canvas runtime', () => {
     await Promise.resolve()
     await Promise.resolve()
 
-    expect(currentCanvasTool.value).toBe('select')
+    expect(runtime.querySurface.activeTool.value).toBe('select')
     expect(readPlantStampSource()).toBe(null)
     expect(plantColorMenuOpen.value).toBe(false)
     expect(currentCanvasSelection.value.size).toBe(0)

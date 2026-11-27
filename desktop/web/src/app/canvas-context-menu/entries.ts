@@ -5,7 +5,15 @@ import {
   type CanvasEditAction,
   type CanvasEditCommandDefinition,
 } from '../canvas-commands'
-import { canvasEditAvailable } from '../canvas-commands/edit-availability'
+import {
+  commandApplicability,
+  commandRowFor,
+  EDITION_CAPABILITIES,
+  type Applicability,
+  type CommandContext,
+  type CommandOrToolRow,
+  type EditionCapabilityId,
+} from '../command-table'
 import { formatShortcut } from '../shell-commands/shortcut-text'
 import type { CanvasContextMenuRequest } from '../../canvas/runtime/app-adapter'
 import type { PointAction } from '../../canvas/point-editor/rules'
@@ -79,6 +87,11 @@ export interface CanvasContextMenuEntryOptions {
   readonly profileLine?: CanvasContextMenuProfileLine
   /** The open Design is shown read-only (2.1-M478): only the entries that look stay offered; false: an editing Design. */
   readonly readOnly: boolean
+  /**
+   * Edition capabilities (S14, 2.1-Q170, 2.1-M163): entries whose required capability is absent are dropped via
+   * `commandApplicability` (`{ lacking }`). Defaults to all capabilities when omitted by unit tests.
+   */
+  readonly capabilities?: readonly EditionCapabilityId[]
 }
 
 /** What "Profile this line" needs from the edition that has Site data (app/lidar/profile.ts). */
@@ -90,14 +103,7 @@ export interface CanvasContextMenuProfileLine {
 }
 
 const SEPARATOR = { separator: true } as const
-
-/**
- * What a read-only Design's menu keeps (2.1-M478): the entries that look, copy or select. Everything else changes the
- * Design or arms an edit tool, so it greys, a new entry included until it is listed here.
- */
-const READ_ONLY_KEEPS: ReadonlySet<CanvasContextMenuItemId> = new Set([
-  'copy', 'select-all', 'select-same-species', 'species-details', 'profile-line', 'turn-view-to-edge',
-])
+const DEFAULT_CAPABILITIES: readonly EditionCapabilityId[] = EDITION_CAPABILITIES.map((row) => row.id)
 
 /** The point menu's labels (A16). */
 const POINT_ACTION_LABEL_KEYS: Readonly<Record<PointAction, LocaleKey>> = {
@@ -106,75 +112,109 @@ const POINT_ACTION_LABEL_KEYS: Readonly<Record<PointAction, LocaleKey>> = {
   'smooth-corner': 'canvas.point.smooth',
 }
 
+function isDropped(applicability: Applicability): boolean {
+  return applicability === 'hidden' || typeof applicability === 'object'
+}
+
 /**
- * The right-click menu for a request: the selection's commands in plain words
- * with their menu-bar shortcuts, or Paste and Select all on the empty map.
- * Every command runs on the request's scene-edit surface. During a polygon
- * draft that can finish, Finish shape leads every menu. A point menu (a
- * zone's corner, a row's point) is that point's entries alone, after Finish
- * shape while drafting. On a zone's edge,
- * Turn view to this edge leads the empty map's menu and comes before Lock in
- * the selection's. The edit commands grey by the table the menu bar reads
- * (`canvas-commands/edit-availability.ts`): while a gesture or tool transient
- * is live, Cut and Delete are disabled (U39). Where there is Site data, a
- * lone Line zone or Measure guide offers Profile this line after the zone's
- * own entries. Over a read-only Design only what looks stays offered.
+ * Projects one menu entry through `commandApplicability` (S14, 2.1-Q170, 2.1-M163):
+ * `'hidden'` and `{ lacking }` entries are dropped, `'disabled'` entries stay listed and inert,
+ * and `'enabled'` entries stay active.
+ */
+function projectEntry(
+  row: CommandOrToolRow,
+  ctx: CommandContext,
+  build: (disabled: boolean) => CanvasContextMenuCommand,
+  extraDisabled = false,
+): readonly CanvasContextMenuCommand[] {
+  const applicability = commandApplicability(row, ctx)
+  if (isDropped(applicability)) return []
+  const disabled = applicability === 'disabled' || extraDisabled
+  const command = build(disabled)
+  return [disabled ? { ...command, disabled: true, run: () => {} } : command]
+}
+
+function withSeparator(entries: readonly CanvasContextMenuCommand[]): readonly CanvasContextMenuEntry[] {
+  return entries.length > 0 ? [...entries, SEPARATOR] : []
+}
+
+/**
+ * The right-click menu for a request: projected from `app/command-table/` via
+ * `commandApplicability` backed by `selectionCommandAvailability` (S14, 2.1-Q170,
+ * 2.1-M163). Every command runs on the request's scene-edit surface. During a
+ * polygon draft that can finish, Finish shape leads every menu. A point menu (a
+ * zone's corner, a row's point) is that point's entries alone, after Finish shape
+ * while drafting. On a zone's edge, Turn view to this edge leads the empty map's
+ * menu and comes before Lock in the selection's. While a gesture or tool
+ * transient is live, Cut and Delete are disabled (U39). Over a read-only Design
+ * only what looks stays offered (2.1-M478); entries lacking an edition
+ * capability are dropped.
  */
 export function buildCanvasContextMenuEntries(
   request: CanvasContextMenuRequest,
   options: CanvasContextMenuEntryOptions,
 ): readonly CanvasContextMenuEntry[] {
-  const entries = editableMenuEntries(request, options)
-  return options.readOnly ? entries.map(keptWhileReadOnly) : entries
-}
-
-/** A read-only Design's entry: one READ_ONLY_KEEPS lists as it is, any other greyed and inert, a submenu with it. */
-function keptWhileReadOnly(entry: CanvasContextMenuEntry): CanvasContextMenuEntry {
-  if ('separator' in entry) return entry
-  if ('submenu' in entry) return { ...entry, disabled: true, submenu: entry.submenu.map(keptWhileReadOnly) }
-  return READ_ONLY_KEEPS.has(entry.id) ? entry : { ...entry, disabled: true, run: () => {} }
-}
-
-function editableMenuEntries(
-  request: CanvasContextMenuRequest,
-  options: CanvasContextMenuEntryOptions,
-): readonly CanvasContextMenuEntry[] {
   const { commands, selection, world } = request
-  // The table the menu bar greys with (S3b). The menu never opens in overview, and Unlock all is not in it.
   const can = selection ? selectionCommandAvailability(selection) : null
-  const availability = {
+  const commandContext: CommandContext = {
+    capabilities: options.capabilities ?? DEFAULT_CAPABILITIES,
+    hasDesign: true,
+    revertAvailable: false,
     canvasAvailable: true,
-    overview: false,
+    spatialEditingAvailable: true,
     readOnly: options.readOnly,
     selection: can,
     held: request.holdsSelectionDeletes === true,
     lockedObjectsPresent: false,
     canPaste: commands.canPaste(),
+    canUndo: false,
+    canRedo: false,
   }
-  const edit = (id: CanvasEditAction, run: () => void, extra: Partial<CanvasContextMenuCommand> = {}) =>
-    editCommand(id, !canvasEditAvailable(id, availability), run, options.translate, options.characterKeyShortcuts, extra)
-  const paste = edit('paste', () => commands.pasteAt(world))
+
+  const editEntries = (
+    id: CanvasEditAction,
+    run: () => void,
+    extra: Partial<CanvasContextMenuCommand> = {},
+    rowOverrides?: Partial<CommandOrToolRow>,
+  ): readonly CanvasContextMenuCommand[] => {
+    const definition = editDefinition(id)
+    const baseRow = commandRowFor(definition.commandId)
+    const row = rowOverrides ? { ...baseRow, ...rowOverrides } : baseRow
+    return projectEntry(
+      row,
+      commandContext,
+      (disabled) => editCommand(definition, disabled, run, options.translate, options.characterKeyShortcuts, extra),
+    )
+  }
+
+  const paste = editEntries('paste', () => commands.pasteAt(world))
+
   // Turn view to this edge (spec §4.16): only when the menu opened on a zone's edge; it moves the view, never an object,
-  // so a locked zone keeps it enabled.
+  // so a locked zone or read-only Design keeps it enabled.
   const turnViewToEdge = request.turnViewToEdge
-  const edgeEntries: readonly CanvasContextMenuEntry[] = turnViewToEdge
-    ? [{
-        id: 'turn-view-to-edge',
-        label: options.translate('canvas.contextMenu.turnViewToEdge'),
-        disabled: false,
-        run: () => turnViewToEdge(),
-      }, SEPARATOR]
-    : []
+  const edgeEntries = withSeparator(projectEntry(
+    { id: 'turn-view-to-edge', needsCanvas: true, hidden: !turnViewToEdge },
+    commandContext,
+    (disabled) => ({
+      id: 'turn-view-to-edge',
+      label: options.translate('canvas.contextMenu.turnViewToEdge'),
+      disabled,
+      run: () => turnViewToEdge?.(),
+    }),
+  ))
+
   // Finish shape (spec §3.2): a polygon draft that can finish leads every menu with it.
   const finishShape = request.finishShape
-  const finishEntries: readonly CanvasContextMenuEntry[] = finishShape
-    ? [{
-        id: 'finish-shape',
-        label: options.translate('canvas.contextMenu.finishShape'),
-        disabled: false,
-        run: () => finishShape(),
-      }, SEPARATOR]
-    : []
+  const finishEntries = withSeparator(projectEntry(
+    { id: 'finish-shape', needsSpatialEditing: true, hidden: !finishShape },
+    commandContext,
+    (disabled) => ({
+      id: 'finish-shape',
+      label: options.translate('canvas.contextMenu.finishShape'),
+      disabled,
+      run: () => finishShape?.(),
+    }),
+  ))
 
   const pointActions = request.pointActions
   if (pointActions) {
@@ -182,141 +222,183 @@ function editableMenuEntries(
     const deleteKeys = shortcutOf(editDefinition('delete'), options.translate, options.characterKeyShortcuts)
     return [
       ...finishEntries,
-      ...pointActions.map((entry): CanvasContextMenuCommand => ({
-        id: entry.action,
-        label: options.translate(POINT_ACTION_LABEL_KEYS[entry.action]),
-        ...(entry.action === 'delete-point' ? deleteKeys : {}),
-        disabled: entry.disabled,
-        run: () => {
-          if (!entry.disabled) entry.run()
-        },
-      })),
+      ...pointActions.flatMap((entry) => projectEntry(
+        { id: entry.action, needsSpatialEditing: true },
+        commandContext,
+        (disabled) => ({
+          id: entry.action,
+          label: options.translate(POINT_ACTION_LABEL_KEYS[entry.action]),
+          ...(entry.action === 'delete-point' ? deleteKeys : {}),
+          disabled,
+          run: () => entry.run(),
+        }),
+        entry.disabled,
+      )),
     ]
   }
 
   if (!selection || !can) {
     const placePlantsAt = request.placePlantsAt
+    const placePlantsEntries = withSeparator(projectEntry(
+      { id: 'place-plants-here', needsSpatialEditing: true, hidden: !placePlantsAt },
+      commandContext,
+      (disabled) => ({
+        id: 'place-plants-here',
+        label: options.translate('canvas.contextMenu.placePlantsHere'),
+        disabled,
+        run: () => placePlantsAt?.(world),
+      }),
+    ))
     return [
       ...finishEntries,
       ...edgeEntries,
-      ...placePlantsAt
-        ? [{
-            id: 'place-plants-here' as const,
-            label: options.translate('canvas.contextMenu.placePlantsHere'),
-            disabled: false,
-            run: () => placePlantsAt(world),
-          }, SEPARATOR]
-        : [],
-      paste,
-      edit('select-all', () => commands.selectAll()),
+      ...placePlantsEntries,
+      ...paste,
+      ...editEntries('select-all', () => commands.selectAll()),
     ]
   }
 
-  const appearance = (kind: PlantAppearanceKind, labelKey: LocaleKey): CanvasContextMenuCommand => ({
-    id: kind === 'color' ? 'plant-color' : 'plant-symbol',
-    label: options.translate(labelKey),
-    disabled: !can.plantAppearance,
-    opensDialog: true,
-    run: (itemBounds) => {
-      if (!can.plantAppearance) return
-      const bounds = itemBounds ?? request.anchor
-      options.openPlantAppearance(kind, {
-        getBoundingClientRect: () => ({ top: bounds.top, right: bounds.right }),
-        focus: () => request.returnFocus(),
-      })
-    },
-  })
   const species = options.summary?.species ?? []
   const oneSpecies = species.length === 1 ? species[0]!.canonicalName : null
   const plants = selectionIncludesPlants(selection)
+
+  const appearance = (kind: PlantAppearanceKind, labelKey: LocaleKey): readonly CanvasContextMenuCommand[] => {
+    const id = kind === 'color' ? 'plant-color' : 'plant-symbol'
+    return projectEntry(
+      { id, needsSpatialEditing: true, hidden: !plants },
+      commandContext,
+      (disabled) => ({
+        id,
+        label: options.translate(labelKey),
+        disabled,
+        opensDialog: true,
+        run: (itemBounds) => {
+          const bounds = itemBounds ?? request.anchor
+          options.openPlantAppearance(kind, {
+            getBoundingClientRect: () => ({ top: bounds.top, right: bounds.right }),
+            focus: () => request.returnFocus(),
+          })
+        },
+      }),
+      !can.plantAppearance,
+    )
+  }
+
   const plain = <T,>(
     id: CanvasContextMenuItemId,
     labelKey: LocaleKey,
     target: T | null,
     run: (target: T) => void,
-  ): CanvasContextMenuCommand => ({
-    id,
-    label: options.translate(labelKey),
-    disabled: target === null,
-    run: () => {
-      if (target !== null) run(target)
-    },
-  })
+    row: Omit<CommandOrToolRow, 'id'>,
+  ): readonly CanvasContextMenuCommand[] => projectEntry(
+    { id, ...row },
+    commandContext,
+    (disabled) => ({
+      id,
+      label: options.translate(labelKey),
+      disabled,
+      run: () => {
+        if (target !== null) run(target)
+      },
+    }),
+    target === null,
+  )
+
   const calendarTarget = calendarTargetFor(selection)
-  const planningEntries: readonly CanvasContextMenuEntry[] = [
-    plain('add-to-calendar', 'canvas.contextMenu.addToCalendar', calendarTarget, options.addToCalendar),
-    ...plants ? [plain('set-unit-cost', 'canvas.contextMenu.setUnitCost', oneSpecies, options.setUnitCost)] : [],
-    SEPARATOR,
-  ]
-  const plantEntries: readonly CanvasContextMenuEntry[] = plants
-    ? [
-        edit('select-same-species', () => commands.selectSameSpecies()),
-        appearance('color', 'canvas.plantColor.label'),
-        appearance('symbol', 'canvas.plantSymbol.label'),
-        {
-          id: 'toggle-plant-names',
-          label: options.translate(can.plantNamesPinned ? 'canvas.contextMenu.hideName' : 'canvas.contextMenu.showName'),
-          disabled: !can.plantAppearance,
-          run: () => {
-            if (can.plantAppearance) commands.toggleSelectedPlantNamePins()
-          },
-        },
-        plain('species-details', 'canvas.contextMenu.speciesDetails', oneSpecies, options.openSpeciesDetail),
-        SEPARATOR,
-      ]
-    : []
+  const planningEntries = withSeparator([
+    ...plain('add-to-calendar', 'canvas.contextMenu.addToCalendar', calendarTarget, options.addToCalendar, {
+      needsSpatialEditing: true,
+    }),
+    ...plain('set-unit-cost', 'canvas.contextMenu.setUnitCost', oneSpecies, options.setUnitCost, {
+      needsSpatialEditing: true,
+      hidden: !plants,
+    }),
+  ])
+
+  const plantEntries = withSeparator([
+    ...editEntries('select-same-species', () => commands.selectSameSpecies(), {}, { hidden: !plants }),
+    ...appearance('color', 'canvas.plantColor.label'),
+    ...appearance('symbol', 'canvas.plantSymbol.label'),
+    ...projectEntry(
+      { id: 'toggle-plant-names', needsSpatialEditing: true, hidden: !plants },
+      commandContext,
+      (disabled) => ({
+        id: 'toggle-plant-names',
+        label: options.translate(can.plantNamesPinned ? 'canvas.contextMenu.hideName' : 'canvas.contextMenu.showName'),
+        disabled,
+        run: () => commands.toggleSelectedPlantNamePins(),
+      }),
+      !can.plantAppearance,
+    ),
+    ...plain('species-details', 'canvas.contextMenu.speciesDetails', oneSpecies, options.openSpeciesDetail, {
+      needsCanvas: true,
+      hidden: !plants,
+    }),
+  ])
 
   // Rename zone… names one lone zone; a locked one keeps the item, disabled.
   const loneZone = calendarTarget?.kind === 'zone' ? calendarTarget.zoneId : null
   const renameZoneId = loneEditableZoneId(selection)
-  const zoneEntries: readonly CanvasContextMenuEntry[] = loneZone === null
-    ? []
-    : [{
-        id: 'rename-zone',
-        label: options.translate('canvas.contextMenu.renameZone'),
-        disabled: renameZoneId === null,
-        run: () => {
-          if (renameZoneId === null) return
-          openRenameZoneDialog({
-            zoneId: renameZoneId,
-            name: options.summary?.zones[0]?.name ?? null,
-            rename: (zoneId, name) => commands.renameZone(zoneId, name),
-            returnFocus: () => request.returnFocus(),
-          })
-        },
-      }, SEPARATOR]
+  const zoneEntries = withSeparator(projectEntry(
+    { id: 'rename-zone', needsSpatialEditing: true, hidden: loneZone === null },
+    commandContext,
+    (disabled) => ({
+      id: 'rename-zone',
+      label: options.translate('canvas.contextMenu.renameZone'),
+      disabled,
+      run: () => {
+        if (renameZoneId === null) return
+        openRenameZoneDialog({
+          zoneId: renameZoneId,
+          name: options.summary?.zones[0]?.name ?? null,
+          rename: (zoneId, name) => commands.renameZone(zoneId, name),
+          returnFocus: () => request.returnFocus(),
+        })
+      },
+    }),
+    renameZoneId === null,
+  ))
 
   // Profile this line: a lone Line zone or Measure guide, locked or not, since a profile edits nothing.
+  // Gated by `site-data-below-limit` via `commandApplicability` (S14).
   const lineTarget = profileLineTarget(selection, options.summary)
-  const profileLine = options.profileLine
-  const profileEntries: readonly CanvasContextMenuEntry[] = profileLine && lineTarget
-    ? [{
-        id: 'profile-line',
-        label: options.translate('canvas.contextMenu.profileLine'),
-        disabled: !profileLine.available,
-        run: () => {
-          if (profileLine.available) profileLine.profile(lineTarget)
-        },
-      }, SEPARATOR]
-    : []
+  const profiler = options.profileLine
+  const profileEntries = withSeparator(projectEntry(
+    {
+      id: 'profile-line',
+      requires: ['site-data-below-limit'],
+      needsCanvas: true,
+      hidden: !lineTarget || !profiler,
+    },
+    commandContext,
+    (disabled) => ({
+      id: 'profile-line',
+      label: options.translate('canvas.contextMenu.profileLine'),
+      disabled,
+      run: () => {
+        if (profiler && lineTarget) profiler.profile(lineTarget)
+      },
+    }),
+    !profiler?.available,
+  ))
 
-  const arrange = [
-    edit('bring-to-front', () => commands.bringToFront()),
-    edit('send-to-back', () => commands.sendToBack()),
+  const arrange: readonly CanvasContextMenuEntry[] = [
+    ...editEntries('bring-to-front', () => commands.bringToFront()),
+    ...editEntries('send-to-back', () => commands.sendToBack()),
     SEPARATOR,
-    edit('group', () => commands.groupSelected()),
-    edit('ungroup', () => commands.ungroupSelected()),
+    ...editEntries('group', () => commands.groupSelected()),
+    ...editEntries('ungroup', () => commands.ungroupSelected()),
   ]
 
   return [
     ...finishEntries,
-    edit('cut', () => {
+    ...editEntries('cut', () => {
       commands.copy()
       commands.deleteSelected()
     }),
-    edit('copy', () => commands.copy()),
-    paste,
-    edit('duplicate', () => commands.duplicateSelected()),
+    ...editEntries('copy', () => commands.copy()),
+    ...paste,
+    ...editEntries('duplicate', () => commands.duplicateSelected()),
     SEPARATOR,
     ...plantEntries,
     ...zoneEntries,
@@ -328,33 +410,35 @@ function editableMenuEntries(
       disabled: arrange.every((entry) => 'separator' in entry || entry.disabled),
       submenu: arrange,
     },
-    edit('rotate', () => openRotateSelectionDialog({
+    ...editEntries('rotate', () => openRotateSelectionDialog({
       rotate: (degrees) => commands.rotateSelected(degrees),
       returnFocus: () => request.returnFocus(),
     })),
-    ...request.saveSelectionAsObjectStamp
-      ? [edit('save-as-stamp', request.saveSelectionAsObjectStamp)]
-      : [],
+    ...editEntries(
+      'save-as-stamp',
+      () => request.saveSelectionAsObjectStamp?.(),
+      {},
+      { hidden: !request.saveSelectionAsObjectStamp },
+    ),
     SEPARATOR,
     ...edgeEntries,
-    edit('lock', () => commands.lockSelected()),
-    edit('unlock', () => commands.unlockSelected()),
+    ...editEntries('lock', () => commands.lockSelected()),
+    ...editEntries('unlock', () => commands.unlockSelected()),
     SEPARATOR,
-    edit('delete', () => commands.deleteSelected(), { danger: true }),
+    ...editEntries('delete', () => commands.deleteSelected(), { danger: true }),
   ]
 }
 
 function editCommand(
-  id: CanvasEditAction,
+  definition: CanvasEditCommandDefinition,
   disabled: boolean,
   run: () => void,
   translate: (key: LocaleKey) => string,
   characterKeys: boolean,
   extra: Partial<CanvasContextMenuCommand>,
 ): CanvasContextMenuCommand {
-  const definition = editDefinition(id)
   return {
-    id,
+    id: definition.id,
     label: translate(definition.labelKey),
     ...shortcutOf(definition, translate, characterKeys),
     disabled,
