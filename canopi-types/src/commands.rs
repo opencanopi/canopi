@@ -181,6 +181,6 @@ mod tests {
                 row.name
             );
         }
-        assert_eq!(names.len(), 86);
+        assert_eq!(names.len(), 87);
     }
 }
