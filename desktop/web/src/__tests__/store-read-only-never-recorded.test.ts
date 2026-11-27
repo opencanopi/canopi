@@ -7,6 +7,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { installFailureHooks } from '../failures/report'
 import { resetFrontendDiagnosticsForTests, ringEntries } from '../failures/ring'
+import { installEditionPorts } from '../platform/edition-ports'
+import { createTestEditionPorts } from './support/test-edition-ports'
 import { renameLibraryItem } from '../app/data-library/actions'
 import { createSavedObjectStampWorkbench } from '../app/saved-object-stamps/workbench'
 
@@ -14,15 +16,18 @@ const invoke = vi.hoisted(() => vi.fn())
 vi.mock('@tauri-apps/api/core', () => ({ invoke, Channel: class {} }))
 
 let dispose: () => void = () => undefined
+let disposePorts: () => void = () => undefined
 
 beforeEach(() => {
   invoke.mockReset().mockRejectedValue('store_read_only')
   resetFrontendDiagnosticsForTests()
+  disposePorts = installEditionPorts(createTestEditionPorts())
   dispose = installFailureHooks({ storage: 'disk' }, window)
 })
 
 afterEach(() => {
   dispose()
+  disposePorts()
 })
 
 describe('a write refused by a read-only store', () => {

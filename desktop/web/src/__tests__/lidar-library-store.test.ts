@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { LibrarySnapshot, LidarImportJob } from '../generated/contracts'
+import { installEditionPorts } from '../platform/edition-ports'
+import { createTestEditionPorts } from './support/test-edition-ports'
 import { librarySnapshot, slopeItem, sourceItem } from './support/library-fixtures'
 
 const listLibraryMock = vi.hoisted(() => vi.fn())
@@ -42,14 +44,17 @@ async function flushMicrotasks(): Promise<void> {
 }
 
 describe('LiDAR library polling', () => {
+  let disposePorts: () => void = () => undefined
   beforeEach(() => {
     vi.useFakeTimers()
+    disposePorts = installEditionPorts(createTestEditionPorts())
     listLibraryMock.mockReset().mockResolvedValue(emptyLibrary)
     resetLidarLibraryForTests()
   })
 
   afterEach(() => {
     resetLidarLibraryForTests()
+    disposePorts()
     vi.useRealTimers()
   })
 

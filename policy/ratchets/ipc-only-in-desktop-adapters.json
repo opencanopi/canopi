@@ -3,13 +3,6 @@
   "family": "ipc-only-in-desktop-adapters",
   "entries": {
     "app.tsx -> ipc/settings.ts": { "count": 1 },
-    "app/data-library/actions.ts -> ipc/dialogs.ts": { "count": 1 },
-    "app/data-library/actions.ts -> ipc/lidar.ts": { "count": 1 },
-    "app/data-library/actions.ts -> ipc/settings.ts": { "count": 1 },
-    "app/data-library/display.ts -> ipc/lidar.ts": { "count": 1 },
-    "app/data-library/import-coverage.ts -> ipc/lidar.ts": { "count": 1 },
-    "app/data-library/library-store.ts -> ipc/lidar.ts": { "count": 1 },
-    "app/data-library/sampler.ts -> ipc/lidar.ts": { "count": 1 },
     "app/design-drafts/controller.ts -> ipc/design.ts": { "count": 1 },
     "app/design-notebook/workbench.ts -> ipc/design.ts": { "count": 1 },
     "app/plant-detail/detail-controller.ts -> ipc/species.ts": { "count": 1 },

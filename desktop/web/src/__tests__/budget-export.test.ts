@@ -2,11 +2,6 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('../ipc/export', () => ({
-  exportFile: vi.fn().mockResolvedValue(undefined),
-}))
-
-import { exportFile } from '../ipc/export'
 import { pickCancelled } from '../ipc/dialogs'
 import { exportBudgetCsv, exportCurrentBudgetCsv } from '../app/budget/export'
 import { setCurrentCanvasSession } from '../canvas/session'
@@ -14,12 +9,19 @@ import { speciesBudgetTarget } from '../target'
 import { designSessionFixture } from './support/design-session-state'
 import { createTestCanvasQuerySurface } from './support/canvas-query-surface'
 import { createTestCanvasRuntimeSurfaces } from './support/canvas-runtime-surfaces'
-import { deliverBudgetCsv as deliverBrowserBudgetCsv } from '../app/budget/platform.browser'
+import { buildDeliveryFileName, createBrowserFileDelivery } from '../platform/file-delivery'
 
 import { installEditionPorts } from '../platform/edition-ports'
 import { createTestEditionPorts } from './support/test-edition-ports'
+
+const deliverFile = vi.fn().mockResolvedValue('saved' as const)
 let disposePorts: (() => void) | null = null
-beforeEach(() => { disposePorts = installEditionPorts(createTestEditionPorts()) })
+beforeEach(() => {
+  deliverFile.mockReset().mockResolvedValue('saved')
+  disposePorts = installEditionPorts(createTestEditionPorts({
+    fileDelivery: { deliverFile, dispose: vi.fn() },
+  }))
+})
 afterEach(() => { disposePorts?.(); disposePorts = null; vi.restoreAllMocks() })
 
 describe('budget export', () => {
@@ -34,11 +36,12 @@ describe('budget export', () => {
       },
     )
 
-    expect(vi.mocked(exportFile)).toHaveBeenCalledWith(
-      expect.stringContaining('Apple,3,12.50,37.50,EUR'),
-      'orchard-budget.csv',
-      'budget-csv-export',
+    expect(deliverFile).toHaveBeenCalledWith(
+      'budget-csv',
+      'orchard',
+      { text: expect.stringContaining('Apple,3,12.50,37.50,EUR') },
     )
+    expect(buildDeliveryFileName('budget-csv', deliverFile.mock.calls[0]![1] as string)).toBe('orchard-budget.csv')
   })
 
   it('keeps unavailable prices distinct from explicit zero prices', async () => {
@@ -55,7 +58,7 @@ describe('budget export', () => {
       },
     )
 
-    const csv = vi.mocked(exportFile).mock.calls.at(-1)?.[0]
+    const csv = (deliverFile.mock.calls.at(-1)?.[2] as { text: string }).text
     expect(csv).toContain('Apple,3,0.00,0.00,EUR')
     expect(csv).toContain('Pear,2,,,EUR')
   })
@@ -71,7 +74,7 @@ describe('budget export', () => {
       },
     )
 
-    const csv = vi.mocked(exportFile).mock.calls.at(-1)?.[0] as string
+    const csv = (deliverFile.mock.calls.at(-1)?.[2] as { text: string }).text
     const appleLine = csv.split('\n').find((line) => line.startsWith('Apple,'))
     expect(appleLine).toBe('Apple,3,1.00,3.00,"\'=HYPERLINK(""http://x"",""EUR"")"')
   })
@@ -84,7 +87,9 @@ describe('budget export', () => {
     const createObjectUrl = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:budget')
     const revokeObjectUrl = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
 
-    await deliverBrowserBudgetCsv('Species,Quantity\nApple,3', 'orchard-budget.csv')
+    const browserDelivery = createBrowserFileDelivery()
+    await browserDelivery.deliverFile('budget-csv', 'orchard-budget.csv', { text: 'Species,Quantity\nApple,3' })
+    browserDelivery.dispose?.()
 
     expect(createObjectUrl).toHaveBeenCalledOnce()
     expect(observed?.download).toBe('orchard-budget.csv')
@@ -133,18 +138,19 @@ describe('budget export', () => {
     }))
     try {
       await exportCurrentBudgetCsv()
-      expect(vi.mocked(exportFile)).toHaveBeenCalledWith(
-        expect.stringContaining('Apple,2,5.00,10.00,EUR'),
-        expect.stringMatching(/-budget\.csv$/),
-        'budget-csv-export',
+      expect(deliverFile).toHaveBeenCalledWith(
+        'budget-csv',
+        'Orchard',
+        { text: expect.stringContaining('Apple,2,5.00,10.00,EUR') },
       )
+      expect(buildDeliveryFileName('budget-csv', deliverFile.mock.calls[0]![1] as string)).toMatch(/-budget\.csv$/)
 
-      vi.mocked(exportFile).mockRejectedValueOnce(pickCancelled('dialog.pick_save'))
+      deliverFile.mockRejectedValueOnce(pickCancelled('dialog.pick_save'))
       await expect(exportCurrentBudgetCsv()).resolves.toBeUndefined()
-      vi.mocked(exportFile).mockRejectedValueOnce(new Error('disk full'))
+      deliverFile.mockRejectedValueOnce(new Error('disk full'))
       await expect(exportCurrentBudgetCsv()).rejects.toThrow('disk full')
       // canopi-f47t.52.172: only the typed cancel is quiet; a failure whose text says "cancelled" still reaches the user.
-      vi.mocked(exportFile).mockRejectedValueOnce(new Error('Dialog cancelled'))
+      deliverFile.mockRejectedValueOnce(new Error('Dialog cancelled'))
       await expect(exportCurrentBudgetCsv()).rejects.toThrow('Dialog cancelled')
     } finally {
       designSessionFixture.file = null

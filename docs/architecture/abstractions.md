@@ -12,7 +12,7 @@ Verdicts (keep, merge, split, cut, add, change) cite the [ledger](../decisions/2
 |---|---|---|---|---|---|
 | `CommandRow` table | IPC contract: name, args, reply, failures, sync kind; private wrappers | `canopi-types` (2.1) rows; handler set in `canopi-desktop` | Trust boundary; TS consumer | `ipc/design.ts` | change: `commands!` const assertions (M153) |
 | `invoke<K>` | the only Tauri `invoke` in the page | `ipc/` | Trust boundary; one transport | `ipc/design.ts` | keep (ADR 0022); import rules (M143) |
-| Byte transport | Design bytes across Desktop IPC: raw body in, `ipc::Response` out, 64 MiB guard | `ipc/bytes.ts` (2.1); `RawBytesRequest` in `canopi-desktop` | Trust boundary; size cap before allocation | `ipc/design.ts` | add (M154) |
+| Byte transport | Design bytes across Desktop IPC: raw body in, `ipc::Response` out, 64 MiB guard | `ipc/bytes.ts`; `RawBytesRequest` in `canopi-desktop` | Trust boundary; size cap before allocation | `ipc/design.ts` | add (M154) |
 | Failure catalogue | code, `user_may_retry`, op, operation, detail; locale key per code | `canopi-types` (2.1) | Rust and TS producers; detail is redacted | `canopi-types/fixtures/failures/` (2.1) | change (M112, M96, M141) |
 | `reportFailure` and the notice row | the one failure sink, ring and in-app notice | `failures/` (2.1) | One sink, both editions | the owner | keep (ADR 0025, M105) |
 | `OperationId` | correlation per user action | `canopi-types` (2.1) | Report from a failure; jobs | `failures/` (2.1) | change (M105) |
@@ -44,7 +44,7 @@ Verdicts (keep, merge, split, cut, add, change) cite the [ledger](../decisions/2
 | `DesignHomeStore` and `DesignHome` | where a Design lives; `HomeVersion` SHA-256; write results | `platform/design-home.ts` | Desktop and Web; merge | `app/document-session/core/write-lane.ts` | keep (M117, Q165) |
 | Draft records | Drafts on Web | `platform/draft-records.browser.ts`; `desktop/src/design/drafts.rs` | Untrusted record | `web/browser-app-data.ts` | change: internal seam, not a port (M117) |
 | File access and grants | pick any file kind; opaque handle for a user file | `platform/file-access.ts`; grant table and dialog registry in `canopi-desktop` | No paths cross IPC | `app/geojson/workflow.ts` | change: pickers, dialog registry, home identity (M155) |
-| FileDelivery | exports: `deliver(row, signal)` over a content union | `platform/file-delivery.ts` (2.1) | Desktop and Web; PDF, CSV, GeoTIFF | `app/canvas-pdf/platform.desktop.ts` | change (M140) |
+| FileDelivery | exports: `deliver(row, signal)` over a content union | `platform/file-delivery.ts` | Desktop and Web; PDF, CSV, GeoTIFF | `editions/desktop/file-delivery.ts` | change (M140) |
 | Personal-records ports | saved stamps, Design notebook, species lists | `platform/saved-stamps.ts` (2.1), `platform/design-notebook.ts` (2.1), `platform/species-lists.ts` (2.1) | Desktop and Web; Web parity | `ipc/saved-object-stamps.ts` | change (M141, Q173) |
 | Browser record | the only `localStorage` access | `platform/browser-record.ts` | One quota and decode rule | `web/browser-app-data.ts` | add (M141) |
 
@@ -127,7 +127,7 @@ Verdicts (keep, merge, split, cut, add, change) cite the [ledger](../decisions/2
 
 | Abstraction | Concept owned | Owner | Why it exists | Canonical example | Verdict |
 |---|---|---|---|---|---|
-| Data library port | the library on both editions; `subscribe`; `display(ref)` | `platform/library.ts` (2.1) | Desktop and Web; hydrology, LiDAR reading | `ipc/lidar.ts` | change: Web library worker (M151, Q171); display (M132) |
+| Data library port | the library on both editions; `subscribe`; `display(ref)` | `platform/library.ts` | Desktop and Web; hydrology, LiDAR reading | `ipc/lidar.ts` | change: Web library worker (M151, Q171); display (M132) |
 | Library subscription | all library state, display included, on one Channel | facade in `canopi-desktop`; the library worker's port on Web | No status read, no poll | `ipc/lidar.ts` | change (M103, M151) |
 | `DisplayAsset` | display bytes written once per generation | `types/display-asset.ts` (2.1) | One display owner | `maplibre/raster-display/pool.ts` | add (M132) |
 | `LibraryItemKind` | kinds and stored literals; `parse_kind` | `kinds.rs` in `canopi-library` (2.1) | Vector and point-cloud kinds | `desktop/src/services/lidar/catalogue.rs` | change (M125) |
@@ -152,7 +152,7 @@ Verdicts (keep, merge, split, cut, add, change) cite the [ledger](../decisions/2
 | Abstraction | Concept owned | Owner | Why it exists | Canonical example | Verdict |
 |---|---|---|---|---|---|
 | Web release tool | Web serving rules and deployment limits | `scripts/web_release.py` | Deploy integrity | the owner | keep (M102) |
-| Origin table | allowed origins; both CSPs | `policy/origins.json` (2.1) | Trust boundary | `desktop/tauri.conf.json` | add (M102) |
+| Origin table | allowed origins; both CSPs | `policy/origins.json` | Trust boundary | `desktop/tauri.conf.json` | add (M102) |
 | Service worker | offline, skew caches, kill-switch, `keep_catalog` | service worker (2.1) | Offline Drafts, deploy skew | `scripts/web_release.py` | change (M99, M100) |
 | Catalog manifest | content-named, carried by the page bundle | `scripts/web_release.py` | A tab reads its own release's catalog | the owner | change (M101) |
 | Release waiting | `release-waiting{source}`, flush, then `applyRelease()` | `platform/app-lifecycle.ts` | One Reload owner | `editions/web/browser-release-watch.ts` (manifest source, 2.0.3) | add (M98) |

@@ -17,6 +17,6 @@
     { "id": "format-core", "sides": ["the TS edit-time predicates", "the core, natively and through the real worker"], "test": "desktop/web/src/__tests__/canopi-design-conformance.test.ts" },
     { "id": "data-library-port", "sides": ["the Desktop adapter over the library commands", "the Web adapter over the library worker"], "planned": { "phase": "N5", "bead": "canopi-f47t.52.65" } },
     { "id": "geocoding-transport", "sides": ["the invoke adapter", "the fetch adapter"], "planned": { "phase": "2a", "bead": "canopi-f47t.52.77" } },
-    { "id": "file-delivery", "sides": ["the Desktop adapter", "the Web adapter", "the fake"], "planned": { "phase": "2a", "bead": "canopi-f47t.52.47" } }
+    { "id": "file-delivery", "sides": ["the Desktop adapter", "the Web adapter", "the fake"], "test": "desktop/web/src/platform/file-delivery.test.ts" }
   ]
 }

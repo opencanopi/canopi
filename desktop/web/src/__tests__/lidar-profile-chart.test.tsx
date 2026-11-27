@@ -9,6 +9,8 @@ import { render } from 'preact'
 import { act } from 'preact/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { LidarSamplePointsRequest, LidarSampleSeries } from '../generated/contracts'
+import { installEditionPorts } from '../platform/edition-ports'
+import { createTestEditionPorts } from './support/test-edition-ports'
 import { librarySnapshot, sourceItem } from './support/library-fixtures'
 
 const plotting = vi.hoisted(() => ({ builds: 0 }))
@@ -94,7 +96,10 @@ function legendLines(): string[] {
   return Array.from(container.querySelectorAll('li')).map((line) => line.textContent ?? '')
 }
 
+let disposePorts: () => void = () => undefined
+
 beforeEach(async () => {
+  disposePorts = installEditionPorts(createTestEditionPorts())
   container = document.createElement('div')
   document.body.appendChild(container)
   sampling.answer = analyticSite
@@ -126,6 +131,7 @@ afterEach(() => {
   render(null, container)
   container.remove()
   endSiteDataTransients()
+  disposePorts()
   setCurrentCanvasSession(null)
   sidePanel.value = null
   lidarLibrary.value = null

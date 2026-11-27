@@ -225,11 +225,11 @@ describe('IPC transport', () => {
   it('[1b-c2 canopi-f47t.52.172] canopi-f47t.52.172: an error whose text contains cancelled shows its message', async () => {
     // A real failure whose English happens to say "cancelled" is a failure to show, not a user cancel.
     invoke.mockRejectedValueOnce('The export was cancelled by the operating system: disk full')
-    const settled = await rejected('export_file')
+    const settled = await rejected('deliver_file')
     expect(isCancelledFailure(settled)).toBe(false)
     expect(isCancelledFailure(new Error('Dialog cancelled'))).toBe(false)
     reportFailure(settled, { shown: 'notice' })
-    expect(failureNoticesForTests().notices).toMatchObject([{ source: 'ipc.export_file', message: 'failure.internal' }])
+    expect(failureNoticesForTests().notices).toMatchObject([{ source: 'ipc.deliver_file', message: 'failure.internal' }])
   })
 
   it('canopi-f47t.52.70 (2.1-M411): invokeTyped carries the same branded OperationId across transport and into typed & untyped failures', async () => {

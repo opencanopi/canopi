@@ -11,6 +11,12 @@ import type { DesignOpenFailureNotice } from '../app/document-session/open-failu
 import type { GeoJsonNotice } from '../app/geojson/workflow'
 import { raiseNotice, withdrawNotice, type NoticeSpec } from '../failures/notices'
 
+let openBrowserProblemReport: (() => void) | null = null
+
+export function registerBrowserProblemReportOpener(opener: (() => void) | null): void {
+  openBrowserProblemReport = opener
+}
+
 type ActionNotice = Pick<NoticeSpec, 'tone' | 'title' | 'message' | 'params' | 'detail' | 'action'>
 
 /** Shows an action's outcome at the front of the row, replacing the outcome shown before it under the same key. */
@@ -24,7 +30,12 @@ export function presentBrowserGeoJsonNotice(notice: GeoJsonNotice): void {
 }
 
 export function presentBrowserDesignOpenFailure(notice: DesignOpenFailureNotice): void {
-  showOutcome('web.open-failure', notice)
+  showOutcome('web.open-failure', {
+    ...notice,
+    ...(openBrowserProblemReport
+      ? { action: { label: 'boundary.reportProblem', run: openBrowserProblemReport } }
+      : {}),
+  })
 }
 
 /** A Draft gone from this browser (another tab, or the browser cleared it) could not be downloaded. */

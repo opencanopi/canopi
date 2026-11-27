@@ -22,7 +22,7 @@ type OpenDialogKind = Extract<DialogKind, 'design-open' | 'stamp-import' | 'lida
 /** The kinds of Save dialog. */
 export type SaveDialogKind = Extract<
   DialogKind,
-  'design-save' | 'stamp-export' | 'geojson-export' | 'pdf-export' | 'budget-csv-export'
+  'design-save' | 'stamp-export' | 'geojson-export' | 'pdf-export' | 'budget-csv-export' | 'lidar-geotiff-export'
 >
 
 /** Show `kind`'s Open dialog. */

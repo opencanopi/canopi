@@ -1,7 +1,7 @@
 import { currentCanvasQuerySurface, getCurrentCanvasSession } from '../../canvas/session'
 import type { CanvasDesignObjects } from '../../canvas/runtime/runtime'
 import { createSessionPlane } from '../../geo/session-plane'
-import { lidarImportCoverage } from '../../ipc/lidar'
+import { editionPorts } from '../../platform/edition-ports'
 
 /** WGS84 `[west, south, east, north]`. */
 export type GroundBox = readonly [number, number, number, number]
@@ -82,7 +82,7 @@ export async function checkImportCoverage(paths: readonly string[]): Promise<Imp
   const design = objects ? designGroundBox(objects) : null
   if (!design || paths.length === 0) return null
   try {
-    const coverage = await lidarImportCoverage(paths)
+    const coverage = await editionPorts().dataLibrary.importCoverage(paths)
     return coverage.bounds ? compareCoverage(coverage.bounds, design) : null
   } catch (error) {
     console.warn('The import coverage check is unavailable:', error)

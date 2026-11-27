@@ -162,10 +162,6 @@
       "ceiling": 42365,
       "tolerance": 0.05
     },
-    "desktop chunk: dialogs": {
-      "ceiling": 1016,
-      "tolerance": 0.05
-    },
     "desktop chunk: domain-adapters": {
       "ceiling": 1171,
       "tolerance": 0.05,

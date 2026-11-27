@@ -10,10 +10,9 @@ describe('createGalleryEditionPorts', () => {
     expect(ports.problemReport.currentDesign()).toBeNull()
     expect(await ports.problemReport.write({} as never)).toEqual({ file_name: 'gallery-report.zip' })
     expect(await ports.geocoding('test', {} as never)).toEqual([])
-    const pdf = ports.canvasPdfDelivery()
-    expect(await pdf.save(new Uint8Array(), 'plan.pdf', new AbortController().signal)).toBe('downloaded')
-    pdf.dispose()
-    await ports.budgetExportDelivery('a,b', 'budget.csv')
+    expect(await ports.fileDelivery.deliverFile('pdf', 'plan', { bytes: new Uint8Array() }, new AbortController().signal)).toBe('downloaded')
+    ports.fileDelivery.dispose?.()
+    expect(await ports.fileDelivery.deliverFile('budget-csv', 'budget', { text: 'a,b' })).toBe('downloaded')
     expect(await ports.designHome.read({} as never)).toEqual({ kind: 'absent' })
     expect(await ports.designHome.write({} as never, new Uint8Array(), null)).toEqual({
       kind: 'written',

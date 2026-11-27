@@ -89,6 +89,7 @@ vi.mock("../web/browser-notices", () => ({
   withdrawDraftStoreBlockedNotice: vi.fn(),
   raiseOlderTabCopyNotice: vi.fn(),
   raisePendingWriteNotice: vi.fn(),
+  registerBrowserProblemReportOpener: vi.fn(),
 }));
 
 vi.mock("../app/tool-rail/learning", () => ({

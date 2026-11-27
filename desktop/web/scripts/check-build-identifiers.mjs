@@ -22,7 +22,7 @@ const BUILDS = {
 export const DESKTOP_VENDOR_CHUNKS = {
   "i18n": ["i18next"],
   "maplibre-gl": ["maplibre-gl"],
-  "tauri": ["@tauri-apps/api", "@tauri-apps/plugin-dialog"],
+  "tauri": ["@tauri-apps/api"],
 };
 
 /**

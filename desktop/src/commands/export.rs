@@ -1,39 +1,71 @@
-use crate::native_operation::{NativeOperationClass, NativeOperationExecutor};
+use canopi_types::dialog::FileKind;
 use tauri::State;
 
+use crate::native_operation::{NativeOperationClass, NativeOperationExecutor};
+
+const DELIVERY_KIND_HEADER: &str = "x-canopi-delivery-kind";
+const DELIVERY_PATH_HEADER: &str = "x-canopi-delivery-path";
+
+fn percent_decode_utf8(input: &str) -> Result<String, String> {
+    let bytes = input.as_bytes();
+    let mut out = Vec::with_capacity(bytes.len());
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] == b'%' {
+            if i + 2 >= bytes.len() {
+                return Err("Invalid percent-encoding in delivery path header".to_string());
+            }
+            let hex = std::str::from_utf8(&bytes[i + 1..i + 3])
+                .map_err(|_| "Invalid percent-encoding in delivery path header".to_string())?;
+            let value = u8::from_str_radix(hex, 16)
+                .map_err(|_| "Invalid percent-encoding in delivery path header".to_string())?;
+            out.push(value);
+            i += 3;
+        } else {
+            out.push(bytes[i]);
+            i += 1;
+        }
+    }
+    String::from_utf8(out).map_err(|_| "Delivery path header is not valid UTF-8".to_string())
+}
+
+/// Deliver a binary or UTF-8 payload to a Save-dialog destination over a raw binary IPC body
+/// (contracts §16, 2.1-M154, 2.1-M155, 2.1-M522).
 #[tauri::command]
-pub async fn save_canvas_pdf(
+pub async fn deliver_file(
+    request: tauri::ipc::Request<'_>,
     executor: State<'_, NativeOperationExecutor>,
+) -> Result<String, String> {
+    let headers = request.headers();
+    let kind_literal = headers
+        .get(DELIVERY_KIND_HEADER)
+        .and_then(|value| value.to_str().ok())
+        .ok_or_else(|| "Missing delivery kind header".to_string())?;
+    let kind = FileKind::from_literal(kind_literal)
+        .ok_or_else(|| format!("Unknown delivery kind: {kind_literal}"))?;
+    let raw_path = headers
+        .get(DELIVERY_PATH_HEADER)
+        .and_then(|value| value.to_str().ok())
+        .ok_or_else(|| "Missing delivery path header".to_string())?;
+    let path = percent_decode_utf8(raw_path)?;
+    let data = match request.body() {
+        tauri::ipc::InvokeBody::Raw(bytes) => bytes.clone(),
+        tauri::ipc::InvokeBody::Json(_) => {
+            return Err("deliver_file requires a raw binary IPC body".to_string());
+        }
+    };
+    deliver_file_with_executor(executor.inner(), kind, data, path).await
+}
+
+async fn deliver_file_with_executor(
+    executor: &NativeOperationExecutor,
+    kind: FileKind,
     data: Vec<u8>,
     path: String,
-) -> Result<(), String> {
-    executor
-        .run(
-            NativeOperationClass::Local,
-            "Canvas PDF delivery",
-            move || crate::services::export::save_canvas_pdf(data, path),
-        )
-        .await
-}
-
-/// Write `data` (UTF-8 text) to `path`: the budget CSV and GeoJSON exports.
-#[tauri::command]
-pub async fn export_file(
-    executor: State<'_, NativeOperationExecutor>,
-    data: String,
-    path: String,
-) -> Result<String, String> {
-    export_file_with_executor(executor.inner(), data, path).await
-}
-
-async fn export_file_with_executor(
-    executor: &NativeOperationExecutor,
-    data: String,
-    path: String,
 ) -> Result<String, String> {
     executor
-        .run(NativeOperationClass::Local, "text export", move || {
-            crate::services::export::export_file(data, path)
+        .run(NativeOperationClass::Local, "file delivery", move || {
+            crate::services::export::deliver_file(kind, data, path)
         })
         .await
 }
@@ -54,6 +86,7 @@ pub async fn pick_geojson_file(
     window: tauri::WebviewWindow,
     executor: State<'_, NativeOperationExecutor>,
     dialogs: State<'_, crate::host::dialogs::HostDialogs>,
+    extensions: Option<Vec<String>>,
 ) -> Result<Option<GeoJsonSource>, String> {
     let Some(path) = crate::host::dialogs::pick_host_read(
         executor.inner(),
@@ -71,7 +104,7 @@ pub async fn pick_geojson_file(
                 .file_name()
                 .map(|name| name.to_string_lossy().into_owned())
                 .unwrap_or_else(|| path.display().to_string());
-            let text = crate::services::export::read_geojson_file(path)?;
+            let text = crate::services::export::read_geojson_file(path, extensions.as_deref())?;
             Ok(Some(GeoJsonSource { name, text }))
         })
         .await
@@ -79,12 +112,13 @@ pub async fn pick_geojson_file(
 
 #[cfg(test)]
 mod tests {
-    use super::export_file_with_executor;
+    use super::{deliver_file_with_executor, percent_decode_utf8};
     use crate::native_operation::{
         NativeOperationClass, NativeOperationClassLimits, NativeOperationExecutor,
         NativeOperationLimits,
     };
     use crate::test_scratch::TestScratch;
+    use canopi_types::dialog::FileKind;
     use std::sync::mpsc;
     use std::task::{Context, Poll, Waker};
     use std::time::Duration;
@@ -117,7 +151,17 @@ mod tests {
     }
 
     #[test]
-    fn queued_text_export_yields_without_publishing_before_local_capacity() {
+    fn percent_decode_handles_unicode_paths_and_rejects_malformed_sequences() {
+        assert_eq!(
+            percent_decode_utf8("/tmp/Caf%C3%A9%20Plan.pdf").unwrap(),
+            "/tmp/Café Plan.pdf"
+        );
+        assert!(percent_decode_utf8("/tmp/bad%2").is_err());
+        assert!(percent_decode_utf8("/tmp/bad%ZZ").is_err());
+    }
+
+    #[test]
+    fn queued_delivery_yields_without_publishing_before_local_capacity() {
         tauri::async_runtime::block_on(async {
             let executor = local_test_executor(2, 1);
             let (started_tx, started_rx) = mpsc::sync_channel(1);
@@ -140,9 +184,10 @@ mod tests {
 
             let temp_dir = TempTestDir::new("queued-local");
             let text_path = temp_dir.file("queued.csv");
-            let mut export = Box::pin(export_file_with_executor(
+            let mut export = Box::pin(deliver_file_with_executor(
                 &executor,
-                "hello".to_owned(),
+                FileKind::Csv,
+                b"hello".to_vec(),
                 text_path.display().to_string(),
             ));
             {
@@ -159,7 +204,7 @@ mod tests {
     }
 
     #[test]
-    fn busy_exports_reject_before_validation_or_publication() {
+    fn busy_delivery_rejects_before_validation_or_publication() {
         tauri::async_runtime::block_on(async {
             let executor = local_test_executor(1, 1);
             let (started_tx, started_rx) = mpsc::sync_channel(1);
@@ -182,9 +227,10 @@ mod tests {
 
             let temp_dir = TempTestDir::new("busy-local");
             let text_path = temp_dir.file("rejected.csv");
-            let error = export_file_with_executor(
+            let error = deliver_file_with_executor(
                 &executor,
-                "must not be written".to_owned(),
+                FileKind::Csv,
+                b"must not be written".to_vec(),
                 text_path.display().to_string(),
             )
             .await
@@ -199,14 +245,15 @@ mod tests {
     }
 
     #[test]
-    fn executor_backed_text_export_writes_through_service_boundary() {
+    fn executor_backed_delivery_writes_through_service_boundary() {
         let temp_dir = TempTestDir::new("files");
         let text_path = temp_dir.file("export.csv");
         let executor = local_test_executor(1, 1);
 
-        tauri::async_runtime::block_on(export_file_with_executor(
+        tauri::async_runtime::block_on(deliver_file_with_executor(
             &executor,
-            "hello".to_string(),
+            FileKind::Csv,
+            b"hello".to_vec(),
             text_path.display().to_string(),
         ))
         .unwrap();

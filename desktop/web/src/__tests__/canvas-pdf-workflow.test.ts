@@ -24,7 +24,7 @@ function fixture(plants: PrintPlant[] = [], view: Pick<PdfInput, 'viewBearingDeg
     return { ...capture, input: { ...capture.input, canvas, viewBearingDeg: bearing },
       ...(turningNow ? { turning: true } : {}), isCurrent: () => current && canvas === currentCanvas && (!turningNow || settled === settles) }
   }, prepare, resolveDisplayNames, resolveHabits: async () => ({}),
-    delivery: { save, dispose: vi.fn() }, labels: () => ({ ...englishPdfLabels, notes: 'Notes', observations: 'Field observations', keyAndNotes: 'Key and notes', overview: 'Overview', plants: 'Plants', actualSize: 'Actual size' }), namePrintArea: (number) => `Print area ${number}` })
+    delivery: { deliverFile: save, dispose: vi.fn() }, labels: () => ({ ...englishPdfLabels, notes: 'Notes', observations: 'Field observations', keyAndNotes: 'Key and notes', overview: 'Overview', plants: 'Plants', actualSize: 'Actual size' }), namePrintArea: (number) => `Print area ${number}` })
   return { workflow, prepare, save, resolveDisplayNames, capture, setCanvas: (canvas: CanvasPrintSnapshot) => { currentCanvas = canvas },
     turnView: (deg: number) => { bearing = deg },
     startTurn: (deg: number) => { bearing = deg; turning = true },
@@ -169,7 +169,7 @@ describe('PDF workflow lifetime', () => {
     expect(workflow.setup.value.layers).toEqual(['plants'])
     expect(prepare).toHaveBeenCalledOnce()
     await workflow.save()
-    expect(save).toHaveBeenCalledWith(result.bytes, 'Garden', expect.any(AbortSignal))
+    expect(save).toHaveBeenCalledWith('pdf', 'Garden', { bytes: result.bytes }, expect.any(AbortSignal))
     expect(workflow.state.value.status).toBe('saved')
     await workflow.save()
     expect(save).toHaveBeenCalledTimes(2)

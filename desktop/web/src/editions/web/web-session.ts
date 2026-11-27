@@ -27,7 +27,7 @@ import { currentCanvasSession } from '../../canvas/session'
 import { browserAppDataStore, type BrowserDraftSummary } from '../../web/browser-app-data'
 import { browserDraftPersistence, type BrowserShellDesignIdentity } from '../../web/browser-draft-persistence'
 import { presentBrowserDraftOpenFailure, presentBrowserStorageUncheckedNotice } from '../../web/browser-notices'
-import { downloadBrowserTextFile, pickBrowserTextFile } from '../../web/browser-text-files'
+import { pickBrowserTextFile } from '../../web/browser-text-files'
 
 export const webLaunching = signal(false)
 const webStorageUnchecked = signal(false)
@@ -121,17 +121,6 @@ export async function openWebCanopiFile(): Promise<boolean> {
   }
 }
 
-const RESERVED_FILENAME_CHARS = new Set(['\\', '/', ':', '*', '?', '"', '<', '>', '|'])
-
-function canopiDownloadName(raw: string): string {
-  const base = (raw || 'Untitled').trim() || 'Untitled'
-  let out = ''
-  for (const ch of base) {
-    out += RESERVED_FILENAME_CHARS.has(ch) ? '_' : ch
-  }
-  return `${out}.canopi`
-}
-
 async function encodeWebCanopiText(file: Parameters<typeof flattenDocumentForJson>[0]): Promise<string> {
   const core = editionPorts().designCore
   const encoded = await core.encode(flattenDocumentForJson(file))
@@ -144,7 +133,7 @@ export async function downloadWebCanopi(): Promise<void> {
   const snap = core.snapshot()
   if (!snap) return
   const text = await encodeWebCanopiText(snap)
-  downloadBrowserTextFile(canopiDownloadName(snap.name), text, 'application/json')
+  await editionPorts().fileDelivery.deliverFile('canopi-copy', snap.name, { text })
 }
 
 export async function downloadWebDraft(id: string): Promise<void> {
@@ -163,8 +152,8 @@ export async function downloadWebDraft(id: string): Promise<void> {
   const encoded = await core.encode(decoded.ok.design)
   if ('err' in encoded) throw ingestionErrorFromFormatRefusal(encoded.err)
   const text = new TextDecoder('utf-8', { fatal: true }).decode(encoded.ok)
-  const name = typeof decoded.ok.design.name === 'string' ? decoded.ok.design.name : 'Untitled'
-  downloadBrowserTextFile(canopiDownloadName(name), text, 'application/json')
+  const name = typeof decoded.ok.design.name === 'string' ? decoded.ok.design.name : ''
+  await editionPorts().fileDelivery.deliverFile('canopi-draft', name, { text })
 }
 
 async function openLegacyDraftReadOnly(id: string): Promise<boolean> {

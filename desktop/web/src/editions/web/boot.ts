@@ -20,12 +20,15 @@ import { withNewDesignDisplay } from "../../app/settings/new-design-defaults";
 import { normalizeLoadedDocument } from "../../app/contracts/document";
 import { NEW_DESIGN_LAYER_DEFAULTS } from "../../generated/new-design-defaults";
 import type { DraftId } from "../../platform/design-home";
+import { openProblemReportDialog } from "../../app/problem-report/submission";
+import { t } from "../../i18n";
 import {
   presentBrowserDesignOpenFailure,
   raiseDraftStoreBlockedNotice,
   raiseEarlierDataNotice,
   raiseOlderTabCopyNotice,
   raisePendingWriteNotice,
+  registerBrowserProblemReportOpener,
   withdrawDraftStoreBlockedNotice,
 } from "../../web/browser-notices";
 import { browserAppDataStore, DRAFTS_STORAGE_KEY } from "../../web/browser-app-data";
@@ -42,8 +45,8 @@ import { installEditionPorts } from "../../platform/edition-ports";
 import { createUuid } from "../../utils/ids";
 import { WEB_EDITION_MANIFEST } from "./manifest";
 import { geocodingTransport as browserGeocodingTransport } from "../../app/geocoding/transport.browser";
-import { createPdfDelivery as createBrowserPdfDelivery } from "../../app/canvas-pdf/platform.browser";
-import { deliverBudgetCsv as deliverBrowserBudgetCsv } from "../../app/budget/platform.browser";
+import { createBrowserFileDelivery } from "../../platform/file-delivery";
+import { createUnsupportedDataLibraryPort } from "../../platform/library";
 import { installSpeciesCatalogWorkbench } from "../../app/plant-browser";
 import { speciesCatalogWorkbench as browserSpeciesCatalogWorkbench } from "./species-catalog";
 import { createBrowserProblemReportWriter } from "./problem-report";
@@ -66,11 +69,14 @@ export function bootWebEdition(): () => void {
   const stopConsortiumSync = installConsortiumSync();
 
   const disposeFailureHooks = installFailureHooks({ storage: "device" }, window);
+  registerBrowserProblemReportOpener(openProblemReportDialog);
+  const browserFileDelivery = createBrowserFileDelivery({ untitled: () => t("titleBar.untitledDesign") });
   const problemReportWriter = createBrowserProblemReportWriter({
     build: () => ({ app: "Canopi", version: CANOPI_VERSION }),
     health: () => storeHealth.peek(),
     settings: () => readSettingsReportSummary(capabilitiesForEdition("web", "linux")),
     currentDesign: () => currentWebDesignText(),
+    fileDelivery: browserFileDelivery,
   });
   const formatCore = createDesignCore();
   const legacyStorageBridge: BrowserStorage = {
@@ -107,8 +113,8 @@ export function bootWebEdition(): () => void {
     settings: browserSettingsPlatformAdapter,
     problemReport: problemReportWriter,
     geocoding: browserGeocodingTransport,
-    canvasPdfDelivery: createBrowserPdfDelivery,
-    budgetExportDelivery: deliverBrowserBudgetCsv,
+    fileDelivery: browserFileDelivery,
+    dataLibrary: createUnsupportedDataLibraryPort(),
     designHome: idbHomeStore,
     fileAccess: browserFileAccessPort,
     appLifecycle: browserAppLifecyclePort,

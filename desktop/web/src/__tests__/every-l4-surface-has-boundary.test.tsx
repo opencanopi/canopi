@@ -71,7 +71,7 @@ const pdf = createPdfWorkflow({
   prepare: vi.fn(),
   resolveDisplayNames: vi.fn(),
   resolveHabits: vi.fn(),
-  delivery: { save: vi.fn(), dispose: vi.fn() },
+  delivery: { deliverFile: vi.fn(), dispose: vi.fn() },
   labels: vi.fn(),
   namePrintArea: (number) => `Print area ${number}`,
 })

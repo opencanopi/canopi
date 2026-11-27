@@ -13,11 +13,11 @@ import type { CanopiFile } from '../types/design'
 import { browserAppDataStore } from '../web/browser-app-data'
 import { deleteLegacyDraft, seedLegacyDraft } from './support/legacy-draft-fixture'
 import type { BrowserDraftPersistence } from '../web/browser-draft-persistence'
-import * as browserTextFiles from '../web/browser-text-files'
 import { notices, resetNoticesForTests } from '../failures/notices'
 import { WebWelcomeScreen } from '../editions/web/WebWelcomeScreen'
 import { createBrowserSessionHomeStore } from './support/browser-session-home-store'
-import { installEditionPorts } from '../platform/edition-ports'
+import { editionPorts, installEditionPorts } from '../platform/edition-ports'
+import { buildDeliveryFileName } from '../platform/file-delivery'
 import { createTestEditionPorts } from './support/test-edition-ports'
 import { createTestSessionCore, type TestSessionCoreHandle } from './support/session-core-fixture'
 
@@ -61,7 +61,7 @@ function design(name: string): CanopiFile {
 }
 
 function setup(view: BrowserDraftPersistenceView, { drafts = true }: { drafts?: boolean } = {}) {
-  const downloadCanopiFile = vi.spyOn(browserTextFiles, 'downloadBrowserTextFile').mockImplementation(() => undefined)
+  const downloadCanopiFile = vi.spyOn(editionPorts().fileDelivery, 'deliverFile').mockResolvedValue('downloaded')
   session = createTestSessionCore()
   if (drafts) {
     const orchard = design('Orchard')
@@ -180,8 +180,9 @@ describe('Web welcome screen and Draft persistence', () => {
     await act(async () => { items[0]!.click() })
     await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)) })
     expect(downloadCanopiFile).toHaveBeenCalledOnce()
-    const [fileName, text] = downloadCanopiFile.mock.calls[0]!
-    expect(fileName).toBe('Orchard.canopi')
+    const [kind, stem, content] = downloadCanopiFile.mock.calls[0]!
+    expect(buildDeliveryFileName(kind, stem)).toBe('Orchard.canopi')
+    const text = 'text' in content ? content.text : 'bytes' in content ? new TextDecoder().decode(content.bytes) : ''
     expect(decodeCanopiDesign(JSON.parse(text)).name).toBe('Orchard')
     expect(designSessionStore.hasCurrentDesign()).toBe(false)
   })

@@ -3,6 +3,7 @@
 // report's file name; its object URL is revoked after a delay (an at-once revoke can fail a download not yet started)
 // and every pending one is freed on dispose. Sections with no browser source are marked not on this edition (F13).
 import type { ProblemReport, ProblemReportPort } from '../../platform/problem-report'
+import { createBrowserFileDelivery, type FileDeliveryPort } from '../../platform/file-delivery'
 import { REPORT_MANIFEST_FILE, type ProblemReportResult } from '../../generated/contracts'
 
 /** Long enough for any browser to start the download from the URL. */
@@ -116,15 +117,12 @@ export interface BrowserReportReaders {
   readonly health: () => unknown
   readonly settings: () => unknown
   readonly currentDesign: () => string | null | Promise<string | null>
+  readonly fileDelivery?: FileDeliveryPort
 }
 
 export function createBrowserProblemReportWriter(readers: BrowserReportReaders): BrowserProblemReportWriter {
-  const pending = new Map<string, ReturnType<typeof setTimeout>>()
-  const release = (url: string) => {
-    clearTimeout(pending.get(url))
-    pending.delete(url)
-    URL.revokeObjectURL(url)
-  }
+  const ownedDelivery = readers.fileDelivery ? null : createBrowserFileDelivery({ revokeAfterMs: REVOKE_AFTER_MS })
+  const delivery = readers.fileDelivery ?? ownedDelivery!
   return {
     sections: {
       build: () => ({ ...readers.build(), browser: browserFamily(navigator.userAgent) }),
@@ -143,25 +141,13 @@ export function createBrowserProblemReportWriter(readers: BrowserReportReaders):
       const files = report.entries.map((entry) => ({ name: entry.file, text: entry.text ?? '' }))
       files.push({ name: REPORT_MANIFEST_FILE, text: `${JSON.stringify(manifest, null, 2)}\n` })
       const zip = storedZip(files)
-      const url = URL.createObjectURL(new Blob([zip.buffer as ArrayBuffer], { type: 'application/zip' }))
-      const anchor = document.createElement('a')
-      anchor.href = url
-      anchor.download = report.fileName
-      document.body.appendChild(anchor)
-      try {
-        anchor.click()
-      } catch (error) {
-        URL.revokeObjectURL(url)
-        throw error
-      } finally {
-        anchor.remove()
-      }
-      pending.set(url, setTimeout(() => release(url), REVOKE_AFTER_MS))
+      const stem = report.fileName.replace(/\.zip$/i, '')
+      await delivery.deliverFile('problem-report', stem, { bytes: zip })
       // A download: this writer has no folder to show (no `reveal`).
       return { file_name: report.fileName }
     },
     dispose() {
-      for (const url of [...pending.keys()]) release(url)
+      ownedDelivery?.dispose?.()
     },
   }
 }

@@ -17,7 +17,7 @@ sequenceDiagram
   participant QS as canvas/runtime/print-snapshot.ts<br/>owner Scene
   participant GEO as geo/session-plane.ts<br/>owner Earth model
   participant JOB as app/canvas-pdf/worker.ts<br/>owner PDF workspace
-  participant FD as platform/file-delivery.ts (2.1)<br/>owner edition root
+  participant FD as platform/file-delivery.ts<br/>owner edition root
   U->>WF: open the PDF workspace
   WF->>CORE: read print_setup (none: derived default pages, unwritten)
   U->>ED: page angle: North up, As on screen, saved view bearing, Turn to edge, typed

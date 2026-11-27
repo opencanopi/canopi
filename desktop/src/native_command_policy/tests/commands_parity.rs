@@ -32,7 +32,7 @@ fn is_tauri_injected_type(ty: &syn::Type) -> bool {
     };
     matches!(
         last.ident.to_string().as_str(),
-        "State" | "AppHandle" | "Window" | "WebviewWindow"
+        "State" | "AppHandle" | "Window" | "WebviewWindow" | "Request"
     )
 }
 

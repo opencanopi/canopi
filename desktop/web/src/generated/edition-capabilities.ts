@@ -23,6 +23,7 @@ export const EDITION_CAPABILITIES = [
   { id: "desktop-browser-reserved-chords", kind: "gate", lacks: ["web"], reason: "browsers reserve them", instead: "the chords both editions share: Alt+Shift+N, Alt+Shift+W, Alt+Shift+1-9, Alt+Shift+P", decided: "2.1-Q343" },
   { id: "unbounded-stamp-payload", kind: "adapter", lacks: ["both"], reason: "payload admission in canopi-format", instead: "stamp_too_large{limit}; Export stamp offered", decided: "2.1-Q173" },
   { id: "problem-report-folder-names", kind: "adapter", lacks: ["web"], reason: "no named app folders", instead: "<path> instead of <home-dir> and the other named folders", decided: "2.1-M113" },
+  { id: "problem-report-host-log", kind: "adapter", lacks: ["web"], reason: "browsers have no native host log file", instead: "host log section omitted from Web problem report", decided: "2.1-M412" },
   { id: "site-data-below-limit", kind: "gate", lacks: ["web"], reason: "not built yet", instead: "Needs Canopi Desktop", decided: "2.1-Q122", pending: "N5" },
   { id: "saved-stamps", kind: "gate", lacks: ["web"], reason: "not built yet", instead: "none", decided: "2.1-Q112", pending: "N2" },
   { id: "design-notebook", kind: "gate", lacks: ["web"], reason: "not built yet", instead: "none", decided: "2.1-Q111", pending: "N2" },

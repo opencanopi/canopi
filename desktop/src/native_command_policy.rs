@@ -982,7 +982,8 @@ fn invoked_command_names(source: &str) -> Vec<String> {
         let start = search + offset;
         search = start + "invoke".len();
         search += "Command".len() * usize::from(source[search..].starts_with("Command"))
-            + "Typed".len() * usize::from(source[search..].starts_with("Typed"));
+            + "Typed".len() * usize::from(source[search..].starts_with("Typed"))
+            + "BinaryCommand".len() * usize::from(source[search..].starts_with("BinaryCommand"));
         if start > 0 && is_identifier_byte(bytes[start - 1]) {
             continue;
         }

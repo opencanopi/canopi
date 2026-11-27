@@ -40,7 +40,6 @@ import {
 import type { CanopiFile } from '../types/design'
 import type { Settings } from '../types/settings'
 import { createBrowserAppDataStore, type BrowserStorageAdapter } from '../web/browser-app-data'
-import * as browserTextFiles from '../web/browser-text-files'
 import { BrowserAppShell } from '../editions/web/BrowserAppShell'
 import { browserAppLifecyclePort, browserFileAccessPort } from '../editions/web/session-ports'
 import { createBrowserSessionHomeStore } from './support/browser-session-home-store'
@@ -52,7 +51,7 @@ import { createBrowserDraftPersistence } from '../web/browser-draft-persistence'
 import { t } from '../i18n'
 import { SettingsDialog } from '../components/shared/SettingsDialog'
 import { editDesignSessionForTest } from './support/design-session-edit'
-import { installEditionPorts } from '../platform/edition-ports'
+import { editionPorts, installEditionPorts } from '../platform/edition-ports'
 import { createTestEditionPorts } from './support/test-edition-ports'
 import { createTestDesignCore } from './support/design-wire'
 import { makeTestDesign } from './support/session-core-fixture'
@@ -551,7 +550,7 @@ describe('Web Edition Browser App Shell', () => {
 
   it('enables Download .canopi only after a Browser Design is active', async () => {
     installWebSession()
-    const downloadSpy = vi.spyOn(browserTextFiles, 'downloadBrowserTextFile').mockImplementation(() => undefined)
+    const downloadSpy = vi.spyOn(editionPorts().fileDelivery, 'deliverFile').mockResolvedValue('downloaded')
 
     await act(async () => {
       render(<WebApp workspace={<div data-testid="stub-workspace" />} />, container)

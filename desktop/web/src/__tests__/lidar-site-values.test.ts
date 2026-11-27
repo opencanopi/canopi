@@ -2,6 +2,8 @@
 // sampler, the real transients and the test canvas query surface's pointer; only the native command is faked.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { LidarSamplePointsRequest, LidarSampleSeries } from '../generated/contracts'
+import { installEditionPorts } from '../platform/edition-ports'
+import { createTestEditionPorts } from './support/test-edition-ports'
 
 const native = vi.hoisted(() => ({
   requests: [] as LidarSamplePointsRequest[],
@@ -85,7 +87,9 @@ function shown(): Record<string, unknown> | null {
 }
 
 describe('Site data row values', () => {
+  let disposePorts: () => void = () => undefined
   beforeEach(() => {
+    disposePorts = installEditionPorts(createTestEditionPorts())
     native.requests.length = 0
     native.empty.clear()
     native.refusals = 0
@@ -101,6 +105,7 @@ describe('Site data row values', () => {
     // A held answer would keep the shared sampler's lane busy for the next test.
     await releaseHeld()
     endSiteDataTransients()
+    disposePorts()
     sidePanel.value = null
     setCurrentCanvasSession(null)
     lidarLibrary.value = null

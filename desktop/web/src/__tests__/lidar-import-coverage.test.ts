@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { installEditionPorts } from '../platform/edition-ports'
+import { createTestEditionPorts } from './support/test-edition-ports'
 
 const coverage = vi.hoisted(() => ({ read: vi.fn() }))
 vi.mock('../ipc/lidar', () => ({ lidarImportCoverage: coverage.read }))
@@ -23,7 +25,12 @@ const orchard: CanvasDesignObjects = {
 }
 
 describe('Import coverage', () => {
+  let disposePorts: () => void = () => undefined
+  beforeEach(() => {
+    disposePorts = installEditionPorts(createTestEditionPorts())
+  })
   afterEach(() => {
+    disposePorts()
     setCurrentCanvasSession(null)
     coverage.read.mockReset()
   })

@@ -3,19 +3,15 @@
 import { render } from 'preact'
 import { act } from 'preact/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { installEditionPorts } from '../platform/edition-ports'
+import { createTestEditionPorts } from './support/test-edition-ports'
 import { librarySnapshot, slopeItem, slopeProvenance, sourceItem } from './support/library-fixtures'
 
 const actions = vi.hoisted(() => ({
-  cancelAnalysisJob: vi.fn().mockResolvedValue(true),
-  cancelLibraryImport: vi.fn().mockResolvedValue(undefined),
-  chooseImportFiles: vi.fn().mockResolvedValue(null),
-  dismissAttachmentFailure: vi.fn(),
-  moveReferenceTo: vi.fn(),
-  removeFromDesign: vi.fn(),
-  rerunAnalysis: vi.fn().mockResolvedValue(undefined),
-  setLidarEntryDisplay: vi.fn(),
-  setLidarEntryVisibility: vi.fn(),
-  setSiteDataShown: vi.fn(),
+  cancelAnalysisJob: vi.fn().mockResolvedValue(true), cancelLibraryImport: vi.fn().mockResolvedValue(undefined),
+  chooseImportFiles: vi.fn().mockResolvedValue(null), dismissAttachmentFailure: vi.fn(),
+  moveReferenceTo: vi.fn(), removeFromDesign: vi.fn(), rerunAnalysis: vi.fn().mockResolvedValue(undefined),
+  setLidarEntryDisplay: vi.fn(), setLidarEntryVisibility: vi.fn(), setSiteDataShown: vi.fn(),
 }))
 const pending = vi.hoisted(() => ({ attachments: null as unknown, failure: null as unknown, values: null as unknown }))
 
@@ -134,7 +130,10 @@ function values(entries: Record<string, number | null>, at: 'pointer' | 'pin' = 
   }
 }
 
+let disposePorts: () => void = () => undefined
+
 beforeEach(() => {
+  disposePorts = installEditionPorts(createTestEditionPorts())
   locale.value = 'en'
   vi.clearAllMocks()
   newSession()
@@ -158,6 +157,7 @@ beforeEach(() => {
 afterEach(() => {
   render(null, container)
   container.remove()
+  disposePorts()
   resetStoreHealthForTests()
   resetLidarLibraryForTests()
 })

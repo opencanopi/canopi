@@ -76,6 +76,7 @@ pub(crate) fn contract_types() -> TypeCollection {
         .register::<canopi_types::design_home::HomeRead>()
         .register::<canopi_types::design_home::HomeWrite>()
         .register::<canopi_types::design_home::LastOpenHome>()
+        .register::<canopi_types::dialog::FileKind>()
         .register::<canopi_types::dialog::DialogKind>()
         .register::<canopi_types::dialog::PickOpenOutcome>()
         .register::<canopi_types::dialog::PickSaveOutcome>()

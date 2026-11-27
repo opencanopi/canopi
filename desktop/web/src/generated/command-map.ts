@@ -121,9 +121,8 @@ export const COMMAND_NAMES = [
   'reorder_notebook_sections',
   'reorder_design_references',
   'relocate_design_reference',
-  'export_file',
+  'deliver_file',
   'pick_geojson_file',
-  'save_canvas_pdf',
   'get_health',
   'dismiss_store_notice',
   'take_pending_open',
@@ -214,9 +213,8 @@ export type CommandMap = {
   readonly 'reorder_notebook_sections': { readonly args: { readonly sectionIds: readonly string[] }; readonly reply: void }
   readonly 'reorder_design_references': { readonly args: { readonly paths: readonly string[] }; readonly reply: void }
   readonly 'relocate_design_reference': { readonly args: { readonly path: string; readonly sectionId?: string | null; readonly paths: readonly string[] }; readonly reply: void }
-  readonly 'export_file': { readonly args: { readonly data: string; readonly path: string }; readonly reply: string }
-  readonly 'pick_geojson_file': { readonly args: undefined; readonly reply: GeoJsonSource | null }
-  readonly 'save_canvas_pdf': { readonly args: { readonly data: readonly number[]; readonly path: string }; readonly reply: void }
+  readonly 'deliver_file': { readonly args: undefined; readonly reply: string }
+  readonly 'pick_geojson_file': { readonly args: { readonly extensions?: readonly string[] }; readonly reply: GeoJsonSource | null }
   readonly 'get_health': { readonly args: undefined; readonly reply: SubsystemHealth }
   readonly 'dismiss_store_notice': { readonly args: { readonly store: StoreId }; readonly reply: void }
   readonly 'take_pending_open': { readonly args: undefined; readonly reply: PendingOpen | null }
@@ -322,9 +320,8 @@ export const COMMAND_SYNC_KINDS: Readonly<Record<CommandName, CommandSyncKind>> 
   'reorder_notebook_sections': 'async',
   'reorder_design_references': 'async',
   'relocate_design_reference': 'async',
-  'export_file': 'async',
+  'deliver_file': 'async',
   'pick_geojson_file': 'async',
-  'save_canvas_pdf': 'async',
   'get_health': 'bounded_sync',
   'dismiss_store_notice': 'bounded_sync',
   'take_pending_open': 'bounded_sync',

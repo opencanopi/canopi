@@ -14,6 +14,7 @@ import type {
 } from './types'
 import { PDF_HABITS, PDF_ZOOM, pdfAreaKey } from './types'
 import type { PdfPreparation } from './prepare'
+import type { FileDeliveryPort } from '../../platform/file-delivery'
 import type { SpeciesDisplayNames } from '../plant-browser/workbench'
 export interface PdfCapture {
   readonly identity: object
@@ -23,8 +24,6 @@ export interface PdfCapture {
   readonly turning?: boolean
   isCurrent(): boolean
 }
-type PdfDeliveryResult = 'saved' | 'downloaded' | 'cancelled'
-export interface PdfDelivery { save(bytes: Uint8Array, name: string, signal: AbortSignal): Promise<PdfDeliveryResult>; dispose(): void }
 export interface PdfWorkflowDependencies {
   capture(): PdfCapture | null
   /** The catalog's display-name projection: the chosen language's names, English marked for the rest. */
@@ -32,7 +31,7 @@ export interface PdfWorkflowDependencies {
   /** Catalog habit (`Tree`, `Shrub`, ...) by canonical name. */
   resolveHabits(names: readonly string[]): Promise<Record<string, string>>
   prepare(input: PdfPreparation, signal: AbortSignal, progress?: (plan: PdfPlan) => void): Promise<PreparedPdf>
-  readonly delivery: PdfDelivery
+  readonly delivery: FileDeliveryPort
   labels(): PdfLabels
   namePrintArea(number: number): string
 }
@@ -214,7 +213,7 @@ export function createPdfWorkflow(deps: PdfWorkflowDependencies) {
     const ticket = ++generation
     state.value = { ...snapshot, status: 'delivering', error: null }
     try {
-      const outcome = await deps.delivery.save(snapshot.result.bytes, source.input.name, abort.signal)
+      const outcome = await deps.delivery.deliverFile('pdf', source.input.name, { bytes: snapshot.result.bytes }, abort.signal)
       if (disposed || ticket !== generation || !source.isCurrent()) return
       state.value = { ...snapshot, status: outcome === 'cancelled' ? 'ready' : outcome, error: null }
     } catch {
@@ -222,7 +221,7 @@ export function createPdfWorkflow(deps: PdfWorkflowDependencies) {
       state.value = { ...snapshot, status: 'error', error: 'delivery-failed' }
     } finally { if (controller === abort) controller = null }
   }
-  function dispose(): void { if (disposed) return; disposed = true; stop(); cache = {}; splitPreview.value = null; deps.delivery.dispose(); open.value = false; state.value = IDLE; capture = null; heldBearing = null; setup.value = defaults(); availableLayers.value = [] }
+  function dispose(): void { if (disposed) return; disposed = true; stop(); cache = {}; splitPreview.value = null; deps.delivery.dispose?.(); open.value = false; state.value = IDLE; capture = null; heldBearing = null; setup.value = defaults(); availableLayers.value = [] }
   return { open, state, setup, splitPreview, availableLayers, prioritize, addWholeDesign, previewSplit, applySplit, cancelSplit, show, close, rebuild, configure, selectLayer, addPrintArea, removeArea, setPageView, fitPage, save, synchronize, dispose }
 }
 export type PdfWorkflow = ReturnType<typeof createPdfWorkflow>

@@ -1,5 +1,6 @@
 import { effect } from '@preact/signals'
-import { editionPorts, hasEditionPorts, type PdfDeliveryPort } from '../../platform/edition-ports'
+import { editionPorts, hasEditionPorts } from '../../platform/edition-ports'
+import type { FileDeliveryPort } from '../../platform/file-delivery'
 import { currentCanvasQuerySurface } from '../../canvas/session'
 import { designSessionStore } from '../document-session/store'
 import { speciesCatalogWorkbench } from '../plant-browser'
@@ -61,17 +62,13 @@ const normalise = (deg: number) => ((deg % 360) + 360) % 360
 function symbolNames(): Record<string, string> {
   return Object.fromEntries(PLANT_SYMBOL_IDS.map(symbol => [symbol, t(`canvas.plantSymbol.names.${symbol}`)]))
 }
-function createLazyPdfDelivery(): PdfDeliveryPort {
-  let cached: PdfDeliveryPort | null = null
+function createLazyPdfDelivery(): FileDeliveryPort {
   return {
-    save(bytes, name, signal) {
-      cached ??= editionPorts().canvasPdfDelivery()
-      return cached.save(bytes, name, signal)
+    deliverFile(kind, stem, content, signal) {
+      return editionPorts().fileDelivery.deliverFile(kind, stem, content, signal)
     },
     dispose() {
-      cached?.dispose()
-      cached = null
-      void hasEditionPorts()
+      if (hasEditionPorts()) editionPorts().fileDelivery.dispose?.()
     },
   }
 }

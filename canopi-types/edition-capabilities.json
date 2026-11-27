@@ -130,6 +130,14 @@
       "decided": "2.1-M113"
     },
     {
+      "id": "problem-report-host-log",
+      "kind": "adapter",
+      "lacks": ["web"],
+      "reason": "browsers have no native host log file",
+      "instead": "host log section omitted from Web problem report",
+      "decided": "2.1-M412"
+    },
+    {
       "id": "site-data-below-limit",
       "kind": "gate",
       "lacks": ["web"],

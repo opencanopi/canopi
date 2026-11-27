@@ -7,10 +7,11 @@
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { CURRENT_CANOPI_FILE_VERSION } from '../../generated/canopi-design-format'
+import { buildDeliveryFileName } from '../../platform/file-delivery'
 import type { CanopiFile } from '../../types/design'
 import { geoAt } from '../../__tests__/support/geo-design'
 import { createLiveTestCanvasRuntimeHost, type CanvasRuntimeHost } from '../../__tests__/support/live-canvas-runtime'
-import { createGeoJsonWorkflow, type GeoJsonFileAdapter } from './workflow'
+import { createGeoJsonWorkflow } from './workflow'
 
 const hosts: CanvasRuntimeHost[] = []
 
@@ -44,17 +45,20 @@ function designWithOneZone(): CanopiFile {
 }
 
 describe('2.1-Q359 exported file names', () => {
-  it.fails('Q359 (2a-4): a forbidden character in the Design name becomes a space and spaces collapse in the GeoJSON file name', async () => {
+  it('Q359 (2a-4): a forbidden character in the Design name becomes a space and spaces collapse in the GeoJSON file name', async () => {
     const host = createLiveTestCanvasRuntimeHost()
     hosts.push(host)
     host.surfaces.documents.loadDocument(designWithOneZone())
     const names: string[] = []
-    const files: GeoJsonFileAdapter = {
-      pickGeoJsonFile: vi.fn(async () => null),
-      writeGeoJsonFile: vi.fn(async (_text: string, fileName: string) => { names.push(fileName); return 'written' as const }),
-    }
     const workflow = createGeoJsonWorkflow({
-      files,
+      pickGeoJsonFile: vi.fn(async () => null),
+      fileDelivery: () => ({
+        deliverFile: vi.fn(async (kind, stem) => {
+          names.push(buildDeliveryFileName(kind, stem))
+          return 'saved' as const
+        }),
+        dispose: () => {},
+      }),
       notify: () => {},
       designName: () => 'Kitchen / garden: north',
       canvas: () => host.surfaces,

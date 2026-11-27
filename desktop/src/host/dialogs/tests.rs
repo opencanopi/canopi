@@ -454,7 +454,7 @@ fn canopi_f47t_52_228_14_the_geojson_host_read_keeps_the_path_in_the_host() {
 
     assert_eq!(
         request.kind.extensions(),
-        crate::services::export::GEOJSON_IMPORT_EXTENSIONS
+        canopi_types::dialog::FileKind::Geojson.extensions()
     );
     assert_eq!(settle(read), Ok(Some(source)));
 }

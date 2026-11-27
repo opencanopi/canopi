@@ -86,7 +86,7 @@ describe('Canvas PDF name and habit resolution', () => {
       locale === 'fr' ? { 'Malus domestica': 'Pommier' } : Object.fromEntries(names.filter(name => name !== 'Unknown species').map(name => [name, `${name} (English)`]))))
     const workflow = createPdfWorkflow({ capture: () => ({ identity: input, isCurrent: () => true, input }), prepare, resolveDisplayNames,
       resolveHabits: async () => ({ 'Malus domestica': 'Tree', 'Ribes nigrum': 'Shrub', 'Mentha spicata': 'Woody' }),
-      delivery: { save: vi.fn(), dispose: vi.fn() }, labels: () => labels, namePrintArea: number => `Area ${number}` })
+      delivery: { deliverFile: vi.fn(), dispose: vi.fn() }, labels: () => labels, namePrintArea: number => `Area ${number}` })
     try {
       workflow.show()
       await vi.waitFor(() => expect(workflow.state.value.status).toBe('ready'))

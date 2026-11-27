@@ -46,6 +46,7 @@ import {
   setDesignName,
 } from '../editions/web/web-session'
 import { editDesignSessionForTest } from './support/design-session-edit'
+import { buildDeliveryFileName } from '../platform/file-delivery'
 import { createTestEditionPorts } from './support/test-edition-ports'
 import { makeTestDesign } from './support/session-core-fixture'
 
@@ -222,7 +223,7 @@ describe('Web Edition SessionCore + createBrowserSessionHomeStore lifecycle', ()
 
   it('composes a new browser Design as the current version through draft and download', async () => {
     const { appDataStore, core } = setupSession()
-    const downloadSpy = vi.spyOn(browserTextFiles, 'downloadBrowserTextFile').mockImplementation(() => undefined)
+    const downloadSpy = vi.spyOn(editionPorts().fileDelivery, 'deliverFile').mockResolvedValue('downloaded')
 
     await core.createNew()
     const draftId = core.currentDesign.peek()!.home.key
@@ -235,8 +236,9 @@ describe('Web Edition SessionCore + createBrowserSessionHomeStore lifecycle', ()
 
     await createWebShellCommands().downloadCanopi()
     expect(downloadSpy).toHaveBeenCalledOnce()
-    const [fileName, text] = downloadSpy.mock.calls[0]!
-    expect(fileName).toBe('Untitled.canopi')
+    const [kind, stem, content] = downloadSpy.mock.calls[0]!
+    expect(buildDeliveryFileName(kind, stem)).toBe('Untitled.canopi')
+    const text = 'text' in content ? content.text : 'bytes' in content ? new TextDecoder().decode(content.bytes) : ''
     const decoded = decodeCanopiDesign(JSON.parse(text))
     expect(decoded.version).toBe(CURRENT_CANOPI_FILE_VERSION)
     expect(decoded.description).toBe('Composed in web')
@@ -308,14 +310,16 @@ describe('Web Edition SessionCore + createBrowserSessionHomeStore lifecycle', ()
 
   it('downloads the current Design without acknowledging dirty status', async () => {
     const { core } = setupSession()
-    const downloadSpy = vi.spyOn(browserTextFiles, 'downloadBrowserTextFile').mockImplementation(() => undefined)
+    const downloadSpy = vi.spyOn(editionPorts().fileDelivery, 'deliverFile').mockResolvedValue('downloaded')
     await core.createNew()
     editDesignSessionForTest(designSessionStore, (design) => ({ ...design, description: 'Unsaved edit' }))
     expect(core.dirty.value).toBe(true)
 
     await createWebShellCommands().downloadCanopi()
     expect(downloadSpy).toHaveBeenCalledOnce()
-    expect(downloadSpy.mock.calls[0]![1]).toContain('Unsaved edit')
+    const content = downloadSpy.mock.calls[0]![2]
+    const text = 'text' in content ? content.text : 'bytes' in content ? new TextDecoder().decode(content.bytes) : ''
+    expect(text).toContain('Unsaved edit')
     expect(core.dirty.value).toBe(true)
   })
 
@@ -503,7 +507,7 @@ describe('Web Draft download parity (2.1-Q193, canopi-eon8.15)', () => {
     })
     disposers.push(disposePorts)
 
-    const downloadSpy = vi.spyOn(browserTextFiles, 'downloadBrowserTextFile').mockImplementation(() => undefined)
+    const downloadSpy = vi.spyOn(editionPorts().fileDelivery, 'deliverFile').mockResolvedValue('downloaded')
     await downloadWebDraft('draft-parity')
 
     const core = createSessionCore({
@@ -521,8 +525,9 @@ describe('Web Draft download parity (2.1-Q193, canopi-eon8.15)', () => {
     await createWebShellCommands().downloadCanopi()
 
     expect(downloadSpy).toHaveBeenCalledTimes(2)
-    expect(downloadSpy.mock.calls[0]![0]).toBe(downloadSpy.mock.calls[1]![0])
-    expect(downloadSpy.mock.calls[0]![1]).toBe(downloadSpy.mock.calls[1]![1])
+    expect(buildDeliveryFileName(downloadSpy.mock.calls[0]![0], downloadSpy.mock.calls[0]![1]))
+      .toBe(buildDeliveryFileName(downloadSpy.mock.calls[1]![0], downloadSpy.mock.calls[1]![1]))
+    expect(downloadSpy.mock.calls[0]![2]).toEqual(downloadSpy.mock.calls[1]![2])
   })
 })
 

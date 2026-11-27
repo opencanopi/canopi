@@ -2442,7 +2442,7 @@
       "owner_target": {
         "path": "desktop/src",
         "phase": "N2",
-        "bead": "canopi-f47t.52.47"
+        "bead": "canopi-f47t.52.74"
       },
       "scope": [
         "desktop/src/commands/**/*.rs",
@@ -2481,7 +2481,7 @@
       "owner_target": {
         "path": "Cargo.toml",
         "phase": "N2",
-        "bead": "canopi-f47t.52.47"
+        "bead": "canopi-f47t.52.62"
       },
       "note": "\u00a718 R6: canopi-catalog and canopi-store meet only in canopi-desktop, no catalog-store edge (cargo-deny [bans] with the crates)"
     },

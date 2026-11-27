@@ -88,7 +88,6 @@
     "desktop/web/src/__tests__/species-search-cancellation-ipc.test.ts": {  },
     "desktop/web/src/__tests__/stacking-order.test.ts": {  },
     "desktop/web/src/__tests__/story-rich-text.test.ts": {  },
-    "desktop/web/src/__tests__/tauri-csp.test.ts": {  },
     "desktop/web/src/__tests__/theme-refresh.test.ts": {  },
     "desktop/web/src/__tests__/timeline-controller.test.ts": {  },
     "desktop/web/src/__tests__/use-pointer-resize.test.tsx": {  },

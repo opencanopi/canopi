@@ -12,20 +12,10 @@ import type { DesignCore } from './design-core'
 import type { DesignHomeStore, DesktopHomePort } from './design-home'
 import type { EditionManifest } from './edition-manifest'
 import type { FileAccessPort } from './file-access'
+import type { FileDeliveryPort } from './file-delivery'
+import type { DataLibraryPort } from './library'
 import type { ProblemReportPort } from './problem-report'
 import type { SettingsPlatformAdapter } from './settings'
-
-/** Delivery outcome for a canvas PDF export (matches app/canvas-pdf/workflow.ts). */
-type PdfDeliveryOutcome = 'saved' | 'downloaded' | 'cancelled'
-
-/** L1 port for delivering rendered PDF bytes (file dialog on Desktop, download on Web, fake in Gallery). */
-export interface PdfDeliveryPort {
-  save(bytes: Uint8Array, name: string, signal: AbortSignal): Promise<PdfDeliveryOutcome>
-  dispose(): void
-}
-
-/** L1 port for delivering an exported budget CSV string. */
-type BudgetExportDeliveryPort = (data: string, defaultName: string) => Promise<void>
 
 /** L1 port for fetching JSON from a geocoding endpoint (native HTTP on Desktop, browser fetch on Web). */
 type GeocodingTransportPort = (url: string, signal?: AbortSignal) => Promise<unknown>
@@ -40,8 +30,8 @@ export interface EditionPorts {
   readonly settings: SettingsPlatformAdapter
   readonly problemReport: ProblemReportPort
   readonly geocoding: GeocodingTransportPort
-  readonly canvasPdfDelivery: () => PdfDeliveryPort
-  readonly budgetExportDelivery: BudgetExportDeliveryPort
+  readonly fileDelivery: FileDeliveryPort
+  readonly dataLibrary: DataLibraryPort
   readonly designHome: DesignHomeStore | DesktopHomePort
   readonly fileAccess: FileAccessPort
   readonly appLifecycle: AppLifecyclePort

@@ -6,7 +6,7 @@
 id: no-inline-dialog-filters.tsx
 language: tsx
 severity: error
-message: "no-inline-dialog-filters (§18 F26): dialog filters come from the file-kind table through the FileDelivery rows; no inline filters: [{ name, extensions }] list. ADR 0030; owner none; target desktop/web/src/platform/file-delivery.ts (N2); example none yet"
+message: "no-inline-dialog-filters (§18 F26): dialog filters come from the file-kind table through the FileDelivery rows; no inline filters: [{ name, extensions }] list. ADR 0030; owner desktop/web/src/platform/file-delivery.ts; target desktop/web/src/platform/file-delivery.ts (N2); example none yet"
 files:
   - "{desktop/web,policy/fixtures/rules/*}/src/**/*.tsx"
 ignores:
@@ -16,6 +16,7 @@ ignores:
   - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
   - "{desktop/web,policy/fixtures/rules/*}/src/generated/**"
   - "{desktop/web,policy/fixtures/rules/*}/src/editions/gallery/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/platform/file-delivery.ts"
 rule:
   kind: pair
   all:

@@ -5,6 +5,7 @@
 // CancelToken instead.
 
 import { batch, computed, signal, type ReadonlySignal } from '@preact/signals'
+import { buildDeliveryFileName } from '../../platform/file-delivery'
 import type {
   CanvasDesignObjectSelectionModel,
   CanvasDesignObjectSelectionTarget,
@@ -347,8 +348,7 @@ export function createSavedObjectStampWorkbench({
 }
 
 function savedObjectStampFileName(name: string): string {
-  const base = name.trim() || 'Saved Object Stamp'
-  return `${base.replace(/[\\/:*?"<>|]+/g, '-').replace(/\s+/g, ' ')}.canopi`
+  return buildDeliveryFileName('stamp', name.trim() || 'Saved Object Stamp')
 }
 
 function readSelectionView(query: CanvasQuerySurface): SavedObjectStampSelectionView {

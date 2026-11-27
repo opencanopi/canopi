@@ -11,12 +11,16 @@ const display = await import('../app/data-library/display')
 const { libraryItems } = await import('../app/data-library/library-items')
 const { librarySnapshot, sourceItem } = await import('./support/library-fixtures')
 const { LibraryPreview } = await import('../components/panels/lidar/LibraryPreview')
+const { installEditionPorts } = await import('../platform/edition-ports')
+const { createTestEditionPorts } = await import('./support/test-edition-ports')
 
 describe('Data library preview', () => {
   let container: HTMLDivElement
+  let disposePorts: () => void = () => undefined
   beforeEach(() => {
     vi.useFakeTimers()
     invoke.mockReset()
+    disposePorts = installEditionPorts(createTestEditionPorts())
     container = document.createElement('div')
     document.body.appendChild(container)
   })
@@ -24,6 +28,7 @@ describe('Data library preview', () => {
     render(null, container)
     container.remove()
     display.disposeLidarDisplayDescriptors()
+    disposePorts()
     vi.useRealTimers()
   })
 

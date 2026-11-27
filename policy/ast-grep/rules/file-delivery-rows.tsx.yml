@@ -7,7 +7,7 @@
 id: file-delivery-rows.tsx
 language: tsx
 severity: error
-message: "file-delivery-rows (§18 F26): a file is named and delivered only through the FileDelivery rows: no local file-name sanitiser and no hand-made download link. ADR 0030; owner none; target desktop/web/src/platform/file-delivery.ts (2a); example none yet"
+message: "file-delivery-rows (§18 F26): a file is named and delivered only through the FileDelivery rows: no local file-name sanitiser and no hand-made download link. ADR 0030; owner desktop/web/src/platform/file-delivery.ts; example none yet"
 files:
   - "{desktop/web,policy/fixtures/rules/*}/src/**/*.tsx"
 ignores:
@@ -17,6 +17,7 @@ ignores:
   - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
   - "{desktop/web,policy/fixtures/rules/*}/src/generated/**"
   - "{desktop/web,policy/fixtures/rules/*}/src/editions/gallery/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/platform/file-delivery.ts"
 rule:
   any:
     - kind: regex_pattern

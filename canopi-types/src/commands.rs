@@ -124,9 +124,8 @@ commands! {
     reorder_notebook_sections => "commands::design_notebook::reorder_notebook_sections": Async (sectionIds: "readonly string[]") -> "void",
     reorder_design_references => "commands::design_notebook::reorder_design_references": Async (paths: "readonly string[]") -> "void",
     relocate_design_reference => "commands::design_notebook::relocate_design_reference": Async (path: "string", sectionId? opt: "string | null", paths: "readonly string[]") -> "void",
-    export_file => "commands::export::export_file": Async (data: "string", path: "string") -> "string",
-    pick_geojson_file => "commands::export::pick_geojson_file": Async () -> "GeoJsonSource | null",
-    save_canvas_pdf => "commands::export::save_canvas_pdf": Async (data: "readonly number[]", path: "string") -> "void",
+    deliver_file => "commands::export::deliver_file": Async () -> "string",
+    pick_geojson_file => "commands::export::pick_geojson_file": Async (extensions? opt: "readonly string[]") -> "GeoJsonSource | null",
     get_health => "commands::health::get_health": BoundedSync () -> "SubsystemHealth",
     dismiss_store_notice => "commands::health::dismiss_store_notice": BoundedSync (store: "StoreId") -> "void",
     take_pending_open => "commands::host::take_pending_open": BoundedSync () -> "PendingOpen | null",
@@ -182,6 +181,6 @@ mod tests {
                 row.name
             );
         }
-        assert_eq!(names.len(), 88);
+        assert_eq!(names.len(), 87);
     }
 }

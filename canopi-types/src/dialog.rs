@@ -8,6 +8,98 @@ use specta::Type;
 use crate::design_home::FileHomeGrant;
 use crate::ids::FileGrantId;
 
+/// One file format kind shared by FileDelivery rows, native dialog filters and Web accept strings
+/// (contracts §16, 2.1-M522).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Type)]
+#[serde(rename_all = "kebab-case")]
+pub enum FileKind {
+    /// A `.canopi` Design or saved-stamp file.
+    Canopi,
+    /// A GeoJSON file (`.geojson`, `.json`).
+    Geojson,
+    /// A PDF document (`.pdf`).
+    Pdf,
+    /// A UTF-8 CSV spreadsheet (`.csv`).
+    Csv,
+    /// A GeoTIFF raster (`.tif`, `.tiff`).
+    Geotiff,
+    /// A ZIP archive (`.zip`), including problem report bundles.
+    Zip,
+}
+
+impl FileKind {
+    /// Every file kind, in declaration order.
+    pub const ALL: [Self; 6] = [
+        Self::Canopi,
+        Self::Geojson,
+        Self::Pdf,
+        Self::Csv,
+        Self::Geotiff,
+        Self::Zip,
+    ];
+
+    /// The wire spelling, as TypeScript sees it.
+    pub const fn literal(self) -> &'static str {
+        match self {
+            Self::Canopi => "canopi",
+            Self::Geojson => "geojson",
+            Self::Pdf => "pdf",
+            Self::Csv => "csv",
+            Self::Geotiff => "geotiff",
+            Self::Zip => "zip",
+        }
+    }
+
+    /// Parse a wire literal into a [`FileKind`].
+    pub fn from_literal(literal: &str) -> Option<Self> {
+        match literal {
+            "canopi" => Some(Self::Canopi),
+            "geojson" => Some(Self::Geojson),
+            "pdf" => Some(Self::Pdf),
+            "csv" => Some(Self::Csv),
+            "geotiff" => Some(Self::Geotiff),
+            "zip" => Some(Self::Zip),
+            _ => None,
+        }
+    }
+
+    /// The allowed file extensions, without dots; the first is the default suffix appended on Save.
+    pub const fn extensions(self) -> &'static [&'static str] {
+        match self {
+            Self::Canopi => &["canopi"],
+            Self::Geojson => &["geojson", "json"],
+            Self::Pdf => &["pdf"],
+            Self::Csv => &["csv"],
+            Self::Geotiff => &["tif", "tiff"],
+            Self::Zip => &["zip"],
+        }
+    }
+
+    /// The MIME type used for Web Blob downloads.
+    pub const fn mime_type(self) -> &'static str {
+        match self {
+            Self::Canopi => "application/json",
+            Self::Geojson => "application/geo+json",
+            Self::Pdf => "application/pdf",
+            Self::Csv => "text/csv;charset=utf-8",
+            Self::Geotiff => "image/tiff",
+            Self::Zip => "application/zip",
+        }
+    }
+
+    /// The filter's label: a format name, never translated.
+    pub const fn filter_label(self) -> &'static str {
+        match self {
+            Self::Canopi => "Canopi Design",
+            Self::Geojson => "GeoJSON",
+            Self::Pdf => "PDF",
+            Self::Csv => "CSV",
+            Self::Geotiff => "GeoTIFF",
+            Self::Zip => "ZIP",
+        }
+    }
+}
+
 /// One purpose a host file dialog serves; one row per call site, so a start-folder rule
 /// attaches to a purpose. Closed: a new dialog is a new row here.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Type)]
@@ -31,6 +123,8 @@ pub enum DialogKind {
     BudgetCsvExport,
     /// Data library › Import: one or more GeoTIFF files.
     LidarGeotiffImport,
+    /// Data library › Export: a GeoTIFF file.
+    LidarGeotiffExport,
 }
 
 /// Whether a dialog kind opens files, saves one, or opens one the host reads itself.
@@ -46,7 +140,7 @@ pub enum DialogPurpose {
 
 impl DialogKind {
     /// Every kind, in declaration order.
-    pub const ALL: [Self; 9] = [
+    pub const ALL: [Self; 10] = [
         Self::DesignOpen,
         Self::DesignSave,
         Self::StampImport,
@@ -56,6 +150,7 @@ impl DialogKind {
         Self::PdfExport,
         Self::BudgetCsvExport,
         Self::LidarGeotiffImport,
+        Self::LidarGeotiffExport,
     ];
 
     /// The wire spelling, as TypeScript sees it.
@@ -70,6 +165,20 @@ impl DialogKind {
             Self::PdfExport => "pdf-export",
             Self::BudgetCsvExport => "budget-csv-export",
             Self::LidarGeotiffImport => "lidar-geotiff-import",
+            Self::LidarGeotiffExport => "lidar-geotiff-export",
+        }
+    }
+
+    /// The [`FileKind`] backing this dialog's extensions and filter label.
+    pub const fn file_kind(self) -> FileKind {
+        match self {
+            Self::DesignOpen | Self::DesignSave | Self::StampImport | Self::StampExport => {
+                FileKind::Canopi
+            }
+            Self::GeojsonImport | Self::GeojsonExport => FileKind::Geojson,
+            Self::PdfExport => FileKind::Pdf,
+            Self::BudgetCsvExport => FileKind::Csv,
+            Self::LidarGeotiffImport | Self::LidarGeotiffExport => FileKind::Geotiff,
         }
     }
 
@@ -82,35 +191,20 @@ impl DialogKind {
             | Self::StampExport
             | Self::GeojsonExport
             | Self::PdfExport
-            | Self::BudgetCsvExport => DialogPurpose::Save,
+            | Self::BudgetCsvExport
+            | Self::LidarGeotiffExport => DialogPurpose::Save,
         }
     }
 
     /// The extensions the dialog's filter offers, without dots; a Save appends the first when
     /// the chosen name has none of them.
     pub const fn extensions(self) -> &'static [&'static str] {
-        match self {
-            Self::DesignOpen | Self::DesignSave | Self::StampImport | Self::StampExport => {
-                &["canopi"]
-            }
-            Self::GeojsonImport | Self::GeojsonExport => &["geojson", "json"],
-            Self::PdfExport => &["pdf"],
-            Self::BudgetCsvExport => &["csv"],
-            Self::LidarGeotiffImport => &["tif", "tiff"],
-        }
+        self.file_kind().extensions()
     }
 
     /// The filter's label: a format name, never translated.
     pub const fn filter_label(self) -> &'static str {
-        match self {
-            Self::DesignOpen | Self::DesignSave | Self::StampImport | Self::StampExport => {
-                "Canopi Design"
-            }
-            Self::GeojsonImport | Self::GeojsonExport => "GeoJSON",
-            Self::PdfExport => "PDF",
-            Self::BudgetCsvExport => "CSV",
-            Self::LidarGeotiffImport => "GeoTIFF",
-        }
+        self.file_kind().filter_label()
     }
 
     /// Whether the Open dialog lets the user choose several files.

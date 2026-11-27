@@ -60,7 +60,7 @@ describe('the built chunk check', () => {
     const { dist, options } = plantBuild('dist', chunks)
     expect(builtChunkViolations(dist, options)).toEqual([
       'dist: the vendor chunk i18n holds i18next, preact; it held i18next',
-      'dist: the vendor chunk tauri holds nothing; it held @tauri-apps/api, @tauri-apps/plugin-dialog',
+      'dist: the vendor chunk tauri holds nothing; it held @tauri-apps/api',
     ])
   })
 

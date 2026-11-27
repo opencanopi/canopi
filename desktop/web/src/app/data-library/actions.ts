@@ -11,25 +11,8 @@ import type {
   ProcessingHistoryPage,
   RasterQuantity,
 } from '../../generated/contracts'
-import {
-  lidarCancelAnalysisJob,
-  lidarCancelImport,
-  lidarCreateAnalysis,
-  lidarDeleteImpact,
-  lidarDeleteItem,
-  lidarDismissImport,
-  lidarImportItem,
-  lidarLayerCollection,
-  lidarLibraryDiskUsage,
-  lidarProcessingHistory,
-  lidarRenameItem,
-  lidarRerunAnalysis,
-  lidarRetryImport,
-  type LidarImportReceipt,
-  type LidarLayerCollection,
-} from '../../ipc/lidar'
-import { showAppFolder } from '../../ipc/settings'
-import { pickOpen } from '../../ipc/dialogs'
+import { editionPorts } from '../../platform/edition-ports'
+import type { LidarImportReceipt, LidarLayerCollection } from '../../platform/library'
 import {
   patchLidarEntryById,
   reconcileLidarEntryNames,
@@ -72,7 +55,7 @@ import { isAdmittedColourRange, isAdmittedOpacity } from '../design-edit'
  * the chooser comes first and the interpretation is confirmed afterwards.
  */
 export async function chooseImportFiles(): Promise<string[] | null> {
-  const outcome = await pickOpen('lidar-geotiff-import')
+  const outcome = await editionPorts().dataLibrary.pickGeotiffFiles()
   return outcome.kind === 'picked' ? outcome.paths : null
 }
 
@@ -92,7 +75,7 @@ export async function importLibraryItem(
   unit: { label: string | null; unknown: boolean },
 ): Promise<LidarImportReceipt> {
   const identity = designSessionStore.sessionIdentity.value
-  const receipt = await withLidarError(() => lidarImportItem(name, quantity, unit, paths))
+  const receipt = await withLidarError(() => editionPorts().dataLibrary.importItem(name, quantity, unit, paths))
   requestAttachment({ key: `import:${receipt.layer_id}`, kind: 'import', identity, itemIds: [receipt.layer_id] })
   await refreshLidarLibrary()
   ensureLidarPolling()
@@ -107,7 +90,7 @@ export async function importLibraryItem(
  */
 export async function retryLibraryImport(layerId: string): Promise<void> {
   try {
-    await withLidarError(() => lidarRetryImport(layerId))
+    await withLidarError(() => editionPorts().dataLibrary.retryImport(layerId))
   } finally {
     await refreshLidarLibrary()
   }
@@ -116,24 +99,24 @@ export async function retryLibraryImport(layerId: string): Promise<void> {
 
 /** Cancel one running import; only explicit Cancel stops library work. */
 export async function cancelLibraryImport(jobId: string): Promise<void> {
-  await withLidarError(() => lidarCancelImport(jobId))
+  await withLidarError(() => editionPorts().dataLibrary.cancelImport(jobId))
   await refreshLidarLibrary()
 }
 
 /** Remove a never-published failed or cancelled import. */
 export async function dismissLibraryImport(layerId: string): Promise<void> {
-  await withLidarError(() => lidarDismissImport(layerId))
+  await withLidarError(() => editionPorts().dataLibrary.dismissImport(layerId))
   await refreshLidarLibrary()
 }
 
 export async function renameLibraryItem(id: string, name: string): Promise<void> {
-  await withLidarError(() => lidarRenameItem(id, name))
+  await withLidarError(() => editionPorts().dataLibrary.renameItem(id, name))
   await refreshLidarLibrary()
 }
 
 /** Data library footer: the bytes the library occupies on this device. */
 export async function fetchLibraryDiskUsage(): Promise<number> {
-  return lidarLibraryDiskUsage()
+  return editionPorts().dataLibrary.diskUsage()
 }
 
 /**
@@ -143,11 +126,11 @@ export async function fetchLibraryDiskUsage(): Promise<number> {
  * nor replaces the shared status (a standing read failure stays shown).
  */
 export async function showDataLibraryFolder(): Promise<void> {
-  return withFailureMessage(() => showAppFolder('data_library'))
+  return withFailureMessage(() => editionPorts().dataLibrary.showDataLibraryFolder())
 }
 
 export async function fetchDeleteImpact(id: string): Promise<LibraryDeleteImpact> {
-  return lidarDeleteImpact(id)
+  return editionPorts().dataLibrary.deleteImpact(id)
 }
 
 /**
@@ -160,7 +143,7 @@ export async function fetchDeleteImpact(id: string): Promise<LibraryDeleteImpact
  */
 export async function deleteLibraryItem(id: string): Promise<void> {
   const identity = designSessionStore.sessionIdentity.value
-  await withLidarError(() => lidarDeleteItem(id))
+  await withLidarError(() => editionPorts().dataLibrary.deleteItem(id))
   await refreshLidarLibrary()
   if (designSessionStore.sessionIdentity.value === identity) {
     removePresentedEntities([id])
@@ -169,7 +152,7 @@ export async function deleteLibraryItem(id: string): Promise<void> {
 
 /** Read the first page of an item's source files, for details. */
 export async function fetchItemSources(layerId: string): Promise<LidarLayerCollection> {
-  return lidarLayerCollection(layerId, null)
+  return editionPorts().dataLibrary.layerCollection(layerId, null)
 }
 
 /**
@@ -262,7 +245,7 @@ export async function runAnalysis(request: AnalysisRequest): Promise<AnalysisRec
   const identity = designSessionStore.sessionIdentity.value
   const shown = new Set(readCurrentLidarPresentation().map((entry) => entry.id))
   const attachToDesign = request.inputs.some((input) => shown.has(input.item_id))
-  const receipt = await withLidarError(() => lidarCreateAnalysis(request))
+  const receipt = await withLidarError(() => editionPorts().dataLibrary.createAnalysis(request))
   if (attachToDesign) {
     requestAttachment({ key: receipt.definition_id, kind: 'analysis', identity, itemIds: receipt.item_ids })
   }
@@ -278,7 +261,7 @@ export async function runAnalysis(request: AnalysisRequest): Promise<AnalysisRec
  * in the processing history. Never automatic.
  */
 export async function rerunAnalysis(definitionId: string): Promise<AnalysisReceipt> {
-  const receipt = await withLidarError(() => lidarRerunAnalysis(definitionId))
+  const receipt = await withLidarError(() => editionPorts().dataLibrary.rerunAnalysis(definitionId))
   await refreshLidarLibrary()
   ensureLidarPolling()
   return receipt
@@ -374,7 +357,7 @@ export function reconcileEntryNames(snapshot: LibrarySnapshot | null): void {
 export async function cancelAnalysisJob(item: { readonly run: AnalysisRunStatus | null }): Promise<boolean> {
   const run = item.run
   if (!run || run.state !== 'Preparing') return false
-  await withLidarError(() => lidarCancelAnalysisJob(run.job_id))
+  await withLidarError(() => editionPorts().dataLibrary.cancelAnalysisJob(run.job_id))
   await refreshLidarLibrary()
   return true
 }
@@ -384,7 +367,7 @@ export async function fetchProcessingHistory(
   definitionId: string,
   cursor: string | null = null,
 ): Promise<ProcessingHistoryPage> {
-  return lidarProcessingHistory(definitionId, cursor)
+  return editionPorts().dataLibrary.processingHistory(definitionId, cursor)
 }
 
 function removePresentedEntities(ids: string[]): void {

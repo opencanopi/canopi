@@ -629,11 +629,11 @@
       "tool": "ast-grep",
       "ledger": "2.1-M189",
       "adr": "0030",
-      "owner_today": "none",
+      "owner_today": "desktop/web/src/platform/file-delivery.ts",
       "owner_target": {
         "path": "desktop/web/src/platform/file-delivery.ts",
         "phase": "N2",
-        "bead": "canopi-f47t.52.47"
+        "bead": "canopi-f47t.52.74"
       },
       "note": "dialog filters come from the file-kind table through the FileDelivery rows; no inline filters: [{ name, extensions }] list"
     },
@@ -644,12 +644,7 @@
       "tool": "ast-grep",
       "ledger": "2.1-M189",
       "adr": "0030",
-      "owner_today": "none",
-      "owner_target": {
-        "path": "desktop/web/src/platform/file-delivery.ts",
-        "phase": "2a",
-        "bead": "canopi-f47t.52.47"
-      },
+      "owner_today": "desktop/web/src/platform/file-delivery.ts",
       "note": "a file is named and delivered only through the FileDelivery rows: no local file-name sanitiser and no hand-made download link"
     },
     {
@@ -755,8 +750,8 @@
         "desktop/web/src/ipc/dialogs.ts",
         "desktop/web/src/ipc/geojson.ts",
         "desktop/web/src/app/geojson/workflow.ts",
-        "desktop/web/src/app/canvas-pdf/platform.browser.ts",
-        "desktop/web/src/app/canvas-pdf/platform.desktop.ts",
+        "desktop/web/src/platform/file-delivery.ts",
+        "desktop/web/src/editions/desktop/file-delivery.ts",
         "desktop/web/src/app/document-session/state-machine.ts",
         "desktop/web/src/app/document-session/core/session-core.ts",
         "desktop/web/src/editions/desktop/session-ports.ts",
@@ -1033,7 +1028,7 @@
       "owner_target": {
         "path": "canopi-store/src",
         "phase": "N2",
-        "bead": "canopi-f47t.52.47"
+        "bead": "canopi-f47t.52.62"
       },
       "example": "desktop/src/db/user_db.rs",
       "note": "user database SQL and rusqlite paths only in the store, db/ today; the library (sql-only-in-repository) and the catalog reader (no-formatted-sql, N4) hold their own SQL",

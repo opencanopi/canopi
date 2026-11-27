@@ -2,8 +2,6 @@
   "$schema": "./ratchet.schema.json",
   "family": "notice-only-in-failures",
   "entries": {
-    "desktop/web/src/components/canvas/LockedMoveToast.tsx": { "count": 1, "bead": "canopi-f47t.52.36" },
-    "desktop/web/src/editions/desktop/geojson.ts": { "count": 1, "bead": "canopi-f47t.52.36" },
-    "desktop/web/src/editions/desktop/open-failure.ts": { "count": 1, "bead": "canopi-f47t.52.36" }
+    "desktop/web/src/components/canvas/LockedMoveToast.tsx": { "count": 1, "bead": "canopi-f47t.52.36" }
   }
 }

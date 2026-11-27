@@ -38,9 +38,10 @@ export async function exportBudgetCsv(
   }
   csvRows.push(`${escapeBudgetCsvField(t('canvas.budget.grandTotal'))},,,${options.grandTotal.toFixed(2)},`)
 
-  await editionPorts().budgetExportDelivery(
-    csvRows.join('\n'),
-    `${options.designName || 'budget'}-budget.csv`,
+  await editionPorts().fileDelivery.deliverFile(
+    'budget-csv',
+    options.designName || 'budget',
+    { text: csvRows.join('\n') },
   )
 }
 

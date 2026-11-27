@@ -4,6 +4,7 @@ mod contracts;
 mod design_format;
 mod edition_capabilities;
 mod external_contracts;
+mod file_kinds;
 mod locale_keys;
 mod locale_registry;
 mod new_design_defaults;
@@ -30,6 +31,7 @@ const ANALYSIS_REGISTRY_TS: &str = "desktop/web/src/generated/analysis-registry.
 const ANALYSIS_REGISTRY_RUST: &str = "desktop/src/services/lidar/analysis_registry_generated.rs";
 const CONTRACTS_TS: &str = "desktop/web/src/generated/contracts.ts";
 const EDITION_CAPABILITIES_TS: &str = "desktop/web/src/generated/edition-capabilities.ts";
+const FILE_KINDS_TS: &str = "desktop/web/src/generated/file-kinds.ts";
 const KNOWN_KEYS_TS: &str = "desktop/web/src/generated/known-canopi-keys.ts";
 const LOCALE_KEYS_TS: &str = "desktop/web/src/generated/locale-keys.ts";
 const LOCALE_REGISTRY_TS: &str = "desktop/web/src/generated/locale-registry.ts";
@@ -92,6 +94,7 @@ const EMITTERS: &[EmitterFn] = &[
     emit_settings,
     emit_store_chain,
     emit_edition_capabilities,
+    emit_file_kinds,
     emit_command_map,
     emit_new_design_defaults,
     emit_plant_filter,
@@ -150,6 +153,13 @@ fn emit_contracts(_source_root: &Path) -> Result<Vec<EmittedArtifact>, Box<dyn E
             type_manifest::render_type_manifest(&contracts::contract_types())?,
         ),
     ])
+}
+
+fn emit_file_kinds(_source_root: &Path) -> Result<Vec<EmittedArtifact>, Box<dyn Error>> {
+    Ok(vec![EmittedArtifact::text(
+        FILE_KINDS_TS,
+        file_kinds::render_file_kinds_ts()?,
+    )])
 }
 
 fn emit_design_format(source_root: &Path) -> Result<Vec<EmittedArtifact>, Box<dyn Error>> {

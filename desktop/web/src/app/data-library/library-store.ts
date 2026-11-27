@@ -11,7 +11,7 @@ import type {
   LidarResultState,
   StoreOpenStatus,
 } from '../../generated/contracts'
-import { lidarListLibrary } from '../../ipc/lidar'
+import { editionPorts } from '../../platform/edition-ports'
 import { derivedItemName } from '../analyses/registry'
 import { currentDesign } from '../document-session/store'
 import { storeStatus } from '../../failures/health'
@@ -96,7 +96,7 @@ function assertLibrarySnapshot(value: unknown): asserts value is LibrarySnapshot
 }
 
 async function readLibrarySnapshot(startSequence: number): Promise<LibrarySnapshot> {
-  const snapshot: unknown = await lidarListLibrary()
+  const snapshot: unknown = await editionPorts().dataLibrary.listLibrary()
   assertLibrarySnapshot(snapshot)
   if (isCurrentRead(startSequence)) {
     publishedReadSequence = startSequence

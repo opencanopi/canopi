@@ -15,15 +15,6 @@ import type {
   RasterQuantity,
 } from '../generated/contracts'
 
-export type {
-  AnalysisReceipt,
-  LibraryDeleteImpact,
-  LidarDisplayDescriptor,
-  LidarImportReceipt,
-  LidarLayerCollection,
-  ProcessingHistoryPage,
-} from '../generated/contracts'
-
 export async function lidarListLibrary(): Promise<LibrarySnapshot> {
   return invokeTyped('lidar_list_library', undefined, mintOperationId('u'))
 }

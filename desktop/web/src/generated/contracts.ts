@@ -380,7 +380,9 @@ export type DialogKind =
 // Budget › Export as CSV.
 "budget-csv-export" |
 // Data library › Import: one or more GeoTIFF files.
-"lidar-geotiff-import";
+"lidar-geotiff-import" |
+// Data library › Export: a GeoTIFF file.
+"lidar-geotiff-export";
 
 // Identifier of a Design draft record.
 export type DraftId = string & { readonly __brand: "DraftId" };
@@ -564,6 +566,24 @@ export type FileHomeGrant = {
 	// Stable opaque Recent Designs identifier (SHA-256 hex of the resolved path) for `last_open_home`.
 	recent_id: string,
 };
+
+/**
+ *  One file format kind shared by FileDelivery rows, native dialog filters and Web accept strings
+ *  (contracts §16, 2.1-M522).
+ */
+export type FileKind =
+// A `.canopi` Design or saved-stamp file.
+"canopi" |
+// A GeoJSON file (`.geojson`, `.json`).
+"geojson" |
+// A PDF document (`.pdf`).
+"pdf" |
+// A UTF-8 CSV spreadsheet (`.csv`).
+"csv" |
+// A GeoTIFF raster (`.tif`, `.tiff`).
+"geotiff" |
+// A ZIP archive (`.zip`), including problem report bundles.
+"zip";
 
 export type FilterOp = "Equals" | "In" | "Gte" | "Lte" | "Between" | "IsTrue";
 

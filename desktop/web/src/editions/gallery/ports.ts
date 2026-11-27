@@ -1,6 +1,8 @@
 import { capabilitiesForEdition } from '../../generated/edition-capabilities'
 import { DEFAULT_SETTINGS } from '../../generated/settings'
 import type { EditionPorts } from '../../platform/edition-ports'
+import { createUnsupportedDataLibraryPort } from '../../platform/library'
+import { createFakeFileDelivery } from './fakes/file-delivery.fake'
 
 const UNAVAILABLE = 'not_on_this_edition' as const
 
@@ -26,8 +28,8 @@ export function createGalleryEditionPorts(edition: 'desktop' | 'web'): EditionPo
       write: async () => ({ file_name: 'gallery-report.zip' }),
     },
     geocoding: async () => [],
-    canvasPdfDelivery: () => ({ save: async () => 'downloaded', dispose: () => {} }),
-    budgetExportDelivery: async () => {},
+    fileDelivery: createFakeFileDelivery('downloaded'),
+    dataLibrary: createUnsupportedDataLibraryPort(),
     designHome: {
       read: async () => ({ kind: 'absent' }),
       write: async () => ({ kind: 'written', version: 'gallery-v1' }),

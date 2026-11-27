@@ -8,16 +8,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const tauri = vi.hoisted(() => ({
   invoke: vi.fn(),
-  message: vi.fn(),
 }))
 
 vi.mock('@tauri-apps/api/core', () => ({ invoke: tauri.invoke }))
-vi.mock('@tauri-apps/plugin-dialog', () => ({ message: tauri.message }))
 
-import { desktopGeoJsonFiles } from '../ipc/geojson'
+import { pickDesktopGeoJsonFile } from '../ipc/geojson'
 import { desktopGeoJsonWorkflow, presentDesktopGeoJsonNotice } from '../editions/desktop/geojson'
 import { installGeoJsonWorkflow } from '../app/geojson/workflow'
-import { browserGeoJsonFiles } from '../editions/web/browser-geojson'
+import { createBrowserGeoJsonWorkflow } from '../editions/web/browser-geojson'
+import { createBrowserFileDelivery } from '../platform/file-delivery'
+import { createDesktopFileDelivery } from '../editions/desktop/file-delivery'
 import { presentBrowserGeoJsonNotice } from '../web/browser-notices'
 import { notices, resetNoticesForTests } from '../failures/notices'
 import { t } from '../i18n'
@@ -65,14 +65,14 @@ describe('Desktop GeoJSON file adapter', () => {
     const source = { name: 'beds.geojson', text: '{"type":"FeatureCollection","features":[]}' }
     tauri.invoke.mockResolvedValue(source)
 
-    await expect(desktopGeoJsonFiles.pickGeoJsonFile()).resolves.toEqual(source)
-    expect(tauri.invoke.mock.calls).toEqual([['pick_geojson_file', { operation: expect.stringMatching(/^u-/) }]])
+    await expect(pickDesktopGeoJsonFile()).resolves.toEqual(source)
+    expect(tauri.invoke.mock.calls).toEqual([['pick_geojson_file', { extensions: ['geojson', 'json'], operation: expect.stringMatching(/^u-/) }]])
   })
 
   it('returns null when the native open dialog is cancelled', async () => {
     tauri.invoke.mockResolvedValue(null)
 
-    await expect(desktopGeoJsonFiles.pickGeoJsonFile()).resolves.toBeNull()
+    await expect(pickDesktopGeoJsonFile()).resolves.toBeNull()
   })
 
   it('writes through the text export command at the path the host GeoJSON Save dialog chose', async () => {
@@ -81,12 +81,19 @@ describe('Desktop GeoJSON file adapter', () => {
       .mockResolvedValueOnce('/tmp/site.geojson')
       .mockResolvedValueOnce({ kind: 'cancelled' })
 
-    await expect(desktopGeoJsonFiles.writeGeoJsonFile('{}', 'Site.geojson')).resolves.toBe('written')
-    await expect(desktopGeoJsonFiles.writeGeoJsonFile('{}', 'Site.geojson')).resolves.toBe('cancelled')
+    const delivery = createDesktopFileDelivery()
+    await expect(delivery.deliverFile('geojson', 'Site', { text: '{}' })).resolves.toBe('saved')
+    await expect(delivery.deliverFile('geojson', 'Site', { text: '{}' })).resolves.toBe('cancelled')
 
     expect(tauri.invoke.mock.calls).toEqual([
       ['pick_save', { kind: 'geojson-export', stem: 'Site.geojson', operation: expect.stringMatching(/^u-/) }],
-      ['export_file', { data: '{}', path: '/tmp/site.geojson', operation: expect.stringMatching(/^u-/) }],
+      ['deliver_file', new TextEncoder().encode('{}'), {
+        headers: {
+          'x-canopi-delivery-kind': 'geojson',
+          'x-canopi-delivery-path': encodeURIComponent('/tmp/site.geojson'),
+          'x-canopi-operation': expect.stringMatching(/^u-/),
+        },
+      }],
       ['pick_save', { kind: 'geojson-export', stem: 'Site.geojson', operation: expect.stringMatching(/^u-/) }],
     ])
   })
@@ -99,10 +106,14 @@ describe('Desktop GeoJSON file adapter', () => {
       detail: { message: 'geojson.importSkipped', params: { count: 1 } },
     })
 
-    expect(tauri.message).toHaveBeenCalledWith(
-      `${t('geojson.importNothing')} ${t('geojson.importSkipped', { count: 1 })}`,
-      { title: 'GeoJSON import', kind: 'info' },
-    )
+    expect(notices.value).toHaveLength(1)
+    expect(notices.value[0]).toMatchObject({
+      key: 'desktop.geojson',
+      kind: 'outcome',
+      tone: 'info',
+      message: 'geojson.importNothing',
+      detail: { message: 'geojson.importSkipped', params: { count: 1 } },
+    })
   })
 })
 
@@ -147,7 +158,7 @@ describe('Desktop App Command Graph GeoJSON commands', () => {
       .find((command) => command.id === 'file.importGeoJson')!
       .action()
     await vi.waitFor(() => expect(tauri.invoke).toHaveBeenCalledOnce())
-    expect(tauri.invoke).toHaveBeenCalledWith('pick_geojson_file', { operation: expect.stringMatching(/^u-/) })
+    expect(tauri.invoke).toHaveBeenCalledWith('pick_geojson_file', { extensions: ['geojson', 'json'], operation: expect.stringMatching(/^u-/) })
   })
 })
 
@@ -164,8 +175,10 @@ describe('Web GeoJSON file adapter and notice', () => {
       clicked.push(this)
     })
 
-    await expect(browserGeoJsonFiles.writeGeoJsonFile('{"type":"FeatureCollection"}', 'Site.geojson'))
-      .resolves.toBe('written')
+    const browserDelivery = createBrowserFileDelivery()
+    await expect(browserDelivery.deliverFile('geojson', 'Site', { text: '{"type":"FeatureCollection"}' }))
+      .resolves.toBe('downloaded')
+    browserDelivery.dispose?.()
 
     expect(clicked[0]!.download).toBe('Site.geojson')
     expect(created[0]!.type).toBe('application/geo+json')
@@ -176,15 +189,14 @@ describe('Web GeoJSON file adapter and notice', () => {
     let input: HTMLInputElement | null = null
     vi.spyOn(HTMLInputElement.prototype, 'click').mockImplementation(function (this: HTMLInputElement) {
       input = this
-      const file = new File(['{"type":"Feature"}'], 'site.geojson', { type: 'application/geo+json' })
+      const file = new File(['{"type":"FeatureCollection","features":[]}'], 'site.geojson', { type: 'application/geo+json' })
       Object.defineProperty(this, 'files', { value: [file] })
       this.dispatchEvent(new Event('change'))
     })
+    const surfaces = createTestCanvasRuntimeSurfaces()
+    setCurrentCanvasSession(surfaces)
 
-    await expect(browserGeoJsonFiles.pickGeoJsonFile()).resolves.toEqual({
-      name: 'site.geojson',
-      text: '{"type":"Feature"}',
-    })
+    await expect(createBrowserGeoJsonWorkflow().importGeoJson()).resolves.toMatchObject({ status: 'empty' })
     expect(input!.accept).toBe('.geojson,.json,application/geo+json,application/json')
   })
 

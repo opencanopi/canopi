@@ -184,7 +184,6 @@ Bundled by the Desktop or the Web build, app chunks and workers (rollup-plugin-l
 | `@swc/helpers` | Apache-2.0 | 776bc13b |
 | `@tanstack/virtual-core` | MIT | 7d18bbf3 |
 | `@tauri-apps/api` | Apache-2.0 OR MIT | 59d8f0ba, 79f42cf4 |
-| `@tauri-apps/plugin-dialog` | MIT OR Apache-2.0 | 79f42cf4 |
 | `apache-arrow` | Apache-2.0 | c0f6f117, df320e65 |
 | `base64-js` | MIT | 103140c4, 7ba269ab |
 | `brotli` | MIT | 1463e420 |

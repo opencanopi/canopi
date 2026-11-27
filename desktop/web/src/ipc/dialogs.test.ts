@@ -1,6 +1,8 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Failure } from '../generated/contracts'
 import { resetFrontendDiagnosticsForTests, ringEntries } from '../failures/ring'
+import { installEditionPorts } from '../platform/edition-ports'
+import { createTestEditionPorts } from '../__tests__/support/test-edition-ports'
 import { pickOpen, pickSave } from './dialogs'
 
 const invoke = vi.hoisted(() => vi.fn(async (_command: string, _args?: unknown): Promise<unknown> => null))
@@ -58,24 +60,30 @@ describe('the host dialog wire (canopi-f47t.52.228.14, 2.1-M81)', () => {
 // The typed rejection reaches each 2.0 caller unchanged, never turned into text, so the surface
 // behind it keeps its wording; the 1b transport and sink take it from there (canopi-f47t.52.35).
 describe('a typed dialog rejection reaching a 2.0 caller (canopi-f47t.52.35)', () => {
-  beforeEach(() => invoke.mockReset())
+  let disposePorts: () => void = () => undefined
+  beforeEach(() => {
+    invoke.mockReset()
+    disposePorts = installEditionPorts(createTestEditionPorts())
+  })
+  afterEach(() => {
+    disposePorts()
+  })
 
   it('reaches every Open and Save caller as the same Failure', async () => {
     const { pickOpen, pickSave } = await import('./dialogs')
-    const { exportFile } = await import('./export')
-    const { desktopGeoJsonFiles } = await import('./geojson')
+    const { createDesktopFileDelivery } = await import('../editions/desktop/file-delivery')
     const stamps = await import('./saved-object-stamps')
     const { chooseImportFiles } = await import('../app/data-library/actions')
-    const { createPdfDelivery } = await import('../app/canvas-pdf/platform.desktop')
+    const delivery = createDesktopFileDelivery()
     const callers: [string, () => Promise<unknown>][] = [
       ['dialog.pick_open', () => pickOpen('design-open')],
       ['dialog.pick_save', () => pickSave('design-save', 'Orchard.canopi')],
-      ['dialog.pick_save', () => exportFile('a,b', 'budget', 'budget-csv-export')],
-      ['dialog.pick_save', () => desktopGeoJsonFiles.writeGeoJsonFile('{}', 'plan.geojson')],
+      ['dialog.pick_save', () => delivery.deliverFile('budget-csv', 'budget', { text: 'a,b' })],
+      ['dialog.pick_save', () => delivery.deliverFile('geojson', 'plan', { text: '{}' })],
       ['dialog.pick_save', () => stamps.exportSavedObjectStampCanopiFile({}, 'Hedge')],
       ['dialog.pick_open', () => stamps.importSavedObjectStampCanopiFile()],
       ['dialog.pick_open', () => chooseImportFiles()],
-      ['dialog.pick_save', () => createPdfDelivery().save(new Uint8Array(), 'Garden', new AbortController().signal)],
+      ['dialog.pick_save', () => delivery.deliverFile('pdf', 'Garden', { bytes: new Uint8Array() }, new AbortController().signal)],
     ]
     for (const [op, call] of callers) {
       const failure = internal(op)
@@ -96,16 +104,16 @@ describe('a typed dialog rejection reaching a 2.0 caller (canopi-f47t.52.35)', (
   })
 
   it('settles a second GeoJSON import the host brought forward as the pick cancel, so import shows no notice (canopi-f47t.52.35, 2.1-Q284)', async () => {
-    const { desktopGeoJsonFiles } = await import('./geojson')
+    const { pickDesktopGeoJsonFile } = await import('./geojson')
     resetFrontendDiagnosticsForTests()
     // pick_geojson_file still rejects with the refusal's kind as a plain string.
     invoke.mockRejectedValueOnce('dialog_already_open')
-    await expect(desktopGeoJsonFiles.pickGeoJsonFile()).resolves.toBeNull()
+    await expect(pickDesktopGeoJsonFile()).resolves.toBeNull()
     // canopi-f47t.52.36: the refused second dialog is a normal UI action, so the diagnostics ring stays empty.
     expect(ringEntries()).toEqual([])
 
     invoke.mockRejectedValueOnce('cannot read beds.geojson')
-    await expect(desktopGeoJsonFiles.pickGeoJsonFile()).rejects.toHaveProperty('message', 'cannot read beds.geojson')
+    await expect(pickDesktopGeoJsonFile()).rejects.toHaveProperty('message', 'cannot read beds.geojson')
   })
 
   it('keeps the Design open notice in its own words, never [object Object]', async () => {

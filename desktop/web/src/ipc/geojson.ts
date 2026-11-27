@@ -1,35 +1,21 @@
 // ipc/geojson.ts
-// Owner of the desktop GeoJSON write outcome (no-cancelled-literal, ADR 0025; §18 R14). Invariant: 'cancelled'
-// is a GeoJsonWriteOutcome value, returned only when the save dialog is dismissed; ast-grep skips this file, so a
-// hand-written cancel guard added here goes uncounted and belongs to the catalogue's CancelToken instead.
+// Owner of the Desktop GeoJSON import IPC pick (no-cancelled-literal, ADR 0022 and 0025, contracts §16).
+// Invariant: extensions come solely from the generated FILE_KINDS table; returns null only when the user
+// cancels or a second dialog is refused with dialog_already_open. Exports go through `editions/desktop/file-delivery.ts`.
 
 import { invokeTyped, mintOperationId } from './transport'
 import { failureOf } from '../failures/ipc-failure'
-import type {
-  GeoJsonFileAdapter,
-  GeoJsonSourceFile,
-  GeoJsonWriteOutcome,
-} from '../app/geojson/workflow'
-import { pickSave } from './dialogs'
+import type { GeoJsonSourceFile } from '../app/geojson/workflow'
+import { FILE_KINDS } from '../generated/file-kinds'
 
-/** Desktop GeoJSON file I/O: Rust picks and reads imports; exports go through the host's Save dialog. */
-export const desktopGeoJsonFiles: GeoJsonFileAdapter = {
-  // Rust shows the open dialog and reads the file itself, so no path the page
-  // chooses ever reaches the native reader. A second dialog in the window is refused with the
-  // silent `dialog_already_open` (still a plain string on this command, which the transport settles as that
-  // code) after the host brought the open one forward, so it settles as the pick cancel and import shows no
-  // notice (2.1-Q284).
-  async pickGeoJsonFile(): Promise<GeoJsonSourceFile | null> {
-    return invokeTyped('pick_geojson_file', undefined, mintOperationId('u')).catch((error: unknown) => {
-      if (failureOf(error)?.code.kind === 'dialog_already_open') return null
-      throw error
-    })
-  },
-
-  async writeGeoJsonFile(text: string, fileName: string): Promise<GeoJsonWriteOutcome> {
-    const outcome = await pickSave('geojson-export', fileName)
-    if (outcome.kind === 'cancelled') return 'cancelled'
-    await invokeTyped('export_file', { data: text, path: outcome.path }, mintOperationId('u'))
-    return 'written'
-  },
+/** Show the host GeoJSON Open dialog and read the chosen file; returns null when cancelled. */
+export async function pickDesktopGeoJsonFile(): Promise<GeoJsonSourceFile | null> {
+  return invokeTyped(
+    'pick_geojson_file',
+    { extensions: FILE_KINDS.geojson.extensions },
+    mintOperationId('u'),
+  ).catch((error: unknown) => {
+    if (failureOf(error)?.code.kind === 'dialog_already_open') return null
+    throw error
+  })
 }

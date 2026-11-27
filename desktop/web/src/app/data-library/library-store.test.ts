@@ -24,6 +24,8 @@ vi.mock('../document-session/store', () => ({
   }),
 }))
 
+import { installEditionPorts } from '../../platform/edition-ports'
+import { createTestEditionPorts } from '../../__tests__/support/test-edition-ports'
 import {
   ensureLidarPolling,
   lidarLibrary,
@@ -52,9 +54,12 @@ function staleNotices() {
   return notices.value.filter((notice) => notice.message === 'health.libraryListStale')
 }
 
+let disposePorts: () => void = () => undefined
+
 beforeEach(() => {
   vi.useFakeTimers()
   mocks.listLibrary.mockReset()
+  disposePorts = installEditionPorts(createTestEditionPorts())
   resetLidarLibraryForTests()
   resetStoreHealthForTests()
   resetNoticesForTests()
@@ -65,6 +70,7 @@ beforeEach(() => {
 
 afterEach(() => {
   resetLidarLibraryForTests()
+  disposePorts()
   vi.useRealTimers()
 })
 

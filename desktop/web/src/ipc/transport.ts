@@ -21,7 +21,7 @@ import { redact } from '../failures/redact'
 import { reportFailure } from '../failures/report'
 
 /** A streaming command's progress channel (contracts §1 `stream`), re-exported so no other module imports Tauri core. */
-export { Channel, mintOperationId }
+export { Channel, convertFileSrc as nativeAssetUrl, mintOperationId }
 
 /** Installs Tauri's `convertFileSrc` as the Desktop asset URL resolver (called by editions/desktop/boot.ts). */
 export function installNativeAssetUrlResolver(): () => void {
@@ -33,6 +33,28 @@ export function installNativeAssetUrlResolver(): () => void {
  * Carries the same `OperationId` across the transport and into any settled `IpcFailure`.
  */
 export const invokeTyped = createTypedInvoke((command, args, operation) => invokeCommand(command, args, operation))
+
+/**
+ * Raw binary IPC invocation for commands taking `tauri::ipc::Request<'_>` (2.1-M154, contracts §16).
+ * Sends `bytes` as an unencoded binary body with ASCII headers so large exports never round-trip through JSON.
+ */
+export async function invokeBinaryCommand<T>(
+  command: CommandName,
+  bytes: Uint8Array,
+  headers: Readonly<Record<string, string>>,
+  operation: OperationId,
+): Promise<T> {
+  try {
+    const custom = activeCommandTransport()
+    if (custom) {
+      return await custom(command, { bytes, headers }, operation) as T
+    }
+    return await invoke<T>(command, bytes, { headers: { ...headers, 'x-canopi-operation': operation } })
+  } catch (rejection) {
+    if (isTypedRefusal(rejection)) throw rejection
+    throw settle(command, rejection, operation)
+  }
+}
 
 /** Private transport behind `invokeTyped`; a rejection throws its `IpcFailure`, already in the ring unless silent. */
 async function invokeCommand<T>(

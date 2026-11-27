@@ -1,25 +1,27 @@
 // editions/desktop/geojson.ts
 //
-// Desktop GeoJSON notices and workflow adapter over @tauri-apps/* (tauri-only-in-native-host, ADR 0022; §18 F2).
-// Invariant: Tauri is reached only through ipc/ and editions/desktop/.
+// Desktop GeoJSON notices on the shared NoticeRow (2.1-M20) and workflow wired to host pick + FileDelivery.
 
-import { message } from '@tauri-apps/plugin-dialog'
 import { designName } from '../../app/document-session/store'
-import { createGeoJsonWorkflow, geoJsonNoticeText, type GeoJsonNotice } from '../../app/geojson/workflow'
-import { t } from '../../i18n'
-import { desktopGeoJsonFiles } from '../../ipc/geojson'
+import { createGeoJsonWorkflow, type GeoJsonNotice } from '../../app/geojson/workflow'
+import { raiseNotice, withdrawNotice } from '../../failures/notices'
+import { pickDesktopGeoJsonFile } from '../../ipc/geojson'
 
-/** Desktop presents GeoJSON import and export notices as native message dialogs. */
-export async function presentDesktopGeoJsonNotice(notice: GeoJsonNotice): Promise<void> {
-  await message(geoJsonNoticeText(notice), {
-    title: t(notice.title),
-    kind: notice.tone === 'error' ? 'error' : 'info',
+const DESKTOP_GEOJSON_NOTICE_KEY = 'desktop.geojson'
+
+/** Desktop presents GeoJSON import and export outcomes in the shared notice row. */
+export function presentDesktopGeoJsonNotice(notice: GeoJsonNotice): void {
+  withdrawNotice(DESKTOP_GEOJSON_NOTICE_KEY)
+  raiseNotice({
+    key: DESKTOP_GEOJSON_NOTICE_KEY,
+    kind: 'outcome',
+    ...notice,
   })
 }
 
-/** The Desktop GeoJSON workflow: native file transport plus native notices. */
+/** The Desktop GeoJSON workflow: native host pick, FileDelivery export, and NoticeRow outcomes. */
 export const desktopGeoJsonWorkflow = createGeoJsonWorkflow({
-  files: desktopGeoJsonFiles,
+  pickGeoJsonFile: pickDesktopGeoJsonFile,
   notify: presentDesktopGeoJsonNotice,
   designName: () => designName.value,
 })

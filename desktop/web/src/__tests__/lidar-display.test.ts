@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { LidarDisplayDescriptor } from '../ipc/lidar'
+import type { LidarDisplayDescriptor } from '../generated/contracts'
 import type { LidarPresentationItem } from '../app/data-library/library-store'
 
 const invoke = vi.fn()
@@ -20,6 +20,8 @@ const { setStoryPresentationOverrides } = await import('../app/story-presentatio
 const { designSessionFixture } = await import('./support/design-session-state')
 const { createDefaultMapLayersForTests: createDefaultMapLayers } = await import('../app/settings/state')
 const { librarySnapshot, sourceItem } = await import('./support/library-fixtures')
+const { installEditionPorts } = await import('../platform/edition-ports')
+const { createTestEditionPorts } = await import('./support/test-edition-ports')
 
 function item(overrides: Partial<LidarPresentationItem> = {}): LidarPresentationItem {
   return {
@@ -174,14 +176,17 @@ describe('LiDAR display projection', () => {
 })
 
 describe('LiDAR display descriptor requests', () => {
+  let disposePorts: () => void = () => undefined
   beforeEach(() => {
     vi.useFakeTimers()
     invoke.mockReset()
+    disposePorts = installEditionPorts(createTestEditionPorts())
     display.disposeLidarDisplayDescriptors()
     display.lidarDisplayDescriptors.value = new Map()
   })
   afterEach(() => {
     display.disposeLidarDisplayDescriptors()
+    disposePorts()
     vi.useRealTimers()
   })
 
@@ -374,9 +379,11 @@ describe('LiDAR display descriptor requests', () => {
 })
 
 describe('LiDAR display descriptor refusals', () => {
+  let disposePorts: () => void = () => undefined
   beforeEach(async () => {
     vi.useFakeTimers()
     invoke.mockReset()
+    disposePorts = installEditionPorts(createTestEditionPorts())
     display.disposeLidarDisplayDescriptors()
     display.lidarDisplayDescriptors.value = new Map()
     const { resetFrontendDiagnosticsForTests } = await import('../failures/ring')
@@ -386,6 +393,7 @@ describe('LiDAR display descriptor refusals', () => {
   })
   afterEach(() => {
     display.disposeLidarDisplayDescriptors()
+    disposePorts()
     vi.useRealTimers()
   })
 

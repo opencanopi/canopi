@@ -42,8 +42,9 @@ import { desktopHomePort } from "./design-home";
 import { createDesktopAppLifecyclePort, createDesktopSessionHomeStore, desktopDesignCorePort, desktopFileAccessPort } from "./session-ports";
 import { DESKTOP_EDITION_MANIFEST } from "./manifest";
 import { geocodingTransport as desktopGeocodingTransport } from "../../app/geocoding/transport.desktop";
-import { createPdfDelivery as createDesktopPdfDelivery } from "../../app/canvas-pdf/platform.desktop";
-import { deliverBudgetCsv as deliverDesktopBudgetCsv } from "../../app/budget/platform.desktop";
+import { t } from "../../i18n";
+import { createDesktopFileDelivery } from "./file-delivery";
+import { desktopDataLibraryPort } from "./library";
 import { installSpeciesCatalogWorkbench } from "../../app/plant-browser";
 import { speciesCatalogWorkbench as desktopSpeciesCatalogWorkbench } from "./species-catalog";
 import { installSpeciesCacheLoader } from "../../app/canvas-runtime/species-cache";
@@ -79,8 +80,8 @@ export function bootDesktopEdition(): () => void {
       settings: desktopSettingsPlatformAdapter,
       problemReport: desktopProblemReport,
       geocoding: desktopGeocodingTransport,
-      canvasPdfDelivery: createDesktopPdfDelivery,
-      budgetExportDelivery: deliverDesktopBudgetCsv,
+      fileDelivery: createDesktopFileDelivery(() => t("titleBar.untitledDesign")),
+      dataLibrary: desktopDataLibraryPort,
       designHome: desktopHomePort,
       fileAccess: desktopFileAccessPort,
       appLifecycle: desktopLifecycle,

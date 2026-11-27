@@ -1,8 +1,7 @@
 import { effect, signal, untracked } from '@preact/signals'
-import type { convertFileSrc } from '@tauri-apps/api/core'
 import type { RasterDisplayLayer } from '../../maplibre/raster-display/adapter'
-import { resolveAssetUrl } from '../../types/command-transport'
-import { lidarDisplayDescriptor, type LidarDisplayDescriptor } from '../../ipc/lidar'
+import { editionPorts } from '../../platform/edition-ports'
+import type { LidarDisplayDescriptor } from '../../platform/library'
 import type { LibraryItemRole } from '../../generated/contracts'
 import { lidarFailureMessage } from './lidar-failures'
 import { cutOutlierRange, requestCutOutlierRange, resetCutOutlierRanges } from './display-range'
@@ -170,7 +169,7 @@ function ask(kind: LibraryItemRole, entityId: string, generationId: string | nul
   }
   const call = () => {
     inflight.add(key)
-    void lidarDisplayDescriptor({
+    void editionPorts().dataLibrary.displayDescriptor({
       kind,
       entity_id: entityId,
       expected_generation_id: generationId,
@@ -244,7 +243,9 @@ let displayDisposer: (() => void) | null = null
  * draws stored greys, so an entry drawing it reads no range.
  * Installed for the Desktop workspace lifetime next to the library workflow.
  */
-export function installLidarDisplayDescriptors(toAssetUrl: (path: string) => string = lidarAssetUrl): void {
+const resolveDisplayAssetUrl = (path: string) => editionPorts().dataLibrary.resolveAssetUrl(path)
+
+export function installLidarDisplayDescriptors(toAssetUrl: (path: string) => string = resolveDisplayAssetUrl): void {
   disposeLidarDisplayDescriptors()
   displayDisposer = effect(() => {
     const presentedIds = storyPresentationOverrides.value?.siteDataIds ?? null
@@ -292,15 +293,6 @@ export function disposeLidarDisplayDescriptors(): void {
   effectWanted = new Set()
 }
 
-/** Replicates Tauri v2 `convertFileSrc` so pure projection stays testable. */
-export function lidarAssetUrl(path: string): string {
-  const custom = resolveAssetUrl(path)
-  if (custom !== null) return custom
-  const encoded = encodeURIComponent(path)
-  const platform = typeof navigator !== 'undefined' ? navigator.platform : ''
-  return platform.startsWith('Win') ? `http://asset.localhost/${encoded}` : `asset://localhost/${encoded}`
-}
-
 /**
  * Upstream palette and stretch for one entry, always in its item's stored
  * units: its own ramp, Reverse and range over its item type's defaults, with
@@ -328,7 +320,7 @@ export function lidarDisplayLayers(
   items: readonly LidarPresentationItem[],
   descriptors: ReadonlyMap<string, LidarDisplayDescriptor>,
   presentedIds: ReadonlySet<string> | null,
-  toAssetUrl: typeof convertFileSrc = lidarAssetUrl,
+  toAssetUrl: (path: string) => string = resolveDisplayAssetUrl,
 ): RasterDisplayLayer[] {
   const layers: RasterDisplayLayer[] = []
   for (const item of items) {

@@ -12,8 +12,9 @@
 
 import type { CanvasCommandSurface, CanvasQuerySurface } from '../../canvas/runtime/runtime'
 import { getCurrentCanvasSession } from '../../canvas/session'
+import { editionPorts, hasEditionPorts } from '../../platform/edition-ports'
+import type { FileDeliveryPort } from '../../platform/file-delivery'
 import { designSessionStore } from '../document-session/store'
-import { t } from '../../i18n'
 import {
   GEOJSON_MAX_FEATURES,
   GeoJsonImportError,
@@ -29,14 +30,6 @@ export interface GeoJsonSourceFile {
   readonly text: string
 }
 
-export type GeoJsonWriteOutcome = 'written' | 'cancelled'
-
-/** Edition file I/O: a native dialog plus IPC on Desktop, picker and download on Web. */
-export interface GeoJsonFileAdapter {
-  pickGeoJsonFile(): Promise<GeoJsonSourceFile | null>
-  writeGeoJsonFile(text: string, fileName: string): Promise<GeoJsonWriteOutcome>
-}
-
 type NoticeParams = Readonly<Record<string, string | number>>
 
 /** An import or export outcome as locale keys, so each edition words it in the current locale. */
@@ -47,12 +40,6 @@ export interface GeoJsonNotice {
   readonly params?: NoticeParams
   /** A second sentence: the features the import skipped. */
   readonly detail?: { readonly message: LocaleKey; readonly params?: NoticeParams }
-}
-
-/** The notice's message and its second sentence in the current locale, for a native message box. */
-export function geoJsonNoticeText(notice: GeoJsonNotice, translate: (key: LocaleKey, params?: NoticeParams) => string = t): string {
-  const message = translate(notice.message, notice.params)
-  return notice.detail ? `${message} ${translate(notice.detail.message, notice.detail.params)}` : message
 }
 
 interface GeoJsonCanvas {
@@ -71,7 +58,8 @@ type GeoJsonExportOutcome =
   | { readonly status: 'cancelled' | 'unavailable' | 'busy' | 'write-failed' }
 
 export interface GeoJsonWorkflowDeps {
-  readonly files: GeoJsonFileAdapter
+  readonly pickGeoJsonFile: () => Promise<GeoJsonSourceFile | null>
+  readonly fileDelivery?: () => FileDeliveryPort
   readonly notify: (notice: GeoJsonNotice) => void | Promise<void>
   readonly designName: () => string
   readonly canvas?: () => GeoJsonCanvas | null
@@ -115,7 +103,8 @@ function readCurrentGeoJsonCanvas(): GeoJsonCanvas | null {
 }
 
 export function createGeoJsonWorkflow({
-  files,
+  pickGeoJsonFile,
+  fileDelivery = () => editionPorts().fileDelivery,
   notify,
   designName,
   canvas = readCurrentGeoJsonCanvas,
@@ -131,7 +120,7 @@ export function createGeoJsonWorkflow({
     const session = sessionIdentity()
     let file: GeoJsonSourceFile | null
     try {
-      file = await files.pickGeoJsonFile()
+      file = await pickGeoJsonFile()
     } catch (cause) {
       console.error('GeoJSON import could not read the file:', cause)
       await error(importTitle, 'geojson.readFailed')
@@ -190,9 +179,10 @@ export function createGeoJsonWorkflow({
       return { status: 'busy' }
     }
     const text = serializeDesignGeoJson(objects)
-    let outcome: GeoJsonWriteOutcome
+    let outcome: 'saved' | 'downloaded' | 'cancelled'
     try {
-      outcome = await files.writeGeoJsonFile(text, `${safeFileStem(designName())}.geojson`)
+      const delivery = fileDelivery()
+      outcome = await delivery.deliverFile('geojson', designName(), { text })
     } catch (cause) {
       console.error('GeoJSON export could not write the file:', cause)
       await error(exportTitle, 'geojson.writeFailed')
@@ -207,7 +197,7 @@ export function createGeoJsonWorkflow({
   }
 
   return {
-    isAvailable: () => canvas() !== null,
+    isAvailable: () => canvas() !== null && (hasEditionPorts() || fileDelivery !== undefined),
     importGeoJson,
     exportGeoJson,
   }
@@ -215,8 +205,4 @@ export function createGeoJsonWorkflow({
 
 function skippedDetail(skipped: number): Pick<GeoJsonNotice, 'detail'> {
   return skipped > 0 ? { detail: { message: 'geojson.importSkipped', params: { count: skipped } } } : {}
-}
-
-function safeFileStem(name: string): string {
-  return name.replace(/[<>:"/\\|?*\u0000-\u001f]/g, '_').trim() || 'Canopi'
 }

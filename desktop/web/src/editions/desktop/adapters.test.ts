@@ -1,7 +1,6 @@
 // Behavioural unit tests for Desktop host adapters (open-failure, problem-report, species-catalog).
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-const dialogMessageMock = vi.hoisted(() => vi.fn(async () => {}))
 const createProblemReportMock = vi.hoisted(() => vi.fn(async () => ({ kind: 'written' as const, path: '/reports/r.zip' })))
 const showProblemReportFolderMock = vi.hoisted(() => vi.fn(async () => {}))
 const plantCatalogCauseMock = vi.hoisted(() => vi.fn<() => 'missing' | 'corrupt' | null>(() => null))
@@ -14,10 +13,6 @@ const getDynamicFilterOptionsMock = vi.hoisted(() => vi.fn(async () => [{ field:
 const getFilterOptionsMock = vi.hoisted(() => vi.fn(async () => null))
 const getCommonNamesMock = vi.hoisted(() => vi.fn(async (names: string[]) => Object.fromEntries(names.map((n) => [n, `Common ${n}`]))))
 const getSpeciesHabitsMock = vi.hoisted(() => vi.fn(async (names: string[]) => Object.fromEntries(names.map((n) => [n, 'tree']))))
-
-vi.mock('@tauri-apps/plugin-dialog', () => ({
-  message: dialogMessageMock,
-}))
 
 vi.mock('../../ipc/problem-report', () => ({
   createProblemReport: createProblemReportMock,
@@ -43,6 +38,7 @@ vi.mock('../../ipc/favorites', () => ({
   toggleFavorite: vi.fn(async () => true),
 }))
 
+import { notices, resetNoticesForTests } from '../../failures/notices'
 import { presentDesktopDesignOpenFailure } from './open-failure'
 import { desktopProblemReport } from './problem-report'
 import { speciesCatalogWorkbench } from './species-catalog'
@@ -50,21 +46,28 @@ import { speciesCatalogWorkbench } from './species-catalog'
 describe('Desktop host adapters', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    resetNoticesForTests()
     plantCatalogCauseMock.mockReturnValue(null)
   })
 
   afterEach(() => {
+    resetNoticesForTests()
     vi.clearAllMocks()
   })
 
-  it('presents Design open failures via native error dialog', async () => {
+  it('presents Design open failures as an in-app notice with Report a problem (2.1-M20, 2.1-M435)', async () => {
     await presentDesktopDesignOpenFailure({
       tone: 'error',
       title: 'start.cantOpenTitle',
       message: 'start.cantRead',
     })
-    expect(dialogMessageMock).toHaveBeenCalledOnce()
-    expect(dialogMessageMock).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ kind: 'error' }))
+    expect(notices.value).toHaveLength(1)
+    expect(notices.value[0]).toMatchObject({
+      key: 'desktop.open-failure',
+      tone: 'error',
+      message: 'start.cantRead',
+      action: { label: 'boundary.reportProblem' },
+    })
   })
 
   it('forwards only included non-design sections and optional design text to createProblemReport', async () => {

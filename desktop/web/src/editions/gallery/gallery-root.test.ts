@@ -128,10 +128,9 @@ describe('gallery root helpers (canopi-f47t.52.233)', () => {
     expect(desktopPorts.problemReport.currentDesign()).toBeNull()
     expect((await desktopPorts.problemReport.write({} as never)).file_name).toBe('gallery-report.zip')
     expect(await desktopPorts.geocoding('Paris', {} as never)).toEqual([])
-    const pdf = desktopPorts.canvasPdfDelivery()
-    expect(await pdf.save(new Uint8Array(), 'test.pdf', new AbortController().signal)).toBe('downloaded')
-    pdf.dispose()
-    await desktopPorts.budgetExportDelivery('{}', 'budget.csv')
+    expect(await desktopPorts.fileDelivery.deliverFile('pdf', 'test', { bytes: new Uint8Array() }, new AbortController().signal)).toBe('downloaded')
+    desktopPorts.fileDelivery.dispose?.()
+    expect(await desktopPorts.fileDelivery.deliverFile('budget-csv', 'budget', { text: '{}' })).toBe('downloaded')
 
     const sentinel = {} as CanvasHostRuntimeBinding
     const uninstall = installCanvasHostRuntime(() => sentinel)

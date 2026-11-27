@@ -21,7 +21,7 @@ import {
   type LidarSampleSeries,
   type LidarSampleTarget,
 } from '../../generated/contracts'
-import { lidarSamplePoints } from '../../ipc/lidar'
+import { editionPorts } from '../../platform/edition-ports'
 import { designSessionStore } from '../document-session/store'
 
 export type SampleLane = 'values' | 'profile'
@@ -120,6 +120,6 @@ export function createSiteSampler(deps: {
 
 /** The app's one sampler: row values and the profile share it, each in its own lane. */
 export const siteSampler: SiteSampler = createSiteSampler({
-  sample: lidarSamplePoints,
+  sample: (request) => editionPorts().dataLibrary.samplePoints(request),
   designIdentity: () => designSessionStore.sessionIdentity.peek(),
 })
