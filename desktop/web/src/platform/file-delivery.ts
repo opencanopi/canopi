@@ -2,7 +2,7 @@
  * platform/file-delivery.ts: Owner of FileDelivery, its 9 delivery rows, and the file-kind table
  * (file-delivery-rows, no-cancelled-literal, no-inline-dialog-filters, ADR 0022 and 0025, contracts §16,
  * 2.1-M422, 2.1-M522, 2.1-Q359). Invariant: all 9 delivery kinds are data rows backed by generated
- * FILE_KINDS, `{ kind: 'cancelled' }` is returned only on user cancel or AbortSignal, and every download
+ * FILE_KINDS, `'cancelled'` is returned only on user cancel or AbortSignal, and every download
  * filename passes through `buildDeliveryFileName`.
  */
 import type { DialogKind, FileKind } from '../generated/contracts'

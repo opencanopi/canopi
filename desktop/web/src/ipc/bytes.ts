@@ -3,6 +3,7 @@
  * Bytes cross the Tauri IPC boundary as a raw `Uint8Array` body with ASCII headers rather than a
  * JSON number array.
  */
+import { IpcFailure } from '../failures/ipc-failure'
 import type { FileKind } from '../generated/contracts'
 import { invokeBinaryCommand, mintOperationId } from './transport'
 
@@ -12,7 +13,17 @@ const MAX_DELIVER_FILE_BYTES = 64 * 1024 * 1024
 /** Deliver raw bytes to a native Save-dialog destination via the unified `deliver_file` command. */
 export async function deliverFileBytes(kind: FileKind, path: string, bytes: Uint8Array): Promise<string> {
   if (bytes.byteLength > MAX_DELIVER_FILE_BYTES) {
-    throw new RangeError(`Export exceeds the ${MAX_DELIVER_FILE_BYTES / (1024 * 1024)} MiB limit`)
+    const detail = `Export exceeds the ${MAX_DELIVER_FILE_BYTES / (1024 * 1024)} MiB limit`
+    throw new IpcFailure(
+      {
+        code: { kind: 'io', io: 'too_large' },
+        user_may_retry: false,
+        op: 'export.deliver_file',
+        operation: null,
+        detail: null,
+      },
+      detail,
+    )
   }
   return invokeBinaryCommand<string>(
     'deliver_file',

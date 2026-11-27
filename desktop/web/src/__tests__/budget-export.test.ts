@@ -2,8 +2,8 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { pickCancelled } from '../ipc/dialogs'
 import { exportBudgetCsv, exportCurrentBudgetCsv } from '../app/budget/export'
+import { notices, resetNoticesForTests } from '../failures/notices'
 import { setCurrentCanvasSession } from '../canvas/session'
 import { speciesBudgetTarget } from '../target'
 import { designSessionFixture } from './support/design-session-state'
@@ -17,12 +17,13 @@ import { createTestEditionPorts } from './support/test-edition-ports'
 const deliverFile = vi.fn().mockResolvedValue('saved' as const)
 let disposePorts: (() => void) | null = null
 beforeEach(() => {
+  resetNoticesForTests()
   deliverFile.mockReset().mockResolvedValue('saved')
   disposePorts = installEditionPorts(createTestEditionPorts({
     fileDelivery: { deliverFile, dispose: vi.fn() },
   }))
 })
-afterEach(() => { disposePorts?.(); disposePorts = null; vi.restoreAllMocks() })
+afterEach(() => { resetNoticesForTests(); disposePorts?.(); disposePorts = null; vi.restoreAllMocks() })
 
 describe('budget export', () => {
   it('exports the expected csv filename and row content through the app boundary', async () => {
@@ -145,8 +146,20 @@ describe('budget export', () => {
       )
       expect(buildDeliveryFileName('budget-csv', deliverFile.mock.calls[0]![1] as string)).toMatch(/-budget\.csv$/)
 
-      deliverFile.mockRejectedValueOnce(pickCancelled('dialog.pick_save'))
+      deliverFile.mockResolvedValueOnce('cancelled')
       await expect(exportCurrentBudgetCsv()).resolves.toBeUndefined()
+      expect(notices.value).toHaveLength(0)
+
+      deliverFile.mockResolvedValueOnce('refused')
+      await expect(exportCurrentBudgetCsv()).resolves.toBeUndefined()
+      expect(notices.value).toHaveLength(1)
+      expect(notices.value[0]).toMatchObject({
+        key: 'budget.export.refused',
+        message: 'fileDelivery.refused',
+        tone: 'error',
+        kind: 'outcome',
+      })
+
       deliverFile.mockRejectedValueOnce(new Error('disk full'))
       await expect(exportCurrentBudgetCsv()).rejects.toThrow('disk full')
       // canopi-f47t.52.172: only the typed cancel is quiet; a failure whose text says "cancelled" still reaches the user.

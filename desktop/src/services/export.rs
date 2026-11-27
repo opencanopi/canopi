@@ -40,8 +40,13 @@ pub fn deliver_file(kind: FileKind, data: Vec<u8>, path: String) -> Result<Strin
             .with_english("Unsupported delivery kind"));
     }
     if data.len() > MAX_EXPORT_BYTES {
-        return Err(Failure::new(FailureCode::Invalid, ops::EXPORT_DELIVER_FILE)
-            .with_english("Export exceeds the 64 MiB limit"));
+        return Err(Failure::new(
+            FailureCode::Io {
+                io: IoFailureKind::TooLarge,
+            },
+            ops::EXPORT_DELIVER_FILE,
+        )
+        .with_english("Export exceeds the 64 MiB limit"));
     }
     if kind == FileKind::Pdf && (!data.starts_with(b"%PDF-") || !data.ends_with(b"%%EOF\n")) {
         return Err(Failure::new(FailureCode::Invalid, ops::EXPORT_DELIVER_FILE)
@@ -270,7 +275,12 @@ mod tests {
             oversized.display().to_string(),
         )
         .unwrap_err();
-        assert_eq!(error.code, canopi_types::failure::FailureCode::Invalid);
+        assert_eq!(
+            error.code,
+            canopi_types::failure::FailureCode::Io {
+                io: canopi_types::failure::IoFailureKind::TooLarge
+            }
+        );
         assert!(!oversized.exists());
         assert_eq!(std::fs::read_dir(&temp_dir.root).unwrap().count(), 2);
     }

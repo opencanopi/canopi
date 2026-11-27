@@ -3,7 +3,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { locale } from '../app/settings/state'
 import { createDesktopFileDelivery } from '../editions/desktop/file-delivery'
 import { createFakeFileDelivery } from '../editions/gallery/fakes/file-delivery.fake'
+import { IpcFailure } from '../failures/ipc-failure'
 import { resetFailureNoticesForTests } from '../failures/report'
+import { deliverFileBytes } from '../ipc/bytes'
 import { t } from '../i18n'
 import { installCommandTransport } from '../types/command-transport'
 import {
@@ -136,9 +138,73 @@ describe('FileDelivery suite (contracts §16, 2.1-M422, 2.1-M522, 2.1-Q359, cano
     try {
       const desktop = createDesktopFileDelivery()
       expect(await desktop.deliverFile('pdf', 'Garden', { bytes: new Uint8Array([1]) })).toBe('refused')
+      desktop.dispose?.()
     } finally {
       disposeWrongExt()
     }
+  })
+
+  it('Desktop adapter refuses non-Desktop rows before pickSave, maps exists to refused, and rethrows non-refusal failures', async () => {
+    const pickCalls: string[] = []
+    const disposeNonDesktop = installCommandTransport(async (command) => {
+      pickCalls.push(command)
+      return { kind: 'picked', path: '/chosen/should-not-open' }
+    })
+    try {
+      const desktop = createDesktopFileDelivery()
+      for (const kind of ['canopi-copy', 'canopi-draft', 'stamp', 'geotiff', 'analysis-geotiff', 'problem-report'] as const) {
+        await expect(desktop.deliverFile(kind, 'Test', { text: '{}' })).rejects.toThrow(/not delivered through deliver_file/)
+      }
+      expect(pickCalls).toHaveLength(0)
+    } finally {
+      disposeNonDesktop()
+    }
+
+    // M155 pick_save exists refusal maps to 'refused'.
+    const disposeExists = installCommandTransport(async (command) => {
+      if (command === 'pick_save') {
+        return Promise.reject({
+          code: { kind: 'invalid' },
+          user_may_retry: false,
+          op: 'dialog.pick_save',
+          operation: null,
+          detail: 'exists',
+        })
+      }
+      return null
+    })
+    try {
+      const desktop = createDesktopFileDelivery()
+      expect(await desktop.deliverFile('budget-csv', 'Orchard', { text: 'a,b' })).toBe('refused')
+    } finally {
+      disposeExists()
+    }
+
+    // Non-refusal Invalid (e.g. invalid PDF bytes, ipc_body_not_raw) and TooLarge rethrow as IpcFailure.
+    for (const failure of [
+      { code: { kind: 'invalid' }, user_may_retry: false, op: 'export.deliver_file', operation: null, detail: 'Invalid Canvas PDF output' },
+      { code: { kind: 'invalid' }, user_may_retry: false, op: 'export.deliver_file', operation: null, detail: 'ipc_body_not_raw' },
+      { code: { kind: 'io', io: 'too_large' }, user_may_retry: false, op: 'export.deliver_file', operation: null, detail: 'Export exceeds the 64 MiB limit' },
+    ] as const) {
+      const disposeErr = installCommandTransport(async (command) => {
+        if (command === 'pick_save') return { kind: 'picked', path: '/chosen/plan.pdf' }
+        if (command === 'deliver_file') return Promise.reject(failure)
+        return null
+      })
+      try {
+        const desktop = createDesktopFileDelivery()
+        await expect(desktop.deliverFile('pdf', 'Garden', { bytes: new Uint8Array([1]) })).rejects.toBeInstanceOf(IpcFailure)
+      } finally {
+        disposeErr()
+      }
+    }
+
+    // Client-side 64 MiB cap throws typed IpcFailure(io.too_large) before invoking IPC.
+    const oversized = new Uint8Array(64 * 1024 * 1024 + 1)
+    await expect(deliverFileBytes('pdf', '/chosen/huge.pdf', oversized)).rejects.toMatchObject({
+      name: 'IpcFailure',
+      failure: { code: { kind: 'io', io: 'too_large' }, op: 'export.deliver_file' },
+    })
   })
 
   it('Web adapter triggers Blob downloads for every content row, respects cancel, and revokes on dispose', async () => {

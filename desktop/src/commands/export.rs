@@ -1,5 +1,5 @@
 use canopi_types::dialog::FileKind;
-use canopi_types::failure::{Failure, FailureCode, ops};
+use canopi_types::failure::{Failure, FailureCode, IoFailureKind, ops};
 use tauri::State;
 
 use crate::native_operation::{NativeOperationClass, NativeOperationExecutor};
@@ -57,7 +57,13 @@ fn parse_deliver_file_request(
     let data = match body {
         tauri::ipc::InvokeBody::Raw(bytes) => {
             if bytes.len() > MAX_EXPORT_BYTES {
-                return Err(invalid_delivery("Export exceeds the 64 MiB limit"));
+                return Err(Failure::new(
+                    FailureCode::Io {
+                        io: IoFailureKind::TooLarge,
+                    },
+                    ops::EXPORT_DELIVER_FILE,
+                )
+                .with_english("Export exceeds the 64 MiB limit"));
             }
             bytes.clone()
         }
@@ -246,7 +252,9 @@ mod tests {
             parse_deliver_file_request(&valid_headers, &oversized)
                 .unwrap_err()
                 .code,
-            FailureCode::Invalid
+            FailureCode::Io {
+                io: super::IoFailureKind::TooLarge,
+            }
         );
 
         let (kind, path, bytes) = parse_deliver_file_request(&valid_headers, &raw).unwrap();

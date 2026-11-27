@@ -289,6 +289,7 @@ export function bootWebEdition(): () => void {
     closeGuardLifetime.dispose();
     disposeSessionCore();
     disposePorts();
+    browserFileDelivery.dispose?.();
     problemReportWriter.dispose();
     disposeFailureHooks();
     stopConsortiumSync();
