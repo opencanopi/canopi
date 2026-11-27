@@ -26,7 +26,18 @@
         "state": "copied",
         "sourceHash": "frozen",
         "rev": 1,
-        "copiedIds": ["draft-orchard", "draft-moved-only"]
+        "copiedIds": ["draft-orchard", "draft-moved-only"],
+        "movedHashes": {
+          "draft-orchard": "frozen-hash-orchard",
+          "draft-moved-only": "frozen-hash-moved-only"
+        },
+        "olderTabCopies": {
+          "draft-orchard": {
+            "copyId": "older-tab-draft-orchard",
+            "canonicalHash": "frozen-hash-older-tab",
+            "writtenVersion": 1
+          }
+        }
       }
     ]
   }

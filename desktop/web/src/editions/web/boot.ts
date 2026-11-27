@@ -1,5 +1,12 @@
 /**
  * editions/web/boot.ts: L5 Web edition lifetime bootstrap (ADR 0022, ADR 0030, contracts §22, C4).
+ *
+ * Unload residual risk (2b-6, 2.1-M526): IndexedDB writes are asynchronous, so `beforeunload`
+ * starts a best-effort `flushNow({ force: true })` and triggers the browser unload prompt while
+ * unsaved edits remain. If the browser kills the tab before the transaction commits, the per-tab
+ * pending-write marker survives in localStorage and surfaces the "closed before saving" notice
+ * on the next launch. `pagehide` closes the IndexedDB connection and refuses reopens while hidden
+ * so bfcache stays intact; `pageshow` (`event.persisted`) reopens it.
  */
 import { installPlaceSearchSession } from "../../app/geocoding/place-search-session";
 import { installToolRailLearning } from "../../app/tool-rail/learning";
@@ -15,6 +22,7 @@ import { NEW_DESIGN_LAYER_DEFAULTS } from "../../generated/new-design-defaults";
 import type { DraftId } from "../../platform/design-home";
 import {
   presentBrowserDesignOpenFailure,
+  presentBrowserStorageUncheckedNotice,
   raiseDraftStoreBlockedNotice,
   raiseEarlierDataNotice,
   raiseOlderTabCopyNotice,
@@ -27,11 +35,12 @@ import { browserReleaseWatch } from "./browser-release-watch";
 import { browserSettingsPlatformAdapter } from "./settings";
 import { readSpeciesListRecord, type BrowserStorage } from "../../platform/browser-record";
 import { createDesignCore } from "../../platform/design-core";
-import { createBrowserDesignHomeStore, isIndexedDbAvailable, type BrowserDesignHomeStore } from "../../platform/design-home.browser";
-import { createDraftRecordsReader } from "../../platform/draft-records.browser";
+import { createBrowserDesignHomeStore, type BrowserDesignHomeStore } from "../../platform/design-home.browser";
+import { draftNameFromBytes } from "../../platform/draft-records-move";
 import { installFailureHooks, reportFailure } from "../../failures/report";
 import { capabilitiesForEdition } from "../../generated/edition-capabilities";
 import { installEditionPorts } from "../../platform/edition-ports";
+import { createUuid } from "../../utils/ids";
 import { WEB_EDITION_MANIFEST } from "./manifest";
 import { geocodingTransport as browserGeocodingTransport } from "../../app/geocoding/transport.browser";
 import { createPdfDelivery as createBrowserPdfDelivery } from "../../app/canvas-pdf/platform.browser";
@@ -43,21 +52,12 @@ import { CANOPI_VERSION } from "../../app/about/metadata";
 import { storeHealth } from "../../failures/health";
 import { installCanvasHostRuntime } from "../../app/canvas-map-surface/use-canvas-host";
 import { createBrowserCanvasHostRuntime } from "./browser-workspace-runtime";
-import {
-  browserAppLifecyclePort,
-  browserFileAccessPort,
-  createBrowserSessionHomeStore,
-} from "./session-ports";
+import { browserAppLifecyclePort, browserFileAccessPort } from "./session-ports";
 import {
   currentWebDesignText,
   downloadWebCanopi,
-  installWebNewerDrafts,
-  isWebDraftEditable,
-  isWebDraftListingComplete,
-  listedNewerWebDrafts,
-  listWebDrafts,
-  relistNewerWebDrafts,
   setWebLaunching,
+  setWebStorageUnchecked,
 } from "./web-session";
 
 let disposeWebRoot: (() => void) | null = null;
@@ -74,39 +74,32 @@ export function bootWebEdition(): () => void {
     currentDesign: () => currentWebDesignText(),
   });
   const formatCore = createDesignCore();
-  const hasIndexedDb = isIndexedDbAvailable();
   const legacyStorageBridge: BrowserStorage = {
     getItem: (key) => browserAppDataStore.readRecord((s) => s.getItem(key)),
     setItem: (key, value) => { browserAppDataStore.writeRecord((s) => s.setItem(key, value)); },
     removeItem: (key) => { browserAppDataStore.writeRecord((s) => s.removeItem(key)); },
   };
-  let idbHomeStore: BrowserDesignHomeStore | null = null;
-  let fallbackHomeStore: ReturnType<typeof createBrowserSessionHomeStore> | null = null;
-  if (hasIndexedDb) {
-    idbHomeStore = createBrowserDesignHomeStore({
-      legacyStorage: legacyStorageBridge,
-      designCore: formatCore,
-      appVersion: CANOPI_VERSION,
-      onVersionChange: () => {
-        browserReleaseWatch.storeChanged();
-      },
-      onBlocked: () => {
-        raiseDraftStoreBlockedNotice();
-      },
-      onNewerStore: () => {
-        browserReleaseWatch.storeChanged();
-      },
-      onOlderTabCopy: ({ name }) => {
-        raiseOlderTabCopyNotice(name);
-      },
-      onMigrationFailed: (error) => {
-        reportFailure(error, { shown: "none", source: "web-drafts.move" });
-      },
-    });
-  } else {
-    fallbackHomeStore = createBrowserSessionHomeStore();
-  }
-  const activeHomeStore = idbHomeStore ?? fallbackHomeStore!;
+  const idbHomeStore: BrowserDesignHomeStore = createBrowserDesignHomeStore({
+    legacyStorage: legacyStorageBridge,
+    designCore: formatCore,
+    appVersion: CANOPI_VERSION,
+    tabId: browserAppDataStore.tabId(createUuid),
+    onVersionChange: () => {
+      browserReleaseWatch.storeChanged();
+    },
+    onBlocked: () => {
+      raiseDraftStoreBlockedNotice();
+    },
+    onNewerStore: () => {
+      browserReleaseWatch.storeChanged();
+    },
+    onOlderTabCopy: ({ name }) => {
+      raiseOlderTabCopyNotice(name);
+    },
+    onMigrationFailed: (error) => {
+      reportFailure(error, { shown: "none", source: "web-drafts.move" });
+    },
+  });
   const disposePorts = installEditionPorts({
     capabilities: capabilitiesForEdition("web", "linux"),
     manifest: WEB_EDITION_MANIFEST,
@@ -115,14 +108,14 @@ export function bootWebEdition(): () => void {
     geocoding: browserGeocodingTransport,
     canvasPdfDelivery: createBrowserPdfDelivery,
     budgetExportDelivery: deliverBrowserBudgetCsv,
-    designHome: activeHomeStore,
+    designHome: idbHomeStore,
     fileAccess: browserFileAccessPort,
     appLifecycle: browserAppLifecyclePort,
     designCore: formatCore,
   });
   let lastMarkedDraftId: string | null = null;
   const webSessionCore = createSessionCore({
-    designHome: activeHomeStore,
+    designHome: idbHomeStore,
     fileAccess: browserFileAccessPort,
     lifecycle: browserAppLifecyclePort,
     codec: createJsonSessionCodec({
@@ -134,7 +127,6 @@ export function bootWebEdition(): () => void {
       applyNewDesignDefaults: withNewDesignDisplay,
     },
     onPendingWriteChange: (pending) => {
-      if (!idbHomeStore) return;
       const open = webSessionCore.currentDesign.peek();
       if (pending && open && !open.readOnly && open.home.kind === "draft") {
         lastMarkedDraftId = open.home.key;
@@ -170,15 +162,11 @@ export function bootWebEdition(): () => void {
       || open?.save.kind === "refused"
       || open?.save.kind === "quota";
     if (!needsFlush || !open || open.readOnly) return;
-    if (fallbackHomeStore) {
-      try {
-        if (open.home.kind === "draft" && open.save.kind !== "refused") {
-          const snap = webSessionCore.snapshot();
-          if (snap && fallbackHomeStore.flushDraftSync(open.home.key, snap, open.home.version)) return;
-        }
-      } catch {
-        // Snapshot/sync-flush failure (e.g. SceneEditBusyError or invalid Draft) falls through to browser unload prompt (B2).
-      }
+    if (open.home.kind === "draft" && open.save.kind !== "refused") {
+      // Best-effort async flush; IndexedDB cannot block unload, so the prompt still guards unsaved work.
+      void webSessionCore.flushNow({ force: true }).catch(() => {
+        // Unload flush is best-effort; the per-tab pending-write marker covers crash or immediate kill.
+      });
     }
     event.preventDefault();
     event.returnValue = "";
@@ -186,14 +174,14 @@ export function bootWebEdition(): () => void {
   window.addEventListener("beforeunload", onBeforeUnload);
 
   const onPageHide = () => {
-    idbHomeStore?.closeForPageHide();
+    idbHomeStore.closeForPageHide();
   };
   const onPageShow = (event: PageTransitionEvent) => {
-    if (event.persisted) void idbHomeStore?.reopenAfterPageShow();
+    if (event.persisted) void idbHomeStore.reopenAfterPageShow();
   };
   const onLegacyStorage = (event: StorageEvent) => {
     if (event.key === null || event.key === DRAFTS_STORAGE_KEY) {
-      void idbHomeStore?.syncLegacyStorage();
+      void idbHomeStore.syncLegacyStorage();
     }
   };
   window.addEventListener("pagehide", onPageHide);
@@ -208,21 +196,23 @@ export function bootWebEdition(): () => void {
   });
   if (browserAppDataStore.takeEarlierDataNotice(new Date().toISOString())) raiseEarlierDataNotice();
   browserAppDataStore.openSpeciesLists(readSpeciesListRecord);
-  const uninstallNewerDrafts = idbHomeStore
-    ? () => {}
-    : installWebNewerDrafts(createDraftRecordsReader({
-        onVersionChange: () => browserReleaseWatch.storeChanged(),
-        report: (error) => reportFailure(error, { shown: "none", source: "web-drafts.read" }),
-      }));
 
-  const restoreIdbDrafts = async (store: BrowserDesignHomeStore): Promise<number> => {
-    const openOutcome = await store.open();
+  const restoreIdbDrafts = async (): Promise<number> => {
+    const openOutcome = await idbHomeStore.open();
     withdrawDraftStoreBlockedNotice();
-    if (disposed || openOutcome.kind !== "ready") return 0;
-    const drafts = await store.listDrafts();
-    for (const pendingId of store.takePendingMarkers()) {
+    if (disposed) return 0;
+    if (openOutcome.kind === "unavailable") {
+      // 2.1-Q334 (canopi-2b6q): IndexedDB could not be checked; list 2.0-key Drafts read-only with Download a copy.
+      setWebStorageUnchecked(true);
+      presentBrowserStorageUncheckedNotice();
+      return browserAppDataStore.listDrafts().length;
+    }
+    setWebStorageUnchecked(false);
+    if (openOutcome.kind !== "ready") return 0;
+    const drafts = await idbHomeStore.listDrafts();
+    for (const pendingId of idbHomeStore.takePendingMarkers()) {
       const match = drafts.find((d) => d.id === pendingId);
-      raisePendingWriteNotice(draftNameFromBytes(match?.bytes ?? null) ?? "Untitled");
+      raisePendingWriteNotice(draftNameFromBytes(match?.bytes ?? null));
       reportFailure(new Error(`Pending write marker found for Draft ${pendingId}`), {
         shown: "notice",
         source: "web-drafts.pending-marker",
@@ -238,35 +228,18 @@ export function bootWebEdition(): () => void {
     return drafts.length;
   };
 
-  const restoreFallbackDrafts = async (): Promise<void> => {
-    const listing = await relistNewerWebDrafts();
-    if (disposed || !listing.complete || listing.drafts.length > 0 || webSessionCore.currentDesign.peek()) return;
-    const reloadHome = browserAppDataStore.takeReloadHome();
-    const targetDraftId = reloadHome !== null ? reloadHome.draft : (listWebDrafts()[0]?.id ?? null);
-    if (targetDraftId && isWebDraftEditable(targetDraftId)) {
-      await webSessionCore.openFrom({ kind: "draft", id: targetDraftId as DraftId });
-    }
-  };
-
   let disposeDraftPersistence = () => {};
   setWebLaunching(true);
   void (async () => {
-    let idbDraftCount = 0;
+    let draftCount = 0;
     try {
-      if (idbHomeStore) {
-        idbDraftCount = await restoreIdbDrafts(idbHomeStore);
-      } else {
-        await restoreFallbackDrafts();
-      }
+      draftCount = await restoreIdbDrafts();
     } catch (error) {
       if (!disposed) console.error("Failed to restore the latest Design Draft:", error);
     } finally {
       setWebLaunching(false);
       if (!disposed) {
-        const hasDrafts = idbHomeStore
-          ? idbDraftCount > 0
-          : (!isWebDraftListingComplete() || listWebDrafts().length + (listedNewerWebDrafts()?.length ?? 0) > 0);
-        disposeDraftPersistence = browserDraftPersistence.start({ hasDrafts });
+        disposeDraftPersistence = browserDraftPersistence.start({ hasDrafts: draftCount > 0 });
       }
     }
   })();
@@ -284,13 +257,13 @@ export function bootWebEdition(): () => void {
     window.removeEventListener("pageshow", onPageShow);
     window.removeEventListener("storage", onLegacyStorage);
     withdrawDraftStoreBlockedNotice();
-    idbHomeStore?.dispose();
+    setWebStorageUnchecked(false);
+    idbHomeStore.dispose();
     registerDesignOpenFailurePresenter(null);
     disposeToolRailLearning();
     disposePlaceSearchSession();
     stopReleaseWatch();
     disposeDraftPersistence();
-    uninstallNewerDrafts();
     settingsInstallation.dispose();
     disposeTheme();
     disposeCatalog();
@@ -305,17 +278,6 @@ export function bootWebEdition(): () => void {
   };
   disposeWebRoot = dispose;
   return dispose;
-}
-
-function draftNameFromBytes(bytes: Uint8Array | null): string | null {
-  if (!bytes) return null;
-  try {
-    const parsed = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes)) as { readonly name?: unknown };
-    return typeof parsed?.name === "string" && parsed.name.trim().length > 0 ? parsed.name : null;
-  } catch {
-    // Unreadable Draft bytes fall back to Untitled in the pending-write notice.
-    return null;
-  }
 }
 
 if (import.meta.hot) {

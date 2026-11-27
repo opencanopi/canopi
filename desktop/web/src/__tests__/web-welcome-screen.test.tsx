@@ -15,6 +15,7 @@ import type { BrowserDraftPersistence } from '../web/browser-draft-persistence'
 import * as browserTextFiles from '../web/browser-text-files'
 import { notices, resetNoticesForTests } from '../failures/notices'
 import { WebWelcomeScreen } from '../editions/web/WebWelcomeScreen'
+import { createBrowserSessionHomeStoreForTests } from '../editions/web/session-ports'
 import { installEditionPorts } from '../platform/edition-ports'
 import { createTestEditionPorts } from './support/test-edition-ports'
 import { createTestSessionCore, type TestSessionCoreHandle } from './support/session-core-fixture'
@@ -30,7 +31,9 @@ let disposePorts: (() => void) | null = null
 beforeEach(() => {
   locale.value = 'en'
   localStorage.clear()
-  disposePorts = installEditionPorts(createTestEditionPorts())
+  disposePorts = installEditionPorts(createTestEditionPorts({
+    designHome: createBrowserSessionHomeStoreForTests(browserAppDataStore),
+  }))
   container = document.createElement('div')
   document.body.appendChild(container)
 })
@@ -83,6 +86,7 @@ describe('Web welcome screen and Draft persistence', () => {
   it('L13 and R2-2 (2.1-Q190, Q198): with unkept Drafts at launch warns, and offers Keep my Drafts with its reason', async () => {
     const { persistence, hideReason } = setup({ state: 'not-kept', notice: 'warning', warn: true })
     await act(async () => { render(<WebWelcomeScreen persistence={persistence} />, container) })
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)) })
     expect(notice()?.dataset.startNotice).toBe('warning')
     expect(notice()?.textContent).toContain(t('webStorage.warning'))
     expect(notice()?.querySelector('[data-notice="draft-persistence-reason"]')?.textContent).toBe(t('webStorage.reason'))
@@ -144,6 +148,7 @@ describe('Web welcome screen and Draft persistence', () => {
   it('F3: refused with no Drafts listed warns without pointing to a Draft menu that is not there', async () => {
     const { persistence } = setup({ state: 'refused', notice: 'warning', warn: true }, { drafts: false })
     await act(async () => { render(<WebWelcomeScreen persistence={persistence} />, container) })
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)) })
     expect(notice()?.dataset.startNotice).toBe('warning')
     expect(notice()?.textContent).toBe(t('webStorage.warningNoDrafts'))
     expect(notice()?.textContent).not.toContain(t('webShell.downloadCopy'))
@@ -160,6 +165,7 @@ describe('Web welcome screen and Draft persistence', () => {
   it('L19 (Q193): offers Download a copy in each Draft row menu, which downloads that Draft without opening it', async () => {
     const { persistence, downloadCanopiFile } = setup({ state: 'refused', notice: 'warning', warn: true })
     await act(async () => { render(<WebWelcomeScreen persistence={persistence} />, container) })
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)) })
     // Two Drafts, newest first: the second row's menu downloads the second Draft (review F6).
     const rows = Array.from(container.querySelectorAll<HTMLButtonElement>('button[aria-label^="Actions for "]'))
     expect(rows.map((row) => row.getAttribute('aria-label'))).toEqual(['Actions for Hedge', 'Actions for Orchard'])

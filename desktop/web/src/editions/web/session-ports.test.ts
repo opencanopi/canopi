@@ -15,7 +15,7 @@ import {
 import {
   browserAppLifecyclePort,
   browserFileAccessPort,
-  createBrowserSessionHomeStore,
+  createBrowserSessionHomeStoreForTests as createBrowserSessionHomeStore,
 } from './session-ports'
 
 const encoder = new TextEncoder()

@@ -15,13 +15,10 @@ import type {
 } from './design-home'
 import {
   createDraftRecordsStore,
-  isIndexedDbAvailable,
   type DraftRecordsStore,
   type DraftRecordsStoreOptions,
   type DraftStoreOpenOutcome,
 } from './draft-records.browser'
-
-export { isIndexedDbAvailable }
 
 export type BrowserDesignHomeStoreOptions = DraftRecordsStoreOptions
 

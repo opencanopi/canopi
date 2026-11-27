@@ -9,7 +9,7 @@ import type { BrowserStorage } from './browser-record'
 import type { DesignCore } from './design-core'
 import type { DraftId } from './design-home'
 import { createBrowserDesignHomeStore } from './design-home.browser'
-import { createDraftRecordsReader } from './draft-records.browser'
+import { createDraftRecordsReaderForTests as createDraftRecordsReader } from './draft-records.browser'
 import { LEGACY_DRAFTS_KEY, type DraftMoveMetaRecord, type StoredDraftRecord } from './draft-records-move'
 
 const DRAFT_DATABASE = 'canopi-drafts'
@@ -473,6 +473,8 @@ describe('platform/design-home.browser (2b-6 canopi-f47t.52.50)', () => {
     store.markPending('draft-lost')
     store.markPending('draft-saved')
     expect(await store.write('draft-saved', v10Bytes('Saved'), null)).toEqual({ kind: 'written', version: '1' })
+    // SF2: SessionCore clears the pending marker once all edits are acknowledged (rev === ackRev).
+    store.clearPending('draft-saved')
     expect(store.takePendingMarkers()).toEqual(['draft-lost'])
     expect(store.takePendingMarkers()).toEqual([])
 

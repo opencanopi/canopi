@@ -194,6 +194,8 @@ export interface BrowserAppDataStore {
   noteReloadHome(draftId: string | null): void;
   /** What this tab had open before its release reload, once; null when nothing was noted or it cannot be read. */
   takeReloadHome(): BrowserReloadHome | null;
+  /** Stable per-tab id stored in sessionStorage so reload recovers this tab's pending-write markers without touching peer tabs. */
+  tabId(mintId: () => string): string;
   /**
    * Reads the species lists at launch, 2.1's key through `read` from now on, so lists a newer Canopi saved, or damaged
    * ones, say so once, then (2.1-Q319).
@@ -368,9 +370,23 @@ export function createBrowserAppDataStore({
         text = session.getItem(RELOAD_HOME_KEY);
         if (text !== null) session.removeItem(RELOAD_HOME_KEY);
       } catch {
+        // Unreadable session storage means no reload home was recorded.
         return null;
       }
       return text === null ? null : parseReloadHome(text);
+    },
+
+    tabId(mintId) {
+      try {
+        const existing = session.getItem("canopi:web-drafts:tab-id");
+        if (existing) return existing;
+        const created = mintId();
+        session.setItem("canopi:web-drafts:tab-id", created);
+        return created;
+      } catch {
+        // Session storage unavailable: fall back to a per-call id so peer tabs' markers stay isolated.
+        return mintId();
+      }
     },
 
     openSpeciesLists(read) {

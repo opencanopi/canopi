@@ -5,7 +5,7 @@
 // Chromium, WebKit and Firefox; reader-release-web-stores.spec.ts runs the reader itself in those engines.
 import { readFileSync } from 'node:fs'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createDraftRecordsReader, type DraftRecordsReader } from './draft-records.browser'
+import { createDraftRecordsReaderForTests as createDraftRecordsReader, type DraftRecordsReaderTestFixture as DraftRecordsReader } from './draft-records.browser'
 
 interface FrozenDraftStore {
   readonly database: string

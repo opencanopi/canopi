@@ -33,7 +33,7 @@ import {
 import * as browserTextFiles from '../web/browser-text-files'
 import {
   browserFileAccessPort,
-  createBrowserSessionHomeStore,
+  createBrowserSessionHomeStoreForTests as createBrowserSessionHomeStore,
 } from '../editions/web/session-ports'
 import {
   createWebShellCommands,

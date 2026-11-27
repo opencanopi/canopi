@@ -8,15 +8,57 @@ vi.mock('../../platform/design-core', () => ({
 }))
 import { getLiveSessionCore } from '../../app/document-session/live-core'
 import { answerSaveProblem, saveProblem } from '../../app/document-session/save-problem'
+import { designSessionStore } from '../../app/document-session/store'
+import { notices, resetNoticesForTests } from '../../failures/notices'
 import { editionPorts, hasEditionPorts, installEditionPorts } from '../../platform/edition-ports'
+import { browserAppDataStore, DRAFTS_STORAGE_KEY } from '../../web/browser-app-data'
 import { bootWebEdition } from './boot'
+import { browserReleaseWatch } from './browser-release-watch'
 import { createBrowserSpeciesCatalogRuntime } from './species-catalog-runtime'
 import { createWebAppCatalog, createWebShellShortcutSource } from './WebApp'
 import { installWebProblemReport, WebRootBoundary } from './WebRoot'
 
+function makeMemoryIdbHomeStore() {
+  const records = new Map<string, { bytes: number[]; version: number; updatedAt: string }>()
+  let failWrites = false
+  return {
+    setFailWrites(v: boolean) { failWrites = v },
+    open: vi.fn().mockResolvedValue({ kind: 'ready' as const }),
+    read: vi.fn(async (key: string) => {
+      const rec = records.get(key)
+      return rec ? { kind: 'present' as const, bytes: rec.bytes, version: String(rec.version) } : { kind: 'absent' as const }
+    }),
+    write: vi.fn(async (key: string, bytes: Uint8Array) => {
+      if (failWrites) {
+        return {
+          kind: 'failed' as const,
+          failure: { code: { kind: 'io' as const, io: 'other' as const }, user_may_retry: true, op: 'web.draft.write', operation: null, detail: null },
+        }
+      }
+      const nextVer = (records.get(key)?.version ?? 0) + 1
+      records.set(key, { bytes: Array.from(bytes), version: nextVer, updatedAt: '2026-12-01T00:00:00.000Z' })
+      return { kind: 'written' as const, version: String(nextVer) }
+    }),
+    listDrafts: vi.fn(async () => [...records.entries()].map(([id, r]) => ({ id, bytes: new Uint8Array(r.bytes), updatedAt: r.updatedAt }))),
+    deleteDraft: vi.fn(async (id: string) => { records.delete(id); return { ok: true as const } }),
+    syncLegacyStorage: vi.fn().mockResolvedValue(undefined),
+    onVersionChange: vi.fn(() => () => {}),
+    closeForPageHide: vi.fn(),
+    reopenAfterPageShow: vi.fn().mockResolvedValue(undefined),
+    markPending: vi.fn(),
+    clearPending: vi.fn(),
+    takePendingMarkers: vi.fn().mockReturnValue([]),
+    dispose: vi.fn(),
+  }
+}
+
 describe('bootWebEdition (canopi-f47t.52.71)', () => {
   it('installs Web edition ports and cleanly disposes all bindings', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
+    const idbMod = await import('../../platform/design-home.browser')
+    const memStore = makeMemoryIdbHomeStore()
+    vi.spyOn(idbMod, 'createBrowserDesignHomeStore').mockReturnValue(memStore as never)
+
     const dispose = bootWebEdition()
     expect(hasEditionPorts()).toBe(true)
     const ports = editionPorts()
@@ -34,38 +76,30 @@ describe('bootWebEdition (canopi-f47t.52.71)', () => {
     expect(created.status).toBe('opened')
     expect(await ports.problemReport.currentDesign()).not.toBeNull()
     core.document('rename', () => ({ name: 'WebBooted' }))
+    // Unload with pending IndexedDB write starts async flush and sets browser unload prompt.
+    const flushSpy = vi.spyOn(core, 'flushNow')
+    const beforeUnloadDirty = new Event('beforeunload', { cancelable: true })
+    window.dispatchEvent(beforeUnloadDirty)
+    expect(beforeUnloadDirty.defaultPrevented).toBe(true)
+    expect(flushSpy).toHaveBeenCalledWith({ force: true })
+    flushSpy.mockRestore()
+    await core.flushNow({ force: true })
     const beforeUnloadClean = new Event('beforeunload', { cancelable: true })
     window.dispatchEvent(beforeUnloadClean)
     expect(beforeUnloadClean.defaultPrevented).toBe(false)
     await core.close('close')
 
-    // B3 + WEB-03: Web registers the edition-neutral question bridge so a failed flush asks SaveProblemDialog instead of hanging,
-    // and beforeunload prompts only when the synchronous Draft flush fails.
+    // Failed flush asks SaveProblemDialog instead of hanging.
     await core.createNew()
-    const setItemSpy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
-      throw new DOMException('quota exceeded', 'QuotaExceededError')
-    })
-    core.document('rename', () => ({ name: 'WebQuotaBlocked' }))
-    const beforeUnloadBlocked = new Event('beforeunload', { cancelable: true })
-    window.dispatchEvent(beforeUnloadBlocked)
-    expect(beforeUnloadBlocked.defaultPrevented).toBe(true)
-
-    // B2: if snapshot() throws during beforeunload (e.g. SceneEditBusyError), beforeunload still calls preventDefault().
-    const snapshotSpy = vi.spyOn(core, 'snapshot').mockImplementationOnce(() => {
-      throw new Error('SceneEditBusyError')
-    })
-    const beforeUnloadThrown = new Event('beforeunload', { cancelable: true })
-    window.dispatchEvent(beforeUnloadThrown)
-    expect(beforeUnloadThrown.defaultPrevented).toBe(true)
-    snapshotSpy.mockRestore()
-
+    memStore.setFailWrites(true)
+    core.document('rename', () => ({ name: 'WebWriteBlocked' }))
     const closing = core.close('close')
     await vi.waitFor(() => {
       expect(saveProblem.value).toEqual({ kind: 'flush-failed', purpose: 'close', conflict: false })
     })
     answerSaveProblem('discard')
     expect(await closing).toBe('closed')
-    setItemSpy.mockRestore()
+    memStore.setFailWrites(false)
 
     const uninstallReport = installWebProblemReport()
     uninstallReport()
@@ -106,14 +140,14 @@ describe('bootWebEdition (canopi-f47t.52.71)', () => {
     expect(editionPorts()).toBe(ports)
     restore()
     dispose()
-    // Second dispose is a safe no-op.
     dispose()
     expect(hasEditionPorts()).toBe(false)
     expect(() => editionPorts()).toThrow(/not installed/)
     vi.restoreAllMocks()
   })
 
-  it('canopi-f47t.52.50: wires BrowserDesignHomeStore lifecycle, pending markers, pagehide/pageshow, and storage events when IndexedDB is available', async () => {
+  it('canopi-f47t.52.50: wires BrowserDesignHomeStore lifecycle, pending markers, notices, pagehide/pageshow, and storage events', async () => {
+    resetNoticesForTests()
     const idbMod = await import('../../platform/design-home.browser')
     const captured: { opts?: Parameters<typeof idbMod.createBrowserDesignHomeStore>[0] } = {}
     const draftBytes = new TextEncoder().encode(JSON.stringify({
@@ -133,32 +167,38 @@ describe('bootWebEdition (canopi-f47t.52.71)', () => {
       open: vi.fn().mockResolvedValue({ kind: 'ready' }),
       read: vi.fn().mockResolvedValue({ kind: 'present', bytes: draftBytes, version: '1' }),
       write: vi.fn().mockResolvedValue({ kind: 'written', version: '2' }),
-      delete: vi.fn().mockResolvedValue({ kind: 'deleted' }),
-      listDrafts: vi.fn().mockResolvedValue([{ id: 'draft-idb-1', bytes: draftBytes, version: '1' }]),
+      deleteDraft: vi.fn().mockResolvedValue({ ok: true }),
+      listDrafts: vi.fn().mockResolvedValue([{ id: 'draft-idb-1', bytes: draftBytes, updatedAt: '2026-12-01T00:00:00.000Z' }]),
       syncLegacyStorage: vi.fn().mockResolvedValue(undefined),
       onVersionChange: vi.fn(() => () => {}),
       closeForPageHide: vi.fn(),
       reopenAfterPageShow: vi.fn().mockResolvedValue(undefined),
       markPending: vi.fn(),
       clearPending: vi.fn(),
-      takePendingMarkers: vi.fn().mockReturnValue(['draft-idb-1', 'draft-unmatched']),
+      takePendingMarkers: vi.fn().mockReturnValue(['draft-idb-1']),
       dispose: vi.fn(),
     }
-    vi.spyOn(idbMod, 'isIndexedDbAvailable').mockReturnValue(true)
+    const storeChangedSpy = vi.spyOn(browserReleaseWatch, 'storeChanged').mockImplementation(() => {})
     vi.spyOn(idbMod, 'createBrowserDesignHomeStore').mockImplementation((opts) => {
       captured.opts = opts
-      return fakeStore as never
+      return fakeStore
     })
 
     const dispose = bootWebEdition()
     await vi.waitFor(() => {
       expect(fakeStore.listDrafts).toHaveBeenCalled()
     })
+    // Assert pending-write marker surfaced the warning notice naming the Draft.
+    expect(notices.value.some((n) => n.key === 'web.pending-write' && n.params?.name === 'IDB Orchard')).toBe(true)
+
     expect(captured.opts).toBeDefined()
     captured.opts?.onBlocked?.()
+    expect(notices.value.some((n) => n.key === 'web.draft-store-blocked')).toBe(true)
     captured.opts?.onVersionChange?.()
     captured.opts?.onNewerStore?.()
-    captured.opts?.onOlderTabCopy?.({ legacyId: 'old', copyId: 'older-tab-old', name: 'Old' })
+    expect(storeChangedSpy).toHaveBeenCalledTimes(2)
+    captured.opts?.onOlderTabCopy?.({ legacyId: 'old', copyId: 'older-tab-old', name: 'Old Orchard' })
+    expect(notices.value.some((n) => n.key === 'web.older-tab-copy' && n.params?.name === 'Old Orchard')).toBe(true)
     captured.opts?.onMigrationFailed?.(new Error('move failed'))
 
     window.dispatchEvent(new Event('pagehide'))
@@ -173,14 +213,14 @@ describe('bootWebEdition (canopi-f47t.52.71)', () => {
     expect(fakeStore.reopenAfterPageShow).toHaveBeenCalledOnce()
     window.dispatchEvent(new StorageEvent('storage', { key: 'unrelated-key' }))
     expect(fakeStore.syncLegacyStorage).not.toHaveBeenCalled()
-    window.dispatchEvent(new StorageEvent('storage', { key: 'canopi:web-app-data:v3:drafts' }))
+    window.dispatchEvent(new StorageEvent('storage', { key: DRAFTS_STORAGE_KEY }))
     window.dispatchEvent(new StorageEvent('storage', { key: null }))
     expect(fakeStore.syncLegacyStorage).toHaveBeenCalledTimes(2)
 
     const { listWebDraftsAsync, downloadWebDraft } = await import('./web-session')
     const listed = await listWebDraftsAsync()
-    expect(listed.map((d) => d.id)).toContain('draft-idb-1')
-    // Exercise dirty->clean pending-write marker hooks and downloadWebDraft over IDB.
+    expect(listed.editable.map((d) => d.id)).toContain('draft-idb-1')
+    expect(listed.readOnly).toEqual([])
     const core = getLiveSessionCore()!
     core.document('rename', () => ({ name: 'IDB Renamed' }))
     await vi.waitFor(() => {
@@ -190,24 +230,90 @@ describe('bootWebEdition (canopi-f47t.52.71)', () => {
     expect(fakeStore.clearPending).toHaveBeenCalled()
     await downloadWebDraft('draft-idb-1')
     expect(fakeStore.read).toHaveBeenCalledWith('draft-idb-1')
-    // Missing/unreadable draft in downloadWebDraft and malformed bytes in listWebDraftsAsync.
     fakeStore.read.mockResolvedValueOnce({ kind: 'absent' })
     await expect(downloadWebDraft('draft-missing')).rejects.toThrow('Draft not found')
-    fakeStore.listDrafts.mockResolvedValueOnce([{ id: 'draft-corrupt', bytes: new TextEncoder().encode('{bad'), version: '1' }])
-    expect(await listWebDraftsAsync()).toEqual([{ id: 'draft-corrupt', name: 'Untitled', updatedAt: undefined }])
+    fakeStore.listDrafts.mockResolvedValueOnce([{ id: 'draft-corrupt', bytes: new TextEncoder().encode('{bad'), updatedAt: '' }])
+    expect((await listWebDraftsAsync()).editable).toEqual([{ id: 'draft-corrupt', name: 'Untitled', updatedAt: '' }])
 
     dispose()
     expect(fakeStore.dispose).toHaveBeenCalledOnce()
-
-    // Also cover open() returning 'newer' and open() rejecting cleanly.
-    fakeStore.open.mockResolvedValueOnce({ kind: 'newer' })
-    const dispose2 = bootWebEdition()
-    await vi.waitFor(() => { expect(fakeStore.open).toHaveBeenCalledTimes(2) })
-    dispose2()
-    fakeStore.open.mockRejectedValueOnce(new Error('open boom'))
-    const dispose3 = bootWebEdition()
-    await vi.waitFor(() => { expect(fakeStore.open).toHaveBeenCalledTimes(3) })
-    dispose3()
     vi.restoreAllMocks()
+  })
+
+  it('canopi-2b6q (2.1-Q334, B4): real bootWebEdition with failing indexedDB.open lists 2.0 Drafts read-only, opens read-only with notice, and never writes', async () => {
+    localStorage.clear()
+    sessionStorage.clear()
+    resetNoticesForTests()
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    browserAppDataStore.saveRawDraft({
+      id: 'legacy-1',
+      name: 'Old Garden',
+      now: '2026-10-01T00:00:00.000Z',
+      raw: {
+        version: 10,
+        name: 'Old Garden',
+        description: null,
+        plant_species_colors: {},
+        plant_species_symbols: {},
+        layers: [],
+        plants: [],
+        zones: [],
+        annotations: [],
+        measurement_guides: [],
+        groups: [],
+        consortiums: [],
+        timeline: [],
+        budget: [],
+        budget_currency: 'USD',
+        views: [],
+        stories: [],
+        created_at: '2026-10-01T00:00:00.000Z',
+        updated_at: '2026-10-01T00:00:00.000Z',
+      },
+    })
+    const legacyRecord = localStorage.getItem(DRAFTS_STORAGE_KEY)
+
+    const prevIdb = globalThis.indexedDB
+    Object.defineProperty(globalThis, 'indexedDB', {
+      configurable: true,
+      value: {
+        open() {
+          throw new DOMException('IndexedDB disabled in private mode', 'SecurityError')
+        },
+      },
+    })
+
+    const dispose = bootWebEdition()
+    const {
+      deleteWebDraft,
+      isWebStorageUnchecked,
+      listWebDraftsAsync,
+      openWebDraft,
+      webLaunching,
+    } = await import('./web-session')
+    try {
+      await vi.waitFor(() => expect(webLaunching.value).toBe(false))
+      expect(isWebStorageUnchecked()).toBe(true)
+      expect(notices.value.some((n) => n.key === 'web.storage-unchecked')).toBe(true)
+
+      const listing = await listWebDraftsAsync()
+      expect(listing.editable).toEqual([])
+      expect(listing.readOnly.map((d) => d.id)).toEqual(['legacy-1'])
+      expect((await deleteWebDraft('legacy-1')).ok).toBe(false)
+
+      const setItemSpy = vi.spyOn(Storage.prototype, 'setItem')
+      expect(await openWebDraft('legacy-1')).toBe(true)
+      expect(designSessionStore.sessionKind.value).toEqual({ kind: 'read-only', origin: 'storage-unchecked' })
+      // In-memory edit on a read-only storage-unchecked Draft must never write to localStorage (2.1-M21).
+      getLiveSessionCore()!.document('rename', () => ({ name: 'Should Not Persist' }))
+      await getLiveSessionCore()!.flushNow({ force: true })
+      expect(setItemSpy).not.toHaveBeenCalledWith(DRAFTS_STORAGE_KEY, expect.anything())
+      expect(localStorage.getItem(DRAFTS_STORAGE_KEY)).toBe(legacyRecord)
+      expect(browserAppDataStore.listDrafts()).toHaveLength(1)
+    } finally {
+      dispose()
+      Object.defineProperty(globalThis, 'indexedDB', { configurable: true, value: prevIdb })
+      vi.restoreAllMocks()
+    }
   })
 })

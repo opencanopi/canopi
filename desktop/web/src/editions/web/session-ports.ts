@@ -51,15 +51,17 @@ function nextMonotonicTimestamp(now: Date, previous: HomeVersion | null): string
   return now.toISOString()
 }
 
-export interface BrowserSessionHomeStore extends DesignHomeStore {
+/** @testonly Legacy localStorage-backed DesignHomeStore harness used by Web session unit tests. */
+export interface BrowserSessionHomeStoreTestFixture extends DesignHomeStore {
   /** Synchronous Draft flush for `beforeunload` (WEB-03); advances the expected version for this tab's next async write. */
   flushDraftSync(key: string, file: Parameters<typeof flattenDocumentForJson>[0], expected: HomeVersion | null): boolean
 }
 
-export function createBrowserSessionHomeStore(
+/** @testonly Legacy localStorage-backed DesignHomeStore harness used by Web session unit tests. */
+export function createBrowserSessionHomeStoreForTests(
   appDataStore: BrowserAppDataStore = browserAppDataStore,
   now: () => Date = () => new Date(),
-): BrowserSessionHomeStore {
+): BrowserSessionHomeStoreTestFixture {
   const encoder = new TextEncoder()
   const decoder = new TextDecoder('utf-8', { fatal: true })
   const syncAliases = new Map<string, { readonly from: HomeVersion | null; readonly to: HomeVersion }>()

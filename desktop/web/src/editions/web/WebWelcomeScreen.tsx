@@ -11,18 +11,15 @@ import {
 } from '../../web/browser-draft-persistence'
 import type { BrowserDraftSummary } from '../../web/browser-app-data'
 import { presentBrowserDraftDownloadFailure } from '../../web/browser-notices'
-import { isIndexedDbAvailable } from '../../platform/design-home.browser'
 import {
   deleteWebDraft,
   downloadWebDraft,
-  isWebDraftListingComplete,
-  listedNewerWebDrafts,
-  listWebDrafts,
+  initialWebDraftListing,
+  isWebStorageUnchecked,
   listWebDraftsAsync,
   newWebDesign,
   openWebCanopiFile,
   openWebDraft,
-  relistNewerWebDrafts,
 } from './web-session'
 
 interface WebWelcomeScreenProps {
@@ -42,21 +39,15 @@ interface DraftListing {
 export function WebWelcomeScreen({
   persistence = browserDraftPersistence,
 }: WebWelcomeScreenProps) {
-  const [listing, setListing] = useState<DraftListing>(() => {
-    const listed = listedNewerWebDrafts()
-    return { editable: listWebDrafts(), readOnly: listed ?? [], loading: listed === null }
-  })
+  const [listing, setListing] = useState<DraftListing>(() => initialWebDraftListing())
   const mounted = useRef(true)
   const relist = useCallback(() => {
-    if (isIndexedDbAvailable()) {
-      void listWebDraftsAsync().then((editable) => {
-        if (mounted.current) setListing({ editable, readOnly: [], loading: false })
-      }).catch(logWebWelcomeError)
-      return
-    }
-    void relistNewerWebDrafts().then(({ drafts: readOnly }) => {
-      if (mounted.current) setListing({ editable: listWebDrafts(), readOnly, loading: false })
-    }).catch(logWebWelcomeError)
+    void listWebDraftsAsync().then(({ editable, readOnly }) => {
+      if (mounted.current) setListing({ editable, readOnly, loading: false })
+    }).catch((error: unknown) => {
+      logWebWelcomeError(error)
+      if (mounted.current) setListing((prev) => ({ ...prev, loading: false }))
+    })
   }, [])
   useEffect(() => {
     mounted.current = true
@@ -84,7 +75,7 @@ export function WebWelcomeScreen({
         }).catch(logWebWelcomeError)
       },
     }],
-    ...(readOnly || !isWebDraftListingComplete() ? {} : {
+    ...(readOnly || isWebStorageUnchecked() ? {} : {
       delete: () => {
         void deleteWebDraft(draft.id).then((deleted) => {
           if (!deleted.ok) logWebWelcomeError(deleted.error)

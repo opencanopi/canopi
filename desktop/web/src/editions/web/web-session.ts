@@ -5,8 +5,9 @@
 import { effect, signal } from '@preact/signals'
 import { ingestionErrorFromFormatRefusal } from '../../app/contracts/canopi-design-errors'
 import { flattenDocumentForJson } from '../../app/contracts/document'
+import type { DraftId } from '../../platform/design-home'
 import { editionPorts, hasEditionPorts } from '../../platform/edition-ports'
-import { isIndexedDbAvailable } from '../../platform/design-home.browser'
+import { draftNameFromBytes } from '../../platform/draft-records-move'
 import { setDesignName } from '../../app/design-edit'
 import {
   closeDesign,
@@ -14,7 +15,6 @@ import {
   designSaveFailureReason,
   designSaveStatus,
   newDesignAction,
-  openDesignDraft,
   resolveDesignConflict,
   retryDesignSave,
   revertDesign,
@@ -26,35 +26,23 @@ import { applyNewDesignBackground } from '../../app/settings/new-design-defaults
 import { currentCanvasSession } from '../../canvas/session'
 import { browserAppDataStore, type BrowserDraftSummary } from '../../web/browser-app-data'
 import { browserDraftPersistence, type BrowserShellDesignIdentity } from '../../web/browser-draft-persistence'
-import { createBrowserNewerDrafts, type BrowserNewerDraftRecords } from '../../web/browser-newer-drafts'
 import { presentBrowserDraftOpenFailure, presentBrowserStorageUncheckedNotice } from '../../web/browser-notices'
 import { downloadBrowserTextFile, pickBrowserTextFile } from '../../web/browser-text-files'
 
 export const webLaunching = signal(false)
-const newerDrafts = createBrowserNewerDrafts()
+const webStorageUnchecked = signal(false)
 
 export function setWebLaunching(next: boolean): void {
   webLaunching.value = next
 }
 
-export function installWebNewerDrafts(records: BrowserNewerDraftRecords): () => void {
-  return newerDrafts.install(records)
+/** True when IndexedDB `canopi-drafts` could not be opened/checked (2.1-Q334). */
+export function setWebStorageUnchecked(next: boolean): void {
+  webStorageUnchecked.value = next
 }
 
-export function listedNewerWebDrafts(): readonly BrowserDraftSummary[] | null {
-  return newerDrafts.listed()
-}
-
-export async function relistNewerWebDrafts(): Promise<{ readonly drafts: readonly BrowserDraftSummary[]; readonly complete: boolean }> {
-  return newerDrafts.relist()
-}
-
-export function isWebDraftListingComplete(): boolean {
-  return newerDrafts.known()
-}
-
-export function isWebDraftEditable(id: string): boolean {
-  return newerDrafts.editable(id)
+export function isWebStorageUnchecked(): boolean {
+  return webStorageUnchecked.value
 }
 
 export function readWebDesignIdentity(): BrowserShellDesignIdentity | null {
@@ -160,20 +148,14 @@ export async function downloadWebCanopi(): Promise<void> {
 }
 
 export async function downloadWebDraft(id: string): Promise<void> {
-  if (newerDrafts.has(id)) {
-    const text = await newerDrafts.content(id)
-    if (text === 'closed') return
-    if (text === null) throw new Error('Draft not found')
-    downloadBrowserTextFile(canopiDownloadName(newerDrafts.name(id) || 'Untitled'), text, 'application/json')
-    return
-  }
   const core = editionPorts().designCore
   let rawBytes: Uint8Array | null = null
-  if (isIndexedDbAvailable() && hasEditionPorts()) {
+  if (!webStorageUnchecked.peek() && hasEditionPorts()) {
     const read = await editionPorts().designHome.read(id)
     if (read.kind === 'present') rawBytes = new Uint8Array(read.bytes)
-  } else {
-    const raw = newerDrafts.hides(id) ? null : browserAppDataStore.loadRawDraft(id)
+  }
+  if (!rawBytes) {
+    const raw = browserAppDataStore.loadRawDraft(id)
     if (raw) rawBytes = new TextEncoder().encode(JSON.stringify(raw))
   }
   if (!rawBytes) throw new Error('Draft not found')
@@ -186,49 +168,42 @@ export async function downloadWebDraft(id: string): Promise<void> {
   downloadBrowserTextFile(canopiDownloadName(name), text, 'application/json')
 }
 
-export async function openWebDraft(id: string): Promise<boolean> {
-  if (newerDrafts.has(id)) {
-    const text = await newerDrafts.content(id)
-    if (text === 'closed') return false
-    if (text === null) {
-      presentBrowserDraftOpenFailure()
-      return false
-    }
-    const core = requireLiveSessionCore()
-    const bytes = new TextEncoder().encode(text)
-    const res = await core.openFrom({ kind: 'bytes', name: newerDrafts.name(id) || 'Untitled', bytes })
-    if (res.status === 'refused') {
-      presentDesignOpenFailure(res.error ?? new Error(res.reason))
-      return false
-    }
-    return res.status === 'opened' || res.status === 'already-open'
-  }
-  const admitted = await newerDrafts.admit(id)
-  if (!admitted) {
-    // 2.1-Q334 (canopi-2b6q): when IndexedDB could not be checked, open the old-key Draft read-only with Download a copy.
-    if (!newerDrafts.known()) {
-      const raw = browserAppDataStore.loadRawDraft(id)
-      if (!raw) {
-        presentBrowserDraftOpenFailure()
-        return false
-      }
-      const core = requireLiveSessionCore()
-      const bytes = new TextEncoder().encode(JSON.stringify(raw))
-      const name = typeof raw.name === 'string' && raw.name.trim().length > 0 ? raw.name : 'Untitled'
-      const res = await core.openFrom({ kind: 'bytes', name, bytes, readOnly: true })
-      if (res.status === 'refused') {
-        presentDesignOpenFailure(res.error ?? new Error(res.reason))
-        return false
-      }
-      presentBrowserStorageUncheckedNotice()
-      return res.status === 'opened' || res.status === 'already-open'
-    }
+async function openLegacyDraftReadOnly(id: string): Promise<boolean> {
+  const raw = browserAppDataStore.loadRawDraft(id)
+  if (!raw) {
     presentBrowserDraftOpenFailure()
     return false
   }
+  const core = requireLiveSessionCore()
+  const bytes = new TextEncoder().encode(JSON.stringify(raw))
+  const name = typeof raw.name === 'string' && raw.name.trim().length > 0 ? raw.name : 'Untitled'
+  const res = await core.openFrom({ kind: 'bytes', name, bytes, readOnly: true })
+  if (res.status === 'refused') {
+    presentDesignOpenFailure(res.error ?? new Error(res.reason))
+    return false
+  }
+  presentBrowserStorageUncheckedNotice()
+  return res.status === 'opened' || res.status === 'already-open'
+}
+
+export async function openWebDraft(id: string): Promise<boolean> {
+  // 2.1-Q334 (canopi-2b6q): when IndexedDB could not be checked/opened, open the 2.0-key Draft read-only with Download a copy.
+  if (webStorageUnchecked.peek()) {
+    return openLegacyDraftReadOnly(id)
+  }
   try {
-    await openDesignDraft(id, { presentFailure: false })
-    return true
+    const core = requireLiveSessionCore()
+    const res = await core.openFrom({ kind: 'draft', id: id as DraftId })
+    if (res.status === 'refused') {
+      const kind = res.error && typeof res.error === 'object' ? (res.error as { readonly kind?: unknown }).kind : undefined
+      if (kind === 'missing' || kind === 'unreadable') {
+        presentBrowserDraftOpenFailure()
+      } else {
+        presentDesignOpenFailure(res.error ?? new Error(res.reason))
+      }
+      return false
+    }
+    return res.status === 'opened' || res.status === 'already-open'
   } catch {
     // Missing or unreadable Draft; tell the user and let welcome screen re-list.
     presentBrowserDraftOpenFailure()
@@ -236,36 +211,46 @@ export async function openWebDraft(id: string): Promise<boolean> {
   }
 }
 
-export function listWebDrafts(): readonly BrowserDraftSummary[] {
-  return browserAppDataStore.listDrafts().filter((draft) => !newerDrafts.hides(draft.id))
+function listWebDrafts(): readonly BrowserDraftSummary[] {
+  return browserAppDataStore.listDrafts()
 }
 
-function summaryNameFromDraftBytes(bytes: Uint8Array | null): string {
-  if (!bytes) return 'Untitled'
-  try {
-    const parsed = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes)) as { readonly name?: unknown }
-    return typeof parsed?.name === 'string' && parsed.name.trim().length > 0 ? parsed.name : 'Untitled'
-  } catch {
-    // Unreadable Draft bytes fall back to Untitled in the welcome list.
-    return 'Untitled'
+export interface WebDraftListing {
+  readonly editable: readonly BrowserDraftSummary[]
+  readonly readOnly: readonly BrowserDraftSummary[]
+}
+
+export function initialWebDraftListing(): WebDraftListing & { readonly loading: boolean } {
+  if (webStorageUnchecked.peek()) {
+    return { editable: [], readOnly: browserAppDataStore.listDrafts(), loading: false }
+  }
+  if (!hasEditionPorts() || !('listDrafts' in editionPorts().designHome)) {
+    return { editable: listWebDrafts(), readOnly: [], loading: false }
+  }
+  return { editable: [], readOnly: [], loading: true }
+}
+
+export async function listWebDraftsAsync(): Promise<WebDraftListing> {
+  if (webStorageUnchecked.peek()) {
+    return { editable: [], readOnly: browserAppDataStore.listDrafts() }
+  }
+  if (!hasEditionPorts()) return { editable: listWebDrafts(), readOnly: [] }
+  const home = editionPorts().designHome
+  if (!('listDrafts' in home)) return { editable: listWebDrafts(), readOnly: [] }
+  const records = await home.listDrafts()
+  return {
+    editable: records.map((record) => ({
+      id: record.id,
+      name: draftNameFromBytes(record.bytes),
+      updatedAt: record.updatedAt,
+    })),
+    readOnly: [],
   }
 }
 
-export async function listWebDraftsAsync(): Promise<readonly BrowserDraftSummary[]> {
-  if (!isIndexedDbAvailable() || !hasEditionPorts()) return listWebDrafts()
-  const home = editionPorts().designHome
-  if (!('listDrafts' in home)) return listWebDrafts()
-  const records = await home.listDrafts()
-  return records.map((record) => ({
-    id: record.id,
-    name: summaryNameFromDraftBytes(record.bytes),
-    updatedAt: record.updatedAt,
-  }))
-}
-
 export async function deleteWebDraft(id: string): Promise<{ readonly ok: true } | { readonly ok: false; readonly error: unknown }> {
-  if (!(await newerDrafts.admit(id))) {
-    return { ok: false, error: new Error(`The Draft ${id} may be 2.1's and is not deleted here`) }
+  if (webStorageUnchecked.peek()) {
+    return { ok: false, error: new Error(`The Draft ${id} cannot be deleted while browser storage is unchecked`) }
   }
   const core = getLiveSessionCore()
   if (core) {
