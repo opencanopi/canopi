@@ -1,0 +1,7 @@
+id: one-command-catalog.typescript
+valid:
+  - "import { SHELL_COMMAND_REQUIRES } from '../app/command-table/commands'"
+  - "const required = SHELL_COMMAND_REQUIRES['file.open']"
+invalid:
+  - "export const SHELL_COMMAND_REQUIRES = {}"
+  - "export type ShellCommandId = 'file.new'"

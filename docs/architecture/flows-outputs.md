@@ -41,7 +41,7 @@ sequenceDiagram
 
 - Owner: `print_setup` is a Document field written only by Design Edit through `core.document()`; export reads it and the Scene snapshot and never changes Design content, history, dirty state or settings (test: `a reopened Design restores its print setup, and the reader release opens it read-only`).
 - Invariant: a page angle is degrees clockwise from true north, read through `trueNorthAt`; only `page-frame.ts` turns, layout modules never take an angle (`page-frame.test.ts`; `a north-up overview and a detail page at 32° each print their north arrow to true north`).
-- Every export is one FileDelivery row `(content, stem, kind)` over the one file-kind table; the port alone sanitises the stem (policy `file-delivery-rows`, to be created by 2a).
+- Every export is one FileDelivery row `(content, stem, kind)` over the one file-kind table; the port alone sanitises the stem (policy `file-delivery-rows`, built in Phase 2a).
 
 ### Stamp capture and placement
 

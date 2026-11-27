@@ -1,12 +1,9 @@
-// platform/browser-record.ts: the browser records' owner (contracts §11 "Browser records"; Step 2.0.4 R3, finding F8;
-// canopi-f47t.52.272), F10's target owner of raw `localStorage` and `sessionStorage` (ast-grep
-// `web-storage-only-in-adapters`, 2b). It holds no raw Storage use yet: its reads take the `BrowserStorage` their
-// caller passes, and the page's Storage adapters stay in web/browser-app-data.ts, counted in
-// policy/ratchets/web-storage-only-in-adapters.json, until 2b moves them here with the records' write half. It holds
-// the read half of the 2.1 records the reader release reads and never writes: settings record 2 and the species-list
-// record 1, each under its own 2.1 key (2.1-M486, 2.1-Q320). The frozen keys and versions stay private until a consumer
-// imports them (2b, 2e, N2 export what they import); the record runner, the quota mapping and the `storage`-event
-// change come with the write half (2b).
+// platform/browser-record.ts: Owner of browser Web Storage records (`web-storage-only-in-adapters`, ADR 0028,
+// contracts §11 "Browser records", §18 F10; Step 2.0.4 R3, finding F8; canopi-f47t.52.272). Invariant: raw
+// `localStorage` and `sessionStorage` access belongs here (outside the named theme/pending-write exceptions); its reads
+// take the `BrowserStorage` their caller passes and hold the read half of the 2.1 records (settings record 2 and
+// species-list record 1, each under its own 2.1 key; 2.1-M486, 2.1-Q320). The frozen keys and versions stay private
+// until a consumer imports them; the record runner, quota mapping and `storage`-event change come with the write half.
 
 import { admitStoreVersion, type StoreFloor } from '../generated/store-chain'
 import { requireStoreFloor } from './store-chain'

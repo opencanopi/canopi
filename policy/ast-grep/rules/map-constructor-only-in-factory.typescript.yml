@@ -5,7 +5,7 @@
 id: map-constructor-only-in-factory.typescript
 language: typescript
 severity: error
-message: "map-constructor-only-in-factory (§18 F4): a MapLibre map is constructed only by the map lifetime and its factory. ADR 0024; owner none; target desktop/web/src/maplibre/map-lifetime.ts (2d); example none yet"
+message: "map-constructor-only-in-factory (§18 F4): a MapLibre map is constructed only by the map lifetime and its factory. ADR 0024; owner desktop/web/src/maplibre/map-lifetime.ts; target desktop/web/src/maplibre/map-lifetime.ts (2d); example none yet"
 files:
   - "{desktop/web,policy/fixtures/rules/*}/src/**/*.ts"
 ignores:
@@ -15,6 +15,7 @@ ignores:
   - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
   - "{desktop/web,policy/fixtures/rules/*}/src/generated/**"
   - "{desktop/web,policy/fixtures/rules/*}/src/editions/gallery/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/maplibre/map-lifetime.ts"
 rule:
   kind: new_expression
   has:

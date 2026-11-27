@@ -1,8 +1,9 @@
 /**
  * platform/design-core.ts: the design-core port's Web adapter over the format worker (ADR 0025 Format core failures;
  * contracts §10, §18 F28; 2b-5, 2.1-M156, 2.1-M476, 2.1-M539, 2.1-Q347). Owner of the format worker
- * (`worker-only-in-owner`, ADR 0028; §18 F16). Invariant: every call settles exactly once, nothing is retried
- * silently, and the worker (`platform/design-core.worker.ts`) is started only here.
+ * (`worker-only-in-owner`, ADR 0028; §18 F16) and the CanopiFile format-core boundary (`no-canopifile-literal`,
+ * ADR 0026; §18 F28). Invariant: every call settles exactly once, nothing is retried silently, and the worker
+ * (`platform/design-core.worker.ts`) is started only here.
  *
  * - Lazy: the worker starts on the first call.
  * - Failed load -> `format_core_unavailable`; next call retries.

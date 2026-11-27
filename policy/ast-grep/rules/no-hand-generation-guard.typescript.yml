@@ -5,7 +5,7 @@
 id: no-hand-generation-guard.typescript
 language: typescript
 severity: error
-message: "no-hand-generation-guard (§18 F22): no hand-written request counter in app/ (app/document-session/ included): one latest() request guard per controller publishes only the newest request. ADR 0024; owner none; target desktop/web/src/app/document-session/core (2b); example none yet"
+message: "no-hand-generation-guard (§18 F22): no hand-written request counter in app/ (app/document-session/ included): one latest() request guard per controller publishes only the newest request. ADR 0024; owner desktop/web/src/app/document-session/core; target desktop/web/src/app/document-session/core (2b); example none yet"
 files:
   - "{desktop/web,policy/fixtures/rules/*}/src/app/**/*.ts"
 ignores:
@@ -15,6 +15,7 @@ ignores:
   - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
   - "{desktop/web,policy/fixtures/rules/*}/src/generated/**"
   - "{desktop/web,policy/fixtures/rules/*}/src/editions/gallery/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/app/document-session/core/**"
 rule:
   any:
     - kind: update_expression

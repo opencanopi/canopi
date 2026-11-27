@@ -1,7 +1,8 @@
-// maplibre/map-lifetime.ts  (L2)
+// maplibre/map-lifetime.ts  (L1)
 //
-// MapLifetimeHandle and MapLifetimeState contract (2b-2 interface; 2d-2 replaces the backing implementation;
-// docs/plans/2-1-foundations-contracts.md §5 & §6). Imports nothing from app/ or canvas/.
+// Owner of MapLibre map construction and style readiness (`map-constructor-only-in-factory`,
+// `style-load-only-in-map-lifetime`, ADR 0024, contracts §5 & §6, §18 F4). Invariant: MapLifetimeHandle and
+// MapLifetimeState are the single contract for map creation, style load, and disposal; imports nothing from app/ or canvas/.
 
 import { signal, type ReadonlySignal } from '@preact/signals'
 

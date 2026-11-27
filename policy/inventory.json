@@ -4,7 +4,7 @@
     {
       "id": "adr-0001-to-be-created-by-phase",
       "doc": "docs/adr/0001-geolocated-map-canvas.md",
-      "quote": "To be created by Phase 2 (2m):",
+      "quote": "Built in Phase 2 (2m):",
       "state": {
         "planned": {
           "phase": "2m",
@@ -230,7 +230,7 @@
     {
       "id": "file-delivery-rows",
       "doc": "docs/adr/0027-extension-points-and-exports.md",
-      "quote": "`file-delivery-rows` (to be created by Phase 2a);"
+      "quote": "`file-delivery-rows` (built in Phase 2a);"
     },
     {
       "id": "adr-0027-the-ranking-corpus-on-the",
@@ -400,7 +400,7 @@
     {
       "id": "adr-0030-to-be-created-by-phase",
       "doc": "docs/adr/0030-edition-parity.md",
-      "quote": "`edition-root-parity` (to be created by Phase 2a):",
+      "quote": "`edition-root-parity` (built in Phase 2a):",
       "state": {
         "exists": {
           "check": "edition-root-parity"

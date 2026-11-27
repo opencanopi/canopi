@@ -271,14 +271,17 @@
     },
     {
       "id": "one-command-catalog",
-      "status": "planned",
+      "tool": "ast-grep",
       "ledger": "2.1-M186",
+      "family": "one-command-catalog",
       "adr": "0022",
+      "owner_today": "desktop/web/src/app/command-table",
       "owner_target": {
         "path": "desktop/web/src/app/command-table",
         "phase": "2a",
         "bead": "canopi-f47t.52.73"
       },
+      "example": "desktop/web/src/app/command-table/commands.ts",
       "note": "one command catalog: menus, the modal check and key routing read the one command table (2a)"
     },
     {
@@ -2508,7 +2511,7 @@
       "ledger": "2.1-M211",
       "adr": "0030",
       "family": "no-edition-check",
-      "owner_today": "none",
+      "owner_today": "desktop/web/src/editions",
       "owner_target": {
         "path": "desktop/web/src/editions",
         "phase": "2a",

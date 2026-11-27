@@ -65,7 +65,6 @@ function makeLZoneScene(bearingDeg: number) {
         pixelsPerMetre, speciesCache: new Map(), localizedCommonNames: new Map(),
       }),
       getLocalizedCommonNames: () => new Map(),
-      getSuggestedPlantColor: () => null,
     },
     getBearingDeg: () => bearingDeg,
     invalidateScene: noop,

@@ -10,10 +10,8 @@
         "desktop/web/src/maplibre/raster-display/lane.ts"
       ],
       "pin_test": {
-        "planned": {
-          "phase": "2d",
-          "bead": "canopi-f47t.52.54"
-        }
+        "path": "desktop/web/src/maplibre/raster-display/lane.test.ts",
+        "title": "pin: replaces cog-tiler-wasm tileCache with a lane-budgeted cache and fails loudly if tileCache is absent (W8)"
       },
       "report": "",
       "status": "open",
@@ -244,10 +242,8 @@
         ".github/workflows/mutation.yml"
       ],
       "pin_test": {
-        "planned": {
-          "phase": "2",
-          "bead": "canopi-ivit"
-        }
+        "path": "policy/upstream-w22.test.mjs",
+        "title": "pin: mutation.yml runs gnutimeout when installed for Stryker and cargo-mutants (W22)"
       },
       "report": "",
       "status": "open",

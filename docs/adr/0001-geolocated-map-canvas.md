@@ -49,4 +49,4 @@ In 2.0 the plane was a spherical Mercator tangent plane: its metres were off the
 
 ## Checks
 
-- To be created by Phase 2 (2m): a stored lon/lat lands on MapLibre's pixel to 1e-6 px under the plane; plane lengths at the anchor and the ground measure anywhere on a 10 km site match a WGS84 Vincenty reference within 1 ppm; a rotated square keeps its ground sides and right angles; re-origin stays idempotent at 1e-9°; `scale-only-through-plane` (contracts §18 F36); one real-path test per seam (renderer, camera, map, input) in Chromium, WebKit and Firefox.
+- Built in Phase 2 (2m): a stored lon/lat lands on MapLibre's pixel to 1e-6 px under the plane; plane lengths at the anchor and the ground measure anywhere on a 10 km site match a WGS84 Vincenty reference within 1 ppm; a rotated square keeps its ground sides and right angles; re-origin stays idempotent at 1e-9°; `scale-only-through-plane` (contracts §18 F36); one real-path test per seam (renderer, camera, map, input) in Chromium, WebKit and Firefox.

@@ -18,6 +18,7 @@ import { locale, unitSystem } from '../../../app/settings/state'
 import { t } from '../../../i18n'
 import { formatElevation, formatNumber, formatPercent, type UnitSystem } from '../../../utils/format'
 import { ButtonTooltip } from '../../shared/ButtonTooltip'
+import { writeClipboardText } from '../../../platform/clipboard'
 import { ControlIcon } from '../../shared/ControlIcon'
 import styles from './profile.module.css'
 import type { LocaleKey } from '../../../generated/locale-keys'
@@ -126,13 +127,7 @@ function CopyValues({ profile }: { readonly profile: ReadyProfile }) {
   }
   const copy = () => {
     const text = profileCopyText(profile, locale.peek(), t)
-    let written: Promise<void>
-    try {
-      written = navigator.clipboard.writeText(text)
-    } catch (error) {
-      written = Promise.reject(error)
-    }
-    written.then(() => show('copied'), () => show('failed'))
+    writeClipboardText(text).then(() => show('copied'), () => show('failed'))
   }
   return (
     <>

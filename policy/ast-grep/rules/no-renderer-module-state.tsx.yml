@@ -8,7 +8,7 @@
 id: no-renderer-module-state.tsx
 language: tsx
 severity: error
-message: "no-renderer-module-state (§18 F9): drawing reads no process globals: a module-level let or Map or Set in canvas/, maplibre/ or app/ is state the renderer snapshot owns. ADR 0024; owner none; target desktop/web/src/canvas/runtime/scene-runtime (2c); example none yet"
+message: "no-renderer-module-state (§18 F9): drawing reads no process globals: a module-level let or Map or Set in canvas/, maplibre/ or app/ is state the renderer snapshot owns. ADR 0024; owner desktop/web/src/canvas/runtime/scene-runtime; target desktop/web/src/canvas/runtime/scene-runtime (2c); example none yet"
 files:
   - "{desktop/web,policy/fixtures/rules/*}/src/{canvas,maplibre,app}/**/*.tsx"
 ignores:
@@ -18,6 +18,7 @@ ignores:
   - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
   - "{desktop/web,policy/fixtures/rules/*}/src/generated/**"
   - "{desktop/web,policy/fixtures/rules/*}/src/editions/gallery/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/canvas/runtime/scene-runtime/**"
 rule:
   kind: lexical_declaration
   all:

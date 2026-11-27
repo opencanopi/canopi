@@ -5,7 +5,7 @@
 id: clipboard-only-in-adapter.tsx
 language: tsx
 severity: error
-message: "clipboard-only-in-adapter (§18 F14): the system clipboard (navigator.clipboard, ClipboardItem) is reached only through platform/clipboard.ts, an adapter with no port. ADR 0022; owner none; target desktop/web/src/platform/clipboard.ts (2a); example none yet"
+message: "clipboard-only-in-adapter (§18 F14): the system clipboard (navigator.clipboard, ClipboardItem) is reached only through platform/clipboard.ts, an adapter with no port. ADR 0022; owner desktop/web/src/platform/clipboard.ts; target desktop/web/src/platform/clipboard.ts (2a); example none yet"
 files:
   - "{desktop/web,policy/fixtures/rules/*}/src/**/*.tsx"
 ignores:
@@ -15,6 +15,7 @@ ignores:
   - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
   - "{desktop/web,policy/fixtures/rules/*}/src/generated/**"
   - "{desktop/web,policy/fixtures/rules/*}/src/editions/gallery/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/platform/clipboard.ts"
 rule:
   any:
     - kind: member_expression
